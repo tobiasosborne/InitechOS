@@ -119,7 +119,9 @@ static const want_item_t WANT_EDIT[] = {
 
 /* View, 514 (F4.2). by Icons carries the mark char. */
 static const want_item_t WANT_VIEW[] = {
-    { "by Icons",          0, FINDER_MENU_MARK_CHECK, 0, 1 },
+    /* RE-KEY (bead initech-tdnl.36): by Icons / Clean Up / Arrange act on the
+     * FRONT DISK WINDOW, so they rest grayed and light with one (leg C). */
+    { "by Icons",          0, FINDER_MENU_MARK_CHECK, 0, 0 },
     { "by Small Icon",     0, 0, 0, 0 },
     { "by Name",           0, 0, 0, 0 },
     { "by Size",           0, 0, 0, 0 },
@@ -129,19 +131,22 @@ static const want_item_t WANT_VIEW[] = {
     { "as Buttons",        0, 0, 0, 0 },
     { "as Pop-up Window",  0, 0, 0, 0 },
     { "-",                 0, 0, 1, 0 },
-    { "Clean Up",          0, 0, 0, 1 },
-    { "Arrange (by Name)", 0, 0, 0, 1 }
+    { "Clean Up",          0, 0, 0, 0 },
+    { "Arrange (by Name)", 0, 0, 0, 0 }
 };
 
 /* Special, 515 (F4.2). */
 static const want_item_t WANT_SPECIAL[] = {
-    { "Clean Up",    0, 0, 0, 1 },
+    /* RE-KEY (bead initech-tdnl.36/.37): Clean Up needs a front disk window;
+     * Restart and Shut Down have no kernel primitive yet, so they are drawn
+     * disabled ("implemented or drawn disabled"), not enabled no-ops. */
+    { "Clean Up",    0, 0, 0, 0 },
     { "Empty Trash", 0, 0, 0, 0 },
     { "-",           0, 0, 1, 0 },
     { "Erase Disk",  0, 0, 0, 0 },
     { "-",           0, 0, 1, 0 },
-    { "Restart",     0, 0, 0, 1 },
-    { "Shut Down",   0, 0, 0, 1 },
+    { "Restart",     0, 0, 0, 0 },
+    { "Shut Down",   0, 0, 0, 0 },
     { "Sleep",       0, 0, 0, 0 }
 };
 
@@ -317,16 +322,25 @@ typedef struct want_state {
     uint8_t  front;        /* FinderCtx.front_is_diskwin                        */
     int      open_en, close_en, info_en, dup_en, trash_en;   /* hand-authored   */
     const char *what;
+    uint8_t  openable;     /* FinderCtx.selection_openable (tdnl.38)            */
 } want_state_t;
 
+/* RE-KEY (beads initech-tdnl.36/.38, stated): Open is lit by a selected FOLDER
+ * (SELECTION_OPENABLE), not by any selection -- a document selection used to
+ * light Open and then do nothing (audit F07). Get Info, Duplicate and Empty
+ * Trash have no implementation in the shell, so NO state lights them (audit
+ * F03); they are graded dark in every row below, which is strictly more than
+ * the old table asserted. The `front` column now also drives the window-
+ * arrangement rows (by Icons, both Clean Ups, Arrange), checked below. */
 static const want_state_t WANT_STATES[] = {
-    /* sel tr fr    Open Close Info Dupl Trash */
-    {  0,  0, 0,     0,   0,    0,   0,   0, "C boot: nothing selected, desktop front, Trash empty" },
-    {  1,  0, 0,     1,   0,    1,   1,   0, "C one icon selected on the desktop" },
-    {  0,  0, 1,     0,   1,    0,   0,   0, "C a disk window front, nothing selected" },
-    {  3,  0, 1,     1,   1,    1,   1,   0, "C a disk window front WITH a selection" },
-    {  0,  1, 0,     0,   0,    0,   0,   1, "C Trash non-empty is the ONLY thing that lights Empty Trash" },
-    {  2,  1, 1,     1,   1,    1,   1,   1, "C everything live" }
+    /* sel tr fr    Open Close Info Dupl Trash              openable */
+    {  0,  0, 0,     0,   0,    0,   0,   0, "C boot: nothing selected, desktop front, Trash empty", 0 },
+    {  1,  0, 0,     0,   0,    0,   0,   0, "C one icon selected on the desktop (not openable)", 0 },
+    {  0,  0, 1,     0,   1,    0,   0,   0, "C a disk window front, nothing selected", 0 },
+    {  3,  0, 1,     0,   1,    0,   0,   0, "C a disk window front WITH a DOCUMENT selection: Open stays dark", 0 },
+    {  3,  0, 1,     1,   1,    0,   0,   0, "C a disk window front WITH a FOLDER selected: Open lights", 1 },
+    {  0,  1, 0,     0,   0,    0,   0,   0, "C Trash non-empty no longer lights an unimplemented Empty Trash", 0 },
+    {  2,  1, 1,     1,   1,    0,   0,   0, "C everything live: still no Get Info / Duplicate / Empty Trash", 1 }
 };
 
 /* The rows refresh must NEVER touch, with their authored bytes. */
@@ -341,14 +355,13 @@ static const want_fixed_t WANT_FIXED[] = {
     { FINDER_MENU_IX_EDIT,     0, 0, "Undo" },
     { FINDER_MENU_IX_EDIT,     5, 1, "Select All" },
     { FINDER_MENU_IX_EDIT,     9, 0, "Preferences" },
-    { FINDER_MENU_IX_VIEW,     0, 1, "by Icons" },
     { FINDER_MENU_IX_VIEW,     4, 0, "by Kind" },
-    { FINDER_MENU_IX_VIEW,    10, 1, "Clean Up" },
-    { FINDER_MENU_IX_VIEW,    11, 1, "Arrange (by Name)" },
-    { FINDER_MENU_IX_SPECIAL,  0, 1, "Clean Up" },
+    { FINDER_MENU_IX_FILE,     5, 0, "Get Info" },
+    { FINDER_MENU_IX_FILE,     6, 0, "Duplicate" },
+    { FINDER_MENU_IX_SPECIAL,  1, 0, "Empty Trash" },
     { FINDER_MENU_IX_SPECIAL,  3, 0, "Erase Disk" },
-    { FINDER_MENU_IX_SPECIAL,  5, 1, "Restart" },
-    { FINDER_MENU_IX_SPECIAL,  6, 1, "Shut Down" },
+    { FINDER_MENU_IX_SPECIAL,  5, 0, "Restart" },
+    { FINDER_MENU_IX_SPECIAL,  6, 0, "Shut Down" },
     { FINDER_MENU_IX_SPECIAL,  7, 0, "Sleep" },
     { FINDER_MENU_IX_HELP,     0, 0, "About Help" },
     { FINDER_MENU_IX_HELP,     1, 0, "Show Balloons" }
@@ -361,6 +374,7 @@ static FinderCtx mk_ctx(const want_state_t *s)
     fx.selection_count  = s->sel;
     fx.trash_nonempty   = s->trash;
     fx.front_is_diskwin = s->front;
+    fx.selection_openable = s->openable;
     return fx;
 }
 
@@ -383,6 +397,12 @@ static void leg_refresh(void)
         CHECK(item_en(FINDER_MENU_IX_FILE, 5) == s->info_en, s->what);
         CHECK(item_en(FINDER_MENU_IX_FILE, 6) == s->dup_en, s->what);
         CHECK(item_en(FINDER_MENU_IX_SPECIAL, 1) == s->trash_en, s->what);
+        /* The window-arrangement rows follow the front disk window. */
+        CHECK(item_en(FINDER_MENU_IX_VIEW, 0) == s->front &&
+              item_en(FINDER_MENU_IX_VIEW, 10) == s->front &&
+              item_en(FINDER_MENU_IX_VIEW, 11) == s->front &&
+              item_en(FINDER_MENU_IX_SPECIAL, 0) == s->front,
+              "C by Icons / Clean Up (x2) / Arrange light exactly with a front disk window");
 
         for (k = 0; k < WN(WANT_FIXED); k++) {
             const want_fixed_t *f = &WANT_FIXED[k];
@@ -435,10 +455,11 @@ static void leg_menukey(void)
         { 'N', MenuResult(512, 1), MenuResult(512, 1), "D Cmd-N New Folder is always live" },
         { 'A', MenuResult(513, 6), MenuResult(513, 6), "D Cmd-A Select All is always live" },
         /* predicate-driven rows: dark at rest, live when the state says so */
-        { 'O', 0u, MenuResult(512, 2), "D Cmd-O Open needs a selection" },
+        { 'O', 0u, MenuResult(512, 2), "D Cmd-O Open needs a selected folder" },
         { 'W', 0u, MenuResult(512, 4), "D Cmd-W Close Window needs a disk window front" },
-        { 'I', 0u, MenuResult(512, 6), "D Cmd-I Get Info needs a selection" },
-        { 'D', 0u, MenuResult(512, 7), "D Cmd-D Duplicate needs a selection" },
+        /* RE-KEY (bead initech-tdnl.36): unimplemented -> never routes. */
+        { 'I', 0u, 0u, "D Cmd-I Get Info is grayed until initech-p6st -- never routes" },
+        { 'D', 0u, 0u, "D Cmd-D Duplicate is grayed until initech-tdnl.16 -- never routes" },
         /* permanently-inert V1 decoration: NEVER routes, in any state */
         { 'Y', 0u, 0u, "D Cmd-Y Put Away is grayed in V1 (F4.2) -- never routes" },
         { 'F', 0u, 0u, "D Cmd-F Find is inert V1 decoration" },
@@ -450,8 +471,8 @@ static void leg_menukey(void)
         { 'Q', 0u, 0u, "D an unbound chord finds nothing (the pump routes it onward)" },
         { 'B', 0u, 0u, "D ... and so does any other unbound letter" }
     };
-    const want_state_t rest = {  0, 0, 0, 0,0,0,0,0, "rest" };
-    const want_state_t live = {  2, 1, 1, 1,1,1,1,1, "live" };
+    const want_state_t rest = {  0, 0, 0, 0,0,0,0,0, "rest", 0 };
+    const want_state_t live = {  2, 1, 1, 1,1,1,1,1, "live", 1 };
     FinderCtx fx;
     int i;
 
@@ -490,7 +511,7 @@ static void leg_menukey(void)
 static void leg_table_agreement(void)
 {
     MenuBar *bar = finder_menu_bar();
-    const want_state_t live = { 2, 1, 1, 1,1,1,1,1, "live" };
+    const want_state_t live = { 2, 1, 1, 1,1,1,1,1, "live", 1 };
     FinderCtx fx = mk_ctx(&live);
     int mi, k;
     uint16_t r;

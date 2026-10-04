@@ -430,7 +430,17 @@ FLAIR_NEW_FOLDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-i,kctrl-n,m20
 #             -> (155,174),(255,246),(355,318),(455,389),(555,460),(620,460)
 #      (100*5 + 65 = 565 ; 72*3 + 71 + 71 + 0 = 358)
 # Graded on SERIAL only.
-FLAIR_FINDER_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:80,m50:0,l0,m-15:-76,m0:-76,l1,m0:18,l0,m-100:40,m-35:14,l1,l0,kctrl-i,m100:72,m100:72,m100:72,m100:71,m100:71,m65:0
+# RE-KEY 2026-10-04 (bead initech-tdnl.36, Rule 8 -- deliberate, stated):
+# File > Get Info has NO implementation, so it is now drawn disabled even with
+# a selection and step H's Cmd-I must route NOTHING (no GET_INFO line at all --
+# the old positive expectation "FINDER-CMD id=5 name=GET_INFO src=key sel=1"
+# asserted an enabled no-op, the very audit F03 defect). The POSITIVE half of
+# the MenuKey enable-byte proof moves to a predicate-driven row the shell DOES
+# implement: H2 "kctrl-w" -- Close Window, lit only because a disk window is
+# front -- must dispatch "FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1"
+# and close the window (FINDER-CLOSE-WINDOW win=0). One token inserted after
+# kctrl-i; every other waypoint is byte-identical.
+FLAIR_FINDER_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:80,m50:0,l0,m-15:-76,m0:-76,l1,m0:18,l0,m-100:40,m-35:14,l1,l0,kctrl-i,kctrl-w,m100:72,m100:72,m100:72,m100:71,m100:71,m65:0
 
 # ===========================================================================
 # 5. FLAIR_FINDER_MENU_CANCEL_SPEC -- the band-2 CANCEL restores the frame

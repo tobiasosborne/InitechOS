@@ -539,6 +539,8 @@ include spec/flair_file_ops_traces.mk
 include spec/flair_finder_follow_traces.mk
 # tdnl.40 (audit F06): the LOCKED close -> foreground-agreement trace.
 include spec/flair_fg_close_traces.mk
+# tdnl.36 (audit F03/F05/F07/F15/G10): the LOCKED fake-command traces.
+include spec/flair_finder_cmds_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -12139,6 +12141,41 @@ test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_M
 	@if $(TEST_FINDER_WIN_MUT_CLEANUP) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: CLEANUP_UNSORTED PASSED -- the row-major Clean Up oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (CLEANUP_UNSORTED correctly RED -- the snap order mirrors)\n'; fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-menu-handlers (bead initech-tdnl.36 + .37/.38/.50/.67; audit
+# 2026-10-03 F03/F05/F07/F15 + pass 2 G10) -- THE HANDLER GUARD: every Finder
+# and band-1 shell menu row that can be enabled has a real handler (the shell's
+# execution table), the stated band-1 exception list is the only escape, and
+# an unimplemented command reaching dispatch says FINDER-NYI. Three mutants,
+# each RED for its named reason.
+# ---------------------------------------------------------------------------
+TEST_MENU_HANDLERS     := $(BUILD)/test_menu_handlers
+TEST_MENU_HANDLERS_SRC := harness/proptest/test_menu_handlers.c
+MENU_HANDLERS_LINK := $(FINDER_WIN_LINK) os/flair/finder_menu.c os/flair/menu.c \
+                      os/flair/text.c harness/render/render.c
+MENU_HANDLERS_DEPS := $(TEST_MENU_HANDLERS_SRC) $(FINDER_WIN_DEPS) \
+                      os/flair/finder_menu.h os/flair/menu.h os/flair/shell_menus.h
+MENU_HANDLERS_MUTANTS := FINDER_MENU_MUT_STUB_ENABLED SHELL_MENUS_MUT_ABOUT_LIVE FINDER_CMD_MUT_EXEC_SWALLOWS
+$(TEST_MENU_HANDLERS): $(MENU_HANDLERS_DEPS) $(MENU_HANDLERS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_MENU_HANDLERS_SRC) $(MENU_HANDLERS_LINK)
+$(BUILD)/test_menu_handlers_mutant_%: $(MENU_HANDLERS_DEPS) $(MENU_HANDLERS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* $(FINDER_WIN_INC) -o $@ $(TEST_MENU_HANDLERS_SRC) $(MENU_HANDLERS_LINK)
+
+.PHONY: test-menu-handlers test-menu-handlers-mutant
+test-menu-handlers: $(TEST_MENU_HANDLERS)
+	@printf ">>> test-menu-handlers: every enabled Finder / band-1 menu row has a real handler (tdnl.36)\n"
+	@$(TEST_MENU_HANDLERS)
+	@printf ">>> test-menu-handlers: green\n"
+
+test-menu-handlers-mutant: $(foreach m,$(MENU_HANDLERS_MUTANTS),$(BUILD)/test_menu_handlers_mutant_$(m))
+	@for pair in 'FINDER_MENU_MUT_STUB_ENABLED:H1 [all-live] enabled row menu=512 item=6' 'SHELL_MENUS_MUT_ABOUT_LIVE:H2 band-1 enabled row "About"' 'FINDER_CMD_MUT_EXEC_SWALLOWS:H3 an unimplemented command'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_menu_handlers_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-menu-handlers-mutant FAIL: %s PASSED -- the guard is decoration\n' "$$m"; exit 1; fi; \
+		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-menu-handlers-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-menu-handlers-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
+	done
+	@printf '>>> test-menu-handlers-mutant: green (all three mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-finder-ops (bead initech-34dh; GUI remediation R3.4 reslice
 # 1/3; docs/design/GUI-remediation-R3-finder-design.md F1.4/F1.5/F2.2) -- the
 # HOST oracle for os/flair/finder_ops.c: drop-target resolution (incl. the
@@ -12166,6 +12203,9 @@ $(BUILD)/test_finder_ops_mutant_%: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUI
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_OPS_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 $(BUILD)/test_finder_ops_mutant_hilite: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_DESK_MUT_NO_HILITE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+# tdnl.67: Arrange (by Name) ranks by listing order (the pre-fix no-reorder).
+$(BUILD)/test_finder_ops_mutant_arrange: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_ARRANGE_NOOP $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 # tdnl.34: the pre-fix ABSOLUTE icon model (finder_win_sync_geometry compiled out).
 $(BUILD)/test_finder_ops_mutant_abs: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_ABS_COORDS $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
@@ -12179,15 +12219,15 @@ test-finder-ops: $(TEST_FINDER_OPS)
 	@printf ">>> test-finder-ops: green\n"
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
-test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell'; do \
+test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all five mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all six mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -18142,7 +18182,8 @@ endif
 #                  FINDER-CMD id=9 name=CLEANUP src=mouse sel=0
 #                  FINDER-CLEANUP win=0 moved=1
 #                  FINDER-WIN-SELECT win=0 name=README.TXT count=1
-#                  FINDER-CMD id=5 name=GET_INFO src=key sel=1
+#                  (no GET_INFO line -- re-keyed by tdnl.36)
+#                  FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1
 #               The icon is dragged off its cell FIRST so moved=1 is the only
 #               honest outcome -- on a freshly populated window Clean Up would
 #               report moved=0, indistinguishable from never running.
@@ -18319,7 +18360,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_C)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--quit-after "FINDER-CMD id=5 name=GET_INFO src=key sel=1" \
+		--quit-after "FINDER-CLOSE-WINDOW win=0" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_MENU_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the FINDER-MENU boot\n'; exit 1; fi
 	@grep -qxF 'FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
@@ -18334,9 +18375,17 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-disk-windows FAIL: Clean Up dispatched but did not SNAP the dragged icon back (moved=1 expected -- exactly one icon was off-grid)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
 	@grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: README.TXT was not at its restored cell (39,86) after Clean Up -- the click at its centre (55,102) selected nothing\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
-	@grep -qxF 'FINDER-CMD id=5 name=GET_INFO src=key sel=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
-		|| { printf '!!! test-flair-disk-windows FAIL: Cmd-I WITH a selection did not dispatch. The enable byte for File > Get Info must be recomputed to 1 before MenuKey scans (design F4.4)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
-	@printf '>>> test-flair-disk-windows [7/8]: Special > Clean Up BY MOUSE (FINDER-CMD src=mouse + moved=1) + Cmd-I with a selection (src=key)\n'
+	@# RE-KEY (bead initech-tdnl.36; spec/flair_disk_windows_traces.mk trace 4):
+	@# Get Info is unimplemented, so Cmd-I WITH a selection must route nothing;
+	@# the positive MenuKey half is Cmd-W (Close Window, lit by the front disk
+	@# window), which must dispatch and really close it.
+	@! grep -q 'GET_INFO' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: Cmd-I reached the command spine although File > Get Info has no implementation and must be grayed (tdnl.36)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-CMD id=4 name=CLOSE_WINDOW src=key sel=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: Cmd-W with a disk window front did not dispatch. The enable byte for File > Close Window must be recomputed to 1 before MenuKey scans (design F4.4)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@grep -qxF 'FINDER-CLOSE-WINDOW win=0' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: Cmd-W dispatched but the window did not close\n'; exit 1; }
+	@printf '>>> test-flair-disk-windows [7/8]: Special > Clean Up BY MOUSE (FINDER-CMD src=mouse + moved=1) + Cmd-I refused (unimplemented) + Cmd-W dispatched (src=key)\n'
 	@# ---- leg 8 (bead initech-tdnl.12): the band-2 CANCEL restores the frame. ----
 	@# Pull the FILE menu down over the disk window and the desktop, drag off the
 	@# panel and release on bare desktop. Nothing dispatches, and the WHOLE frame
@@ -18871,6 +18920,64 @@ test-flair-fg-close: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_
 	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop "$(BUILD)/$(FLAIR_FGC_NAME).ppm" || { printf '!!! test-flair-fg-close FAIL: band 2 is not the Photoshop bar of the foreground HELLO\n'; exit 1; }
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) K "$(BUILD)/$(FLAIR_FGC_NAME).ppm" || { printf '!!! test-flair-fg-close FAIL: HELLO is not drawn as the active window\n'; exit 1; }
 	@printf '>>> test-flair-fg-close: green (close -> FLAIR-DISPATCH app=HELLO; band 2 == Photoshop bar; band-2 press drops 256; HELLO active)\n'
+
+# ===========================================================================
+# REAL gate: test-flair-finder-cmds (beads initech-tdnl.36/.37/.38/.50/.67;
+# audit F03/F05/F07/F15/G10) -- NO COMMAND IS ENABLED AND DOES NOTHING. Two
+# boots of $(FLAIRTENANTS_IMG) (spec/flair_finder_cmds_traces.mk):
+#   [1] FAKES  with a DOCUMENT selected, release on File > Get Info /
+#       Duplicate / Open, Special > Restart / Shut Down and band-1 About: each
+#       release selects NOTHING (item=0 -- drawn disabled, not selectable); the
+#       chords Ctrl-I/D/O are handed out by nobody (no FINDER-CMD at all); then
+#       Edit > Select All really selects all four icons (serial + every label
+#       drawn inverted: grader leg allsel).
+#   [2] ARRANGE  README dragged off its cell (the G10 set-up), View > Arrange
+#       (by Name): FINDER-ARRANGE moved=3 and the four icons on the grid in
+#       NAME order (grader leg arranged).
+# Host half: test-menu-handlers (the structural guard) + test-finder-ops O10.
+# Mutant: test-flair-finder-cmds-mutant (finder_menu.o with
+# FINDER_MENU_MUT_STUB_ENABLED: Get Info lit by the selection again) must RED
+# leg [1] for the named reason. Rule 14 clips: record-flair SCRIPT=select_all,
+# SCRIPT=arrange.
+# ---------------------------------------------------------------------------
+FLAIR_FC_FAKES_NAME   := flair_cmds_fakes
+FLAIR_FC_ARRANGE_NAME := flair_cmds_arrange
+# $(call fc-fakes-check,<serial file>) -- shared VERBATIM by gate + mutant.
+define fc-fakes-check
+grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' $(1) || { printf 'FC: README.TXT (a document) was not selected first\n'; exit 1; }; \
+[ "$$(grep -cxF 'FLAIR-MENU menu=512 item=0 (sel=0x00000000)' $(1))" = 3 ] || { printf 'FC: File > Get Info / Duplicate / Open did not all release on NOTHING (want 3 x menu=512 item=0): %s\n' "$$(grep '^FLAIR-MENU menu=512' $(1) | tr '\n' ' ')"; exit 1; }; \
+[ "$$(grep -cxF 'FLAIR-MENU menu=515 item=0 (sel=0x00000000)' $(1))" = 2 ] || { printf 'FC: Special > Restart / Shut Down did not both release on NOTHING\n'; exit 1; }; \
+grep -qxF 'FLAIR-MENU menu=128 item=0 (sel=0x00000000)' $(1) || { printf 'FC: band-1 File > About was selectable\n'; exit 1; }; \
+! grep -qE 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)( |$$)' $(1) || { printf 'FC: a fake command reached the command spine: %s\n' "$$(grep -E 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)' $(1) | head -1)"; exit 1; }; \
+grep -q 'name=SELECT_ALL src=mouse sel=1$$' $(1) || { printf 'FC: Edit > Select All did not dispatch\n'; exit 1; }; \
+grep -qxF 'FINDER-SELECT-ALL win=0 n=4' $(1) || { printf 'FC: Select All did not select all four icons\n'; exit 1; }
+endef
+.PHONY: test-flair-finder-cmds test-flair-finder-cmds-mutant
+test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-finder-cmds : no command is enabled and does nothing (tdnl.36)\n'
+	@printf '======================================================================\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FC_FAKES_NAME),$(BUILD)/$(FLAIR_FC_FAKES_NAME)_data.img,$(FLAIR_CMDS_FAKES_SPEC),FLAIR-MENU menu=513,1)
+	@( $(call fc-fakes-check,$(BUILD)/$(FLAIR_FC_FAKES_NAME).serial) ) || { printf '!!! test-flair-finder-cmds FAIL: FAKES serial (above)\n'; grep -E '^(FINDER-|FLAIR-MENU)' $(BUILD)/$(FLAIR_FC_FAKES_NAME).serial; exit 1; }
+	@[ -s "$(BUILD)/$(FLAIR_FC_FAKES_NAME).ppm" ] || { printf '!!! test-flair-finder-cmds FAIL: FAKES screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) allsel "$(BUILD)/$(FLAIR_FC_FAKES_NAME).ppm" || { printf '!!! test-flair-finder-cmds FAIL: after Select All the four labels are not all drawn selected\n'; exit 1; }
+	@printf '>>> test-flair-finder-cmds [1/2]: Get Info / Duplicate / Open(doc) / Restart / Shut Down / band-1 About select NOTHING; Ctrl-I/D/O inert; Select All selects 4 (leg allsel)\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FC_ARRANGE_NAME),$(BUILD)/$(FLAIR_FC_ARRANGE_NAME)_data.img,$(FLAIR_CMDS_ARRANGE_SPEC),FLAIR-MENU menu=514,1)
+	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-WIN-DRAG win=0 name=README.TXT x=129 y=186,the set-up drag did not move README.TXT off its cell)
+	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FLAIR-MENU menu=514 item=12 (sel=0x0202000C),the release did not select View > Arrange (by Name))
+	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-ARRANGE win=0 moved=3,Arrange (by Name) did not move the three out-of-order icons)
+	@[ -s "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" ] || { printf '!!! test-flair-finder-cmds FAIL: ARRANGE screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) arranged "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" || { printf '!!! test-flair-finder-cmds FAIL: the icons are not on the grid in NAME order\n'; exit 1; }
+	@printf '>>> test-flair-finder-cmds [2/2]: View > Arrange (by Name) -- FINDER-ARRANGE moved=3, icons graded in name order (leg arranged)\n'
+	@printf '>>> test-flair-finder-cmds: green\n'
+
+$(eval $(call flair-tenants-findermenu-mutant-rules,FINDER_MENU_MUT_STUB_ENABLED,menu_stub_enabled))
+test-flair-finder-cmds-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_menu_stub_enabled.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_menu_stub_enabled.img,flair_cmds_mut_stub,$(BUILD)/flair_cmds_mut_stub_data.img,$(FLAIR_CMDS_FAKES_SPEC),FLAIR-MENU menu=513,0)
+	@out=$$( $(call fc-fakes-check,$(BUILD)/flair_cmds_mut_stub.serial) ); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-flair-finder-cmds-mutant FAIL: STUB_ENABLED PASSED -- decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'want 3 x menu=512 item=0' || { printf '!!! test-flair-finder-cmds-mutant FAIL: RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
+	printf '>>> test-flair-finder-cmds-mutant: STUB_ENABLED correctly RED (%s)\n' "$$out"
 
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_NO_FG_SYNC,no_fg_sync))
 test-flair-fg-close-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_no_fg_sync.img
@@ -19835,7 +19942,23 @@ RECORD_SPEC_fg_close   = $(FLAIR_FG_CLOSE_SPEC)
 RECORD_MARKER_fg_close = FLAIR-MENU menu=256 item=0 (sel=0x00000000)
 RECORD_IMAGE_fg_close  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_fg_close = 300
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close
+# select_all + arrange (beads initech-tdnl.36 / .67; audit F03/F05/F07/F15/G10;
+# Rule 14): select_all replays FLAIR_CMDS_FAKES_SPEC -- Get Info, Duplicate,
+# Open (on a document), Restart, Shut Down and band-1 About are pulled down and
+# released on: each is drawn gray and nothing happens BY DESIGN; then Edit >
+# Select All lights all four icons. arrange replays FLAIR_CMDS_ARRANGE_SPEC --
+# README.TXT is dragged astray, then View > Arrange (by Name) lays the window
+# out APPS, DESKTOP.DB, README.TXT, TRASH. DOUBLE-CLICK record image. Settle
+# 150 ms on the 55-event select_all trace keeps it inside the image's pump life.
+RECORD_SPEC_select_all   = $(FLAIR_CMDS_FAKES_SPEC)
+RECORD_MARKER_select_all = FINDER-SELECT-ALL win=0 n=4
+RECORD_IMAGE_select_all  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_select_all = 150
+RECORD_SPEC_arrange      = $(FLAIR_CMDS_ARRANGE_SPEC)
+RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=3
+RECORD_IMAGE_arrange     = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_arrange    = 300
+RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -24809,6 +24932,7 @@ TEST_UNIT_GATES := \
 	test-clut test-clut-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
 	test-finder-ops test-finder-ops-mutant \
+	test-menu-handlers test-menu-handlers-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
@@ -25935,6 +26059,7 @@ TEST_EMU_GATES := \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
+	test-flair-finder-cmds test-flair-finder-cmds-mutant \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
 	test-flair-held-gestures test-flair-held-gestures-mutant \
 	test-flair-box-track test-flair-box-track-mutant \

@@ -65,6 +65,7 @@
 #include "finder_desktop.h"
 #include "finder_windows.h"
 #include "finder_ops.h"
+#include "finder_cmd.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -710,9 +711,58 @@ static void leg_follow(void)
     }
 }
 
+/* ===========================================================================
+ * O10 -- SELECT ALL + ARRANGE (BY NAME) through THE command spine
+ * (beads initech-tdnl.36 / .67; audit F03 / G10). Hand-derived: the root
+ * window (slot 1, content (41,102)) lists README.TXT, APPS, DESKTOP.DB, TRASH
+ * in that order; by NAME (case-insensitive 8.3 order) it is APPS, DESKTOP.DB,
+ * README.TXT, TRASH, so the cells (59,106) (127,106) (195,106) (263,106) go to
+ * APPS, DESKTOP.DB, README.TXT, TRASH -- three icons move, TRASH stays.
+ * MUTANT FINDER_WIN_MUT_ARRANGE_NOOP (rank by listing order) goes RED.
+ * ===========================================================================*/
+static void leg_select_arrange(void)
+{
+    FinderCtx fx;
+    finder_window_t *rw;
+    const finder_cmd_outcome_t *o;
+
+    scene_init(&S);
+    rw = &S.sh.windows[ROOT];
+    memset(&fx, 0, sizeof fx);
+    finder_shell_bind_ctx(&S.sh, &fx);
+
+    finder_shell_sync_ctx(&S.sh);
+    finder_dispatch(&fx, ((uint32_t)513u << 16) | 6u, "mouse");   /* Select All */
+    o = finder_shell_take_outcome(&S.sh);
+    CHECK(o != NULL && o->id == FCMD_SELECT_ALL && o->slot == ROOT && o->moved == 4 &&
+          finder_desk_selection_count(&rw->view) == 4u,
+          "O10 Edit > Select All selects all FOUR icons of the front window (F03)");
+
+    finder_shell_sync_ctx(&S.sh);
+    finder_dispatch(&fx, ((uint32_t)514u << 16) | 12u, "mouse");  /* Arrange   */
+    o = finder_shell_take_outcome(&S.sh);
+    CHECK(o != NULL && o->id == FCMD_ARRANGE_BY_NAME && o->status == FINDER_WIN_OK &&
+          o->moved == 3,
+          "O10 View > Arrange (by Name) ran on the front window and moved 3 icons (G10)");
+    CHECK(rw->view.icons[1].x == 59  && rw->view.icons[1].y == 106 &&   /* APPS       */
+          rw->view.icons[2].x == 127 && rw->view.icons[2].y == 106 &&   /* DESKTOP.DB */
+          rw->view.icons[0].x == 195 && rw->view.icons[0].y == 106 &&   /* README.TXT */
+          rw->view.icons[3].x == 263 && rw->view.icons[3].y == 106,     /* TRASH      */
+          "O10 the icons are in NAME order on the grid: APPS, DESKTOP.DB, README.TXT, TRASH");
+
+    /* An unimplemented command never executes silently: dispatched anyway
+     * (the bar would never hand it out), the shell declines it. */
+    CHECK(finder_shell_implements(FCMD_GET_INFO) == 0 &&
+          finder_shell_implements(FCMD_RESTART) == 0 &&
+          finder_shell_implements(FCMD_SELECT_ALL) == 1 &&
+          finder_shell_implements(FCMD_ARRANGE_BY_NAME) == 1,
+          "O10 the shell's execution table: Select All + Arrange yes, Get Info + Restart no");
+}
+
 int main(void)
 {
     leg_follow();
+    leg_select_arrange();
     leg_resolve();
     leg_hilite();
     leg_into_folder();

@@ -116,6 +116,10 @@ typedef struct FinderCtx {
     uint16_t selection_count;   /* number of selected desktop/window icons     */
     uint8_t  trash_nonempty;    /* 1 == \TRASH holds at least one entry (F1.4) */
     uint8_t  front_is_diskwin;  /* 1 == frontmost window is a Finder disk win  */
+    /* 1 == the selection holds something Open can act on: a FOLDER (bead
+     * initech-tdnl.38 -- Open on a document with no handler is grayed, not a
+     * silent refusal; documents return with initech-tdnl.16). */
+    uint8_t  selection_openable;
 
     /* --- the trace sink (caller-supplied; see banner) --------------------- */
     void   (*trace)(void *user, const char *line);
@@ -135,7 +139,12 @@ typedef struct FinderCtx {
      * execute. A NULL `exec` means "run the table's handler", which is what the
      * host oracle (test_finder_cmd.c) does.
      * ------------------------------------------------------------------- */
-    void   (*exec)(void *shell, finder_cmd_id id);
+    /* Returns 1 when the shell EXECUTED the command, 0 when it has no
+     * implementation for `id` -- finder_dispatch then falls back to the row's
+     * stub handler, which says FINDER-NYI out loud (bead initech-tdnl.36: the
+     * void hook's silent default arm was the root cause of every "enabled and
+     * does nothing" command in audit F03/F05/F07/G10). */
+    int    (*exec)(void *shell, finder_cmd_id id);
     void    *shell;
 } FinderCtx;
 
@@ -180,6 +189,10 @@ extern const uint16_t FINDER_COMMANDS_N;
 uint8_t finder_pred_has_selection(const FinderCtx *fx);
 uint8_t finder_pred_trash_nonempty(const FinderCtx *fx);
 uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx);
+/* SELECTION_OPENABLE -- Open (bead initech-tdnl.38): the selection holds a
+ * folder. Replaces HAS_SELECTION on File > Open: the shell opens folders only,
+ * so a selected document would otherwise enable Open and do nothing. */
+uint8_t finder_pred_selection_openable(const FinderCtx *fx);
 
 /* ===========================================================================
  * 5. LOOKUP + DISPATCH

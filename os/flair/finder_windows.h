@@ -607,6 +607,18 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
  * clean). Invalidation is the caller's -- finder_win_invalidate_all. */
 int finder_win_cleanup(finder_shell_t *sh, int slot);
 
+/* Re-lay `slot`'s icons on the row-major grid in NAME order (View > Arrange
+ * (by Name); bead initech-tdnl.67, audit G10): case-insensitive 8.3 order,
+ * ties by listing order; the icon array is NOT reordered -- each icon snaps to
+ * the cell of its rank. Returns the number of icons that MOVED. */
+int finder_win_arrange_by_name(finder_shell_t *sh, int slot);
+
+/* 1 when the shell's execution hook implements command `id` (bead
+ * initech-tdnl.36): the ONE answer to "does choosing this do something", read
+ * from the same table the hook dispatches through. The handler guard
+ * (harness/proptest/test_menu_handlers.c) holds every enabled menu row to it. */
+int finder_shell_implements(finder_cmd_id id);
+
 /* Damage the whole content of `slot` through the ONE window-damage entry point
  * (WindowMgr_invalidate); the tenant's updateEvt then repaints it. */
 void finder_win_invalidate_all(finder_shell_t *sh, int slot);

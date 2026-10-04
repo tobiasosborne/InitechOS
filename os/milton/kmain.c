@@ -59,6 +59,7 @@
 #include "region.h"          /* rgn_ws_slot_t + region_engine_bind_ws (bead
                               * initech-44ab round 3; -Ios/flair/atkinson)    */
 #include "shell.h"           /* shell_scene_t, shell_build_scene/render       */
+#include "shell_menus.h"     /* the band-1 item list (tdnl.50)                 */
 #include "desktop.h"         /* desktop_paint_damage (FO-7 minimal repaint)   */
 #include "flair_look.h"      /* sampled gray outline through the policy seam */
 #include "chrome.h"          /* flair_draw_window_widget (TrackBox, tdnl.60)  */
@@ -1019,8 +1020,10 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
     if (!sys_menus || !sys_items) { flair_desktop_oom("sys menus/items"); }
     for (int mi = 0; mi < FD_N_SYS_MENUS; mi++) {
         MenuItem *it = &sys_items[mi * 2];
-        it[0] = (MenuItem){ "About", 0, 0,   0, 1, 0 };
-        it[1] = (MenuItem){ "Quit",  0, 'Q', 0, 1, 0 };
+        /* The ONE authored list (os/flair/shell_menus.h; beads
+         * initech-tdnl.50/.36): About grayed, Quit the stated exception. */
+        it[0] = SHELL_SYS_MENU_ITEMS[0];
+        it[1] = SHELL_SYS_MENU_ITEMS[1];
         sys_menus[mi].menuID    = (int16_t)(128 + mi);
         sys_menus[mi].title     = fd_sys_titles[mi];
         sys_menus[mi].items     = it;
@@ -3848,6 +3851,48 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         serial_putc('\n');
         g_finder_db_dirty = 1;
         finder_desk_persist();
+        return;
+
+    case FCMD_SELECT_ALL: {
+        /* Bead initech-tdnl.36 (audit F03): every icon of the front disk
+         * window, or of the desktop, is now selected -- repaint its cells. */
+        finder_surface_t sf;
+        if (o->slot >= 0) {
+            finder_win_invalidate_all(g_finder_shell, o->slot);
+        } else {
+            finder_surface_desktop(&sf);
+            finder_surface_invalidate_all(&sf, ctx);
+        }
+        finder_desk_repaint(ctx, bi);
+        serial_puts("FINDER-SELECT-ALL win=");
+        serial_puti((int32_t)o->slot);
+        serial_puts(" n=");
+        serial_puti((int32_t)o->moved);
+        serial_putc('\n');
+        return;
+    }
+
+    case FCMD_ARRANGE_BY_NAME:
+        /* Bead initech-tdnl.67 (audit G10). */
+        if (o->status != FINDER_WIN_OK) return;
+        if (o->moved != 0) {
+            finder_win_invalidate_all(g_finder_shell, o->slot);
+            finder_desk_repaint(ctx, bi);
+        }
+        serial_puts("FINDER-ARRANGE win=");
+        serial_puti((int32_t)o->slot);
+        serial_puts(" moved=");
+        serial_puti((int32_t)o->moved);
+        serial_putc('\n');
+        return;
+
+    case FCMD_VIEW_ICONS:
+        if (o->status != FINDER_WIN_OK) return;
+        finder_win_invalidate_all(g_finder_shell, o->slot);
+        finder_desk_repaint(ctx, bi);
+        serial_puts("FINDER-VIEW win=");
+        serial_puti((int32_t)o->slot);
+        serial_puts(" mode=icons\n");
         return;
 
     case FCMD_OPEN:

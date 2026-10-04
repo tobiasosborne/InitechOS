@@ -135,6 +135,12 @@ uint8_t finder_pred_trash_nonempty(const FinderCtx *fx)
     return (fx != 0 && fx->trash_nonempty != 0u) ? 1u : 0u;
 }
 
+/* SELECTION_OPENABLE -- Open (bead initech-tdnl.38; finder_cmd.h Sec 4). */
+uint8_t finder_pred_selection_openable(const FinderCtx *fx)
+{
+    return (fx != 0 && fx->selection_openable != 0u) ? 1u : 0u;
+}
+
 /* WINDOW_FRONT_IS_DISKWIN -- Close Window (F4.4). The desktop itself is not a
  * window, so with no disk window in front there is nothing to close. */
 uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx)
@@ -222,7 +228,7 @@ const finder_cmd_t FINDER_COMMANDS[] = {
 
     /* --- File (512) ------------------------------------------------------ */
     { FCMD_NEW_FOLDER,    512,  1, 'N', 0,                            fcmd_nyi, "NEW_FOLDER" },
-    { FCMD_OPEN,          512,  2, 'O', finder_pred_has_selection,    fcmd_nyi, "OPEN" },
+    { FCMD_OPEN,          512,  2, 'O', finder_pred_selection_openable, fcmd_nyi, "OPEN" },
     { FCMD_CLOSE_WINDOW,  512,  4, 'W', finder_pred_front_is_diskwin, fcmd_nyi, "CLOSE_WINDOW" },
     { FCMD_GET_INFO,      512,  6, 'I', finder_pred_has_selection,    fcmd_nyi, "GET_INFO" },
     { FCMD_DUPLICATE,     512,  7, 'D', finder_pred_has_selection,    fcmd_nyi, "DUPLICATE" },
@@ -235,12 +241,15 @@ const finder_cmd_t FINDER_COMMANDS[] = {
     { FCMD_SELECT_ALL,    513,  6, 'A', 0,                            fcmd_nyi, "SELECT_ALL" },
 
     /* --- View (514) ------------------------------------------------------ */
-    { FCMD_VIEW_ICONS,    514,  1,  0,  0,                            fcmd_nyi, "VIEW_ICONS" },
-    { FCMD_CLEANUP,       514, 11,  0,  0,                            fcmd_nyi, "CLEANUP" },
-    { FCMD_ARRANGE_BY_NAME, 514, 12, 0, 0,                            fcmd_nyi, "ARRANGE_BY_NAME" },
+    /* The three window-arrangement rows act on the FRONT DISK WINDOW, so they
+     * are live only when one is front (bead initech-tdnl.36: before, with no
+     * window they dispatched, the shell refused, and nothing was said). */
+    { FCMD_VIEW_ICONS,    514,  1,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_ICONS" },
+    { FCMD_CLEANUP,       514, 11,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
+    { FCMD_ARRANGE_BY_NAME, 514, 12, 0, finder_pred_front_is_diskwin, fcmd_nyi, "ARRANGE_BY_NAME" },
 
     /* --- Special (515) --------------------------------------------------- */
-    { FCMD_CLEANUP,       515,  1,  0,  0,                            fcmd_nyi, "CLEANUP" },
+    { FCMD_CLEANUP,       515,  1,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
     { FCMD_EMPTY_TRASH,   515,  2,  0,  finder_pred_trash_nonempty,   fcmd_nyi, "EMPTY_TRASH" },
     { FCMD_RESTART,       515,  6,  0,  0,                            fcmd_nyi, "RESTART" },
     { FCMD_SHUTDOWN,      515,  7,  0,  0,                            fcmd_nyi, "SHUTDOWN" }
@@ -347,14 +356,20 @@ void finder_dispatch(FinderCtx *fx, uint32_t menu_result, const char *src)
         return;                        /* the handler is NOT called (F4.4)    */
     }
 
-    /* The shell's execution hook wins when bound (bead initech-tdnl.10); the
-     * table's stub handler is the fallback. Either way the FINDER-CMD line
-     * above has ALREADY been emitted, so the trace records the dispatch
-     * regardless of who executes it. */
-    if (fx->exec != 0) {
-        fx->exec(fx->shell, c->id);
+    /* The shell's execution hook wins when bound AND it implements the
+     * command (bead initech-tdnl.10); otherwise the table's stub handler runs
+     * and reports FINDER-NYI (bead initech-tdnl.36 -- before, a bound hook's
+     * default arm swallowed the command in silence). Either way the FINDER-CMD
+     * line above has ALREADY been emitted. */
+#if !defined(FINDER_CMD_MUT_EXEC_SWALLOWS)
+    if (fx->exec != 0 && fx->exec(fx->shell, c->id))
         return;
-    }
+#else
+    /* MUTANT (Rule 6; test-menu-handlers H3): the audited root cause -- return
+     * after the bound hook whatever it answered, so an unimplemented command
+     * dies in silence. NEVER in a real build. */
+    if (fx->exec != 0) { (void)fx->exec(fx->shell, c->id); return; }
+#endif
     if (c->handler != 0)
         c->handler(fx, c);
 }

@@ -38,6 +38,23 @@
  *                                   item that draws perfectly and does nothing,
  *                                   which is exactly the failure a human
  *                                   looking at the frame cannot see.
+ *   FINDER_MENU_MUT_STUB_ENABLED -- File > Get Info goes back to the pre-fix
+ *                                   HAS_SELECTION predicate: enabled with a
+ *                                   selection although the shell has no Get
+ *                                   Info (bead initech-tdnl.36). The handler
+ *                                   guard (test-menu-handlers) and the
+ *                                   truth table go RED.
+ *
+ * THE RULE (bead initech-tdnl.36, audit F03/F05/F07/G10/F15): a command is
+ * either IMPLEMENTED or DRAWN DISABLED. A row whose command the shell cannot
+ * execute is authored 0 and carries no predicate, so no context can light it;
+ * it rejoins the predicate map when its bead lands. Today that is:
+ *   File > Get Info, Duplicate   (initech-p6st / initech-tdnl.16)
+ *   Special > Empty Trash        (initech-6k12)
+ *   Special > Restart, Shut Down (initech-tdnl.37: no kernel reset/halt
+ *                                 primitive exists yet -- see finder_menu.h)
+ * and File > Open is lit only by a selected FOLDER (initech-tdnl.38).
+ * harness/proptest/test_menu_handlers.c walks every row and holds the rule.
  *
  * Ref: docs/design/GUI-remediation-R3-finder-design.md F4.2 (the layout),
  *        F4.3 (omit-not-gray), F4.4 (predicates + the command table).
@@ -108,7 +125,7 @@ static MenuInfo finder_apple_menu = {
 static MenuItem finder_file_items[] = {
     FM_ITEM("New Folder",   'N', 1),              /* FCMD_NEW_FOLDER  (always) */
 #ifndef FINDER_MENU_MUT_CMDCHAR_DUP
-    FM_ITEM("Open",         'O', FM_PRED_REST),   /* FCMD_OPEN  has_selection  */
+    FM_ITEM("Open",         'O', FM_PRED_REST),   /* FCMD_OPEN  openable (.38) */
 #else
     /* MUTANT FINDER_MENU_MUT_CMDCHAR_DUP (Rule 6): Open steals New Folder's
      * command key. Two items with cmdChar 'N' can be enabled at once, which is
@@ -119,8 +136,8 @@ static MenuItem finder_file_items[] = {
     FM_ITEM("Print",          0, 0),              /* inert V1 decoration       */
     FM_ITEM("Close Window", 'W', FM_PRED_REST),   /* FCMD_CLOSE_WINDOW  front  */
     FM_DIV,
-    FM_ITEM("Get Info",     'I', FM_PRED_REST),   /* FCMD_GET_INFO  has_sel    */
-    FM_ITEM("Duplicate",    'D', FM_PRED_REST),   /* FCMD_DUPLICATE has_sel    */
+    FM_ITEM("Get Info",     'I', 0),              /* grayed: no impl (p6st)    */
+    FM_ITEM("Duplicate",    'D', 0),              /* grayed: no impl (tdnl.16) */
     FM_ITEM("Make Alias",     0, 0),              /* inert V1 decoration       */
     FM_ITEM("Put Away",     'Y', 0),              /* grayed V1 (F4.2, F1-5)    */
     FM_DIV,
@@ -156,7 +173,7 @@ static MenuItem finder_edit_items[] = {
  *   Clean Up (FUNCTIONAL) | Arrange (by Name) (FUNCTIONAL)
  * ===========================================================================*/
 static MenuItem finder_view_items[] = {
-    FM_MARKED("by Icons",         0, 1),          /* FCMD_VIEW_ICONS (always)  */
+    FM_MARKED("by Icons",         0, FM_PRED_REST), /* VIEW_ICONS  front win   */
     FM_ITEM("by Small Icon",      0, 0),
     FM_ITEM("by Name",            0, 0),
     FM_ITEM("by Size",            0, 0),
@@ -166,8 +183,8 @@ static MenuItem finder_view_items[] = {
     FM_ITEM("as Buttons",         0, 0),
     FM_ITEM("as Pop-up Window",   0, 0),
     FM_DIV,
-    FM_ITEM("Clean Up",           0, 1),          /* FCMD_CLEANUP    (always)  */
-    FM_ITEM("Arrange (by Name)",  0, 1)           /* FCMD_ARRANGE_BY_NAME      */
+    FM_ITEM("Clean Up",           0, FM_PRED_REST), /* CLEANUP     front win   */
+    FM_ITEM("Arrange (by Name)",  0, FM_PRED_REST)  /* ARRANGE     front win   */
 };
 
 /* ===========================================================================
@@ -178,19 +195,19 @@ static MenuItem finder_view_items[] = {
  * ===========================================================================*/
 static MenuItem finder_special_items[] = {
 #ifndef FINDER_MENU_MUT_DEAD_ITEM
-    FM_ITEM("Clean Up",     0, 1),                /* FCMD_CLEANUP   (always)   */
+    FM_ITEM("Clean Up",     0, FM_PRED_REST),     /* CLEANUP  front win        */
 #else
     /* MUTANT FINDER_MENU_MUT_DEAD_ITEM (Rule 6): the row is present and draws,
      * but its enable byte is 0 forever, so it can never be chosen. NEVER in a
      * real build. */
     FM_ITEM("Clean Up",     0, 0),
 #endif
-    FM_ITEM("Empty Trash",  0, FM_PRED_REST),     /* FCMD_EMPTY_TRASH  trash   */
+    FM_ITEM("Empty Trash",  0, 0),                /* grayed: no impl (6k12)    */
     FM_DIV,
     FM_ITEM("Erase Disk",   0, 0),
     FM_DIV,
-    FM_ITEM("Restart",      0, 1),                /* FCMD_RESTART   (always)   */
-    FM_ITEM("Shut Down",    0, 1),                /* FCMD_SHUTDOWN  (always)   */
+    FM_ITEM("Restart",      0, 0),                /* grayed: no reset (tdnl.37)*/
+    FM_ITEM("Shut Down",    0, 0),                /* grayed: no halt  (tdnl.37)*/
     FM_ITEM("Sleep",        0, 0)
 };
 
@@ -248,11 +265,19 @@ typedef struct fm_pred_row {
 } fm_pred_row_t;
 
 static const fm_pred_row_t FINDER_MENU_PREDS[] = {
-    { FINDER_MENU_IX_FILE,    1u, finder_pred_has_selection    }, /* Open   #2 */
-    { FINDER_MENU_IX_FILE,    3u, finder_pred_front_is_diskwin }, /* Close  #4 */
-    { FINDER_MENU_IX_FILE,    5u, finder_pred_has_selection    }, /* Info   #6 */
-    { FINDER_MENU_IX_FILE,    6u, finder_pred_has_selection    }, /* Dupl   #7 */
-    { FINDER_MENU_IX_SPECIAL, 1u, finder_pred_trash_nonempty   }  /* Trash  #2 */
+    { FINDER_MENU_IX_FILE,    1u, finder_pred_selection_openable }, /* Open #2 */
+    { FINDER_MENU_IX_FILE,    3u, finder_pred_front_is_diskwin   }, /* Close #4 */
+    { FINDER_MENU_IX_VIEW,    0u, finder_pred_front_is_diskwin   }, /* Icons #1 */
+    { FINDER_MENU_IX_VIEW,   10u, finder_pred_front_is_diskwin   }, /* CleanUp  */
+    { FINDER_MENU_IX_VIEW,   11u, finder_pred_front_is_diskwin   }  /* Arrange  */
+#if !defined(FINDER_MENU_MUT_DEAD_ITEM)
+    , { FINDER_MENU_IX_SPECIAL, 0u, finder_pred_front_is_diskwin } /* CleanUp  */
+#endif
+#if defined(FINDER_MENU_MUT_STUB_ENABLED)
+    /* MUTANT (Rule 6; bead initech-tdnl.36): the pre-fix Get Info row -- lit
+     * by any selection though nothing implements it. NEVER in a real build. */
+    , { FINDER_MENU_IX_FILE,  5u, finder_pred_has_selection      }  /* Info #6 */
+#endif
 };
 
 static const uint16_t FINDER_MENU_PREDS_N =

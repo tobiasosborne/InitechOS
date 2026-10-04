@@ -805,76 +805,177 @@ static void fw_outcome(finder_shell_t *sh, finder_cmd_id id,
     sh->last.slot   = (int16_t)slot;
 }
 
-static void fw_exec(void *shell, finder_cmd_id id)
+/* ---------------------------------------------------------------------------
+ * THE EXECUTION TABLE (bead initech-tdnl.36). One row per command the shell
+ * really implements; fw_exec dispatches through it and finder_shell_implements
+ * answers from it, so "has a handler" has ONE definition that the handler
+ * guard (harness/proptest/test_menu_handlers.c) can hold the menus to. A
+ * command with no row returns 0 from the hook and finder_dispatch reports
+ * FINDER-NYI -- never the old silent default arm.
+ * ------------------------------------------------------------------------- */
+typedef void (*fw_cmd_fn)(finder_shell_t *sh, finder_cmd_id id, int slot);
+
+static void fw_do_new_folder(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    char     name[FINDER_DESK_NAME_MAX];
+    uint16_t parent = 0u;
+    finder_win_status_t st;
+
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    st = finder_win_new_folder(sh, slot, name, &parent);
+    fw_outcome(sh, id, st, slot);
+    sh->last.parent = parent;
+    if (st == FINDER_WIN_OK) fw_copy83(sh->last.name83, name);
+}
+
+static void fw_do_cleanup(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    int moved;
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    moved = finder_win_cleanup(sh, slot);
+    fw_outcome(sh, id, FINDER_WIN_OK, slot);
+    sh->last.moved = (int16_t)moved;
+}
+
+static void fw_do_close(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    finder_win_status_t st;
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    st = finder_win_close(sh, slot);
+    fw_outcome(sh, id, st, slot);
+}
+
+/* Open the SELECTED folder of the front window. The SELECTION_OPENABLE
+ * predicate (bead initech-tdnl.38) has already passed, so a folder is there;
+ * a selected document no longer enables Open at all. */
+static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    int chosen = -1;
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
+        const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[i];
+        if (ic->selected && ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
+            chosen = i;
+            break;
+        }
+    }
+    if (chosen < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
+    {
+        const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[chosen];
+        int nslot = -1, singleton = 0;
+        finder_win_status_t st = finder_win_open(sh, ic->dir_start, ic->name,
+                                                 0u, &nslot, &singleton);
+        fw_outcome(sh, id, st, nslot);
+        sh->last.singleton = (uint8_t)(singleton ? 1 : 0);
+        fw_copy83(sh->last.name83, ic->name);
+    }
+}
+
+/* Edit > Select All (bead initech-tdnl.36, audit F03): every icon of the
+ * front disk window, or of the desktop when no disk window is front. */
+static void fw_do_select_all(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    finder_desk_t *fd = (slot >= 0) ? finder_win_view(sh, slot) : &sh->desk;
+    for (int i = 0; i < (int)fd->n; i++) fd->icons[i].selected = 1u;
+    fw_outcome(sh, id, FINDER_WIN_OK, slot);
+    sh->last.moved = (int16_t)fd->n;
+}
+
+/* View > Arrange (by Name) (bead initech-tdnl.67, audit G10): the icons are
+ * re-laid on the row-major grid in NAME order -- case-insensitive, the way
+ * FAT 8.3 names compare (fw_upper), ties by listing order so the result is a
+ * pure function of the listing (Rule 11). The icon ARRAY is not reordered
+ * (stored indices -- the click tracker, a lit drop target -- stay valid);
+ * each icon is snapped to the cell of its RANK. */
+static int fw_name_less(const char *a, const char *b)
+{
+    while (*a != '\0' && fw_upper(*a) == fw_upper(*b)) { a++; b++; }
+    return (unsigned char)fw_upper(*a) < (unsigned char)fw_upper(*b);
+}
+
+int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
+{
+    finder_window_t *w;
+    int moved = 0, n;
+
+    if (!fw_slot_ok(sh, slot)) return 0;
+    w = &sh->windows[slot];
+    (void)finder_win_sync_geometry(w);
+    n = (int)w->view.n;
+    for (int i = 0; i < n; i++) {
+        int rank = 0;
+        for (int j = 0; j < n; j++) {
+            if (j == i) continue;
+#if defined(FINDER_WIN_MUT_ARRANGE_NOOP)
+            /* MUTANT (Rule 6; audit G10): rank by LISTING order, i.e. the
+             * pre-fix "Arrange does not reorder" -- a plain Clean Up. */
+            (void)fw_name_less;
+            if (j < i) rank++;
+#else
+            if (fw_name_less(w->view.icons[j].name, w->view.icons[i].name) ||
+                (!fw_name_less(w->view.icons[i].name, w->view.icons[j].name) &&
+                 j < i))
+                rank++;
+#endif
+        }
+        moved += fw_snap(w, i, rank);
+    }
+    return moved;
+}
+
+static void fw_do_arrange(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    int moved;
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    moved = finder_win_arrange_by_name(sh, slot);
+    fw_outcome(sh, id, FINDER_WIN_OK, slot);
+    sh->last.moved = (int16_t)moved;
+}
+
+/* View > by Icons: icon view is the only view this Finder has (the others
+ * are grayed, list view deferred per plan R3.3), so choosing the checked mode
+ * re-affirms it: the view bits are set to icon view and the window is
+ * redrawn. Stated, not silent: the kernel reports FINDER-VIEW. */
+static void fw_do_view_icons(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    sh->windows[slot].view_bits = 0u;            /* 0 == by Icons (kind=4)   */
+    fw_outcome(sh, id, FINDER_WIN_OK, slot);
+}
+
+static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
+    { FCMD_NEW_FOLDER,      fw_do_new_folder },
+    { FCMD_CLEANUP,         fw_do_cleanup    },
+    { FCMD_CLOSE_WINDOW,    fw_do_close      },
+    { FCMD_OPEN,            fw_do_open       },
+    { FCMD_SELECT_ALL,      fw_do_select_all },
+    { FCMD_ARRANGE_BY_NAME, fw_do_arrange    },
+    { FCMD_VIEW_ICONS,      fw_do_view_icons }
+};
+#define FW_EXEC_N ((int)(sizeof FW_EXEC_TABLE / sizeof FW_EXEC_TABLE[0]))
+
+int finder_shell_implements(finder_cmd_id id)
+{
+    for (int i = 0; i < FW_EXEC_N; i++)
+        if (FW_EXEC_TABLE[i].id == id) return 1;
+    return 0;
+}
+
+static int fw_exec(void *shell, finder_cmd_id id)
 {
     finder_shell_t *sh = (finder_shell_t *)shell;
-    int slot;
 
-    if (sh == (finder_shell_t *)0) return;
-    slot = finder_win_front_slot(sh);
-
-    switch (id) {
-    case FCMD_NEW_FOLDER: {
-        char     name[FINDER_DESK_NAME_MAX];
-        uint16_t parent = 0u;
-        finder_win_status_t st;
-
-        if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
-        st = finder_win_new_folder(sh, slot, name, &parent);
-        fw_outcome(sh, id, st, slot);
-        sh->last.parent = parent;
-        if (st == FINDER_WIN_OK) fw_copy83(sh->last.name83, name);
-        return;
+    if (sh == (finder_shell_t *)0) return 0;
+    for (int i = 0; i < FW_EXEC_N; i++) {
+        if (FW_EXEC_TABLE[i].id != id) continue;
+        FW_EXEC_TABLE[i].fn(sh, id, finder_win_front_slot(sh));
+        return 1;
     }
-    case FCMD_CLEANUP: {
-        int moved;
-        if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
-        moved = finder_win_cleanup(sh, slot);
-        fw_outcome(sh, id, FINDER_WIN_OK, slot);
-        sh->last.moved = (int16_t)moved;
-        return;
-    }
-    case FCMD_CLOSE_WINDOW: {
-        finder_win_status_t st;
-        if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
-        st = finder_win_close(sh, slot);
-        fw_outcome(sh, id, st, slot);
-        return;
-    }
-    case FCMD_OPEN: {
-        /* Open the SELECTED folder of the front window (design F4.4's
-         * HAS_SELECTION predicate has already passed, or dispatch would have
-         * reported FINDER-CMD-DISABLED). The first selected FOLDER wins; a
-         * selected document has no opener until the tdnl.14 launch slice, so it
-         * reports a refusal rather than pretending. */
-        int chosen = -1;
-        if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
-        for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
-            const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[i];
-            if (ic->selected && ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
-                chosen = i;
-                break;
-            }
-        }
-        if (chosen < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
-        {
-            const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[chosen];
-            int nslot = -1, singleton = 0;
-            finder_win_status_t st = finder_win_open(sh, ic->dir_start, ic->name,
-                                                     0u, &nslot, &singleton);
-            fw_outcome(sh, id, st, nslot);
-            sh->last.singleton = (uint8_t)(singleton ? 1 : 0);
-            fw_copy83(sh->last.name83, ic->name);
-        }
-        return;
-    }
-    default:
-        /* Every other row is another slice's (tdnl.11 file ops, tdnl.12 menu
-         * modes, tdnl.14 launch). Leaving `last` invalid makes kmain fall back
-         * to the table's own FINDER-NYI stub report -- honest, and impossible
-         * to confuse with a command that ran (Rule 2). */
-        return;
-    }
+    /* No implementation: finder_dispatch falls back to the table's FINDER-NYI
+     * stub (bead initech-tdnl.36) -- the menus never enable such a command,
+     * so this is reachable only through a future wiring mistake, and then it
+     * is loud. */
+    return 0;
 }
 
 const finder_cmd_outcome_t *finder_shell_take_outcome(finder_shell_t *sh)
@@ -895,6 +996,16 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
     sh->ctx->selection_count  =
         (slot >= 0) ? finder_desk_selection_count(&sh->windows[slot].view)
                     : finder_desk_selection_count(&sh->desk);
+    /* SELECTION_OPENABLE (bead initech-tdnl.38): Open acts on a selected
+     * FOLDER of the front disk window -- the only thing fw_do_open opens. */
+    sh->ctx->selection_openable = 0u;
+    if (slot >= 0) {
+        const finder_desk_t *v = &sh->windows[slot].view;
+        for (int i = 0; i < (int)v->n; i++)
+            if (v->icons[i].selected &&
+                v->icons[i].kind == (uint8_t)FINDER_ICON_FOLDER)
+                sh->ctx->selection_openable = 1u;
+    }
 }
 
 void finder_shell_bind_ctx(finder_shell_t *sh, FinderCtx *ctx)
