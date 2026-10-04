@@ -26,4 +26,4 @@ the reviewer notes real Mac OS 8.1 is Charcoal -- initech-tdnl.69).
 
 Look: the reviewer judges the drag outline (a thin rectangle around the whole
 icon cell) rudimentary next to the period description of an outline of the
-icon and its name; recorded on initech-tdnl.41's sibling work as a note.
+icon and its name; noted on initech-tdnl.53 (icon art).
