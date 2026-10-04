@@ -10713,6 +10713,56 @@ $(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUI
 $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
 
+# ---------------------------------------------------------------------------
+# REAL gate: test-bochs-concurrent (bead initech-d9tt) -- ONE BOCHS AT A TIME.
+# Bochs 2.7's rfb display listens on 5900 with no bochsrc knob; a second
+# concurrent Bochs takes 5901, is never unblocked, and both gates go red. With
+# several checkouts on one host (lanes + the certificate) that was a standing
+# false red. bochs_run now holds a host-wide flock from before the fork until
+# Bochs is reaped. This gate starts two harness runs at the same moment and
+# requires BOTH to reach the banner. It BITES (test-bochs-concurrent-mutant):
+# -DBOCHS_MUTATE_NO_HOST_LOCK removes the lock and the pair collides. The
+# mutant pair runs inside flock(1) on the same lock file so its deliberate
+# collision cannot break anybody else's Bochs gate.
+# ---------------------------------------------------------------------------
+BOCHS_MUT_NOLOCK_BIN := $(BUILD)/bochs_harness_mut_nolock
+$(BOCHS_MUT_NOLOCK_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
+	$(CC) $(CFLAGS) -DBOCHS_MUTATE_NO_HOST_LOCK -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
+
+# $(1) = harness binary, $(2) = name stem. Leaves $$good = runs that reached
+# the banner (0..2). Each run boots its own copy of the tracer image.
+define bochs-concurrent-pair
+cp -f $(TRACER_IMG) $(BUILD)/$(2)_a.img; cp -f $(TRACER_IMG) $(BUILD)/$(2)_b.img; \
+( $(1) --disk $(BUILD)/$(2)_a.img --expect VGA13 --name $(2)_a --out $(BUILD) --timeout-ms 45000 2> $(BUILD)/$(2)_a.report.txt || true ) & \
+( $(1) --disk $(BUILD)/$(2)_b.img --expect VGA13 --name $(2)_b --out $(BUILD) --timeout-ms 45000 2> $(BUILD)/$(2)_b.report.txt || true ) & \
+wait; good=0; \
+for r in a b; do \
+	if grep -q 'rfb_unblocked=1' $(BUILD)/$(2)_$$r.report.txt && grep -q '^BANNER$$' $(BUILD)/$(2)_$$r.serial 2>/dev/null; then good=$$((good+1)); fi; \
+done
+endef
+
+.PHONY: test-bochs-concurrent test-bochs-concurrent-mutant
+ifeq ($(SKIP_BOCHS),1)
+test-bochs-concurrent test-bochs-concurrent-mutant:
+	@printf '!!! %s SKIPPED (SKIP_BOCHS=1 opt-out) -- the one-Bochs-at-a-time gate was NOT run.\n' "$@"
+else
+test-bochs-concurrent: $(BOCHS_BIN) $(TRACER_IMG)
+	@printf '>>> test-bochs-concurrent: two Bochs runs started together must both reach the banner (d9tt)\n'
+	@$(call bochs-concurrent-pair,$(BOCHS_BIN),bochs_conc); \
+	if [ "$$good" -ne 2 ]; then \
+		printf '!!! test-bochs-concurrent FAIL: %s of 2 concurrent Bochs runs reached the banner\n' "$$good"; \
+		cat $(BUILD)/bochs_conc_a.report.txt $(BUILD)/bochs_conc_b.report.txt; exit 1; fi
+	@printf '>>> test-bochs-concurrent: green (2 of 2 reached the banner)\n'
+
+test-bochs-concurrent-mutant: $(BOCHS_MUT_NOLOCK_BIN) $(TRACER_IMG)
+	@printf '>>> test-bochs-concurrent-mutant: confirming the NO-HOST-LOCK mutant goes RED (Rule 6)\n'
+	@exec 9>/tmp/initech-bochs.lock; flock 9; \
+	$(call bochs-concurrent-pair,$(BOCHS_MUT_NOLOCK_BIN),bochs_conc_mut); \
+	if [ "$$good" -eq 2 ]; then \
+		printf '!!! test-bochs-concurrent-mutant FAIL: both unlocked runs passed -- the gate is decoration\n'; exit 1; fi; \
+	printf '>>> test-bochs-concurrent-mutant: green (NO_HOST_LOCK correctly RED -- %s of 2 reached the banner)\n' "$$good"
+endif
+
 # Self-test fixtures: nasm -> ELF object -> linked multiboot1 ELF. The
 # linker script forces the multiboot header into the first 8 KiB.
 $(BUILD)/%.elf: $(FIXTURE_DIR)/%.asm $(FIXTURE_LD) | $(BUILD)
@@ -27012,7 +27062,7 @@ TEST_EMU_GATES := \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \
-	test-harness test-tracer-boot test-boot-bochs test-boot test-program test-fs test-type \
+	test-harness test-tracer-boot test-boot-bochs test-bochs-concurrent test-bochs-concurrent-mutant test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \

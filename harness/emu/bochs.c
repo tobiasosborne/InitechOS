@@ -31,6 +31,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -239,6 +240,58 @@ void bochs_result_free(BochsResult *out)
     out->serial_text = NULL;
 }
 
+/* One Bochs at a time per host (bead initech-d9tt). The rfb display plugin
+ * listens on 5900 and Bochs 2.7 has no bochsrc knob for the port: a second
+ * concurrent Bochs silently takes 5901, nobody unblocks it, and BOTH gates go
+ * red ("RFB unblock failed" / "did not complete the smoke") -- reproduced
+ * 2026-10-05 with test-boot-bochs run in two checkouts at once. So every run
+ * holds an exclusive flock(2) on a host-wide lock file from before the fork
+ * until Bochs is reaped. The path is the one `flock(1)` wrappers already use,
+ * so a wrapped old harness and this one exclude each other. The wait is
+ * bounded and fails loud (Rule 2): a harness run inside such a wrapper would
+ * otherwise wait on its own parent for ever. Returns the lock fd or -1. */
+#define BOCHS_HOST_LOCK_PATH    "/tmp/initech-bochs.lock"
+#define BOCHS_HOST_LOCK_WAIT_MS (20 * 60 * 1000)
+
+static int bochs_host_lock(void)
+{
+    int fd = open(BOCHS_HOST_LOCK_PATH, O_RDWR | O_CREAT | O_CLOEXEC, 0666);
+    if (fd < 0) {
+        fprintf(stderr, "bochs_run: cannot open %s: %s\n",
+                BOCHS_HOST_LOCK_PATH, strerror(errno));
+        return -1;
+    }
+    long long deadline = mono_ms() + BOCHS_HOST_LOCK_WAIT_MS;
+    bool told = false;
+    for (;;) {
+#ifndef BOCHS_MUTATE_NO_HOST_LOCK
+        if (flock(fd, LOCK_EX | LOCK_NB) == 0) return fd;
+#else
+        return fd;                 /* mutant: run without the host lock */
+#endif
+        if (errno != EWOULDBLOCK && errno != EINTR) {
+            fprintf(stderr, "bochs_run: flock %s: %s\n",
+                    BOCHS_HOST_LOCK_PATH, strerror(errno));
+            close(fd);
+            return -1;
+        }
+        if (!told) {
+            fprintf(stderr, "bochs_run: another Bochs run holds %s; waiting\n",
+                    BOCHS_HOST_LOCK_PATH);
+            told = true;
+        }
+        if (mono_ms() >= deadline) {
+            fprintf(stderr, "bochs_run: %s still held after %d s -- another "
+                    "Bochs run (or an outer flock around this one) never "
+                    "released it\n", BOCHS_HOST_LOCK_PATH,
+                    BOCHS_HOST_LOCK_WAIT_MS / 1000);
+            close(fd);
+            return -1;
+        }
+        sleep_ms(250);
+    }
+}
+
 int bochs_run(const BochsConfig *cfg, BochsResult *out)
 {
     if (!cfg || !out) return -1;
@@ -307,8 +360,12 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     /* SIGPIPE off: a dropped RFB socket must not kill the harness. */
     signal(SIGPIPE, SIG_IGN);
 
+    int host_lock = bochs_host_lock();
+    if (host_lock < 0) return -1;
+
     pid_t pid = fork();
     if (pid < 0) {
+        close(host_lock);
         fprintf(stderr, "bochs_run: fork failed: %s\n", strerror(errno));
         return -1;
     }
@@ -368,6 +425,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
     }
     if (rfb_fd >= 0) close(rfb_fd);
+    close(host_lock);              /* Bochs is reaped: the port is free again */
 
     if (reaped && WIFEXITED(status)) {
         out->exit_code = WEXITSTATUS(status);
