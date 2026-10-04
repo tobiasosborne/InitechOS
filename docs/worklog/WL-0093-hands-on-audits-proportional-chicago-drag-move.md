@@ -87,3 +87,20 @@ First full vector on the combined tree (450f28f) went RED one minute in: `test-c
 4. **Unchanged queue behind the GUI:** I123 P1 (initech-9u8w) and IWORD P1
    (initech-l4tj) can now cite the corpus specs; I123 P2 (94ah) owns the
    Initech 123 control-word decision.
+
+## Addendum -- 02:10 to 04:45, same session
+- **Input fixes** (opus, 7d9c950 / 7981c99 / 52ede68): tdnl.58 modifiers, tdnl.59 gesture
+  tracking, tdnl.60 box tracking. Cert ALL GREEN 363 host + 132 emu at 52ede68.
+- **Third Codex pass** (docs/audits/2026-10-04-flair-gui-codex-pass3): three fixes HOLD, three
+  PARTLY; H01-H07 filed as tdnl.71-.77.
+- **Finder fixes** (opus, 8f7d8bc / 4ff8cab): tdnl.34 contents follow the window; Select All and
+  Arrange implemented, every other dead command drawn disabled, `test-menu-handlers` guard.
+- **A wrong fix caught by the vector:** the lane's tdnl.40 fix (47f6202, foreground follows the
+  frontmost visible window) made the CLOSE_HIDE_ONLY mutant pixel-identical to a real close;
+  `test-flair-close-terminate-mutant` went red in the full cert at 84bda8d. The PM's brief had
+  left the direction open. Redone from the reference by a second lane (d09c7db).
+- **Scroll bars** (opus, 0967060 / 67f1c68 / 8ab9cc8): tdnl.35.
+- **Final certificate:** ALL GREEN 367 host + 140 emu at 40581c5 (2026-10-04 04:41).
+- **Not done:** clips not re-recorded on main (tdnl.81); tdnl.61 dropped from the scroll lane
+  for quota; no stranger has driven the 40581c5 images.
+

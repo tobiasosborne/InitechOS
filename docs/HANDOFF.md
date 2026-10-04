@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-04, session close (**WL-0093: TWO HANDS-ON DESKTOP AUDITS (29 findings, four open P0s in the window system), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-10-04 04:45, session close (**WL-0093: THREE HANDS-ON DESKTOP AUDITS (36 findings; all four window-system P0s fixed and certified, cert 367 host + 140 emu at 40581c5), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -231,6 +231,36 @@ fallback, asserted on serial.)
 > `docs/audits/2026-10-04-flair-gui-codex-pass2/` (G01-G11); each has REPORT.md, TRIAGE.md
 > (bead mapping, root causes, corrections), screenshots, serial evidence and a replay driver.
 > Beads carry label `gui-audit-2026-10` under epic initech-tdnl.
+>
+> **UPDATE 2026-10-04 04:45 (session close) -- ALL FOUR AUDIT P0s ARE FIXED AND CERTIFIED.**
+> Certificate: ALL GREEN 367 host + 140 emu at 40581c5 (first-person, `make clean && make test`,
+> 2026-10-04 04:41). Binding kernel headroom about 18 KB (scroll bars cost 6.6 KB; watch it).
+> Landed since the 02:10 update: `tdnl.34` (Finder icon coordinates re-based in ONE place,
+> `finder_win_sync_geometry`), `tdnl.35` (working scroll bars: `os/flair/winscroll.h`,
+> FindWindow never returns inDrag for a bar, arrow/page/thumb tracking, disabled bars, the Finder
+> view scrolls, contRgn stops at the horizontal bar), `tdnl.40` (REDONE: the foreground app keeps
+> the foreground when its last window closes; only its front window is drawn active; a desktop
+> click brings the Finder forward -- Macintosh Toolbox Essentials p.2-4/2-60/4-16; the first
+> attempt, follow-the-front-window, masked the CLOSE_HIDE_ONLY mutant and was caught by the full
+> vector), `tdnl.36/.67` (Select All and Arrange implemented; Get Info, Duplicate, Empty Trash,
+> Restart, Shut Down, Open-on-a-document and band-1 About drawn DISABLED; structural guard
+> `test-menu-handlers`). A third Codex pass (`docs/audits/2026-10-04-flair-gui-codex-pass3/`)
+> confirmed the modifier, box-tracking and app-menu-bar fixes HOLD and filed H01-H07
+> (`tdnl.71`-`.77`); it ran BEFORE the Finder/scroll/foreground fixes, which no stranger has
+> driven yet.
+>
+> **NEXT, replacing items 1-3 below:** (1) `tdnl.81` re-record every clip on main and get the
+> operator's Law-4 eyeball -- nothing since the font change has been eyeballed by him.
+> (2) A fourth Codex pass on the 40581c5 images (verify tdnl.34/.35/.40 and the disabled
+> commands; brief pattern in the audit directories). (3) P1s: `tdnl.71` (long cross-menu
+> gesture dispatches the wrong command), `tdnl.73` (the TRASH directory can be moved; protect and
+> hide it with `tdnl.56`), `tdnl.31` (menu delivery to disk apps), `tdnl.78` (Restart / Shut
+> Down need a kernel primitive + references), `tdnl.61` (64-entry cap), `tdnl.62` (disk-full),
+> `tdnl.39`/`6k12`/`p6st` (Trash open, Empty Trash, Duplicate/Get Info/rename).
+> **OPERATOR RULING NEEDED:** what band-1 Quit does (`tdnl.50`); it is the one command still
+> enabled and dead, because two gates select it.
+> **Quota state at close:** Claude weekly 60%, about 3 points under pace (the session's stop
+> line); Codex weekly 5%.
 >
 > **UPDATE 2026-10-04 02:10 (same session):** the input-handling fixes landed and are certified --
 > `tdnl.58` (released modifiers no longer latch; the event decoder never recognised set-1 break
