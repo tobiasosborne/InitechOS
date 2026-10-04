@@ -36,3 +36,28 @@ largest existing mutant 184552 / 12056 free (107 kernels).
 
 Evidence: build/dosfix-evidence/ logs and build/dos_safety_*/ stopped images,
 commands, serial, mcopy extraction and fsck output (build intermediates).
+
+## K02 - initech-wdzq
+
+fat12_create now rejects an existing directory/volume-label entry before any
+chain release or write. COMMAND.COM resolves a directory destination read-only,
+appends the source basename under a checked path bound, and applies K01's
+identity guard to that final path. Root, dot, nested and trailing-separator
+operands are covered; a copy into its own directory is refused.
+
+Reference: Microsoft MS-DOS 3.3 User's Reference pp. 12 (file/directory namespace)
+and 51 (animal.typ copied into c:\bigcats); IBM DOS 3.30 Technical Reference
+pp. 6-122/6-123 (CREAT creates/truncates files). No catalogue/spec change.
+
+Oracle first: host CREAT test had four nonregular-entry rejection failures;
+booted shell audit sequence failed FILLED/SAVE.TXT missing. Green after repair:
+whole image byte-identical after rejected CREAT, clean fsck.fat, mcopy sees both
+SAVE.TXT and the new README.TXT in FILLED plus files in EMPTY and SUB/DEEP.
+Mutants: removing the FAT guard makes CREAT succeed (rejection RED); omitting
+directory basename assembly leaves FILLED/README.TXT missing (disk RED), with
+the backend guard still protecting the original directory.
+
+Commit restriction: root .git is read-only (index.lock rejected). Per-finding
+commits are preserved on lane-dos-dataloss in build/dosfix-commit-store, a local
+bare metadata copy with read-only access to the original objects. Original
+checkout HEAD is not advanced. A portable bundle is produced at handoff.

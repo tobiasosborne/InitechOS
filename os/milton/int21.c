@@ -2143,6 +2143,14 @@ int int21_same_file(uint16_t first, uint16_t second)
     return a->kind == SFT_KIND_DEVICE && a->device == b->device;
 }
 
+int int21_directory_exists(const char *path)
+{
+    uint16_t dir;
+    return path != 0 && !path_overlength(path) && g_file != 0 &&
+        g_file->resolve_dir != 0 &&
+        g_file->resolve_dir(path, g_cwd_start_cluster, &dir, 0, 0u) == 0u;
+}
+
 static void do_open(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;

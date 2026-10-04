@@ -1,6 +1,6 @@
 /* Host integration of the real INT21/FAT stack. The thin shell grades disk
  * bytes with mtools/cmp/fsck.fat. No artifact read-back can certify the disk.
- * Ref: MS-DOS 3.3 User's Reference p. 50; User's Guide p. 12;
+ * Ref: MS-DOS 3.3 User's Reference p. 50; User's Reference p. 12;
  * IBM DOS 3.30 Technical Reference pp. 6-122/6-123 (CREAT).
  * Beads initech-vj28 / initech-wdzq; audit K01/K02. */
 #define _GNU_SOURCE
@@ -47,6 +47,13 @@ static void identity(const char *first, const char *second, int expected)
         close_handle(a); close_handle(b);
     }
 }
+static void reject_create(const char *path)
+{
+    int error;
+    uint16_t ax = call_path(0x3c00, path, &error);
+    CHECK(error && ax == INT21_ERR_ACCESS_DENIED, "CREAT rejects nonregular entry before freeing chain");
+    if (!error) close_handle(ax);
+}
 int main(int argc, char **argv)
 {
     if (argc != 3) return 2;
@@ -69,6 +76,9 @@ int main(int argc, char **argv)
         identity("ZERO1", "A:\\ZERO1.", 1);
         identity("SUB\\SELF.BIN", "A:\\SUB\\DEEP\\..\\SELF.BIN", 1);
         CHECK(!int21_same_file(255, 255), "invalid handles are not identities");
+    } else if (strcmp(argv[2], "create") == 0) {
+        reject_create("FILLED"); reject_create("EMPTY");
+        reject_create("SUB\\DEEP"); reject_create("SAFETY");
     } else return 2;
     blockdev_file_close(&disk);
     return TEST_SUMMARY("test_dos_safety");

@@ -2637,15 +2637,16 @@ static void builtin_break(const char *arg)
  * Errors: a missing operand -> "Required parameter missing" (MSG-DOS-0011); a
  * missing/unopenable source -> "File not found" (MSG-DOS-0003); a destination
  * that cannot be created or a short write -> "Bad command or file name"
- * (MSG-DOS-0002, the catch-all COMMAND.COM diagnostic). Wildcard COPY (src
- * patterns / dir destinations) is DEFERRED -- single-file is the must (the
- * follow-up bead). Ref: DOS 3.3 COPY; spec/int21h_register.json 3Dh/3Ch/3Fh/40h. */
+ * (MSG-DOS-0002, the catch-all COMMAND.COM diagnostic). Wildcard source COPY
+ * remains deferred. Directory destinations receive the source basename.
+ * Ref: MS-DOS 3.3 User's Reference pp. 50-51; INT21 3Dh/3Ch/3Fh/40h. */
 static void builtin_copy(const char *arg)
 {
     cmd_pair_t pair;
     int  src_h, dst_h;
     uint8_t chunk[128];
     uint32_t got;
+    char destination[CMD_LINE_MAX];
 
     cmd_pair_parse(arg, &pair);
     if (!pair.ok) {
@@ -2658,11 +2659,32 @@ static void builtin_copy(const char *arg)
         dos_print(MSG_DOS_0003 "\r\n$");        /* "File not found" */
         return;
     }
+    uint32_t n = str_len(pair.second);
+    for (uint32_t i = 0; i <= n; i++) destination[i] = pair.second[i];
+#ifndef CMD_MUTATE_COPY_DIR_RAW
+    if (int21_directory_exists(destination)) {
+        const char *leaf = pair.first;
+        for (const char *p = leaf; *p; p++)
+            if (*p == '\\' || *p == ':') leaf = p + 1;
+        /* Ref: MS-DOS 3.3 User's Reference p. 51, animal.typ -> c:\bigcats.
+         * Audit K02 / initech-wdzq: never pass the directory itself to CREAT.
+         * Bound the assembled path; never truncate into a different target. */
+        uint32_t len = str_len(leaf);
+        if (n + len + 2u > sizeof(destination)) {
+            dos_close(src_h);
+            dos_print(MSG_DOS_0009 "\r\n$");
+            return;
+        }
+        if (n != 0u && destination[n - 1u] != '\\' && destination[n - 1u] != ':')
+            destination[n++] = '\\';
+        for (uint32_t i = 0; i <= len; i++) destination[n + i] = leaf[i];
+    }
+#endif
     /* OPEN both operands before CREAT: the resolved parent + entry slot is the
      * identity, including absolute/CWD/dot aliases and zero-length files.
      * Ref: Microsoft MS-DOS 3.3 User's Reference p. 50 (self refusal + zero
      * footer); audit K01 / initech-vj28. COMMAND.COM is kernel-resident. */
-    int probe = dos_open(pair.second);
+    int probe = dos_open(destination);
     int same = probe >= 0 && int21_same_file((uint16_t)src_h, (uint16_t)probe);
     if (probe >= 0) dos_close(probe);
     if (probe < 0 && probe != -(int)INT21_ERR_FILE_NOT_FOUND &&
@@ -2680,7 +2702,7 @@ static void builtin_copy(const char *arg)
         dos_print("        0 file(s) copied\r\n$");
         return;
     }
-    dst_h = dos_creat(pair.second);
+    dst_h = dos_creat(destination);
     if (dst_h < 0) {
         dos_close(src_h);
         dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */

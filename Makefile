@@ -25901,12 +25901,33 @@ test-flair-box-track-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_goaway_on
 DOS_SAFETY_FIXTURE := $(BUILD)/dos_safety_fixture
 DOS_SAFETY_HOST := $(BUILD)/test_dos_safety
 DOS_SAFETY_HOST_MUT := $(BUILD)/test_dos_safety_mut_identity
+DOS_SAFETY_CREATE_MUT := $(BUILD)/test_dos_safety_mut_create
+$(DOS_SAFETY_CREATE_MUT): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_CREATE_NONREGULAR -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $@ $< $(TEST_FILEIO_SUBDIR_DEPS)
 $(DOS_SAFETY_HOST): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $@ $< $(TEST_FILEIO_SUBDIR_DEPS)
 $(DOS_SAFETY_HOST_MUT): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_SAMEFILE_FALSE -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $@ $< $(TEST_FILEIO_SUBDIR_DEPS)
 $(DOS_SAFETY_FIXTURE): harness/diff/fat_diff/dos_safety_fixture.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
+
+# One mutant object per regression; every other object is the real shell.
+define dos-safety-shell-mutant
+$(BUILD)/command_safety_$(1).o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/int21.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -D$(2) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $$< -o $$@
+$(BUILD)/kernel_shell_mut_safety_$(1).elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_safety_$(1).o $(KERNEL_LD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_safety_$(1).o
+$(BUILD)/kernel_shell_mut_safety_$(1).bin: $(BUILD)/kernel_shell_mut_safety_$(1).elf
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$((max - sz))" conv=notrunc status=none
+$(BUILD)/tracer_mut_safety_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_safety_$(1).bin
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_shell_mut_safety_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+endef
+$(eval $(call dos-safety-shell-mutant,k02,CMD_MUTATE_COPY_DIR_RAW))
 
 .PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant
 test-dos-safety-identity: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
@@ -25919,6 +25940,21 @@ test-dos-safety-identity-mutant: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST_MUT)
 test-dos-safety-k01: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
 	@sh harness/diff/fat_diff/dos_safety.sh k01 $(TRACER_IMG)
 
+test-dos-safety-k02: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k02 $(TRACER_IMG)
+test-dos-safety-create: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
+	@sh harness/diff/fat_diff/dos_safety.sh create unused
+test-dos-safety-create-mutant: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_CREATE_MUT)
+	@DOS_SAFETY_HOST=$(DOS_SAFETY_CREATE_MUT) sh harness/diff/fat_diff/dos_safety.sh create unused _mutant > $(BUILD)/dos_safety_create_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL .*CREAT rejects nonregular entry' $(BUILD)/dos_safety_create_mutant.log \
+	|| { cat $(BUILD)/dos_safety_create_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-create-mutant (nonregular guard removed: CREAT rejection, RED)\n'
+test-dos-safety-k02-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_k02.img
+	@sh harness/diff/fat_diff/dos_safety.sh k02 $(BUILD)/tracer_mut_safety_k02.img _mutant > $(BUILD)/dos_safety_k02_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL k02: FILLED/README.TXT missing' $(BUILD)/dos_safety_k02_mutant.log \
+	|| { cat $(BUILD)/dos_safety_k02_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-k02-mutant (directory basename omitted: child missing, RED)\n'
+
 test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG)
 	@sh harness/diff/fat_diff/dos_safety.sh k01 $(OJXN_MUT_TRACER_IMG) _mutant > $(BUILD)/dos_safety_k01_mutant.log 2>&1; rc=$$?; \
 	[ $$rc -ne 0 ] && grep -q 'FAIL k01: SELF.BIN bytes changed' $(BUILD)/dos_safety_k01_mutant.log \
@@ -25927,6 +25963,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 
 TEST_UNIT_GATES := \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
+	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-desktop-db test-desktop-db-mutant test-m0bp test-m0bp-rollback test-fat-fault-rollback \
 	test-fat12-subdir test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc test-fat-move \
@@ -27046,6 +27083,7 @@ TEST_EMU_GATES := \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
 	test-dos-safety-k01 test-dos-safety-k01-mutant \
+	test-dos-safety-k02 test-dos-safety-k02-mutant \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \

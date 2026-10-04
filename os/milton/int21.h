@@ -496,6 +496,10 @@ void int21_set_file_backend(const int21_file_backend_t *backend);
  * No path-text heuristics; invalid handles and distinct devices are different.
  * Ref: MS-DOS 3.3 User's Reference p. 50; audit K01 / initech-vj28. */
 int int21_same_file(uint16_t first, uint16_t second);
+/* Read-only full-directory resolution for COPY destination operands, including
+ * root, CWD, dot/parent and trailing separator spellings. Never changes CWD.
+ * Ref: MS-DOS 3.3 User's Reference p. 51; audit K02 / initech-wdzq. */
+int int21_directory_exists(const char *path);
 
 /* ---- EXEC backend (beads initech-saw + initech-509.5 AH=4Bh) --------------
  * AH=4Bh EXEC (load-and-execute a child program by name) needs the FAT-sourced

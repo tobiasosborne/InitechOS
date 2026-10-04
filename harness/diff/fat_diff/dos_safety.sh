@@ -1,6 +1,6 @@
 #!/bin/sh
 # Thin mtools/QEMU differential. References: Microsoft MS-DOS 3.3 User's
-# Reference pp. 50-51, 56; User's Guide pp. 12-13 (qualified *.* + prompt).
+# Reference pp. 50-51, 56; User's Reference pp. 12-13 (qualified *.* + prompt).
 set -eu
 mode=$1
 boot=$2
@@ -34,12 +34,29 @@ touch "$out/zero"
 mcopy -i "$img" "$out/zero" ::ZERO1
 mcopy -i "$img" "$out/zero" ::ZERO2
 case "$mode" in
-identity)
+identity|create)
     cp -f "$img" "$out/before.img"
-    "${DOS_SAFETY_HOST:-build/test_dos_safety}" "$img" identity || fail 'resolved entry identity'
-    cmp -s "$img" "$out/before.img" || fail 'read-only identity changed disk'
-    printf 'VERDICT: PASS -- test-dos-safety-identity (resolved directory + slot, disk unchanged)\n'
+    "${DOS_SAFETY_HOST:-build/test_dos_safety}" "$img" "$mode" || fail 'host safety check'
+    cmp -s "$img" "$out/before.img" || fail 'rejected operation changed disk'
+    fsck.fat -n "$img" > "$out/fsck.txt" 2>&1 || fail 'fsck.fat found damage'
+    printf 'VERDICT: PASS -- test-dos-safety-%s (real INT21/FAT stack, whole disk unchanged)\n' "$mode"
     exit 0
+    ;;
+k02)
+    cat > "$out/commands.txt" <<'CMDS'
+type filled\save.txt
+copy readme.txt filled
+cd filled
+type save.txt
+cd ..
+copy readme.txt empty
+copy a:\readme.txt a:\filled\
+copy filled\readme.txt filled
+copy readme.txt .\filled
+copy readme.txt sub\deep
+copy readme.txt a:\
+exit
+CMDS
     ;;
 k01)
     cat > "$out/commands.txt" <<'CMDS'
@@ -82,6 +99,14 @@ k01)
     bytes SUB/SELF.BIN "$out/self.bin"
     [ "$(grep -c 'File cannot be copied onto itself' "$out/repl.txt")" = 8 ] || fail 'expected eight resolved self refusals'
     grep -q '1 file(s) copied' "$out/repl.txt" || fail 'different parent copy refused'
+    ;;
+k02)
+    bytes FILLED/SAVE.TXT "$out/root.txt"
+    bytes FILLED/README.TXT "$out/readme.txt"
+    bytes EMPTY/README.TXT "$out/readme.txt"
+    bytes SUB/DEEP/README.TXT "$out/readme.txt"
+    bytes README.TXT "$out/readme.txt"
+    [ "$(grep -c 'File cannot be copied onto itself' "$out/repl.txt")" = 2 ] || fail 'directory self destination not refused'
     ;;
 esac
 fsck.fat -n "$img" > "$out/fsck.txt" 2>&1 || fail 'fsck.fat found damage'
