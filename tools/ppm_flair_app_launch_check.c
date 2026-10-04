@@ -7,7 +7,9 @@
  * expected value is derived HERE, independently of the renderer:
  *   - GEOMETRY from the fixture's own NEWWINDOW arguments (os/apps/tenantfx.asm
  *     WIN_* = (100,160)..(400,340)) and the locked chrome metrics arithmetic
- *     (spec/flair_app_launch_traces.mk "GEOMETRY"): content (101,182)..(379,339);
+ *     (spec/flair_app_launch_traces.mk "GEOMETRY"): content (101,182)..(379,319)
+ *     (bottom = frame.bottom - 21: contRgn stops at the horizontal scroll bar
+ *     since bead initech-tdnl.35 -- RE-KEYED from 339, stated);
  *     TEXTDRAW (16,16) and (16,40) content-local -> global (117,198), (117,222);
  *   - COLOURS from the independent canon (spec/assets/color_canon.h
  *     flair_canon_rgb, ADR-0010 -- never the renderer's palette);
@@ -353,14 +355,23 @@ int main(int argc, char **argv)
      * tenant window is NOT in front of them. */
     expect(105, 186, CIDX_WHITE, "content just inside the top-left");
     expect(300, 300, CIDX_WHITE, "content over NOTES (the tenant is FRONT)");
-    expect(200, 320, CIDX_WHITE, "content over bare desktop");
+    /* RE-KEYED (tdnl.35, stated): (200,320) is now the tenant window's
+     * HORIZONTAL SCROLL BAR (y [319,335)), which content paint no longer
+     * erases (pass-3 H06); the bare-desktop content probe moves 10 px up,
+     * still left of NOTES (left 260), and the bar itself is graded: the
+     * tenant has nothing to scroll, so it is DISABLED -- flat #F3F3F3 with a
+     * black outer line (scrollbars.md Sec 3). */
+    expect(200, 310, CIDX_WHITE, "content over bare desktop");
+    expect(200, 320, CIDX_PLAT_TROUGH,
+           "the DISABLED horizontal scroll bar's trough (not erased by content)");
+    expect(200, 319, CIDX_BLACK, "the horizontal scroll bar's outer line");
     /* The two TEXTDRAW runs, exactly. */
     text_band("LINE1", "Loaded from disk", 117, 198);
     text_band("LINE2", "Click here to quit", 117, 222);
     /* No stray ink anywhere else in the content: the gap between the lines and
      * everything below the second one. */
     solid("GAP", 101, 214, 379, 222, CIDX_WHITE);
-    solid("BELOW", 101, 238, 379, 339, CIDX_WHITE);
+    solid("BELOW", 101, 238, 379, 319, CIDX_WHITE);
     solid("LEFT", 101, 182, 117, 214, CIDX_WHITE);
 
     if (g_fail) {
