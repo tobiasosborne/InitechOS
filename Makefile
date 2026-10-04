@@ -9586,7 +9586,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/menu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
+TBXGATE_DEPS := os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -12268,6 +12268,7 @@ test-menu-handlers-mutant: $(foreach m,$(MENU_HANDLERS_MUTANTS),$(BUILD)/test_me
 	done
 	@printf '>>> test-menu-handlers-mutant: green (all three mutants RED for the named reason)\n'
 
+
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-ops (bead initech-34dh; GUI remediation R3.4 reslice
 # 1/3; docs/design/GUI-remediation-R3-finder-design.md F1.4/F1.5/F2.2) -- the
@@ -13012,6 +13013,40 @@ test-menu-mutant: $(TEST_MENU_MUT_FW) $(TEST_MENU_MUT_SD) $(TEST_MENU_MUT_NR) $(
 	@if $(TEST_MENU_MUT_DISABLED) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_DISABLED_NORMAL_INK PASSED -- the disabled A5 ink oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_DISABLED_NORMAL_INK correctly RED for disabled ink)\n'; fi
 	@if $(TEST_MENU_MUT_TITLE) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_TITLE_NO_HILITE PASSED -- the pulled-title accent oracle is decoration\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_TITLE_NO_HILITE correctly RED for pulled-title state)\n'; fi
 	@if $(TEST_MENU_MUT_TC) >/dev/null 2>&1; then printf '!!! test-menu-mutant FAIL: MENU_MUT_TRACK_CAP PASSED -- the long-gesture oracle is decoration (tdnl.71)\n'; exit 1; else printf '>>> test-menu-mutant: green (MENU_MUT_TRACK_CAP correctly RED, tdnl.71)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-tbx-menu (bead initech-tdnl.31; audit 2026-10-04 pass 2 G03)
+# -- A DISK TENANT HEARS ITS OWN MENU CHOICES: the route decisions the kernel
+# compiles (os/flair/tbxmenu.h, included by tbxgate.c) over the REAL MenuKey.
+# M1 the Ctrl/Cmd chord -> MenuKey over the tenant bar (plain/auto/disabled/
+# unbound stay keys); M2 the mouse and key routes push the IDENTICAL
+# What/Message (MTE p. 3-78: one DoMenuCommand for both); M3 bar identity;
+# M4 TBX_EVT_MENU aliases no Event Manager code. Two mutants, each RED for its
+# named reason. The emulator half is test-flair-tenant-menu.
+# ---------------------------------------------------------------------------
+TEST_TBX_MENU     := $(BUILD)/test_tbx_menu
+TEST_TBX_MENU_SRC := harness/proptest/test_tbx_menu.c
+TBX_MENU_DEPS := $(TEST_TBX_MENU_SRC) os/flair/tbxmenu.h spec/toolbox_gate.h \
+                 spec/event_model.h $(TEST_MENU_DEPS)
+$(TEST_TBX_MENU): $(TBX_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -o $@ $(TEST_TBX_MENU_SRC) $(MENU_LINK)
+$(BUILD)/test_tbx_menu_mutant_%: $(TBX_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* $(MENU_INC) -o $@ $(TEST_TBX_MENU_SRC) $(MENU_LINK)
+
+.PHONY: test-tbx-menu test-tbx-menu-mutant
+test-tbx-menu: $(TEST_TBX_MENU)
+	@printf ">>> test-tbx-menu: a disk tenant hears its own menu choices -- key route, mouse/key convergence, bar identity (tdnl.31)\n"
+	@$(TEST_TBX_MENU)
+	@printf ">>> test-tbx-menu: green\n"
+
+test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_ANY_BAR
+	@for pair in 'TBX_MUT_MENU_KEY_PLAIN:M1 Ctrl-q on the tenant bar is File > Quit' 'TBX_MUT_MENU_ANY_BAR:M3 a choice in another bar'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_tbx_menu_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-tbx-menu-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-tbx-menu-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-tbx-menu-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
+	done
+	@printf '>>> test-tbx-menu-mutant: green (both mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-menu (bead initech-tdnl.12, GUI remediation R3.5 stage
@@ -19970,9 +20005,12 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 #   9 BADMBAR  the BAD_MBAR fixture variant (initech-cnpm, spec/toolbox_gate.h
 #              Sec 9): a MenuBar whose menus array lies outside the image and a
 #              MenuBar record in the PSP below imageBase are each REFUSED loudly
-#              (TENANT-SETMBAR-BAD why=..., -3), a valid bar offered after the
-#              window is refused BUSY (-4); the tenant still comes up foreground
-#              and band 2 is EXACTLY the shell fallback (bar-photoshop).
+#              (TENANT-SETMBAR-BAD why=..., -3), and the first one offered
+#              again AFTER the window is refused the same way (since
+#              initech-tdnl.31 SETMBAR is legal after the window -- Sec 9 V3 --
+#              but never unvalidated; it was the V2 BUSY (-4) rule before);
+#              the tenant still comes up foreground and band 2 is EXACTLY the
+#              shell fallback (bar-photoshop).
 #  10 MENU     FLAIR_APP_MENUBAR_SPEC (initech-cnpm): a click on the tenant's
 #              "Fixture" title in band 2 drops ITS menu (menuID 131, read out
 #              of the tenant image), the release selects nothing, and the
@@ -20022,9 +20060,11 @@ APPL_MENU = grep -qx 'FLAIR-MENU-DROP menu=131' $(1) && grep -qx 'FLAIR-MENU men
 # BADMBAR (initech-cnpm): the SETMBAR lines of the BAD_MBAR fixture, in order,
 # hand-derived from `nasm -l os/apps/tenantfx.asm -DBAD_MBAR`: bad_nested at
 # +0x01a4 (its menus -> the PSP), the PSP-tail record $$-8 (printed +0xfff8),
-# and the valid mbar at +0x0118 offered after NEWWINDOW. Each refusal's BAD line
-# is printed inside the verb, so it precedes that call's TENANT-GATE line.
-APPL_BADMBAR = grep -E '^(TENANT-SETMBAR-BAD|TENANT-GATE ax=0x0050 )' $(1) > $(1).mbar && printf 'TENANT-SETMBAR-BAD why=menus-outside-image\nTENANT-GATE ax=0x0050 bar=+0x01a4 -> -3\nTENANT-SETMBAR-BAD why=bar-outside-image\nTENANT-GATE ax=0x0050 bar=+0xfff8 -> -3\nTENANT-GATE ax=0x0050 bar=+0x0118 -> -4\n' | cmp -s - $(1).mbar && grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(1)
+# and bad_nested AGAIN after NEWWINDOW (initech-tdnl.31: post-window SETMBAR is
+# legal now, so the post-window offer is the refusal case that still applies;
+# it was the valid mbar refused BUSY -4 under the V2 rule). Each refusal's BAD
+# line is printed inside the verb, so it precedes that call's TENANT-GATE line.
+APPL_BADMBAR = grep -E '^(TENANT-SETMBAR-BAD|TENANT-GATE ax=0x0050 )' $(1) > $(1).mbar && printf 'TENANT-SETMBAR-BAD why=menus-outside-image\nTENANT-GATE ax=0x0050 bar=+0x01a4 -> -3\nTENANT-SETMBAR-BAD why=bar-outside-image\nTENANT-GATE ax=0x0050 bar=+0xfff8 -> -3\nTENANT-SETMBAR-BAD why=menus-outside-image\nTENANT-GATE ax=0x0050 bar=+0x01a4 -> -3\n' | cmp -s - $(1).mbar && grep -qx 'FLAIR-DISPATCH app=TENANTFX' $(1)
 
 .PHONY: test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs
 test-flair-app-launch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_DATA_TFX_NOREG_IMG) $(FLAIR_DATA_TFX_CRASH_IMG) $(FLAIR_DATA_TFX_BADMBAR_IMG) $(PPM_FLAIR_APPL_CHECK_BIN) $(FLAIR_APPL_GOLDEN)
@@ -20064,9 +20104,9 @@ test-flair-app-launch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FL
 	@$(call APPL_ALIVE,$(BUILD)/flair_appl_crash.serial) && $(call APPL_CRASH,$(BUILD)/flair_appl_crash.serial) || { printf '!!! test-flair-app-launch [8/10] FAIL: a fault inside the tenant image must be killed, not panic the desktop\n'; grep -E '^(TENANT-|PANIC|HALTED)' $(BUILD)/flair_appl_crash.serial; exit 1; }
 	@printf '>>> test-flair-app-launch [8/10] CRASH: %s -> FlairProcess_kill; desktop survived\n' "$$(grep -m1 '^TENANT-CRASH' $(BUILD)/flair_appl_crash.serial)"
 	$(call appl-boot,flair_appl_badmbar,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_TFX_BADMBAR_IMG),FLAIR_APP_LAUNCH_SHOW_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
-	@$(call APPL_ALIVE,$(BUILD)/flair_appl_badmbar.serial) && $(call APPL_BADMBAR,$(BUILD)/flair_appl_badmbar.serial) || { printf '!!! test-flair-app-launch [9/10] FAIL: BADMBAR -- an out-of-image MenuBar must be refused loudly, a post-window SETMBAR refused BUSY, the tenant still foreground\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_appl_badmbar.serial; exit 1; }
+	@$(call APPL_ALIVE,$(BUILD)/flair_appl_badmbar.serial) && $(call APPL_BADMBAR,$(BUILD)/flair_appl_badmbar.serial) || { printf '!!! test-flair-app-launch [9/10] FAIL: BADMBAR -- an out-of-image MenuBar must be refused loudly, before AND after the window, the tenant still foreground\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_appl_badmbar.serial; exit 1; }
 	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-photoshop $(BUILD)/flair_appl_badmbar.ppm || { printf '!!! test-flair-app-launch [9/10] FAIL: BADMBAR -- band 2 is not the shell fallback bar (a refused MenuBar reached band 2)\n'; exit 1; }
-	@printf '>>> test-flair-app-launch [9/10] BADMBAR: both out-of-image MenuBars refused TENANT-SETMBAR-BAD, the post-window one BUSY; band 2 is exactly the shell fallback\n'
+	@printf '>>> test-flair-app-launch [9/10] BADMBAR: both out-of-image MenuBars refused TENANT-SETMBAR-BAD, and again after the window; band 2 is exactly the shell fallback\n'
 	$(call appl-boot,flair_appl_menu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_MENUBAR_SPEC,)
 	@$(call APPL_ALIVE,$(BUILD)/flair_appl_menu.serial) && $(call APPL_MENU,$(BUILD)/flair_appl_menu.serial) || { printf '!!! test-flair-app-launch [10/10] FAIL: MENU -- a band-2 click must drop the TENANT menu 131 (its own resource), select nothing on release, and the tenant must still exit cleanly\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|FLAIR-MENU|PANIC)' $(BUILD)/flair_appl_menu.serial; exit 1; }
 	@printf '>>> test-flair-app-launch [10/10] MENU: band 2 dropped the tenant menu 131 from its own resource; release selected nothing; clean exit after\n'
@@ -20144,6 +20184,120 @@ test-flair-app-launch-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_APPL_SMOKE_IMG)
 	@cmp -s $(BUILD)/flair_appl_smoke_qemu.serial.trace $(BUILD)/flair_appl_smoke_bochs.serial.trace || { printf '!!! test-flair-app-launch-bochs FAIL: QEMU and Bochs disagree on the tenant CPU path (stop condition: investigate, do not pin to QEMU)\n'; diff -u $(BUILD)/flair_appl_smoke_qemu.serial.trace $(BUILD)/flair_appl_smoke_bochs.serial.trace; exit 1; }
 	@printf '>>> test-flair-app-launch-bochs: %s TENANT-* lines byte-identical on QEMU and Bochs (load, gate, register, update, mouseDown, exit)\n' "$$(wc -l < $(BUILD)/flair_appl_smoke_qemu.serial.trace)"
 	@printf '>>> test-flair-app-launch-bochs: green\n'
+endif
+
+# ===========================================================================
+# REAL gate: test-flair-tenant-menu (bead initech-tdnl.31; audit 2026-10-04
+# pass 2 G03) -- A DISK-LAUNCHED APPLICATION HEARS ITS OWN MENU CHOICES.
+# ---------------------------------------------------------------------------
+# DECISION (spec/toolbox_gate.h Sec 6a): the shell runs MenuSelect (band-2
+# click) and MenuKey (a Ctrl/Cmd chord while the tenant is foreground) over the
+# tenant's OWN bar and PUSHES the result word as a TBX_EVT_MENU event -- the
+# tenant's eventProc is its DoMenuCommand(Message), reached by the mouse and the
+# key with the identical What/Message (MTE p. 3-78). DRAWMENUBAR 0x0052 lets
+# it replace its bar after its window exists. Host half: test-tbx-menu.
+# QEMU, FOUR boots of $(FLAIRTENANTS_IMG) + the shipped data volume, traces
+# LOCKED in spec/flair_app_launch_traces.mk Sec 8-11:
+#   1 QUIT-MOUSE  File > Quit picked with the mouse: the tail after the switch
+#                 is EXACTLY FLAIR-MENU 129/1 -> TENANT-MENU src=mouse ->
+#                 TENANT-EVT what=81 -> EXIT(0) -> TENANT-EXIT via=exit; the
+#                 post-budget dump is BYTE-IDENTICAL to the never-launched
+#                 baseline (leg 4) and band 2 is exactly the Finder bar.
+#   2 QUIT-KEY    Ctrl-Q: the SAME tail with src=key (no plain keyDown ever
+#                 reaches the tenant), the SAME byte-identical restore.
+#   3 ABOUT       Fixture > About: the tenant draws its About run, SETMBARs
+#                 mbar2 AFTER its window and calls DRAWMENUBAR (exact tail);
+#                 the dump grades the About run (about) and band 2 == File Edit
+#                 Fixture Info (bar-tenant2); the tenant is still resident.
+#   4 PRE         FLAIR_APP_LAUNCH_PRE_SPEC, the restore baseline.
+# Mutation-proven by test-flair-tenant-menu-mutant; the CPU path vs Bochs is
+# test-flair-tenant-menu-bochs (Rule 5).
+# ===========================================================================
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_MENU_KEY_PLAIN,tbx_menu_key_plain))
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_MENU_NOT_DELIVERED,tbx_menu_not_delivered))
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_DRAWMBAR_NOOP,tbx_drawmbar_noop))
+
+# The tail after the LAST switch to the tenant: menu/tenant lines only.
+TMENU_TAIL = awk '/^FLAIR-DISPATCH app=TENANTFX$$/{n=NR} {l[NR]=$$0} END{for(i=n+1;i<=NR;i++) if (l[i] ~ /^(FLAIR-MENU |TENANT-(MENU|EVT|GATE|EXIT) )/) print l[i]}' $(1)
+TMENU_QUIT_TAIL = TENANT-MENU menu=129 item=1 src=$(1)\nTENANT-EVT what=81\nTENANT-GATE ax=0x0070 rc=0 -> 0\nTENANT-EXIT rc=0 via=exit\n
+TMENU_QMOUSE = $(call TMENU_TAIL,$(1)) > $(1).tail && printf 'FLAIR-MENU menu=129 item=1 (sel=0x00810001)\n$(call TMENU_QUIT_TAIL,mouse)' | cmp -s - $(1).tail
+TMENU_QKEY = $(call TMENU_TAIL,$(1)) > $(1).tail && printf '$(call TMENU_QUIT_TAIL,key)' | cmp -s - $(1).tail && ! awk '/^FLAIR-DISPATCH app=TENANTFX$$/{a=1} a&&/^TENANT-EVT what=3$$/{b=1} END{exit !b}' $(1)
+TMENU_ABOUT = $(call TMENU_TAIL,$(1)) > $(1).tail && printf 'FLAIR-MENU menu=131 item=1 (sel=0x00830001)\nTENANT-MENU menu=131 item=1 src=mouse\nTENANT-EVT what=81\nTENANT-GATE ax=0x0030 win=1 x=16 y=64 s="TenantFix 1.0, a disk app" fg=1 bg=0 -> 0\nTENANT-GATE ax=0x0050 bar=+0x02a4 -> 0\nTENANT-GATE ax=0x0052 -> 0\n' | cmp -s - $(1).tail
+
+.PHONY: test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs
+test-flair-tenant-menu: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_APPL_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-tenant-menu : a disk tenant hears its own menu choices\n'
+	@printf '  bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a (TBX_EVT_MENU) + Sec 9 V3 (DRAWMENUBAR)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_tmenu_pre,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_APP_LAUNCH_PRE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenu_pre.serial) && ! grep -q '^TENANT-' $(BUILD)/flair_tmenu_pre.serial || { printf '!!! test-flair-tenant-menu [4/4] FAIL: the never-launched baseline did not come up clean\n'; exit 1; }
+	$(call appl-boot,flair_tmenu_qmouse,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_TMENU_QUIT_MOUSE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenu_qmouse.serial) && $(call TMENU_QMOUSE,$(BUILD)/flair_tmenu_qmouse.serial) || { printf '!!! test-flair-tenant-menu [1/4] FAIL: QUIT-MOUSE -- File > Quit picked in the tenant bar must reach the tenant (TENANT-MENU src=mouse, what=81) and quit it\n'; grep -E '^(TENANT-|FLAIR-MENU|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_tmenu_qmouse.serial; exit 1; }
+	@cmp -s $(BUILD)/flair_tmenu_pre.ppm $(BUILD)/flair_tmenu_qmouse.ppm || { printf '!!! test-flair-tenant-menu [1/4] FAIL: QUIT-MOUSE -- the post-quit frame differs from the never-launched baseline (%s bytes)\n' "$$(cmp -l $(BUILD)/flair_tmenu_pre.ppm $(BUILD)/flair_tmenu_qmouse.ppm | wc -l)"; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-finder $(BUILD)/flair_tmenu_qmouse.ppm >/dev/null || { printf '!!! test-flair-tenant-menu [1/4] FAIL: QUIT-MOUSE -- band 2 is not the Finder bar after the quit\n'; exit 1; }
+	@printf '>>> test-flair-tenant-menu [1/4] QUIT-MOUSE: File > Quit -> TENANT-MENU 129/1 src=mouse -> what=81 -> EXIT(0); the frame is byte-identical to the never-launched baseline, band 2 the Finder bar\n'
+	$(call appl-boot,flair_tmenu_qkey,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_TMENU_QUIT_KEY_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenu_qkey.serial) && $(call TMENU_QKEY,$(BUILD)/flair_tmenu_qkey.serial) || { printf '!!! test-flair-tenant-menu [2/4] FAIL: QUIT-KEY -- Ctrl-Q must go the route the mouse takes (TENANT-MENU src=key, what=81, EXIT) and never reach the tenant as a plain keyDown\n'; grep -E '^(TENANT-|FLAIR-EVT what=3|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_tmenu_qkey.serial; exit 1; }
+	@sed 's/ src=mouse$$/ src=key/' $(BUILD)/flair_tmenu_qmouse.serial.tail | grep -v '^FLAIR-MENU ' | cmp -s - $(BUILD)/flair_tmenu_qkey.serial.tail || { printf '!!! test-flair-tenant-menu [2/4] FAIL: QUIT-KEY -- the key route is not the mouse route (tails differ beyond src=)\n'; exit 1; }
+	@cmp -s $(BUILD)/flair_tmenu_pre.ppm $(BUILD)/flair_tmenu_qkey.ppm || { printf '!!! test-flair-tenant-menu [2/4] FAIL: QUIT-KEY -- the post-quit frame differs from the never-launched baseline (%s bytes)\n' "$$(cmp -l $(BUILD)/flair_tmenu_pre.ppm $(BUILD)/flair_tmenu_qkey.ppm | wc -l)"; exit 1; }
+	@printf '>>> test-flair-tenant-menu [2/4] QUIT-KEY: Ctrl-Q -> the SAME TENANT-MENU 129/1 -> what=81 -> EXIT(0) tail as the mouse (src=key), no plain keyDown delivered; frame byte-identical to the baseline\n'
+	$(call appl-boot,flair_tmenu_about,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_TMENU_ABOUT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenu_about.serial) && $(call TMENU_ABOUT,$(BUILD)/flair_tmenu_about.serial) && ! grep -q '^TENANT-EXIT' $(BUILD)/flair_tmenu_about.serial || { printf '!!! test-flair-tenant-menu [3/4] FAIL: ABOUT -- Fixture > About must reach the tenant, which draws its About run, SETMBARs mbar2 after its window and calls DRAWMENUBAR\n'; grep -E '^(TENANT-|FLAIR-MENU|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_tmenu_about.serial; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) about $(BUILD)/flair_tmenu_about.ppm || { printf '!!! test-flair-tenant-menu [3/4] FAIL: ABOUT -- the About run is not on screen exactly\n'; exit 1; }
+	@$(PPM_FLAIR_APPL_CHECK_BIN) bar-tenant2 $(BUILD)/flair_tmenu_about.ppm || { printf '!!! test-flair-tenant-menu [3/4] FAIL: ABOUT -- band 2 is not the bar the tenant installed after its window (DRAWMENUBAR)\n'; exit 1; }
+	@printf '>>> test-flair-tenant-menu [3/4] ABOUT: Fixture > About -> the About run drawn exactly; SETMBAR after the window + DRAWMENUBAR -> band 2 is exactly File Edit Fixture Info\n'
+	@printf '>>> test-flair-tenant-menu [4/4] PRE: the never-launched baseline both quit legs were compared against\n'
+	@printf '>>> test-flair-tenant-menu: green\n'
+
+# Rule 6: each named mutant RED for ITS reason (the clean gate is a
+# prerequisite, so a red baseline stops the mutants before they run).
+test-flair-tenant-menu-mutant: test-flair-tenant-menu $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_tbx_menu_key_plain.img $(BUILD)/flair_tenants_mut_tbx_menu_not_delivered.img $(BUILD)/flair_tenants_mut_tbx_drawmbar_noop.img
+	$(call appl-boot,flair_tmenumut_key,$(BUILD)/flair_tenants_mut_tbx_menu_key_plain.img,$(FLAIR_DATA_IMG),FLAIR_TMENU_QUIT_KEY_SPEC,)
+	@if $(call TMENU_QKEY,$(BUILD)/flair_tmenumut_key.serial); then printf '!!! test-flair-tenant-menu-mutant FAIL: MENU_KEY_PLAIN PASSED the QUIT-KEY leg -- the key-route oracle is decoration\n'; exit 1; fi
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenumut_key.serial) && ! grep -q '^TENANT-MENU' $(BUILD)/flair_tmenumut_key.serial && ! grep -q '^TENANT-EXIT' $(BUILD)/flair_tmenumut_key.serial && awk '/^FLAIR-DISPATCH app=TENANTFX$$/{a=1} a&&/^TENANT-EVT what=3$$/{b=1} END{exit !b}' $(BUILD)/flair_tmenumut_key.serial || { printf '!!! test-flair-tenant-menu-mutant FAIL: MENU_KEY_PLAIN went RED for the wrong reason (want: Ctrl-Q delivered as a plain keyDown, no TENANT-MENU, the tenant still resident)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_tmenumut_key.serial; exit 1; }
+	@printf '>>> test-flair-tenant-menu-mutant: MENU_KEY_PLAIN RED for the named reason -- Ctrl-Q reached the tenant as a plain keyDown (TENANT-EVT what=3), no TENANT-MENU, no quit (the audit G03 symptom)\n'
+	$(call appl-boot,flair_tmenumut_mouse,$(BUILD)/flair_tenants_mut_tbx_menu_not_delivered.img,$(FLAIR_DATA_IMG),FLAIR_TMENU_QUIT_MOUSE_SPEC,)
+	@if $(call TMENU_QMOUSE,$(BUILD)/flair_tmenumut_mouse.serial); then printf '!!! test-flair-tenant-menu-mutant FAIL: MENU_NOT_DELIVERED PASSED the QUIT-MOUSE leg -- the mouse-route oracle is decoration\n'; exit 1; fi
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenumut_mouse.serial) && grep -qx 'FLAIR-MENU menu=129 item=1 (sel=0x00810001)' $(BUILD)/flair_tmenumut_mouse.serial && ! grep -q '^TENANT-MENU' $(BUILD)/flair_tmenumut_mouse.serial && ! grep -q '^TENANT-EXIT' $(BUILD)/flair_tmenumut_mouse.serial || { printf '!!! test-flair-tenant-menu-mutant FAIL: MENU_NOT_DELIVERED went RED for the wrong reason (want: the shell logged File > Quit, the tenant never heard it, no quit)\n'; grep -E '^(TENANT-|FLAIR-MENU|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_tmenumut_mouse.serial; exit 1; }
+	@printf '>>> test-flair-tenant-menu-mutant: MENU_NOT_DELIVERED RED for the named reason -- FLAIR-MENU logged 129/1 but the tenant never heard it and did not quit (the pre-tdnl.31 behaviour)\n'
+	$(call appl-boot,flair_tmenumut_draw,$(BUILD)/flair_tenants_mut_tbx_drawmbar_noop.img,$(FLAIR_DATA_IMG),FLAIR_TMENU_ABOUT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@if $(PPM_FLAIR_APPL_CHECK_BIN) bar-tenant2 $(BUILD)/flair_tmenumut_draw.ppm >/dev/null 2>&1; then printf '!!! test-flair-tenant-menu-mutant FAIL: DRAWMBAR_NOOP PASSED the band-2 grade -- the DRAWMENUBAR oracle is decoration\n'; exit 1; fi
+	@$(call APPL_ALIVE,$(BUILD)/flair_tmenumut_draw.serial) && $(call TMENU_ABOUT,$(BUILD)/flair_tmenumut_draw.serial) && $(PPM_FLAIR_APPL_CHECK_BIN) about $(BUILD)/flair_tmenumut_draw.ppm >/dev/null && $(PPM_FLAIR_APPL_CHECK_BIN) bar-tenant $(BUILD)/flair_tmenumut_draw.ppm >/dev/null || { printf '!!! test-flair-tenant-menu-mutant FAIL: DRAWMBAR_NOOP went RED for the wrong reason (want: the About run drawn, DRAWMENUBAR said 0, band 2 still the OLD tenant bar)\n'; grep -E '^(TENANT-|FLAIR-MENU|PANIC)' $(BUILD)/flair_tmenumut_draw.serial; exit 1; }
+	@printf '>>> test-flair-tenant-menu-mutant: DRAWMBAR_NOOP RED for the named reason -- About answered and DRAWMENUBAR returned 0, but band 2 is still the old File Edit Fixture bar\n'
+	@printf '>>> test-flair-tenant-menu-mutant: green (all three mutants RED for their named reasons)\n'
+
+# Rule 5: the menu route on the CPU path (the TBX_EVT_MENU push through the
+# trap-gate trampoline, SETMBAR after the window, DRAWMENUBAR, the MenuKey
+# chord) on QEMU vs Bochs, via the HEADLESS smoke kernel's second cycle (kmain
+# tbx_headless_smoke: About by the mouse route, then Ctrl-Q by the key route).
+TMENU_SMOKE_WANT := TENANT-MENU menu=131 item=1 src=mouse\nTENANT-EVT what=81\nTENANT-GATE ax=0x0050 bar=+0x02a4 -> 0\nTENANT-GATE ax=0x0052 -> 0\nTBX-SMOKE-MBAR-REDRAW\nTENANT-MENU menu=129 item=1 src=key\nTENANT-EVT what=81\nTENANT-GATE ax=0x0070 rc=0 -> 0\nTENANT-EXIT rc=0 via=exit\n
+ifeq ($(SKIP_BOCHS),1)
+test-flair-tenant-menu-bochs:
+	@printf '!!! test-flair-tenant-menu-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass.\n'
+else
+test-flair-tenant-menu-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_APPL_SMOKE_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-tenant-menu-bochs : Rule 5 menu-route CPU-path differential\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-tenant-menu-bochs FAIL: bochs not found (a skipped oracle is worse than a red one; SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_tmenu_smoke_qemu_data.img
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_tmenu_smoke_bochs_data.img
+	@$(HARNESS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_tmenu_smoke_qemu_data.img" --expect HALTED \
+		--name flair_tmenu_smoke_qemu --out "$(BUILD)" --timeout-ms 20000 2> $(BUILD)/flair_tmenu_smoke_qemu.report || true
+	@$(BOCHS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_tmenu_smoke_bochs_data.img" --expect HALTED \
+		--name flair_tmenu_smoke_bochs --out "$(BUILD)" --timeout-ms 60000 2> $(BUILD)/flair_tmenu_smoke_bochs.report || true
+	@if grep -q 'triple_fault=1' $(BUILD)/flair_tmenu_smoke_qemu.report $(BUILD)/flair_tmenu_smoke_bochs.report; then printf '!!! test-flair-tenant-menu-bochs FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@for e in qemu bochs; do \
+		f=$(BUILD)/flair_tmenu_smoke_$$e.serial; \
+		grep -qx 'TBX-SMOKE-OK list-empty' $$f && ! grep -q '^PANIC' $$f && ! grep -q '^TBX-SMOKE-FAIL' $$f || { printf '!!! test-flair-tenant-menu-bochs FAIL: %s did not complete the smoke cleanly\n' $$e; grep -E '^(TBX-|TENANT-|PANIC|HALTED)' $$f; exit 1; }; \
+		grep -E '^(TENANT-MENU|TENANT-EVT what=81$$|TENANT-GATE ax=0x005[02] |TENANT-GATE ax=0x0070 |TENANT-EXIT|TBX-SMOKE-MBAR-REDRAW)' $$f | sed -n '/^TENANT-MENU menu=131/,$$p' > $$f.menu; \
+		printf '$(TMENU_SMOKE_WANT)' | cmp -s - $$f.menu || { printf '!!! test-flair-tenant-menu-bochs FAIL: %s menu-route lines are not the expected sequence\n' $$e; cat $$f.menu; exit 1; }; \
+		grep -E '^(TENANT-|TBX-SMOKE-)' $$f > $$f.trace; \
+	done
+	@cmp -s $(BUILD)/flair_tmenu_smoke_qemu.serial.trace $(BUILD)/flair_tmenu_smoke_bochs.serial.trace || { printf '!!! test-flair-tenant-menu-bochs FAIL: QEMU and Bochs disagree on the menu route (stop condition: investigate, do not pin to QEMU)\n'; diff -u $(BUILD)/flair_tmenu_smoke_qemu.serial.trace $(BUILD)/flair_tmenu_smoke_bochs.serial.trace; exit 1; }
+	@printf '>>> test-flair-tenant-menu-bochs: the menu route (About by mouse -> SETMBAR after the window + DRAWMENUBAR; Ctrl-Q by key -> EXIT) and all %s TENANT-*/TBX-SMOKE-* lines byte-identical on QEMU and Bochs\n' "$$(wc -l < $(BUILD)/flair_tmenu_smoke_qemu.serial.trace)"
+	@printf '>>> test-flair-tenant-menu-bochs: green\n'
 endif
 
 # ===========================================================================
@@ -20263,6 +20417,13 @@ RECORD_MARKER_app_launch = TENANT-EXIT rc=0 via=exit
 # FLAIR_APP_MENUBAR_SPEC; its marker is the completed menu round trip.
 RECORD_SPEC_app_menubar   = $(FLAIR_APP_MENUBAR_SPEC)
 RECORD_MARKER_app_menubar = FLAIR-MENU menu=131 item=0 (sel=0x00000000)
+# initech-tdnl.31 clip (Rule 14): the disk tenant HEARS its own menu choices --
+# launch, Fixture > About by the mouse (its About line appears and band 2 gains
+# the "Info" title it installs after its window: SETMBAR + DRAWMENUBAR), then
+# Ctrl-Q, the bar's ^Q: it quits and the Finder's bar comes back. Replays the
+# LOCKED FLAIR_TMENU_CLIP_SPEC; its marker is the key-route Quit.
+RECORD_SPEC_tenant_menu   = $(FLAIR_TMENU_CLIP_SPEC)
+RECORD_MARKER_tenant_menu = TENANT-MENU menu=129 item=1 src=key
 # Per-script paint-settle override (tdnl.14): MEASURED, the default 120 ms raced
 # the Finder's selection-hilite and window-open paints on a loaded host (frames
 # 14/16/19 differed between two captures -- the repro check doing its job).
@@ -20292,6 +20453,9 @@ RECORD_SETTLE_drag_move    = 400
 RECORD_SETTLE_trash_drag   = 150
 RECORD_SETTLE_drag_refused = 400
 RECORD_SETTLE_app_menubar = 400
+# tenant_menu (initech-tdnl.31): the same launch prefix as app_launch, so the
+# same measured settle.
+RECORD_SETTLE_tenant_menu = 400
 # chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
 # acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar
 # and TWO held gestures, each a cancel (nothing dispatched): (1) Image dropped
@@ -20434,7 +20598,7 @@ RECORD_MARKER_finder_service_damaged = FINDER-OPEN-FOLDER name=TRASH win=2 singl
 RECORD_IMAGE_finder_service_damaged  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_DATA_finder_service_damaged   = $(FLAIR_DAMAGED_DATA_IMG)
 RECORD_SETTLE_finder_service_damaged = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar tenant_menu drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -20520,6 +20684,7 @@ RECORD_IMAGE_window_drag_persist = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_tenant_menu         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_drag_move           = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
 
@@ -25502,6 +25667,7 @@ TEST_UNIT_GATES := \
 	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
+	test-tbx-menu test-tbx-menu-mutant \
 	test-makefile-vars \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
@@ -26626,6 +26792,7 @@ TEST_EMU_GATES := \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
+	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \

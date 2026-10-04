@@ -139,3 +139,45 @@ FLAIR_APP_LAUNCH_PRE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:
 #    30 tokens: inside the flagship pump's budget (see BUDGET NOTE above).
 # ===========================================================================
 FLAIR_APP_MENUBAR_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m72:-92,l1,l0,m-7:90,m0:90,l1,l0
+
+# ===========================================================================
+# 8-11. A DISK TENANT HEARS ITS OWN MENU CHOICES (bead initech-tdnl.31;
+#    spec/toolbox_gate.h Sec 6a; test-flair-tenant-menu). Every trace opens
+#    with the A, B, C launch prefix above (cursor left at the icon (75,122),
+#    TENANTFX foreground, band 2 = its own `mbar`).
+#    GEOMETRY (derived, never measured off a render; menu.h Sec 5 + menu.c
+#    MenuInfo_panel_rect / MenuInfo_item_at; the title slots are the
+#    FLAIR_APP_MENUBAR_SPEC derivation above):
+#      File title slot [20,57) of band 2 rows [20,40) -> point (38,30);
+#      Fixture title slot [96,157) -> point (147,30) (the MENUBAR_SPEC point);
+#      a panel's top is bar-local FLAIR_MENUBAR_H - FLAIR_MENU_PANEL_FRAME =
+#      19, its first item row starts FLAIR_MENU_PANEL_INSET = 2 lower and is
+#      FLAIR_MENU_ITEM_H = 16 tall: bar-local [21,37) -> screen (band 2 is
+#      +20) rows [41,57); y = 49 is inside item 1 (File > Quit, Fixture >
+#      About TenantFix). Each panel's left is its title slot's left, so x = 38
+#      / x = 147 is inside the panel too.
+#    No trace parks: every leg's dump is taken after FLAIR-LIVE-OK, when the
+#    pointer is hidden (the PRE_SPEC note above), and the budget wants short
+#    traces (BUDGET NOTE).
+#
+# 8. FLAIR_TMENU_QUIT_MOUSE_SPEC -- File > Quit BY THE MOUSE: launch, press on
+#    the File title (m-37:-92 -> (38,30)), drag onto Quit (m0:19 -> (38,49)),
+#    release -> FLAIR-MENU menu=129 item=1 -> TENANT-MENU ... src=mouse ->
+#    the tenant EXITs. 25 tokens.
+# 9. FLAIR_TMENU_QUIT_KEY_SPEC -- File > Quit BY ITS COMMAND KEY: launch, then
+#    Ctrl-Q (the bar's ^Q) -> TENANT-MENU ... src=key -> the SAME exit. 22
+#    tokens.
+# 10. FLAIR_TMENU_ABOUT_SPEC -- Fixture > About: launch, press on Fixture
+#    (m72:-92 -> (147,30)), drag onto About (m0:19 -> (147,49)), release ->
+#    the tenant draws its About line and replaces its bar AFTER its window
+#    (SETMBAR mbar2 + DRAWMENUBAR: band 2 gains "Info"); it stays resident
+#    for the post-budget dump. 25 tokens.
+# 11. FLAIR_TMENU_CLIP_SPEC -- the Rule-14 clip (record-flair tenant_menu):
+#    10's About by the mouse, then 9's Ctrl-Q by the key: the About line and
+#    the Info title appear, then the tenant quits and the Finder's bar comes
+#    back. 26 tokens.
+# ===========================================================================
+FLAIR_TMENU_QUIT_MOUSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m-37:-92,l1,m0:19,l0
+FLAIR_TMENU_QUIT_KEY_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,kctrl-q
+FLAIR_TMENU_ABOUT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m72:-92,l1,m0:19,l0
+FLAIR_TMENU_CLIP_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m72:-92,l1,m0:19,l0,kctrl-q
