@@ -1,0 +1,10 @@
+{
+  "images/pristine-boot.img": {
+    "bytes": 229376,
+    "sha256": "c994804c91f378c5909e1eb8c550fb33779661a7c2aa07484ef618fc9a446640"
+  },
+  "images/pristine-data.img": {
+    "bytes": 1474560,
+    "sha256": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+  }
+}

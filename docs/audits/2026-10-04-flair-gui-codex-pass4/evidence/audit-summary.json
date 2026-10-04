@@ -1,0 +1,71 @@
+{
+  "sessions": [
+    {
+      "label": "claims",
+      "started_utc": "2026-10-04T02:45:25.818615+00:00",
+      "stopped_utc": "2026-10-04T02:47:49.599403+00:00",
+      "seconds": 143.780788,
+      "exit_code": 0
+    },
+    {
+      "label": "edge-icons",
+      "started_utc": "2026-10-04T03:04:13.335737+00:00",
+      "stopped_utc": "2026-10-04T03:04:15.775657+00:00",
+      "seconds": 2.43992,
+      "exit_code": 0
+    },
+    {
+      "label": "final-edge",
+      "started_utc": "2026-10-04T03:02:39.657240+00:00",
+      "stopped_utc": "2026-10-04T03:03:05.038792+00:00",
+      "seconds": 25.381552,
+      "exit_code": 0
+    },
+    {
+      "label": "fresh-bars-labels",
+      "started_utc": "2026-10-04T03:01:20.973609+00:00",
+      "stopped_utc": "2026-10-04T03:01:31.522464+00:00",
+      "seconds": 10.548855,
+      "exit_code": 0
+    },
+    {
+      "label": "fresh-multi-open",
+      "started_utc": "2026-10-04T03:01:31.567337+00:00",
+      "stopped_utc": "2026-10-04T03:01:41.880438+00:00",
+      "seconds": 10.313101,
+      "exit_code": 0
+    },
+    {
+      "label": "scroll",
+      "started_utc": "2026-10-04T02:47:49.641598+00:00",
+      "stopped_utc": "2026-10-04T03:00:55.187111+00:00",
+      "seconds": 785.545513,
+      "exit_code": 0
+    },
+    {
+      "label": "scrolled-drop",
+      "started_utc": "2026-10-04T03:04:03.850016+00:00",
+      "stopped_utc": "2026-10-04T03:04:13.295179+00:00",
+      "seconds": 9.445163,
+      "exit_code": 0
+    }
+  ],
+  "soak": {
+    "start_utc": "2026-10-04T02:52:31.891811+00:00",
+    "end_utc": "2026-10-04T02:59:22.964111+00:00",
+    "successful_loads": 60,
+    "close_exits": 60,
+    "heap_values": [
+      "3523968"
+    ],
+    "grows": 120,
+    "zooms": 120,
+    "collapse_changes": 120
+  },
+  "screenshots": {
+    "native_guest": 122,
+    "reference": 4,
+    "detail": 2,
+    "total_png": 128
+  }
+}

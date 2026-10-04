@@ -1,0 +1,1026 @@
+[
+  {
+    "filename": "01-boot.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "b1c7d1fcfb94ae7b7443a348a8d5159feeb4d4e1743927ad372920cbc0c6e096"
+  },
+  {
+    "filename": "02-root.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8c658e3d6f56916a4e5f1e28a6b371a795b3b43d20dd08c678ad7ace8ce3a439"
+  },
+  {
+    "filename": "03-doc-file-menu.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "06c092e523280e0c02d03b371a4db9c6a868ef5f427fe76b0ae4e267a3ea9ca8"
+  },
+  {
+    "filename": "04-get-info-disabled-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "03c895076609b3dec3e4ee4e42435d808b91ffff813d93993e8e5612f5a378f8"
+  },
+  {
+    "filename": "05-disabled-commands-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e57e21a16e773868a207e625ebc33025f60f33c12bc7f388f5c5d4d70cf3a3e6"
+  },
+  {
+    "filename": "06-special-disabled.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "4531cf269063b9767767a4f038ea00cafc8fb01832514db0c347d269a0b733a6"
+  },
+  {
+    "filename": "07-upper-about-disabled.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "bab733659f7b723a8abc7816a3c9d5e128adfa0d71f0c129d56eeec058f5e614"
+  },
+  {
+    "filename": "08-select-all.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "b58324c34f44086f919d3b7d880014908341c4719018c9c8ed2eb1e37522d98b"
+  },
+  {
+    "filename": "09-root-moved.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "026106f04505e18f53a3eca8f179ab1e9c2e773bba8066050d6c507f281c1972"
+  },
+  {
+    "filename": "10-moved-icon-selected.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "9217caa3b78b4bb105aa9d4415253db78c28f6df2f80d8d333589aab7d5e4f68"
+  },
+  {
+    "filename": "101-j01-shrink-disabled-art.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "3575f59a6835f4f4270cd6a20facdbf8f876a889f152c01a9d6ef89b88956fb1"
+  },
+  {
+    "filename": "102-j01-disabled-art-scrolls.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "183c24c9b0e49ac75bfd1d76e000d2d6dd522966a0c6bf3f59654cce817d88f3"
+  },
+  {
+    "filename": "103-j02-horizontal-labels.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "27303b0ff9fa59b842e3d970aac03e39b6dc5cfb8b9406c55e945dbb4f707e92"
+  },
+  {
+    "filename": "104-j02-hidden-icon-selected.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "caa2ce3a7273454e1096f127506a12ec65f6a69d6749e06646e3bbd94e807416"
+  },
+  {
+    "filename": "105-j01-grow-enabled-art.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "4da665b5cfc25d6f8c4ebd0408e4367388ba608f18a8be4473244728890a496c"
+  },
+  {
+    "filename": "106-j01-enabled-art-ignored.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "cab7b3e728aedb668634a61a0f53dd5907f42cefc7bdefc86f3037525b52ef83"
+  },
+  {
+    "filename": "107-j03-two-folders.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e9cf4be2b802abc29ce2650dbb2c5198221b876f9334c927830623eb87d4a173"
+  },
+  {
+    "filename": "108-j03-key-opens-one.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "c6a3e0f3264fac5dfb1fa79db01b200a11e34db908ed3aaf0784f910ca85b8bd"
+  },
+  {
+    "filename": "109-j03-other-folder-valid.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8ec8ceb7de88ee87542abdf9f40e29e0aab9ae85baea97727f6bc7163482cf80"
+  },
+  {
+    "filename": "11-root-collapsed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "5e058597e7b2e6981919d05ec51c9df788f794a67733f2b3550a7a45309ff198"
+  },
+  {
+    "filename": "110-j03-open-menu-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "68b210842c2a4c4c7094dbb33864138574badd2c45212b3ca4a676601cb8c1a7"
+  },
+  {
+    "filename": "111-j03-menu-opens-one.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "850ffe99609ac9607efa7d81156299317da6311f5dd24eaaf7528d4892f4977f"
+  },
+  {
+    "filename": "112-thumb-before-no-motion-click.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e3363cef703423f57d34da1936f100e7590e430f46713f3b98b30372d4d357c9"
+  },
+  {
+    "filename": "113-thumb-after-no-motion-click.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f71792807419a39a61d43fbc2044b460e67a25e42280bd18b9d52acbe96a72a0"
+  },
+  {
+    "filename": "114-left-edge-window.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "fb865c807b41993145fff522fa16cab6083b97714ff06315683e6d5e496100c1"
+  },
+  {
+    "filename": "115-left-edge-icon-selected.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e71b9578385abfbb1cddd63d79522469b011fd2710049fdc0c2d096f249a8cd1"
+  },
+  {
+    "filename": "116-bottom-right-edge-window.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "3507c1923df4a2c064f848245794f1f598417bc9820817b1c3152f7d02d38370"
+  },
+  {
+    "filename": "117-minimum-scrollbar.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "07c20bfdff28c517ddc9c9cf014ceca6df258fb177bf4c7779fee2b2e7ad323a"
+  },
+  {
+    "filename": "118-minimum-down-arrow-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "b33ce591cf01fda63e03f0be9dabce5fe9fe6be277387d5af44408b3e58b1d2e"
+  },
+  {
+    "filename": "119-minimum-after-repaint.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e41d781b8790f2ee8efad61775004b3f076aa734bfead07316d4d502d5915c61"
+  },
+  {
+    "filename": "12-root-zoom.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "c618528d0b64d656cb4c3a2b8d4be7fa7465a0d47f8b624ef07fba711c5136ac"
+  },
+  {
+    "filename": "120-minimum-lower-arrow.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e41d781b8790f2ee8efad61775004b3f076aa734bfead07316d4d502d5915c61"
+  },
+  {
+    "filename": "121-minimum-blank-control-scrolls.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "460a1c2dd8a225f4edf2312ee928b20467d1c215dd20399823fe6f60410175bb"
+  },
+  {
+    "filename": "122-minimum-blank-control-reversed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8daeab8d479f2fd7df25f88013b6192329a133ac40f965df7409cb03129faec4"
+  },
+  {
+    "filename": "123-edge-ignore.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d422e58732fc0539817368c68486219fdc0a74e7f0d60f32def452fcbe1d692a"
+  },
+  {
+    "filename": "124-real-nonempty-trash-disabled.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d94daadf66b5bc8089d6364c55f920c045ff93ac54bd9831fa20d3db70d8f523"
+  },
+  {
+    "filename": "125-last-finder-closed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d3ecb55cd251fe4da45763326afff6290e2919d07fa43ce2de9d8203fbd96aa5"
+  },
+  {
+    "filename": "126-notes-front.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "b66918e56755f6f896e561824e9ae32e99d23858abe8d471b363e82d9a849286"
+  },
+  {
+    "filename": "127-desktop-finder-front.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "17450f539db3bb14f4dc1b4e18f2841c06d28f7557826a3940646d38d5160e47"
+  },
+  {
+    "filename": "128-scrolled-file-source.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "019c9c64e6fd1893024234d813be4e62a041504cfbd3e8b71f1970b0cf4e65db"
+  },
+  {
+    "filename": "129-scrolled-file-selected.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "0d2a3a4f995abe1581f056588c547fd5447c38b8c3748c0cd84da140d2ccda09"
+  },
+  {
+    "filename": "13-root-restored.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "af2b4029c36924eb32b8ef348d0c11b72838b99dff7f50dde097872e02a9d8a9"
+  },
+  {
+    "filename": "130-scrolled-file-trash-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8f291a07112e83836bb10c70bc21f325b57749c5324db92eb0c691eef4a6e22a"
+  },
+  {
+    "filename": "131-scrolled-file-trash-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "6043d9a805ad6078c0e39e847f4a63f6596bde107100009fb4f556496bde8735"
+  },
+  {
+    "filename": "132-left-edge-correct-selection.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "acb9a0763a37cee7a3c0892b2e04e524841290289feb6f4271b4af1cd6d9f0f1"
+  },
+  {
+    "filename": "14-moved-file.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "c16bb2790f33c2dd210fd2930fbe9d704fc849ae2b57553ee7f5464e7f94ef5f"
+  },
+  {
+    "filename": "15-arranged-root.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "05cdcae1345de53a0aa3a4d6c14fb70caf27a5fbe21a60b3f807803fcef029f4"
+  },
+  {
+    "filename": "16-small-root.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "c03c63556566164ca574a3718c8244c4445ebe03dd187ae70e7f36bf4d58b9c7"
+  },
+  {
+    "filename": "17-horizontal-step.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "1a060698317f7d27d4c0f66caa6e9672a2c6a03b40bea7967bee9a1826ada53b"
+  },
+  {
+    "filename": "18-small-scroll-drag.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f7bec715b879e129536af84870636043a763f5d39fad868fd67da81754642b2f"
+  },
+  {
+    "filename": "19-last-finder-closed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "71bb0a9242fbe0203b415f839256044ebdd4f19b2d4ccffdc32d35306839559b"
+  },
+  {
+    "filename": "20-notes-activated.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "b66918e56755f6f896e561824e9ae32e99d23858abe8d471b363e82d9a849286"
+  },
+  {
+    "filename": "21-desktop-finder-front.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "17450f539db3bb14f4dc1b4e18f2841c06d28f7557826a3940646d38d5160e47"
+  },
+  {
+    "filename": "22-root-reopen.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "894b6c65ca18cfee35548e4d1174f03a976d315eab247676d64ff706cc66b6ee"
+  },
+  {
+    "filename": "23-shrunk-overflow-bars.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "9d68c91491e9aa12c30a58086237e92cba8d0e672deef013a8258dc14c45e195"
+  },
+  {
+    "filename": "24-hidden-horizontal-scroll.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "19a77e625bd83c6fda7cf78ea2b4956e6149b96cde7c27a808469748262f8c4c"
+  },
+  {
+    "filename": "25-horizontal-scrolled-select.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "280c90ff012eee52b0a4f08e7d03bfcc03ae8043e3f9585ee988d50e8cd8e001"
+  },
+  {
+    "filename": "26-grown-bars-stale.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "0aa971e2d2b3b34e6f9029f298c7361e575ef9320bcf628e81d20b9d63309923"
+  },
+  {
+    "filename": "27-disabled-bars-ignore.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "2a2b514da211f31fc635a9f44b4fd6dbaffbbf170ff9237937e026f37ea171f1"
+  },
+  {
+    "filename": "28-overflow-start.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "0934ba68b5f49b89a34fade5381606b86c7a3411a680538a2922d94fa4662aa4"
+  },
+  {
+    "filename": "29-arrow-step.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "599cdf8834b006d8c6d9078c0b6fb5e0fa4a9483fa6e2895b1114a3e158e9d27"
+  },
+  {
+    "filename": "30-arrow-repeat-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "aa6de134d2c8e521c3fb6ae12fd151ed59ab918bdc8c13fc62a98815e1010ace"
+  },
+  {
+    "filename": "31-arrow-left-stop.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "5eb32246781fa554031c964df01d516b15d94299b010976a42f964194437e961"
+  },
+  {
+    "filename": "32-arrow-reenter-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "21083b508e7074d61f57a41b449865f68f31ca3a6531d6d0acc15f30ec7e6610"
+  },
+  {
+    "filename": "33-scrolled-selection.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "03fe8644177a2df84a8ba6a2ec20b605660ab816cd8458e41d6be8f7987290ba"
+  },
+  {
+    "filename": "34-thumb-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "1428240fdd0bc7af2258e423cc4dabe182173ebb594265093351dc40b053333d"
+  },
+  {
+    "filename": "35-thumb-release.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e85a835c75efa3ade74b93c8ce887b2a63e61c2d03feea5d7cac80f486a963ff"
+  },
+  {
+    "filename": "36-track-page.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "2493172f76f0b27a519cbc7a71099e8403b8cb890a8bd89e6fefc43b1ad63ed0"
+  },
+  {
+    "filename": "37-scrolled-window-moved.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "0f0d2f6085f0f26cfcbb7608f3182c746dbfd397dfac12b8f911dee506e7f3c9"
+  },
+  {
+    "filename": "38-scrolled-window-collapsed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "c41dace6b7d6c6fc3343b959621ddc0cd3a41dc38e080a06c082b7a880f3dc82"
+  },
+  {
+    "filename": "39-scrolled-window-zoomed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "9c5db9d863d30f46f494f103a2ae0784c3002fc016ecb0a6ae549ee8688a3aee"
+  },
+  {
+    "filename": "40-scrolled-window-restored.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "5bd3045ddd1bb68946b051df1bd2169beb1b4875cbfe9110d5ae46c0559107c3"
+  },
+  {
+    "filename": "41-narrow-scrolled-window.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "6b76be60360f8c82c34c433257ebe97471bc647e1fbf50a66457317449a05ffc"
+  },
+  {
+    "filename": "42-narrow-arrow.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d150d56844b2ea262c4f67d5a7422d3662b224d82c915c302226da0461a87fd2"
+  },
+  {
+    "filename": "43-arranged-scrolled.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d8beb49faa3153553435a795173ca5e02f8918fa66c6b3fd4257324b209bd5b1"
+  },
+  {
+    "filename": "44-scrolled-select-all.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "1ccf741dadfd2d1b4b959e892ac30a9dcf372a6e3ea19a1fa44d15810a6f49ce"
+  },
+  {
+    "filename": "45-widen-after-arrange.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f5fbb9a179cbbae901369a40e569c0006a0e476fa539bae1628de15851333bfc"
+  },
+  {
+    "filename": "46-scroll-top.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "9f3c44dc21400a642e37d5016a03ae2cfedfe866367c65b3482c9f7c38b0968e"
+  },
+  {
+    "filename": "47-empty-folder-at-scrolled-position.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "e94ad16cd7b3621ea2a6de937ba467ddd5908a086d2faacef29c097516006f31"
+  },
+  {
+    "filename": "48-sorted-top.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "1b31c80bf1c9c595478992825e39c3f9976bfc78393e10f100cbf41bf1e77e5a"
+  },
+  {
+    "filename": "49-two-folders-selected.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8ddd7b982faa698cacdec3ded7f143df2aa37eb6f7f8f7acb784819377542554"
+  },
+  {
+    "filename": "50-open-multiple-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "de6c637b06c8e325b0e6dbf9b12c65761e0dfa08c890d555312e2cfc978a0567"
+  },
+  {
+    "filename": "51-empty-window-file.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "ff30742367f8a9831d399d7e9459439b69e0cecdcba42608fb9c1918e2e8e3a9"
+  },
+  {
+    "filename": "52-bottom-edge-drag-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "916f7e22f87661c420e054338e6714621d0d01da6bbec8468e90436361f18440"
+  },
+  {
+    "filename": "53-bottom-edge-drag-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8bc434014ed5569707be5ea733d13794c2fbf3fe600c1fae166ebe620cd2189b"
+  },
+  {
+    "filename": "54-two-real-folders-selected.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "851650ab7d393a1dffd897351d79e68acb606b534297d4c4f0f406dd76c69440"
+  },
+  {
+    "filename": "55-two-folders-open-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "01346fe223a3f23f3ba83946deda47eb91152e8b5380a4071545ae83199a2994"
+  },
+  {
+    "filename": "56-second-folder-opens-alone.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "2ba2385b398291dd0e3cb2a27f120907a00c58b16cd8bdf5edb8a4d2b26575cb"
+  },
+  {
+    "filename": "57-empty-folder-edge.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "71c91cf7c558882a8122ff9492712fe1b7ee1d743c637017b1beef16e2645cf2"
+  },
+  {
+    "filename": "58-empty-disabled-bar-drag.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8c88de1b865472c764776f3503d0cd648b7139e45551ac46f80a60b4f497ee30"
+  },
+  {
+    "filename": "59-tenant-own-bar.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "67fd0e9ed39e57f5dca86f6a754c2725a7ecb7ddf20baa724865436c6ab61257"
+  },
+  {
+    "filename": "60-tenant-quit-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "bcd40e91f5dd476d2b87a775d282e16eacc9e531972cb620098d4c37635e62d8"
+  },
+  {
+    "filename": "61-close-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f2014c6b7f8661d3870778af8677c02a0a71040a896d8cd846ec2a3bc1900921"
+  },
+  {
+    "filename": "62-close-edge-cancel.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "0dc1d1d18bd27be217f67aefa9b4d16a85dbbf327eed1444065c57a4b234002d"
+  },
+  {
+    "filename": "63-zoom-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "02a50b8ae576f046a21c5f6cc144d6f3ea13e8062a500d9e0e73f68bb972189d"
+  },
+  {
+    "filename": "64-zoom-cancel.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f389cd35a38df62e516d46a6682e0dcee7787e44ed896f9eb6a8b18991d8a8f1"
+  },
+  {
+    "filename": "65-collapse-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "a63cd3e3f0105fa5938f4bd5bebf29bceb6056bef5936a21b2a2e517241e3976"
+  },
+  {
+    "filename": "66-collapse-cancel.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "2d4ab3bc1ed4cf05914bcd39036887f2a2a6a5068ee27d85a66e755de78d3e08"
+  },
+  {
+    "filename": "67-close-commit.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  },
+  {
+    "filename": "68-late-modifiers-clear.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "2c9c0cc6610b8878ae6595f0995983bf2b3cf3b81fd04b38cdf2903f5f79feab"
+  },
+  {
+    "filename": "69-late-menu-held-32sec.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "5eea89ec2d4abd19065ff42f3e77bb7e925108b7544abbd19b93071368a22e6f"
+  },
+  {
+    "filename": "70-late-arrange-release.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "856a50c5a28b4b0b0d3de2f4da3d21bbbddd256f4ed8acbcbfd876e662312ab6"
+  },
+  {
+    "filename": "71-late-window-held-20sec.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "6c1018cd23b4dda074ee8dc151b123c8676d161bc8738c345b7b3df2a4a5f4a5"
+  },
+  {
+    "filename": "72-late-window-drag-release.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "ab78946d933b55a8b62eadd1672fa56976c02e0621c37a6e70b7fc25904422a1"
+  },
+  {
+    "filename": "73-late-grow-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "eec5111b4e2020295180013c045691ba7b0f574e8787aa1690a1b605f8f79e22"
+  },
+  {
+    "filename": "74-late-grow-release.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "58442adba57f7345255c3bc5c8edb7f7adfa55c8ca60fffe543c68d345eaf973"
+  },
+  {
+    "filename": "75-late-restored.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "8b72ba5b18a4c235d962de8eb54f1eff6f2d5e194c1351f21d3da585ade67178"
+  },
+  {
+    "filename": "76-late-disabled-commands.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "88ef30c484a481bdd47f95da34a4b89ab8b4919a2ce78ffdc0297c4f0ee03b0e"
+  },
+  {
+    "filename": "77-file-trash-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "6a52423ad0b7a6ba394b1d841cd0e6deb572df9427522f0dca98ea922a875eb5"
+  },
+  {
+    "filename": "78-nonempty-trash-command-disabled.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f9e67d126279cfbadf65ea3b23096ae85429dd07eec40cdfad45eb46716aa974"
+  },
+  {
+    "filename": "79-scrolled-before-drag.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "fdf2073a297f79e6224e1a7a76a5bbb77e6d85517eb2df03bc90b7d5af2cc546"
+  },
+  {
+    "filename": "80-scrolled-file-trash-held.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d82db77c4979ec89c36845aa965fc5a1bb5c4849f337ae82d9618eb6d335090e"
+  },
+  {
+    "filename": "81-scrolled-file-move-result.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "88af99b2b3aae1a193eba9e5aa9d36b37e35241f62f782113fe794641c4bdd1f"
+  },
+  {
+    "filename": "82-late-last-finder-closed.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "c4605cb3a79f23bd073913c7cb4d0d43a47bd66924ab878c99afe2dda4331da2"
+  },
+  {
+    "filename": "83-late-notes-activated.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "d7c31faab9cd7dbf1f6684452830ea4bd5e7a757fd8426d5b3d847a92e47a7ee"
+  },
+  {
+    "filename": "84-late-desktop-finder.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "2d23a750f33ca75781b209130d42bf18c30741abb961d3635807ae476f1d0573"
+  },
+  {
+    "filename": "detail-117-minimum-scrollbar.png",
+    "size": [
+      240,
+      430
+    ],
+    "sha256": "e571a4bdc83f42199b718fc24e85001be581143d8d92987f8f6e5778a95d1d3c"
+  },
+  {
+    "filename": "detail-118-minimum-down-arrow-result.png",
+    "size": [
+      240,
+      430
+    ],
+    "sha256": "11ba61e1dc48cc194513d23867638bae1e48af63d48559f48f8e6432e7a5c992"
+  },
+  {
+    "filename": "ref-s7-menu.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f90b30932c6f7804a263957bd36469b28c5caef5c80e141ea6683f9e929fe6da"
+  },
+  {
+    "filename": "ref-s8-controls.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "f22118d06d99eec9ba780a5562eb2a7b93bbf9ab07d10e7a9e50cf6338c91deb"
+  },
+  {
+    "filename": "ref-s8-menu.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "93e952bedb13d6cec139104194455c13840ac5383eb6a200c05f00bf9ed4d027"
+  },
+  {
+    "filename": "ref-s8-window.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "82366a7dd4cfcb8c69c43c7923dc36239692add7b6c14b80bad6e7d07c17aee9"
+  },
+  {
+    "filename": "soak-10.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  },
+  {
+    "filename": "soak-20.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  },
+  {
+    "filename": "soak-30.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  },
+  {
+    "filename": "soak-40.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  },
+  {
+    "filename": "soak-50.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  },
+  {
+    "filename": "soak-60.png",
+    "size": [
+      640,
+      480
+    ],
+    "sha256": "56304efb2e5e2001a97d2617ceb7fc438c1e41c05bfb7835b6ba8f1c99322031"
+  }
+]

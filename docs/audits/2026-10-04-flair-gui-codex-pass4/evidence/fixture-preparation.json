@@ -1,0 +1,518 @@
+{
+  "operations": [
+    {
+      "command": [
+        "mmd",
+        "-i",
+        "images/scroll-fixture.img",
+        "::/DEST"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mmd",
+        "-i",
+        "images/scroll-fixture.img",
+        "::/EMPTY"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mmd",
+        "-i",
+        "images/scroll-fixture.img",
+        "::/ZLAST"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F39.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F38.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F37.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F36.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F35.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F34.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F33.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F32.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F31.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F30.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F29.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F28.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F27.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F26.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F25.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F24.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F23.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F22.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F21.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F20.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F19.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F18.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F17.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F16.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F15.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F14.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F13.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F12.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F11.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F10.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F09.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F08.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F07.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F06.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F05.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F04.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F03.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F02.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F01.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "mcopy",
+        "-i",
+        "images/scroll-fixture.img",
+        "evidence/tiny.txt",
+        "::/F00.TXT"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "sha256": "36be68816395208762768094013fe9cfc864b1f9c812ea515fb59208b68e8643"
+}

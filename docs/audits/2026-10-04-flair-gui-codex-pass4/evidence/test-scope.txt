@@ -1,0 +1,29 @@
+The repository was read only. No make, build, edit, commit, or tracker write.
+The user required all writes to this workspace, overriding the repository's
+usual issue-tracking / commit / push instructions for implementation work.
+QEMU -display none, QMP PS/2 inputs and screendumps only. No X :0 operations.
+No external process killed. One QEMU at a time; driver checks /proc before start.
+
+Harness notes:
+- shots 17 and 18 targeted the vertical disabled bar, not horizontal scrolling.
+  The actual horizontal test is shots 23-26 and the fresh 101-106 reproduction.
+- shot 47 double-clicked blank space after a two-column Arrange, not EMPTY.
+- shot 49 selected APPS and DESKTOP.DB, not two folders. The true pair is 54
+  (DEST + EMPTY), repeated on a fresh copy in 107-111.
+- shot 58 is a marquee in EMPTY content, not a disabled-bar test; its bar was
+  off-screen. It is not used as proof of disabled-control behavior.
+- shot 52 is a held APPS repositioning gesture with no auto-scroll; no new
+  finding is based solely on that absence.
+- screenshot filenames record intended actions; the report specifies outcomes.
+- the reused pass-2 and pass-3 audit_driver.py files are byte-identical.
+- shot 115 clicked blank space, because PS/2 pointer clamping made the
+  title drag 200 rather than 220 pixels left. Shot 132 is the corrected
+  left-edge icon selection.
+- late shots 76-79 ran with APPS still open. The click on its inactive title
+  activated it; it did not close it. Shot 77 is a marquee; shot 78's Trash
+  was still empty. Shot 80-81 is a real F00.TXT drop from an unscrolled root.
+  Shots 82-84 closed root with APPS still open, not the last Finder window.
+  Correct nonempty-Command / last-window evidence is 124-127.
+- shots 119-120 followed an accidental root Close click, so they do not
+  demonstrate minimum-bar behavior. Shots 121-122 are the correct live bar.
+- shots 128-131 are the actual scrolled-file move test.

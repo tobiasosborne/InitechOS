@@ -1,0 +1,22 @@
+STARTED fresh-bars-labels pid 6
+SHOT 101-j01-shrink-disabled-art
+SHOT 102-j01-disabled-art-scrolls
+SHOT 103-j02-horizontal-labels
+SHOT 104-j02-hidden-icon-selected
+SHOT 105-j01-grow-enabled-art
+SHOT 106-j01-enabled-art-ignored
+SHOT 114-left-edge-window
+SHOT 115-left-edge-icon-selected
+SHOT 116-bottom-right-edge-window
+STOPPED 6
+STARTED fresh-multi-open pid 11
+SHOT 107-j03-two-folders
+SHOT 108-j03-key-opens-one
+SHOT 109-j03-other-folder-valid
+SHOT 110-j03-open-menu-held
+SHOT 111-j03-menu-opens-one
+SHOT 112-thumb-before-no-motion-click
+SHOT 113-thumb-after-no-motion-click
+SHOT 117-minimum-scrollbar
+SHOT 118-minimum-down-arrow-result
+STOPPED 11

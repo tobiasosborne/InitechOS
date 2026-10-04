@@ -1,0 +1,24 @@
+{
+  "report_ascii": true,
+  "report_links_checked": 93,
+  "missing_links": [],
+  "qemu_instances": 7,
+  "qemu_exit_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "interactive_driver_exit_code": 0,
+  "fresh_replay_driver_exit_code": 0,
+  "native_guest_screenshots": 122,
+  "late_plain_n_w_dispatched_no_finder_command": true,
+  "repository_image_hashes_after": {
+    "/home/tobias/Projects/initech-os/build/flair_tenants_interactive.img": "c994804c91f378c5909e1eb8c550fb33779661a7c2aa07484ef618fc9a446640",
+    "/home/tobias/Projects/initech-os/build/flair_data.img": "84390fdb93bfe532d7e927a0bd83d918ec6f00c71c7bf5c368d56e09e2f4c4e4"
+  },
+  "repository_images_match_pristine_copies": true
+}

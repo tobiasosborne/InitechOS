@@ -1,0 +1,10 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/TRASH
+
+.            <DIR>     1980-00-00   0:00 
+..           <DIR>     1980-00-00   0:00 
+F28      TXT        19 2026-10-04   4:46 
+        3 files                  19 bytes
+                          1 432 576 bytes free
+
