@@ -175,7 +175,27 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
     content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
 #endif
     content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME);
+#if defined(WINDOW_MUTATE_CONTENT_OVER_HSCROLL)
+    /* MUTANT (Rule 6; test-window CalcDoc leg + test-flair-scroll): the
+     * pre-tdnl.35 bottom edge, frame.bottom - 1 -- contRgn swallows the
+     * horizontal scroll bar, so content painting erases it and FindWindow
+     * reports it as content. NEVER in a real build. */
     content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME);
+#else
+    /* The content stops at the horizontal scroll bar's outer line, exactly as
+     * the right edge stops at the vertical bar's (initech-tdnl.35): contRgn is
+     * "the area inside the window frame (excluding the title bar and scroll
+     * bars)" -- spec/window_record.h contRgn, IM-I p. I-268. The bar's outer
+     * line is the bottom body rail's inner line (FRAME + BODY_BAR) plus the
+     * 16-px bar: B-21, the row winscroll.h wscroll_bar_rect(WSCROLL_H) starts
+     * on. Before this, contRgn ran to frame.bottom-1, so every owner's content
+     * paint (Finder fill, tenants) overwrote the horizontal bar (audit pass 3
+     * H06, initech-tdnl.76) and a click on it reached the owner as content. */
+    content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME -
+                               FLAIR_CHROME_BODY_BAR -
+                               FLAIR_CHROME_SCROLLBAR_W);
+    if (content.bottom < content.top) content.bottom = content.top;
+#endif
 #if defined(CHROME_FID_MUT_CONTENT_OVER_SCROLL)
     content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME);
 #else
@@ -528,6 +548,7 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
      * what keeps every non-Finder build byte-identical. */
     wm->desktop_underlay      = NULL;
     wm->desktop_underlay_user = NULL;
+    wm->scrolls               = NULL;   /* no scroll records (tdnl.35) */
     region_set_empty(desktop_update);
     region_set_empty(scratch_a);
     region_set_empty(scratch_b);
@@ -631,6 +652,7 @@ void DisposeWindow(WindowMgr *wm, WindowPtr w)
 {
     if (wm == NULL || w == NULL) WIN_PANIC("DisposeWindow: NULL");
     if (!list_contains(wm, w)) WIN_PANIC("DisposeWindow: not in list");
+    WindowScrollDetach(wm, w);   /* no dangling scroll record (tdnl.35) */
 
     if (w->visible) {
         /* exposed := visible(w) clipped to frame, BEFORE unlinking (fronts need
@@ -974,6 +996,14 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
 
         if (whichWindow) *whichWindow = p;
 
+#if !defined(WINDOW_MUTATE_SCROLL_DRAG)
+        /* The standard scroll bars are CONTROLS IN THE CONTENT (window.h Sec
+         * 4b; control-manager.md): inContent, then FindControl. Checked first
+         * because neither gutter lies in contRgn. */
+        if (WindowScrollBand(p, pt) >= 0)
+            return inContent;
+#endif
+
         /* content first (most common). */
         if (region_contains_point(p->contRgn, h, v))
             return inContent;
@@ -1032,4 +1062,84 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
 
     if (whichWindow) *whichWindow = NULL;
     return inDesk;
+}
+
+/* ===========================================================================
+ * THE STANDARD SCROLL BARS (window.h Sec 4b; os/flair/winscroll.h).
+ * ===========================================================================*/
+void WindowScrollAttach(WindowMgr *wm, WindowScroll *ws, WindowPtr w)
+{
+    if (wm == NULL || ws == NULL || w == NULL) WIN_PANIC("WindowScrollAttach: NULL");
+    if (WindowScrollOf(wm, w) != NULL) WIN_PANIC("WindowScrollAttach: twice");
+    for (int a = 0; a < WSCROLL_AXES; a++) {
+        ws->axis[a].value    = 0;
+        ws->axis[a].max      = 0;
+        ws->axis[a].line     = WSCROLL_LINE_DEFAULT;
+        ws->axis[a].page     = WSCROLL_LINE_DEFAULT;
+        ws->axis[a].hilite   = 0;
+        ws->axis[a].drag_pos = -1;
+    }
+    ws->owner   = w;
+    ws->next    = wm->scrolls;
+    wm->scrolls = ws;
+}
+
+void WindowScrollDetach(WindowMgr *wm, WindowPtr w)
+{
+    WindowScroll **pp;
+    if (wm == NULL) WIN_PANIC("WindowScrollDetach: NULL");
+    for (pp = &wm->scrolls; *pp != NULL; pp = &(*pp)->next) {
+        if ((*pp)->owner == w) {
+            WindowScroll *dead = *pp;
+            *pp = dead->next;
+            dead->next  = NULL;
+            dead->owner = NULL;
+            return;
+        }
+    }
+}
+
+WindowScroll *WindowScrollOf(const WindowMgr *wm, const WindowRecord *w)
+{
+    if (wm == NULL || w == NULL) return NULL;
+    for (WindowScroll *s = wm->scrolls; s != NULL; s = s->next)
+        if (s->owner == w) return s;
+    return NULL;
+}
+
+int WindowScrollBand(const WindowRecord *w, flair_point_t pt)
+{
+    rgn_rect_t frame;
+    if (w == NULL || !w->visible || w->collapsed ||
+        !document_variant(w->windowDefProcVariant) ||
+        w->strucRgn == NULL || region_is_empty(w->strucRgn))
+        return -1;
+    frame = WindowFrameRect((WindowPtr)w);
+    /* No bars where the drawer draws none: chrome.c flair_draw_document_window
+     * skips a frame narrower than 2*GROW+2 or shorter than TITLEBAR_H+GROW+2,
+     * so such a window has no gutter to hit (the host oracles' tiny windows). */
+    if ((int)frame.right - (int)frame.left < 2 * FLAIR_CHROME_GROW + 2 ||
+        (int)frame.bottom - (int)frame.top <
+            FLAIR_CHROME_TITLEBAR_H + FLAIR_CHROME_GROW + 2)
+        return -1;
+    /* The vertical bar's top outer line IS the title band's shared bottom row
+     * (chrome.c): that row belongs to the title (inDrag), the bar's live
+     * parts start below it (IM: the control lies in the content region). */
+    if (pt.v < (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H)) return -1;
+    for (int a = 0; a < WSCROLL_AXES; a++)
+        if (wscroll_pt_in(wscroll_bar_rect(frame, a), pt)) return a;
+    return -1;
+}
+
+int WindowScrollFindPart(const WindowMgr *wm, const WindowRecord *w,
+                         flair_point_t pt, int *axis)
+{
+    const WindowScroll *ws;
+    int a = WindowScrollBand(w, pt);
+    if (axis != NULL) *axis = a;
+    if (a < 0 || !w->hilited) return WSCROLL_PART_NONE;
+    ws = WindowScrollOf(wm, w);
+    if (ws == NULL) return WSCROLL_PART_NONE;
+    return wscroll_test_part(wscroll_bar_rect(WindowFrameRect((WindowPtr)w), a),
+                             a, &ws->axis[a], pt);
 }

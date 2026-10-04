@@ -7980,7 +7980,7 @@ $(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/g
 $(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
 
-$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
+$(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(WINDOW_INC) -c os/flair/window.c -o $@
 
 # R1 geometry operations are linked only into interactive FLAIR images. The
@@ -7988,7 +7988,7 @@ $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/regi
 # unused zoom/grow/collapse text consumes the fixed conventional-memory window.
 # Like rtc.o's established size profile, -Os is deterministic and keeps the
 # shared Manager inside PROGRAM_BASE without changing its C contract.
-$(KERNEL_WINDOW_LIVE_OBJ): os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
+$(KERNEL_WINDOW_LIVE_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS $(WINDOW_INC) -c os/flair/window.c -o $@
 
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
@@ -7999,7 +7999,7 @@ $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/r
 # stale object keeps a stale (or a second) copy of the tables.
 FLAIR_FONT_HDRS := os/flair/text.h spec/assets/font_linkage.h spec/assets/chicago12.h spec/assets/geneva9.h
 
-$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
 $(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
@@ -8017,14 +8017,14 @@ $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
-$(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
+$(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(DRAG_INC) -c $(DESKTOP_C) -o $@
 
 # The C-8 policy seam (beads initech-6bq2). Freestanding-safe; reads color_canon.h.
 $(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
 
-$(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h $(FLAIR_FONT_HDRS) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h $(FLAIR_FONT_HDRS) os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(SHELL_INC) -c $(SHELL_C) -o $@
 
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
@@ -9235,7 +9235,7 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 # the desktop shell) -- the FIRST call site for the library linked at re30.2.
 # Separate image so the normal boot (A:\>) is byte-unchanged. The FLAIR + spec
 # headers are added as prereqs (they are #include'd only under -DBOOT_FLAIR_SHELL).
-$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_SHELL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9275,7 +9275,7 @@ $(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) | $(BUILD)
 # kmain compiled with -DBOOT_FLAIR_LIVE. Same source + same FLAIR object set as
 # FLAIRSHELL (event.o supplies flair_tick_advance/flair_tick_count). Adds the
 # os/flair/event.h prereq the FLAIR-live arm includes. ADR-0006 FO-4.
-$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # The FLAIR-live kernel links the IDENTICAL object set as FLAIRSHELL, swapping
@@ -9403,7 +9403,7 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 # ADR-0006 M1/BC-9). -DFLAIR_LIVE_MUTATE_DRAG_NOOP suppresses both document and
 # movable-modal commits while preserving their proposed markers. The modal-mode
 # PPM oracle sees the old all-black FILE COPY frame -> RED. Direct HER-14 mutant.
-$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
@@ -9434,7 +9434,7 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # invalidated/restored. This is the mutation that intersects the new reverse
 # survival scene; the original IGNORE_OVERLAY mutant remains below and is
 # mutation-proven on the forward window-across-overlay HOST scene. -------------
-$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ)
@@ -9524,7 +9524,7 @@ $(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIV
 # Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: an UNBOUNDED
 # pump (for(;;), runs until power-off). R0.1 CursorMgr is shared by every live
 # image; this variant swaps only main to change loop lifetime. -------------------
-$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
@@ -9584,20 +9584,20 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/menu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
+TBXGATE_DEPS := os/flair/menu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
 KERNEL_PROCESS_OBJ := $(BUILD)/process.o
-$(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
 
 # The two reference tenants object (THE ARTIFACT; freestanding kernel build). Needs
 # -Ios/apps for ref_tenant.h and -Ispec for the shared demo contract.
 KERNEL_REF_TENANT_OBJ := $(BUILD)/ref_tenant.o
-$(KERNEL_REF_TENANT_OBJ): os/apps/ref_tenant.c os/apps/ref_tenant.h os/flair/process.h os/flair/window.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/flair_look.h spec/window_record.h spec/region_algebra.h spec/event_model.h spec/chrome_metrics.h spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_REF_TENANT_OBJ): os/apps/ref_tenant.c os/apps/ref_tenant.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/flair_look.h spec/window_record.h spec/region_algebra.h spec/event_model.h spec/chrome_metrics.h spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/apps -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/apps/ref_tenant.c -o $@
 
 # The R3.2 Finder DESKTOP MANAGER objects (THE ARTIFACT; freestanding kernel
@@ -9610,7 +9610,7 @@ $(KERNEL_FINDER_ICON_OBJ): os/flair/finder_icon.c os/flair/finder_icon.h os/flai
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_icon.c -o $@
 
 KERNEL_FINDER_DESKTOP_OBJ := $(BUILD)/finder_desktop.o
-$(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
 # The R3.3 Finder DISK WINDOWS object (THE ARTIFACT; bead initech-tdnl.10): the
@@ -9618,14 +9618,14 @@ $(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.
 # seam (kmain wires it to fat12), the New Folder name ladder and the row-major
 # Clean Up. Linked ONLY into the FLAIRTENANTS kernels.
 KERNEL_FINDER_WINDOWS_OBJ := $(BUILD)/finder_windows.o
-$(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
 
 # The R3.4a Finder FILE-OPERATIONS object (THE ARTIFACT; bead initech-34dh):
 # drop-target resolution, the drop-target highlight, the move/Trash refusal
 # ladder and Trash staging with kind=5 origins. Linked ONLY into the
 # FLAIRTENANTS kernels, at the tenants-only optimisation level.
-FINDER_OPS_KDEPS := os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/surface.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
+FINDER_OPS_KDEPS := os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/surface.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 KERNEL_FINDER_OPS_OBJ := $(BUILD)/finder_ops.o
 $(KERNEL_FINDER_OPS_OBJ): $(FINDER_OPS_KDEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
@@ -9730,7 +9730,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
@@ -9801,7 +9801,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -9867,7 +9867,7 @@ run-flair-tenants: $(FLAIRTENANTS_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
 
 # $(call flair-tenants-proc-mutant-rules,<KNOB>,<tag>): a Layer-5-dispatcher mutant.
 define flair-tenants-proc-mutant-rules
-$(BUILD)/process_mut_$(2).o: os/flair/process.c os/flair/process.h os/flair/window.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
+$(BUILD)/process_mut_$(2).o: os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -9924,7 +9924,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -9967,7 +9967,7 @@ endef
 # already has (confirmed live: an earlier attempt with $(DRAG_INC)/$(DESKTOP_C) in
 # the recipe compiled "-c -o desktop_mut_no_paintall_clear.o" with no input file).
 define flair-tenants-desktop-mutant-rules
-$(BUILD)/desktop_mut_$(2).o: os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h os/flair/flair_look.h | $(BUILD)
+$(BUILD)/desktop_mut_$(2).o: os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h os/flair/flair_look.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed -D$(1) -c os/flair/desktop.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -10012,7 +10012,7 @@ endef
 # bake in an EMPTY string (the same immediate-expansion hazard the desktop
 # template above documents).
 define flair-tenants-window-mutant-rules
-$(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
+$(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -10088,7 +10088,7 @@ $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,
 # reference to a variable defined later would silently bake in an EMPTY string
 # (the hazard the desktop/window templates above document at length).
 define flair-tenants-finderdesk-mutant-rules
-$(BUILD)/finder_desktop_mut_$(2).o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(BUILD)/finder_desktop_mut_$(2).o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -10131,7 +10131,7 @@ $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_HILITE,de
 # the knobs are the SAME spellings test-finder-ops-mutant proves on the host.
 # Prereqs + flags spelled LITERALLY (the $(eval)-expands-once hazard above).
 define flair-tenants-finderops-mutant-rules
-$(BUILD)/finder_ops_mut_$(2).o: os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/window.h | $(BUILD)
+$(BUILD)/finder_ops_mut_$(2).o: os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/window.h os/flair/winscroll.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -10169,7 +10169,7 @@ $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE
 # KERNEL_FINDER_WINDOWS_OBJ's own recipe (the $(eval)-expands-once hazard the
 # templates above document at length).
 define flair-tenants-finderwin-mutant-rules
-$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -10512,7 +10512,7 @@ test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_M
 #
 # define flair-desktop-mutant-rules: $(1)=mutant macro name, $(2)=short tag
 define flair-desktop-mutant-rules
-$(BUILD)/flair_shell_mut_$(2).o: $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(BUILD)/flair_shell_mut_$(2).o: $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) $(SHELL_INC) -c $(SHELL_C) -o $$@
 
 $(BUILD)/kernel_flairshell_mut_$(2).elf: $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o $(KERNEL_LD) | $(BUILD)
@@ -11193,7 +11193,7 @@ test-flair-heap-mutant: $(TEST_FLAIR_HEAP_MUT_BOUNDS) $(TEST_FLAIR_HEAP_MUT_REUS
 # drift from the lock. THREE named mutants (Rule 6; FO-2/AM-3) prove the oracle
 # BITES: CHROME_MUTATE_TITLEBAR_H / CHROME_MUTATE_NO_FRAME / CHROME_MUTATE_SCROLLBAR_W.
 CHROME_DRAWER_C  := os/flair/chrome.c
-CHROME_DRAWER_H  := os/flair/chrome.h
+CHROME_DRAWER_H  := os/flair/chrome.h os/flair/winscroll.h
 RENDER_SKEL_C    := harness/render/render.c
 RENDER_SKEL_H    := harness/render/render.h
 SPEC_CHROME_METRICS := spec/chrome_metrics.json
@@ -11391,6 +11391,19 @@ $(TEST_CHROME_FID_MUT_SBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_SCROLL_FLAT $(CHROME_INC) \
 		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
 
+# tdnl.35 scroll-state mutants (Rule 6): CHROME_MUT_SCROLL_ALWAYS_ENABLED draws
+# every active gutter ENABLED even with nothing to scroll (the pre-tdnl.35
+# composition) -> leg SCROLL-DISABLED RED; CHROME_MUT_SCROLL_PRESSED_IDLE draws
+# a held arrow idle -> leg SCROLL-PRESSED RED.
+TEST_CHROME_FID_MUT_SAE := $(BUILD)/test_chrome_fidelity_mutant_scroll_always_enabled
+TEST_CHROME_FID_MUT_SPI := $(BUILD)/test_chrome_fidelity_mutant_scroll_pressed_idle
+$(TEST_CHROME_FID_MUT_SAE): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUT_SCROLL_ALWAYS_ENABLED $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+$(TEST_CHROME_FID_MUT_SPI): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUT_SCROLL_PRESSED_IDLE $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+
 # CHROME_FID_MUT_NO_BEVEL (beads initech-92li, Rule 6): skip the title-bar bevel
 # rows -- revert to the OLD all-stripe title band (17 stripe rows, no bevel-hi /
 # bevel-lo, contiguous L/D run != 15). test-chrome-fidelity's bevel + 15-row leg
@@ -11510,8 +11523,14 @@ test-chrome-fidelity: $(TEST_CHROME_FID)
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG) $(TEST_CHROME_FID_MUT_FONT)
-	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-four Platinum chrome mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG) $(TEST_CHROME_FID_MUT_FONT) $(TEST_CHROME_FID_MUT_SAE) $(TEST_CHROME_FID_MUT_SPI)
+	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-six Platinum chrome mutants go RED (Rule 6)\n'
+	@if $(TEST_CHROME_FID_MUT_SAE) > $(BUILD)/test_chrome_fid_mut_sae.log 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_MUT_SCROLL_ALWAYS_ENABLED PASSED -- the SCROLL-DISABLED leg is decoration\n'; exit 1; fi
+	@grep -q 'SCROLL-DISABLED' $(BUILD)/test_chrome_fid_mut_sae.log && grep 'FAIL' $(BUILD)/test_chrome_fid_mut_sae.log | grep -q 'SCROLL-DISABLED' || { printf '!!! test-chrome-fidelity-mutant FAIL: SCROLL_ALWAYS_ENABLED red for the wrong reason\n'; exit 1; }
+	@printf '>>> test-chrome-fidelity-mutant: green (CHROME_MUT_SCROLL_ALWAYS_ENABLED correctly RED -- an active window with nothing to scroll must draw the DISABLED bar)\n'
+	@if $(TEST_CHROME_FID_MUT_SPI) > $(BUILD)/test_chrome_fid_mut_spi.log 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_MUT_SCROLL_PRESSED_IDLE PASSED -- the SCROLL-PRESSED leg is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_chrome_fid_mut_spi.log | grep -q 'SCROLL-PRESSED' || { printf '!!! test-chrome-fidelity-mutant FAIL: SCROLL_PRESSED_IDLE red for the wrong reason\n'; exit 1; }
+	@printf '>>> test-chrome-fidelity-mutant: green (CHROME_MUT_SCROLL_PRESSED_IDLE correctly RED -- a held arrow must draw pressed)\n'
 	@if $(TEST_CHROME_FID_MUT) >/dev/null 2>&1; then \
 		printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_PHASE PASSED -- the phase oracle is decoration\n'; \
 		exit 1; \
@@ -11898,7 +11917,8 @@ TEST_WINDOW_MUT_ZONE_OFF := $(BUILD)/test_window_mutant_zone_off
 TEST_WINDOW_MUT_ZOOM_NO_RESTORE := $(BUILD)/test_window_mutant_zoom_no_restore
 TEST_WINDOW_MUT_COLLAPSE_LEAK := $(BUILD)/test_window_mutant_collapse_leak
 TEST_WINDOW_MUT_GROW_NO_MIN := $(BUILD)/test_window_mutant_grow_no_min
-TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h
+TEST_WINDOW_MUT_CONTENT_OVER_HSCROLL := $(BUILD)/test_window_mutant_content_over_hscroll
+TEST_WINDOW_DEPS := os/flair/window.c os/flair/window.h os/flair/winscroll.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h
 WINDOW_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
 WINDOW_LINK := os/flair/window.c $(REGION_ENGINE_C)
 WINDOW_R1_CFLAGS := -DWINDOW_ENABLE_R1_OPS
@@ -11927,6 +11947,8 @@ $(TEST_WINDOW_MUT_COLLAPSE_LEAK): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUI
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_COLLAPSE_LEAK $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 $(TEST_WINDOW_MUT_GROW_NO_MIN): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_GROW_NO_MIN $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+$(TEST_WINDOW_MUT_CONTENT_OVER_HSCROLL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DWINDOW_MUTATE_CONTENT_OVER_HSCROLL $(WINDOW_INC) -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
@@ -11935,8 +11957,9 @@ test-window: $(TEST_WINDOW)
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
-test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) $(TEST_WINDOW_MUT_SHADOW_CLIPPED) $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL) $(TEST_WINDOW_MUT_ZONE_OFF) $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) $(TEST_WINDOW_MUT_COLLAPSE_LEAK) $(TEST_WINDOW_MUT_GROW_NO_MIN)
-	@printf ">>> test-window-mutant: confirming all eleven mutants go RED (Rule 6)\n"
+test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TEST_WINDOW_MUT_NO_DEACT_INVAL) $(TEST_WINDOW_MUT_NO_ACTIVATE_INVAL) $(TEST_WINDOW_MUT_SHADOW_CLIPPED) $(TEST_WINDOW_MUT_CONTENT_TOP_STALE) $(TEST_WINDOW_MUT_CONTENT_OVER_SCROLL) $(TEST_WINDOW_MUT_ZONE_OFF) $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) $(TEST_WINDOW_MUT_COLLAPSE_LEAK) $(TEST_WINDOW_MUT_GROW_NO_MIN) $(TEST_WINDOW_MUT_CONTENT_OVER_HSCROLL)
+	@printf ">>> test-window-mutant: confirming all twelve mutants go RED (Rule 6)\n"
+	@if $(TEST_WINDOW_MUT_CONTENT_OVER_HSCROLL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: CONTENT_OVER_HSCROLL PASSED -- the contRgn-excludes-the-horizontal-bar oracle (tdnl.35) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (CONTENT_OVER_HSCROLL correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_ZORDER) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZORDER PASSED -- the visible-region oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZORDER correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_OVERPAINT) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: OVERPAINT PASSED -- the no-over-repaint oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (OVERPAINT correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_NO_DEACT_INVAL) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: NO_DEACT_INVAL PASSED -- the deactivation-repaint oracle (initech-v6t2) is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (NO_DEACT_INVAL correctly RED)\n'; fi
@@ -11948,6 +11971,41 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TES
 	@if $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZOOM_NO_RESTORE PASSED -- the userState toggle oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZOOM_NO_RESTORE correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_COLLAPSE_LEAK) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: COLLAPSE_LEAK PASSED -- the empty collapsed contRgn oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (COLLAPSE_LEAK correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_GROW_NO_MIN) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: GROW_NO_MIN PASSED -- the 96x64 minimum-size oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (GROW_NO_MIN correctly RED)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-winscroll (bead initech-tdnl.35; audit F02) -- the HOST
+# oracle for the standard window scroll bars (os/flair/winscroll.h + window.c
+# Sec 4b): bar geometry, the IM value<->thumb mapping (with a round-trip
+# property), the part codes, line/page steps, FindWindow answering inContent
+# (never inDrag) over every band pixel, FindControl, the registry. Every
+# expectation is hand-derived in the test from chrome_metrics + the default
+# Finder frame. Mutants: WINDOW_MUTATE_SCROLL_DRAG (the pre-fix fall-through
+# to inDrag), WSCROLL_MUT_THUMB_UNSCALED, WSCROLL_MUT_PAGE_WRONG_DIR.
+# ---------------------------------------------------------------------------
+TEST_WINSCROLL     := $(BUILD)/test_winscroll
+TEST_WINSCROLL_SRC := harness/proptest/test_winscroll.c
+WINSCROLL_MUTANTS  := WINDOW_MUTATE_SCROLL_DRAG WSCROLL_MUT_THUMB_UNSCALED WSCROLL_MUT_PAGE_WRONG_DIR
+$(TEST_WINSCROLL): $(TEST_WINSCROLL_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_WINSCROLL_SRC) $(WINDOW_LINK)
+$(BUILD)/test_winscroll_mutant_%: $(TEST_WINSCROLL_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -D$* $(WINDOW_INC) -o $@ $(TEST_WINSCROLL_SRC) $(WINDOW_LINK)
+
+.PHONY: test-winscroll test-winscroll-mutant
+test-winscroll: $(TEST_WINSCROLL)
+	@printf ">>> test-winscroll: window scroll bars -- geometry, thumb math, part codes, steps, FindWindow inContent (never inDrag), FindControl (tdnl.35)\n"
+	@$(TEST_WINSCROLL)
+	@printf ">>> test-winscroll: green\n"
+
+test-winscroll-mutant: $(foreach m,$(WINSCROLL_MUTANTS),$(BUILD)/test_winscroll_mutant_$(m))
+	@for m in $(WINSCROLL_MUTANTS); do \
+		if $(BUILD)/test_winscroll_mutant_$$m > $(BUILD)/test_winscroll_mutant_$$m.log 2>&1; then \
+			printf '!!! test-winscroll-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		printf '>>> test-winscroll-mutant: %s correctly RED: ' "$$m"; grep -m1 'FAIL' $(BUILD)/test_winscroll_mutant_$$m.log; \
+	done
+	@grep -q 'W5 every pixel' $(BUILD)/test_winscroll_mutant_WINDOW_MUTATE_SCROLL_DRAG.log || { printf '!!! test-winscroll-mutant FAIL: SCROLL_DRAG red for the wrong reason\n'; exit 1; }
+	@grep -q 'W2 thumb' $(BUILD)/test_winscroll_mutant_WSCROLL_MUT_THUMB_UNSCALED.log || { printf '!!! test-winscroll-mutant FAIL: THUMB_UNSCALED red for the wrong reason\n'; exit 1; }
+	@grep -q 'W4 page' $(BUILD)/test_winscroll_mutant_WSCROLL_MUT_PAGE_WRONG_DIR.log || { printf '!!! test-winscroll-mutant FAIL: PAGE_WRONG_DIR red for the wrong reason\n'; exit 1; }
+	@printf ">>> test-winscroll-mutant: green (three mutants RED for the named reason)\n"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-cmd (beads initech-tdnl.27; docs/design/
@@ -12033,7 +12091,7 @@ FINDER_DESK_LINK := os/flair/finder_desktop.c os/flair/finder_icon.c \
                     os/flair/surface.c os/flair/heap.c \
                     $(CHROME_DRAWER_C) $(REGION_ENGINE_C) $(FLAIRLOOK_C)
 FINDER_DESK_DEPS := $(TEST_FINDER_DESK_SRC) os/flair/finder_desktop.h \
-                    os/flair/finder_icon.h os/flair/window.h os/flair/desktop.h \
+                    os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h \
                     os/flair/process.h os/flair/text.h os/flair/blitter.h \
                     os/flair/surface.h os/flair/heap.h $(CHROME_DRAWER_H) \
                     $(FLAIRLOOK_H) $(REGION_ENGINE_H) \
@@ -12102,7 +12160,7 @@ FINDER_WIN_LINK := os/flair/finder_windows.c os/flair/finder_desktop.c \
                    $(CHROME_DRAWER_C) $(REGION_ENGINE_C) $(FLAIRLOOK_C)
 FINDER_WIN_DEPS := $(TEST_FINDER_WIN_SRC) os/flair/finder_windows.h \
                    os/flair/finder_desktop.h os/flair/finder_cmd.h \
-                   os/flair/finder_icon.h os/flair/window.h os/flair/desktop.h \
+                   os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h \
                    os/flair/process.h os/flair/blitter.h os/flair/surface.h \
                    os/flair/heap.h $(CHROME_DRAWER_H) $(FLAIRLOOK_H) \
                    $(REGION_ENGINE_H) spec/assets/desk_icons.h \
@@ -12242,7 +12300,7 @@ TEST_INTERACT_SRC := harness/proptest/test_interact.c
 TEST_INTERACT_MUT_DRAG := $(BUILD)/test_interact_mutant_dragnoop
 TEST_INTERACT_MUT_FIND := $(BUILD)/test_interact_mutant_findoffbyone
 TEST_INTERACT_MUT_VIS  := $(BUILD)/test_interact_mutant_visignorefront
-TEST_INTERACT_DEPS := os/flair/window.c os/flair/window.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
+TEST_INTERACT_DEPS := os/flair/window.c os/flair/window.h os/flair/winscroll.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h
 
 $(TEST_INTERACT): $(TEST_INTERACT_SRC) $(TEST_INTERACT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_INTERACT_SRC) $(WINDOW_LINK)
@@ -12284,7 +12342,7 @@ TEST_PROCESS_MUT_REFCON   := $(BUILD)/test_process_mutant_ignorerefcon
 TEST_PROCESS_MUT_ACTIVATE := $(BUILD)/test_process_mutant_skipactivate
 TEST_PROCESS_MUT_KEY      := $(BUILD)/test_process_mutant_keyundercursor
 TEST_PROCESS_MUT_RAISE    := $(BUILD)/test_process_mutant_nosametenantraise
-TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 PROCESS_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
@@ -12348,7 +12406,7 @@ TEST_PROC_TEARDOWN_MUT := $(BUILD)/test_process_teardown_mutant_leakblock
 TEST_PROC_TEARDOWN_MUT_RECS := $(BUILD)/test_process_teardown_mutant_leakrecords
 TEST_PROC_TEARDOWN_MUT_UBD0 := $(BUILD)/test_process_teardown_mutant_ubd0
 TEST_PROC_TEARDOWN_MUT_CLOSE := $(BUILD)/test_process_teardown_mutant_close_hide_only
-TEST_PROC_TEARDOWN_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+TEST_PROC_TEARDOWN_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 
@@ -12395,7 +12453,7 @@ test-process-teardown-mutant: $(TEST_PROC_TEARDOWN_MUT) $(TEST_PROC_TEARDOWN_MUT
 TEST_PROC_BUDGET     := $(BUILD)/test_process_budget
 TEST_PROC_BUDGET_SRC := harness/proptest/test_process_budget.c
 TEST_PROC_BUDGET_MUT := $(BUILD)/test_process_budget_mutant_overcommit
-TEST_PROC_BUDGET_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+TEST_PROC_BUDGET_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 
@@ -12474,7 +12532,7 @@ TEST_SCRAP_MUT_NOINC   := $(BUILD)/test_scrap_mutant_noincrement
 TEST_SCRAP_MUT_NOCLEAR := $(BUILD)/test_scrap_mutant_noclear
 TEST_SCRAP_LINK := os/flair/scrap.c os/flair/process.c os/flair/window.c os/flair/heap.c $(REGION_ENGINE_C)
 TEST_SCRAP_DEPS := os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h \
-                     os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+                     os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 
@@ -12643,7 +12701,7 @@ TEST_PROC_ACTIVATE     := $(BUILD)/test_process_activate
 TEST_PROC_ACTIVATE_SRC := harness/proptest/test_process_activate.c
 TEST_PROC_ACTIVATE_MUT_HILITE := $(BUILD)/test_process_activate_mutant_nohilite
 TEST_PROC_ACTIVATE_MUT_FRONT  := $(BUILD)/test_process_activate_mutant_raisefrontonly
-TEST_PROC_ACTIVATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+TEST_PROC_ACTIVATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 
@@ -12688,7 +12746,7 @@ TEST_PROC_UPDATE_SRC := harness/proptest/test_process_update.c
 TEST_PROC_UPDATE_MUT_OWNER := $(BUILD)/test_process_update_mutant_wrongowner
 TEST_PROC_UPDATE_MUT_VALID := $(BUILD)/test_process_update_mutant_skipvalidate
 TEST_PROC_UPDATE_MUT_VIS   := $(BUILD)/test_process_update_mutant_no_visclip
-TEST_PROC_UPDATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h \
+TEST_PROC_UPDATE_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 
@@ -12814,7 +12872,7 @@ DRAG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/rende
 DRAG_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
              os/flair/window.c os/flair/event.c os/flair/blitter.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
 DRAG_DEPS := $(TEST_DRAG_SRC) $(DESKTOP_C) $(DESKTOP_H) $(DRAG_LINK) \
-             os/flair/window.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h \
+             os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h \
              os/flair/surface.h os/flair/heap.h $(RENDER_SKEL_H) \
              $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h \
              spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h \
@@ -13047,8 +13105,8 @@ SHELL_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGIN
               os/flair/window.c os/flair/blitter.c $(CHROME_DRAWER_C) os/flair/menu.c \
               os/flair/text.c os/flair/control.c os/flair/dialog.c os/flair/event.c $(DESKTOP_C) $(FLAIRLOOK_C)
 SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
-              os/flair/desktop.h os/flair/window.h os/flair/menu.h os/flair/dialog.h \
-              os/flair/control.h os/flair/chrome.h os/flair/blitter.h os/flair/surface.h \
+              os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h \
+              os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h \
               os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
               $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h \
               spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/assets/palette.h
@@ -13117,7 +13175,7 @@ TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     os/flair/event.c os/flair/event.h \
                     os/flair/blitter.c os/flair/blitter.h \
                     os/flair/surface.c os/flair/surface.h \
-                    os/flair/chrome.c os/flair/chrome.h \
+                    os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h \
                     os/flair/heap.c \
                     $(REGION_ENGINE_C) $(RENDER_SKEL_C) \
                     spec/chrome_metrics.h spec/grafport.h spec/event_model.h \
@@ -19987,7 +20045,7 @@ FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 # It swaps TWO objects (kmain + finder_desktop), which no existing template
 # does, so it gets its own explicit rules rather than a $(call) that would have
 # to grow a second knob argument.
-$(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
 $(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
@@ -24936,7 +24994,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
-	test-window test-window-mutant test-event test-event-mutant \
+	test-window test-window-mutant test-winscroll test-winscroll-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
 	test-finder-cmd test-finder-cmd-mutant \

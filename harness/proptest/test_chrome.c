@@ -301,11 +301,18 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
                      FLAIR_CHROME_SCROLLBAR_W, CIDX_WHITE);
             CHECK(left_of_sb == CIDX_WHITE, msg);
 
+            /* RE-KEYED (bead initech-tdnl.35, stated): this scene draws a
+             * window with NO scroll model, i.e. nothing to scroll, which is
+             * the DISABLED bar of scrollbars.md Sec 3 -- a flat #F3F3F3
+             * interior with no well (before tdnl.35 every active gutter drew
+             * the enabled well whatever the content). The enabled well's
+             * cross-section is graded on a scrolling window by
+             * test-chrome-fidelity leg SCROLL-WELL. */
             snprintf(msg, sizeof msg,
-                     "[%s] enabled Platinum well outer shadow must be idx %d",
-                     bpp_tag, CIDX_PLAT_STRIPE_DARK);
+                     "[%s] disabled Platinum bar interior must be idx %d",
+                     bpp_tag, CIDX_PLAT_TROUGH);
             CHECK(shade_index(ctx, sb_left + 1, row) ==
-                      CIDX_PLAT_STRIPE_DARK,
+                      CIDX_PLAT_TROUGH,
                   msg);
         }
 

@@ -126,7 +126,8 @@ static void make_port(GrafPort *port, const bitmap_t *dst,
 /* Draw one window's Platinum chrome clipped to (visRgn INTERSECT clipRgn).
  * WindowFrameRect decouples the drawer frame from the larger strucRgn that owns
  * the shadow band (initech-9d0e). Global == port-local on this offscreen. */
-static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,
+static void paint_window_chrome(const WindowMgr *wm, const bitmap_t *dst,
+                                WindowPtr w,
                                 region_t *visRgn, region_t *clipRgn)
 {
     GrafPort port;
@@ -137,8 +138,12 @@ static void paint_window_chrome(const bitmap_t *dst, WindowPtr w,
      * BringToFront/SendBehind) drives the StandardWDEF active/inactive title-bar
      * split (beads initech-a9iq) -- already in scope here, just never consumed
      * before this fix. */
-    flair_draw_document_window(&port, skin, frame,
-                               w->titleHandle, w->hilited, w->widgetFlags);
+    /* The gutter bars draw from the window's scroll record, if it has one
+     * (bead initech-tdnl.35; window.h Sec 4b): none == nothing to scroll ==
+     * DISABLED bars (scrollbars.md Sec 3). */
+    flair_draw_document_window_scroll(&port, skin, frame,
+                                      w->titleHandle, w->hilited,
+                                      w->widgetFlags, WindowScrollOf(wm, w));
 }
 
 /* Recursive back-to-front walk: paint the window list from the BACK (tail) toward
@@ -165,7 +170,7 @@ static void paint_back_to_front(WindowMgr *wm, WindowPtr w,
     if (region_is_empty(scratch)) {
         return;
     }
-    paint_window_chrome(dst, w, scratch, scratch);
+    paint_window_chrome(wm, dst, w, scratch, scratch);
 }
 
 void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
@@ -279,11 +284,11 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
          * own struc region as both, ignoring updateRgn) -- over-repaints the whole
          * window every step, compounding the over-repaint the whole-frame fill
          * already triggers: (b) RED. */
-        paint_window_chrome(dst, w, w->strucRgn, w->strucRgn);
+        paint_window_chrome(wm, dst, w, w->strucRgn, w->strucRgn);
 #else
         /* Effective clip = visible(W) INTERSECT updateRgn: visRgn = visible(W),
          * clipRgn = updateRgn. The chrome drawer intersects them (D-1/D-2). */
-        paint_window_chrome(dst, w, scratch, w->updateRgn);
+        paint_window_chrome(wm, dst, w, scratch, w->updateRgn);
 #endif
     }
 

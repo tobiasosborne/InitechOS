@@ -71,6 +71,7 @@
 
 #include "region_algebra.h"   /* region_t, rgn_rect_t, region_op (-Ispec)        */
 #include "window_record.h"    /* WindowRecord, WindowPtr, flair_part_code_t      */
+#include "winscroll.h"        /* WindowScroll: the two standard scroll bars      */
 
 /* ===========================================================================
  * 1. THE WINDOW MANAGER STATE
@@ -144,6 +145,14 @@ typedef struct WindowMgr {
     void      (*desktop_underlay)(void *user, const bitmap_t *dst,
                                   const region_t *clip);
     void       *desktop_underlay_user;
+
+    /* THE STANDARD SCROLL-BAR REGISTRY (bead initech-tdnl.35; winscroll.h).
+     * Singly-linked list of caller-supplied WindowScroll records, one per
+     * window that HAS scrollable content. A window with no record has nothing
+     * to scroll: both its bars draw DISABLED and ignore clicks. The manager
+     * still owns no storage (Law 3): WindowScrollAttach links the caller's
+     * record, DisposeWindow unlinks it. WindowMgr_init zeroes it. */
+    WindowScroll *scrolls;
 } WindowMgr;
 
 /* ===========================================================================
@@ -334,6 +343,48 @@ int CollapseWindow(WindowMgr *wm, WindowPtr w);
  * ===========================================================================*/
 flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
                              WindowPtr *whichWindow);
+
+/* ===========================================================================
+ * 4b. THE STANDARD SCROLL BARS (bead initech-tdnl.35; os/flair/winscroll.h)
+ * ---------------------------------------------------------------------------
+ * In the Toolbox a document window's scroll bars are Control Manager controls
+ * in its content: FindWindow answers inContent for them and the application
+ * calls FindControl/TrackControl (control-manager.md "Hit-testing and
+ * tracking"). FLAIR keeps that contract: a point in either gutter bar of a
+ * visible, expanded document window is inContent -- NEVER inDrag (audit F02:
+ * the bars used to fall through to "any other chrome pixel is the drag
+ * region", so a scroll-bar click moved the window). WindowScrollBand is the
+ * FindControl half every router uses to keep such a click away from the
+ * owner's content handler; WindowScrollFindPart resolves the part code.
+ *
+ * WINDOW_MUTATE_SCROLL_DRAG (Rule 6; test-window + test-flair-scroll-mutant)
+ * restores the pre-fix fall-through: the bands are inDrag again. NEVER real.
+ * ===========================================================================*/
+
+/* Link `ws` (caller storage) as the scroll state of `w`: both axes zeroed
+ * (value 0, max 0 -- nothing to scroll until the owner sets an extent), line
+ * step WSCROLL_LINE_DEFAULT, no hilite, no drag. FAIL-LOUD on NULLs or when
+ * `w` already has a record. */
+void WindowScrollAttach(WindowMgr *wm, WindowScroll *ws, WindowPtr w);
+
+/* Unlink whatever record `w` has (a no-op when it has none). DisposeWindow
+ * calls this, so a disposed window can never leave a dangling record. */
+void WindowScrollDetach(WindowMgr *wm, WindowPtr w);
+
+/* The record attached to `w`, or NULL (no scrollable content). */
+WindowScroll *WindowScrollOf(const WindowMgr *wm, const WindowRecord *w);
+
+/* Which standard bar of `w` contains `pt`: WSCROLL_V, WSCROLL_H, or -1 (not
+ * in a bar, or `w` is not a visible, expanded document window). Pure
+ * geometry: an inactive window's (HOLLOW) bar is still a bar. */
+int WindowScrollBand(const WindowRecord *w, flair_point_t pt);
+
+/* FindControl for the standard bars: the part code under `pt` (WSCROLL_PART_*)
+ * and, via *axis (may be NULL), which bar. 0 when `pt` is in no bar, when the
+ * window is not active (hilited == 0: a click there only activates it), or
+ * when that bar is DISABLED (no record, or max == 0 -- nothing to scroll). */
+int WindowScrollFindPart(const WindowMgr *wm, const WindowRecord *w,
+                         flair_point_t pt, int *axis);
 
 /* ===========================================================================
  * 5. VISIBLE REGION + INVALIDATE (helpers the Managers / shell call)

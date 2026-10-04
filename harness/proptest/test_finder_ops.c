@@ -27,8 +27,10 @@
  * the emulator gate's mtools differential.
  *
  * THE SCENE (hand-derived from finder_windows.h Sec 2/3 + CalcDocContentRect):
- *   slot 0 = APPS   frame (20,60)..(380,280)  content (21,82)..(359,279)
- *   slot 1 = ROOT   frame (40,80)..(400,300)  content (41,102)..(379,299)
+ *   slot 0 = APPS   frame (20,60)..(380,280)  content (21,82)..(359,259)
+ *   slot 1 = ROOT   frame (40,80)..(400,300)  content (41,102)..(379,279)
+ *   (content bottom = frame.bottom - 21 since bead initech-tdnl.35: contRgn
+ *   stops at the horizontal scroll bar, window.c CalcDocContentRect)
  *   ROOT icons row-major: README.TXT (59,106)  APPS (127,106)
  *                         DESKTOP.DB (195,106) TRASH (263,106)
  *   APPS icons:           TENANTFX.EXE (39,86)
@@ -388,7 +390,11 @@ static void leg_between(void)
     t = finder_ops_resolve(&S.sh, APPW, 0, 300, 250);
     CHECK(t.kind == FINDER_TGT_WINDOW && t.slot == ROOT && t.dir == 0u,
           "O4 the root window body is a WINDOW target for an APPS icon");
-    CHECK(finder_ops_drop(&S.sh, APPW, 0, &t, 284, 234, &r) == FINDER_WIN_OK,
+    /* RE-KEYED (tdnl.35, stated): the drop point was (284,234); its 47-row
+     * cell (to 281) now crosses ROOT's content bottom 279 (the horizontal
+     * scroll bar is no longer content), so it would be clamped and this leg
+     * would stop grading "no clamp". (284,214) keeps the cell inside. */
+    CHECK(finder_ops_drop(&S.sh, APPW, 0, &t, 284, 214, &r) == FINDER_WIN_OK,
           "O4 the drop commits");
     CHECK(mv_has(&S.mock, CL_ROOT, "TENANTFX.EXE") && !mv_has(&S.mock, CL_APPS, "TENANTFX.EXE"),
           "O4 the volume moved TENANTFX.EXE from APPS to the root");
@@ -396,7 +402,7 @@ static void leg_between(void)
     k = idx_of(&rw->view, "TENANTFX.EXE");
     CHECK(k == 4 && rw->view.icons[k].kind == FINDER_ICON_APP,
           "O4 the root window gained it as an APPLICATION icon");
-    CHECK(rw->view.icons[k].x == 284 && rw->view.icons[k].y == 234,
+    CHECK(rw->view.icons[k].x == 284 && rw->view.icons[k].y == 214,
           "O4 ... exactly where it was dropped (content-relative, no clamp)");
 }
 
@@ -593,9 +599,10 @@ static void leg_untrash(void)
  * Every expectation is HAND-DERIVED from the window's NEW content origin plus
  * the grid (finder_windows.h Sec 2: inset 18/4, pitch 68x52) -- never read
  * back out of the model under test. CalcDocContentRect(frame) = (left+1,
- * top+22) .. (right-21, bottom-1) (spec/chrome_metrics.h: frame 1, title 22,
- * body bar 4, scroll bar 16).
- *   ROOT moved to (140,140): content (141,162)..(479,359)
+ * top+22) .. (right-21, bottom-21) (spec/chrome_metrics.h: frame 1, title 22,
+ * body bar 4, scroll bar 16; the bottom edge stops at the horizontal scroll
+ * bar since bead initech-tdnl.35 -- RE-KEYED from bottom-1, stated).
+ *   ROOT moved to (140,140): content (141,162)..(479,339)
  *     README.TXT sprite (141+18, 162+4)      = (159,166)
  *     APPS       sprite (141+18+68, 162+4)   = (227,166)
  *   zoomed (window.c ZoomWindow over the 640x480 desktop, margins 4/40/4/4):
@@ -649,8 +656,8 @@ static void leg_follow(void)
     finder_desk_clamp(v, &x, &y);
     CHECK(x == 141 && y == 162, "O9 clamp: the content's top-left is the moved (141,162)");
     CHECK(finder_desk_drag_commit(v, 0, 1000, 1000, &oc, &nc) == FINDER_DROP_MOVED &&
-          v->icons[0].x == 479 - 32 && v->icons[0].y == 359 - 47,
-          "O9 drag commit clamps into the moved content: README.TXT at (447,312)");
+          v->icons[0].x == 479 - 32 && v->icons[0].y == 339 - 47,
+          "O9 drag commit clamps into the moved content: README.TXT at (447,292)");
 
     /* Clean Up snaps onto the grid of the CURRENT content */
     CHECK(finder_win_cleanup(&S.sh, ROOT) == 1 &&
@@ -663,8 +670,8 @@ static void leg_follow(void)
     v = finder_win_view(&S.sh, ROOT);
     x = 1000; y = 1000;
     finder_desk_clamp(v, &x, &y);
-    CHECK(v->icons[1].x == 227 && v->icons[1].y == 166 && x == 319 - 32 && y == 289 - 47,
-          "O9 grow: icons keep their place; the clamp is the GROWN content (319,289)");
+    CHECK(v->icons[1].x == 227 && v->icons[1].y == 166 && x == 319 - 32 && y == 269 - 47,
+          "O9 grow: icons keep their place; the clamp is the GROWN content (319,269)");
     SizeWindow(&S.wm, &rw->rec, 360, 220);   /* back to the default size */
 
     /* zoom, then restore */
@@ -684,7 +691,7 @@ static void leg_follow(void)
     (void)CollapseWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);
     CHECK(v->bounds.left == 141 && v->bounds.top == 162 && v->bounds.right == 479 &&
-          v->bounds.bottom == 359 && v->icons[1].x == 227,
+          v->bounds.bottom == 339 && v->icons[1].x == 227,
           "O9 collapse: an EMPTY content region does not collapse the model's bounds");
     (void)CollapseWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);

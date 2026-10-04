@@ -47,11 +47,59 @@ static rgn_rect_t win_frame(void)
     return r;
 }
 
+/* THE ACTIVE SCENE SCROLLS (bead initech-tdnl.35). Before tdnl.35 the active
+ * gutters drew the ENABLED anatomy with no thumb (a product-state substitute
+ * for the missing scroll model). Now the Window Manager carries one, so the
+ * enabled-anatomy legs (WELL/TILE/SEPARATOR, BODYBAR's DA seam) grade a window
+ * that HAS something to scroll -- unchanged probes -- and its thumb is graded
+ * at the value's hand-computed position (leg SCROLL-THUMB). The window with
+ * nothing to scroll is the separate DISABLED scene (leg SCROLL-DISABLED,
+ * scrollbars.md Sec 3). The values are picked so the thumbs avoid every
+ * existing well probe (y=150 / x=150 / x=mid / both near insets):
+ *   V bar x [339,355) y [51,280): track_lo = 51+16 = 67,
+ *     span = (280-16-15) - 67 = 182; value 133 of max 182 -> pos 67+133 = 200
+ *   H bar x [45,340) y [279,295): track_lo = 45+16 = 61,
+ *     span = (340-16-15) - 61 = 248; value 189 of max 248 -> pos 61+189 = 250
+ * (winscroll.h geometry; the arithmetic is restated here by hand.) */
+enum { SB_V_VALUE = 133, SB_V_MAX = 182, SB_V_POS = 200,
+       SB_H_VALUE = 189, SB_H_MAX = 248, SB_H_POS = 250 };
+
 static void draw_active(GrafPort *port)
+{
+    WindowScroll ws;
+    memset(&ws, 0, sizeof ws);
+    ws.axis[WSCROLL_V].value = SB_V_VALUE;
+    ws.axis[WSCROLL_V].max = SB_V_MAX;
+    ws.axis[WSCROLL_V].drag_pos = -1;
+    ws.axis[WSCROLL_H].value = SB_H_VALUE;
+    ws.axis[WSCROLL_H].max = SB_H_MAX;
+    ws.axis[WSCROLL_H].drag_pos = -1;
+    flair_draw_document_window_scroll(port, flair_look_default_skin(),
+                                      win_frame(), TEST_TITLE, 1,
+                                      FLAIR_WINDOW_WIDGET_ALL, &ws);
+}
+
+/* Nothing to scroll: no scroll record at all (scrollbars.md Sec 3). */
+static void draw_disabled(GrafPort *port)
 {
     flair_draw_document_window(port, flair_look_default_skin(),
                                win_frame(), TEST_TITLE, 1,
                                FLAIR_WINDOW_WIDGET_ALL);
+}
+
+/* The DOWN arrow of the vertical bar held (authored PRESSED art). */
+static void draw_pressed(GrafPort *port)
+{
+    WindowScroll ws;
+    memset(&ws, 0, sizeof ws);
+    ws.axis[WSCROLL_V].value = SB_V_VALUE;
+    ws.axis[WSCROLL_V].max = SB_V_MAX;
+    ws.axis[WSCROLL_V].drag_pos = -1;
+    ws.axis[WSCROLL_V].hilite = WSCROLL_PART_DOWN;
+    ws.axis[WSCROLL_H].drag_pos = -1;
+    flair_draw_document_window_scroll(port, flair_look_default_skin(),
+                                      win_frame(), TEST_TITLE, 1,
+                                      FLAIR_WINDOW_WIDGET_ALL, &ws);
 }
 
 static void draw_inactive(GrafPort *port)
@@ -613,13 +661,37 @@ int main(void)
           "leg SCROLL-SEPARATOR: both active arrow-box separators must be "
           "black, never inactive gray (scrollbars.md Sec 2.1)");
 
-    int sb_no_thumb_ok = FG_SB_ENABLED_NO_THUMB && sb_thumb_px == 0 &&
+    /* RE-KEYED (tdnl.35): SCROLL-NO-THUMB asserted the absence of a thumb
+     * because no scroll model existed. With one, the ENABLED bar carries its
+     * 15-px thumb at the value's position (scrollbars.md Sec 2.4): accent
+     * pixels ONLY inside [pos, pos+15) along the axis, black separators at
+     * pos-1 and pos+15, the sampled face at (along 1, cross 5) and highlight
+     * at (along 1, cross 0). The thumbless case moved to SCROLL-DISABLED. */
+    int sb_vthumb_in = count_idx(&active, sb_left + 1, SB_V_POS, sb_right,
+                                 SB_V_POS + FG_SB_THUMB_MIN,
+                                 FG_SB_ENABLED_THUMB_TEAL_IDX);
+    int sb_hthumb_in = count_idx(&active, SB_H_POS, hsb_top + 1,
+                                 SB_H_POS + FG_SB_THUMB_MIN, hsb_bottom,
+                                 FG_SB_ENABLED_THUMB_TEAL_IDX);
+    int sb_thumb_ok = sb_thumb_px == sb_vthumb_in && sb_vthumb_in > 0 &&
         count_idx(&active, hsb_left_sep + 1, hsb_top + 1,
                   hsb_right_sep, hsb_bottom,
-                  FG_SB_ENABLED_THUMB_TEAL_IDX) == 0;
-    CHECK(sb_no_thumb_ok,
-          "leg SCROLL-NO-THUMB: window gutters remain honestly thumbless until "
-          "R1.5 supplies a scroll-position model (initech-tdnl.4)");
+                  FG_SB_ENABLED_THUMB_TEAL_IDX) == sb_hthumb_in &&
+        sb_hthumb_in > 0 &&
+        px(&active, sb_mid_x, SB_V_POS - 1) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, sb_mid_x, SB_V_POS + FG_SB_THUMB_MIN) ==
+            FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, sb_left + 1 + 5, SB_V_POS + 1) ==
+            FG_SB_ENABLED_THUMB_TEAL_IDX &&
+        px(&active, SB_H_POS - 1, hsb_mid_y) == FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, SB_H_POS + FG_SB_THUMB_MIN, hsb_mid_y) ==
+            FG_SB_ENABLED_FRAME_IDX &&
+        px(&active, SB_H_POS + 1, hsb_top + 1 + 5) ==
+            FG_SB_ENABLED_THUMB_TEAL_IDX;
+    CHECK(sb_thumb_ok,
+          "leg SCROLL-THUMB: an enabled bar's 15-px thumb sits at the value's "
+          "position (v 200, h 250) between black separators, nowhere else "
+          "(scrollbars.md Sec 2.4; control-manager.md value<->thumb)");
 
     /* GROW BOX: 18x18 cell, face/highlight, three pitched grip lines.
      * Ref: window-chrome.md Sec 5. */
@@ -757,6 +829,70 @@ int main(void)
 
     /* Keep the acceptance tail self-contained: one line per Platinum leg. */
     printf("Platinum chrome fidelity leg inventory:\n");
+    /* SCROLL-DISABLED (bead initech-tdnl.35): an ACTIVE window with nothing
+     * to scroll draws Sec 3's DISABLED bar -- black outer lines, flat F3
+     * trough, #777777 arrow-box separators, #A5A5A5 8x4 arrows (20 px each),
+     * and NO thumb, no well, no black glyph. Ref: scrollbars.md Sec 3
+     * (s8_doc_window_active "Initech81", whose contents fit). */
+    render_ctx_t disabled;
+    int sb_disabled_ok = 0;
+    if (render_ctx_init(&disabled, &boot) == 0) {
+        render_run(&disabled, draw_disabled);
+        sb_disabled_ok =
+            px(&disabled, sb_left, sb_track_y) == FG_SB_ENABLED_FRAME_IDX &&
+            px(&disabled, sb_mid_x, sb_track_y) == FG_SB_DISABLED_TROUGH_IDX &&
+            px(&disabled, sb_left + 1, sb_track_y) == FG_SB_DISABLED_TROUGH_IDX &&
+            px(&disabled, sb_right - 1, sb_track_y) == FG_SB_DISABLED_TROUGH_IDX &&
+            px(&disabled, sb_mid_x, sb_sep_y) == FG_SB_DISABLED_SEPARATOR_IDX &&
+            px(&disabled, sb_mid_x, sb_bottom_sep_y) ==
+                FG_SB_DISABLED_SEPARATOR_IDX &&
+            px(&disabled, hsb_left_sep, hsb_mid_y) ==
+                FG_SB_DISABLED_SEPARATOR_IDX &&
+            px(&disabled, hsb_right_sep, hsb_mid_y) ==
+                FG_SB_DISABLED_SEPARATOR_IDX &&
+            px(&disabled, hsb_track_x, hsb_mid_y) == FG_SB_DISABLED_TROUGH_IDX &&
+            count_idx(&disabled, sb_left + 1, sb_top + 1, sb_right, sb_sep_y,
+                      FG_SB_DISABLED_ARROW_IDX) == 20 &&
+            count_idx(&disabled, sb_left + 1, sb_top + 1, sb_right, sb_sep_y,
+                      FG_SB_ENABLED_GLYPH_IDX) == 0 &&
+            count_idx(&disabled, hsb_left + 1, hsb_top + 1, hsb_left_sep,
+                      hsb_bottom, FG_SB_DISABLED_ARROW_IDX) == 20 &&
+            FG_SB_DISABLED_NO_THUMB &&
+            count_idx(&disabled, sb_left + 1, sb_sep_y + 1, sb_right,
+                      sb_bottom_sep_y, FG_SB_ENABLED_THUMB_TEAL_IDX) == 0 &&
+            count_idx(&disabled, hsb_left_sep + 1, hsb_top + 1, hsb_right_sep,
+                      hsb_bottom, FG_SB_ENABLED_THUMB_TEAL_IDX) == 0 &&
+            count_idx(&disabled, sb_left + 1, sb_sep_y + 1, sb_right,
+                      sb_bottom_sep_y, FG_SB_ENABLED_WELL_IDX) == 0;
+        render_ctx_free(&disabled);
+    }
+    CHECK(sb_disabled_ok,
+          "leg SCROLL-DISABLED: an active window with nothing to scroll has "
+          "flat F3 bars, #777777 separators, #A5A5A5 arrows and NO thumb "
+          "(scrollbars.md Sec 3)");
+
+    /* SCROLL-PRESSED (tdnl.35): a held down arrow is drawn PRESSED -- the
+     * authored art (chrome.c banner; scrollbars.md Sec 6 golden gap): the
+     * tile face is no longer the idle E7 face and the glyph stays black
+     * (20 px). The up arrow stays idle. */
+    render_ctx_t pressed;
+    int sb_pressed_ok = 0;
+    if (render_ctx_init(&pressed, &boot) == 0) {
+        render_run(&pressed, draw_pressed);
+        sb_pressed_ok =
+            px(&pressed, sb_mid_x, sb_bottom_sep_y + 2) !=
+                FG_SB_ENABLED_TILE_FACE_IDX &&
+            px(&pressed, sb_mid_x, sb_bottom_sep_y + 2) ==
+                FG_SB_DISABLED_ARROW_IDX &&
+            count_idx(&pressed, sb_left + 1, sb_bottom_sep_y + 1, sb_right,
+                      (bi - 19) - 1, FG_SB_ENABLED_GLYPH_IDX) == 20 &&
+            px(&pressed, sb_mid_x, sb_top + 2) == FG_SB_ENABLED_TILE_FACE_IDX;
+        render_ctx_free(&pressed);
+    }
+    CHECK(sb_pressed_ok,
+          "leg SCROLL-PRESSED: a held arrow draws its pressed tile, the other "
+          "arrow stays idle (authored; scrollbars.md Sec 6 gap)");
+
 #define LEG_STATUS(name, ok, why) \
     printf("  %-24s %s -- %s\n", name, (ok) ? "PASS" : "RED", why)
     LEG_STATUS("BAND", band_ok, "22-row profile / 12 light-first stripes / 2+4 face");
@@ -774,7 +910,9 @@ int main(void)
     LEG_STATUS("SCROLL-WELL", sb_well_ok, "five-value section + 2px near inset");
     LEG_STATUS("SCROLL-TILE", sb_tile_ok, "white/E7/CD raised arrow tiles");
     LEG_STATUS("SCROLL-SEPARATOR", sb_separator_ok, "active separators black");
-    LEG_STATUS("SCROLL-NO-THUMB", sb_no_thumb_ok, "deferred window scroll model");
+    LEG_STATUS("SCROLL-THUMB", sb_thumb_ok, "15px thumb at the value's position");
+    LEG_STATUS("SCROLL-DISABLED", sb_disabled_ok, "nothing to scroll: Sec 3, no thumb");
+    LEG_STATUS("SCROLL-PRESSED", sb_pressed_ok, "held arrow pressed, other idle");
     LEG_STATUS("GROW", grow_ok, "18x18, three pitched grip lines");
     LEG_STATUS("INACTIVE-TITLE", inactive_title_ok, "flat idx231, not Sys7 white");
     LEG_STATUS("INACTIVE-FRAME", inactive_frame_ok, "all lines/shadow idx119");
