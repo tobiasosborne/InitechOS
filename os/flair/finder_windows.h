@@ -84,6 +84,11 @@
  *   FINDER-WIN-DESELECT-ALL win=<slot>
  *   FINDER-WIN-MARQUEE win=<slot> n=<sel>
  *   FINDER-WIN-DRAG win=<slot> name=<n> x=<x> y=<y>
+ *   FINDER-OPEN-TRASH win=<slot> n=<icons> singleton=<0|1>
+ *                                                the Trash window opened (bead
+ *                                                initech-tdnl.39), or raised
+ *       *** RE-KEY (Rule 8): this REPLACES R3.2's "FINDER-OPEN-TRASH NYI".
+ *       No gate asserted the NYI line; test-flair-trash-window asserts this.
  * The window-surface gesture markers are DISTINCT from the desktop's
  * (FINDER-ICON-SELECT / -DESELECT-ALL / -MARQUEE / -DRAG) on purpose: the
  * gestures are the same code, but a gate must be able to tell WHICH surface
@@ -220,6 +225,14 @@
  * plan R4.6 -- the File Manager *is* the disk window)". A subfolder's window is
  * titled with its raw formatted 8.3 name (F3-3: no synthetic long names). */
 #define FINDER_WIN_ROOT_TITLE   "Drive A Files"
+
+/* The Trash window's title (bead initech-tdnl.39). The window is a disk window
+ * over the root \TRASH staging directory, titled by what the desktop icon
+ * says, not by the directory's raw 8.3 name: a Mac OS 8 Finder titles the
+ * window it opens from the Trash icon with the icon's name -- the desktop's
+ * own "Trash" label (finder_desktop.c seed). The 8.3 name "TRASH" is the
+ * Finder's bookkeeping and stays out of sight (FINDER_SVC_TRASH_NAME below). */
+#define FINDER_WIN_TRASH_TITLE  "Trash"
 
 /* ===========================================================================
  * 4. THE NEW-FOLDER NAME LADDER  (LOCKED convention, design F5.3 / F1.4)
@@ -387,7 +400,8 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_EXISTS    = -9,  /* move: the name is taken at the dest     */
     FINDER_WIN_ERR_MOVE      = -10, /* move/trash/unlink/...: any other refusal */
     FINDER_WIN_ERR_NOTEMPTY  = -11, /* rmdir: the directory still has entries  */
-    FINDER_WIN_ERR_SERVICE   = -12  /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
+    FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
+    FINDER_WIN_ERR_NOTRASH   = -13  /* open Trash: the volume has no \TRASH     */
 } finder_win_status_t;
 
 /* ===========================================================================
@@ -404,6 +418,8 @@ typedef struct finder_win_rgn {
 typedef struct finder_window {
     uint8_t              open;        /* 1 == this slot holds a live window    */
     uint8_t              is_root;     /* 1 == the volume's root window         */
+    uint8_t              is_trash;    /* 1 == the Trash window over \TRASH
+                                       * (bead initech-tdnl.39)                */
     uint16_t             dir_start;   /* the folder's first cluster (0 == root)*/
     char                 name83[FINDER_DESK_NAME_MAX];  /* the folder's name   */
     uint16_t             view_bits;   /* the kind=4 record's view bits         */
@@ -613,6 +629,30 @@ int finder_win_front_slot(const finder_shell_t *sh);
 finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
                                     const char *name83, uint8_t is_root,
                                     int *out_slot, int *out_singleton);
+
+/* Open (or raise) THE TRASH WINDOW (bead initech-tdnl.39; audit F04): the
+ * one deliberate view onto the root \TRASH staging directory, which every
+ * ordinary listing hides (finder_win_is_service). It is an ordinary disk
+ * window -- same grid, same trackers, same drops -- over the directory whose
+ * first cluster the binding's trash_dir() names, titled
+ * FINDER_WIN_TRASH_TITLE and flagged is_trash. Because it IS an ordinary
+ * window, the behaviour a user expects falls out of the existing rules:
+ *   - its items are the staged items (fw_enum_cb's service filter keys on
+ *     the ROOT directory, so nothing inside \TRASH is filtered);
+ *   - dragging an item OUT of it onto a folder, a window or the volume is a
+ *     plain move = "put back", and finder_ops_drop drops its kind=5 origin;
+ *   - dropping onto its body stages exactly like the desktop Trash icon;
+ *   - a second double-click raises it (the spatial singleton, keyed by the
+ *     \TRASH cluster).
+ * Returns FINDER_WIN_ERR_NULL with no binding / no trash_dir entry, and
+ * FINDER_WIN_ERR_NOTRASH when the volume has no \TRASH -- never a guess.
+ *
+ * MUTANT (Rule 6): FINDER_WIN_MUT_TRASH_ROOT opens the window over the ROOT
+ * directory instead (the bug of passing the wrong cluster): the Trash window
+ * lists the volume, not the staged items. test-finder-ops leg O13 and
+ * test-flair-trash-window-mutant go RED. */
+finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
+                                          int *out_singleton);
 
 /* Close a Finder-owned window: SAVE the view state (design F3.3), then
  * DisposeWindow ONLY -- never the tenant-terminate path, because the owner is

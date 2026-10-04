@@ -52,9 +52,13 @@
  *      collision suffixes (NEWFO001) and sets the renamed flag.
  *   O7 the kind=5 codec against a hand-authored 80-byte image + reload.
  *   O8 moving an item back OUT of \TRASH drops its origin record.
+ *   O13 the Trash window (bead initech-tdnl.39): lists the staged items,
+ *      titled "Trash", singleton; put back = a plain move into the lowest
+ *      FREE cell of the open root window; no \TRASH -> ERR_NOTRASH.
  *
  * MUTANTS: FINDER_OPS_MUT_TRASH_NO_STAGE (O6), FINDER_OPS_MUT_NO_CYCLE (O5),
- *          FINDER_OPS_MUT_NO_ORIGIN (O6/O7), FINDER_DESK_MUT_NO_HILITE (O2).
+ *          FINDER_OPS_MUT_NO_ORIGIN (O6/O7), FINDER_DESK_MUT_NO_HILITE (O2),
+ *          FINDER_WIN_MUT_TRASH_ROOT + FINDER_OPS_MUT_COUNT_CELL (O13).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -655,6 +659,93 @@ static void leg_untrash(void)
 }
 
 /* ===========================================================================
+ * O13 -- THE TRASH WINDOW (bead initech-tdnl.39; audit F04). Hand-derived
+ * from finder_windows.h Sec 2/3 + CalcDocContentRect: the scene's two windows
+ * hold slots 0 and 1, so the Trash window takes slot 2 at the cascaded frame
+ * (20+2*20, 60+2*20) = (60,100)..(420,320), content (61,122)..(399,299); its
+ * cell 0 sprite is (61+18, 122+4) = (79,126).
+ *   - it lists EXACTLY the staged items (README.TXT, a document), titled
+ *     "Trash", flagged is_trash, keyed by \TRASH's cluster;
+ *   - the root window still hides TRASH (the 37334ee rule is untouched);
+ *   - a second open raises it (one window over \TRASH, singleton=1);
+ *   - dragging README.TXT out of it onto the volume puts it back: a plain
+ *     move to the root, the kind=5 origin dropped, the Trash window empty;
+ *     the open root window shows it in the LOWEST FREE cell (59,106) -- not
+ *     on APPS, which kept cell 1 (127,106) when README left (no re-flow);
+ *   - a volume with no \TRASH refuses the open (ERR_NOTRASH), no window.
+ * MUTANTS: FINDER_WIN_MUT_TRASH_ROOT (the window lists the root) and
+ * FINDER_OPS_MUT_COUNT_CELL (the put-back lands on APPS) go RED here.
+ * ===========================================================================*/
+static int count_open(void)
+{
+    int n = 0;
+    for (int i = 0; i < FINDER_WIN_MAX; i++) n += S.sh.windows[i].open ? 1 : 0;
+    return n;
+}
+
+static void leg_trash_window(void)
+{
+    finder_tgt_t t;
+    finder_move_result_t r;
+    finder_window_t *tw, *rw;
+    int slot = -1, single = -1, slot2 = -1, k, ntrash = 0;
+
+    scene_init(&S);
+    rw = &S.sh.windows[ROOT];
+    t = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
+    CHECK(finder_ops_drop(&S.sh, ROOT, 0, &t, 0, 0, &r) == FINDER_WIN_OK &&
+          S.sh.n_origins == 1u, "O13 (setup) README.TXT staged into \\TRASH");
+
+    CHECK(finder_win_open_trash(&S.sh, &slot, &single) == FINDER_WIN_OK &&
+          slot == 2 && single == 0, "O13 the Trash opens a NEW window in slot 2");
+    tw = &S.sh.windows[2];
+    CHECK(tw->open && tw->is_trash == 1u && tw->is_root == 0u &&
+          strcmp(tw->rec.titleHandle, "Trash") == 0,
+          "O13 the window is the Trash window, titled \"Trash\"");
+    CHECK(tw->dir_start == CL_TRASH && tw->view.n == 1u &&
+          strcmp(tw->view.icons[0].name, "README.TXT") == 0 &&
+          tw->view.icons[0].kind == FINDER_ICON_FILE,
+          "O13 the Trash window lists exactly the staged README.TXT");
+    CHECK(tw->view.icons[0].x == 79 && tw->view.icons[0].y == 126,
+          "O13 ... in cell 0 of the slot-2 content, sprite (79,126)");
+    CHECK(rw->view.n == 1u && idx_of(&rw->view, "TRASH") < 0 &&
+          idx_of(&rw->view, "DESKTOP.DB") < 0,
+          "O13 the root window still lists neither TRASH nor DESKTOP.DB");
+
+    CHECK(finder_win_open_trash(&S.sh, &slot2, &single) == FINDER_WIN_OK &&
+          slot2 == 2 && single == 1, "O13 a second open RAISES the Trash window");
+    for (int i = 0; i < FINDER_WIN_MAX; i++)
+        if (S.sh.windows[i].open && S.sh.windows[i].dir_start == CL_TRASH) ntrash++;
+    CHECK(ntrash == 1 && count_open() == 3, "O13 ... and there is still ONE window over \\TRASH");
+
+    /* PUT BACK: README.TXT dragged out of the Trash window onto the volume. */
+    t = finder_ops_resolve(&S.sh, 2, 0, 600, 24);
+    CHECK(t.kind == FINDER_TGT_VOLUME, "O13 (setup) the volume icon is the target");
+    CHECK(finder_ops_drop(&S.sh, 2, 0, &t, 0, 0, &r) == FINDER_WIN_OK &&
+          r.op == FINDER_OP_MOVE && r.from_dir == CL_TRASH && r.to_dir == 0u,
+          "O13 dragging it out onto the volume is a plain MOVE from \\TRASH to the root");
+    CHECK(mv_has(&S.mock, CL_ROOT, "README.TXT") && !mv_has(&S.mock, CL_TRASH, "README.TXT"),
+          "O13 the volume has README.TXT back in the root, gone from \\TRASH");
+    CHECK(S.sh.n_origins == 0u && r.db_dirty == 1u,
+          "O13 its kind=5 origin is dropped (DB dirty)");
+    CHECK(tw->view.n == 0u, "O13 the Trash window is empty");
+    k = idx_of(&rw->view, "README.TXT");
+    CHECK(k >= 0 && rw->view.icons[k].x == 59 && rw->view.icons[k].y == 106,
+          "O13 the root window shows it in the lowest FREE cell (59,106), not on APPS");
+    CHECK(rw->view.icons[idx_of(&rw->view, "APPS")].x == 127,
+          "O13 ... and APPS kept its cell (127,106)");
+
+    /* No \TRASH on the volume: refused loudly, nothing opened. */
+    (void)finder_win_close(&S.sh, 2);
+    S.mock.no_trash = 1;
+    slot = 7;
+    CHECK(finder_win_open_trash(&S.sh, &slot, &single) == FINDER_WIN_ERR_NOTRASH &&
+          slot == -1 && count_open() == 2,
+          "O13 a volume with no \\TRASH refuses the open (ERR_NOTRASH), no window");
+    S.mock.no_trash = 0;
+}
+
+/* ===========================================================================
  * O9 -- THE ICONS FOLLOW THE WINDOW (bead initech-tdnl.34; audit F01)
  *
  * Every expectation is HAND-DERIVED from the window's NEW content origin plus
@@ -920,5 +1011,6 @@ int main(void)
     leg_trash();
     leg_codec();
     leg_untrash();
+    leg_trash_window();
     return TEST_SUMMARY("test_finder_ops");
 }

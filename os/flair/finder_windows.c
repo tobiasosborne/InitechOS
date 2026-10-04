@@ -28,6 +28,9 @@
  *   FINDER_WIN_MUT_CLEANUP_UNSORTED -- Clean Up assigns grid cells in REVERSE
  *                                      record order, so the snap is no longer
  *                                      row-major (F3.3).
+ *   FINDER_WIN_MUT_TRASH_ROOT       -- the Trash window opens over the ROOT
+ *                                      directory instead of \TRASH (bead
+ *                                      initech-tdnl.39).
  */
 #include "finder_windows.h"
 
@@ -590,6 +593,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
 
     w->open      = 1u;
     w->is_root   = is_root ? 1u : 0u;
+    w->is_trash  = 0u;       /* finder_win_open_trash sets it after the build */
     w->dir_start = dir_start;
     fw_copy83(w->name83, is_root ? "" : name83);
     finder_click_reset(&w->click);
@@ -623,6 +627,39 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
     }
 
     if (out_slot != (int *)0) *out_slot = slot;
+    return FINDER_WIN_OK;
+}
+
+/* THE TRASH WINDOW (bead initech-tdnl.39; finder_windows.h Sec 10). */
+finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
+                                          int *out_singleton)
+{
+    finder_win_status_t st;
+    int td, slot = -1, single = 0;
+
+    if (out_slot != (int *)0) *out_slot = -1;
+    if (out_singleton != (int *)0) *out_singleton = 0;
+    if (sh == (finder_shell_t *)0 || !sh->have_fs ||
+        sh->fs.trash_dir == (int (*)(void *))0)
+        return FINDER_WIN_ERR_NULL;
+    td = sh->fs.trash_dir(sh->fs.user);
+    if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, Rule 2 */
+#if defined(FINDER_WIN_MUT_TRASH_ROOT)
+    /* MUTANT (Rule 6): the wrong cluster -- the window lists the volume ROOT,
+     * not the staged items. NEVER in a real build. */
+    td = 0;
+#endif
+    st = finder_win_open(sh, (uint16_t)td, FINDER_SVC_TRASH_NAME, 0u,
+                         &slot, &single);
+    if (st != FINDER_WIN_OK) return st;
+    if (!single) {
+        /* A fresh window: title it by the icon it opened from. A raised one
+         * already carries both. */
+        sh->windows[slot].is_trash = 1u;
+        SetWTitle(sh->wm, &sh->windows[slot].rec, FINDER_WIN_TRASH_TITLE);
+    }
+    if (out_slot != (int *)0) *out_slot = slot;
+    if (out_singleton != (int *)0) *out_singleton = single;
     return FINDER_WIN_OK;
 }
 

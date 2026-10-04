@@ -3496,8 +3496,32 @@ static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
     if (!singleton) finder_report_dropped(slot);
 }
 
-/* A double-click on an icon of `s`. The DESKTOP opens the volume (the Trash is
- * the tdnl.11 file-ops slice); a WINDOW opens a folder, and says so out loud
+/* bead initech-tdnl.39 (audit F04): the Trash icon opens THE TRASH WINDOW,
+ * the one deliberate view onto \TRASH (finder_win_open_trash). The marker
+ * re-keys R3.2's "FINDER-OPEN-TRASH NYI" (finder_windows.h). */
+static void finder_open_trash(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    int slot = -1;
+    int singleton = 0;
+    finder_win_status_t st;
+
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    st = finder_win_open_trash(g_finder_shell, &slot, &singleton);
+    if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
+
+    finder_desk_repaint(ctx, bi);
+    serial_puts("FINDER-OPEN-TRASH win=");
+    serial_puti((int32_t)slot);
+    serial_puts(" n=");
+    serial_putu((uint32_t)g_finder_shell->windows[slot].view.n);
+    serial_puts(" singleton=");
+    serial_puti((int32_t)singleton);
+    serial_putc('\n');
+    if (!singleton) finder_report_dropped(slot);
+}
+
+/* A double-click on an icon of `s`. The DESKTOP opens the volume or the Trash
+ * window (bead initech-tdnl.39); a WINDOW opens a folder, and says so out loud
  * for a document or an application because launching is tdnl.14 -- a silent
  * no-op would be indistinguishable from a broken double-click (Rule 2). */
 static void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
@@ -3507,7 +3531,7 @@ static void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     if (s->slot < 0) {
         if (ic->kind == (uint8_t)FINDER_ICON_TRASH) {
-            serial_puts("FINDER-OPEN-TRASH NYI\n");
+            finder_open_trash(ctx, bi);
             return;
         }
         finder_open_volume(ctx, bi);

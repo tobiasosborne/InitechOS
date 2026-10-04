@@ -22,6 +22,10 @@
  *              (120,180) -- the same frame, so the same expected pixels.
  *   newfolder  the default-frame window after Ctrl-N: a THIRD icon (the real
  *              \NEWFOLD directory) in cell 2 of the first row.
+ *   trashwin   (bead initech-tdnl.39) the TRASH window, opened from the
+ *              desktop Trash after README.TXT was staged: slot 1's cascaded
+ *              frame (40,80)..(400,300), titled "Trash", README.TXT's DOC
+ *              strike in cell 0 and cells 1-3 bare.
  *
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- this is the whole
  * point).  Every probe below is HAND-AUTHORED from INDEPENDENT sources:
@@ -148,9 +152,24 @@ static int g_win_h = DEF_WIN_H;
  * (../system7-decomp specs/fonts/chicago.md table, not the artifact):
  *   D8 r6 i4 v8 e8 sp4 A8 sp4 F7 i4 l4 e8 s7 = 80
  *   x0 = L + (WIN_W - 80) / 2 = L + 140.   (was 13 x 8 = 104 at L + 128)     */
-#define TITLE_CHARS     13
-#define TITLE_RUN_W     80
+#define TITLE_CHARS     g_title_chars
+#define TITLE_RUN_W     g_title_w
 #define TITLE_RUN_DX    ((WIN_W - TITLE_RUN_W) / 2)                   /* 140 */
+static int g_title_chars = 13;
+static int g_title_w     = 80;
+static const char *g_title = "Drive A Files";
+
+/* the TRASH window's title, "Trash" (FINDER_WIN_TRASH_TITLE; bead
+ * initech-tdnl.39), 5 chars, the same NFNT 5478 advances:
+ *   T6 r6 a8 s7 h8 = 35
+ *   x0 = L + (360 - 35) / 2 = L + 162 (integer division, as the WDEF).
+ * Its ink run is far narrower than "Drive A Files" (80), so the 20-px flank
+ * test rejects the root title -- and the raw 8.3 "TRASH" (T6 R8 A8 S7 H8 = 37)
+ * is graded on the host (test-finder-ops O13 compares the title string). */
+#define TRASH_TITLE_CHARS  5
+#define TRASH_TITLE_W     35
+#define TRASH_L           40   /* slot 1 cascade: (20+20, 60+20)               */
+#define TRASH_T           80
 
 /* the two frames these legs see */
 #define ROOT_L    20
@@ -611,10 +630,10 @@ static void check_chrome(int L, int T)
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: FAIL leg %s -- no title ink in "
                 "the CENTRED run [L+%d, L+%d) x [T+2, T+%d): the window has no "
-                "title (expected \"Drive A Files\", %d chars, %d px of Chicago 12, "
+                "title (expected \"%s\", %d chars, %d px of Chicago 12, "
                 "centred in the %d-px frame)\n",
                 g_leg, TITLE_RUN_DX, TITLE_RUN_DX + TITLE_RUN_W, TITLEBAR_H - 1,
-                TITLE_CHARS, TITLE_RUN_W, WIN_W);
+                g_title, TITLE_CHARS, TITLE_RUN_W, WIN_W);
         g_fail = 1;
     }
     if (ink_gap != 0) {
@@ -897,7 +916,7 @@ int main(int argc, char **argv)
     long maxv = 0;
     size_t want, got;
     int leg_root, leg_moved, leg_newfolder, leg_finderbar, leg_zoomed;
-    int leg_arranged, leg_allsel;
+    int leg_arranged, leg_allsel, leg_trash;
     const RosterEntry *roster = ROSTER;
     int L, T, n_icons, i;
 
@@ -915,17 +934,19 @@ int main(int argc, char **argv)
     leg_zoomed    = (strcmp(g_leg, "zoomedwin") == 0);
     leg_arranged  = (strcmp(g_leg, "arranged")  == 0);
     leg_allsel    = (strcmp(g_leg, "allsel")    == 0);
+    leg_trash     = (strcmp(g_leg, "trashwin")  == 0);
     int scroll_value = -2;   /* tdnl.35 scroll legs */
     if (strcmp(g_leg, "scrollarrow") == 0) scroll_value = 48;
     if (strcmp(g_leg, "scrollpage")  == 0) scroll_value = 138;
     if (strcmp(g_leg, "scrollthumb") == 0) scroll_value = 69;
     if (strcmp(g_leg, "scrollfit")   == 0) scroll_value = -1;
     if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
-        !leg_zoomed && !leg_arranged && !leg_allsel && scroll_value == -2) {
+        !leg_zoomed && !leg_arranged && !leg_allsel && !leg_trash &&
+        scroll_value == -2) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
                 "(want rootwin|movedwin|newfolder|finderbar|zoomedwin|"
-                "arranged|allsel)\n",
+                "arranged|allsel|trashwin|scroll*)\n",
                 g_leg);
         return 2;
     }
@@ -1010,6 +1031,17 @@ int main(int argc, char **argv)
     if (leg_arranged) roster = ROSTER_BY_NAME;
     if (leg_allsel) g_want_inverted = 1;
     n_icons = leg_newfolder ? 3 : 2;
+    if (leg_trash) {
+        /* bead initech-tdnl.39: the TRASH window (slot 1, front) after
+         * README.TXT was staged -- one DOC icon in cell 0, cells 1-3 bare,
+         * the "Trash" title (spec/flair_trash_traces.mk). */
+        L = TRASH_L; T = TRASH_T;
+        roster = ROSTER;              /* README.TXT, a DOC: its entry 0 */
+        n_icons = 1;
+        g_title = "Trash";
+        g_title_chars = TRASH_TITLE_CHARS;
+        g_title_w = TRASH_TITLE_W;
+    }
 
     printf("ppm_flair_disk_windows_check: leg %s on %s\n"
            "    frame (%d,%d)..(%d,%d); content (%d,%d)..(%d,%d); "
