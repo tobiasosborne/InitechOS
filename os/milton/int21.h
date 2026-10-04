@@ -491,6 +491,12 @@ typedef struct int21_file_backend {
  * the FAT12 backend after a successful mount; the host oracle binds a mock. */
 void int21_set_file_backend(const int21_file_backend_t *backend);
 
+/* Kernel-resident COMMAND.COM COPY guard: compare two OPEN handles' resolved
+ * identities on the mounted volume (parent directory + physical entry slot).
+ * No path-text heuristics; invalid handles and distinct devices are different.
+ * Ref: MS-DOS 3.3 User's Reference p. 50; audit K01 / initech-vj28. */
+int int21_same_file(uint16_t first, uint16_t second);
+
 /* ---- EXEC backend (beads initech-saw + initech-509.5 AH=4Bh) --------------
  * AH=4Bh EXEC (load-and-execute a child program by name) needs the FAT-sourced
  * loader (os/milton/loader.c load_program_from_fat), which lives in the kernel

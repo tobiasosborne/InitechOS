@@ -25897,7 +25897,36 @@ test-flair-box-track-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_goaway_on
 # aborts the run (no `-` prefix, no `|| true`) so nothing green is masked.
 #
 # Class 1 (host unit oracles) + Class 2 (mutant gates): fast, pure C.
+# Audit K01: MS-DOS 3.3 User's Reference p. 50 (self refusal).
+DOS_SAFETY_FIXTURE := $(BUILD)/dos_safety_fixture
+DOS_SAFETY_HOST := $(BUILD)/test_dos_safety
+DOS_SAFETY_HOST_MUT := $(BUILD)/test_dos_safety_mut_identity
+$(DOS_SAFETY_HOST): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $@ $< $(TEST_FILEIO_SUBDIR_DEPS)
+$(DOS_SAFETY_HOST_MUT): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_SAMEFILE_FALSE -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $@ $< $(TEST_FILEIO_SUBDIR_DEPS)
+$(DOS_SAFETY_FIXTURE): harness/diff/fat_diff/dos_safety_fixture.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+.PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant
+test-dos-safety-identity: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
+	@sh harness/diff/fat_diff/dos_safety.sh identity unused
+test-dos-safety-identity-mutant: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST_MUT)
+	@DOS_SAFETY_HOST=$(DOS_SAFETY_HOST_MUT) sh harness/diff/fat_diff/dos_safety.sh identity unused _mutant > $(BUILD)/dos_safety_identity_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL .*resolved entry identity' $(BUILD)/dos_safety_identity_mutant.log \
+	|| { cat $(BUILD)/dos_safety_identity_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-identity-mutant (false identity: resolved entry identity, RED)\n'
+test-dos-safety-k01: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k01 $(TRACER_IMG)
+
+test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k01 $(OJXN_MUT_TRACER_IMG) _mutant > $(BUILD)/dos_safety_k01_mutant.log 2>&1; rc=$$?; \
+	[ $$rc -ne 0 ] && grep -q 'FAIL k01: SELF.BIN bytes changed' $(BUILD)/dos_safety_k01_mutant.log \
+	|| { cat $(BUILD)/dos_safety_k01_mutant.log; exit 1; }; \
+	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
+
 TEST_UNIT_GATES := \
+	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
 	test-fat12-mkdir test-desktop-db test-desktop-db-mutant test-m0bp test-m0bp-rollback test-fat-fault-rollback \
 	test-fat12-subdir test-fat-subdir test-zs24 test-nmpo test-qekc test-b53d test-gnrc test-fat-move \
@@ -27016,6 +27045,7 @@ TEST_EMU_GATES := \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \
 	test-sysinit test-sysinit-oversize test-shell test-ut6d test-ut6d-mutant \
 	test-copy-selfcopy test-copy-selfcopy-mutant \
+	test-dos-safety-k01 test-dos-safety-k01-mutant \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \

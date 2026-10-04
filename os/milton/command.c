@@ -462,7 +462,10 @@ int cmd_has_wildcard(const char *name)
     return 0;
 }
 
-/* cmd_same_file: 1 iff operands `a` and `b` PROVABLY name the SAME file, judged
+/* Legacy pure text predicate (kept for the existing test-command oracle).
+ * COPY's data-preservation guard uses int21_same_file on OPEN handles instead;
+ * this incomplete text predicate must NEVER authorize a destructive create.
+ * cmd_same_file: 1 iff operands `a` and `b` PROVABLY name the SAME file, judged
  * from the operand TEXT alone. This drives COPY's real-DOS-3.3 "File cannot be
  * copied onto itself" guard (bead initech-ojxn): a false POSITIVE would refuse a
  * legitimate copy, so the predicate NEVER reports "same" unless it can prove it;
@@ -2655,13 +2658,23 @@ static void builtin_copy(const char *arg)
         dos_print(MSG_DOS_0003 "\r\n$");        /* "File not found" */
         return;
     }
-    /* Same-file guard (bead initech-ojxn -- DATA-LOSS P0). The source is opened
-     * FIRST (above) so a missing source still yields "File not found" first (DOS
-     * ordering); we detect src==dst HERE, BEFORE dos_creat's create/TRUNCATE, so
-     * a COPY of a file onto itself never zeroes it. Real DOS 3.3 COMMAND.COM
-     * refuses with "File cannot be copied onto itself" (MSG-DOS-0020) then a
-     * ZERO-count footer, creating/truncating nothing. Ref: DOS 3.3 COPY. */
-    if (cmd_same_file(pair.first, pair.second)) {
+    /* OPEN both operands before CREAT: the resolved parent + entry slot is the
+     * identity, including absolute/CWD/dot aliases and zero-length files.
+     * Ref: Microsoft MS-DOS 3.3 User's Reference p. 50 (self refusal + zero
+     * footer); audit K01 / initech-vj28. COMMAND.COM is kernel-resident. */
+    int probe = dos_open(pair.second);
+    int same = probe >= 0 && int21_same_file((uint16_t)src_h, (uint16_t)probe);
+    if (probe >= 0) dos_close(probe);
+    if (probe < 0 && probe != -(int)INT21_ERR_FILE_NOT_FOUND &&
+        probe != -(int)INT21_ERR_PATH_NOT_FOUND) {
+        dos_close(src_h);
+        dos_print(MSG_DOS_0009 "\r\n$");
+        return;
+    }
+#ifdef CMD_MUTATE_NO_SAMEFILE
+    same = 0;  /* Rule 6: reproduce truncate-through-alias for disk oracle. */
+#endif
+    if (same) {
         dos_close(src_h);
         dos_print(MSG_DOS_0020 "\r\n$");        /* "File cannot be copied onto itself" */
         dos_print("        0 file(s) copied\r\n$");

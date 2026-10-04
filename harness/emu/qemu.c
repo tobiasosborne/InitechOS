@@ -412,6 +412,11 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "dot") == 0 || strcmp(tok, ".") == 0) {
         return "dot";
     }
+    /* DOS path/wildcard injection: ':' = shift-semicolon, '?' = shift-slash.
+     * Ref: QMP QKeyCode (qapi/ui.json); audit K01/K03 keystroke oracles. */
+    if (strcmp(tok, "semicolon") == 0 || strcmp(tok, "slash") == 0) {
+        return tok;
+    }
     /* '\' for an ABSOLUTE DOS path like "\SUB\GREET" (beads initech-zs24: the
      * subdir-EXEC oracle types an absolute program path at the shell). The QMP
      * QKeyCode name is "backslash". Ref: QMP send-key + qapi/ui.json. */
@@ -935,7 +940,7 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
  * keys_spec may be NULL (screendump only) -- at least one is set by the caller.
  * *keys_sent (if non-NULL) receives the count of keys injected.
  */
-static int qmp_session(const char *sock_path, const char *ppm_path,
+static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_path,
                        const char *keys_spec, const char *keys_after,
                        const char *mouse_spec,
                        const char *screendump_after, int screendump_budget_ms,
@@ -957,9 +962,9 @@ static int qmp_session(const char *sock_path, const char *ppm_path,
     if (quit_seen) {
         *quit_seen = 0;
     }
-    int fd = -1;
+    int fd = inherited_fd;
     long long deadline = mono_ms() + 3000;
-    while (mono_ms() < deadline) {
+    while (fd < 0 && mono_ms() < deadline) {
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0) {
             return -1;
@@ -1310,8 +1315,12 @@ static int build_argv(const QemuConfig *cfg, char **argv,
         (cfg->keys_spec && cfg->keys_spec[0] != '\0') ||
         (cfg->mouse_spec && cfg->mouse_spec[0] != '\0')) {
         static char qmpbuf[QEMU_PATH_MAX + 32];
-        snprintf(qmpbuf, sizeof(qmpbuf), "unix:%s,server=on,wait=off",
-                 sock_path);
+        if (getenv("INITECH_QMP_STDIO")) {
+            snprintf(qmpbuf, sizeof(qmpbuf), "stdio");
+        } else {
+            snprintf(qmpbuf, sizeof(qmpbuf), "unix:%s,server=on,wait=off",
+                     sock_path);
+        }
         PUSH("-qmp");
         PUSH(qmpbuf);
         /* -display none is already pushed unconditionally above. */
@@ -1400,8 +1409,22 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         return -1;
     }
 
+    /* A sandbox may forbid bind(2) while allowing an inherited socketpair.
+     * QEMU's documented '-qmp stdio' uses the same QMP protocol/oracles.
+     * No listener/port, and only this run's child inherits the peer. */
+    int qmp_pair[2] = {-1, -1};
+    if (getenv("INITECH_QMP_STDIO") &&
+        (cfg->enable_qmp_screendump ||
+         (cfg->keys_spec && cfg->keys_spec[0]) ||
+         (cfg->mouse_spec && cfg->mouse_spec[0]))) {
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, qmp_pair) != 0) {
+            perror("qemu_run: QMP socketpair");
+            return -1;
+        }
+    }
     pid_t pid = fork();
     if (pid < 0) {
+        if (qmp_pair[0] >= 0) { close(qmp_pair[0]); close(qmp_pair[1]); }
         fprintf(stderr, "qemu_run: fork failed: %s\n", strerror(errno));
         return -1;
     }
@@ -1417,11 +1440,18 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                 close(devnull);
             }
         }
+        if (qmp_pair[0] >= 0) {
+            close(qmp_pair[0]);
+            dup2(qmp_pair[1], STDIN_FILENO);
+            dup2(qmp_pair[1], STDOUT_FILENO);
+            if (qmp_pair[1] > STDERR_FILENO) close(qmp_pair[1]);
+        }
         execvp(QEMU_BIN, argv);
         /* exec failed */
         _exit(127);
     }
 
+    if (qmp_pair[1] >= 0) close(qmp_pair[1]);
     out->launched = true;
 
     /* If we are doing a screendump and/or keystroke and/or mouse injection,
@@ -1446,7 +1476,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         int msent = 0;
         int frames = 0;
         int qseen = 0;
-        if (qmp_session(sock_path, ppm,
+        if (qmp_session(qmp_pair[0], sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,
                         want_mouse ? cfg->mouse_spec : NULL,
