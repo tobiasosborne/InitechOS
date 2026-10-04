@@ -4398,6 +4398,50 @@ static void tbx_headless_smoke(void)
         serial_puts("TBX-SMOKE-FAIL no APPS folder on the data volume\nHALTED\n");
         return;
     }
+#ifdef TBX_SMOKE_I123
+    /* INITECH 123 ON THE CPU PATH (beads initech-9u8w / initech-w96l; the Rule-5
+     * leg of test-flair-i123): launch APPS\123.EXE -- a compiled C tenant with
+     * an e_minalloc BSS -- route its first updateEvt (the whole Face A paint),
+     * type "123" Right "1.5" Right "-7" Right "1.23456789012345" Enter (its
+     * value parser and General display run on the x87), then Ctrl-Q by the
+     * KEY route. PS/2 set-1 make codes, cooked (vkey << 8) | ascii as event.c
+     * does; the arrows carry ascii 0. */
+    {
+        static const uint16_t i123_keys[] = {
+            0x0231, 0x0332, 0x0433, 0x4D00,                 /* 1 2 3 Right  */
+            0x0231, 0x342E, 0x0635, 0x4D00,                 /* 1 . 5 Right  */
+            0x0C2D, 0x0837, 0x4D00,                         /* - 7 Right    */
+            0x0231, 0x342E, 0x0332, 0x0433, 0x0534, 0x0635, 0x0736, 0x0837,
+            0x0938, 0x0A39, 0x0B30, 0x0231, 0x0332, 0x0433, 0x0534, 0x0635,
+            0x1C0D                                          /* 1.23456789012345 Enter */
+        };
+        (void)tbx_launch("123.EXE", apps.start_cluster);
+        app = tbx_take_affirm();
+        if (app != (FlairApp *)0 && app->windows != (WindowPtr)0) {
+            WindowMgr_invalidate(&wm, app->windows,
+                                 region_get_bbox(app->windows->contRgn));
+            flair_route_updates(&plist, &wm);
+            for (uint32_t k = 0; k < sizeof i123_keys / sizeof i123_keys[0]; k++) {
+                ev.what = (uint16_t)keyDown;
+                ev.message = (uint32_t)i123_keys[k];
+                ev.when = 0u;
+                ev.modifiers = 0u;
+                ev.where.h = 0;
+                ev.where.v = 0;
+                flair_app_dispatch(&plist, &wm, &ev);
+            }
+            ev.message = (0x10u << 8) | (uint32_t)'q';
+            ev.modifiers = (uint16_t)FLAIR_EVT_MOD_CONTROL_KEY;
+            if (!tbx_menu_key(&ev)) serial_puts("TBX-SMOKE-FAIL ctrl-q not a menu command\n");
+        } else {
+            serial_puts("TBX-SMOKE-FAIL 123.EXE did not open its window\n");
+        }
+        (void)tbx_reap();
+        serial_puts(plist.head == (FlairApp *)0 ? "TBX-SMOKE-OK list-empty\n"
+                                                : "TBX-SMOKE-OK list-NOT-empty\n");
+        return;
+    }
+#endif
     (void)tbx_launch("TENANTFX.EXE", apps.start_cluster);
 
     /* DEC-AC3-4: the sole app is already the head, so affirmation is the

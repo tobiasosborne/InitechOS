@@ -551,6 +551,9 @@ include spec/flair_finder_cmds_traces.mk
 include spec/flair_app_launch_traces.mk
 # The LOCKED C-tenant trace (bead initech-w96l / initech-8zii): FLAIR_CTENANT_SPEC.
 include spec/flair_ctenant_traces.mk
+# The LOCKED Initech 123 traces (beads initech-9u8w / initech-w96l):
+# FLAIR_I123_TYPE_SPEC / _QUIT_SPEC / _PRE_SPEC.
+include spec/flair_i123_traces.mk
 
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
@@ -9739,6 +9742,18 @@ endef
 $(eval $(call tenant-exe-rules,ctenant,os/apps/ctenant/ctenant.c,,))
 CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 
+# 123.EXE -- Initech 123, Face A (os/i123/app/face_a.c over the slice-1 core,
+# beads initech-9u8w / initech-w96l): the same C path, the worksheet store in
+# its .bss (e_minalloc). Never compiled into the kernel (epic initech-68iw).
+# The _arrows_dead build is the test-flair-i123-mutant fixture ONLY
+# (-DI123_MUT_ARROWS_DEAD: the pointer never moves), shipped on its own
+# gate-local volume under the same name.
+I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c
+I123_APP_DEP := os/i123/core/i123.h spec/i123/wk1_format.h
+$(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
+I123_EXE := $(BUILD)/tenant/i123.exe
+
 # Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
 # fixed SOURCE_DATE_EPOCH/TZ pin every FAT timestamp, and -N pins the serial.
 # Contents are intentionally small: README.TXT plus the APPS folder, which since
@@ -9746,12 +9761,13 @@ CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 # INSIDE APPS, never at the root, so the locked root listing (n=2 shown since
 # tdnl.56 hid DESKTOP.DB and TRASH; n=4 on disk) of every R3.2/
 # R3.3 gate is untouched.
-# $(call flair-data-rules,<image>,<TENANTFX exe to ship>)
+# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>)
 # APPS also holds, IN THIS ORDER after TENANTFX.EXE (the Finder lays a folder
 # out in directory order, so TENANTFX keeps grid cell 0 and every locked trace
-# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l).
+# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l) and 123.EXE
+# (cell 2; Initech 123, beads initech-9u8w / initech-w96l).
 define flair-data-rules
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -9762,17 +9778,19 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) | $(BUILD)
 		$(2) ::APPS/TENANTFX.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(CTENANT_EXE) ::APPS/CTENANT.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE)\n" "$$@" "$(2)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
+		$(3) ::APPS/123.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s)\n" "$$@" "$(2)" "$(3)"
 endef
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE)))
 # Gate-local VARIANT volumes (tdnl.14 legs): the SAME recipe shipping a knobbed
 # fixture under the SAME name, so the SAME locked trace drives it.
 FLAIR_DATA_TFX_NOREG_IMG := $(BUILD)/flair_data_tfx_noreg.img
 FLAIR_DATA_TFX_CRASH_IMG := $(BUILD)/flair_data_tfx_crash.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe,$(I123_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe,$(I123_EXE)))
 FLAIR_DATA_TFX_BADMBAR_IMG := $(BUILD)/flair_data_tfx_badmbar.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe,$(I123_EXE)))
 
 # DB_MAGIC_FLIP volume mutant: corruption is authored independently at image
 # build time; the REAL kernel must announce REGEN and rewrite the golden header.
@@ -20459,6 +20477,118 @@ test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tena
 	@printf '>>> test-flair-ctenant-mutant: green\n'
 
 # ===========================================================================
+# REAL gate: test-flair-i123 (beads initech-9u8w / initech-w96l; epic
+# initech-68iw) -- INITECH 123 OPENS FROM THE FINDER AS A DISK APPLICATION.
+# QEMU, three boots of $(FLAIRTENANTS_IMG) + the shipped data volume (APPS\
+# 123.EXE = os/i123/app/face_a.c over the slice-1 core), traces LOCKED in
+# spec/flair_i123_traces.mk:
+#   1 TYPE     double-click 123.EXE, type the first row of the real MINT01
+#              sheet (Hello, Right, 123, Right, 1.5, Right, -7, Enter):
+#              123 loads (its worksheet store in the e_minalloc BSS),
+#              registers, its own bar and window come forward, and the last
+#              row-1 draw is EXACTLY the row the real 1-2-3 showed
+#              (../lotus123-decomp/goldens/minted/MINT01.shots/02_entered.png,
+#              the same text test-i123-wk1-roundtrip part D grades); line 1
+#              reads "D1: -7", the mode READY, the pointer on D1. The dump
+#              grades the screen structurally (no glyph shapes: the strike is
+#              the VGA BIOS's): the reverse column border, the mode indicator,
+#              the pointer filled on D1, ink in A1.
+#   2 QUIT     launch then Ctrl-Q (its File > Quit ^Q): TENANT-MENU 129/1
+#              src=key -> EXIT(0); the frame is BYTE-IDENTICAL to leg 3.
+#   3 PRE      the icon selected, never launched: the restore baseline.
+# Mutant: I123_MUT_ARROWS_DEAD (a gate-local volume carrying a 123.EXE whose
+# pointer never moves) -> row 1 is not the MINT01 row and the pointer is not
+# on D1. Bochs leg: the CPU path (load, BSS carve, Face A paint, x87 entry
+# and display, Ctrl-Q) on the headless smoke kernel, byte-identical to QEMU.
+# ===========================================================================
+FLAIR_DATA_I123_ARROWS_IMG := $(BUILD)/flair_data_i123_arrows.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_ARROWS_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_arrows_dead.exe))
+$(eval $(call flair-tenants-kmain-mutant-rules,TBX_HEADLESS_SMOKE -DTBX_SMOKE_I123,tbx_smoke_i123))
+FLAIR_I123_SMOKE_IMG := $(BUILD)/flair_tenants_mut_tbx_smoke_i123.img
+
+# Row 1 as MINT01's screen shows it: A "Hello    " B "     123 " C "     1.5 "
+# D "      -7 ", E..H blank (72), + the one spare cell of the 73-cell row run.
+I123_E :=
+I123_ROW1 := $(I123_E)Hello         123      1.5       -7                                      $(I123_E)
+I123_TYPE_SERIAL = grep -qx 'TENANT-REGISTER ok app=123' $(1) && grep -qx 'FLAIR-DISPATCH app=123' $(1) && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_ROW1)" fg=1 bg=0 -> 0' && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 ' $(1) | tail -1 | grep -q '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: -7 *" fg=1 bg=0 -> 0$$' && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=577 y=0 ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="READY" fg=0 bg=3 -> 0' && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=249 y=64 ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="      -7 " fg=0 bg=3 -> 0'
+# region "<L> <T> <R> <B>" of dump $(1) vs reference pixel $(3): "ne eq"
+I123_PX = $(PPM_REGION_COUNT_BIN) $(1) $(2) $(3) | sed -n 's/^ne=\([0-9]*\) eq=\([0-9]*\) .*/\1 \2/p'
+
+.PHONY: test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs
+test-flair-i123: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-i123 : Initech 123 opens from the Finder and takes entries\n'
+	@printf '  beads initech-9u8w / initech-w96l; Face A laid out from the real 1-2-3 R2.2 screen\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_i123_type,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_TYPE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_type.serial) || { printf '!!! test-flair-i123 [1/3] FAIL: the desktop did not survive\n'; grep -E '^(PANIC|TENANT-(LOAD|REG|CRASH|EXIT)|HALTED)' $(BUILD)/flair_i123_type.serial; exit 1; }
+	@$(call I123_TYPE_SERIAL,$(BUILD)/flair_i123_type.serial) || { printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- 123 did not come up, or row 1 / line 1 / the mode / the pointer are not what the typed MINT01 row must give\n'; grep -E '^(TENANT-(LOAD|REGISTER|CRASH|EXIT)|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_i123_type.serial; grep -E '^TENANT-GATE ax=0x0033 win=1 x=(1|33|249|577) y=(0|64) ' $(BUILD)/flair_i123_type.serial | tail -4; exit 1; }
+	@printf '>>> test-flair-i123 [1/3] TYPE: %s; row 1 drawn exactly as the real 1-2-3 showed MINT01 ("Hello 123 1.5 -7"), line 1 "D1: -7", READY, pointer on D1\n' "$$(grep -m1 '^TENANT-LOAD name=123' $(BUILD)/flair_i123_type.serial)"
+	@f=$(BUILD)/flair_i123_type.ppm; \
+		set -- $$($(call I123_PX,$$f,2 110 618 126,4 112)); bne=$$1; beq=$$2; \
+		set -- $$($(call I123_PX,$$f,578 62 618 78,4 112)); mne=$$1; meq=$$2; \
+		set -- $$($(call I123_PX,$$f,250 126 322 142,4 112)); pne=$$1; peq=$$2; \
+		set -- $$($(call I123_PX,$$f,34 126 106 142,300 452)); ane=$$1; \
+		set -- $$($(call I123_PX,$$f,250 142 322 158,4 112)); qeq=$$2; \
+		[ -n "$$beq" ] && [ "$$beq" -ge 7800 ] && [ "$$meq" -ge 380 ] && [ "$$peq" -ge 900 ] && [ "$$ane" -ge 40 ] && [ "$$qeq" -le 0 ] || { \
+			printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- the screen is not the Face A layout (border reverse %s/9856 px, mode %s/640, pointer on D1 %s/1152, A1 ink %s px, pointer below D1 %s px)\n' "$$beq" "$$meq" "$$peq" "$$ane" "$$qeq"; exit 1; }; \
+		printf '>>> test-flair-i123 [1/3] SCREEN: column border reverse %s/9856 px, mode indicator %s/640, pointer filled on D1 %s/1152, ink in A1 %s px, nothing reversed on D2\n' "$$beq" "$$meq" "$$peq" "$$ane"
+	$(call appl-boot,flair_i123_pre,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_PRE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_pre.serial) && ! grep -q '^TENANT-' $(BUILD)/flair_i123_pre.serial || { printf '!!! test-flair-i123 [3/3] FAIL: the never-launched baseline did not come up clean\n'; exit 1; }
+	$(call appl-boot,flair_i123_quit,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_QUIT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_quit.serial) && grep -qx 'TENANT-MENU menu=129 item=1 src=key' $(BUILD)/flair_i123_quit.serial && grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_i123_quit.serial || { printf '!!! test-flair-i123 [2/3] FAIL: QUIT -- Ctrl-Q must reach 123 as its File > Quit and end it\n'; grep -E '^(TENANT-(MENU|EVT what=81|EXIT|CRASH)|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_i123_quit.serial; exit 1; }
+	@cmp -s $(BUILD)/flair_i123_pre.ppm $(BUILD)/flair_i123_quit.ppm || { printf '!!! test-flair-i123 [2/3] FAIL: QUIT -- the post-quit frame differs from the never-launched baseline (%s bytes)\n' "$$(cmp -l $(BUILD)/flair_i123_pre.ppm $(BUILD)/flair_i123_quit.ppm | wc -l)"; exit 1; }
+	@printf '>>> test-flair-i123 [2/3] QUIT: Ctrl-Q -> TENANT-MENU 129/1 src=key -> EXIT(0); the frame is byte-identical to the never-launched baseline\n'
+	@printf '>>> test-flair-i123 [3/3] PRE: the baseline the quit leg was compared against\n'
+	@printf '>>> test-flair-i123: green\n'
+
+test-flair-i123-mutant: test-flair-i123 $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_I123_ARROWS_IMG) $(PPM_REGION_COUNT_BIN)
+	$(call appl-boot,flair_i123_mut,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_I123_ARROWS_IMG),FLAIR_I123_TYPE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_mut.serial || { printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD went RED for the wrong reason (want: 123 up and typed into, desktop alive)\n'; exit 1; }
+	@if $(call I123_TYPE_SERIAL,$(BUILD)/flair_i123_mut.serial); then printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD PASSED -- the TYPE leg is decoration\n'; exit 1; fi
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_mut.ppm,250 126 322 142,4 112)); \
+		if [ "$$2" -ge 900 ]; then printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD still shows the pointer on D1\n'; exit 1; fi; \
+		printf '>>> test-flair-i123-mutant: ARROWS_DEAD correctly RED -- row 1 is not the MINT01 row (last row-1 draw: %s) and the pointer is not on D1 (%s px)\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(BUILD)/flair_i123_mut.serial | tail -1 | cut -c38-80)" "$$2"
+	@printf '>>> test-flair-i123-mutant: green\n'
+
+# The CPU path on QEMU vs Bochs (Rule 5), headless (Bochs' vgabios cannot set
+# 640x480): every TENANT-* line -- the load with its BSS, the whole Face A
+# paint, the x87 entry/display of 123 / 1.5 / -7 / 1.23456789012345, Ctrl-Q --
+# byte-identical, and row 1 as the C core renders it.
+I123_SMOKE_ROW1 := $(I123_E)     123      1.5       -7 1.234567                                      $(I123_E)
+ifeq ($(SKIP_BOCHS),1)
+test-flair-i123-bochs:
+	@printf '!!! test-flair-i123-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass.\n'
+else
+test-flair-i123-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_I123_SMOKE_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-i123-bochs : Initech 123 on the CPU path, QEMU vs Bochs\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-i123-bochs FAIL: bochs not found (SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_i123_smoke_qemu_data.img
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_i123_smoke_bochs_data.img
+	@$(HARNESS_BIN) --disk "$(FLAIR_I123_SMOKE_IMG)" --disk2 "$(BUILD)/flair_i123_smoke_qemu_data.img" --expect HALTED \
+		--name flair_i123_smoke_qemu --out "$(BUILD)" --timeout-ms 30000 2> $(BUILD)/flair_i123_smoke_qemu.report || true
+	@$(BOCHS_BIN) --disk "$(FLAIR_I123_SMOKE_IMG)" --disk2 "$(BUILD)/flair_i123_smoke_bochs_data.img" --expect HALTED \
+		--name flair_i123_smoke_bochs --out "$(BUILD)" --timeout-ms 240000 2> $(BUILD)/flair_i123_smoke_bochs.report || true
+	@if grep -q 'triple_fault=1' $(BUILD)/flair_i123_smoke_qemu.report $(BUILD)/flair_i123_smoke_bochs.report; then printf '!!! test-flair-i123-bochs FAIL: TRIPLE FAULT\n'; exit 1; fi
+	@for e in qemu bochs; do \
+		f=$(BUILD)/flair_i123_smoke_$$e.serial; \
+		grep -qx 'TBX-SMOKE-OK list-empty' $$f || { printf '!!! test-flair-i123-bochs FAIL: %s did not complete the 123 smoke with an empty process list\n' $$e; grep -E '^(TBX-|TENANT-(LOAD|REG|CRASH|EXIT|MENU)|PANIC|HALTED)' $$f; exit 1; }; \
+		if grep -q '^PANIC' $$f; then printf '!!! test-flair-i123-bochs FAIL: %s PANIC\n' $$e; exit 1; fi; \
+		grep -E '^(TENANT-|TBX-SMOKE-)' $$f > $$f.trace; \
+	done
+	@grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_SMOKE_ROW1)" fg=1 bg=0 -> 0' $(BUILD)/flair_i123_smoke_qemu.serial.trace && grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_i123_smoke_qemu.serial.trace || { printf '!!! test-flair-i123-bochs FAIL: the QEMU reference smoke did not render row 1 as "123 1.5 -7 1.234567" or did not quit cleanly\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_smoke_qemu.serial.trace | tail -2; exit 1; }
+	@cmp -s $(BUILD)/flair_i123_smoke_qemu.serial.trace $(BUILD)/flair_i123_smoke_bochs.serial.trace || { printf '!!! test-flair-i123-bochs FAIL: QEMU and Bochs disagree on the 123 CPU path (stop condition: investigate, do not pin to QEMU)\n'; diff -u $(BUILD)/flair_i123_smoke_qemu.serial.trace $(BUILD)/flair_i123_smoke_bochs.serial.trace | head -30; exit 1; }
+	@printf '>>> test-flair-i123-bochs: %s TENANT-*/TBX-SMOKE-* lines byte-identical on QEMU and Bochs (load + BSS, Face A paint, x87 entry and display, Ctrl-Q)\n' "$$(wc -l < $(BUILD)/flair_i123_smoke_qemu.serial.trace)"
+	@printf '>>> test-flair-i123-bochs: green\n'
+endif
+
+# ===========================================================================
 # record-flair (beads initech-l9cd): deterministic GUI-interaction VIDEO
 # capture. Replays a LOCKED input trace (Rule 8/11 -- the SAME specs the emu
 # gates use) against $(FLAIRTENANTS_IMG) in record mode (one PPM frame per
@@ -20614,6 +20744,21 @@ RECORD_SETTLE_app_menubar = 400
 # tenant_menu (initech-tdnl.31): the same launch prefix as app_launch, so the
 # same measured settle.
 RECORD_SETTLE_tenant_menu = 400
+# i123_typing (beads initech-9u8w / initech-w96l; Rule 14): Initech 123 opens
+# from the Finder -- double-click APPS\123.EXE, the Face A worksheet comes up,
+# and the first row of the real MINT01 sheet is typed: Hello, Right, 123,
+# Right, 1.5, Right, -7, Enter (LABEL / VALUE / READY on the mode indicator,
+# the entry on line 2, the pointer stepping right). Replays the LOCKED
+# FLAIR_I123_TYPE_SPEC; its marker is the pointer drawn on D1 holding -7.
+# ctenant_keys (beads initech-w96l / initech-8zii; Rule 14): CTENANT.EXE, the
+# smallest C tenant, launched; a key and a click each draw at once (the
+# present after a plain keyDown / mouseDown). Replays FLAIR_CTENANT_SPEC.
+RECORD_SPEC_i123_typing     = $(FLAIR_I123_TYPE_SPEC)
+RECORD_MARKER_i123_typing   = TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="      -7 " fg=0 bg=3 -> 0
+RECORD_SETTLE_i123_typing   = 400
+RECORD_SPEC_ctenant_keys    = $(FLAIR_CTENANT_SPEC)
+RECORD_MARKER_ctenant_keys  = TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0
+RECORD_SETTLE_ctenant_keys  = 400
 # chicago_menus (bead initech-tdnl.33, Rule 14): the proportional Chicago 12
 # acceptance clip -- titled windows (HELLO, NOTES) under band 2's Photoshop bar
 # and TWO held gestures, each a cancel (nothing dispatched): (1) Image dropped
@@ -20756,7 +20901,7 @@ RECORD_MARKER_finder_service_damaged = FINDER-OPEN-FOLDER name=TRASH win=2 singl
 RECORD_IMAGE_finder_service_damaged  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_DATA_finder_service_damaged   = $(FLAIR_DAMAGED_DATA_IMG)
 RECORD_SETTLE_finder_service_damaged = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar tenant_menu drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar tenant_menu drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged ctenant_keys i123_typing
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -20843,6 +20988,8 @@ RECORD_IMAGE_new_folder          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_tenant_menu         = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_ctenant_keys        = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_i123_typing         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_drag_move           = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
 
@@ -20864,7 +21011,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 			|| { printf '!!! record-flair: FLAIR-FAT-MOUNT-OK missing\n'; exit 1; } ;; \
 		*) : ;; \
 	esac
-	@if [ -n "$(RECORD_MARKER_$(SCRIPT))" ]; then \
+	@if [ -n '$(RECORD_MARKER_$(SCRIPT))' ]; then \
 		grep -Fqx '$(RECORD_MARKER_$(SCRIPT))' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial" \
 		|| { printf '!!! record-flair [%s]: required interaction marker missing: %s\n' "$(SCRIPT)" '$(RECORD_MARKER_$(SCRIPT))'; exit 1; }; \
 	fi
@@ -26953,6 +27100,7 @@ TEST_EMU_GATES := \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
+	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \

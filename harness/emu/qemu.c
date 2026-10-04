@@ -419,6 +419,23 @@ static const char *token_to_qcode(const char *tok)
         strcmp(tok, "\\") == 0) {
         return "backslash";
     }
+    /* The worksheet keys (bead initech-9u8w, Initech 123 Face A): the four
+     * arrows move the cell pointer, Esc cancels an entry, Backspace edits it,
+     * '-' types a negative number. QEMU sends the arrows E0-prefixed through
+     * the 8042 (event.c cooks them to ascii 0, vkey = the make code).
+     * Ref: qapi/ui.json QKeyCode up, down, left, right, esc, backspace,
+     * minus, home. */
+    if (strcmp(tok, "up") == 0 || strcmp(tok, "down") == 0 ||
+        strcmp(tok, "left") == 0 || strcmp(tok, "right") == 0 ||
+        strcmp(tok, "esc") == 0 || strcmp(tok, "home") == 0) {
+        return tok;
+    }
+    if (strcmp(tok, "bspc") == 0 || strcmp(tok, "backspace") == 0) {
+        return "backspace";
+    }
+    if (strcmp(tok, "minus") == 0 || strcmp(tok, "-") == 0) {
+        return "minus";
+    }
     /* MODIFIERS (beads initech-tdnl.10, R3.3 emu wiring). These exist ONLY as
      * members of a chord token (see qmp_send_key_chord): a bare "ctrl" would
      * press-and-release Control with nothing else, which no gate wants. The
