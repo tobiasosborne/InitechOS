@@ -9740,6 +9740,9 @@ $(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KE
 KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ)
 
 # R3.7 (tdnl.14): every FLAIRTENANTS kmain variant includes the gate headers.
+# (The INT object is named here, so it is defined here: a rule's targets are
+# expanded when the rule is read -- test-makefile-vars, tdnl.81.)
+KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
@@ -9799,7 +9802,6 @@ flair-tenants: $(FLAIRTENANTS_IMG)
 # bounded image but ALSO -DFLAIR_LIVE_INTERACTIVE for an unbounded pump. R0.1
 # CursorMgr is common to both images and appears after first mouse activity.
 # This is not a gate image (never halts -- cannot be screendumped deterministically).
-KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
@@ -12207,6 +12209,29 @@ test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_M
 	@if $(TEST_FINDER_WIN_MUT_SINGLETON) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: SINGLETON_DUP PASSED -- the spatial-singleton oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (SINGLETON_DUP correctly RED -- reopening a folder builds a second window)\n'; fi
 	@if $(TEST_FINDER_WIN_MUT_VOLLABEL) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: VOLLABEL_SHOWN PASSED -- the volume-label skip oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (VOLLABEL_SHOWN correctly RED -- the volume name leaks into the listing)\n'; fi
 	@if $(TEST_FINDER_WIN_MUT_CLEANUP) >/dev/null 2>&1; then printf '!!! test-finder-windows-mutant FAIL: CLEANUP_UNSORTED PASSED -- the row-major Clean Up oracle is decoration\n'; exit 1; else printf '>>> test-finder-windows-mutant: green (CLEANUP_UNSORTED correctly RED -- the snap order mirrors)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-makefile-vars (bead initech-tdnl.81) -- THE PARSE-ORDER GUARD.
+# GNU make expands a rule's target and prerequisite lists when it READS the
+# rule (GNU make manual 3.7, "How make Reads a Makefile"), so a variable that
+# is defined further down expands to nothing there and the prerequisite
+# silently vanishes: test-flair-samir-suspend lost $(SAMIR_LIST_IMG) that way
+# and only passed when another gate had already minted the disk. This gate
+# parses the Makefile with --warn-undefined-variables and fails on every
+# read-time reference to an undefined variable, outside the command-line knobs
+# that are undefined by design. Proven RED on the four sites it was written
+# against (SAMIR_LIST_IMG x2, SPEC_BANNER, KERNEL_FLAIRTENANTS_INT_MAIN_OBJ).
+# ---------------------------------------------------------------------------
+MAKEFILE_VARS_LOG := $(BUILD)/makefile_vars.log
+.PHONY: test-makefile-vars
+test-makefile-vars: | $(BUILD)
+	@printf '>>> test-makefile-vars: no rule reads a variable before its definition (tdnl.81)\n'
+	@$(MAKE) --no-print-directory --warn-undefined-variables -pn help >/dev/null 2>$(MAKEFILE_VARS_LOG) \
+		|| { printf '!!! test-makefile-vars FAIL: the Makefile did not parse\n'; cat $(MAKEFILE_VARS_LOG); exit 1; }
+	@bad=$$(sed -n "s/^\(.*\): warning: undefined variable '\(.*\)'$$/\2 \1/p" $(MAKEFILE_VARS_LOG) \
+		| grep -v -E '^(SKIP_BOCHS|SKIP_FPC|SCRIPT|RECORD_IMAGE_|RECORD_DATA_) ' || true); \
+	if [ -n "$$bad" ]; then printf '!!! test-makefile-vars FAIL: read before definition (variable, site):\n%s\n' "$$bad"; exit 1; fi
+	@printf '>>> test-makefile-vars: green\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-menu-handlers (bead initech-tdnl.36 + .37/.38/.50/.67; audit
@@ -16693,6 +16718,9 @@ BOOT_SERIAL   := $(BUILD)/$(BOOT_NAME).serial
 BOOT_PPM      := $(BUILD)/$(BOOT_NAME).ppm
 BOOT_REPORT   := $(BUILD)/$(BOOT_NAME).report
 BOOT_LINES    := $(BUILD)/$(BOOT_NAME).banner_lines
+# The locked banner (also graded by test-spec); defined here, ahead of its
+# first prerequisite use (test-makefile-vars, tdnl.81).
+SPEC_BANNER   := spec/dos_banner.txt
 
 test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
 	@printf '======================================================================\n'
@@ -20604,6 +20632,11 @@ SAMIR_SUSP_POST_REPORT := $(BUILD)/$(SAMIR_SUSP_POST_NAME).report
 # the launch trigger here, not a shell command).
 SAMIR_SUSP_KEYS := bsl,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret,q,u,i,t,ret
 
+# The SAMIR data disks (rules: the SAMIR DATA DISKS block, bead hdlb). Defined
+# here because this is their first prerequisite use; defined any later they
+# expand to nothing and the gate loses the disk (test-makefile-vars, tdnl.81).
+SAMIR_LIST_IMG     := $(BUILD)/samir_list.img
+SAMIR_LIST_MUT_IMG := $(BUILD)/samir_list_mut.img
 .PHONY: test-flair-samir-suspend test-flair-samir-suspend-mutant test-flair-samir-suspend-bochs
 test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
 	@printf '======================================================================\n'
@@ -23747,7 +23780,6 @@ SPEC_INT21H     := $(SPEC_DIR)/int21h_register.json
 SPEC_INT21H_CC  := $(SPEC_DIR)/int21h_calling_convention.json
 SPEC_MESSAGES   := $(SPEC_DIR)/dos_messages.json
 SPEC_STRUCTS_H  := spec/dos_structs.h
-SPEC_BANNER     := $(SPEC_DIR)/dos_banner.txt
 # INT 25h/26h absolute-disk vectors locked contract (ADR-0003 DEC-15).
 SPEC_ABSDISK    := $(SPEC_DIR)/absdisk_int2526.json
 SPEC_STRUCT_TU  := $(BUILD)/spec_dos_structs_check.c
@@ -24318,8 +24350,8 @@ $(CLIENTS_DBF): $(MINT_CLIENTS_BIN) | $(BUILD)
 # --- SAMIR DATA DISKS (bead hdlb): FAT12 floppies carrying SAMIR.COM + CLIENTS.DBF
 #     (the production gate disk) and SAMIR_MUT.COM + CLIENTS.DBF (the mutant disk).
 #     Mirrors FAT_EXEC_IMG; re-minted per build, NOT committed (Rule 11). ---
-SAMIR_LIST_IMG     := $(BUILD)/samir_list.img
-SAMIR_LIST_MUT_IMG := $(BUILD)/samir_list_mut.img
+# (SAMIR_LIST_IMG / SAMIR_LIST_MUT_IMG are defined above test-flair-samir-suspend,
+#  their first prerequisite use -- test-makefile-vars, tdnl.81.)
 $(SAMIR_LIST_IMG): $(SAMIR_COM) $(CLIENTS_DBF) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
@@ -25470,6 +25502,7 @@ TEST_UNIT_GATES := \
 	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
+	test-makefile-vars \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
