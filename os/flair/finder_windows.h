@@ -415,6 +415,14 @@ typedef struct finder_window {
                                        * finder_win_view (Sec 10b, tdnl.34)    */
     finder_desk_icon_t   icons[FINDER_WIN_ICONS_MAX];
     finder_click_track_t click;       /* this surface's double-click tracker   */
+    /* THE ICON VIEW SCROLLS (bead initech-tdnl.35; Sec 10c). The window's two
+     * standard bars, attached to `rec` through the Window Manager registry
+     * (window.h Sec 4b) for as long as the window is open; and the scroll
+     * offset the icon model is currently laid out under, so the ONE re-base
+     * (finder_win_sync_geometry) can move every icon by exactly the change. */
+    WindowScroll         scroll;
+    int16_t              applied_sx;  /* horizontal offset applied to icons    */
+    int16_t              applied_sy;  /* vertical offset applied to icons      */
 } finder_window_t;
 
 /* ---------------------------------------------------------------------------
@@ -675,10 +683,48 @@ void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
  * test-flair-finder-follow emu gate must go RED.
  * ===========================================================================*/
 
-/* Re-base `w`'s icon model onto its window's current content rect. Returns 1
- * when anything changed (icons translated or bounds re-sized), else 0. A NULL,
- * closed or collapsed window is a no-op. */
+/* ===========================================================================
+ * 10c. THE SCROLLED ICON VIEW (bead initech-tdnl.35; audit F02)
+ * ---------------------------------------------------------------------------
+ * The icon view is a DOCUMENT larger than the window: its origin is the
+ * content rect's top-left moved up/left by the window's scroll values
+ * (winscroll.h; the bars' value is "document px scrolled"). Every icon keeps
+ * its offset from the DOCUMENT origin; the re-base below therefore treats a
+ * scroll exactly like a window move -- the icons are translated by the change
+ * of the document origin -- and, before translating, re-derives each bar's
+ * range from the icons themselves:
+ *
+ *   vertical   content = max over icons (doc y + FINDER_CELL_H) + GRID_INSET_Y
+ *   horizontal content = max over icons (doc x + FINDER_ICON_DIM) + GRID_INSET_X
+ *   max = content - view length (0 when everything fits -> DISABLED bar)
+ *
+ * so paint, hit-testing, selection, the rubber band, drag-and-drop and Clean
+ * Up -- which all read the model through this one sync point (Sec 10b) -- see
+ * scrolled coordinates with no further change. The grid (populate, Clean Up,
+ * Arrange, a drop into an open window) is laid in DOCUMENT coordinates
+ * (finder_win_doc_rect), so Clean Up of a scrolled window produces the same
+ * arrangement as of an unscrolled one.
+ *
+ * MUTANT (Rule 6): FINDER_WIN_MUT_SCROLL_PAINT_ONLY applies the scroll offset
+ * only when PAINTING -- the view looks scrolled but the model (hit-testing,
+ * selection, drops) keeps the unscrolled cells, so a click on an icon where it
+ * is drawn misses it. test-finder-ops leg O10 and test-flair-scroll-mutant
+ * must go RED.
+ * ===========================================================================*/
+
+/* Re-base `w`'s icon model onto its window's current content rect AND scroll
+ * offset, after re-deriving the scroll ranges (Sec 10c). Returns a bit set:
+ * FINDER_SYNC_ICONS when icons were translated or the bounds re-sized,
+ * FINDER_SYNC_SCROLL when a bar's range or value changed (its thumb must be
+ * redrawn); 0 when nothing changed. A NULL, closed or collapsed window is a
+ * no-op. */
+#define FINDER_SYNC_ICONS   0x1
+#define FINDER_SYNC_SCROLL  0x2
 int finder_win_sync_geometry(finder_window_t *w);
+
+/* The DOCUMENT rect of `w`: the content rect moved by -(scroll) on both axes,
+ * same size. The grid origin for populate / Clean Up / Arrange / drops. */
+rgn_rect_t finder_win_doc_rect(const finder_window_t *w);
 
 /* The icon model of open window `slot`, re-based first; NULL when the slot is
  * not open. THE accessor for every out-of-file consumer (kmain's gesture

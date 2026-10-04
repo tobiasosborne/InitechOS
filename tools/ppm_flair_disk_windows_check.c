@@ -736,6 +736,122 @@ static void check_vacated(void)
     }
 }
 
+/* ===========================================================================
+ * THE SCROLL LEGS (bead initech-tdnl.35; audit F02). The root window at its
+ * DEFAULT frame (20,60)..(380,280) over the OVERFLOW volume
+ * (spec/flair_scroll_traces.mk): README.TXT, APPS, F00.TXT..F17.TXT, then the
+ * boot-created DESKTOP.DB and TRASH -- 22 entries, 6 grid rows, in mtools
+ * creation order. Every number by hand (finder_windows.h Sec 2/3/10c,
+ * window.c CalcDocContentRect, spec/chrome_metrics.h), never read from the
+ * artifact:
+ *   content (21,82)..(359,259): 177 high (the bottom stops at the horizontal
+ *   scroll bar, frame.bottom - 21 -- bead initech-tdnl.35)
+ *   rows: sprite y = 82 + 4 + 52r - value; cols x = 21 + 18 + 68c
+ *   vertical content = 4 + 5*52 + 47 + 4 = 315 -> max = 315 - 177 = 138
+ *   vertical bar x [359,375) y [81,260): thumb track lo = 81+16 = 97,
+ *   span = (260-16-15) - 97 = 132, thumb leading edge = 97 + value*132/138
+ * Legs and their values (the locked traces):
+ *   scrollarrow  3 down-arrow clicks       -> value 48,  thumb 97+45  = 142
+ *   scrollpage   1 click below the thumb   -> value 138, thumb 97+132 = 229
+ *   scrollthumb  thumb dragged down 66 px  -> value 69,  thumb 97+66  = 163
+ *   scrollfit    the 4-entry flagship volume: everything fits, the bars are
+ *                DISABLED (scrollbars.md Sec 3) and both bar clicks ignored.
+ * An icon is graded only when its whole 47-row cell is inside the content.
+ * ===========================================================================*/
+static const RosterEntry SCROLL_ROSTER[22] = {
+    { "README.TXT", K_DOC }, { "APPS", K_FOLDER },
+    { "F00.TXT", K_DOC }, { "F01.TXT", K_DOC }, { "F02.TXT", K_DOC },
+    { "F03.TXT", K_DOC }, { "F04.TXT", K_DOC }, { "F05.TXT", K_DOC },
+    { "F06.TXT", K_DOC }, { "F07.TXT", K_DOC }, { "F08.TXT", K_DOC },
+    { "F09.TXT", K_DOC }, { "F10.TXT", K_DOC }, { "F11.TXT", K_DOC },
+    { "F12.TXT", K_DOC }, { "F13.TXT", K_DOC }, { "F14.TXT", K_DOC },
+    { "F15.TXT", K_DOC }, { "F16.TXT", K_DOC }, { "F17.TXT", K_DOC },
+    { "DESKTOP.DB", K_DOC }, { "TRASH", K_FOLDER }
+};
+#define SB_X0        359   /* vertical bar outer left line                   */
+#define SB_MID_X     367
+#define SB_TOP        81
+#define SB_UP_SEP     96   /* 81 + 15                                        */
+#define SB_DOWN_SEP  244   /* 260 - 16                                       */
+#define SCR_CONT_TOP  82
+#define SCR_CONT_BOT 259
+
+static int grade_scroll(int value, int fit)
+{
+    char what[256];
+    int graded = 0;
+    check_chrome(ROOT_L, ROOT_T);   /* the frame did NOT move (audit F02) */
+    if (fit) {
+        int i;
+        for (i = 0; i < 4; i++) {
+            int gx = 39 + i * GRID_PITCH_X, gy = 86;
+            check_sprite(ROSTER[i].name, gx, gy, ROSTER[i].kind);
+            check_band(ROSTER[i].name, gx, gy);
+            graded++;
+        }
+        /* DISABLED bars, scrollbars.md Sec 3: flat F3 trough, #777777
+         * separators, #A5A5A5 arrows, no thumb anywhere in the track. */
+        assert_idx(SB_MID_X, 150, CIDX_PLAT_TROUGH, "disabled v-bar trough (Sec 3)");
+        assert_idx(SB_MID_X, SB_UP_SEP, CIDX_PLAT_INACTIVE_FRAME,
+                   "disabled v-bar up separator #777777 (Sec 3)");
+        assert_idx(SB_MID_X, SB_DOWN_SEP, CIDX_PLAT_INACTIVE_FRAME,
+                   "disabled v-bar down separator #777777 (Sec 3)");
+        assert_idx(SB_MID_X, SB_TOP + 6 + 3, CIDX_PLAT_WIDGET_EDGE,
+                   "disabled up arrow base row #A5A5A5 (Sec 3)");
+        assert_idx(SB_X0, 150, CIDX_BLACK, "active bar outer line black");
+        assert_idx(200, 267, CIDX_PLAT_TROUGH,
+                   "disabled h-bar trough: the horizontal bar is drawn, not "
+                   "painted over by content (contRgn stops at it)");
+        assert_idx(200, 259, CIDX_BLACK, "h-bar outer top line black at y 259");
+        for (int y = SB_UP_SEP + 1; y < SB_DOWN_SEP; y++)
+            if (is_rgb(SB_MID_X, y, IDX(CIDX_DESKTOP))) {
+                fprintf(stderr, "ppm_flair_disk_windows_check: FAIL leg %s -- "
+                        "a thumb (teal) pixel at (%d,%d) in a DISABLED bar\n",
+                        g_leg, SB_MID_X, y);
+                g_fail = 1;
+                break;
+            }
+    } else {
+        int pos = 97 + value * 132 / 138;
+        for (int i = 0; i < 22; i++) {
+            int gx = 39 + (i % 4) * GRID_PITCH_X;
+            int gy = SCR_CONT_TOP + 4 + (i / 4) * GRID_PITCH_Y - value;
+            if (gy < SCR_CONT_TOP || gy + LABEL_BOT_OFF > SCR_CONT_BOT) continue;
+            printf("    icon[%d] %-10s scrolled cell (%d,%d)\n",
+                   i, SCROLL_ROSTER[i].name, gx, gy);
+            check_sprite(SCROLL_ROSTER[i].name, gx, gy, SCROLL_ROSTER[i].kind);
+            check_band(SCROLL_ROSTER[i].name, gx, gy);
+            graded++;
+        }
+        snprintf(what, sizeof what, "thumb leading separator at y %d", pos - 1);
+        assert_idx(SB_MID_X, pos - 1, CIDX_BLACK, what);
+        snprintf(what, sizeof what, "thumb trailing separator at y %d", pos + 15);
+        assert_idx(SB_MID_X, pos + 15, CIDX_BLACK, what);
+        snprintf(what, sizeof what, "thumb face (accent teal) at (365,%d)", pos + 1);
+        assert_idx(SB_X0 + 1 + 5, pos + 1, CIDX_DESKTOP, what);
+        assert_idx(SB_MID_X, SB_UP_SEP, CIDX_BLACK,
+                   "enabled up-arrow separator black (Sec 2.1)");
+        if (value == 48) {
+            /* README.TXT's UNSCROLLED page top edge (DOC row 2) would be at
+             * (49,88); scrolled 48 px it is gone and the content is white
+             * between the hidden row 0 and row 1 (sprite y 90). */
+            assert_idx(39 + 10, 86 + 2, CIDX_WHITE,
+                       "README.TXT's unscrolled top edge (49,88) is gone");
+        }
+    }
+    check_control_teal();
+    free(g_buf);
+    if (g_fail) {
+        fprintf(stderr, "ppm_flair_disk_windows_check: leg %s FAILED\n", g_leg);
+        return 1;
+    }
+    printf("ppm_flair_disk_windows_check: leg %s PASS (%d icon strikes at the "
+           "%s positions, chrome at the UNMOVED frame (20,60), %s)\n",
+           g_leg, graded, fit ? "unscrolled" : "scrolled",
+           fit ? "DISABLED bars, no thumb" : "thumb at the value's position");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     FILE *f;
@@ -761,8 +877,13 @@ int main(int argc, char **argv)
     leg_zoomed    = (strcmp(g_leg, "zoomedwin") == 0);
     leg_arranged  = (strcmp(g_leg, "arranged")  == 0);
     leg_allsel    = (strcmp(g_leg, "allsel")    == 0);
+    int scroll_value = -2;   /* tdnl.35 scroll legs */
+    if (strcmp(g_leg, "scrollarrow") == 0) scroll_value = 48;
+    if (strcmp(g_leg, "scrollpage")  == 0) scroll_value = 138;
+    if (strcmp(g_leg, "scrollthumb") == 0) scroll_value = 69;
+    if (strcmp(g_leg, "scrollfit")   == 0) scroll_value = -1;
     if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
-        !leg_zoomed && !leg_arranged && !leg_allsel) {
+        !leg_zoomed && !leg_arranged && !leg_allsel && scroll_value == -2) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
                 "(want rootwin|movedwin|newfolder|finderbar|zoomedwin|"
@@ -818,6 +939,10 @@ int main(int argc, char **argv)
     /* The finderbar leg grades ONLY the two menu bands -- it deliberately
      * shares the rootwin dump rather than costing a sixth boot, and the window
      * itself is already graded by the rootwin leg on the same pixels. */
+    if (scroll_value != -2) {
+        printf("ppm_flair_disk_windows_check: leg %s on %s\n", g_leg, argv[2]);
+        return grade_scroll(scroll_value, scroll_value == -1);
+    }
     if (leg_finderbar) {
         printf("ppm_flair_disk_windows_check: leg %s on %s\n"
                "    band 1 (System-7 shell bar) rows [%d,%d); "

@@ -537,6 +537,8 @@ include spec/flair_disk_windows_traces.mk
 include spec/flair_file_ops_traces.mk
 # tdnl.34 (audit F01): the LOCKED "contents follow the window" traces.
 include spec/flair_finder_follow_traces.mk
+# The working scroll bars (bead initech-tdnl.35; audit F02).
+include spec/flair_scroll_traces.mk
 # tdnl.40 (audit F06): the LOCKED close -> foreground-agreement trace.
 include spec/flair_fg_close_traces.mk
 # tdnl.36 (audit F03/F05/F07/F15/G10): the LOCKED fake-command traces.
@@ -12264,6 +12266,9 @@ $(BUILD)/test_finder_ops_mutant_hilite: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | 
 # tdnl.67: Arrange (by Name) ranks by listing order (the pre-fix no-reorder).
 $(BUILD)/test_finder_ops_mutant_arrange: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_ARRANGE_NOOP $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+# tdnl.35: the scroll offset applied at PAINT only, never to the model.
+$(BUILD)/test_finder_ops_mutant_scrollpaint: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_SCROLL_PAINT_ONLY $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 # tdnl.34: the pre-fix ABSOLUTE icon model (finder_win_sync_geometry compiled out).
 $(BUILD)/test_finder_ops_mutant_abs: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_ABS_COORDS $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
@@ -12277,15 +12282,15 @@ test-finder-ops: $(TEST_FINDER_OPS)
 	@printf ">>> test-finder-ops: green\n"
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
-test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran'; do \
+test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F16 where it is DRAWN'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all six mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all seven mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -18861,6 +18866,133 @@ test-flair-file-ops-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 endif
 
 # ===========================================================================
+# REAL gate: test-flair-scroll (bead initech-tdnl.35; audit F02, P0) -- THE
+# SCROLL BARS WORK and a click on them never moves the window.
+# ---------------------------------------------------------------------------
+# Six boots of the SAME reproducible $(FLAIRTENANTS_IMG), the locked traces in
+# spec/flair_scroll_traces.mk (every coordinate derived there by hand):
+#   [1] ARROW   three down-arrow clicks at the audit's own (367,251):
+#               FLAIR-SCROLL value 16/32/48; NO FLAIR-DRAG; grader leg
+#               scrollarrow (icons at the scrolled rows, thumb at 142, chrome
+#               at the UNMOVED frame (20,60)).
+#   [2] SELECT  ... then a click on F06.TXT where it is DRAWN selects it.
+#   [3] PAGE    one click below the thumb: value 0+161 -> 138 (clamped);
+#               leg scrollpage.
+#   [4] THUMB   the thumb dragged down 66 px: value 69 on release; leg
+#               scrollthumb.
+#   [5] HOLD    the down arrow held 1.5 s: the held repeat runs the view to
+#               138 in exactly 9 steps; leg scrollpage.
+#   [6] FIT     the flagship 4-entry volume: everything fits, both bars are
+#               DISABLED (scrollbars.md Sec 3) -- a click on each is
+#               FLAIR-SCROLL-IGNORED, nothing moves; leg scrollfit.
+# The overflow volume: the flagship recipe + 18 empty files F00..F17.TXT made
+# with mtools (22 root entries after the boot adds DESKTOP.DB and TRASH -- the
+# audit's own count). Host half: test-winscroll + test-finder-ops leg O11.
+# Mutants: test-flair-scroll-mutant -- WINDOW_MUTATE_SCROLL_DRAG (the pre-fix
+# fall-through: a bar click is a window drag) and
+# FINDER_WIN_MUT_SCROLL_PAINT_ONLY (the offset applied to paint, not to
+# hit-testing: the click on the drawn F06 selects another icon).
+# Rule 5: QEMU only, stated -- Bochs 2.7 halts at the 640x480 guard before any
+# tenant (test-flair-file-ops-bochs's constraint, verbatim); the Bochs boot of
+# this same kernel is test-flair-desktop-bochs / test-flair-app-launch-bochs.
+# Rule 14 clips: make record-flair SCRIPT=scroll_arrow|scroll_page|scroll_thumb.
+# ---------------------------------------------------------------------------
+FLAIR_SCROLL_DATA_IMG := $(BUILD)/flair_scroll_data.img
+$(FLAIR_SCROLL_DATA_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	cp -f $(FLAIR_DATA_IMG) $@
+	@: > $(BUILD)/.flair_scroll_empty.txt
+	@for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17; do \
+		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/.flair_scroll_empty.txt ::F$$i.TXT || exit 1; \
+	done
+	@printf '>>> flair scroll data: %s (flagship + F00..F17.TXT, 20 root entries before boot)\n' "$@"
+
+# $(call scroll-boot,<image>,<name>,<data source>,<trace>,<quit marker>,<dump 0|1>)
+define scroll-boot
+cp -f $(3) $(BUILD)/$(2)_data.img
+$(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" --expect FLAIR-FAT-MOUNT-OK \
+	--name "$(2)" --out "$(BUILD)" --mouse "$(4)" --keys-after "FLAIR-LIVE-READY" \
+	--quit-after "$(5)" $(if $(filter 1,$(6)),--screendump --screendump-after "$(5)") \
+	--timeout-ms 40000 2> "$(BUILD)/$(2).report" || true
+@if grep -q 'triple_fault=1' "$(BUILD)/$(2).report"; then printf '!!! %s FAIL: TRIPLE FAULT in boot %s\n' "$@" "$(2)"; exit 1; fi
+endef
+# $(call scroll-nodrag,<name>) -- the audit's F02 symptom must be absent.
+define scroll-nodrag
+@! grep -q '^FLAIR-DRAG' "$(BUILD)/$(1).serial" || { printf '!!! %s FAIL: a scroll-bar gesture produced a WINDOW DRAG (audit F02):\n' "$@"; grep '^FLAIR-DRAG' "$(BUILD)/$(1).serial"; exit 1; }
+endef
+
+.PHONY: test-flair-scroll test-flair-scroll-mutant
+test-flair-scroll: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_SCROLL_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-scroll : the scroll bars work; a bar click never moves the window (tdnl.35)\n'
+	@printf '  Ref: audit 2026-10-03 F02; os/flair/winscroll.h; spec/flair_scroll_traces.mk.\n'
+	@printf '======================================================================\n'
+	@# ---- [1] ARROW ----
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_arrow,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_ARROW_SPEC),FLAIR-SCROLL win 0 v part=21 value=48 max=138,1)
+	$(call fo-has,flair_scroll_arrow,FINDER-OPEN-VOLUME win=0 n=22,the overflow volume did not open with 22 entries)
+	$(call fo-has,flair_scroll_arrow,FLAIR-SCROLL win 0 v part=21 value=16 max=138,the first down-arrow click did not scroll one line)
+	$(call fo-has,flair_scroll_arrow,FLAIR-SCROLL win 0 v part=21 value=32 max=138,the second down-arrow click did not scroll one line)
+	$(call fo-has,flair_scroll_arrow,FLAIR-SCROLL win 0 v part=21 value=48 max=138,the third down-arrow click did not scroll one line)
+	$(call scroll-nodrag,flair_scroll_arrow)
+	@[ -s "$(BUILD)/flair_scroll_arrow.ppm" ] || { printf '!!! test-flair-scroll FAIL: ARROW screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) scrollarrow "$(BUILD)/flair_scroll_arrow.ppm" \
+		|| { printf '!!! test-flair-scroll FAIL: after 3 down-arrow clicks the view is not scrolled 48 px\n'; exit 1; }
+	@printf '>>> test-flair-scroll [1/6]: 3 down-arrow clicks -> value 48; rows graded scrolled; frame unmoved; no FLAIR-DRAG\n'
+	@# ---- [2] SELECT at the scrolled position ----
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_select,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_SELECT_SPEC),FINDER-WIN-SELECT,0)
+	$(call fo-has,flair_scroll_select,FINDER-WIN-SELECT win=0 name=F06.TXT count=1,a click on F06.TXT where it is DRAWN (55$(fo_comma)158) did not select it)
+	$(call scroll-nodrag,flair_scroll_select)
+	@printf '>>> test-flair-scroll [2/6]: a click on F06.TXT at its scrolled position selects F06.TXT\n'
+	@# ---- [3] PAGE ----
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_page,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_PAGE_SPEC),FLAIR-SCROLL win 0 v part=23 value=138 max=138,1)
+	$(call scroll-nodrag,flair_scroll_page)
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) scrollpage "$(BUILD)/flair_scroll_page.ppm" \
+		|| { printf '!!! test-flair-scroll FAIL: after a page-down click the view is not at its end (138)\n'; exit 1; }
+	@printf '>>> test-flair-scroll [3/6]: page down -> 138 (clamped); last rows graded; frame unmoved\n'
+	@# ---- [4] THUMB ----
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_thumb,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_THUMB_SPEC),FLAIR-SCROLL win 0 v part=129 value=69 max=138,1)
+	$(call scroll-nodrag,flair_scroll_thumb)
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) scrollthumb "$(BUILD)/flair_scroll_thumb.ppm" \
+		|| { printf '!!! test-flair-scroll FAIL: after the thumb drag the view is not at 69\n'; exit 1; }
+	@printf '>>> test-flair-scroll [4/6]: thumb dragged +66 px -> value 69 on release; rows graded; frame unmoved\n'
+	@# ---- [5] HOLD (auto-repeat) ----
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_hold,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_HOLD_SPEC),FLAIR-SCROLL win 0 v part=21 value=138 max=138,1)
+	@n=$$(grep -c '^FLAIR-SCROLL win 0 v part=21 ' "$(BUILD)/flair_scroll_hold.serial"); [ "$$n" -eq 9 ] \
+		|| { printf '!!! test-flair-scroll FAIL: a held down arrow made %s steps, want exactly 9 (16..128 then 138)\n' "$$n"; exit 1; }
+	$(call scroll-nodrag,flair_scroll_hold)
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) scrollpage "$(BUILD)/flair_scroll_hold.ppm" \
+		|| { printf '!!! test-flair-scroll FAIL: the held arrow did not run the view to its end\n'; exit 1; }
+	@printf '>>> test-flair-scroll [5/6]: down arrow HELD -> 9 repeated steps to 138; graded at the end\n'
+	@# ---- [6] FIT: nothing to scroll ----
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_fit,$(FLAIR_DATA_IMG),$(FLAIR_SCROLL_FIT_SPEC),FLAIR-SCROLL-IGNORED win 0 h,1)
+	$(call fo-has,flair_scroll_fit,FINDER-OPEN-VOLUME win=0 n=4,the flagship volume did not open)
+	$(call fo-has,flair_scroll_fit,FLAIR-SCROLL-IGNORED win 0 v,the DISABLED vertical bar click was not reported as ignored)
+	$(call fo-has,flair_scroll_fit,FLAIR-SCROLL-IGNORED win 0 h,the DISABLED horizontal bar click was not reported as ignored)
+	@! grep -q '^FLAIR-SCROLL win' "$(BUILD)/flair_scroll_fit.serial" || { printf '!!! test-flair-scroll FAIL: a DISABLED bar scrolled\n'; exit 1; }
+	$(call scroll-nodrag,flair_scroll_fit)
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) scrollfit "$(BUILD)/flair_scroll_fit.ppm" \
+		|| { printf '!!! test-flair-scroll FAIL: the fitting window is not drawn with DISABLED bars and unmoved icons\n'; exit 1; }
+	@printf '>>> test-flair-scroll [6/6]: content fits -> DISABLED bars (Sec 3), both clicks ignored, nothing moved\n'
+	@printf '>>> test-flair-scroll: green\n'
+
+$(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_SCROLL_DRAG,scroll_drag))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_SCROLL_PAINT_ONLY,scroll_paint_only))
+test-flair-scroll-mutant: $(HARNESS_BIN) $(FLAIR_SCROLL_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN) $(BUILD)/flair_tenants_mut_scroll_drag.img $(BUILD)/flair_tenants_mut_scroll_paint_only.img
+	@# SCROLL_DRAG: the ARROW trace's first click is a WINDOW DRAG again (the
+	@# audit's zero-distance FLAIR-DRAG) and nothing scrolls -> the real gate's
+	@# leg [1] goes RED on its no-drag + value-16 assertions.
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_scroll_drag.img,flair_scroll_mut_drag,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_ARROW_SPEC),FLAIR-DRAG win 0,0)
+	@grep -q '^FLAIR-DRAG win 0 (20,60)->(20,60)' "$(BUILD)/flair_scroll_mut_drag.serial" || { printf '!!! test-flair-scroll-mutant FAIL: SCROLL_DRAG did not drag -- RED for the wrong reason (or not at all)\n'; exit 1; }
+	@! grep -q '^FLAIR-SCROLL win 0 v part=21 value=16' "$(BUILD)/flair_scroll_mut_drag.serial" || { printf '!!! test-flair-scroll-mutant FAIL: SCROLL_DRAG still scrolled -- the leg is decoration\n'; exit 1; }
+	@printf '>>> test-flair-scroll-mutant: SCROLL_DRAG correctly RED (the arrow click is a FLAIR-DRAG win 0 (20,60)->(20,60); nothing scrolls)\n'
+	@# PAINT_ONLY: the view LOOKS scrolled, but the click on the drawn F06.TXT
+	@# hits the unscrolled model -> leg [2] goes RED (another icon selects).
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_scroll_paint_only.img,flair_scroll_mut_paint,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_SCROLL_SELECT_SPEC),FINDER-WIN-SELECT,0)
+	@grep -q '^FINDER-WIN-SELECT win=0 name=' "$(BUILD)/flair_scroll_mut_paint.serial" || { printf '!!! test-flair-scroll-mutant FAIL: PAINT_ONLY never selected anything\n'; exit 1; }
+	@! grep -qx 'FINDER-WIN-SELECT win=0 name=F06.TXT count=1' "$(BUILD)/flair_scroll_mut_paint.serial" || { printf '!!! test-flair-scroll-mutant FAIL: PAINT_ONLY still selected F06.TXT -- the select leg is decoration\n'; exit 1; }
+	@printf '>>> test-flair-scroll-mutant: PAINT_ONLY correctly RED (%s instead of F06.TXT)\n' "$$(grep -m1 '^FINDER-WIN-SELECT' $(BUILD)/flair_scroll_mut_paint.serial)"
+	@printf '>>> test-flair-scroll-mutant: green (both mutants RED for the named reason)\n'
+
+# ===========================================================================
 # REAL gate: test-flair-finder-follow (bead initech-tdnl.34; audit F01, P0) --
 # A FINDER WINDOW'S ICONS FOLLOW THE WINDOW through drag, collapse/expand,
 # zoom and restore, and stay clickable and draggable where they are drawn.
@@ -20016,7 +20148,28 @@ RECORD_SPEC_arrange      = $(FLAIR_CMDS_ARRANGE_SPEC)
 RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=3
 RECORD_IMAGE_arrange     = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_arrange    = 300
-RECORD_SCRIPTS := solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange
+# scroll_arrow / scroll_page / scroll_thumb (bead initech-tdnl.35, audit F02;
+# Rule 14): the 22-entry overflow volume opens; the down arrow is clicked
+# three times (the view steps 16 px at a time, the window never moves); a
+# click below the thumb pages to the end; the thumb is dragged half-way and
+# the view follows on release. DOUBLE-CLICK record image (it opens the
+# volume), the overflow data volume (RECORD_DATA_*).
+RECORD_SPEC_scroll_arrow   = $(FLAIR_SCROLL_ARROW_SPEC)
+RECORD_MARKER_scroll_arrow = FLAIR-SCROLL win 0 v part=21 value=48 max=138
+RECORD_IMAGE_scroll_arrow  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_scroll_arrow   = $(FLAIR_SCROLL_DATA_IMG)
+RECORD_SETTLE_scroll_arrow = 300
+RECORD_SPEC_scroll_page    = $(FLAIR_SCROLL_PAGE_SPEC)
+RECORD_MARKER_scroll_page  = FLAIR-SCROLL win 0 v part=23 value=138 max=138
+RECORD_IMAGE_scroll_page   = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_scroll_page    = $(FLAIR_SCROLL_DATA_IMG)
+RECORD_SETTLE_scroll_page  = 300
+RECORD_SPEC_scroll_thumb   = $(FLAIR_SCROLL_THUMB_SPEC)
+RECORD_MARKER_scroll_thumb = FLAIR-SCROLL win 0 v part=129 value=69 max=138
+RECORD_IMAGE_scroll_thumb  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_scroll_thumb   = $(FLAIR_SCROLL_DATA_IMG)
+RECORD_SETTLE_scroll_thumb = 300
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -20080,12 +20233,12 @@ RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_drag_refused        = $(FLAIRTENANTS_RECORDDBL_IMG)
 
 .PHONY: record-flair
-record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
+record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
 	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
 	@mkdir -p "$(RECORD_CLIPS_DIR)"
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	cp -f $(or $(RECORD_DATA_$(SCRIPT)),$(FLAIR_DATA_IMG)) $(FLAIR_GATE_DATA)
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
@@ -26115,7 +26268,7 @@ TEST_EMU_GATES := \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
-	test-flair-finder-follow test-flair-finder-follow-mutant \
+	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
 	test-flair-finder-cmds test-flair-finder-cmds-mutant \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
