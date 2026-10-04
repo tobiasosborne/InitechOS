@@ -188,6 +188,7 @@ const char *finder_ops_reason(finder_win_status_t st)
     if (st == FINDER_WIN_ERR_SAMEDIR) return "samedir";
     if (st == FINDER_WIN_ERR_CYCLE)   return "cycle";
     if (st == FINDER_WIN_ERR_EXISTS)  return "exists";
+    if (st == FINDER_WIN_ERR_SERVICE) return "service";
     return "err";
 }
 
@@ -272,6 +273,16 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     fo_copy83(out->as, ic.name);
     out->from_dir = w->dir_start;
 
+#if !defined(FINDER_OPS_MUT_NO_SERVICE_GUARD)
+    /* The Finder's own \TRASH / \DESKTOP.DB never move, by IDENTITY, even if
+     * a path reaches them (they are not listed -- finder_win_is_service): the
+     * audit's H03 move of \TRASH stranded the staged items and broke the
+     * Trash. Checked first, before the backend is touched. */
+    if (finder_win_is_service(out->from_dir, ic.name))
+        return fo_refuse(out, FINDER_WIN_ERR_SERVICE);
+#else
+    /* MUTANT (Rule 6; test-finder-ops-mutant): the identity guard removed. */
+#endif
     if (t->kind != (uint8_t)FINDER_TGT_WINDOW &&
         t->kind != (uint8_t)FINDER_TGT_FOLDER &&
         t->kind != (uint8_t)FINDER_TGT_VOLUME &&
@@ -294,6 +305,12 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     out->op     = (uint8_t)(is_trash ? FINDER_OP_TRASH : FINDER_OP_MOVE);
     out->to_dir = dst;
 
+#if !defined(FINDER_OPS_MUT_NO_SERVICE_GUARD)
+    /* ... nor may a move CREATE one (a user's own TRASH folder dropped into
+     * the root would become the staging directory's twin). */
+    if (finder_win_is_service(dst, ic.name))
+        return fo_refuse(out, FINDER_WIN_ERR_SERVICE);
+#endif
     /* THE LADDER, in order (finder_ops.h). */
     if (dst == out->from_dir) return fo_refuse(out, FINDER_WIN_ERR_SAMEDIR);
 #if !defined(FINDER_OPS_MUT_NO_CYCLE)

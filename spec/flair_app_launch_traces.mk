@@ -10,8 +10,8 @@
 #
 # THE SCENE: $(FLAIRTENANTS_IMG) + a gate-local copy of $(FLAIR_DATA_IMG), whose
 # APPS folder now holds TENANTFX.EXE (os/apps/tenantfx.asm). The root listing is
-# unchanged (n=4: README.TXT, APPS, DESKTOP.DB, TRASH), so every R3.2/R3.3
-# locked trace and count still holds.
+# unchanged (n=2 shown: README.TXT, APPS; DESKTOP.DB and TRASH are on disk but
+# hidden since tdnl.56), so every R3.2/R3.3 locked trace and count still holds.
 #
 # GEOMETRY (derived, never measured off a render):
 #   root window (slot 0) frame (20,60)..(380,280); APPS icon sprite
@@ -39,7 +39,7 @@
 #
 # WAYPOINTS (shared by every trace below):
 #   A (320,240) -> VOLUME (600,64): m100:-88,m100:-88,m80:0 ; l1,l0,l1,l0
-#       -> FINDER-OPEN-VOLUME win=0 n=4
+#       -> FINDER-OPEN-VOLUME win=0 n=2
 #   B (600,64) -> APPS in win 0 (123,102): m-100:10,m-100:10,m-100:10,
 #       m-100:8,m-77:0 ; l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=APPS win=1
 #   C (123,102) -> TENANTFX.EXE in win 1 (75,122): m-48:20 ; l1,l0,l1,l0

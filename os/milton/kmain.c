@@ -125,6 +125,14 @@ _Static_assert(FINDER_ATTR_VOLLABEL == DIR_ATTR_VOLLABEL,
 _Static_assert(FINDER_ATTR_DIRECTORY == DIR_ATTR_DIRECTORY,
                "finder_windows.h FINDER_ATTR_DIRECTORY must equal "
                "spec/dos_structs.h DIR_ATTR_DIRECTORY");
+/* The Finder's service identities (beads initech-tdnl.56/.73/.75) restate
+ * desktop_db.h's names; the same tooth, for strings (GCC folds the compare). */
+_Static_assert(__builtin_strcmp(FINDER_SVC_TRASH_NAME, DESKTOP_TRASH_NAME) == 0,
+               "finder_windows.h FINDER_SVC_TRASH_NAME must equal "
+               "desktop_db.h DESKTOP_TRASH_NAME");
+_Static_assert(__builtin_strcmp(FINDER_SVC_DB_NAME, DESKTOP_DB_NAME) == 0,
+               "finder_windows.h FINDER_SVC_DB_NAME must equal "
+               "desktop_db.h DESKTOP_DB_NAME");
 
 /* NOTES owns a static-lifetime SimpleText-flavored menu fixture. Ref: bead
  * initech-7tjp; spec/flair_tenants_demo.h (titles/items/ID range); PRD Sec 1.1 /

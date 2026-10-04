@@ -172,7 +172,7 @@ FLAIR_ICON_DRAGDROP_SPEC := m100:-88,m100:-88,m80:0,l1,m-92:88,m-92:88,m0:88,m0:
 
 # ===========================================================================
 # 5. FLAIR_ICON_OPEN_SPEC -- double-click the volume; expects
-#    "FINDER-OPEN-VOLUME win=0 n=4" (RE-KEYED at bead initech-tdnl.10).
+#    "FINDER-OPEN-VOLUME win=0 n=2" (RE-KEYED at bead initech-tdnl.10).
 # ===========================================================================
 # Same approach route to (600,64), then FOUR button tokens back-to-back:
 # l1,l0,l1,l0. qmp_inject_mouse drains only 40 ms between tokens, so the second
@@ -186,12 +186,12 @@ FLAIR_ICON_DRAGDROP_SPEC := m100:-88,m100:-88,m80:0,l1,m-92:88,m-92:88,m0:88,m0:
 # Click 1 selects (FINDER-ICON-SELECT name=INITECH count=1); click 2 classifies
 # DOUBLE and -- since bead initech-tdnl.10 (R3.3 disk windows) -- really OPENS
 # the root disk window over the mounted volume, emitting
-# "FINDER-OPEN-VOLUME win=0 n=4". The R3.2 line this replaces was
+# "FINDER-OPEN-VOLUME win=0 n=2". The R3.2 line this replaces was
 # "FINDER-OPEN-VOLUME NYI"; the re-key is strictly stronger (it additionally
 # pins the window slot and the enumerated icon count). The count is the flagship
-# volume's root AFTER first boot: README.TXT, APPS, DESKTOP.DB and TRASH -- the
-# volume LABEL is skipped by the Finder (design F1.1) while hidden entries are
-# not (the stated scope note in os/flair/finder_windows.h).
+# volume's root AFTER first boot as SHOWN: README.TXT and APPS -- the volume
+# LABEL is skipped by the Finder (design F1.1), and so (since beads
+# initech-tdnl.56/.73/.75) are its own \DESKTOP.DB and \TRASH; n was 4 before.
 #
 # THE TRACE ITSELF IS UNCHANGED. The waypoints, the button tokens and the park
 # are byte-for-byte what R3.2 locked; only what the guest DOES at the end of

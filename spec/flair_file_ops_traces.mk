@@ -10,11 +10,11 @@
 # mouse stream; every trace ends PARKED at (620,460)). Every trace starts with
 # that file's FLAIR_ICON_OPEN_SPEC step A -- the volume double-click -- so the
 # ROOT disk window opens at its UNMOVED default frame (20,60)..(380,280) with
-# the four icons, row-major (derived there, mtools-ordered):
+# the two SHOWN icons, row-major (derived there, mtools-ordered):
 #     README.TXT  DOC    sprite (39,86)   centre (55,102)
 #     APPS        FOLDER sprite (107,86)  centre (123,102)
-#     DESKTOP.DB  DOC    sprite (175,86)  centre (191,102)
-#     TRASH       FOLDER sprite (243,86)  centre (259,102)
+# (the boot-created DESKTOP.DB and TRASH follow on disk but are hidden since
+# beads initech-tdnl.56/.73/.75)
 # and the desktop icons: VOLUME "INITECH" sprite (584,48) centre (600,64);
 # Trash sprite (584,404) centre (600,420).
 #
@@ -35,7 +35,7 @@
 # ===========================================================================
 # 1. FLAIR_FILEOPS_INTO_SPEC -- drag README.TXT onto the APPS folder icon.
 # ===========================================================================
-# Serial chain: FINDER-OPEN-VOLUME win=0 n=4 ; FINDER-DROP-HILITE name=APPS ;
+# Serial chain: FINDER-OPEN-VOLUME win=0 n=2 ; FINDER-DROP-HILITE name=APPS ;
 #               FINDER-MOVE name=README.TXT from=0 to=3
 # mtools: README.TXT in ::/APPS (its bytes == the fixture), absent from ::/.
 # A. volume double-click -> (600,64)                    (disk_windows trace 1 A)
@@ -51,7 +51,7 @@ FLAIR_FILEOPS_INTO_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m
 # 2. FLAIR_FILEOPS_BETWEEN_SPEC -- drag TENANTFX.EXE out of the APPS window
 #    into the ROOT window, then raise the root window to show it arrived.
 # ===========================================================================
-# Serial chain: FINDER-OPEN-VOLUME win=0 n=4 ;
+# Serial chain: FINDER-OPEN-VOLUME win=0 n=2 ;
 #               FINDER-OPEN-FOLDER name=APPS win=1 singleton=0 ;
 #               FINDER-MOVE name=TENANTFX.EXE from=3 to=0 ;
 #               FLAIR-DRAG win 0 (20,60)->(20,60)
@@ -78,24 +78,40 @@ FLAIR_FILEOPS_BETWEEN_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100
 # ===========================================================================
 # 3. FLAIR_FILEOPS_REFUSE_SPEC -- two REFUSED drops; the volume is unchanged.
 # ===========================================================================
+# RE-KEYED at beads initech-tdnl.56/.73/.75: the second drop used to be the
+# root TRASH folder dragged onto the Trash (CYCLE). \TRASH is no longer shown,
+# so it cannot be pressed; the CYCLE rung is now exercised the way the host
+# oracle's leg O5 does it -- the APPS folder dropped into the APPS window's
+# own body. (Dragging the service directory itself is refused by identity:
+# test-finder-ops leg O12 and the test-flair-finder-service-mutant leg.)
 # Serial chain: FINDER-DROP-HILITE name=INITECH ;
 #               FINDER-MOVE-REFUSED reason=samedir name=README.TXT ;
-#               FINDER-DROP-HILITE name=Trash ;
-#               FINDER-MOVE-REFUSED reason=cycle name=TRASH
-# and NO FINDER-MOVE / FINDER-TRASH line. mtools: the root still lists
-# README.TXT, APPS, DESKTOP.DB, TRASH; \TRASH is empty.
+#               FINDER-OPEN-FOLDER name=APPS win=1 singleton=0 ;
+#               FLAIR-DRAG win <n> (40,80)->(190,230) ;
+#               FINDER-MOVE-REFUSED reason=cycle name=APPS
+# and NO FINDER-MOVE / FINDER-TRASH / DESKTOP-DB-SAVE line (a window drag is
+# not persisted until the window closes). mtools: the root still lists
+# README.TXT, APPS, DESKTOP.DB, TRASH; \TRASH is empty; DESKTOP.DB 8 bytes.
 # A. volume double-click -> (600,64); B. -> README centre (55,102) as trace 1.
 # C. l1 ; drag back to the VOLUME centre: sum (+545,-38): m100:-8 x3,
 #    m100:-7 x2, m45:0 -> (600,64) ; m0:2 -> (600,66) ; l0. README lives in the
 #    root and the volume icon IS the root: SAMEDIR, refused by the Finder
 #    before the backend; the outline zooms back.
-# D. (600,66) -> the TRASH folder icon centre (259,102): sum (-341,+36):
-#    m-100:9 x3, m-41:9.
-# E. l1 ; drag to the desktop Trash centre: sum (+341,+318): m100:80 x3,
-#    m41:78 -> (600,420) ; m0:2 -> (600,422) ; l0. The \TRASH folder into the
-#    Trash is a folder into ITSELF: CYCLE.
-# F. PARK (600,422) -> (620,460): m20:38.
-FLAIR_FILEOPS_REFUSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:-8,m100:-8,m100:-8,m100:-7,m100:-7,m45:0,m0:2,l0,m-100:9,m-100:9,m-100:9,m-41:9,l1,m100:80,m100:80,m100:80,m41:78,m0:2,l0,m20:38
+# D. (600,66) -> the APPS icon centre (123,102): sum (-477,+36): m-100:9 x4,
+#    m-77:0 ; l1,l0,l1,l0 opens APPS in slot 1 at its cascaded frame
+#    (40,80)..(400,300) -- which COVERS the root's APPS icon.
+# E. (123,102) -> the APPS title band (200,90): m77:-12 ; l1 ; m100:100,
+#    m50:50 -> (350,240) ; l0: the APPS window moves by (+150,+150) to
+#    (190,230)..(550,450), content (191,252)..(529,429) (frame.right - 21,
+#    frame.bottom - 21, as the root's (21,82)..(359,259)).
+# F. (350,240) -> the ROOT title band (200,70), now uncovered: m-100:-100,
+#    m-50:-70 ; l1,l0 raises the root (FLAIR-DRAG win 0 (20,60)->(20,60)).
+# G. (200,70) -> APPS centre (123,102): m-77:32 ; l1 ; m100:62 x3, m27:62 ->
+#    (450,350) ; m0:2 -> (450,352) ; l0. x=450 > 380 is outside the root and
+#    inside the APPS content: a WINDOW target whose directory IS APPS -- the
+#    folder into ITSELF: CYCLE.
+# H. PARK (450,352) -> (620,460): m100:54, m70:54.
+FLAIR_FILEOPS_REFUSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:-8,m100:-8,m100:-8,m100:-7,m100:-7,m45:0,m0:2,l0,m-100:9,m-100:9,m-100:9,m-100:9,m-77:0,l1,l0,l1,l0,m77:-12,l1,m100:100,m50:50,l0,m-100:-100,m-50:-70,l1,l0,m-77:32,l1,m100:62,m100:62,m100:62,m27:62,m0:2,l0,m100:54,m70:54
 
 # ===========================================================================
 # 4. FLAIR_FILEOPS_TRASH_SPEC -- drag to the Trash three times; the third
@@ -139,3 +155,44 @@ FLAIR_FILEOPS_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,
 #   outline: README's cell translated by (+68,0); its top edge is row y=86
 #   from x=107 (sprite left 39+68) -- over APPS's transparent rows 0..2.
 FLAIR_FILEOPS_HOVER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m34:0,m34:0
+
+# ===========================================================================
+# 6. THE FINDER'S OWN BOOKKEEPING IS INVISIBLE AND SAFE (beads initech-tdnl.56
+#    / .73 / .75; audit pass 3 H03 + H05). Gate: test-flair-finder-service.
+# ===========================================================================
+# 6a. FLAIR_SVC_TRASH_SPEC (flagship volume): the root window opens showing
+#     ONLY README.TXT and APPS -- FINDER-OPEN-VOLUME win=0 n=2 (the gate's
+#     separate FLAIR_ICON_OPEN_SPEC boot screendumps that state for leg
+#     rootwin: cells 2-3 bare) -- then README.TXT is dragged
+#     onto the Trash: FINDER-TRASH name=README.TXT origin=0 ; DESKTOP-DB-SAVE
+#     n=3 (volume + trash positions + one kind=5 origin: 8 + 3*24 = 80 bytes).
+#     A ; B ; GO (trace 4) ; PARK m20:38.
+FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m20:38
+
+# 6b. FLAIR_SVC_DAMAGED_SPEC on $(FLAIR_DAMAGED_DATA_IMG), the volume as the
+#     reviewer left it (H03): mtools-built, root NEWFOLD (slot 1), APPS (slot
+#     2), TRASH (slot 3, the NEW empty one); APPS holds TENANTFX.EXE and the
+#     STRANDED old TRASH with README.TXT inside. Boot adds DESKTOP.DB (slot 4).
+#     So the root window shows NEWFOLD (cell 0, centre (55,102)) and APPS
+#     (cell 1, centre (123,102)): FINDER-OPEN-VOLUME win=0 n=2.
+#   A ; B -> NEWFOLD (55,102) ; GO -> the Trash (600,422) ; l0
+#        -> FINDER-TRASH name=NEWFOLD origin=0 (staged in the ROOT \TRASH)
+#   (600,422) -> APPS (123,102): sum (-477,-320): m-100:-64 x4, m-77:-64 ;
+#        l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=APPS win=1 singleton=0; the
+#        APPS window (40,80)..(400,300), content (41,102): TENANTFX.EXE cell 0
+#        centre (75,122), the stranded TRASH cell 1 centre (143,122)
+#   -> (143,122): m20:20 ; l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=TRASH win=2
+#        singleton=0: the stranded folder is an ORDINARY visible folder
+#   PARK (143,122) -> (620,460): sum (+477,+338): m100:68 x4, m77:66.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m100:68,m100:68,m100:68,m100:68,m77:66
+
+# 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
+#     real kernel shows no TRASH icon to press): the audit's H03 move, the
+#     root TRASH folder (cell 3, centre (259,102) on the four-icon root) dragged
+#     onto APPS (123,102). The identity guard must refuse it:
+#     FINDER-MOVE-REFUSED reason=service name=TRASH, and mtools still finds
+#     ::/TRASH at the root.
+#   A ; (600,64) -> (259,102): sum (-341,+38): m-100:10 x3, m-41:8 ; l1 ;
+#   m-68:0 x2 -> (123,102) ; m0:2 -> (123,104) ; l0 ; PARK (123,104) ->
+#   (620,460): sum (+497,+356): m100:71 x4, m97:72.
+FLAIR_SVC_GUARD_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-41:8,l1,m-68:0,m-68:0,m0:2,l0,m100:71,m100:71,m100:71,m100:71,m97:72

@@ -27,14 +27,14 @@
 # icon cell from the window's NEW frame through the hand-carried chrome +
 # grid arithmetic (tools/ppm_flair_disk_windows_check.c, finder_windows.h
 # Sec 2): it never reads the artifact's stored cells. After the drag the frame
-# is (120,180)..(480,400), content (121,202)..(459,399), so the four root
-# icons (mtools order, spec/flair_disk_windows_traces.mk) sit at
+# is (120,180)..(480,400), content (121,202)..(459,399), so the two SHOWN
+# root icons (mtools order, spec/flair_disk_windows_traces.mk) sit at
 #     README.TXT sprite (139,206) centre (155,222)
 #     APPS       sprite (207,206) centre (223,222)
-#     DESKTOP.DB sprite (275,206)
-#     TRASH      sprite (343,206)
+# and cells (275,206) / (343,206), where the now hidden DESKTOP.DB / TRASH
+# were drawn before tdnl.56, are bare;
 # and after the zoom the frame is (4,40)..(636,476), content (5,62), sprites
-# (23,66) (91,66) (159,66) (227,66) (8 grid columns; still one row).
+# (23,66) (91,66), cells (159,66) (227,66) bare (8 grid columns; one row).
 #
 # THE WIDGET BOXES of the moved frame (spec/chrome_metrics.h: box 12, top off
 # 4, ZOOM_RIGHT_OFF 32, COLLAPSE_RIGHT_OFF 16; the HELLO zoom_toggle trace in
@@ -47,7 +47,7 @@
 # --- waypoint arithmetic -------------------------------------------------
 # A. the volume double-click (spec/flair_disk_windows_traces.mk trace 1 A):
 #      m100:-88, m100:-88, m80:0 -> (600,64) ; l1,l0,l1,l0
-#    -> FINDER-OPEN-VOLUME win=0 n=4, root frame (20,60)..(380,280).
+#    -> FINDER-OPEN-VOLUME win=0 n=2, root frame (20,60)..(380,280).
 # B. (600,64) -> the root TITLE BAR (200,70): m-100:2 x3, m-100:0
 #    (FLAIR_WINDOW_DRAG_PERSIST_SPEC step B, byte for byte).
 # C. drag by (+100,+120): l1 ; m100:100, m0:20 -> (300,190) ; l0

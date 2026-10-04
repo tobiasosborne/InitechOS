@@ -53,6 +53,9 @@
  *   origin ever stops being the screen.
  *
  * THE REFUSAL LADDER (finder_ops_drop; checked in THIS order, first wins)
+ *   service  the source (or the resulting destination) is the Finder's own
+ *            \TRASH or \DESKTOP.DB, by identity (finder_win_is_service;
+ *            beads initech-tdnl.73/.75)            FINDER_WIN_ERR_SERVICE
  *   samedir  the destination directory IS the source directory (e.g. a root
  *            item dropped on the volume icon)         FINDER_WIN_ERR_SAMEDIR
  *   cycle    a folder dropped into ITSELF; deeper descendants are caught by
@@ -63,7 +66,7 @@
  *                                                     FINDER_WIN_ERR_EXISTS
  *   err      anything else: no binding, no \TRASH, dir full, device
  *                                                     FINDER_WIN_ERR_MOVE
- *   finder_ops_reason() spells the four as "samedir"|"cycle"|"exists"|"err" for
+ *   finder_ops_reason() spells the five as "service"|"samedir"|"cycle"|"exists"|"err" for
  *   the kernel's FINDER-MOVE-REFUSED reason=<r> line.
  *
  * TRASH STAGING (design F1.4 / F1.5)

@@ -88,22 +88,25 @@
 #
 # THE ENUMERATION ORDER, from an INDEPENDENT reference (Law 2). The Finder
 # walks the FAT12 root in DIRECTORY-SLOT order and SKIPS the volume label
-# (finder_win_skip_entry, design F1.1); hidden entries are NOT skipped (the
-# stated scope note in finder_windows.h). `mdir -a -i build/flair_data.img ::`
+# (finder_win_skip_entry, design F1.1) and, since beads initech-tdnl.56/.73/
+# .75, the Finder's own root bookkeeping \DESKTOP.DB and \TRASH
+# (finder_win_is_service); other hidden entries are NOT skipped. `mdir -a -i build/flair_data.img ::`
 # on a booted gate copy prints the slots -- mtools, never our own FAT code:
 #     slot 0  INITECH        (volume label)   -> SKIPPED by the Finder
 #     slot 1  README.TXT     ($(FLAIR_DATA_IMG) recipe: mcopy)
 #     slot 2  APPS   <DIR>   ($(FLAIR_DATA_IMG) recipe: mmd)
-#     slot 3  DESKTOP.DB     (first boot: desktop_db_bootstrap, kmain order)
-#     slot 4  TRASH  <DIR>   (first boot: desktop_trash_ensure, kmain order)
-# so the four window icons, in row-major grid order, are
+#     slot 3  DESKTOP.DB     (first boot: desktop_db_bootstrap) -> HIDDEN
+#     slot 4  TRASH  <DIR>   (first boot: desktop_trash_ensure)  -> HIDDEN
+# so the two window icons, in row-major grid order, are
 #     i=0 README.TXT  DOC    sprite (39,86)..(71,118)
 #     i=1 APPS        FOLDER sprite (107,86)..(139,118)
-#     i=2 DESKTOP.DB  DOC    sprite (175,86)..(207,118)
-#     i=3 TRASH       FOLDER sprite (243,86)..(275,118)
+# and the cells DESKTOP.DB / TRASH took before tdnl.56, (175,86) and
+# (243,86), are bare content (the grader's empty-cell check). A New Folder
+# lands in cell 2, (175,86). README.TXT and APPS keep their cells, so every
+# trace that presses them is unchanged.
 # (kind by finder_win_kind_of: DIR_ATTR_DIRECTORY -> FOLDER, else DOC; no .EXE
 # on this volume, so no APP strike appears and this gate does not probe one.)
-# That is also where the LOCKED "FINDER-OPEN-VOLUME win=0 n=4" of
+# That is also where the LOCKED "FINDER-OPEN-VOLUME win=0 n=2" of
 # test-flair-desktop-icons leg 5 comes from. Add a file to $(FLAIR_DATA_IMG)
 # and BOTH gates go red until the counts are deliberately updated -- the Rule 8
 # posture.
@@ -116,7 +119,7 @@
 #    prove the SPATIAL SINGLETON by re-opening that folder.
 # ===========================================================================
 # Serial chain this trace must produce, in order:
-#     FINDER-OPEN-VOLUME win=0 n=4
+#     FINDER-OPEN-VOLUME win=0 n=2
 #     FINDER-WIN-SELECT win=0 name=APPS count=1
 #     FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
 #     FLAIR-DRAG win 0 (40,80)->(250,250)
@@ -217,7 +220,7 @@ FLAIR_FOLDER_NAV_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 #    record reach \DESKTOP.DB.
 # ===========================================================================
 # Serial chain this trace must produce, in order:
-#     FINDER-OPEN-VOLUME win=0 n=4
+#     FINDER-OPEN-VOLUME win=0 n=2
 #     FLAIR-DRAG win 0 (20,60)->(120,180)
 #     FINDER-CLOSE-WINDOW win=0
 #     DESKTOP-DB-SAVE n=3
@@ -231,7 +234,7 @@ FLAIR_FOLDER_NAV_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 # trace, unchanged) against the SAME, now-written data image and must produce
 #     DESKTOP-DB-OK   (never CREATE / REGEN / POS-SKIP)
 #     DESKTOP-DB-VIEWS n=1
-#     FINDER-OPEN-VOLUME win=0 n=4
+#     FINDER-OPEN-VOLUME win=0 n=2
 # with the window's frame now at the SAVED origin (120,180) -- graded by the
 # `movedwin` leg of ppm_flair_disk_windows_check.
 #
@@ -275,7 +278,7 @@ FLAIR_WINDOW_DRAG_PERSIST_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:2,m-
 #    directory is created and appears as a fifth icon.
 # ===========================================================================
 # Serial chain this trace must produce, in order:
-#     FINDER-OPEN-VOLUME win=0 n=4
+#     FINDER-OPEN-VOLUME win=0 n=2
 #     FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0
 #     FINDER-NEW-FOLDER name=NEWFOLD parent=0
 # and, from the Cmd-I that PRECEDES the Cmd-N (bead initech-tdnl.12), NO line
@@ -343,7 +346,7 @@ FLAIR_NEW_FOLDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-i,kctrl-n,m20
 # else it says about cmd_char == 0 still holds.
 #
 # Serial chain this trace must produce, in order:
-#     FINDER-OPEN-VOLUME win=0 n=4
+#     FINDER-OPEN-VOLUME win=0 n=2
 #     FLAIR-DISPATCH app=FINDER
 #     FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166
 #     FLAIR-MENU-DROP menu=515
@@ -457,7 +460,7 @@ FLAIR_FINDER_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-
 # it covered ON A WINDOW.
 #
 # Serial chain this trace must produce, in order:
-#     FINDER-OPEN-VOLUME win=0 n=4
+#     FINDER-OPEN-VOLUME win=0 n=2
 #     FLAIR-DISPATCH app=FINDER
 #     FLAIR-MENU-DROP menu=512
 #     FLAIR-MENU menu=512 item=0 (sel=0x00000000)

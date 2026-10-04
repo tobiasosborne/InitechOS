@@ -78,6 +78,13 @@ static int fw_ieq(const char *a, const char *b)
     return fw_upper(*a) == fw_upper(*b);
 }
 
+int finder_win_is_service(uint16_t dir_start, const char *name83)
+{
+    return dir_start == 0u &&
+           (fw_ieq(name83, FINDER_SVC_TRASH_NAME) ||
+            fw_ieq(name83, FINDER_SVC_DB_NAME));
+}
+
 static void fw_copy83(char *dst, const char *src)
 {
     uint32_t i = 0u;
@@ -339,6 +346,18 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
     /* MUTANT FINDER_WIN_MUT_DOTS_SHOWN (Rule 6; test-finder-windows-mutant):
      * the pre-tdnl.14 listing -- "." and ".." appear as folder icons, so L6's
      * subdirectory listing goes RED. NEVER in a real build. */
+#endif
+
+    /* The Finder's own \TRASH and \DESKTOP.DB are never items (beads
+     * initech-tdnl.56/.73/.75; finder_windows.h "THE FINDER'S OWN
+     * BOOKKEEPING"). Skipped HERE, before the cap and the grid, so nothing
+     * downstream can count, select, arrange or target them. */
+#ifndef FINDER_WIN_MUT_SERVICE_SHOWN
+    if (finder_win_is_service(ec->w->dir_start, e->name83)) return 0;
+#else
+    /* MUTANT FINDER_WIN_MUT_SERVICE_SHOWN (Rule 6; test-finder-windows-mutant,
+     * test-flair-finder-service-mutant): the pre-tdnl.56 listing -- TRASH and
+     * DESKTOP.DB are ordinary root icons. NEVER in a real build. */
 #endif
 
     if (ec->w->view.n >= (uint16_t)FINDER_WIN_ICONS_MAX) {

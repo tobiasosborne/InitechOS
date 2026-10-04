@@ -9,18 +9,19 @@
  * open over the REAL FAT12 volume, in one of three states:
  *
  *   rootwin    the root ("Drive A Files") window at its CASCADED DEFAULT frame
- *              (20,60)..(380,280) with the volume's four root entries laid out
- *              row-major on the invisible grid.
+ *              (20,60)..(380,280) with the volume's two SHOWN root entries
+ *              laid out row-major on the invisible grid, and the cells the
+ *              hidden DESKTOP.DB / TRASH used to take bare (tdnl.56).
  *   movedwin   the SAME window after a title-bar drag to (120,180), CLOSE, and
  *              a REBOOT: it must reappear at the SAVED origin, and the default
  *              rect must be bare desktop again.
  *   zoomedwin  (bead initech-tdnl.34) the root window ZOOMED to its standard
- *              state (4,40)..(636,476): the four icons on the grid of the
+ *              state (4,40)..(636,476): the two icons on the grid of the
  *              ZOOMED content. `movedwin` is also reused, unchanged, by
  *              test-flair-finder-follow for a window DRAGGED (not reopened) to
  *              (120,180) -- the same frame, so the same expected pixels.
- *   newfolder  the default-frame window after Ctrl-N: a FIFTH icon (the real
- *              \NEWFOLD directory) on the grid's second row.
+ *   newfolder  the default-frame window after Ctrl-N: a THIRD icon (the real
+ *              \NEWFOLD directory) in cell 2 of the first row.
  *
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- this is the whole
  * point).  Every probe below is HAND-AUTHORED from INDEPENDENT sources:
@@ -163,8 +164,8 @@ static int g_win_h = DEF_WIN_H;
  * TOP 40 / RIGHT 4 / BOTTOM 4:
  *     frame (4,40)..(636,476), 632 x 436
  *     content (5,62)..(615,475)   (CalcDocContentRect, as above)
- *     grid cols = (610 - 18) / 68 = 8, so the four root icons stay in row 0:
- *     sprites (23,66) (91,66) (159,66) (227,66).
+ *     grid cols = (610 - 18) / 68 = 8, so the two shown root icons stay in row 0:
+ *     sprites (23,66) (91,66); cells (159,66) and (227,66) bare.
  * NOT derived from where the window was before the zoom: a model that kept the
  * icons where they were drawn at open (the F01 bug) puts them at (39,86)...,
  * which is inside this content rect and therefore reads as WRONG, not blank. */
@@ -319,28 +320,30 @@ static const MapProbe DOC_PROBES[] = {
 #define DOC_PROBE_N ((int)(sizeof DOC_PROBES / sizeof DOC_PROBES[0]))
 
 /* The window's icon roster, in the enumeration order the traces file derives
- * from mtools (README.TXT / APPS / DESKTOP.DB / TRASH, + NEWFOLD on the
- * newfolder leg).  KIND is the finder_win_kind_of rule applied by hand. */
+ * from mtools (README.TXT / APPS, + NEWFOLD on the newfolder leg).  KIND is
+ * the finder_win_kind_of rule applied by hand.  The boot-created \DESKTOP.DB
+ * and \TRASH follow APPS on disk but are the Finder's own bookkeeping and are
+ * NOT shown (beads initech-tdnl.56/.73/.75): their former cells 2 and 3 must be
+ * bare white content -- check_empty_cells below. */
 enum { K_DOC = 0, K_FOLDER = 1 };
 typedef struct { const char *name; int kind; } RosterEntry;
 static const RosterEntry ROSTER[] = {
     { "README.TXT", K_DOC    },
     { "APPS",       K_FOLDER },
-    { "DESKTOP.DB", K_DOC    },
-    { "TRASH",      K_FOLDER },
     { "NEWFOLD",    K_FOLDER }   /* newfolder leg only */
 };
 
 /* The `arranged` leg (bead initech-tdnl.67, audit G10): after View > Arrange
- * (by Name) the grid cells hold the roster in NAME order -- the four names
- * above sorted by hand, case-insensitively, byte order: "APPS" < "DESKTOP.DB"
- * < "README.TXT" < "TRASH" (A < D < R < T). */
+ * (by Name) the grid cells hold the roster in NAME order -- the two names
+ * above sorted by hand, byte order: "APPS" < "README.TXT" (A < R). */
 static const RosterEntry ROSTER_BY_NAME[] = {
     { "APPS",       K_FOLDER },
-    { "DESKTOP.DB", K_DOC    },
-    { "README.TXT", K_DOC    },
-    { "TRASH",      K_FOLDER }
+    { "README.TXT", K_DOC    }
 };
+
+/* The grid cells the four-entry root used before tdnl.56 hid DESKTOP.DB and
+ * TRASH: every cell from the last shown icon up to this one must be EMPTY. */
+#define ROOT_CELLS_BEFORE 4
 
 /* 1 on the `allsel` leg (bead initech-tdnl.36, audit F03): after Edit > Select
  * All every label must be drawn INVERTED (selected) instead of normal. */
@@ -736,12 +739,46 @@ static void check_vacated(void)
     }
 }
 
+/* A grid cell with NO icon (beads initech-tdnl.56/.73/.75): the whole cell --
+ * the 32-px sprite square and the label band below it, widened to 16 px either
+ * side so the widest 8.3 label ("DESKTOP.DB", centred) is covered, still
+ * inside the 68-px pitch -- is bare white content: not one ink, shade or
+ * inverted pixel. A drawn TRASH or DESKTOP.DB icon or label goes RED here. */
+static void check_empty_cells(int L, int T, int first, int last)
+{
+    for (int i = first; i < last; i++) {
+        int gx = L + CONT_DX + GRID_INSET_X + (i % GRID_COLS) * GRID_PITCH_X;
+        int gy = T + CONT_DY + GRID_INSET_Y + (i / GRID_COLS) * GRID_PITCH_Y;
+        long bad = 0;
+        int bx = -1, by = -1;
+        for (int y = gy; y < gy + LABEL_BOT_OFF; y++)
+            for (int x = gx - 16; x < gx + ICON_DIM + 16; x++)
+                if (!is_rgb(x, y, IDX(CIDX_WHITE))) {
+                    if (bad == 0) { bx = x; by = y; }
+                    bad++;
+                }
+        printf("    cell[%d] (%d,%d) must be EMPTY (no hidden-item icon or label)\n",
+               i, gx, gy);
+        if (bad != 0) {
+            fprintf(stderr,
+                    "ppm_flair_disk_windows_check: FAIL leg %s -- grid cell %d "
+                    "(%d,%d) is not bare content: %ld non-white pixels, first at "
+                    "(%d,%d) -- an icon or label is drawn where DESKTOP.DB / TRASH "
+                    "used to be listed (they must be hidden)\n",
+                    g_leg, i, gx, gy, bad, bx, by);
+            g_fail = 1;
+        }
+    }
+}
+
 /* ===========================================================================
  * THE SCROLL LEGS (bead initech-tdnl.35; audit F02). The root window at its
  * DEFAULT frame (20,60)..(380,280) over the OVERFLOW volume
- * (spec/flair_scroll_traces.mk): README.TXT, APPS, F00.TXT..F17.TXT, then the
- * boot-created DESKTOP.DB and TRASH -- 22 entries, 6 grid rows, in mtools
- * creation order. Every number by hand (finder_windows.h Sec 2/3/10c,
+ * (spec/flair_scroll_traces.mk): README.TXT, APPS, F00.TXT..F19.TXT -- 22
+ * SHOWN entries, 6 grid rows, in mtools creation order (the boot-created
+ * DESKTOP.DB and TRASH follow on disk but are hidden, beads initech-tdnl.56/
+ * .73; F18/F19 were added to the fixture so the shown count stays the audit's
+ * 22). Every number by hand (finder_windows.h Sec 2/3/10c,
  * window.c CalcDocContentRect, spec/chrome_metrics.h), never read from the
  * artifact:
  *   content (21,82)..(359,259): 177 high (the bottom stops at the horizontal
@@ -754,7 +791,7 @@ static void check_vacated(void)
  *   scrollarrow  3 down-arrow clicks       -> value 48,  thumb 97+45  = 142
  *   scrollpage   1 click below the thumb   -> value 138, thumb 97+132 = 229
  *   scrollthumb  thumb dragged down 66 px  -> value 69,  thumb 97+66  = 163
- *   scrollfit    the 4-entry flagship volume: everything fits, the bars are
+ *   scrollfit    the flagship volume (2 shown entries): everything fits, the bars are
  *                DISABLED (scrollbars.md Sec 3) and both bar clicks ignored.
  * An icon is graded only when its whole 47-row cell is inside the content.
  * ===========================================================================*/
@@ -766,7 +803,7 @@ static const RosterEntry SCROLL_ROSTER[22] = {
     { "F09.TXT", K_DOC }, { "F10.TXT", K_DOC }, { "F11.TXT", K_DOC },
     { "F12.TXT", K_DOC }, { "F13.TXT", K_DOC }, { "F14.TXT", K_DOC },
     { "F15.TXT", K_DOC }, { "F16.TXT", K_DOC }, { "F17.TXT", K_DOC },
-    { "DESKTOP.DB", K_DOC }, { "TRASH", K_FOLDER }
+    { "F18.TXT", K_DOC }, { "F19.TXT", K_DOC }
 };
 #define SB_X0        359   /* vertical bar outer left line                   */
 #define SB_MID_X     367
@@ -783,12 +820,13 @@ static int grade_scroll(int value, int fit)
     check_chrome(ROOT_L, ROOT_T);   /* the frame did NOT move (audit F02) */
     if (fit) {
         int i;
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < 2; i++) {
             int gx = 39 + i * GRID_PITCH_X, gy = 86;
             check_sprite(ROSTER[i].name, gx, gy, ROSTER[i].kind);
             check_band(ROSTER[i].name, gx, gy);
             graded++;
         }
+        check_empty_cells(ROOT_L, ROOT_T, 2, ROOT_CELLS_BEFORE);
         /* DISABLED bars, scrollbars.md Sec 3: flat F3 trough, #777777
          * separators, #A5A5A5 arrows, no thumb anywhere in the track. */
         assert_idx(SB_MID_X, 150, CIDX_PLAT_TROUGH, "disabled v-bar trough (Sec 3)");
@@ -971,7 +1009,7 @@ int main(int argc, char **argv)
     /* `arranged` and `allsel` grade the DEFAULT-frame root window. */
     if (leg_arranged) roster = ROSTER_BY_NAME;
     if (leg_allsel) g_want_inverted = 1;
-    n_icons = leg_newfolder ? 5 : 4;
+    n_icons = leg_newfolder ? 3 : 2;
 
     printf("ppm_flair_disk_windows_check: leg %s on %s\n"
            "    frame (%d,%d)..(%d,%d); content (%d,%d)..(%d,%d); "
@@ -993,6 +1031,7 @@ int main(int argc, char **argv)
         check_band(roster[i].name, gx, gy);
     }
 
+    check_empty_cells(L, T, n_icons, ROOT_CELLS_BEFORE);
     if (leg_moved) {
         check_vacated();
     }
@@ -1008,9 +1047,10 @@ int main(int argc, char **argv)
     }
     printf("ppm_flair_disk_windows_check: leg %s PASS "
            "(%d icon strikes graded off the finder_icons.h ASCII maps, "
-           "%d label-band relations, 11 chrome assertions, %d bare-teal "
-           "controls%s)\n",
-           g_leg, n_icons, n_icons, leg_zoomed ? 0 : CONTROL_TEAL_N,
+           "%d label-band relations, %d empty cells, 11 chrome assertions, "
+           "%d bare-teal controls%s)\n",
+           g_leg, n_icons, n_icons, ROOT_CELLS_BEFORE - n_icons,
+           leg_zoomed ? 0 : CONTROL_TEAL_N,
            leg_moved ? ", 2 vacated-default-rect probes" : "");
     return 0;
 }

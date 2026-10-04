@@ -6,7 +6,8 @@
 # Conventions are spec/flair_disk_windows_traces.mk's verbatim. Both traces
 # open the volume first (that file's trace 1 step A): the root window at
 # (20,60)..(380,280), content (21,82), icons README.TXT (39,86) centre
-# (55,102), APPS (107,86), DESKTOP.DB (175,86), TRASH (243,86); the Finder is
+# (55,102), APPS (107,86) (DESKTOP.DB and TRASH are hidden since tdnl.56,
+# so those are the only two); the Finder is
 # the foreground tenant, so band 2 is ITS bar.
 #
 # THE MENU GEOMETRY, hand-derived (os/flair/menu.h: panel rows start at screen
@@ -45,7 +46,7 @@
 # F. kctrl-i, kctrl-d, kctrl-o -> MenuKey hands out nothing: no FINDER-CMD.
 # G. Edit > Select All: m40:1 -> (80,30) ; l1 ; m0:99 -> (80,129) ; l0
 #    -> FLAIR-MENU menu=513 item=6 ; FINDER-CMD ... name=SELECT_ALL src=mouse
-#    sel=1 ; FINDER-SELECT-ALL win=0 n=4 ; every label drawn inverted.
+#    sel=1 ; FINDER-SELECT-ALL win=0 n=2 ; every label drawn inverted.
 # H. PARK (80,129) -> (620,460): sum (+540,+331): m100:66 x4, m100:67, m40:0
 FLAIR_CMDS_FAKES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,l0,m-15:-72,l1,m0:89,l0,m0:-89,l1,m0:100,m0:5,l0,m0:-100,m0:-5,l1,m0:35,l0,m130:-35,l1,m0:79,l0,m0:-79,l1,m0:95,l0,m-100:-100,m-30:-15,l1,m0:19,l0,kctrl-i,kctrl-d,kctrl-o,m40:1,l1,m0:99,l0,m100:66,m100:66,m100:66,m100:66,m100:67,m40:0
 
@@ -60,7 +61,8 @@ FLAIR_CMDS_FAKES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-1
 #    129 <= 359-32, 186 <= 279-47). A drag does not select.
 # D. View > Arrange: m-25:-86, m0:-86 -> (120,30) ; l1 ; m0:100, m0:85 ->
 #    (120,215) ; l0 -> FLAIR-MENU menu=514 item=12 ; FINDER-CMD id=10
-#    name=ARRANGE_BY_NAME src=mouse sel=0 ; FINDER-ARRANGE win=0 moved=3
-#    (APPS, DESKTOP.DB, README.TXT move; TRASH is already in cell 3).
+#    name=ARRANGE_BY_NAME src=mouse sel=0 ; FINDER-ARRANGE win=0 moved=2
+#    (APPS cell 1 -> 0 and README.TXT stray -> cell 1 both move; before
+#    tdnl.56 hid DESKTOP.DB and TRASH this was moved=3).
 # E. PARK (120,215) -> (620,460): m100:49 x5.
 FLAIR_CMDS_ARRANGE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m90:100,l0,m-25:-86,m0:-86,l1,m0:100,m0:85,l0,m100:49,m100:49,m100:49,m100:49,m100:49

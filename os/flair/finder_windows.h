@@ -386,7 +386,8 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_CYCLE     = -8,  /* move: a folder into its own subtree     */
     FINDER_WIN_ERR_EXISTS    = -9,  /* move: the name is taken at the dest     */
     FINDER_WIN_ERR_MOVE      = -10, /* move/trash/unlink/...: any other refusal */
-    FINDER_WIN_ERR_NOTEMPTY  = -11  /* rmdir: the directory still has entries  */
+    FINDER_WIN_ERR_NOTEMPTY  = -11, /* rmdir: the directory still has entries  */
+    FINDER_WIN_ERR_SERVICE   = -12  /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
 } finder_win_status_t;
 
 /* ===========================================================================
@@ -542,6 +543,26 @@ finder_icon_kind_t finder_win_kind_of(const char *name83, uint8_t attribute);
  * ruling; making it here would be a DESIGN change dressed as an implementation
  * detail, so it is recorded instead of silently applied. */
 int finder_win_skip_entry(uint8_t attribute);
+
+/* THE FINDER'S OWN BOOKKEEPING (beads initech-tdnl.56 / .73 / .75; audit pass
+ * 3 H03 + H05). The root staging directory \TRASH and the desktop database
+ * \DESKTOP.DB belong to the Finder, not the user: a period Finder never shows
+ * its own files (Desktop DB, the Trash folder) in a window. Identity = the
+ * ROOT directory (dir_start 0) + the 8.3 name, case-insensitive; the same
+ * names anywhere else (a TRASH folder someone moved into APPS) are ordinary
+ * user items. Consumers:
+ *   - fw_enum_cb, the ONE listing builder: a service entry never becomes an
+ *     icon, so every view-derived fact (counts, Select All, Arrange, Clean Up,
+ *     the scroll extent, drop targets) agrees. DIR and mtools still list both.
+ *   - finder_ops_drop (defence in depth): a move or trash whose SOURCE or
+ *     resulting DESTINATION is a service identity is refused
+ *     FINDER_WIN_ERR_SERVICE ("service") before the backend is touched.
+ * The names restate os/milton/desktop_db.h's DESKTOP_DB_NAME /
+ * DESKTOP_TRASH_NAME (os/flair may not include os/milton); kmain.c, which sees
+ * both, carries the drift tooth. */
+#define FINDER_SVC_TRASH_NAME "TRASH"
+#define FINDER_SVC_DB_NAME    "DESKTOP.DB"
+int finder_win_is_service(uint16_t dir_start, const char *name83);
 
 /* The default cascaded frame for `slot` (Sec 3). Pure. */
 rgn_rect_t finder_win_default_frame(int slot);

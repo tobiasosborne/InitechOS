@@ -18,9 +18,10 @@
  *      "a black-and-white icon turns gray when selected".
  *   2. ITS NAME IS INVERTED: inside the APPS label band sub-rect
  *      x [111,135) y [121,131) black outnumbers white (the selected look).
- *   3. NOTHING ELSE IS LIT: README.TXT (39,86), DESKTOP.DB (175,86) (both DOC,
- *      row 10 col 12 'w') and TRASH (243,86) (FOLDER, row 10 col 10 'w') keep a
- *      WHITE #FFFFFF body.
+ *   3. NOTHING ELSE IS LIT: README.TXT (39,86) (DOC, row 10 col 12 'w') keeps
+ *      a WHITE #FFFFFF body, and the cells (175,86) / (243,86) -- where the
+ *      now hidden DESKTOP.DB / TRASH were drawn before beads initech-tdnl.56/
+ *      .73 -- are bare white content (no icon, so nothing to light).
  *   4. THE GRAY OUTLINE IS ON SCREEN: README's cell translated by (+68,0) has
  *      its top edge on row y=86; at (110,86) and (115,86) -- APPS's transparent
  *      rows, window-content white without a drag -- the pixel is the outline
@@ -130,8 +131,8 @@ int main(int argc, char **argv)
 
     /* 3. nothing else lit */
     want(39 + 12,  86 + 10, 0xFFFFFFu, "README.TXT (the dragged icon) keeps a white body");
-    want(175 + 12, 86 + 10, 0xFFFFFFu, "DESKTOP.DB is not a target: white body");
-    want(243 + 10, 86 + 10, 0xFFFFFFu, "TRASH folder is not under the pointer: white body");
+    want(175 + 12, 86 + 10, 0xFFFFFFu, "cell 2 (DESKTOP.DB before tdnl.56, now hidden) is bare white");
+    want(243 + 10, 86 + 10, 0xFFFFFFu, "cell 3 (TRASH before tdnl.56, now hidden) is bare white");
 
     /* 4. the gray outline */
     want(110, 86, 0x777777u, "the drag outline's top edge (README cell +68,0)");

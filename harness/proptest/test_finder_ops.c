@@ -94,7 +94,7 @@ static void store_attach(rgn_store_t *s)
 /* ---------------------------------------------------------------------------
  * The mutable mock volume.
  * ------------------------------------------------------------------------- */
-enum { MV_DIRS = 4, MV_ENTS = 24 };   /* 24: leg O11's overflowing root */
+enum { MV_DIRS = 4, MV_ENTS = 26 };   /* 26: leg O11 root, 24 shown + 2 hidden */
 enum { CL_ROOT = 0, CL_APPS = 2, CL_TRASH = 3, CL_NEWFOLD = 9 };
 
 typedef struct mv_ent { char name[14]; uint8_t attr; uint16_t cluster; } mv_ent_t;
@@ -363,8 +363,8 @@ static void leg_into_folder(void)
           "O3 the result names the item, from=0 and to=APPS");
     CHECK(mv_has(&S.mock, CL_APPS, "README.TXT") && !mv_has(&S.mock, CL_ROOT, "README.TXT"),
           "O3 the VOLUME now has README.TXT in APPS and not in the root");
-    CHECK(rw->view.n == 3 && idx_of(&rw->view, "README.TXT") < 0,
-          "O3 the root window lost exactly that icon");
+    CHECK(rw->view.n == 1 && idx_of(&rw->view, "README.TXT") < 0,
+          "O3 the root window lost exactly that icon (2 shown -> 1; tdnl.56)");
     CHECK(rw->view.icons[0].x == 127 && rw->view.icons[0].y == 106,
           "O3 the remaining icons do NOT re-flow (APPS stays at (127,106))");
     CHECK(r.dst_slot == APPW && idx_of(&S.sh.windows[APPW].view, "README.TXT") == 1,
@@ -400,7 +400,7 @@ static void leg_between(void)
           "O4 the volume moved TENANTFX.EXE from APPS to the root");
     CHECK(aw->view.n == 0u, "O4 the APPS window is empty");
     k = idx_of(&rw->view, "TENANTFX.EXE");
-    CHECK(k == 4 && rw->view.icons[k].kind == FINDER_ICON_APP,
+    CHECK(k == 2 && rw->view.icons[k].kind == FINDER_ICON_APP,
           "O4 the root window gained it as an APPLICATION icon");
     CHECK(rw->view.icons[k].x == 284 && rw->view.icons[k].y == 214,
           "O4 ... exactly where it was dropped (content-relative, no clamp)");
@@ -463,6 +463,62 @@ static void leg_ladder(void)
 }
 
 /* ===========================================================================
+ * O12 -- THE IDENTITY GUARD (beads initech-tdnl.73 / .75; audit pass 3 H03 +
+ * H05). The root \TRASH and \DESKTOP.DB are not listed (test-finder-windows
+ * L5b), so no gesture can press them -- but the move/trash path must refuse
+ * them BY IDENTITY even if a model reaches them (a stale view, a later
+ * command): reason "service", the backend never called, nothing changes.
+ * Nor may a move CREATE one: a user's TRASH folder dropped into the root.
+ * Mutant FINDER_OPS_MUT_NO_SERVICE_GUARD goes RED here.
+ * ===========================================================================*/
+static void leg_service_guard(void)
+{
+    finder_tgt_t t;
+    finder_desk_t *rv;
+    int ti, di;
+
+    scene_init(&S);
+    rv = &S.sh.windows[ROOT].view;
+    CHECK(idx_of(rv, "TRASH") < 0 && idx_of(rv, "DESKTOP.DB") < 0 && rv->n == 2u,
+          "O12 (setup) the root view lists neither TRASH nor DESKTOP.DB");
+    /* A path that reaches them anyway: append both to the root model, as the
+     * pre-tdnl.56 listing had them (cells 2 and 3). */
+    ti = finder_desk_add(rv, FINDER_ICON_FOLDER, "TRASH", 243, 86, 1u);
+    finder_desk_set_cluster(rv, ti, CL_TRASH);
+    di = finder_desk_add(rv, FINDER_ICON_FILE, "DESKTOP.DB", 175, 86, 1u);
+    CHECK(ti >= 0 && di >= 0, "O12 (setup) the stale entries are in the model");
+
+    /* the audit's H03 move: \TRASH dropped onto the APPS folder icon */
+    t = finder_ops_resolve(&S.sh, ROOT, ti, 143, 122);
+    CHECK(t.kind == FINDER_TGT_FOLDER && t.dir == CL_APPS, "O12 (setup) APPS is the target");
+    refused(&t, ROOT, ti, FINDER_WIN_ERR_SERVICE, "service",
+            "O12 the root TRASH dropped on APPS is refused SERVICE (H03)");
+    /* the audit's H05 move: \DESKTOP.DB dropped onto the desktop Trash */
+    t = finder_ops_resolve(&S.sh, ROOT, di, 600, 420);
+    CHECK(t.kind == FINDER_TGT_TRASH, "O12 (setup) the Trash is the target");
+    refused(&t, ROOT, di, FINDER_WIN_ERR_SERVICE, "service",
+            "O12 the root DESKTOP.DB dropped on the Trash is refused SERVICE (H05)");
+    CHECK(S.mock.move_calls == 0 && S.mock.unlink_calls == 0,
+          "O12 the service refusals never reach the backend");
+    CHECK(mv_has(&S.mock, CL_ROOT, "TRASH") && mv_has(&S.mock, CL_ROOT, "DESKTOP.DB") &&
+          !mv_has(&S.mock, CL_APPS, "TRASH") && !mv_has(&S.mock, CL_TRASH, "DESKTOP.DB"),
+          "O12 the volume still holds \\TRASH and \\DESKTOP.DB at the root");
+
+    /* the DESTINATION identity: a user's own TRASH folder inside APPS dragged
+     * into the root window body would become a second root TRASH */
+    scene_init(&S);
+    mv_add(&S.mock.d[1], "TRASH", 0x10u, CL_NEWFOLD);
+    (void)finder_win_populate(&S.sh, APPW);
+    ti = idx_of(&S.sh.windows[APPW].view, "TRASH");
+    CHECK(ti >= 0, "O12 (setup) a TRASH folder inside APPS IS listed (not the service)");
+    t = finder_ops_resolve(&S.sh, APPW, ti, 300, 250);
+    CHECK(t.kind == FINDER_TGT_WINDOW && t.dir == CL_ROOT, "O12 (setup) the root window body is the target");
+    refused(&t, APPW, ti, FINDER_WIN_ERR_SERVICE, "service",
+            "O12 a move that would CREATE a root TRASH is refused SERVICE");
+    CHECK(S.mock.move_calls == 0, "O12 ... before the backend");
+}
+
+/* ===========================================================================
  * O6 -- TRASH STAGING
  * ===========================================================================*/
 static void leg_trash(void)
@@ -502,19 +558,24 @@ static void leg_trash(void)
           S.sh.origins[1].flags == FINDER_ORIGIN_FLAG_RENAMED,
           "O6 the second origin carries the staged name and the renamed flag");
 
-    /* The root window's own TRASH folder icon IS \TRASH: dropping on it stages
-     * exactly like the desktop Trash (origin recorded), never a plain move. */
+    /* A target whose directory IS \TRASH stages exactly like the desktop
+     * Trash (origin recorded), never a plain move. RE-KEYED at tdnl.56: the
+     * root's own TRASH folder icon is no longer listed, so the property is
+     * graded through a WINDOW on \TRASH (the shape the desktop Trash's Open
+     * will take) with the APPS folder dropped into its body. */
     {
-        int k = idx_of(&S.sh.windows[ROOT].view, "DESKTOP.DB");
-        int tk = idx_of(&S.sh.windows[ROOT].view, "TRASH");
-        rgn_rect_t sp = finder_desk_sprite_rect(&S.sh.windows[ROOT].view, tk);
-        t = finder_ops_resolve(&S.sh, ROOT, k, (int16_t)(sp.left + 16), (int16_t)(sp.top + 16));
-        CHECK(t.kind == FINDER_TGT_FOLDER && t.dir == CL_TRASH, "O6 (setup) the TRASH folder icon is a folder target");
-        CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r) == FINDER_WIN_OK &&
-              r.op == FINDER_OP_TRASH && S.sh.n_origins == 3u,
-              "O6 a drop on the TRASH folder icon is Trash STAGING (origin recorded)");
+        int slot = -1, k = idx_of(&S.sh.windows[ROOT].view, "APPS");
+        CHECK(finder_win_open(&S.sh, CL_TRASH, "TRASH", 0u, &slot, NULL) == FINDER_WIN_OK,
+              "O6 (setup) a window on \\TRASH opens (front)");
+        t = finder_ops_resolve(&S.sh, ROOT, k, 300, 250);
+        CHECK(t.kind == FINDER_TGT_WINDOW && t.dir == CL_TRASH, "O6 (setup) the \\TRASH window body is a window target");
+        CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 300, 250, &r) == FINDER_WIN_OK &&
+              r.op == FINDER_OP_TRASH && S.sh.n_origins == 3u &&
+              mv_has(&S.mock, CL_TRASH, "APPS"),
+              "O6 a drop into the \\TRASH window is Trash STAGING (origin recorded)");
     }
 }
+
 
 /* ===========================================================================
  * O7 -- THE kind=5 CODEC
@@ -721,10 +782,10 @@ static void leg_follow(void)
 /* ===========================================================================
  * O10 -- SELECT ALL + ARRANGE (BY NAME) through THE command spine
  * (beads initech-tdnl.36 / .67; audit F03 / G10). Hand-derived: the root
- * window (slot 1, content (41,102)) lists README.TXT, APPS, DESKTOP.DB, TRASH
- * in that order; by NAME (case-insensitive 8.3 order) it is APPS, DESKTOP.DB,
- * README.TXT, TRASH, so the cells (59,106) (127,106) (195,106) (263,106) go to
- * APPS, DESKTOP.DB, README.TXT, TRASH -- three icons move, TRASH stays.
+ * window (slot 1, content (41,102)) lists README.TXT, APPS in that order (the
+ * mock's DESKTOP.DB and TRASH are the Finder's own and hidden since tdnl.56);
+ * by NAME (case-insensitive 8.3 order) it is APPS, README.TXT, so the cells
+ * (59,106) (127,106) go to APPS, README.TXT -- both icons move.
  * MUTANT FINDER_WIN_MUT_ARRANGE_NOOP (rank by listing order) goes RED.
  * ===========================================================================*/
 static void leg_select_arrange(void)
@@ -741,21 +802,20 @@ static void leg_select_arrange(void)
     finder_shell_sync_ctx(&S.sh);
     finder_dispatch(&fx, ((uint32_t)513u << 16) | 6u, "mouse");   /* Select All */
     o = finder_shell_take_outcome(&S.sh);
-    CHECK(o != NULL && o->id == FCMD_SELECT_ALL && o->slot == ROOT && o->moved == 4 &&
-          finder_desk_selection_count(&rw->view) == 4u,
-          "O10 Edit > Select All selects all FOUR icons of the front window (F03)");
+    CHECK(o != NULL && o->id == FCMD_SELECT_ALL && o->slot == ROOT && o->moved == 2 &&
+          finder_desk_selection_count(&rw->view) == 2u,
+          "O10 Edit > Select All selects BOTH shown icons of the front window (F03)");
 
     finder_shell_sync_ctx(&S.sh);
     finder_dispatch(&fx, ((uint32_t)514u << 16) | 12u, "mouse");  /* Arrange   */
     o = finder_shell_take_outcome(&S.sh);
     CHECK(o != NULL && o->id == FCMD_ARRANGE_BY_NAME && o->status == FINDER_WIN_OK &&
-          o->moved == 3,
-          "O10 View > Arrange (by Name) ran on the front window and moved 3 icons (G10)");
-    CHECK(rw->view.icons[1].x == 59  && rw->view.icons[1].y == 106 &&   /* APPS       */
-          rw->view.icons[2].x == 127 && rw->view.icons[2].y == 106 &&   /* DESKTOP.DB */
-          rw->view.icons[0].x == 195 && rw->view.icons[0].y == 106 &&   /* README.TXT */
-          rw->view.icons[3].x == 263 && rw->view.icons[3].y == 106,     /* TRASH      */
-          "O10 the icons are in NAME order on the grid: APPS, DESKTOP.DB, README.TXT, TRASH");
+          o->moved == 2,
+          "O10 View > Arrange (by Name) ran on the front window and moved 2 icons (G10)");
+    CHECK(rw->view.n == 2u &&
+          rw->view.icons[1].x == 59  && rw->view.icons[1].y == 106 &&   /* APPS       */
+          rw->view.icons[0].x == 127 && rw->view.icons[0].y == 106,     /* README.TXT */
+          "O10 the icons are in NAME order on the grid: APPS, README.TXT");
 
     /* An unimplemented command never executes silently: dispatched anyway
      * (the bar would never hand it out), the shell declines it. */
@@ -769,18 +829,19 @@ static void leg_select_arrange(void)
 /* ===========================================================================
  * O11 -- THE ICON VIEW SCROLLS (bead initech-tdnl.35; audit F02)
  *
- * The root gets 20 more files, F00.TXT..F19.TXT (24 entries, 6 grid rows),
- * re-populated. Every number by hand (finder_windows.h Sec 2/3/10c,
+ * The root gets 22 more files, F00.TXT..F21.TXT (24 SHOWN entries -- the
+ * mock's DESKTOP.DB and TRASH are hidden since tdnl.56, so two more files
+ * than before keep every number below -- 6 grid rows), re-populated. Every number by hand (finder_windows.h Sec 2/3/10c,
  * winscroll.h, CalcDocContentRect):
  *   ROOT frame (40,80)..(400,300); content (41,102)..(379,279): 177 high.
  *   rows at doc y 4 + 52r; last row r=5 -> cell bottom 4+260+47 = 311,
  *   + inset 4 = vertical content 315 -> max 315-177 = 138, page 177-16 = 161;
  *   horizontal: col 3 x 18+204 = 222, + 32 + 18 = 272 <= 338 -> max 0.
- *   F16.TXT is index 20 (row 5, col 0): unscrolled sprite (59, 102+264=366),
+ *   F18.TXT is index 20 (row 5, col 0; README, APPS, F00.. -> F18 at 2+18): unscrolled sprite (59, 102+264=366),
  *   outside the content. Three down-arrow steps -> value 48 -> (59,318);
  *   a page down -> 48+161 clamps to 138 -> (59,228), cell 228..275 inside.
  * MUTANT: FINDER_WIN_MUT_SCROLL_PAINT_ONLY (paint shifts, the model does not)
- * draws F16 at (59,228) but the click there misses it -> "O11 hit" RED.
+ * draws F18 at (59,228) but the click there misses it -> "O11 hit" RED.
  * ===========================================================================*/
 static void leg_scroll(void)
 {
@@ -791,15 +852,15 @@ static void leg_scroll(void)
 
     scene_init(&S);
     rw = &S.sh.windows[ROOT];
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 22; i++) {
         snprintf(nm, sizeof nm, "F%02d.TXT", i);
         mv_add(&S.mock.d[0], nm, 0x20u, (uint16_t)(20 + i));
     }
     CHECK(finder_win_populate(&S.sh, ROOT) == FINDER_WIN_OK && rw->view.n == 24u,
           "O11 scene: the root lists 24 entries");
-    k = idx_of(&rw->view, "F16.TXT");
+    k = idx_of(&rw->view, "F18.TXT");
     CHECK(k == 20 && rw->view.icons[k].x == 59 && rw->view.icons[k].y == 366,
-          "O11 F16.TXT laid out at (59,366), below the 177-px content");
+          "O11 F18.TXT laid out at (59,366), below the 177-px content");
     CHECK(WindowScrollOf(&S.wm, &rw->rec) == &rw->scroll &&
           rw->scroll.axis[WSCROLL_V].max == 138 &&
           rw->scroll.axis[WSCROLL_V].page == 161 &&
@@ -810,28 +871,28 @@ static void leg_scroll(void)
     v = finder_win_view(&S.sh, ROOT);
     CHECK(rw->scroll.axis[WSCROLL_V].value == 48 && v->icons[k].y == 318 &&
           v->icons[0].y == 106 - 48,
-          "O11 three down-arrow steps: value 48, every icon 48 px up (F16 at 318)");
+          "O11 three down-arrow steps: value 48, every icon 48 px up (F18 at 318)");
     (void)wscroll_step(&rw->scroll.axis[WSCROLL_V], 23);
     v = finder_win_view(&S.sh, ROOT);
     CHECK(rw->scroll.axis[WSCROLL_V].value == 138 && v->icons[k].x == 59 &&
           v->icons[k].y == 228,
-          "O11 page down clamps at 138: F16 at (59,228)");
+          "O11 page down clamps at 138: F18 at (59,228)");
 
     /* paint, clipped to the content as the updateEvt path clips it */
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, rw->rec.contRgn);
     CHECK(pix(59 + 10, 228 + 2) == 0,
-          "O11 paint: F16.TXT's page top edge (DOC row 2) is drawn at the scrolled cell");
+          "O11 paint: F18.TXT's page top edge (DOC row 2) is drawn at the scrolled cell");
     CHECK(pix(59 + 10, 366 + 2) == 0xEE && pix(69, 79) == 0xEE,
           "O11 paint: nothing at the unscrolled cell, nothing above the content");
 
     /* hit-test, rubber band, Clean Up -- all through the one accessor */
     v = finder_win_view(&S.sh, ROOT);
     CHECK(finder_desk_hit(v, 59 + 16, 228 + 16) == k,
-          "O11 hit: a click on F16 where it is DRAWN (75,244) hits F16");
+          "O11 hit: a click on F18 where it is DRAWN (75,244) hits F18");
     CHECK(finder_desk_marquee_select(v, finder_band_rect(50, 226, 100, 270)) == 1 &&
           v->icons[k].selected == 1,
-          "O11 rubber band around the drawn F16 cell selects exactly F16");
+          "O11 rubber band around the drawn F18 cell selects exactly F18");
     finder_desk_deselect_all(v);
     CHECK(finder_win_cleanup(&S.sh, ROOT) == 0 && rw->view.icons[k].y == 228 &&
           finder_win_doc_rect(rw).top == 102 - 138,
@@ -842,7 +903,7 @@ static void leg_scroll(void)
     v = finder_win_view(&S.sh, ROOT);
     CHECK(rw->scroll.axis[WSCROLL_V].max == 58 &&
           rw->scroll.axis[WSCROLL_V].value == 58 && v->icons[k].y == 366 - 58,
-          "O11 grow: max 58, value re-clamped to 58, F16 at 308");
+          "O11 grow: max 58, value re-clamped to 58, F18 at 308");
 }
 
 int main(void)
@@ -855,6 +916,7 @@ int main(void)
     leg_into_folder();
     leg_between();
     leg_ladder();
+    leg_service_guard();
     leg_trash();
     leg_codec();
     leg_untrash();

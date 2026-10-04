@@ -11,9 +11,12 @@
 # trace ends PARKED at (620,460), clear of every probe).
 #
 # THE VOLUME (Makefile FLAIR_SCROLL_DATA_IMG): the flagship recipe plus 18
-# empty files F00.TXT..F17.TXT, so the root lists README.TXT, APPS, F00..F17
-# and the boot-created DESKTOP.DB and TRASH: 22 entries -- the audit's own
-# overflow count. The scrollfit legs use the flagship 4-entry volume.
+# empty files F00.TXT..F19.TXT, so the root window lists README.TXT, APPS,
+# F00..F19: 22 entries -- the audit's own overflow count. (RE-KEYED at beads
+# initech-tdnl.56/.73: the boot-created DESKTOP.DB and TRASH are on disk but
+# no longer shown, so F18/F19 replace them and every number below -- 6 rows,
+# max 138, the thumb positions, F06.TXT's cell -- is unchanged.) The scrollfit
+# legs use the flagship volume (2 shown entries).
 #
 # THE GEOMETRY, by hand (finder_windows.h Sec 2/3, window.c
 # CalcDocContentRect, os/flair/winscroll.h, spec/chrome_metrics.h):
@@ -27,7 +30,7 @@
 # --- waypoint arithmetic -------------------------------------------------
 # A. the volume double-click (flair_disk_windows_traces.mk trace 1 A):
 #      m100:-88, m100:-88, m80:0 -> (600,64) ; l1,l0,l1,l0
-#    -> FINDER-OPEN-VOLUME win=0 n=22 (n=4 on the flagship volume).
+#    -> FINDER-OPEN-VOLUME win=0 n=22 (n=2 on the flagship volume).
 # B. (600,64) -> the DOWN arrow (367,251): sum (-233,+187):
 #      m-100:100, m-100:87, m-33:0
 # C. (600,64) -> the track below the thumb (367,200): sum (-233,+136):

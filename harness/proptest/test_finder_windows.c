@@ -392,13 +392,13 @@ static void leg_enumerate(void)
 {
     static scene_t s;
     int slot = -1, singleton = -1;
-    /* HAND-AUTHORED expected listing: the volume label dropped, everything else
-     * in on-disk order, with the kind heuristic applied by hand. */
+    /* HAND-AUTHORED expected listing: the volume label dropped, the Finder's
+     * own root bookkeeping (\DESKTOP.DB, \TRASH -- beads initech-tdnl.56/.73/
+     * .75) dropped, everything else in on-disk order, with the kind heuristic
+     * applied by hand. */
     struct { const char *name; finder_icon_kind_t kind; uint16_t cluster; } W[] = {
         { "README.TXT", FINDER_ICON_FILE,   0u },
         { "APPS",       FINDER_ICON_FOLDER, 7u },
-        { "DESKTOP.DB", FINDER_ICON_FILE,   0u },
-        { "TRASH",      FINDER_ICON_FOLDER, 11u },
         { "SETUP.EXE",  FINDER_ICON_APP,    0u },
     };
     finder_desk_t *v;
@@ -415,8 +415,8 @@ static void leg_enumerate(void)
           "L5 the ROOT window carries the frame-canonical title (design F3.3)");
 
     v = &s.sh.windows[0].view;
-    CHECK(v->n == 5u,
-          "L5 five entries survive the volume-label skip (6 on disk, 1 dropped)");
+    CHECK(v->n == 3u,
+          "L5 three entries survive (6 on disk: the volume label, DESKTOP.DB and TRASH dropped)");
     CHECK(s.sh.windows[0].dropped == 0u, "L5 nothing hit the icon cap");
 
     for (unsigned i = 0; i < sizeof W / sizeof W[0] && i < v->n; i++) {
@@ -454,6 +454,79 @@ static void leg_enumerate(void)
         CHECK(f.sh.windows[0].open == 0u,
               "L5 ... and leaves no half-built window claiming to show a directory");
     }
+}
+
+/* ===========================================================================
+ * L5b -- THE FINDER'S OWN BOOKKEEPING IS NOT AN ITEM  (beads initech-tdnl.56 /
+ * .73 / .75; audit pass 3 H03 + H05). Hand-authored: the ROOT \TRASH and
+ * \DESKTOP.DB are dropped from the listing whatever their slot, case or
+ * attribute; the SAME names inside a subfolder (the reviewer's stranded
+ * APPS\TRASH) are ordinary items; a near-miss name (TRASH.TXT, DESKTOP) is
+ * an ordinary item. Mutant FINDER_WIN_MUT_SERVICE_SHOWN goes RED here.
+ * ===========================================================================*/
+static const mock_entry_t SVC_ROOT[] = {
+    { "INITECH",    0x08u,   0u,  0u },   /* the label: skipped (F1.1)        */
+    { "TRASH",      0x10u,   0u, 11u },   /* slot 1: the NEW root \TRASH      */
+    { "NEWFOLD",    0x10u,   0u, 13u },
+    { "TRASH.TXT",  0x20u,  10u, 15u },   /* near miss: an ordinary document  */
+    { "APPS",       0x10u,   0u,  7u },
+    { "desktop.db", 0x22u,  80u,  9u },   /* case-insensitive identity        */
+    { "DESKTOP",    0x10u,   0u, 17u },   /* near miss: an ordinary folder    */
+};
+static const mock_entry_t SVC_APPS[] = {
+    { ".",          0x10u,   0u,  7u },
+    { "..",         0x10u,   0u,  0u },
+    { "TENANTFX.EXE", 0x20u, 684u, 21u },
+    { "TRASH",      0x10u,   0u, 31u },   /* STRANDED: an ordinary folder here */
+    { "DESKTOP.DB", 0x20u,   8u, 33u },   /* a user's file of that name: shown */
+};
+static const mock_dir_t SVC_DIRS[] = {
+    { 0u, SVC_ROOT, (int)(sizeof SVC_ROOT / sizeof SVC_ROOT[0]) },
+    { 7u, SVC_APPS, (int)(sizeof SVC_APPS / sizeof SVC_APPS[0]) },
+};
+
+static void leg_service(void)
+{
+    static scene_t s;
+    int slot = -1;
+    static const char *const WR[] = { "NEWFOLD", "TRASH.TXT", "APPS", "DESKTOP" };
+    static const char *const WA[] = { "TENANTFX.EXE", "TRASH", "DESKTOP.DB" };
+    finder_desk_t *v;
+    int bad = 0;
+
+    CHECK(finder_win_is_service(0u, "TRASH") && finder_win_is_service(0u, "DESKTOP.DB") &&
+          finder_win_is_service(0u, "Trash") && finder_win_is_service(0u, "desktop.db"),
+          "L5b the root TRASH and DESKTOP.DB are service identities (any case)");
+    CHECK(!finder_win_is_service(7u, "TRASH") && !finder_win_is_service(7u, "DESKTOP.DB") &&
+          !finder_win_is_service(0u, "TRASH.TXT") && !finder_win_is_service(0u, "DESKTOP") &&
+          !finder_win_is_service(0u, "TRASHX") && !finder_win_is_service(0u, "APPS") &&
+          !finder_win_is_service(0u, NULL),
+          "L5b the same names below the root, near misses and NULL are NOT service");
+
+    scene_init(&s, SVC_DIRS, 2);
+    CHECK(finder_win_open(&s.sh, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK && slot == 0,
+          "L5b the root window opens over the damaged volume");
+    v = &s.sh.windows[0].view;
+    CHECK(v->n == 4u,
+          "L5b the root lists 4 of 7 entries: the label, TRASH and DESKTOP.DB are hidden");
+    for (int i = 0; i < 4 && i < (int)v->n; i++)
+        if (strcmp(v->icons[i].name, WR[i]) != 0) bad = 1;
+    CHECK(!bad, "L5b the root listing is NEWFOLD, TRASH.TXT, APPS, DESKTOP in disk order");
+    /* The hidden entries take no grid cell: icon i sits in cell i. */
+    CHECK(v->n >= 4u && v->icons[2].x == v->icons[0].x + 2 * 68 &&
+          v->icons[3].x == v->icons[0].x + 3 * 68 && v->icons[3].y == v->icons[0].y,
+          "L5b the shown icons are packed into cells 0..3 (no hole where TRASH was)");
+
+    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK && slot == 1,
+          "L5b the APPS window opens");
+    v = &s.sh.windows[1].view;
+    bad = (v->n != 3u);
+    for (int i = 0; i < 3 && i < (int)v->n; i++)
+        if (strcmp(v->icons[i].name, WA[i]) != 0) bad = 1;
+    CHECK(!bad, "L5b a TRASH folder and DESKTOP.DB file INSIDE APPS are ordinary visible items");
+    CHECK(v->n >= 2u && v->icons[1].kind == (uint8_t)FINDER_ICON_FOLDER &&
+          v->icons[1].dir_start == 31u,
+          "L5b the stranded APPS\\TRASH is a FOLDER carrying its own cluster (it opens)");
 }
 
 /* ===========================================================================
@@ -916,6 +989,7 @@ int main(void)
     leg_grid();
     leg_ladder();
     leg_enumerate();
+    leg_service();
     leg_singleton();
     leg_cleanup();
     leg_db();
