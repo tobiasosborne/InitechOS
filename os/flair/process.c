@@ -625,6 +625,36 @@ int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
 }
 
 /* --------------------------------------------------------------------------
+ * FlairProcess_front_owner -- see process.h (bead initech-tdnl.40). Skips
+ * invisible records (the hidden canon frame windows stay in the z-order), then
+ * answers with the tolerant owner match: unowned furniture -> NULL.
+ * -------------------------------------------------------------------------- */
+static FlairApp *owner_of_window_tolerant(FlairProcessList *list, WindowPtr w);
+
+FlairApp *FlairProcess_front_owner(FlairProcessList *list, WindowMgr *wm)
+{
+    if (list == NULL || wm == NULL) return NULL;
+#if defined(PROC_MUT_FRONT_OWNER_HEAD) || defined(FLAIR_LIVE_MUTATE_IGNORE_REFCON)
+    /* MUTANT (Rule 6; test-process leg(g)): the pre-tdnl.40 policy -- the
+     * current head is always "right", so nothing is ever demoted after a close.
+     * ALSO the reach of FLAIR_LIVE_MUTATE_IGNORE_REFCON (owner_of_window
+     * above): that mutant breaks THE refCon binding rule, and this is the
+     * second place the rule is applied to answer "who owns the front window".
+     * Without it the pump's foreground sync (tdnl.40) would recover the owner
+     * by the intact rule and silently repair the mutant's mis-route, and
+     * test-flair-appswitch-mutant could no longer see it (re-key, stated).
+     * NEVER in a real build. */
+    return list->head;
+#else
+    WindowPtr w;
+    for (w = wm->front; w != NULL; w = w->nextWindow)
+        if (w->visible) break;
+    if (w == NULL) return NULL;
+    return owner_of_window_tolerant(list, w);
+#endif
+}
+
+/* --------------------------------------------------------------------------
  * flair_app_dispatch -- the single Layer-5 dispatcher (ADR-0013 Sec 3.3, BC-2).
  *
  * Demuxes ONE cooked EventRecord to the owning tenant and performs activation,

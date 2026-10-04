@@ -362,6 +362,21 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
 int FlairProcess_activate(FlairProcessList *list, WindowMgr *wm,
                           const EventRecord *ev, FlairApp *app);
 
+/* FlairProcess_front_owner -- WHO SHOULD BE FOREGROUND NOW (bead
+ * initech-tdnl.40; audit 2026-10-03 F06).
+ *
+ * MultiFinder's invariant: the tenant owning the frontmost VISIBLE window is
+ * the foreground tenant (that is what makes band 2 the active window's
+ * application's menu bar). Returns the resident owner of the frontmost visible
+ * window (the SAME refCon + magic match the dispatcher uses), or NULL when no
+ * window is visible or the front one is unowned shell furniture -- NULL means
+ * "keep the current foreground" (the always-resident Finder stays active with
+ * nothing open, the period behaviour). Pure: reads the z-order and the list.
+ * The pump asks it after every close and gesture and, when the answer differs
+ * from list->head, runs FlairProcess_activate on it -- so a closed window can
+ * never leave its tenant's bar up over another tenant's active window. */
+FlairApp *FlairProcess_front_owner(FlairProcessList *list, WindowMgr *wm);
+
 /* flair_route_updates -- the updateEvt SPINE: route pending window DAMAGE to each
  * damaged window's owning tenant (ADR-0013 Sec 3.3 -- "updateEvt: each damaged
  * window's owning app, background apps included").

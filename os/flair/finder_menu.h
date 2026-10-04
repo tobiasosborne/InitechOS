@@ -159,15 +159,19 @@ MenuInfo *finder_menu_apple(void);
  * DrawMenuBar/track -- the menu resource stays static data; only the enable
  * bits mutate."
  *
- * It touches ONLY the items this resource declares predicate-driven (Open,
- * Close Window, Get Info, Duplicate, Empty Trash -- the F4.4 predicate list).
+ * It touches ONLY the items this resource declares predicate-driven (Open --
+ * SELECTION_OPENABLE, bead initech-tdnl.38 -- and Close Window).
  * Every other byte is authored once in finder_menu.c and left alone:
  *   - the permanently-inert V1 decoration stays 0 (Print, Make Alias, Put
  *     Away, Find, Page Setup, Sharing, Eject, the Edit scrap rows, the eight
  *     non-icon view modes, Erase Disk, Sleep, both Help rows, About This
  *     Computer),
+ *   - the commands the shell does NOT implement yet stay 0 (bead
+ *     initech-tdnl.36's rule "implemented or drawn disabled"): Get Info,
+ *     Duplicate, Empty Trash, Restart, Shut Down -- each rejoins the predicate
+ *     map (or turns 1) when its own bead lands,
  *   - the always-live commands stay 1 (New Folder, Select All, by Icons,
- *     Clean Up in both menus, Arrange, Restart, Shut Down).
+ *     Clean Up in both menus, Arrange (by Name)).
  * A NULL fx evaluates every predicate against NULL, which the finder_cmd
  * predicates answer with 0 (finder_cmd.c) -- i.e. "no context, nothing live",
  * which is the safe direction (Rule 2).

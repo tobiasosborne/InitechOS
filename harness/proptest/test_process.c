@@ -415,6 +415,79 @@ static void leg_same_tenant_raise(void)
 }
 
 /* ===========================================================================
+ * leg(g) -- THE FOREGROUND FOLLOWS THE FRONT WINDOW AFTER A CLOSE
+ * (bead initech-tdnl.40; audit 2026-10-03 F06).
+ *
+ * MultiFinder's invariant: the tenant owning the frontmost VISIBLE window is
+ * the foreground tenant. The audit found it broken after the Finder's last
+ * disk window closed -- the Finder stayed the head (its bar in band 2) while
+ * the next window, another tenant's, was drawn active. FlairProcess_front_owner
+ * is the ONE policy question the pump now asks after every close; this leg
+ * grades its answers by hand-authored scene facts:
+ *   g1  P (two windows, front) is foreground; Q's window is behind.
+ *       front_owner == P (agreement -- nothing to do).
+ *   g2  dispose BOTH of P's windows (P stays resident with no window, exactly
+ *       the always-resident Finder): front_owner == Q, the owner of the window
+ *       DisposeWindow just re-hilited -- NOT the stale head P.
+ *   g3  FlairProcess_activate(Q) then makes the list agree (head == Q).
+ *   g4  hide Q's window too: no visible window remains -> NULL ("keep the
+ *       current foreground": the period Finder stays active with nothing open).
+ * MUTANT PROC_MUT_FRONT_OWNER_HEAD (the pre-fix "never demote" policy: the
+ * current head is always the answer) goes RED on g2.
+ * ===========================================================================*/
+static void leg_front_owner(void)
+{
+    rgn_rect_t FRAME2 = { 0, 0, GH2, GW2 };
+    static win_store_t WP1, WP2, WQ;
+    static mgr_store_t M3;
+    static FlairApp    appP, appQ;
+    static FlairProcessList plist3;
+    rgn_rect_t P1s = { 8,   6, 30,  44 }, P1c = { 11,   7, 29,  43 };
+    rgn_rect_t P2s = { 8,  56, 30,  94 }, P2c = { 11,  57, 29,  93 };
+    rgn_rect_t Qs  = { 8, 106, 30, 144 }, Qc  = { 11, 107, 29, 143 };
+
+    mgr_attach(&M3, FRAME2);
+    win_attach(&WQ);
+    NewWindow(&M3.wm, &WQ.rec,  Qs,  Qc, documentKind, documentProc, 1);
+    win_attach(&WP2);
+    NewWindow(&M3.wm, &WP2.rec, P2s, P2c, documentKind, documentProc, 1);
+    win_attach(&WP1);
+    NewWindow(&M3.wm, &WP1.rec, P1s, P1c, documentKind, documentProc, 1);
+
+    memset(&appP, 0, sizeof appP);
+    memset(&appQ, 0, sizeof appQ);
+    appP.name = "P"; appP.procs = &g_pq_procs; appP.windows = &WP1.rec;
+    appQ.name = "Q"; appQ.procs = &g_pq_procs; appQ.windows = &WQ.rec;
+    g_appP = &appP; g_appQ = &appQ;
+    FlairProcessList_init(&plist3);
+    FlairProcess_register(&plist3, &appQ);
+    FlairProcess_register(&plist3, &appP);
+    WP2.rec.refCon = (int32_t)(uintptr_t)&appP;
+
+    CHECK(plist3.head == &appP && FlairProcess_front_owner(&plist3, &M3.wm) == &appP,
+          "leg(g1): P foreground with its window front -> front_owner is P (agreement)");
+
+    DisposeWindow(&M3.wm, &WP1.rec);
+    DisposeWindow(&M3.wm, &WP2.rec);
+    appP.windows = NULL;
+    CHECK(M3.wm.front == &WQ.rec && plist3.head == &appP,
+          "leg(g2) scene: P's windows are gone, Q's is front, P is still the head");
+    CHECK(FlairProcess_front_owner(&plist3, &M3.wm) == &appQ,
+          "leg(g2): after the close the front window's OWNER Q is the answer, not the stale head P");
+
+    {
+        EventRecord ev = mk_event(nullEvent, 0, 0, 0);
+        CHECK(FlairProcess_activate(&plist3, &M3.wm, &ev, &appQ) == 1 &&
+              plist3.head == &appQ,
+              "leg(g3): activating the front owner makes the foreground agree");
+    }
+
+    HideWindow(&M3.wm, &WQ.rec);
+    CHECK(FlairProcess_front_owner(&plist3, &M3.wm) == NULL,
+          "leg(g4): no visible window -> NULL (keep the current foreground)");
+}
+
+/* ===========================================================================
  * MAIN -- the O-1 routing/dispatch oracle.
  * ===========================================================================*/
 int main(void)
@@ -561,6 +634,7 @@ int main(void)
     }
 
     leg_same_tenant_raise();
+    leg_front_owner();
 
     return TEST_SUMMARY("test-process");
 }

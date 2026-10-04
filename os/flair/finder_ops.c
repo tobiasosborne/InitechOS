@@ -52,19 +52,19 @@ static int fo_slot_ok(const finder_shell_t *sh, int slot)
            slot >= 0 && slot < FINDER_WIN_MAX && sh->windows[slot].open;
 }
 
-/* The icon model a target's slot names (the desktop for -1). */
+/* The icon model a target's slot names (the desktop for -1), re-based onto
+ * the window's current content rect (finder_win_view, bead initech-tdnl.34). */
 static finder_desk_t *fo_surface(finder_shell_t *sh, int slot)
 {
     if (slot < 0) return &sh->desk;
-    if (!fo_slot_ok(sh, slot)) return (finder_desk_t *)0;
-    return &sh->windows[slot].view;
+    return finder_win_view(sh, slot);
 }
 
 /* A global point re-based onto window `fw`'s icon model: the offset INTO the
- * window's content rect, added to the model's own origin. Today the model's
- * bounds ARE the content rect (finder_windows.h banner) so this is the
- * identity; it is written relative so drop targeting stays right if the
- * model's origin ever stops being the screen. */
+ * window's content rect, added to the model's own origin. Every caller syncs
+ * the model first (finder_win_view, bead initech-tdnl.34), so the model's
+ * bounds ARE the content rect and this is the identity; it stays written
+ * relative so drop targeting cannot drift if that ever stops being true. */
 static void fo_to_view(const finder_window_t *fw, int16_t h, int16_t v,
                        int16_t *vh, int16_t *vv)
 {
@@ -77,7 +77,7 @@ static void fo_to_view(const finder_window_t *fw, int16_t h, int16_t v,
  * TARGET RESOLUTION
  * ===========================================================================*/
 
-finder_tgt_t finder_ops_resolve(const finder_shell_t *sh, int src_slot,
+finder_tgt_t finder_ops_resolve(finder_shell_t *sh, int src_slot,
                                 int src_idx, int16_t h, int16_t v)
 {
     finder_tgt_t t;
@@ -89,7 +89,7 @@ finder_tgt_t finder_ops_resolve(const finder_shell_t *sh, int src_slot,
     t.slot = -1;
     t.idx  = -1;
     t.dir  = 0u;
-    if (sh == (const finder_shell_t *)0 || sh->wm == (WindowMgr *)0) return t;
+    if (sh == (finder_shell_t *)0 || sh->wm == (WindowMgr *)0) return t;
 
     pt.h = h;
     pt.v = v;
@@ -102,6 +102,7 @@ finder_tgt_t finder_ops_resolve(const finder_shell_t *sh, int src_slot,
         int j;
 
         if (s < 0) return t;            /* another tenant's window: no target */
+        (void)finder_win_view(sh, s);   /* re-base onto the live content rect */
         fw = &sh->windows[s];
         fo_to_view(fw, h, v, &vh, &vv);
         j = finder_desk_hit(&fw->view, vh, vv);
@@ -264,6 +265,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         src_idx < 0 || src_idx >= (int)sh->windows[src_slot].view.n)
         return fo_refuse(out, FINDER_WIN_ERR_MOVE);
 
+    (void)finder_win_view(sh, src_slot);     /* re-based (tdnl.34)            */
     w  = &sh->windows[src_slot];
     ic = w->view.icons[src_idx];             /* a COPY: the array may shift   */
     fo_copy83(out->name, ic.name);
@@ -344,6 +346,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         int16_t x = 0, y = 0;
         int nidx;
 
+        (void)finder_win_sync_geometry(dw);  /* land on the CURRENT content  */
         if (t->kind == (uint8_t)FINDER_TGT_WINDOW && (int)t->slot == dslot) {
             /* Dropped on the window body: it lands WHERE IT WAS DROPPED,
              * measured relative to that window's content and held inside it

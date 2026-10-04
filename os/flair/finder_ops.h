@@ -129,8 +129,11 @@ typedef struct finder_tgt {
 } finder_tgt_t;
 
 /* Resolve the drop target under (h,v) for icon `src_idx` dragged out of window
- * `src_slot`. Pure apart from reading the shell + WindowMgr (FindWindow). */
-finder_tgt_t finder_ops_resolve(const finder_shell_t *sh, int src_slot,
+ * `src_slot`. Reads the shell + WindowMgr (FindWindow); its only write is the
+ * geometry re-base of the window under the point (finder_win_view, bead
+ * initech-tdnl.34), so the hit is tested against where that window's icons
+ * are drawn NOW. */
+finder_tgt_t finder_ops_resolve(finder_shell_t *sh, int src_slot,
                                 int src_idx, int16_t h, int16_t v);
 
 /* 1 when the target is an ICON that must draw highlighted (FOLDER / VOLUME /
