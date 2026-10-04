@@ -1965,6 +1965,160 @@ static int flair_live_track_box(flair_live_ctx_t *ctx, const boot_info_t *bi,
 #endif
 }
 
+#ifdef FLAIR_LIVE_TENANTS
+/* TrackControl for a window's STANDARD SCROLL BARS (bead initech-tdnl.35;
+ * audit F02 "Scrollbar input drags the window"). FindWindow answers inContent
+ * for a click in either gutter bar (window.h Sec 4b) and the pump routes it
+ * HERE instead of to the owner's content handler -- so a scroll-bar click can
+ * never move the window again. The contract is control-manager.md "Hit-testing
+ * and tracking":
+ *   - arrows and page regions: the action runs once on the press and then
+ *     REPEATS while the button is held and the pointer is still over the SAME
+ *     part (a page region stops when the thumb reaches the pointer, because
+ *     the part under it is then the thumb); a held arrow is drawn PRESSED
+ *     while the pointer is inside it (contrlHilite);
+ *   - the thumb: the indicator follows the pointer along the axis, and the
+ *     value is set from its final position ON RELEASE (no live scrolling --
+ *     the System 7 TrackControl contract; the 8.x live-scroll feedback is a
+ *     recorded gap, scrollbars.md Sec 6); the content follows on release.
+ * Repeat timing is winscroll.h's stated choice. A bar with nothing to scroll
+ * (DISABLED) has no parts: the click is reported and IGNORED. The loop ends
+ * like every tracker (flair_live_track_cut, tdnl.59). Serial ABI:
+ *   FLAIR-SCROLL win <id> <v|h> part=<p> value=<v> max=<m>   one per change
+ *   FLAIR-SCROLL-IGNORED win <id> <v|h>                       disabled bar
+ * Each change repaints through the ordinary damage spine: the bar's rect and
+ * (when the value moved) the content are invalidated, the chrome phase redraws
+ * the bar from the record, the content phase delivers the owner's updateEvt
+ * (the Finder re-bases its icons at its one sync point), then present. */
+static void flair_live_scroll_report(const flair_live_ctx_t *ctx, WindowPtr w,
+                                     int axis, int part,
+                                     const WindowScrollAxis *a)
+{
+    serial_puts("FLAIR-SCROLL win ");
+    serial_puti((int32_t)flair_live_window_index(ctx, w));
+    serial_puts(axis == WSCROLL_V ? " v part=" : " h part=");
+    serial_puti((int32_t)part);
+    serial_puts(" value=");
+    serial_puti((int32_t)a->value);
+    serial_puts(" max=");
+    serial_puti((int32_t)a->max);
+    serial_putc('\n');
+}
+
+static void flair_live_scroll_repaint(flair_live_ctx_t *ctx,
+                                      const boot_info_t *bi, WindowPtr w,
+                                      int axis, int content)
+{
+    rgn_rect_t f = WindowFrameRect(w);
+    WindowMgr_invalidate(ctx->wm, w, wscroll_bar_rect(f, axis));
+    if (content)
+        WindowMgr_invalidate(ctx->wm, w, region_get_bbox(w->contRgn));
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_live_content_phase(ctx);
+    flair_desktop_present(bi, &ctx->off);
+}
+
+static void flair_live_track_scroll(flair_live_ctx_t *ctx,
+                                    const boot_info_t *bi, WindowPtr w,
+                                    flair_point_t where0)
+{
+    int axis = -1, ax = -1;
+    int part = WindowScrollFindPart(ctx->wm, w, where0, &axis);
+    WindowScroll *ws = WindowScrollOf(ctx->wm, w);
+    WindowScrollAxis *a;
+    rgn_rect_t bar;
+    EventRecord up;
+    uint32_t t0 = flair_tick_count();
+    int cancel = 0;
+
+    if (axis < 0) return;
+    if (part == WSCROLL_PART_NONE || ws == (WindowScroll *)0) {
+        serial_puts("FLAIR-SCROLL-IGNORED win ");
+        serial_puti((int32_t)flair_live_window_index(ctx, w));
+        serial_puts(axis == WSCROLL_V ? " v\n" : " h\n");
+        return;
+    }
+    a = &ws->axis[axis];
+    bar = wscroll_bar_rect(WindowFrameRect(w), axis);
+
+    if (part == WSCROLL_PART_THUMB) {
+        int lo = wscroll_track_lo(bar, axis);
+        int hi = lo + wscroll_track_span(bar, axis);
+        int pos0 = wscroll_thumb_pos(bar, axis, a);
+        int p0 = (axis == WSCROLL_V) ? where0.v : where0.h;
+        a->drag_pos = (int16_t)pos0;
+        for (;;) {
+            int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 3u);
+            int p, pos;
+            flair_live_cursor_track(&up);
+            if (g) flair_live_emit_evt(&up);
+            p = (axis == WSCROLL_V) ? up.where.v : up.where.h;
+            pos = pos0 + (p - p0);
+            if (pos < lo) pos = lo;
+            if (pos > hi) pos = hi;
+            if (pos != a->drag_pos) {
+                a->drag_pos = (int16_t)pos;
+                flair_live_scroll_repaint(ctx, bi, w, axis, 0);
+            }
+            if (g && up.what == (uint16_t)mouseUp) break;
+            if (flair_live_track_cut(t0, &cancel)) break;
+        }
+        {
+            int16_t v = cancel ? a->value
+                               : wscroll_value_from_thumb(bar, axis, a,
+                                                          a->drag_pos);
+            int changed;
+            a->drag_pos = -1;
+            changed = wscroll_set_value(a, v);
+            flair_live_scroll_repaint(ctx, bi, w, axis, changed);
+            flair_live_scroll_report(ctx, w, axis, part, a);
+        }
+        return;
+    }
+
+    /* Arrows and page regions: one step now, then the held repeat. */
+    {
+        int is_arrow = (part == WSCROLL_PART_UP || part == WSCROLL_PART_DOWN);
+        uint32_t next = t0 + (uint32_t)WSCROLL_REPEAT_DELAY;
+        int inside = 1;
+        a->hilite = (int16_t)(is_arrow ? part : 0);
+        {
+            int changed = wscroll_step(a, part);
+            flair_live_scroll_repaint(ctx, bi, w, axis, changed);
+            if (changed) flair_live_scroll_report(ctx, w, axis, part, a);
+        }
+        for (;;) {
+            int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &up, 1u);
+            int now_inside;
+            uint32_t now;
+            flair_live_cursor_track(&up);
+            if (g) flair_live_emit_evt(&up);
+            if (g && up.what == (uint16_t)mouseUp) break;
+            if (flair_live_track_cut(t0, &cancel)) break;
+            now_inside = WindowScrollFindPart(ctx->wm, w, up.where, &ax) == part &&
+                         ax == axis;
+            if (is_arrow && now_inside != inside) {
+                a->hilite = (int16_t)(now_inside ? part : 0);
+                flair_live_scroll_repaint(ctx, bi, w, axis, 0);
+            }
+            inside = now_inside;
+            now = flair_tick_count();
+            if (inside && (int32_t)(now - next) >= 0) {
+                if (wscroll_step(a, part)) {
+                    flair_live_scroll_repaint(ctx, bi, w, axis, 1);
+                    flair_live_scroll_report(ctx, w, axis, part, a);
+                }
+                next = now + (uint32_t)WSCROLL_REPEAT_RATE;
+            }
+        }
+        if (a->hilite != 0) {
+            a->hilite = 0;
+            flair_live_scroll_repaint(ctx, bi, w, axis, 0);
+        }
+    }
+}
+#endif
+
 /* FO-7/R1.4 inGoAway dispatch. Owner identity selects the lifecycle verb:
  * tenant-owned -> FlairProcess_terminate (DisposeWindow sweep + promotion),
  * shell furniture -> HideWindow. Both accrue exact exposure damage before the
@@ -4951,8 +5105,13 @@ void kernel_main(void)
              * this cached hit is only for the shell verb after switch finishing. */
             WindowPtr chrome_w = (WindowPtr)0;
             flair_part_code_t chrome_pc = inDesk;
+            int chrome_was_active = 0;
             if (ev.what == (uint16_t)mouseDown) {
                 chrome_pc = FindWindow(ctx.wm, ev.where, &chrome_w);
+                /* A click in an INACTIVE window only activates it (IM Event
+                 * Manager: SelectWindow first); a scroll bar acts only when its
+                 * window was already the active one (tdnl.35). */
+                chrome_was_active = chrome_w != (WindowPtr)0 && chrome_w->hilited;
             }
 
             /* THE ROUTING SPINE (ADR-0006 E-D2 / ADR-0013 BC-2 single spine).
@@ -5074,6 +5233,13 @@ void kernel_main(void)
                  * mouseDown, finder_windows.c) and has already run the
                  * click-to-activate raise, so by here the window is front. */
                 if (chrome_pc == inContent && chrome_w != (WindowPtr)0 &&
+                    WindowScrollBand(chrome_w, ev.where) >= 0) {
+                    /* A STANDARD SCROLL BAR (bead initech-tdnl.35): its own
+                     * tracker, never the owner's content gesture, never a
+                     * drag. flair_app_dispatch did not deliver it either. */
+                    if (chrome_was_active)
+                        flair_live_track_scroll(&ctx, &b, chrome_w, ev.where);
+                } else if (chrome_pc == inContent && chrome_w != (WindowPtr)0 &&
                     g_finder_shell != (finder_shell_t *)0) {
                     int fslot = finder_win_slot_of(g_finder_shell, chrome_w);
                     if (fslot >= 0)

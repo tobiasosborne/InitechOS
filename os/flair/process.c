@@ -789,6 +789,14 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
          * the physical DragWindow after its post-switch paint/present phase. */
         if (part == inDrag) return;
 
+        /* A STANDARD SCROLL BAR is a control in the content (window.h Sec 4b,
+         * bead initech-tdnl.35): FindWindow says inContent, so activation ran
+         * above exactly as for any content click, but the click itself belongs
+         * to the window's scroll-bar tracker (kmain), never to the owner's
+         * content handler -- a tenant must not see a scroll-bar click as a
+         * click in its document. */
+        if (WindowScrollBand(w, ev->where) >= 0) return;
+
         /* THEN the original mouseDown to the (now-foreground) owner. */
         deliver(owner, ev);
         return;

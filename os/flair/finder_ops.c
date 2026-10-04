@@ -356,8 +356,11 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         } else {
             /* Dropped on a folder ICON (or the volume / Trash) whose window
              * happens to be open: the next free row-major grid cell. */
-            finder_win_grid_origin(dw->view.bounds, (int)dw->view.n, &x, &y);
-            finder_desk_clamp(&dw->view, &x, &y);
+            /* The grid is in DOCUMENT coordinates (finder_windows.h Sec
+             * 10c): the cell may lie below the visible rows of a scrolled
+             * window, which the scroll bar then reaches -- so no clamp. */
+            finder_win_grid_origin(finder_win_doc_rect(dw), (int)dw->view.n,
+                                   &x, &y);
         }
         nidx = finder_desk_add(&dw->view, (finder_icon_kind_t)ic.kind,
                                out->as, x, y, 1u);

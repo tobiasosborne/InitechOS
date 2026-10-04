@@ -27,8 +27,10 @@
  * the emulator gate's mtools differential.
  *
  * THE SCENE (hand-derived from finder_windows.h Sec 2/3 + CalcDocContentRect):
- *   slot 0 = APPS   frame (20,60)..(380,280)  content (21,82)..(359,279)
- *   slot 1 = ROOT   frame (40,80)..(400,300)  content (41,102)..(379,299)
+ *   slot 0 = APPS   frame (20,60)..(380,280)  content (21,82)..(359,259)
+ *   slot 1 = ROOT   frame (40,80)..(400,300)  content (41,102)..(379,279)
+ *   (content bottom = frame.bottom - 21 since bead initech-tdnl.35: contRgn
+ *   stops at the horizontal scroll bar, window.c CalcDocContentRect)
  *   ROOT icons row-major: README.TXT (59,106)  APPS (127,106)
  *                         DESKTOP.DB (195,106) TRASH (263,106)
  *   APPS icons:           TENANTFX.EXE (39,86)
@@ -92,7 +94,7 @@ static void store_attach(rgn_store_t *s)
 /* ---------------------------------------------------------------------------
  * The mutable mock volume.
  * ------------------------------------------------------------------------- */
-enum { MV_DIRS = 4, MV_ENTS = 16 };
+enum { MV_DIRS = 4, MV_ENTS = 24 };   /* 24: leg O11's overflowing root */
 enum { CL_ROOT = 0, CL_APPS = 2, CL_TRASH = 3, CL_NEWFOLD = 9 };
 
 typedef struct mv_ent { char name[14]; uint8_t attr; uint16_t cluster; } mv_ent_t;
@@ -388,7 +390,11 @@ static void leg_between(void)
     t = finder_ops_resolve(&S.sh, APPW, 0, 300, 250);
     CHECK(t.kind == FINDER_TGT_WINDOW && t.slot == ROOT && t.dir == 0u,
           "O4 the root window body is a WINDOW target for an APPS icon");
-    CHECK(finder_ops_drop(&S.sh, APPW, 0, &t, 284, 234, &r) == FINDER_WIN_OK,
+    /* RE-KEYED (tdnl.35, stated): the drop point was (284,234); its 47-row
+     * cell (to 281) now crosses ROOT's content bottom 279 (the horizontal
+     * scroll bar is no longer content), so it would be clamped and this leg
+     * would stop grading "no clamp". (284,214) keeps the cell inside. */
+    CHECK(finder_ops_drop(&S.sh, APPW, 0, &t, 284, 214, &r) == FINDER_WIN_OK,
           "O4 the drop commits");
     CHECK(mv_has(&S.mock, CL_ROOT, "TENANTFX.EXE") && !mv_has(&S.mock, CL_APPS, "TENANTFX.EXE"),
           "O4 the volume moved TENANTFX.EXE from APPS to the root");
@@ -396,7 +402,7 @@ static void leg_between(void)
     k = idx_of(&rw->view, "TENANTFX.EXE");
     CHECK(k == 4 && rw->view.icons[k].kind == FINDER_ICON_APP,
           "O4 the root window gained it as an APPLICATION icon");
-    CHECK(rw->view.icons[k].x == 284 && rw->view.icons[k].y == 234,
+    CHECK(rw->view.icons[k].x == 284 && rw->view.icons[k].y == 214,
           "O4 ... exactly where it was dropped (content-relative, no clamp)");
 }
 
@@ -593,9 +599,10 @@ static void leg_untrash(void)
  * Every expectation is HAND-DERIVED from the window's NEW content origin plus
  * the grid (finder_windows.h Sec 2: inset 18/4, pitch 68x52) -- never read
  * back out of the model under test. CalcDocContentRect(frame) = (left+1,
- * top+22) .. (right-21, bottom-1) (spec/chrome_metrics.h: frame 1, title 22,
- * body bar 4, scroll bar 16).
- *   ROOT moved to (140,140): content (141,162)..(479,359)
+ * top+22) .. (right-21, bottom-21) (spec/chrome_metrics.h: frame 1, title 22,
+ * body bar 4, scroll bar 16; the bottom edge stops at the horizontal scroll
+ * bar since bead initech-tdnl.35 -- RE-KEYED from bottom-1, stated).
+ *   ROOT moved to (140,140): content (141,162)..(479,339)
  *     README.TXT sprite (141+18, 162+4)      = (159,166)
  *     APPS       sprite (141+18+68, 162+4)   = (227,166)
  *   zoomed (window.c ZoomWindow over the 640x480 desktop, margins 4/40/4/4):
@@ -649,8 +656,8 @@ static void leg_follow(void)
     finder_desk_clamp(v, &x, &y);
     CHECK(x == 141 && y == 162, "O9 clamp: the content's top-left is the moved (141,162)");
     CHECK(finder_desk_drag_commit(v, 0, 1000, 1000, &oc, &nc) == FINDER_DROP_MOVED &&
-          v->icons[0].x == 479 - 32 && v->icons[0].y == 359 - 47,
-          "O9 drag commit clamps into the moved content: README.TXT at (447,312)");
+          v->icons[0].x == 479 - 32 && v->icons[0].y == 339 - 47,
+          "O9 drag commit clamps into the moved content: README.TXT at (447,292)");
 
     /* Clean Up snaps onto the grid of the CURRENT content */
     CHECK(finder_win_cleanup(&S.sh, ROOT) == 1 &&
@@ -663,8 +670,8 @@ static void leg_follow(void)
     v = finder_win_view(&S.sh, ROOT);
     x = 1000; y = 1000;
     finder_desk_clamp(v, &x, &y);
-    CHECK(v->icons[1].x == 227 && v->icons[1].y == 166 && x == 319 - 32 && y == 289 - 47,
-          "O9 grow: icons keep their place; the clamp is the GROWN content (319,289)");
+    CHECK(v->icons[1].x == 227 && v->icons[1].y == 166 && x == 319 - 32 && y == 269 - 47,
+          "O9 grow: icons keep their place; the clamp is the GROWN content (319,269)");
     SizeWindow(&S.wm, &rw->rec, 360, 220);   /* back to the default size */
 
     /* zoom, then restore */
@@ -684,7 +691,7 @@ static void leg_follow(void)
     (void)CollapseWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);
     CHECK(v->bounds.left == 141 && v->bounds.top == 162 && v->bounds.right == 479 &&
-          v->bounds.bottom == 359 && v->icons[1].x == 227,
+          v->bounds.bottom == 339 && v->icons[1].x == 227,
           "O9 collapse: an EMPTY content region does not collapse the model's bounds");
     (void)CollapseWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);
@@ -759,8 +766,88 @@ static void leg_select_arrange(void)
           "O10 the shell's execution table: Select All + Arrange yes, Get Info + Restart no");
 }
 
+/* ===========================================================================
+ * O11 -- THE ICON VIEW SCROLLS (bead initech-tdnl.35; audit F02)
+ *
+ * The root gets 20 more files, F00.TXT..F19.TXT (24 entries, 6 grid rows),
+ * re-populated. Every number by hand (finder_windows.h Sec 2/3/10c,
+ * winscroll.h, CalcDocContentRect):
+ *   ROOT frame (40,80)..(400,300); content (41,102)..(379,279): 177 high.
+ *   rows at doc y 4 + 52r; last row r=5 -> cell bottom 4+260+47 = 311,
+ *   + inset 4 = vertical content 315 -> max 315-177 = 138, page 177-16 = 161;
+ *   horizontal: col 3 x 18+204 = 222, + 32 + 18 = 272 <= 338 -> max 0.
+ *   F16.TXT is index 20 (row 5, col 0): unscrolled sprite (59, 102+264=366),
+ *   outside the content. Three down-arrow steps -> value 48 -> (59,318);
+ *   a page down -> 48+161 clamps to 138 -> (59,228), cell 228..275 inside.
+ * MUTANT: FINDER_WIN_MUT_SCROLL_PAINT_ONLY (paint shifts, the model does not)
+ * draws F16 at (59,228) but the click there misses it -> "O11 hit" RED.
+ * ===========================================================================*/
+static void leg_scroll(void)
+{
+    finder_window_t *rw;
+    finder_desk_t *v;
+    char nm[14];
+    int k;
+
+    scene_init(&S);
+    rw = &S.sh.windows[ROOT];
+    for (int i = 0; i < 20; i++) {
+        snprintf(nm, sizeof nm, "F%02d.TXT", i);
+        mv_add(&S.mock.d[0], nm, 0x20u, (uint16_t)(20 + i));
+    }
+    CHECK(finder_win_populate(&S.sh, ROOT) == FINDER_WIN_OK && rw->view.n == 24u,
+          "O11 scene: the root lists 24 entries");
+    k = idx_of(&rw->view, "F16.TXT");
+    CHECK(k == 20 && rw->view.icons[k].x == 59 && rw->view.icons[k].y == 366,
+          "O11 F16.TXT laid out at (59,366), below the 177-px content");
+    CHECK(WindowScrollOf(&S.wm, &rw->rec) == &rw->scroll &&
+          rw->scroll.axis[WSCROLL_V].max == 138 &&
+          rw->scroll.axis[WSCROLL_V].page == 161 &&
+          rw->scroll.axis[WSCROLL_H].max == 0,
+          "O11 the window's bars: vertical max 138 / page 161, horizontal DISABLED");
+
+    for (int i = 0; i < 3; i++) (void)wscroll_step(&rw->scroll.axis[WSCROLL_V], 21);
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(rw->scroll.axis[WSCROLL_V].value == 48 && v->icons[k].y == 318 &&
+          v->icons[0].y == 106 - 48,
+          "O11 three down-arrow steps: value 48, every icon 48 px up (F16 at 318)");
+    (void)wscroll_step(&rw->scroll.axis[WSCROLL_V], 23);
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(rw->scroll.axis[WSCROLL_V].value == 138 && v->icons[k].x == 59 &&
+          v->icons[k].y == 228,
+          "O11 page down clamps at 138: F16 at (59,228)");
+
+    /* paint, clipped to the content as the updateEvt path clips it */
+    memset(S.px, 0xEE, sizeof S.px);
+    finder_win_paint(rw, &S.bm, rw->rec.contRgn);
+    CHECK(pix(59 + 10, 228 + 2) == 0,
+          "O11 paint: F16.TXT's page top edge (DOC row 2) is drawn at the scrolled cell");
+    CHECK(pix(59 + 10, 366 + 2) == 0xEE && pix(69, 79) == 0xEE,
+          "O11 paint: nothing at the unscrolled cell, nothing above the content");
+
+    /* hit-test, rubber band, Clean Up -- all through the one accessor */
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(finder_desk_hit(v, 59 + 16, 228 + 16) == k,
+          "O11 hit: a click on F16 where it is DRAWN (75,244) hits F16");
+    CHECK(finder_desk_marquee_select(v, finder_band_rect(50, 226, 100, 270)) == 1 &&
+          v->icons[k].selected == 1,
+          "O11 rubber band around the drawn F16 cell selects exactly F16");
+    finder_desk_deselect_all(v);
+    CHECK(finder_win_cleanup(&S.sh, ROOT) == 0 && rw->view.icons[k].y == 228 &&
+          finder_win_doc_rect(rw).top == 102 - 138,
+          "O11 Clean Up of a scrolled window keeps the DOCUMENT grid (moved=0)");
+
+    /* the window grows: the range shrinks and the value re-clamps */
+    SizeWindow(&S.wm, &rw->rec, 360, 300);   /* content 257 high: max 315-257 = 58 */
+    v = finder_win_view(&S.sh, ROOT);
+    CHECK(rw->scroll.axis[WSCROLL_V].max == 58 &&
+          rw->scroll.axis[WSCROLL_V].value == 58 && v->icons[k].y == 366 - 58,
+          "O11 grow: max 58, value re-clamped to 58, F16 at 308");
+}
+
 int main(void)
 {
+    leg_scroll();
     leg_follow();
     leg_select_arrange();
     leg_resolve();

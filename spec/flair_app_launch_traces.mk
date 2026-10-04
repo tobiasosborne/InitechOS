@@ -24,8 +24,10 @@
 #     => TENANTFX.EXE (the only entry after "." / "..", which the Finder skips)
 #        APP sprite (59,106)..(91,138), centre (75,122)
 #   the TENANT window frame (100,160)..(400,340) (tenantfx.asm WIN_*)
-#     content (101,182)..(379,339) by CalcDocContentRect (title 22, frame 1,
-#     body bar 4, scrollbar 16); go-away box footprint = frame + (4,4)..(16,16)
+#     content (101,182)..(379,319) by CalcDocContentRect (title 22, frame 1,
+#     body bar 4, scrollbar 16 -- the bottom stops at the horizontal scroll
+#     bar since bead initech-tdnl.35, comment re-keyed from 339; no trace byte
+#     depends on it); go-away box footprint = frame + (4,4)..(16,16)
 #     = (104,164)..(116,176), centre (110,170)
 #
 # BUDGET NOTE (why the hops are short): the flagship pump halts after
@@ -64,9 +66,16 @@ FLAIR_APP_LAUNCH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 #    re-activates the tenant and exits it) -- but at (140,320), NOT D's
 #    (140,210): the Finder's activation raised the APPS window (40,80)..
 #    (400,300) over the tenant, whose only visible content is now the strip
-#    y [300,339); from (75,122): m65:99,m0:99. Serial-only: no park.
+#    y [300,319); from (75,122): m65:99,m0:89 -> (140,310). RE-KEYED (bead
+#    initech-tdnl.35, stated): this click was at (140,320), which the strip
+#    then reached to y 339 -- but y [319,335) is the tenant window's
+#    HORIZONTAL SCROLL BAR, and since tdnl.35 a scroll-bar click activates
+#    the window without reaching its content (FindWindow inContent ->
+#    WindowScrollBand; IM: the bars are controls). The tenant exits on a
+#    CONTENT click, so the point moves 10 px up into the content strip.
+#    Serial-only: no park.
 # ===========================================================================
-FLAIR_APP_LAUNCH_DOUBLE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m4:0,m-4:0,l1,l0,l1,l0,m65:99,m0:99,l1,l0
+FLAIR_APP_LAUNCH_DOUBLE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m4:0,m-4:0,l1,l0,l1,l0,m65:99,m0:89,l1,l0
 
 # ===========================================================================
 # 3. FLAIR_APP_LAUNCH_CYCLE_SPEC -- EXIT_LEAK: TWO full launch/exit cycles:

@@ -709,8 +709,15 @@ int main(int argc, char **argv)
          * drawer receives WindowFrameRect, so the live clip owns x=W1_R and the
          * next column remains desktop. Ref: sys8/window-chrome.md Sec 1;
          * bead initech-9d0e. */
-        assert_idx(inner_line - 1, body_row, CIDX_PLAT_FRAME_FACE,
-                   "(c) enabled scrollbar well meets separator with sampled DA highlight");
+        /* RE-KEYED (bead initech-tdnl.35, stated): this film window has
+         * nothing to scroll, so its active gutter is the DISABLED bar of
+         * sys8/scrollbars.md Sec 3 ("the folder contents fit the view": flat
+         * #F3F3F3 interior, no well) -- before tdnl.35 every active gutter
+         * drew the ENABLED well whatever the content, and this probe read its
+         * DA far highlight. The enabled cross-section is graded on a
+         * scrolling window by test-chrome-fidelity SCROLL-WELL. */
+        assert_idx(inner_line - 1, body_row, CIDX_PLAT_TROUGH,
+                   "(c) disabled scrollbar interior meets separator: flat F3 trough (Sec 3)");
         assert_idx(inner_line, body_row, CIDX_BLACK,
                    "(c) right body inner line is black");
         assert_idx(inner_line + 1, body_row, CIDX_WHITE,

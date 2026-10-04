@@ -37,6 +37,7 @@
 #include "region_algebra.h"     /* rgn_rect_t (-Ispec)                        */
 #include "flair_look.h"         /* opaque flair_skin_t policy datum            */
 #include "window_record.h"      /* FLAIR_WINDOW_WIDGET_* shared capability     */
+#include "winscroll.h"          /* WindowScroll: the gutter bars' state        */
 
 /* ---------------------------------------------------------------------------
  * flair_draw_document_window -- draw one Platinum document window's chrome.
@@ -83,6 +84,28 @@ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
                                 rgn_rect_t frame,
                                 const char *title, int hilited,
                                 uint8_t widget_flags);
+
+/* flair_draw_document_window_scroll -- the same chrome, with the two gutter
+ * bars drawn from `ws` (bead initech-tdnl.35; os/flair/winscroll.h): an
+ * active window's bar is ENABLED (tiles, wells, the 15-px thumb at the
+ * value's position, a held arrow PRESSED) when its axis has something to
+ * scroll, else DISABLED (scrollbars.md Sec 3: no thumb). `ws` NULL == no
+ * scrollable content == both bars DISABLED; flair_draw_document_window is
+ * exactly this with NULL. An inactive window's bars are HOLLOW either way. */
+void flair_draw_document_window_scroll(GrafPort *port,
+                                       const flair_skin_t *skin,
+                                       rgn_rect_t frame,
+                                       const char *title, int hilited,
+                                       uint8_t widget_flags,
+                                       const WindowScroll *ws);
+
+/* flair_draw_window_scrollbar -- redraw ONLY the gutter bar `axis`
+ * (WSCROLL_V / WSCROLL_H) of an ACTIVE document window from `ws`, in place
+ * over the composed frame (the live TrackControl loop's per-step feedback;
+ * os/milton/kmain.c). Touches no pixel outside wscroll_bar_rect. */
+void flair_draw_window_scrollbar(GrafPort *port, const flair_skin_t *skin,
+                                 rgn_rect_t frame, int axis,
+                                 const WindowScroll *ws);
 
 /* ---------------------------------------------------------------------------
  * flair_draw_window_widget -- redraw ONE title-bar widget of an ACTIVE

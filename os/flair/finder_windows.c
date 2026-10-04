@@ -376,28 +376,80 @@ int finder_win_sync_geometry(finder_window_t *w)
     return 0;
 #else
     rgn_rect_t c;
-    int dx, dy;
+    int old_ox, old_oy, new_ox, new_oy, dx, dy, ret = 0;
+    WindowScroll *ws = (w->scroll.owner == &w->rec) ? &w->scroll
+                                                     : (WindowScroll *)0;
 
     /* Collapsed (windowshade): no content rect exists. Keep the last real one
      * so the expand re-bases against it (finder_windows.h Sec 10b). */
     if (region_is_empty(w->rec.contRgn)) return 0;
 
-    c  = region_get_bbox(w->rec.contRgn);
-    dx = (int)c.left - (int)w->view.bounds.left;
-    dy = (int)c.top  - (int)w->view.bounds.top;
-    if (dx == 0 && dy == 0 &&
-        c.right == w->view.bounds.right && c.bottom == w->view.bounds.bottom)
-        return 0;
+    c = region_get_bbox(w->rec.contRgn);
 
+    /* The DOCUMENT origin the icons are laid out under right now (Sec 10c). */
+    old_ox = (int)w->view.bounds.left - (int)w->applied_sx;
+    old_oy = (int)w->view.bounds.top  - (int)w->applied_sy;
+
+    if (ws != (WindowScroll *)0) {
+        /* The ranges, from the icons in DOCUMENT coordinates. */
+        int ext_x = 0, ext_y = 0;
+        int16_t v0 = ws->axis[WSCROLL_V].value, m0 = ws->axis[WSCROLL_V].max;
+        int16_t h0 = ws->axis[WSCROLL_H].value, n0 = ws->axis[WSCROLL_H].max;
+        for (int i = 0; i < (int)w->view.n; i++) {
+            int r = (int)w->view.icons[i].x - old_ox + FINDER_ICON_DIM +
+                    FINDER_GRID_INSET_X;
+            int b = (int)w->view.icons[i].y - old_oy + FINDER_CELL_H +
+                    FINDER_GRID_INSET_Y;
+            if (r > ext_x) ext_x = r;
+            if (b > ext_y) ext_y = b;
+        }
+        (void)wscroll_set_extent(&ws->axis[WSCROLL_V], ext_y,
+                                 (int)c.bottom - (int)c.top);
+        (void)wscroll_set_extent(&ws->axis[WSCROLL_H], ext_x,
+                                 (int)c.right - (int)c.left);
+        if (ws->axis[WSCROLL_V].value != v0 || ws->axis[WSCROLL_V].max != m0 ||
+            ws->axis[WSCROLL_H].value != h0 || ws->axis[WSCROLL_H].max != n0)
+            ret |= FINDER_SYNC_SCROLL;
+    }
+
+#if defined(FINDER_WIN_MUT_SCROLL_PAINT_ONLY)
+    /* MUTANT (Rule 6; Sec 10c): the scroll offset is NOT applied to the model
+     * -- only finder_win_paint draws the icons shifted. The view LOOKS
+     * scrolled, but hit-testing, selection and drops read the unscrolled
+     * cells. NEVER in a real build. */
+    new_ox = (int)c.left - (int)w->applied_sx;
+    new_oy = (int)c.top  - (int)w->applied_sy;
+#else
+    new_ox = (int)c.left - (ws != (WindowScroll *)0 ? ws->axis[WSCROLL_H].value : 0);
+    new_oy = (int)c.top  - (ws != (WindowScroll *)0 ? ws->axis[WSCROLL_V].value : 0);
+#endif
+    dx = new_ox - old_ox;
+    dy = new_oy - old_oy;
     if (dx != 0 || dy != 0) {
         for (int i = 0; i < (int)w->view.n; i++) {
             w->view.icons[i].x = (int16_t)((int)w->view.icons[i].x + dx);
             w->view.icons[i].y = (int16_t)((int)w->view.icons[i].y + dy);
         }
+        ret |= FINDER_SYNC_ICONS;
     }
+    if (c.left != w->view.bounds.left || c.top != w->view.bounds.top ||
+        c.right != w->view.bounds.right || c.bottom != w->view.bounds.bottom)
+        ret |= FINDER_SYNC_ICONS;
     w->view.bounds = c;
-    return 1;
+    w->applied_sx = (int16_t)((int)c.left - new_ox);
+    w->applied_sy = (int16_t)((int)c.top  - new_oy);
+    return ret;
 #endif
+}
+
+rgn_rect_t finder_win_doc_rect(const finder_window_t *w)
+{
+    rgn_rect_t d = w->view.bounds;
+    d.left   = (int16_t)(d.left   - w->applied_sx);
+    d.right  = (int16_t)(d.right  - w->applied_sx);
+    d.top    = (int16_t)(d.top    - w->applied_sy);
+    d.bottom = (int16_t)(d.bottom - w->applied_sy);
+    return d;
 }
 
 finder_desk_t *finder_win_view(finder_shell_t *sh, int slot)
@@ -413,7 +465,8 @@ finder_desk_t *finder_win_view(finder_shell_t *sh, int slot)
 static int fw_snap(finder_window_t *w, int i, int cell)
 {
     int16_t gx = 0, gy = 0;
-    finder_win_grid_origin(w->view.bounds, cell, &gx, &gy);
+    /* The grid is laid in DOCUMENT coordinates (Sec 10c). */
+    finder_win_grid_origin(finder_win_doc_rect(w), cell, &gx, &gy);
     if (w->view.icons[i].x == gx && w->view.icons[i].y == gy) return 0;
     w->view.icons[i].x = gx;
     w->view.icons[i].y = gy;
@@ -447,6 +500,7 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     /* A freshly populated window is already CLEAN: row-major from the top-left
      * (design F3.3). Clean Up later restores exactly this arrangement. */
     for (int i = 0; i < (int)w->view.n; i++) (void)fw_snap(w, i, i);
+    (void)finder_win_sync_geometry(w);   /* the ranges cover the new layout */
     return FINDER_WIN_OK;
 }
 
@@ -521,9 +575,14 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
     fw_copy83(w->name83, is_root ? "" : name83);
     finder_click_reset(&w->click);
     finder_desk_init(&w->view, w->icons, (uint16_t)FINDER_WIN_ICONS_MAX, content);
+    w->applied_sx = 0;
+    w->applied_sy = 0;
 
     NewDocumentWindow(sh->wm, &w->rec, frame, (int16_t)documentKind,
                       1 /* goAway -- design F3.3 "documentProc, goAway" */);
+    /* The icon view scrolls (Sec 10c): attach the window's two bars. Detached
+     * by DisposeWindow on close (window.c), so the slot can be reused. */
+    WindowScrollAttach(sh->wm, &w->scroll, &w->rec);
     SetWTitle(sh->wm, &w->rec, is_root ? FINDER_WIN_ROOT_TITLE : w->name83);
 
     /* The binding / demux rule (ADR-0013 Sec 3.1): FindWindow -> refCon ->
@@ -640,9 +699,23 @@ int finder_win_cleanup(finder_shell_t *sh, int slot)
  * DAMAGE + PAINT  (the ordinary owned-window update path -- NOT the underlay)
  * ===========================================================================*/
 
+/* The bars show the model's range: after anything that may have moved an
+ * icon, re-sync and, when a range or value changed, damage both bars so the
+ * chrome phase redraws their thumbs (Sec 10c). */
+static void fw_sync_bars(finder_shell_t *sh, int slot)
+{
+    finder_window_t *w = &sh->windows[slot];
+    if (finder_win_sync_geometry(w) & FINDER_SYNC_SCROLL) {
+        rgn_rect_t f = WindowFrameRect(&w->rec);
+        WindowMgr_invalidate(sh->wm, &w->rec, wscroll_bar_rect(f, WSCROLL_V));
+        WindowMgr_invalidate(sh->wm, &w->rec, wscroll_bar_rect(f, WSCROLL_H));
+    }
+}
+
 void finder_win_invalidate_all(finder_shell_t *sh, int slot)
 {
     if (!fw_slot_ok(sh, slot) || sh->wm == (WindowMgr *)0) return;
+    fw_sync_bars(sh, slot);
     WindowMgr_invalidate(sh->wm, &sh->windows[slot].rec,
                          region_get_bbox(sh->windows[slot].rec.contRgn));
 }
@@ -652,6 +725,7 @@ void finder_win_invalidate(finder_shell_t *sh, int slot,
 {
     WindowPtr wp;
     if (!fw_slot_ok(sh, slot) || sh->wm == (WindowMgr *)0) return;
+    fw_sync_bars(sh, slot);
     wp = &sh->windows[slot].rec;
     WindowMgr_invalidate(sh->wm, wp, old_rect);
     if (new_rect.left != old_rect.left || new_rect.top != old_rect.top ||
@@ -684,7 +758,24 @@ void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
     /* The icons, through the ONE painter (finder_desktop.c). The window's view
      * is an ordinary finder_desk_t whose bounds are this content rect, so the
      * painter needs no window concept at all. */
+#if defined(FINDER_WIN_MUT_SCROLL_PAINT_ONLY)
+    {
+        /* The mutant's paint-time shift (see finder_win_sync_geometry). */
+        int dx = (int)w->applied_sx - (int)w->scroll.axis[WSCROLL_H].value;
+        int dy = (int)w->applied_sy - (int)w->scroll.axis[WSCROLL_V].value;
+        for (int i = 0; i < (int)w->view.n; i++) {
+            w->view.icons[i].x = (int16_t)(w->view.icons[i].x + dx);
+            w->view.icons[i].y = (int16_t)(w->view.icons[i].y + dy);
+        }
+        finder_desk_paint(&w->view, dst, clip);
+        for (int i = 0; i < (int)w->view.n; i++) {
+            w->view.icons[i].x = (int16_t)(w->view.icons[i].x - dx);
+            w->view.icons[i].y = (int16_t)(w->view.icons[i].y - dy);
+        }
+    }
+#else
     finder_desk_paint(&w->view, dst, clip);
+#endif
 }
 
 /* ===========================================================================
