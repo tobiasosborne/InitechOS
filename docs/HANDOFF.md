@@ -277,6 +277,12 @@ fallback, asserted on serial.)
 > Binding kernel headroom 8,088 B (floor 4,096; it was 17,976 B at the start of the night):
 > the next kernel-side feature needs the size policy looked at first (bead initech-8z9j).
 > Quota at close: Claude weekly 0.5 over pace, Codex 4.0 under.
+> Close-out 06:58: the operator cleared the full swap file (it was 2 GB of 2 GB used; RAM was
+> never short, no OOM kill). The certificate was NOT re-run after that. Scratch state left on
+> the host: `../initech-os-cert` (the certificate checkout, detached at 1bb17f5; `git checkout
+> --detach <main HEAD>` before use) and `../initech-os-dosprot` (kept only for the
+> test-arena-disjoint flake evidence, bead initech-ugsk). The other lane clones, tonight's
+> three agent worktrees and their branches are removed; everything they held is merged.
 >
 > **PREVIOUS STATE (2026-10-04, WL-0093 -- THE DESKTOP WAS DRIVEN BY A STRANGER AND FOUND WANTING.)**
 >
