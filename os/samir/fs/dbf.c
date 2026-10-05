@@ -326,8 +326,12 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
     /* Open per the caller's mode; the handle stays open for the record area
      * (S1.2/S1.3) and, for the RW path, for dbf_flush's write-back. */
     fd = pal->open(pal, name, open_mode);
-    if (fd < 0)
-        return teardown(tbl, -DBF_ERR_IO);
+    if (fd < 0) {
+        /* Ref: PAL error contract; DBASE.MSG #1 missing / #29 inaccessible.
+         * Preserve open failure identity across the codec/work-area boundary. */
+        int err = fd == -PAL_ENOENT ? DBF_ERR_NOENT : DBF_ERR_ACCESS;
+        return teardown(tbl, -err);
+    }
     tbl->fd = fd;
 
     /* --- 32-byte header (dbf.md sec 2). --- */

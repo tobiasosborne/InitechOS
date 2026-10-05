@@ -21,7 +21,7 @@
  *       close; RE-OPEN (dbf_open) -> the new value PERSISTED to disk.
  *     - dbf_append_blank + dbf_replace -> RECCOUNT grew; re-open confirms the new
  *       record + its fields PERSISTED.
- *     - dbf_open_rw on a MISSING file -> fail loud (-DBF_ERR_IO).
+ *     - dbf_open_rw on a MISSING file -> fail loud (-DBF_ERR_NOENT).
  *   T1 work-area level (the headline gap):
  *     - wa_set_open_rw a table -> REPLACE through samir_do end-to-end -> re-open
  *       the file from disk -> the change PERSISTED. Plain-USE-then-REPLACE works.
@@ -199,7 +199,7 @@ static void test_dbf_open_rw(samir_pal_t *pal)
         dbf_table *bad = (dbf_table *)0xdead;
         rc = dbf_open_rw(pal, "/tmp/test_use_rw_does_not_exist.dbf", &bad);
         snprintf(msg, sizeof msg, "t0: dbf_open_rw(missing) -> fail loud (rc=%d)", rc);
-        CHECK(rc == -DBF_ERR_IO, msg);
+        CHECK(rc == -DBF_ERR_NOENT, msg);
         CHECK(bad == NULL, "t0: *out NULL on dbf_open_rw failure");
     }
 

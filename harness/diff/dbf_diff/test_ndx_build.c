@@ -481,8 +481,9 @@ static void check_rebuild(samir_pal_t *pal, const char *base,
     CHECK(rc == 0, msg);
     if (rc != 0) { free(kp); dbf_close(tbl); return; }
 
-    /* Build the fresh index to a temp path next to the golden. */
-    snprintf(out_path, sizeof(out_path), "%s/_rebuild_%s.ndx", base, label);
+    /* The reference corpus stays read-only. Judge the locally rebuilt
+     * index against the unchanged real golden; never write beside it. */
+    snprintf(out_path, sizeof(out_path), "build/_rebuild_%s.ndx", label);
     g_key_type = key_type;
     kp->fail = 0;
     rc = ndx_build(pal, out_path, key_type, key_len, expr,

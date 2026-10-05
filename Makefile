@@ -3115,6 +3115,33 @@ test-samir-view-mutant: $(SAMIR_VIEW_MUTS)
 	done
 	@printf '>>> test-samir-view-mutant: green\n'
 
+# Audit K09: default .DBF and typed missing/access/format failures.
+TEST_SAMIR_USE := $(BUILD)/test_samir_use
+$(TEST_SAMIR_USE): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-samir-use test-samir-use-mutant
+test-samir-use: $(TEST_SAMIR_USE)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@$(TEST_SAMIR_USE) $(DBASE3_DECOMP)
+	@printf '>>> test-samir-use: green\n'
+
+SAMIR_USE_MUTS := $(BUILD)/test_samir_use_extension $(BUILD)/test_samir_use_error
+$(SAMIR_USE_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	@case "$@" in *_extension) flag=SAMIR_MUTATE_USE_EXTENSION;; *_error) flag=SAMIR_MUTATE_USE_ERROR;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+test-samir-use-mutant: $(SAMIR_USE_MUTS)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@set -e; for kind in extension error; do \
+	  case $$kind in extension) reason='K09 short USE defaults to .DBF';; error) reason='K09 missing file is';; esac; \
+	  if $(BUILD)/test_samir_use_$$kind $(DBASE3_DECOMP) > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-$$kind.log; \
+	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-$$kind.log; \
+	  printf '>>> test-samir-use-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-use-mutant: green\n'
+
 # ---- SAMIR writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16) ----
 # dbf_open_rw opens an EXISTING .dbf PAL_RDWR (shared parse path with dbf_open) so
 # the S1.5 mutation verbs + dbf_flush work; wa_set_open_rw USEs it RW (+ ndx_open_rw)
@@ -26402,7 +26429,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
-	test-samir-view test-samir-view-mutant \
+	test-samir-view test-samir-view-mutant test-samir-use test-samir-use-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \

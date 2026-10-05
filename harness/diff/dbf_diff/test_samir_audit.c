@@ -1,6 +1,9 @@
 /* Program-level audit oracle for initech-hw4j / initech-3t55 / initech-nds1.
  * MANUAL-GROUNDED, NOT a real-dBASE differential: the local corpus has no
- * output golden for these filter/deleted/USE sessions. Do not mint expected
+ * output golden for these exact filter/deleted/USE sessions. K09 additionally
+ * grades RECCOUNT/TOP values against real mint/work/SMKLOG.TXT (SMOKE.PRG);
+ * that is a corpus-golden projection, not a full transcript differential.
+ * Do not mint expected
  * output from SAMIR. References: Ashton-Tate Using dBase III Plus.pdf,
  * U1-4 (default .DBF), U2-26 (asterisk), U5-215 (DELETED and scope exceptions),
  * U5-229/230 (per-area filters, activation, clearing); Programming with dBase
@@ -157,6 +160,29 @@ static int name_key(void *u,uint32_t recno,uint8_t *out,uint16_t len)
     return 0;
 }
 #endif
+
+#ifdef TEST_AUDIT_USE
+/* The original program USEs CLIENTS without an extension. Copy each file
+ * byte-identically before the REPL opens it RW; the corpus is read-only.
+ * Ref: dbase3-decomp/re/mint-results-001.md, SMOKE.PRG and SMKLOG.TXT.
+ */
+static int reference_copy(const char *source,const char *dest)
+{
+    FILE *a=fopen(source,"rb"), *b=fopen(dest,"wb");
+    int x,y,ok=a && b;
+    CHECK(ok,"real corpus fixture available for byte-identical local copy");
+    if(ok) while((x=fgetc(a))!=EOF) if(fputc(x,b)==EOF) { ok=0;break; }
+    if(a) fclose(a);
+    if(b && fclose(b)) ok=0;
+    a=fopen(source,"rb");b=fopen(dest,"rb");
+    if(!a || !b) ok=0;
+    if(ok) do { x=fgetc(a);y=fgetc(b);if(x!=y) ok=0; } while(ok && x!=EOF);
+    if(a) fclose(a);
+    if(b) fclose(b);
+    CHECK(ok,"real fixture and local RW copy are byte-identical");
+    return ok;
+}
+#endif
 static void run(samir_pal_t *pal, const char **lines, int n, const char *expected,
                 const char *why)
 {
@@ -178,8 +204,9 @@ static void run(samir_pal_t *pal, const char **lines, int n, const char *expecte
     xb_interp_free(ip);
 }
 #define RUN(lines,want,why) run(pal,lines,(int)(sizeof(lines)/sizeof(lines[0])),want,why)
-int main(void)
+int main(int argc,char **argv)
 {
+    (void)argc; (void)argv;
     struct pal_host_cfg cfg={99,12,31,16u*1024u*1024u};
     samir_pal_t *host=pal_host_make(cfg), *pal;
     CHECK(host!=NULL,"host PAL constructed");
@@ -230,6 +257,42 @@ int main(void)
         CHECK(b!=NULL,"corrupt record-count fixture writable");
         if(b) { fseek(b,4,SEEK_SET); fputc(4,b); fclose(b); }
         RUN(s,"15  Not a dBASE database.","K09 header declares more records than file, still #15 (corpus dbf.md invariant 2)");
+    }
+
+    {
+        const char *corpus=argc>1 ? argv[1] : "../dbase3-decomp";
+        char path[1024],gold[1024],tag[128],top[64];
+        char *at,*end;
+        FILE *f;
+        size_t n=0;
+        long count=-1;
+        const char *script[]={"use build/samir.audit/REFCLI index build/samir.audit/REFIDX.NDX","? 'RECCOUNT=',reccount()","go top","? 'TOP=',trim(lastname)"};
+        snprintf(path,sizeof(path),"%s/mint/work/SMKLOG.TXT",corpus);
+        f=fopen(path,"rb");CHECK(f!=NULL,"real dBASE SMKLOG.TXT golden available");
+        if(f){n=fread(gold,1,sizeof(gold)-1,f);fclose(f);}gold[n]=0;
+        at=strstr(gold,"RECCOUNT=");
+        CHECK(at!=NULL,"SMKLOG golden has RECCOUNT projection");
+        if(at) count=strtol(at+9,NULL,10);
+        CHECK(count>0,"SMKLOG golden count parsed");
+        at=strstr(gold,"TOP=");
+        CHECK(at!=NULL,"SMKLOG golden has indexed TOP projection");
+        top[0]=0;
+        if(at){
+            at+=4;while(*at==' ')at++;
+            end=at;while(*end && *end!='\r' && *end!='\n')end++;
+            while(end>at && end[-1]==' ')end--;
+            if((size_t)(end-at)<sizeof(top)){memcpy(top,at,(size_t)(end-at));top[end-at]=0;}
+        }
+        snprintf(path,sizeof(path),"%s/mint/work/CLIENTS.DBF",corpus);
+        CHECK(reference_copy(path,"build/samir.audit/REFCLI.DBF"),"real CLIENTS RW copy prepared");
+        snprintf(path,sizeof(path),"%s/mint/work/SMKIDX.NDX",corpus);
+        CHECK(reference_copy(path,"build/samir.audit/REFIDX.NDX"),"real SMKIDX RW copy prepared");
+        /* Grade values, not the pre-existing numeric whitespace/dot formatter.
+         * Expected values are read from the real golden, never from SAMIR. */
+        snprintf(tag,sizeof(tag),"RECCOUNT= %ld.",count);
+        RUN(script,tag,"K09 real-dBASE golden: implicit USE record count");
+        snprintf(tag,sizeof(tag),"TOP= %s",top);
+        CHECK(top[0] && cap_has(tag),"K09 real-dBASE golden: same indexed TOP name");
     }
 #else
     {

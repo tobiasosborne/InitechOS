@@ -467,6 +467,23 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
         }
     }
 
+    /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF.
+     * Only the final path component controls the extension. */
+#ifndef SAMIR_MUTATE_USE_EXTENSION
+    {
+        uint32_t i, len=rt_strlen(file);
+        int dot=0;
+        for(i=0;i<len;i++) {
+            if(file[i]=='/' || file[i]=='\\' || file[i]==':') dot=0;
+            else if(file[i]=='.') dot=1;
+        }
+        if(!dot) {
+            if(len+5u>sizeof(file)) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+            rt_memcpy(file+len,".DBF",5u);
+        }
+    }
+#endif
+
     /* dBASE USE replaces the table in the current area: close it first. */
     wa_nav_reset(area);
     wa_close(env, area);
@@ -478,10 +495,17 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     rc = wa_set_open_rw(env, area, file, have_alias,
                         il.count > 0 ? &il : (const wa_index_list *)0);
     if (rc != WA_OK) {
-        /* file open / codec faults: a missing .dbf is #1; anything else #15
-         * "Not a dBASE database." The engine returns negated wa/codec codes;
+        /* File open / codec faults: missing #1, inaccessible #29, malformed #15.
+         * The engine returns negated wa/codec codes;
          * we map to the user-facing catalog ordinal. */
-        if (ec) *ec = (rc == -WA_ERR_IO) ? 1 : 15;
+        if (ec) {
+#ifndef SAMIR_MUTATE_USE_ERROR
+            *ec = rc == -DBF_ERR_NOENT ? 1 :
+                  (rc == -DBF_ERR_ACCESS || rc == -DBF_ERR_IO) ? 29 : 15;
+#else
+            *ec = 15;
+#endif
+        }
         return -INTERP_ERR_EVAL;
     }
     wa_select(env, area);                     /* USE selects the area it opens */
