@@ -50,7 +50,8 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "samir/interp.h"
+#include "samir/set.h"         /* os/samir/include/, on -Ios/samir/include */
 #include "samir/workarea.h"
 #include "samir/nav.h"
 #include "samir/dbf.h"
@@ -179,6 +180,7 @@ static xb_interp *build_q(samir_pal_t *pal, const char *path,
 
     ip = xb_interp_make(pal);
     if (!ip) { CHECK(0, "build_q: xb_interp_make"); return NULL; }
+    if (set_register(ip) != INTERP_OK) { CHECK(0, "build_q: set_register"); return NULL; }
     if (mutate_register(ip) != INTERP_OK) { CHECK(0, "build_q: mutate_register"); return NULL; }
     env = xb_interp_env(ip);
     rc = wa_adopt_table(env, 1, tbl, NULL, "Q", path, NULL, 0);
@@ -369,6 +371,9 @@ static void test_append_delete_pack_zap(samir_pal_t *pal)
     CHECK(strcmp(cbuf, "NEW") == 0, "pack: rec3 CODE='NEW' (was rec4)");
     CHECK(wa_recno(env, 1) == 1u, "pack: pointer rewound to record 1");
 
+    /* Test the destructive OFF path explicitly; default ON is guarded by
+     * test-samir-safety. Ref: Using III+ U5-257/U5-284. */
+    CHECK(samir_do(ip,"SET SAFETY OFF\n")==INTERP_OK,"zap: explicit safety OFF");
     /* ---- ZAP -> RECCOUNT 0, EOF ---- */
     rc = samir_do(ip, "ZAP\n");
     snprintf(msg,sizeof msg,"zap: rc=%d ec=%d",rc,samir_last_error(ip));
@@ -501,8 +506,8 @@ static void test_master_key_drift(samir_pal_t *pal)
     }
 
     xb_interp_free(ip);
-    ndx_close(ix);
-    /* tbl is owned by the area; xb_interp_free closed it via wa_close_all. */
+    /* Both tbl and ix were adopted by the area; wa_close_all closed them.
+     * A second ndx_close used freed storage (previously hidden by bump reset). */
     remove(pa);
     remove(pix);
 }

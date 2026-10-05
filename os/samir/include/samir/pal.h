@@ -186,6 +186,15 @@ struct samir_pal {
 	 * from a prior alloc, or NULL to reset to the base). Frees everything
 	 * allocated after `mark`. No per-object free exists. */
 	void    (*reset) (samir_pal_t *, void *mark);
+
+    /* Persistent storage is disjoint from scratch alloc/reset. acquire/release
+     * allow tables/memos/indexes to close in any order. Authored allocator
+     * policy, no local reference; ten independent work areas are III+ canon. */
+    void *(*acquire)(samir_pal_t *, uint32_t n);
+    void (*release)(samir_pal_t *, void *memory);
 };
 
+/* Owned buffer chains: reclaim ONLY this codec's allocations. */
+void *pal_owned_alloc(samir_pal_t *pal, void **owner, uint32_t n);
+void pal_owned_free(samir_pal_t *pal, void **owner);
 #endif /* INITECH_SAMIR_PAL_H */

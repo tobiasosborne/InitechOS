@@ -289,7 +289,14 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
                                  offset, data, len, g_sector, g_cluster, &wrote);
     if (rc != FAT12_OK) {
         *out_written = 0u;
-        return FILEIO_ERR_ACCESS_DENIED;   /* disk full (rolled back) / write err */
+        /* IBM DOS 3.30 Technical Reference pp. 6-139/6-140, AH=40h:
+         * no space returns CF clear with fewer bytes written. FAT has rolled
+         * back allocation, so this refusal transferred zero bytes. */
+#ifndef SAMIR_MUTATE_FULL_ERROR
+        if (rc == FAT12_ERR_NO_SPACE) return 0u;
+        if (rc == FAT12_ERR_WRITE || rc == FAT12_ERR_READ) return 0x001Du;
+#endif
+        return FILEIO_ERR_ACCESS_DENIED;
     }
     *out_written = wrote;
 

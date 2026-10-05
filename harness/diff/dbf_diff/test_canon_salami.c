@@ -178,6 +178,8 @@ static void    c_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ c
 static void   *c_alloc(samir_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
 static void    c_reset(samir_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
 
+static void *c_acquire(samir_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
+static void c_release(samir_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
 static samir_pal_t *cap_pal_make(samir_pal_t *inner)
 {
     g_cap.inner = inner;
@@ -197,6 +199,7 @@ static samir_pal_t *cap_pal_make(samir_pal_t *inner)
     g_cap.pal.today      = c_today;
     g_cap.pal.alloc      = c_alloc;
     g_cap.pal.reset      = c_reset;
+    g_cap.pal.acquire = c_acquire; g_cap.pal.release = c_release;
     return &g_cap.pal;
 }
 static void cap_clear(void) { g_cap.len = 0; g_cap.buf[0] = '\0'; }

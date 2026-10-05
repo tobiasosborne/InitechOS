@@ -265,7 +265,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out);
 /*
  * ndx_node_free: release arena memory for NODE.
  *
- * Unwinds the bump arena to the mark saved before the node was allocated.
+ * Releases only NODE, without rewinding any live index or table.
  * NODE is invalid after this call.
  */
 void ndx_node_free(ndx_index *idx, ndx_node_t *node);

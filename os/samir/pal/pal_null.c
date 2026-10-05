@@ -80,5 +80,7 @@ samir_pal_t samir_pal_null = {
 	null_set_attr,
 	null_today,
 	null_alloc,
-	null_reset
+	null_reset,
+    null_alloc,
+    null_reset
 };

@@ -157,8 +157,13 @@
 /* ---- Opaque table layout (S1.1 fields + S1.2 field array + S1.3 record buf) ---- */
 struct dbf_table {
     samir_pal_t  *pal;        /* the PAL this table was opened through */
+    char          name[260]; /* opened path, for period file diagnostics */
+    uint8_t       write_failed; /* failed rollback: refuse further writes */
     pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
-    void         *mark;       /* arena mark taken before alloc; dbf_close unwinds */
+    void         *owned;      /* buffers owned by this table only */
+#ifdef SAMIR_MUTATE_OWNER_RESET
+    void *scratch_mark;
+#endif
 
     dbf_field_t  *fields;     /* S1.2: arena-allocated array of nfields decoded
                                * field descriptors; NULL until S1.2 decode pass runs.
@@ -245,16 +250,20 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, int32_t off,
     return DBF_OK;
 }
 
-/* close the fd and unwind the arena; returns the PAL close result (negated). */
+/* Close fd and release only this table and its owned buffers. */
 static int teardown(dbf_table *tbl, int rc)
 {
     samir_pal_t *pal = tbl->pal;
-    void *mark = tbl->mark;
+    void *table_memory = tbl;
     int close_rc = 0;
 
     if (tbl->fd >= 0)
         close_rc = pal->close(pal, tbl->fd);
-    pal->reset(pal, mark);   /* frees the table itself (allocated after mark) */
+    pal_owned_free(pal,&tbl->owned);
+#ifdef SAMIR_MUTATE_OWNER_RESET
+    pal->reset(pal,tbl->scratch_mark); /* mutant: rewind across a later live owner */
+#endif
+    pal->release(pal, table_memory);
 
     if (rc != DBF_OK)
         return rc;            /* preserve the original error */
@@ -291,7 +300,6 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
 {
     uint8_t hdr[DBF_HDR_SIZE];
     uint8_t desc[DBF_DESC_STRIDE];
-    void *mark;
     dbf_table *tbl;
     pal_fd fd;
     int rc;
@@ -312,15 +320,17 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
     if (!pal || !name || !out)
         return -DBF_ERR_IO;
 
-    /* Allocate the table from the PAL arena; mark first so dbf_close unwinds it.
-     * Fail loud on NULL (arena exhausted), Rule 2. */
-    mark = pal->alloc(pal, 0);                 /* current arena mark (zero alloc) */
-    tbl = (dbf_table *)pal->alloc(pal, (uint32_t)sizeof(*tbl));
+    /* Independently owned table; closing it never rewinds scratch memory. */
+    tbl = (dbf_table *)pal->acquire(pal, (uint32_t)sizeof(*tbl));
     if (!tbl)
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
-    tbl->mark = mark;
+#ifdef SAMIR_MUTATE_OWNER_RESET
+    tbl->scratch_mark=pal->alloc(pal,0u);
+#endif
+    if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
+    rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
     tbl->fd   = -1;
 
     /* Open per the caller's mode; the handle stays open for the record area
@@ -473,7 +483,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
      * Ref: dbf.h S1.3 "Record buffer lifetime" + dbf.md sec 6 (record_length).
      */
     {
-        uint8_t *rb = (uint8_t *)pal->alloc(pal, (uint32_t)record_length);
+        uint8_t *rb = (uint8_t *)pal_owned_alloc(pal, &tbl->owned, (uint32_t)record_length);
         if (!rb)
             return teardown(tbl, -DBF_ERR_NOMEM);
         tbl->rec_buf = rb;
@@ -507,7 +517,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
     if (nfields > 0) {
         uint32_t n       = (uint32_t)nfields;
         uint32_t fsize   = n * (uint32_t)sizeof(dbf_field_t);
-        dbf_field_t *fa  = (dbf_field_t *)tbl->pal->alloc(tbl->pal, fsize);
+        dbf_field_t *fa  = (dbf_field_t *)pal_owned_alloc(tbl->pal, &tbl->owned, fsize);
         uint32_t fi;
 
         if (!fa)
@@ -579,7 +589,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
         if (nrec > 0u) {
             uint32_t rlen   = (uint32_t)record_length;
             uint32_t total  = nrec * rlen;
-            uint8_t *region = (uint8_t *)pal->alloc(pal, total);
+            uint8_t *region = (uint8_t *)pal_owned_alloc(pal, &tbl->owned, total);
             if (!region)
                 return teardown(tbl, -DBF_ERR_NOMEM);
             rc = read_exact(pal, fd, (int32_t)header_length, region, total);
@@ -1081,7 +1091,6 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
 int dbf_create(samir_pal_t *pal, const char *name,
                const dbf_field_spec *fields, int nfields, dbf_table **out)
 {
-    void       *mark;
     dbf_table  *tbl;
     pal_fd      fd;
     uint32_t    sum_lens;     /* 1 + sum(field lengths) */
@@ -1140,14 +1149,17 @@ int dbf_create(samir_pal_t *pal, const char *name,
     if (hdr_len > 0xFFFFu)
         return -DBF_ERR_BAD_HDRLEN;
 
-    /* Allocate the table from the arena; mark first so teardown unwinds it. */
-    mark = pal->alloc(pal, 0);
-    tbl  = (dbf_table *)pal->alloc(pal, (uint32_t)sizeof(*tbl));
+    /* Independently owned table; teardown releases this owner only. */
+    tbl  = (dbf_table *)pal->acquire(pal, (uint32_t)sizeof(*tbl));
     if (!tbl)
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
-    tbl->mark = mark;
+#ifdef SAMIR_MUTATE_OWNER_RESET
+    tbl->scratch_mark=pal->alloc(pal,0u);
+#endif
+    if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
+    rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
     tbl->fd   = -1;
 
     /* Capture header values. Version 0x83 iff any memo field, else 0x03
@@ -1167,7 +1179,7 @@ int dbf_create(samir_pal_t *pal, const char *name,
     /* Decode the schema into the dbf_field_t array (same shape S1.2 builds). */
     {
         uint32_t fsize  = (uint32_t)nfields * (uint32_t)sizeof(dbf_field_t);
-        dbf_field_t *fa = (dbf_field_t *)pal->alloc(pal, fsize);
+        dbf_field_t *fa = (dbf_field_t *)pal_owned_alloc(pal, &tbl->owned, fsize);
         if (!fa)
             return teardown(tbl, -DBF_ERR_NOMEM);
         rt_memset(fa, 0, fsize);
@@ -1191,7 +1203,7 @@ int dbf_create(samir_pal_t *pal, const char *name,
     /* Allocate the reusable record-read buffer (record_length bytes) so the
      * table can be read back (dbf_read_rec) after flush without re-open. */
     {
-        uint8_t *rb = (uint8_t *)pal->alloc(pal, (uint32_t)tbl->record_length);
+        uint8_t *rb = (uint8_t *)pal_owned_alloc(pal, &tbl->owned, (uint32_t)tbl->record_length);
         if (!rb)
             return teardown(tbl, -DBF_ERR_NOMEM);
         tbl->rec_buf = rb;
@@ -1236,7 +1248,7 @@ int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
     if (tbl->nrec >= tbl->rec_cap) {
         uint32_t new_cap = (tbl->rec_cap == 0u) ? 16u : (tbl->rec_cap * 2u);
         uint32_t bytes   = new_cap * (uint32_t)tbl->record_length;
-        uint8_t *nr      = (uint8_t *)tbl->pal->alloc(tbl->pal, bytes);
+        uint8_t *nr      = (uint8_t *)pal_owned_alloc(tbl->pal, &tbl->owned, bytes);
         if (!nr)
             return -DBF_ERR_NOMEM;
         if (tbl->rec_region && tbl->nrec > 0u)
@@ -1264,6 +1276,18 @@ int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
     return DBF_OK;
 }
 
+/* Ref: PAL write contract: shorts mean device full. DBASE.MSG #56.
+ * Device fault wording is authored, no local reference. */
+static int write_result(int32_t wr, uint32_t n)
+{
+    if (wr == (int32_t)n) return DBF_OK;
+    if (wr == -PAL_ENOSPC || wr >= 0) return -DBF_ERR_NOSPC;
+    if (wr == -PAL_EACCES) return -DBF_ERR_ACCESS;
+    return -DBF_ERR_WRITE;
+}
+
+const char *dbf_name(const dbf_table *tbl) { return tbl ? tbl->name : ""; }
+
 int dbf_flush(dbf_table *tbl)
 {
     uint8_t   hdr[DBF_HDR_SIZE];
@@ -1278,6 +1302,7 @@ int dbf_flush(dbf_table *tbl)
 
     if (!tbl)
         return -DBF_ERR_IO;
+    if (tbl->write_failed) return -DBF_ERR_WRITE;
     if (!tbl->writable)
         return -DBF_ERR_IO;   /* read-only (dbf_open) table is not flushable */
 
@@ -1304,7 +1329,7 @@ int dbf_flush(dbf_table *tbl)
     /* Seek to the start; we always rewrite the whole file (TRUNC at create). */
     pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
     if (pos != 0)
-        return -DBF_ERR_IO;
+        return -DBF_ERR_WRITE;
 
     /* --- 32-byte header (dbf.md sec 2). EVERY non-MEANINGFUL byte is 0x00
      * (spec/samir/dbf_normalization.json): 0x0C..0x1F all stay zero from the
@@ -1327,7 +1352,7 @@ int dbf_flush(dbf_table *tbl)
 
     wr = tbl->pal->write(tbl->pal, tbl->fd, hdr, DBF_HDR_SIZE);
     if (wr != (int32_t)DBF_HDR_SIZE)
-        return -DBF_ERR_IO;
+            return write_result(wr, DBF_HDR_SIZE);
 
     /* --- field descriptors (dbf.md sec 4). NORMALIZE bytes (RAM addr 0x0C,
      * work-area 0x14, all reserved) stay 0x00 from the rt_memset. --- */
@@ -1350,21 +1375,21 @@ int dbf_flush(dbf_table *tbl)
 
         wr = tbl->pal->write(tbl->pal, tbl->fd, desc, DBF_DESC_STRIDE);
         if (wr != (int32_t)DBF_DESC_STRIDE)
-            return -DBF_ERR_IO;
+            return write_result(wr, DBF_DESC_STRIDE);
     }
 
     /* --- the lone 0x0D terminator (the +1 form; dbf.md sec 4). --- */
     term = (uint8_t)DBF_DESC_TERMINATOR;
     wr = tbl->pal->write(tbl->pal, tbl->fd, &term, 1u);
     if (wr != 1)
-        return -DBF_ERR_IO;
+            return write_result(wr, 1u);
 
     /* --- the record region: nrec records, record_length bytes each. --- */
     if (tbl->nrec > 0u) {
         uint32_t total = tbl->nrec * (uint32_t)tbl->record_length;
         wr = tbl->pal->write(tbl->pal, tbl->fd, tbl->rec_region, total);
         if (wr != (int32_t)total)
-            return -DBF_ERR_IO;
+            return write_result(wr, total);
     }
 
     /* --- trailing 0x1A EOF byte (S1.4 decision: emit it; dbf.md sec 8 optional;
@@ -1372,13 +1397,13 @@ int dbf_flush(dbf_table *tbl)
     eof = (uint8_t)DBF_EOF_MARKER;
     wr = tbl->pal->write(tbl->pal, tbl->fd, &eof, 1u);
     if (wr != 1)
-        return -DBF_ERR_IO;
+            return write_result(wr, 1u);
 
     /* Reposition to the file start so the table can be read back without
      * re-open (the open handle is RDWR). */
     pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
     if (pos != 0)
-        return -DBF_ERR_IO;
+        return -DBF_ERR_WRITE;
 
     /*
      * initech-jf8p (P1 fix): NOW -- after the whole-file rewrite above fully
@@ -1495,7 +1520,7 @@ int dbf_append_blank(dbf_table *tbl)
     if (tbl->nrec >= tbl->rec_cap) {
         uint32_t new_cap = (tbl->rec_cap == 0u) ? 16u : (tbl->rec_cap * 2u);
         uint32_t bytes   = new_cap * (uint32_t)tbl->record_length;
-        uint8_t *nr      = (uint8_t *)tbl->pal->alloc(tbl->pal, bytes);
+        uint8_t *nr      = (uint8_t *)pal_owned_alloc(tbl->pal, &tbl->owned, bytes);
         if (!nr)
             return -DBF_ERR_NOMEM;
         if (tbl->rec_region && tbl->nrec > 0u)
@@ -1520,6 +1545,51 @@ int dbf_append_blank(dbf_table *tbl)
 
     tbl->nrec++;
     return DBF_OK;
+}
+
+/* L001: preserve +1/+2 geometry and every earlier record. Only the new
+ * tail can require allocation; publish the count after both tail writes.
+ * Ref: dbf.md ss2/4/6/8. Failure atomicity (including restoring a short
+ * count write) is authored, no local reference; this is not crash recovery. */
+int dbf_append_blank_commit(dbf_table *tbl)
+{
+    uint32_t old, offset;
+    uint8_t count[4], prior[4], eof = DBF_EOF_MARKER;
+    int rc;
+    if (!tbl || tbl->write_failed) return -DBF_ERR_WRITE;
+    old = tbl->nrec;
+    rc = dbf_append_blank(tbl);
+    if (rc != DBF_OK) return rc;
+#ifdef SAMIR_MUTATE_APPEND_REWRITE
+    return dbf_flush(tbl); /* mutant: damages prior records and +2 geometry */
+#endif
+    offset = (uint32_t)tbl->header_length + old * tbl->record_length;
+    if (tbl->pal->seek(tbl->pal,tbl->fd,(int32_t)offset,PAL_SEEK_SET) != (int32_t)offset) {
+        rc = -DBF_ERR_WRITE; goto refused;
+    }
+    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,rec_ptr(tbl,old+1u),tbl->record_length),tbl->record_length);
+    if (rc != DBF_OK) goto refused;
+    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,&eof,1u),1u);
+    if (rc != DBF_OK) goto refused;
+    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF) {
+        rc = -DBF_ERR_WRITE; goto refused;
+    }
+    wr_u32le(prior,old); wr_u32le(count,tbl->nrec);
+    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,count,4u),4u);
+    if (rc == DBF_OK) return DBF_OK;
+#ifndef SAMIR_MUTATE_APPEND_COUNT
+    /* A short four-byte write can tear 255 -> 256. Restore the committed
+     * bytes in the already allocated header sector before returning. */
+    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
+        write_result(tbl->pal->write(tbl->pal,tbl->fd,prior,4u),4u) != DBF_OK) {
+        tbl->write_failed=1u; rc=-DBF_ERR_WRITE;
+    }
+#endif
+refused:
+#ifndef SAMIR_MUTATE_APPEND_MEMORY
+    tbl->nrec=old;
+#endif
+    return rc;
 }
 
 /*
@@ -1721,7 +1791,7 @@ int dbf_pack(dbf_table *tbl)
     }
 
     /* Allocate a fresh region for the survivors. */
-    new_region = (uint8_t *)tbl->pal->alloc(tbl->pal, new_nrec * rlen);
+    new_region = (uint8_t *)pal_owned_alloc(tbl->pal, &tbl->owned, new_nrec * rlen);
     if (!new_region)
         return -DBF_ERR_NOMEM;
 

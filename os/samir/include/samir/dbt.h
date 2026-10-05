@@ -295,8 +295,8 @@ int dbt_flush(dbt_file *f);
  *   buf_out : set to a PAL-arena-allocated buffer containing the raw memo
  *             bytes (NOT NUL-terminated; may contain 0x00 bytes in principle,
  *             though III+ memos are CP437 text).  The buffer is allocated
- *             from the arena on each call; callers that need stable storage
- *             must copy or call before the arena is reset.
+ *             owned by this memo file; valid until dbt_close(f). Scratch
+ *             reset and closing other memos do not reclaim these buffers.
  *   len_out : set to the number of bytes in *buf_out (text before the
  *             0x1A 0x1A terminator; does NOT include the terminator bytes).
  *

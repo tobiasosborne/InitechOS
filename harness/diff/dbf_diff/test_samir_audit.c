@@ -95,6 +95,8 @@ static void    cap_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){
 static void   *cap_alloc(samir_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
 static void    cap_reset(samir_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
 
+static void *cap_acquire(samir_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
+static void cap_release(samir_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
 static samir_pal_t *cap_pal_make(samir_pal_t *inner)
 {
     g_cap.inner = inner;
@@ -115,6 +117,7 @@ static samir_pal_t *cap_pal_make(samir_pal_t *inner)
     g_cap.pal.today      = cap_today;
     g_cap.pal.alloc      = cap_alloc;
     g_cap.pal.reset      = cap_reset;
+    g_cap.pal.acquire = cap_acquire; g_cap.pal.release = cap_release;
     return &g_cap.pal;
 }
 
@@ -320,7 +323,15 @@ int main(int argc,char **argv)
         RUN(s,"37  Not a Logical expression.","K05 rejects nonlogical condition");
     }
     {
-        const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","select 2","use build/samir.audit/CLIENTS.DBF alias other","set filter to bal < 0","go top","? recno()","select 1","go bottom","? recno()"};
+        /* III+ refuses duplicate open (Using U7-7); retain the per-area filter
+         * oracle using a byte-identical second file, not duplicate USE. */
+        FILE *in=fopen("build/CLIENTS.DBF","rb"),*out=fopen("build/samir.audit/OTHER.DBF","wb");
+        int ch;
+        CHECK(in && out,"second independent filter fixture copied");
+        if(in && out)while((ch=fgetc(in))!=EOF)fputc(ch,out);
+        if(in)fclose(in);
+        if(out)fclose(out);
+        const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","select 2","use build/samir.audit/OTHER.DBF alias other","set filter to bal < 0","go top","? recno()","select 1","go bottom","? recno()"};
         RUN(s,"\n3.","K05 filter survives area switch");
         CHECK(cap_has("\n2."),"K05 second area has separate filter");
     }

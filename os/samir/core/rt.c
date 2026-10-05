@@ -387,3 +387,22 @@ double dec_parse(const char *s, int len)
     }
     return result;
 }
+
+/* Persistent codec buffers must not participate in interpreter scratch resets.
+ * Lifetime policy authored, no local reference. PAL acquire/release contract. */
+#include "samir/pal.h"
+typedef struct pal_owned_block { struct pal_owned_block *next; } pal_owned_block;
+void *pal_owned_alloc(samir_pal_t *pal, void **owner, uint32_t n)
+{
+    pal_owned_block *b;
+    if (!pal->acquire || n > 0xffffffffu - sizeof(*b)) return (void *)0;
+    b=(pal_owned_block *)pal->acquire(pal,n+(uint32_t)sizeof(*b));
+    if (!b) return (void *)0;
+    b->next=(pal_owned_block *)*owner; *owner=b; return b+1;
+}
+void pal_owned_free(samir_pal_t *pal, void **owner)
+{
+    pal_owned_block *b=(pal_owned_block *)*owner;
+    *owner=(void *)0;
+    while(b){pal_owned_block *next=b->next;pal->release(pal,b);b=next;}
+}

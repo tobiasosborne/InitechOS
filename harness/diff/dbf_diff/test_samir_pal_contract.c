@@ -62,6 +62,9 @@ int main(void)
 	      "terminal-extension slots are bound (DEC-02 rev: @SAY/GET/READ)");
 	CHECK(p->today, "clock slot is bound (injectable, AH=2Ah)");
 	CHECK(p->alloc && p->reset, "arena slots are bound (AH=48h)");
+    CHECK(p->acquire && p->release,"persistent owner slots bound");
+    CHECK(p->acquire(p,16u)==NULL,"null persistent allocation fails loud");
+    p->release(p,NULL);
 
 	/* ---- call each slot once through the contract; assert null behaviour ---- */
 

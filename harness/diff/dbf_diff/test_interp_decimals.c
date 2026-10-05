@@ -160,6 +160,8 @@ static void   *dcap_alloc(samir_pal_t *p, uint32_t n)
 static void    dcap_reset(samir_pal_t *p, void *m)
     { cap_pal_t *c=(cap_pal_t*)p; c->inner->reset(c->inner,m); }
 
+static void *dcap_acquire(samir_pal_t *p,uint32_t n) { cap_pal_t *c=(cap_pal_t *)p;return c->inner->acquire(c->inner,n); }
+static void dcap_release(samir_pal_t *p,void *m) { cap_pal_t *c=(cap_pal_t *)p;c->inner->release(c->inner,m); }
 static samir_pal_t *cap_pal_make(samir_pal_t *inner)
 {
     g_cap.inner      = inner;
@@ -180,6 +182,7 @@ static samir_pal_t *cap_pal_make(samir_pal_t *inner)
     g_cap.pal.today      = dcap_today;
     g_cap.pal.alloc      = dcap_alloc;
     g_cap.pal.reset      = dcap_reset;
+    g_cap.pal.acquire = dcap_acquire; g_cap.pal.release = dcap_release;
     return &g_cap.pal;
 }
 

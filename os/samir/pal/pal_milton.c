@@ -7,7 +7,7 @@
  * the samir_pal vtable (pal.h). No libc. Depends ONLY on <stdint.h>.
  *
  * MANDATE: ADR-0009 DEC-06 ("pal_milton.c is the sole int 0x21 site; S8.2
- * needs no console primitives"). Implements every slot of the 15-slot vtable
+ * needs no console primitives"). Implements every slot of the PAL vtable
  * declared in os/samir/include/samir/pal.h.
  *
  * CALLING CONVENTION (DEC-04a flat, spec/int21h_calling_convention.json):
@@ -75,7 +75,7 @@
  *   ADR-0009 DEC-03 (FLOW_MAX_REGISTRY=1; flat .COM in conventional memory).
  *   ADR-0009 DEC-04 (AH=48h arena MUST be disjoint from program; the kernel
  *     fix in bead 1q4u ensures the block returned by 48h is above the image).
- *   os/samir/include/samir/pal.h (the full 15-slot vtable contract).
+ *   os/samir/include/samir/pal.h (the full PAL vtable contract).
  *   spec/int21h_calling_convention.json (flat ABI; CF error; segment convention).
  *   os/milton/int21.c (confirmed register behavior for each handler called).
  *   spec/memory_map.h (PROGRAM_BASE, PROGRAM_STACK_BOT -- arena ceiling).
@@ -89,30 +89,19 @@
 #include <stdint.h>
 
 #include "samir/pal.h"
+#include "heap.h"
 #include "samir/interp.h"
 
 /* ---- Arena sizing constants ----------------------------------------------- *
  *
- * The SAMIR engine at FLOW_MAX_REGISTRY=1 (ADR-0009 DEC-03) has:
- *   ~81 KiB text + ~26 KiB BSS (genuine footprint; ADR-0009 Sec 2 measurement).
- * The interpreter's internal arenas (interp.h tunables) + workarea structures +
- * REPL scratch need additional runtime memory. We request a generous but honest
- * 32 KiB heap: enough for the evaluator scratch arenas, record buffers (32
- * fields * ~256 bytes), and the work-area environment, with headroom. This is
- * well inside the available window: the MCB arena covers image+BSS..
- * PROGRAM_STACK_BOT which is > 100 KiB after the image.
- *
- * 32 KiB = 2048 paragraphs (1 paragraph = 16 bytes). The constant is documented
- * as a deliberate locked decision here (Rule 8 -- "a deliberate act with a
- * worklog note"). Increasing it requires verifying it still fits below
- * PROGRAM_STACK_BOT = 0x70000 (spec/memory_map.h); the S8.2 oracle forces a
- * real AH=48h call so a mis-sizing fails at the oracle, not in production
- * (ADR-0009 DEC-04 + DEC-08).
- *
- * Ref: ADR-0009 DEC-03 (footprint); spec/memory_map.h PROGRAM_STACK_BOT;
- *      os/samir/include/samir/interp.h (interp arena tunables).
+ * Request 36 KiB (2304 DOS paragraphs), split into a 16 KiB scratch bump arena
+ * and a 20 KiB independently reclaimed codec heap. Allocator policy is authored,
+ * no local reference. The link script checks actual BSS against the 64 KiB
+ * loader reserve and reserves this whole AH=48h block below ENV_BLOCK.
+ * Scratch reset cannot reclaim a live table/memo/index (audit L003).
+ * Ref: spec/memory_map.h PROGRAM_BSS_RESERVE / ENV_BLOCK; ADR-0009 DEC-04.
  */
-#define PAL_MILTON_HEAP_PARAS  2048u    /* 32 KiB = 2048 * 16 bytes */
+#define PAL_MILTON_HEAP_PARAS  2304u    /* 36 KiB: 16 KiB scratch + 20 KiB owned */
 #define PAL_MILTON_HEAP_BYTES  (PAL_MILTON_HEAP_PARAS * 16u)
 
 /* ---- Freestanding panic --------------------------------------------------- *
@@ -168,7 +157,10 @@ typedef struct {
     /* Bump arena: one AH=48h block obtained at construction.
      * heap_base = (returned_segment << 4) as a flat linear address.
      * heap_ptr  = next free byte (bumps forward on alloc).
-     * heap_end  = heap_base + PAL_MILTON_HEAP_BYTES. */
+     * heap_end  = heap_base + 16 KiB; the remaining 20 KiB is owned storage. */
+    /* Separate codec heap carved from the disjoint AH=48h block.
+     * Authored 20 KiB budget, no local reference. */
+    pal_heap_block *blocks;
     samir_line_state input;
     uint8_t     *heap_base;
     uint8_t     *heap_ptr;
@@ -683,6 +675,9 @@ static void milton_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
  *      ADR-0009 DEC-04 (the AH=48h block returned is above the loaded program
  *      image + BSS after the kernel DEC-04 fix in bead 1q4u).
  */
+static void *milton_acquire(samir_pal_t *p,uint32_t n) { return pal_heap_alloc(((pal_milton_state_t *)p)->blocks,n); }
+static void milton_release(samir_pal_t *p,void *b) { if(pal_heap_free(((pal_milton_state_t *)p)->blocks,b)) milton_panic(); }
+
 static void *milton_alloc(samir_pal_t *p, uint32_t n)
 {
     pal_milton_state_t *st = state_of(p);
@@ -803,6 +798,7 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.today      = milton_today;
     st->vtable.alloc      = milton_alloc;
     st->vtable.reset      = milton_reset;
+    st->vtable.acquire = milton_acquire; st->vtable.release = milton_release;
 
     /* AH=48h ALLOC -- request PAL_MILTON_HEAP_PARAS paragraphs from the loader-
      * bound DISJOINT arena (DEC-04, bead 1q4u). No AH=4Ah SETBLOCK first: the
@@ -827,7 +823,8 @@ samir_pal_t *pal_milton_make(void)
     heap_seg = result & 0xFFFFu;
     st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4);
     st->heap_ptr  = st->heap_base;
-    st->heap_end  = st->heap_base + PAL_MILTON_HEAP_BYTES;
+    st->heap_end  = st->heap_base + 16384u;
+    st->blocks=pal_heap_init(st->heap_end,20480u);
 
     return &st->vtable;
 }

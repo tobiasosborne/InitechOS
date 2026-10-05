@@ -159,6 +159,8 @@ typedef enum {
                                * Ref: dbf.md sec 5 (III+ types); plan Sec 2.C (fail loud). */
     DBF_ERR_BAD_RECNO   = 11, /* S1.3: recno out of range (< 1 or > nrec). */
     DBF_ERR_NOENT       = 13, /* typed PAL open failure: missing path */
+    DBF_ERR_NOSPC       = 15, /* PAL no space or a short write */
+    DBF_ERR_WRITE       = 16, /* device write or failed rollback */
     DBF_ERR_ACCESS      = 14, /* typed PAL open failure: inaccessible */
     DBF_ERR_BAD_REC     = 12  /* S1.3: malformed record (bad delete flag or bad L byte).
                                * dbf.md sec 6: delete flag must be 0x20 or 0x2A; any other
@@ -650,6 +652,11 @@ int dbf_flush(dbf_table *tbl);
  * Ref: dbf.md sec 6 (record layout); plan S1.5.
  */
 int dbf_append_blank(dbf_table *tbl);
+/* Commit one blank record without rewriting the existing header/records.
+ * Ref: dbf.md ss2/4/8; refusal atomicity authored, no local reference.
+ * Failure restores the staged count; a failed header rollback fails loud. */
+int dbf_append_blank_commit(dbf_table *tbl);
+const char *dbf_name(const dbf_table *tbl);
 
 /*
  * dbf_replace: set a field in the record at `recno` to the value `v`, applying

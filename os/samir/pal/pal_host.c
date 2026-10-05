@@ -38,6 +38,7 @@
 #include <string.h>
 
 #include "samir/pal.h"
+#include "heap.h"
 
 /* Maximum number of simultaneously open file handles. */
 #define PAL_HOST_FD_MAX  16
@@ -89,6 +90,8 @@ typedef struct {
     uint8_t      date_mm;
     uint8_t      date_dd;
 
+    void *persistent;
+    pal_heap_block *blocks;
     /* Bump arena */
     uint8_t     *heap_base;        /* malloc'd backing buffer */
     uint8_t     *heap_ptr;         /* next free byte */
@@ -331,6 +334,9 @@ static void host_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
     if (dd) *dd = st->date_dd;
 }
 
+static void *host_acquire(samir_pal_t *p,uint32_t n) { return pal_heap_alloc(state_of(p)->blocks,n); }
+static void host_release(samir_pal_t *p,void *b) { if(pal_heap_free(state_of(p)->blocks,b)) abort(); }
+
 /* ---- arena slots -------------------------------------------------------- */
 
 static void *host_alloc(samir_pal_t *p, uint32_t n)
@@ -416,6 +422,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.today      = host_today;
     st->vtable.alloc      = host_alloc;
     st->vtable.reset      = host_reset;
+    st->vtable.acquire = host_acquire; st->vtable.release = host_release;
 
     /* Inject the fixed clock (deterministic; Rule 11). */
     st->date_yy = cfg.date_yy;
@@ -424,8 +431,12 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
 
     /* Allocate the arena backing buffer. */
     hsz = (cfg.heap_size > 0) ? cfg.heap_size : PAL_HOST_HEAP_DEFAULT;
+    st->persistent=malloc((size_t)hsz);
+    if(!st->persistent){free(st);return NULL;}
+    st->blocks=pal_heap_init(st->persistent,hsz);
     st->heap_base = (uint8_t *)malloc((size_t)hsz);
     if (st->heap_base == NULL) {
+        free(st->persistent);
         free(st);
         return NULL;
     }
@@ -457,6 +468,7 @@ void pal_host_free(samir_pal_t *p)
         }
     }
 
+    free(st->persistent);
     free(st->heap_base);
     st->heap_base = NULL;
     st->heap_ptr  = NULL;
