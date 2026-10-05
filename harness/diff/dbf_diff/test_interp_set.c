@@ -333,14 +333,12 @@ static int run_set_tests(const char *corpus_path)
                   "SET INDEX: index_text == \"MYIDX\"");
         }
 
+        /* Using dBase III Plus.pdf U5-229 requires an active database.
+         * Runtime/per-area behavior is exercised by test-samir-view; the old
+         * storage-only acceptance silently hid initech-hw4j. */
         rc = samir_do(ip, "SET FILTER TO SALARY > 50000");
-        CHECK(rc == 0, "samir_do('SET FILTER TO ...') returned 0 (parsed+stored)");
-        ss = set_get_state(ip);
-        if (ss) {
-            CHECK(ss->have_filter == 1, "SET FILTER: have_filter == 1");
-            CHECK(strcmp(ss->filter_text, "SALARY > 50000") == 0,
-                  "SET FILTER: filter_text stored correctly");
-        }
+        CHECK(rc != 0, "SET FILTER without active database fails loud");
+        CHECK(samir_last_error(ip) == 17, "SET FILTER without table is #17");
 
         rc = samir_do(ip, "SET RELATION TO CUST_ID INTO CLIENTS");
         CHECK(rc == 0, "samir_do('SET RELATION TO ... INTO ...') returned 0 (parsed+stored)");
@@ -353,9 +351,6 @@ static int run_set_tests(const char *corpus_path)
 
         printf("  LOUD-SKIP: SET INDEX runtime effect (index open) deferred"
                " -- work-area index-open plumbing not yet present;"
-               " follow-up bead required.\n");
-        printf("  LOUD-SKIP: SET FILTER runtime effect (record filter) deferred"
-               " -- work-area filter plumbing not yet present;"
                " follow-up bead required.\n");
         printf("  LOUD-SKIP: SET RELATION runtime effect (area linking) deferred"
                " -- work-area relation plumbing not yet present;"

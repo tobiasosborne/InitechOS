@@ -55,6 +55,7 @@
  * none). memo_buf is per-resolve scratch for a memo field's text.
  */
 struct work_area {
+    char         filter[257];          /* Using III+ U5-229: per-area condition */
     int          open;                 /* 1 if a table is open here */
     dbf_table   *tbl;                  /* the .dbf codec handle */
     dbt_file    *memo;                 /* the .dbt handle, or NULL (no memo) */
@@ -91,6 +92,10 @@ struct work_area {
 struct wa_env {
     samir_pal_t *pal;
     work_area    area[WA_NAREAS];
+    xb_interp   *interp;
+    int          deleted_on;          /* Programming III+ P10-18: global */
+    int          view_error;
+    int          include_deleted;     /* Using III+ U5-215: RECORD/NEXT */
     int          cur;                  /* 0-based index of the selected area */
 };
 
@@ -306,6 +311,8 @@ wa_env *wa_env_make(samir_pal_t *pal)
     if (env == (wa_env *)0)
         return (wa_env *)0;
 
+    /* Newly added view state must default OFF even on a reused PAL arena. */
+    rt_memset(env,0,(uint32_t)sizeof(*env));
     env->pal = pal;
     env->cur = 0;                      /* default selected area = 1 (0-based 0) */
     for (a = 0; a < WA_NAREAS; a++) {
@@ -325,6 +332,7 @@ wa_env *wa_env_make(samir_pal_t *pal)
         wa->found = 0;
         wa->nfields = 0;
         wa->alias[0] = '\0';
+        wa->filter[0] = '\0';
         wa->rec_cache = (xb_val *)0;
         wa->rec_bytes = (char *)0;
         wa->rec_bytes_len = 0u;
@@ -658,6 +666,7 @@ int wa_close(wa_env *env, int area)
     wa->found = 0;
     wa->nfields = 0;
     wa->alias[0] = '\0';
+    wa->filter[0] = '\0';
     wa->cache_recno = 0u;
     wa->rec_cache = (xb_val *)0;
     wa->rec_bytes = (char *)0;
@@ -1169,11 +1178,16 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     if (!ip->env)
         return (xb_interp *)0;
 
+    ip->env->interp = ip;
     ip->scratch = (char *)pal->alloc(pal, INTERP_SCRATCH_CAP);
     if (!ip->scratch)
         return (xb_interp *)0;
 
     /* Initialise the eval ctx: SET EXACT OFF (III+ default), scratch, today. */
+    /* Ref: Using dBase III Plus.pdf U5-213; corpus specs/commands/
+     * set-commands.md: DECIMALS defaults to 2.
+     * A reused arena cannot inherit uninitialized display state. */
+    ip->ctx.set_decimals = 2;
     ip->ctx.set_exact    = 0;
     ip->ctx.scratch      = ip->scratch;
     ip->ctx.scratch_cap  = INTERP_SCRATCH_CAP;
@@ -1249,4 +1263,71 @@ int xb_interp_eval_str(xb_interp *ip, const char *expr, uint32_t len,
         return -INTERP_ERR_EVAL;
     }
     return INTERP_OK;
+}
+
+/* Shared visibility seam. Ref: Using dBase III Plus.pdf U5-229; U5-215.
+ * Keep the expression text per area and parse in bounded interpreter stack pools
+ * on each evaluation: no arena leak when a condition is changed repeatedly.
+ * Predicate errors retain the real catalog ordinal, never become false.
+ */
+int wa_set_filter(xb_interp *ip, int area, const char *text, int *ec)
+{
+    wa_env *env = xb_interp_env(ip);
+    xb_val v;
+    uint32_t len = rt_strlen(text);
+    int rc;
+    if (!wa_is_open(env, area)) { if (ec) *ec=17; return -INTERP_ERR_EVAL; }
+    if (len > 256u) { if (ec) *ec=10; return -INTERP_ERR_PARSE; }
+    if (len) {
+        rc = xb_interp_eval_str(ip, text, len, &v, ec);
+        if (rc) return rc;
+        if (v.t != XB_L) { if(ec) *ec=37; return -INTERP_ERR_EVAL; }
+    }
+    rt_memcpy(env->area[area-1].filter, text, len+1u);
+    return 0;
+}
+void wa_set_deleted(wa_env *env, int on) { env->deleted_on=on; }
+int wa_include_deleted(wa_env *env, int on)
+{
+    int old=env->include_deleted;
+    env->include_deleted=on;
+    return old;
+}
+int wa_view_error(wa_env *env) { return env->view_error; }
+void wa_clear_view_error(wa_env *env) { if(env) env->view_error=0; }
+int wa_visible(wa_env *env, int area)
+{
+    work_area *wa=&env->area[area-1];
+    xb_val v;
+    int rc, ec=0, saved=env->cur;
+    env->view_error=0;
+    if (wa->eof || !wa->nrec) return 0;
+#ifndef SAMIR_MUTATE_DELETED_VIEW
+    if (env->deleted_on && !env->include_deleted) {
+        rc=wa_touch_record(wa);
+        if(rc) { env->view_error=29; return rc; }
+        if(wa->cache_deleted) return 0;
+    }
+#endif
+#ifndef SAMIR_MUTATE_FILTER_VIEW
+    if (wa->filter[0]) {
+        env->cur=area-1;
+        rc=xb_interp_eval_str(env->interp, wa->filter, rt_strlen(wa->filter), &v, &ec);
+        env->cur=saved;
+        if(rc || v.t!=XB_L) {
+            env->view_error=ec ? ec : 37;
+            return -INTERP_ERR_EVAL;
+        }
+        return v.u.l != 0;
+    }
+#else
+    (void)v; (void)ec; (void)saved;
+#endif
+    return 1;
+}
+int wa_record_deleted(wa_env *env, int area)
+{
+    work_area *wa=&env->area[area-1];
+    int rc=wa_touch_record(wa);
+    return rc ? rc : wa->cache_deleted;
 }

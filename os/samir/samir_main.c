@@ -81,6 +81,7 @@
 
 #include "samir/interp.h"
 #include "samir/workarea.h"
+#include "samir/nav.h"
 #include "samir/value.h"
 #include "samir/eval.h"
 #include "samir/rt.h"
@@ -431,6 +432,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 
     /* bare USE -> close the current area. */
     if (repl_word(&p, file, sizeof file) == 0u) {
+        wa_nav_reset(area);
         wa_close(env, area);
         return INTERP_OK;
     }
@@ -466,6 +468,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     }
 
     /* dBASE USE replaces the table in the current area: close it first. */
+    wa_nav_reset(area);
     wa_close(env, area);
     /* Ref: PRD S5.8; workarea.h wa_set_open_rw (7az.16 / 7az.19).
      * Open read-WRITE: dBASE USE opens the table for editing by default, so
@@ -493,6 +496,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 static int repl_do_close(xb_interp *ip, const char *args)
 {
     (void)args;
+    { int area; for(area=1;area<=WA_NAREAS;area++) wa_nav_reset(area); }
     wa_close_all(xb_interp_env(ip));
     return INTERP_OK;
 }

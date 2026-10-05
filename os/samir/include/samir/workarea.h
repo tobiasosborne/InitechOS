@@ -594,4 +594,17 @@ dbt_file *wa_memo(const wa_env *env, int area);
  * out of range / closed. i in [0, wa_index_count). */
 ndx_index *wa_index(const wa_env *env, int area, int i);
 
+/* Ref: Using dBase III Plus.pdf U5-215, U5-229. Shared scan visibility.
+ * wa_visible returns 0/1 or a negative fault; wa_view_error is its catalog code.
+ * Explicit RECORD/NEXT scopes include deleted records (U5-215).
+ */
+struct xb_interp;
+int wa_set_filter(struct xb_interp *, int area, const char *, int *ec);
+void wa_set_deleted(wa_env *, int on);
+int wa_include_deleted(wa_env *, int on);
+int wa_view_error(wa_env *);
+void wa_clear_view_error(wa_env *);
+int wa_visible(wa_env *, int area);
+int wa_record_deleted(wa_env *, int area);
+
 #endif /* INITECH_SAMIR_WORKAREA_H */

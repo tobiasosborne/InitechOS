@@ -368,10 +368,10 @@ static int do_set_index(set_state *ss, const char *args, int *err_code)
 
 /*
  * do_set_filter: SET FILTER TO [<condition>].
- * GATED -- work-area filter plumbing not yet present. Stores raw text.
+ * Installs the selected area condition; see Using III+ U5-229.
  * Ref: set-commands.md Sec 3.5 (SET FILTER TO <condition>).
  */
-static int do_set_filter(set_state *ss, const char *args, int *err_code)
+static int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -379,9 +379,14 @@ static int do_set_filter(set_state *ss, const char *args, int *err_code)
             && (s[2]=='\0' || s_isspace(s[2]))) {
         s = s_skip_ws(s + 2);
     }
+    /* Ref: Using dBase III Plus.pdf U5-229: selected work area, lazy movement. */
+    {
+        int rc=wa_set_filter(ip, wa_selected(xb_interp_env(ip)), s, err_code);
+        if(rc) return rc;
+    }
     s_copy_trim(ss->filter_text, (uint32_t)SET_GATED_TEXT_CAP, s);
-    ss->have_filter = 1;
-    /* GATED: runtime filter effect deferred -- follow-up bead required. */
+    ss->have_filter = (s[0] != '\0');
+    /* Text accessor retained for existing callers; runtime lives on the area. */
     if (err_code) *err_code = 0;
     return INTERP_OK;
 }
@@ -584,8 +589,19 @@ static int set_cmd_hook(void *user, xb_interp *ip,
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 
+    if (s_ci_eq(opt, "DELETED")) {
+        int on;
+        s=s_skip_ws(s);
+        if (s_ci_eq(s,"ON")) on=1;
+        else if (s_ci_eq(s,"OFF")) on=0;
+        else { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+        wa_set_deleted(xb_interp_env(ip),on);
+        if(err_code) *err_code=0;
+        return CMD_OK;
+    }
+
     if (s_ci_eq(opt, "FILTER")) {
-        int rc = do_set_filter(ss, s, err_code);
+        int rc = do_set_filter(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 

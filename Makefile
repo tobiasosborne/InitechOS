@@ -3088,6 +3088,33 @@ test-samir-query: $(TEST_SAMIR_QUERY)
 	@$(TEST_SAMIR_QUERY) $(DBASE3_DECOMP)
 	@printf ">>> test-samir-query: green\n"
 
+# Audit K05/K06: manual-grounded REPL sessions, with implementation mutants.
+TEST_SAMIR_VIEW := $(BUILD)/test_samir_view
+$(TEST_SAMIR_VIEW): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+.PHONY: test-samir-view test-samir-view-mutant
+test-samir-view: $(TEST_SAMIR_VIEW)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@$(TEST_SAMIR_VIEW)
+	@printf '>>> test-samir-view: green\n'
+
+SAMIR_VIEW_MUTS := $(BUILD)/test_samir_view_filter $(BUILD)/test_samir_view_deleted $(BUILD)/test_samir_view_marker
+$(SAMIR_VIEW_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	@case "$@" in *_filter) flag=SAMIR_MUTATE_FILTER_VIEW;; *_deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; *_marker) flag=SAMIR_MUTATE_DELETE_MARK;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+
+test-samir-view-mutant: $(SAMIR_VIEW_MUTS)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@set -e; for kind in filter deleted marker; do \
+	  case $$kind in filter) reason='K05 hidden row absent';; deleted) reason='K06 deleted and filter compose';; marker) reason='K06 marker precedes deleted record';; esac; \
+	  if $(BUILD)/test_samir_view_$$kind > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-$$kind.log; \
+	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-$$kind.log; \
+	  printf '>>> test-samir-view-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-view-mutant: green\n'
+
 # ---- SAMIR writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16) ----
 # dbf_open_rw opens an EXISTING .dbf PAL_RDWR (shared parse path with dbf_open) so
 # the S1.5 mutation verbs + dbf_flush work; wa_set_open_rw USEs it RW (+ ndx_open_rw)
@@ -26375,6 +26402,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
+	test-samir-view test-samir-view-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \

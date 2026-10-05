@@ -639,7 +639,7 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
     return INTERP_OK;
 }
 
-static int m_replace(xb_interp *ip, const char *args, int *ec)
+static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -687,20 +687,27 @@ static int m_replace(xb_interp *ip, const char *args, int *ec)
 
     if (kind == MS_RECORD) {
         rc = wa_nav_goto(env, area, mc.scope_n);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
         return m_apply_replace_one(ip, area, mc.scope_n, mc.head, ec);
     }
 
     /* multi-record scopes: ALL (GO TOP) / REST / NEXT n. */
     if (kind == MS_ALL) {
         rc = wa_nav_go_top(env, area);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
     }
     {
         uint32_t visited = 0u;
         uint32_t limit = (kind == MS_NEXT) ? mc.scope_n : 0u;  /* 0 = unbounded */
 
         while (!wa_eof(env, area)) {
+            rc=wa_visible(env,area);
+            if(rc<0) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+            if(!rc) {
+                rc=wa_nav_skip(env,area,1);
+                if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+                continue;
+            }
             uint32_t recno = wa_recno(env, area);
             if (kind == MS_NEXT && visited >= limit)
                 break;
@@ -724,7 +731,8 @@ static int m_replace(xb_interp *ip, const char *args, int *ec)
                 rc = m_apply_replace_one(ip, area, recno, mc.head, ec);
                 if (rc != INTERP_OK) return rc;
             }
-            (void)wa_nav_skip(env, area, 1);
+            rc=wa_nav_skip(env, area, 1);
+            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
         }
     }
     if (ec) *ec = 0;
@@ -794,7 +802,7 @@ static int m_append(xb_interp *ip, const char *args, int *ec)
  * delete flag (dbf_delete); 0 clears it (dbf_recall). Default scope = the current
  * record only; FOR (no explicit scope) -> ALL.
  */
-static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int *ec)
+static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -830,7 +838,7 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
 
     if (kind == MS_RECORD) {
         rc = wa_nav_goto(env, area, mc.scope_n);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
         rc = want_delete ? dbf_delete(tbl, mc.scope_n) : dbf_recall(tbl, mc.scope_n);
         if (rc != DBF_OK) { if (ec) *ec = (rc == -DBF_ERR_IO) ? M_MSG_READONLY : 0; return -INTERP_ERR_EVAL; }
         rc = dbf_flush(tbl);
@@ -843,13 +851,20 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
     /* multi-record scopes: ALL (GO TOP) / REST / NEXT n. */
     if (kind == MS_ALL) {
         rc = wa_nav_go_top(env, area);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
     }
     {
         uint32_t visited = 0u;
         uint32_t limit = (kind == MS_NEXT) ? mc.scope_n : 0u;
 
         while (!wa_eof(env, area)) {
+            rc=wa_visible(env,area);
+            if(rc<0) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+            if(!rc) {
+                rc=wa_nav_skip(env,area,1);
+                if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+                continue;
+            }
             uint32_t recno = wa_recno(env, area);
             if (kind == MS_NEXT && visited >= limit)
                 break;
@@ -875,7 +890,8 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
                     if (rc != DBF_OK) { if (ec) *ec = (rc == -DBF_ERR_IO) ? M_MSG_READONLY : 0; return -INTERP_ERR_EVAL; }
                 }
             }
-            (void)wa_nav_skip(env, area, 1);
+            rc=wa_nav_skip(env, area, 1);
+            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
         }
         rc = dbf_flush(tbl);
         if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
@@ -1042,6 +1058,30 @@ static int m_zap(xb_interp *ip, int *ec)
  * mutate_cmd_hook: an xb_cmd_hook (interp.h). Dispatches the mutation verbs;
  * returns CMD_UNKNOWN for anything else so the chain can try the next module.
  */
+
+static int m_replace(xb_interp *ip, const char *args, int *ec)
+{
+    m_clauses mc;
+    wa_env *env=xb_interp_env(ip);
+    int old,rc;
+    if(m_split_clauses(args,&mc)) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+    old=wa_include_deleted(env,mc.scope_kind==MS_RECORD || mc.scope_kind==MS_NEXT || (mc.scope_kind==MS_DEFAULT && !mc.has_for && !mc.has_while));
+    rc=m_replace_impl(ip,args,ec);
+    wa_include_deleted(env,old);
+    return rc;
+}
+
+static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int *ec)
+{
+    m_clauses mc;
+    wa_env *env=xb_interp_env(ip);
+    int old,rc;
+    if(m_split_clauses(args,&mc)) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+    old=wa_include_deleted(env,mc.scope_kind==MS_RECORD || mc.scope_kind==MS_NEXT || (mc.scope_kind==MS_DEFAULT && !mc.has_for && !mc.has_while));
+    rc=m_delete_recall_impl(ip,args,want_delete,ec);
+    wa_include_deleted(env,old);
+    return rc;
+}
 static int mutate_cmd_hook(void *user, xb_interp *ip,
                            const char *verb, const char *args, int *err_code)
 {

@@ -65,8 +65,8 @@
  *
  * GATED edges (plan sec7 / GAPS secP -- loud-skipped, not asserted):
  *   - SKIP at EOF/BOF: exact error-vs-silent behaviour.
- *   - GO to a record hidden by SET DELETED / SET FILTER (unimplemented in S5.2;
- *     those SET verbs are S5.6).
+ * Direct GO remains physical (Using dBase III Plus.pdf U5-126); TOP/BOTTOM
+ * and SKIP traverse the visible view (U5-229; Programming P10-17/18).
  *
  * Mutation hook (Rule 6 / ARB rider (a)):
  *   Build with -DNAV_MUTATE_SKIP: wa_nav_skip advances by (n + 1) instead of
@@ -246,7 +246,7 @@ void wa_nav_reset(int area)
     ns->master_snap = 0;
 }
 
-int wa_nav_go_top(wa_env *env, int area)
+static int nav_raw_go_top(wa_env *env, int area)
 {
     int master, rc;
     uint32_t nrec;
@@ -291,7 +291,7 @@ int wa_nav_go_top(wa_env *env, int area)
     return (rc == WA_OK) ? NAV_OK : rc;
 }
 
-int wa_nav_go_bottom(wa_env *env, int area)
+static int nav_raw_go_bottom(wa_env *env, int area)
 {
     int master, rc;
     uint32_t nrec;
@@ -329,6 +329,7 @@ int wa_nav_go_bottom(wa_env *env, int area)
 int wa_nav_goto(wa_env *env, int area, uint32_t recno)
 {
     int rc;
+    wa_clear_view_error(env);
 
     if (!env || area < 1 || area > WA_NAREAS)
         return -NAV_ERR_RANGE;
@@ -338,12 +339,19 @@ int wa_nav_goto(wa_env *env, int area, uint32_t recno)
     /* GOTO is always by physical recno regardless of master order.
      * Ref: HELP.DBS @GOTO "go to record number". */
     rc = wa_goto(env, area, recno);
+    if (rc == WA_OK && wa_master_order(env, area)>0) {
+        int err=0;
+        nav_state_t *ns=ensure_seq(env,area,wa_master_order(env,area),&err);
+        uint32_t i;
+        if(!ns) return err;
+        for(i=0;i<ns->seq_len;i++) if(ns->seq[i]==recno) { ns->ord_pos=i; break; }
+    }
     if (rc == -DBF_ERR_BAD_RECNO)
         return -NAV_ERR_RANGE;
     return (rc == WA_OK) ? NAV_OK : rc;
 }
 
-int wa_nav_skip(wa_env *env, int area, int32_t n)
+static int nav_raw_skip(wa_env *env, int area, int32_t n)
 {
     int master, rc;
     uint32_t nrec, cur;
@@ -505,4 +513,71 @@ uint32_t wa_nav_seq_recno(int area, uint32_t ord)
     if (!ns->seq || ord >= ns->seq_len)
         return 0u;
     return ns->seq[ord];
+}
+
+/* Ref: Using dBase III Plus.pdf U5-229, Programming P10-17/18.
+ * Count visible records in either order; direct GO n remains physical.
+ * The filtered BOF cursor clamps to visible TOP: authored, no local reference
+ * golden for its exact physical RECNO; this extends the existing TOP clamp.
+ */
+static int nav_find_visible(wa_env *env, int area, int dir)
+{
+    int rc, visible;
+    while (!wa_eof(env,area)) {
+        visible=wa_visible(env,area);
+        if(visible<0) return visible;
+        if(visible) return NAV_OK;
+        if(dir<0 && wa_bof(env,area)) {
+            wa_nav_set_eof(env,area,1); return NAV_OK;
+        }
+        rc=nav_raw_skip(env,area,dir);
+        if(rc) return rc;
+    }
+    return NAV_OK;
+}
+int wa_nav_go_top(wa_env *env, int area)
+{
+    int rc;
+    wa_clear_view_error(env);
+    rc=nav_raw_go_top(env,area);
+    return rc ? rc : nav_find_visible(env,area,1);
+}
+int wa_nav_go_bottom(wa_env *env, int area)
+{
+    int rc;
+    wa_clear_view_error(env);
+    rc=nav_raw_go_bottom(env,area);
+    return rc ? rc : nav_find_visible(env,area,-1);
+}
+int wa_nav_skip(wa_env *env, int area, int32_t n)
+{
+    int rc, dir=n<0 ? -1 : 1;
+    uint32_t left=n<0 ? (uint32_t)(-(n+1))+1u : (uint32_t)n;
+    if(!env || area<1 || area>WA_NAREAS) return -NAV_ERR_RANGE;
+    if(!wa_is_open(env,area)) return -NAV_ERR_EMPTY;
+    wa_clear_view_error(env);
+    while(left--) {
+        rc=nav_raw_skip(env,area,dir);
+        if(rc) return rc;
+        if(dir<0 && wa_bof(env,area)) {
+            /* Clamp BOF to the first visible record, not hidden physical #1. */
+            rc=wa_nav_go_top(env,area);
+            if(rc) return rc;
+            wa_nav_set_bof(env,area,1);
+            return NAV_OK;
+        }
+        rc=nav_find_visible(env,area,dir);
+        if(rc) return rc;
+        if(dir<0 && wa_bof(env,area)) {
+            /* The hidden prefix can cross BOF inside nav_find_visible.
+             * Ref: corpus system-and-database-functions.md BOF/EOF and
+             * nav.h's existing clamp: before TOP is not past BOTTOM. */
+            rc=wa_nav_go_top(env,area);
+            if(rc) return rc;
+            wa_nav_set_bof(env,area,1);
+            return NAV_OK;
+        }
+        if(wa_eof(env,area)) return NAV_OK;
+    }
+    return NAV_OK;
 }

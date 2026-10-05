@@ -729,6 +729,13 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
     uint32_t pos = 0u;
     int rc;
 
+    /* Ref: Using dBase III Plus.pdf U2-26: asterisk before a deleted record.
+     * Exact marker column is authored, no local reference golden. */
+#ifndef SAMIR_MUTATE_DELETE_MARK
+    rc=wa_record_deleted(env,area);
+    if(rc<0) { if(ec) *ec=29; return -INTERP_ERR_EVAL; }
+    if(rc) q_append_cstr(line,&pos,sizeof(line),"*");
+#endif
     if (!qc->off) {
         q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 8);
         q_append_cstr(line, &pos, sizeof(line), " ");
@@ -794,7 +801,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
  *   - FOR: render only records where FOR is .T., but keep walking.
  * Leaves the pointer at EOF for the multi-record scopes.
  */
-static int q_walk(xb_interp *ip, int area, const query_clauses *qc,
+static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
                   int is_display_default, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -840,7 +847,7 @@ static int q_walk(xb_interp *ip, int area, const query_clauses *qc,
     /* ---- multi-record scopes: establish the start record ---- */
     if (kind == QS_ALL) {
         rc = wa_nav_go_top(env, area);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
     }
     /* QS_REST / QS_NEXT start at the current record (no GO TOP). */
 
@@ -850,6 +857,13 @@ static int q_walk(xb_interp *ip, int area, const query_clauses *qc,
         uint32_t visited = 0u;
 
         while (!wa_eof(env, area)) {
+            rc=wa_visible(env,area);
+            if(rc<0) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+            if(!rc) {
+                rc=wa_nav_skip(env,area,1);
+                if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+                continue;
+            }
             /* NEXT n bounds the number of records VISITED (not matched). */
             if (kind == QS_NEXT && visited >= limit)
                 break;
@@ -877,7 +891,8 @@ static int q_walk(xb_interp *ip, int area, const query_clauses *qc,
                 produced++;
             }
 
-            (void)wa_nav_skip(env, area, 1);   /* advance in the active order */
+            rc=wa_nav_skip(env, area, 1);
+            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }   /* advance in the active order */
         }
         (void)produced;
     }
@@ -960,10 +975,18 @@ static int q_locate_scan(xb_interp *ip, int area, const char *forcond, int has_f
     *matched = 0;
 
     if (!start_here) {
-        (void)wa_nav_skip(env, area, 1);
+        rc=wa_nav_skip(env, area, 1);
+            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
     }
 
     while (!wa_eof(env, area)) {
+        rc=wa_visible(env,area);
+        if(rc<0) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+        if(!rc) {
+            rc=wa_nav_skip(env,area,1);
+            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+            continue;
+        }
         if (max_visits != 0u && visited >= max_visits)
             break;                             /* NEXT n window exhausted: stop */
         visited++;
@@ -983,14 +1006,15 @@ static int q_locate_scan(xb_interp *ip, int area, const char *forcond, int has_f
             /* LOCATE with no FOR: positions on the first record of the scope. */
             *matched = 1; if (ec) *ec = 0; return INTERP_OK;
         }
-        (void)wa_nav_skip(env, area, 1);
+        rc=wa_nav_skip(env, area, 1);
+            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
     }
 
     if (ec) *ec = 0;
     return INTERP_OK;                          /* exhausted: no match, at EOF */
 }
 
-static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
+static int q_locate_impl(xb_interp *ip, query_state *qs, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -1004,10 +1028,10 @@ static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
     kind = qc.scope_kind;
     if (kind == QS_DEFAULT || kind == QS_ALL) {
         rc = wa_nav_go_top(env, area);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
     } else if (kind == QS_RECORD) {
         rc = wa_nav_goto(env, area, qc.scope_n);
-        if (rc != NAV_OK) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
         record_scope = 1;
     }
     /* QS_REST / QS_NEXT scan from the current record. */
@@ -1120,6 +1144,36 @@ static int q_continue(xb_interp *ip, query_state *qs, int *ec)
  * char/FIND, XB_N/XB_D for numeric/date). Resolves the recno via ndx_seek on the
  * master index, positions the area, sets FOUND/EOF. No master index -> #26.
  */
+
+/* Ref: Using III+ U2-35 (FILTER limits FIND/SEEK), U5-215.
+ * Search the matching key range for its first visible record, including
+ * duplicate keys. Compare raw keys with the existing NDX collation; prefix
+ * matching is the corpus mint-results-002 directional SET EXACT OFF rule.
+ */
+typedef struct {
+    wa_env *env;
+    ndx_index *ix;
+    int area, exact, error;
+    uint32_t recno, sig;
+    uint8_t key[256];
+} q_visible_seek;
+static int q_seek_visible_visit(void *user,const uint8_t *key,uint32_t recno)
+{
+    q_visible_seek *v=(q_visible_seek *)user;
+    int match,rc;
+    if(ndx_key_type(v->ix)==0 && !v->exact) {
+        uint32_t i;
+        match=1;
+        for(i=0;i<v->sig;i++) if(key[i]!=v->key[i]) { match=0; break; }
+    } else match=ndx_key_cmp(v->ix,key,v->key)==0;
+    if(!match) return 0;
+    rc=wa_goto(v->env,v->area,recno);
+    if(rc) { v->error=29; return 1; }
+    rc=wa_visible(v->env,v->area);
+    if(rc<0) { v->error=wa_view_error(v->env); return 1; }
+    if(rc) { v->recno=recno; return 1; }
+    return 0;
+}
 static int q_seek_key(xb_interp *ip, const xb_val *key, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -1146,6 +1200,26 @@ static int q_seek_key(xb_interp *ip, const xb_val *key, int *ec)
         return -INTERP_ERR_EVAL;               /* structural index fault */
     }
 
+
+    if(found) {
+        q_visible_seek v;
+        uint32_t len=ndx_key_length(ix),i;
+        rt_memset(&v,0,sizeof(v));
+        v.env=env;v.ix=ix;v.area=area;v.exact=ctx ? ctx->set_exact : 0;
+        if(len>sizeof(v.key)) { if(ec) *ec=10; return -INTERP_ERR_EVAL; }
+        if(ndx_key_type(ix)==0) {
+            v.sig=key->u.c.len<len ? key->u.c.len : len;
+            for(i=0;i<len;i++) v.key[i]=i<v.sig ? (uint8_t)key->u.c.p[i] : ' ';
+            while(v.sig && v.key[v.sig-1]==' ') v.sig--;
+        } else {
+            double num=key->t==XB_D ? key->u.d : key->u.n;
+            rt_memcpy(v.key,&num,8u);
+        }
+        rc=ndx_inorder(ix,q_seek_visible_visit,&v);
+        if(rc<0 || v.error) { if(ec) *ec=v.error ? v.error : 29; return -INTERP_ERR_EVAL; }
+        recno=v.recno;
+        found=recno!=0;
+    }
     if (found && recno >= 1u) {
         rc = wa_nav_goto(env, area, recno);    /* position; clears EOF/BOF */
         if (rc != NAV_OK) {
@@ -1232,7 +1306,7 @@ static int q_go(xb_interp *ip, const char *args, int *ec)
         rc = wa_nav_goto(env, area, n);
     }
     if (rc != NAV_OK) {
-        if (ec) *ec = 5;                   /* #5 "Record is out of range." */
+        if (ec) *ec = wa_view_error(env) ? wa_view_error(env) : 5;
         return -INTERP_ERR_SYNTAX;
     }
     if (ec) *ec = 0;
@@ -1258,7 +1332,10 @@ static int q_skip(xb_interp *ip, const char *args, int *ec)
         n = (int32_t)v;
         if (neg) n = -n;
     }
-    (void)wa_nav_skip(env, area, n);
+    {
+        int rc=wa_nav_skip(env, area, n);
+        if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+    }
     if (ec) *ec = 0;
     return INTERP_OK;
 }
@@ -1277,6 +1354,27 @@ static int q_skip(xb_interp *ip, const char *args, int *ec)
  *          "CONTINUE", "SEEK", "FIND").
  *   args : the remainder of the line (operands), NUL-terminated.
  */
+
+/* Ref: Using III+ U5-215: explicit RECORD/NEXT includes marked records. */
+static int q_walk(xb_interp *ip, int area, const query_clauses *qc, int display, int *ec)
+{
+    wa_env *env=xb_interp_env(ip);
+    int old=wa_include_deleted(env,qc->scope_kind==QS_RECORD || qc->scope_kind==QS_NEXT || (display && qc->scope_kind==QS_DEFAULT));
+    int rc=q_walk_impl(ip,area,qc,display,ec);
+    wa_include_deleted(env,old);
+    return rc;
+}
+static int q_locate(xb_interp *ip, query_state *qs, const char *args, int *ec)
+{
+    query_clauses qc;
+    wa_env *env=xb_interp_env(ip);
+    int old,rc;
+    if(q_split_clauses(args,&qc)) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+    old=wa_include_deleted(env,qc.scope_kind==QS_RECORD || qc.scope_kind==QS_NEXT);
+    rc=q_locate_impl(ip,qs,args,ec);
+    wa_include_deleted(env,old);
+    return rc;
+}
 static int query_cmd_hook(void *user, xb_interp *ip,
                           const char *verb, const char *args, int *err_code)
 {
