@@ -189,6 +189,7 @@ const char *finder_ops_reason(finder_win_status_t st)
     if (st == FINDER_WIN_ERR_CYCLE)   return "cycle";
     if (st == FINDER_WIN_ERR_EXISTS)  return "exists";
     if (st == FINDER_WIN_ERR_SERVICE) return "service";
+    if (st == FINDER_WIN_ERR_LOCKED)  return "locked";
     return "err";
 }
 
@@ -197,6 +198,24 @@ static finder_win_status_t fo_refuse(finder_move_result_t *out,
 {
     out->status = st;
     return st;
+}
+
+/* The icon can predate a lock. Query the binding at the destructive boundary.
+ * Ref: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112
+ * (unlock before discarding); audit L118. No local Finder message reference. */
+typedef struct fo_attr_probe {
+    const char *name;
+    uint8_t attr;
+    int found;
+} fo_attr_probe_t;
+
+static int fo_attr_cb(const finder_dirent_t *e, void *u)
+{
+    fo_attr_probe_t *p = (fo_attr_probe_t *)u;
+    if (!fo_ieq(e->name83, p->name)) return 0;
+    p->attr = e->attribute;
+    p->found = 1;
+    return 1;
 }
 
 /* Remove icon `idx` from a window's model, keeping every other icon exactly
@@ -347,6 +366,18 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
 
     if (is_trash) {
         char as[FINDER_DESK_NAME_MAX];
+#ifndef FINDER_OPS_MUT_LOCKED_STAGE
+        fo_attr_probe_t probe;
+        probe.name = ic.name; probe.attr = 0u; probe.found = 0;
+        if (sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
+            sh->fs.enumerate(sh->fs.user, out->from_dir, fo_attr_cb, &probe) < 0 ||
+            !probe.found)
+            return fo_refuse(out, FINDER_WIN_ERR_ENUM);
+        if ((probe.attr & FINDER_ATTR_READONLY) != 0u)
+            return fo_refuse(out, FINDER_WIN_ERR_LOCKED);
+#else
+        (void)fo_attr_cb; /* Rule 6: permit the old staging regression. */
+#endif
         if (sh->fs.trash_name == (int (*)(void *, const char *, uint16_t,
                                           char *))0)
             return fo_refuse(out, FINDER_WIN_ERR_MOVE);

@@ -153,8 +153,9 @@ int main(int argc, char **argv)
     long w = 0, h = 0, maxv = 0;
     size_t n = (size_t)SCRW * SCRH * 3u;
 
-    if (argc != 3 || (strcmp(argv[1], "alert") != 0 && strcmp(argv[1], "emptied") != 0)) {
-        fprintf(stderr, "usage: %s <alert|emptied> <dump.ppm>\n", argv[0]);
+    if (argc != 3 || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
+                     strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full"))) {
+        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full> <dump.ppm>\n", argv[0]);
         return 2;
     }
     g_leg = argv[1];
@@ -175,7 +176,8 @@ int main(int argc, char **argv)
     fclose(f);
     printf("ppm_flair_trash_check: leg %s on %s\n", g_leg, argv[2]);
 
-    if (strcmp(g_leg, "alert") == 0) {
+    if (strcmp(g_leg, "alert") == 0 || strcmp(g_leg, "locked") == 0 ||
+        strcmp(g_leg, "locked-full") == 0) {
         /* the dBoxProc band on all four sides, mid-edge */
         want(AL_L + AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, left");
         want(AL_R - 1 - AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, right");
@@ -194,10 +196,11 @@ int main(int argc, char **argv)
                  "nothing left of the text column");
         /* the buttons: labels inked; OK carries the default ring, Cancel not */
         want_ink(OK_L + 4, BT_T + 3, OK_R - 4, BT_B - 2, 1, "OK button label");
-        want_ink(CA_L + 4, BT_T + 3, CA_R - 4, BT_B - 2, 1, "Cancel button label");
+        want_ink(CA_L + 4, BT_T + 3, CA_R - 4, BT_B - 2,
+                 strcmp(g_leg, "alert") == 0, "Cancel only in confirmation");
         want((OK_L + OK_R) / 2, BT_T - 3, CIDX_BLACK, "OK default ring (InsetRect -3)");
         want((CA_L + CA_R) / 2, BT_T - 3, CIDX_PLAT_FACE, "Cancel has NO ring");
-        trash_full();
+        if (strcmp(g_leg, "locked") == 0) trash_empty(); else trash_full();
     } else {
         want(AL_L + AL_BORDER / 2, 140, CIDX_WHITE,
              "the alert is gone: its left band repainted by the Trash window content");

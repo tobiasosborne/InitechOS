@@ -125,6 +125,8 @@ _Static_assert(FINDER_ATTR_VOLLABEL == DIR_ATTR_VOLLABEL,
 _Static_assert(FINDER_ATTR_DIRECTORY == DIR_ATTR_DIRECTORY,
                "finder_windows.h FINDER_ATTR_DIRECTORY must equal "
                "spec/dos_structs.h DIR_ATTR_DIRECTORY");
+_Static_assert(FINDER_ATTR_READONLY == DIR_ATTR_READONLY,
+               "Finder lock attribute must equal the DOS read-only bit");
 /* The Finder's service identities (beads initech-tdnl.56/.73/.75) restate
  * desktop_db.h's names; the same tooth, for strings (GCC folds the compare). */
 _Static_assert(__builtin_strcmp(FINDER_SVC_TRASH_NAME, DESKTOP_TRASH_NAME) == 0,
@@ -3405,6 +3407,8 @@ typedef struct finder_surface {
     finder_click_track_t *click;   /* that surface's double-click synthesiser  */
     int                   slot;    /* window slot, or -1 for THE DESKTOP       */
 } finder_surface_t;
+static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                uint16_t items);
 
 static void finder_surface_desktop(finder_surface_t *s)
 {
@@ -3704,6 +3708,8 @@ static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
         serial_puts(" name=");
         serial_puts(r.name);
         serial_putc('\n');
+        if (r.status == FINDER_WIN_ERR_LOCKED)
+            (void)finder_trash_confirm(ctx, bi, 0u);
         return 1;
     }
 
@@ -4081,6 +4087,14 @@ static void fta_rgn(finder_win_rgn_t *s)
 static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                 uint16_t items)
 {
+    /* A zero item count selects the locked-file notice, with only OK.
+     * Behaviour: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf
+     * pp. 83, 88, 112. Geometry: system7-decomp s8_alert_modal.png, above.
+     * Wording authored, no local reference: the corpus has no locked-file
+     * alert capture/string. L118. This notice never authorizes a deletion. */
+    static const char *const locked_text[3] = {
+        "The item is locked.", "Unlock it before", "discarding it."
+    };
     static DialogRecord     dr;
     static DialogItem       it[2 + FINDER_ALERT_LINES];
     static ControlRecord    ok_c, cancel_c;
@@ -4089,37 +4103,51 @@ static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
     uint16_t hit = 0u;
     uint32_t t0;
     int cancel = 0, n, k;
+    int locked = items == 0u;
+    int buttons = locked ? 1 : 2;
 
-    n = finder_trash_alert_text(items, g_finder_shell->trash_bytes, lines);
+    n = locked ? 3 : finder_trash_alert_text(items, g_finder_shell->trash_bytes, lines);
     control_init(&ok_c, pushButton, fta_rect(435, 158, 494, 178), 0, 0, 1, 1, "OK");
     control_init(&cancel_c, pushButton, fta_rect(363, 158, 422, 178), 0, 0, 1, 1,
                  "Cancel");
-    for (k = 0; k < 2 + n; k++) {
-        it[k].type = (k < 2) ? ctrlItem : statText;
-        it[k].ctrl = (k == 0) ? &ok_c : (k == 1 ? &cancel_c : (ControlRecord *)0);
-        it[k].rect = (k < 2) ? it[k].ctrl->contrlRect
-                             : fta_rect(FTA_TEXT_X, FTA_TEXT_Y + 16 * (k - 2),
+    for (k = 0; k < buttons + n; k++) {
+        it[k].type = (k < buttons) ? ctrlItem : statText;
+        it[k].ctrl = (k < buttons) ? (k == 0 ? &ok_c : &cancel_c) : (ControlRecord *)0;
+        it[k].rect = (k < buttons) ? it[k].ctrl->contrlRect
+                             : fta_rect(FTA_TEXT_X, FTA_TEXT_Y + 16 * (k - buttons),
                                         FTA_TEXT_X + FINDER_ALERT_TEXT_W,
-                                        FTA_TEXT_Y + 16 * (k - 1));
-        it[k].text = (k < 2) ? (const char *)0 : lines[k - 2];
-        it[k].enabled = (uint8_t)((k < 2) ? 1 : 0);
+                                        FTA_TEXT_Y + 16 * (k - buttons + 1));
+        it[k].text = (k < buttons) ? (const char *)0 :
+                     (locked ? locked_text[k - buttons] : lines[k - buttons]);
+        it[k].enabled = (uint8_t)((k < buttons) ? 1 : 0);
         it[k]._pad[0] = it[k]._pad[1] = it[k]._pad[2] = 0u;
     }
     fta_rgn(&rs); fta_rgn(&rc); fta_rgn(&ru);
     (void)NewDialog(&dr, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B), "", it,
-                    (uint16_t)(2 + n), 1u /* OK */, 2u /* Cancel */,
+                    (uint16_t)(buttons + n), 1u /* OK */, (uint16_t)buttons,
                     (WindowMgr *)0, &rs.r, &rc.r, &ru.r);
     dr.window.port.portBits.bm = ctx->off;
     dr.window.port.visRgn  = (region_t *)0;
     dr.window.port.clipRgn = (region_t *)0;
     dr.window.port.portRect = region_get_bbox(dr.window.strucRgn);
-    DrawDialog(&dr);
-    flair_desktop_present(bi, &ctx->off);
-    serial_puts("FINDER-TRASH-ALERT n=");
-    serial_putu((uint32_t)items);
-    serial_puts(" k=");
-    serial_putu((g_finder_shell->trash_bytes + 1023u) / 1024u);
-    serial_putc('\n');
+#ifdef KMAIN_MUT_LOCKED_NOTICE
+    /* Keep the marker and protected disk: only the independent pixel oracle
+     * may certify that the notice was actually visible (Rule 6 / Law 2). */
+    if (!locked)
+#endif
+    {
+        DrawDialog(&dr);
+        flair_desktop_present(bi, &ctx->off);
+    }
+    if (locked) {
+        serial_puts("FINDER-LOCKED-ALERT\n");
+    } else {
+        serial_puts("FINDER-TRASH-ALERT n=");
+        serial_putu((uint32_t)items);
+        serial_puts(" k=");
+        serial_putu((g_finder_shell->trash_bytes + 1023u) / 1024u);
+        serial_putc('\n');
+    }
 
     t0 = flair_tick_count();
     for (;;) {
@@ -4152,7 +4180,7 @@ static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
         serial_puts("FINDER-TRASH-EMPTY-CANCEL\n");
         return;
     }
-    (void)finder_shell_empty_trash(g_finder_shell, &purged, &refused, &dirty);
+    finder_win_status_t status = finder_shell_empty_trash(g_finder_shell, &purged, &refused, &dirty);
     finder_desk_repaint(ctx, bi);
     serial_puts("FINDER-TRASH-EMPTIED purged=");
     serial_putu((uint32_t)purged);
@@ -4163,6 +4191,8 @@ static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
         g_finder_db_dirty = 1;
         finder_desk_persist();
     }
+    if (status == FINDER_WIN_ERR_LOCKED)
+        (void)finder_trash_confirm(ctx, bi, 0u);
 }
 
 /* Report + service whatever the command spine's shell hook just did. ONE

@@ -1140,6 +1140,42 @@ static void leg_scroll(void)
           "O11 grow: max 58, value re-clamped to 58, F18 at 308");
 }
 
+/* L118: attributes come from the live binding, after the window was built.
+ * Ref: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112.
+ * The mock move/unlink intentionally do NOT protect a file themselves. */
+static void leg_locked_trash(void)
+{
+    finder_move_result_t r;
+    finder_tgt_t t;
+    uint16_t purged, refused;
+    uint8_t dirty;
+    scene_init(&S);
+    int k = idx_of(&S.sh.windows[ROOT].view, "README.TXT");
+    t = finder_ops_resolve(&S.sh, ROOT, k, 600, 420);
+    S.mock.d[0].e[mv_find(&S.mock.d[0], "README.TXT")].attr |= 1u;
+    CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r) != FINDER_WIN_OK &&
+          strcmp(finder_ops_reason(r.status), "locked") == 0,
+          "L118 locked staging refused from live attributes");
+    CHECK(S.mock.move_calls == 0 && S.mock.unlink_calls == 0 &&
+          mv_has(&S.mock, CL_ROOT, "README.TXT") && S.sh.n_origins == 0,
+          "L118 locked refusal keeps file and origins untouched");
+
+    scene_init(&S);
+    k = idx_of(&S.sh.windows[ROOT].view, "README.TXT");
+    t = finder_ops_resolve(&S.sh, ROOT, k, 600, 420);
+    CHECK(finder_ops_drop(&S.sh, ROOT, k, &t, 0, 0, &r) == FINDER_WIN_OK,
+          "L118 unlocked staging control");
+    S.mock.d[2].e[mv_find(&S.mock.d[2], "README.TXT")].attr |= 1u;
+    mv_add(&S.mock.d[2], "FREE.TXT", 0x20u, 11);
+    CHECK(finder_shell_empty_trash(&S.sh, &purged, &refused, &dirty) == FINDER_WIN_ERR_LOCKED &&
+          purged == 1 && refused == 1,
+          "L118 late lock refused during mixed purge");
+    CHECK(mv_has(&S.mock, CL_TRASH, "README.TXT") &&
+          !mv_has(&S.mock, CL_TRASH, "FREE.TXT") && S.sh.n_origins == 1 &&
+          S.mock.unlink_calls == 1 && S.sh.desk.trash_full,
+          "L118 purge keeps protected item and its origin");
+}
+
 int main(void)
 {
     leg_scroll();
@@ -1156,5 +1192,6 @@ int main(void)
     leg_untrash();
     leg_trash_window();
     leg_empty_trash();
+    leg_locked_trash();
     return TEST_SUMMARY("test_finder_ops");
 }

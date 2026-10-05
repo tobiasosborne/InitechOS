@@ -546,6 +546,7 @@ include spec/flair_fg_close_traces.mk
 include spec/flair_finder_cmds_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
+include spec/flair_protection_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -21393,6 +21394,24 @@ RECORD_SETTLE_i123_files = 400
 # The existing long recording image: 53 frame captures outlive the 30s image.
 RECORD_IMAGE_i123_files = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
+# L118 acceptance clips use fresh local copies of the normal data volume.
+RECORD_SCRIPTS += locked_trash locked_purge
+RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
+RECORD_SPEC_locked_purge = $(FLAIR_EMPTY_OK_SPEC)
+RECORD_MARKER_locked_trash = FINDER-LOCKED-ALERT
+RECORD_MARKER_locked_purge = FINDER-LOCKED-ALERT
+RECORD_IMAGE_locked_trash = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_locked_purge = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_locked_trash = $(BUILD)/record_locked_trash.img
+RECORD_DATA_locked_purge = $(BUILD)/record_locked_purge.img
+RECORD_SETTLE_locked_trash = 200
+RECORD_SETTLE_locked_purge = 200
+$(BUILD)/record_locked_trash.img: $(FLAIR_DATA_IMG)
+	cp -f $< $@
+	mattrib -i $@ +r ::README.TXT
+$(BUILD)/record_locked_purge.img: $(FLAIR_DATA_IMG)
+	cp -f $< $@
+	mattrib -i $@ +r ::APPS/TENANTFX.EXE
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -26508,6 +26527,31 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 # Audit L005/L006: independent whole-image protection oracles.
+.PHONY: test-flair-locked-trash test-flair-locked-purge test-finder-lock-mutant test-flair-locked-trash-mutant
+$(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_LOCKED_STAGE,locked_stage))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_LOCKED_PURGE,locked_purge))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_LOCKED_NOTICE,locked_notice))
+$(BUILD)/test_finder_ops_mutant_locked_purge: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_LOCKED_PURGE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+test-finder-lock-mutant: $(BUILD)/test_finder_ops_mutant_LOCKED_STAGE $(BUILD)/test_finder_ops_mutant_locked_purge
+	@set -e; for pair in 'LOCKED_STAGE:L118 locked staging refused from live attributes' 'locked_purge:L118 late lock refused during mixed purge'; do \
+	  tag=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_finder_ops_mutant_$$tag; \
+	  if $$bin > $$bin.log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
+	  grep -F "$$why" $$bin.log | grep -q FAIL || { cat $$bin.log; exit 1; }; \
+	  printf 'VERDICT: PASS -- Finder mutant %s RED (%s)\n' "$$tag" "$$why"; \
+	done
+test-flair-locked-trash: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_LOCKED_TRASH_SPEC)'
+test-flair-locked-purge: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_EMPTY_OK_SPEC)' _purge purge
+test-flair-locked-trash-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_locked_stage.img $(BUILD)/flair_tenants_mut_locked_notice.img $(BUILD)/flair_tenants_mut_locked_purge.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@set -e; for pair in 'locked_stage:locked file left source:stage' 'locked_notice:locked notice pixels missing:stage' 'locked_purge:visible message missing:purge'; do \
+	  tag=$${pair%%:*}; rest=$${pair#*:}; why=$${rest%:*}; mode=$${rest##*:}; log=$(BUILD)/$$tag.log; \
+	  trace='$(FLAIR_LOCKED_TRASH_SPEC)'; [ $$mode = stage ] || trace='$(FLAIR_EMPTY_OK_SPEC)'; \
+	  if sh harness/diff/fat_diff/locked_trash.sh $(BUILD)/flair_tenants_mut_$$tag.img $(FLAIR_DATA_IMG) "$$trace" _mut_$$tag $$mode > $$log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
+	  grep -F "$$why" $$log || { cat $$log; exit 1; }; \
+	  printf 'VERDICT: PASS -- test-flair-locked-trash-mutant %s RED (%s)\n' "$$tag" "$$why"; \
+	done
 .PHONY: test-shell-permanent
 test-shell-permanent: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
 	@sh harness/diff/fat_diff/shell_permanent.sh $(TRACER_IMG)
@@ -26571,6 +26615,7 @@ test-dos-safety-copy-ro test-dos-safety-del-ro: $(DOS_SAFETY_FIXTURE) $(HARNESS_
 	@sh harness/diff/fat_diff/dos_safety.sh $(patsubst test-dos-safety-%,%,$@) $(SECONDARY_TRACER_IMG)
 
 TEST_UNIT_GATES := \
+	test-finder-lock-mutant \
 	test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro \
 	test-dos-safety-ro-mutant \
 	test-tbx-file test-tbx-file-mutant \
@@ -27689,6 +27734,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(MORE_PROG_MUT_
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
+	test-flair-locked-trash test-flair-locked-purge test-flair-locked-trash-mutant \
 	test-shell-permanent test-shell-permanent-mutant \
 	test-dos-safety-copy-ro test-dos-safety-del-ro \
 	test-dos-safety-copy-ro-mutant test-dos-safety-del-ro-mutant \
