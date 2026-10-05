@@ -1,1 +1,2 @@
 Not copied into the repo: evidence/references (extracts and captures from copyrighted manuals and programs; the originals are at /home/tobias/Projects/initech-manuals-ref and the *-decomp corpora), cell-stress-serial.log (11 MB) and actions.jsonl (3 MB).
+Also not kept in the repo: fixtures/FILLER.BIN and fixtures/DBFILL.BIN (1.4 MB each, disk-filling padding; evidence/fixture-preparation.json says how they were made).
