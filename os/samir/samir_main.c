@@ -414,6 +414,19 @@ static uint32_t repl_word(const char **p, char *tok, uint32_t cap)
  * closes the current database). USE re-uses the SELECTED area; the area is
  * closed first (dBASE USE replaces the open table in the current area).
  */
+/* File suffixes from real DBASE.MSG #56. Device-failure diagnostic is
+ * authored, no local reference. Never label a device fault read-only. */
+static void repl_mutation_error(samir_pal_t *pal, xb_interp *ip, int code)
+{
+    if (code == 1001) pal->conout(pal,"Database write failed: ",23u);
+    else if (code == 56) repl_puts(pal,"56  Disk full when writing file: ");
+    else repl_render_error(pal,code);
+    if (code == 56 || code == 1001) {
+        const char *name=dbf_name(wa_table(xb_interp_env(ip),wa_selected(xb_interp_env(ip))));
+        pal->conout(pal,name,rt_strlen(name)); pal->conout(pal,"\n",1u);
+    }
+}
+
 static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -769,7 +782,7 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
                     repl_render_error(pal, dofile_ec);   /* a load fault (#18/#43/#1) */
                 } else if (dofile_rc != INTERP_OK) {
                     int code = samir_last_error(ip);
-                    repl_render_error(pal, code != 0 ? code : 16);
+                    repl_mutation_error(pal, ip, code != 0 ? code : 16);
                 }
                 continue;                                /* the .prg was handled */
             }
@@ -782,7 +795,7 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         rc = proc_run(ip, s);
         if (rc != INTERP_OK) {
             int code = samir_last_error(ip);
-            repl_render_error(pal, code != 0 ? code : 16);
+            repl_mutation_error(pal, ip, code != 0 ? code : 16);
             /* continue the loop -- a bad line never aborts the session. */
         }
     }

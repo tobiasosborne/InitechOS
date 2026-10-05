@@ -122,6 +122,16 @@
  * exist; the read-only code is command-level, not in eval.h). */
 #define M_MSG_READONLY     111  /* "Cannot write to a read-only file." (catalog #111;
                                  * #41 is ".DBT file cannot be opened." -- fixed 7az.18) */
+/* Catalog #56 and #29 from real DBASE.MSG; #1001 is an internal device
+ * failure, authored, no local reference. Keep it outside catalog ordinals. */
+static int m_write_error(int rc)
+{
+    if (rc == -DBF_ERR_NOSPC) return 56;
+    if (rc == -DBF_ERR_ACCESS) return 29;
+    if (rc == -DBF_ERR_WRITE) return 1001;
+    return M_MSG_READONLY;
+}
+
 /* XBEE_NOT_LOGICAL (#37) and XBEE_MISMATCH (#9) come from eval.h. */
 
 /* Scope kinds (mirror query.c). */
@@ -618,7 +628,7 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
     /* Persist + refresh so the new bytes are visible to resolve + the index key
      * re-evaluation reflects the NEW field value. */
     rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     (void)wa_refresh(env, area, recno);
 
 #ifdef MUTATE_REPLACE_NO_INDEX
@@ -759,14 +769,8 @@ static int m_append(xb_interp *ip, const char *args, int *ec)
      * full-screen editor (no terminal here) -- we accept BLANK only. */
     if (m_match_kw(s, "BLANK") <= 0) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 
-    rc = dbf_append_blank(tbl);
-    if (rc != DBF_OK) {
-        if (rc == -DBF_ERR_IO) { if (ec) *ec = M_MSG_READONLY; }
-        else { if (ec) *ec = 0; }
-        return -INTERP_ERR_EVAL;
-    }
-    rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+    rc = dbf_append_blank_commit(tbl);
+    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
 
     /* APPEND BLANK moves the pointer to the new record (data-definition sec 4). */
     newrec = dbf_nrec(tbl);
@@ -830,7 +834,7 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
             return -INTERP_ERR_EVAL;
         }
         rc = dbf_flush(tbl);
-        if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+        if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
         (void)wa_refresh(env, area, recno);
         if (ec) *ec = 0;
         return INTERP_OK;
@@ -842,7 +846,7 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
         rc = want_delete ? dbf_delete(tbl, mc.scope_n) : dbf_recall(tbl, mc.scope_n);
         if (rc != DBF_OK) { if (ec) *ec = (rc == -DBF_ERR_IO) ? M_MSG_READONLY : 0; return -INTERP_ERR_EVAL; }
         rc = dbf_flush(tbl);
-        if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+        if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
         (void)wa_refresh(env, area, mc.scope_n);
         if (ec) *ec = 0;
         return INTERP_OK;
@@ -894,7 +898,7 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
             if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
         }
         rc = dbf_flush(tbl);
-        if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+        if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
         (void)wa_refresh(env, area, 0u);
     }
     if (ec) *ec = 0;
@@ -968,7 +972,7 @@ static int m_pack(xb_interp *ip, int *ec)
         return -INTERP_ERR_EVAL;
     }
     rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     new_nrec = dbf_nrec(tbl);
 
     /* Refresh the work area's nrec + record cache BEFORE reindexing: the
@@ -1043,7 +1047,7 @@ static int m_zap(xb_interp *ip, int *ec)
         return -INTERP_ERR_EVAL;
     }
     rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = M_MSG_READONLY; return -INTERP_ERR_EVAL; }
+    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     (void)wa_refresh(env, area, 0u);   /* empty -> EOF */
     (void)wa_nav_reset(area);
     if (ec) *ec = 0;

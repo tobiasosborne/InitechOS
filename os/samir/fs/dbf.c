@@ -157,6 +157,8 @@
 /* ---- Opaque table layout (S1.1 fields + S1.2 field array + S1.3 record buf) ---- */
 struct dbf_table {
     samir_pal_t  *pal;        /* the PAL this table was opened through */
+    char          name[260]; /* opened path, for period file diagnostics */
+    uint8_t       write_failed; /* failed rollback: refuse further writes */
     pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
     void         *mark;       /* arena mark taken before alloc; dbf_close unwinds */
 
@@ -320,6 +322,8 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
+    if (rt_strlen(name) >= sizeof(tbl->name)) { pal->reset(pal, mark); return -DBF_ERR_IO; }
+    rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
     tbl->mark = mark;
     tbl->fd   = -1;
 
@@ -1147,6 +1151,8 @@ int dbf_create(samir_pal_t *pal, const char *name,
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
+    if (rt_strlen(name) >= sizeof(tbl->name)) { pal->reset(pal, mark); return -DBF_ERR_IO; }
+    rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
     tbl->mark = mark;
     tbl->fd   = -1;
 
@@ -1264,6 +1270,18 @@ int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
     return DBF_OK;
 }
 
+/* Ref: PAL write contract: shorts mean device full. DBASE.MSG #56.
+ * Device fault wording is authored, no local reference. */
+static int write_result(int32_t wr, uint32_t n)
+{
+    if (wr == (int32_t)n) return DBF_OK;
+    if (wr == -PAL_ENOSPC || wr >= 0) return -DBF_ERR_NOSPC;
+    if (wr == -PAL_EACCES) return -DBF_ERR_ACCESS;
+    return -DBF_ERR_WRITE;
+}
+
+const char *dbf_name(const dbf_table *tbl) { return tbl ? tbl->name : ""; }
+
 int dbf_flush(dbf_table *tbl)
 {
     uint8_t   hdr[DBF_HDR_SIZE];
@@ -1278,6 +1296,7 @@ int dbf_flush(dbf_table *tbl)
 
     if (!tbl)
         return -DBF_ERR_IO;
+    if (tbl->write_failed) return -DBF_ERR_WRITE;
     if (!tbl->writable)
         return -DBF_ERR_IO;   /* read-only (dbf_open) table is not flushable */
 
@@ -1304,7 +1323,7 @@ int dbf_flush(dbf_table *tbl)
     /* Seek to the start; we always rewrite the whole file (TRUNC at create). */
     pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
     if (pos != 0)
-        return -DBF_ERR_IO;
+        return -DBF_ERR_WRITE;
 
     /* --- 32-byte header (dbf.md sec 2). EVERY non-MEANINGFUL byte is 0x00
      * (spec/samir/dbf_normalization.json): 0x0C..0x1F all stay zero from the
@@ -1327,7 +1346,7 @@ int dbf_flush(dbf_table *tbl)
 
     wr = tbl->pal->write(tbl->pal, tbl->fd, hdr, DBF_HDR_SIZE);
     if (wr != (int32_t)DBF_HDR_SIZE)
-        return -DBF_ERR_IO;
+            return write_result(wr, DBF_HDR_SIZE);
 
     /* --- field descriptors (dbf.md sec 4). NORMALIZE bytes (RAM addr 0x0C,
      * work-area 0x14, all reserved) stay 0x00 from the rt_memset. --- */
@@ -1350,21 +1369,21 @@ int dbf_flush(dbf_table *tbl)
 
         wr = tbl->pal->write(tbl->pal, tbl->fd, desc, DBF_DESC_STRIDE);
         if (wr != (int32_t)DBF_DESC_STRIDE)
-            return -DBF_ERR_IO;
+            return write_result(wr, DBF_DESC_STRIDE);
     }
 
     /* --- the lone 0x0D terminator (the +1 form; dbf.md sec 4). --- */
     term = (uint8_t)DBF_DESC_TERMINATOR;
     wr = tbl->pal->write(tbl->pal, tbl->fd, &term, 1u);
     if (wr != 1)
-        return -DBF_ERR_IO;
+            return write_result(wr, 1u);
 
     /* --- the record region: nrec records, record_length bytes each. --- */
     if (tbl->nrec > 0u) {
         uint32_t total = tbl->nrec * (uint32_t)tbl->record_length;
         wr = tbl->pal->write(tbl->pal, tbl->fd, tbl->rec_region, total);
         if (wr != (int32_t)total)
-            return -DBF_ERR_IO;
+            return write_result(wr, total);
     }
 
     /* --- trailing 0x1A EOF byte (S1.4 decision: emit it; dbf.md sec 8 optional;
@@ -1372,13 +1391,13 @@ int dbf_flush(dbf_table *tbl)
     eof = (uint8_t)DBF_EOF_MARKER;
     wr = tbl->pal->write(tbl->pal, tbl->fd, &eof, 1u);
     if (wr != 1)
-        return -DBF_ERR_IO;
+            return write_result(wr, 1u);
 
     /* Reposition to the file start so the table can be read back without
      * re-open (the open handle is RDWR). */
     pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
     if (pos != 0)
-        return -DBF_ERR_IO;
+        return -DBF_ERR_WRITE;
 
     /*
      * initech-jf8p (P1 fix): NOW -- after the whole-file rewrite above fully
@@ -1520,6 +1539,51 @@ int dbf_append_blank(dbf_table *tbl)
 
     tbl->nrec++;
     return DBF_OK;
+}
+
+/* L001: preserve +1/+2 geometry and every earlier record. Only the new
+ * tail can require allocation; publish the count after both tail writes.
+ * Ref: dbf.md ss2/4/6/8. Failure atomicity (including restoring a short
+ * count write) is authored, no local reference; this is not crash recovery. */
+int dbf_append_blank_commit(dbf_table *tbl)
+{
+    uint32_t old, offset;
+    uint8_t count[4], prior[4], eof = DBF_EOF_MARKER;
+    int rc;
+    if (!tbl || tbl->write_failed) return -DBF_ERR_WRITE;
+    old = tbl->nrec;
+    rc = dbf_append_blank(tbl);
+    if (rc != DBF_OK) return rc;
+#ifdef SAMIR_MUTATE_APPEND_REWRITE
+    return dbf_flush(tbl); /* mutant: damages prior records and +2 geometry */
+#endif
+    offset = (uint32_t)tbl->header_length + old * tbl->record_length;
+    if (tbl->pal->seek(tbl->pal,tbl->fd,(int32_t)offset,PAL_SEEK_SET) != (int32_t)offset) {
+        rc = -DBF_ERR_WRITE; goto refused;
+    }
+    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,rec_ptr(tbl,old+1u),tbl->record_length),tbl->record_length);
+    if (rc != DBF_OK) goto refused;
+    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,&eof,1u),1u);
+    if (rc != DBF_OK) goto refused;
+    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF) {
+        rc = -DBF_ERR_WRITE; goto refused;
+    }
+    wr_u32le(prior,old); wr_u32le(count,tbl->nrec);
+    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,count,4u),4u);
+    if (rc == DBF_OK) return DBF_OK;
+#ifndef SAMIR_MUTATE_APPEND_COUNT
+    /* A short four-byte write can tear 255 -> 256. Restore the committed
+     * bytes in the already allocated header sector before returning. */
+    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
+        write_result(tbl->pal->write(tbl->pal,tbl->fd,prior,4u),4u) != DBF_OK) {
+        tbl->write_failed=1u; rc=-DBF_ERR_WRITE;
+    }
+#endif
+refused:
+#ifndef SAMIR_MUTATE_APPEND_MEMORY
+    tbl->nrec=old;
+#endif
+    return rc;
 }
 
 /*

@@ -3088,6 +3088,31 @@ test-samir-query: $(TEST_SAMIR_QUERY)
 	@$(TEST_SAMIR_QUERY) $(DBASE3_DECOMP)
 	@printf ">>> test-samir-query: green\n"
 
+# Audit L001/L003/L007: injected write boundaries and strict owner lifetimes.
+TEST_SAMIR_DBSAFE := $(BUILD)/test_samir_dbsafe
+$(TEST_SAMIR_DBSAFE): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-append-safe test-samir-lifetime test-samir-safety
+test-samir-append-safe test-samir-lifetime test-samir-safety: $(TEST_SAMIR_DBSAFE)
+	@mkdir -p $(BUILD)/dbsafe
+	@case "$@" in *append*) mode=append;; *lifetime*) mode=lifetime;; *) mode=safety;; esac; $(TEST_SAMIR_DBSAFE) $$mode
+	@printf '>>> %s: green\n' '$@'
+
+SAMIR_APPEND_MUTANTS := $(BUILD)/test_samir_append_memory $(BUILD)/test_samir_append_count $(BUILD)/test_samir_append_rewrite
+$(SAMIR_APPEND_MUTANTS): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	@case "$@" in *_memory) flag=SAMIR_MUTATE_APPEND_MEMORY;; *_count) flag=SAMIR_MUTATE_APPEND_COUNT;; *) flag=SAMIR_MUTATE_APPEND_REWRITE;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-append-safe-mutant
+test-samir-append-safe-mutant: $(SAMIR_APPEND_MUTANTS)
+	@mkdir -p $(BUILD)/dbsafe
+	@set -e; for kind in memory count rewrite; do \
+	  case $$kind in memory) reason='L001 in-memory committed count';; count) reason='L001 original header geometry and committed count';; *) reason='L001 prior record bytes untouched';; esac; \
+	  if $(BUILD)/test_samir_append_$$kind append > $(BUILD)/dbsafe/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/dbsafe/mut-$$kind.log; grep -Fq "$$reason" $(BUILD)/dbsafe/mut-$$kind.log; \
+	  printf '>>> test-samir-append-safe-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-append-safe-mutant: green\n'
+
 # Audit K05/K06/K09: manual-grounded REPL sessions (no minted output golden).
 TEST_SAMIR_VIEW := $(BUILD)/test_samir_view
 TEST_SAMIR_USE := $(BUILD)/test_samir_use
@@ -25162,6 +25187,14 @@ $(SAMIR_COM): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM)
 	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
 	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x40100, soft-float, x87=%s)\n' "$$sz" "$$x87"
 
+TEST_SAMIR_DBSAFE_EMU := $(BUILD)/test_samir_dbsafe_emu
+$(TEST_SAMIR_DBSAFE_EMU): $(DBF_DIFF_DIR)/test_samir_dbsafe_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+.PHONY: test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu
+test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+	@case "$@" in *full*) mode=full;; *lifetime*) mode=lifetime;; *) mode=safety;; esac; $(TEST_SAMIR_DBSAFE_EMU) $$mode
+	@printf '>>> %s: green\n' '$@'
+
 TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
@@ -26488,6 +26521,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
+	test-samir-append-safe test-samir-append-safe-mutant \
 	test-tbx-file test-tbx-file-mutant \
 	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
@@ -27604,6 +27638,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
+	test-samir-full-emu \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \
