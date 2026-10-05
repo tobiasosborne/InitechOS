@@ -9593,7 +9593,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h
+TBXGATE_DEPS := os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -9750,7 +9750,7 @@ CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 # The _arrows_dead build is the test-flair-i123-mutant fixture ONLY
 # (-DI123_MUT_ARROWS_DEAD: the pointer never moves), shipped on its own
 # gate-local volume under the same name.
-I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c
+I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c
 I123_APP_DEP := os/i123/core/i123.h spec/i123/wk1_format.h
 $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP)))
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
@@ -21302,6 +21302,14 @@ RECORD_IMAGE_drag_move           = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
 
 .PHONY: record-flair
+# Defined before the recording rule: its prerequisites expand at read time.
+RECORD_SCRIPTS += i123_files
+RECORD_SPEC_i123_files = $(FLAIR_I123_FILES)
+RECORD_MARKER_i123_files = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retrieved x.wk1                                                              " fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_files = 400
+# The existing long recording image: 53 frame captures outlive the 30s image.
+RECORD_IMAGE_i123_files = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -26375,6 +26383,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
+	test-tbx-file test-tbx-file-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
@@ -27537,7 +27546,9 @@ TEST_EMU_GATES := \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
+	test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant \
 	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
+	test-flair-i123-files test-flair-i123-files-mutant test-flair-i123-file-ui test-flair-i123-file-ui-mutant \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
@@ -27606,3 +27617,144 @@ ddc:
 clean:
 	@printf ">>> clean: removing build artifacts under %s/ (keeping README.md)\n" "$(BUILD)"
 	@find $(BUILD) -mindepth 1 ! -name 'README.md' -exec rm -rf {} + 2>/dev/null || true
+
+# initech-tdnl.91: host file validation/ownership; real DOS, mock storage.
+TBX_FILE_DEPS := harness/proptest/test_tbx_file.c os/flair/tbxfile.h spec/toolbox_gate.h $(TEST_FILEIO_DEPS) $(TEST_FILEIO_HDRS)
+$(BUILD)/test_tbx_file: $(TBX_FILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Ios/flair -Ios/milton -Ispec -Ibuild -o $@ harness/proptest/test_tbx_file.c $(TEST_FILEIO_DEPS)
+$(BUILD)/test_tbx_file_mutant_%: $(TBX_FILE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed -Ios/flair -Ios/milton -Ispec -Ibuild -o $@ harness/proptest/test_tbx_file.c $(TEST_FILEIO_DEPS)
+.PHONY: test-tbx-file test-tbx-file-mutant
+test-tbx-file: $(BUILD)/test_tbx_file
+	@$(BUILD)/test_tbx_file
+	@printf '>>> test-tbx-file: green\n'
+test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_OWNER $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_LEAK
+	@for pair in TBX_MUT_FILE_BOUNDS:F2 TBX_MUT_FILE_OWNER:F3 TBX_MUT_FILE_LEAK:F4; do \
+	 m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_tbx_file_mutant_$$m; \
+	 if $$bin > $$bin.log 2>&1; then printf '!!! test-tbx-file-mutant: %s survived\n' $$m; exit 1; fi; \
+	 grep -q "FAIL.*$$why" $$bin.log || { cat $$bin.log; exit 1; }; \
+	 printf '>>> test-tbx-file-mutant: %s correctly RED (%s)\n' $$m $$why; done
+	@printf '>>> test-tbx-file-mutant: green\n'
+
+# initech-tdnl.91: booted C file tenant + independent stopped-disk judgement.
+include spec/flair_file_traces.mk
+$(eval $(call tenant-exe-rules,fileten,os/apps/ctenant/files.c,,))
+FLAIR_FILE_DATA := $(BUILD)/flair_file_data.img
+$(FLAIR_FILE_DATA): $(FLAIR_DATA_IMG) $(BUILD)/tenant/fileten.exe
+	cp -f $(FLAIR_DATA_IMG) $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/fileten.exe ::APPS/CTENANT.EXE
+	@printf 'Gate file bytes\r\n' > $(BUILD)/filekeep.golden
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/filekeep.golden ::KEEP.DAT
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_WRITE_NOOP,file_write))
+$(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_LEAK,file_leak))
+FILE_ROUND_OK = $(call APPL_ALIVE,$(1)) && grep -q 's="FILE ROUNDTRIP OK".* -> 0$$' $(1)
+FILE_REAP_OK = $(call APPL_ALIVE,$(1)) && [ "$$(grep -c 's="FILE OPEN FIFTEEN OK".* -> 0$$' $(1))" = 2 ] && [ "$$(grep -c '^TENANT-FILES reclaimed=15 live=0$$' $(1))" = 2 ]
+.PHONY: test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant
+test-flair-files: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_FILE_DATA)
+	$(call appl-boot,flair_files,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_ROUND,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call FILE_ROUND_OK,$(BUILD)/flair_files.serial) || { printf '!!! test-flair-files FAIL: tenant file roundtrip\n'; grep 'FILE .*FAILED' $(BUILD)/flair_files.serial; exit 1; }
+	mcopy -i $(BUILD)/flair_files_data.img ::KEEP.DAT $(BUILD)/filekeep.actual
+	@cmp $(BUILD)/filekeep.golden $(BUILD)/filekeep.actual
+	@if mdir -i $(BUILD)/flair_files_data.img ::DELE.DAT > /dev/null 2>&1; then printf '!!! test-flair-files FAIL: deleted file exists\n'; exit 1; fi
+	fsck.fat -n $(BUILD)/flair_files_data.img
+	@printf '>>> test-flair-files: green (tenant reread + mtools bytes/delete + fsck.fat)\n'
+test-flair-files-mutant: test-flair-files $(BUILD)/flair_tenants_mut_file_write.img
+	$(call appl-boot,flair_files_mut,$(BUILD)/flair_tenants_mut_file_write.img,$(FLAIR_FILE_DATA),FLAIR_FILE_ROUND,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_files_mut.serial) && grep -q 's="FILE READ FAILED"' $(BUILD)/flair_files_mut.serial
+	mcopy -o -i $(BUILD)/flair_files_mut_data.img ::KEEP.DAT $(BUILD)/filekeep.mutant
+	@if cmp -s $(BUILD)/filekeep.golden $(BUILD)/filekeep.mutant; then printf '!!! test-flair-files-mutant FAIL: disk bytes survived mutant\n'; exit 1; fi
+	@printf '>>> test-flair-files-mutant: green (WRITE_NOOP correctly RED: reread and mtools bytes)\n'
+test-flair-files-reap: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_FILE_DATA)
+	$(call appl-boot,flair_files_quit,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_QUIT,)
+	$(call appl-boot,flair_files_close,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_CLOSE,)
+	$(call appl-boot,flair_files_crash,$(FLAIRTENANTS_IMG),$(FLAIR_FILE_DATA),FLAIR_FILE_CRASH,)
+	@for leg in quit close crash; do $(call FILE_REAP_OK,$(BUILD)/flair_files_$$leg.serial) || { printf '!!! test-flair-files-reap FAIL: %s\n' $$leg; exit 1; }; fsck.fat -n $(BUILD)/flair_files_$${leg}_data.img || exit 1; done
+	@grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_files_quit.serial
+	@grep -qx 'TENANT-EXIT rc=0 via=close' $(BUILD)/flair_files_close.serial
+	@grep -qx 'TENANT-EXIT rc=-1 via=crash' $(BUILD)/flair_files_crash.serial
+	@printf '>>> test-flair-files-reap: green (twice fifteen opens: quit, close, crash with damaged PSP)\n'
+test-flair-files-reap-mutant: test-flair-files-reap $(BUILD)/flair_tenants_mut_file_leak.img
+	$(call appl-boot,flair_files_leak,$(BUILD)/flair_tenants_mut_file_leak.img,$(FLAIR_FILE_DATA),FLAIR_FILE_QUIT,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_files_leak.serial) && grep -q 's="FILE OPEN LIMIT FAILED"' $(BUILD)/flair_files_leak.serial && grep -q '^TENANT-GATE ax=0x0081.* -> -260$$' $(BUILD)/flair_files_leak.serial
+	@printf '>>> test-flair-files-reap-mutant: green (FILE_LEAK correctly RED: second launch exhausts SFT)\n'
+
+# initech-tdnl.91 slice 2: Save/Quit/Retrieve and independent real WK1.
+include spec/flair_i123_file_traces.mk
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=500,i123_file_gate))
+FLAIR_I123_FILE_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_file_gate.img
+FLAIR_I123_FILE_DATA := $(BUILD)/flair_i123_file_data.img
+$(FLAIR_I123_FILE_DATA): $(FLAIR_DATA_IMG) $(LOTUS123_DECOMP)/goldens/minted/MINT01.WK1
+	cp -f $(FLAIR_DATA_IMG) $@
+	cp -f $(LOTUS123_DECOMP)/goldens/minted/MINT01.WK1 $(BUILD)/i123-corpus-original.WK1
+	cmp $(LOTUS123_DECOMP)/goldens/minted/MINT01.WK1 $(BUILD)/i123-corpus-original.WK1
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-corpus-original.WK1 ::MINT01.WK1
+	@printf '\000\000\002\000\004\004' > $(BUILD)/i123-bad.WK1
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-bad.WK1 ::BAD.WK1
+I123_FILE_ROWS = grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_ROW1)" fg=1 bg=0 -> 0'
+I123_DISK_CELLS = grep -q "LABEL.*c0 r0 label=.*Hello" $(1) && grep -Eq 'INTEGER.*c1 r0 int=123$$' $(1) && grep -Eq 'NUMBER.*c2 r0 num=1\.5$$' $(1) && grep -Eq 'INTEGER.*c3 r0 int=-7$$' $(1) && grep -q 'consumed=.* OK$$' $(1)
+.PHONY: test-flair-i123-files test-flair-i123-files-mutant
+test-flair-i123-files: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_FILE_DATA) $(PPM_REGION_COUNT_BIN)
+	$(call appl-boot,flair_i123_files,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_FILES,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_files.serial) && [ "$$(grep -c '^TENANT-REGISTER ok app=123$$' $(BUILD)/flair_i123_files.serial)" = 2 ] && grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_i123_files.serial || { printf '!!! test-flair-i123-files FAIL: launch/quit/relaunch\n'; exit 1; }
+	@mcopy -o -i $(BUILD)/flair_i123_files_data.img ::X.WK1 $(BUILD)/i123-saved.WK1 || { printf '!!! test-flair-i123-files FAIL: Save did not create X.WK1\n'; exit 1; }
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-saved.WK1 > $(BUILD)/i123-saved.ref
+	@$(call I123_DISK_CELLS,$(BUILD)/i123-saved.ref) || { printf '!!! test-flair-i123-files FAIL: independent WK1 cells\n'; cat $(BUILD)/i123-saved.ref; exit 1; }
+	@$(call I123_FILE_ROWS,$(BUILD)/flair_i123_files.serial) || { printf '!!! test-flair-i123-files FAIL: retrieved cells\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_files.ppm,34 126 106 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-files FAIL: cells not presented\n'; exit 1; }
+	fsck.fat -n $(BUILD)/flair_i123_files_data.img
+	$(call appl-boot,flair_i123_corpus,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_CORPUS,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_corpus.serial) && $(call I123_FILE_ROWS,$(BUILD)/flair_i123_corpus.serial) && grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=80 .* fg=1 bg=0 -> 0$$' $(BUILD)/flair_i123_corpus.serial | tail -1 | grep -q 's="     246    117\.5 39\.16666 big *"' || { printf '!!! test-flair-i123-files FAIL: real MINT01 rows vs screenshot\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_corpus.ppm,250 142 322 158,4 112)); [ "$$2" -ge 900 ] || { printf '!!! test-flair-i123-files FAIL: corpus pointer/cells not presented\n'; exit 1; }
+	@mcopy -o -i $(BUILD)/flair_i123_corpus_data.img ::MINT01.WK1 $(BUILD)/i123-corpus-after.WK1
+	@cmp $(BUILD)/i123-corpus-original.WK1 $(BUILD)/i123-corpus-after.WK1
+	@printf '>>> test-flair-i123-files: green (Save/Quit/Retrieve + wk1_ref.py + real MINT01 screenshot rows/pixels)\n'
+
+# These expectations come from manual pp. 1-13/14, 5-1 and the RI strings;
+# refusal/error wording is authored, no local reference.
+I123_UI_OK = $(call APPL_ALIVE,$(1)) && grep -qF 's="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit' $(1) && grep -qF 's="Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin' $(1) && grep -q 'x=1 y=16 s="Command not implemented' $(1) && grep -qF 's="Name of file to retrieve: A:\*.wk1' $(1)
+.PHONY: test-flair-i123-file-ui test-flair-i123-file-ui-mutant
+test-flair-i123-file-ui: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_FILE_DATA)
+	$(call appl-boot,flair_i123_file_ui,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_FILE_UI,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call I123_UI_OK,$(BUILD)/flair_i123_file_ui.serial) || { printf '!!! test-flair-i123-file-ui FAIL: menu/prompt/visible refusal\n'; exit 1; }
+	$(call appl-boot,flair_i123_file_error,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_FILE_ERROR,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_file_error.serial) && $(call I123_FILE_ROWS,$(BUILD)/flair_i123_file_error.serial) && grep -q 's="File not found' $(BUILD)/flair_i123_file_error.serial || { printf '!!! test-flair-i123-file-ui FAIL: error visible and old sheet retained\n'; exit 1; }
+	$(call appl-boot,flair_i123_file_bad,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_FILE_BAD,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_file_bad.serial) && $(call I123_FILE_ROWS,$(BUILD)/flair_i123_file_bad.serial) && grep -q 's="Not a valid WK1 file' $(BUILD)/flair_i123_file_bad.serial || { printf '!!! test-flair-i123-file-ui FAIL: malformed Retrieve preserved old sheet after repaint\n'; exit 1; }
+	$(call appl-boot,flair_i123_cancel,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_CANCEL,)
+	@mcopy -o -i $(BUILD)/flair_i123_cancel_data.img ::MINT01.WK1 $(BUILD)/i123-cancel.WK1
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_cancel.serial) && grep -q 's="Cancel  Replace  Backup' $(BUILD)/flair_i123_cancel.serial && cmp $(BUILD)/i123-corpus-original.WK1 $(BUILD)/i123-cancel.WK1 || { printf '!!! test-flair-i123-file-ui FAIL: overwrite Cancel\n'; exit 1; }
+	$(call appl-boot,flair_i123_replace,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_REPLACE,)
+	@mcopy -o -i $(BUILD)/flair_i123_replace_data.img ::MINT01.WK1 $(BUILD)/i123-replace.WK1
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-replace.WK1 > $(BUILD)/i123-replace.ref
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_replace.serial) && grep -q "LABEL.*c0 r0 label=.*Changed" $(BUILD)/i123-replace.ref || { printf '!!! test-flair-i123-file-ui FAIL: overwrite Replace\n'; exit 1; }
+	fsck.fat -n $(BUILD)/flair_i123_replace_data.img
+	@printf '>>> test-flair-i123-file-ui: green (reference menus/prompts, visible refusal/error, Cancel/Replace judged by mtools)\n'
+
+$(eval $(call tenant-exe-rules,i123_save_empty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_SAVE_EMPTY,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_command_silent,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_COMMAND_SILENT,$(I123_APP_DEP)))
+$(BUILD)/flair_i123_file_mut_%.img: $(FLAIR_I123_FILE_DATA) $(BUILD)/tenant/i123_%.exe
+	cp -f $(FLAIR_I123_FILE_DATA) $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/i123_$*.exe ::APPS/123.EXE
+
+test-flair-i123-files-mutant: test-flair-i123-files $(BUILD)/flair_i123_file_mut_save_empty.img
+	$(call appl-boot,flair_i123_files_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_save_empty.img,FLAIR_I123_FILES,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_files_mut.serial) && [ "$$(grep -c '^TENANT-REGISTER ok app=123$$' $(BUILD)/flair_i123_files_mut.serial)" = 2 ] && grep -q 's="Retrieved x.wk1' $(BUILD)/flair_i123_files_mut.serial
+	@mcopy -o -i $(BUILD)/flair_i123_files_mut_data.img ::X.WK1 $(BUILD)/i123-saved-mutant.WK1
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-saved-mutant.WK1 > $(BUILD)/i123-saved-mutant.ref
+	@grep -q 'consumed=.* OK$$' $(BUILD)/i123-saved-mutant.ref
+	@if $(call I123_DISK_CELLS,$(BUILD)/i123-saved-mutant.ref) || $(call I123_FILE_ROWS,$(BUILD)/flair_i123_files_mut.serial); then printf '!!! test-flair-i123-files-mutant FAIL: SAVE_EMPTY survived\n'; exit 1; fi
+	@if grep -Eq '^ +(LABEL|INTEGER|NUMBER|FORMULA) +len=' $(BUILD)/i123-saved-mutant.ref; then printf '!!! test-flair-i123-files-mutant FAIL: wrong RED reason (want no cells in valid file)\n'; exit 1; fi
+	@printf '>>> test-flair-i123-files-mutant: green (SAVE_EMPTY correctly RED: independent saved cells and retrieved row absent; valid WK1, desktop alive)\n'
+
+test-flair-i123-file-ui-mutant: test-flair-i123-file-ui $(BUILD)/flair_i123_file_mut_command_silent.img $(BUILD)/flair_i123_file_mut_get_clobber.img
+	$(call appl-boot,flair_i123_ui_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_command_silent.img,FLAIR_I123_FILE_UI,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_ui_mut.serial) && grep -qF 's="Name of file to retrieve: A:\*.wk1' $(BUILD)/flair_i123_ui_mut.serial
+	@if $(call I123_UI_OK,$(BUILD)/flair_i123_ui_mut.serial); then printf '!!! test-flair-i123-file-ui-mutant FAIL: COMMAND_SILENT survived\n'; exit 1; fi
+	@if grep -q 'x=1 y=16 s="Command not implemented' $(BUILD)/flair_i123_ui_mut.serial; then printf '!!! test-flair-i123-file-ui-mutant FAIL: wrong RED reason\n'; exit 1; fi
+	@printf '>>> test-flair-i123-file-ui-mutant: green (COMMAND_SILENT correctly RED: no refusal after /Worksheet; file prompt and desktop intact)\n'
+	$(call appl-boot,flair_i123_get_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_get_clobber.img,FLAIR_I123_FILE_BAD,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_get_mut.serial) && grep -q 's="Not a valid WK1 file' $(BUILD)/flair_i123_get_mut.serial
+	@if $(call I123_FILE_ROWS,$(BUILD)/flair_i123_get_mut.serial); then printf '!!! test-flair-i123-file-ui-mutant FAIL: GET_CLOBBER survived\n'; exit 1; fi
+	@printf '>>> test-flair-i123-file-ui-mutant: green (GET_CLOBBER correctly RED: malformed file refused, old cells lost on repaint, desktop alive)\n'
+
+$(eval $(call tenant-exe-rules,i123_get_clobber,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_GET_CLOBBER,$(I123_APP_DEP)))

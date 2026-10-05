@@ -491,6 +491,12 @@ typedef struct int21_file_backend {
  * the FAT12 backend after a successful mount; the host oracle binds a mock. */
 void int21_set_file_backend(const int21_file_backend_t *backend);
 
+/* Kernel adapters that expose DATA files must reserve the same device names
+ * OPEN resolves first (including drive/path/extension normalization).
+ * Ref: int21.c dev_open_lookup; MS-DOS 3.3 Technical Reference Ch. 4.
+ * Caller must supply a validated, bounded ASCIZ path. initech-tdnl.91. */
+int int21_path_is_device(const char *path);
+
 /* Kernel-resident COMMAND.COM COPY guard: compare two OPEN handles' resolved
  * identities on the mounted volume (parent directory + physical entry slot).
  * No path-text heuristics; invalid handles and distinct devices are different.

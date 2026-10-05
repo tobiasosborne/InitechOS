@@ -158,6 +158,22 @@ int32_t tbx_exit(int32_t rc)
     return tbx_trap(TBX_EXIT, TBX_ARGC_EXIT, a);
 }
 
+/* Ref: spec/toolbox_gate.h Sec 10, deliberately extended in initech-tdnl.91. */
+int32_t tbx_file_create(const char *path)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE,1,a); }
+int32_t tbx_file_open(const char *path, uint32_t mode)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)path, mode }; return tbx_trap(TBX_FILE_OPEN,2,a); }
+int32_t tbx_file_read(int32_t h, void *buf, uint32_t n)
+{ uint32_t a[] = { (uint32_t)h, (uint32_t)(uintptr_t)buf, n }; return tbx_trap(TBX_FILE_READ,3,a); }
+int32_t tbx_file_write(int32_t h, const void *buf, uint32_t n)
+{ uint32_t a[] = { (uint32_t)h, (uint32_t)(uintptr_t)buf, n }; return tbx_trap(TBX_FILE_WRITE,3,a); }
+int32_t tbx_file_seek(int32_t h, int32_t delta, uint32_t origin)
+{ uint32_t a[] = { (uint32_t)h, (uint32_t)delta, origin }; return tbx_trap(TBX_FILE_SEEK,3,a); }
+int32_t tbx_file_close(int32_t h)
+{ uint32_t a[] = { (uint32_t)h }; return tbx_trap(TBX_FILE_CLOSE,1,a); }
+int32_t tbx_file_delete(const char *path)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_DELETE,1,a); }
+
 /* ---- the four routines gcc may call on its own (struct copies, zeroing).
  * Built with -fno-tree-loop-distribute-patterns so these loops are never
  * turned back into calls to themselves. ---------------------------------- */

@@ -2151,6 +2151,11 @@ int int21_directory_exists(const char *path)
         g_file->resolve_dir(path, g_cwd_start_cluster, &dir, 0, 0u) == 0u;
 }
 
+int int21_path_is_device(const char *path)
+{
+    return dev_open_lookup(path) != 0;
+}
+
 static void do_open(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
