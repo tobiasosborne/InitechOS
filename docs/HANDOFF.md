@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-04 06:40, session close (**WL-0093: FOUR HANDS-ON DESKTOP AUDITS (41 findings; all four window-system P0s fixed and certified, cert 367 host + 144 emu at 37334ee), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-10-05 02:05 (**WL-0094: MENUS REACH DISK APPS, THE TRASH WORKS, INITECH 123 OPENS FROM THE FINDER AS A C DISK APPLICATION, COPY/DEL DATA LOSS FIXED, FIFTH AUDIT, PHYSICAL-EDITION RESEARCH; cert 376 host + 173 emu at 7030e2f -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-04 06:40, session close (**WL-0093: FOUR HANDS-ON DESKTOP AUDITS (41 findings; all four window-system P0s fixed and certified, cert 367 host + 144 emu at 37334ee), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -203,8 +203,51 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
-> **CURRENT STATE (2026-10-04, WL-0093 -- THE DESKTOP WAS DRIVEN BY A STRANGER AND FOUND WANTING.
+> **CURRENT STATE (2026-10-05 02:05, WL-0094 -- THE FIRST REAL APPLICATION RUNS FROM DISK.
 > Supersedes every CURRENT STATE block below for "what to do next".)**
+>
+> **Certificate:** ALL GREEN 376 host + 173 emu at 7030e2f (first-person, `make clean && make
+> test` in the clean sibling checkout `../initech-os-cert`, 2026-10-05 01:16-01:58). Binding
+> kernel headroom 11,160 B (floor 4,096).
+>
+> **Operator directives 2026-10-04 (`bd memories operator-directives-2026-10-04`):** work up to
+> 5 points OVER pace on Claude and Codex (was: under); Opus codes, Sonnet does busywork, NO Fable
+> subagents, Codex gpt-6.1-sol for computer use, gpt-6-astra occasionally for hard cognition and
+> creative computer use, 2-3 agents; sync quota and machine load with any peer session. Clips at
+> 37334ee approved. No opinion on band-1 Quit (tdnl.50): the PM rules. NEW PRODUCT GOAL: big
+> boxes and big manuals for every product (epic initech-gtge, research in `docs/packaging/`,
+> 15 operator decisions waiting in its Sec 9; original manuals at
+> `/home/tobias/Projects/initech-manuals-ref/`, outside the public repo).
+>
+> **Landed tonight (all on main, see WL-0094):** menu choices reach disk applications
+> (tdnl.31: TBX_EVT_MENU push, DRAWMENUBAR 0x0052); the Trash opens as a window and Empty Trash
+> works (tdnl.39, 6k12); **Initech 123 opens from the Finder as `123.EXE`, a C disk application**
+> (9u8w + w96l: worksheet core, `.WK1` codec byte-exact on 44/44 real 1-2-3 files, the reusable
+> C tenant path `os/apps/tbx/`, TBX_DRAWCELLS 0x0033); COPY/DEL data loss fixed (audit K01-K04,
+> K15); Bochs runs are serialized host-wide (d9tt); `test-makefile-vars`. Fifth audit:
+> `docs/audits/2026-10-04-flair-gui-codex-pass5/` (K01-K15 + TRIAGE.md, beads label
+> `audit-2026-10-pass5`).
+>
+> **How lanes ran tonight (keep doing this):** Opus lanes in `.claude/worktrees/` must export
+> the corpus paths (and `test-samir` is RED there, initech-ehz4); Codex lanes run in sibling
+> clones `../initech-os-<name>` with `INITECH_QMP_STDIO=1`, cannot run Bochs or write `.git`
+> (commits come back as `build/lane.bundle`); the PM re-runs every lane's gates on the merged
+> tree, then the full certificate in `../initech-os-cert`. Do NOT wrap Bochs gates in flock(1)
+> any more (the harness locks itself). Two lanes that touch the same data disk WILL break each
+> other's locked traces at the merge: re-run the Finder / Trash / app-launch family after every
+> merge.
+>
+> **NEXT:** (1) whatever of the three in-flight Codex jobs has not merged (see the addendum
+> below or WL-0094 Pointers): the database fixes (hw4j, 3t55, nds1, xrbj), Toolbox Gate file
+> verbs + Initech 123 Retrieve/Save (tdnl.91), the astra full-system drive and its triage.
+> (2) The rest of audit pass 5: j1lu (Ctrl-C/Ctrl-Z), oqiu (DIR operands), 68lh / jzhh (wildcard
+> REN / COPY), anf6 (HELLO/NOTES dead commands), u78k (missing database commands).
+> (3) tdnl.78 Restart / Shut Down; tdnl.82-.86 scroll findings; tdnl.87 / .88 (alert caution
+> icon, buttons act on release). (4) I123 P2 formulas (94ah); IWORD P1 (l4tj).
+> **Owed to the operator:** the Law-4 eyeball of the five new clips (tenant_menu, trash_window,
+> empty_trash, ctenant_keys, i123_typing) in `build/clips/`.
+>
+> **PREVIOUS STATE (2026-10-04, WL-0093 -- THE DESKTOP WAS DRIVEN BY A STRANGER AND FOUND WANTING.)**
 >
 > **Operator, 2026-10-03:** still unhappy with the window system. The bar: it must look really
 > awesome for the 90s and have every feature a user of the time expected. Computer use is the
