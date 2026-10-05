@@ -88,7 +88,7 @@ int main(int argc,char **argv)
         keys("samir\nuse clients\nuse clients.dbf\nlist for bal > 1000\nset filter to bal > 1000\ngo top\nlist\nset filter to bal > 7000\ngo top\nskip -1\ndisplay\ngo 2\nset filter to\ngo top\ndelete\ndisplay\nlist\nset deleted on\ngo top\nlist\nset deleted off\ngo top\nrecall\nlist\nuse absent\nquit\nexit\n",keybuf,sizeof(keybuf));
     }
     command("fsck.fat -n build/samir-audit/emu.img > build/samir-audit/fsck-before.log");
-    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_boot.img --disk2 build/samir-audit/emu.img --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-audit/emu.stdout 2> build/samir-audit/emu.report",mode,keybuf);
+    snprintf(cmd,sizeof(cmd),"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/samir-audit/emu.img --name samir_audit_%s --out build --timeout-ms 60000 --keys '%s' --keys-after SHELL-READY --quit-after SHELL-DONE > build/samir-audit/emu.stdout 2> build/samir-audit/emu.report",mode,keybuf);
     command(cmd);
     snprintf(cmd,sizeof(cmd),"build/samir_audit_%s.serial",mode);
     n=read_file(cmd,raw,sizeof(raw));

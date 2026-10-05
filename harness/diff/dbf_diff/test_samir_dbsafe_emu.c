@@ -1,6 +1,8 @@
 /* Audit L001/L003/L007 target gate. Real FAT disk judged by mtools/fsck.fat
  * and dbf_ref.py, never by SAMIR alone. Ref: Using III+ U7-7/U5-284.
  * Full-disk refusal atomicity and scripted EOF abort: authored, no local reference.
+ * Boots the SECONDARY shell image: the script ends with EXIT and waits for
+ * SHELL-DONE, and EXIT at the permanent primary shell is ignored (initech-pbru).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,8 +61,10 @@ int main(int argc,char **argv){
     int full=!strcmp(mode,"full"),life=!strncmp(mode,"lifetime",8),desktop=strstr(mode,"desktop")!=NULL,z;
     {
         char directory[]="build/dbsafe/emu-XXXXXX",from[2048];
-        const char *links[]={"qemu_harness","tracer_boot.img","flair_tenants_interactive.img","CLIENTS.DBF"};
+        const char *links[]={"qemu_harness","tracer_secondary.img","flair_tenants_interactive.img","CLIENTS.DBF"};
         CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
+        /* The gate must not depend on another gate having made build/dbsafe. */
+        (void)mkdir("build",0755);(void)mkdir("build/dbsafe",0755);
         CHECK(mkdtemp(directory)!=NULL,"private emulator directory");
         printf("oracle artifacts: %s/%s\n",project_root,directory);
         if(com[0]=='/')snprintf(com_path,sizeof com_path,"%s",com);
@@ -93,7 +97,7 @@ int main(int argc,char **argv){
     run("mcopy -o -i build/dbsafe/emu.img build/dbsafe/DRIVE.BAT ::DRIVE.BAT");
     if(full)fill();
     run("fsck.fat -n build/dbsafe/emu.img > build/dbsafe/fsck-before.log");
-    snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_boot.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys 'd,r,i,v,e,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode);
+    snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys 'd,r,i,v,e,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode);
     if(desktop){
         keyscript("use clients.dbf\nselect 2\nuse clients.dbf\nuse other.dbf\nselect 1\nuse\nselect 2\nlist\nselect 1\nuse clients.dbf\nclose databases\nselect 2\nuse other.dbf\nselect 1\nuse clients.dbf\nquit\n\\use clients.dbf\nlist\nquit\n",keys,sizeof keys);
         snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/flair_tenants_interactive.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys '%s' --keys-after FLAIR-LIVE-READY --expect FLAIR-RESUME --screendump --screendump-after FLAIR-RESUME > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode,keys);

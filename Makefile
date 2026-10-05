@@ -25253,7 +25253,7 @@ TEST_SAMIR_DBSAFE_EMU := $(BUILD)/test_samir_dbsafe_emu
 $(TEST_SAMIR_DBSAFE_EMU): $(DBF_DIFF_DIR)/test_samir_dbsafe_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu
-test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
 	@case "$@" in *full*) mode=full;; *lifetime*) mode=lifetime;; *) mode=safety;; esac; $(TEST_SAMIR_DBSAFE_EMU) $$mode
 	@printf '>>> %s: green\n' '$@'
 
@@ -25268,17 +25268,17 @@ $(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_LD_
 	$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
 	$(OBJCOPY) -O binary $$dir/SAMIR.elf $@
 .PHONY: test-samir-full-emu-mutant test-samir-lifetime-emu-mutant test-samir-safety-emu-mutant
-test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@if $(TEST_SAMIR_DBSAFE_EMU) full $(BUILD)/SAMIR_DBSAFE_full.COM > $(BUILD)/dbsafe/emu-mut-full.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L001 table reopens in guest' $(BUILD)/dbsafe/emu-mut-full.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-full.log
 	@printf '>>> test-samir-full-emu-mutant: green (header-first rewrite correctly RED)\n'
-test-samir-lifetime-emu-mutant: $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-lifetime-emu-mutant: $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime $(BUILD)/SAMIR_DBSAFE_lifetime.COM > $(BUILD)/dbsafe/emu-mut-lifetime.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-lifetime.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-lifetime.log
 	@printf '>>> test-samir-lifetime-emu-mutant: green (duplicate USE correctly RED)\n'
-test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@if $(TEST_SAMIR_DBSAFE_EMU) safety $(BUILD)/SAMIR_DBSAFE_safety.COM > $(BUILD)/dbsafe/emu-mut-safety.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L007 N preserves all records' $(BUILD)/dbsafe/emu-mut-safety.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-safety.log
