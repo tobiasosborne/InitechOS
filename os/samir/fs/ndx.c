@@ -204,8 +204,7 @@ struct ndx_index {
     char     path[NDX_PATH_MAX];
 
     /* Arena management. */
-    void    *arena_mark;      /* mark before this struct; ndx_close resets here */
-    void    *last_node_mark;  /* mark before last ndx_read_node alloc; freed by
+    void    *last_node;  /* mark before last ndx_read_node alloc; freed by
                                * ndx_node_free. Only valid while one node is live. */
 };
 
@@ -308,7 +307,6 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
     int       rc;
     uint8_t   page0[NDX_PAGE_SIZE];
     ndx_index *idx;
-    void      *mark;
     uint32_t   expr_i;
 
     *out = (ndx_index *)0;
@@ -390,13 +388,10 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
             return -NDX_ERR_BAD_ROOT;
         }
 
-        /* Allocate ndx_index from PAL arena.
-         * Mark is saved BEFORE the alloc so ndx_close can free everything. */
-        mark = pal->alloc(pal, 0u);   /* get current bump pointer as mark */
-        idx  = (ndx_index *)pal->alloc(pal, (uint32_t)sizeof(ndx_index));
+        /* Independently owned index; arbitrary close order is safe. */
+        idx  = (ndx_index *)pal->acquire(pal, (uint32_t)sizeof(ndx_index));
         if (!idx) {
             pal->close(pal, fd);
-            pal->reset(pal, mark);
             return -NDX_ERR_OOM;
         }
         rt_memset(idx, 0, sizeof(ndx_index));
@@ -404,8 +399,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         idx->pal            = pal;
         idx->fd             = fd;
         idx->writable       = writable;
-        idx->arena_mark     = mark;
-        idx->last_node_mark = (void *)0;
+        idx->last_node = (void *)0;
         idx->root_page      = root_page;
         idx->total_pages    = total_pages;
         idx->reserved       = reserved;
@@ -433,7 +427,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         while (name[p] != '\0') {
             if (p + 1u >= (uint32_t)NDX_PATH_MAX) {
                 pal->close(pal, fd);
-                pal->reset(pal, mark);
+                pal->release(pal,idx);
                 return -NDX_ERR_IO;
             }
             idx->path[p] = name[p];
@@ -465,7 +459,8 @@ int ndx_close(ndx_index *idx)
     if (!idx)
         return NDX_OK;
     idx->pal->close(idx->pal, idx->fd);
-    idx->pal->reset(idx->pal, idx->arena_mark);
+    if(idx->last_node) idx->pal->release(idx->pal,idx->last_node);
+    idx->pal->release(idx->pal,idx);
     return NDX_OK;
 }
 
@@ -518,7 +513,7 @@ const char *ndx_key_expr  (const ndx_index *idx) { return idx->key_expr;      }
  *   Under mutation every parsed child/recno/key mismatches golden -> RED.
  *
  * Allocates ndx_node_t + ndx_entry_t array + key_data copies from PAL arena.
- * The arena mark before alloc is stored in idx->last_node_mark for ndx_node_free.
+ * The arena mark before alloc is stored in idx->last_node for ndx_node_free.
  * Callers MUST call ndx_node_free before opening the next node.
  *
  * Ref: ndx.md ss3 (node header byte-check CUSTOMER count=5 filler=0x5543,
@@ -540,7 +535,6 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     uint32_t    trail_off;
     uint32_t    trail_child;
     uint32_t    i;
-    void       *node_mark;
 
 #ifndef NDX_MUTATE_SUBLAYOUT
     /* Correct sub-layout per ndx.md ss3.1 / spec/samir/ndx_format.h NDX_GRP_*:
@@ -597,13 +591,12 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
         return -NDX_ERR_PAGE_OVF;
 
     /* Allocate ndx_node_t + entry array + key_data pool from PAL arena.
-     * Save mark for ndx_node_free to unwind.
+     * ndx_node_free releases only this node.
      * Layout in arena:
      *   [sizeof(ndx_node_t) base + (entry_count-1)*sizeof(ndx_entry_t) flex tail]
      *   [entry_count * key_length bytes: raw key_data copies]
      * entries[0] is embedded in ndx_node_t; entries[1..n-1] extend beyond it.
      * If entry_count==0 the node_struct_size stays sizeof(ndx_node_t). */
-    node_mark = idx->pal->alloc(idx->pal, 0u);   /* current mark */
 
     node_struct_size = (uint32_t)sizeof(ndx_node_t);
     if (entry_count > 1u)
@@ -612,10 +605,9 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
 
     keys_total = (uint32_t)entry_count * (uint32_t)idx->key_length;
 
-    node = (ndx_node_t *)idx->pal->alloc(idx->pal,
+    node = (ndx_node_t *)idx->pal->acquire(idx->pal,
                                           node_struct_size + keys_total);
     if (!node) {
-        idx->pal->reset(idx->pal, node_mark);
         return -NDX_ERR_OOM;
     }
     rt_memset(node, 0, node_struct_size + keys_total);
@@ -637,7 +629,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
         /* Sanity: key_data region must fit in the page (checked per entry under
          * mutation since key_off_in_grp is shifted by +4). */
         if (base + key_off_in_grp + key_len > (uint32_t)NDX_PAGE_SIZE) {
-            idx->pal->reset(idx->pal, node_mark);
+            idx->pal->release(idx->pal,node);
             return -NDX_ERR_PAGE_OVF;
         }
 
@@ -663,8 +655,8 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     }
     node->trail_child = trail_child;
 
-    /* Store the mark for ndx_node_free. */
-    idx->last_node_mark = node_mark;
+    /* Remember the node for close cleanup. */
+    idx->last_node = node;
 
     *node_out = node;
     return NDX_OK;
@@ -677,17 +669,16 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
 /*
  * ndx_node_free: release PAL arena memory for NODE.
  *
- * Resets the arena to idx->last_node_mark, unwinding the node allocation.
+ * Releases only this independently allocated node.
  * NODE (and all key_data pointers in it) is invalid after this call.
  * Must be called before the next ndx_read_node on the same IDX.
  */
 void ndx_node_free(ndx_index *idx, ndx_node_t *node)
 {
-    (void)node;    /* opaque; all the info we need is in idx->last_node_mark */
-    if (!idx || !idx->last_node_mark)
+    if (!idx || !idx->last_node)
         return;
-    idx->pal->reset(idx->pal, idx->last_node_mark);
-    idx->last_node_mark = (void *)0;
+    idx->pal->release(idx->pal, node);
+    idx->last_node = (void *)0;
 }
 
 /* -----------------------------------------------------------------------

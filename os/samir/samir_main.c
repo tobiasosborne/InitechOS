@@ -497,6 +497,10 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     }
 #endif
 
+#ifndef SAMIR_MUTATE_DUPLICATE_OPEN
+    /* Ref: Using III+ U7-7, #3. Refuse before closing the selected area. */
+    if (wa_name_is_open(env,file,area)) { if(ec)*ec=3;return -INTERP_ERR_EVAL; }
+#endif
     /* dBASE USE replaces the table in the current area: close it first. */
     wa_nav_reset(area);
     wa_close(env, area);
@@ -513,7 +517,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
          * we map to the user-facing catalog ordinal. */
         if (ec) {
 #ifndef SAMIR_MUTATE_USE_ERROR
-            *ec = rc == -DBF_ERR_NOENT ? 1 :
+            *ec = rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
                   (rc == -DBF_ERR_ACCESS || rc == -DBF_ERR_IO) ? 29 : 15;
 #else
             *ec = 15;

@@ -55,6 +55,8 @@
  * none). memo_buf is per-resolve scratch for a memo field's text.
  */
 struct work_area {
+    samir_pal_t *owner_pal;
+    void *owned;
     char         filter[257];          /* Using III+ U5-229: per-area condition */
     int          open;                 /* 1 if a table is open here */
     dbf_table   *tbl;                  /* the .dbf codec handle */
@@ -357,8 +359,44 @@ samir_pal_t *wa_env_pal(const wa_env *env)
 static int wa_alloc_caches(wa_env *env, work_area *wa, uint16_t reclen);
 
 /* close_handles: close the codec handles of an open area, in reverse order. */
+/* Ref: Using dBase III Plus.pdf U7-7: opening an already open file is #3.
+ * DOS spelling folds case/separators and dot components. Lexical matching is
+ * authored, no local reference for host symlinks (not a DOS filename feature). */
+static void name_key(const char *s,char *key)
+{
+    uint32_t len=0u;
+    if(s[0] && s[1]==':')s+=2;
+    while(*s){
+        const char *start;uint32_t n,i;
+        while(*s=='/' || *s=='\\')s++;
+        start=s;while(*s && *s!='/' && *s!='\\')s++;
+        n=(uint32_t)(s-start);
+        if(!n || (n==1u && start[0]=='.'))continue;
+        if(n==2u && start[0]=='.' && start[1]=='.'){
+            while(len && key[len-1]!='/')len--;
+            if(len)len--;
+            continue;
+        }
+        if(len && len<259u)key[len++]='/';
+        for(i=0;i<n && len<259u;i++)key[len++]=up1(start[i]);
+    }
+    key[len]='\0';
+}
+int wa_name_is_open(const wa_env *env,const char *name,int except_area)
+{
+    char key[260],other[260];int a;
+    if(!env || !name)return 0;
+    name_key(name,key);
+    for(a=1;a<=WA_NAREAS;a++)if(a!=except_area && env->area[a-1].open){
+        name_key(dbf_name(env->area[a-1].tbl),other);
+        if(rt_strncmp(key,other,260u)==0)return 1;
+    }
+    return 0;
+}
+
 static void close_handles(work_area *wa)
 {
+    if(wa->owner_pal) pal_owned_free(wa->owner_pal,&wa->owned);
     int k;
     for (k = wa->nidx - 1; k >= 0; k--) {
         if (wa->idx[k]) {
@@ -415,6 +453,9 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
     if (wa->open)
         return -WA_ERR_OCCUPIED;       /* caller must CLOSE first (fail loud) */
 
+#ifndef SAMIR_MUTATE_DUPLICATE_OPEN
+    if(wa_name_is_open(env,name,area)) return -WA_ERR_ALREADY_OPEN;
+#endif
     pal = env->pal;
 
     /* --- open the .dbf (read-only or read-write per `rw`) --- */
@@ -529,10 +570,11 @@ int wa_set_open_rw(wa_env *env, int area, const char *name,
 static int wa_alloc_caches(wa_env *env, work_area *wa, uint16_t reclen)
 {
     samir_pal_t *pal = env->pal;
-    wa->rec_cache = (xb_val *)pal->alloc(pal,
+    wa->owner_pal=pal;
+    wa->rec_cache = (xb_val *)pal_owned_alloc(pal,&wa->owned,
         (uint32_t)sizeof(xb_val) * (uint32_t)(wa->nfields > 0 ? wa->nfields : 1));
-    wa->rec_bytes = (char *)pal->alloc(pal, reclen > 0 ? (uint32_t)reclen : 1u);
-    wa->memo_buf  = (char *)pal->alloc(pal, WA_MEMO_BUF_CAP);
+    wa->rec_bytes = (char *)pal_owned_alloc(pal,&wa->owned, reclen > 0 ? (uint32_t)reclen : 1u);
+    wa->memo_buf  = (char *)pal_owned_alloc(pal,&wa->owned, WA_MEMO_BUF_CAP);
     if (!wa->rec_cache || !wa->rec_bytes || !wa->memo_buf)
         return -WA_ERR_NOMEM;
     wa->rec_bytes_len = (uint32_t)reclen;
@@ -568,6 +610,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
     rc = wa_alloc_caches(env, wa, dbf_record_length(tbl));
     if (rc != WA_OK) {
         /* On failure the caller still owns the handles -- detach + fail loud. */
+        pal_owned_free(env->pal,&wa->owned);
         wa->tbl  = (dbf_table *)0;
         wa->memo = (dbt_file *)0;
         wa->nrec = 0u;

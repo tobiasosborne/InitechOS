@@ -41,6 +41,8 @@ SECTIONS
     .rodata : { *(.rodata*) }
     .data   : { *(.data*) }
 
+    _samir_load_end = .;
+
     /* .bss is NOLOAD: it occupies address space (so .data/.bss do not overlap
      * the program's runtime BSS) but objcopy -O binary emits NO zero-fill for
      * it -- the .COM file stays text+rodata+data sized, and samir_crt0 zeroes
@@ -53,6 +55,12 @@ SECTIONS
     }
 
     _samir_image_end = .;
+    /* Ref: spec/memory_map.h PROGRAM_BSS_RESERVE=64 KiB and ENV_BLOCK.
+     * PAL requests 36 KiB plus paragraph/MCB overhead. Authored heap split,
+     * no local reference. Fail build before BSS can overlap the AH=48h arena. */
+    ASSERT(__bss_end - __bss_start <= 0x10000, "SAMIR BSS exceeds loader reserve")
+    ASSERT(_samir_load_end + 0x10000 + 0x9000 + 0x20 <= 0x6F000,
+           "SAMIR image leaves insufficient PAL memory")
 
     /DISCARD/ : {
         *(.comment)

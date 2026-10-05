@@ -24,10 +24,11 @@ static struct {
     const char *script[32]; int line;
     char out[16384]; size_t used;
     int armed, boundary, hit, calls, seek_fault, short_kind, error;
-    void *live_mark; int reset_bad, closes, opens;
+    void *live_mark; int reset_bad, closes, opens, objects;
 } c;
+static uint32_t test_heap_size=4u*1024u*1024u;
 static const char *path="build/dbsafe/FAULT.DBF";
-static pal_fd op(samir_pal_t *p,const char *s,int m){(void)p;c.opens++;return c.inner->open(c.inner,s,m);}
+static pal_fd op(samir_pal_t *p,const char *s,int m){pal_fd fd;(void)p;fd=c.inner->open(c.inner,s,m);if(fd>=0)c.opens++;return fd;}
 static int cl(samir_pal_t *p,pal_fd f){(void)p;c.closes++;return c.inner->close(c.inner,f);}
 static int32_t rd(samir_pal_t *p,pal_fd f,void *b,uint32_t n){(void)p;return c.inner->read(c.inner,f,b,n);}
 static int32_t wr(samir_pal_t *p,pal_fd f,const void *b,uint32_t n){
@@ -71,12 +72,15 @@ static void rs(samir_pal_t *p,void *m){
     if(at) memset(at,0xa5,(size_t)(end-at));
     c.inner->reset(c.inner,m);
 }
+static void *ac(samir_pal_t *p,uint32_t n){void *b;(void)p;b=c.inner->acquire(c.inner,n);if(b)c.objects++;return b;}
+static void fr(samir_pal_t *p,void *b){(void)p;if(b)c.objects--;c.inner->release(c.inner,b);}
 static samir_pal_t *setup(void){
     struct pal_host_cfg cfg={85,10,30,4*1024*1024};
+    cfg.heap_size=test_heap_size;
     memset(&c,0,sizeof c);c.inner=pal_host_make(cfg);c.error=PAL_ENOSPC;
     c.p.open=op;c.p.close=cl;c.p.read=rd;c.p.write=wr;c.p.seek=sk;
     c.p.remove=rmf;c.p.rename=rn;c.p.conout=co;c.p.conin_line=ci;
-    c.p.today=td;c.p.alloc=al;c.p.reset=rs;
+    c.p.today=td;c.p.alloc=al;c.p.reset=rs;c.p.acquire=ac;c.p.release=fr;
     return &c.p;
 }
 static void put16(unsigned char *b,unsigned n){b[0]=n;b[1]=n>>8;}
@@ -128,26 +132,62 @@ static void append_tests(void){
     }
     for(err=PAL_EACCES;err<=PAL_EIO;err+=PAL_EIO-PAL_EACCES)append_case(2,0,1,0,err);
 }
+static void copy_local(const char *source,const char *dest){
+    FILE *a=fopen(source,"rb"),*b=fopen(dest,"wb");char buf[8192];size_t n;
+    CHECK(a && b,"byte-identical local corpus copy opened");
+    if(a && b)while((n=fread(buf,1,sizeof buf,a))!=0)CHECK(fwrite(buf,1,n,b)==n,"local corpus copy written");
+    if(a)fclose(a);
+    if(b)fclose(b);
+}
+static void codec_lifetimes(samir_pal_t *p){
+    dbt_file *ma=NULL,*mb=NULL;ndx_index *ia=NULL,*ib=NULL;ndx_node_t *node=NULL;
+    unsigned char block[512]={1};FILE *f=fopen("build/dbsafe/A.DBT","wb");
+    CHECK(f!=NULL,"empty memo fixture");if(f){fwrite(block,1,sizeof block,f);fclose(f);}
+    copy_local("/home/tobias/Projects/dbase3-decomp/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX","build/dbsafe/CNAMES.NDX");
+    CHECK(dbt_open(p,"build/dbsafe/A.DBT",0,&ma)==0,"L003 first memo open");
+    CHECK(ndx_open_rw(p,"build/dbsafe/CNAMES.NDX",&ia)==0,"L003 first index open (local corpus copy)");
+    CHECK(dbt_open(p,"build/dbsafe/A.DBT",0,&mb)==0,"L003 second memo open");
+    CHECK(ndx_open(p,"build/dbsafe/CNAMES.NDX",&ib)==0,"L003 second index open");
+    dbt_close(ma);ndx_close(ia);
+    CHECK(dbt_next_free(mb)==1,"L003 memo survives unrelated close");
+    CHECK(ndx_read_node(ib,ndx_root_page(ib),&node)==0,"L003 surviving index node readable");
+    ndx_node_free(ib,node);dbt_close(mb);ndx_close(ib);
+    CHECK(c.objects==0,"L003 codec buffers reclaimed independently");
+}
 static void lifecycle_tests(void){
-    samir_pal_t *p=setup();wa_env *env;int first,second,i,rc;
+    samir_pal_t *p;wa_env *env;int first,second,i,rc;
+    test_heap_size=32768u;p=setup();
     fixture("build/dbsafe/A.DBF",1,3);fixture("build/dbsafe/B.DBF",2,3);
+    codec_lifetimes(p);
     c.ip=xb_interp_make(p);env=xb_interp_env(c.ip);
     for(first=1;first<=2;first++){
         second=3-first;
-        CHECK(wa_set_open_rw(env,first,"build/dbsafe/A.DBF",NULL,NULL)==0,"L003 first open");
+        rc=wa_set_open_rw(env,first,"build/dbsafe/A.DBF",NULL,NULL);
+        CHECK(rc==0,"L003 first open");if(rc)break;
+        /* A later scratch owner also must survive persistent codec CLOSE. */
+        p->alloc(p,32u);
         CHECK(wa_set_open_rw(env,second,"build/dbsafe/B.DBF",NULL,NULL)==0,"L003 second distinct open");
         c.live_mark=c.inner->alloc(c.inner,0);
         wa_close(env,first);
         CHECK(dbf_nrec(wa_table(env,second))==3,"L003 newer area survives older CLOSE");
         c.live_mark=NULL;wa_close(env,second);
         for(i=0;i<60;i++){
-            CHECK(wa_set_open_rw(env,first,"build/dbsafe/A.DBF",NULL,NULL)==0,"L003 reclaimed open");
-            rc=wa_set_open_rw(env,second,"build/dbsafe/a.dbf",NULL,NULL);
-            CHECK(rc!=0,"L003 duplicate refused before allocation");
-            CHECK(wa_table(env,second)==NULL,"L003 duplicate leaves area closed");wa_close_all(env);
+            rc=wa_set_open_rw(env,first,"build/dbsafe/A.DBF",NULL,NULL);
+            CHECK(rc==0,"L003 reclaimed open");if(rc)break;
+            rc=wa_set_open_rw(env,second,"build/dbsafe/A.DBF",NULL,NULL);
+            CHECK(rc==-WA_ERR_ALREADY_OPEN,"L003 exact duplicate refused");
+            rc=wa_set_open_rw(env,second,"./build/dbsafe/a.dbf",NULL,NULL);
+            CHECK(rc==-WA_ERR_ALREADY_OPEN,"L003 duplicate refused before allocation");
+            CHECK(wa_table(env,second)==NULL,"L003 duplicate leaves area closed");
+            rc=wa_set_open_rw(env,second,"build/dbsafe/MISSING.DBF",NULL,NULL);
+            CHECK(rc==-DBF_ERR_NOENT,"L003 failed open leaves older area usable");
+            CHECK(dbf_nrec(wa_table(env,first))==3,"L003 failed cleanup preserves older table");
+            wa_close_all(env);
         }
     }
     CHECK(c.reset_bad==0,"L003 no invalid arena rewind");
+    CHECK(c.objects==0,"L003 repeated work-area closes reclaim buffers");
+    CHECK(c.opens==c.closes,"L003 all handles closed exactly once");
     xb_interp_free(c.ip);pal_host_free(c.inner);
 }
 static void safety_case(const char *answer,int off,unsigned expected){

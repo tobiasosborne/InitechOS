@@ -198,6 +198,18 @@ int main(void)
               "open() on removed file must return -(PAL_ENOENT)");
     }
 
+    /* L003: allocator is independent of scratch and coalesces arbitrary frees.
+     * Authored allocator invariant, no local reference. */
+    {
+        unsigned char *a=p->acquire(p,128u),*b=p->acquire(p,128u);
+        CHECK(a && b,"owned allocations available");
+        if(a && b){
+            memset(b,0x5a,128u);p->release(p,a);p->reset(p,NULL);
+            CHECK(b[0]==0x5a && b[127]==0x5a,"scratch reset and older release preserve live owner");
+            p->release(p,b);a=p->acquire(p,4000u);
+            CHECK(a!=NULL,"owned free blocks coalesced for reuse");p->release(p,a);
+        }
+    }
     pal_host_free(p);
 
     return TEST_SUMMARY("test_samir_pal_host");

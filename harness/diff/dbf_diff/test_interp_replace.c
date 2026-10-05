@@ -501,8 +501,7 @@ static void test_master_key_drift(samir_pal_t *pal)
     }
 
     xb_interp_free(ip);
-    ndx_close(ix);
-    /* tbl is owned by the area; xb_interp_free closed it via wa_close_all. */
+    /* Both tbl and ix are owned by the area; wa_close_all closed them. */
     remove(pa);
     remove(pix);
 }

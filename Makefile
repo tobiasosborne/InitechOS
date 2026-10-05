@@ -3113,6 +3113,21 @@ test-samir-append-safe-mutant: $(SAMIR_APPEND_MUTANTS)
 	done
 	@printf '>>> test-samir-append-safe-mutant: green\n'
 
+SAMIR_LIFETIME_MUTANTS := $(BUILD)/test_samir_lifetime_reset $(BUILD)/test_samir_lifetime_duplicate $(BUILD)/test_samir_lifetime_heap
+$(SAMIR_LIFETIME_MUTANTS): $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	@case "$@" in *_reset) flag=SAMIR_MUTATE_OWNER_RESET;; *_heap) flag=SAMIR_MUTATE_HEAP_FREE;; *) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-lifetime-mutant
+test-samir-lifetime-mutant: $(SAMIR_LIFETIME_MUTANTS)
+	@mkdir -p $(BUILD)/dbsafe
+	@set -e; for kind in reset duplicate heap; do \
+	  case $$kind in reset) reason='L003 reset cannot cross a live owner';; heap) reason='L003 reclaimed open';; *) reason='L003 exact duplicate refused';; esac; \
+	  if $(BUILD)/test_samir_lifetime_$$kind lifetime > $(BUILD)/dbsafe/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/dbsafe/mut-$$kind.log; grep -Fq "$$reason" $(BUILD)/dbsafe/mut-$$kind.log; \
+	  printf '>>> test-samir-lifetime-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-lifetime-mutant: green\n'
+
 # Audit K05/K06/K09: manual-grounded REPL sessions (no minted output golden).
 TEST_SAMIR_VIEW := $(BUILD)/test_samir_view
 TEST_SAMIR_USE := $(BUILD)/test_samir_use
@@ -25175,7 +25190,7 @@ SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
 SAMIR_COM       := $(BUILD)/SAMIR.COM
 .PHONY: samir-com
 samir-com: $(SAMIR_COM)
-$(SAMIR_COM): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com && mkdir -p $(BUILD)/samir_com
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -25194,6 +25209,33 @@ $(TEST_SAMIR_DBSAFE_EMU): $(DBF_DIFF_DIR)/test_samir_dbsafe_emu.c | $(BUILD)
 test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
 	@case "$@" in *full*) mode=full;; *lifetime*) mode=lifetime;; *) mode=safety;; esac; $(TEST_SAMIR_DBSAFE_EMU) $$mode
 	@printf '>>> %s: green\n' '$@'
+
+# Rule 6 target mutants compile the SAME engine with one named regression.
+SAMIR_DBSAFE_MUT_COMS := $(BUILD)/SAMIR_DBSAFE_full.COM $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/SAMIR_DBSAFE_safety.COM
+$(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_LD_SCRIPT) $(SAMIR_CRT0_ASM) | $(BUILD)
+	@set -e; kind=$$(basename $@ .COM | sed 's/SAMIR_DBSAFE_//'); \
+	case $$kind in full) flag=SAMIR_MUTATE_APPEND_REWRITE;; lifetime) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; safety) flag=SAMIR_MUTATE_ZAP_SAFETY;; esac; \
+	dir=$(BUILD)/samir_dbsafe_$$kind; mkdir -p $$dir; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$dir/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$dir/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
+	$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
+	$(OBJCOPY) -O binary $$dir/SAMIR.elf $@
+.PHONY: test-samir-full-emu-mutant test-samir-lifetime-emu-mutant test-samir-safety-emu-mutant
+test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) full $(BUILD)/SAMIR_DBSAFE_full.COM > $(BUILD)/dbsafe/emu-mut-full.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+	@grep -Fq 'L001 table reopens in guest' $(BUILD)/dbsafe/emu-mut-full.log
+	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-full.log
+	@printf '>>> test-samir-full-emu-mutant: green (header-first rewrite correctly RED)\n'
+test-samir-lifetime-emu-mutant: $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime $(BUILD)/SAMIR_DBSAFE_lifetime.COM > $(BUILD)/dbsafe/emu-mut-lifetime.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-lifetime.log
+	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-lifetime.log
+	@printf '>>> test-samir-lifetime-emu-mutant: green (duplicate USE correctly RED)\n'
+test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) safety $(BUILD)/SAMIR_DBSAFE_safety.COM > $(BUILD)/dbsafe/emu-mut-safety.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+	@grep -Fq 'L007 N preserves all records' $(BUILD)/dbsafe/emu-mut-safety.log
+	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-safety.log
+	@printf '>>> test-samir-safety-emu-mutant: green (missing confirmation correctly RED)\n'
 
 TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
@@ -25245,7 +25287,7 @@ test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_E
 SAMIR_COM_MUT   := $(BUILD)/SAMIR_MUT.COM
 .PHONY: samir-com-mutant
 samir-com-mutant: $(SAMIR_COM_MUT)
-$(SAMIR_COM_MUT): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_MUT): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_mut && mkdir -p $(BUILD)/samir_com_mut
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_mut/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -25503,7 +25545,7 @@ endef
 SAMIR_COM_DROPWRITE := $(BUILD)/SAMIR_DROPWRITE.COM
 .PHONY: samir-com-dropwrite
 samir-com-dropwrite: $(SAMIR_COM_DROPWRITE)
-$(SAMIR_COM_DROPWRITE): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_DROPWRITE): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_dropwrite && mkdir -p $(BUILD)/samir_com_dropwrite
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dropwrite/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -25745,7 +25787,7 @@ $(Y2KACCT_PRG): $(Y2KACCT_PRG_SRC) | $(BUILD)
 SAMIR_COM_DOTRUNC := $(BUILD)/SAMIR_DOTRUNC.COM
 .PHONY: samir-com-dotrunc
 samir-com-dotrunc: $(SAMIR_COM_DOTRUNC)
-$(SAMIR_COM_DOTRUNC): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_DOTRUNC): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_dotrunc && mkdir -p $(BUILD)/samir_com_dotrunc
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dotrunc/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -26521,7 +26563,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
-	test-samir-append-safe test-samir-append-safe-mutant \
+	test-samir-append-safe test-samir-append-safe-mutant test-samir-lifetime test-samir-lifetime-mutant \
 	test-tbx-file test-tbx-file-mutant \
 	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
@@ -27638,7 +27680,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
-	test-samir-full-emu \
+	test-samir-full-emu test-samir-full-emu-mutant test-samir-lifetime-emu test-samir-lifetime-emu-mutant \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \

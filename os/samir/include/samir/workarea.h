@@ -175,6 +175,7 @@ typedef enum {
     WA_ERR_NOMEM     = 7,  /* PAL arena exhausted building the area / cache */
     WA_ERR_IO        = 8,  /* a dbf/dbt/ndx open or read failed (detail in the
                             * propagated codec code when wa_set_open returns it) */
+    WA_ERR_ALREADY_OPEN = 20, /* real DBASE.MSG #3, Using III+ U7-7 */
     WA_ERR_NO_ALIAS  = 9   /* wa_select_alias: no open area carries that alias */
 } wa_err;
 
@@ -263,6 +264,7 @@ samir_pal_t *wa_env_pal(const wa_env *env);
  *
  * Ref: dbf.h dbf_open/dbf_has_memo; dbt.h dbt_open; ndx.h ndx_open; plan S5.1.
  */
+int wa_name_is_open(const wa_env *env, const char *name, int except_area);
 int wa_set_open(wa_env *env, int area, const char *name,
                 const char *alias, const wa_index_list *idx);
 

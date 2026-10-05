@@ -560,8 +560,9 @@ static void check_corpus_tier1(samir_pal_t *pal, const char *base)
     CHECK(rc == DBT_OK, "tier1: read TRAVEL block 1");
     rc  = dbt_read(src, 2u, &buf2, &len2);
     CHECK(rc == DBT_OK, "tier1: read TRAVEL block 2");
-    dbt_close(src);
-    src = (dbt_file *)0;
+    /* Keep the independent source owner live through every byte comparison.
+     * dbt_close invalidates its buffers; the old bump allocator hid this test's
+     * use-after-close until L003 added poisoned, independently owned storage. */
 
     if (!buf1 || !buf2) return;
 
@@ -627,6 +628,7 @@ static void check_corpus_tier1(samir_pal_t *pal, const char *base)
     }
 
     dbt_close(chk);
+    dbt_close(src);
 }
 
 /* ====================================================================

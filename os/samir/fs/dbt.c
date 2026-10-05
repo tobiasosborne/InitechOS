@@ -11,7 +11,7 @@
  *   - dbt_open   : open the .dbt; read + validate block-0 header; store the
  *                  LE uint32 next-free-block pointer; keep the PAL handle open.
  *                  Opens PAL_RD (read-only); writable flag = 0.
- *   - dbt_close  : close the PAL handle and reset the arena mark.
+ *   - dbt_close  : close the PAL handle and release its owned buffers.
  *   - dbt_read   : seek to blockno*512; read forward until 0x1A 0x1A across
  *                  consecutive 512-byte blocks; return arena-allocated buffer.
  *   - dbt_next_free : accessor for the block-0 pointer.
@@ -115,9 +115,7 @@ struct dbt_file {
     uint32_t     next_free;    /* block-0 next-available-block (LE uint32) */
     int          writable;     /* 0 = read-only (dbt_open); 1 = writable (dbt_create)
                                 * S2.2: dbt_append fails loud if writable==0. */
-    void        *arena_mark;   /* arena mark taken just BEFORE the struct alloc;
-                                * reset to this on dbt_close to free the struct
-                                * plus any per-call buffers the caller freed too */
+    void        *owned; /* buffers reclaimed only when this memo closes */
 };
 
 /* -----------------------------------------------------------------------
@@ -141,7 +139,6 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
     int32_t   fsize;
     uint8_t   hdr[4];         /* the 4-byte next-free field */
     uint32_t  next_free;
-    void     *mark;
 
     *out = (dbt_file *)0;
 
@@ -184,15 +181,8 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
               | ((uint32_t)hdr[2] << 16)
               | ((uint32_t)hdr[3] << 24);
 
-    /* Allocate the handle from the arena.
-     * Take the PRECISE mark BEFORE the alloc so dbt_close unwinds ONLY what this
-     * .dbt allocated -- NOT the caller's prior allocations. pal->alloc(pal, 0)
-     * returns the current bump pointer without consuming space (same idiom as
-     * dbf.c / ndx.c); resetting to NULL would free a live interpreter's ctx when
-     * a memo-bearing table is closed (initech-7az.5 found this). Ref: pal.h
-     * alloc/reset; plan Sec 2.B "fixed arena, no malloc on Milton". */
-    mark = pal->alloc(pal, 0u);   /* current arena mark (zero alloc) */
-    f = (dbt_file *)pal->alloc(pal, (uint32_t)sizeof(dbt_file));
+    /* Persistent memo storage is disjoint from scratch reset (L003). */
+    f = (dbt_file *)pal->acquire(pal, (uint32_t)sizeof(dbt_file));
     if (!f) {
         pal->close(pal, fd);
         return -DBT_ERR_NOMEM;
@@ -202,7 +192,7 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
     f->fd         = fd;
     f->next_free  = next_free;
     f->writable   = 0;         /* dbt_open: read-only; S2.2 dbt_append will fail loud */
-    f->arena_mark = mark;
+    f->owned = (void *)0;
 
     *out = f;
     return DBT_OK;
@@ -258,7 +248,6 @@ int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
     pal_fd    fd;
     uint8_t   pad[DBT_BLOCK_SIZE - 4u];  /* 508 zero bytes for @0x04..0x1FF */
     int32_t   nw;
-    void     *mark;
     int       rc;
 
     *out = (dbt_file *)0;
@@ -292,10 +281,8 @@ int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
         return -DBT_ERR_IO;
     }
 
-    /* Allocate the handle from the arena (same pattern as dbt_open): take the
-     * precise mark BEFORE the alloc so dbt_close unwinds only this .dbt. */
-    mark = pal->alloc(pal, 0u);   /* current arena mark (zero alloc) */
-    f = (dbt_file *)pal->alloc(pal, (uint32_t)sizeof(dbt_file));
+    /* Persistent memo storage is disjoint from scratch reset (L003). */
+    f = (dbt_file *)pal->acquire(pal, (uint32_t)sizeof(dbt_file));
     if (!f) {
         pal->close(pal, fd);
         return -DBT_ERR_NOMEM;
@@ -305,7 +292,7 @@ int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
     f->fd         = fd;
     f->next_free  = 1u;  /* one block (block 0) written; next memo starts at 1 */
     f->writable   = 1;   /* dbt_create: read+write; dbt_append is permitted */
-    f->arena_mark = mark;
+    f->owned = (void *)0;
 
     *out = f;
     return DBT_OK;
@@ -318,15 +305,14 @@ int dbt_close(dbt_file *f)
 {
     int rc;
     samir_pal_t *pal;
-    void        *mark;
 
     if (!f) return DBT_OK;
 
     pal  = f->pal;
-    mark = f->arena_mark;
 
     rc = pal->close(pal, f->fd);
-    pal->reset(pal, mark);   /* frees the struct + any per-call allocs */
+    pal_owned_free(pal,&f->owned);
+    pal->release(pal,f);
 
     return (rc == 0) ? DBT_OK : -DBT_ERR_IO;
 }
@@ -539,7 +525,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
      * Use DBT_BLOCK_SIZE per block regardless of the mutant so the buffer
      * is always correctly sized for the actual file content.               */
     work_cap = (f->next_free - blockno) * DBT_BLOCK_SIZE;
-    work = (uint8_t *)pal->alloc(pal, work_cap + 1u); /* +1 for safety */
+    work = (uint8_t *)pal_owned_alloc(pal,&f->owned,work_cap + 1u); /* +1 for safety */
     if (!work) {
         return -DBT_ERR_NOMEM;
     }
@@ -627,10 +613,10 @@ int dbt_read(dbt_file *f, uint32_t blockno,
      * for S2.1 scope (Rule 3 -- fix the root, don't optimize early). */
     if (work_len == 0u) {
         /* Empty memo: return a valid (non-NULL) zero-length buffer. */
-        final_buf = (uint8_t *)pal->alloc(pal, 1u);
+        final_buf = (uint8_t *)pal_owned_alloc(pal,&f->owned,1u);
         if (!final_buf) return -DBT_ERR_NOMEM;
     } else {
-        final_buf = (uint8_t *)pal->alloc(pal, work_len);
+        final_buf = (uint8_t *)pal_owned_alloc(pal,&f->owned,work_len);
         if (!final_buf) return -DBT_ERR_NOMEM;
         rt_memcpy(final_buf, work, work_len);
     }
