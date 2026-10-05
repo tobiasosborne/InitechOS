@@ -108,6 +108,7 @@
 #include "samir/value.h"
 #include "samir/rt.h"
 #include "samir/pal.h"
+#include "samir/set.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -1032,6 +1033,32 @@ static int m_pack(xb_interp *ip, int *ec)
     return INTERP_OK;
 }
 
+/* Ref: Ashton-Tate Using dBase III Plus.pdf U5-284 (ZAP prompt) and
+ * U5-257 (SAFETY defaults ON). Opened-path filename spelling is authored,
+ * no local reference for an exact transcript. Line-framed Y/y acceptance and treating Escape,
+ * empty/error/EOF as No are authored, no local reference for those edge rules.
+ * Use the same cooked PAL as the REPL so a redirected answer consumes one line.
+ * This helper can guard further destructive file commands when implemented. */
+static int m_confirm_file(xb_interp *ip,const char *verb,const dbf_table *tbl)
+{
+    samir_pal_t *pal=xb_interp_pal(ip);
+    char answer[256];const char *s;uint32_t len;
+    if (!set_get_safety(ip)) return 1;
+#ifdef SAMIR_MUTATE_ZAP_SAFETY
+    return 1; /* mutant: stored SAFETY has no destructive consumer */
+#endif
+    pal->conout(pal,verb,rt_strlen(verb));pal->conout(pal," ",1u);
+    pal->conout(pal,dbf_name(tbl),rt_strlen(dbf_name(tbl)));
+    pal->conout(pal,"? (Y/N)",7u);
+    if (!pal->conin_line || pal->conin_line(pal,answer,sizeof answer)<0) {
+        pal->conout(pal,"\n",1u);return 0;
+    }
+    pal->conout(pal,"\n",1u);
+    s=m_skip_ws(answer);len=rt_strlen(s);
+    while(len && (s[len-1]==' ' || s[len-1]=='\t'))len--;
+    return len==1u && (s[0]=='Y' || s[0]=='y');
+}
+
 static int m_zap(xb_interp *ip, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -1040,6 +1067,7 @@ static int m_zap(xb_interp *ip, int *ec)
     int rc;
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+    if (!m_confirm_file(ip,"ZAP",tbl)) { if(ec)*ec=0;return INTERP_OK; }
     rc = dbf_zap(tbl);
     if (rc != DBF_OK) {
         if (rc == -DBF_ERR_IO) { if (ec) *ec = M_MSG_READONLY; }

@@ -25,7 +25,7 @@
  *     FILTER    value   --    GATED: parse, store intent, loud-skip runtime effect
  *     RELATION  value   --    GATED: parse, store intent, loud-skip runtime effect
  *     TALK      toggle  ON    stored; runtime effect (REPLACE/APPEND counts) DEFERRED
- *     SAFETY    toggle  ON    stored; file-overwrite guard DEFERRED
+ *     SAFETY    toggle  ON    ZAP confirmation; other file-overwrite guards DEFERRED
  *
  *   SET NEAR: "NEAR" is not a III+ SET option (it is a Clipper/dBASE IV addition;
  *   III+ has no SOFTSEEK). The parser fails loud #16 ("Unrecognized command verb."

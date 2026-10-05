@@ -431,7 +431,7 @@ static int do_set_talk(set_state *ss, const char *args, int *err_code)
 
 /*
  * do_set_safety: SET SAFETY ON|OFF.
- * Stores in set_state. File-overwrite guard DEFERRED (needs file I/O layer).
+ * Stores in set_state; ZAP consumes it. Other file-overwrite guards deferred.
  * Ref: set-commands.md Sec 2 (default ON) [verified: sample programs idiom].
  */
 static int do_set_safety(set_state *ss, const char *args, int *err_code)

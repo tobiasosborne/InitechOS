@@ -1,6 +1,6 @@
 /* Audit L001/L003/L007: independent byte and lifetime oracles.
  * Ref: dbf.md ss2/4/6/8; Using dBase III Plus.pdf U7-7 (#3),
- * U5-284 (ZAP prompt), U5-249 (SAFETY default ON).
+ * U5-284 (ZAP prompt), U5-257 (SAFETY default ON).
  * Failure atomicity and abort/EOF rules: authored, no local reference.
  * Fixtures are factory-authored DBFs; dbf_ref.py independently reopens them.
  */
@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include "test_assert.h"
 #include "samir/interp.h"
 #include "samir/workarea.h"
@@ -26,6 +28,7 @@ static struct {
     int armed, boundary, hit, calls, seek_fault, short_kind, error;
     void *live_mark; int reset_bad, closes, opens, objects;
 } c;
+static char project_root[1024];
 static uint32_t test_heap_size=4u*1024u*1024u;
 static const char *path="build/dbsafe/FAULT.DBF";
 static pal_fd op(samir_pal_t *p,const char *s,int m){pal_fd fd;(void)p;fd=c.inner->open(c.inner,s,m);if(fd>=0)c.opens++;return fd;}
@@ -59,6 +62,7 @@ static int32_t ci(samir_pal_t *p,char *b,uint32_t n){
         c.armed=0;
     }
     if(!s)return -1;
+    if(!strcmp(s,"#INPUT_ERROR"))return -PAL_EIO;
     if(!strcmp(s,"append blank"))c.armed=1;
     snprintf(b,n,"%s",s);return (int32_t)strlen(b);
 }
@@ -97,9 +101,11 @@ static void fixture(const char *name,int extra,unsigned count){
 static unsigned char extracted[67000];
 static size_t readbytes(const char *name){FILE *f=fopen(name,"rb");size_t n=0;CHECK(f!=NULL,"result readable");if(f){n=fread(extracted,1,sizeof extracted,f);fclose(f);}return n;}
 static void independent(unsigned expected){
-    char cmd[512],buf[1024],needle[80];FILE *f;size_t n;
-    snprintf(cmd,sizeof cmd,"python3 harness/diff/dbf_diff/dbf_ref.py --schema %s > build/dbsafe/ref.json 2> build/dbsafe/ref.err",path);
+    char cmd[2048],buf[1024],needle[80];FILE *f;size_t n;
+    snprintf(cmd,sizeof cmd,"python3 '%s/harness/diff/dbf_diff/dbf_ref.py' --schema %s > build/dbsafe/ref.json 2> build/dbsafe/ref.err",project_root,path);
     CHECK(system(cmd)==0,"L001 independent reader reopens DBF");
+    snprintf(cmd,sizeof cmd,"python3 '%s/harness/diff/dbf_diff/dbf_ref.py' --records %s > build/dbsafe/ref-records.txt 2> build/dbsafe/ref-records.err",project_root,path);
+    CHECK(system(cmd)==0,"L001 independent reader reads every committed record");
     f=fopen("build/dbsafe/ref.json","rb");n=f?fread(buf,1,sizeof buf-1,f):0;if(f)fclose(f);buf[n]=0;
     snprintf(needle,sizeof needle,"record_count: %u",expected);CHECK(strstr(buf,needle)!=NULL,"L001 independent committed count");
 }
@@ -193,18 +199,25 @@ static void lifecycle_tests(void){
 static void safety_case(const char *answer,int off,unsigned expected){
     samir_pal_t *p=setup();int i=0;size_t n;
     fixture(path,2,3);c.script[i++]="use build/dbsafe/FAULT.DBF";
-    if(off)c.script[i++]="set safety off";
-    c.script[i++]="zap";if(!off && answer)c.script[i++]=answer;
-    if(answer || off){c.script[i++]="? reccount()";c.script[i++]="quit";}
+    if(off==1)c.script[i++]="set safety off";
+    if(off==2)c.script[i++]="set safety on";
+    c.script[i++]="zap";if(off!=1 && answer)c.script[i++]=answer;
+    if(answer || off==1){c.script[i++]="? reccount()";c.script[i++]="quit";}
     c.ip=xb_interp_make(p);samir_repl(p,c.ip);xb_interp_free(c.ip);pal_host_free(c.inner);
-    CHECK((strstr(c.out,"ZAP build/dbsafe/FAULT.DBF? (Y/N)")!=NULL)==!off,"L007 manual ZAP prompt including filename");
+    CHECK((strstr(c.out,"ZAP build/dbsafe/FAULT.DBF? (Y/N)")!=NULL)==(off!=1),"L007 manual ZAP prompt including filename");
     n=readbytes(path);CHECK(n>=65 && extracted[4]==expected,"L007 only affirmative destroys records");
     if(expected)CHECK(n==olen && !memcmp(extracted,original,olen),"L007 declined ZAP byte-identical");
-    if(answer || off)CHECK(strstr(c.out,expected?"3\n":"0\n")!=NULL,"L007 following command remains framed");
+    if(answer || off==1)CHECK(strstr(c.out,expected?"\n3. ":"\n0. ")!=NULL,"L007 following command remains framed");
 }
-static void safety_tests(void){safety_case("N",0,3);safety_case("\033",0,3);safety_case("",0,3);safety_case(NULL,0,3);safety_case("Y",0,0);safety_case("y",0,0);safety_case(NULL,1,0);}
+static void safety_tests(void){safety_case("N",0,3);safety_case("N",2,3);safety_case("Y",2,0);safety_case("\033",0,3);safety_case("",0,3);safety_case(NULL,0,3);safety_case("#INPUT_ERROR",0,3);safety_case("Y",0,0);safety_case("y",0,0);safety_case(NULL,1,0);}
 int main(int argc,char **argv){
     const char *mode=argc>1?argv[1]:"append";
+    char directory[]="build/dbsafe/host-XXXXXX";
+    /* Factory-only isolation: parallel oracles must never share mutable DBFs.
+     * Temporary path does not enter DBF bytes or the shipped executable. */
+    CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
+    CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
+    if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
     if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else safety_tests();
     return TEST_SUMMARY(mode);
 }

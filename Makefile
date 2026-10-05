@@ -2796,7 +2796,7 @@ test-interp-list-mutant: $(TEST_INTERP_LIST_MUT)
 # re-file (ndx_update/insert) + memo; APPEND BLANK; DELETE/RECALL/PACK/ZAP. Writable
 # tables via wa_adopt_table + wa_refresh (workarea.c). Mutant: REPLACE ignores
 # scope/FOR -> RED.
-INTERP_REPLACE_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+INTERP_REPLACE_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_INTERP_REPLACE): $(DBF_DIFF_DIR)/test_interp_replace.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_replace.c $(INTERP_REPLACE_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -3128,6 +3128,16 @@ test-samir-lifetime-mutant: $(SAMIR_LIFETIME_MUTANTS)
 	done
 	@printf '>>> test-samir-lifetime-mutant: green\n'
 
+$(BUILD)/test_samir_safety_mut: $(DBF_DIFF_DIR)/test_samir_dbsafe.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_ZAP_SAFETY -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $< $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-safety-mutant
+test-samir-safety-mutant: $(BUILD)/test_samir_safety_mut
+	@mkdir -p $(BUILD)/dbsafe
+	@if $< safety > $(BUILD)/dbsafe/mut-safety.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+	@grep -Fq 'L007 declined ZAP byte-identical' $(BUILD)/dbsafe/mut-safety.log
+	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/mut-safety.log
+	@printf '>>> test-samir-safety-mutant: green (missing confirmation correctly RED)\n'
+
 # Audit K05/K06/K09: manual-grounded REPL sessions (no minted output golden).
 TEST_SAMIR_VIEW := $(BUILD)/test_samir_view
 TEST_SAMIR_USE := $(BUILD)/test_samir_use
@@ -3198,7 +3208,7 @@ test-samir-input-mutant: $(SAMIR_INPUT_MUT)
 # the S1.5 mutation verbs + dbf_flush work; wa_set_open_rw USEs it RW (+ ndx_open_rw)
 # so REPLACE/APPEND persist after a plain USE. wa_set_open default stays read-only.
 # Mutant: open RW but don't set writable -> REPLACE fails #41 -> RED.
-USE_RW_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+USE_RW_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_USE_RW): $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -25237,6 +25247,18 @@ test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSA
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-safety.log
 	@printf '>>> test-samir-safety-emu-mutant: green (missing confirmation correctly RED)\n'
 
+# Drive the audit's duplicate/distinct/older-CLOSE cases on the actual desktop,
+# then launch SAMIR again through the system hotkey (not just COMMAND.COM).
+.PHONY: test-samir-lifetime-desktop test-samir-lifetime-desktop-mutant
+test-samir-lifetime-desktop: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+	@$(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop
+	@printf '>>> test-samir-lifetime-desktop: green\n'
+test-samir-lifetime-desktop-mutant: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop $(BUILD)/SAMIR_DBSAFE_lifetime.COM > $(BUILD)/dbsafe/emu-mut-desktop.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
+	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-desktop.log
+	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-desktop.log
+	@printf '>>> test-samir-lifetime-desktop-mutant: green (duplicate USE correctly RED)\n'
+
 TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
@@ -26563,7 +26585,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
 TEST_UNIT_GATES := \
-	test-samir-append-safe test-samir-append-safe-mutant test-samir-lifetime test-samir-lifetime-mutant \
+	test-samir-append-safe test-samir-append-safe-mutant test-samir-lifetime test-samir-lifetime-mutant test-samir-safety test-samir-safety-mutant \
 	test-tbx-file test-tbx-file-mutant \
 	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
@@ -27680,7 +27702,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
-	test-samir-full-emu test-samir-full-emu-mutant test-samir-lifetime-emu test-samir-lifetime-emu-mutant \
+	test-samir-full-emu test-samir-full-emu-mutant test-samir-lifetime-emu test-samir-lifetime-emu-mutant test-samir-safety-emu test-samir-safety-emu-mutant test-samir-lifetime-desktop test-samir-lifetime-desktop-mutant \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \
