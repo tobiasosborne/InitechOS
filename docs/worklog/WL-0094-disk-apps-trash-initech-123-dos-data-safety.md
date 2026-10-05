@@ -111,3 +111,24 @@ Law-4 eyeball of the five new ones is owed.
    on release), I123 P2 (94ah, formulas), IWORD P1 (l4tj; the C tenant path
    now exists).
 3. **Operator decisions waiting:** docs/packaging Sec 9 (D-1..D-15).
+
+## Addendum -- 02:05 to 05:55, same session
+- **Astra full-system drive** (gpt-6-astra): `docs/audits/2026-10-05-astra-full-drive/`, 118
+  findings (10 P1), triaged by gpt-6.1-sol into 75 beads (label `audit-2026-10-astra`). The ten
+  recent fixes hold (Empty Trash partly: L002, open views of purged folders).
+- **Toolbox Gate file verbs + Initech 123 /File Retrieve and /File Save** (tdnl.91, Codex sol,
+  2e56275 / 6d6cac3 / ddec03e) and **database fixes K05/K06/K09/K13** (Codex sol, 0292d95 /
+  ab6b5d6 / fd1e0aa / 1b4a409). **Certificate ALL GREEN 384 host + 185 emu at 1b4a409
+  (03:11-03:55).** Lane worklogs: WL-0095, WL-0096, WL-0097.
+- **Merged, NOT certified:** lane-dbsafe (r5ig, 0uui, zk6y; WL-0101) and lane-dosprot (1vcl,
+  1nsj, pbru, L118; WL-0098..0100). The certificate at 1146a48 went RED at its first emulator
+  gate: a semantic conflict (EXIT at the primary shell is now ignored; the SAMIR emulator gates
+  ended with EXIT). Fixed in 1bb17f5. The re-run reached 395 host + 165 of 203 emulator gates
+  green and was then stopped by the harness for low host memory. See the HANDOFF addendum.
+- **Lesson, twice in one night:** two lanes that are each green in isolation broke each other
+  at the merge (the APPS folder contents; the meaning of EXIT). A lane's report lists the gates
+  it ran; the gates it did NOT run are where the merge breaks. Run the whole emulator family
+  of every lane merged the same night before calling a merge verified.
+- **Codex as a coding lane works** when the brief names the references and the oracle pattern:
+  five sol lanes, all with red-first tests, mutants and disk effects judged by mtools. It
+  cannot run Bochs or commit; the PM must run the Bochs legs and import the bundle.

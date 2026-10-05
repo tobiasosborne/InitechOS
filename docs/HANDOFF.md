@@ -247,6 +247,37 @@ fallback, asserted on serial.)
 > **Owed to the operator:** the Law-4 eyeball of the five new clips (tenant_menu, trash_window,
 > empty_trash, ctenant_keys, i123_typing) in `build/clips/`.
 >
+> **ADDENDUM 2026-10-05 05:55 (session end) -- READ THIS FIRST: MAIN IS NOT CERTIFIED.**
+> Last GREEN certificate: **384 host + 185 emu at 1b4a409** (03:11-03:55). It covers everything
+> through the Toolbox Gate file verbs + Initech 123 /File Retrieve and /File Save (tdnl.91) and
+> the database fixes hw4j / 3t55 / nds1 / xrbj (all closed).
+> On top of that, main (HEAD at the commit carrying this note) holds two more Codex lanes that
+> are merged but NOT certified: `lane-dbsafe` (r5ig refused APPEND keeps a reopenable table;
+> 0uui duplicate USE refused + independent table lifetimes, a BROAD change to SAMIR's memory
+> model; zk6y SET SAFETY confirms ZAP) and `lane-dosprot` (1vcl / 1nsj read-only protection at
+> the FAT layer; pbru EXIT at the permanent primary shell is ignored, EXIT-ending oracles boot
+> `build/tracer_secondary.img`; L118 locked files refused by the Trash), plus the PM fix 1bb17f5
+> (the SAMIR emulator gates boot the secondary shell image). Evidence so far at 1bb17f5: the
+> host vector is ALL GREEN (395) and the first 165 of 203 emulator gates passed; the
+> certificate was then STOPPED BY THE HARNESS FOR LOW HOST MEMORY at test-flair-i123-bochs, not
+> by a failure. The 38 gates never run are the Initech 123 file gates and the whole Finder /
+> Trash / scroll / menu / solidity tail (test-flair-i123-bochs ... test-flair-samir-suspend-
+> mutant), which is exactly the family `lane-dosprot`'s Trash-lock change touches, and the lane
+> could not run Bochs. **First action next session: `make clean && make test` in
+> `../initech-os-cert` at main HEAD.** The six beads (r5ig, 0uui, zk6y, 1vcl, 1nsj, pbru) stay
+> in_progress until it is green; if it is red, the two lanes are separate merge commits and can
+> be reverted independently.
+> Also since 02:05: the gpt-6-astra full-system drive (`docs/audits/2026-10-05-astra-full-drive/`:
+> 118 findings L001-L118, NITS.tsv, TRIAGE.md; 75 beads under label `audit-2026-10-astra`, 7 new
+> P1s of which 6 are the in-flight fixes above; the remaining one is fvnj, Initech 123 quits
+> without an unsaved-work warning). The drive covered function widely and LOOK thinly: a
+> pixel-level appearance pass against the Mac OS 8 references is still owed to the operator's
+> "all nits". Clips: all 46 + i123_files, locked_trash, locked_purge are in RECORD_SCRIPTS;
+> record-flair is load-sensitive (tdnl.92: byte-identical at host load 1, not at 6.5).
+> Binding kernel headroom 8,088 B (floor 4,096; it was 17,976 B at the start of the night):
+> the next kernel-side feature needs the size policy looked at first (bead initech-8z9j).
+> Quota at close: Claude weekly 0.5 over pace, Codex 4.0 under.
+>
 > **PREVIOUS STATE (2026-10-04, WL-0093 -- THE DESKTOP WAS DRIVEN BY A STRANGER AND FOUND WANTING.)**
 >
 > **Operator, 2026-10-03:** still unhappy with the window system. The bar: it must look really
