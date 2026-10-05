@@ -2248,6 +2248,16 @@ static void do_open(int_frame_t *f)
         return;
     }
 
+#ifndef INT21_MUTATE_OPEN_READONLY
+    /* IBM 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf p. 5-11:
+     * a read-only file cannot be opened for output. L005 / initech-1vcl. */
+    if ((mode & 3u) != 0u && (de.attribute & DIR_ATTR_READONLY) != 0u) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED);
+        int21_note_error(INT21_ERR_ACCESS_DENIED);
+        cf_set(f);
+        return;
+    }
+#endif
     /* Commit the SFT FILE entry + the JFT mapping. The SFT slot is the complete
      * per-handle state: its own position + dir_entry copy + root_slot. */
     sft_entry_t *e = &g_sft[sft_idx];

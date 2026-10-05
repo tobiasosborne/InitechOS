@@ -2451,6 +2451,13 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	if (found) {
+		/* Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33:
+		 * read-only prevents deletion or modification (L005 / initech-1vcl).
+		 * Refuse before freeing the chain or changing ANY dirent byte. */
+#ifndef FAT12_MUTATE_CREATE_READONLY
+		if ((match.attribute & DIR_ATTR_READONLY) != 0u)
+			return FAT12_ERR_ACCESS;
+#endif
 		/* Never retype a directory or volume label through file CREAT.
 		 * Ref: MS-DOS 3.3 User's Reference p. 12 (directory/file namespace);
 		 * IBM DOS 3.30 Technical Reference pp. 6-122/6-123 (file CREAT).
@@ -2543,6 +2550,13 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
+	/* Same protection boundary as CREAT, including a zero-length truncate.
+	 * Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33 (L005). */
+	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
+	if (rc != FAT12_OK) return rc;
+#ifndef FAT12_MUTATE_WRITE_READONLY
+	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+#endif
 
 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
 	                    (uint32_t)vol->bpb.bytes_per_sector;
@@ -2770,6 +2784,11 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return rc;
 	}
 	old_size   = de.file_size;
+	/* Re-read the disk attribute: an already-open handle must not bypass a
+	 * later lock. Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33. */
+#ifndef FAT12_MUTATE_WRITE_READONLY
+	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+#endif
 	orig_start = de.start_cluster;
 	new_start  = orig_start;
 	new_size   = (end > old_size) ? end : old_size;
@@ -3051,6 +3070,16 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (!found) {
 		return FAT12_ERR_NOT_FOUND;
 	}
+	/* IBM 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf p. 6-141:
+	 * AH=41h cannot delete read-only files. Directories use RMDIR; a volume
+	 * label is not a file (pp. 5-10/5-11). L006 / initech-1nsj. */
+#ifndef FAT12_MUTATE_UNLINK_READONLY
+	if ((match.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+#endif
+#ifndef FAT12_MUTATE_UNLINK_NONREGULAR
+	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
+		return FAT12_ERR_ACCESS;
+#endif
 
 	/* Free the cluster chain (if any), flush both FATs. */
 	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {

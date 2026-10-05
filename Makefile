@@ -26403,6 +26403,7 @@ $(eval $(call dos-safety-shell-mutant,silent,CMD_TEST_DEL_DENIED -DCMD_MUTATE_DE
 $(eval $(call dos-safety-shell-mutant,k15,CMD_MUTATE_DEL_NO_CONFIRM))
 $(eval $(call dos-safety-shell-mutant,yesall,CMD_MUTATE_DEL_YES_ALWAYS))
 $(eval $(call dos-safety-shell-mutant,refusey,CMD_MUTATE_DEL_REFUSE_Y))
+$(eval $(call dos-safety-shell-mutant,rostop,CMD_MUTATE_DEL_STOP_PROTECTED))
 
 .PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant \
         test-dos-safety-k02 test-dos-safety-k02-mutant test-dos-safety-create test-dos-safety-create-mutant \
@@ -26487,7 +26488,64 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	|| { cat $(BUILD)/dos_safety_k01_mutant.log; exit 1; }; \
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
+# Audit L005/L006: independent whole-image protection oracles.
+define dos-protection-host-mutant
+$(BUILD)/test_dos_protection_$(1): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$(2) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $$@ $$< $(TEST_FILEIO_SUBDIR_DEPS)
+endef
+$(eval $(call dos-protection-host-mutant,create,FAT12_MUTATE_CREATE_READONLY))
+$(eval $(call dos-protection-host-mutant,unlink,FAT12_MUTATE_UNLINK_READONLY))
+$(eval $(call dos-protection-host-mutant,nonregular,FAT12_MUTATE_UNLINK_NONREGULAR))
+$(eval $(call dos-protection-host-mutant,write,FAT12_MUTATE_WRITE_READONLY))
+$(eval $(call dos-protection-host-mutant,open,INT21_MUTATE_OPEN_READONLY))
+
+define dos-protection-fat-mutant
+$(BUILD)/fat12_protection_$(1).o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(2) -Ispec -I$(KERNEL_DIR) -c $$< -o $$@
+$(BUILD)/kernel_shell_mut_protection_$(1).elf: $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o $(KERNEL_LD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o
+$(BUILD)/kernel_shell_mut_protection_$(1).bin: $(BUILD)/kernel_shell_mut_protection_$(1).elf
+	$(OBJCOPY) -O binary $$< $$@
+	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$((max - sz))" conv=notrunc status=none
+$(BUILD)/tracer_mut_protection_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_protection_$(1).bin
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_shell_mut_protection_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+endef
+$(eval $(call dos-protection-fat-mutant,copy,FAT12_MUTATE_CREATE_READONLY))
+$(eval $(call dos-protection-fat-mutant,del,FAT12_MUTATE_UNLINK_READONLY))
+.PHONY: test-dos-safety-ro-mutant test-dos-safety-copy-ro-mutant test-dos-safety-del-ro-mutant
+test-dos-safety-ro-mutant: $(DOS_SAFETY_FIXTURE) $(foreach m,create unlink nonregular write open,$(BUILD)/test_dos_protection_$(m))
+	@set -e; for pair in 'create:create-ro:CREAT read-only refusal' 'unlink:unlink-ro:UNLINK read-only refusal' 'nonregular:unlink-ro:UNLINK nonregular refusal' 'write:write-ro:positioned write read-only refusal' 'open:write-ro:OPEN write read-only refusal'; do \
+	  tag=$${pair%%:*}; rest=$${pair#*:}; mode=$${rest%%:*}; why=$${rest#*:}; log=$(BUILD)/dos_protection_$$tag.log; \
+	  if DOS_SAFETY_HOST=$(BUILD)/test_dos_protection_$$tag sh harness/diff/fat_diff/dos_safety.sh $$mode unused _mut_$$tag > $$log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
+	  grep -F "$$why" $$log | grep -q FAIL || { cat $$log; exit 1; }; \
+	  printf 'VERDICT: PASS -- protection mutant %s RED (%s)\n' "$$tag" "$$why"; \
+	done
+test-dos-safety-copy-ro-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_protection_copy.img
+	@if sh harness/diff/fat_diff/dos_safety.sh copy-ro $(BUILD)/tracer_mut_protection_copy.img _mut > $(BUILD)/copy_ro_mutant.log 2>&1; then echo 'FAIL: COPY protection mutant passed'; exit 1; fi
+	@grep -q 'read-only refusal changed disk' $(BUILD)/copy_ro_mutant.log
+	@printf 'VERDICT: PASS -- test-dos-safety-copy-ro-mutant (read-only refusal changed disk, RED)\n'
+test-dos-safety-del-ro-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_protection_del.img
+	@if sh harness/diff/fat_diff/dos_safety.sh del-ro $(BUILD)/tracer_mut_protection_del.img _mut > $(BUILD)/del_ro_mutant.log 2>&1; then echo 'FAIL: DEL protection mutant passed'; exit 1; fi
+	@grep -q 'read-only refusal changed disk' $(BUILD)/del_ro_mutant.log
+	@printf 'VERDICT: PASS -- test-dos-safety-del-ro-mutant (read-only refusal changed disk, RED)\n'
+.PHONY: test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-copy-ro test-dos-safety-del-ro
+.PHONY: test-dos-safety-del-ro-progress-mutant
+test-dos-safety-del-ro-progress-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_rostop.img
+	@if sh harness/diff/fat_diff/dos_safety.sh del-ro $(BUILD)/tracer_mut_safety_rostop.img _stop > $(BUILD)/del_ro_progress_mutant.log 2>&1; then echo 'FAIL: protected-stop mutant passed'; exit 1; fi
+	@grep -q 'LOCK0.TXT still present' $(BUILD)/del_ro_progress_mutant.log
+	@printf 'VERDICT: PASS -- test-dos-safety-del-ro-progress-mutant (writable LOCK0.TXT still present, RED)\n'
+test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
+	@sh harness/diff/fat_diff/dos_safety.sh $(patsubst test-dos-safety-%,%,$@) unused
+test-dos-safety-copy-ro test-dos-safety-del-ro: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh $(patsubst test-dos-safety-%,%,$@) $(TRACER_IMG)
+
 TEST_UNIT_GATES := \
+	test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro \
+	test-dos-safety-ro-mutant \
 	test-tbx-file test-tbx-file-mutant \
 	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
@@ -27604,6 +27662,9 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
+	test-dos-safety-copy-ro test-dos-safety-del-ro \
+	test-dos-safety-copy-ro-mutant test-dos-safety-del-ro-mutant \
+	test-dos-safety-del-ro-progress-mutant \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \

@@ -2712,7 +2712,10 @@ static void builtin_copy(const char *arg)
     dst_h = dos_creat(destination);
     if (dst_h < 0) {
         dos_close(src_h);
-        dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */
+        /* MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 308;
+         * spec/dos_messages.json MSG-DOS-0009 (L005 / initech-1vcl). */
+        dos_print((dst_h == -(int)INT21_ERR_ACCESS_DENIED)
+                  ? MSG_DOS_0009 "\r\n$" : MSG_DOS_0002 "\r\n$");
         return;
     }
 
@@ -2820,8 +2823,11 @@ static void builtin_del(const char *arg)
 
     if (!cmd_has_wildcard(name)) {
         /* Plain name: a single UNLINK. Not-found -> "File not found". */
-        if (dos_unlink(name) != 0u) {
-            dos_print(MSG_DOS_0003 "\r\n$");
+        uint16_t error = dos_unlink(name);
+        if (error != 0u) {
+            /* MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 308. */
+            dos_print(error == INT21_ERR_ACCESS_DENIED
+                      ? MSG_DOS_0009 "\r\n$" : MSG_DOS_0003 "\r\n$");
         }
         return;
     }
@@ -2836,8 +2842,22 @@ static void builtin_del(const char *arg)
         dos_setdta(&g_shell_dta);
         for (;;) {
             uint16_t result = dos_findfirst_result(name, 0u);
+            int protected = 0;
+            /* The backend's enumeration index counts surviving entries.
+             * Skip protected matches without mutation, then RESTART after
+             * each successful unlink (otherwise the next entry is skipped).
+             * MS-DOS_3.3_Users_Guide_198707.pdf, Reference pp. 33, 56.
+             * Once only protected entries remain, report them once. */
+#ifndef CMD_MUTATE_DEL_STOP_PROTECTED
+            while (result == 0u && (g_shell_dta.attr & DIR_ATTR_READONLY) != 0u) {
+                protected = 1;
+                result = dos_findnext() ? 0u : INT21_ERR_NO_MORE_FILES;
+            }
+#endif
             if (result != 0u) {
-                if (result == INT21_ERR_FILE_NOT_FOUND || result == INT21_ERR_NO_MORE_FILES) {
+                if (protected) {
+                    del_remaining(name, prefix);
+                } else if (result == INT21_ERR_FILE_NOT_FOUND || result == INT21_ERR_NO_MORE_FILES) {
                     if (!deleted) dos_print(MSG_DOS_0003 "\r\n$");
                 } else {
                     del_remaining(name, prefix);
