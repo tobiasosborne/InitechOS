@@ -134,6 +134,7 @@ STAGE2_ASM      := $(BOOT_DIR)/stage2.asm
 MBR_BIN         := $(BUILD)/mbr.bin
 STAGE2_BIN      := $(BUILD)/stage2.bin
 TRACER_IMG      := $(BUILD)/tracer_boot.img
+SECONDARY_TRACER_IMG := $(BUILD)/tracer_secondary.img
 # stage2 is loaded by the MBR as STAGE2_SECTORS (16) sectors = 8 KiB; we pad
 # stage2.bin to that size so the CHS read count in the MBR is deterministic.
 STAGE2_SECTORS  := 16
@@ -545,6 +546,7 @@ include spec/flair_fg_close_traces.mk
 include spec/flair_finder_cmds_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
+include spec/flair_protection_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -9331,6 +9333,23 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
+# EXIT-ending oracles have an explicit secondary caller. The public tracer
+# stays the permanent primary. All dispatcher, file and batch code is shared.
+KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
+KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
+$(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+$(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
+$(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
+	$(OBJCOPY) -O binary $< $@
+	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$((max - sz))" conv=notrunc status=none
+$(SECONDARY_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_secondary.bin
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_shell_secondary.bin of=$@ bs=512 seek=17 conv=notrunc status=none
 # KERNEL_FLAIR_OBJS REMOVED from the COMMAND.COM shell kernel (2026-08-24,
 # beads initech-yrzo/-5dr8 + the sjvq-lane bust of the PROGRAM_BASE window):
 # kmain_shell.o references ZERO FLAIR symbols (nm-verified); dropping the dead
@@ -10736,7 +10755,7 @@ endef
 # because $(eval) expands the rule bodies immediately and those vars are set later.
 
 # (The old $(SHELL_IMG) / build/shell_boot.img recipe lived here. It was
-# byte-identical to the $(TRACER_IMG) recipe (~2414) -- same MBR/STAGE2/
+# byte-identical to the $(SECONDARY_TRACER_IMG) recipe (~2414) -- same MBR/STAGE2/
 # KERNEL_SHELL_BIN prereqs, same dd seek offsets -- once beads initech-k6x made
 # COMMAND.COM the default boot. Retired as redundant; test-shell now boots
 # TRACER_IMG directly (beads initech-h58).)
@@ -10920,7 +10939,7 @@ $(BOCHS_MUT_NOLOCK_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h |
 # $(1) = harness binary, $(2) = name stem. Leaves $$good = runs that reached
 # the banner (0..2). Each run boots its own copy of the tracer image.
 define bochs-concurrent-pair
-cp -f $(TRACER_IMG) $(BUILD)/$(2)_a.img; cp -f $(TRACER_IMG) $(BUILD)/$(2)_b.img; \
+cp -f $(SECONDARY_TRACER_IMG) $(BUILD)/$(2)_a.img; cp -f $(SECONDARY_TRACER_IMG) $(BUILD)/$(2)_b.img; \
 ( $(1) --disk $(BUILD)/$(2)_a.img --expect VGA13 --name $(2)_a --out $(BUILD) --timeout-ms 45000 2> $(BUILD)/$(2)_a.report.txt || true ) & \
 ( $(1) --disk $(BUILD)/$(2)_b.img --expect VGA13 --name $(2)_b --out $(BUILD) --timeout-ms 45000 2> $(BUILD)/$(2)_b.report.txt || true ) & \
 wait; good=0; \
@@ -10934,7 +10953,7 @@ ifeq ($(SKIP_BOCHS),1)
 test-bochs-concurrent test-bochs-concurrent-mutant:
 	@printf '!!! %s SKIPPED (SKIP_BOCHS=1 opt-out) -- the one-Bochs-at-a-time gate was NOT run.\n' "$@"
 else
-test-bochs-concurrent: $(BOCHS_BIN) $(TRACER_IMG)
+test-bochs-concurrent: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-bochs-concurrent: two Bochs runs started together must both reach the banner (d9tt)\n'
 	@$(call bochs-concurrent-pair,$(BOCHS_BIN),bochs_conc); \
 	if [ "$$good" -ne 2 ]; then \
@@ -10942,7 +10961,7 @@ test-bochs-concurrent: $(BOCHS_BIN) $(TRACER_IMG)
 		cat $(BUILD)/bochs_conc_a.report.txt $(BUILD)/bochs_conc_b.report.txt; exit 1; fi
 	@printf '>>> test-bochs-concurrent: green (2 of 2 reached the banner)\n'
 
-test-bochs-concurrent-mutant: $(BOCHS_MUT_NOLOCK_BIN) $(TRACER_IMG)
+test-bochs-concurrent-mutant: $(BOCHS_MUT_NOLOCK_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-bochs-concurrent-mutant: confirming the NO-HOST-LOCK mutant goes RED (Rule 6)\n'
 	@exec 9>/tmp/initech-bochs.lock; flock 9; \
 	$(call bochs-concurrent-pair,$(BOCHS_MUT_NOLOCK_BIN),bochs_conc_mut); \
@@ -15221,12 +15240,12 @@ $(SEED_FILEIO_MUT_WRONG_IMG): $(SEED_FILEIO_MUT_WRONG_COM) | $(BUILD)
 	@mcopy -i $@ $(SEED_FILEIO_MUT_WRONG_COM) ::FILEIO.COM
 
 .PHONY: test-seed-fileio-os
-test-seed-fileio-os: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_IMG)
+test-seed-fileio-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SEED_FILEIO_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-seed-fileio-os : B8 file I/O ON InitechDOS\n'
 	@printf '  Ref: beads initech-ogxv; ADR-0007 DEC-05/DEC-07; the samir-boot precedent.\n'
 	@printf '======================================================================\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SEED_FILEIO_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SEED_FILEIO_IMG)" \
 		--name seed_fileio_os --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -15245,13 +15264,13 @@ test-seed-fileio-os: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_IMG)
 	@printf '======================================================================\n'
 
 .PHONY: test-seed-fileio-os-mutant
-test-seed-fileio-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SEED_FILEIO_MUT_SHORT_IMG) $(SEED_FILEIO_MUT_WRONG_IMG)
+test-seed-fileio-os-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SEED_FILEIO_MUT_SHORT_IMG) $(SEED_FILEIO_MUT_WRONG_IMG)
 	@printf '>>> test-seed-fileio-os-mutant: Rule 6 -- both compiler mutants must yield WRONG VALUES on metal\n'
 	@rc=0; \
 	for spec in "short:$(SEED_FILEIO_MUT_SHORT_IMG):SHORT_WRITE drops tail bytes" \
 	            "wrong:$(SEED_FILEIO_MUT_WRONG_IMG):WRONG_HANDLE writes to the next live handle"; do \
 		tag=$${spec%%:*}; rest=$${spec#*:}; img=$${rest%%:*}; desc=$${rest#*:}; \
-		$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$$img" \
+		$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$$img" \
 			--name "seed_fileio_os_mut_$$tag" --out "$(BUILD)" --timeout-ms 30000 \
 			--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -15592,9 +15611,9 @@ $(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
 # Anchors are exact because the shell
 # DIR/command echo can contain TPS.COM/TPSIN.PAS; never grep a bare TPS name.
 .PHONY: test-tps-lex-os
-test-tps-lex-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC_OUT)
+test-tps-lex-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC_OUT)
 	@printf '>>> test-tps-lex-os: seed-built TPS.COM on InitechDOS == fpc-built TPS stdout\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_LEX_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_LEX_IMG)" \
 		--name tps_lex_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_LEX_OS_KEYS)" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -15771,9 +15790,9 @@ $(TPS_PARSE_IMG): $(TPS_LEX_COM) $(TPS_PARSE_RICH) | $(BUILD)
 # grep trap: TPS.COM/TPSIN.PAS names echoed by the shell are not evidence that
 # the parser ran. Only the singular TPS-PARSE-BEGIN/END region is compared.
 .PHONY: test-tps-parse-os
-test-tps-parse-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_PARSE_IMG) $(TPS_PARSE_FPC_RICH_OUT)
+test-tps-parse-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_PARSE_IMG) $(TPS_PARSE_FPC_RICH_OUT)
 	@printf '>>> test-tps-parse-os: seed-built TPS.COM parse trace on InitechDOS == fpc-built TPS trace\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_PARSE_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_PARSE_IMG)" \
 		--name tps_parse_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_PARSE_OS_KEYS)" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -15933,9 +15952,9 @@ $(TPS_TYPE_IMG): $(TPS_LEX_COM) $(TPS_TYPE_RICH) | $(BUILD)
 # brackets, so the seed-built/on-OS binary cannot agree on symbols while
 # silently diverging in its lexer or parser prefix.
 .PHONY: test-tps-type-os
-test-tps-type-os: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_TYPE_IMG) $(TPS_TYPE_FPC_FULL_OUT)
+test-tps-type-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_TYPE_IMG) $(TPS_TYPE_FPC_FULL_OUT)
 	@printf '>>> test-tps-type-os: seed-built TPS.COM on InitechDOS == fpc-built TPS over full triple bracket\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_TYPE_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_TYPE_IMG)" \
 		--name tps_type_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_TYPE_OS_KEYS)" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16176,9 +16195,9 @@ $(TPS_GEN_SEED_COM): $(TPS_GEN_SEED_DOS_ELF)
 # fixture and requires the identical line; test-tps-gen-fpc supplies the third,
 # independent host-fpc agreement. Assembly text is intentionally never diffed.
 .PHONY: test-tps-gen-os
-test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM)
+test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM)
 	@printf '>>> test-tps-gen-os: TPS.COM generates TPSOUT.S on InitechDOS\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_compile --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_GEN_OS_KEYS),e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16202,7 +16221,7 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(
 	@$(OBJCOPY) -O binary $(TPS_GEN_OS_DOS_ELF) $(TPS_GEN_OS_COM)
 	@mcopy -o -i $(TPS_GEN_IMG) $(TPS_GEN_OS_COM) ::TINY.COM
 	@printf '>>> test-tps-gen-os: execute TPS-generated TINY.COM on the same OS\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_execute --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16214,7 +16233,7 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_IMG) $(
 		|| { printf '!!! test-tps-gen-os FAIL: TPS-generated execution output is not exact\n'; exit 1; }
 	@mcopy -o -i $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM) ::STINY.COM
 	@printf '>>> test-tps-gen-os: execute seed-compiled fixture for three-way behavioral agreement\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_seed_execute --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "s,t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16235,9 +16254,9 @@ $(TPS_GEN_MUT_IMG): $(TPS_GEN_MUT_COM) | $(BUILD)
 	@mcopy -i $@ $(TPS_GEN_MUT_COM) ::MTINY.COM
 
 .PHONY: test-tps-gen-os-mutant
-test-tps-gen-os-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(TPS_GEN_MUT_IMG)
+test-tps-gen-os-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_GEN_MUT_IMG)
 	@printf '>>> test-tps-gen-os-mutant: OFFBYONE must execute to a WRONG TINY value, without crash\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_IMG)" \
 		--name tps_gen_mut_execute --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "m,t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16271,7 +16290,7 @@ $(TPS_COMPILER_IMG): test-compiler $(TPS_COMPILER_BATCH) | $(BUILD)
 	done
 
 .PHONY: test-compiler-os
-test-compiler-os: test-compiler $(TPS_COMPILER_IMG) test-tps-gen-os $(HARNESS_BIN) $(TRACER_IMG)
+test-compiler-os: test-compiler $(TPS_COMPILER_IMG) test-tps-gen-os $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-compiler-os: one bounded InitechDOS boot executes all %s TPS-generated corpus programs\n' \
 		"$(words $(TPS_COMPILER_CORPUS))"
 	@rm -f "$(TPS_COMPILER_SERIAL)" "$(TPS_COMPILER_REPORT)"
@@ -16285,7 +16304,7 @@ test-compiler-os: test-compiler $(TPS_COMPILER_IMG) test-tps-gen-os $(HARNESS_BI
 	@# $$(TPS_OS_COMPLETION) makes the harness wait for SHELL-EXIT (printed only
 	@# after the whole batch ran and the typed-ahead exit reached the prompt);
 	@# the ceiling only bounds a hung guest.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_COMPILER_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_COMPILER_IMG)" \
 		--name "$(TPS_COMPILER_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16332,10 +16351,10 @@ $(TPS_GEN_MUT_VAR_IMG): $(TPS_GEN_MUT_VAR_COM) | $(BUILD)
 	@mcopy -i $@ $(TPS_GEN_MUT_VAR_COM) ::MVARPAR.COM
 
 .PHONY: test-compiler-os-mutant
-test-compiler-os-mutant: test-tps-gen-mutant $(TPS_GEN_MUT_VAR_IMG) test-tps-gen-os-mutant $(HARNESS_BIN) $(TRACER_IMG)
+test-compiler-os-mutant: test-tps-gen-mutant $(TPS_GEN_MUT_VAR_IMG) test-tps-gen-os-mutant $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-compiler-os-mutant: VARPARAM must make registered gen_func_deep differ without crashing\n'
 	@rm -f "$(TPS_GEN_MUT_VAR_SERIAL)" "$(TPS_GEN_MUT_VAR_REPORT)"
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_VAR_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_VAR_IMG)" \
 		--name "$(TPS_GEN_MUT_VAR_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "m,v,a,r,p,a,r,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16406,10 +16425,10 @@ $(HARNESS_QA_IMG): $(TPS_COMPILER_IMG) $(TPS_COMPILER_BATCH) | $(BUILD)
 	@mcopy -i $@ $(HARNESS_QA_BAT) ::AUTOEXEC.BAT
 
 .PHONY: test-harness-quit-after
-test-harness-quit-after: $(HARNESS_BIN) $(TRACER_IMG) $(HARNESS_QA_IMG)
+test-harness-quit-after: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(HARNESS_QA_IMG)
 	@printf '>>> test-harness-quit-after: typed-ahead exit + --quit-after SHELL-EXIT must let a %s-EXEC batch finish\n' "$(HARNESS_QA_EXECS)"
 	@rm -f "$(BUILD)/$(HARNESS_QA_NAME).serial"
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
 		--name "$(HARNESS_QA_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16427,10 +16446,10 @@ test-harness-quit-after: $(HARNESS_BIN) $(TRACER_IMG) $(HARNESS_QA_IMG)
 	@printf '>>> test-harness-quit-after: green (%s/%s EXECs completed, typed-ahead exit reached the prompt, harness quit only after SHELL-EXIT)\n' "$(HARNESS_QA_EXECS)" "$(HARNESS_QA_EXECS)"
 
 .PHONY: test-harness-quit-after-mutant
-test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(TRACER_IMG) $(HARNESS_QA_IMG)
+test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(SECONDARY_TRACER_IMG) $(HARNESS_QA_IMG)
 	@printf '>>> test-harness-quit-after-mutant: HARNESS_MUTATE_NO_QUIT_WAIT must truncate the batch (Rule 6)\n'
 	@rm -f "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial"
-	@$(HARNESS_MUT_NOQUIT_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
+	@$(HARNESS_MUT_NOQUIT_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
 		--name "$(HARNESS_QA_MUT_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(TPS_OS_COMPLETION) \
@@ -16465,10 +16484,10 @@ test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(TRACER_IMG) $(HARNES
 #      (HARNESS_MUT_NOCHECK_BIN, Rule 6) -> must proceed where the real
 #      harness refuses, proving the check -- not luck -- is what bites.
 .PHONY: test-harness-bare-keys
-test-harness-bare-keys: $(HARNESS_BIN) $(TRACER_IMG)
+test-harness-bare-keys: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-harness-bare-keys: bare --keys (no --quit-after/--screendump-after/--record/--legacy-quit) must be REFUSED\n'
 	@rm -f "$(BUILD)/harness_bare_keys.stderr" "$(BUILD)/harness_bare_keys_ok.stderr"
-	@if $(HARNESS_BIN) --disk "$(TRACER_IMG)" \
+	@if $(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		--name harness_bare_keys_probe --out "$(BUILD)" --timeout-ms 5000 \
 		>/dev/null 2>"$(BUILD)/harness_bare_keys.stderr"; then \
@@ -16478,7 +16497,7 @@ test-harness-bare-keys: $(HARNESS_BIN) $(TRACER_IMG)
 		|| { printf '!!! test-harness-bare-keys FAIL: the harness refused for the WRONG reason (no initech-qed1 diagnostic on stderr):\n'; cat "$(BUILD)/harness_bare_keys.stderr"; exit 1; }
 	@printf '>>> test-harness-bare-keys [1/2]: the real harness refused the bare invocation, citing initech-qed1\n'
 	@# leg 2: the SAME bare invocation + --legacy-quit must proceed (the opt-out works).
-	@if ! $(HARNESS_BIN) --disk "$(TRACER_IMG)" \
+	@if ! $(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" --legacy-quit \
 		--name harness_bare_keys_optout --out "$(BUILD)" --timeout-ms 15000 \
 		>/dev/null 2>"$(BUILD)/harness_bare_keys_ok.stderr"; then \
@@ -16491,10 +16510,10 @@ test-harness-bare-keys: $(HARNESS_BIN) $(TRACER_IMG)
 	@printf 'VERDICT   : PASS -- the initech-qed1 bare-injection safety check refuses by default and --legacy-quit is a real opt-out\n'
 
 .PHONY: test-harness-bare-keys-mutant
-test-harness-bare-keys-mutant: $(HARNESS_MUT_NOCHECK_BIN) $(TRACER_IMG)
+test-harness-bare-keys-mutant: $(HARNESS_MUT_NOCHECK_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-harness-bare-keys-mutant: HARNESS_MUTATE_NO_BARE_KEYS_CHECK must ACCEPT the bare invocation (Rule 6)\n'
 	@rm -f "$(BUILD)/harness_bare_keys_mut.stderr"
-	@if ! $(HARNESS_MUT_NOCHECK_BIN) --disk "$(TRACER_IMG)" \
+	@if ! $(HARNESS_MUT_NOCHECK_BIN) --disk "$(SECONDARY_TRACER_IMG)" \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		--name harness_bare_keys_mut --out "$(BUILD)" --timeout-ms 15000 \
 		>/dev/null 2>"$(BUILD)/harness_bare_keys_mut.stderr"; then \
@@ -16850,14 +16869,14 @@ TRACER_SERIAL := $(BUILD)/$(TRACER_NAME).serial
 TRACER_PPM    := $(BUILD)/$(TRACER_NAME).ppm
 TRACER_REPORT := $(BUILD)/$(TRACER_NAME).report
 
-test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
+test-tracer-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-tracer-boot : real MBR->LFB boot oracle\n'
 	@printf '  Ref: PRD Sec 5 (hardware contract) / Sec 11 (M1). beads initech-f8v.2\n'
 	@printf '  NOTE: pure-seafoam grid SUPERSEDED by ppm_text_check (banner blitted);\n'
 	@printf '        this gate is now STRICTLY STRONGER (banner + seafoam desktop). initech-bea\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (raw disk, custom MBR -> stage2 -> 32-bit flat -> VESA LFB)\n' "$(TRACER_IMG)"
+	@printf 'Booting   : %s (raw disk, custom MBR -> stage2 -> 32-bit flat -> VESA LFB)\n' "$(SECONDARY_TRACER_IMG)"
 	@printf 'Expecting : serial S1/.../KLOAD/KHI/KERNEL/KAT/BI-OK/BANNER + high placement + screendump\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Boot via the disk path with a live-guest screendump. The guest hlt-loops,
@@ -16868,7 +16887,7 @@ test-tracer-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 	@# emitted (kmain.c) AFTER both banner lines are blitted to the LFB console
 	@# (dos_puts -> con sink -> console_putc -> console_draw_glyph). The 6000 ms
 	@# timeout stays the HARD backstop: a guest that never paints still RED.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump --screendump-after BANNER \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --screendump --screendump-after BANNER \
 		--name "$(TRACER_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(TRACER_REPORT)" || true
 	@cat "$(TRACER_REPORT)"
@@ -16965,19 +16984,19 @@ test-boot-bochs:
 	@printf '!!! test-boot-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg of the tri-emulator boot gate (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
 	@printf '======================================================================\n'
 else
-test-boot-bochs: $(BOCHS_BIN) $(TRACER_IMG)
+test-boot-bochs: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-boot-bochs : BOCHS leg of the boot gate\n'
 	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). beads initech-564 / initech-x0i\n'
 	@printf '  Bochs: legacy BIOS + LGPL vgabios + pentium; stage2 mode-0x13 fallback.\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-boot-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(TRACER_IMG)"
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(SECONDARY_TRACER_IMG)"
 	@printf 'Expecting : VBE-ENOMODE + VGA13 (fallback) then the SAME kernel markers as QEMU\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# The guest hlt-loops, so the harness times out by design; OK is driven by
 	@# the RFB unblock + no-triple-fault + the --expect marker, not the exit code.
-	@$(BOCHS_BIN) --disk "$(TRACER_IMG)" --expect VGA13 \
+	@$(BOCHS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --expect VGA13 \
 		--name "$(BOCHS_BOOT_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(BOCHS_BOOT_REPORT)" || true
 	@cat "$(BOCHS_BOOT_REPORT)"
@@ -17070,14 +17089,14 @@ BOOT_LINES    := $(BUILD)/$(BOOT_NAME).banner_lines
 # first prerequisite use (test-makefile-vars, tdnl.81).
 SPEC_BANNER   := spec/dos_banner.txt
 
-test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
+test-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-boot : InitechDOS banner boot gate\n'
 	@printf '  Ref: ADR-0003 DEC-12 / Appendix D.1; spec/dos_banner.txt (LOCKED).\n'
 	@printf '  beads initech-bea. CLAUDE.md Law 1/2/4, Rule 2/8/11.\n'
 	@printf '  TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (raw disk, real boot chain -> C kernel -> banner)\n' "$(TRACER_IMG)"
+	@printf 'Booting   : %s (raw disk, real boot chain -> C kernel -> banner)\n' "$(SECONDARY_TRACER_IMG)"
 	@printf 'Expecting : serial S1/PM/OK/FONT/KERNEL/BI-OK/CONSOLE + banner literal + screendump text\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Boot the live guest with serial + screendump capture (same path as
@@ -17086,7 +17105,7 @@ test-boot: $(HARNESS_BIN) $(TRACER_IMG) $(PPM_TEXT_CHECK_BIN) $(SPEC_BANNER)
 	@# marker before the framebuffer grab (same rationale as test-tracer-boot);
 	@# BANNER is serial-emitted only after both banner lines are blitted to the
 	@# LFB. The 6000 ms timeout remains the hard backstop for a never-painting guest.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --screendump --screendump-after BANNER \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --screendump --screendump-after BANNER \
 		--name "$(BOOT_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(BOOT_REPORT)" || true
 	@cat "$(BOOT_REPORT)"
@@ -21425,6 +21444,24 @@ RECORD_SETTLE_i123_files = 400
 # The existing long recording image: 53 frame captures outlive the 30s image.
 RECORD_IMAGE_i123_files = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
+# L118 acceptance clips use fresh local copies of the normal data volume.
+RECORD_SCRIPTS += locked_trash locked_purge
+RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
+RECORD_SPEC_locked_purge = $(FLAIR_EMPTY_OK_SPEC)
+RECORD_MARKER_locked_trash = FINDER-LOCKED-ALERT
+RECORD_MARKER_locked_purge = FINDER-LOCKED-ALERT
+RECORD_IMAGE_locked_trash = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_IMAGE_locked_purge = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_locked_trash = $(BUILD)/record_locked_trash.img
+RECORD_DATA_locked_purge = $(BUILD)/record_locked_purge.img
+RECORD_SETTLE_locked_trash = 200
+RECORD_SETTLE_locked_purge = 200
+$(BUILD)/record_locked_trash.img: $(FLAIR_DATA_IMG)
+	cp -f $< $@
+	mattrib -i $@ +r ::README.TXT
+$(BUILD)/record_locked_purge.img: $(FLAIR_DATA_IMG)
+	cp -f $< $@
+	mattrib -i $@ +r ::APPS/TENANTFX.EXE
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -21844,7 +21881,7 @@ FS_PPM     := $(BUILD)/$(FS_NAME).ppm
 FS_NAMES   := HELLO.TXT SECOND.TXT CHAIN.TXT EMPTY.TXT BLOCK.BIN
 
 .PHONY: test-fs
-test-fs: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+test-fs: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-fs : MOUNT A REAL FILESYSTEM over ATA\n'
 	@printf '  Ref: docs/research/fs-mount-sft-ground-truth.md Sec 1/2/5.1.\n'
@@ -21852,7 +21889,7 @@ test-fs: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '  FIRST functional run of os/milton/ata.c on the emulator.\n'
 	@printf '  TRI-EMULATOR: QEMU only -- Bochs/86Box deferred to beads initech-x0i.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s (boot disk, primary master)\n' "$(TRACER_IMG)"
+	@printf 'Booting   : %s (boot disk, primary master)\n' "$(SECONDARY_TRACER_IMG)"
 	@printf 'Data disk : %s (primary SLAVE, if=ide,index=1)\n' "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FAT-MOUNT-OK + proto-DIR filenames (HELLO.TXT ...) + DIR-OK + no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
@@ -21862,7 +21899,7 @@ test-fs: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	@# the LFB console (dir_visit -> dir_puts -> console_putc). Waiting for it
 	@# guarantees the asserted band is painted before the grab, killing the race.
 	@# The 6000 ms timeout stays the hard backstop.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
 		--screendump-after DIR-OK \
 		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(FS_REPORT)" || true
@@ -22939,7 +22976,7 @@ test-sysinit-oversize: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_BIG_IMG)
 # ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-7pc -- BOOT -> COMMAND.COM -> DIR/TYPE/run)
 # ---------------------------------------------------------------------------
-# THE M2 capstone keystone: boot the -DBOOT_SHELL image WITH a FAT12 disk
+# THE M2 capstone keystone: boot the -DBOOT_SHELL -DBOOT_SECONDARY_SHELL image WITH a FAT12 disk
 # (--disk2 = FAT_EXEC_IMG, carrying HELLO.TXT + GREET.COM) and inject a command
 # script via QMP --keys, gated on SHELL-READY so the keys arrive while the shell's
 # AH=0Ah is blocking on the prompt. The injected script (each token a key; "ret"
@@ -22972,13 +23009,13 @@ SHELL_EXEC_OUTPUT  := GREETINGS FROM A:GREET.COM
 SHELL_BADCMD       := Bad command or file name
 
 .PHONY: test-shell
-test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
+test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-shell : BOOT -> COMMAND.COM -> DIR/TYPE/run\n'
 	@printf '  Ref: ADR-0003 DEC-11/DEC-12; DOS 3.3 COMMAND.COM; spec/dos_messages.json.\n'
 	@printf '  beads initech-7pc (M2 capstone). Inject: dir / type hello.txt / greet / badcmd / exit.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + disk %s (HELLO.TXT + GREET.COM, primary slave)\n' "$(TRACER_IMG)" "$(FAT_EXEC_IMG)"
+	@printf 'Booting   : %s + disk %s (HELLO.TXT + GREET.COM, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(FAT_EXEC_IMG)"
 	@printf 'Expecting : SHELL-READY + DIR{HELLO.TXT,GREET.COM} + "%s" + "%s" + "%s" + SHELL-EXIT\n' "$(SHELL_TYPE_CONTENT)" "$(SHELL_EXEC_OUTPUT)" "$(SHELL_BADCMD)"
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Run 1 (serial): inject the command sequence so the DIR/TYPE/greet/badcmd/EXIT
@@ -22988,7 +23025,7 @@ test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 	@# would catch the FULL transcript scrolled down past y=240 -- which trips
 	@# ppm_text_check's [C] "seafoam below the banner" guard. The visual half gets
 	@# its OWN clean boot (Run 2, below).
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
 		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
 		--keys-after "SHELL-READY" \
@@ -23054,7 +23091,7 @@ test-shell: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CHECK_BIN)
 	@# suppressed. The "A:\>" glyphs ink ~86 fg pixels there (A=39, :=8, \=21,
 	@# >=18); require >=40 so a non-rendering prompt (an empty row 5) goes RED while
 	@# leaving margin for sub-pixel rounding (Rule 6 -- the gate BITES).
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--screendump --screendump-after SHELL-READY \
 		--name "$(SHELL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(SHELL_SCRN_REPORT)" || true
@@ -23142,7 +23179,7 @@ $(OJXN_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 		-DCMD_MUTATE_NO_READ_CF \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-OJXN_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(OJXN_MUT_COMMAND_OBJ)
+OJXN_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(OJXN_MUT_COMMAND_OBJ)
 
 $(OJXN_MUT_SHELL_ELF): $(OJXN_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(OJXN_MUT_SHELL_OBJS)
@@ -23184,17 +23221,17 @@ define ojxn-mint-disk
 endef
 
 .PHONY: test-copy-selfcopy test-copy-selfcopy-mutant
-test-copy-selfcopy: $(HARNESS_BIN) $(TRACER_IMG)
+test-copy-selfcopy: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-copy-selfcopy : COPY <file> <file> no data loss\n'
 	@printf '  Ref: DOS 3.3 COMMAND.COM COPY; spec/dos_messages.json (MSG-DOS-0020). Law 2/Rule 2.\n'
 	@printf '  beads initech-ojxn (P0). Inject: copy test.txt test.txt / type test.txt / exit.\n'
 	@printf '======================================================================\n'
 	$(ojxn-mint-disk)
-	@printf 'Booting   : %s + FRESH WRITABLE disk %s (multi-cluster TEST.TXT, TAIL=%s)\n' "$(TRACER_IMG)" "$(OJXN_IMG)" "$(OJXN_TAIL)"
+	@printf 'Booting   : %s + FRESH WRITABLE disk %s (multi-cluster TEST.TXT, TAIL=%s)\n' "$(SECONDARY_TRACER_IMG)" "$(OJXN_IMG)" "$(OJXN_TAIL)"
 	@printf 'Expecting : "File cannot be copied onto itself" + "0 file(s) copied" + TEST.TXT intact\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
 		--name "$(OJXN_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -23337,7 +23374,7 @@ $(WINH_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_READ_CF \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-WINH_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(WINH_MUT_COMMAND_OBJ)
+WINH_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(WINH_MUT_COMMAND_OBJ)
 
 $(WINH_MUT_SHELL_ELF): $(WINH_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(WINH_MUT_SHELL_OBJS)
@@ -23361,16 +23398,16 @@ $(WINH_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(WINH_MUT_SHELL_BIN) | $(BUILD
 	@printf ">>> winh mutant image: %s (dos_read CF-check bypassed -- TYPE/COPY PRN must hang)\n" "$@"
 
 .PHONY: test-readerr-winh test-readerr-winh-mutant
-test-readerr-winh: $(HARNESS_BIN) $(TRACER_IMG) $(FAT_EXEC_IMG)
+test-readerr-winh: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-readerr-winh : AH=3Fh READ error != a byte count\n'
 	@printf '  Ref: os/milton/devices.c dev_prn_handler; spec/dos_messages.json (MSG-DOS-0002). Law 2/Rule 2.\n'
 	@printf '  beads initech-winh (P1). Inject: type prn / copy prn out.txt / type out.txt / exit.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + disk %s (device OPEN-by-name needs no data file)\n' "$(TRACER_IMG)" "$(FAT_EXEC_IMG)"
+	@printf 'Booting   : %s + disk %s (device OPEN-by-name needs no data file)\n' "$(SECONDARY_TRACER_IMG)" "$(FAT_EXEC_IMG)"
 	@printf 'Expecting : ONE "Bad command or file name" per PRN read, OUT.TXT left empty, clean SHELL-EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(WINH_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -23462,7 +23499,7 @@ test-readerr-winh-mutant: $(HARNESS_BIN) $(WINH_MUT_TRACER_IMG) $(FAT_EXEC_IMG)
 # REAL gate: test-ut6d (beads initech-ut6d -- COMMAND.COM MD/RD/CD subdir cycle)
 # ---------------------------------------------------------------------------
 # Wire the REPL to the landed AH=39h/3Ah/3Bh/47h directory handlers (u6wa/mzxa):
-# boot the -DBOOT_SHELL kernel WITH a FRESH WRITABLE FAT12 disk (--disk2) and
+# boot the -DBOOT_SHELL -DBOOT_SECONDARY_SHELL kernel WITH a FRESH WRITABLE FAT12 disk (--disk2) and
 # inject MD/CD/DIR/CD ../RD/CD/EXIT, gated on SHELL-READY. The CENTERPIECE assertion
 # is that after `CD SUB` the GETCWD-composed $P$G prompt shows "A:\SUB>" -- i.e.
 # the prompt reflects the live CWD, not a hardcoded root. The MD actually creates
@@ -23500,7 +23537,7 @@ $(UT6D_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 # The mutant shell ELF: the SHELL object set with command.o swapped for the mutant.
-UT6D_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(UT6D_COMMAND_MUT_OBJ)
+UT6D_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(UT6D_COMMAND_MUT_OBJ)
 
 $(UT6D_SHELL_MUT_ELF): $(UT6D_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_MUT_OBJS)
@@ -23541,7 +23578,7 @@ $(UT6D_COMMAND_RDNOOP_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_RD_NOOP \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-UT6D_SHELL_RDNOOP_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(UT6D_COMMAND_RDNOOP_OBJ)
+UT6D_SHELL_RDNOOP_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(UT6D_COMMAND_RDNOOP_OBJ)
 
 $(UT6D_SHELL_RDNOOP_ELF): $(UT6D_SHELL_RDNOOP_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_RDNOOP_OBJS)
@@ -23584,7 +23621,7 @@ UT6D_MUT_REPORT := $(BUILD)/$(UT6D_MUT_NAME).report
 UT6D_KEYS := m,d,spc,s,u,b,ret,c,d,spc,s,u,b,ret,d,i,r,ret,c,d,spc,dot,dot,ret,r,d,spc,s,u,b,ret,c,d,spc,s,u,b,ret,e,x,i,t,ret
 
 .PHONY: test-ut6d test-ut6d-mutant
-test-ut6d: $(HARNESS_BIN) $(TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
+test-ut6d: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-ut6d : COMMAND.COM MD/RD/CD subdir cycle\n'
 	@printf '  Ref: ADR-0003 DEC-11/DEC-12; spec/int21h_calling_convention.json (AH=39h/3Ah/3Bh/47h).\n'
@@ -23594,10 +23631,10 @@ test-ut6d: $(HARNESS_BIN) $(TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
 	@dd if=/dev/zero of=$(UT6D_IMG) bs=512 count=2880 status=none
 	@mformat -i $(UT6D_IMG) -f 1440 ::
 	@mcopy -i $(UT6D_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
-	@printf 'Booting   : %s + FRESH WRITABLE disk %s (primary slave)\n' "$(TRACER_IMG)" "$(UT6D_IMG)"
+	@printf 'Booting   : %s + FRESH WRITABLE disk %s (primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(UT6D_IMG)"
 	@printf 'Expecting : SHELL-READY + prompt "A:\\SUB>" after CD SUB + clean SHELL-EXIT/SHELL-DONE\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(UT6D_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(UT6D_IMG)" \
 		--name "$(UT6D_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -23727,7 +23764,7 @@ test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG
 # ---------------------------------------------------------------------------
 # Prove AH=4Bh EXEC can LOAD AND RUN a flat .COM from a SUBDIRECTORY -- the
 # loader-internal half of zs24 (Landing 1 was subdir file WRITE). Boot the
-# -DBOOT_SHELL kernel WITH a FRESH writable FAT12 disk whose GREET.COM lives ONLY
+# -DBOOT_SHELL -DBOOT_SECONDARY_SHELL kernel WITH a FRESH writable FAT12 disk whose GREET.COM lives ONLY
 # in ::SUB (NOT in root -- so a root-only loader/dispatch CANNOT find it, which is
 # exactly what the two mutants below exploit). Inject TWO ways to reach it, gated
 # on SHELL-READY; BOTH must run GREET.COM (its "GREETINGS FROM A:GREET.COM" marker
@@ -23777,7 +23814,7 @@ define zs24exec-mint-disk
 endef
 
 .PHONY: test-zs24-exec test-zs24-exec-mutant
-test-zs24-exec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(FAT12_FIXTURE_DIR)/hello.txt
+test-zs24-exec: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(FAT12_FIXTURE_DIR)/hello.txt
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-zs24-exec : AH=4Bh EXEC a .COM FROM A SUBDIR\n'
 	@printf '  Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08; psp-loader-ground-truth.md Sec 4/5.\n'
@@ -23787,10 +23824,10 @@ test-zs24-exec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(FAT12_FIXTURE_D
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-zs24-exec FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mmd     >/dev/null 2>&1 || { printf '!!! test-zs24-exec FAIL: mtools `mmd` not found.\n'; exit 1; }
 	$(call zs24exec-mint-disk,$(ZS24EXEC_IMG))
-	@printf 'Booting   : %s + FRESH writable disk %s (GREET.COM only in ::SUB)\n' "$(TRACER_IMG)" "$(ZS24EXEC_IMG)"
+	@printf 'Booting   : %s + FRESH writable disk %s (GREET.COM only in ::SUB)\n' "$(SECONDARY_TRACER_IMG)" "$(ZS24EXEC_IMG)"
 	@printf 'Expecting : SHELL-READY + "%s" x2 + prompt "A:\\SUB>" + clean SHELL-EXIT/SHELL-DONE\n' "$(ZS24EXEC_MARKER)"
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(ZS24EXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(ZS24EXEC_IMG)" \
 		--name "$(ZS24EXEC_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -23852,7 +23889,7 @@ $(ZS24EXEC_INT21_MUT_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_EXEC_ROOTREJECT \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
-ZS24EXEC_SHELL_REJECT_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SHELL_OBJS)) $(ZS24EXEC_INT21_MUT_OBJ)
+ZS24EXEC_SHELL_REJECT_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_INT21_MUT_OBJ)
 
 $(ZS24EXEC_SHELL_REJECT_ELF): $(ZS24EXEC_SHELL_REJECT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_REJECT_OBJS)
@@ -23889,7 +23926,7 @@ $(ZS24EXEC_LOADER_MUT_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_D
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DLOADER_MUTATE_EXEC_ROOTONLY \
 		-Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 
-ZS24EXEC_SHELL_ROOTONLY_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_SHELL_OBJS)) $(ZS24EXEC_LOADER_MUT_OBJ)
+ZS24EXEC_SHELL_ROOTONLY_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_LOADER_MUT_OBJ)
 
 $(ZS24EXEC_SHELL_ROOTONLY_ELF): $(ZS24EXEC_SHELL_ROOTONLY_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_ROOTONLY_OBJS)
@@ -25263,10 +25300,10 @@ TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-audit-emu test-samir-input-emu
-test-samir-audit-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-audit-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
 	@$(TEST_SAMIR_AUDIT_EMU) view
 	@printf '>>> test-samir-audit-emu: green\n'
-test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
 	@$(TEST_SAMIR_AUDIT_EMU) input
 	@printf '>>> test-samir-input-emu: green\n'
 
@@ -25280,7 +25317,7 @@ $(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_COM_CSRCS) $(SAMIR_
 	$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 .PHONY: test-samir-audit-emu-mutant test-samir-input-emu-mutant
-test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@set -e; for kind in filter deleted marker extension useerror; do \
 	  case $$kind in filter) reason='K05 active FILTER excludes negative row';; deleted) reason='K06 ON hides deleted row';; marker) reason='K06 audit DELETE+DISPLAY has asterisk';; extension) reason='K09 implicit extension succeeded before explicit control';; useerror) reason='K09 missing table is';; esac; \
 	  if $(TEST_SAMIR_AUDIT_EMU) view $(BUILD)/SAMIR_AUDIT_$$kind.COM > $(BUILD)/samir-audit/mut-emu-$$kind.log 2>&1; then echo '!!! emu mutant passed'; exit 1; fi; \
@@ -25291,7 +25328,7 @@ test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM,$(SAMIR
 	  printf '>>> test-samir-audit-emu-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
 	done
 	@printf '>>> test-samir-audit-emu-mutant: green\n'
-test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@if $(TEST_SAMIR_AUDIT_EMU) input $(BUILD)/SAMIR_AUDIT_input.COM > $(BUILD)/samir-audit/mut-emu-input.log 2>&1; then echo '!!! input emu mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-input.log
 	@grep -Fq 'K13 USE/LIST/QUIT rendered all three rows' $(BUILD)/samir-audit/mut-emu-input.log
@@ -25400,18 +25437,18 @@ SAMIRBOOT_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,re
 SAMIRBOOT_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret
 
 .PHONY: test-samir-boot test-samir-boot-mutant
-test-samir-boot: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-boot : SAMIR runs INSIDE InitechOS (S8.2)\n'
 	@printf '  Ref: bead initech-hdlb; ADR-0009 DEC-08. boot -> EXEC SAMIR.COM -> USE -> LIST.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(TRACER_IMG)" "$(SAMIR_LIST_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(SAMIR_LIST_IMG)"
 	@printf 'Expecting : SHELL-READY + dot prompt + LIST rows {PESTON,WADDAMS,LUMBERGH} + no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# Run 1 (serial): EXEC SAMIR, USE CLIENTS.DBF, LIST, QUIT, EXIT. Generous
 	@# timeout: SAMIR is 77 KiB soft-float -- slower to load + construct than a
 	@# baked .COM. No screendump here (Run 2 grabs it on its own clean keys run).
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -25450,7 +25487,7 @@ test-samir-boot: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK
 	@# y in [160,176) inks >= 300 fg pixels: it inks 745 with the three rows and 0
 	@# without (a clean discriminator -- the band is pure seafoam if SAMIR did not
 	@# USE+LIST). Deterministic across runs (verified). ----
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after "SHELL-READY" \
 		--screendump --screendump-after "SHELL-READY" \
@@ -25469,9 +25506,9 @@ test-samir-boot: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
 
-test-samir-boot-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
+test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
 	@printf '>>> test-samir-boot-mutant: confirming the short-read pal_milton mutant goes RED (Rule 6)\n'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_LIST_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_MUT_IMG)" \
 		--name "$(SAMIRBOOT_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -25597,12 +25634,12 @@ SAMIRWR_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,r,e,p,l,a,c,
 SAMIRWR_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,9,9,9,9,dot,9,9,ret,a,p,p,e,n,d,spc,b,l,a,n,k,ret,r,e,p,l,a,c,e,spc,b,a,l,spc,w,i,t,h,spc,5,5,5,5,dot,5,5,ret,l,i,s,t,ret
 
 .PHONY: test-samir-write test-samir-write-mutant
-test-samir-write: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM_TEXT_CHECK_BIN)
+test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-write : SAMIR WRITES a .dbf that PERSISTS (S8.2 deepening)\n'
 	@printf '  Ref: bead initech-g6wx; ADR-0009 DEC-08. boot -> USE -> REPLACE + APPEND -> flush -> on-disk .dbf.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + FRESH WRITABLE data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(TRACER_IMG)" "$(SAMIR_WRITE_IMG)"
+	@printf 'Booting   : %s + FRESH WRITABLE data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(SAMIR_WRITE_IMG)"
 	@printf 'Expecting : in-emu LIST shows BAL 9999.99 + rec4 5555.55; extracted .dbf has 4 records (independent reader)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# FRESH disk for the serial leg -- Rule 11: each run starts from the pristine
@@ -25611,7 +25648,7 @@ test-samir-write: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM
 	@$(call samir_write_mint,$(SAMIR_WRITE_IMG),$(SAMIR_COM))
 	@printf '>>> samir_write: minted FRESH %s (pristine 3-record CLIENTS.DBF) for the serial leg\n' "$(SAMIR_WRITE_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, USE rw, REPLACE + APPEND + REPLACE, LIST, QUIT, EXIT.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_IMG)" \
 		--name "$(SAMIRWR_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -25652,7 +25689,7 @@ test-samir-write: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM
 	@# FRESH disk for the screendump leg (its OWN image) so its appends never
 	@# disturb the serial leg's on-disk persistence proof (Rule 11).
 	@$(call samir_write_mint,$(SAMIR_WRITE_SCRN_IMG),$(SAMIR_COM))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_SCRN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_SCRN_IMG)" \
 		--name "$(SAMIRWR_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_SCRN_KEYS)" --keys-after "SHELL-READY" \
 		--screendump --screendump-after "SHELL-READY" \
@@ -25695,11 +25732,11 @@ test-samir-write: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(CLIENTS_DBF) $(PPM
 	@printf '            (QEMU only; tri-emulator agreement pending bead initech-x0i)\n'
 	@printf '======================================================================\n'
 
-test-samir-write-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DROPWRITE) $(CLIENTS_DBF)
+test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DROPWRITE) $(CLIENTS_DBF)
 	@printf '>>> test-samir-write-mutant: confirming the drop-write pal_milton mutant goes RED (Rule 6)\n'
 	@# FRESH mutant disk from the pristine fixture (Rule 11).
 	@$(call samir_write_mint,$(SAMIR_WRITE_MUT_IMG),$(SAMIR_COM_DROPWRITE))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SAMIR_WRITE_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_MUT_IMG)" \
 		--name "$(SAMIRWR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -25854,18 +25891,18 @@ CY2K_KEYS      := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,y,
 CY2K_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,y,2,k,a,c,c,t,ret
 
 .PHONY: test-samir-canon-y2k test-samir-canon-y2k-mutant
-test-samir-canon-y2k: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(Y2KACCT_PRG) $(PPM_TEXT_CHECK_BIN)
+test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(Y2KACCT_PRG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-canon-y2k : the Initech AR app + its Y2K bug RUN inside InitechOS\n'
 	@printf '  Ref: bead initech-9a0f (Law-4 capstone); 586.1 (the enforced Y2K bug). boot -> EXEC SAMIR -> DO Y2KACCT.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(TRACER_IMG)" "$(CY2K_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(SECONDARY_TRACER_IMG)" "$(CY2K_IMG)"
 	@printf 'Expecting : the aging report on serial WITH the buggy A1001 -36477 / A1003 -36462 / TOTAL 0.00 (canon)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call cy2k_mint,$(CY2K_IMG),$(SAMIR_COM),$(INVOICE_DBF))
 	@printf '>>> samir_canon_y2k: minted FRESH %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(CY2K_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, DO Y2KACCT, QUIT, EXIT.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_IMG)" \
 		--name "$(CY2K_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -25904,7 +25941,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $
 	@# gate, so the report text lands in band [176,260). seafoam right margin checked
 	@# (immune to vertical scroll), same discriminator pattern as test-samir-write. ----
 	@$(call cy2k_mint,$(CY2K_SCRN_IMG),$(SAMIR_COM),$(INVOICE_DBF))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
 		--name "$(CY2K_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_SCRN_KEYS)" --keys-after "SHELL-READY" \
 		--screendump --screendump-after "SHELL-READY" \
@@ -25938,10 +25975,10 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $
 # (The host gate test-canon-y2k-mutant covers the ASOF+data Y2K-fix bite, which can
 # patch both at once; INVOICE.fix.dbf is retained as a documented host-equivalent
 # fixture.) Ref: bead initech-9a0f; samir_main.c repl_load_prg REPL_MUTATE_DO_TRUNC.
-test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(Y2KACCT_PRG)
+test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(Y2KACCT_PRG)
 	@printf '>>> test-samir-canon-y2k-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-9a0f)\n'
 	@$(call cy2k_mint,$(CY2K_MUT_IMG),$(SAMIR_COM_DOTRUNC),$(INVOICE_DBF))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CY2K_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_MUT_IMG)" \
 		--name "$(CY2K_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26066,18 +26103,18 @@ CSAL_KEYS      := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,s,
 CSAL_SCRN_KEYS := s,a,m,i,r,ret,u,s,e,spc,i,n,v,o,i,c,e,dot,d,b,f,ret,d,o,spc,s,a,l,a,m,i,ret
 
 .PHONY: test-samir-canon-salami test-samir-canon-salami-mutant
-test-samir-canon-salami: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(SALAMI_PRG) $(PPM_TEXT_CHECK_BIN)
+test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF) $(SALAMI_PRG) $(PPM_TEXT_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-samir-canon-salami : Bolton salami virus RUNS inside InitechOS\n'
 	@printf '  Ref: bead initech-4hte (canon pair, salami twin of 9a0f); 586.2 (the enforced skim). boot -> EXEC SAMIR -> USE INVOICE -> DO SALAMI.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(TRACER_IMG)" "$(CSAL_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(SECONDARY_TRACER_IMG)" "$(CSAL_IMG)"
 	@printf 'Expecting : the posting report on serial WITH the buggy A1004 0.4998 / BOLTON 0.38 (too much too fast, canon)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@$(call csalami_mint,$(CSAL_IMG),$(SAMIR_COM))
 	@printf '>>> samir_canon_salami: minted FRESH %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(CSAL_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, USE INVOICE, DO SALAMI, QUIT, EXIT.
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_IMG)" \
 		--name "$(CSAL_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26113,7 +26150,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF
 	@# gate, so the report text lands in band [176,260). seafoam right margin checked
 	@# (immune to vertical scroll), same discriminator pattern as test-samir-canon-y2k. ----
 	@$(call csalami_mint,$(CSAL_SCRN_IMG),$(SAMIR_COM))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
 		--name "$(CSAL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_SCRN_KEYS)" --keys-after "SHELL-READY" \
 		--screendump --screendump-after "SHELL-READY" \
@@ -26143,10 +26180,10 @@ test-samir-canon-salami: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(INVOICE_DBF
 # (Canon-bug ENFORCEMENT -- the misplaced-decimal SCALE=0 -- stays covered by the host gate
 # test-canon-salami-mutant, which flips SCALE to 2 and confirms the honest BOLTON 0.00.)
 # Ref: bead initech-4hte; samir_main.c repl_load_prg REPL_MUTATE_DO_TRUNC.
-test-samir-canon-salami-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(SALAMI_PRG)
+test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(SALAMI_PRG)
 	@printf '>>> test-samir-canon-salami-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-4hte)\n'
 	@$(call csalami_mint,$(CSAL_MUT_IMG),$(SAMIR_COM_DOTRUNC))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(CSAL_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_MUT_IMG)" \
 		--name "$(CSAL_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26480,8 +26517,8 @@ $(DOS_SAFETY_FIXTURE): harness/diff/fat_diff/dos_safety_fixture.c | $(BUILD)
 define dos-safety-shell-mutant
 $(BUILD)/command_safety_$(1).o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/int21.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -D$(2) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $$< -o $$@
-$(BUILD)/kernel_shell_mut_safety_$(1).elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_safety_$(1).o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_safety_$(1).o
+$(BUILD)/kernel_shell_mut_safety_$(1).elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o $(KERNEL_LD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o
 $(BUILD)/kernel_shell_mut_safety_$(1).bin: $(BUILD)/kernel_shell_mut_safety_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
@@ -26500,6 +26537,8 @@ $(eval $(call dos-safety-shell-mutant,silent,CMD_TEST_DEL_DENIED -DCMD_MUTATE_DE
 $(eval $(call dos-safety-shell-mutant,k15,CMD_MUTATE_DEL_NO_CONFIRM))
 $(eval $(call dos-safety-shell-mutant,yesall,CMD_MUTATE_DEL_YES_ALWAYS))
 $(eval $(call dos-safety-shell-mutant,refusey,CMD_MUTATE_DEL_REFUSE_Y))
+$(eval $(call dos-safety-shell-mutant,permanent,CMD_MUTATE_PERMANENT_EXIT))
+$(eval $(call dos-safety-shell-mutant,rostop,CMD_MUTATE_DEL_STOP_PROTECTED))
 
 .PHONY: test-dos-safety-k01 test-dos-safety-k01-mutant test-dos-safety-identity test-dos-safety-identity-mutant \
         test-dos-safety-k02 test-dos-safety-k02-mutant test-dos-safety-create test-dos-safety-create-mutant \
@@ -26513,15 +26552,15 @@ test-dos-safety-identity-mutant: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST_MUT)
 	[ $$rc -ne 0 ] && grep -q 'FAIL .*resolved entry identity' $(BUILD)/dos_safety_identity_mutant.log \
 	|| { cat $(BUILD)/dos_safety_identity_mutant.log; exit 1; }; \
 	printf 'VERDICT: PASS -- test-dos-safety-identity-mutant (false identity: resolved entry identity, RED)\n'
-test-dos-safety-k01: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh k01 $(TRACER_IMG)
+test-dos-safety-k01: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k01 $(SECONDARY_TRACER_IMG)
 
-test-dos-safety-k02: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh k02 $(TRACER_IMG)
-test-dos-safety-k03: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh k03 $(TRACER_IMG)
-test-dos-safety-k04: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh k04 $(TRACER_IMG)
+test-dos-safety-k02: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k02 $(SECONDARY_TRACER_IMG)
+test-dos-safety-k03: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k03 $(SECONDARY_TRACER_IMG)
+test-dos-safety-k04: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k04 $(SECONDARY_TRACER_IMG)
 test-dos-safety-del-failure: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_denied.img
 	@sh harness/diff/fat_diff/dos_safety.sh failure $(BUILD)/tracer_mut_safety_denied.img
 test-dos-safety-del-failure-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_silent.img
@@ -26529,11 +26568,11 @@ test-dos-safety-del-failure-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD
 	[ $$rc -ne 0 ] && grep -q 'FAIL failure: deletion failure diagnostic missing' $(BUILD)/dos_safety_failure_mutant.log \
 	|| { cat $(BUILD)/dos_safety_failure_mutant.log; exit 1; }; \
 	printf 'VERDICT: PASS -- test-dos-safety-del-failure-mutant (silent failed unlink: diagnostic missing, RED)\n'
-test-dos-safety-audit: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh audit $(TRACER_IMG)
-test-dos-safety-k15: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh k15n $(TRACER_IMG)
-	@sh harness/diff/fat_diff/dos_safety.sh k15y $(TRACER_IMG)
+test-dos-safety-audit: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh audit $(SECONDARY_TRACER_IMG)
+test-dos-safety-k15: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k15n $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh k15y $(SECONDARY_TRACER_IMG)
 test-dos-safety-k15-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_k15.img $(BUILD)/tracer_mut_safety_yesall.img $(BUILD)/tracer_mut_safety_refusey.img
 	@for item in 'k15:k15n:non-Y response changed disk' 'yesall:k15n:non-Y response changed disk' 'refusey:k15y:DELTEST/*.TXT still present'; do \
 	    tag=$${item%%:*}; rest=$${item#*:}; mode=$${rest%%:*}; why=$${rest#*:}; log=$(BUILD)/dos_safety_$$tag.log; \
@@ -26584,8 +26623,99 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 	|| { cat $(BUILD)/dos_safety_k01_mutant.log; exit 1; }; \
 	printf 'VERDICT: PASS -- test-dos-safety-k01-mutant (self guard removed: SELF.BIN bytes changed, RED)\n'
 
+# Audit L005/L006: independent whole-image protection oracles.
+.PHONY: test-flair-locked-trash test-flair-locked-purge test-finder-lock-mutant test-flair-locked-trash-mutant
+$(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_LOCKED_STAGE,locked_stage))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_LOCKED_PURGE,locked_purge))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_LOCKED_NOTICE,locked_notice))
+$(BUILD)/test_finder_ops_mutant_locked_purge: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_LOCKED_PURGE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+test-finder-lock-mutant: $(BUILD)/test_finder_ops_mutant_LOCKED_STAGE $(BUILD)/test_finder_ops_mutant_locked_purge
+	@set -e; for pair in 'LOCKED_STAGE:L118 locked staging refused from live attributes' 'locked_purge:L118 late lock refused during mixed purge'; do \
+	  tag=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_finder_ops_mutant_$$tag; \
+	  if $$bin > $$bin.log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
+	  grep -F "$$why" $$bin.log | grep -q FAIL || { cat $$bin.log; exit 1; }; \
+	  printf 'VERDICT: PASS -- Finder mutant %s RED (%s)\n' "$$tag" "$$why"; \
+	done
+test-flair-locked-trash: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_LOCKED_TRASH_SPEC)'
+test-flair-locked-purge: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_EMPTY_OK_SPEC)' _purge purge
+test-flair-locked-trash-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_locked_stage.img $(BUILD)/flair_tenants_mut_locked_notice.img $(BUILD)/flair_tenants_mut_locked_purge.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@set -e; for pair in 'locked_stage:locked file left source:stage' 'locked_notice:locked notice pixels missing:stage' 'locked_purge:visible message missing:purge'; do \
+	  tag=$${pair%%:*}; rest=$${pair#*:}; why=$${rest%:*}; mode=$${rest##*:}; log=$(BUILD)/$$tag.log; \
+	  trace='$(FLAIR_LOCKED_TRASH_SPEC)'; [ $$mode = stage ] || trace='$(FLAIR_EMPTY_OK_SPEC)'; \
+	  if sh harness/diff/fat_diff/locked_trash.sh $(BUILD)/flair_tenants_mut_$$tag.img $(FLAIR_DATA_IMG) "$$trace" _mut_$$tag $$mode > $$log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
+	  grep -F "$$why" $$log || { cat $$log; exit 1; }; \
+	  printf 'VERDICT: PASS -- test-flair-locked-trash-mutant %s RED (%s)\n' "$$tag" "$$why"; \
+	done
+.PHONY: test-shell-permanent
+test-shell-permanent: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(TRACER_IMG)
+	@sh harness/diff/fat_diff/shell_permanent.sh $(TRACER_IMG)
+.PHONY: test-shell-permanent-mutant
+test-shell-permanent-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_permanent.img
+	@if sh harness/diff/fat_diff/shell_permanent.sh $(BUILD)/tracer_mut_safety_permanent.img _mut > $(BUILD)/shell_permanent_mutant.log 2>&1; then echo 'FAIL: permanent EXIT mutant passed'; exit 1; fi
+	@grep -q 'primary processor exited' $(BUILD)/shell_permanent_mutant.log
+	@printf 'VERDICT: PASS -- test-shell-permanent-mutant (primary processor exited, RED)\n'
+define dos-protection-host-mutant
+$(BUILD)/test_dos_protection_$(1): $(MILTON_DIR)/test_dos_safety.c $(TEST_FILEIO_SUBDIR_DEPS) $(TEST_FILEIO_SUBDIR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$(2) -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) -Ibuild -o $$@ $$< $(TEST_FILEIO_SUBDIR_DEPS)
+endef
+$(eval $(call dos-protection-host-mutant,create,FAT12_MUTATE_CREATE_READONLY))
+$(eval $(call dos-protection-host-mutant,unlink,FAT12_MUTATE_UNLINK_READONLY))
+$(eval $(call dos-protection-host-mutant,nonregular,FAT12_MUTATE_UNLINK_NONREGULAR))
+$(eval $(call dos-protection-host-mutant,write,FAT12_MUTATE_WRITE_READONLY))
+$(eval $(call dos-protection-host-mutant,open,INT21_MUTATE_OPEN_READONLY))
+
+define dos-protection-fat-mutant
+$(BUILD)/fat12_protection_$(1).o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(2) -Ispec -I$(KERNEL_DIR) -c $$< -o $$@
+$(BUILD)/kernel_shell_mut_protection_$(1).elf: $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o $(KERNEL_LD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o
+$(BUILD)/kernel_shell_mut_protection_$(1).bin: $(BUILD)/kernel_shell_mut_protection_$(1).elf
+	$(OBJCOPY) -O binary $$< $$@
+	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$((max - sz))" conv=notrunc status=none
+$(BUILD)/tracer_mut_protection_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_protection_$(1).bin
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_shell_mut_protection_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+endef
+$(eval $(call dos-protection-fat-mutant,copy,FAT12_MUTATE_CREATE_READONLY))
+$(eval $(call dos-protection-fat-mutant,del,FAT12_MUTATE_UNLINK_READONLY))
+.PHONY: test-dos-safety-ro-mutant test-dos-safety-copy-ro-mutant test-dos-safety-del-ro-mutant
+test-dos-safety-ro-mutant: $(DOS_SAFETY_FIXTURE) $(foreach m,create unlink nonregular write open,$(BUILD)/test_dos_protection_$(m))
+	@set -e; for pair in 'create:create-ro:CREAT read-only refusal' 'unlink:unlink-ro:UNLINK read-only refusal' 'nonregular:unlink-ro:UNLINK nonregular refusal' 'write:write-ro:positioned write read-only refusal' 'open:write-ro:OPEN write read-only refusal'; do \
+	  tag=$${pair%%:*}; rest=$${pair#*:}; mode=$${rest%%:*}; why=$${rest#*:}; log=$(BUILD)/dos_protection_$$tag.log; \
+	  if DOS_SAFETY_HOST=$(BUILD)/test_dos_protection_$$tag sh harness/diff/fat_diff/dos_safety.sh $$mode unused _mut_$$tag > $$log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
+	  grep -F "$$why" $$log | grep -q FAIL || { cat $$log; exit 1; }; \
+	  printf 'VERDICT: PASS -- protection mutant %s RED (%s)\n' "$$tag" "$$why"; \
+	done
+test-dos-safety-copy-ro-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_protection_copy.img
+	@if sh harness/diff/fat_diff/dos_safety.sh copy-ro $(BUILD)/tracer_mut_protection_copy.img _mut > $(BUILD)/copy_ro_mutant.log 2>&1; then echo 'FAIL: COPY protection mutant passed'; exit 1; fi
+	@grep -q 'read-only refusal changed disk' $(BUILD)/copy_ro_mutant.log
+	@printf 'VERDICT: PASS -- test-dos-safety-copy-ro-mutant (read-only refusal changed disk, RED)\n'
+test-dos-safety-del-ro-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_protection_del.img
+	@if sh harness/diff/fat_diff/dos_safety.sh del-ro $(BUILD)/tracer_mut_protection_del.img _mut > $(BUILD)/del_ro_mutant.log 2>&1; then echo 'FAIL: DEL protection mutant passed'; exit 1; fi
+	@grep -q 'read-only refusal changed disk' $(BUILD)/del_ro_mutant.log
+	@printf 'VERDICT: PASS -- test-dos-safety-del-ro-mutant (read-only refusal changed disk, RED)\n'
+.PHONY: test-dos-safety-del-ro-progress-mutant
+test-dos-safety-del-ro-progress-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_rostop.img
+	@if sh harness/diff/fat_diff/dos_safety.sh del-ro $(BUILD)/tracer_mut_safety_rostop.img _stop > $(BUILD)/del_ro_progress_mutant.log 2>&1; then echo 'FAIL: protected-stop mutant passed'; exit 1; fi
+	@grep -q 'LOCK0.TXT still present' $(BUILD)/del_ro_progress_mutant.log
+	@printf 'VERDICT: PASS -- test-dos-safety-del-ro-progress-mutant (writable LOCK0.TXT still present, RED)\n'
+.PHONY: test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-copy-ro test-dos-safety-del-ro
+test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro: $(DOS_SAFETY_FIXTURE) $(DOS_SAFETY_HOST)
+	@sh harness/diff/fat_diff/dos_safety.sh $(patsubst test-dos-safety-%,%,$@) unused
+test-dos-safety-copy-ro test-dos-safety-del-ro: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dos_safety.sh $(patsubst test-dos-safety-%,%,$@) $(SECONDARY_TRACER_IMG)
+
 TEST_UNIT_GATES := \
 	test-samir-append-safe test-samir-append-safe-mutant test-samir-lifetime test-samir-lifetime-mutant test-samir-safety test-samir-safety-mutant \
+	test-finder-lock-mutant \
+	test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro \
+	test-dos-safety-ro-mutant \
 	test-tbx-file test-tbx-file-mutant \
 	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
@@ -26737,7 +26867,7 @@ define autoexec-mint-disk
 endef
 
 .PHONY: test-autoexec test-autoexec-mutant
-test-autoexec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(AUTOEXEC_SUB_BAT)
+test-autoexec: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(AUTOEXEC_SUB_BAT)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-autoexec : AUTOEXEC.BAT + .BAT execution\n'
 	@printf '  beads initech-xw1. AUTOEXEC.BAT runs at REPL entry: @ECHO OFF, IF\n'
@@ -26747,10 +26877,10 @@ test-autoexec: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-autoexec FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-autoexec FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call autoexec-mint-disk,$(AUTOEXEC_IMG))
-	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT + SUB.BAT + GREET.COM)\n' "$(TRACER_IMG)" "$(AUTOEXEC_IMG)"
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT + SUB.BAT + GREET.COM)\n' "$(SECONDARY_TRACER_IMG)" "$(AUTOEXEC_IMG)"
 	@printf 'Expecting : SHELL-READY then 10 batch markers, then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(AUTOEXEC_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(AUTOEXEC_IMG)" \
 		--name "$(AUTOEXEC_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26795,7 +26925,7 @@ $(AUTOEXEC_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNE
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_AUTOEXEC \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-AUTOEXEC_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(AUTOEXEC_COMMAND_MUT_OBJ)
+AUTOEXEC_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(AUTOEXEC_COMMAND_MUT_OBJ)
 
 $(AUTOEXEC_SHELL_MUT_ELF): $(AUTOEXEC_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(AUTOEXEC_SHELL_MUT_OBJS)
@@ -26870,7 +27000,7 @@ define hsct-redir-mint-disk
 endef
 
 .PHONY: test-hsct-redir test-hsct-redir-mutant
-test-hsct-redir: $(HARNESS_BIN) $(TRACER_IMG) $(HSCT_REDIR_BAT)
+test-hsct-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(HSCT_REDIR_BAT)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-hsct-redir : `>` / `>>` OUTPUT redirect\n'
 	@printf '  beads initech-hsct. AUTOEXEC.BAT: ECHO RZZHELLO> OUT.TXT ; TYPE OUT.TXT\n'
@@ -26880,10 +27010,10 @@ test-hsct-redir: $(HARNESS_BIN) $(TRACER_IMG) $(HSCT_REDIR_BAT)
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-hsct-redir FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-hsct-redir FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call hsct-redir-mint-disk,$(HSCT_REDIR_IMG))
-	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script)\n' "$(TRACER_IMG)" "$(HSCT_REDIR_IMG)"
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script)\n' "$(SECONDARY_TRACER_IMG)" "$(HSCT_REDIR_IMG)"
 	@printf 'Expecting : RZZHELLO twice (2 TYPEs), RZZWORLD once, then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(HSCT_REDIR_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HSCT_REDIR_IMG)" \
 		--name "$(HSCT_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -26937,7 +27067,7 @@ $(HSCT_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KER
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_BYPASS \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-HSCT_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(HSCT_REDIR_COMMAND_MUT_OBJ)
+HSCT_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(HSCT_REDIR_COMMAND_MUT_OBJ)
 
 $(HSCT_REDIR_SHELL_MUT_ELF): $(HSCT_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(HSCT_REDIR_SHELL_MUT_OBJS)
@@ -27019,7 +27149,7 @@ define bsy9-redir-mint-disk
 endef
 
 .PHONY: test-bsy9-redir test-bsy9-redir-mutant
-test-bsy9-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT)
+test-bsy9-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-bsy9-redir : EXTERNAL .COM `>` OUTPUT redirect\n'
 	@printf '  beads initech-bsy.9. AUTOEXEC.BAT: GREET.COM> GOUT.TXT ; TYPE GOUT.TXT (x2).\n'
@@ -27029,10 +27159,10 @@ test-bsy9-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-bsy9-redir FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-bsy9-redir FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call bsy9-redir-mint-disk,$(BSY9_REDIR_IMG))
-	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GREET.COM)\n' "$(TRACER_IMG)" "$(BSY9_REDIR_IMG)"
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GREET.COM)\n' "$(SECONDARY_TRACER_IMG)" "$(BSY9_REDIR_IMG)"
 	@printf 'Expecting : GREETINGS twice (2 TYPEs of GOUT.TXT), then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY9_REDIR_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BSY9_REDIR_IMG)" \
 		--name "$(BSY9_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27080,7 +27210,7 @@ BSY9_REDIR_TRACER_MUT_IMG := $(BUILD)/tracer_boot_mut_no_jft_inherit.img
 $(BSY9_PSP_MUT_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPSP_MUT_NO_JFT_INHERIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
 
-BSY9_SHELL_MUT_OBJS := $(filter-out $(KERNEL_PSP_OBJ),$(KERNEL_SHELL_OBJS)) $(BSY9_PSP_MUT_OBJ)
+BSY9_SHELL_MUT_OBJS := $(filter-out $(KERNEL_PSP_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY9_PSP_MUT_OBJ)
 
 $(BSY9_SHELL_MUT_ELF): $(BSY9_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY9_SHELL_MUT_OBJS)
@@ -27162,7 +27292,7 @@ define bsy7-redir-mint-disk
 endef
 
 .PHONY: test-bsy7-redir test-bsy7-redir-mutant
-test-bsy7-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BAT) $(BSY7_REDIR_IN)
+test-bsy7-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BAT) $(BSY7_REDIR_IN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-bsy7-redir : EXTERNAL .COM `<` INPUT redirect\n'
 	@printf '  beads initech-bsy.7. AUTOEXEC.BAT: GOBBLE.COM < GIN.TXT ; GOBBLE.COM < NOPE.TXT.\n'
@@ -27174,10 +27304,10 @@ test-bsy7-redir: $(HARNESS_BIN) $(TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BA
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-bsy7-redir FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-bsy7-redir FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call bsy7-redir-mint-disk,$(BSY7_REDIR_IMG))
-	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GOBBLE.COM + GIN.TXT)\n' "$(TRACER_IMG)" "$(BSY7_REDIR_IMG)"
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GOBBLE.COM + GIN.TXT)\n' "$(SECONDARY_TRACER_IMG)" "$(BSY7_REDIR_IMG)"
 	@printf 'Expecting : GOBBLE-BEGIN once, GOBBLED42 once (echoed from stdin), "File not found", then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY7_REDIR_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BSY7_REDIR_IMG)" \
 		--name "$(BSY7_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27234,7 +27364,7 @@ $(BSY7_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KER
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_LT \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-BSY7_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BSY7_REDIR_COMMAND_MUT_OBJ)
+BSY7_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY7_REDIR_COMMAND_MUT_OBJ)
 
 $(BSY7_REDIR_SHELL_MUT_ELF): $(BSY7_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY7_REDIR_SHELL_MUT_OBJS)
@@ -27317,7 +27447,7 @@ define bsy8-pipe-mint-disk
 endef
 
 .PHONY: test-bsy8-pipe test-bsy8-pipe-mutant
-test-bsy8-pipe: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN) $(BSY8_PIPE_BAT)
+test-bsy8-pipe: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN) $(BSY8_PIPE_BAT)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-bsy8-pipe : the `|` PIPE (DOS temp-file pipe)\n'
 	@printf '  beads initech-bsy.8. AUTOEXEC.BAT: GREET.COM | GOBBLE.COM ; TYPE PIPE1.$$$$$$.\n'
@@ -27328,10 +27458,10 @@ test-bsy8-pipe: $(HARNESS_BIN) $(TRACER_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-bsy8-pipe FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-bsy8-pipe FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call bsy8-pipe-mint-disk,$(BSY8_PIPE_IMG))
-	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT pipe script + GREET.COM + GOBBLE.COM)\n' "$(TRACER_IMG)" "$(BSY8_PIPE_IMG)"
+	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT pipe script + GREET.COM + GOBBLE.COM)\n' "$(SECONDARY_TRACER_IMG)" "$(BSY8_PIPE_IMG)"
 	@printf 'Expecting : GOBBLE-BEGIN once, GREETINGS once (via the temp pipe), "File not found" (temp gone), clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(BSY8_PIPE_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BSY8_PIPE_IMG)" \
 		--name "$(BSY8_PIPE_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27388,7 +27518,7 @@ $(BSY8_PIPE_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERN
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_PIPE_NO_STDIN \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
-BSY8_PIPE_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BSY8_PIPE_COMMAND_MUT_OBJ)
+BSY8_PIPE_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY8_PIPE_COMMAND_MUT_OBJ)
 
 $(BSY8_PIPE_SHELL_MUT_ELF): $(BSY8_PIPE_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY8_PIPE_SHELL_MUT_OBJS)
@@ -27469,7 +27599,7 @@ define sort-filter-mint-disk
 endef
 
 .PHONY: test-sort-filter test-sort-filter-mutant
-test-sort-filter: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_BIN) $(SORT_BAT) $(SORT_IN) $(SORT_GOLD_A) $(SORT_GOLD_R)
+test-sort-filter: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SORT_PROG_BIN) $(SORT_BAT) $(SORT_IN) $(SORT_GOLD_A) $(SORT_GOLD_R)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-sort-filter : the SORT filter (initech-m0dc)\n'
 	@printf '  AUTOEXEC.BAT: SORT < SIN.TXT (ascending) ; SORT /R < SIN.TXT (descending).\n'
@@ -27478,7 +27608,7 @@ test-sort-filter: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_BIN) $(SORT_BAT) $(SO
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-sort-filter FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-sort-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call sort-filter-mint-disk,$(SORT_IMG),$(SORT_PROG_BIN))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SORT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SORT_IMG)" \
 		--name "$(SORT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27507,11 +27637,11 @@ test-sort-filter: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_BIN) $(SORT_BAT) $(SO
 	@printf 'VERDICT   : PASS -- SORT really sorts stdin (case-insensitive + /R) on the 386 (QEMU only)\n'
 	@printf '======================================================================\n'
 
-test-sort-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(SORT_PROG_MUT_BIN) $(SORT_BAT) $(SORT_IN) $(SORT_GOLD_A)
+test-sort-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SORT_PROG_MUT_BIN) $(SORT_BAT) $(SORT_IN) $(SORT_GOLD_A)
 	@printf '>>> test-sort-filter-mutant: confirming the REVERSED-comparator mutant goes RED (Rule 6)\n'
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-sort-filter-mutant FAIL: mtools not found\n'; exit 1; }
 	$(call sort-filter-mint-disk,$(SORT_MUT_IMG),$(SORT_PROG_MUT_BIN))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(SORT_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SORT_MUT_IMG)" \
 		--name "$(SORT_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27551,7 +27681,7 @@ define find-filter-mint-disk
 endef
 
 .PHONY: test-find-filter test-find-filter-mutant
-test-find-filter: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_BIN) $(FIND_BAT) $(FIND_IN) $(FIND_GOLD) $(FIND_GOLD_V)
+test-find-filter: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FIND_PROG_BIN) $(FIND_BAT) $(FIND_IN) $(FIND_GOLD) $(FIND_GOLD_V)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-find-filter : the FIND filter (initech-m0dc)\n'
 	@printf '  AUTOEXEC.BAT: TYPE FIN.TXT | FIND "needle" ; ... | FIND /V "needle".\n'
@@ -27560,7 +27690,7 @@ test-find-filter: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_BIN) $(FIND_BAT) $(FI
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-find-filter FAIL: mtools `mformat` not found (apt install mtools).\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-find-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call find-filter-mint-disk,$(FIND_IMG),$(FIND_PROG_BIN))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FIND_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FIND_IMG)" \
 		--name "$(FIND_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27589,11 +27719,11 @@ test-find-filter: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_BIN) $(FIND_BAT) $(FI
 	@printf 'VERDICT   : PASS -- FIND really filters piped stdin by a case-sensitive literal on the 386 (QEMU only)\n'
 	@printf '======================================================================\n'
 
-test-find-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(FIND_PROG_MUT_BIN) $(FIND_BAT) $(FIND_IN) $(FIND_GOLD)
+test-find-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FIND_PROG_MUT_BIN) $(FIND_BAT) $(FIND_IN) $(FIND_GOLD)
 	@printf '>>> test-find-filter-mutant: confirming the INVERTED-match mutant goes RED (Rule 6)\n'
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-find-filter-mutant FAIL: mtools not found\n'; exit 1; }
 	$(call find-filter-mint-disk,$(FIND_MUT_IMG),$(FIND_PROG_MUT_BIN))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(FIND_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FIND_MUT_IMG)" \
 		--name "$(FIND_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27638,7 +27768,7 @@ define more-filter-mint-disk
 endef
 
 .PHONY: test-more-filter test-more-filter-mutant
-test-more-filter: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_BIN) $(MORE_BAT) $(MORE_IN)
+test-more-filter: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(MORE_PROG_BIN) $(MORE_BAT) $(MORE_IN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-more-filter : the MORE filter (initech-m0dc)\n'
 	@printf '  AUTOEXEC.BAT: MORE < MIN.TXT > MOUT.TXT  (stdin + stdout both redirected).\n'
@@ -27649,7 +27779,7 @@ test-more-filter: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_BIN) $(MORE_BAT) $(MO
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	@command -v mtype   >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mtype` not found.\n'; exit 1; }
 	$(call more-filter-mint-disk,$(MORE_IMG),$(MORE_PROG_BIN))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(MORE_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(MORE_IMG)" \
 		--name "$(MORE_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27674,11 +27804,11 @@ test-more-filter: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_BIN) $(MORE_BAT) $(MO
 	@printf 'VERDICT   : PASS -- MORE detects a file stdout and passes input through on the 386 (QEMU only)\n'
 	@printf '======================================================================\n'
 
-test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MORE_BAT) $(MORE_IN)
+test-more-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MORE_BAT) $(MORE_IN)
 	@printf '>>> test-more-filter-mutant: confirming the LOSSY-passthrough mutant goes RED (Rule 6)\n'
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-more-filter-mutant FAIL: mtools not found\n'; exit 1; }
 	$(call more-filter-mint-disk,$(MORE_MUT_IMG),$(MORE_PROG_MUT_BIN))
-	@$(HARNESS_BIN) --disk "$(TRACER_IMG)" --disk2 "$(MORE_MUT_IMG)" \
+	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(MORE_MUT_IMG)" \
 		--name "$(MORE_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
 		$(SHELL_OS_COMPLETION) \
@@ -27703,6 +27833,11 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
 	test-samir-full-emu test-samir-full-emu-mutant test-samir-lifetime-emu test-samir-lifetime-emu-mutant test-samir-safety-emu test-samir-safety-emu-mutant test-samir-lifetime-desktop test-samir-lifetime-desktop-mutant \
+	test-flair-locked-trash test-flair-locked-purge test-flair-locked-trash-mutant \
+	test-shell-permanent test-shell-permanent-mutant \
+	test-dos-safety-copy-ro test-dos-safety-del-ro \
+	test-dos-safety-copy-ro-mutant test-dos-safety-del-ro-mutant \
+	test-dos-safety-del-ro-progress-mutant \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \

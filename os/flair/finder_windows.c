@@ -1045,6 +1045,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     } st[FINDER_TRASH_DEPTH];
     uint16_t purged = 0u, refused = 0u, kept = 0u;
     int d = 0, td, rc;
+    int locked = 0;
     fw_item_t it;
 
     if (out_purged != (uint16_t *)0)   *out_purged = 0u;
@@ -1079,6 +1080,17 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
             }
             continue;
         }
+        /* Recheck each live entry, including descendants locked after staging.
+         * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112.
+         * L118: protection has its own result, retained origins and feedback. */
+#ifndef FINDER_WIN_MUT_LOCKED_PURGE
+        if ((it.attr & FINDER_ATTR_READONLY) != 0u) {
+            locked = 1;
+            refused = (uint16_t)(refused + 1u);
+            st[d].skip = (uint16_t)(st[d].skip + 1u);
+            continue;
+        }
+#endif
         if ((it.attr & (uint8_t)FINDER_ATTR_DIRECTORY) != 0u) {
             if (d + 1 >= FINDER_TRASH_DEPTH) {          /* too deep: refuse loud */
                 refused = (uint16_t)(refused + 1u);
@@ -1116,7 +1128,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     (void)finder_shell_recount_trash(sh);
     if (out_purged != (uint16_t *)0)  *out_purged = purged;
     if (out_refused != (uint16_t *)0) *out_refused = refused;
-    return FINDER_WIN_OK;
+    return locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
 }
 
 /* libc-free decimal (Law 3); returns the digit count written. */

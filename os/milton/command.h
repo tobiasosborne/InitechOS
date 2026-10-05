@@ -381,10 +381,13 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out);
 #ifdef COMMAND_KERNEL_REPL
 /* Run the interactive COMMAND.COM REPL: print the banner is the caller's job;
  * this prints the $P$G prompt (A:\>), reads a line via INT 21h AH=0Ah, parses
- * and dispatches it, and loops until EXIT. All I/O is issued as real `int $0x21`
+ * and dispatches it. A permanent processor ignores EXIT. All I/O uses `int $0x21`
  * calls (dogfooding the OS API, the authentic COMMAND.COM design). Returns when
- * the user types EXIT; the caller (kmain BOOT_SHELL) then halts with a marker. */
-void command_repl(void);
+ * a secondary processor accepts EXIT, returning to its caller. */
+/* The boot processor is permanent; a secondary caller passes 0 and regains
+ * control on EXIT. /P processors pass 1. Ref: Microsoft DOS 3.3 Reference
+ * pp. 46, 66. No primary lifetime decision is left to the command line. */
+void command_repl(int permanent);
 #endif
 
 #endif /* INITECH_COMMAND_H */

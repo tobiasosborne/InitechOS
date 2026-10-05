@@ -33,7 +33,33 @@ mcopy -i "$img" "$out/self.bin" ::SUB/SELF.BIN
 : > "$out/zero"
 mcopy -i "$img" "$out/zero" ::ZERO1
 mcopy -i "$img" "$out/zero" ::ZERO2
+# These EXIT-ending traces exercise an explicitly nonpermanent processor.
+# Ref: MS-DOS_3.3_Users_Guide_198707.pdf, User's Reference pp. 46, 66.
+printf 'SHELL=COMMAND.COM /E:512\r\n' > "$out/config.sys"
+mcopy -i "$img" "$out/config.sys" ::CONFIG.SYS
 case "$mode" in
+create-ro|unlink-ro|write-ro|copy-ro|del-ro)
+    for dir in '' 'SUB/'; do
+        mcopy -i "$img" "$out/self.bin" "::${dir}LOCK.BIN"
+        mcopy -i "$img" "$out/zero" "::${dir}LOCK0.TXT"
+        mattrib -i "$img" +r "::${dir}LOCK.BIN" "::${dir}LOCK0.TXT"
+    done
+    cp -f "$img" "$out/before.img"
+    if [ "$mode" = create-ro ] || [ "$mode" = unlink-ro ] || [ "$mode" = write-ro ]; then
+        "${DOS_SAFETY_HOST:-build/test_dos_safety}" "$img" "$mode" || fail 'host protection check'
+        cmp -s "$img" "$out/before.img" || fail 'refused protection operation changed disk'
+        fsck.fat -n "$img" > "$out/fsck.txt" 2>&1 || fail 'fsck.fat found damage'
+        printf 'VERDICT: PASS -- test-dos-safety-%s (INT21 refusal, whole disk unchanged, fsck.fat)\n' "$mode"
+        exit 0
+    fi
+    if [ "$mode" = copy-ro ]; then
+        verb='copy readme.txt'
+    else
+        verb=del
+    fi
+    printf '%s lock.bin\n%s lock0.txt\n%s sub\\lock.bin\n%s sub\\lock0.txt\nexit\n' \
+        "$verb" "$verb" "$verb" "$verb" > "$out/commands.txt"
+    ;;
 k15n)
     cp -f "$img" "$out/before.img"
     cat > "$out/commands.txt" <<'CMDS'
@@ -191,6 +217,34 @@ absent() {
     if mdir -i "$img" "::$1" > "$out/mdir.txt" 2>&1; then fail "$1 still present"; fi
 }
 case "$mode" in
+copy-ro|del-ro)
+    cmp -s "$img" "$out/before.img" || fail 'read-only refusal changed disk'
+    [ "$(grep -cF 'Access denied' "$out/repl.txt")" = 4 ] || fail 'four access denied messages missing'
+    if [ "$mode" = copy-ro ]; then
+        mattrib -i "$img" -r ::LOCK.BIN ::LOCK0.TXT ::SUB/LOCK.BIN ::SUB/LOCK0.TXT
+        # Repeat the exact COPY commands after explicit unprotection.
+    else
+        mattrib -i "$img" -r ::LOCK0.TXT ::SUB/LOCK0.TXT
+        printf 'del lock*.*\ndel sub\\lock*.*\nexit\n' > "$out/commands.txt"
+    fi
+    control=${name}_control
+    keys=$(build/dos_safety_fixture keys < "$out/commands.txt")
+    build/qemu_harness --disk "$boot" --disk2 "$img" --name "$control" --out build \
+        --timeout-ms 60000 --keys "$keys" --keys-after SHELL-READY \
+        --quit-after SHELL-DONE > "$out/control.report" 2>&1 || fail 'unprotect control did not finish'
+    if [ "$mode" = copy-ro ]; then
+        for leaf in LOCK.BIN LOCK0.TXT SUB/LOCK.BIN SUB/LOCK0.TXT; do bytes "$leaf" "$out/readme.txt"; done
+        [ "$(grep -c '1 file(s) copied' "build/$control.serial")" = 4 ] || fail 'unprotect COPY did not succeed'
+    else
+        for leaf in LOCK.BIN SUB/LOCK.BIN; do
+            bytes "$leaf" "$out/self.bin"
+            mattrib -i "$img" "::$leaf" | grep -q 'R' || fail 'protected survivor lost +R'
+        done
+        absent LOCK0.TXT
+        absent SUB/LOCK0.TXT
+        grep -qF 'Access denied' "build/$control.serial" || fail 'wildcard protection diagnostic missing'
+    fi
+    ;;
 k15n)
     cmp -s "$img" "$out/before.img" || fail 'non-Y response changed disk'
     [ "$(grep -cF 'Are you sure (Y/N)?' "$out/repl.txt")" = 5 ] || fail 'confirmation prompt missing'

@@ -265,14 +265,15 @@
  * 5. THE FAT BINDING SEAM  (see the banner: os/flair names no os/milton symbol)
  * ===========================================================================*/
 
-/* The two FAT attribute bits the Finder reads. Their VALUES are
- * spec/dos_structs.h's DIR_ATTR_VOLLABEL / DIR_ATTR_DIRECTORY; they are
+/* The FAT attribute bits the Finder reads. Their VALUES are
+ * spec/dos_structs.h's READONLY / VOLLABEL / DIRECTORY constants; they are
  * restated here rather than included because spec/dos_structs.h is the DOS
  * on-disk layout and dragging it into the Toolbox would blur the boundary this
  * file exists to keep. The DRIFT TOOTH is a _Static_assert in the binding TU
  * (os/milton/kmain.c), where BOTH headers are legitimately in scope -- so a
  * renumbering can never diverge silently (Law 1 / Rule 2). */
 #define FINDER_ATTR_VOLLABEL   0x08u
+#define FINDER_ATTR_READONLY   0x01u
 #define FINDER_ATTR_DIRECTORY  0x10u
 
 /* One directory entry, as seen DURING the enumeration callback.
@@ -401,7 +402,8 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_MOVE      = -10, /* move/trash/unlink/...: any other refusal */
     FINDER_WIN_ERR_NOTEMPTY  = -11, /* rmdir: the directory still has entries  */
     FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
-    FINDER_WIN_ERR_NOTRASH   = -13  /* open Trash: the volume has no \TRASH     */
+    FINDER_WIN_ERR_NOTRASH   = -13, /* open Trash: the volume has no \TRASH     */
+    FINDER_WIN_ERR_LOCKED    = -14  /* locked document: unlock before discard  */
 } finder_win_status_t;
 
 /* ===========================================================================
