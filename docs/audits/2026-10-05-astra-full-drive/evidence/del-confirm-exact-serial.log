@@ -1,0 +1,75 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x0051D8E0
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          114
+SELF.BIN         8192
+KEEP.TXT           15
+READONLY.TXT           19
+CTRLZ.TXT           14
+CHECK.BAT          222
+CHILD.BAT           26
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z accepted(deferred)
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>cd ALLTEST
+A:\ALLTEST>del *.*
+Are you sure (Y/N)? n
+A:\ALLTEST>type A0.TXT
+all 0
+
+A:\ALLTEST>del *.*
+Are you sure (Y/N)? y
+A:\ALLTEST>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+
+2 file(s)
+A:\ALLTEST>

@@ -1,0 +1,448 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x0051D8E0
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          114
+SELF.BIN         8192
+KEEP.TXT           15
+READONLY.TXT           19
+CTRLZ.TXT           14
+CHECK.BAT          222
+CHILD.BAT           26
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z accepted(deferred)
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>ver
+
+InitechDOS Version 3.30
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+READONLY.TXT          19
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+
+13 file(s)
+A:\>type README.TXT
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\>copy SELF.BIN .\SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>copy SELF.BIN A:\SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>copy SELF.BIN \SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>copy SELF.BIN OTHER\..\SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+READONLY.TXT          19
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+
+13 file(s)
+A:\>type FILLED\SAVE.TXT
+SUBDIR-SENTINEL
+
+A:\>copy README.TXT FILLED
+        1 file(s) copied
+A:\>copy SELF.BIN FILLED\
+        1 file(s) copied
+A:\>type FILLED\SAVE.TXT
+SUBDIR-SENTINEL
+
+A:\>type FILLED\README.TXT
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\>cd FILLED
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+
+5 file(s)
+A:\FILLED>cd ..
+A:\>del DELTEST\Z*.TXT
+A:\>type KEEP.TXT
+ROOT-SENTINEL
+
+A:\>type DELTEST\KEEP.TXT
+SUB-SENTINEL
+
+A:\>cd DELTEST
+A:\DELTEST>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+KEEP.TXT              14
+
+3 file(s)
+A:\DELTEST>cd ..
+A:\>del ALLTEST\*.*
+Are you sure (Y/N)? n
+A:\>type ALLTEST\A0.TXT
+all 0
+
+A:\>del ALLTEST\*.*
+Are you sure (Y/N)? y
+A:\>cd ALLTEST
+A:\ALLTEST>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+
+2 file(s)
+A:\ALLTEST>cd ..
+A:\>copy README.TXT READONLY.TXT
+        1 file(s) copied
+A:\>type READONLY.TXT
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\>del READONLY.TXT
+A:\>type READONLY.TXT
+File not found
+A:\>ren READONLY.TXT RENAMED.TXT
+Bad command or file name
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+
+12 file(s)
+A:\>md LONGDIRECTORY
+Unable to create directory
+A:\>md LONGDIRECTX
+Unable to create directory
+A:\>md BAD?NAME
+A:\>md CON
+A:\>md AUX
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+BAD?NAME           <DIR>
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+CON                <DIR>
+AUX                <DIR>
+
+15 file(s)
+A:\>cd LONGDIRECTORY
+Invalid directory
+A:\>cd
+A:\
+A:\>cd ..
+A:\>copy KEEP.TXT LongFilename.txt
+Bad command or file name
+A:\>copy KEEP.TXT LongFileOther.txt
+Bad command or file name
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+BAD?NAME           <DIR>
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+CON                <DIR>
+AUX                <DIR>
+
+15 file(s)
+A:\>copy NOFILE.TXT KEEP.TXT
+File not found
+A:\>type KEEP.TXT
+ROOT-SENTINEL
+
+A:\>copy CTRLZ.TXT ASCII.TXT /A
+        1 file(s) copied
+A:\>type ASCII.TXT
+BEFOREAFTER
+
+A:\>copy CTRLZ.TXT BINARY.TXT /B
+        1 file(s) copied
+A:\>type BINARY.TXT
+BEFOREAFTER
+
+A:\>copy KEEP.TXT+CTRLZ.TXT MERGE.TXT
+File not found
+A:\>type MERGE.TXT
+File not found
+A:\>md WORK
+A:\>cd WORK
+A:\WORK>md SUB
+A:\WORK>cd SUB
+A:\WORK\SUB>cd ..
+A:\WORK>cd
+A:\WORK
+A:\WORK>dir *.TXT
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SUB                <DIR>
+
+3 file(s)
+A:\WORK>dir /W
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SUB                <DIR>
+
+3 file(s)
+A:\WORK>dir NOFILE.XYZ
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SUB                <DIR>
+
+3 file(s)
+A:\WORK>rd SUB
+A:\WORK>cd ..
+A:\>rd WORK
+A:\>cd NOEXIST
+Invalid directory
+A:\>rd FILLED
+Invalid path, not directory, or directory not empty
+A:\>set AUDIT=VALUE
+A:\>echo %AUDIT%
+%AUDIT%
+A:\>set AUDIT=
+A:\>set
+COMSPEC=A:\COMMAND.COM
+PROMPT=$P$G
+PATH=
+A:\>prompt $p$g
+A:\>break
+BREAK is on
+A:\>break off
+BREAK is off
+A:\>break
+BREAK is off
+A:\>break on
+BREAK is on
+A:\>verify
+Bad command or file name
+A:\>path
+Bad command or file name
+A:\>vol
+Bad command or file name
+A:\>CHECK ONE TWO
+ARG1=ONE
+FOUND
+ABSENT
+ITEM=ONE
+ITEM=TWO
+ITEM=THREE
+CHILD=TWO
+SHIFT=TWO
+FINISHED
+A:\>for %f in (ONE TWO) do echo %f
+Bad command or file name
+A:\>if exist KEEP.TXT echo EXISTS
+Bad command or file name
+A:\>call CHILD.BAT ARG
+Bad command or file name
+A:\>echo first > OUT.TXT
+A:\>echo second >> OUT.TXT
+A:\>type OUT.TXT
+first
+second
+
+A:\>type OUT.TXT | TYPE
+Required parameter missing
+A:\>date 02-30-1999
+Invalid date
+Current date is Sun 10-04-2026
+A:\>time 25:99:99
+Invalid time
+Current time is 23:26:48.00
+A:\>date 12-31-1999
+Current date is Fri 12-31-1999
+A:\>date
+Current date is Fri 12-31-1999
+A:\>time 23:59:50
+Current time is 23:59:50.00
+A:\>time
+Current time is 23:59:50.00
+A:\>help
+Bad command or file name
+A:\>chkdsk
+Bad command or file name
+A:\>format
+Bad command or file name
+A:\>diskcopy
+Bad command or file name
+A:\>attrib
+Bad command or file name
+A:\>tree
+Bad command or file name
+A:\>find
+Bad command or file name
+A:\>sort
+Bad command or file name
+A:\>more
+Bad command or file name
+A:\>rename KEEP.TXT KEPT.TXT
+A:\>type KEPT.TXT
+ROOT-SENTINEL
+
+A:\>erase KEPT.TXT
+A:\>type KEPT.TXT
+File not found
+A:\>chdir FILLED
+A:\FILLED>mkdir XX
+A:\FILLED>rmdir XX
+A:\FILLED>cd ..
+A:\>cls
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+A:\>echo CLEARED
+CLEARED
+A:\>cd
+A:\
+A:\>

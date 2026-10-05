@@ -1,0 +1,25 @@
+STARTED soak pid 4
+SHOT soak-021
+CYCLES 21
+SHOT soak-042
+CYCLES 42
+SHOT soak-063
+CYCLES 63
+SHOT soak-084
+CYCLES 84
+SHOT soak-105
+CYCLES 105
+SHOT soak-126
+CYCLES 126
+SHOT soak-147
+CYCLES 147
+SHOT soak-168
+CYCLES 168
+SHOT soak-189
+CYCLES 189
+SHOT soak-210
+CYCLES 210
+SHOT soak-held-45s
+SHOT soak-arrange-release
+SHOT soak-modifiers-final
+STOPPED 4

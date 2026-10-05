@@ -1,0 +1,811 @@
+{
+  "label": "db-suite",
+  "boot": "images/flair_tenants_interactive.img",
+  "data": "images/db-fixture.img",
+  "actions": [
+    [
+      "shot",
+      "b001-unlabeled-desktop"
+    ],
+    [
+      "key",
+      "backslash"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "b002-database-start"
+    ],
+    [
+      "type",
+      "USE CLIENTS"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "DISPLAY STRUCTURE"
+    ],
+    [
+      "type",
+      "? RECCOUNT(),RECNO(),EOF(),BOF()"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b003-basics"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "SKIP -1"
+    ],
+    [
+      "type",
+      "? RECNO(),BOF(),EOF()"
+    ],
+    [
+      "type",
+      "GO BOTTOM"
+    ],
+    [
+      "type",
+      "SKIP"
+    ],
+    [
+      "type",
+      "? RECNO(),BOF(),EOF()"
+    ],
+    [
+      "type",
+      "GO 0"
+    ],
+    [
+      "type",
+      "? RECNO(),BOF(),EOF()"
+    ],
+    [
+      "type",
+      "GO 999"
+    ],
+    [
+      "type",
+      "? RECNO(),BOF(),EOF()"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b004-navigation"
+    ],
+    [
+      "type",
+      "LIST NEXT 2"
+    ],
+    [
+      "type",
+      "GO 2"
+    ],
+    [
+      "type",
+      "LIST REST"
+    ],
+    [
+      "type",
+      "LIST RECORD 2"
+    ],
+    [
+      "type",
+      "LIST LAST,BAL FOR BAL > 1000"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "LIST WHILE BAL > 0"
+    ],
+    [
+      "type",
+      "LOCATE FOR BAL < 0"
+    ],
+    [
+      "type",
+      "? FOUND(),RECNO()"
+    ],
+    [
+      "type",
+      "CONTINUE"
+    ],
+    [
+      "type",
+      "? FOUND(),EOF()"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b005-query-scopes"
+    ],
+    [
+      "type",
+      "SET FILTER TO BAL > 1000"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "SET FILTER TO"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "DELETE"
+    ],
+    [
+      "type",
+      "? DELETED()"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "SET DELETED ON"
+    ],
+    [
+      "type",
+      "RECALL"
+    ],
+    [
+      "type",
+      "SET DELETED OFF"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b006-filter"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "REPLACE BAL WITH 123.45"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "REPLACE BAL WITH \"wrong\""
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "REPLACE LAST WITH \"ABCDEFGHIJKLMNOPQRSTUVWXYZ\""
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE LAST WITH \"AUDIT\",FIRST WITH \"NEW\",BAL WITH -12.5"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "USE"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b007-editing"
+    ],
+    [
+      "type",
+      "STORE 2 TO X"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "type",
+      "X = X + 3"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "type",
+      "STORE \"hello\" TO MESSAGE"
+    ],
+    [
+      "type",
+      "? MESSAGE"
+    ],
+    [
+      "type",
+      "? 1/0"
+    ],
+    [
+      "type",
+      "? SQRT(-1)"
+    ],
+    [
+      "type",
+      "? 2^3"
+    ],
+    [
+      "type",
+      "? 2**3"
+    ],
+    [
+      "type",
+      "? -2^2"
+    ],
+    [
+      "type",
+      "? 0.1+0.2"
+    ],
+    [
+      "type",
+      "? ROUND(-2.5,0)"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b008-variables"
+    ],
+    [
+      "type",
+      "? LEN(\"abc\"),LEFT(\"abcdef\",3),RIGHT(\"abcdef\",2)"
+    ],
+    [
+      "type",
+      "? SUBSTR(\"abcdef\",2,3)"
+    ],
+    [
+      "type",
+      "? UPPER(\"ab\"),LOWER(\"XY\"),TRIM(\"A  \")"
+    ],
+    [
+      "type",
+      "? STR(12.5,8,2),VAL(\"-4.5\")"
+    ],
+    [
+      "type",
+      "? \"A\" = \"AB\""
+    ],
+    [
+      "type",
+      "SET EXACT ON"
+    ],
+    [
+      "type",
+      "? \"A\" = \"AB\""
+    ],
+    [
+      "type",
+      "SET EXACT OFF"
+    ],
+    [
+      "type",
+      "? CHR(65),ASC(\"A\")"
+    ],
+    [
+      "type",
+      "? SPACE(-1)"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b009-strings"
+    ],
+    [
+      "type",
+      "? CTOD(\"02/29/00\")"
+    ],
+    [
+      "type",
+      "? CTOD(\"02/29/04\")"
+    ],
+    [
+      "type",
+      "SET CENTURY ON"
+    ],
+    [
+      "type",
+      "? CTOD(\"01/01/00\")"
+    ],
+    [
+      "type",
+      "SET DATE BRITISH"
+    ],
+    [
+      "type",
+      "? DTOC(CTOD(\"31/12/99\"))"
+    ],
+    [
+      "type",
+      "SET DATE AMERICAN"
+    ],
+    [
+      "type",
+      "? YEAR(DATE()),MONTH(DATE()),DAY(DATE())"
+    ],
+    [
+      "type",
+      "? DATE(),TIME()"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b010-dates"
+    ],
+    [
+      "type",
+      "DO SIMPLE"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "type",
+      "DO UPDATE"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "DO MISSING"
+    ],
+    [
+      "type",
+      "DISPLAY MEMORY"
+    ],
+    [
+      "type",
+      "LIST MEMORY"
+    ],
+    [
+      "type",
+      "RELEASE ALL"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b011-programs"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF ALIAS C"
+    ],
+    [
+      "type",
+      "? ALIAS()"
+    ],
+    [
+      "type",
+      "CLOSE INDEXES"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "CLOSE NONSENSE"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b012-close-indexes"
+    ],
+    [
+      "type",
+      "SELECT 1"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF ALIAS ONE"
+    ],
+    [
+      "type",
+      "SELECT 2"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF ALIAS TWO"
+    ],
+    [
+      "type",
+      "? ALIAS()"
+    ],
+    [
+      "type",
+      "GO 2"
+    ],
+    [
+      "type",
+      "SELECT ONE"
+    ],
+    [
+      "type",
+      "? ALIAS(),RECNO()"
+    ],
+    [
+      "type",
+      "? TWO->BAL"
+    ],
+    [
+      "type",
+      "SELECT 99"
+    ],
+    [
+      "type",
+      "? ALIAS()"
+    ],
+    [
+      "type",
+      "SELECT 1"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b013-workareas"
+    ],
+    [
+      "type",
+      "INDEX ON LAST TO NAMES"
+    ],
+    [
+      "type",
+      "SET INDEX TO NAMES"
+    ],
+    [
+      "type",
+      "SET ORDER TO 1"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "SEEK \"WADDAMS\""
+    ],
+    [
+      "type",
+      "? FOUND(),RECNO()"
+    ],
+    [
+      "type",
+      "FIND WADDAMS"
+    ],
+    [
+      "type",
+      "REINDEX"
+    ],
+    [
+      "type",
+      "SET ORDER TO 0"
+    ],
+    [
+      "type",
+      "SET NEAR ON"
+    ],
+    [
+      "type",
+      "SEEK \"ZZZZ\""
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b014-index"
+    ],
+    [
+      "type",
+      "ASSIST"
+    ],
+    [
+      "type",
+      "HELP"
+    ],
+    [
+      "type",
+      "BROWSE"
+    ],
+    [
+      "type",
+      "EDIT"
+    ],
+    [
+      "type",
+      "APPEND"
+    ],
+    [
+      "type",
+      "CREATE TEST"
+    ],
+    [
+      "type",
+      "SUM BAL"
+    ],
+    [
+      "type",
+      "COUNT"
+    ],
+    [
+      "type",
+      "COPY TO BACKUP"
+    ],
+    [
+      "type",
+      "SORT TO SORTED ON LAST"
+    ],
+    [
+      "type",
+      "REPORT FORM REPORT"
+    ],
+    [
+      "type",
+      "LABEL FORM LABEL"
+    ],
+    [
+      "type",
+      "DIR"
+    ],
+    [
+      "type",
+      "LIST FILES"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b015-missing-ui"
+    ],
+    [
+      "type",
+      "SET TALK OFF"
+    ],
+    [
+      "type",
+      "SET SAFETY ON"
+    ],
+    [
+      "type",
+      "SET DECIMALS TO 4"
+    ],
+    [
+      "type",
+      "? 1/3"
+    ],
+    [
+      "type",
+      "SET DECIMALS TO 1000"
+    ],
+    [
+      "type",
+      "? 1/3"
+    ],
+    [
+      "type",
+      "SET RELATION TO LAST INTO TWO"
+    ],
+    [
+      "type",
+      "SET FILTER TO 1/0"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "SET FILTER TO"
+    ],
+    [
+      "type",
+      "@ 5,10 SAY \"TEST\""
+    ],
+    [
+      "type",
+      "WAIT \"hello\""
+    ],
+    [
+      "type",
+      "CLEAR"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b016-io-settings"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "SET SAFETY ON"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "ZAP"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE LAST WITH \"AFTERZAP\",BAL WITH 1"
+    ],
+    [
+      "type",
+      "USE"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "QUIT"
+    ],
+    [
+      "pause",
+      0.2
+    ],
+    [
+      "shot",
+      "b017-zap-safety"
+    ],
+    [
+      "pause",
+      0.4
+    ],
+    [
+      "shot",
+      "b018-return-desktop"
+    ]
+  ]
+}

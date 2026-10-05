@@ -1,0 +1,117 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x005349A4
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DESKTOP-DB-CREATE
+DESKTOP-DB-WRITE-FAIL rc=-11
+TRASH-INIT-FAIL rc=-11
+FLAIR-DESKTOP
+DESKTOP-DB-POS-REGEN
+FINDER-DESKTOP-ICONS n=2
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE CLIENTS.DBF
+. LIST
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. APPEND BLANK
+. REPLACE NAME WITH "R00",BAL WITH 0
+. APPEND BLANK
+. REPLACE NAME WITH "R01",BAL WITH 1
+. APPEND BLANK
+. REPLACE NAME WITH "R02",BAL WITH 2
+. APPEND BLANK
+. REPLACE NAME WITH "R03",BAL WITH 3
+. APPEND BLANK
+. REPLACE NAME WITH "R04",BAL WITH 4
+. APPEND BLANK
+. REPLACE NAME WITH "R05",BAL WITH 5
+. APPEND BLANK
+. REPLACE NAME WITH "R06",BAL WITH 6
+. APPEND BLANK
+. REPLACE NAME WITH "R07",BAL WITH 7
+. APPEND BLANK
+. REPLACE NAME WITH "R08",BAL WITH 8
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R09",BAL WITH 9
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R10",BAL WITH 10
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R11",BAL WITH 11
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R12",BAL WITH 12
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R13",BAL WITH 13
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R14",BAL WITH 14
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R15",BAL WITH 15
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R16",BAL WITH 16
+111  Cannot write to a read-only file.
+. APPEND BLANK
+111  Cannot write to a read-only file.
+. REPLACE NAME WITH "R17",BAL WITH 17
+111  Cannot write to a read-only file.
+. ? RECCOUNT()
+
+12. USE
+. USE CLIENTS.DBF
+1  File does not exist.
+. LIST
+. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-RESUME
+FLAIR-TICK n=7206
+FLAIR-TICK n=7209
+FLAIR-TICK n=7212
+FLAIR-TICK n=7215

@@ -1,0 +1,100 @@
+{
+  "label": "db-final",
+  "boot": "images/flair_tenants_interactive.img",
+  "data": "images/db-fixture.img",
+  "actions": [
+    [
+      "key",
+      "backslash"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-00"
+    ],
+    [
+      "type",
+      "? TYPE(\"BAL\"),TYPE(\"1+1\"),TYPE(\"MISSING\"),TYPE(\"DATE()\")"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-01"
+    ],
+    [
+      "type",
+      "? 1/0"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-02"
+    ],
+    [
+      "type",
+      "SET SAFETY ON"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-03"
+    ],
+    [
+      "type",
+      "ZAP"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-04"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-05"
+    ],
+    [
+      "type",
+      "QUIT"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "db-final-06"
+    ]
+  ],
+  "sync": true
+}

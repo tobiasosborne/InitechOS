@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T23:35:54.540022+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 59,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/desktop-full-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/evidence/desktop-full-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/desktop-full-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/desktop-full-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/desktop-full-data.img": {
+      "bytes": 1474560,
+      "sha256": "419f14c2f3ad0db04ec78e2947603c9c53697f35a15665c679f52d97a0fc5a7a"
+    }
+  },
+  "stopped_utc": "2026-10-04T23:35:58.143386+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/desktop-full-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/desktop-full-data.img": {
+      "bytes": 1474560,
+      "sha256": "8c09ee6c313cb2511b56b2a1b772c044b2298849907e828aeba526dce77117d1"
+    }
+  }
+}

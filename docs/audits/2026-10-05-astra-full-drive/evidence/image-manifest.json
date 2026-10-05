@@ -1,0 +1,50 @@
+{
+  "fat_data.img": {
+    "bytes": 1474560,
+    "sha256": "08737886abf7aa340731852de64fcb26c5271afff984624a2ccf1297940be079"
+  },
+  "tracer_boot.img": {
+    "bytes": 229376,
+    "sha256": "80a2873d1805ce640ed71db16bace5ba631eabb1edd37822dc73dd4ad8e1ef0d"
+  },
+  "flair_tenants_interactive.img": {
+    "bytes": 229376,
+    "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+  },
+  "samir_list.img": {
+    "bytes": 1474560,
+    "sha256": "72f51e3f8fa23bc42d8acb4f0fecbd91abc936170da6f9b67cae31b53b7105a0"
+  },
+  "gui-fixture.img": {
+    "bytes": 1474560,
+    "sha256": "b35c922c32f76069135bdc4462b59ea9d41efd23b2a617353703ef7424d7759d"
+  },
+  "flair_live_interactive.img": {
+    "bytes": 229376,
+    "sha256": "67eb0a2d78199bce158f2088632ab945e43db2cbc7eef144ba9a3e3becea9063"
+  },
+  "full-fixture.img": {
+    "bytes": 1474560,
+    "sha256": "419f14c2f3ad0db04ec78e2947603c9c53697f35a15665c679f52d97a0fc5a7a"
+  },
+  "desktop-main-data.img": {
+    "bytes": 1474560,
+    "sha256": "9e9d7d673518930a70f4beb489640877a02649f1142fbfecd73b0b03d215fd2b"
+  },
+  "desktop-main-boot.img": {
+    "bytes": 229376,
+    "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+  },
+  "dos-fixture.img": {
+    "bytes": 1474560,
+    "sha256": "944a07822e0cdf6b196e903e925a80074410b111433072c51441f423ecf55c76"
+  },
+  "db-fixture.img": {
+    "bytes": 1474560,
+    "sha256": "1ca4436b63f63a74b66c226daedb85c110ac374a3bde50314842621641cc3276"
+  },
+  "flair_data.img": {
+    "bytes": 1474560,
+    "sha256": "327f00244a5a805a72b6314d8a5a98fe585e4d7eabc8b97f543d697a2c7e8b72"
+  }
+}

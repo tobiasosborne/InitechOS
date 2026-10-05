@@ -1,0 +1,1593 @@
+[
+  {
+    "id": "L001",
+    "area": "database",
+    "severity": "P1",
+    "summary": "Disk-full APPEND corrupts the DBF record count and prevents reopening",
+    "steps": "Run prepare_fixtures.py and the documented db-full preparation; replay db-full.json with run_text_suite.py. Boot tenants + db-full-fixture.img; backslash; USE CLIENTS.DBF. Repeat APPEND BLANK and REPLACE NAME WITH \"Rnn\",BAL WITH n for n=0..17. Then USE, USE CLIENTS.DBF, LIST.",
+    "observed": "The first nine appends worked. Later appends failed. RECCOUNT() still reported 12. After closing, USE could not reopen the table. Independent extraction found a 502-byte DBF with header count 21, header length 129 and record length 31: only 12 complete records exist, whereas the header requires 781 bytes including EOF. The original three rows remain in the bytes but the table is unusable through SAMIR.",
+    "expected": "A refused append must preserve a self-consistent, reopenable table and the previous records. This is my data-integrity expectation; DBF header/count meaning is documented in dbase3-decomp/specs/file-formats/dbf.md. Disk-full is a normal floppy workload.",
+    "evidence": [
+      "db-full.json",
+      "evidence/db-full-serial.log",
+      "evidence/db-full-verification.json",
+      "evidence/db-full-CLIENTS.DBF",
+      "shots/120-db-full-appended.png",
+      "shots/121-db-full-reopen.png"
+    ]
+  },
+  {
+    "id": "L002",
+    "area": "Trash",
+    "severity": "P1",
+    "summary": "An open purged folder remains writable and leaks an orphan cluster",
+    "steps": "Replay reproduce_trash_deleted_window.py. Fresh tenants + trash-fixture.img: open INITECH (600,64); drag A (192,101) to Trash (600,422); open Trash and its A at (75,124); Special > Empty Trash, Return. In the surviving A window press Ctrl-N.",
+    "observed": "A still displayed CHILD after both directories and KEEP.TXT had been purged. Ctrl-N reported NEWFOLD parent=36 and the view acquired bogus IDB1/document entries. The new folder was not reachable from root or Trash. fsck.fat -n found one unused allocated cluster. An independent fresh replay reproduced the same orphan.",
+    "expected": "Close or invalidate every window whose directory is deleted, and reject writes to freed storage. This is my filesystem/window-lifetime expectation. MAC6 p.112 says emptying Trash permanently removes its contents; a surviving usable directory view is inconsistent with that operation.",
+    "evidence": [
+      "reproduce_trash_deleted_window.py",
+      "evidence/trash-edges-serial.log",
+      "evidence/trash-independent-serial.log",
+      "evidence/trash-independent-fsck.txt",
+      "shots/101-trash-purge-open-descendant.png",
+      "shots/102-newfolder-in-purged-child.png"
+    ]
+  },
+  {
+    "id": "L003",
+    "area": "database",
+    "severity": "P1",
+    "summary": "QUIT hangs after the same table is opened in two work areas",
+    "steps": "Replay db_exit_probe.py, case db-exit-two. On tenants + db-fixture.img press backslash. SELECT 1; USE CLIENTS.DBF ALIAS ONE; SELECT 2; USE CLIENTS.DBF ALIAS TWO; QUIT. Wait 18 seconds; send Ctrl-C and Return.",
+    "observed": "No desktop return, prompt, or recovery followed. QMP still responded; the CPU snapshot had HLT=1 and interrupts disabled (EFL=0x93). The two-area mutation variant also hung. The single-area USE/LIST/QUIT control returned to FLAIR.",
+    "expected": "QUIT must close the work areas and restore the suspended desktop, or reject an unsupported second open safely. DB-manual work-area/alias chapter documents independent selected areas; clean process teardown is my OS expectation. This is an observed guest hang, not the runner timeout itself.",
+    "evidence": [
+      "db_exit_probe.py",
+      "evidence/db-exit-two-serial.log",
+      "evidence/db-exit-two-qmp-state.json",
+      "evidence/db-exit-control-serial.log",
+      "shots/db-exit-two-after.png",
+      "shots/db-exit-two-recovery.png"
+    ]
+  },
+  {
+    "id": "L004",
+    "area": "dialogs",
+    "severity": "P1",
+    "summary": "Empty Trash buttons commit on mouse-down, before release can cancel",
+    "steps": "Fresh tenants + flair_data: stage README.TXT in Trash. Choose Special > Empty Trash at (172,28)->(200,65). Press OK at (464,168), keep the button held for 0.5 s, then move to (414,218) and release outside. Cancel can be tested the same way at (391,168).",
+    "observed": "OK purged the file while the button was still held. The dialog and item were already gone in the held screenshot; release outside did not cancel. Cancel also dismissed immediately on mouse-down. Raw event ordering places EMPTIED between mouseDown and mouseUp.",
+    "expected": "Track the button until release inside; release outside cancels the press. Named reference: local Control Manager, TrackControl button-like parts. This is distinct from the old fixed title-bar Close-box finding G02.",
+    "evidence": [
+      "evidence/desktop-main-serial.log",
+      "evidence/actions.jsonl",
+      "shots/006-empty-confirm.png",
+      "shots/010-ok-button-held.png",
+      "shots/011-ok-drag-out.png",
+      "evidence/references/control-manager.md"
+    ]
+  },
+  {
+    "id": "L005",
+    "area": "DOS",
+    "severity": "P1",
+    "summary": "COPY overwrites a read-only destination",
+    "steps": "Boot tracer_boot + dos-fixture.img. READONLY.TXT is explicitly +r in prepare_fixtures.py. COPY README.TXT READONLY.TXT; TYPE READONLY.TXT.",
+    "observed": "COPY reported one copied and replaced READONLY-SENTINEL with the README text. It did not require removing the read-only attribute.",
+    "expected": "Refuse modification of a read-only destination. DOS-manual, ATTRIB and access-denied diagnostics, documents protection against changes. This is separate from the repaired directory-destination COPY case.",
+    "evidence": [
+      "prepare_fixtures.py",
+      "evidence/fixture-preparation.json",
+      "evidence/dos-corrected-serial.log",
+      "shots/e008-readonly.png"
+    ]
+  },
+  {
+    "id": "L006",
+    "area": "DOS",
+    "severity": "P1",
+    "summary": "DEL removes a read-only file",
+    "steps": "Fresh tracer_boot + dos-fixture.img: DEL READONLY.TXT, then TYPE READONLY.TXT, without first copying onto it.",
+    "observed": "DEL silently removed the protected file. This is not inferred from the earlier COPY, which could have changed attributes.",
+    "expected": "Honor the read-only state. DOS-manual ATTRIB says read-only prevents accidental deletion.",
+    "evidence": [
+      "evidence/dos-edge-serial.log",
+      "evidence/dos-edge-listing-root.txt",
+      "shots/110-dos-root-path.png"
+    ]
+  },
+  {
+    "id": "L007",
+    "area": "database",
+    "severity": "P1",
+    "summary": "SET SAFETY ON does not confirm ZAP",
+    "steps": "Fresh tenants + db-fixture.img; backslash; USE CLIENTS.DBF; SET SAFETY ON; ZAP; ? RECCOUNT(). Replay db-final.json.",
+    "observed": "ZAP returned immediately with no Y/N question and RECCOUNT() became zero. No consent response was sent. The same behavior occurred in the broader and full work-area tests.",
+    "expected": "DB-manual, ZAP, printed p.U5-284 explicitly specifies a ZAP filename? (Y/N) prompt when SAFETY is ON. Preserve the rows until an affirmative response.",
+    "evidence": [
+      "db-final.json",
+      "evidence/db-final-serial.log",
+      "shots/db-final-04.png",
+      "shots/db-final-05.png",
+      "evidence/references/dbase3-using.txt"
+    ]
+  },
+  {
+    "id": "L008",
+    "area": "Initech 123",
+    "severity": "P1",
+    "summary": "Quit discards an edited worksheet without an unsaved-work warning",
+    "steps": "Launch 123 from the normal APPS folder. Enter Hello, 123, 1.5 and -7 across row 1; add another label. Press Ctrl-Q, then launch 123 again.",
+    "observed": "The app immediately exited; there was no save/discard/cancel choice. Relaunch showed an empty A1 worksheet and the entered work was gone.",
+    "expected": "Protect unsaved work on exit or clearly disclose a volatile demo before accepting it. My period spreadsheet/Mac-document expectation is a dirty-document warning; Lotus reference Chapter 9 supplies a distinct Quit workflow. The missing save route is recorded separately.",
+    "evidence": [
+      "evidence/desktop-main-serial.log",
+      "shots/027-123-row-entry.png",
+      "shots/044-123-long-label-stored.png",
+      "shots/045-123-quit-unsaved.png",
+      "shots/046-123-relaunch-empty.png"
+    ]
+  },
+  {
+    "id": "L009",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "Ordinary formulas and @ functions cannot be committed",
+    "steps": "In a fresh 123 sheet enter 123 in B1, 1.5 in C1 and -7 in D1. In A2 type +B1*2 and Return. Escape, then type @SUM(B1..D1) and Return.",
+    "observed": "Both valid entries remained uncommitted in EDIT mode; A2 had no calculated result. Number and label controls did commit.",
+    "expected": "Compute 246 and 117.5. Named reference: the real Lotus R2.2 MINT01 capture and mint/mint01.steps contain these exact formulas. This is a missing core calculation feature, not a claim that every formula parser branch was tested.",
+    "evidence": [
+      "shots/028-123-formula.png",
+      "shots/041-123-function-rejected.png",
+      "evidence/desktop-main-serial.log",
+      "evidence/references/lotus22-entered.png"
+    ]
+  },
+  {
+    "id": "L010",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "The slash command menu does not open",
+    "steps": "In READY press slash and then f,s, without Return.",
+    "observed": "Slash produced no menu. The following fs became a LABEL entry in the current cell.",
+    "expected": "Slash enters the Lotus command menu, with Worksheet/Range/Copy/Move/File and other choices. Named reference: L22-manual Chapter 1, Using 1-2-3 Menus; the real MINT01 /fs save capture. A Mac menu alternative would also need to expose these operations.",
+    "evidence": [
+      "shots/030-123-file-save.png",
+      "evidence/references/lotus22-save.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L011",
+    "area": "Initech 123",
+    "severity": "P1",
+    "summary": "There is no reached worksheet Save operation",
+    "steps": "Enter a worksheet, try /fs, and inspect the lower File menu (its only offered item is Quit). Quit and relaunch as in L008.",
+    "observed": "No filename prompt, Save item, saved worksheet, or recoverable work appeared. Only Quit was available in the app File menu.",
+    "expected": "A productive worksheet must be saved to disk. Named reference: L22-manual Chapter 5 /File Save, and the actual Lotus save-prompt capture. This is the persistence gap beyond the slash menu interaction itself.",
+    "evidence": [
+      "shots/030-123-file-save.png",
+      "shots/138-123-file-menu.png",
+      "shots/046-123-relaunch-empty.png",
+      "evidence/app-boundaries-serial.log",
+      "evidence/references/lotus22-save.png"
+    ]
+  },
+  {
+    "id": "L012",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "F1 provides no worksheet help",
+    "steps": "In READY press F1.",
+    "observed": "The sheet remained in READY and no help text or Help screen appeared.",
+    "expected": "HELP (F1), L22-manual p.1-11, displays context-sensitive help.",
+    "evidence": [
+      "shots/029-123-f1-help.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L013",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "F2 cannot edit an existing cell",
+    "steps": "Select A1 containing Hello and press F2.",
+    "observed": "A1 remained selected in READY; the edit line stayed empty.",
+    "expected": "EDIT (F2), L22-manual p.1-11, enters EDIT with the current cell contents.",
+    "evidence": [
+      "shots/032-123-f2-edit.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L014",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "F5 does not start Goto",
+    "steps": "In READY press F5, then type Z100.",
+    "observed": "No address prompt appeared; Z100 became a LABEL entry at the old cell.",
+    "expected": "GOTO (F5), L22-manual p.1-11, moves directly to the specified cell/range.",
+    "evidence": [
+      "shots/031-123-goto.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L015",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "Page Down does not advance one worksheet screen",
+    "steps": "In READY at A1 press Page Down.",
+    "observed": "The address and pointer remained A1. Arrow-based movement did work to A23.",
+    "expected": "PGDN, L22-manual p.1-10, moves down one screen.",
+    "evidence": [
+      "shots/061-123-pgdn-ready.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L016",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "Tab does not page horizontally",
+    "steps": "Use Right twelve times to reach M1; press Tab.",
+    "observed": "M1 and the F..M column viewport remained unchanged.",
+    "expected": "TAB in READY, L22-manual p.1-10, moves right one screen. This is not a claim that Tab should move one cell.",
+    "evidence": [
+      "shots/060-123-tab.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L017",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "Clicking a worksheet cell does not select it",
+    "steps": "From A1 click the visible E4 area at (360,180).",
+    "observed": "The address and highlight remained A1.",
+    "expected": "My expectation for a worksheet in a native mouse-driven document window is direct cell selection; this is a memory/usability expectation, not a claim about DOS Lotus mouse configuration.",
+    "evidence": [
+      "shots/034-123-mouse-cell.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L018",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "Shrinking the window lets the current cell disappear off screen",
+    "steps": "Shrink the 640x440 123 window by about 288x194 with its grow box. Move Right to E1. Try the horizontal right arrow.",
+    "observed": "The address became E1, but the view showed only A..D and no cell pointer. The visible scrollbar did not reveal E1.",
+    "expected": "Keep the current cell visible for the actual resized viewport. This is my native-window/worksheet visibility expectation; the normal full-size arrow-follow control worked.",
+    "evidence": [
+      "shots/039-123-pointer-off-small-window.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L019",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "Entry silently stops at 75 characters instead of the documented 240",
+    "steps": "At A1 type the alphabet four times (104 letters), without Return; then press Return.",
+    "observed": "The entry line stopped after the third alphabet minus its final three letters (75 characters); the remaining keystrokes did not extend it. No length error or scrolling edit line appeared.",
+    "expected": "L22-manual pp.1-16/1-17 permits 240-character entries. Preserve all 104 characters or explicitly refuse them.",
+    "evidence": [
+      "shots/048-123-long-label-input.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L020",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "The unmodified backslash hotkey steals the repeating-label prefix",
+    "steps": "Boot tenants + db-fixture.img; open root APPS (192,101), then 123 (211,124). At B1 press backslash to begin a repeating label.",
+    "observed": "The entire desktop suspended into SAMIR. QUIT returned to the sheet, which had not received the prefix. On flair_data the same key attempted the unavailable text app and resumed.",
+    "expected": "L22-manual p.1-17 defines backslash as the repeating-label prefix. Reserve a non-conflicting system shortcut while applications accept text. The existence of a system hotkey is deliberate; its collision is the defect.",
+    "evidence": [
+      "shots/ab-backslash-launches-database.png",
+      "evidence/app-boundaries-serial.log"
+    ]
+  },
+  {
+    "id": "L021",
+    "area": "Initech 123",
+    "severity": "P3",
+    "summary": "The worksheet status line omits the period clock/date",
+    "steps": "Launch 123 and inspect the bottom status line at native size.",
+    "observed": "The status line was blank throughout entry and navigation.",
+    "expected": "The real Lotus R2.2 MINT01 capture shows date/time at the lower left. This is a reference-backed presentation omission, with the intentional native white/navy adaptation accepted.",
+    "evidence": [
+      "shots/026-123-launch.png",
+      "evidence/desktop-main-serial.log"
+    ]
+  },
+  {
+    "id": "L022",
+    "area": "look",
+    "severity": "P3",
+    "summary": "Empty Trash leaves the caution-icon area completely blank",
+    "steps": "Stage a file and open Special > Empty Trash. Compare the dialog with the local Mac OS 8.1 caution-alert capture.",
+    "observed": "The large left-hand icon space was empty; only the text and two buttons identified the destructive alert.",
+    "expected": "The actual s8_alert_modal capture contains a yellow caution triangle in this same layout. This is a named-reference drawing omission, not a demand to change the intentional wording or two menu bars.",
+    "evidence": [
+      "shots/006-empty-confirm.png",
+      "evidence/references/mac81-alert.png"
+    ]
+  },
+  {
+    "id": "L023",
+    "area": "look",
+    "severity": "P3",
+    "summary": "The Trash alert has a heavy black slab border instead of the Platinum alert edge",
+    "steps": "Open the same confirmation and compare the complete frame at native size.",
+    "observed": "A roughly seven-pixel black outer band dominated the dialog. The reference has a thin black edge with a subtle raised/tinted border.",
+    "expected": "Named reference: system7-decomp/specs/sys8/controls.md section 6 and s8_alert_modal.png. The gap is the alert frame, a surface earlier audits had not reached with buttons; general window-frame criticism stays under F16.",
+    "evidence": [
+      "shots/006-empty-confirm.png",
+      "evidence/references/mac81-alert.png",
+      "evidence/references/mac81-controls.md"
+    ]
+  },
+  {
+    "id": "L024",
+    "area": "Trash",
+    "severity": "P3",
+    "summary": "The confirmation understates the disk space occupied by a folder tree",
+    "steps": "On trash-fixture.img stage A, containing CHILD/KEEP.TXT, and open Empty Trash before purging.",
+    "observed": "The alert counted three items but said they use 1K. Independent FAT inspection found three one-cluster objects at 512 bytes/cluster, totaling 1536 bytes, which needs 2K when rounded upward.",
+    "expected": "A figure labeled disk space should reflect allocated storage, including folder clusters, or identify itself as logical file bytes. This is my filesystem-feedback expectation; the Mac alert reference uses a disk-space figure.",
+    "evidence": [
+      "shots/100-trash-tree-count.png",
+      "evidence/trash-tree-space.json",
+      "images/trash-fixture.img"
+    ]
+  },
+  {
+    "id": "L025",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "CD backslash does not return to the root",
+    "steps": "Fresh tracer_boot + dos-fixture: MD TEST; CD TEST; CD \\; CD. Then CD A:\\; CD as a control.",
+    "observed": "The unqualified root form left the location A:\\TEST without an error. The drive-qualified form returned to A:\\.",
+    "expected": "DOS-manual CHDIR explicitly says CD \\ returns to the root. Both root spellings should resolve consistently.",
+    "evidence": [
+      "evidence/dos-edge-serial.log",
+      "shots/110-dos-root-path.png"
+    ]
+  },
+  {
+    "id": "L026",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "MD accepts a wildcard character as a literal directory name",
+    "steps": "MD BAD?NAME; CD BAD?NAME; CD; then inspect the stopped FAT disk with mdir.",
+    "observed": "The directory was created and the guest entered A:\\BAD?NAME. mtools sanitized its display to BAD_NAME, exposing an invalid DOS name on disk.",
+    "expected": "Reject wildcard characters in new directory names. This follows DOS-manual filename/wildcard rules and my DOS 8.3 naming expectation. Long over-8.3 names were correctly refused in the control tests.",
+    "evidence": [
+      "evidence/dos-edge-serial.log",
+      "shots/111-dos-illegal-names.png",
+      "evidence/dos-edge-listing-root.txt"
+    ]
+  },
+  {
+    "id": "L027",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "MD accepts reserved device names as real directories",
+    "steps": "On a fresh DOS fixture issue MD CON; CD CON; CD. MD AUX was also exercised in dos-corrected.",
+    "observed": "Both reserved names were accepted as directories; CD CON put the shell in A:\\CON.",
+    "expected": "Reject reserved DOS device names for filesystem objects. Expectation from my DOS 3.x memory; DOS-manual character-device sections define CON and AUX as devices.",
+    "evidence": [
+      "evidence/dos-edge-serial.log",
+      "shots/111-dos-illegal-names.png",
+      "evidence/dos-corrected-serial.log"
+    ]
+  },
+  {
+    "id": "L028",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "COPY treats /A and /B switches as filenames and ignores the requested destination",
+    "steps": "The fixture CTRLZ.TXT contains BEFORE, byte 0x1A, AFTER and CR/LF. COPY CTRLZ.TXT /A ASCII2.TXT; TYPE ASCII2.TXT; DIR. Then COPY /A CTRLZ.TXT ASCII3.TXT and COPY CTRLZ.TXT /B BIN2.TXT; TYPE each requested target.",
+    "observed": "Each copy reported success, but none of ASCII2.TXT, ASCII3.TXT or BIN2.TXT existed. DIR exposed a literal /A file; the /B variant likewise used the switch as its destination. The prefix /A run used the newly created switch-named file as its source and CTRLZ.TXT as its destination. A trailing /A was also ignored in the earlier test.",
+    "expected": "DOS-manual COPY accepts /A and /B before or after filenames. Parse switches separately, honor the requested destination, and apply text/binary semantics. The earlier trailing-/A screenshot alone is not used to claim source EOF truncation, because that position applies to the destination.",
+    "evidence": [
+      "shots/133-dos-source-ascii-switch.png",
+      "shots/134-dos-prefix-and-binary-switch.png",
+      "evidence/dos-ascii-serial.log",
+      "evidence/dos-ascii-root-raw.json"
+    ]
+  },
+  {
+    "id": "L029",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "COPY cannot concatenate explicitly named files with plus",
+    "steps": "On dos-fixture.img, COPY KEEP.TXT+CTRLZ.TXT MERGE.TXT; TYPE MERGE.TXT.",
+    "observed": "Both sources existed, but COPY said File not found and created no usable merged file.",
+    "expected": "DOS-manual COPY documents concatenation with plus. This is the explicit-name concatenation grammar, separate from known K11 wildcard enumeration.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log"
+    ]
+  },
+  {
+    "id": "L030",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "New filesystem entries receive an invalid zero month/day timestamp",
+    "steps": "In dos-env: ECHO METADATA > STAMP.TXT; DATE; TIME. Stop QEMU and inspect STAMP.TXT with mdir -a. New directories and COPY destinations in the other DOS sessions provide controls.",
+    "observed": "The guest clock reported October 4, 2026, but new entries had 1980-00-00 00:00. mdir exposed the invalid month/day. This also appeared on Finder-created service entries.",
+    "expected": "Store the actual last-modified date/time, or at minimum a valid FAT date. DOS-manual file/directory descriptions include modification timestamps. This is metadata correctness, not the already-known abbreviated DIR layout.",
+    "evidence": [
+      "shots/118-dos-timestamp-clock.png",
+      "evidence/dos-env-root-after.txt",
+      "evidence/dos-corrected-root-after.txt"
+    ]
+  },
+  {
+    "id": "L031",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "FOR works in a batch but is not recognized at the prompt",
+    "steps": "SET AUDIT=VALUE; run ENV.BAT as a control. Then type FOR %f IN (ONE TWO) DO ECHO %f directly at the prompt.",
+    "observed": "The batch FOR printed ONE and TWO. The single-percent interactive form returned Bad command or file name.",
+    "expected": "DOS-manual FOR, printed p.145, explicitly instructs using one percent sign outside a batch file.",
+    "evidence": [
+      "shots/115-dos-batch-environment.png",
+      "shots/116-dos-interactive-control.png",
+      "evidence/dos-env-serial.log",
+      "fixtures/ENV.BAT"
+    ]
+  },
+  {
+    "id": "L032",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "IF is not recognized at the interactive prompt",
+    "steps": "With SELF.BIN present, type IF EXIST SELF.BIN ECHO YES. Compare the IF EXIST control in ENV.BAT.",
+    "observed": "The direct command returned Bad command or file name; the batch control printed BATCH-IF-YES.",
+    "expected": "My DOS 3.x command-processor expectation is that IF can execute a conditional command at the prompt. The original manual documents IF syntax; the interactive applicability here is labeled memory-based.",
+    "evidence": [
+      "shots/116-dos-interactive-control.png",
+      "evidence/dos-env-serial.log",
+      "fixtures/ENV.BAT"
+    ]
+  },
+  {
+    "id": "L033",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "F3 command recall does nothing",
+    "steps": "Fresh DOS: ECHO REPEAT, Return. At the empty next prompt press F3, wait one second, then Return.",
+    "observed": "The command line stayed empty and Return produced another empty prompt. No previous command was copied.",
+    "expected": "DOS-manual MS-DOS editing keys, printed pp.154-155, specifies F3 plus Return to repeat the previous command.",
+    "evidence": [
+      "shots/126-dos-f3.png",
+      "evidence/dos-final-serial.log"
+    ]
+  },
+  {
+    "id": "L034",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "COMMAND /C cannot launch a secondary command processor",
+    "steps": "On the supplied tracer_boot + dos-fixture.img prompt, type COMMAND /C ECHO CHILD.",
+    "observed": "Bad command or file name; CHILD was never printed.",
+    "expected": "DOS-manual COMMAND documents /C execution in a secondary processor. This finding is limited to the supplied runnable image and disk, not unbooted artifacts elsewhere in the repository.",
+    "evidence": [
+      "shots/127-dos-secondary-shell.png",
+      "evidence/dos-final-serial.log"
+    ]
+  },
+  {
+    "id": "L035",
+    "area": "DOS",
+    "severity": "P1",
+    "summary": "EXIT terminates the permanent primary shell and leaves no usable prompt",
+    "steps": "Fresh tracer_boot + dos-fixture.img. The boot trace specifies SHELL=COMMAND.COM /P /E:512. Type EXIT, wait, then VER and Return.",
+    "observed": "The trace ended SHELL-EXIT / SHELL-DONE. VER produced no output and the screen stayed at the EXIT command. Only the external QMP controller could end the run.",
+    "expected": "A permanent primary DOS shell must remain available; /P should prevent exiting it into a dead machine. The precise primary-shell EXIT rule is from my DOS memory, with /P permanence grounded in DOS-manual COMMAND.",
+    "evidence": [
+      "shots/128-dos-permanent-exit.png",
+      "evidence/dos-final-serial.log",
+      "evidence/actions.jsonl"
+    ]
+  },
+  {
+    "id": "L036",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "CHKDSK is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type CHKDSK at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No CHKDSK executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named CHKDSK command section providing a way to inspect/check the filesystem. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L037",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "FORMAT is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type FORMAT at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No FORMAT executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named FORMAT command section providing a way to initialize a disk. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L038",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "DISKCOPY is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type DISKCOPY at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No DISKCOPY executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named DISKCOPY command section providing a way to copy a disk. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L039",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "ATTRIB is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type ATTRIB at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No ATTRIB executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named ATTRIB command section providing a way to inspect or change read-only/archive attributes. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L040",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "TREE is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type TREE at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No TREE executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named TREE command section providing a way to inspect the directory tree. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L041",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "FIND is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type FIND at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No FIND executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named FIND command section providing a way to filter text for a string. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L042",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "SORT is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type SORT at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No SORT executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named SORT command section providing a way to sort text input. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L043",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "MORE is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img; type MORE at the prompt, as in dos-corrected.json.",
+    "observed": "The shell returned Bad command or file name. No MORE executable was available on the tested disk or reached through the configured path.",
+    "expected": "DOS-manual has a named MORE command section providing a way to page text output. This is an installation/feature gap on these images, not a claim about host source files or an instruction to format the original images.",
+    "evidence": [
+      "evidence/dos-corrected-serial.log",
+      "dos-corrected.json"
+    ]
+  },
+  {
+    "id": "L044",
+    "area": "database",
+    "severity": "P2",
+    "summary": "DATE() returns the current year as 1926 instead of 2026",
+    "steps": "Fresh SAMIR: SET CENTURY ON; ? DATE(); ? YEAR(DATE()). Compare the contemporaneous DOS DATE control.",
+    "observed": "SAMIR printed 10/04/1926 and 1926. DOS on these images reported 10/04/2026.",
+    "expected": "DB-manual DATE obtains the current system date. This is not criticism of the deliberately retained CTOD year-00 -> 1900/accounting behavior; it is the wrong century for the live system clock.",
+    "evidence": [
+      "shots/c002-date.png",
+      "shots/118-dos-timestamp-clock.png",
+      "evidence/db-confirm-serial.log"
+    ]
+  },
+  {
+    "id": "L045",
+    "area": "database",
+    "severity": "P2",
+    "summary": "Empty and invalid dates print malformed digits",
+    "steps": "In a fresh SAMIR prompt: ? CTOD(\"\"); ? CTOD(\"99/99/99\"); ? CTOD(\"02/29/00\"). Compare valid CTOD(\"02/29/04\").",
+    "observed": "The three empty/invalid results displayed 11/24//- rather than a blank date or a relevant error. The valid leap-day control displayed normally.",
+    "expected": "Named reference: local dates-and-century spec, CTOD and blank-date sections, backed by the III+ blank-date idiom. Represent an empty date without invented digits.",
+    "evidence": [
+      "shots/c002-date.png",
+      "shots/b010-dates.png",
+      "evidence/db-confirm-serial.log",
+      "evidence/references/dbase-dates.md"
+    ]
+  },
+  {
+    "id": "L046",
+    "area": "database",
+    "severity": "P3",
+    "summary": "The next dot prompt is glued to query output",
+    "steps": "Type ? 2, then another query; also try a string expression or DBF().",
+    "observed": "The next . prompt appeared on the same line immediately after the value, e.g. 4. ? EXP(1) and CLIENTS. ? BOF(). Numeric values and the next command visually ran together.",
+    "expected": "My memory of the dBASE dot-prompt interface is a fresh prompt line after a completed command. Keep output and the input prompt visually distinct; the manual examples also separate them.",
+    "evidence": [
+      "shots/db-final-01.png",
+      "evidence/db-functions-serial.log",
+      "shots/c002-date.png"
+    ]
+  },
+  {
+    "id": "L047",
+    "area": "database",
+    "severity": "P2",
+    "summary": "CLOSE FORMAT and CLOSE INDEX close the database itself",
+    "steps": "USE CLIENTS.DBF; CLOSE FORMAT; ? RECCOUNT(); LIST. Reopen and try CLOSE INDEX. The broader test also tried CLOSE PROCEDURE.",
+    "observed": "RECCOUNT became zero and LIST no longer listed the table. Reopening the DBF restored its rows. A command for a different file type closed the active database too.",
+    "expected": "DB-manual CLOSE, printed p.U5-53, distinguishes FORMAT, INDEX, PROCEDURE and DATABASES. Only the requested file type should close.",
+    "evidence": [
+      "shots/c004-close-indexes.png",
+      "evidence/db-confirm-serial.log",
+      "evidence/db-functions-serial.log"
+    ]
+  },
+  {
+    "id": "L048",
+    "area": "database",
+    "severity": "P2",
+    "summary": "A valid alias-qualified field cannot be read",
+    "steps": "SELECT 1; USE CLIENTS.DBF ALIAS ONE; GO 1; SELECT 2; USE CLIENTS.DBF ALIAS TWO; GO 2; ? BAL; SELECT ONE; ? BAL; ? TWO->BAL; SELECT 2; ? BAL.",
+    "observed": "Direct queries returned 123.45 in ONE and -42 in TWO, but TWO->BAL returned 1 File does not exist. Both work areas were open and selectable.",
+    "expected": "DB-manual work areas/aliases explicitly permits alias->field to read a field in an unselected open area. The alias is not a filename to reopen.",
+    "evidence": [
+      "shots/c006-areas.png",
+      "evidence/db-confirm-serial.log"
+    ]
+  },
+  {
+    "id": "L049",
+    "area": "database",
+    "severity": "P2",
+    "summary": "TYPE reports its string argument type instead of the named expression type",
+    "steps": "USE CLIENTS.DBF; ? TYPE(\"BAL\"),TYPE(\"1+1\"),TYPE(\"MISSING\"),TYPE(\"DATE()\").",
+    "observed": "The output was C C C C, including for the numeric field, arithmetic and undefined variable.",
+    "expected": "DB-manual TYPE(), printed p.U6-86, evaluates the expression named by its character argument. Expected N, N, U and D (the local function reference documents the date code).",
+    "evidence": [
+      "shots/db-final-01.png",
+      "evidence/db-final-serial.log",
+      "evidence/references/dbase-functions.md"
+    ]
+  },
+  {
+    "id": "L050",
+    "area": "database",
+    "severity": "P2",
+    "summary": "Division by zero raises an error instead of the original overflow result",
+    "steps": "At the dot prompt type ? 1/0.",
+    "observed": "SAMIR printed 39 Numeric overflow (data was lost).",
+    "expected": "The real III+ C1/E2 captures, summarized in local re/mint-results-002.md, explicitly establish asterisk-filled overflow output and no trapped error for 1/0. This is a measured compatibility difference, not a mathematical preference.",
+    "evidence": [
+      "shots/db-final-02.png",
+      "evidence/db-final-serial.log",
+      "evidence/references/dbase-minted-002.md"
+    ]
+  },
+  {
+    "id": "L051",
+    "area": "database",
+    "severity": "P2",
+    "summary": "INDEX ON cannot create an index",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue INDEX ON NAME TO TESTIDX.",
+    "observed": "16 Unrecognized command verb; the requested workflow did not start. For absent named input files, no file-specific diagnostic was reached.",
+    "expected": "DB-manual has a named INDEX command section to create a persistent NDX for keyed navigation. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L052",
+    "area": "database",
+    "severity": "P2",
+    "summary": "REINDEX is unavailable",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue REINDEX.",
+    "observed": "16 Unrecognized command verb; the requested workflow did not start. For absent named input files, no file-specific diagnostic was reached.",
+    "expected": "DB-manual has a named REINDEX command section to rebuild database indexes. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L053",
+    "area": "database",
+    "severity": "P2",
+    "summary": "APPEND FROM cannot import records",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue APPEND FROM CLIENTS.DBF.",
+    "observed": "7 File already exists; no import occurred.",
+    "expected": "DB-manual has a named APPEND command section to append records from another DBF. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L054",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SAVE TO cannot persist memory variables",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue SAVE TO MEMSAVE.",
+    "observed": "16 Unrecognized command verb; the requested workflow did not start. For absent named input files, no file-specific diagnostic was reached.",
+    "expected": "DB-manual has a named SAVE command section to save variables in a MEM file. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L055",
+    "area": "database",
+    "severity": "P2",
+    "summary": "RESTORE FROM is unavailable",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue RESTORE FROM MEMSAVE.",
+    "observed": "16 Unrecognized command verb; the requested workflow did not start. For absent named input files, no file-specific diagnostic was reached.",
+    "expected": "DB-manual has a named RESTORE command section to restore a saved variable set. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L056",
+    "area": "database",
+    "severity": "P2",
+    "summary": "REPORT FORM is unavailable",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue REPORT FORM REPORT.",
+    "observed": "16 Unrecognized command verb; the requested workflow did not start. For absent named input files, no file-specific diagnostic was reached.",
+    "expected": "DB-manual has a named REPORT command section to run a report definition. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-suite-serial.log",
+      "db-suite.json"
+    ]
+  },
+  {
+    "id": "L057",
+    "area": "database",
+    "severity": "P2",
+    "summary": "LABEL FORM is unavailable",
+    "steps": "Open CLIENTS.DBF in SAMIR, then issue LABEL FORM LABEL.",
+    "observed": "16 Unrecognized command verb; the requested workflow did not start. For absent named input files, no file-specific diagnostic was reached.",
+    "expected": "DB-manual has a named LABEL command section to run a label definition. Existing K08 covers other already-audited editor/aggregate/export gaps; this is an additional reached command.",
+    "evidence": [
+      "evidence/db-suite-serial.log",
+      "db-suite.json"
+    ]
+  },
+  {
+    "id": "L058",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET ALTERNATE is unavailable",
+    "steps": "At the dot prompt issue SET ALTERNATE TO ALT.TXT. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET ALTERNATE section to capture commands/output to a text transcript. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L059",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET DEFAULT is unavailable",
+    "steps": "At the dot prompt issue SET DEFAULT TO A. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET DEFAULT section to select the default drive for file searches. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L060",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET PATH is unavailable",
+    "steps": "At the dot prompt issue SET PATH TO A:\\. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET PATH section to set the database file search path. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L061",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET ESCAPE is unavailable",
+    "steps": "At the dot prompt issue SET ESCAPE ON. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET ESCAPE section to control program interruption. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L062",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET CONFIRM is unavailable",
+    "steps": "At the dot prompt issue SET CONFIRM ON. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET CONFIRM section to require Return to complete field entry. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L063",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET BELL is unavailable",
+    "steps": "At the dot prompt issue SET BELL OFF. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET BELL section to control the entry/error bell. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L064",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET CONSOLE is unavailable",
+    "steps": "At the dot prompt issue SET CONSOLE OFF. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET CONSOLE section to control screen output. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L065",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET HEADING is unavailable",
+    "steps": "At the dot prompt issue SET HEADING OFF. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET HEADING section to control column headings. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L066",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET PROCEDURE is unavailable",
+    "steps": "At the dot prompt issue SET PROCEDURE TO SIMPLE. ON/OFF pairs and bare TO were also used where listed in db-functions.json.",
+    "observed": "The option was refused with 7 File already exists; it did not take effect.",
+    "expected": "DB-manual has a specific SET PROCEDURE section to load a procedure library. The misleading generic error-number translation is already known under K08; the new finding here is the missing setting/workflow.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L067",
+    "area": "database",
+    "severity": "P2",
+    "summary": "EXP() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? EXP(1).",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return approximately 2.71828. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L068",
+    "area": "database",
+    "severity": "P2",
+    "summary": "LOG() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? LOG(1).",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return zero. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L069",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SQRT() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? SQRT(4).",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return two. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L070",
+    "area": "database",
+    "severity": "P2",
+    "summary": "TIME() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? TIME().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return the current time string. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L071",
+    "area": "database",
+    "severity": "P2",
+    "summary": "RECSIZE() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? RECSIZE().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return 31 for this fixture, including its deletion byte. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L072",
+    "area": "database",
+    "severity": "P2",
+    "summary": "DISKSPACE() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? DISKSPACE().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return the available disk byte count. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L073",
+    "area": "database",
+    "severity": "P2",
+    "summary": "VERSION() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? VERSION().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return a version identification string. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L074",
+    "area": "database",
+    "severity": "P2",
+    "summary": "OS() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? OS().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return an operating-system identification string. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L075",
+    "area": "database",
+    "severity": "P2",
+    "summary": "PCOL() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? PCOL().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return the printer column position. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L076",
+    "area": "database",
+    "severity": "P2",
+    "summary": "PROW() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? PROW().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return the printer row position. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L077",
+    "area": "database",
+    "severity": "P2",
+    "summary": "ROW() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? ROW().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return the screen row position. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L078",
+    "area": "database",
+    "severity": "P2",
+    "summary": "COL() is absent from the function library",
+    "steps": "USE CLIENTS.DBF; ? COL().",
+    "observed": "31 Invalid function name, including with the valid ordinary argument shown here.",
+    "expected": "DB-manual Chapter 6 documents this function; local function specs enumerate it from III+ HELP.DBS. Return the screen column position. This is function availability, not a proposed exact OS/version literal or an untested printer driver.",
+    "evidence": [
+      "evidence/db-functions-serial.log",
+      "db-functions.json"
+    ]
+  },
+  {
+    "id": "L079",
+    "area": "database",
+    "severity": "P2",
+    "summary": "Disk full is misreported as a read-only file",
+    "steps": "Repeat the full-disk APPEND workload from L001; watch the first failure after R08. The fixture DBF has no read-only attribute and earlier edits succeed.",
+    "observed": "Every failed APPEND/REPLACE said 111 Cannot write to a read-only file. The actual volume had zero free bytes; the file was writable. This sends the user to the wrong recovery action.",
+    "expected": "Report disk full (the original III+ catalog includes a disk-full diagnostic), and identify the affected file. This is the distinct error-feedback defect in L001, not its corrupt record-count defect.",
+    "evidence": [
+      "shots/120-db-full-appended.png",
+      "evidence/db-full-root-before.txt",
+      "evidence/db-full-serial.log"
+    ]
+  },
+  {
+    "id": "L080",
+    "area": "Initech 123",
+    "severity": "P2",
+    "summary": "The 2049th occupied cell fails as unexplained EDIT mode",
+    "steps": "Replay cell_stress.py: fresh 123, repeat typing 1 followed by Down 2050 times, starting at A1. Inspect attempts 2048 and 2049; then Escape, Home, replace existing A1 with 2.",
+    "observed": "2048 cells committed successfully. The next valid 1 at A2049 did not commit or advance: the mode changed to EDIT with no memory/capacity explanation. Another attempt appended a second 1 to the stranded edit. Editing existing A1 still worked.",
+    "expected": "Either support the next cell or visibly explain the capacity limit without presenting a valid number as an input-editing problem. This is my resource-failure feedback expectation, not a claim that a finite-memory worksheet must hold every possible cell.",
+    "evidence": [
+      "cell_stress.py",
+      "evidence/cell-stress-serial.log",
+      "shots/cell-2048.png",
+      "shots/cell-2049.png",
+      "shots/cell-2050.png",
+      "shots/cell-existing-edit.png"
+    ]
+  },
+  {
+    "id": "L081",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "APPEND is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type APPEND as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents APPEND to search additional directories for data files. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L082",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "ASSIGN is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type ASSIGN as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents ASSIGN to redirect drive references. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L083",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "BACKUP is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type BACKUP as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents BACKUP to back up files. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L084",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "CHCP is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type CHCP as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents CHCP to inspect/select the console code page. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L085",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "COMP is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type COMP as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents COMP to compare files. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L086",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "CTTY is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type CTTY as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents CTTY to select the controlling terminal. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L087",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "DISKCOMP is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type DISKCOMP as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents DISKCOMP to compare disks. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L088",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "EXE2BIN is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type EXE2BIN as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents EXE2BIN to convert executable file formats. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L089",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "FASTOPEN is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type FASTOPEN as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents FASTOPEN to provide the documented file-open cache. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L090",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "FC is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type FC as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents FC to compare file contents. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L091",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "GRAPHICS is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type GRAPHICS as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents GRAPHICS to enable graphics-screen printing. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L092",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "JOIN is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type JOIN as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents JOIN to join a drive into a directory. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L093",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "KEYB is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type KEYB as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents KEYB to select a keyboard layout. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L094",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "LABEL is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type LABEL as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents LABEL to change a disk volume label. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L095",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "MODE is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type MODE as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents MODE to configure console/printer/serial modes. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L096",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "NLSFUNC is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type NLSFUNC as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents NLSFUNC to load country/code-page support. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L097",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "PRINT is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type PRINT as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents PRINT to queue print jobs. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L098",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "RECOVER is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type RECOVER as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents RECOVER to attempt damaged-file recovery. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L099",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "REPLACE is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type REPLACE as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents REPLACE to replace files as a batch operation. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L100",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "RESTORE is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type RESTORE as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents RESTORE to restore backed-up files. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L101",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "SELECT is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type SELECT as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents SELECT to install/configure a DOS disk. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L102",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "SHARE is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type SHARE as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents SHARE to provide DOS file-sharing/locking support. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L103",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "SUBST is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type SUBST as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents SUBST to substitute a drive for a path. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L104",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "SYS is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type SYS as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents SYS to transfer system files to a disk. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L105",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "XCOPY is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type XCOPY as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents XCOPY to copy directory trees. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L106",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "DEBUG is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type DEBUG as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents DEBUG to inspect/debug DOS programs. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L107",
+    "area": "DOS",
+    "severity": "P2",
+    "summary": "EDLIN is unavailable from the supplied DOS installation",
+    "steps": "Boot tracer_boot + dos-fixture.img and type EDLIN as in dos-utilities.json.",
+    "observed": "Bad command or file name; no command-specific parameter prompt, diagnostic, or program started.",
+    "expected": "The original DOS-manual documents EDLIN to edit text files at the DOS prompt. This is a missing supplied command/utility, limited to the tested installation. No untested hardware behavior or implementation outside the supplied disks is inferred.",
+    "evidence": [
+      "evidence/dos-utilities-serial.log",
+      "dos-utilities.json"
+    ]
+  },
+  {
+    "id": "L108",
+    "area": "database",
+    "severity": "P2",
+    "summary": "A macro variable containing a command is not expanded for execution",
+    "steps": "Run DO STRESS on db-program-fixture.img, prepared as documented in the journal. STRESS.PRG loops N to 1000, prints LOOP-PASS, stores \"? N + 5\" to CMD, then executes &CMD.",
+    "observed": "The loop and IF branch worked, then the macro statement returned 16 Unrecognized command verb instead of printing 1005. N remained 1000 at the prompt.",
+    "expected": "DB-manual macro substitution and the local III+ language reference permit an ampersand memory-variable substitution in commands. This is independent of the old DO-file/USE integration issue K08: this program loaded and ran preceding statements.",
+    "evidence": [
+      "fixtures/STRESS.PRG",
+      "evidence/db-program-serial.log",
+      "shots/program-01.png"
+    ]
+  },
+  {
+    "id": "L109",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SORT TO is unavailable",
+    "steps": "USE CLIENTS.DBF, then SORT TO SORTED ON NAME. The exact preceding file-operation attempts are in db-program.json.",
+    "observed": "16 Unrecognized command verb. SORT and TOTAL had the correct existing fields. The TYPE/RENAME/ERASE files were absent after the refused COPY FILE control; no file-specific diagnostic was reached.",
+    "expected": "DB-manual has the named SORT command to write a sorted copy of the active table. The finding is the unrecognized command entry point; successful missing-file handling is not claimed.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "db-program.json"
+    ]
+  },
+  {
+    "id": "L110",
+    "area": "database",
+    "severity": "P2",
+    "summary": "TYPE is not recognized at the database prompt",
+    "steps": "USE CLIENTS.DBF, then TYPE COPY.PRG. The exact preceding file-operation attempts are in db-program.json.",
+    "observed": "16 Unrecognized command verb. SORT and TOTAL had the correct existing fields. The TYPE/RENAME/ERASE files were absent after the refused COPY FILE control; no file-specific diagnostic was reached.",
+    "expected": "DB-manual has the named TYPE command to view an ASCII file, or report that the requested file is absent. The finding is the unrecognized command entry point; successful missing-file handling is not claimed.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "db-program.json"
+    ]
+  },
+  {
+    "id": "L111",
+    "area": "database",
+    "severity": "P2",
+    "summary": "RENAME is not recognized at the database prompt",
+    "steps": "USE CLIENTS.DBF, then RENAME COPY.PRG TO RENAMED.PRG. The exact preceding file-operation attempts are in db-program.json.",
+    "observed": "16 Unrecognized command verb. SORT and TOTAL had the correct existing fields. The TYPE/RENAME/ERASE files were absent after the refused COPY FILE control; no file-specific diagnostic was reached.",
+    "expected": "DB-manual has the named RENAME command to rename a file, or identify a missing source. The finding is the unrecognized command entry point; successful missing-file handling is not claimed.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "db-program.json"
+    ]
+  },
+  {
+    "id": "L112",
+    "area": "database",
+    "severity": "P2",
+    "summary": "ERASE is not recognized at the database prompt",
+    "steps": "USE CLIENTS.DBF, then ERASE RENAMED.PRG. The exact preceding file-operation attempts are in db-program.json.",
+    "observed": "16 Unrecognized command verb. SORT and TOTAL had the correct existing fields. The TYPE/RENAME/ERASE files were absent after the refused COPY FILE control; no file-specific diagnostic was reached.",
+    "expected": "DB-manual has the named ERASE command to erase a file, or identify a missing source. The finding is the unrecognized command entry point; successful missing-file handling is not claimed.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "db-program.json"
+    ]
+  },
+  {
+    "id": "L113",
+    "area": "database",
+    "severity": "P2",
+    "summary": "TOTAL ON is unavailable",
+    "steps": "USE CLIENTS.DBF, then TOTAL ON CITY TO TOTAL. The exact preceding file-operation attempts are in db-program.json.",
+    "observed": "16 Unrecognized command verb. SORT and TOTAL had the correct existing fields. The TYPE/RENAME/ERASE files were absent after the refused COPY FILE control; no file-specific diagnostic was reached.",
+    "expected": "DB-manual has the named TOTAL command to create grouped totals. The finding is the unrecognized command entry point; successful missing-file handling is not claimed.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "db-program.json"
+    ]
+  },
+  {
+    "id": "L114",
+    "area": "database",
+    "severity": "P2",
+    "summary": "RUN cannot invoke a DOS command",
+    "steps": "USE CLIENTS.DBF, then RUN VER. The exact preceding file-operation attempts are in db-program.json.",
+    "observed": "16 Unrecognized command verb. SORT and TOTAL had the correct existing fields. The TYPE/RENAME/ERASE files were absent after the refused COPY FILE control; no file-specific diagnostic was reached.",
+    "expected": "DB-manual has the named RUN command to run a DOS command and return to the database. The finding is the unrecognized command entry point; successful missing-file handling is not claimed.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "db-program.json"
+    ]
+  },
+  {
+    "id": "L115",
+    "area": "database",
+    "severity": "P2",
+    "summary": "SET FUNCTION cannot redefine a function key",
+    "steps": "SET FUNCTION 1 TO \"LIST\" at the SAMIR dot prompt.",
+    "observed": "7 File already exists; no key definition was accepted.",
+    "expected": "DB-manual SET FUNCTION documents this key-definition command. The generic error translation is already known; this is the absent setting.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "shots/program-16.png"
+    ]
+  },
+  {
+    "id": "L116",
+    "area": "database",
+    "severity": "P2",
+    "summary": "CLEAR MEMORY cannot clear variables",
+    "steps": "After DO STRESS sets N to 1000, issue CLEAR MEMORY and ? N.",
+    "observed": "CLEAR MEMORY was unrecognized and N remained 1000. RELEASE of a named variable worked in a separate control.",
+    "expected": "DB-manual CLEAR MEMORY specifies removing memory variables. Recognize the documented operation or provide a truthful unsupported response.",
+    "evidence": [
+      "evidence/db-program-serial.log",
+      "shots/program-18.png"
+    ]
+  },
+  {
+    "id": "L117",
+    "area": "apps",
+    "severity": "P3",
+    "summary": "CTENANT loses its input readouts when its window repaints",
+    "steps": "Fresh normal APPS: launch CTENANT at (143,124); press Q; click content (250,250). Capture, then drag its title (300,180) by (+50,+50).",
+    "observed": "Both Key q lines and the Click readout vanished after the move, leaving only the startup sentence. The window was not closed or relaunched.",
+    "expected": "My ordinary GUI expectation is that moving/revealing a window preserves its displayed state. CTENANT is a test application, so this is recorded as a polish/readout defect rather than loss of a user document.",
+    "evidence": [
+      "shots/135-ctenant-before-move.png",
+      "shots/136-ctenant-after-move.png",
+      "evidence/gui-polish-serial.log"
+    ]
+  },
+  {
+    "id": "L118",
+    "area": "Trash",
+    "severity": "P2",
+    "summary": "Trash stages and purges a locked file without a protection-specific refusal",
+    "steps": "Boot tenants + trash-fixture.img, whose LOCKED.TXT is explicitly +r. Open root; drag LOCKED.TXT (123,153) to Trash; choose Empty Trash and press Return.",
+    "observed": "The protected file staged and purged with the ordinary confirmation. There was no locked-file explanation or explicit unlock step.",
+    "expected": "MAC6 pp.88 and 112 says an individually locked document cannot be discarded until unlocked; DOS-manual ATTRIB also documents the underlying protection. If the GUI intentionally permits an override, it must disclose that choice. This is the GUI protection affordance, separate from DOS DEL in L006.",
+    "evidence": [
+      "evidence/trash-fixture-preparation.json",
+      "evidence/trash-restore-serial.log",
+      "shots/105-trash-locked-confirm.png",
+      "shots/106-trash-locked-refused.png"
+    ]
+  }
+]

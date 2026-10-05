@@ -1,0 +1,9 @@
+ Volume in drive : is INITECH    
+ Volume Serial Number is 494E-4954
+Directory for ::/ALLTEST
+
+.            <DIR>     2026-10-05   1:21 
+..           <DIR>     2026-10-05   1:21 
+        2 files                   0 bytes
+                          1 414 144 bytes free
+

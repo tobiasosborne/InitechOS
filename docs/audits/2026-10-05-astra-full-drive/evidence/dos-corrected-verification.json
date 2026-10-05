@@ -1,0 +1,113 @@
+{
+  "SELF.BIN": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::SELF.BIN",
+      "evidence/dos-extract-SELF.BIN"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 8192,
+    "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46"
+  },
+  "FILLED/SAVE.TXT": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::FILLED/SAVE.TXT",
+      "evidence/dos-extract-FILLED_SAVE.TXT"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 17,
+    "sha256": "9d55ef072c8d970fc22a825de03c154070fe9dbee0d34ff9d46844eb7f7dbbad"
+  },
+  "FILLED/README.TXT": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::FILLED/README.TXT",
+      "evidence/dos-extract-FILLED_README.TXT"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 114,
+    "sha256": "69e51d2cd31153d34a9532a49b32a0aa64c9864c7fd06af3a6cfde5ae703bf69"
+  },
+  "FILLED/SELF.BIN": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::FILLED/SELF.BIN",
+      "evidence/dos-extract-FILLED_SELF.BIN"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 8192,
+    "sha256": "dc404a613fedaeb54034514bc6505f56b933caa5250299ba7d094377a51caa46"
+  },
+  "KEEP.TXT": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::KEEP.TXT",
+      "evidence/dos-extract-KEEP.TXT"
+    ],
+    "rc": 1,
+    "stderr": "mcopy: File \"::KEEP.TXT\" not found\n"
+  },
+  "DELTEST/KEEP.TXT": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::DELTEST/KEEP.TXT",
+      "evidence/dos-extract-DELTEST_KEEP.TXT"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 14,
+    "sha256": "391319ac1cc7ca79f041c54bc00a2e0ee8705b680d404501b1509d43b62df54c"
+  },
+  "ASCII.TXT": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::ASCII.TXT",
+      "evidence/dos-extract-ASCII.TXT"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 14,
+    "sha256": "351f31717427192b4944b845a05572ad43b82b0303d85a06659e59891edae87a"
+  },
+  "BINARY.TXT": {
+    "command": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/dos-corrected-data.img",
+      "::BINARY.TXT",
+      "evidence/dos-extract-BINARY.TXT"
+    ],
+    "rc": 0,
+    "stderr": "",
+    "bytes": 14,
+    "sha256": "351f31717427192b4944b845a05572ad43b82b0303d85a06659e59891edae87a"
+  },
+  "samefile_unchanged": true
+}

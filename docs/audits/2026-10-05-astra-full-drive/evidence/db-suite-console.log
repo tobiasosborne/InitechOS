@@ -1,0 +1,20 @@
+STARTED db-suite pid 5
+SHOT b001-unlabeled-desktop
+SHOT b002-database-start
+SHOT b003-basics
+SHOT b004-navigation
+SHOT b005-query-scopes
+SHOT b006-filter
+SHOT b007-editing
+SHOT b008-variables
+SHOT b009-strings
+SHOT b010-dates
+SHOT b011-programs
+SHOT b012-close-indexes
+SHOT b013-workareas
+SHOT b014-index
+SHOT b015-missing-ui
+SHOT b016-io-settings
+SHOT b017-zap-safety
+SHOT b018-return-desktop
+STOPPED 5

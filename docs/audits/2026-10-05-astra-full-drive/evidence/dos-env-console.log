@@ -1,0 +1,6 @@
+STARTED dos-env pid 4
+SHOT 115-dos-batch-environment
+SHOT 116-dos-interactive-control
+SHOT 117-dos-ascii-copy
+SHOT 118-dos-timestamp-clock
+STOPPED 4

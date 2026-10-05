@@ -1,0 +1,531 @@
+{
+  "label": "dos-corrected",
+  "boot": "images/tracer_boot.img",
+  "data": "images/dos-fixture.img",
+  "actions": [
+    [
+      "type",
+      "ver"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "type",
+      "type README.TXT"
+    ],
+    [
+      "shot",
+      "e001-shell-identity"
+    ],
+    [
+      "type",
+      "copy SELF.BIN .\\SELF.BIN"
+    ],
+    [
+      "type",
+      "copy SELF.BIN A:\\SELF.BIN"
+    ],
+    [
+      "type",
+      "copy SELF.BIN \\SELF.BIN"
+    ],
+    [
+      "type",
+      "copy SELF.BIN OTHER\\..\\SELF.BIN"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "shot",
+      "e002-selfcopy-aliases"
+    ],
+    [
+      "type",
+      "type FILLED\\SAVE.TXT"
+    ],
+    [
+      "type",
+      "copy README.TXT FILLED"
+    ],
+    [
+      "type",
+      "copy SELF.BIN FILLED\\"
+    ],
+    [
+      "type",
+      "type FILLED\\SAVE.TXT"
+    ],
+    [
+      "type",
+      "type FILLED\\README.TXT"
+    ],
+    [
+      "type",
+      "cd FILLED"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "shot",
+      "e003-copy-directory"
+    ],
+    [
+      "type",
+      "del DELTEST\\Z*.TXT"
+    ],
+    [
+      "type",
+      "type KEEP.TXT"
+    ],
+    [
+      "type",
+      "type DELTEST\\KEEP.TXT"
+    ],
+    [
+      "type",
+      "cd DELTEST"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "shot",
+      "e004-del-path-40"
+    ],
+    [
+      "type",
+      "del ALLTEST\\*.*"
+    ],
+    [
+      "shot",
+      "e005-del-confirm"
+    ],
+    [
+      "type",
+      "n"
+    ],
+    [
+      "type",
+      "type ALLTEST\\A0.TXT"
+    ],
+    [
+      "shot",
+      "e006-del-declined"
+    ],
+    [
+      "type",
+      "del ALLTEST\\*.*"
+    ],
+    [
+      "type",
+      "y"
+    ],
+    [
+      "type",
+      "cd ALLTEST"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "shot",
+      "e007-del-confirmed"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "type",
+      "copy README.TXT READONLY.TXT"
+    ],
+    [
+      "type",
+      "type READONLY.TXT"
+    ],
+    [
+      "type",
+      "del READONLY.TXT"
+    ],
+    [
+      "type",
+      "type READONLY.TXT"
+    ],
+    [
+      "type",
+      "ren READONLY.TXT RENAMED.TXT"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "shot",
+      "e008-readonly"
+    ],
+    [
+      "type",
+      "md LONGDIRECTORY"
+    ],
+    [
+      "type",
+      "md LONGDIRECTX"
+    ],
+    [
+      "type",
+      "md BAD?NAME"
+    ],
+    [
+      "type",
+      "md CON"
+    ],
+    [
+      "type",
+      "md AUX"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "type",
+      "cd LONGDIRECTORY"
+    ],
+    [
+      "type",
+      "cd"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "type",
+      "copy KEEP.TXT LongFilename.txt"
+    ],
+    [
+      "type",
+      "copy KEEP.TXT LongFileOther.txt"
+    ],
+    [
+      "type",
+      "dir"
+    ],
+    [
+      "shot",
+      "e009-names-paths"
+    ],
+    [
+      "type",
+      "copy NOFILE.TXT KEEP.TXT"
+    ],
+    [
+      "type",
+      "type KEEP.TXT"
+    ],
+    [
+      "type",
+      "copy CTRLZ.TXT ASCII.TXT /A"
+    ],
+    [
+      "type",
+      "type ASCII.TXT"
+    ],
+    [
+      "type",
+      "copy CTRLZ.TXT BINARY.TXT /B"
+    ],
+    [
+      "type",
+      "type BINARY.TXT"
+    ],
+    [
+      "type",
+      "copy KEEP.TXT+CTRLZ.TXT MERGE.TXT"
+    ],
+    [
+      "type",
+      "type MERGE.TXT"
+    ],
+    [
+      "shot",
+      "e010-copy-failed-input"
+    ],
+    [
+      "type",
+      "md WORK"
+    ],
+    [
+      "type",
+      "cd WORK"
+    ],
+    [
+      "type",
+      "md SUB"
+    ],
+    [
+      "type",
+      "cd SUB"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "type",
+      "cd"
+    ],
+    [
+      "type",
+      "dir *.TXT"
+    ],
+    [
+      "type",
+      "dir /W"
+    ],
+    [
+      "type",
+      "dir NOFILE.XYZ"
+    ],
+    [
+      "type",
+      "rd SUB"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "type",
+      "rd WORK"
+    ],
+    [
+      "type",
+      "cd NOEXIST"
+    ],
+    [
+      "type",
+      "rd FILLED"
+    ],
+    [
+      "shot",
+      "e011-navigation-dir"
+    ],
+    [
+      "type",
+      "set AUDIT=VALUE"
+    ],
+    [
+      "type",
+      "echo %AUDIT%"
+    ],
+    [
+      "type",
+      "set AUDIT="
+    ],
+    [
+      "type",
+      "set"
+    ],
+    [
+      "type",
+      "prompt $p$g"
+    ],
+    [
+      "type",
+      "break"
+    ],
+    [
+      "type",
+      "break off"
+    ],
+    [
+      "type",
+      "break"
+    ],
+    [
+      "type",
+      "break on"
+    ],
+    [
+      "type",
+      "verify"
+    ],
+    [
+      "type",
+      "path"
+    ],
+    [
+      "type",
+      "vol"
+    ],
+    [
+      "shot",
+      "e012-environment"
+    ],
+    [
+      "type",
+      "CHECK ONE TWO"
+    ],
+    [
+      "type",
+      "for %f in (ONE TWO) do echo %f"
+    ],
+    [
+      "type",
+      "if exist KEEP.TXT echo EXISTS"
+    ],
+    [
+      "type",
+      "call CHILD.BAT ARG"
+    ],
+    [
+      "type",
+      "echo first > OUT.TXT"
+    ],
+    [
+      "type",
+      "echo second >> OUT.TXT"
+    ],
+    [
+      "type",
+      "type OUT.TXT"
+    ],
+    [
+      "type",
+      "type OUT.TXT | TYPE"
+    ],
+    [
+      "shot",
+      "e013-batch"
+    ],
+    [
+      "type",
+      "date 02-30-1999"
+    ],
+    [
+      "type",
+      "time 25:99:99"
+    ],
+    [
+      "type",
+      "date 12-31-1999"
+    ],
+    [
+      "type",
+      "date"
+    ],
+    [
+      "type",
+      "time 23:59:50"
+    ],
+    [
+      "type",
+      "time"
+    ],
+    [
+      "shot",
+      "e014-time-date"
+    ],
+    [
+      "type",
+      "help"
+    ],
+    [
+      "type",
+      "chkdsk"
+    ],
+    [
+      "type",
+      "format"
+    ],
+    [
+      "type",
+      "diskcopy"
+    ],
+    [
+      "type",
+      "attrib"
+    ],
+    [
+      "type",
+      "tree"
+    ],
+    [
+      "type",
+      "find"
+    ],
+    [
+      "type",
+      "sort"
+    ],
+    [
+      "type",
+      "more"
+    ],
+    [
+      "type",
+      "rename KEEP.TXT KEPT.TXT"
+    ],
+    [
+      "type",
+      "type KEPT.TXT"
+    ],
+    [
+      "type",
+      "erase KEPT.TXT"
+    ],
+    [
+      "type",
+      "type KEPT.TXT"
+    ],
+    [
+      "type",
+      "chdir FILLED"
+    ],
+    [
+      "type",
+      "mkdir XX"
+    ],
+    [
+      "type",
+      "rmdir XX"
+    ],
+    [
+      "type",
+      "cd .."
+    ],
+    [
+      "type",
+      "cls"
+    ],
+    [
+      "type",
+      "echo CLEARED"
+    ],
+    [
+      "type",
+      "cd"
+    ],
+    [
+      "shot",
+      "e016-final-location"
+    ]
+  ]
+}

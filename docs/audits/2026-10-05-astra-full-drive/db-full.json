@@ -1,0 +1,220 @@
+{
+  "label": "db-full",
+  "boot": "images/flair_tenants_interactive.img",
+  "data": "images/db-full-fixture.img",
+  "sync": true,
+  "actions": [
+    [
+      "key",
+      "backslash"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "119-db-full-before"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R00\",BAL WITH 0"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R01\",BAL WITH 1"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R02\",BAL WITH 2"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R03\",BAL WITH 3"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R04\",BAL WITH 4"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R05\",BAL WITH 5"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R06\",BAL WITH 6"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R07\",BAL WITH 7"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R08\",BAL WITH 8"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R09\",BAL WITH 9"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R10\",BAL WITH 10"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R11\",BAL WITH 11"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R12\",BAL WITH 12"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R13\",BAL WITH 13"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R14\",BAL WITH 14"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R15\",BAL WITH 15"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R16\",BAL WITH 16"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"R17\",BAL WITH 17"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "120-db-full-appended"
+    ],
+    [
+      "type",
+      "USE"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "121-db-full-reopen"
+    ],
+    [
+      "type",
+      "QUIT"
+    ],
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "122-db-full-return"
+    ]
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T23:29:42.312707+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 34,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/finder-stress-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/evidence/finder-stress-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/finder-stress-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/finder-stress-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/finder-stress-data.img": {
+      "bytes": 1474560,
+      "sha256": "b35c922c32f76069135bdc4462b59ea9d41efd23b2a617353703ef7424d7759d"
+    }
+  },
+  "stopped_utc": "2026-10-04T23:31:32.260934+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/finder-stress-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/finder-stress-data.img": {
+      "bytes": 1474560,
+      "sha256": "abea6ae18ac14be37bb7693181c471a6fea5c1c5620e977619e4cc292a3b13ea"
+    }
+  }
+}

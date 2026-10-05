@@ -1,0 +1,632 @@
+[
+  {
+    "menu": "m-hello-0",
+    "title": [
+      18,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=18,28 msg=00000000\nFLAIR-MENU menu=256 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=18 y=28\nFLAIR-EVT what=1 where=18,28 msg=00000000\nFLAIR-MENU-DROP menu=256\nFLAIR-CURSOR x=48 y=48\nFLAIR-EVT what=2 where=48,48 msg=00000000\nFLAIR-MENU menu=256 item=1 (sel=0x01000001)\n"
+  },
+  {
+    "menu": "m-hello-0",
+    "title": [
+      18,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=18 y=28\nFLAIR-EVT what=1 where=18,28 msg=00000000\nFLAIR-MENU-DROP menu=256\nFLAIR-CURSOR x=48 y=64\nFLAIR-EVT what=2 where=48,64 msg=00000000\nFLAIR-MENU menu=256 item=2 (sel=0x01000002)\n"
+  },
+  {
+    "menu": "m-hello-1",
+    "title": [
+      54,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=54,28 msg=00000000\nFLAIR-MENU menu=257 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=54 y=28\nFLAIR-EVT what=1 where=54,28 msg=00000000\nFLAIR-MENU-DROP menu=257\nFLAIR-CURSOR x=84 y=48\nFLAIR-EVT what=2 where=84,48 msg=00000000\nFLAIR-MENU menu=257 item=1 (sel=0x01010001)\n"
+  },
+  {
+    "menu": "m-hello-1",
+    "title": [
+      54,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=54 y=28\nFLAIR-EVT what=1 where=54,28 msg=00000000\nFLAIR-MENU-DROP menu=257\nFLAIR-CURSOR x=84 y=64\nFLAIR-EVT what=2 where=84,64 msg=00000000\nFLAIR-MENU menu=257 item=2 (sel=0x01010002)\n"
+  },
+  {
+    "menu": "m-hello-2",
+    "title": [
+      103,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=103,28 msg=00000000\nFLAIR-MENU menu=258 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=103 y=28\nFLAIR-EVT what=1 where=103,28 msg=00000000\nFLAIR-MENU-DROP menu=258\nFLAIR-CURSOR x=133 y=48\nFLAIR-EVT what=2 where=133,48 msg=00000000\nFLAIR-MENU menu=258 item=1 (sel=0x01020001)\n"
+  },
+  {
+    "menu": "m-hello-2",
+    "title": [
+      103,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=53 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=103 y=28\nFLAIR-EVT what=1 where=103,28 msg=00000000\nFLAIR-MENU-DROP menu=258\nFLAIR-CURSOR x=133 y=64\nFLAIR-EVT what=2 where=133,64 msg=00000000\nFLAIR-MENU menu=258 item=2 (sel=0x01020002)\n"
+  },
+  {
+    "menu": "m-hello-3",
+    "title": [
+      149,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=149,28 msg=00000000\nFLAIR-MENU menu=259 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=74 y=14\nFLAIR-CURSOR x=149 y=28\nFLAIR-EVT what=1 where=149,28 msg=00000000\nFLAIR-MENU-DROP menu=259\nFLAIR-CURSOR x=179 y=48\nFLAIR-EVT what=2 where=179,48 msg=00000000\nFLAIR-MENU menu=259 item=1 (sel=0x01030001)\n"
+  },
+  {
+    "menu": "m-hello-3",
+    "title": [
+      149,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=99 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=149 y=28\nFLAIR-EVT what=1 where=149,28 msg=00000000\nFLAIR-MENU-DROP menu=259\nFLAIR-CURSOR x=179 y=64\nFLAIR-EVT what=2 where=179,64 msg=00000000\nFLAIR-MENU menu=259 item=2 (sel=0x01030002)\n"
+  },
+  {
+    "menu": "m-hello-4",
+    "title": [
+      198,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=198,28 msg=00000000\nFLAIR-MENU menu=260 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=66 y=9\nFLAIR-CURSOR x=198 y=28\nFLAIR-EVT what=1 where=198,28 msg=00000000\nFLAIR-MENU-DROP menu=260\nFLAIR-CURSOR x=228 y=48\nFLAIR-EVT what=2 where=228,48 msg=00000000\nFLAIR-MENU menu=260 item=1 (sel=0x01040001)\n"
+  },
+  {
+    "menu": "m-hello-4",
+    "title": [
+      198,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=148 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=132 y=19\nFLAIR-CURSOR x=198 y=28\nFLAIR-EVT what=1 where=198,28 msg=00000000\nFLAIR-MENU-DROP menu=260\nFLAIR-CURSOR x=228 y=64\nFLAIR-EVT what=2 where=228,64 msg=00000000\nFLAIR-MENU menu=260 item=2 (sel=0x01040002)\n"
+  },
+  {
+    "menu": "m-hello-5",
+    "title": [
+      241,
+      28
+    ],
+    "row": 48,
+    "trace": "T what=2 where=241,28 msg=00000000\nFLAIR-MENU menu=261 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=60 y=7\nFLAIR-CURSOR x=241 y=28\nFLAIR-EVT what=1 where=241,28 msg=00000000\nFLAIR-MENU-DROP menu=261\nFLAIR-CURSOR x=271 y=48\nFLAIR-EVT what=2 where=271,48 msg=00000000\nFLAIR-MENU menu=261 item=1 (sel=0x01050001)\n"
+  },
+  {
+    "menu": "m-hello-5",
+    "title": [
+      241,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=191 y=0\nFLAIR-CURSOR x=31 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=120 y=14\nFLAIR-CURSOR x=241 y=28\nFLAIR-EVT what=1 where=241,28 msg=00000000\nFLAIR-MENU-DROP menu=261\nFLAIR-CURSOR x=271 y=64\nFLAIR-EVT what=2 where=271,64 msg=00000000\nFLAIR-MENU menu=261 item=2 (sel=0x01050002)\n"
+  },
+  {
+    "menu": "m-hello-6",
+    "title": [
+      292,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=292,28 msg=00000000\nFLAIR-MENU menu=262 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=146 y=14\nFLAIR-CURSOR x=292 y=28\nFLAIR-EVT what=1 where=292,28 msg=00000000\nFLAIR-MENU-DROP menu=262\nFLAIR-CURSOR x=322 y=48\nFLAIR-EVT what=2 where=322,48 msg=00000000\nFLAIR-MENU menu=262 item=1 (sel=0x01060001)\n"
+  },
+  {
+    "menu": "m-hello-6",
+    "title": [
+      292,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=82 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=73 y=7\nFLAIR-CURSOR x=292 y=28\nFLAIR-EVT what=1 where=292,28 msg=00000000\nFLAIR-MENU-DROP menu=262\nFLAIR-CURSOR x=322 y=64\nFLAIR-EVT what=2 where=322,64 msg=00000000\nFLAIR-MENU menu=262 item=2 (sel=0x01060002)\n"
+  },
+  {
+    "menu": "m-hello-7",
+    "title": [
+      371,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=371,28 msg=00000000\nFLAIR-MENU menu=263 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=148 y=11\nFLAIR-CURSOR x=297 y=22\nFLAIR-CURSOR x=371 y=28\nFLAIR-EVT what=1 where=371,28 msg=00000000\nFLAIR-MENU-DROP menu=263\nFLAIR-CURSOR x=401 y=48\nFLAIR-EVT what=2 where=401,48 msg=00000000\nFLAIR-MENU menu=263 item=1 (sel=0x01070001)\n"
+  },
+  {
+    "menu": "m-hello-7",
+    "title": [
+      371,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=161 y=0\nFLAIR-CURSOR x=1 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=74 y=6\nFLAIR-CURSOR x=297 y=22\nFLAIR-CURSOR x=371 y=28\nFLAIR-EVT what=1 where=371,28 msg=00000000\nFLAIR-MENU-DROP menu=263\nFLAIR-CURSOR x=401 y=64\nFLAIR-EVT what=2 where=401,64 msg=00000000\nFLAIR-MENU menu=263 item=2 (sel=0x01070002)\n"
+  },
+  {
+    "menu": "m-notes-0",
+    "title": [
+      38,
+      28
+    ],
+    "row": 48,
+    "trace": "AIR-EVT what=2 where=38,28 msg=00000000\nFLAIR-MENU menu=385 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=385\nFLAIR-CURSOR x=68 y=48\nFLAIR-EVT what=2 where=68,48 msg=00000000\nFLAIR-MENU menu=385 item=1 (sel=0x01810001)\n"
+  },
+  {
+    "menu": "m-notes-0",
+    "title": [
+      38,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=385\nFLAIR-CURSOR x=68 y=64\nFLAIR-EVT what=2 where=68,64 msg=00000000\nFLAIR-MENU menu=385 item=2 (sel=0x01810002)\n"
+  },
+  {
+    "menu": "m-notes-0",
+    "title": [
+      38,
+      28
+    ],
+    "row": 80,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=385\nFLAIR-CURSOR x=68 y=80\nFLAIR-EVT what=2 where=68,80 msg=00000000\nFLAIR-MENU menu=385 item=3 (sel=0x01810003)\n"
+  },
+  {
+    "menu": "m-notes-0",
+    "title": [
+      38,
+      28
+    ],
+    "row": 96,
+    "trace": "FLAIR-CURSOR x=0 y=20\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=385\nFLAIR-CURSOR x=68 y=96\nFLAIR-EVT what=2 where=68,96 msg=00000000\nFLAIR-MENU menu=385 item=4 (sel=0x01810004)\n"
+  },
+  {
+    "menu": "m-notes-1",
+    "title": [
+      77,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=77,28 msg=00000000\nFLAIR-MENU menu=386 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=77 y=28\nFLAIR-EVT what=1 where=77,28 msg=00000000\nFLAIR-MENU-DROP menu=386\nFLAIR-CURSOR x=107 y=48\nFLAIR-EVT what=2 where=107,48 msg=00000000\nFLAIR-MENU menu=386 item=1 (sel=0x01820001)\n"
+  },
+  {
+    "menu": "m-notes-1",
+    "title": [
+      77,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=77 y=28\nFLAIR-EVT what=1 where=77,28 msg=00000000\nFLAIR-MENU-DROP menu=386\nFLAIR-CURSOR x=107 y=64\nFLAIR-EVT what=2 where=107,64 msg=00000000\nFLAIR-MENU menu=386 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-notes-1",
+    "title": [
+      77,
+      28
+    ],
+    "row": 80,
+    "trace": "FLAIR-CURSOR x=27 y=4\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=77 y=28\nFLAIR-EVT what=1 where=77,28 msg=00000000\nFLAIR-MENU-DROP menu=386\nFLAIR-CURSOR x=107 y=80\nFLAIR-EVT what=2 where=107,80 msg=00000000\nFLAIR-MENU menu=386 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-notes-1",
+    "title": [
+      77,
+      28
+    ],
+    "row": 96,
+    "trace": "FLAIR-CURSOR x=27 y=20\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=77 y=28\nFLAIR-EVT what=1 where=77,28 msg=00000000\nFLAIR-MENU-DROP menu=386\nFLAIR-CURSOR x=107 y=96\nFLAIR-EVT what=2 where=107,96 msg=00000000\nFLAIR-MENU menu=386 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-notes-2",
+    "title": [
+      122,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=122,28 msg=00000000\nFLAIR-MENU menu=386 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=122 y=28\nFLAIR-EVT what=1 where=122,28 msg=00000000\nFLAIR-MENU-DROP menu=386\nFLAIR-CURSOR x=152 y=48\nFLAIR-EVT what=2 where=152,48 msg=00000000\nFLAIR-MENU menu=386 item=1 (sel=0x01820001)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 80,
+    "trace": "FLAIR-EVT what=2 where=38,28 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=68 y=80\nFLAIR-EVT what=2 where=68,80 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 118,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=53 y=73\nFLAIR-CURSOR x=68 y=118\nFLAIR-EVT what=2 where=68,118 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 134,
+    "trace": "FLAIR-CURSOR x=0 y=58\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=53 y=81\nFLAIR-CURSOR x=68 y=134\nFLAIR-EVT what=2 where=68,134 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 150,
+    "trace": "FLAIR-CURSOR x=0 y=14\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=53 y=89\nFLAIR-CURSOR x=68 y=150\nFLAIR-EVT what=2 where=68,150 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 166,
+    "trace": "FLAIR-CURSOR x=0 y=30\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=53 y=97\nFLAIR-CURSOR x=68 y=166\nFLAIR-EVT what=2 where=68,166 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 188,
+    "trace": "FLAIR-CURSOR x=0 y=106\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=53 y=108\nFLAIR-CURSOR x=68 y=188\nFLAIR-EVT what=2 where=68,188 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 204,
+    "trace": "FLAIR-CURSOR x=0 y=68\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=48 y=87\nFLAIR-CURSOR x=68 y=204\nFLAIR-EVT what=2 where=68,204 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 220,
+    "trace": "FLAIR-CURSOR x=0 y=144\nFLAIR-CURSOR x=0 y=24\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=58 y=156\nFLAIR-CURSOR x=68 y=220\nFLAIR-EVT what=2 where=68,220 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-file",
+    "title": [
+      38,
+      28
+    ],
+    "row": 236,
+    "trace": "FLAIR-CURSOR x=0 y=100\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=28\nFLAIR-EVT what=1 where=38,28 msg=00000000\nFLAIR-MENU-DROP menu=512\nFLAIR-CURSOR x=48 y=97\nFLAIR-CURSOR x=68 y=236\nFLAIR-EVT what=2 where=68,236 msg=00000000\nFLAIR-MENU menu=512 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=76,28 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=106 y=48\nFLAIR-EVT what=2 where=106,48 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=26 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=106 y=64\nFLAIR-EVT what=2 where=106,64 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 80,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=106 y=80\nFLAIR-EVT what=2 where=106,80 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 96,
+    "trace": "FLAIR-CURSOR x=26 y=20\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=106 y=96\nFLAIR-EVT what=2 where=106,96 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 112,
+    "trace": "FLAIR-CURSOR x=26 y=36\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=91 y=70\nFLAIR-CURSOR x=106 y=112\nFLAIR-EVT what=2 where=106,112 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 128,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=91 y=78\nFLAIR-CURSOR x=106 y=128\nFLAIR-EVT what=2 where=106,128 msg=00000000\nFLAIR-MENU menu=513 item=6 (sel=0x02010006)\nFINDER-CMD id=8 name=SELECT_ALL src=mouse sel=1\nFINDER-SELECT-ALL win=0 n=2\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 150,
+    "trace": "FLAIR-CURSOR x=26 y=68\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=91 y=89\nFLAIR-CURSOR x=106 y=150\nFLAIR-EVT what=2 where=106,150 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-edit",
+    "title": [
+      76,
+      28
+    ],
+    "row": 172,
+    "trace": "FLAIR-CURSOR x=0 y=30\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=76 y=28\nFLAIR-EVT what=1 where=76,28 msg=00000000\nFLAIR-MENU-DROP menu=513\nFLAIR-CURSOR x=91 y=100\nFLAIR-CURSOR x=106 y=172\nFLAIR-EVT what=2 where=106,172 msg=00000000\nFLAIR-MENU menu=513 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 48,
+    "trace": "hat=2 where=119,28 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=149 y=48\nFLAIR-EVT what=2 where=149,48 msg=00000000\nFLAIR-MENU menu=514 item=1 (sel=0x02020001)\nFINDER-CMD id=14 name=VIEW_ICONS src=mouse sel=2\nFINDER-VIEW win=0 mode=icons\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=69 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=149 y=64\nFLAIR-EVT what=2 where=149,64 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 80,
+    "trace": "FLAIR-CURSOR x=69 y=4\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=149 y=80\nFLAIR-EVT what=2 where=149,80 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 96,
+    "trace": "FLAIR-CURSOR x=69 y=20\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=149 y=96\nFLAIR-EVT what=2 where=149,96 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 112,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=60 y=14\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=134 y=70\nFLAIR-CURSOR x=149 y=112\nFLAIR-EVT what=2 where=149,112 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 128,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=60 y=14\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=134 y=78\nFLAIR-CURSOR x=149 y=128\nFLAIR-EVT what=2 where=149,128 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 144,
+    "trace": "FLAIR-CURSOR x=69 y=68\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=134 y=86\nFLAIR-CURSOR x=149 y=144\nFLAIR-EVT what=2 where=149,144 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 160,
+    "trace": "FLAIR-CURSOR x=0 y=24\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=60 y=14\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=134 y=94\nFLAIR-CURSOR x=149 y=160\nFLAIR-EVT what=2 where=149,160 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 176,
+    "trace": "FLAIR-CURSOR x=69 y=100\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=134 y=102\nFLAIR-CURSOR x=149 y=176\nFLAIR-EVT what=2 where=149,176 msg=00000000\nFLAIR-MENU menu=514 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 198,
+    "trace": "FLAIR-CURSOR x=69 y=116\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=60 y=14\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=129 y=85\nFLAIR-CURSOR x=149 y=198\nFLAIR-EVT what=2 where=149,198 msg=00000000\nFLAIR-MENU menu=514 item=11 (sel=0x0202000B)\nFINDER-CMD id=9 name=CLEANUP src=mouse sel=2\nFINDER-CLEANUP win=0 moved=0\n"
+  },
+  {
+    "menu": "m-finder-view",
+    "title": [
+      119,
+      28
+    ],
+    "row": 214,
+    "trace": "FLAIR-CURSOR x=0 y=18\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=60 y=14\nFLAIR-CURSOR x=119 y=28\nFLAIR-EVT what=1 where=119,28 msg=00000000\nFLAIR-MENU-DROP menu=514\nFLAIR-CURSOR x=129 y=90\nFLAIR-CURSOR x=149 y=214\nFLAIR-EVT what=2 where=149,214 msg=00000000\nFLAIR-MENU menu=514 item=12 (sel=0x0202000C)\nFINDER-CMD id=10 name=ARRANGE_BY_NAME src=mouse sel=2\nFINDER-ARRANGE win=0 moved=2\n"
+  },
+  {
+    "menu": "m-finder-special",
+    "title": [
+      172,
+      28
+    ],
+    "row": 48,
+    "trace": "FLAIR-EVT what=2 where=172,28 msg=00000000\nFLAIR-MENU menu=515 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=57 y=9\nFLAIR-CURSOR x=172 y=28\nFLAIR-EVT what=1 where=172,28 msg=00000000\nFLAIR-MENU-DROP menu=515\nFLAIR-CURSOR x=202 y=48\nFLAIR-EVT what=2 where=202,48 msg=00000000\nFLAIR-MENU menu=515 item=1 (sel=0x02030001)\nFINDER-CMD id=9 name=CLEANUP src=mouse sel=2\nFINDER-CLEANUP win=0 moved=2\n"
+  },
+  {
+    "menu": "m-finder-special",
+    "title": [
+      172,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=122 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=115 y=19\nFLAIR-CURSOR x=172 y=28\nFLAIR-EVT what=1 where=172,28 msg=00000000\nFLAIR-MENU-DROP menu=515\nFLAIR-CURSOR x=202 y=64\nFLAIR-EVT what=2 where=202,64 msg=00000000\nFLAIR-MENU menu=515 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-special",
+    "title": [
+      172,
+      28
+    ],
+    "row": 86,
+    "trace": "FLAIR-CURSOR x=122 y=4\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=115 y=19\nFLAIR-CURSOR x=172 y=28\nFLAIR-EVT what=1 where=172,28 msg=00000000\nFLAIR-MENU-DROP menu=515\nFLAIR-CURSOR x=202 y=86\nFLAIR-EVT what=2 where=202,86 msg=00000000\nFLAIR-MENU menu=515 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-special",
+    "title": [
+      172,
+      28
+    ],
+    "row": 108,
+    "trace": "FLAIR-CURSOR x=122 y=26\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=115 y=19\nFLAIR-CURSOR x=172 y=28\nFLAIR-EVT what=1 where=172,28 msg=00000000\nFLAIR-MENU-DROP menu=515\nFLAIR-CURSOR x=202 y=108\nFLAIR-EVT what=2 where=202,108 msg=00000000\nFLAIR-MENU menu=515 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-special",
+    "title": [
+      172,
+      28
+    ],
+    "row": 124,
+    "trace": "FLAIR-CURSOR x=42 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=57 y=9\nFLAIR-CURSOR x=172 y=28\nFLAIR-EVT what=1 where=172,28 msg=00000000\nFLAIR-MENU-DROP menu=515\nFLAIR-CURSOR x=187 y=76\nFLAIR-CURSOR x=202 y=124\nFLAIR-EVT what=2 where=202,124 msg=00000000\nFLAIR-MENU menu=515 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-special",
+    "title": [
+      172,
+      28
+    ],
+    "row": 140,
+    "trace": "FLAIR-CURSOR x=122 y=64\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=115 y=19\nFLAIR-CURSOR x=172 y=28\nFLAIR-EVT what=1 where=172,28 msg=00000000\nFLAIR-MENU-DROP menu=515\nFLAIR-CURSOR x=187 y=84\nFLAIR-CURSOR x=202 y=140\nFLAIR-EVT what=2 where=202,140 msg=00000000\nFLAIR-MENU menu=515 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-help",
+    "title": [
+      222,
+      28
+    ],
+    "row": 48,
+    "trace": "LAIR-EVT what=2 where=222,28 msg=00000000\nFLAIR-MENU menu=516 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=74 y=9\nFLAIR-CURSOR x=222 y=28\nFLAIR-EVT what=1 where=222,28 msg=00000000\nFLAIR-MENU-DROP menu=516\nFLAIR-CURSOR x=252 y=48\nFLAIR-EVT what=2 where=252,48 msg=00000000\nFLAIR-MENU menu=516 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-help",
+    "title": [
+      222,
+      28
+    ],
+    "row": 64,
+    "trace": "FLAIR-CURSOR x=172 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=222 y=28\nFLAIR-EVT what=1 where=222,28 msg=00000000\nFLAIR-MENU-DROP menu=516\nFLAIR-CURSOR x=252 y=64\nFLAIR-EVT what=2 where=252,64 msg=00000000\nFLAIR-MENU menu=516 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-finder-apple",
+    "title": [
+      9,
+      28
+    ],
+    "row": 48,
+    "trace": "VT what=2 where=9,28 msg=00000000\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=9 y=28\nFLAIR-EVT what=1 where=9,28 msg=00000000\nFLAIR-MENU menu=0 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=39 y=48\nFLAIR-EVT what=2 where=39,48 msg=00000000\n"
+  },
+  {
+    "menu": "m-system-0",
+    "title": [
+      38,
+      10
+    ],
+    "row": 30,
+    "trace": "FLAIR-EVT what=2 where=38,10 msg=00000000\nFLAIR-MENU menu=128 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=10\nFLAIR-EVT what=1 where=38,10 msg=00000000\nFLAIR-MENU-DROP menu=128\nFLAIR-CURSOR x=68 y=30\nFLAIR-EVT what=2 where=68,30 msg=00000000\nFLAIR-MENU menu=128 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-system-0",
+    "title": [
+      38,
+      10
+    ],
+    "row": 46,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=38 y=10\nFLAIR-EVT what=1 where=38,10 msg=00000000\nFLAIR-MENU-DROP menu=128\nFLAIR-CURSOR x=68 y=46\nFLAIR-EVT what=2 where=68,46 msg=00000000\nFLAIR-MENU menu=128 item=2 (sel=0x00800002)\n"
+  },
+  {
+    "menu": "m-system-1",
+    "title": [
+      77,
+      10
+    ],
+    "row": 30,
+    "trace": "-EVT what=2 where=77,10 msg=00000000\nFLAIR-MENU menu=129 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=77 y=10\nFLAIR-EVT what=1 where=77,10 msg=00000000\nFLAIR-MENU-DROP menu=129\nFLAIR-CURSOR x=107 y=30\nFLAIR-EVT what=2 where=107,30 msg=00000000\nFLAIR-MENU menu=129 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-system-1",
+    "title": [
+      77,
+      10
+    ],
+    "row": 46,
+    "trace": "FLAIR-CURSOR x=27 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=77 y=10\nFLAIR-EVT what=1 where=77,10 msg=00000000\nFLAIR-MENU-DROP menu=129\nFLAIR-CURSOR x=107 y=46\nFLAIR-EVT what=2 where=107,46 msg=00000000\nFLAIR-MENU menu=129 item=2 (sel=0x00810002)\n"
+  },
+  {
+    "menu": "m-system-2",
+    "title": [
+      120,
+      10
+    ],
+    "row": 30,
+    "trace": "FLAIR-EVT what=2 where=120,10 msg=00000000\nFLAIR-MENU menu=130 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=120 y=10\nFLAIR-EVT what=1 where=120,10 msg=00000000\nFLAIR-MENU-DROP menu=130\nFLAIR-CURSOR x=150 y=30\nFLAIR-EVT what=2 where=150,30 msg=00000000\nFLAIR-MENU menu=130 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-system-2",
+    "title": [
+      120,
+      10
+    ],
+    "row": 46,
+    "trace": "FLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=120 y=10\nFLAIR-EVT what=1 where=120,10 msg=00000000\nFLAIR-MENU-DROP menu=130\nFLAIR-CURSOR x=150 y=46\nFLAIR-EVT what=2 where=150,46 msg=00000000\nFLAIR-MENU menu=130 item=2 (sel=0x00820002)\n"
+  },
+  {
+    "menu": "m-system-3",
+    "title": [
+      171,
+      10
+    ],
+    "row": 30,
+    "trace": "FLAIR-EVT what=2 where=171,10 msg=00000000\nFLAIR-MENU menu=131 item=0 (sel=0x00000000)\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=114 y=7\nFLAIR-CURSOR x=171 y=10\nFLAIR-EVT what=1 where=171,10 msg=00000000\nFLAIR-MENU-DROP menu=131\nFLAIR-CURSOR x=201 y=30\nFLAIR-EVT what=2 where=201,30 msg=00000000\nFLAIR-MENU menu=131 item=0 (sel=0x00000000)\n"
+  },
+  {
+    "menu": "m-system-3",
+    "title": [
+      171,
+      10
+    ],
+    "row": 46,
+    "trace": "FLAIR-CURSOR x=41 y=0\nFLAIR-CURSOR x=0 y=0\nFLAIR-CURSOR x=57 y=3\nFLAIR-CURSOR x=171 y=10\nFLAIR-EVT what=1 where=171,10 msg=00000000\nFLAIR-MENU-DROP menu=131\nFLAIR-CURSOR x=201 y=46\nFLAIR-EVT what=2 where=201,46 msg=00000000\nFLAIR-MENU menu=131 item=2 (sel=0x00830002)\n"
+  }
+]

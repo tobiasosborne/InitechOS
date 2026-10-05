@@ -1,0 +1,19 @@
+STARTED db-functions pid 5
+SHOT f006-functions
+SHOT f012-functions
+SHOT f018-functions
+SHOT f024-functions
+SHOT f030-functions
+SHOT f036-functions
+SHOT f042-functions
+SHOT f048-functions
+SHOT f054-functions
+SHOT v005-verbs
+SHOT v010-verbs
+SHOT v015-verbs
+SHOT v020-verbs
+SHOT v025-verbs
+SHOT v030-verbs
+SHOT v035-verbs
+SHOT v999-return
+STOPPED 5

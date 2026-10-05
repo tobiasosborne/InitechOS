@@ -1,0 +1,17 @@
+STARTED dos-corrected pid 5
+SHOT e001-shell-identity
+SHOT e002-selfcopy-aliases
+SHOT e003-copy-directory
+SHOT e004-del-path-40
+SHOT e005-del-confirm
+SHOT e006-del-declined
+SHOT e007-del-confirmed
+SHOT e008-readonly
+SHOT e009-names-paths
+SHOT e010-copy-failed-input
+SHOT e011-navigation-dir
+SHOT e012-environment
+SHOT e013-batch
+SHOT e014-time-date
+SHOT e016-final-location
+STOPPED 5

@@ -1,0 +1,17 @@
+STARTED dos-suite pid 5
+SHOT d001-shell-identity
+SHOT d002-selfcopy-aliases
+SHOT d003-copy-directory
+SHOT d004-del-path-40
+SHOT d005-del-confirm
+SHOT d006-del-declined
+SHOT d007-del-confirmed
+SHOT d008-readonly
+SHOT d009-names-paths
+SHOT d010-copy-failed-input
+SHOT d011-navigation-dir
+SHOT d012-environment
+SHOT d013-batch
+SHOT d014-time-date
+SHOT d015-extra-commands
+STOPPED 5

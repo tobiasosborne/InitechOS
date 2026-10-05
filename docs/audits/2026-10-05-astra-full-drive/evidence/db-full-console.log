@@ -1,0 +1,6 @@
+STARTED db-full pid 4
+SHOT 119-db-full-before
+SHOT 120-db-full-appended
+SHOT 121-db-full-reopen
+SHOT 122-db-full-return
+STOPPED 4

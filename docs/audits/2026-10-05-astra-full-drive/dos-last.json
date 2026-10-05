@@ -1,0 +1,51 @@
+{
+  "label": "dos-last",
+  "boot": "images/tracer_boot.img",
+  "data": "images/dos-database-fixture.img",
+  "actions": [
+    [
+      "type",
+      "SAMIR < INPUT.TXT > DBOUT.TXT"
+    ],
+    [
+      "type",
+      "TYPE DBOUT.TXT"
+    ],
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "123-dos-samir-redirect"
+    ],
+    [
+      "type",
+      "copy *.PRG ALL.PRG"
+    ],
+    [
+      "type",
+      "ren *.PRG *.TXT"
+    ],
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "124-dos-wildcard-known"
+    ],
+    [
+      "type",
+      "ver"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "shot",
+      "125-dos-still-responsive"
+    ]
+  ]
+}

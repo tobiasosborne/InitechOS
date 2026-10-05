@@ -1,0 +1,6 @@
+STARTED trash-collision pid 5
+SHOT 129-name-collision-refused
+SHOT 130-trash-two-same-names
+SHOT 131-trash-collision-count
+SHOT 132-cycle-refused
+STOPPED 5

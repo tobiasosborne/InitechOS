@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T23:35:36.701151+00:00",
+  "driver_pid": 4,
+  "qemu_pid": 16,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-exit-zap-two-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/evidence/db-exit-zap-two-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-exit-zap-two-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/db-exit-zap-two-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/db-exit-zap-two-data.img": {
+      "bytes": 1474560,
+      "sha256": "1ca4436b63f63a74b66c226daedb85c110ac374a3bde50314842621641cc3276"
+    }
+  },
+  "stopped_utc": "2026-10-04T23:36:09.280850+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/db-exit-zap-two-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/db-exit-zap-two-data.img": {
+      "bytes": 1474560,
+      "sha256": "3355987d7125c3f384acfc64bb6584a14f47ec5b1a3961e9b9ff79dda9ea6de0"
+    }
+  }
+}

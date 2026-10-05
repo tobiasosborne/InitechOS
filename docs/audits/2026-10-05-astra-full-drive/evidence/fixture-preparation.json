@@ -1,0 +1,1979 @@
+[
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "::FILLED"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "::DELTEST"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "::ALLTEST"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "::OTHER"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "::EMPTY"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/SELF.BIN",
+      "::SELF.BIN"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/KEEP.TXT",
+      "::KEEP.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/FILLED_SAVE.TXT",
+      "::FILLED/SAVE.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_KEEP.TXT",
+      "::DELTEST/KEEP.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z00.TXT",
+      "::DELTEST/Z00.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z01.TXT",
+      "::DELTEST/Z01.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z02.TXT",
+      "::DELTEST/Z02.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z03.TXT",
+      "::DELTEST/Z03.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z04.TXT",
+      "::DELTEST/Z04.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z05.TXT",
+      "::DELTEST/Z05.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z06.TXT",
+      "::DELTEST/Z06.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z07.TXT",
+      "::DELTEST/Z07.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z08.TXT",
+      "::DELTEST/Z08.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z09.TXT",
+      "::DELTEST/Z09.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z10.TXT",
+      "::DELTEST/Z10.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z11.TXT",
+      "::DELTEST/Z11.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z12.TXT",
+      "::DELTEST/Z12.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z13.TXT",
+      "::DELTEST/Z13.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z14.TXT",
+      "::DELTEST/Z14.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z15.TXT",
+      "::DELTEST/Z15.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z16.TXT",
+      "::DELTEST/Z16.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z17.TXT",
+      "::DELTEST/Z17.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z18.TXT",
+      "::DELTEST/Z18.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z19.TXT",
+      "::DELTEST/Z19.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z20.TXT",
+      "::DELTEST/Z20.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z21.TXT",
+      "::DELTEST/Z21.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z22.TXT",
+      "::DELTEST/Z22.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z23.TXT",
+      "::DELTEST/Z23.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z24.TXT",
+      "::DELTEST/Z24.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z25.TXT",
+      "::DELTEST/Z25.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z26.TXT",
+      "::DELTEST/Z26.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z27.TXT",
+      "::DELTEST/Z27.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z28.TXT",
+      "::DELTEST/Z28.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z29.TXT",
+      "::DELTEST/Z29.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z30.TXT",
+      "::DELTEST/Z30.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z31.TXT",
+      "::DELTEST/Z31.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z32.TXT",
+      "::DELTEST/Z32.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z33.TXT",
+      "::DELTEST/Z33.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z34.TXT",
+      "::DELTEST/Z34.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z35.TXT",
+      "::DELTEST/Z35.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z36.TXT",
+      "::DELTEST/Z36.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z37.TXT",
+      "::DELTEST/Z37.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z38.TXT",
+      "::DELTEST/Z38.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/DELTEST_Z39.TXT",
+      "::DELTEST/Z39.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/ALLTEST_A0.TXT",
+      "::ALLTEST/A0.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/ALLTEST_A1.TXT",
+      "::ALLTEST/A1.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/ALLTEST_A2.TXT",
+      "::ALLTEST/A2.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/READONLY.TXT",
+      "::READONLY.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "+r",
+      "::READONLY.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/CTRLZ.TXT",
+      "::CTRLZ.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/CHECK.BAT",
+      "::CHECK.BAT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/CHILD.BAT",
+      "::CHILD.BAT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::A"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::B"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::C"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::D"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::E"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::A/CHILD"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::B/CHILD"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/SAME.TXT",
+      "::SAME.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/B_SAME.TXT",
+      "::B/SAME.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/WWWWWWWW.WWW",
+      "::WWWWWWWW.WWW"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/MMMMMMMM.MMM",
+      "::MMMMMMMM.MMM"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/LOCKED.TXT",
+      "::LOCKED.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "+r",
+      "::LOCKED.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F00.TXT",
+      "::F00.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F01.TXT",
+      "::F01.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F02.TXT",
+      "::F02.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F03.TXT",
+      "::F03.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F04.TXT",
+      "::F04.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F05.TXT",
+      "::F05.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F06.TXT",
+      "::F06.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F07.TXT",
+      "::F07.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F08.TXT",
+      "::F08.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F09.TXT",
+      "::F09.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F10.TXT",
+      "::F10.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F11.TXT",
+      "::F11.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F12.TXT",
+      "::F12.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F13.TXT",
+      "::F13.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F14.TXT",
+      "::F14.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F15.TXT",
+      "::F15.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F16.TXT",
+      "::F16.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F17.TXT",
+      "::F17.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F18.TXT",
+      "::F18.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F19.TXT",
+      "::F19.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F20.TXT",
+      "::F20.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F21.TXT",
+      "::F21.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F22.TXT",
+      "::F22.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F23.TXT",
+      "::F23.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F24.TXT",
+      "::F24.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F25.TXT",
+      "::F25.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F26.TXT",
+      "::F26.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F27.TXT",
+      "::F27.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F28.TXT",
+      "::F28.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F29.TXT",
+      "::F29.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F30.TXT",
+      "::F30.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F31.TXT",
+      "::F31.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F32.TXT",
+      "::F32.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F33.TXT",
+      "::F33.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F34.TXT",
+      "::F34.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F35.TXT",
+      "::F35.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F36.TXT",
+      "::F36.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F37.TXT",
+      "::F37.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F38.TXT",
+      "::F38.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F39.TXT",
+      "::F39.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F40.TXT",
+      "::F40.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F41.TXT",
+      "::F41.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F42.TXT",
+      "::F42.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F43.TXT",
+      "::F43.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F44.TXT",
+      "::F44.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F45.TXT",
+      "::F45.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F46.TXT",
+      "::F46.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F47.TXT",
+      "::F47.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F48.TXT",
+      "::F48.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F49.TXT",
+      "::F49.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F50.TXT",
+      "::F50.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F51.TXT",
+      "::F51.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F52.TXT",
+      "::F52.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F53.TXT",
+      "::F53.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F54.TXT",
+      "::F54.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F55.TXT",
+      "::F55.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F56.TXT",
+      "::F56.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F57.TXT",
+      "::F57.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F58.TXT",
+      "::F58.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F59.TXT",
+      "::F59.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F60.TXT",
+      "::F60.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F61.TXT",
+      "::F61.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F62.TXT",
+      "::F62.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F63.TXT",
+      "::F63.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F64.TXT",
+      "::F64.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F65.TXT",
+      "::F65.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F66.TXT",
+      "::F66.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F67.TXT",
+      "::F67.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F68.TXT",
+      "::F68.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/F69.TXT",
+      "::F69.TXT"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/full-fixture.img",
+      "::"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : is INITECH    \n Volume Serial Number is 494E-4954\nDirectory for ::/\n\nREADME   TXT       114 1980-01-01   0:00 \nAPPS         <DIR>     1980-01-01   0:00 \n        2 files                 114 bytes\n                          1 440 256 bytes free\n\n",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/full-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/FILLER.BIN",
+      "::FILLER.BIN"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "::APPS"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/flair_data.img",
+      "::APPS/TENANTFX.EXE",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/TENANTFX.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/TENANTFX.EXE",
+      "::APPS/TENANTFX.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/flair_data.img",
+      "::APPS/CTENANT.EXE",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/CTENANT.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/CTENANT.EXE",
+      "::APPS/CTENANT.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/flair_data.img",
+      "::APPS/123.EXE",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/123.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/123.EXE",
+      "::APPS/123.EXE"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/SIMPLE.PRG",
+      "::SIMPLE.PRG"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/fixtures/UPDATE.PRG",
+      "::UPDATE.PRG"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/dos-fixture.img",
+      "::"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : is INITECH    \n Volume Serial Number is 494E-4954\nDirectory for ::/\n\nREADME   TXT       114 1980-01-01   0:00 \nAPPS         <DIR>     1980-01-01   0:00 \nFILLED       <DIR>     2026-10-05   1:21 \nDELTEST      <DIR>     2026-10-05   1:21 \nALLTEST      <DIR>     2026-10-05   1:21 \nOTHER        <DIR>     2026-10-05   1:21 \nEMPTY        <DIR>     2026-10-05   1:21 \nSELF     BIN      8192 2026-10-05   1:21 \nKEEP     TXT        15 2026-10-05   1:21 \nREADONLY TXT        19 2026-10-05   1:21 \nCTRLZ    TXT        14 2026-10-05   1:21 \nCHECK    BAT       222 2026-10-05   1:21 \nCHILD    BAT        26 2026-10-05   1:21 \n       13 files               8 602 bytes\n                          1 402 880 bytes free\n\n",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/gui-fixture.img",
+      "::"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : is INITECH    \n Volume Serial Number is 494E-4954\nDirectory for ::/\n\nREADME   TXT       114 1980-01-01   0:00 \nAPPS         <DIR>     1980-01-01   0:00 \nA            <DIR>     2026-10-05   1:21 \nB            <DIR>     2026-10-05   1:21 \nC            <DIR>     2026-10-05   1:21 \nD            <DIR>     2026-10-05   1:21 \nE            <DIR>     2026-10-05   1:21 \nSAME     TXT         4 2026-10-05   1:21 \nWWWWWWWW WWW         4 2026-10-05   1:21 \nMMMMMMMM MMM         4 2026-10-05   1:21 \nLOCKED   TXT        17 2026-10-05   1:21 \nF00      TXT         8 2026-10-05   1:21 \nF01      TXT         8 2026-10-05   1:21 \nF02      TXT         8 2026-10-05   1:21 \nF03      TXT         8 2026-10-05   1:21 \nF04      TXT         8 2026-10-05   1:21 \nF05      TXT         8 2026-10-05   1:21 \nF06      TXT         8 2026-10-05   1:21 \nF07      TXT         8 2026-10-05   1:21 \nF08      TXT         8 2026-10-05   1:21 \nF09      TXT         8 2026-10-05   1:21 \nF10      TXT         9 2026-10-05   1:21 \nF11      TXT         9 2026-10-05   1:21 \nF12      TXT         9 2026-10-05   1:21 \nF13      TXT         9 2026-10-05   1:21 \nF14      TXT         9 2026-10-05   1:21 \nF15      TXT         9 2026-10-05   1:21 \nF16      TXT         9 2026-10-05   1:21 \nF17      TXT         9 2026-10-05   1:21 \nF18      TXT         9 2026-10-05   1:21 \nF19      TXT         9 2026-10-05   1:21 \nF20      TXT         9 2026-10-05   1:21 \nF21      TXT         9 2026-10-05   1:21 \nF22      TXT         9 2026-10-05   1:21 \nF23      TXT         9 2026-10-05   1:21 \nF24      TXT         9 2026-10-05   1:21 \nF25      TXT         9 2026-10-05   1:21 \nF26      TXT         9 2026-10-05   1:21 \nF27      TXT         9 2026-10-05   1:21 \nF28      TXT         9 2026-10-05   1:21 \nF29      TXT         9 2026-10-05   1:21 \nF30      TXT         9 2026-10-05   1:21 \nF31      TXT         9 2026-10-05   1:21 \nF32      TXT         9 2026-10-05   1:21 \nF33      TXT         9 2026-10-05   1:21 \nF34      TXT         9 2026-10-05   1:21 \nF35      TXT         9 2026-10-05   1:21 \nF36      TXT         9 2026-10-05   1:21 \nF37      TXT         9 2026-10-05   1:21 \nF38      TXT         9 2026-10-05   1:21 \nF39      TXT         9 2026-10-05   1:21 \nF40      TXT         9 2026-10-05   1:21 \nF41      TXT         9 2026-10-05   1:21 \nF42      TXT         9 2026-10-05   1:21 \nF43      TXT         9 2026-10-05   1:21 \nF44      TXT         9 2026-10-05   1:21 \nF45      TXT         9 2026-10-05   1:21 \nF46      TXT         9 2026-10-05   1:21 \nF47      TXT         9 2026-10-05   1:21 \nF48      TXT         9 2026-10-05   1:21 \nF49      TXT         9 2026-10-05   1:21 \nF50      TXT         9 2026-10-05   1:21 \nF51      TXT         9 2026-10-05   1:21 \nF52      TXT         9 2026-10-05   1:21 \nF53      TXT         9 2026-10-05   1:21 \nF54      TXT         9 2026-10-05   1:21 \nF55      TXT         9 2026-10-05   1:21 \nF56      TXT         9 2026-10-05   1:21 \nF57      TXT         9 2026-10-05   1:21 \nF58      TXT         9 2026-10-05   1:21 \nF59      TXT         9 2026-10-05   1:21 \nF60      TXT         9 2026-10-05   1:21 \nF61      TXT         9 2026-10-05   1:21 \nF62      TXT         9 2026-10-05   1:21 \nF63      TXT         9 2026-10-05   1:21 \nF64      TXT         9 2026-10-05   1:21 \nF65      TXT         9 2026-10-05   1:21 \nF66      TXT         9 2026-10-05   1:21 \nF67      TXT         9 2026-10-05   1:21 \nF68      TXT         9 2026-10-05   1:21 \nF69      TXT         9 2026-10-05   1:21 \n       81 files                 763 bytes\n                          1 398 272 bytes free\n\n",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/full-fixture.img",
+      "::"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : is INITECH    \n Volume Serial Number is 494E-4954\nDirectory for ::/\n\nREADME   TXT       114 1980-01-01   0:00 \nAPPS         <DIR>     1980-01-01   0:00 \nFILLER   BIN   1440256 2026-10-05   1:21 \n        3 files           1 440 370 bytes\n                                  0 bytes free\n\n",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "mdir",
+      "-i",
+      "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/db-fixture.img",
+      "::"
+    ],
+    "rc": 0,
+    "stdout": " Volume in drive : has no label\n Volume Serial Number is 147D-F3C0\nDirectory for ::/\n\nSAMIR    COM     80928 2026-10-05   1:16 \nCLIENTS  DBF       223 2026-10-05   1:16 \nAPPS         <DIR>     2026-10-05   1:21 \nSIMPLE   PRG        31 2026-10-05   1:21 \nUPDATE   PRG        37 2026-10-05   1:21 \n        5 files              81 219 bytes\n                          1 357 824 bytes free\n\n",
+    "stderr": ""
+  }
+]

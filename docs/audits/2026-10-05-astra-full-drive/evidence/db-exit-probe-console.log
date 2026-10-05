@@ -1,0 +1,15 @@
+STARTED db-exit-control pid 5
+SHOT db-exit-control-before
+SHOT db-exit-control-after
+SHOT db-exit-control-recovery
+STOPPED 5
+STARTED db-exit-two pid 10
+SHOT db-exit-two-before
+SHOT db-exit-two-after
+SHOT db-exit-two-recovery
+STOPPED 10
+STARTED db-exit-zap-two pid 16
+SHOT db-exit-zap-two-before
+SHOT db-exit-zap-two-after
+SHOT db-exit-zap-two-recovery
+STOPPED 16

@@ -1,0 +1,68 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x0051D8E0
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+SAMIR.COM        80928
+CLIENTS.DBF          223
+SIMPLE.PRG           31
+UPDATE.PRG           37
+INPUT.TXT           29
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z accepted(deferred)
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>SAMIR < INPUT.TXT > DBOUT.TXT
+A:\>TYPE DBOUT.TXT
+. 36  Unrecognized phrase/keyword in command.
+. 
+A:\>copy *.PRG ALL.PRG
+File not found
+A:\>ren *.PRG *.TXT
+Bad command or file name
+A:\>ver
+
+InitechDOS Version 3.30
+A:\>

@@ -1,0 +1,13 @@
+{
+  "free": 1357824,
+  "argv": [
+    "mcopy",
+    "-o",
+    "-i",
+    "images/db-full-fixture.img",
+    "fixtures/DBFILL.BIN",
+    "::DBFILL.BIN"
+  ],
+  "rc": 0,
+  "stderr": ""
+}

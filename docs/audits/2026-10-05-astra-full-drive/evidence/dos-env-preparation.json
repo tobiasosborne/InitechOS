@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "mcopy",
+    "-o",
+    "-i",
+    "images/dos-env-fixture.img",
+    "fixtures/ENV.BAT",
+    "::ENV.BAT"
+  ],
+  "rc": 0,
+  "out": "",
+  "err": ""
+}

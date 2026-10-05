@@ -1,0 +1,14 @@
+{
+  "first_utc": "2026-10-04T23:18:21.709641+00:00",
+  "last_utc": "2026-10-05T00:08:46.844491+00:00",
+  "sessions": 35,
+  "max_concurrent_emulators": 2,
+  "unstopped": [],
+  "exit_codes": {
+    "0": 35
+  },
+  "typed_inputs": 975,
+  "key_actions": 16401,
+  "guest_screenshots": 331,
+  "primary_interactive_driver": "EOF sent; exec session exited 0"
+}

@@ -1,0 +1,98 @@
+[
+  {
+    "name11": "INITECH    ",
+    "name_hex": "494e495445434820202020",
+    "attributes": 8,
+    "size": 0
+  },
+  {
+    "name11": "README  TXT",
+    "name_hex": "524541444d452020545854",
+    "attributes": 32,
+    "size": 114
+  },
+  {
+    "name11": "APPS       ",
+    "name_hex": "4150505320202020202020",
+    "attributes": 16,
+    "size": 0
+  },
+  {
+    "name11": "FILLED     ",
+    "name_hex": "46494c4c45442020202020",
+    "attributes": 16,
+    "size": 0
+  },
+  {
+    "name11": "DELTEST    ",
+    "name_hex": "44454c5445535420202020",
+    "attributes": 16,
+    "size": 0
+  },
+  {
+    "name11": "ALLTEST    ",
+    "name_hex": "414c4c5445535420202020",
+    "attributes": 16,
+    "size": 0
+  },
+  {
+    "name11": "OTHER      ",
+    "name_hex": "4f54484552202020202020",
+    "attributes": 16,
+    "size": 0
+  },
+  {
+    "name11": "EMPTY      ",
+    "name_hex": "454d505459202020202020",
+    "attributes": 16,
+    "size": 0
+  },
+  {
+    "name11": "SELF    BIN",
+    "name_hex": "53454c462020202042494e",
+    "attributes": 32,
+    "size": 8192
+  },
+  {
+    "name11": "KEEP    TXT",
+    "name_hex": "4b45455020202020545854",
+    "attributes": 32,
+    "size": 15
+  },
+  {
+    "name11": "READONLYTXT",
+    "name_hex": "524541444f4e4c59545854",
+    "attributes": 33,
+    "size": 19
+  },
+  {
+    "name11": "CTRLZ   TXT",
+    "name_hex": "4354524c5a202020545854",
+    "attributes": 32,
+    "size": 14
+  },
+  {
+    "name11": "CHECK   BAT",
+    "name_hex": "434845434b202020424154",
+    "attributes": 32,
+    "size": 222
+  },
+  {
+    "name11": "CHILD   BAT",
+    "name_hex": "4348494c44202020424154",
+    "attributes": 32,
+    "size": 26
+  },
+  {
+    "name11": "/A         ",
+    "name_hex": "2f41202020202020202020",
+    "attributes": 32,
+    "size": 14
+  },
+  {
+    "name11": "/B         ",
+    "name_hex": "2f42202020202020202020",
+    "attributes": 32,
+    "size": 14
+  }
+]

@@ -1,0 +1,119 @@
+id	area	severity	summary
+L001	database	P1	Disk-full APPEND corrupts the DBF record count and prevents reopening
+L002	Trash	P1	An open purged folder remains writable and leaks an orphan cluster
+L003	database	P1	QUIT hangs after the same table is opened in two work areas
+L004	dialogs	P1	Empty Trash buttons commit on mouse-down, before release can cancel
+L005	DOS	P1	COPY overwrites a read-only destination
+L006	DOS	P1	DEL removes a read-only file
+L007	database	P1	SET SAFETY ON does not confirm ZAP
+L008	Initech 123	P1	Quit discards an edited worksheet without an unsaved-work warning
+L009	Initech 123	P2	Ordinary formulas and @ functions cannot be committed
+L010	Initech 123	P2	The slash command menu does not open
+L011	Initech 123	P1	There is no reached worksheet Save operation
+L012	Initech 123	P2	F1 provides no worksheet help
+L013	Initech 123	P2	F2 cannot edit an existing cell
+L014	Initech 123	P2	F5 does not start Goto
+L015	Initech 123	P2	Page Down does not advance one worksheet screen
+L016	Initech 123	P2	Tab does not page horizontally
+L017	Initech 123	P2	Clicking a worksheet cell does not select it
+L018	Initech 123	P2	Shrinking the window lets the current cell disappear off screen
+L019	Initech 123	P2	Entry silently stops at 75 characters instead of the documented 240
+L020	Initech 123	P2	The unmodified backslash hotkey steals the repeating-label prefix
+L021	Initech 123	P3	The worksheet status line omits the period clock/date
+L022	look	P3	Empty Trash leaves the caution-icon area completely blank
+L023	look	P3	The Trash alert has a heavy black slab border instead of the Platinum alert edge
+L024	Trash	P3	The confirmation understates the disk space occupied by a folder tree
+L025	DOS	P2	CD backslash does not return to the root
+L026	DOS	P2	MD accepts a wildcard character as a literal directory name
+L027	DOS	P2	MD accepts reserved device names as real directories
+L028	DOS	P2	COPY treats /A and /B switches as filenames and ignores the requested destination
+L029	DOS	P2	COPY cannot concatenate explicitly named files with plus
+L030	DOS	P2	New filesystem entries receive an invalid zero month/day timestamp
+L031	DOS	P2	FOR works in a batch but is not recognized at the prompt
+L032	DOS	P2	IF is not recognized at the interactive prompt
+L033	DOS	P2	F3 command recall does nothing
+L034	DOS	P2	COMMAND /C cannot launch a secondary command processor
+L035	DOS	P1	EXIT terminates the permanent primary shell and leaves no usable prompt
+L036	DOS	P2	CHKDSK is unavailable from the supplied DOS installation
+L037	DOS	P2	FORMAT is unavailable from the supplied DOS installation
+L038	DOS	P2	DISKCOPY is unavailable from the supplied DOS installation
+L039	DOS	P2	ATTRIB is unavailable from the supplied DOS installation
+L040	DOS	P2	TREE is unavailable from the supplied DOS installation
+L041	DOS	P2	FIND is unavailable from the supplied DOS installation
+L042	DOS	P2	SORT is unavailable from the supplied DOS installation
+L043	DOS	P2	MORE is unavailable from the supplied DOS installation
+L044	database	P2	DATE() returns the current year as 1926 instead of 2026
+L045	database	P2	Empty and invalid dates print malformed digits
+L046	database	P3	The next dot prompt is glued to query output
+L047	database	P2	CLOSE FORMAT and CLOSE INDEX close the database itself
+L048	database	P2	A valid alias-qualified field cannot be read
+L049	database	P2	TYPE reports its string argument type instead of the named expression type
+L050	database	P2	Division by zero raises an error instead of the original overflow result
+L051	database	P2	INDEX ON cannot create an index
+L052	database	P2	REINDEX is unavailable
+L053	database	P2	APPEND FROM cannot import records
+L054	database	P2	SAVE TO cannot persist memory variables
+L055	database	P2	RESTORE FROM is unavailable
+L056	database	P2	REPORT FORM is unavailable
+L057	database	P2	LABEL FORM is unavailable
+L058	database	P2	SET ALTERNATE is unavailable
+L059	database	P2	SET DEFAULT is unavailable
+L060	database	P2	SET PATH is unavailable
+L061	database	P2	SET ESCAPE is unavailable
+L062	database	P2	SET CONFIRM is unavailable
+L063	database	P2	SET BELL is unavailable
+L064	database	P2	SET CONSOLE is unavailable
+L065	database	P2	SET HEADING is unavailable
+L066	database	P2	SET PROCEDURE is unavailable
+L067	database	P2	EXP() is absent from the function library
+L068	database	P2	LOG() is absent from the function library
+L069	database	P2	SQRT() is absent from the function library
+L070	database	P2	TIME() is absent from the function library
+L071	database	P2	RECSIZE() is absent from the function library
+L072	database	P2	DISKSPACE() is absent from the function library
+L073	database	P2	VERSION() is absent from the function library
+L074	database	P2	OS() is absent from the function library
+L075	database	P2	PCOL() is absent from the function library
+L076	database	P2	PROW() is absent from the function library
+L077	database	P2	ROW() is absent from the function library
+L078	database	P2	COL() is absent from the function library
+L079	database	P2	Disk full is misreported as a read-only file
+L080	Initech 123	P2	The 2049th occupied cell fails as unexplained EDIT mode
+L081	DOS	P2	APPEND is unavailable from the supplied DOS installation
+L082	DOS	P2	ASSIGN is unavailable from the supplied DOS installation
+L083	DOS	P2	BACKUP is unavailable from the supplied DOS installation
+L084	DOS	P2	CHCP is unavailable from the supplied DOS installation
+L085	DOS	P2	COMP is unavailable from the supplied DOS installation
+L086	DOS	P2	CTTY is unavailable from the supplied DOS installation
+L087	DOS	P2	DISKCOMP is unavailable from the supplied DOS installation
+L088	DOS	P2	EXE2BIN is unavailable from the supplied DOS installation
+L089	DOS	P2	FASTOPEN is unavailable from the supplied DOS installation
+L090	DOS	P2	FC is unavailable from the supplied DOS installation
+L091	DOS	P2	GRAPHICS is unavailable from the supplied DOS installation
+L092	DOS	P2	JOIN is unavailable from the supplied DOS installation
+L093	DOS	P2	KEYB is unavailable from the supplied DOS installation
+L094	DOS	P2	LABEL is unavailable from the supplied DOS installation
+L095	DOS	P2	MODE is unavailable from the supplied DOS installation
+L096	DOS	P2	NLSFUNC is unavailable from the supplied DOS installation
+L097	DOS	P2	PRINT is unavailable from the supplied DOS installation
+L098	DOS	P2	RECOVER is unavailable from the supplied DOS installation
+L099	DOS	P2	REPLACE is unavailable from the supplied DOS installation
+L100	DOS	P2	RESTORE is unavailable from the supplied DOS installation
+L101	DOS	P2	SELECT is unavailable from the supplied DOS installation
+L102	DOS	P2	SHARE is unavailable from the supplied DOS installation
+L103	DOS	P2	SUBST is unavailable from the supplied DOS installation
+L104	DOS	P2	SYS is unavailable from the supplied DOS installation
+L105	DOS	P2	XCOPY is unavailable from the supplied DOS installation
+L106	DOS	P2	DEBUG is unavailable from the supplied DOS installation
+L107	DOS	P2	EDLIN is unavailable from the supplied DOS installation
+L108	database	P2	A macro variable containing a command is not expanded for execution
+L109	database	P2	SORT TO is unavailable
+L110	database	P2	TYPE is not recognized at the database prompt
+L111	database	P2	RENAME is not recognized at the database prompt
+L112	database	P2	ERASE is not recognized at the database prompt
+L113	database	P2	TOTAL ON is unavailable
+L114	database	P2	RUN cannot invoke a DOS command
+L115	database	P2	SET FUNCTION cannot redefine a function key
+L116	database	P2	CLEAR MEMORY cannot clear variables
+L117	apps	P3	CTENANT loses its input readouts when its window repaints
+L118	Trash	P2	Trash stages and purges a locked file without a protection-specific refusal

@@ -1,0 +1,15 @@
+{
+  "loads": {
+    "TENANTFX.EXE": 70,
+    "CTENANT.EXE": 70,
+    "123.EXE": 70
+  },
+  "exits": 210,
+  "heap_values": {
+    "3523616": 1,
+    "3519504": 1,
+    "3418352": 208
+  },
+  "panics": [],
+  "busy_refusals": 0
+}

@@ -1,0 +1,320 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x005349A4
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DESKTOP-DB-CREATE
+TRASH-CREATE
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-TICK n=4
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE CLIENTS
+15  Not a dBASE database.
+. USE CLIENTS.DBF
+. LIST
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. DISPLAY STRUCTURE
+1  Internal error.
+. ? RECCOUNT(),RECNO(),EOF(),BOF()
+
+3 4 .T. .F.. GO TOP
+. SKIP -1
+. ? RECNO(),BOF(),EOF()
+
+1 .T. .F.. GO BOTTOM
+. SKIP
+. ? RECNO(),BOF(),EOF()
+
+4 .F. .T.. GO 0
+5  Record is out of range.
+. ? RECNO(),BOF(),EOF()
+
+4 .F. .T.. GO 999
+5  Record is out of range.
+. ? RECNO(),BOF(),EOF()
+
+4 .F. .T.. GO TOP
+. LIST NEXT 2
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+. GO 2
+. LIST REST
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. LIST RECORD 2
+       2 WADDAMS    AUSTIN       -42
+. LIST LAST,BAL FOR BAL > 1000
+1  Internal error.
+. GO TOP
+. LIST WHILE BAL > 0
+       1 PESTON     HONOLULU     1234.50
+. LOCATE FOR BAL < 0
+. ? FOUND(),RECNO()
+
+.T. 2. CONTINUE
+. ? FOUND(),EOF()
+
+.F. .T.. SET FILTER TO BAL > 1000
+. GO TOP
+. LIST
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. SET FILTER TO
+. GO TOP
+. DELETE
+. ? DELETED()
+
+.T.. DISPLAY
+       1 PESTON     HONOLULU     1234.50
+. SET DELETED ON
+7  File already exists.
+. RECALL
+. SET DELETED OFF
+7  File already exists.
+. GO TOP
+. REPLACE BAL WITH 123.45
+. DISPLAY
+       1 PESTON     HONOLULU     123.45
+. REPLACE BAL WITH "wrong"
+9  Data type mismatch.
+. DISPLAY
+       1 PESTON     HONOLULU     123.45
+. REPLACE LAST WITH "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+9  Data type mismatch.
+. DISPLAY
+       1 PESTON     HONOLULU     123.45
+. APPEND BLANK
+. REPLACE LAST WITH "AUDIT",FIRST WITH "NEW",BAL WITH -12.5
+9  Data type mismatch.
+. LIST
+       1 PESTON     HONOLULU     123.45
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4                         0
+. USE
+. USE CLIENTS.DBF
+. LIST
+       1 PESTON     HONOLULU     123.45
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4                         0
+. STORE 2 TO X
+. ? X
+
+2. X = X + 3
+. ? X
+
+5. STORE "hello" TO MESSAGE
+. ? MESSAGE
+
+hello. ? 1/0
+39  Numeric overflow (data was lost).
+. ? SQRT(-1)
+31  Invalid function name.
+. ? 2^3
+
+8. ? 2**3
+
+8. ? -2^2
+
+4. ? 0.1+0.2
+
+0.30. ? ROUND(-2.5,0)
+
+-2. ? LEN("abc"),LEFT("abcdef",3),RIGHT("abcdef",2)
+
+3 abc ef. ? SUBSTR("abcdef",2,3)
+
+bcd. ? UPPER("ab"),LOWER("XY"),TRIM("A  ")
+
+AB xy A. ? STR(12.5,8,2),VAL("-4.5")
+
+   12.50 -4.50. ? "A" = "AB"
+
+.F.. SET EXACT ON
+. ? "A" = "AB"
+
+.F.. SET EXACT OFF
+. ? CHR(65),ASC("A")
+
+A 65. ? SPACE(-1)
+60  SPACE() : Negative.
+. ? CTOD("02/29/00")
+
+11/24//-. ? CTOD("02/29/04")
+
+02/29/04. SET CENTURY ON
+. ? CTOD("01/01/00")
+
+01/01/1900. SET DATE BRITISH
+. ? DTOC(CTOD("31/12/99"))
+
+31/12/1999. SET DATE AMERICAN
+. ? YEAR(DATE()),MONTH(DATE()),DAY(DATE())
+
+1926 10 4. ? DATE(),TIME()
+31  Invalid function name.
+. DO SIMPLE
+
+10. ? X
+
+5. DO UPDATE
+. GO TOP
+. DISPLAY
+       1 PESTON     HONOLULU     42
+. DO MISSING
+16  *** Unrecognized command verb.
+. DISPLAY MEMORY
+1  Internal error.
+. LIST MEMORY
+1  Internal error.
+. RELEASE ALL
+. ? X
+1  Internal error.
+. USE CLIENTS.DBF ALIAS C
+. ? ALIAS()
+31  Invalid function name.
+. CLOSE INDEXES
+. ? RECCOUNT()
+
+0. LIST
+. USE CLIENTS.DBF
+. CLOSE NONSENSE
+. ? RECCOUNT()
+
+0. SELECT 1
+. USE CLIENTS.DBF ALIAS ONE
+. SELECT 2
+. USE CLIENTS.DBF ALIAS TWO
+. ? ALIAS()
+31  Invalid function name.
+. GO 2
+. SELECT ONE
+. ? ALIAS(),RECNO()
+31  Invalid function name.
+. ? TWO->BAL
+1  File does not exist.
+. SELECT 99
+7  File already exists.
+. ? ALIAS()
+31  Invalid function name.
+. SELECT 1
+. INDEX ON LAST TO NAMES
+16  *** Unrecognized command verb.
+. SET INDEX TO NAMES
+. SET ORDER TO 1
+7  File already exists.
+. GO TOP
+. LIST
+       1 PESTON     HONOLULU     42
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+       4                         0
+. SEEK "WADDAMS"
+26  Database is not indexed.
+. ? FOUND(),RECNO()
+
+.F. 5. FIND WADDAMS
+26  Database is not indexed.
+. REINDEX
+16  *** Unrecognized command verb.
+. SET ORDER TO 0
+. SET NEAR ON
+7  File already exists.
+. SEEK "ZZZZ"
+26  Database is not indexed.
+. ASSIST
+16  *** Unrecognized command verb.
+. HELP
+16  *** Unrecognized command verb.
+. BROWSE
+16  *** Unrecognized command verb.
+. EDIT
+16  *** Unrecognized command verb.
+. APPEND
+7  File already exists.
+. CREATE TEST
+16  *** Unrecognized command verb.
+. SUM BAL
+16  *** Unrecognized command verb.
+. COUNT
+16  *** Unrecognized command verb.
+. COPY TO BACKUP
+16  *** Unrecognized command verb.
+. SORT TO SORTED ON LAST
+16  *** Unrecognized command verb.
+. REPORT FORM REPORT
+16  *** Unrecognized command verb.
+. LABEL FORM LABEL
+16  *** Unrecognized command verb.
+. DIR
+16  *** Unrecognized command verb.
+. LIST FILES
+1  Internal error.
+. SET TALK OFF
+. SET SAFETY ON
+. SET DECIMALS TO 4
+. ? 1/3
+
+0.3333. SET DECIMALS TO 1000
+. ? 1/3
+
+0.333333333333333. SET RELATION TO LAST INTO TWO
+. SET FILTER TO 1/0
+. GO TOP
+. LIST
+       1 PESTON     HONOLULU     42
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.770000000000000
+       4                         0
+. SET FILTER TO
+. @ 5,10 SAY "TEST"
+16  *** Unrecognized command verb.
+. WAIT "hello"
+hello. LEAR
+16  *** Unrecognized command verb.
+. DISPLAY
+       4   0
+. USE CLIENTS.DBF
+. SET SAFETY ON
+. ? RECCOUNT()
+
+4. ZAP
+. ? RECCOUNT()

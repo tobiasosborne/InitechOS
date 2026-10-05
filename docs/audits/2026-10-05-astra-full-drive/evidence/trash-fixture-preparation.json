@@ -1,0 +1,99 @@
+[
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "images/trash-fixture.img",
+      "::A"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "images/trash-fixture.img",
+      "::A/CHILD"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mmd",
+      "-i",
+      "images/trash-fixture.img",
+      "::B"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/trash-fixture.img",
+      "fixtures/trash_A_CHILD_KEEP.TXT",
+      "::A/CHILD/KEEP.TXT"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/trash-fixture.img",
+      "fixtures/trash_SAME.TXT",
+      "::SAME.TXT"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/trash-fixture.img",
+      "fixtures/trash_B_SAME.TXT",
+      "::B/SAME.TXT"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mcopy",
+      "-o",
+      "-i",
+      "images/trash-fixture.img",
+      "fixtures/trash_LOCKED.TXT",
+      "::LOCKED.TXT"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  {
+    "argv": [
+      "mattrib",
+      "-i",
+      "images/trash-fixture.img",
+      "+r",
+      "::LOCKED.TXT"
+    ],
+    "rc": 0,
+    "out": "",
+    "err": ""
+  }
+]

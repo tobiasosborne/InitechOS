@@ -1,0 +1,1 @@
+Not copied into the repo: evidence/references (extracts and captures from copyrighted manuals and programs; the originals are at /home/tobias/Projects/initech-manuals-ref and the *-decomp corpora), cell-stress-serial.log (11 MB) and actions.jsonl (3 MB).

@@ -1,0 +1,67 @@
+
+**Do:** On the fresh 47-entry root at (20,60), click the down arrow at
+(367,251) once. Then click the thumb at (367,106), pressing/releasing without
+any pointer movement between those events.
+
+**Saw:** The first click set the vertical value to 16, max 450. The no-motion
+thumb click changed it to 14. The content shifted downward by two pixels even
+though the pointer had not dragged the indicator. The action journal and raw
+trace have adjacent mouseDown/mouseUp at exactly (367,106), then
+`v part=129 value=14 max=450`.
+
+**Expected and why:** A press/release on the indicator without dragging should
+preserve the view position. This is an ordinary GUI expectation; no historical
+pressed-thumb capture was available for a matching experiment. The observed
+effect is a small unwanted jump, not data loss or a broken general drag.
+
+**Evidence:** [Before](shots/112-thumb-before-no-motion-click.png),
+[after](shots/113-thumb-after-no-motion-click.png),
+[fresh trace](evidence/fresh-multi-open-serial.log),
+[explicit input journal](evidence/actions.jsonl).
+
+### J05 - P2 - A minimum-height window hides its scrollbar parts but still operates them
+
+**Do:** Fresh scroll fixture, open INITECH. Click the down arrow at (367,251),
+then drag the grow box (370,270) by (-264,-156), reaching the permitted 96x64
+minimum. Click (103,101), move the pointer clear to (500,380), and capture.
+Click (103,95), move clear again, and capture.
+
+**Saw:** The vertical gutter was a blank white strip with no arrows or thumb,
+despite 47 entries and an actual scroll maximum of 606. Its invisible lower
+part scrolled down from 16 to 32 (`part=21`); the invisible upper part scrolled
+back to 16 (`part=20`). Repainting through those real scroll actions did not
+restore visible controls. This is persistent minimum-size behavior, rather
+than J01's stale range artwork after a normal resize.
+
+**Expected and why:** At an allowed window size, visible controls should identify
+the usable scroll operations. Reserve sufficient size for the bar, provide a
+compact form, or make a hidden control inactive. An empty-looking gutter that
+secretly scrolls is misleading. This follows ordinary hit-testing/affordance
+semantics; the supplied Mac stills do not establish the exact historical
+minimum window size.
+
+**Evidence:** [Minimum frame](shots/117-minimum-scrollbar.png),
+[still blank after down-scroll repaint, pointer clear](shots/121-minimum-blank-control-scrolls.png),
+[still blank after up-scroll repaint](shots/122-minimum-blank-control-reversed.png),
+[independent final-edge trace](evidence/final-edge-serial.log).
+
+## Appearance against the real Mac captures
+
+The new text is a substantial improvement: menu items and titles read as
+bold, proportional Macintosh UI, and the gray disabled commands are clear.
+Compare the [FLAIR File menu](shots/03-doc-file-menu.png) and
+[FLAIR title](shots/59-tenant-own-bar.png) with the [real Mac OS 8.1 menu](shots/ref-s8-menu.png)
+and [window](shots/ref-s8-window.png). The FLAIR face looks closer to the
+[System 7 Chicago capture](shots/ref-s7-menu.png) than to the smoother Charcoal
+shapes in the 8.1 captures. The actual [Appearance panel](shots/ref-s8-controls.png)
+explicitly names Charcoal. This is an aesthetic judgment, not byte-level font
+certification. No text-bearing button was reached, so button text is unverified.
+
+Drag feedback is understandable: the source remains, a gray outline follows
+the pointer, and Trash darkens and inverts its name ([held scrolled file](shots/130-scrolled-file-trash-held.png)).
+Its thin empty rectangle carries little of the dragged file's shape or name.
+Beside the detailed icon cells in the real Mac window, it still looks like
+basic scaffolding rather than finished Platinum artwork. The local
+[drag-feedback research](evidence/references/finder-drag-feedback-ground-truth.md)
+describes an outline representation of icon and filename, while documenting
+the project's whole-cell-rectangle interpretation. My preference for a more

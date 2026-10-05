@@ -1,0 +1,5 @@
+STARTED dos-last pid 6
+SHOT 123-dos-samir-redirect
+SHOT 124-dos-wildcard-known
+SHOT 125-dos-still-responsive
+STOPPED 6

@@ -1,0 +1,68 @@
+{
+  "/home/tobias/Projects/initech-os/docs/audits/2026-10-03-flair-gui-codex/REPORT.md": [
+    "### F01 - P1 - Window contents stay at old screen coordinates",
+    "### F02 - P1 - Scrollbar input drags the window; overflowing files are unreachable normally",
+    "### F03 - P1 - Get Info, Duplicate, and Select All are enabled no-ops",
+    "### F04 - P1 - Trash is a dead end; dragging a file to it does not trash the file",
+    "### F05 - P1 - Restart and Shut Down accept menu selections but do not restart or shut down",
+    "### F06 - P1 - Closing Finder windows leaves an inconsistent active window and menu context",
+    "### F07 - P1 - The supplied README document cannot be opened, and failure is silent",
+    "### F08 - P2 - Dragging a multi-selection moves only the lead icon",
+    "### F09 - P2 - File-icon placement is lost when its folder closes",
+    "### F10 - P2 - Saved window position survives, but resized window dimensions do not",
+    "### F11 - P2 - New Folder creates directories but provides no usable naming workflow",
+    "### F12 - P2 - Alternate views, search, printing, and file-management conveniences are unavailable",
+    "### F13 - P2 - Apple-menu access and Help are not usable",
+    "### F14 - P2 - There is no reached application-switching interface beyond clicking windows",
+    "### F15 - P2 - The upper bar contains copied placeholder menus and an inert About item",
+    "### F16 - P3 - Typography, body frames, and icon art fall short of the Platinum reference",
+    "### F17 - P2 - Finder omits item count and available-space feedback",
+    "### F18 - P2 - No contextual menu is reached with right-click or Control-click"
+  ],
+  "/home/tobias/Projects/initech-os/docs/audits/2026-10-04-flair-gui-codex-pass2/REPORT.md": [
+    "### G01 - P1 - Menus and window drags expire while the mouse button is still down",
+    "### G02 - P1 - The Close box terminates on mouse-down and cannot be cancelled",
+    "### G03 - P1 - The disk app's new Quit and About menus accept input without acting",
+    "### G04 - P1 - Folder enumeration silently drops entries beyond 64",
+    "### G05 - P1 - Full-disk errors are invisible, and Finder shows a file that was not committed",
+    "### G06 - P2 - A fifth folder window silently refuses to open",
+    "### G07 - P2 - Finder cannot select or navigate files from the keyboard",
+    "### G08 - P2 - Clicking inactive app content executes its action during activation",
+    "### G09 - P2 - App launch refusal and app crashes have no on-screen explanation",
+    "### G10 - P2 - Arrange by Name leaves both order and manual placement unchanged",
+    "### G11 - P1 - Ctrl and Shift remain active after key release"
+  ],
+  "/home/tobias/Projects/initech-os/docs/audits/2026-10-04-flair-gui-codex-pass3/REPORT.md": [
+    "### H01 - P1 - A long cross-menu gesture executes a different command from the highlighted one",
+    "### H02 - P2 - Refused moves highlight their targets but give no explanation",
+    "### H03 - P1 - Moving the service TRASH directory breaks Trash and splits its contents after reboot",
+    "### H04 - P2 - Trash still looks empty after successful staging",
+    "### H05 - P2 - Trashing DESKTOP.DB recreates it without updating the open folder's inventory",
+    "### H06 - P3 - TenantFix paint cuts into the horizontal scroll gutter after Zoom",
+    "### H07 - P2 - Legal wide filenames overwrite each other in the default icon grid"
+  ],
+  "/home/tobias/Projects/initech-os/docs/audits/2026-10-04-flair-gui-codex-pass4/REPORT.md": [
+    "### J01 - P2 - Resize leaves scrollbar appearance inconsistent with its actual range",
+    "### J02 - P2 - Horizontal clipping pins hidden icons' labels over visible filenames",
+    "### J03 - P2 - Open processes only one of two selected folders",
+    "### J04 - P3 - Clicking the thumb without moving it changes the scroll value",
+    "### J05 - P2 - A minimum-height window hides its scrollbar parts but still operates them"
+  ],
+  "/home/tobias/Projects/initech-os/docs/audits/2026-10-04-flair-gui-codex-pass5/REPORT.md": [
+    "### K01 - P1 - COPY onto the same file through an absolute path destroys a multi-cluster file",
+    "### K02 - P1 - COPY to an existing directory replaces the directory with a file",
+    "### K03 - P1 - A path-qualified wildcard DEL deletes matching files in the current directory",
+    "### K04 - P2 - Wildcard DEL silently stops after sixteen matches",
+    "### K05 - P1 - SAMIR accepts SET FILTER but LIST ignores it",
+    "### K06 - P2 - SAMIR displays a deleted record without marking it as deleted",
+    "### K07 - P2 - Built-in apps expose enabled commands without delivering a usable result",
+    "### K08 - P2 - SAMIR cannot perform basic interactive database and inspection workflows",
+    "### K09 - P2 - USE requires the DBF extension and misidentifies the valid table",
+    "### K10 - P2 - DIR ignores operands and always labels the listing as the root",
+    "### K11 - P2 - COPY/REN and batch FOR cannot carry out wildcard file work",
+    "### K12 - P1 - DOS Ctrl-Z and Ctrl-C become ordinary letters; a console read cannot be ended normally",
+    "### K13 - P2 - SAMIR cannot read multiple commands from redirected standard input",
+    "### K14 - P3 - An unlabeled mounted volume has no visible desktop name",
+    "### K15 - P2 - DEL *.* removes the remaining files without confirmation"
+  ]
+}

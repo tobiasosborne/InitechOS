@@ -1,0 +1,16 @@
+STARTED db-confirm pid 5
+SHOT c001-editing
+SHOT c002-date
+SHOT c003-rounding
+SHOT c004-close-indexes
+SHOT c005-index
+SHOT c006-areas
+SHOT c007-safety
+SHOT c008-pack-rebuild
+SHOT db-confirm-timeout
+STOPPED 5
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/run_text_suite.py", line 20, in <module>
+    d.shot(suite['label']+'-timeout'); raise RuntimeError('No prompt after '+a[1])
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: No prompt after QUIT

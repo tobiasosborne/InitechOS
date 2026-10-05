@@ -1,0 +1,20 @@
+{
+  "dos-fixture.img": {
+    "name11": "READONLYTXT",
+    "attributes": 33,
+    "read_only": true,
+    "image_sha256": "944a07822e0cdf6b196e903e925a80074410b111433072c51441f423ecf55c76"
+  },
+  "trash-fixture.img": {
+    "name11": "LOCKED  TXT",
+    "attributes": 33,
+    "read_only": true,
+    "image_sha256": "83488106b8b2740844a3f4d22b7fcf327817db2f503826b70502382af326bef4"
+  },
+  "db-full-fixture.img": {
+    "name11": "CLIENTS DBF",
+    "attributes": 32,
+    "read_only": false,
+    "image_sha256": "c4e845edf95225206016bc1bb92007460a0bd57a33af7a2315086a19c97c8e99"
+  }
+}

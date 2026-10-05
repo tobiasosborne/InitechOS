@@ -1,0 +1,427 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x0051D8E0
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+README.TXT          114
+SELF.BIN         8192
+KEEP.TXT           15
+READONLY.TXT           19
+CTRLZ.TXT           14
+CHECK.BAT          222
+CHILD.BAT           26
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z accepted(deferred)
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+A:\>ver
+
+InitechDOS Version 3.30
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+READONLY.TXT          19
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+
+13 file(s)
+A:\>type README.TXT
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\>copy SELF.BIN .\SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>copy SELF.BIN A:\SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>copy SELF.BIN \SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>copy SELF.BIN OTHER\..\SELF.BIN
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>dir
+
+ Directory of A:\
+
+README.TXT           114
+APPS               <DIR>
+FILLED             <DIR>
+DELTEST            <DIR>
+ALLTEST            <DIR>
+OTHER              <DIR>
+EMPTY              <DIR>
+SELF.BIN            8192
+KEEP.TXT              15
+READONLY.TXT          19
+CTRLZ.TXT             14
+CHECK.BAT            222
+CHILD.BAT             26
+
+13 file(s)
+A:\>type FILLED\SAVE.TXT
+SUBDIR-SENTINEL
+
+A:\>copy README.TXT FILLED
+        1 file(s) copied
+A:\>copy SELF.BIN FILLED\
+        1 file(s) copied
+A:\>type FILLED\SAVE.TXT
+SUBDIR-SENTINEL
+
+A:\>type FILLED\README.TXT
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\>cd FILLED
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+
+5 file(s)
+A:\FILLED>cd \
+A:\FILLED>del DELTEST\Z*.TXT
+Access denied
+DELTEST\Z*.TXT
+A:\FILLED>type KEEP.TXT
+File not found
+A:\FILLED>type DELTEST\KEEP.TXT
+File not found
+A:\FILLED>cd DELTEST
+Invalid directory
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+
+5 file(s)
+A:\FILLED>cd \
+A:\FILLED>del ALLTEST\*.*
+Are you sure (Y/N)? n
+A:\FILLED>type ALLTEST\A0.TXT
+File not found
+A:\FILLED>del ALLTEST\*.*
+Are you sure (Y/N)? y
+Access denied
+ALLTEST\*.*
+A:\FILLED>cd ALLTEST
+Invalid directory
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+
+5 file(s)
+A:\FILLED>cd \
+A:\FILLED>copy README.TXT READONLY.TXT
+        1 file(s) copied
+A:\FILLED>type READONLY.TXT
+InitechOS flagship data volume.
+Desktop state is stored in DESKTOP.DB.
+Applications belong in the APPS directory.
+
+A:\FILLED>del READONLY.TXT
+A:\FILLED>type READONLY.TXT
+File not found
+A:\FILLED>ren READONLY.TXT RENAMED.TXT
+Bad command or file name
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+
+5 file(s)
+A:\FILLED>md LONGDIRECTORY
+Unable to create directory
+A:\FILLED>md LONGDIRECTX
+Unable to create directory
+A:\FILLED>md BAD?NAME
+A:\FILLED>md CON
+A:\FILLED>md AUX
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+BAD?NAME           <DIR>
+CON                <DIR>
+AUX                <DIR>
+
+8 file(s)
+A:\FILLED>cd LONGDIRECTORY
+Invalid directory
+A:\FILLED>cd
+A:\FILLED
+A:\FILLED>cd \
+A:\FILLED>copy KEEP.TXT LongFilename.txt
+File not found
+A:\FILLED>copy KEEP.TXT LongFileOther.txt
+File not found
+A:\FILLED>dir
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SAVE.TXT              17
+README.TXT           114
+SELF.BIN            8192
+BAD?NAME           <DIR>
+CON                <DIR>
+AUX                <DIR>
+
+8 file(s)
+A:\FILLED>copy NOFILE.TXT KEEP.TXT
+File not found
+A:\FILLED>type KEEP.TXT
+File not found
+A:\FILLED>copy CTRLZ.TXT ASCII.TXT /A
+File not found
+A:\FILLED>type ASCII.TXT
+File not found
+A:\FILLED>copy CTRLZ.TXT BINARY.TXT /B
+File not found
+A:\FILLED>type BINARY.TXT
+File not found
+A:\FILLED>copy KEEP.TXT+CTRLZ.TXT MERGE.TXT
+File not found
+A:\FILLED>type MERGE.TXT
+File not found
+A:\FILLED>md WORK
+A:\FILLED>cd WORK
+A:\FILLED\WORK>md SUB
+A:\FILLED\WORK>cd SUB
+A:\FILLED\WORK\SUB>cd ..
+A:\FILLED\WORK>cd
+A:\FILLED\WORK
+A:\FILLED\WORK>dir *.TXT
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SUB                <DIR>
+
+3 file(s)
+A:\FILLED\WORK>dir /W
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SUB                <DIR>
+
+3 file(s)
+A:\FILLED\WORK>dir NOFILE.XYZ
+
+ Directory of A:\
+
+.                  <DIR>
+..                 <DIR>
+SUB                <DIR>
+
+3 file(s)
+A:\FILLED\WORK>rd SUB
+A:\FILLED\WORK>cd \
+A:\FILLED\WORK>rd WORK
+Invalid path, not directory, or directory not empty
+A:\FILLED\WORK>cd NOEXIST
+Invalid directory
+A:\FILLED\WORK>rd FILLED
+Invalid path, not directory, or directory not empty
+A:\FILLED\WORK>set AUDIT=VALUE
+A:\FILLED\WORK>echo %AUDIT%
+%AUDIT%
+A:\FILLED\WORK>set AUDIT=
+A:\FILLED\WORK>set
+COMSPEC=A:\COMMAND.COM
+PROMPT=$P$G
+PATH=
+A:\FILLED\WORK>prompt $p$g
+A:\FILLED\WORK>break
+BREAK is on
+A:\FILLED\WORK>break off
+BREAK is off
+A:\FILLED\WORK>break
+BREAK is off
+A:\FILLED\WORK>break on
+BREAK is on
+A:\FILLED\WORK>verify
+Bad command or file name
+A:\FILLED\WORK>path
+Bad command or file name
+A:\FILLED\WORK>vol
+Bad command or file name
+A:\FILLED\WORK>CHECK ONE TWO
+Bad command or file name
+A:\FILLED\WORK>for %f in (ONE TWO) do echo %f
+Bad command or file name
+A:\FILLED\WORK>if exist KEEP.TXT echo EXISTS
+Bad command or file name
+A:\FILLED\WORK>call CHILD.BAT ARG
+Bad command or file name
+A:\FILLED\WORK>echo first > OUT.TXT
+A:\FILLED\WORK>echo second >> OUT.TXT
+A:\FILLED\WORK>type OUT.TXT
+first
+second
+
+A:\FILLED\WORK>type OUT.TXT | TYPE
+Required parameter missing
+A:\FILLED\WORK>date 02-30-1999
+Invalid date
+Current date is Sun 10-04-2026
+A:\FILLED\WORK>time 25:99:99
+Invalid time
+Current time is 23:23:59.00
+A:\FILLED\WORK>date 12-31-1999
+Current date is Fri 12-31-1999
+A:\FILLED\WORK>date
+Current date is Fri 12-31-1999
+A:\FILLED\WORK>time 23:59:50
+Current time is 23:59:50.00
+A:\FILLED\WORK>time
+Current time is 23:59:51.00
+A:\FILLED\WORK>help
+Bad command or file name
+A:\FILLED\WORK>chkdsk
+Bad command or file name
+A:\FILLED\WORK>format
+Bad command or file name
+A:\FILLED\WORK>diskcopy
+Bad command or file name
+A:\FILLED\WORK>attrib
+Bad command or file name
+A:\FILLED\WORK>tree
+Bad command or file name
+A:\FILLED\WORK>find
+Bad command or file name
+A:\FILLED\WORK>sort
+Bad command or file name
+A:\FILLED\WORK>more
+Bad command or file name
+A:\FILLED\WORK>rename KEEP.TXT KEPT.TXT
+Bad command or file name
+A:\FILLED\WORK>type KEPT.TXT
+File not found
+A:\FILLED\WORK>erase KEPT.TXT
+File not found
+A:\FILLED\WORK>type KEPT.TXT
+File not found
+A:\FILLED\WORK>chdir FILLED
+Invalid directory
+A:\FILLED\WORK>mkdir XX
+A:\FILLED\WORK>rmdir XX
+A:\FILLED\WORK>chdir \
+A:\FILLED\WORK>cls
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+A:\FILLED\WORK>echo CLEARED
+CLEARED
+A:\FILLED\WORK>exit
+SHELL-EXIT
+SHELL-DONE

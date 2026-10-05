@@ -1,0 +1,10 @@
+STARTED app-boundaries pid 4
+SHOT ab-123-start
+SHOT ab-backslash-launches-database
+SHOT ab-123-resumed
+SHOT ab-ctenant-menu-quit
+SHOT ab-123-menu-quit
+SHOT ab-tenant-info
+SHOT ab-alt-tab
+SHOT ab-inactive-click-exit
+STOPPED 4

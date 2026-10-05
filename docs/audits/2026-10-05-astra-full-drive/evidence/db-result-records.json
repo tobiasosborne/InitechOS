@@ -1,0 +1,29 @@
+{
+  "db-confirm": {
+    "n": 2,
+    "header": 129,
+    "record_bytes": 31,
+    "rows": [
+      " SAFE      BERLIN         42.00",
+      " LAST                          "
+    ]
+  },
+  "db-exit-two": {
+    "n": 3,
+    "header": 129,
+    "record_bytes": 31,
+    "rows": [
+      " PESTON    HONOLULU     1234.50",
+      " WADDAMS   AUSTIN        -42.00",
+      " LUMBERGH  DALLAS       7777.77"
+    ]
+  },
+  "db-exit-zap-two": {
+    "n": 1,
+    "header": 129,
+    "record_bytes": 31,
+    "rows": [
+      " NEW                           "
+    ]
+  }
+}

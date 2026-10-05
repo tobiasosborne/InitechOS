@@ -1,0 +1,5 @@
+STARTED trash-independent pid 4
+SHOT trash-independent-alert
+SHOT trash-independent-deleted-window
+SHOT trash-independent-orphan
+STOPPED 4

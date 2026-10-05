@@ -1,0 +1,5 @@
+fsck.fat 4.2 (2021-01-31)
+Reclaimed 1 unused cluster (512 bytes).
+
+Leaving filesystem unchanged.
+images/trash-edges-data.img: 12 files, 40/2847 clusters

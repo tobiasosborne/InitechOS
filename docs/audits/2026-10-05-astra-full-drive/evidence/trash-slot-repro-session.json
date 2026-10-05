@@ -1,0 +1,45 @@
+{
+  "started_utc": "2026-10-04T23:29:04.950264+00:00",
+  "driver_pid": 2,
+  "qemu_pid": 28,
+  "command": [
+    "qemu-system-i386",
+    "-cpu",
+    "486",
+    "-m",
+    "16",
+    "-drive",
+    "format=raw,file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/trash-slot-repro-boot.img",
+    "-serial",
+    "file:/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/evidence/trash-slot-repro-serial.log",
+    "-display",
+    "none",
+    "-qmp",
+    "stdio",
+    "-no-shutdown",
+    "-drive",
+    "file=/tmp/claude-1000/-home-tobias-Projects-initech-os/b2a8db72-c85d-481b-80db-4e49b4eb4913/scratchpad/astra1/images/trash-slot-repro-data.img,format=raw,if=ide,index=1"
+  ],
+  "images_before": {
+    "images/trash-slot-repro-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/trash-slot-repro-data.img": {
+      "bytes": 1474560,
+      "sha256": "327f00244a5a805a72b6314d8a5a98fe585e4d7eabc8b97f543d697a2c7e8b72"
+    }
+  },
+  "stopped_utc": "2026-10-04T23:29:42.266415+00:00",
+  "exit_code": 0,
+  "images_after": {
+    "images/trash-slot-repro-boot.img": {
+      "bytes": 229376,
+      "sha256": "db27270021089981cde72abb9a80f6b897fe874b3f310b0f071b0c23ff9705f8"
+    },
+    "images/trash-slot-repro-data.img": {
+      "bytes": 1474560,
+      "sha256": "ad83324b17f64d853e4309ca32c3440d161f42cd63f9fe585e72685759c003cf"
+    }
+  }
+}

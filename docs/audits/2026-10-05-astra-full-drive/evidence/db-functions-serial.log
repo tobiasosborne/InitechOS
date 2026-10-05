@@ -1,0 +1,234 @@
+S1
+JMP2
+S2
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+KAT 0x00500000-0x005349A4
+BI-OK
+EXTMEM kb=15232
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+IDT-SELFTEST-OK
+IDT-RESUMED
+CONSOLE
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FLAIR-HEAP-OK
+FLAIR-FAT-MOUNT-BEGIN
+FLAIR-FAT-MOUNT-OK
+DESKTOP-DB-CREATE
+TRASH-CREATE
+FLAIR-DESKTOP
+FINDER-DESKTOP-ICONS n=2
+TBX-GATE-READY vec=0x81
+FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+FLAIR-HOOK-SET
+IRQ-LIVE
+FLAIR-LIVE-READY
+FLAIR-EVT what=3 where=320,240 msg=00002B5C
+FLAIR-SUSPEND
+. USE CLIENTS.DBF
+. ? ABS(-4)
+
+4. ? EXP(1)
+31  Invalid function name.
+. ? IIF(.T.,1,2)
+
+1. ? INT(-2.9)
+
+-2. ? LOG(1)
+31  Invalid function name.
+. ? MAX(1,2)
+
+2. ? MIN(1,2)
+
+1. ? MOD(-7,3)
+
+-1. ? ROUND(-2.5,0)
+
+-2. ? SQRT(4)
+31  Invalid function name.
+. ? AT("b","abc")
+
+2. ? CHR(65)
+
+A. ? LEN("abc")
+
+3. ? LEFT("abc",2)
+
+ab. ? RIGHT("abc",2)
+
+bc. ? LOWER("AB")
+
+ab. ? UPPER("ab")
+
+AB. ? LTRIM("  a")
+
+a. ? RTRIM("a  ")
+
+a. ? TRIM("a  ")
+
+a. ? REPLICATE("ab",3)
+
+ababab. ? SPACE(2)
+
+  . ? STR(12.5,8,2)
+
+   12.50. ? SUBSTR("abc",2,1)
+
+b. ? TRANSFORM(12.5,"999.99")
+
+ 12.50. ? VAL("12.5")
+
+12.50. ? DTOC(CTOD("12/31/85"))
+
+12/31/85. ? CDOW(CTOD("12/31/85"))
+
+Tuesday. ? CMONTH(CTOD("12/31/85"))
+
+December. ? DOW(CTOD("12/31/85"))
+
+3. ? YEAR(CTOD("12/31/85"))
+
+1985. ? MONTH(CTOD("12/31/85"))
+
+12. ? DAY(CTOD("12/31/85"))
+
+31. ? TIME()
+31  Invalid function name.
+. ? ALIAS()
+31  Invalid function name.
+. ? DBF()
+
+CLIENTS. ? BOF()
+
+.F.. ? EOF()
+
+.F.. ? FOUND()
+
+.F.. ? DELETED()
+
+.F.. ? RECNO()
+
+1. ? RECCOUNT()
+
+3. ? RECSIZE()
+31  Invalid function name.
+. ? FCOUNT()
+31  Invalid function name.
+. ? FIELD(1)
+
+NAME. ? TYPE("BAL")
+
+C. ? FILE("CLIENTS.DBF")
+
+.T.. ? DISKSPACE()
+31  Invalid function name.
+. ? VERSION()
+31  Invalid function name.
+. ? OS()
+31  Invalid function name.
+. ? PCOL()
+31  Invalid function name.
+. ? PROW()
+31  Invalid function name.
+. ? ROW()
+31  Invalid function name.
+. ? COL()
+31  Invalid function name.
+. ? ISALPHA("a")
+
+.T.. ? ISLOWER("a")
+
+.T.. ? ISUPPER("A")
+
+.T.. SET ALTERNATE TO ALT.TXT
+7  File already exists.
+. SET ALTERNATE ON
+7  File already exists.
+. ? "ALTERNATE TEST"
+
+ALTERNATE TEST. SET ALTERNATE OFF
+7  File already exists.
+. SET ALTERNATE TO
+7  File already exists.
+. SET DEFAULT TO A
+7  File already exists.
+. SET PATH TO A:\
+7  File already exists.
+. SET ESCAPE ON
+7  File already exists.
+. SET CONFIRM ON
+7  File already exists.
+. SET BELL OFF
+7  File already exists.
+. SET CONSOLE OFF
+7  File already exists.
+. SET CONSOLE ON
+7  File already exists.
+. SET HEADING OFF
+7  File already exists.
+. SET HEADING ON
+7  File already exists.
+. LIST NAME,BAL
+       1 PESTON     1234.50
+       2 WADDAMS    -42
+       3 LUMBERGH   7777.77
+. LIST NAME,BAL OFF
+PESTON     1234.50
+WADDAMS    -42
+LUMBERGH   7777.77
+. DISPLAY ALL
+       1 PESTON     HONOLULU     1234.50
+       2 WADDAMS    AUSTIN       -42
+       3 LUMBERGH   DALLAS       7777.77
+. INDEX ON NAME TO TESTIDX
+16  *** Unrecognized command verb.
+. REINDEX
+16  *** Unrecognized command verb.
+. COPY STRUCTURE TO STRUCT
+16  *** Unrecognized command verb.
+. APPEND FROM CLIENTS.DBF
+7  File already exists.
+. SAVE TO MEMSAVE
+16  *** Unrecognized command verb.
+. RESTORE FROM MEMSAVE
+16  *** Unrecognized command verb.
+. PUBLIC X
+. STORE 5 TO X
+. ? X
+
+5. RELEASE X
+. ? X
+1  Internal error.
+. DO SIMPLE
+
+10. ? X
+
+5. SET PROCEDURE TO SIMPLE
+7  File already exists.
+. CLOSE PROCEDURE
+. LIST
+. CLOSE INDEX
+. LIST
+. QUIT
+FLAIR-TEXT-EXIT rc=0
+FLAIR-RESUME
+FLAIR-TICK n=10901
+FLAIR-TICK n=10904
+FLAIR-TICK n=10907
+FLAIR-TICK n=10910

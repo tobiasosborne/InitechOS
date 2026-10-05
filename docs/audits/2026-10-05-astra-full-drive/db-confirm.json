@@ -1,0 +1,356 @@
+{
+  "label": "db-confirm",
+  "boot": "images/flair_tenants_interactive.img",
+  "data": "images/db-fixture.img",
+  "actions": [
+    [
+      "key",
+      "backslash"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"ABCDEFGHIJKLMNO\""
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "REPLACE BAL WITH 999999999"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "REPLACE BAL WITH 123.45"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"AUDIT\",CITY WITH \"BERLIN\",BAL WITH -12.5"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "USE"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "shot",
+      "c001-editing"
+    ],
+    [
+      "type",
+      "? CTOD(\"02/29/00\")"
+    ],
+    [
+      "type",
+      "? CTOD(\"\")"
+    ],
+    [
+      "type",
+      "? CTOD(\"99/99/99\")"
+    ],
+    [
+      "type",
+      "SET CENTURY ON"
+    ],
+    [
+      "type",
+      "? DATE()"
+    ],
+    [
+      "type",
+      "? YEAR(DATE())"
+    ],
+    [
+      "type",
+      "? CTOD(\"01/01/00\")"
+    ],
+    [
+      "shot",
+      "c002-date"
+    ],
+    [
+      "type",
+      "? ROUND(2.5,0),ROUND(-2.5,0)"
+    ],
+    [
+      "type",
+      "? ROUND(2.6,0),ROUND(-2.6,0)"
+    ],
+    [
+      "type",
+      "? -2^2"
+    ],
+    [
+      "type",
+      "? 1/0"
+    ],
+    [
+      "type",
+      "? SQRT(-1)"
+    ],
+    [
+      "shot",
+      "c003-rounding"
+    ],
+    [
+      "type",
+      "CLOSE INDEXES"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "CLOSE FORMAT"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "CLOSE NONSENSE"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "shot",
+      "c004-close-indexes"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "INDEX ON NAME TO NAMES"
+    ],
+    [
+      "type",
+      "SET INDEX TO NAMES"
+    ],
+    [
+      "type",
+      "SET ORDER TO 1"
+    ],
+    [
+      "type",
+      "GO TOP"
+    ],
+    [
+      "type",
+      "SEEK \"WADDAMS\""
+    ],
+    [
+      "type",
+      "? FOUND(),RECNO()"
+    ],
+    [
+      "shot",
+      "c005-index"
+    ],
+    [
+      "type",
+      "SELECT 1"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF ALIAS ONE"
+    ],
+    [
+      "type",
+      "GO 1"
+    ],
+    [
+      "type",
+      "SELECT 2"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF ALIAS TWO"
+    ],
+    [
+      "type",
+      "GO 2"
+    ],
+    [
+      "type",
+      "? BAL"
+    ],
+    [
+      "type",
+      "SELECT ONE"
+    ],
+    [
+      "type",
+      "? BAL"
+    ],
+    [
+      "type",
+      "? TWO->BAL"
+    ],
+    [
+      "type",
+      "SELECT 2"
+    ],
+    [
+      "type",
+      "? BAL"
+    ],
+    [
+      "type",
+      "SELECT 1"
+    ],
+    [
+      "shot",
+      "c006-areas"
+    ],
+    [
+      "type",
+      "SET SAFETY ON"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "ZAP"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "shot",
+      "c007-safety"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"SAFE\",CITY WITH \"BERLIN\",BAL WITH 42"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "DELETE"
+    ],
+    [
+      "type",
+      "? DELETED()"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "RECALL"
+    ],
+    [
+      "type",
+      "DISPLAY"
+    ],
+    [
+      "type",
+      "DELETE"
+    ],
+    [
+      "type",
+      "PACK"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "type",
+      "APPEND BLANK"
+    ],
+    [
+      "type",
+      "REPLACE NAME WITH \"LAST\""
+    ],
+    [
+      "type",
+      "USE"
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "shot",
+      "c008-pack-rebuild"
+    ],
+    [
+      "type",
+      "QUIT"
+    ],
+    [
+      "pause",
+      2
+    ],
+    [
+      "shot",
+      "c009-desktop-return"
+    ]
+  ],
+  "sync": true
+}

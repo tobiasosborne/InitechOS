@@ -1,0 +1,30 @@
+{
+  "bytes_per_cluster": 512,
+  "entries": [
+    {
+      "name": "A",
+      "attributes": 16,
+      "clusters": [
+        36
+      ],
+      "logical_size": 0
+    },
+    {
+      "name": "CHILD",
+      "attributes": 16,
+      "clusters": [
+        37
+      ],
+      "logical_size": 0
+    },
+    {
+      "name": "KEEP.TXT",
+      "attributes": 32,
+      "clusters": [
+        39
+      ],
+      "logical_size": 31
+    }
+  ],
+  "allocated_tree_bytes": 1536
+}

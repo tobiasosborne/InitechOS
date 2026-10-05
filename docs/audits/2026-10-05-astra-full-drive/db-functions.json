@@ -1,0 +1,528 @@
+{
+  "label": "db-functions",
+  "boot": "images/flair_tenants_interactive.img",
+  "data": "images/db-fixture.img",
+  "actions": [
+    [
+      "key",
+      "backslash"
+    ],
+    [
+      "pause",
+      1
+    ],
+    [
+      "type",
+      "USE CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "? ABS(-4)"
+    ],
+    [
+      "type",
+      "? EXP(1)"
+    ],
+    [
+      "type",
+      "? IIF(.T.,1,2)"
+    ],
+    [
+      "type",
+      "? INT(-2.9)"
+    ],
+    [
+      "type",
+      "? LOG(1)"
+    ],
+    [
+      "type",
+      "? MAX(1,2)"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f006-functions"
+    ],
+    [
+      "type",
+      "? MIN(1,2)"
+    ],
+    [
+      "type",
+      "? MOD(-7,3)"
+    ],
+    [
+      "type",
+      "? ROUND(-2.5,0)"
+    ],
+    [
+      "type",
+      "? SQRT(4)"
+    ],
+    [
+      "type",
+      "? AT(\"b\",\"abc\")"
+    ],
+    [
+      "type",
+      "? CHR(65)"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f012-functions"
+    ],
+    [
+      "type",
+      "? LEN(\"abc\")"
+    ],
+    [
+      "type",
+      "? LEFT(\"abc\",2)"
+    ],
+    [
+      "type",
+      "? RIGHT(\"abc\",2)"
+    ],
+    [
+      "type",
+      "? LOWER(\"AB\")"
+    ],
+    [
+      "type",
+      "? UPPER(\"ab\")"
+    ],
+    [
+      "type",
+      "? LTRIM(\"  a\")"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f018-functions"
+    ],
+    [
+      "type",
+      "? RTRIM(\"a  \")"
+    ],
+    [
+      "type",
+      "? TRIM(\"a  \")"
+    ],
+    [
+      "type",
+      "? REPLICATE(\"ab\",3)"
+    ],
+    [
+      "type",
+      "? SPACE(2)"
+    ],
+    [
+      "type",
+      "? STR(12.5,8,2)"
+    ],
+    [
+      "type",
+      "? SUBSTR(\"abc\",2,1)"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f024-functions"
+    ],
+    [
+      "type",
+      "? TRANSFORM(12.5,\"999.99\")"
+    ],
+    [
+      "type",
+      "? VAL(\"12.5\")"
+    ],
+    [
+      "type",
+      "? DTOC(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "type",
+      "? CDOW(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "type",
+      "? CMONTH(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "type",
+      "? DOW(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f030-functions"
+    ],
+    [
+      "type",
+      "? YEAR(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "type",
+      "? MONTH(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "type",
+      "? DAY(CTOD(\"12/31/85\"))"
+    ],
+    [
+      "type",
+      "? TIME()"
+    ],
+    [
+      "type",
+      "? ALIAS()"
+    ],
+    [
+      "type",
+      "? DBF()"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f036-functions"
+    ],
+    [
+      "type",
+      "? BOF()"
+    ],
+    [
+      "type",
+      "? EOF()"
+    ],
+    [
+      "type",
+      "? FOUND()"
+    ],
+    [
+      "type",
+      "? DELETED()"
+    ],
+    [
+      "type",
+      "? RECNO()"
+    ],
+    [
+      "type",
+      "? RECCOUNT()"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f042-functions"
+    ],
+    [
+      "type",
+      "? RECSIZE()"
+    ],
+    [
+      "type",
+      "? FCOUNT()"
+    ],
+    [
+      "type",
+      "? FIELD(1)"
+    ],
+    [
+      "type",
+      "? TYPE(\"BAL\")"
+    ],
+    [
+      "type",
+      "? FILE(\"CLIENTS.DBF\")"
+    ],
+    [
+      "type",
+      "? DISKSPACE()"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f048-functions"
+    ],
+    [
+      "type",
+      "? VERSION()"
+    ],
+    [
+      "type",
+      "? OS()"
+    ],
+    [
+      "type",
+      "? PCOL()"
+    ],
+    [
+      "type",
+      "? PROW()"
+    ],
+    [
+      "type",
+      "? ROW()"
+    ],
+    [
+      "type",
+      "? COL()"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "f054-functions"
+    ],
+    [
+      "type",
+      "? ISALPHA(\"a\")"
+    ],
+    [
+      "type",
+      "? ISLOWER(\"a\")"
+    ],
+    [
+      "type",
+      "? ISUPPER(\"A\")"
+    ],
+    [
+      "type",
+      "SET ALTERNATE TO ALT.TXT"
+    ],
+    [
+      "type",
+      "SET ALTERNATE ON"
+    ],
+    [
+      "type",
+      "? \"ALTERNATE TEST\""
+    ],
+    [
+      "type",
+      "SET ALTERNATE OFF"
+    ],
+    [
+      "type",
+      "SET ALTERNATE TO"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v005-verbs"
+    ],
+    [
+      "type",
+      "SET DEFAULT TO A"
+    ],
+    [
+      "type",
+      "SET PATH TO A:\\"
+    ],
+    [
+      "type",
+      "SET ESCAPE ON"
+    ],
+    [
+      "type",
+      "SET CONFIRM ON"
+    ],
+    [
+      "type",
+      "SET BELL OFF"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v010-verbs"
+    ],
+    [
+      "type",
+      "SET CONSOLE OFF"
+    ],
+    [
+      "type",
+      "SET CONSOLE ON"
+    ],
+    [
+      "type",
+      "SET HEADING OFF"
+    ],
+    [
+      "type",
+      "SET HEADING ON"
+    ],
+    [
+      "type",
+      "LIST NAME,BAL"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v015-verbs"
+    ],
+    [
+      "type",
+      "LIST NAME,BAL OFF"
+    ],
+    [
+      "type",
+      "DISPLAY ALL"
+    ],
+    [
+      "type",
+      "INDEX ON NAME TO TESTIDX"
+    ],
+    [
+      "type",
+      "REINDEX"
+    ],
+    [
+      "type",
+      "COPY STRUCTURE TO STRUCT"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v020-verbs"
+    ],
+    [
+      "type",
+      "APPEND FROM CLIENTS.DBF"
+    ],
+    [
+      "type",
+      "SAVE TO MEMSAVE"
+    ],
+    [
+      "type",
+      "RESTORE FROM MEMSAVE"
+    ],
+    [
+      "type",
+      "PUBLIC X"
+    ],
+    [
+      "type",
+      "STORE 5 TO X"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v025-verbs"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "type",
+      "RELEASE X"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "type",
+      "DO SIMPLE"
+    ],
+    [
+      "type",
+      "? X"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v030-verbs"
+    ],
+    [
+      "type",
+      "SET PROCEDURE TO SIMPLE"
+    ],
+    [
+      "type",
+      "CLOSE PROCEDURE"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "type",
+      "CLOSE INDEX"
+    ],
+    [
+      "type",
+      "LIST"
+    ],
+    [
+      "pause",
+      0.5
+    ],
+    [
+      "shot",
+      "v035-verbs"
+    ],
+    [
+      "type",
+      "QUIT"
+    ],
+    [
+      "pause",
+      3
+    ],
+    [
+      "shot",
+      "v999-return"
+    ]
+  ],
+  "sync": true
+}
