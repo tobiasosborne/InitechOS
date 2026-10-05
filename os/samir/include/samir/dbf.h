@@ -158,6 +158,8 @@ typedef enum {
     DBF_ERR_BAD_TYPE    = 10, /* S1.2: field type byte is not one of C/N/D/L/M (III+ only).
                                * Ref: dbf.md sec 5 (III+ types); plan Sec 2.C (fail loud). */
     DBF_ERR_BAD_RECNO   = 11, /* S1.3: recno out of range (< 1 or > nrec). */
+    DBF_ERR_NOENT       = 13, /* typed PAL open failure: missing path */
+    DBF_ERR_ACCESS      = 14, /* typed PAL open failure: inaccessible */
     DBF_ERR_BAD_REC     = 12  /* S1.3: malformed record (bad delete flag or bad L byte).
                                * dbf.md sec 6: delete flag must be 0x20 or 0x2A; any other
                                * byte is corrupt data -- fail loud (Rule 2). */

@@ -24,8 +24,9 @@
  *   SKIP +n past the last -> EOF=1, BOF=0. SKIP -n before the first -> BOF=1,
  *   EOF=0. Read via wa_eof(env, area) / wa_bof(env, area) (workarea.h).
  *
- * GATED edges (plan sec7 / GAPS secP): SKIP at EOF/BOF exact error-vs-silent and
- *   GO to a record hidden by SET DELETED/FILTER are loud-skipped in the oracle.
+ * GATED edge (plan sec7 / GAPS secP): SKIP at EOF/BOF exact error-vs-silent.
+ * Direct GO is physical (Using III+ U5-126); TOP/BOTTOM and SKIP honor the
+ * per-area FILTER and session DELETED view (U5-229; Programming P10-17/18).
  *   The implementation silently clamps at EOF/BOF.
  *
  * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).

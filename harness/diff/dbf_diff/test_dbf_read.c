@@ -632,9 +632,8 @@ static void test_bank_norec(samir_pal_t *pal, const char *base)
  *   rec8 active CODE=9 TITLE=Miscellaneous
  * (0-indexed; our recno 1 and 9.) Never derived from dbf.c itself.
  *
- * We open PAL_RDWR (dbf_open_rw) but never call dbf_flush here, so the real
- * corpus golden on disk is never rewritten (the write-back happens only if
- * dbf_flush is called; opening PAL_RDWR alone issues no write()).
+ * We open PAL_RDWR on verified byte-identical local copies. The real corpus
+ * is read-only; no test asks the sandbox to open its goldens read/write.
  *
  * Ref: dbf.md sec 4 (+1/+2 terminator forms), sec 8 Invariant 1;
  *      os/samir/include/samir/dbf.h dbf_open_rw doc ("normalized to the +1
@@ -644,6 +643,34 @@ static void test_bank_norec(samir_pal_t *pal, const char *base)
  *      spec/samir/dbf_format.h DBF_HDR_HEADER_LEN_OFF ("TRUST this; do not
  *      assume +1 or +2"); bead initech-jf8p.
  * ============================================================ */
+
+/* Sandbox-safe reference access: corpus files remain read-only. Use and
+ * verify a byte-identical local copy before any PAL_RDWR open. Expected
+ * records and format invariants still come from the independent real corpus.
+ */
+static int copy_reference_rw(const char *src,const char *dst)
+{
+    FILE *a=fopen(src,"rb"), *b=fopen(dst,"wb");
+    unsigned char bytes[4096];
+    size_t n;
+    int ok=a && b, ca,cb;
+    CHECK(ok,"RW reference copy files opened");
+    if(ok) {
+        while((n=fread(bytes,1,sizeof(bytes),a))!=0) {
+            if(fwrite(bytes,1,n,b)!=n) { ok=0; break; }
+        }
+        if(ferror(a)) ok=0;
+    }
+    if(a) fclose(a);
+    if(b && fclose(b)) ok=0;
+    a=fopen(src,"rb");b=fopen(dst,"rb");
+    if(!a || !b) ok=0;
+    if(ok) do { ca=fgetc(a);cb=fgetc(b);if(ca!=cb) ok=0; } while(ok && ca!=EOF);
+    if(a) fclose(a);
+    if(b) fclose(b);
+    CHECK(ok,"RW local fixture is byte-identical to real corpus");
+    return ok;
+}
 static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
 {
     char path[1024];
@@ -660,7 +687,8 @@ static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
     }
 
     /* --- open READ-WRITE (7az.16 path); this is the RW-USE the bug hits --- */
-    rc = dbf_open_rw(pal, path, &tbl);
+    if(!copy_reference_rw(path,"build/reference-tax-rw.DBF")) return;
+    rc = dbf_open_rw(pal, "build/reference-tax-rw.DBF", &tbl);
     snprintf(msg, sizeof(msg), "TAX(rw): dbf_open_rw succeeds (rc=%d)", rc);
     CHECK(rc == DBF_OK && tbl != NULL, msg);
     if (rc != DBF_OK || !tbl) return;
@@ -714,7 +742,8 @@ static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
 
         join(path2, sizeof(path2), base, SP_PATH "/TOURS.DBF");
         if (file_exists(path2)) {
-            rc = dbf_open_rw(pal, path2, &t2);
+            if(!copy_reference_rw(path2,"build/reference-tours-rw.DBF")) return;
+            rc = dbf_open_rw(pal, "build/reference-tours-rw.DBF", &t2);
             snprintf(msg, sizeof(msg), "TOURS(rw): dbf_open_rw succeeds (rc=%d)", rc);
             CHECK(rc == DBF_OK && t2 != NULL, msg);
             if (rc == DBF_OK && t2) {

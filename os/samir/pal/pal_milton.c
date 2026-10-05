@@ -158,6 +158,8 @@ static pal_err dos_err_to_pal(uint32_t dos_ax)
     }
 }
 
+#include "line_input.h"
+
 /* ---- Milton PAL state ----------------------------------------------------- */
 
 typedef struct {
@@ -167,6 +169,7 @@ typedef struct {
      * heap_base = (returned_segment << 4) as a flat linear address.
      * heap_ptr  = next free byte (bumps forward on alloc).
      * heap_end  = heap_base + PAL_MILTON_HEAP_BYTES. */
+    samir_line_state input;
     uint8_t     *heap_base;
     uint8_t     *heap_ptr;
     uint8_t     *heap_end;
@@ -556,86 +559,17 @@ static void milton_conout(samir_pal_t *p, const char *s, uint32_t n)
     (void)cf;
 }
 
-/*
- * milton_conin_line: read one cooked line via AH=3Fh on handle 0 (CON/stdin).
- *
- * INT 21h AH=3Fh on a CON device (SFT_DEV_CON, handle 0) calls the shared
- * conin_cooked_line editor and returns the line bytes INCLUDING CR+LF at the
- * end; EAX = total bytes returned (line + CR + LF; Microsoft KB Q113058;
- * os/milton/int21.c do_read CON branch). The returned buffer contains the
- * line chars followed by 0x0D (CR) and 0x0A (LF), and EAX includes those.
- *
- * We strip the trailing CR and LF to match pal_host.c's fgets-strip semantics
- * (pal_host host_conin_line strips the trailing '\n'). The REPL line parser
- * expects a bare line with no trailing newline (samir_main.c repl_trim strips
- * leading/trailing whitespace, but the contract says we should strip it).
- *
- * Buffer capacity: we request min(cap, 255) bytes from the kernel. The DOS
- * CON read limit is 128 bytes per line (INT21_CON_LINE_MAX in do_read), so
- * any cap > 130 (128 + CR + LF) is effectively the same. We allocate a local
- * staging buffer of 258 bytes to receive the kernel's raw bytes (line + CR +
- * LF), then copy the stripped result into the caller's buf.
- *
- * Returns the line length (>= 0, no trailing newline), or < 0 on EOF/error.
- * 0 bytes read from the kernel (without CF) means EOF or Ctrl-C abort.
- *
- * Ref: pal.h conin_line slot; ADR-0009 DEC-06; os/milton/int21.c do_read CON
- *      branch (KB Q113058); pal_host.c host_conin_line (fgets-strip pattern).
- */
-#define CONIN_STAGE_MAX  258u    /* 128-char max line + CR + LF + 2 spare bytes */
-
+/* Ref: pal.h conin_line and ADR-0009 DEC-06. AH=3Fh stdin is a byte
+ * stream when redirected. The shared framer preserves read-ahead and CRLF
+ * across reads, while full-size reads keep cooked CON from dropping its tail.
+ * Emulator oracle replays audit K13; this is not a dBASE shell golden. */
+static int32_t milton_input_read(void *user, void *buf, uint32_t cap)
+{
+    return milton_read((samir_pal_t *)user,0,buf,cap);
+}
 static int32_t milton_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 {
-    uint8_t stage[CONIN_STAGE_MAX];
-    uint32_t want;
-    int cf = 0;
-    uint32_t got;
-    uint32_t len;
-    uint32_t i;
-    (void)p;
-
-    if (cap == 0u || buf == (char *)0) {
-        return -(int32_t)PAL_EACCES;
-    }
-
-    /* Request at most CONIN_STAGE_MAX bytes so the kernel does not overwrite
-     * our local staging buffer. The cooked editor is capped at 128 chars +
-     * CR + LF anyway (INT21_CON_LINE_MAX = 128). */
-    want = (cap < CONIN_STAGE_MAX) ? cap : (CONIN_STAGE_MAX - 1u);
-
-    /* AH=3Fh READ on handle 0 (CON/stdin). EDX=stage, EBX=0, ECX=want. */
-    got = int21(0x3Fu, 0x00u,
-                (uint32_t)(uintptr_t)stage,   /* EDX=buffer */
-                0u,                             /* EBX=handle 0 (stdin/CON) */
-                want,                           /* ECX=count */
-                0u, &cf);
-    (void)cf;  /* CON reads: 0 bytes == EOF/^C; CF rare; treat both as EOF */
-
-    got &= 0xFFFFu;   /* AX is low 16 bits */
-
-    if (got == 0u) {
-        return -1;    /* EOF or Ctrl-C abort (do_read returns 0, CF clear) */
-    }
-
-    /* Strip trailing CR (0x0D) and LF (0x0A).
-     * The kernel appends CR+LF after the line chars; we strip both.
-     * We also strip any trailing CR that appears without a LF as insurance. */
-    len = got;
-    while (len > 0u &&
-           (stage[len - 1u] == (uint8_t)'\n' || stage[len - 1u] == (uint8_t)'\r')) {
-        len--;
-    }
-
-    /* Copy at most (cap - 1) chars into the caller's buffer, NUL-terminate. */
-    if (len > cap - 1u) {
-        len = cap - 1u;
-    }
-    for (i = 0u; i < len; i++) {
-        buf[i] = (char)stage[i];
-    }
-    buf[len] = '\0';
-
-    return (int32_t)len;
+    return samir_line_read(&state_of(p)->input,milton_input_read,p,buf,cap);
 }
 
 /* ---- Terminal extension stubs (S8.4) -------------------------------------- */
@@ -849,6 +783,9 @@ samir_pal_t *pal_milton_make(void)
     int cf = 0;
     uint32_t result;
     uint32_t heap_seg;
+
+    st->input.pos=st->input.len=0;
+    st->input.skip_lf=0;
 
     /* Wire the vtable. */
     st->vtable.open       = milton_open;

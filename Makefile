@@ -3088,6 +3088,71 @@ test-samir-query: $(TEST_SAMIR_QUERY)
 	@$(TEST_SAMIR_QUERY) $(DBASE3_DECOMP)
 	@printf ">>> test-samir-query: green\n"
 
+# Audit K05/K06/K09: manual-grounded REPL sessions (no minted output golden).
+TEST_SAMIR_VIEW := $(BUILD)/test_samir_view
+TEST_SAMIR_USE := $(BUILD)/test_samir_use
+$(TEST_SAMIR_VIEW): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(TEST_SAMIR_USE): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-view test-samir-use
+test-samir-view: $(TEST_SAMIR_VIEW)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@$(TEST_SAMIR_VIEW)
+	@printf '>>> test-samir-view: green\n'
+test-samir-use: $(TEST_SAMIR_USE)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@$(TEST_SAMIR_USE) $(DBASE3_DECOMP)
+	@printf '>>> test-samir-use: green\n'
+
+TEST_SAMIR_INPUT := $(BUILD)/test_samir_input
+$(TEST_SAMIR_INPUT): $(DBF_DIFF_DIR)/test_samir_input.c $(SAMIR_DIR)/pal/line_input.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -o $@ $<
+.PHONY: test-samir-input
+test-samir-input: $(TEST_SAMIR_INPUT)
+	@$(TEST_SAMIR_INPUT)
+	@printf '>>> test-samir-input: green\n'
+
+# Rule 6: implementation mutants must fail the named assertion, with a summary.
+SAMIR_VIEW_MUTS := $(BUILD)/test_samir_view_filter $(BUILD)/test_samir_view_deleted $(BUILD)/test_samir_view_marker
+SAMIR_USE_MUTS := $(BUILD)/test_samir_use_extension $(BUILD)/test_samir_use_error
+SAMIR_INPUT_MUT := $(BUILD)/test_samir_input_mut
+$(SAMIR_VIEW_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	@case "$@" in *_filter) flag=SAMIR_MUTATE_FILTER_VIEW;; *_deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; *_marker) flag=SAMIR_MUTATE_DELETE_MARK;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(SAMIR_USE_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	@case "$@" in *_extension) flag=SAMIR_MUTATE_USE_EXTENSION;; *_error) flag=SAMIR_MUTATE_USE_ERROR;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(SAMIR_INPUT_MUT): $(DBF_DIFF_DIR)/test_samir_input.c $(SAMIR_DIR)/pal/line_input.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_STDIN_LINES -Iseed -I$(SAMIR_INC_DIR) -o $@ $<
+.PHONY: test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant
+test-samir-view-mutant: $(SAMIR_VIEW_MUTS)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@set -e; for kind in filter deleted marker; do \
+	  case $$kind in filter) reason='K05 hidden row absent';; deleted) reason='K06 deleted and filter compose';; marker) reason='K06 marker precedes deleted record';; esac; \
+	  if $(BUILD)/test_samir_view_$$kind > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-$$kind.log; \
+	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-$$kind.log; \
+	  printf '>>> test-samir-view-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-view-mutant: green\n'
+test-samir-use-mutant: $(SAMIR_USE_MUTS)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@set -e; for kind in extension error; do \
+	  case $$kind in extension) reason='K09 short USE defaults to .DBF';; error) reason='K09 missing file is';; esac; \
+	  if $(BUILD)/test_samir_use_$$kind $(DBASE3_DECOMP) > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-$$kind.log; \
+	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-$$kind.log; \
+	  printf '>>> test-samir-use-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-use-mutant: green\n'
+test-samir-input-mutant: $(SAMIR_INPUT_MUT)
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@if $(SAMIR_INPUT_MUT) > $(BUILD)/samir-audit/mut-input.log 2>&1; then echo '!!! input mutant passed'; exit 1; fi
+	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-input.log
+	@grep -Fq 'one logical command, no embedded newline' $(BUILD)/samir-audit/mut-input.log
+	@printf '>>> test-samir-input-mutant: green (multi-command read correctly RED)\n'
+
 # ---- SAMIR writable USE: dbf_open_rw + wa_set_open_rw (initech-7az.16) ----
 # dbf_open_rw opens an EXISTING .dbf PAL_RDWR (shared parse path with dbf_open) so
 # the S1.5 mutation verbs + dbf_flush work; wa_set_open_rw USEs it RW (+ ndx_open_rw)
@@ -25085,7 +25150,7 @@ SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
 SAMIR_COM       := $(BUILD)/SAMIR.COM
 .PHONY: samir-com
 samir-com: $(SAMIR_COM)
-$(SAMIR_COM): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com && mkdir -p $(BUILD)/samir_com
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -25097,6 +25162,46 @@ $(SAMIR_COM): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
 	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x40100, soft-float, x87=%s)\n' "$$sz" "$$x87"
 
+TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
+$(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+.PHONY: test-samir-audit-emu test-samir-input-emu
+test-samir-audit-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+	@$(TEST_SAMIR_AUDIT_EMU) view
+	@printf '>>> test-samir-audit-emu: green\n'
+test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+	@$(TEST_SAMIR_AUDIT_EMU) input
+	@printf '>>> test-samir-input-emu: green\n'
+
+# On-target mutants re-run the SAME complete oracle (no crash counts as RED).
+SAMIR_AUDIT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_AUDIT_,filter.COM deleted.COM marker.COM extension.COM useerror.COM input.COM)
+$(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@case "$*" in filter) flag=SAMIR_MUTATE_FILTER_VIEW;; deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; marker) flag=SAMIR_MUTATE_DELETE_MARK;; extension) flag=SAMIR_MUTATE_USE_EXTENSION;; useerror) flag=SAMIR_MUTATE_USE_ERROR;; input) flag=SAMIR_MUTATE_STDIN_LINES;; esac; \
+	set -e; d=$(BUILD)/samir_audit_$*; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
+	$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+.PHONY: test-samir-audit-emu-mutant test-samir-input-emu-mutant
+test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@set -e; for kind in filter deleted marker extension useerror; do \
+	  case $$kind in filter) reason='K05 active FILTER excludes negative row';; deleted) reason='K06 ON hides deleted row';; marker) reason='K06 audit DELETE+DISPLAY has asterisk';; extension) reason='K09 implicit extension succeeded before explicit control';; useerror) reason='K09 missing table is';; esac; \
+	  if $(TEST_SAMIR_AUDIT_EMU) view $(BUILD)/SAMIR_AUDIT_$$kind.COM > $(BUILD)/samir-audit/mut-emu-$$kind.log 2>&1; then echo '!!! emu mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-$$kind.log; \
+	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-emu-$$kind.log; \
+	  grep -q 'triple_fault=0' $(BUILD)/samir-audit/emu.report; \
+	  grep -q 'quit_after_found=1' $(BUILD)/samir-audit/emu.report; \
+	  printf '>>> test-samir-audit-emu-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-audit-emu-mutant: green\n'
+test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@if $(TEST_SAMIR_AUDIT_EMU) input $(BUILD)/SAMIR_AUDIT_input.COM > $(BUILD)/samir-audit/mut-emu-input.log 2>&1; then echo '!!! input emu mutant passed'; exit 1; fi
+	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-input.log
+	@grep -Fq 'K13 USE/LIST/QUIT rendered all three rows' $(BUILD)/samir-audit/mut-emu-input.log
+	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/emu.report
+	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/emu.report
+	@printf '>>> test-samir-input-emu-mutant: green (multi-command read correctly RED; clean shell return)\n'
+
 # --- SAMIR.COM SHORT-READ MUTANT (bead hdlb; Rule 6): the SAME .COM build but
 #     with -DPAL_MILTON_MUTATE_SHORT_READ on the on-target I/O path -- milton_read
 #     shaves one byte off every multi-byte read, so the .dbf header/records read
@@ -25107,7 +25212,7 @@ $(SAMIR_COM): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 SAMIR_COM_MUT   := $(BUILD)/SAMIR_MUT.COM
 .PHONY: samir-com-mutant
 samir-com-mutant: $(SAMIR_COM_MUT)
-$(SAMIR_COM_MUT): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_MUT): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_mut && mkdir -p $(BUILD)/samir_com_mut
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_mut/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -25365,7 +25470,7 @@ endef
 SAMIR_COM_DROPWRITE := $(BUILD)/SAMIR_DROPWRITE.COM
 .PHONY: samir-com-dropwrite
 samir-com-dropwrite: $(SAMIR_COM_DROPWRITE)
-$(SAMIR_COM_DROPWRITE): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_DROPWRITE): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_dropwrite && mkdir -p $(BUILD)/samir_com_dropwrite
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dropwrite/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -25607,7 +25712,7 @@ $(Y2KACCT_PRG): $(Y2KACCT_PRG_SRC) | $(BUILD)
 SAMIR_COM_DOTRUNC := $(BUILD)/SAMIR_DOTRUNC.COM
 .PHONY: samir-com-dotrunc
 samir-com-dotrunc: $(SAMIR_COM_DOTRUNC)
-$(SAMIR_COM_DOTRUNC): $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_DOTRUNC): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_dotrunc && mkdir -p $(BUILD)/samir_com_dotrunc
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dotrunc/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
@@ -26384,6 +26489,7 @@ test-dos-safety-k01-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(OJXN_MUT_TRAC
 
 TEST_UNIT_GATES := \
 	test-tbx-file test-tbx-file-mutant \
+	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
@@ -27498,6 +27604,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(TRACER_IMG) $(MORE_PROG_MUT_BIN) $(MOR
 # (record-flair-repro byte-identical), and confirmed ppm_flair_cursor_check
 # green. Host mutants (NO_ERASE trail / HOTSPOT+3) carry the Rule-6 teeth.
 TEST_EMU_GATES := \
+	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \

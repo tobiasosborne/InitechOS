@@ -200,12 +200,16 @@ static void test_physical_nav(samir_pal_t *pal)
     int rc;
     char msg[256];
 
+    /* Preserve nav.h fail-loud validation even for the visible SKIP 0 path. */
+    CHECK(wa_nav_skip(NULL,1,0)==-NAV_ERR_RANGE,"SKIP 0 rejects null environment");
     CHECK(write_min5_dbf(pa) == 0, "tier0: write 5-record table");
 
     ip = xb_interp_make(pal);
     CHECK(ip != NULL, "tier0: xb_interp_make");
     if (!ip) { remove(pa); return; }
     env = xb_interp_env(ip);
+    CHECK(wa_nav_skip(env,0,0)==-NAV_ERR_RANGE,"SKIP 0 rejects invalid area");
+    CHECK(wa_nav_skip(env,1,0)==-NAV_ERR_EMPTY,"SKIP 0 rejects closed area");
 
     rc = wa_set_open(env, 1, pa, "T0", NULL);
     snprintf(msg, sizeof(msg), "tier0: USE 5-rec table rc=%d", rc);

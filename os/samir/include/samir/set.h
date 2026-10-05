@@ -96,12 +96,13 @@ typedef enum {
  * without an additional indirection. The getter set_get_exact reads it back
  * from the ctx for symmetry.
  *
- * Fields for GATED options (INDEX/FILTER/RELATION) store the raw option text
+ * Fields for GATED INDEX/RELATION options store the raw option text
  * (NUL-terminated, bounded) so the oracle can assert they were stored without
- * triggering the deferred runtime plumbing.
+ * triggering the deferred runtime plumbing. FILTER text is a compatibility
+ * snapshot; the live per-area predicate belongs to workarea.c (Using U5-229).
  * ----------------------------------------------------------------------- */
 
-/* Maximum raw text retained for GATED options (INDEX/FILTER/RELATION). */
+/* Maximum raw text retained for option snapshots. */
 #define SET_GATED_TEXT_CAP  128
 
 typedef struct {
