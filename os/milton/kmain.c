@@ -6595,7 +6595,15 @@ void kernel_main(void)
      * Making the shell the DEFAULT boot + migrating the demo gates is a SEPARATE
      * downstream task (see the follow-up bead). Ref: ADR-0003 DEC-11/DEC-12. */
     serial_puts("SHELL-READY\n");
-    command_repl();
+    /* The boot command processor is permanent (the CONFIG.SYS /P baseline).
+     * Microsoft MS-DOS_3.3_Users_Guide_198707.pdf, Reference pp. 46, 66.
+     * BOOT_SECONDARY_SHELL is a factory fixture for the existing EXIT gates;
+     * it exercises the same REPL as a returning caller. L035 / initech-pbru. */
+#ifdef BOOT_SECONDARY_SHELL
+    command_repl(0);
+#else
+    command_repl(1);
+#endif
     serial_puts("SHELL-DONE\n");   /* the REPL returned via EXIT (clean) */
     for (;;) {
         __asm__ __volatile__("hlt");

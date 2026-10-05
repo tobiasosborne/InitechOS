@@ -2129,12 +2129,13 @@ static uint8_t dos_conin(void)
  * run_external (the latch site) and run_batch (the IF-eval site) share it. */
 static uint8_t g_errorlevel = 0u;
 
-/* Set to 1 when EXIT is dispatched -- from the interactive prompt OR from
- * inside a .BAT (DOS EXIT ends COMMAND.COM either way).  The batch interpreter
+/* Set to 1 when a nonpermanent processor accepts EXIT, from the prompt or a
+ * batch. The permanent primary ignores it. The batch interpreter
  * checks this after each dispatched line and unwinds (CALL nests included), and
  * command_repl's main loop returns on it.  File scope so dispatch_line (the
  * setter) and command_repl / run_batch (the checkers) share one flag. */
 static int g_shell_exit = 0;
+static int g_shell_permanent = 1;
 
 /* AH=30h GET VERSION: AL=major, AH=minor. */
 static void dos_getver(uint8_t *major, uint8_t *minor)
@@ -3101,10 +3102,9 @@ static void read_line(char *out)
  * and external programs behave identically whether typed or scripted (beads
  * initech-xw1; the refactor split out of command_repl's old inline switch).
  *
- * Returns 1 if the line was EXIT (the shell should terminate -- DOS EXIT ends
- * COMMAND.COM whether typed at the prompt or reached inside a .BAT), else 0.
- * The caller (command_repl) returns on a 1; run_batch propagates the 1 up so a
- * batch EXIT tears down the whole shell (authentic DOS behaviour). */
+ * Returns 1 when a nonpermanent processor accepts EXIT, else 0. The REPL
+ * returns on 1; run_batch unwinds the secondary's batches. A permanent
+ * processor returns 0 for EXIT and continues without a diagnostic. */
 static int dispatch_line(const char *line)
 {
     cmd_line_t parsed;
@@ -3163,6 +3163,14 @@ static int dispatch_line(const char *line)
             builtin_time(parsed.arg);
             break;
         case CMD_EXIT:
+            /* MS-DOS_3.3_Users_Guide_198707.pdf, Reference pp. 46, 66;
+             * IBM 6138519_DOS_3.10_Reference_Feb85.pdf pp. 7-53/7-54.
+             * No previous processor exists for the permanent primary.
+             * The shared dispatcher also covers AUTOEXEC, IF, FOR and pipes.
+             * L035 / initech-pbru. Ignoring EXIT emits no diagnostic. */
+#ifndef CMD_MUTATE_PERMANENT_EXIT
+            if (g_shell_permanent) break;
+#endif
             /* Grep-able clean-exit marker. Plain '\n' (no CR) so the serial
              * line is exactly "SHELL-EXIT" -- the oracle's ^SHELL-EXIT$
              * anchored match would miss a trailing CR (the same serial-clean
@@ -4197,9 +4205,11 @@ static void run_batch_invoke(const char *path, const char *tail)
     run_batch(path, argv, argc);
 }
 
-void command_repl(void)
+void command_repl(int permanent)
 {
     char line[CMD_LINE_MAX];
+    g_shell_permanent = permanent != 0;
+    g_shell_exit = 0;
 
     /* Seed the master environment once at REPL entry (beads initech-1i0x
      * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
@@ -4218,8 +4228,8 @@ void command_repl(void)
      * the path, no positional params).  A typical AUTOEXEC begins "@ECHO OFF"
      * and sets PATH/PROMPT, so its side effects (env, prompt) persist into the
      * REPL because run_batch dispatches SET/PROMPT against g_master_env.  If
-     * AUTOEXEC.BAT runs an EXIT it tears the shell down (g_shell_exit) -- DOS
-     * behaviour -- so we re-check the flag before entering the loop.
+     * AUTOEXEC.BAT runs an EXIT, only a nonpermanent processor unwinds; the
+     * primary continues the batch. Recheck before entering the loop.
      * Ref: MS-DOS 3.3 Tech Ref Ch.3; spec/dos_autoexec_bat_baseline.txt. */
     {
         const char *autoexec = "A:\\AUTOEXEC.BAT";
