@@ -322,6 +322,13 @@ int main(void)
               "G golden header 0x%02X: aw %d lb %d, NFNT aw %d lb %d", c,
               nfnt5478_aw(c), nfnt5478_lb(c), aw, lb);
     }
+    {   /* the ellipsis entry (bead initech-tdnl.68) */
+        int lb = -1, aw = -1;
+        CHECK(nfnt_ow(NFNT5478_ELLIPSIS, &lb, &aw) &&
+              nfnt5478_aw(NFNT5478_ELLIPSIS) == aw && nfnt5478_lb(NFNT5478_ELLIPSIS) == lb,
+              "G golden header 0xC9: aw %d lb %d, NFNT aw %d lb %d",
+              nfnt5478_aw(NFNT5478_ELLIPSIS), nfnt5478_lb(NFNT5478_ELLIPSIS), aw, lb);
+    }
 
     printf("  %d checks, %d failures\n", g_checks, g_fails);
     if (g_fails) {

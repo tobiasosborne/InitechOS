@@ -57,13 +57,16 @@
 #define FG_TITLE_RUN_RIGHT_OFF     38
 #define FG_TITLE_FIXED_TEXT       "TITLE"
 #define FG_TITLE_TRUNC_SOURCE     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-/* Re-derived for the PROPORTIONAL run (bead initech-tdnl.33) from the NFNT
- * 5478 advances below: the 150-px frame's safe run is [421,512); "ABCDEFGH."
- * is 8+8+8+8+7+7+8+8+4 = 66 px, centered at 400 + (150-66)/2 = 442, ink
- * [443,507) (A lb 1; '.' lb 1, 2 ink columns), gap [437,512) fits; one more
- * letter ("ABCDEFGHI.", 72 px at 439, gap [434,515)) does not. */
-#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFGH."
-#define FG_TITLE_TRUNC_X          442
+/* RE-KEYED 2026-10-15 (bead initech-tdnl.68): the truncation marker is the
+ * Chicago ellipsis 0xC9 (NFNT 5478 lb 2 aw 14; spec/chrome_metrics.h), no
+ * longer one period. Re-derived from the NFNT 5478 advances below: the 150-px
+ * frame's safe run is [421,512); "ABCDEFG" + 0xC9 is 8+8+8+8+7+7+8 + 14 = 68
+ * px, centered at 400 + (150-68)/2 = 441, ink [442,507) (A lb 1; the
+ * ellipsis pen 495 + lb 2 + 10 ink columns), gap [436,512) fits; one more
+ * letter ("ABCDEFGH" + 0xC9, 76 px at 437, ink to 511, gap to 516) does not.
+ * (Was "ABCDEFGH." at 442 under bead initech-tdnl.33.) */
+#define FG_TITLE_TRUNC_EXPECTED   "ABCDEFG\xC9"
+#define FG_TITLE_TRUNC_X          441
 
 /* TITLE GLYPH RUN METRICS (bead initech-tdnl.33): the oracle places each
  * glyph of the expected title run with the REAL NFNT 5478 advances and

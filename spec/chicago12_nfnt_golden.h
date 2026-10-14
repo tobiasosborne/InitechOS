@@ -39,8 +39,22 @@ static const unsigned char __attribute__((unused)) NFNT5478_LB[NFNT5478_LAST - N
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1
 };
 
-/* Golden advance / bearing of printable byte c (callers pass 0x20..0x7E). */
-static inline int nfnt5478_aw(int c) { return NFNT5478_AW[c - NFNT5478_FIRST]; }
-static inline int nfnt5478_lb(int c) { return NFNT5478_LB[c - NFNT5478_FIRST]; }
+/* The one extended code the Toolbox draws: the Mac Roman ellipsis 0xC9, which
+ * ends a truncated window title (bead initech-tdnl.68). NFNT_5478.bin owTable
+ * byte 2612 + 2*0xC9 = 0x020E: lb 2, aw 14 (chicago.md "widMax"). Leg G of
+ * test-chicago-metrics re-reads it from the binary like every entry above. */
+#define NFNT5478_ELLIPSIS     0xC9
+#define NFNT5478_ELLIPSIS_AW  14
+#define NFNT5478_ELLIPSIS_LB  2
+
+/* Golden advance / bearing of byte c (callers pass 0x20..0x7E or 0xC9). */
+static inline int nfnt5478_aw(int c)
+{
+    return c == NFNT5478_ELLIPSIS ? NFNT5478_ELLIPSIS_AW : NFNT5478_AW[c - NFNT5478_FIRST];
+}
+static inline int nfnt5478_lb(int c)
+{
+    return c == NFNT5478_ELLIPSIS ? NFNT5478_ELLIPSIS_LB : NFNT5478_LB[c - NFNT5478_FIRST];
+}
 
 #endif /* INITECH_SPEC_CHICAGO12_NFNT_GOLDEN_H */

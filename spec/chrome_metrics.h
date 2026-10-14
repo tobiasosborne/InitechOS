@@ -64,7 +64,13 @@
 #define FLAIR_CHROME_TITLE_TEXT_TOP_OFF        3
 #define FLAIR_CHROME_TITLE_RUN_LEFT_OFF       21
 #define FLAIR_CHROME_TITLE_RUN_RIGHT_OFF      38
-#define FLAIR_CHROME_TITLE_TRUNC_MARKER       '.'
+/* RE-KEYED 2026-10-15 (bead initech-tdnl.68, Rule 8 -- a stated change): an
+ * overlong title now ends in the Mac Roman ELLIPSIS, Chicago 12 code 0xC9 (the
+ * strike carries it: NFNT 5478 lb 2 aw 14; golden-verified against the
+ * "About This Macintosh..." item of s7_menu_apple.png by test-font-styles G2),
+ * as System 7 / Mac OS 8 titles do (TruncString, smTruncEnd). It was one
+ * period, the R0.2 simplification, while the strike had no ellipsis glyph. */
+#define FLAIR_CHROME_TITLE_TRUNC_MARKER       ((char)0xC9)
 
 /* Platinum widgets: 12x12 dark box plus white right/bottom outer highlight.
  * R is the inclusive structure-right coordinate in the measured rule.
