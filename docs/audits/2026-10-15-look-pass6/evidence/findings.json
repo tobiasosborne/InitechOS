@@ -1,0 +1,948 @@
+[
+  {
+    "id": "M001",
+    "area": "menu bar",
+    "severity": "P3",
+    "summary": "Apple slot and first title sit too far left",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). ",
+    "initech": "Lower-bar Apple black ink is x=4..13; File ink x=28..48. The same narrow Apple slot is on the upper bar. File starts 15 px left of the Mac capture; logo starts 13 px left.",
+    "reference": "Mac OS 8 Apple colour ink x=17..26; File ink x=43..62. Both bars are otherwise 20 px tall.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_desktop_menubar.png, x=0..79 y=0..19; specs/sys8/menus.md 1.3.",
+    "screenshot": "shots/004-root.png",
+    "initech_crop": [
+      0,
+      20,
+      80,
+      40
+    ],
+    "reference_file": "refs/s8_desktop_menubar.png",
+    "reference_crop": [
+      0,
+      0,
+      80,
+      20
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 445,
+      "comparison_pixels": 1600,
+      "method": "rgb",
+      "sizes": [
+        [
+          80,
+          20
+        ],
+        [
+          80,
+          20
+        ]
+      ]
+    },
+    "note": "",
+    "diff": "diffs/M001.png"
+  },
+  {
+    "id": "M002",
+    "area": "menu highlight",
+    "severity": "P2",
+    "summary": "Selected menu title uses a pale flat fill",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Move to File (38,30), hold left button, wait 0.3 s. ",
+    "initech": "Selected File block x=17..59 has #8DDCDC fill; white letters sit on that pale fill. At x=21 the selected band has a single accent value through y=20..38, then black baseline y=39.",
+    "reference": "At x=34, Mac selected File uses #8787DA y=0, #5454B3 y=1..17, #0000A5 y=18, black y=19. The accent has a dark face and separate edge shades.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_menu_dropped.png, x=34 y=0..19; specs/sys8/menus.md 1.4.",
+    "screenshot": "shots/007-finder-file.png",
+    "initech_crop": [
+      21,
+      20,
+      22,
+      40
+    ],
+    "reference_file": "refs/s8_menu_dropped.png",
+    "reference_crop": [
+      34,
+      0,
+      35,
+      20
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 19,
+      "comparison_pixels": 20,
+      "method": "rgb",
+      "sizes": [
+        [
+          1,
+          20
+        ],
+        [
+          1,
+          20
+        ]
+      ]
+    },
+    "note": "The desktop teal is deliberate. This finding concerns the selected-title ink/background contrast and lost accent shading, not the desktop colour. The real capture uses Lavender; no claim that every installation must use Lavender.",
+    "diff": "diffs/M002.png"
+  },
+  {
+    "id": "M003",
+    "area": "menu shortcuts",
+    "severity": "P3",
+    "summary": "Caret substitutes for the Command glyph",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Move to File (38,30), hold left button, wait 0.3 s. ",
+    "initech": "New Folder shows ^N. Its black shortcut ink is x=144..157 y=43..51.",
+    "reference": "New Folder shows the looped Command mark and N, x=199..216 y=23..31.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_menu_dropped.png, command column x=199..216 y=23..31; Menu Manager commandMark=17.",
+    "screenshot": "shots/007-finder-file.png",
+    "initech_crop": [
+      143,
+      41,
+      160,
+      55
+    ],
+    "reference_file": "refs/s8_menu_dropped.png",
+    "reference_crop": [
+      198,
+      21,
+      217,
+      35
+    ],
+    "kind": "ink",
+    "metric": {
+      "different_pixels": 83,
+      "comparison_pixels": 266,
+      "method": "ink",
+      "sizes": [
+        [
+          17,
+          14
+        ],
+        [
+          19,
+          14
+        ]
+      ]
+    },
+    "note": "Ctrl remains a usable PC shortcut. This is a glyph-fidelity nit, not a request to change key handling.",
+    "diff": "diffs/M003.png"
+  },
+  {
+    "id": "M004",
+    "area": "menu shortcuts",
+    "severity": "P3",
+    "summary": "Shortcut column has excessive right clearance",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Move to File (38,30), hold left button, wait 0.3 s. ",
+    "initech": "New Folder N ends at x=157; panel right black frame is x=174: ink-to-frame distance 17 px.",
+    "reference": "N ends at x=216; right frame x=230: distance 14 px (13 intervening pixels).",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_menu_dropped.png, x=209..232 y=21..34; specs/sys8/menus.md 2.2.",
+    "screenshot": "shots/007-finder-file.png",
+    "initech_crop": [
+      150,
+      41,
+      176,
+      55
+    ],
+    "reference_file": "refs/s8_menu_dropped.png",
+    "reference_crop": [
+      209,
+      21,
+      233,
+      35
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 105,
+      "comparison_pixels": 364,
+      "method": "rgb",
+      "sizes": [
+        [
+          26,
+          14
+        ],
+        [
+          24,
+          14
+        ]
+      ]
+    },
+    "note": "The panels have different item inventories and widths. This compares the last shortcut glyph against each panel right edge, not total panel width.",
+    "diff": "diffs/M004.png"
+  },
+  {
+    "id": "M005",
+    "area": "menu text placement",
+    "severity": "P3",
+    "summary": "Item ink begins one pixel too far from the left frame",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Move to File (38,30), hold left button, wait 0.3 s. ",
+    "initech": "Panel left frame x=20; New Folder first N ink x=41: offset 21 px. Text cap top y=43 is the correct panel-top +4.",
+    "reference": "Panel left frame x=33; N ink x=53: offset 20 px. Cap top y=23 is also panel-top +4.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_menu_dropped.png x=33/53 y=23..31; specs/sys8/menus.md 2.2.",
+    "screenshot": "shots/007-finder-file.png",
+    "initech_crop": [
+      20,
+      41,
+      50,
+      54
+    ],
+    "reference_file": "refs/s8_menu_dropped.png",
+    "reference_crop": [
+      33,
+      21,
+      63,
+      34
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 83,
+      "comparison_pixels": 390,
+      "method": "rgb",
+      "sizes": [
+        [
+          30,
+          13
+        ],
+        [
+          30,
+          13
+        ]
+      ]
+    },
+    "note": "This is a painted-ink comparison. Chicago and Charcoal left bearings differ; it is not evidence that the Chicago advance table is wrong.",
+    "diff": "diffs/M005.png"
+  },
+  {
+    "id": "M006",
+    "area": "menu marks",
+    "severity": "P3",
+    "summary": "View check mark is a lowercase v",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Hold View (120,30), wait 0.5 s.",
+    "initech": "The by Icons mark is a 6x7 ink box at x=101..106 y=45..51, 26 black pixels. It is a v-shaped letter.",
+    "reference": "System 7 checkMark is character 18. NFNT 5478 glyph 18 renders a 9x8 check with 18 ink pixels; its advance is 11 px.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/resources/NFNT_5478.bin glyph 0x12; specs/toolbox/menu-manager.md mark table (checkMark=18). refs/chicago-checkmark.png is rendered directly from the original NFNT location/offset/width tables.",
+    "screenshot": "shots/016-view-menu.png",
+    "initech_crop": [
+      100,
+      40,
+      111,
+      55
+    ],
+    "reference_file": "refs/chicago-checkmark.png",
+    "reference_crop": null,
+    "kind": "ink",
+    "metric": {
+      "different_pixels": 22,
+      "comparison_pixels": 165,
+      "method": "ink",
+      "sizes": [
+        [
+          11,
+          15
+        ],
+        [
+          11,
+          15
+        ]
+      ]
+    },
+    "note": "",
+    "diff": "diffs/M006.png"
+  },
+  {
+    "id": "M007",
+    "area": "scroll thumb",
+    "severity": "P2",
+    "summary": "Enabled thumb face has no bevel ramp",
+    "state_steps": "Use many_source.img (a copy of flair_data.img with thirty F00.TXT..F29.TXT files added by prepare_fixtures.py). Boot tenants; double-click disk (600,64); move pointer clear. ",
+    "initech": "The 14x15 thumb interior x=360..373 y=97..111 contains 205 #8DDCDC and 5 #F3F3F3 pixels. No separate leading highlight or trailing shadow is visible.",
+    "reference": "The 14x15 interior x=608..621 y=311..325 contains 49 #DADAFF, 102 #B3B3FF, 26 #8787DA, 28 #5454B3 and 5 #F3F3F3 pixels. The outer face has distinct light and dark edges.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_doc_window_inactive.png: active Applications thumb x=608..621 y=311..325; specs/sys8/scrollbars.md 2.4.",
+    "screenshot": "shots/042-many-root.png",
+    "initech_crop": [
+      360,
+      97,
+      374,
+      112
+    ],
+    "reference_file": "refs/s8_doc_window_inactive.png",
+    "reference_crop": [
+      608,
+      311,
+      622,
+      326
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 205,
+      "comparison_pixels": 210,
+      "method": "rgb",
+      "sizes": [
+        [
+          14,
+          15
+        ],
+        [
+          14,
+          15
+        ]
+      ]
+    },
+    "note": "A teal accent could keep the deliberate desktop colour while retaining a three-shade thumb. This is not a demand for a Lavender desktop.",
+    "diff": "diffs/M007.png"
+  },
+  {
+    "id": "M008",
+    "area": "scroll thumb",
+    "severity": "P2",
+    "summary": "Thumb grip lines disappear into the face",
+    "state_steps": "Use many_source.img (a copy of flair_data.img with thirty F00.TXT..F29.TXT files added by prepare_fixtures.py). Boot tenants; double-click disk (600,64); move pointer clear. ",
+    "initech": "Only five pale #F3F3F3 cap pixels interrupt the flat teal face. The grip region x=363..369 y=100..106 has zero dark grip pixels.",
+    "reference": "The active Applications thumb has four #5454B3 dark grip lines, 7 px each, 28 dark pixels total, with companion highlight lines.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_doc_window_inactive.png x=610..619 y=313..321; specs/sys8/scrollbars.md 2.4.",
+    "screenshot": "shots/042-many-root.png",
+    "initech_crop": [
+      362,
+      99,
+      372,
+      108
+    ],
+    "reference_file": "refs/s8_doc_window_inactive.png",
+    "reference_crop": [
+      610,
+      313,
+      620,
+      322
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 86,
+      "comparison_pixels": 90,
+      "method": "rgb",
+      "sizes": [
+        [
+          10,
+          9
+        ],
+        [
+          10,
+          9
+        ]
+      ]
+    },
+    "note": "Separate from M007: this is the interior grip, not the outer bevel. Both states remain functionally draggable.",
+    "diff": "diffs/M008.png"
+  },
+  {
+    "id": "M009",
+    "area": "pointer",
+    "severity": "P3",
+    "summary": "Arrow stem and white mask differ from the Mac cursor",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Move pointer to (500,380).",
+    "initech": "On a 16x16 canvas at (499,379), the cursor has 61 black and 53 white pixels. Black bbox x=500..508 y=380..393 (9x14); the stem reads as a squared vertical tail.",
+    "reference": "The arrow at (230,29) has 54 black and 43 white pixels on the corresponding 16x16 canvas at (229,28); black bbox x=230..237 y=29..42 (8x14), with an angled tail. Aligned symbol masks differ at 48/256 pixels.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_alert_modal.png x=229..244 y=28..43. Reference opacity is obtained by subtracting the same wallpaper patch in s8_desktop_menubar.png; current cursor is shots/001-desktop.png x=499..514 y=379..394.",
+    "screenshot": "refs/cursor-in-mask.png",
+    "initech_crop": null,
+    "reference_file": "refs/cursor-mac-mask.png",
+    "reference_crop": null,
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 48,
+      "comparison_pixels": 256,
+      "method": "rgb",
+      "sizes": [
+        [
+          16,
+          16
+        ],
+        [
+          16,
+          16
+        ]
+      ]
+    },
+    "note": "Gray in these two normalized masks means transparent, black means cursor ink, white means cursor paper. The initial cursor screenshot is in shots/, not a synthetic guest screen.",
+    "diff": "diffs/M009.png"
+  },
+  {
+    "id": "M010",
+    "area": "title truncation",
+    "severity": "P3",
+    "summary": "Narrow title ends in one period instead of an ellipsis",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Drag grow box (370,270) by (-200,-120); move pointer clear.",
+    "initech": "The 160x100 window draws Drive A Fil. The suffix is one 2x2 period cluster at x=131..132 y=73..74, 4 ink pixels.",
+    "reference": "An ellipsis is three dot clusters. The Chicago NFNT ellipsis (0xC9) has 12 ink pixels in a 10x2 ink box, advance 14 px. Using an ellipsis to signal title truncation is an expectation from my classic Mac memory.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/resources/NFNT_5478.bin glyph 0xC9; behavior expectation FROM MEMORY, no matching truncated-title Mac golden.",
+    "screenshot": "shots/022-root-small.png",
+    "initech_crop": [
+      130,
+      63,
+      134,
+      78
+    ],
+    "reference_file": "refs/chicago-ellipsis.png",
+    "reference_crop": null,
+    "kind": "ink",
+    "metric": {
+      "different_pixels": 12,
+      "comparison_pixels": 210,
+      "method": "ink",
+      "sizes": [
+        [
+          4,
+          15
+        ],
+        [
+          14,
+          15
+        ]
+      ]
+    },
+    "note": "The read-only Initech chrome_metrics.json explicitly selects a single period as current product policy. This is a requested appearance-polish deviation, not an undisclosed claim of a captured Mac title rule.",
+    "diff": "diffs/M010.png"
+  },
+  {
+    "id": "M011",
+    "area": "button bevel",
+    "severity": "P2",
+    "summary": "Opaque label background erases button highlight and shadow",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Double-click APPS (123,101), then 123.EXE (211,124). Enter Hello, Right, 123, Right, 1.5, Right, -7 (Enter after each entry); Ctrl-Q; move pointer clear. ",
+    "initech": "Cancel is 59x20 at x=363..421 y=158..177. Across x=365..418 at y=160, only 11 pixels stay white and 43 become face #E7E7E7. At y=175, only 10 stay #C0C0C0 and 44 are face. The label creates gaps in both bevel strips.",
+    "reference": "Same Cancel rect. Row y=160 x=365..418 is all 54 white pixels; row y=175 has 53 #C0C0C0 and one face pixel. The bevel passes continuously above and below the label.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_alert_modal.png x=363..421 y=158..177; specs/sys8/controls.md 5.1.",
+    "screenshot": "shots/031-123-save-alert.png",
+    "initech_crop": [
+      363,
+      158,
+      422,
+      178
+    ],
+    "reference_file": "refs/s8_alert_modal.png",
+    "reference_crop": [
+      363,
+      158,
+      422,
+      178
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 208,
+      "comparison_pixels": 1180,
+      "method": "rgb",
+      "sizes": [
+        [
+          59,
+          20
+        ],
+        [
+          59,
+          20
+        ]
+      ]
+    },
+    "note": "The raw full-button diff also includes the known Chicago/Charcoal label difference (F16). The new claim is restricted to rows 160 and 175, outside the label ink.",
+    "diff": "diffs/M011.png"
+  },
+  {
+    "id": "M012",
+    "area": "button corners",
+    "severity": "P3",
+    "summary": "Rounded button corners acquire extra gray fringe pixels",
+    "state_steps": "Fresh flair_tenants_interactive.img + flair_data.img copies. Double-click disk (600,64); move pointer to (500,380). Double-click APPS (123,101), then 123.EXE (211,124). Enter Hello, Right, 123, Right, 1.5, Right, -7 (Enter after each entry); Ctrl-Q; move pointer clear. ",
+    "initech": "Cancel corner (363,158) is #C0C0C0 and (364,158) is #969696; both sit outside the top black span. Across four 4x4 corner patches, 13/64 pixels differ from the Mac button.",
+    "reference": "Both cited pixels are surrounding #E7E7E7 face. The captured corner follows the smaller rounded black edge with its local corner shading.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_alert_modal.png top-left x=363..366 y=158..161. Four-corner count also uses x=418..421 and y=174..177.",
+    "screenshot": "shots/031-123-save-alert.png",
+    "initech_crop": [
+      363,
+      158,
+      367,
+      162
+    ],
+    "reference_file": "refs/s8_alert_modal.png",
+    "reference_crop": [
+      363,
+      158,
+      367,
+      162
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 3,
+      "comparison_pixels": 16,
+      "method": "rgb",
+      "sizes": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ]
+    },
+    "note": "Independent of M011 label erasure; this crop has no label ink. Geometry still matches 59x20 and a +3 px default ring.",
+    "diff": "diffs/M012.png"
+  },
+  {
+    "id": "M013",
+    "area": "scroll arrows",
+    "severity": "P3",
+    "summary": "Enabled arrow tiles mispaint two off-diagonal corners",
+    "state_steps": "Use many_source.img (a copy of flair_data.img with thirty F00.TXT..F29.TXT files added by prepare_fixtures.py). Boot tenants; double-click disk (600,64); move pointer clear. ",
+    "initech": "In the 14x14 up-arrow tile x=360..373 y=82..95, top-right is #CDCDCD and bottom-left #FFFFFF.",
+    "reference": "The corresponding tile x=608..621 y=296..309 has face #E7E7E7 at both off-diagonal corners. Only 2/196 pixels differ; the other 194 and the 20-pixel arrow glyph match.",
+    "provenance": "/home/tobias/Projects/system7-decomp/goldens/captures/s8_doc_window_inactive.png x=608..621 y=296..309; specs/sys8/scrollbars.md 2.2.",
+    "screenshot": "shots/042-many-root.png",
+    "initech_crop": [
+      360,
+      82,
+      374,
+      96
+    ],
+    "reference_file": "refs/s8_doc_window_inactive.png",
+    "reference_crop": [
+      608,
+      296,
+      622,
+      310
+    ],
+    "kind": "rgb",
+    "metric": {
+      "different_pixels": 2,
+      "comparison_pixels": 196,
+      "method": "rgb",
+      "sizes": [
+        [
+          14,
+          14
+        ],
+        [
+          14,
+          14
+        ]
+      ]
+    },
+    "note": "",
+    "diff": "diffs/M013.png"
+  },
+  {
+    "id": "M014",
+    "area": "DOS/database console",
+    "severity": "P2",
+    "summary": "Console keeps pale gray text on green",
+    "state_steps": "Boot tenants + samir_list.img copies; press backslash; USE CLIENTS.DBF, then LIST; wait for output. Separately boot tracer_boot.img + flair_data.img and run DIR. In SAMIR try SET COLOR TO and LIST again.",
+    "initech": "Both consoles use foreground #C0C0C0 and background #6FA08E. The settled DOS DIR screen has 4792 foreground pixels and 302408 background pixels. SET COLOR TO leaves the same palette (and returns a text error).",
+    "reference": "dBASE III PLUS colour defaults are standard white on black, as specified on printed U5-204 (PDF 316). My default DOS gray/white-on-black expectation is FROM MEMORY; the DOS manual scan cannot establish historical framebuffer RGB.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dbase3plus/dBASE III Plus 1.1 (1986) Manuals/Using dBase III Plus.pdf printed U5-204, PDF 316, Defaults. DOS baseline expectation FROM MEMORY.",
+    "screenshot": "shots/078-db-default-color.png",
+    "initech_crop": [
+      0,
+      0,
+      400,
+      256
+    ],
+    "reference_file": "refs/dbase-manual-pdfpage-316.png",
+    "reference_crop": [
+      45,
+      270,
+      1035,
+      930
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "The deliberate teal DESKTOP is not being reported as a bug. This is the suspended text-console surface. No scan RGB is treated as a VGA palette measurement.",
+    "diff": "diffs/M014.png"
+  },
+  {
+    "id": "M015",
+    "area": "DOS cursor",
+    "severity": "P2",
+    "summary": "Ready prompt has no visible blinking cursor",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. Type CLS, wait 1 s; capture a complete blink-cycle sample series without input.",
+    "initech": "After CLS, only the four-character A:\\> prompt is drawn (86 foreground pixels, bbox x=0..30 y=386..395). The next character cell x=32..39 y=384..399 contains zero foreground pixels. Fourteen further frames across the recorded 2+ s interval have identical RGB bytes.",
+    "reference": "The DOS manual printed p.5 (PDF 18) explicitly shows a cursor following A> and describes a blinking box or flashing underline.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.5, PDF 18, The Default Drive and the MS-DOS Prompt, prompt/cursor illustration.",
+    "screenshot": "shots/088-after-cls.png",
+    "initech_crop": [
+      0,
+      380,
+      48,
+      404
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-18.png",
+    "reference_crop": [
+      73,
+      751,
+      208,
+      851
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "Timing and hashes are evidence/cursor-cycle.json. A print illustration is not used as a pixel-exact cursor shape oracle.",
+    "diff": "diffs/M015.png"
+  },
+  {
+    "id": "M016",
+    "area": "DOS CLS",
+    "severity": "P2",
+    "summary": "CLS clears pixels but leaves the prompt on row 24",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. Type CLS; wait 1 s.",
+    "initech": "All old text disappears, but the new prompt cell starts at y=384 (row 24 with 16-pixel cells); ink is y=386..395. Top 384 rows are blank.",
+    "reference": "The clean screen should put the prompt at the upper left (row 0): this homing expectation is FROM MEMORY. The manual printed p.45 (PDF 130) documents CLS leaving only a prompt and cursor, without giving framebuffer coordinates.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.45, PDF 130, Cls; row-0 homing expectation FROM MEMORY.",
+    "screenshot": "shots/088-after-cls.png",
+    "initech_crop": [
+      0,
+      0,
+      320,
+      416
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-130.png",
+    "reference_crop": [
+      55,
+      300,
+      720,
+      600
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "",
+    "diff": "diffs/M016.png"
+  },
+  {
+    "id": "M017",
+    "area": "DOS DIR header",
+    "severity": "P3",
+    "summary": "Directory listing omits the volume identity line",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. ",
+    "initech": "The DIR block begins with one Directory of A:\\ line at y=98..107. It has zero Volume in drive lines even though the pristine data disk is labeled INITECH.",
+    "reference": "The illustrated DIR header has Volume in drive A is ... followed by Directory of A:\\: two identity/location lines.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.28, PDF 41, DIR example heading.",
+    "screenshot": "shots/087-dos-settled-dir.png",
+    "initech_crop": [
+      0,
+      80,
+      360,
+      120
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-41.png",
+    "reference_crop": [
+      345,
+      756,
+      895,
+      806
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "K10 covers wrong paths/ignored operands. This is the newly measured missing volume line; no operand test is re-filed.",
+    "diff": "diffs/M017.png"
+  },
+  {
+    "id": "M018",
+    "area": "DOS DIR columns",
+    "severity": "P3",
+    "summary": "Name and extension are joined with a dot",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. ",
+    "initech": "README.TXT is one ten-character run at column 0, x=0..79 cell span. There is no separate extension column.",
+    "reference": "The manual table separates basename and extension into aligned columns, e.g. COMMAND and COM, ANSI and SYS.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.28, PDF 41, first two DIR table rows.",
+    "screenshot": "shots/087-dos-settled-dir.png",
+    "initech_crop": [
+      0,
+      124,
+      216,
+      160
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-41.png",
+    "reference_crop": [
+      347,
+      819,
+      640,
+      872
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "",
+    "diff": "diffs/M018.png"
+  },
+  {
+    "id": "M019",
+    "area": "DOS DIR columns",
+    "severity": "P2",
+    "summary": "DIR rows omit date and time fields",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. ",
+    "initech": "Both directory entries contain only dotted name plus size or <DIR>. The right part x=200..639 y=128..159 is entirely background: 14080 pixels, no timestamp ink.",
+    "reference": "The same table shows date and time after the size for each entry, e.g. 8-21-87 and 12:00p. There are five displayed fields: name, extension, size, date, time.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.28, PDF 41, first two DIR rows.",
+    "screenshot": "shots/087-dos-settled-dir.png",
+    "initech_crop": [
+      0,
+      124,
+      640,
+      160
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-41.png",
+    "reference_crop": [
+      347,
+      819,
+      907,
+      872
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "No claim about timestamp storage (earlier L030) is made; this is absent display columns.",
+    "diff": "diffs/M019.png"
+  },
+  {
+    "id": "M020",
+    "area": "DOS DIR footer",
+    "severity": "P3",
+    "summary": "Footer omits the free-space figure",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. ",
+    "initech": "Footer is only 2 file(s), at row 11. There are zero bytes free tokens or free-space figures after the count.",
+    "reference": "The continued DIR example ends with 37 File(s) and 17408 bytes free on the same footer line; the particular count/byte value depends on the disk.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.29, PDF 42, final DIR footer.",
+    "screenshot": "shots/087-dos-settled-dir.png",
+    "initech_crop": [
+      0,
+      174,
+      420,
+      192
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-42.png",
+    "reference_crop": [
+      200,
+      521,
+      665,
+      544
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "The sample byte value is not the expected free space of the Initech disk. The missing field is the finding.",
+    "diff": "diffs/M020.png"
+  },
+  {
+    "id": "M021",
+    "area": "database LIST",
+    "severity": "P2",
+    "summary": "LIST lacks field headings",
+    "state_steps": "Boot tenants + samir_list.img copies; press backslash; USE CLIENTS.DBF, then LIST; wait for output. Also try SET HEADING ON before LIST; wait 1 s.",
+    "initech": "Three records display, but zero headings for NAME, CITY, BAL. The first record follows the LIST command directly. SET HEADING ON returns the already-known text error path.",
+    "reference": "LIST sample prints field names above the rows (U5-144, PDF 256). SET HEADING is normally ON and supplies one column title for each field (U5-235, PDF 347).",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dbase3plus/dBASE III Plus 1.1 (1986) Manuals/Using dBase III Plus.pdf printed U5-144, PDF 256, LIST example; printed U5-235, PDF 347, SET HEADING defaults.",
+    "screenshot": "shots/077-db-heading.png",
+    "initech_crop": [
+      0,
+      42,
+      400,
+      130
+    ],
+    "reference_file": "refs/dbase-manual-pdfpage-256.png",
+    "reference_crop": [
+      190,
+      800,
+      1040,
+      1100
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "The error string is not a new finding: K08 covers inappropriate unsupported-command errors. The appearance finding is the missing table-heading row.",
+    "diff": "diffs/M021.png"
+  },
+  {
+    "id": "M022",
+    "area": "database status",
+    "severity": "P2",
+    "summary": "SET STATUS ON never produces the status bar",
+    "state_steps": "Boot tenants + samir_list.img copies; press backslash; USE CLIENTS.DBF, then LIST; wait for output. Issue SET STATUS ON; wait 1 s.",
+    "initech": "The bottom three native text rows (y=432..479, 30720 pixels) are all #6FA08E; no status or guidance text and no reverse band appear. SET STATUS ON returns a text error.",
+    "reference": "The manual Figure 5-17 shows a status bar containing Command Line, drive/database and Rec: position/count, plus a guidance line. With STATUS ON it should be visible; U5-16 reserves terminal row 22 for status.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dbase3plus/dBASE III Plus 1.1 (1986) Manuals/Using dBase III Plus.pdf printed U5-259, PDF 371, Figure 5-17; U5-16, PDF 128, row allocation.",
+    "screenshot": "shots/079-db-status.png",
+    "initech_crop": [
+      0,
+      416,
+      640,
+      480
+    ],
+    "reference_file": "refs/dbase-manual-pdfpage-371.png",
+    "reference_crop": [
+      338,
+      584,
+      1044,
+      701
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "The illustrated blue is not graded as a framebuffer RGB oracle. The 30-row Initech console has no status band anywhere, not merely a band at a different bottom row.",
+    "diff": "diffs/M022.png"
+  },
+  {
+    "id": "M023",
+    "area": "DOS DIR footer",
+    "severity": "P3",
+    "summary": "File-count label uses lowercase f",
+    "state_steps": "Boot tracer_boot.img + flair_data.img copies, wait for shell, type DIR, wait 1 s. ",
+    "initech": "The actual footer spells 2 file(s), with lowercase f (a seven-character label; nine characters including count and space).",
+    "reference": "The original manual example spells 37 File(s), capital F. The counter length varies but the label casing does not in that example.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dos33/MS-DOS_3.3_Users_Guide_198707.pdf printed p.29, PDF 42, footer File(s).",
+    "screenshot": "shots/087-dos-settled-dir.png",
+    "initech_crop": [
+      0,
+      174,
+      84,
+      192
+    ],
+    "reference_file": "refs/dos33-manual-pdfpage-42.png",
+    "reference_crop": [
+      208,
+      521,
+      363,
+      544
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "",
+    "diff": "diffs/M023.png"
+  },
+  {
+    "id": "M024",
+    "area": "film chart",
+    "severity": "P2",
+    "summary": "Film chart window is blank",
+    "state_steps": "Boot a fresh flair_live_interactive.img + flair_data.img copy, wait for FLAIR-LIVE-READY; move pointer clear to (500,380). Also inspect the sampled boot frames.",
+    "initech": "The visible chart-window content patch x=306..537 y=142..197 has 12992 pixels, all #FFFFFF. It contains zero non-white chart pixels or percentage-label ink. All steady film captures have the same blank bodies.",
+    "reference": "The supplied scene reference shows a blue shaded pie with percentage labels 40, 35, 18, 14 and 9, occupying photographed x=824..1128 y=211..457. The 116 percent sum is deliberate and is not flagged.",
+    "provenance": "/home/tobias/Projects/initech-os/spec/assets/preview.webp x=824..1128 y=211..457 (1456x819 CRT photograph); user brief identifies flair_live_interactive.img as the film-scene image.",
+    "screenshot": "shots/105-film-steady.png",
+    "initech_crop": [
+      306,
+      142,
+      538,
+      198
+    ],
+    "reference_file": "refs/film-reference-photo.png",
+    "reference_crop": [
+      820,
+      207,
+      1133,
+      461
+    ],
+    "kind": "illustration",
+    "metric": null,
+    "note": "Presence comparison only. The photo is not converted into native window dimensions or a palette target. Existing F16 concerns chrome/icon/font finish; this is missing application content.",
+    "diff": "diffs/M024.png"
+  },
+  {
+    "id": "M025",
+    "area": "film worksheet",
+    "severity": "P2",
+    "summary": "Film worksheet body has no grid or expense data",
+    "state_steps": "Boot a fresh flair_live_interactive.img + flair_data.img copy, wait for FLAIR-LIVE-READY; move pointer clear to (500,380). Also inspect the sampled boot frames.",
+    "initech": "The unobscured left document patch x=66..298 y=102..197 is 22368 entirely white pixels: zero row/column lines, labels or numbers. The blank document continues around the foreground saving modal.",
+    "reference": "The scene reference shows an expense worksheet, with labels, numeric cells and repeated grid lines in photographed x=450..1064 y=450..642. This is the source of the deliberate 570- figure; no complaint about that figure value is made.",
+    "provenance": "/home/tobias/Projects/initech-os/spec/assets/preview.webp x=450..1064 y=450..642 (CRT photograph); user brief film-scene expectation.",
+    "screenshot": "shots/105-film-steady.png",
+    "initech_crop": [
+      66,
+      102,
+      299,
+      198
+    ],
+    "reference_file": "refs/film-reference-photo.png",
+    "reference_crop": [
+      450,
+      450,
+      1065,
+      643
+    ],
+    "kind": "illustration",
+    "metric": null,
+    "note": "This is the film underlying document, separate from the working disk-launched 123 worksheet. The two application bodies are different missing visuals; no native grid pitch is inferred from the photographed screen.",
+    "diff": "diffs/M025.png"
+  },
+  {
+    "id": "M026",
+    "area": "film busy cursor",
+    "severity": "P3",
+    "summary": "Saving modal retains the arrow instead of the scene hourglass",
+    "state_steps": "Boot film-scene copies; move the pointer inside the saving modal to (470,228), wait 0.4 s; capture.",
+    "initech": "The pointer over the gray modal face is the normal arrow: 61 black and 53 white pixels in the 16x16 canvas x=469..484 y=227..242, the same counts as the idle desktop arrow. No hourglass appears.",
+    "reference": "The saving state in the supplied reference shows an hourglass at photographed x=805..823 y=356..384. The user explicitly preserves that hourglass instead of the historical Mac wristwatch.",
+    "provenance": "/home/tobias/Projects/initech-os/spec/assets/preview.webp hourglass x=805..823 y=356..384; deliberate hourglass requirement in the user brief and spec/assets/cursors.h.",
+    "screenshot": "shots/120-film-arrow-on-modal.png",
+    "initech_crop": [
+      469,
+      227,
+      485,
+      243
+    ],
+    "reference_file": "refs/film-reference-photo.png",
+    "reference_crop": [
+      803,
+      353,
+      827,
+      386
+    ],
+    "kind": "illustration",
+    "metric": null,
+    "note": "The hourglass asset itself was not rendered by the guest, so its strike art remains ungraded. This finding is limited to the visible saving-scene cursor; an actual I/O busy transition was not reached.",
+    "diff": "diffs/M026.png"
+  },
+  {
+    "id": "M027",
+    "area": "database numeric format",
+    "severity": "P2",
+    "summary": "LIST drops fixed decimal places for integral numeric fields",
+    "state_steps": "Boot tenants + samir_list.img copies; press backslash; USE CLIENTS.DBF, then LIST; wait for output. Inspect BAL in record 2; DBF descriptor is N(8,2).",
+    "initech": "The input record stores BAL as two spaces then -42.00 (eight bytes). LIST prints only -42: three character cells at x=264..287, ink x=264..286 y=82..91. The first and third records print 1234.50 and 7777.77 with two decimal places.",
+    "reference": "The original LIST example prints the integral UNITCOST value 814 as 814.00. Its original TOURS.DBF descriptor is N(10,2); both it and BAL specify two decimal places. Width differs, but precision does not.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dbase3plus/dBASE III Plus 1.1 (1986) Manuals/Using dBase III Plus.pdf printed U5-144, PDF 256, UNITCOST heading and first two values. /home/tobias/Projects/dbase3-decomp/mint/work/TOURS.DBF UNITCOST descriptor; evidence/CLIENTS-input.DBF BAL descriptor/record 2, offsets in evidence/dbf-input-fields.json.",
+    "screenshot": "shots/077-db-heading.png",
+    "initech_crop": [
+      264,
+      80,
+      328,
+      96
+    ],
+    "reference_file": "refs/dbase-manual-pdfpage-256.png",
+    "reference_crop": [
+      726,
+      840,
+      803,
+      902
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "This is a plain stored field display, not a calculation-precision test. The DBF field metadata and stored bytes were read directly; no database mutation or real-dBASE invocation was invented.",
+    "diff": "diffs/M027.png"
+  },
+  {
+    "id": "M028",
+    "area": "database numeric alignment",
+    "severity": "P3",
+    "summary": "LIST aligns numeric fields to their left edge",
+    "state_steps": "Boot tenants + samir_list.img copies; press backslash; USE CLIENTS.DBF, then LIST; wait for output. Compare the right edges of the three BAL values.",
+    "initech": "BAL ink boxes are x=265..319, x=264..286 and x=264..318 for rows 1/2/3 at y=66..75, 82..91 and 98..107. Values begin in the same column and the short negative value ends 32-33 px earlier. Each number sits in an eight-character field starting at x=264.",
+    "reference": "The first two UNITCOST values in the LIST illustration start at x=745 and x=737, but both end at x=795 (scan threshold mean RGB <100, row bands y=858..879 and 881..901). The narrower number gains leading space; numeric right edges align.",
+    "provenance": "/home/tobias/Projects/initech-manuals-ref/dbase3plus/dBASE III Plus 1.1 (1986) Manuals/Using dBase III Plus.pdf printed U5-144, PDF 256, first two UNITCOST rows; rendered manual coordinates x=716..804 y=856..901. N(8,2) native field comes from evidence/dbf-input-fields.json.",
+    "screenshot": "shots/077-db-heading.png",
+    "initech_crop": [
+      256,
+      64,
+      336,
+      112
+    ],
+    "reference_file": "refs/dbase-manual-pdfpage-256.png",
+    "reference_crop": [
+      716,
+      856,
+      805,
+      902
+    ],
+    "kind": "manual",
+    "metric": null,
+    "note": "Scanner pixels are used only to locate alignment in the illustration, not to equate its glyph dimensions to native VGA cells. This is separate from M027 precision loss: even a three-character displayed number should be right aligned in its numeric field.",
+    "diff": "diffs/M028.png"
+  }
+]

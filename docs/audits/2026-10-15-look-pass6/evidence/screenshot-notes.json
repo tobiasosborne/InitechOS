@@ -1,0 +1,23 @@
+{
+  "002-system-menu.png": "Apple slot was held; no menu opened. This absence is F13 evidence.",
+  "005-finder-file.png": "Early attempt clicked the Apple slot, not File; actual screen is root at rest.",
+  "006-finder-file-hover.png": "Continuation of the unsuccessful File-menu attempt; use 007/008 for the real panel.",
+  "009-finder-view.png": "Early fast capture did not show the panel; use 016.",
+  "010-finder-special.png": "Early fast capture did not show the panel; use 017.",
+  "014-notes-text.png": "NOTES demo accepts keys without drawing a document. Not a text-font specimen.",
+  "015-notes-typed.png": "Same NOTES demo; not a text-entry-rendering specimen.",
+  "034-tenantfx.png": "Attempt while the worksheet alert was still open; not TenantFix.",
+  "035-tenantfx-zoom.png": "Worksheet after alert cancellation; not TenantFix. Use 062/063.",
+  "036-ctenant.png": "Attempt while worksheet alert open; not CTENANT.",
+  "037-ctenant-moved.png": "Continuation of failed CTENANT attempt; use 064/065.",
+  "071-after-restart.png": "Outside-text-click attempt; pixels still equal the safe screen. Restart was later triggered at the actual button (073).",
+  "075-click-drawn-button.png": "Click y=360 is outside the correctly placed alert; not proof of an offset.",
+  "076-click-hit-button.png": "Click (253,168) is the correctly drawn Dont Save button; normal exit.",
+  "096-123-slash-menu.png": "Slash followed by Enter selected unimplemented Worksheet. Use 101 for main menu.",
+  "097-123-save-prompt.png": "Still in that error state; use 102 for the actual Save prompt.",
+  "103-quit-cancel-mousedown.png": "Attempt followed a clean-sheet quit; no alert was up. Use 109/110 for verified button commitment on mouse-down.",
+  "104-quit-cancel-release.png": "Same clean-sheet desktop as 103; not a pressed alert specimen.",
+  "116-resize-stale-bar.png": "Two-entry disk has no horizontal overflow. Actual known J01 repro is 118/119 on thirty-added-file fixture.",
+  "117-stale-bar-click.png": "Same no-overflow two-entry check; use 118/119 for the positive repro.",
+  "003-upper-file.png": "Early QMP snapshot occurred before a dropped upper File panel was visible. The settled upper-menu check is 121/122."
+}

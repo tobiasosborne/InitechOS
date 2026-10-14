@@ -1,0 +1,377 @@
+[
+  {
+    "name": "match-title",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      90,
+      60,
+      120,
+      82
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      100,
+      70,
+      130,
+      92
+    ],
+    "pixels": 660,
+    "different_pixels": 0,
+    "method": "rgb"
+  },
+  {
+    "name": "match-bar",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      400,
+      0,
+      401,
+      20
+    ],
+    "b": "refs/s8_desktop_menubar.png",
+    "b_rect": [
+      400,
+      0,
+      401,
+      20
+    ],
+    "pixels": 20,
+    "different_pixels": 0,
+    "method": "rgb"
+  },
+  {
+    "name": "match-disabled-arrow",
+    "a": "shots/004-root.png",
+    "a_rect": [
+      360,
+      82,
+      374,
+      96
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      461,
+      113,
+      475,
+      127
+    ],
+    "pixels": 196,
+    "different_pixels": 0,
+    "method": "rgb"
+  },
+  {
+    "name": "match-well",
+    "a": "shots/042-many-root.png",
+    "a_rect": [
+      360,
+      150,
+      374,
+      151
+    ],
+    "b": "refs/s8_doc_window_inactive.png",
+    "b_rect": [
+      608,
+      350,
+      622,
+      351
+    ],
+    "pixels": 14,
+    "different_pixels": 0,
+    "method": "rgb"
+  },
+  {
+    "name": "match-grow",
+    "a": "shots/004-root.png",
+    "a_rect": [
+      359,
+      259,
+      376,
+      276
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      460,
+      295,
+      477,
+      312
+    ],
+    "pixels": 289,
+    "different_pixels": 0,
+    "method": "rgb"
+  },
+  {
+    "name": "F16-close",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      64,
+      64,
+      77,
+      77
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      69,
+      74,
+      82,
+      87
+    ],
+    "pixels": 169,
+    "different_pixels": 2,
+    "method": "rgb"
+  },
+  {
+    "name": "F16-zoom",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      327,
+      64,
+      340,
+      77
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      448,
+      74,
+      461,
+      87
+    ],
+    "pixels": 169,
+    "different_pixels": 2,
+    "method": "rgb"
+  },
+  {
+    "name": "F16-collapse",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      343,
+      64,
+      356,
+      77
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      464,
+      74,
+      477,
+      87
+    ],
+    "pixels": 169,
+    "different_pixels": 2,
+    "method": "rgb"
+  },
+  {
+    "name": "F16-body",
+    "a": "shots/004-root.png",
+    "a_rect": [
+      20,
+      150,
+      26,
+      180
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      65,
+      150,
+      71,
+      180
+    ],
+    "pixels": 180,
+    "different_pixels": 120,
+    "method": "rgb"
+  },
+  {
+    "name": "F16-HELLO",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      191,
+      63,
+      228,
+      78
+    ],
+    "b": "refs/chicago-HELLO.png",
+    "b_rect": null,
+    "pixels": 555,
+    "different_pixels": 0,
+    "method": "ink"
+  },
+  {
+    "name": "F16-File",
+    "a": "shots/001-desktop.png",
+    "a_rect": [
+      27,
+      2,
+      50,
+      17
+    ],
+    "b": "refs/chicago-File.png",
+    "b_rect": null,
+    "pixels": 345,
+    "different_pixels": 1,
+    "method": "ink"
+  },
+  {
+    "name": "F16-New-Folder",
+    "a": "shots/007-finder-file.png",
+    "a_rect": [
+      40,
+      40,
+      114,
+      55
+    ],
+    "b": "refs/chicago-New-Folder.png",
+    "b_rect": null,
+    "pixels": 1110,
+    "different_pixels": 34,
+    "method": "ink"
+  },
+  {
+    "name": "F16-folder",
+    "a": "shots/004-root.png",
+    "a_rect": [
+      108,
+      86,
+      140,
+      118
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      236,
+      116,
+      268,
+      148
+    ],
+    "pixels": 1024,
+    "different_pixels": 651,
+    "method": "rgb"
+  },
+  {
+    "name": "F17-header",
+    "a": "shots/004-root.png",
+    "a_rect": [
+      25,
+      82,
+      355,
+      112
+    ],
+    "b": "refs/s8_doc_window_active.png",
+    "b_rect": [
+      71,
+      92,
+      401,
+      122
+    ],
+    "pixels": 9900,
+    "different_pixels": 6790,
+    "method": "rgb"
+  },
+  {
+    "name": "L023-border",
+    "a": "shots/108-trash-alert.png",
+    "a_rect": [
+      133,
+      87,
+      145,
+      191
+    ],
+    "b": "refs/s8_alert_modal.png",
+    "b_rect": [
+      133,
+      87,
+      145,
+      191
+    ],
+    "pixels": 1248,
+    "different_pixels": 770,
+    "method": "rgb"
+  },
+  {
+    "name": "L022-caution",
+    "a": "shots/108-trash-alert.png",
+    "a_rect": [
+      159,
+      103,
+      185,
+      129
+    ],
+    "b": "refs/s8_alert_modal.png",
+    "b_rect": [
+      159,
+      103,
+      185,
+      129
+    ],
+    "pixels": 676,
+    "different_pixels": 456,
+    "method": "rgb"
+  },
+  {
+    "name": "L117-repaint",
+    "a": "shots/064-ctenant.png",
+    "a_rect": [
+      188,
+      202,
+      445,
+      309
+    ],
+    "b": "shots/065-ctenant-moved.png",
+    "b_rect": [
+      238,
+      252,
+      495,
+      359
+    ],
+    "pixels": 27499,
+    "different_pixels": 1130,
+    "method": "rgb"
+  },
+  {
+    "name": "fixed-H04",
+    "a": "shots/106-trash-empty.png",
+    "a_rect": [
+      576,
+      395,
+      626,
+      456
+    ],
+    "b": "shots/107-trash-full.png",
+    "b_rect": [
+      576,
+      395,
+      626,
+      456
+    ],
+    "pixels": 3050,
+    "different_pixels": 75,
+    "method": "rgb"
+  },
+  {
+    "name": "fixed-shutdown-text-click",
+    "a": "shots/092-safe-before-click.png",
+    "a_rect": [
+      103,
+      140,
+      539,
+      252
+    ],
+    "b": "shots/093-safe-after-text-click.png",
+    "b_rect": [
+      103,
+      140,
+      539,
+      252
+    ],
+    "pixels": 48832,
+    "different_pixels": 0,
+    "method": "rgb"
+  },
+  {
+    "name": "i123-ready",
+    "a": "diffs/i123-ready-8px.png",
+    "a_rect": null,
+    "b": "refs/lotus-ready-8px-normalized.png",
+    "b_rect": null,
+    "pixels": 640,
+    "different_pixels": 12,
+    "method": "rgb"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "source_image": "images/samir_list.img",
+  "records": 3,
+  "fields": [
+    {
+      "name": "NAME",
+      "type": "C",
+      "width": 10,
+      "decimals": 0
+    },
+    {
+      "name": "CITY",
+      "type": "C",
+      "width": 12,
+      "decimals": 0
+    },
+    {
+      "name": "BAL",
+      "type": "N",
+      "width": 8,
+      "decimals": 2
+    }
+  ],
+  "record_2_BAL": {
+    "byte_offset": 183,
+    "stored_ascii": "  -42.00"
+  },
+  "reference_UNITCOST": {
+    "file": "/home/tobias/Projects/dbase3-decomp/mint/work/TOURS.DBF",
+    "descriptor_offset": 128,
+    "type": "N",
+    "width": 10,
+    "decimals": 2
+  }
+}

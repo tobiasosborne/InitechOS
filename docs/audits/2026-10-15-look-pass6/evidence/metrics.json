@@ -1,0 +1,776 @@
+{
+  "001-desktop": {
+    "title_x100_y60_82": [
+      "#000000",
+      "#FFFFFF",
+      "#DADADA",
+      "#DADADA",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#DADADA",
+      "#DADADA",
+      "#DADADA",
+      "#DADADA",
+      "#B3B3B3",
+      "#000000"
+    ],
+    "left_frame_y200": [],
+    "colors": {
+      "#000000": 6282,
+      "#3F3F3F": 149,
+      "#777777": 2534,
+      "#878787": 153,
+      "#8DDCDC": 166652,
+      "#969696": 1188,
+      "#A5A5A5": 198,
+      "#B3B3B3": 2074,
+      "#C0C0C0": 37778,
+      "#CDCDCD": 25,
+      "#DADADA": 3609,
+      "#E7E7E7": 26156,
+      "#F3F3F3": 11927,
+      "#FFFFFF": 48475
+    }
+  },
+  "004-root": {
+    "title_x100_y60_82": [
+      "#000000",
+      "#FFFFFF",
+      "#DADADA",
+      "#DADADA",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#DADADA",
+      "#DADADA",
+      "#DADADA",
+      "#DADADA",
+      "#B3B3B3",
+      "#000000"
+    ],
+    "left_frame_y200": [],
+    "colors": {
+      "#000000": 7345,
+      "#3F3F3F": 149,
+      "#777777": 2474,
+      "#878787": 153,
+      "#8DDCDC": 152612,
+      "#969696": 1290,
+      "#A5A5A5": 198,
+      "#B3B3B3": 2214,
+      "#C0C0C0": 33184,
+      "#CDCDCD": 25,
+      "#DADADA": 4523,
+      "#E7E7E7": 26114,
+      "#F3F3F3": 12987,
+      "#FFFFFF": 63932
+    }
+  },
+  "042-many-root": {
+    "title_x100_y60_82": [
+      "#000000",
+      "#FFFFFF",
+      "#DADADA",
+      "#DADADA",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#FFFFFF",
+      "#969696",
+      "#DADADA",
+      "#DADADA",
+      "#DADADA",
+      "#DADADA",
+      "#B3B3B3",
+      "#000000"
+    ],
+    "left_frame_y200": [],
+    "colors": {
+      "#000000": 9500,
+      "#3F3F3F": 149,
+      "#777777": 2446,
+      "#878787": 153,
+      "#8DDCDC": 152817,
+      "#969696": 1433,
+      "#A5A5A5": 301,
+      "#B3B3B3": 2214,
+      "#C0C0C0": 35370,
+      "#CDCDCD": 206,
+      "#DADADA": 4652,
+      "#E7E7E7": 26362,
+      "#F3F3F3": 10582,
+      "#FFFFFF": 61015
+    }
+  },
+  "026-scrollbar-inactive": {
+    "title_x100_y60_82": [
+      "#777777",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#E7E7E7",
+      "#777777"
+    ],
+    "left_frame_y200": [],
+    "colors": {
+      "#000000": 6514,
+      "#000080": 144,
+      "#3F3F3F": 149,
+      "#777777": 2887,
+      "#878787": 363,
+      "#8DDCDC": 162614,
+      "#969696": 1188,
+      "#A5A5A5": 198,
+      "#B3B3B3": 2094,
+      "#C0C0C0": 49660,
+      "#CDCDCD": 25,
+      "#DADADA": 3638,
+      "#E7E7E7": 29396,
+      "#F3F3F3": 11815,
+      "#FFFFFF": 36515
+    }
+  },
+  "root_left_frame": [
+    "#000000",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+  ],
+  "ref_left_frame": [
+    "#000000",
+    "#FFFFFF",
+    "#DADADA",
+    "#DADADA",
+    "#B3B3B3",
+    "#000000",
+    "#FFFFFF"
+  ],
+  "menubar_profile": [
+    "#FFFFFF",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#B3B3B3",
+    "#000000",
+    "#FFFFFF",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#B3B3B3",
+    "#000000"
+  ],
+  "ref_menubar_profile": [
+    "#FFFFFF",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#E7E7E7",
+    "#B3B3B3",
+    "#000000"
+  ],
+  "in_menutext": {
+    "bbox": [
+      28,
+      5,
+      193,
+      15,
+      466
+    ],
+    "columns": [
+      [
+        28,
+        32
+      ],
+      [
+        35,
+        36
+      ],
+      [
+        39,
+        40
+      ],
+      [
+        43,
+        48
+      ],
+      [
+        65,
+        69
+      ],
+      [
+        72,
+        77
+      ],
+      [
+        80,
+        81
+      ],
+      [
+        84,
+        87
+      ],
+      [
+        104,
+        109
+      ],
+      [
+        112,
+        113
+      ],
+      [
+        116,
+        121
+      ],
+      [
+        124,
+        133
+      ],
+      [
+        150,
+        154
+      ],
+      [
+        157,
+        162
+      ],
+      [
+        165,
+        170
+      ],
+      [
+        173,
+        177
+      ],
+      [
+        180,
+        181
+      ],
+      [
+        184,
+        189
+      ],
+      [
+        192,
+        193
+      ]
+    ]
+  },
+  "ref_menutext": {
+    "bbox": [
+      33,
+      2,
+      249,
+      16,
+      1021
+    ],
+    "columns": [
+      [
+        33,
+        73
+      ],
+      [
+        79,
+        83
+      ],
+      [
+        86,
+        91
+      ],
+      [
+        94,
+        95
+      ],
+      [
+        98,
+        101
+      ],
+      [
+        117,
+        122
+      ],
+      [
+        125,
+        126
+      ],
+      [
+        129,
+        134
+      ],
+      [
+        137,
+        146
+      ],
+      [
+        162,
+        166
+      ],
+      [
+        169,
+        174
+      ],
+      [
+        177,
+        182
+      ],
+      [
+        185,
+        190
+      ],
+      [
+        193,
+        194
+      ],
+      [
+        210,
+        214
+      ],
+      [
+        217,
+        222
+      ],
+      [
+        225,
+        230
+      ],
+      [
+        233,
+        237
+      ],
+      [
+        240,
+        241
+      ],
+      [
+        244,
+        249
+      ]
+    ]
+  },
+  "filetitle": {
+    "bbox": [
+      28,
+      5,
+      48,
+      13,
+      83
+    ],
+    "colors": {
+      "#000000": 83,
+      "#E7E7E7": 382
+    }
+  },
+  "filemenu": {
+    "bbox": [
+      39,
+      40,
+      157,
+      51,
+      313
+    ],
+    "colors": {
+      "#000000": 313,
+      "#E7E7E7": 1372,
+      "#FFFFFF": 130
+    }
+  },
+  "shortcut": {
+    "bbox": [
+      144,
+      43,
+      157,
+      51,
+      50
+    ],
+    "colors": {
+      "#000000": 50,
+      "#E7E7E7": 265
+    }
+  },
+  "check": {
+    "bbox": [
+      101,
+      45,
+      106,
+      51,
+      26
+    ],
+    "colors": {
+      "#000000": 26,
+      "#E7E7E7": 170
+    }
+  },
+  "cursor": {
+    "bbox": [
+      500,
+      380,
+      508,
+      393,
+      61
+    ],
+    "colors": {
+      "#000000": 61,
+      "#8DDCDC": 228,
+      "#FFFFFF": 53
+    }
+  },
+  "chicago-File": {
+    "width": 23,
+    "ascent": 12,
+    "height": 15
+  },
+  "chicago-New-Folder": {
+    "width": 74,
+    "ascent": 12,
+    "height": 15
+  },
+  "chicago-HELLO": {
+    "width": 37,
+    "ascent": 12,
+    "height": 15
+  },
+  "geneva-README": {
+    "width": 58,
+    "ascent": 10,
+    "height": 12
+  },
+  "chicago-checkmark": {
+    "width": 11,
+    "ascent": 12,
+    "height": 15
+  },
+  "chicago-ellipsis": {
+    "width": 14,
+    "ascent": 12,
+    "height": 15
+  },
+  "gray_thumb_rows": [
+    "#000000",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#8DDCDC",
+    "#000000",
+    "#969696"
+  ],
+  "disabled_vbar_rows": [
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#A5A5A5",
+    "#A5A5A5",
+    "#A5A5A5",
+    "#A5A5A5",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#777777",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3",
+    "#F3F3F3"
+  ],
+  "disabled_arrow_bbox": [
+    363,
+    87,
+    370,
+    90,
+    20
+  ],
+  "ref_disabled_arrow_bbox": [
+    464,
+    118,
+    471,
+    121,
+    20
+  ],
+  "enabled_arrow_bbox": [
+    363,
+    82,
+    374,
+    95,
+    34
+  ],
+  "ref_enabled_arrow_bbox": [
+    611,
+    301,
+    618,
+    304,
+    20
+  ],
+  "thumbcolors": {
+    "#000000": 29,
+    "#8DDCDC": 192,
+    "#F3F3F3": 4
+  },
+  "refthumbcolors": {
+    "#5454B3": 28,
+    "#8787DA": 26,
+    "#B3B3FF": 102,
+    "#DADAFF": 49,
+    "#F3F3F3": 5
+  },
+  "wellcross_in": [
+    "#969696",
+    "#A5A5A5",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#CDCDCD",
+    "#DADADA",
+    "#000000"
+  ],
+  "wellcross_ref": [
+    "#969696",
+    "#A5A5A5",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#C0C0C0",
+    "#CDCDCD",
+    "#DADADA"
+  ],
+  "additional": {
+    "button_corner_differences": 13,
+    "button_top_strip_in": {
+      "white": 11,
+      "face": 43,
+      "rect": [
+        365,
+        160,
+        419,
+        161
+      ]
+    },
+    "button_top_strip_reference": {
+      "white": 54,
+      "rect": [
+        365,
+        160,
+        419,
+        161
+      ]
+    },
+    "button_bottom_strip_in": {
+      "well": 10,
+      "face": 44,
+      "rect": [
+        365,
+        175,
+        419,
+        176
+      ]
+    },
+    "button_bottom_strip_reference": {
+      "well": 53,
+      "face": 1,
+      "rect": [
+        365,
+        175,
+        419,
+        176
+      ]
+    },
+    "cursor_in": {
+      "black": 61,
+      "white": 53,
+      "rect": [
+        499,
+        379,
+        515,
+        395
+      ],
+      "black_bbox": [
+        500,
+        380,
+        508,
+        393
+      ]
+    },
+    "cursor_reference": {
+      "black": 54,
+      "white": 43,
+      "rect": [
+        229,
+        28,
+        245,
+        44
+      ],
+      "black_bbox": [
+        230,
+        29,
+        237,
+        42
+      ]
+    },
+    "cursor_symbol_different_pixels": 48,
+    "cls_prompt_bbox": [
+      0,
+      386,
+      30,
+      395,
+      86
+    ],
+    "cls_snapshots_identical": true,
+    "shutdown_outside_click_unchanged": true,
+    "trash_icon_different_pixels": 75,
+    "geneva_README_advance": {
+      "initech_source": 64,
+      "reference": 58
+    },
+    "geneva_README_ink_in": [
+      24,
+      122,
+      86,
+      129,
+      146
+    ],
+    "geneva_README_ink_ref": [
+      0,
+      3,
+      56,
+      9,
+      134
+    ],
+    "title_stripe_runs": {
+      "64": [
+        [
+          81,
+          185
+        ],
+        [
+          232,
+          321
+        ]
+      ],
+      "65": [
+        [
+          82,
+          186
+        ],
+        [
+          233,
+          322
+        ]
+      ]
+    }
+  }
+}

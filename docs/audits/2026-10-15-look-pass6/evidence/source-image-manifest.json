@@ -1,0 +1,30 @@
+{
+  "commit": "3aaf6e0",
+  "images": [
+    {
+      "path": "images/flair_tenants_interactive.img",
+      "bytes": 229376,
+      "sha256": "b664f28dbece50632feba5a02965d3d794f895e71a313658983853ea35e02126"
+    },
+    {
+      "path": "images/flair_data.img",
+      "bytes": 1474560,
+      "sha256": "13648c175c1138f98ca3a802c1655d772f0912a5e216e84f9ea35cf295b546c0"
+    },
+    {
+      "path": "images/samir_list.img",
+      "bytes": 1474560,
+      "sha256": "a15751850e62747506ca9d302f9469c12c2b5908860a1d70ba3856e918d18f76"
+    },
+    {
+      "path": "images/tracer_boot.img",
+      "bytes": 229376,
+      "sha256": "1cc936ac2562fdfaff60dc57b281dd1c291e67d498affdc740f803c2047f9039"
+    },
+    {
+      "path": "images/flair_live_interactive.img",
+      "bytes": 229376,
+      "sha256": "12777648468e5aee8c9dfa1601e49e365a89ef4bb6e7b81665476f27b2bd4638"
+    }
+  ]
+}

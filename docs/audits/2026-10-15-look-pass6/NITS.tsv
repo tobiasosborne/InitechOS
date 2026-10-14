@@ -1,0 +1,29 @@
+id	area	severity	one-line summary
+M001	menu bar	P3	Apple slot and first title sit too far left
+M002	menu highlight	P2	Selected menu title uses a pale flat fill
+M003	menu shortcuts	P3	Caret substitutes for the Command glyph
+M004	menu shortcuts	P3	Shortcut column has excessive right clearance
+M005	menu text placement	P3	Item ink begins one pixel too far from the left frame
+M006	menu marks	P3	View check mark is a lowercase v
+M007	scroll thumb	P2	Enabled thumb face has no bevel ramp
+M008	scroll thumb	P2	Thumb grip lines disappear into the face
+M009	pointer	P3	Arrow stem and white mask differ from the Mac cursor
+M010	title truncation	P3	Narrow title ends in one period instead of an ellipsis
+M011	button bevel	P2	Opaque label background erases button highlight and shadow
+M012	button corners	P3	Rounded button corners acquire extra gray fringe pixels
+M013	scroll arrows	P3	Enabled arrow tiles mispaint two off-diagonal corners
+M014	DOS/database console	P2	Console keeps pale gray text on green
+M015	DOS cursor	P2	Ready prompt has no visible blinking cursor
+M016	DOS CLS	P2	CLS clears pixels but leaves the prompt on row 24
+M017	DOS DIR header	P3	Directory listing omits the volume identity line
+M018	DOS DIR columns	P3	Name and extension are joined with a dot
+M019	DOS DIR columns	P2	DIR rows omit date and time fields
+M020	DOS DIR footer	P3	Footer omits the free-space figure
+M021	database LIST	P2	LIST lacks field headings
+M022	database status	P2	SET STATUS ON never produces the status bar
+M023	DOS DIR footer	P3	File-count label uses lowercase f
+M024	film chart	P2	Film chart window is blank
+M025	film worksheet	P2	Film worksheet body has no grid or expense data
+M026	film busy cursor	P3	Saving modal retains the arrow instead of the scene hourglass
+M027	database numeric format	P2	LIST drops fixed decimal places for integral numeric fields
+M028	database numeric alignment	P3	LIST aligns numeric fields to their left edge
