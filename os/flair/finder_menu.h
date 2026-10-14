@@ -118,19 +118,9 @@
 #define FINDER_MENU_TITLE_SPECIAL  "Special"
 #define FINDER_MENU_TITLE_HELP     "Help"
 
-/*
- * The MARK character for the checked view mode (F4.2 View row 1, "by Icons
- * (mark char)"). The hand-authored Chicago strike spans ASCII only
- * (spec/assets/chicago12.h CHICAGO_FIRST/CHICAGO_LAST, 0x20..0x7E) and carries NO
- * check-mark glyph -- the period MacRoman check is 0x12, outside it. Rather
- * than invent a strike here (CLAUDE.md: "Glyphs are hand-authored, not
- * pixel-extracted" -- authoring one is a deliberate act, not a side effect of
- * a menu resource) or mark the item with a character that draws nothing, the
- * resource uses an ASCII SUBSTITUTION, exactly the posture menu.h already
- * takes for the command-key column (FLAIR_MENU_CMD_CHARS: "period-plausible
- * '^X' substitution"). The Platinum check glyph is bead initech-sjvq's ink.
- */
-#define FINDER_MENU_MARK_CHECK   'v'
+/* Mac Menu Manager checkMark=18 (NFNT5478 lb1/aw11).
+ * tdnl.95 replaces the old ASCII v with the original control-range glyph. */
+#define FINDER_MENU_MARK_CHECK   0x12
 
 /* ===========================================================================
  * 2. THE RESOURCE

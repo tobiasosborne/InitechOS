@@ -8,12 +8,12 @@
  * Chicago 12 owTable values (NFNT 5478; ../system7-decomp
  * specs/fonts/chicago.md). GLYPH ART is HAND-AUTHORED (see the
  * provenance block in chicago12.art); never transcribed from the real
- * strike bitmap, which may be used only as a diff oracle.
+ * strike bitmap, except code0x12 extracted per operator directive tdnl.95.
  *
  * Rows: chicago12_rows[g][r], MSB = the glyph IMAGE's first column, which
  * the renderer places at pen + lb; the opaque cell is aw columns wide.
  * Index g = c - CHICAGO_FIRST for CHICAGO_FIRST <= c <= CHICAGO_LAST;
- * CHICAGO_ELLIPSIS for 0xC9; CHICAGO_MISSING for every other code.
+ * CHICAGO_ELLIPSIS for 0xC9, CHICAGO_CHECK for 0x12; otherwise MISSING.
  * Linkage: spec/assets/font_linkage.h (one copy per kernel image).
  */
 #ifndef INITECH_CHICAGO12_H
@@ -31,7 +31,9 @@
  * it. Slot CHICAGO_ELLIPSIS, after the missing-glyph box. */
 #define CHICAGO_ELLIPSIS_CODE 0xC9
 #define CHICAGO_ELLIPSIS (CHICAGO_COUNT + 1)
-#define CHICAGO_GLYPHS  (CHICAGO_COUNT + 2)
+#define CHICAGO_CHECK_CODE 0x12
+#define CHICAGO_CHECK (CHICAGO_COUNT + 2)
+#define CHICAGO_GLYPHS  (CHICAGO_COUNT + 3)
 #define CHICAGO_CELL_H  16
 /* NFNT 5478 FontRec: ascent 12, descent 3, leading 1 (chicago.md). */
 #define CHICAGO_ASCENT  12
@@ -50,7 +52,7 @@ FONT_TABLE unsigned char chicago12_aw[CHICAGO_GLYPHS] = {
     8, 8, 8, 7, 6, 8, 8, 12, 8, 8, 8, 5, 7, 5, 8, 8,
     6, 8, 8, 7, 8, 8, 6, 8, 8, 4, 6, 8, 4, 12, 8, 8,
     8, 8, 6, 7, 6, 8, 8, 12, 8, 8, 8, 5, 5, 5, 8, 10,
-    14
+    14, 11
 };
 FONT_TABLE unsigned char chicago12_lb[CHICAGO_GLYPHS] = {
     4, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -59,7 +61,7 @@ FONT_TABLE unsigned char chicago12_lb[CHICAGO_GLYPHS] = {
     1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 0,
-    2
+    2, 1
 };
 FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H] = {
 /* 0x20 ' ' lb 4 aw 4 */ {0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000},
@@ -159,6 +161,7 @@ FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H] = {
 /* 0x7E '~' lb 1 aw 8 */ {0x0000,0x0000,0x0000,0x0000,0x0000,0x6400,0x9800,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000},
 /* missing lb 0 aw 10 */ {0x0000,0x0000,0x0000,0xFE00,0x8200,0x8200,0x8200,0x8200,0x8200,0x8200,0x8200,0xFE00,0x0000,0x0000,0x0000,0x0000},
 /* 0xC9 ellipsis lb 2 aw 14 */ {0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0xCCC0,0xCCC0,0x0000,0x0000,0x0000,0x0000},
+/* 0x12 checkMark lb 1 aw 11 */ {0x0000,0x0000,0x0000,0x0000,0x0080,0x0180,0x0300,0x0600,0x8C00,0xD800,0x7000,0x2000,0x0000,0x0000,0x0000,0x0000},
 };
 #else
 FONT_TABLE unsigned char chicago12_aw[CHICAGO_GLYPHS];
@@ -170,6 +173,8 @@ FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H];
  * missing-glyph box. */
 static inline int chicago12_index(int c)
 {
+    if (c == CHICAGO_CHECK_CODE)
+        return CHICAGO_CHECK;
     if (c == CHICAGO_ELLIPSIS_CODE)
         return CHICAGO_ELLIPSIS;
     if (c < CHICAGO_FIRST || c > CHICAGO_LAST)

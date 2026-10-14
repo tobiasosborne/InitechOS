@@ -700,6 +700,9 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
         if (it->mark) {
             char marks[2];
             marks[0] = it->mark;
+#if defined(MENU_LOOK_MUT_V_MARK)
+            if ((unsigned char)marks[0] == 18u) marks[0] = 'v';
+#endif
             marks[1] = 0;
             (void)text_draw_run(bm, panel.left + FLAIR_MENU_PANEL_INSET + 2,
                                 text_y, marks, FONT_CHICAGO, 0u, row_fg,
