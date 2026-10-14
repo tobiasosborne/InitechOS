@@ -178,6 +178,13 @@ static const uint8_t FG_BODY_BAR_IDX[FG_BODY_BAR_ROWS] = {
 #define FG_SB_ENABLED_WELL_HILITE1_IDX 218
 #define FG_SB_ENABLED_NO_THUMB          1
 #define FG_SB_ENABLED_THUMB_TEAL_IDX    2
+/* Dated re-key 2026-10-15, tdnl.96/.97: retain face idx2 but restore the
+ * independent crop's leading highlight / dark grip classes. See the literal
+ * Mac matrices in scrollbar_look_golden.h (verified against the corpus PNG),
+ * 49 highlight, 102 face, 26 shadow, 28 grip, 5 F3 pixels per thumb.
+ * S/R share the dark fallback; no locked palette row changes. */
+#define FG_SB_THUMB_HIGHLIGHT_IDX       1
+#define FG_SB_THUMB_DARK_IDX           63
 
 #define FG_SB_HOLLOW_TROUGH_IDX      243
 #define FG_SB_HOLLOW_FRAME_IDX       119

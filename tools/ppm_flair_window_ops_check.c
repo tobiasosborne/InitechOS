@@ -95,7 +95,7 @@ static int zoom_toggle(const Img *im)
     return bad;
 }
 
-/* Locked grow trace shrinks HELLO 300x200 -> clamped 96x64 at (60,60). */
+/* Grow trace re-keyed 2026-10-15 tdnl.86: measured bar-fit floor is 96x88. */
 static int grow(const Img *im)
 {
     int bad = 0;
@@ -107,12 +107,12 @@ static int grow(const Img *im)
                  "grow resized HELLO right shadow");
     bad |= probe(im, 100, 100, CIDX_WHITE,
                  "grow repainted resized HELLO content");
-    bad |= probe(im, 100, 130, CIDX_DESKTOP,
+    bad |= probe(im, 100, 150, CIDX_DESKTOP,
                  "grow exposed old body to desktop");
     bad |= probe(im, 200, 100, CIDX_DESKTOP,
                  "grow exposed old right body to desktop");
     if (!bad)
-        printf("window ops grow PASS: HELLO is 96x64 with old body exposed\n");
+        printf("window ops grow PASS: HELLO is 96x88 with old body exposed\n");
     return bad;
 }
 

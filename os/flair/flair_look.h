@@ -102,8 +102,8 @@ typedef enum {
     FLAIR_PART_MENU_TITLE_HILITE_FACE,/* authored teal face rows                  */
     FLAIR_PART_MENU_TITLE_HILITE_SHADOW,/* authored teal bottom row               */
     /* Platinum scrollbar accent roles append after all previously shipped
-     * PART ordinals.  The four clut-208 anatomy roles collapse onto the two
-     * existing ratified teal canon rows; no color row is accreted. */
+     * PART ordinals. The four clut-208 roles map to white/teal/dark/dark
+     * through existing palette rows; no color row is accreted. */
     FLAIR_PART_SB_THUMB_HL,           /* leading edge + grip companions            */
     FLAIR_PART_SB_THUMB_FACE,         /* main thumb face                            */
     FLAIR_PART_SB_THUMB_SHADOW,       /* trailing edge                              */
@@ -138,9 +138,9 @@ typedef enum {
  *   FRAME_FACE, FACE, TROUGH, then CONTENT-white in that order
  *   (window-chrome.md Sec 3.2); no extra PART is required.
  * - The real Platinum Lavender thumb is the OQ-2 authored substitution. Its
- *   four semantic SB_THUMB roles resolve to the EXISTING bevel_light /
- *   bevel_shadow Initech-teal canon pair; the sampled clut-208 structure is
- *   preserved without authoring a third accent row (DEC-10 Sec 6 OQ-2/OQ-3;
+ *   four semantic SB_THUMB roles resolve to white / existing bevel_light /
+ *   bevel_shadow (dark gray in indexed colour); sampled clut-208 structure
+ *   is preserved without authoring a third accent row (DEC-10 Sec 6 OQ-2/OQ-3;
  *   scrollbars.md Sec 2.4 records the source accent).
  * - The pulled menu title applies that same ratified two-tone teal pair to the
  *   clut-208 accent structure.  No third accent row is authored or accreted

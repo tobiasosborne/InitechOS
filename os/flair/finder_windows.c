@@ -531,6 +531,13 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
      * (design F3.3). Clean Up later restores exactly this arrangement. */
     for (int i = 0; i < (int)w->view.n; i++) (void)fw_snap(w, i, i);
     (void)finder_win_sync_geometry(w);   /* the ranges cover the new layout */
+    /* tdnl.82: re-list can change max while value remains zero. A later sync
+     * cannot rediscover that transition; damage the two bars at the source. */
+    if (sh->wm != (WindowMgr *)0) {
+        rgn_rect_t f = WindowFrameRect(&w->rec);
+        WindowMgr_invalidate(sh->wm, &w->rec, wscroll_bar_rect(f, WSCROLL_V));
+        WindowMgr_invalidate(sh->wm, &w->rec, wscroll_bar_rect(f, WSCROLL_H));
+    }
     return FINDER_WIN_OK;
 }
 

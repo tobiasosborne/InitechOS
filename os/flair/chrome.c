@@ -489,8 +489,7 @@ static void draw_right_triangle(GrafPort *port, const flair_skin_t *skin,
     }
 }
 
-/* Raised 14x14 Platinum arrow tile.  Corner ownership follows the sampled
- * scans: left highlight wins at bottom-left; right shadow wins at top-right.
+/* Raised 14x14 Platinum arrow tile. Off-diagonal corners retain the face.
  * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 2.2 (SAMPLED). */
 static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
                              int x0, int y0, int x1, int y1)
@@ -506,6 +505,10 @@ static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
     for (int y = y0; y < y1; y++) {
         cfill(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
     }
+#if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
+    cfill(port, x1 - 1, y0, 1, FLAIR_PART_PLAT_FACE);
+    cfill(port, x0, y1 - 1, 1, FLAIR_PART_PLAT_FACE);
+#endif
 #endif
 }
 
@@ -639,6 +642,9 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
             if (a == 0 && c == 0) part = FLAIR_PART_PLAT_TROUGH;
             if (a == len - 1 && c == 0) part = FLAIR_PART_SB_THUMB_FACE;
             if (a == 0 && c == wid - 1) part = FLAIR_PART_SB_THUMB_FACE;
+#if defined(SB_LOOK_MUT_RAMP_FLAT)
+            if (part != FLAIR_PART_PLAT_TROUGH) part = FLAIR_PART_SB_THUMB_FACE;
+#endif
             sb_plot(port, skin, axis, a0 + a, c0 + c, part);
         }
     }
@@ -650,8 +656,10 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
         sb_plot(port, skin, axis, ac, c0 + 3, FLAIR_PART_PLAT_TROUGH);
         for (int c = 4; c <= 9; c++)
             sb_plot(port, skin, axis, ac, c0 + c, FLAIR_PART_SB_THUMB_HL);
+#if !defined(SB_LOOK_MUT_GRIPS_MISSING)
         for (int c = 4; c <= 10; c++)
             sb_plot(port, skin, axis, ac + 1, c0 + c, FLAIR_PART_SB_THUMB_GRIP);
+#endif
     }
 }
 
@@ -757,8 +765,9 @@ static void draw_horizontal_scrollbar(GrafPort *port, const flair_skin_t *skin,
 #else
     int frame_part = active ? FLAIR_PART_FRAME
                             : FLAIR_PART_PLAT_INACTIVE_FRAME;
-    int interior_bottom = active ? bottom - 1 : bottom;
-    crect(port, left + 1, top + 1, right - 1, interior_bottom,
+    /* All 14 interior rows, including the old well's final row when an
+     * enabled bar becomes disabled (tdnl.82). The frame is at bottom. */
+    crect(port, left + 1, top + 1, right - 1, bottom,
           FLAIR_PART_PLAT_TROUGH);
     cfill(port, left, top, right - left, frame_part);
     cfill(port, left, bottom, right - left, frame_part);

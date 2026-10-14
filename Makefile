@@ -12453,7 +12453,7 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TES
 	@if $(TEST_WINDOW_MUT_ZONE_OFF) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZONE_OFF PASSED -- the full title-band hit-zone oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZONE_OFF correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_ZOOM_NO_RESTORE) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: ZOOM_NO_RESTORE PASSED -- the userState toggle oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (ZOOM_NO_RESTORE correctly RED)\n'; fi
 	@if $(TEST_WINDOW_MUT_COLLAPSE_LEAK) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: COLLAPSE_LEAK PASSED -- the empty collapsed contRgn oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (COLLAPSE_LEAK correctly RED)\n'; fi
-	@if $(TEST_WINDOW_MUT_GROW_NO_MIN) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: GROW_NO_MIN PASSED -- the 96x64 minimum-size oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (GROW_NO_MIN correctly RED)\n'; fi
+	@if $(TEST_WINDOW_MUT_GROW_NO_MIN) >/dev/null 2>&1; then printf '!!! test-window-mutant FAIL: GROW_NO_MIN PASSED -- the 96x88 minimum-size oracle is decoration\n'; exit 1; else printf '>>> test-window-mutant: green (GROW_NO_MIN correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-winscroll (bead initech-tdnl.35; audit F02) -- the HOST
@@ -12467,7 +12467,7 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TES
 # ---------------------------------------------------------------------------
 TEST_WINSCROLL     := $(BUILD)/test_winscroll
 TEST_WINSCROLL_SRC := harness/proptest/test_winscroll.c
-WINSCROLL_MUTANTS  := WINDOW_MUTATE_SCROLL_DRAG WSCROLL_MUT_THUMB_UNSCALED WSCROLL_MUT_PAGE_WRONG_DIR
+WINSCROLL_MUTANTS  := WINDOW_MUTATE_SCROLL_DRAG WSCROLL_MUT_THUMB_UNSCALED WSCROLL_MUT_PAGE_WRONG_DIR WINDOW_MUT_SCROLL_STALE_RESIZE WINDOW_MUTATE_GROW_NO_MIN
 $(TEST_WINSCROLL): $(TEST_WINSCROLL_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_WINSCROLL_SRC) $(WINDOW_LINK)
 $(BUILD)/test_winscroll_mutant_%: $(TEST_WINSCROLL_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
@@ -12488,7 +12488,9 @@ test-winscroll-mutant: $(foreach m,$(WINSCROLL_MUTANTS),$(BUILD)/test_winscroll_
 	@grep -q 'W5 every pixel' $(BUILD)/test_winscroll_mutant_WINDOW_MUTATE_SCROLL_DRAG.log || { printf '!!! test-winscroll-mutant FAIL: SCROLL_DRAG red for the wrong reason\n'; exit 1; }
 	@grep -q 'W2 thumb' $(BUILD)/test_winscroll_mutant_WSCROLL_MUT_THUMB_UNSCALED.log || { printf '!!! test-winscroll-mutant FAIL: THUMB_UNSCALED red for the wrong reason\n'; exit 1; }
 	@grep -q 'W4 page' $(BUILD)/test_winscroll_mutant_WSCROLL_MUT_PAGE_WRONG_DIR.log || { printf '!!! test-winscroll-mutant FAIL: PAGE_WRONG_DIR red for the wrong reason\n'; exit 1; }
-	@printf ">>> test-winscroll-mutant: green (three mutants RED for the named reason)\n"
+	@grep -q 'FAIL.*W7 resize' $(BUILD)/test_winscroll_mutant_WINDOW_MUT_SCROLL_STALE_RESIZE.log || { printf 'FAIL stale resize mutant wrong reason\n'; exit 1; }
+	@grep -q 'FAIL.*W8 minimum' $(BUILD)/test_winscroll_mutant_WINDOW_MUTATE_GROW_NO_MIN.log || { printf 'FAIL minimum size mutant wrong reason\n'; exit 1; }
+	@printf ">>> test-winscroll-mutant: green (five mutants RED for the named reason)\n"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-cmd (beads initech-tdnl.27; docs/design/
@@ -21315,11 +21317,11 @@ test-flair-grow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAI
 		--screendump --screendump-after "FLAIR-GROW win 0" --timeout-ms 20000 \
 		2> "$(BUILD)/$(FLAIR_GROW_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_GROW_NAME).report"; then printf '!!! test-flair-grow FAIL: TRIPLE FAULT\n'; exit 1; fi
-	@grep -q '^FLAIR-GROW win 0 (300,200)->(96,64)$$' "$(BUILD)/$(FLAIR_GROW_NAME).serial" \
+	@grep -q '^FLAIR-GROW win 0 (300,200)->(96,88)$$' "$(BUILD)/$(FLAIR_GROW_NAME).serial" \
 		|| { printf '!!! test-flair-grow FAIL: exact grow marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_GROW_NAME).serial" || true; exit 1; }
 	@$(PPM_FLAIR_WINDOW_OPS_CHECK_BIN) grow "$(BUILD)/$(FLAIR_GROW_NAME).ppm"
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/$(FLAIR_GROW_NAME).serial"
-	@printf '>>> test-flair-grow: green -- outline release committed 96x64\n'
+	@printf '>>> test-flair-grow: green -- outline release committed 96x88\n'
 
 test-flair-collapse: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
@@ -21881,7 +21883,7 @@ RECORD_SPEC_grow        = $(FLAIR_GROW_SPEC)
 RECORD_SPEC_collapse    = $(FLAIR_COLLAPSE_SPEC)
 RECORD_SPEC_drag_outline = $(FLAIR_DRAG_OUTLINE_SPEC)
 RECORD_MARKER_zoom_toggle = FLAIR-ZOOM win 0 out
-RECORD_MARKER_grow        = FLAIR-GROW win 0 (300,200)->(96,64)
+RECORD_MARKER_grow        = FLAIR-GROW win 0 (300,200)->(96,88)
 RECORD_MARKER_collapse    = FLAIR-COLLAPSE win 0 1
 RECORD_MARKER_drag_outline = FLAIR-DRAG win 0 (260,120)->(200,180)
 RECORD_MARKER_close_terminate = FLAIR-TENANT-EXIT name=HELLO
@@ -29451,3 +29453,80 @@ test-flair-fonts-mutant: test-flair-fonts $(HARNESS_BIN) $(FLAIR_DATA_FONTS_IMG)
 	@$(call fonts-mutant-leg,clip_ignore,!!! W2 CLIP:)
 	@$(call fonts-mutant-leg,trunc_period,!!! W3 TITLE:)
 	@printf '>>> test-flair-fonts-mutant: green (three kernel mutants RED for the named reason)\n'
+
+# LOOK pass 6: independent historical PNG crops, both actual drawers.
+SCROLLBAR_LOOK_GOLDEN := spec/scrollbar_look_golden.h
+SCROLLBAR_LOOK_PNG = $(SYSTEM7_DECOMP)/goldens/captures/s8_doc_window_inactive.png
+$(BUILD)/test_scrollbar_look: harness/proptest/test_scrollbar_look.c $(TEST_CONTROL_DEPS) $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -o $@ $< $(CONTROL_LINK) -lpng
+$(BUILD)/test_scrollbar_look_mut_%: harness/proptest/test_scrollbar_look.c $(TEST_CONTROL_DEPS) $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -D$* -o $@ $< $(CONTROL_LINK) -lpng
+SCROLLBAR_LOOK_MUTANTS := SB_LOOK_MUT_RAMP_FLAT SB_LOOK_MUT_GRIPS_MISSING SB_LOOK_MUT_CORNERS_BEVELLED
+.PHONY: test-scrollbar-look test-scrollbar-look-mutant
+test-scrollbar-look: $(BUILD)/test_scrollbar_look
+	@$< "$(SCROLLBAR_LOOK_PNG)"
+	@printf '>>> test-scrollbar-look: green (both depths, both drawers; six independent crops)\n'
+test-scrollbar-look-mutant: test-scrollbar-look $(foreach m,$(SCROLLBAR_LOOK_MUTANTS),$(BUILD)/test_scrollbar_look_mut_$(m))
+	@for m in $(SCROLLBAR_LOOK_MUTANTS); do \
+		if $(BUILD)/test_scrollbar_look_mut_$$m "$(SCROLLBAR_LOOK_PNG)" > $(BUILD)/scrollbar_look_$$m.log 2>&1; then \
+			printf 'FAIL test-scrollbar-look-mutant: %s survived\n' "$$m"; exit 1; fi; \
+		grep -q 'FAIL crop' $(BUILD)/scrollbar_look_$$m.log || { cat $(BUILD)/scrollbar_look_$$m.log; exit 1; }; \
+		grep -q 'FAIL.*SL4 Control' $(BUILD)/scrollbar_look_$$m.log || { printf 'FAIL control drawer mutant escaped\n'; exit 1; }; \
+		case "$$m" in *CORNERS*) leg='SL3 all four';; *) leg='SL2 chrome thumb';; esac; \
+		grep -q "FAIL.*$$leg" $(BUILD)/scrollbar_look_$$m.log || { printf 'FAIL chrome drawer mutant escaped\n'; exit 1; }; \
+		printf '>>> test-scrollbar-look-mutant: %s correctly RED\n' "$$m"; \
+	done
+
+include spec/flair_scroll_look_traces.mk
+TEST_UNIT_GATES += test-scrollbar-look test-scrollbar-look-mutant
+TEST_EMU_GATES += test-flair-scroll-look test-flair-scroll-look-mutant
+SCROLL_LOOK_CHECK := $(BUILD)/ppm_flair_scroll_look_check
+$(SCROLL_LOOK_CHECK): tools/ppm_flair_scroll_look_check.c $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -o $@ $<
+# Prefixes retain the same injected history; every capture is after release.
+define scroll-look-boot
+$(call scroll-boot,$(1),$(2),$(FLAIR_DATA_IMG),$(3),FLAIR-LIVE-OK,1)
+@grep -qx 'FINDER-OPEN-VOLUME win=0 n=2' $(BUILD)/$(2).serial
+@grep -qx 'FLAIR-GROW win 0 (360,220)->(128,120)' $(BUILD)/$(2).serial
+@! grep -Eq '^(PANIC|FLAIR-SCROLL-IGNORED)' $(BUILD)/$(2).serial
+endef
+.PHONY: test-flair-scroll-look test-flair-scroll-look-mutant
+test-flair-scroll-look: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(SCROLL_LOOK_CHECK)
+	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_shrink,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
+	@$(SCROLL_LOOK_CHECK) shrink $(BUILD)/scroll_look_shrink.ppm
+	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_click,$(FLAIR_SCROLL_LOOK_CLICK_SPEC))
+	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=30' $(BUILD)/scroll_look_click.serial
+	@$(SCROLL_LOOK_CHECK) click $(BUILD)/scroll_look_click.ppm
+	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_restore,$(FLAIR_SCROLL_LOOK_RESTORE_SPEC))
+	@grep -qx 'FLAIR-GROW win 0 (128,120)->(360,220)' $(BUILD)/scroll_look_restore.serial
+	@$(SCROLL_LOOK_CHECK) restore $(BUILD)/scroll_look_restore.ppm
+	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_min,$(FLAIR_SCROLL_LOOK_SPEC))
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(96,88)' $(BUILD)/scroll_look_min.serial
+	@grep -qx 'FLAIR-SCROLL win 0 v part=21 value=10 max=10' $(BUILD)/scroll_look_min.serial
+	@$(SCROLL_LOOK_CHECK) min $(BUILD)/scroll_look_min.ppm
+	@printf '>>> test-flair-scroll-look: green (shrink enabled; click scrolls16; restore disabled; minimum96x88 draws all parts; no SCROLL-IGNORED)\n'
+$(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUT_SCROLL_STALE_RESIZE,scroll_stale_resize))
+$(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_GROW_NO_MIN,scroll_no_min))
+$(BUILD)/chrome_mut_scroll_ramp.o: os/flair/chrome.c $(CHROME_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DSB_LOOK_MUT_RAMP_FLAT -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_scroll_ramp.o,scroll_ramp_flat))
+test-flair-scroll-look-mutant: test-flair-scroll-look $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(SCROLL_LOOK_CHECK) $(BUILD)/flair_tenants_mut_scroll_stale_resize.img $(BUILD)/flair_tenants_mut_scroll_no_min.img $(BUILD)/flair_tenants_mut_scroll_ramp_flat.img
+	$(call scroll-look-boot,$(BUILD)/flair_tenants_mut_scroll_stale_resize.img,scroll_look_mut_stale,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
+	@if $(SCROLL_LOOK_CHECK) shrink $(BUILD)/scroll_look_mut_stale.ppm > $(BUILD)/scroll_look_mut_stale.pixels 2>&1; then printf 'FAIL stale resize survived\n'; exit 1; fi
+	@grep -q 'FAIL scroll-look crop thumb-h' $(BUILD)/scroll_look_mut_stale.pixels
+	@printf '>>> test-flair-scroll-look-mutant: WINDOW_MUT_SCROLL_STALE_RESIZE correctly RED (enabled thumb missing after shrink)\n'
+	$(call scroll-look-boot,$(BUILD)/flair_tenants_mut_scroll_ramp_flat.img,scroll_look_mut_ramp,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
+	@if $(SCROLL_LOOK_CHECK) shrink $(BUILD)/scroll_look_mut_ramp.ppm > $(BUILD)/scroll_look_mut_ramp.pixels 2>&1; then printf 'FAIL flat ramp survived\n'; exit 1; fi
+	@grep -q 'FAIL scroll-look crop thumb-h' $(BUILD)/scroll_look_mut_ramp.pixels
+	@printf '>>> test-flair-scroll-look-mutant: SB_LOOK_MUT_RAMP_FLAT correctly RED (independent thumb crop)\n'
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_scroll_no_min.img,scroll_look_mut_min,$(FLAIR_DATA_IMG),$(FLAIR_SCROLL_LOOK_SPEC),FLAIR-LIVE-OK,1)
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(60,40)' $(BUILD)/scroll_look_mut_min.serial
+	@if $(SCROLL_LOOK_CHECK) min $(BUILD)/scroll_look_mut_min.ppm > $(BUILD)/scroll_look_mut_min.pixels 2>&1; then printf 'FAIL no minimum survived\n'; exit 1; fi
+	@grep -q 'FAIL scroll-look crop' $(BUILD)/scroll_look_mut_min.pixels
+	@printf '>>> test-flair-scroll-look-mutant: WINDOW_MUTATE_GROW_NO_MIN correctly RED (undrawn bar and wrong frame)\n'
+RECORD_SCRIPTS += scroll_look
+RECORD_SPEC_scroll_look = $(FLAIR_SCROLL_LOOK_SPEC)
+RECORD_MARKER_scroll_look = FLAIR-GROW win 0 (360,220)->(96,88)
+RECORD_IMAGE_scroll_look = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_scroll_look = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_scroll_look = 300

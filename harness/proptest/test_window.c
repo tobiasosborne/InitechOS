@@ -1001,11 +1001,11 @@ int main(void)
         snapshot_op_region(W.rec.strucRgn, old_owned);
         SizeWindow(&M.wm, &W.rec, 1, 1);
         rgn_rect_t grown = { user.top, user.left,
-                             user.top + FLAIR_CHROME_WINDOW_MIN_H,
+                             user.top + 88,
                              user.left + FLAIR_CHROME_WINDOW_MIN_W };
         CHECK(rect_same(WindowFrameRect(&W.rec), grown) &&
               rect_same(region_get_bbox(W.rec.contRgn), CalcDocContentRect(grown)),
-              "SizeWindow: 1x1 request clamps to 96x64 and re-derives content");
+              "SizeWindow: 1x1 request clamps to 96x88 and re-derives content");
         CHECK(geometry_damage_exact(old_owned, &W.rec, &M.wm),
               "SizeWindow: old loss and resized self footprint are exact damage");
 

@@ -121,7 +121,7 @@ FLAIR_SOLID_RAISE_SPEC := m100:-100,m30:-10,l1,m-60:60,l0,m100:100,m100:100,m30:
 FLAIR_ZOOM_TOGGLE_SPEC := m12:-100,m0:-70,l1,l0,m100:-20,m100:0,m76:0,l1,l0,m0:100,m0:100,m0:100,m0:100,m12:10
 
 # grow: press HELLO's sampled grow cell at (349,249), request 50x30 by moving
-# to (99,79), and prove the shared minimum clamp commits 96x64 at (60,60).
+# to (99,79), and prove the shared minimum clamp commits 96x88 at (60,60).
 FLAIR_GROW_SPEC := m29:9,l1,m-100:-100,m-100:-70,m-50:0,l0,m100:100,m100:100,m100:100,m100:81,m100:0,m21:0
 
 # collapse: click HELLO's rightmost collapse box at (348,70); the endpoint is

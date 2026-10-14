@@ -796,6 +796,23 @@ static void set_document_frame(WindowMgr *wm, WindowPtr w,
 #endif
     } else {
         region_set_rect(w->contRgn, CalcDocContentRect(next));
+#ifndef WINDOW_MUT_SCROLL_STALE_RESIZE
+        /* tdnl.82: chrome paints BEFORE the client's updateEvt. Settle the
+         * cached document extents now, not during Finder content painting.
+         * Grow, zoom and unshade all take this transaction. The full new
+         * structure is damaged below, so both bars repaint the same model
+         * FindControl reads, even when value stays zero and only max changes. */
+        WindowScroll *ws = WindowScrollOf(wm, w);
+        if (ws != NULL) {
+            rgn_rect_t c = region_get_bbox(w->contRgn);
+            for (int a = 0; a < WSCROLL_AXES; a++) {
+                wscroll_set_extent(&ws->axis[a], ws->axis[a].content_len,
+                    a == WSCROLL_V ? c.bottom - c.top : c.right - c.left);
+                ws->axis[a].hilite = 0;
+                ws->axis[a].drag_pos = -1;
+            }
+        }
+#endif
     }
 
     distribute_exposure(wm, w, exposed);
@@ -831,8 +848,11 @@ void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
 
     min_w = FLAIR_CHROME_WINDOW_MIN_W;
     min_h = FLAIR_CHROME_WINDOW_MIN_H;
-    if (min_w > max_w) min_w = max_w;
-    if (min_h > max_h) min_h = max_h;
+    if (min_w < WSCROLL_FRAME_MIN_W) min_w = WSCROLL_FRAME_MIN_W;
+    if (min_h < WSCROLL_FRAME_MIN_H) min_h = WSCROLL_FRAME_MIN_H;
+    /* Keep parts drawable even if the origin is near a desktop edge. */
+    if (max_w < min_w) max_w = min_w;
+    if (max_h < min_h) max_h = min_h;
     want_w = *width;
     want_h = *height;
 #ifndef WINDOW_MUTATE_GROW_NO_MIN
@@ -1073,6 +1093,7 @@ void WindowScrollAttach(WindowMgr *wm, WindowScroll *ws, WindowPtr w)
     if (WindowScrollOf(wm, w) != NULL) WIN_PANIC("WindowScrollAttach: twice");
     for (int a = 0; a < WSCROLL_AXES; a++) {
         ws->axis[a].value    = 0;
+        ws->axis[a].content_len = 0;
         ws->axis[a].max      = 0;
         ws->axis[a].line     = WSCROLL_LINE_DEFAULT;
         ws->axis[a].page     = WSCROLL_LINE_DEFAULT;

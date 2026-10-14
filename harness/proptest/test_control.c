@@ -675,14 +675,13 @@ static void test_draw_controls(void)
                  "scrollbar well above thumb (x=60, y=154) must be sampled idx192");
         CHECK(pidx(&ctx, 60u, 154u) == FG_SB_ENABLED_WELL_IDX, msg);
 
-        /* Indexed-8 fallback: the whole authored accent pair uses canon teal
-         * idx2; direct-color anatomy is checked separately below. */
+        /* The midpoint lies on a companion highlight (Mac crop row +7). */
         int thumb_mid_y = 192 + SB_THUMB_MIN / 2;
         snprintf(msg, sizeof msg,
-                 "scrollbar thumb face (x=60, y=%d) must be authored teal idx2",
+                 "scrollbar thumb companion (x=60, y=%d) must be white",
                  thumb_mid_y);
         CHECK(pidx(&ctx, 60u, (uint32_t)thumb_mid_y) ==
-                  FG_SB_ENABLED_THUMB_TEAL_IDX, msg);
+                  FG_SB_THUMB_HIGHLIGHT_IDX, msg);
 
         /* Track below thumb: y=220 is in the C0 center of the well. */
         snprintf(msg, sizeof msg,
@@ -791,8 +790,8 @@ static void test_scrollbar_draw_vs_math(void)
 
     /* At value=0, thumb_y=66. Thumb interior at x=108, y=66+7=73. */
     snprintf(msg, sizeof msg,
-             "scrollbar thumb at value=0 (x=108, y=73) must be teal idx2");
-    CHECK(pidx(&ctx, 108u, 73u) == FG_SB_ENABLED_THUMB_TEAL_IDX, msg);
+             "scrollbar thumb companion at value=0 (x=108, y=73) must be white");
+    CHECK(pidx(&ctx, 108u, 73u) == FG_SB_THUMB_HIGHLIGHT_IDX, msg);
 
     /* Track above thumb at value=0: there is NO track above (thumb is at top).
      * y=81 is the trailing separator; y=82 resumes the recessed well. */
@@ -805,9 +804,8 @@ static void test_scrollbar_draw_vs_math(void)
     render_ctx_free(&ctx);
 }
 
-/* Platinum thumb is a 15x14 clut-208 structure under the ratified two-row teal
- * substitution. Direct color preserves both existing authored canon rows;
- * indexed-8 honestly collapses them onto teal idx2 (DEC-10 OQ-2/OQ-3). */
+/* Platinum thumb uses white/teal/dark: literal crop equality at both depths
+ * and in both drawers is additionally graded by test-scrollbar-look. */
 static void test_scrollbar_thumb_anatomy(void)
 {
     render_ctx_t ctx;
@@ -819,13 +817,14 @@ static void test_scrollbar_thumb_anatomy(void)
     render_run(&ctx, draw_all_controls);
 
     const uint32_t teal_light = 0x8DDCDCu;
+    const uint32_t highlight = 0xFFFFFFu;
     const uint32_t teal_shadow = 0x4E9BA3u;
     const uint32_t trough = 0xF3F3F3u;
     const int ty = 192;
 
     CHECK(render_pixel_rgb(&ctx, 51u, (uint32_t)ty) == trough &&
-          render_pixel_rgb(&ctx, 52u, (uint32_t)ty) == teal_light &&
-          render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + 1)) == teal_light &&
+          render_pixel_rgb(&ctx, 52u, (uint32_t)ty) == highlight &&
+          render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + 1)) == highlight &&
           render_pixel_rgb(&ctx, 64u, (uint32_t)(ty + 1)) == teal_shadow &&
           render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + 14)) == teal_light &&
           render_pixel_rgb(&ctx, 52u, (uint32_t)(ty + 14)) == teal_shadow,
@@ -834,13 +833,13 @@ static void test_scrollbar_thumb_anatomy(void)
     CHECK(count_rgb(&ctx, 55, ty + 3, 62, ty + 11, teal_shadow) == 28,
           "Platinum thumb must carry four seven-pixel dark grip lines");
     CHECK(render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 3)) == trough &&
-          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 3)) == teal_light &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 3)) == highlight &&
           render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 5)) == trough &&
-          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 5)) == teal_light &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 5)) == highlight &&
           render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 7)) == trough &&
-          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 7)) == teal_light &&
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 7)) == highlight &&
           render_pixel_rgb(&ctx, 54u, (uint32_t)(ty + 9)) == trough &&
-          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 9)) == teal_light,
+          render_pixel_rgb(&ctx, 55u, (uint32_t)(ty + 9)) == highlight,
           "Platinum thumb must carry four F3-capped companion highlight lines");
     CHECK(render_pixel_rgb(&ctx, 51u, (uint32_t)(ty - 1)) == 0u &&
           render_pixel_rgb(&ctx, 51u, (uint32_t)(ty + FG_SB_THUMB_MIN)) == 0u,
