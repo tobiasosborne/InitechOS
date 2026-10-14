@@ -101,3 +101,48 @@ FLAIR_EMPTY_CANCEL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m
 #     OK: (170,65) -> (464,168): m98:51, m98:52, m98:0 ; l1 ; l0.
 #     PARK (464,168) -> (620,460): m52:97, m52:97, m52:98.
 FLAIR_EMPTY_OK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,m100:64,m100:64,m100:64,m100:64,m77:62,m0:2,l0,l1,l0,l1,l0,m-100:-98,m-100:-98,m-100:-98,m-100:-98,m-30:0,l1,m0:35,l0,m98:51,m98:52,m98:0,l1,l0,m52:97,m52:97,m52:98
+
+# ===========================================================================
+# 4. EMPTY TRASH RETIRES EVERY VIEW OF A REMOVED FOLDER (bead initech-uios,
+#    audit L002; Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed
+#    p. 112: "When you discard a folder, the folder and all its contents
+#    disappear"). The data volume is the flagship one with a NESTED folder
+#    already in \TRASH (built by mtools in the Makefile, never by our FAT
+#    code): \TRASH\A\CHILD\GRAND\NOTE.TXT and \TRASH\A\KEEP.TXT, CHILD made
+#    before KEEP.TXT so CHILD is A's cell 0.
+#
+#    GEOMETRY (finder_windows.h Sec 2/3; window.c CalcDocContentRect =
+#    (L+1, T+22)..; grid inset (18,4); cascade +20/+20 per slot). NO root
+#    window is opened, so the Trash window takes SLOT 0:
+#      slot 0 Trash  frame (20,60)..(380,280)   cell 0 sprite (39,86)  centre (55,102)
+#      slot 1 A      frame (40,80)..(400,300)   cell 0 sprite (59,106) centre (75,122)
+#      slot 2 CHILD  frame (60,100)..(420,320)  cell 0 sprite (79,126) centre (95,142)
+#      slot 3 GRAND  frame (80,120)..(440,340)  (FINDER_WIN_MAX = 4: the table is full)
+#
+#    TRACE (from the screen centre (320,240)):
+#      -> the desktop Trash (600,422): sum (+280,+182): m100:61, m100:61, m80:60
+#      l1,l0,l1,l0   -> FINDER-OPEN-TRASH win=0 n=1 singleton=0
+#      -> A (55,102): sum (-545,-320): m-100:-64 x5, m-45:0
+#      l1,l0,l1,l0   -> FINDER-OPEN-FOLDER name=A win=1 singleton=0
+#      -> CHILD (75,122): m20:20 ; l1,l0,l1,l0 -> name=CHILD win=2
+#      -> GRAND (95,142): m20:20 ; l1,l0,l1,l0 -> name=GRAND win=3
+#      -> Special (170,30): sum (+75,-112): m75:-56, m0:-56 ; l1 ; m0:35 -> (170,65) ; l0
+#                    -> FINDER-CMD id=11 name=EMPTY_TRASH src=mouse sel=0 ;
+#                       FINDER-TRASH-ALERT n=5 k=<K> (A, CHILD, KEEP.TXT,
+#                       GRAND, NOTE.TXT; K from their mtools byte sizes)
+#      -> OK (464,168): m98:51, m98:52, m98:0 ; l1 ; l0
+#                    -> DESK-TRASH-ICON empty ; FINDER-TRASH-EMPTIED purged=5
+#                       refused=0 ; FINDER-TRASH-VIEW-CLOSED win=1 / win=2 / win=3
+#      PARK (464,168) -> (620,460): m52:97, m52:97, m52:98
+#
+# 4a. FLAIR_TRASH_PURGE_VIEWS_SPEC -- the purge with the three nested windows
+#     open; the screendump after FINDER-TRASH-EMPTIED is graded by
+#     tools/ppm_flair_disk_windows_check leg `purgeviews`.
+FLAIR_TRASH_PURGE_VIEWS_SPEC := m100:61,m100:61,m80:60,l1,l0,l1,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-45:0,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m75:-56,m0:-56,l1,m0:35,l0,m98:51,m98:52,m98:0,l1,l0,m52:97,m52:97,m52:98
+
+# 4b. FLAIR_TRASH_PURGE_CTRLN_SPEC -- the same, then Ctrl-N (the audit's
+#     L002 step): the only window left is the Trash, so New Folder lands in
+#     \TRASH (FINDER-CMD id=2 name=NEW_FOLDER src=key sel=0 ; FINDER-NEW-FOLDER
+#     name=NEWFOLD parent=<T>, T = \TRASH's cluster per mshowfat), reachable
+#     and fsck-clean -- never into a purged folder's freed cluster.
+FLAIR_TRASH_PURGE_CTRLN_SPEC := $(FLAIR_TRASH_PURGE_VIEWS_SPEC),kctrl-n

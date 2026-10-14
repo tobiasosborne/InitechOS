@@ -37,6 +37,10 @@
  *      -> the FAT-entry / free-count diff bites.
  *   m4 (FAT12_MUTATE_RMDIR_NO_EMPTYCHECK): fat12_rmdir omits the empty-check ->
  *      RD of a non-empty dir wrongly SUCCEEDS (the RMDIR-non-empty leg goes RED).
+ *   m5 (FAT12_MUTATE_STALE_DIR_TRUSTED, bead initech-uios / audit L002): any
+ *      directory cluster is trusted -- the pre-L002 behaviour. MKDIR into a
+ *      PURGED directory cluster succeeds and allocates an orphan (the L002 leg
+ *      goes RED).
  *
  * Ref (Law 1): the EMPIRICAL mtools 4.0.43 '.'/'..' layout (triple-confirmed,
  *   re-minted here as the golden -- NOT inferred); docs/research/fat12-ground-
@@ -332,6 +336,96 @@ int main(int argc, char **argv)
 			CHECK(rmdir_rc != chmod_rc,
 			      "RMDIR non-empty and CHMOD denied return distinct FAT12 codes");
 		}
+	}
+
+
+	/* ---- L002 (bead initech-uios): STALE DIRECTORY IDENTITY ---------------- *
+	 * Ref: os/milton/fat12.h "DIRECTORY LIFETIME"; docs/research/fat12-ground-
+	 * truth.md Sec 3 (FAT entry 0x000 == free) + Sec 4; REPORT.md L002 (a view
+	 * kept a purged folder's cluster and New Folder wrote an orphan into it).
+	 * Every expectation is hand-authored from those rules, never read back from
+	 * the code under test. Tree: \PARENT\CHILD\GRAND, removed POSTORDER (the
+	 * Empty Trash order), then the freed clusters are reused. */
+	{
+		dir_entry_t e;
+		uint32_t    es = 0u;
+		uint16_t    P = 0u, C = 0u, G = 0u, R1 = 0u, R2 = 0u;
+		uint8_t     fat_before[sizeof g_fat];
+		dir_entry_t made;
+		uint32_t    made_slot = 0u;
+
+		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "PARENT", 0u, g_sector, g_cluster);
+		CHECK(rc == FAT12_OK, "L002 mkdir \\PARENT");
+		if (fat12_find_slot_in(&art_vol, g_fat, fat_len, 0u, g_sector, "PARENT", &e, &es) == FAT12_OK) P = e.start_cluster;
+		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "CHILD", P, g_sector, g_cluster);
+		CHECK(rc == FAT12_OK && P >= 2u, "L002 mkdir \\PARENT\\CHILD");
+		if (fat12_find_slot_in(&art_vol, g_fat, fat_len, P, g_sector, "CHILD", &e, &es) == FAT12_OK) C = e.start_cluster;
+		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "GRAND", C, g_sector, g_cluster);
+		CHECK(rc == FAT12_OK && C >= 2u, "L002 mkdir \\PARENT\\CHILD\\GRAND");
+		if (fat12_find_slot_in(&art_vol, g_fat, fat_len, C, g_sector, "GRAND", &e, &es) == FAT12_OK) G = e.start_cluster;
+		CHECK(G >= 2u && P < C && C < G,
+		      "L002 the three directories took three ascending clusters (lowest-free allocation)");
+
+		/* The live identities hold; a wrong name or a wrong parent does not. */
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, 0u, 0u, "", g_sector) == FAT12_OK,
+		      "L002 identity: the fixed root is always live");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, P, 0u, "PARENT", g_sector) == FAT12_OK,
+		      "L002 identity: (PARENT, root, \"PARENT\") is live");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, C, P, "CHILD", g_sector) == FAT12_OK,
+		      "L002 identity: (CHILD, PARENT, \"CHILD\") is live");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, G, C, "GRAND", g_sector) == FAT12_OK,
+		      "L002 identity: (GRAND, CHILD, \"GRAND\") is live");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, C, P, "OTHER", g_sector) == FAT12_ERR_STALE_DIR,
+		      "L002 identity: the right cluster under the WRONG NAME is stale");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, C, 0u, "CHILD", g_sector) == FAT12_ERR_STALE_DIR,
+		      "L002 identity: the right cluster under the WRONG PARENT is stale");
+
+		/* Postorder purge: GRAND, CHILD, PARENT. */
+		CHECK(fat12_rmdir(&art_vol, g_fat, fat_len, "GRAND", C, g_sector) == FAT12_OK &&
+		      fat12_rmdir(&art_vol, g_fat, fat_len, "CHILD", P, g_sector) == FAT12_OK &&
+		      fat12_rmdir(&art_vol, g_fat, fat_len, "PARENT", 0u, g_sector) == FAT12_OK,
+		      "L002 the postorder purge removes GRAND, CHILD, PARENT");
+		CHECK(fat_get(&art_vol, P) == FAT12_FREE && fat_get(&art_vol, C) == FAT12_FREE &&
+		      fat_get(&art_vol, G) == FAT12_FREE,
+		      "L002 all three clusters are free (0x000) after the purge");
+
+		/* A purged directory authorises NO write -- the audit's Ctrl-N. */
+		memcpy(fat_before, g_fat, sizeof g_fat);
+		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "NEWFOLD", C, g_sector, g_cluster);
+		CHECK(rc == FAT12_ERR_STALE_DIR,
+		      "L002 mkdir into a PURGED directory cluster -> FAT12_ERR_STALE_DIR");
+		CHECK(memcmp(fat_before, g_fat, sizeof g_fat) == 0 && fat_get(&art_vol, C) == FAT12_FREE,
+		      "L002 ... and the refused mkdir allocated NOTHING (no orphan cluster)");
+		CHECK(fat12_create(&art_vol, g_fat, fat_len, "NOTE.TXT", 0x20u, G, g_sector,
+		                   g_cluster, &made, &made_slot) == FAT12_ERR_STALE_DIR,
+		      "L002 create into a purged directory -> FAT12_ERR_STALE_DIR");
+		CHECK(fat12_unlink(&art_vol, g_fat, fat_len, "KEEP.TXT", P, g_sector) == FAT12_ERR_STALE_DIR &&
+		      fat12_rmdir(&art_vol, g_fat, fat_len, "GRAND", C, g_sector) == FAT12_ERR_STALE_DIR,
+		      "L002 unlink / rmdir through a purged directory -> FAT12_ERR_STALE_DIR");
+		CHECK(fat12_move_dirent(&art_vol, g_fat, fat_len, "FULLDIR", 0u, NULL, C,
+		                        g_sector, g_cluster) == FAT12_ERR_STALE_DIR,
+		      "L002 move INTO a purged directory -> FAT12_ERR_STALE_DIR");
+		CHECK(memcmp(fat_before, g_fat, sizeof g_fat) == 0,
+		      "L002 ... and none of the refused writes touched the FAT");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, C, P, "CHILD", g_sector) == FAT12_ERR_STALE_DIR,
+		      "L002 identity: the purged CHILD is stale");
+
+		/* CLUSTER REUSE. Lowest-free allocation hands PARENT's cluster to R1
+		 * and CHILD's to R2 = \R1\R2, so R2 sits at CHILD's old cluster with
+		 * '..' == PARENT's old cluster: an allocation bit and the '.'/'..'
+		 * pair both look right. Only the parent ENTRY tells them apart. */
+		rc = fat12_mkdir(&art_vol, g_fat, fat_len, "R1", 0u, g_sector, g_cluster);
+		if (fat12_find_slot_in(&art_vol, g_fat, fat_len, 0u, g_sector, "R1", &e, &es) == FAT12_OK) R1 = e.start_cluster;
+		rc = (rc == FAT12_OK) ? fat12_mkdir(&art_vol, g_fat, fat_len, "R2", R1, g_sector, g_cluster) : rc;
+		if (fat12_find_slot_in(&art_vol, g_fat, fat_len, R1, g_sector, "R2", &e, &es) == FAT12_OK) R2 = e.start_cluster;
+		CHECK(rc == FAT12_OK && R1 == P && R2 == C,
+		      "L002 reuse: \\R1 took PARENT's freed cluster and \\R1\\R2 took CHILD's");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, C, P, "CHILD", g_sector) == FAT12_ERR_STALE_DIR,
+		      "L002 reuse: the recycled cluster does NOT revive the old CHILD identity");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, P, 0u, "PARENT", g_sector) == FAT12_ERR_STALE_DIR,
+		      "L002 reuse: ... nor the old PARENT identity");
+		CHECK(fat12_dir_identity(&art_vol, g_fat, fat_len, C, P, "R2", g_sector) == FAT12_OK,
+		      "L002 reuse: the NEW directory's own identity is live");
 	}
 
 	blockdev_file_close(&art_bf);

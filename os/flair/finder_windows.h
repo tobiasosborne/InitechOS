@@ -371,6 +371,18 @@ typedef struct finder_fs {
                          uint32_t offset, const uint8_t *data, uint32_t len,
                          uint32_t *out_written);
 
+    /* ---- bead initech-uios (audit L002): THE VIEW'S DIRECTORY IDENTITY ----
+     * FINDER_WIN_OK iff directory `dir` (0 == the fixed root, always OK) is
+     * STILL the folder `name83` inside directory `parent` on the volume
+     * (fat12_dir_identity: a live directory head whose '..' is `parent`, and
+     * `parent` holds a live directory entry `name83` -> `dir`); otherwise
+     * FINDER_WIN_ERR_STALE. A cluster number alone is not an identity -- FAT
+     * reuses a freed cluster -- so every write THROUGH a window view first
+     * re-resolves the view's (dir, parent, name83) here (Sec 10d). NULL in a
+     * binding: every such write refuses FINDER_WIN_ERR_NULL (Rule 2). */
+    int (*dir_ident)(void *fs_user, uint16_t dir, uint16_t parent,
+                     const char *name83);
+
     void *user;                /* the binding's opaque cookie                  */
 } finder_fs_t;
 
@@ -403,7 +415,10 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_NOTEMPTY  = -11, /* rmdir: the directory still has entries  */
     FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
     FINDER_WIN_ERR_NOTRASH   = -13, /* open Trash: the volume has no \TRASH     */
-    FINDER_WIN_ERR_LOCKED    = -14  /* locked document: unlock before discard  */
+    FINDER_WIN_ERR_LOCKED    = -14, /* locked document: unlock before discard  */
+    FINDER_WIN_ERR_STALE     = -15  /* the view's folder no longer exists as
+                                     * that folder (purged / recycled cluster;
+                                     * bead initech-uios, audit L002)          */
 } finder_win_status_t;
 
 /* ===========================================================================
@@ -424,6 +439,10 @@ typedef struct finder_window {
                                        * (bead initech-tdnl.39)                */
     uint16_t             dir_start;   /* the folder's first cluster (0 == root)*/
     char                 name83[FINDER_DESK_NAME_MAX];  /* the folder's name   */
+    uint16_t             parent;      /* the first cluster of the directory
+                                       * that holds it (0 == root): with
+                                       * dir_start + name83 the view's
+                                       * IDENTITY (Sec 10d; initech-uios)      */
     uint16_t             view_bits;   /* the kind=4 record's view bits         */
     uint16_t             dropped;     /* entries the icon cap refused          */
     WindowRecord         rec;         /* the window itself                     */
@@ -501,6 +520,10 @@ typedef struct finder_shell {
     uint16_t             trash_items;
     uint32_t             trash_bytes;
     uint8_t              trash_icon_dirty;
+    /* bead initech-uios (audit L002): bit s set == window slot s viewed a
+     * directory the LAST purge removed and was disposed by it (Sec 12). Read
+     * by kmain for the FINDER-TRASH-VIEW-CLOSED markers. */
+    uint8_t              purge_closed;
 } finder_shell_t;
 
 /* ===========================================================================
@@ -626,6 +649,9 @@ int finder_win_front_slot(const finder_shell_t *sh);
 
 /* Open (or raise) the window for a directory.
  *
+ *   parent    : the first cluster of the directory whose listing the folder
+ *               was opened from (0 == the root; ignored when is_root). With
+ *               dir_start + name83 it is the view's IDENTITY (Sec 10d).
  *   dir_start : the folder's first cluster; 0 == the volume root
  *   name83    : the folder's formatted 8.3 name; ignored when is_root
  *   is_root   : 1 for the volume window (title FINDER_WIN_ROOT_TITLE)
@@ -638,9 +664,30 @@ int finder_win_front_slot(const finder_shell_t *sh);
  * A fresh open enumerates through the binding, lays the icons out row-major on
  * the grid, restores the saved frame origin from the kind=4 view record when
  * there is one, and seeds a full-content update. */
-finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
+finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
+                                    uint16_t dir_start,
                                     const char *name83, uint8_t is_root,
                                     int *out_slot, int *out_singleton);
+
+/* ---------------------------------------------------------------------------
+ * 10d. A VIEW'S DIRECTORY IDENTITY  (bead initech-uios; audit L002)
+ * ---------------------------------------------------------------------------
+ * The FAT names a directory by its first cluster, and frees and REUSES
+ * clusters (docs/research/fat12-ground-truth.md Sec 3; fat12_find_free hands
+ * out the lowest free one). A window that kept only dir_start across Empty
+ * Trash wrote New Folder into a freed cluster (the L002 orphan). So a window
+ * records (dir_start, parent, name83) when it opens -- the PARENT-ENTRY
+ * identity, re-pointed by finder_ops_drop when the folder itself is moved --
+ * and every write THROUGH the view (New Folder; a drag out of it or into it)
+ * first re-resolves that identity on the volume via the binding's dir_ident.
+ * A purged folder, or another folder allocated into its old cluster, fails
+ * with FINDER_WIN_ERR_STALE and nothing is written. Chosen over a per-view
+ * generation counter because the FAT has no generation to compare against:
+ * only the parent's live entry survives a reboot, a DOS-side RD or a reuse.
+ *
+ * FINDER_WIN_OK, FINDER_WIN_ERR_STALE, or FINDER_WIN_ERR_NULL (bad slot / no
+ * dir_ident in the binding). The root window is always live. */
+finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot);
 
 /* Open (or raise) THE TRASH WINDOW (bead initech-tdnl.39; audit F04): the
  * one deliberate view onto the root \TRASH staging directory, which every
@@ -864,6 +911,25 @@ int finder_shell_save_view(finder_shell_t *sh, int slot);
  * entries that would not go -- including a folder whose contents could not
  * all go (it then cannot be removed either). On a clean purge purged == the
  * items count the alert showed.
+ *
+ * EVERY VIEW OF A REMOVED FOLDER CLOSES (bead initech-uios, audit L002).
+ * "When you discard a folder, the folder and all its contents disappear ...
+ * you won't be able to recover anything once you've emptied the Trash"
+ * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed p. 112, PDF
+ * p. 132). Each folder the walk REMOVES (postorder, so child before parent,
+ * at any depth) is retired at the moment its rmdir succeeds: every open
+ * window over that directory is disposed through the Window Manager's own
+ * DisposeWindow (no view state saved -- there is no folder to remember), its
+ * icon model and selection are cleared, its slot is flagged in purge_closed,
+ * and its kind=4 view record is DROPPED (*out_db_dirty), so a new folder that
+ * later lands in the same cluster neither inherits that position nor finds a
+ * window. A folder the walk could NOT remove (a locked descendant, WL-0100)
+ * keeps its window: it still exists. The command context is re-synced after.
+ * A window the Window Manager cannot dispose is a WIN_PANIC in DisposeWindow
+ * (window.c "not in list"), never a silently surviving view (Rule 2).
+ * MUTANT (Rule 6): FINDER_WIN_MUT_PURGE_KEEPS_VIEWS skips the retirement
+ * (the pre-L002 purge) -- test-finder-windows L12 and test-flair-trash-purge-
+ * views-mutant go RED.
  *
  * DEPTH. The walk is iterative with a fixed stack of FINDER_TRASH_DEPTH levels
  * (\TRASH itself is level 0). A folder nested deeper is REFUSED (counted in

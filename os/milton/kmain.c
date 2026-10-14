@@ -3097,6 +3097,20 @@ static int finder_fat_create(void *fs_user, const char *name83, uint16_t dir,
                                        out_slot));
 }
 
+/* bead initech-uios (audit L002): a window view's (dir, parent, name83) is
+ * re-resolved on the volume before any write through it. Every failure --
+ * FAT12_ERR_STALE_DIR or a read error -- is STALE: the view authorises
+ * nothing it cannot prove (Rule 2). */
+static int finder_fat_dir_ident(void *fs_user, uint16_t dir, uint16_t parent,
+                                const char *name83)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_STALE;
+    return fat12_dir_identity(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                              dir, parent, name83, g_finder_dirbuf) == FAT12_OK
+         ? (int)FINDER_WIN_OK : (int)FINDER_WIN_ERR_STALE;
+}
+
 static int finder_fat_read_partial(void *fs_user, const char *name83,
                                    uint16_t dir, uint32_t offset,
                                    uint32_t len, uint8_t *out,
@@ -3141,6 +3155,7 @@ static const finder_fs_t g_finder_fs_binding = {
     finder_fat_create,
     finder_fat_read_partial,
     finder_fat_write_partial,
+    finder_fat_dir_ident,
     (void *)0
 };
 
@@ -3548,7 +3563,7 @@ static void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
     finder_win_status_t st;
 
     if (g_finder_shell == (finder_shell_t *)0) return;
-    st = finder_win_open(g_finder_shell, 0u /* root */, "", 1u,
+    st = finder_win_open(g_finder_shell, 0u, 0u /* root */, "", 1u,
                          &slot, &singleton);
     if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
 
@@ -3565,14 +3580,15 @@ static void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
 }
 
 static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                               uint16_t dir_start, const char *name83)
+                               uint16_t parent, uint16_t dir_start,
+                               const char *name83)
 {
     int slot = -1;
     int singleton = 0;
     finder_win_status_t st;
 
     if (g_finder_shell == (finder_shell_t *)0) return;
-    st = finder_win_open(g_finder_shell, dir_start, name83, 0u,
+    st = finder_win_open(g_finder_shell, parent, dir_start, name83, 0u,
                          &slot, &singleton);
     if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
 
@@ -3629,7 +3645,8 @@ static void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
         return;
     }
     if (ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
-        finder_open_folder(ctx, bi, ic->dir_start, ic->name);
+        finder_open_folder(ctx, bi, g_finder_shell->windows[s->slot].dir_start,
+                           ic->dir_start, ic->name);
         return;
     }
     /* R3.7 (bead initech-tdnl.14): an APPLICATION launches from the directory
@@ -4269,6 +4286,14 @@ static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(" refused=");
     serial_putu((uint32_t)refused);
     serial_putc('\n');
+    /* bead initech-uios (audit L002): every view of a removed folder was
+     * disposed by the purge (finder_windows.h Sec 12) -- say which. */
+    for (int s = 0; s < FINDER_WIN_MAX; s++) {
+        if ((g_finder_shell->purge_closed & (1u << s)) == 0u) continue;
+        serial_puts("FINDER-TRASH-VIEW-CLOSED win=");
+        serial_puti((int32_t)s);
+        serial_putc('\n');
+    }
     if (dirty) {
         g_finder_db_dirty = 1;
         finder_desk_persist();
@@ -4539,6 +4564,12 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
             serial_putu((uint32_t)o->parent);
             serial_putc('\n');
             finder_report_dropped(o->slot);
+        } else if (o->status == FINDER_WIN_ERR_STALE) {
+            /* bead initech-uios (audit L002): the front view's folder no
+             * longer exists as that folder -- nothing was written. */
+            serial_puts("FINDER-NEW-FOLDER-STALE parent=");
+            serial_putu((uint32_t)o->parent);
+            serial_putc('\n');
         } else if (o->status == FINDER_WIN_ERR_DIRFULL) {
             /* The fixed root cannot grow (design F3.1). The period ALERT is the
              * tdnl.11 slice; until then this is loud on serial and NEVER

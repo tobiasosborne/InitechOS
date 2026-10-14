@@ -221,6 +221,19 @@ static int m_rmdir(void *u, const char *n, uint16_t dir)
     return 0;
 }
 
+/* The view identity (bead initech-uios): the fat12_dir_identity rule over the
+ * mock tree -- the parent lists a DIRECTORY `n` whose cluster is `cl`. */
+static int m_dir_ident(void *u, uint16_t cl, uint16_t parent, const char *n)
+{
+    mock_t *m = (mock_t *)u;
+    mv_dir_t *p = mv_dir(m, parent);
+    int i;
+    if (cl == 0u) return (int)FINDER_WIN_OK;
+    if (p == NULL || (i = mv_find(p, n)) < 0) return (int)FINDER_WIN_ERR_STALE;
+    return ((p->e[i].attr & 0x10u) != 0u && p->e[i].cluster == cl)
+         ? (int)FINDER_WIN_OK : (int)FINDER_WIN_ERR_STALE;
+}
+
 /* ---------------------------------------------------------------------------
  * The scene.
  * ------------------------------------------------------------------------- */
@@ -266,14 +279,15 @@ static void scene_init(scene_t *s)
     s->fs.trash_dir  = m_trash_dir;
     s->fs.unlink     = m_unlink;
     s->fs.rmdir      = m_rmdir;
+    s->fs.dir_ident  = m_dir_ident;
     s->fs.user       = &s->mock;
     finder_shell_bind_fs(&s->sh, &s->fs);
 
     s->bm.base = s->px; s->bm.pitch = SCRW; s->bm.width = SCRW;
     s->bm.height = SCRH; s->bm.bpp = 8u; s->bm.bytes_per_pixel = 1u;
 
-    (void)finder_win_open(&s->sh, CL_APPS, "APPS", 0u, &slot, &single);  /* 0 */
-    (void)finder_win_open(&s->sh, CL_ROOT, "", 1u, &slot, &single);      /* 1 */
+    (void)finder_win_open(&s->sh, 0u, CL_APPS, "APPS", 0u, &slot, &single);  /* 0 */
+    (void)finder_win_open(&s->sh, 0u, CL_ROOT, "", 1u, &slot, &single);      /* 1 */
 }
 
 static int idx_of(const finder_desk_t *fd, const char *n)
@@ -596,7 +610,7 @@ static void leg_trash(void)
      * will take) with the APPS folder dropped into its body. */
     {
         int slot = -1, k = idx_of(&S.sh.windows[ROOT].view, "APPS");
-        CHECK(finder_win_open(&S.sh, CL_TRASH, "TRASH", 0u, &slot, NULL) == FINDER_WIN_OK,
+        CHECK(finder_win_open(&S.sh, 0u, CL_TRASH, "TRASH", 0u, &slot, NULL) == FINDER_WIN_OK,
               "O6 (setup) a window on \\TRASH opens (front)");
         t = finder_ops_resolve(&S.sh, ROOT, k, 300, 250);
         CHECK(t.kind == FINDER_TGT_WINDOW && t.dir == CL_TRASH, "O6 (setup) the \\TRASH window body is a window target");
@@ -674,7 +688,7 @@ static void leg_untrash(void)
     (void)finder_ops_drop(&S.sh, ROOT, 0, &t, 0, 0, &r);
     CHECK(S.sh.n_origins == 1u, "O8 (setup) one staged item");
     (void)finder_win_close(&S.sh, APPW);
-    CHECK(finder_win_open(&S.sh, CL_TRASH, "TRASH", 0u, &slot, &single) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&S.sh, 0u, CL_TRASH, "TRASH", 0u, &slot, &single) == FINDER_WIN_OK,
           "O8 (setup) open the TRASH window");
     k = idx_of(&S.sh.windows[slot].view, "README.TXT");
     CHECK(k >= 0, "O8 (setup) the Trash window lists README.TXT");

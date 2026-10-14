@@ -33,6 +33,11 @@
  *                                      initech-tdnl.39).
  *   FINDER_WIN_MUT_EMPTY_NO_CONFIRM -- Empty Trash purges at dispatch, with
  *                                      no confirm (bead initech-6k12).
+ *   FINDER_WIN_MUT_PURGE_KEEPS_VIEWS -- Empty Trash removes folders but never
+ *                                      retires their windows (the pre-L002
+ *                                      purge; bead initech-uios).
+ *   FINDER_WIN_MUT_VIEW_UNCHECKED   -- a write through a window view skips the
+ *                                      identity re-resolve (bead initech-uios).
  */
 #include "finder_windows.h"
 
@@ -529,7 +534,8 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     return FINDER_WIN_OK;
 }
 
-finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
+finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
+                                    uint16_t dir_start,
                                     const char *name83, uint8_t is_root,
                                     int *out_slot, int *out_singleton)
 {
@@ -598,6 +604,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t dir_start,
     w->is_root   = is_root ? 1u : 0u;
     w->is_trash  = 0u;       /* finder_win_open_trash sets it after the build */
     w->dir_start = dir_start;
+    w->parent    = is_root ? 0u : parent;     /* the identity (Sec 10d)     */
     fw_copy83(w->name83, is_root ? "" : name83);
     finder_click_reset(&w->click);
     finder_desk_init(&w->view, w->icons, (uint16_t)FINDER_WIN_ICONS_MAX, content);
@@ -652,8 +659,8 @@ finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
      * not the staged items. NEVER in a real build. */
     td = 0;
 #endif
-    st = finder_win_open(sh, (uint16_t)td, FINDER_SVC_TRASH_NAME, 0u,
-                         &slot, &single);
+    st = finder_win_open(sh, 0u /* \TRASH lives in the root */, (uint16_t)td,
+                         FINDER_SVC_TRASH_NAME, 0u, &slot, &single);
     if (st != FINDER_WIN_OK) return st;
     if (!single) {
         /* A fresh window: title it by the icon it opened from. A raised one
@@ -688,6 +695,29 @@ finder_win_status_t finder_win_close(finder_shell_t *sh, int slot)
     return FINDER_WIN_OK;
 }
 
+/* Sec 10d (bead initech-uios, audit L002): re-resolve a view's identity on
+ * the volume before anything is written through it. */
+finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot)
+{
+    const finder_window_t *w;
+
+    if (!fw_slot_ok(sh, slot)) return FINDER_WIN_ERR_NULL;
+    w = &sh->windows[slot];
+    if (w->is_root || w->dir_start == 0u) return FINDER_WIN_OK;
+#if defined(FINDER_WIN_MUT_VIEW_UNCHECKED)
+    /* MUTANT (Rule 6): a cluster number is trusted as an identity. NEVER in a
+     * real build. */
+    return FINDER_WIN_OK;
+#else
+    if (!sh->have_fs ||
+        sh->fs.dir_ident == (int (*)(void *, uint16_t, uint16_t, const char *))0)
+        return FINDER_WIN_ERR_NULL;
+    return (sh->fs.dir_ident(sh->fs.user, w->dir_start, w->parent,
+                             w->name83) == (int)FINDER_WIN_OK)
+         ? FINDER_WIN_OK : FINDER_WIN_ERR_STALE;
+#endif
+}
+
 finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
                                           char *out_name83,
                                           uint16_t *out_parent)
@@ -704,6 +734,11 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
 
     w = &sh->windows[slot];
     if (out_parent != (uint16_t *)0) *out_parent = w->dir_start;
+
+    /* The view must still BE its folder (Sec 10d): a window over a purged or
+     * recycled directory authorises no mkdir (audit L002). */
+    st = finder_win_check_live(sh, slot);
+    if (st != FINDER_WIN_OK) return st;
 
     /* The taken-set comes from the window's CURRENT listing, which is exactly
      * the directory's contents (populate ran on open and after every mkdir).
@@ -1034,6 +1069,43 @@ static int fw_has_item(finder_shell_t *sh, uint16_t dir, const char *name83)
     return 0;
 }
 
+/* RETIRE every view of directory `dir`, which the purge has just REMOVED
+ * (Sec 12; bead initech-uios, audit L002): DisposeWindow through the Window
+ * Manager (no view state saved -- the folder is gone), the icon model and its
+ * selection cleared, the slot flagged in purge_closed; and the kind=4 view
+ * record keyed by the dead cluster dropped, so a folder later allocated into
+ * that cluster inherits nothing. Returns 1 when a view record was dropped. */
+/* The open window slots over directory `dir`, as a bit set. */
+static unsigned fw_slots_of(const finder_shell_t *sh, uint16_t dir)
+{
+    unsigned m = 0u;
+    for (int i = 0; i < FINDER_WIN_MAX; i++)
+        if (sh->windows[i].open && sh->windows[i].dir_start == dir)
+            m |= 1u << i;
+    return m;
+}
+
+static int fw_retire_dir(finder_shell_t *sh, uint16_t dir)
+{
+    uint16_t kept = 0u;
+    int dropped;
+
+    for (int i = 0; i < FINDER_WIN_MAX; i++) {
+        finder_window_t *w = &sh->windows[i];
+        if (!w->open || w->is_root || w->dir_start != dir) continue;
+        DisposeWindow(sh->wm, &w->rec);
+        w->open   = 0u;
+        w->view.n = 0u;
+        finder_click_reset(&w->click);
+        sh->purge_closed = (uint8_t)(sh->purge_closed | (1u << i));
+    }
+    for (uint16_t i = 0u; i < sh->n_views; i++)
+        if (sh->views[i].dir_start != dir) sh->views[kept++] = sh->views[i];
+    dropped = (kept != sh->n_views);
+    sh->n_views = kept;
+    return dropped;
+}
+
 finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
                                              uint16_t *out_purged,
                                              uint16_t *out_refused,
@@ -1046,11 +1118,14 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     uint16_t purged = 0u, refused = 0u, kept = 0u;
     int d = 0, td, rc;
     int locked = 0;
+    int views_dropped = 0;
+    unsigned touched = 0u;          /* surviving views whose listing changed */
     fw_item_t it;
 
     if (out_purged != (uint16_t *)0)   *out_purged = 0u;
     if (out_refused != (uint16_t *)0)  *out_refused = 0u;
     if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
+    if (sh != (finder_shell_t *)0) sh->purge_closed = 0u;
     if (!fw_trash_ok(sh) ||
         sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
         sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
@@ -1074,6 +1149,13 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
             d--;
             if (rc == (int)FINDER_WIN_OK) {
                 purged = (uint16_t)(purged + 1u);
+                touched |= fw_slots_of(sh, st[d].dir);
+#if !defined(FINDER_WIN_MUT_PURGE_KEEPS_VIEWS)
+                /* The folder is GONE: so is every view of it (audit L002). */
+                views_dropped |= fw_retire_dir(sh, st[d + 1].dir);
+#else
+                (void)fw_retire_dir;
+#endif
             } else {
                 refused = (uint16_t)(refused + 1u);
                 st[d].skip = (uint16_t)(st[d].skip + 1u);
@@ -1105,6 +1187,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
         }
         if (sh->fs.unlink(sh->fs.user, it.name, st[d].dir) == (int)FINDER_WIN_OK) {
             purged = (uint16_t)(purged + 1u);
+            touched |= fw_slots_of(sh, st[d].dir);
         } else {
             refused = (uint16_t)(refused + 1u);
             st[d].skip = (uint16_t)(st[d].skip + 1u);
@@ -1116,16 +1199,28 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     for (uint16_t i = 0u; i < sh->n_origins; i++)
         if (fw_has_item(sh, (uint16_t)td, sh->origins[i].name83))
             sh->origins[kept++] = sh->origins[i];
-    if (kept != sh->n_origins && out_db_dirty != (uint8_t *)0) *out_db_dirty = 1u;
+    if ((kept != sh->n_origins || views_dropped) && out_db_dirty != (uint8_t *)0)
+        *out_db_dirty = 1u;
     sh->n_origins = kept;
 
-    /* An open Trash window shows what is left. */
-    {
-        int slot = finder_win_find(sh, (uint16_t)td);
-        if (slot >= 0 && finder_win_populate(sh, slot) == FINDER_WIN_OK)
-            finder_win_invalidate_all(sh, slot);
-    }
+    /* An open Trash window shows what is left -- and so does every SURVIVING
+     * folder window the walk deleted something out of (a partial purge: the
+     * folder stayed for a locked descendant, its removed children must not
+     * stay on as icons naming freed clusters). A retired slot is closed and
+     * no longer matches. */
+    touched |= fw_slots_of(sh, (uint16_t)td);
+    for (int i = 0; i < FINDER_WIN_MAX; i++)
+        if ((touched & (1u << i)) != 0u && sh->windows[i].open &&
+            finder_win_populate(sh, i) == FINDER_WIN_OK)
+            finder_win_invalidate_all(sh, i);
     (void)finder_shell_recount_trash(sh);
+    if (sh->purge_closed != 0u) {
+        /* No selection, open-predicate or group head may still name a
+         * retired slot (the command context is recomputed from the live
+         * windows only). */
+        fw_refresh_group_head(sh);
+        finder_shell_sync_ctx(sh);
+    }
     if (out_purged != (uint16_t *)0)  *out_purged = purged;
     if (out_refused != (uint16_t *)0) *out_refused = refused;
     return locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
@@ -1260,7 +1355,8 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
     {
         const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[chosen];
         int nslot = -1, singleton = 0;
-        finder_win_status_t st = finder_win_open(sh, ic->dir_start, ic->name,
+        finder_win_status_t st = finder_win_open(sh, sh->windows[slot].dir_start,
+                                                 ic->dir_start, ic->name,
                                                  0u, &nslot, &singleton);
         fw_outcome(sh, id, st, nslot);
         sh->last.singleton = (uint8_t)(singleton ? 1 : 0);
