@@ -639,6 +639,9 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
             if (a == 0 && c == 0) part = FLAIR_PART_PLAT_TROUGH;
             if (a == len - 1 && c == 0) part = FLAIR_PART_SB_THUMB_FACE;
             if (a == 0 && c == wid - 1) part = FLAIR_PART_SB_THUMB_FACE;
+#if defined(SB_LOOK_MUT_RAMP_FLAT)
+            if (part != FLAIR_PART_PLAT_TROUGH) part = FLAIR_PART_SB_THUMB_FACE;
+#endif
             sb_plot(port, skin, axis, a0 + a, c0 + c, part);
         }
     }

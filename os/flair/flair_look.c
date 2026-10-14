@@ -147,18 +147,19 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* MENU_TITLE_HILITE_SHADOW */
     { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
       INITECH_CANON_BEVEL_SHADOW_RGB },
-    /* Platinum scrollbar clut-208 anatomy under the ratified two-row teal
-     * substitution.  Both 8bpp fallbacks are existing idx2 teal; direct color
-     * preserves the existing #8DDCDC/#4E9BA3 derived canon pair.  No new
-     * non-neutral canon row is introduced (DEC-10 Sec 6 OQ-2/OQ-3). */
+    /* tdnl.96/.97: clut-208 H/P/S/R -> white/teal/dark/dark.
+     * S/R use the existing dark teal in direct colour, existing #3F3F3F
+     * in indexed colour (the locked indexed palette has ONLY one teal).
+     * This preserves the measured structure with three distinct tones,
+     * without changing the palette. Ref: sys8/scrollbars.md 2.4;
+     * spec/assets/color_canon.json entries and derived_rows, DEC-10 OQ-3. */
     /* SB_THUMB_HL */
-    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
-      INITECH_CANON_BEVEL_LIGHT_RGB },
+    { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* SB_THUMB_FACE */
     { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
       INITECH_CANON_BEVEL_LIGHT_RGB },
     /* SB_THUMB_SHADOW */
-    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
+    { CIDX_PLAT_DARK_RING, 1u, FLAIR_NO_SKIN_SLOT,
       INITECH_CANON_BEVEL_SHADOW_RGB },
     /* SB_THUMB_GRIP */
     { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,

@@ -673,9 +673,8 @@ static void draw_ctrl_scroll_well(GrafPort *port,
 #endif
 }
 
-/* Transpose of the sampled horizontal 15x14 thumb matrix.  The clut-208
- * lavender entries retain their semantic anatomy while DEC-10 OQ-2/OQ-3 maps
- * them onto the existing two-row Initech-teal canon. */
+/* Transpose of the sampled horizontal 15x14 thumb matrix. Colour substitution
+ * lives only in flair_look.c; test-scrollbar-look grades both actual drawers. */
 static void draw_ctrl_scroll_thumb(GrafPort *port,
                                    int x0, int x1, int ty, int thumb_h)
 {
@@ -690,6 +689,10 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
     }
     cfill_ctrl(port, x0 + 1, ty + thumb_h - 1, x1 - x0 - 1,
                CTRL_SB_THUMB_SHADOW);
+#if defined(SB_LOOK_MUT_RAMP_FLAT)
+    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
+    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
+#endif
 
     /* Four dark seven-pixel grip lines, with six-pixel highlight companions
      * one axis pixel earlier and an F3 cap at cross offset 3. */
