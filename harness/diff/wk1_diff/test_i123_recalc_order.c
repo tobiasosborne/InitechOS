@@ -25,8 +25,10 @@
  *      and rowwise order, recalculated once from zero caches.
  *   I  ITERATION: the count applies to columnwise/rowwise always, to
  *      natural only with a cycle; a self-referencing counter.
- *   C  CIRC: the indicator lights on a cycle (and names a cell in it), not
- *      on an acyclic sheet; it follows the sheet, not the order.
+ *   C  CIRC: the indicator lights on a cycle in natural order (and names a
+ *      cell in it), never on an acyclic sheet, and never in columnwise or
+ *      rowwise order ("occurs only when the recalculation order is
+ *      Natural", p. 1-6, PDF 22).
  *   R  REPLAY: MINT01 (automatic), CIRC01 (automatic, circular: CIRC on and
  *      -38 / -19 / -8.5 / "small"), MINT04 (manual, columnwise, 7 passes:
  *      each entry computes only itself, CALC lights; then F9 iterates the
@@ -200,11 +202,13 @@ static void part_c(void)
         build_f1(&sh, ORD[i]);
         CHECK(i123_recalc(&g_cx, &sh) == I123_OK, "recalc");
         circ_expect(&sh, 0, "acyclic F1: dark in every order");
-        /* close a three-cell loop: A1 = +B1 (A1 -> B1 -> A2 -> A1) */
+        /* close a three-cell loop: A1 = +B1 (A1 -> B1 -> A2 -> A1). CIRC
+         * "occurs only when the recalculation order is Natural" (p. 1-6,
+         * PDF 22): lit in natural, dark in columnwise and rowwise. */
         put_formula(&sh, 0, 0, "+B1");
         CHECK(i123_recalc(&g_cx, &sh) == I123_OK, "recalc");
-        circ_expect(&sh, 1, "A1->B1->A2->A1: lit in every order");
-        CHECK(sh.circ_row <= 1u && sh.circ_col <= 1u, "CIRC names a cell of the cycle");
+        circ_expect(&sh, ORD[i] == ORD_NATURAL, "A1->B1->A2->A1: lit only in natural order");
+        if (ORD[i] == ORD_NATURAL) CHECK(sh.circ_row <= 1u && sh.circ_col <= 1u, "CIRC names a cell of the cycle");
     }
     fresh(&sh);
     put_formula(&sh, 2, 2, "@SUM(A1..C3)");     /* a range that contains itself */
@@ -215,7 +219,7 @@ static void part_c(void)
     put_formula(&sh, 2, 2, "@SUM(A1..B2)");
     CHECK(i123_recalc(&g_cx, &sh) == I123_OK, "recalc");
     circ_expect(&sh, 0, "@SUM over a range beside it: dark");
-    printf("  part C: CIRC lights on every cycle in every order and stays dark on acyclic sheets (%d wrong)\n", g_circ_fail);
+    printf("  part C: CIRC lights on every natural-order cycle, stays dark on acyclic sheets and in columnwise/rowwise order (%d wrong)\n", g_circ_fail);
 }
 
 /* ---- PART R: replays of the minted typing ----------------------------------- */
@@ -347,8 +351,9 @@ static void part_r(void)
     expect(&g_replay_fail, "R MINT04 F9 B1", num_at(&sh, 1, 0), 2.0);
     expect(&g_replay_fail, "R MINT04 F9 C1", num_at(&sh, 2, 0), 4.0);
     CHECK(!sh.calc, "F9 clears CALC");
-    if (!sh.circ) { fprintf(stderr, "  FAIL R MINT04: CIRC dark on the A2->C2->B2 cycle\n"); g_circ_fail++; }
-    CHECK(sh.circ, "MINT04: CIRC lit");
+    /* columnwise: no CIRC although A2 -> C2 -> B2 -> A2 is a cycle (p. 1-6) */
+    if (sh.circ) { fprintf(stderr, "  FAIL R MINT04: CIRC lit in columnwise order\n"); g_circ_fail++; }
+    CHECK(!sh.circ, "MINT04: CIRC dark (columnwise)");
     /* a number typed in MANUAL mode recalculates nothing */
     type_number(&sh, 0, 0, 100.0);
     expect(&g_replay_fail, "R manual: B1 keeps its value", num_at(&sh, 1, 0), 2.0);

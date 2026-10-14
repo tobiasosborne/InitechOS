@@ -25,6 +25,9 @@
  *   its dependents) yields the values a full recalculation does for a sheet
  *   without circular references; with one, 1-2-3 "does a full
  *   recalculation" (p. 12-33). This engine always recalculates fully.
+ * CIRC (p. 1-6, PDF 22, Status Indicators): "The worksheet contains a
+ * formula that refers to itself (occurs only when the recalculation order
+ * is Natural ...)" -- so only a natural-order recalculation sets it.
  * The .WK1 bytes: CALCMODE 0xFF automatic / 0x00 manual, CALCORDER 0x00
  * natural / 0x01 columnwise, CALCCOUNT = passes (MINT04, spec/i123/
  * wk1_format.h). Rowwise's CALCORDER byte is NOT minted: 0xFF here
@@ -259,7 +262,7 @@ static void note_circ(const i123_sheet_t *sh, circ_t *ci, uint32_t idx)
     ci->circ = 1;
 }
 
-/* One natural-order pass. evaluate = 0 only detects cycles. */
+/* One natural-order pass (evaluate = 0 would only detect cycles). */
 static int natural_pass(i123_calc_t *cx, i123_sheet_t *sh, int evaluate, circ_t *ci)
 {
     uint32_t budget = 64u * sh->ncells + 1024u, work = 0;
@@ -338,7 +341,7 @@ int i123_recalc(i123_calc_t *cx, i123_sheet_t *sh)
 {
     circ_t ci;
     uint32_t passes = sh->calccount;
-    int rc;
+    int rc = I123_OK;
     if (sh->ncells > cx->cap) return I123_E_FULL;
     ci.circ = 0; ci.cc = 0; ci.cr = 0;
     if (passes == 0u) passes = 1u;
@@ -349,7 +352,8 @@ int i123_recalc(i123_calc_t *cx, i123_sheet_t *sh)
         for (uint32_t k = 1; rc == I123_OK && ci.circ && k < passes; k++)
             rc = natural_pass(cx, sh, 1, &ci);
     } else {
-        rc = natural_pass(cx, sh, 0, &ci);   /* the CIRC indicator still applies */
+        /* no CIRC outside natural order: the indicator "occurs only when the
+         * recalculation order is Natural" (manual p. 1-6, PDF 22) */
         for (uint32_t k = 0; rc == I123_OK && k < passes; k++)
             rc = sweep_pass(cx, sh, sh->calcorder == ORDER_COLUMNWISE);
     }
