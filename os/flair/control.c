@@ -735,7 +735,7 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
 #endif
 
     if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W ||
-        h < 2 * btn + SB_THUMB_MIN + 2) {
+        h < 2 * btn + SB_THUMB_MIN) {
         return;
     }
 

@@ -848,8 +848,11 @@ void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
 
     min_w = FLAIR_CHROME_WINDOW_MIN_W;
     min_h = FLAIR_CHROME_WINDOW_MIN_H;
-    if (min_w > max_w) min_w = max_w;
-    if (min_h > max_h) min_h = max_h;
+    if (min_w < WSCROLL_FRAME_MIN_W) min_w = WSCROLL_FRAME_MIN_W;
+    if (min_h < WSCROLL_FRAME_MIN_H) min_h = WSCROLL_FRAME_MIN_H;
+    /* Keep parts drawable even if the origin is near a desktop edge. */
+    if (max_w < min_w) max_w = min_w;
+    if (max_h < min_h) max_h = min_h;
     want_w = *width;
     want_h = *height;
 #ifndef WINDOW_MUTATE_GROW_NO_MIN

@@ -277,6 +277,18 @@ int main(void)
         wscroll_set_extent(&ws.axis[WSCROLL_V], 400, 177);
         CHECK(ws.axis[WSCROLL_V].max == 223,
               "W7 changed content extent re-enables the bar without a resize");
+        SizeWindow(&g_wm, &g_rec, 1, 1);
+        rgn_rect_t tiny = WindowFrameRect(&g_rec);
+        CHECK(tiny.right - tiny.left == 96 && tiny.bottom - tiny.top == 88,
+              "W8 minimum grow is 96x88: measured bar anatomy fits");
+        for (int ax = 0; ax < 2; ax++) {
+            rgn_rect_t bar = wscroll_bar_rect(tiny, ax);
+            int lo, hi;
+            wscroll_along(bar, ax, &lo, &hi);
+            CHECK(hi - lo >= 47 &&
+                  wscroll_thumb_pos(bar, ax, &ws.axis[ax]) + 15 <= hi - 16,
+                  "W8 both minimum-size bars fit arrows, separators and full thumb");
+        }
         DisposeWindow(&g_wm, &g_rec);
         CHECK(WindowScrollOf(&g_wm, &g_rec) == NULL && g_wm.scrolls == NULL,
               "W6 DisposeWindow detaches the scroll record");

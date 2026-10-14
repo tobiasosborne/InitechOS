@@ -300,7 +300,8 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop);
 void DragWindow(WindowMgr *wm, WindowPtr w, int16_t dh, int16_t dv);
 
 /* ConstrainWindowSize -- shared grow-track/commit policy. Width/height are
- * clamped to the locked 96x64 minimum and the part of the native desktop still
+ * clamped to the locked policy floor plus the measured bar-fit floor (96x88)
+ * and the part of the native desktop still
  * available from the window origin. The live outline and SizeWindow commit both
  * call this seam, so feedback cannot disagree with the final frame. */
 void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,

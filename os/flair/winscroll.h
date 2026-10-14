@@ -121,6 +121,17 @@ typedef struct WindowScroll {
     WindowScrollAxis     axis[WSCROLL_AXES];
 } WindowScroll;
 
+/* Bar-fit grow floor. Ref: sys8/scrollbars.md 1, 2.1: outer1 + arrow14 +
+ * separator1 + thumb15 + separator1 + arrow14 + outer1 = 47. V bar length
+ * is frame height - 41; H is width - 25 (geometry below). With the existing
+ * authored 96px width floor this is 96x88. This is DERIVED from measured
+ * anatomy, not a claimed measured Finder grow limit. StandardWDEF_a.txt
+ * 1291-1343 draws the caller's grow rectangle; applications own grow limits.
+ */
+#define WSCROLL_BAR_MIN (2 * FLAIR_CHROME_SCROLL_ARROW_TILE + FLAIR_CHROME_SCROLL_THUMB_MIN)
+#define WSCROLL_FRAME_MIN_H (WSCROLL_BAR_MIN + FLAIR_CHROME_TITLEBAR_H + FLAIR_CHROME_GROW_BOTTOM_OFF)
+#define WSCROLL_FRAME_MIN_W (WSCROLL_BAR_MIN + FLAIR_CHROME_FRAME + FLAIR_CHROME_BODY_BAR + 1 + FLAIR_CHROME_GROW_RIGHT_OFF)
+
 /* ---------------------------------------------------------------------------
  * GEOMETRY -- the control rects of the two bars of a document window whose
  * drawer frame is `frame` (WindowFrameRect). These are EXACTLY the outer lines
