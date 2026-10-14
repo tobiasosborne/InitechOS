@@ -201,3 +201,41 @@ round 2 raises the room above the floor, not the floor itself.
   and inlining, never the ISA (the WL-0087 cmov catch).
 - Rule 6: `test-kernel-headroom-mutant` still bites: the floor-1 pad kernel
   goes RED and the floor pad kernel stays GREEN.
+
+## 6. Acceptance (lane-opms-kernelsize, at af2a7b2)
+
+- `test-kernel-headroom`: 133 kernels measured. Flagship
+  `kernel_flairtenants` loads 170,600 B (headroom 26,008 B). The LARGEST,
+  `kernel_flairtenants_mut_no_raise_on_title`, loads 171,720 B (headroom
+  **24,888 B**, binding). Green.
+- `test-kernel-headroom-mutant`: the floor-1 pad kernel (4,095 B) goes RED
+  for the named reason, and the floor pad kernel (4,096 B) stays GREEN.
+- Rule 11:
+  - `test-kernel-repro` is green.
+  - A clean double build of all 133 kernel `.bin`s (every kernel `.o`/`.elf`/
+    `.bin` removed, then rebuilt) is byte-identical for all 133.
+  - mbr.bin and stage2.bin are byte-identical to 9cc1848.
+- `test-spec` and `test-makefile-vars` are green.
+- QEMU emulator gates: 76 run one at a time, and all are green. That covers:
+  - the DOS family (boot, tracer-boot, program, fs, type, dir, exec, mzexec,
+    mcb-emu, fatwrite, multiopen, exit-handles+mutant, sysinit,
+    sysinit-oversize, shell, panic, spurious, datetime, fpu+mutant,
+    fpu-absent+mutant, kbd, conin, vect, absdisk-emu, int21-irqstorm,
+    autoexec, bsy8-pipe, shell-permanent);
+  - SAMIR/TPS (samir-boot, tps-gen-os, compiler-os, seed-fileio-os,
+    samir-lifetime-desktop);
+  - the FLAIR family (desktop+mutant, menu, menu-crossdrag, live, key, mouse,
+    drag, dc4v, cursor, appswitch+mutant, desktop-icons, disk-windows,
+    app-launch, tenant-menu, ctenant, files, i123, i123-quitguard,
+    file-ops, trash-window, empty-trash, scroll, finder-cmds, held-gestures,
+    box-track, zoom-toggle, grow, collapse, data-volume, close-terminate,
+    modal-block, samir-suspend, locked-trash, shutdown+mutant, restart,
+    and solid+mutant, the timing-sensitive repaint/drag gate).
+
+  `test-flair-app-launch` went RED once mid-sequence. Leg [5/10] CYCLE failed:
+  the second launch's clicks did not land while the host load average was
+  about 15 on 12 cores. It was green on 4 of 4 runs alone. This is the
+  injected-trace-under-oversubscription class (cf. initech-7r2), not a kernel
+  defect.
+- Not run on the lane: the Bochs legs (the PM runs them on main; this is the
+  Rule-5 obligation every changed image carries) and `record-flair`.
