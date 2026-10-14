@@ -15,10 +15,11 @@ int main(int argc,char **argv)
     samir_pal_t *p=pal_host_make((struct pal_host_cfg){85,1,1,1048576});
     xb_interp *ip=xb_interp_make(p);
     int rc=2;
-    if(argc!=2 || !ip) return 2;
+    if((argc!=2 && argc!=3) || !ip) return 2;
     p->conout=output;
+    xb_interp_ctx(ip)->set_heading=0;
     if(query_register(ip) || wa_set_open(xb_interp_env(ip),1,argv[1],"CASE",NULL)) return 2;
-    rc=samir_do(ip,"LIST OFF\nLIST OFF V\nDISPLAY ALL OFF\nGO TOP\nDISPLAY OFF\n");
+    rc=samir_do(ip,argc==3?"LIST OFF\nDISPLAY ALL OFF\nGO TOP\nDISPLAY OFF\n":"LIST OFF\nLIST OFF V\nDISPLAY ALL OFF\nGO TOP\nDISPLAY OFF\n");
     xb_interp_free(ip);pal_host_free(p);
     return rc?1:0;
 }

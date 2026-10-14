@@ -416,6 +416,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.rename     = host_rename;
     st->vtable.conout     = host_conout;
     st->vtable.conin_line = host_conin_line;
+    st->vtable.conin_line_noecho = host_conin_line;
     st->vtable.conin_char = host_conin_char;
     st->vtable.gotoxy     = host_gotoxy;
     st->vtable.set_attr   = host_set_attr;

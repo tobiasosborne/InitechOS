@@ -131,6 +131,10 @@ xb_ctx *xb_interp_ctx(xb_interp *ip);
 
 /* xb_interp_pal: the PAL the interpreter was made over. */
 samir_pal_t *xb_interp_pal(xb_interp *ip);
+void samir_status_refresh(xb_interp *ip);
+int32_t xb_interp_read_line(xb_interp *ip,char *buf,uint32_t cap);
+int xb_interp_console_visible(xb_interp *ip);
+void xb_interp_output(xb_interp *ip,const char *s,uint32_t n);
 
 /* -----------------------------------------------------------------------
  * Expression evaluation (the S5.1 end-to-end convergence path)

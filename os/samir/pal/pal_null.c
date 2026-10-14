@@ -82,5 +82,7 @@ samir_pal_t samir_pal_null = {
 	null_alloc,
 	null_reset,
     null_alloc,
-    null_reset
+    null_reset,
+    0,
+    null_conin_line
 };

@@ -299,7 +299,6 @@ static int p_emit_prompt(xb_interp *ip, const char *pexpr, int *ec)
 {
     xb_val v;
     int rc;
-    samir_pal_t *pal = xb_interp_pal(ip);
     const char *p = p_skip_ws(pexpr);
     if (*p == '\0') { if (ec) *ec = 0; return INTERP_OK; }   /* no prompt */
     rc = p_eval(ip, p, &v, ec);
@@ -309,8 +308,7 @@ static int p_emit_prompt(xb_interp *ip, const char *pexpr, int *ec)
         if (ec) *ec = XBEE_MISMATCH;        /* prompt must be Character (#9) */
         return -INTERP_ERR_EVAL;
     }
-    if (pal && pal->conout && v.u.c.len > 0u && v.u.c.p)
-        pal->conout(pal, v.u.c.p, (uint32_t)v.u.c.len);
+    if(v.u.c.p) xb_interp_output(ip,v.u.c.p,(uint32_t)v.u.c.len);
     if (ec) *ec = 0;
     return INTERP_OK;
 }
@@ -345,7 +343,7 @@ static int32_t p_readline(xb_interp *ip, char *buf, uint32_t cap)
     samir_pal_t *pal = xb_interp_pal(ip);
     int32_t n;
     if (!pal || !pal->conin_line) { buf[0] = '\0'; return -1; }
-    n = pal->conin_line(pal, buf, cap);
+    n = xb_interp_read_line(ip,buf,cap);
     if (n < 0) { buf[0] = '\0'; return -1; }
     if ((uint32_t)n >= cap) n = (int32_t)(cap - 1u);
     buf[n] = '\0';
@@ -665,7 +663,10 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         ps->pending_nargs = nargs;
         ps->params_seen   = 0;
 
-        rc = samir_do(ip, stackbody);
+        { uint8_t dot=xb_interp_ctx(ip)->dot_command;
+          xb_interp_ctx(ip)->dot_command=0;
+          rc = samir_do(ip, stackbody);
+          xb_interp_ctx(ip)->dot_command=dot; }
         if (rc == PROC_RC_RETURN)
             rc = INTERP_OK;                 /* a clean RETURN out of the body */
 

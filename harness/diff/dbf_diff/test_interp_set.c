@@ -150,6 +150,15 @@ static int run_set_tests(const char *corpus_path)
     /* 1. DEFAULT VALUES                                                    */
     /* ------------------------------------------------------------------ */
 
+    CHECK(xb_interp_ctx(ip)->set_heading==1,"HEADING default ON (U5-235)");
+    CHECK(xb_interp_ctx(ip)->set_console==1,"CONSOLE default ON (U5-210)");
+    CHECK(xb_interp_ctx(ip)->set_status==0,"STATUS default OFF without CONFIG.DB (U5-259)");
+    CHECK(samir_do(ip,"SET HEADING OFF\nSET CONSOLE OFF\nSET STATUS ON\n")==INTERP_OK,"screen settings accepted");
+    CHECK(!xb_interp_ctx(ip)->set_heading && !xb_interp_ctx(ip)->set_console && xb_interp_ctx(ip)->set_status,"screen settings take effect");
+    CHECK(samir_do(ip,"SET HEADING ON\nSET CONSOLE ON\nSET STATUS OFF\n")==INTERP_OK,"screen settings restored");
+    CHECK(xb_interp_ctx(ip)->set_heading && xb_interp_ctx(ip)->set_console && !xb_interp_ctx(ip)->set_status,"screen settings restore");
+    CHECK(samir_do(ip,"SET HEADING MAYBE\n")!=INTERP_OK,"invalid screen setting fails loud");
+
     /* EXACT default = OFF [verified: mint-results-002.md] */
     CHECK(set_get_exact(ip) == 0,
           "default: EXACT == OFF (ctx->set_exact == 0)");

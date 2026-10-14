@@ -79,6 +79,9 @@ void         pal_host_free(samir_pal_t *p);
 
 /* query.c module registration (the S5.4 entry point). */
 int query_register(xb_interp *ip);
+int set_register(xb_interp *ip);
+int proc_register(xb_interp *ip);
+int proc_run(xb_interp *ip,const char *text);
 
 /* =====================================================================
  * Capturing PAL: delegate everything to the host PAL, intercept conout.
@@ -94,6 +97,9 @@ typedef struct {
 } cap_pal;
 
 static cap_pal g_cap;
+static int hidden_reads;
+static int32_t cap_hidden(samir_pal_t *p,char *b,uint32_t n)
+{ (void)p;hidden_reads++;if(n<7) return -1;memcpy(b,"secret",7);return 6; }
 
 static pal_fd  cap_open (samir_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
 static int     cap_close(samir_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
@@ -134,6 +140,7 @@ static samir_pal_t *cap_pal_make(samir_pal_t *inner)
     g_cap.pal.rename     = cap_rename;
     g_cap.pal.conout     = cap_conout;
     g_cap.pal.conin_line = cap_conin_line;
+    g_cap.pal.conin_line_noecho = cap_hidden;
     g_cap.pal.conin_char = cap_conin_char;
     g_cap.pal.gotoxy     = cap_gotoxy;
     g_cap.pal.set_attr   = cap_set_attr;
@@ -264,6 +271,32 @@ static void test_tier0(samir_pal_t *pal)
     CHECK(rc == WA_OK, msg);
     if (rc != WA_OK) { xb_interp_free(ip); remove(pa); return; }
     wa_select(env, 1);
+
+    /* Using III+ U5-235/PDF 347; manual-derived, no LIST golden. */
+    CHECK(set_register(ip)==INTERP_OK,"screen: SET registered");
+    cap_clear();
+    CHECK(samir_do(ip,"LIST OFF\n")==INTERP_OK,"screen: default headings");
+    CHECK(strncmp(cap_text(),"CODE AMT   OK\nAAA    100 T \n",27)==0,
+          "screen: headings and widened columns align");
+    CHECK(samir_do(ip,"SET HEADING OFF\n")==INTERP_OK,"screen: HEADING OFF");
+    cap_clear();
+    CHECK(samir_do(ip,"SET CONSOLE OFF\nLIST OFF\n? 'HIDDEN'\n")==INTERP_OK,"screen: program output suppressed");
+    CHECK(!cap_text()[0],"screen: no program LIST/question ink");
+    xb_interp_ctx(ip)->dot_command=1;
+    CHECK(samir_do(ip,"GO TOP\nDISPLAY OFF CODE\n")==INTERP_OK,"screen: dot command output");
+    CHECK(cap_has("AAA"),"screen: CONSOLE always ON at dot prompt");
+    CHECK(proc_register(ip)==INTERP_OK,"screen: procedure module registered");
+    cap_clear();
+    CHECK(proc_run(ip,"DO inner\nPROCEDURE inner\n? 'NESTED HIDDEN'\nRETURN\n")==INTERP_OK,"screen: nested DO runs as program");
+    CHECK(!cap_text()[0],"screen: DO at dot prompt suppresses program output");
+    CHECK(xb_interp_ctx(ip)->dot_command==1,"screen: nested DO restores dot context");
+    xb_interp_ctx(ip)->dot_command=0;
+    cap_clear();hidden_reads=0;
+    CHECK(samir_do(ip,"ACCEPT 'HIDDEN PROMPT' TO answer\n")==INTERP_OK,"screen: hidden ACCEPT accepts input");
+    CHECK(hidden_reads==1 && !cap_text()[0],"screen: ACCEPT prompt and typed input suppressed");
+    CHECK(samir_do(ip,"SET CONSOLE ON\n? answer\n")==INTERP_OK,"screen: accepted input retained");
+    CHECK(cap_has("secret"),"screen: hidden input value visible after CONSOLE ON");
+    CHECK(samir_do(ip,"SET CONSOLE ON\n")==INTERP_OK,"screen: CONSOLE ON");
 
     /* ---- LIST (ALL): every record + recno column ---- */
     cap_clear();

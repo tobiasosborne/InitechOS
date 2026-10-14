@@ -731,6 +731,26 @@ static void milton_reset(samir_pal_t *p, void *mark)
     st->heap_ptr = m;
 }
 
+/* Using III+ U5-210/PDF 322: CONSOLE OFF accepts program input without echo.
+ * IOCTL distinguishes CON from redirected streams (ADR-0008 PAL boundary). */
+static int32_t milton_conin_line_noecho(samir_pal_t *p,char *buf,uint32_t cap)
+{
+    uint32_t dx=0,n=0;int cf=0,overflow=0;int32_t c;
+    (void)int21_cxdx(0x44u,0,0,0,0,(uint32_t *)0,&dx,&cf);
+    if(cf) milton_panic();
+    if(!(dx & 0x8000u)) return milton_conin_line(p,buf,cap);
+    if(cap<2) return -1;
+    for(;;) {
+        c=milton_conin_char(p);
+        if(c<0) return -1;
+        if(c=='\r' || c=='\n') break;
+        if(c=='\b') { if(n) n--;continue; }
+        if(c<32 || c>126) continue;
+        if(n+1<cap) buf[n++]=(char)c; else overflow=1;
+    }
+    buf[n]=0;return overflow?-1:(int32_t)n;
+}
+
 /* ---- Constructor ---------------------------------------------------------- *
  *
  * pal_milton_make: construct the Milton PAL binding.
@@ -792,6 +812,8 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.rename     = milton_rename;
     st->vtable.conout     = milton_conout;
     st->vtable.conin_line = milton_conin_line;
+    st->vtable.conin_line_noecho = milton_conin_line_noecho;
+    st->vtable.status = 0;
     st->vtable.conin_char = milton_conin_char;
     st->vtable.gotoxy     = milton_gotoxy;
     st->vtable.set_attr   = milton_set_attr;

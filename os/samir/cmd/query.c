@@ -182,9 +182,7 @@ static const char *q_skip_ws(const char *s)
 /* write n bytes to the console. */
 static void q_putn(xb_interp *ip, const char *s, uint32_t n)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
-    if (pal && pal->conout && n > 0u)
-        pal->conout(pal, s, n);
+    xb_interp_output(ip,s,n);
 }
 
 /* ===================================================================== */
@@ -724,24 +722,68 @@ static const dbf_field_t *q_field_descriptor(xb_interp *ip, const char *expr)
     }
     return (const dbf_field_t *)0;
 }
-static void q_render_field(char *buf,uint32_t *pos,uint32_t cap,
+static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
                            const xb_val *v,const dbf_field_t *f,
-                           const xb_ctx *ctx)
+                           const xb_ctx *ctx, uint32_t width)
 {
+    uint32_t start;
+    /* A legal wide record can exceed one line buffer. Stream whole cells,
+     * preserving every numeric byte instead of truncating at Q_LINEBUF. */
+    if(width+*pos>=cap) { q_putn(ip,buf,*pos);*pos=0; }
+    start=*pos;
     if(f && f->type=='N' && v->t==XB_N) {
         char cell[256];
-        int width=f->field_len, dec=f->dec_count;
+        int dec=f->dec_count;
 #ifdef SAMIR_NUMERIC_MUTATE_FRACTION
         if(v->u.n==(double)(int64_t)v->u.n) dec=0;
 #endif
         dec_format(v->u.n,width,dec,cell);
 #ifdef SAMIR_NUMERIC_MUTATE_LEFT
-        { int lead=0,i; while(lead<width && cell[lead]==' ') lead++;
+        { uint32_t lead=0,i; while(lead<width && cell[lead]==' ') lead++;
           for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];
           while(i<width) cell[i++]=' '; }
 #endif
         q_append(buf,pos,cap,cell,(uint32_t)width);
-    } else q_render_val(buf,pos,cap,v,ctx,0);
+    } else {
+        q_render_val(buf,pos,cap,v,ctx,0);
+        while(*pos-start<width && *pos<cap) buf[(*pos)++]=' ';
+    }
+}
+
+static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_val *v,const xb_ctx *ctx)
+{
+    uint32_t width=f ? f->field_len : 0, name=rt_strlen(expr);
+    if(!f) { char b[256]; uint32_t n=0; q_render_val(b,&n,sizeof(b),v,ctx,0); width=n; }
+    /* Using III+ U5-235: heading length or field width, whichever is larger. */
+    if(ctx->set_heading && name>width) width=name;
+    return width;
+}
+static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *ec)
+{
+    char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0;
+    const char *p=qc->exprlist; int first=1,ok=1,fi=0;
+    dbf_table *tbl=wa_table(xb_interp_env(ip),area);
+#ifdef SAMIR_MUTATE_HEADING
+    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;
+    return INTERP_OK;
+#endif
+    if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
+    if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
+    while(qc->has_exprlist ? q_next_expr(&p,expr,sizeof(expr),&ok) : fi<(int)dbf_nfields(tbl)) {
+        const dbf_field_t *f; xb_val v; uint32_t width,n; int rc;
+        if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
+        else f=q_field_descriptor(ip,expr);
+        rc=q_eval(ip,expr,&v,ec); if(rc) return rc;
+        width=q_column_width(f,expr,&v,xb_interp_ctx(ip));
+        if(!first) q_append_cstr(line,&pos,sizeof(line)," ");
+        first=0;
+        if(pos+width+1>=sizeof(line)) { q_putn(ip,line,pos);pos=0; }
+        n=rt_strlen(expr); q_append(line,&pos,sizeof(line),expr,n);
+        while(n++<width) q_append_cstr(line,&pos,sizeof(line)," ");
+    }
+    if(!ok) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+    q_append_cstr(line,&pos,sizeof(line),"\n");q_putn(ip,line,pos);
+    return INTERP_OK;
 }
 
 /* ===================================================================== */
@@ -787,8 +829,9 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, expr, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_field(line, &pos, sizeof(line), &v,
-                           q_field_descriptor(ip,expr), xb_interp_ctx(ip));
+            q_render_field(ip,line, &pos, sizeof(line), &v,
+                           q_field_descriptor(ip,expr), xb_interp_ctx(ip),
+                           q_column_width(q_field_descriptor(ip,expr),expr,&v,xb_interp_ctx(ip)));
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -805,7 +848,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, f->name, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_field(line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip));
+            q_render_field(ip,line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip),
+                           q_column_width(f,f->name,&v,xb_interp_ctx(ip)));
         }
     }
 
@@ -844,6 +888,9 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
 
     if (kind == QS_DEFAULT)
         kind = is_display_default ? QS_RECORD /* current */ : QS_ALL;
+
+    if(!wa_is_open(env,area)) { if(ec) *ec=3; return -INTERP_ERR_EVAL; }
+    rc=q_render_heading(ip,area,qc,ec); if(rc) return rc;
 
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */
 

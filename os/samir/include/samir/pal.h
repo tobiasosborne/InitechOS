@@ -192,6 +192,11 @@ struct samir_pal {
      * policy, no local reference; ten independent work areas are III+ canon. */
     void *(*acquire)(samir_pal_t *, uint32_t n);
     void (*release)(samir_pal_t *, void *memory);
+    /* Optional text-terminal bindings. STATUS reserves row 22 and guidance 23
+     * (Using III+ U5-16/259). NULL on stream-only PALs; never write ANSI to files.
+     * Hidden cooked input implements CONSOLE OFF's no-echo program input. */
+    void (*status)(samir_pal_t *,int,const char *,uint32_t,uint32_t);
+    int32_t (*conin_line_noecho)(samir_pal_t *,char *,uint32_t);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

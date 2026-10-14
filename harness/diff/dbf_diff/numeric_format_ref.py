@@ -32,7 +32,7 @@ def main():
     root.mkdir(parents=True, exist_ok=True)
     rng = random.Random(0x1A0)
     checks = 0
-    for width in range(2, 21):
+    for width in range(1, 21):
         for places in range(min(width - 1, 15) + 1):
             # Use representable stored decimals, below IEEE's integer limit.
             digits = min(12, width - (1 if places else 0))
@@ -63,6 +63,28 @@ def main():
                 print(f'expected {expected[:120]!r}; actual {result.stdout[:120]!r}', file=sys.stderr)
                 print(f'test-samir-numeric-format: {checks} checks, FAIL')
                 return 1
+    # One row wider than the engine's 512-byte staging buffer. Independent
+    # descriptor and payload construction checks the complete record view.
+    cells = [numeric_cell(str(v), 20, 2) for v in range(-16, 16)]
+    header = bytearray(32)
+    struct.pack_into('<B3xIHH', header, 0, 3, 1, 32 + 32 * len(cells) + 1, 1 + 20 * len(cells))
+    fields = bytearray()
+    for index in range(len(cells)):
+        descriptor = bytearray(32)
+        name = f'V{index}'.encode('ascii')
+        descriptor[:len(name)] = name
+        descriptor[11] = ord('N')
+        descriptor[16:18] = bytes([20, 2])
+        fields += descriptor
+    path = root / 'WIDE.DBF'
+    path.write_bytes(header + fields + b'\r ' + ''.join(cells).encode('ascii') + b'\x1a')
+    result = subprocess.run([binary, str(path), 'wide'], capture_output=True, text=True)
+    expected = (' '.join(cells) + '\n') * 3
+    checks += len(cells) * 3
+    if result.returncode or result.stdout != expected:
+        print('FAIL: wide-record descriptor differential', file=sys.stderr)
+        print(f'test-samir-numeric-format: {checks} checks, FAIL')
+        return 1
     print(f'test-samir-numeric-format: {checks} cells PASS (manual-derived, no LIST golden)')
     return 0
 
