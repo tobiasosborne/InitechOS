@@ -614,6 +614,9 @@ include spec/flair_ctenant_traces.mk
 # The LOCKED Initech 123 traces (beads initech-9u8w / initech-w96l):
 # FLAIR_I123_TYPE_SPEC / _QUIT_SPEC / _PRE_SPEC.
 include spec/flair_i123_traces.mk
+# The LOCKED InitechWord traces (bead initech-l4tj): FLAIR_IWORD_SPEC (the
+# test-flair-iword leg) and FLAIR_IWORD_TYPE_SPEC (the iword_typing clip).
+include spec/flair_iword_traces.mk
 
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
@@ -9986,6 +9989,20 @@ $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DE
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
 I123_EXE := $(BUILD)/tenant/i123.exe
 
+# WORD.EXE -- InitechWord, Face A (os/iword/app/face_a.c over the document
+# core os/iword/core + the .WP5 codec os/iword/fs; bead initech-l4tj, IWORD
+# P1): the same C disk-application path as 123.EXE -- an InitechMZ flat-32
+# .EXE through the INT 81h Toolbox Gate, its two 64 KB banks, add buffer and
+# piece table in the .bss (e_minalloc). Never compiled into the kernel (plan
+# docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
+# are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
+IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/fs/wp5.c
+IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h
+$(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP)))
+IWORD_EXE := $(BUILD)/tenant/iword.exe
+
 # Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
 # fixed SOURCE_DATE_EPOCH/TZ pin every FAT timestamp, and -N pins the serial.
 # Contents are intentionally small: README.TXT plus the APPS folder, which since
@@ -9993,13 +10010,16 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # INSIDE APPS, never at the root, so the locked root listing (n=2 shown since
 # tdnl.56 hid DESKTOP.DB and TRASH; n=4 on disk) of every R3.2/
 # R3.3 gate is untouched.
-# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>)
+# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>,<WORD exe to ship>)
 # APPS also holds, IN THIS ORDER after TENANTFX.EXE (the Finder lays a folder
 # out in directory order, so TENANTFX keeps grid cell 0 and every locked trace
-# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l) and 123.EXE
-# (cell 2; Initech 123, beads initech-9u8w / initech-w96l).
+# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l), 123.EXE
+# (cell 2; Initech 123, beads initech-9u8w / initech-w96l) and WORD.EXE
+# (cell 3; InitechWord, bead initech-l4tj -- $(IWORD_EXE), or a gate-local
+# variant). Appended LAST so cells 0-2 and every locked trace that reaches
+# them are unchanged.
 define flair-data-rules
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10012,17 +10032,19 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) | $(BUILD)
 		$(CTENANT_EXE) ::APPS/CTENANT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(3) ::APPS/123.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s)\n" "$$@" "$(2)" "$(3)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
+		$(4) ::APPS/WORD.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s)\n" "$$@" "$(2)" "$(3)" "$(4)"
 endef
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
 # Gate-local VARIANT volumes (tdnl.14 legs): the SAME recipe shipping a knobbed
 # fixture under the SAME name, so the SAME locked trace drives it.
 FLAIR_DATA_TFX_NOREG_IMG := $(BUILD)/flair_data_tfx_noreg.img
 FLAIR_DATA_TFX_CRASH_IMG := $(BUILD)/flair_data_tfx_crash.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe,$(I123_EXE)))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe,$(I123_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe,$(I123_EXE),$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe,$(I123_EXE),$(IWORD_EXE)))
 FLAIR_DATA_TFX_BADMBAR_IMG := $(BUILD)/flair_data_tfx_badmbar.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe,$(I123_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe,$(I123_EXE),$(IWORD_EXE)))
 
 # DB_MAGIC_FLIP volume mutant: corruption is authored independently at image
 # build time; the REAL kernel must announce REGEN and rewrite the golden header.
@@ -13722,6 +13744,70 @@ test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_C
 		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
 	done
 	@printf '>>> test-iword-wp5-roundtrip-mutant: green (both mutants RED for the named reason)\n'
+endif
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-iword-face (bead initech-l4tj, IWORD P1) -- the HOST oracle
+# of WORD.EXE (os/iword/app/face_a.c, compiled over the real core with a
+# RECORDING MOCK of the Toolbox Gate, the test-i123-quit pattern): the Face A
+# screen against the real WordPerfect 5.1 screen (the MINT shots: the wrap,
+# the status line "Doc 1 Pg 1 Ln 1.17" Pos 2.3"" at its columns, the saved
+# name), the F10 / Shift-F10 / F7 prompts in the Reference Manual's words,
+# THE ONE EXIT GUARD (F7 always asks; close box / File > Exit end a clean
+# document at once, ask for a dirty one; F1 / Esc keep it), the errors, and
+# (built -DIWORD_SMALL_BUFFERS) compaction to the size limit. The files it
+# saves are judged INDEPENDENTLY here: MEMO == the real MINT02.WP5 prefix +
+# the wrapped paragraph byte for byte, and wp5_ref.py reads MEMO / COPY /
+# GUARD with their text and zero trailer errors.
+# Mutants (test-iword-face-mutant): IWORD_MUT_NO_WRAP (the rows do not wrap),
+# IWORD_MUT_SAVE_NOTHING (MEMO is empty).
+# ---------------------------------------------------------------------------
+TEST_IWORD_FACE   := $(BUILD)/test_iword_face
+IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
+IWORD_FACE_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
+IWORD_FACE_FS     := $(BUILD)/iword_face_fs
+$(TEST_IWORD_FACE): $(IWORD_FACE_DEPS) | $(BUILD)
+	$(CC) $(IWORD_FACE_CFLAGS) -o $@ harness/proptest/test_iword_face.c $(IWORD_CORE_SRC)
+$(BUILD)/test_iword_face_small: $(IWORD_FACE_DEPS) | $(BUILD)
+	$(CC) $(IWORD_FACE_CFLAGS) -DIWORD_SMALL_BUFFERS -o $@ harness/proptest/test_iword_face.c $(IWORD_CORE_SRC)
+$(BUILD)/test_iword_face_mutant_%: $(IWORD_FACE_DEPS) | $(BUILD)
+	$(CC) $(IWORD_FACE_CFLAGS) -D$* -o $@ harness/proptest/test_iword_face.c $(IWORD_CORE_SRC)
+IWORD_MEMO_TEXT := Initech word processing is here. The quick brown fox jumps over
+IWORD_MEMO_TAIL := the lazy dog.
+# $(call iword_ref_text,<file>,<text>): wp5_ref.py reads <file> to its end
+# with zero trailer errors and its TEXT line is exactly <text>.
+iword_ref_text = python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(1) > $(1).ref && grep -qxF "  TEXT: '$(2)'" $(1).ref && grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$$' $(1).ref
+
+.PHONY: test-iword-face test-iword-face-mutant
+ifeq ($(SKIP_WORDPERFECT51_DECOMP):$(WP_GOLDENS_PRESENT),1:)
+test-iword-face test-iword-face-mutant:
+	@printf '!!! WORDPERFECT51_DECOMP SKIPPED (SKIP_WORDPERFECT51_DECOMP=1 opt-out) -- %s reference NOT graded.\n' "$@"
+else
+test-iword-face: $(TEST_IWORD_FACE) $(BUILD)/test_iword_face_small
+	$(call need_wp_goldens,test-iword-face)
+	@printf '>>> test-iword-face: WORD.EXE Face A over a recording Toolbox mock -- screen, prompts, exit guard, files (initech-l4tj)\n'
+	@rm -rf $(IWORD_FACE_FS) $(IWORD_FACE_FS)_small && mkdir -p $(IWORD_FACE_FS) $(IWORD_FACE_FS)_small
+	@$(TEST_IWORD_FACE) $(IWORD_FACE_FS)
+	@$(BUILD)/test_iword_face_small $(IWORD_FACE_FS)_small
+	@head -c 327 $(WORDPERFECT51_DECOMP)/goldens/minted/MINT02.WP5 > $(BUILD)/iword_face_memo.expect
+	@printf '%s\r%s' '$(IWORD_MEMO_TEXT)' '$(IWORD_MEMO_TAIL)' >> $(BUILD)/iword_face_memo.expect
+	@cmp $(BUILD)/iword_face_memo.expect $(IWORD_FACE_FS)/MEMO || { printf '!!! test-iword-face FAIL: MEMO is not the real MINT02 prefix + the wrapped paragraph\n'; exit 1; }
+	@$(call iword_ref_text,$(IWORD_FACE_FS)/MEMO,$(IWORD_MEMO_TEXT)$(IWORD_MEMO_TAIL)) && grep -qF "T'$(IWORD_MEMO_TEXT)' [SRt] T'$(IWORD_MEMO_TAIL)'" $(IWORD_FACE_FS)/MEMO.ref || { printf '!!! test-iword-face FAIL: wp5_ref.py does not read MEMO as the wrapped paragraph\n'; cat $(IWORD_FACE_FS)/MEMO.ref; exit 1; }
+	@$(call iword_ref_text,$(IWORD_FACE_FS)/COPY,X$(IWORD_MEMO_TEXT)$(IWORD_MEMO_TAIL)) || { printf '!!! test-iword-face FAIL: COPY (Save, edit, Replace) per wp5_ref.py\n'; cat $(IWORD_FACE_FS)/COPY.ref; exit 1; }
+	@$(call iword_ref_text,$(IWORD_FACE_FS)/GUARD,Keep me) || { printf '!!! test-iword-face FAIL: GUARD (saved from the exit guard) per wp5_ref.py\n'; cat $(IWORD_FACE_FS)/GUARD.ref; exit 1; }
+	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(IWORD_FACE_FS)_small/BIG | grep -q 'END offset=4096 filesize=4096 trailer-errors=0$$' || { printf '!!! test-iword-face FAIL: BIG (the compaction leg) does not parse clean\n'; exit 1; }
+	@printf '>>> test-iword-face: green (MEMO byte-identical to the expected file; MEMO/COPY/GUARD/BIG read clean by wp5_ref.py)\n'
+
+test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUILD)/test_iword_face_mutant_IWORD_MUT_SAVE_NOTHING
+	@for pair in 'IWORD_MUT_NO_WRAP:FAIL F1 the paragraph wraps' 'IWORD_MUT_SAVE_NOTHING:FAIL F1 MEMO holds'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_face_mutant_$$m; dir=$(BUILD)/iword_face_fs_$$m; \
+		rm -rf $$dir && mkdir -p $$dir; \
+		if $$bin $$dir > $$bin.log 2>&1; then printf '!!! test-iword-face-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-face-mutant FAIL: %s died without a summary\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-face-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-iword-face-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 -F "$$why" $$bin.log)"; \
+	done
+	@printf '>>> test-iword-face-mutant: green (both mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -21466,7 +21552,7 @@ test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tena
 # and display, Ctrl-Q) on the headless smoke kernel, byte-identical to QEMU.
 # ===========================================================================
 FLAIR_DATA_I123_ARROWS_IMG := $(BUILD)/flair_data_i123_arrows.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_ARROWS_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_arrows_dead.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_ARROWS_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_arrows_dead.exe,$(IWORD_EXE)))
 $(eval $(call flair-tenants-kmain-mutant-rules,TBX_HEADLESS_SMOKE -DTBX_SMOKE_I123,tbx_smoke_i123))
 FLAIR_I123_SMOKE_IMG := $(BUILD)/flair_tenants_mut_tbx_smoke_i123.img
 
@@ -22014,6 +22100,17 @@ RECORD_MARKER_i123_quit_guard = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retriev
 RECORD_SETTLE_i123_quit_guard = 400
 RECORD_IMAGE_i123_quit_guard = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_quit_guard = $(BUILD)/flair_i123_quit_data.img
+# iword_typing (bead initech-l4tj; Rule 14): InitechWord opens from the
+# Finder -- double-click APPS\WORD.EXE, the WordPerfect 5.1 Face A comes up
+# (blue field, the "Doc 1 Pg 1 Ln 1\" Pos 1\"" status line) and a 77-character
+# paragraph is typed: the line wraps after "over" as WordPerfect wraps it.
+# Replays the LOCKED FLAIR_IWORD_TYPE_SPEC; its marker is line 2 drawn
+# holding "the lazy dog.". 99 recorded events: the long double-click image.
+RECORD_SCRIPTS += iword_typing
+RECORD_SPEC_iword_typing = $(FLAIR_IWORD_TYPE_SPEC)
+RECORD_MARKER_iword_typing = TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="the lazy dog.                                                                " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_typing = 400
+RECORD_IMAGE_iword_typing = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
 RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
@@ -27333,6 +27430,7 @@ TEST_UNIT_GATES := \
 	test-i123-recalc-order test-i123-recalc-order-mutant \
 	test-iword-core test-iword-core-mutant \
 	test-iword-wp5-roundtrip test-iword-wp5-roundtrip-mutant \
+	test-iword-face test-iword-face-mutant \
 	test-makefile-vars test-gate-honesty test-gate-honesty-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
@@ -28476,6 +28574,7 @@ TEST_EMU_GATES := \
 	test-flair-i123-files test-flair-i123-files-mutant test-flair-i123-file-ui test-flair-i123-file-ui-mutant \
 	test-flair-i123-quitguard test-flair-i123-quitguard-mutant \
 	test-flair-i123-formula test-flair-i123-formula-mutant \
+	test-flair-iword test-flair-iword-mutant \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
@@ -28830,7 +28929,7 @@ test-flair-i123-quitguard-mutant: test-flair-i123-quitguard $(HARNESS_BIN) $(FLA
 # ---------------------------------------------------------------------------
 FLAIR_DATA_I123_NORECALC_IMG := $(BUILD)/flair_data_i123_norecalc.img
 $(eval $(call tenant-exe-rules,i123_no_recalc,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NO_RECALC,$(I123_APP_DEP)))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_NORECALC_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_no_recalc.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_NORECALC_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_no_recalc.exe,$(IWORD_EXE)))
 I123_FROW_A := $(I123_E)     123      1.5    124.5     -249                                      $(I123_E)
 I123_FROW_B := $(I123_E)     200      1.5    201.5     -403                                      $(I123_E)
 I123_FORMULA_ROWS = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_A)" fg=1 bg=0 -> 0' $(1) && \
@@ -28865,3 +28964,107 @@ test-flair-i123-formula-mutant: test-flair-i123-formula $(HARNESS_BIN) $(FLAIR_I
 	@if $(call I123_FORMULA_ROWS,$(BUILD)/flair_i123_formula_mut.serial); then printf '!!! test-flair-i123-formula-mutant FAIL: NO_RECALC PASSED -- the recalculation leg is decoration\n'; exit 1; fi
 	@printf '>>> test-flair-i123-formula-mutant: NO_RECALC correctly RED -- A1 retyped 200 left row 1 at "%s"\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_formula_mut.serial | grep '     200 ' | head -1 | cut -c45-80)"
 	@printf '>>> test-flair-i123-formula-mutant: green\n'
+
+# ===========================================================================
+# REAL gate: test-flair-iword (bead initech-l4tj, IWORD P1; epic initech-fdxa)
+# -- INITECHWORD OPENS FROM THE FINDER AS A DISK APPLICATION AND KEEPS A
+# DOCUMENT. QEMU, one boot of $(FLAIR_IWORD_GATE_IMG) (the flagship desktop,
+# pump life 1500 ticks for the 114-token trace) + a copy of the shipped data
+# volume (APPS\WORD.EXE = os/iword/app/face_a.c over the document core),
+# trace LOCKED in spec/flair_iword_traces.mk (FLAIR_IWORD_SPEC): double-click
+# WORD.EXE, type a 77-character paragraph, F10 "memo" Enter, F7 n n (a clear
+# screen), Shift-F10 "memo" Enter.
+#   [1/4] UP      WORD loads, registers, its window comes forward.
+#   [2/4] TYPED   the paragraph was drawn WRAPPED where WordPerfect 5.1 wraps
+#                 (65 columns: line 1 ends "over", line 2 "the lazy dog."),
+#                 the status line read "A:\MEMO ... Ln 1.17\" Pos 2.3\"" after
+#                 the save, the WP prompts were shown in the Reference
+#                 Manual's words (Document to be Saved:, Save Document? Yes
+#                 (No), Exit WP? No (Yes), Document to be Retrieved:), and the
+#                 screen was cleared before the retrieve.
+#   [3/4] DISK    MEMO read off the stopped data volume with mtools: byte for
+#                 byte the real MINT02.WP5 prefix + the paragraph with the SRt
+#                 in place of the wrapping space; the INDEPENDENT reader
+#                 wp5_ref.py reads its text and [SRt] with zero trailer errors.
+#   [4/4] BACK    after Shift-F10 the last draws of lines 1 and 2 are the
+#                 paragraph again, the status line "A:\MEMO ... Doc 1 Pg 1 Ln
+#                 1\" Pos 1\"", and the screen shows it (ppm_region_count
+#                 bands: ink on line 1, NO ink in its columns 63-64 -- the
+#                 wrap is on screen -- ink on line 2, the reverse cursor cell).
+# Mutants (test-flair-iword-mutant, gate-local volumes carrying a knobbed
+# WORD.EXE under the same name): IWORD_MUT_NO_WRAP (no soft return is ever
+# placed: line 1 runs to column 65, MEMO has no [SRt]) and
+# IWORD_MUT_SAVE_NOTHING (F10 leaves an empty MEMO: wp5_ref.py refuses it and
+# the retrieve says ERROR: Incompatible File Format). Each RED for its reason.
+# Bochs / record-flair are the PM's (Rule 5 / Rule 14 on main).
+# ===========================================================================
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500,iword_gate))
+FLAIR_IWORD_GATE_IMG := $(BUILD)/flair_tenants_mut_iword_gate.img
+FLAIR_DATA_IWORD_NOWRAP_IMG := $(BUILD)/flair_data_iword_nowrap.img
+FLAIR_DATA_IWORD_NOSAVE_IMG := $(BUILD)/flair_data_iword_nosave.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOWRAP_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_wrap.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOSAVE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_save_nothing.exe))
+IWORD_ROW0   := $(I123_E)Initech word processing is here. The quick brown fox jumps over              $(I123_E)
+IWORD_ROW1   := $(I123_E)the lazy dog.                                                                $(I123_E)
+IWORD_BLANK  := $(I123_E)                                                                             $(I123_E)
+IWORD_ST_SAV := $(I123_E)A:\MEMO                                          Doc 1 Pg 1 Ln 1.17" Pos 2.3"$(I123_E)
+IWORD_ST_END := $(I123_E)A:\MEMO                                             Doc 1 Pg 1 Ln 1" Pos 1"  $(I123_E)
+# the last draw of line L (y = 16L, fg WHITE bg NAVY) in serial $(1) is $(2)
+IWORD_LAST = grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=$(2) .* fg=0 bg=3 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=1 y=$(2) s="$(3)" fg=0 bg=3 -> 0'
+IWORD_DREW = grep -qF 'TENANT-GATE ax=0x0033 win=1 x=1 y=$(2) s="$(3)' $(1)
+IWORD_UP = grep -qx 'TENANT-REGISTER ok app=WORD' $(1) && grep -qx 'FLAIR-DISPATCH app=WORD' $(1)
+IWORD_TYPED = $(call IWORD_DREW,$(1),0,$(IWORD_ROW0)) && $(call IWORD_DREW,$(1),16,$(IWORD_ROW1)) && \
+	$(call IWORD_DREW,$(1),368,$(IWORD_ST_SAV)) && $(call IWORD_DREW,$(1),368,Document to be Saved: memo) && \
+	$(call IWORD_DREW,$(1),368,Save Document? Yes (No)) && $(call IWORD_DREW,$(1),368,Exit WP? No (Yes)) && \
+	$(call IWORD_DREW,$(1),0,$(IWORD_BLANK)) && $(call IWORD_DREW,$(1),368,Document to be Retrieved: memo)
+IWORD_BACK = $(call IWORD_LAST,$(1),0,$(IWORD_ROW0)) && $(call IWORD_LAST,$(1),16,$(IWORD_ROW1)) && $(call IWORD_LAST,$(1),368,$(IWORD_ST_END))
+IWORD_MEMO_EXPECT := $(BUILD)/iword_memo.expect
+# region "<L> <T> <R> <B>" of dump $(1) vs the NAVY field at (600,300): "ne eq"
+IWORD_PX = $(PPM_REGION_COUNT_BIN) $(1) $(2) 600 300 | sed -n 's/^ne=\([0-9]*\) eq=\([0-9]*\) .*/\1 \2/p'
+
+.PHONY: test-flair-iword test-flair-iword-mutant
+test-flair-iword: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+	$(call need_wp_goldens,test-flair-iword)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-iword : InitechWord types, wraps, saves and retrieves a document (initech-l4tj)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_iword,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_IWORD_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword.serial) && $(call IWORD_UP,$(BUILD)/flair_iword.serial) || { printf '!!! test-flair-iword FAIL [1/4] UP: WORD did not come up or the desktop died\n'; grep -E '^(PANIC|TENANT-(LOAD|REG|CRASH|EXIT)|HALTED|FLAIR-DISPATCH)' $(BUILD)/flair_iword.serial; exit 1; }
+	@printf '>>> test-flair-iword [1/4] UP: %s; registered, dispatched\n' "$$(grep -m1 '^TENANT-LOAD name=WORD' $(BUILD)/flair_iword.serial)"
+	@$(call IWORD_TYPED,$(BUILD)/flair_iword.serial) || { printf '!!! test-flair-iword FAIL [2/4] TYPED: the wrapped paragraph / the save status line / the WP prompts / the clear screen were not all drawn\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=\(0\|16\|368\) ' $(BUILD)/flair_iword.serial | tail -12; exit 1; }
+	@printf '>>> test-flair-iword [2/4] TYPED: line 1 "...jumps over", line 2 "the lazy dog." (the WP 5.1 wrap); saved "A:\\MEMO ... Ln 1.17\" Pos 2.3\""; Document to be Saved: / Save Document? Yes (No) / Exit WP? No (Yes) / Document to be Retrieved:; screen cleared\n'
+	@mcopy -o -i $(BUILD)/flair_iword_data.img ::MEMO $(BUILD)/iword-memo.WP5 || { printf '!!! test-flair-iword FAIL [3/4] DISK: F10 did not create MEMO on the data volume\n'; exit 1; }
+	@head -c 327 $(WORDPERFECT51_DECOMP)/goldens/minted/MINT02.WP5 > $(IWORD_MEMO_EXPECT)
+	@printf '%s\r%s' '$(IWORD_MEMO_TEXT)' '$(IWORD_MEMO_TAIL)' >> $(IWORD_MEMO_EXPECT)
+	@cmp $(IWORD_MEMO_EXPECT) $(BUILD)/iword-memo.WP5 || { printf '!!! test-flair-iword FAIL [3/4] DISK: MEMO is not the MINT02 prefix + the wrapped paragraph\n'; exit 1; }
+	@$(call iword_ref_text,$(BUILD)/iword-memo.WP5,$(IWORD_MEMO_TEXT)$(IWORD_MEMO_TAIL)) && grep -qF "T'$(IWORD_MEMO_TEXT)' [SRt] T'$(IWORD_MEMO_TAIL)'" $(BUILD)/iword-memo.WP5.ref || { printf '!!! test-flair-iword FAIL [3/4] DISK: wp5_ref.py does not read MEMO as the wrapped paragraph\n'; cat $(BUILD)/iword-memo.WP5.ref; exit 1; }
+	fsck.fat -n $(BUILD)/flair_iword_data.img
+	@printf '>>> test-flair-iword [3/4] DISK: MEMO (%s bytes) == MINT02.WP5 prefix + paragraph with the SRt; wp5_ref.py: %s\n' "$$(wc -c < $(BUILD)/iword-memo.WP5)" "$$(grep -F 'END offset' $(BUILD)/iword-memo.WP5.ref | sed 's/^ *//')"
+	@$(call IWORD_BACK,$(BUILD)/flair_iword.serial) || { printf '!!! test-flair-iword FAIL [4/4] BACK: after Shift-F10 the paragraph / the status line are not the last draws\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=\(0\|16\|368\) ' $(BUILD)/flair_iword.serial | tail -6; exit 1; }
+	@f=$(BUILD)/flair_iword.ppm; \
+		set -- $$($(call IWORD_PX,$$f,10 62 506 78)); l1=$$1; \
+		set -- $$($(call IWORD_PX,$$f,506 62 522 78)); gap=$$1; \
+		set -- $$($(call IWORD_PX,$$f,2 78 106 94)); l2=$$1; \
+		set -- $$($(call IWORD_PX,$$f,2 62 10 78)); cur=$$1; \
+		set -- $$($(call IWORD_PX,$$f,2 94 618 430)); rest=$$1; \
+		if [ "$$l1" -lt 500 ] || [ "$$gap" -ne 0 ] || [ "$$l2" -lt 100 ] || [ "$$cur" -lt 48 ] || [ "$$rest" -ne 0 ]; then \
+			printf '!!! test-flair-iword FAIL [4/4] SCREEN: line 1 ink %s px (>= 500), columns 63-64 ink %s px (== 0), line 2 ink %s px (>= 100), cursor cell %s px (>= 48), lines 3-23 ink %s px (== 0)\n' "$$l1" "$$gap" "$$l2" "$$cur" "$$rest"; exit 1; fi; \
+		printf '>>> test-flair-iword [4/4] BACK: Shift-F10 brought the paragraph back (last draws); screen: line 1 ink %s px, columns 63-64 empty, line 2 ink %s px, cursor cell %s px, lines 3-23 empty\n' "$$l1" "$$l2" "$$cur"
+	@printf '>>> test-flair-iword: green\n'
+
+test-flair-iword-mutant: test-flair-iword $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IWORD_NOWRAP_IMG) $(FLAIR_DATA_IWORD_NOSAVE_IMG) $(PPM_REGION_COUNT_BIN)
+	$(call appl-boot,flair_iword_nowrap,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IWORD_NOWRAP_IMG),FLAIR_IWORD_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_nowrap.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_nowrap.serial) && mcopy -o -i $(BUILD)/flair_iword_nowrap_data.img ::MEMO $(BUILD)/iword-memo-nowrap.WP5 || { printf '!!! test-flair-iword-mutant FAIL: NO_WRAP went RED for the wrong reason (want: WORD up, MEMO saved, desktop alive)\n'; exit 1; }
+	@if $(call IWORD_TYPED,$(BUILD)/flair_iword_nowrap.serial); then printf '!!! test-flair-iword-mutant FAIL: NO_WRAP PASSED the TYPED leg -- it is decoration\n'; exit 1; fi
+	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(BUILD)/iword-memo-nowrap.WP5 > $(BUILD)/iword-memo-nowrap.ref
+	@if grep -qF '[SRt]' $(BUILD)/iword-memo-nowrap.ref; then printf '!!! test-flair-iword-mutant FAIL: NO_WRAP still saved a soft return\n'; exit 1; fi
+	@set -- $$($(call IWORD_PX,$(BUILD)/flair_iword_nowrap.ppm,506 62 522 78)); [ "$$1" -gt 0 ] || { printf '!!! test-flair-iword-mutant FAIL: NO_WRAP left columns 63-64 of line 1 empty\n'; exit 1; }
+	@printf '>>> test-flair-iword-mutant: NO_WRAP correctly RED -- line 1 drawn "%s", MEMO has no [SRt] (wp5_ref.py), ink in columns 63-64\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 .* fg=0 bg=3 -> 0$$' $(BUILD)/flair_iword_nowrap.serial | tail -1 | cut -c40-110)"
+	$(call appl-boot,flair_iword_nosave,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IWORD_NOSAVE_IMG),FLAIR_IWORD_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_nosave.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_nosave.serial) && $(call IWORD_DREW,$(BUILD)/flair_iword_nosave.serial,0,$(IWORD_ROW0)) || { printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING went RED for the wrong reason (want: WORD up, the paragraph typed and wrapped)\n'; exit 1; }
+	@mcopy -o -i $(BUILD)/flair_iword_nosave_data.img ::MEMO $(BUILD)/iword-memo-nosave.WP5 && [ "$$(wc -c < $(BUILD)/iword-memo-nosave.WP5)" = 0 ] || { printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING did not leave an empty MEMO\n'; exit 1; }
+	@if $(call iword_ref_text,$(BUILD)/iword-memo-nosave.WP5,$(IWORD_MEMO_TEXT)$(IWORD_MEMO_TAIL)) 2>/dev/null; then printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING PASSED the DISK leg -- it is decoration\n'; exit 1; fi
+	@if $(call IWORD_BACK,$(BUILD)/flair_iword_nosave.serial); then printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING PASSED the BACK leg\n'; exit 1; fi
+	@$(call IWORD_DREW,$(BUILD)/flair_iword_nosave.serial,368,ERROR: Incompatible File Format) || { printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING: the retrieve of the empty MEMO was not refused visibly\n'; exit 1; }
+	@printf '>>> test-flair-iword-mutant: SAVE_NOTHING correctly RED -- MEMO is 0 bytes (wp5_ref.py refuses it), the retrieve says ERROR: Incompatible File Format\n'
+	@printf '>>> test-flair-iword-mutant: green (both mutants RED for the named reason)\n'
