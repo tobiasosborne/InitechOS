@@ -112,6 +112,16 @@ static int ctrl_in_clip(const GrafPort *port, int x, int y)
     return 1;
 }
 
+/* ctrl_text -- a Chicago label CLIPPED like every other control primitive:
+ * the Font Manager's text_draw_run under visRgn INTERSECT clipRgn (bead
+ * initech-tdnl.68; it was text_draw, which ignored the port's regions). */
+static void ctrl_text(GrafPort *port, int x, int y, const char *s,
+                      uint32_t fg, uint32_t bg)
+{
+    text_clip_t k = { port->visRgn, port->clipRgn, 0, 0, 0, 0 };
+    (void)text_draw_run(&port->portBits.bm, x, y, s, FONT_CHICAGO, 0u, fg, bg, &k);
+}
+
 /* cfill_ctrl -- fill [x, x+w) on row y with PART `part`, clipped.
  * Mirrors chrome.c cfill; batches maximal in-clip runs into surface_fill_span.
  * PART -> pixel resolution is the ONE policy seam (ctrl_px -> flair_look_pixel;
@@ -472,8 +482,7 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         ly = y0 + 1;
     }
     if (label_w > 0) {
-        text_draw(&port->portBits.bm, lx, ly,
-                  ctrl->contrlTitle, FONT_CHICAGO, fg, bg);
+        ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
     }
 }
 
@@ -554,8 +563,7 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
         }
         uint32_t fg = ctrl_px(port, CTRL_BLACK);
         uint32_t bg = ctrl_px(port, CTRL_PLAT_FACE);
-        text_draw(&port->portBits.bm, x0 + BOX_SZ + 4, ly,
-                  ctrl->contrlTitle, FONT_CHICAGO, fg, bg);
+        ctrl_text(port, x0 + BOX_SZ + 4, ly, ctrl->contrlTitle, fg, bg);
     }
     (void)x1;  /* suppress unused-variable warning (x1 not needed past box) */
 }
@@ -602,8 +610,7 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
         }
         uint32_t fg = ctrl_px(port, CTRL_BLACK);
         uint32_t bg = ctrl_px(port, CTRL_DESKTOP);
-        text_draw(&port->portBits.bm, x0 + RADIO_SZ + 4, ly,
-                  ctrl->contrlTitle, FONT_CHICAGO, fg, bg);
+        ctrl_text(port, x0 + RADIO_SZ + 4, ly, ctrl->contrlTitle, fg, bg);
     }
 }
 

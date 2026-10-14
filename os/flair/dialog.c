@@ -136,6 +136,16 @@ static int dlg_in_clip(const GrafPort *port, int x, int y)
     return 1;
 }
 
+/* dlg_text -- a Chicago run CLIPPED like every other dialog primitive: the
+ * Font Manager's text_draw_run under visRgn INTERSECT clipRgn (bead
+ * initech-tdnl.68; it was text_draw, which ignored the port's regions). */
+static void dlg_text(GrafPort *port, int x, int y, const char *s,
+                     uint32_t fg, uint32_t bg)
+{
+    text_clip_t k = { port->visRgn, port->clipRgn, 0, 0, 0, 0 };
+    (void)text_draw_run(&port->portBits.bm, x, y, s, FONT_CHICAGO, 0u, fg, bg, &k);
+}
+
 /* cfill_dlg -- fill [x, x+w) on row y with PART `part`, clipped.
  * Mirrors cfill_ctrl in control.c: batches maximal in-clip runs into
  * surface_fill_span.  PART -> pixel resolution is the ONE policy seam
@@ -450,13 +460,9 @@ void DrawDialog(DialogPtr dp)
             /* Static text: draw with Chicago font (systemFont; ADR-0004 D-7).
              * Ref: IM-I Ch 6; ADR-0004 D-7 "Chicago (system/dialog)". */
             if (item->text) {
-                text_draw(&port->portBits.bm,
-                          (int)item->rect.left,
-                          (int)item->rect.top,
-                          item->text,
-                          FONT_CHICAGO,
-                          dlg_px(port, DLG_TEXT_INK),
-                          dlg_px(port, DLG_FACE));
+                dlg_text(port, (int)item->rect.left, (int)item->rect.top,
+                         item->text, dlg_px(port, DLG_TEXT_INK),
+                         dlg_px(port, DLG_FACE));
             }
             break;
         }
@@ -466,13 +472,9 @@ void DrawDialog(DialogPtr dp)
             const char *txt = (dp->editField == (uint16_t)(i + 1))
                               ? dp->editBuf : item->text;
             if (txt) {
-                text_draw(&port->portBits.bm,
-                          (int)item->rect.left,
-                          (int)item->rect.top,
-                          txt,
-                          FONT_CHICAGO,
-                          dlg_px(port, DLG_TEXT_INK),
-                          dlg_px(port, DLG_FACE));
+                dlg_text(port, (int)item->rect.left, (int)item->rect.top,
+                         txt, dlg_px(port, DLG_TEXT_INK),
+                         dlg_px(port, DLG_FACE));
             }
             break;
         }

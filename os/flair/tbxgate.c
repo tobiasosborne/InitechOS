@@ -363,41 +363,16 @@ static uint32_t color_px(uint32_t tok)
     return flair_look_pixel_depth(g_host.surface->bpp, part);
 }
 
-static void draw_text(int32_t gx, int32_t gy, const char *s, uint32_t fg,
-                      uint32_t bg, const region_t *clip)
+/* spec/toolbox_gate.h Sec 7: the run is the proportional Chicago 12 string
+ * (the sum of the NFNT 5478 advances, bead initech-tdnl.33) in the tenant's
+ * txFace (bead initech-tdnl.68), its bg box exactly the styled width and one
+ * CHICAGO_CELL_H line tall -- the Font Manager's ONE clipped run. */
+static void draw_text(int32_t gx, int32_t gy, const char *s, unsigned face,
+                      uint32_t fg, uint32_t bg, const region_t *clip)
 {
-    const bitmap_t *dst = g_host.surface;
-    int32_t len = 0;
-    rgn_rect_t box;
-
-    /* spec/toolbox_gate.h Sec 7: the run is the proportional Chicago 12
-     * string (the sum of the NFNT 5478 advances, bead initech-tdnl.33); the
-     * box behind it is that wide and one CHICAGO_CELL_H line tall. */
-    int32_t run_w = 0;
-    while (s[len] != '\0') run_w += chicago_advance((int)(unsigned char)s[len++]);
-    box.left = (int16_t)gx; box.top = (int16_t)gy;
-    box.right = (int16_t)(gx + run_w);
-    box.bottom = (int16_t)(gy + CHICAGO_CELL_H);
-    blitter_fill_rect_clipped(dst, box, bg, clip);
-    for (int32_t k = 0, x0 = gx; k < len; k++) {
-        int ch = (int)(unsigned char)s[k];
-        int aw = chicago_advance(ch);
-        for (int r = 0; r < CHICAGO_CELL_H; r++) {
-            int32_t py = gy + r;
-            unsigned int bits = chicago_cell_bits(ch, r);
-            if (py < 0 || py >= (int32_t)dst->height) continue;
-            for (int c = 0; c < aw; c++) {
-                int32_t px = x0 + c;
-                if ((bits & (0x8000u >> c)) == 0u) continue;
-                if (px < 0 || px >= (int32_t)dst->width) continue;
-                if (!region_contains_point(clip, (int16_t)px, (int16_t)py))
-                    continue;
-                surface_put_pixel(dst, (uint32_t)py * dst->pitch +
-                                       (uint32_t)px * dst->bytes_per_pixel, fg);
-            }
-        }
-        x0 += aw;
-    }
+    text_clip_t k = { clip, 0, 0, 0, 0, 0 };
+    (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s, FONT_CHICAGO,
+                        face, fg, bg, &k);
 }
 
 /* ===========================================================================
@@ -528,14 +503,19 @@ static int32_t v_setwtitle(const uint32_t *a)
 static int32_t v_textdraw(const uint32_t *a)
 {
     rgn_rect_t c;
+    uint32_t face;
     if (!check_win(a[0])) return TBX_ERR_BADARG;
     if (image_str(a[3], 81u) < 0) return TBX_ERR_BADARG;
-    if (a[4] >= TBX_COLOR_COUNT || a[5] >= TBX_COLOR_COUNT) return TBX_ERR_BADARG;
+    /* fg = colour token | txFace << 8 (spec Sec 7, bead initech-tdnl.68) */
+    face = (a[4] >> TBX_TEXT_FACE_SHIFT) & 0xFFu;
+    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 16) != 0u ||
+        (face & ~TBX_TEXT_FACE_OK) != 0u || a[5] >= TBX_COLOR_COUNT)
+        return TBX_ERR_BADARG;
     if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
     c = region_get_bbox(g_slot.win->contRgn);
     draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
-              (const char *)(uintptr_t)a[3], color_px(a[4]), color_px(a[5]),
-              draw_clip());
+              (const char *)(uintptr_t)a[3], (unsigned)face,
+              color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());
     g_slot.drew = 1u;
     return TBX_OK;
 }
