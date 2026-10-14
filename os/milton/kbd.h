@@ -74,6 +74,8 @@ int kbd_ring_empty(const kbd_ring_t *r);
 typedef struct {
     uint8_t shift;  /* 1 while either Shift make is held (cleared on break)   */
     uint8_t caps;   /* 1 while CapsLock is latched (toggled on each 0x3A make) */
+    uint8_t ctrl;   /* bit 0: left Ctrl; bit 1: E0-prefixed right Ctrl        */
+    uint8_t e0;     /* the next byte belongs to the extended Set 1 block     */
 } kbd_state_t;
 
 /* Reset modifier state (no keys held, caps off). */
@@ -83,7 +85,11 @@ void kbd_state_init(kbd_state_t *st);
  * Returns the decoded ASCII byte (>0) for a printable key make, or 0 when the
  * scancode produced no character (a modifier, a break code, or an unmapped
  * key). CapsLock affects letters only (A-Z); Shift affects letters AND the
- * symbol row, per a US layout. Ref: scancode set 1 table (above). */
+ * symbol row, per a US layout. Either Ctrl maps letters to 01h..1Ah,
+ * independently of Shift/Caps. E0 prefixes select the extended block;
+ * fake Shift bytes from PrintScreen never change modifiers.
+ * Ref: scancode set 1 table (above); MS-DOS_3.3_Users_Guide_198707.pdf
+ * pp. 132, 158-159 (Ctrl-Z EOF; hold Ctrl while pressing a letter). */
 uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode);
 
 /* ---- kernel-only (freestanding; touch I/O ports) ------------------------- */
