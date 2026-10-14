@@ -242,7 +242,7 @@ static const char *g_title = "Drive A Files";
 #define BAR1_Y1       18
 #define BAR2_Y0       22      /* band 2 text rows, clear of the row-39 rule    */
 #define BAR2_Y1       38
-#define FBAR_INK_END 244      /* first column past the last Finder title slot  */
+#define FBAR_INK_END 277      /* first column past the last Finder title slot  */
 /* ... and where the "no ink out here" sweep STOPS. The Platinum bar draws its
  * own ROUNDED RIGHT CORNER (os/flair/menu.c; sampled anatomy sys8/menus.md Sec
  * 1.1) which puts a handful of ink pixels in the last two columns of EVERY
@@ -253,13 +253,15 @@ static const char *g_title = "Drive A Files";
 
 typedef struct BarTitle { const char *name; int x0, x1; } BarTitle;
 
-/* The five ink runs, hand-derived above. */
+/* RE-KEY2026-10-15 tdnl.70: source L33, pad43-33-bearing1=9.
+ * Slots33/74/117/167/231 +9 ->cells42/83/126/176/240; NFNT advances
+ * unchanged23/25/32/46/28. End277 includes final9px pad. */
 static const BarTitle FBAR_TITLES[] = {
-    { "File",     27,  50 },
-    { "Edit",     64,  89 },
-    { "View",    103, 135 },
-    { "Special", 149, 195 },
-    { "Help",    209, 237 }
+    { "File",     42,  65 },
+    { "Edit",     83, 108 },
+    { "View",    126, 158 },
+    { "Special", 176, 222 },
+    { "Help",    240, 268 }
 };
 #define FBAR_TITLE_N ((int)(sizeof FBAR_TITLES / sizeof FBAR_TITLES[0]))
 

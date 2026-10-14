@@ -29,7 +29,7 @@
  *     stays the black frame -> LEG A RED.
  *
  *   LEG B -- "EDIT" PANEL DROPPED (frame).  A column UNIQUE to Edit's panel
- *     footprint (Edit panel {T19 L66 B53 R158}; the right frame column x=157 is
+ *     footprint (Edit panel {T19 L74 B53 R156}; the right frame column x=157 is
  *     Edit-only) sampled in the teal zone (y=46) must
  *     be the canon BLACK frame. Under the mutant, Edit's panel is never drawn, so
  *     this stays bare teal -> LEG B RED.
@@ -86,11 +86,13 @@
  * (fixed item heights, not text-width) mirrors ppm_flair_menu_check.c:
  *   About row y[21,37), Quit row y[37,53), bottom frame y=52, shadow y=53.
  * ---------------------------------------------------------------------------- */
-#define FILE_PANEL_L      20    /* File panel left frame column                 */
-#define FILE_UNIQUE_X     30    /* a column in File's footprint, NOT Edit's      */
-#define EDIT_PANEL_L      57    /* Edit panel left frame column                 */
-#define EDIT_PANEL_R1     142   /* Edit panel right frame column (right-1)      */
-#define EDIT_RPAD_X       137   /* Edit right gutter, clear of glyphs            */
+/* RE-KEY2026-10-15 tdnl.70/.94: capture FileL33; NFNT File23+18
+ * ->Edit74; Quit width19+26+8+16+13=82 ->EditR156/frame155. */
+#define FILE_PANEL_L      33    /* File panel left frame column                 */
+#define FILE_UNIQUE_X     43    /* a column in File's footprint, NOT Edit's      */
+#define EDIT_PANEL_L      74    /* Edit panel left frame column                 */
+#define EDIT_PANEL_R1     155   /* Edit panel right frame column (right-1)      */
+#define EDIT_RPAD_X       149   /* Edit right gutter, clear of glyphs            */
 /* a y inside the TEAL zone (below both 20px bars, above the y>=60 windows) --
  * inside BOTH panels' "Quit" row [37,53). */
 #define QUIT_Y            46
@@ -191,12 +193,12 @@ int main(int argc, char **argv)
 
     printf("ppm_flair_menu_crossdrag_check: grading the cross-menu XDROP "
            "(click File, drag along the bar into Edit while held) -- File's "
-           "panel {T19 L20 B53 R112} must be ERASED and "
-           "Edit's panel {T19 L66 B53 R158} must be DROPPED (initech-9op1)\n");
+           "panel {T19 L33 B53 R115} must be ERASED and "
+           "Edit's panel {T19 L74 B53 R156} must be DROPPED (initech-9op1)\n");
 
     /* ---- LEG A: "File" panel ERASED (black frame -> teal again) ------------ */
     assert_idx(FILE_PANEL_L, QUIT_Y, CIDX_TEAL,
-               "LEG A: File's panel LEFT frame column (x=20) is bare teal again "
+               "LEG A: File's panel LEFT frame column (x=33) is bare teal again "
                "(the stale panel was erased on the title switch)");
     assert_idx(FILE_UNIQUE_X, QUIT_Y, CIDX_TEAL,
                "LEG A: a File-only column (x=30) is bare teal again "

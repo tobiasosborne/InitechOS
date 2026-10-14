@@ -59,10 +59,9 @@
  * ---------------------------------------------------------------------------
  * The menu bar is FLAIR_CHROME_MENUBAR_H (20) px tall (GetMBarHeight, Roman
  * script; chrome_metrics.h). Inside Macintosh draws each title with a small
- * left/right pad and an Apple-menu glyph slot at the far left. The padding here
- * is the standard System-7 menu-title side padding; it is the SAME value the
- * oracle re-derives independently (test_menu.c) so the layout is machine-checked,
- * not eyeballed.
+ * left/right pad and an Apple-menu glyph slot at the far left. The Platinum
+ * capture-derived values below are locked in chrome_metrics.json/.h. The
+ * independent menu-look crops grade their painted result at both depths.
  * ===========================================================================*/
 
 /* The menu bar height. Aliased from chrome_metrics.h so there is one source of
@@ -71,22 +70,17 @@
 #include "chrome_metrics.h"     /* FLAIR_CHROME_MENUBAR_H = 20 (-Ispec)       */
 #define FLAIR_MENUBAR_H          FLAIR_CHROME_MENUBAR_H
 
-/* Standard horizontal padding (pixels) on EACH side of a menu title in the bar
- * (Inside Macintosh Vol I "Menu Manager" -- titles are drawn with a side gap so
- * adjacent titles do not touch; the System-7 value is a small even pad). The
- * hit/draw width of a title is text_measure(title) + 2*FLAIR_MENU_TITLE_PAD. */
-#define FLAIR_MENU_TITLE_PAD     7
-
-/* A pulled title extends 10px beyond each side of its idle ink run. This is
- * distinct from the retained 7px title-slot layout pad above: opening a menu
- * must not move any subsequent title. Ref: sys8/menus.md Sec 1.4. */
+/* Deliberate re-key 2026-10-15 tdnl.70/.94, sys8/menus.md1.3/1.4/2.2:
+ * File block/panel begins33; ink43 ->10px ink pad minus Chicago bearing1
+ * =9px cell pad. File23px advance includes two blank outer columns, so its
+ * substituted slot is41px (capture Charcoal40px; tdnl.69 remains separate).
+ * Apple ink begins17; retained art first ink column2 -> cell origin15.
+ * Apple slot ends at File block33, not at the bar height20.
+ */
+#define FLAIR_MENU_TITLE_PAD     FLAIR_CHROME_MENU_TITLE_PAD
 #define FLAIR_MENU_TITLE_HILITE_PAD  10
-
-/* The Apple-menu glyph slot at the far left of the bar. The bar begins with a
- * fixed-width slot for the Apple logo (the classic System-7 apple menu); the
- * first real title (File) starts at FLAIR_MENU_APPLE_W. The slot is a square the
- * height of the bar so the apple glyph centers in it. */
-#define FLAIR_MENU_APPLE_W       FLAIR_MENUBAR_H
+#define FLAIR_MENU_APPLE_W       FLAIR_CHROME_MENU_APPLE_W
+#define FLAIR_MENU_APPLE_LEFT    FLAIR_CHROME_MENU_APPLE_LEFT
 
 /* Vertical inset of the title baseline cell inside the 20px bar so Chicago text
  * (CHICAGO_CELL_H = 16) is vertically centered: (20 - 16) / 2 = 2. With the
@@ -105,8 +99,8 @@
  * never selectable.
  * ===========================================================================*/
 #define FLAIR_MENU_ITEM_H        16   /* sys8/menus.md Sec 2.2                  */
-#define FLAIR_MENU_ITEM_LPAD     20   /* panel-left -> item text, Sec 2.2       */
-#define FLAIR_MENU_ITEM_RPAD     12   /* no-command trailing pad                */
+#define FLAIR_MENU_ITEM_LPAD     FLAIR_CHROME_MENU_ITEM_LPAD   /* x53-33=20 ink, minus NFNT N bearing1 */
+#define FLAIR_MENU_ITEM_RPAD     12   /* retained no-command policy; uncaptured width */
 /* Item text CAP TOP inside the item rect (sys8/menus.md Sec 2.2: "text top
  * inside an item rect +2", text top 23 = rect top 21 + 2). The Chicago cell is
  * placed CHICAGO_CAP_TOP rows above it (menu.c; bead initech-tdnl.33). */
@@ -121,13 +115,11 @@
 /* The command column is the period-plausible "^X" substitution (2 chars),
  * measured proportionally per item (menu.c cmd_run_w; initech-tdnl.33). */
 #define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
-/* RE-KEY2026-10-15 tdnl.94: s8_menu_dropped frame230-ink216=14.
- * Chicago N trailing1 and exclusive frame correction ->cell RPAD13. */
 #if defined(MENU_LOOK_MUT_WRONG_RPAD)
 #define FLAIR_MENU_CMD_RPAD      16
 #else
-#define FLAIR_MENU_CMD_RPAD      13
-#endif
+#define FLAIR_MENU_CMD_RPAD      FLAIR_CHROME_MENU_CMD_RPAD
+#endif /* frame230 - ink216=14; Chicago N right bearing1, frame1 ->13 cell pad */
 
 /* ===========================================================================
  * 3. MENU ITEM + MENU + MENU BAR RECORDS  (verbatim Inside Macintosh)

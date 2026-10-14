@@ -74,6 +74,9 @@
  * resource by test-chicago-metrics leg G), never with the artifact's
  * chicago12_aw/_lb; only the glyph ART comes from spec/assets/chicago12.h. */
 #include "chicago12_nfnt_golden.h"
+/* Independent menu extension2026-10-15 tdnl.93/.94/.95/.70: sampled column
+ * classes and NFNT check. Used by menu-look graders; no artifact inputs. */
+#include "menu_look_golden.h"
 
 /* -------------------------------------------------------------------------
  * PLATINUM WIDGETS.

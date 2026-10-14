@@ -574,8 +574,8 @@ int main(int argc, char **argv)
             {
                 int tx = indep_title_x(&g_bar, OPEN_MI);
                 int tw = text_measure(FONT_CHICAGO, g_bar.menus[OPEN_MI].title);
-                int want_l = tx + FLAIR_MENU_TITLE_PAD - 10;
-                int want_r = tx + FLAIR_MENU_TITLE_PAD + tw + 10;
+                int want_l = tx + 9 + 1 - 10; /* NFNT E bearing1 */
+                int want_r = tx + 9 + tw - 1 + 10; /* NFNT t trailing1 */
                 rgn_rect_t hr = MenuBar_hilite_rect(&g_bar, OPEN_MI);
                 CHECK(hr.left == want_l && hr.right == want_r &&
                       hr.top == 0 && hr.bottom == 19,
@@ -693,22 +693,22 @@ int main(int argc, char **argv)
                                      (uint32_t)row0_y) == MG_FACE_E7,
                   "a non-hilited item row is E7 panel face, not inverted");
 
-            /* Text begins at panel+20. The cap top sits 2 rows into the item
+            /* RE-KEY2026-10-15 tdnl.70: ink begins at panel+20, cell+19. The cap top sits 2 rows into the item
              * rect (sys8/menus.md Sec 2.2: text top 23 = rect top 21 + 2), and
              * 'N' carries the NFNT 5478 left bearing lb = 1 (chicago.md), so
              * its first ink is cell x+1 on row row_top+2: an exact rendered
              * left-edge AND cap-top tooth (bead initech-tdnl.33). The row
              * above the cap top is clear. */
-            CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 20),
+            CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 19),
                       (uint32_t)(row0_top + 2)) == MG_FACE_E7 &&
-                  render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 20),
                       (uint32_t)(row0_top + 2)) == MG_TEXT_BLACK &&
-                  render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
+                  render_pixel_index(&ctx, (uint32_t)(panel.left + 20),
                       (uint32_t)(row0_top + 1)) == MG_FACE_E7,
-                  "MENU FIDELITY item text cell begins at panel left +20, cap "
+                  "MENU FIDELITY RE-KEY2026-10-15 tdnl.70: item ink begins at panel left +20, cap "
                   "top at row +2");
 
-            /* Command-key substitution: '^N', right-aligned 16px from the panel
+            /* RE-KEY2026-10-15 tdnl.94: '^N', right-aligned13px from the panel
              * right at its PROPORTIONAL width: NFNT 5478 advances '^' 8 + 'N' 9
              * = 17 (chicago.md "Advance-width table"; typed from the spec, not
              * read from the artifact). The caret's apex is its cap-top row
@@ -741,7 +741,7 @@ int main(int argc, char **argv)
                 /* Disabled Revert: R cap-top row (rect +2), first ink at text
                  * cell x+1 (NFNT 5478 'R' lb 1). */
                 int dis_top = sep_top + FLAIR_MENU_DIV_H;
-                CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 21),
+                CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 20),
                           (uint32_t)(dis_top + 2)) == MG_GRAY_A5,
                       "MENU FIDELITY disabled item ink is sampled A5");
             }
@@ -755,7 +755,7 @@ int main(int argc, char **argv)
              * goes RED even though this oracle never looks at a screenshot.
              * ================================================================== */
             {
-                int ax0 = (int)FLAIR_MENU_TITLE_VPAD;  /* slot left (apple.left) */
+                int ax0 = 15; /* capture Apple17 - art bearing2 */  /* slot left (apple.left) */
                 int ay0 = (int)FLAIR_MENU_TITLE_VPAD;  /* slot top  (apple.top)  */
 
                 /* (i) INK COVERAGE: rendered ink count in the slot == the

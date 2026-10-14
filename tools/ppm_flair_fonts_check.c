@@ -244,19 +244,19 @@ static int check_menu(void)
         { "Plain", 0u }, { "Bold", F_BOLD }, { "Italic", F_ITAL }, { "Underline", F_UL },
     };
     /* band 2 (y_top 20): panel top 20 + 20 - 1 = 39, rows from 41 (+16 each);
-     * the Style slot starts at x 57; item text at panel.left + 20, its cell
+     * the Style slot starts at x74; item text at panel.left+19, its cell
      * one row above its row (menu.c, CHICAGO_CAP_TOP). */
-    const int pl = 57, ytop = 20;
+    const int pl = 74, ytop = 20; /* re-key2026-10-15: Apple33 + File23 + pads18 */
     int fails = 0, fx = 0, fy = 0, widest = 0, pr;
     for (unsigned k = 0; k < 4; k++) {
         model(I[k].s, I[k].face);
         if (g_mw > widest) widest = g_mw;
     }
-    pr = pl + 20 + widest + 12;
+    pr = pl + 19 + widest + 12; /* sampled ink20 minus NFNT bearing1 */
     for (unsigned k = 1; k < 4; k++) {
         int row = ytop + 19 + 2 + 16 * (int)k, bad;
         model(I[k].s, I[k].face);
-        bad = grade(pl + 20, row - 1, 1, CELL, pl + 2, pr - 2, &fx, &fy);
+        bad = grade(pl + 19, row - 1, 1, CELL, pl + 2, pr - 2, &fx, &fy);
         if (bad) {
             printf("!!! M1 STYLED ITEMS: \"%s\" (face %u) row %d: %d px differ (first at %d,%d)\n",
                    I[k].s, I[k].face, row, bad, fx, fy);
@@ -270,10 +270,10 @@ static int check_menu(void)
         for (int y = ytop + 22; y < ytop + 19 + 16 * 4; y++)   /* above the bottom bevel */
             ok = ok && is_ink(pr - 1, y) && !is_ink(pr - 3, y);
         if (!ok) {
-            printf("!!! M2 WIDTH: the panel's right frame is not at x=%d (20 + widest styled %d + 12)\n", pr - 1, widest);
+            printf("!!! M2 WIDTH: the panel's right frame is not at x=%d (19 + widest styled %d + 12)\n", pr - 1, widest);
             fails++;
         } else {
-            printf(">>> M2 WIDTH: panel right frame at x=%d = 57 + 20 + %d (widest styled item) + 12\n", pr - 1, widest);
+            printf(">>> M2 WIDTH: panel right frame at x=%d = 74 + 19 + %d (widest styled item) + 12\n", pr - 1, widest);
         }
     }
     return fails;

@@ -279,7 +279,7 @@ int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it)
 
 /* --------------------------------------------------------------------------
  * Pulled-title geometry. The 10px accent block pad is measured from the idle
- * INK run, not from the retained 7px layout slot; opening a menu never shifts
+ * INK run, not from the 9px layout slot; opening a menu never shifts
  * the titles after it. Ref: sys8/menus.md Sec 1.4; bead initech-sjvq.
  * -------------------------------------------------------------------------- */
 rgn_rect_t MenuBar_hilite_rect(const MenuBar *bar, int mi)
@@ -291,12 +291,26 @@ rgn_rect_t MenuBar_hilite_rect(const MenuBar *bar, int mi)
     int tw = text_measure(FONT_CHICAGO, bar->menus[mi].title);
     if (left < 0 || tw <= 0)
         return r;
-    r.top    = 0;
-    r.left   = (int16_t)(left + FLAIR_MENU_TITLE_PAD -
-                         FLAIR_MENU_TITLE_HILITE_PAD);
+    /* Ink-side10px pads (capture x43-33 and73-63), not advance-side
+     * padding. Chicago bearings are real NFNT data; Charcoal stays separate. */
+    int lo = tw, hi = -1, pen = 0;
+    const char *title = bar->menus[mi].title;
+    for (int i = 0; title[i]; i++) {
+        int c = (unsigned char)title[i], aw = chicago_advance(c);
+        for (int y = 0; y < CHICAGO_CELL_H; y++) {
+            unsigned bits = chicago_cell_bits(c, y);
+            for (int x = 0; x < aw; x++) if (bits & (0x8000u >> x)) {
+                if (pen + x < lo) lo = pen + x;
+                if (pen + x > hi) hi = pen + x;
+            }
+        }
+        pen += aw;
+    }
+    if (hi < lo) { lo = 0; hi = tw - 1; }
+    r.top = 0;
+    r.left = (int16_t)(left + FLAIR_MENU_TITLE_PAD + lo - FLAIR_MENU_TITLE_HILITE_PAD);
     r.bottom = (int16_t)(FLAIR_MENUBAR_H - 1);
-    r.right  = (int16_t)(left + FLAIR_MENU_TITLE_PAD + tw +
-                         FLAIR_MENU_TITLE_HILITE_PAD);
+    r.right = (int16_t)(left + FLAIR_MENU_TITLE_PAD + hi + 1 + FLAIR_MENU_TITLE_HILITE_PAD);
     return r;
 }
 
@@ -535,9 +549,9 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
     if (bar->has_apple) {
         rgn_rect_t apple;
         apple.top = (int16_t)FLAIR_MENU_TITLE_VPAD;
-        apple.left = (int16_t)FLAIR_MENU_TITLE_VPAD;
+        apple.left = (int16_t)FLAIR_MENU_APPLE_LEFT;
         apple.bottom = (int16_t)(FLAIR_MENUBAR_H - FLAIR_MENU_TITLE_VPAD - 1);
-        apple.right = (int16_t)(FLAIR_MENU_APPLE_W - FLAIR_MENU_TITLE_VPAD);
+        apple.right = (int16_t)(FLAIR_MENU_APPLE_LEFT + APPLE_GLYPH_W);
 
 #if defined(MENU_MUT_APPLE_SQUARE) && MENU_MUT_APPLE_SQUARE
         blitter_fill_rect_clipped(bm, apple, ink, clip);

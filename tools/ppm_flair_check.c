@@ -162,13 +162,17 @@ enum { SCRW = 640, SCRH = 480 };
  * hand-authored apple-with-bite glyph (spec/assets/apple_glyph.h -- initech-
  * yx4v; NOT the old solid-square bug); the Photoshop band has no Apple slot at
  * all. Calibrated against the live render (build/desktop_scene.ppm):
- * System-7 band0 x[0,20) inks == 94 px (the glyph's own ink count, apple_
+ * System-7 band0 x[13,33) inks == 94 px (the glyph's own ink count, apple_
  * glyph.h APPLE_GLYPH_ROWS -- test_menu.c's PROPERTY 5 asserts the render
- * reproduces this exactly); Photoshop band1 x[0,20) inks ~39 (incidental title-
+ * reproduces this exactly); Photoshop band1 x[13,33) inks ~39 (incidental title-
  * glyph bleed only, no Apple slot). The threshold sits at the midpoint with a
  * margin of ~25-30 px on each side -- narrower than the old 150-vs-(240,39)
  * split because a real glyph is sparser than a filled square, but the ordering
  * relation (sys >> ps) still holds with room to spare. */
+/* RE-KEY2026-10-15 tdnl.70: the original20px sampling crop translates+13:
+ * captured Apple ink17 minus authored bearing2 =cell15 (was2), delta13.
+ * Independent NFNT File at new cell9 contributes64px in[13,33), below
+ * retained threshold65; the locked Apple art has94px. No threshold relaxed. */
 #define APPLE_INK_MIN   65
 
 /* Title-ink presence threshold per probed column block (16x20 cell-ish). The
@@ -391,8 +395,8 @@ static int her02_demo(void)
 
     /* (2) STRUCTURE STAYS GREEN: the Apple-slot ink-density ORDERING relation. */
     {
-        long sys_apple = ink_in(0, 2, 20, MENUBAR_H - 2);
-        long ps_apple  = ink_in(0, MENUBAR_H + 2, 20, 2 * MENUBAR_H - 2);
+        long sys_apple = ink_in(13, 2, 33, MENUBAR_H - 2);
+        long ps_apple  = ink_in(13, MENUBAR_H + 2, 33, 2 * MENUBAR_H - 2);
         if (!(sys_apple >= APPLE_INK_MIN && ps_apple < APPLE_INK_MIN)) {
             fprintf(stderr, "ppm_flair_check[HER02-DEMO]: UNEXPECTED -- Apple-slot "
                     "density ORDERING not green (sys=%ld ps=%ld)\n",
@@ -568,27 +572,27 @@ int main(int argc, char **argv)
                "(b) Photoshop bar row 18 is sampled B3 shadow");
     assert_idx(300, 2 * MENUBAR_H - 1, 0, "(b) Photoshop bar baseline (y=39) is black ink");
 
-    /* THE CHIMERA TELL #1: the System-7 band has a dense Apple slot at x[0,20)
+    /* THE CHIMERA TELL #1: the System-7 band has a dense Apple slot at x[13,33)
      * (a filled ink square), the Photoshop band does NOT. */
     {
-        long sys_apple = ink_in(0, 2, 20, MENUBAR_H - 2);
-        long ps_apple  = ink_in(0, MENUBAR_H + 2, 20, 2 * MENUBAR_H - 2);
+        long sys_apple = ink_in(13, 2, 33, MENUBAR_H - 2);
+        long ps_apple  = ink_in(13, MENUBAR_H + 2, 33, 2 * MENUBAR_H - 2);
         if (sys_apple < APPLE_INK_MIN) {
             fprintf(stderr,
                     "ppm_flair_check: FAIL (b) System-7 bar Apple slot missing -- "
-                    "x[0,20) ink=%ld (need >=%d); the top bar is not the System-7 bar\n",
+                    "x[13,33) ink=%ld (need >=%d); the top bar is not the System-7 bar\n",
                     sys_apple, APPLE_INK_MIN);
             g_fail = 1;
         }
         if (ps_apple >= APPLE_INK_MIN) {
             fprintf(stderr,
                     "ppm_flair_check: FAIL (b) Photoshop bar has an Apple slot -- "
-                    "x[0,20) ink=%ld (must be <%d); the two bands are not DISTINCT bars\n",
+                    "x[13,33) ink=%ld (must be <%d); the two bands are not DISTINCT bars\n",
                     ps_apple, APPLE_INK_MIN);
             g_fail = 1;
         }
-        printf("    (b) Apple-slot tell: System-7 x[0,20) ink=%ld (>=%d req), "
-               "Photoshop x[0,20) ink=%ld (<%d req)\n",
+        printf("    (b) Apple-slot tell: System-7 x[13,33) ink=%ld (>=%d req), "
+               "Photoshop x[13,33) ink=%ld (<%d req)\n",
                sys_apple, APPLE_INK_MIN, ps_apple, APPLE_INK_MIN);
     }
 

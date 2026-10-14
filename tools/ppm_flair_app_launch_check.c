@@ -49,7 +49,8 @@
 
 #include "color_canon.h"   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
 #include "chicago12.h"     /* the LOCKED strike ART (-Ispec/assets)     */
-#include "chicago12_nfnt_golden.h" /* REAL advances/bearings (-Ispec)  */
+#include "chicago12_nfnt_golden.h"
+#include "apple_glyph.h" /* REAL advances/bearings (-Ispec)  */
 
 #define TOL 2
 
@@ -227,8 +228,10 @@ static void solid(const char *label, int x0, int y0, int x1, int y1, int idx)
  * ------------------------------------------------------------------------- */
 #define BAND2_TOP     20   /* the second stacked bar (rows [20,40))          */
 #define BAR_H         20   /* GetMBarHeight                                  */
-#define BAR_APPLE_W   20   /* FLAIR_MENU_APPLE_W (menu.h Sec 1)              */
-#define BAR_PAD        7   /* FLAIR_MENU_TITLE_PAD                           */
+/* RE-KEY2026-10-15 tdnl.70: capture panel/title L33, ink43;
+ * Chicago lb1 ->PAD9. NFNT advance sums retained. */
+#define BAR_APPLE_W   33   /* FLAIR_MENU_APPLE_W (menu.h Sec 1)              */
+#define BAR_PAD        9   /* FLAIR_MENU_TITLE_PAD                           */
 #define BAR_VPAD       2   /* (20 - 16) / 2                                  */
 #define BAR_GX0       20
 #define BAR_GX1      624
@@ -275,6 +278,12 @@ static int bar_expected(const BarSpec *b, int x, int y)
     if (r == 0) return CIDX_WHITE;              /* top highlight          */
     if (r == BAR_H - 2) return CIDX_PLAT_FRAME_SHADOW;   /* #B3B3B3       */
     if (r == BAR_H - 1) return CIDX_BLACK;      /* baseline hairline      */
+    /* The moved monochrome Apple now enters this pre-existing sweep.
+     * Retained authored art, independently placed: source ink17 minus art
+     * bearing2 ->cell15; cell top2. No sweep columns or tag classes dropped. */
+    if (b->has_apple && x >= 15 && x < 15 + APPLE_GLYPH_W &&
+        r >= 2 && r < 2 + APPLE_GLYPH_H &&
+        (APPLE_GLYPH_ROWS[r-2] & (0x8000u >> (x-15)))) return CIDX_BLACK;
     for (int k = 0; k < b->n; k++) {
         int tw = golden_w(b->titles[k]);
         int tx = slot + BAR_PAD;
