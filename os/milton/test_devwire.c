@@ -46,6 +46,9 @@
 
 TEST_HARNESS();
 
+static int g_exit_called;
+static void record_exit(uint8_t code) { (void)code; g_exit_called++; }
+
 /* --- standard process binding (mirrors test_int21.c / test_fileio.c) ------- */
 static psp_t g_test_psp;
 
@@ -213,6 +216,7 @@ static void do_close_h(uint16_t h)
 int main(void)
 {
     int21_set_sink(sink_capture);
+    int21_set_exit(record_exit);
     int21_set_conin(mock_conin_get, mock_conin_poll);
     int21_set_clock(mock_clock_get, NULL);
     bind_standard_process();
@@ -407,7 +411,100 @@ int main(void)
         got = do_read_h(h, sizeof(rb), rb, &cf);
         CHECK(cf == 0 && got == 0, "K12 CON Ctrl-Z final read AX=0");
         CHECK(g_conin_pos == strlen(g_conin_src), "K12 EOF consumes Enter");
+        /* ^Z after text yields the text first and a FINAL zero read. Tiny
+         * reads must preserve every staged byte and DUP shares that state. */
+        g_conin_src = "abc\x1aignored\r"; g_conin_pos = 0;
+        uint8_t alias = 0;
+        CHECK(sft_dup(&g_test_psp, (uint8_t)h, &alias) == 0, "K12 DUP CON");
+        for (unsigned i = 0; i < 3; i++) {
+            got = do_read_h(i == 1 ? alias : h, 1u, rb, &cf);
+            CHECK(cf == 0 && got == 1 && rb[0] == (uint8_t)('a' + i),
+                  "K12 short reads retain text before Ctrl-Z");
+        }
+        got = do_read_h(alias, sizeof(rb), rb, &cf);
+        CHECK(cf == 0 && got == 0, "K12 final EOF after partial text");
+        CHECK(g_conin_pos == strlen(g_conin_src), "K12 EOF discards tail through Enter");
+        do_close_h(alias);
+        /* A subsequent command can use stdin again after its final EOF. */
+        g_conin_src = "next\r"; g_conin_pos = 0;
+        got = do_read_h(h, sizeof(rb), rb, &cf);
+        CHECK(got == 6 && memcmp(rb, "next\r\n", 6) == 0,
+              "K12 next console read is usable after EOF");
         if (explicit_con) do_close_h(h);
+    }
+
+    /* A resident built-in's returning INT 23h scope must leave its JFT live
+     * so the normal close/restore epilogue can run. A child PSP is NOT covered
+     * by that scope: its abort closes its handles, preserving the parent's
+     * inherited references. Ref: Tech Ref pp. 6-14/15; User's Guide p. 159. */
+    for (int explicit_con = 0; explicit_con < 2; explicit_con++) {
+        bind_standard_process();
+        int cf = 9;
+        uint16_t con = explicit_con ? do_open_name("CON", &cf) : 0u;
+        uint16_t nul = do_open_name("NUL", &cf);
+        uint8_t saved;
+        CHECK(sft_dup(&g_test_psp, 1u, &saved) == 0, "K12 save stdout");
+        CHECK(sft_dup2(&g_test_psp, (uint8_t)nul, 1u) == 0, "K12 redirect stdout");
+        uint8_t before[20]; memcpy(before, g_test_psp.jft, sizeof(before));
+        int21_break_recovery_t scope = { &g_test_psp, 0u };
+        int21_break_recovery_t *old = int21_set_break_recovery(&scope);
+        int21_set_break_flag((uint8_t)explicit_con); /* ON and OFF checkpoint */
+        g_exit_called = 0;
+        g_conin_src = "discard\x03"; g_conin_pos = 0;
+        uint8_t rb[32];
+        uint32_t got = do_read_h(con, sizeof(rb), rb, &cf);
+        CHECK(cf == 0 && got == 0 && scope.interrupted == 1,
+              "K12 abort latches recovery and returns no partial line");
+        CHECK(g_exit_called == 0, "K12 built-in abort does not terminate shell");
+        CHECK(memcmp(before, g_test_psp.jft, sizeof(before)) == 0,
+              "K12 abort preserves handles for redirection epilogue");
+        /* Avoid probing already-reclaimed mutant handles: report the failure,
+         * still finish the oracle instead of crashing on a corrupt restore. */
+        if (memcmp(before, g_test_psp.jft, sizeof(before)) == 0) {
+            CHECK(sft_dup2(&g_test_psp, saved, 1u) == 0, "K12 restore stdout");
+            do_close_h(saved); do_close_h(nul);
+            if (explicit_con) do_close_h(con);
+            CHECK(g_test_psp.jft[1] == SFT_SLOT_CON_OUT,
+                  "K12 stdout restored to console after abort");
+            for (unsigned h = 5; h < 20; h++)
+                CHECK(g_test_psp.jft[h] == JFT_CLOSED, "K12 no owned handles leaked");
+        }
+        int21_set_break_recovery(old);
+    }
+    int21_set_break_flag(1u);
+    /* EXEC child must take the default INT 23h abort, retaining the parent's
+     * redirected references. Build the child with the real PSP/SFT machinery. */
+    {
+        bind_standard_process();
+        int cf = 9;
+        uint16_t nul = do_open_name("NUL", &cf);
+        CHECK(sft_dup2(&g_test_psp, (uint8_t)nul, 1u) == 0, "K12 parent redirect");
+        uint8_t before[20]; memcpy(before, g_test_psp.jft, sizeof(before));
+        int21_break_recovery_t scope = { &g_test_psp, 0u };
+        int21_break_recovery_t *old = int21_set_break_recovery(&scope);
+        psp_t child;
+        psp_params_t params = {0};
+        params.parent_jft = g_test_psp.jft;
+        params.alloc_end_linear = 0x70000u;
+        CHECK(psp_build(&child, &params) == 0, "K12 child PSP built");
+        sft_inherit(&child);
+        int21_set_psp(&child);
+        uint16_t con = do_open_name("CON", &cf);
+        g_conin_src = "\x03"; g_conin_pos = 0; g_exit_called = 0;
+        uint8_t rb[16];
+        (void)do_read_h(con, sizeof(rb), rb, &cf);
+        CHECK(g_exit_called == 1 && scope.interrupted == 0,
+              "K12 EXEC child abort is not swallowed by shell recovery");
+        for (unsigned h = 0; h < 20; h++)
+            CHECK(child.jft[h] == JFT_CLOSED || child.jft[h] < SFT_FIRST_FILE,
+                  "K12 child owned handles closed on abort");
+        int21_set_psp(&g_test_psp);
+        CHECK(memcmp(before, g_test_psp.jft, sizeof(before)) == 0,
+              "K12 parent redirected JFT survives child abort");
+        CHECK(sft_from_handle(&g_test_psp, 1u)->ref_count == 2u,
+              "K12 parent references balanced after child abort");
+        int21_set_break_recovery(old);
+        bind_standard_process();
     }
     return TEST_SUMMARY("test_devwire");
 }

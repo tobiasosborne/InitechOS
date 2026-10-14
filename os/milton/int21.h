@@ -135,6 +135,16 @@ void int21_set_sink(int21_sink_fn sink);
 /* Bind the terminate hook (NULL clears it). Called once by the kernel at boot. */
 void int21_set_exit(int21_exit_fn fn);
 
+/* Resident COMMAND.COM can recover a built-in without terminating its PSP.
+ * The scope is owned by one PSP; an EXEC child still takes the default abort.
+ * Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf pp. 6-14/15 (INT 23h);
+ * MS-DOS_3.3_Users_Guide_198707.pdf p. 159 (abort current command). */
+typedef struct {
+    struct psp *owner;
+    uint8_t interrupted;
+} int21_break_recovery_t;
+int21_break_recovery_t *int21_set_break_recovery(int21_break_recovery_t *scope);
+
 /* Bind the CURRENT process's PSP (beads initech-509.3). The handle-based
  * functions (40h WRITE, 45h DUP, 46h DUP2, and the file functions to come)
  * resolve a handle through this PSP's Job File Table into the system SFT

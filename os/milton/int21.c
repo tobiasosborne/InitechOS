@@ -50,6 +50,7 @@
 
 static int21_sink_fn g_sink = 0;
 static int21_exit_fn g_exit = 0;
+static int21_break_recovery_t *g_break_recovery = 0;
 
 /* CON input source (beads initech-n62). g_conin_get is the BLOCKING read (never
  * -1; the kernel impl spins on hlt); g_conin_poll is the NON-blocking poll
@@ -275,6 +276,14 @@ void int21_irqtest_bump_find(void)
 
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
+int21_break_recovery_t *int21_set_break_recovery(int21_break_recovery_t *scope)
+{
+    /* A scope without a PSP cannot distinguish the shell from an EXEC child. */
+    if (scope && !scope->owner) dos_reentry_panic();
+    int21_break_recovery_t *previous = g_break_recovery;
+    g_break_recovery = scope;
+    return previous;
+}
 void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
 /* The CURRENTLY-bound process PSP (beads initech-bsy.9). The loader reads this at
  * EXEC time -- BEFORE it rebinds to the child -- to snapshot the PARENT's JFT for
@@ -1859,12 +1868,11 @@ static int dev_con_write_adapter(const uint8_t *b, int n, void *ctx)
     return n;
 }
 
-/* CON read adapter: deliver raw keyboard bytes through the existing CON input
- * source (conin_get_pb honors the 0Bh pushback). A device-chain CON read is RAW
- * (no cooked editing -- the cooked line editor is the legacy predefined-CON-slot
- * behavior; an OPEN-by-name CON read is the raw character stream). Fills up to
- * `n` bytes, blocking for the first (conin_get never hangs the host: an unbound
- * source returns 0). */
+/* Driver-level CON READ is a raw byte source (0Bh pushback honored). INT 21h
+ * applies the DOS cooked handle contract ABOVE this adapter, for stdin and
+ * OPEN CON alike. Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf
+ * pp. 6-138, 6-149: keyboard reads transfer at most one line; ASCII mode
+ * checks Ctrl-Z. Direct 06h/07h retain their raw no-check contracts. */
 static int conin_get_pb(void);   /* fwd: defined with the CON-input subset below */
 static int dev_con_read_adapter(uint8_t *b, int n, void *ctx)
 {
@@ -2192,6 +2200,7 @@ static void do_open(int_frame_t *f)
          * do_write/do_read -- the (device != NULL) chain route owns it. */
         e->open_mode   = mode;
         e->dev_id      = (uint8_t)SFT_DEV_AUX;  /* != SFT_DEV_CON: not the CON fast path */
+        e->con_eof     = 0u;
         e->ref_count   = 1u;
         e->device      = dev;                   /* the chain route selector */
         e->file_offset = 0u;
@@ -2886,6 +2895,59 @@ static void do_rmdir(int_frame_t *f)
  * we stage the line there, then copy it (plus CR+LF) into the caller's buffer. */
 #define INT21_CON_LINE_MAX 128u
 
+/* One physical console line buffer, shared by handle reads. Keep short reads'
+ * remainder, including CR/LF; do not discard bytes typed for COPY CON. A fresh
+ * line is collected only after all staged bytes have been delivered. */
+static uint8_t g_con_line[INT21_CON_LINE_MAX + 2u];
+static uint16_t g_con_line_pos, g_con_line_len;
+
+static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
+                            uint32_t count)
+{
+    if (count == 0u) { f->eax = 0u; cf_clear(f); return; }
+    if (!user_buf_ok(f->edx, count)) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY); cf_set(f); return;
+    }
+    if (g_con_line_pos > g_con_line_len || g_con_line_len > sizeof(g_con_line))
+        dos_reentry_panic();  /* corrupt staging state, never silently clamp */
+
+    if (g_con_line_pos == g_con_line_len) {
+        if (e->con_eof) {
+            e->con_eof = 0u;  /* report final EOF; next command can read anew */
+            f->eax = 0u; cf_clear(f); return;
+        }
+        int broke = 0;
+        uint8_t n = conin_cooked_line(g_con_line, INT21_CON_LINE_MAX, f, &broke);
+        g_con_line_pos = g_con_line_len = 0u;
+        if (broke || (!g_conin_get && g_conin_pushback < 0)) {
+            f->eax = 0u; cf_clear(f); return;
+        }
+        uint16_t end = n;
+#ifndef INT21_MUTATE_CON_EOF_IGNORED
+        /* Cook the ENTIRE line (consume Enter), then cut at ^Z. 0Ah keeps its
+         * byte-layout contract and treats ^Z as data; only ASCII handle reads
+         * interpret it as EOF. Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf
+         * pp. 6-62, 6-138, 6-149; MS-DOS_3.3_Users_Guide_198707.pdf p. 132
+         * (COPY CON: Ctrl-Z THEN Return). AX=0 is the final EOF read, after any
+         * bytes preceding ^Z have been drained. */
+        for (uint16_t i = 0u; i < n; i++) {
+            if (g_con_line[i] == 0x1Au) { end = i; break; }
+        }
+#endif
+        if (end < n) {
+            e->con_eof = end != 0u;
+        } else {
+            g_con_line[end++] = '\r';
+            g_con_line[end++] = '\n';
+        }
+        g_con_line_len = end;
+    }
+    uint32_t took = 0u;
+    while (took < count && g_con_line_pos < g_con_line_len)
+        buf[took++] = g_con_line[g_con_line_pos++];
+    f->eax = took; cf_clear(f);
+}
+
 static void do_read(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
@@ -2902,13 +2964,30 @@ static void do_read(int_frame_t *f)
     }
 
     if (e->kind == SFT_KIND_DEVICE) {
+#if !defined(INT21_MUTATE_CONHANDLE_NOCOOKED)
+        /* CON by name and the predefined stdin slot use the SAME editor and
+         * INT 23h checkpoint. A pipe only redirects stdin; OPEN CON still names
+         * the physical keyboard. Other devices retain request-packet routing. */
+        if (e->device ? (
+#ifdef INT21_MUTATE_CON_EXPLICIT_RAW
+                        0 /* Rule 6: restore K12's explicit-CON raw bypass. */
+#else
+                        ((device_header_t *)e->device)->attribute & DEV_ATTR_STDIN
+#endif
+                        )
+                      : e->dev_id == SFT_DEV_CON) {
+            con_handle_read(f, e, buf, count);
+            return;
+        }
+#else
+        (void)con_handle_read;
+#endif
         /* OPEN-by-name device read (beads initech-6zd9): a SFT slot bound to a
          * resident device (device != NULL) routes through the devices.c chain --
          * NUL returns EOF (0 bytes), CLOCK$ returns the 6-byte date/time record,
-         * an OPEN-by-name CON returns raw keyboard bytes, PRN read is an error.
-         * The predefined CON slots 0..3 (device == NULL, dev_id == SFT_DEV_CON)
-         * are NOT matched here -- they fall through to the cooked-line editor
-         * below, preserving the existing handle-1/etc. read behavior exactly. */
+         * PRN read is an error; CON was handled by the cooked branch above.
+         * Predefined CON slots were handled above too. Under the no-cooked
+         * mutant only, they fall through to EOF, as in the x8fs mutant. */
         if (e->device != 0) {
             if (count == 0u) {
                 f->eax = 0u;             /* zero-count read: 0 bytes, no device I/O */
@@ -2934,66 +3013,6 @@ static void do_read(int_frame_t *f)
             cf_clear(f);
             return;
         }
-#if !defined(INT21_MUTATE_CONHANDLE_NOCOOKED)
-        /* CON cooked line-read (beads initech-x8fs). Reading a console handle in
-         * the default (cooked/ASCII) mode delivers a full line of edited keyboard
-         * input through the SAME cooked editor as AH=0Ah, but the HANDLE-read
-         * contract differs: the bytes returned are the line FOLLOWED BY CR (0x0D)
-         * AND LF (0x0A), and the returned count (EAX) INCLUDES the CR and LF.
-         * (AH=0Ah, by contrast, stores only the CR and excludes it from buf[1].)
-         * Ground truth: Microsoft KB Q113058 -- typing "abc"+Enter into a 3Fh read
-         * yields buffer "abc\r\n" and AX=5; the line is terminated by CR and the
-         * CR/LF pair is returned to the caller as data. AUX/PRN have no driver
-         * (handled by the EOF fall-through below). Ctrl-C routes to INT 23h via the
-         * shared editor's ^C check-point (beads initech-4tw; DEC-16 Sec 3.3). */
-        if (e->dev_id == SFT_DEV_CON) {
-            /* A zero-count read returns 0 bytes WITHOUT consuming a line of input
-             * (the DOS zero-count contract) -- do not block the keyboard for a
-             * read that cannot store anything. */
-            if (count == 0u) {
-                f->eax = 0u;
-                cf_clear(f);
-                return;
-            }
-            /* Validate the destination before the editor writes the copied line
-             * into it (ADR-0003 DEC-14 / initech-tzq). */
-            if (!user_buf_ok(f->edx, count)) {
-                set_ax(f, INT21_ERR_INVALID_MEMORY);
-                cf_set(f);
-                return;
-            }
-
-            uint8_t line[INT21_CON_LINE_MAX];
-            int broke = 0;
-            uint8_t n = conin_cooked_line(line, (uint8_t)INT21_CON_LINE_MAX, f, &broke);
-
-            /* ^C aborted the line (beads initech-4tw; DEC-16 Sec 3.3): INT 23h has
-             * fired. In the kernel int23's default action terminated and never
-             * returned here. If a non-terminating break handler returned, the
-             * handle read yields EOF (0 bytes), CF clear -- no partial cooked line
-             * with a ^C buried in it. */
-            if (broke) {
-                f->eax = 0u;
-                cf_clear(f);
-                return;
-            }
-
-            /* Emit the cooked line + CR + LF into the caller's buffer, capped at
-             * `count` bytes. The returned EAX is the number actually copied
-             * (line chars + CR + LF when room; clamped to count otherwise). The
-             * remainder-buffering DOS does when count < line length is a separate
-             * follow-up -- the common shell/redirect case has count >= line+2. */
-            uint32_t took = 0u;
-            for (uint8_t i = 0u; i < n && took < count; i++) {
-                buf[took++] = line[i];
-            }
-            if (took < count) { buf[took++] = 0x0Du; }   /* CR */
-            if (took < count) { buf[took++] = 0x0Au; }   /* LF */
-            f->eax = took;
-            cf_clear(f);
-            return;
-        }
-#endif
         /* AUX/PRN have no driver (and, under the no-cooked mutant, CON too):
          * return 0 bytes read (EOF) WITHOUT hanging -- success with EAX=0
          * (brief Sec 4.2). */
@@ -4492,6 +4511,17 @@ static void int22_dispatch_body(int_frame_t *frame)
 static void int23_dispatch_body(int_frame_t *frame)
 {
     con_puts("INT23-BREAK\n");
+#ifndef INT21_MUTATE_BREAK_RECOVERY
+    /* Returning INT 23h recovery for a resident built-in. Keep this PSP's
+     * handles/CWD/arena live so COMMAND.COM's ordinary epilogue restores
+     * redirection. EXEC children have a different PSP and terminate normally.
+     * Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf pp. 6-14/15;
+     * MS-DOS_3.3_Users_Guide_198707.pdf p. 159 (abort current command). */
+    if (g_break_recovery && g_break_recovery->owner == (struct psp *)g_cur_psp) {
+        g_break_recovery->interrupted = 1u;
+        return;
+    }
+#endif
     do_terminate(frame, 0u);
 }
 

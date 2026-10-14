@@ -2136,6 +2136,7 @@ static uint8_t g_errorlevel = 0u;
  * setter) and command_repl / run_batch (the checkers) share one flag. */
 static int g_shell_exit = 0;
 static int g_shell_permanent = 1;
+static int21_break_recovery_t g_shell_break;
 
 /* AH=30h GET VERSION: AL=major, AH=minor. */
 static void dos_getver(uint8_t *major, uint8_t *minor)
@@ -2745,6 +2746,7 @@ static void builtin_copy(const char *arg)
 
     dos_close(src_h);
     dos_close(dst_h);
+    if (g_shell_break.interrupted) return; /* abort is not a completed COPY */
     /* DOS COPY footer: a count column then " file(s) copied" (Law 4). */
     dos_print("        1 file(s) copied\r\n$");
 }
@@ -3551,7 +3553,8 @@ static int run_pipeline(cmd_pipeline_t *pl)
             dos_close(out_h);
         }
 
-        if (rc == 1) {   /* EXIT issued mid-pipeline: stop, still clean temps */
+        if (rc == 1 || g_shell_break.interrupted) {
+            /* EXIT or ^C stops later stages AFTER handle restoration. */
             break;
         }
     }
@@ -4013,7 +4016,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                         if (batch_for_parse(q, var, set, tmpl)) {
                             int cur = 0;
                             char tok[BATCH_LINE_MAX];
-                            while (!g_shell_exit &&
+                            while (!g_shell_exit && !g_shell_break.interrupted &&
                                    batch_for_next_token(set, &cur, tok,
                                                         BATCH_LINE_MAX)) {
                                 char cmd[BATCH_LINE_MAX];
@@ -4138,7 +4141,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
 
         /* EXIT (typed in a dispatched line, or reached via IF/FOR/CALL) tears
          * the whole shell down: stop this batch and propagate up. */
-        if (g_shell_exit) {
+        if (g_shell_exit || g_shell_break.interrupted) {
             break;
         }
     }
@@ -4210,6 +4213,14 @@ void command_repl(int permanent)
     char line[CMD_LINE_MAX];
     g_shell_permanent = permanent != 0;
     g_shell_exit = 0;
+    /* COMMAND.COM is resident in the kernel PSP. An INT 23h during a built-in
+     * must unwind the command's normal CLOSE/DUP2 epilogues, then reprompt;
+     * terminating this PSP would destroy saved redirection handles and halt.
+     * Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf pp. 6-14/15;
+     * MS-DOS_3.3_Users_Guide_198707.pdf p. 159. A child EXEC uses its own PSP. */
+    g_shell_break.owner = int21_get_psp();
+    g_shell_break.interrupted = 0u;
+    int21_break_recovery_t *previous_break = int21_set_break_recovery(&g_shell_break);
 
     /* Seed the master environment once at REPL entry (beads initech-1i0x
      * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
@@ -4248,6 +4259,7 @@ void command_repl(int permanent)
         }
     }
     if (g_shell_exit) {
+        int21_set_break_recovery(previous_break);
         return;     /* AUTOEXEC.BAT issued EXIT -> the shell is done */
     }
 
@@ -4256,6 +4268,7 @@ void command_repl(int permanent)
      * the AH=09h banner, but a distinct grep-able marker keeps the gate robust;
      * kmain prints SHELL-READY before calling us, so we don't duplicate it. */
     for (;;) {
+        g_shell_break.interrupted = 0u;
         /* $P$G prompt: read the PROMPT env var, build a prompt_ctx_t from the
          * live CWD (AH=47h) + clock (AH=2Ch), expand via cmd_render_prompt, then
          * print via AH=09h.  This replaces the old cwd_display+'>'+$' approach;
@@ -4320,6 +4333,7 @@ void command_repl(int permanent)
 #endif
 
         read_line(line);
+        if (g_shell_break.interrupted) continue; /* ^C at prompt discards line */
 
         /* Dispatch through the SHARED path the .BAT interpreter also uses
          * (beads initech-xw1), via the PIPE + I/O-redirection driver: pipes
@@ -4329,6 +4343,7 @@ void command_repl(int permanent)
          * value of 1 means EXIT was issued (print already emitted); tear the REPL
          * down. */
         if (run_pipeline_or_redirect(line)) {
+            int21_set_break_recovery(previous_break);
             return;
         }
     }
