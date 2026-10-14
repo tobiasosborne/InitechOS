@@ -169,10 +169,10 @@ MenuInfo *finder_menu_apple(void);
  *     Computer),
  *   - the commands the shell does NOT implement yet stay 0 (bead
  *     initech-tdnl.36's rule "implemented or drawn disabled"): Get Info,
- *     Duplicate, Restart, Shut Down -- each rejoins the predicate
- *     map (or turns 1) when its own bead lands,
- *   - the always-live commands stay 1 (New Folder, Select All, by Icons,
- *     Clean Up in both menus, Arrange (by Name)).
+ *     Duplicate -- each rejoins the predicate map (or turns 1) when its own
+ *     bead lands,
+ *   - the always-live commands stay 1 (New Folder, Select All, Restart and
+ *     Shut Down -- bead initech-tdnl.78).
  * A NULL fx evaluates every predicate against NULL, which the finder_cmd
  * predicates answer with 0 (finder_cmd.c) -- i.e. "no context, nothing live",
  * which is the safe direction (Rule 2).

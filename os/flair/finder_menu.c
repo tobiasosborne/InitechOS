@@ -50,9 +50,13 @@
  * execute is authored 0 and carries no predicate, so no context can light it;
  * it rejoins the predicate map when its bead lands. Today that is:
  *   File > Get Info, Duplicate   (initech-p6st / initech-tdnl.16)
- *   Special > Restart, Shut Down (initech-tdnl.37: no kernel reset/halt
- *                                 primitive exists yet -- see finder_menu.h)
  * and File > Open is lit only by a selected FOLDER (initech-tdnl.38).
+ * Special > Restart and Shut Down LEFT this list with bead initech-tdnl.78
+ * (the kernel reset/halt primitives, os/milton/power.h): they are authored
+ * LIVE, always, like New Folder -- the period Special menu never grays them
+ * (Macintosh User's Guide for desktop Macintosh computers Z030-1751-A, PDF
+ * p. 25 / book p. 6, the Special menu art: Restart and Shut Down in black
+ * while Empty Wastebasket and Eject Disk are dimmed).
  * harness/proptest/test_menu_handlers.c walks every row and holds the rule.
  *
  * Ref: docs/design/GUI-remediation-R3-finder-design.md F4.2 (the layout),
@@ -205,8 +209,8 @@ static MenuItem finder_special_items[] = {
     FM_DIV,
     FM_ITEM("Erase Disk",   0, 0),
     FM_DIV,
-    FM_ITEM("Restart",      0, 0),                /* grayed: no reset (tdnl.37)*/
-    FM_ITEM("Shut Down",    0, 0),                /* grayed: no halt  (tdnl.37)*/
+    FM_ITEM("Restart",      0, 1),                /* ALWAYS live (tdnl.78)     */
+    FM_ITEM("Shut Down",    0, 1),                /* ALWAYS live (tdnl.78)     */
     FM_ITEM("Sleep",        0, 0)
 };
 

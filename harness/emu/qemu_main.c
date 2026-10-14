@@ -45,6 +45,14 @@ static void usage(const char *argv0)
         "                     quitting qemu (the guest's work-complete marker;\n"
         "                     budget = timeout-1000, ends early if qemu exits;\n"
         "                     unseen => quit_after_found=0, OK=0)\n"
+        "  --quit-after-count N\n"
+        "                     wait for the N-th occurrence of the --quit-after\n"
+        "                     MARK (default 1) -- a rebooted guest re-prints its\n"
+        "                     boot markers on the same serial capture\n"
+        "  --allow-reboot     omit -no-reboot: a guest reset (e.g. the 8042\n"
+        "                     0xFE pulse of Special > Restart) REBOOTS the VM\n"
+        "                     instead of exiting qemu; triple-fault detection\n"
+        "                     (the -d log strings) is unchanged\n"
         "  --legacy-quit      initech-qed1: explicit opt-out of the bare-\n"
         "                     injection safety check below. Reserved for a\n"
         "                     genuinely fire-and-forget leg (documented in the\n"
@@ -125,6 +133,11 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--quit-after") == 0) {
             NEED_ARG();
             cfg.quit_after = argv[++i];
+        } else if (strcmp(a, "--quit-after-count") == 0) {
+            NEED_ARG();
+            cfg.quit_after_count = atoi(argv[++i]);
+        } else if (strcmp(a, "--allow-reboot") == 0) {
+            cfg.allow_reboot = true;
         } else if (strcmp(a, "--legacy-quit") == 0) {
             cfg.legacy_quit = true;
         } else if (strcmp(a, "--mouse") == 0) {
@@ -172,6 +185,12 @@ int main(int argc, char **argv)
     if (!cfg.kernel_path && !cfg.disk_path) {
         fprintf(stderr, "%s: need --kernel or --disk\n", argv[0]);
         usage(argv[0]);
+        return 2;
+    }
+
+    if (cfg.quit_after_count > 1 &&
+        (cfg.quit_after == NULL || cfg.quit_after[0] == '\0')) {
+        fprintf(stderr, "%s: --quit-after-count needs --quit-after\n", argv[0]);
         return 2;
     }
 

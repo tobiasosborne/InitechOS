@@ -137,16 +137,19 @@ static const want_item_t WANT_VIEW[] = {
 
 /* Special, 515 (F4.2). */
 static const want_item_t WANT_SPECIAL[] = {
-    /* RE-KEY (bead initech-tdnl.36/.37): Clean Up needs a front disk window;
-     * Restart and Shut Down have no kernel primitive yet, so they are drawn
-     * disabled ("implemented or drawn disabled"), not enabled no-ops. */
+    /* RE-KEY (bead initech-tdnl.36/.37): Clean Up needs a front disk window.
+     * RE-KEY (bead initech-tdnl.78, stated): Restart and Shut Down are
+     * IMPLEMENTED now (the kernel reset/halt primitives, os/milton/power.h),
+     * so they are authored LIVE -- always, like New Folder: the period
+     * Special menu never grays them (Macintosh User's Guide for desktop
+     * Macintosh computers Z030-1751-A, p. 6, the Special menu art). */
     { "Clean Up",    0, 0, 0, 0 },
     { "Empty Trash", 0, 0, 0, 0 },
     { "-",           0, 0, 1, 0 },
     { "Erase Disk",  0, 0, 0, 0 },
     { "-",           0, 0, 1, 0 },
-    { "Restart",     0, 0, 0, 0 },
-    { "Shut Down",   0, 0, 0, 0 },
+    { "Restart",     0, 0, 0, 1 },
+    { "Shut Down",   0, 0, 0, 1 },
     { "Sleep",       0, 0, 0, 0 }
 };
 
@@ -362,8 +365,8 @@ static const want_fixed_t WANT_FIXED[] = {
     { FINDER_MENU_IX_FILE,     5, 0, "Get Info" },
     { FINDER_MENU_IX_FILE,     6, 0, "Duplicate" },
     { FINDER_MENU_IX_SPECIAL,  3, 0, "Erase Disk" },
-    { FINDER_MENU_IX_SPECIAL,  5, 0, "Restart" },
-    { FINDER_MENU_IX_SPECIAL,  6, 0, "Shut Down" },
+    { FINDER_MENU_IX_SPECIAL,  5, 1, "Restart" },      /* tdnl.78: live */
+    { FINDER_MENU_IX_SPECIAL,  6, 1, "Shut Down" },    /* tdnl.78: live */
     { FINDER_MENU_IX_SPECIAL,  7, 0, "Sleep" },
     { FINDER_MENU_IX_HELP,     0, 0, "About Help" },
     { FINDER_MENU_IX_HELP,     1, 0, "Show Balloons" }

@@ -1359,6 +1359,35 @@ static void fw_do_empty_trash(finder_shell_t *sh, finder_cmd_id id, int slot)
 #endif
 }
 
+/* Special > Restart / Shut Down (bead initech-tdnl.78): PUT EVERYTHING AWAY.
+ * Every open folder window's view state is noted NOW, exactly as a close
+ * would note it (finder_shell_save_view, F3.3), so the DESKTOP.DB commit the
+ * kernel runs next carries it; the windows stay open -- what happens after
+ * (the reset, or the shut-down screen) is the kernel's, which is the only
+ * layer that may write the disk and touch the reset line (finder_windows.h
+ * Sec 8 "THE COMMAND OUTCOME"). `moved` carries the count of views noted.
+ * Ref: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF p. 222 (book
+ * p. 202) "put everything away safely and update directory information";
+ * PDF p. 141 (book p. 121) "first saving any necessary information". The
+ * System 6 Finder also emptied the Trash here (same page); System 7 does NOT
+ * ("The Trash is not emptied until you choose Empty Trash from the Special
+ * menu", Apple_Whats_New_In_System_7_Z030-3935-A.pdf PDF p. 23), and neither
+ * do we.
+ * MUTANT FINDER_WIN_MUT_POWER_NO_SAVE (Rule 6; test-finder-ops O15): nothing
+ * is noted. NEVER in a real build. */
+static void fw_do_power(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    int noted = 0;
+
+    (void)slot;
+#if !defined(FINDER_WIN_MUT_POWER_NO_SAVE)
+    for (int i = 0; i < FINDER_WIN_MAX; i++)
+        if (sh->windows[i].open) noted += finder_shell_save_view(sh, i);
+#endif
+    fw_outcome(sh, id, FINDER_WIN_OK, -1);
+    sh->last.moved = (int16_t)noted;
+}
+
 static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_NEW_FOLDER,      fw_do_new_folder },
     { FCMD_CLEANUP,         fw_do_cleanup    },
@@ -1367,7 +1396,9 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_SELECT_ALL,      fw_do_select_all },
     { FCMD_ARRANGE_BY_NAME, fw_do_arrange    },
     { FCMD_VIEW_ICONS,      fw_do_view_icons },
-    { FCMD_EMPTY_TRASH,     fw_do_empty_trash }
+    { FCMD_EMPTY_TRASH,     fw_do_empty_trash },
+    { FCMD_RESTART,         fw_do_power      },
+    { FCMD_SHUTDOWN,        fw_do_power      }
 };
 #define FW_EXEC_N ((int)(sizeof FW_EXEC_TABLE / sizeof FW_EXEC_TABLE[0]))
 

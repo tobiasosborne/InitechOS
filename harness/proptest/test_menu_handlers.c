@@ -71,7 +71,8 @@ static FinderCtx mk(uint16_t sel, uint8_t open, uint8_t front, uint8_t trash)
 static const finder_cmd_id CAN_LIGHT[] = {
     FCMD_NEW_FOLDER, FCMD_OPEN, FCMD_CLOSE_WINDOW, FCMD_SELECT_ALL,
     FCMD_VIEW_ICONS, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME,
-    FCMD_EMPTY_TRASH          /* bead initech-6k12: implemented, lit iff full */
+    FCMD_EMPTY_TRASH,         /* bead initech-6k12: implemented, lit iff full */
+    FCMD_RESTART, FCMD_SHUTDOWN  /* bead initech-tdnl.78: implemented, always lit */
 };
 #define N_CAN_LIGHT ((int)(sizeof CAN_LIGHT / sizeof CAN_LIGHT[0]))
 
@@ -129,9 +130,14 @@ static void leg_finder_bar(void)
           "H1 File > Get Info is drawn disabled even with a selection (F03)");
     CHECK(bar->menus[FINDER_MENU_IX_FILE].items[6].enabled == 0u,
           "H1 File > Duplicate is drawn disabled even with a selection (F03)");
-    CHECK(bar->menus[FINDER_MENU_IX_SPECIAL].items[5].enabled == 0u &&
-          bar->menus[FINDER_MENU_IX_SPECIAL].items[6].enabled == 0u,
-          "H1 Special > Restart / Shut Down are drawn disabled (F05)");
+    /* RE-KEY (bead initech-tdnl.78, stated): F05's two fakes are REAL now --
+     * lit in EVERY state, and the shell implements both (walk_menu above
+     * already holds each lit row to a real handler; this names them). */
+    CHECK(bar->menus[FINDER_MENU_IX_SPECIAL].items[5].enabled == 1u &&
+          bar->menus[FINDER_MENU_IX_SPECIAL].items[6].enabled == 1u &&
+          finder_shell_implements(FCMD_RESTART) &&
+          finder_shell_implements(FCMD_SHUTDOWN),
+          "H1 Special > Restart / Shut Down are lit and the shell implements both (F05, tdnl.78)");
     {
         FinderCtx doc = mk(1, 0, 1, 0);
         finder_menu_refresh_enables(&doc);

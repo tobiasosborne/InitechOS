@@ -118,6 +118,20 @@ int tbx_take_mbar_redraw(void);
  * present; tenant code is never on the stack while it runs). */
 int tbx_take_drew(void);
 
+/* THE QUIT REQUEST (bead initech-tdnl.78): the Finder's Restart / Shut Down
+ * asks the resident disk tenant to quit by delivering its OWN File > Quit (the
+ * enabled item titled "Quit" in its installed bar) exactly as a mouse choice
+ * (TENANT-MENU ... src=quit). The tenant may EXIT, ask (an alert) or decline;
+ * the caller runs its tenant service and then reads tbx_resident_name: still
+ * resident == the application declined, and the shut-down is cancelled.
+ * Returns 0 when no live disk tenant is resident (nothing to ask), 1 when the
+ * request was delivered, -1 when the tenant has no enabled Quit item (it
+ * cannot be asked; the caller cancels -- never terminate it, its work would
+ * be lost).
+ * tbx_resident_name: the resident live tenant's 8.3 file name, or NULL. */
+int tbx_ask_quit(void);
+const char *tbx_resident_name(void);
+
 /* 1 when `w` is the resident disk tenant's window (for the pump's policy
  * decisions; ownership itself is always the refCon demux in process.c). */
 int tbx_owns_window(const WindowRecord *w);
