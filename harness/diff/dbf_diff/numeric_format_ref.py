@@ -14,7 +14,10 @@ import sys
 def numeric_cell(text, width, places):
     value = decimal.Decimal(text)
     quantum = decimal.Decimal(1).scaleb(-places)
-    rounded = value.quantize(quantum, rounding=decimal.ROUND_HALF_UP)
+    # Mint-001 confirms ties toward positive infinity; Decimal keeps this
+    # independent of the engine's binary-double/integer implementation.
+    rounded = (value / quantum + decimal.Decimal('0.5')).to_integral_value(
+        rounding=decimal.ROUND_FLOOR) * quantum
     if not rounded:
         rounded = abs(rounded)
     cell = format(rounded, f'.{places}f')
@@ -33,7 +36,7 @@ def main():
     rng = random.Random(0x1A0)
     checks = 0
     for width in range(1, 21):
-        for places in range(min(width - 1, 15) + 1):
+        for places in range(min(width - 1, 18) + 1):
             # Use representable stored decimals, below IEEE's integer limit.
             digits = min(12, width - (1 if places else 0))
             scale = 10 ** places

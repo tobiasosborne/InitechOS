@@ -29727,7 +29727,9 @@ $(BUILD)/test_samir_screen_emu: $(DBF_DIFF_DIR)/test_samir_screen_emu.c | $(BUIL
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
 .PHONY: test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
 test-samir-status-emu test-samir-status-off-emu test-samir-numeric-format-emu test-samir-console-emu: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
-	@mode=status; case '$@' in *off-emu) mode=off;; *numeric*) mode=numeric;; *console*) mode=console;; esac; $(BUILD)/test_samir_screen_emu $$mode
+	@mode=status; case '$@' in *off-emu) mode=off;; *numeric*) mode=numeric;; *console*) mode=console;; esac; $(BUILD)/test_samir_screen_emu $$mode && \
+	 cp -f $(BUILD)/samir_screen_$$mode.ppm $(BUILD)/samir-screen/accepted-$$mode.ppm && \
+	 cp -f $(BUILD)/samir_screen_$$mode.serial $(BUILD)/samir-screen/accepted-$$mode.serial
 test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.COM
 	@set +e; $(BUILD)/test_samir_screen_emu status $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings|heading)' $(BUILD)/$@.log && grep -q 'status: serial Command Line' $(BUILD)/$@.log && grep -q 'status: reverse band' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
