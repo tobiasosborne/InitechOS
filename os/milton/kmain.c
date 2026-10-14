@@ -2133,6 +2133,9 @@ static void flair_live_track_scroll(flair_live_ctx_t *ctx,
  * tenant-owned -> FlairProcess_terminate (DisposeWindow sweep + promotion),
  * shell furniture -> HideWindow. Both accrue exact exposure damage before the
  * standard chrome -> content -> band-2 -> present cycle. */
+#ifdef FLAIR_LIVE_TENANTS
+static void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi);
+#endif
 static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                 WindowPtr w, GrafPort *tenant_barport)
 {
@@ -2140,6 +2143,21 @@ static void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
 #ifdef FLAIR_LIVE_TENANTS
     const char *terminated_name = (const char *)0;
     int terminated = 0;
+    /* bead initech-fvnj (spec/toolbox_gate.h Sec 11): an ASKING close box is
+     * the tenant's to answer -- nothing closes here; it hears TBX_EVT_GOAWAY
+     * and may ask (TBX_ALERT) or EXIT, serviced by the heard step.
+     * NAMED MUTANT KMAIN_MUT_CLOSE_NO_ASK (Rule 6; test-flair-i123-quitguard-
+     * mutant): the pre-fvnj close box -- never asks, terminates the tenant
+     * and its unsaved work at once. NEVER in a real build. */
+#ifndef KMAIN_MUT_CLOSE_NO_ASK
+    if (tbx_close_ask(w)) {
+        serial_puts("FLAIR-CLOSE-ASK win ");
+        serial_puti((int32_t)wid);
+        serial_putc('\n');
+        flair_live_tenant_heard(ctx, bi);
+        return;
+    }
+#endif
     if (ctx->plist != (FlairProcessList *)0 &&
         ctx->master != (flair_heap_t *)0) {
         /* ADR-0013 Sec 3.4 / F2-3 / DEC-AC3-3 subset: the refCon owner decides
@@ -2775,6 +2793,7 @@ static GrafPort             *g_ten_barport;
  *       was promoted by process.c; run the DQ2 cycle and refresh band 2 from
  *       the NEW head (the shell fallback bar when the list is empty -- never a
  *       dead head's menubar). */
+static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi);
 static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     FlairApp *app = tbx_take_affirm();
@@ -2807,6 +2826,8 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
      * keyDown (outside an updateEvt) is in the offscreen; show it now that the
      * tenant has returned. */
     if (tbx_take_drew()) flair_desktop_present(bi, &ctx->off);
+    /* (1d) bead initech-fvnj: a TBX_ALERT the tenant asked for (spec Sec 11). */
+    flair_live_tenant_alert(ctx, bi);
     if (!tbx_reap()) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
@@ -4084,6 +4105,84 @@ static void fta_rgn(finder_win_rgn_t *s)
     region_set_empty(&s->r);
 }
 
+/* THE SHARED ALERT (bead initech-6k12, generalized by initech-fvnj for the
+ * Toolbox Gate's TBX_ALERT, spec/toolbox_gate.h Sec 11). Up to three buttons:
+ * item 1 the DEFAULT (OK's measured place, ringed, Return), item 2 the CANCEL
+ * (Cancel's measured place, Escape), item 3 a third button left-aligned under
+ * the message at x 211..294 -- a PRODUCT ADAPTATION: the corpus holds no
+ * three-button alert (../system7-decomp/specs/desktop/alerts.md lists the
+ * two-button metrics and the standard icons as golden-resolves); 84 px = the
+ * 68-px Chicago "Don't Save" + the measured buttons' 8-px margins. The open
+ * half builds, draws (unless `draw` is 0, a mutant's) and presents; the run
+ * half takes the modal events, disposes and hands the footprint back. */
+static DialogRecord     g_al_dr;
+static DialogItem       g_al_it[3 + FINDER_ALERT_LINES];
+static ControlRecord    g_al_btn[3];
+static finder_win_rgn_t g_al_rs, g_al_rc, g_al_ru;
+
+static void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                  const char *const *text, int n,
+                                  const char *const *btn, int nb, int draw)
+{
+    static const int16_t bx[3][2] = { { 435, 494 }, { 363, 422 }, { 211, 295 } };
+    int k;
+
+    for (k = 0; k < nb; k++)
+        control_init(&g_al_btn[k], pushButton, fta_rect(bx[k][0], 158, bx[k][1], 178),
+                     0, 0, 1, 1, btn[k]);
+    for (k = 0; k < nb + n; k++) {
+        g_al_it[k].type = (k < nb) ? ctrlItem : statText;
+        g_al_it[k].ctrl = (k < nb) ? &g_al_btn[k] : (ControlRecord *)0;
+        g_al_it[k].rect = (k < nb) ? g_al_btn[k].contrlRect
+                             : fta_rect(FTA_TEXT_X, FTA_TEXT_Y + 16 * (k - nb),
+                                        FTA_TEXT_X + FINDER_ALERT_TEXT_W,
+                                        FTA_TEXT_Y + 16 * (k - nb + 1));
+        g_al_it[k].text = (k < nb) ? (const char *)0 : text[k - nb];
+        g_al_it[k].enabled = (uint8_t)((k < nb) ? 1 : 0);
+        g_al_it[k]._pad[0] = g_al_it[k]._pad[1] = g_al_it[k]._pad[2] = 0u;
+    }
+    fta_rgn(&g_al_rs); fta_rgn(&g_al_rc); fta_rgn(&g_al_ru);
+    (void)NewDialog(&g_al_dr, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B), "", g_al_it,
+                    (uint16_t)(nb + n), 1u /* default */,
+                    (uint16_t)(nb > 1 ? 2 : 1) /* cancel */,
+                    (WindowMgr *)0, &g_al_rs.r, &g_al_rc.r, &g_al_ru.r);
+    g_al_dr.window.port.portBits.bm = ctx->off;
+    g_al_dr.window.port.visRgn  = (region_t *)0;
+    g_al_dr.window.port.clipRgn = (region_t *)0;
+    g_al_dr.window.port.portRect = region_get_bbox(g_al_dr.window.strucRgn);
+    if (draw) {
+        DrawDialog(&g_al_dr);
+        flair_desktop_present(bi, &ctx->off);
+    }
+}
+
+/* Returns the item hit (1..nb); the cancel item when a bounded image's life
+ * ends with the alert still up. */
+static uint16_t flair_live_alert_run(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    uint16_t hit = 0u;
+    uint32_t t0 = flair_tick_count();
+    int cancel = 0;
+
+    for (;;) {
+        EventRecord ev;
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 3u);
+        flair_live_cursor_track(&ev);
+        if (g) {
+            flair_live_emit_evt(&ev);
+            if (DialogModalDispatch(&g_al_dr, &ev, (dialog_modal_block_fn)0,
+                                    (void *)0) == FLAIR_MODAL_CAPTURE &&
+                DialogHandleEvent(&g_al_dr, &ev, (dialog_filter_fn)0, &hit))
+                break;
+        }
+        if (flair_live_track_cut(t0, &cancel)) { hit = g_al_dr.cancelItem; break; }
+    }
+    DisposeDialog(&g_al_dr, (WindowMgr *)0);
+    WindowMgr_invalidate_desktop(ctx->wm, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B));
+    finder_desk_repaint(ctx, bi);
+    return hit;
+}
+
 static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                 uint16_t items)
 {
@@ -4095,50 +4194,20 @@ static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
     static const char *const locked_text[3] = {
         "The item is locked.", "Unlock it before", "discarding it."
     };
-    static DialogRecord     dr;
-    static DialogItem       it[2 + FINDER_ALERT_LINES];
-    static ControlRecord    ok_c, cancel_c;
-    static finder_win_rgn_t rs, rc, ru;
+    static const char *const labels[2] = { "OK", "Cancel" };
     static char             lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
-    uint16_t hit = 0u;
-    uint32_t t0;
-    int cancel = 0, n, k;
+    const char *text[FINDER_ALERT_LINES];
+    int n, k, draw = 1;
     int locked = items == 0u;
-    int buttons = locked ? 1 : 2;
 
     n = locked ? 3 : finder_trash_alert_text(items, g_finder_shell->trash_bytes, lines);
-    control_init(&ok_c, pushButton, fta_rect(435, 158, 494, 178), 0, 0, 1, 1, "OK");
-    control_init(&cancel_c, pushButton, fta_rect(363, 158, 422, 178), 0, 0, 1, 1,
-                 "Cancel");
-    for (k = 0; k < buttons + n; k++) {
-        it[k].type = (k < buttons) ? ctrlItem : statText;
-        it[k].ctrl = (k < buttons) ? (k == 0 ? &ok_c : &cancel_c) : (ControlRecord *)0;
-        it[k].rect = (k < buttons) ? it[k].ctrl->contrlRect
-                             : fta_rect(FTA_TEXT_X, FTA_TEXT_Y + 16 * (k - buttons),
-                                        FTA_TEXT_X + FINDER_ALERT_TEXT_W,
-                                        FTA_TEXT_Y + 16 * (k - buttons + 1));
-        it[k].text = (k < buttons) ? (const char *)0 :
-                     (locked ? locked_text[k - buttons] : lines[k - buttons]);
-        it[k].enabled = (uint8_t)((k < buttons) ? 1 : 0);
-        it[k]._pad[0] = it[k]._pad[1] = it[k]._pad[2] = 0u;
-    }
-    fta_rgn(&rs); fta_rgn(&rc); fta_rgn(&ru);
-    (void)NewDialog(&dr, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B), "", it,
-                    (uint16_t)(buttons + n), 1u /* OK */, (uint16_t)buttons,
-                    (WindowMgr *)0, &rs.r, &rc.r, &ru.r);
-    dr.window.port.portBits.bm = ctx->off;
-    dr.window.port.visRgn  = (region_t *)0;
-    dr.window.port.clipRgn = (region_t *)0;
-    dr.window.port.portRect = region_get_bbox(dr.window.strucRgn);
+    for (k = 0; k < n; k++) text[k] = locked ? locked_text[k] : lines[k];
 #ifdef KMAIN_MUT_LOCKED_NOTICE
     /* Keep the marker and protected disk: only the independent pixel oracle
      * may certify that the notice was actually visible (Rule 6 / Law 2). */
-    if (!locked)
+    draw = !locked;
 #endif
-    {
-        DrawDialog(&dr);
-        flair_desktop_present(bi, &ctx->off);
-    }
+    flair_live_alert_open(ctx, bi, text, n, labels, locked ? 1 : 2, draw);
     if (locked) {
         serial_puts("FINDER-LOCKED-ALERT\n");
     } else {
@@ -4148,25 +4217,37 @@ static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
         serial_putu((g_finder_shell->trash_bytes + 1023u) / 1024u);
         serial_putc('\n');
     }
+    return flair_live_alert_run(ctx, bi) == 1u;
+}
 
-    t0 = flair_tick_count();
-    for (;;) {
-        EventRecord ev;
-        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 3u);
-        flair_live_cursor_track(&ev);
-        if (g) {
-            flair_live_emit_evt(&ev);
-            if (DialogModalDispatch(&dr, &ev, (dialog_modal_block_fn)0,
-                                    (void *)0) == FLAIR_MODAL_CAPTURE &&
-                DialogHandleEvent(&dr, &ev, (dialog_filter_fn)0, &hit))
-                break;
-        }
-        if (flair_live_track_cut(t0, &cancel)) { hit = 2u; break; }
+/* TBX_ALERT (bead initech-fvnj; spec/toolbox_gate.h Sec 11): the resident
+ * tenant asked a question and RETURNED. Show it (a TENANT-ALERT-LINE per
+ * message line, then TENANT-ALERT up: the screendump marker), take the modal answer, push it
+ * (TENANT-ALERT-HIT, then the TBX_EVT_ALERT delivery), then service the
+ * tenant again -- the answer may draw, EXIT or ask once more. */
+static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    const char *text[TBX_ALERT_LINES], *btn[3];
+    uint32_t n, nb, hit;
+
+    if (!tbx_take_alert(text, &n, btn, &nb)) return;
+    flair_live_alert_open(ctx, bi, text, (int)n, btn, (int)nb, 1);
+    for (uint32_t i = 0; i < n; i++) {
+        serial_puts("TENANT-ALERT-LINE ");
+        serial_puts(text[i]);
+        serial_putc('\n');
     }
-    DisposeDialog(&dr, (WindowMgr *)0);
-    WindowMgr_invalidate_desktop(ctx->wm, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B));
-    finder_desk_repaint(ctx, bi);
-    return hit == 1u;
+    serial_puts("TENANT-ALERT up lines=");
+    serial_putu(n);
+    serial_puts(" buttons=");
+    serial_putu(nb);
+    serial_putc('\n');
+    hit = flair_live_alert_run(ctx, bi);
+    serial_puts("TENANT-ALERT-HIT item=");
+    serial_putu(hit);
+    serial_putc('\n');
+    tbx_alert_answer(hit);
+    flair_live_tenant_service(ctx, bi);
 }
 
 /* Special > Empty Trash, after the shell counted (bead initech-6k12). */

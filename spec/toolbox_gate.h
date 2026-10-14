@@ -463,8 +463,9 @@
  *     What = TBX_EVT_ALERT, Message = the item hit:
  *            1 = default button (Return / Enter), 2 = cancel button (Escape),
  *            3 = the third button,
- * and Modifiers/When/Where of the dismissing event. Strings: ASCIZ in the
- * image or BSS (the Sec 10 span rule). textPtr: 1..TBX_ALERT_LINES lines
+ * and Modifiers/When/Where zero. Strings: ASCIZ wholly inside the image (the
+ * Sec 5/7 rule TEXTDRAW follows); the kernel COPIES them at the call, so the
+ * tenant may reuse its buffers at once. textPtr: 1..TBX_ALERT_LINES lines
  * separated by CR (0x0D, the Dialog Manager static-text line break), each
  * 1..TBX_ALERT_LINE_MAX-1 bytes and at most TBX_ALERT_TEXT_W Chicago 12 pixels.
  * defPtr is required; cancelPtr may be 0 only when otherPtr is 0; a label is
