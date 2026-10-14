@@ -528,24 +528,25 @@ def run_selftest():
     Fails loud if the goldens directory is absent (CLAUDE.md Rule 2).
     Prints 'ndx_ref selftest: N checks, 0 failures' or exits non-zero.
     """
-    # Locate golden trees relative to this file.
-    # This file is at: <repo>/harness/diff/dbf_diff/ndx_ref.py
-    # Goldens are at:  <repo>/../dbase3-decomp/goldens/...
-    here      = os.path.dirname(os.path.abspath(__file__))
+    # An explicit root is relative to the caller's cwd (as in make), or absolute.
+    # Only the default is anchored to this repository's sibling corpus.
+    here = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.normpath(os.path.join(here, "..", "..", ".."))
-    decomp    = os.path.normpath(os.path.join(repo_root, "..", "dbase3-decomp"))
+    decomp = os.environ.get("DBASE3_DECOMP",
+                            os.path.join(repo_root, "..", "dbase3-decomp"))
+    decomp = os.path.abspath(decomp)
     pristine  = os.path.join(decomp, "goldens", "dbase-iii-plus-1.1-pristine",
                              "files", "Sample_Programs_and_Utilities")
     mint      = os.path.join(decomp, "mint", "work")
 
     if not os.path.isdir(pristine):
         sys.stderr.write(
-            "ndx_ref selftest: ABORT -- pristine goldens not found at '%s'\n"
+            "ndx_ref selftest: FAIL DBASE3_DECOMP -- pristine goldens not found at '%s'\n"
             % pristine)
         sys.exit(2)
     if not os.path.isdir(mint):
         sys.stderr.write(
-            "ndx_ref selftest: ABORT -- mint/work not found at '%s'\n" % mint)
+            "ndx_ref selftest: FAIL DBASE3_DECOMP -- mint/work not found at '%s'\n" % mint)
         sys.exit(2)
 
     checks   = 0

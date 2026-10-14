@@ -3396,7 +3396,7 @@ test-samir-dbf-ref:
 	$(call need_goldens,test-samir-dbf-ref)
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-samir-dbf-ref FAIL: python3 not found.\n'; exit 1; }
 	@printf ">>> test-samir-dbf-ref: independent .dbf/.dbt reader vs corpus goldens\n"
-	@DBASE3_DECOMP=$(DBASE3_DECOMP) python3 $(DBF_REF_PY) --selftest
+	@DBASE3_DECOMP="$(DBASE3_DECOMP)" python3 $(DBF_REF_PY) --selftest
 	@printf ">>> test-samir-dbf-ref: green\n"
 
 # SAMIR foundation umbrella (the Phase-0 unit vector). Grows as engine steps land.
@@ -3409,7 +3409,7 @@ test-samir-ndx-ref:
 	$(call need_goldens,test-samir-ndx-ref)
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-samir-ndx-ref FAIL: python3 not found.\n'; exit 1; }
 	@printf ">>> test-samir-ndx-ref: independent .ndx B-tree reader vs corpus goldens\n"
-	@DBASE3_DECOMP=$(DBASE3_DECOMP) python3 $(DBF_DIFF_DIR)/ndx_ref.py --selftest
+	@DBASE3_DECOMP="$(DBASE3_DECOMP)" python3 $(DBF_DIFF_DIR)/ndx_ref.py --selftest
 	@printf ">>> test-samir-ndx-ref: green\n"
 
 .PHONY: test-samir
