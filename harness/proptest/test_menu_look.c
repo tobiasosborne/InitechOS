@@ -52,12 +52,20 @@ static int original(const char *png,const char *nfnt)
     unsigned char b[8192];FILE *f=fopen(nfnt,"rb");if(!f)return 1;
     size_t n=fread(b,1,sizeof b,f);fclose(f);if(n!=3098)return 1;
     int h=be(b,14),rw=be(b,24),loc=26+2*rw*h,ow=16+2*be(b,16);
+    if(h!=15 || rw!=70 || loc!=2126 || ow!=2612)return 1;
     int start=be(b,loc+36),end=be(b,loc+38);
     bad+=b[ow+36]!=1 || b[ow+37]!=11 || end-start!=9;
     for(int y=0;y<16;y++)for(int x=0;x<11;x++) {
         int k=start+x-1;
         int ink=y<h && x>=1 && k<end && (b[26+y*2*rw+k/8]&(128>>(k%8)));
         bad+=!!ink!=!!(ML_check[y]&(0x8000u>>x));
+    }
+    start=be(b,loc+140);end=be(b,loc+142);
+    bad+=b[ow+140]!=1 || b[ow+141]!=7;
+    for(int y=0;y<9;y++)for(int x=0;x<7;x++) {
+        int k=start+x-1;
+        int ink=x>=1 && k<end && (b[26+(3+y)*2*rw+k/8]&(128>>(k%8)));
+        bad+=!!ink!=!!(ML_file_F[y]&(0x8000u>>x));
     }
     return bad;
 }
@@ -71,6 +79,11 @@ int main(int argc,char **argv)
         render_run(&r,draw);
         int bad=0;for(int y=0;y<20;y++)bad+=render_pixel_rgb(&r,34,y)!=ml_band_rgb(y,bpp);
         CHECK(!bad,"ML1 title band matches independent four-class crop");
+        bad=0;for(int y=0;y<9;y++)for(int x=0;x<7;x++) {
+            uint32_t want=(ML_file_F[y]&(0x8000u>>x))?0xFFFFFF:ml_band_rgb(y+5,bpp);
+            bad+=render_pixel_rgb(&r,42+x,5+y)!=want;
+        }
+        CHECK(!bad,"ML9 white File F equals independent NFNT crop");
         rgn_rect_t panel=MenuInfo_panel_rect(&bar,0);
         CHECK(panel.left==33 && panel.top==19,"ML2 panel origin33/19 (capture)");
         int lx=640,ty=480,rx=-1;

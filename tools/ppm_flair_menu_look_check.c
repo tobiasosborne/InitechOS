@@ -37,8 +37,11 @@ int main(int argc,char **argv)
         int geom=left!=53||top!=43||right!=169||px(183,45)!=0||px(33,45)!=0;
         if(geom)fprintf(stderr,"FAIL menu-look ML4 geometry: first(%d,%d), last%d, want53,43/169 + frame183 = clearance14\n",left,top,right);
         bad+=geom;
-        int white=0;for(int y=25;y<34;y++)for(int x=43;x<64;x++)white+=px(x,y)==0xFFFFFF;
-        if(white!=83){fprintf(stderr,"FAIL menu-look title white ink%d !=Chicago83\n",white);bad++;}
+        int ink=0;for(int y=0;y<9;y++)for(int x=0;x<7;x++) {
+            uint32_t want=(ML_file_F[y]&(0x8000u>>x))?0xFFFFFF:ml_band_rgb(y+5,8);
+            ink+=px(42+x,25+y)!=want;
+        }
+        if(ink){fprintf(stderr,"FAIL menu-look ML9 white NFNT F: %d/63 differ\n",ink);bad++;}
     } else if(!strcmp(argv[1],"view")) {
         int diff=0,count=0;for(int y=0;y<16;y++)for(int x=0;x<11;x++) {
             int ink=px(121+x,40+y)==0;count+=ink;diff+=ink!=!!(ML_check[y]&(0x8000u>>x));

@@ -20,6 +20,11 @@ static const uint16_t ML_check[16] = {
     0,0,0,0,0x0040,0x00C0,0x0180,0x0300,
     0x4600,0x6C00,0x3800,0x1000,0,0,0,0
 };
+/* NFNT F: loc[70..71]=231/236, ow lb1/aw7, cap rows3..11.
+ * Used for white ink; no expected count is borrowed from our own File art. */
+static const uint16_t ML_file_F[9] = {
+    0x7C00,0x6000,0x6000,0x6000,0x7800,0x6000,0x6000,0x6000,0x6000
+};
 static inline uint32_t ml_band_rgb(int y,int bpp)
 {
     if(y==19) return 0;

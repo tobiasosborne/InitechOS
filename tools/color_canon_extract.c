@@ -127,7 +127,7 @@ static int read_rgb_bytes(const char *p, const char *end,
 /* ---- Canon entry store ---------------------------------------------------- */
 
 #define CANON_N   9   /* exactly 9 indexed entries, idx 0..8 */
-#define DERIVED_N 4   /* exactly 2 derived rows               */
+#define DERIVED_N 4   /* exactly4 derived rows               */
 /* DEC-10 Sec 3.5.3 / initech-3knt: 2 retained SYS7 names + 11 appended
  * Platinum sampled-domain names; exact count remains a fail-loud invariant. */
 #define RAMP_N   13   /* exactly 13 named idx>=9 ramp indices */

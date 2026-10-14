@@ -10,8 +10,8 @@
  *
  * VALIDATION (fail loud, Rule 2 -- a malformed strike never reaches a header):
  *   - glyph blocks are codes FIRST..LAST in order, then exactly one "missing",
- *     then extended blocks 0xC9 (ellipsis) and 0x12 (checkMark, tdnl.95),
- *     the one glyph above 0x7E the Toolbox draws (a truncated window title
+ *     then extended blocks 0xC9 (ellipsis) and 0x12 (checkMark, tdnl.95);
+ *     0xC9 is the glyph above 0x7E the Toolbox draws (a truncated title
  *     ends in it; bead initech-tdnl.68; NFNT 5478 owTable code 0xC9 lb 2
  *     aw 14, ../system7-decomp specs/fonts/chicago.md "widMax");
  *   - every glyph has exactly CELL_H rows, each exactly `aw` chars of '#'/'.';
@@ -38,7 +38,7 @@
 #define COUNT  (LAST - FIRST + 1)
 #define CELL_H 16
 #define ELLIPSIS 0xC9              /* Mac Roman ellipsis (the one extra glyph) */
-#define NGLYPH (COUNT + 3)         /* printable, missing, ellipsis            */
+#define NGLYPH (COUNT + 3)         /* printable, missing, ellipsis, check     */
 
 static unsigned g_rows[NGLYPH][CELL_H];
 static int g_aw[NGLYPH], g_lb[NGLYPH];
