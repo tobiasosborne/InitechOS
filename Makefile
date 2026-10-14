@@ -29616,7 +29616,7 @@ I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=1
 	grep -qF 's="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=585 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
 $(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
-$(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe))
+$(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe,$(IWORD_EXE)))
 .PHONY: test-flair-i123-menu test-flair-i123-menu-mutant
 test-flair-i123-menu: test-i123-menu-tree $(BUILD)/check_i123_menu_levels $(HARNESS_BIN) $(FLAIR_I123_MENU_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	$(call appl-boot,flair_i123_menu_ops,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_OPS,--screendump --screendump-after FLAIR-LIVE-OK)
