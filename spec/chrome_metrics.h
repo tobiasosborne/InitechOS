@@ -30,6 +30,17 @@
 /* Menu height is unchanged by this chrome re-key.
  * Ref: spec/chrome_metrics.json native.menubar_height (retained metric). */
 #define FLAIR_CHROME_MENUBAR_H 20
+/* RE-KEY2026-10-15 tdnl.70/.94: s8_menu_dropped L33, File ink43;
+ * 43-33-1(NFNT bearing)=9. Item53-33-1=19. Frame230-ink216=14;
+ * N's1px trailing blank plus exclusive frame correction =>cmd cell pad13.
+ * Apple17-art bearing2=15. Row21-frame19=2; cap23-row21=2.
+ * See chrome_metrics.json platinum_menu_layout for retained policy metrics. */
+#define FLAIR_CHROME_MENU_APPLE_W 33
+#define FLAIR_CHROME_MENU_APPLE_LEFT 15
+#define FLAIR_CHROME_MENU_TITLE_PAD 9
+#define FLAIR_CHROME_MENU_ITEM_LPAD 19
+#define FLAIR_CHROME_MENU_CMD_RPAD 13
+
 
 /* Platinum title band, frame-to-frame inclusive.
  * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1. */

@@ -12152,6 +12152,10 @@ test-chicago-metrics-mutant: $(TEST_CHIMET_MUT)
 		|| { printf '%s\n' "$$out" | tail -5; printf '!!! test-chicago-metrics-mutant FAIL: RED, but not for the perturbed advance\n'; exit 1; }; \
 	printf '>>> test-chicago-metrics-mutant: green (ONE_ADVANCE correctly RED on the perturbed glyph -- the oracle bites)\n'
 
+	@if $(BUILD)/test_chicago_check_mutant > $(BUILD)/chicago_check_mutant.log 2>&1; then printf 'FAIL check advance mutant survived\n'; exit 1; fi
+	@grep -q 'FAIL: H check0x12.*measure12' $(BUILD)/chicago_check_mutant.log
+	@printf '>>> test-chicago-metrics-mutant: CHECK_ADVANCE correctly RED (0x12 advance12 vs11)\n'
+
 # ---------------------------------------------------------------------------
 # REAL gate: test-text (beads initech-kg5) -- proportional FLAIR text rendering.
 # Chicago + Geneva 9 strikes; text_measure = SUM of per-glyph advances (NO fixed
@@ -18343,7 +18347,9 @@ FLAIR_MENU_PPM     := $(BUILD)/$(FLAIR_MENU_NAME).ppm
 # "m15:35" tracks down into the panel's "Quit" row (45,45) (dy signs
 # rebaselined by initech-rgt8 -- screen-down-positive now); l0 = button up ->
 # MenuSelect chooses item 2 (Quit) = (128<<16|2) = 0x00800002.
-FLAIR_MENU_SPEC    := m-97:-77,m-97:-77,m-96:-76,l1,m15:35,l0
+# RE-KEY2026-10-15 tdnl.70: Apple ends33, File slot[33,74); click50,10.
+# Quit row[37,53), x50 is inside the panel (capture first-row offset2).
+FLAIR_MENU_SPEC    := m-90:-77,m-90:-77,m-90:-76,l1,m0:35,l0
 .PHONY: test-flair-menu
 test-flair-menu: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_IMG) $(PPM_FLAIR_MENU_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -18450,7 +18456,8 @@ FLAIR_MENU_CROSSDRAG_PPM     := $(BUILD)/$(FLAIR_MENU_CROSSDRAG_NAME).ppm
 # MenuInfo_item_at returns -1 (no item row) at every tracked point. "l0" releases
 # there: MenuSelect's own final tracked menu (re-derived from where0/pts, menu.c
 # initech-rl4v) is Edit, but the release is on the title (not a row) -> sel=0.
-FLAIR_MENU_CROSSDRAG_SPEC   := m-97:-77,m-97:-77,m-96:-76,l1,m59:0,l0
+# RE-KEY2026-10-15: click50,10 File ->100,10 Edit[74,117), NFNT25+18.
+FLAIR_MENU_CROSSDRAG_SPEC   := m-90:-77,m-90:-77,m-90:-76,l1,m50:0,l0
 .PHONY: test-flair-menu-crossdrag
 test-flair-menu-crossdrag: $(HARNESS_BIN) $(FLAIRLIVE_NOMODAL_IMG) $(PPM_FLAIR_MENU_CROSSDRAG_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -21407,7 +21414,7 @@ test-flair-window-ops: test-flair-zoom-toggle test-flair-grow test-flair-collaps
 # ===========================================================================
 FLAIR_APPL_GOLDEN        := spec/flair_app_launch_trace.golden
 PPM_FLAIR_APPL_CHECK_BIN := $(BUILD)/ppm_flair_app_launch_check
-$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/color_canon.h spec/assets/chicago12.h spec/assets/font_linkage.h spec/chicago12_nfnt_golden.h | $(BUILD)
+$(PPM_FLAIR_APPL_CHECK_BIN): tools/ppm_flair_app_launch_check.c spec/assets/apple_glyph.h spec/assets/color_canon.h spec/assets/chicago12.h spec/assets/font_linkage.h spec/chicago12_nfnt_golden.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -Ispec -o $@ $<
 
 # The mutant kernels: two gate-module knobs + one pump knob.
@@ -22044,7 +22051,10 @@ RECORD_SETTLE_ctenant_keys  = 400
 #     item 1 row [41,57) hilited ; m0:30 -> (300,80), below the 2-item panel
 #     (rows [41,73)) ; l0 -> cancel, FLAIR-MENU menu=262 item=0 (the marker)
 #   PARK (300,80) -> (620,460): m100:100 x3 -> (600,380), m20:80 -> (620,460).
-RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-20:-10,l1,m50:0,m50:0,l0,m100:0,l1,m0:20,m0:30,l0,m100:100,m100:100,m100:100,m20:80
+# RE-KEY2026-10-15 tdnl.70: PAD9 -> Photoshop(no Apple) File[0,41),
+# Edit[41,84), Image[84,144), Layer[144,199), Select[199,257), View[257,307),
+# Window[307,377), Help[377,423). Waypoints110/170/230/330; finalpark620,460.
+RECORD_SPEC_chicago_menus   = m-100:-100,m-100:-100,m-10:-10,l1,m60:0,m60:0,l0,m100:0,l1,m0:20,m0:30,l0,m100:100,m100:100,m90:100,m0:80
 RECORD_MARKER_chicago_menus = FLAIR-MENU menu=262 item=0 (sel=0x00000000)
 RECORD_SETTLE_chicago_menus = 200
 # modifier_release (bead initech-tdnl.58, audit G11; Rule 14): the root window
@@ -29620,6 +29630,8 @@ I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=1
 	grep -qF 's="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=585 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
 $(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
+# Inherited BASE_COMMIT omitted the fourth argument: test-makefile-vars
+# failed on undefined4 (three sites); keep the standard WORD tenant.
 $(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe,$(IWORD_EXE)))
 .PHONY: test-flair-i123-menu test-flair-i123-menu-mutant
 test-flair-i123-menu: test-i123-menu-tree $(BUILD)/check_i123_menu_levels $(HARNESS_BIN) $(FLAIR_I123_MENU_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
@@ -29675,3 +29687,68 @@ TEST_UNIT_GATES += test-i123-copy-move-baseline
 $(BUILD)/check_i123_menu_levels: harness/diff/wk1_diff/check_i123_menu_levels.c
 	$(CC) $(CFLAGS) -o $@ $<
 include harness/diff/fat_diff/doslook.mk
+
+# LOOK pass6 menu batch: independent Mac column crop and NFNT check, RED first.
+MENU_LOOK_GOLDEN := spec/menu_look_golden.h
+MENU_LOOK_PNG = $(SYSTEM7_DECOMP)/goldens/captures/s8_menu_dropped.png
+MENU_LOOK_NFNT = $(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin
+$(BUILD)/test_menu_look: harness/proptest/test_menu_look.c $(TEST_MENU_DEPS) $(MENU_LOOK_GOLDEN)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -o $@ $< $(MENU_LINK) -lpng
+$(BUILD)/test_menu_look_mut_%: harness/proptest/test_menu_look.c $(TEST_MENU_DEPS) $(MENU_LOOK_GOLDEN)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -D$* -o $@ $< $(MENU_LINK) -lpng
+MENU_LOOK_MUTANTS := MENU_LOOK_MUT_FLAT_HILITE MENU_LOOK_MUT_WRONG_RPAD MENU_LOOK_MUT_V_MARK
+.PHONY: test-menu-look test-menu-look-mutant
+test-menu-look: $(BUILD)/test_menu_look
+	@$< "$(MENU_LOOK_PNG)" "$(MENU_LOOK_NFNT)"
+	@printf '>>> test-menu-look: green (independent title band, item20/4, shortcut14, NFNT check18; both depths; clipping)\n'
+test-menu-look-mutant: test-menu-look $(foreach m,$(MENU_LOOK_MUTANTS),$(BUILD)/test_menu_look_mut_$(m))
+	@for m in $(MENU_LOOK_MUTANTS); do \
+	 if $(BUILD)/test_menu_look_mut_$$m "$(MENU_LOOK_PNG)" "$(MENU_LOOK_NFNT)" > $(BUILD)/menu_look_$$m.log 2>&1; then printf 'FAIL mutant %s survived\n' "$$m"; exit 1; fi; \
+	 case "$$m" in *FLAT*) leg=ML1;; *RPAD*) leg=ML4;; *MARK*) leg=ML5;; esac; \
+	 grep -q "FAIL.*$$leg" $(BUILD)/menu_look_$$m.log || { cat $(BUILD)/menu_look_$$m.log; exit 1; }; \
+	 printf '>>> test-menu-look-mutant: %s correctly RED (%s)\n' "$$m" "$$leg"; done
+TEST_UNIT_GATES += test-menu-look test-menu-look-mutant
+include spec/flair_menu_look_traces.mk
+MENU_LOOK_CHECK := $(BUILD)/ppm_flair_menu_look_check
+$(MENU_LOOK_CHECK): tools/ppm_flair_menu_look_check.c $(MENU_LOOK_GOLDEN)
+	$(CC) $(CFLAGS) -Ispec -o $@ $<
+define menu-look-boot
+cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(1)_data.img
+$(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
+ --mouse "$(FLAIR_MENU_LOOK_SPEC)" --keys-after FLAIR-LIVE-READY \
+ --quit-after "FLAIR-MENU menu=512 item=0" --timeout-ms 30000 \
+ --screendump --screendump-after "$(3)" 2> $(BUILD)/$(1).report
+@! grep -q 'triple_fault=1' $(BUILD)/$(1).report
+@grep -qx 'FINDER-OPEN-VOLUME win=0 n=2' $(BUILD)/$(1).serial
+@grep -qx 'FLAIR-MENU-DROP menu=512' $(BUILD)/$(1).serial
+@grep -qx 'FLAIR-MENU-XDROP menu=514' $(BUILD)/$(1).serial
+@grep -qx 'FLAIR-MENU menu=512 item=0 (sel=0x00000000)' $(BUILD)/$(1).serial
+@! grep -q '^PANIC' $(BUILD)/$(1).serial
+endef
+.PHONY: test-flair-menu-look test-flair-menu-look-mutant
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/finder_desktop_recorddbl.o,menu_look_gate))
+test-flair-menu-look: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_gate.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
+	$(call menu-look-boot,menu_look_file,$(BUILD)/flair_tenants_mut_menu_look_gate.img,FLAIR-MENU-DROP menu=512)
+	@$(MENU_LOOK_CHECK) file $(BUILD)/menu_look_file.ppm
+	$(call menu-look-boot,menu_look_view,$(BUILD)/flair_tenants_mut_menu_look_gate.img,FLAIR-MENU-XDROP menu=514)
+	@$(MENU_LOOK_CHECK) view $(BUILD)/menu_look_view.ppm
+	@printf '>>> test-flair-menu-look: green (File dark band/white ink/item20/4/shortcut14; View NFNT check18)\n'
+$(BUILD)/menu_mut_look_flat.o: os/flair/menu.c $(TEST_MENU_DEPS)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_FLAT_HILITE -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/menu_mut_look_flat.o $(BUILD)/finder_desktop_recorddbl.o,menu_look_flat))
+test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_flat.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
+	$(call menu-look-boot,menu_look_mut,$(BUILD)/flair_tenants_mut_menu_look_flat.img,FLAIR-MENU-DROP menu=512)
+	@if $(MENU_LOOK_CHECK) file $(BUILD)/menu_look_mut.ppm > $(BUILD)/menu_look_mut.pixels 2>&1; then printf 'FAIL flat hilite survived\n'; exit 1; fi
+	@grep -q 'FAIL menu-look ML1 title band' $(BUILD)/menu_look_mut.pixels
+	@printf '>>> test-flair-menu-look-mutant: MENU_LOOK_MUT_FLAT_HILITE correctly RED (ML1 title band)\n'
+TEST_EMU_GATES += test-flair-menu-look test-flair-menu-look-mutant
+RECORD_SCRIPTS += menu_look
+RECORD_SPEC_menu_look = $(FLAIR_MENU_LOOK_SPEC)
+RECORD_MARKER_menu_look = FLAIR-MENU-XDROP menu=514
+RECORD_IMAGE_menu_look = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_menu_look = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_menu_look = 300
+
+$(BUILD)/test_chicago_check_mutant: $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_MUT_ONE_ADVANCE=18 -o $@ $< os/flair/text.c os/flair/surface.c
+test-chicago-metrics-mutant: $(BUILD)/test_chicago_check_mutant

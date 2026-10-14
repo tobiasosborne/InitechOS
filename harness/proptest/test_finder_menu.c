@@ -260,26 +260,28 @@ static void leg_structure(void)
  * ===========================================================================*/
 typedef struct want_slot { int x, w; } want_slot_t;
 
+/* RE-KEY2026-10-15 tdnl.70: capture Apple33 and ink pad10 minus
+ * NFNT bearing1=9. Slot widths use unchanged NFNT23/25/32/46/28 +18. */
 static const want_slot_t WANT_SLOTS[] = {
-    {  20, 37 },   /* File    */
-    {  57, 39 },   /* Edit    */
-    {  96, 46 },   /* View    */
-    { 142, 60 },   /* Special */
-    { 202, 42 }    /* Help    */
+    {  33, 41 },   /* File    */
+    {  74, 43 },   /* Edit    */
+    { 117, 50 },   /* View    */
+    { 167, 64 },   /* Special */
+    { 231, 46 }    /* Help    */
 };
 
 /* The first column PAST the last Finder title. The booted band-2 probe uses
  * this to tell the Finder bar from the Photoshop bar, whose titles ("File Edit
  * Image Layer Select View Window Help") run far past it. */
-#define FINDER_BAR_INK_END   244
+#define FINDER_BAR_INK_END   277
 
 static void leg_layout(void)
 {
     MenuBar *bar = finder_menu_bar();
     int i;
 
-    CHECK(FLAIR_MENU_APPLE_W == 20, "B the Apple slot is 20px (menu.h Sec 5)");
-    CHECK(FLAIR_MENU_TITLE_PAD == 7, "B the title side pad is 7px (menu.h Sec 5)");
+    CHECK(FLAIR_MENU_APPLE_W == 33, "B the Apple slot is33px (capture panelL33) (menu.h Sec 5)");
+    CHECK(FLAIR_MENU_TITLE_PAD == 9, "B the title cell pad9 (ink43-33-bearing1) (menu.h Sec 5)");
     CHECK(text_measure(FONT_CHICAGO, "File") == 23,
           "B StringWidth(File) is the NFNT 5478 sum 23 -- the arithmetic below "
           "assumes it (chicago.md recipe step 3)");
@@ -296,7 +298,7 @@ static void leg_layout(void)
     }
     CHECK(MenuBar_title_x(bar, WN(WANT_SLOTS) - 1) +
           MenuBar_title_w(bar, WN(WANT_SLOTS) - 1) == FINDER_BAR_INK_END,
-          "B the Finder bar's title run ends at x=244 -- the discriminator the "
+          "B the Finder bar's title run ends at x=277 -- the discriminator the "
           "booted probe uses against the Photoshop bar");
     CHECK(MenuBar_hit(bar, FLAIR_MENU_APPLE_W - 1) < 0,
           "B the Apple GLYPH SLOT is not a titled menu (menu.h Sec 5) -- which "

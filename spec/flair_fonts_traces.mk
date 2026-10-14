@@ -49,3 +49,7 @@ FLAIR_FONTS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:
 #    double-clicks; an XDROP-gated dump waits only on held moves.) Then hold
 #    1 s, leave the panel (180,130) and release: a cancel. 29 tokens.
 FLAIR_FONTS_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,m-100:-46,m-100:-46,m-41:0,l1,m42:0,w1000,m100:100,l0
+
+# RE-KEY2026-10-15 tdnl.70: Apple33, title PAD9; File[33,74),
+# Style[74,125). Existing click38 and cross80 remain inside those slots.
+# Item LPAD19 (captured ink20 minus NFNT bearing1); RPAD12 retained policy.

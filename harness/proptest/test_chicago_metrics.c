@@ -330,6 +330,18 @@ int main(void)
               nfnt5478_aw(NFNT5478_ELLIPSIS), nfnt5478_lb(NFNT5478_ELLIPSIS), aw, lb);
     }
 
+    { /* tdnl.95: the control-range checkMark is a real Chicago glyph. */
+        int lb = -1, aw = -1;
+        const char check[] = {18, 0};
+        extent_t e = draw_one(check);
+        CHECK(nfnt_ow(18, &lb, &aw) && text_measure(FONT_CHICAGO, check) == aw &&
+              e.il - PEN_X == lb && e.ir - e.il + 1 == 9 && e.ib - e.it + 1 == 8,
+              "H check0x12 advance/bearing/bbox: measure%d lb%d bbox%dx%d NFNTaw%d lb%d",
+              text_measure(FONT_CHICAGO, check), e.il-PEN_X, e.ir-e.il+1, e.ib-e.it+1, aw, lb);
+        CHECK(nfnt5478_aw(18) == aw && nfnt5478_lb(18) == lb,
+              "G check0x12 typed golden aw11/lb1 equals original resource");
+    }
+
     printf("  %d checks, %d failures\n", g_checks, g_fails);
     if (g_fails) {
         printf("!!! test-chicago-metrics FAIL\n");

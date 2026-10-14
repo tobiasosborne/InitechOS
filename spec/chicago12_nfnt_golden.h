@@ -47,14 +47,19 @@ static const unsigned char __attribute__((unused)) NFNT5478_LB[NFNT5478_LAST - N
 #define NFNT5478_ELLIPSIS_AW  14
 #define NFNT5478_ELLIPSIS_LB  2
 
+/* Dated extension 2026-10-15 tdnl.95: NFNT code18 ow @2648=0x010B. */
+#define NFNT5478_CHECK 0x12
+#define NFNT5478_CHECK_AW 11
+#define NFNT5478_CHECK_LB 1
+
 /* Golden advance / bearing of byte c (callers pass 0x20..0x7E or 0xC9). */
 static inline int nfnt5478_aw(int c)
 {
-    return c == NFNT5478_ELLIPSIS ? NFNT5478_ELLIPSIS_AW : NFNT5478_AW[c - NFNT5478_FIRST];
+    return c == NFNT5478_CHECK ? NFNT5478_CHECK_AW : c == NFNT5478_ELLIPSIS ? NFNT5478_ELLIPSIS_AW : NFNT5478_AW[c - NFNT5478_FIRST];
 }
 static inline int nfnt5478_lb(int c)
 {
-    return c == NFNT5478_ELLIPSIS ? NFNT5478_ELLIPSIS_LB : NFNT5478_LB[c - NFNT5478_FIRST];
+    return c == NFNT5478_CHECK ? NFNT5478_CHECK_LB : c == NFNT5478_ELLIPSIS ? NFNT5478_ELLIPSIS_LB : NFNT5478_LB[c - NFNT5478_FIRST];
 }
 
 #endif /* INITECH_SPEC_CHICAGO12_NFNT_GOLDEN_H */

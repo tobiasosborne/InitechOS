@@ -129,6 +129,17 @@
       "note": "GetMBarHeight returns 20 px for Roman script. v0 frame_pixels value was 19 (CRT photo measurement -- superseded by this native constant per gui-ground-truth.md Sec 3.4 resolution)."
     },
 
+    "platinum_menu_layout": {
+      "apple_slot_width": 33, "apple_cell_left": 15,
+      "title_cell_pad": 9, "title_ink_hilite_pad": 10,
+      "item_cell_lpad": 19, "item_no_command_rpad": 12,
+      "command_cell_rpad": 13, "command_gap": 8,
+      "panel_first_row_offset": 2, "item_cap_top": 2,
+      "shortcut_ink_clearance": 14,
+      "source": "../system7-decomp/specs/sys8/menus.md1.3/1.4/2.2; s8_menu_dropped.png",
+      "note": "DELIBERATE RE-KEY 2026-10-15 tdnl.70/.94: panel/highlight L33; File first ink43 -> ink pad10 minus Chicago bearing1 = cell pad9; Apple first ink17 minus retained art bearing2 = origin15. Item N53 minus panel33 =20 minus NFNT bearing1 = LPAD19. Shortcut frame230 minus last ink216 =14; Chicago N ends two columns before the exclusive cell end, frame is right-1, hence cell RPAD13. Row top21 minus frame19 =2; cap23 minus row21 =2 (retained). Item pitch39-23=16 and separator jump109-87=22 minus16=6 (retained). No-command RPAD12 and command gap8 remain authored policy: total panel width depends on inventory; the capture cannot uniquely derive them. Mark cell+4 (ink+5) is retained policy inside the20px leading margin: menus.md3 explicitly has no captured checkmarked item. The Chicago File advance23 yields slot41 vs captured Charcoal40; no Charcoal substitution in this lane."
+    },
+
     "titlebar_height_std": {
       "value": 22,
       "unit": "px",
