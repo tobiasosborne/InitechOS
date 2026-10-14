@@ -58,6 +58,9 @@
  *            beads initech-tdnl.73/.75)            FINDER_WIN_ERR_SERVICE
  *   samedir  the destination directory IS the source directory (e.g. a root
  *            item dropped on the volume icon)         FINDER_WIN_ERR_SAMEDIR
+ *   stale    the source window, or the target window, no longer views the
+ *            folder it opened on (purged / recycled cluster; finder_windows.h
+ *            Sec 10d, bead initech-uios)              FINDER_WIN_ERR_STALE
  *   cycle    a folder dropped into ITSELF; deeper descendants are caught by
  *            the backend's own '..' walk (fat12_move_dirent step 3) and map to
  *            the same reason                          FINDER_WIN_ERR_CYCLE
@@ -66,7 +69,8 @@
  *                                                     FINDER_WIN_ERR_EXISTS
  *   err      anything else: no binding, no \TRASH, dir full, device
  *                                                     FINDER_WIN_ERR_MOVE
- *   finder_ops_reason() spells the five as "service"|"samedir"|"cycle"|"exists"|"err" for
+ *   finder_ops_reason() spells them "service"|"samedir"|"stale"|"cycle"|"exists"|"err"
+ *   (and "locked" for the Trash staging probe) for
  *   the kernel's FINDER-MOVE-REFUSED reason=<r> line.
  *
  * TRASH STAGING (design F1.4 / F1.5)

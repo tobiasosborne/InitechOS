@@ -47,6 +47,16 @@
  *      shell's in-memory view set loaded back from those same bytes.
  *   L9 VIEW PERSISTENCE. Move a window, close it (which saves), reopen it, and
  *      assert the frame came back to the SAVED origin, not the cascade default.
+ *   L12 PURGED VIEWS (bead initech-uios, audit L002). Over a MUTABLE mock
+ *      volume with lowest-free cluster allocation: Empty Trash with the
+ *      parent / child / grandchild windows open closes all three through the
+ *      Window Manager (only the Trash window stays listed), clears the
+ *      retired selection from the command context and drops their kind=4
+ *      records; a New Folder that lands in the freed cluster opens a NEW
+ *      window at the default frame; a stale view whose cluster was recycled
+ *      into a live directory under the SAME parent refuses New Folder with
+ *      FINDER_WIN_ERR_STALE and issues no mkdir; a partial purge (a locked
+ *      file) keeps the surviving folder's window open, re-listed and writable.
  *
  * INDEPENDENCE (Law 2 / HER-02 boundary)
  *   - Every kind, name, coordinate, count and DB byte below is written out by
@@ -61,6 +71,8 @@
  *   FINDER_WIN_MUT_SINGLETON_DUP    -- L6's singleton property collapses.
  *   FINDER_WIN_MUT_VOLLABEL_SHOWN   -- L2/L5's listings gain the volume label.
  *   FINDER_WIN_MUT_CLEANUP_UNSORTED -- L7's snapped coordinates mirror.
+ *   FINDER_WIN_MUT_PURGE_KEEPS_VIEWS -- L12's purged views stay open.
+ *   FINDER_WIN_MUT_VIEW_UNCHECKED   -- L12's stale view writes a folder.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -177,6 +189,25 @@ static int mock_mkdir(void *user, const char *name83, uint16_t parent)
     return m->mkdir_rc;
 }
 
+/* The view identity (finder_fs_t dir_ident, bead initech-uios): `dir` is
+ * live iff the parent's listing holds a DIRECTORY `name83` -> `dir`, the same
+ * rule fat12_dir_identity applies, evaluated over the hand-authored tree. */
+static int mock_dir_ident(void *user, uint16_t dir, uint16_t parent,
+                          const char *name83)
+{
+    mock_fs_t *m = (mock_fs_t *)user;
+    if (dir == 0u) return (int)FINDER_WIN_OK;
+    for (int i = 0; i < m->n_dirs; i++) {
+        if (m->dirs[i].dir_start != parent) continue;
+        for (int k = 0; k < m->dirs[i].n; k++)
+            if ((m->dirs[i].ents[k].attr & 0x10u) != 0u &&
+                m->dirs[i].ents[k].cluster == dir &&
+                strcmp(m->dirs[i].ents[k].name, name83) == 0)
+                return (int)FINDER_WIN_OK;
+    }
+    return (int)FINDER_WIN_ERR_STALE;
+}
+
 typedef struct scene {
     WindowMgr      wm;
     rgn_store_t    desk, sa, sb, sc;
@@ -205,6 +236,7 @@ static void scene_init(scene_t *s, const mock_dir_t *dirs, int n_dirs)
     s->mock.mkdir_rc = (int)FINDER_WIN_OK;
     s->fs.enumerate  = mock_enumerate;
     s->fs.mkdir      = mock_mkdir;
+    s->fs.dir_ident  = mock_dir_ident;
     s->fs.user       = &s->mock;
     finder_shell_bind_fs(&s->sh, &s->fs);
 }
@@ -407,7 +439,7 @@ static void leg_enumerate(void)
 
     scene_init(&s, MOCK_DIRS, (int)(sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]));
 
-    CHECK(finder_win_open(&s.sh, 0u, "", 1u, &slot, &singleton) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 0u, "", 1u, &slot, &singleton) == FINDER_WIN_OK,
           "L5 the root disk window opens");
     CHECK(slot == 0 && singleton == 0,
           "L5 the first open takes slot 0 and is NOT a singleton raise");
@@ -448,7 +480,7 @@ static void leg_enumerate(void)
         int fslot = -1;
         scene_init(&f, MOCK_DIRS, 2);
         f.mock.fail = 1;
-        CHECK(finder_win_open(&f.sh, 0u, "", 1u, &fslot, NULL) ==
+        CHECK(finder_win_open(&f.sh, 0u, 0u, "", 1u, &fslot, NULL) ==
               FINDER_WIN_ERR_ENUM,
               "L5 an enumerate() failure is FINDER_WIN_ERR_ENUM");
         CHECK(f.sh.windows[0].open == 0u,
@@ -504,7 +536,7 @@ static void leg_service(void)
           "L5b the same names below the root, near misses and NULL are NOT service");
 
     scene_init(&s, SVC_DIRS, 2);
-    CHECK(finder_win_open(&s.sh, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK && slot == 0,
+    CHECK(finder_win_open(&s.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK && slot == 0,
           "L5b the root window opens over the damaged volume");
     v = &s.sh.windows[0].view;
     CHECK(v->n == 4u,
@@ -517,7 +549,7 @@ static void leg_service(void)
           v->icons[3].x == v->icons[0].x + 3 * 68 && v->icons[3].y == v->icons[0].y,
           "L5b the shown icons are packed into cells 0..3 (no hole where TRASH was)");
 
-    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK && slot == 1,
+    CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK && slot == 1,
           "L5b the APPS window opens");
     v = &s.sh.windows[1].view;
     bad = (v->n != 3u);
@@ -545,9 +577,9 @@ static void leg_singleton(void)
 
     scene_init(&s, MOCK_DIRS, 2);
 
-    CHECK(finder_win_open(&s.sh, 0u, "", 1u, &a, &sa) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 0u, "", 1u, &a, &sa) == FINDER_WIN_OK,
           "L6 the root window opens");
-    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &b, &sb) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &b, &sb) == FINDER_WIN_OK,
           "L6 a folder window opens");
     CHECK(a == 0 && b == 1 && sa == 0 && sb == 0,
           "L6 two DIFFERENT directories take two different slots");
@@ -563,7 +595,7 @@ static void leg_singleton(void)
      * window forward -- same slot, singleton=1, no third slot consumed. */
     {
         int c = -1, sc = -1;
-        CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &c, &sc) == FINDER_WIN_OK,
+        CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &c, &sc) == FINDER_WIN_OK,
               "L6 reopening an open folder succeeds");
         CHECK(c == 1, "L6 ... in the SAME slot");
         CHECK(sc == 1, "L6 ... and reports singleton=1 (a raise, not an open)");
@@ -583,11 +615,11 @@ static void leg_singleton(void)
     /* The window table is FIXED CAPACITY and fails loud when full. */
     {
         int d = -1;
-        CHECK(finder_win_open(&s.sh, 21u, "SUBA", 0u, &d, NULL) == FINDER_WIN_OK,
+        CHECK(finder_win_open(&s.sh, 0u, 21u, "SUBA", 0u, &d, NULL) == FINDER_WIN_OK,
               "L6 a third window opens");
-        CHECK(finder_win_open(&s.sh, 23u, "SUBB", 0u, &d, NULL) == FINDER_WIN_OK,
+        CHECK(finder_win_open(&s.sh, 0u, 23u, "SUBB", 0u, &d, NULL) == FINDER_WIN_OK,
               "L6 a fourth window opens (the table is full)");
-        CHECK(finder_win_open(&s.sh, 25u, "SUBC", 0u, &d, NULL) ==
+        CHECK(finder_win_open(&s.sh, 0u, 25u, "SUBC", 0u, &d, NULL) ==
               FINDER_WIN_ERR_FULL,
               "L6 the FIFTH is FINDER_WIN_ERR_FULL -- fail loud, never a "
               "silently dropped open (Rule 2)");
@@ -611,7 +643,7 @@ static void leg_singleton(void)
         BIG_DIRS[0].n         = 70;
 
         scene_init(&big, BIG_DIRS, 1);
-        CHECK(finder_win_open(&big.sh, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
+        CHECK(finder_win_open(&big.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
               "L6 a 70-entry directory still opens");
         CHECK(big.sh.windows[0].view.n == (uint16_t)FINDER_WIN_ICONS_MAX,
               "L6 the window keeps exactly FINDER_WIN_ICONS_MAX icons");
@@ -636,7 +668,7 @@ static void leg_cleanup(void)
     int moved;
 
     scene_init(&s, MOCK_DIRS, 2);
-    CHECK(finder_win_open(&s.sh, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
           "L7 the root window opens");
     v = &s.sh.windows[0].view;
 
@@ -792,7 +824,7 @@ static void leg_persist(void)
     rgn_rect_t f0, f1, f2;
 
     scene_init(&s, MOCK_DIRS, 2);
-    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
           "L9 a folder window opens");
     f0 = WindowFrameRect(&s.sh.windows[slot].rec);
     CHECK(f0.left == 20 && f0.top == 60,
@@ -813,7 +845,7 @@ static void leg_persist(void)
           "L9 ... and the folder's 8.3 name");
 
     slot = -1;
-    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
           "L9 the folder reopens");
     f2 = WindowFrameRect(&s.sh.windows[slot].rec);
     CHECK(f2.left == 150 && f2.top == 200,
@@ -842,7 +874,7 @@ static void leg_new_folder(void)
     uint16_t parent = 0xFFFFu;
 
     scene_init(&s, MOCK_DIRS, 2);
-    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
           "L10 a folder window opens");
 
     memset(name, 0, sizeof name);
@@ -934,7 +966,7 @@ static void leg_cmd_spine(void)
     CHECK(ctx.exec != NULL && ctx.shell == (void *)&s.sh,
           "L11 binding the context installs the shell as the execution hook");
 
-    CHECK(finder_win_open(&s.sh, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
+    CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
           "L11 a folder window opens");
     finder_shell_sync_ctx(&s.sh);
     CHECK(ctx.front_is_diskwin == 1u,
@@ -982,6 +1014,291 @@ static void leg_cmd_spine(void)
     }
 }
 
+/* ===========================================================================
+ * L12 -- EMPTY TRASH RETIRES EVERY VIEW OF A REMOVED FOLDER; A STALE VIEW
+ *        AUTHORISES NO WRITE  (bead initech-uios, audit L002)
+ * ---------------------------------------------------------------------------
+ * Ref: finder_windows.h Sec 10d + Sec 12; REPORT.md L002 (a window kept a
+ * purged folder's cluster; New Folder wrote an orphan into it);
+ * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed p. 112 (PDF
+ * p. 132): "When you discard a folder, the folder and all its contents
+ * disappear" and nothing can be recovered once the Trash is emptied; p. 112
+ * also: individually locked documents cannot be thrown away (the partial
+ * purge, WL-0100). docs/research/fat12-ground-truth.md Sec 3: a freed cluster
+ * is free (0x000) and is handed out again -- the mock allocates LOWEST FREE,
+ * the fat12_find_free rule, so reuse is deterministic and hand-predictable.
+ *
+ * THE PURGE VOLUME (hand-authored; a MUTABLE mock with real allocation):
+ *   root(0): TRASH<2>
+ *   TRASH<2>: A<3>
+ *   A<3>: CHILD<4>, KEEP.TXT[6]      CHILD<4>: GRAND<5>     GRAND<5>: NOTE.TXT[7]
+ * ===========================================================================*/
+enum { PV_DIRS = 8, PV_ENTS = 8, PV_CLUSTERS = 32 };
+typedef struct pv_ent { char name[14]; uint8_t attr; uint16_t cl; } pv_ent_t;
+typedef struct pv_dir { int used; uint16_t cl; int n; pv_ent_t e[PV_ENTS]; } pv_dir_t;
+typedef struct pv {
+    pv_dir_t d[PV_DIRS];
+    uint8_t  busy[PV_CLUSTERS];       /* 1 == allocated                       */
+    char     scratch[FINDER_DESK_NAME_MAX];
+    int      mkdir_calls;
+} pv_t;
+
+static pv_dir_t *pv_dir(pv_t *m, uint16_t cl)
+{
+    for (int i = 0; i < PV_DIRS; i++)
+        if (m->d[i].used && m->d[i].cl == cl) return &m->d[i];
+    return NULL;
+}
+static int pv_find(const pv_dir_t *d, const char *n)
+{
+    for (int i = 0; i < d->n; i++) if (strcmp(d->e[i].name, n) == 0) return i;
+    return -1;
+}
+static void pv_add(pv_t *m, uint16_t dir, const char *n, uint8_t attr, uint16_t cl)
+{
+    pv_dir_t *d = pv_dir(m, dir);
+    memset(&d->e[d->n], 0, sizeof d->e[d->n]);
+    strncpy(d->e[d->n].name, n, 13);
+    d->e[d->n].attr = attr; d->e[d->n].cl = cl; d->n++;
+    if (cl != 0u) m->busy[cl] = 1u;
+    if ((attr & 0x10u) != 0u) {
+        for (int i = 0; i < PV_DIRS; i++)
+            if (!m->d[i].used) {
+                memset(&m->d[i], 0, sizeof m->d[i]);
+                m->d[i].used = 1; m->d[i].cl = cl;
+                break;
+            }
+    }
+}
+static void pv_del(pv_t *m, pv_dir_t *d, int i)
+{
+    uint16_t cl = d->e[i].cl;
+    pv_dir_t *sub = ((d->e[i].attr & 0x10u) != 0u) ? pv_dir(m, cl) : NULL;
+    if (sub != NULL) sub->used = 0;
+    if (cl != 0u) m->busy[cl] = 0u;               /* FREED (0x000)         */
+    for (int k = i; k + 1 < d->n; k++) d->e[k] = d->e[k + 1];
+    d->n--;
+}
+static int pv_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
+{
+    pv_t *m = (pv_t *)u;
+    pv_dir_t *d = pv_dir(m, cl);
+    if (d == NULL) return 0;          /* a freed cluster lists nothing       */
+    for (int i = 0; i < d->n; i++) {
+        finder_dirent_t e; int rc;
+        memset(m->scratch, 0, sizeof m->scratch);
+        strncpy(m->scratch, d->e[i].name, sizeof m->scratch - 1);
+        e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = 100u;
+        e.start_cluster = d->e[i].cl;
+        rc = cb(&e, cu);
+        memset(m->scratch, 'Z', sizeof m->scratch - 1);
+        if (rc != 0) return rc;
+    }
+    return 0;
+}
+/* mkdir allocates the LOWEST FREE cluster (fat12_find_free); a parent that is
+ * not a live directory is the FAT layer's FAT12_ERR_STALE_DIR -> ERR_MKDIR. */
+static int pv_mkdir(void *u, const char *n, uint16_t parent)
+{
+    pv_t *m = (pv_t *)u;
+    pv_dir_t *p = pv_dir(m, parent);
+    m->mkdir_calls++;
+    if (p == NULL || pv_find(p, n) >= 0) return (int)FINDER_WIN_ERR_MKDIR;
+    for (uint16_t c = 2u; c < PV_CLUSTERS; c++)
+        if (!m->busy[c]) { pv_add(m, parent, n, 0x10u, c); return 0; }
+    return (int)FINDER_WIN_ERR_MKDIR;
+}
+static int pv_unlink(void *u, const char *n, uint16_t dir)
+{
+    pv_t *m = (pv_t *)u;
+    pv_dir_t *d = pv_dir(m, dir);
+    int i;
+    if (d == NULL || (i = pv_find(d, n)) < 0) return (int)FINDER_WIN_ERR_MOVE;
+    pv_del(m, d, i);
+    return 0;
+}
+static int pv_rmdir(void *u, const char *n, uint16_t dir)
+{
+    pv_t *m = (pv_t *)u;
+    pv_dir_t *d = pv_dir(m, dir), *sub;
+    int i;
+    if (d == NULL || (i = pv_find(d, n)) < 0) return (int)FINDER_WIN_ERR_MOVE;
+    sub = pv_dir(m, d->e[i].cl);
+    if (sub != NULL && sub->n != 0) return (int)FINDER_WIN_ERR_NOTEMPTY;
+    pv_del(m, d, i);
+    return 0;
+}
+static int pv_trash_dir(void *u) { (void)u; return 2; }
+static int pv_ident(void *u, uint16_t cl, uint16_t parent, const char *n)
+{
+    pv_t *m = (pv_t *)u;
+    pv_dir_t *p = pv_dir(m, parent);
+    int i;
+    if (cl == 0u) return (int)FINDER_WIN_OK;
+    if (p == NULL || (i = pv_find(p, n)) < 0) return (int)FINDER_WIN_ERR_STALE;
+    return ((p->e[i].attr & 0x10u) != 0u && p->e[i].cl == cl)
+         ? (int)FINDER_WIN_OK : (int)FINDER_WIN_ERR_STALE;
+}
+
+typedef struct pscene {
+    WindowMgr      wm;
+    rgn_store_t    desk, sa, sb, sc;
+    finder_shell_t sh;
+    pv_t           pv;
+    finder_fs_t    fs;
+    FinderCtx      ctx;
+} pscene_t;
+
+static void pscene_init(pscene_t *s, int locked_variant)
+{
+    rgn_rect_t frame = mk_rect(0, 0, 480, 640);
+
+    memset(s, 0, sizeof *s);
+    store_attach(&s->desk); store_attach(&s->sa);
+    store_attach(&s->sb);   store_attach(&s->sc);
+    WindowMgr_init(&s->wm, frame, &s->desk.r, &s->sa.r, &s->sb.r, &s->sc.r);
+    s->sh.wm = &s->wm;
+    finder_desk_init(&s->sh.desk, s->sh.desk_icons,
+                     (uint16_t)FINDER_DESK_MAX_ICONS, frame);
+
+    s->pv.d[0].used = 1; s->pv.d[0].cl = 0u;              /* the root          */
+    pv_add(&s->pv, 0u, "TRASH", 0x10u, 2u);
+    pv_add(&s->pv, 2u, "A", 0x10u, 3u);
+    if (!locked_variant) {
+        pv_add(&s->pv, 3u, "CHILD", 0x10u, 4u);
+        pv_add(&s->pv, 3u, "KEEP.TXT", 0x20u, 6u);
+        pv_add(&s->pv, 4u, "GRAND", 0x10u, 5u);
+        pv_add(&s->pv, 5u, "NOTE.TXT", 0x20u, 7u);
+    } else {
+        /* A<3>: LOCKED.TXT (read-only), SUB<4>: X.TXT */
+        pv_add(&s->pv, 3u, "LOCKED.TXT", 0x21u, 6u);
+        pv_add(&s->pv, 3u, "SUB", 0x10u, 4u);
+        pv_add(&s->pv, 4u, "X.TXT", 0x20u, 7u);
+    }
+    s->fs.enumerate = pv_enum;
+    s->fs.mkdir     = pv_mkdir;
+    s->fs.unlink    = pv_unlink;
+    s->fs.rmdir     = pv_rmdir;
+    s->fs.trash_dir = pv_trash_dir;
+    s->fs.dir_ident = pv_ident;
+    s->fs.user      = &s->pv;
+    finder_shell_bind_fs(&s->sh, &s->fs);
+    finder_shell_bind_ctx(&s->sh, &s->ctx);
+}
+
+/* How many windows the Window Manager itself still lists. */
+static int wm_count(const WindowMgr *wm)
+{
+    int n = 0;
+    for (WindowPtr w = wm->front; w != NULL; w = w->nextWindow) n++;
+    return n;
+}
+
+static void leg_purge_views(void)
+{
+    static pscene_t s;
+    int t = -1, a = -1, c = -1, g = -1, single = -1, nf = -1;
+    uint16_t purged = 0u, refused = 0u;
+    uint8_t dirty = 0u;
+    char name[FINDER_DESK_NAME_MAX];
+    uint16_t parent = 0u;
+    finder_win_status_t st;
+
+    /* ---- A: the nested views all close ---------------------------------- */
+    pscene_init(&s, 0);
+    CHECK(finder_win_open_trash(&s.sh, &t, NULL) == FINDER_WIN_OK && t == 0,
+          "L12 the Trash window opens in slot 0");
+    CHECK(finder_win_open(&s.sh, 2u, 3u, "A", 0u, &a, NULL) == FINDER_WIN_OK && a == 1,
+          "L12 the PARENT folder A (in the Trash) opens in slot 1");
+    CHECK(finder_win_open(&s.sh, 3u, 4u, "CHILD", 0u, &c, NULL) == FINDER_WIN_OK && c == 2,
+          "L12 the CHILD folder opens in slot 2");
+    CHECK(finder_win_open(&s.sh, 4u, 5u, "GRAND", 0u, &g, NULL) == FINDER_WIN_OK && g == 3,
+          "L12 the GRANDCHILD folder opens in slot 3");
+    CHECK(wm_count(&s.wm) == 4, "L12 the Window Manager lists the four windows");
+    /* A selection inside the doomed front window, and remembered views keyed
+     * by the doomed clusters. */
+    s.sh.windows[3].view.icons[0].selected = 1u;
+    finder_shell_sync_ctx(&s.sh);
+    CHECK(s.ctx.front_is_diskwin == 1u && s.ctx.selection_count == 1u,
+          "L12 the context sees GRAND front with NOTE.TXT selected");
+    (void)finder_shell_note_view(&s.sh, 3u, "A", 300u, 200u, 0u);
+    (void)finder_shell_note_view(&s.sh, 4u, "CHILD", 310u, 210u, 0u);
+
+    st = finder_shell_empty_trash(&s.sh, &purged, &refused, &dirty);
+    CHECK(st == FINDER_WIN_OK && purged == 5u && refused == 0u,
+          "L12 the purge removes NOTE.TXT, GRAND, CHILD, KEEP.TXT, A (5, none refused)");
+    CHECK(!s.sh.windows[1].open && !s.sh.windows[2].open && !s.sh.windows[3].open,
+          "L12 every view of a purged folder is CLOSED (parent, child, grandchild)");
+    CHECK(s.sh.purge_closed == 0x0Eu,
+          "L12 purge_closed names exactly slots 1, 2 and 3");
+    CHECK(wm_count(&s.wm) == 1 && s.wm.front == &s.sh.windows[0].rec,
+          "L12 ... through the Window Manager: only the Trash window is still listed");
+    CHECK(s.sh.windows[0].open && s.sh.windows[0].view.n == 0u,
+          "L12 the Trash window stays open and lists nothing");
+    CHECK(s.ctx.front_is_diskwin == 1u && s.ctx.selection_count == 0u &&
+          s.ctx.selection_openable == 0u && s.ctx.trash_nonempty == 0u,
+          "L12 the command context no longer holds the retired selection");
+    CHECK(finder_shell_find_view(&s.sh, 3u) == NULL &&
+          finder_shell_find_view(&s.sh, 4u) == NULL && dirty == 1u,
+          "L12 the purged folders' kind=4 view records are dropped (DB dirty)");
+
+    /* ---- B: cluster reuse revives nothing ------------------------------- */
+    memset(name, 0, sizeof name);
+    CHECK(finder_win_new_folder(&s.sh, 0, name, &parent) == FINDER_WIN_OK &&
+          strcmp(name, "NEWFOLD") == 0 && parent == 2u,
+          "L12 New Folder in the Trash window makes \\TRASH\\NEWFOLD");
+    CHECK(s.pv.d[0].n == 1 && pv_dir(&s.pv, 2u)->n == 1 &&
+          pv_dir(&s.pv, 2u)->e[0].cl == 3u,
+          "L12 ... allocated into cluster 3, the purged A's (lowest free)");
+    CHECK(finder_win_open(&s.sh, 2u, 3u, "NEWFOLD", 0u, &nf, &single) == FINDER_WIN_OK &&
+          single == 0 && nf == 1,
+          "L12 opening NEWFOLD builds a NEW window (no surviving view of cluster 3)");
+    {
+        rgn_rect_t def = finder_win_default_frame(1), got;
+        got = WindowFrameRect(&s.sh.windows[nf].rec);
+        CHECK(got.left == def.left && got.top == def.top,
+              "L12 ... at the cascaded default, not the purged A's remembered (300,200)");
+    }
+    /* A stale view (the shape the pre-L002 purge left behind): CHILD's old
+     * (4, A<3>, "CHILD") while cluster 4 is reused by NEWFOLD\R2 -- a live
+     * directory whose parent IS 3, so only the name tells them apart. */
+    CHECK(finder_win_new_folder(&s.sh, nf, name, &parent) == FINDER_WIN_OK &&
+          pv_dir(&s.pv, 3u)->n == 1 && pv_dir(&s.pv, 3u)->e[0].cl == 4u,
+          "L12 New Folder inside NEWFOLD reuses cluster 4 (CHILD's)");
+    CHECK(finder_win_open(&s.sh, 3u, 4u, "CHILD", 0u, &c, NULL) == FINDER_WIN_OK,
+          "L12 (fixture) a stale view (4, 3, CHILD) is forced open");
+    {
+        int before = s.pv.mkdir_calls;
+        st = finder_win_new_folder(&s.sh, c, name, &parent);
+        CHECK(st == FINDER_WIN_ERR_STALE && s.pv.mkdir_calls == before,
+              "L12 New Folder through a STALE view -> FINDER_WIN_ERR_STALE, no mkdir issued");
+        CHECK(finder_win_check_live(&s.sh, nf) == FINDER_WIN_OK &&
+              finder_win_check_live(&s.sh, 0) == FINDER_WIN_OK,
+              "L12 ... while the live NEWFOLD and Trash views still check live");
+    }
+
+    /* ---- C: a partial purge keeps the surviving folder's view ----------- */
+    pscene_init(&s, 1);
+    CHECK(finder_win_open_trash(&s.sh, &t, NULL) == FINDER_WIN_OK &&
+          finder_win_open(&s.sh, 2u, 3u, "A", 0u, &a, NULL) == FINDER_WIN_OK &&
+          finder_win_open(&s.sh, 3u, 4u, "SUB", 0u, &c, NULL) == FINDER_WIN_OK &&
+          a == 1 && c == 2 && s.sh.windows[1].view.n == 2u,
+          "L12 (partial) Trash, A (LOCKED.TXT + SUB) and SUB open in slots 0..2");
+    st = finder_shell_empty_trash(&s.sh, &purged, &refused, &dirty);
+    CHECK(st == FINDER_WIN_ERR_LOCKED && purged == 2u && refused == 2u,
+          "L12 (partial) X.TXT + SUB go; LOCKED.TXT and therefore A are refused");
+    CHECK(!s.sh.windows[2].open && s.sh.purge_closed == 0x04u,
+          "L12 (partial) the removed SUB's view closes");
+    CHECK(s.sh.windows[1].open && s.sh.windows[0].open && wm_count(&s.wm) == 2,
+          "L12 (partial) the SURVIVING folder A keeps its window (and the Trash its own)");
+    CHECK(s.sh.windows[1].view.n == 1u &&
+          strcmp(s.sh.windows[1].view.icons[0].name, "LOCKED.TXT") == 0,
+          "L12 (partial) A's window re-lists: LOCKED.TXT only, no icon for the freed SUB");
+    CHECK(finder_win_check_live(&s.sh, 1) == FINDER_WIN_OK &&
+          finder_win_new_folder(&s.sh, 1, name, &parent) == FINDER_WIN_OK && parent == 3u,
+          "L12 (partial) the surviving view is still writable (New Folder in A)");
+}
+
 int main(void)
 {
     leg_kind();
@@ -996,5 +1313,6 @@ int main(void)
     leg_persist();
     leg_new_folder();
     leg_cmd_spine();
+    leg_purge_views();
     return TEST_SUMMARY("test-finder-windows");
 }

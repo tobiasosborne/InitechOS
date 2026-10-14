@@ -190,6 +190,7 @@ const char *finder_ops_reason(finder_win_status_t st)
     if (st == FINDER_WIN_ERR_EXISTS)  return "exists";
     if (st == FINDER_WIN_ERR_SERVICE) return "service";
     if (st == FINDER_WIN_ERR_LOCKED)  return "locked";
+    if (st == FINDER_WIN_ERR_STALE)   return "stale";
     return "err";
 }
 
@@ -359,6 +360,15 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
 #endif
     /* THE LADDER, in order (finder_ops.h). */
     if (dst == out->from_dir) return fo_refuse(out, FINDER_WIN_ERR_SAMEDIR);
+    /* Bead initech-uios (audit L002): the windows the gesture runs through
+     * must still BE their folders -- a drag out of, or into, the view of a
+     * purged / recycled directory writes nothing (finder_windows.h Sec 10d). */
+    {
+        finder_win_status_t live = finder_win_check_live(sh, src_slot);
+        if (live == FINDER_WIN_OK && t->slot >= 0 && (int)t->slot != src_slot)
+            live = finder_win_check_live(sh, (int)t->slot);
+        if (live != FINDER_WIN_OK) return fo_refuse(out, live);
+    }
 #if !defined(FINDER_OPS_MUT_NO_CYCLE)
     if (ic.kind == (uint8_t)FINDER_ICON_FOLDER && dst == ic.dir_start)
         return fo_refuse(out, FINDER_WIN_ERR_CYCLE);
@@ -409,6 +419,15 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     }
 
     /* COMMITTED on the volume -- now make every model tell the same truth. */
+    if (ic.kind == (uint8_t)FINDER_ICON_FOLDER) {
+        /* A moved folder's open window follows it: its identity is now
+         * (same cluster, the new parent, the name it landed under). */
+        int fs = finder_win_find(sh, ic.dir_start);
+        if (fs >= 0 && !sh->windows[fs].is_root) {
+            sh->windows[fs].parent = dst;
+            fo_copy83(sh->windows[fs].name83, out->as);
+        }
+    }
     {
         rgn_rect_t old_cell = finder_desk_cell_rect(&w->view, src_idx);
         finder_win_invalidate(sh, src_slot, old_cell, old_cell);

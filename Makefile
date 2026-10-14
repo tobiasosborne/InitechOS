@@ -12523,8 +12523,14 @@ test-finder-desktop-mutant: $(TEST_FINDER_DESK_MUT_DBL) $(TEST_FINDER_DESK_MUT_B
 #   * view persistence across close + reopen (moved origin restored, default
 #     size -- the stated locked-record deviation).
 #
+#   * (bead initech-uios, audit L002) Empty Trash closes EVERY view of a
+#     removed folder (parent/child/grandchild) through the Window Manager, a
+#     partial (locked) purge keeps the survivors, and a view whose cluster was
+#     recycled refuses New Folder (FINDER_WIN_ERR_STALE) -- leg L12.
+#
 # Mutants (-D on the IMPLEMENTATION TU, never the golden): SINGLETON_DUP,
-# VOLLABEL_SHOWN, CLEANUP_UNSORTED.
+# VOLLABEL_SHOWN, CLEANUP_UNSORTED, DOTS_SHOWN, SERVICE_SHOWN,
+# PURGE_KEEPS_VIEWS, VIEW_UNCHECKED.
 # ---------------------------------------------------------------------------
 TEST_FINDER_WIN               := $(BUILD)/test_finder_windows
 TEST_FINDER_WIN_SRC           := harness/proptest/test_finder_windows.c
@@ -12567,12 +12573,26 @@ test-finder-windows: $(TEST_FINDER_WIN)
 TEST_FINDER_WIN_MUT_DOTS := $(BUILD)/test_finder_windows_mutant_dots_shown
 # tdnl.56/.73/.75: the service filter removed (TRASH + DESKTOP.DB listed).
 TEST_FINDER_WIN_MUT_SVC := $(BUILD)/test_finder_windows_mutant_service_shown
+# bead initech-uios (audit L002): the purge keeps its views / a view is trusted
+# by cluster number alone.
+TEST_FINDER_WIN_MUT_KEEPVIEWS := $(BUILD)/test_finder_windows_mutant_purge_keeps_views
+TEST_FINDER_WIN_MUT_UNCHECKED := $(BUILD)/test_finder_windows_mutant_view_unchecked
+$(TEST_FINDER_WIN_MUT_KEEPVIEWS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+$(TEST_FINDER_WIN_MUT_UNCHECKED): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_VIEW_UNCHECKED $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_SVC): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_SERVICE_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_DOTS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_DOTS_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 
-test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC)
+test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED)
+	@if $(TEST_FINDER_WIN_MUT_KEEPVIEWS) > $(BUILD)/test_finder_windows_mutant_keepviews.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- the L002 view-retirement oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_keepviews.log | grep -q 'L12 every view of a purged folder is CLOSED' || { printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_keepviews.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (PURGE_KEEPS_VIEWS correctly RED -- purged folders keep open windows, L002)\n'
+	@if $(TEST_FINDER_WIN_MUT_UNCHECKED) > $(BUILD)/test_finder_windows_mutant_unchecked.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: VIEW_UNCHECKED PASSED -- the L002 view-identity oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_unchecked.log | grep -q 'L12 New Folder through a STALE view' || { printf '!!! test-finder-windows-mutant FAIL: VIEW_UNCHECKED went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_unchecked.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (VIEW_UNCHECKED correctly RED -- New Folder writes through a recycled-cluster view, L002)\n'
 	@if $(TEST_FINDER_WIN_MUT_SVC) > $(BUILD)/test_finder_windows_mutant_svc.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: SERVICE_SHOWN PASSED -- the bookkeeping-hidden oracle is decoration\n'; exit 1; fi
 	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_svc.log | grep -q 'L5b the root lists 4 of 7 entries' || { printf '!!! test-finder-windows-mutant FAIL: SERVICE_SHOWN went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_svc.log; exit 1; }
 	@printf '>>> test-finder-windows-mutant: green (SERVICE_SHOWN correctly RED -- the root lists TRASH and DESKTOP.DB, tdnl.56)\n'
