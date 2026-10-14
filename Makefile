@@ -1531,6 +1531,7 @@ TEST_FAT12_MKDIR             := $(BUILD)/test_fat12_mkdir
 TEST_FAT12_MKDIR_MUT_DOTDOT  := $(BUILD)/test_fat12_mkdir_mut_dotdot
 TEST_FAT12_MKDIR_MUT_NOEOC   := $(BUILD)/test_fat12_mkdir_mut_noeoc
 TEST_FAT12_MKDIR_MUT_NOEMPTY := $(BUILD)/test_fat12_mkdir_mut_noempty
+TEST_FAT12_MKDIR_MUT_STALE   := $(BUILD)/test_fat12_mkdir_mutant_stale_trusted
 TEST_DESKTOP_DB               := $(BUILD)/test_desktop_db
 TEST_DESKTOP_DB_MUT_SKIP      := $(BUILD)/test_desktop_db_mut_write_skip
 TEST_DESKTOP_DB_MUT_MAGIC     := $(BUILD)/test_desktop_db_mut_magic_flip
@@ -3584,6 +3585,12 @@ $(TEST_FAT12_MKDIR_MUT_NOEMPTY): $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_RMDIR_NO_EMPTYCHECK -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
 		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
 
+# m5 (bead initech-uios, audit L002): the pre-L002 trust of a supplied directory
+# cluster -- fat12_dir_live / fat12_dir_identity accept anything.
+$(TEST_FAT12_MKDIR_MUT_STALE): $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUTATE_STALE_DIR_TRUSTED -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/test_fat12_mkdir.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+
 # REAL gate: test-fat12-mkdir (beads initech-u6wa Landing 2 -- FAT12 MKDIR/RMDIR
 # differential vs mmd). The artifact's fat12_mkdir writes '\NEWDIR' into a fresh
 # blank floppy; mtools `mmd` mints the same on the golden; the on-disk '.'/'..'/
@@ -3598,12 +3605,14 @@ test-fat12-mkdir: $(TEST_FAT12_MKDIR) $(FAT12_MKDIR_GOLDEN_IMG)
 	@$(TEST_FAT12_MKDIR) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)"
 	@printf ">>> test-fat12-mkdir: green\n"
 
-# Mutation gate (Rule 6): three fat12_mkdir/rmdir mutants -- (dotdot) '..' points
+# Mutation gate (Rule 6): four fat12_mkdir/rmdir mutants -- (dotdot) '..' points
 # at self not the parent; (noeoc) the new cluster is not EOC-terminated;
-# (noempty) RMDIR skips the empty-check. Each MUST turn the differential RED.
+# (noempty) RMDIR skips the empty-check; (stale, bead initech-uios / L002) a
+# supplied directory cluster is trusted without proving its lifetime. Each MUST
+# turn the differential RED.
 .PHONY: test-fat12-mkdir-mutant
-test-fat12-mkdir-mutant: $(TEST_FAT12_MKDIR_MUT_DOTDOT) $(TEST_FAT12_MKDIR_MUT_NOEOC) $(TEST_FAT12_MKDIR_MUT_NOEMPTY) $(FAT12_MKDIR_GOLDEN_IMG)
-	@printf ">>> test-fat12-mkdir-mutant: confirming all three MKDIR/RMDIR mutants go RED (Rule 6)\n"
+test-fat12-mkdir-mutant: $(TEST_FAT12_MKDIR_MUT_DOTDOT) $(TEST_FAT12_MKDIR_MUT_NOEOC) $(TEST_FAT12_MKDIR_MUT_NOEMPTY) $(TEST_FAT12_MKDIR_MUT_STALE) $(FAT12_MKDIR_GOLDEN_IMG)
+	@printf ">>> test-fat12-mkdir-mutant: confirming all four MKDIR/RMDIR mutants go RED (Rule 6)\n"
 	@dd if=/dev/zero of=$(FAT12_MKDIR_BLANK_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_MKDIR_BLANK_IMG) -f 1440 ::
 	@if $(TEST_FAT12_MKDIR_MUT_DOTDOT) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)" >/dev/null 2>&1; then \
@@ -3625,6 +3634,13 @@ test-fat12-mkdir-mutant: $(TEST_FAT12_MKDIR_MUT_DOTDOT) $(TEST_FAT12_MKDIR_MUT_N
 	else \
 		printf '>>> test-fat12-mkdir-mutant: green (no-empty-check mutant correctly RED -- the empty-check bites)\n'; \
 	fi
+	@dd if=/dev/zero of=$(FAT12_MKDIR_BLANK_IMG) bs=512 count=2880 status=none
+	@mformat -i $(FAT12_MKDIR_BLANK_IMG) -f 1440 ::
+	@if $(TEST_FAT12_MKDIR_MUT_STALE) "$(FAT12_MKDIR_BLANK_IMG)" "$(FAT12_MKDIR_GOLDEN_IMG)" > $(BUILD)/test_fat12_mkdir_mutant_stale.log 2>&1; then \
+		printf '!!! test-fat12-mkdir-mutant FAIL: stale-trusted mutant PASSED -- the L002 directory-lifetime leg is decoration\n'; exit 1; \
+	fi
+	@grep -q 'FAIL.*L002 mkdir into a PURGED directory cluster' $(BUILD)/test_fat12_mkdir_mutant_stale.log || { printf '!!! test-fat12-mkdir-mutant FAIL: stale-trusted mutant went RED for the wrong reason\n'; cat $(BUILD)/test_fat12_mkdir_mutant_stale.log; exit 1; }
+	@printf '>>> test-fat12-mkdir-mutant: green (stale-trusted mutant correctly RED -- mkdir into a purged directory cluster is refused, L002)\n'
 
 # R3.1 host oracle: DB header create/read/second-read/corrupt-detect/regen through
 # the REAL FAT12 write rails, plus the TRASH ensure skeleton. The independent

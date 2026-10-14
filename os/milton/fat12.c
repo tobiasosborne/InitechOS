@@ -2163,6 +2163,134 @@ int fat12_find_slot_in(const fat12_volume_t *vol, const void *fat,
 	return FAT12_OK;
 }
 
+/* ======================================================================== *
+ * DIRECTORY LIFETIME at the MUTATION BOUNDARY (bead initech-uios, audit L002)
+ *
+ * A caller-supplied NON-ZERO directory cluster is only a NUMBER. A Finder
+ * window kept one across Empty Trash, the cluster was freed, and New Folder
+ * then wrote a dirent into the freed cluster AND claimed that same cluster for
+ * the new folder: one allocated-but-unreachable cluster (fsck.fat) and bogus
+ * entries (REPORT.md L002). fat12_scan_dir never proves the start cluster is
+ * still a directory -- its chain_is_free / chain_is_bad guard is applied to the
+ * cluster NUMBER, not to its FAT entry, so a freed directory scans as its stale
+ * bytes.
+ *
+ * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (FAT entry 0x000 ==
+ *   free cluster; 0xFF7 bad) + Sec 4 (0x10 = subdirectory, start_cluster points
+ *   to its chain); the EMPIRICAL mtools '.'/'..' layout above fat12_make_dotdir
+ *   ('.' start = OWN cluster, '..' start = PARENT, root encoded 0). A cluster
+ *   is reused after free (fat12_find_free hands out the lowest free one), so an
+ *   allocation bit alone cannot identify a directory; fat12_dir_identity adds
+ *   the PARENT ENTRY.
+ *
+ * fat12_dir_live: `dir` (>= 2) is a LIVE directory head iff it is a data
+ * cluster in range, its FAT entry is neither free, reserved (0x001) nor bad,
+ * and its first two slots are '.' -> dir and '..' (DIR attribute both). On
+ * success *out_dotdot (may be NULL) receives the '..' start cluster. Anything
+ * else is FAT12_ERR_STALE_DIR (or the read error). `sector_buf` is scratch.
+ * ======================================================================== */
+static int fat12_dir_live(const fat12_volume_t *vol, const void *fat,
+                          uint32_t fat_len, uint16_t dir, void *sector_buf,
+                          uint16_t *out_dotdot)
+{
+#ifdef FAT12_MUTATE_STALE_DIR_TRUSTED
+	/* MUTANT (Rule 6; test-fat12-mkdir-mutant + test-flair-trash-purge-views-
+	 * mutant): the pre-L002 trust -- any number is a directory. NEVER define in
+	 * a real build. */
+	(void)vol; (void)fat; (void)fat_len; (void)dir; (void)sector_buf;
+	if (out_dotdot != NULL) {
+		*out_dotdot = 0u;
+	}
+	return FAT12_OK;
+#else
+	const dir_entry_t *de = (const dir_entry_t *)sector_buf;
+	uint16_t v = 0u;
+	int rc;
+
+	if (!fat12_cluster_in_range(vol, dir)) {
+		return FAT12_ERR_STALE_DIR;
+	}
+	rc = fat12_next_cluster(vol, fat, fat_len, dir, &v);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (chain_is_free(vol, v) || chain_is_bad(vol, v) || v == 1u) {
+		return FAT12_ERR_STALE_DIR;   /* freed (or never a chain head) */
+	}
+	if (vol->dev->read_sectors(vol->dev->ctx, BPB_CLUSTER_LBA(&vol->bpb, dir),
+	                           1u, sector_buf) != 0) {
+		return FAT12_ERR_READ;
+	}
+	if (de[0].filename[0] != 0x2Eu || de[0].filename[1] != 0x20u ||
+	    de[0].start_cluster != dir ||
+	    (de[0].attribute & DIR_ATTR_DIRECTORY) == 0u ||
+	    de[1].filename[0] != 0x2Eu || de[1].filename[1] != 0x2Eu ||
+	    de[1].filename[2] != 0x20u ||
+	    (de[1].attribute & DIR_ATTR_DIRECTORY) == 0u) {
+		return FAT12_ERR_STALE_DIR;   /* reused by a file, or by another dir */
+	}
+	if (out_dotdot != NULL) {
+		*out_dotdot = de[1].start_cluster;
+	}
+	return FAT12_OK;
+#endif
+}
+
+/* The mutators' guard: the root (0) is fixed and always live. */
+static int fat12_dir_guard(const fat12_volume_t *vol, const void *fat,
+                           uint32_t fat_len, uint16_t dir, void *sector_buf)
+{
+	return (dir == 0u) ? FAT12_OK
+	                   : fat12_dir_live(vol, fat, fat_len, dir, sector_buf,
+	                                    NULL);
+}
+
+int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, uint16_t dir, uint16_t parent,
+                       const char *name83, void *sector_buf)
+{
+	dir_entry_t e;
+	uint32_t    slot = 0u;
+	uint16_t    dd = 0u;
+	int         rc;
+
+	if (vol == NULL || name83 == NULL || sector_buf == NULL) {
+		return FAT12_ERR_NULL;
+	}
+	if (dir == 0u) {
+		return FAT12_OK;                 /* the fixed root never dies */
+	}
+#ifdef FAT12_MUTATE_STALE_DIR_TRUSTED
+	(void)fat; (void)fat_len; (void)parent; (void)e; (void)slot; (void)dd;
+	(void)rc;
+	return FAT12_OK;
+#else
+	rc = fat12_dir_live(vol, fat, fat_len, dir, sector_buf, &dd);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if (dd != parent) {
+		return FAT12_ERR_STALE_DIR;      /* a directory, but not under parent */
+	}
+	rc = fat12_dir_guard(vol, fat, fat_len, parent, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	rc = fat12_find_slot_in(vol, fat, fat_len, parent, sector_buf, name83,
+	                        &e, &slot);
+	if (rc == FAT12_ERR_NOT_FOUND) {
+		return FAT12_ERR_STALE_DIR;      /* the parent entry is gone */
+	}
+	if (rc != FAT12_OK) {
+		return rc;
+	}
+	if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u || e.start_cluster != dir) {
+		return FAT12_ERR_STALE_DIR;      /* that name now names another object */
+	}
+	return FAT12_OK;
+#endif
+}
+
 /*
  * fat12_read_dir_entry -- re-read the 32-byte directory entry at root-dir slot
  * `slot` into *out_entry (beads initech-0qh). Public wrapper over the internal
@@ -2436,6 +2564,12 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
+	}
+	/* L002 (bead initech-uios): a stale / recycled directory cluster never
+	 * authorises a write (fat12_dir_live). */
+	rc = fat12_dir_guard(vol, fat, fat_len, parent_dir_start, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
 	}
 
 	rc = parse_name83(name83, want11);
@@ -3056,6 +3190,12 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
+	/* L002 (bead initech-uios): a stale / recycled directory cluster never
+	 * authorises a write (fat12_dir_live). */
+	rc = fat12_dir_guard(vol, fat, fat_len, parent_dir_start, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
 
 	rc = parse_name83(name83, want11);
 	if (rc != FAT12_OK) {
@@ -3398,6 +3538,14 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
+	}
+	/* L002 (bead initech-uios): both ends must be LIVE directories. */
+	rc = fat12_dir_guard(vol, fat, fat_len, src_dir_start, sector_buf);
+	if (rc == FAT12_OK) {
+		rc = fat12_dir_guard(vol, fat, fat_len, dst_dir_start, sector_buf);
+	}
+	if (rc != FAT12_OK) {
+		return rc;
 	}
 
 	/* Parse the source name; the destination name defaults to the source's (a
@@ -3796,6 +3944,12 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
+	/* L002 (bead initech-uios): a stale / recycled directory cluster never
+	 * authorises a write (fat12_dir_live). */
+	rc = fat12_dir_guard(vol, fat, fat_len, parent_dir_start, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
+	}
 	/* Parent may be the fixed root (parent_dir_start == 0) OR a subdirectory
 	 * cluster (a non-zero first data cluster), beads initech-m0bp -- the nested
 	 * MD '\SUB\NEWDIR' path. The parent-aware Layer-1 infra (fat12_scan_dir /
@@ -4083,6 +4237,12 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (vol->dev == NULL || vol->dev->write_sectors == NULL ||
 	    vol->dev->read_sectors == NULL) {
 		return FAT12_ERR_WRITE;
+	}
+	/* L002 (bead initech-uios): a stale / recycled directory cluster never
+	 * authorises a write (fat12_dir_live). */
+	rc = fat12_dir_guard(vol, fat, fat_len, parent_dir_start, sector_buf);
+	if (rc != FAT12_OK) {
+		return rc;
 	}
 	/* Parent may be the fixed root (parent_dir_start == 0) OR a subdirectory
 	 * cluster (beads initech-m0bp -- nested RD '\SUB\NEWDIR'). The parent scan +

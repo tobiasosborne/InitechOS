@@ -53,6 +53,8 @@ enum {
  *   -16  FAT12_ERR_NOT_EMPTY  (RMDIR of a non-empty directory; subdir section)
  *   -17  FAT12_ERR_SAME_DIR   (MOVE whose src dir == dst dir; move section)
  *   -18  FAT12_ERR_CYCLE      (MOVE of a directory into its own subtree)
+ *   -19  FAT12_ERR_STALE_DIR  (a directory cluster that is no longer the live
+ *                              directory the caller named; lifetime section)
  * WHY the ledger exists: FAT12_ERR_NOT_EMPTY originally ALIASED
  * FAT12_ERR_ACCESS at -15, so a caller switching on the code could not tell
  * "CHMOD access denied" from "RMDIR non-empty" (found by the R3 Finder design
@@ -1077,6 +1079,37 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * success. */
 int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent_dir_start, void *sector_buf);
+
+/* ======================================================================== *
+ * DIRECTORY LIFETIME (bead initech-uios, audit L002)
+ *
+ * A directory is named to the write side by its first data cluster, and a
+ * cluster is REUSED after it is freed (fat12_find_free hands out the lowest
+ * free one). So the mutators (fat12_mkdir, fat12_create, fat12_unlink,
+ * fat12_rmdir and both ends of fat12_move_dirent) first prove that a NON-ZERO
+ * directory cluster is still a LIVE directory head: in range, its FAT entry
+ * not free / reserved / bad (fat12-ground-truth.md Sec 3), and its first two
+ * slots '.' -> itself and '..' (the mtools layout fat12_mkdir writes). A
+ * freed cluster, or one reused by a FILE, is FAT12_ERR_STALE_DIR and nothing
+ * is written. That alone cannot tell a stale view from a NEW directory that
+ * was allocated into the same cluster; fat12_dir_identity can.
+ * ======================================================================== */
+#define FAT12_ERR_STALE_DIR (-19)
+
+/*
+ * fat12_dir_identity: the PARENT-ENTRY identity of a directory. FAT12_OK iff
+ * `dir` == 0 (the fixed root), or `dir` is a live directory head whose '..'
+ * names `parent`, `parent` is itself live (or the root), and `parent` holds a
+ * live DIRECTORY entry called `name83` whose start_cluster is `dir`. Otherwise
+ * FAT12_ERR_STALE_DIR (a read/chain error is propagated). A caller that cached
+ * (dir, parent, name83) when it opened a view calls this before every write
+ * through that view: a purged directory, or a different directory recycled
+ * into the same cluster, cannot authorise the write. `sector_buf` (>= one
+ * sector) is scratch.
+ */
+int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
+                       uint32_t fat_len, uint16_t dir, uint16_t parent,
+                       const char *name83, void *sector_buf);
 
 /* ======================================================================== *
  * FAT12 subdirectory / path traversal -- READ side (beads initech-ti8)
