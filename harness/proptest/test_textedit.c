@@ -45,7 +45,7 @@
  *       os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
  *
  * Compile (kernel type-check):
- *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
+ *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror -Ispec/assets \
  *       -Ispec -Ios/milton -Ios/flair -c os/flair/textedit.c
  *
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
@@ -263,12 +263,14 @@ int main(void)
           "step-9a: lineStarts[2] == 4 (past the CR at index 3)");
 
     /* -----------------------------------------------------------------------
-     * STEP 9b: Word-wrap. "the cat sat" (11 chars) with wrapWidth==4, crOnly==0
-     * wraps at the last space before the 4-char boundary:
-     *   line 0 = "the " [0,4), line 1 = "cat " [4,8), line 2 = "sat" [8,11)
+     * STEP 9b: Word-wrap. "the cat sat" (11 chars) in a 30-px destRect,
+     * crOnly==0 (RE-KEYED 2026-10-15, bead initech-tdnl.68: wrapWidth is now
+     * PIXELS, was 4 chars). Real NFNT 5478 advances: t6 h8 e8 sp4 c7 a8 s7.
+     *   "the " = 26; + 'c' = 33 > 30 -> line 1 starts at 4
+     *   "cat " = 25; + 's' = 32 > 30 -> line 2 starts at 8
      * -> nLines==3, lineStarts == {0,4,8} (literal, hand-computed).
      * ----------------------------------------------------------------------- */
-    FlairTE_init(&te3, /*wrapWidth*/ 4, FLAIR_TE_JUST_LEFT);  /* crOnly == 0 */
+    FlairTE_init(&te3, /*wrapWidth px*/ 30, FLAIR_TE_JUST_LEFT);  /* crOnly == 0 */
     FlairTESetText(&te3, "the cat sat", 11);
     CHECK(te3.nLines == 3,
           "step-9b: 'the cat sat' wrap@4 -> nLines == 3");
@@ -278,6 +280,85 @@ int main(void)
           "step-9b: lineStarts[1] == 4 ('cat ' -- broke after the space at 3)");
     CHECK(te3.lineStarts[2] == 8,
           "step-9b: lineStarts[2] == 8 ('sat' -- broke after the space at 7)");
+
+    /* -----------------------------------------------------------------------
+     * STEP 10: PIXEL WRAP vs THE GOLDEN (bead initech-tdnl.68). System 7.5.3's
+     * boot alert (../system7-decomp goldens/captures/s7_dialog_alert.png,
+     * specs/desktop/alerts.md "body static-text block", Chicago 12) breaks
+     *   "This computer may not have been shut down | properly the last time it was used."
+     *   "To turn off this computer, always choose | Shut Down from the Apple menu, or press the | Power key on the keyboard."
+     * With the real NFNT 5478 advances those breaks hold for a destRect width
+     * of exactly 299..303 px (the widest kept line, "Shut Down from the Apple
+     * menu, or press the", is 299 px without its trailing space; "To turn off
+     * this computer, always choose Shut" is 304). So: at 299 and 303 FLAIR
+     * must reproduce the capture; at 298 and 304 it must NOT (the breaks move
+     * -- the wrap is pixel-exact, not approximate). Offsets are literals.
+     * ----------------------------------------------------------------------- */
+    {
+        static FlairTE ta;
+        static const char p1[] = "This computer may not have been shut down properly the last time it was used.";
+        static const char p2[] = "To turn off this computer, always choose Shut Down from the Apple menu, or press the Power key on the keyboard.";
+        static const int16_t widths[4] = { 298, 299, 303, 304 };
+        for (int k = 0; k < 4; k++) {
+            int golden = (widths[k] == 299 || widths[k] == 303);
+            FlairTE_init(&ta, widths[k], FLAIR_TE_JUST_LEFT);
+            FlairTESetText(&ta, p1, (int16_t)(sizeof p1 - 1));
+            CHECK(ta.nLines == 2 && ta.lineStarts[1] == 42,
+                  "step-10: alert paragraph 1 breaks after 'shut down ' (offset 42) at any width 298..304");
+            FlairTESetText(&ta, p2, (int16_t)(sizeof p2 - 1));
+            if (golden) {
+                CHECK(ta.nLines == 3 && ta.lineStarts[1] == 41 && ta.lineStarts[2] == 85,
+                      "step-10: alert paragraph 2 at 299/303 px == s7_dialog_alert.png (lineStarts 0,41,85)");
+            } else if (widths[k] == 298) {
+                CHECK(ta.nLines == 3 && ta.lineStarts[1] == 41 && ta.lineStarts[2] == 81,
+                      "step-10: at 298 px 'the' no longer fits line 2 (lineStarts 0,41,81)");
+            } else {
+                CHECK(ta.nLines == 3 && ta.lineStarts[1] == 46 && ta.lineStarts[2] == 85,
+                      "step-10: at 304 px 'Shut' fits line 1 (lineStarts 0,46,85)");
+            }
+        }
+    }
+
+    /* -----------------------------------------------------------------------
+     * STEP 11: PROPORTIONAL, not character-counted. Same 11 chars, 60 px:
+     *   "iiiii iiiii": i aw 4 -> 44 px, ONE line;
+     *   "WWWWW WWWWW": W aw 12 -> "WWWWW" 60, the space hangs, the next W
+     *   wraps -> lineStarts {0,6}.
+     * A word wider than the line hard-breaks before the char that does not
+     * fit: "Supercalifragilistic" in 50 px -> {0,6,14} (S7 u8 p8 e8 r6 c7 =
+     * 44, +a8 = 52; "alifrag" a8 l4 i4 f6 r6 a8 g8 = 44, +i4 = 48, +l4 = 52).
+     * ----------------------------------------------------------------------- */
+    {
+        static FlairTE tb;
+        FlairTE_init(&tb, 60, FLAIR_TE_JUST_LEFT);
+        FlairTESetText(&tb, "iiiii iiiii", 11);
+        CHECK(tb.nLines == 1, "step-11: 'iiiii iiiii' (44 px) is ONE line in 60 px");
+        FlairTESetText(&tb, "WWWWW WWWWW", 11);
+        CHECK(tb.nLines == 2 && tb.lineStarts[1] == 6,
+              "step-11: 'WWWWW WWWWW' wraps after 'WWWWW ' in 60 px (lineStarts 0,6)");
+        FlairTE_init(&tb, 50, FLAIR_TE_JUST_LEFT);
+        FlairTESetText(&tb, "Supercalifragilistic", 20);
+        CHECK(tb.nLines == 3 && tb.lineStarts[1] == 6 && tb.lineStarts[2] == 14,
+              "step-11: an over-wide word hard-breaks at the pixel edge (lineStarts 0,6,14)");
+    }
+
+    /* -----------------------------------------------------------------------
+     * STEP 12: THE FACE COUNTS. "Bold text wraps" in 60 px: plain "Bold text"
+     * is exactly 60 px (B8 o8 l4 d8 sp4 t6 e8 x8 t6; its trailing space hangs)
+     * -> {0,10}; BOLD adds 1 px per char (font-manager.md Sec 6.1), so "Bold
+     * tex" is already 62 > 60 and "text" moves down -> {0,5,10}.
+     * ----------------------------------------------------------------------- */
+    {
+        static FlairTE tc;
+        FlairTE_init(&tc, 60, FLAIR_TE_JUST_LEFT);
+        FlairTESetText(&tc, "Bold text wraps", 15);
+        CHECK(tc.nLines == 2 && tc.lineStarts[1] == 10,
+              "step-12: plain 'Bold text wraps' in 60 px -> lineStarts 0,10");
+        tc.txFace = 0x01;   /* bold (grafport.h FLAIR_STYLE_BOLD) */
+        FlairTESetText(&tc, "Bold text wraps", 15);
+        CHECK(tc.nLines == 3 && tc.lineStarts[1] == 5 && tc.lineStarts[2] == 10,
+              "step-12: BOLD 'Bold text wraps' in 60 px -> lineStarts 0,5,10");
+    }
 
     return TEST_SUMMARY("test-textedit");
 }

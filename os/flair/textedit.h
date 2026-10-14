@@ -27,7 +27,7 @@
  *   lineStarts[FLAIR_TE_MAX_LINES] array. It drops destRect/viewRect/selRect,
  *   the proc hooks, caret-blink timing, and the styled (txSize==-1) path.
  *   FOLLOW-UP (deferred full TERec): restore the QuickDraw rects, the heap-handle
- *   hText, the proportional (owTable) line layout, the caret/highlight hooks and
+ *   hText, the caret/highlight hooks and
  *   TEClick/TEIdle/TEActivate -- a Rule-8 deliberate act with its own bead +
  *   worklog note, NOT a silent edit. The IM field NAMES + the load-bearing `just`
  *   triple are preserved here so the M5+ record is a superset (textedit.md Sec 7).
@@ -118,8 +118,13 @@ typedef struct {
     int16_t just;                        /* IM just: FLAIR_TE_JUST_* (Sec 3)            */
     int16_t crOnly;                      /* IM crOnly: <0 == Return-only (no word wrap) */
     int16_t nLines;                      /* IM nLines: number of laid-out lines         */
-    int16_t wrapWidth;                   /* FLAIR: word-wrap width in chars (IM destRect */
-                                         /*   width; monospaced -- textedit.md Sec 4)   */
+    int16_t wrapWidth;                   /* FLAIR: word-wrap width in PIXELS -- the IM   */
+                                         /*   destRect width (textedit.md Sec 4; bead    */
+                                         /*   initech-tdnl.68: proportional, styled)     */
+    int16_t txFont;                      /* IM txFont: 0 systemFont (Chicago 12), 1     */
+                                         /*   applFont (Geneva 9) -- text.h mapping      */
+    int16_t txFace;                      /* IM txFace: style bits (TEXT_FACE_*; bold    */
+                                         /*   widens every advance by 1 px)             */
     int16_t lineStarts[FLAIR_TE_MAX_LINES]; /* IM lineStarts: char offset of each line  */
                                             /*   start; N == nLines (Sec 4; CAPPED cut) */
 } FlairTE;
@@ -131,7 +136,9 @@ typedef struct {
  * -------------------------------------------------------------------------- */
 
 /* FlairTE_init -- empty record: teLength=0, caret at 0, the given just +
- * wrapWidth, word-wrap enabled (crOnly=0). nLines=1 (one empty line). */
+ * wrapWidth (PIXELS), word-wrap enabled (crOnly=0), txFont 0 (Chicago 12),
+ * txFace 0 (plain). nLines=1 (one empty line). Change txFont/txFace, then call
+ * FlairTESetText (or any edit) to re-lay the lines in that face. */
 void FlairTE_init(FlairTE *te, int16_t wrapWidth, int16_t just);
 
 /* FlairTESetText -- replace the buffer with `len` bytes from `s`. Fail loud

@@ -13123,27 +13123,34 @@ TEST_TEXTEDIT_MUT_PASTE := $(BUILD)/test_textedit_mutant_pastenodelete
 TEST_TEXTEDIT_MUT_LINE  := $(BUILD)/test_textedit_mutant_linebreakoff
 TEST_TEXTEDIT_LINK := os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
 TEST_TEXTEDIT_DEPS := os/flair/textedit.c os/flair/textedit.h os/flair/scrap.c os/flair/scrap.h \
-                     os/flair/ostype.h os/flair/heap.c os/flair/heap.h
+                     os/flair/ostype.h os/flair/heap.c os/flair/heap.h $(FLAIR_FONT_HDRS)
+TEST_TEXTEDIT_MUT_WRAP  := $(BUILD)/test_textedit_mutant_wrapchars
 
 $(TEST_TEXTEDIT): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 $(TEST_TEXTEDIT_MUT_SEL): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_SEL_INCLUSIVE $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_SEL_INCLUSIVE $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 $(TEST_TEXTEDIT_MUT_PASTE): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_PASTE_NO_DELETE $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_PASTE_NO_DELETE $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 $(TEST_TEXTEDIT_MUT_LINE): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_LINEBREAK_OFF $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_LINEBREAK_OFF $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+$(TEST_TEXTEDIT_MUT_WRAP): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_WRAP_CHARS $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 
 test-textedit: $(TEST_TEXTEDIT)
 	@printf ">>> test-textedit: ADR-0012 D-2b / initech-77dj TextEdit (TERec) -- reduced edit record, half-open selection, CR+wrap line-breaking, cut/copy/paste via the Scrap (round-trip vs independent hand-authored golden)\n"
 	@$(TEST_TEXTEDIT)
 	@printf ">>> test-textedit: green\n"
 
-test-textedit-mutant: $(TEST_TEXTEDIT_MUT_SEL) $(TEST_TEXTEDIT_MUT_PASTE) $(TEST_TEXTEDIT_MUT_LINE)
+test-textedit-mutant: $(TEST_TEXTEDIT_MUT_SEL) $(TEST_TEXTEDIT_MUT_PASTE) $(TEST_TEXTEDIT_MUT_LINE) $(TEST_TEXTEDIT_MUT_WRAP)
 	@printf ">>> test-textedit-mutant: confirming SEL_INCLUSIVE + PASTE_NO_DELETE + LINEBREAK_OFF go RED (Rule 6)\n"
 	@if $(TEST_TEXTEDIT_MUT_SEL) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: SEL_INCLUSIVE PASSED -- the half-open-selection oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (SEL_INCLUSIVE correctly RED)\n'; fi
 	@if $(TEST_TEXTEDIT_MUT_PASTE) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: PASTE_NO_DELETE PASSED -- the replace-range oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (PASTE_NO_DELETE correctly RED)\n'; fi
 	@if $(TEST_TEXTEDIT_MUT_LINE) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: LINEBREAK_OFF PASSED -- the line-break oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (LINEBREAK_OFF correctly RED)\n'; fi
+	@out=$$($(TEST_TEXTEDIT_MUT_WRAP) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-textedit-mutant FAIL: WRAP_CHARS PASSED -- the pixel-wrap oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'step-1[012]' || { printf '%s\n' "$$out" | tail -5; printf '!!! test-textedit-mutant FAIL: WRAP_CHARS went RED, but not on the pixel-wrap steps\n'; exit 1; }; \
+	printf '>>> test-textedit-mutant: green (WRAP_CHARS correctly RED on %s pixel-wrap check(s))\n' "$$(printf '%s\n' "$$out" | grep -c 'step-1[012]')"
 
 # ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
