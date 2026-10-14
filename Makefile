@@ -13432,6 +13432,43 @@ test-i123-formula-mutant: $(BUILD)/test_i123_formula_mutant_I123_MUT_PREC_FLAT $
 	@printf '>>> test-i123-formula-mutant: green (all three mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-i123-recalc-order (bead initech-94ah, I123 P2) -- natural /
+# columnwise / rowwise order, the iteration count, MANUAL vs AUTOMATIC and
+# the CIRC indicator (os/i123/core/recalc.c). Expected values of the order
+# and iteration fixtures are derived by hand from the R2.2 manual's own
+# sentences (p. 12-31..12-33, PDF 275-277, cited in the test); the replay
+# leg retypes the minted MINT01, CIRC01 (circular, CIRC on the real screen)
+# and MINT04 (manual, columnwise, 7 passes) entries and compares every value
+# with what real 1-2-3 cached, read by wk1_ref.py. Mutants:
+# I123_MUT_NO_PRECEDENTS (natural order ignores references) and
+# I123_MUT_CIRC_BLIND (the indicator never lights), each RED for its reason.
+# ---------------------------------------------------------------------------
+TEST_I123_RECALC  := $(BUILD)/test_i123_recalc_order
+I123_RECALC_DEPS  := $(I123_WK1_DIR)/test_i123_recalc_order.c $(I123_CORE_SRC) $(I123_CORE_HDR) seed/test_assert.h
+$(TEST_I123_RECALC): $(I123_RECALC_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_recalc_order.c $(I123_CORE_SRC)
+$(BUILD)/test_i123_recalc_mutant_%: $(I123_RECALC_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_recalc_order.c $(I123_CORE_SRC)
+
+.PHONY: test-i123-recalc-order test-i123-recalc-order-mutant
+test-i123-recalc-order: $(TEST_I123_RECALC) $(I123_FORMULA_REF)
+	$(call need_lotus_goldens,test-i123-recalc-order)
+	@printf ">>> test-i123-recalc-order: natural/columnwise/rowwise, iteration, manual, CIRC vs the R2.2 manual and the minted MINT01/CIRC01/MINT04 typing (initech-94ah)\n"
+	@$(TEST_I123_RECALC) $(LOTUS123_DECOMP) $(I123_FORMULA_REF)
+	@printf ">>> test-i123-recalc-order: green\n"
+
+test-i123-recalc-order-mutant: $(BUILD)/test_i123_recalc_mutant_I123_MUT_NO_PRECEDENTS $(BUILD)/test_i123_recalc_mutant_I123_MUT_CIRC_BLIND $(I123_FORMULA_REF)
+	$(call need_lotus_goldens,test-i123-recalc-order-mutant)
+	@for pair in 'I123_MUT_NO_PRECEDENTS:RED-REASON order' 'I123_MUT_CIRC_BLIND:RED-REASON circ'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_i123_recalc_mutant_$$m; \
+		if $$bin $(LOTUS123_DECOMP) $(I123_FORMULA_REF) > $$bin.log 2>&1; then printf '!!! test-i123-recalc-order-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-i123-recalc-order-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -qF "$$why" $$bin.log || { printf '!!! test-i123-recalc-order-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-i123-recalc-order-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
+	done
+	@printf '>>> test-i123-recalc-order-mutant: green (both mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-i123-quit (bead initech-fvnj; astra audit L008 "Quit discards
 # an edited worksheet") -- the HOST oracle of 123.EXE's ONE EXIT GUARD. The
 # real os/i123/app/face_a.c is compiled on the host over the real core with a
@@ -26869,6 +26906,7 @@ TEST_UNIT_GATES := \
 	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
 	test-i123-quit test-i123-quit-mutant \
 	test-i123-formula test-i123-formula-mutant \
+	test-i123-recalc-order test-i123-recalc-order-mutant \
 	test-makefile-vars \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
