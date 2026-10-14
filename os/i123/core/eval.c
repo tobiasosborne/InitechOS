@@ -1461,7 +1461,7 @@ int i123_eval(i123_calc_t *cx, const i123_sheet_t *sh, uint16_t col, uint16_t ro
             if (t >= WKF_EQ && t <= WKF_GT) { op_compare(t, a, b, a); break; }
             if (pick_error(a, b, a)) break;
             if (t == WKF_CAT) {
-                /* '&' joins two strings ([M] p. 1-28 (PDF 45)); a number or
+                /* '&' joins two strings ([M] p. 1-28 (PDF 44)); a number or
                  * a blank operand is ERR [inferred] */
                 uint8_t buf[I123_STR_MAX];
                 uint32_t n2;

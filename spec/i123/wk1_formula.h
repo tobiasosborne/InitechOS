@@ -22,8 +22,8 @@
  *       convention, which tokens the minted goldens pin by TYPED TEXT;
  *   [M] Lotus 1-2-3 Release 2.2 Reference Manual (1989; scanned, OCR'd by
  *       this lane with tesseract into build/man/ocr/pNNN.txt -- PDF page
- *       numbers below): p. 1-30 (PDF 47) the order-of-precedence table;
- *       p. 1-29 (PDF 46) "A formula can contain up to 240 characters ...
+ *       numbers below): p. 1-30 (PDF 46) the order-of-precedence table;
+ *       p. 1-29 (PDF 45) "A formula can contain up to 240 characters ...
  *       cannot contain spaces, except within literal strings"; Chapter 13
  *       (@functions) for the R2.2 NAME and ARGUMENT COUNT of every
  *       function, cited per row by its manual page.
@@ -110,7 +110,7 @@
 #define WKF_EV_RECOMP  2u
 #define WKF_EV_DOC     3u
 
-/* Operator precedence, manual p. 1-30 (PDF 47) "Order of Precedence": the
+/* Operator precedence, manual p. 1-30 (PDF 46) "Order of Precedence": the
  * LOWER number is performed FIRST; equal numbers left to right.
  *   ^ 1;  unary - + 2;  * / 3;  + - 4;  = <> < > <= >= 5;  #NOT# 6;
  *   #AND# #OR# 7;  & 7. */
@@ -123,7 +123,7 @@
 #define WKF_PREC_LOG   7u
 #define WKF_PREC_MAX   7u
 
-/* Formula text limits: manual p. 1-29 (PDF 46). */
+/* Formula text limits: manual p. 1-29 (PDF 45). */
 #define WKF_TEXT_MAX   240u
 
 typedef struct wkf_token {

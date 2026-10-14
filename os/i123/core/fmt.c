@@ -577,10 +577,15 @@ void i123_cell_content(const i123_sheet_t *sh, const i123_cell_t *c,
     case I123_K_NUMBER:
         content_number(cell_double(c->v), out, cap);
         return;
-    default:
-        /* BLANK shows nothing; a FORMULA's text needs the RPN decompiler,
-         * which is P2 (bead initech-94ah) -- line 1 shows the address only */
+    case I123_K_FORMULA:
+        /* the formula's text, not its value: "When the cell pointer is in
+         * the cell, however, 1-2-3 displays 25+5 in the first line of the
+         * control panel" (manual p. 1-27, PDF 43, Figure 1-14) */
+        if (i123_formula_text(sh->pool + c->off, c->len, c->col, c->row, out, cap) != I123_OK)
+            out[0] = '\0';
         return;
+    default:
+        return;   /* BLANK shows nothing */
     }
 }
 

@@ -11,7 +11,7 @@
  *   (3) the corpus' independent reader tools/wk1_ref.py, through
  *       wk1_formula_ref.py, which supplies every expected cached value
  *       (it parses no bytes itself);
- *   (4) the manual's precedence table (R2.2 Reference p. 1-30, PDF 47),
+ *   (4) the manual's precedence table (R2.2 Reference p. 1-30, PDF 46),
  *       re-typed HERE for the property generator, never read from
  *       spec/i123/wk1_formula.h.
  *
@@ -472,7 +472,7 @@ static uint32_t rnd(uint32_t n) { g_seed = g_seed * 1103515245u + 12345u; return
 
 typedef struct { char text[1200]; uint8_t rpn[1200]; uint32_t rl; int prec; } gen_t;
 
-/* The manual's table, p. 1-30 (PDF 47), re-typed: lower binds tighter. */
+/* The manual's table, p. 1-30 (PDF 46), re-typed: lower binds tighter. */
 static const struct { const char *op; uint8_t tok; int prec; } BIN[] = {
     { "^", 13, 1 }, { "*", 11, 3 }, { "/", 12, 3 }, { "+", 9, 4 }, { "-", 10, 4 },
     { "=", 14, 5 }, { "<>", 15, 5 }, { "<=", 16, 5 }, { ">=", 17, 5 }, { "<", 18, 5 },

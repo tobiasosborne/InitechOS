@@ -21593,6 +21593,15 @@ RECORD_IMAGE_i123_files = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
 # initech-fvnj (L008) Rule-14 clip: dirty sheet, Ctrl-Q, the three-button
 # alert, Save q, exit, relaunch, Retrieve q -- the guarded quit end to end.
+# i123_formula (bead initech-94ah; Rule 14): formulas typed into Initech 123
+# -- @sum, -c1*2, A1 retyped (the sheet recalculates), then a circular @sum
+# lights CIRC. Replays the LOCKED FLAIR_I123_FORMULA_SPEC; its marker is the
+# CIRC indicator drawn on the status line.
+RECORD_SCRIPTS += i123_formula
+RECORD_SPEC_i123_formula = $(FLAIR_I123_FORMULA_SPEC)
+RECORD_MARKER_i123_formula = TENANT-GATE ax=0x0033 win=1 x=585 y=368 s="CIRC" fg=0 bg=3 -> 0
+RECORD_SETTLE_i123_formula = 400
+RECORD_IMAGE_i123_formula = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SCRIPTS += i123_quit_guard
 RECORD_SPEC_i123_quit_guard = $(FLAIR_I123_QG_SAVE)
 RECORD_MARKER_i123_quit_guard = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retrieved q.wk1                                                              " fg=1 bg=0 -> 0
@@ -28049,6 +28058,7 @@ TEST_EMU_GATES := \
 	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
 	test-flair-i123-files test-flair-i123-files-mutant test-flair-i123-file-ui test-flair-i123-file-ui-mutant \
 	test-flair-i123-quitguard test-flair-i123-quitguard-mutant \
+	test-flair-i123-formula test-flair-i123-formula-mutant \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
@@ -28380,3 +28390,60 @@ test-flair-i123-quitguard-mutant: test-flair-i123-quitguard $(HARNESS_BIN) $(FLA
 	@if $(PPM_FLAIR_TRASH_CHECK_BIN) tenant3-gone $(BUILD)/flair_i123_qg_alert.ppm > /dev/null 2>&1; then printf '!!! test-flair-i123-quitguard-mutant FAIL: leg tenant3-gone PASSED a dump with the alert up\n'; exit 1; fi
 	@printf '>>> test-flair-i123-quitguard-mutant: the pixel legs bite (tenant3 refuses the alert-gone dump, tenant3-gone the alert-up dump)\n'
 	@printf '>>> test-flair-i123-quitguard-mutant: green (all three mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-i123-formula (bead initech-94ah, I123 P2) -- formulas
+# typed into Face A are compiled, evaluated and recalculated IN THE OS, and
+# the CIRC status indicator lights (Rule 14: the Rule-14 clip is
+# record-flair SCRIPT=i123_formula). Trace LOCKED in spec/flair_i123_traces.mk
+# FLAIR_I123_FORMULA_SPEC: A1 123, B1 1.5, C1 @sum(a1..b1), D1 -c1*2, then
+# A1 200 (AUTOMATIC recalc, manual p. 12-31..12-32, PDF 275-276), then B1
+# @sum(a1..c1) (a circular reference). Serial: row 1 drawn as the General
+# format shows the values (the display rules graded by
+# test-i123-wk1-roundtrip part D) before and after the recalculation; line 1
+# shows the formula TEXT (p. 1-27, PDF 43); CIRC drawn highlighted at the
+# right end of the status line (p. 1-5..1-6, PDF 21-22) only after the
+# circular entry. Pixels: ink in C1, the CIRC word's highlight. Mutant
+# I123_MUT_NO_RECALC (a gate-local volume whose 123.EXE recalculates nothing
+# on a typed number): the recalculated row never appears. The 67-token trace
+# outlives the default 250-tick live budget, so both legs boot the existing
+# I123 file-gate image ($(FLAIR_I123_FILE_GATE_IMG), FLAIR_TEN_TICK_BUDGET=500;
+# the same kernel objects otherwise).
+# ---------------------------------------------------------------------------
+FLAIR_DATA_I123_NORECALC_IMG := $(BUILD)/flair_data_i123_norecalc.img
+$(eval $(call tenant-exe-rules,i123_no_recalc,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NO_RECALC,$(I123_APP_DEP)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_NORECALC_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_no_recalc.exe))
+I123_FROW_A := $(I123_E)     123      1.5    124.5     -249                                      $(I123_E)
+I123_FROW_B := $(I123_E)     200      1.5    201.5     -403                                      $(I123_E)
+I123_FORMULA_ROWS = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_A)" fg=1 bg=0 -> 0' $(1) && \
+	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_B)" fg=1 bg=0 -> 0' $(1)
+I123_FORMULA_TEXT = grep -q '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: -C1\*2 *" fg=1 bg=0 -> 0$$' $(1) && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 ' $(1) | tail -1 | grep -q '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: @SUM(A1\.\.C1) *" fg=1 bg=0 -> 0$$'
+I123_FORMULA_CIRC = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=585 y=368 s="CIRC" fg=0 bg=3 -> 0' $(1) && \
+	awk -v r='TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_B)" fg=1 bg=0 -> 0' 'index($$0,"x=585 y=368 s=\"CIRC\"")&&!seen{bad=1} $$0==r{seen=1} END{exit bad||!seen}' $(1)
+
+.PHONY: test-flair-i123-formula test-flair-i123-formula-mutant
+test-flair-i123-formula: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-i123-formula : formulas typed into Initech 123 recalculate in the OS (initech-94ah)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_i123_formula,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_FORMULA_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_formula.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_formula.serial || { printf '!!! test-flair-i123-formula FAIL: 123 did not come up or the desktop died\n'; grep -E '^(PANIC|TENANT-(LOAD|REG|CRASH|EXIT)|HALTED)' $(BUILD)/flair_i123_formula.serial; exit 1; }
+	@$(call I123_FORMULA_ROWS,$(BUILD)/flair_i123_formula.serial) || { printf '!!! test-flair-i123-formula FAIL [1/3] VALUES: row 1 was not drawn as "123 1.5 124.5 -249" and, after A1 = 200, "200 1.5 201.5 -403"\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_formula.serial | tail -4; exit 1; }
+	@printf '>>> test-flair-i123-formula [1/3] VALUES: C1 @SUM(A1..B1) = 124.5, D1 -C1*2 = -249 drawn; A1 retyped 200 -> recalculated to 201.5 / -403\n'
+	@$(call I123_FORMULA_TEXT,$(BUILD)/flair_i123_formula.serial) || { printf '!!! test-flair-i123-formula FAIL [2/3] TEXT: line 1 does not show the formula text\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 ' $(BUILD)/flair_i123_formula.serial | tail -3; exit 1; }
+	@printf '>>> test-flair-i123-formula [2/3] TEXT: line 1 "D1: -C1*2", finally "B1: @SUM(A1..C1)" (the decompiled, uppercased formula)\n'
+	@$(call I123_FORMULA_CIRC,$(BUILD)/flair_i123_formula.serial) || { printf '!!! test-flair-i123-formula FAIL [3/3] CIRC: the indicator is missing, or lit before the circular entry\n'; grep 'y=368 ' $(BUILD)/flair_i123_formula.serial | tail -3; exit 1; }
+	@f=$(BUILD)/flair_i123_formula.ppm; \
+		set -- $$($(call I123_PX,$$f,178 126 250 142,300 452)); cne=$$1; \
+		set -- $$($(call I123_PX,$$f,586 430 618 446,4 112)); ieq=$$2; \
+		if [ "$$cne" -lt 20 ] || [ "$$ieq" -lt 200 ]; then printf '!!! test-flair-i123-formula FAIL [3/3] SCREEN: ink in C1 %s px (want >= 20), CIRC highlight %s/512 px (want >= 200)\n' "$$cne" "$$ieq"; exit 1; fi; \
+		printf '>>> test-flair-i123-formula [3/3] CIRC: drawn highlighted at the status line end only after B1 @SUM(A1..C1); screen: ink in C1 %s px, CIRC highlight %s/512 px\n' "$$cne" "$$ieq"
+	@printf '>>> test-flair-i123-formula: green\n'
+
+test-flair-i123-formula-mutant: test-flair-i123-formula $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_I123_NORECALC_IMG)
+	$(call appl-boot,flair_i123_formula_mut,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_I123_NORECALC_IMG),FLAIR_I123_FORMULA_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_formula_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_formula_mut.serial && grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_A)" fg=1 bg=0 -> 0' $(BUILD)/flair_i123_formula_mut.serial || { printf '!!! test-flair-i123-formula-mutant FAIL: NO_RECALC went RED for the wrong reason (want: 123 up, the first formula row drawn)\n'; exit 1; }
+	@if $(call I123_FORMULA_ROWS,$(BUILD)/flair_i123_formula_mut.serial); then printf '!!! test-flair-i123-formula-mutant FAIL: NO_RECALC PASSED -- the recalculation leg is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-i123-formula-mutant: NO_RECALC correctly RED -- A1 retyped 200 left row 1 at "%s"\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_formula_mut.serial | grep '     200 ' | head -1 | cut -c45-80)"
+	@printf '>>> test-flair-i123-formula-mutant: green\n'

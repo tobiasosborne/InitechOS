@@ -12,12 +12,12 @@
  *   ../lotus123-decomp/mint/{mint01,MINT03,MINT04,MINT05}.steps with
  *     goldens/minted/NAME.WK1 (typed text and the bytes 123.EXE compiled it
  *     to -- graded by test-i123-formula part A);
- *   R2.2 Reference Manual (OCR, PDF pages): p. 1-29 (PDF 46) formula entry
+ *   R2.2 Reference Manual (OCR, PDF pages): p. 1-29 (PDF 45) formula entry
  *     rules (begins with a number or + - @ . ( $ #; a cell address first
  *     needs + - ( or $; at most 240 characters; no spaces outside literal
- *     strings); p. 1-30 (PDF 47) precedence; p. 1-24 (PDF 40) a range is
- *     two corners separated by one or two periods; p. 1-31..1-33 (PDF 48-
- *     50) $ absolute / mixed references; p. 1-41 (PDF 57) linking formulas
+ *     strings); p. 1-30 (PDF 46) precedence; p. 1-24 (PDF 40) a range is
+ *     two corners separated by one or two periods; p. 1-31..1-33 (PDF 47-
+ *     49) $ absolute / mixed references; p. 1-41 (PDF 57) linking formulas
  *     +<<FILE>>ref.
  *
  * COMPILATION RULES and where each comes from:
