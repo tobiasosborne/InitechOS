@@ -69,6 +69,7 @@
  *   - spec/samir/dbf_format.h (DBF_REC_DELETE_LIVE=0x20, _DELETED=0x2A).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -226,7 +227,7 @@ static void test_tours_rec1(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/TOURS.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -340,7 +341,7 @@ static void test_travel_rec1_rec4(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/TRAVEL.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -442,7 +443,7 @@ static void test_clients_rec1(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/CLIENTS.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -521,7 +522,7 @@ static void test_tax_recs(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/TAX.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -590,7 +591,7 @@ static void test_bank_norec(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/BANK.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -682,7 +683,7 @@ static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/TAX.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -1048,8 +1049,8 @@ int main(int argc, char **argv)
     if (file_exists(path)) any_present = 1;
 
     if (!any_present) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               expected e.g. %s/%s/TOURS.DBF\n"
                 "               (pass the corpus base as argv[1];\n"
                 "                mutation hook still exercises DBF_MUTATE_RECOFF)\n",

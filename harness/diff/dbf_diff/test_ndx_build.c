@@ -74,6 +74,7 @@
  *   - seed/test_assert.h (harness idiom).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -459,7 +460,7 @@ static void check_rebuild(samir_pal_t *pal, const char *base,
     join(ndx_path, sizeof(ndx_path), base, ndx_rel);
 
     if (!file_exists(src_path) || !file_exists(ndx_path)) {
-        fprintf(stderr, "  SKIP (LOUD): %s rebuild -- %s or %s absent\n",
+        oracle_missing("DBASE3_DECOMP", "%s rebuild -- %s or %s absent\n",
                 label, src_rel, ndx_rel);
         return;
     }
@@ -601,8 +602,8 @@ int main(int argc, char **argv)
     if (file_exists(join(path, sizeof(path), base, "mint/work/NCOST.NDX")))
         any = 1;
     if (!any) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               pass the corpus base as argv[1]\n", base);
     }
 

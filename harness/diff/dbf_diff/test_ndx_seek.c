@@ -83,6 +83,7 @@
  *   NCOST:   33 entries; -123.45->31, -1.0->32, 0.0->33, 279.0->2.
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -236,7 +237,7 @@ static void check_index_properties(samir_pal_t *pal, const char *base,
 
     join(path, sizeof(path), base, rel);
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): %s absent (%s properties)\n", rel, label);
+        oracle_missing("DBASE3_DECOMP", "%s absent (%s properties)\n", rel, label);
         return;
     }
 
@@ -343,7 +344,7 @@ static void check_seek_zipcode(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/ZIPCODE.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): ZIPCODE.NDX absent (SEEK char check)\n");
+        oracle_missing("DBASE3_DECOMP", "ZIPCODE.NDX absent (SEEK char check)\n");
         return;
     }
 
@@ -456,7 +457,7 @@ static void check_seek_tourdate(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TOURDATE.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): TOURDATE.NDX absent (SEEK date check)\n");
+        oracle_missing("DBASE3_DECOMP", "TOURDATE.NDX absent (SEEK date check)\n");
         return;
     }
 
@@ -537,8 +538,8 @@ static void check_seek_ncost(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, "mint/work/NCOST.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): mint/work/NCOST.NDX absent (SEEK numeric check)\n");
+        oracle_missing("DBASE3_DECOMP",
+                "mint/work/NCOST.NDX absent (SEEK numeric check)\n");
         return;
     }
 
@@ -617,7 +618,7 @@ static void check_seek_cnames(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/CNAMES.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): CNAMES.NDX absent (SEEK CNAMES check)\n");
+        oracle_missing("DBASE3_DECOMP", "CNAMES.NDX absent (SEEK CNAMES check)\n");
         return;
     }
 
@@ -703,7 +704,7 @@ static void check_seek_typecheck(samir_pal_t *pal, const char *base)
             idx = (ndx_index *)0;
         }
     } else {
-        fprintf(stderr, "  SKIP (LOUD): TOURDATE.NDX absent (typecheck num)\n");
+        oracle_missing("DBASE3_DECOMP", "TOURDATE.NDX absent (typecheck num)\n");
     }
 
     /* char index (ZIPCODE) seeked with a numeric key -> BAD_KEYTYPE. */
@@ -720,7 +721,7 @@ static void check_seek_typecheck(samir_pal_t *pal, const char *base)
             ndx_close(idx);
         }
     } else {
-        fprintf(stderr, "  SKIP (LOUD): ZIPCODE.NDX absent (typecheck char)\n");
+        oracle_missing("DBASE3_DECOMP", "ZIPCODE.NDX absent (typecheck char)\n");
     }
 }
 
@@ -756,8 +757,8 @@ int main(int argc, char **argv)
         any_present = 1;
 
     if (!any_present) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               pass the corpus base as argv[1]\n", base);
     }
 

@@ -58,6 +58,7 @@
  *   - seed/test_assert.h (harness idiom).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -198,8 +199,8 @@ static void check_travel_dbt(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TRAVEL.DBT");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): TRAVEL.DBT absent: %s\n"
+        oracle_missing("DBASE3_DECOMP",
+                "TRAVEL.DBT absent: %s\n"
                 "               pass the corpus base as argv[1]\n", path);
         return;
     }
@@ -371,8 +372,8 @@ static void check_tours_dbt(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TOURS.DBT");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): TOURS.DBT absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP",
+                "TOURS.DBT absent: %s\n", path);
         return;
     }
 
@@ -421,7 +422,7 @@ static void check_iv_reject(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TRAVEL.DBT");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): TRAVEL.DBT absent for IV-reject check\n");
+        oracle_missing("DBASE3_DECOMP", "TRAVEL.DBT absent for IV-reject check\n");
         return;
     }
 
@@ -467,8 +468,8 @@ int main(int argc, char **argv)
     if (file_exists(path)) any_present = 1;
 
     if (!any_present) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               pass the corpus base as argv[1]\n"
                 "               (Tier-0 constants cannot be exercised without "
                 "the goldens)\n",

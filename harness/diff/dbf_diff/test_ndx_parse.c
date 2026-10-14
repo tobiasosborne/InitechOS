@@ -11,7 +11,7 @@
  *   Tier 0 (committed, operator-free): expected header values transcribed from
  *     ndx.md sec 2.2 "Header validated bytes (CNAMES.NDX)" and the "Verification"
  *     section; each value is cited to the ndx.md source. Opens the REAL golden
- *     through the PAL. Runs even if the golden is absent (loud-skip per file).
+ *     through the PAL. Runs even if the golden is absent (fail loud per file (named opt-out only)).
  *   Tier 1 (golden-diff): all 11 corpus .ndx files; full header field check +
  *     node entry_count + first-entry structure (child_page, dbf_recno, key_data
  *     prefix). Loud-skip if the file is absent.
@@ -52,6 +52,7 @@
  *   - seed/test_assert.h (harness idiom).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -187,8 +188,8 @@ static void check_header(samir_pal_t *pal, const char *base, const ndx_expect *e
 
     join(path, sizeof(path), base, e->relpath);
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): golden absent: %s -- pass corpus base as argv[1]\n",
+        oracle_missing("DBASE3_DECOMP",
+                "golden absent: %s -- pass corpus base as argv[1]\n",
                 path);
         return;
     }
@@ -254,7 +255,7 @@ static void check_cnames_node(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/CNAMES.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): CNAMES.NDX absent for node check\n");
+        oracle_missing("DBASE3_DECOMP", "CNAMES.NDX absent for node check\n");
         return;
     }
 
@@ -333,7 +334,7 @@ static void check_tourdate_node(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TOURDATE.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): TOURDATE.NDX absent for node check\n");
+        oracle_missing("DBASE3_DECOMP", "TOURDATE.NDX absent for node check\n");
         return;
     }
 
@@ -412,7 +413,7 @@ static void check_customer_node(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/CUSTOMER.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): CUSTOMER.NDX absent for node check\n");
+        oracle_missing("DBASE3_DECOMP", "CUSTOMER.NDX absent for node check\n");
         return;
     }
 
@@ -491,7 +492,7 @@ static void check_aval_flt(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/AVAL_FLT.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): AVAL_FLT.NDX absent\n");
+        oracle_missing("DBASE3_DECOMP", "AVAL_FLT.NDX absent\n");
         return;
     }
 
@@ -543,7 +544,7 @@ static void check_trips_node(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TRIPS.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): TRIPS.NDX absent for node check\n");
+        oracle_missing("DBASE3_DECOMP", "TRIPS.NDX absent for node check\n");
         return;
     }
 
@@ -632,7 +633,7 @@ static void check_remaining(samir_pal_t *pal, const char *base)
 
         join(path, sizeof(path), base, REMAINING[i].relpath);
         if (!file_exists(path)) {
-            fprintf(stderr, "  SKIP (LOUD): %s absent\n", REMAINING[i].label);
+            oracle_missing("DBASE3_DECOMP", "%s absent\n", REMAINING[i].label);
             continue;
         }
 
@@ -703,8 +704,8 @@ int main(int argc, char **argv)
     }
 
     if (!any_present) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               pass the corpus base as argv[1]\n"
                 "               (node checks below will also loud-skip)\n",
                 base);

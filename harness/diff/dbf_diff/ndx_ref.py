@@ -540,13 +540,20 @@ def run_selftest():
     mint      = os.path.join(decomp, "mint", "work")
 
     if not os.path.isdir(pristine):
-        sys.stderr.write(
-            "ndx_ref selftest: FAIL DBASE3_DECOMP -- pristine goldens not found at '%s'\n"
-            % pristine)
+        if os.environ.get("SKIP_DBASE3_DECOMP") == "1":
+            sys.stderr.write("!!! DBASE3_DECOMP SKIPPED (SKIP_DBASE3_DECOMP=1 opt-out) -- "
+                             "reference NOT graded: %s absent\n" % pristine)
+            return
+        sys.stderr.write("!!! DBASE3_DECOMP FAIL: %s absent; "
+                         "set SKIP_DBASE3_DECOMP=1 to explicitly opt out\n" % pristine)
         sys.exit(2)
     if not os.path.isdir(mint):
-        sys.stderr.write(
-            "ndx_ref selftest: FAIL DBASE3_DECOMP -- mint/work not found at '%s'\n" % mint)
+        if os.environ.get("SKIP_DBASE3_DECOMP") == "1":
+            sys.stderr.write("!!! DBASE3_DECOMP SKIPPED (SKIP_DBASE3_DECOMP=1 opt-out) -- "
+                             "reference NOT graded: %s absent\n" % mint)
+            return
+        sys.stderr.write("!!! DBASE3_DECOMP FAIL: %s absent; "
+                         "set SKIP_DBASE3_DECOMP=1 to explicitly opt out\n" % mint)
         sys.exit(2)
 
     checks   = 0

@@ -77,6 +77,7 @@
  *   - docs/plans/SAMIR-implementation-plan.md S1.4 oracle; ARB rider (a) (+mutant).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -612,7 +613,7 @@ static void test_golden_masked(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, SP_PATH "/CLIENTS.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): golden absent: %s\n", path);
+        oracle_missing("DBASE3_DECOMP", "golden absent: %s\n", path);
         return;
     }
 
@@ -725,7 +726,7 @@ static void test_golden_masked(samir_pal_t *pal, const char *base)
 }
 
 /* ============================================================
- * Oracle 5: INDEPENDENCE BARRIER -- dbf_ref.py read-back (optional system())
+ * Oracle 5: INDEPENDENCE BARRIER -- dbf_ref.py read-back (required system())
  *
  * The no-memo round-trip (oracle 3a) left a SAMIR-written file at RT_PATH_REF.
  * If python3 + dbf_ref.py are available, shell out and gate on the exit code
@@ -739,22 +740,24 @@ static void test_independence_barrier(void)
     int  ret;
 
     if (!file_exists(RT_PATH_REF)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no SAMIR-written file at %s "
+        oracle_failure(
+                "no SAMIR-written file at %s "
                 "(roundtrip-nomemo did not run)\n", RT_PATH_REF);
         return;
     }
 
     /* Resolve dbf_ref.py relative to this source file's directory at build time.
      * The orchestrator runs from the repo root, so the relative path holds. */
+    if (!oracle_reader_available("harness/diff/dbf_diff/dbf_ref.py")) return;
+
     snprintf(cmd, sizeof(cmd),
              "python3 harness/diff/dbf_diff/dbf_ref.py --records %s "
              ">/dev/null 2>&1", RT_PATH_REF);
     ret = system(cmd);
 
     if (ret == -1) {
-        fprintf(stderr,
-                "  SKIP (LOUD): could not invoke python3 for dbf_ref.py; "
+        oracle_failure(
+                "could not invoke python3 for dbf_ref.py; "
                 "orchestrator: run\n"
                 "    python3 harness/diff/dbf_diff/dbf_ref.py --records %s\n",
                 RT_PATH_REF);
@@ -765,8 +768,8 @@ static void test_independence_barrier(void)
     if (WIFEXITED(ret)) {
         int code = WEXITSTATUS(ret);
         if (code == 127) {
-            fprintf(stderr,
-                    "  SKIP (LOUD): python3/dbf_ref.py not found (exit 127); "
+            oracle_missing("REFERENCE_TOOLS",
+                    "python3/dbf_ref.py not found (exit 127); "
                     "orchestrator: run\n"
                     "    python3 harness/diff/dbf_diff/dbf_ref.py --records %s\n",
                     RT_PATH_REF);
@@ -817,10 +820,10 @@ int main(int argc, char **argv)
     test_roundtrip_nomemo(pal);
     test_roundtrip_memo(pal);
 
-    /* Oracle 4: normalization-masked golden cmp (loud-skip if absent). */
+    /* Oracle 4: normalization-masked golden cmp (fail loud (named opt-out only) if absent). */
     test_golden_masked(pal, base);
 
-    /* Oracle 5: independence barrier via dbf_ref.py (optional system()). */
+    /* Oracle 5: independence barrier via dbf_ref.py (required system()). */
     test_independence_barrier();
 
     pal_host_free(pal);

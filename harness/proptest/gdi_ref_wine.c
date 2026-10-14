@@ -7,16 +7,16 @@
  * gdi_ref_wine.h interface. It is a SEPARATE TU from the oracle so the wine
  * `struct region` never clashes with FLAIR's `struct region` (region_t).
  *
- * If ../win31-decomp is absent (the wine source is not found), this TU compiles
- * to gdi_ref_wine_available = 0 plus stub accessors, and the oracle LOUD-SKIPS
- * L2 (never silent-passes). Test-only; never linked into a kernel/artifact line
+ * If the wine source is absent, this TU provides unavailable stub accessors.
+ * The oracle FAILS LOUD unless SKIP_WIN31_DECOMP=1 explicitly opts out of L2.
+ * Test-only; never linked into a kernel/artifact line
  * (Law 3). ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include "gdi_ref_wine.h"
 
 /* Form WINE_REGION_C as a SINGLE string literal from -DWIN31_DECOMP=<base>
  * (UNQUOTED). Gate the whole wine include behind __has_include so an absent
- * tree LOUD-SKIPS at build time rather than failing the compile. */
+ * tree still compiles; the oracle enforces the missing-reference policy at run time. */
 #ifdef WIN31_DECOMP
 #  define GDI_STR2(s) #s
 #  define GDI_STR(s)  GDI_STR2(s)
@@ -87,7 +87,7 @@ int gdi_ref_wine_rect_in(gdi_ref_rgn r, int l, int t, int rr, int b)
     return gdi_ref_rect_in_region((struct region *)r, &rc) ? 1 : 0;
 }
 
-#else  /* !GDI_REF_HAVE_WINE -- ../win31-decomp absent: stubs, L2 LOUD-SKIPS */
+#else  /* !GDI_REF_HAVE_WINE -- ../win31-decomp absent: stubs, oracle enforces missing-reference policy */
 
 const int gdi_ref_wine_available = 0;
 

@@ -53,6 +53,7 @@
  *       CNAMES.NDX key="LASTNAME + FIRSTNAME ", key_type=0 (char).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -286,8 +287,8 @@ static void test_corpus_session(samir_pal_t *pal, const char *base)
     join(cnames, sizeof(cnames), base, SP_PATH "/CNAMES.NDX");
 
     if (!file_exists(trav) || !file_exists(clients) || !file_exists(cnames)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): corpus golden(s) absent under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "corpus golden(s) absent under base '%s'\n"
                 "               need: %s , %s , %s\n"
                 "               (pass the corpus base as argv[1]; Tier-0 synthetic still ran)\n",
                 base, trav, clients, cnames);
@@ -477,8 +478,8 @@ int main(int argc, char **argv)
     /* Tier 1: corpus TRAVEL (memo) + CLIENTS (index) session. */
     join(path, sizeof(path), base, SP_PATH "/TRAVEL.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no corpus goldens under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no corpus goldens under base '%s'\n"
                 "               expected e.g. %s/%s/TRAVEL.DBF\n"
                 "               (pass the corpus base as argv[1]; Tier-0 synthetic ran;\n"
                 "                the -DWA_MUTATE_SELECT mutant still bites Tier 0)\n",

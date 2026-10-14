@@ -38,7 +38,7 @@
  * SYNTHETIC key sets (no golden file dependency) for the maintenance checks;
  * it ALSO runs a Tier-1 check on CNAMES.NDX / NCOST.NDX if the golden is
  * present (builds a fresh index, inserts keys, verifies behavioral correctness
- * on the real corpus key set -- loud-skip if golden is absent).
+ * on the real corpus key set -- fail loud (named opt-out only) if golden is absent).
  *
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
@@ -67,6 +67,7 @@
  *   - seed/test_assert.h (harness idiom).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -720,7 +721,7 @@ static void test_nonunique_multileaf_delete(samir_pal_t *pal, const char *tmpdir
 }
 
 /* -----------------------------------------------------------------------
- * Test 5: Tier-1 corpus check (loud-skip if golden absent)
+ * Test 5: Tier-1 corpus check (fail loud (named opt-out only) if golden absent)
  *
  * Build a fresh CNAMES-style char index from the first N corpus records'
  * keys (synthetic approximation -- we don't have the full evaluator here),
@@ -748,15 +749,15 @@ static void test_tier1_corpus(samir_pal_t *pal, const char *corpus_base)
 
     fsrc = fopen(cnames_src, "rb");
     if (!fsrc) {
-        printf("SKIP  [Tier-1] corpus CNAMES.NDX absent at %s; "
-               "skipping corpus-based maintenance check.\n", cnames_src);
+        oracle_missing("DBASE3_DECOMP","corpus CNAMES.NDX absent at %s; "
+               "corpus-based maintenance check unavailable.\n", cnames_src);
         return;
     }
     fdst = fopen(cnames_copy, "wb");
     if (!fdst) {
         fclose(fsrc);
-        printf("SKIP  [Tier-1] cannot create temp copy at %s; "
-               "skipping corpus-based maintenance check.\n", cnames_copy);
+        oracle_failure("cannot create temp copy at %s; "
+               "corpus-based maintenance check unavailable.\n", cnames_copy);
         return;
     }
     {
@@ -770,8 +771,8 @@ static void test_tier1_corpus(samir_pal_t *pal, const char *corpus_base)
 
     rc = ndx_open_rw(pal, cnames_copy, &idx);
     if (rc != NDX_OK) {
-        printf("SKIP  [Tier-1] CNAMES.NDX temp copy failed to open (rc=%d); "
-               "skipping corpus-based maintenance check.\n", rc);
+        oracle_failure("CNAMES.NDX temp copy failed to open (rc=%d); "
+               "corpus-based maintenance check unavailable.\n", rc);
         return;
     }
 
@@ -791,10 +792,9 @@ static void test_tier1_corpus(samir_pal_t *pal, const char *corpus_base)
 
         /* If the corpus golden is corrupted (e.g. from a previous broken run
          * before the fix landed), the traversal returns an error. In that
-         * case, loud-skip the Tier-1 check rather than failing against a
-         * corrupt file. */
+         * case, fail loud: a corrupt reference cannot count as green. */
         if (baseline_rc != 0 || ctx.bad_order > 0 || baseline_count == 0u) {
-            printf("SKIP  [Tier-1] CNAMES.NDX copy traversal failed "
+            oracle_failure("CNAMES.NDX copy traversal failed "
                    "(rc=%d bad_order=%u count=%u); "
                    "corpus golden may be from a pre-fix run. "
                    "Re-mint the golden to restore.\n",

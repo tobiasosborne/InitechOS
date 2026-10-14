@@ -48,6 +48,7 @@
  *   - Corpus ground truth: CLIENTS.DBF nrec=49; rec1 LASTNAME=Buckman.
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -475,8 +476,8 @@ static void test_corpus_copy(samir_pal_t *pal, const char *base)
 
     snprintf(src, sizeof src, "%s/%s/CLIENTS.DBF", base, SP_PATH);
     if (!file_exists(src)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): corpus golden absent: %s\n"
+        oracle_missing("DBASE3_DECOMP",
+                "corpus golden absent: %s\n"
                 "               (pass the corpus base as argv[1]; T0/T1 synthetic still ran)\n",
                 src);
         return;

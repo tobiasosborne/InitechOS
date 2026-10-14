@@ -15,7 +15,7 @@
  * (top,left,bottom,right) rgn_rect_t at one well-marked seam (Law 1 honesty).
  *
  * GDI_REF_WINE_AVAILABLE is 1 iff the wine TU found and compiled the wine source
- * (../win31-decomp present); 0 otherwise. The oracle reads it to LOUD-SKIP L2.
+ * (../win31-decomp present); 0 otherwise. The oracle reads it to enforce the missing-reference policy for L2.
  *
  * ASCII-clean (Rule 12). Deterministic (Rule 11). TEST-ONLY (never in a
  * kernel/artifact line, Law 3).
@@ -23,7 +23,7 @@
 #ifndef GDI_REF_WINE_H
 #define GDI_REF_WINE_H
 
-/* 1 if the wine independent golden was compiled in; 0 -> L2 LOUD-SKIPS. Defined
+/* 1 if the wine independent golden was compiled in; 0 -> L2 FAILS LOUD unless SKIP_WIN31_DECOMP=1. Defined
  * as a real symbol in gdi_ref_wine.c so the value is decided at build time by
  * __has_include over WIN31_DECOMP, not guessed by the oracle. */
 extern const int gdi_ref_wine_available;

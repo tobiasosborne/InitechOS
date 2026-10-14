@@ -518,9 +518,12 @@ def run_selftest():
     golden_base = os.path.join(decomp, "goldens")
 
     if not os.path.isdir(golden_base):
-        sys.stderr.write(
-            "dbf_ref selftest: FAIL DBASE3_DECOMP -- goldens directory not found at '%s'\n"
-            % golden_base)
+        if os.environ.get("SKIP_DBASE3_DECOMP") == "1":
+            sys.stderr.write("!!! DBASE3_DECOMP SKIPPED (SKIP_DBASE3_DECOMP=1 opt-out) -- "
+                             "reference NOT graded: %s absent\n" % golden_base)
+            return
+        sys.stderr.write("!!! DBASE3_DECOMP FAIL: %s absent; "
+                         "set SKIP_DBASE3_DECOMP=1 to explicitly opt out\n" % golden_base)
         sys.exit(2)
 
     pristine = os.path.join(golden_base,

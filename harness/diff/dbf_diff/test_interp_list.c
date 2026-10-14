@@ -49,6 +49,7 @@
  *   - harness/diff/dbf_diff/dbf_ref.py (TOURS/CLIENTS records -- the value source).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -437,7 +438,7 @@ static void test_tier0(samir_pal_t *pal)
 }
 
 /* =====================================================================
- * Tier 1: SEEK / FIND on corpus master indexes (loud-skip if absent).
+ * Tier 1: SEEK / FIND on corpus master indexes (fail loud (named opt-out only) if absent).
  * ===================================================================== */
 
 static void test_tier1(samir_pal_t *pal, const char *base)
@@ -456,8 +457,8 @@ static void test_tier1(samir_pal_t *pal, const char *base)
 
     if (!file_exists(tours) || !file_exists(tourdate) ||
         !file_exists(clients) || !file_exists(names)) {
-        fprintf(stderr,
-            "  SKIP (LOUD): corpus golden(s) absent under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+            "corpus golden(s) absent under base '%s'\n"
             "               need: %s %s %s %s\n"
             "               (Tier-0 ran; -DQUERY_MUTATE_CONTINUE_SCOPE bites Tier 0)\n",
             base, tours, tourdate, clients, names);
@@ -577,8 +578,8 @@ int main(int argc, char **argv)
 
     join(path, sizeof path, base, SP_PATH "/TOURS.DBF");
     if (!file_exists(path))
-        fprintf(stderr,
-            "  SKIP (LOUD): no corpus goldens under base '%s' (pass corpus base as argv[1]; Tier-0 ran)\n",
+        oracle_missing("DBASE3_DECOMP",
+            "no corpus goldens under base '%s' (pass corpus base as argv[1]; Tier-0 ran)\n",
             base);
     test_tier1(pal, base);
 

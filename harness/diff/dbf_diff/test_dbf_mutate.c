@@ -26,7 +26,7 @@
  *   7. DETERMINISM (Rule 11): two identical sequences on separate arenas
  *      produce byte-identical output after flush.
  *   8. INDEPENDENCE BARRIER: the packed file from oracle 5 is left at a
- *      fixed path; dbf_ref.py --records reads it back (loud-skip if absent).
+ *      fixed path; dbf_ref.py --records reads it back (fail loud (named opt-out only) if absent).
  *
  * Mutation hook (Rule 6): -DDBF_MUTATE_DELFLAG causes dbf_delete to write
  * 0x20 instead of 0x2A. Oracle 4 asserts the flag reads back as 0x2A; with
@@ -62,6 +62,7 @@
  *   - docs/plans/SAMIR-implementation-plan.md S1.5 oracle + ARB rider (a).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -836,11 +837,13 @@ static void test_independence_barrier(void)
     int ret;
 
     if (!file_exists(MUT_PATH_REF)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no packed file at %s "
+        oracle_failure(
+                "no packed file at %s "
                 "(pack oracle did not run)\n", MUT_PATH_REF);
         return;
     }
+
+    if (!oracle_reader_available("harness/diff/dbf_diff/dbf_ref.py")) return;
 
     snprintf(cmd, sizeof(cmd),
              "python3 harness/diff/dbf_diff/dbf_ref.py --records %s "
@@ -848,8 +851,8 @@ static void test_independence_barrier(void)
     ret = system(cmd);
 
     if (ret == -1) {
-        fprintf(stderr,
-                "  SKIP (LOUD): could not invoke python3 for dbf_ref.py; "
+        oracle_failure(
+                "could not invoke python3 for dbf_ref.py; "
                 "orchestrator: run\n"
                 "    python3 harness/diff/dbf_diff/dbf_ref.py --records %s\n",
                 MUT_PATH_REF);
@@ -860,8 +863,8 @@ static void test_independence_barrier(void)
     if (WIFEXITED(ret)) {
         int code = WEXITSTATUS(ret);
         if (code == 127) {
-            fprintf(stderr,
-                    "  SKIP (LOUD): python3/dbf_ref.py not found (exit 127); "
+            oracle_missing("REFERENCE_TOOLS",
+                    "python3/dbf_ref.py not found (exit 127); "
                     "orchestrator: run\n"
                     "    python3 harness/diff/dbf_diff/dbf_ref.py --records %s\n",
                     MUT_PATH_REF);
