@@ -127,7 +127,7 @@ static int read_rgb_bytes(const char *p, const char *end,
 /* ---- Canon entry store ---------------------------------------------------- */
 
 #define CANON_N   9   /* exactly 9 indexed entries, idx 0..8 */
-#define DERIVED_N 2   /* exactly 2 derived rows               */
+#define DERIVED_N 4   /* exactly 2 derived rows               */
 /* DEC-10 Sec 3.5.3 / initech-3knt: 2 retained SYS7 names + 11 appended
  * Platinum sampled-domain names; exact count remains a fail-loud invariant. */
 #define RAMP_N   13   /* exactly 13 named idx>=9 ramp indices */
@@ -583,11 +583,13 @@ static void emit_header(const entry_t tbl[CANON_N],
     }
     printf("\n");
 
-    /* ---- Derived bevel macros ---- */
+    /* ---- Derived accent macros (tdnl.93 adds two direct-colour rows) ---- */
     printf("/* ---------------------------------------------------------------------------\n");
     printf(" * Derived bevel rows  (WL-0053 lavender->teal swap; graded_by:authored).\n");
     printf(" * bevel_light  == idx2 teal #8DDCDC;  bevel_shadow == darkened teal #4E9BA3.\n");
     printf(" * Neither is wired to a wctb decomp golden; both gated by VALUE mutants.\n");
+    printf(" * 2026-10-15 tdnl.93: MENU_DARK/MENU_SHADOW are dark teal title derivatives.\n");
+    printf(" * White/face contrast6.56 >= captured6.37; indexed fallbacks63/0 add no slots.\n");
     printf(" * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.4 (ARB-5); color_canon.json derived_rows.\n");
     printf(" */\n");
     for (i = 0; i < DERIVED_N; i++) {

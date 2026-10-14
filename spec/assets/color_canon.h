@@ -81,13 +81,12 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
  * Derived bevel rows  (WL-0053 lavender->teal swap; graded_by:authored).
  * bevel_light  == idx2 teal #8DDCDC;  bevel_shadow == darkened teal #4E9BA3.
  * Neither is wired to a wctb decomp golden; both gated by VALUE mutants.
+ * 2026-10-15 tdnl.93: MENU_DARK/MENU_SHADOW are dark teal title derivatives.
+ * White/face contrast6.56 >= captured6.37; indexed fallbacks63/0 add no slots.
  * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.4 (ARB-5); color_canon.json derived_rows.
  */
 #define INITECH_CANON_BEVEL_LIGHT_RGB        0x8DDCDCu
 #define INITECH_CANON_BEVEL_SHADOW_RGB       0x4E9BA3u
-/* 2026-10-15 tdnl.93: sampled lavender title face/shadow -> dark teal.
- * Authored same-hue derivative: white/face contrast6.56 >= capture6.37.
- * No indexed slots added: map fallbacks to existing gray63 / black0. */
 #define INITECH_CANON_MENU_DARK_RGB          0x27666Cu
 #define INITECH_CANON_MENU_SHADOW_RGB        0x003F45u
 
