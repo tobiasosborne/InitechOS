@@ -22372,6 +22372,16 @@ RECORD_MARKER_fonts_styles = FLAIR-MENU-XDROP menu=130
 RECORD_SETTLE_fonts_styles = 400
 RECORD_IMAGE_fonts_styles = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_DATA_fonts_styles = $(BUILD)/flair_data_fonts.img
+# scroll_look (initech-tdnl.82/.86; moved here 2026-10-15 PM: the record-flair
+# target reads RECORD_IMAGE_<script> at parse time, so a clip block defined
+# after it never builds its image -- FLAIR-FAT-MOUNT-OK missing).
+RECORD_SCRIPTS += scroll_look
+RECORD_SPEC_scroll_look = $(FLAIR_SCROLL_LOOK_SPEC)
+RECORD_MARKER_scroll_look = FLAIR-GROW win 0 (360,220)->(96,88)
+RECORD_IMAGE_scroll_look = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_scroll_look = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_scroll_look = 500
+# initech-uqah: independent menu inventory vs installed R2.2 123.RI.
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
 RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
@@ -29535,13 +29545,6 @@ test-flair-scroll-look-mutant: test-flair-scroll-look $(HARNESS_BIN) $(FLAIR_DAT
 	@if $(SCROLL_LOOK_CHECK) min $(BUILD)/scroll_look_mut_min.ppm > $(BUILD)/scroll_look_mut_min.pixels 2>&1; then printf 'FAIL no minimum survived\n'; exit 1; fi
 	@grep -q 'FAIL scroll-look crop' $(BUILD)/scroll_look_mut_min.pixels
 	@printf '>>> test-flair-scroll-look-mutant: WINDOW_MUTATE_GROW_NO_MIN correctly RED (undrawn bar and wrong frame)\n'
-RECORD_SCRIPTS += scroll_look
-RECORD_SPEC_scroll_look = $(FLAIR_SCROLL_LOOK_SPEC)
-RECORD_MARKER_scroll_look = FLAIR-GROW win 0 (360,220)->(96,88)
-RECORD_IMAGE_scroll_look = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
-RECORD_DATA_scroll_look = $(FLAIR_DATA_IMG)
-RECORD_SETTLE_scroll_look = 300
-# initech-uqah: independent menu inventory vs installed R2.2 123.RI.
 I123_RI = $(LOTUS123_DECOMP)/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI
 $(BUILD)/test_i123_menu_tree: harness/diff/wk1_diff/test_i123_menu_tree.c os/i123/core/menu.c os/i123/core/menu.h os/i123/core/menu_data.h | $(BUILD)
 	$(CC) $(CFLAGS) -DI123_MENU_HOST -Ios/i123/core -o $@ $< os/i123/core/menu.c
