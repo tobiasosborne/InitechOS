@@ -498,6 +498,10 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
     uint32_t bar_hl = flair_look_pixel(port, FLAIR_PART_MENU_BAR_HL);
     uint32_t bar_face = flair_look_pixel(port, FLAIR_PART_MENU_BAR_FACE);
     uint32_t bar_shadow = flair_look_pixel(port, FLAIR_PART_MENU_BAR_SHADOW);
+    uint32_t pulled_face = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_FACE);
+#if defined(MENU_LOOK_MUT_FLAT_HILITE)
+    pulled_face = flair_look_pixel(port, FLAIR_PART_DESKTOP);
+#endif
 
 #if defined(MENU_MUT_BAR_FLAT) && MENU_MUT_BAR_FLAT
     /* NAMED MUTANT: the old flat face, with neither sampled profile nor round. */
@@ -559,9 +563,12 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
     if (hilited_menu >= 0 && hilited_menu < (int)bar->n_menus) {
         rgn_rect_t hr = MenuBar_hilite_rect(bar, hilited_menu);
         uint32_t htop = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_HL);
-        uint32_t hface = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_FACE);
+        uint32_t hface = pulled_face;
         uint32_t hshadow = flair_look_pixel(port,
                                             FLAIR_PART_MENU_TITLE_HILITE_SHADOW);
+#if defined(MENU_LOOK_MUT_FLAT_HILITE)
+        htop = hshadow = hface;
+#endif
         rgn_rect_t r0 = { 0, hr.left, 1, hr.right };
         rgn_rect_t rf = { 1, hr.left, (int16_t)(FLAIR_MENUBAR_H - 2), hr.right };
         rgn_rect_t rs = { (int16_t)(FLAIR_MENUBAR_H - 2), hr.left,
@@ -577,8 +584,7 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
             continue;
         uint32_t title_fg = (k == hilited_menu) ? white : text_ink;
         uint32_t title_bg = (k == hilited_menu)
-                            ? flair_look_pixel(port,
-                                  FLAIR_PART_MENU_TITLE_HILITE_FACE)
+                            ? pulled_face
                             : bar_face;
         /* clipped like every other bar primitive (bead initech-tdnl.68:
          * text never paints outside the effective clip) */

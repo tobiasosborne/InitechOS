@@ -189,7 +189,15 @@
       "rgb": "#4E9BA3", "rgb_bytes": [78, 155, 163],
       "heritage": "initech-identity", "wctb_part": "part9/part11 dark (System-7 lavender shadow #B3B3DA, teal-SUBSTITUTED)",
       "source_golden": "AUTHORED -- WL-0053 darkened teal, preserves the 3-D bevel with the Initech hue. Replaces System-7 #B3B3DA.",
-      "graded_by": "authored -- locked-constant + DERIVED-SHADOW lock (same-hue-as-bevel_light proof) + a lavender-relapse VALUE mutant." }
+      "graded_by": "authored -- locked-constant + DERIVED-SHADOW lock (same-hue-as-bevel_light proof) + a lavender-relapse VALUE mutant." },
+    { "name": "menu_dark", "era": "system8-platinum (initech identity)",
+      "role": "highlighted menu title dark face", "rgb": "#27666C", "rgb_bytes": [39, 102, 108],
+      "source_golden": "AUTHORED 2026-10-15 tdnl.93: s8_menu_dropped x34 y1..17 #5454B3 maps to same-hue dark teal, white contrast6.56 exceeds captured6.37. Existing indexed fallback63 (#3F3F3F), no palette slots added.",
+      "graded_by": "test-menu-look independent column crop and flat-hilite mutant" },
+    { "name": "menu_shadow", "era": "system8-platinum (initech identity)",
+      "role": "highlighted menu title bottom edge", "rgb": "#003F45", "rgb_bytes": [0, 63, 69],
+      "source_golden": "AUTHORED 2026-10-15 tdnl.93: s8_menu_dropped x34 y18 #0000A5 maps to darker teal. Existing indexed fallback0 (black). Baseline y19 remains black.",
+      "graded_by": "test-menu-look independent column crop and flat-hilite mutant" }
   ],
 
   "superseded": {

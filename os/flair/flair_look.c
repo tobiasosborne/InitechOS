@@ -141,12 +141,12 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* MENU_TITLE_HILITE_HL */
     { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
       INITECH_CANON_BEVEL_LIGHT_RGB },
-    /* MENU_TITLE_HILITE_FACE */
-    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
-      INITECH_CANON_BEVEL_SHADOW_RGB },
-    /* MENU_TITLE_HILITE_SHADOW */
-    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
-      INITECH_CANON_BEVEL_SHADOW_RGB },
+    /* MENU_TITLE_HILITE_FACE: tdnl.93; white contrast6.56/10.53 */
+    { CIDX_PLAT_DARK_RING, 1u, FLAIR_NO_SKIN_SLOT,
+      INITECH_CANON_MENU_DARK_RGB },
+    /* MENU_TITLE_HILITE_SHADOW: separate dark edge, no new index */
+    { CIDX_BLACK, 1u, FLAIR_NO_SKIN_SLOT,
+      INITECH_CANON_MENU_SHADOW_RGB },
     /* tdnl.96/.97: clut-208 H/P/S/R -> white/teal/dark/dark.
      * S/R use the existing dark teal in direct colour, existing #3F3F3F
      * in indexed colour (the locked indexed palette has ONLY one teal).
@@ -260,9 +260,8 @@ uint32_t flair_look_pixel_depth(uint32_t bpp, int part)
     if (bpp == 8u) {
         /* 8bpp writes the row's role-specific fallback index (OD-2). Existing
          * BEVEL_SHADOW preserves its old black-valued CIDX_TITLE_INK fallback.
-         * The pulled menu title uses existing idx2 teal because the exact
-         * darkened-teal derived RGB has no indexed slot and DEC-10 OQ-3 forbids
-         * accreting one. Direct-color output preserves #4E9BA3 exactly. The
+         * The pulled menu title uses idx2/63/0 for light/face/shadow: the
+         * exact dark teal derivatives have no indexed slots (tdnl.93). The
          * pulled-title host oracle grades both depths (bead initech-sjvq). */
         if (row == 0) {
             return (uint32_t)CIDX_BLACK;

@@ -174,7 +174,7 @@ enum {
     MG_FACE_E7 = 231
 };
 #define MG_TEAL_LIGHT_RGB   0x8DDCDCu
-#define MG_TEAL_SHADOW_RGB  0x4E9BA3u
+#define MG_TEAL_SHADOW_RGB  0x27666Cu
 static void draw_bar_and_panel(GrafPort *port)
 {
     DrawMenuBar(port, &g_bar, OPEN_MI, NULL);
@@ -583,10 +583,10 @@ int main(int argc, char **argv)
                 CHECK(render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 0u) ==
                       MG_TEAL &&
                       render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 8u) ==
-                      MG_TEAL &&
+                      MG_DARK_3F &&
                       render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 18u) ==
-                      MG_TEAL,
-                      "MENU FIDELITY indexed pulled-title rows use existing teal slot");
+                      MG_BLACK,
+                      "MENU FIDELITY indexed title re-key2026-10-15 tdnl.93: crop classes ->2/63/0");
                 /* 'E' (NFNT 5478 lb 1) cap top: bar row 5 -- the row real
                  * System 7 puts it on (goldens/captures/s7_menu_file.png:
                  * "Edit" ink rows 5..13; = VPAD 2 + Chicago cap-top row 3).
@@ -594,7 +594,7 @@ int main(int argc, char **argv)
                 CHECK(render_pixel_index(&ctx, (uint32_t)(tx +
                       FLAIR_MENU_TITLE_PAD + 1), 5u) == MG_WHITE &&
                       render_pixel_index(&ctx, (uint32_t)(tx +
-                      FLAIR_MENU_TITLE_PAD + 1), 4u) == MG_TEAL,
+                      FLAIR_MENU_TITLE_PAD + 1), 4u) == MG_DARK_3F,
                       "MENU FIDELITY pulled title text is white, cap top row 5");
                 CHECK(render_pixel_index(&ctx, (uint32_t)(hr.left + 1), 19u) ==
                       MG_BLACK,
@@ -865,8 +865,8 @@ int main(int argc, char **argv)
             CHECK((render_pixel_rgb(&ctx, (uint32_t)(hr.left + 1), 8u) &
                    0x00FFFFFFu) == MG_TEAL_SHADOW_RGB &&
                   (render_pixel_rgb(&ctx, (uint32_t)(hr.left + 1), 18u) &
-                   0x00FFFFFFu) == MG_TEAL_SHADOW_RGB,
-                  "MENU FIDELITY pulled-title face/shadow use authored teal shadow");
+                   0x00FFFFFFu) == 0x003F45u,
+                  "MENU FIDELITY pulled-title face/shadow re-key2026-10-15 tdnl.93:27666C/003F45");
             render_ctx_free(&ctx);
         }
     }

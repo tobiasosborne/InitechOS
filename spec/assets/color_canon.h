@@ -85,6 +85,11 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
  */
 #define INITECH_CANON_BEVEL_LIGHT_RGB        0x8DDCDCu
 #define INITECH_CANON_BEVEL_SHADOW_RGB       0x4E9BA3u
+/* 2026-10-15 tdnl.93: sampled lavender title face/shadow -> dark teal.
+ * Authored same-hue derivative: white/face contrast6.56 >= capture6.37.
+ * No indexed slots added: map fallbacks to existing gray63 / black0. */
+#define INITECH_CANON_MENU_DARK_RGB          0x27666Cu
+#define INITECH_CANON_MENU_SHADOW_RGB        0x003F45u
 
 /* ---------------------------------------------------------------------------
  * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (Rule 8; NOT a new
