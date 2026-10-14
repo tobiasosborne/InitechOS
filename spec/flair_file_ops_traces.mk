@@ -188,7 +188,13 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 #   -> (279,122): m100:20, m56:0 ; l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=TRASH
 #        win=2 singleton=0: the stranded folder is an ORDINARY visible folder
 #   PARK (279,122) -> (620,460): sum (+341,+338): m68:68 x4, m69:66.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m100:20,m56:0,l1,l0,l1,l0,m68:68,m68:68,m68:68,m68:68,m69:66
+# DELIBERATE RE-KEY 2026-10-15 (initech-l4tj, initech-uqah): APPS gained WORD.EXE
+# and 123.MNU, so the stranded APPS\TRASH moved from grid cell 3 (row 1, col 3:
+# +156,+20 from the APPS double-click) to cell 5 = row 2, col 1 at four columns
+# per row (FINDER_GRID_PITCH_X 68, PITCH_Y 52: +20,+72). The two moves after the
+# TRASH double-click keep their old ABSOLUTE target (+292,+156): 272,84 from
+# the new click point.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,m100:84,m100:0,m72:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the
