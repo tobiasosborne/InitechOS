@@ -2561,16 +2561,15 @@ static void builtin_rd(const char *arg)
     /* Success is SILENT (DOS RD prints nothing on success). */
 }
 
-/* CLS: clear the screen. The console exposes no clear hook this milestone, so we
- * emit a form feed (0x0C) -- a period-authentic DOS CLS signal -- followed by a
- * page of blank lines as a simple, deterministic fallback. Kept minimal. */
+/* CLS: CON's form-feed operation clears and homes without an ANSI driver.
+ * Ref: DOS 3.3 User's Guide p.45 / PDF 130, Technical Reference p.3-13 /
+ * PDF 82. Scrolling 25 newlines would leave the prompt on the last row. */
 static void builtin_cls(void)
 {
-    /* Form feed first (a real terminal/console would clear on this). */
+    /* Ref: DOS 3.3 User's Guide p.45 / PDF 130; Technical Reference
+     * p.3-13 / PDF 82 (erase display homes). The CON console handles this
+     * control byte directly, including when ANSI.SYS is not loaded. */
     dos_print("\f$");
-    for (int i = 0; i < 25; i++) {
-        dos_print("\r\n$");
-    }
 }
 
 /* VER: print the InitechDOS version line. Source the numbers from AH=30h

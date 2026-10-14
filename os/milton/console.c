@@ -170,6 +170,16 @@ void console_putc(console_t *con, char ch)
         return;
     }
     switch (ch) {
+    case '\f':
+        /* initech-3sxp / M016. DOS 3.3 User's Guide p.45 / PDF 130:
+         * CLS leaves only prompt + cursor. Technical Reference p.3-13 /
+         * PDF 82: erase display goes to home; CUP p.3-6 / PDF 75 defines
+         * home as row 1, column 1 (zero-based 0,0 here). */
+        console_clear(con);
+#ifndef CONSOLE_MUTATE_CLS_NO_HOME
+        console_set_cursor(con, 0u, 0u);
+#endif
+        return;
     case '\n':
         advance_line(con);
         return;
