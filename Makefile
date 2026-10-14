@@ -29,7 +29,8 @@ BUILD   ?= build
 # Reference policy (Law 2, initech-iv8c), matching SKIP_FPC / SKIP_BOCHS:
 # missing corpus/tool = FAIL LOUD, never an automatic skip-to-green.
 # The ONLY explicit corpus opt-outs are SKIP_SYSTEM7_DECOMP=1,
-# SKIP_WIN31_DECOMP=1, SKIP_DBASE3_DECOMP=1, SKIP_LOTUS123_DECOMP=1.
+# SKIP_WIN31_DECOMP=1, SKIP_DBASE3_DECOMP=1, SKIP_LOTUS123_DECOMP=1,
+# SKIP_WORDPERFECT51_DECOMP=1 (initech-l4tj: the WordPerfect 5.1 corpus).
 # SKIP_REFERENCE_TOOLS=1 opts out of an absent python3/reader, ASAN or mtools.
 # Every opt-out shouts SKIPPED and names the ungraded reference. Corrupt
 # goldens, mismatches and harness I/O failures remain RED even with an opt-out.
@@ -37,13 +38,15 @@ SKIP_SYSTEM7_DECOMP  ?= 0
 SKIP_WIN31_DECOMP    ?= 0
 SKIP_DBASE3_DECOMP   ?= 0
 SKIP_LOTUS123_DECOMP ?= 0
+SKIP_WORDPERFECT51_DECOMP ?= 0
 SKIP_REFERENCE_TOOLS ?= 0
 SYSTEM7_DECOMP      ?= ../system7-decomp
 WIN31_DECOMP        ?= ../win31-decomp
 DBASE3_DECOMP       ?= ../dbase3-decomp
 LOTUS123_DECOMP     ?= ../lotus123-decomp
-export SYSTEM7_DECOMP WIN31_DECOMP DBASE3_DECOMP LOTUS123_DECOMP
-export SKIP_SYSTEM7_DECOMP SKIP_WIN31_DECOMP SKIP_DBASE3_DECOMP SKIP_LOTUS123_DECOMP SKIP_REFERENCE_TOOLS
+WORDPERFECT51_DECOMP ?= ../wordperfect51-decomp
+export SYSTEM7_DECOMP WIN31_DECOMP DBASE3_DECOMP LOTUS123_DECOMP WORDPERFECT51_DECOMP
+export SKIP_SYSTEM7_DECOMP SKIP_WIN31_DECOMP SKIP_DBASE3_DECOMP SKIP_LOTUS123_DECOMP SKIP_WORDPERFECT51_DECOMP SKIP_REFERENCE_TOOLS
 ORACLE_POLICY_H := harness/oracle_policy.h
 
 # Corpus macros select independent inputs at compile time (notably wine's
@@ -13629,6 +13632,97 @@ test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUI
 		printf '>>> test-i123-quit-mutant: %s correctly RED (%s: %s)\n' "$$m" "$$why" "$$(grep -m1 "FAIL $$why " $$bin.log)"; \
 	done
 	@printf '>>> test-i123-quit-mutant: green (all four mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gates: test-iword-core and test-iword-wp5-roundtrip (bead initech-l4tj,
+# IWORD P1; plan docs/plans/INITECH-WORD-plan.md Sec 6(a)/(c), Sec 7 P1) --
+# InitechWord's document core (os/iword/core: a piece table, the WP 5.1 unit
+# walk, word wrap and line layout) and its .WP5 codec (os/iword/fs/wp5.c).
+#   test-iword-core          the PROPERTY SUITE (harness/proptest/
+#                            test_iword_core.c): piece table == a flat model
+#                            over random edit programs (shrunk on failure),
+#                            reflow == an independent reference wrapper and
+#                            idempotent, random typing sessions == a model
+#                            with the cursor invariants, opaque codes kept
+#                            whole, Ln/Pos as the real WP 5.1 status line.
+#                            Corpus-free (no golden is read).
+#   test-iword-wp5-roundtrip the CODEC vs REAL WordPerfect 5.1: the five
+#                            documents WP.EXE minted ($(WORDPERFECT51_DECOMP)
+#                            /goldens/minted) rewrite byte-identically, their
+#                            text agrees with the INDEPENDENT reader tools/
+#                            wp5_ref.py, re-wrapping at 65 columns reproduces
+#                            WP's own soft returns, typed MINT02 is the real
+#                            MINT02.WP5 byte for byte, malformed files are
+#                            refused. The corpus is required: absent, the gate
+#                            FAILS (SKIP_WORDPERFECT51_DECOMP=1 is the one
+#                            shouting opt-out, initech-iv8c pattern).
+# Mutants: test-iword-core-mutant (SPLIT_OFF / REFLOW_STALE / PREV_VAR) and
+# test-iword-wp5-roundtrip-mutant (DROP_CODE / WRAP_EARLY), each RED for its
+# named reason.
+# ---------------------------------------------------------------------------
+IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/fs/wp5.c
+IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h
+IWORD_CORE_INC := -Ios/iword/core -Ispec
+TEST_IWORD_CORE := $(BUILD)/test_iword_core
+IWORD_CORE_DEPS := harness/proptest/test_iword_core.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
+$(TEST_IWORD_CORE): $(IWORD_CORE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed $(IWORD_CORE_INC) -o $@ harness/proptest/test_iword_core.c $(IWORD_CORE_SRC)
+$(BUILD)/test_iword_core_mutant_%: $(IWORD_CORE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed $(IWORD_CORE_INC) -o $@ harness/proptest/test_iword_core.c $(IWORD_CORE_SRC)
+
+.PHONY: test-iword-core test-iword-core-mutant
+test-iword-core: $(TEST_IWORD_CORE)
+	@printf '>>> test-iword-core: the InitechWord piece table, wrap, typing and cursor properties (initech-l4tj)\n'
+	@$(TEST_IWORD_CORE)
+	@printf '>>> test-iword-core: green\n'
+
+test-iword-core-mutant: $(BUILD)/test_iword_core_mutant_IWORD_MUT_SPLIT_OFF $(BUILD)/test_iword_core_mutant_IWORD_MUT_REFLOW_STALE $(BUILD)/test_iword_core_mutant_IWORD_MUT_PREV_VAR
+	@for pair in 'IWORD_MUT_SPLIT_OFF:RED-REASON model' 'IWORD_MUT_REFLOW_STALE:RED-REASON reflow' 'IWORD_MUT_PREV_VAR:RED-REASON units'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_core_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-iword-core-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-core-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-core-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-iword-core-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
+	done
+	@printf '>>> test-iword-core-mutant: green (all three mutants RED for the named reason)\n'
+
+IWORD_WP5_DIR     := harness/diff/wp5_diff
+TEST_IWORD_WP5    := $(BUILD)/test_iword_wp5_roundtrip
+IWORD_WP5_DEPS    := $(IWORD_WP5_DIR)/test_iword_wp5_roundtrip.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h $(ORACLE_POLICY_H)
+$(TEST_IWORD_WP5): $(IWORD_WP5_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Iharness $(IWORD_CORE_INC) -o $@ $(IWORD_WP5_DIR)/test_iword_wp5_roundtrip.c $(IWORD_CORE_SRC)
+$(BUILD)/test_iword_wp5_mutant_%: $(IWORD_WP5_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed -Iharness $(IWORD_CORE_INC) -o $@ $(IWORD_WP5_DIR)/test_iword_wp5_roundtrip.c $(IWORD_CORE_SRC)
+define need_wp_goldens
+	@test -f "$(WORDPERFECT51_DECOMP)/tools/wp5_ref.py" && test -d "$(WORDPERFECT51_DECOMP)/goldens/minted" || { printf '!!! WORDPERFECT51_DECOMP FAIL: $(1): corpus absent at %s -- set SKIP_WORDPERFECT51_DECOMP=1 to explicitly opt out.\n' "$(WORDPERFECT51_DECOMP)"; exit 1; }
+	@command -v python3 >/dev/null 2>&1 || { printf '!!! $(1) FAIL: python3 not found (it runs the INDEPENDENT reader wp5_ref.py)\n'; exit 1; }
+endef
+
+.PHONY: test-iword-wp5-roundtrip test-iword-wp5-roundtrip-mutant
+WP_GOLDENS_PRESENT = $(and $(wildcard $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py),$(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted))
+ifeq ($(SKIP_WORDPERFECT51_DECOMP):$(WP_GOLDENS_PRESENT),1:)
+test-iword-wp5-roundtrip test-iword-wp5-roundtrip-mutant:
+	@printf '!!! WORDPERFECT51_DECOMP SKIPPED (SKIP_WORDPERFECT51_DECOMP=1 opt-out) -- %s reference NOT graded.\n' "$@"
+else
+test-iword-wp5-roundtrip: $(TEST_IWORD_WP5)
+	$(call need_wp_goldens,test-iword-wp5-roundtrip)
+	@printf '>>> test-iword-wp5-roundtrip: the .WP5 codec + core vs the 5 real WordPerfect 5.1 goldens and wp5_ref.py (initech-l4tj)\n'
+	@mkdir -p $(BUILD)/iword_wp5
+	@$(TEST_IWORD_WP5) $(WORDPERFECT51_DECOMP) $(BUILD)/iword_wp5
+	@printf '>>> test-iword-wp5-roundtrip: green\n'
+
+test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_CODE $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_WRAP_EARLY
+	$(call need_wp_goldens,test-iword-wp5-roundtrip-mutant)
+	@mkdir -p $(BUILD)/iword_wp5_mut
+	@for pair in 'IWORD_MUT_DROP_CODE:RED-REASON golden-rewrite' 'IWORD_MUT_WRAP_EARLY:RED-REASON typed'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_wp5_mutant_$$m; \
+		if $$bin $(WORDPERFECT51_DECOMP) $(BUILD)/iword_wp5_mut > $$bin.log 2>&1; then printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
+	done
+	@printf '>>> test-iword-wp5-roundtrip-mutant: green (both mutants RED for the named reason)\n'
+endif
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-menu (bead initech-tdnl.12, GUI remediation R3.5 stage
@@ -27237,6 +27331,8 @@ TEST_UNIT_GATES := \
 	test-i123-quit test-i123-quit-mutant \
 	test-i123-formula test-i123-formula-mutant \
 	test-i123-recalc-order test-i123-recalc-order-mutant \
+	test-iword-core test-iword-core-mutant \
+	test-iword-wp5-roundtrip test-iword-wp5-roundtrip-mutant \
 	test-makefile-vars test-gate-honesty test-gate-honesty-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
