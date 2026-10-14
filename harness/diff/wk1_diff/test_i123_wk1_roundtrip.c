@@ -18,6 +18,12 @@
  *      the real MINT01 / MINT04 / MINT05 files 123.EXE wrote for the same
  *      entries -- the writer's template, record order, extents, WINDOW1,
  *      settings and the typed-literal INTEGER/NUMBER rule, all at once.
+ *   B2 the same three sheets with every FORMULA TYPED as text through the
+ *      formula engine (bead initech-94ah: compile, evaluate, recalc by the
+ *      sheet's mode) are byte-identical too, after one stated
+ *      normalization: the 8 cache bytes of a STRING-valued formula hold
+ *      123.EXE's private NaN string handle (wk1-format.md Sec 4.7), which
+ *      no document gives -- they are zeroed in both files before the compare.
  *   C  a synthetic sheet (IV8192, every label prefix, widths, settings):
  *      written, read by wk1_ref.py (== the C listing), read back by C (==
  *      the C listing: lossless), written again (== the first bytes).
@@ -405,6 +411,107 @@ static void part_b(void)
     cmp_with_golden(&sh, "MINT05");
 }
 
+/* ---- PART B2: the same sheets with the formulas TYPED (initech-94ah) ----- */
+static uint8_t g_cmem[I123_CALC_BYTES(64u) + 64u];
+static i123_calc_t g_cx;
+
+/* Zero the cache of every FORMULA record whose cache is a NaN (a string
+ * result: 123.EXE's private handle) -- the B2 normalization. */
+static void mask_nan_caches(uint8_t *b, uint32_t len)
+{
+    uint32_t o = 0;
+    while (o + 4u <= len) {
+        uint16_t op = r16(b + o), ln = r16(b + o + 2);
+        if (op == WK1_OP_FORMULA && ln >= WK1_FORMULA_FIXED) {
+            uint8_t *v = b + o + 4u + 5u;
+            uint32_t ex = ((uint32_t)(v[7] & 0x7Fu) << 4) | (uint32_t)(v[6] >> 4);
+            int nonzero = (v[6] & 0x0Fu) || v[5] || v[4] || v[3] || v[2] || v[1] || v[0];
+            if (ex == 0x7FFu && nonzero) memset(v, 0, 8);
+        }
+        o += 4u + ln;
+    }
+}
+
+static void type_f(i123_sheet_t *sh, uint16_t c, uint16_t r, const char *t)
+{
+    CHECK(i123_enter_formula(&g_cx, sh, c, r, t, (uint32_t)strlen(t)) == I123_OK, t);
+}
+
+static void cmp_typed_with_golden(i123_sheet_t *sh, const char *name)
+{
+    char path[1024];
+    static uint8_t in[64u * 1024u];
+    uint32_t len, olen = 0;
+    int stripped = 0;
+    golden_path(path, sizeof path, name, 1);
+    len = load(path, in, sizeof in);
+    if (strcmp(name, "MINT04") == 0) len = strip_op(in, len, 0x0068u, &stripped);
+    CHECK(i123_wk1_write(sh, g_out, sizeof g_out, &olen) == I123_OK, "write the typed sheet");
+    mask_nan_caches(in, len);
+    mask_nan_caches(g_out, olen);
+    if (!(len > 0u && olen == len && memcmp(g_out, in, len) == 0)) {
+        uint32_t k = 0;
+        while (k < len && k < olen && g_out[k] == in[k]) k++;
+        fprintf(stderr, "  FAIL typed-formula sheet != real %s.WK1 (len %u vs %u, first diff @0x%x)\n",
+                name, olen, len, k);
+        g_rewrite_fail++;
+        CHECK(0, "typed-formula sheet is byte-identical to the 123.EXE file");
+    } else {
+        printf("  part B2: sheet with its formulas TYPED == real %s.WK1 (%u bytes; string caches normalized)\n",
+               name, len);
+    }
+}
+
+static void part_b2(void)
+{
+    static i123_sheet_t sh;
+    CHECK(i123_calc_init(&g_cx, g_cmem, sizeof g_cmem, 64u, (i123_calc_t *)0) == I123_OK, "calc init");
+
+    /* MINT01, mint/mint01.steps verbatim, automatic recalculation */
+    CHECK(i123_sheet_init(&sh, g_mem, SHEET_MEM, 64u) == I123_OK, "init");
+    set_label(&sh, 0, 0, '\'', "Hello");
+    set_typed(&sh, 1, 0, "123");
+    set_typed(&sh, 2, 0, "1.5");
+    set_typed(&sh, 3, 0, "-7");
+    type_f(&sh, 0, 1, "+B1*2");
+    type_f(&sh, 1, 1, "@SUM(B1..D1)");
+    type_f(&sh, 2, 1, "@AVG(B1..D1)");
+    type_f(&sh, 3, 1, "@IF(B1>100,\"big\",\"small\")");
+    i123_set_cursor(&sh, 3, 1);
+    cmp_typed_with_golden(&sh, "MINT01");
+
+    /* MINT04, mint/MINT04.steps: manual, columnwise, 7 iterations */
+    CHECK(i123_sheet_init(&sh, g_mem, SHEET_MEM, 64u) == I123_OK, "init");
+    sh.calcmode = 0x00; sh.calcorder = 0x01; sh.calccount = 7; sh.protec = 0xFF;
+    set_typed(&sh, 0, 0, "1");
+    type_f(&sh, 1, 0, "+A1+1");
+    type_f(&sh, 2, 0, "+B1*2");
+    type_f(&sh, 0, 1, "+C2+1");
+    type_f(&sh, 1, 1, "+A2");
+    type_f(&sh, 2, 1, "+B2");
+    i123_set_cursor(&sh, 2, 1);
+    cmp_typed_with_golden(&sh, "MINT04");
+
+    /* MINT05, mint/MINT05.steps */
+    CHECK(i123_sheet_init(&sh, g_mem, SHEET_MEM, 64u) == I123_OK, "init");
+    set_typed(&sh, 0, 0, "1E10");
+    set_typed(&sh, 0, 1, "-1E-06");
+    set_typed(&sh, 0, 2, "123456789012");
+    set_typed(&sh, 0, 3, "1.23456789012345");
+    type_f(&sh, 0, 4, "0.1+0.2");
+    set_typed(&sh, 0, 5, "32767");
+    set_typed(&sh, 0, 6, "32768");
+    set_typed(&sh, 0, 7, "-32768");
+    set_typed(&sh, 0, 8, "-32769");
+    type_f(&sh, 0, 9, "2^53");
+    set_typed(&sh, 0, 10, "1E99");
+    type_f(&sh, 0, 11, "1E99*10");
+    set_typed(&sh, 0, 12, "1E-99");
+    set_typed(&sh, 0, 13, "1E20");
+    i123_set_cursor(&sh, 0, 14);
+    cmp_typed_with_golden(&sh, "MINT05");
+}
+
 /* ---- PART C: a synthetic sheet through wk1_ref and back ------------------- */
 static void part_c(void)
 {
@@ -610,7 +717,7 @@ static void part_e(void)
     {
         double x;
         CHECK(i123_parse_value("1E300", 5, &x) == I123_E_VALUE, "1E300 refused (MINT05 parser beep)");
-        CHECK(i123_parse_value("+B1*2", 5, &x) == I123_E_VALUE, "a formula is P2: refused");
+        CHECK(i123_parse_value("+B1*2", 5, &x) == I123_E_VALUE, "a formula is not a numeric literal");
         CHECK(i123_parse_value("12.5", 4, &x) == I123_OK && x == 12.5, "12.5");
         CHECK(i123_parse_value(".5", 2, &x) == I123_OK && x == 0.5, ".5");
         CHECK(i123_parse_value("1e", 2, &x) == I123_E_VALUE, "1e without digits");
@@ -629,6 +736,7 @@ int main(int argc, char **argv)
     g_canon = argv[3];
     part_a();
     part_b();
+    part_b2();
     part_c();
     part_d();
     part_e();

@@ -39,3 +39,18 @@ FLAIR_I123_QUIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-
 # 3. FLAIR_I123_PRE_SPEC -- the RESTORE baseline: A, B, C123 and ONE click (the
 #    icon selected, never launched). 19 tokens.
 FLAIR_I123_PRE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:20,l1,l0
+
+# 4. FLAIR_I123_FORMULA_SPEC (bead initech-94ah, I123 P2) -- formulas typed
+#    into Face A and recalculated in the OS: launch (A, B, C123 + double-
+#    click, the TYPE prefix), then
+#      A1  "123" Right            B1  "1.5" Right
+#      C1  "@sum(a1..b1)" Right   (shift-2 = '@', shift-9/0 = '( )'; the
+#                                  compiler takes lowercase, manual p. 13-3)
+#      D1  "-c1*2" Enter          (shift-8 = '*'); line 1 shows "D1: -C1*2"
+#      Home, A1 "200" Enter       AUTOMATIC recalculation (the default,
+#                                  manual p. 12-31): C1 201.5, D1 -403
+#      Right, B1 "@sum(a1..c1)" Enter   B1 -> C1 -> B1: a circular reference,
+#                                  the CIRC status indicator lights.
+#    No '+' (shift-'=' has no QMP key token in the harness), hence a '@' /
+#    '-' start. 67 tokens.
+FLAIR_I123_FORMULA_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:20,l1,l0,l1,l0,k1,k2,k3,kright,k1,kdot,k5,kright,kshift-2,ks,ku,km,kshift-9,ka,k1,kdot,kdot,kb,k1,kshift-0,kright,kminus,kc,k1,kshift-8,k2,kret,khome,k2,k0,k0,kret,kright,kshift-2,ks,ku,km,kshift-9,ka,k1,kdot,kdot,kc,k1,kshift-0,kret

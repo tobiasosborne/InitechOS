@@ -36,15 +36,22 @@
  *   a printable key starts an entry -- 0-9 + - . ( @ # $ make it a VALUE,
  *   anything else a LABEL (' " ^ \ | typed first are its prefix, else the
  *   sheet's default, LABELFMT); Enter stores it; an arrow stores it and
- *   moves; Esc abandons it; Backspace edits it. A VALUE that is not a number
- *   (a formula is P2, bead initech-94ah) switches to EDIT, as 1-2-3 beeps
- *   into EDIT. '/' opens the menu; /File Retrieve and Save use the file gate.
+ *   moves; Esc abandons it; Backspace edits it. A VALUE is a number or a
+ *   FORMULA (bead initech-94ah: compiled by the core's formula engine and
+ *   recalculated by the sheet's /Worksheet Global Recalculation settings);
+ *   one 1-2-3 would refuse switches to EDIT, as 1-2-3 beeps into EDIT. F9
+ *   (CALC) recalculates. '/' opens the menu; /File Retrieve and Save use the
+ *   file gate.
  *   File > Quit (Ctrl-Q), the close box and /Quit Yes all pass THE ONE EXIT
  *   GUARD (request_quit, bead initech-fvnj): a clean sheet quits, unsaved
  *   work asks first (see "THE EXIT GUARD" below).
+ * THE STATUS LINE carries, at its right end, the CALC and CIRC status
+ * indicators (manual p. 1-5..1-6, PDF 21-22: "The status line ... the
+ * status indicators"; CALC "Formulas ... need to be recalculated; press
+ * CALC (F9)", CIRC a circular reference) as highlighted words; their exact
+ * column is [inferred] (the look pass is bead initech-68iw.1).
  * NOT YET (stated): the other slash commands (visible refusal), the clock
- * on the status line, the "(F3)"/"[W12]" descriptors on line 1, a
- * formula's text on line 1 (P2).
+ * on the status line, the "(F3)"/"[W12]" descriptors on line 1.
  *
  * Ref: os/i123/core/i123.h (the model, the display rules -- graded against
  * the minted screenshots by test-i123-wk1-roundtrip); os/apps/tbx/tbx.h.
@@ -88,6 +95,7 @@ const char tbx_app_name[] = "123";
 #define VK_LEFT      0x4B
 #define VK_RIGHT     0x4D
 #define VK_DOWN      0x50
+#define VK_F9        0x43        /* CALC (manual p. 12-32, PDF 276) */
 
 /* ---- the menu bar (spec/toolbox_gate.h Sec 9) ---------------------------- */
 static const tbx_menuitem_t file_items[] = {
@@ -108,6 +116,11 @@ static const tbx_menubar_t mbar = { menus, 1, 1, 0 };
  * Gate spans accept BSS, never automatic objects on the shared kernel stack. */
 static uint8_t       g_mem[2][SHEET_MEM];
 static i123_sheet_t  g_sheet;
+/* bead initech-94ah: the recalculation workspace (one, for whichever bank is
+ * live) and the spare context @D* criteria formulas evaluate in. */
+static uint8_t       g_calc_mem[I123_CALC_BYTES(SHEET_CELLS)];
+static uint8_t       g_nest_mem[I123_CALC_BYTES(16u)];
+static i123_calc_t   g_cx, g_cx_nest;
 static uint32_t     g_bank;
 static uint8_t      g_wk[65536];
 static uint32_t     g_wk_len;
@@ -275,7 +288,7 @@ static int follow_pointer(void)
 /* ---- painting --------------------------------------------------------------- */
 static void paint_panel(void)
 {
-    char buf[SCR_COLS + 1], addr[16], content[96];
+    char buf[SCR_COLS + 1], addr[16], content[I123_FTEXT_MAX];
     const i123_cell_t *c;
     uint32_t n, k;
     const char *mode = MODE_TEXT[g_mode];
@@ -366,6 +379,25 @@ static void paint_rows(void)
     paint_pointer();
 }
 
+/* The status line: the notice at the left, the CALC / CIRC indicators at
+ * the right end (see THE STATUS LINE above). */
+static void paint_status(void)
+{
+    panel_line(LINE_STATUS, g_status);
+    if (g_sheet.circ)
+        put_line(LINE_STATUS, SCR_COLS - 4, "CIRC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+    if (g_sheet.calc)
+        put_line(LINE_STATUS, SCR_COLS - 9, "CALC", 4, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+}
+
+/* After a recalculation every visible value may have moved. */
+static int sheet_has_formula(void)
+{
+    for (uint32_t i = 0; i < g_sheet.ncells; i++)
+        if (g_sheet.cells[i].kind == I123_K_FORMULA) return 1;
+    return 0;
+}
+
 static void paint_all(void)
 {
     char blank[SCR_COLS + 1];
@@ -375,7 +407,7 @@ static void paint_all(void)
     pad_into(blank, SCR_COLS, "");
     paint_border();
     paint_rows();
-    panel_line(LINE_STATUS, g_status);
+    paint_status();
 }
 
 static void command_paint(void) { paint_panel(); paint_edit_line(); }
@@ -593,10 +625,24 @@ static int commit(void)
             rc = i123_set_label(&g_sheet, cc, cr, (uint8_t)g_edit[0], g_edit + 1, g_elen - 1u);
         else
             rc = i123_set_label(&g_sheet, cc, cr, g_sheet.labelfmt, g_edit, g_elen);
+        if (rc == I123_OK) rc = i123_after_entry(&g_cx, &g_sheet);
     } else {
         double x;
         rc = i123_parse_value(g_edit, g_elen, &x);
-        if (rc == I123_OK) rc = i123_set_number(&g_sheet, cc, cr, x);
+        if (rc == I123_OK) {
+            rc = i123_set_number(&g_sheet, cc, cr, x);
+#ifndef I123_MUT_NO_RECALC
+            if (rc == I123_OK) rc = i123_after_entry(&g_cx, &g_sheet);
+#else
+            /* MUTANT (Rule 6; test-flair-i123-formula-mutant): a typed
+             * number recalculates nothing, so the formulas over it keep
+             * stale values in AUTOMATIC mode. NEVER in a real build. */
+#endif
+        } else {
+            /* not a number: a formula (bead initech-94ah) -- compiled,
+             * stored and recalculated by the sheet's mode, or refused */
+            rc = i123_enter_formula(&g_cx, &g_sheet, cc, cr, g_edit, g_elen);
+        }
     }
     if (rc != I123_OK) {
         g_mode = M_EDIT;   /* 1-2-3 beeps and drops into EDIT */
@@ -613,11 +659,24 @@ static int commit(void)
     g_mode = M_READY;
     g_elen = 0;
     g_edit[0] = '\0';
-    if (cr >= top && cr < top + VIS_ROWS) paint_row((uint32_t)(cr - top));
+    if (sheet_has_formula()) paint_rows();          /* values may have moved */
+    else if (cr >= top && cr < top + VIS_ROWS) paint_row((uint32_t)(cr - top));
     paint_pointer();
     paint_panel();
     paint_edit_line();
+    paint_status();
     return 0;
+}
+
+/* CALC (F9): recalculate now (manual p. 12-32, PDF 276). */
+static void calc_key(void)
+{
+    if (i123_recalc(&g_cx, &g_sheet) != I123_OK) {
+        notice("Not enough memory to recalculate");
+        return;
+    }
+    paint_rows();
+    paint_status();
 }
 
 static void move_by(int dc, int dr)
@@ -650,6 +709,7 @@ static void key(int32_t message)
         if (vk == VK_DOWN)  { dr = 1;  arrow = 1; }
         if (vk == VK_LEFT)  { dc = -1; arrow = 1; }
         if (vk == VK_RIGHT) { dc = 1;  arrow = 1; }
+        if (vk == VK_F9 && g_mode == M_READY) { calc_key(); return; }
         if (vk == VK_HOME && g_mode == M_READY) {
             uint16_t oc = i123_cursor_col(&g_sheet), orow = i123_cursor_row(&g_sheet);
             i123_set_cursor(&g_sheet, 0, 0);
@@ -764,9 +824,20 @@ static void quit_answer(int32_t item)
 int tbx_app_main(void)
 {
     if (tbx_register() != TBX_OK) return 1;
-    if (i123_sheet_init(&g_sheet, g_mem[0], (uint32_t)sizeof g_mem[0], SHEET_CELLS) != I123_OK) {
+    if (i123_sheet_init(&g_sheet, g_mem[0], (uint32_t)sizeof g_mem[0], SHEET_CELLS) != I123_OK ||
+        i123_calc_init(&g_cx_nest, g_nest_mem, (uint32_t)sizeof g_nest_mem, 16u, (i123_calc_t *)0) != I123_OK ||
+        i123_calc_init(&g_cx, g_calc_mem, (uint32_t)sizeof g_calc_mem, SHEET_CELLS, &g_cx_nest) != I123_OK) {
         (void)tbx_exit(1);
         return 1;
+    }
+    {
+        /* The x87 control word Initech 123 computes under (ADR-0009
+         * Amendment DEC-01a Sec 4, settled by test-i123-formula): 0x037F,
+         * the kernel's boot word -- all exceptions masked, 64-bit
+         * significand, round to nearest. Loaded explicitly: the policy is
+         * the application's. */
+        static const uint16_t cw = 0x037Fu;
+        __asm__ __volatile__ ("fldcw %0" : : "m"(cw));
     }
     (void)tbx_set_mbar(&mbar);
     /* initech-fvnj: the close box ASKS (spec Sec 11) -- the guard decides. */

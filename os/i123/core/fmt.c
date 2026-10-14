@@ -577,10 +577,15 @@ void i123_cell_content(const i123_sheet_t *sh, const i123_cell_t *c,
     case I123_K_NUMBER:
         content_number(cell_double(c->v), out, cap);
         return;
-    default:
-        /* BLANK shows nothing; a FORMULA's text needs the RPN decompiler,
-         * which is P2 (bead initech-94ah) -- line 1 shows the address only */
+    case I123_K_FORMULA:
+        /* the formula's text, not its value: "When the cell pointer is in
+         * the cell, however, 1-2-3 displays 25+5 in the first line of the
+         * control panel" (manual p. 1-27, PDF 43, Figure 1-14) */
+        if (i123_formula_text(sh->pool + c->off, c->len, c->col, c->row, out, cap) != I123_OK)
+            out[0] = '\0';
         return;
+    default:
+        return;   /* BLANK shows nothing */
     }
 }
 
@@ -590,6 +595,15 @@ int i123_parse_value(const char *s, uint32_t len, double *out)
     uint32_t i = 0;
     int neg = 0, any = 0, exp10 = 0, eneg = 0, ev = 0, sig = 0;
     double m = 0.0, v;
+
+    /* a trailing '%' divides by 100: "you can enter 15.5% either as .155
+     * or as 15.5%" (manual p. 13-8, PDF 296) -- bead initech-94ah */
+    if (len > 1u && s[len - 1u] == '%') {
+        int rc = i123_parse_value(s, len - 1u, &v);
+        if (rc != I123_OK) return rc;
+        *out = v / 100.0;
+        return I123_OK;
+    }
 
     if (i < len && (s[i] == '+' || s[i] == '-')) { neg = (s[i] == '-'); i++; }
     while (i < len && s[i] >= '0' && s[i] <= '9') {
@@ -639,4 +653,110 @@ int i123_parse_value(const char *s, uint32_t len, double *out)
     if (!(v < 1e100)) return I123_E_VALUE;
     *out = neg ? -v : v;
     return I123_OK;
+}
+
+/* ---- number text for formulas and @STRING (bead initech-94ah) -------------- */
+
+/* p (1..17) significant digits of x >= 0, rounded half up in 80-bit
+ * extended (exact for the 17-digit integers involved), as text that
+ * i123_parse_value reads: plain between 1E-6 and 1E21, else d.dddExx.
+ * The digit extraction divides in long double, never by a 64-bit integer
+ * (no libgcc in the tenant). */
+uint32_t i123_sig_text(double x, uint32_t p, char *out, uint32_t cap)
+{
+    char dig[24], s[48];
+    long double v, ten = 10.0L;
+    int e = 0;
+    uint32_t n = 0, nd;
+    if (cap < 2u || p == 0u || p > 17u || !(x >= 0.0) || x != x || x > 1.7e308) return 0;
+    if (x == 0.0) { out[0] = '0'; out[1] = '\0'; return 1; }
+    v = (long double)x;
+    while (v >= ten) { v /= ten; e++; }
+    while (v < 1.0L) { v *= ten; e--; }
+    {
+        /* r = round(x * 10^(p-1-e)) */
+        long double sc = (long double)x;
+        int k = (int)p - 1 - e;
+        long double r;
+        while (k > 0) { sc *= ten; k--; }
+        while (k < 0) { sc /= ten; k++; }
+        r = (long double)(int64_t)(sc + 0.5L);
+        {
+            long double lim = 1.0L;
+            for (uint32_t i = 0; i < p; i++) lim *= ten;
+            if (r >= lim) { r /= ten; r = (long double)(int64_t)r; e++; }
+        }
+        nd = 0;
+        while (nd < p) {
+            long double q = (long double)(int64_t)(r / ten);
+            dig[p - 1u - nd] = (char)('0' + (int)(r - q * ten));
+            r = q;
+            nd++;
+        }
+    }
+    while (nd > 1u && dig[nd - 1u] == '0') nd--;
+    if (e >= -6 && e < 21) {
+        if (e < 0) {
+            s[n++] = '0'; s[n++] = '.';
+            for (int i = 0; i < -e - 1; i++) s[n++] = '0';
+            for (uint32_t i = 0; i < nd; i++) s[n++] = dig[i];
+        } else {
+            for (int i = 0; i <= e; i++) s[n++] = ((uint32_t)i < nd) ? dig[i] : '0';
+            if (nd > (uint32_t)e + 1u) {
+                s[n++] = '.';
+                for (uint32_t i = (uint32_t)e + 1u; i < nd; i++) s[n++] = dig[i];
+            }
+        }
+    } else {
+        int ae = e < 0 ? -e : e;
+        s[n++] = dig[0];
+        if (nd > 1u) { s[n++] = '.'; for (uint32_t i = 1; i < nd; i++) s[n++] = dig[i]; }
+        /* the typed spelling (MINT05 "1E99*10", "1E-99"): no '+' [inferred
+         * for the control panel, which no minted shot shows] */
+        s[n++] = 'E';
+        if (e < 0) s[n++] = '-';
+        if (ae >= 100) s[n++] = (char)('0' + ae / 100);
+        if (ae >= 10) s[n++] = (char)('0' + (ae / 10) % 10);
+        s[n++] = (char)('0' + ae % 10);
+    }
+    if (n + 1u > cap) return 0;
+    for (uint32_t i = 0; i < n; i++) out[i] = s[i];
+    out[n] = '\0';
+    return n;
+}
+
+/* x rounded half away from zero to decs decimals (the Fixed-format rule,
+ * MINT02 Currency2 1234.625 -> 1234.63), digits only, '-' when negative
+ * and not zero after rounding. */
+uint32_t i123_fixed_text(double x, uint32_t decs, char *out, uint32_t cap)
+{
+    char dig[24], s[48];
+    double a, r;
+    uint32_t nd, n = 0, intlen;
+    int neg = x < 0.0;
+    if (decs > 15u || x != x) return 0;
+    a = neg ? -x : x;
+    a = scale10(a, (int)decs);
+    if (!(a < 9.0e15)) return 0;
+    r = a + 0.5;
+    r = (double)(int64_t)r;
+    nd = int_digits(r, dig);
+    if (r == 0.0) neg = 0;
+    if (nd < decs + 1u) {
+        uint32_t pad = decs + 1u - nd;
+        for (int i = (int)nd; i >= 0; i--) dig[(uint32_t)i + pad] = dig[i];
+        for (uint32_t i = 0; i < pad; i++) dig[i] = '0';
+        nd += pad;
+    }
+    intlen = nd - decs;
+    if (neg) s[n++] = '-';
+    for (uint32_t k = 0; k < intlen; k++) s[n++] = dig[k];
+    if (decs > 0u) {
+        s[n++] = '.';
+        for (uint32_t k = intlen; k < nd; k++) s[n++] = dig[k];
+    }
+    if (n + 1u > cap) return 0;
+    for (uint32_t i = 0; i < n; i++) out[i] = s[i];
+    out[n] = '\0';
+    return n;
 }
