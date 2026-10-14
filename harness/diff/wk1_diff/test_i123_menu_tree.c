@@ -1,5 +1,7 @@
 /* Factory independent RI reader and artifact dump. No spec constants or
- * packed data used to compute the oracle. initech-uqah, Law 2. */
+ * packed data used to compute the oracle. Empty descriptions use the TSV
+ * field "" (quoted empty), preserving a three-column text representation
+ * without trailing whitespace. initech-uqah, Law 2. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +34,7 @@ int main(int argc, char **argv)
             for (unsigned k = 0; k < lv->count; k++) {
                 const i123_menu_item_t *it = &i123_menu_items[lv->first+k];
                 printf("%s\t%s\t%s\n", i123_menu_paths[l],
-                       i123_menu_string(it->name), i123_menu_string(it->desc));
+                       i123_menu_string(it->name), i123_menu_string(it->desc)[0]?i123_menu_string(it->desc):"\"\"");
                 if (it->child != 65535u) {
                     char child[512];
                     snprintf(child,sizeof child,"%s%s%s",i123_menu_paths[l],l?"/":"",i123_menu_string(it->name));
@@ -51,7 +53,9 @@ int main(int argc, char **argv)
     char path[512]; unsigned long a,b;
     while (fscanf(f,"%511s\t%lx\t%lx",path,&a,&b) == 3) {
         if (a >= n || b >= n) return 2;
-        printf("%s\t",path); ri_string(a); putchar('\t'); ri_string(b); putchar('\n');
+        printf("%s\t",path); ri_string(a); putchar('\t');
+        if(!ri[b])fputs("\"\"",stdout);else ri_string(b);
+        putchar('\n');
     }
     if (!feof(f)) return 2;
     fclose(f); return 0;

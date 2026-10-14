@@ -165,22 +165,22 @@
 /Range/Format	Reset	Return specified cells to global cell format
 /Range/Format/Date	1 (DD-MMM-YY)	Lotus standard long form
 /Range/Format/Date	2 (DD-MMM)	Lotus standard short form
-/Range/Format/Date	3 (MMM-YY)	
+/Range/Format/Date	3 (MMM-YY)	""
 /Range/Format/Date	4 (Long Intn'l)	Currently configured: MM/DD/YY
 /Range/Format/Date	5 (Short Intn'l)	Currently configured: MM/DD
 /Range/Format/Date	Time	Time formats
-/Range/Format/Date/Time	1 (HH:MM:SS AM/PM)	
-/Range/Format/Date/Time	2 (HH:MM AM/PM)	
+/Range/Format/Date/Time	1 (HH:MM:SS AM/PM)	""
+/Range/Format/Date/Time	2 (HH:MM AM/PM)	""
 /Range/Format/Date/Time	3 (Long Intn'l)	Currently configured: HH:MM:SS (24 hour)
 /Range/Format/Date/Time	4 (Short Intn'l)	Currently configured: HH:MM (24 hour)
 /Worksheet/Global/Format/Date	1 (DD-MMM-YY)	Lotus standard long form
 /Worksheet/Global/Format/Date	2 (DD-MMM)	Lotus standard short form
-/Worksheet/Global/Format/Date	3 (MMM-YY)	
+/Worksheet/Global/Format/Date	3 (MMM-YY)	""
 /Worksheet/Global/Format/Date	4 (Long Intn'l)	Currently configured: MM/DD/YY
 /Worksheet/Global/Format/Date	5 (Short Intn'l)	Currently configured: MM/DD
 /Worksheet/Global/Format/Date	Time	Time formats
-/Worksheet/Global/Format/Date/Time	1 (HH:MM:SS AM/PM)	
-/Worksheet/Global/Format/Date/Time	2 (HH:MM AM/PM)	
+/Worksheet/Global/Format/Date/Time	1 (HH:MM:SS AM/PM)	""
+/Worksheet/Global/Format/Date/Time	2 (HH:MM AM/PM)	""
 /Worksheet/Global/Format/Date/Time	3 (Long Intn'l)	Currently configured: HH:MM:SS (24 hour)
 /Worksheet/Global/Format/Date/Time	4 (Short Intn'l)	Currently configured: HH:MM (24 hour)
 /Range/Label	Left	Left-align labels in cells
