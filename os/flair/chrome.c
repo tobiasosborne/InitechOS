@@ -66,33 +66,18 @@ static void chrome_cfill(GrafPort *port, const flair_skin_t *skin,
  * Chicago cell run -- ink AND background -- over the window in front of it.
  * Found on the real guest: a disk tenant's exit exposed part of NOTES' title
  * bar, and NOTES' "NOTES" run overdrew the APPS window's frame + scrollbar
- * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Same
- * pixels as text_draw wherever they are visible (ink on set bits, bg on clear
- * bits, the opaque chicago_advance-wide cell; bead initech-tdnl.33); nothing
- * where they are not. */
+ * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Since bead
+ * initech-tdnl.68 it is the Font Manager's ONE clipped run, text_draw_run,
+ * under the port's visRgn INTERSECT clipRgn: the same pixels as text_draw
+ * wherever they are visible (the opaque advance-wide box in bg, the strike's
+ * ink in fg), nothing where they are not. */
 __attribute__((unused)) /* the TITLE_BLANK/NO_TITLE mutants compile out the call */
 static void chrome_ctext(GrafPort *port, int x, int y, const char *s,
                          uint32_t fg, uint32_t bg)
 {
-    const bitmap_t *bm = &port->portBits.bm;
-    for (; s != 0 && *s != '\0'; s++) {
-        int ch = (int)(unsigned char)*s;
-        int aw = chicago_advance(ch);
-        for (int r = 0; r < CHICAGO_CELL_H; r++) {
-            int py = y + r;
-            unsigned int bits = chicago_cell_bits(ch, r);
-            if (py < 0 || py >= (int)bm->height) continue;
-            for (int c = 0; c < aw; c++) {
-                int px = x + c;
-                if (px < 0 || px >= (int)bm->width) continue;
-                if (!clip_in(port, px, py)) continue;
-                surface_put_pixel(bm, (uint32_t)py * bm->pitch +
-                                      (uint32_t)px * bm->bytes_per_pixel,
-                                  (bits & (0x8000u >> c)) ? fg : bg);
-            }
-        }
-        x += aw;
-    }
+    text_clip_t k = { port->visRgn, port->clipRgn, 0, 0, 0, 0 };
+    (void)text_draw_run(&port->portBits.bm, x, y, s, FONT_CHICAGO, 0u,
+                        fg, bg, &k);
 }
 
 static void chrome_crect(GrafPort *port, const flair_skin_t *skin,
@@ -287,10 +272,12 @@ static void chicago_ink_bounds(const char *text, int width,
  * on the WHOLE title bar (window-chrome.md Sec 2.3: "centred in the bar").
  * The widget-side limits come from the measured stripe extents between the
  * close and zoom clusters (Sec 2.2 / Sec 3.1).  Overlong titles are truncated
- * at a whole-character boundary and the final visible character becomes one
- * period (widths are the proportional Chicago 12 advances, initech-tdnl.33).  This
- * is the recorded R0.2 simplification for System's condensation/truncation: no
- * synthetic ellipsis glyph and no font condensation. */
+ * at a whole-character boundary and END IN THE ELLIPSIS, the single Chicago
+ * glyph 0xC9 (FLAIR_CHROME_TITLE_TRUNC_MARKER; NFNT 5478 lb 2 aw 14), the way
+ * TruncString(smTruncEnd) ends a System 7 / Mac OS 8 title (bead
+ * initech-tdnl.68; it was one period, the R0.2 simplification, before the
+ * strike had the glyph). Widths are the proportional Chicago 12 advances
+ * (initech-tdnl.33). No font condensation. */
 static int title_layout_make(title_layout_t *out, const char *title,
                              int left, int right,
                              int safe_left, int safe_right)
@@ -314,7 +301,13 @@ static int title_layout_make(title_layout_t *out, const char *title,
             out->text[i] = title[i];
         }
         if (source_truncated || shown < n) {
+#if defined(CHROME_MUT_TRUNC_PERIOD)
+            /* Rule-6 restoration of the retired R0.2 marker (test-flair-fonts
+             * W3 must go RED): one period instead of the 0xC9 ellipsis. */
+            out->text[shown - 1] = '.';
+#else
             out->text[shown - 1] = FLAIR_CHROME_TITLE_TRUNC_MARKER;
+#endif
         }
         out->text[shown] = '\0';
         int width = text_measure(FONT_CHICAGO, out->text);

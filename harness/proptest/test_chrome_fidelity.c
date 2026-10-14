@@ -779,8 +779,8 @@ int main(void)
                                         FG_TITLE_TRUNC_EXPECTED, trunc_tx, 1);
     }
     CHECK(trunc_ok,
-          "leg TITLE-TRUNC: overlong title must become centered 'ABCDEFGH.' "
-          "inside the measured widget-safe run (plain truncation simplification)");
+          "leg TITLE-TRUNC: overlong title must become centered 'ABCDEFG' + the "
+          "0xC9 ellipsis inside the measured widget-safe run (initech-tdnl.68)");
 
     /* No inactive widgets. _KEEP_GADGETS bites this retained relation.
      * Ref: window-chrome.md Sec 6. */
@@ -898,7 +898,7 @@ int main(void)
     LEG_STATUS("BAND", band_ok, "22-row profile / 12 light-first stripes / 2+4 face");
     LEG_STATUS("STRIPE-OFFSET", stripe_extent_ok, "dark rows shift +1 at both endpoints");
     LEG_STATUS("TITLE", title_ok, "black centered ink over idx218 gap");
-    LEG_STATUS("TITLE-TRUNC", trunc_ok, "whole cells plus one terminal period");
+    LEG_STATUS("TITLE-TRUNC", trunc_ok, "whole cells plus the 0xC9 ellipsis");
     LEG_STATUS("SHADOW-NOTCH", shadow_ok, "(+1,+1) black L with 2px notch");
     LEG_STATUS("BODYBAR", body_ok, "four-pixel raised body bar plus inset");
     LEG_STATUS("WIDGETS", widget_ok, "three 12+1 widgets at Platinum offsets");

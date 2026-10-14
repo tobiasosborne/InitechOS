@@ -24,11 +24,15 @@
  *       deleting the selected range -> the range survives the insert -> step 5 RED.
  *   TE_MUT_LINEBREAK_OFF   -- the CR line break records the CR offset instead of
  *       the offset PAST it (off-by-one lineStarts) -> step 9 (CR test) RED.
+ *   TE_MUT_WRAP_CHARS      -- the retired monospaced rule: wrap when a line
+ *       reaches wrapWidth / 8 CHARACTERS instead of measuring proportional
+ *       pixels -> the pixel-wrap steps (10-12) RED (bead initech-tdnl.68).
  *
  * ERA CEILING (Law 3): monostyled, Mac TextEdit model only -- no Win32 edit
  *   control names, no styled (txSize==-1) runs (textedit.md Sec 5, out of scope).
  *
- * FREESTANDING (Law 3): <stdint.h> (via textedit.h) + <stddef.h> (NULL) only.
+ * FREESTANDING (Law 3): <stdint.h> (via textedit.h) + <stddef.h> (NULL) + the
+ *   Font Manager's header-only metrics (text.h: text_face_advance) only.
  *   No string.h / libc / malloc. The in-place insert/delete shifts use the
  *   overlap-safe te_memmove helper below (forward when dst<src, backward else).
  *
@@ -36,6 +40,7 @@
  */
 #include <stddef.h>   /* NULL -- freestanding-safe (C11 S4p6 required header) */
 #include "textedit.h"
+#include "text.h"       /* text_face_advance -- the styled proportional advance */
 
 /* ---------------------------------------------------------------------------
  * Fail-loud dual-compile pattern (mirrors scrap.c SCRAP_PANIC / process.c
@@ -92,22 +97,38 @@ static void te_emit_line(FlairTE *te, int16_t start)
 /* ---------------------------------------------------------------------------
  * te_recompute_lines -- rebuild nLines + lineStarts after a mutation
  * (textedit.md Sec 4). Line 0 always starts at offset 0. A CR (0x0D) terminates
- * the current line; the next line begins PAST the CR. When word-wrap is active
- * (crOnly >= 0 AND wrapWidth > 0) a line that would exceed wrapWidth chars breaks
- * at the last space at/before the boundary (the space stays on the line); a word
- * longer than wrapWidth hard-breaks at the boundary. crOnly < 0 == Return-only,
+ * the current line; the next line begins PAST the CR. crOnly < 0 == Return-only,
  * no word wrap (the line may run past the width) -- textedit.md Sec 4 step 1.
  *
- * REDUCED MODEL (Law 1 honesty): FLAIR's Chicago is a fixed cell, so wrapWidth is
- * counted in CHARS (monospaced) where real TextEdit measures proportional pixels
- * from the owTable -- a documented FLAIR deviation, NOT a TextEdit semantic
- * (textedit.md Sec 4 final paragraph). lineStarts holds N == nLines entries (each
- * line's START), not the IM nLines+1 sentinel form -- the capped first cut.
+ * WORD WRAP IN PIXELS (bead initech-tdnl.68; textedit.md Sec 4 step 1: "lines
+ * whose width is bounded by destRect's width ... Breaking is by WORD", the
+ * widths "from the NFNT owTable"): wrapWidth is the destRect width in PIXELS
+ * and every char costs its styled proportional advance in (txFont, txFace)
+ * (text_face_advance: the real NFNT 5478 advances for Chicago, +1 when bold).
+ * A non-space char whose advance would carry the line past wrapWidth ends the
+ * line at the start of its word (just past the line's last space); a word
+ * wider than the whole width hard-breaks before the char that does not fit
+ * (every line keeps at least one char). Spaces never start a wrap: they stay
+ * on the line they follow, hanging past the edge [InitechOS reading of the
+ * default wordBreak; consistent with the golden test-textedit step 10 grades:
+ * System 7.5.3's alert text in s7_dialog_alert.png breaks exactly where this
+ * rule breaks it for any width in 299..303 px].
+ * lineStarts holds N == nLines entries (each line's START), not the IM
+ * nLines+1 sentinel form -- the capped first cut.
  * ------------------------------------------------------------------------- */
+static int te_char_w(const FlairTE *te, char ch)
+{
+    text_font_t f = (te->txFont == (int16_t)FONT_GENEVA9) ? FONT_GENEVA9
+                                                          : FONT_CHICAGO;
+    return text_face_advance(f, (unsigned)te->txFace & TEXT_FACE_SYNTH,
+                             (int)(unsigned char)ch);
+}
+
 static void te_recompute_lines(FlairTE *te)
 {
     int16_t s;            /* start offset of the current line                  */
-    int16_t last_space;   /* last space offset seen on the current line (>= s) */
+    int16_t last_break;   /* offset just past the line's last space (> s)      */
+    int     w;            /* pixel width of text[s, i)                         */
     int     wrap_on;
     int     i;
 
@@ -116,7 +137,8 @@ static void te_recompute_lines(FlairTE *te)
     te->nLines = 0;
     te_emit_line(te, 0);     /* line 0 always starts at offset 0 */
     s = 0;
-    last_space = -1;
+    last_break = -1;
+    w = 0;
     i = 0;
 
     while (i < te->teLength) {
@@ -125,31 +147,38 @@ static void te_recompute_lines(FlairTE *te)
         if (ch == TE_CH_CR) {
 #ifdef TE_MUT_LINEBREAK_OFF
             /* MUTANT (Rule 6): record the CR offset instead of the offset PAST
-             * it -- an off-by-one lineStarts. Step 9 (CR test) -> RED. */
+             * it -- an off-by-one lineStarts. Step 9 (CR) RED. */
             te_emit_line(te, (int16_t)i);
 #else
             te_emit_line(te, (int16_t)(i + 1));   /* next line starts past the CR */
 #endif
             s = (int16_t)(i + 1);
-            last_space = -1;
+            last_break = -1;
+            w = 0;
             i++;
             continue;
         }
 
-        if (wrap_on && (i - (int)s) >= (int)te->wrapWidth) {
-            int16_t brk;
-            if (last_space >= s)
-                brk = (int16_t)(last_space + 1);  /* soft break: space ends line */
-            else
-                brk = (int16_t)i;                 /* hard break: word > wrapWidth */
+#ifdef TE_MUT_WRAP_CHARS
+        /* MUTANT (Rule 6): the retired monospaced rule, wrapWidth/8 chars. */
+        if (wrap_on && ch != TE_CH_SP && (i - (int)s) >= te->wrapWidth / 8 && i > s) {
+#else
+        if (wrap_on && ch != TE_CH_SP && w + te_char_w(te, ch) > te->wrapWidth &&
+            i > s) {
+#endif
+            int16_t brk = (last_break > s) ? last_break : (int16_t)i;
             te_emit_line(te, brk);
             s = brk;
-            last_space = -1;
+            last_break = -1;
+            w = 0;
+            for (int k = s; k < i; k++)        /* the carried partial word */
+                w += te_char_w(te, te->text[k]);
             continue;   /* re-examine text[i] on the new line (no advance) */
         }
 
+        w += te_char_w(te, ch);
         if (ch == TE_CH_SP)
-            last_space = (int16_t)i;
+            last_break = (int16_t)(i + 1);
         i++;
     }
 }
@@ -237,6 +266,8 @@ void FlairTE_init(FlairTE *te, int16_t wrapWidth, int16_t just)
     te->just      = just;
     te->crOnly    = 0;                    /* word-wrap enabled by default          */
     te->wrapWidth = wrapWidth;
+    te->txFont    = 0;                    /* systemFont: Chicago 12 (grafport.h)    */
+    te->txFace    = 0;                    /* plain                                  */
     te->nLines    = 0;
     for (i = 0; i < FLAIR_TE_MAX_LINES; i++)
         te->lineStarts[i] = 0;

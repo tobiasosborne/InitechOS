@@ -617,6 +617,9 @@ include spec/flair_i123_traces.mk
 # The LOCKED InitechWord traces (bead initech-l4tj): FLAIR_IWORD_SPEC (the
 # test-flair-iword leg) and FLAIR_IWORD_TYPE_SPEC (the iword_typing clip).
 include spec/flair_iword_traces.mk
+# The LOCKED Font Manager specimen traces (bead initech-tdnl.68): test-flair-fonts
+# and the fonts_styles clip.
+include spec/flair_fonts_traces.mk
 
 # The LOCKED solidity leg traces (spec/flair_solid_traces.mk, Rule 8/11):
 # FLAIR_SOLID_CLOSE_SPEC (leg A: click HELLO's go-away), FLAIR_SOLID_DRAG_SPEC
@@ -7956,6 +7959,7 @@ endef
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
+        test-font-styles test-font-styles-mutant test-text-clip test-text-clip-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
@@ -9991,6 +9995,13 @@ endef
 # C path above end to end, and is the fixture of test-flair-ctenant (initech-8zii).
 $(eval $(call tenant-exe-rules,ctenant,os/apps/ctenant/ctenant.c,,))
 CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
+
+# FONTS.EXE -- the Font Manager specimen tenant (os/apps/fonts/fonts.c; bead
+# initech-tdnl.68): styled TEXTDRAW runs, a truncated title, a clipped line, a
+# Style menu in its own styles. The fixture of test-flair-fonts ONLY, shipped
+# on that gate's own data volume (never on the flagship volume).
+$(eval $(call tenant-exe-rules,fonts,os/apps/fonts/fonts.c,,))
+FONTS_EXE := $(BUILD)/tenant/fonts.exe
 
 # 123.EXE -- Initech 123, Face A (os/i123/app/face_a.c over the slice-1 core,
 # beads initech-9u8w / initech-w96l): the same C path, the worksheet store in
@@ -12163,6 +12174,73 @@ test-text-mutant: $(TEST_TEXT_MUT)
 	@if $(TEST_TEXT_MUT) >/dev/null 2>&1; then printf '!!! test-text-mutant FAIL: FIXED_PITCH PASSED -- the proportional oracle is decoration\n'; exit 1; else printf '>>> test-text-mutant: green (FIXED_PITCH correctly RED -- the oracle bites)\n'; fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-font-styles (bead initech-tdnl.68, Font Manager slice 2) --
+# the INDEPENDENT txFace oracle. Grades os/flair/text.h's bold / italic /
+# underline synthesis and styled advances against the REAL System 7.0.1
+# strikes (NFNT 5478 Chicago 12, NFNT 5415 Geneva 9, NFNT 6475 Geneva 9
+# italic, parsed at run time from $(SYSTEM7_DECOMP)/goldens/resources) and
+# against System 7.5.3 screendump crops (harness/proptest/font_styles_golden.h:
+# bold Geneva labels of s7_get_info.png / s7_about.png, the Chicago ellipsis
+# of s7_menu_apple.png). Legs G1 G2 M I R: see the source header.
+# Mutants (Rule 6), each RED on its own leg: SMEAR_OFF (bold loses the smear)
+# -> G1; BOLD_ADVANCE_PLAIN (bold advance not +1) -> G1/M; UL_OFFSET (the
+# underline one row low) -> R; ITALIC_RUN4 (shear 1:4) -> I.
+# FAIL LOUD without the corpus (oracle_policy.h).
+# ---------------------------------------------------------------------------
+TEST_FONT_STYLES     := $(BUILD)/test_font_styles
+TEST_FONT_STYLES_SRC := harness/proptest/test_font_styles.c
+TEST_FONT_STYLES_DEPS := $(TEST_FONT_STYLES_SRC) harness/proptest/font_styles_golden.h \
+	os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h \
+	os/flair/atkinson/region.c spec/region_algebra.h $(ORACLE_POLICY_H) $(CORPUS_CONFIG)
+FONT_STYLES_INC := -Ios/flair -Ispec/assets -Ispec -Iseed -Ios/flair/atkinson
+FONT_STYLES_LINK := os/flair/text.c os/flair/surface.c os/flair/atkinson/region.c
+FONT_STYLES_DEF = -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
+FONT_STYLES_MUTANTS := SMEAR_OFF BOLD_ADVANCE_PLAIN UL_OFFSET ITALIC_RUN4
+$(TEST_FONT_STYLES): $(TEST_FONT_STYLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 $(FONT_STYLES_INC) $(FONT_STYLES_DEF) -o $@ $(TEST_FONT_STYLES_SRC) $(FONT_STYLES_LINK)
+$(BUILD)/test_font_styles_mut_%: $(TEST_FONT_STYLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 -DTEXT_MUT_$* $(FONT_STYLES_INC) $(FONT_STYLES_DEF) -o $@ $(TEST_FONT_STYLES_SRC) $(FONT_STYLES_LINK)
+.PHONY: test-font-styles test-font-styles-mutant
+test-font-styles: $(TEST_FONT_STYLES)
+	@$(TEST_FONT_STYLES)
+# $(1) knob, $(2) the failure line the knob must produce (its leg)
+font-styles-bites = out=$$($(BUILD)/test_font_styles_mut_$(1) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-font-styles-mutant FAIL: $(1) PASSED -- the oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -qF "$(2)" || { printf '%s\n' "$$out" | tail -6; printf '!!! test-font-styles-mutant FAIL: $(1) went RED, but not on its leg\n'; exit 1; }; \
+	printf '>>> test-font-styles-mutant: green ($(1) correctly RED: %s)\n' "$$(printf '%s\n' "$$out" | grep -m1 -F "$(2)" | sed 's/^ *//' | cut -c1-120)"
+test-font-styles-mutant: $(addprefix $(BUILD)/test_font_styles_mut_,$(FONT_STYLES_MUTANTS))
+	@$(call font-styles-bites,SMEAR_OFF,FAIL: G1 'Kind:' (s7_get_info.png pen_x 57 top 105))
+	@$(call font-styles-bites,BOLD_ADVANCE_PLAIN,FAIL: G1 'Kind:' (s7_get_info.png): bold StringWidth 23)
+	@$(call font-styles-bites,UL_OFFSET,FAIL: R underline (font 0): adds)
+	@$(call font-styles-bites,ITALIC_RUN4,FAIL: I row d=4 above the baseline: artifact shear 1)
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-text-clip (bead initech-tdnl.68) -- text never paints
+# outside its clip. text_draw_run with (rgnA, rgnB, box) == the unclipped run
+# masked by rgnA ^ rgnB ^ box, pixel for pixel, over 3000 seeded random cases
+# (random rect unions / differences, both fonts, all 8 synthesized faces, pens
+# partly off the bitmap); membership rasterized INDEPENDENTLY off the region
+# rows (not region_contains_point). Mutant CLIP_IGNORE must go RED.
+# ---------------------------------------------------------------------------
+TEST_TEXT_CLIP     := $(BUILD)/test_text_clip
+TEST_TEXT_CLIP_MUT := $(BUILD)/test_text_clip_mut_ignore
+TEST_TEXT_CLIP_SRC := harness/proptest/test_text_clip.c
+TEST_TEXT_CLIP_DEPS := $(TEST_TEXT_CLIP_SRC) $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h \
+	os/flair/atkinson/region.c spec/region_algebra.h $(ORACLE_POLICY_H)
+$(TEST_TEXT_CLIP): $(TEST_TEXT_CLIP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 $(FONT_STYLES_INC) -o $@ $(TEST_TEXT_CLIP_SRC) os/flair/surface.c os/flair/atkinson/region.c
+$(TEST_TEXT_CLIP_MUT): $(TEST_TEXT_CLIP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 -DTEXT_MUT_CLIP_IGNORE $(FONT_STYLES_INC) -o $@ $(TEST_TEXT_CLIP_SRC) os/flair/surface.c os/flair/atkinson/region.c
+.PHONY: test-text-clip test-text-clip-mutant
+test-text-clip: $(TEST_TEXT_CLIP)
+	@$(TEST_TEXT_CLIP)
+test-text-clip-mutant: $(TEST_TEXT_CLIP_MUT)
+	@out=$$($(TEST_TEXT_CLIP_MUT) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-text-clip-mutant FAIL: CLIP_IGNORE PASSED -- the clip oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'px outside the rule' || { printf '%s\n' "$$out" | tail -4; printf '!!! test-text-clip-mutant FAIL: RED for the wrong reason\n'; exit 1; }; \
+	printf '>>> test-text-clip-mutant: green (CLIP_IGNORE correctly RED: %s)\n' "$$(printf '%s\n' "$$out" | grep -m1 'checks,' | sed 's/^>>> //')"
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-canon (beads initech-k8o5.10) -- the FLAIR canon oracle (Law 4).
 # Aggregates the ENFORCED canon: hourglass-not-wristwatch (cursors.h), Photoshop
 # menu (menu_canon.h), PC LOAD LETTER (panic source string), pie==116, 570-
@@ -13055,27 +13133,34 @@ TEST_TEXTEDIT_MUT_PASTE := $(BUILD)/test_textedit_mutant_pastenodelete
 TEST_TEXTEDIT_MUT_LINE  := $(BUILD)/test_textedit_mutant_linebreakoff
 TEST_TEXTEDIT_LINK := os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
 TEST_TEXTEDIT_DEPS := os/flair/textedit.c os/flair/textedit.h os/flair/scrap.c os/flair/scrap.h \
-                     os/flair/ostype.h os/flair/heap.c os/flair/heap.h
+                     os/flair/ostype.h os/flair/heap.c os/flair/heap.h $(FLAIR_FONT_HDRS)
+TEST_TEXTEDIT_MUT_WRAP  := $(BUILD)/test_textedit_mutant_wrapchars
 
 $(TEST_TEXTEDIT): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 $(TEST_TEXTEDIT_MUT_SEL): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_SEL_INCLUSIVE $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_SEL_INCLUSIVE $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 $(TEST_TEXTEDIT_MUT_PASTE): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_PASTE_NO_DELETE $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_PASTE_NO_DELETE $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 $(TEST_TEXTEDIT_MUT_LINE): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_LINEBREAK_OFF $(PROCESS_INC) -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_LINEBREAK_OFF $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
+$(TEST_TEXTEDIT_MUT_WRAP): $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTE_MUT_WRAP_CHARS $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TEXTEDIT_SRC) $(TEST_TEXTEDIT_LINK)
 
 test-textedit: $(TEST_TEXTEDIT)
 	@printf ">>> test-textedit: ADR-0012 D-2b / initech-77dj TextEdit (TERec) -- reduced edit record, half-open selection, CR+wrap line-breaking, cut/copy/paste via the Scrap (round-trip vs independent hand-authored golden)\n"
 	@$(TEST_TEXTEDIT)
 	@printf ">>> test-textedit: green\n"
 
-test-textedit-mutant: $(TEST_TEXTEDIT_MUT_SEL) $(TEST_TEXTEDIT_MUT_PASTE) $(TEST_TEXTEDIT_MUT_LINE)
+test-textedit-mutant: $(TEST_TEXTEDIT_MUT_SEL) $(TEST_TEXTEDIT_MUT_PASTE) $(TEST_TEXTEDIT_MUT_LINE) $(TEST_TEXTEDIT_MUT_WRAP)
 	@printf ">>> test-textedit-mutant: confirming SEL_INCLUSIVE + PASTE_NO_DELETE + LINEBREAK_OFF go RED (Rule 6)\n"
 	@if $(TEST_TEXTEDIT_MUT_SEL) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: SEL_INCLUSIVE PASSED -- the half-open-selection oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (SEL_INCLUSIVE correctly RED)\n'; fi
 	@if $(TEST_TEXTEDIT_MUT_PASTE) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: PASTE_NO_DELETE PASSED -- the replace-range oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (PASTE_NO_DELETE correctly RED)\n'; fi
 	@if $(TEST_TEXTEDIT_MUT_LINE) >/dev/null 2>&1; then printf '!!! test-textedit-mutant FAIL: LINEBREAK_OFF PASSED -- the line-break oracle is decoration\n'; exit 1; else printf '>>> test-textedit-mutant: green (LINEBREAK_OFF correctly RED)\n'; fi
+	@out=$$($(TEST_TEXTEDIT_MUT_WRAP) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-textedit-mutant FAIL: WRAP_CHARS PASSED -- the pixel-wrap oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'step-1[012]' || { printf '%s\n' "$$out" | tail -5; printf '!!! test-textedit-mutant FAIL: WRAP_CHARS went RED, but not on the pixel-wrap steps\n'; exit 1; }; \
+	printf '>>> test-textedit-mutant: green (WRAP_CHARS correctly RED on %s pixel-wrap check(s))\n' "$$(printf '%s\n' "$$out" | grep -c 'step-1[012]')"
 
 # ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
@@ -22261,6 +22346,19 @@ RECORD_SPEC_iword_typing = $(FLAIR_IWORD_TYPE_SPEC)
 RECORD_MARKER_iword_typing = TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="the lazy dog.                                                                " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_typing = 400
 RECORD_IMAGE_iword_typing = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# fonts_styles (bead initech-tdnl.68, Font Manager slice 2; Rule 14): the FONTS
+# specimen opens from the Finder -- its narrow window titled "Font Manager
+# Styl" + the Chicago ellipsis, plain / bold / italic / underline / combined
+# Chicago lines, a bold line clipped at the window edge -- then a held drag
+# from File to its Style menu shows the items in their own styles. Replays the
+# LOCKED FLAIR_FONTS_MENU_SPEC on the gate's own data volume; its marker is the
+# Style menu's cross-drop.
+RECORD_SCRIPTS += fonts_styles
+RECORD_SPEC_fonts_styles = $(FLAIR_FONTS_MENU_SPEC)
+RECORD_MARKER_fonts_styles = FLAIR-MENU-XDROP menu=130
+RECORD_SETTLE_fonts_styles = 400
+RECORD_IMAGE_fonts_styles = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_fonts_styles = $(BUILD)/flair_data_fonts.img
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
 RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
@@ -27588,6 +27686,7 @@ TEST_UNIT_GATES := \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
 	test-clut test-clut-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
+	test-font-styles test-font-styles-mutant test-text-clip test-text-clip-mutant \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
 	test-tbx-menu test-tbx-menu-mutant \
@@ -28742,6 +28841,7 @@ TEST_EMU_GATES := \
 	test-flair-i123-quitguard test-flair-i123-quitguard-mutant \
 	test-flair-i123-formula test-flair-i123-formula-mutant \
 	test-flair-iword test-flair-iword-mutant \
+	test-flair-fonts test-flair-fonts-mutant \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
@@ -29236,3 +29336,118 @@ test-flair-iword-mutant: test-flair-iword $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG)
 	@$(call IWORD_DREW,$(BUILD)/flair_iword_nosave.serial,368,ERROR: Incompatible File Format) || { printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING: the retrieve of the empty MEMO was not refused visibly\n'; exit 1; }
 	@printf '>>> test-flair-iword-mutant: SAVE_NOTHING correctly RED -- MEMO is 0 bytes (wp5_ref.py refuses it), the retrieve says ERROR: Incompatible File Format\n'
 	@printf '>>> test-flair-iword-mutant: green (both mutants RED for the named reason)\n'
+
+# ===========================================================================
+# test-flair-fonts (bead initech-tdnl.68) -- scaffolding: the gate's own data
+# volume (FONTS.EXE in APPS cell 3, see spec/flair_fonts_traces.mk).
+# ===========================================================================
+FLAIR_DATA_FONTS_IMG := $(BUILD)/flair_data_fonts.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_FONTS_IMG),$(TENANTFX_EXE),$(I123_EXE),$(FONTS_EXE)))
+
+# ===========================================================================
+# REAL gate: test-flair-fonts (bead initech-tdnl.68, Font Manager slice 2;
+# Rule 14 clip fonts_styles) -- STYLED, CLIPPED TEXT ON THE REAL DESKTOP.
+# QEMU, two boots of the flagship $(FLAIRTENANTS_IMG) + the gate's own data
+# volume $(FLAIR_DATA_FONTS_IMG) (FONTS.EXE in APPS cell 3), traces LOCKED in
+# spec/flair_fonts_traces.mk, every pixel graded by tools/ppm_flair_fonts_check
+# against its own model (the locked art at the REAL NFNT 5478 metrics + the
+# synthesis rules re-implemented there, never os/flair/text.h):
+#   [1/4] UP      FONTS loads, registers, comes forward and issues exactly its
+#                 seven TEXTDRAW runs, the styled ones with the face in fg bits
+#                 8..15 (spec/toolbox_gate.h Sec 7): 257 bold, 513 italic,
+#                 1025 underline, 1793 all three -- each accepted (-> 0).
+#   [2/4] STYLES  W1: plain / bold / italic / underline (descender gaps) /
+#                 bold+italic+underline lines exact over their content bands.
+#   [3/4] CLIP    W2: the 288-px bold line is the model cut at the content
+#                 edge; not one pixel of it lands on the scroll bar or frame.
+#                 W3: the too-long title is the longest fitting prefix + the
+#                 Chicago ellipsis 0xC9, centered, exact.
+#   [4/4] MENU    the Style menu, reached by a held cross-menu drag (dump at
+#                 FLAIR-MENU-XDROP menu=130): Bold / Italic / Underline items
+#                 each drawn in their own face (M1), the panel as wide as the
+#                 widest styled item demands (M2).
+# Mutants (test-flair-fonts-mutant; kernel images with ONE object swapped):
+#   TEXT_MUT_SMEAR_OFF (text.o) -> W1 RED on the bold line; TEXT_MUT_CLIP_IGNORE
+#   (text.o) -> W2 RED (the line overdraws the scroll bar); CHROME_MUT_TRUNC_
+#   PERIOD (chrome.o) -> W3 RED (one period, the retired marker). Each RED for
+#   its reason, with the tenant up and drawing exactly as in the clean leg.
+# Bochs / record-flair are the PM's (Rule 5 / Rule 14 on main).
+# ===========================================================================
+PPM_FLAIR_FONTS_CHECK_BIN := $(BUILD)/ppm_flair_fonts_check
+$(PPM_FLAIR_FONTS_CHECK_BIN): tools/ppm_flair_fonts_check.c spec/assets/chicago12.h spec/chicago12_nfnt_golden.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -Ispec/assets -o $@ $<
+
+# $(call flair-tenants-objswap-mutant-rules,<real obj>,<mutant obj>,<tag>): the
+# flagship kernel with ONE object replaced (the desktop-mutant pattern above).
+define flair-tenants-objswap-mutant-rules
+$(BUILD)/kernel_flairtenants_mut_$(3).elf: $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2) $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2)
+
+$(BUILD)/kernel_flairtenants_mut_$(3).bin: $(BUILD)/kernel_flairtenants_mut_$(3).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(3).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(3)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(3))
+
+$(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin | $(BUILD)
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_$(3).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants MUTANT image ($(3): $(2)): %s\n" "$$@"
+endef
+$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
+$(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_TEXT_OBJ),$(BUILD)/text_mut_TEXT_MUT_SMEAR_OFF.o,fonts_smear_off))
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_TEXT_OBJ),$(BUILD)/text_mut_TEXT_MUT_CLIP_IGNORE.o,fonts_clip_ignore))
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_trunc_period.o,fonts_trunc_period))
+
+# the seven runs fonts.c paints, accepted (fg = colour | txFace << 8)
+FONTS_DREW = grep -qx 'TENANT-REGISTER ok app=FONTS' $(1) && grep -qx 'FLAIR-DISPATCH app=FONTS' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=2 s="Hamburger" fg=1 bg=0 -> 0' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=20 s="Hamburger" fg=257 bg=0 -> 0' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=38 s="Hamburger" fg=513 bg=0 -> 0' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=56 s="jumpy gyp" fg=1 bg=0 -> 0' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=74 s="jumpy gyp" fg=1025 bg=0 -> 0' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=92 s="Hamburger" fg=1793 bg=0 -> 0' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0030 win=1 x=6 y=116 s="Saving tables to disk... PC LOAD LETTER" fg=257 bg=0 -> 0' $(1)
+
+.PHONY: test-flair-fonts test-flair-fonts-mutant
+test-flair-fonts: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_FONTS_IMG) $(PPM_FLAIR_FONTS_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-fonts : styled, clipped text on the real desktop (initech-tdnl.68)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_fonts,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_FONTS_IMG),FLAIR_FONTS_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_fonts.serial) && $(call FONTS_DREW,$(BUILD)/flair_fonts.serial) || { printf '!!! test-flair-fonts FAIL [1/4] UP: FONTS did not load, register, come forward and issue its seven runs\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_fonts.serial; exit 1; }
+	@printf '>>> test-flair-fonts [1/4] UP: %s; seven TEXTDRAW runs accepted (fg 1, 257, 513, 1, 1025, 1793, 257)\n' "$$(grep -m1 '^TENANT-LOAD name=' $(BUILD)/flair_fonts.serial)"
+	@[ -s $(BUILD)/flair_fonts.ppm ] || { printf '!!! test-flair-fonts FAIL: no screendump\n'; exit 1; }
+	@out=$$($(PPM_FLAIR_FONTS_CHECK_BIN) window $(BUILD)/flair_fonts.ppm); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^>>> />>> test-flair-fonts [2-3\/4] /'; \
+	[ $$rc -eq 0 ] || { printf '!!! test-flair-fonts FAIL [2-3/4]: the window does not match the model (above)\n'; exit 1; }
+	$(call appl-boot,flair_fonts_menu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_FONTS_IMG),FLAIR_FONTS_MENU_SPEC,--screendump --screendump-after "FLAIR-MENU-XDROP menu=130")
+	@$(call APPL_ALIVE,$(BUILD)/flair_fonts_menu.serial) && grep -qx 'FLAIR-MENU-XDROP menu=130' $(BUILD)/flair_fonts_menu.serial && [ -s $(BUILD)/flair_fonts_menu.ppm ] || { printf '!!! test-flair-fonts FAIL [4/4] MENU: the Style menu (130) was not dropped by the held drag, or no dump\n'; grep -E '^(FLAIR-MENU|TENANT-REG|PANIC)' $(BUILD)/flair_fonts_menu.serial; exit 1; }
+	@out=$$($(PPM_FLAIR_FONTS_CHECK_BIN) menu $(BUILD)/flair_fonts_menu.ppm); rc=$$?; \
+	printf '%s\n' "$$out" | sed 's/^>>> />>> test-flair-fonts [4\/4] /'; \
+	[ $$rc -eq 0 ] || { printf '!!! test-flair-fonts FAIL [4/4] MENU: the Style menu does not match the model (above)\n'; exit 1; }
+	@printf '>>> test-flair-fonts: green\n'
+
+# $(1) tag, $(2) the check line the knob must produce
+fonts-mutant-leg = $(call appl-boot,flair_fonts_$(1),$(BUILD)/flair_tenants_mut_fonts_$(1).img,$(FLAIR_DATA_FONTS_IMG),FLAIR_FONTS_SPEC,--screendump --screendump-after FLAIR-LIVE-OK); \
+	$(call APPL_ALIVE,$(BUILD)/flair_fonts_$(1).serial) && $(call FONTS_DREW,$(BUILD)/flair_fonts_$(1).serial) && [ -s $(BUILD)/flair_fonts_$(1).ppm ] || { printf '!!! test-flair-fonts-mutant FAIL: $(1) went RED for the wrong reason (want: FONTS up, its seven runs accepted, a dump)\n'; exit 1; }; \
+	out=$$($(PPM_FLAIR_FONTS_CHECK_BIN) window $(BUILD)/flair_fonts_$(1).ppm); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-flair-fonts-mutant FAIL: $(1) PASSED the window check -- it is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -qF '$(2)' || { printf '%s\n' "$$out"; printf '!!! test-flair-fonts-mutant FAIL: $(1) went RED, but not on its leg ($(2))\n'; exit 1; }; \
+	printf '>>> test-flair-fonts-mutant: $(1) correctly RED: %s\n' "$$(printf '%s\n' "$$out" | grep -m1 -F '$(2)' | cut -c1-140)"
+test-flair-fonts-mutant: test-flair-fonts $(HARNESS_BIN) $(FLAIR_DATA_FONTS_IMG) $(PPM_FLAIR_FONTS_CHECK_BIN) \
+		$(BUILD)/flair_tenants_mut_fonts_smear_off.img $(BUILD)/flair_tenants_mut_fonts_clip_ignore.img $(BUILD)/flair_tenants_mut_fonts_trunc_period.img
+	@$(call fonts-mutant-leg,smear_off,!!! W1 STYLES: line "Hamburger" bold at)
+	@$(call fonts-mutant-leg,clip_ignore,!!! W2 CLIP:)
+	@$(call fonts-mutant-leg,trunc_period,!!! W3 TITLE:)
+	@printf '>>> test-flair-fonts-mutant: green (three kernel mutants RED for the named reason)\n'

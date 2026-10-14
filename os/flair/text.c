@@ -34,6 +34,8 @@
  * error under both freestanding and hosted modes. It also provides a stable
  * object file for the kernel link that carries the font data: chicago12.h and
  * geneva9.h are DEFINED here (FONT_TABLES_DEFINE) and only declared elsewhere.
+ * The same switch makes this the ONE kernel definition of text_draw_run, the
+ * styled, region-clipped Font Manager run (text.h; bead initech-tdnl.68).
  *
  * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
  */

@@ -9,7 +9,11 @@
  * `make gen-chicago12` and proven in sync by `make test-chicago-art`.
  *
  * VALIDATION (fail loud, Rule 2 -- a malformed strike never reaches a header):
- *   - glyph blocks are codes FIRST..LAST in order, then exactly one "missing";
+ *   - glyph blocks are codes FIRST..LAST in order, then exactly one "missing",
+ *     then exactly one EXTRA block, "glyph 0xC9" -- the Mac Roman ellipsis,
+ *     the one glyph above 0x7E the Toolbox draws (a truncated window title
+ *     ends in it; bead initech-tdnl.68; NFNT 5478 owTable code 0xC9 lb 2
+ *     aw 14, ../system7-decomp specs/fonts/chicago.md "widMax");
  *   - every glyph has exactly CELL_H rows, each exactly `aw` chars of '#'/'.';
  *   - row CELL_H-1 (the leading row) is blank;
  *   - an inked glyph's leftmost ink column == lb (the art agrees with the real
@@ -33,10 +37,12 @@
 #define LAST   0x7E
 #define COUNT  (LAST - FIRST + 1)
 #define CELL_H 16
+#define ELLIPSIS 0xC9              /* Mac Roman ellipsis (the one extra glyph) */
+#define NGLYPH (COUNT + 2)         /* printable, missing, ellipsis            */
 
-static unsigned g_rows[COUNT + 1][CELL_H];
-static int g_aw[COUNT + 1], g_lb[COUNT + 1];
-static char g_art[COUNT + 1][CELL_H][20];
+static unsigned g_rows[NGLYPH][CELL_H];
+static int g_aw[NGLYPH], g_lb[NGLYPH];
+static char g_art[NGLYPH][CELL_H][20];
 static int g_line;
 
 static void die(const char *msg)
@@ -69,7 +75,7 @@ int main(int argc, char **argv)
     f = fopen(argv[1], "r");
     if (!f) { perror(argv[1]); return 2; }
 
-    for (int gi = 0; gi <= COUNT; gi++) {
+    for (int gi = 0; gi < NGLYPH; gi++) {
         char name[32];
         int lb, aw, lo = 99, hi = -1;
         if (!next_line(f, buf, sizeof buf)) die("unexpected EOF (missing glyph block)");
@@ -79,8 +85,10 @@ int main(int argc, char **argv)
             char want[8];
             snprintf(want, sizeof want, "0x%02X", FIRST + gi);
             if (strcmp(name, want) != 0) die("glyph blocks out of order");
-        } else if (strcmp(name, "missing") != 0) {
-            die("the last block must be 'missing'");
+        } else if (gi == COUNT) {
+            if (strcmp(name, "missing") != 0) die("block after 0x7E must be 'missing'");
+        } else if (strcmp(name, "0xC9") != 0) {
+            die("the last block must be 'glyph 0xC9' (the ellipsis)");
         }
         if (aw < 1 || aw > 16 || lb < 0 || lb > aw) die("lb/aw out of range");
         for (int r = 0; r < CELL_H; r++) {
@@ -110,7 +118,7 @@ int main(int argc, char **argv)
         g_aw[gi] = aw;
         g_lb[gi] = lb;
     }
-    if (next_line(f, buf, sizeof buf)) die("trailing data after the missing glyph");
+    if (next_line(f, buf, sizeof buf)) die("trailing data after the ellipsis glyph");
     fclose(f);
 
     printf("/*\n"
@@ -128,7 +136,7 @@ int main(int argc, char **argv)
            " * Rows: chicago12_rows[g][r], MSB = the glyph IMAGE's first column, which\n"
            " * the renderer places at pen + lb; the opaque cell is aw columns wide.\n"
            " * Index g = c - CHICAGO_FIRST for CHICAGO_FIRST <= c <= CHICAGO_LAST;\n"
-           " * index CHICAGO_MISSING is the missing-glyph box for every other code.\n"
+           " * CHICAGO_ELLIPSIS for 0xC9; CHICAGO_MISSING for every other code.\n"
            " * Linkage: spec/assets/font_linkage.h (one copy per kernel image).\n"
            " */\n"
            "#ifndef INITECH_CHICAGO12_H\n"
@@ -139,6 +147,12 @@ int main(int argc, char **argv)
            "#define CHICAGO_LAST    0x%02X\n"
            "#define CHICAGO_COUNT   (CHICAGO_LAST - CHICAGO_FIRST + 1)\n"
            "#define CHICAGO_MISSING CHICAGO_COUNT\n"
+           "/* The one glyph above 0x7E: the Mac Roman ellipsis (bead initech-tdnl.68;\n"
+           " * NFNT 5478 owTable 0xC9 = lb 2 aw 14). A truncated window title ends in\n"
+           " * it. Slot CHICAGO_ELLIPSIS, after the missing-glyph box. */\n"
+           "#define CHICAGO_ELLIPSIS_CODE 0xC9\n"
+           "#define CHICAGO_ELLIPSIS (CHICAGO_COUNT + 1)\n"
+           "#define CHICAGO_GLYPHS  (CHICAGO_COUNT + 2)\n"
            "#define CHICAGO_CELL_H  %d\n"
            "/* NFNT 5478 FontRec: ascent 12, descent 3, leading 1 (chicago.md). */\n"
            "#define CHICAGO_ASCENT  12\n"
@@ -151,35 +165,40 @@ int main(int argc, char **argv)
            FIRST, LAST, CELL_H);
 
     printf("#if FONT_TABLE_EMIT\n");
-    printf("FONT_TABLE unsigned char chicago12_aw[CHICAGO_COUNT + 1] = {");
-    for (int gi = 0; gi <= COUNT; gi++)
+    printf("FONT_TABLE unsigned char chicago12_aw[CHICAGO_GLYPHS] = {");
+    for (int gi = 0; gi < NGLYPH; gi++)
         printf("%s%d", gi == 0 ? "\n    " : (gi % 16) ? ", " : ",\n    ", g_aw[gi]);
     printf("\n};\n");
-    printf("FONT_TABLE unsigned char chicago12_lb[CHICAGO_COUNT + 1] = {");
-    for (int gi = 0; gi <= COUNT; gi++)
+    printf("FONT_TABLE unsigned char chicago12_lb[CHICAGO_GLYPHS] = {");
+    for (int gi = 0; gi < NGLYPH; gi++)
         printf("%s%d", gi == 0 ? "\n    " : (gi % 16) ? ", " : ",\n    ", g_lb[gi]);
     printf("\n};\n");
-    printf("FONT_TABLE uint16_t chicago12_rows[CHICAGO_COUNT + 1][CHICAGO_CELL_H] = {\n");
-    for (int gi = 0; gi <= COUNT; gi++) {
+    printf("FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H] = {\n");
+    for (int gi = 0; gi < NGLYPH; gi++) {
         if (gi < COUNT) {
             int c = FIRST + gi;
             printf("/* 0x%02X '%s%c' lb %d aw %d */ {", c,
                    (c == '\\' || c == '\'') ? "\\" : "", (char)c, g_lb[gi], g_aw[gi]);
-        } else {
+        } else if (gi == COUNT) {
             printf("/* missing lb %d aw %d */ {", g_lb[gi], g_aw[gi]);
+        } else {
+            printf("/* 0x%02X ellipsis lb %d aw %d */ {", ELLIPSIS, g_lb[gi], g_aw[gi]);
         }
         for (int r = 0; r < CELL_H; r++)
             printf("%s0x%04X", r ? "," : "", g_rows[gi][r]);
         printf("},\n");
     }
     printf("};\n#else\n"
-           "FONT_TABLE unsigned char chicago12_aw[CHICAGO_COUNT + 1];\n"
-           "FONT_TABLE unsigned char chicago12_lb[CHICAGO_COUNT + 1];\n"
-           "FONT_TABLE uint16_t chicago12_rows[CHICAGO_COUNT + 1][CHICAGO_CELL_H];\n"
+           "FONT_TABLE unsigned char chicago12_aw[CHICAGO_GLYPHS];\n"
+           "FONT_TABLE unsigned char chicago12_lb[CHICAGO_GLYPHS];\n"
+           "FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H];\n"
            "#endif\n\n");
-    printf("/* Glyph index for byte c: its own slot, or the missing-glyph box. */\n"
+    printf("/* Glyph index for byte c: its own slot, the ellipsis slot, or the\n"
+           " * missing-glyph box. */\n"
            "static inline int chicago12_index(int c)\n"
            "{\n"
+           "    if (c == CHICAGO_ELLIPSIS_CODE)\n"
+           "        return CHICAGO_ELLIPSIS;\n"
            "    if (c < CHICAGO_FIRST || c > CHICAGO_LAST)\n"
            "        return CHICAGO_MISSING;\n"
            "    return c - CHICAGO_FIRST;\n"

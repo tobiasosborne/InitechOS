@@ -157,7 +157,11 @@ static int menu_panel_w(const MenuInfo *m)
 #if defined(MENU_MUTATE_FIXED_WIDTH) && MENU_MUTATE_FIXED_WIDTH
         int w = FLAIR_MENU_MUTANT_FIXED_W;
 #else
-        int w = text_measure(FONT_CHICAGO, m->items[k].text);
+        /* the item's own face (MenuItem.style, txFace bits): bold widens
+         * every glyph by 1 px (font-manager.md Sec 6.1; bead initech-tdnl.68) */
+        int w = text_measure_face(FONT_CHICAGO,
+                                  (unsigned)m->items[k].style & TEXT_FACE_SYNTH,
+                                  m->items[k].text);
 #endif
         int needed = FLAIR_MENU_ITEM_LPAD + w + FLAIR_MENU_ITEM_RPAD;
         if (m->items[k].cmdChar != 0) {
@@ -576,8 +580,12 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
                             ? flair_look_pixel(port,
                                   FLAIR_PART_MENU_TITLE_HILITE_FACE)
                             : bar_face;
-        text_draw(bm, x + FLAIR_MENU_TITLE_PAD, FLAIR_MENU_TITLE_VPAD,
-                  bar->menus[k].title, FONT_CHICAGO, title_fg, title_bg);
+        /* clipped like every other bar primitive (bead initech-tdnl.68:
+         * text never paints outside the effective clip) */
+        text_clip_t tk = { clip, 0, 0, 0, 0, 0 };
+        (void)text_draw_run(bm, x + FLAIR_MENU_TITLE_PAD, FLAIR_MENU_TITLE_VPAD,
+                            bar->menus[k].title, FONT_CHICAGO, 0u, title_fg,
+                            title_bg, &tk);
     }
 }
 
@@ -661,23 +669,18 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
 
         uint32_t row_fg = text_ink;
         uint32_t row_bg = face;
-        /* The item row as a VIEW [row_top, row_top + h) of the destination:
-         * item text is clipped to its own row on BOTH edges. The sampled cap
-         * top is FLAIR_MENU_ITEM_TEXT_TOP below the row top (sys8/menus.md Sec
-         * 2.2: text top 23 = rect top 21 + 2), so the Chicago cell starts
+        /* The item text is clipped to its own row [row_top, row_top + h) on
+         * BOTH edges and to the panel's columns, INSIDE the effective clip
+         * (bead initech-tdnl.68: the Font Manager's clipped run; it was a
+         * row-sized bitmap view that ignored `clip`). The sampled cap top is
+         * FLAIR_MENU_ITEM_TEXT_TOP below the row top (sys8/menus.md Sec 2.2:
+         * text top 23 = rect top 21 + 2), so the Chicago cell starts
          * CHICAGO_CAP_TOP rows above that -- one row above the row itself,
-         * which the view's top clip drops (that row of the cell is blank
-         * ascent). Bead initech-tdnl.33. */
-        bitmap_t row_bm = *bm;
-        const int text_y = FLAIR_MENU_ITEM_TEXT_TOP - CHICAGO_CAP_TOP;
-        if (row_top >= 0 && (uint32_t)row_top < bm->height) {
-            row_bm.base = bm->base + (uint32_t)row_top * bm->pitch;
-            row_bm.height = bm->height - (uint32_t)row_top;
-            if (row_bm.height > (uint32_t)h)
-                row_bm.height = (uint32_t)h;
-        } else {
-            row_bm.height = 0;
-        }
+         * which the row box drops (that row of the cell is blank ascent).
+         * Bead initech-tdnl.33. */
+        const int text_y = row_top + FLAIR_MENU_ITEM_TEXT_TOP - CHICAGO_CAP_TOP;
+        text_clip_t rk = { clip, 0, panel.left, row_top, panel.right,
+                           row_top + h };
 #if defined(MENU_MUT_DISABLED_NORMAL_INK) && MENU_MUT_DISABLED_NORMAL_INK
         (void)disabled;
 #else
@@ -698,11 +701,15 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
             char marks[2];
             marks[0] = it->mark;
             marks[1] = 0;
-            text_draw(&row_bm, panel.left + FLAIR_MENU_PANEL_INSET + 2,
-                      text_y, marks, FONT_CHICAGO, row_fg, row_bg);
+            (void)text_draw_run(bm, panel.left + FLAIR_MENU_PANEL_INSET + 2,
+                                text_y, marks, FONT_CHICAGO, 0u, row_fg,
+                                row_bg, &rk);
         }
-        text_draw(&row_bm, text_x, text_y, it->text,
-                  FONT_CHICAGO, row_fg, row_bg);
+        /* drawn in the item's own style, as the Mac Menu Manager draws a
+         * Style menu (menu-manager.md Sec 2.2 style byte; bead initech-tdnl.68) */
+        (void)text_draw_run(bm, text_x, text_y, it->text, FONT_CHICAGO,
+                            (unsigned)it->style & TEXT_FACE_SYNTH, row_fg,
+                            row_bg, &rk);
 
         if (it->cmdChar) {
             /* The source strike has no cloverleaf. Render the period-plausible
@@ -716,8 +723,8 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
             cmd[2] = 0;
             int cmd_x = panel.right - FLAIR_MENU_CMD_RPAD -
                         cmd_run_w(it->cmdChar);
-            text_draw(&row_bm, cmd_x, text_y, cmd,
-                      FONT_CHICAGO, row_fg, row_bg);
+            (void)text_draw_run(bm, cmd_x, text_y, cmd, FONT_CHICAGO, 0u,
+                                row_fg, row_bg, &rk);
         }
     }
 
