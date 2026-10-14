@@ -4998,6 +4998,28 @@ static void tbx_headless_smoke(void)
             ev.message = (0x10u << 8) | (uint32_t)'q';
             ev.modifiers = (uint16_t)FLAIR_EVT_MOD_CONTROL_KEY;
             if (!tbx_menu_key(&ev)) serial_puts("TBX-SMOKE-FAIL ctrl-q not a menu command\n");
+            /* initech-fvnj (audit L008): the typed row made the sheet DIRTY, so
+             * Quit now ASKS (Save / Cancel / Don't Save) instead of exiting.
+             * The smoke answers as its user would -- Don't Save, the third
+             * button (TBX_ALERT, spec/toolbox_gate.h Sec 11) -- and services
+             * the tenant once more so the answer reaches it and it EXITs. */
+            {
+                const char *atext[TBX_ALERT_LINES], *abtn[3];
+                uint32_t an = 0u, anb = 0u;
+                if (tbx_take_alert(atext, &an, abtn, &anb)) {
+                    serial_puts("TBX-SMOKE-ALERT buttons=");
+                    serial_putu(anb);
+                    serial_puts(" answer=3\n");
+                    tbx_alert_answer(3u);
+                    ev.what = (uint16_t)nullEvent;
+                    ev.message = 0u;
+                    ev.when = 0u;
+                    ev.modifiers = 0u;
+                    ev.where.h = 0;
+                    ev.where.v = 0;
+                    flair_app_dispatch(&plist, &wm, &ev);
+                }
+            }
         } else {
             serial_puts("TBX-SMOKE-FAIL 123.EXE did not open its window\n");
         }
