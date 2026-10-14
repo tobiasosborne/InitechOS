@@ -182,6 +182,16 @@ typedef struct {
     bool record_frames;        /* per-event PPM frame dumps on/off.           */
     int  record_settle_ms;     /* paint-settle drain before each frame grab;
                                   <=0 => default 120 ms.                      */
+    /* The guest's END-OF-LIFE marker for record mode (bead initech-mfrb).
+     * A bounded record image runs its pump for a fixed tick budget, then
+     * prints this marker (FLAIR-LIVE-OK) and halts with cli;hlt. Every event
+     * the harness injects AFTER that is lost -- the frames keep coming (the
+     * framebuffer is frozen, not gone) and nothing else notices. MEASURED on
+     * iword_typing: 19 of 77 keystrokes went to a halted guest. When non-NULL,
+     * the harness checks the serial capture BEFORE each injected event and
+     * counts the events sent after the marker (record_events_after_end); any
+     * nonzero count makes the run NOT ok (Law 2, Rule 2). NULL == no check. */
+    const char *record_end_marker;
 
     /* Pinned RTC base (beads initech-yv9). When non-NULL, the harness passes
      * `-rtc base=<rtc_base>` to QEMU so the guest's emulated MC146818 RTC starts
@@ -267,6 +277,12 @@ typedef struct {
     int  frames_taken;         /* count of record-mode frame PPMs dumped
                                   (beads initech-l9cd); 0 unless
                                   cfg->record_frames.                         */
+    int  record_events_after_end; /* events injected after the guest
+                                  printed cfg->record_end_marker (bead
+                                  initech-mfrb); 0 unless that marker is set
+                                  and the guest's life ended mid-trace.        */
+    int  record_first_dead_event; /* 1-based index of the first such event;
+                                  0 when none.                                */
 
     bool ok;                   /* overall verdict (see above).              */
 } QemuResult;

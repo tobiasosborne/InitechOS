@@ -77,6 +77,11 @@ static void usage(const char *argv0)
         "  --record-settle-ms N\n"
         "                     paint-settle drain before each frame grab\n"
         "                     (default 120)\n"
+        "  --record-end-marker MARK\n"
+        "                     the guest's end-of-life marker (FLAIR-LIVE-OK);\n"
+        "                     every --record event injected after MARK is on\n"
+        "                     serial went to a halted guest: counted, shouted,\n"
+        "                     and the run is NOT ok (bead initech-mfrb)\n"
         "  --rtc-base ISO     pin the guest RTC to a fixed instant via\n"
         "                     `-rtc base=ISO` (e.g. 2026-06-09T12:34:56) so the\n"
         "                     clock oracle is deterministic\n"
@@ -153,6 +158,9 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--record-settle-ms") == 0) {
             NEED_ARG();
             cfg.record_settle_ms = atoi(argv[++i]);
+        } else if (strcmp(a, "--record-end-marker") == 0) {
+            NEED_ARG();
+            cfg.record_end_marker = argv[++i];
         } else if (strcmp(a, "--rtc-base") == 0) {
             NEED_ARG();
             cfg.rtc_base = argv[++i];
@@ -257,8 +265,7 @@ int main(int argc, char **argv)
         "[harness] triple_fault=%d cpu_reset=%d guest_errors=%d\n"
         "[harness] keys_sent=%d mouse_events_sent=%d screendump_taken=%d path=%s\n"
         "[harness] frames_taken=%d\n"
-        "[harness] quit_after_found=%d (quit_after=%s)\n"
-        "[harness] OK=%d\n",
+        "[harness] quit_after_found=%d (quit_after=%s)\n",
         res.launched, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
@@ -267,8 +274,17 @@ int main(int argc, char **argv)
         res.screendump_taken ? res.screendump_path : "(none)",
         res.frames_taken,
         res.quit_marker_found,
-        cfg.quit_after ? cfg.quit_after : "(none)",
-        res.ok);
+        cfg.quit_after ? cfg.quit_after : "(none)");
+    /* Only record runs that name an end marker get the line (bead
+     * initech-mfrb), so every other gate's report card is unchanged. */
+    if (cfg.record_frames && cfg.record_end_marker) {
+        fprintf(stderr,
+            "[harness] record_events_after_end=%d first_dead_event=%d "
+            "(end_marker=%s)\n",
+            res.record_events_after_end, res.record_first_dead_event,
+            cfg.record_end_marker);
+    }
+    fprintf(stderr, "[harness] OK=%d\n", res.ok);
 
     int rc = res.ok ? 0 : 1;
     qemu_result_free(&res);
