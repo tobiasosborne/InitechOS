@@ -63,3 +63,25 @@ FLAIR_SHUTDOWN_RESTART_SPEC := $(FLAIR_POWER_PREFIX),m0:95,l0,m100:36,m100:36,m1
 #    DESKTOP-DB-VIEWS n=1 (the dragged window's view survived) and prints
 #    FLAIR-LIVE-READY a second time. Nothing is injected after the reset.
 FLAIR_RESTART_SPEC := $(FLAIR_POWER_PREFIX),m0:79,l0
+
+# ===========================================================================
+# 4. FLAIR_SHUTDOWN_APP_SPEC -- a disk application is running: Shut Down asks
+#    it to quit first (PM directive 2026-10-15; os/milton/kmain.c
+#    finder_power_ask_apps).
+# ===========================================================================
+# A, B, C1 are spec/flair_ctenant_traces.mk's verbatim: the volume, APPS
+#   (FINDER-OPEN-FOLDER name=APPS win=1, frame (40,80)..(400,300)), then
+#   CTENANT.EXE (143,122) double-clicked -> the CTENANT window
+#   (180,170)..(470,330), CTENANT foreground (band 2 = its bar).
+# H. (143,122) -> the APPS window's title bar (100,90) (title band y [80,102),
+#    left of the CTENANT window x 180): m-43:-32 ; l1,l0 -> FLAIR-DISPATCH
+#    app=FINDER (band 2 = the Finder bar again).
+# I. -> Special (170,30): m70:-60 ; l1 ; m0:95 -> Shut Down (170,125) ; l0
+#    -> FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=1 (CTENANT.EXE is the
+#    APPS window's selection) ; TENANT-MENU menu=129 item=1 src=quit (its own
+#    File > Quit, ctenant.c MENU_FILE/ITEM_QUIT) ; TENANT-EXIT rc=0 via=exit ;
+#    DESKTOP-DB-SAVE n=4 (2 desktop icons + the root and APPS views) ;
+#    FLAIR-SHUTDOWN-SAFE.
+# P. PARK (170,125) -> (620,460): sum (+450,+335): m100:67 x4, m50:67 ;
+#    kctrl-n LAST (the completion marker, as trace 1).
+FLAIR_SHUTDOWN_APP_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:20,l1,l0,l1,l0,m-43:-32,l1,l0,m70:-60,l1,m0:95,l0,m100:67,m100:67,m100:67,m100:67,m50:67,kctrl-n

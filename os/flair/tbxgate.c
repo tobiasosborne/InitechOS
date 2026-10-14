@@ -1004,6 +1004,60 @@ int tbx_menu_key(const EventRecord *ev)
     return tbx_menu_choice(app->menubar, sel, ev, "key");
 }
 
+/* THE QUIT REQUEST (bead initech-tdnl.78; tbxgate.h). The System 7 Finder
+ * sends every running application the Quit Application event on Restart /
+ * Shut Down (Inside Macintosh Vol VI, PDF p. 345), and the application's
+ * handler is "the same routine" as its File > Quit -- including asking to
+ * save, and cancelling (userCanceledErr, Listing 6-8, same page). The App Contract has no such event, so the request is the
+ * application's OWN Quit: the enabled item titled "Quit" in its installed
+ * bar (the Macintosh HIG File > Quit every disk tenant carries), delivered
+ * exactly as a mouse choice would be. */
+static int tbx_text_is(const char *a, const char *b)
+{
+    if (a == (const char *)0) return 0;
+    while (*a != '\0' && *a == *b) { a++; b++; }
+    return *a == *b;
+}
+
+int tbx_ask_quit(void)
+{
+    FlairApp *app = g_slot.app;
+    const MenuBar *bar;
+    EventRecord ev;
+
+    if (app == (FlairApp *)0 || g_slot.exit_req || g_slot.crashed ||
+        g_slot.torn_down)
+        return 0;
+    bar = app->menubar;
+    if (bar == (const MenuBar *)0) return -1;
+    ev.what = (uint16_t)nullEvent;
+    ev.message = 0u;
+    ev.when = 0u;
+    ev.where.h = 0;
+    ev.where.v = 0;
+    ev.modifiers = 0u;
+    for (uint16_t m = 0u; m < bar->n_menus; m++) {
+        const MenuInfo *mi = &bar->menus[m];
+        for (uint16_t k = 0u; k < mi->n_items; k++) {
+            const MenuItem *it = &mi->items[k];
+            if (it->is_divider || !it->enabled || !tbx_text_is(it->text, "Quit"))
+                continue;
+            return tbx_menu_choice(bar, MenuResult(mi->menuID,
+                                                   (uint16_t)(k + 1u)),
+                                   &ev, "quit") ? 1 : -1;
+        }
+    }
+    return -1;
+}
+
+const char *tbx_resident_name(void)
+{
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req || g_slot.crashed ||
+        g_slot.torn_down)
+        return (const char *)0;
+    return g_slot.file;
+}
+
 int tbx_owns_window(const WindowRecord *w)
 {
     return w != (const WindowRecord *)0 && g_slot.block != 0 && w == g_slot.win;

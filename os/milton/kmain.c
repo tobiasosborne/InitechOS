@@ -4210,9 +4210,8 @@ static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
  *     (os/milton/fileio_fat.c "commits to disk per call (no deferred
  *     flush)", and its CLOSE is a no-op for that reason). The Trash is NOT
  *     emptied (System 7: Apple_Whats_New_In_System_7_Z030-3935-A.pdf PDF
- *     p. 23). Open applications are not asked to quit (System 7 sends them
- *     the Quit Application event, Inside Macintosh Vol VI PDF p. 345 -- the
- *     App Contract has no such event yet; stated, a follow-up).
+ *     p. 23). Running disk applications are first asked to quit, and one
+ *     that declines cancels the whole command (finder_power_ask_apps).
  *   - Restart then restarts the machine: the 8042 reset pulse
  *     (os/milton/power.h kernel_reset); a pulse that does not reset is a
  *     PANIC with the controller status, never a silent hang (Rule 2).
@@ -4380,8 +4379,44 @@ static void finder_restart_now(void)
     kernel_halt();
 }
 
+/* FIRST, THE RUNNING APPLICATIONS ARE ASKED TO QUIT (System 7: the Finder
+ * sends each the Quit Application event on Restart / Shut Down, Inside
+ * Macintosh Vol VI PDF pp. 340-341 / 345; the application answers it with
+ * "the same routine" as its File > Quit, which saves documents or returns
+ * userCanceledErr when "the Quit request was canceled by the user", PDF
+ * p. 345, Listing 6-8). A cancel cancels the shut-down (PM directive
+ * 2026-10-15, with the Initech 123 exit guard initech-fvnj). The one
+ * resident disk tenant hears its OWN File > Quit (tbxgate.c tbx_ask_quit) and
+ * the ordinary tenant service runs: it may EXIT (reaped), ask its question
+ * (on a tree with TBX_ALERT the service runs the alert and delivers the
+ * answer), or decline. Still resident afterwards == declined: the shut-down
+ * is CANCELLED, loudly, and the tenant is NEVER terminated (its work would
+ * be lost). Returns 1 to go on. The kernel-linked demo tenants (HELLO, NOTES)
+ * hold no documents and are not asked: the reset or the halt ends them.
+ * MUTANT KMAIN_MUT_POWER_NO_ASK (Rule 6; test-flair-shutdown-mutant): the
+ * application is not asked. NEVER in a real build. */
+static int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    const char *still;
+    int r;
+
+#if defined(KMAIN_MUT_POWER_NO_ASK)
+    return 1;
+#endif
+    r = tbx_ask_quit();
+    if (r == 0) return 1;                  /* no application running          */
+    if (r > 0) flair_live_tenant_heard(ctx, bi);
+    still = tbx_resident_name();
+    if (still == (const char *)0) return 1;
+    serial_puts("FINDER-POWER-CANCEL app=");
+    serial_puts(still);
+    serial_puts(r > 0 ? " declined\n" : " cannot-ask\n");
+    return 0;
+}
+
 /* Special > Restart / Shut Down after the shell noted the open views
- * (`noted`, finder_windows.c fw_do_power): commit, then reset or shut down.
+ * (`noted`, finder_windows.c fw_do_power): ask the applications to quit,
+ * commit, then reset or shut down.
  * MUTANT KMAIN_MUT_POWER_NO_FLUSH (Rule 6; test-flair-shutdown-mutant): the
  * DESKTOP.DB commit is skipped. NEVER in a real build. */
 static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
@@ -4391,6 +4426,8 @@ static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                    : "FINDER-POWER name=SHUTDOWN views=");
     serial_puti((int32_t)noted);
     serial_putc('\n');
+    if (!finder_power_ask_apps(ctx, bi))
+        return;                         /* an application cancelled          */
 #if !defined(KMAIN_MUT_POWER_NO_FLUSH)
     g_finder_db_dirty = 1;
     finder_desk_persist();

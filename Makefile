@@ -20011,6 +20011,12 @@ test-flair-finder-cmds-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_t
 #     click on the Finder's Special title and a Ctrl-N after the safe screen
 #     are consumed by the shut-down screen and NOTHING answers (only FLAIR-EVT
 #     / cursor lines may follow FLAIR-SHUTDOWN-SAFE).
+#     [2] the same with a DISK APPLICATION running (CTENANT.EXE, the Finder
+#     brought forward by a click on its APPS window): the application is asked
+#     to quit by its OWN File > Quit (TENANT-MENU menu=129 item=1 src=quit)
+#     and EXITS before the DESKTOP.DB commit and the safe screen -- never
+#     terminated (PM directive 2026-10-15: an application that declines
+#     cancels the command, FINDER-POWER-CANCEL).
 #   test-flair-restart  [1] Special > Restart and [2] Shut Down's own Restart
 #     button: DESKTOP-DB-SAVE n=3 before FLAIR-RESTART, the 8042 pulse
 #     REBOOTS the machine (harness --allow-reboot; FLAIR-LIVE-READY seen a
@@ -20021,7 +20027,8 @@ test-flair-finder-cmds-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_t
 # dispatch) + test-menu-handlers / test-finder-menu (both rows live and
 # implemented). Mutants: test-flair-shutdown-mutant (KMAIN_MUT_POWER_NO_FLUSH:
 # the DESKTOP.DB commit skipped; KMAIN_MUT_SHUTDOWN_RETURNS: the shut-down
-# screen returns to the desktop) and test-flair-restart-mutant
+# screen returns to the desktop; KMAIN_MUT_POWER_NO_ASK: the running
+# application is not asked to quit) and test-flair-restart-mutant
 # (POWER_MUT_NO_PULSE: 0xFF instead of 0xFE -- nothing resets, the bounded
 # spin expires, PANIC). Rule 14 clip: record-flair SCRIPT=shutdown.
 # ---------------------------------------------------------------------------
@@ -20033,6 +20040,7 @@ $(PPM_FLAIR_SHUTDOWN_CHECK_BIN): $(PPM_FLAIR_SHUTDOWN_CHECK_SRC) spec/assets/col
 FLAIR_SD_NAME  := flair_shutdown
 FLAIR_RS_NAME  := flair_restart
 FLAIR_SDR_NAME := flair_shutdown_restart
+FLAIR_SDA_NAME := flair_shutdown_app
 # The probe's cooked keyDown (spec/flair_power_traces.mk F): the completion
 # marker of the shut-down leg, printed by the shut-down screen AND by a live
 # pump alike, so the harness never quits before the probe was consumed.
@@ -20094,6 +20102,20 @@ printf '%s\n' "$$post" | grep -qxF 'DESKTOP-DB-OK' || { printf 'RS: the second b
 printf '%s\n' "$$post" | grep -qxF 'DESKTOP-DB-VIEWS n=1' || { printf 'RS: the second boot did not take back the saved window view (no DESKTOP-DB-VIEWS n=1)\n'; exit 1; }
 endef
 
+# $(call sda-check,<serial>) -- Shut Down with a disk application running:
+# the application is asked to quit (its own File > Quit) and EXITS before the
+# commit and the safe screen; nothing answers afterwards.
+define sda-check
+grep -qxF 'FLAIR-DISPATCH app=CTENANT' $(1) || { printf 'SDA: CTENANT was never launched\n'; exit 1; }; \
+grep -qxF 'FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=1' $(1) || { printf 'SDA: Shut Down did not reach the command spine with the Finder foreground\n'; exit 1; }; \
+grep -qxF 'FLAIR-SHUTDOWN-SAFE' $(1) || { printf 'SDA: the shut-down screen never came up: %s\n' "$$(grep -E '^FINDER-POWER' $(1) | tr '\n' ' ')"; exit 1; }; \
+seq=$$(sed -n '/^FINDER-CMD id=13 name=SHUTDOWN/,/^FLAIR-SHUTDOWN-SAFE$$/p' $(1) | grep -E '^(TENANT-MENU|TENANT-EXIT|DESKTOP-DB-SAVE|FLAIR-SHUTDOWN-SAFE)' | tr '\n' '|'); \
+[ "$$seq" = 'TENANT-MENU menu=129 item=1 src=quit|TENANT-EXIT rc=0 via=exit|DESKTOP-DB-SAVE n=4|FLAIR-SHUTDOWN-SAFE|' ] || { printf 'SDA: CTENANT was not asked to quit (and did not exit) before the commit and the safe screen: %s\n' "$$seq"; exit 1; }; \
+! grep -qE '^(PANIC|FINDER-POWER-CANCEL|FLAIR-RESTART|TENANT-CRASH)' $(1) || { printf 'SDA: %s\n' "$$(grep -E '^(PANIC|FINDER-POWER-CANCEL|FLAIR-RESTART|TENANT-CRASH)' $(1) | head -1)"; exit 1; }; \
+stray=$$(sed -n '/^FLAIR-SHUTDOWN-SAFE$$/,$$p' $(1) | sed 1d | grep -vE '^(FLAIR-EVT |FLAIR-CURSOR|FLAIR-SHUTDOWN-HALT$$|$$)' | head -1); \
+[ -z "$$stray" ] || { printf 'SDA: the desktop answered after Shut Down: %s\n' "$$stray"; exit 1; }
+endef
+
 .PHONY: test-flair-shutdown test-flair-shutdown-mutant test-flair-restart test-flair-restart-mutant
 test-flair-shutdown: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_SHUTDOWN_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -20104,18 +20126,24 @@ test-flair-shutdown: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_
 	@( $(call pw-disk-check,$(BUILD)/$(FLAIR_SD_NAME)_data.img) ) || { printf '!!! test-flair-shutdown FAIL: the disk (above)\n'; exit 1; }
 	@[ -s "$(BUILD)/$(FLAIR_SD_NAME).ppm" ] || { printf '!!! test-flair-shutdown FAIL: screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_SHUTDOWN_CHECK_BIN) safe "$(BUILD)/$(FLAIR_SD_NAME).ppm" || { printf '!!! test-flair-shutdown FAIL: the shut-down screen is not drawn as graded\n'; exit 1; }
-	@printf '>>> test-flair-shutdown: green (FINDER-CMD SHUTDOWN -> DESKTOP-DB-SAVE n=3 -> FLAIR-SHUTDOWN-SAFE; the view is on the disk; the safe screen graded; the probe click + Ctrl-N answered by nothing)\n'
+	@printf '>>> test-flair-shutdown [1/2]: FINDER-CMD SHUTDOWN -> DESKTOP-DB-SAVE n=3 -> FLAIR-SHUTDOWN-SAFE; the view is on the disk; the safe screen graded; the probe click + Ctrl-N answered by nothing\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_SDA_NAME),$(BUILD)/$(FLAIR_SDA_NAME)_data.img,$(FLAIR_SHUTDOWN_APP_SPEC),$(FLAIR_SD_DONE),1)
+	@( $(call sda-check,$(BUILD)/$(FLAIR_SDA_NAME).serial) ) || { printf '!!! test-flair-shutdown FAIL: [2] serial (above)\n'; grep -E '^(FINDER-|TENANT-(MENU|EXIT)|FLAIR-DISPATCH|FLAIR-MENU |FLAIR-SHUTDOWN|DESKTOP-DB|PANIC)' $(BUILD)/$(FLAIR_SDA_NAME).serial; exit 1; }
+	@$(PPM_FLAIR_SHUTDOWN_CHECK_BIN) safe "$(BUILD)/$(FLAIR_SDA_NAME).ppm" || { printf '!!! test-flair-shutdown FAIL: [2] the shut-down screen is not drawn as graded\n'; exit 1; }
+	@printf '>>> test-flair-shutdown [2/2]: CTENANT running -> asked to quit by its own File > Quit -> TENANT-EXIT -> DESKTOP-DB-SAVE n=4 -> FLAIR-SHUTDOWN-SAFE\n'
+	@printf '>>> test-flair-shutdown: green\n'
 
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_FLUSH,power_no_flush))
 $(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_SHUTDOWN_RETURNS,shutdown_returns))
 $(eval $(call flair-tenants-kmain-mutant-rules,POWER_MUT_NO_PULSE,no_pulse))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_ASK,power_no_ask))
 # $(call pw-mut,<label>,<check output>,<rc>,<expected reason>,<gate>)
 define pw-mut-verdict
 if [ $(3) -eq 0 ]; then printf '!!! %s FAIL: %s PASSED -- decoration\n' '$(5)' '$(1)'; exit 1; fi; \
 printf '%s\n' "$(2)" | grep -qF '$(4)' || { printf '!!! %s FAIL: %s RED for the wrong reason: %s\n' '$(5)' '$(1)' "$(2)"; exit 1; }; \
 printf '>>> %s: %s correctly RED (%s)\n' '$(5)' '$(1)' "$(2)"
 endef
-test-flair-shutdown-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_power_no_flush.img $(BUILD)/flair_tenants_mut_shutdown_returns.img
+test-flair-shutdown-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_power_no_flush.img $(BUILD)/flair_tenants_mut_shutdown_returns.img $(BUILD)/flair_tenants_mut_power_no_ask.img
 	$(call fo-boot,$(BUILD)/flair_tenants_mut_power_no_flush.img,flair_shutdown_mut_noflush,$(BUILD)/flair_shutdown_mut_noflush_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
 	@out=$$( ( $(call sd-check,$(BUILD)/flair_shutdown_mut_noflush.serial) ) && ( $(call pw-disk-check,$(BUILD)/flair_shutdown_mut_noflush_data.img) ) ); rc=$$?; \
 	$(call pw-mut-verdict,POWER_NO_FLUSH,$$out,$$rc,did not commit DESKTOP.DB,test-flair-shutdown-mutant)
@@ -20124,6 +20152,9 @@ test-flair-shutdown-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tena
 	$(call fo-boot,$(BUILD)/flair_tenants_mut_shutdown_returns.img,flair_shutdown_mut_returns,$(BUILD)/flair_shutdown_mut_returns_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
 	@out=$$( ( $(call sd-check,$(BUILD)/flair_shutdown_mut_returns.serial) ) ); rc=$$?; \
 	$(call pw-mut-verdict,SHUTDOWN_RETURNS,$$out,$$rc,the desktop answered after Shut Down,test-flair-shutdown-mutant)
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_power_no_ask.img,flair_shutdown_mut_noask,$(BUILD)/flair_shutdown_mut_noask_data.img,$(FLAIR_SHUTDOWN_APP_SPEC),$(FLAIR_SD_DONE),0)
+	@out=$$( ( $(call sda-check,$(BUILD)/flair_shutdown_mut_noask.serial) ) ); rc=$$?; \
+	$(call pw-mut-verdict,POWER_NO_ASK,$$out,$$rc,CTENANT was not asked to quit,test-flair-shutdown-mutant)
 
 test-flair-restart: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 	@printf '======================================================================\n'
