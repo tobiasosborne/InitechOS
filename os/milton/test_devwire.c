@@ -392,5 +392,22 @@ int main(void)
               "OPEN of a non-device name returns file-not-found (fell through to FAT path)");
     }
 
+    /* K12: explicit CON and stdin share cooked EOF semantics.
+     * 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf pp. 6-137/138, 6-149;
+     * MS-DOS_3.3_Users_Guide_198707.pdf p. 132 (COPY CON, ^Z then Enter). */
+    for (int explicit_con = 0; explicit_con < 2; explicit_con++) {
+        bind_standard_process();
+        int cf = 9;
+        uint16_t h = explicit_con ? do_open_name("CON", &cf) : 0u;
+        uint8_t rb[32];
+        g_conin_src = "hello\r\x1a\r"; g_conin_pos = 0;
+        uint32_t got = do_read_h(h, sizeof(rb), rb, &cf);
+        CHECK(cf == 0 && got == 7 && memcmp(rb, "hello\r\n", 7) == 0,
+              "K12 cooked CON delivers typed line + CRLF");
+        got = do_read_h(h, sizeof(rb), rb, &cf);
+        CHECK(cf == 0 && got == 0, "K12 CON Ctrl-Z final read AX=0");
+        CHECK(g_conin_pos == strlen(g_conin_src), "K12 EOF consumes Enter");
+        if (explicit_con) do_close_h(h);
+    }
     return TEST_SUMMARY("test_devwire");
 }
