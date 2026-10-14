@@ -28768,7 +28768,7 @@ $(eval $(call tenant-exe-rules,i123_get_clobber,$(I123_APP_SRC),-Ios/i123/core -
 # of its own -- the SAME kernel objects as test-flair-i123-bochs.
 # ===========================================================================
 include spec/flair_i123_quit_traces.mk
-FLAIR_I123_QUIT_DATA := $(BUILD)/flair_i123_quit_data.img
+FLAIR_I123_QUIT_DATA := $(BUILD)/flair_i123_quit_fixture.img
 $(FLAIR_I123_QUIT_DATA): $(FLAIR_I123_FILE_DATA)
 	cp -f $(FLAIR_I123_FILE_DATA) $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-corpus-original.WK1 ::RO.WK1
