@@ -26186,7 +26186,7 @@ SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_P
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
                    $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) \
-                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
+                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/core/screen.c $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
 SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
 SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
 SAMIR_COM       := $(BUILD)/SAMIR.COM
@@ -29700,3 +29700,51 @@ test-interp-list-heading-mutant test-interp-set-console-mutant:
 	 test $$rc = 1 && grep -q 'screen:' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (implementation mutant RED: screen controls)\n' '$@'
 TEST_UNIT_GATES += test-interp-list-heading-mutant test-interp-set-console-mutant
+
+# initech-3cz2: reserved-row model vs manual-derived literal cell oracle.
+$(BUILD)/test_samir_status: $(DBF_DIFF_DIR)/test_samir_status.c $(SAMIR_DIR)/core/screen.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(BUILD)/test_samir_status_mutant: $(DBF_DIFF_DIR)/test_samir_status.c $(SAMIR_DIR)/core/screen.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_STATUS -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-samir-status test-samir-status-mutant
+test-samir-status: $(BUILD)/test_samir_status
+	@$< $(DBASE3_DECOMP)
+test-samir-status-mutant: $(BUILD)/test_samir_status_mutant
+	@set +e; $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'status: Command Line' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (status-band implementation mutant RED)\n' '$@'
+TEST_UNIT_GATES += test-samir-status test-samir-status-mutant
+
+# Same implementation mutants in the flat COM. Dead sections are omitted;
+# the existing link assertion still reserves BSS + the full AH=48h arena.
+$(BUILD)/SAMIR_SCREEN_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_DIR)/pal/heap.h $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/include/samir/screen.h | $(BUILD)
+	@set -e; d=$(BUILD)/samir_screen_$*; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$* -c $$src -o $$obj; done; \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+$(BUILD)/test_samir_screen_emu: $(DBF_DIFF_DIR)/test_samir_screen_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+.PHONY: test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
+test-samir-status-emu test-samir-status-off-emu test-samir-numeric-format-emu test-samir-console-emu: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+	@mode=status; case '$@' in *off-emu) mode=off;; *numeric*) mode=numeric;; *console*) mode=console;; esac; $(BUILD)/test_samir_screen_emu $$mode
+test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.COM
+	@set +e; $(BUILD)/test_samir_screen_emu status $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings|heading)' $(BUILD)/$@.log && grep -q 'status: serial Command Line' $(BUILD)/$@.log && grep -q 'status: reverse band' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (same status-band mutant RED on serial and video)\n' '$@'
+test-samir-numeric-format-emu-fraction-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_FRACTION.COM
+test-samir-numeric-format-emu-left-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_LEFT.COM
+test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant:
+	@set +e; $(BUILD)/test_samir_screen_emu numeric $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'numeric: integral fraction and right alignment' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (same numeric implementation mutant RED in guest)\n' '$@'
+# Mutant targets build the runner/fixture even when invoked alone.
+test-samir-status-emu-mutant test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant test-samir-console-emu-mutant: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+TEST_EMU_GATES += test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
+
+.PHONY: test-samir-console-emu test-samir-console-emu-mutant
+test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM
+	@set +e; $(BUILD)/test_samir_screen_emu console $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'console: program output and prompt suppressed' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (same CONSOLE suppression mutant RED in guest)\n' '$@'
+TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant

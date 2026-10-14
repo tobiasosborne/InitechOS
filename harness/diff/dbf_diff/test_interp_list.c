@@ -278,6 +278,12 @@ static void test_tier0(samir_pal_t *pal)
     CHECK(samir_do(ip,"LIST OFF\n")==INTERP_OK,"screen: default headings");
     CHECK(strncmp(cap_text(),"CODE AMT   OK\nAAA    100 T \n",27)==0,
           "screen: headings and widened columns align");
+    cap_clear();
+    CHECK(samir_do(ip,"LIST 100/AMT\n")==INTERP_OK,"screen: expression heading uses TOP, not stale EOF value");
+    CHECK(cap_has("100/AMT"),"screen: expression title present");
+    cap_clear();
+    CHECK(samir_do(ip,"GO 2\nDISPLAY AMT\n")==INTERP_OK,"screen: explicit numeric DISPLAY heading");
+    CHECK_STR_EQ(cap_text(),"Record#  AMT  \n       2   200\n","screen: explicit DISPLAY heading aligns numeric field");
     CHECK(samir_do(ip,"SET HEADING OFF\n")==INTERP_OK,"screen: HEADING OFF");
     cap_clear();
     CHECK(samir_do(ip,"SET CONSOLE OFF\nLIST OFF\n? 'HIDDEN'\n")==INTERP_OK,"screen: program output suppressed");

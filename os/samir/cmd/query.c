@@ -773,7 +773,8 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         const dbf_field_t *f; xb_val v; uint32_t width,n; int rc;
         if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
         else f=q_field_descriptor(ip,expr);
-        rc=q_eval(ip,expr,&v,ec); if(rc) return rc;
+        v=xb_u();
+        if(!f) { rc=q_eval(ip,expr,&v,ec); if(rc) return rc; }
         width=q_column_width(f,expr,&v,xb_interp_ctx(ip));
         if(!first) q_append_cstr(line,&pos,sizeof(line)," ");
         first=0;
@@ -890,12 +891,12 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
         kind = is_display_default ? QS_RECORD /* current */ : QS_ALL;
 
     if(!wa_is_open(env,area)) { if(ec) *ec=3; return -INTERP_ERR_EVAL; }
-    rc=q_render_heading(ip,area,qc,ec); if(rc) return rc;
 
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */
 
     if (nrec == 0u) {
-        /* empty table: nothing to show; pointer stays at EOF. */
+        /* Empty tables still have field headings; no rows or pointer move. */
+        rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
         if (ec) *ec = 0;
         return INTERP_OK;
     }
@@ -908,6 +909,7 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
             rc = wa_nav_goto(env, area, target);
             if (rc != NAV_OK) { if (ec) *ec = Q_MSG_NOT_INDEXED /*range*/; return -INTERP_ERR_SYNTAX; }
         }
+        rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
         /* WHILE on a single record: if .F., skip; FOR: if .F., skip. */
         if (qc->has_while) {
             int t = 0;
@@ -929,6 +931,8 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
         rc = wa_nav_go_top(env, area);
         if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
     }
+    /* Headings for expressions observe the same starting record as the rows. */
+    rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
     /* QS_REST / QS_NEXT start at the current record (no GO TOP). */
 
     {

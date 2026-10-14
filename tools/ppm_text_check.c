@@ -110,6 +110,11 @@ static int is_color(const unsigned char *p, int r, int g, int b)
 
 int main(int argc, char **argv)
 {
+    /* SAMIR reverse band uses the DOS ANSI.SYS SGR-7 attribute (IBM CGA
+     * white paper 0xAA). Additive band color only; all existing checks remain.
+     * Using III+ Fig 5-17 is a layout oracle, not scanned RGB ground truth. */
+    int samir_status = argc>2 && strcmp(argv[1],"--samir-status")==0;
+    if(samir_status) { argc--;argv++; }
     int i123_menu = argc == 3 && strcmp(argv[1], "--i123-menu") == 0;
     if (i123_menu) { argc = 2; argv++; }
     /* argv[1] = the PPM. OPTIONAL (backward-compatible): argv[2..4] =
@@ -280,7 +285,7 @@ int main(int argc, char **argv)
         band_checked = 1;
         for (long y = band_y0; y < band_y1; y++) {
             for (long x = 0; x < w; x++) {
-                if (is_color(buf + (y * w + x) * 3, FG_R, FG_G, FG_B)) {
+                if (is_color(buf + (y * w + x) * 3, samir_status?0xAA:FG_R, samir_status?0xAA:FG_G, samir_status?0xAA:FG_B)) {
                     fg_band++;
                 }
             }
