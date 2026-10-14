@@ -9884,8 +9884,9 @@ CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 # The _arrows_dead build is the test-flair-i123-mutant fixture ONLY
 # (-DI123_MUT_ARROWS_DEAD: the pointer never moves), shipped on its own
 # gate-local volume under the same name.
-I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c
-I123_APP_DEP := os/i123/core/i123.h spec/i123/wk1_format.h
+I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
+                os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c
+I123_APP_DEP := os/i123/core/i123.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
 $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP)))
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
 I123_EXE := $(BUILD)/tenant/i123.exe
@@ -13338,8 +13339,9 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 # for its named reason.
 # ---------------------------------------------------------------------------
 LOTUS123_DECOMP   ?= ../lotus123-decomp
-I123_CORE_SRC     := os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c
-I123_CORE_HDR     := os/i123/core/i123.h spec/i123/wk1_format.h
+I123_CORE_SRC     := os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
+                     os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c
+I123_CORE_HDR     := os/i123/core/i123.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
 I123_CORE_INC     := -Ios/i123/core -Ispec
 I123_WK1_DIR      := harness/diff/wk1_diff
 I123_WK1_CANON    := $(I123_WK1_DIR)/wk1_canon.py
@@ -13371,6 +13373,63 @@ test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPC
 		printf '>>> test-i123-wk1-roundtrip-mutant: %s correctly RED (%s: %s)\n' "$$m" "$$why" "$$(grep -F "$$why" $$bin.log)"; \
 	done
 	@printf '>>> test-i123-wk1-roundtrip-mutant: green (both mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-i123-formula (bead initech-94ah, I123 P2; plan
+# docs/plans/INITECH-123-plan.md Sec 5/Sec 6 P2) -- the Initech 123 formula
+# engine (os/i123/core/formula.c compiler + decompiler, eval.c evaluator and
+# @functions, recalc.c natural order) graded against the REAL Lotus 1-2-3
+# R2.2: the 1090 FORMULA records of the 44 goldens in ../lotus123-decomp
+# (bytes 123.EXE compiled, values it cached), the text typed to mint them,
+# and the corpus' independent reader tools/wk1_ref.py (through
+# harness/diff/wk1_diff/wk1_formula_ref.py, which parses no bytes). Parts: A
+# 37 typed formulas compile to 123.EXE's bytes; B all 1090 decompile and
+# recompile; C every formula reproduces 1-2-3's cache from its sheet's
+# values; D poisoned caches recalculated -> files byte-identical; E a random
+# formula property test. THREE builds of the oracle run: the host (SSE)
+# build, and two x87 builds (-mfpmath=387) under the two candidate tenant
+# control words, settling ADR-0009 DEC-01a Sec 4 by differential: 0x037F
+# (64-bit precision, the kernel's boot word, which face_a.c loads) MUST be
+# green; 0x027F (53-bit) must be RED for the recorded reason (the literal
+# parser rounds 1E99 wrong without the 64-bit significand) -- if it ever
+# turns green the ruling's evidence moved and the gate says so.
+# Mutants: test-i123-formula-mutant.
+# ---------------------------------------------------------------------------
+I123_FORMULA_REF  := $(I123_WK1_DIR)/wk1_formula_ref.py
+TEST_I123_FORMULA := $(BUILD)/test_i123_formula
+I123_FORMULA_DEPS := $(I123_WK1_DIR)/test_i123_formula.c $(I123_CORE_SRC) $(I123_CORE_HDR) seed/test_assert.h
+$(TEST_I123_FORMULA): $(I123_FORMULA_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_formula.c $(I123_CORE_SRC)
+$(BUILD)/test_i123_formula_x87_%: $(I123_FORMULA_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -mfpmath=387 -DI123_TEST_X87_CW=0x$* -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_formula.c $(I123_CORE_SRC)
+$(BUILD)/test_i123_formula_mutant_%: $(I123_FORMULA_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_formula.c $(I123_CORE_SRC)
+
+.PHONY: test-i123-formula test-i123-formula-mutant
+test-i123-formula: $(TEST_I123_FORMULA) $(BUILD)/test_i123_formula_x87_037F $(BUILD)/test_i123_formula_x87_027F $(I123_FORMULA_REF)
+	$(call need_lotus_goldens,test-i123-formula)
+	@printf ">>> test-i123-formula: the formula engine vs 1090 real 1-2-3 R2.2 formulas, their typed text and cached values, via wk1_ref.py (initech-94ah)\n"
+	@$(TEST_I123_FORMULA) $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF)
+	@printf ">>> test-i123-formula: x87 build, control word 0x037F (64-bit precision: the tenant's, = the kernel boot word)\n"
+	@$(BUILD)/test_i123_formula_x87_037F $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF) > $(BUILD)/test_i123_formula_x87_037F.log 2>&1 || { cat $(BUILD)/test_i123_formula_x87_037F.log; printf '!!! test-i123-formula FAIL: the x87 64-bit build (the tenant numerics) is RED\n'; exit 1; }
+	@grep -E '^  part [A-E]:|checks,' $(BUILD)/test_i123_formula_x87_037F.log
+	@if $(BUILD)/test_i123_formula_x87_027F $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF) > $(BUILD)/test_i123_formula_x87_027F.log 2>&1; then \
+		printf '!!! test-i123-formula FAIL: the 53-bit x87 build is green -- the recorded control-word ruling (0x037F) rests on its being RED; re-examine\n'; exit 1; \
+	else \
+		printf '>>> test-i123-formula: x87 build, control word 0x027F (53-bit precision) is RED as recorded (%s): the literal parser needs the 64-bit significand; the 1090 cached values do not discriminate (%s)\n' "$$(grep -c 'FAIL [AB]:' $(BUILD)/test_i123_formula_x87_027F.log) typed/round-trip failures, 1E99" "$$(grep -E '^  part C:' $(BUILD)/test_i123_formula_x87_027F.log | sed 's/^  part C: //; s/ (.*//')"; \
+	fi
+	@printf ">>> test-i123-formula: green\n"
+
+test-i123-formula-mutant: $(BUILD)/test_i123_formula_mutant_I123_MUT_PREC_FLAT $(BUILD)/test_i123_formula_mutant_I123_MUT_ROUND_EVEN $(BUILD)/test_i123_formula_mutant_I123_MUT_CACHE_ROUND $(I123_FORMULA_REF)
+	$(call need_lotus_goldens,test-i123-formula-mutant)
+	@for pair in 'I123_MUT_PREC_FLAT:RED-REASON round-trip' 'I123_MUT_ROUND_EVEN:RED-REASON values' 'I123_MUT_CACHE_ROUND:RED-REASON recalc-file'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_i123_formula_mutant_$$m; \
+		if $$bin $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF) > $$bin.log 2>&1; then printf '!!! test-i123-formula-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-i123-formula-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -qF "$$why" $$bin.log || { printf '!!! test-i123-formula-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-i123-formula-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
+	done
+	@printf '>>> test-i123-formula-mutant: green (all three mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-quit (bead initech-fvnj; astra audit L008 "Quit discards
@@ -26809,6 +26868,7 @@ TEST_UNIT_GATES := \
 	test-tbx-menu test-tbx-menu-mutant \
 	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
 	test-i123-quit test-i123-quit-mutant \
+	test-i123-formula test-i123-formula-mutant \
 	test-makefile-vars \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \

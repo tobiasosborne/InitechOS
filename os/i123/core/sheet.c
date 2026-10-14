@@ -135,6 +135,10 @@ static int sheet_reset(i123_sheet_t *sh)
     bzero8(sh->hid_set, 256u);
     for (int i = 0; i < 256; i++) { sh->hid_first[i] = 0; sh->hid_last[i] = 0; }
     sh->err_off = 0;
+    sh->circ = 0;
+    sh->calc = 0;
+    sh->circ_col = 0;
+    sh->circ_row = 0;
     return install_template(sh);
 }
 
@@ -432,4 +436,41 @@ uint32_t i123_cols_fitting(const i123_sheet_t *sh, uint16_t left, uint32_t chars
         n++;
     }
     return n;
+}
+
+/* ---- formula results (bead initech-94ah; recalc.c's store verb) ------------
+ * Replace the cached value of the FORMULA cell at index idx: the 8 cache
+ * bytes, and the STRING record text when has_str. `s` must NOT point into
+ * the pool (a growing string may compact it). Shrinking strings are written
+ * in place; a longer one moves the cell's blob (code + string). */
+int i123_cell_set_cache(i123_sheet_t *sh, uint32_t idx, const uint8_t v[8],
+                        int has_str, const uint8_t *s, uint32_t n)
+{
+    i123_cell_t *c;
+    if (idx >= sh->ncells) return I123_E_ARG;
+    c = &sh->cells[idx];
+    if (c->kind != I123_K_FORMULA || n > 0xFFFFu) return I123_E_ARG;
+    if (!has_str) {
+        sh->pool_live -= c->slen;
+        c->slen = 0;
+        c->has_str = 0;
+    } else if (c->has_str && n <= c->slen) {
+        bcopy_up(sh->pool + c->off + c->len, s, n);
+        sh->pool_live -= (uint32_t)c->slen - n;
+        c->slen = (uint16_t)n;
+    } else {
+        uint32_t off, old_total = (uint32_t)c->len + (uint32_t)c->slen;
+        int rc = pool_alloc(sh, (uint32_t)c->len + n, &off);
+        if (rc != I123_OK) return rc;
+        /* pool_alloc may have compacted: c->off is current */
+        for (uint32_t k = 0; k < c->len; k++) sh->pool[off + k] = sh->pool[c->off + k];
+        bcopy_up(sh->pool + off + c->len, s, n);
+        sh->pool_live -= old_total;
+        if (!c->has_str) c->str_fmt = c->fmt;
+        c->off = off;
+        c->slen = (uint16_t)n;
+        c->has_str = 1;
+    }
+    for (int b = 0; b < 8; b++) c->v[b] = v[b];
+    return I123_OK;
 }

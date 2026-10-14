@@ -48,6 +48,7 @@
 #define I123_E_DUP     (-4)   /* a model-owned record or a cell occurs twice    */
 #define I123_E_SPACE   (-5)   /* the output buffer is too small                 */
 #define I123_E_VALUE   (-6)   /* typed text is not a value the parser accepts   */
+#define I123_E_SYNTAX  (-7)   /* typed text is not a formula 1-2-3 accepts       */
 
 /* ---- cell kinds ---------------------------------------------------------- */
 #define I123_K_BLANK     1u   /* formatted, no content (WK1 BLANK)              */
@@ -91,6 +92,13 @@ typedef struct i123_sheet {
     uint8_t      hid_set[256];   /* HIDVEC1: column has a span                 */
     uint16_t     hid_first[256], hid_last[256];
     uint32_t     err_off;        /* file offset of the record a read refused   */
+    /* recalc indicators (bead initech-94ah; manual p. 12-32, PDF 276):
+     * circ  -- the last recalculation met a circular reference (the CIRC
+     *          indicator); circ_col/circ_row name one cell of the cycle;
+     * calc  -- MANUAL mode and an entry changed since the last recalc
+     *          (the CALC indicator). Neither is file state. */
+    uint8_t      circ, calc;
+    uint16_t     circ_col, circ_row;
 } i123_sheet_t;
 
 /* ---- the model ----------------------------------------------------------- */
@@ -159,11 +167,109 @@ uint32_t i123_addr_text(uint16_t col, uint16_t row, char *out);
 uint32_t i123_col_name(uint16_t col, char *out);
 
 /* Typed-value parser (a numeric literal: sign, digits, point, exponent).
- * Formulas are P2: anything else is I123_E_VALUE (1-2-3 beeps into EDIT). */
+ * Anything else is I123_E_VALUE (the caller then tries a formula). */
 int  i123_parse_value(const char *s, uint32_t len, double *out);
 
 /* Exact width-format of a number for format byte `fmt` (already resolved
  * against the global default), exactly `width` chars + NUL. */
 void i123_format_number(double x, uint8_t fmt, uint32_t width, char *out);
+
+/* p significant digits of x >= 0 (finite) as text i123_parse_value reads
+ * back: "d[.ddd][E[+-]x]"; returns the length (0 on failure). */
+uint32_t i123_sig_text(double x, uint32_t p, char *out, uint32_t cap);
+/* x rounded to `decs` (0..15) decimals, plain digits with a leading '-'
+ * when negative (the @STRING form, manual p. 13-56); 0 when too large. */
+uint32_t i123_fixed_text(double x, uint32_t decs, char *out, uint32_t cap);
+
+/* ---- formulas (os/i123/core/formula.c; bead initech-94ah) ----------------
+ * The RPN bytecode of a FORMULA record (spec/i123/wk1_formula.h). Code is
+ * position-dependent: relative references are offsets from (col,row). */
+#define I123_CODE_MAX   1024u   /* compiled code ceiling (corpus max 129)  */
+#define I123_FTEXT_MAX  512u    /* decompiled text ceiling                 */
+
+/* Compile typed text (no leading-'+' requirement here: the caller decided
+ * it is a value entry) into code[]; I123_E_SYNTAX when 1-2-3 would beep. */
+int i123_formula_compile(const char *text, uint32_t len, uint16_t col, uint16_t row,
+                         uint8_t *code, uint32_t cap, uint32_t *code_len);
+/* The control-panel text of a formula ("+B1*2", "@SUM(B1..D1)"). */
+int i123_formula_text(const uint8_t *code, uint32_t len, uint16_t col, uint16_t row,
+                      char *out, uint32_t cap);
+/* Structural check: known tokens, exact widths, arity, one value, RETURN
+ * last. I123_OK or I123_E_FORMAT. */
+int i123_formula_check(const uint8_t *code, uint32_t len);
+uint32_t i123_token_size(const uint8_t *code, uint32_t len, uint32_t i);
+int32_t  i123_ref_resolve(uint16_t word, uint16_t home, int is_col);
+/* Shortest decimal text of x >= 0 that reads back exactly. */
+void i123_number_text(double x, char *out, uint32_t cap);
+
+/* ---- evaluation and recalculation (eval.c, recalc.c) ---------------------- */
+#define I123_V_NUM    1u
+#define I123_V_STR    2u
+#define I123_V_ERR    3u
+#define I123_V_NA     4u
+#define I123_V_BLANK  5u   /* a reference to an empty cell: 0 or ERR by context */
+#define I123_V_RANGE  6u
+
+typedef struct i123_val {
+    uint8_t        t;
+    uint8_t        cell;   /* STR / BLANK came from a cell reference      */
+    uint16_t       slen;
+    uint16_t       c0, r0, c1, r1;   /* RANGE corners (normalised)        */
+    double         n;
+    const uint8_t *s;
+} i123_val_t;
+
+#define I123_EVAL_STACK  96u
+#define I123_ARENA       4096u   /* per-formula string scratch            */
+#define I123_STR_MAX     240u    /* manual p. 1-29: an entry is <= 240     */
+
+typedef struct i123_frame {      /* one natural-order DFS frame           */
+    uint32_t cell;               /* index into sh->cells                  */
+    uint32_t ri;                 /* store index a RANGE scan continues at */
+    uint16_t pc;                 /* code offset of the token being scanned */
+    uint16_t inrange;            /* 1: scanning the RANGE token at pc     */
+} i123_frame_t;
+
+typedef struct i123_calc {
+    i123_val_t    stk[I123_EVAL_STACK];
+    uint8_t       arena[I123_ARENA];
+    uint32_t      arena_used;
+    uint8_t      *state;         /* per cell index (cap entries)          */
+    i123_frame_t *frames;        /* cap entries                           */
+    uint32_t      cap;
+    uint32_t      rand_state;    /* @RAND (deterministic LCG)             */
+    uint8_t       have_now;      /* @NOW / D2 / D5 need a clock           */
+    double        now;           /* the clock's date+time serial          */
+    uint16_t      home_col, home_row;   /* the formula being evaluated    */
+    uint32_t      work;          /* natural-order work budget counter     */
+    struct i123_calc *nested;    /* spare context for @D* criteria formulas
+                                  * (NULL: such criteria evaluate to ERR)  */
+} i123_calc_t;
+
+/* Carve `mem` into the per-cell scratch for sheets of up to cell_cap cells. */
+int i123_calc_init(i123_calc_t *cx, void *mem, uint32_t len, uint32_t cell_cap,
+                   i123_calc_t *nested);
+#define I123_CALC_BYTES(cap) ((uint32_t)(cap) * (1u + (uint32_t)sizeof(i123_frame_t)) + 16u)
+
+/* Evaluate code as the formula of (col,row). The result never references
+ * the arena after the next call: copy strings out before re-evaluating. */
+int i123_eval(i123_calc_t *cx, const i123_sheet_t *sh, uint16_t col, uint16_t row,
+              const uint8_t *code, uint32_t len, i123_val_t *out);
+/* The value a cell reference yields (VAR semantics). */
+void i123_cell_value(const i123_sheet_t *sh, uint16_t col, uint16_t row, i123_val_t *v);
+/* Store v as the cached value of the FORMULA cell at index `idx`. */
+int i123_store_result(i123_sheet_t *sh, uint32_t idx, const i123_val_t *v);
+
+/* Recalculate the whole sheet by its CALCORDER (natural / columnwise /
+ * rowwise) and CALCCOUNT; sets sh->circ and clears sh->calc. */
+int i123_recalc(i123_calc_t *cx, i123_sheet_t *sh);
+/* Recalculate one formula cell only (what entry does in MANUAL mode). */
+int i123_recalc_cell(i123_calc_t *cx, i123_sheet_t *sh, uint16_t col, uint16_t row);
+/* Typed entry of a formula: compile, store (keeping the cell's format),
+ * then AUTOMATIC: recalc the sheet; MANUAL: evaluate the cell, set CALC. */
+int i123_enter_formula(i123_calc_t *cx, i123_sheet_t *sh, uint16_t col, uint16_t row,
+                       const char *text, uint32_t len);
+/* After any other entry: AUTOMATIC recalcs, MANUAL sets CALC. */
+int i123_after_entry(i123_calc_t *cx, i123_sheet_t *sh);
 
 #endif /* INITECH_I123_H */
