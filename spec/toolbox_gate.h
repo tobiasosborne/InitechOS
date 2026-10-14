@@ -25,6 +25,11 @@
  *       compiled tenant), bounded by TBX_TENANT_BSS_MAX. No other value moved.
  * bead: initech-tdnl.91. Deliberate Rule-8 addition: seven file codes 0x0080
  *       through 0x0086, their arities and Sec 10 policies; no old value moved.
+ * bead: initech-fvnj (audit L008, the unsaved-work guard). Deliberate Rule-8
+ *       addition: TBX_ALERT 0x0090 + its arity, the TBX_EVT_ALERT and
+ *       TBX_EVT_GOAWAY deliveries and the NEWWINDOW goAway value
+ *       TBX_GOAWAY_ASK (Sec 11). goAway 0 and 1 keep their meaning exactly;
+ *       no old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -142,6 +147,10 @@
 #define TBX_FILE_SEEK     0x0084u  /* (handle, signed delta, origin) -> pos | err */
 #define TBX_FILE_CLOSE    0x0085u  /* (handle) -> 0 | err */
 #define TBX_FILE_DELETE   0x0086u  /* (path) -> 0 | err */
+/* Deliberate locked ABI extension, initech-fvnj. Sec 11 below. */
+#define TBX_ALERT         0x0090u  /* (textPtr, defPtr, cancelPtr, otherPtr)
+                                    * -> 0 | err; the answer is DELIVERED  */
+#define TBX_ARGC_ALERT    4u
 #define TBX_ARGC_FILE_CREATE 1u
 #define TBX_ARGC_FILE_OPEN   2u
 #define TBX_ARGC_FILE_READ   3u
@@ -432,5 +441,69 @@
 #define TBX_MBAR_MAX_MENUS    8u
 #define TBX_MBAR_MAX_ITEMS    16u
 #define TBX_MBAR_STR_MAX      32u    /* incl. the NUL                          */
+
+/* ---------------------------------------------------------------------------
+ * 11. THE ALERT AND THE ASKING CLOSE BOX (bead initech-fvnj; audit L008)
+ *
+ * WHY. A document application must be able to refuse to lose work: Quit and
+ * the close box on an edited document ask first (Macintosh Human Interface
+ * Guidelines practice; for Initech 123 the period behaviour is the Lotus 1-2-3
+ * R2.2 Reference Manual p. 9-1: /Quit Yes over unsaved changes asks a second
+ * No/Yes, 123.RI 0x370 "WORKSHEET CHANGES NOT SAVED!  End 1-2-3 anyway?").
+ * Until this section a tenant could only EXIT, and its close box terminated it
+ * with no word to the tenant (tbxgate.c disk_tenant_close).
+ *
+ * TBX_ALERT (textPtr, defPtr, cancelPtr, otherPtr) -> 0 | err. Under the App
+ * Contract a tenant never runs a modal loop (Sec 6a), so -- like a menu choice
+ * -- the alert is ASKED for by the trap and ANSWERED by a delivered event: the
+ * verb validates and copies the strings and returns at once; once the tenant
+ * has RETURNED the shell runs the modal alert (the Dialog Manager caution
+ * alert of bead initech-6k12, the same frame and button row), restores what it
+ * covered, and PUSHES
+ *     What = TBX_EVT_ALERT, Message = the item hit:
+ *            1 = default button (Return / Enter), 2 = cancel button (Escape),
+ *            3 = the third button,
+ * and Modifiers/When/Where zero. Strings: ASCIZ wholly inside the image (the
+ * Sec 5/7 rule TEXTDRAW follows); the kernel COPIES them at the call, so the
+ * tenant may reuse its buffers at once. textPtr: 1..TBX_ALERT_LINES lines
+ * separated by CR (0x0D, the Dialog Manager static-text line break), each
+ * 1..TBX_ALERT_LINE_MAX-1 bytes and at most TBX_ALERT_TEXT_W Chicago 12 pixels.
+ * defPtr is required; cancelPtr may be 0 only when otherPtr is 0; a label is
+ * 1..TBX_ALERT_LABEL_MAX-1 bytes and fits its button (TBX_ALERT_BTN_TEXT_W, or
+ * TBX_ALERT_OTHER_TEXT_W for the third). A refused alert is BADARG; a second
+ * alert while one is pending is BUSY. Nothing is shown for a refused call.
+ * GEOMETRY of the shown alert: the corpus caution alert (../system7-decomp/
+ * goldens/captures/s8_alert_modal.png: frame 133..506 x 87..190, message pen x
+ * 211, Cancel 363..421, OK 435..493, buttons y 158..177) with the default
+ * button in OK's place and cancel in Cancel's; the THIRD button's place
+ * (x 211..294, left-aligned under the message) is a product adaptation -- the
+ * corpus has no three-button alert (specs/desktop/alerts.md golden-resolves).
+ * The value 0x0090 is authored (no local reference for a number): the alert
+ * starts a new dialog group after the Sec 10 file codes, and TBX_EVT_ALERT
+ * reuses it so a TENANT-EVT what=144 line names its provenance, exactly as
+ * TBX_EVT_MENU reuses 0x0051 (Sec 6a); outside every Event Manager code.
+ *
+ * TBX_GOAWAY_ASK (NEWWINDOW goAway == 2): the window has a close box, and a
+ * click released inside it does NOT terminate the tenant; the shell PUSHES
+ *     What = TBX_EVT_GOAWAY, Message = the window token,
+ * and the tenant decides (the Mac application's own inGoAway handler: ask,
+ * then close or not). goAway 1 keeps the V1 meaning (the close box ends the
+ * tenant at once, DEC-AC3-3). Values above 2 are BADARG. TBX_EVT_GOAWAY is
+ * authored: 0x0020, the NEWWINDOW code whose goAway argument asked for it.
+ * ------------------------------------------------------------------------- */
+#define TBX_EVT_ALERT          0x0090u
+#define TBX_EVT_GOAWAY         0x0020u
+#define TBX_GOAWAY_NONE        0u
+#define TBX_GOAWAY_CLOSE       1u
+#define TBX_GOAWAY_ASK         2u
+#define TBX_ALERT_LINES        3u
+#define TBX_ALERT_LINE_MAX     48u    /* bytes per line incl. the NUL        */
+#define TBX_ALERT_TEXT_W       285u   /* the measured message column 211..495 */
+#define TBX_ALERT_LABEL_MAX    16u    /* bytes per button label incl. NUL    */
+#define TBX_ALERT_BTN_TEXT_W   43u    /* a 59-px measured button, 8-px margins */
+#define TBX_ALERT_OTHER_TEXT_W 68u    /* the 84-px third button, 8-px margins */
+#define TBX_ALERT_DEFAULT      1u
+#define TBX_ALERT_CANCEL       2u
+#define TBX_ALERT_OTHER        3u
 
 #endif /* INITECH_SPEC_TOOLBOX_GATE_H */

@@ -39,7 +39,9 @@
  *   moves; Esc abandons it; Backspace edits it. A VALUE that is not a number
  *   (a formula is P2, bead initech-94ah) switches to EDIT, as 1-2-3 beeps
  *   into EDIT. '/' opens the menu; /File Retrieve and Save use the file gate.
- *   File > Quit (Ctrl-Q) quits.
+ *   File > Quit (Ctrl-Q), the close box and /Quit Yes all pass THE ONE EXIT
+ *   GUARD (request_quit, bead initech-fvnj): a clean sheet quits, unsaved
+ *   work asks first (see "THE EXIT GUARD" below).
  * NOT YET (stated): the other slash commands (visible refusal), the clock
  * on the status line, the "(F3)"/"[W12]" descriptors on line 1, a
  * formula's text on line 1 (P2).
@@ -120,10 +122,18 @@ static char     g_line[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
 static char     g_edit[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
 static uint32_t g_elen TBX_IN_IMAGE = 0;
 
-enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_NOTICE };
+enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE };
 static int      g_mode TBX_IN_IMAGE = M_READY;
 static const char *const MODE_TEXT[] = { "READY", "LABEL", "VALUE", " EDIT",
-    "MENU", "MENU", "FILES", "FILES", "MENU", "ERROR" };
+    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR" };
+
+/* THE EXIT GUARD's state (bead initech-fvnj). g_dirty: a committed edit not
+ * yet in a file -- set by every successful commit, cleared ONLY by a
+ * successful Save or Retrieve. g_asking: the alert is up (one question at a
+ * time). g_quit_after_save: the alert's Save started the /File Save flow, so
+ * its success ends the session; any other way out of the flow (Esc, Replace
+ * > Cancel, an error notice) drops it and the sheet stays open and dirty. */
+static uint8_t  g_dirty, g_asking, g_quit_after_save;
 
 /* Ref: R2.2 Reference Manual p. 5-1 menu tree, pp. 1-13/14 placement/keys;
  * ../lotus123-decomp/goldens/lotus-123-2.2-installed-ref/extracted/installed/
@@ -135,6 +145,25 @@ static const char *const MODE_TEXT[] = { "READY", "LABEL", "VALUE", " EDIT",
 static const char MAIN_LINE[] = "Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit";
 static const char FILE_LINE[] = "Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin";
 static const char REPLACE_LINE[] = "Cancel  Replace  Backup";
+/* /Quit: R2.2 Reference Manual p. 9-1 (PDF page 217 of the local scan):
+ * "Select one of the following options: No / Yes"; 123.RI 0x300 "No",
+ * 0x303 its description, 0x332 "Yes", 0x336 its description. */
+static const char QUIT_LINE[] = "No  Yes";
+static const char *const QUIT_NAMES[] = { "No", "Yes" };
+/* THE ALERT'S WORDS (spec/toolbox_gate.h Sec 11; CR separates lines). Line 1
+ * is the real 1-2-3's own warning, 123.RI 0x370 "WORKSHEET CHANGES NOT
+ * SAVED!  End 1-2-3 anyway?", first sentence verbatim. Lines 2-3 and the
+ * button words are the Macintosh Save-changes idiom: a PRODUCT ADAPTATION
+ * (bead initech-fvnj; the DOS 1-2-3 has no dialog box), authored, no local
+ * reference for their wording. The mapping onto the period workflow (p. 9-1:
+ * "If you selected Yes and you have changed data in the worksheet but not
+ * saved it, 1-2-3 displays another No/Yes menu"):
+ *   Cancel     == that second No  ("Returns to READY mode so you can use
+ *                 /File Save to save the worksheet");
+ *   Don't Save == that second Yes ("Ends 1-2-3 session without saving");
+ *   Save       == the Mac addition: /File Save now, then end the session. */
+static const char QUIT_TEXT[] =
+    "WORKSHEET CHANGES NOT SAVED!\rSave changes to the worksheet\rbefore quitting?";
 static const char *const MAIN_NAMES[] = { "Worksheet", "Range", "Copy", "Move", "File",
     "Print", "Graph", "Data", "System", "Add-In", "Quit" };
 static const char *const FILE_NAMES[] = { "Retrieve", "Save", "Combine", "Xtract", "Erase",
@@ -178,9 +207,11 @@ static void panel_line(int line, const char *s)
 
 static void paint_command(void)
 {
-    if (g_mode == M_MAIN || g_mode == M_FILE || g_mode == M_REPLACE) {
-        const char *const *names = g_mode == M_MAIN ? MAIN_NAMES : g_mode == M_FILE ? FILE_NAMES : REPLACE_NAMES;
-        const char *line = g_mode == M_MAIN ? MAIN_LINE : g_mode == M_FILE ? FILE_LINE : REPLACE_LINE;
+    if (g_mode == M_MAIN || g_mode == M_FILE || g_mode == M_REPLACE || g_mode == M_QUIT) {
+        const char *const *names = g_mode == M_MAIN ? MAIN_NAMES : g_mode == M_FILE ? FILE_NAMES :
+                                   g_mode == M_QUIT ? QUIT_NAMES : REPLACE_NAMES;
+        const char *line = g_mode == M_MAIN ? MAIN_LINE : g_mode == M_FILE ? FILE_LINE :
+                           g_mode == M_QUIT ? QUIT_LINE : REPLACE_LINE;
         uint32_t x = 0;
         panel_line(LINE_PANEL2, line);
         for (int i = 0; i < g_menu_index; i++) x += slen(names[i]) + 2;
@@ -192,6 +223,8 @@ static void paint_command(void)
         if (g_mode == M_FILE && g_menu_index == 1) desc = "Store the entire worksheet in a worksheet file";
         if (g_mode == M_REPLACE && g_menu_index == 0) desc = "Cancel command -- Leave existing file on disk intact";
         if (g_mode == M_REPLACE && g_menu_index == 1) desc = "Update the file on disk with the current file"; /* 123.RI 0xa9d */
+        if (g_mode == M_QUIT) desc = g_menu_index == 0 ? "Do not end 1-2-3 session; return to READY mode"
+                                                       : "End 1-2-3 session (Remember to save your worksheet first)";
         panel_line(LINE_PANEL3, desc);
     } else if (g_mode == M_GET || g_mode == M_SAVE) {
         const char *prompt = g_mode == M_GET ? "Name of file to retrieve: " : "Enter name of file to save: ";
@@ -346,9 +379,17 @@ static void paint_all(void)
 }
 
 static void command_paint(void) { paint_panel(); paint_edit_line(); }
-static void notice(const char *s) { g_notice = s; g_mode = M_NOTICE; command_paint(); }
+static void notice(const char *s)
+{
+#ifdef I123_MUT_SAVE_FAIL_QUITS
+    /* MUTANT (Rule 6; test-i123-quit-mutant Q8): a Save the alert started
+     * fails, and the session ends anyway -- the work is lost. NEVER real. */
+    if (g_quit_after_save) { (void)tbx_exit(0); return; }
+#endif
+    g_quit_after_save = 0; g_notice = s; g_mode = M_NOTICE; command_paint();
+}
 static void ready(void)
-{ g_mode = M_READY; g_elen = 0; g_edit[0] = 0; g_nlen = 0; command_paint(); }
+{ g_quit_after_save = 0; g_mode = M_READY; g_elen = 0; g_edit[0] = 0; g_nlen = 0; command_paint(); }
 static void file_error(int32_t rc)
 {
     notice(rc == TBX_ERR_DOS(2) ? "File not found" :
@@ -406,6 +447,7 @@ static void retrieve(void)
     /* Manual p. 5-19: retrieved data/window settings replace the worksheet.
      * Authored transaction: failures above leave the old bank intact. */
     g_sheet = next; g_bank = 1-g_bank;
+    g_dirty = 0;   /* initech-fvnj: the sheet IS the file now */
     copy_text(g_current, g_path); file_status("Retrieved "); ready(); paint_all();
 }
 static void write_sheet(void)
@@ -423,7 +465,10 @@ static void write_sheet(void)
         if (!g_replacing) (void)tbx_file_delete(g_path);
         file_error(rc < 0 ? rc : closed); return;
     }
-    copy_text(g_current, g_path); file_status("Saved "); ready(); paint_all();
+    copy_text(g_current, g_path); file_status("Saved ");
+    g_dirty = 0;   /* initech-fvnj: only a successful Save (or Retrieve) cleans */
+    if (g_quit_after_save) { (void)tbx_exit(0); return; }   /* the alert's Save */
+    ready(); paint_all();
 }
 static void save(void)
 {
@@ -453,10 +498,18 @@ static void unsupported(void)
     notice("Command not implemented");
 #endif
 }
+static void request_quit(void);
 static void menu_select(void)
 {
     if (g_mode == M_MAIN && g_menu_index == 4) { g_mode = M_FILE; g_menu_index = 0; }
-    else if (g_mode == M_MAIN && g_menu_index == 10) { (void)tbx_exit(0); return; }
+    else if (g_mode == M_MAIN && g_menu_index == 10) { g_mode = M_QUIT; g_menu_index = 0; }
+    else if (g_mode == M_QUIT) {
+        /* p. 9-1: No returns to READY; Yes ends the session -- through the
+         * guard, which asks the second question when work is unsaved. */
+        ready();
+        if (g_menu_index == 1) request_quit();
+        return;
+    }
     else if (g_mode == M_FILE && g_menu_index <= 1) {
         g_mode = g_menu_index == 0 ? M_GET : M_SAVE; g_nlen = 0; g_name[0] = 0;
     } else if (g_mode == M_REPLACE && g_menu_index == 0) { ready(); return; }
@@ -468,6 +521,8 @@ static void command_key(char ch, uint8_t vk)
 {
     if (vk == VK_ESC || ch == 0x1b) {
         if (g_mode == M_FILE) { g_mode = M_MAIN; g_menu_index = 4; }
+        else if (g_mode == M_QUIT) { g_mode = M_MAIN; g_menu_index = 10; }
+        else if (g_mode == M_SAVE && g_quit_after_save) { ready(); return; }  /* the quit is off */
         else if (g_mode == M_GET || g_mode == M_SAVE) { g_mode = M_FILE; g_menu_index = 0; }
         else if (g_mode == M_REPLACE) { g_mode = M_SAVE; g_nlen = 0; }
         else { ready(); return; }
@@ -483,8 +538,9 @@ static void command_key(char ch, uint8_t vk)
         }
         g_name[g_nlen] = 0; command_paint(); return;
     }
-    uint32_t count = g_mode == M_MAIN ? 11 : g_mode == M_FILE ? 9 : 3;
-    const char *const *names = g_mode == M_MAIN ? MAIN_NAMES : g_mode == M_FILE ? FILE_NAMES : REPLACE_NAMES;
+    uint32_t count = g_mode == M_MAIN ? 11 : g_mode == M_FILE ? 9 : g_mode == M_QUIT ? 2 : 3;
+    const char *const *names = g_mode == M_MAIN ? MAIN_NAMES : g_mode == M_FILE ? FILE_NAMES :
+                               g_mode == M_QUIT ? QUIT_NAMES : REPLACE_NAMES;
     if (vk == VK_ENTER || ch == '\r') { menu_select(); return; }
     if (vk == VK_LEFT) g_menu_index = (g_menu_index + (int)count - 1) % (int)count;
     else if (vk == VK_RIGHT || ch == ' ') g_menu_index = (g_menu_index + 1) % (int)count;
@@ -548,6 +604,12 @@ static int commit(void)
         paint_edit_line();
         return 1;
     }
+#ifndef I123_MUT_NEVER_DIRTY
+    g_dirty = 1;        /* initech-fvnj: a committed edit is unsaved work */
+#else
+    /* MUTANT (Rule 6; test-i123-quit-mutant Q2): commits never mark the
+     * sheet dirty, so Quit discards them silently -- L008. NEVER real. */
+#endif
     g_mode = M_READY;
     g_elen = 0;
     g_edit[0] = '\0';
@@ -637,6 +699,67 @@ static void key(int32_t message)
     }
 }
 
+/* ---- THE EXIT GUARD (bead initech-fvnj; astra audit L008) --------------------
+ * Every user route out of the session comes HERE: File > Quit and its Ctrl-Q
+ * (one TBX_EVT_MENU, spec/toolbox_gate.h Sec 6a), the window's close box (an
+ * asking close box, TBX_GOAWAY_ASK -> TBX_EVT_GOAWAY, Sec 11) and /Quit Yes.
+ * Unsaved work = a committed edit not yet in a file (g_dirty) OR an entry
+ * still being typed (LABEL / VALUE / EDIT: the R2.2 modes in which keystrokes
+ * are building a cell). A clean sheet ends at once -- through TBX_EXIT, the
+ * normal teardown, never suppressed. Unsaved work asks with the Toolbox alert
+ * (Sec 11), whose answer arrives as TBX_EVT_ALERT (quit_answer). If the
+ * alert cannot be shown the session does NOT end (fail safe, Rule 2: a
+ * refused question is never a silent discard) and the status line says so. */
+static int entry_pending(void)
+{
+#ifdef I123_MUT_PENDING_IGNORED
+    /* MUTANT (Rule 6; test-i123-quit-mutant Q5): the entry being typed is not
+     * counted as work, so Quit throws it away silently. NEVER real. */
+    return 0;
+#else
+    return g_mode == M_LABEL || g_mode == M_VALUE || g_mode == M_EDIT;
+#endif
+}
+
+static void request_quit(void)
+{
+    if (!g_dirty && !entry_pending()) { (void)tbx_exit(0); return; }
+    if (g_asking) return;
+    if (tbx_alert(QUIT_TEXT, "Save", "Cancel", "Don't Save") != TBX_OK) {
+        copy_text(g_status, "Quit cancelled: the save question could not be shown");
+        panel_line(LINE_STATUS, g_status);
+        return;
+    }
+    g_asking = 1;
+}
+
+/* The alert's answer (spec Sec 11: 1 default = Save, 2 cancel, 3 other). The
+ * shell has already repainted what the alert covered (updateEvt). Anything
+ * but Save / Don't Save is Cancel: the safe reading. */
+static void quit_answer(int32_t item)
+{
+    g_asking = 0;
+    if (item == (int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }   /* Don't Save */
+    if (item != (int32_t)TBX_ALERT_DEFAULT) {
+#ifdef I123_MUT_CANCEL_QUITS
+        /* MUTANT (Rule 6; test-i123-quit-mutant Q3): Cancel ends the session
+         * anyway. NEVER real. */
+        (void)tbx_exit(0);
+#endif
+        return;      /* Cancel: the sheet, the mode and the typed entry stay */
+    }
+    /* Save. A pending entry is part of the work: store it first, exactly as
+     * Enter would; a value that does not parse drops into EDIT (1-2-3's beep)
+     * and the quit is off. Authored policy, no local reference. */
+    if (entry_pending() && commit() != 0) return;
+    /* THE /File Save flow of initech-tdnl.91, unchanged (the prompt offers the
+     * current file; an existing file asks Cancel / Replace / Backup). Its
+     * success ends the session (write_sheet); every other way out keeps it. */
+    g_quit_after_save = 1;
+    g_mode = M_SAVE; g_menu_index = 1; g_nlen = 0; g_name[0] = 0;
+    command_paint();
+}
+
 /* ---- the application ------------------------------------------------------- */
 int tbx_app_main(void)
 {
@@ -646,7 +769,8 @@ int tbx_app_main(void)
         return 1;
     }
     (void)tbx_set_mbar(&mbar);
-    g_win = tbx_new_window(WIN_L, WIN_T, WIN_R, WIN_B, 1);
+    /* initech-fvnj: the close box ASKS (spec Sec 11) -- the guard decides. */
+    g_win = tbx_new_window(WIN_L, WIN_T, WIN_R, WIN_B, (int32_t)TBX_GOAWAY_ASK);
     if (g_win <= 0) {
         (void)tbx_exit(1);
         return 1;
@@ -666,7 +790,13 @@ void tbx_app_event(const tbx_event_t *ev)
         key(ev->message);
         break;
     case TBX_EVT_MENU:
-        if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) (void)tbx_exit(0);
+        if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) request_quit();
+        break;
+    case TBX_EVT_GOAWAY:
+        request_quit();
+        break;
+    case TBX_EVT_ALERT:
+        quit_answer(ev->message);
         break;
     default:
         break;

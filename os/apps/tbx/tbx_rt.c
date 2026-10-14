@@ -174,6 +174,15 @@ int32_t tbx_file_close(int32_t h)
 int32_t tbx_file_delete(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_DELETE,1,a); }
 
+/* Ref: spec/toolbox_gate.h Sec 11, deliberately extended in initech-fvnj. */
+int32_t tbx_alert(const char *text, const char *def, const char *cancel,
+                  const char *other)
+{
+    uint32_t a[4] = { (uint32_t)(uintptr_t)text, (uint32_t)(uintptr_t)def,
+                      (uint32_t)(uintptr_t)cancel, (uint32_t)(uintptr_t)other };
+    return tbx_trap(TBX_ALERT, TBX_ARGC_ALERT, a);
+}
+
 /* ---- the four routines gcc may call on its own (struct copies, zeroing).
  * Built with -fno-tree-loop-distribute-patterns so these loops are never
  * turned back into calls to themselves. ---------------------------------- */

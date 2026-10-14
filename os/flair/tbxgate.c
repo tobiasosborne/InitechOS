@@ -47,6 +47,12 @@
  *   (+ the two tbxmenu.h knobs, TBX_MUT_MENU_KEY_PLAIN / _ANY_BAR, which a
  *    -D on this TU reaches through the header)
  *
+ * THE ALERT AND THE ASKING CLOSE BOX (bead initech-fvnj; spec Sec 11): ALERT
+ * validates and COPIES the question into the slot and returns; the pump runs
+ * the shell-owned modal alert once the tenant has returned (tbx_take_alert)
+ * and pushes the answer (tbx_alert_answer). A window made with goAway ==
+ * TBX_GOAWAY_ASK reports its close box as TBX_EVT_GOAWAY (tbx_close_ask).
+ *
  * MENU CHOICES (bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a): the SHELL
  * runs MenuSelect / MenuKey over the tenant's own bar and tbx_menu_choice
  * PUSHES the result word as a TBX_EVT_MENU event through the same kernel-owned
@@ -132,6 +138,11 @@ typedef struct tbx_slot {
     uint8_t       torn_down;    /* terminate/kill already ran (close hook)    */
     uint8_t       mbar_redraw;  /* DRAWMENUBAR asked for a band-2 redraw      */
     uint8_t       drew;         /* a draw verb reached the offscreen (8zii)   */
+    uint8_t       ask_close;    /* NEWWINDOW goAway == TBX_GOAWAY_ASK (fvnj)  */
+    uint8_t       alert;        /* an ALERT waits for the pump (fvnj)         */
+    uint8_t       alert_lines, alert_btns;
+    char          alert_text[TBX_ALERT_LINES][TBX_ALERT_LINE_MAX];
+    char          alert_btn[3][TBX_ALERT_LABEL_MAX];
     int32_t       exit_rc;
     char          file[16];     /* the 8.3 file name (markers)                */
 } tbx_slot_t;
@@ -458,7 +469,8 @@ static int32_t v_newwindow(const uint32_t *a)
     if (app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
     if (g_slot.win != (WindowRecord *)0) return TBX_ERR_BUSY;   /* V1 cap 1 */
     if (l < 0 || r > FLAIR_SCREEN_W || t < 2 * FLAIR_CHROME_MENUBAR_H ||
-        b > FLAIR_SCREEN_H || r - l < 96 || b - t < 64)
+        b > FLAIR_SCREEN_H || r - l < 96 || b - t < 64 ||
+        a[4] > TBX_GOAWAY_ASK)                    /* Sec 11: 0, 1 or 2 */
         return TBX_ERR_BADARG;
 
     rec = (WindowRecord *)flair_alloc(&app->records_arena, FLAIR_CLASS_HANDLE,
@@ -494,6 +506,7 @@ static int32_t v_newwindow(const uint32_t *a)
     rec->refCon  = (int32_t)(uintptr_t)app;   /* the demux key, Sec 3.1 */
     app->windows = rec;
     g_slot.win   = rec;
+    g_slot.ask_close = (uint8_t)(a[4] == TBX_GOAWAY_ASK);   /* Sec 11 */
     g_slot.affirm = 1u;                       /* DEC-AC3-4 */
     return 1;                                 /* window token 1 (opaque) */
 }
@@ -703,6 +716,58 @@ static int32_t v_drawmenubar(void)
     return TBX_OK;
 }
 
+/* Copy `len` bytes at `src` into `dst` (NUL-terminated); 1 iff they fit in
+ * `cap` and measure at most `w` Chicago 12 pixels. */
+static int alert_copy(char *dst, uint32_t cap, const char *src, int32_t len,
+                      uint32_t w)
+{
+    uint32_t run = 0u;
+    if (len <= 0 || (uint32_t)len >= cap) return 0;
+    for (int32_t i = 0; i < len; i++) {
+        dst[i] = src[i];
+        run += (uint32_t)chicago_advance((int)(unsigned char)src[i]);
+    }
+    dst[len] = '\0';
+    return run <= w;
+}
+
+/* TBX_ALERT (spec Sec 11): validate + copy now, show when the tenant returns. */
+static int32_t v_alert(const uint32_t *a)
+{
+    static const uint32_t bw[3] = { TBX_ALERT_BTN_TEXT_W, TBX_ALERT_BTN_TEXT_W,
+                                    TBX_ALERT_OTHER_TEXT_W };
+    const char *t = (const char *)(uintptr_t)a[0];
+    int32_t len = image_str(a[0], 3u * TBX_ALERT_LINE_MAX);
+    uint32_t n = 0u, nb = 0u;
+    int32_t s0 = 0;
+
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+    if (g_slot.alert) return TBX_ERR_BUSY;
+    if (len <= 0) return TBX_ERR_BADARG;
+    for (int32_t i = 0; i <= len; i++) {
+        if (i < len && t[i] != '\r') continue;
+        if (n >= TBX_ALERT_LINES ||
+            !alert_copy(g_slot.alert_text[n], TBX_ALERT_LINE_MAX, t + s0, i - s0,
+                        TBX_ALERT_TEXT_W))
+            return TBX_ERR_BADARG;
+        n++;
+        s0 = i + 1;
+    }
+    for (uint32_t k = 1; k < 4; k++) {
+        if (a[k] == 0u) break;                    /* the button row ends here */
+        len = image_str(a[k], TBX_ALERT_LABEL_MAX);
+        if (!alert_copy(g_slot.alert_btn[nb], TBX_ALERT_LABEL_MAX,
+                        (const char *)(uintptr_t)a[k], len, bw[nb]))
+            return TBX_ERR_BADARG;
+        nb++;
+    }
+    if (nb == 0u || (nb < 3u && a[3] != 0u)) return TBX_ERR_BADARG;
+    g_slot.alert_lines = (uint8_t)n;
+    g_slot.alert_btns  = (uint8_t)nb;
+    g_slot.alert = 1u;
+    return TBX_OK;
+}
+
 static int32_t v_exit(uint32_t rc)
 {
     if (g_slot.app == (FlairApp *)0) return TBX_ERR_NOTREG;
@@ -757,6 +822,7 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_FILE_SEEK: argc = TBX_ARGC_FILE_SEEK; break;
     case TBX_FILE_CLOSE: argc = TBX_ARGC_FILE_CLOSE; break;
     case TBX_FILE_DELETE: argc = TBX_ARGC_FILE_DELETE; break;
+    case TBX_ALERT:     argc = TBX_ARGC_ALERT;     break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -776,6 +842,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_SETMBAR:   rc = v_setmbar(a[0]);  break;
         case TBX_DRAWMENUBAR: rc = v_drawmenubar(); break;
         case TBX_DRAWCELLS: rc = v_drawcells(a);   break;
+        case TBX_ALERT:     rc = v_alert(a);       break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
         case TBX_FILE_DELETE:
@@ -814,6 +881,10 @@ void tbx_gate_dispatch(uint8_t *frame)
         break;
     case TBX_EXIT:
         trace_int(" rc=", a[0]);
+        break;
+    case TBX_ALERT:
+        trace_str(" def=", a[1]); trace_str(" cancel=", a[2]);
+        trace_str(" other=", a[3]);
         break;
     case TBX_SETMBAR:
         tputs(" bar=+0x");
@@ -1007,6 +1078,47 @@ int tbx_menu_key(const EventRecord *ev)
 int tbx_owns_window(const WindowRecord *w)
 {
     return w != (const WindowRecord *)0 && g_slot.block != 0 && w == g_slot.win;
+}
+
+/* Push a TBX_EVT_* the shell synthesizes (Sec 11): what + message, the rest 0
+ * (deterministic, Rule 11). */
+static void push_evt(uint16_t what, uint32_t msg)
+{
+    EventRecord e;
+    tbx_zero(&e, (uint32_t)sizeof e);
+    e.what = what;
+    e.message = msg;
+    disk_tenant_event(g_slot.app, &e);
+}
+
+static int tenant_live(void)
+{
+    return g_slot.app != (FlairApp *)0 && !g_slot.exit_req && !g_slot.crashed &&
+           !g_slot.torn_down;
+}
+
+int tbx_close_ask(const WindowRecord *w)
+{
+    if (!tbx_owns_window(w) || !g_slot.ask_close || !tenant_live()) return 0;
+    push_evt((uint16_t)TBX_EVT_GOAWAY, 1u);
+    return 1;
+}
+
+int tbx_take_alert(const char *lines[TBX_ALERT_LINES], uint32_t *n,
+                   const char *btns[3], uint32_t *nb)
+{
+    if (!g_slot.alert || !tenant_live()) return 0;
+    g_slot.alert = 0u;
+    for (uint32_t i = 0; i < TBX_ALERT_LINES; i++) lines[i] = g_slot.alert_text[i];
+    for (uint32_t i = 0; i < 3u; i++) btns[i] = g_slot.alert_btn[i];
+    *n = g_slot.alert_lines;
+    *nb = g_slot.alert_btns;
+    return 1;
+}
+
+void tbx_alert_answer(uint32_t item)
+{
+    if (tenant_live()) push_evt((uint16_t)TBX_EVT_ALERT, item);
 }
 
 int tbx_reap(void)

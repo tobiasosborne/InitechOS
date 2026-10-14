@@ -50,6 +50,7 @@
 
 #include "process.h"   /* FlairProcessList, FlairApp, WindowMgr, flair_heap_t */
 #include "surface.h"   /* bitmap_t */
+#include "toolbox_gate.h" /* Sec 11 limits (initech-fvnj) */
 
 /* The kernel environment the host drives. Bound once, after the process list
  * and the shell WindowMgr exist. `puts` is the serial sink. */
@@ -120,6 +121,23 @@ int tbx_take_drew(void);
 /* 1 when `w` is the resident disk tenant's window (for the pump's policy
  * decisions; ownership itself is always the refCon demux in process.c). */
 int tbx_owns_window(const WindowRecord *w);
+
+/* THE ALERT AND THE ASKING CLOSE BOX (bead initech-fvnj; spec Sec 11).
+ *
+ * tbx_close_ask: when `w` is the resident tenant's window made with goAway ==
+ * TBX_GOAWAY_ASK, pushes TBX_EVT_GOAWAY (Message = the window token) and
+ * returns 1 -- the caller must NOT close the window; the tenant decides (and
+ * the caller runs its tenant service afterwards). Otherwise returns 0.
+ *
+ * tbx_take_alert: 1 (once) when the tenant asked TBX_ALERT since the last
+ * take; fills the copied message lines (n of them) and button labels (nb:
+ * default, cancel, other). The caller runs the modal alert, then
+ * tbx_alert_answer(item) pushes TBX_EVT_ALERT (Message = item, 1..nb). Never
+ * for a dying tenant. */
+int  tbx_close_ask(const WindowRecord *w);
+int  tbx_take_alert(const char *lines[TBX_ALERT_LINES], uint32_t *n,
+                    const char *btns[3], uint32_t *nb);
+void tbx_alert_answer(uint32_t item);
 
 /* THE GATE (called by os/milton/tbx_gate.asm with &int_frame_t). */
 void tbx_gate_dispatch(uint8_t *frame);
