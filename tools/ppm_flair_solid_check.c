@@ -536,8 +536,15 @@ static int leg_E(const Img *im)
     int bad = 0;
 
     /* The top frame shares band-2 baseline y=39. This x is inside both the clean
-     * Photoshop panel and the bar_sys mutant's shifted panel. */
-    bad |= probe_is(im, SOLID_E_COMMON_X0, SOLID_E_PANEL_TOP,
+     * Photoshop panel and the bar_sys mutant's shifted panel.
+     * DELIBERATE RE-KEY 2026-10-15 (initech-tdnl.70/.93): the Apple cell moved
+     * to the capture-derived origin, so its icon art now reaches x=40 on the
+     * baseline row and SOLID_E_COMMON_X0 (38) samples the icon's white outline,
+     * not the frame (measured in build/flair_solid_menu2.ppm: y=39 is white at
+     * x=35..39 and black from x=40). The frame probe moves to
+     * SOLID_E_COMMON_X1 (2*APPLE_W + TITLE_PAD = 75), which still lies inside
+     * both panels. */
+    bad |= probe_is(im, SOLID_E_COMMON_X1, SOLID_E_PANEL_TOP,
                     CIDX_BLACK, "leg E band-2 menu black top frame");
 
     /* Two independent sampled-E7 body probes at first-item top. Before

@@ -22391,6 +22391,15 @@ RECORD_MARKER_scroll_look = FLAIR-GROW win 0 (360,220)->(96,88)
 RECORD_IMAGE_scroll_look = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_scroll_look = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scroll_look = 500
+# menu_look (initech-tdnl.93/.94/.95/.70; moved here 2026-10-15 PM: clip blocks
+# must precede the record-flair target, which reads RECORD_IMAGE_<script> at
+# parse time).
+RECORD_SCRIPTS += menu_look
+RECORD_SPEC_menu_look = $(FLAIR_MENU_LOOK_SPEC)
+RECORD_MARKER_menu_look = FLAIR-MENU-XDROP menu=514
+RECORD_IMAGE_menu_look = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_menu_look = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_menu_look = 300
 # initech-uqah: independent menu inventory vs installed R2.2 123.RI.
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
@@ -29742,12 +29751,6 @@ test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look
 	@grep -q 'FAIL menu-look ML1 title band' $(BUILD)/menu_look_mut.pixels
 	@printf '>>> test-flair-menu-look-mutant: MENU_LOOK_MUT_FLAT_HILITE correctly RED (ML1 title band)\n'
 TEST_EMU_GATES += test-flair-menu-look test-flair-menu-look-mutant
-RECORD_SCRIPTS += menu_look
-RECORD_SPEC_menu_look = $(FLAIR_MENU_LOOK_SPEC)
-RECORD_MARKER_menu_look = FLAIR-MENU-XDROP menu=514
-RECORD_IMAGE_menu_look = $(FLAIRTENANTS_RECORDDBL_IMG)
-RECORD_DATA_menu_look = $(FLAIR_DATA_IMG)
-RECORD_SETTLE_menu_look = 300
 
 $(BUILD)/test_chicago_check_mutant: $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_MUT_ONE_ADVANCE=18 -o $@ $< os/flair/text.c os/flair/surface.c
