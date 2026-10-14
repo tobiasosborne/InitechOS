@@ -248,14 +248,13 @@ typedef struct {
 int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
                       char *out, int cap);
 
-/* Format one DIR listing line from a find-record into out (DOS-like columns):
- * "NAME     EXT       <size>\n" -- the 8.3 name left-justified, the size right-
- * justified. `fname` is the ASCIIZ 8.3 name from the DTA find-record (offset
- * 0x15); `fsize` is the size (offset 0x11); `attr` is the attribute (0x0C). A
- * directory entry shows "<DIR>" in place of the size. out must hold >= 40 bytes;
- * returns the formatted length. Look/feel: period DOS DIR columns (Law 4). */
+/* DOS 3.3 manual p.28 / PDF 41: NAME@0 EXT@9 size right edge@20,
+ * date@23..30 time@33..38, zero-based. Packed words are from DTA 0x16/0x18.
+ * out >= 48 bytes (a uint32 size can expand beyond the usual 8-column field).
+ * Returns length including newline, not the NUL. Dot directories stay intact. */
 int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
-                        char *out);
+                        uint16_t fdate, uint16_t ftime, char *out);
+int cmd_format_dir_footer(uint32_t files, uint32_t free_bytes, char *out);
 
 /* ---- PATH-directory search planner (PURE, host-testable) ------------------
  * cmd_path_candidates: plan the ordered set of candidate paths for an

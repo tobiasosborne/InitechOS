@@ -301,31 +301,77 @@ static void put_u_field(char *out, int *pos, uint32_t v, int width)
     }
 }
 
+static void put_text(char *out, int *pos, const char *s)
+{
+    while (*s) out[(*pos)++] = *s++;
+}
+
+#ifndef CMD_MUTATE_DIR_NO_DATE
+static void put_two(char *out, int *pos, unsigned n)
+{
+    out[(*pos)++] = (char)('0' + n/10u);
+    out[(*pos)++] = (char)('0' + n%10u);
+}
+#endif
+
+/* Manual p.28 / PDF 41, measured zero-based columns documented in the
+ * independent dos33_dir.golden. Tech Ref pp.5-12..13 / PDF 119..120
+ * defines packed words; the displayed noon example is 12:00p. */
 int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
-                        char *out)
+                        uint16_t fdate, uint16_t ftime, char *out)
 {
     int pos = 0;
-    int i;
-
-    /* Left-justify the 8.3 name in a 13-column field (NAME.EXT, max 12 + pad).
-     * This is a plausible period-DOS DIR layout (Law 4), not byte-exact DOS. */
-    for (i = 0; fname[i] != '\0' && i < 12; i++) {
-        out[pos++] = fname[i];
+    int i = 0;
+    const char *ext = 0;
+    /* '.' and '..' are names in their own right, never extensions. */
+    if (fname[0] != '.') {
+        for (const char *p=fname; *p; p++) if (*p=='.') { ext=p+1; break; }
     }
-    for (; i < 13; i++) {
-        out[pos++] = ' ';
-    }
-
+    while (fname[i] && i<8 && (!ext || fname+i<ext-1)) { out[pos++]=fname[i++]; }
+    while (pos<9) out[pos++]=' ';
+    i=0;
+    if (ext) while (ext[i] && i<3) out[pos++]=ext[i++];
+    while (pos<13) out[pos++]=' ';
+#ifdef CMD_MUTATE_DIR_JOINED
+    for (i=0;i<13;i++) out[i]=' ';
+    for (i=0;fname[i] && i<12;i++) out[i]=fname[i];
+#endif
     if (attr & DIR_ATTR_DIRECTORY) {
-        const char *d = "      <DIR>";   /* right-ish DIR marker in the size col */
-        for (const char *q = d; *q; q++) {
-            out[pos++] = *q;
-        }
+        put_text(out,&pos,"   " MSG_DOS_0026);
     } else {
-        put_u_field(out, &pos, fsize, 11);
+        put_u_field(out, &pos, fsize, 8);
     }
+#ifndef CMD_MUTATE_DIR_NO_DATE
+    put_text(out,&pos,"  ");
+    put_u_field(out,&pos,(fdate>>5)&15u,2);
+    out[pos++]='-'; put_two(out,&pos,fdate&31u);
+    out[pos++]='-'; put_two(out,&pos,(1980u+(fdate>>9))%100u);
+    put_text(out,&pos,"  ");
+    unsigned hour=(ftime>>11)&31u;
+    put_u_field(out,&pos,hour%12u ? hour%12u : 12u,2);
+    out[pos++]=':'; put_two(out,&pos,(ftime>>5)&63u);
+    out[pos++]=hour>=12u ? 'p' : 'a';
+#else
+    (void)fdate; (void)ftime;
+#endif
     out[pos++] = '\n';
     out[pos]   = '\0';
+    return pos;
+}
+
+int cmd_format_dir_footer(uint32_t files, uint32_t free_bytes, char *out)
+{
+    int pos=0;
+    put_u_field(out,&pos,files,9);
+    put_text(out,&pos,MSG_DOS_0024);
+#ifdef CMD_MUTATE_DIR_LOWERCASE
+    out[10]='f';
+#endif
+    /* p.29 / PDF 42: count ends at 8, File(s) starts at 10, free-byte
+     * number ends at 26 (the scanned illustration is the layout source). */
+    put_u_field(out,&pos,free_bytes,9);
+    put_text(out,&pos,MSG_DOS_0025);
+    out[pos++]='\n'; out[pos]=0;
     return pos;
 }
 
@@ -1609,6 +1655,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 #include "int21.h"       /* INT21_CWD_MAX -- the AH=47h root-relative CWD bound */
 #include "memory_map.h"  /* ENV_BLOCK / ENV_BLOCK_CAP -- EXEC env inheritance (inc 3) */
 #include "batch.h"       /* the .BAT parser/expander + IF/FOR decision helpers   */
+#include "fileio_fat.h"  /* mounted volume identity for DIR (M017) */
 
 /* DEC-04a flat ABI (spec/int21h_calling_convention.json): AH=function in EAX,
  * EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error in EFLAGS. The
@@ -2381,17 +2428,51 @@ static void builtin_prompt(const char *arg)
     /* Success is SILENT (DOS PROMPT prints nothing on success). */
 }
 
-/* DIR: FINDFIRST "*.*" then loop FINDNEXT, formatting each find-record into a
- * DOS-like line. A header ("Directory of A:\") + a file-count footer frame it
- * (Law 4 -- plausibly period DOS). The find-record fields are read via the
- * spec/find_data.h struct (real-DOS offsets fname@0x1E, fsize@0x1A, attr@0x15). */
+/* DIR: existing FINDFIRST/FINDNEXT operand behavior, DOS 3.3 display.
+ * Ref: User Guide pp.28-29 / PDF 41-42; controlled fragments from the
+ * deliberate LOOK Rule-8 amendment to spec/dos_messages.json. DTA supplies
+ * the packed timestamp, AH=36h the FAT free count, mounted root the label. */
+static void cwd_display(char *out);
 static void builtin_dir(void)
 {
     int n;
     uint32_t files = 0;
+    char label[12], disp[3 + INT21_CWD_MAX + 4];
+    uint32_t ax=0x3600u, bx, cx, dx=0u;
+
+    /* AH=36h counts live FAT free clusters; never infer space from file sizes.
+     * Technical Reference AH=36h; the host gate compares this backend to mdir. */
+    __asm__ __volatile__("int $0x21" : "+a"(ax), "=b"(bx), "=c"(cx), "+d"(dx) : : "cc", "memory");
+    if ((ax&0xFFFFu)==0xFFFFu) {
+        dos_print(MSG_DOS_0004 "\r\n$");
+        return;
+    }
+    if (fileio_fat_volume_label(label)<0) {
+        int pos=0;
+        for (const char *p=MSG_DOS_0007; *p; p++) {
+            if (*p=='%' && p[1]=='c') { g_out[pos++]='A'; p++; }
+            else g_out[pos++]=*p;
+        }
+        g_out[pos]=0;
+        dos_puts_raw(g_out);
+        dos_print("\r\n$");
+        return;
+    }
+    uint32_t free_bytes=(ax&0xFFFFu)*(bx&0xFFFFu)*(cx&0xFFFFu);
 
     dos_setdta(&g_shell_dta);
-    dos_print("\r\n Directory of A:\\\r\n\r\n$");
+    dos_print("\r\n$");
+#ifndef CMD_MUTATE_DIR_NO_VOLUME
+    if (label[0]) {
+        dos_puts_raw(MSG_DOS_0021);
+        dos_puts_raw(label);
+    } else dos_puts_raw(MSG_DOS_0022);
+    dos_print("\r\n\r\n$");
+#endif
+    cwd_display(disp);
+    dos_puts_raw(MSG_DOS_0023);
+    dos_puts_raw(disp);
+    dos_print("\r\n\r\n$");
 
     /* Search attribute 0x10 (DIRECTORY) so subdir entries are listed too; the
      * dispatcher already includes plain files. */
@@ -2401,22 +2482,17 @@ static void builtin_dir(void)
     }
     do {
         n = cmd_format_dir_line(g_shell_dta.fname, g_shell_dta.fsize,
-                                g_shell_dta.attr, g_out);
+                                g_shell_dta.attr, g_shell_dta.fdate,
+                                g_shell_dta.ftime, g_out);
         /* cmd_format_dir_line ends the line with '\n'; the CON console + serial
          * treat '\n' as newline (the banner uses '\n' too). */
         dos_write(g_out, (uint32_t)n);
         files++;
     } while (dos_findnext());
 
-    /* File-count footer. */
-    {
-        int pos = 0;
-        put_u_field(g_out, &pos, files, 0);
-        g_out[pos] = '\0';
-        dos_print("\r\n$");
-        dos_puts_raw(g_out);
-        dos_print(" file(s)\r\n$");
-    }
+    dos_print("\r\n$");
+    n=cmd_format_dir_footer(files,free_bytes,g_out);
+    dos_write(g_out,(uint32_t)n);
 }
 
 /* TYPE <file>: OPEN the named file, READ it in chunks, WRITE each chunk to
@@ -2561,16 +2637,15 @@ static void builtin_rd(const char *arg)
     /* Success is SILENT (DOS RD prints nothing on success). */
 }
 
-/* CLS: clear the screen. The console exposes no clear hook this milestone, so we
- * emit a form feed (0x0C) -- a period-authentic DOS CLS signal -- followed by a
- * page of blank lines as a simple, deterministic fallback. Kept minimal. */
+/* CLS: CON's form-feed operation clears and homes without an ANSI driver.
+ * Ref: DOS 3.3 User's Guide p.45 / PDF 130, Technical Reference p.3-13 /
+ * PDF 82. Scrolling 25 newlines would leave the prompt on the last row. */
 static void builtin_cls(void)
 {
-    /* Form feed first (a real terminal/console would clear on this). */
+    /* Ref: DOS 3.3 User's Guide p.45 / PDF 130; Technical Reference
+     * p.3-13 / PDF 82 (erase display homes). The CON console handles this
+     * control byte directly, including when ANSI.SYS is not loaded. */
     dos_print("\f$");
-    for (int i = 0; i < 25; i++) {
-        dos_print("\r\n$");
-    }
 }
 
 /* VER: print the InitechDOS version line. Source the numbers from AH=30h

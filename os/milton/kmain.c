@@ -472,8 +472,12 @@ static int int21_conin_get_kbd(void)
 {
     int c;
     while ((c = kbd_getchar()) < 0) {
+        /* M015: IRQ0 wakes this wait at 100 Hz. Overlay only while waiting;
+         * restore before cooked echo (and before returning to FLAIR). */
+        console_cursor_wait(g_int21_con, pit_ticks(), 1);
         __asm__ __volatile__("hlt");   /* sleep until IRQ1 (a keystroke) wakes us */
     }
+    console_cursor_wait(g_int21_con, pit_ticks(), 0);
     return c;
 }
 

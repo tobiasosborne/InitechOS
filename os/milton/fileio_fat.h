@@ -34,4 +34,9 @@ int fileio_fat_bind(fat12_volume_t *vol);
  * Returns 0 / *out_len = 0 before a successful fileio_fat_bind. */
 void *fileio_fat_fat_buffer(uint32_t *out_len);
 
+/* DIR volume identity, root label preferred over the extended BPB fallback.
+ * out holds 12 bytes, no dot separator (label is one 11-byte field).
+ * Empty string means no label. Errors are negative FAT12_ERR_* values. */
+int fileio_fat_volume_label(char out[12]);
+
 #endif /* INITECH_MILTON_FILEIO_FAT_H */

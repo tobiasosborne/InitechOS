@@ -77,6 +77,43 @@ static bitmap_t con_bitmap(const console_t *con)
     return bm;
 }
 
+/* initech-rtdw / M015. User's Guide p.5 / PDF 18 describes a flashing
+ * underline. FreeVGA "Manipulating the Text-mode Cursor", blink-rate section
+ * (local transcription in boot-to-text-ground-truth.md Sec 6): VGA changes
+ * state every 16 vertical frames. At virtual 60 Hz on the 100-Hz PIT this is
+ * floor(ticks*3/80) half-cycles. Modulo 160 avoids multiplication overflow.
+ * Bottom scanlines 14..15 are our 8x16 underline, not a full-cell block. */
+void console_cursor_wait(console_t *con, uint32_t ticks, int active)
+{
+    if (!con || !con->lfb) return;
+    int want = active && (((ticks % 160u) * 3u / 80u) & 1u) == 0u;
+#ifdef CONSOLE_MUTATE_CURSOR_OFF
+    want = 0;
+#endif
+    bitmap_t bm = con_bitmap(con);
+    if (con->cursor_on && (!want || con->cursor_col != con->cur_col ||
+                                  con->cursor_row != con->cur_row)) {
+        for (uint32_t i = 0; i < 16; i++) {
+            uint32_t x = con->cursor_col*8u + i%8u;
+            uint32_t y = con->cursor_row*16u + 14u + i/8u;
+            surface_put_pixel(&bm, y*bm.pitch+x*bm.bytes_per_pixel, con->cursor_saved[i]);
+        }
+        con->cursor_on = 0;
+    }
+    if (want && !con->cursor_on && con->cur_col < con->cols && con->cur_row < con->rows) {
+        con->cursor_col = con->cur_col;
+        con->cursor_row = con->cur_row;
+        for (uint32_t i = 0; i < 16; i++) {
+            uint32_t x = con->cursor_col*8u + i%8u;
+            uint32_t y = con->cursor_row*16u + 14u + i/8u;
+            uint32_t off = y*bm.pitch+x*bm.bytes_per_pixel;
+            con->cursor_saved[i] = surface_get_pixel(&bm, off);
+            surface_put_pixel(&bm, off, con->cur_fg);
+        }
+        con->cursor_on = 1;
+    }
+}
+
 /* ---- glyph blit (the load-bearing math) ---------------------------------- */
 void console_draw_glyph(console_t *con, uint32_t col, uint32_t row,
                         uint8_t ch, console_color_t fg, console_color_t bg)
@@ -170,6 +207,16 @@ void console_putc(console_t *con, char ch)
         return;
     }
     switch (ch) {
+    case '\f':
+        /* initech-3sxp / M016. DOS 3.3 User's Guide p.45 / PDF 130:
+         * CLS leaves only prompt + cursor. Technical Reference p.3-13 /
+         * PDF 82: erase display goes to home; CUP p.3-6 / PDF 75 defines
+         * home as row 1, column 1 (zero-based 0,0 here). */
+        console_clear(con);
+#ifndef CONSOLE_MUTATE_CLS_NO_HOME
+        console_set_cursor(con, 0u, 0u);
+#endif
+        return;
     case '\n':
         advance_line(con);
         return;

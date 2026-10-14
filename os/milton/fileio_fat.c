@@ -576,7 +576,50 @@ static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
     *out_bps        = (uint16_t)g_vol->bpb.bytes_per_sector;
     *out_total_clus = (uint16_t)(total & 0xFFFFu);
     *out_free_clus  = (uint16_t)(freec & 0xFFFFu);
+#ifdef FILEIO_MUTATE_DIR_FREE
+    *out_free_clus = 0;
+#endif
     return 0u;
+}
+
+/* initech-vjtp / M017. Technical Reference p.5-11 / PDF 118: the
+ * root volume-label entry contains one 11-byte label, not NAME.EXT. */
+static int dir_label_visit(const dir_entry_t *e, void *ctx)
+{
+#ifdef FILEIO_MUTATE_DIR_BOOT_LABEL
+    (void)e; (void)ctx;
+#else
+    if (e->attribute & DIR_ATTR_VOLLABEL) {
+        char *out = (char *)ctx;
+        const uint8_t *raw = (const uint8_t *)e;
+        for (int i=0; i<11; i++) out[i]=(char)raw[i];
+        out[11]=0;
+        return 1;
+    }
+#endif
+    return 0;
+}
+
+int fileio_fat_volume_label(char out[12])
+{
+    if (!out || !g_vol) return FAT12_ERR_NULL;
+    out[0]=0;
+    int rc = fat12_read_root_dir(g_vol,g_sector,dir_label_visit,out);
+    if (rc < 0) return rc;
+    if (!rc && g_vol->bpb.boot_sig == 0x29u) {
+        for (int i=0; i<11; i++) out[i]=(char)g_vol->bpb.volume_label[i];
+        out[11]=0;
+        /* mformat's unlabelled extended BPB sentinel is not a volume name. */
+        const char *none = "NO NAME    ";
+        int same = 1;
+        for (int i=0; i<11; i++) if (out[i]!=none[i]) same=0;
+        if (same) out[0]=0;
+    }
+    int n=0;
+    while (out[n] && n<11) n++;
+    while (n && out[n-1]==' ') n--;
+    out[n]=0;
+    return 0;
 }
 
 /* RESOLVE (beads initech-mzxa; ti8 Layer 2 -- the path->containing-directory

@@ -507,3 +507,21 @@ moved above the kernel text+data, computed from the linker `end` symbol.
 ---
 
 *End of document.*
+
+## 6. DOS ready cursor (LOOK M015, initech-rtdw)
+
+MS-DOS_3.3_Users_Guide_198707.pdf, printed p.5 / PDF 18 describes the
+cursor after the prompt as a blinking box or flashing underline. The local
+manual has no numeric VGA blink rate. FreeVGA, "Manipulating the Text-mode
+Cursor", "Cursor Blink Rate", describes state changes every 16 vertical
+frames, 1.875 full blinks per second at 60 Hz:
+https://www.cs.jhu.edu/~huang/cs318/fall17/project/specs/freevga/vga/textcur.htm
+
+This rate statement was acquired through the indexed technical-document
+excerpt; direct download was unavailable (network DNS). It is transcribed
+here as local ground truth, not claimed to be in the DOS manual. The user
+also explicitly specifies the 16-on/16-off, 60-Hz behavior for this lane.
+At MILTON's 100-Hz PIT, phase = floor((ticks modulo 160) * 3 / 80) modulo 2.
+The underline occupies scanlines 14 and 15 of the 8x16 cell. The synchronous
+input wait saves/restores those pixels; IRQ0 only wakes the wait and does
+not draw. No clock, random phase, or new IRQ rendering path is introduced.

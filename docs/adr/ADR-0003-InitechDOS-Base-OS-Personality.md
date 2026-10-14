@@ -403,6 +403,24 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 | MSG-DOS-0018 | `Invalid directory` |
 | MSG-DOS-0019 | `Invalid path, not directory, or directory not empty` |
 | MSG-DOS-0020 | `File cannot be copied onto itself` |
+| MSG-DOS-0021 | ` Volume in drive A is ` |
+| MSG-DOS-0022 | ` Volume in drive A has no label` |
+| MSG-DOS-0023 | ` Directory of ` |
+| MSG-DOS-0024 | ` File(s) ` |
+| MSG-DOS-0025 | ` bytes free` |
+| MSG-DOS-0026 | `<DIR>` |
+
+> LOOK pass 6 amendment (initech-vjtp/d31e/b0qk/irp2/veub): explicitly
+> authorized by the DOS console lane instruction. DIR output is now controlled
+> vocabulary alongside diagnostics. MSG-DOS-0021/0023 are heading fragments
+> from MS-DOS_3.3_Users_Guide_198707.pdf printed p.28 / PDF 41;
+> 0024/0025 are footer fragments from printed p.29 / PDF 42. Leading/trailing
+> spaces above are bytes. The no-label wording is documented in the same
+> manual's message directory, printed p.362 / PDF 447; the drive A/no-colon
+> form follows the p.28 heading and the explicit lane instruction. The
+> subdirectory illustration uses `<Dir>`; `<DIR>` is the operator-specified
+> capitalization. See the exact source locators in spec/dos_messages.json.
+> No prior catalogue or banner bytes are changed. WL-0106 records Rule 8.
 
 > **Amendment record (initech-mc7r, 2026-06-14).** Entries MSG-DOS-0017
 > through MSG-DOS-0019 were added to the controlled vocabulary by approved

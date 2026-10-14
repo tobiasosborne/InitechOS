@@ -30,6 +30,20 @@
     "MSG-DOS-0017": "Unable to create directory",
     "MSG-DOS-0018": "Invalid directory",
     "MSG-DOS-0019": "Invalid path, not directory, or directory not empty",
-    "MSG-DOS-0020": "File cannot be copied onto itself"
+    "MSG-DOS-0020": "File cannot be copied onto itself",
+    "MSG-DOS-0021": " Volume in drive A is ",
+    "MSG-DOS-0022": " Volume in drive A has no label",
+    "MSG-DOS-0023": " Directory of ",
+    "MSG-DOS-0024": " File(s) ",
+    "MSG-DOS-0025": " bytes free",
+    "MSG-DOS-0026": "<DIR>"
+  },
+  "citations": {
+    "MSG-DOS-0021": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.28-29 / PDF 41-42; ADR-0003 Appendix C LOOK amendment (initech-vjtp/d31e/b0qk/irp2/veub)",
+    "MSG-DOS-0022": "MS-DOS_3.3_Users_Guide_198707.pdf, printed p.362 / PDF 447 (DIR/Label/VOL: has no label); drive A/no-colon form from p.28 / PDF 41, explicitly authorized for LOOK lane",
+    "MSG-DOS-0023": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.28-29 / PDF 41-42; ADR-0003 Appendix C LOOK amendment (initech-vjtp/d31e/b0qk/irp2/veub)",
+    "MSG-DOS-0024": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.28-29 / PDF 41-42; ADR-0003 Appendix C LOOK amendment (initech-vjtp/d31e/b0qk/irp2/veub)",
+    "MSG-DOS-0025": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.28-29 / PDF 41-42; ADR-0003 Appendix C LOOK amendment (initech-vjtp/d31e/b0qk/irp2/veub)",
+    "MSG-DOS-0026": "MS-DOS_3.3_Users_Guide_198707.pdf, printed p.12 (User Reference section) / PDF 97 (<Dir> subdirectory illustration); uppercase <DIR> explicitly requested by LOOK lane"
   }
 }

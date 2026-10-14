@@ -146,14 +146,14 @@ static void test_format_dir_line(void)
     int n;
 
     /* A regular file: name left-justified, size right-justified, '\n'. */
-    n = cmd_format_dir_line("HELLO.TXT", 31u, 0x20u /* ARCHIVE */, out);
+    n = cmd_format_dir_line("HELLO.TXT", 31u, 0x20u /* ARCHIVE */, 0x0F15u, 0x6000u, out);
     CHECK(n > 0, "format_dir_line: nonzero length");
     CHECK(out[n - 1] == '\n', "format_dir_line: ends with newline");
-    CHECK(strncmp(out, "HELLO.TXT", 9) == 0, "format_dir_line: name at start");
+    CHECK(strncmp(out, "HELLO    TXT", 12) == 0, "format_dir_line: name at start");
     CHECK(strstr(out, "31") != NULL, "format_dir_line: size 31 present");
 
     /* A directory entry shows <DIR>, not a size. */
-    n = cmd_format_dir_line("SUBDIR", 0u, DIR_ATTR_DIRECTORY, out);
+    n = cmd_format_dir_line("SUBDIR", 0u, DIR_ATTR_DIRECTORY, 0x0F15u, 0x6000u, out);
     CHECK(strstr(out, "<DIR>") != NULL, "format_dir_line: directory shows <DIR>");
     CHECK(strncmp(out, "SUBDIR", 6) == 0, "format_dir_line: dir name at start");
 }
