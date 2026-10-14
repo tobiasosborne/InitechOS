@@ -114,10 +114,43 @@ void kbd_state_init(kbd_state_t *st)
 {
     st->shift = 0u;
     st->caps  = 0u;
+    st->ctrl  = 0u;
+    st->e0    = 0u;
 }
 
 uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
 {
+    /* IBM translated Set 1: right Ctrl is E0 1D/E0 9D, left Ctrl 1D/9D.
+     * Consume E0 BEFORE the break flag (E0 itself has bit 7 set). */
+    if (scancode == 0xE0u) {
+#ifdef KBD_MUTATE_E0
+        st->e0 = 0u; /* Rule 6: right Ctrl aliases left; fake Shift leaks. */
+#else
+        st->e0 = 1u;
+#endif
+        return 0u;
+    }
+    uint8_t extended = st->e0;
+    st->e0 = 0u;
+    if ((scancode & 0x7Fu) == 0x1Du) {
+        uint8_t side = extended ? 2u : 1u;
+        if (scancode & SC_BREAK_FLAG) {
+#ifdef KBD_MUTATE_CTRL_RELEASE_ALL
+            st->ctrl = 0u; /* Rule 6: releasing either Ctrl releases both. */
+#else
+            st->ctrl &= (uint8_t)~side;
+#endif
+        }
+        else st->ctrl |= side;
+        return 0u;
+    }
+    if (extended) {
+        /* Extended keypad Enter/slash are characters; navigation, right Alt,
+         * PrintScreen (including its fake Shifts) are not ASCII aliases. */
+        if (scancode == 0x1Cu) return '\r';
+        if (scancode == 0x35u) return '/';
+        return 0u;
+    }
     /* Modifier make/break first (these never produce a character). */
     if (scancode == SC_LSHIFT_MAKE || scancode == SC_RSHIFT_MAKE) {
         st->shift = 1u;
@@ -154,6 +187,16 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
     if (base == 0) {
         return 0u;
     }
+
+#ifndef KBD_MUTATE_NO_CTRL
+    /* DOS control letters are case-independent: Ctrl-C=03h, Ctrl-Z=1Ah.
+     * Ref: MS-DOS_3.3_Users_Guide_198707.pdf pp. 132, 158-159.
+     * Use the cooked byte only; the FLAIR hook still receives raw scancodes. */
+    if (st->ctrl) {
+        if (base >= 'a' && base <= 'z') return (uint8_t)(base - 'a' + 1);
+        if (base >= 'A' && base <= 'Z') return (uint8_t)(base - 'A' + 1);
+    }
+#endif
 
     /* CapsLock affects LETTERS only. With Shift OFF, caps upper-cases a-z; with
      * Shift ON over caps, a letter goes back to lowercase (the usual DOS/Mac

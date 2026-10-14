@@ -148,10 +148,59 @@ static void test_pit(void)
     CHECK(pit_divisor_for_hz(PIT_INPUT_HZ) == 1u, "target==input -> divisor 1");
 }
 
+/* K12: IBM Set 1 Ctrl=1D, right Ctrl=E0 1D. DOS control bytes:
+ * MS-DOS_3.3_Users_Guide_198707.pdf pp. 132, 158-159 (PDF 217, 243-244). */
+static void test_control(void)
+{
+    kbd_state_t st;
+    static const uint8_t letters[26] = {
+        0x1e,0x30,0x2e,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,
+        0x31,0x18,0x19,0x10,0x13,0x1f,0x14,0x16,0x2f,0x11,0x2d,0x15,0x2c
+    };
+    kbd_state_init(&st);
+    CHECK(kbd_translate(&st, 0x1d) == 0, "left Ctrl make emits nothing");
+    for (unsigned i = 0; i < 26; i++)
+        CHECK(kbd_translate(&st, letters[i]) == i + 1, "Ctrl+A..Z -> 01..1A");
+    kbd_translate(&st, 0x3a);
+    kbd_translate(&st, 0x2a);
+    CHECK(kbd_translate(&st, 0x2e) == 3, "Ctrl+Shift+Caps+C -> 03");
+    kbd_translate(&st, 0xaa);
+    kbd_translate(&st, 0x3a);
+    CHECK(kbd_translate(&st, 0xe0) == 0, "E0 prefix emits nothing");
+    CHECK(kbd_translate(&st, 0x1d) == 0, "right Ctrl make emits nothing");
+    kbd_translate(&st, 0x9d); /* release LEFT while RIGHT remains down */
+    CHECK(kbd_translate(&st, 0x2c) == 0x1a, "right Ctrl survives left release");
+    kbd_translate(&st, 0xe0);
+    kbd_translate(&st, 0x9d);
+    CHECK(kbd_translate(&st, 0x2e) == 'c', "right Ctrl release ends chord");
+    kbd_translate(&st, 0x1d);
+    kbd_translate(&st, 0xe0);
+    kbd_translate(&st, 0x1d);
+    kbd_translate(&st, 0xe0);
+    kbd_translate(&st, 0x9d);
+    CHECK(kbd_translate(&st, 0x2e) == 3, "left Ctrl survives right release");
+    kbd_translate(&st, 0x9d);
+    /* PrintScreen's E0 fake shift must not latch Shift. Unmapped extended
+     * keys must not alias a letter or a main-block modifier. */
+    kbd_translate(&st, 0xe0);
+    CHECK(kbd_translate(&st, 0x2a) == 0, "E0 fake Shift ignored");
+    CHECK(kbd_translate(&st, 0x20) == 'd', "E0 fake Shift leaves case alone");
+    kbd_translate(&st, 0xe0);
+    CHECK(kbd_translate(&st, 0x2e) == 0, "extended byte does not alias C");
+    kbd_translate(&st, 0xe0);
+    CHECK(kbd_translate(&st, 0x1c) == '\r', "keypad Enter -> CR");
+    kbd_translate(&st, 0xe0);
+    CHECK(kbd_translate(&st, 0x35) == '/', "keypad slash -> slash");
+    kbd_translate(&st, 0xe0);
+    kbd_state_init(&st);
+    CHECK(kbd_translate(&st, 0x2e) == 'c', "init clears pending E0 and Ctrl");
+}
+
 int main(void)
 {
     test_ring();
     test_translate();
+    test_control();
     test_pit();
     return TEST_SUMMARY("test-kbd-unit");
 }

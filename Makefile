@@ -24745,6 +24745,15 @@ test-conin: $(HARNESS_BIN) $(CONIN_IMG)
 	@printf 'VERDICT   : PASS -- a real program read a line from the keyboard via INT 21h AH=0Ah\n'
 	@printf '======================================================================\n'
 
+# K12 / initech-j1lu: explicit CON EOF + shell recovery through real PS/2.
+.PHONY: test-j1lu-con-unit test-j1lu-control-emu
+test-j1lu-con-unit: $(TEST_DEVWIRE)
+	@$(TEST_DEVWIRE)
+	@printf '>>> test-j1lu-con-unit: green\n'
+test-j1lu-control-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/emu/test_dos_control.sh $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD) j1lu_control
+include harness/emu/dos_control.mk
+
 # ---------------------------------------------------------------------------
 # EMU KEYSTONE: test-vect (beads initech-509.8 -- INT 24h critical error +
 #               SETVECT/GETVECT + PSP-vector save/restore across EXEC/EXIT)
@@ -26984,7 +26993,7 @@ TEST_UNIT_GATES := \
 	test-fat-partial test-fat-write test-fat-write-partial test-fat-fuzz test-fat-corrupt-fuzz \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
-	test-console test-idt test-kbd-unit test-conin-unit test-int21 test-redir test-er3h test-int24 \
+	test-console test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
 	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
@@ -28113,7 +28122,7 @@ TEST_EMU_GATES := \
 	test-readerr-winh test-readerr-winh-mutant \
 	test-zs24-exec test-zs24-exec-mutant test-panic test-spurious test-datetime \
 	test-fpu test-fpu-mutant test-fpu-bochs test-fpu-absent test-fpu-absent-mutant test-fpu-mf test-fpu-mf-mutant \
-	test-kbd test-conin test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
+	test-kbd test-conin test-j1lu-control-emu test-j1lu-control-emu-mutant test-vect test-absdisk-emu test-int21-irqstorm test-int21-irqstorm-mutant \
 	test-samir-boot test-samir-boot-mutant \
 		test-seed-fileio-os test-seed-fileio-os-mutant \
 		test-tps-lex-os test-tps-parse-os test-tps-type-os \

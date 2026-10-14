@@ -529,6 +529,22 @@ int main(void)
         CHECK_STR_EQ(sink_str(), "\r\n", "AH=3Fh CON empty line: echoes CRLF");
     }
 
+    /* K12: stdin cooked EOF consumes ^Z + Enter, returns zero with no write.
+     * Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf pp. 6-138, 6-149;
+     * MS-DOS_3.3_Users_Guide_198707.pdf p. 132 (COPY CON). */
+    {
+        uint8_t *buf = alloc_low_buf(16);
+        memset(buf, 0xCC, 16);
+        queue_set("\x1a\r", 2);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x3F00u; f.ebx = 0u; f.ecx = 16u;
+        f.edx = (uint32_t)(uintptr_t)buf;
+        int21_dispatch(&f);
+        CHECK(f.eax == 0 && frame_cf(&f) == 0, "K12 stdin Ctrl-Z -> AX=0 EOF");
+        CHECK(buf[0] == 0xCC, "K12 EOF leaves destination untouched");
+        CHECK(mock_poll() == -1, "K12 EOF consumes Enter");
+    }
+
     /* ===== [4tw.*] CON-input ^C (0x03) -> INT 23h check-point ================
      * beads initech-4tw; ADR-0003 Amendment DEC-16 (OEA-ADR-0003-A4, RATIFIED
      * 2026-06-15), Sec 3.3 Fork A + Sec 7.2.
