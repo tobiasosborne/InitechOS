@@ -5,6 +5,8 @@
 * Corpus citation: ../dbase3-decomp/specs/commands/navigation-query-display.md
 *   sec on LIST (recno column + fields), GO/GOTO, LOCATE FOR / FOUND(), RECNO(),
 *   ? expression display; FOR visits every record (no early stop).
+* Manual-derived heading/column layout, no local LIST output golden:
+* Using III+ U5-235/PDF 347, U5-144/PDF 256.
 * LIST renders: recno right-justified width 8, space, then each field in display
 *   width (CODE left-just 3, QTY right of its column, OK as T/F).
 USE PARTS

@@ -618,6 +618,9 @@ typedef struct xb_dbcursor {
 #define XB_DATE_USA       7u   /* MM-DD-YY  */
 
 typedef struct xb_ctx {
+    /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
+     * dot_command is set only around a command entered at the dot prompt. */
+    uint8_t set_heading, set_console, set_status, dot_command;
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
 
     /*

@@ -538,6 +538,8 @@ static int repl_do_close(xb_interp *ip, const char *args)
 {
     (void)args;
     { int area; for(area=1;area<=WA_NAREAS;area++) wa_nav_reset(area); }
+    xb_interp_ctx(ip)->set_status=0;
+    samir_status_refresh(ip);
     wa_close_all(xb_interp_env(ip));
     return INTERP_OK;
 }
@@ -681,7 +683,9 @@ static int repl_try_do_file(xb_interp *ip, const char *s, int *rc, int *ec)
         return (ec && *ec != 0) ? 1 : 0;
     }
 
+    xb_interp_ctx(ip)->dot_command=0;
     *rc = proc_run(ip, prg);
+    xb_interp_ctx(ip)->dot_command=1;
     return 1;
 }
 
@@ -746,6 +750,8 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         char *s;
         int32_t n;
 
+        xb_interp_ctx(ip)->dot_command=1;
+        samir_status_refresh(ip);
         repl_puts(pal, ". ");                 /* the dBASE dot prompt */
 
         n = pal->conin_line(pal, line, (uint32_t)REPL_LINE_CAP);
@@ -804,6 +810,8 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         }
     }
 
+    xb_interp_ctx(ip)->set_status=0;
+    samir_status_refresh(ip);
     wa_close_all(xb_interp_env(ip));
     return INTERP_OK;
 }

@@ -1230,6 +1230,10 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     /* Ref: Using dBase III Plus.pdf U5-213; corpus specs/commands/
      * set-commands.md: DECIMALS defaults to 2.
      * A reused arena cannot inherit uninitialized display state. */
+    ip->ctx.set_heading = 1;
+    ip->ctx.set_console = 1;
+    ip->ctx.set_status = 0;
+    ip->ctx.dot_command = 0;
     ip->ctx.set_decimals = 2;
     ip->ctx.set_exact    = 0;
     ip->ctx.scratch      = ip->scratch;
@@ -1373,4 +1377,35 @@ int wa_record_deleted(wa_env *env, int area)
     work_area *wa=&env->area[area-1];
     int rc=wa_touch_record(wa);
     return rc ? rc : wa->cache_deleted;
+}
+
+/* Using III+ U5-210/PDF 322: screen output off only in a program;
+ * dot commands and error diagnostics remain visible. */
+int xb_interp_console_visible(xb_interp *ip)
+{
+    return ip && (ip->ctx.dot_command || ip->ctx.set_console);
+}
+void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
+{
+#ifndef SAMIR_MUTATE_CONSOLE
+    if(!xb_interp_console_visible(ip)) return;
+#endif
+    if(ip && ip->pal->conout && n) ip->pal->conout(ip->pal,s,n);
+}
+
+void samir_status_refresh(xb_interp *ip)
+{
+    wa_env *env;dbf_table *tbl;int area;
+    if(!ip || !ip->pal->status) return;
+    env=ip->env;area=wa_selected(env);tbl=wa_table(env,area);
+    ip->pal->status(ip->pal,ip->ctx.set_status,tbl?dbf_name(tbl):"",
+                    wa_recno(env,area),wa_nrec(env,area));
+}
+int32_t xb_interp_read_line(xb_interp *ip,char *buf,uint32_t cap)
+{
+    samir_pal_t *p=xb_interp_pal(ip);
+    if(!p) return -1;
+    if(!xb_interp_console_visible(ip) && p->conin_line_noecho)
+        return p->conin_line_noecho(p,buf,cap);
+    return p->conin_line ? p->conin_line(p,buf,cap) : -1;
 }

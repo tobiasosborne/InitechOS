@@ -91,6 +91,8 @@
 #include "samir/pal.h"
 #include "heap.h"
 #include "samir/interp.h"
+#include "samir/screen.h"
+#include "samir/rt.h"
 
 /* ---- Arena sizing constants ----------------------------------------------- *
  *
@@ -153,6 +155,7 @@ static pal_err dos_err_to_pal(uint32_t dos_ax)
 
 typedef struct {
     samir_pal_t  vtable;    /* MUST be first: engine casts p->vtable (pal_host pattern) */
+    samir_screen screen;
 
     /* Bump arena: one AH=48h block obtained at construction.
      * heap_base = (returned_segment << 4) as a flat linear address.
@@ -533,7 +536,7 @@ static int milton_rename(samir_pal_t *p, const char *from, const char *to)
  * If the kernel returns an error we silently drop it (the contract is void).
  * Ref: pal.h conout slot; ADR-0009 DEC-06; do_write handle 1 -> CON.
  */
-static void milton_conout(samir_pal_t *p, const char *s, uint32_t n)
+static void milton_rawout(samir_pal_t *p, const char *s, uint32_t n)
 {
     int cf = 0;
     (void)p;
@@ -551,6 +554,82 @@ static void milton_conout(samir_pal_t *p, const char *s, uint32_t n)
     (void)cf;
 }
 
+/* PAL terminal binding via installed ANSI.SYS, no kernel address coupling.
+ * ADR-0008 DEC-02 terminal extension; row reservation is SAMIR policy.
+ * The model owns scrolling only while STATUS is ON. ANSI never enters files. */
+static int milton_is_console(uint32_t handle)
+{
+    uint32_t dx=0;int cf=0;
+    (void)int21_cxdx(0x44u,0,0,handle,0,(uint32_t *)0,&dx,&cf);
+    if(cf) milton_panic();
+    return (dx & 0x8000u)!=0;
+}
+static void milton_cursor(samir_pal_t *p,uint8_t row,uint8_t col)
+{
+    char seq[16];int n=0;
+    seq[n++]=27;seq[n++]='[';
+    row++;col++;
+    if(row>=10) seq[n++]=(char)('0'+row/10);
+    seq[n++]=(char)('0'+row%10);seq[n++]=';';
+    if(col>=10) seq[n++]=(char)('0'+col/10);
+    seq[n++]=(char)('0'+col%10);seq[n++]='H';
+    milton_rawout(p,seq,(uint32_t)n);
+}
+static void milton_draw(void *user,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
+{
+    samir_pal_t *p=(samir_pal_t *)user;
+    milton_cursor(p,row,col);
+    milton_rawout(p,attr==0x70?"\033[0;7m":"\033[0m",attr==0x70?6u:4u);
+    milton_rawout(p,text,n);
+    milton_rawout(p,"\033[0m",4);
+}
+static void milton_conout(samir_pal_t *p,const char *text,uint32_t n)
+{
+    samir_screen *screen=&state_of(p)->screen;
+    if(screen->active) {
+        samir_screen_write(screen,text,n);
+        milton_cursor(p,screen->row,screen->col);
+    } else milton_rawout(p,text,n);
+}
+static void milton_status(samir_pal_t *p,int on,const char *path,uint32_t rec,uint32_t count)
+{
+    samir_screen *screen=&state_of(p)->screen;
+    char db[24],drive;uint32_t i=0;const char *base=path,*t;
+    if(!milton_is_console(1) || !milton_is_console(0)) return;
+    drive=(char)('A'+(int21(0x19u,0,0,0,0,0,(int *)0)&255u));
+    if(path[0] && path[1]==':') drive=path[0];
+    for(t=path;*t;t++) if(*t=='/' || *t=='\\' || *t==':') base=t+1;
+    while(base[i] && base[i]!='.' && i<23) { db[i]=base[i]; if(db[i]>='a' && db[i]<='z') db[i]-=32; i++; }
+    db[i]=0;
+    if(on && !screen->active) {
+        /* Start a fresh command page with a bounded 22-row viewport. */
+        samir_screen_init(screen,milton_draw,p);
+        milton_rawout(p,"\033[2J",4);
+    }
+    if(on || screen->active) {
+        samir_screen_status(screen,on,drive,db,rec,count);
+        milton_cursor(p,screen->row,screen->col);
+    }
+}
+static int32_t milton_conin_char(samir_pal_t *p);
+static int32_t milton_terminal_line(samir_pal_t *p,char *buf,uint32_t cap,int echo)
+{
+    uint32_t n=0;int overflow=0;int32_t c;
+    if(cap<2) return -1;
+    for(;;) {
+        c=milton_conin_char(p);
+        if(c<0) return -1;
+        if(c=='\r' || c=='\n') break;
+        if(c=='\b') { if(n) { n--; if(echo) milton_conout(p,"\b \b",3); } continue; }
+        if(c<32 || c>126) continue;
+        if(n+1<cap) { buf[n++]=(char)c; if(echo) { char ch=(char)c;milton_conout(p,&ch,1); } }
+        else overflow=1;
+    }
+    if(echo) milton_conout(p,"\n",1);
+    buf[n]=0;
+    return overflow?-1:(int32_t)n;
+}
+
 /* Ref: pal.h conin_line and ADR-0009 DEC-06. AH=3Fh stdin is a byte
  * stream when redirected. The shared framer preserves read-ahead and CRLF
  * across reads, while full-size reads keep cooked CON from dropping its tail.
@@ -561,6 +640,13 @@ static int32_t milton_input_read(void *user, void *buf, uint32_t cap)
 }
 static int32_t milton_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 {
+    if(state_of(p)->screen.active && milton_is_console(0))
+        return milton_terminal_line(p,buf,cap,1);
+    return samir_line_read(&state_of(p)->input,milton_input_read,p,buf,cap);
+}
+static int32_t milton_conin_line_noecho(samir_pal_t *p,char *buf,uint32_t cap)
+{
+    if(milton_is_console(0)) return milton_terminal_line(p,buf,cap,0);
     return samir_line_read(&state_of(p)->input,milton_input_read,p,buf,cap);
 }
 
@@ -585,29 +671,14 @@ static int32_t milton_conin_char(samir_pal_t *p)
     return (int32_t)(result & 0xFFu);
 }
 
-/*
- * milton_gotoxy: NO-OP stub for S8.2.
- * Console primitive, NOT INT 21h. Exercised only at S8.4 (@SAY/GET/READ forms)
- * gated on S8.3/M4. ADR-0009 DEC-06: "gotoxy/set_attr bind as no-ops...
- * Document the no-op."
- */
-static void milton_gotoxy(samir_pal_t *p, uint8_t row, uint8_t col)
+/* Terminal slots now bind to the same ANSI transport as STATUS. */
+static void milton_gotoxy(samir_pal_t *p,uint8_t row,uint8_t col)
 {
-    /* NO-OP: FLAIR text console cursor placement is not available at S8.2.
-     * Exercised at S8.4 (FLAIR forms layer, gated on M4). ADR-0009 DEC-06. */
-    (void)p; (void)row; (void)col;
+    if(milton_is_console(1)) milton_cursor(p,row,col);
 }
-
-/*
- * milton_set_attr: NO-OP stub for S8.2.
- * Console primitive, NOT INT 21h. Exercised only at S8.4.
- * ADR-0009 DEC-06: "set_attr bind as no-ops... Document the no-op."
- */
-static void milton_set_attr(samir_pal_t *p, uint8_t attr)
+static void milton_set_attr(samir_pal_t *p,uint8_t attr)
 {
-    /* NO-OP: FLAIR text attribute control is not available at S8.2.
-     * Exercised at S8.4 (FLAIR forms layer, gated on M4). ADR-0009 DEC-06. */
-    (void)p; (void)attr;
+    if(milton_is_console(1)) milton_rawout(p,attr==0x70?"\033[0;7m":"\033[0m",attr==0x70?6u:4u);
 }
 
 /* ---- Clock slot ----------------------------------------------------------- */
@@ -779,6 +850,9 @@ samir_pal_t *pal_milton_make(void)
     uint32_t result;
     uint32_t heap_seg;
 
+    samir_screen_init(&st->screen,milton_draw,&st->vtable);
+    st->vtable.status=milton_status;
+    st->vtable.conin_line_noecho=milton_conin_line_noecho;
     st->input.pos=st->input.len=0;
     st->input.skip_lf=0;
 

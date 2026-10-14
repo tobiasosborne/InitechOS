@@ -483,6 +483,9 @@ static void set_init_defaults(xb_interp *ip, set_state *ss)
 
     /* SET TALK default = ON [verified: set-commands.md Sec 2]. */
     ss->talk = 1;
+    xb_interp_ctx(ip)->set_heading=1;
+    xb_interp_ctx(ip)->set_console=1;
+    xb_interp_ctx(ip)->set_status=0;
 
     /* SET SAFETY default = ON [verified: set-commands.md Sec 2]. */
     ss->safety = 1;
@@ -625,6 +628,17 @@ static int set_cmd_hook(void *user, xb_interp *ip,
      * [Ref: set-commands.md Sec 5 completeness: NEAR absent from HELP_topics.txt
      *  III+ index; it is a Clipper/dBASE IV addition.]
      */
+    /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
+    if(s_ci_eq(opt,"HEADING") || s_ci_eq(opt,"CONSOLE") || s_ci_eq(opt,"STATUS")) {
+        int on;
+        xb_ctx *ctx=xb_interp_ctx(ip);
+        if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
+        if(s_ci_eq(opt,"HEADING")) ctx->set_heading=(uint8_t)on;
+        else if(s_ci_eq(opt,"CONSOLE")) ctx->set_console=(uint8_t)on;
+        else ctx->set_status=(uint8_t)on;
+        return CMD_OK;
+    }
+
     if (s_ci_eq(opt, "NEAR")) {
         /* Fail loud -- this is not a valid III+ SET option. INTERP_ERR_SYNTAX
          * carries the "unrecognised" signal; the executor surfaces it as #16. */

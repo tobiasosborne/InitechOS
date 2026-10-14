@@ -2867,7 +2867,7 @@ test-interp-flow-mutant: $(TEST_INTERP_FLOW_MUT)
 # ?/??; LOCATE+CONTINUE (CONTINUE re-applies FOR only, not WHILE/scope); SEEK/FIND
 # via ndx_seek. LOCATE/SEEK/FIND set the work-area FOUND flag (un-gates FOUND()).
 # Mutant: CONTINUE re-applies scope -> recno/FOUND/EOF RED.
-INTERP_LIST_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+INTERP_LIST_ENG := $(SAMIR_PROC_SRC) $(SAMIR_SET_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_INTERP_LIST): $(DBF_DIFF_DIR)/test_interp_list.c $(ORACLE_POLICY_H) $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -26208,27 +26208,28 @@ test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
 # --- SAMIR.COM: the Milton-bound flat .COM (ADR-0009 DEC-01/02/03/05/06).
 #     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
+SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
-                     -std=c11 -Wall -Wextra -Werror -Os -msoft-float -mno-80387 \
+                     -std=c11 -Wall -Wextra -Werror -Os -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -I$(SAMIR_INC_DIR) -Ispec
 SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
                    $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) \
-                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
+                   $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/core/screen.c $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
 SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
 SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
 SAMIR_COM       := $(BUILD)/SAMIR.COM
 .PHONY: samir-com
 samir-com: $(SAMIR_COM)
-$(SAMIR_COM): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com && mkdir -p $(BUILD)/samir_com
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
 		o=$(BUILD)/samir_com/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -c $$s -o $$o; \
 	done
-	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
+	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com/SAMIR.elf $@
 	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
 	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x40100, soft-float, x87=%s)\n' "$$sz" "$$x87"
@@ -26243,13 +26244,13 @@ test-samir-full-emu test-samir-lifetime-emu test-samir-safety-emu: $(TEST_SAMIR_
 
 # Rule 6 target mutants compile the SAME engine with one named regression.
 SAMIR_DBSAFE_MUT_COMS := $(BUILD)/SAMIR_DBSAFE_full.COM $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/SAMIR_DBSAFE_safety.COM
-$(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_LD_SCRIPT) $(SAMIR_CRT0_ASM) | $(BUILD)
+$(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/heap.h $(SAMIR_LD_SCRIPT) $(SAMIR_CRT0_ASM) | $(BUILD)
 	@set -e; kind=$$(basename $@ .COM | sed 's/SAMIR_DBSAFE_//'); \
 	case $$kind in full) flag=SAMIR_MUTATE_APPEND_REWRITE;; lifetime) flag=SAMIR_MUTATE_DUPLICATE_OPEN;; safety) flag=SAMIR_MUTATE_ZAP_SAFETY;; esac; \
 	dir=$(BUILD)/samir_dbsafe_$$kind; mkdir -p $$dir; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$dir/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$dir/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
-	$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
 	$(OBJCOPY) -O binary $$dir/SAMIR.elf $@
 .PHONY: test-samir-full-emu-mutant test-samir-lifetime-emu-mutant test-samir-safety-emu-mutant
 test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
@@ -26293,12 +26294,12 @@ test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_
 
 # On-target mutants re-run the SAME complete oracle (no crash counts as RED).
 SAMIR_AUDIT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_AUDIT_,filter.COM deleted.COM marker.COM extension.COM useerror.COM input.COM)
-$(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@case "$*" in filter) flag=SAMIR_MUTATE_FILTER_VIEW;; deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; marker) flag=SAMIR_MUTATE_DELETE_MARK;; extension) flag=SAMIR_MUTATE_USE_EXTENSION;; useerror) flag=SAMIR_MUTATE_USE_ERROR;; input) flag=SAMIR_MUTATE_STDIN_LINES;; esac; \
 	set -e; d=$(BUILD)/samir_audit_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
-	$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 .PHONY: test-samir-audit-emu-mutant test-samir-input-emu-mutant
 test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
@@ -26330,14 +26331,14 @@ test-samir-input-emu-mutant: $(BUILD)/SAMIR_AUDIT_input.COM $(TEST_SAMIR_AUDIT_E
 SAMIR_COM_MUT   := $(BUILD)/SAMIR_MUT.COM
 .PHONY: samir-com-mutant
 samir-com-mutant: $(SAMIR_COM_MUT)
-$(SAMIR_COM_MUT): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_MUT): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_mut && mkdir -p $(BUILD)/samir_com_mut
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_mut/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
 		o=$(BUILD)/samir_com_mut/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_SHORT_READ -c $$s -o $$o; \
 	done
-	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_mut/SAMIR.elf $(BUILD)/samir_com_mut/samir_crt0.o $$(ls $(BUILD)/samir_com_mut/*.o | grep -v 'samir_crt0\.o')
+	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_mut/SAMIR.elf $(BUILD)/samir_com_mut/samir_crt0.o $$(ls $(BUILD)/samir_com_mut/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com_mut/SAMIR.elf $@
 	@printf '>>> SAMIR_MUT.COM: %s bytes (short-read on-target I/O mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
@@ -26588,14 +26589,14 @@ endef
 SAMIR_COM_DROPWRITE := $(BUILD)/SAMIR_DROPWRITE.COM
 .PHONY: samir-com-dropwrite
 samir-com-dropwrite: $(SAMIR_COM_DROPWRITE)
-$(SAMIR_COM_DROPWRITE): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_DROPWRITE): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_dropwrite && mkdir -p $(BUILD)/samir_com_dropwrite
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dropwrite/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
 		o=$(BUILD)/samir_com_dropwrite/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_DROP_WRITE -c $$s -o $$o; \
 	done
-	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dropwrite/SAMIR.elf $(BUILD)/samir_com_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_com_dropwrite/*.o | grep -v 'samir_crt0\.o')
+	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dropwrite/SAMIR.elf $(BUILD)/samir_com_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_com_dropwrite/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dropwrite/SAMIR.elf $@
 	@printf '>>> SAMIR_DROPWRITE.COM: %s bytes (drop-write on-target WRITE mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
@@ -26830,14 +26831,14 @@ $(Y2KACCT_PRG): $(Y2KACCT_PRG_SRC) | $(BUILD)
 SAMIR_COM_DOTRUNC := $(BUILD)/SAMIR_DOTRUNC.COM
 .PHONY: samir-com-dotrunc
 samir-com-dotrunc: $(SAMIR_COM_DOTRUNC)
-$(SAMIR_COM_DOTRUNC): $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+$(SAMIR_COM_DOTRUNC): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
 	@rm -rf $(BUILD)/samir_com_dotrunc && mkdir -p $(BUILD)/samir_com_dotrunc
 	@$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $(BUILD)/samir_com_dotrunc/samir_crt0.o
 	@set -e; for s in $(SAMIR_COM_CSRCS); do \
 		o=$(BUILD)/samir_com_dotrunc/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -DREPL_MUTATE_DO_TRUNC -c $$s -o $$o; \
 	done
-	@$(LD) -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dotrunc/SAMIR.elf $(BUILD)/samir_com_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_com_dotrunc/*.o | grep -v 'samir_crt0\.o')
+	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dotrunc/SAMIR.elf $(BUILD)/samir_com_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_com_dotrunc/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dotrunc/SAMIR.elf $@
 	@printf '>>> SAMIR_DOTRUNC.COM: %s bytes (DO-file half-read mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
@@ -29755,3 +29756,82 @@ TEST_EMU_GATES += test-flair-menu-look test-flair-menu-look-mutant
 $(BUILD)/test_chicago_check_mutant: $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_MUT_ONE_ADVANCE=18 -o $@ $< os/flair/text.c os/flair/surface.c
 test-chicago-metrics-mutant: $(BUILD)/test_chicago_check_mutant
+
+# LOOK pass 6, initech-1y0h/r3pa. Independent Python descriptor differential.
+SAMIR_NUMERIC_DRIVER := $(BUILD)/samir_numeric_format
+$(SAMIR_NUMERIC_DRIVER): $(DBF_DIFF_DIR)/numeric_format_driver.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(BUILD)/samir_numeric_%: $(DBF_DIFF_DIR)/numeric_format_driver.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_NUMERIC_MUTATE_$* -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
+test-samir-numeric-format: $(SAMIR_NUMERIC_DRIVER)
+	@python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP)
+test-samir-numeric-format-fraction-mutant: $(BUILD)/samir_numeric_FRACTION
+test-samir-numeric-format-left-mutant: $(BUILD)/samir_numeric_LEFT
+test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant:
+	@set +e; python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'descriptor differential' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (implementation mutant RED: descriptor differential)\n' '$@'
+TEST_UNIT_GATES += test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
+
+# initech-vz6z: mutations of the implemented screen controls, same LIST oracle.
+$(BUILD)/test_interp_screen_%: $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-interp-list-heading-mutant test-interp-set-console-mutant
+test-interp-list-heading-mutant: $(BUILD)/test_interp_screen_HEADING
+test-interp-set-console-mutant: $(BUILD)/test_interp_screen_CONSOLE
+test-interp-list-heading-mutant test-interp-set-console-mutant:
+	@set +e; $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'screen:' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (implementation mutant RED: screen controls)\n' '$@'
+TEST_UNIT_GATES += test-interp-list-heading-mutant test-interp-set-console-mutant
+
+# initech-3cz2: reserved-row model vs manual-derived literal cell oracle.
+$(BUILD)/test_samir_status: $(DBF_DIFF_DIR)/test_samir_status.c $(SAMIR_DIR)/core/screen.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(BUILD)/test_samir_status_mutant: $(DBF_DIFF_DIR)/test_samir_status.c $(SAMIR_DIR)/core/screen.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_STATUS -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-samir-status test-samir-status-mutant
+test-samir-status: $(BUILD)/test_samir_status
+	@$< $(DBASE3_DECOMP)
+test-samir-status-mutant: $(BUILD)/test_samir_status_mutant
+	@set +e; $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'status: Command Line' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (status-band implementation mutant RED)\n' '$@'
+TEST_UNIT_GATES += test-samir-status test-samir-status-mutant
+
+# Same implementation mutants in the flat COM. Dead sections are omitted;
+# the existing link assertion still reserves BSS + the full AH=48h arena.
+$(BUILD)/SAMIR_SCREEN_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) $(SAMIR_DIR)/pal/heap.h $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/include/samir/screen.h | $(BUILD)
+	@set -e; d=$(BUILD)/samir_screen_$*; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$* -c $$src -o $$obj; done; \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+$(BUILD)/test_samir_screen_emu: $(DBF_DIFF_DIR)/test_samir_screen_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+.PHONY: test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
+test-samir-status-emu test-samir-status-off-emu test-samir-numeric-format-emu test-samir-console-emu: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+	@mode=status; case '$@' in *off-emu) mode=off;; *numeric*) mode=numeric;; *console*) mode=console;; esac; $(BUILD)/test_samir_screen_emu $$mode && \
+	 cp -f $(BUILD)/samir_screen_$$mode.ppm $(BUILD)/samir-screen/accepted-$$mode.ppm && \
+	 cp -f $(BUILD)/samir_screen_$$mode.serial $(BUILD)/samir-screen/accepted-$$mode.serial
+test-samir-status-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_STATUS.COM
+	@set +e; $(BUILD)/test_samir_screen_emu status $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings|heading)' $(BUILD)/$@.log && grep -q 'status: serial Command Line' $(BUILD)/$@.log && grep -q 'status: reverse band' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (same status-band mutant RED on serial and video)\n' '$@'
+test-samir-numeric-format-emu-fraction-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_FRACTION.COM
+test-samir-numeric-format-emu-left-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_NUMERIC_MUTATE_LEFT.COM
+test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant:
+	@set +e; $(BUILD)/test_samir_screen_emu numeric $< > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'numeric: integral fraction and right alignment' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (same numeric implementation mutant RED in guest)\n' '$@'
+# Mutant targets build the runner/fixture even when invoked alone.
+test-samir-status-emu-mutant test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant test-samir-console-emu-mutant: $(BUILD)/test_samir_screen_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_TEXT_CHECK_BIN)
+TEST_EMU_GATES += test-samir-status-emu test-samir-status-off-emu test-samir-status-emu-mutant test-samir-numeric-format-emu test-samir-numeric-format-emu-fraction-mutant test-samir-numeric-format-emu-left-mutant
+
+.PHONY: test-samir-console-emu test-samir-console-emu-mutant
+test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM
+	@set +e; $(BUILD)/test_samir_screen_emu console $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'console: program output and prompt suppressed' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (same CONSOLE suppression mutant RED in guest)\n' '$@'
+TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
