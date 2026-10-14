@@ -85,6 +85,11 @@ typedef struct {
      * (full 16-colour DAC reprogramming is a deferred follow-up). */
     console_color_t cur_fg;     /* current ink   (ANSI SGR target)            */
     console_color_t cur_bg;     /* current paper (ANSI SGR target)            */
+    /* Temporary underline overlay while blocking on input. Saving the pixels
+     * preserves a glyph/attribute already under the cursor, including 8bpp. */
+    uint32_t cursor_saved[16];
+    uint32_t cursor_col, cursor_row;
+    int cursor_on;
 } console_t;
 
 /* Pack an (r,g,b) triple into the framebuffer pixel format for the given bpp.
@@ -145,6 +150,11 @@ void console_set_cursor(console_t *con, uint32_t row, uint32_t col);
 
 /* Read the current cursor position (for ANSI ESC[s save + ESC[6n DSR). */
 void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col);
+
+/* PIT-driven VGA underline: 16 virtual 60-Hz frames on, 16 off. Called only
+ * from the synchronous input wait, never IRQ context. active=0 restores the
+ * exact underlying pixels before echo/output or a desktop context switch. */
+void console_cursor_wait(console_t *con, uint32_t ticks, int active);
 
 /* Erase in display (ESC[<n>J). mode: 0 = cursor..end-of-screen, 1 =
  * start-of-screen..cursor, 2 = whole screen. Filled with the CURRENT paper
