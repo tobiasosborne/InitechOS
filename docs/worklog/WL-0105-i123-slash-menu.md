@@ -84,7 +84,12 @@ Those baselines are explicitly NOT command-minted Copy/Move goldens.
   viewport until its item is highlighted, when the view scrolls.
 - Final review added reachability and caught an orphan Search/Find level.
   Its correct browsing path is Search/Formulas; RI texts stay unchanged.
-  Five bounded DFS traces now exercise every included level.
+  Eight bounded DFS traces now exercise every included level.
+- QMP repeat-key loss in the DFS prompted explicit make/break pairs.
+  A later run still lost a Right press under load; the mandated standalone
+  rerun passed every fragment. No matching was loosened. The gate remains
+  sensitive to host input delivery. An existing kernel-image macro supplies
+  a 1000-tick test lifetime; no kernel source changed.
 - QMP repeat-digit delivery required explicit 250 ms holds between the FROM
   and TO prompts. The locked trace changed deliberately; no grader weakened.
 - Red emulator runs were repeated alone before diagnosis. The quit fixture
@@ -112,8 +117,8 @@ New gates and final evidence:
 The menu resource corruption case also refuses with `menu resource refused`.
 Pixel evidence: `ppm_text_check: i123-menu bands=1515/1479/433
 MENU=330 navy/182 white: green`. The final row is 10, -20, 40, blank, blank,
--80, 160, 80. The mutant's H1 is 0. Five additional locked menu-only DFS fragments visit all 82 included
-levels (94 entry screens including restored parents), graded in order
+-80, 160, 80. The mutant's H1 is 0. Eight additional locked menu-only DFS fragments visit all 82 included
+levels (104 entry screens including restored parents), graded in order
 against the RI-checked text golden. Leaf feature execution still follows
 the shortfall ledger. The host oracle also proves every level reachable.
 
@@ -151,6 +156,6 @@ Source ASCII and git diff --check pass.
 - Local evidence: build/i123-all-host-final.log,
   i123-final-targeted-host.log, i123-final-property.log, i123-menu-final.log,
   i123-required-copy-move.log, i123-remaining-emu-final.log,
-  i123-formula-final-alone.log, i123-all-levels-stable.log, i123-repro.log. These logs are not in git.
+  i123-formula-final-alone.log, i123-menu-explicit-final.log, i123-menu-published-alone.log, i123-repro.log. These logs are not in git.
 - Transport: build/lane.bundle, f7ed504..lane-uqah; verified with git bundle
   verify. Original .git remains untouched; no push.
