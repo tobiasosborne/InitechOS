@@ -34,6 +34,8 @@ $(BUILD)/kbd_j1lu_ctrl.o: $(KERNEL_KBD_C) $(TEST_KBD_HDRS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -DKBD_MUTATE_NO_CTRL -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/int21_j1lu_%.o: $(KERNEL_INT21_C) $(TEST_DEVWIRE_HDRS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -D$(J1LU_CON_KNOB_$*) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
+$(BUILD)/command_j1lu_restore.o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(TEST_DEVWIRE_HDRS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_RESTORE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
 
 define j1lu-emu-variant
 J1LU_OBJS_$(1) := $(filter-out $(2),$(KERNEL_SECONDARY_SHELL_OBJS)) $(3)
@@ -52,22 +54,24 @@ $(BUILD)/j1lu_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_j1lu_$(1)
 	@dd if=$(BUILD)/kernel_shell_j1lu_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
 endef
 $(eval $(call j1lu-emu-variant,ctrl,$(KERNEL_KBD_OBJ),$(BUILD)/kbd_j1lu_ctrl.o))
+$(eval $(call j1lu-emu-variant,restore,$(KERNEL_COMMAND_OBJ),$(BUILD)/command_j1lu_restore.o))
 $(foreach m,eof raw abort,$(eval $(call j1lu-emu-variant,$(m),$(KERNEL_INT21_OBJ),$(BUILD)/int21_j1lu_$(m).o)))
 
-test-j1lu-control-emu-mutant: $(HARNESS_BIN) $(addprefix $(BUILD)/j1lu_,ctrl.img eof.img raw.img abort.img)
-	@set -e; for m in ctrl eof raw abort; do \
+test-j1lu-control-emu-mutant: $(HARNESS_BIN) $(addprefix $(BUILD)/j1lu_,ctrl.img eof.img raw.img abort.img restore.img)
+	@set -e; for m in ctrl eof raw abort restore; do \
 	  for attempt in 1 2; do \
 	    log=$(BUILD)/j1lu_emu_$${m}_$${attempt}.log; rc=0; \
-	    sh harness/emu/test_dos_control.sh $(HARNESS_BIN) $(BUILD)/j1lu_$$m.img $(BUILD) j1lu_$${m}_$${attempt} >$$log 2>&1 || rc=$$?; \
+	    J1LU_TIMEOUT_MS=25000 sh harness/emu/test_dos_control.sh $(HARNESS_BIN) $(BUILD)/j1lu_$$m.img $(BUILD) j1lu_$${m}_$${attempt} >$$log 2>&1 || rc=$$?; \
 	    test $$rc -eq 1; \
 	    grep -Fq 'FAIL: prompt did not return before' $$log; \
 	    grep -Fq SHELL-READY $(BUILD)/j1lu_$${m}_$${attempt}.serial; \
 	    if [ "$$m" = abort ]; then \
 	      grep -Fq INT23-BREAK $(BUILD)/j1lu_$${m}_$${attempt}.serial; \
 	      grep -Fq 'before abortok' $$log; \
+	    elif [ "$$m" = restore ]; then grep -Fq 'before restored' $$log; \
 	    else grep -Fq 'before eofok' $$log; fi; \
 	    printf '>>> test-j1lu-control-emu-mutant: %s attempt %s correctly RED (booted; ' "$$m" "$$attempt"; \
 	    sed -n 's/.*FAIL: / /p' $$log | tr '\n' ')'; printf '\n'; \
 	  done; \
 	done
-	@printf '>>> test-j1lu-control-emu-mutant: green (ctrl/eof/raw/abort each RED twice, isolated QEMU reruns)\n'
+	@printf '>>> test-j1lu-control-emu-mutant: green (ctrl/eof/raw/abort/restore each RED twice, isolated QEMU reruns)\n'

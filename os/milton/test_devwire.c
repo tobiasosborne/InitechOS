@@ -103,14 +103,11 @@ static void sink_capture(char c) { if (g_sink_len < sizeof(g_sink_buf) - 1) g_si
 static void sink_reset(void) { g_sink_len = 0; g_sink_buf[0] = '\0'; }
 static const char *sink_str(void) { g_sink_buf[g_sink_len] = '\0'; return g_sink_buf; }
 
-/* --- mock CON input (the OPEN-by-name CON read pulls raw bytes through here) - */
+/* --- mock CON input (the shared cooked editor reads these keyboard bytes) -- */
 static const char *g_conin_src = "";
 static size_t      g_conin_pos = 0;
-/* On exhaustion return CR (0x0D): the OPEN-by-name CON device read takes ONE byte
- * per call (no cooked editing), and the legacy cooked-line editor (only reached
- * if a test ever drove a predefined CON handle through 3Fh) terminates on CR --
- * so a stray read can NEVER hang the host oracle (the mutant deliberately mis-
- * routes a failed-OPEN error code as a handle; CR keeps that path bounded). */
+/* Exhaustion yields CR, so a stray cooked read never hangs the host oracle.
+ * The raw-bypass mutant still reads one byte at a time from this same seam. */
 static int mock_conin_get(void)
 {
     if (g_conin_src[g_conin_pos] == '\0') return '\r';
