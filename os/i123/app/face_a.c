@@ -50,8 +50,11 @@
  * status indicators"; CALC "Formulas ... need to be recalculated; press
  * CALC (F9)", CIRC a circular reference) as highlighted words; their exact
  * column is [inferred] (the look pass is bead initech-68iw.1).
- * NOT YET (stated): the other slash commands (visible refusal), the clock
- * on the status line, the "(F3)"/"[W12]" descriptors on line 1.
+ * P3 (initech-uqah): the RI-sourced slash tree, range formats/labels/names,
+ * erase/protection/value/transpose, Copy/Move, F2 and F5. Every deferred leaf
+ * refuses visibly; spec/i123/era_shortfalls.md records exact scope. Menus
+ * load from APPS/123.MNU to keep the executable under the V1 64 KiB cap.
+ * The clock and "(F3)"/"[W12]" descriptors remain deferred.
  *
  * Ref: os/i123/core/i123.h (the model, the display rules -- graded against
  * the minted screenshots by test-i123-wk1-roundtrip); os/apps/tbx/tbx.h.
@@ -59,6 +62,7 @@
  */
 #include "tbx.h"
 #include "i123.h"
+#include "menu.h"
 #include "i123/wk1_format.h"
 
 const char tbx_app_name[] = "123";
@@ -135,10 +139,10 @@ static char     g_line[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
 static char     g_edit[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
 static uint32_t g_elen TBX_IN_IMAGE = 0;
 
-enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE };
+enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE };
 static int      g_mode TBX_IN_IMAGE = M_READY;
 static const char *const MODE_TEXT[] = { "READY", "LABEL", "VALUE", " EDIT",
-    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR" };
+    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "RANGE" };
 
 /* THE EXIT GUARD's state (bead initech-fvnj). g_dirty: a committed edit not
  * yet in a file -- set by every successful commit, cleared ONLY by a
@@ -155,14 +159,7 @@ static uint8_t  g_dirty, g_asking, g_quit_after_save;
  * 03_save_prompt.png. A: replaces the reference's C: (our data drive).
  * Refusal/error/typed-file guidance and the drive substitution are authored,
  * no local reference. No advertised command silently succeeds. */
-static const char MAIN_LINE[] = "Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit";
-static const char FILE_LINE[] = "Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin";
 static const char REPLACE_LINE[] = "Cancel  Replace  Backup";
-/* /Quit: R2.2 Reference Manual p. 9-1 (PDF page 217 of the local scan):
- * "Select one of the following options: No / Yes"; 123.RI 0x300 "No",
- * 0x303 its description, 0x332 "Yes", 0x336 its description. */
-static const char QUIT_LINE[] = "No  Yes";
-static const char *const QUIT_NAMES[] = { "No", "Yes" };
 /* THE ALERT'S WORDS (spec/toolbox_gate.h Sec 11; CR separates lines). Line 1
  * is the real 1-2-3's own warning, 123.RI 0x370 "WORKSHEET CHANGES NOT
  * SAVED!  End 1-2-3 anyway?", first sentence verbatim. Lines 2-3 and the
@@ -177,11 +174,19 @@ static const char *const QUIT_NAMES[] = { "No", "Yes" };
  *   Save       == the Mac addition: /File Save now, then end the session. */
 static const char QUIT_TEXT[] =
     "WORKSHEET CHANGES NOT SAVED!\rSave changes to the worksheet\rbefore quitting?";
-static const char *const MAIN_NAMES[] = { "Worksheet", "Range", "Copy", "Move", "File",
-    "Print", "Graph", "Data", "System", "Add-In", "Quit" };
-static const char *const FILE_NAMES[] = { "Retrieve", "Save", "Combine", "Xtract", "Erase",
-    "List", "Import", "Directory", "Admin" };
 static const char *const REPLACE_NAMES[] = { "Cancel", "Replace", "Backup" };
+/* One menu stack, preserving the highlighted item on Esc. */
+static uint16_t g_level, g_levels[12], g_indexes[12];
+static uint32_t g_depth;
+static int g_top, g_action, g_stage, g_arg, g_dc, g_dr;
+static uint8_t g_format;
+static i123_rect_t g_from;
+static char g_range_text[77], g_named[16];
+static uint32_t g_rlen;
+static const char *g_prompt;
+enum { A_COPY=1, A_MOVE, A_VALUE, A_TRANS, A_ERASE, A_FORMAT, A_LABEL,
+       A_PROT, A_UNPROT, A_NAME, A_NAME_DELETE, A_NAME_LABELS, A_NAME_TABLE,
+       A_WIDTH, A_GLOBAL_WIDTH, A_ITERATION, A_GOTO };
 
 /* ---- small helpers ------------------------------------------------------- */
 static uint32_t slen(const char *s)
@@ -220,25 +225,41 @@ static void panel_line(int line, const char *s)
 
 static void paint_command(void)
 {
-    if (g_mode == M_MAIN || g_mode == M_FILE || g_mode == M_REPLACE || g_mode == M_QUIT) {
-        const char *const *names = g_mode == M_MAIN ? MAIN_NAMES : g_mode == M_FILE ? FILE_NAMES :
-                                   g_mode == M_QUIT ? QUIT_NAMES : REPLACE_NAMES;
-        const char *line = g_mode == M_MAIN ? MAIN_LINE : g_mode == M_FILE ? FILE_LINE :
-                           g_mode == M_QUIT ? QUIT_LINE : REPLACE_LINE;
+    if (g_mode == M_MAIN || g_mode == M_FILE || g_mode == M_QUIT) {
+        const i123_menu_level_t *lv = &i123_menu_levels[g_level];
+        char line[512]; uint32_t n = 0, x = 0;
+        for (uint32_t i = 0; i < lv->count; i++) {
+            const char *nm = i123_menu_string(i123_menu_items[lv->first+i].name);
+            if ((int)i == g_menu_index) x = n;
+            for (uint32_t k = 0; nm[k]; k++) line[n++] = nm[k];
+            if (i+1 < lv->count) { line[n++] = ' '; line[n++] = ' '; }
+        }
+        line[n] = 0;
+        const i123_menu_item_t *it = &i123_menu_items[lv->first+g_menu_index];
+        const char *nm = i123_menu_string(it->name);
+        uint32_t skip = x+slen(nm)>SCR_COLS ? x : 0;
+        panel_line(LINE_PANEL2, line+skip);
+        put_line(LINE_PANEL2, (int)(x-skip), nm, slen(nm), TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+        panel_line(LINE_PANEL3, i123_menu_string(it->desc));
+    } else if (g_mode == M_RANGE) {
+        char line[SCR_COLS+1]; uint32_t n = 0;
+        for (uint32_t k = 0; g_prompt[k] && n < SCR_COLS; k++) line[n++] = g_prompt[k];
+        if (g_rlen) {
+            for (uint32_t k = 0; k < g_rlen && n < SCR_COLS; k++) line[n++] = g_range_text[k];
+        } else {
+            char addr[16]; uint32_t k = i123_addr_text(i123_cursor_col(&g_sheet), i123_cursor_row(&g_sheet), addr);
+            for (uint32_t j = 0; j < k && n < SCR_COLS; j++) line[n++] = addr[j];
+        }
+        if (n < SCR_COLS) line[n++] = '_';
+        line[n] = 0; panel_line(LINE_PANEL2, line); panel_line(LINE_PANEL3, "");
+    } else if (g_mode == M_REPLACE) {
+        panel_line(LINE_PANEL2, REPLACE_LINE);
         uint32_t x = 0;
-        panel_line(LINE_PANEL2, line);
-        for (int i = 0; i < g_menu_index; i++) x += slen(names[i]) + 2;
-        put_line(LINE_PANEL2, (int)x, names[g_menu_index], slen(names[g_menu_index]), TBX_COLOR_WHITE, TBX_COLOR_NAVY);
-        const char *desc = "Command not implemented";
-        if (g_mode == M_MAIN && g_menu_index == 4) desc = FILE_LINE;
-        if (g_mode == M_MAIN && g_menu_index == 10) desc = "End the 1-2-3 session";
-        if (g_mode == M_FILE && g_menu_index == 0) desc = "Erase the current worksheet from memory and display the selected worksheet";
-        if (g_mode == M_FILE && g_menu_index == 1) desc = "Store the entire worksheet in a worksheet file";
-        if (g_mode == M_REPLACE && g_menu_index == 0) desc = "Cancel command -- Leave existing file on disk intact";
-        if (g_mode == M_REPLACE && g_menu_index == 1) desc = "Update the file on disk with the current file"; /* 123.RI 0xa9d */
-        if (g_mode == M_QUIT) desc = g_menu_index == 0 ? "Do not end 1-2-3 session; return to READY mode"
-                                                       : "End 1-2-3 session (Remember to save your worksheet first)";
-        panel_line(LINE_PANEL3, desc);
+        for (int i = 0; i < g_menu_index; i++) x += slen(REPLACE_NAMES[i])+2;
+        put_line(LINE_PANEL2,(int)x,REPLACE_NAMES[g_menu_index],slen(REPLACE_NAMES[g_menu_index]),TBX_COLOR_WHITE,TBX_COLOR_NAVY);
+        panel_line(LINE_PANEL3,g_menu_index==0?"Cancel command -- Leave existing file on disk intact":
+            g_menu_index==1?"Update the file on disk with the current file":
+            "Backup existing file (with a .BAK extension) and save the current file on disk");
     } else if (g_mode == M_GET || g_mode == M_SAVE) {
         const char *prompt = g_mode == M_GET ? "Name of file to retrieve: " : "Enter name of file to save: ";
         const char *name = g_nlen ? g_name : g_mode == M_SAVE && g_current[0] ? g_current : "A:\\*.wk1";
@@ -531,56 +552,209 @@ static void unsupported(void)
 #endif
 }
 static void request_quit(void);
+static int same(const char *a, const char *b)
+{ while (*a && *a == *b) { a++; b++; } return *a == *b; }
+static int spare(i123_sheet_t *next)
+{
+    int rc = i123_sheet_init(next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS);
+    return rc ? rc : i123_sheet_clone(&g_sheet,next);
+}
+static void changed(i123_sheet_t *next)
+{
+    /* Recalc the candidate bank BEFORE publishing it; failure keeps the old
+     * worksheet. All command mutations use the same unsaved-work guard. */
+    if (i123_after_entry(&g_cx,next)) { notice("Not enough worksheet memory"); return; }
+    g_sheet = *next; g_bank = 1-g_bank; g_dirty = 1; ready(); paint_all();
+}
+static void prompt(int action, const char *text)
+{ g_action=action; g_stage=0; g_prompt=text; g_rlen=0; g_range_text[0]=0; g_mode=M_RANGE; command_paint(); }
+static void range_accept(void)
+{
+    char addr[16]; const char *input=g_range_text; i123_rect_t r;
+    i123_sheet_t next; int rc=I123_OK;
+    if (!g_rlen) { i123_addr_text(i123_cursor_col(&g_sheet),i123_cursor_row(&g_sheet),addr); input=addr; }
+    if ((g_action==A_NAME && g_stage==0) || g_action==A_NAME_DELETE) {
+        if (!g_rlen || g_rlen>15) { notice("Invalid range name"); return; }
+        copy_text(g_named,input);
+        if (g_action==A_NAME) { g_stage=1; g_prompt="Enter range: "; g_rlen=0; command_paint(); return; }
+        rc=spare(&next); if (!rc) rc=i123_name_delete(&next,g_named);
+    } else if (g_action==A_WIDTH || g_action==A_GLOBAL_WIDTH || g_action==A_ITERATION ||
+               (g_action==A_FORMAT && g_stage==0 && g_arg)) {
+        double x;
+        if (!g_rlen || i123_parse_value(input,g_rlen,&x) || x<0 || x>240 || (int)x!=x ||
+            (g_action==A_FORMAT && x>15) || (g_action==A_ITERATION && (x<1||x>50)) ||
+            ((g_action==A_WIDTH||g_action==A_GLOBAL_WIDTH)&&x<1)) { notice("Illegal number"); return; }
+        if (g_action==A_FORMAT) { g_format=(uint8_t)(g_format+(uint8_t)x); if(g_top==0){rc=spare(&next);if(!rc){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;} g_stage=1; g_rlen=0; g_prompt="Enter range to format: "; command_paint(); return; }
+        rc=spare(&next);
+        if (!rc) {
+            if(g_action==A_WIDTH) rc=i123_set_colwidth(&next,i123_cursor_col(&g_sheet),(uint8_t)x);
+            if(g_action==A_GLOBAL_WIDTH) {next.win1[WK1_W1_WIDTH]=(uint8_t)x;next.win1[WK1_W1_WIDTH+1]=0;}
+            if(g_action==A_ITERATION)next.calccount=(uint8_t)x;
+        }
+    } else {
+        if (i123_range_parse(&g_sheet,input,&r)) { notice("Invalid range"); return; }
+        if(g_action==A_GOTO) {i123_set_cursor(&g_sheet,r.c0,r.r0);follow_pointer();ready();paint_all();return;}
+        if(g_action<=A_TRANS && !g_stage) {
+            g_from=r;g_stage=1;g_rlen=0;
+            g_prompt=g_action==A_MOVE?"Enter range to move TO: ":"Enter range to copy TO: ";
+            command_paint();return;
+        }
+        rc=spare(&next);
+        if(!rc && g_action<=A_TRANS) {
+            if(r.c0!=r.c1||r.r0!=r.r1) {notice("Specify the upper left destination cell");return;}
+            rc=i123_transfer(&g_sheet,&next,g_from,r.c0,r.r0,g_action-1);
+        } else if(!rc && g_action==A_NAME)rc=i123_name_set(&next,g_named,r);
+        else if(!rc && g_action==A_NAME_LABELS)rc=i123_name_labels(&next,r,g_dc,g_dr);
+        else if(!rc && g_action==A_NAME_TABLE)rc=i123_name_table(&next,r.c0,r.r0);
+        else if(!rc) {
+            for(uint32_t row=r.r0;!rc&&row<=r.r1;row++)for(uint32_t col=r.c0;!rc&&col<=r.c1;col++) {
+                const i123_cell_t *c=i123_find(&next,(uint16_t)col,(uint16_t)row);
+                uint8_t fmt=c?c->fmt:WK1_FMT_FRESH_CELL;
+                if((g_action==A_ERASE||g_action==A_LABEL)&&next.protec&&(fmt&128)) {rc=I123_E_ARG;break;}
+                /* Manual p. 10-3 (PDF 221): erase data, keep format/protection. */
+                if(g_action==A_ERASE&&c) {
+                    rc=i123_erase(&next,(uint16_t)col,(uint16_t)row);
+                    if(!rc)rc=i123_set_cell_format(&next,(uint16_t)col,(uint16_t)row,fmt);
+                }
+                if(g_action==A_FORMAT)rc=i123_set_cell_format(&next,(uint16_t)col,(uint16_t)row,(fmt&128)|g_format);
+                if(g_action==A_PROT||g_action==A_UNPROT)rc=i123_set_cell_format(&next,(uint16_t)col,(uint16_t)row,
+                    g_action==A_PROT?fmt|128:fmt&127);
+                if(g_action==A_LABEL&&c&&c->kind==I123_K_LABEL)next.pool[c->off]=(uint8_t)g_arg;
+            }
+        }
+    }
+    if(rc) {notice(rc==I123_E_FULL?"Not enough worksheet memory":"Command refused");return;}
+    changed(&next);
+}
+static void menu_mode(void)
+{ g_mode=g_depth==1&&g_top==4?M_FILE:g_depth==1&&g_top==10?M_QUIT:M_MAIN; }
 static void menu_select(void)
 {
-    if (g_mode == M_MAIN && g_menu_index == 4) { g_mode = M_FILE; g_menu_index = 0; }
-    else if (g_mode == M_MAIN && g_menu_index == 10) { g_mode = M_QUIT; g_menu_index = 0; }
-    else if (g_mode == M_QUIT) {
-        /* p. 9-1: No returns to READY; Yes ends the session -- through the
-         * guard, which asks the second question when work is unsaved. */
-        ready();
-        if (g_menu_index == 1) request_quit();
-        return;
+    if(g_mode==M_REPLACE) {
+        if(g_menu_index==0)ready();else if(g_menu_index==1)write_sheet();else unsupported();return;
     }
-    else if (g_mode == M_FILE && g_menu_index <= 1) {
-        g_mode = g_menu_index == 0 ? M_GET : M_SAVE; g_nlen = 0; g_name[0] = 0;
-    } else if (g_mode == M_REPLACE && g_menu_index == 0) { ready(); return; }
-    else if (g_mode == M_REPLACE && g_menu_index == 1) { write_sheet(); return; }
-    else { unsupported(); return; }
-    command_paint();
+    const i123_menu_level_t *lv=&i123_menu_levels[g_level];
+    const i123_menu_item_t *it=&i123_menu_items[lv->first+g_menu_index];
+    const char *nm=i123_menu_string(it->name);
+    if(g_depth==0)g_top=g_menu_index;
+    if(it->child!=65535) {
+        if(g_depth>=12){notice("Menu nesting error");return;}
+        g_levels[g_depth]=g_level;g_indexes[g_depth++]=(uint16_t)g_menu_index;
+        g_level=it->child;g_menu_index=0;menu_mode();command_paint();return;
+    }
+    if(g_top==10) {int yes=g_menu_index==1;ready();if(yes)request_quit();return;}
+    if(g_depth==0 && (g_top==2||g_top==3)) {prompt(g_top==2?A_COPY:A_MOVE,g_top==2?"Enter range to copy FROM: ":"Enter range to move FROM: ");return;}
+    if(g_top==4 && g_depth==1 && g_menu_index<=1) {g_mode=g_menu_index?M_SAVE:M_GET;g_nlen=0;g_name[0]=0;command_paint();return;}
+    if(same(nm,"Quit")) {ready();return;}
+    if(g_top==1) {
+        if(g_depth==1) {
+            if(same(nm,"Erase")) {prompt(A_ERASE,"Enter range to erase: ");return;}
+            if(same(nm,"Prot")||same(nm,"Unprot")) {prompt(same(nm,"Prot")?A_PROT:A_UNPROT,same(nm,"Prot")?"Enter range to protect: ":"Enter range to unprotect: ");return;}
+            if(same(nm,"Value")||same(nm,"Trans")) {prompt(same(nm,"Value")?A_VALUE:A_TRANS,"Enter range to copy FROM: ");return;}
+        }
+        /* /Range Format (including Date and Time); supported formats only. */
+        if(g_depth>=2 && g_indexes[1]==0) {
+            if(g_depth==2) {
+                static const uint8_t f[]={0x00,0x10,0x20,0x40,0x71,0x70,0x30,0,0x75,0x76,0x7f};
+                g_format=f[g_menu_index];g_arg=g_menu_index<4||g_menu_index==6;
+                prompt(A_FORMAT,g_arg?"Enter number of decimal places (0..15): ":"Enter range to format: ");return;
+            }
+            if(g_depth==3&&g_menu_index<3) {g_format=(uint8_t)(0x72+g_menu_index);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
+        }
+        if(g_depth==2&&g_indexes[1]==1) {g_arg=g_menu_index==0?'\'':g_menu_index==1?'"':'^';prompt(A_LABEL,"Enter range of labels: ");return;}
+        if(g_depth==2&&g_indexes[1]==3) {
+            if(g_menu_index==0){prompt(A_NAME,"Enter name: ");return;}
+            if(g_menu_index==1){prompt(A_NAME_DELETE,"Enter name to delete: ");return;}
+            if(g_menu_index==3){i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}i123_name_delete(&next,0);changed(&next);return;}
+            if(g_menu_index==4){prompt(A_NAME_TABLE,"Enter range for table: ");return;}
+        }
+        if(g_depth==3&&g_indexes[1]==3&&g_indexes[2]==2) {
+            g_dc=g_menu_index==0?1:g_menu_index==2?-1:0;g_dr=g_menu_index==1?1:g_menu_index==3?-1:0;
+            prompt(A_NAME_LABELS,"Enter label range: ");return;
+        }
+    }
+    if(g_top==0) {
+        if(g_depth>=3&&g_indexes[1]==0&&g_indexes[2]==0) {
+            if(g_depth==3) {
+                static const uint8_t f[]={0,0x10,0x20,0x40,0x71,0x70,0x30,0,0x75,0x76};
+                g_format=f[g_menu_index];g_arg=g_menu_index<4||g_menu_index==6;
+                if(g_arg){prompt(A_FORMAT,"Enter number of decimal places (0..15): ");return;}
+            } else if(g_depth==4&&g_menu_index<3)g_format=(uint8_t)(0x72+g_menu_index);
+            else {unsupported();return;}
+            i123_sheet_t next;if(!spare(&next)){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;
+        }
+        if(g_depth==3&&g_indexes[1]==0&&g_indexes[2]==1) {
+            i123_sheet_t next;if(!spare(&next)){next.labelfmt=(uint8_t)(g_menu_index==0?'\'':g_menu_index==1?'"':'^');changed(&next);}return;
+        }
+        if(g_depth==2&&g_indexes[1]==4) {
+            if(g_menu_index==0){ready();return;}
+            i123_sheet_t next;if(!i123_sheet_init(&next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS))changed(&next);return;
+        }
+        if(g_depth==2&&g_indexes[1]==3) {
+            if(g_menu_index==0){prompt(A_WIDTH,"Enter column width (1..240): ");return;}
+            if(g_menu_index==1){i123_sheet_t next;if(!spare(&next)){i123_set_colwidth(&next,i123_cursor_col(&g_sheet),0);changed(&next);}return;}
+        }
+        if(g_depth==2&&g_indexes[1]==0&&g_menu_index==2){prompt(A_GLOBAL_WIDTH,"Enter global column width (1..240): ");return;}
+        if(g_depth==3&&g_indexes[1]==0&&g_indexes[2]==3) {
+            if(g_menu_index==5){prompt(A_ITERATION,"Enter iteration count (1..50): ");return;}
+            i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}
+            if(g_menu_index<3)next.calcorder=(uint8_t)(g_menu_index==2?255:g_menu_index);
+            else next.calcmode=(uint8_t)(g_menu_index==3?255:0);
+            changed(&next);return;
+        }
+        if(g_depth==3&&g_indexes[1]==0&&g_indexes[2]==4) {
+            i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}
+            next.protec=(uint8_t)(g_menu_index==0?255:0);changed(&next);return;
+        }
+    }
+    unsupported();
+}
+static void menu_back(void)
+{
+    if(!g_depth) {ready();return;}
+    g_depth--;g_level=g_levels[g_depth];g_menu_index=g_indexes[g_depth];menu_mode();command_paint();
 }
 static void command_key(char ch, uint8_t vk)
 {
-    if (vk == VK_ESC || ch == 0x1b) {
-        if (g_mode == M_FILE) { g_mode = M_MAIN; g_menu_index = 4; }
-        else if (g_mode == M_QUIT) { g_mode = M_MAIN; g_menu_index = 10; }
-        else if (g_mode == M_SAVE && g_quit_after_save) { ready(); return; }  /* the quit is off */
-        else if (g_mode == M_GET || g_mode == M_SAVE) { g_mode = M_FILE; g_menu_index = 0; }
-        else if (g_mode == M_REPLACE) { g_mode = M_SAVE; g_nlen = 0; }
-        else { ready(); return; }
-        command_paint(); return;
+    if(ch==3 || vk==0x46) {ready();return;} /* Ctrl-Break/Ctrl-C */
+    if(vk==VK_ESC||ch==0x1b) {
+        if(g_mode==M_MAIN||g_mode==M_FILE||g_mode==M_QUIT){menu_back();return;}
+        if(g_mode==M_SAVE&&g_quit_after_save){ready();return;}
+        if(g_mode==M_GET||g_mode==M_SAVE||g_mode==M_RANGE){menu_mode();command_paint();return;}
+        if(g_mode==M_REPLACE){g_mode=M_SAVE;g_nlen=0;command_paint();return;}
+        ready();return;
     }
-    if (g_mode == M_NOTICE) return;
-    if (g_mode == M_GET || g_mode == M_SAVE) {
-        if (vk == VK_ENTER || ch == '\r') { if (g_mode == M_GET) retrieve(); else save(); return; }
-        if (vk == VK_BSPC || ch == 8) { if (g_nlen) g_nlen--; }
-        else if (ch >= ' ' && ch <= '~') {
-            if (g_nlen >= sizeof g_name-1) { notice("File name too long"); return; }
-            g_name[g_nlen++] = ch;
+    if(g_mode==M_NOTICE)return;
+    if(g_mode==M_RANGE) {
+        if(vk==VK_ENTER||ch=='\r'){range_accept();return;}
+        if(vk==VK_BSPC||ch==8){if(g_rlen)g_rlen--;}
+        else if(ch>=' '&&ch<='~'&&g_rlen<sizeof g_range_text-1)g_range_text[g_rlen++]=ch;
+        else if(vk==VK_UP||vk==VK_DOWN||vk==VK_LEFT||vk==VK_RIGHT) {
+            int c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);
+            c+=vk==VK_RIGHT?1:vk==VK_LEFT?-1:0;r+=vk==VK_DOWN?1:vk==VK_UP?-1:0;
+            if(c>=0&&c<256&&r>=0&&r<8192){i123_set_cursor(&g_sheet,(uint16_t)c,(uint16_t)r);follow_pointer();paint_all();}
         }
-        g_name[g_nlen] = 0; command_paint(); return;
+        g_range_text[g_rlen]=0;command_paint();return;
     }
-    uint32_t count = g_mode == M_MAIN ? 11 : g_mode == M_FILE ? 9 : g_mode == M_QUIT ? 2 : 3;
-    const char *const *names = g_mode == M_MAIN ? MAIN_NAMES : g_mode == M_FILE ? FILE_NAMES :
-                               g_mode == M_QUIT ? QUIT_NAMES : REPLACE_NAMES;
-    if (vk == VK_ENTER || ch == '\r') { menu_select(); return; }
-    if (vk == VK_LEFT) g_menu_index = (g_menu_index + (int)count - 1) % (int)count;
-    else if (vk == VK_RIGHT || ch == ' ') g_menu_index = (g_menu_index + 1) % (int)count;
-    else if (vk == VK_HOME) g_menu_index = 0;
+    if(g_mode==M_GET||g_mode==M_SAVE) {
+        if(vk==VK_ENTER||ch=='\r'){if(g_mode==M_GET)retrieve();else save();return;}
+        if(vk==VK_BSPC||ch==8){if(g_nlen)g_nlen--;}
+        else if(ch>=' '&&ch<='~') {
+            if(g_nlen>=sizeof g_name-1){notice("File name too long");return;}
+            g_name[g_nlen++]=ch;
+        }
+        g_name[g_nlen]=0;command_paint();return;
+    }
+    uint32_t count=g_mode==M_REPLACE?3:i123_menu_levels[g_level].count;
+    if(vk==VK_ENTER||ch=='\r'){menu_select();return;}
+    if(vk==VK_LEFT||vk==VK_UP)g_menu_index=(g_menu_index+(int)count-1)%(int)count;
+    else if(vk==VK_RIGHT||vk==VK_DOWN||ch==' ')g_menu_index=(g_menu_index+1)%(int)count;
+    else if(vk==VK_HOME)g_menu_index=0;
     else {
-        if (ch >= 'a' && ch <= 'z') ch -= 'a'-'A';
-        for (uint32_t i = 0; i < count; i++) {
-            if (names[i][0] == ch) { g_menu_index = (int)i; menu_select(); return; }
+        if(ch>='a'&&ch<='z')ch-=32;
+        for(uint32_t i=0;i<count;i++) {
+            const char *nm=g_mode==M_REPLACE?REPLACE_NAMES[i]:i123_menu_string(i123_menu_items[i123_menu_levels[g_level].first+i].name);
+            if(nm[0]==ch){g_menu_index=(int)i;menu_select();return;}
         }
     }
     command_paint();
@@ -620,6 +794,8 @@ static int commit(void)
     uint16_t cc = i123_cursor_col(&g_sheet), cr = i123_cursor_row(&g_sheet);
     uint16_t top = i123_view_top(&g_sheet);
     int rc;
+    const i123_cell_t *locked=i123_find(&g_sheet,cc,cr);
+    if(g_sheet.protec&&locked&&(locked->fmt&128)) {notice("Cell is protected");return 1;}
     if (g_mode == M_LABEL) {
         if (g_elen > 0u && is_prefix(g_edit[0]))
             rc = i123_set_label(&g_sheet, cc, cr, (uint8_t)g_edit[0], g_edit + 1, g_elen - 1u);
@@ -702,6 +878,9 @@ static void key(int32_t message)
     uint8_t vk = (uint8_t)((message >> 8) & 0xFF);
     int dc = 0, dr = 0, arrow = 0;
 
+    if (ch==3 || vk==0x46) {ready();return;}
+    if (vk==0x3f && g_mode==M_READY) {prompt(A_GOTO,"Enter cell address: ");return;}
+    if (vk==0x3c && g_mode==M_READY) {i123_cell_content(&g_sheet,i123_find(&g_sheet,i123_cursor_col(&g_sheet),i123_cursor_row(&g_sheet)),g_edit,sizeof g_edit);g_elen=slen(g_edit);g_mode=g_elen&&is_prefix(g_edit[0])?M_LABEL:M_VALUE;command_paint();return;}
     if (g_mode >= M_MAIN) { command_key(ch, vk); return; }
 
     if (ch == 0) {
@@ -735,7 +914,7 @@ static void key(int32_t message)
         return;
     }
     if (g_mode == M_READY) {
-        if (ch == '/' || ch == '<') { g_mode = M_MAIN; g_menu_index = 0; command_paint(); return; }
+        if (ch == '/' || ch == '<') { g_mode = M_MAIN; g_level=0;g_depth=0; g_menu_index = 0; command_paint(); return; }
         if (ch < ' ' || ch > '~') return;
         g_mode = is_value_start(ch) ? M_VALUE : M_LABEL;
         g_edit[0] = ch;
@@ -839,6 +1018,17 @@ int tbx_app_main(void)
         static const uint16_t cw = 0x037Fu;
         __asm__ __volatile__ ("fldcw %0" : : "m"(cw));
     }
+#ifdef I123_MENU_DISK
+    int32_t mh=tbx_file_open("A:\\APPS\\123.MNU",TBX_FILE_READ_ONLY);
+    uint32_t got=0;int32_t mn=0;
+    if(mh>=0) {
+        do {mn=tbx_file_read(mh,g_wk+got,(uint32_t)sizeof g_wk-got);if(mn>0)got+=(uint32_t)mn;}while(mn>0&&got<sizeof g_wk);
+        if(tbx_file_close(mh)<0)mn=-1;
+    }
+    if(mh<0||mn<0||i123_menu_load(g_wk,got)) {(void)tbx_exit(1);return 1;}
+#else
+    i123_menu_init();
+#endif
     (void)tbx_set_mbar(&mbar);
     /* initech-fvnj: the close box ASKS (spec Sec 11) -- the guard decides. */
     g_win = tbx_new_window(WIN_L, WIN_T, WIN_R, WIN_B, (int32_t)TBX_GOAWAY_ASK);

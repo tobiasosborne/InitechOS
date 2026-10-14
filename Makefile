@@ -9961,15 +9961,20 @@ TENANT_PROBE  := 0x01010140
 TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
                  -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-common \
                  -Ispec -Ios/apps/tbx
+# P3: I123-only resource, size optimization and 4-byte cdecl stack alignment.
+# The Toolbox trap uses dword cdecl arguments (spec/toolbox_gate.h Sec 2).
+# Other tenants and the kernel retain their existing compile/link policy.
+I123_LINK0 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=0
+I123_LINK1 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=$(TENANT_PROBE)
 define tenant-exe-rules
 $(BUILD)/tenant/$(1).o0.elf: $(2) $(TBX_RT_SRC) $(TBX_HDRS) $(TENANT_LD) $(4) | $(BUILD)
 	@mkdir -p $(BUILD)/tenant/$(1)
 	@set -e; objs=; for s in $(2) $(TBX_RT_SRC); do \
 		o=$(BUILD)/tenant/$(1)/$$$$(basename $$$$s .c).o; \
-		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
+		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) $(if $(filter os/i123/app/face_a.c,$(2)),-DI123_MENU_DISK -flto -ffunction-sections -fdata-sections -Oz -fno-jump-tables -fno-inline -fno-ipa-cp-clone -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2,) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
 	done; \
-	$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=0 -o $$@ $$$$objs; \
-	$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
+	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK0),$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=0) -o $$@ $$$$objs; \
+	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK1),$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE)) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
 $(BUILD)/tenant/$(1).exe: $(BUILD)/tenant/$(1).o0.elf $(MZLINK_BIN) | $(BUILD)
 	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o0.elf $(BUILD)/tenant/$(1).o0.bin
 	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o1.elf $(BUILD)/tenant/$(1).o1.bin
@@ -9993,8 +9998,8 @@ CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 # (-DI123_MUT_ARROWS_DEAD: the pointer never moves), shipped on its own
 # gate-local volume under the same name.
 I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
-                os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c
-I123_APP_DEP := os/i123/core/i123.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
+                os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c os/i123/core/menu.c
+I123_APP_DEP := os/i123/core/i123.h os/i123/core/menu.h os/i123/core/menu_data.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
 $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP)))
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
 I123_EXE := $(BUILD)/tenant/i123.exe
@@ -10012,7 +10017,7 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # that reaches it): CTENANT.EXE (cell 1; bead initech-w96l) and 123.EXE
 # (cell 2; Initech 123, beads initech-9u8w / initech-w96l).
 define flair-data-rules
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(BUILD)/i123-menu.mnu | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10025,6 +10030,7 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) | $(BUILD)
 		$(CTENANT_EXE) ::APPS/CTENANT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(3) ::APPS/123.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
 	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s)\n" "$$@" "$(2)" "$(3)"
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE)))
@@ -13479,8 +13485,8 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 # for its named reason.
 # ---------------------------------------------------------------------------
 I123_CORE_SRC     := os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
-                     os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c
-I123_CORE_HDR     := os/i123/core/i123.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
+                     os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c os/i123/core/menu.c
+I123_CORE_HDR     := os/i123/core/i123.h os/i123/core/menu.h os/i123/core/menu_data.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
 I123_CORE_INC     := -Ios/i123/core -Ispec
 I123_WK1_DIR      := harness/diff/wk1_diff
 I123_WK1_CANON    := $(I123_WK1_DIR)/wk1_canon.py
@@ -22029,6 +22035,11 @@ RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
 # -- @sum, -c1*2, A1 retyped (the sheet recalculates), then a circular @sum
 # lights CIRC. Replays the LOCKED FLAIR_I123_FORMULA_SPEC; its marker is the
 # CIRC indicator drawn on the status line.
+RECORD_SCRIPTS += i123_menu
+RECORD_SPEC_i123_menu = $(FLAIR_I123_MENU_OPS)
+RECORD_MARKER_i123_menu = TENANT-GATE ax=0x0033 win=1 x=1 y=32 s="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset    " fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_menu = 400
+RECORD_IMAGE_i123_menu = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SCRIPTS += i123_formula
 RECORD_SPEC_i123_formula = $(FLAIR_I123_FORMULA_SPEC)
 RECORD_MARKER_i123_formula = TENANT-GATE ax=0x0033 win=1 x=585 y=368 s="CIRC" fg=0 bg=3 -> 0
@@ -28900,7 +28911,30 @@ test-flair-i123-formula-mutant: test-flair-i123-formula $(HARNESS_BIN) $(FLAIR_I
 	@printf '>>> test-flair-i123-formula-mutant: NO_RECALC correctly RED -- A1 retyped 200 left row 1 at "%s"\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_formula_mut.serial | grep '     200 ' | head -1 | cut -c45-80)"
 	@printf '>>> test-flair-i123-formula-mutant: green\n'
 
-# initech-uqah: range/reference model; command-minted evidence is mandatory.
+# initech-uqah: independent menu inventory vs installed R2.2 123.RI.
+I123_RI = $(LOTUS123_DECOMP)/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI
+$(BUILD)/test_i123_menu_tree: harness/diff/wk1_diff/test_i123_menu_tree.c os/i123/core/menu.c os/i123/core/menu.h os/i123/core/menu_data.h | $(BUILD)
+	$(CC) $(CFLAGS) -DI123_MENU_HOST -Ios/i123/core -o $@ $< os/i123/core/menu.c
+$(BUILD)/test_i123_menu_tree_mutant: harness/diff/wk1_diff/test_i123_menu_tree.c os/i123/core/menu.c os/i123/core/menu.h os/i123/core/menu_data.h | $(BUILD)
+	$(CC) $(CFLAGS) -DI123_MENU_HOST -DI123_MUT_MENU_SPELLING -Ios/i123/core -o $@ $< os/i123/core/menu.c
+.PHONY: test-i123-menu-tree test-i123-menu-tree-mutant
+test-i123-menu-tree: $(BUILD)/test_i123_menu_tree $(BUILD)/i123-menu.mnu
+	@$< $(I123_RI) spec/i123/menu_ri_offsets.tsv > $(BUILD)/i123-menu-ri.txt
+	diff -u spec/i123/menu_tree.golden $(BUILD)/i123-menu-ri.txt
+	@$< > $(BUILD)/i123-menu-app.txt
+	diff -u $(BUILD)/i123-menu-ri.txt $(BUILD)/i123-menu-app.txt
+	@$(BUILD)/test_i123_menu_tree --load $(BUILD)/i123-menu.mnu > $(BUILD)/i123-menu-loaded.txt
+	diff -u $(BUILD)/i123-menu-ri.txt $(BUILD)/i123-menu-loaded.txt
+	@printf '>>> test-i123-menu-tree: green (82 levels, 381 items; independent 123.RI bytes and child links)\n'
+test-i123-menu-tree-mutant: test-i123-menu-tree $(BUILD)/test_i123_menu_tree_mutant
+	@$(BUILD)/test_i123_menu_tree_mutant > $(BUILD)/i123-menu-mutant.txt || test $$? = 1
+	@if cmp -s $(BUILD)/i123-menu-ri.txt $(BUILD)/i123-menu-mutant.txt; then printf '!!! menu spelling mutant PASSED\n'; exit 1; fi
+	@grep -q '^/.*Vorksheet' $(BUILD)/i123-menu-mutant.txt
+	@$(BUILD)/test_i123_menu_tree --resource-mutant > $(BUILD)/i123-menu-bad.mnu
+	@if $(BUILD)/test_i123_menu_tree --load $(BUILD)/i123-menu-bad.mnu > $(BUILD)/i123-menu-bad.log 2>&1; then printf '!!! corrupt menu resource PASSED\n'; exit 1; fi
+	@grep -qx 'menu resource refused' $(BUILD)/i123-menu-bad.log
+	@printf '>>> test-i123-menu-tree-mutant: green (Worksheet misspelled Vorksheet correctly RED)\n'
+
 I123_MOVE_DEPS := harness/diff/wk1_diff/test_i123_copy_move.c $(I123_CORE_SRC) $(I123_CORE_HDR)
 $(BUILD)/test_i123_copy_move: $(I123_MOVE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
@@ -28924,6 +28958,51 @@ test-i123-copy-move-mutant: test-i123-copy-move-model $(BUILD)/test_i123_copy_mo
 $(BUILD)/i123-menu.mnu: $(BUILD)/test_i123_menu_tree
 	@$< --resource > $@
 
+TEST_UNIT_GATES += test-i123-menu-tree test-i123-menu-tree-mutant test-i123-copy-move-model test-i123-copy-move test-i123-copy-move-mutant
+
+$(BUILD)/test_i123_range_menu: harness/proptest/test_i123_range_menu.c $(I123_QUIT_DEPS)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-range-menu
+test-i123-range-menu: $(BUILD)/test_i123_range_menu
+	@mkdir -p $(BUILD)/i123-range-menu-fs
+	@$< $(BUILD)/i123-range-menu-fs
+	@printf '>>> test-i123-range-menu: green (Copy, Move, names, formats, protection, Value, Trans, Esc/Break)\n'
+TEST_UNIT_GATES += test-i123-range-menu
+
+include spec/flair_i123_menu_traces.mk
+I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80  $(I123_E)
+I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=123' $(1) && \
+	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_MENU_ROW)" fg=1 bg=0 -> 0' $(1) && \
+	grep -qF 's="Enter range to copy FROM:' $(1) && grep -qF 's="Enter range to move FROM:' $(1) && \
+	grep -qF 's="Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Searc' $(1) && \
+	grep -qF 's="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset' $(1) && \
+	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=585 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
+$(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
+$(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe))
+.PHONY: test-flair-i123-menu test-flair-i123-menu-mutant
+test-flair-i123-menu: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_menu_ops,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_OPS,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call I123_MENU_OPS_OK,$(BUILD)/flair_i123_menu_ops.serial) || { printf '!!! test-flair-i123-menu FAIL: copy/move row, menu text or MENU\n'; exit 1; }
+	$(PPM_TEXT_CHECK_BIN) --i123-menu $(BUILD)/flair_i123_menu_ops.ppm
+	$(call appl-boot,flair_i123_menu_tree,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_TREE,)
+	@f=$(BUILD)/flair_i123_menu_tree.serial; $(call APPL_ALIVE,$$f) && \
+	 grep -qF 's="Natural  Columnwise  Rowwise  Automatic  Manual  Iteration' $$f && \
+	 grep -qF 's="Exponential format (x.xxE+xx)' $$f && \
+	 grep -qF 's="Left  Right  Center' $$f && grep -qF 's="Create  Delete  Labels  Reset  Table' $$f && \
+	 grep -qF 's="Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin' $$f && \
+	 grep -qF 's="Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit' $$f && \
+	 grep -qF 's="Line  Bar  XY  Stack-Bar  Pie' $$f && \
+	 grep -qF 's="Data-Range  Primary-Key  Secondary-Key  Reset  Go  Quit' $$f && \
+	 grep -qF 's="Attach  Detach  Invoke  Clear  Quit' $$f && grep -qF 's="No  Yes' $$f && \
+	 grep -qF 's="Command not implemented' $$f || { printf '!!! test-flair-i123-menu FAIL: tree navigation\n'; exit 1; }
+	@printf '>>> test-flair-i123-menu: green (tree, RI descriptions, Copy/Move row and MENU pixel bands)\n'
+test-flair-i123-menu-mutant: test-flair-i123-menu $(BUILD)/flair_i123_menu_stale.img
+	$(call appl-boot,flair_i123_menu_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_menu_stale.img,FLAIR_I123_MENU_OPS,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_menu_mut.serial
+	@if $(call I123_MENU_OPS_OK,$(BUILD)/flair_i123_menu_mut.serial); then printf '!!! Move stale mutant PASSED\n'; exit 1; fi
+	@grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_menu_mut.serial | tail -1 | grep -q '     -80      160        0 '
+	@printf '>>> test-flair-i123-menu-mutant: green (Move left H1 stale: 0 instead of 80, correctly RED)\n'
+TEST_EMU_GATES += test-flair-i123-menu test-flair-i123-menu-mutant
 
 $(BUILD)/test_i123_transfer_baseline: harness/diff/wk1_diff/test_i123_transfer_baseline.c $(I123_CORE_SRC) $(I123_CORE_HDR)
 	$(CC) $(CFLAGS) $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
@@ -28933,5 +29012,3 @@ test-i123-copy-move-baseline: $(BUILD)/test_i123_transfer_baseline $(I123_FORMUL
 	@printf '>>> test-i123-copy-move-baseline: green (12 real-sheet self-transfers, independent FORMULA bodies)\n'
 test-i123-copy-move: test-i123-copy-move-baseline
 TEST_UNIT_GATES += test-i123-copy-move-baseline
-
-TEST_UNIT_GATES += test-i123-copy-move-model test-i123-copy-move test-i123-copy-move-mutant

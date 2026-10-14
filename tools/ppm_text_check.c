@@ -110,6 +110,8 @@ static int is_color(const unsigned char *p, int r, int g, int b)
 
 int main(int argc, char **argv)
 {
+    int i123_menu = argc == 3 && strcmp(argv[1], "--i123-menu") == 0;
+    if (i123_menu) { argc = 2; argv++; }
     /* argv[1] = the PPM. OPTIONAL (backward-compatible): argv[2..4] =
      * band_y0 band_y1 min_fg -- additionally assert that the horizontal band
      * y in [band_y0, band_y1) contains >= min_fg foreground pixels. test-boot
@@ -196,6 +198,31 @@ int main(int argc, char **argv)
                 got, npix);
         free(buf);
         return 2;
+    }
+
+    if (i123_menu) {
+        /* Independent fixed geometry: Face A content (1,62), 8x16 cells.
+         * Assert ink on both menu lines and row 1, and the MENU highlight.
+         * Serial text checks supply the RI byte oracle; these bands prove
+         * the same screen was presented. Existing console grading unchanged. */
+        if (w != 640 || h != 480) { free(buf); return 1; }
+        long ink[3] = {0,0,0}, navy = 0, white = 0;
+        const int ys[3] = {78,94,126};
+        for (int band = 0; band < 3; band++)
+            for (int y = ys[band]; y < ys[band]+16; y++)
+                for (int x = band == 2 ? 34 : 2; x < 618; x++) {
+                    unsigned char *p = buf+3*(y*w+x);
+                    if (p[0]<8 && p[1]<8 && p[2]<8) ink[band]++;
+                }
+        for (int y = 62; y < 78; y++) for (int x = 586; x < 618; x++) {
+            unsigned char *p = buf+3*(y*w+x);
+            if (p[0]<8 && p[1]<8 && p[2]>=100 && p[2]<=136) navy++;
+            if (p[0]>247 && p[1]>247 && p[2]>247) white++;
+        }
+        int ok = ink[0]>=200 && ink[1]>=200 && ink[2]>=60 && navy>=200 && white>=30;
+        printf("ppm_text_check: i123-menu bands=%ld/%ld/%ld MENU=%ld navy/%ld white: %s\n",
+               ink[0],ink[1],ink[2],navy,white,ok?"green":"RED");
+        free(buf);return ok?0:1;
     }
 
     /* The banner band must fit on screen (defensive; the LFB is 640x480). */

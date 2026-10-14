@@ -1,0 +1,381 @@
+/	Worksheet	Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn
+/	Range	Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Search
+/	Copy	Copy a cell or range of cells
+/	Move	Move a cell or range of cells
+/	File	Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin
+/	Print	Print a range on a printer or to a print file
+/	Graph	Type  X  A  B  C  D  E  F  Reset  View  Save  Options  Name  Group  Quit
+/	Data	Fill  Table  Sort  Query  Distribution  Matrix  Regression  Parse
+/	System	Leave 1-2-3 temporarily and use operating system
+/	Add-In	Attach, Detach, Invoke or Clear 1-2-3 add-in programs
+/	Quit	End the 1-2-3 session
+/Worksheet	Global	Format  Label-Prefix  Column-Width  Recalculation  Protection  Default  Zero
+/Worksheet	Insert	Insert blank column(s) or row(s)
+/Worksheet	Delete	Delete entire column(s) or row(s)
+/Worksheet	Column	Set-Width  Reset-Width  Hide  Display  Column-Range
+/Worksheet	Erase	Erase the entire worksheet from memory
+/Worksheet	Titles	Set horizontal or vertical titles
+/Worksheet	Window	Set split screen and synchronized scrolling
+/Worksheet	Status	Display worksheet settings
+/Worksheet	Page	Insert a row containing a page-break symbol above the cell pointer
+/Worksheet	Learn	Record keystrokes in the worksheet
+/Worksheet/Global	Format	Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden
+/Worksheet/Global	Label-Prefix	Set global label alignment
+/Worksheet/Global	Column-Width	Set global column width
+/Worksheet/Global	Recalculation	Natural  Columnwise  Rowwise  Automatic  Manual  Iteration
+/Worksheet/Global	Protection	Turn worksheet protection on or off
+/Worksheet/Global	Default	Printer  Directory  Status  Update  Other  Autoexec  Quit
+/Worksheet/Global	Zero	Change the way cells with a value of zero appear on the screen
+/Worksheet/Global/Format	Fixed	Fixed number of decimal places (x.xx)
+/Worksheet/Global/Format	Sci	Exponential format (x.xxE+xx)
+/Worksheet/Global/Format	Currency	Currency format ($x,xxx.xx)
+/Worksheet/Global/Format	,	Comma format (x,xxx.xx)
+/Worksheet/Global/Format	General	Standard format (x.xx or x.xxExx)
+/Worksheet/Global/Format	+/-	Horizontal bar graph format (+++ or ---)
+/Worksheet/Global/Format	Percent	Percent format (x.xx%)
+/Worksheet/Global/Format	Date	Date and time formats
+/Worksheet/Global/Format	Text	Display formula instead of value
+/Worksheet/Global/Format	Hidden	Do not display cell contents
+/Worksheet/Global/Label-Prefix	Left	Left-align labels in cells
+/Worksheet/Global/Label-Prefix	Right	Right-align labels in cells
+/Worksheet/Global/Label-Prefix	Center	Center labels in cells
+/Worksheet/Global/Recalculation	Natural	Recalculate in natural order
+/Worksheet/Global/Recalculation	Columnwise	Recalculate column by column
+/Worksheet/Global/Recalculation	Rowwise	Recalculate row by row
+/Worksheet/Global/Recalculation	Automatic	Recalculate every time entries change
+/Worksheet/Global/Recalculation	Manual	Press CALC (F9) to recalculate formulas
+/Worksheet/Global/Recalculation	Iteration	Specify number of recalculation passes
+/Worksheet/Global/Protection	Enable	Turn worksheet protection on
+/Worksheet/Global/Protection	Disable	Turn worksheet protection off
+/Worksheet/Insert	Column	Insert one or more blank columns to the left of the cell pointer
+/Worksheet/Insert	Row	Insert one or more blank rows above the cell pointer
+/Worksheet/Delete	Column	Delete one or more columns
+/Worksheet/Delete	Row	Delete one or more rows
+/Worksheet/Column	Set-Width	Specify width for current column
+/Worksheet/Column	Reset-Width	Return current column to global column width
+/Worksheet/Column	Hide	Hide a range of columns
+/Worksheet/Column	Display	Display a range of hidden columns
+/Worksheet/Column	Column-Range	Change the width of a range of columns
+/Worksheet/Column/Column-Range	Set-Width	Specify the width of a range of columns
+/Worksheet/Column/Column-Range	Reset-Width	Return a range of columns to global column width
+/Worksheet/Erase	No	Do not erase the worksheet; return to READY mode
+/Worksheet/Erase	Yes	Erase the entire worksheet from memory
+/Worksheet/Titles	Both	Freeze all rows and columns above and to the left of the cell pointer
+/Worksheet/Titles	Horizontal	Freeze all rows above the cell pointer
+/Worksheet/Titles	Vertical	Freeze all columns to the left of the cell pointer
+/Worksheet/Titles	Clear	Unfreeze all title columns and rows
+/Worksheet/Window	Horizontal	Split the screen horizontally at the current row
+/Worksheet/Window	Vertical	Split the screen vertically at the current column
+/Worksheet/Window	Sync	Synchronize scrolling in windows
+/Worksheet/Window	Unsync	Scroll windows independently
+/Worksheet/Window	Clear	Return to full-screen display
+/Worksheet/Learn	Range	Specify a learn range in which to store keystrokes
+/Worksheet/Learn	Cancel	Cancel the currently specified learn range
+/Worksheet/Learn	Erase	Erase the contents of the learn range
+/Worksheet/Global/Default	Printer	Specify printer interface and default settings
+/Worksheet/Global/Default	Directory	Specify default directory
+/Worksheet/Global/Default	Status	Display all default settings
+/Worksheet/Global/Default	Update	Save new default settings in configuration file
+/Worksheet/Global/Default	Other	International  Help  Clock  Undo  Beep  Add-In
+/Worksheet/Global/Default	Autoexec	Run autoexecute macros when files are retrieved
+/Worksheet/Global/Default	Quit	Return to READY mode
+/Worksheet/Global/Default/Printer	Interface	Specify printer interface
+/Worksheet/Global/Default/Printer	AutoLF	Automatic linefeed at end of line
+/Worksheet/Global/Default/Printer	Left	Set default left margin
+/Worksheet/Global/Default/Printer	Right	Set default right margin
+/Worksheet/Global/Default/Printer	Top	Set default top margin
+/Worksheet/Global/Default/Printer	Bot	Set default bottom margin
+/Worksheet/Global/Default/Printer	Pg-Length	Set default number of lines per page
+/Worksheet/Global/Default/Printer	Wait	Wait for paper change at end of each page
+/Worksheet/Global/Default/Printer	Setup	Specify default setup string
+/Worksheet/Global/Default/Printer	Name	Change current printer device
+/Worksheet/Global/Default/Printer	Quit	Return to previous menu
+/Worksheet/Global/Default/Other	International	Punctuation  Currency  Date  Time  Negative  Quit
+/Worksheet/Global/Default/Other	Help	Select Help access method
+/Worksheet/Global/Default/Other	Clock	Standard  International  None  Clock  Filename
+/Worksheet/Global/Default/Other	Undo	Turn undo feature on or off
+/Worksheet/Global/Default/Other	Beep	Determine if computer bell will sound when error occurs
+/Worksheet/Global/Default/Other	Add-In	Specify add-ins to be loaded automatically whenever you start 1-2-3
+/Worksheet/Global/Default/Other/International	Punctuation	Specify numeric punctuation
+/Worksheet/Global/Default/Other/International	Currency	Specify currency sign
+/Worksheet/Global/Default/Other/International	Date	Specify date formats D4 and D5
+/Worksheet/Global/Default/Other/International	Time	Specify time formats D8 and D9
+/Worksheet/Global/Default/Other/International	Negative	Specify display of negative numbers in , (Comma) and Currency formats
+/Worksheet/Global/Default/Other/International	Quit	Return to /Worksheet Global Default menu
+/Worksheet/Global/Default/Other/International/Punctuation	A (.,,)	Decimal: Period   Argument separator: Comma       Thousands separator: Comma
+/Worksheet/Global/Default/Other/International/Punctuation	B (,..)	Decimal: Comma    Argument separator: Period      Thousands separator: Period
+/Worksheet/Global/Default/Other/International/Punctuation	C (.;,)	Decimal: Period   Argument separator: Semicolon   Thousands separator: Comma
+/Worksheet/Global/Default/Other/International/Punctuation	D (,;.)	Decimal: Comma    Argument separator: Semicolon   Thousands separator: Period
+/Worksheet/Global/Default/Other/International/Punctuation	E (., )	Decimal: Period   Argument separator: Comma       Thousands separator: Space
+/Worksheet/Global/Default/Other/International/Punctuation	F (,. )	Decimal: Comma    Argument separator: Period      Thousands separator: Space
+/Worksheet/Global/Default/Other/International/Punctuation	G (.; )	Decimal: Period   Argument separator: Semicolon   Thousands separator: Space
+/Worksheet/Global/Default/Other/International/Punctuation	H (,; )	Decimal: Comma    Argument separator: Semicolon   Thousands separator: Space
+/Worksheet/Global/Default/Other/International/Currency	Prefix	Currency sign precedes value
+/Worksheet/Global/Default/Other/International/Currency	Suffix	Currency sign follows value
+/Worksheet/Global/Default/Other/International/Date	A (MM/DD/YY)	Format D4 will be MM/DD/YY     Format D5 will be MM/DD
+/Worksheet/Global/Default/Other/International/Date	B (DD/MM/YY)	Format D4 will be DD/MM/YY     Format D5 will be DD/MM
+/Worksheet/Global/Default/Other/International/Date	C (DD.MM.YY)	Format D4 will be DD.MM.YY     Format D5 will be DD.MM
+/Worksheet/Global/Default/Other/International/Date	D (YY-MM-DD)	Format D4 will be YY-MM-DD     Format D5 will be MM-DD
+/Worksheet/Global/Default/Other/International/Time	A (HH:MM:SS)	Format D8 will be HH:MM:SS     Format D9 will be HH:MM
+/Worksheet/Global/Default/Other/International/Time	B (HH.MM.SS)	Format D8 will be HH.MM.SS     Format D9 will be HH.MM
+/Worksheet/Global/Default/Other/International/Time	C (HH,MM,SS)	Format D8 will be HH,MM,SS     Format D9 will be HH,MM
+/Worksheet/Global/Default/Other/International/Time	D (HHhMMmSSs)	Format D8 will be HHhMMmSSs    Format D9 will be HHhMMm
+/Worksheet/Global/Default/Other/International/Negative	Parentheses	Display parentheses around negative numbers
+/Worksheet/Global/Default/Other/International/Negative	Sign	Display minus sign in front of negative numbers
+/Worksheet/Global/Default/Other/Help	Instant	Instant access; do not remove Help Disk
+/Worksheet/Global/Default/Other/Help	Removable	Help Disk can be removed when Help is not in use
+/Worksheet/Global/Default/Other/Clock	Standard	Use Lotus standard date and time: DD-MMM-YY  HH:MM AM/PM
+/Worksheet/Global/Default/Other/Clock	International	Use current International settings for date (D4) and time (D9)
+/Worksheet/Global/Default/Other/Clock	None	Hide date-and-time indicator
+/Worksheet/Global/Default/Other/Clock	Clock	Display the date-and-time indicator
+/Worksheet/Global/Default/Other/Clock	Filename	Display current file name instead of date-and-time indicator
+/Worksheet/Global/Default/Other/Undo	Enable	Turn undo on
+/Worksheet/Global/Default/Other/Undo	Disable	Turn undo off
+/Worksheet/Global/Default/Other/Beep	Enable	Computer bell will sound when an error occurs
+/Worksheet/Global/Default/Other/Beep	Disable	Computer bell will not sound when an error occurs
+/Worksheet/Global/Default/Other/Add-In	Set	Specify an add-in to be attached automatically, and attach it
+/Worksheet/Global/Default/Other/Add-In	Cancel	Cancel setting for an auto-attach add-in, and detach it
+/Worksheet/Global/Default/Autoexec	Enable	Run autoexecute macro when file is retrieved
+/Worksheet/Global/Default/Autoexec	Disable	Do not run autoexecute macro when file is retrieved
+/Worksheet/Global/Default/Printer/AutoLF	Yes	Printer automatically issues a line feed after a carriage return
+/Worksheet/Global/Default/Printer/AutoLF	No	Printer does not automatically issue a line feed after a carriage return
+/Worksheet/Global/Default/Printer/Wait	No	Do not wait at the end of a page for paper change
+/Worksheet/Global/Default/Printer/Wait	Yes	Wait at the end of a page for paper change
+/Range	Format	Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset
+/Range	Label	Select alignment for a label or range of labels
+/Range	Erase	Erase a cell or range of cells
+/Range	Name	Create  Delete  Labels  Reset  Table
+/Range	Justify	Adjust a column of labels to a specified width
+/Range	Prot	Prevent changes to a range if global protection is on
+/Range	Unprot	Allow change to a range when global protection is on
+/Range	Input	Restrict data entry to unprotected cells
+/Range	Value	Copy a range, converting formulas to values
+/Range	Trans	Copy a range, switching columns and rows
+/Range	Search	Find or replace a specified string in a range
+/Range/Format	Fixed	Fixed number of decimal places (x.xx)
+/Range/Format	Sci	Exponential format (x.xxE+xx)
+/Range/Format	Currency	Currency format ($x,xxx.xx)
+/Range/Format	,	Comma format (x,xxx.xx)
+/Range/Format	General	Standard format (x.xx or x.xxExx)
+/Range/Format	+/-	Horizontal bar graph format (+++ or ---)
+/Range/Format	Percent	Percent format (x.xx%)
+/Range/Format	Date	Date and time formats
+/Range/Format	Text	Display formula instead of value
+/Range/Format	Hidden	Do not display cell contents
+/Range/Format	Reset	Return specified cells to global cell format
+/Range/Format/Date	1 (DD-MMM-YY)	Lotus standard long form
+/Range/Format/Date	2 (DD-MMM)	Lotus standard short form
+/Range/Format/Date	3 (MMM-YY)	
+/Range/Format/Date	4 (Long Intn'l)	Currently configured: MM/DD/YY
+/Range/Format/Date	5 (Short Intn'l)	Currently configured: MM/DD
+/Range/Format/Date	Time	Time formats
+/Range/Format/Date/Time	1 (HH:MM:SS AM/PM)	
+/Range/Format/Date/Time	2 (HH:MM AM/PM)	
+/Range/Format/Date/Time	3 (Long Intn'l)	Currently configured: HH:MM:SS (24 hour)
+/Range/Format/Date/Time	4 (Short Intn'l)	Currently configured: HH:MM (24 hour)
+/Worksheet/Global/Format/Date	1 (DD-MMM-YY)	Lotus standard long form
+/Worksheet/Global/Format/Date	2 (DD-MMM)	Lotus standard short form
+/Worksheet/Global/Format/Date	3 (MMM-YY)	
+/Worksheet/Global/Format/Date	4 (Long Intn'l)	Currently configured: MM/DD/YY
+/Worksheet/Global/Format/Date	5 (Short Intn'l)	Currently configured: MM/DD
+/Worksheet/Global/Format/Date	Time	Time formats
+/Worksheet/Global/Format/Date/Time	1 (HH:MM:SS AM/PM)	
+/Worksheet/Global/Format/Date/Time	2 (HH:MM AM/PM)	
+/Worksheet/Global/Format/Date/Time	3 (Long Intn'l)	Currently configured: HH:MM:SS (24 hour)
+/Worksheet/Global/Format/Date/Time	4 (Short Intn'l)	Currently configured: HH:MM (24 hour)
+/Range/Label	Left	Left-align labels in cells
+/Range/Label	Right	Right-align labels in cells
+/Range/Label	Center	Center labels in cells
+/Range/Name	Create	Create or modify a range name
+/Range/Name	Delete	Delete a range name
+/Range/Name	Labels	Create range names from a range of labels
+/Range/Name	Reset	Delete all range names
+/Range/Name	Table	Create a table of range names
+/Range/Name/Labels	Right	Each label in range names cell to its right
+/Range/Name/Labels	Down	Each label in range names cell below it
+/Range/Name/Labels	Left	Each label in range names cell to its left
+/Range/Name/Labels	Up	Each label in range names cell above it
+/Range/Search	Formulas	Search for string in formulas only
+/Range/Search	Label	Search for string in labels only
+/Range/Search	Both	Search for string in formulas and labels
+/Range/Search/Find	Find	Highlight search string in the search range
+/Range/Search/Find	Replace	Replace each occurrence of search string with specified text
+/File	Retrieve	Erase the current worksheet from memory and display the selected worksheet
+/File	Save	Store the entire worksheet in a worksheet file
+/File	Combine	Incorporate all or part of a worksheet file into the current worksheet
+/File	Xtract	Save a specified range in a worksheet file
+/File	Erase	Erase a file from disk
+/File	List	Display the names of files in the current directory
+/File	Import	Read text or numbers from a text file into the worksheet
+/File	Directory	Display and/or change the current directory
+/File	Admin	Reservation  Table  Link-Refresh
+/File/Combine	Copy	Copy data from a file on disk to the worksheet
+/File/Combine	Add	Add values from a file on disk to values in the worksheet
+/File/Combine	Subtract	Subtract values from a file on disk from values in the worksheet
+/File/Combine/Copy	Entire-File	Incorporate entire file into worksheet
+/File/Combine/Copy	Named/Specified-Range	Incorporate a range from a file into the worksheet
+/File/Combine/Add	Entire-File	Incorporate entire file into worksheet
+/File/Combine/Add	Named/Specified-Range	Incorporate a range from a file into the worksheet
+/File/Combine/Subtract	Entire-File	Incorporate entire file into worksheet
+/File/Combine/Subtract	Named/Specified-Range	Incorporate a range from a file into the worksheet
+/File/Xtract	Formulas	Save data including formulas
+/File/Xtract	Values	Save current values and labels
+/File/Erase	Worksheet	Erase a worksheet file
+/File/Erase	Print	Erase a print file
+/File/Erase	Graph	Erase a graph file
+/File/Erase	Other	Erase any file
+/File/List	Worksheet	List worksheet files
+/File/List	Print	List print files
+/File/List	Graph	List graph files
+/File/List	Other	List all files
+/File/List	Linked	List all files linked to worksheet
+/File/Import	Text	Import each line of data as a single label
+/File/Import	Numbers	Import numbers and quoted text into separate columns
+/File/Admin	Reservation	Get or release the current file's reservation
+/File/Admin	Table	Enter a table of file information in the worksheet
+/File/Admin	Link-Refresh	Update linked cells
+/File/Admin/Reservation	Get	Secure a reservation for saving the file
+/File/Admin/Reservation	Release	Release a reservation for saving the file
+/Print	Printer	Send print output directly to a printer
+/Print	File	Send print output to a text file
+/Print/Printer	Range	Specify a range to print
+/Print/Printer	Line	Advance paper one line
+/Print/Printer	Page	Advance paper to top of next page
+/Print/Printer	Options	Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit
+/Print/Printer	Clear	All  Range  Borders  Format
+/Print/Printer	Align	Reset to top of page (after adjusting paper)
+/Print/Printer	Go	Print the specified range
+/Print/Printer	Quit	Return to READY mode
+/Print/Printer/Options	Header	Create a header
+/Print/Printer/Options	Footer	Create a footer
+/Print/Printer/Options	Margins	Left  Right  Top  Bottom  None
+/Print/Printer/Options	Borders	Print border columns and/or rows
+/Print/Printer/Options	Setup	Enter printer setup string
+/Print/Printer/Options	Pg-Length	Specify number of lines per page
+/Print/Printer/Options	Other	As-Displayed  Cell-Formulas  Formatted  Unformatted
+/Print/Printer/Options	Quit	Return to previous menu
+/Print/Printer/Options/Margins	Left	Set left margin
+/Print/Printer/Options/Margins	Right	Set right margin
+/Print/Printer/Options/Margins	Top	Set top margin
+/Print/Printer/Options/Margins	Bottom	Set bottom margin
+/Print/Printer/Options/Margins	None	Clear all margin settings
+/Print/Printer/Options/Borders	Columns	Print border columns to the left of each print range
+/Print/Printer/Options/Borders	Rows	Print border rows above each print range
+/Print/Printer/Options/Other	As-Displayed	Print range as displayed
+/Print/Printer/Options/Other	Cell-Formulas	List entries, one per line
+/Print/Printer/Options/Other	Formatted	Print headers, footers, and page breaks
+/Print/Printer/Options/Other	Unformatted	Do not print headers, footers, and page breaks
+/Print/Printer/Clear	All	Return all print settings to defaults
+/Print/Printer/Clear	Range	Clear current print range
+/Print/Printer/Clear	Borders	Clear border column and row ranges
+/Print/Printer/Clear	Format	Return margins, page length, and setup string to defaults
+/Print/File	Range	Specify a range to print
+/Print/File	Line	Advance paper one line
+/Print/File	Page	Advance paper to top of next page
+/Print/File	Options	Header  Footer  Margins  Borders  Setup  Pg-Length  Other  Quit
+/Print/File	Clear	All  Range  Borders  Format
+/Print/File	Align	Reset to top of page (after adjusting paper)
+/Print/File	Go	Print the specified range
+/Print/File	Quit	Return to READY mode
+/Print/File/Options	Header	Create a header
+/Print/File/Options	Footer	Create a footer
+/Print/File/Options	Margins	Left  Right  Top  Bottom  None
+/Print/File/Options	Borders	Print border columns and/or rows
+/Print/File/Options	Setup	Enter printer setup string
+/Print/File/Options	Pg-Length	Specify number of lines per page
+/Print/File/Options	Other	As-Displayed  Cell-Formulas  Formatted  Unformatted
+/Print/File/Options	Quit	Return to previous menu
+/Print/File/Options/Margins	Left	Set left margin
+/Print/File/Options/Margins	Right	Set right margin
+/Print/File/Options/Margins	Top	Set top margin
+/Print/File/Options/Margins	Bottom	Set bottom margin
+/Print/File/Options/Margins	None	Clear all margin settings
+/Print/File/Options/Borders	Columns	Print border columns to the left of each print range
+/Print/File/Options/Borders	Rows	Print border rows above each print range
+/Print/File/Options/Other	As-Displayed	Print range as displayed
+/Print/File/Options/Other	Cell-Formulas	List entries, one per line
+/Print/File/Options/Other	Formatted	Print headers, footers, and page breaks
+/Print/File/Options/Other	Unformatted	Do not print headers, footers, and page breaks
+/Print/File/Clear	All	Return all print settings to defaults
+/Print/File/Clear	Range	Clear current print range
+/Print/File/Clear	Borders	Clear border column and row ranges
+/Print/File/Clear	Format	Return margins, page length, and setup string to defaults
+/Graph	Type	Line  Bar  XY  Stack-Bar  Pie
+/Graph	X	Set X data range
+/Graph	A	Set first data range
+/Graph	B	Set second data range
+/Graph	C	Set third data range
+/Graph	D	Set fourth data range
+/Graph	E	Set fifth data range
+/Graph	F	Set sixth data range
+/Graph	Reset	Graph  X  A  B  C  D  E  F  Ranges  Options  Quit
+/Graph	View	View the current graph
+/Graph	Save	Save the current graph in a file for printing
+/Graph	Options	Legend  Format  Titles  Grid  Scale  Color  B&W  Data-Labels  Quit
+/Graph	Name	Use  Create  Delete  Reset  Table
+/Graph	Group	Set all data ranges at once
+/Graph	Quit	Return to READY mode
+/Graph/Type	Line	Line graph
+/Graph/Type	Bar	Bar graph
+/Graph/Type	XY	XY graph
+/Graph/Type	Stack-Bar	Stacked bar graph
+/Graph/Type	Pie	Pie chart
+/Graph/Name	Use	Make a named graph current
+/Graph/Name	Create	Name the current graph
+/Graph/Name	Delete	Delete a named graph
+/Graph/Name	Reset	Delete all named graphs
+/Graph/Name	Table	Create a table of named graphs
+/Graph/Group	Columnwise	Use columns as data ranges
+/Graph/Group	Rowwise	Use rows as data ranges
+/Data	Fill	Fill a range with a sequence of values
+/Data	Table	Create a table of values
+/Data	Sort	Sort database records
+/Data	Query	Find all records that satisfy given criteria
+/Data	Distribution	Calculate frequency distribution of the values in a range
+/Data	Matrix	Multiply and invert matrices
+/Data	Regression	Calculate linear regression
+/Data	Parse	Convert a column of long labels into a range of labels or numbers
+/Data/Table	1	One input cell, one or more dependent formulas
+/Data/Table	2	Two input cells, one dependent formula
+/Data/Table	Reset	Clear table ranges and input cells for all data tables
+/Data/Sort	Data-Range	Select records to be sorted
+/Data/Sort	Primary-Key	Specify primary order for records
+/Data/Sort	Secondary-Key	Specify order for records with same primary key
+/Data/Sort	Reset	Clear data range and sort keys
+/Data/Sort	Go	Sort data and return to READY mode
+/Data/Sort	Quit	Return to READY mode
+/Data/Query	Input	Specify range that contains records to search
+/Data/Query	Criteria	Specify the range that contains criteria
+/Data/Query	Output	Specify the range to which extracted records are copied
+/Data/Query	Find	Highlight each record that matches criteria
+/Data/Query	Extract	Copy all records that match criteria to output range
+/Data/Query	Unique	Copy records that match criteria to output range, eliminating duplicates
+/Data/Query	Delete	Delete all records that match criteria
+/Data/Query	Reset	Clear input, criteria, and output ranges
+/Data/Query	Quit	Return to READY mode
+/Data/Matrix	Invert	Create the inverse of a matrix
+/Data/Matrix	Multiply	Multiply two ranges as matrices
+/Data/Regression	X-Range	Specify independent variables (X range)
+/Data/Regression	Y-Range	Specify dependent variable (Y range)
+/Data/Regression	Output-Range	Specify the output range
+/Data/Regression	Intercept	Compute  Zero
+/Data/Regression	Reset	Clear the X range, Y range, output range, and reset Intercept to Compute
+/Data/Regression	Go	Calculate a data regression on specified ranges
+/Data/Regression	Quit	Return to READY mode
+/Data/Regression/Intercept	Compute	Calculate the y-axis intercept automatically
+/Data/Regression/Intercept	Zero	Use zero as the y-axis intercept
+/Data/Parse	Format-Line	Create or edit a format line at the current cell
+/Data/Parse	Input-Column	Specify a column of labels to parse
+/Data/Parse	Output-Range	Specify the range in which parsed data is placed
+/Data/Parse	Reset	Clear input column and output range
+/Data/Parse	Go	Parse labels in the input column and place them in the output range
+/Data/Parse	Quit	Return to READY mode
+/Data/Parse/Format-Line	Create	Create a format line at the current cell
+/Data/Parse/Format-Line	Edit	Edit a format line at the current cell
+/Add-In	Attach	Load an add-in program into memory
+/Add-In	Detach	Remove an attached add-in program from memory
+/Add-In	Invoke	Activate an attached add-in program
+/Add-In	Clear	Remove all attached add-in programs from memory
+/Add-In	Quit	Return to READY mode
+/Quit	No	Do not end 1-2-3 session; return to READY mode
+/Quit	Yes	End 1-2-3 session (Remember to save your worksheet first)
