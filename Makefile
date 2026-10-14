@@ -232,7 +232,28 @@ KERNEL_SECTORS  := 384
 # that fatal; -O1 compiles clean and saves ~5 KiB. EVERY other kernel image
 # (BOOT_FLAIR_SHELL, plain BOOT_FLAIR_LIVE, the shell/diagnostic kernels) keeps
 # its previous flags and is byte-identical.
-KERNEL_TENANTS_OPT := -O1
+# ROUND 2 (bead initech-opms, 2026-10-15; docs/design/kernel-size-policy-round2.md
+# Sec 3 lever A): -O1 -> -Os. The array-bounds false positive above is GCC's
+# "small constant address is a null-pointer offset" heuristic (it treats any
+# address below --param=min-pagesize, default 4096, as a NULL dereference;
+# BOOT_INFO_ADDR is 0x500). --param=min-pagesize=0 switches that heuristic OFF
+# (the same remedy the Linux kernel adopted for GCC 12+); it is a WARNING-ONLY
+# parameter: measured, every tenants-only object compiles byte-identical at -Os
+# with the param and with -Wno-array-bounds, and -Werror stays fully on. Measured
+# object text+data (host gcc 13.3, CDR-0001), -O1 -> -Os:
+#   kmain_flairtenants 43,690 -> 33,678   finder_windows 16,687 -> 13,010
+#   finder_ops          5,183 ->  3,198   finder_desktop 10,417 ->  8,507
+#   process             4,304 ->  3,240   desktop_db      2,587 ->  1,650
+#   ref_tenant          2,404 ->  1,926   finder_cmd      2,228 ->  2,056
+#   finder_icon           889 ->    756   finder_menu     1,426 ->  1,395
+# -fno-strict-aliasing: -O1 does no type-based alias analysis and -Os would turn
+# it on; measured, TBAA changes codegen in kmain/finder_windows/finder_ops/
+# finder_desktop/process/ref_tenant (net +/-20 B each), i.e. alias assumptions
+# this certified code never ran under -- so it stays off (Rule 3; same reasoning
+# as KERNEL_SIZE_OPT_R2 below). Loaded bytes (.text*+.rodata*+.data*), measured:
+# kmain_flairtenants 34,130 -> 30,812; the family's largest kernel -9,056 B.
+# Still only the FLAIRTENANTS family changes; every other image is byte-identical.
+KERNEL_TENANTS_OPT := -Os -fno-strict-aliasing --param=min-pagesize=0
 # High-kernel bounce capacity (docs/design/kernel-runway-relocation.md K2;
 # bead initech-tdnl.29). stage2's unchanged real-mode loop starts at
 # KERNEL_BOUNCE_BASE and may consume at most KERNEL_BOUNCE_CAP bytes, ending
