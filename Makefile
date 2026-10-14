@@ -22220,17 +22220,47 @@ RECORD_MARKER_i123_quit_guard = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retriev
 RECORD_SETTLE_i123_quit_guard = 400
 RECORD_IMAGE_i123_quit_guard = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_quit_guard = $(BUILD)/flair_i123_quit_data.img
+# The EXTRA-LONG double-click record image (bead initech-mfrb): the long
+# double-click record image with the pump life doubled again
+# (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
+# events at --record-settle-ms 400): every recorded event costs 0.742 s mean
+# wall (400 ms settle + the 300 ms screendump drain + the 30-40 ms inject
+# drain), ~74 PIT ticks, so the trace needs ~7350 ticks after FLAIR-LIVE-READY.
+# On the 6000-tick image the pump printed FLAIR-LIVE-OK and halted after event
+# 80 (keystroke 58 of 77, "...fox jumps"); events 81..99 went to a halted guest
+# and frames 81..100 are one frozen framebuffer. Nothing was dropped in a queue:
+# the 58 keyDowns the tenant saw are exactly the trace's first 58, in order.
+# 12000 is ~1.6x the measured need (load headroom). It widens a demo bound only;
+# nothing an oracle grades changes, and every existing record image keeps its
+# meaning and its repro sha.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000,recordxlong))
+$(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
+$(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_recordxlongdbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-recordxlongdbl)
+$(BUILD)/flair_tenants_recordxlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_recordxlongdbl.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants EXTRA-LONG DOUBLE-CLICK RECORD image: %s\n" "$@"
+FLAIRTENANTS_RECORDXLONGDBL_IMG := $(BUILD)/flair_tenants_recordxlongdbl.img
 # iword_typing (bead initech-l4tj; Rule 14): InitechWord opens from the
 # Finder -- double-click APPS\WORD.EXE, the WordPerfect 5.1 Face A comes up
 # (blue field, the "Doc 1 Pg 1 Ln 1\" Pos 1\"" status line) and a 77-character
 # paragraph is typed: the line wraps after "over" as WordPerfect wraps it.
 # Replays the LOCKED FLAIR_IWORD_TYPE_SPEC; its marker is line 2 drawn
-# holding "the lazy dog.". 99 recorded events: the long double-click image.
+# holding "the lazy dog.". 99 recorded events outlive the 6000-tick long
+# image (initech-mfrb, measured above): the EXTRA-LONG double-click image.
 RECORD_SCRIPTS += iword_typing
 RECORD_SPEC_iword_typing = $(FLAIR_IWORD_TYPE_SPEC)
 RECORD_MARKER_iword_typing = TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="the lazy dog.                                                                " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_typing = 400
-RECORD_IMAGE_iword_typing = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_IMAGE_iword_typing = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
 RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
@@ -22267,9 +22297,17 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
-		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --timeout-ms 45000 \
+		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
+	@# initech-mfrb: a bounded record image halts at FLAIR-LIVE-OK when its pump
+	@# life runs out; events injected after that are LOST while the frames keep
+	@# coming (frozen). The harness counts them -- any nonzero count is RED, and
+	@# the remedy is a widened-budget record image VARIANT, never a bigger default.
+	@grep -q '^\[harness\] record_events_after_end=0 ' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" \
+		|| { printf '!!! record-flair [%s]: the guest pump life ended mid-trace (FLAIR-LIVE-OK) -- events went to a HALTED guest:\n' "$(SCRIPT)"; \
+		     grep '^\[harness\] record_events_after_end=' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || printf '    (no record_events_after_end line in the report)\n'; \
+		     printf '    point RECORD_IMAGE_%s at a record image with a longer FLAIR_TEN_TICK_BUDGET\n' "$(SCRIPT)"; exit 1; }
 	@case "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" in \
 		*flair_tenants*) grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial" \
 			|| { printf '!!! record-flair: FLAIR-FAT-MOUNT-OK missing\n'; exit 1; } ;; \

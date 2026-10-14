@@ -240,6 +240,14 @@ typedef struct {
     const char *name;      /* run label (cfg->name)                         */
     int settle_ms;         /* paint-settle drain before each grab           */
     int count;             /* frames dumped so far                          */
+    /* End-of-life detection (bead initech-mfrb): see QemuConfig
+     * record_end_marker. NULL end_marker == no check.                     */
+    const char *serial_path;
+    const char *end_marker;
+    int events;            /* trace events about to be / already injected  */
+    int ended;             /* 1 once end_marker was seen on serial          */
+    int after_end;         /* events injected after end_marker              */
+    int first_dead;        /* 1-based index of the first such event, or 0   */
 } RecordCtx;
 
 /* Issue one QMP screendump to path over an already-handshaked fd. Shared by
@@ -283,6 +291,45 @@ static void record_frame(RecordCtx *rec)
     } else {
         fprintf(stderr, "[harness] record: frame %d dump FAILED\n",
                 rec->count);
+    }
+}
+
+/* Call BEFORE injecting each trace event in record mode (bead initech-mfrb).
+ * A bounded record image prints its end-of-life marker (FLAIR-LIVE-OK) when
+ * its pump's tick budget runs out and then halts; an event sent after that is
+ * never delivered, yet the harness would keep dumping (frozen) frames as if it
+ * had been. Checking BEFORE the send makes the count definitive: the marker
+ * was already on serial, so this event went to a halted guest. Each one is
+ * shouted on stderr (Law 2: a lost event must never be silent). Silent no-op
+ * when rec is NULL or no end marker is configured. */
+static void record_pre_event(RecordCtx *rec)
+{
+    if (!rec) {
+        return;
+    }
+    rec->events++;
+    if (!rec->end_marker || rec->end_marker[0] == '\0' || !rec->serial_path) {
+        return;
+    }
+    if (!rec->ended) {
+        size_t len = 0;
+        char *txt = read_file(rec->serial_path, &len);
+        if (txt) {
+            rec->ended = strstr(txt, rec->end_marker) != NULL;
+            free(txt);
+        }
+        (void)len;
+    }
+    if (rec->ended) {
+        if (rec->after_end == 0) {
+            rec->first_dead = rec->events;
+            fprintf(stderr,
+                    "[harness] record: guest printed end marker '%s' before "
+                    "event %d -- this and every later event go to a HALTED "
+                    "guest (its pump life is too short for this trace)\n",
+                    rec->end_marker, rec->events);
+        }
+        rec->after_end++;
     }
 }
 
@@ -641,6 +688,7 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
         if (tok[0] == '\0') {
             continue;
         }
+        record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
         /* Chord-aware since beads initech-tdnl.10: "n" and "ctrl-n" both go
          * through the same array-of-qcodes send-key. */
         if (qmp_send_key_chord(fd, tok) != 0) {
@@ -772,6 +820,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
         int ok = 0;
         int is_move = 0;
         int is_left_down = 0;
+        record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
         if (tok[0] == 'm') {
             /* "m<dx>:<dy>" -- a relative move. */
             int dx = 0, dy = 0;
@@ -985,8 +1034,16 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                        const char *record_dir, const char *record_name,
                        int record_settle_ms, int *frames_taken,
                        int keys_after_ms, const char *quit_after,
-                       int quit_budget_ms, int quit_count, int *quit_seen)
+                       int quit_budget_ms, int quit_count, int *quit_seen,
+                       const char *record_end_marker, int *rec_after_end,
+                       int *rec_first_dead)
 {
+    if (rec_after_end) {
+        *rec_after_end = 0;
+    }
+    if (rec_first_dead) {
+        *rec_first_dead = 0;
+    }
     if (keys_sent) {
         *keys_sent = 0;
     }
@@ -1076,6 +1133,12 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
             rec_store.name = record_name;
             rec_store.settle_ms = record_settle_ms > 0 ? record_settle_ms : 120;
             rec_store.count = 0;
+            rec_store.serial_path = serial_path;
+            rec_store.end_marker = record_end_marker;
+            rec_store.events = 0;
+            rec_store.ended = 0;
+            rec_store.after_end = 0;
+            rec_store.first_dead = 0;
             rec = &rec_store;
         }
         if (want_keys || want_mouse) {
@@ -1116,6 +1179,12 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
         }
         if (rec && frames_taken) {
             *frames_taken = rec->count;
+        }
+        if (rec && rec_after_end) {
+            *rec_after_end = rec->after_end;
+        }
+        if (rec && rec_first_dead) {
+            *rec_first_dead = rec->first_dead;
         }
     }
 
@@ -1519,6 +1588,8 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         int msent = 0;
         int frames = 0;
         int qseen = 0;
+        int after_end = 0;
+        int first_dead = 0;
         if (qmp_session(qmp_pair[0], sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,
@@ -1531,8 +1602,12 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                         cfg->record_frames ? name : NULL,
                         cfg->record_settle_ms, &frames,
                         cfg->keys_after_ms, cfg->quit_after, sd_budget,
-                        cfg->quit_after_count, &qseen) == 0) {
+                        cfg->quit_after_count, &qseen,
+                        cfg->record_frames ? cfg->record_end_marker : NULL,
+                        &after_end, &first_dead) == 0) {
             out->quit_marker_found = qseen != 0;
+            out->record_events_after_end = after_end;
+            out->record_first_dead_event = first_dead;
             out->keys_sent = sent;
             out->mouse_events_sent = msent;
             out->frames_taken = frames;
@@ -1641,7 +1716,8 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
               out->guest_errors == 0 &&
               (cfg->expect_marker == NULL || out->marker_found) &&
               (cfg->quit_after == NULL || cfg->quit_after[0] == '\0' ||
-               out->quit_marker_found);
+               out->quit_marker_found) &&
+              out->record_events_after_end == 0;   /* initech-mfrb */
 
     return 0;
 }
