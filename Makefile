@@ -13373,6 +13373,57 @@ test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPC
 	@printf '>>> test-i123-wk1-roundtrip-mutant: green (both mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-i123-quit (bead initech-fvnj; astra audit L008 "Quit discards
+# an edited worksheet") -- the HOST oracle of 123.EXE's ONE EXIT GUARD. The
+# real os/i123/app/face_a.c is compiled on the host over the real core with a
+# RECORDING MOCK of the Toolbox Gate (harness/proptest/test_i123_quit.c): every
+# launch is a fork()ed pristine image, the file verbs are a scratch directory.
+# Traces: clean quit by File > Quit, the close box and /Quit Yes (no ask);
+# dirty and pending-entry quits by all three routes (ask); Cancel keeps the
+# model values AND the pending input; Don't Save quits; Save runs /File Save
+# and quits only on success (new file, Replace); CREATE refused / short WRITE /
+# Esc / Replace > Cancel keep the sheet open and dirty; only Save / Retrieve
+# make it clean. Expected values: the bead's DONE MEANS, R2.2 Reference Manual
+# p. 9-1 and 123.RI 0x300..0x370 (restated in the test, never read from the
+# app). The saved bytes are judged INDEPENDENTLY by wk1_ref.py (Law 2).
+# Mutation-proven by test-i123-quit-mutant (four named app mutants).
+# ---------------------------------------------------------------------------
+TEST_I123_QUIT   := $(BUILD)/test_i123_quit
+I123_QUIT_FS     := $(BUILD)/i123_quit_fs
+I123_QUIT_DEPS   := harness/proptest/test_i123_quit.c os/i123/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(I123_CORE_SRC) $(I123_CORE_HDR)
+I123_QUIT_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(I123_CORE_INC)
+$(TEST_I123_QUIT): $(I123_QUIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ harness/proptest/test_i123_quit.c $(I123_CORE_SRC)
+$(BUILD)/test_i123_quit_mutant_%: $(I123_QUIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ harness/proptest/test_i123_quit.c $(I123_CORE_SRC)
+
+.PHONY: test-i123-quit test-i123-quit-mutant
+test-i123-quit: $(TEST_I123_QUIT)
+	$(call need_lotus_goldens,test-i123-quit)
+	@printf '>>> test-i123-quit: the 123.EXE exit guard over a recording Toolbox mock (initech-fvnj, audit L008)\n'
+	@rm -rf $(I123_QUIT_FS) && mkdir -p $(I123_QUIT_FS)
+	@$(TEST_I123_QUIT) $(I123_QUIT_FS)
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(I123_QUIT_FS)/Q.WK1 > $(BUILD)/i123_quit_q.ref
+	@$(call I123_DISK_CELLS,$(BUILD)/i123_quit_q.ref) || { printf '!!! test-i123-quit FAIL: Q.WK1 (Save from the alert) does not hold the typed row per wk1_ref.py\n'; cat $(BUILD)/i123_quit_q.ref; exit 1; }
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(I123_QUIT_FS)/PE.WK1 > $(BUILD)/i123_quit_pe.ref
+	@grep -q "LABEL.*c0 r0 label=.*Pend" $(BUILD)/i123_quit_pe.ref && grep -q 'consumed=.* OK$$' $(BUILD)/i123_quit_pe.ref || { printf '!!! test-i123-quit FAIL: PE.WK1 does not hold the committed pending entry per wk1_ref.py\n'; cat $(BUILD)/i123_quit_pe.ref; exit 1; }
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(I123_QUIT_FS)/X.WK1 > $(BUILD)/i123_quit_x.ref
+	@grep -q "LABEL.*c0 r0 label=.*Again" $(BUILD)/i123_quit_x.ref && grep -q 'consumed=.* OK$$' $(BUILD)/i123_quit_x.ref || { printf '!!! test-i123-quit FAIL: X.WK1 (Save + Replace from the alert) does not hold Again per wk1_ref.py\n'; cat $(BUILD)/i123_quit_x.ref; exit 1; }
+	@[ ! -e $(I123_QUIT_FS)/Z.WK1 ] && [ ! -e $(I123_QUIT_FS)/W.WK1 ] || { printf '!!! test-i123-quit FAIL: a failed Save left a file behind\n'; exit 1; }
+	@printf '>>> test-i123-quit: green (model + recorded gate calls; Q.WK1 / PE.WK1 / X.WK1 judged by wk1_ref.py)\n'
+
+test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUILD)/test_i123_quit_mutant_I123_MUT_CANCEL_QUITS $(BUILD)/test_i123_quit_mutant_I123_MUT_PENDING_IGNORED $(BUILD)/test_i123_quit_mutant_I123_MUT_SAVE_FAIL_QUITS
+	@for pair in I123_MUT_NEVER_DIRTY:Q2 I123_MUT_CANCEL_QUITS:Q3 I123_MUT_PENDING_IGNORED:Q5 I123_MUT_SAVE_FAIL_QUITS:Q8; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_i123_quit_mutant_$$m; dir=$(BUILD)/i123_quit_fs_$$m; \
+		rm -rf $$dir && mkdir -p $$dir; \
+		if $$bin $$dir > $$bin.log 2>&1; then printf '!!! test-i123-quit-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; cat $$bin.log; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-i123-quit-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
+		grep -q "FAIL $$why " $$bin.log || { printf '!!! test-i123-quit-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-i123-quit-mutant: %s correctly RED (%s: %s)\n' "$$m" "$$why" "$$(grep -m1 "FAIL $$why " $$bin.log)"; \
+	done
+	@printf '>>> test-i123-quit-mutant: green (all four mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-finder-menu (bead initech-tdnl.12, GUI remediation R3.5 stage
 # 1; docs/design/GUI-remediation-R3-finder-design.md F4.1-F4.4) -- the HOST
 # oracle for THE FINDER MENU BAR RESOURCE (os/flair/finder_menu.c).
@@ -26749,6 +26800,7 @@ TEST_UNIT_GATES := \
 	test-menu-handlers test-menu-handlers-mutant \
 	test-tbx-menu test-tbx-menu-mutant \
 	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
+	test-i123-quit test-i123-quit-mutant \
 	test-makefile-vars \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \

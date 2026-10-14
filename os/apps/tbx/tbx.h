@@ -116,6 +116,14 @@ int32_t tbx_file_seek(int32_t handle, int32_t delta, uint32_t origin);
 int32_t tbx_file_close(int32_t handle);
 int32_t tbx_file_delete(const char *path);
 
+/* The alert: spec Sec 11 (initech-fvnj). Lines of `text` are separated by
+ * '\r'; `cancel` / `other` may be 0. Returns 0 when the alert is ASKED for;
+ * the answer arrives later as a TBX_EVT_ALERT event (Message = 1 default,
+ * 2 cancel, 3 other). A window made with go_away == TBX_GOAWAY_ASK reports
+ * its close box as a TBX_EVT_GOAWAY event instead of being closed. */
+int32_t tbx_alert(const char *text, const char *def, const char *cancel,
+                  const char *other);
+
 /* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest). */
 int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);
 
