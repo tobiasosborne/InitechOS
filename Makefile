@@ -29451,3 +29451,28 @@ test-flair-fonts-mutant: test-flair-fonts $(HARNESS_BIN) $(FLAIR_DATA_FONTS_IMG)
 	@$(call fonts-mutant-leg,clip_ignore,!!! W2 CLIP:)
 	@$(call fonts-mutant-leg,trunc_period,!!! W3 TITLE:)
 	@printf '>>> test-flair-fonts-mutant: green (three kernel mutants RED for the named reason)\n'
+# LOOK pass 6: independent historical PNG crops, both actual drawers.
+SCROLLBAR_LOOK_GOLDEN := spec/scrollbar_look_golden.h
+SCROLLBAR_LOOK_PNG = $(SYSTEM7_DECOMP)/goldens/captures/s8_doc_window_inactive.png
+$(BUILD)/test_scrollbar_look: harness/proptest/test_scrollbar_look.c $(TEST_CONTROL_DEPS) $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -o $@ $< $(CONTROL_LINK) -lpng
+$(BUILD)/test_scrollbar_look_mut_%: harness/proptest/test_scrollbar_look.c $(TEST_CONTROL_DEPS) $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -D$* -o $@ $< $(CONTROL_LINK) -lpng
+SCROLLBAR_LOOK_MUTANTS := SB_LOOK_MUT_RAMP_FLAT SB_LOOK_MUT_GRIPS_MISSING SB_LOOK_MUT_CORNERS_BEVELLED
+.PHONY: test-scrollbar-look test-scrollbar-look-mutant
+test-scrollbar-look: $(BUILD)/test_scrollbar_look
+	@$< "$(SCROLLBAR_LOOK_PNG)"
+	@printf '>>> test-scrollbar-look: green (both depths, both drawers; six independent crops)\n'
+test-scrollbar-look-mutant: test-scrollbar-look $(foreach m,$(SCROLLBAR_LOOK_MUTANTS),$(BUILD)/test_scrollbar_look_mut_$(m))
+	@for m in $(SCROLLBAR_LOOK_MUTANTS); do \
+		if $(BUILD)/test_scrollbar_look_mut_$$m "$(SCROLLBAR_LOOK_PNG)" > $(BUILD)/scrollbar_look_$$m.log 2>&1; then \
+			printf 'FAIL test-scrollbar-look-mutant: %s survived\n' "$$m"; exit 1; fi; \
+		grep -q 'FAIL crop' $(BUILD)/scrollbar_look_$$m.log || { cat $(BUILD)/scrollbar_look_$$m.log; exit 1; }; \
+		grep -q 'FAIL.*SL4 Control' $(BUILD)/scrollbar_look_$$m.log || { printf 'FAIL control drawer mutant escaped\n'; exit 1; }; \
+		case "$$m" in *CORNERS*) leg='SL3 all four';; *) leg='SL2 chrome thumb';; esac; \
+		grep -q "FAIL.*$$leg" $(BUILD)/scrollbar_look_$$m.log || { printf 'FAIL chrome drawer mutant escaped\n'; exit 1; }; \
+		printf '>>> test-scrollbar-look-mutant: %s correctly RED\n' "$$m"; \
+	done
+
+
+TEST_UNIT_GATES += test-scrollbar-look test-scrollbar-look-mutant
