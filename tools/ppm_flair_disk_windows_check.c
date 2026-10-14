@@ -28,6 +28,12 @@
  *              strike in cell 0 and cells 1-3 bare.
  *   trashempty (bead initech-6k12) the SAME window after Special > Empty
  *              Trash's OK: the window still open, cells 0-3 all bare.
+ *   purgeviews (bead initech-uios, audit L002) Empty Trash with the nested
+ *              folders A / CHILD / GRAND open in slots 1-3 over the Trash
+ *              window in slot 0 (spec/flair_trash_traces.mk Sec 4): the Trash
+ *              window (20,60) "Trash" still open and bare, and EVERY footprint
+ *              of the three closed windows outside it shows what is beneath
+ *              -- NOTES's content fill or bare desktop -- never a window.
  *
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- this is the whole
  * point).  Every probe below is HAND-AUTHORED from INDEPENDENT sources:
@@ -765,6 +771,46 @@ static void check_vacated(void)
  * side so the widest 8.3 label ("DESKTOP.DB", centred) is covered, still
  * inside the 68-px pitch -- is bare white content: not one ink, shade or
  * inverted pixel. A drawn TRASH or DESKTOP.DB icon or label goes RED here. */
+/* bead initech-uios (audit L002): the footprints of the three purged folders'
+ * windows -- slot 1 (40,80)..(400,300), slot 2 (60,100)..(420,320), slot 3
+ * (80,120)..(440,340), the finder_windows.h Sec 3 cascade -- OUTSIDE the
+ * surviving Trash window (20,60)..(380,280). What lies beneath is fixed by the
+ * boot scene (spec/flair_tenants_demo.h; spec/flair_disk_windows_traces.mk):
+ * HELLO (60,60)-(360,260), NOTES (260,120)-(560,340) with its content fill
+ * FLAIR_TEN_NOTES_FILL = CIDX_CONTROL from (261,142), inactive (no accent) and
+ * untoggled (no centre marker, which would sit at ~(404..416, 235..247)), and
+ * the bare desktop elsewhere. A window that survived the purge paints its
+ * WHITE content (or chrome) over every one of these points. */
+static const Point CLOSED_NOTES[] = {
+    { 390, 200, "right of the Trash window, inside slots 1-3, over NOTES content" },
+    { 415, 280, "inside slots 2-3, over NOTES content, below its centre marker" },
+    { 410, 310, "inside slots 2-3 near their bottom, over NOTES content" }
+};
+static const Point CLOSED_DESK[] = {
+    { 100, 290, "below the Trash window, inside slots 1-3; below HELLO (260), left of NOTES (260)" },
+    { 200, 335, "slot 3's bottom strip; below HELLO, left of NOTES" }
+};
+#define CLOSED_NOTES_N ((int)(sizeof CLOSED_NOTES / sizeof CLOSED_NOTES[0]))
+#define CLOSED_DESK_N  ((int)(sizeof CLOSED_DESK / sizeof CLOSED_DESK[0]))
+
+static void check_closed_views(void)
+{
+    char what[256];
+    int i;
+    for (i = 0; i < CLOSED_NOTES_N; i++) {
+        snprintf(what, sizeof what,
+                 "a purged folder's window is STILL drawn -- %s",
+                 CLOSED_NOTES[i].why);
+        assert_idx(CLOSED_NOTES[i].x, CLOSED_NOTES[i].y, CIDX_CONTROL, what);
+    }
+    for (i = 0; i < CLOSED_DESK_N; i++) {
+        snprintf(what, sizeof what,
+                 "a purged folder's window is STILL drawn -- %s",
+                 CLOSED_DESK[i].why);
+        assert_idx(CLOSED_DESK[i].x, CLOSED_DESK[i].y, CIDX_DESKTOP, what);
+    }
+}
+
 static void check_empty_cells(int L, int T, int first, int last)
 {
     for (int i = first; i < last; i++) {
@@ -918,7 +964,7 @@ int main(int argc, char **argv)
     long maxv = 0;
     size_t want, got;
     int leg_root, leg_moved, leg_newfolder, leg_finderbar, leg_zoomed;
-    int leg_arranged, leg_allsel, leg_trash, leg_trashempty;
+    int leg_arranged, leg_allsel, leg_trash, leg_trashempty, leg_purge;
     const RosterEntry *roster = ROSTER;
     int L, T, n_icons, i;
 
@@ -939,6 +985,8 @@ int main(int argc, char **argv)
     leg_trash     = (strcmp(g_leg, "trashwin")  == 0);
     /* bead initech-6k12: the SAME Trash window after Empty Trash's OK. */
     leg_trashempty = (strcmp(g_leg, "trashempty") == 0);
+    /* bead initech-uios: the Trash window in SLOT 0 after a nested purge. */
+    leg_purge      = (strcmp(g_leg, "purgeviews") == 0);
     int scroll_value = -2;   /* tdnl.35 scroll legs */
     if (strcmp(g_leg, "scrollarrow") == 0) scroll_value = 48;
     if (strcmp(g_leg, "scrollpage")  == 0) scroll_value = 138;
@@ -946,12 +994,12 @@ int main(int argc, char **argv)
     if (strcmp(g_leg, "scrollfit")   == 0) scroll_value = -1;
     if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
         !leg_zoomed && !leg_arranged && !leg_allsel && !leg_trash &&
-        !leg_trashempty &&
+        !leg_trashempty && !leg_purge &&
         scroll_value == -2) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
                 "(want rootwin|movedwin|newfolder|finderbar|zoomedwin|"
-                "arranged|allsel|trashwin|trashempty|scroll*)\n",
+                "arranged|allsel|trashwin|trashempty|purgeviews|scroll*)\n",
                 g_leg);
         return 2;
     }
@@ -1047,6 +1095,15 @@ int main(int argc, char **argv)
         g_title_chars = TRASH_TITLE_CHARS;
         g_title_w = TRASH_TITLE_W;
     }
+    if (leg_purge) {
+        /* The Trash window opened FIRST (no root window), so it holds slot 0
+         * at the default frame -- ROOT_L/ROOT_T -- emptied, titled "Trash". */
+        L = ROOT_L; T = ROOT_T;
+        n_icons = 0;
+        g_title = "Trash";
+        g_title_chars = TRASH_TITLE_CHARS;
+        g_title_w = TRASH_TITLE_W;
+    }
 
     printf("ppm_flair_disk_windows_check: leg %s on %s\n"
            "    frame (%d,%d)..(%d,%d); content (%d,%d)..(%d,%d); "
@@ -1075,6 +1132,7 @@ int main(int argc, char **argv)
     /* The zoomed window covers both bare-teal control points (it spans the
      * whole desktop below the bars), so they are not desktop on that leg. */
     if (!leg_zoomed) check_control_teal();
+    if (leg_purge) check_closed_views();
 
     free(g_buf);
     if (g_fail) {
@@ -1085,9 +1143,10 @@ int main(int argc, char **argv)
     printf("ppm_flair_disk_windows_check: leg %s PASS "
            "(%d icon strikes graded off the finder_icons.h ASCII maps, "
            "%d label-band relations, %d empty cells, 11 chrome assertions, "
-           "%d bare-teal controls%s)\n",
+           "%d bare-teal controls%s%s)\n",
            g_leg, n_icons, n_icons, ROOT_CELLS_BEFORE - n_icons,
            leg_zoomed ? 0 : CONTROL_TEAL_N,
-           leg_moved ? ", 2 vacated-default-rect probes" : "");
+           leg_moved ? ", 2 vacated-default-rect probes" : "",
+           leg_purge ? ", 5 closed-window footprint probes" : "");
     return 0;
 }

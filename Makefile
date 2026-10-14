@@ -19817,6 +19817,90 @@ test-flair-empty-trash-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_emp
 	printf '>>> test-flair-empty-trash-mutant: EMPTY_NO_CONFIRM correctly RED (%s)\n' "$$out"
 
 # ===========================================================================
+# REAL gate: test-flair-trash-purge-views (bead initech-uios; audit L002 "an
+# open purged folder remains writable and leaks an orphan cluster"). Empty Trash
+# with the nested folders' windows open must CLOSE every view of a removed
+# folder, and a New Folder afterwards can only land in a live directory.
+# Law 1: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed p. 112
+# (PDF p. 132) -- "When you discard a folder, the folder and all its contents
+# disappear"; nothing is recoverable once the Trash is emptied.
+# The data volume is the flagship one plus \TRASH\A\CHILD\GRAND\NOTE.TXT and
+# \TRASH\A\KEEP.TXT, laid down by MTOOLS (pinned epoch, Rule 11). Locked traces:
+# spec/flair_trash_traces.mk Sec 4. Two boots of $(FLAIRTENANTS_IMG), each on a
+# fresh copy, judged by harness/diff/fat_diff/trash_purge_views.sh:
+#   purge  open Trash / A / CHILD / GRAND (slots 0-3), Empty Trash, OK: the
+#          locked serial chain (n=5, k from mtools) ending FINDER-TRASH-VIEW-
+#          CLOSED win=1/2/3; the dump graded by ppm_flair_disk_windows_check leg
+#          purgeviews (the Trash window bare at (20,60), and every footprint of
+#          the closed windows shows NOTES / the desktop beneath); mtools: no
+#          purged item anywhere, ::/TRASH empty; fsck.fat -n clean with exactly
+#          pristine + 1 (DESKTOP.DB) - 5 clusters in use.
+#   ctrln  the same, then Ctrl-N (the audit's step): New Folder lands in the
+#          only window left, the Trash -- FINDER-NEW-FOLDER parent=<\TRASH per
+#          mshowfat>; mtools: ::/TRASH/NEWFOLD the one reachable copy;
+#          fsck.fat -n: no unreachable cluster, pristine + 1 - 5 + 1 in use.
+# Mutation-proven by test-flair-trash-purge-views-mutant: (a) FINDER_WIN_MUT_
+# PURGE_KEEPS_VIEWS -- the purge leg's pixel grader goes RED (the windows are
+# still drawn); (b) the L002 defect RESTORED (that knob + FINDER_WIN_MUT_VIEW_
+# UNCHECKED + FAT12_MUTATE_STALE_DIR_TRUSTED) -- the ctrln leg's fsck.fat finds
+# the orphan cluster. Rule 14 clip: record-flair SCRIPT=trash_purge_views.
+# Rule 5: Bochs halts at the 640x480 guard before the Finder on this image
+# (test-flair-trash-window-bochs), so no Bochs leg is added here.
+# ===========================================================================
+FLAIR_PURGE_VIEWS_DATA := $(BUILD)/flair_purge_views_data.img
+FLAIR_PURGE_VIEWS_SH   := harness/diff/fat_diff/trash_purge_views.sh
+$(FLAIR_PURGE_VIEWS_DATA): $(FLAIR_DATA_IMG) | $(BUILD)
+	cp -f $< $@.tmp
+	printf 'KEEP.TXT: kept in A until the Trash is emptied.\r\n' > $(BUILD)/purge_views_keep.txt
+	printf 'NOTE.TXT: inside A\\CHILD\\GRAND.\r\n' > $(BUILD)/purge_views_note.txt
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@.tmp ::/TRASH ::/TRASH/A ::/TRASH/A/CHILD
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@.tmp $(BUILD)/purge_views_keep.txt ::/TRASH/A/KEEP.TXT
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@.tmp ::/TRASH/A/CHILD/GRAND
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@.tmp $(BUILD)/purge_views_note.txt ::/TRASH/A/CHILD/GRAND/NOTE.TXT
+	mv -f $@.tmp $@
+
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_PURGE_KEEPS_VIEWS,purge_keeps_views))
+
+# (b) THE L002 DEFECT RESTORED: the purge keeps its views, a view is trusted by
+# its cluster number, and the FAT trusts any directory cluster -- the audit's
+# exact failure (New Folder into a freed cluster, one orphan).
+$(BUILD)/finder_windows_mut_l002.o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS -DFINDER_WIN_MUT_VIEW_UNCHECKED -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
+$(BUILD)/fat12_mut_l002.o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FAT12_OPT) -DFAT12_MUTATE_STALE_DIR_TRUSTED -Ispec -I$(KERNEL_DIR) -c $< -o $@
+$(BUILD)/kernel_flairtenants_mut_l002.elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o
+$(BUILD)/kernel_flairtenants_mut_l002.bin: $(BUILD)/kernel_flairtenants_mut_l002.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_l002.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-mut-l002)
+$(BUILD)/flair_tenants_mut_l002.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin | $(BUILD)
+	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_flairtenants_mut_l002.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+	@printf ">>> flair-tenants L002-RESTORED MUTANT image: %s\n" "$@"
+
+.PHONY: test-flair-trash-purge-views test-flair-trash-purge-views-mutant
+test-flair-trash-purge-views: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_PURGE_VIEWS_DATA) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@printf 'InitechOS (STAPLER) -- make test-flair-trash-purge-views : Empty Trash retires every view of a removed folder (bead initech-uios, audit L002)\n'
+	@command -v mdir >/dev/null 2>&1 && command -v mshowfat >/dev/null 2>&1 && command -v minfo >/dev/null 2>&1 && command -v fsck.fat >/dev/null 2>&1 || { printf '!!! test-flair-trash-purge-views FAIL: mtools / fsck.fat (dosfstools) missing\n'; exit 1; }
+	@sh $(FLAIR_PURGE_VIEWS_SH) $(FLAIRTENANTS_IMG) $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_VIEWS_SPEC)' purge
+	@sh $(FLAIR_PURGE_VIEWS_SH) $(FLAIRTENANTS_IMG) $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_CTRLN_SPEC)' ctrln
+	@printf '>>> test-flair-trash-purge-views: green\n'
+
+test-flair-trash-purge-views-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_purge_keeps_views.img $(BUILD)/flair_tenants_mut_l002.img $(FLAIR_PURGE_VIEWS_DATA) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_purge_keeps_views.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_VIEWS_SPEC)' purge _mut_keep > $(BUILD)/flair_purge_views_mut_keep.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- decoration\n'; exit 1; fi
+	@grep -q "FAIL trash-purge-views purge: a purged folder's window is still drawn" $(BUILD)/flair_purge_views_mut_keep.log || { printf '!!! test-flair-trash-purge-views-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/flair_purge_views_mut_keep.log; exit 1; }
+	@printf ">>> test-flair-trash-purge-views-mutant: PURGE_KEEPS_VIEWS correctly RED (the purged folders' windows are still drawn)\n"
+	@if sh $(FLAIR_PURGE_VIEWS_SH) $(BUILD)/flair_tenants_mut_l002.img $(FLAIR_PURGE_VIEWS_DATA) '$(FLAIR_TRASH_PURGE_CTRLN_SPEC)' ctrln _mut_l002 > $(BUILD)/flair_purge_views_mut_l002.log 2>&1; then printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect PASSED -- decoration\n'; exit 1; fi
+	@grep -q 'FAIL trash-purge-views ctrln: fsck.fat -n: an allocated cluster is unreachable (orphan)' $(BUILD)/flair_purge_views_mut_l002.log || { printf '!!! test-flair-trash-purge-views-mutant FAIL: the restored L002 defect went RED for the wrong reason\n'; cat $(BUILD)/flair_purge_views_mut_l002.log; exit 1; }
+	@grep -m1 '^FINDER-NEW-FOLDER' $(BUILD)/flair_purge_views_ctrln_mut_l002.serial | sed 's/^/    mutant serial: /' || true
+	@printf ">>> test-flair-trash-purge-views-mutant: L002 RESTORED correctly RED (Ctrl-N wrote into the purged folder's freed cluster; fsck.fat finds the orphan)\n"
+
+# ===========================================================================
 # REAL gate: test-flair-scroll (bead initech-tdnl.35; audit F02, P0) -- THE
 # SCROLL BARS WORK and a click on them never moves the window.
 # ---------------------------------------------------------------------------
@@ -21867,6 +21951,15 @@ $(BUILD)/record_locked_trash.img: $(FLAIR_DATA_IMG)
 $(BUILD)/record_locked_purge.img: $(FLAIR_DATA_IMG)
 	cp -f $< $@
 	mattrib -i $@ +r ::APPS/TENANTFX.EXE
+# initech-uios (audit L002) Rule-14 clip: the Trash, A, CHILD and GRAND windows
+# open over the nested \TRASH\A tree, Empty Trash, OK -- the three folder windows
+# close with their folders -- then Ctrl-N makes NEWFOLD in the Trash window.
+RECORD_SCRIPTS += trash_purge_views
+RECORD_SPEC_trash_purge_views   = $(FLAIR_TRASH_PURGE_CTRLN_SPEC)
+RECORD_MARKER_trash_purge_views = FINDER-TRASH-VIEW-CLOSED win=3
+RECORD_IMAGE_trash_purge_views  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_trash_purge_views   = $(FLAIR_PURGE_VIEWS_DATA)
+RECORD_SETTLE_trash_purge_views = 300
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -28310,6 +28403,7 @@ TEST_EMU_GATES := \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
+	test-flair-trash-purge-views test-flair-trash-purge-views-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
 	test-flair-finder-cmds test-flair-finder-cmds-mutant \
