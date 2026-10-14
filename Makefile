@@ -29074,7 +29074,12 @@ test-flair-i123-file-ui: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123
 	@printf '>>> test-flair-i123-file-ui: green (reference menus/prompts, visible refusal/error, Cancel/Replace judged by mtools)\n'
 
 $(eval $(call tenant-exe-rules,i123_save_empty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_SAVE_EMPTY,$(I123_APP_DEP)))
-$(eval $(call tenant-exe-rules,i123_command_silent,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_COMMAND_SILENT,$(I123_APP_DEP)))
+# Re-keyed 2026-10-15 (initech-uqah): the COMMAND_SILENT knob died with the
+# 'Command not implemented' refusal (the complete slash tree opens every top
+# level); the UI mutant now misspells the first menu title (I123_MUT_MENU_SPELLING,
+# the knob test-i123-menu-tree-mutant already proves) so the 123.RI-exact
+# top line is what the gate's first clause defends. Image name kept.
+$(eval $(call tenant-exe-rules,i123_command_silent,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MENU_SPELLING,$(I123_APP_DEP)))
 $(BUILD)/flair_i123_file_mut_%.img: $(FLAIR_I123_FILE_DATA) $(BUILD)/tenant/i123_%.exe
 	cp -f $(FLAIR_I123_FILE_DATA) $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/i123_$*.exe ::APPS/123.EXE
@@ -29092,9 +29097,9 @@ test-flair-i123-files-mutant: test-flair-i123-files $(BUILD)/flair_i123_file_mut
 test-flair-i123-file-ui-mutant: test-flair-i123-file-ui $(BUILD)/flair_i123_file_mut_command_silent.img $(BUILD)/flair_i123_file_mut_get_clobber.img
 	$(call appl-boot,flair_i123_ui_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_command_silent.img,FLAIR_I123_FILE_UI,)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_ui_mut.serial) && grep -qF 's="Name of file to retrieve: A:\*.wk1' $(BUILD)/flair_i123_ui_mut.serial
-	@if $(call I123_UI_OK,$(BUILD)/flair_i123_ui_mut.serial); then printf '!!! test-flair-i123-file-ui-mutant FAIL: COMMAND_SILENT survived\n'; exit 1; fi
-	@if grep -q 'x=1 y=16 s="Command not implemented' $(BUILD)/flair_i123_ui_mut.serial; then printf '!!! test-flair-i123-file-ui-mutant FAIL: wrong RED reason\n'; exit 1; fi
-	@printf '>>> test-flair-i123-file-ui-mutant: green (COMMAND_SILENT correctly RED: no refusal after /Worksheet; file prompt and desktop intact)\n'
+	@if $(call I123_UI_OK,$(BUILD)/flair_i123_ui_mut.serial); then printf '!!! test-flair-i123-file-ui-mutant FAIL: MENU_SPELLING survived\n'; exit 1; fi
+	@grep -qF 's="Vorksheet  Range' $(BUILD)/flair_i123_ui_mut.serial || { printf '!!! test-flair-i123-file-ui-mutant FAIL: wrong RED reason (MENU_SPELLING did not misspell the top line)\n'; exit 1; }
+	@printf '>>> test-flair-i123-file-ui-mutant: green (MENU_SPELLING correctly RED: the 123.RI top line is defended; file prompt and desktop intact)\n'
 	$(call appl-boot,flair_i123_get_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_get_clobber.img,FLAIR_I123_FILE_BAD,)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_get_mut.serial) && grep -q 's="Not a valid WK1 file' $(BUILD)/flair_i123_get_mut.serial
 	@if $(call I123_FILE_ROWS,$(BUILD)/flair_i123_get_mut.serial); then printf '!!! test-flair-i123-file-ui-mutant FAIL: GET_CLOBBER survived\n'; exit 1; fi

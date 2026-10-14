@@ -545,11 +545,7 @@ static void save(void)
 }
 static void unsupported(void)
 {
-#ifdef I123_MUT_COMMAND_SILENT
-    ready();
-#else
     notice("Command not implemented");
-#endif
 }
 static void request_quit(void);
 static int same(const char *a, const char *b)
