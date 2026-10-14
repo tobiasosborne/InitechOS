@@ -162,7 +162,7 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     { CIDX_PLAT_DARK_RING, 1u, FLAIR_NO_SKIN_SLOT,
       INITECH_CANON_BEVEL_SHADOW_RGB },
     /* SB_THUMB_GRIP */
-    { CIDX_DESKTOP, 1u, FLAIR_NO_SKIN_SLOT,
+    { CIDX_PLAT_DARK_RING, 1u, FLAIR_NO_SKIN_SLOT,
       INITECH_CANON_BEVEL_SHADOW_RGB },
     /* Finder desktop-icon tones (bead initech-tdnl.9).  Classic desktop icons
      * are a black outline over a white body with mid-gray detail; each tone is

@@ -702,7 +702,11 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
         cfill_ctrl(port, x0 + 3, companion_y, 1,
                    FLAIR_PART_PLAT_TROUGH);
         cfill_ctrl(port, x0 + 4, companion_y, 6, CTRL_SB_THUMB_HL);
+#if !defined(SB_LOOK_MUT_GRIPS_MISSING)
         cfill_ctrl(port, x0 + 4, grip_y, 7, CTRL_SB_THUMB_GRIP);
+#else
+        (void)grip_y;
+#endif
     }
 }
 

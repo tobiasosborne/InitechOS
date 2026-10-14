@@ -653,8 +653,10 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
         sb_plot(port, skin, axis, ac, c0 + 3, FLAIR_PART_PLAT_TROUGH);
         for (int c = 4; c <= 9; c++)
             sb_plot(port, skin, axis, ac, c0 + c, FLAIR_PART_SB_THUMB_HL);
+#if !defined(SB_LOOK_MUT_GRIPS_MISSING)
         for (int c = 4; c <= 10; c++)
             sb_plot(port, skin, axis, ac + 1, c0 + c, FLAIR_PART_SB_THUMB_GRIP);
+#endif
     }
 }
 
