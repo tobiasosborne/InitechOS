@@ -198,8 +198,8 @@
 /Range/Search	Formulas	Search for string in formulas only
 /Range/Search	Label	Search for string in labels only
 /Range/Search	Both	Search for string in formulas and labels
-/Range/Search/Find	Find	Highlight search string in the search range
-/Range/Search/Find	Replace	Replace each occurrence of search string with specified text
+/Range/Search/Formulas	Find	Highlight search string in the search range
+/Range/Search/Formulas	Replace	Replace each occurrence of search string with specified text
 /File	Retrieve	Erase the current worksheet from memory and display the selected worksheet
 /File	Save	Store the entire worksheet in a worksheet file
 /File	Combine	Incorporate all or part of a worksheet file into the current worksheet

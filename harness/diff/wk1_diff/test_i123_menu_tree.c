@@ -42,6 +42,18 @@ int main(int argc, char **argv)
                 }
             }
         }
+        unsigned char reached[256]={1};
+        if(i123_menu_count()>sizeof reached)return 2;
+        for(unsigned pass=0;pass<i123_menu_count();pass++)for(unsigned l=0;l<i123_menu_count();l++)if(reached[l]) {
+            const i123_menu_level_t *lv=&i123_menu_levels[l];
+            for(unsigned k=0;k<lv->count;k++) {
+                unsigned child=i123_menu_items[lv->first+k].child;
+                if(child!=65535)reached[child]=1;
+            }
+        }
+        for(unsigned l=0;l<i123_menu_count();l++)if(!reached[l]) {
+            fprintf(stderr,"unreachable menu level: %s\n",i123_menu_paths[l]);return 1;
+        }
         return 0;
     }
     if (argc != 3) return 2;

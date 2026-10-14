@@ -28980,7 +28980,7 @@ I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=1
 $(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
 $(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe))
 .PHONY: test-flair-i123-menu test-flair-i123-menu-mutant
-test-flair-i123-menu: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+test-flair-i123-menu: test-i123-menu-tree $(BUILD)/check_i123_menu_levels $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	$(call appl-boot,flair_i123_menu_ops,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_OPS,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call I123_MENU_OPS_OK,$(BUILD)/flair_i123_menu_ops.serial) || { printf '!!! test-flair-i123-menu FAIL: copy/move row, menu text or MENU\n'; exit 1; }
 	$(PPM_TEXT_CHECK_BIN) --i123-menu $(BUILD)/flair_i123_menu_ops.ppm
@@ -28995,6 +28995,21 @@ test-flair-i123-menu: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_IM
 	 grep -qF 's="Data-Range  Primary-Key  Secondary-Key  Reset  Go  Quit' $$f && \
 	 grep -qF 's="Attach  Detach  Invoke  Clear  Quit' $$f && grep -qF 's="No  Yes' $$f && \
 	 grep -qF 's="Command not implemented' $$f || { printf '!!! test-flair-i123-menu FAIL: tree navigation\n'; exit 1; }
+	$(call appl-boot,flair_i123_menu_level_1,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_1,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_1.serial)
+	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_1.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 1
+	$(call appl-boot,flair_i123_menu_level_2,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_2,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_2.serial)
+	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_2.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 2
+	$(call appl-boot,flair_i123_menu_level_3,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_3,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_3.serial)
+	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_3.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 3
+	$(call appl-boot,flair_i123_menu_level_4,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_4,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_4.serial)
+	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_4.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 4
+	$(call appl-boot,flair_i123_menu_level_5,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_LEVEL_5,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_i123_menu_level_5.serial)
+	@$(BUILD)/check_i123_menu_levels $(BUILD)/flair_i123_menu_level_5.serial spec/i123/menu_tree.golden spec/i123/menu_level_visits.tsv 5
 	@printf '>>> test-flair-i123-menu: green (tree, RI descriptions, Copy/Move row and MENU pixel bands)\n'
 test-flair-i123-menu-mutant: test-flair-i123-menu $(BUILD)/flair_i123_menu_stale.img
 	$(call appl-boot,flair_i123_menu_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_menu_stale.img,FLAIR_I123_MENU_OPS,)
@@ -29012,3 +29027,6 @@ test-i123-copy-move-baseline: $(BUILD)/test_i123_transfer_baseline $(I123_FORMUL
 	@printf '>>> test-i123-copy-move-baseline: green (12 real-sheet self-transfers, independent FORMULA bodies)\n'
 test-i123-copy-move: test-i123-copy-move-baseline
 TEST_UNIT_GATES += test-i123-copy-move-baseline
+
+$(BUILD)/check_i123_menu_levels: harness/diff/wk1_diff/check_i123_menu_levels.c
+	$(CC) $(CFLAGS) -o $@ $<

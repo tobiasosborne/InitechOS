@@ -82,6 +82,11 @@ Those baselines are explicitly NOT command-minted Copy/Move goldens.
 - QMP does not accept kf5; the new trace uses five Right arrows to H1.
   No unknown trace token remains. Long menu text is clipped in the 77-column
   viewport until its item is highlighted, when the view scrolls.
+- Final review added reachability and caught an orphan Search/Find level.
+  Its correct browsing path is Search/Formulas; RI texts stay unchanged.
+  Five bounded DFS traces now exercise every included level.
+- QMP repeat-digit delivery required explicit 250 ms holds between the FROM
+  and TO prompts. The locked trace changed deliberately; no grader weakened.
 - Red emulator runs were repeated alone before diagnosis. The quit fixture
   collision was fixed; a later parallel formula-launch red passed alone.
   Final remaining gates were run sequentially, with INITECH_QMP_STDIO=1.
@@ -107,9 +112,10 @@ New gates and final evidence:
 The menu resource corruption case also refuses with `menu resource refused`.
 Pixel evidence: `ppm_text_check: i123-menu bands=1515/1479/433
 MENU=330 navy/182 white: green`. The final row is 10, -20, 40, blank, blank,
--80, 160, 80. The mutant's H1 is 0. The end-to-end trace visits every top
-branch and representative nested menus; the host text oracle covers all
-82 included levels, not every emulator leaf execution.
+-80, 160, 80. The mutant's H1 is 0. Five additional locked menu-only DFS fragments visit all 82 included
+levels (94 entry screens including restored parents), graded in order
+against the RI-checked text golden. Leaf feature execution still follows
+the shortfall ledger. The host oracle also proves every level reachable.
 
 All new gates are in TEST_UNIT_GATES/TEST_EMU_GATES. Existing host family
 run: test-i123-wk1-roundtrip (+mutant), test-i123-formula (+mutant and both
@@ -125,8 +131,9 @@ Bochs, record-flair and other emulator mutants: NOT RUN by lane instruction.
 
 Rebuilt 123.EXE compares byte-identical; SHA256
 adc07ccfc77a03d3dd0b315017f9bd85382d69310fc2a8d3a4389eb83d6c40c8.
-MNU SHA256 4a747ea411f686d6d06a04a2238ab296315ccb8bee4ce3ec23b82ad35d122e59
-stayed identical when its host source was made readable. Data volume builds;
+MNU SHA256 af69c30d09208e3edadcee9b40432b8da7166ac247d3910835425e601d763925.
+The earlier resource stayed identical when its host source was made readable;
+its final metadata changes attach Find/Replace to Search/Formulas. Data volume builds;
 file gates independently read saved worksheets with wk1_ref.py and fsck.fat.
 Source ASCII and git diff --check pass.
 
@@ -144,6 +151,6 @@ Source ASCII and git diff --check pass.
 - Local evidence: build/i123-all-host-final.log,
   i123-final-targeted-host.log, i123-final-property.log, i123-menu-final.log,
   i123-required-copy-move.log, i123-remaining-emu-final.log,
-  i123-formula-final-alone.log, i123-repro.log. These logs are not in git.
+  i123-formula-final-alone.log, i123-all-levels-stable.log, i123-repro.log. These logs are not in git.
 - Transport: build/lane.bundle, f7ed504..lane-uqah; verified with git bundle
   verify. Original .git remains untouched; no push.
