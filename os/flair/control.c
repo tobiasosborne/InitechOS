@@ -645,6 +645,10 @@ static void draw_ctrl_scroll_tile(GrafPort *port,
     for (int y = y0; y < y1; y++) {
         cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
     }
+#if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
+    cfill_ctrl(port, x1 - 1, y0, 1, FLAIR_PART_PLAT_FACE);
+    cfill_ctrl(port, x0, y1 - 1, 1, FLAIR_PART_PLAT_FACE);
+#endif
 #endif
 }
 

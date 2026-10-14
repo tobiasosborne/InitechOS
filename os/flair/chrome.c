@@ -489,8 +489,7 @@ static void draw_right_triangle(GrafPort *port, const flair_skin_t *skin,
     }
 }
 
-/* Raised 14x14 Platinum arrow tile.  Corner ownership follows the sampled
- * scans: left highlight wins at bottom-left; right shadow wins at top-right.
+/* Raised 14x14 Platinum arrow tile. Off-diagonal corners retain the face.
  * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 2.2 (SAMPLED). */
 static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
                              int x0, int y0, int x1, int y1)
@@ -506,6 +505,10 @@ static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
     for (int y = y0; y < y1; y++) {
         cfill(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
     }
+#if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
+    cfill(port, x1 - 1, y0, 1, FLAIR_PART_PLAT_FACE);
+    cfill(port, x0, y1 - 1, 1, FLAIR_PART_PLAT_FACE);
+#endif
 #endif
 }
 
