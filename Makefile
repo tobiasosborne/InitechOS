@@ -9993,7 +9993,7 @@ CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 # (-DI123_MUT_ARROWS_DEAD: the pointer never moves), shipped on its own
 # gate-local volume under the same name.
 I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
-                os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c
+                os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c
 I123_APP_DEP := os/i123/core/i123.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
 $(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP)))
 $(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
@@ -13479,7 +13479,7 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 # for its named reason.
 # ---------------------------------------------------------------------------
 I123_CORE_SRC     := os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
-                     os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c
+                     os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c
 I123_CORE_HDR     := os/i123/core/i123.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
 I123_CORE_INC     := -Ios/i123/core -Ispec
 I123_WK1_DIR      := harness/diff/wk1_diff
@@ -28899,3 +28899,39 @@ test-flair-i123-formula-mutant: test-flair-i123-formula $(HARNESS_BIN) $(FLAIR_I
 	@if $(call I123_FORMULA_ROWS,$(BUILD)/flair_i123_formula_mut.serial); then printf '!!! test-flair-i123-formula-mutant FAIL: NO_RECALC PASSED -- the recalculation leg is decoration\n'; exit 1; fi
 	@printf '>>> test-flair-i123-formula-mutant: NO_RECALC correctly RED -- A1 retyped 200 left row 1 at "%s"\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $(BUILD)/flair_i123_formula_mut.serial | grep '     200 ' | head -1 | cut -c45-80)"
 	@printf '>>> test-flair-i123-formula-mutant: green\n'
+
+# initech-uqah: range/reference model; command-minted evidence is mandatory.
+I123_MOVE_DEPS := harness/diff/wk1_diff/test_i123_copy_move.c $(I123_CORE_SRC) $(I123_CORE_HDR)
+$(BUILD)/test_i123_copy_move: $(I123_MOVE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_copy_move_mutant_%: $(I123_MOVE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -D$* $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-copy-move-model test-i123-copy-move test-i123-copy-move-mutant
+test-i123-copy-move-model: $(BUILD)/test_i123_copy_move
+	@$<
+	@printf '>>> test-i123-copy-move-model: green (4000 random sheets, manual reference model)\n'
+test-i123-copy-move: test-i123-copy-move-model
+	@$(BUILD)/test_i123_copy_move --corpus $(LOTUS123_DECOMP)
+test-i123-copy-move-mutant: test-i123-copy-move-model $(BUILD)/test_i123_copy_move_mutant_I123_MUT_COPY_ABSOLUTE $(BUILD)/test_i123_copy_move_mutant_I123_MUT_MOVE_STALE
+	@for pair in I123_MUT_COPY_ABSOLUTE:absolute-relative I123_MUT_MOVE_STALE:move-referrers; do \
+		m=$${pair%%:*}; why=$${pair#*:}; b=$(BUILD)/test_i123_copy_move_mutant_$$m; \
+		if $$b > $$b.log 2>&1; then printf '!!! %s PASSED\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$b.log && grep -q "RED-REASON $$why" $$b.log || { cat $$b.log; exit 1; }; \
+		printf '>>> test-i123-copy-move-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
+	done
+	@printf '>>> test-i123-copy-move-mutant: green (absolute adjustment and stale referrers correctly RED)\n'
+
+$(BUILD)/i123-menu.mnu: $(BUILD)/test_i123_menu_tree
+	@$< --resource > $@
+
+
+$(BUILD)/test_i123_transfer_baseline: harness/diff/wk1_diff/test_i123_transfer_baseline.c $(I123_CORE_SRC) $(I123_CORE_HDR)
+	$(CC) $(CFLAGS) $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-copy-move-baseline
+test-i123-copy-move-baseline: $(BUILD)/test_i123_transfer_baseline $(I123_FORMULA_REF)
+	@$< $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF)
+	@printf '>>> test-i123-copy-move-baseline: green (12 real-sheet self-transfers, independent FORMULA bodies)\n'
+test-i123-copy-move: test-i123-copy-move-baseline
+TEST_UNIT_GATES += test-i123-copy-move-baseline
+
+TEST_UNIT_GATES += test-i123-copy-move-model test-i123-copy-move test-i123-copy-move-mutant

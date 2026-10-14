@@ -242,6 +242,11 @@ static int read_body(i123_sheet_t *sh, const uint8_t *buf, uint32_t len)
             off += extra;
         } else if (op == WK1_OP_STRING) {
             return I123_E_FORMAT;   /* a STRING not right after its FORMULA */
+        } else if (op == 0x0047u) {
+            /* NNAME: MINT02 @0x86, body 25. Keep original bytes/order,
+             * but validate before the range-name table can consume it. */
+            if (ln != 25u || b[15] != 0) return I123_E_FORMAT;
+            rc = carry_rec(sh, op, ln, b);
         } else {
             rc = carry_rec(sh, op, ln, b);
         }

@@ -391,7 +391,7 @@ int i123_enter_formula(i123_calc_t *cx, i123_sheet_t *sh, uint16_t col, uint16_t
     static const uint8_t ZERO[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };   /* a new formula starts at 0 */
     const i123_cell_t *old = i123_find(sh, col, row);
     uint8_t fmt = old ? old->fmt : (uint8_t)WK1_FMT_FRESH_CELL;
-    int rc = i123_formula_compile(text, len, col, row, code, sizeof code, &n);
+    int rc = i123_formula_compile_named(sh, text, len, col, row, code, sizeof code, &n);
     if (rc != I123_OK) return rc;
     rc = i123_set_formula_raw(sh, col, row, fmt, ZERO, code, n, (const char *)0, 0);
     if (rc != I123_OK) return rc;

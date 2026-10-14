@@ -41,8 +41,9 @@
  * DATES (verified one point, MINT02: D1 of 33672 -> "09-Mar-92" = the 1900
  * day serial, with 1900 counted as a leap year). D2 DD-MMM and D3 MMM-YY are
  * in shipped sheets but not on a screenshot [documented: wk1-format.md Sec
- * 4.8]. Formats the corpus never shows (+/-, Hidden is blank, Text, D4, D5,
- * T1..T4) display as General here -- a P1 limitation, recorded, not a claim.
+ * 4.8]. P3 adds Sci, rounded +/- bars, Text and Hidden from Reference pp. 10-6/7
+ * (PDF 224/225). International D4/D5 and Time remain deferred in
+ * spec/i123/era_shortfalls.md I123-P3-05.
  *
  * Freestanding (x87 doubles in the tenant, SSE doubles on the host oracle --
  * every intermediate is assigned to a double, which -std=c11's
@@ -342,6 +343,24 @@ void i123_format_number(double x, uint8_t fmt, uint32_t width, char *out)
     uint32_t t = WK1_FMT_TYPE(fmt), lo = WK1_FMT_LOW(fmt);
     if (width == 0u) { out[0] = '\0'; return; }
     switch (t) {
+    case WK1_FT_SCI: {
+        /* 123.RI 0x605: Exponential format (x.xxE+xx). */
+        int e = 0;
+        double a = x < 0 ? -x : x;
+        if (a) {
+            while (a >= 10 && e < 308) { a /= 10; e++; }
+            while (a < 1 && e > -308) { a *= 10; e--; }
+        }
+        if (a >= 10 - scale10(0.5, -(int)lo)) { a /= 10; e++; }
+        if (e > 99 || e < -99) { fill(out, width, '*'); return; }
+        char s[48];
+        uint32_t n = i123_fixed_text(x < 0 ? -a : a, lo, s, sizeof s);
+        if (!n) { fill(out, width, '*'); return; }
+        s[n++] = 'E'; s[n++] = e < 0 ? '-' : '+';
+        unsigned ae = (unsigned)(e < 0 ? -e : e);
+        s[n++] = (char)('0' + ae/10); s[n++] = (char)('0' + ae%10); s[n] = 0;
+        place_number(s, ' ', width, out); return;
+    }
     case WK1_FT_FIXED:
     case WK1_FT_CURRENCY:
     case WK1_FT_COMMA:
@@ -349,6 +368,17 @@ void i123_format_number(double x, uint8_t fmt, uint32_t width, char *out)
         fixed_family(x, t, lo, width, out);
         return;
     case WK1_FT_SPECIAL:
+        if (lo == WK1_FS_PLUSMINUS) {
+            /* Manual p. 10-6 (PDF 224): rounded whole-number bar,
+             * '.' at zero bars, asterisks when it exceeds the column. */
+            double a = x < 0 ? -x : x;
+            if (a + 0.5 >= width + 1u) { fill(out, width, '*'); return; }
+            uint32_t n = (uint32_t)(a + 0.5);
+            fill(out, width, ' ');
+            if (!n) out[0] = '.';
+            for (uint32_t i = 0; i < n; i++) out[i] = x < 0 ? '-' : '+';
+            return;
+        }
         if (lo == WK1_FS_D1 || lo == WK1_FS_D2 || lo == WK1_FS_D3) {
             date_fmt(x, lo, width, out);
             return;
@@ -395,6 +425,8 @@ void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
     const uint8_t *b;
     *spill = 0;
     if (c == (const i123_cell_t *)0 || width == 0u) { fill(out, width, ' '); return; }
+    uint8_t fmt = resolve_fmt(sh, c->fmt);
+    if ((fmt & 127u) == 0x76u) { fill(out, width, ' '); return; }
     b = sh->pool + c->off;
     switch (c->kind) {
     case I123_K_LABEL: {
@@ -429,9 +461,20 @@ void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
         return;
     }
     case I123_K_NUMBER:
+        if (raw_class(c->v)) {
+            place_number(raw_class(c->v) == 2 ? "NA" : "ERR", ' ', width, out);
+            return;
+        }
         i123_format_number(cell_double(c->v), resolve_fmt(sh, c->fmt), width, out);
         return;
     case I123_K_FORMULA: {
+        if ((fmt & 127u) == 0x75u) {
+            char text[I123_FTEXT_MAX];
+            if (i123_formula_text(b, c->len, c->col, c->row, text, sizeof text)) text[0] = 0;
+            left_text((const uint8_t *)text, slen(text), width, out, spill);
+            *spill = 0; /* the source is temporary, so no pool-based spill */
+            return;
+        }
         int k = raw_class(c->v);
         if (k == 3 && c->has_str) {   /* string result, left like a label (MINT01 D2 "big") */
             left_text(b + c->len, c->slen, width, out, spill);
@@ -562,6 +605,8 @@ void i123_cell_content(const i123_sheet_t *sh, const i123_cell_t *c,
     if (cap == 0u) return;
     out[0] = '\0';
     if (c == (const i123_cell_t *)0) return;
+    /* Hidden protected data is also hidden in the control panel (PDF 224). */
+    if (sh->protec && (c->fmt & 128u) && (resolve_fmt(sh,c->fmt) & 127u) == 0x76u) return;
     switch (c->kind) {
     case I123_K_LABEL: {
         const uint8_t *b = sh->pool + c->off;

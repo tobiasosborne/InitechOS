@@ -28,10 +28,23 @@ except ImportError:
 
 
 def main():
-    if len(sys.argv) != 2:
+    bytes_mode = len(sys.argv) == 3 and sys.argv[1] == '--bytes'
+    if len(sys.argv) != 2 and not bytes_mode:
         sys.stderr.write(__doc__)
         return 2
-    _b, _end, _recs, cells = wk1_ref.decode(sys.argv[1])
+    _b, _end, _recs, cells = wk1_ref.decode(sys.argv[2] if bytes_mode else sys.argv[1])
+    if bytes_mode:
+        # wk1_ref owns framing and identifies FORMULA records. The body
+        # contains format, coordinate, cache and RPN; include all bytes.
+        # No C spec constants are imported across the independence barrier.
+        offset = 0
+        for _op, name, record_length, _description in _recs:
+            body = _b[offset + 4:offset + 4 + record_length]
+            offset += 4 + record_length
+            if name == 'FORMULA':
+                c, r = struct.unpack_from('<HH', body, 1)
+                print('R %d %d BODY %s' % (c, r, body.hex()))
+        return 0
     for i, cell in enumerate(cells):
         c, r, kind, v = cell[:4]
         if kind != 'FORMULA':

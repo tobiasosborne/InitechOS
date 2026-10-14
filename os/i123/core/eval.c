@@ -183,6 +183,10 @@ void i123_cell_value(const i123_sheet_t *sh, uint16_t col, uint16_t row, i123_va
         v->n = (double)(int16_t)rd16(c->v);
         return;
     case I123_K_NUMBER:
+        if (raw_class(c->v)) {
+            v->t = raw_class(c->v) == 2 ? I123_V_NA : I123_V_ERR;
+            return;
+        }
         v->t = I123_V_NUM;
         v->n = rd_double(c->v);
         return;
