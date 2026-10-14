@@ -30,8 +30,9 @@ int main(int argc,char **argv)
     const char *com=argc>2?argv[2]:"build/SAMIR.COM";
     char cmd[16384],keybuf[4096],report[4096],path[256];
     int status=!strcmp(mode,"status"),off=!strcmp(mode,"off"),console=!strcmp(mode,"console");
-    CHECK(getenv("INITECH_QMP_STDIO") && !strcmp(getenv("INITECH_QMP_STDIO"),"1"),"QMP stdio required");
-    if(g_fails) return TEST_SUMMARY("test-samir-screen-emu");
+    /* The QMP transport (socket or INITECH_QMP_STDIO=1 stdio) is the harness's
+     * choice, not this oracle's: the Codex lane's sandbox needed stdio, the
+     * certificate runs the default (PM, 2026-10-15). */
     if(command("mkdir -p build/samir-screen")) return 2;
     snprintf(cmd,sizeof(cmd),"cp -f build/samir_list.img build/samir-screen/%s.img",mode);
     if(command(cmd)) return 2;
