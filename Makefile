@@ -22257,7 +22257,7 @@ RECORD_SPEC_trash_purge_views   = $(FLAIR_TRASH_PURGE_CTRLN_SPEC)
 RECORD_MARKER_trash_purge_views = FINDER-TRASH-VIEW-CLOSED win=3
 RECORD_IMAGE_trash_purge_views  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_trash_purge_views   = $(FLAIR_PURGE_VIEWS_DATA)
-RECORD_SETTLE_trash_purge_views = 300
+RECORD_SETTLE_trash_purge_views = 500
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
