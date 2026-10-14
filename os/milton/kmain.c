@@ -42,6 +42,7 @@
 #include "rtc.h"         /* MC146818 RTC clock source (initech-yv9) */
 #include "command.h"     /* COMMAND.COM REPL (initech-7pc); BOOT_SHELL only */
 #include "sysinit.h"     /* SYSINIT named bring-up phases (beads initech-509.2) */
+#include "power.h"       /* kernel_reset / kernel_halt (bead initech-tdnl.78) */
 
 #if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
 /* The LIVE FLAIR desktop demo kernels (beads initech-re30.3 LANE 1; initech-5l5z
@@ -4195,6 +4196,210 @@ static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
         (void)finder_trash_confirm(ctx, bi, 0u);
 }
 
+/* ---------------------------------------------------------------------------
+ * bead initech-tdnl.78: SPECIAL > RESTART AND SPECIAL > SHUT DOWN.
+ *
+ * THE BEHAVIOUR (Law 1):
+ *   - both "first sav[e] any necessary information" (Restart / Shut Down,
+ *     Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF p. 141, book
+ *     p. 121) -- "put everything away safely and update directory
+ *     information" (same guide PDF p. 222, book p. 202). The Finder shell
+ *     has already noted every open window's view (finder_windows.c
+ *     fw_do_power); here the kernel commits DESKTOP.DB. That is the ONLY
+ *     deferred state: the FAT backend commits every write before it returns
+ *     (os/milton/fileio_fat.c "commits to disk per call (no deferred
+ *     flush)", and its CLOSE is a no-op for that reason). The Trash is NOT
+ *     emptied (System 7: Apple_Whats_New_In_System_7_Z030-3935-A.pdf PDF
+ *     p. 23). Open applications are not asked to quit (System 7 sends them
+ *     the Quit Application event, Inside Macintosh Vol VI PDF p. 345 -- the
+ *     App Contract has no such event yet; stated, a follow-up).
+ *   - Restart then restarts the machine: the 8042 reset pulse
+ *     (os/milton/power.h kernel_reset); a pulse that does not reset is a
+ *     PANIC with the controller status, never a silent hang (Rule 2).
+ *   - Shut Down, on a machine with no software power switch (a PC of the
+ *     period, like the Macintosh Plus / SE): "the screen will become dark,
+ *     and a dialog box will appear with a Restart button" (V6 guide PDF
+ *     p. 215, book p. 195; "click the Restart button on the screen", the same
+ *     page) -- the Macintosh User's Guide for desktop Macintosh computers
+ *     (Z030-1751-A, PDF p. 25, book p. 6): switch off "when a message on
+ *     screen indicates that it's safe to do so".
+ *
+ * THE SCREEN -- the System Error Handler's alert table, resource 'DSAT' 2 of
+ * the System file on the System 7.0.1 boot disk (../system7-decomp/goldens/
+ * work/boot701.dsk; System 7.5.3's boot753.img carries the same entries).
+ * Alert 20001, the switch-off alert with a Restart button:
+ *   text 0xB176 "It is now safe to switch off your Macintosh./If you wish to
+ *        continue using your Macintosh,/press Restart." ('/' = new line),
+ *        pen (v 94, h 114);
+ *   icon 0xBFF1, a 32x32 ICON at rect (81,60)-(113,92) (the bytes below);
+ *   buttons 0xAA0F, ONE button: string 0xA628 "Restart" at rect
+ *        (154,404)-(174,463).
+ * Those are 512x342 (compact Macintosh) screen coordinates; this 640x480
+ * screen centres that frame, (+64,+69).
+ * STATED DEVIATIONS:
+ *   - "Macintosh" -> "computer": this is not a Macintosh; FLAIR is Initech's
+ *     own platform (ADR-0012), and the house rule prefers the generic
+ *     designation (ADR-0003 DEC-12; the Finder already says "About This
+ *     Computer"). The rest of the text is verbatim.
+ *   - the BOX rectangle is AUTHORED: the DSAT draws into the low-memory
+ *     DSAlertRect, which the resource does not carry (no local reference).
+ *     (96,133)..(546,259) = DSAT-space (32,64)..(482,190), enclosing the
+ *     three DSAT elements.
+ *   - the frame and face are the existing dBoxProc alert's (the Empty Trash
+ *     confirm's, Platinum face; the Platinum alert frame is bead 81ft's).
+ *   - line pitch 16 = the Chicago 12 cell (CHICAGO_CELL_H); the DSAT carries
+ *     only the first pen position (baseline v 94 -> cell top 94 - 12 + 69).
+ * Returns 1 when the Restart button (or Return, the default item) was
+ * chosen; in a BOUNDED image the screen holds until the image's life ends
+ * and then halts (kernel_halt) -- the interactive image waits forever, which
+ * is what a switched-off-but-not-yet-unplugged machine does.
+ * MUTANT KMAIN_MUT_SHUTDOWN_RETURNS (Rule 6; test-flair-shutdown-mutant):
+ * returns 0 straight after the screen is up, so the desktop takes input
+ * again. NEVER in a real build.
+ * ------------------------------------------------------------------------- */
+#define FSD_DX       64
+#define FSD_DY       69
+#define FSD_L        (32 + FSD_DX)
+#define FSD_T        (64 + FSD_DY)
+#define FSD_R        (482 + FSD_DX)
+#define FSD_B        (190 + FSD_DY)
+#define FSD_ICON_X   (60 + FSD_DX)
+#define FSD_ICON_Y   (81 + FSD_DY)
+#define FSD_TEXT_X   (114 + FSD_DX)
+#define FSD_TEXT_Y   (94 - 12 + FSD_DY)
+#define FSD_BTN_L    (404 + FSD_DX)
+#define FSD_BTN_T    (154 + FSD_DY)
+#define FSD_BTN_R    (463 + FSD_DX)
+#define FSD_BTN_B    (174 + FSD_DY)
+
+/* DSAT 2 ICON 0xBFF1, 32 rows x 4 bytes, MSB = leftmost pixel, 1 = ink. */
+static const uint8_t FSD_ICON[128] = {
+    0xFF, 0xFF, 0xFF, 0xFF, 0x80, 0x7F, 0xFF, 0xFF,
+    0x80, 0x7F, 0xFF, 0xFF, 0x80, 0x7F, 0xFF, 0xFF,
+    0x80, 0x7F, 0xFF, 0xFF, 0x80, 0x7F, 0xC0, 0xFF,
+    0x88, 0x7F, 0x00, 0x3F, 0x88, 0x7E, 0x00, 0x1F,
+    0x88, 0x7C, 0x00, 0x0F, 0x80, 0x78, 0x00, 0x07,
+    0x80, 0x78, 0x00, 0x07, 0x80, 0x70, 0x00, 0x03,
+    0x80, 0x71, 0xDD, 0xC3, 0x80, 0x70, 0x00, 0x03,
+    0x80, 0x70, 0x00, 0x03, 0x80, 0x71, 0xDD, 0x43,
+    0x80, 0x70, 0x00, 0x03, 0x80, 0x70, 0x00, 0x03,
+    0x80, 0x71, 0xD7, 0x03, 0x80, 0x70, 0x00, 0x03,
+    0x87, 0xF0, 0x00, 0x03, 0x81, 0xF1, 0xEE, 0xC3,
+    0x81, 0xF0, 0x00, 0x07, 0x81, 0xF0, 0x00, 0x07,
+    0x81, 0xF0, 0x00, 0x0F, 0x81, 0xE0, 0x00, 0x1F,
+    0x8F, 0x80, 0x00, 0x7F, 0x81, 0xFF, 0xFF, 0xFF,
+    0x81, 0xFF, 0xFF, 0xFF, 0x81, 0xFF, 0xFF, 0xFF,
+    0x81, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
+static int finder_shutdown_screen(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    static const char *const text[3] = {
+        "It is now safe to switch off your computer.",
+        "If you wish to continue using your computer,",
+        "press Restart."
+    };
+    static DialogRecord     dr;
+    static DialogItem       it[4];
+    static ControlRecord    restart_c;
+    static finder_win_rgn_t rs, rc, ru;
+    const bitmap_t *off = &ctx->off;
+    uint16_t hit = 0u;
+    int k;
+
+    /* the screen becomes dark */
+    for (uint32_t y = 0u; y < off->height; y++)
+        surface_fill_span(off, 0u, y, off->width, (uint32_t)CIDX_BLACK);
+
+    control_init(&restart_c, pushButton,
+                 fta_rect(FSD_BTN_L, FSD_BTN_T, FSD_BTN_R, FSD_BTN_B),
+                 0, 0, 1, 1, "Restart");
+    for (k = 0; k < 4; k++) {
+        it[k].type    = (k == 0) ? ctrlItem : statText;
+        it[k].ctrl    = (k == 0) ? &restart_c : (ControlRecord *)0;
+        it[k].rect    = (k == 0) ? restart_c.contrlRect
+                                 : fta_rect(FSD_TEXT_X, FSD_TEXT_Y + 16 * (k - 1),
+                                            FSD_BTN_R, FSD_TEXT_Y + 16 * k);
+        it[k].text    = (k == 0) ? (const char *)0 : text[k - 1];
+        it[k].enabled = (uint8_t)((k == 0) ? 1 : 0);
+        it[k]._pad[0] = it[k]._pad[1] = it[k]._pad[2] = 0u;
+    }
+    fta_rgn(&rs); fta_rgn(&rc); fta_rgn(&ru);
+    (void)NewDialog(&dr, fta_rect(FSD_L, FSD_T, FSD_R, FSD_B), "", it, 4u,
+                    1u /* Restart = default = Return */, 0u,
+                    (WindowMgr *)0, &rs.r, &rc.r, &ru.r);
+    dr.window.port.portBits.bm = ctx->off;
+    dr.window.port.visRgn  = (region_t *)0;
+    dr.window.port.clipRgn = (region_t *)0;
+    dr.window.port.portRect = region_get_bbox(dr.window.strucRgn);
+    DrawDialog(&dr);
+    /* the DSAT icon, srcCopy (ink black, clear white) */
+    for (int r = 0; r < 32; r++)
+        for (int c = 0; c < 32; c++)
+            surface_put_pixel(off,
+                              (uint32_t)(FSD_ICON_Y + r) * off->pitch +
+                              (uint32_t)(FSD_ICON_X + c) * off->bytes_per_pixel,
+                              (FSD_ICON[r * 4 + (c >> 3)] & (0x80u >> (c & 7)))
+                                  ? (uint32_t)CIDX_BLACK : (uint32_t)CIDX_WHITE);
+    flair_desktop_present(bi, &ctx->off);
+    serial_puts("FLAIR-SHUTDOWN-SAFE\n");
+#if defined(KMAIN_MUT_SHUTDOWN_RETURNS)
+    return 0;
+#endif
+
+    for (;;) {
+        EventRecord ev;
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 3u);
+        flair_live_cursor_track(&ev);
+        if (g) {
+            flair_live_emit_evt(&ev);
+            if (DialogHandleEvent(&dr, &ev, (dialog_filter_fn)0, &hit) &&
+                hit == 1u)
+                return 1;
+        }
+#if !defined(FLAIR_LIVE_INTERACTIVE) && !defined(KMAIN_MUT_TRACK_TIMEOUT)
+        if ((int32_t)(flair_tick_count() - g_flair_live_life_end) >= 0) {
+            serial_puts("FLAIR-SHUTDOWN-HALT\n");
+            kernel_halt();
+        }
+#endif
+    }
+}
+
+/* The reset itself: never returns. A reset that does not land is a PANIC with
+ * the 8042 status (0x100 set = the input buffer never drained), Rule 2. */
+static void finder_restart_now(void)
+{
+    uint32_t st;
+
+    serial_puts("FLAIR-RESTART\n");
+    st = kernel_reset();
+    serial_puts("PANIC kernel_reset: the 8042 pulse did not reset the machine st=");
+    serial_puthex32(st);
+    serial_puts("\nHALTED\n");
+    kernel_halt();
+}
+
+/* Special > Restart / Shut Down after the shell noted the open views
+ * (`noted`, finder_windows.c fw_do_power): commit, then reset or shut down.
+ * MUTANT KMAIN_MUT_POWER_NO_FLUSH (Rule 6; test-flair-shutdown-mutant): the
+ * DESKTOP.DB commit is skipped. NEVER in a real build. */
+static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                         finder_cmd_id id, int16_t noted)
+{
+    serial_puts(id == FCMD_RESTART ? "FINDER-POWER name=RESTART views="
+                                   : "FINDER-POWER name=SHUTDOWN views=");
+    serial_puti((int32_t)noted);
+    serial_putc('\n');
+#if !defined(KMAIN_MUT_POWER_NO_FLUSH)
+    g_finder_db_dirty = 1;
+    finder_desk_persist();
+#endif
+    if (id == FCMD_SHUTDOWN && !finder_shutdown_screen(ctx, bi))
+        return;                         /* only KMAIN_MUT_SHUTDOWN_RETURNS */
+    finder_restart_now();
+}
+
 /* Report + service whatever the command spine's shell hook just did. ONE
  * command, ONE outcome, ONE report (finder_windows.h finder_cmd_outcome_t). */
 static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
@@ -4299,6 +4504,12 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         /* bead initech-6k12: the shell counted; confirm, then purge. */
         if (o->status != FINDER_WIN_OK) return;
         finder_empty_trash(ctx, bi, (uint16_t)o->moved);
+        return;
+
+    case FCMD_RESTART:
+    case FCMD_SHUTDOWN:
+        /* bead initech-tdnl.78: put everything away, then reset / shut down. */
+        finder_power(ctx, bi, o->id, o->moved);
         return;
 
     case FCMD_OPEN:

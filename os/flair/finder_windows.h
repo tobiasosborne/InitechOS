@@ -459,7 +459,9 @@ typedef struct finder_cmd_outcome {
     finder_cmd_id       id;       /* which one                                 */
     finder_win_status_t status;   /* FINDER_WIN_OK or the refusal              */
     int16_t             slot;     /* the affected window slot, or -1           */
-    int16_t             moved;    /* Clean Up: icons that actually moved        */
+    int16_t             moved;    /* Clean Up: icons that actually moved;
+                                   * Restart / Shut Down (tdnl.78): open-window
+                                   * views noted at dispatch                   */
     uint16_t            parent;   /* New Folder: the parent's first cluster    */
     uint8_t             singleton;/* Open: 1 == an existing window was raised  */
     char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open    */

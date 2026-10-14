@@ -27,7 +27,7 @@
 # Arrange (190,214), upper About (56,30).
 #
 # ===========================================================================
-# 1. FLAIR_CMDS_FAKES_SPEC -- every formerly-fake item is tried, then Select
+# 1. FLAIR_CMDS_FAKES_SPEC -- every still-fake item is tried, then Select
 #    All really runs.
 # ===========================================================================
 # A. volume double-click -> (600,64): m100:-88, m100:-88, m80:0 ; l1,l0,l1,l0
@@ -38,17 +38,23 @@
 #    File > Open:      m0:-100, m0:-5 -> (40,30) ; l1 ; m0:35 -> (40,65) ; l0
 #    each -> FLAIR-MENU menu=512 item=0 (sel=0x00000000): drawn disabled, the
 #    release selects NOTHING (menu.c MenuInfo_item_selectable).
-# D. Special > Restart: m130:-35 -> (170,30) ; l1 ; m0:79 -> (170,109) ; l0
-#    Special > Shut Down: m0:-79 -> (170,30) ; l1 ; m0:95 -> (170,125) ; l0
-#    each -> FLAIR-MENU menu=515 item=0 (sel=0x00000000)
-# E. band-1 File > About: m-100:-100, m-30:-15 -> (40,10) ; l1 ; m0:19 ->
+# D. (REMOVED 2026-10-15, bead initech-tdnl.78 -- a stated re-key, Rule 8.)
+#    This step pulled down Special > Restart and Special > Shut Down and
+#    released on each, asserting they selected NOTHING. They are REAL now
+#    (the kernel reset/halt primitives), so releasing on them would reset or
+#    shut the machine down mid-trace; they left the "fakes" set and are
+#    graded positively by test-flair-restart / test-flair-shutdown
+#    (spec/flair_power_traces.mk). The old tokens were
+#    m130:-35,l1,m0:79,l0,m0:-79,l1,m0:95,l0 and E began
+#    m-100:-100,m-30:-15 from (170,125); E now starts from C's end (40,65).
+# E. band-1 File > About: m0:-55 -> (40,10) ; l1 ; m0:19 ->
 #    (40,29) ; l0 -> FLAIR-MENU menu=128 item=0 (sel=0x00000000)
 # F. kctrl-i, kctrl-d, kctrl-o -> MenuKey hands out nothing: no FINDER-CMD.
 # G. Edit > Select All: m40:1 -> (80,30) ; l1 ; m0:99 -> (80,129) ; l0
 #    -> FLAIR-MENU menu=513 item=6 ; FINDER-CMD ... name=SELECT_ALL src=mouse
 #    sel=1 ; FINDER-SELECT-ALL win=0 n=2 ; every label drawn inverted.
 # H. PARK (80,129) -> (620,460): sum (+540,+331): m100:66 x4, m100:67, m40:0
-FLAIR_CMDS_FAKES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,l0,m-15:-72,l1,m0:89,l0,m0:-89,l1,m0:100,m0:5,l0,m0:-100,m0:-5,l1,m0:35,l0,m130:-35,l1,m0:79,l0,m0:-79,l1,m0:95,l0,m-100:-100,m-30:-15,l1,m0:19,l0,kctrl-i,kctrl-d,kctrl-o,m40:1,l1,m0:99,l0,m100:66,m100:66,m100:66,m100:66,m100:67,m40:0
+FLAIR_CMDS_FAKES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,l0,m-15:-72,l1,m0:89,l0,m0:-89,l1,m0:100,m0:5,l0,m0:-100,m0:-5,l1,m0:35,l0,m0:-55,l1,m0:19,l0,kctrl-i,kctrl-d,kctrl-o,m40:1,l1,m0:99,l0,m100:66,m100:66,m100:66,m100:66,m100:67,m40:0
 
 # ===========================================================================
 # 2. FLAIR_CMDS_ARRANGE_SPEC -- View > Arrange (by Name) really arranges.

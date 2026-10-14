@@ -56,9 +56,14 @@
  *      titled "Trash", singleton; put back = a plain move into the lowest
  *      FREE cell of the open root window; no \TRASH -> ERR_NOTRASH.
  *
+ *   O15 Special > Restart / Shut Down (bead initech-tdnl.78): the shell puts
+ *      every open window's view state away at dispatch, as a close would, so
+ *      the kernel's DESKTOP.DB commit that follows carries it.
+ *
  * MUTANTS: FINDER_OPS_MUT_TRASH_NO_STAGE (O6), FINDER_OPS_MUT_NO_CYCLE (O5),
  *          FINDER_OPS_MUT_NO_ORIGIN (O6/O7), FINDER_DESK_MUT_NO_HILITE (O2),
- *          FINDER_WIN_MUT_TRASH_ROOT + FINDER_OPS_MUT_COUNT_CELL (O13).
+ *          FINDER_WIN_MUT_TRASH_ROOT + FINDER_OPS_MUT_COUNT_CELL (O13),
+ *          FINDER_WIN_MUT_POWER_NO_SAVE (O15).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -1053,11 +1058,12 @@ static void leg_select_arrange(void)
 
     /* An unimplemented command never executes silently: dispatched anyway
      * (the bar would never hand it out), the shell declines it. */
+    /* RE-KEY (bead initech-tdnl.78, stated): Restart left the "no" side of
+     * this row when it was implemented; O15 grades it. Get Info stays "no". */
     CHECK(finder_shell_implements(FCMD_GET_INFO) == 0 &&
-          finder_shell_implements(FCMD_RESTART) == 0 &&
           finder_shell_implements(FCMD_SELECT_ALL) == 1 &&
           finder_shell_implements(FCMD_ARRANGE_BY_NAME) == 1,
-          "O10 the shell's execution table: Select All + Arrange yes, Get Info + Restart no");
+          "O10 the shell's execution table: Select All + Arrange yes, Get Info no");
 }
 
 /* ===========================================================================
@@ -1140,6 +1146,63 @@ static void leg_scroll(void)
           "O11 grow: max 58, value re-clamped to 58, F18 at 308");
 }
 
+/* ===========================================================================
+ * O15 -- SPECIAL > RESTART / SHUT DOWN PUT EVERYTHING AWAY FIRST
+ * (bead initech-tdnl.78). Ref: Apple_Macintosh_System_Software_Users_Guide_
+ * V6.0.pdf PDF p. 222 (book p. 202): "When you choose Shut Down, the computer
+ * is able to put everything away safely and update directory information
+ * before you switch off the system"; PDF p. 141 (book p. 121): Restart and
+ * Shut Down first save "any necessary information". The Finder's only
+ * deferred state is an OPEN window's view (finder_win_close saves it; nothing
+ * else does), so the command must note it at dispatch, BEFORE the kernel
+ * commits DESKTOP.DB and resets or halts.
+ * Hand-derived: both scene windows are open, nothing has ever closed, so
+ * there is no view record. ROOT is moved to (140,140); APPS stays at its
+ * cascaded default (20,60). Shut Down notes BOTH (moved 2) and leaves both
+ * OPEN; a second Shut Down with nothing moved notes nothing (moved 0);
+ * ROOT moved again to (200,150), Restart notes exactly that one (moved 1).
+ * MUTANT FINDER_WIN_MUT_POWER_NO_SAVE (nothing noted) goes RED.
+ * ===========================================================================*/
+static void leg_power(void)
+{
+    FinderCtx fx;
+    const finder_cmd_outcome_t *o;
+    const finder_view_rec_t *vr, *va;
+
+    scene_init(&S);
+    memset(&fx, 0, sizeof fx);
+    finder_shell_bind_ctx(&S.sh, &fx);
+    MoveWindow(&S.wm, &S.sh.windows[ROOT].rec, 140, 140);
+    CHECK(S.sh.n_views == 0u, "O15 (setup) no view record before the command");
+
+    finder_shell_sync_ctx(&S.sh);
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 7u, "mouse");   /* Shut Down */
+    o = finder_shell_take_outcome(&S.sh);
+    CHECK(o != NULL && o->id == FCMD_SHUTDOWN && o->status == FINDER_WIN_OK &&
+          o->moved == 2,
+          "O15 Special > Shut Down runs in the shell and notes 2 open-window views");
+    vr = finder_shell_find_view(&S.sh, CL_ROOT);
+    va = finder_shell_find_view(&S.sh, CL_APPS);
+    CHECK(vr != NULL && vr->x == 140 && vr->y == 140 &&
+          va != NULL && va->x == 20 && va->y == 60,
+          "O15 Shut Down noted BOTH frames: ROOT (140,140), APPS (20,60)");
+    CHECK(S.sh.windows[ROOT].open && S.sh.windows[APPW].open,
+          "O15 the windows stay open: the kernel owns what happens next");
+
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 7u, "mouse");
+    o = finder_shell_take_outcome(&S.sh);
+    CHECK(o != NULL && o->id == FCMD_SHUTDOWN && o->moved == 0,
+          "O15 a second Shut Down with nothing moved notes nothing new");
+
+    MoveWindow(&S.wm, &S.sh.windows[ROOT].rec, 200, 150);
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 6u, "mouse");   /* Restart   */
+    o = finder_shell_take_outcome(&S.sh);
+    vr = finder_shell_find_view(&S.sh, CL_ROOT);
+    CHECK(o != NULL && o->id == FCMD_RESTART && o->status == FINDER_WIN_OK &&
+          o->moved == 1 && vr != NULL && vr->x == 200 && vr->y == 150,
+          "O15 Special > Restart notes the moved ROOT frame (200,150) the same way");
+}
+
 /* L118: attributes come from the live binding, after the window was built.
  * Ref: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf pp. 88, 112.
  * The mock move/unlink intentionally do NOT protect a file themselves. */
@@ -1193,5 +1256,6 @@ int main(void)
     leg_trash_window();
     leg_empty_trash();
     leg_locked_trash();
+    leg_power();
     return TEST_SUMMARY("test_finder_ops");
 }

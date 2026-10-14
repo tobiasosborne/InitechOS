@@ -12579,6 +12579,9 @@ $(BUILD)/test_finder_ops_mutant_trashroot: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK)
 # 6k12: Empty Trash purges at DISPATCH, with no confirm.
 $(BUILD)/test_finder_ops_mutant_noconfirm: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_EMPTY_NO_CONFIRM $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
+# tdnl.78: Restart / Shut Down do not put the open windows' views away.
+$(BUILD)/test_finder_ops_mutant_powernosave: $(FINDER_OPS_DEPS) $(FINDER_OPS_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) -DFINDER_WIN_MUT_POWER_NO_SAVE $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_OPS_SRC) $(FINDER_OPS_LINK)
 
 .PHONY: test-finder-ops test-finder-ops-mutant
 test-finder-ops: $(TEST_FINDER_OPS)
@@ -12589,15 +12592,15 @@ test-finder-ops: $(TEST_FINDER_OPS)
 	@printf ">>> test-finder-ops: green\n"
 
 # Each mutant must go RED for its NAMED reason (the CHECK text is grepped).
-test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint $(BUILD)/test_finder_ops_mutant_trashroot $(BUILD)/test_finder_ops_mutant_noconfirm
-	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing'; do \
+test-finder-ops-mutant: $(foreach m,$(FINDER_OPS_MUTANTS),$(BUILD)/test_finder_ops_mutant_$(m)) $(BUILD)/test_finder_ops_mutant_hilite $(BUILD)/test_finder_ops_mutant_abs $(BUILD)/test_finder_ops_mutant_arrange $(BUILD)/test_finder_ops_mutant_scrollpaint $(BUILD)/test_finder_ops_mutant_trashroot $(BUILD)/test_finder_ops_mutant_noconfirm $(BUILD)/test_finder_ops_mutant_powernosave
+	@for pair in 'TRASH_NO_STAGE:O6 the volume holds README.TXT inside' 'NO_SERVICE_GUARD:O12 the root TRASH dropped on APPS is refused SERVICE' 'NO_CYCLE:O5 a folder dropped into ITSELF is refused CYCLE' 'NO_ORIGIN:O6 a kind=5 origin' 'hilite:O2 highlighted FACE pixel' 'abs:O9 paint: APPS is drawn at the moved cell' 'arrange:O10 View > Arrange (by Name) ran' 'scrollpaint:O11 hit: a click on F18 where it is DRAWN' 'trashroot:O13 the Trash window lists exactly the staged README.TXT' 'COUNT_CELL:O13 the root window shows it in the lowest FREE cell' 'noconfirm:O14 dispatch alone deletes nothing' 'powernosave:O15 Special > Shut Down runs in the shell and notes 2'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; \
 		bin=$(BUILD)/test_finder_ops_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-ops-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-finder-ops-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-finder-ops-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-finder-ops-mutant: green (all eleven mutants RED for the named reason)\n'
+	@printf '>>> test-finder-ops-mutant: green (all twelve mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-interact (beads initech-5l5z FO-9; ADR-0006 E-D5(A)/Sec 4.1) --
@@ -19938,8 +19941,10 @@ test-flair-fg-close-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tena
 # audit F03/F05/F07/F15/G10) -- NO COMMAND IS ENABLED AND DOES NOTHING. Two
 # boots of $(FLAIRTENANTS_IMG) (spec/flair_finder_cmds_traces.mk):
 #   [1] FAKES  with a DOCUMENT selected, release on File > Get Info /
-#       Duplicate / Open, Special > Restart / Shut Down and band-1 About: each
-#       release selects NOTHING (item=0 -- drawn disabled, not selectable); the
+#       Duplicate / Open and band-1 About: each release selects NOTHING
+#       (item=0 -- drawn disabled, not selectable; Special > Restart / Shut
+#       Down left this set with bead initech-tdnl.78, re-key stated in
+#       spec/flair_finder_cmds_traces.mk step D); the
 #       chords Ctrl-I/D/O are handed out by nobody (no FINDER-CMD at all); then
 #       Edit > Select All really selects both shown icons (serial + every label
 #       drawn inverted: grader leg allsel).
@@ -19958,7 +19963,6 @@ FLAIR_FC_ARRANGE_NAME := flair_cmds_arrange
 define fc-fakes-check
 grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' $(1) || { printf 'FC: README.TXT (a document) was not selected first\n'; exit 1; }; \
 [ "$$(grep -cxF 'FLAIR-MENU menu=512 item=0 (sel=0x00000000)' $(1))" = 3 ] || { printf 'FC: File > Get Info / Duplicate / Open did not all release on NOTHING (want 3 x menu=512 item=0): %s\n' "$$(grep '^FLAIR-MENU menu=512' $(1) | tr '\n' ' ')"; exit 1; }; \
-[ "$$(grep -cxF 'FLAIR-MENU menu=515 item=0 (sel=0x00000000)' $(1))" = 2 ] || { printf 'FC: Special > Restart / Shut Down did not both release on NOTHING\n'; exit 1; }; \
 grep -qxF 'FLAIR-MENU menu=128 item=0 (sel=0x00000000)' $(1) || { printf 'FC: band-1 File > About was selectable\n'; exit 1; }; \
 ! grep -qE 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)( |$$)' $(1) || { printf 'FC: a fake command reached the command spine: %s\n' "$$(grep -E 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)' $(1) | head -1)"; exit 1; }; \
 grep -q 'name=SELECT_ALL src=mouse sel=1$$' $(1) || { printf 'FC: Edit > Select All did not dispatch\n'; exit 1; }; \
@@ -19973,7 +19977,7 @@ test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	@( $(call fc-fakes-check,$(BUILD)/$(FLAIR_FC_FAKES_NAME).serial) ) || { printf '!!! test-flair-finder-cmds FAIL: FAKES serial (above)\n'; grep -E '^(FINDER-|FLAIR-MENU)' $(BUILD)/$(FLAIR_FC_FAKES_NAME).serial; exit 1; }
 	@[ -s "$(BUILD)/$(FLAIR_FC_FAKES_NAME).ppm" ] || { printf '!!! test-flair-finder-cmds FAIL: FAKES screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) allsel "$(BUILD)/$(FLAIR_FC_FAKES_NAME).ppm" || { printf '!!! test-flair-finder-cmds FAIL: after Select All the four labels are not all drawn selected\n'; exit 1; }
-	@printf '>>> test-flair-finder-cmds [1/2]: Get Info / Duplicate / Open(doc) / Restart / Shut Down / band-1 About select NOTHING; Ctrl-I/D/O inert; Select All selects 4 (leg allsel)\n'
+	@printf '>>> test-flair-finder-cmds [1/2]: Get Info / Duplicate / Open(doc) / band-1 About select NOTHING; Ctrl-I/D/O inert; Select All selects 4 (leg allsel)\n'
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FC_ARRANGE_NAME),$(BUILD)/$(FLAIR_FC_ARRANGE_NAME)_data.img,$(FLAIR_CMDS_ARRANGE_SPEC),FLAIR-MENU menu=514,1)
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-WIN-DRAG win=0 name=README.TXT x=129 y=186,the set-up drag did not move README.TXT off its cell)
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FLAIR-MENU menu=514 item=12 (sel=0x0202000C),the release did not select View > Arrange (by Name))
@@ -21266,12 +21270,13 @@ RECORD_IMAGE_fg_desk  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_fg_desk = 300
 # select_all + arrange (beads initech-tdnl.36 / .67; audit F03/F05/F07/F15/G10;
 # Rule 14): select_all replays FLAIR_CMDS_FAKES_SPEC -- Get Info, Duplicate,
-# Open (on a document), Restart, Shut Down and band-1 About are pulled down and
-# released on: each is drawn gray and nothing happens BY DESIGN; then Edit >
+# Open (on a document) and band-1 About are pulled down and released on
+# (Restart / Shut Down left the trace with tdnl.78): each is drawn gray and
+# nothing happens BY DESIGN; then Edit >
 # Select All lights both shown icons. arrange replays FLAIR_CMDS_ARRANGE_SPEC --
 # README.TXT is dragged astray, then View > Arrange (by Name) lays the window
 # out APPS, DESKTOP.DB, README.TXT, TRASH. DOUBLE-CLICK record image. Settle
-# 150 ms on the 55-event select_all trace keeps it inside the image's pump life.
+# 150 ms on the 46-event select_all trace (55 before tdnl.78) keeps it inside the image's pump life.
 RECORD_SPEC_select_all   = $(FLAIR_CMDS_FAKES_SPEC)
 RECORD_MARKER_select_all = FINDER-SELECT-ALL win=0 n=2
 RECORD_IMAGE_select_all  = $(FLAIRTENANTS_RECORDDBL_IMG)
