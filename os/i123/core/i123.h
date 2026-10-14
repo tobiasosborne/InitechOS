@@ -101,6 +101,26 @@ typedef struct i123_sheet {
     uint16_t     circ_col, circ_row;
 } i123_sheet_t;
 
+/* P3 range operations. Source and destination banks must be disjoint.
+ * A refused transfer leaves source intact; destination is scratch. */
+typedef struct { uint16_t c0, r0, c1, r1; } i123_rect_t;
+#define I123_TRANSFER_COPY 0
+#define I123_TRANSFER_MOVE 1
+#define I123_TRANSFER_VALUE 2
+#define I123_TRANSFER_TRANS 3
+int i123_sheet_clone(const i123_sheet_t *src, i123_sheet_t *dst);
+int i123_transfer(const i123_sheet_t *src, i123_sheet_t *dst, i123_rect_t rg,
+                  uint16_t col, uint16_t row, int mode);
+int i123_range_parse(const i123_sheet_t *sh, const char *text, i123_rect_t *rg);
+int i123_name_find(const i123_sheet_t *sh, const char *name, uint32_t len, i123_rect_t *rg);
+int i123_name_set(i123_sheet_t *sh, const char *name, i123_rect_t rg);
+int i123_name_delete(i123_sheet_t *sh, const char *name); /* NULL: reset all */
+int i123_name_labels(i123_sheet_t *sh, i123_rect_t rg, int dc, int dr);
+int i123_name_table(i123_sheet_t *sh, uint16_t col, uint16_t row);
+int i123_formula_compile_named(const i123_sheet_t *sh, const char *text, uint32_t len,
+                               uint16_t col, uint16_t row, uint8_t *code,
+                               uint32_t cap, uint32_t *code_len);
+
 /* ---- the model ----------------------------------------------------------- */
 
 /* Carve `mem` (len bytes) into `cell_cap` cells, the carry area and the pool,

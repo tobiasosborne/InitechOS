@@ -171,6 +171,7 @@ int i123_formula_check(const uint8_t *code, uint32_t len)
 /* ---- the compiler -------------------------------------------------------------- */
 typedef struct {
     const char *s;
+    const i123_sheet_t *sh;
     uint32_t    n, p;
     uint16_t    col, row;
     uint8_t    *out;
@@ -232,7 +233,23 @@ static int parse_cell(cc_t *c, int32_t *col, int32_t *row, int *acol, int *arow)
 static int parse_ref(cc_t *c, int32_t v[4], int a[4])
 {
     uint32_t save = c->p;
-    if (!parse_cell(c, &v[0], &v[1], &a[0], &a[1])) return 0;
+    if (!parse_cell(c, &v[0], &v[1], &a[0], &a[1])) {
+        /* Manual p. 3-3 (PDF 71): NAME is relative, $NAME absolute;
+         * mixed references cannot be used with names. WK1 stores the
+         * resolved coordinates, not a name token (corpus bytecode Sec 2). */
+        uint32_t p = save;
+        int absolute = 0;
+        i123_rect_t rg;
+        if (peek(c, 0) == '$') { absolute = 1; p++; }
+        uint32_t st = p;
+        while (p < c->n && (is_alpha(c->s[p]) || is_digit(c->s[p]) ||
+                            c->s[p] == '_' || c->s[p] == '.')) p++;
+        if (!c->sh || p == st || i123_name_find(c->sh, c->s+st, p-st, &rg)) return 0;
+        c->p = p;
+        v[0] = rg.c0; v[1] = rg.r0; v[2] = rg.c1; v[3] = rg.r1;
+        for (int i = 0; i < 4; i++) a[i] = absolute;
+        return rg.c0 == rg.c1 && rg.r0 == rg.r1 ? 1 : 2;
+    }
     if (peek(c, 0) == '.') {
         uint32_t s2 = c->p;
         c->p++;
@@ -487,8 +504,9 @@ static void parse_expr(cc_t *c, uint32_t maxp)
     }
 }
 
-int i123_formula_compile(const char *text, uint32_t len, uint16_t col, uint16_t row,
-                         uint8_t *code, uint32_t cap, uint32_t *code_len)
+int i123_formula_compile_named(const i123_sheet_t *sh, const char *text, uint32_t len,
+                               uint16_t col, uint16_t row, uint8_t *code,
+                               uint32_t cap, uint32_t *code_len)
 {
     cc_t c;
     if (text == (const char *)0 || code == (uint8_t *)0 || code_len == (uint32_t *)0)
@@ -498,7 +516,7 @@ int i123_formula_compile(const char *text, uint32_t len, uint16_t col, uint16_t 
         if (text[i] == '"') q = !q;
         else if (text[i] == ' ' && !q) return I123_E_SYNTAX;
     }
-    c.s = text; c.n = len; c.p = 0; c.col = col; c.row = row;
+    c.s = text; c.sh = sh; c.n = len; c.p = 0; c.col = col; c.row = row;
     c.out = code; c.cap = cap; c.len = 0; c.err = 0; c.depth = 0;
     parse_expr(&c, WKF_PREC_MAX);
     if (!c.err && c.p != c.n) c.err = I123_E_SYNTAX;
@@ -507,6 +525,13 @@ int i123_formula_compile(const char *text, uint32_t len, uint16_t col, uint16_t 
     if (i123_formula_check(code, c.len) != I123_OK) return I123_E_SYNTAX;
     *code_len = c.len;
     return I123_OK;
+}
+
+int i123_formula_compile(const char *text, uint32_t len, uint16_t col, uint16_t row,
+                         uint8_t *code, uint32_t cap, uint32_t *code_len)
+{
+    return i123_formula_compile_named((const i123_sheet_t *)0, text, len, col, row,
+                                      code, cap, code_len);
 }
 
 /* ---- the decompiler ------------------------------------------------------------ */

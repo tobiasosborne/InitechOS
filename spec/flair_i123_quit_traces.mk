@@ -6,7 +6,7 @@
 # relative, int8-safe; "l1"/"l0" left button; "k<chord>" one keystroke).
 #
 # THE SCENE: $(FLAIR_I123_FILE_GATE_IMG) (the flagship desktop, 500-tick pump
-# life) + a gate-local copy of $(BUILD)/flair_i123_quit_data.img: the
+# life) + a gate-local copy of $(BUILD)/flair_i123_quit_fixture.img: the
 # tdnl.91 data volume (APPS\123.EXE, MINT01.WK1, BAD.WK1) plus RO.WK1, a
 # byte copy of MINT01.WK1 with the DOS read-only attribute (lane-dosprot:
 # CREAT over it is refused, Access denied -- the honest Save failure).
