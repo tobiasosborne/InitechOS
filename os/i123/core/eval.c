@@ -1193,7 +1193,10 @@ static void do_function(const ev_t *e, uint8_t t, i123_val_t *a, uint32_t argc, 
     }
     case 43u: set_num(out, (double)x87_atan2((long double)x, 1.0L)); return;   /* @ATAN */
     case 42u:                                                       /* @ATAN2(x,y) PDF 304 */
+        /* "If y is 0, @ATAN2 returns 0; if both x and y are 0, @ATAN2
+         * returns the value ERR" (p. 13-16) -- as written, for x < 0 too */
         if (x == 0.0 && y == 0.0) { set_err(out); return; }
+        if (y == 0.0) { set_num(out, 0.0); return; }
         set_num(out, (double)x87_atan2((long double)y, (long double)x));
         return;
     case 44u: case 45u: {                                           /* @ASIN @ACOS PDF 303-304 */
@@ -1297,12 +1300,13 @@ static void do_function(const ev_t *e, uint8_t t, i123_val_t *a, uint32_t argc, 
         return;
     }
     case 118u: {                                                    /* @CTERM PDF 310 */
+        /* @CTERM(interest,future-value,present-value) = ln(fv/pv)/ln(1+int) */
         double q;
-        if (y <= -1.0 || y == 0.0 || z == 0.0) { set_err(out); return; }
-        q = x / z;
+        if (x <= -1.0 || x == 0.0 || z == 0.0) { set_err(out); return; }
+        q = y / z;
         if (!(q > 0.0)) { set_err(out); return; }
         set_num(out, (double)(x87_fyl2x(x87_ln2(), (long double)q) /
-                              x87_fyl2x(x87_ln2(), 1.0L + (long double)y)));
+                              x87_fyl2x(x87_ln2(), 1.0L + (long double)x)));
         return;
     }
     case 119u:                                                      /* @SLN PDF 342 */

@@ -339,6 +339,7 @@ static void parse_number(cc_t *c)
         c->p += 2;
         while (is_digit(peek(c, 0))) c->p++;
     }
+    if (peek(c, 0) == '%') c->p++;   /* 15.5% (manual p. 13-8): CONST 0.155 [inferred bytes] */
     if (i123_parse_value(c->s + st, c->p - st, &x) != I123_OK) { c->err = I123_E_SYNTAX; return; }
     if (x >= 0.0 && x <= 32767.0 && (double)(int32_t)x == x) {
         emit(c, (uint8_t)WKF_INT);

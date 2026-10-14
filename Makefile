@@ -13386,7 +13386,9 @@ test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPC
 # 37 typed formulas compile to 123.EXE's bytes; B all 1090 decompile and
 # recompile; C every formula reproduces 1-2-3's cache from its sheet's
 # values; D poisoned caches recalculated -> files byte-identical; E a random
-# formula property test. THREE builds of the oracle run: the host (SSE)
+# formula property test; F the 85 worked examples of the R2.2 Reference
+# Chapter 13 (trig, logs, financial, date/time, string: the functions no
+# golden exercises) evaluate to the printed results. THREE builds of the oracle run: the host (SSE)
 # build, and two x87 builds (-mfpmath=387) under the two candidate tenant
 # control words, settling ADR-0009 DEC-01a Sec 4 by differential: 0x037F
 # (64-bit precision, the kernel's boot word, which face_a.c loads) MUST be
@@ -13412,7 +13414,7 @@ test-i123-formula: $(TEST_I123_FORMULA) $(BUILD)/test_i123_formula_x87_037F $(BU
 	@$(TEST_I123_FORMULA) $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF)
 	@printf ">>> test-i123-formula: x87 build, control word 0x037F (64-bit precision: the tenant's, = the kernel boot word)\n"
 	@$(BUILD)/test_i123_formula_x87_037F $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF) > $(BUILD)/test_i123_formula_x87_037F.log 2>&1 || { cat $(BUILD)/test_i123_formula_x87_037F.log; printf '!!! test-i123-formula FAIL: the x87 64-bit build (the tenant numerics) is RED\n'; exit 1; }
-	@grep -E '^  part [A-E]:|checks,' $(BUILD)/test_i123_formula_x87_037F.log
+	@grep -E '^  part [A-F]:|checks,' $(BUILD)/test_i123_formula_x87_037F.log
 	@if $(BUILD)/test_i123_formula_x87_027F $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF) > $(BUILD)/test_i123_formula_x87_027F.log 2>&1; then \
 		printf '!!! test-i123-formula FAIL: the 53-bit x87 build is green -- the recorded control-word ruling (0x037F) rests on its being RED; re-examine\n'; exit 1; \
 	else \

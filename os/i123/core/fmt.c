@@ -596,6 +596,15 @@ int i123_parse_value(const char *s, uint32_t len, double *out)
     int neg = 0, any = 0, exp10 = 0, eneg = 0, ev = 0, sig = 0;
     double m = 0.0, v;
 
+    /* a trailing '%' divides by 100: "you can enter 15.5% either as .155
+     * or as 15.5%" (manual p. 13-8, PDF 296) -- bead initech-94ah */
+    if (len > 1u && s[len - 1u] == '%') {
+        int rc = i123_parse_value(s, len - 1u, &v);
+        if (rc != I123_OK) return rc;
+        *out = v / 100.0;
+        return I123_OK;
+    }
+
     if (i < len && (s[i] == '+' || s[i] == '-')) { neg = (s[i] == '-'); i++; }
     while (i < len && s[i] >= '0' && s[i] <= '9') {
         any = 1;

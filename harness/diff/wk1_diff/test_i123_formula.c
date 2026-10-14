@@ -31,6 +31,11 @@
  *   E  PROPERTY: 4000 random formulas from an independent generator: the
  *      compiler emits the generator's own RPN, and decompile -> compile is
  *      the identity.
+ *   F  MANUAL: the worked examples of the R2.2 Reference Chapter 13 (the
+ *      functions NO golden exercises: trigonometry, logs, financial, date/
+ *      time, string) evaluate to the result the manual prints, displayed in
+ *      the format it was printed in (General at width 9 TRUNCATES, as the
+ *      minted screenshots show -- e.g. @COS(45*@PI/180) prints 0.707106).
  *
  * Mutants (Rule 6; test-i123-formula-mutant):
  *   I123_MUT_PREC_FLAT   one precedence for every operator -> B and E RED
@@ -52,7 +57,7 @@
 TEST_HARNESS();
 
 static const char *g_corpus, *g_scratch, *g_ref;
-static int g_typed_fail, g_rt_fail, g_val_fail, g_scratch_fail, g_prop_fail;
+static int g_typed_fail, g_rt_fail, g_val_fail, g_scratch_fail, g_prop_fail, g_man_fail;
 
 #define SHEET_MEM (1024u * 1024u)
 static uint8_t g_mem[SHEET_MEM];
@@ -614,6 +619,145 @@ static void part_e(void)
     printf("  part E: %d random formulas: %d compile to the generator's RPN, %d survive decompile -> compile\n", tried, ok, rt);
 }
 
+/* ---- PART F: the manual's worked examples ---------------------------------
+ * Each row: the formula as printed, the cell format it was shown in, and the
+ * printed result; PDF page of the OCR'd scan (build/man/ocr). The General
+ * rows are width 9 (the default column). */
+typedef struct { const char *text; uint8_t fmt; uint32_t width; const char *want; int pdf; } man_t;
+#define G 0x71u
+static const man_t MAN[] = {
+    { "@ACOS(.3)",                      G, 9, "1.266103", 304 },
+    { "@ACOS(.5)*180/@PI",              G, 9, "60", 304 },
+    { "@ASIN(-.246)",                   G, 9, "-0.24855", 304 },
+    { "@ASIN(1)*180/@PI",               G, 9, "90", 304 },
+    { "@ATAN(1)",                       G, 9, "0.785398", 304 },
+    { "@ATAN(@SQRT(3))*180/@PI",        G, 9, "60", 304 },
+    { "@ATAN2(1.5,2)",                  G, 9, "0.927295", 305 },
+    { "@ATAN2(-1.5,2)*180/@PI",         G, 9, "126.8698", 305 },
+    { "@COS(.523598)",                  G, 9, "0.866025", 309 },
+    { "@COS(45*@PI/180)",               G, 9, "0.707106", 309 },
+    { "@CTERM(.10/12,20000,10000)/12",  G, 9, "6.960312", 310 },
+    { "@DATE(89,1,7)",                  G, 9, "32515", 294 },
+    { "@DAY(32515)",                    G, 9, "7", 295 },
+    { "@MONTH(20181)",                  G, 9, "4", 333 },
+    { "@YEAR(20181)",                   G, 9, "55", 352 },
+    { "@YEAR(31790.6)",                 G, 9, "87", 296 },
+    { "@MOD(@DATE(85,11,18),7)",        G, 9, "2", 333 },
+    { "@DDB(10000,1200,8,5)",        0x22u, 12, "$791.02", 314 },
+    { "@EXP(1.25)",                     G, 9, "3.490342", 320 },
+    { "@EXP(-1.25)",                    G, 9, "0.286504", 320 },
+    { "@FIND(\"P\",\"Accounts Payable\",0)", G, 9, "9", 321 },
+    { "@FV(2000,0.075,20)",          0x20u, 12, "$86,609", 322 },
+    { "@FV(2000,0.075,20)*(1+0.075)", 0x20u, 12, "$93,105", 322 },
+    { "@HOUR(.51565)",                  G, 9, "12", 323 },
+    { "@HOUR(@TIME(13,45,18))",         G, 9, "13", 323 },
+    { "@INT(35.67)",                    G, 9, "35", 326 },
+    { "@INT(-35.67)",                   G, 9, "-35", 326 },
+    { "@LN(2)",                         G, 9, "0.693147", 330 },
+    { "@LN(@EXP(1))",                   G, 9, "1", 330 },
+    { "@LOG(4)",                        G, 9, "0.602059", 330 },
+    { "@LOG(1.0E+14)",                  G, 9, "14", 330 },
+    { "@MINUTE(0.333)",                 G, 9, "59", 332 },
+    { "@MINUTE(@TIME(11,15,45))",       G, 9, "15", 332 },
+    { "@MOD(9,4)",                      G, 9, "1", 333 },
+    { "@PI*4^2",                        G, 9, "50.26548", 335 },
+    { "@PMT(8000,0.14/12,36)",       0x22u, 12, "$273.42", 336 },
+    { "@PMT(8000,0.14/12,36)/(1+0.14/12)", 0x22u, 12, "$270.27", 336 },
+    { "@PV(50000,0.08,20)",          0x20u, 12, "$490,907", 337 },
+    { "@PV(50000,0.08,20)*(1+0.08)", 0x20u, 12, "$530,180", 338 },
+    { "@RATE(18000,10000,60)",       0x33u, 12, "0.984%", 339 },
+    { "@ROUND(134.578,2)",              G, 9, "134.58", 341 },
+    { "@ROUND(134.578,0)",              G, 9, "135", 341 },
+    { "@ROUND(134.578,-2)",             G, 9, "100", 341 },
+    { "@SECOND(0.333)",                 G, 9, "31", 341 },
+    { "@SECOND(@TIME(11,15,45))",       G, 9, "45", 341 },
+    { "@SIN(.883)",                     G, 9, "0.772646", 342 },
+    { "@SIN(35*@PI/180)",               G, 9, "0.573576", 342 },
+    { "@SLN(10000,1200,10)",         0x20u, 12, "$880", 343 },
+    { "@SQRT(@INT(25.768))",            G, 9, "5", 343 },
+    { "@SQRT(-2)",                      G, 9, "ERR", 343 },
+    { "@SYD(10000,1200,10,5)",       0x20u, 12, "$960", 346 },
+    { "@TAN(.52)",                      G, 9, "0.572561", 346 },
+    { "@TAN(35*@PI/180)",               G, 9, "0.700207", 346 },
+    { "@TERM(2000,0.075,100000)",    0x01u, 12, "21.5", 347 },
+    { "@TERM(2000,0.075,100000/(1+0.075))", 0x01u, 12, "20.8", 347 },
+    { "@TIME(14,30,50)",                G, 9, "0.604745", 295 },
+    { "@HOUR(0.604745)",                G, 9, "14", 295 },
+    { "@MINUTE(0.604745)",              G, 9, "30", 295 },
+    { "@SECOND(0.604745)",              G, 9, "50", 295 },
+    { "@DATEVALUE(\"7-Jan-89\")",       G, 9, "32515", 294 },
+    { "@TIMEVALUE(\"02:30:50 PM\")",    G, 9, "0.604745", 295 },
+    { "(@TIME(13,0,0)-@TIME(9,15,0))*95*24", 0x22u, 12, "$356.25", 347 },
+    { "@VALUE(\"85%\")",                G, 9, "0.85", 349 },
+    { "@VALUE(\"49 3/4\")",             G, 9, "49.75", 349 },
+    { "@VALUE(\"22\")+@VALUE(\"20\")",  G, 9, "42", 349 },
+    { "@CODE(\"A\")",                   G, 9, "65", 309 },
+    { "@CODE(\"a\")",                   G, 9, "97", 301 },
+    { "@LENGTH(@TRIM(\"  Mr.  Jones\"))", G, 9, "9", 330 },
+    { "@COUNT(C5..C10,D5,E5..E10)",     G, 9, "1", 310 },
+    { "@IRR(A2,B2..B14)",            0x32u, 12, "6.11%", 326 },
+    { "@ATAN2(0,0)",                    G, 9, "ERR", 304 },
+    { "@CHAR(0)",                       G, 9, "ERR", 307 },
+};
+static const struct { const char *text, *want; int pdf; } MANS[] = {
+    { "@MID(\"Daily Account Balance\",6,7)", "Account", 331 },
+    { "@REPLACE(\"January\",0,3,\"Febr\")", "February", 340 },
+    { "@REPLACE(\"January\",10,0,\" February\")", "January February", 340 },
+    { "@RIGHT(\"Average Daily Balance\",7)", "Balance", 340 },
+    { "@PROPER(\"354-a babcock\")", "354-A Babcock", 337 },
+    { "@LOWER(\"EXPENSES\")", "expenses", 330 },
+    { "@UPPER(\"Account Number\")", "ACCOUNT NUMBER", 349 },
+    { "@TRIM(\"  45  3/8\")", "45 3/8", 348 },
+    { "@TRIM(\"500  South St.\")", "500 South St.", 348 },
+    { "@REPEAT(\"Hello \",3)", "Hello Hello Hello ", 339 },
+    { "@STRING(1.23587,0)", "1", 344 },
+    { "@STRING(20%,1)", "0.2", 344 },
+    { "@LEFT(\"Abrams, Ann\",3)&\"01915\"", "Abr01915", 329 },
+};
+
+static void part_f(void)
+{
+    static i123_sheet_t sh;
+    int ok = 0, n = (int)(sizeof MAN / sizeof *MAN), ns = (int)(sizeof MANS / sizeof *MANS);
+    CHECK(i123_sheet_init(&sh, g_mem, SHEET_MEM, 64u) == I123_OK, "init");
+    /* Figure 13-27 (PDF 327): the initial investment of $1000 in B2 (an
+     * outflow) and 12 cash flows of $120 in B3..B14; the guess in A2. */
+    CHECK(i123_set_number(&sh, 0, 1, 0.1) == I123_OK, "guess");
+    CHECK(i123_set_number(&sh, 1, 1, -1000.0) == I123_OK, "B2");
+    for (uint16_t r = 2; r <= 13; r++) CHECK(i123_set_number(&sh, 1, r, 120.0) == I123_OK, "B3..B14");
+    for (int i = 0; i < n; i++) {
+        uint8_t code[I123_CODE_MAX];
+        uint32_t cl = 0;
+        i123_val_t v;
+        char buf[64], *t = buf;
+        if (i123_formula_compile(MAN[i].text, (uint32_t)strlen(MAN[i].text), 5, 30, code, sizeof code, &cl) != I123_OK ||
+            i123_eval(&g_cx, &sh, 5, 30, code, cl, &v) != I123_OK) {
+            fprintf(stderr, "  FAIL F: %s does not compile/evaluate\n", MAN[i].text);
+            g_man_fail++;
+            continue;
+        }
+        if (v.t == I123_V_NUM) i123_format_number(v.n, MAN[i].fmt, MAN[i].width, buf);
+        else snprintf(buf, sizeof buf, "%s", v.t == I123_V_ERR ? "ERR" : v.t == I123_V_NA ? "NA" : "?");
+        while (*t == ' ') t++;
+        for (size_t k = strlen(t); k > 0 && t[k - 1] == ' '; k--) t[k - 1] = '\0';
+        if (strcmp(t, MAN[i].want) == 0) ok++;
+        else { fprintf(stderr, "  FAIL F: %s shows \"%s\", the manual prints \"%s\" (PDF %d)\n", MAN[i].text, t, MAN[i].want, MAN[i].pdf); g_man_fail++; }
+    }
+    for (int i = 0; i < ns; i++) {
+        uint8_t code[I123_CODE_MAX];
+        uint32_t cl = 0;
+        i123_val_t v;
+        if (i123_formula_compile(MANS[i].text, (uint32_t)strlen(MANS[i].text), 5, 30, code, sizeof code, &cl) != I123_OK ||
+            i123_eval(&g_cx, &sh, 5, 30, code, cl, &v) != I123_OK || v.t != I123_V_STR ||
+            v.slen != strlen(MANS[i].want) || memcmp(v.s, MANS[i].want, v.slen) != 0) {
+            fprintf(stderr, "  FAIL F: %s is not \"%s\" (PDF %d)\n", MANS[i].text, MANS[i].want, MANS[i].pdf);
+            g_man_fail++;
+        } else ok++;
+    }
+    CHECK(g_man_fail == 0, "every manual example evaluates to the printed result");
+    printf("  part F: %d/%d worked examples of the R2.2 Reference Chapter 13 evaluate to the printed result\n", ok, n + ns);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4) {
@@ -642,10 +786,12 @@ int main(int argc, char **argv)
     part_c();
     part_d();
     part_e();
+    part_f();
     if (g_typed_fail) fprintf(stderr, "  RED-REASON typed: %d typed formulas differ from 123.EXE\n", g_typed_fail);
     if (g_rt_fail) fprintf(stderr, "  RED-REASON round-trip: %d golden formulas do not round-trip\n", g_rt_fail);
     if (g_val_fail) fprintf(stderr, "  RED-REASON values: %d formulas differ from the real 1-2-3 cache\n", g_val_fail);
     if (g_scratch_fail) fprintf(stderr, "  RED-REASON recalc-file: %d recalculated goldens differ from 123.EXE's file\n", g_scratch_fail);
     if (g_prop_fail) fprintf(stderr, "  RED-REASON property: %d random formulas fail\n", g_prop_fail);
+    if (g_man_fail) fprintf(stderr, "  RED-REASON manual: %d manual examples differ\n", g_man_fail);
     return TEST_SUMMARY("test-i123-formula");
 }
