@@ -108,8 +108,113 @@ static int is_color(const unsigned char *p, int r, int g, int b)
            abs((int)p[2] - b) <= TOL;
 }
 
+/* DOS LOOK uses explicit cell manifests, including spaces, rather than the
+ * banner-only band grade. ASCII manifests are independent manual/mdir goldens.
+ * Cursor samples are graded separately, never excused as arbitrary extra ink. */
+static unsigned char *load_ppm(const char *path, long *w, long *h)
+{
+    FILE *f = fopen(path, "rb");
+    long max;
+    unsigned char *p;
+    if (!f || fgetc(f) != 'P' || fgetc(f) != '6' ||
+        read_uint(f, w) || read_uint(f, h) || read_uint(f, &max) ||
+        *w != 640 || *h != 480 || max != 255) {
+        if (f) fclose(f);
+        fprintf(stderr, "ppm_text_check: bad DOS raster %s\n", path);
+        return NULL;
+    }
+    p = malloc((size_t)*w * (size_t)*h * 3);
+    if (!p || fread(p, 3, (size_t)(*w * *h), f) != (size_t)(*w * *h)) {
+        free(p); p = NULL;
+    }
+    fclose(f);
+    return p;
+}
+
+static int check_cells(const char *path, const char *manifest)
+{
+    long w, h;
+    unsigned char *p = load_ppm(path, &w, &h);
+    FILE *f = fopen(manifest, "r");
+    char line[256];
+    int cells = 0, bad = 0;
+    if (!p || !f) { free(p); if (f) fclose(f); return 2; }
+    while (fgets(line, sizeof line, f)) {
+        int row, col, n;
+        if (line[0] == '#') continue;
+        if (sscanf(line, "%d %d %n", &row, &col, &n) != 2) { bad++; break; }
+        /* sscanf whitespace would swallow leading spaces in the text. The
+         * manifest delimiter is exactly one space after the column number. */
+        char *s = strchr(line, ' ');
+        s = s ? strchr(s + 1, ' ') : NULL;
+        if (!s) { bad++; break; }
+        s++;
+        for (int i = 0; s[i] && s[i] != '\n'; i++) {
+            int ink = 0;
+            if (row < 0 || row >= 25 || col+i < 0 || col+i >= 80) { bad++; break; }
+            for (int y = row*16; y < row*16+16; y++)
+                for (int x = (col+i)*8; x < (col+i)*8+8; x++)
+                    ink += is_color(p + (y*w+x)*3, FG_R, FG_G, FG_B);
+            cells++;
+            if ((s[i] == ' ') ? ink != 0 : ink == 0) {
+                fprintf(stderr, "ppm_text_check: CELL RED (%d,%d) '%c' ink=%d\n",
+                        row, col+i, s[i], ink);
+                bad++;
+            }
+        }
+    }
+    fclose(f); free(p);
+    if (bad || !cells) return 1;
+    printf("ppm_text_check: CELLS PASS -- %d explicit ink/blank cells\n", cells);
+    return 0;
+}
+
+static int check_cursor(int argc, char **argv)
+{
+    int row = atoi(argv[2]), col = atoi(argv[3]), on = 0, off = 0;
+    unsigned char *first = NULL;
+    if (row < 0 || row >= 25 || col < 0 || col >= 80) return 2;
+    for (int i = 4; i < argc; i++) {
+        long w, h;
+        unsigned char *p = load_ppm(argv[i], &w, &h);
+        int ink = 0;
+        if (!p) { free(first); return 2; }
+        for (long y = 0; y < h; y++) for (long x = 0; x < w; x++) {
+            unsigned char *q = p + (y*w+x)*3;
+            int cursor = x >= col*8 && x < col*8+8 && y >= row*16 && y < row*16+16;
+            if (cursor) {
+                if (is_color(q, FG_R, FG_G, FG_B)) {
+                    if (y < row*16+14) { free(p); free(first); return 1; }
+                    ink++;
+                } else if (!is_color(q, BG_R, BG_G, BG_B)) {
+                    free(p); free(first); return 1;
+                }
+            } else if (first && memcmp(q, first+(y*w+x)*3, 3)) {
+                fprintf(stderr, "ppm_text_check: CURSOR RED -- changed outside cell\n");
+                free(p); free(first); return 1;
+            }
+        }
+        if (ink == 16) on++; else if (ink == 0) off++; else {
+            fprintf(stderr, "ppm_text_check: CURSOR RED -- underline ink=%d\n", ink);
+            free(p); free(first); return 1;
+        }
+        if (!first) first = p; else free(p);
+    }
+    free(first);
+    if (!on || !off) {
+        fprintf(stderr, "ppm_text_check: CURSOR RED -- on=%d off=%d\n", on, off);
+        return 1;
+    }
+    printf("ppm_text_check: CURSOR PASS -- on=%d off=%d, 16 bottom pixels, other pixels identical\n", on, off);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 4 && !strcmp(argv[1], "--cells"))
+        return check_cells(argv[2], argv[3]);
+    if (argc >= 6 && !strcmp(argv[1], "--cursor-cycle"))
+        return check_cursor(argc, argv);
     /* argv[1] = the PPM. OPTIONAL (backward-compatible): argv[2..4] =
      * band_y0 band_y1 min_fg -- additionally assert that the horizontal band
      * y in [band_y0, band_y1) contains >= min_fg foreground pixels. test-boot

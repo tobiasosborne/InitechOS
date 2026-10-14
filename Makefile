@@ -8072,7 +8072,7 @@ help:
 	@printf '  test-boot      InitechDOS banner boot gate: serial markers + banner literal vs spec/dos_banner.txt (byte-exact) + screendump banner-text check + no triple-fault. REAL. (QEMU only; tri-emulator pending initech-x0i.)\n'
 	@printf '  test-console   Host blit oracle for the LFB 8x16 text console: MSB-left glyph blit (bpp 32/24) + cursor/wrap/scroll. REAL.\n'
 	@printf '  test-assets    Asset v0: re-sample palette.json anchors vs the frame fixture + validate the Chicago strike header. REAL.\n'
-	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 20 messages + struct size asserts + banner double-space. REAL.\n'
+	@printf '  test-spec      InitechDOS spec-data (ADR-0003 Appendices A-D): JSON parse + 26 messages + struct size asserts + banner double-space. REAL.\n'
 	@printf '  test-dosmsg    DEC-13 controlled vocabulary (initech-509.1): header==spec verbatim + referenced msgs present in shell image + no inline literals. REAL.\n'
 	@printf '  test-psp       PSP 256-byte construction oracle (initech-509.4 / App B.2): int20/seg-fields/jft/int21-entry/cmd-tail + clamp + no-overflow. REAL.\n'
 	@printf '  test-int24     INT 22/23/24 + SETVECT/GETVECT (25h/35h) + PSP-vector save/restore (initech-509.8 / DEC-10): crit_error_action A/R/F + int24 MSG-DOS-0001 + re-prompt + psp save/load round-trip + int22/23 terminate. REAL.\n'
@@ -23886,9 +23886,9 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# DIR/TYPE/greet assertions bite the REPL specifically (Law 2 / Rule 6).
 	@sed -n '/^SHELL-READY$$/,$$p' "$(SHELL_SERIAL)" > "$(BUILD)/$(SHELL_NAME).repl"
 	@# ---- DIR listed the two files (FINDFIRST/FINDNEXT into the DTA). ----
-	@grep -qF 'HELLO.TXT' "$(BUILD)/$(SHELL_NAME).repl" \
+	@grep -qF 'HELLO    TXT' "$(BUILD)/$(SHELL_NAME).repl" \
 		|| { printf '!!! test-shell FAIL: DIR did not list HELLO.TXT (root-cause the DIR built-in / FINDFIRST, Rule 3)\n'; exit 1; }
-	@grep -qF 'GREET.COM' "$(BUILD)/$(SHELL_NAME).repl" \
+	@grep -qF 'GREET    COM' "$(BUILD)/$(SHELL_NAME).repl" \
 		|| { printf '!!! test-shell FAIL: DIR did not list GREET.COM\n'; exit 1; }
 	@printf '>>> test-shell [3/7]: DIR listed HELLO.TXT + GREET.COM (FINDFIRST/FINDNEXT)\n'
 	@# ---- TYPE printed HELLO.TXT's contents (in the REPL region). ----
@@ -24492,8 +24492,8 @@ test-ut6d: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
 		|| { printf '!!! test-ut6d FAIL: the prompt never showed "A:\\SUB>" after CD SUB -- the GETCWD-composed $$P$$G prompt did not reflect the CWD (root-cause the prompt compose / do_chdir wiring, Rule 3)\n'; exit 1; }
 	@printf '>>> test-ut6d [3/6]: prompt showed "A:\\SUB>" after CD SUB (GETCWD-composed $$P$$G reflects the live CWD)\n'
 	@# ---- DIR inside SUB lists the subdir dot-dirs '.' and '..' (Fix 3). The DIR
-	@# formatter (cmd_format_dir_line) left-justifies the 8.3 name in a 13-col field
-	@# then a "      <DIR>" marker, so a dot-dir line begins "<name>" and contains
+	@# formatter (cmd_format_dir_line) splits the 8.3 columns at 0 and 9,
+	@# then puts "<DIR>" in the size field at columns 16..20, so a dot-dir line begins "<name>" and contains
 	@# "<DIR>". Anchor each entry name at line start AND require the <DIR> marker so
 	@# we match a real directory row, not an incidental '.' elsewhere. ----
 	@grep -Eq '^\.[[:space:]]+<DIR>' "$(BUILD)/$(UT6D_NAME).repl" \
@@ -25569,19 +25569,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0020 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0026 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
-# (cf. test-spec). The loop iterates i in 1..19 EXPLICITLY (not dict order) so the
+# (cf. test-spec). The loop iterates i in 1..26 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (20 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (26 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
-ids=['MSG-DOS-%04d'%i for i in range(1,21)]; \
+ids=['MSG-DOS-%04d'%i for i in range(1,27)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -25646,11 +25646,12 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==20, 'expected 20 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,21)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0020: %r'%(sorted(set(m)^exp)); \
+assert len(m)==26, 'expected 26 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,27)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0026: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-print('    parsed 20 messages MSG-DOS-0001..0020; all non-empty')" \
+assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,27)), 'DIR Rule-8 source citations missing'; \
+print('    parsed 26 messages MSG-DOS-0001..0026; all non-empty; 6 DIR citations present')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -25742,9 +25743,9 @@ m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,21) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,27) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
-print('    build/dos_messages.h has all 20 #define MSG_DOS_NNNN verbatim from spec')" \
+print('    build/dos_messages.h has all 26 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
 	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shell image\n'
 	@python3 -c "import json,re,subprocess; \
@@ -25769,7 +25770,7 @@ print('    R = {%s} -- every referenced message present VERBATIM in build/kernel
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 srcs='$(DOSMSG_SRCS)'.split(); \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,21)]; \
+texts=[m['MSG-DOS-%04d'%i] for i in range(1,27)]; \
 strip=lambda s: subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout; \
 lits=lambda code: [l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
 hits=[(s,t) for s in srcs for t in (lambda L:[x for x in texts if x in L])(lits(strip(s)))]; \
@@ -25814,7 +25815,7 @@ open('$(BUILD)/command_mutantA.c','w').write(mut)"; \
 	python3 -c "import json,re,subprocess,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,21)]; \
+texts=[m['MSG-DOS-%04d'%i] for i in range(1,27)]; \
 code=subprocess.run(['gcc','-fpreprocessed','-E','-P','$(BUILD)/command_mutantA.c'],capture_output=True,text=True).stdout; \
 lits=[l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
 hits=[t for t in texts if t in lits]; \
@@ -29236,3 +29237,5 @@ test-flair-iword-mutant: test-flair-iword $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG)
 	@$(call IWORD_DREW,$(BUILD)/flair_iword_nosave.serial,368,ERROR: Incompatible File Format) || { printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING: the retrieve of the empty MEMO was not refused visibly\n'; exit 1; }
 	@printf '>>> test-flair-iword-mutant: SAVE_NOTHING correctly RED -- MEMO is 0 bytes (wp5_ref.py refuses it), the retrieve says ERROR: Incompatible File Format\n'
 	@printf '>>> test-flair-iword-mutant: green (both mutants RED for the named reason)\n'
+
+include harness/diff/fat_diff/doslook.mk
