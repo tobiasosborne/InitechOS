@@ -13,7 +13,7 @@
  * Rows: chicago12_rows[g][r], MSB = the glyph IMAGE's first column, which
  * the renderer places at pen + lb; the opaque cell is aw columns wide.
  * Index g = c - CHICAGO_FIRST for CHICAGO_FIRST <= c <= CHICAGO_LAST;
- * index CHICAGO_MISSING is the missing-glyph box for every other code.
+ * CHICAGO_ELLIPSIS for 0xC9; CHICAGO_MISSING for every other code.
  * Linkage: spec/assets/font_linkage.h (one copy per kernel image).
  */
 #ifndef INITECH_CHICAGO12_H
@@ -26,6 +26,12 @@
 #define CHICAGO_LAST    0x7E
 #define CHICAGO_COUNT   (CHICAGO_LAST - CHICAGO_FIRST + 1)
 #define CHICAGO_MISSING CHICAGO_COUNT
+/* The one glyph above 0x7E: the Mac Roman ellipsis (bead initech-tdnl.68;
+ * NFNT 5478 owTable 0xC9 = lb 2 aw 14). A truncated window title ends in
+ * it. Slot CHICAGO_ELLIPSIS, after the missing-glyph box. */
+#define CHICAGO_ELLIPSIS_CODE 0xC9
+#define CHICAGO_ELLIPSIS (CHICAGO_COUNT + 1)
+#define CHICAGO_GLYPHS  (CHICAGO_COUNT + 2)
 #define CHICAGO_CELL_H  16
 /* NFNT 5478 FontRec: ascent 12, descent 3, leading 1 (chicago.md). */
 #define CHICAGO_ASCENT  12
@@ -37,23 +43,25 @@
 #define CHICAGO_CAP_TOP 3
 
 #if FONT_TABLE_EMIT
-FONT_TABLE unsigned char chicago12_aw[CHICAGO_COUNT + 1] = {
+FONT_TABLE unsigned char chicago12_aw[CHICAGO_GLYPHS] = {
     4, 6, 7, 10, 7, 11, 10, 3, 5, 5, 7, 7, 4, 7, 4, 7,
     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 4, 6, 8, 6, 8,
     11, 8, 8, 8, 8, 7, 7, 8, 8, 6, 7, 9, 7, 12, 9, 8,
     8, 8, 8, 7, 6, 8, 8, 12, 8, 8, 8, 5, 7, 5, 8, 8,
     6, 8, 8, 7, 8, 8, 6, 8, 8, 4, 6, 8, 4, 12, 8, 8,
-    8, 8, 6, 7, 6, 8, 8, 12, 8, 8, 8, 5, 5, 5, 8, 10
+    8, 8, 6, 7, 6, 8, 8, 12, 8, 8, 8, 5, 5, 5, 8, 10,
+    14
 };
-FONT_TABLE unsigned char chicago12_lb[CHICAGO_COUNT + 1] = {
+FONT_TABLE unsigned char chicago12_lb[CHICAGO_GLYPHS] = {
     4, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 0,
+    2
 };
-FONT_TABLE uint16_t chicago12_rows[CHICAGO_COUNT + 1][CHICAGO_CELL_H] = {
+FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H] = {
 /* 0x20 ' ' lb 4 aw 4 */ {0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000},
 /* 0x21 '!' lb 2 aw 6 */ {0x0000,0x0000,0x0000,0xC000,0xC000,0xC000,0xC000,0xC000,0xC000,0xC000,0x0000,0xC000,0x0000,0x0000,0x0000,0x0000},
 /* 0x22 '"' lb 2 aw 7 */ {0x0000,0x0000,0x0000,0xA000,0xA000,0xA000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000},
@@ -150,16 +158,20 @@ FONT_TABLE uint16_t chicago12_rows[CHICAGO_COUNT + 1][CHICAGO_CELL_H] = {
 /* 0x7D '}' lb 1 aw 5 */ {0x0000,0x0000,0x8000,0x4000,0x4000,0x4000,0x4000,0x2000,0x4000,0x4000,0x4000,0x4000,0x8000,0x0000,0x0000,0x0000},
 /* 0x7E '~' lb 1 aw 8 */ {0x0000,0x0000,0x0000,0x0000,0x0000,0x6400,0x9800,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000},
 /* missing lb 0 aw 10 */ {0x0000,0x0000,0x0000,0xFE00,0x8200,0x8200,0x8200,0x8200,0x8200,0x8200,0x8200,0xFE00,0x0000,0x0000,0x0000,0x0000},
+/* 0xC9 ellipsis lb 2 aw 14 */ {0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0xCCC0,0xCCC0,0x0000,0x0000,0x0000,0x0000},
 };
 #else
-FONT_TABLE unsigned char chicago12_aw[CHICAGO_COUNT + 1];
-FONT_TABLE unsigned char chicago12_lb[CHICAGO_COUNT + 1];
-FONT_TABLE uint16_t chicago12_rows[CHICAGO_COUNT + 1][CHICAGO_CELL_H];
+FONT_TABLE unsigned char chicago12_aw[CHICAGO_GLYPHS];
+FONT_TABLE unsigned char chicago12_lb[CHICAGO_GLYPHS];
+FONT_TABLE uint16_t chicago12_rows[CHICAGO_GLYPHS][CHICAGO_CELL_H];
 #endif
 
-/* Glyph index for byte c: its own slot, or the missing-glyph box. */
+/* Glyph index for byte c: its own slot, the ellipsis slot, or the
+ * missing-glyph box. */
 static inline int chicago12_index(int c)
 {
+    if (c == CHICAGO_ELLIPSIS_CODE)
+        return CHICAGO_ELLIPSIS;
     if (c < CHICAGO_FIRST || c > CHICAGO_LAST)
         return CHICAGO_MISSING;
     return c - CHICAGO_FIRST;

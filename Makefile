@@ -7956,6 +7956,7 @@ endef
         test-flair-heap test-flair-heap-mutant \
         test-flair-headers test-flair-headers-mutant \
         test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
+        test-font-styles test-font-styles-mutant test-text-clip test-text-clip-mutant \
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
@@ -12161,6 +12162,73 @@ test-text: $(TEST_TEXT)
 test-text-mutant: $(TEST_TEXT_MUT)
 	@printf ">>> test-text-mutant: confirming FIXED_PITCH mutant goes RED (Rule 6)\n"
 	@if $(TEST_TEXT_MUT) >/dev/null 2>&1; then printf '!!! test-text-mutant FAIL: FIXED_PITCH PASSED -- the proportional oracle is decoration\n'; exit 1; else printf '>>> test-text-mutant: green (FIXED_PITCH correctly RED -- the oracle bites)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-font-styles (bead initech-tdnl.68, Font Manager slice 2) --
+# the INDEPENDENT txFace oracle. Grades os/flair/text.h's bold / italic /
+# underline synthesis and styled advances against the REAL System 7.0.1
+# strikes (NFNT 5478 Chicago 12, NFNT 5415 Geneva 9, NFNT 6475 Geneva 9
+# italic, parsed at run time from $(SYSTEM7_DECOMP)/goldens/resources) and
+# against System 7.5.3 screendump crops (harness/proptest/font_styles_golden.h:
+# bold Geneva labels of s7_get_info.png / s7_about.png, the Chicago ellipsis
+# of s7_menu_apple.png). Legs G1 G2 M I R: see the source header.
+# Mutants (Rule 6), each RED on its own leg: SMEAR_OFF (bold loses the smear)
+# -> G1; BOLD_ADVANCE_PLAIN (bold advance not +1) -> G1/M; UL_OFFSET (the
+# underline one row low) -> R; ITALIC_RUN4 (shear 1:4) -> I.
+# FAIL LOUD without the corpus (oracle_policy.h).
+# ---------------------------------------------------------------------------
+TEST_FONT_STYLES     := $(BUILD)/test_font_styles
+TEST_FONT_STYLES_SRC := harness/proptest/test_font_styles.c
+TEST_FONT_STYLES_DEPS := $(TEST_FONT_STYLES_SRC) harness/proptest/font_styles_golden.h \
+	os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h \
+	os/flair/atkinson/region.c spec/region_algebra.h $(ORACLE_POLICY_H) $(CORPUS_CONFIG)
+FONT_STYLES_INC := -Ios/flair -Ispec/assets -Ispec -Iseed -Ios/flair/atkinson
+FONT_STYLES_LINK := os/flair/text.c os/flair/surface.c os/flair/atkinson/region.c
+FONT_STYLES_DEF = -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
+FONT_STYLES_MUTANTS := SMEAR_OFF BOLD_ADVANCE_PLAIN UL_OFFSET ITALIC_RUN4
+$(TEST_FONT_STYLES): $(TEST_FONT_STYLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 $(FONT_STYLES_INC) $(FONT_STYLES_DEF) -o $@ $(TEST_FONT_STYLES_SRC) $(FONT_STYLES_LINK)
+$(BUILD)/test_font_styles_mut_%: $(TEST_FONT_STYLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 -DTEXT_MUT_$* $(FONT_STYLES_INC) $(FONT_STYLES_DEF) -o $@ $(TEST_FONT_STYLES_SRC) $(FONT_STYLES_LINK)
+.PHONY: test-font-styles test-font-styles-mutant
+test-font-styles: $(TEST_FONT_STYLES)
+	@$(TEST_FONT_STYLES)
+# $(1) knob, $(2) the failure line the knob must produce (its leg)
+font-styles-bites = out=$$($(BUILD)/test_font_styles_mut_$(1) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-font-styles-mutant FAIL: $(1) PASSED -- the oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -qF "$(2)" || { printf '%s\n' "$$out" | tail -6; printf '!!! test-font-styles-mutant FAIL: $(1) went RED, but not on its leg\n'; exit 1; }; \
+	printf '>>> test-font-styles-mutant: green ($(1) correctly RED: %s)\n' "$$(printf '%s\n' "$$out" | grep -m1 -F "$(2)" | sed 's/^ *//' | cut -c1-120)"
+test-font-styles-mutant: $(addprefix $(BUILD)/test_font_styles_mut_,$(FONT_STYLES_MUTANTS))
+	@$(call font-styles-bites,SMEAR_OFF,FAIL: G1 'Kind:' (s7_get_info.png pen_x 57 top 105))
+	@$(call font-styles-bites,BOLD_ADVANCE_PLAIN,FAIL: G1 'Kind:' (s7_get_info.png): bold StringWidth 23)
+	@$(call font-styles-bites,UL_OFFSET,FAIL: R underline (font 0): adds)
+	@$(call font-styles-bites,ITALIC_RUN4,FAIL: I row d=4 above the baseline: artifact shear 1)
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-text-clip (bead initech-tdnl.68) -- text never paints
+# outside its clip. text_draw_run with (rgnA, rgnB, box) == the unclipped run
+# masked by rgnA ^ rgnB ^ box, pixel for pixel, over 3000 seeded random cases
+# (random rect unions / differences, both fonts, all 8 synthesized faces, pens
+# partly off the bitmap); membership rasterized INDEPENDENTLY off the region
+# rows (not region_contains_point). Mutant CLIP_IGNORE must go RED.
+# ---------------------------------------------------------------------------
+TEST_TEXT_CLIP     := $(BUILD)/test_text_clip
+TEST_TEXT_CLIP_MUT := $(BUILD)/test_text_clip_mut_ignore
+TEST_TEXT_CLIP_SRC := harness/proptest/test_text_clip.c
+TEST_TEXT_CLIP_DEPS := $(TEST_TEXT_CLIP_SRC) $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h \
+	os/flair/atkinson/region.c spec/region_algebra.h $(ORACLE_POLICY_H)
+$(TEST_TEXT_CLIP): $(TEST_TEXT_CLIP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 $(FONT_STYLES_INC) -o $@ $(TEST_TEXT_CLIP_SRC) os/flair/surface.c os/flair/atkinson/region.c
+$(TEST_TEXT_CLIP_MUT): $(TEST_TEXT_CLIP_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_HOSTED=1 -DTEXT_MUT_CLIP_IGNORE $(FONT_STYLES_INC) -o $@ $(TEST_TEXT_CLIP_SRC) os/flair/surface.c os/flair/atkinson/region.c
+.PHONY: test-text-clip test-text-clip-mutant
+test-text-clip: $(TEST_TEXT_CLIP)
+	@$(TEST_TEXT_CLIP)
+test-text-clip-mutant: $(TEST_TEXT_CLIP_MUT)
+	@out=$$($(TEST_TEXT_CLIP_MUT) 2>&1); rc=$$?; \
+	if [ $$rc -eq 0 ]; then printf '!!! test-text-clip-mutant FAIL: CLIP_IGNORE PASSED -- the clip oracle is decoration\n'; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -q 'px outside the rule' || { printf '%s\n' "$$out" | tail -4; printf '!!! test-text-clip-mutant FAIL: RED for the wrong reason\n'; exit 1; }; \
+	printf '>>> test-text-clip-mutant: green (CLIP_IGNORE correctly RED: %s)\n' "$$(printf '%s\n' "$$out" | grep -m1 'checks,' | sed 's/^>>> //')"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-canon (beads initech-k8o5.10) -- the FLAIR canon oracle (Law 4).
@@ -27550,6 +27618,7 @@ TEST_UNIT_GATES := \
 	test-dialog-record test-dialog-record-mutant test-drawing-ops test-drawing-ops-mutant \
 	test-clut test-clut-mutant \
 	test-blitter test-blitter-mutant test-text test-text-mutant test-chicago-metrics test-chicago-metrics-mutant test-chicago-art test-chicago-art-mutant \
+	test-font-styles test-font-styles-mutant test-text-clip test-text-clip-mutant \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
 	test-tbx-menu test-tbx-menu-mutant \
