@@ -7,8 +7,8 @@ out=$3
 shift 3
 mkdir -p "$out/empty"
 # Ignore inherited opt-outs: each negative leg must prove the default policy.
-unset SKIP_SYSTEM7_DECOMP SKIP_WIN31_DECOMP SKIP_DBASE3_DECOMP SKIP_LOTUS123_DECOMP SKIP_REFERENCE_TOOLS
-for pair in SYSTEM7_DECOMP:test-chicago-metrics WIN31_DECOMP:test-region-gdi DBASE3_DECOMP:test-samir-dbf-ref LOTUS123_DECOMP:test-i123-wk1-roundtrip; do
+unset SKIP_SYSTEM7_DECOMP SKIP_WIN31_DECOMP SKIP_DBASE3_DECOMP SKIP_LOTUS123_DECOMP SKIP_WORDPERFECT51_DECOMP SKIP_REFERENCE_TOOLS
+for pair in SYSTEM7_DECOMP:test-chicago-metrics WIN31_DECOMP:test-region-gdi DBASE3_DECOMP:test-samir-dbf-ref LOTUS123_DECOMP:test-i123-wk1-roundtrip WORDPERFECT51_DECOMP:test-iword-wp5-roundtrip; do
     root=${pair%%:*}
     gate=${pair#*:}
     skip=SKIP_$root
@@ -34,4 +34,4 @@ for pair in SYSTEM7_DECOMP:test-chicago-metrics WIN31_DECOMP:test-region-gdi DBA
     }
     echo ">>> test-gate-honesty: $root missing RED; $skip=1 explicitly SKIPPED"
 done
-echo '>>> test-gate-honesty: green (4 real corpus gates reject missing references; 4 explicit opt-outs shout)'
+echo '>>> test-gate-honesty: green (5 real corpus gates reject missing references; 5 explicit opt-outs shout)'

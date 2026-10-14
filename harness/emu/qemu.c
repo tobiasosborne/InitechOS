@@ -441,6 +441,19 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "minus") == 0 || strcmp(tok, "-") == 0) {
         return "minus";
     }
+    /* The word-processor keys (bead initech-l4tj, InitechWord Face A): the
+     * WordPerfect 5.1 function keys (F10 Save, Shift-F10 Retrieve as the
+     * chord "shift-f10", F7 Exit, F1 Cancel), Delete and End. QEMU sends F1..
+     * F12 as plain set-1 makes 0x3B..0x44 / 0x57 / 0x58 and Delete / End
+     * E0-prefixed (event.c cooks them to ascii 0, vkey = the make code).
+     * Ref: qapi/ui.json QKeyCode f1..f12, delete, end. */
+    if (tok[0] == 'f' && tok[1] >= '1' && tok[1] <= '9' &&
+        (tok[2] == '\0' || (tok[1] == '1' && tok[2] >= '0' && tok[2] <= '2' && tok[3] == '\0'))) {
+        return tok;
+    }
+    if (strcmp(tok, "delete") == 0 || strcmp(tok, "end") == 0) {
+        return tok;
+    }
     /* MODIFIERS (beads initech-tdnl.10, R3.3 emu wiring). These exist ONLY as
      * members of a chord token (see qmp_send_key_chord): a bare "ctrl" would
      * press-and-release Control with nothing else, which no gate wants. The

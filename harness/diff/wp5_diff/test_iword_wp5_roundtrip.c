@@ -1,0 +1,368 @@
+/*
+ * harness/diff/wp5_diff/test_iword_wp5_roundtrip.c -- THE ORACLE of
+ * InitechWord's .WP5 codec and document core against REAL WordPerfect 5.1
+ * (factory C; bead initech-l4tj, IWORD P1; plan docs/plans/INITECH-WORD-
+ * plan.md Sec 6(a)).
+ *
+ * Graded against two INDEPENDENT authorities (Law 2), never against itself:
+ *   (1) the five documents the real WP.EXE (5.1, 03-09-92) wrote under
+ *       DOSBox-X: $WORDPERFECT51_DECOMP/goldens/minted/MINT01..05.WP5, with
+ *       the keystrokes that made them (mint/wp*.steps) and their skeletons
+ *       transcribed in specs/file-formats/wp5-body-codes.md Sec 7;
+ *   (2) the corpus' independent reader $WORDPERFECT51_DECOMP/tools/wp5_ref.py
+ *       (it shares no constant with spec/iword/wp5_format.h).
+ *
+ * PARTS
+ *   A  every golden: C read (header + every body unit validated) -> load
+ *      into the piece table -> C write is BYTE-IDENTICAL to the file WP.EXE
+ *      wrote; the C text equals wp5_ref.py's TEXT line for the golden, and
+ *      wp5_ref.py reads the REWRITTEN file to its end with zero trailer
+ *      errors. Opaque codes ride through untouched -- that is how the four
+ *      formatted goldens round-trip before P2 (bead initech-jojk) gives
+ *      their codes meaning.
+ *   A2 WordPerfect's own wrap reproduced: re-wrapping every golden at the
+ *      default 65 columns changes no byte (MINT01's SRt replaces the space
+ *      after "real", 65 characters into the line, @0x188).
+ *   B  TYPED documents: the keystrokes of mint/wpMINT02.steps (Return,
+ *      "Plain text only.") typed into the editor and written with the
+ *      default prefix are BYTE-IDENTICAL to MINT02.WP5 (all 344 bytes); the
+ *      first paragraph of mint/wpmint01.steps (the 82-character sentence,
+ *      Return, Return) typed into a new document gives exactly MINT01's
+ *      first 84 body bytes, the SRt where WP put it.
+ *   C  the plain-text subset: which goldens hold only text + HRt + SRt
+ *      (interpreted fully in P1) and which carry codes P1 keeps opaque
+ *      (interpreted in P2), stated from wp5-body-codes.md Sec 7.
+ *   D  a synthetic document typed through the editor (three paragraphs,
+ *      two of them wrapping) is read by wp5_ref.py: TEXT agrees, zero
+ *      trailer errors, and the reader lists its [SRt] / [HRt] codes in order.
+ *   E  refusals (Rule 2): bad magic, non-document type, wrong version,
+ *      encryption, docstart out of range, an unverified code, a broken
+ *      mirror, a truncated group -- each refused with its own code.
+ *
+ * Mutants (Rule 6; test-iword-wp5-roundtrip-mutant):
+ *   IWORD_MUT_DROP_CODE  the writer drops every soft-return code
+ *                        -> RED-REASON golden-rewrite
+ *   IWORD_MUT_WRAP_EARLY the wrap ends a line one column short
+ *                        -> RED-REASON typed
+ *
+ * Usage: test_iword_wp5_roundtrip <WORDPERFECT51_DECOMP> <scratch-dir>
+ * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#include "test_assert.h"
+#include "oracle_policy.h"
+#include "iword.h"
+#include "iword/wp5_format.h"
+
+TEST_HARNESS();
+
+static const char *g_corpus, *g_scratch;
+static char g_ref[1024];
+static int g_rewrite_fail, g_ref_fail, g_wrap_fail, g_typed_fail, g_refuse_fail;
+
+#define CAP (256u * 1024u)
+static uint8_t    g_in[CAP], g_out[CAP], g_add[CAP];
+static iw_piece_t g_pc[8192];
+static char       g_text[CAP];
+
+static const char *const MINTS[5] = { "MINT01", "MINT02", "MINT03", "MINT04", "MINT05" };
+
+static uint32_t load(const char *path, uint8_t *b, uint32_t cap)
+{
+    FILE *f = fopen(path, "rb");
+    size_t n;
+    if (!f) return 0;
+    n = fread(b, 1, cap, f);
+    fclose(f);
+    return (uint32_t)n;
+}
+
+static int save(const char *path, const uint8_t *b, uint32_t n)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f) return 0;
+    if (fwrite(b, 1, n, f) != n) { fclose(f); return 0; }
+    return fclose(f) == 0;
+}
+
+/* Python's repr() of a str of bytes 0x20..0x7F (what wp5_ref.py prints). */
+static void py_repr(const char *s, uint32_t n, char *out, size_t cap)
+{
+    int has_sq = 0, has_dq = 0;
+    char q;
+    size_t o = 0;
+    for (uint32_t i = 0; i < n; i++) { if (s[i] == '\'') has_sq = 1; if (s[i] == '"') has_dq = 1; }
+    q = (has_sq && !has_dq) ? '"' : '\'';
+    out[o++] = q;
+    for (uint32_t i = 0; i < n && o + 6 < cap; i++) {
+        unsigned char c = (unsigned char)s[i];
+        if (c == '\\' || c == (unsigned char)q) { out[o++] = '\\'; out[o++] = (char)c; }
+        else if (c < 0x20 || c >= 0x7F) o += (size_t)snprintf(out + o, cap - o, "\\x%02x", c);
+        else out[o++] = (char)c;
+    }
+    out[o++] = q;
+    out[o] = 0;
+}
+
+/* Run wp5_ref.py on `file`; the TEXT line must equal repr(text), the parse
+ * must reach END == filesize with zero trailer errors. `codes_want`, when
+ * given, must appear in the CODES line. */
+static char g_reader_out[CAP];
+static int ref_agrees(const char *file, const char *text, uint32_t tlen, const char *codes_want)
+{
+    char cmd[2048], want[8192], line[8192];
+    FILE *p;
+    int text_ok = 0, end_ok = 0, codes_ok = codes_want ? 0 : 1;
+    size_t used = 0;
+    snprintf(cmd, sizeof cmd, "python3 -I '%s' '%s'", g_ref, file);
+    p = popen(cmd, "r");
+    if (!p) return 0;
+    py_repr(text, tlen, want, sizeof want);
+    g_reader_out[0] = 0;
+    while (fgets(line, sizeof line, p)) {
+        size_t l = strlen(line);
+        if (used + l + 1 < sizeof g_reader_out) { memcpy(g_reader_out + used, line, l + 1); used += l; }
+        if (l && line[l - 1] == '\n') line[--l] = 0;
+        if (strncmp(line, "  TEXT: ", 8) == 0 && strcmp(line + 8, want) == 0) text_ok = 1;
+        if (strncmp(line, "  CODES: ", 9) == 0 && codes_want && strstr(line, codes_want)) codes_ok = 1;
+        if (strncmp(line, "  END offset=", 13) == 0) {
+            unsigned a = 0, b = 1, e = 1;
+            if (sscanf(line, "  END offset=%u filesize=%u trailer-errors=%u", &a, &b, &e) == 3 && a == b && e == 0) end_ok = 1;
+        }
+    }
+    if (pclose(p) != 0) return 0;
+    return text_ok && end_ok && codes_ok;
+}
+
+static void doc_bind(iw_doc_t *d)
+{
+    iw_doc_init(d, g_add, CAP, g_pc, 8192u, CAP);
+}
+
+/* ---- PART A + A2: every golden ------------------------------------------- */
+static void part_a(void)
+{
+    int files = 0, rewrites = 0, agreed = 0, wraps = 0;
+    for (int i = 0; i < 5; i++) {
+        char path[1024], outp[1024];
+        uint32_t n, olen = 0, tl;
+        iw_wp5_t w;
+        iw_doc_t d;
+        int rc;
+        snprintf(path, sizeof path, "%s/goldens/minted/%s.WP5", g_corpus, MINTS[i]);
+        n = load(path, g_in, CAP);
+        CHECK(n > 0u, "golden present (a missing golden is RED, never a skip)");
+        if (!n) { fprintf(stderr, "  FAIL golden missing: %s\n", path); g_rewrite_fail++; continue; }
+        files++;
+        rc = iw_wp5_read(g_in, n, &w);
+        if (rc != IW_OK) {
+            fprintf(stderr, "  FAIL read %s rc=%d at 0x%x\n", MINTS[i], rc, w.err_off);
+            CHECK(0, "C reads the golden"); g_rewrite_fail++; continue;
+        }
+        CHECK(w.prefix_len == IW_WP5_DEFAULT_DOCSTART, "docstart 0x147 (wp5-header-and-prefix.md Sec 1)");
+        doc_bind(&d);
+        iw_doc_load(&d, w.body, w.body_len);
+        rc = iw_wp5_write(w.prefix, w.prefix_len, &d, g_out, CAP, &olen);
+        if (rc == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0) rewrites++;
+        else {
+            uint32_t k = 0;
+            while (k < n && k < olen && g_out[k] == g_in[k]) k++;
+            fprintf(stderr, "  FAIL %s rewrite not byte-identical (len %u vs %u, first diff @0x%x)\n", MINTS[i], olen, n, k);
+            g_rewrite_fail++;
+            CHECK(0, "golden rewrite byte-identical");
+        }
+        snprintf(outp, sizeof outp, "%s/iword_%s.WP5", g_scratch, MINTS[i]);
+        CHECK(save(outp, g_out, olen), "write the rewritten golden");
+        tl = iw_wp5_text(&d, g_text, CAP);
+        if (ref_agrees(path, g_text, tl, 0) && ref_agrees(outp, g_text, tl, 0)) agreed++;
+        else {
+            fprintf(stderr, "  FAIL wp5_ref.py disagrees with the C text of %s (or the rewrite does not parse clean):\n%s", MINTS[i], g_reader_out);
+            g_ref_fail++;
+            CHECK(0, "wp5_ref.py TEXT == C text; the rewrite parses clean");
+        }
+        /* A2: WordPerfect's own wrap */
+        rc = iw_reflow_all(&d, IW_WP5_WRAP_COLS);
+        if (rc == IW_OK && iw_wp5_write(w.prefix, w.prefix_len, &d, g_out, CAP, &olen) == IW_OK &&
+            olen == n && memcmp(g_out, g_in, n) == 0) wraps++;
+        else {
+            uint32_t k = 0;
+            while (k < n && k < olen && g_out[k] == g_in[k]) k++;
+            fprintf(stderr, "  FAIL %s: re-wrapping at %u columns changed byte @0x%x (0x%02x, WP wrote 0x%02x)\n",
+                    MINTS[i], IW_WP5_WRAP_COLS, k, k < olen ? g_out[k] : 0, k < n ? g_in[k] : 0);
+            g_wrap_fail++;
+            CHECK(0, "re-wrap at 65 columns reproduces WP's soft returns");
+        }
+    }
+    CHECK(files == 5, "all five minted goldens graded");
+    printf("  part A: %d goldens; %d rewrites byte-identical; %d agree with wp5_ref.py (golden + rewrite)\n", files, rewrites, agreed);
+    printf("  part A2: %d goldens unchanged by re-wrapping at %u columns (WP's own soft returns)\n", wraps, IW_WP5_WRAP_COLS);
+}
+
+/* ---- PART B: typed documents ---------------------------------------------- */
+static void type_str(iw_ed_t *e, const char *s)
+{
+    for (; *s; s++) CHECK(iw_ed_type(e, (uint8_t)*s) == IW_OK, "type");
+}
+
+static void part_b(void)
+{
+    static iw_ed_t e;
+    uint32_t n, olen = 0, plen;
+    const uint8_t *prefix = iw_wp5_default_prefix(&plen);
+    char path[1024];
+    iw_wp5_t w;
+    int ok2 = 0, ok1 = 0;
+    /* MINT02: "key Return" then "type Plain text only." (mint/wpMINT02.steps) */
+    doc_bind(&e.doc);
+    iw_ed_init(&e, IW_WP5_WRAP_COLS);
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    type_str(&e, "Plain text only.");
+    snprintf(path, sizeof path, "%s/goldens/minted/MINT02.WP5", g_corpus);
+    n = load(path, g_in, CAP);
+    CHECK(plen == IW_WP5_DEFAULT_DOCSTART && n > plen && memcmp(prefix, g_in, plen) == 0,
+          "the default prefix == the 327 bytes WP.EXE wrote");
+    if (iw_wp5_write(prefix, plen, &e.doc, g_out, CAP, &olen) == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0) ok2 = 1;
+    else { fprintf(stderr, "  FAIL typed MINT02 != MINT02.WP5 (%u vs %u bytes)\n", olen, n); g_typed_fail++; }
+    CHECK(ok2, "typed MINT02 is byte-identical to the real MINT02.WP5");
+    /* MINT01's first paragraph: the sentence, Return, Return
+     * (mint/wpmint01.steps lines 5-7; the first "key Return" of that run
+     * was not stored, wp5-body-codes.md Sec 1 / GAPS W-6). */
+    doc_bind(&e.doc);
+    iw_ed_init(&e, IW_WP5_WRAP_COLS);
+    type_str(&e, "Hello from InitechWord. This is a plain paragraph typed into real WordPerfect 5.1.");
+    CHECK(iw_ed_enter(&e) == IW_OK && iw_ed_enter(&e) == IW_OK, "Return Return");
+    snprintf(path, sizeof path, "%s/goldens/minted/MINT01.WP5", g_corpus);
+    n = load(path, g_in, CAP);
+    if (n && iw_wp5_read(g_in, n, &w) == IW_OK) {
+        uint32_t k = e.doc.len;
+        iw_doc_read(&e.doc, 0, g_out, CAP);
+        if (k == 84u && w.body_len >= k && memcmp(g_out, w.body, k) == 0) ok1 = 1;
+        else {
+            uint32_t j = 0;
+            while (j < k && j < w.body_len && g_out[j] == w.body[j]) j++;
+            fprintf(stderr, "  FAIL typed MINT01 paragraph != MINT01 body (len %u; first diff @%u: 0x%02x vs WP 0x%02x)\n",
+                    k, j, j < k ? g_out[j] : 0, j < w.body_len ? w.body[j] : 0);
+            g_typed_fail++;
+        }
+    }
+    CHECK(ok1, "typed MINT01 paragraph == the first 84 body bytes WP.EXE wrote (SRt at column 65)");
+    printf("  part B: typed MINT02 %s byte-identical (344 bytes); typed MINT01 paragraph %s (SRt after \"real\")\n",
+           ok2 ? "is" : "is NOT", ok1 ? "matches" : "does NOT match");
+}
+
+/* ---- PART C: the plain-text subset ---------------------------------------- */
+static void part_c(void)
+{
+    /* wp5-body-codes.md Sec 7: MINT02 = HRt + text; every other golden
+     * carries at least one code beyond text/HRt/SRt (bold/underline/center/
+     * tab; indent/flush right/D4/HPg; margins/justification/size; footnote/
+     * extended char/hard space). */
+    static const int want_plain[5] = { 0, 1, 0, 0, 0 };
+    int ok = 1;
+    printf("  part C: plain-text subset (text + HRt + SRt only, P1 interprets fully):");
+    for (int i = 0; i < 5; i++) {
+        char path[1024];
+        iw_wp5_t w;
+        iw_doc_t d;
+        uint32_t n, p = 0, plain = 1;
+        snprintf(path, sizeof path, "%s/goldens/minted/%s.WP5", g_corpus, MINTS[i]);
+        n = load(path, g_in, CAP);
+        if (!n || iw_wp5_read(g_in, n, &w) != IW_OK) { ok = 0; continue; }
+        doc_bind(&d);
+        iw_doc_load(&d, w.body, w.body_len);
+        while (p < d.len) {
+            int k = iw_unit_kind(&d, p);
+            if (k != IW_U_TEXT && k != IW_U_HRT && k != IW_U_SRT) plain = 0;
+            p = iw_unit_next(&d, p);
+        }
+        if ((int)plain != want_plain[i]) ok = 0;
+        if (plain) printf(" %s", MINTS[i]);
+    }
+    printf("; opaque codes carried byte-exact, interpretation deferred to P2 (initech-jojk): MINT01 MINT03 MINT04 MINT05\n");
+    CHECK(ok, "the plain-text subset is exactly {MINT02}");
+}
+
+/* ---- PART D: a synthetic typed document through wp5_ref.py ---------------- */
+static void part_d(void)
+{
+    static iw_ed_t e;
+    uint32_t plen, olen = 0, tl;
+    const uint8_t *prefix = iw_wp5_default_prefix(&plen);
+    char path[1024];
+    doc_bind(&e.doc);
+    iw_ed_init(&e, IW_WP5_WRAP_COLS);
+    type_str(&e, "Initech word processing is here. The quick brown fox jumps over the lazy dog.");
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    type_str(&e, "Short line.");
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    type_str(&e, "Yeah, if you could just go ahead and make sure you do that from now on, that will be great. Mmm-kay?");
+    CHECK(iw_wp5_write(prefix, plen, &e.doc, g_out, CAP, &olen) == IW_OK, "write");
+    snprintf(path, sizeof path, "%s/iword_synthetic.WP5", g_scratch);
+    CHECK(save(path, g_out, olen), "save the synthetic document");
+    tl = iw_wp5_text(&e.doc, g_text, CAP);
+    {
+        int ok = ref_agrees(path, g_text, tl,
+            "T'Initech word processing is here. The quick brown fox jumps over' [SRt] T'the lazy dog.' [HRt] T'Short line.' [HRt]");
+        if (!ok) { fprintf(stderr, "  FAIL wp5_ref.py on the synthetic document:\n%s", g_reader_out); g_ref_fail++; }
+        CHECK(ok, "wp5_ref.py reads the synthetic document: TEXT, codes, zero trailer errors");
+        printf("  part D %s: synthetic 3-paragraph document (%u bytes) read by wp5_ref.py, SRt/HRt in place\n", ok ? "green" : "RED", olen);
+    }
+}
+
+/* ---- PART E: refusals ------------------------------------------------------- */
+static void part_e(void)
+{
+    uint32_t plen, n;
+    const uint8_t *prefix = iw_wp5_default_prefix(&plen);
+    iw_wp5_t w;
+    int bad = 0;
+#define REFUSE(mutate, want, what) do { \
+        memcpy(g_in, prefix, plen); memcpy(g_in + plen, "Hi", 2); n = plen + 2u; \
+        mutate; \
+        if (iw_wp5_read(g_in, n, &w) != (want)) { fprintf(stderr, "  FAIL refusal: %s\n", what); bad = 1; } \
+    } while (0)
+    REFUSE((void)0, IW_OK, "the control document reads");
+    REFUSE(g_in[1] = 'X', IW_E_FORMAT, "bad magic");
+    REFUSE(g_in[9] = 0x0B, IW_E_FORMAT, "not a document (file type)");
+    REFUSE(g_in[11] = 0x00, IW_E_FORMAT, "version 5.0 is not 5.1");
+    REFUSE(g_in[12] = 0x01, IW_E_FORMAT, "encrypted");
+    REFUSE(g_in[4] = 0x00; g_in[5] = 0x10, IW_E_FORMAT, "docstart past the end");
+    REFUSE(g_in[4] = 0x08; g_in[5] = 0x00, IW_E_FORMAT, "docstart inside the header");
+    REFUSE(n = 10u, IW_E_FORMAT, "shorter than a header");
+    REFUSE(g_in[plen] = 0xC5, IW_E_CODE, "unverified fixed code C5");
+    REFUSE(g_in[plen] = 0x09, IW_E_CODE, "unseen single byte 0x09");
+    REFUSE(memcpy(g_in + plen, "\xD0\x06\x06\x00\x01\x00\x06\x00\x07\xD0", 10); n = plen + 10u, IW_E_CODE, "variable group with a broken mirror");
+    REFUSE(memcpy(g_in + plen, "\xD0\x06\x06\x00\x01\x00\x06\x00\x06\xD0", 10); n = plen + 10u, IW_OK, "a mirrored D0/06 group reads");
+    REFUSE(memcpy(g_in + plen, "\xC3\x0C", 2); n = plen + 2u, IW_E_CODE, "truncated fixed group");
+#undef REFUSE
+    CHECK(!bad, "malformed documents refused fail-loud with their own codes");
+    if (bad) g_refuse_fail++;
+    printf("  part E %s: 11 malformed headers/bodies refused (IW_E_FORMAT / IW_E_CODE), 2 controls read\n", bad ? "RED" : "green");
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 3) {
+        fprintf(stderr, "usage: %s <WORDPERFECT51_DECOMP> <scratch-dir>\n", argv[0]);
+        return 2;
+    }
+    g_corpus = argv[1];
+    g_scratch = argv[2];
+    snprintf(g_ref, sizeof g_ref, "%s/tools/wp5_ref.py", g_corpus);
+    if (!oracle_reader_available(g_ref)) return TEST_SUMMARY("test-iword-wp5-roundtrip");
+    part_a();
+    part_b();
+    part_c();
+    part_d();
+    part_e();
+    if (g_rewrite_fail) fprintf(stderr, "  RED-REASON golden-rewrite: %d goldens not byte-identical\n", g_rewrite_fail);
+    if (g_ref_fail)     fprintf(stderr, "  RED-REASON wp5-ref-disagrees: %d readings differ from wp5_ref.py\n", g_ref_fail);
+    if (g_wrap_fail)    fprintf(stderr, "  RED-REASON wrap: %d goldens re-wrapped differently from WP\n", g_wrap_fail);
+    if (g_typed_fail)   fprintf(stderr, "  RED-REASON typed: %d typed documents differ from what WP.EXE wrote\n", g_typed_fail);
+    if (g_refuse_fail)  fprintf(stderr, "  RED-REASON refusal: a malformed document was not refused\n");
+    return TEST_SUMMARY("test-iword-wp5-roundtrip");
+}
