@@ -12,6 +12,15 @@
  *              Cancel without, and the desktop Trash drawn FULL.
  *   emptied  after OK: the alert gone (its footprint repainted by what lies
  *              beneath) and the desktop Trash drawn EMPTY again.
+ *   tenant3  bead initech-fvnj: a disk tenant's TBX_ALERT with THREE buttons
+ *              (Initech 123's Save / Cancel / Don't Save) up over its white
+ *              document window: the same frame and message column, the
+ *              default (item 1) in OK's measured place WITH the ring, Cancel
+ *              in Cancel's place without, and the third button at x 211..294
+ *              (spec/toolbox_gate.h Sec 11 -- a stated product adaptation,
+ *              the corpus has no three-button alert) without a ring.
+ *   tenant3-gone  after the answer: the footprint repainted by the white
+ *              document content beneath (the worksheet's empty cells).
  *
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2):
  *   - the alert geometry: MEASURED off the corpus capture
@@ -55,6 +64,8 @@ enum { SCRW = 640, SCRH = 480 };
 #define CA_R 422
 #define BT_T 158
 #define BT_B 178
+#define OT_L 211             /* the third button (spec Sec 11, authored)       */
+#define OT_R 295
 
 /* The desktop Trash sprite origin (spec/flair_trash_traces.mk: (584,404)). */
 #define TR_X 584
@@ -154,8 +165,9 @@ int main(int argc, char **argv)
     size_t n = (size_t)SCRW * SCRH * 3u;
 
     if (argc != 3 || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
-                     strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full"))) {
-        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full> <dump.ppm>\n", argv[0]);
+                     strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full") &&
+                     strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone"))) {
+        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone> <dump.ppm>\n", argv[0]);
         return 2;
     }
     g_leg = argv[1];
@@ -176,7 +188,35 @@ int main(int argc, char **argv)
     fclose(f);
     printf("ppm_flair_trash_check: leg %s on %s\n", g_leg, argv[2]);
 
-    if (strcmp(g_leg, "alert") == 0 || strcmp(g_leg, "locked") == 0 ||
+    if (strcmp(g_leg, "tenant3") == 0) {
+        want(AL_L + AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, left");
+        want(AL_R - 1 - AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, right");
+        want(300, AL_T + AL_BORDER / 2, CIDX_BLACK, "alert frame band, top");
+        want(300, AL_B - 1 - AL_BORDER / 2, CIDX_BLACK, "alert frame band, bottom");
+        want(AL_L - 1, 150, CIDX_WHITE, "just outside the alert (the document content)");
+        want(300, 150, CIDX_PLAT_FACE, "alert face between the message and the buttons");
+        for (int k = 0; k < 3; k++) {
+            char what[64];
+            snprintf(what, sizeof what, "message line %d", k + 1);
+            want_ink(TXT_X0, TXT_Y0 + 16 * k, TXT_X1, TXT_Y0 + 16 * (k + 1), 1, what);
+        }
+        want_ink(TXT_X0, TXT_Y0 + 48, TXT_X1, BT_T - 4, 0, "no fourth message line");
+        want_ink(AL_L + AL_BORDER + 1, TXT_Y0, TXT_X0 - 2, BT_B, 0,
+                 "nothing left of the text column");
+        want_ink(OK_L + 4, BT_T + 3, OK_R - 4, BT_B - 2, 1, "default (Save) button label");
+        want_ink(CA_L + 4, BT_T + 3, CA_R - 4, BT_B - 2, 1, "Cancel button label");
+        want_ink(OT_L + 4, BT_T + 3, OT_R - 4, BT_B - 2, 1, "third (Don't Save) button label");
+        want((OK_L + OK_R) / 2, BT_T - 3, CIDX_BLACK, "default ring (InsetRect -3)");
+        want((CA_L + CA_R) / 2, BT_T - 3, CIDX_PLAT_FACE, "Cancel has NO ring");
+        want((OT_L + OT_R) / 2, BT_T - 3, CIDX_PLAT_FACE, "the third button has NO ring");
+        want((OT_L + OT_R) / 2, BT_T, CIDX_BLACK, "the third button's top edge");
+        want(OT_R + 4, (BT_T + BT_B) / 2, CIDX_PLAT_FACE, "face right of the third button");
+    } else if (strcmp(g_leg, "tenant3-gone") == 0) {
+        want(AL_L + AL_BORDER / 2, 150, CIDX_WHITE, "the alert is gone: left band repainted");
+        want(AL_R - 1 - AL_BORDER / 2, 150, CIDX_WHITE, "the alert is gone: right band repainted");
+        want(300, AL_B - 1 - AL_BORDER / 2, CIDX_WHITE, "the alert is gone: bottom band repainted");
+        want((OK_L + OK_R) / 2, BT_T, CIDX_WHITE, "the alert is gone: no button edge");
+    } else if (strcmp(g_leg, "alert") == 0 || strcmp(g_leg, "locked") == 0 ||
         strcmp(g_leg, "locked-full") == 0) {
         /* the dBoxProc band on all four sides, mid-edge */
         want(AL_L + AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, left");

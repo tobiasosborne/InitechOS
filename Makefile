@@ -21495,6 +21495,14 @@ RECORD_SETTLE_i123_files = 400
 # The existing long recording image: 53 frame captures outlive the 30s image.
 RECORD_IMAGE_i123_files = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_files = $(BUILD)/flair_i123_file_data.img
+# initech-fvnj (L008) Rule-14 clip: dirty sheet, Ctrl-Q, the three-button
+# alert, Save q, exit, relaunch, Retrieve q -- the guarded quit end to end.
+RECORD_SCRIPTS += i123_quit_guard
+RECORD_SPEC_i123_quit_guard = $(FLAIR_I123_QG_SAVE)
+RECORD_MARKER_i123_quit_guard = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retrieved q.wk1                                                              " fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_quit_guard = 400
+RECORD_IMAGE_i123_quit_guard = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_i123_quit_guard = $(BUILD)/flair_i123_quit_data.img
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
 RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
@@ -27942,6 +27950,7 @@ TEST_EMU_GATES := \
 	test-flair-files test-flair-files-mutant test-flair-files-reap test-flair-files-reap-mutant \
 	test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs \
 	test-flair-i123-files test-flair-i123-files-mutant test-flair-i123-file-ui test-flair-i123-file-ui-mutant \
+	test-flair-i123-quitguard test-flair-i123-quitguard-mutant \
 	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
@@ -28151,3 +28160,125 @@ test-flair-i123-file-ui-mutant: test-flair-i123-file-ui $(BUILD)/flair_i123_file
 	@printf '>>> test-flair-i123-file-ui-mutant: green (GET_CLOBBER correctly RED: malformed file refused, old cells lost on repaint, desktop alive)\n'
 
 $(eval $(call tenant-exe-rules,i123_get_clobber,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_GET_CLOBBER,$(I123_APP_DEP)))
+
+# ===========================================================================
+# REAL gate: test-flair-i123-quitguard (bead initech-fvnj; astra audit L008
+# "Quit discards an edited worksheet without an unsaved-work warning") -- the
+# booted half of the exit guard (the host half is test-i123-quit). Nine boots
+# of $(FLAIR_I123_FILE_GATE_IMG) (the flagship desktop, 500-tick life), each on
+# a fresh copy of $(FLAIR_I123_QUIT_DATA) (the tdnl.91 volume + RO.WK1, a
+# read-only byte copy of MINT01.WK1), driven by the LOCKED traces of
+# spec/flair_i123_quit_traces.mk:
+#   1 ALERT      dirty + Ctrl-Q: the TBX_ALERT trace line, the three message
+#                lines (TENANT-ALERT-LINE: line 1 = 123.RI 0x370's first
+#                sentence), TENANT-ALERT up; the dump graded by
+#                tools/ppm_flair_trash_check leg tenant3 (frame at the corpus
+#                geometry, three inked lines, Save ringed, Cancel and Don't Save
+#                not); never exits.
+#   2 CANCEL     Escape twice: two Cancel answers, never exits, row 1 repainted
+#                from the model; the dump: the alert gone (leg tenant3-gone)
+#                and row 1 inked.
+#   3 DONTSAVE   the Don't Save button: TENANT-EXIT rc=0 via=exit; mtools: the
+#                volume's root is unchanged.
+#   4 PENDING    "Hel" not entered: asks; Escape keeps "Hel_" on the edit line;
+#                "p" Return commits Help into A1; never exits.
+#   5 SAVE       Save, "q": TENANT-EXIT rc=0 via=exit, relaunch, Retrieve q
+#                shows the row; mtools + wk1_ref.py: Q.WK1 holds the four
+#                cells; fsck.fat clean.
+#   6 SAVEFAIL   Save onto RO.WK1, Replace: DOS refuses (read-only), "File I/O
+#                error", no exit, the second Ctrl-Q asks again; mtools: RO.WK1
+#                byte-identical and still read-only.
+#   7 CLOSE      dirty + the close box: FLAIR-CLOSE-ASK, asks, never exits.
+#   8 CLOSECLEAN clean + the close box: exits (via=exit), never asks.
+#   9 SLASH      dirty + /Quit Yes: the R2.2 "No  Yes" menu, then asks.
+# Mutation-proven by test-flair-i123-quitguard-mutant (NEVER_DIRTY on leg 1,
+# CANCEL_QUITS on leg 2, KMAIN_MUT_CLOSE_NO_ASK on leg 7). Rule 14 clip:
+# record-flair SCRIPT=i123_quit_guard (the SAVE trace). Rule 5: no Bochs leg
+# of its own -- the SAME kernel objects as test-flair-i123-bochs.
+# ===========================================================================
+include spec/flair_i123_quit_traces.mk
+FLAIR_I123_QUIT_DATA := $(BUILD)/flair_i123_quit_data.img
+$(FLAIR_I123_QUIT_DATA): $(FLAIR_I123_FILE_DATA)
+	cp -f $(FLAIR_I123_FILE_DATA) $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-corpus-original.WK1 ::RO.WK1
+	mattrib -i $@ +r ::RO.WK1
+$(eval $(call tenant-exe-rules,i123_never_dirty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NEVER_DIRTY,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_cancel_quits,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_CANCEL_QUITS,$(I123_APP_DEP)))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=500 -DKMAIN_MUT_CLOSE_NO_ASK,i123_close_noask))
+FLAIR_I123_CLOSE_NOASK_IMG := $(BUILD)/flair_tenants_mut_i123_close_noask.img
+
+# The leg properties, ONE definition each, shared by the gate (must hold) and
+# its mutant (must NOT hold) -- the APPL_* discipline.
+QG_ASKED = grep -qx 'TENANT-GATE ax=0x0090 def="Save" cancel="Cancel" other="Don.t Save" -> 0' $(1) && grep -qx 'TENANT-ALERT-LINE WORKSHEET CHANGES NOT SAVED!' $(1) && grep -qx 'TENANT-ALERT up lines=3 buttons=3' $(1)
+QG_NO_EXIT = ! grep -q '^TENANT-EXIT' $(1) && ! grep -q '^FLAIR-TENANT-EXIT' $(1)
+QG_CANCELLED = [ "$$(grep -c '^TENANT-ALERT-HIT item=2$$' $(1))" = 2 ] && [ "$$(grep -c '^TENANT-EVT what=144$$' $(1))" = 2 ] && $(call QG_NO_EXIT,$(1)) && $(call I123_FILE_ROWS,$(1))
+QG_CLOSE_ASKED = grep -q '^FLAIR-CLOSE-ASK win ' $(1) && grep -qx 'TENANT-EVT what=32' $(1) && $(call QG_ASKED,$(1)) && grep -qx 'TENANT-ALERT-HIT item=2' $(1) && $(call QG_NO_EXIT,$(1))
+
+.PHONY: test-flair-i123-quitguard test-flair-i123-quitguard-mutant
+test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_QUIT_DATA) $(PPM_REGION_COUNT_BIN) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-i123-quitguard : 123 asks before discarding work (initech-fvnj, L008)\n'
+	@printf '  Ref: R2.2 Reference Manual p. 9-1; 123.RI 0x300-0x370; spec/toolbox_gate.h Sec 11.\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_i123_qg_alert,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_ALERT,--screendump --screendump-after "TENANT-ALERT up")
+	@f=$(BUILD)/flair_i123_qg_alert.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-LINE Save changes to the worksheet' $$f && grep -qx 'TENANT-ALERT-LINE before quitting?' $$f && $(call QG_NO_EXIT,$$f) || { printf '!!! test-flair-i123-quitguard [1/9] FAIL: ALERT -- a dirty Ctrl-Q must ask (and never exit)\n'; grep -E '^(TENANT-(GATE ax=0x0090|ALERT|EXIT|MENU|CRASH)|FLAIR-TENANT-EXIT|PANIC)' $$f; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) tenant3 $(BUILD)/flair_i123_qg_alert.ppm > $(BUILD)/flair_i123_qg_alert.pixels || { cat $(BUILD)/flair_i123_qg_alert.pixels; printf '!!! test-flair-i123-quitguard [1/9] FAIL: ALERT -- the three-button alert is not drawn as graded\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [1/9] ALERT: Ctrl-Q over the typed MINT01 row asks "WORKSHEET CHANGES NOT SAVED!" with Save / Cancel / Don'"'"'t Save (pixel-graded), no exit\n'
+	$(call appl-boot,flair_i123_qg_cancel,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CANCEL,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_qg_cancel.serial; $(call APPL_ALIVE,$$f) && [ "$$(grep -c '^TENANT-ALERT up lines=3 buttons=3$$' $$f)" = 2 ] && $(call QG_CANCELLED,$$f) || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- Escape must keep 123 and its row, and the sheet must stay dirty (asked twice)\n'; grep -E '^(TENANT-(ALERT|EXIT|EVT what=144)|PANIC)' $$f; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) tenant3-gone $(BUILD)/flair_i123_qg_cancel.ppm > $(BUILD)/flair_i123_qg_cancel.pixels || { cat $(BUILD)/flair_i123_qg_cancel.pixels; printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- the alert footprint was not repainted\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_cancel.ppm,34 126 106 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- row 1 is not on screen after Cancel\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [2/9] CANCEL: Escape twice -> two Cancel answers, no exit, row 1 drawn from the model, the alert footprint repainted\n'
+	$(call appl-boot,flair_i123_qg_dontsave,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_DONTSAVE,)
+	@f=$(BUILD)/flair_i123_qg_dontsave.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=3' $$f && grep -qx 'TENANT-EXIT rc=0 via=exit' $$f || { printf '!!! test-flair-i123-quitguard [3/9] FAIL: DONTSAVE -- the Don'"'"'t Save button must end 123\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
+	@[ "$$(mdir -b -i $(BUILD)/flair_i123_qg_dontsave_data.img :: | grep -i '\.WK1$$' | sort)" = "$$(mdir -b -i $(FLAIR_I123_QUIT_DATA) :: | grep -i '\.WK1$$' | sort)" ] && ! grep -q '^TENANT-GATE ax=008[03] ' $(BUILD)/flair_i123_qg_dontsave.serial || { printf '!!! test-flair-i123-quitguard [3/9] FAIL: DONTSAVE -- a worksheet was written (mtools / the file-verb trace)\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [3/9] DONTSAVE: the third button -> EXIT(0); no CREATE/WRITE, mtools: the .WK1 set is unchanged\n'
+	$(call appl-boot,flair_i123_qg_pending,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_PENDING,)
+	@f=$(BUILD)/flair_i123_qg_pending.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=2' $$f && $(call QG_NO_EXIT,$$f) && \
+		awk '/^TENANT-ALERT up /{a=1} a && /^TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="Hel_ /{b=1} END{exit !b}' $$f && \
+		grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 ' $$f | tail -1 | grep -q ' s="Help  ' || { printf '!!! test-flair-i123-quitguard [4/9] FAIL: PENDING -- an entry being typed must ask, survive Cancel ("Hel_") and then commit (A1 Help)\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; grep -E 'x=(1 y=16|33 y=64) ' $$f | tail -4; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [4/9] PENDING: "Hel" (not entered) asks; Cancel keeps "Hel_"; p + Return commits A1 Help\n'
+	$(call appl-boot,flair_i123_qg_save,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SAVE,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_qg_save.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=1' $$f && grep -qx 'TENANT-EXIT rc=0 via=exit' $$f && [ "$$(grep -c '^TENANT-REGISTER ok app=123$$' $$f)" = 2 ] && $(call I123_FILE_ROWS,$$f) || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- Save, q must write, end 123, and the relaunch must retrieve the row\n'; grep -E '^(TENANT-(ALERT|EXIT|REGISTER|GATE ax=008)|PANIC)' $$f; exit 1; }
+	@mcopy -o -i $(BUILD)/flair_i123_qg_save_data.img ::Q.WK1 $(BUILD)/i123-qg-saved.WK1 || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- no Q.WK1 on the volume (mtools)\n'; exit 1; }
+	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-qg-saved.WK1 > $(BUILD)/i123-qg-saved.ref
+	@$(call I123_DISK_CELLS,$(BUILD)/i123-qg-saved.ref) || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- Q.WK1 does not hold the row per wk1_ref.py\n'; cat $(BUILD)/i123-qg-saved.ref; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_save.ppm,34 126 106 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- the retrieved row is not on screen\n'; exit 1; }
+	@fsck.fat -n $(BUILD)/flair_i123_qg_save_data.img > /dev/null || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- fsck.fat\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [5/9] SAVE: Return (Save), q -> Q.WK1 (wk1_ref.py: Hello 123 1.5 -7), EXIT(0); relaunch + /FR q shows the row; fsck clean\n'
+	$(call appl-boot,flair_i123_qg_savefail,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SAVEFAIL,)
+	@f=$(BUILD)/flair_i123_qg_savefail.serial; $(call APPL_ALIVE,$$f) && [ "$$(grep -c '^TENANT-ALERT up lines=3 buttons=3$$' $$f)" = 2 ] && grep -qF 's="Cancel  Replace  Backup' $$f && grep -q '^TENANT-GATE ax=0x0080 path="ro.wk1" -> -261$$' $$f && grep -q 's="File I/O error' $$f && $(call QG_NO_EXIT,$$f) || { printf '!!! test-flair-i123-quitguard [6/9] FAIL: SAVEFAIL -- a refused Save must keep 123 open and dirty (asked again)\n'; grep -E '^(TENANT-(ALERT|EXIT|GATE ax=008)|PANIC)' $$f; exit 1; }
+	@mcopy -o -i $(BUILD)/flair_i123_qg_savefail_data.img ::RO.WK1 $(BUILD)/i123-qg-ro.WK1 && cmp -s $(BUILD)/i123-corpus-original.WK1 $(BUILD)/i123-qg-ro.WK1 && mattrib -i $(BUILD)/flair_i123_qg_savefail_data.img ::RO.WK1 | grep -q ' R .*RO.WK1' || { printf '!!! test-flair-i123-quitguard [6/9] FAIL: SAVEFAIL -- RO.WK1 changed or lost its read-only bit (mtools)\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [6/9] SAVEFAIL: Save + Replace onto read-only RO.WK1 -> DOS 5, "File I/O error", no exit, asked again; RO.WK1 byte-identical\n'
+	$(call appl-boot,flair_i123_qg_close,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CLOSE,)
+	@f=$(BUILD)/flair_i123_qg_close.serial; $(call APPL_ALIVE,$$f) && $(call QG_CLOSE_ASKED,$$f) || { printf '!!! test-flair-i123-quitguard [7/9] FAIL: CLOSE -- a dirty close box must ask, not terminate\n'; grep -E '^(FLAIR-CLOSE|TENANT-(ALERT|EXIT|EVT what=32)|FLAIR-TENANT-EXIT|PANIC)' $$f; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [7/9] CLOSE: the close box over a dirty sheet -> FLAIR-CLOSE-ASK, TBX_EVT_GOAWAY, the alert; Escape keeps 123\n'
+	$(call appl-boot,flair_i123_qg_closeclean,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CLOSECLEAN,)
+	@f=$(BUILD)/flair_i123_qg_closeclean.serial; $(call APPL_ALIVE,$$f) && grep -q '^FLAIR-CLOSE-ASK win ' $$f && grep -qx 'TENANT-EXIT rc=0 via=exit' $$f && ! grep -q '^TENANT-ALERT' $$f || { printf '!!! test-flair-i123-quitguard [8/9] FAIL: CLOSECLEAN -- a clean close box must end 123 at once\n'; grep -E '^(FLAIR-CLOSE|TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [8/9] CLOSECLEAN: the close box over a clean sheet -> EXIT(0), no question\n'
+	$(call appl-boot,flair_i123_qg_slash,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SLASH,)
+	@f=$(BUILD)/flair_i123_qg_slash.serial; $(call APPL_ALIVE,$$f) && grep -qF 's="No  Yes' $$f && grep -qF 's="Do not end 1-2-3 session; return to READY mode' $$f && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=2' $$f && $(call QG_NO_EXIT,$$f) && grep '^TENANT-GATE ax=0x0033 win=1 x=577 y=0 ' $$f | tail -1 | grep -q 's="READY"' || { printf '!!! test-flair-i123-quitguard [9/9] FAIL: SLASH -- /Quit must offer No / Yes and Yes must ask\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
+	@printf '>>> test-flair-i123-quitguard [9/9] SLASH: /Quit shows "No  Yes" (123.RI 0x300/0x332), Yes asks, Escape -> READY\n'
+	@printf '>>> test-flair-i123-quitguard: green\n'
+
+test-flair-i123-quitguard-mutant: test-flair-i123-quitguard $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_CLOSE_NOASK_IMG) $(BUILD)/flair_i123_file_mut_never_dirty.img $(BUILD)/flair_i123_file_mut_cancel_quits.img $(FLAIR_I123_QUIT_DATA)
+	$(call appl-boot,flair_i123_qg_mut_dirty,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_never_dirty.img,FLAIR_I123_QG_ALERT,)
+	@f=$(BUILD)/flair_i123_qg_mut_dirty.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f && grep -qx 'TENANT-MENU menu=129 item=1 src=key' $$f || { printf '!!! test-flair-i123-quitguard-mutant FAIL: NEVER_DIRTY went RED for the wrong reason (want: 123 up, Ctrl-Q heard, desktop alive)\n'; exit 1; }
+	@f=$(BUILD)/flair_i123_qg_mut_dirty.serial; if $(call QG_ASKED,$$f) && $(call QG_NO_EXIT,$$f); then printf '!!! test-flair-i123-quitguard-mutant FAIL: NEVER_DIRTY PASSED leg 1 -- the ALERT leg is decoration\n'; exit 1; fi
+	@grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_i123_qg_mut_dirty.serial || { printf '!!! test-flair-i123-quitguard-mutant FAIL: NEVER_DIRTY: wrong RED reason (want the silent exit)\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard-mutant: NEVER_DIRTY correctly RED (leg 1: Ctrl-Q over the typed row exited silently -- L008)\n'
+	$(call appl-boot,flair_i123_qg_mut_cancel,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_cancel_quits.img,FLAIR_I123_QG_CANCEL,)
+	@f=$(BUILD)/flair_i123_qg_mut_cancel.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=2' $$f || { printf '!!! test-flair-i123-quitguard-mutant FAIL: CANCEL_QUITS went RED for the wrong reason (want: asked, Cancel answered)\n'; exit 1; }
+	@f=$(BUILD)/flair_i123_qg_mut_cancel.serial; if $(call QG_CANCELLED,$$f); then printf '!!! test-flair-i123-quitguard-mutant FAIL: CANCEL_QUITS PASSED leg 2 -- the CANCEL leg is decoration\n'; exit 1; fi
+	@grep -qx 'TENANT-EXIT rc=0 via=exit' $(BUILD)/flair_i123_qg_mut_cancel.serial || { printf '!!! test-flair-i123-quitguard-mutant FAIL: CANCEL_QUITS: wrong RED reason (want the exit after Cancel)\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard-mutant: CANCEL_QUITS correctly RED (leg 2: Cancel ended 123)\n'
+	$(call appl-boot,flair_i123_qg_mut_close,$(FLAIR_I123_CLOSE_NOASK_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CLOSE,)
+	@f=$(BUILD)/flair_i123_qg_mut_close.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f || { printf '!!! test-flair-i123-quitguard-mutant FAIL: CLOSE_NO_ASK went RED for the wrong reason (want: 123 up, desktop alive)\n'; exit 1; }
+	@f=$(BUILD)/flair_i123_qg_mut_close.serial; if $(call QG_CLOSE_ASKED,$$f); then printf '!!! test-flair-i123-quitguard-mutant FAIL: CLOSE_NO_ASK PASSED leg 7 -- the CLOSE leg is decoration\n'; exit 1; fi
+	@grep -qx 'TENANT-EXIT rc=0 via=close' $(BUILD)/flair_i123_qg_mut_close.serial || { printf '!!! test-flair-i123-quitguard-mutant FAIL: CLOSE_NO_ASK: wrong RED reason (want the terminate via=close)\n'; exit 1; }
+	@printf '>>> test-flair-i123-quitguard-mutant: CLOSE_NO_ASK correctly RED (leg 7: the close box terminated the dirty sheet)\n'
+	@# the pixel legs bite (Rule 6): each must refuse the OTHER leg's dump.
+	@if $(PPM_FLAIR_TRASH_CHECK_BIN) tenant3 $(BUILD)/flair_i123_qg_cancel.ppm > /dev/null 2>&1; then printf '!!! test-flair-i123-quitguard-mutant FAIL: leg tenant3 PASSED a dump with no alert\n'; exit 1; fi
+	@if $(PPM_FLAIR_TRASH_CHECK_BIN) tenant3-gone $(BUILD)/flair_i123_qg_alert.ppm > /dev/null 2>&1; then printf '!!! test-flair-i123-quitguard-mutant FAIL: leg tenant3-gone PASSED a dump with the alert up\n'; exit 1; fi
+	@printf '>>> test-flair-i123-quitguard-mutant: the pixel legs bite (tenant3 refuses the alert-gone dump, tenant3-gone the alert-up dump)\n'
+	@printf '>>> test-flair-i123-quitguard-mutant: green (all three mutants RED for the named reason)\n'
