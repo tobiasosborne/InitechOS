@@ -526,10 +526,15 @@ static int leg_L(const Img *im)
 #define SOLID_E_BAND2_TOP       FLAIR_CHROME_MENUBAR_H
 #define SOLID_E_PANEL_TOP       (SOLID_E_BAND2_TOP + FLAIR_MENUBAR_H - 1)
 #define SOLID_E_FIRST_ROW_TOP   (SOLID_E_PANEL_TOP + FLAIR_MENU_PANEL_INSET)
-#define SOLID_E_COMMON_X0       (FLAIR_MENU_APPLE_W + \
-                                  FLAIR_MENU_PANEL_INSET + 3)
 #define SOLID_E_COMMON_X1       (2 * FLAIR_MENU_APPLE_W + \
                                   FLAIR_MENU_TITLE_PAD)
+/* DELIBERATE RE-KEY 2026-10-15 (initech-tdnl.70): the body probes used to sit
+ * at APPLE_W + INSET + 3 = 25; with the capture-derived Apple slot (33) that
+ * is x=38, under the arrow cursor's art at the re-keyed press x=37
+ * (spec/flair_solid_traces.mk FLAIR_SOLID_MENU2_SPEC; the pointer covers
+ * x=37..47, y=30..45 in build/flair_solid_menu2.ppm). x=65 is cursor-free and
+ * inside both possible File panels (Photoshop 0..87, bar_sys 33..120). */
+#define SOLID_E_COMMON_X0       (SOLID_E_COMMON_X1 - 10)
 
 static int leg_E(const Img *im)
 {

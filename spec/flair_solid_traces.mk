@@ -77,7 +77,14 @@ FLAIR_SOLID_MENUCANCEL_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m30:0,l0
 # motion bytes remain unchanged (sys8/menus.md Sec 2.1/2.2; initech-sjvq).
 # Every packet component has |c| <= 100. The trace stays inside ONE menu; leg D owns
 # the cross-title and track-end restore contract for beads initech-b3hl/-j0vt.
-FLAIR_SOLID_MENU2_SPEC := m-100:-100,m-100:-100,m-90:-10,l1,m15:35,l0
+# DELIBERATE RE-KEY 2026-10-15 (initech-tdnl.70): the press moves from x=30 to
+# x=37. The Photoshop File title spans x=0..41 and, since the capture-derived
+# Apple slot (33 px, chrome_metrics platinum_menu_layout), the system bar's
+# File title spans x=33..74; x=37 lies on File in BOTH bars, so the clean leg
+# drops the Photoshop panel and the MENU2_BAR_SYS mutant still drops its
+# shifted panel (and is caught by the offset probes) instead of missing the
+# title and producing no screendump. Previously x=30 hit both at slot 20.
+FLAIR_SOLID_MENU2_SPEC := m-100:-100,m-100:-100,m-83:-10,l1,m15:35,l0
 
 # Leg G -- DRAG CLAMP. First activate NOTES at (460,300), then grab its title
 # bar at (450,130), exactly as leg B. Drag the cursor to the on-screen waypoint
