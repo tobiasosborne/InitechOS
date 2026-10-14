@@ -544,6 +544,8 @@ include spec/flair_scroll_traces.mk
 include spec/flair_fg_close_traces.mk
 # tdnl.36 (audit F03/F05/F07/F15/G10): the LOCKED fake-command traces.
 include spec/flair_finder_cmds_traces.mk
+# tdnl.78: the LOCKED Special > Restart / Shut Down traces.
+include spec/flair_power_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
 include spec/flair_protection_traces.mk
@@ -19996,6 +19998,155 @@ test-flair-finder-cmds-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_t
 	printf '>>> test-flair-finder-cmds-mutant: STUB_ENABLED correctly RED (%s)\n' "$$out"
 
 # ===========================================================================
+# REAL gates: test-flair-shutdown + test-flair-restart (bead initech-tdnl.78)
+# -- Special > Shut Down and Special > Restart on the booted flagship image
+# (spec/flair_power_traces.mk). Both first DRAG the root window and leave it
+# open, so its view state exists only in memory: only the power path's
+# "put everything away" can get it onto the disk.
+#   test-flair-shutdown  [1] Shut Down: the command spine, DESKTOP-DB-SAVE n=3
+#     BEFORE FLAIR-SHUTDOWN-SAFE, the kind=4 record at (120,180) on the disk
+#     (mtools + od, an INDEPENDENT reader), the shut-down screen graded by
+#     tools/ppm_flair_shutdown_check (leg safe: dark screen, DSAT icon, three
+#     lines, Restart with the default ring), and THE SESSION IS OVER: a probe
+#     click on the Finder's Special title and a Ctrl-N after the safe screen
+#     are consumed by the shut-down screen and NOTHING answers (only FLAIR-EVT
+#     / cursor lines may follow FLAIR-SHUTDOWN-SAFE).
+#   test-flair-restart  [1] Special > Restart and [2] Shut Down's own Restart
+#     button: DESKTOP-DB-SAVE n=3 before FLAIR-RESTART, the 8042 pulse
+#     REBOOTS the machine (harness --allow-reboot; FLAIR-LIVE-READY seen a
+#     SECOND time, --quit-after-count 2), and the second boot reads the saved
+#     view back (DESKTOP-DB-OK + DESKTOP-DB-VIEWS n=1; the first boot of the
+#     fresh volume has none). No triple fault, no PANIC.
+# Host half: test-finder-ops O15 (the shell notes every open view at
+# dispatch) + test-menu-handlers / test-finder-menu (both rows live and
+# implemented). Mutants: test-flair-shutdown-mutant (KMAIN_MUT_POWER_NO_FLUSH:
+# the DESKTOP.DB commit skipped; KMAIN_MUT_SHUTDOWN_RETURNS: the shut-down
+# screen returns to the desktop) and test-flair-restart-mutant
+# (POWER_MUT_NO_PULSE: 0xFF instead of 0xFE -- nothing resets, the bounded
+# spin expires, PANIC). Rule 14 clip: record-flair SCRIPT=shutdown.
+# ---------------------------------------------------------------------------
+PPM_FLAIR_SHUTDOWN_CHECK_SRC := tools/ppm_flair_shutdown_check.c
+PPM_FLAIR_SHUTDOWN_CHECK_BIN := $(BUILD)/ppm_flair_shutdown_check
+$(PPM_FLAIR_SHUTDOWN_CHECK_BIN): $(PPM_FLAIR_SHUTDOWN_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+
+FLAIR_SD_NAME  := flair_shutdown
+FLAIR_RS_NAME  := flair_restart
+FLAIR_SDR_NAME := flair_shutdown_restart
+# The probe's cooked keyDown (spec/flair_power_traces.mk F): the completion
+# marker of the shut-down leg, printed by the shut-down screen AND by a live
+# pump alike, so the harness never quits before the probe was consumed.
+FLAIR_SD_DONE  := FLAIR-EVT what=3 where=
+# The root window's kind=4 DESKTOP.DB record, by hand (os/flair/finder_desktop.c
+# fd_put_record layout: +0 kind 04, +1 flags 00, +2 dir_start 0000 (root),
+# +4 name83[13] all 00 (the root has no name), +17 x 0078 LE, +19 y 00B4 LE,
+# +21 view_bits 0000, +23 pad 00) -- the frame (120,180) of the trace's drag.
+FLAIR_PW_VIEW_HEX := 04000000000000000000000000000000007800b400000000
+
+# $(call pw-reboot,<image>,<name>,<data img>,<spec>) -- one boot that is
+# EXPECTED to reboot: the reset is allowed to reboot the VM, and the harness
+# waits for the SECOND FLAIR-LIVE-READY.
+define pw-reboot
+cp -f $(FLAIR_DATA_IMG) $(3)
+$(HARNESS_BIN) --disk "$(1)" --disk2 "$(3)" --expect FLAIR-FAT-MOUNT-OK \
+	--name "$(2)" --out "$(BUILD)" --mouse "$(4)" --keys-after "FLAIR-LIVE-READY" \
+	--allow-reboot --quit-after "FLAIR-LIVE-READY" --quit-after-count 2 \
+	--timeout-ms 60000 2> "$(BUILD)/$(2).report" || true
+@if grep -q 'triple_fault=1' "$(BUILD)/$(2).report"; then printf '!!! %s FAIL: TRIPLE FAULT in boot %s\n' "$@" "$(2)"; exit 1; fi
+endef
+
+# $(call pw-disk-check,<data img>) -- the saved view is ON THE DISK, read by
+# mtools (never our FAT code).
+define pw-disk-check
+command -v mtype >/dev/null 2>&1 || { printf 'PW: mtools (mtype) missing\n'; exit 1; }; \
+mtype -i "$(1)" ::DESKTOP.DB > "$(1).db" 2>/dev/null || { printf 'PW: DESKTOP.DB is not readable by mtools\n'; exit 1; }; \
+od -An -v -tx1 "$(1).db" | tr -d ' \n' | grep -q '$(FLAIR_PW_VIEW_HEX)' || { printf 'PW: the kind=4 view record of the root window at (120,180) is not on the disk\n'; od -An -v -tx1 "$(1).db" | head -8; exit 1; }
+endef
+
+# $(call sd-check,<serial>) -- the Shut Down serial, shared VERBATIM by the
+# gate and its mutants.
+define sd-check
+grep -qxF 'FLAIR-DRAG win 0 (20,60)->(120,180)' $(1) || { printf 'SD: the set-up drag did not move the root window to (120,180)\n'; exit 1; }; \
+grep -qxF 'FLAIR-MENU menu=515 item=7 (sel=0x02030007)' $(1) || { printf 'SD: the release did not select Special > Shut Down: %s\n' "$$(grep '^FLAIR-MENU menu=515' $(1) | tr '\n' ' ')"; exit 1; }; \
+grep -qxF 'FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=0' $(1) || { printf 'SD: Shut Down did not reach the command spine\n'; exit 1; }; \
+grep -qxF 'FLAIR-SHUTDOWN-SAFE' $(1) || { printf 'SD: the shut-down screen never came up (no FLAIR-SHUTDOWN-SAFE)\n'; exit 1; }; \
+sed -n '/^FINDER-CMD id=13 name=SHUTDOWN/,/^FLAIR-SHUTDOWN-SAFE$$/p' $(1) | grep -qxF 'DESKTOP-DB-SAVE n=3' || { printf 'SD: Shut Down did not commit DESKTOP.DB (DESKTOP-DB-SAVE n=3) before the safe screen\n'; exit 1; }; \
+! grep -qE '^(PANIC|DESKTOP-DB-WRITE-FAIL|FLAIR-RESTART)' $(1) || { printf 'SD: PANIC / write failure / restart during Shut Down: %s\n' "$$(grep -E '^(PANIC|DESKTOP-DB-WRITE-FAIL|FLAIR-RESTART)' $(1) | head -1)"; exit 1; }; \
+after=$$(sed -n '/^FLAIR-SHUTDOWN-SAFE$$/,$$p' $(1) | sed 1d); \
+printf '%s\n' "$$after" | grep -q '^FLAIR-EVT what=3 ' || { printf 'SD: the probe key never reached the machine after the safe screen\n'; exit 1; }; \
+stray=$$(printf '%s\n' "$$after" | grep -vE '^(FLAIR-EVT |FLAIR-CURSOR|FLAIR-SHUTDOWN-HALT$$|$$)' | head -1); \
+[ -z "$$stray" ] || { printf 'SD: the desktop answered after Shut Down: %s\n' "$$stray"; exit 1; }
+endef
+
+# $(call rs-check,<serial>,<cmd line>,<what>) -- a Restart (menu or the
+# shut-down screen's button), shared VERBATIM by the gate and its mutant.
+define rs-check
+grep -qxF 'FLAIR-DRAG win 0 (20,60)->(120,180)' $(1) || { printf 'RS: the set-up drag did not move the root window to (120,180)\n'; exit 1; }; \
+grep -qxF '$(2)' $(1) || { printf 'RS: %s did not reach the command spine (%s)\n' '$(3)' '$(2)'; exit 1; }; \
+[ "$$(grep -cxF 'FLAIR-RESTART' $(1))" = 1 ] || { printf 'RS: want exactly one FLAIR-RESTART, got %s\n' "$$(grep -cxF 'FLAIR-RESTART' $(1))"; exit 1; }; \
+sed -n '/^$(2)$$/,/^FLAIR-RESTART$$/p' $(1) | grep -qxF 'DESKTOP-DB-SAVE n=3' || { printf 'RS: %s did not commit DESKTOP.DB (DESKTOP-DB-SAVE n=3) before the reset\n' '$(3)'; exit 1; }; \
+! grep -q '^PANIC' $(1) || { printf 'RS: %s\n' "$$(grep '^PANIC' $(1) | head -1)"; exit 1; }; \
+[ "$$(grep -cxF 'FLAIR-LIVE-READY' $(1))" = 2 ] || { printf 'RS: the machine did not come back (FLAIR-LIVE-READY seen %s times, want 2)\n' "$$(grep -cxF 'FLAIR-LIVE-READY' $(1))"; exit 1; }; \
+pre=$$(sed -n '1,/^FLAIR-RESTART$$/p' $(1)); post=$$(sed -n '/^FLAIR-RESTART$$/,$$p' $(1) | sed 1d); \
+! printf '%s\n' "$$pre" | grep -q '^DESKTOP-DB-VIEWS' || { printf 'RS: the FIRST boot already had a view record -- the data image is not fresh\n'; exit 1; }; \
+printf '%s\n' "$$post" | grep -qxF 'FLAIR-LIVE-READY' || { printf 'RS: no FLAIR-LIVE-READY after the reset\n'; exit 1; }; \
+printf '%s\n' "$$post" | grep -qxF 'DESKTOP-DB-OK' || { printf 'RS: the second boot did not read back a valid DESKTOP.DB: %s\n' "$$(printf '%s\n' "$$post" | grep '^DESKTOP-DB' | tr '\n' ' ')"; exit 1; }; \
+printf '%s\n' "$$post" | grep -qxF 'DESKTOP-DB-VIEWS n=1' || { printf 'RS: the second boot did not take back the saved window view (no DESKTOP-DB-VIEWS n=1)\n'; exit 1; }
+endef
+
+.PHONY: test-flair-shutdown test-flair-shutdown-mutant test-flair-restart test-flair-restart-mutant
+test-flair-shutdown: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_SHUTDOWN_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-shutdown : Special > Shut Down puts everything away, shows the safe screen, and the session is over (tdnl.78)\n'
+	@printf '======================================================================\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_SD_NAME),$(BUILD)/$(FLAIR_SD_NAME)_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),1)
+	@( $(call sd-check,$(BUILD)/$(FLAIR_SD_NAME).serial) ) || { printf '!!! test-flair-shutdown FAIL: serial (above)\n'; grep -E '^(FINDER-|FLAIR-MENU|FLAIR-SHUTDOWN|FLAIR-RESTART|DESKTOP-DB|PANIC)' $(BUILD)/$(FLAIR_SD_NAME).serial; exit 1; }
+	@( $(call pw-disk-check,$(BUILD)/$(FLAIR_SD_NAME)_data.img) ) || { printf '!!! test-flair-shutdown FAIL: the disk (above)\n'; exit 1; }
+	@[ -s "$(BUILD)/$(FLAIR_SD_NAME).ppm" ] || { printf '!!! test-flair-shutdown FAIL: screendump missing\n'; exit 1; }
+	@$(PPM_FLAIR_SHUTDOWN_CHECK_BIN) safe "$(BUILD)/$(FLAIR_SD_NAME).ppm" || { printf '!!! test-flair-shutdown FAIL: the shut-down screen is not drawn as graded\n'; exit 1; }
+	@printf '>>> test-flair-shutdown: green (FINDER-CMD SHUTDOWN -> DESKTOP-DB-SAVE n=3 -> FLAIR-SHUTDOWN-SAFE; the view is on the disk; the safe screen graded; the probe click + Ctrl-N answered by nothing)\n'
+
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_FLUSH,power_no_flush))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_SHUTDOWN_RETURNS,shutdown_returns))
+$(eval $(call flair-tenants-kmain-mutant-rules,POWER_MUT_NO_PULSE,no_pulse))
+# $(call pw-mut,<label>,<check output>,<rc>,<expected reason>,<gate>)
+define pw-mut-verdict
+if [ $(3) -eq 0 ]; then printf '!!! %s FAIL: %s PASSED -- decoration\n' '$(5)' '$(1)'; exit 1; fi; \
+printf '%s\n' "$(2)" | grep -qF '$(4)' || { printf '!!! %s FAIL: %s RED for the wrong reason: %s\n' '$(5)' '$(1)' "$(2)"; exit 1; }; \
+printf '>>> %s: %s correctly RED (%s)\n' '$(5)' '$(1)' "$(2)"
+endef
+test-flair-shutdown-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_power_no_flush.img $(BUILD)/flair_tenants_mut_shutdown_returns.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_power_no_flush.img,flair_shutdown_mut_noflush,$(BUILD)/flair_shutdown_mut_noflush_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
+	@out=$$( ( $(call sd-check,$(BUILD)/flair_shutdown_mut_noflush.serial) ) && ( $(call pw-disk-check,$(BUILD)/flair_shutdown_mut_noflush_data.img) ) ); rc=$$?; \
+	$(call pw-mut-verdict,POWER_NO_FLUSH,$$out,$$rc,did not commit DESKTOP.DB,test-flair-shutdown-mutant)
+	@out=$$( ( $(call pw-disk-check,$(BUILD)/flair_shutdown_mut_noflush_data.img) ) ); rc=$$?; \
+	$(call pw-mut-verdict,POWER_NO_FLUSH/disk,$$out,$$rc,is not on the disk,test-flair-shutdown-mutant)
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_shutdown_returns.img,flair_shutdown_mut_returns,$(BUILD)/flair_shutdown_mut_returns_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
+	@out=$$( ( $(call sd-check,$(BUILD)/flair_shutdown_mut_returns.serial) ) ); rc=$$?; \
+	$(call pw-mut-verdict,SHUTDOWN_RETURNS,$$out,$$rc,the desktop answered after Shut Down,test-flair-shutdown-mutant)
+
+test-flair-restart: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-restart : Special > Restart and the shut-down screen Restart button reboot the machine with the desktop saved (tdnl.78)\n'
+	@printf '======================================================================\n'
+	$(call pw-reboot,$(FLAIRTENANTS_IMG),$(FLAIR_RS_NAME),$(BUILD)/$(FLAIR_RS_NAME)_data.img,$(FLAIR_RESTART_SPEC))
+	@( $(call rs-check,$(BUILD)/$(FLAIR_RS_NAME).serial,FINDER-CMD id=12 name=RESTART src=mouse sel=0,Special > Restart) ) || { printf '!!! test-flair-restart FAIL: [1] serial (above)\n'; grep -E '^(FINDER-|FLAIR-MENU|FLAIR-RESTART|FLAIR-LIVE-READY|DESKTOP-DB|PANIC)' $(BUILD)/$(FLAIR_RS_NAME).serial; exit 1; }
+	@grep -qxF 'FLAIR-MENU menu=515 item=6 (sel=0x02030006)' $(BUILD)/$(FLAIR_RS_NAME).serial || { printf '!!! test-flair-restart FAIL: [1] the release did not select Special > Restart\n'; exit 1; }
+	@! grep -q '^FLAIR-SHUTDOWN' $(BUILD)/$(FLAIR_RS_NAME).serial || { printf '!!! test-flair-restart FAIL: [1] Restart went through the shut-down screen\n'; exit 1; }
+	@( $(call pw-disk-check,$(BUILD)/$(FLAIR_RS_NAME)_data.img) ) || { printf '!!! test-flair-restart FAIL: [1] the disk (above)\n'; exit 1; }
+	@printf '>>> test-flair-restart [1/2]: Special > Restart -- DESKTOP-DB-SAVE n=3 -> FLAIR-RESTART -> reboot -> DESKTOP-DB-OK + DESKTOP-DB-VIEWS n=1 -> FLAIR-LIVE-READY again\n'
+	$(call pw-reboot,$(FLAIRTENANTS_IMG),$(FLAIR_SDR_NAME),$(BUILD)/$(FLAIR_SDR_NAME)_data.img,$(FLAIR_SHUTDOWN_RESTART_SPEC))
+	@( $(call rs-check,$(BUILD)/$(FLAIR_SDR_NAME).serial,FINDER-CMD id=13 name=SHUTDOWN src=mouse sel=0,Shut Down) ) || { printf '!!! test-flair-restart FAIL: [2] serial (above)\n'; grep -E '^(FINDER-|FLAIR-MENU|FLAIR-SHUTDOWN|FLAIR-RESTART|FLAIR-LIVE-READY|DESKTOP-DB|PANIC)' $(BUILD)/$(FLAIR_SDR_NAME).serial; exit 1; }
+	@sed -n '/^FLAIR-SHUTDOWN-SAFE$$/,/^FLAIR-RESTART$$/p' $(BUILD)/$(FLAIR_SDR_NAME).serial | grep -qxF 'FLAIR-RESTART' || { printf '!!! test-flair-restart FAIL: [2] the Restart did not come from the shut-down screen (no FLAIR-SHUTDOWN-SAFE before FLAIR-RESTART)\n'; exit 1; }
+	@printf '>>> test-flair-restart [2/2]: Shut Down -> the safe screen -> its Restart button -> reboot with the view saved\n'
+	@printf '>>> test-flair-restart: green\n'
+
+test-flair-restart-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_no_pulse.img
+	$(call pw-reboot,$(BUILD)/flair_tenants_mut_no_pulse.img,flair_restart_mut_nopulse,$(BUILD)/flair_restart_mut_nopulse_data.img,$(FLAIR_RESTART_SPEC))
+	@out=$$( ( $(call rs-check,$(BUILD)/flair_restart_mut_nopulse.serial,FINDER-CMD id=12 name=RESTART src=mouse sel=0,Special > Restart) ) ); rc=$$?; \
+	$(call pw-mut-verdict,NO_PULSE,$$out,$$rc,PANIC kernel_reset: the 8042 pulse did not reset,test-flair-restart-mutant)
+
+# ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
 # WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
 # (chrome phase -> content phase -> present) holds under close, drag and
@@ -21348,7 +21499,19 @@ RECORD_SPEC_empty_trash   = $(FLAIR_EMPTY_OK_SPEC)
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=5 refused=0
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing
+# shutdown (bead initech-tdnl.78; Rule 14): the root window opens and is
+# dragged (left open), Special > Shut Down is chosen -- the desktop goes dark
+# and the period "It is now safe to switch off your computer." alert comes up
+# with its Restart button; a click on the dark menu-bar area and a Ctrl-N
+# are then answered by nothing. Replays FLAIR_SHUTDOWN_SPEC on the
+# DOUBLE-CLICK record image (it opens the volume). No restart clip: the reset
+# drops the VM into the BIOS's text mode, whose frames are not 640x480 and
+# cannot be encoded into the same clip; test-flair-restart grades it.
+RECORD_SPEC_shutdown   = $(FLAIR_SHUTDOWN_SPEC)
+RECORD_MARKER_shutdown = FLAIR-SHUTDOWN-SAFE
+RECORD_IMAGE_shutdown  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_shutdown = 300
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -27902,6 +28065,7 @@ TEST_EMU_GATES := \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
 	test-flair-finder-cmds test-flair-finder-cmds-mutant \
+	test-flair-shutdown test-flair-shutdown-mutant test-flair-restart test-flair-restart-mutant \
 	test-flair-modifier-release test-flair-modifier-release-mutant \
 	test-flair-held-gestures test-flair-held-gestures-mutant \
 	test-flair-menu-long test-flair-menu-long-mutant \
