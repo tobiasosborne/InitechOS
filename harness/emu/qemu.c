@@ -911,14 +911,21 @@ static int qmp_peer_closed(int fd)
  * quit_marker_found=0 and OK=0 -- fail loud, never a truncated false-green.
  */
 static int wait_for_serial_marker_live(int fd, const char *serial_path,
-                                       const char *marker, int budget_ms)
+                                       const char *marker, int budget_ms,
+                                       int count)
 {
     long long deadline = mono_ms() + budget_ms;
+    /* count (bead initech-tdnl.78, --quit-after-count): the marker must be
+     * seen this many times -- a rebooted guest re-prints its boot markers on
+     * the same capture. <=1 is the original first-occurrence wait. */
+    if (count < 1) {
+        count = 1;
+    }
     for (;;) {
         size_t len = 0;
         char *txt = read_file(serial_path, &len);
         if (txt) {
-            int hit = strstr(txt, marker) != NULL;
+            int hit = count_substr(txt, marker) >= count;
             free(txt);
             if (hit) {
                 return 1;
@@ -929,7 +936,7 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
              * before the exit), then give up without waiting out the budget. */
             txt = read_file(serial_path, &len);
             if (txt) {
-                int hit = strstr(txt, marker) != NULL;
+                int hit = count_substr(txt, marker) >= count;
                 free(txt);
                 return hit;
             }
@@ -965,7 +972,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                        const char *record_dir, const char *record_name,
                        int record_settle_ms, int *frames_taken,
                        int keys_after_ms, const char *quit_after,
-                       int quit_budget_ms, int *quit_seen)
+                       int quit_budget_ms, int quit_count, int *quit_seen)
 {
     if (keys_sent) {
         *keys_sent = 0;
@@ -1158,7 +1165,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
         int seen = 1;
 #ifndef HARNESS_MUTATE_NO_QUIT_WAIT
         seen = wait_for_serial_marker_live(fd, serial_path, quit_after,
-                                           quit_budget_ms);
+                                           quit_budget_ms, quit_count);
 #else
         /* MUTANT (Rule 6; make test-harness-quit-after-mutant only): restore
          * the 6gkm bug -- quit right after the inputs, never waiting for the
@@ -1167,6 +1174,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
          * build. */
         (void)wait_for_serial_marker_live;
         (void)quit_budget_ms;
+        (void)quit_count;
 #endif
         if (!seen) {
             fprintf(stderr,
@@ -1232,7 +1240,12 @@ static int build_argv(const QemuConfig *cfg, char **argv,
      * it. With -no-reboot alone the bad fixture exits promptly AND the log
      * carries "Triple fault" (verified). The timeout still guards genuine
      * hangs (see the `hang` fixture). */
-    PUSH("-no-reboot");
+    /* --allow-reboot (bead initech-tdnl.78; qemu.h allow_reboot): a gate that
+     * grades a guest-initiated RESTART must let the reset reboot. Detection
+     * of a triple fault does not depend on this flag (it parses the -d log). */
+    if (!cfg->allow_reboot) {
+        PUSH("-no-reboot");
+    }
 
     /* Pinned RTC base (beads initech-yv9): `-rtc base=<ISO>` starts the guest's
      * emulated MC146818 RTC at a FIXED instant so the clock oracle is
@@ -1505,7 +1518,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
                         cfg->record_frames ? name : NULL,
                         cfg->record_settle_ms, &frames,
                         cfg->keys_after_ms, cfg->quit_after, sd_budget,
-                        &qseen) == 0) {
+                        cfg->quit_after_count, &qseen) == 0) {
             out->quit_marker_found = qseen != 0;
             out->keys_sent = sent;
             out->mouse_events_sent = msent;

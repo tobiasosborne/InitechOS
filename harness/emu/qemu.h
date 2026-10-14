@@ -103,6 +103,23 @@ typedef struct {
      * if qemu exits) before quitting. Not seen => quit_marker_found=0, OK=0.
      * Requires --keys/--mouse or --screendump (it lives in the QMP session). */
     const char *quit_after;    /* serial marker to wait for, or NULL.        */
+    /* How many occurrences of quit_after to wait for (bead initech-tdnl.78,
+     * --quit-after-count). <=1 => the first (the 6gkm behaviour, unchanged).
+     * A guest that REBOOTS prints its boot markers again on the SAME serial
+     * capture (the -serial file survives a guest reset), so "FLAIR-LIVE-READY
+     * twice" is the only way to say "the restarted system came back up". */
+    int quit_after_count;
+
+    /* Let the guest RESET (bead initech-tdnl.78, --allow-reboot). Default
+     * false: the harness passes -no-reboot, so ANY guest reset -- a triple
+     * fault or a deliberate 8042 pulse -- EXITS qemu. A gate that grades
+     * Special > Restart needs the reset to REBOOT instead, so it sets this and
+     * omits -no-reboot. Triple-fault DETECTION is unaffected: it keys on the
+     * -d log strings ("Triple fault" / "check_exception old: 0x8"), which QEMU
+     * writes on the fault path whether or not -no-reboot is given; a faulting
+     * guest under this flag reboots until the wall-clock timeout instead of
+     * exiting, which is still RED (timed_out + triple_fault). */
+    bool allow_reboot;
 
     /* Explicit opt-out of the initech-qed1 bare-injection safety check (see
      * qemu_main.c). A gate that passes --keys/--mouse with NEITHER
