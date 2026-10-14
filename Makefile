@@ -29050,7 +29050,11 @@ test-flair-i123-files: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_F
 
 # These expectations come from manual pp. 1-13/14, 5-1 and the RI strings;
 # refusal/error wording is authored, no local reference.
-I123_UI_OK = $(call APPL_ALIVE,$(1)) && grep -qF 's="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit' $(1) && grep -qF 's="Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin' $(1) && grep -q 'x=1 y=16 s="Command not implemented' $(1) && grep -qF 's="Name of file to retrieve: A:\*.wk1' $(1)
+# Re-keyed 2026-10-15 (initech-uqah): /Worksheet used to refuse with 'Command not
+# implemented'; the complete R2.2 slash tree now opens the Worksheet submenu
+# (123.RI, test-i123-menu-tree), so the visible-refusal clause became the
+# submenu's second-line text.
+I123_UI_OK = $(call APPL_ALIVE,$(1)) && grep -qF 's="Worksheet  Range  Copy  Move  File  Print  Graph  Data  System  Add-In  Quit' $(1) && grep -qF 's="Retrieve  Save  Combine  Xtract  Erase  List  Import  Directory  Admin' $(1) && grep -qF 'x=1 y=16 s="Global  Insert  Delete  Column  Erase  Titles  Window  Status  Page  Learn' $(1) && grep -qF 's="Name of file to retrieve: A:\*.wk1' $(1)
 .PHONY: test-flair-i123-file-ui test-flair-i123-file-ui-mutant
 test-flair-i123-file-ui: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_FILE_DATA)
 	$(call appl-boot,flair_i123_file_ui,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_FILE_UI,--screendump --screendump-after FLAIR-LIVE-OK)
