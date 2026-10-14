@@ -710,6 +710,40 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     return 0;
 }
 
+/* Field display uses descriptor precision, independent of SET DECIMALS.
+ * Ref: Using III+ U5-144/PDF 256 (UNITCOST N(10,2): 814.00,
+ * right edges align). One path for default/explicit LIST and DISPLAY views. */
+static const dbf_field_t *q_field_descriptor(xb_interp *ip, const char *expr)
+{
+    wa_env *env=xb_interp_env(ip);
+    dbf_table *t=wa_table(env,wa_selected(env));
+    int i;
+    for(i=0;t && i<(int)dbf_nfields(t);i++) {
+        const dbf_field_t *f=dbf_field(t,i);
+        if(f && q_ci_eq(f->name,expr)) return f;
+    }
+    return (const dbf_field_t *)0;
+}
+static void q_render_field(char *buf,uint32_t *pos,uint32_t cap,
+                           const xb_val *v,const dbf_field_t *f,
+                           const xb_ctx *ctx)
+{
+    if(f && f->type=='N' && v->t==XB_N) {
+        char cell[256];
+        int width=f->field_len, dec=f->dec_count;
+#ifdef SAMIR_NUMERIC_MUTATE_FRACTION
+        if(v->u.n==(double)(int64_t)v->u.n) dec=0;
+#endif
+        dec_format(v->u.n,width,dec,cell);
+#ifdef SAMIR_NUMERIC_MUTATE_LEFT
+        { int lead=0,i; while(lead<width && cell[lead]==' ') lead++;
+          for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];
+          while(i<width) cell[i++]=' '; }
+#endif
+        q_append(buf,pos,cap,cell,(uint32_t)width);
+    } else q_render_val(buf,pos,cap,v,ctx,0);
+}
+
 /* ===================================================================== */
 /* Rendering one record's output line for LIST/DISPLAY                     */
 /* ===================================================================== */
@@ -753,8 +787,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, expr, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip),
-                         /*logical_dotted=*/0);   /* LIST/DISPLAY column: bare T/F */
+            q_render_field(line, &pos, sizeof(line), &v,
+                           q_field_descriptor(ip,expr), xb_interp_ctx(ip));
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -771,8 +805,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = q_eval(ip, f->name, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip),
-                         /*logical_dotted=*/0);   /* LIST/DISPLAY column: bare T/F */
+            q_render_field(line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip));
         }
     }
 

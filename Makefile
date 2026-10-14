@@ -29670,3 +29670,20 @@ TEST_UNIT_GATES += test-i123-copy-move-baseline
 
 $(BUILD)/check_i123_menu_levels: harness/diff/wk1_diff/check_i123_menu_levels.c
 	$(CC) $(CFLAGS) -o $@ $<
+
+# LOOK pass 6, initech-1y0h/r3pa. Independent Python descriptor differential.
+SAMIR_NUMERIC_DRIVER := $(BUILD)/samir_numeric_format
+$(SAMIR_NUMERIC_DRIVER): $(DBF_DIFF_DIR)/numeric_format_driver.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(BUILD)/samir_numeric_%: $(DBF_DIFF_DIR)/numeric_format_driver.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_NUMERIC_MUTATE_$* -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
+test-samir-numeric-format: $(SAMIR_NUMERIC_DRIVER)
+	@python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP)
+test-samir-numeric-format-fraction-mutant: $(BUILD)/samir_numeric_FRACTION
+test-samir-numeric-format-left-mutant: $(BUILD)/samir_numeric_LEFT
+test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant:
+	@set +e; python3 $(DBF_DIFF_DIR)/numeric_format_ref.py $< $(DBASE3_DECOMP) > $(BUILD)/$@.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'descriptor differential' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
+	 printf '%s: PASS (implementation mutant RED: descriptor differential)\n' '$@'
+TEST_UNIT_GATES += test-samir-numeric-format test-samir-numeric-format-fraction-mutant test-samir-numeric-format-left-mutant
