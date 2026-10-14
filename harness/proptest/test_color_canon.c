@@ -94,10 +94,9 @@
  *   the resolved RGB AND that each index is >= 9 (so it resolves via the
  *   documented idx>=9 ramp, adding ZERO new 9-entry table slot).
  *
- * LOUD-SKIP: each leg resolves its golden by macro priority and LOUD-SKIPS that
- *   leg (prints the exact missing path) if absent -- NEVER silent-passes -- and
- *   the summary prints "N rows NOT graded (goldens absent)".  LEG D is authored
- *   (no external golden) so it always runs.  (test_clut.c idiom, ADR-0010 CD-8.)
+ * Missing golden: FAIL LOUD under oracle_policy.h; only the named
+ * SKIP_SYSTEM7_DECOMP=1 / SKIP_WIN31_DECOMP=1 explicitly opts out. The
+ * summary counts opted-out rows as NOT graded. LEG D always runs.
  *
  * ASCII-clean (Rule 12). Deterministic / no timestamps (Rule 11).
  */
@@ -158,13 +157,14 @@ static unsigned long canon_bevel_shadow(void)
 }
 
 #if defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
+#include "../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
 /* ---------------------------------------------------------------------------
  * Tally.  We distinguish GRADED (golden present + diffed), SKIPPED (golden
- * absent -> loud-skip), and FAILED (a real mismatch) so a skip-everything run
+ * absent + explicit opt-out), and FAILED (a real mismatch) so a skip-everything run
  * can never be mistaken for a pass (ADR-0010 CD-8.4).
  * ------------------------------------------------------------------------- */
 static int g_graded  = 0;  /* rows actually diffed against a golden / authored datum */
@@ -239,8 +239,10 @@ static int g_skipped = 0;  /* rows NOT graded because a golden was absent */
 
 static void loud_skip(const char *leg, const char *path, const char *override)
 {
+    oracle_missing(strcmp(override, "FLAIR_WIN31_GOLDEN_PATH") == 0
+                   ? "WIN31_DECOMP" : "SYSTEM7_DECOMP", "%s: %s absent\n", leg, path);
     g_skipped++;
-    printf("  LOUD-SKIP %s -- golden absent: %s\n", leg, path);
+    printf("  OPTED-OUT %s -- golden absent: %s\n", leg, path);
     printf("    (gitignored; pass -D%s=... or set the decomp macro in the Makefile)\n",
            override);
 }
@@ -248,8 +250,9 @@ static void loud_skip(const char *leg, const char *path, const char *override)
 static void loud_skip_rows(const char *leg, const char *path,
                            const char *override, int rows)
 {
+    oracle_missing("SYSTEM7_DECOMP", "%s: %s absent\n", leg, path);
     g_skipped += rows;
-    printf("  LOUD-SKIP %s -- golden absent: %s\n", leg, path);
+    printf("  OPTED-OUT %s -- golden absent: %s\n", leg, path);
     printf("    (%d rows NOT graded; pass -D%s=... or set the decomp macro in the Makefile)\n",
            rows, override);
 }

@@ -18,7 +18,7 @@
  *         descriptor region is compared byte-for-byte against the Tier-0 hand-
  *         computed expected image, masking every NORMALIZE byte from
  *         dbf_normalization.json.  MEANINGFUL bytes must be exact.
- *     A3. Python independence barrier (optional system()): the written .dbf is
+ *     A3. Python independence barrier (required system()): the written .dbf is
  *         read back by dbf_ref.py --records; exit 0 from the python reader is a
  *         green check.  Loud-skip if python3 / dbf_ref.py absent.
  *
@@ -29,11 +29,11 @@
  *         Re-read the index with ndx_open + ndx_inorder and assert the sorted
  *         (key, recno) sequence matches the expected order.
  *     B2. ndx_seek a known key and assert the recno.
- *     B3. Python independence barrier (optional system()): read back with
+ *     B3. Python independence barrier (required system()): read back with
  *         ndx_ref.py --index-dump; grep that the keys appear in order.
  *         Loud-skip if python3 / ndx_ref.py absent.
  *
- *   LEG C -- Tier-1 golden masked cmp (loud-skip if absent):
+ *   LEG C -- Tier-1 golden masked cmp (fail loud (named opt-out only) if absent):
  *     C1. Read CLIENTS.DBF from the corpus golden, re-write it (same schema,
  *         same records) with a FIXED injected date, then masked-memcmp the
  *         re-written header+descriptor region against the golden.  Every
@@ -87,8 +87,8 @@
  *
  * Tier/skip discipline (plan Sec 2.A):
  *   Tier 0 (Leg A1, A2, B1, B2): committed, operator-free, always runs.
- *   Tier 1 (Leg C1): golden-diff, loud-skip if corpus absent.
- *   Python legs (A3, B3): loud-skip if python3/scripts absent.
+ *   Tier 1 (Leg C1): golden-diff, fail loud (named opt-out only) if corpus absent.
+ *   Python legs (A3, B3): fail loud (named opt-out only) if python3/scripts absent.
  *
  * Compile + run (self-verify recipe, from repo root):
  *   ENG="os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c \
@@ -132,6 +132,7 @@
  *   - harness/diff/dbf_diff/ndx_ref.py (independent index reader).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -955,11 +956,13 @@ static void leg_a3_python_dbf(void)
     int  ret;
 
     if (!file_exists(RT_DBF)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): leg-A3: %s not present "
+        oracle_failure(
+                "leg-A3: %s not present "
                 "(leg-A write did not succeed)\n", RT_DBF);
         return;
     }
+
+    if (!oracle_reader_available("harness/diff/dbf_diff/dbf_ref.py")) return;
 
     snprintf(cmd, sizeof(cmd),
              "python3 harness/diff/dbf_diff/dbf_ref.py --records %s "
@@ -967,8 +970,8 @@ static void leg_a3_python_dbf(void)
     ret = system(cmd);
 
     if (ret == -1) {
-        fprintf(stderr,
-                "  SKIP (LOUD): leg-A3: could not invoke python3 for dbf_ref.py; "
+        oracle_failure(
+                "leg-A3: could not invoke python3 for dbf_ref.py; "
                 "orchestrator: run\n"
                 "    python3 harness/diff/dbf_diff/dbf_ref.py --records %s\n",
                 RT_DBF);
@@ -979,8 +982,8 @@ static void leg_a3_python_dbf(void)
     if (WIFEXITED(ret)) {
         int code = WEXITSTATUS(ret);
         if (code == 127) {
-            fprintf(stderr,
-                    "  SKIP (LOUD): leg-A3: python3/dbf_ref.py not found (exit 127); "
+            oracle_missing("REFERENCE_TOOLS",
+                    "leg-A3: python3/dbf_ref.py not found (exit 127); "
                     "run manually:\n"
                     "    python3 harness/diff/dbf_diff/dbf_ref.py --records %s\n",
                     RT_DBF);
@@ -1004,11 +1007,13 @@ static void leg_b3_python_ndx(void)
     int  ret;
 
     if (!file_exists(RT_NDX)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): leg-B3: %s not present "
+        oracle_failure(
+                "leg-B3: %s not present "
                 "(leg-B ndx_build did not succeed)\n", RT_NDX);
         return;
     }
+
+    if (!oracle_reader_available("harness/diff/dbf_diff/ndx_ref.py")) return;
 
     snprintf(cmd, sizeof(cmd),
              "python3 harness/diff/dbf_diff/ndx_ref.py --index-dump %s "
@@ -1016,8 +1021,8 @@ static void leg_b3_python_ndx(void)
     ret = system(cmd);
 
     if (ret == -1) {
-        fprintf(stderr,
-                "  SKIP (LOUD): leg-B3: could not invoke python3 for ndx_ref.py; "
+        oracle_failure(
+                "leg-B3: could not invoke python3 for ndx_ref.py; "
                 "orchestrator: run\n"
                 "    python3 harness/diff/dbf_diff/ndx_ref.py --index-dump %s\n",
                 RT_NDX);
@@ -1028,8 +1033,8 @@ static void leg_b3_python_ndx(void)
     if (WIFEXITED(ret)) {
         int code = WEXITSTATUS(ret);
         if (code == 127) {
-            fprintf(stderr,
-                    "  SKIP (LOUD): leg-B3: python3/ndx_ref.py not found (exit 127); "
+            oracle_missing("REFERENCE_TOOLS",
+                    "leg-B3: python3/ndx_ref.py not found (exit 127); "
                     "run manually:\n"
                     "    python3 harness/diff/dbf_diff/ndx_ref.py --index-dump %s\n",
                     RT_NDX);
@@ -1071,8 +1076,8 @@ static void leg_c1_golden(samir_pal_t *pal, const char *base)
 
     join(gold_path, sizeof(gold_path), base, SP_PATH "/CLIENTS.DBF");
     if (!file_exists(gold_path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): leg-C1: golden absent: %s\n"
+        oracle_missing("DBASE3_DECOMP",
+                "leg-C1: golden absent: %s\n"
                 "               (corpus DBASE3_DECOMP not present at '%s')\n",
                 gold_path, base);
         return;
@@ -1223,7 +1228,7 @@ int main(int argc, char **argv)
     /* Leg B3: Python independence barrier for the index (optional). */
     if (table_ok) leg_b3_python_ndx();
 
-    /* Leg C1: Tier-1 golden masked cmp (loud-skip if corpus absent).
+    /* Leg C1: Tier-1 golden masked cmp (fail loud (named opt-out only) if corpus absent).
      * THIS IS WHERE -DNORM_MUTATE_MASK_CELL BITES: date bytes become COMPARED,
      * exposing the mismatch between our injected date (99/12/31) and the golden
      * CLIENTS date (85/10/30). */

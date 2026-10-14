@@ -508,19 +508,22 @@ def run_selftest():
     Fails loud if the goldens directory is absent (CLAUDE.md Rule 2).
     Prints 'dbf_ref selftest: N checks, 0 failures' or exits non-zero.
     """
-    # Locate the golden tree relative to this script.
-    # Expected layout: this file is at
-    #   <repo>/harness/diff/dbf_diff/dbf_ref.py
-    # goldens are at
-    #   <repo>/../dbase3-decomp/goldens/...
+    # An explicit root is relative to the caller's cwd (as in make), or absolute.
+    # Only the default is anchored to this repository's sibling corpus.
     here = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.normpath(os.path.join(here, "..", "..", ".."))
-    golden_base = os.path.normpath(os.path.join(repo_root, "..", "dbase3-decomp", "goldens"))
+    decomp = os.environ.get("DBASE3_DECOMP",
+                            os.path.join(repo_root, "..", "dbase3-decomp"))
+    decomp = os.path.abspath(decomp)
+    golden_base = os.path.join(decomp, "goldens")
 
     if not os.path.isdir(golden_base):
-        sys.stderr.write(
-            "dbf_ref selftest: ABORT -- goldens directory not found at '%s'\n"
-            % golden_base)
+        if os.environ.get("SKIP_DBASE3_DECOMP") == "1":
+            sys.stderr.write("!!! DBASE3_DECOMP SKIPPED (SKIP_DBASE3_DECOMP=1 opt-out) -- "
+                             "reference NOT graded: %s absent\n" % golden_base)
+            return
+        sys.stderr.write("!!! DBASE3_DECOMP FAIL: %s absent; "
+                         "set SKIP_DBASE3_DECOMP=1 to explicitly opt out\n" % golden_base)
         sys.exit(2)
 
     pristine = os.path.join(golden_base,

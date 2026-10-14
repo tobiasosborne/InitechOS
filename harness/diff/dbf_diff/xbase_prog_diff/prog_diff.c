@@ -9,7 +9,7 @@
  * via a host capturing PAL, then diffs the normalized stdout against an AUTHORED
  * expected-output golden (the Tier-0, operator-free, day-1 reference). Where a
  * program writes a result .dbf, it ALSO diffs that file via the INDEPENDENT
- * dbf_ref.py reader (loud-skip if python3 is absent). Gate is 100%: any program
+ * dbf_ref.py reader (fail loud (named opt-out only) if python3 is absent). Gate is 100%: any program
  * whose normalized output differs from its golden is a FAIL (Law 2).
  *
  * WHY a program differential (plan S6.4 / PRD Sec 8): the unit oracles grade the
@@ -65,7 +65,7 @@
  *
  * Ref (Law 1):
  *   - docs/plans/SAMIR-implementation-plan.md S6.4 (contract + the `=`-flip mutant)
- *     + Sec 2.A (Tier 0/1/2; goldens by path, loud-skip if absent).
+ *     + Sec 2.A (Tier 0/1/2; goldens by path, fail loud (named opt-out only) if absent).
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md (sec 4.4 EXACT,
  *     sec 9.1 precedence, sec 1.1 C+N mismatch) + functions/ + commands/ specs
  *     (each corpus .prg cites the exact section it exercises).
@@ -77,6 +77,8 @@
  *   - harness/diff/dbf_diff/test_samir_repl.c (the capturing PAL pattern reused here).
  */
 
+#include "../../../oracle_policy.h"
+#include <sys/wait.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -515,7 +517,7 @@ static int run_query_prog(samir_pal_t *pal, const char *prgpath, const char *gol
 
 /* Run the MUTATION program (mutate.prg): provision a WRITABLE /tmp copy of PARTS,
  * adopt it, run the body after USE, then ALSO diff the result .dbf via dbf_ref.py
- * (loud-skip if python3 missing). NEVER writes a committed golden. */
+ * (fail loud (named opt-out only) if python3 missing). NEVER writes a committed golden. */
 static int run_mutate_prog(samir_pal_t *pal, const char *prgpath,
                            const char *goldpath, const char *dbfgoldpath)
 {
@@ -571,17 +573,24 @@ static int run_mutate_prog(samir_pal_t *pal, const char *prgpath,
         /* Run dbf_ref.py --records into a temp file; if python3 is absent the
          * popen command fails -> loud-skip (NOT a silent pass; the stdout leg
          * above still gated). */
+        if (!oracle_reader_available("harness/diff/dbf_diff/dbf_ref.py")) {
+            remove(wpath);
+            return ok_stdout;
+        }
         snprintf(cmd, sizeof cmd,
                  "python3 harness/diff/dbf_diff/dbf_ref.py --records '%s' > '%s' 2>/dev/null",
                  wpath, tmpref);
         rc = system(cmd);
-        if (rc != 0) {
-            fprintf(stderr,
-                "  SKIP (LOUD): mutate result-.dbf diff -- python3/dbf_ref.py "
+        if (rc == -1) oracle_failure("could not invoke independent reader\n");
+        if (WIFEXITED(rc) && WEXITSTATUS(rc) == 127) {
+            oracle_missing("REFERENCE_TOOLS", "python3/dbf_ref.py unavailable\n");
+        } else if (rc != 0) {
+            oracle_failure(
+                "mutate result-.dbf diff -- python3/dbf_ref.py "
                 "unavailable (rc=%d). Tier-0 stdout leg still gated.\n", rc);
         } else if (slurp(dbfgoldpath, dbfgold, sizeof dbfgold) < 0) {
-            fprintf(stderr,
-                "  SKIP (LOUD): mutate result-.dbf golden '%s' missing.\n", dbfgoldpath);
+            oracle_failure(
+                "mutate result-.dbf golden '%s' missing.\n", dbfgoldpath);
         } else {
             pp = fopen(tmpref, "rb");
             n = pp ? fread(refout, 1, sizeof refout - 1, pp) : 0;

@@ -67,6 +67,7 @@
  *   - os/samir/include/samir/workarea.h (wa_master_order for SET ORDER check).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -401,16 +402,16 @@ static int run_set_order_tier1(const char *corpus_path)
     int          area, rc;
 
     snprintf(dbf_path, sizeof(dbf_path),
-             "%s/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Data"
+             "%s/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities"
              "/CLIENTS.DBF", corpus_path);
     snprintf(ndx_path, sizeof(ndx_path),
-             "%s/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Data"
+             "%s/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities"
              "/CNAMES.NDX", corpus_path);
 
     {
         FILE *f = fopen(dbf_path, "rb");
         if (!f) {
-            printf("  LOUD-SKIP: SET ORDER Tier-1 (corpus absent): %s\n",
+            oracle_missing("DBASE3_DECOMP", "SET ORDER Tier-1 (corpus absent): %s\n",
                    dbf_path);
             return 0;
         }
@@ -434,7 +435,7 @@ static int run_set_order_tier1(const char *corpus_path)
         idx.count    = 1;
         rc = wa_set_open(env, area, dbf_path, (const char *)0, &idx);
         if (rc != WA_OK) {
-            printf("  LOUD-SKIP: SET ORDER Tier-1: wa_set_open failed (%d)\n",
+            oracle_failure("SET ORDER Tier-1: wa_set_open failed (%d)\n",
                    rc);
             xb_interp_free(ip);
             pal_host_free(pal);

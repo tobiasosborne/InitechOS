@@ -40,6 +40,7 @@
  *   - seed/test_assert.h (the harness idiom).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -125,8 +126,8 @@ static void check_golden(samir_pal_t *pal, const char *base, const dbf_expect *e
     join(path, sizeof(path), base, e->relpath);
 
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): golden absent: %s -- pass corpus base as argv[1]\n",
+        oracle_missing("DBASE3_DECOMP",
+                "golden absent: %s -- pass corpus base as argv[1]\n",
                 path);
         return;
     }
@@ -201,7 +202,7 @@ static void check_iv_version_rejected(samir_pal_t *pal)
 
     f = fopen(tmp, "wb");
     if (!f) {
-        fprintf(stderr, "  SKIP (LOUD): cannot write temp file %s\n", tmp);
+        oracle_failure( "cannot write temp file %s\n", tmp);
         return;
     }
     fwrite(hdr_iv, 1, sizeof(hdr_iv), f);
@@ -238,7 +239,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    /* ---- Tier 0 + Tier 1: every golden, each loud-skipped if absent ---- */
+    /* ---- Tier 0 + Tier 1: every golden, each required unless explicitly opted out ---- */
     for (i = 0; i < MANIFEST_N; i++) {
         if (file_exists(join(path, sizeof(path), base, MANIFEST[i].relpath)))
             any_present = 1;
@@ -246,8 +247,8 @@ int main(int argc, char **argv)
     }
 
     if (!any_present) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               expected e.g. %s/%s\n"
                 "               (pass the corpus base as argv[1]; Tier-0 still ran"
                 " the negative test below)\n",

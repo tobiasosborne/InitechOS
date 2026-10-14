@@ -97,6 +97,7 @@
  *   - seed/test_assert.h (CHECK / TEST_HARNESS / TEST_SUMMARY).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -542,8 +543,8 @@ static void check_corpus_tier1(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TRAVEL.DBT");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): Tier-1 corpus check: TRAVEL.DBT absent: %s\n",
+        oracle_missing("DBASE3_DECOMP",
+                "Tier-1 corpus check: TRAVEL.DBT absent: %s\n",
                 path);
         return;
     }
@@ -654,7 +655,7 @@ int main(int argc, char **argv)
     /* Oracle 4: determinism */
     check_determinism(pal);
 
-    /* Tier-1: corpus round-trip (loud-skip if absent) */
+    /* Tier-1: corpus round-trip (fail loud (named opt-out only) if absent) */
     check_corpus_tier1(pal, base);
 
     pal_host_free(pal);

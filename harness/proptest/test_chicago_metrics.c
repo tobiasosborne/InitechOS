@@ -38,13 +38,12 @@
  *   G  the factory's typed golden spec/chicago12_nfnt_golden.h equals the
  *      resource entry by entry (it feeds the emulator screendump graders).
  *
- * Absent corpus: LOUD-SKIP, exit 0 (the test-clut pattern) -- EXCEPT when built
- * with -DCHICAGO_METRICS_REQUIRE_GOLDEN (the mutant target), where an absent
- * golden is a FAIL, so a missing corpus can never make the mutant look RED for
- * the wrong reason or the real gate look GREEN by skipping.
+ * Absent corpus: FAIL LOUD; SKIP_SYSTEM7_DECOMP=1 is the explicit opt-out.
+ * The ONE_ADVANCE mutant still requires the independent golden to bite.
  *
  * FACTORY CODE (hosted C, Law 3). ASCII-clean (Rule 12).
  */
+#include "../oracle_policy.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -176,15 +175,13 @@ int main(void)
     FILE *f = fopen(NFNT_PATH, "rb");
     printf(">>> test-chicago-metrics: FLAIR Chicago vs the REAL NFNT 5478 metrics\n");
     if (!f) {
-#ifdef CHICAGO_METRICS_REQUIRE_GOLDEN
-        printf("!!! test-chicago-metrics FAIL: golden %s absent and REQUIRED\n",
-               NFNT_PATH);
-        return 2;
+#ifdef GATE_HONESTY_MUTATE_SKIP
+        /* Rule 6: restore the old silent-green policy in a throwaway build. */
+        printf("test-chicago-metrics: LOUD-SKIP -- %s absent\n", NFNT_PATH);
 #else
-        printf("test-chicago-metrics: LOUD-SKIP -- %s absent (gitignored Apple "
-               "resource; set SYSTEM7_DECOMP)\n", NFNT_PATH);
-        return 0;
+        oracle_missing("SYSTEM7_DECOMP", "%s absent\n", NFNT_PATH);
 #endif
+        return 0;
     }
     g_nfnt_len = (long)fread(g_nfnt, 1, sizeof g_nfnt, f);
     fclose(f);

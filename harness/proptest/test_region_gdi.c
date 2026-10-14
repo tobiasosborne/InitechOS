@@ -27,8 +27,8 @@
  *         compare BIT-EXACT on the RASTERIZED pixel sets over a bounded grid
  *         (memcmp), plus GetRgnBox complexity, PtInRegion, and RectInRegion
  *         (the AM-4 OVERLAP semantic) against wine's point_in_region /
- *         rect_in_region. LOUD-SKIPS (banner, continue) if ../win31-decomp is
- *         absent or the wine file cannot be found; NEVER silent-passes L2.
+ *         rect_in_region. Missing wine source FAILS LOUD; SKIP_WIN31_DECOMP=1
+ *         explicitly opts out of L2 with a shouting diagnostic.
  *   L3 -- single-engine structural gate: grep FAILS LOUD if any region_op /
  *         xmerge / band-sweep DEFINITION appears outside region.c (constraint
  *         C-7). The wine static region_op stays gdi_ref_-namespaced + host-only.
@@ -39,6 +39,7 @@
  *   -DRGN_MUTATE_EMIT_NOCHANGE (existing engine mutant)     -> L1 GREEN / L2 RED
  *   -DRGN_MUTATE_PARITY_OFF1   (existing engine mutant)     -> L2 RED (cross-redden)
  */
+#include "../oracle_policy.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,7 +55,7 @@
  * (region_t) here. We see it only through the OPAQUE handle interface. Whether
  * the wine engine was actually compiled in is decided at the wine TU's build
  * time (by __has_include over WIN31_DECOMP) and reported via the linked symbol
- * gdi_ref_wine_available -- the oracle reads that at runtime to LOUD-SKIP L2
+ * gdi_ref_wine_available -- the oracle reads that at runtime to enforce the missing-reference policy for L2
  * (it NEVER silent-passes L2). The macro GDI_REF_WINE_LINKED tells us the wine
  * TU is on the link line at all (the build always links it; when wine is absent
  * gdi_ref_wine_available is 0). We keep a compile-time flag too so the L2 body
@@ -447,22 +448,10 @@ int main(void)
     /* ======================================================================
      * L2 -- the INDEPENDENT golden (the real Law-2 signal). Runtime-gated on
      * gdi_ref_wine_available (decided by __has_include over WIN31_DECOMP in the
-     * wine TU's build). Absent -> LOUD-SKIP, never a silent L2 pass.
+     * wine TU's build). Absent -> FAIL LOUD unless explicitly opted out.
      * ====================================================================== */
     if (!gdi_ref_wine_available) {
-        fprintf(stderr,
-            "  ======================================================================\n"
-            "  SKIP: ../win31-decomp absent (or wine server/region.c not found) --\n"
-            "        the wine DIFFERENTIAL (L2) was NOT run. The independent-golden\n"
-            "        Law-2 signal is UNAVAILABLE this run; only the by-construction\n"
-            "        floor (L1) and the structural gate (L3) stand. This is a LOUD\n"
-            "        SKIP, never a silent pass -- point WIN31_DECOMP at the decomp\n"
-            "        tree to enable L2. (ADR-0005 Amendment AM-1 Sec 7.2.)\n"
-            "  ======================================================================\n");
-        /* A skip MARKER (passing), so the summary is honest that L2 did not run.
-         * No L2 oracle CHECK is emitted as green: the banner is unmissable and
-         * the process still exits 0 only on the L1 floor + L3 gate. */
-        CHECK(1, "L2 [SKIPPED -- ../win31-decomp absent; wine differential not run]");
+        oracle_missing("WIN31_DECOMP", "wine server/region.c absent (L2 differential)\n");
     } else {
         enum { CASES = 3000 };
         int l2_modes_bad = 0;     /* rasterized pixel-set mismatch (any mode)    */

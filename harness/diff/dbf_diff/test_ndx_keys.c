@@ -4,7 +4,7 @@
  *
  * FACTORY host test (CLAUDE.md Law 3): libc is OK here. Mirrors test_ndx_parse.c:
  * test_assert.h harness (CHECK / TEST_HARNESS / TEST_SUMMARY), pal_host_make,
- * loud-SKIP on absent goldens (printed, exit 0), non-zero exit on failure.
+ * fail loud on absent goldens (named opt-out only), non-zero exit on failure.
  *
  * Three tiers (plan Sec 2.A):
  *   Tier 0 (committed, operator-free): Tier-0 manifest values from ndx.md ss4.1,
@@ -64,6 +64,7 @@
  *   - seed/test_assert.h (harness idiom: CHECK / TEST_HARNESS / TEST_SUMMARY).
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -184,7 +185,7 @@ static void check_decode_char(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/CNAMES.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): CNAMES.NDX absent (char decode check)\n");
+        oracle_missing("DBASE3_DECOMP", "CNAMES.NDX absent (char decode check)\n");
         return;
     }
 
@@ -264,7 +265,7 @@ static void check_decode_date(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TOURDATE.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): TOURDATE.NDX absent (date decode check)\n");
+        oracle_missing("DBASE3_DECOMP", "TOURDATE.NDX absent (date decode check)\n");
         return;
     }
 
@@ -372,8 +373,8 @@ static void check_decode_numeric(samir_pal_t *pal, const char *base)
      * [re/mint-results-001.md: "Minted NCOST.NDX = INDEX ON UNITCOST"] */
     join(path, sizeof(path), base, "mint/work/NCOST.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): mint/work/NCOST.NDX absent -- "
+        oracle_missing("DBASE3_DECOMP",
+                "mint/work/NCOST.NDX absent -- "
                 "pass corpus base as argv[1]\n");
         return;
     }
@@ -472,8 +473,8 @@ static void check_decode_numeric(samir_pal_t *pal, const char *base)
         /* NCOST root_page = 3 (branch); leaf page 1 contains the negatives. */
         rc = ndx_read_node(idx, 1u, &node);
         if (rc != NDX_OK) {
-            fprintf(stderr,
-                    "  SKIP (LOUD): NCOST.NDX page 1 read failed (rc=%d)\n", rc);
+            oracle_failure(
+                    "NCOST.NDX page 1 read failed (rc=%d)\n", rc);
             ndx_close(idx);
             return;
         }
@@ -563,7 +564,7 @@ static void check_cmp_char(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/CNAMES.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr, "  SKIP (LOUD): CNAMES.NDX absent (char cmp check)\n");
+        oracle_missing("DBASE3_DECOMP", "CNAMES.NDX absent (char cmp check)\n");
         return;
     }
 
@@ -659,8 +660,8 @@ static void check_cmp_date(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, PRISTINE_REL "/TOURDATE.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): TOURDATE.NDX absent (date cmp check)\n");
+        oracle_missing("DBASE3_DECOMP",
+                "TOURDATE.NDX absent (date cmp check)\n");
         return;
     }
 
@@ -712,8 +713,8 @@ static void check_cmp_numeric_leaf(samir_pal_t *pal, const char *base)
 
     join(path, sizeof(path), base, "mint/work/NCOST.NDX");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): mint/work/NCOST.NDX absent "
+        oracle_missing("DBASE3_DECOMP",
+                "mint/work/NCOST.NDX absent "
                 "(numeric leaf ordering check)\n");
         return;
     }
@@ -790,8 +791,8 @@ int main(int argc, char **argv)
         any_present = 1;
 
     if (!any_present) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no goldens found under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no goldens found under base '%s'\n"
                 "               pass the corpus base as argv[1]\n",
                 base);
     }

@@ -26,6 +26,36 @@ CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror
 BUILD   ?= build
 
+# Reference policy (Law 2, initech-iv8c), matching SKIP_FPC / SKIP_BOCHS:
+# missing corpus/tool = FAIL LOUD, never an automatic skip-to-green.
+# The ONLY explicit corpus opt-outs are SKIP_SYSTEM7_DECOMP=1,
+# SKIP_WIN31_DECOMP=1, SKIP_DBASE3_DECOMP=1, SKIP_LOTUS123_DECOMP=1.
+# SKIP_REFERENCE_TOOLS=1 opts out of an absent python3/reader, ASAN or mtools.
+# Every opt-out shouts SKIPPED and names the ungraded reference. Corrupt
+# goldens, mismatches and harness I/O failures remain RED even with an opt-out.
+SKIP_SYSTEM7_DECOMP  ?= 0
+SKIP_WIN31_DECOMP    ?= 0
+SKIP_DBASE3_DECOMP   ?= 0
+SKIP_LOTUS123_DECOMP ?= 0
+SKIP_REFERENCE_TOOLS ?= 0
+SYSTEM7_DECOMP      ?= ../system7-decomp
+WIN31_DECOMP        ?= ../win31-decomp
+DBASE3_DECOMP       ?= ../dbase3-decomp
+LOTUS123_DECOMP     ?= ../lotus123-decomp
+export SYSTEM7_DECOMP WIN31_DECOMP DBASE3_DECOMP LOTUS123_DECOMP
+export SKIP_SYSTEM7_DECOMP SKIP_WIN31_DECOMP SKIP_DBASE3_DECOMP SKIP_LOTUS123_DECOMP SKIP_REFERENCE_TOOLS
+ORACLE_POLICY_H := harness/oracle_policy.h
+
+# Corpus macros select independent inputs at compile time (notably wine's
+# #include). Changing a make/environment root must invalidate those binaries.
+CORPUS_CONFIG := $(BUILD)/.corpus-config
+.PHONY: corpus-config-force
+corpus-config-force:
+$(CORPUS_CONFIG): corpus-config-force | $(BUILD)
+	@printf '%s\n' '$(SYSTEM7_DECOMP)' '$(WIN31_DECOMP)' > $@.tmp
+	@if test -f "$(WIN31_DECOMP)/oracles/wine/server/region.c"; then printf 'wine-present\n'; else printf 'wine-absent\n'; fi >> $@.tmp
+	@cmp -s $@.tmp $@ && rm -f $@.tmp || mv -f $@.tmp $@
+
 # Rule 11 hygiene (found 2026-09-25 by test-kernel-repro after the initech-8z9j
 # per-object -Os change): objects did not depend on the Makefile, so a FLAGS
 # change left stale objects behind and the first half of the repro gate
@@ -1189,9 +1219,8 @@ DBF_DIFF_DIR      := harness/diff/dbf_diff
 # LOUD (exit 1) naming the missing path -- never a silent skip (ADR-0008 DEC-05,
 # the test-fat-fault-rollback mformat-guard idiom). Tier-0 manifest gates need
 # nothing external. Use $(call need_goldens,<gate-name>) at the top of a Tier-1 recipe.
-DBASE3_DECOMP     ?= ../dbase3-decomp
 define need_goldens
-	@test -d "$(DBASE3_DECOMP)/goldens" || { printf '!!! $(1) FAIL: sister-corpus goldens not found at $(DBASE3_DECOMP)/goldens -- set DBASE3_DECOMP=<path>. A skipped oracle is worse than a red one.\n'; exit 1; }
+	@test -d "$(DBASE3_DECOMP)/goldens" || [ "$(SKIP_DBASE3_DECOMP)" = 1 ] || { printf '!!! DBASE3_DECOMP FAIL: $(1): goldens absent at %s -- set SKIP_DBASE3_DECOMP=1 to explicitly opt out.\n' "$(DBASE3_DECOMP)/goldens"; exit 1; }
 endef
 TEST_SAMIR_PAL    := $(BUILD)/test_samir_pal_contract
 TEST_SAMIR_RT     := $(BUILD)/test_samir_rt
@@ -2070,13 +2099,13 @@ test-samir-value: $(TEST_SAMIR_VALUE)
 # Host oracle: the test + REAL engine dbf.c + rt.c + the host PAL binding. -Ispec
 # resolves the LOCKED spec/samir/dbf_format.h offsets. Tier-0 manifest assertions
 # gate with NO external dep; Tier-1 reads the corpus goldens by path
-# ($(DBASE3_DECOMP)) and loud-skips per-fixture if absent (plan sec.2.A: Tier-0
-# still gates -- never a silent pass). The mutant perturbs the invariant-1b
+# ($(DBASE3_DECOMP)): missing fixtures FAIL LOUD unless SKIP_DBASE3_DECOMP=1
+# explicitly opts out. Tier-0 still runs with that opt-out. The mutant perturbs the invariant-1b
 # record_length check (reclen off-by-one) so a valid golden fails dbf_open (Rule 6).
-$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2102,10 +2131,10 @@ test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
 # length/dec descriptors. The mutant decodes at a 48-byte (dBASE-7) stride
 # instead of 32, shifting every field after the first so a non-type byte fails
 # the C/N/D/L/M validation -> RED (Rule 6).
-$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_STRIDE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2131,10 +2160,10 @@ test-dbf-fields-mutant: $(TEST_DBF_FIELDS_MUT)
 # field per its type (C/N/D/L + M block-ptr) + the delete flag. The mutant shifts
 # the record offset by +1 (consumes the delete-flag byte as field data) so every
 # field decodes shifted -> a non-flag byte fails the 0x20/0x2A check -> RED (Rule 6).
-$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECOFF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 # P1 initech-jf8p mutant: restores the pre-fix eager (+1-form-at-open-time)
@@ -2142,7 +2171,7 @@ $(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_V
 # +2-form file (BANK.DBF/TAX.DBF) opened dbf_open_rw truncates its true
 # on-disk record offset by one byte again. Must drive test_tax_rw_plus2form /
 # test_synthetic_plus2_rw_roundtrip (in this same test file) RED (Rule 6).
-$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_OPENRW_EAGER_HDRLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2179,12 +2208,12 @@ test-dbf-read-openrw-hdrlen-mutant: $(TEST_DBF_READ_MUT2)
 # (injectable date, NORMALIZE bytes -> 0 per dbf_normalization.json, version 0x83
 # iff memo). Bidirectional round-trip: write -> C read-back + dbf_ref.py read-back
 # (the independence barrier; the host oracle invokes python3 via system(),
-# loud-skip if absent) + golden masked-cmp. The mutant drops the 0x80 memo bit
+# FAIL LOUD if absent; SKIP_REFERENCE_TOOLS=1 opts out) + golden masked-cmp. The mutant drops the 0x80 memo bit
 # (emits 0x03 where 0x83 required) -> a memo schema reads back has_memo=false -> RED.
-$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_VERSION -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2211,10 +2240,10 @@ test-dbf-roundtrip-mutant: $(TEST_DBF_ROUNDTRIP_MUT)
 # overflow, cross-type -> mismatch) + deterministic PACK (survivors in original
 # order). The mutant writes the live flag 0x20 where delete needs 0x2A -> the
 # deleted state + PACK survivor set go wrong -> RED (Rule 6).
-$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_DELFLAG -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2241,10 +2270,10 @@ test-dbf-mutate-mutant: $(TEST_DBF_MUTATE_MUT)
 # offsets; key-expr is VERBATIM (cap 100, NOT lowercased). STRUCTURE only -- typed
 # key decode is S4.2. The mutant swaps the per-group child/recno/key sublayout ->
 # branch/leaf + recno mismatch the goldens -> RED (Rule 6).
-$(TEST_NDX_PARSE): $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_PARSE): $(DBF_DIFF_DIR)/test_ndx_parse.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_NDX_PARSE_MUT): $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_PARSE_MUT): $(DBF_DIFF_DIR)/test_ndx_parse.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_SUBLAYOUT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_parse.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2270,10 +2299,10 @@ test-ndx-parse-mutant: $(TEST_NDX_PARSE_MUT)
 # + ndx_key_cmp (char = unsigned byte CP437 order; numeric/date = arithmetic double,
 # NOT memcmp, NO sign-flip per corpus mint-001). Links value.c (xb_c/xb_n). The
 # mutant applies the sign-flip transform mint-001 DISPROVED -> numeric ordering RED.
-$(TEST_NDX_KEYS): $(DBF_DIFF_DIR)/test_ndx_keys.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_KEYS): $(DBF_DIFF_DIR)/test_ndx_keys.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_keys.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_NDX_KEYS_MUT): $(DBF_DIFF_DIR)/test_ndx_keys.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_KEYS_MUT): $(DBF_DIFF_DIR)/test_ndx_keys.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_KEY_SIGNFLIP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_keys.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2300,10 +2329,10 @@ test-ndx-keys-mutant: $(TEST_NDX_KEYS_MUT)
 # ndx.md ss5 "separator = HIGH key of subtree"; SET EXACT begins-with per mint-002).
 # Bounded by total_pages -> fail-loud NDX_ERR_CYCLE. Mutant: wrong-child descent
 # (entries[i+1] child) -> in-order/brute-force/SEEK recno diverge -> RED.
-$(TEST_NDX_SEEK): $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_SEEK): $(DBF_DIFF_DIR)/test_ndx_seek.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_NDX_SEEK_MUT): $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_SEEK_MUT): $(DBF_DIFF_DIR)/test_ndx_seek.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_SEEK_CHILD -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_seek.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2333,10 +2362,10 @@ test-ndx-seek-mutant: $(TEST_NDX_SEEK_MUT)
 # level (3-level) interior packing is corpus-OPEN -> ndx_build fails loud
 # NDX_ERR_PAGE_OVF (no golden to ground it). Mutant: 50/50 leaf split -> RED.
 NDX_BUILD_ENG := $(SAMIR_NDX_SRC) $(SAMIR_DBF_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_NDX_BUILD): $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_BUILD): $(DBF_DIFF_DIR)/test_ndx_build.c $(ORACLE_POLICY_H) $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_NDX_BUILD_MUT): $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_BUILD_MUT): $(DBF_DIFF_DIR)/test_ndx_build.c $(ORACLE_POLICY_H) $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_SPLIT_5050 -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -2398,13 +2427,13 @@ test-ndx-multilevel-mutant: $(TEST_NDX_ML_MUT)
 # mid-leaf-split BYTE-exactness is corpus-OPEN -> loud-skipped). The Tier-1 corpus
 # leg COPIES the golden to /tmp before RW (never mutate a read-only golden). Mutant:
 # insert without sorted placement -> in-order/SEEK RED.
-$(TEST_NDX_MAINTAIN): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_MAINTAIN): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_NDX_MAINTAIN_MUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_MAINTAIN_MUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_INSERT_NOSORT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_NDX_MAINTAIN_SPANMUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_NDX_MAINTAIN_SPANMUT): $(DBF_DIFF_DIR)/test_ndx_maintain.c $(ORACLE_POLICY_H) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_DELETE_NOSPAN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_maintain.c $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2441,10 +2470,10 @@ test-ndx-maintain-span-mutant: $(TEST_NDX_MAINTAIN_SPANMUT)
 # terminator (tolerate single trailing 0x1A), 10-byte ASCII M pointer. READ-only;
 # write/append is S2.2 (aul.7). Mutant uses 511-byte block geometry -> every
 # block offset shifts -> content/length mismatch RED (Rule 6).
-$(TEST_DBT_READ): $(DBF_DIFF_DIR)/test_dbt_read.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBT_READ): $(DBF_DIFF_DIR)/test_dbt_read.c $(ORACLE_POLICY_H) $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbt_read.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBT_READ_MUT): $(DBF_DIFF_DIR)/test_dbt_read.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBT_READ_MUT): $(DBF_DIFF_DIR)/test_dbt_read.c $(ORACLE_POLICY_H) $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBT_MUTATE_BLOCKSIZE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbt_read.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2470,10 +2499,10 @@ test-dbt-read-mutant: $(TEST_DBT_READ_MUT)
 # block-0 next-free write-back) + dbt_flush. Deterministic write (Rule 11). Bidir
 # round-trip: write -> read back (S2.1) -> normalized cmp. Mutant: BE next-free ptr
 # write -> S2.1 read-back decodes garbage -> RED.
-$(TEST_DBT_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBT_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBT_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBT_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBT_MUTATE_WRITE_PTR_ENDIAN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbt_roundtrip.c $(SAMIR_DBT_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
@@ -2648,10 +2677,10 @@ test-xbase-transform-mutant: $(TEST_XBASE_TRANSFORM_MUT)
 # all four codecs + the evaluator + the cmd layer. Mutant: SELECT misroutes -> RED.
 SAMIR_CMD_SRC := $(SAMIR_WORKAREA_SRC)
 INTERP_USE_ENG := $(SAMIR_CMD_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_INTERP_USE): $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_USE): $(DBF_DIFF_DIR)/test_interp_use.c $(ORACLE_POLICY_H) $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_INTERP_USE_MUT): $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_USE_MUT): $(DBF_DIFF_DIR)/test_interp_use.c $(ORACLE_POLICY_H) $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DWA_MUTATE_SELECT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_use.c $(INTERP_USE_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -2678,10 +2707,10 @@ test-interp-use-mutant: $(TEST_INTERP_USE_MUT)
 # EOF/BOF error-vs-silent; SET DELETED/FILTER-hidden GO) loud-skipped (plan sec.7).
 # Mutant: SKIP off-by-one / index-order uses physical -> walk RED.
 INTERP_NAV_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_INTERP_NAV): $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_NAV): $(DBF_DIFF_DIR)/test_interp_nav.c $(ORACLE_POLICY_H) $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_INTERP_NAV_MUT): $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_NAV_MUT): $(DBF_DIFF_DIR)/test_interp_nav.c $(ORACLE_POLICY_H) $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNAV_MUTATE_SKIP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_nav.c $(INTERP_NAV_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -2705,14 +2734,14 @@ test-interp-nav-mutant: $(TEST_INTERP_NAV_MUT)
 # ---- SAMIR Phase-6 oracle: bidirectional round-trip + normalization-mask mutant (S6.3 / initech-17n.1, bead 586.3) ----
 # SAMIR writes .dbf+.dbt + builds .ndx, masked-memcmp vs golden (mask per
 # spec/samir/dbf_normalization.json) AND independent python read-back (dbf_ref.py/
-# ndx_ref.py; loud-skip if absent). Distinct from the test-dbase milestone umbrella.
+# ndx_ref.py; missing refs follow the named opt-out policy). Distinct from the test-dbase milestone umbrella.
 # Mutant NORM_MUTATE_MASK_CELL un-masks the last-update date -> a passing round-trip
 # (whose injected date differs from the golden's) goes RED -> proves the mask bites.
 DBASE_RT_ENG := $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_DBASE_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(ORACLE_POLICY_H) $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(ORACLE_POLICY_H) $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNORM_MUTATE_MASK_CELL -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_dbase_roundtrip.c $(DBASE_RT_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -2770,10 +2799,10 @@ test-interp-flow-mutant: $(TEST_INTERP_FLOW_MUT)
 # via ndx_seek. LOCATE/SEEK/FIND set the work-area FOUND flag (un-gates FOUND()).
 # Mutant: CONTINUE re-applies scope -> recno/FOUND/EOF RED.
 INTERP_LIST_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_INTERP_LIST): $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_LIST): $(DBF_DIFF_DIR)/test_interp_list.c $(ORACLE_POLICY_H) $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_INTERP_LIST_MUT): $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_LIST_MUT): $(DBF_DIFF_DIR)/test_interp_list.c $(ORACLE_POLICY_H) $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DQUERY_MUTATE_CONTINUE_SCOPE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_list.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -2862,10 +2891,10 @@ test-ndx-pack-mutant: $(TEST_NDX_PACK_MUT)
 # INDEX/FILTER/RELATION runtime DEFERRED (loud-skip; follow-ups). Mutant: default
 # EXACT=ON instead of OFF -> RED.
 INTERP_SET_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_INTERP_SET): $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_SET): $(DBF_DIFF_DIR)/test_interp_set.c $(ORACLE_POLICY_H) $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_INTERP_SET_MUT): $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_INTERP_SET_MUT): $(DBF_DIFF_DIR)/test_interp_set.c $(ORACLE_POLICY_H) $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSET_MUTATE_EXACT_DEFAULT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_set.c $(INTERP_SET_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -3213,10 +3242,10 @@ test-samir-input-mutant: $(SAMIR_INPUT_MUT)
 # so REPLACE/APPEND persist after a plain USE. wa_set_open default stays read-only.
 # Mutant: open RW but don't set writable -> REPLACE fails #41 -> RED.
 USE_RW_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_USE_RW): $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_USE_RW): $(DBF_DIFF_DIR)/test_use_rw.c $(ORACLE_POLICY_H) $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_USE_RW_MUT): $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_USE_RW_MUT): $(DBF_DIFF_DIR)/test_use_rw.c $(ORACLE_POLICY_H) $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_OPENRW_RO -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_use_rw.c $(USE_RW_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -3243,10 +3272,10 @@ test-use-rw-mutant: $(TEST_USE_RW_MUT)
 # -> fail-loud #52. FOUND post-SEEK/LOCATE GATED (loud-skip) until S5.4. Mutant:
 # RECNO at EOF returns RECCOUNT (not RECCOUNT+1) -> RED.
 FN_D_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_XBASE_FN_D): $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_XBASE_FN_D): $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(ORACLE_POLICY_H) $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_XBASE_FN_D_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_XBASE_FN_D_MUT): $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(ORACLE_POLICY_H) $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_RECNO_EOF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_xbase_fn_d.c $(FN_D_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -3394,9 +3423,10 @@ test-xbase-coercion-mutant: $(DBF_COERCE_FUZZ_MUT)
 .PHONY: test-samir-dbf-ref
 test-samir-dbf-ref:
 	$(call need_goldens,test-samir-dbf-ref)
-	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-samir-dbf-ref FAIL: python3 not found.\n'; exit 1; }
 	@printf ">>> test-samir-dbf-ref: independent .dbf/.dbt reader vs corpus goldens\n"
-	@DBASE3_DECOMP=$(DBASE3_DECOMP) python3 $(DBF_REF_PY) --selftest
+	@if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$(DBF_REF_PY)" ]; then \
+		sh harness/missing_reference.sh REFERENCE_TOOLS "test-samir-dbf-ref: python3/reader absent"; \
+	else python3 $(DBF_REF_PY) --selftest; fi
 	@printf ">>> test-samir-dbf-ref: green\n"
 
 # SAMIR foundation umbrella (the Phase-0 unit vector). Grows as engine steps land.
@@ -3407,9 +3437,10 @@ test-samir-dbf-ref:
 .PHONY: test-samir-ndx-ref
 test-samir-ndx-ref:
 	$(call need_goldens,test-samir-ndx-ref)
-	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-samir-ndx-ref FAIL: python3 not found.\n'; exit 1; }
 	@printf ">>> test-samir-ndx-ref: independent .ndx B-tree reader vs corpus goldens\n"
-	@DBASE3_DECOMP=$(DBASE3_DECOMP) python3 $(DBF_DIFF_DIR)/ndx_ref.py --selftest
+	@if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$(DBF_DIFF_DIR)/ndx_ref.py" ]; then \
+		sh harness/missing_reference.sh REFERENCE_TOOLS "test-samir-ndx-ref: python3/reader absent"; \
+	else python3 $(DBF_DIFF_DIR)/ndx_ref.py --selftest; fi
 	@printf ">>> test-samir-ndx-ref: green\n"
 
 .PHONY: test-samir
@@ -11290,7 +11321,7 @@ test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REG
 	@# downstream guard (a plain build MASKS it: region_normalize's own cap check
 	@# aborts too, so the probe cannot tell fixed from reverted). ASAN catches the
 	@# FIRST OOB write in xmerge (exit != SIGABRT), which the probe distinguishes.
-	@# Skip-safe if ASAN is unavailable on the host (the win31-decomp skip idiom).
+	@# Missing ASAN fails loud unless SKIP_REFERENCE_TOOLS=1 explicitly opts out.
 	@if $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DRGN_MUTATE_NO_XMERGE_CAP -fsanitize=address \
 			$(REGION_INC) -o $(TEST_REGION_MUT_XCAP) $(TEST_REGION_SRC) $(REGION_ENGINE_C) 2>/dev/null; then \
 		if ASAN_OPTIONS=abort_on_error=0:detect_leaks=0 $(TEST_REGION_MUT_XCAP) >/dev/null 2>&1; then \
@@ -11300,7 +11331,7 @@ test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REG
 			printf '>>> test-region-mutant: green (NO_XMERGE_CAP mutant correctly RED under ASAN -- xmerge scratch-overrun caught)\n'; \
 		fi; \
 	else \
-		printf '>>> test-region-mutant: SKIP NO_XMERGE_CAP (ASAN unavailable -- cannot build the scratch-overrun detector)\n'; \
+		sh harness/missing_reference.sh REFERENCE_TOOLS "test-region-mutant: ASAN unavailable (cannot build the scratch-overrun detector)" || exit $$?; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -11314,14 +11345,13 @@ test-region-mutant: $(TEST_REGION_MUT_VRLE) $(TEST_REGION_MUT_PARITY) $(TEST_REG
 # test-region (the frozen homomorphism oracle; AM-6 leaves it untouched).
 # WIN31_DECOMP is the FIRST win31-decomp Makefile wiring (FO-D2-5); it is passed
 # UNQUOTED (the whole path is stringized into the wine #include path) and L2
-# LOUD-SKIPS when it is absent (never a silent pass). Native cc per CC?=cc.
+# FAILS LOUD when absent; SKIP_WIN31_DECOMP=1 explicitly opts out.
 # ---------------------------------------------------------------------------
-WIN31_DECOMP ?= ../win31-decomp
 
 TEST_REGION_GDI      := $(BUILD)/test_region_gdi
 TEST_REGION_GDI_SRC  := harness/proptest/test_region_gdi.c
 TEST_REGION_GDI_REF  := harness/proptest/gdi_ref_wine.c
-TEST_REGION_GDI_DEPS := $(TEST_REGION_GDI_SRC) $(TEST_REGION_GDI_REF) \
+TEST_REGION_GDI_DEPS := $(TEST_REGION_GDI_SRC) $(TEST_REGION_GDI_REF) $(ORACLE_POLICY_H) $(CORPUS_CONFIG) \
         harness/proptest/gdi_ref_wine.h harness/proptest/gdi_ref_wine_shim.h \
         $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h
 REGION_GDI_INC  := $(REGION_INC) -Iharness/proptest -Iharness/proptest/gdi_ref_winestubs -I.
@@ -11361,8 +11391,8 @@ test-region-gdi: $(TEST_REGION_GDI)
 # Mutation proof (Rule 6). DISPATCH (reddens L1 cross-family) and EMIT (the
 # engine fail-loud during construction) bite REGARDLESS of win31-decomp; RECTIN
 # and PARITY redden ONLY the L2 wine legs, so they are asserted ONLY when the
-# wine reference is present (else L2 loud-skips and the mutant would falsely
-# "pass" -- so the assert loud-skips too, never a false RED on a clean checkout).
+# wine reference is present. Missing wine FAILS LOUD unless the explicit
+# SKIP_WIN31_DECOMP=1 opt-out shouts that those mutations were not graded.
 test-region-gdi-mutant: $(TEST_REGION_GDI_MUT_DISPATCH) $(TEST_REGION_GDI_MUT_RECTIN) $(TEST_REGION_GDI_MUT_EMIT) $(TEST_REGION_GDI_MUT_PARITY)
 	@printf ">>> test-region-gdi-mutant: confirming the dual-heritage oracle BITES (Rule 6)\n"
 	@if $(TEST_REGION_GDI_MUT_DISPATCH) >/dev/null 2>&1; then \
@@ -11379,7 +11409,7 @@ test-region-gdi-mutant: $(TEST_REGION_GDI_MUT_DISPATCH) $(TEST_REGION_GDI_MUT_RE
 			printf '!!! test-region-gdi-mutant FAIL: RGN_MUTATE_PARITY_OFF1 PASSED -- the L2 wine differential is decoration\n'; exit 1; \
 		else printf '>>> test-region-gdi-mutant: green (RGN_MUTATE_PARITY_OFF1 correctly RED -- L2 cross-redden)\n'; fi; \
 	else \
-		printf '>>> test-region-gdi-mutant: SKIP RECTIN/PARITY (win31-decomp absent -- the L2-only mutants cannot bite without the wine golden)\n'; \
+		sh harness/missing_reference.sh WIN31_DECOMP "test-region-gdi-mutant: $(WIN31_DECOMP)/oracles/wine/server/region.c absent" || exit $$?; \
 	fi
 
 # ---------------------------------------------------------------------------
@@ -11944,7 +11974,7 @@ test-blitter-mutant: $(TEST_BLITTER_MUT_IGNORE) $(TEST_BLITTER_MUT_OFF1)
 # Chicago 12 metrics oracle. Grades text_measure / text_draw against the REAL
 # System 7.0.1 Chicago 12 owTable + FontRec header, parsed at run time from
 # $(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin (gitignored Apple resource;
-# LOUD-SKIP if absent). Never against the artifact's own table (Law 2 / HER-02).
+# FAIL LOUD if absent (SKIP_SYSTEM7_DECOMP=1 to opt out)). Never against the artifact's own table (Law 2 / HER-02).
 # Ref: ADR-0004 D-7; ../system7-decomp/specs/fonts/chicago.md "Verification
 # recipe"; specs/fonts/font-manager.md Sec 1-3, Sec 7.
 # Mutant (Rule 6): CHICAGO_MUT_ONE_ADVANCE=105 perturbs ONE advance ('i' +1) in the
@@ -11985,15 +12015,15 @@ test-chicago-art-mutant: $(FONT_ART2H_BIN) $(CHICAGO_ART) $(CHICAGO_H)
 TEST_CHIMET     := $(BUILD)/test_chicago_metrics
 TEST_CHIMET_MUT := $(BUILD)/test_chicago_metrics_mutant
 TEST_CHIMET_SRC := harness/proptest/test_chicago_metrics.c
-TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h spec/chicago12_nfnt_golden.h
-# Deferred (=), not immediate: SYSTEM7_DECOMP gets its ../ default further down
-# the file, so := here baked in an EMPTY root on main (the gate LOUD-SKIPped and
-# only its golden-requiring mutant caught it, cert 2026-10-04; initech-tdnl.33).
+TEST_CHIMET_DEPS := os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.c os/flair/surface.h spec/chicago12_nfnt_golden.h $(ORACLE_POLICY_H) $(CORPUS_CONFIG)
+# Deferred (=) so compilation reads the configured corpus root. The root is
+# declared in Configuration before read-time uses; an earlier parse-order bug
+# baked in an EMPTY root (cert 2026-10-04; initech-tdnl.33).
 CHIMET_DEF = -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\"
 $(TEST_CHIMET): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
 $(TEST_CHIMET_MUT): $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_METRICS_REQUIRE_GOLDEN -DCHICAGO_MUT_ONE_ADVANCE=105 -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_MUT_ONE_ADVANCE=105 -o $@ $(TEST_CHIMET_SRC) os/flair/text.c os/flair/surface.c
 .PHONY: test-chicago-metrics test-chicago-metrics-mutant
 test-chicago-metrics: $(TEST_CHIMET)
 	@$(TEST_CHIMET)
@@ -12501,6 +12531,16 @@ test-makefile-vars: | $(BUILD)
 		| grep -v -E '^(SKIP_BOCHS|SKIP_FPC|SCRIPT|RECORD_IMAGE_|RECORD_DATA_) ' || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-makefile-vars FAIL: read before definition (variable, site):\n%s\n' "$$bad"; exit 1; fi
 	@printf '>>> test-makefile-vars: green\n'
+
+# Ref: CLAUDE.md Law 2 / Rule 6; initech-iv8c. These run only host gates.
+.PHONY: test-gate-honesty test-gate-honesty-mutant
+test-gate-honesty: harness/test_gate_honesty.sh harness/missing_reference.sh $(ORACLE_POLICY_H) | $(BUILD)
+	@sh harness/test_gate_honesty.sh "$(MAKE)" "$(abspath $(firstword $(MAKEFILE_LIST)))" "$(abspath $(BUILD)/gate-honesty)"
+test-gate-honesty-mutant: harness/test_gate_honesty.sh | $(BUILD)
+	@sh harness/test_gate_honesty.sh "$(MAKE)" "$(abspath $(firstword $(MAKEFILE_LIST)))" "$(abspath $(BUILD)/gate-honesty-mutant)" "CFLAGS=$(CFLAGS) -DGATE_HONESTY_MUTATE_SKIP" > $(BUILD)/gate-honesty-mutant.log 2>&1; rc=$$?; \
+	[ "$$rc" -ne 0 ] && grep -qF 'test-gate-honesty FAIL: test-chicago-metrics accepted missing SYSTEM7_DECOMP' $(BUILD)/gate-honesty-mutant.log \
+		|| { cat $(BUILD)/gate-honesty-mutant.log; printf '!!! test-gate-honesty-mutant FAIL: old skip-to-green policy was not caught for the named reason\n'; exit 1; }; \
+	printf '>>> test-gate-honesty-mutant: green (old Chicago LOUD-SKIP-to-green correctly RED on missing SYSTEM7_DECOMP)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-menu-handlers (bead initech-tdnl.36 + .37/.38/.50/.67; audit
@@ -13342,7 +13382,6 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 # gate FAILS (a skipped oracle is worse than a red one). Two mutants, each RED
 # for its named reason.
 # ---------------------------------------------------------------------------
-LOTUS123_DECOMP   ?= ../lotus123-decomp
 I123_CORE_SRC     := os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c
 I123_CORE_HDR     := os/i123/core/i123.h spec/i123/wk1_format.h
 I123_CORE_INC     := -Ios/i123/core -Ispec
@@ -13355,11 +13394,16 @@ $(TEST_I123_WK1): $(I123_WK1_DEPS) | $(BUILD)
 $(BUILD)/test_i123_wk1_mutant_%: $(I123_WK1_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Iseed $(I123_CORE_INC) -o $@ $(I123_WK1_DIR)/test_i123_wk1_roundtrip.c $(I123_CORE_SRC)
 define need_lotus_goldens
-	@test -f "$(LOTUS123_DECOMP)/tools/wk1_ref.py" && test -d "$(LOTUS123_DECOMP)/goldens/minted" || { printf '!!! $(1) FAIL: the Lotus 1-2-3 corpus was not found at $(LOTUS123_DECOMP) -- set LOTUS123_DECOMP=<path>. A skipped oracle is worse than a red one.\n'; exit 1; }
+	@test -f "$(LOTUS123_DECOMP)/tools/wk1_ref.py" && test -d "$(LOTUS123_DECOMP)/goldens/minted" || { printf '!!! LOTUS123_DECOMP FAIL: $(1): corpus absent at %s -- set SKIP_LOTUS123_DECOMP=1 to explicitly opt out.\n' "$(LOTUS123_DECOMP)"; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! $(1) FAIL: python3 not found (it runs the INDEPENDENT reader wk1_ref.py)\n'; exit 1; }
 endef
 
 .PHONY: test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant
+LOTUS_GOLDENS_PRESENT = $(and $(wildcard $(LOTUS123_DECOMP)/tools/wk1_ref.py),$(wildcard $(LOTUS123_DECOMP)/goldens/minted))
+ifeq ($(SKIP_LOTUS123_DECOMP):$(LOTUS_GOLDENS_PRESENT),1:)
+test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant:
+	@printf '!!! LOTUS123_DECOMP SKIPPED (SKIP_LOTUS123_DECOMP=1 opt-out) -- %s reference NOT graded.\n' "$@"
+else
 test-i123-wk1-roundtrip: $(TEST_I123_WK1) $(I123_WK1_CANON)
 	$(call need_lotus_goldens,test-i123-wk1-roundtrip)
 	@printf ">>> test-i123-wk1-roundtrip: the 1-2-3 R2.2 .WK1 codec vs 44 real goldens, wk1_ref.py and the minted screenshots (initech-9u8w)\n"
@@ -13376,6 +13420,7 @@ test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPC
 		printf '>>> test-i123-wk1-roundtrip-mutant: %s correctly RED (%s: %s)\n' "$$m" "$$why" "$$(grep -F "$$why" $$bin.log)"; \
 	done
 	@printf '>>> test-i123-wk1-roundtrip-mutant: green (both mutants RED for the named reason)\n'
+endif
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-quit (bead initech-fvnj; astra audit L008 "Quit discards
@@ -13741,10 +13786,9 @@ test-flair-headers-mutant: $(TEST_FLAIR_HEADERS_MUT)
 # records (control/menu/dialog), the QuickDraw operation semantics (drawing_ops),
 # and the 256-entry indexed-8 CLUT. Mirror test-flair-headers; each mutant BITES
 # (Rule 6). Native cc per CC?=cc (no 32-bit libc needed). SYSTEM7_DECOMP resolves
-# the gitignored ROM-CLUT golden for the test-clut entry-by-entry diff (loud-skip
-# if absent -- never silent-pass).
+# the gitignored ROM-CLUT golden for the entry-by-entry diff: absent = FAIL
+# LOUD, unless SKIP_SYSTEM7_DECOMP=1 explicitly opts out.
 # ---------------------------------------------------------------------------
-SYSTEM7_DECOMP ?= ../system7-decomp
 
 TEST_CTRL_RECORD     := $(BUILD)/test_control_record
 TEST_CTRL_RECORD_MUT := $(BUILD)/test_control_record_mutant
@@ -13800,15 +13844,15 @@ test-drawing-ops-mutant: $(TEST_DRAWING_OPS_MUT)
 
 TEST_CLUT     := $(BUILD)/test_clut
 TEST_CLUT_MUT := $(BUILD)/test_clut_mutant
-$(TEST_CLUT): harness/proptest/test_clut.c spec/assets/clut.h | $(BUILD)
+$(TEST_CLUT): harness/proptest/test_clut.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) spec/assets/clut.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -o $@ $<
-$(TEST_CLUT_MUT): harness/proptest/test_clut.c spec/assets/clut.h | $(BUILD)
+$(TEST_CLUT_MUT): harness/proptest/test_clut.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) spec/assets/clut.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -DTEST_CLUT_MUTANT -o $@ $<
 test-clut: $(TEST_CLUT)
 	@printf ">>> test-clut: 256-entry indexed-8 CLUT (ROM clut_8 cube/ramps + RGB->index) (spec/assets/clut.h)\n"
 	@$(TEST_CLUT)
 	@printf ">>> test-clut: green\n"
-test-clut-mutant: $(TEST_CLUT_MUT)
+test-clut-mutant: $(TEST_CLUT_MUT) test-clut
 	@if $(TEST_CLUT_MUT) >/dev/null 2>&1; then printf '!!! test-clut-mutant FAIL: mutant PASSED -- oracle is decoration\n'; exit 1; else printf '>>> test-clut-mutant: green (mutant correctly RED)\n'; fi
 
 # ---------------------------------------------------------------------------
@@ -13823,8 +13867,8 @@ test-clut-mutant: $(TEST_CLUT_MUT)
 # (CIDX_HILITE_FRAME #777777 / CIDX_HILITE_TEXT #A5A5A5, beads initech-hv7u --
 # named idx>=9 gray-ramp indices, NOT a new 9-entry table slot), F=sys8/
 # platinum-palette.md Sec 2 sampled gray-ramp roles (DEC-10 Sec 3.5.3 / OQ-3).
-# Per-leg
-# LOUD-SKIP if a sibling golden is absent (never silent-pass). SYSTEM7_DECOMP/
+# Per-leg missing goldens FAIL LOUD unless the named SKIP_*_DECOMP=1 opts out.
+# SYSTEM7_DECOMP/
 # WIN31_DECOMP already declared.
 # ---------------------------------------------------------------------------
 TEST_COLOR_CANON           := $(BUILD)/test_color_canon
@@ -13836,19 +13880,19 @@ TEST_COLOR_CANON_MUT_HIL   := $(BUILD)/test_color_canon_mut_hilite
 TEST_COLOR_CANON_MUT_PLAT  := $(BUILD)/test_color_canon_mut_plat
 COLOR_CANON_ORACLE_DEF     := -DSYSTEM7_DECOMP=\"$(SYSTEM7_DECOMP)\" -DWIN31_DECOMP=\"$(WIN31_DECOMP)\"
 
-$(TEST_COLOR_CANON): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -o $@ $<
-$(TEST_COLOR_CANON_MUT_TEAL): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON_MUT_TEAL): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_TEAL -o $@ $<
-$(TEST_COLOR_CANON_MUT_NAVY): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON_MUT_NAVY): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_NAVY -o $@ $<
-$(TEST_COLOR_CANON_MUT_WHITE): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON_MUT_WHITE): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_WHITE -o $@ $<
-$(TEST_COLOR_CANON_MUT_PIN): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON_MUT_PIN): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_PIN -o $@ $<
-$(TEST_COLOR_CANON_MUT_HIL): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON_MUT_HIL): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_HILITE -o $@ $<
-$(TEST_COLOR_CANON_MUT_PLAT): harness/proptest/test_color_canon.c $(COLOR_CANON_H) | $(BUILD)
+$(TEST_COLOR_CANON_MUT_PLAT): harness/proptest/test_color_canon.c $(ORACLE_POLICY_H) $(CORPUS_CONFIG) $(COLOR_CANON_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FLAIR_HDR_INC) $(COLOR_CANON_ORACLE_DEF) -DCANON_MUTATE_PLAT -o $@ $<
 
 test-color-canon: $(TEST_COLOR_CANON)
@@ -13856,7 +13900,13 @@ test-color-canon: $(TEST_COLOR_CANON)
 	@$(TEST_COLOR_CANON)
 	@printf ">>> test-color-canon: green\n"
 
-test-color-canon-mutant: $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAVY) $(TEST_COLOR_CANON_MUT_WHITE) $(TEST_COLOR_CANON_MUT_PIN) $(TEST_COLOR_CANON_MUT_HIL)
+# A missing golden must not masquerade as a successfully killed mutant.
+# Baseline first; explicitly opted-out golden legs cannot prove a mutation.
+ifneq ($(filter 1,$(SKIP_SYSTEM7_DECOMP) $(SKIP_WIN31_DECOMP)),)
+test-color-canon-mutant test-color-canon-mutant-plat: test-color-canon
+	@printf '!!! %s SKIPPED (SKIP_SYSTEM7_DECOMP=%s SKIP_WIN31_DECOMP=%s opt-out) -- independent VALUE mutants NOT graded.\n' "$@" "$(SKIP_SYSTEM7_DECOMP)" "$(SKIP_WIN31_DECOMP)"
+else
+test-color-canon-mutant: test-color-canon $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAVY) $(TEST_COLOR_CANON_MUT_WHITE) $(TEST_COLOR_CANON_MUT_PIN) $(TEST_COLOR_CANON_MUT_HIL)
 	@printf ">>> test-color-canon-mutant: confirming all 5 VALUE mutants go RED (Rule 6; the INDEPENDENT golden catches a wrong canon value)\n"
 	@if $(TEST_COLOR_CANON_MUT_TEAL) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_TEAL PASSED -- the authored-teal datum is not gated (seafoam relapse slips past)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_TEAL correctly RED -- LEG D seafoam-relapse caught)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_NAVY) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_NAVY PASSED -- the win31 depth-trap is swamped (#0000AA accepted)\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_NAVY correctly RED -- LEG B depth-trap tight)\n'; fi
@@ -13864,9 +13914,11 @@ test-color-canon-mutant: $(TEST_COLOR_CANON_MUT_TEAL) $(TEST_COLOR_CANON_MUT_NAV
 	@if $(TEST_COLOR_CANON_MUT_PIN) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_PIN PASSED -- the pinstripe.md golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_PIN correctly RED -- LEG C pinstripe bites)\n'; fi
 	@if $(TEST_COLOR_CANON_MUT_HIL) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant FAIL: CANON_MUTATE_HILITE PASSED -- the title-bar.md inactive-hilite golden is decoration\n'; exit 1; else printf '>>> test-color-canon-mutant: green (CANON_MUTATE_HILITE correctly RED -- LEG E title-bar bites)\n'; fi
 
-test-color-canon-mutant-plat: $(TEST_COLOR_CANON_MUT_PLAT)
+test-color-canon-mutant-plat: test-color-canon $(TEST_COLOR_CANON_MUT_PLAT)
 	@printf ">>> test-color-canon-mutant-plat: confirming the sampled-vs-nominal Platinum gamma-trap mutant goes RED (Rule 6)\n"
 	@if $(TEST_COLOR_CANON_MUT_PLAT) >/dev/null 2>&1; then printf '!!! test-color-canon-mutant-plat FAIL: CANON_MUTATE_PLAT PASSED -- LEG F accepts nominal idx119 #777777 for sampled #969696\n'; exit 1; else printf '>>> test-color-canon-mutant-plat: green (CANON_MUTATE_PLAT correctly RED -- LEG F sampled-domain golden bites)\n'; fi
+
+endif
 
 # ---------------------------------------------------------------------------
 # REAL gates: test-mech-policy + test-flair-mechanism-colorblind (beads
@@ -14477,10 +14529,10 @@ test-fat-write-mutant: $(TEST_FAT12_WRITE_MUT_ONEFAT) $(TEST_FAT12_WRITE_MUT_EOC
 # goldens hand-derived from the III+ spec. gate 100% (PRD sec.8). Tier-2 real-DBASE.EXE
 # authenticity is GATED-env (loud-skip). Mutant: swap the =-direction golden -> RED.
 PROG_DIFF_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
-$(TEST_DBASE_DIFF): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_DIFF_MUT): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROGDIFF_MUTATE_SWAP_EQ_GOLDEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -14493,22 +14545,22 @@ $(TEST_DBASE_DIFF_MUT): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PA
 # perturbs the GRADER's expectation), these perturb the ENGINE the grader links
 # read-only -- proving each golden bites a real interpreter divergence, not just
 # the harness's own strcmp.
-$(TEST_DBASE_DIFF_MUT_EXPR): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT_EXPR): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPARSE_MUTATE_ADDMUL_SWAP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_DIFF_MUT_FLOW): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT_FLOW): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLOW_MUTATE_IF_INVERT -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_DIFF_MUT_FUNCS): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT_FUNCS): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DXB_MUTATE_FN_SUBSTR -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_DIFF_MUT_MUTATE): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT_MUTATE): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMUTATE_REPLACE_NO_SCOPE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_DIFF_MUT_PROC): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT_PROC): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DPROC_MUTATE_ASSIGN_SHADOW_OUTER -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBASE_DIFF_MUT_QUERY): $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBASE_DIFF_MUT_QUERY): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNAV_MUTATE_SKIP -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(PROG_DIFF_DIR)/prog_diff.c $(PROG_DIFF_ENG) $(SAMIR_PAL_HOST_SRC)
 
@@ -22602,7 +22654,7 @@ test-fatwrite: $(HARNESS_BIN) $(WRITE_IMG) $(FAT_WRITE_IMG)
 			printf '!!! test-fatwrite FAIL [4/4]: mtools could not read OUT.TXT off the post-run disk -- the directory entry / chain never reached the medium\n'; exit 1; \
 		fi; \
 	else \
-		printf '>>> test-fatwrite [4/4]: mtools absent -- skipping the post-run disk extraction (in-OS read-back [3/4] already proves the round-trip)\n'; \
+		sh harness/missing_reference.sh REFERENCE_TOOLS "test-fatwrite [4/4]: mtools absent (post-run extraction requires mcopy)" || exit $$?; \
 	fi
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechDOS WROTE a file to a FAT12 volume over ATA and read it back\n'
@@ -27017,7 +27069,7 @@ TEST_UNIT_GATES := \
 	test-tbx-menu test-tbx-menu-mutant \
 	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
 	test-i123-quit test-i123-quit-mutant \
-	test-makefile-vars \
+	test-makefile-vars test-gate-honesty test-gate-honesty-mutant \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \

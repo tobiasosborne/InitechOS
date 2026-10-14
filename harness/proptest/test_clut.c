@@ -22,24 +22,24 @@
  * DUAL-COMPILE:
  *   # Freestanding compile check (confirms header compiles -ffreestanding):
  *   gcc -m32 -ffreestanding -nostdlib -fno-stack-protector -std=c11 \
- *       -I/home/tobias/Projects/initech-os/spec/assets \
- *       -c /home/tobias/Projects/initech-os/harness/proptest/test_clut.c \
+ *       -Ispec/assets \
+ *       -c harness/proptest/test_clut.c \
  *       -o /tmp/test_clut_fs.o
  *   # Hosted binary (runs + prints result):
  *   gcc -std=c11 -Wall \
- *       -I/home/tobias/Projects/initech-os/spec/assets \
- *       /home/tobias/Projects/initech-os/harness/proptest/test_clut.c \
+ *       -Ispec/assets \
+ *       harness/proptest/test_clut.c \
  *       -o /tmp/test_clut && /tmp/test_clut
  *   # Hosted with explicit golden path:
  *   gcc -std=c11 -Wall \
- *       -I/home/tobias/Projects/initech-os/spec/assets \
+ *       -Ispec/assets \
  *       -DCLUT_ROM_GOLDEN_PATH=\"/path/to/clut_8_rom.bin\" \
- *       /home/tobias/Projects/initech-os/harness/proptest/test_clut.c \
+ *       harness/proptest/test_clut.c \
  *       -o /tmp/test_clut && /tmp/test_clut
  *   # Mutation probe (must exit 1; proves oracle bites):
  *   gcc -std=c11 -Wall -DTEST_CLUT_MUTANT \
- *       -I/home/tobias/Projects/initech-os/spec/assets \
- *       /home/tobias/Projects/initech-os/harness/proptest/test_clut.c \
+ *       -Ispec/assets \
+ *       harness/proptest/test_clut.c \
  *       -o /tmp/test_clut_mutant && /tmp/test_clut_mutant; \
  *       test $? -ne 0 && echo "MUTATION RED (correct)" || echo "MUTATION GREEN (BUG)"
  *
@@ -49,8 +49,8 @@
  *
  * GOLDEN DIFF: if ../system7-decomp/goldens/resources/clut_8_rom.bin is
  *   present, every entry is diffed against the ROM bytes. If absent, the test
- *   LOUD-SKIPS (prints a clear message) and continues with the structural
- *   checks -- NEVER silent-passes. Override path via:
+ *   FAILS LOUD unless SKIP_SYSTEM7_DECOMP=1 explicitly opts out. The
+ *   structural checks still run with that shouting opt-out. Override path via:
  *     -DCLUT_ROM_GOLDEN_PATH="<absolute_path>"
  *   or the SYSTEM7_DECOMP macro:
  *     -DSYSTEM7_DECOMP="<path_to_system7-decomp>"
@@ -69,6 +69,7 @@
  * runtime entry point -- the -c compile check above confirms the header
  * compiles; runtime checks only run in hosted mode. */
 #if defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
+#include "../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -332,18 +333,14 @@ int main(void)
 
     /* =================================================================== */
     /* BLOCK 6: golden diff vs clut_8_rom.bin                              */
-    /* LOUD-SKIP if absent; NEVER silent-pass.                              */
+    /* FAIL LOUD if absent; only SKIP_SYSTEM7_DECOMP=1 opts out.            */
     /* Ref: clut-pltt-format.md Sec 2 (byte layout: header 8B +            */
     /*      256 * ColorSpec{value:u16, r:u16, g:u16, b:u16}).              */
     /* =================================================================== */
     {
         FILE *f = fopen(GOLDEN_BIN_PATH, "rb");
         if (!f) {
-            printf("test-clut: LOUD-SKIP golden diff -- %s absent\n",
-                   GOLDEN_BIN_PATH);
-            printf("  (gitignored ground-truth; pass path via "
-                   "-DCLUT_ROM_GOLDEN_PATH=... or "
-                   "-DSYSTEM7_DECOMP=... or set SYSTEM7_DECOMP in Makefile)\n");
+            oracle_missing("SYSTEM7_DECOMP", "%s absent\n", GOLDEN_BIN_PATH);
         } else {
             unsigned char rom[2056];
             size_t nread = fread(rom, 1, 2056, f);

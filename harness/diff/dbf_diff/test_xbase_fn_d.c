@@ -51,6 +51,7 @@
  *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md.
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -415,8 +416,8 @@ static void test_corpus(samir_pal_t *pal, const char *base)
 
     join(trav, sizeof(trav), base, SP_PATH "/TRAVEL.DBF");
     if (!file_exists(trav)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): corpus TRAVEL.DBF absent under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "corpus TRAVEL.DBF absent under base '%s'\n"
                 "               need: %s\n"
                 "               (pass the corpus base as argv[1]; Tier-0 ran)\n",
                 base, trav);
@@ -489,7 +490,7 @@ int main(int argc, char **argv)
             "               asserted -- the FOUND flag is set by SEEK (S4.3) and\n"
             "               LOCATE (S5.4); only the fresh-USE .F. default is grounded.\n");
 
-    /* Tier 1: corpus TRAVEL.DBF (loud-skip if absent). */
+    /* Tier 1: corpus TRAVEL.DBF (fail loud (named opt-out only) if absent). */
     test_corpus(pal, base);
 
     pal_host_free(pal);

@@ -86,6 +86,7 @@
  *                             16,13,20,22,21,23,11,24,28,25,27,26]
  */
 
+#include "../../oracle_policy.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -458,8 +459,8 @@ static void test_index_nav(samir_pal_t *pal, const char *base)
 
     if (!file_exists(clients) || !file_exists(names) ||
         !file_exists(tours) || !file_exists(tourdate)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): corpus golden(s) absent under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "corpus golden(s) absent under base '%s'\n"
                 "               need: %s %s %s %s\n"
                 "               (Tier-0 synthetic ran; -DNAV_MUTATE_SKIP bites Tier 0)\n",
                 base, clients, names, tours, tourdate);
@@ -668,11 +669,11 @@ int main(int argc, char **argv)
     /* Tier 0: synthetic physical-order walk (always runs). */
     test_physical_nav(pal);
 
-    /* Tier 1: corpus index-order walk (loud-skip if absent). */
+    /* Tier 1: corpus index-order walk (fail loud (named opt-out only) if absent). */
     join(path, sizeof(path), base, SP_PATH "/CLIENTS.DBF");
     if (!file_exists(path)) {
-        fprintf(stderr,
-                "  SKIP (LOUD): no corpus goldens under base '%s'\n"
+        oracle_missing("DBASE3_DECOMP",
+                "no corpus goldens under base '%s'\n"
                 "               expected e.g. %s/%s/CLIENTS.DBF\n"
                 "               (pass the corpus base as argv[1]; Tier-0 physical ran)\n",
                 base, base, SP_PATH);
