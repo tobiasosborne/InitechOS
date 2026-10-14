@@ -121,7 +121,13 @@
 /* The command column is the period-plausible "^X" substitution (2 chars),
  * measured proportionally per item (menu.c cmd_run_w; initech-tdnl.33). */
 #define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
-#define FLAIR_MENU_CMD_RPAD      16   /* command cell right edge -> panel right */
+/* RE-KEY2026-10-15 tdnl.94: s8_menu_dropped frame230-ink216=14.
+ * Chicago N trailing1 and exclusive frame correction ->cell RPAD13. */
+#if defined(MENU_LOOK_MUT_WRONG_RPAD)
+#define FLAIR_MENU_CMD_RPAD      16
+#else
+#define FLAIR_MENU_CMD_RPAD      13
+#endif
 
 /* ===========================================================================
  * 3. MENU ITEM + MENU + MENU BAR RECORDS  (verbatim Inside Macintosh)

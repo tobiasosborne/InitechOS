@@ -714,7 +714,7 @@ int main(int argc, char **argv)
              * read from the artifact). The caret's apex is its cap-top row
              * (row_top+2) at '^' lb 2 + apex column 2 = cell column 4. */
             {
-                int cmd_x = panel.right - 16 - (8 + 9);
+                int cmd_x = panel.right - 13 - (8 + 9); /* capture230-216=14 */
                 CHECK(render_pixel_index(&ctx, (uint32_t)(cmd_x + 4),
                           (uint32_t)(row0_top + 2)) == MG_TEXT_BLACK &&
                       render_pixel_index(&ctx, (uint32_t)(cmd_x + 3),
