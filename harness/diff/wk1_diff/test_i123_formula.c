@@ -698,6 +698,26 @@ static const man_t MAN[] = {
     { "@IRR(A2,B2..B14)",            0x32u, 12, "6.11%", 326 },
     { "@ATAN2(0,0)",                    G, 9, "ERR", 304 },
     { "@CHAR(0)",                       G, 9, "ERR", 307 },
+    /* the rules, applied by hand to data this test puts in the sheet:
+     * population (n) variance / deviation (p. 13-55, 13-62: PDF 343, 350) */
+    { "@VAR(2,4,4,4,5,5,7,9)",          G, 9, "4", 350 },
+    { "@STD(2,4,4,4,5,5,7,9)",          G, 9, "2", 343 },
+    /* "1-2-3 assigns the value 0 to all labels in a range and includes them
+     * in calculations ... ignore blank cells" (p. 13-12, PDF 300); @COUNT
+     * counts labels (p. 13-21, PDF 309): C2 'x, C3 4, C4..C5 blank */
+    { "@AVG(C2..C5)",                   G, 9, "2", 300 },
+    { "@SUM(C2..C5)",                   G, 9, "4", 300 },
+    { "@COUNT(C2..C5)",                 G, 9, "2", 309 },
+    { "@MIN(C2..C5)",                   G, 9, "0", 300 },
+    /* database @functions over H1..J6 (Name City Amt), Chapter 4 "Writing
+     * Criteria" (PDF 97-100): label wildcard Bos*, ~ negation, a formula
+     * criterion on the first record, two criteria rows = #OR# */
+    { "@DSUM(H1..J6,2,L1..L2)",         G, 9, "350", 98 },
+    { "@DCOUNT(H1..J6,2,M1..M2)",       G, 9, "2", 98 },
+    { "@DSUM(H1..J6,2,N1..N2)",         G, 9, "150", 98 },
+    { "@DAVG(H1..J6,2,L1..L3)",         G, 9, "140", 100 },
+    { "@DMAX(H1..J6,2,L1..L2)",         G, 9, "200", 315 },
+    { "@DSUM(H1..J6,3,L1..L2)",         G, 9, "ERR", 294 },
 };
 static const struct { const char *text, *want; int pdf; } MANS[] = {
     { "@MID(\"Daily Account Balance\",6,7)", "Account", 331 },
@@ -723,6 +743,41 @@ static void part_f(void)
     /* Figure 13-27 (PDF 327): the initial investment of $1000 in B2 (an
      * outflow) and 12 cash flows of $120 in B3..B14; the guess in A2. */
     CHECK(i123_set_number(&sh, 0, 1, 0.1) == I123_OK, "guess");
+    CHECK(i123_set_label(&sh, 2, 1, '\'', "x", 1) == I123_OK, "C2 label");
+    CHECK(i123_set_number(&sh, 2, 2, 4.0) == I123_OK, "C3");
+    {
+        /* H1..J6: Name City Amt / Ann Boston 150 / Bob Cambridge 80 /
+         * Cy Bostonia 200 / Di Portland 70 / Ed Boston (Amt blank).
+         * L1..L3 City / Bos* / Portland; M1..M2 Amt / +J2>100 (written for
+         * the first record); N1..N2 City / ~Bos*. By hand:
+         *   Bos*            Ann, Cy, Ed  -> @DSUM 150+200 = 350, @DMAX 200
+         *   +J2>100         Ann, Cy      -> @DCOUNT 2
+         *   ~Bos*           Bob, Di      -> @DSUM 80+70 = 150
+         *   Bos* OR Portland  Ann, Cy, Ed, Di -> @DAVG of the non-blank
+         *                   Amt (150+200+70)/3 = 140
+         *   field offset 3 of a 3-column input -> ERR (PDF 294). */
+        static const char *const NAMES[] = { "Name", "Ann", "Bob", "Cy", "Di", "Ed" };
+        static const char *const CITY[] = { "City", "Boston", "Cambridge", "Bostonia", "Portland", "Boston" };
+        static const double AMT[] = { 0, 150, 80, 200, 70, 0 };
+        for (uint16_t r = 0; r < 6; r++) {
+            CHECK(i123_set_label(&sh, 7, r, '\'', NAMES[r], (uint32_t)strlen(NAMES[r])) == I123_OK, "name");
+            CHECK(i123_set_label(&sh, 8, r, '\'', CITY[r], (uint32_t)strlen(CITY[r])) == I123_OK, "city");
+            if (r == 0) CHECK(i123_set_label(&sh, 9, 0, '\'', "Amt", 3) == I123_OK, "amt");
+            else if (r < 5) CHECK(i123_set_number(&sh, 9, r, AMT[r]) == I123_OK, "amt");
+        }
+        CHECK(i123_set_label(&sh, 11, 0, '\'', "City", 4) == I123_OK, "L1");
+        CHECK(i123_set_label(&sh, 11, 1, '\'', "Bos*", 4) == I123_OK, "L2");
+        CHECK(i123_set_label(&sh, 11, 2, '\'', "Portland", 8) == I123_OK, "L3");
+        CHECK(i123_set_label(&sh, 12, 0, '\'', "Amt", 3) == I123_OK, "M1");
+        {
+            uint8_t code[I123_CODE_MAX], zero[8] = { 0 };
+            uint32_t cl = 0;
+            CHECK(i123_formula_compile("+J2>100", 7, 12, 1, code, sizeof code, &cl) == I123_OK, "M2");
+            CHECK(i123_set_formula_raw(&sh, 12, 1, 0xFF, zero, code, cl, (const char *)0, 0) == I123_OK, "M2");
+        }
+        CHECK(i123_set_label(&sh, 13, 0, '\'', "City", 4) == I123_OK, "N1");
+        CHECK(i123_set_label(&sh, 13, 1, '\'', "~Bos*", 5) == I123_OK, "N2");
+    }
     CHECK(i123_set_number(&sh, 1, 1, -1000.0) == I123_OK, "B2");
     for (uint16_t r = 2; r <= 13; r++) CHECK(i123_set_number(&sh, 1, r, 120.0) == I123_OK, "B3..B14");
     for (int i = 0; i < n; i++) {
@@ -755,7 +810,7 @@ static void part_f(void)
         } else ok++;
     }
     CHECK(g_man_fail == 0, "every manual example evaluates to the printed result");
-    printf("  part F: %d/%d worked examples of the R2.2 Reference Chapter 13 evaluate to the printed result\n", ok, n + ns);
+    printf("  part F: %d/%d R2.2 Reference examples and stated rules (Chapter 13 worked examples; list, label, blank and @D criteria rules applied by hand) evaluate as the manual says\n", ok, n + ns);
 }
 
 int main(int argc, char **argv)

@@ -13386,10 +13386,10 @@ test-i123-wk1-roundtrip-mutant: $(BUILD)/test_i123_wk1_mutant_I123_MUT_LABEL_OPC
 # 37 typed formulas compile to 123.EXE's bytes; B all 1090 decompile and
 # recompile; C every formula reproduces 1-2-3's cache from its sheet's
 # values; D poisoned caches recalculated -> files byte-identical; E a random
-# formula property test; F the 85 worked examples of the R2.2 Reference
-# Chapter 13 (trig, logs, financial, date/time, string: the functions no
-# golden exercises) evaluate to the printed results. THREE builds of the oracle run: the host (SSE)
-# build, and two x87 builds (-mfpmath=387) under the two candidate tenant
+# formula property test; F 97 examples of the R2.2 Reference (Chapter 13
+# worked examples, plus its list/label/blank and @D criteria rules applied
+# by hand: the functions no golden exercises) evaluate as the manual says.
+# THREE builds of the oracle run: the host (SSE) build, and two x87 builds (-mfpmath=387) under the two candidate tenant
 # control words, settling ADR-0009 DEC-01a Sec 4 by differential: 0x037F
 # (64-bit precision, the kernel's boot word, which face_a.c loads) MUST be
 # green; 0x027F (53-bit) must be RED for the recorded reason (the literal

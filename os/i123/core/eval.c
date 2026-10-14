@@ -346,9 +346,20 @@ static void resolve_ref(const ev_t *e, const uint8_t *p, int32_t *c, int32_t *r)
  * order) -- statistical functions ignore blanks ([M] p. 13-12 (PDF 300)). */
 typedef int (*cell_fn)(void *ctx, const i123_cell_t *c, const i123_val_t *v);
 
+/* The first store index whose row is >= r (the store is row-major). */
+static uint32_t first_in_row(const i123_sheet_t *sh, uint16_t r)
+{
+    uint32_t lo = 0, hi = sh->ncells;
+    while (lo < hi) {
+        uint32_t mid = lo + (hi - lo) / 2u;
+        if (sh->cells[mid].row < r) lo = mid + 1u; else hi = mid;
+    }
+    return lo;
+}
+
 static int range_each(const i123_sheet_t *sh, const i123_val_t *rg, cell_fn fn, void *ctx)
 {
-    for (uint32_t i = 0; i < sh->ncells; i++) {
+    for (uint32_t i = first_in_row(sh, rg->r0); i < sh->ncells; i++) {
         const i123_cell_t *c = &sh->cells[i];
         i123_val_t v;
         if (c->row < rg->r0) continue;
@@ -423,12 +434,12 @@ static void fn_stat(const ev_t *e, uint8_t t, const i123_val_t *a, uint32_t argc
         /* second pass over the same arguments */
         for (uint32_t i = 0; i < argc; i++) {
             if (a[i].t == I123_V_RANGE) {
-                for (uint32_t k = 0; k < e->sh->ncells; k++) {
+                for (uint32_t k = first_in_row(e->sh, a[i].r0); k < e->sh->ncells; k++) {
                     const i123_cell_t *c = &e->sh->cells[k];
                     i123_val_t v;
                     double x, d;
-                    if (c->row < a[i].r0 || c->row > a[i].r1 || c->col < a[i].c0 ||
-                        c->col > a[i].c1 || c->kind == I123_K_BLANK) continue;
+                    if (c->row > a[i].r1) break;
+                    if (c->col < a[i].c0 || c->col > a[i].c1 || c->kind == I123_K_BLANK) continue;
                     i123_cell_value(e->sh, c->col, c->row, &v);
                     x = (v.t == I123_V_NUM) ? v.n : 0.0;
                     d = x - avg;
