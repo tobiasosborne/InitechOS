@@ -300,7 +300,10 @@ int main(int argc,char **argv)
 #else
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","set filter to bal > 0","list bal off"};
-        RUN(s,"1234.50\n7777.77\n","K05 LIST excludes negative balance");
+        /* Re-keyed 2026-10-15 (initech-1y0h/r3pa): numeric cells render
+         * right-aligned in their N(w,d) width (Using III+ U5-144), so BAL
+         * N(8,2) prints " 1234.50". */
+        RUN(s," 1234.50\n 7777.77\n","K05 LIST excludes negative balance");
         CHECK(!cap_has("-42"),"K05 hidden row absent");
     }
     {
@@ -339,7 +342,10 @@ int main(int argc,char **argv)
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","display","list","set deleted on","list off name","go 2","display","set deleted off","recall","display"};
         RUN(s,"*       2 WADDAMS","K06 marker precedes deleted record");
         CHECK(!cap_has("File already exists"),"K06 SET DELETED recognized");
-        CHECK(cap_has("        2 WADDAMS"),"K06 RECALL removes marker");
+        /* Re-keyed 2026-10-15 (initech-3cz2/vz6z): the record number is
+         * right-aligned under the Record# heading (7 columns + a space, Using
+         * III+ U5-144 listings), so a live row reads "       2 WADDAMS". */
+        CHECK(cap_has("       2 WADDAMS"),"K06 RECALL removes marker");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","set deleted on","set filter to bal < 0","go top","? eof()","set deleted off","go top","? recno()"};
