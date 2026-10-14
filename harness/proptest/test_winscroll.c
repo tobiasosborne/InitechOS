@@ -251,6 +251,32 @@ int main(void)
         CHECK(WindowScrollFindPart(&g_wm, &g_rec, P(367, 200), &axis) == 0,
               "W6 an INACTIVE window's bar has no part (the click only activates)");
         g_rec.hilited = 1;
+        /* Resize must settle the model BEFORE chrome or content paints.
+         * Original view 338x177; content 300x100 fits. At 160x100 the
+         * view is 138x57, hence H max162, V max43. */
+        wscroll_set_extent(&ws.axis[WSCROLL_H], 300, 338);
+        wscroll_set_extent(&ws.axis[WSCROLL_V], 100, 177);
+        SizeWindow(&g_wm, &g_rec, 160, 100);
+        CHECK(ws.axis[WSCROLL_H].max == 162 && ws.axis[WSCROLL_V].max == 43 &&
+              WindowScrollFindPart(&g_wm, &g_rec, P(151,147), &axis) == 21,
+              "W7 resize re-evaluates enabled ranges before any paint");
+        wscroll_step(&ws.axis[WSCROLL_H], 21);
+        SizeWindow(&g_wm, &g_rec, 360, 220);
+        CHECK(ws.axis[WSCROLL_H].max == 0 && ws.axis[WSCROLL_V].max == 0 &&
+              ws.axis[WSCROLL_H].value == 0 &&
+              WindowScrollFindPart(&g_wm, &g_rec, P(352,267), &axis) == 0,
+              "W7 growing re-evaluates disabled range and clamps value before paint");
+        SizeWindow(&g_wm, &g_rec, 160, 100);
+        ZoomWindow(&g_wm, &g_rec);
+        CHECK(ws.axis[WSCROLL_H].max == 0 && ws.axis[WSCROLL_V].max == 0,
+              "W7 zoom re-evaluates disabled range before paint");
+        ZoomWindow(&g_wm, &g_rec);
+        CHECK(ws.axis[WSCROLL_H].max == 162 && ws.axis[WSCROLL_V].max == 43,
+              "W7 zoom restore re-evaluates enabled range before paint");
+        SizeWindow(&g_wm, &g_rec, 360, 220);
+        wscroll_set_extent(&ws.axis[WSCROLL_V], 400, 177);
+        CHECK(ws.axis[WSCROLL_V].max == 223,
+              "W7 changed content extent re-enables the bar without a resize");
         DisposeWindow(&g_wm, &g_rec);
         CHECK(WindowScrollOf(&g_wm, &g_rec) == NULL && g_wm.scrolls == NULL,
               "W6 DisposeWindow detaches the scroll record");

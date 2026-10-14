@@ -104,6 +104,7 @@
 /* One bar's ControlRecord state (control-manager.md ControlRecord: value,
  * min, max, hilite). contrlMin is always 0. */
 typedef struct WindowScrollAxis {
+    int32_t content_len; /* cached document extent: resize settles before paint */
     int16_t value;     /* contrlValue: document px scrolled, in [0, max]       */
     int16_t max;       /* contrlMax: content length - view length, >= 0        */
     int16_t line;      /* arrow step, px                                       */
@@ -296,6 +297,7 @@ static inline int wscroll_set_extent(WindowScrollAxis *a, int content_len,
 {
     int m, pg;
     if (a == (WindowScrollAxis *)0) return 0;
+    a->content_len = content_len;
     if (a->line <= 0) a->line = WSCROLL_LINE_DEFAULT;
     m = content_len - view_len;
     if (m < 0) m = 0;

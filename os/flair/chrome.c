@@ -765,8 +765,9 @@ static void draw_horizontal_scrollbar(GrafPort *port, const flair_skin_t *skin,
 #else
     int frame_part = active ? FLAIR_PART_FRAME
                             : FLAIR_PART_PLAT_INACTIVE_FRAME;
-    int interior_bottom = active ? bottom - 1 : bottom;
-    crect(port, left + 1, top + 1, right - 1, interior_bottom,
+    /* All 14 interior rows, including the old well's final row when an
+     * enabled bar becomes disabled (tdnl.82). The frame is at bottom. */
+    crect(port, left + 1, top + 1, right - 1, bottom,
           FLAIR_PART_PLAT_TROUGH);
     cfill(port, left, top, right - left, frame_part);
     cfill(port, left, bottom, right - left, frame_part);

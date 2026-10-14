@@ -12467,7 +12467,7 @@ test-window-mutant: $(TEST_WINDOW_MUT_ZORDER) $(TEST_WINDOW_MUT_OVERPAINT) $(TES
 # ---------------------------------------------------------------------------
 TEST_WINSCROLL     := $(BUILD)/test_winscroll
 TEST_WINSCROLL_SRC := harness/proptest/test_winscroll.c
-WINSCROLL_MUTANTS  := WINDOW_MUTATE_SCROLL_DRAG WSCROLL_MUT_THUMB_UNSCALED WSCROLL_MUT_PAGE_WRONG_DIR
+WINSCROLL_MUTANTS  := WINDOW_MUTATE_SCROLL_DRAG WSCROLL_MUT_THUMB_UNSCALED WSCROLL_MUT_PAGE_WRONG_DIR WINDOW_MUT_SCROLL_STALE_RESIZE
 $(TEST_WINSCROLL): $(TEST_WINSCROLL_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -o $@ $(TEST_WINSCROLL_SRC) $(WINDOW_LINK)
 $(BUILD)/test_winscroll_mutant_%: $(TEST_WINSCROLL_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
@@ -12488,7 +12488,8 @@ test-winscroll-mutant: $(foreach m,$(WINSCROLL_MUTANTS),$(BUILD)/test_winscroll_
 	@grep -q 'W5 every pixel' $(BUILD)/test_winscroll_mutant_WINDOW_MUTATE_SCROLL_DRAG.log || { printf '!!! test-winscroll-mutant FAIL: SCROLL_DRAG red for the wrong reason\n'; exit 1; }
 	@grep -q 'W2 thumb' $(BUILD)/test_winscroll_mutant_WSCROLL_MUT_THUMB_UNSCALED.log || { printf '!!! test-winscroll-mutant FAIL: THUMB_UNSCALED red for the wrong reason\n'; exit 1; }
 	@grep -q 'W4 page' $(BUILD)/test_winscroll_mutant_WSCROLL_MUT_PAGE_WRONG_DIR.log || { printf '!!! test-winscroll-mutant FAIL: PAGE_WRONG_DIR red for the wrong reason\n'; exit 1; }
-	@printf ">>> test-winscroll-mutant: green (three mutants RED for the named reason)\n"
+	@grep -q 'FAIL.*W7 resize' $(BUILD)/test_winscroll_mutant_WINDOW_MUT_SCROLL_STALE_RESIZE.log || { printf 'FAIL stale resize mutant wrong reason\n'; exit 1; }
+	@printf ">>> test-winscroll-mutant: green (four mutants RED for the named reason)\n"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-finder-cmd (beads initech-tdnl.27; docs/design/
