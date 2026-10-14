@@ -301,7 +301,13 @@ static int title_layout_make(title_layout_t *out, const char *title,
             out->text[i] = title[i];
         }
         if (source_truncated || shown < n) {
+#if defined(CHROME_MUT_TRUNC_PERIOD)
+            /* Rule-6 restoration of the retired R0.2 marker (test-flair-fonts
+             * W3 must go RED): one period instead of the 0xC9 ellipsis. */
+            out->text[shown - 1] = '.';
+#else
             out->text[shown - 1] = FLAIR_CHROME_TITLE_TRUNC_MARKER;
+#endif
         }
         out->text[shown] = '\0';
         int width = text_measure(FONT_CHICAGO, out->text);
