@@ -40,3 +40,14 @@ FLAIR_IWORD_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:
 # 2. FLAIR_IWORD_TYPE_SPEC -- the record clip's trace (iword_typing, Rule 14):
 #    launch and type the paragraph only (the wrap happening). 99 tokens.
 FLAIR_IWORD_TYPE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kshift-i,kn,ki,kt,ke,kc,kh,kspc,kw,ko,kr,kd,kspc,kp,kr,ko,kc,ke,ks,ks,ki,kn,kg,kspc,ki,ks,kspc,kh,ke,kr,ke,kdot,kspc,kshift-t,kh,ke,kspc,kq,ku,ki,kc,kk,kspc,kb,kr,ko,kw,kn,kspc,kf,ko,kx,kspc,kj,ku,km,kp,ks,kspc,ko,kv,ke,kr,kspc,kt,kh,ke,kspc,kl,ka,kz,ky,kspc,kd,ko,kg,kdot
+
+# 3. FLAIR_IWORD_CODES_SPEC -- test-flair-iword-codes and the iword_codes clip
+#    (bead initech-jojk, IWORD P2 slice 1): launch (A, B, CWORD + double-
+#    click), type "bold under slant" PLAIN, Enter, then the same three words
+#    STYLED with WordPerfect 5.1's own keys -- F6 "bold" F6, space, F8 "under"
+#    F8, space, Ctrl-F8 2 4 "slant" Ctrl-F8 2 4 (Font, Appearance, Italc:
+#    mint/wpMINT06.steps lines 5-15 of ../wordperfect51-decomp, the keys the
+#    real WP.EXE was minted with) -- F10 "codes" Enter (saved), Alt-F3
+#    (Reveal Codes). Line 1 is the PLAIN reference the pixel checker
+#    synthesizes line 2 from (tools/ppm_iword_codes_check.c). 73 tokens.
+FLAIR_IWORD_CODES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kb,ko,kl,kd,kspc,ku,kn,kd,ke,kr,kspc,ks,kl,ka,kn,kt,kret,kf6,kb,ko,kl,kd,kf6,kspc,kf8,ku,kn,kd,ke,kr,kf8,kspc,kctrl-f8,k2,k4,ks,kl,ka,kn,kt,kctrl-f8,k2,k4,kf10,kc,ko,kd,ke,ks,kret,kalt-f3

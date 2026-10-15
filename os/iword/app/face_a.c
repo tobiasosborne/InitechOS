@@ -3,7 +3,8 @@
  * 5.1 editing screen, drawn natively in a FLAIR window by a disk-launched
  * application (THE ARTIFACT).
  *
- * bead: initech-l4tj (IWORD P1, Face A skeleton). Epic initech-fdxa.
+ * bead: initech-l4tj (IWORD P1, Face A skeleton); initech-jojk (P2 slice 1:
+ *       attribute codes + Reveal Codes). Epic initech-fdxa.
  * Plan: docs/plans/INITECH-WORD-plan.md Sec 4 Face A (one native FlairApp
  *       window, the WP 5.1 surface rendered NATIVELY in fixed character
  *       cells; ADR-0013 Sec 4: a native tenant, never a text console) and
@@ -33,8 +34,29 @@
  * KEYS. Typing, Enter (hard return), Backspace, Delete, the arrows, Home /
  * End (start / end of the line -- WP's Home is a prefix key; the shortcut
  * is authored). Word wrap as WordPerfect stores it (os/iword/core/edit.c).
- * Codes are protected in P1: Backspace / Delete step over them (P2,
- * initech-jojk, gives them meaning and WP's "Delete [code]?" prompt).
+ * ATTRIBUTE CODES (bead initech-jojk, P2 slice 1; os/iword/core/codes.c):
+ *   F6 Bold, F8 Underline -- "both an on and off code are inserted, with the
+ *                   cursor resting just before the off code"; the key again
+ *                   moves past it (Reference Manual, Attributes p. 36-37).
+ *   Ctrl-F8 Font    the Font menu on the status line, then 2 Appearance
+ *                   (1 Bold, 2 Undln, 4 Italc) or 3 Normal; the menu lines
+ *                   are the real WP 5.1's (spec/iword/reveal_codes.h). Size,
+ *                   Base Font, Print Color and the other appearances have no
+ *                   minted code number yet and return to the document.
+ *   Alt-F3 Reveal   the split screen: the document, the status line, the
+ *   Codes           ruler, the codes pane (every code by its label, the
+ *                   cursor's unit highlighted) and "Press Reveal Codes to
+ *                   restore screen". In Reveal Codes, Backspace / Delete on
+ *                   an attribute code delete it and its partner (MINT08);
+ *                   on the editing screen they step over every code (the
+ *                   "Delete [code]?" question is not minted -- a later slice).
+ * The text between the codes is drawn in its face through DRAWCELLS (bold,
+ * italic, underline synthesized by the Font Manager rules, spec/
+ * toolbox_gate.h Sec 7a STYLE). WordPerfect itself shows attributes as
+ * colours on a colour text screen (MINT01.shots/02_typed.png: bold bright
+ * white, underline on grey; MINT06: italic yellow); the four Toolbox colour
+ * tokens cannot, so Face A draws the face itself -- authored adaptation. The
+ * ruler band is BLACK on GRAY where WP's is red (same reason).
  *   F10 Save        "Document to be Saved: " (Reference Manual, Exit p. 195,
  *                   PDF 213; Save p. 564, PDF 582): the current name is
  *                   offered, a character typed first replaces it (Save p.
@@ -78,6 +100,7 @@
 #include "tbx.h"
 #include "iword.h"
 #include "iword/wp5_format.h"
+#include "iword/reveal_codes.h"
 
 const char tbx_app_name[] = "WORD";
 
@@ -95,6 +118,16 @@ const char tbx_app_name[] = "WORD";
 #define LINE_STATUS  (SCR_LINES - 1)
 #define STATUS_DOC_END 67                /* "... Ln 1"" ends at column 67 */
 #define STATUS_POS   69                  /* "Pos" at column 69            */
+/* REVEAL CODES (Alt-F3; spec/iword/reveal_codes.h). WordPerfect's 25-line
+ * screen splits into the document (lines 0-10), the status line (11), the
+ * ruler (12), the 11-row codes pane (13-23) and "Press Reveal Codes to
+ * restore screen" (24). The window has 24 lines, so the document part is one
+ * line shorter (10 rows) and the rest is WordPerfect's, row for row. */
+#define RV_TOP_ROWS  10
+#define RV_STATUS    10
+#define RV_RULER     11
+#define RV_PANE      12                  /* rows 12..22 */
+#define RV_MESSAGE   23
 
 #define FG           TBX_COLOR_WHITE
 #define BG           TBX_COLOR_NAVY
@@ -109,7 +142,10 @@ const char tbx_app_name[] = "WORD";
 #define VK_BSPC      0x0E
 #define VK_ENTER     0x1C
 #define VK_F1        0x3B
+#define VK_F3        0x3D
+#define VK_F6        0x40
 #define VK_F7        0x41
+#define VK_F8        0x42
 #define VK_F10       0x44
 #define VK_HOME      0x47
 #define VK_UP        0x48
@@ -163,16 +199,28 @@ static const uint8_t *g_prefix;
 static uint32_t      g_prefix_len;
 static uint32_t      g_top;                 /* first line on the screen */
 
-/* ---- the screen ---------------------------------------------------------- */
+/* ---- the screen ----------------------------------------------------------
+ * A row is its text, the face of every cell (IW_A_* == the txFace bits the
+ * Toolbox synthesizes: bold 1, italic 2, underline 4), its colours and one
+ * reverse-video run (the cursor). A row is drawn only when it differs from
+ * what the screen has: the whole row plain in one DRAWCELLS run, then every
+ * styled stretch over it in its face (fg | face << 8, spec/toolbox_gate.h
+ * Sec 7/7a), then the reverse run -- so a row with no codes draws exactly as
+ * P1 drew it. */
+typedef struct row {
+    char    t[SCR_COLS + 1];
+    uint8_t a[SCR_COLS];
+    uint8_t fg, bg, inv_col, inv_len;
+} row_t;
 static int32_t  g_win TBX_IN_IMAGE = 0;
 static char     g_line[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
-static char     g_shadow[SCR_LINES][SCR_COLS + 1];
+static row_t    g_shadow[SCR_LINES];
 static uint8_t  g_shadow_ok[SCR_LINES];
-static int      g_cur_row = -1, g_cur_col;
 static uint8_t  g_caps;
+static uint8_t  g_reveal;                   /* Alt-F3: Reveal Codes is on */
 
 /* ---- prompts --------------------------------------------------------------- */
-enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR };
+enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_FONT, M_APPEAR };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -198,16 +246,44 @@ static void put_cells(int line, int col, const char *s, uint32_t n, uint32_t fg,
     (void)tbx_draw_cells(g_win, X0 + col * CW, line * CH, g_line, fg, bg);
 }
 
-/* Draw row `line` as `text` (SCR_COLS chars) unless the screen has it. */
-static void put_row(int line, const char *text)
+static void row_clear(row_t *r)
 {
-    int same = g_shadow_ok[line];
-    for (uint32_t i = 0; same && i < SCR_COLS; i++) if (g_shadow[line][i] != text[i]) same = 0;
+    for (uint32_t i = 0; i < SCR_COLS; i++) { r->t[i] = ' '; r->a[i] = 0; }
+    r->t[SCR_COLS] = 0;
+    r->fg = (uint8_t)FG;
+    r->bg = (uint8_t)BG;
+    r->inv_col = r->inv_len = 0;
+}
+
+/* Draw row `line` as `r` unless the screen has it. */
+static void put_row(int line, const row_t *r)
+{
+    const row_t *o = &g_shadow[line];
+    int same = g_shadow_ok[line] && o->fg == r->fg && o->bg == r->bg &&
+               o->inv_col == r->inv_col && o->inv_len == r->inv_len;
+    uint32_t c;
+    for (c = 0; same && c < SCR_COLS; c++) if (o->t[c] != r->t[c] || o->a[c] != r->a[c]) same = 0;
     if (same) return;
-    for (uint32_t i = 0; i < SCR_COLS; i++) g_shadow[line][i] = text[i];
-    g_shadow[line][SCR_COLS] = 0;
+    g_shadow[line] = *r;
     g_shadow_ok[line] = 1;
-    put_cells(line, 0, text, SCR_COLS, FG, BG);
+    put_cells(line, 0, r->t, SCR_COLS, r->fg, r->bg);
+    for (c = 0; c < SCR_COLS; ) {
+        uint8_t f = r->a[c];
+        uint32_t s0 = c;
+        if (!f) { c++; continue; }
+        while (c < SCR_COLS && r->a[c] == f) c++;
+        put_cells(line, (int)s0, r->t + s0, c - s0, (uint32_t)r->fg | TBX_TEXT_FACE(f), r->bg);
+    }
+    if (r->inv_len) put_cells(line, r->inv_col, r->t + r->inv_col, r->inv_len, r->bg, r->fg);
+}
+
+/* A row of plain text (the status line, the messages). */
+static void put_text_row(int line, const char *s)
+{
+    static row_t r;
+    row_clear(&r);
+    for (uint32_t i = 0; s[i] && i < SCR_COLS; i++) r.t[i] = s[i];
+    put_row(line, &r);
 }
 
 /* ---- the document's bytes in a bank ---------------------------------------- */
@@ -260,13 +336,15 @@ static void ensure_room(void)
 /* One edit. IW_E_FULL either refused the edit (nothing changed: compact
  * and try once more) or stopped the re-wrap after it (the length changed:
  * compact and finish the wrap -- reflow is idempotent). */
-enum { ED_TYPE, ED_ENTER, ED_BACKSPACE, ED_DELETE };
+enum { ED_TYPE, ED_ENTER, ED_BACKSPACE, ED_DELETE, ED_ATTR, ED_NORMAL };
 static int edit_once(int op, uint8_t ch)
 {
     switch (op) {
     case ED_TYPE:      return iw_ed_type(&g_ed, ch);
     case ED_ENTER:     return iw_ed_enter(&g_ed);
     case ED_BACKSPACE: return iw_ed_backspace(&g_ed);
+    case ED_ATTR:      return iw_ed_attr(&g_ed, ch);      /* ch = attribute number */
+    case ED_NORMAL:    return iw_ed_normal(&g_ed);
     default:           return iw_ed_delete(&g_ed);
     }
 }
@@ -285,27 +363,33 @@ static int edit(int op, uint8_t ch)
 }
 
 /* ---- painting ------------------------------------------------------------------ */
-static void row_text(const iw_line_t *ln, char *out)
+/* Line `ln` into row `r`; `*state` is the attribute state at ln->start and
+ * leaves as the state at ln->end (the codes are walked, zero width). */
+static void row_text(const iw_line_t *ln, uint32_t *state, row_t *r)
 {
     uint32_t p = ln->start, n = 0;
-    while (p < ln->text_end && n < SCR_COLS) {
+    row_clear(r);
+    while (p < ln->end) {
         int k = iw_unit_kind(&g_ed.doc, p);
-        if (k == IW_U_TEXT) out[n++] = (char)iw_doc_byte(&g_ed.doc, p);
-        else if (k == IW_U_HSPACE) out[n++] = ' ';
+        if (p < ln->text_end && n < SCR_COLS && (k == IW_U_TEXT || k == IW_U_HSPACE)) {
+            r->t[n] = k == IW_U_TEXT ? (char)iw_doc_byte(&g_ed.doc, p) : ' ';
+            r->a[n] = (uint8_t)iw_attr_faces(*state);
+            n++;
+        }
+        if (k == IW_U_CODE) *state = iw_attr_step(&g_ed.doc, p, *state);
         p = iw_unit_next(&g_ed.doc, p);
     }
-    while (n < SCR_COLS) out[n++] = ln->term == IW_U_HPG ? '=' : ' ';
-    out[SCR_COLS] = 0;
+    if (ln->term == IW_U_HPG) while (n < SCR_COLS) r->t[n++] = '=';
 }
 
-/* Keep the cursor's line on the screen. */
-static void follow(const iw_where_t *w)
+/* Keep the cursor's line among the `rows` document rows. */
+static void follow(const iw_where_t *w, uint32_t rows)
 {
     if (w->line < g_top) g_top = w->line;
-    if (w->line >= g_top + EDIT_ROWS) g_top = w->line - (EDIT_ROWS - 1u);
+    if (w->line >= g_top + rows) g_top = w->line - (rows - 1u);
 }
 
-static void paint_status(const iw_where_t *w)
+static void paint_status(const iw_where_t *w, int line)
 {
     char s[SCR_COLS + 1], num[12], doc[32];
     uint32_t n, i, k;
@@ -340,6 +424,8 @@ static void paint_status(const iw_where_t *w)
         else if (g_mode == M_SAVEQ) t = "Save Document? Yes (No)";
         else if (g_mode == M_EXITQ) t = "Exit WP? No (Yes)";
         else if (g_mode == M_ERROR) t = g_err;
+        else if (g_mode == M_FONT) t = IW_FONT_MENU;
+        else if (g_mode == M_APPEAR) t = IW_APPEAR_MENU;
         else if (g_mode == M_REPLACE) {
             n = 0;
             scopy(replace, "Replace ");
@@ -358,47 +444,70 @@ static void paint_status(const iw_where_t *w)
             for (i = 0; i < k; i++) s[SCR_COLS - k + i] = nm[i];
         }
     }
-    put_row(LINE_STATUS, s);
+    put_text_row(line, s);
+}
+
+/* The document rows 0 .. rows-1, the cursor in reverse video. */
+static void paint_doc(const iw_where_t *w, uint32_t rows)
+{
+    static iw_line_t lines[EDIT_ROWS];
+    static row_t r;
+    uint32_t got, i, state = 0;
+    int crow, ccol;
+    follow(w, rows);
+    got = iw_ed_lines(&g_ed, g_top, rows, lines);
+    if (got) state = iw_attr_state(&g_ed.doc, lines[0].start);
+    crow = (int)(w->line - g_top);
+    ccol = (int)(w->col < SCR_COLS ? w->col : SCR_COLS - 1u);
+    for (i = 0; i < rows; i++) {
+        if (i < got) row_text(&lines[i], &state, &r);
+        else row_clear(&r);
+        if ((int)i == crow) { r.inv_col = (uint8_t)ccol; r.inv_len = 1; }
+        put_row((int)i, &r);
+    }
+}
+
+/* Reveal Codes: the ruler, the codes pane and the restore message. */
+static char g_pane[IW_RV_PANE_ROWS][SCR_COLS + 1];
+static void paint_reveal(void)
+{
+    static row_t r;
+    iw_pane_t pane;
+    uint32_t i;
+    row_clear(&r);
+    r.fg = (uint8_t)TBX_COLOR_BLACK;           /* authored: WP's band is red */
+    r.bg = (uint8_t)TBX_COLOR_GRAY;
+    for (i = IW_RV_RULER_EVERY; i < SCR_COLS; i += IW_RV_RULER_EVERY) r.t[i] = (char)IW_RV_RULER_TAB;
+    r.t[0] = IW_RV_RULER_LEFT;
+    r.t[IW_WP5_WRAP_COLS] = IW_RV_RULER_RIGHT;
+    put_row(RV_RULER, &r);
+    iw_reveal_pane(&g_ed, SCR_COLS, IW_RV_PANE_ROWS, &g_pane[0][0], SCR_COLS + 1u, &pane);
+    for (i = 0; i < IW_RV_PANE_ROWS; i++) {
+        row_clear(&r);
+        for (uint32_t c = 0; g_pane[i][c] && c < SCR_COLS; c++) r.t[c] = g_pane[i][c];
+        if (pane.cur_len && pane.cur_row == i) { r.inv_col = (uint8_t)pane.cur_col; r.inv_len = (uint8_t)pane.cur_len; }
+        put_row(RV_PANE + (int)i, &r);
+    }
+    put_text_row(RV_MESSAGE, IW_RV_MESSAGE);
 }
 
 static void paint(void)
 {
-    static iw_line_t lines[EDIT_ROWS];
-    char row[SCR_COLS + 1];
     iw_where_t w;
-    uint32_t got, i;
-    int crow, ccol;
     iw_ed_where(&g_ed, &w);
-    follow(&w);
-    got = iw_ed_lines(&g_ed, g_top, EDIT_ROWS, lines);
-    crow = (int)(w.line - g_top);
-    ccol = (int)(w.col < SCR_COLS ? w.col : SCR_COLS - 1u);
-    /* the cell the cursor left gets its row redrawn */
-    if (g_cur_row >= 0 && (g_cur_row != crow || g_cur_col != ccol)) g_shadow_ok[g_cur_row] = 0;
-    for (i = 0; i < EDIT_ROWS; i++) {
-        if (i < got) row_text(&lines[i], row);
-        else { for (uint32_t j = 0; j < SCR_COLS; j++) row[j] = ' '; row[SCR_COLS] = 0; }
-        if ((int)i == crow) {
-            int same = g_shadow_ok[i];
-            for (uint32_t j = 0; same && j < SCR_COLS; j++) if (g_shadow[i][j] != row[j]) same = 0;
-            if (!same || g_cur_row != crow || g_cur_col != ccol) {
-                g_shadow_ok[i] = 0;
-                put_row((int)i, row);
-                put_cells((int)i, ccol, &row[ccol], 1, BG, FG);
-            }
-        } else {
-            put_row((int)i, row);
-        }
+    if (!g_reveal) {
+        paint_doc(&w, EDIT_ROWS);
+        paint_status(&w, LINE_STATUS);
+        return;
     }
-    g_cur_row = crow;
-    g_cur_col = ccol;
-    paint_status(&w);
+    paint_doc(&w, RV_TOP_ROWS);
+    paint_status(&w, RV_STATUS);
+    paint_reveal();
 }
 
 static void paint_all(void)
 {
     for (int i = 0; i < SCR_LINES; i++) g_shadow_ok[i] = 0;
-    g_cur_row = -1;
     (void)tbx_fill_rect(g_win, 0, 0, WIN_R, WIN_B, BG);
     paint();
 }
@@ -579,6 +688,7 @@ static void name_key(char ch, uint8_t vk)
 
 static void prompt_key(char ch, uint8_t vk)
 {
+    int font_rc = IW_OK;
     if (g_mode == M_ERROR) { g_mode = g_err_return; return; }
     if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) {   /* Cancel */
         g_exiting = 0;
@@ -607,18 +717,52 @@ static void prompt_key(char ch, uint8_t vk)
         if (ch == 'y' || ch == 'Y') { (void)tbx_exit(0); return; }
         if (ch == 'n' || ch == 'N' || vk == VK_ENTER || ch == '\r') { g_exiting = 0; clear_document(); }
         break;
+    case M_FONT:
+        /* IW_FONT_MENU: 2 Appearance, 3 Normal. Size, Base Font and Print
+         * Color are not in this slice: any other key returns to the
+         * document, as Cancel does. */
+        g_mode = M_EDIT;
+        if (ch == '2') g_mode = M_APPEAR;
+        else if (ch == '3') font_rc = edit(ED_NORMAL, 0);
+        break;
+    case M_APPEAR:
+        /* IW_APPEAR_MENU: 1 Bold, 2 Undln, 4 Italc (the attribute numbers
+         * the mints verify, spec/iword/wp5_format.h); the other six have no
+         * verified number and return to the document unapplied. */
+        g_mode = M_EDIT;
+        if (ch == '1') font_rc = edit(ED_ATTR, IW_WP5_ATTR_BOLD);
+        else if (ch == '2') font_rc = edit(ED_ATTR, IW_WP5_ATTR_UNDERLINE);
+        else if (ch == '4') font_rc = edit(ED_ATTR, IW_WP5_ATTR_ITALIC);
+        break;
     default:
         g_mode = M_EDIT;
         break;
     }
+    if (font_rc == IW_E_FULL) error("ERROR: Document too large", M_EDIT);
 }
 
 static void edit_key(char ch, uint8_t vk, int32_t mods)
 {
     int shift = (mods & (int32_t)FLAIR_EVT_MOD_SHIFT_KEY) != 0;
+    int ctrl  = (mods & (int32_t)FLAIR_EVT_MOD_CONTROL_KEY) != 0;
+    int alt   = (mods & (int32_t)FLAIR_EVT_MOD_OPTION_KEY) != 0;
     int rc = IW_OK;
     if (ch == 0) {                       /* function and cursor keys */
         switch (vk) {
+        case VK_F6:                      /* Bold; Shift-F6 Center etc. are later slices */
+            if (!shift && !ctrl && !alt) rc = edit(ED_ATTR, IW_WP5_ATTR_BOLD);
+            break;
+        case VK_F8:                      /* Underline; Ctrl-F8 Font */
+            if (ctrl && !shift && !alt) g_mode = M_FONT;
+            else if (!shift && !ctrl && !alt) rc = edit(ED_ATTR, IW_WP5_ATTR_UNDERLINE);
+            break;
+        case VK_F3:                      /* Alt-F3 Reveal Codes (F3 Help: not here) */
+            if (alt && !shift && !ctrl) {
+                g_reveal = (uint8_t)!g_reveal;
+                g_ed.reveal = g_reveal;
+                paint_all();
+            }
+            break;
         case VK_F10:
             g_exiting = 0;
             if (shift) { g_nlen = 0; g_name[0] = 0; g_fresh = 0; g_mode = M_GET_NAME; }
@@ -649,6 +793,7 @@ static void key(int32_t message, int32_t mods)
     char ch = (char)(message & 0xFF);
     uint8_t vk = (uint8_t)((message >> 8) & 0xFF);
     g_caps = (mods & (int32_t)FLAIR_EVT_MOD_ALPHA_LOCK) != 0;
+    g_ed.reveal = g_reveal;                       /* a new document resets it */
     if (g_mode == M_EDIT) edit_key(ch, vk, mods);
     else prompt_key(ch, vk);
     paint();

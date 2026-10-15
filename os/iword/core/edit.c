@@ -276,6 +276,7 @@ void iw_ed_init(iw_ed_t *e, uint32_t width)
     e->width = width;
     e->goal = NONE;
     e->dirty = 0;
+    e->reveal = 0;
 }
 
 static int reflow_at(iw_ed_t *e, uint32_t pos)
@@ -315,7 +316,12 @@ int iw_ed_backspace(iw_ed_t *e)
     e->goal = NONE;
     if (e->cur == 0u) return IW_OK;
     q = iw_unit_prev(&e->doc, e->cur);
-    if (iw_unit_kind(&e->doc, q) == IW_U_CODE) { e->cur = q; return IW_E_PROTECTED; }
+    if (iw_unit_kind(&e->doc, q) == IW_U_CODE) {
+        /* Reveal Codes: an attribute code goes with its partner (codes.c) */
+        if (e->reveal && iw_code_attr(&e->doc, q, 0) >= 0) return iw_ed_kill_code(e, q);
+        e->cur = q;
+        return IW_E_PROTECTED;
+    }
     rc = iw_doc_delete(&e->doc, q, e->cur - q);
     if (rc != IW_OK) return rc;
     e->cur = q;
@@ -330,7 +336,11 @@ int iw_ed_delete(iw_ed_t *e)
     e->goal = NONE;
     if (e->cur >= e->doc.len) return IW_OK;
     q = iw_unit_next(&e->doc, e->cur);
-    if (iw_unit_kind(&e->doc, e->cur) == IW_U_CODE) { e->cur = q; return IW_E_PROTECTED; }
+    if (iw_unit_kind(&e->doc, e->cur) == IW_U_CODE) {
+        if (e->reveal && iw_code_attr(&e->doc, e->cur, 0) >= 0) return iw_ed_kill_code(e, e->cur);
+        e->cur = q;
+        return IW_E_PROTECTED;
+    }
     rc = iw_doc_delete(&e->doc, e->cur, q - e->cur);
     if (rc != IW_OK) return rc;
     e->dirty = 1;

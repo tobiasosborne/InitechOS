@@ -86,6 +86,31 @@ int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d,
         n = w - prefix_len;
     }
 #endif
+#ifndef IWORD_MUT_ITALIC_FLAG
+    /* The prefix records an italic body (spec/iword/wp5_format.h
+     * IW_WP5_PFX_ITALIC_OFF: MINT06 0x08, every other mint 0x00), applied to
+     * the default prefix only -- a prefix that differs elsewhere is carried
+     * opaque, as WP wrote it. MUTANT knob (Rule 6; test-iword-wp5-roundtrip-
+     * mutant): IWORD_MUT_ITALIC_FLAG never sets it. */
+    if (prefix_len == IW_WP5_DEFAULT_DOCSTART) {
+        int dflt = 1;
+        for (i = 0; i < prefix_len && dflt; i++)
+            if (i != IW_WP5_PFX_ITALIC_OFF && prefix[i] != DEFAULT_PREFIX[i]) dflt = 0;
+        if (dflt) {
+            /* the body is flat in out[] now: walk its units there */
+            int italic = 0;
+            uint32_t p = prefix_len, end = prefix_len + n;
+            while (p < end && !italic) {
+                uint32_t u = iw_unit_len(out, end, p);
+                if (u == 0u) break;
+                if ((out[p] == IW_WP5_ATTR_ON || out[p] == IW_WP5_ATTR_OFF) && u == IW_WP5_ATTR_LEN &&
+                    out[p + 1u] == IW_WP5_ATTR_ITALIC) italic = 1;
+                p += u;
+            }
+            out[IW_WP5_PFX_ITALIC_OFF] = italic ? IW_WP5_PFX_ITALIC : 0x00u;
+        }
+    }
+#endif
     *out_len = prefix_len + n;
     return IW_OK;
 }
