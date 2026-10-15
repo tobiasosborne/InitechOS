@@ -3290,14 +3290,14 @@ $(SAMIR_REPORT_MUTS): $(DBF_DIFF_DIR)/test_samir_report.c $(SAMIR_MAIN_SRC) $(IN
 samir-report-goldens:
 	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_REPORT_MD5)" || { printf '!!! samir-report-goldens FAIL: mint 004 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
 test-samir-report: $(TEST_SAMIR_REPORT) samir-report-goldens
-	@$(TEST_SAMIR_REPORT) $(DBASE3_DECOMP) > $(BUILD)/samir-report.log 2>&1 || { cat $(BUILD)/samir-report.log; exit 1; }
+	@$(TEST_SAMIR_REPORT) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report.log 2>&1 || { cat $(BUILD)/samir-report.log; exit 1; }
 	@grep -c 'byte-identical to real dBASE' $(BUILD)/samir-report.log | grep -qx 111
 	@tail -1 $(BUILD)/samir-report.log
 	@printf '>>> test-samir-report: green (111 REPORT FORM files byte-identical to real dBASE III PLUS 1.1)\n'
 test-samir-report-mutant: $(SAMIR_REPORT_MUTS) samir-report-goldens
 	@set -e; for kind in subtotal column page; do \
 	  case $$kind in subtotal) reason='REPORT G8TP.TXT: differs';; column) reason='REPORT G1FLT.TXT: differs';; page) reason='REPORT G2TRV.TXT: differs';; esac; \
-	  if $(BUILD)/test_samir_report_$$kind $(DBASE3_DECOMP) > $(BUILD)/samir-report-mut-$$kind.log 2>&1; then echo '!!! report mutant passed'; exit 1; fi; \
+	  if $(BUILD)/test_samir_report_$$kind $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report-mut-$$kind.log 2>&1; then echo '!!! report mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-report-mut-$$kind.log; \
 	  grep -Fq "$$reason" $(BUILD)/samir-report-mut-$$kind.log; \
 	  printf '>>> test-samir-report-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
@@ -26766,11 +26766,11 @@ $(SAMIR_REPORT_MUT_COM): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/li
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 .PHONY: test-samir-report-emu test-samir-report-emu-mutant
 test-samir-report-emu: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(SAMIR_REPORT_IMG) $(PPM_TEXT_CHECK_BIN)
-	@$(TEST_SAMIR_REPORT_EMU) files $(SAMIR_COM) $(DBASE3_DECOMP)
-	@$(TEST_SAMIR_REPORT_EMU) screen $(SAMIR_COM) $(DBASE3_DECOMP)
+	@$(TEST_SAMIR_REPORT_EMU) files $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
+	@$(TEST_SAMIR_REPORT_EMU) screen $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
 	@printf '>>> test-samir-report-emu: green (guest REPORT FORM files byte-identical to real dBASE; screendump cells match)\n'
 test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_REPORT_MUT_COM) $(SAMIR_REPORT_IMG)
-	@if $(TEST_SAMIR_REPORT_EMU) files $(SAMIR_REPORT_MUT_COM) $(DBASE3_DECOMP) > $(BUILD)/samir-report-emu-mut.log 2>&1; then echo '!!! report emu mutant passed'; exit 1; fi
+	@if $(TEST_SAMIR_REPORT_EMU) files $(SAMIR_REPORT_MUT_COM) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-report-emu-mut.log 2>&1; then echo '!!! report emu mutant passed'; exit 1; fi
 	@grep -q 'checks,.*failures' $(BUILD)/samir-report-emu-mut.log
 	@grep -Fq 'REPORT G8TP.TXT: guest file differs' $(BUILD)/samir-report-emu-mut.log
 	@grep -q 'triple_fault=0' $(BUILD)/samir-report-emu/files.report
