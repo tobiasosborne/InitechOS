@@ -20613,8 +20613,10 @@ test-flair-finder-follow-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DI
 	$(call fo-boot,$(BUILD)/flair_tenants_mut_win_abs_coords.img,flair_follow_mut_abs,$(BUILD)/flair_follow_mut_abs_data.img,$(FLAIR_FOLLOW_DRAG_SPEC),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),1)
 	@grep -qxF 'FLAIR-DRAG win 0 (20,60)->(120,180)' $(BUILD)/flair_follow_mut_abs.serial || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS boot never reached the drag\n'; exit 1; }
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin $(BUILD)/flair_follow_mut_abs.ppm > $(BUILD)/flair_follow_mut_abs.grade 2>&1; then printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS PASSED the moved-window grader -- decoration\n'; exit 1; fi
-	@grep -q 'README.TXT DOC sprite @(139,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
-	@printf '>>> test-flair-finder-follow-mutant: ABS_COORDS correctly RED (README.TXT is not drawn at the moved cell (139,206))\n'
+	@# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): README.TXT's cell is
+	@# (44,86) since the content starts at L+6, so the moved cell is (144,206).
+	@grep -q 'README.TXT DOC sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
+	@printf '>>> test-flair-finder-follow-mutant: ABS_COORDS correctly RED (README.TXT is not drawn at the moved cell (144,206))\n'
 	@printf '>>> test-flair-finder-follow-mutant: green\n'
 
 # ===========================================================================
@@ -21924,6 +21926,8 @@ I123_TYPE_SERIAL = grep -qx 'TENANT-REGISTER ok app=123' $(1) && grep -qx 'FLAIR
 # global x = 6 (content left, inside the body rail; was 1) + X0 1 + 8*col, so
 # +5 from its tdnl.35 value; the face is 76 cells (was 77), so the right-
 # anchored MODE / CIRC cells sit one cell left (net -3). WORD likewise.
+# The reference samples move with the face too: (9,112) is the navy field
+# (was (4,112), now on the body rail), (305,452) the white canvas.
 I123_PX = $(PPM_REGION_COUNT_BIN) $(1) $(2) $(3) | sed -n 's/^ne=\([0-9]*\) eq=\([0-9]*\) .*/\1 \2/p'
 
 .PHONY: test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs
@@ -21937,11 +21941,11 @@ test-flair-i123: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_REGI
 	@$(call I123_TYPE_SERIAL,$(BUILD)/flair_i123_type.serial) || { printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- 123 did not come up, or row 1 / line 1 / the mode / the pointer are not what the typed MINT01 row must give\n'; grep -E '^(TENANT-(LOAD|REGISTER|CRASH|EXIT)|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_i123_type.serial; grep -E '^TENANT-GATE ax=0x0033 win=1 x=(1|33|249|577) y=(0|64) ' $(BUILD)/flair_i123_type.serial | tail -4; exit 1; }
 	@printf '>>> test-flair-i123 [1/3] TYPE: %s; row 1 drawn exactly as the real 1-2-3 showed MINT01 ("Hello 123 1.5 -7"), line 1 "D1: -7", READY, pointer on D1\n' "$$(grep -m1 '^TENANT-LOAD name=123' $(BUILD)/flair_i123_type.serial)"
 	@f=$(BUILD)/flair_i123_type.ppm; \
-		set -- $$($(call I123_PX,$$f,7 110 615 126,4 112)); bne=$$1; beq=$$2; \
-		set -- $$($(call I123_PX,$$f,575 62 615 78,4 112)); mne=$$1; meq=$$2; \
-		set -- $$($(call I123_PX,$$f,255 126 327 142,4 112)); pne=$$1; peq=$$2; \
-		set -- $$($(call I123_PX,$$f,39 126 111 142,300 452)); ane=$$1; \
-		set -- $$($(call I123_PX,$$f,255 142 327 158,4 112)); qeq=$$2; \
+		set -- $$($(call I123_PX,$$f,7 110 615 126,9 112)); bne=$$1; beq=$$2; \
+		set -- $$($(call I123_PX,$$f,575 62 615 78,9 112)); mne=$$1; meq=$$2; \
+		set -- $$($(call I123_PX,$$f,255 126 327 142,9 112)); pne=$$1; peq=$$2; \
+		set -- $$($(call I123_PX,$$f,39 126 111 142,305 452)); ane=$$1; \
+		set -- $$($(call I123_PX,$$f,255 142 327 158,9 112)); qeq=$$2; \
 		[ -n "$$beq" ] && [ "$$beq" -ge 7800 ] && [ "$$meq" -ge 380 ] && [ "$$peq" -ge 900 ] && [ "$$ane" -ge 40 ] && [ "$$qeq" -le 0 ] || { \
 			printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- the screen is not the Face A layout (border reverse %s/9728 px, mode %s/640, pointer on D1 %s/1152, A1 ink %s px, pointer below D1 %s px)\n' "$$beq" "$$meq" "$$peq" "$$ane" "$$qeq"; exit 1; }; \
 		printf '>>> test-flair-i123 [1/3] SCREEN: column border reverse %s/9728 px, mode indicator %s/640, pointer filled on D1 %s/1152, ink in A1 %s px, nothing reversed on D2\n' "$$beq" "$$meq" "$$peq" "$$ane"
@@ -21958,7 +21962,7 @@ test-flair-i123-mutant: test-flair-i123 $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLA
 	$(call appl-boot,flair_i123_mut,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_I123_ARROWS_IMG),FLAIR_I123_TYPE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_mut.serial || { printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD went RED for the wrong reason (want: 123 up and typed into, desktop alive)\n'; exit 1; }
 	@if $(call I123_TYPE_SERIAL,$(BUILD)/flair_i123_mut.serial); then printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD PASSED -- the TYPE leg is decoration\n'; exit 1; fi
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_mut.ppm,255 126 327 142,4 112)); \
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_mut.ppm,255 126 327 142,9 112)); \
 		if [ "$$2" -ge 900 ]; then printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD still shows the pointer on D1\n'; exit 1; fi; \
 		printf '>>> test-flair-i123-mutant: ARROWS_DEAD correctly RED -- row 1 is not the MINT01 row (last row-1 draw: %s) and the pointer is not on D1 (%s px)\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(BUILD)/flair_i123_mut.serial | tail -1 | cut -c38-80)" "$$2"
 	@printf '>>> test-flair-i123-mutant: green\n'
@@ -29192,11 +29196,11 @@ test-flair-i123-files: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_F
 	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-saved.WK1 > $(BUILD)/i123-saved.ref
 	@$(call I123_DISK_CELLS,$(BUILD)/i123-saved.ref) || { printf '!!! test-flair-i123-files FAIL: independent WK1 cells\n'; cat $(BUILD)/i123-saved.ref; exit 1; }
 	@$(call I123_FILE_ROWS,$(BUILD)/flair_i123_files.serial) || { printf '!!! test-flair-i123-files FAIL: retrieved cells\n'; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_files.ppm,39 126 111 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-files FAIL: cells not presented\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_files.ppm,39 126 111 142,9 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-files FAIL: cells not presented\n'; exit 1; }
 	fsck.fat -n $(BUILD)/flair_i123_files_data.img
 	$(call appl-boot,flair_i123_corpus,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_CORPUS,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_corpus.serial) && $(call I123_FILE_ROWS,$(BUILD)/flair_i123_corpus.serial) && grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=80 .* fg=1 bg=0 -> 0$$' $(BUILD)/flair_i123_corpus.serial | tail -1 | grep -q 's="     246    117\.5 39\.16666 big *"' || { printf '!!! test-flair-i123-files FAIL: real MINT01 rows vs screenshot\n'; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_corpus.ppm,255 142 327 158,4 112)); [ "$$2" -ge 900 ] || { printf '!!! test-flair-i123-files FAIL: corpus pointer/cells not presented\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_corpus.ppm,255 142 327 158,9 112)); [ "$$2" -ge 900 ] || { printf '!!! test-flair-i123-files FAIL: corpus pointer/cells not presented\n'; exit 1; }
 	@mcopy -o -i $(BUILD)/flair_i123_corpus_data.img ::MINT01.WK1 $(BUILD)/i123-corpus-after.WK1
 	@cmp $(BUILD)/i123-corpus-original.WK1 $(BUILD)/i123-corpus-after.WK1
 	@printf '>>> test-flair-i123-files: green (Save/Quit/Retrieve + wk1_ref.py + real MINT01 screenshot rows/pixels)\n'
@@ -29326,7 +29330,7 @@ test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I1
 	$(call appl-boot,flair_i123_qg_cancel,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CANCEL,--screendump --screendump-after FLAIR-LIVE-OK)
 	@f=$(BUILD)/flair_i123_qg_cancel.serial; $(call APPL_ALIVE,$$f) && [ "$$(grep -c '^TENANT-ALERT up lines=3 buttons=3$$' $$f)" = 2 ] && $(call QG_CANCELLED,$$f) || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- Escape must keep 123 and its row, and the sheet must stay dirty (asked twice)\n'; grep -E '^(TENANT-(ALERT|EXIT|EVT what=144)|PANIC)' $$f; exit 1; }
 	@$(PPM_FLAIR_TRASH_CHECK_BIN) tenant3-gone $(BUILD)/flair_i123_qg_cancel.ppm > $(BUILD)/flair_i123_qg_cancel.pixels || { cat $(BUILD)/flair_i123_qg_cancel.pixels; printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- the alert footprint was not repainted\n'; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_cancel.ppm,39 126 111 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- row 1 is not on screen after Cancel\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_cancel.ppm,39 126 111 142,9 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- row 1 is not on screen after Cancel\n'; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [2/9] CANCEL: Escape twice -> two Cancel answers, no exit, row 1 drawn from the model, the alert footprint repainted\n'
 	$(call appl-boot,flair_i123_qg_dontsave,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_DONTSAVE,)
 	@f=$(BUILD)/flair_i123_qg_dontsave.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=3' $$f && grep -qx 'TENANT-EXIT rc=0 via=exit' $$f || { printf '!!! test-flair-i123-quitguard [3/9] FAIL: DONTSAVE -- the Don'"'"'t Save button must end 123\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
@@ -29342,7 +29346,7 @@ test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I1
 	@mcopy -o -i $(BUILD)/flair_i123_qg_save_data.img ::Q.WK1 $(BUILD)/i123-qg-saved.WK1 || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- no Q.WK1 on the volume (mtools)\n'; exit 1; }
 	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-qg-saved.WK1 > $(BUILD)/i123-qg-saved.ref
 	@$(call I123_DISK_CELLS,$(BUILD)/i123-qg-saved.ref) || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- Q.WK1 does not hold the row per wk1_ref.py\n'; cat $(BUILD)/i123-qg-saved.ref; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_save.ppm,39 126 111 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- the retrieved row is not on screen\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_save.ppm,39 126 111 142,9 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- the retrieved row is not on screen\n'; exit 1; }
 	@fsck.fat -n $(BUILD)/flair_i123_qg_save_data.img > /dev/null || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- fsck.fat\n'; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [5/9] SAVE: Return (Save), q -> Q.WK1 (wk1_ref.py: Hello 123 1.5 -7), EXIT(0); relaunch + /FR q shows the row; fsck clean\n'
 	$(call appl-boot,flair_i123_qg_savefail,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SAVEFAIL,)
@@ -29426,8 +29430,8 @@ test-flair-i123-formula: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA
 	@printf '>>> test-flair-i123-formula [2/3] TEXT: line 1 "D1: -C1*2", finally "B1: @SUM(A1..C1)" (the decompiled, uppercased formula)\n'
 	@$(call I123_FORMULA_CIRC,$(BUILD)/flair_i123_formula.serial) || { printf '!!! test-flair-i123-formula FAIL [3/3] CIRC: the indicator is missing, or lit before the circular entry\n'; grep 'y=368 ' $(BUILD)/flair_i123_formula.serial | tail -3; exit 1; }
 	@f=$(BUILD)/flair_i123_formula.ppm; \
-		set -- $$($(call I123_PX,$$f,183 126 255 142,300 452)); cne=$$1; \
-		set -- $$($(call I123_PX,$$f,583 430 615 446,4 112)); ieq=$$2; \
+		set -- $$($(call I123_PX,$$f,183 126 255 142,305 452)); cne=$$1; \
+		set -- $$($(call I123_PX,$$f,583 430 615 446,9 112)); ieq=$$2; \
 		if [ "$$cne" -lt 20 ] || [ "$$ieq" -lt 200 ]; then printf '!!! test-flair-i123-formula FAIL [3/3] SCREEN: ink in C1 %s px (want >= 20), CIRC highlight %s/512 px (want >= 200)\n' "$$cne" "$$ieq"; exit 1; fi; \
 		printf '>>> test-flair-i123-formula [3/3] CIRC: drawn highlighted at the status line end only after B1 @SUM(A1..C1); screen: ink in C1 %s px, CIRC highlight %s/512 px\n' "$$cne" "$$ieq"
 	@printf '>>> test-flair-i123-formula: green\n'
@@ -29961,10 +29965,12 @@ include spec/flair_i123_menu_traces.mk
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1000,i123_menu_gate))
 FLAIR_I123_MENU_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_menu_gate.img
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
+# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
+# clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").
 I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=123' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_MENU_ROW)" fg=1 bg=0 -> 0' $(1) && \
 	grep -qF 's="Enter range to copy FROM:' $(1) && grep -qF 's="Enter range to move FROM:' $(1) && \
-	grep -qF 's="Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Searc' $(1) && \
+	grep -qF 's="Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Sear' $(1) && \
 	grep -qF 's="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
 $(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
