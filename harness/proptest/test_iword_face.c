@@ -5,7 +5,7 @@
  * WHAT IS UNDER TEST. The real os/iword/app/face_a.c, compiled on the host
  * over the real document core, with the Toolbox Gate replaced by a
  * RECORDING MOCK (the test_i123_quit.c pattern, bead initech-fvnj): the
- * cells the app draws land in a 77 x 24 screen with their colours, EXIT is
+ * cells the app draws land in a 76 x 24 screen with their colours, EXIT is
  * recorded, the file verbs are served from a host directory. Each LAUNCH is
  * a fork()ed child -- a pristine image, as a real launch loads -- and a
  * relaunch reads what an earlier launch saved.
@@ -73,7 +73,10 @@ static volatile int *g_ctr;            /* [0] checks, [1] failures */
     fprintf(stderr, "  FAIL %s %s (line %d)\n", (id), (msg), __LINE__); } } while (0)
 
 /* ---- the recording mock ------------------------------------------------- */
-#define SCR_W 77
+/* RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the window content is
+ * 613 px since it starts inside the left body rail (frame.left + 6), so the
+ * face is 76 cells wide (was 77). */
+#define SCR_W 76
 #define SCR_H 24
 static char m_scr[SCR_H][SCR_W + 1];
 static char m_inv[SCR_H][SCR_W];        /* drawn NAVY on WHITE (the cursor) */
@@ -180,7 +183,7 @@ static void fkey(int vk, int32_t mods) { ev(keyDown, vk << 8, mods); }
 static __attribute__((unused)) void close_box(void) { ev(TBX_EVT_GOAWAY, 1, 0); }
 static __attribute__((unused)) void menu(int item) { ev(TBX_EVT_MENU, TBX_MENU_WORD(129, item), 0); }
 
-/* m_scr[line] == want padded with blanks to 77 columns */
+/* m_scr[line] == want padded with blanks to SCR_W (76) columns */
 static int row_is(int line, const char *want)
 {
     char w[SCR_W + 1];
@@ -192,16 +195,18 @@ static int row_is(int line, const char *want)
     return 0;
 }
 /* The status line: `left` at column 0, then the Doc group ending at column
- * 67 and "Pos" at column 69 (the MINT shots). */
+ * 66 and "Pos" at column 68: the MINT shots' 67 / 69, moved one column left
+ * by the 76-cell field (bead initech-tdnl.51, stated) so "Pos 2.3"" (8
+ * cells) still ends inside it; the group's shape and spacing are the shots'. */
 static __attribute__((unused)) int status_line_is(int line, const char *left, const char *ln, const char *pos, int caps)
 {
     char w[SCR_W + 1], doc[40];
     memset(w, ' ', SCR_W); w[SCR_W] = 0;
     memcpy(w, left, strlen(left));
     snprintf(doc, sizeof doc, "Doc 1 Pg 1 Ln %s", ln);
-    memcpy(w + 68 - strlen(doc), doc, strlen(doc));
-    memcpy(w + 69, caps ? "POS " : "Pos ", 4);
-    memcpy(w + 73, pos, strlen(pos));
+    memcpy(w + 67 - strlen(doc), doc, strlen(doc));
+    memcpy(w + 68, caps ? "POS " : "Pos ", 4);
+    memcpy(w + 72, pos, strlen(pos));
     return row_is(line, w);
 }
 static __attribute__((unused)) int status_is(const char *left, const char *ln, const char *pos, int caps)
@@ -262,7 +267,7 @@ static void t_flow(void)
     CHECK(status_is("A:\\MEMO", "1.17\"", "2.3\"", 0), "F1", "saved: the name at the left of the status line (04_saved.png)");
     CHECK(file_size("MEMO") == 327 + 77, "F1", "MEMO holds the 327-byte prefix + the 77-byte body");
     fkey(F7, 0);
-    CHECK(row_is(23, "Save Document? Yes (No)                               (Text was not modified)"), "F1",
+    CHECK(row_is(23, "Save Document? Yes (No)                              (Text was not modified)"), "F1",
           "F7 asks, with (Text was not modified) at the right end (PDF 211)");
     tk('n');
     CHECK(row_is(23, "Exit WP? No (Yes)"), "F1", "n: \"Exit WP? No (Yes)\" (PDF 38)");
@@ -323,7 +328,7 @@ static void t_clean_menu(void)
 static void t_clean_f7(void)
 {
     fkey(F7, 0);
-    CHECK(m_exit_calls == 0 && row_is(23, "Save Document? Yes (No)                               (Text was not modified)"),
+    CHECK(m_exit_calls == 0 && row_is(23, "Save Document? Yes (No)                              (Text was not modified)"),
           "F3", "F7 always asks (PDF 211)");
     tk('n');
     tk('y');
@@ -614,8 +619,10 @@ static void t_tabs(void)
           row_is(12, "Page three.") && row_is(13, ""), "F10",
           "tabs to the stops, the indent holding its paragraph, a bar below each hard page (08_edit_top)");
     memset(st, ' ', SCR_W); st[SCR_W] = 0;
-    memcpy(st + 68 - 19, "Doc 1 Pg 3 Ln 1.17\"", 19);
-    memcpy(st + 69, "Pos 1\"", 6);
+    /* Doc group ends at column 66, "Pos" at 68 on the 76-cell face (bead
+     * initech-tdnl.51; see status_line_is). */
+    memcpy(st + 67 - 19, "Doc 1 Pg 3 Ln 1.17\"", 19);
+    memcpy(st + 68, "Pos 1\"", 6);
     CHECK(row_is(23, st) && cursor_at(13, 0), "F10", "the status line: Pg 3 Ln 1.17\" (03_reveal)");
     fkey(F10, 0);
     tks("tabs\r");

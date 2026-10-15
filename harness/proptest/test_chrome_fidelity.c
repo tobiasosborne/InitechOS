@@ -13,10 +13,13 @@
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <png.h>
 
 #include "render.h"
 #include "chrome.h"
+#include "window.h"        /* CalcDocContentRect: the owner's content seam (tdnl.51) */
 #include "flair_look.h"
 #include "chrome_fidelity_golden.h"
 #include "chicago12.h"     /* glyph ART only + CHICAGO_CAP_TOP; metrics come from the golden */
@@ -334,7 +337,188 @@ static int ramp_ok_at(const render_ctx_t *ctx, int bx, int by)
     return ok;
 }
 
-int main(void)
+
+/* ===========================================================================
+ * CAPTURE LEGS (beads initech-tdnl.51 / initech-tdnl.52; audit F16).
+ *
+ * These legs decode the two INDEPENDENT Mac OS 8.1 captures at test time
+ * (../system7-decomp/goldens/captures/s8_doc_window_active.png and
+ * s8_doc_window_inactive.png, libpng, the test-scrollbar-look pattern) and
+ * grade the rendered window against the capture's own pixels, aligned on the
+ * title bar (frame-relative offsets). No expected value comes from
+ * chrome_metrics.h, from chrome_fidelity_golden.h or from the renderer (Law 2
+ * / HER-02): the capture IS the golden.
+ *
+ * The scene is the LIVE composition, not the chrome alone: the window is
+ * drawn, then its OWNER fills the content rect the Window Manager hands it
+ * (CalcDocContentRect -- what the Finder's finder_win_paint and every tenant
+ * do) with the white body. The F16 body-frame defect was exactly that owner
+ * fill erasing the left raised bar (contRgn began at L+1), which a chrome-only
+ * render cannot see.
+ *
+ * Capture frames (window-chrome.md Sec 1 / Sec 6, inclusive):
+ *   active   "Initech81"  L=65 T=70 R=480 B=315 (s8_doc_window_active)
+ *   inactive "Initech81"  L=13 T=29 R=325 B=198 (s8_doc_window_inactive)
+ * Cross-sections (outside -> in):
+ *   left   row T+80 (active) / T+91 (inactive), 7 px: line, 4-px bar, line,
+ *          the content-inset column
+ *   right  same row, 21 px: line, bar, inner line, the 14-px disabled /
+ *          hollow gutter interior, the gutter's left line
+ *   bottom column L+55 (active) / L+200 (inactive), 21 px, likewise
+ *   top    same column, the 22-row title band
+ * Widgets: the 13x13 footprints at L+4 / R-32 / R-16, T+4 (Sec 3.1), all
+ * 169 pixels each, against the active capture (the inactive window has none).
+ * Hazard (Sec 2.3): the capture cursor sits on the active title TEXT only;
+ * every sampled column/footprint here is clear of it.
+ * ===========================================================================*/
+#ifndef CHROME_FID_CAPTURE_DIR
+#define CHROME_FID_CAPTURE_DIR "../system7-decomp/goldens/captures"
+#endif
+
+typedef struct capture_img {
+    unsigned char *rgb;
+    unsigned w, h;
+} capture_img_t;
+
+static int capture_load(capture_img_t *c, const char *path)
+{
+    png_image im;
+    memset(c, 0, sizeof *c);
+    memset(&im, 0, sizeof im);
+    im.version = PNG_IMAGE_VERSION;
+    if (!png_image_begin_read_from_file(&im, path)) {
+        fprintf(stderr, "FAIL missing/unreadable independent capture: %s\n", path);
+        return 0;
+    }
+    im.format = PNG_FORMAT_RGB;
+    c->rgb = malloc(PNG_IMAGE_SIZE(im));
+    if (c->rgb == NULL || !png_image_finish_read(&im, NULL, c->rgb, 0, NULL)) {
+        fprintf(stderr, "FAIL independent capture decode: %s\n", path);
+        free(c->rgb);
+        c->rgb = NULL;
+        png_image_free(&im);
+        return 0;
+    }
+    c->w = im.width;
+    c->h = im.height;
+    png_image_free(&im);
+    if (c->w != 640u || c->h != 480u) {
+        fprintf(stderr, "FAIL independent capture is not 640x480: %s\n", path);
+        free(c->rgb);
+        c->rgb = NULL;
+        return 0;
+    }
+    return 1;
+}
+
+static uint32_t cap_rgb(const capture_img_t *c, int x, int y)
+{
+    const unsigned char *q = c->rgb + 3u * ((unsigned)y * c->w + (unsigned)x);
+    return ((uint32_t)q[0] << 16) | ((uint32_t)q[1] << 8) | (uint32_t)q[2];
+}
+
+static uint32_t our_rgb(const render_ctx_t *ctx, int x, int y)
+{
+    return render_pixel_rgb(ctx, (uint32_t)x, (uint32_t)y) & 0x00FFFFFFu;
+}
+
+/* The owner's content fill (finder_win_paint / ref_tenant): the white body
+ * over exactly the rect the Window Manager derives. */
+static void owner_fill_content(GrafPort *port)
+{
+    rgn_rect_t c = CalcDocContentRect(win_frame());
+    uint32_t white = flair_look_pixel_for_skin(port, flair_look_default_skin(),
+                                               FLAIR_PART_CONTENT);
+    for (int y = c.top; y < c.bottom; y++) {
+        if (c.right > c.left) {
+            surface_fill_span(&port->portBits.bm, (uint32_t)c.left,
+                              (uint32_t)y, (uint32_t)(c.right - c.left), white);
+        }
+    }
+}
+
+static void draw_capture_active(GrafPort *port)
+{
+    /* No scroll record: the bars are DISABLED, as on "Initech81" (Sec 3). */
+    flair_draw_document_window(port, flair_look_default_skin(), win_frame(),
+                               TEST_TITLE, 1, FLAIR_WINDOW_WIDGET_ALL);
+    owner_fill_content(port);
+}
+
+static void draw_capture_inactive(GrafPort *port)
+{
+    flair_draw_document_window(port, flair_look_default_skin(), win_frame(),
+                               TEST_TITLE, 0, FLAIR_WINDOW_WIDGET_ALL);
+    owner_fill_content(port);
+}
+
+typedef struct cap_frame { int l, t, r, b; } cap_frame_t;
+
+static size_t cap_hex(char *buf, size_t at, size_t cap, uint32_t v)
+{
+    unsigned r = (unsigned)((v >> 16) & 0xFFu);
+    unsigned g = (unsigned)((v >> 8) & 0xFFu);
+    unsigned b = (unsigned)(v & 0xFFu);
+    int n = (r == g && g == b)
+                ? snprintf(buf + at, cap - at, "%02X ", r)
+                : snprintf(buf + at, cap - at, "#%06X ", (unsigned)v);
+    return (n > 0 && at + (size_t)n < cap) ? at + (size_t)n : at;
+}
+
+/* One cross-section: n samples from the frame-relative anchor inward.
+ * which: 0 left (+x), 1 right (-x), 2 bottom (-y), 3 top (+y).
+ * Prints both sequences (the measured table). */
+static int cap_section(const char *leg, const char *edge,
+                       const render_ctx_t *ours, cap_frame_t of,
+                       const capture_img_t *cap, cap_frame_t cf,
+                       int which, int off, int n)
+{
+    int ok = 1;
+    char a[512], b[512];
+    size_t ai = 0, bi = 0;
+    a[0] = b[0] = '\0';
+    for (int k = 0; k < n; k++) {
+        int ox, oy, cx, cy;
+        switch (which) {
+        case 0:  ox = of.l + k;   oy = of.t + off; cx = cf.l + k;   cy = cf.t + off; break;
+        case 1:  ox = of.r - k;   oy = of.t + off; cx = cf.r - k;   cy = cf.t + off; break;
+        case 2:  ox = of.l + off; oy = of.b - k;   cx = cf.l + off; cy = cf.b - k;   break;
+        default: ox = of.l + off; oy = of.t + k;   cx = cf.l + off; cy = cf.t + k;   break;
+        }
+        uint32_t o = our_rgb(ours, ox, oy);
+        uint32_t c = cap_rgb(cap, cx, cy);
+        if (o != c) ok = 0;
+        ai = cap_hex(a, ai, sizeof a, c);
+        bi = cap_hex(b, bi, sizeof b, o);
+    }
+    printf("  %s %-6s capture: %s\n", leg, edge, a);
+    printf("  %s %-6s ours   : %s%s\n", leg, edge, b, ok ? "(match)" : "(DIFF)");
+    return ok;
+}
+
+static int cap_widget(const char *name, const render_ctx_t *ours, int ox, int oy,
+                      const capture_img_t *cap, int cx, int cy)
+{
+    int bad = 0;
+    for (int dy = 0; dy <= FG_BOX_RENDER_SIZE; dy++) {
+        for (int dx = 0; dx <= FG_BOX_RENDER_SIZE; dx++) {
+            uint32_t o = our_rgb(ours, ox + dx, oy + dy);
+            uint32_t c = cap_rgb(cap, cx + dx, cy + dy);
+            if (o != c) {
+                if (bad < 8) {
+                    printf("  CAPTURE-WIDGETS %s footprint (dx%d,dy%d): capture %06X ours %06X\n",
+                           name, dx, dy, (unsigned)c, (unsigned)o);
+                }
+                bad++;
+            }
+        }
+    }
+    printf("  CAPTURE-WIDGETS %-8s ours (%d,%d) vs capture (%d,%d): %d/169 differ\n",
+           name, ox, oy, cx, cy, bad);
+    return bad == 0;
+}
+
+int main(int argc, char **argv)
 {
     render_boot_info_t boot;
     render_ctx_t active;
@@ -893,6 +1077,67 @@ int main(void)
           "leg SCROLL-PRESSED: a held arrow draws its pressed tile, the other "
           "arrow stays idle (authored; scrollbars.md Sec 6 gap)");
 
+
+    /* CAPTURE LEGS (tdnl.51 / tdnl.52) -- see the banner above main. */
+    int cap_body_ok = 0, cap_body_inactive_ok = 0, cap_widgets_ok = 0;
+    {
+        char pa[1024], pi[1024];
+        capture_img_t ca, ci;
+        render_ctx_t sa, si;
+        const cap_frame_t of = { WIN_LEFT, WIN_TOP, WIN_RIGHT - 1, WIN_BOTTOM - 1 };
+        const cap_frame_t cfa = { 65, 70, 480, 315 };
+        const cap_frame_t cfi = { 13, 29, 325, 198 };
+        snprintf(pa, sizeof pa, "%s", argc > 1 ? argv[1]
+                 : CHROME_FID_CAPTURE_DIR "/s8_doc_window_active.png");
+        snprintf(pi, sizeof pi, "%s", argc > 2 ? argv[2]
+                 : CHROME_FID_CAPTURE_DIR "/s8_doc_window_inactive.png");
+        int have_a = capture_load(&ca, pa);
+        int have_i = capture_load(&ci, pi);
+        CHECK(have_a && have_i,
+              "leg CAPTURE-LOAD: both independent s8_doc_window captures must decode "
+              "(640x480) -- a missing golden is RED, never skipped");
+        if (have_a && have_i && render_ctx_init(&sa, &boot) == 0) {
+            render_run(&sa, draw_capture_active);
+            int ok = 1;
+            ok &= cap_section("CAPTURE-BODY", "left", &sa, of, &ca, cfa, 0, 80, 7);
+            ok &= cap_section("CAPTURE-BODY", "right", &sa, of, &ca, cfa, 1, 80, 21);
+            ok &= cap_section("CAPTURE-BODY", "bottom", &sa, of, &ca, cfa, 2, 55, 21);
+            ok &= cap_section("CAPTURE-BODY", "top", &sa, of, &ca, cfa, 3, 55, 22);
+            cap_body_ok = ok;
+            int wok = 1;
+            wok &= cap_widget("close", &sa, of.l + 4, of.t + 4, &ca, cfa.l + 4, cfa.t + 4);
+            wok &= cap_widget("zoom", &sa, of.r - 32, of.t + 4, &ca, cfa.r - 32, cfa.t + 4);
+            wok &= cap_widget("collapse", &sa, of.r - 16, of.t + 4, &ca, cfa.r - 16, cfa.t + 4);
+            cap_widgets_ok = wok;
+            render_ctx_free(&sa);
+        }
+        if (have_a && have_i && render_ctx_init(&si, &boot) == 0) {
+            render_run(&si, draw_capture_inactive);
+            int ok = 1;
+            ok &= cap_section("CAPTURE-BODY-INACTIVE", "left", &si, of, &ci, cfi, 0, 91, 7);
+            ok &= cap_section("CAPTURE-BODY-INACTIVE", "right", &si, of, &ci, cfi, 1, 91, 21);
+            ok &= cap_section("CAPTURE-BODY-INACTIVE", "bottom", &si, of, &ci, cfi, 2, 200, 21);
+            ok &= cap_section("CAPTURE-BODY-INACTIVE", "top", &si, of, &ci, cfi, 3, 200, 22);
+            cap_body_inactive_ok = ok;
+            render_ctx_free(&si);
+        }
+        free(ca.rgb);
+        free(ci.rgb);
+    }
+    CHECK(cap_body_ok,
+          "leg CAPTURE-BODY: the ACTIVE window, after its owner fills the content "
+          "rect, must reproduce s8_doc_window_active's body frame on all four edges "
+          "(black, white, DA, DA, B3, black, then the inset) and its title band, "
+          "pixel for pixel (window-chrome.md Sec 2.1/4; bead tdnl.51)");
+    CHECK(cap_body_inactive_ok,
+          "leg CAPTURE-BODY-INACTIVE: the INACTIVE window, after its owner fills the "
+          "content rect, must reproduce s8_doc_window_inactive's flat E7 frame "
+          "between 77 lines on all four edges (window-chrome.md Sec 6; tdnl.51)");
+    CHECK(cap_widgets_ok,
+          "leg CAPTURE-WIDGETS: close/zoom/collapse 13x13 footprints must equal "
+          "s8_doc_window_active's, all 169 pixels each, including the #DADADA "
+          "off-diagonal interior corners (window-chrome.md Sec 3.2; tdnl.52)");
+
 #define LEG_STATUS(name, ok, why) \
     printf("  %-24s %s -- %s\n", name, (ok) ? "PASS" : "RED", why)
     LEG_STATUS("BAND", band_ok, "22-row profile / 12 light-first stripes / 2+4 face");
@@ -919,6 +1164,9 @@ int main(void)
     LEG_STATUS("INACTIVE-TEXT", inactive_text_ok, "idx135, not Sys7 idx165");
     LEG_STATUS("INACTIVE-GADGETS", inactive_gadgets_ok, "all three widgets absent");
     LEG_STATUS("HOLLOW/GROW-INACTIVE", hollow_ok, "hollow bar and flat idx231 grow");
+    LEG_STATUS("CAPTURE-BODY", cap_body_ok, "live body frame == active capture");
+    LEG_STATUS("CAPTURE-BODY-INACTIVE", cap_body_inactive_ok, "live body frame == inactive capture");
+    LEG_STATUS("CAPTURE-WIDGETS", cap_widgets_ok, "widget faces == active capture, 169/169");
 #undef LEG_STATUS
 
     if (rc == 0) render_ctx_free(&trunc);

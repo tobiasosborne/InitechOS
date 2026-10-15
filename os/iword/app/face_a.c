@@ -22,7 +22,7 @@
  * group RIGHT-aligned to end at column 67 and "Pos" at column 69 whatever
  * the widths (01_edit "Ln 1"" starts at column 52, MINT02 02_typed "Ln
  * 1.17"" at 49; "Pos" at 69 in both). Caps Lock shows "POS" (Reference
- * Manual, Caps Lock "Status Line", PDF 74). The window is 77 x 24 cells
+ * Manual, Caps Lock "Status Line", PDF 74). The window is 76 x 24 cells
  * (FLAIR_SCREEN 640 x 480 less the menu bands and the frame), so 23 lines
  * of text show where the DOS screen shows 24; the 65-column line (1"/1"
  * margins at 10 pitch, spec/iword/wp5_format.h) and the whole status line
@@ -138,13 +138,20 @@ const char tbx_app_name[] = "WORD";
 #define WIN_B        480
 #define CW           8           /* TBX_CELL_W */
 #define CH           16          /* TBX_CELL_H */
-#define SCR_COLS     77
+/* RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): 613-px content since
+ * the content starts inside the left body rail (frame.left + 6), so 76 whole
+ * cells (was 77, 618 px); X0 stays 1. */
+#define SCR_COLS     76
 #define SCR_LINES    24
 #define X0           1
 #define EDIT_ROWS    (SCR_LINES - 1)     /* 23 */
 #define LINE_STATUS  (SCR_LINES - 1)
-#define STATUS_DOC_END 67                /* "... Ln 1"" ends at column 67 */
-#define STATUS_POS   69                  /* "Pos" at column 69            */
+/* RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): one column left of the
+ * measured WordPerfect columns (Doc..Ln ending at 67, "Pos" at 69) because the
+ * field is 76 cells now, not 77: "Pos 2.3"" (8 cells) must still end inside
+ * it. The group keeps its measured shape and spacing. */
+#define STATUS_DOC_END 66                /* "... Ln 1"" ends at column 66 */
+#define STATUS_POS   68                  /* "Pos" at column 68            */
 /* REVEAL CODES (Alt-F3; spec/iword/reveal_codes.h). WordPerfect's 25-line
  * screen splits into the document (lines 0-10), the status line (11), the
  * ruler (12), the 11-row codes pane (13-23) and "Press Reveal Codes to

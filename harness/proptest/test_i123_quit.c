@@ -6,7 +6,7 @@
  * WHAT IS UNDER TEST. The real 123.EXE application source, os/i123/app/
  * face_a.c, compiled on the host over the real worksheet core, with the
  * Toolbox Gate (os/apps/tbx/tbx.h) replaced by a RECORDING MOCK: the cell
- * text the app draws lands in a 77 x 24 character screen, EXIT / ALERT calls
+ * text the app draws lands in a 76 x 24 character screen, EXIT / ALERT calls
  * are recorded, and the file verbs are served from a host directory with
  * injectable failures. Each LAUNCH is a fork()ed child, so every launch starts
  * from the pristine image a real launch loads (zeroed BSS, initial .data) and
@@ -57,7 +57,7 @@ static volatile int *g_ctr;            /* [0] checks, [1] failures */
     fprintf(stderr, "  FAIL %s %s (line %d)\n", (id), (msg), __LINE__); } } while (0)
 
 /* ---- the recording mock ------------------------------------------------- */
-#define SCR_W 77
+#define SCR_W 76   /* 613-px content / 8 since bead initech-tdnl.51 (was 77) */
 #define SCR_H 24
 static char m_scr[SCR_H][SCR_W + 1];
 static int  m_exit_calls, m_exit_rc;

@@ -176,12 +176,27 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
     for (int y = by + 2; y < by + 2 + interior; y++) {
         cfill(port, bx + 2, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
     }
+    /* Interior shadow: the bottom row (dy=8) runs dx=1..8 and the right
+     * column (dx=8) runs dy=1..8. The two off-diagonal corners (8,0) and
+     * (0,8) stay #DADADA -- they belong to the top-row/left-column highlight
+     * (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd' and y=84 x=71
+     * 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169 residual). */
+#if defined(CHROME_FID_MUT_WIDGET_CORNERS_EDGE)
+    /* Rule-6 restoration of the pre-tdnl.52 full-length shadow strokes. */
     cfill(port, bx + 2, by + 2 + interior - 1, interior,
           FLAIR_PART_PLAT_WIDGET_EDGE);
     for (int y = by + 2; y < by + 2 + interior; y++) {
         cfill(port, bx + 2 + interior - 1, y, 1,
               FLAIR_PART_PLAT_WIDGET_EDGE);
     }
+#else
+    cfill(port, bx + 3, by + 2 + interior - 1, interior - 1,
+          FLAIR_PART_PLAT_WIDGET_EDGE);
+    for (int y = by + 3; y < by + 2 + interior; y++) {
+        cfill(port, bx + 2 + interior - 1, y, 1,
+              FLAIR_PART_PLAT_WIDGET_EDGE);
+    }
+#endif
     cfill(port, bx + 2, by + 2, 1, FLAIR_PART_CONTENT);
 
     for (int dy = 1; dy <= FLAIR_CHROME_WIDGET_RAMP_FACE; dy++) {

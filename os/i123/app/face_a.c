@@ -27,7 +27,7 @@
  * Toolbox's own highlight pair (spec/toolbox_gate.h Sec 7 tokens), on a WHITE
  * document field with BLACK text -- a Macintosh document window, as plan Sec
  * 3.3 puts it ("what a period Mac 1-2-3-alike would have rendered").
- * The window here is 77 x 24 cells (FLAIR_SCREEN 640 x 480 less the menu
+ * The window here is 76 x 24 cells (FLAIR_SCREEN 640 x 480 less the menu
  * bands and the window frame), so 19 rows show where the 25-line DOS screen
  * shows 20; the worksheet area keeps the full 72 characters (8 columns of 9).
  *
@@ -74,9 +74,15 @@ const char tbx_app_name[] = "123";
 #define WIN_B        480
 #define CW           8           /* TBX_CELL_W */
 #define CH           16          /* TBX_CELL_H */
-#define SCR_COLS     77          /* 618-px content / 8 */
+/* RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the document content
+ * starts inside the left body rail (frame.left + 6, CalcDocContentRect), so
+ * the 640-px window's content is 613 px wide (was 618): 76 whole cells (was
+ * 77). X0 stays the 1-px left margin (613 - 608 = 5 spare), so every
+ * content-local x of the face is unchanged except the right-anchored items
+ * (the MODE indicator, CIRC/CALC), which move one cell left. */
+#define SCR_COLS     76          /* 613-px content / 8 */
 #define SCR_LINES    24          /* 397-px content / 16 */
-#define X0           1           /* content-local left margin (618 - 616) / 2 */
+#define X0           1           /* content-local left margin (613 - 608 = 5 spare) */
 #define BORDER_W     4           /* the row-number border */
 #define AREA_CHARS   72          /* I123_SCREEN_COLS_CHARS: whole columns */
 #define LINE_PANEL1  0

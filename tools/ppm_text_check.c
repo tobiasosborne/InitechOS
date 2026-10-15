@@ -311,7 +311,10 @@ int main(int argc, char **argv)
     }
 
     if (i123_menu) {
-        /* Independent fixed geometry: Face A content (1,62), 8x16 cells.
+        /* Independent fixed geometry: Face A content (6,62), 8x16 cells,
+         * column 0 at x 7 (RE-KEYED 2026-10-16, bead initech-tdnl.51,
+         * stated: the content starts inside the left body rail, was (1,62);
+         * the face is 76 cells, so MENU's cols 72..75 are x 583..615).
          * Assert ink on both menu lines and row 1, and the MENU highlight.
          * Serial text checks supply the RI byte oracle; these bands prove
          * the same screen was presented. Existing console grading unchanged. */
@@ -320,11 +323,11 @@ int main(int argc, char **argv)
         const int ys[3] = {78,94,126};
         for (int band = 0; band < 3; band++)
             for (int y = ys[band]; y < ys[band]+16; y++)
-                for (int x = band == 2 ? 34 : 2; x < 618; x++) {
+                for (int x = band == 2 ? 39 : 7; x < 615; x++) {
                     unsigned char *p = buf+3*(y*w+x);
                     if (p[0]<8 && p[1]<8 && p[2]<8) ink[band]++;
                 }
-        for (int y = 62; y < 78; y++) for (int x = 586; x < 618; x++) {
+        for (int y = 62; y < 78; y++) for (int x = 583; x < 615; x++) {
             unsigned char *p = buf+3*(y*w+x);
             if (p[0]<8 && p[1]<8 && p[2]>=100 && p[2]<=136) navy++;
             if (p[0]>247 && p[1]>247 && p[2]>247) white++;
