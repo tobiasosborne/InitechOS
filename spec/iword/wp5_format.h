@@ -67,10 +67,48 @@
 #define IW_WP5_FIXED_LEN_INIT { 4u, 9u, 11u, 3u, 3u, 0u, 6u, 0u, \
                                 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u }
 
+/* ---- attribute on / off codes (bead initech-jojk, IWORD P2 slice 1) ------ *
+ * [B Sec 3]: `C3 attr C3` turns an attribute ON, `C4 attr C4` turns the same
+ * attribute OFF; the ON and OFF codes carry the same number. VERIFIED numbers
+ * only (each in a document the real WP.EXE wrote):
+ *   0x02 Large      MINT04.WP5 @0x186 / @0x193 (Ctrl-F8 1 5, Ctrl-F8 3)
+ *   0x08 Italic     MINT06 @0x14F / @0x15F (Ctrl-F8 2 4 ... Ctrl-F8 2 4)
+ *   0x0C Bold       MINT01.WP5 @0x19B / @0x1A2 (F6 ... F6); MINT07 @0x148 /
+ *                   @0x154 (Ctrl-F8 2 1 ... Ctrl-F8 2 1: the same bytes)
+ *   0x0E Underline  MINT01.WP5 @0x1AA / @0x1B7 (F8 ... F8)
+ * MINT06..MINT08 were minted for this bead on 2026-10-16 by driving the real
+ * WP.EXE under DOSBox-X with ../wordperfect51-decomp/tools/mint_drive.sh and
+ * the step files mint/wpMINT06.steps .. wpMINT08.steps (the harness wrote the
+ * documents to mint/work/WP51/MINT06..08 and the screens to
+ * mint/shots_wpMINT06..08/; filing them under goldens/minted is the corpus
+ * owner's act). Every other attribute number is [oracle-resolves]. */
+#define IW_WP5_ATTR_ON         0xC3u
+#define IW_WP5_ATTR_OFF        0xC4u
+#define IW_WP5_ATTR_LEN        3u
+#define IW_WP5_ATTR_LARGE      0x02u
+#define IW_WP5_ATTR_ITALIC     0x08u
+#define IW_WP5_ATTR_BOLD       0x0Cu
+#define IW_WP5_ATTR_UNDERLINE  0x0Eu
+#define IW_WP5_ATTR_NUMBERS    16u     /* attr is one byte; WP 5.1's table runs 0..15 */
+
+/* The prefix records an italic body. MINT06 (a body with an italic pair) has
+ * 0x08 at file offset 0x103 -- the first data byte of prefix packet 0x06
+ * (index entry at 0x10: type 0x06, len 16, offset 0x103) -- where every other
+ * mint has 0x00: MINT01 (bold + underline), MINT04 (large), MINT07 (bold
+ * through the Font menu) and MINT08 (an italic pair inserted, then deleted in
+ * Reveal Codes before the save). So the byte follows the SAVED body, not the
+ * keys pressed: 0x08 when the body holds an italic code, else 0x00
+ * [inferred: 1 positive, 6 negative documents; the packet itself is
+ * undecoded, corpus GAPS F-1/W-3]. The writer applies it only to a prefix
+ * that is the default one in every other byte. */
+#define IW_WP5_PFX_ITALIC_OFF  0x103u
+#define IW_WP5_PFX_ITALIC      0x08u
+
 /* ---- the prefix area [H Sec 2, Sec 4] ---------------------------------- *
  * A fresh-install WP 5.1 writes the SAME 327 bytes (0x147) before the body
- * of every document in the corpus (the body length is recorded nowhere in
- * it); [H Sec 4]: "emit the 327-byte prefix of section 2 verbatim, then the
+ * of every document in the corpus but one byte: 0x103 marks an italic body
+ * (IW_WP5_PFX_ITALIC_OFF above; MINT06) -- the body length is recorded
+ * nowhere in it; [H Sec 4]: "emit the 327-byte prefix of section 2 verbatim, then the
  * body." These are those bytes, transcribed from MINT02.WP5 0x000..0x146
  * (cmp -n 327 against MINT01/03/04/05: identical). The packets inside
  * (0x0F, 0x07 "Courier 10 Pitch", 0x0C, 0x06, 0x08) are undecoded

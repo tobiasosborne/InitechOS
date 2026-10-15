@@ -38,12 +38,29 @@
  *   E  refusals (Rule 2): bad magic, non-document type, wrong version,
  *      encryption, docstart out of range, an unverified code, a broken
  *      mirror, a truncated group -- each refused with its own code.
+ *   F  (bead initech-jojk, P2 slice 1) ATTRIBUTE CODES TYPED: the keys of
+ *      mint/wpMINT06.steps (italic through Ctrl-F8 2 4 twice, bold and
+ *      underline overlapping through F6 / F8, a wrapped paragraph after
+ *      them), wpMINT07.steps (bold through the Font menu) and wpMINT08.steps
+ *      (an italic pair, then Backspace x3 in Reveal Codes) driven through
+ *      the editor (iw_ed_attr / iw_ed_backspace with reveal on) and written
+ *      with the default prefix are BYTE-IDENTICAL to the files the real WP.EXE
+ *      saved -- every body byte and the prefix's italic mark at 0x103.
+ *
+ * THE GOLDENS: MINT01..05 from goldens/minted (mint session 001); MINT06..08
+ * minted for bead initech-jojk (2026-10-16) by tools/mint_drive.sh with
+ * mint/wpMINT06..08.steps -- read from goldens/minted/MINT0x.WP5 once the
+ * corpus files them there, until then from the harness's own output
+ * mint/work/WP51/MINT0x (the file WP.EXE wrote, untouched). Absent from both
+ * places is RED, never a skip.
  *
  * Mutants (Rule 6; test-iword-wp5-roundtrip-mutant):
- *   IWORD_MUT_DROP_CODE  the writer drops every soft-return code
- *                        -> RED-REASON golden-rewrite
- *   IWORD_MUT_WRAP_EARLY the wrap ends a line one column short
- *                        -> RED-REASON typed
+ *   IWORD_MUT_DROP_CODE   the writer drops every soft-return code
+ *                         -> RED-REASON golden-rewrite
+ *   IWORD_MUT_WRAP_EARLY  the wrap ends a line one column short
+ *                         -> RED-REASON typed
+ *   IWORD_MUT_ITALIC_FLAG the writer never marks an italic body at 0x103
+ *                         -> RED-REASON typed
  *
  * Usage: test_iword_wp5_roundtrip <WORDPERFECT51_DECOMP> <scratch-dir>
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
@@ -69,7 +86,19 @@ static uint8_t    g_in[CAP], g_out[CAP], g_add[CAP];
 static iw_piece_t g_pc[8192];
 static char       g_text[CAP];
 
-static const char *const MINTS[5] = { "MINT01", "MINT02", "MINT03", "MINT04", "MINT05" };
+#define NMINT 8
+static const char *const MINTS[NMINT] = { "MINT01", "MINT02", "MINT03", "MINT04", "MINT05",
+                                          "MINT06", "MINT07", "MINT08" };
+
+/* The golden's path (see THE GOLDENS above). */
+static void golden_path(const char *name, char *out, size_t cap)
+{
+    FILE *f;
+    snprintf(out, cap, "%s/goldens/minted/%s.WP5", g_corpus, name);
+    if ((f = fopen(out, "rb")) != NULL) { fclose(f); return; }
+    if (strcmp(name, "MINT06") >= 0)
+        snprintf(out, cap, "%s/mint/work/WP51/%s", g_corpus, name);
+}
 
 static uint32_t load(const char *path, uint8_t *b, uint32_t cap)
 {
@@ -147,13 +176,13 @@ static void doc_bind(iw_doc_t *d)
 static void part_a(void)
 {
     int files = 0, rewrites = 0, agreed = 0, wraps = 0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NMINT; i++) {
         char path[1024], outp[1024];
         uint32_t n, olen = 0, tl;
         iw_wp5_t w;
         iw_doc_t d;
         int rc;
-        snprintf(path, sizeof path, "%s/goldens/minted/%s.WP5", g_corpus, MINTS[i]);
+        golden_path(MINTS[i], path, sizeof path);
         n = load(path, g_in, CAP);
         CHECK(n > 0u, "golden present (a missing golden is RED, never a skip)");
         if (!n) { fprintf(stderr, "  FAIL golden missing: %s\n", path); g_rewrite_fail++; continue; }
@@ -197,7 +226,7 @@ static void part_a(void)
             CHECK(0, "re-wrap at 65 columns reproduces WP's soft returns");
         }
     }
-    CHECK(files == 5, "all five minted goldens graded");
+    CHECK(files == NMINT, "all eight minted goldens graded");
     printf("  part A: %d goldens; %d rewrites byte-identical; %d agree with wp5_ref.py (golden + rewrite)\n", files, rewrites, agreed);
     printf("  part A2: %d goldens unchanged by re-wrapping at %u columns (WP's own soft returns)\n", wraps, IW_WP5_WRAP_COLS);
 }
@@ -261,15 +290,17 @@ static void part_c(void)
      * carries at least one code beyond text/HRt/SRt (bold/underline/center/
      * tab; indent/flush right/D4/HPg; margins/justification/size; footnote/
      * extended char/hard space). */
-    static const int want_plain[5] = { 0, 1, 0, 0, 0 };
+    /* MINT06 / MINT07 carry attribute pairs; MINT08's pair was deleted
+     * before the save ("[HRt] Kep"). */
+    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1 };
     int ok = 1;
     printf("  part C: plain-text subset (text + HRt + SRt only, P1 interprets fully):");
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NMINT; i++) {
         char path[1024];
         iw_wp5_t w;
         iw_doc_t d;
         uint32_t n, p = 0, plain = 1;
-        snprintf(path, sizeof path, "%s/goldens/minted/%s.WP5", g_corpus, MINTS[i]);
+        golden_path(MINTS[i], path, sizeof path);
         n = load(path, g_in, CAP);
         if (!n || iw_wp5_read(g_in, n, &w) != IW_OK) { ok = 0; continue; }
         doc_bind(&d);
@@ -282,8 +313,8 @@ static void part_c(void)
         if ((int)plain != want_plain[i]) ok = 0;
         if (plain) printf(" %s", MINTS[i]);
     }
-    printf("; opaque codes carried byte-exact, interpretation deferred to P2 (initech-jojk): MINT01 MINT03 MINT04 MINT05\n");
-    CHECK(ok, "the plain-text subset is exactly {MINT02}");
+    printf("; every other golden carries codes (attribute pairs interpreted since initech-jojk; the rest opaque, byte-exact)\n");
+    CHECK(ok, "the plain-text subset is exactly {MINT02, MINT08}");
 }
 
 /* ---- PART D: a synthetic typed document through wp5_ref.py ---------------- */
@@ -311,6 +342,83 @@ static void part_d(void)
         CHECK(ok, "wp5_ref.py reads the synthetic document: TEXT, codes, zero trailer errors");
         printf("  part D %s: synthetic 3-paragraph document (%u bytes) read by wp5_ref.py, SRt/HRt in place\n", ok ? "green" : "RED", olen);
     }
+}
+
+
+/* ---- PART F: attribute codes typed (bead initech-jojk) -------------------- */
+static int typed_equals(const char *name, iw_ed_t *e)
+{
+    char path[1024];
+    uint32_t n, plen, olen = 0;
+    const uint8_t *prefix = iw_wp5_default_prefix(&plen);
+    golden_path(name, path, sizeof path);
+    n = load(path, g_in, CAP);
+    if (!n) { fprintf(stderr, "  FAIL golden missing: %s\n", path); g_typed_fail++; return 0; }
+    if (iw_wp5_write(prefix, plen, &e->doc, g_out, CAP, &olen) == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0)
+        return 1;
+    {
+        uint32_t k = 0;
+        while (k < n && k < olen && g_out[k] == g_in[k]) k++;
+        fprintf(stderr, "  FAIL typed %s != the real file (%u vs %u bytes; first diff @0x%x: 0x%02x, WP wrote 0x%02x)\n",
+                name, olen, n, k, k < olen ? g_out[k] : 0, k < n ? g_in[k] : 0);
+    }
+    g_typed_fail++;
+    return 0;
+}
+
+static void part_f(void)
+{
+    static iw_ed_t e;
+    int ok6, ok7, ok8;
+    /* mint/wpMINT06.steps: Return; "Italic:"; Ctrl-F8 2 4; "slanted words";
+     * Ctrl-F8 2 4; " and plain."; Return; F6; "Bold"; F8; "both"; F6;
+     * " under"; F8; " plain. This sentence ... here."; Return. */
+    doc_bind(&e.doc);
+    iw_ed_init(&e, IW_WP5_WRAP_COLS);
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    type_str(&e, "Italic:");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_ITALIC) == IW_OK, "Ctrl-F8 2 4");
+    type_str(&e, "slanted words");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_ITALIC) == IW_OK, "Ctrl-F8 2 4 again");
+    type_str(&e, " and plain.");
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_BOLD) == IW_OK, "F6");
+    type_str(&e, "Bold");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_UNDERLINE) == IW_OK, "F8");
+    type_str(&e, "both");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_BOLD) == IW_OK, "F6 (moves [bold] to the cursor)");
+    type_str(&e, " under");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_UNDERLINE) == IW_OK, "F8 (steps past [und])");
+    type_str(&e, " plain. This sentence is long enough that the paragraph must wrap onto a second line here.");
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    ok6 = typed_equals("MINT06", &e);
+    CHECK(ok6, "typed MINT06 is byte-identical to the file WP.EXE saved (483 bytes, 0x08 at 0x103)");
+    /* mint/wpMINT07.steps: Return; Ctrl-F8 2 1; "Menu bold"; Ctrl-F8 2 1; Return */
+    doc_bind(&e.doc);
+    iw_ed_init(&e, IW_WP5_WRAP_COLS);
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_BOLD) == IW_OK, "Ctrl-F8 2 1");
+    type_str(&e, "Menu bold");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_BOLD) == IW_OK, "Ctrl-F8 2 1 again");
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    ok7 = typed_equals("MINT07", &e);
+    CHECK(ok7, "typed MINT07 is byte-identical to the file WP.EXE saved (344 bytes)");
+    /* mint/wpMINT08.steps: Return; "Kept"; Ctrl-F8 2 4; "x"; Ctrl-F8 2 4;
+     * Alt-F3; Backspace x3 */
+    doc_bind(&e.doc);
+    iw_ed_init(&e, IW_WP5_WRAP_COLS);
+    CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    type_str(&e, "Kept");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_ITALIC) == IW_OK, "Ctrl-F8 2 4");
+    type_str(&e, "x");
+    CHECK(iw_ed_attr(&e, IW_WP5_ATTR_ITALIC) == IW_OK, "Ctrl-F8 2 4 again");
+    e.reveal = 1;
+    CHECK(iw_ed_backspace(&e) == IW_OK && iw_ed_backspace(&e) == IW_OK && iw_ed_backspace(&e) == IW_OK,
+          "Backspace x3 in Reveal Codes");
+    ok8 = typed_equals("MINT08", &e);
+    CHECK(ok8, "typed MINT08 is byte-identical to the file WP.EXE saved (331 bytes: the pair went with [italc])");
+    printf("  part F %s: typed MINT06 %s, MINT07 %s, MINT08 %s (attribute pairs, the italic mark, Reveal Codes delete)\n",
+           ok6 && ok7 && ok8 ? "green" : "RED", ok6 ? "==" : "!=", ok7 ? "==" : "!=", ok8 ? "==" : "!=");
 }
 
 /* ---- PART E: refusals ------------------------------------------------------- */
@@ -359,6 +467,7 @@ int main(int argc, char **argv)
     part_c();
     part_d();
     part_e();
+    part_f();
     if (g_rewrite_fail) fprintf(stderr, "  RED-REASON golden-rewrite: %d goldens not byte-identical\n", g_rewrite_fail);
     if (g_ref_fail)     fprintf(stderr, "  RED-REASON wp5-ref-disagrees: %d readings differ from wp5_ref.py\n", g_ref_fail);
     if (g_wrap_fail)    fprintf(stderr, "  RED-REASON wrap: %d goldens re-wrapped differently from WP\n", g_wrap_fail);

@@ -99,6 +99,9 @@ int32_t tbx_draw_text(int32_t win, int32_t x, int32_t y, const char *s,
                       uint32_t fg, uint32_t bg);
 int32_t tbx_fill_rect(int32_t win, int32_t l, int32_t t, int32_t r, int32_t b,
                       uint32_t color);
+/* fg = a colour token, optionally | TBX_TEXT_FACE(bold 1 / italic 2 /
+ * underline 4) -- the cells keep their 8-px grid (spec Sec 7a STYLE, bead
+ * initech-jojk). */
 int32_t tbx_draw_cells(int32_t win, int32_t x, int32_t y, const char *s,
                        uint32_t fg, uint32_t bg);
 int32_t tbx_set_mbar(const tbx_menubar_t *bar);

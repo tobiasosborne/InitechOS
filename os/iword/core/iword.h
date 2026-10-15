@@ -13,16 +13,20 @@
  * bytes, the hard return 0x0A, the SOFT RETURN 0x0D that REPLACES the space
  * at a wrap (MINT01 @0x188), and every other function code as an opaque,
  * unbroken UNIT (a fixed group, a variable group, a single code byte). A
- * golden therefore reads and writes back byte-for-byte without the core
- * understanding its codes (those are P2, bead initech-jojk).
+ * golden therefore reads and writes back byte-for-byte. The ATTRIBUTE
+ * codes (bold / underline / italic / any attribute number) are understood
+ * since P2 slice 1 (bead initech-jojk, os/iword/core/codes.c): their state,
+ * WordPerfect's rules for inserting / moving / deleting them, and their
+ * Reveal Codes labels; every other code stays opaque.
  *
  * UNITS. Every position the core hands out (cursor, insert point, delete
  * span) is a unit boundary. A unit's LAST byte identifies it from the right
  * (text 0x20..0x7F, a single code < 0x20 or 0x80..0xBF, a fixed group ends
  * with its own code 0xC0..0xCF, a variable group with its own code >= 0xD0
  * after a mirrored size), so walking backwards is as exact as forwards.
- * Edits insert only text and hard returns and delete only whole units, so a
- * well-formed body (validated on load, iw_wp5_read) stays well-formed.
+ * Edits insert only text, hard returns and whole attribute groups and delete
+ * only whole units, so a well-formed body (validated on load, iw_wp5_read)
+ * stays well-formed (test-iword-codes property C2).
  *
  * WRAP (iw_reflow_para). Within a paragraph (the units between two hard
  * returns / hard pages) every SRt is a space; the paragraph is re-wrapped at
@@ -138,6 +142,9 @@ typedef struct iw_ed {
     uint32_t width;      /* wrap columns (IW_WP5_WRAP_COLS for Face A)   */
     uint32_t goal;       /* the column Up/Down aim at                    */
     uint8_t  dirty;      /* changed since the last save / retrieve       */
+    uint8_t  reveal;     /* Reveal Codes is on: Backspace / Delete remove an
+                          * attribute code (and its partner) instead of
+                          * stepping over it (codes.c, initech-jojk)     */
 } iw_ed_t;
 
 /* Where the cursor is: the line index from the top of the document, the
@@ -170,6 +177,69 @@ uint32_t iw_ed_lines(const iw_ed_t *e, uint32_t first, uint32_t n, iw_line_t *ou
 uint32_t iw_ln_hundredths(uint32_t page_line);
 uint32_t iw_pos_hundredths(uint32_t col);
 uint32_t iw_fmt_inches(uint32_t hundredths, char *out);   /* returns length */
+
+/* ---- attribute codes (os/iword/core/codes.c; bead initech-jojk) ----------- *
+ * An attribute is a PAIR of fixed groups, `C3 n C3` (on) ... `C4 n C4` (off),
+ * n the WordPerfect attribute number (spec/iword/wp5_format.h IW_WP5_ATTR_*).
+ * The state at a position is read from the codes before it: attribute n is ON
+ * when the last code of n before the position is an ON code. The editor's
+ * rules are WordPerfect 5.1's (Reference Manual, Attributes p. 36-37, PDF
+ * page "ATTRIBUTES 37"; the real WP.EXE in MINT01/06/07/08):
+ *   iw_ed_attr (F6 Bold, F8 Underline, Ctrl-F8 2 n): n OFF at the cursor ->
+ *     "both an on and off code are inserted, with the cursor resting just
+ *     before the off code"; n ON -> the off code of the pair the cursor is in
+ *     is MOVED to the cursor and the cursor goes past it (MINT06: F6 typed
+ *     after "both" with [und][bold] ahead moved [bold] to the cursor; when the
+ *     off code is right at the cursor that is "press that keystroke once
+ *     again ... to move beyond the attribute off code"). No off code ahead
+ *     (an unpaired on code) -> one off code is inserted at the cursor.
+ *   iw_ed_normal (Ctrl-F8 3 Normal): "This either inserts the necessary off
+ *     codes or moves the cursor beyond existing off codes" -- the cursor steps
+ *     past the off codes at it, then every attribute still on is turned off as
+ *     iw_ed_attr does, in ascending attribute number [authored order; MINT04
+ *     verifies the step-past case].
+ *   Backspace / Delete on an attribute code with `reveal` set delete the code
+ *   AND its partner (MINT08 03b: Backspace on [italc] removed [ITALC] too).
+ *   Without `reveal` they step over every code (P1; the edit screen's
+ *   "Delete [code]?" question is not minted, left for the next slice). */
+#define IW_A_BOLD       0x01u   /* the Face A draw faces == TBX txFace bits */
+#define IW_A_ITALIC     0x02u
+#define IW_A_UNDERLINE  0x04u
+/* The attribute number of the C3/C4 unit at pos (on = 1 for C3), or -1. */
+int      iw_code_attr(const iw_doc_t *d, uint32_t pos, int *on);
+/* Bit n set = attribute n is ON at pos (the codes in [0, pos)). */
+uint32_t iw_attr_state(const iw_doc_t *d, uint32_t pos);
+/* Attribute-number state -> the IW_A_* faces Face A draws (bold, italic,
+ * underline; every other attribute draws plain). */
+uint32_t iw_attr_faces(uint32_t state);
+/* State after the unit at pos (pos a unit start): `state` updated. */
+uint32_t iw_attr_step(const iw_doc_t *d, uint32_t pos, uint32_t state);
+int      iw_ed_attr(iw_ed_t *e, uint8_t attr);
+int      iw_ed_normal(iw_ed_t *e);
+/* Delete the attribute code at pos and its partner (Reveal Codes Backspace /
+ * Delete); IW_E_PROTECTED when the unit is not an attribute code. */
+int      iw_ed_kill_code(iw_ed_t *e, uint32_t pos);
+
+/* ---- Reveal Codes (os/iword/core/codes.c; spec/iword/reveal_codes.h) ------- *
+ * iw_reveal_line: the labels of document line `ln` (text as itself, every
+ * code as its Reveal Codes label, the terminator's label last) into out
+ * (NUL-terminated, at most cap - 1 chars); returns the length. When `cur`
+ * lies on the line, *cur_off / *cur_len are the run the pane highlights: the
+ * label (or character) of the unit at the cursor, or one cell at the end of
+ * the line's labels when the cursor is at the end of the document; otherwise
+ * *cur_len = 0 and *cur_off = 0xFFFFFFFF. */
+#define IW_REVEAL_LINE_MAX 1024u
+uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur,
+                        char *out, uint32_t cap, uint32_t *cur_off, uint32_t *cur_len);
+/* The pane: `nrows` rows of `width` columns (row r at rows + r * stride, each
+ * NUL-terminated, width < stride; rows past the document are ""), starting at
+ * the anchor line (IW_RV_PANE_ABOVE lines above the cursor's). */
+typedef struct iw_pane {
+    uint32_t first_line;             /* the document line on row 0          */
+    uint32_t cur_row, cur_col, cur_len;   /* the highlight; cur_len 0 = none  */
+} iw_pane_t;
+void     iw_reveal_pane(const iw_ed_t *e, uint32_t width, uint32_t nrows,
+                        char *rows, uint32_t stride, iw_pane_t *pane);
 
 /* ---- the .WP5 codec (os/iword/fs/wp5.c) ------------------------------------ */
 typedef struct iw_wp5 {

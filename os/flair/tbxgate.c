@@ -523,48 +523,85 @@ static int32_t v_textdraw(const uint32_t *a)
 /* DRAWCELLS (spec Sec 7a; bead initech-w96l): the run in the fixed 8x16 cell
  * font -- every cell opaque: its box in bg, then the strike's set bits in fg
  * (MSB = leftmost, os/milton/console.h's glyph format), through the same clip
- * as TEXTDRAW. */
+ * as TEXTDRAW. STYLE (bead initech-jojk): fg bits 8..15 are a txFace, each
+ * glyph row synthesized by THE Font Manager rule text_synth_row (text.h) about
+ * TBX_CELL_BASELINE, the underline drawn by the text_draw_run rule (offset,
+ * thickness, halo); the run keeps its 8-px cells and nothing leaves its box. */
 static int32_t v_drawcells(const uint32_t *a)
 {
     const bitmap_t *dst = g_host.surface;
     const region_t *clip;
     const char *s;
     rgn_rect_t c, box;
-    int32_t gx, gy, len;
-    uint32_t fg, bg;
+    int32_t gx, gy, len, bx1;
+    uint32_t fg, bg, face;
 
     if (!check_win(a[0])) return TBX_ERR_BADARG;
     len = image_str(a[3], TBX_CELLS_MAX_RUN + 1u);
     if (len < 0) return TBX_ERR_BADARG;
-    if (a[4] >= TBX_COLOR_COUNT || a[5] >= TBX_COLOR_COUNT) return TBX_ERR_BADARG;
+    face = (a[4] >> TBX_TEXT_FACE_SHIFT) & 0xFFu;
+    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 16) != 0u ||
+        (face & ~TBX_TEXT_FACE_OK) != 0u || a[5] >= TBX_COLOR_COUNT)
+        return TBX_ERR_BADARG;
     if (dst == (const bitmap_t *)0) return TBX_OK;
     s  = (const char *)(uintptr_t)a[3];
     c  = region_get_bbox(g_slot.win->contRgn);
     gx = (int32_t)c.left + (int32_t)a[1];
     gy = (int32_t)c.top + (int32_t)a[2];
-    fg = color_px(a[4]);
+    fg = color_px(a[4] & 0xFFu);
     bg = color_px(a[5]);
     clip = draw_clip();
+    bx1 = gx + len * (int32_t)TBX_CELL_W;
     box.left = (int16_t)gx; box.top = (int16_t)gy;
-    box.right = (int16_t)(gx + len * (int32_t)TBX_CELL_W);
+    box.right = (int16_t)bx1;
     box.bottom = (int16_t)(gy + (int32_t)TBX_CELL_H);
     blitter_fill_rect_clipped(dst, box, bg, clip);
     if (g_host.cellfont != (const uint8_t *)0) {
+        /* ink on the underline row, one bit per run column from -1 (halo) */
+        uint32_t ul[(TBX_CELLS_MAX_RUN * TBX_CELL_W + 2u + 31u) / 32u];
+#if defined(TBXGATE_MUT_CELL_UL_LOW)
+        /* MUTANT (Rule 6; test-flair-iword-codes-mutant): the cell underline
+         * one row low. NEVER real. */
+        const int32_t ur = (int32_t)TBX_CELL_BASELINE + TEXT_UL_OFFSET + 1;
+#else
+        const int32_t ur = (int32_t)TBX_CELL_BASELINE + TEXT_UL_OFFSET;
+#endif
+        for (uint32_t i = 0; i < sizeof ul / sizeof ul[0]; i++) ul[i] = 0u;
         for (int32_t k = 0; k < len; k++) {
             const uint8_t *gl = g_host.cellfont +
                                 (uint32_t)(uint8_t)s[k] * TBX_CELL_H;
             for (int32_t r = 0; r < (int32_t)TBX_CELL_H; r++) {
                 int32_t py = gy + r;
-                if (gl[r] == 0u || py < 0 || py >= (int32_t)dst->height) continue;
-                for (int32_t b = 0; b < (int32_t)TBX_CELL_W; b++) {
-                    int32_t px = gx + k * (int32_t)TBX_CELL_W + b;
-                    if ((gl[r] & (0x80u >> b)) == 0u) continue;
+                uint32_t m = text_synth_row((uint32_t)gl[r] << (24 - TEXT_OVERHANG),
+                                            face, (int)TBX_CELL_BASELINE - (int)r);
+                if (m == 0u || py < 0 || py >= (int32_t)dst->height) continue;
+                for (int32_t b = 31; b >= 0; b--) {
+                    int32_t px = gx + k * (int32_t)TBX_CELL_W + (31 - b) - TEXT_OVERHANG;
+                    if ((m & (1u << b)) == 0u) continue;
+                    if (r == ur) {
+                        int32_t q = px - gx + 1;
+                        if (q >= 0 && q < (int32_t)(sizeof ul * 8u)) ul[q >> 5] |= 1u << (q & 31);
+                    }
+                    if (px < gx || px >= bx1) continue;          /* the box */
                     if (px < 0 || px >= (int32_t)dst->width) continue;
                     if (!region_contains_point(clip, (int16_t)px, (int16_t)py))
                         continue;
                     surface_put_pixel(dst, (uint32_t)py * dst->pitch +
                                            (uint32_t)px * dst->bytes_per_pixel, fg);
                 }
+            }
+        }
+        if ((face & TEXT_FACE_UNDERLINE) && gy + ur >= 0 && gy + ur < (int32_t)dst->height) {
+            for (int32_t col = 0; col < len * (int32_t)TBX_CELL_W; col++) {
+                int32_t px = gx + col, gap = 0;
+                for (int32_t h = -TEXT_UL_SHADOW; h <= TEXT_UL_SHADOW; h++) {
+                    int32_t q = col + h + 1;
+                    if (q >= 0 && q < (int32_t)(sizeof ul * 8u) && (ul[q >> 5] & (1u << (q & 31)))) gap = 1;
+                }
+                if (gap || px < 0 || px >= (int32_t)dst->width) continue;
+                if (!region_contains_point(clip, (int16_t)px, (int16_t)(gy + ur))) continue;
+                surface_put_pixel(dst, (uint32_t)(gy + ur) * dst->pitch +
+                                       (uint32_t)px * dst->bytes_per_pixel, fg);
             }
         }
     }

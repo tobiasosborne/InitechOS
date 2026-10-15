@@ -34,8 +34,17 @@
  *
  * usage: test_iword_face <empty-scratch-dir>
  *        (built with -DIWORD_SMALL_BUFFERS: the compaction / size-limit leg)
+ * F7 (bead initech-jojk, P2 slice 1) drives the attribute keys and Reveal
+ * Codes; its expected strings are typed here from the real WP 5.1 screens
+ * (../wordperfect51-decomp mint/shots_wpMINT06/01_font_menu.png,
+ * 01_appearance_menu.png, 03_reveal.png; goldens/minted/MINT0x.shots/
+ * 03_reveal.png) and its expected codes from the Reference Manual
+ * (Attributes p. 36-37) and MINT06/MINT08 -- never from spec/iword/
+ * reveal_codes.h or face_a.c. The saved CODES file is judged by the
+ * Makefile with wp5_ref.py.
+ *
  * Mutants (Rule 6; test-iword-face-mutant): IWORD_MUT_NO_WRAP (F1 rows),
- * IWORD_MUT_SAVE_NOTHING (F1 saved size).
+ * IWORD_MUT_SAVE_NOTHING (F1 saved size), IWORD_MUT_NO_FACE (F7 faces).
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include <stdint.h>
@@ -57,6 +66,9 @@ static volatile int *g_ctr;            /* [0] checks, [1] failures */
 #define SCR_H 24
 static char m_scr[SCR_H][SCR_W + 1];
 static char m_inv[SCR_H][SCR_W];        /* drawn NAVY on WHITE (the cursor) */
+static unsigned char m_face[SCR_H][SCR_W];   /* the txFace of the last plain-
+                                         * colour draw of the cell (fg >> 8) */
+static unsigned char m_col[SCR_H][SCR_W];    /* (fg token << 4) | bg token  */
 static int  m_exit_calls, m_exit_rc;
 static const char *m_dir;
 static FILE *m_fh[8];
@@ -84,9 +96,13 @@ int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t 
     int col = (x - 1) / 8, line = y / 16;
     (void)w;
     if (line < 0 || line >= SCR_H || col < 0 || (x - 1) % 8 || y % 16) return TBX_ERR_BADARG;
+    if ((f & 0xFFu) >= TBX_COLOR_COUNT || (f >> 16) || ((f >> 8) & ~0x07u) || b >= TBX_COLOR_COUNT)
+        return TBX_ERR_BADARG;                 /* spec/toolbox_gate.h Sec 7a STYLE */
     for (int i = 0; s[i] && col + i < SCR_W; i++) {
+        int inv = (f == TBX_COLOR_NAVY && b == TBX_COLOR_WHITE);
         m_scr[line][col + i] = s[i];
-        m_inv[line][col + i] = (f == TBX_COLOR_NAVY && b == TBX_COLOR_WHITE);
+        m_inv[line][col + i] = (char)inv;
+        if (!inv) { m_face[line][col + i] = (unsigned char)(f >> 8); m_col[line][col + i] = (unsigned char)(((f & 0xFFu) << 4) | b); }
     }
     return TBX_OK;
 }
@@ -144,6 +160,9 @@ static void tk(char c)
 static void tks(const char *s) { while (*s) tk(*s++); }
 static void fkey(int vk, int32_t mods) { ev(keyDown, vk << 8, mods); }
 #define F1   0x3B
+#define F3   0x3D
+#define F6   0x40
+#define F8   0x42
 #define F7   0x41
 #define F10  0x44
 #define ESC  0x01
@@ -163,7 +182,7 @@ static int row_is(int line, const char *want)
 }
 /* The status line: `left` at column 0, then the Doc group ending at column
  * 67 and "Pos" at column 69 (the MINT shots). */
-static __attribute__((unused)) int status_is(const char *left, const char *ln, const char *pos, int caps)
+static __attribute__((unused)) int status_line_is(int line, const char *left, const char *ln, const char *pos, int caps)
 {
     char w[SCR_W + 1], doc[40];
     memset(w, ' ', SCR_W); w[SCR_W] = 0;
@@ -172,7 +191,11 @@ static __attribute__((unused)) int status_is(const char *left, const char *ln, c
     memcpy(w + 68 - strlen(doc), doc, strlen(doc));
     memcpy(w + 69, caps ? "POS " : "Pos ", 4);
     memcpy(w + 73, pos, strlen(pos));
-    return row_is(23, w);
+    return row_is(line, w);
+}
+static __attribute__((unused)) int status_is(const char *left, const char *ln, const char *pos, int caps)
+{
+    return status_line_is(23, left, ln, pos, caps);
 }
 /* exactly one reverse-video cell, at (line, col) */
 static __attribute__((unused)) int cursor_at(int line, int col)
@@ -372,6 +395,111 @@ static void t_into(void)
     CHECK(status_is("", "1\"", "1.3\"", 0), "F5", "the on-screen document keeps no name of its own; cursor stays");
 }
 
+
+/* F7 CODES (bead initech-jojk): F6 Bold, F8 Underline, Ctrl-F8 2 4 Italic,
+ * Ctrl-F8 3 Normal; Alt-F3 Reveal Codes; Backspace on a code in Reveal
+ * Codes takes its partner; the document saves with its codes. */
+#define CTRL ((int32_t)FLAIR_EVT_MOD_CONTROL_KEY)
+#define ALT  ((int32_t)FLAIR_EVT_MOD_OPTION_KEY)
+/* faces of row `line` cols [from, to) all == f */
+static int faces_are(int line, int from, int to, int f)
+{
+    for (int c = from; c < to; c++)
+        if (m_face[line][c] != f) { fprintf(stderr, "    row %d col %d face %d, want %d\n", line, c, m_face[line][c], f); return 0; }
+    return 1;
+}
+/* the reverse-video run of row `line`: [col, col + n) and nothing else */
+static int inv_run(int line, int col, int n)
+{
+    for (int c = 0; c < SCR_W; c++) {
+        int want = c >= col && c < col + n;
+        if ((m_inv[line][c] != 0) != want) { fprintf(stderr, "    row %d col %d reverse %d, want %d\n", line, c, m_inv[line][c], want); return 0; }
+    }
+    return 1;
+}
+static void t_codes(void)
+{
+    tks("Plain ");
+    fkey(F6, 0);                         /* [BOLD][bold], the cursor between */
+    tks("bold");
+    fkey(F6, 0);                         /* past [bold] */
+    tk(' ');
+    fkey(F8, 0);
+    tks("under");
+    fkey(F8, 0);
+    tk(' ');
+    fkey(F8, CTRL);
+    CHECK(row_is(23, "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"), "F7",
+          "Ctrl-F8: the Font menu on the status line (01_font_menu.png)");
+    tk('2');
+    CHECK(row_is(23, "1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0"), "F7",
+          "2: the Appearance menu (01_appearance_menu.png)");
+    tk('4');
+    tks("slant");
+    fkey(F8, CTRL); tk('2'); tk('4');    /* re-selecting turns it off (p. 36) */
+    CHECK(row_is(0, "Plain bold under slant"), "F7", "the codes take no column");
+    CHECK(faces_are(0, 0, 6, 0) && faces_are(0, 6, 10, 1) && faces_are(0, 10, 11, 0) &&
+          faces_are(0, 11, 16, 4) && faces_are(0, 16, 17, 0) && faces_are(0, 17, 22, 2), "F7",
+          "faces: bold 1 on \"bold\", underline 4 on \"under\", italic 2 on \"slant\", plain between");
+    CHECK(status_is("", "1\"", "3.2\"", 0), "F7", "Pos counts text only: column 22 -> Pos 3.2\"");
+    /* Ctrl-F8 3 Normal: F6 x, Normal, y -> x bold, y plain */
+    tk(' ');
+    fkey(F6, 0); tk('x');
+    fkey(F8, CTRL); tk('3');
+    tk('y');
+    CHECK(row_is(0, "Plain bold under slant xy") && faces_are(0, 23, 24, 1) && faces_are(0, 24, 25, 0), "F7",
+          "Ctrl-F8 3 Normal steps past [bold]: x bold, y plain");
+    fkey(F10, 0);
+    tks("codes\r");
+    CHECK(file_size("CODES") == 327 + 49, "F7", "CODES: the prefix + 25 characters + 8 codes (24 bytes)");
+    {
+        char hp[300];
+        unsigned char b[400];
+        FILE *f;
+        size_t k;
+        host_name("CODES", hp);
+        f = fopen(hp, "rb");
+        k = f ? fread(b, 1, sizeof b, f) : 0;
+        if (f) fclose(f);
+        CHECK(k == 376u && b[0x103] == 0x08, "F7", "an italic body: 0x08 at 0x103, as WP wrote MINT06");
+    }
+    /* Alt-F3: Reveal Codes (MINT0x 03_reveal.png layout, 24 lines) */
+    fkey(F3, ALT);
+    CHECK(row_is(0, "Plain bold under slant xy") && row_is(9, ""), "F7", "Alt-F3: the document on top");
+    CHECK(status_line_is(10, "A:\\CODES", "1\"", "3.5\"", 0), "F7", "the status line above the ruler");
+    {
+        char ruler[SCR_W + 1];
+        memset(ruler, ' ', SCR_W); ruler[SCR_W] = 0;
+        for (int c = 5; c < SCR_W; c += 5) ruler[c] = 0x1E;
+        ruler[0] = '{'; ruler[65] = '}';
+        CHECK(row_is(11, ruler) && m_col[11][0] == ((TBX_COLOR_BLACK << 4) | TBX_COLOR_GRAY), "F7",
+              "the ruler: { at the left margin, a tab mark every 5 columns, } at column 65 (03_reveal.png)");
+    }
+    CHECK(row_is(12, "Plain [BOLD]bold[bold] [UND]under[und] [ITALC]slant[italc] [BOLD]x[bold]y") &&
+          row_is(13, "") && row_is(22, ""), "F7", "the codes pane: every code by its WP 5.1 label");
+    CHECK(inv_run(12, 73, 1), "F7", "the pane cursor: one cell after the last label (end of document)");
+    CHECK(row_is(23, "Press Reveal Codes to restore screen"), "F7", "the restore message on the last line");
+    /* Left x4 (y, [bold], x, [BOLD]): the cursor on [BOLD]; Right: on x;
+     * Backspace: [BOLD] goes, [bold] with it */
+    fkey(0x4B, 0); fkey(0x4B, 0); fkey(0x4B, 0); fkey(0x4B, 0);
+    CHECK(inv_run(12, 59, 6), "F7", "the cursor on a code highlights its whole label ([BOLD], 05_reveal_top.png)");
+    fkey(0x4D, 0);
+    CHECK(inv_run(12, 65, 1), "F7", "Right: the cursor on x");
+    tk(8);
+    CHECK(row_is(12, "Plain [BOLD]bold[bold] [UND]under[und] [ITALC]slant[italc] xy") && inv_run(12, 59, 1),
+          "F7", "Backspace on [BOLD] in Reveal Codes deletes [bold] too (MINT08 03b)");
+    CHECK(faces_are(0, 23, 25, 0), "F7", "x is plain again");
+    fkey(F3, ALT);
+    CHECK(row_is(10, "") && row_is(12, "") && status_is("A:\\CODES", "1\"", "3.3\"", 0), "F7",
+          "Alt-F3 again: the full editing screen");
+    /* the edit screen keeps P1's protection: Backspace steps over a code */
+    fkey(0x4F, 0);
+    tk(8); tk(8); tk(8); tk(8);
+    CHECK(row_is(0, "Plain bold under slant") && faces_are(0, 17, 22, 2), "F7",
+          "outside Reveal Codes Backspace deletes text, never a code ([italc] stays)");
+    CHECK(m_exit_calls == 0, "F7", "still running");
+}
+
 #else
 /* F6 SMALL BUFFERS: thousands of keys through compaction to the size limit;
  * the saved text is the typed text (judged here by the model: SRt = ' '). */
@@ -432,6 +560,7 @@ int main(int argc, char **argv)
     launch("dirty_enter_default", t_dirty_enter_default);
     launch("errors", t_errors);
     launch("into", t_into);
+    launch("codes", t_codes);
 #endif
     printf("test_iword_face: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);
     return g_ctr[1] == 0 ? 0 : 1;

@@ -30,6 +30,12 @@
  *       TBX_EVT_GOAWAY deliveries and the NEWWINDOW goAway value
  *       TBX_GOAWAY_ASK (Sec 11). goAway 0 and 1 keep their meaning exactly;
  *       no old value moved.
+ * bead: initech-jojk (InitechWord P2 slice 1, 2026-10-16). Deliberate Rule-8
+ *       extension: DRAWCELLS's fg dword carries a txFace in bits 8..15
+ *       exactly as TEXTDRAW's does since initech-tdnl.68 (Sec 7a STYLE, Sec
+ *       7a TBX_CELL_BASELINE) -- WordPerfect's attribute codes drawn in the
+ *       fixed cells. fg < TBX_COLOR_COUNT (face 0) is exactly the old call;
+ *       no old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -358,10 +364,31 @@
  * TBX_CELLS_MAX_RUN glyphs; the same clip as TEXTDRAW (visible INTERSECT
  * content [INTERSECT update]) and the same colour tokens (Sec 7). Bytes are
  * glyph indices, 0x20..0xFF drawn as the ROM draws them (code page 437).
+ *
+ * STYLE (deliberate locked ABI extension, bead initech-jojk, 2026-10-16 --
+ * InitechWord Face A draws WordPerfect's [BOLD] / [UND] / [ITALC] text).
+ * fg carries the colour token in bits 0..7 and a txFace in bits 8..15, the
+ * TEXTDRAW rule word for word (Sec 7 STYLE): bold 0x01, italic 0x02,
+ * underline 0x04 are synthesized by THE Font Manager rules (os/flair/text.h
+ * text_synth_row: bold = the 1-px smear, italic = the 1:5 shear about the
+ * baseline; underline = a 1-px line TEXT_UL_OFFSET rows below it, broken by
+ * the TEXT_UL_SHADOW halo where ink touches it); any other face bit or any
+ * bit 16..31 is TBX_ERR_BADARG. THE CELL GRID DOES NOT MOVE: a styled run
+ * is exactly as wide as a plain one (8 px a glyph -- unlike TEXTDRAW, where
+ * bold adds 1 px a glyph), so a smear or a shear that leaves the run's box
+ * [x, x + 8n) is clipped there (the box is opaque: nothing outside it is
+ * touched). TBX_CELL_BASELINE is the strike's baseline row (the first row
+ * below the baseline, the text.h convention): the ROM 8x16 strike's
+ * capitals and lower-case letters without descenders end on row 11 and its
+ * descenders run on rows 12..14 [measured on the strike the emulators load:
+ * test-flair-iword-codes leg STYLE checks the plain cells of the run it
+ * grades end on row 11]. fg < TBX_COLOR_COUNT (face 0) is the unchanged
+ * V4 call, pixel for pixel.
  * ------------------------------------------------------------------------- */
 #define TBX_CELL_W          8u
 #define TBX_CELL_H          16u
 #define TBX_CELLS_MAX_RUN   80u
+#define TBX_CELL_BASELINE   12u
 
 /* ---------------------------------------------------------------------------
  * 8. THE V1 MEMORY MODEL (DEC-AC3-1; D1-3)
