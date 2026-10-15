@@ -49,19 +49,31 @@
 # F. PARK (80,200) -> (620,460): sum (+540,+260): m90:52 x5, m90:0 (the path
 #    stays at y>=252, below every title probe row).
 #
+#
+# DELIBERATE RE-KEY 2026-10-16 (initech-tdnl.70 fallout, found by the 00a8e83
+# certificate at emu gate 197/235): the band-2 press moves from (32,30) to
+# (37,30). Since c8e1943 the Finder bar's Apple slot is the capture-derived
+# 33 px (chrome_metrics platinum_menu_layout; s8_menu_dropped File panel at
+# L33), so the Finder's File title spans x=33..74 and x=32 now drops the
+# Apple menu, not File (512). The Photoshop bar's File still spans x=0..41,
+# so x=37 lies on File in BOTH bars and the press keeps discriminating only
+# WHICH bar is live (same re-key as spec/flair_solid_traces.mk MENU2, 3379bbd).
+# Waypoint arithmetic after the re-key: C = (-563,-34): m-100:-6 x5, m-63:-4;
+# D = (+583,+430): m100:72 x5, m83:70 (still parks at (620,460));
+# E = (+43,+170): m19:85, m24:85 via (56,115) as before, landing (80,200).
 # TRACE 1 -- FLAIR_FG_CLOSE_SPEC: A, B, C, D. Expected:
 #     FINDER-CLOSE-WINDOW win=0
 #     NO FLAIR-DISPATCH line after it (the Finder keeps the foreground)
 #     FLAIR-MENU-DROP menu=512 after it (the Finder's File)
 #   final frame: band 2 == the Finder bar (ppm_flair_app_launch_check
 #   bar-finder); no window active (ppm_flair_solid_check leg L).
-FLAIR_FG_CLOSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-w,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-68:-4,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:72,m88:70
+FLAIR_FG_CLOSE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-w,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-63:-4,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:72,m83:70
 #
 # TRACE 2 -- FLAIR_FG_CLOSE_CLICK_SPEC: A, B, C, E, F. Expected: as trace 1
 #   up to the 512 drop, then the FIRST FLAIR-DISPATCH after the close is
 #   app=HELLO and it follows the drop; final frame: band 2 == the Photoshop bar
 #   (bar-photoshop), HELLO active and NOTES inactive (leg K).
-FLAIR_FG_CLOSE_CLICK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-w,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-68:-4,l1,l0,m24:85,m24:85,l1,l0,m90:52,m90:52,m90:52,m90:52,m90:52,m90:0
+FLAIR_FG_CLOSE_CLICK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-w,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-63:-4,l1,l0,m19:85,m24:85,l1,l0,m90:52,m90:52,m90:52,m90:52,m90:52,m90:0
 #
 # TRACE 3 -- FLAIR_FG_DESK_SPEC: A', C, D. Only HELLO's and NOTES's windows
 #   are on screen (no Finder window). Expected:
@@ -69,9 +81,9 @@ FLAIR_FG_CLOSE_CLICK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,kctrl-w,m-100:-
 #     FLAIR-MENU-DROP menu=512 after it (band 2 is the Finder's bar)
 #     NO further FLAIR-DISPATCH (the Finder keeps the foreground)
 #   final frame: bar-finder; no window active (leg L: HELLO deactivated).
-FLAIR_FG_DESK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-68:-4,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:72,m88:70
+FLAIR_FG_DESK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-63:-4,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:72,m83:70
 #
 # TRACE 4 -- FLAIR_FG_DESK_CLICK_SPEC: A', C, E, F. Expected: as trace 3, then
 #   the first FLAIR-DISPATCH after app=FINDER is app=HELLO and it follows the
 #   512 drop; final frame: bar-photoshop, leg K.
-FLAIR_FG_DESK_CLICK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-68:-4,l1,l0,m24:85,m24:85,l1,l0,m90:52,m90:52,m90:52,m90:52,m90:52,m90:0
+FLAIR_FG_DESK_CLICK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-100:-6,m-63:-4,l1,l0,m19:85,m24:85,l1,l0,m90:52,m90:52,m90:52,m90:52,m90:52,m90:0
