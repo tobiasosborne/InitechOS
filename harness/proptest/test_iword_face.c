@@ -619,8 +619,10 @@ static void t_tabs(void)
           row_is(12, "Page three.") && row_is(13, ""), "F10",
           "tabs to the stops, the indent holding its paragraph, a bar below each hard page (08_edit_top)");
     memset(st, ' ', SCR_W); st[SCR_W] = 0;
-    memcpy(st + 68 - 19, "Doc 1 Pg 3 Ln 1.17\"", 19);
-    memcpy(st + 69, "Pos 1\"", 6);
+    /* Doc group ends at column 66, "Pos" at 68 on the 76-cell face (bead
+     * initech-tdnl.51; see status_line_is). */
+    memcpy(st + 67 - 19, "Doc 1 Pg 3 Ln 1.17\"", 19);
+    memcpy(st + 68, "Pos 1\"", 6);
     CHECK(row_is(23, st) && cursor_at(13, 0), "F10", "the status line: Pg 3 Ln 1.17\" (03_reveal)");
     fkey(F10, 0);
     tks("tabs\r");
