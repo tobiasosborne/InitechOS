@@ -1419,6 +1419,8 @@ TEST_INTERP_SET      := $(BUILD)/test_interp_set
 TEST_INTERP_SET_MUT  := $(BUILD)/test_interp_set_mut
 # S5.7 procedures + scope + I/O DO/PROC/PARAMS/PUBLIC/PRIVATE/ACCEPT/INPUT/ON ERROR (initech-7az.8).
 SAMIR_PROC_SRC    := $(SAMIR_CMD_DIR)/proc.c
+# REPORT FORM renderer (initech-airx); registered by samir_main.c.
+SAMIR_REPORT_SRC  := $(SAMIR_CMD_DIR)/report.c
 TEST_INTERP_PROC     := $(BUILD)/test_interp_proc
 TEST_INTERP_PROC_MUT := $(BUILD)/test_interp_proc_mut
 # S5.8 dot-prompt REPL -- the convergence finale (initech-7az.9).
@@ -3067,7 +3069,7 @@ test-interp-decimals-mutant: $(TEST_INTERP_DECIMALS_MUT)
 # genuine dBASE-era Y2K failure, played straight (Law 4: canon is ENFORCED, not
 # fixed). Mutant (-DCANON_Y2K_FIXED) corrects the rollover -> the report no longer
 # matches the canon golden -> RED (a "fix" breaks the gate). label:canon.
-CANON_Y2K_ENG := $(SAMIR_MAIN_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+CANON_Y2K_ENG := $(SAMIR_MAIN_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_REPORT_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 CANON_DIR := $(DBF_DIFF_DIR)/canon
 $(TEST_CANON_Y2K): $(DBF_DIFF_DIR)/test_canon_y2k.c $(CANON_Y2K_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
@@ -3131,7 +3133,7 @@ test-canon-salami-mutant: $(TEST_CANON_SALAMI_MUT)
 # RETURN; downward-stacking DO-call levels in flow.c's memvar table), ACCEPT/INPUT/
 # WAIT (PAL conin), ON ERROR. GATED (loud-skip): param by-ref, uninit-PUBLIC value,
 # DO-name precedence. Mutant: PRIVATE doesn't restore the shadowed var -> RED.
-INTERP_PROC_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+INTERP_PROC_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_REPORT_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_INTERP_PROC): $(DBF_DIFF_DIR)/test_interp_proc.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_proc.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -3269,6 +3271,38 @@ test-samir-use: $(TEST_SAMIR_USE)
 	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
 	@$(TEST_SAMIR_USE) $(DBASE3_DECOMP)
 	@printf '>>> test-samir-use: green\n'
+
+# REPORT FORM (initech-airx): REAL-dBASE differential. Every expected byte is
+# a file real DBASE.EXE 1.1 wrote under dosbox-x (mint session 004,
+# $(DBASE3_DECOMP)/re/mint-results-004.md); report_mint004.md5 pins the 111
+# goldens, their .dbf/.ndx/.dbt/.frm inputs and the minting .PRGs, checked
+# before the replay. Rule 6: three implementation mutants, each RED on a named
+# golden.
+TEST_SAMIR_REPORT := $(BUILD)/test_samir_report
+SAMIR_REPORT_MD5  := $(DBF_DIFF_DIR)/report_mint004.md5
+SAMIR_REPORT_MUTS := $(BUILD)/test_samir_report_subtotal $(BUILD)/test_samir_report_column $(BUILD)/test_samir_report_page
+$(TEST_SAMIR_REPORT): $(DBF_DIFF_DIR)/test_samir_report.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_report.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(SAMIR_REPORT_MUTS): $(DBF_DIFF_DIR)/test_samir_report.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	@case "$@" in *_subtotal) flag=SAMIR_REPORT_MUTATE_NO_SUBTOTAL;; *_column) flag=SAMIR_REPORT_MUTATE_COLUMN;; *) flag=SAMIR_REPORT_MUTATE_PAGE;; esac; \
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_report.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: samir-report-goldens test-samir-report test-samir-report-mutant
+samir-report-goldens:
+	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_REPORT_MD5)" || { printf '!!! samir-report-goldens FAIL: mint 004 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
+test-samir-report: $(TEST_SAMIR_REPORT) samir-report-goldens
+	@$(TEST_SAMIR_REPORT) $(DBASE3_DECOMP) > $(BUILD)/samir-report.log 2>&1 || { cat $(BUILD)/samir-report.log; exit 1; }
+	@grep -c 'byte-identical to real dBASE' $(BUILD)/samir-report.log | grep -qx 111
+	@tail -1 $(BUILD)/samir-report.log
+	@printf '>>> test-samir-report: green (111 REPORT FORM files byte-identical to real dBASE III PLUS 1.1)\n'
+test-samir-report-mutant: $(SAMIR_REPORT_MUTS) samir-report-goldens
+	@set -e; for kind in subtotal column page; do \
+	  case $$kind in subtotal) reason='REPORT G8TP.TXT: differs';; column) reason='REPORT G1FLT.TXT: differs';; page) reason='REPORT G2TRV.TXT: differs';; esac; \
+	  if $(BUILD)/test_samir_report_$$kind $(DBASE3_DECOMP) > $(BUILD)/samir-report-mut-$$kind.log 2>&1; then echo '!!! report mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-report-mut-$$kind.log; \
+	  grep -Fq "$$reason" $(BUILD)/samir-report-mut-$$kind.log; \
+	  printf '>>> test-samir-report-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
+	done
+	@printf '>>> test-samir-report-mutant: green\n'
 
 TEST_SAMIR_INPUT := $(BUILD)/test_samir_input
 $(TEST_SAMIR_INPUT): $(DBF_DIFF_DIR)/test_samir_input.c $(SAMIR_DIR)/pal/line_input.h | $(BUILD)
@@ -26637,7 +26671,7 @@ SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protec
 SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
-                   $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) \
+                   $(SAMIR_QUERY_SRC) $(SAMIR_MUTATE_SRC) $(SAMIR_SET_SRC) $(SAMIR_PROC_SRC) $(SAMIR_REPORT_SRC) \
                    $(SAMIR_MAIN_SRC) $(SAMIR_DIR)/core/screen.c $(SAMIR_DIR)/pal/pal_milton.c $(SAMIR_SOFTFP_SRC)
 SAMIR_CRT0_ASM  := $(SAMIR_DIR)/boot/samir_crt0.asm
 SAMIR_LD_SCRIPT := $(SAMIR_DIR)/boot/samir.ld
@@ -26702,6 +26736,44 @@ test-samir-lifetime-desktop-mutant: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FL
 	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-desktop.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-desktop.log
 	@printf '>>> test-samir-lifetime-desktop-mutant: green (duplicate USE correctly RED)\n'
+
+# REPORT FORM in the guest (initech-airx): EXEC SAMIR.COM, REPORT FORM ... TO
+# FILE, read the files back with mtools and diff them against the real
+# DBASE.EXE 1.1 files (mint 004); the screen leg checks the final screendump
+# cell by cell against the real G2TRV.TXT console projection (Rule 14 clip for
+# a text-console app). Inputs come md5-pinned from $(DBASE3_DECOMP)/mint/work.
+SAMIR_REPORT_IMG   := $(BUILD)/samir_report_data.img
+SAMIR_REPORT_FILES := AVAL_FLT.DBF AVAL_FLT.NDX FLT_INFO.FRM TRAVEL.DBF TRAVEL.DBT TRIPS.NDX TRAVELER.FRM TRIP.FRM R4TRIP.DBF
+$(SAMIR_REPORT_IMG): $(SAMIR_COM) $(SAMIR_REPORT_MD5) | $(BUILD)
+	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_REPORT_MD5)" || { printf '!!! samir_report_data FAIL: mint 004 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
+	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
+	@mformat -i $@ -f 1440 ::
+	@mcopy -i $@ $(SAMIR_COM) ::SAMIR.COM
+	@set -e; for f in $(SAMIR_REPORT_FILES); do mcopy -i $@ "$(DBASE3_DECOMP)/mint/work/$$f" ::$$f; done
+	@printf '>>> samir_report_data: minted %s (SAMIR.COM + mint 004 report inputs)\n' "$@"
+	@$(call fixture-check,recipe,$@)
+TEST_SAMIR_REPORT_EMU := $(BUILD)/test_samir_report_emu
+$(TEST_SAMIR_REPORT_EMU): $(DBF_DIFF_DIR)/test_samir_report_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+SAMIR_REPORT_MUT_COM := $(BUILD)/SAMIR_REPORT_subtotal.COM
+$(SAMIR_REPORT_MUT_COM): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/heap.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@set -e; d=$(BUILD)/samir_report_mut; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_REPORT_MUTATE_NO_SUBTOTAL -c $$src -o $$obj; done; \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+.PHONY: test-samir-report-emu test-samir-report-emu-mutant
+test-samir-report-emu: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(SAMIR_REPORT_IMG) $(PPM_TEXT_CHECK_BIN)
+	@$(TEST_SAMIR_REPORT_EMU) files $(SAMIR_COM) $(DBASE3_DECOMP)
+	@$(TEST_SAMIR_REPORT_EMU) screen $(SAMIR_COM) $(DBASE3_DECOMP)
+	@printf '>>> test-samir-report-emu: green (guest REPORT FORM files byte-identical to real dBASE; screendump cells match)\n'
+test-samir-report-emu-mutant: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_REPORT_MUT_COM) $(SAMIR_REPORT_IMG)
+	@if $(TEST_SAMIR_REPORT_EMU) files $(SAMIR_REPORT_MUT_COM) $(DBASE3_DECOMP) > $(BUILD)/samir-report-emu-mut.log 2>&1; then echo '!!! report emu mutant passed'; exit 1; fi
+	@grep -q 'checks,.*failures' $(BUILD)/samir-report-emu-mut.log
+	@grep -Fq 'REPORT G8TP.TXT: guest file differs' $(BUILD)/samir-report-emu-mut.log
+	@grep -q 'triple_fault=0' $(BUILD)/samir-report-emu/files.report
+	@grep -Fq 'G1FLT.TXT  guest file byte-identical' $(BUILD)/samir-report-emu-mut.log
+	@printf '>>> test-samir-report-emu-mutant: green (dropped subtotal band correctly RED in the guest: G8TP.TXT differs, G1FLT.TXT still identical, no crash)\n'
 
 TEST_SAMIR_AUDIT_EMU := $(BUILD)/test_samir_audit_emu
 $(TEST_SAMIR_AUDIT_EMU): $(DBF_DIFF_DIR)/test_samir_audit_emu.c | $(BUILD)
@@ -28148,6 +28220,7 @@ TEST_UNIT_GATES := \
 	test-dos-safety-ro-mutant \
 	test-tbx-file test-tbx-file-mutant \
 	test-samir-view test-samir-use test-samir-input test-samir-view-mutant test-samir-use-mutant test-samir-input-mutant \
+	test-samir-report test-samir-report-mutant \
 	test-dos-safety-identity test-dos-safety-identity-mutant \
 	test-dos-safety-create test-dos-safety-create-mutant \
 	test-fat12-bpb test-fat12-chain test-fat12-dir test-fat12-write \
@@ -29302,6 +29375,7 @@ TEST_EMU_GATES := \
 	test-dos-safety-copy-ro-mutant test-dos-safety-del-ro-mutant \
 	test-dos-safety-del-ro-progress-mutant \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
+	test-samir-report-emu test-samir-report-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \

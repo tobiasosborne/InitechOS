@@ -96,14 +96,19 @@
 
 /* ---- Arena sizing constants ----------------------------------------------- *
  *
- * Request 36 KiB (2304 DOS paragraphs), split into a 16 KiB scratch bump arena
- * and a 20 KiB independently reclaimed codec heap. Allocator policy is authored,
- * no local reference. The link script checks actual BSS against the 64 KiB
- * loader reserve and reserves this whole AH=48h block below ENV_BLOCK.
+ * 36 KiB of PAL storage: a 16 KiB scratch bump arena and a 20 KiB
+ * independently reclaimed codec heap. Allocator policy is authored, no local
+ * reference. Since initech-airx (REPORT FORM grew the image) only 30 KiB come
+ * from AH=48h (2304 -> 1920 paragraphs): the last 6 KiB of the owned heap is a
+ * second region in the program's own 64 KiB BSS reserve, above __bss_end and
+ * below the arena base the loader computes (memory_map.h PROGRAM_BSS_RESERVE),
+ * so the capacities are unchanged. samir.ld asserts both regions fit.
  * Scratch reset cannot reclaim a live table/memo/index (audit L003).
  * Ref: spec/memory_map.h PROGRAM_BSS_RESERVE / ENV_BLOCK; ADR-0009 DEC-04.
  */
-#define PAL_MILTON_HEAP_PARAS  2304u    /* 36 KiB: 16 KiB scratch + 20 KiB owned */
+#define PAL_MILTON_HEAP_PARAS  1920u    /* 30 KiB: 16 KiB scratch + 14 KiB owned */
+#define PAL_MILTON_TAIL_BYTES  6144u    /* + 6 KiB owned in the BSS reserve tail */
+extern uint8_t _samir_heap_tail[];      /* samir.ld: first byte after .bss */
 #define PAL_MILTON_HEAP_BYTES  (PAL_MILTON_HEAP_PARAS * 16u)
 
 /* ---- Freestanding panic --------------------------------------------------- *
@@ -898,7 +903,8 @@ samir_pal_t *pal_milton_make(void)
     st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4);
     st->heap_ptr  = st->heap_base;
     st->heap_end  = st->heap_base + 16384u;
-    st->blocks=pal_heap_init(st->heap_end,20480u);
+    st->blocks=pal_heap_init(st->heap_end,14336u);
+    pal_heap_add(st->blocks,_samir_heap_tail,PAL_MILTON_TAIL_BYTES);
 
     return &st->vtable;
 }

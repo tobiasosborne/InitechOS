@@ -55,11 +55,17 @@ SECTIONS
     }
 
     _samir_image_end = .;
+    /* initech-airx: 6 KiB of the PAL owned heap lives in the unused tail of
+     * the 64 KiB BSS reserve (pal_milton.c PAL_MILTON_TAIL_BYTES). */
+    . = ALIGN(16);
+    _samir_heap_tail = .;
     /* Ref: spec/memory_map.h PROGRAM_BSS_RESERVE=64 KiB and ENV_BLOCK.
-     * PAL requests 36 KiB plus paragraph/MCB overhead. Authored heap split,
+     * PAL requests 30 KiB plus paragraph/MCB overhead (6 more KiB in the tail). Authored heap split,
      * no local reference. Fail build before BSS can overlap the AH=48h arena. */
     ASSERT(__bss_end - __bss_start <= 0x10000, "SAMIR BSS exceeds loader reserve")
-    ASSERT(_samir_load_end + 0x10000 + 0x9000 + 0x20 <= 0x6F000,
+    ASSERT(_samir_heap_tail + 0x1800 <= _samir_load_end + 0x10000,
+           "SAMIR BSS leaves no room for the owned-heap tail")
+    ASSERT(_samir_load_end + 0x10000 + 0x7800 + 0x20 <= 0x6F000,
            "SAMIR image leaves insufficient PAL memory")
 
     /DISCARD/ : {
