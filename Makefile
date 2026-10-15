@@ -1735,6 +1735,7 @@ $(FAT12_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/bigchain.txt ::BIGCHAIN.TXT
 	@printf ">>> fat12: minted %s (1.44MB FAT12, fixtures copied; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Mint the FAT16 fixture image (beads initech-z01): a real `mkfs.fat -F 16`
 # NON-PARTITIONED volume (hidden_sectors==0; -s 1 => 1 sector/cluster like the
@@ -1766,6 +1767,7 @@ $(FAT16_IMG): $(FAT12_FIXTURES) $(FAT16_HIGHCLUS_BIN) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/bigchain.txt ::BIGCHAIN.TXT
 	@mcopy -i $@ $(FAT16_HIGHCLUS_BIN) ::HIGHCLUS.BIN
 	@printf ">>> fat16: minted %s (8MB FAT16, non-partitioned, fixtures + HIGHCLUS; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Mint the NESTED FAT12 image (beads initech-ti8): same mformat -f 1440 flags as
 # FAT12_IMG (consistency); then create the subdirectory tree and populate it.
@@ -1793,6 +1795,7 @@ $(FAT12_NESTED_IMG): $(FAT12_NESTED_FIXTURES) | $(BUILD)
 		n=$$((n+1)); \
 	done
 	@printf ">>> fat12: minted %s (nested SUB/DEEP/BIGDIR tree; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Mint the MKDIR GOLDEN image (beads initech-u6wa): a fresh mformat -f 1440
 # floppy with '\NEWDIR' minted by mtools `mmd` -- the INDEPENDENT golden the
@@ -1827,6 +1830,7 @@ $(FAT12_RENAME_GOLDEN_IMG): $(FAT12_FIXTURE_DIR)/chain.txt | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
 	@mren -i $@ ::OLD.TXT ::NEW.BAK
 	@printf ">>> fat12: minted %s (mren ::OLD.TXT ::NEW.BAK golden; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Mint the NON-ROOT (subdir) RENAME GOLDEN image (beads initech-isil): a fresh
 # mformat -f 1440 floppy with '\SUB' (mmd) seeded with OLD2.TXT (mcopy chain.txt
@@ -1841,6 +1845,7 @@ $(FAT12_RENAME_SUBDIR_GOLDEN_IMG): $(FAT12_FIXTURE_DIR)/chain.txt | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/chain.txt ::SUB/OLD2.TXT
 	@mren -i $@ ::SUB/OLD2.TXT ::SUB/NEW2.BAK
 	@printf ">>> fat12: minted %s (mren ::SUB/OLD2.TXT ::SUB/NEW2.BAK subdir golden; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Mint the NESTED MKDIR GOLDEN image (beads initech-m0bp): a fresh mformat -f
 # 1440 floppy with '\SUB' AND '\SUB\NEWDIR' BOTH minted by mtools `mmd` -- the
@@ -1878,6 +1883,7 @@ $(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/empty.txt ::EMPTY.TXT
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@printf ">>> fat_data: minted %s (1.44MB FAT12 data disk for test-fs; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Assemble the GREET .COM (org 0x40100; nasm -f bin is deterministic, Rule 11).
 $(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
@@ -1919,6 +1925,7 @@ $(FAT_EXEC_IMG): $(FAT12_FIXTURES) $(GREET_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(GREET_PROG_BIN) ::GREET.COM
 	@printf ">>> fat_exec: minted %s (1.44MB FAT12 disk for test-exec; GREET.COM + HELLO.TXT; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Assemble the leaky-child EXITH .COM (org 0x40100; nasm -f bin is deterministic,
 # Rule 11). It OPENs four files and TERMINATEs WITHOUT closing them.
@@ -1940,6 +1947,7 @@ $(FAT_EXITH_IMG): $(FAT12_FIXTURES) $(EXITH_PROG_BIN) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/block.bin ::BLOCK.BIN
 	@mcopy -i $@ $(EXITH_PROG_BIN) ::EXITH.COM
 	@printf ">>> fat_exith: minted %s (1.44MB FAT12 disk for test-exit-handles; EXITH.COM + 4 target files; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # SYSINIT / CONFIG.SYS FILES= cap oracle (beads initech-509.2; make test-sysinit).
 # Assemble SYSI.COM (org 0x40100; nasm -f bin is deterministic, Rule 11) -- it OPENs
@@ -1966,6 +1974,7 @@ $(FAT_SYSI_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(SYSI_PROG_BIN) $(CONFIG_SYS_FI
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(SYSI_PROG_BIN) ::SYSI.COM
 	@printf ">>> fat_sysi: minted %s (1.44MB FAT12 disk for test-sysinit; CONFIG.SYS FILES=8 + SYSI.COM + HELLO.TXT; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Oversize CONFIG.SYS fixture (bcg.9): FILES=8 in the first lines, then padding
 # REM lines so the file exceeds the 1024-byte SYSINIT scratch. The honor-first-1KB
@@ -1985,6 +1994,7 @@ $(FAT_SYSI_BIG_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(SYSI_PROG_BIN) $(CONFIG_SY
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(SYSI_PROG_BIN) ::SYSI.COM
 	@printf ">>> fat_sysi_big: minted %s (oversize CONFIG.SYS + SYSI.COM + HELLO.TXT; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # FAT12 WRITABLE data disk for the in-emulator WRITE round-trip (beads
 # initech-509.11; make test-fatwrite). A FRESH, formatted-but-near-empty 1.44 MB
@@ -2000,6 +2010,7 @@ $(FAT_WRITE_IMG): $(FAT12_FIXTURE_DIR)/hello.txt | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@printf ">>> fat_write: minted %s (1.44MB FAT12 WRITABLE disk for test-fatwrite; HELLO.TXT seed; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # FAT12 WRITABLE scratch disk for the in-emulator INT 25h/26h ABSOLUTE-DISK asm-
 # stub round-trip (beads initech-8403; make test-absdisk-emu). A FRESH, BLANK
@@ -2049,6 +2060,7 @@ $(FAT_MULTIOPEN_IMG): $(FAT12_FIXTURE_DIR)/hello.txt $(FAT12_FIXTURE_DIR)/second
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/second.txt ::SECOND.TXT
 	@mcopy -i $@ $(MO_BIG_DAT) ::BIG.DAT
 	@printf ">>> fat_multiopen: minted %s (1.44MB FAT12 disk for test-multiopen; HELLO.TXT + SECOND.TXT + 96KiB BIG.DAT; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # FAT12 storm disk for the INT 21h reentrancy oracle (beads initech-xk2; make
 # test-int21-irqstorm). A 1.44 MB FAT12 volume carrying, in a KNOWN insertion
@@ -2086,6 +2098,7 @@ $(FAT_IRQSTORM_IMG): $(STORM_DAT) | $(BUILD)
 	@printf 'delta\r\n'   | mcopy -i $@ - ::DELTA.TXT
 	@mcopy -i $@ $(STORM_DAT) ::STORM.DAT
 	@printf ">>> fat_irqstorm: minted %s (1.44MB FAT12 disk for test-int21-irqstorm; ALPHA/BRAVO/CHARLIE/DELTA.TXT + multi-cluster STORM.DAT; build intermediate)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Build the BPB oracle: the test + the REAL artifact fat12.c + the host
 # blockdev backend. -Ispec for bpb_t, -Ios/milton for fat12.h/blockdev.h,
@@ -3739,10 +3752,12 @@ test-gnrc: $(TEST_FAT12_RENAME) $(FAT12_RENAME_GOLDEN_IMG) $(FAT12_RENAME_SUBDIR
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_ART_IMG))
 	@dd if=/dev/zero of=$(FAT12_RENAME_SUBDIR_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_SUBDIR_ART_IMG) -f 1440 ::
 	@mmd -i $(FAT12_RENAME_SUBDIR_ART_IMG) ::SUB
 	@mcopy -i $(FAT12_RENAME_SUBDIR_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::SUB/OLD2.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_SUBDIR_ART_IMG))
 	@$(TEST_FAT12_RENAME) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" \
 		"$(FAT12_RENAME_SUBDIR_ART_IMG)" "$(FAT12_RENAME_SUBDIR_GOLDEN_IMG)"
 	@printf ">>> test-gnrc: green\n"
@@ -3759,6 +3774,7 @@ test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN)
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_ART_IMG))
 	@if $(TEST_FAT12_RENAME_MUT_NODEST) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" >/dev/null 2>&1; then \
 		printf '!!! test-gnrc-mutant FAIL: no-dest-check mutant PASSED -- the dest-exists reject is decoration\n'; exit 1; \
 	else \
@@ -3767,6 +3783,7 @@ test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN)
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_ART_IMG))
 	@if $(TEST_FAT12_RENAME_MUT_CHAIN) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" >/dev/null 2>&1; then \
 		printf '!!! test-gnrc-mutant FAIL: touch-chain mutant PASSED -- the start_cluster/size-unchanged assertion is decoration\n'; exit 1; \
 	else \
@@ -3775,6 +3792,7 @@ test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN)
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_ART_IMG))
 	@if $(TEST_FAT12_RENAME_MUT_NAME8) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" >/dev/null 2>&1; then \
 		printf '!!! test-gnrc-mutant FAIL: name-only8 mutant PASSED -- the extension is dropped from the name-field diff\n'; exit 1; \
 	else \
@@ -3786,10 +3804,12 @@ test-gnrc-mutant: $(TEST_FAT12_RENAME_MUT_NODEST) $(TEST_FAT12_RENAME_MUT_CHAIN)
 	@dd if=/dev/zero of=$(FAT12_RENAME_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_ART_IMG) -f 1440 ::
 	@mcopy -i $(FAT12_RENAME_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::OLD.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_ART_IMG))
 	@dd if=/dev/zero of=$(FAT12_RENAME_SUBDIR_ART_IMG) bs=512 count=2880 status=none
 	@mformat -i $(FAT12_RENAME_SUBDIR_ART_IMG) -f 1440 ::
 	@mmd -i $(FAT12_RENAME_SUBDIR_ART_IMG) ::SUB
 	@mcopy -i $(FAT12_RENAME_SUBDIR_ART_IMG) $(FAT12_FIXTURE_DIR)/chain.txt ::SUB/OLD2.TXT
+	@$(call fixture-check,recipe,$(FAT12_RENAME_SUBDIR_ART_IMG))
 	@if $(TEST_FAT12_RENAME_MUT_DIRSTART) "$(FAT12_RENAME_ART_IMG)" "$(FAT12_RENAME_GOLDEN_IMG)" \
 		"$(FAT12_RENAME_SUBDIR_ART_IMG)" "$(FAT12_RENAME_SUBDIR_GOLDEN_IMG)" >/dev/null 2>&1; then \
 		printf '!!! test-gnrc-mutant FAIL: ignore-dir_start mutant PASSED -- the NON-ROOT same-dir leg is decoration\n'; exit 1; \
@@ -3826,6 +3846,7 @@ define MINT_FAT12_MOVE_IMAGES
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::SRC/MOVEDIR/INSIDE.TXT
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::COLL.TXT
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_DIFF_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::DST/COLL.TXT
+@$(call fixture-check,recipe,$(FAT12_MOVE_DIFF_IMG))
 @dd if=/dev/zero of=$(FAT12_MOVE_STRUCT_IMG) bs=512 count=2880 status=none
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $(FAT12_MOVE_STRUCT_IMG) -f 1440 ::
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mlabel -i $(FAT12_MOVE_STRUCT_IMG) ::INITECH
@@ -3842,6 +3863,7 @@ define MINT_FAT12_MOVE_IMAGES
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::GROWB.TXT
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::GROWC.TXT
 @SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $(FAT12_MOVE_STRUCT_IMG) $(FAT12_FIXTURE_DIR)/second.txt ::HOLDER/KEEP.TXT
+@$(call fixture-check,recipe,$(FAT12_MOVE_STRUCT_IMG))
 endef
 
 # Build the MOVE oracle + its five mutants (beads initech-tdnl.26): the test +
@@ -5798,7 +5820,9 @@ test-zs24: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-zs24 FAIL: mtools `mdir` not found.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-zs24 FAIL: python3 not found (independent reference).\n'; exit 1; }
 	@printf ">>> test-zs24: subdir file CREATE/WRITE/LSEEK-WRITE/UNLINK vs mtools + python3 (beads initech-zs24)\n"
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@# (1) CREATE+WRITE '\SUB\NEW.TXT' (700 bytes, spans 2 clusters).
 	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write
 	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW.TXT $(BUILD)/zs24_mcopy.bin
@@ -5825,7 +5849,9 @@ test-zs24: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 		printf '!!! test-zs24 FAIL [UNLINK]: python --list-path SUB STILL lists NEW.TXT\n'; exit 1; fi
 	@printf '>>> test-zs24 [UNLINK]: NEW.TXT removed from \\SUB; NESTED.TXT intact (mtools + python agree)\n'
 	@# (4) ROOT regression: a root CREATE+WRITE still works under the generalized primitives.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write root-regress
 	@mcopy -n -i $(FAT12_ZS24_IMG) ::ROOTNEW.TXT $(BUILD)/zs24_root.bin
 	@python3 -c 'import sys; e=bytes(97+(i%26) for i in range(300)); m=open("$(BUILD)/zs24_root.bin","rb").read(); sys.exit(0 if m==e else 1)' \
@@ -5838,7 +5864,9 @@ test-zs24: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@# references: EVERY GROW file is listed AND the boundary file (GROW12) reads
 	@# back byte-exact from the GROWN cluster (proving FAT relink + slot map +
 	@# zero-fill). The boundary file content is 40 bytes of 'A'+12 == 'M'.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write grow
 	@# mtools: ALL 13 GROW files are listed in ::SUB (rendered 8.3 "GROWnn   TXT").
 	@for n in 00 01 02 03 04 05 06 07 08 09 10 11 12; do \
@@ -5883,7 +5911,9 @@ test-nmpo: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-nmpo FAIL: mtools `mdir` not found.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-nmpo FAIL: python3 not found (independent reference).\n'; exit 1; }
 	@printf ">>> test-nmpo: AH=5Bh CREATNEW end-to-end (FRESH materialize + COLLISION reject + no-truncate) vs mtools + python3 (beads initech-nmpo)\n"
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@# CREATNEW '\SUB\NEW5B.TXT' (700B, 2 clusters); re-CREATNEW collides 0x0050; no truncation.
 	@$(TEST_FILEIO_SUBDIR) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write creatnew
 	@mcopy -n -i $(FAT12_ZS24_IMG) ::SUB/NEW5B.TXT $(BUILD)/nmpo_mcopy.bin
@@ -5910,7 +5940,9 @@ test-nmpo-mutant: $(TEST_NMPO_MUT_NOGUARD) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-nmpo-mutant FAIL: mtools `mcopy` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-nmpo-mutant FAIL: python3 not found (independent reference).\n'; exit 1; }
 	@printf ">>> test-nmpo-mutant: confirming the test-nmpo CREATNEW materialize differential bites a NO_GUARD truncate mutant (Rule 6; beads initech-nmpo)\n"
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@# Run the SAME harness leg the mutant perturbs. The NO_GUARD mutant's second
 	@# CREATNEW truncates NEW5B.TXT on disk; capture the report (it will fail its
 	@# own in-process collision/no-truncate CHECKs -- that is part of the bite).
@@ -5964,7 +5996,9 @@ test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_Z
 	@# mirroring the test-ut6d-mutant boot-confirmation discipline). The harness
 	@# stdout is captured to a report; a missing/empty report is a HARD FAIL.
 	@# ROOTSLOT: a subdir CREATE+WRITE write-backs to a ROOT slot -> mcopy read-back is wrong/absent.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_ZS24_MUT_ROOTSLOT) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write > $(BUILD)/zs24_mut_rootslot.report 2>&1 || true
 	@if [ ! -s $(BUILD)/zs24_mut_rootslot.report ]; then \
 		printf '!!! test-zs24-mutant FAIL: ROOTSLOT mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
@@ -5982,7 +6016,9 @@ test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_Z
 	@# BOTH the rejection was SURFACED (the harness reported >=1 failure -- it RAN
 	@# the create and the guard rejected it, not merely that the file is absent)
 	@# AND the file did not land in \SUB (no exit-code swallow that could mask a crash).
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_ZS24_MUT_CREATEROOT) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write > $(BUILD)/zs24_mut_createroot.report 2>&1; rc=$$?; \
 		if [ ! -s $(BUILD)/zs24_mut_createroot.report ]; then \
 			printf '!!! test-zs24-mutant FAIL: CREATEROOT mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
@@ -5999,7 +6035,9 @@ test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_Z
 		printf '>>> test-zs24-mutant: green (CREATEROOT mutant ran, the CREATE was rejected + the file is absent -- subdir CREATE bites)\n'; \
 	fi
 	@# UNLINKNOOP: a subdir UNLINK is a no-op -> mdir ::SUB still lists the file.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_ZS24_MUT_UNLINKNOOP) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write create-write > $(BUILD)/zs24_mut_unlinknoop.report 2>&1 || true
 	@$(TEST_ZS24_MUT_UNLINKNOOP) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write unlink >> $(BUILD)/zs24_mut_unlinknoop.report 2>&1 || true
 	@if [ ! -s $(BUILD)/zs24_mut_unlinknoop.report ]; then \
@@ -6017,7 +6055,9 @@ test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_Z
 	@# RUNS (the create succeeds at the artifact level; the corruption is on disk),
 	@# so we confirm it reached TEST_SUMMARY, then assert GROW12 is unreadable. This
 	@# proves the chain RELINK + EOC-terminate is what makes the grown slots reachable.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_ZS24_MUT_GROWNOEOC) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write grow > $(BUILD)/zs24_mut_grownoeoc.report 2>&1 || true
 	@if [ ! -s $(BUILD)/zs24_mut_grownoeoc.report ]; then \
 		printf '!!! test-zs24-mutant FAIL: GROW_NO_EOC mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
@@ -6031,7 +6071,9 @@ test-zs24-mutant: $(TEST_ZS24_MUT_ROOTSLOT) $(TEST_ZS24_MUT_CREATEROOT) $(TEST_Z
 	fi
 	@# GROW_NOOP: fat12_grow_dir refuses to grow (DIR_FULL), so the boundary CREATE
 	@# fails outright -> the harness records a failure AND GROW12 never lands.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_ZS24_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_ZS24_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_ZS24_MUT_GROWNOOP) "$(FAT12_ZS24_IMG)" "$(FAT12_FIXTURE_DIR)" --write grow > $(BUILD)/zs24_mut_grownoop.report 2>&1 || true
 	@if [ ! -s $(BUILD)/zs24_mut_grownoop.report ]; then \
 		printf '!!! test-zs24-mutant FAIL: GROW_NOOP mutant produced no output -- harness is dead, RED is meaningless\n'; exit 1; fi
@@ -6112,7 +6154,9 @@ test-qekc: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-qekc FAIL: mtools `mdir` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-qekc FAIL: python3 not found (independent reference).\n'; exit 1; }
 	@printf ">>> test-qekc: AH=57h SET FILE DATE/TIME persistence vs python --stat-path-time + mtools mdir (beads initech-qekc)\n"
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_QEKC_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@# (1) CREATE '\SUB\TSTAMP.TXT' (0/0 baseline) + AH=57h SET mtime/mdate + FLUSH.
 	@$(TEST_FILEIO_SUBDIR) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set
 	@# python: the on-disk 0x16/0x18 packed words EXACTLY equal what SET wrote
@@ -6175,7 +6219,9 @@ test-qekc-mutant: $(TEST_QEKC_MUT_GETSWAP) $(TEST_QEKC_MUT_NOALREJECT) $(TEST_QE
 	@# --- MUTANT 1 (DROP_MDATE): SET writes only mtime, drops mdate -> the on-disk
 	@# DATE differs from the written 0x2C8D. The mtime word still matches, so we
 	@# assert the FULL pair != written (the date leg bites).
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_QEKC_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_QEKC_MUT_DROPMDATE) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set > $(BUILD)/qekc_mut_dropmdate.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/qekc_mut_dropmdate.report \
 		|| { printf '!!! test-qekc-mutant FAIL: DROP_MDATE mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -6190,7 +6236,9 @@ test-qekc-mutant: $(TEST_QEKC_MUT_GETSWAP) $(TEST_QEKC_MUT_NOALREJECT) $(TEST_QE
 	@# (the same-handle GET the harness does NOT do, but the SET CHECK passes since
 	@# the dispatcher returns CF=0), proving the flush-skip is SILENT at the API;
 	@# and (b) the on-disk stamp did NOT land (still the 0/0 baseline).
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_QEKC_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_QEKC_MUT_NOFLUSH) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set > $(BUILD)/qekc_mut_noflush.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/qekc_mut_noflush.report \
 		|| { printf '!!! test-qekc-mutant FAIL: NO_FLUSH mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -6204,7 +6252,9 @@ test-qekc-mutant: $(TEST_QEKC_MUT_GETSWAP) $(TEST_QEKC_MUT_NOALREJECT) $(TEST_QE
 	@# --- MUTANT 6 (ROOTDIR): a subdir file's stamp is forced to a ROOT slot ->
 	@# the SUBDIR --stat-path-time differential bites (the subdir entry never gets
 	@# the stamp). The harness still runs the SET at the API level (CF=0).
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_QEKC_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_QEKC_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_QEKC_MUT_ROOTDIR) "$(FAT12_QEKC_IMG)" "$(FAT12_FIXTURE_DIR)" --write filetime-set > $(BUILD)/qekc_mut_rootdir.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/qekc_mut_rootdir.report \
 		|| { printf '!!! test-qekc-mutant FAIL: ROOTDIR mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -6296,7 +6346,9 @@ test-b53d: $(TEST_FILEIO_SUBDIR) $(FAT12_NESTED_IMG) $(FAT12_REF_PY)
 	@command -v mattrib >/dev/null 2>&1 || { printf '!!! test-b53d FAIL: mtools `mattrib` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { printf '!!! test-b53d FAIL: python3 not found (independent reference).\n'; exit 1; }
 	@printf ">>> test-b53d: AH=43h CHMOD GET/SET ATTR persistence vs python --attr + mtools mattrib (beads initech-b53d)\n"
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_B53D_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@# (1) CREATE '\SUB\ATTR.TXT' (0x20 baseline) + AH=43h SET RO|HIDDEN (0x03) +
 	@# FLUSH; the harness self-checks the 3 in-process read-backs + the dir/missing
 	@# reject set (10 CHECKs). A non-zero failure count fails the gate.
@@ -6378,7 +6430,9 @@ test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B5
 	@# --- MUTANT 3 (NO_FLUSH): SET patches memory but skips the write-back ->
 	@# the on-disk attr stays the 0x20 baseline; python --attr != 3. The harness
 	@# itself ALSO bites (its fat12_get_attr re-scan reads the unflushed disk).
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_B53D_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_B53D_MUT_NOFLUSH) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_noflush.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_noflush.report \
 		|| { printf '!!! test-b53d-mutant FAIL: NO_FLUSH mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -6390,7 +6444,9 @@ test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B5
 	@# --- MUTANT 4 (NO_REJECT): the dir/vol-label TARGET reject is dropped -> the
 	@# SET on the DIRECTORY '\SUB\DEEP' succeeds (CF=0) instead of being denied;
 	@# the harness dir-reject CHECK bites.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_B53D_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_B53D_MUT_NOREJECT) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_noreject.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_noreject.report \
 		|| { printf '!!! test-b53d-mutant FAIL: NO_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -6400,7 +6456,9 @@ test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B5
 	@# --- MUTANT 5 (NOTFOUND_ACCESS): fileio_fat maps fat12 NOT_FOUND to 0x0005 ->
 	@# a CHMOD of a missing file reports 0x0005 not 0x0002; the harness missing-file
 	@# CHECK bites.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_B53D_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_B53D_MUT_NOTFOUND) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_notfound.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_notfound.report \
 		|| { printf '!!! test-b53d-mutant FAIL: NOTFOUND_ACCESS mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -6410,7 +6468,9 @@ test-b53d-mutant: $(TEST_B53D_MUT_NOALREJECT) $(TEST_B53D_MUT_GETZERO) $(TEST_B5
 	@# --- MUTANT 7 (GETATTR_DIR_REJECT): fat12_get_attr RE-INTRODUCES the removed
 	@# GET-on-directory reject -> a GET of '\SUB\DEEP' is denied (CF=1/0x0005)
 	@# instead of returning CF=0/CX=0x10; the subdir harness GET-on-dir legs bite.
+	@$(call fixture-preflight,$(FAT12_NESTED_IMG))
 	@cp $(FAT12_NESTED_IMG) $(FAT12_B53D_IMG)
+	@$(if $(call fixture-spec,$(FAT12_NESTED_IMG)),$(call fixture-check,harness,$(FAT12_B53D_IMG),$(call fixture-spec,$(FAT12_NESTED_IMG))),:)
 	@$(TEST_B53D_MUT_GETDIRREJECT) "$(FAT12_B53D_IMG)" "$(FAT12_FIXTURE_DIR)" --write attr-set > $(BUILD)/b53d_mut_getdirreject.report 2>&1 || true
 	@grep -q '^test_fileio_subdir: ' $(BUILD)/b53d_mut_getdirreject.report \
 		|| { printf '!!! test-b53d-mutant FAIL: GETATTR_DIR_REJECT mutant never reached the summary -- crashed, RED meaningless\n'; exit 1; }
@@ -9081,18 +9141,21 @@ $(FAT_MZEXEC_IMG): $(FAT12_FIXTURES) $(MZEXEC_EXE) | $(BUILD)
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(MZEXEC_EXE) ::MZEXEC.EXE
 	@printf ">>> fat_mzexec: minted %s (MZEXEC.EXE relocated InitechMZ + HELLO.TXT)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 $(FAT_MZEXEC_NORELOC_IMG): $(FAT12_FIXTURES) $(MZEXEC_NORELOC_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(MZEXEC_NORELOC_EXE) ::MZEXEC.EXE
 	@printf ">>> fat_mzexec_noreloc: minted %s (MZEXEC.EXE no-reloc mutant)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 $(FAT_MZFOREIGN_IMG): $(FAT12_FIXTURES) $(MZFOREIGN_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $@ $(MZFOREIGN_EXE) ::FOREIGN.EXE
 	@printf ">>> fat_mzforeign: minted %s (FOREIGN.EXE untagged 16-bit MZ)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # --- FAT WRITE round-trip self-test kernel (beads initech-509.11; test-fatwrite)
 # Same sources, kmain.c compiled with -DBOOT_WRITE so the boot runs the baked
@@ -10068,6 +10131,7 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 		$(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
 	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
 # Gate-local VARIANT volumes (tdnl.14 legs): the SAME recipe shipping a knobbed
@@ -10082,11 +10146,13 @@ $(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_b
 # DB_MAGIC_FLIP volume mutant: corruption is authored independently at image
 # build time; the REAL kernel must announce REGEN and rewrite the golden header.
 $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	@printf 'XDB1\001\000\000\000' | \
 		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ - ::DESKTOP.DB
 	@mattrib -i $@ +h ::DESKTOP.DB
 	@printf ">>> flair data mutant: %s (DESKTOP.DB magic flipped at build time)\n" "$@"
+	@$(call fixture-check,recipe,$@)
 
 # Independent F1.3 empty-DB golden: magic IDB1, LE version 1, LE zero records.
 # Zero records means 8 + 24*0 == 8 bytes (24 is the fixed RECORD size).
@@ -10802,7 +10868,9 @@ test-flair-cursor: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FL
 	@printf '  Move center (320,240) -> hotspot (400,280); grade black tip + white outline.\n'
 	@printf '  beads initech-tdnl.1; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_CURSOR_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -11218,6 +11286,7 @@ run: $(INITECH_IMG) $(FLAIR_DATA_IMG)
 # / bochs_main.c), so this reuses that SAME binary -- just without an
 # --expect assertion (an action target, not a gate).
 run-bochs: $(BOCHS_BIN) $(INITECH_IMG) $(FLAIR_DATA_IMG)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	$(BOCHS_BIN) --disk "$(INITECH_IMG)" --disk2 "$(FLAIR_DATA_IMG)" --serial-stdout
 
 # ---------------------------------------------------------------------------
@@ -11232,7 +11301,9 @@ test-flair-data-volume: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-flair-data-volume FAIL: mdir missing\n'; exit 1; }
 	@command -v mtype   >/dev/null 2>&1 || { printf '!!! test-flair-data-volume FAIL: mtype missing\n'; exit 1; }
 	@command -v mattrib >/dev/null 2>&1 || { printf '!!! test-flair-data-volume FAIL: mattrib missing\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DATA_RUNTIME_IMG)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DATA_RUNTIME_IMG),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DATA_RUNTIME_IMG)" \
 		--expect FLAIR-LIVE-OK --screendump --screendump-after FLAIR-LIVE-OK \
 		--name flair_data_first --out "$(BUILD)" --timeout-ms 15000
@@ -11253,6 +11324,7 @@ test-flair-data-volume: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@mattrib -i $(FLAIR_DATA_RUNTIME_IMG) ::DESKTOP.DB 2>/dev/null | grep -Eq '^ +H ' \
 		|| { printf '!!! test-flair-data-volume FAIL: DESKTOP.DB hidden attribute absent\n'; exit 1; }
 	@printf '>>> test-flair-data-volume [first]: MOUNT-OK + CREATE; mdir/mtype golden + TRASH green\n'
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DATA_RUNTIME_IMG)" \
 		--expect FLAIR-LIVE-OK --screendump --screendump-after FLAIR-LIVE-OK \
 		--name flair_data_second --out "$(BUILD)" --timeout-ms 15000
@@ -11266,7 +11338,9 @@ test-flair-data-volume: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 test-flair-data-volume-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) \
 				$(FLAIRTENANTS_DB_SKIP_IMG) $(FLAIR_DATA_IMG) \
 				$(FLAIR_DATA_CORRUPT_IMG) $(DESKTOP_DB_GOLDEN)
+	@$(call fixture-preflight,$(FLAIR_DATA_CORRUPT_IMG))
 	cp -f $(FLAIR_DATA_CORRUPT_IMG) $(FLAIR_DATA_MUT_RUNTIME_IMG)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_CORRUPT_IMG)),$(call fixture-check,harness,$(FLAIR_DATA_MUT_RUNTIME_IMG),$(call fixture-spec,$(FLAIR_DATA_CORRUPT_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DATA_MUT_RUNTIME_IMG)" \
 		--expect FLAIR-LIVE-OK --screendump --screendump-after FLAIR-LIVE-OK \
 		--name flair_data_magic_flip --out "$(BUILD)" --timeout-ms 15000
@@ -11277,7 +11351,9 @@ test-flair-data-volume-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) \
 	@cmp $(DESKTOP_DB_GOLDEN) $(BUILD)/flair_data_magic_regen.bin \
 		|| { printf '!!! test-flair-data-volume-mutant FAIL: REGEN did not restore golden header\n'; exit 1; }
 	@printf '>>> test-flair-data-volume-mutant: DB_MAGIC_FLIP -> REGEN green\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DATA_MUT_RUNTIME_IMG)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DATA_MUT_RUNTIME_IMG),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_DB_SKIP_IMG)" --disk2 "$(FLAIR_DATA_MUT_RUNTIME_IMG)" \
 		--expect FLAIR-LIVE-OK --screendump --screendump-after FLAIR-LIVE-OK \
 		--name flair_data_write_skip --out "$(BUILD)" --timeout-ms 15000
@@ -12742,6 +12818,25 @@ test-makefile-vars: | $(BUILD)
 		| grep -v -E '^(SKIP_BOCHS|SKIP_FPC|SCRIPT|RECORD_IMAGE_|RECORD_DATA_) ' || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-makefile-vars FAIL: read before definition (variable, site):\n%s\n' "$$bad"; exit 1; fi
 	@printf '>>> test-makefile-vars: green\n'
+
+# Ref: PRD Sec 8/14; CLAUDE.md Rule 2/6; initech-tflp. Expansion only:
+# unlike make -n, the probe cannot execute recursive make recipe commands.
+FIXTURE_VOLUMES_CHECK := $(BUILD)/check_fixture_volumes
+FIXTURE_VOLUMES_SCAN ?= $(BUILD)/fixture-volumes
+$(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+.PHONY: test-fixture-volumes test-fixture-volumes-mutant
+test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
+	@$(MAKE) --no-print-directory -pn help > $(FIXTURE_VOLUMES_SCAN).db
+	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
+	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe
+	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
+test-fixture-volumes-mutant: test-fixture-volumes
+	@if $(MAKE) --no-print-directory test-fixture-volumes FLAIR_I123_QUIT_DATA=$(BUILD)/flair_i123_quit_data.img FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: QUIT_DATA_COLLISION survived\n'; exit 1; fi
+	@grep -F 'scratch $(BUILD)/flair_i123_quit_data.img (gate test-flair-i123) collides with fixture $(BUILD)/flair_i123_quit_data.img' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: wrong RED reason\n'; exit 1; }
+	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION correctly RED; real Makefile restored)\n'
 
 # Ref: CLAUDE.md Law 2 / Rule 6; initech-iv8c. These run only host gates.
 .PHONY: test-gate-honesty test-gate-honesty-mutant
@@ -15906,14 +16001,17 @@ $(SEED_FILEIO_IMG): $(SEED_FILEIO_COM) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(SEED_FILEIO_COM) ::FILEIO.COM
+	@$(call fixture-check,recipe,$@)
 $(SEED_FILEIO_MUT_SHORT_IMG): $(SEED_FILEIO_MUT_SHORT_COM) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(SEED_FILEIO_MUT_SHORT_COM) ::FILEIO.COM
+	@$(call fixture-check,recipe,$@)
 $(SEED_FILEIO_MUT_WRONG_IMG): $(SEED_FILEIO_MUT_WRONG_COM) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(SEED_FILEIO_MUT_WRONG_COM) ::FILEIO.COM
+	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-seed-fileio-os
 test-seed-fileio-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SEED_FILEIO_IMG)
@@ -15921,6 +16019,7 @@ test-seed-fileio-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SEED_FILEIO_IMG)
 	@printf 'InitechOS (STAPLER) -- make test-seed-fileio-os : B8 file I/O ON InitechDOS\n'
 	@printf '  Ref: beads initech-ogxv; ADR-0007 DEC-05/DEC-07; the samir-boot precedent.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(SEED_FILEIO_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SEED_FILEIO_IMG)" \
 		--name seed_fileio_os --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
@@ -15946,6 +16045,7 @@ test-seed-fileio-os-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SEED_FILEIO
 	for spec in "short:$(SEED_FILEIO_MUT_SHORT_IMG):SHORT_WRITE drops tail bytes" \
 	            "wrong:$(SEED_FILEIO_MUT_WRONG_IMG):WRONG_HANDLE writes to the next live handle"; do \
 		tag=$${spec%%:*}; rest=$${spec#*:}; img=$${rest%%:*}; desc=$${rest#*:}; \
+		$(call fixture-check,harness,$$img,FILEIO.COM) || exit 1; \
 		$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$$img" \
 			--name "seed_fileio_os_mut_$$tag" --out "$(BUILD)" --timeout-ms 30000 \
 			--keys "$(SEED_FILEIO_OS_KEYS)" --keys-after "SHELL-READY" \
@@ -16282,6 +16382,7 @@ $(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
 	@mcopy -i $@ $(TPS_LEX_BASIC) ::TPSIN.PAS
+	@$(call fixture-check,recipe,$@)
 
 # EMULATOR GATE -- wired in TEST_EMU_GATES after B9.1 first-person proof.
 # Anchors are exact because the shell
@@ -16289,6 +16390,7 @@ $(TPS_LEX_IMG): $(TPS_LEX_COM) $(TPS_LEX_BASIC) | $(BUILD)
 .PHONY: test-tps-lex-os
 test-tps-lex-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_LEX_IMG) $(TPS_LEX_FPC_BASIC_OUT)
 	@printf '>>> test-tps-lex-os: seed-built TPS.COM on InitechDOS == fpc-built TPS stdout\n'
+	@$(call fixture-preflight,$(TPS_LEX_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_LEX_IMG)" \
 		--name tps_lex_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_LEX_OS_KEYS)" --keys-after "SHELL-READY" \
@@ -16461,6 +16563,7 @@ $(TPS_PARSE_IMG): $(TPS_LEX_COM) $(TPS_PARSE_RICH) | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
 	@mcopy -i $@ $(TPS_PARSE_RICH) ::TPSIN.PAS
+	@$(call fixture-check,recipe,$@)
 
 # Orchestrator-owned on-OS leg. Exact anchored brackets avoid the B8 DIR-listing
 # grep trap: TPS.COM/TPSIN.PAS names echoed by the shell are not evidence that
@@ -16468,6 +16571,7 @@ $(TPS_PARSE_IMG): $(TPS_LEX_COM) $(TPS_PARSE_RICH) | $(BUILD)
 .PHONY: test-tps-parse-os
 test-tps-parse-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_PARSE_IMG) $(TPS_PARSE_FPC_RICH_OUT)
 	@printf '>>> test-tps-parse-os: seed-built TPS.COM parse trace on InitechDOS == fpc-built TPS trace\n'
+	@$(call fixture-preflight,$(TPS_PARSE_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_PARSE_IMG)" \
 		--name tps_parse_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_PARSE_OS_KEYS)" --keys-after "SHELL-READY" \
@@ -16623,6 +16727,7 @@ $(TPS_TYPE_IMG): $(TPS_LEX_COM) $(TPS_TYPE_RICH) | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
 	@mcopy -i $@ $(TPS_TYPE_RICH) ::TPSIN.PAS
+	@$(call fixture-check,recipe,$@)
 
 # Orchestrator-owned. This comparison deliberately covers ALL THREE adjacent
 # brackets, so the seed-built/on-OS binary cannot agree on symbols while
@@ -16630,6 +16735,7 @@ $(TPS_TYPE_IMG): $(TPS_LEX_COM) $(TPS_TYPE_RICH) | $(BUILD)
 .PHONY: test-tps-type-os
 test-tps-type-os: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_TYPE_IMG) $(TPS_TYPE_FPC_FULL_OUT)
 	@printf '>>> test-tps-type-os: seed-built TPS.COM on InitechDOS == fpc-built TPS over full triple bracket\n'
+	@$(call fixture-preflight,$(TPS_TYPE_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_TYPE_IMG)" \
 		--name tps_type_os --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_TYPE_OS_KEYS)" --keys-after "SHELL-READY" \
@@ -16851,6 +16957,7 @@ $(TPS_GEN_IMG): $(TPS_LEX_COM) $(TPS_GEN_TINY) | $(BUILD)
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(TPS_LEX_COM) ::TPS.COM
 	@mcopy -i $@ $(TPS_GEN_TINY) ::TPSIN.PAS
+	@$(call fixture-check,recipe,$@)
 
 $(TPS_GEN_SEED_ASM): $(TPS_GEN_TINY) $(SEED_BIN) | $(TPS_LEX_BUILD_DIR)
 	@$(SEED_BIN) --emit-asm -o $@ $<
@@ -16873,6 +16980,7 @@ $(TPS_GEN_SEED_COM): $(TPS_GEN_SEED_DOS_ELF)
 .PHONY: test-tps-gen-os
 test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM)
 	@printf '>>> test-tps-gen-os: TPS.COM generates TPSOUT.S on InitechDOS\n'
+	@$(call fixture-preflight,$(TPS_GEN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_compile --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "$(TPS_GEN_OS_KEYS),e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -16896,7 +17004,9 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_G
 		$(SEED_DOS_RT_OBJ) $(TPS_GEN_OS_OBJ)
 	@$(OBJCOPY) -O binary $(TPS_GEN_OS_DOS_ELF) $(TPS_GEN_OS_COM)
 	@mcopy -o -i $(TPS_GEN_IMG) $(TPS_GEN_OS_COM) ::TINY.COM
+	@$(call fixture-check,recipe,$(TPS_GEN_IMG),$(call fixture-spec,$(TPS_GEN_IMG)) TINY.COM)
 	@printf '>>> test-tps-gen-os: execute TPS-generated TINY.COM on the same OS\n'
+	@$(call fixture-preflight,$(TPS_GEN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_execute --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -16908,7 +17018,9 @@ test-tps-gen-os: test-tps-gen-fpc $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_G
 	@test "$$(grep -Fxc -f $(TPS_GEN_TINY_GOLDEN) $(TPS_LEX_BUILD_DIR)/gen_os_execute.normalized)" -eq 1 \
 		|| { printf '!!! test-tps-gen-os FAIL: TPS-generated execution output is not exact\n'; exit 1; }
 	@mcopy -o -i $(TPS_GEN_IMG) $(TPS_GEN_SEED_COM) ::STINY.COM
+	@$(call fixture-check,recipe,$(TPS_GEN_IMG),$(call fixture-spec,$(TPS_GEN_IMG)) TINY.COM STINY.COM)
 	@printf '>>> test-tps-gen-os: execute seed-compiled fixture for three-way behavioral agreement\n'
+	@$(call fixture-preflight,$(TPS_GEN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_IMG)" \
 		--name tps_gen_seed_execute --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "s,t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -16928,10 +17040,12 @@ $(TPS_GEN_MUT_IMG): $(TPS_GEN_MUT_COM) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(TPS_GEN_MUT_COM) ::MTINY.COM
+	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-tps-gen-os-mutant
 test-tps-gen-os-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPS_GEN_MUT_IMG)
 	@printf '>>> test-tps-gen-os-mutant: OFFBYONE must execute to a WRONG TINY value, without crash\n'
+	@$(call fixture-preflight,$(TPS_GEN_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_IMG)" \
 		--name tps_gen_mut_execute --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "m,t,i,n,y,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -16964,6 +17078,7 @@ $(TPS_COMPILER_IMG): test-compiler $(TPS_COMPILER_BATCH) | $(BUILD)
 		mcopy -i $@ "$$com" ::$${dosname}.COM \
 			|| { printf '!!! compiler corpus image FAIL: could not copy %s as %s.COM\n' "$$name" "$$dosname"; exit 1; }; \
 	done
+	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-compiler-os
 test-compiler-os: test-compiler $(TPS_COMPILER_IMG) test-tps-gen-os $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
@@ -16980,6 +17095,7 @@ test-compiler-os: test-compiler $(TPS_COMPILER_IMG) test-tps-gen-os $(HARNESS_BI
 	@# $$(TPS_OS_COMPLETION) makes the harness wait for SHELL-EXIT (printed only
 	@# after the whole batch ran and the typed-ahead exit reached the prompt);
 	@# the ceiling only bounds a hung guest.
+	@$(call fixture-preflight,$(TPS_COMPILER_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_COMPILER_IMG)" \
 		--name "$(TPS_COMPILER_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -17025,11 +17141,13 @@ $(TPS_GEN_MUT_VAR_IMG): $(TPS_GEN_MUT_VAR_COM) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(TPS_GEN_MUT_VAR_COM) ::MVARPAR.COM
+	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-compiler-os-mutant
 test-compiler-os-mutant: test-tps-gen-mutant $(TPS_GEN_MUT_VAR_IMG) test-tps-gen-os-mutant $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf '>>> test-compiler-os-mutant: VARPARAM must make registered gen_func_deep differ without crashing\n'
 	@rm -f "$(TPS_GEN_MUT_VAR_SERIAL)" "$(TPS_GEN_MUT_VAR_REPORT)"
+	@$(call fixture-preflight,$(TPS_GEN_MUT_VAR_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(TPS_GEN_MUT_VAR_IMG)" \
 		--name "$(TPS_GEN_MUT_VAR_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
 		--keys "m,v,a,r,p,a,r,ret,e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -17096,14 +17214,17 @@ $(HARNESS_QA_IMG): $(TPS_COMPILER_IMG) $(TPS_COMPILER_BATCH) | $(BUILD)
 		|| { printf '!!! harness quit-after image FAIL: batch is not %s EXEC lines\n' "$(HARNESS_QA_EXECS)"; exit 1; }
 	@test "$$(wc -c < $(HARNESS_QA_BAT))" -lt 4096 \
 		|| { printf '!!! harness quit-after image FAIL: batch exceeds BATCH_FILE_MAX (4096)\n'; exit 1; }
+	@$(call fixture-preflight,$(TPS_COMPILER_IMG))
 	@cp -f $(TPS_COMPILER_IMG) $@
 	@mdel -i $@ ::AUTOEXEC.BAT
 	@mcopy -i $@ $(HARNESS_QA_BAT) ::AUTOEXEC.BAT
+	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-harness-quit-after
 test-harness-quit-after: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(HARNESS_QA_IMG)
 	@printf '>>> test-harness-quit-after: typed-ahead exit + --quit-after SHELL-EXIT must let a %s-EXEC batch finish\n' "$(HARNESS_QA_EXECS)"
 	@rm -f "$(BUILD)/$(HARNESS_QA_NAME).serial"
+	@$(call fixture-preflight,$(HARNESS_QA_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
 		--name "$(HARNESS_QA_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -17125,6 +17246,7 @@ test-harness-quit-after: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(HARNESS_QA_IMG
 test-harness-quit-after-mutant: $(HARNESS_MUT_NOQUIT_BIN) $(SECONDARY_TRACER_IMG) $(HARNESS_QA_IMG)
 	@printf '>>> test-harness-quit-after-mutant: HARNESS_MUTATE_NO_QUIT_WAIT must truncate the batch (Rule 6)\n'
 	@rm -f "$(BUILD)/$(HARNESS_QA_MUT_NAME).serial"
+	@$(call fixture-preflight,$(HARNESS_QA_IMG))
 	@$(HARNESS_MUT_NOQUIT_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HARNESS_QA_IMG)" \
 		--name "$(HARNESS_QA_MUT_NAME)" --out "$(BUILD)" --timeout-ms 120000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -18658,13 +18780,17 @@ test-flair-appswitch: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM
 	@printf 'Booting   : %s (PRE + POST captures of the co-resident tenants)\n' "$(FLAIRTENANTS_IMG)"
 	@printf 'Expecting : PRE distinct chimera + POST FLAIR-DISPATCH app=NOTES + grader PASS\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- PRE: the co-resident scene before the click (no mouse). ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_APPSW_PRE_NAME)" --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 \
 		2> "$(FLAIR_APPSW_PRE_REPORT)" || true
 	@# ---- POST: inject the locked trace; dump after the dispatch marker. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_APPSW_POST_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -18727,11 +18853,15 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 	@printf '  (no_paintall_clear retired to the HOST proof -- see the OMISSION note\n'
 	@printf '  at the mutant-image instantiations; test_drag.c leg (e)).\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- baseline: the CLEAN image must grade GREEN (same PRE, same grader). ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_appswitch_pre --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_appswitch_post --out "$(BUILD)" \
 		--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -18754,6 +18884,7 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 		img="$(BUILD)/flair_tenants_mut_$$tag.img"; \
 		printf '%s\n' '----------------------------------------------------------------------'; \
 		printf '>>> mutant %s (-D%s): %s\n' "$$tag" "$$macro" "$$desc"; \
+
 		$(HARNESS_BIN) --disk "$$img" --disk2 "$(FLAIR_GATE_DATA)" \
 			--expect FLAIR-FAT-MOUNT-OK --name "flair_appswitch_mut_$$tag" --out "$(BUILD)" \
 			--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -18836,7 +18967,9 @@ test-flair-appswitch-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
 	@printf '            guard (PANIC + HALTED), no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(FLAIR_APPSW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(FLAIR_APPSW_BOCHS_REPORT)" || true
@@ -18959,8 +19092,11 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@printf '======================================================================\n'
 	@command -v mdir    >/dev/null 2>&1 || { printf '!!! test-flair-desktop-icons FAIL: mdir missing (mtools)\n'; exit 1; }
 	@command -v mattrib >/dev/null 2>&1 || { printf '!!! test-flair-desktop-icons FAIL: mattrib missing (mtools)\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- leg 1: PRE, the boot scene, no mouse. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_PRE_NAME)" --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 \
@@ -18975,6 +19111,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the boot desktop does not carry both icon strikes\n'; exit 1; }
 	@printf '>>> test-flair-desktop-icons [1/7]: boot scene -- FINDER-DESKTOP-ICONS n=2 + grader leg DEFAULT\n'
 	@# ---- leg 2: click the volume icon -> SELECTED (label band inverted). ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_SEL_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_SELECT_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -18988,6 +19125,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the selected volume label band is not inverted\n'; exit 1; }
 	@printf '>>> test-flair-desktop-icons [2/7]: FINDER-ICON-SELECT name=INITECH count=1 + grader leg SELECTED\n'
 	@# ---- leg 3: then click bare desktop -> DESELECT + the band restored. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_DESEL_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_DESELECT_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19002,6 +19140,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the deselect did not repaint the label band back\n'; exit 1; }
 	@printf '>>> test-flair-desktop-icons [3/7]: FINDER-ICON-DESELECT-ALL + grader leg DEFAULT (band restored)\n'
 	@# ---- leg 4: rubber band over BOTH icon cells. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_BAND_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_RUBBER_BAND_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19012,6 +19151,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the rubber band did not select BOTH icons\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_BAND_NAME).serial" || true; exit 1; }
 	@printf '>>> test-flair-desktop-icons [4/7]: FINDER-MARQUEE n=2 (the band swept both icon columns)\n'
 	@# ---- leg 5: double-click the volume icon. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_OPEN_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19024,6 +19164,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the disk window reported an open failure\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" || true; exit 1; }
 	@printf '>>> test-flair-desktop-icons [5/7]: FINDER-OPEN-VOLUME win=0 n=2 (the double-click opened the REAL root disk window)\n'
 	@# ---- leg 6: drag the volume icon to (400,400) and persist. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_DRAG_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_DRAGDROP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19041,6 +19182,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-desktop-icons FAIL: after the drop the icon is not at the new origin with its old cell restored\n'; exit 1; }
 	@printf '>>> test-flair-desktop-icons [6/7]: FINDER-ICON-DRAG x=400 y=400 + DESKTOP-DB-SAVE n=2 + grader leg MOVED\n'
 	@# ---- leg 7: PERSISTENCE. Reboot the SAME, now-written data volume. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-LIVE-OK --name "$(FLAIR_DI_PERS_NAME)" --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-LIVE-OK" \
@@ -19100,14 +19242,18 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 	@printf 'InitechOS (STAPLER) -- make test-flair-desktop-icons-mutant : Rule 6 (the gate BITES)\n'
 	@printf '  2 FLAIRTENANTS finder_desktop.c mutants; each MUST drive its leg RED.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- baseline: the CLEAN image must grade GREEN on both mutated legs. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
 	@if [ ! -s "$(BUILD)/flair_deskicons_mut_base.ppm" ]; then printf '!!! test-flair-desktop-icons-mutant FAIL: clean baseline screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DESKICONS_CHECK_BIN) default "$(BUILD)/flair_deskicons_mut_base.ppm" >/dev/null 2>&1 \
 		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not grade GREEN on leg DEFAULT -- the baseline is broken (not a mutant)\n'; exit 1; }
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base_open --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
@@ -19117,6 +19263,7 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on leg DEFAULT and opens on a double-click\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# ---- mutant 1: NO_UNDERLAY -- the DEFAULT-leg grader MUST go RED. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_desk_no_underlay.img" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_no_underlay --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-TENANTS-READY" --timeout-ms 15000 \
@@ -19137,6 +19284,7 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 	@# EARLIER FINDER-ICON-SELECT marker; quitting right after SELECT would not
 	@# reliably give the broken double-click threshold time to conclusively NOT
 	@# fire, so no honest quit-after marker exists for this absence-final leg.
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_desk_dbltick_off.img" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_dbltick_off --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 --legacy-quit \
@@ -19200,7 +19348,9 @@ test-flair-desktop-icons-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IM
 	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
 	@printf '            guard (PANIC + HALTED), no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(FLAIR_DI_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(FLAIR_DI_BOCHS_REPORT)" || true
@@ -19381,11 +19531,20 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@printf '  Grader probes are hand-read off spec/assets/finder_icons.h ASCII maps (Law 2).\n'
 	@printf '======================================================================\n'
 	@command -v mdir >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows FAIL: mdir missing (mtools)\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_A)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DW_DATA_A),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_B)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DW_DATA_B),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_C)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DW_DATA_C),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_D)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DW_DATA_D),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- leg 1: open the volume; PIXEL-grade the opened root window. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_ROOT_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19410,6 +19569,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-disk-windows FAIL: band 2 is not the FINDER menu bar (F4.2 File/Edit/View/Special/Help at the hand-derived columns)\n'; exit 1; }
 	@printf '>>> test-flair-disk-windows [2/8]: FLAIR-DISPATCH app=FINDER + grader leg FINDERBAR (band 2 IS the Finder bar)\n'
 	@# ---- leg 2: navigate into APPS, then prove the SPATIAL SINGLETON. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NAV_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19431,6 +19591,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-disk-windows FAIL: the window table filled -- windows are being duplicated\n'; exit 1; }
 	@printf '>>> test-flair-disk-windows [3/8]: OPEN-FOLDER singleton=0 -> drag -> OPEN-FOLDER singleton=1 (the SAME slot raised)\n'
 	@# ---- leg 3: drag the root window, close it, and save the view record. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSW_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_WINDOW_DRAG_PERSIST_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19449,6 +19610,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-disk-windows FAIL: DESKTOP-DB-WRITE-FAIL during the view save\n'; exit 1; }
 	@printf '>>> test-flair-disk-windows [4/8]: FLAIR-DRAG (20,60)->(120,180) + FINDER-CLOSE-WINDOW win=0 + DESKTOP-DB-SAVE n=3\n'
 	@# ---- leg 4: REBOOT the same, now-written volume; the window comes back. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSR_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19473,6 +19635,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		|| { printf '!!! test-flair-disk-windows FAIL: the window did NOT reopen at the saved origin (120,180) -- or the cascaded default rect is still covered\n'; exit 1; }
 	@printf '>>> test-flair-disk-windows [5/8]: DESKTOP-DB-VIEWS n=1 + grader leg MOVEDWIN (the window remembered where you left it)\n'
 	@# ---- leg 5: Ctrl-N makes a REAL directory; mtools is the judge. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_B)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_NEWF_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_NEW_FOLDER_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19508,6 +19671,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@# would report moved=0, which cannot be told from a command that never ran.
 	@# Then select the snapped-back icon and Cmd-I -- the POSITIVE half of the
 	@# MenuKey enable-byte proof whose negative half is leg 6.
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_C)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_MENU_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19542,6 +19706,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@# panel and release on bare desktop. Nothing dispatches, and the WHOLE frame
 	@# must come back byte-for-byte identical to the boot that only opened the
 	@# volume (leg 1's dump) -- the solid-leg-D property applied to band 2.
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_D)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_CANCEL_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_FINDER_MENU_CANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -19588,14 +19753,18 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@printf '  2 FLAIRTENANTS finder_windows.c mutants + 1 finder_menu.c mutant;\n'
 	@printf '  each MUST drive its leg RED.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_DW_DATA_A)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_DW_DATA_A),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- baseline: the CLEAN image must be GREEN on BOTH mutated legs. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_open --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
 		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" >/dev/null 2>&1 || true
 	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=2 -- the baseline is broken (not a mutant)\n'; exit 1; }
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_nav --out "$(BUILD)" \
 		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
@@ -19605,6 +19774,7 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@printf '>>> baseline: the clean FLAIRTENANTS image enumerates 4 icons and raises the singleton\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# ---- mutant 1: VOLLABEL_SHOWN -- the enumerated count MUST become 5. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_vollabel_shown.img" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_vollabel --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
@@ -19620,6 +19790,7 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant did not report the EXPECTED n=3 -- wrong failure axis, the mutant is not doing what it claims\n'; grep '^FINDER-' "$(BUILD)/flair_diskwin_mut_vollabel.serial" || true; exit 1; }
 	@printf '>>> mutant win_vollabel_shown correctly RED: the volume LABEL leaked into the listing -- FINDER-OPEN-VOLUME win=0 n=3 (expected n=2)\n'
 	@# ---- mutant 2: SINGLETON_DUP -- the second open MUST build a 2nd window. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_singleton_dup.img" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_singleton --out "$(BUILD)" \
 		--mouse "$(FLAIR_FOLDER_NAV_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
@@ -19641,7 +19812,9 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@# still DROPS, and the item is still there -- but MenuSelect cannot return a
 	@# disabled row, so the whole command evaporates. Baseline first: the CLEAN
 	@# image dispatches it.
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	@cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_diskwin_mut_menu_base_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_diskwin_mut_menu_base_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/flair_diskwin_mut_menu_base_data.img" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_menu --out "$(BUILD)" \
 		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 \
@@ -19649,11 +19822,14 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@grep -qxF 'FINDER-CMD id=9 name=CLEANUP src=mouse sel=0' "$(BUILD)/flair_diskwin_mut_base_menu.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not dispatch Special > Clean Up by mouse -- the baseline is broken (not a mutant)\n'; grep -E '^FINDER-|^FLAIR-MENU' "$(BUILD)/flair_diskwin_mut_base_menu.serial" || true; exit 1; }
 	@printf '>>> baseline: the clean FLAIRTENANTS image dispatches Special > Clean Up from the real band-2 bar\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	@cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_diskwin_mut_menu_dead_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_diskwin_mut_menu_dead_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# initech-qed1: --legacy-quit -- the dispatch-or-not comes from the FINAL
 	@# click of this same already-injected burst, downstream of the earlier
 	@# guaranteed FLAIR-MENU-DROP marker; no honest quit-after marker exists
 	@# for an absence-final leg like this one (see the dbltick_off leg above).
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu_dead_item.img" --disk2 "$(BUILD)/flair_diskwin_mut_menu_dead_data.img" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_dead_item --out "$(BUILD)" \
 		--mouse "$(FLAIR_FINDER_MENU_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 30000 --legacy-quit \
@@ -19714,7 +19890,9 @@ test-flair-disk-windows-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
 	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(FLAIR_DW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(FLAIR_DW_BOCHS_REPORT)" || true
@@ -19807,7 +19985,10 @@ FLAIR_FO_ORIGINS_GOLD := $(BUILD)/flair_fileops_origins.golden
 
 # $(call fo-boot,<image>,<name>,<data img>,<spec>,<quit marker>,<dump 0|1>)
 define fo-boot
+@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 cp -f $(FLAIR_DATA_IMG) $(3)
+	@$(call fixture-preflight,$(3))
+@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(3),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(3)" --expect FLAIR-FAT-MOUNT-OK \
 	--name "$(2)" --out "$(BUILD)" --mouse "$(4)" --keys-after "FLAIR-LIVE-READY" \
 	--quit-after "$(5)" $(if $(filter 1,$(6)),--screendump --screendump-after "$(5)") \
@@ -19952,12 +20133,14 @@ test-flair-file-ops-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DROP_CH
 # ===========================================================================
 FLAIR_DAMAGED_DATA_IMG := $(BUILD)/flair_damaged_data.img
 $(FLAIR_DAMAGED_DATA_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::APPS/TRASH
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmove -i $@ ::README.TXT ::APPS/TRASH/README.TXT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::NEWFOLD
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::TRASH
 	@printf '>>> flair damaged data: %s (H03: APPS\\TRASH\\README.TXT stranded + new root TRASH; root NEWFOLD, APPS, TRASH)\n' "$@"
+	@$(call fixture-check,recipe,$@)
 
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_SERVICE_SHOWN,win_service_shown))
 FLAIR_SVC_NAME     := flair_finder_service
@@ -19976,7 +20159,9 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@printf '======================================================================\n'
 	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-finder-service FAIL: mtools missing\n'; exit 1; }
 	@# ---- leg 1a: open the volume; PIXEL-grade the root window ----
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(FLAIR_SVC_NAME)_open_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_SVC_NAME)_open_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/$(FLAIR_SVC_NAME)_open_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(FLAIR_SVC_NAME)_open" --out "$(BUILD)" --mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
@@ -19986,7 +20171,9 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@[ -s "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" ] || { printf '!!! test-flair-finder-service FAIL: no screendump at FINDER-OPEN-VOLUME win=0 n=2\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" || { printf '!!! test-flair-finder-service FAIL: the root window is not README.TXT + APPS with bare cells where DESKTOP.DB / TRASH were drawn\n'; exit 1; }
 	@# ---- leg 1b: a file dragged to the Trash is staged; the DB is written ----
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(FLAIR_SVC_NAME)_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_SVC_NAME)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/$(FLAIR_SVC_NAME)_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(FLAIR_SVC_NAME)" --out "$(BUILD)" --mouse "$(FLAIR_SVC_TRASH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "DESKTOP-DB-SAVE n=3" --timeout-ms 40000 2> "$(BUILD)/$(FLAIR_SVC_NAME).report" || true
@@ -19998,7 +20185,9 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf '!!! test-flair-finder-service FAIL: DESKTOP.DB is not 8 + 3*24 = 80 bytes after the staging\n'; exit 1; }
 	@printf '>>> test-flair-finder-service [1/2]: root shows n=2 (pixel-graded, cells 2-3 bare); README staged, DB written (80 B); mtools still lists DESKTOP.DB + TRASH\n'
 	@# ---- leg 2: the reviewer's damaged volume ----
+	@$(call fixture-preflight,$(FLAIR_DAMAGED_DATA_IMG))
 	cp -f $(FLAIR_DAMAGED_DATA_IMG) $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DAMAGED_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img,$(call fixture-spec,$(FLAIR_DAMAGED_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(FLAIR_SVC_DMG_NAME)" --out "$(BUILD)" --mouse "$(FLAIR_SVC_DAMAGED_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "FINDER-OPEN-FOLDER name=TRASH win=2" --timeout-ms 40000 2> "$(BUILD)/$(FLAIR_SVC_DMG_NAME).report" || true
@@ -20016,7 +20205,9 @@ test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_
 	@printf 'InitechOS (STAPLER) -- make test-flair-finder-service-mutant : Rule 6\n'
 	@printf '  Mutant: finder_windows.o -DFINDER_WIN_MUT_SERVICE_SHOWN (the listing filter removed)\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_finder_service_mut_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_finder_service_mut_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_service_shown.img" --disk2 "$(BUILD)/flair_finder_service_mut_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_finder_service_mut --out "$(BUILD)" --mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
@@ -20026,7 +20217,9 @@ test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/flair_finder_service_mut.ppm" > $(BUILD)/flair_finder_service_mut.grade 2>&1; then printf '!!! test-flair-finder-service-mutant FAIL: the grader PASSED a root window that draws DESKTOP.DB / TRASH -- decoration\n'; exit 1; fi
 	@grep -q 'is not bare content' $(BUILD)/flair_finder_service_mut.grade || { printf '!!! test-flair-finder-service-mutant FAIL: the grader went RED for the wrong reason\n'; cat $(BUILD)/flair_finder_service_mut.grade; exit 1; }
 	@printf '>>> test-flair-finder-service-mutant [1/2]: SERVICE_SHOWN correctly RED -- %s; grader: cells 2-3 not bare\n' "$$(grep -m1 '^FINDER-OPEN-VOLUME' $(BUILD)/flair_finder_service_mut.serial)"
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_finder_service_guard_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_finder_service_guard_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_service_shown.img" --disk2 "$(BUILD)/flair_finder_service_guard_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_finder_service_guard --out "$(BUILD)" --mouse "$(FLAIR_SVC_GUARD_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "FINDER-MOVE-REFUSED" --timeout-ms 40000 2> "$(BUILD)/flair_finder_service_guard.report" || true
@@ -20059,7 +20252,9 @@ test-flair-file-ops-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 	@printf '  SERIAL MILESTONES ONLY (see the comment above this target).\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-file-ops-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(FLAIR_FO_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(FLAIR_FO_BOCHS_REPORT)" || true
@@ -20169,7 +20364,9 @@ else
 test-flair-trash-window-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 	@printf 'InitechOS (STAPLER) -- make test-flair-trash-window-bochs : BOCHS leg (bead initech-tdnl.39), SERIAL MILESTONES ONLY\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-trash-window-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(FLAIR_TW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(FLAIR_TW_BOCHS_REPORT)" || true
@@ -20334,6 +20531,7 @@ $(FLAIR_PURGE_VIEWS_DATA): $(FLAIR_DATA_IMG) | $(BUILD)
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@.tmp ::/TRASH/A/CHILD/GRAND
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@.tmp $(BUILD)/purge_views_note.txt ::/TRASH/A/CHILD/GRAND/NOTE.TXT
 	mv -f $@.tmp $@
+	@$(call fixture-check,recipe,$@)
 
 $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_PURGE_KEEPS_VIEWS,purge_keeps_views))
 
@@ -20410,16 +20608,20 @@ test-flair-trash-purge-views-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_p
 # ---------------------------------------------------------------------------
 FLAIR_SCROLL_DATA_IMG := $(BUILD)/flair_scroll_data.img
 $(FLAIR_SCROLL_DATA_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	@: > $(BUILD)/.flair_scroll_empty.txt
 	@for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19; do \
 		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/.flair_scroll_empty.txt ::F$$i.TXT || exit 1; \
 	done
 	@printf '>>> flair scroll data: %s (flagship + F00..F19.TXT, 22 root entries before boot; DESKTOP.DB and TRASH join at boot, hidden)\n' "$@"
+	@$(call fixture-check,recipe,$@)
 
 # $(call scroll-boot,<image>,<name>,<data source>,<trace>,<quit marker>,<dump 0|1>)
 define scroll-boot
+@$(call fixture-preflight,$(3))
 cp -f $(3) $(BUILD)/$(2)_data.img
+@$(if $(call fixture-spec,$(3)),$(call fixture-check,harness,$(BUILD)/$(2)_data.img,$(call fixture-spec,$(3))),:)
 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" --expect FLAIR-FAT-MOUNT-OK \
 	--name "$(2)" --out "$(BUILD)" --mouse "$(4)" --keys-after "FLAIR-LIVE-READY" \
 	--quit-after "$(5)" $(if $(filter 1,$(6)),--screendump --screendump-after "$(5)") \
@@ -20813,7 +21015,10 @@ FLAIR_PW_VIEW_HEX := 04000000000000000000000000000000007800b400000000
 # EXPECTED to reboot: the reset is allowed to reboot the VM, and the harness
 # waits for the SECOND FLAIR-LIVE-READY.
 define pw-reboot
+@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 cp -f $(FLAIR_DATA_IMG) $(3)
+	@$(call fixture-preflight,$(3))
+@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(3),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(3)" --expect FLAIR-FAT-MOUNT-OK \
 	--name "$(2)" --out "$(BUILD)" --mouse "$(4)" --keys-after "FLAIR-LIVE-READY" \
 	--allow-reboot --quit-after "FLAIR-LIVE-READY" --quit-after-count 2 \
@@ -20996,8 +21201,11 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 	@printf '  A close / B drag / C activate / D menu-cancel restore / E held band-2 menu / G clamp / H raise.\n'
 	@printf '  Ref: epic initech-av7s (DQ1-DQ3, DQ5-DQ6, DQ9); initech-b3hl/-j0vt; locked solid traces.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- leg A: close HELLO -> the exposed NOTES overlap is repainted content ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 \
@@ -21012,6 +21220,7 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 		|| { printf '!!! test-flair-solid FAIL: leg A -- the close-exposed NOTES overlap is NOT repainted content (the white-hole family; initech-gofc)\n'; exit 1; }
 	@printf '>>> test-flair-solid [A]: close-expose content repainted (no white hole)\n'
 	@# ---- leg B: activate NOTES then drag it -- content survives the move ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_B_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
@@ -21026,6 +21235,7 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 		|| { printf '!!! test-flair-solid FAIL: leg B -- dragged NOTES content wiped to WDEF white (initech-gofc)\n'; exit 1; }
 	@printf '>>> test-flair-solid [B]: drag preserves tenant content at the new position\n'
 	@# ---- leg C: the O-5 switch -- activation chrome full-width, no stale band ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 \
@@ -21038,9 +21248,11 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 		|| { printf '!!! test-flair-solid FAIL: leg C -- activation chrome wrong (flat/half-active title or stale band; initech-rqz5)\n'; exit 1; }
 	@printf '>>> test-flair-solid [C]: activation chrome full-width active + flat inactive + no stale band\n'
 	@# ---- leg D: held File -> Edit -> release in bar; PRE == restored POST ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_D_PRE_NAME)" --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
 		2> "$(BUILD)/$(FLAIR_SOLID_D_PRE_NAME).report" || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_D_POST_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 \
@@ -21059,6 +21271,7 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 		|| { printf '!!! test-flair-solid FAIL: leg D PRE != POST -- menu cancel left a panel or shell-render wiped tenant content (initech-b3hl/-j0vt)\n'; exit 1; }
 	@printf '>>> test-flair-solid [D]: cross-title cancel restored the whole frame byte-identical (TOL=0)\n'
 	@# ---- leg E: HELLO active -> Photoshop File drops from band 2 at y=40 ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_E_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-MENU-DROP menu=256" --timeout-ms 15000 \
@@ -21073,6 +21286,7 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 		|| { printf '!!! test-flair-solid FAIL: leg E -- active tenant File panel did not drop below band 2 (initech-t1rv)\n'; exit 1; }
 	@printf '>>> test-flair-solid [E]: band 2 drops HELLO/Photoshop menuID 256 below y=40\n'
 	@# ---- leg G: drag toward (5,5) -- title band stays reachable below band 2 ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
@@ -21089,6 +21303,7 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 		|| { printf '!!! test-flair-solid FAIL: leg G -- dragged NOTES title band is not reachable below menu band 2 (initech-r8r7)\n'; exit 1; }
 	@printf '>>> test-flair-solid [G]: drag clamp keeps the full title band reachable at (-185,40)\n'
 	@# ---- leg H: background title press -- switch first, then drag at the front ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_H_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 \
@@ -21118,10 +21333,13 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 # owns the post-close key-routing tooth; this booted leg owns pixels + serial.
 .PHONY: test-flair-close-terminate test-flair-close-terminate-mutant
 test-flair-close-terminate: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name flair_close_terminate_pre --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
 		2> "$(BUILD)/flair_close_terminate_pre.report" || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name flair_close_terminate_post --out "$(BUILD)" \
 		--mouse "$(FLAIR_CLOSE_TERMINATE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-TENANT-EXIT name=HELLO" --timeout-ms 15000 \
@@ -21136,9 +21354,12 @@ test-flair-close-terminate: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
 	@printf '>>> test-flair-close-terminate: green -- HELLO terminated, NOTES active/intact, band 2 swapped\n'
 
 test-flair-close-terminate-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_SOLID_CHECK_BIN) $(BUILD)/flair_tenants_mut_close_hide_only.img
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name flair_close_terminate_pre --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_close_hide_only.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name flair_close_hide_only_post --out "$(BUILD)" \
 		--mouse "$(FLAIR_CLOSE_TERMINATE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
@@ -21204,28 +21425,38 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@printf 'InitechOS (STAPLER) -- make test-flair-solid-mutant : Rule 6 (the gate BITES)\n'
 	@printf '  no_route_on_chrome breaks A+B; no_activate_inval C; menu restore mutants D; menu2 mutants E; clamp G; raise H.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@# ---- baseline: the CLEAN image grades GREEN on all seven legs. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_A_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLOSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-CLOSE win" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_B_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_DRAG_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_C_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DISPATCH app=NOTES" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_D_PRE_NAME)" --out "$(BUILD)" \
 		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_D_POST_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-LIVE-OK" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_E_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-MENU-DROP menu=256" --timeout-ms 15000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_G_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_SOLID_H_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-DRAG win" --timeout-ms 20000 >/dev/null 2>&1 || true
@@ -21255,6 +21486,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@rc=0; \
 	for leg in "A|$(FLAIR_SOLID_CLOSE_SPEC)|FLAIR-CLOSE win|15000" "B|$(FLAIR_SOLID_DRAG_SPEC)|FLAIR-DRAG win|20000"; do \
 		l=$${leg%%|*}; rest=$${leg#*|}; spec=$${rest%%|*}; rest=$${rest#*|}; marker=$${rest%%|*}; tmo=$${rest#*|}; \
+
 		$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_route_on_chrome.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 			--name "flair_solid_mut_route_$$l" --out "$(BUILD)" \
 			--mouse "$$spec" --keys-after "FLAIR-LIVE-READY" \
@@ -21278,6 +21510,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	done; \
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@# ---- no_activate_inval: leg C MUST go RED. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_activate_inval.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_solid_mut_actinval_C --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_SWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21297,6 +21530,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	for spec in "menu_no_restore:track-end restore skipped -- Edit panel persists" \
 	            "menu_restore_shell:shell_render erase ran without tenant content route -- WDEF white wipe"; do \
 		tag=$${spec%%:*}; desc=$${spec#*:}; \
+
 		$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_$$tag.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 			--name "flair_solid_mut_$${tag}_D" --out "$(BUILD)" \
 			--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21327,6 +21561,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	if [ "$$rc" != "0" ]; then exit 1; fi
 	@# ---- menu2_dead: leg E pixels + marker MUST go RED. Capture at LIVE-OK
 	@# because the faithful dead-band mutant emits no FLAIR-MENU marker. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu2_dead.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_solid_mut_menu2_dead_E --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21343,6 +21578,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_menu2_dead_E.chk" | sed 's/^/      /'; \
 	fi
 	@# ---- menu2_bar_sys: panel pixels stay GREEN, but menu=256 tooth MUST RED. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_menu2_bar_sys.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_solid_mut_menu2_bar_sys_E --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_MENU2_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21363,6 +21599,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		printf '>>> menu2_bar_sys leg E routing tooth correctly RED: panel dropped, but serial says menu=128 (expected 256)\n'; \
 	fi
 	@# ---- no_drag_clamp: leg G MUST go RED. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_drag_clamp.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_solid_mut_dragclamp_G --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_CLAMP_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21378,6 +21615,7 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 		grep -m2 'FAIL ' "$(BUILD)/flair_solid_mut_dragclamp_G.chk" | sed 's/^/      /'; \
 	fi
 	@# ---- no_raise_on_title: leg H MUST go RED. ----
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_raise_on_title.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_solid_mut_title_raise_H --out "$(BUILD)" \
 		--mouse "$(FLAIR_SOLID_RAISE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21407,7 +21645,9 @@ FLAIR_COLLAPSE_NAME    := flair_collapse
 
 .PHONY: test-flair-zoom-toggle test-flair-grow test-flair-collapse test-flair-window-ops
 test-flair-zoom-toggle: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_ZOOM_TOGGLE_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ZOOM_TOGGLE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-ZOOM win 0 out" --timeout-ms 20000 \
@@ -21422,7 +21662,9 @@ test-flair-zoom-toggle: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	@printf '>>> test-flair-zoom-toggle: green -- in/out markers + restored user frame\n'
 
 test-flair-grow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_GROW_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_GROW_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-GROW win 0" --timeout-ms 20000 \
@@ -21435,7 +21677,9 @@ test-flair-grow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAI
 	@printf '>>> test-flair-grow: green -- outline release committed 96x88\n'
 
 test-flair-collapse: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_WINDOW_OPS_CHECK_BIN)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_COLLAPSE_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_COLLAPSE_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--screendump --screendump-after "FLAIR-COLLAPSE win 0 1" --timeout-ms 15000 \
@@ -21531,7 +21775,9 @@ $(eval $(call flair-tenants-kmain-mutant-rules,TBX_HEADLESS_SMOKE,tbx_smoke))
 # One QEMU boot, tolerant (the leg's own check decides); a triple fault is
 # always fatal.
 define appl-boot
+	@$(call fixture-preflight,$(3))
 	cp -f $(3) $(BUILD)/$(1)_data.img
+	@$(if $(call fixture-spec,$(3)),$(call fixture-check,harness,$(BUILD)/$(1)_data.img,$(call fixture-spec,$(3))),:)
 	@$(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
 		--mouse "$($(4))" --keys-after "FLAIR-LIVE-READY" --quit-after FLAIR-LIVE-OK \
 		--timeout-ms 30000 $(5) 2> "$(BUILD)/$(1).report" || true
@@ -21659,10 +21905,15 @@ test-flair-app-launch-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_APPL_SMOKE_IMG)
 	@printf 'InitechOS (STAPLER) -- make test-flair-app-launch-bochs : Rule 5 CPU-path differential\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-app-launch-bochs FAIL: bochs not found (a skipped oracle is worse than a red one; SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_appl_smoke_qemu_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_appl_smoke_qemu_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_appl_smoke_bochs_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_appl_smoke_bochs_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_appl_smoke_qemu_data.img" --expect HALTED \
 		--name flair_appl_smoke_qemu --out "$(BUILD)" --timeout-ms 20000 2> $(BUILD)/flair_appl_smoke_qemu.report || true
+
 	@$(BOCHS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_appl_smoke_bochs_data.img" --expect HALTED \
 		--name flair_appl_smoke_bochs --out "$(BUILD)" --timeout-ms 60000 2> $(BUILD)/flair_appl_smoke_bochs.report || true
 	@if grep -q 'triple_fault=1' $(BUILD)/flair_appl_smoke_qemu.report $(BUILD)/flair_appl_smoke_bochs.report; then printf '!!! test-flair-app-launch-bochs FAIL: TRIPLE FAULT\n'; exit 1; fi
@@ -21773,10 +22024,15 @@ test-flair-tenant-menu-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_APPL_SMOKE_IMG
 	@printf 'InitechOS (STAPLER) -- make test-flair-tenant-menu-bochs : Rule 5 menu-route CPU-path differential\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-tenant-menu-bochs FAIL: bochs not found (a skipped oracle is worse than a red one; SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_tmenu_smoke_qemu_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_tmenu_smoke_qemu_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_tmenu_smoke_bochs_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_tmenu_smoke_bochs_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_tmenu_smoke_qemu_data.img" --expect HALTED \
 		--name flair_tmenu_smoke_qemu --out "$(BUILD)" --timeout-ms 20000 2> $(BUILD)/flair_tmenu_smoke_qemu.report || true
+
 	@$(BOCHS_BIN) --disk "$(FLAIR_APPL_SMOKE_IMG)" --disk2 "$(BUILD)/flair_tmenu_smoke_bochs_data.img" --expect HALTED \
 		--name flair_tmenu_smoke_bochs --out "$(BUILD)" --timeout-ms 60000 2> $(BUILD)/flair_tmenu_smoke_bochs.report || true
 	@if grep -q 'triple_fault=1' $(BUILD)/flair_tmenu_smoke_qemu.report $(BUILD)/flair_tmenu_smoke_bochs.report; then printf '!!! test-flair-tenant-menu-bochs FAIL: TRIPLE FAULT\n'; exit 1; fi
@@ -21937,10 +22193,15 @@ test-flair-i123-bochs: $(BOCHS_BIN) $(HARNESS_BIN) $(FLAIR_I123_SMOKE_IMG) $(FLA
 	@printf 'InitechOS (STAPLER) -- make test-flair-i123-bochs : Initech 123 on the CPU path, QEMU vs Bochs\n'
 	@printf '======================================================================\n'
 	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-i123-bochs FAIL: bochs not found (SKIP_BOCHS=1 to opt out loudly)\n'; exit 1; }
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_i123_smoke_qemu_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_i123_smoke_qemu_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_i123_smoke_bochs_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_i123_smoke_bochs_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIR_I123_SMOKE_IMG)" --disk2 "$(BUILD)/flair_i123_smoke_qemu_data.img" --expect HALTED \
 		--name flair_i123_smoke_qemu --out "$(BUILD)" --timeout-ms 30000 2> $(BUILD)/flair_i123_smoke_qemu.report || true
+
 	@$(BOCHS_BIN) --disk "$(FLAIR_I123_SMOKE_IMG)" --disk2 "$(BUILD)/flair_i123_smoke_bochs_data.img" --expect HALTED \
 		--name flair_i123_smoke_bochs --out "$(BUILD)" --timeout-ms 240000 2> $(BUILD)/flair_i123_smoke_bochs.report || true
 	@if grep -q 'triple_fault=1' $(BUILD)/flair_i123_smoke_qemu.report $(BUILD)/flair_i123_smoke_bochs.report; then printf '!!! test-flair-i123-bochs FAIL: TRIPLE FAULT\n'; exit 1; fi
@@ -22527,9 +22788,11 @@ RECORD_SETTLE_locked_purge = 200
 $(BUILD)/record_locked_trash.img: $(FLAIR_DATA_IMG)
 	cp -f $< $@
 	mattrib -i $@ +r ::README.TXT
+	@$(call fixture-check,recipe,$@)
 $(BUILD)/record_locked_purge.img: $(FLAIR_DATA_IMG)
 	cp -f $< $@
 	mattrib -i $@ +r ::APPS/TENANTFX.EXE
+	@$(call fixture-check,recipe,$@)
 # initech-uios (audit L002) Rule-14 clip: the Trash, A, CHILD and GRAND windows
 # open over the nested \TRASH\A tree, Empty Trash, OK -- the three folder windows
 # close with their folders -- then Ctrl-N makes NEWFOLD in the Trash window.
@@ -22544,8 +22807,11 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
 	@command -v ffmpeg >/dev/null || { printf '!!! record-flair: ffmpeg not installed (the ONE extra dependency; sudo apt install ffmpeg)\n'; exit 2; }
 	@mkdir -p "$(RECORD_CLIPS_DIR)"
+	@$(call fixture-preflight,$(or $(RECORD_DATA_$(SCRIPT)),$(FLAIR_DATA_IMG)))
 	cp -f $(or $(RECORD_DATA_$(SCRIPT)),$(FLAIR_DATA_IMG)) $(FLAIR_GATE_DATA)
+	@$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(or $(RECORD_DATA_$(SCRIPT)),$(FLAIR_DATA_IMG))))
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
+
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
@@ -22670,13 +22936,17 @@ test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
 	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(FLAIRTENANTS_IMG)" "$(SAMIR_LIST_IMG)"
 	@printf 'Expecting : FLAIR-SUSPEND + LIST rows {PESTON,WADDAMS,LUMBERGH} + FLAIR-RESUME + pre==post\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
 	cp -f $(SAMIR_LIST_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(SAMIR_LIST_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_IMG))),:)
 	@# ---- PRE: the co-resident desktop before the hotkey (no keys). ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--screendump --screendump-after "FLAIR-LIVE-READY" \
 		2> "$(SAMIR_SUSP_PRE_REPORT)" || true
 	@# ---- POST: hotkey + SAMIR's USE/LIST/QUIT; dump after the rebuild. ----
+
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(SAMIR_SUSP_POST_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIR_SUSP_KEYS)" --keys-after "FLAIR-LIVE-READY" \
@@ -22729,15 +22999,19 @@ SAMIR_SUSP_MUT_SERIAL  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).serial
 SAMIR_SUSP_MUT_REPORT  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).report
 test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair_tenants_mut_no_rebuild.img
 	@printf '>>> test-flair-samir-suspend-mutant: confirming the no-rebuild mutant goes RED (Rule 6)\n'
+	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
 	cp -f $(SAMIR_LIST_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(SAMIR_LIST_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_IMG))),:)
 	@# Establish the CLEAN pre baseline (the real desktop) if not already present.
 	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then \
+
 		$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 			--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 			--screendump --screendump-after "FLAIR-LIVE-READY" 2>/dev/null || true; \
 	fi
 	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then printf '!!! test-flair-samir-suspend-mutant FAIL: clean PRE screendump missing (cannot establish the baseline)\n'; exit 1; fi
 	@# POST under the mutant image: same keys, dump after FLAIR-RESUME.
+
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_rebuild.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(SAMIR_SUSP_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIR_SUSP_KEYS)" --keys-after "FLAIR-LIVE-READY" \
@@ -22775,7 +23049,9 @@ test-flair-samir-suspend-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IM
 	@printf '  proves the shared boot/heap/mount milestones + the guard. The\n'
 	@printf '  text-tenant suspend/rebuild is graded on QEMU by test-flair-samir-suspend.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
 		--name "$(SAMIR_SUSP_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
 		2> "$(SAMIR_SUSP_BOCHS_REPORT)" || true
@@ -22984,6 +23260,7 @@ test-fs: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK
 	@# the LFB console (dir_visit -> dir_puts -> console_putc). Waiting for it
 	@# guarantees the asserted band is painted before the grab, killing the race.
 	@# The 6000 ms timeout stays the hard backstop.
+	@$(call fixture-preflight,$(FAT_DATA_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
 		--screendump-after DIR-OK \
 		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
@@ -23065,6 +23342,7 @@ test-type: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(DEMO_IMG)" "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FILEIO-BIND-OK + "%s" between TYPE-OUTPUT-BEGIN/END + TYPE-EXIT rc=0\n' "$(TYPE_CONTENT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_DATA_IMG))
 	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
 		--name "$(TYPE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(TYPE_REPORT)" || true
@@ -23123,6 +23401,7 @@ test-mzexec: $(HARNESS_BIN) $(MZEXEC_IMG) $(FAT_MZEXEC_IMG) $(MZFOREIGN_IMG) $(F
 	@# judge on marker_found (set by --expect's LIVE serial read; race-free), NOT
 	@# the exit code.
 	@# [1/2] RELOC: a real InitechMZ runs + the flat relocation resolves at runtime.
+	@$(call fixture-preflight,$(FAT_MZEXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(MZEXEC_IMG)" --disk2 "$(FAT_MZEXEC_IMG)" \
 		--expect "MZEXEC-OK" --name "$(MZEXEC_RUN_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
 		2> "$(BUILD)/$(MZEXEC_RUN_NAME).report" || true
@@ -23132,6 +23411,7 @@ test-mzexec: $(HARNESS_BIN) $(MZEXEC_IMG) $(FAT_MZEXEC_IMG) $(MZFOREIGN_IMG) $(F
 		&& printf '>>> test-mzexec [1/2]: MZEXEC-OK -- the relocated .EXE ran (reloc resolved at runtime)\n' \
 		|| { printf '!!! test-mzexec FAIL: MZEXEC-OK never appeared -- the .EXE did not run OR the reloc did not resolve\n'; cat "$(BUILD)/$(MZEXEC_RUN_NAME).report"; exit 1; }
 	@# [2/2] FOREIGN: an untagged 16-bit MZ panics fail-loud (DEC-08a.5), never runs.
+	@$(call fixture-preflight,$(FAT_MZFOREIGN_IMG))
 	@$(HARNESS_BIN) --disk "$(MZFOREIGN_IMG)" --disk2 "$(FAT_MZFOREIGN_IMG)" \
 		--expect "PANIC foreign-mz" --name "$(MZFOREIGN_RUN_NAME)" --out "$(BUILD)" --timeout-ms 30000 \
 		2> "$(BUILD)/$(MZFOREIGN_RUN_NAME).report" || true
@@ -23144,6 +23424,7 @@ test-mzexec: $(HARNESS_BIN) $(MZEXEC_IMG) $(FAT_MZEXEC_IMG) $(MZFOREIGN_IMG) $(F
 
 test-mzexec-mutant: $(HARNESS_BIN) $(MZEXEC_IMG) $(FAT_MZEXEC_NORELOC_IMG)
 	@printf '>>> test-mzexec-mutant: the NO-RELOC InitechMZ must NOT print MZEXEC-OK (Rule 6)\n'
+	@$(call fixture-preflight,$(FAT_MZEXEC_NORELOC_IMG))
 	@$(HARNESS_BIN) --disk "$(MZEXEC_IMG)" --disk2 "$(FAT_MZEXEC_NORELOC_IMG)" \
 		--expect "MZEXEC-OK" --name "mzexec_noreloc_run" --out "$(BUILD)" --timeout-ms 20000 \
 		2> "$(BUILD)/mzexec_noreloc_run.report" || true
@@ -23179,6 +23460,7 @@ test-dir: $(HARNESS_BIN) $(DEMO_IMG) $(FAT_DATA_IMG)
 	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(DEMO_IMG)" "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FILEIO-BIND-OK + fixture names between DIR-PROG-OUTPUT-BEGIN/END + DIR-PROG-EXIT rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_DATA_IMG))
 	@$(HARNESS_BIN) --disk "$(DEMO_IMG)" --disk2 "$(FAT_DATA_IMG)" \
 		--name "$(DIRP_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(DIRP_REPORT)" || true
@@ -23244,6 +23526,7 @@ test-exec: $(HARNESS_BIN) $(EXEC_IMG) $(FAT_EXEC_IMG)
 	@printf 'Booting   : %s + data disk %s (primary slave; carries GREET.COM)\n' "$(EXEC_IMG)" "$(FAT_EXEC_IMG)"
 	@printf 'Expecting : "%s" + EXEC-SAW-EXIT rc=7 + EXEC-4B-RC=7 + no triple-fault\n' "$(EXEC_OUTPUT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(EXEC_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(EXEC_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(EXEC_REPORT)" || true
@@ -23389,6 +23672,7 @@ test-fatwrite: $(HARNESS_BIN) $(WRITE_IMG) $(FAT_WRITE_IMG)
 	@printf 'Booting   : %s + WRITABLE data disk %s (primary slave)\n' "$(WRITE_IMG)" "$(FAT_WRITE_IMG)"
 	@printf 'Expecting : FILEIO-BIND-OK + "%s" between WRITE-OUTPUT-BEGIN/END + WRITE-EXIT rc=0 + no triple-fault\n' "$(WRITE_EXPECT)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_WRITE_IMG))
 	@$(HARNESS_BIN) --disk "$(WRITE_IMG)" --disk2 "$(FAT_WRITE_IMG)" \
 		--name "$(WRITE_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(WRITE_REPORT)" || true
@@ -23479,6 +23763,7 @@ test-absdisk-emu: $(HARNESS_BIN) $(ABSDISK_BOOT_IMG) $(FAT_ABSDISK_DATA_IMG)
 	@printf 'Booting   : %s + WRITABLE BLANK data disk %s (primary slave)\n' "$(ABSDISK_BOOT_IMG)" "$(ABSDISK_EMU_RUNDISK)"
 	@printf 'Expecting : ABSDISK-BIND-OK + ABS-W26=OK + ABS-R25=OK + ABS-RT=OK + ABSDISK-EXIT rc=0 + no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(ABSDISK_EMU_RUNDISK))
 	@$(HARNESS_BIN) --disk "$(ABSDISK_BOOT_IMG)" --disk2 "$(ABSDISK_EMU_RUNDISK)" \
 		--name "$(ABSDISK_EMU_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(ABSDISK_EMU_REPORT)" || true
@@ -23549,6 +23834,7 @@ test-multiopen: $(HARNESS_BIN) $(MULTIOPEN_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Booting   : %s + data disk %s (primary slave)\n' "$(MULTIOPEN_IMG)" "$(FAT_MULTIOPEN_IMG)"
 	@printf 'Expecting : FILEIO-BIND-OK + MO-A1=Hel / MO-B1=Sec / MO-A2=Hello / MO-BIG=%s + MULTIOPEN-EXIT rc=0 + no triple-fault\n' "$(MO_BIG_SIG)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_MULTIOPEN_IMG))
 	@$(HARNESS_BIN) --disk "$(MULTIOPEN_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
 		--name "$(MULTIOPEN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(MULTIOPEN_REPORT)" || true
@@ -23634,6 +23920,7 @@ test-datetime: $(HARNESS_BIN) $(DATETIME_IMG) $(FAT_MULTIOPEN_IMG)
 	@printf 'Booting   : %s + data disk %s (primary slave), -rtc base=%s\n' "$(DATETIME_IMG)" "$(FAT_MULTIOPEN_IMG)" "$(DATETIME_RTC_BASE)"
 	@printf 'Expecting : DT-YEAR=2026 MON=6 DAY=9 DOW=2(Tue) HOUR=12 MIN=34 SEC=56 + FREE>0 + PSP>0 + rc=0\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_MULTIOPEN_IMG))
 	@$(HARNESS_BIN) --disk "$(DATETIME_IMG)" --disk2 "$(FAT_MULTIOPEN_IMG)" \
 		--rtc-base "$(DATETIME_RTC_BASE)" --rtc-deterministic \
 		--name "$(DATETIME_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
@@ -23721,6 +24008,7 @@ test-int21-irqstorm: $(HARNESS_BIN) $(IRQSTORM_IMG) $(FAT_IRQSTORM_IMG)
 	@printf 'Booting   : %s + storm disk %s (primary slave)\n' "$(IRQSTORM_IMG)" "$(FAT_IRQSTORM_IMG)"
 	@printf 'Expecting : exact dir enum + STORM-SIG=%s + STORM-B=alpha + IRQSTORM-EXIT rc=0 + NO reentry panic + keys_sent>0\n' "$(STORM_SIG)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_IRQSTORM_IMG))
 	@$(HARNESS_BIN) --disk "$(IRQSTORM_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
 		--name "$(IRQSTORM_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
@@ -23803,6 +24091,7 @@ test-int21-irqstorm-mutant: $(HARNESS_BIN) $(IRQSTORM_MUTA_IMG) $(IRQSTORM_MUTB_
 	@# ---- MUTANT A: scribble a DOS global from the PIT ISR -> enum goes WRONG. ----
 	@# MUTANT A still runs to completion (a data bug, not a crash) -- quit-after
 	@# the SAME clean-finish marker as the base gate.
+	@$(call fixture-preflight,$(FAT_IRQSTORM_IMG))
 	@$(HARNESS_BIN) --disk "$(IRQSTORM_MUTA_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
 		--name "irqstorm_muta" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
@@ -23818,6 +24107,7 @@ test-int21-irqstorm-mutant: $(HARNESS_BIN) $(IRQSTORM_MUTA_IMG) $(IRQSTORM_MUTB_
 	@# ---- MUTANT B: issue int 0x21 from the PIT ISR -> the guard PANICS. ----
 	@# MUTANT B PANICS instead of ever reaching IRQSTORM-EXIT -- the panic
 	@# marker itself IS this leg's completion signal.
+	@$(call fixture-preflight,$(FAT_IRQSTORM_IMG))
 	@$(HARNESS_BIN) --disk "$(IRQSTORM_MUTB_IMG)" --disk2 "$(FAT_IRQSTORM_IMG)" \
 		--name "irqstorm_mutb" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(IRQSTORM_KEYS)" --keys-after "IRQSTORM-READY" \
@@ -23869,6 +24159,7 @@ test-exit-handles: $(HARNESS_BIN) $(EXITH_IMG) $(FAT_EXITH_IMG)
 	@printf 'Booting   : %s + leaky-child disk %s (primary slave)\n' "$(EXITH_IMG)" "$(FAT_EXITH_IMG)"
 	@printf 'Expecting : EXITH-RUN1..%s-OK + EXITH-DONE rc=0 + no triple-fault\n' "$(EXITH_RUNS)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_EXITH_IMG))
 	@$(HARNESS_BIN) --disk "$(EXITH_IMG)" --disk2 "$(FAT_EXITH_IMG)" \
 		--name "$(EXITH_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(EXITH_REPORT)" || true
@@ -23927,6 +24218,7 @@ test-exit-handles-mutant: $(HARNESS_BIN) $(EXITH_MUT_IMG) $(FAT_EXITH_IMG)
 	@printf 'InitechOS (STAPLER) -- make test-exit-handles-mutant : prove the oracle bites (Rule 6)\n'
 	@printf '  sft_close_process elided -> handles leak across EXEC runs -> SFT exhausts.\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FAT_EXITH_IMG))
 	@$(HARNESS_BIN) --disk "$(EXITH_MUT_IMG)" --disk2 "$(FAT_EXITH_IMG)" \
 		--name "$(EXITH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(EXITH_MUT_REPORT)" || true
@@ -23979,6 +24271,7 @@ test-sysinit: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_IMG)
 	@printf 'Booting   : %s + CONFIG.SYS disk %s (primary slave)\n' "$(SYSI_IMG)" "$(FAT_SYSI_IMG)"
 	@printf 'Expecting : SYSINIT: source=CONFIG.SYS FILES=8 ... + SYSINIT-PROG-OPENS=%s + no triple-fault\n' "$(SYSI_EXPECT_OPENS)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_SYSI_IMG))
 	@$(HARNESS_BIN) --disk "$(SYSI_IMG)" --disk2 "$(FAT_SYSI_IMG)" \
 		--name "$(SYSI_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(SYSI_REPORT)" || true
@@ -24034,6 +24327,7 @@ test-sysinit-oversize: $(HARNESS_BIN) $(SYSI_IMG) $(FAT_SYSI_BIG_IMG)
 	@printf 'Booting   : %s + oversize CONFIG.SYS disk %s\n' "$(SYSI_IMG)" "$(FAT_SYSI_BIG_IMG)"
 	@printf 'Expecting : SYSINIT: source=CONFIG.SYS(truncated@1024) FILES=8 ... (NOT baseline)\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_SYSI_BIG_IMG))
 	@$(HARNESS_BIN) --disk "$(SYSI_IMG)" --disk2 "$(FAT_SYSI_BIG_IMG)" \
 		--name "$(SYSIBIG_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
 		2> "$(SYSIBIG_REPORT)" || true
@@ -24110,6 +24404,7 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# would catch the FULL transcript scrolled down past y=240 -- which trips
 	@# ppm_text_check's [C] "seafoam below the banner" guard. The visual half gets
 	@# its OWN clean boot (Run 2, below).
+	@$(call fixture-preflight,$(FAT_EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(SHELL_NAME)" --out "$(BUILD)" --timeout-ms 12000 \
 		--keys "d,i,r,ret,t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret,g,r,e,e,t,ret,b,a,d,c,m,d,ret,e,x,i,t,ret" \
@@ -24176,6 +24471,7 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@# suppressed. The "A:\>" glyphs ink ~86 fg pixels there (A=39, :=8, \=21,
 	@# >=18); require >=40 so a non-rendering prompt (an empty row 5) goes RED while
 	@# leaving margin for sub-pixel rounding (Rule 6 -- the gate BITES).
+	@$(call fixture-preflight,$(FAT_EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--screendump --screendump-after SHELL-READY \
 		--name "$(SHELL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 8000 \
@@ -24303,6 +24599,7 @@ define ojxn-mint-disk
 	@mformat -i $(OJXN_IMG) -f 1440 ::
 	@mcopy -i $(OJXN_IMG) $(OJXN_TESTTXT) ::TEST.TXT
 	@printf '>>> ojxn disk: minted %s with TEST.TXT (%s bytes, multi-cluster; HEAD=%s TAIL=%s)\n' "$(OJXN_IMG)" "$$(wc -c < $(OJXN_TESTTXT))" "$(OJXN_HEAD)" "$(OJXN_TAIL)"
+	@$(call fixture-check,recipe,$(OJXN_IMG),TEST.TXT)
 endef
 
 .PHONY: test-copy-selfcopy test-copy-selfcopy-mutant
@@ -24316,6 +24613,7 @@ test-copy-selfcopy: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 	@printf 'Booting   : %s + FRESH WRITABLE disk %s (multi-cluster TEST.TXT, TAIL=%s)\n' "$(SECONDARY_TRACER_IMG)" "$(OJXN_IMG)" "$(OJXN_TAIL)"
 	@printf 'Expecting : "File cannot be copied onto itself" + "0 file(s) copied" + TEST.TXT intact\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(OJXN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
 		--name "$(OJXN_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
@@ -24357,6 +24655,7 @@ test-copy-selfcopy: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
 test-copy-selfcopy-mutant: $(HARNESS_BIN) $(OJXN_MUT_TRACER_IMG)
 	@printf '>>> test-copy-selfcopy-mutant: confirming the no-samefile mutant DESTROYS TEST.TXT (Rule 6)\n'
 	$(ojxn-mint-disk)
+	@$(call fixture-preflight,$(OJXN_IMG))
 	@$(HARNESS_BIN) --disk "$(OJXN_MUT_TRACER_IMG)" --disk2 "$(OJXN_IMG)" \
 		--name "$(OJXN_MUT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(OJXN_KEYS)" --keys-after "SHELL-READY" \
@@ -24492,6 +24791,7 @@ test-readerr-winh: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG)
 	@printf 'Booting   : %s + disk %s (device OPEN-by-name needs no data file)\n' "$(SECONDARY_TRACER_IMG)" "$(FAT_EXEC_IMG)"
 	@printf 'Expecting : ONE "Bad command or file name" per PRN read, OUT.TXT left empty, clean SHELL-EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(FAT_EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(WINH_NAME)" --out "$(BUILD)" --timeout-ms 10000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" \
@@ -24555,6 +24855,7 @@ test-readerr-winh-mutant: $(HARNESS_BIN) $(WINH_MUT_TRACER_IMG) $(FAT_EXEC_IMG)
 	@# finishes; the wall-clock --timeout-ms is the correct, honest backstop
 	@# here (a host-load delay cannot manufacture a hang that isn't real, so
 	@# there is no false-RED exposure from the legacy quit on this leg).
+	@$(call fixture-preflight,$(FAT_EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(WINH_MUT_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--name "$(WINH_MUT_NAME)" --out "$(BUILD)" --timeout-ms 5000 \
 		--keys "$(WINH_KEYS)" --keys-after "SHELL-READY" --legacy-quit \
@@ -24716,9 +25017,11 @@ test-ut6d: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT12_FIXTURE_DIR)/hello.txt
 	@dd if=/dev/zero of=$(UT6D_IMG) bs=512 count=2880 status=none
 	@mformat -i $(UT6D_IMG) -f 1440 ::
 	@mcopy -i $(UT6D_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@$(call fixture-check,recipe,$(UT6D_IMG),HELLO.TXT)
 	@printf 'Booting   : %s + FRESH WRITABLE disk %s (primary slave)\n' "$(SECONDARY_TRACER_IMG)" "$(UT6D_IMG)"
 	@printf 'Expecting : SHELL-READY + prompt "A:\\SUB>" after CD SUB + clean SHELL-EXIT/SHELL-DONE\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(UT6D_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(UT6D_IMG)" \
 		--name "$(UT6D_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
@@ -24793,6 +25096,8 @@ test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG
 	@dd if=/dev/zero of=$(UT6D_MUT_IMG) bs=512 count=2880 status=none
 	@mformat -i $(UT6D_MUT_IMG) -f 1440 ::
 	@mcopy -i $(UT6D_MUT_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@$(call fixture-check,recipe,$(UT6D_MUT_IMG),HELLO.TXT)
+	@$(call fixture-preflight,$(UT6D_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(UT6D_TRACER_MUT_IMG)" --disk2 "$(UT6D_MUT_IMG)" \
 		--name "$(UT6D_MUT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
@@ -24818,6 +25123,8 @@ test-ut6d-mutant: $(HARNESS_BIN) $(UT6D_TRACER_MUT_IMG) $(UT6D_TRACER_RDNOOP_IMG
 	@dd if=/dev/zero of=$(UT6D_RDNOOP_IMG) bs=512 count=2880 status=none
 	@mformat -i $(UT6D_RDNOOP_IMG) -f 1440 ::
 	@mcopy -i $(UT6D_RDNOOP_IMG) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
+	@$(call fixture-check,recipe,$(UT6D_RDNOOP_IMG),HELLO.TXT)
+	@$(call fixture-preflight,$(UT6D_RDNOOP_IMG))
 	@$(HARNESS_BIN) --disk "$(UT6D_TRACER_RDNOOP_IMG)" --disk2 "$(UT6D_RDNOOP_IMG)" \
 		--name "$(UT6D_RDNOOP_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(UT6D_KEYS)" --keys-after "SHELL-READY" \
@@ -24896,6 +25203,7 @@ define zs24exec-mint-disk
 	@mmd -i $(1) ::SUB
 	@mcopy -i $(1) $(FAT12_FIXTURE_DIR)/hello.txt ::HELLO.TXT
 	@mcopy -i $(1) $(GREET_PROG_BIN) ::SUB/GREET.COM
+	@$(call fixture-check,recipe,$(1),HELLO.TXT SUB/GREET.COM)
 endef
 
 .PHONY: test-zs24-exec test-zs24-exec-mutant
@@ -24912,6 +25220,7 @@ test-zs24-exec: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(FAT12
 	@printf 'Booting   : %s + FRESH writable disk %s (GREET.COM only in ::SUB)\n' "$(SECONDARY_TRACER_IMG)" "$(ZS24EXEC_IMG)"
 	@printf 'Expecting : SHELL-READY + "%s" x2 + prompt "A:\\SUB>" + clean SHELL-EXIT/SHELL-DONE\n' "$(ZS24EXEC_MARKER)"
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(ZS24EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(ZS24EXEC_IMG)" \
 		--name "$(ZS24EXEC_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
@@ -25054,6 +25363,7 @@ test-zs24-exec-mutant: $(HARNESS_BIN) $(ZS24EXEC_TRACER_REJECT_IMG) $(ZS24EXEC_T
 	@# ---------------- Leg A: REJECT (do_exec restores the subdir reject) ----------------
 	@printf '%s\n' '---- leg A: do_exec subdir-reject mutant (-DINT21_MUTATE_EXEC_ROOTREJECT) ----'
 	$(call zs24exec-mint-disk,$(ZS24EXEC_REJECT_IMG))
+	@$(call fixture-preflight,$(ZS24EXEC_REJECT_IMG))
 	@$(HARNESS_BIN) --disk "$(ZS24EXEC_TRACER_REJECT_IMG)" --disk2 "$(ZS24EXEC_REJECT_IMG)" \
 		--name "$(ZS24EXEC_REJECT_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
@@ -25086,6 +25396,7 @@ test-zs24-exec-mutant: $(HARNESS_BIN) $(ZS24EXEC_TRACER_REJECT_IMG) $(ZS24EXEC_T
 	@# ---------------- Leg B: ROOTONLY (loader ignores dir_start) ----------------
 	@printf '%s\n' '---- leg B: loader root-only mutant (-DLOADER_MUTATE_EXEC_ROOTONLY) ----'
 	$(call zs24exec-mint-disk,$(ZS24EXEC_ROOTONLY_IMG))
+	@$(call fixture-preflight,$(ZS24EXEC_ROOTONLY_IMG))
 	@$(HARNESS_BIN) --disk "$(ZS24EXEC_TRACER_ROOTONLY_IMG)" --disk2 "$(ZS24EXEC_ROOTONLY_IMG)" \
 		--name "$(ZS24EXEC_ROOTONLY_NAME)" --out "$(BUILD)" --timeout-ms 14000 \
 		--keys "$(ZS24EXEC_KEYS)" --keys-after "SHELL-READY" \
@@ -26479,12 +26790,14 @@ $(SAMIR_LIST_IMG): $(SAMIR_COM) $(CLIENTS_DBF) | $(BUILD)
 	@mcopy -i $@ $(SAMIR_COM) ::SAMIR.COM
 	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
 	@printf '>>> samir_list: minted %s (FAT12 disk for test-samir-boot; SAMIR.COM + CLIENTS.DBF)\n' "$@"
+	@$(call fixture-check,recipe,$@)
 $(SAMIR_LIST_MUT_IMG): $(SAMIR_COM_MUT) $(CLIENTS_DBF) | $(BUILD)
 	@dd if=/dev/zero of=$@ bs=512 count=2880 status=none
 	@mformat -i $@ -f 1440 ::
 	@mcopy -i $@ $(SAMIR_COM_MUT) ::SAMIR.COM
 	@mcopy -i $@ $(CLIENTS_DBF) ::CLIENTS.DBF
 	@printf '>>> samir_list_mut: minted %s (short-read mutant disk for test-samir-boot-mutant)\n' "$@"
+	@$(call fixture-check,recipe,$@)
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-samir-boot (bead initech-hdlb; ADR-0009 DEC-08) -- S8.2 keystone
@@ -26544,6 +26857,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@# Run 1 (serial): EXEC SAMIR, USE CLIENTS.DBF, LIST, QUIT, EXIT. Generous
 	@# timeout: SAMIR is 77 KiB soft-float -- slower to load + construct than a
 	@# baked .COM. No screendump here (Run 2 grabs it on its own clean keys run).
+	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
@@ -26583,6 +26897,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@# y in [160,176) inks >= 300 fg pixels: it inks 745 with the three rows and 0
 	@# without (a clean discriminator -- the band is pure seafoam if SAMIR did not
 	@# USE+LIST). Deterministic across runs (verified). ----
+	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_IMG)" \
 		--name "$(SAMIRBOOT_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_SCRN_KEYS)" --keys-after "SHELL-READY" \
@@ -26604,6 +26919,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 
 test-samir-boot-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_MUT_IMG)
 	@printf '>>> test-samir-boot-mutant: confirming the short-read pal_milton mutant goes RED (Rule 6)\n'
+	@$(call fixture-preflight,$(SAMIR_LIST_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_LIST_MUT_IMG)" \
 		--name "$(SAMIRBOOT_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRBOOT_KEYS)" --keys-after "SHELL-READY" \
@@ -26689,6 +27005,7 @@ define samir_write_mint
 	@mformat -i $(1) -f 1440 ::
 	@mcopy -i $(1) $(2) ::SAMIR.COM
 	@mcopy -i $(1) $(CLIENTS_DBF) ::CLIENTS.DBF
+	@$(call fixture-check,recipe,$(1),SAMIR.COM CLIENTS.DBF)
 endef
 
 # --- SAMIR.COM DROP-WRITE MUTANT (bead g6wx; Rule 6): the SAME .COM build but
@@ -26744,6 +27061,7 @@ test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(CLIENTS_
 	@$(call samir_write_mint,$(SAMIR_WRITE_IMG),$(SAMIR_COM))
 	@printf '>>> samir_write: minted FRESH %s (pristine 3-record CLIENTS.DBF) for the serial leg\n' "$(SAMIR_WRITE_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, USE rw, REPLACE + APPEND + REPLACE, LIST, QUIT, EXIT.
+	@$(call fixture-preflight,$(SAMIR_WRITE_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_IMG)" \
 		--name "$(SAMIRWR_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
@@ -26785,6 +27103,7 @@ test-samir-write: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(CLIENTS_
 	@# FRESH disk for the screendump leg (its OWN image) so its appends never
 	@# disturb the serial leg's on-disk persistence proof (Rule 11).
 	@$(call samir_write_mint,$(SAMIR_WRITE_SCRN_IMG),$(SAMIR_COM))
+	@$(call fixture-preflight,$(SAMIR_WRITE_SCRN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_SCRN_IMG)" \
 		--name "$(SAMIRWR_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_SCRN_KEYS)" --keys-after "SHELL-READY" \
@@ -26832,6 +27151,7 @@ test-samir-write-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DROP
 	@printf '>>> test-samir-write-mutant: confirming the drop-write pal_milton mutant goes RED (Rule 6)\n'
 	@# FRESH mutant disk from the pristine fixture (Rule 11).
 	@$(call samir_write_mint,$(SAMIR_WRITE_MUT_IMG),$(SAMIR_COM_DROPWRITE))
+	@$(call fixture-preflight,$(SAMIR_WRITE_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SAMIR_WRITE_MUT_IMG)" \
 		--name "$(SAMIRWR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(SAMIRWR_KEYS)" --keys-after "SHELL-READY" \
@@ -26962,6 +27282,7 @@ define cy2k_mint
 	@mcopy -i $(1) $(2) ::SAMIR.COM
 	@mcopy -i $(1) $(3) ::INVOICE.DBF
 	@mcopy -i $(1) $(Y2KACCT_PRG) ::Y2KACCT.PRG
+	@$(call fixture-check,recipe,$(1),SAMIR.COM INVOICE.DBF Y2KACCT.PRG)
 endef
 
 CY2K_IMG          := $(BUILD)/samir_canon_y2k.img
@@ -26998,6 +27319,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVO
 	@$(call cy2k_mint,$(CY2K_IMG),$(SAMIR_COM),$(INVOICE_DBF))
 	@printf '>>> samir_canon_y2k: minted FRESH %s (SAMIR.COM + INVOICE.DBF + Y2KACCT.PRG)\n' "$(CY2K_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, DO Y2KACCT, QUIT, EXIT.
+	@$(call fixture-preflight,$(CY2K_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_IMG)" \
 		--name "$(CY2K_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
@@ -27037,6 +27359,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVO
 	@# gate, so the report text lands in band [176,260). seafoam right margin checked
 	@# (immune to vertical scroll), same discriminator pattern as test-samir-write. ----
 	@$(call cy2k_mint,$(CY2K_SCRN_IMG),$(SAMIR_COM),$(INVOICE_DBF))
+	@$(call fixture-preflight,$(CY2K_SCRN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_SCRN_IMG)" \
 		--name "$(CY2K_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_SCRN_KEYS)" --keys-after "SHELL-READY" \
@@ -27074,6 +27397,7 @@ test-samir-canon-y2k: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(INVO
 test-samir-canon-y2k-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(Y2KACCT_PRG)
 	@printf '>>> test-samir-canon-y2k-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-9a0f)\n'
 	@$(call cy2k_mint,$(CY2K_MUT_IMG),$(SAMIR_COM_DOTRUNC),$(INVOICE_DBF))
+	@$(call fixture-preflight,$(CY2K_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CY2K_MUT_IMG)" \
 		--name "$(CY2K_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CY2K_KEYS)" --keys-after "SHELL-READY" \
@@ -27174,6 +27498,7 @@ define csalami_mint
 	@mcopy -i $(1) $(2) ::SAMIR.COM
 	@mcopy -i $(1) $(INVOICE_DBF) ::INVOICE.DBF
 	@mcopy -i $(1) $(SALAMI_PRG) ::SALAMI.PRG
+	@$(call fixture-check,recipe,$(1),SAMIR.COM INVOICE.DBF SALAMI.PRG)
 endef
 
 CSAL_IMG          := $(BUILD)/samir_canon_salami.img
@@ -27210,6 +27535,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(I
 	@$(call csalami_mint,$(CSAL_IMG),$(SAMIR_COM))
 	@printf '>>> samir_canon_salami: minted FRESH %s (SAMIR.COM + INVOICE.DBF + SALAMI.PRG)\n' "$(CSAL_IMG)"
 	@# Run 1 (serial): EXEC SAMIR, USE INVOICE, DO SALAMI, QUIT, EXIT.
+	@$(call fixture-preflight,$(CSAL_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_IMG)" \
 		--name "$(CSAL_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
@@ -27246,6 +27572,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(I
 	@# gate, so the report text lands in band [176,260). seafoam right margin checked
 	@# (immune to vertical scroll), same discriminator pattern as test-samir-canon-y2k. ----
 	@$(call csalami_mint,$(CSAL_SCRN_IMG),$(SAMIR_COM))
+	@$(call fixture-preflight,$(CSAL_SCRN_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_SCRN_IMG)" \
 		--name "$(CSAL_SCRN_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_SCRN_KEYS)" --keys-after "SHELL-READY" \
@@ -27279,6 +27606,7 @@ test-samir-canon-salami: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(I
 test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM_DOTRUNC) $(INVOICE_DBF) $(SALAMI_PRG)
 	@printf '>>> test-samir-canon-salami-mutant: confirming the DO-file half-read mutant breaks canon in-emu -> RED (Rule 6; initech-4hte)\n'
 	@$(call csalami_mint,$(CSAL_MUT_IMG),$(SAMIR_COM_DOTRUNC))
+	@$(call fixture-preflight,$(CSAL_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(CSAL_MUT_IMG)" \
 		--name "$(CSAL_MUT_NAME)" --out "$(BUILD)" --timeout-ms 60000 \
 		--keys "$(CSAL_KEYS)" --keys-after "SHELL-READY" \
@@ -27369,7 +27697,9 @@ test-flair-modifier-release: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG
 	@printf 'InitechOS (STAPLER) -- make test-flair-modifier-release : released modifiers stay released (G11)\n'
 	@printf '  bead initech-tdnl.58; trace FLAIR_MODREL_SPEC (spec/flair_input_traces.mk)\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_MODREL_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_MODREL_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_MODREL_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_MODREL_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_MODREL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -27387,7 +27717,9 @@ test-flair-modifier-release-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_se
 	@printf 'InitechOS (STAPLER) -- make test-flair-modifier-release-mutant : Rule 6\n'
 	@printf '  Mutant: event.o -DEVENT_MUTATE_SET1_BREAK_BLIND (the pre-tdnl.58 decoder)\n'
 	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_MODREL_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_MODREL_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_set1.img" --disk2 "$(FLAIR_MODREL_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_modrel_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MODREL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -27435,7 +27767,9 @@ held-menu-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
 	&& awk '/^FLAIR-MENU-DROP /{d=1;u=0} d&&/^FLAIR-EVT what=2 /{u=1} d&&/^FLAIR-MENU menu=/{ok=u; d=0} END{exit !ok}' $(1)
 # $(call held-boot,<image>,<name>,<trace var NAME>,<quit marker>)
 define held-boot
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(2)_data.img
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(2)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(2)" --out "$(BUILD)" --mouse "$($(3))" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "$(4)" --timeout-ms 40000 2> "$(BUILD)/$(2).report" || true
@@ -27969,6 +28303,7 @@ define autoexec-mint-disk
 	@mcopy -i $(1) $(AUTOEXEC_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(AUTOEXEC_SUB_BAT) ::SUB.BAT
 	@mcopy -i $(1) $(GREET_PROG_BIN) ::GREET.COM
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT SUB.BAT GREET.COM)
 endef
 
 .PHONY: test-autoexec test-autoexec-mutant
@@ -27985,6 +28320,7 @@ test-autoexec: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(AUTOEX
 	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT + SUB.BAT + GREET.COM)\n' "$(SECONDARY_TRACER_IMG)" "$(AUTOEXEC_IMG)"
 	@printf 'Expecting : SHELL-READY then 10 batch markers, then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(AUTOEXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(AUTOEXEC_IMG)" \
 		--name "$(AUTOEXEC_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28056,6 +28392,7 @@ $(AUTOEXEC_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(AUTOEXEC_SHELL_MUT_BIN) |
 test-autoexec-mutant: $(HARNESS_BIN) $(AUTOEXEC_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(AUTOEXEC_SUB_BAT)
 	@printf '>>> test-autoexec-mutant: confirming the NO-AUTOEXEC mutant goes RED (Rule 6)\n'
 	$(call autoexec-mint-disk,$(AUTOEXEC_MUT_IMG))
+	@$(call fixture-preflight,$(AUTOEXEC_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(AUTOEXEC_TRACER_MUT_IMG)" --disk2 "$(AUTOEXEC_MUT_IMG)" \
 		--name "$(AUTOEXEC_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28102,6 +28439,7 @@ define hsct-redir-mint-disk
 	@dd if=/dev/zero of=$(1) bs=512 count=2880 status=none
 	@mformat -i $(1) -f 1440 ::
 	@mcopy -i $(1) $(HSCT_REDIR_BAT) ::AUTOEXEC.BAT
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT)
 endef
 
 .PHONY: test-hsct-redir test-hsct-redir-mutant
@@ -28118,6 +28456,7 @@ test-hsct-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(HSCT_REDIR_BAT)
 	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script)\n' "$(SECONDARY_TRACER_IMG)" "$(HSCT_REDIR_IMG)"
 	@printf 'Expecting : RZZHELLO twice (2 TYPEs), RZZWORLD once, then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(HSCT_REDIR_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(HSCT_REDIR_IMG)" \
 		--name "$(HSCT_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28198,6 +28537,7 @@ $(HSCT_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(HSCT_REDIR_SHELL_MUT_BI
 test-hsct-redir-mutant: $(HARNESS_BIN) $(HSCT_REDIR_TRACER_MUT_IMG) $(HSCT_REDIR_BAT)
 	@printf '>>> test-hsct-redir-mutant: confirming the REDIR-BYPASS mutant goes RED (Rule 6)\n'
 	$(call hsct-redir-mint-disk,$(HSCT_REDIR_MUT_IMG))
+	@$(call fixture-preflight,$(HSCT_REDIR_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(HSCT_REDIR_TRACER_MUT_IMG)" --disk2 "$(HSCT_REDIR_MUT_IMG)" \
 		--name "$(HSCT_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28251,6 +28591,7 @@ define bsy9-redir-mint-disk
 	@mformat -i $(1) -f 1440 ::
 	@mcopy -i $(1) $(BSY9_REDIR_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(GREET_PROG_BIN) ::GREET.COM
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT GREET.COM)
 endef
 
 .PHONY: test-bsy9-redir test-bsy9-redir-mutant
@@ -28267,6 +28608,7 @@ test-bsy9-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(BSY9
 	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GREET.COM)\n' "$(SECONDARY_TRACER_IMG)" "$(BSY9_REDIR_IMG)"
 	@printf 'Expecting : GREETINGS twice (2 TYPEs of GOUT.TXT), then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(BSY9_REDIR_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BSY9_REDIR_IMG)" \
 		--name "$(BSY9_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28341,6 +28683,7 @@ $(BSY9_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY9_SHELL_MUT_BIN) | $
 test-bsy9-redir-mutant: $(HARNESS_BIN) $(BSY9_REDIR_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT)
 	@printf '>>> test-bsy9-redir-mutant: confirming the NO-JFT-INHERIT mutant goes RED (Rule 6)\n'
 	$(call bsy9-redir-mint-disk,$(BSY9_REDIR_MUT_IMG))
+	@$(call fixture-preflight,$(BSY9_REDIR_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(BSY9_REDIR_TRACER_MUT_IMG)" --disk2 "$(BSY9_REDIR_MUT_IMG)" \
 		--name "$(BSY9_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28394,6 +28737,7 @@ define bsy7-redir-mint-disk
 	@mcopy -i $(1) $(BSY7_REDIR_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(GOBBLE_PROG_BIN) ::GOBBLE.COM
 	@mcopy -i $(1) $(BSY7_REDIR_IN) ::GIN.TXT
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT GOBBLE.COM GIN.TXT)
 endef
 
 .PHONY: test-bsy7-redir test-bsy7-redir-mutant
@@ -28412,6 +28756,7 @@ test-bsy7-redir: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GOBBLE_PROG_BIN) $(BSY
 	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT redirect script + GOBBLE.COM + GIN.TXT)\n' "$(SECONDARY_TRACER_IMG)" "$(BSY7_REDIR_IMG)"
 	@printf 'Expecting : GOBBLE-BEGIN once, GOBBLED42 once (echoed from stdin), "File not found", then clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(BSY7_REDIR_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BSY7_REDIR_IMG)" \
 		--name "$(BSY7_REDIR_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28495,6 +28840,7 @@ $(BSY7_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY7_REDIR_SHELL_MUT_BI
 test-bsy7-redir-mutant: $(HARNESS_BIN) $(BSY7_REDIR_TRACER_MUT_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BAT) $(BSY7_REDIR_IN)
 	@printf '>>> test-bsy7-redir-mutant: confirming the NO-LT (`<` parse dropped) mutant goes RED (Rule 6)\n'
 	$(call bsy7-redir-mint-disk,$(BSY7_REDIR_MUT_IMG))
+	@$(call fixture-preflight,$(BSY7_REDIR_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(BSY7_REDIR_TRACER_MUT_IMG)" --disk2 "$(BSY7_REDIR_MUT_IMG)" \
 		--name "$(BSY7_REDIR_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28549,6 +28895,7 @@ define bsy8-pipe-mint-disk
 	@mcopy -i $(1) $(BSY8_PIPE_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(GREET_PROG_BIN) ::GREET.COM
 	@mcopy -i $(1) $(GOBBLE_PROG_BIN) ::GOBBLE.COM
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT GREET.COM GOBBLE.COM)
 endef
 
 .PHONY: test-bsy8-pipe test-bsy8-pipe-mutant
@@ -28566,6 +28913,7 @@ test-bsy8-pipe: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(GREET_PROG_BIN) $(GOBBL
 	@printf 'Booting   : %s + data disk %s (AUTOEXEC.BAT pipe script + GREET.COM + GOBBLE.COM)\n' "$(SECONDARY_TRACER_IMG)" "$(BSY8_PIPE_IMG)"
 	@printf 'Expecting : GOBBLE-BEGIN once, GREETINGS once (via the temp pipe), "File not found" (temp gone), clean EXIT\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
+	@$(call fixture-preflight,$(BSY8_PIPE_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(BSY8_PIPE_IMG)" \
 		--name "$(BSY8_PIPE_NAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28649,6 +28997,7 @@ $(BSY8_PIPE_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY8_PIPE_SHELL_MUT_BIN)
 test-bsy8-pipe-mutant: $(HARNESS_BIN) $(BSY8_PIPE_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN) $(BSY8_PIPE_BAT)
 	@printf '>>> test-bsy8-pipe-mutant: confirming the NO-STDIN (consumer stdin not repointed) mutant goes RED (Rule 6)\n'
 	$(call bsy8-pipe-mint-disk,$(BSY8_PIPE_MUT_IMG))
+	@$(call fixture-preflight,$(BSY8_PIPE_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(BSY8_PIPE_TRACER_MUT_IMG)" --disk2 "$(BSY8_PIPE_MUT_IMG)" \
 		--name "$(BSY8_PIPE_MUT_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28701,6 +29050,7 @@ define sort-filter-mint-disk
 	@mcopy -i $(1) $(SORT_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(2) ::SORT.COM
 	@mcopy -i $(1) $(SORT_IN) ::SIN.TXT
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT SORT.COM SIN.TXT)
 endef
 
 .PHONY: test-sort-filter test-sort-filter-mutant
@@ -28713,6 +29063,7 @@ test-sort-filter: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SORT_PROG_BIN) $(SORT
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-sort-filter FAIL: mtools `mformat` not found (apt install mtools). A skipped oracle is worse than a red one.\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-sort-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call sort-filter-mint-disk,$(SORT_IMG),$(SORT_PROG_BIN))
+	@$(call fixture-preflight,$(SORT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SORT_IMG)" \
 		--name "$(SORT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28746,6 +29097,7 @@ test-sort-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SORT_PROG_MUT_
 	@printf '>>> test-sort-filter-mutant: confirming the REVERSED-comparator mutant goes RED (Rule 6)\n'
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-sort-filter-mutant FAIL: mtools not found\n'; exit 1; }
 	$(call sort-filter-mint-disk,$(SORT_MUT_IMG),$(SORT_PROG_MUT_BIN))
+	@$(call fixture-preflight,$(SORT_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(SORT_MUT_IMG)" \
 		--name "$(SORT_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28783,6 +29135,7 @@ define find-filter-mint-disk
 	@mcopy -i $(1) $(FIND_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(2) ::FIND.COM
 	@mcopy -i $(1) $(FIND_IN) ::FIN.TXT
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT FIND.COM FIN.TXT)
 endef
 
 .PHONY: test-find-filter test-find-filter-mutant
@@ -28795,6 +29148,7 @@ test-find-filter: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FIND_PROG_BIN) $(FIND
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-find-filter FAIL: mtools `mformat` not found (apt install mtools).\n'; exit 1; }
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-find-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	$(call find-filter-mint-disk,$(FIND_IMG),$(FIND_PROG_BIN))
+	@$(call fixture-preflight,$(FIND_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FIND_IMG)" \
 		--name "$(FIND_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28828,6 +29182,7 @@ test-find-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FIND_PROG_MUT_
 	@printf '>>> test-find-filter-mutant: confirming the INVERTED-match mutant goes RED (Rule 6)\n'
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-find-filter-mutant FAIL: mtools not found\n'; exit 1; }
 	$(call find-filter-mint-disk,$(FIND_MUT_IMG),$(FIND_PROG_MUT_BIN))
+	@$(call fixture-preflight,$(FIND_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FIND_MUT_IMG)" \
 		--name "$(FIND_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28870,6 +29225,7 @@ define more-filter-mint-disk
 	@mcopy -i $(1) $(MORE_BAT) ::AUTOEXEC.BAT
 	@mcopy -i $(1) $(2) ::MORE.COM
 	@mcopy -i $(1) $(MORE_IN) ::MIN.TXT
+	@$(call fixture-check,recipe,$(1),AUTOEXEC.BAT MORE.COM MIN.TXT)
 endef
 
 .PHONY: test-more-filter test-more-filter-mutant
@@ -28884,6 +29240,7 @@ test-more-filter: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(MORE_PROG_BIN) $(MORE
 	@command -v mcopy   >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mcopy` not found.\n'; exit 1; }
 	@command -v mtype   >/dev/null 2>&1 || { printf '!!! test-more-filter FAIL: mtools `mtype` not found.\n'; exit 1; }
 	$(call more-filter-mint-disk,$(MORE_IMG),$(MORE_PROG_BIN))
+	@$(call fixture-preflight,$(MORE_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(MORE_IMG)" \
 		--name "$(MORE_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -28913,6 +29270,7 @@ test-more-filter-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(MORE_PROG_MUT_
 	@printf '>>> test-more-filter-mutant: confirming the LOSSY-passthrough mutant goes RED (Rule 6)\n'
 	@command -v mformat >/dev/null 2>&1 || { printf '!!! test-more-filter-mutant FAIL: mtools not found\n'; exit 1; }
 	$(call more-filter-mint-disk,$(MORE_MUT_IMG),$(MORE_PROG_MUT_BIN))
+	@$(call fixture-preflight,$(MORE_MUT_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(MORE_MUT_IMG)" \
 		--name "$(MORE_MUT_FNAME)" --out "$(BUILD)" --timeout-ms 25000 \
 		--keys "e,x,i,t,ret" --keys-after "SHELL-READY" \
@@ -29093,10 +29451,12 @@ include spec/flair_file_traces.mk
 $(eval $(call tenant-exe-rules,fileten,os/apps/ctenant/files.c,,))
 FLAIR_FILE_DATA := $(BUILD)/flair_file_data.img
 $(FLAIR_FILE_DATA): $(FLAIR_DATA_IMG) $(BUILD)/tenant/fileten.exe
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/fileten.exe ::APPS/CTENANT.EXE
 	@printf 'Gate file bytes\r\n' > $(BUILD)/filekeep.golden
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/filekeep.golden ::KEEP.DAT
+	@$(call fixture-check,recipe,$@)
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_WRITE_NOOP,file_write))
 $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_FILE_LEAK,file_leak))
 FILE_ROUND_OK = $(call APPL_ALIVE,$(1)) && grep -q 's="FILE ROUNDTRIP OK".* -> 0$$' $(1)
@@ -29136,12 +29496,14 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=500,i123_fi
 FLAIR_I123_FILE_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_file_gate.img
 FLAIR_I123_FILE_DATA := $(BUILD)/flair_i123_file_data.img
 $(FLAIR_I123_FILE_DATA): $(FLAIR_DATA_IMG) $(LOTUS123_DECOMP)/goldens/minted/MINT01.WK1
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	cp -f $(LOTUS123_DECOMP)/goldens/minted/MINT01.WK1 $(BUILD)/i123-corpus-original.WK1
 	cmp $(LOTUS123_DECOMP)/goldens/minted/MINT01.WK1 $(BUILD)/i123-corpus-original.WK1
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-corpus-original.WK1 ::MINT01.WK1
 	@printf '\000\000\002\000\004\004' > $(BUILD)/i123-bad.WK1
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-bad.WK1 ::BAD.WK1
+	@$(call fixture-check,recipe,$@)
 I123_FILE_ROWS = grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_ROW1)" fg=1 bg=0 -> 0'
 I123_DISK_CELLS = grep -q "LABEL.*c0 r0 label=.*Hello" $(1) && grep -Eq 'INTEGER.*c1 r0 int=123$$' $(1) && grep -Eq 'NUMBER.*c2 r0 num=1\.5$$' $(1) && grep -Eq 'INTEGER.*c3 r0 int=-7$$' $(1) && grep -q 'consumed=.* OK$$' $(1)
 .PHONY: test-flair-i123-files test-flair-i123-files-mutant
@@ -29194,8 +29556,10 @@ $(eval $(call tenant-exe-rules,i123_save_empty,$(I123_APP_SRC),-Ios/i123/core -D
 # top line is what the gate's first clause defends. Image name kept.
 $(eval $(call tenant-exe-rules,i123_command_silent,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MENU_SPELLING,$(I123_APP_DEP)))
 $(BUILD)/flair_i123_file_mut_%.img: $(FLAIR_I123_FILE_DATA) $(BUILD)/tenant/i123_%.exe
+	@$(call fixture-preflight,$(FLAIR_I123_FILE_DATA))
 	cp -f $(FLAIR_I123_FILE_DATA) $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/i123_$*.exe ::APPS/123.EXE
+	@$(call fixture-check,recipe,$@)
 
 test-flair-i123-files-mutant: test-flair-i123-files $(BUILD)/flair_i123_file_mut_save_empty.img
 	$(call appl-boot,flair_i123_files_mut,$(FLAIR_I123_FILE_GATE_IMG),$(BUILD)/flair_i123_file_mut_save_empty.img,FLAIR_I123_FILES,--screendump --screendump-after FLAIR-LIVE-OK)
@@ -29258,9 +29622,11 @@ $(eval $(call tenant-exe-rules,i123_get_clobber,$(I123_APP_SRC),-Ios/i123/core -
 include spec/flair_i123_quit_traces.mk
 FLAIR_I123_QUIT_DATA := $(BUILD)/flair_i123_quit_fixture.img
 $(FLAIR_I123_QUIT_DATA): $(FLAIR_I123_FILE_DATA)
+	@$(call fixture-preflight,$(FLAIR_I123_FILE_DATA))
 	cp -f $(FLAIR_I123_FILE_DATA) $@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-corpus-original.WK1 ::RO.WK1
 	mattrib -i $@ +r ::RO.WK1
+	@$(call fixture-check,recipe,$@)
 $(eval $(call tenant-exe-rules,i123_never_dirty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NEVER_DIRTY,$(I123_APP_DEP)))
 $(eval $(call tenant-exe-rules,i123_cancel_quits,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_CANCEL_QUITS,$(I123_APP_DEP)))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=500 -DKMAIN_MUT_CLOSE_NO_ASK,i123_close_noask))
@@ -30009,7 +30375,9 @@ MENU_LOOK_CHECK := $(BUILD)/ppm_flair_menu_look_check
 $(MENU_LOOK_CHECK): tools/ppm_flair_menu_look_check.c $(MENU_LOOK_GOLDEN)
 	$(CC) $(CFLAGS) -Ispec -o $@ $<
 define menu-look-boot
+@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(1)_data.img
+@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(1)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
  --mouse "$(FLAIR_MENU_LOOK_SPEC)" --keys-after FLAIR-LIVE-READY \
  --quit-after "FLAIR-MENU menu=512 item=0" --timeout-ms 30000 \
@@ -30170,3 +30538,8 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 	$(call alert-chrome-mutant-leg,fringe,BUTTON-CORNERS,CTRL_MUT_BTN_FRINGE)
 	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
 	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'
+
+# Seeded volume contracts are read after every image variable is defined.
+include harness/fixture_volumes.mk
+
+TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
