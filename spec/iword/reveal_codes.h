@@ -41,6 +41,17 @@
 #define IW_RV_LR_MAR     "[L/R Mar:"    /* R4 "[L/R Mar:2\",2\"]": D0/01, the NEW
                                          * left and right margins in inches       */
 #define IW_RV_UNKNOWN    "[?]"          /* authored: no shot labels the code      */
+/* P2 slice 2 (this bead; ../wordperfect51-decomp mint/shots_wpMINT09..15,
+ * re/mint-results-003.md):                                                   */
+#define IW_RV_INDENT     "[\x1A" "Indent]"  /* C2 (F4): "[->Indent]" with the CP437
+                                         * right arrow 0x1A (MINT09 05_reveal_top
+                                         * row 5 "[->Indent]Indented once ...")   */
+#define IW_RV_BLOCK      "[Block]"      /* the block's anchor while Block is on,
+                                         * not a code in the file (MINT13
+                                         * 01b_block_reveal "word[Block]s[bold]") */
+/* C6 (end of indent) and D4/00 (the hard page's bookkeeping) show NO label
+ * (MINT09 05_reveal_top "the indent here.[HRt]", 07_reveal_pages
+ * "Page one.[HPg]"). */
 
 /* Attribute labels: upper case = the ON code, lower case = the OFF code
  * (R1 [BOLD]/[bold] [UND]/[und]; R4 [LARGE]/[large]; R6 [ITALC]/[italc]). */
@@ -55,7 +66,13 @@
 /* ---- the pane -------------------------------------------------------------- *
  * WordPerfect's 25-line screen in Reveal Codes (R1..R8): the document on lines
  * 0..10, the status line on line 11, the ruler on line 12, the CODES PANE on
- * lines 13..23 (11 rows) and the restore message on line 24.
+ * lines 13..22 (10 rows; line 23 stays blank) and the restore message on line
+ * 24. CORRECTED in P2 slice 2 (Rule 8, deliberate; bead initech-jojk): slice 1
+ * had 11 rows, inferred from screens whose 11th row was empty anyway. The
+ * first screens with more to show keep line 23 blank: mint/shots_wpMINT09/
+ * 05_reveal_top.png (lines 0..9 shown, "Page three.[HRt]" -- line 10 -- not on
+ * line 23), mint/shots_wpMINT16/01_reveal_top.png (10 rows from line 0, one
+ * line taking two rows, "L9[HRt]" not shown) and 02_reveal_line6.png (L3..L12).
  * PANE ROWS. Each document line's labels run on from the row before it ends;
  * a line longer than the screen is cut at column 80 wherever that falls, even
  * inside a label (R6 03_reveal: "...enough that th" | "e[SRt]").
@@ -69,7 +86,7 @@
  * one cell after the last label when the cursor is at the end of the document
  * (R2 "Plain text only." + the cell at column 16; R8 03a column 19). */
 #define IW_RV_WP_COLS     80u
-#define IW_RV_PANE_ROWS   11u
+#define IW_RV_PANE_ROWS   10u
 #define IW_RV_PANE_ABOVE  3u
 #define IW_RV_MESSAGE     "Press Reveal Codes to restore screen"   /* R1..R8 line 24 */
 
@@ -86,5 +103,23 @@
 /* ---- the Font menu (Ctrl-F8), on the status line (R6) ---------------------- */
 #define IW_FONT_MENU    "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"
 #define IW_APPEAR_MENU  "1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0"
+
+/* ---- block and code prompts, on the status line (P2 slice 2) -------------
+ * Each transcribed from a real WP 5.1 screen (mint/shots_wpMINT11..13):    */
+#define IW_BLOCK_ON      "Block on"     /* MINT12 01_block_on: left of the status
+                                         * line while Block is on (WP blinks it) */
+#define IW_MOVE_MENU     "Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0"
+                                        /* MINT12 03_move_menu (Ctrl-F4, Block on) */
+#define IW_MOVE_BLK_MENU "1 Move; 2 Copy; 3 Delete; 4 Append: 0"
+                                        /* MINT12 04_block_menu (then 1 Block)  */
+#define IW_MOVE_RETRIEVE "Move cursor; press Enter to retrieve."
+                                        /* MINT12 05_move_prompt, 07_copy_prompt:
+                                         * left of the status line, Doc .. Pos
+                                         * kept at its right; "Enter" bright      */
+#define IW_MOVE_ENTER_COL 19u           /* "Enter" starts at column 19          */
+#define IW_DEL_BLOCK     "Delete Block? No (Yes)"   /* MINT12 09_delete_prompt  */
+#define IW_DEL_CODE_PRE  "Delete "      /* MINT11 01_bs_prompt "Delete [BOLD]? No */
+#define IW_DEL_CODE_POST "? No (Yes)"   /* (Yes)", 02_del_prompt "Delete [bold]? */
+                                        /* No (Yes)": the code's Reveal label   */
 
 #endif /* INITECH_SPEC_IWORD_REVEAL_CODES_H */

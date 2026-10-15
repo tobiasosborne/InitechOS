@@ -293,6 +293,12 @@ int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
     if (c == IW_WP5_SRT) return IW_U_SRT;
     if (c == IW_WP5_HPG) return IW_U_HPG;
     if (c == IW_WP5_HSPACE) return IW_U_HSPACE;
+    /* slice 2 (bead initech-jojk; spec/iword/wp5_format.h "tabs, indents and
+     * hard pages"): the codes that take columns or that WP keeps beside one */
+    if (c == IW_WP5_C1 && iw_doc_byte(d, pos + 1u) == (int)IW_WP5_C1_TAB) return IW_U_TAB;
+    if (c == IW_WP5_INDENT) return IW_U_INDENT;
+    if (c == IW_WP5_END_INDENT) return IW_U_HIDDEN;
+    if (c == IW_WP5_PAGE_GRP && iw_doc_byte(d, pos + 1u) == (int)IW_WP5_PAGE_SUB) return IW_U_HIDDEN;
     return IW_U_CODE;
 }
 

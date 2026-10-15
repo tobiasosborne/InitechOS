@@ -43,8 +43,19 @@
  * reveal_codes.h or face_a.c. The saved CODES file is judged by the
  * Makefile with wp5_ref.py.
  *
+ * F8..F10 (bead initech-jojk, P2 slice 2): Block / Move and Delete Block
+ * (MINT12), the "Delete [code]? No (Yes)" question (MINT11), tabs, indents and
+ * hard pages on the screen and in Reveal Codes (MINT09) -- every prompt line,
+ * row and status line typed here from those shots (../wordperfect51-decomp
+ * mint/shots_wpMINT09/08_edit_top.png, 03_reveal.png; shots_wpMINT11/
+ * 01_bs_prompt.png, 02_del_prompt.png; shots_wpMINT12/01_block_on.png,
+ * 02_block_hl.png, 03_move_menu.png, 04_block_menu.png, 05_move_prompt.png,
+ * 06_moved.png, 09_delete_prompt.png, 10_deleted.png). The TABS file F10
+ * saves is judged by the Makefile: its body == MINT09's, byte for byte.
+ *
  * Mutants (Rule 6; test-iword-face-mutant): IWORD_MUT_NO_WRAP (F1 rows),
- * IWORD_MUT_SAVE_NOTHING (F1 saved size), IWORD_MUT_NO_FACE (F7 faces).
+ * IWORD_MUT_SAVE_NOTHING (F1 saved size), IWORD_MUT_NO_FACE (F7 faces),
+ * IWORD_MUT_NO_BLOCK_ON (F8 "Block on").
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include <stdint.h>
@@ -466,7 +477,7 @@ static void t_codes(void)
         f = fopen(hp, "rb");
         k = f ? fread(b, 1, sizeof b, f) : 0;
         if (f) fclose(f);
-        CHECK(k == 376u && b[0x103] == 0x08, "F7", "an italic body: 0x08 at 0x103, as WP wrote MINT06");
+        CHECK(k == 376u && b[0x103] == 0x00, "F7", "saved with the cursor at the end: 0x00 at 0x103, as WP wrote MINT10/15/18 (re/mint-results-003.md)");
     }
     /* Alt-F3: Reveal Codes (MINT0x 03_reveal.png layout, 24 lines) */
     fkey(F3, ALT);
@@ -497,12 +508,128 @@ static void t_codes(void)
     fkey(F3, ALT);
     CHECK(row_is(10, "") && row_is(12, "") && status_is("A:\\CODES", "1\"", "3.3\"", 0), "F7",
           "Alt-F3 again: the full editing screen");
-    /* the edit screen keeps P1's protection: Backspace steps over a code */
+    /* the editing screen asks before a code goes (MINT11 01_bs_prompt) */
     fkey(0x4F, 0);
     tk(8); tk(8); tk(8); tk(8);
     CHECK(row_is(0, "Plain bold under slant") && faces_are(0, 17, 22, 2), "F7",
-          "outside Reveal Codes Backspace deletes text, never a code ([italc] stays)");
+          "outside Reveal Codes Backspace deletes text, and stops at a code ([italc] stays)");
+    CHECK(row_is(23, "Delete [italc]? No (Yes)"), "F7", "Backspace on [italc]: \"Delete [italc]? No (Yes)\" (MINT11 01_bs_prompt form)");
+    tk('n');
+    CHECK(row_is(0, "Plain bold under slant") && status_is("A:\\CODES", "1\"", "3.2\"", 0), "F7", "n: the code stays");
     CHECK(m_exit_calls == 0, "F7", "still running");
+}
+
+/* F8 BLOCK AND MOVE (MINT12): Alt-F4, the band, Ctrl-F4 1 1, Enter. */
+#define TAB_KEY() ev(keyDown, (0x0F << 8) | '\t', 0)
+#define LEFT  0x4B
+#define RIGHT 0x4D
+#define END   0x4F
+#define DEL   0x53
+#define F4    0x3E
+static int band(int line, int col, int n)
+{
+    int ok = 1;
+    for (int c = 0; c < SCR_W; c++) {
+        int want = c >= col && c < col + n, is = m_col[line][c] == ((TBX_COLOR_BLACK << 4) | TBX_COLOR_GRAY) && !m_inv[line][c];
+        if (want != is) { fprintf(stderr, "    row %d col %d in the band %d, want %d\n", line, c, is, want); ok = 0; break; }
+    }
+    return ok;
+}
+static void t_block(void)
+{
+    tk('\r');
+    tks("Alpha Beta Gamma.");
+    for (int i = 0; i < 11; i++) fkey(LEFT, 0);
+    fkey(F4, ALT);
+    CHECK(status_is("Block on", "1.17\"", "1.6\"", 0), "F8", "Alt-F4: Block on at the left of the status line (01_block_on)");
+    for (int i = 0; i < 5; i++) fkey(RIGHT, 0);
+    CHECK(band(1, 6, 5) && cursor_at(1, 11) && status_is("Block on", "1.17\"", "2.1\"", 0), "F8",
+          "Right x5: \"Beta \" in the band, the cursor on G (02_block_hl)");
+    tk('x');
+    CHECK(row_is(1, "Alpha Beta Gamma."), "F8", "typing does nothing while Block is on");
+    fkey(F4, CTRL);
+    CHECK(row_is(23, "Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0"), "F8", "Ctrl-F4 with Block on (03_move_menu)");
+    tk('1');
+    CHECK(row_is(23, "1 Move; 2 Copy; 3 Delete; 4 Append: 0"), "F8", "1 Block (04_block_menu)");
+    tk('1');
+    CHECK(row_is(1, "Alpha Gamma.") && status_is("Move cursor; press Enter to retrieve.", "1.17\"", "1.6\"", 0) &&
+          faces_are(23, 19, 24, 1) && faces_are(23, 0, 19, 0), "F8",
+          "1 Move: the block is cut, \"Move cursor; press Enter to retrieve.\" with Doc .. Pos, Enter bright (05_move_prompt)");
+    fkey(END, 0);
+    tk('\r');
+    CHECK(row_is(1, "Alpha Gamma.Beta ") && status_is("", "1.17\"", "2.2\"", 0) && cursor_at(1, 12), "F8",
+          "End, Enter: retrieved in front of the cursor, which stays (06_moved Pos 2.2\")");
+    /* Delete with Block on (09_delete_prompt / 10_deleted) */
+    fkey(0x47, 0);
+    fkey(F4, ALT);
+    for (int i = 0; i < 6; i++) fkey(RIGHT, 0);
+    fkey(DEL, 0);
+    CHECK(row_is(23, "Delete Block? No (Yes)"), "F8", "Delete with Block on (09_delete_prompt)");
+    tk('n');
+    CHECK(row_is(1, "Alpha Gamma.Beta ") && status_is("Block on", "1.17\"", "1.6\"", 0), "F8", "n: the block stays");
+    fkey(DEL, 0);
+    tk('y');
+    CHECK(row_is(1, "Gamma.Beta ") && status_is("", "1.17\"", "1\"", 0), "F8", "y: the block is deleted, Block off (10_deleted)");
+    CHECK(m_exit_calls == 0, "F8", "still running");
+}
+
+/* F9 THE QUESTION (MINT11): "Delete [BOLD]? No (Yes)" / "Delete [bold]?". */
+static void t_question(void)
+{
+    tk('\r');
+    tks("Alpha");
+    fkey(F6, 0);
+    tk(8);
+    CHECK(row_is(1, "Alpha") && row_is(23, "Delete [BOLD]? No (Yes)"), "F9", "Backspace after [BOLD] asks (01_bs_prompt)");
+    tk('y');
+    tks(" one");
+    CHECK(row_is(1, "Alpha one") && faces_are(1, 0, 9, 0) && status_is("", "1.17\"", "1.9\"", 0), "F9", "y: the pair is gone (MINT11 \"Alpha one\")");
+    tk('\r');
+    tks("Beta");
+    fkey(F6, 0);
+    fkey(DEL, 0);
+    CHECK(row_is(23, "Delete [bold]? No (Yes)"), "F9", "Delete before [bold] asks (02_del_prompt)");
+    tk('n');
+    tk('x');
+    CHECK(row_is(2, "Betax") && faces_are(2, 4, 5, 0), "F9", "n: the cursor steps past [bold]; x is plain (MINT11 \"Beta[BOLD][bold]x\")");
+    CHECK(m_exit_calls == 0, "F9", "still running");
+}
+
+/* F10 TABS, INDENTS, HARD PAGES (MINT09): the keys of mint/wpMINT09.steps. */
+static void t_tabs(void)
+{
+    char bar[SCR_W + 1], st[SCR_W + 1];
+    tk('\r');
+    TAB_KEY(); tks("Tab at zero\r");
+    tks("abc"); TAB_KEY(); tks("Tab at three\r");
+    tks("abcde"); TAB_KEY(); tks("Tab at five\r");
+    fkey(F4, 0); tks("Indented once and long enough that the paragraph wraps under the indent here.\r");
+    fkey(F4, 0); fkey(F4, 0); tks("Twice.\r");
+    tks("Page one.");
+    ev(keyDown, (0x1C << 8) | '\r', CTRL);
+    tks("Page two.\r");
+    ev(keyDown, (0x1C << 8) | '\r', CTRL);
+    tks("Page three.\r");
+    memset(bar, '=', SCR_W); bar[SCR_W] = 0;
+    CHECK(row_is(0, "") && row_is(1, "     Tab at zero") && row_is(2, "abc  Tab at three") &&
+          row_is(3, "abcde     Tab at five") &&
+          row_is(4, "     Indented once and long enough that the paragraph wraps under") &&
+          row_is(5, "     the indent here.") && row_is(6, "          Twice.") && row_is(7, "Page one.") &&
+          row_is(8, bar) && row_is(9, "Page two.") && row_is(10, "") && row_is(11, bar) &&
+          row_is(12, "Page three.") && row_is(13, ""), "F10",
+          "tabs to the stops, the indent holding its paragraph, a bar below each hard page (08_edit_top)");
+    memset(st, ' ', SCR_W); st[SCR_W] = 0;
+    memcpy(st + 68 - 19, "Doc 1 Pg 3 Ln 1.17\"", 19);
+    memcpy(st + 69, "Pos 1\"", 6);
+    CHECK(row_is(23, st) && cursor_at(13, 0), "F10", "the status line: Pg 3 Ln 1.17\" (03_reveal)");
+    fkey(F10, 0);
+    tks("tabs\r");
+    fkey(F3, ALT);
+    CHECK(row_is(12, "Page two.[HRt]") && row_is(13, "[HPg]") && row_is(14, "Page three.[HRt]") && row_is(15, "") &&
+          row_is(21, "") && row_is(22, "") && inv_run(15, 0, 1), "F10",
+          "Reveal Codes: [HPg] on its own row, no label for the D4 group (03_reveal)");
+    fkey(F3, ALT);
+    CHECK(m_exit_calls == 0, "F10", "still running");
 }
 
 #else
@@ -563,6 +690,9 @@ int main(int argc, char **argv)
     launch("dirty_close_cancel", t_dirty_close_cancel);
     launch("dirty_save_exit", t_dirty_save_exit);
     launch("dirty_enter_default", t_dirty_enter_default);
+    launch("block", t_block);
+    launch("question", t_question);
+    launch("tabs", t_tabs);
     launch("errors", t_errors);
     launch("into", t_into);
     launch("codes", t_codes);

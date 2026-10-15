@@ -194,7 +194,9 @@ static void q_putn(xb_interp *ip, const char *s, uint32_t n)
  * returns 0 with *out set; else a negative interp_err with *ec the catalog
  * ordinal / stage detail.
  */
-static int q_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
+/* Shared with cmd/report.c (REPORT FORM, initech-airx). */
+int q_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec);
+int q_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
 {
     xb_token toks[Q_MAX_TOKS];
     xb_node  pool[Q_MAX_NODES];
@@ -337,8 +339,10 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
  *   NULL ctx is a caller bug -- if it occurs we fall back to dec=2 (fail safe;
  *   Rule 2 note: a NULL ctx here means the interpreter was not initialized).
  */
-static void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
-                         const xb_val *v, const xb_ctx *ctx, int logical_dotted)
+void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
+                  const xb_val *v, const xb_ctx *ctx, int logical_dotted);
+void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
+                  const xb_val *v, const xb_ctx *ctx, int logical_dotted)
 {
     switch (v->t) {
     case XB_C:

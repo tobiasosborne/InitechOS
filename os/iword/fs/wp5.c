@@ -63,7 +63,7 @@ int iw_wp5_read(const uint8_t *f, uint32_t n, iw_wp5_t *out)
     return IW_OK;
 }
 
-int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d,
+int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d, uint32_t cur,
                  uint8_t *out, uint32_t cap, uint32_t *out_len)
 {
     uint32_t i, n;
@@ -86,30 +86,22 @@ int iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d,
         n = w - prefix_len;
     }
 #endif
-#ifndef IWORD_MUT_ITALIC_FLAG
-    /* The prefix records an italic body (spec/iword/wp5_format.h
-     * IW_WP5_PFX_ITALIC_OFF: MINT06 0x08, every other mint 0x00), applied to
-     * the default prefix only -- a prefix that differs elsewhere is carried
-     * opaque, as WP wrote it. MUTANT knob (Rule 6; test-iword-wp5-roundtrip-
-     * mutant): IWORD_MUT_ITALIC_FLAG never sets it. */
-    if (prefix_len == IW_WP5_DEFAULT_DOCSTART) {
+#ifndef IWORD_MUT_CURSOR_FLAG
+    /* The prefix records whether the cursor was before the end of the
+     * document at the save (spec/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF:
+     * 0x08 before the end, 0x00 at it; 19 mints), applied to the default
+     * prefix only -- a prefix that differs elsewhere is carried opaque, as WP
+     * wrote it -- and only when the cursor is known (cur != IW_WP5_CUR_KEEP:
+     * a golden rewritten keeps its own byte). MUTANT knob (Rule 6; test-iword-
+     * wp5-roundtrip-mutant): IWORD_MUT_CURSOR_FLAG never sets it. */
+    if (prefix_len == IW_WP5_DEFAULT_DOCSTART && cur != IW_WP5_CUR_KEEP) {
         int dflt = 1;
         for (i = 0; i < prefix_len && dflt; i++)
-            if (i != IW_WP5_PFX_ITALIC_OFF && prefix[i] != DEFAULT_PREFIX[i]) dflt = 0;
-        if (dflt) {
-            /* the body is flat in out[] now: walk its units there */
-            int italic = 0;
-            uint32_t p = prefix_len, end = prefix_len + n;
-            while (p < end && !italic) {
-                uint32_t u = iw_unit_len(out, end, p);
-                if (u == 0u) break;
-                if ((out[p] == IW_WP5_ATTR_ON || out[p] == IW_WP5_ATTR_OFF) && u == IW_WP5_ATTR_LEN &&
-                    out[p + 1u] == IW_WP5_ATTR_ITALIC) italic = 1;
-                p += u;
-            }
-            out[IW_WP5_PFX_ITALIC_OFF] = italic ? IW_WP5_PFX_ITALIC : 0x00u;
-        }
+            if (i != IW_WP5_PFX_CURSOR_OFF && prefix[i] != DEFAULT_PREFIX[i]) dflt = 0;
+        if (dflt) out[IW_WP5_PFX_CURSOR_OFF] = cur < d->len ? IW_WP5_PFX_NOT_AT_END : 0x00u;
     }
+#else
+    (void)cur;
 #endif
     *out_len = prefix_len + n;
     return IW_OK;
