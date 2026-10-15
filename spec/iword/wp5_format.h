@@ -106,8 +106,9 @@
 
 /* ---- the prefix area [H Sec 2, Sec 4] ---------------------------------- *
  * A fresh-install WP 5.1 writes the SAME 327 bytes (0x147) before the body
- * of every document in the corpus (the body length is recorded nowhere in
- * it); [H Sec 4]: "emit the 327-byte prefix of section 2 verbatim, then the
+ * of every document in the corpus but one byte: 0x103 marks an italic body
+ * (IW_WP5_PFX_ITALIC_OFF above; MINT06) -- the body length is recorded
+ * nowhere in it; [H Sec 4]: "emit the 327-byte prefix of section 2 verbatim, then the
  * body." These are those bytes, transcribed from MINT02.WP5 0x000..0x146
  * (cmp -n 327 against MINT01/03/04/05: identical). The packets inside
  * (0x0F, 0x07 "Courier 10 Pitch", 0x0C, 0x06, 0x08) are undecoded
