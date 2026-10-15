@@ -1,9 +1,15 @@
 /* Factory C independent coordinate model, R2.2 Reference /Copy pp. 3-2..6
- * and /Move pp. 7-2..4. Text expectations never use artifact ref helpers. */
+ * and /Move pp. 7-2..4. Text expectations never use artifact ref helpers.
+ * --corpus: the differential against real 1-2-3 R2.2 /Copy and /Move
+ * goldens (initech-cjot, lotus123-decomp re/mint-results-002.md). */
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #include "i123.h"
 static uint8_t mem[2][131072], cm[I123_CALC_BYTES(256)];
 static i123_calc_t cx;
@@ -14,26 +20,160 @@ static void ref(char *out,int c,int r,int ac,int ar)
 { sprintf(out,"%s%c%s%d",ac?"$":"",'A'+c,ar?"$":"",r+1); }
 static void text(i123_sheet_t *s,int c,int r,char *out)
 { const i123_cell_t *q=i123_find(s,c,r); out[0]=0; if(q) CHECK(i123_formula_text(s->pool+q->off,q->len,c,r,out,512)==0,"decompile"); }
-int main(int argc,char **argv)
+/* ---- corpus differential (initech-cjot) ---------------------------------
+ * Every <corpus>/mint/NAME.steps file that types /Copy or /Move is replayed:
+ * the golden saved BEFORE a command (real 1-2-3 bytes) is loaded, the
+ * command typed in the steps file is applied with i123_transfer, the sheet
+ * is recalculated (the goldens are AUTOMATIC), written, and graded against
+ * the golden real 1-2-3 saved AFTER the command. Both files are decoded by
+ * the corpus' independent reader only (wk1_ref.py for every cell record,
+ * wk1_formula_ref.py --bytes for every FORMULA body); this file parses no
+ * reference bytes and derives no expectation of its own. */
+static uint8_t cin_[65536],cout_[65536],cbank[2][131072],ccalc[I123_CALC_BYTES(256)];
+static int reader(const char *corpus_dir,const char *script,int bytes,const char *file,const char *result)
 {
-    if(argc==3&&!strcmp(argv[1],"--corpus")) {
-        char path[1024];snprintf(path,sizeof path,"%s/mint",argv[2]);
-        DIR *dir=opendir(path);if(!dir){perror("mint corpus");return 2;}
-        struct dirent *de;unsigned copies=0,moves=0;
-        while((de=readdir(dir))) {
-            if(!strstr(de->d_name,".steps"))continue;
-            snprintf(path,sizeof path,"%s/mint/%s",argv[2],de->d_name);
-            FILE *f=fopen(path,"r");if(!f){closedir(dir);return 2;}
-            char line[512];while(fgets(line,sizeof line,f)) {
-                if(!strncmp(line,"type /c",7)||!strncmp(line,"type /C",7))copies++;
-                if(!strncmp(line,"type /m",7)||!strncmp(line,"type /M",7))moves++;
+    pid_t pid=fork();if(pid<0)return 1;
+    if(!pid) {
+        int fd=open(result,O_WRONLY|O_CREAT|O_TRUNC,0600);if(fd<0)_exit(2);
+        if(dup2(fd,1)<0)_exit(2);
+        close(fd);if(setenv("LOTUS123_DECOMP",corpus_dir,1))_exit(2);
+        if(bytes)execlp("python3","python3",script,"--bytes",file,(char *)0);
+        else execlp("python3","python3",script,file,(char *)0);
+        _exit(2);
+    }
+    int status=0;if(waitpid(pid,&status,0)<0)return 1;
+    return !WIFEXITED(status)||WEXITSTATUS(status);
+}
+/* The cell records of a wk1_ref.py dump (header records are not graded). */
+static int cell_line(const char *l)
+{
+    static const char *const k[]={"  INTEGER ","  NUMBER ","  LABEL ","  FORMULA ","  STRING ","  BLANK "};
+    for(unsigned i=0;i<sizeof k/sizeof k[0];i++)if(!strncmp(l,k[i],strlen(k[i])))return 1;
+    return 0;
+}
+static unsigned load_lines(const char *path,int cells_only,char lines[][256],unsigned cap)
+{
+    FILE *f=fopen(path,"r");unsigned n=0;char l[256];if(!f)return 0;
+    while(n<cap&&fgets(l,sizeof l,f)) {
+        l[strcspn(l,"\r\n")]=0;
+        if(cells_only&&!cell_line(l))continue;
+        strcpy(lines[n++],l);
+    }
+    fclose(f);return n;
+}
+static char gl[512][256],al[512][256];
+/* 1 when the two decodes agree; prints every differing line otherwise. */
+static int same_decode(const char *name,const char *what,const char *g,const char *a,int cells_only)
+{
+    unsigned ng=load_lines(g,cells_only,gl,512),na=load_lines(a,cells_only,al,512),bad=0;
+    if(!ng){fprintf(stderr,"!!! corpus %s: empty %s decode of the golden\n",name,what);return 0;}
+    for(unsigned i=0;i<ng||i<na;i++) {
+        const char *x=i<ng?gl[i]:"(none)",*y=i<na?al[i]:"(none)";
+        if(strcmp(x,y)){if(!bad++)fprintf(stderr,"RED-REASON corpus %s %s\n",name,what);
+            fprintf(stderr,"    real 1-2-3: %s\n    artifact  : %s\n",x,y);}
+    }
+    return !bad;
+}
+/* Factory address parser (plain A1 / A1..B2, as typed at the FROM/TO prompts). */
+static int addr(const char **t,uint16_t *c,uint16_t *r)
+{
+    const char *p=*t;unsigned col=0,row=0;
+    while(*p>='A'&&*p<='Z'&&col<=256)col=col*26+(unsigned)(*p++-'A'+1);
+    while(*p>='0'&&*p<='9'&&row<=8192)row=row*10+(unsigned)(*p++-'0');
+    if(!col||col>256||!row||row>8192)return 0;
+    *c=(uint16_t)(col-1);*r=(uint16_t)(row-1);*t=p;return 1;
+}
+static int range_text(const char *t,i123_rect_t *rg)
+{
+    if(!addr(&t,&rg->c0,&rg->r0))return 0;
+    rg->c1=rg->c0;rg->r1=rg->r0;
+    if(t[0]=='.'&&t[1]=='.'){t+=2;if(!addr(&t,&rg->c1,&rg->r1))return 0;}
+    return !*t&&rg->c0<=rg->c1&&rg->r0<=rg->r1;
+}
+static char sl[4096][256];
+static int skip(const char *l) { return !strncmp(l,"sleep ",6)||!strncmp(l,"shot ",5)||!l[0]||l[0]=='#'; }
+static unsigned next_line(unsigned i,unsigned n) { while(i<n&&skip(sl[i]))i++; return i; }
+static int corpus(const char *corpus_dir,const char *build,const char *formula_ref)
+{
+    struct dirent **list;char path[1024],ref[1024];
+    snprintf(path,sizeof path,"%s/mint",corpus_dir);
+    int nf=scandir(path,&list,0,alphasort);if(nf<0){perror("mint corpus");return 2;}
+    snprintf(ref,sizeof ref,"%s/tools/wk1_ref.py",corpus_dir);
+    unsigned copies=0,moves=0,pairs=0,red=0,files=0;
+    i123_calc_t ccx;
+    if(i123_calc_init(&ccx,ccalc,sizeof ccalc,256,0))return 2;
+    for(int fi=0;fi<nf;fi++) {
+        const char *fname=list[fi]->d_name;size_t fl=strlen(fname);
+        if(fl<7||strcmp(fname+fl-6,".steps"))continue;
+        snprintf(path,sizeof path,"%s/mint/%s",corpus_dir,fname);
+        FILE *f=fopen(path,"r");if(!f)return 2;
+        unsigned n=0;while(n<4096&&fgets(sl[n],sizeof sl[n],f)){sl[n][strcspn(sl[n],"\r\n")]=0;n++;}
+        fclose(f);
+        int has=0;for(unsigned i=0;i<n;i++)if(!strncmp(sl[i],"type /c",7)||!strncmp(sl[i],"type /m",7))has=1;
+        if(!has)continue;
+        files++;
+        i123_sheet_t bank[2];int cur=0,loaded=0;unsigned pending=0;char opdesc[256]="";
+        for(unsigned i=0;i<n;i++) {
+            if(!strcmp(sl[i],"type /fs")) {
+                unsigned j=next_line(i+1,n);
+                if(j>=n||strncmp(sl[j],"type ",5)){fprintf(stderr,"!!! corpus %s: /fs without a name at line %u\n",fname,i+1);return 2;}
+                const char *name=sl[j]+5;i=j;
+                char golden[1024],ga[1024],aa[1024],gb[1024],ab[1024],out[1024];
+                snprintf(golden,sizeof golden,"%s/goldens/minted/%s.WK1",corpus_dir,name);
+                FILE *g=fopen(golden,"rb");if(!g){fprintf(stderr,"!!! corpus golden %s missing\n",golden);return 2;}
+                uint32_t len=(uint32_t)fread(cin_,1,sizeof cin_,g);fclose(g);
+                if(loaded&&pending) {
+                    i123_sheet_t *s=&bank[cur];uint32_t olen;
+                    if(i123_after_entry(&ccx,s)||i123_wk1_write(s,cout_,sizeof cout_,&olen)){fprintf(stderr,"RED-REASON corpus %s: artifact refused recalc/write\n",name);return 1;}
+                    snprintf(out,sizeof out,"%s/i123-copy-move-%s.WK1",build,name);
+                    FILE *o=fopen(out,"wb");if(!o||fwrite(cout_,1,olen,o)!=olen)return 2;
+                    fclose(o);
+                    snprintf(ga,sizeof ga,"%s/i123-copy-move-%s.golden.cells",build,name);
+                    snprintf(aa,sizeof aa,"%s/i123-copy-move-%s.artifact.cells",build,name);
+                    snprintf(gb,sizeof gb,"%s/i123-copy-move-%s.golden.bytes",build,name);
+                    snprintf(ab,sizeof ab,"%s/i123-copy-move-%s.artifact.bytes",build,name);
+                    if(reader(corpus_dir,ref,0,golden,ga)||reader(corpus_dir,ref,0,out,aa)||
+                       reader(corpus_dir,formula_ref,1,golden,gb)||reader(corpus_dir,formula_ref,1,out,ab)){fprintf(stderr,"!!! corpus %s: independent reader failed\n",name);return 2;}
+                    int ok=same_decode(name,"cell records (wk1_ref.py)",ga,aa,1);
+                    ok&=same_decode(name,"FORMULA bodies (wk1_formula_ref.py --bytes)",gb,ab,0);
+                    pairs++;if(!ok)red++;
+                    printf("corpus %-8s after%s: %s\n",name,opdesc,ok?"agrees with real 1-2-3":"RED");
+                }
+                i123_sheet_t *s=&bank[cur];
+                if(i123_sheet_init(s,cbank[cur],sizeof cbank[cur],256)||i123_wk1_read(s,cin_,len)){fprintf(stderr,"!!! corpus %s: artifact cannot load the golden\n",name);return 2;}
+                loaded=1;pending=0;opdesc[0]=0;continue;
             }
-            fclose(f);
+            int mv=!strncmp(sl[i],"type /m",7);
+            if(!mv&&strncmp(sl[i],"type /c",7))continue;
+            unsigned a=next_line(i+1,n),b=next_line(a+1,n),c=next_line(b+1,n);
+            i123_rect_t from,to;
+            if(c>=n||strcmp(sl[a],"key Return")||strncmp(sl[b],"type ",5)||strcmp(sl[c],"key Return")||
+               !range_text(sl[i]+7,&from)||!range_text(sl[b]+5,&to)||to.c0!=to.c1||to.r0!=to.r1) {
+                fprintf(stderr,"!!! corpus %s line %u: not the 'type /cFROM, key Return, type TO, key Return' form\n",fname,i+1);return 2;
+            }
+            if(!loaded){fprintf(stderr,"!!! corpus %s line %u: command before any saved golden\n",fname,i+1);return 2;}
+            int other=1-cur;
+            if(i123_sheet_init(&bank[other],cbank[other],sizeof cbank[other],256))return 2;
+            int rc=i123_transfer(&bank[cur],&bank[other],from,to.c0,to.r0,mv?I123_TRANSFER_MOVE:I123_TRANSFER_COPY);
+            if(rc){fprintf(stderr,"RED-REASON corpus %s line %u: artifact refused the transfer (%d)\n",fname,i+1,rc);return 1;}
+            cur=other;pending++;if(mv)moves++;else copies++;
+            size_t dl=strlen(opdesc);snprintf(opdesc+dl,sizeof opdesc-dl," /%c%s->%s",mv?'m':'c',sl[i]+7,sl[b]+5);
+            i=c;
         }
-        closedir(dir);
+        if(pending){fprintf(stderr,"!!! corpus %s: a command is not followed by a saved golden\n",fname);return 2;}
+    }
+    for(int fi=0;fi<nf;fi++)free(list[fi]);
+    free(list);
+    if(!copies||!moves||!pairs) {
         fprintf(stderr,"!!! test-i123-copy-move: corpus evidence unavailable: %u /Copy and %u /Move mint commands; real command goldens required\n",copies,moves);
         return 2;
     }
+    printf("i123-copy-move corpus: %u before/after pairs (%u /Copy, %u /Move) from %u step files, %u RED\n",pairs,copies,moves,files,red);
+    return red?1:0;
+}
+int main(int argc,char **argv)
+{
+    if(argc==5&&!strcmp(argv[1],"--corpus"))return corpus(argv[2],argv[3],argv[4]);
     if(argc!=1)return 2;
     i123_sheet_t sh,dst;
     CHECK(i123_calc_init(&cx,cm,sizeof cm,256,0)==0,"init");

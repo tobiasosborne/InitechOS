@@ -29607,8 +29607,8 @@ $(BUILD)/test_i123_copy_move_mutant_%: $(I123_MOVE_DEPS) | $(BUILD)
 test-i123-copy-move-model: $(BUILD)/test_i123_copy_move
 	@$<
 	@printf '>>> test-i123-copy-move-model: green (4000 random sheets, manual reference model)\n'
-test-i123-copy-move: test-i123-copy-move-model
-	@$(BUILD)/test_i123_copy_move --corpus $(LOTUS123_DECOMP)
+test-i123-copy-move: test-i123-copy-move-model $(I123_FORMULA_REF)
+	@$(BUILD)/test_i123_copy_move --corpus $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF)
 test-i123-copy-move-mutant: test-i123-copy-move-model $(BUILD)/test_i123_copy_move_mutant_I123_MUT_COPY_ABSOLUTE $(BUILD)/test_i123_copy_move_mutant_I123_MUT_MOVE_STALE
 	@for pair in I123_MUT_COPY_ABSOLUTE:absolute-relative I123_MUT_MOVE_STALE:move-referrers; do \
 		m=$${pair%%:*}; why=$${pair#*:}; b=$(BUILD)/test_i123_copy_move_mutant_$$m; \
@@ -29621,9 +29621,14 @@ test-i123-copy-move-mutant: test-i123-copy-move-model $(BUILD)/test_i123_copy_mo
 $(BUILD)/i123-menu.mnu: $(BUILD)/test_i123_menu_tree
 	@$< --resource > $@
 
-# test-i123-copy-move (the corpus differential) is RED by design until the /Copy
-# and /Move command goldens are minted (bead initech-cjot); it stays OUT of the
-# default vector so a missing golden never reads as green or as a kernel red.
+# test-i123-copy-move (the corpus differential) grades i123_transfer against the
+# real 1-2-3 R2.2 /Copy and /Move before/after goldens minted by initech-cjot
+# (lotus123-decomp 51025ee, re/mint-results-002.md: COPY01, MOVE01, WRAP01).
+# It is RED on a real disagreement, not a missing golden: 3 /Copy pairs agree;
+# MOVE01B..D and WRAP01B..C do not (ERR reference = VAR 0xFFFF,0xFFFF not token
+# 32; /Copy wraps rows and keeps reference bytes; /Move writes a rewritten
+# relative column as 0x8000|(delta&0xFF)). It stays OUT of the default vector
+# until the PM rules on the artifact/model fix (escalated by initech-cjot).
 TEST_UNIT_GATES += test-i123-menu-tree test-i123-menu-tree-mutant test-i123-copy-move-model test-i123-copy-move-mutant
 
 $(BUILD)/test_i123_range_menu: harness/proptest/test_i123_range_menu.c $(I123_QUIT_DEPS)
