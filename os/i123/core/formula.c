@@ -90,21 +90,33 @@ uint32_t i123_token_size(const uint8_t *code, uint32_t len, uint32_t i)
 /* ---- reference words -------------------------------------------------------- */
 
 /* Resolve one reference word against the formula cell coordinate `home`.
- * Columns wrap modulo 256 ([C] Sec 2.1); a row outside the sheet resolves
- * to -1 (the caller makes it ERR). */
+ * -1 is the ERR reference: a word with bit 14 set, which real 1-2-3 R2.2
+ * writes as 0xFFFF in both words of a corner /Move overwrote (MOVE01B.WK1
+ * E1 01 ffff ffff; wk1_formula.h WKF_REF_ERR, bead initech-nn46). A
+ * relative column wraps modulo 256 ([C] Sec 2.1; the 14-bit ffbf and the
+ * 8-bit 80ff spell the same -1) and a relative row modulo 8192 (WRAP01C.WK1
+ * B1 ffbf ffbf at row 0 is +A8192+1, value 1, not ERR). An absolute row
+ * outside the sheet is ERR [inferred: never in a golden]. */
 int32_t i123_ref_resolve(uint16_t word, uint16_t home, int is_col)
 {
-    int32_t v;
-    if (!(word & WKF_REF_REL)) {
-        v = (int32_t)(word & WKF_REF_MASK);
-    } else {
-        int32_t off = (int32_t)(word & WKF_REF_MASK);
-        if (off & (int32_t)WKF_REF_SIGN) off -= (int32_t)(WKF_REF_MASK + 1u);
-        v = (int32_t)home + off;
+    int32_t v = (int32_t)(word & WKF_REF_MASK);
+#ifndef I123_MUT_ERR_LOAD
+    /* MUTANT (Rule 6; test-i123-copy-move-corpus-mutant): without this a
+     * loaded 0xFFFF reads as relative -1,-1. NEVER in a real build. */
+    if (word & WKF_REF_ERRBIT) return -1;
+#endif
+    if (word & WKF_REF_REL) {
+        if (v & (int32_t)WKF_REF_SIGN) v -= (int32_t)(WKF_REF_MASK + 1u);
+        v += (int32_t)home;
+#ifdef I123_MUT_ROW_ERR
+        /* MUTANT (Rule 6; test-i123-copy-move-corpus-mutant): the manual-
+         * derived "row off the sheet is ERR" rule WRAP01C refutes. */
+        if (!is_col && (v < 0 || v >= (int32_t)I123_MAX_ROWS)) return -1;
+#endif
+    } else if (!is_col && v >= (int32_t)I123_MAX_ROWS) {
+        return -1;
     }
-    if (is_col) return (int32_t)((uint32_t)v & 0xFFu);
-    if (v < 0 || v >= (int32_t)I123_MAX_ROWS) return -1;
-    return v;
+    return (int32_t)((uint32_t)v & (is_col ? 0xFFu : I123_MAX_ROWS - 1u));
 }
 
 static uint16_t ref_word(int32_t target, uint16_t home, int absolute)
@@ -571,18 +583,30 @@ static void put_uint(dc_t *d, uint32_t v)
     while (k > 0) put(d, t[--k]);
 }
 
-static void put_cell(dc_t *d, uint16_t cw, uint16_t rw)
+/* A reference operand as text: a VAR, or a RANGE's two corners joined by
+ * "..". The ERR reference (any word with bit 14 set; real 1-2-3 writes
+ * ffff ffff) shows as ERR, and a RANGE with an ERR corner as ONE ERR
+ * (bead initech-nn46; MOVE01B.WK1 E1 01 ffff ffff "+ERR+1", E2 "+ERR", H1
+ * 02 ffff ffff fcbf 0180 "@SUM(ERR)": MOVE01.shots/04_show_E1/E2/H1). */
+static void put_ref(dc_t *d, const uint8_t *p, int range)
 {
-    char nm[4];
-    int32_t c = i123_ref_resolve(cw, d->col, 1);
-    int32_t r = i123_ref_resolve(rw, d->row, 0);
-    uint32_t k;
-    if (r < 0) { d->err = I123_E_FORMAT; return; }
-    if (!(cw & WKF_REF_REL)) put(d, '$');
-    k = i123_col_name((uint16_t)c, nm);
-    for (uint32_t i = 0; i < k; i++) put(d, nm[i]);
-    if (!(rw & WKF_REF_REL)) put(d, '$');
-    put_uint(d, (uint32_t)r + 1u);
+    uint32_t n = range ? 8u : 4u;
+    for (uint32_t i = 0; i < n; i += 2u)
+        if (rd16(p + i) & WKF_REF_ERRBIT) { puts_(d, "ERR"); return; }
+    for (uint32_t i = 0; i < n; i += 4u) {
+        char nm[4];
+        uint16_t cw = rd16(p + i), rw = rd16(p + i + 2u);
+        int32_t c = i123_ref_resolve(cw, d->col, 1);
+        int32_t r = i123_ref_resolve(rw, d->row, 0);
+        uint32_t k;
+        if (r < 0) { d->err = I123_E_FORMAT; return; }   /* absolute row off the sheet */
+        if (i) { put(d, '.'); put(d, '.'); }
+        if (!(cw & WKF_REF_REL)) put(d, '$');
+        k = i123_col_name((uint16_t)c, nm);
+        for (uint32_t q = 0; q < k; q++) put(d, nm[q]);
+        if (!(rw & WKF_REF_REL)) put(d, '$');
+        put_uint(d, (uint32_t)r + 1u);
+    }
 }
 
 /* The shortest decimal that reads back (through i123_parse_value, the same
@@ -659,12 +683,8 @@ static void print_node(dc_t *d, int k)
         break;
     }
     case WKF_VAR:
-        put_cell(d, rd16(d->code + at + 1u), rd16(d->code + at + 3u));
-        break;
     case WKF_RANGE:
-        put_cell(d, rd16(d->code + at + 1u), rd16(d->code + at + 3u));
-        put(d, '.'); put(d, '.');
-        put_cell(d, rd16(d->code + at + 5u), rd16(d->code + at + 7u));
+        put_ref(d, d->code + at + 1u, t == WKF_RANGE);
         break;
     case WKF_PAREN:
         put(d, '(');

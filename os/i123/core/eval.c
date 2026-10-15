@@ -342,6 +342,9 @@ static void resolve_ref(const ev_t *e, const uint8_t *p, int32_t *c, int32_t *r)
 {
     *c = i123_ref_resolve(rd16(p), e->col, 1);
     *r = i123_ref_resolve(rd16(p + 2), e->row, 0);
+    /* -1 is the ERR reference (ffff ffff, MOVE01C.WK1 E2 caches +inf;
+     * initech-nn46); the callers test the row */
+    if (*c < 0) *r = -1;
 }
 
 /* ---- ranges ------------------------------------------------------------------------ */

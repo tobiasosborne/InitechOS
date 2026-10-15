@@ -254,7 +254,7 @@ static void canon_code(uint8_t *code, uint32_t len, uint16_t col)
             for (uint32_t r = 0; r < (t == 1u ? 1u : 2u); r++) {
                 uint8_t *p = code + i + 1u + 4u * r;
                 uint16_t w = (uint16_t)(p[0] | (p[1] << 8));
-                if (w & 0x8000u) {
+                if ((w & 0x8000u) && !(w & 0x4000u)) {   /* 0xFFFF = ERR: no column */
                     int32_t target = i123_ref_resolve(w, col, 1);
                     uint16_t nw = (uint16_t)(0x8000u | ((uint32_t)(target - (int32_t)col) & 0x3FFFu));
                     p[0] = (uint8_t)(nw & 0xFFu); p[1] = (uint8_t)(nw >> 8);

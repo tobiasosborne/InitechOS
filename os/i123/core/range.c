@@ -107,43 +107,72 @@ int i123_sheet_clone(const i123_sheet_t *s,i123_sheet_t *d)
     for(uint32_t i=0;i<s->carry_len;i++)carry[i]=s->carry[i];
     return I123_OK;
 }
-/* Retarget reference operands; retain each axis's absolute/relative flag.
- * /Copy keeps offsets; /Move follows moved cells, anchors other precedents,
- * and turns references to the overwritten destination into @ERR. */
+/* Retarget reference operands (bead initech-nn46). Ref: real 1-2-3 R2.2
+ * before/after goldens, ../lotus123-decomp goldens/minted/{COPY01,MOVE01,
+ * WRAP01}?.WK1 and re/mint-results-002.md; wk1_formula.h WKF_REF_*.
+ *  /Copy never rewrites a reference word: a relative word is an offset, an
+ *   absolute one a coordinate, so the copied code is byte-identical
+ *   (COPY01B..D; WRAP01B keeps ffbf at column A, shown +IV1+1; WRAP01C
+ *   keeps ffbf at row 1, shown +A8192+1 -- both axes wrap, no ERR).
+ *  /Move re-encodes a corner whose target lies in FROM (it follows the
+ *   cell) or, for a formula that moved, every corner (its home moved:
+ *   MOVE01C F5); a corner whose target lies in the overwritten TO becomes
+ *   the ERR reference, both words 0xFFFF, the $ flags dropped (MOVE01B E1,
+ *   E2 +$D$1, H1's D1 corner); every other corner keeps its bytes (MOVE01B
+ *   B2 first operand, H1 D2 corner). Re-encoded: absolute words hold the
+ *   coordinate (MOVE01B F1 $A1 -> 0300), a relative column the 8-bit form
+ *   0x8000|((target-home)&0xFF) (MOVE01C F5 fb80, MOVE01D F1 fb80 even
+ *   though the column did not change), a relative row the 14-bit form
+ *   (MOVE01C F5 fdbf). A corner already ERR keeps 0xFFFF (MOVE01C/D E1,
+ *   E2, H1). A moved formula whose target moved with it is re-encoded too
+ *   [inferred: no golden moves a formula together with its precedent]. */
+#ifdef I123_MUT_MOVE_COL14
+#define MOVE_COL_MASK WKF_REF_MASK   /* MUTANT (Rule 6): the 14-bit column form */
+#else
+#define MOVE_COL_MASK WKF_REF_COL8
+#endif
+#ifdef I123_MUT_ERR_WORD
+#define MOVE_ERR_WORD 0xBFFFu        /* MUTANT (Rule 6): ERR spelled relative -1 */
+#else
+#define MOVE_ERR_WORD WKF_REF_ERR
+#endif
+static uint16_t moved_word(uint16_t w,int target,int home,unsigned mask)
+{ return (uint16_t)((w&WKF_REF_REL)?WKF_REF_REL|((unsigned)(target-home)&mask):(unsigned)target); }
 static int adjust(const i123_cell_t *cell,const uint8_t *in,uint8_t *out,uint32_t *olen,
                   uint16_t nc,uint16_t nr,i123_rect_t from,i123_rect_t to,int move)
 {
-    uint32_t used=0;
+    int dx=(int)to.c0-from.c0,dy=(int)to.r0-from.r0;
     if(i123_formula_check(in,cell->len)!=0)return I123_E_FORMAT;
+    /* A /Move whose TO is its own FROM rewrites no reference byte
+     * [inferred: no golden moves a range onto itself; the re-encoding is
+     * evidenced only for a displaced move; lotus123-decomp GAPS G-13] */
+    if(!(dx|dy))move=0;
+    for(uint32_t j=0;j<cell->len;j++)out[j]=in[j];
+    *olen=cell->len;
     for(uint32_t p=0;p<cell->len;) {
-        uint32_t n=i123_token_size(in,cell->len,p);uint8_t tmp[9];int err=0;
-        if(in[p]==WKF_VAR||in[p]==WKF_RANGE) {
-            for(uint32_t j=0;j<n;j++)tmp[j]=in[p+j];
-            for(uint32_t j=1;j<n;j+=4) {
-                uint16_t cw=rd(in+p+j),rw=rd(in+p+j+2);
-                int c=i123_ref_resolve(cw,cell->col,1),r=i123_ref_resolve(rw,cell->row,0);
-                if(move) {
-                    if(inside(from,c,r)){c+=(int)to.c0-from.c0;r+=(int)to.r0-from.r0;}
-                    else if(inside(to,c,r))err=1;
-                } else {
-                    if(cw&WKF_REF_REL)c+=(int)nc-cell->col;
-                    if(rw&WKF_REF_REL)r+=(int)nr-cell->row;
+        uint32_t n=i123_token_size(in,cell->len,p);
+        if(in[p]==WKF_VAR||in[p]==WKF_RANGE) for(uint32_t j=1;j<n;j+=4) {
+            uint16_t cw=rd(in+p+j),rw=rd(in+p+j+2),ncw=MOVE_ERR_WORD,nrw=MOVE_ERR_WORD;
+            int c=i123_ref_resolve(cw,cell->col,1),r=i123_ref_resolve(rw,cell->row,0);
 #ifdef I123_MUT_COPY_ABSOLUTE
-                    if(!(cw&WKF_REF_REL))c+=(int)nc-cell->col;
-                    if(!(rw&WKF_REF_REL))r+=(int)nr-cell->row;
-#endif
-                    c&=255;
-                }
-                if(r<0||r>=8192)err=1;
-                wr(tmp+j,(uint16_t)((cw&WKF_REF_REL)?WKF_REF_REL|((c-nc)&WKF_REF_MASK):(unsigned)c));
-                wr(tmp+j+2,(uint16_t)((rw&WKF_REF_REL)?WKF_REF_REL|((r-nr)&WKF_REF_MASK):(unsigned)r));
+            if(!move&&c>=0&&r>=0) {     /* MUTANT: /Copy shifts absolute words */
+                if(!(cw&WKF_REF_REL))wr(out+p+j,(uint16_t)((c+(int)nc-cell->col)&255));
+                if(!(rw&WKF_REF_REL))wr(out+p+j+2,(uint16_t)((r+(int)nr-cell->row)&8191));
             }
-            if(err)out[used++]=32; /* @ERR, MINT03 @ERR bytes */
-            else for(uint32_t j=0;j<n;j++)out[used++]=tmp[j];
-        } else for(uint32_t j=0;j<n;j++)out[used++]=in[p+j];
+#endif
+            if(!move||c<0||r<0)continue;        /* /Copy keeps bytes; ERR stays ERR */
+            int follow=inside(from,c,r);
+            if(follow){c+=dx;r+=dy;}
+            else if(!inside(to,c,r)) {
+                if(nc==cell->col&&nr==cell->row)continue;   /* untouched corner */
+                follow=1;                                  /* its home moved */
+            }
+            if(follow){ncw=moved_word(cw,c,nc,MOVE_COL_MASK);nrw=moved_word(rw,r,nr,WKF_REF_MASK);}
+            wr(out+p+j,ncw);wr(out+p+j+2,nrw);
+        }
         p+=n;
     }
-    *olen=used;return I123_OK;
+    return I123_OK;
 }
 int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_t col,uint16_t row,int mode)
 {

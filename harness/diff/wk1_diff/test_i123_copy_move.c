@@ -1,5 +1,14 @@
 /* Factory C independent coordinate model, R2.2 Reference /Copy pp. 3-2..6
- * and /Move pp. 7-2..4. Text expectations never use artifact ref helpers.
+ * and /Move pp. 7-2..4, CORRECTED to the real 1-2-3 R2.2 bytes (bead
+ * initech-nn46; ../lotus123-decomp re/mint-results-002.md and goldens/
+ * minted/{COPY01,MOVE01,WRAP01}?.WK1): an overwritten reference shows ERR
+ * (not @ERR) and is stored as col/row words 0xFFFF (MOVE01B E1/E2/H1);
+ * /Copy keeps every reference byte and both axes wrap -- column modulo
+ * 256 (WRAP01B +IV1+1), row modulo 8192 (WRAP01C +A8192+1, not ERR);
+ * /Move re-encodes a followed corner, and every corner of a moved formula,
+ * with a relative column in the 8-bit form 0x8000|(delta&0xFF) (MOVE01C F5
+ * fb80, MOVE01D F1 fb80) and a relative row in the 14-bit form (fdbf).
+ * Text and byte expectations never use artifact ref helpers.
  * --corpus: the differential against real 1-2-3 R2.2 /Copy and /Move
  * goldens (initech-cjot, lotus123-decomp re/mint-results-002.md). */
 #define _POSIX_C_SOURCE 200809L
@@ -20,6 +29,23 @@ static void ref(char *out,int c,int r,int ac,int ar)
 { sprintf(out,"%s%c%s%d",ac?"$":"",'A'+c,ar?"$":"",r+1); }
 static void text(i123_sheet_t *s,int c,int r,char *out)
 { const i123_cell_t *q=i123_find(s,c,r); out[0]=0; if(q) CHECK(i123_formula_text(s->pool+q->off,q->len,c,r,out,512)==0,"decompile"); }
+/* The code bytes of the formula at (c,r), or 0. */
+static const uint8_t *code_at(const i123_sheet_t *s,int c,int r,uint32_t *len)
+{
+    const i123_cell_t *q=i123_find(s,c,r);
+    if(!q||q->kind!=I123_K_FORMULA)return 0;
+    *len=q->len;return s->pool+q->off;
+}
+static unsigned le16(const uint8_t *p) { return (unsigned)p[0]|((unsigned)p[1]<<8); }
+/* The two words one corner must hold after a /Move re-encoded it, from the
+ * real goldens: absolute = the coordinate, relative column = 8-bit form,
+ * relative row = 14-bit two's complement, ERR = ffff ffff. */
+static void moved_words(int err,int c,int r,int hc,int hr,int ac,int ar,unsigned *cw,unsigned *rw)
+{
+    if(err){*cw=*rw=0xFFFFu;return;}
+    *cw=ac?(unsigned)c:0x8000u|((unsigned)(c-hc)&0xFFu);
+    *rw=ar?(unsigned)r:0x8000u|((unsigned)(r-hr)&0x3FFFu);
+}
 /* ---- corpus differential (initech-cjot) ---------------------------------
  * Every <corpus>/mint/NAME.steps file that types /Copy or /Move is replayed:
  * the golden saved BEFORE a command (real 1-2-3 bytes) is loaded, the
@@ -194,28 +220,41 @@ int main(int argc,char **argv)
         CHECK(i123_enter_formula(&cx,&sh,sc,sr,formula,strlen(formula))==0,"formula");
         CHECK(i123_enter_formula(&cx,&sh,23,23,formula,strlen(formula))==0,"formula");
         CHECK(i123_transfer(&sh,&dst,rg,dc,dr,moving)==0,"transfer");
+        int still=moving&&dc==sc&&dr==sr; /* a /Move onto itself [inferred] */
         for(int outside=0;outside<2;outside++) {
-            int nc=outside?23:dc,nr=outside?23:dr;
+            int nc=outside?23:dc,nr=outside?23:dr,oc=outside?23:sc,orow=outside?23:sr;
             char parts[2][32];
+            uint32_t ol=0,nl=0;
+            const uint8_t *oldc=code_at(&sh,oc,orow,&ol),*newc=code_at(&dst,nc,nr,&nl);
+            CHECK(oldc&&newc&&ol==nl,outside?"move-referrers":"absolute-relative");
             for(int k=0;k<2;k++) {
-                int c=tc[k],r=tr[k],err=0;
-                if(moving) {
-                    if(c>=sc&&c<=sc+1&&r>=sr&&r<=sr+1) {c+=dc-sc;r+=dr-sr;}
+                int c=tc[k],r=tr[k],err=0,followed=0;
+                if(moving&&!still) {
+                    if(c>=sc&&c<=sc+1&&r>=sr&&r<=sr+1) {c+=dc-sc;r+=dr-sr;followed=1;}
                     else if(c>=dc&&c<=dc+1&&r>=dr&&r<=dr+1) err=1;
-                } else if(!outside) {if(!ac[k])c+=dc-sc;if(!ar[k])r+=dr-sr;}
-                /* Lotus relative columns wrap modulo 256; this generator
-                 * stays at A..X, except negative copied references. */
+                } else if(!moving&&!outside) {if(!ac[k])c+=dc-sc;if(!ar[k])r+=dr-sr;}
+                /* Both axes wrap: column modulo 256 (WRAP01B), row modulo
+                 * 8192 (WRAP01C) -- an off-sheet copy is never ERR. */
                 if(c<0)c+=256;
-                if(r<0||r>=8192)err=1;
-                if(err)strcpy(parts[k],"@ERR");
+                if(r<0)r+=8192;
+                if(err)strcpy(parts[k],"ERR");
                 else if(c>=26) { /* independent A..IV spelling */
                     sprintf(parts[k],"%s%c%c%s%d",ac[k]?"$":"",'A'+c/26-1,'A'+c%26,ar[k]?"$":"",r+1);
                 } else ref(parts[k],c,r,ac[k],ar[k]);
+                /* the bytes: /Copy and an untouched corner keep the source
+                 * words; a re-encoded corner holds moved_words() */
+                if(oldc&&newc&&ol==nl) {
+                    uint32_t at=trial%4==2?1u+4u*(uint32_t)k:1u+5u*(uint32_t)k;
+                    unsigned cw=le16(oldc+at),rw=le16(oldc+at+2);
+                    if(moving&&!still&&(err||followed||!outside))
+                        moved_words(err,c,r,nc,nr,ac[k],ar[k],&cw,&rw);
+                    CHECK(le16(newc+at)==cw&&le16(newc+at+2)==rw,moving?"move-encoding":"copy-bytes");
+                }
             }
             if(trial%4==2) {
-                if(!strcmp(parts[0],"@ERR")||!strcmp(parts[1],"@ERR"))strcpy(expected,"@SUM(@ERR)");
+                if(!strcmp(parts[0],"ERR")||!strcmp(parts[1],"ERR"))strcpy(expected,"@SUM(ERR)");
                 else sprintf(expected,"@SUM(%s..%s)",parts[0],parts[1]);
-            } else sprintf(expected,"%s%s+%s",(parts[0][0]=='$'||parts[0][0]=='@')?"":"+",parts[0],parts[1]);
+            } else sprintf(expected,"%s%s+%s",parts[0][0]=='$'?"":"+",parts[0],parts[1]);
             text(&dst,nc,nr,got);
             CHECK(!strcmp(got,expected),outside?"move-referrers":"absolute-relative");
         }

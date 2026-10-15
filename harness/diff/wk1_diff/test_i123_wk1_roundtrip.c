@@ -70,7 +70,12 @@ static const char *SHIPPED[] = {
     "TUTOR14X", "TUTOR15X", "TUTOR17X", "TUTOR18X", "TUTOR19X", "TUTOR20X",
     "TUTOR2X", "TUTOR4X", "TUTOR5X", "TUTOR6X", "TUTOR7X", "TUTOR8X", "TUTOR9X"
 };
-static const char *MINTED[] = { "CIRC01", "MINT01", "MINT02", "MINT03", "MINT04", "MINT05" };
+static const char *MINTED[] = { "CIRC01", "MINT01", "MINT02", "MINT03", "MINT04", "MINT05",
+    /* the real /Copy and /Move before/after goldens (initech-cjot, mint 002);
+     * MOVE01B..D carry ERR references, VAR/RANGE words ffff ffff, which the
+     * codec must rewrite byte-identically (initech-nn46) */
+    "COPY01A", "COPY01B", "COPY01C", "COPY01D", "MOVE01A", "MOVE01B", "MOVE01C", "MOVE01D",
+    "WRAP01A", "WRAP01B", "WRAP01C" };
 
 static uint32_t load(const char *path, uint8_t *buf, uint32_t cap)
 {
@@ -262,7 +267,7 @@ static void part_a(void)
     }
     printf("  part A: %d goldens; %d rewrites byte-identical; %d agree with wk1_ref.py\n",
            nfiles, rewrites, agreed);
-    CHECK(nfiles == 44, "all 44 goldens graded (38 shipped + 6 minted)");
+    CHECK(nfiles == 55, "all 55 goldens graded (38 shipped + 6 minted + 11 command goldens)");
 }
 
 /* ---- PART B: entry-built sheets == the real 123.EXE files ----------------- */
