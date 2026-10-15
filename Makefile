@@ -30215,20 +30215,23 @@ FLAIR_DATA_IWORD_NOBLK_IMG := $(BUILD)/flair_data_iword_no_block_on.img
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOD4_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_d4.exe))
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOBLK_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_block_on.exe))
 IWORD_MINT20 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT20.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT20)
-IWORD_B_BLKON  := $(I123_E)Block on                                         Doc 1 Pg 1 Ln 1.17" Pos 1.6"$(I123_E)
-IWORD_B_MOVE   := $(I123_E)Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0                              $(I123_E)
-IWORD_B_MOVE1  := $(I123_E)1 Move; 2 Copy; 3 Delete; 4 Append: 0                                        $(I123_E)
-IWORD_B_RETR   := $(I123_E)Move cursor; press Enter to retrieve.            Doc 1 Pg 1 Ln 1.17" Pos 1.6"$(I123_E)
-IWORD_B_ASK    := $(I123_E)Delete [BOLD]? No (Yes)                                                      $(I123_E)
-IWORD_B_R1     := $(I123_E)Alpha Gamma.Beta                                                             $(I123_E)
-IWORD_B_R2     := $(I123_E)x    tab                                                                     $(I123_E)
-IWORD_B_BAR    := $(I123_E)=============================================================================$(I123_E)
-IWORD_B_R4     := $(I123_E)Page two.                                                                    $(I123_E)
-IWORD_B_ST     := $(I123_E)A:\BLOCK                                            Doc 1 Pg 2 Ln 1" Pos 1.9"$(I123_E)
-IWORD_B_P0     := $(I123_E)[HRt]                                                                        $(I123_E)
-IWORD_B_P1     := $(I123_E)Alpha Gamma.Beta [HRt]                                                       $(I123_E)
-IWORD_B_P2     := $(I123_E)x[Tab]tab[HPg]                                                               $(I123_E)
-IWORD_B_P3     := $(I123_E)Page two.                                                                    $(I123_E)
+# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the face is 76 cells
+# (was 77), so each row is one cell shorter and the Doc group ends at column
+# 66 ("Pos" at 68), as for every other IWORD_* row.
+IWORD_B_BLKON  := $(I123_E)Block on                                        Doc 1 Pg 1 Ln 1.17" Pos 1.6"$(I123_E)
+IWORD_B_MOVE   := $(I123_E)Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0                             $(I123_E)
+IWORD_B_MOVE1  := $(I123_E)1 Move; 2 Copy; 3 Delete; 4 Append: 0                                       $(I123_E)
+IWORD_B_RETR   := $(I123_E)Move cursor; press Enter to retrieve.           Doc 1 Pg 1 Ln 1.17" Pos 1.6"$(I123_E)
+IWORD_B_ASK    := $(I123_E)Delete [BOLD]? No (Yes)                                                     $(I123_E)
+IWORD_B_R1     := $(I123_E)Alpha Gamma.Beta                                                            $(I123_E)
+IWORD_B_R2     := $(I123_E)x    tab                                                                    $(I123_E)
+IWORD_B_BAR    := $(I123_E)============================================================================$(I123_E)
+IWORD_B_R4     := $(I123_E)Page two.                                                                   $(I123_E)
+IWORD_B_ST     := $(I123_E)A:\BLOCK                                           Doc 1 Pg 2 Ln 1" Pos 1.9"$(I123_E)
+IWORD_B_P0     := $(I123_E)[HRt]                                                                       $(I123_E)
+IWORD_B_P1     := $(I123_E)Alpha Gamma.Beta [HRt]                                                      $(I123_E)
+IWORD_B_P2     := $(I123_E)x[Tab]tab[HPg]                                                              $(I123_E)
+IWORD_B_P3     := $(I123_E)Page two.                                                                   $(I123_E)
 IWORD_B_KEYS = $(call IWORD_DREW,$(1),368,$(IWORD_B_BLKON)) && \
 	grep -qx 'TENANT-GATE ax=0x0033 win=1 x=49 y=16 s="Beta " fg=1 bg=2 -> 0' $(1) && \
 	$(call IWORD_DREW,$(1),368,$(IWORD_B_MOVE)) && $(call IWORD_DREW,$(1),368,$(IWORD_B_MOVE1)) && \
@@ -30242,9 +30245,10 @@ IWORD_B_REVEAL = $(call IWORD_LAST,$(1),16,$(IWORD_B_R1)) && $(call IWORD_LAST,$
 	$(call IWORD_LAST,$(1),368,$(IWORD_C_MSG))
 IWORD_B_DISK = mcopy -o -i $(BUILD)/$(1)_data.img ::BLOCK $(BUILD)/$(1).WP5 && cmp $(IWORD_MINT20) $(BUILD)/$(1).WP5
 # [5/5]: ink counts (ne = pixels unlike the NAVY field) of dump $(1)
-IWORD_B_PIXELS = set -- $$($(call IWORD_PX,$(1),2 110 618 126)); bar=$$1; \
-	set -- $$($(call IWORD_PX,$(1),10 94 42 110)); gap=$$1; \
-	set -- $$($(call IWORD_PX,$(1),42 94 66 110)); tab=$$1; \
+# Regions are global x = 6 (content left, tdnl.51) + X0 1 + 8*col.
+IWORD_B_PIXELS = set -- $$($(call IWORD_PX,$(1),7 110 615 126)); bar=$$1; \
+	set -- $$($(call IWORD_PX,$(1),15 94 47 110)); gap=$$1; \
+	set -- $$($(call IWORD_PX,$(1),47 94 71 110)); tab=$$1; \
 	[ "$$bar" -ge 600 ] && [ "$$gap" -eq 0 ] && [ "$$tab" -ge 20 ]
 
 .PHONY: test-flair-iword-block test-flair-iword-block-mutant
@@ -30264,8 +30268,8 @@ test-flair-iword-block: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG)
 	@printf '>>> test-flair-iword-block [3/5] DISK: BLOCK (%s bytes) == MINT20 byte for byte; wp5_ref.py: %s\n' "$$(wc -c < $(BUILD)/flair_iword_block.WP5)" "$$(grep -F 'END offset' $(BUILD)/flair_iword_block.WP5.ref | sed 's/^ *//')"
 	@$(call IWORD_B_REVEAL,$(BUILD)/flair_iword_block.serial) || { printf '!!! test-flair-iword-block FAIL [4/5] REVEAL: the rows / status / codes pane / cursor / message are not the last draws\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=[0-9]* y=\(16\|32\|48\|64\|160\|192\|208\|224\|240\|368\) ' $(BUILD)/flair_iword_block.serial | tail -14; exit 1; }
 	@printf '>>> test-flair-iword-block [4/5] REVEAL: "Alpha Gamma.Beta", "x    tab", the bar, "Page two."; "Doc 1 Pg 2 Ln 1\" Pos 1.9\""; pane "[HRt]" / "Alpha Gamma.Beta [HRt]" / "x[Tab]tab[HPg]" / "Page two." + cursor (MINT20 04_typed, 06_reveal)\n'
-	@f=$(BUILD)/flair_iword_block.ppm; $(call IWORD_B_PIXELS,$$f) || { set -- $$($(call IWORD_PX,$$f,2 110 618 126)); printf '!!! test-flair-iword-block FAIL [5/5] PIXELS: bar ink %s (>= 600), tab gap %s (== 0), "tab" %s (>= 20)\n' "$$1" "$$($(call IWORD_PX,$$f,10 94 42 110) | cut -d' ' -f1)" "$$($(call IWORD_PX,$$f,42 94 66 110) | cut -d' ' -f1)"; exit 1; }
-	@f=$(BUILD)/flair_iword_block.ppm; printf '>>> test-flair-iword-block [5/5] PIXELS: bar row ink %s px, tab gap 0 px, "tab" %s px\n' "$$($(call IWORD_PX,$$f,2 110 618 126) | cut -d' ' -f1)" "$$($(call IWORD_PX,$$f,42 94 66 110) | cut -d' ' -f1)"
+	@f=$(BUILD)/flair_iword_block.ppm; $(call IWORD_B_PIXELS,$$f) || { set -- $$($(call IWORD_PX,$$f,7 110 615 126)); printf '!!! test-flair-iword-block FAIL [5/5] PIXELS: bar ink %s (>= 600), tab gap %s (== 0), "tab" %s (>= 20)\n' "$$1" "$$($(call IWORD_PX,$$f,15 94 47 110) | cut -d' ' -f1)" "$$($(call IWORD_PX,$$f,47 94 71 110) | cut -d' ' -f1)"; exit 1; }
+	@f=$(BUILD)/flair_iword_block.ppm; printf '>>> test-flair-iword-block [5/5] PIXELS: bar row ink %s px, tab gap 0 px, "tab" %s px\n' "$$($(call IWORD_PX,$$f,7 110 615 126) | cut -d' ' -f1)" "$$($(call IWORD_PX,$$f,47 94 71 110) | cut -d' ' -f1)"
 	@printf '>>> test-flair-iword-block: green\n'
 
 test-flair-iword-block-mutant: test-flair-iword-block $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IWORD_NOD4_IMG) $(FLAIR_DATA_IWORD_NOBLK_IMG) $(PPM_REGION_COUNT_BIN)

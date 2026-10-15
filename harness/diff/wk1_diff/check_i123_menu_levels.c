@@ -6,8 +6,12 @@
 #include <string.h>
 typedef struct {char path[256],items[512],desc[512];} level_t;
 static level_t levels[128];static unsigned count;
+/* The 123 face is 76 cells wide: 613-px content / 8 since the content starts
+ * inside the left body rail (RE-KEYED 2026-10-16, bead initech-tdnl.51,
+ * stated; was 77). Panel lines are clipped / blank-padded to it. */
+#define PANEL_W 76
 static void panel(char *out,const char *s)
-{ unsigned n=0;while(s[n]&&n<77){out[n]=s[n];n++;}while(n<77)out[n++]=' ';out[n]=0; }
+{ unsigned n=0;while(s[n]&&n<PANEL_W){out[n]=s[n];n++;}while(n<PANEL_W)out[n++]=' ';out[n]=0; }
 int main(int argc,char **argv)
 {
     if(argc!=5)return 2;
@@ -28,7 +32,7 @@ int main(int argc,char **argv)
         unsigned k;for(k=0;k<count;k++)if(!strcmp(levels[k].path,path))break;
         if(k==count)return 2;
         seen[k]=1;if(id!=fragment)continue;
-        char expected[512],text[78];int found=0;
+        char expected[512],text[PANEL_W+1];int found=0;
         panel(text,levels[k].items);snprintf(expected,sizeof expected,"x=1 y=16 s=\"%s\" fg=1 bg=0 -> 0",text);
         while(fgets(line,sizeof line,serial))if(strstr(line,expected)){found=1;break;}
         if(!found){fprintf(stderr,"missing menu entry: %s\n",path);return 1;}
