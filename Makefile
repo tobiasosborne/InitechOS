@@ -13625,7 +13625,7 @@ test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant:
 else
 test-i123-wk1-roundtrip: $(TEST_I123_WK1) $(I123_WK1_CANON)
 	$(call need_lotus_goldens,test-i123-wk1-roundtrip)
-	@printf ">>> test-i123-wk1-roundtrip: the 1-2-3 R2.2 .WK1 codec vs 44 real goldens, wk1_ref.py and the minted screenshots (initech-9u8w)\n"
+	@printf ">>> test-i123-wk1-roundtrip: the 1-2-3 R2.2 .WK1 codec vs 55 real goldens, wk1_ref.py and the minted screenshots (initech-9u8w)\n"
 	@$(TEST_I123_WK1) $(LOTUS123_DECOMP) $(BUILD) $(I123_WK1_CANON)
 	@printf ">>> test-i123-wk1-roundtrip: green\n"
 
@@ -29851,33 +29851,57 @@ $(BUILD)/test_i123_copy_move: $(I123_MOVE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
 $(BUILD)/test_i123_copy_move_mutant_%: $(I123_MOVE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -D$* $(I123_CORE_INC) -o $@ $< $(I123_CORE_SRC)
-.PHONY: test-i123-copy-move-model test-i123-copy-move test-i123-copy-move-mutant
+.PHONY: test-i123-copy-move-model test-i123-copy-move test-i123-copy-move-mutant test-i123-copy-move-corpus-mutant
 test-i123-copy-move-model: $(BUILD)/test_i123_copy_move
 	@$<
-	@printf '>>> test-i123-copy-move-model: green (4000 random sheets, manual reference model)\n'
+	@printf '>>> test-i123-copy-move-model: green (4000 random sheets, reference model corrected to the real R2.2 bytes)\n'
 test-i123-copy-move: test-i123-copy-move-model $(I123_FORMULA_REF)
 	@$(BUILD)/test_i123_copy_move --corpus $(LOTUS123_DECOMP) $(BUILD) $(I123_FORMULA_REF)
-test-i123-copy-move-mutant: test-i123-copy-move-model $(BUILD)/test_i123_copy_move_mutant_I123_MUT_COPY_ABSOLUTE $(BUILD)/test_i123_copy_move_mutant_I123_MUT_MOVE_STALE
-	@for pair in I123_MUT_COPY_ABSOLUTE:absolute-relative I123_MUT_MOVE_STALE:move-referrers; do \
+	@printf '>>> test-i123-copy-move: green (8 real 1-2-3 R2.2 /Copy and /Move before/after pairs, independent readers)\n'
+I123_MOVE_MODEL_MUTANTS := I123_MUT_COPY_ABSOLUTE:absolute-relative I123_MUT_MOVE_STALE:move-referrers \
+	I123_MUT_MOVE_COL14:move-encoding I123_MUT_ERR_WORD:move-encoding
+test-i123-copy-move-mutant: test-i123-copy-move-model $(foreach p,$(I123_MOVE_MODEL_MUTANTS),$(BUILD)/test_i123_copy_move_mutant_$(firstword $(subst :, ,$(p))))
+	@for pair in $(I123_MOVE_MODEL_MUTANTS); do \
 		m=$${pair%%:*}; why=$${pair#*:}; b=$(BUILD)/test_i123_copy_move_mutant_$$m; \
 		if $$b > $$b.log 2>&1; then printf '!!! %s PASSED\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$b.log && grep -q "RED-REASON $$why" $$b.log || { cat $$b.log; exit 1; }; \
 		printf '>>> test-i123-copy-move-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-i123-copy-move-mutant: green (absolute adjustment and stale referrers correctly RED)\n'
+	@printf '>>> test-i123-copy-move-mutant: green (absolute adjustment, stale referrers, 14-bit /Move column, non-0xFFFF ERR corner correctly RED)\n'
+# Corpus-mode mutation proof (Rule 6, initech-nn46): each mutant is graded
+# by the SAME real-golden differential and must go RED on the named pair.
+#   I123_MUT_ERR_WORD   ERR corner written as bfff bfff, not ffff ffff
+#                       (the text reader prints both as Cr-1,Rr-1: only the
+#                       --bytes leg and the cache can catch it) -> MOVE01B
+#   I123_MUT_MOVE_COL14 /Move writes the 14-bit column fbbf, not fb80 -> MOVE01C
+#   I123_MUT_ERR_LOAD   a loaded 0xFFFF reads as relative -1,-1 -> MOVE01C
+#   I123_MUT_ROW_ERR    a copied row off the sheet is ERR, not wrapped -> WRAP01C
+#   I123_MUT_COPY_ABSOLUTE /Copy shifts absolute words -> COPY01B
+I123_MOVE_CORPUS_MUTANTS := I123_MUT_ERR_WORD:MOVE01B I123_MUT_MOVE_COL14:MOVE01C I123_MUT_ERR_LOAD:MOVE01C \
+	I123_MUT_ROW_ERR:WRAP01C I123_MUT_COPY_ABSOLUTE:COPY01B
+test-i123-copy-move-corpus-mutant: test-i123-copy-move $(foreach p,$(I123_MOVE_CORPUS_MUTANTS),$(BUILD)/test_i123_copy_move_mutant_$(firstword $(subst :, ,$(p))))
+	@for pair in $(I123_MOVE_CORPUS_MUTANTS); do \
+		m=$${pair%%:*}; g=$${pair#*:}; b=$(BUILD)/test_i123_copy_move_mutant_$$m; \
+		mkdir -p $(BUILD)/i123-cm-mut-$$m; rc=0; \
+		$$b --corpus $(LOTUS123_DECOMP) $(BUILD)/i123-cm-mut-$$m $(I123_FORMULA_REF) > $$b.corpus.log 2>&1 || rc=$$?; \
+		if [ $$rc -ne 1 ]; then cat $$b.corpus.log; printf '!!! %s corpus exit %s, want 1 (RED)\n' "$$m" "$$rc"; exit 1; fi; \
+		grep -q "RED-REASON corpus $$g FORMULA bodies" $$b.corpus.log && grep -q "^corpus $$g .*: RED$$" $$b.corpus.log || { cat $$b.corpus.log; exit 1; }; \
+		printf '>>> test-i123-copy-move-corpus-mutant: %s correctly RED (%s FORMULA bodies vs real 1-2-3)\n' "$$m" "$$g"; \
+	done
+	@printf '>>> test-i123-copy-move-corpus-mutant: green (ERR corner word, 8-bit /Move column, loaded ERR reference, row wrap, /Copy byte identity each RED against the real goldens)\n'
 
 $(BUILD)/i123-menu.mnu: $(BUILD)/test_i123_menu_tree
 	@$< --resource > $@
 
 # test-i123-copy-move (the corpus differential) grades i123_transfer against the
 # real 1-2-3 R2.2 /Copy and /Move before/after goldens minted by initech-cjot
-# (lotus123-decomp 51025ee, re/mint-results-002.md: COPY01, MOVE01, WRAP01).
-# It is RED on a real disagreement, not a missing golden: 3 /Copy pairs agree;
-# MOVE01B..D and WRAP01B..C do not (ERR reference = VAR 0xFFFF,0xFFFF not token
-# 32; /Copy wraps rows and keeps reference bytes; /Move writes a rewritten
-# relative column as 0x8000|(delta&0xFF)). It stays OUT of the default vector
-# until the PM rules on the artifact/model fix (escalated by initech-cjot).
+# (lotus123-decomp 51025ee, re/mint-results-002.md: COPY01, MOVE01, WRAP01):
+# all 8 pairs agree since initech-nn46 (ERR reference = VAR/RANGE corner
+# 0xFFFF,0xFFFF not token 32; /Copy keeps reference bytes and wraps rows and
+# columns; /Move writes a rewritten relative column as 0x8000|(delta&0xFF)).
+# test-i123-copy-move-corpus-mutant is its mutation proof.
 TEST_UNIT_GATES += test-i123-menu-tree test-i123-menu-tree-mutant test-i123-copy-move-model test-i123-copy-move-mutant
+TEST_UNIT_GATES += test-i123-copy-move test-i123-copy-move-corpus-mutant
 
 $(BUILD)/test_i123_range_menu: harness/proptest/test_i123_range_menu.c $(I123_QUIT_DEPS)
 	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)

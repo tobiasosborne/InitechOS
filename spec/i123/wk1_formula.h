@@ -91,10 +91,32 @@
 #define WKF_NTOKENS  122u
 
 /* Reference words (Sec 2.1): bit 15 = relative; the low 14 bits are then a
- * signed offset (bit 13 sign); relative COLUMN offsets wrap modulo 256. */
+ * signed offset (bit 13 sign); relative COLUMN offsets wrap modulo 256,
+ * relative ROW offsets modulo 8192 (bead initech-nn46; ../lotus123-decomp
+ * re/mint-results-002.md: WRAP01B.WK1 A2 shows +IV1+1 and WRAP01C.WK1 B1
+ * shows +A8192+1, both keeping VAR ffbf ffbf, value 1, not ERR).
+ *
+ * The ERR reference (initech-nn46): real 1-2-3 R2.2 writes a reference
+ * whose target /Move overwrote as BOTH words 0xFFFF, still a VAR (token 1)
+ * or a RANGE (token 2) corner -- never the @ERR token 32 -- and shows it as
+ * ERR (MOVE01B.WK1 E1 code 01 ffff ffff 05 0100 09 03 "+ERR+1", E2
+ * 01 ffff ffff 03 "+ERR", H1 02 ffff ffff fcbf 0180 50 01 03 "@SUM(ERR)").
+ * Bit 14 is set in no valid word: over every FORMULA of the 131 .WK1
+ * files under ../lotus123-decomp/goldens it is set only in these 0xFFFF
+ * words (9 corners, MOVE01B..D); a word with it set resolves to ERR.
+ *
+ * A relative COLUMN that /Move rewrites is stored as (target-home) modulo
+ * 256 under bit 15, the 8-bit form WKF_REF_COL8 (MOVE01C.WK1 F5 fb80 =
+ * +251 = -5, fe80 = -2; MOVE01D.WK1 F1 fb80, G3 fa80); a typed formula
+ * stores the 14-bit form (MINT04 ffbf). Both occur in shipped sheets (903
+ * 8-bit words, e.g. CAMBRIDG.WK1 80fc) and resolve identically. A
+ * rewritten relative ROW keeps the 14-bit form (MOVE01C F5 fdbf = -3). */
 #define WKF_REF_REL      0x8000u
 #define WKF_REF_MASK     0x3FFFu
 #define WKF_REF_SIGN     0x2000u
+#define WKF_REF_ERRBIT   0x4000u
+#define WKF_REF_ERR      0xFFFFu
+#define WKF_REF_COL8     0x00FFu
 
 /* --- 3. Token classes ---------------------------------------------------- */
 #define WKF_K_NONE     0u   /* unassigned (7, 25..30) -- refused             */
