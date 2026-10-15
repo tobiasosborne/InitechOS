@@ -12817,6 +12817,12 @@ test-makefile-vars: | $(BUILD)
 	@bad=$$(sed -n "s/^\(.*\): warning: undefined variable '\(.*\)'$$/\2 \1/p" $(MAKEFILE_VARS_LOG) \
 		| grep -v -E '^(SKIP_BOCHS|SKIP_FPC|SCRIPT|RECORD_IMAGE_|RECORD_DATA_) ' || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-makefile-vars FAIL: read before definition (variable, site):\n%s\n' "$$bad"; exit 1; fi
+	@# Leg 2 (2026-10-16, found by the b52a7ce certificate at emu gate 147): a
+	@# blank line right after a backslash-continued recipe line ends the shell
+	@# command early, so a multi-line for/if loses its done/fi and the gate dies
+	@# with "Syntax error: end of file unexpected" instead of grading anything.
+	@split=$$(awk 'prev ~ /\\$$/ && $$0 ~ /^[ \t]*$$/ { printf "%d ", NR } { prev = $$0 }' $(firstword $(MAKEFILE_LIST))); \
+	if [ -n "$$split" ]; then printf '!!! test-makefile-vars FAIL: blank line after a backslash-continued line splits a recipe command (Makefile lines %s)\n' "$$split"; exit 1; fi
 	@printf '>>> test-makefile-vars: green\n'
 
 # Ref: PRD Sec 8/14; CLAUDE.md Rule 2/6; initech-tflp. Expansion only:
@@ -18884,7 +18890,6 @@ test-flair-appswitch-mutant: $(HARNESS_BIN) $(PPM_FLAIR_APPSWITCH_CHECK_BIN) $(F
 		img="$(BUILD)/flair_tenants_mut_$$tag.img"; \
 		printf '%s\n' '----------------------------------------------------------------------'; \
 		printf '>>> mutant %s (-D%s): %s\n' "$$tag" "$$macro" "$$desc"; \
-
 		$(HARNESS_BIN) --disk "$$img" --disk2 "$(FLAIR_GATE_DATA)" \
 			--expect FLAIR-FAT-MOUNT-OK --name "flair_appswitch_mut_$$tag" --out "$(BUILD)" \
 			--mouse "$(FLAIR_APPSWITCH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -21486,7 +21491,6 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	@rc=0; \
 	for leg in "A|$(FLAIR_SOLID_CLOSE_SPEC)|FLAIR-CLOSE win|15000" "B|$(FLAIR_SOLID_DRAG_SPEC)|FLAIR-DRAG win|20000"; do \
 		l=$${leg%%|*}; rest=$${leg#*|}; spec=$${rest%%|*}; rest=$${rest#*|}; marker=$${rest%%|*}; tmo=$${rest#*|}; \
-
 		$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_no_route_on_chrome.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 			--name "flair_solid_mut_route_$$l" --out "$(BUILD)" \
 			--mouse "$$spec" --keys-after "FLAIR-LIVE-READY" \
@@ -21530,7 +21534,6 @@ test-flair-solid-mutant: $(HARNESS_BIN) $(PPM_FLAIR_SOLID_CHECK_BIN) $(FLAIRTENA
 	for spec in "menu_no_restore:track-end restore skipped -- Edit panel persists" \
 	            "menu_restore_shell:shell_render erase ran without tenant content route -- WDEF white wipe"; do \
 		tag=$${spec%%:*}; desc=$${spec#*:}; \
-
 		$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_$$tag.img" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 			--name "flair_solid_mut_$${tag}_D" --out "$(BUILD)" \
 			--mouse "$(FLAIR_SOLID_MENUCANCEL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
@@ -23004,7 +23007,6 @@ test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair
 	@$(if $(call fixture-spec,$(SAMIR_LIST_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_IMG))),:)
 	@# Establish the CLEAN pre baseline (the real desktop) if not already present.
 	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then \
-
 		$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
 			--name "$(SAMIR_SUSP_PRE_NAME)" --out "$(BUILD)" --timeout-ms 20000 \
 			--screendump --screendump-after "FLAIR-LIVE-READY" 2>/dev/null || true; \
