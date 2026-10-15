@@ -5,7 +5,7 @@
 
 **Issuing Body:** Initech Systems Corporation — Platform Engineering
 **Document Class:** Continuity Briefing (living document; supersede in place)
-**Last Reconciled:** 2026-10-15 06:00 (**WL-0104: THE FRONTIER NIGHT -- fifteen lanes merged (Restart/Shut Down, Ctrl-C/Ctrl-Z, Initech 123 formulas + the complete slash menu tree, InitechWord P1, Font Manager slice 2, Trash stale views, kernel headroom round 2, gate honesty, the LOOK batches: scroll bars, DOS console, menus, SAMIR screen), LOOK audit pass 6; certificate: see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-05 02:05 (**WL-0094: MENUS REACH DISK APPS, THE TRASH WORKS, INITECH 123 OPENS FROM THE FINDER AS A C DISK APPLICATION, COPY/DEL DATA LOSS FIXED, FIFTH AUDIT, PHYSICAL-EDITION RESEARCH; cert 376 host + 173 emu at 7030e2f -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-04 06:40, session close (**WL-0093: FOUR HANDS-ON DESKTOP AUDITS (41 findings; all four window-system P0s fixed and certified, cert 367 host + 144 emu at 37334ee), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
+**Last Reconciled:** 2026-10-16 04:30 (**WL-0114: THE SECOND NIGHT -- seven lanes merged (real Lotus /Copy /Move goldens + the engine fixed to real R2.2 bytes, Platinum alert chrome, InitechWord P2 codes + block ops with 20 real WP 5.1 mints, fixture-volume verifier, SAMIR REPORT FORM, F16 body frame); assembled certificate host 448 + emu 237 green; see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-15 06:00 (**WL-0104: THE FRONTIER NIGHT -- fifteen lanes merged (Restart/Shut Down, Ctrl-C/Ctrl-Z, Initech 123 formulas + the complete slash menu tree, InitechWord P1, Font Manager slice 2, Trash stale views, kernel headroom round 2, gate honesty, the LOOK batches: scroll bars, DOS console, menus, SAMIR screen), LOOK audit pass 6; certificate: see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-05 02:05 (**WL-0094: MENUS REACH DISK APPS, THE TRASH WORKS, INITECH 123 OPENS FROM THE FINDER AS A C DISK APPLICATION, COPY/DEL DATA LOSS FIXED, FIFTH AUDIT, PHYSICAL-EDITION RESEARCH; cert 376 host + 173 emu at 7030e2f -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-10-04 06:40, session close (**WL-0093: FOUR HANDS-ON DESKTOP AUDITS (41 findings; all four window-system P0s fixed and certified, cert 367 host + 144 emu at 37334ee), PROPORTIONAL CHICAGO, DRAG-MOVE, SETMBAR, KERNEL X87 -- see Sec 5 CURRENT STATE.** PREVIOUS: 2026-09-26 evening (**WL-0092: canonical-app goldens land -- real Lotus 1-2-3 R2.2 + real WordPerfect 5.1 run under the mint harness, both P0 Law-1 gates closed, see Sec 5 CURRENT STATE.** PREVIOUS: **WL-0091: THE NORTH STAR IS RESTATED, THE APP LAUNCHES FROM DISK, AND THE HARNESS STOPS LYING UNDER LOAD.** Operator handed programme ownership to the agent-PM 2026-09-25 and restated the bar: period-correct windowed OS on an era-authentic DOS with FULL-FEATURED dBASE III + word processor + Lotus 1-2-3 + a self-hosting compiler with a Borland-style GUI; 486-class greenlit (ADR-0001 DEC-02). Landed: M7 CLOSED (6gkm was a harness bug; test-compiler-os 17/17 on metal), kernel size policy (headroom 1,724 -> 38,172 B; 8z9j), ADR-0001 authored, Makefile stamp (Rule 11), harness hardened against host load (6gkm/lmkp/qed1 -- 42 gates, harness refuses bare --keys), R3.7 APP LAUNCH FROM DISK V1 (tdnl.14: INT 81h Toolbox Gate, TENANTFX.EXE, app_launch clip), Initech 123 + InitechWord plans + epics (68iw, fdxa). HEAD `8f884a7`+docs. Closing certificate ALL GREEN 355 host + 116 emu (cert-06, first-person, 2026-09-26 01:37, on 8f884a7; the emu vector grew 105 -> 116 with the tdnl.14, qed1, 6gkm and lmkp gates). PREVIOUS: 2026-08-25 WL-0090.)
 
 > Incoming agent: read this top to bottom, then `CLAUDE.md`, then run `bd ready`. This briefing tells you *where the Programme stands and what to do next*; `CLAUDE.md` tells you *how to work*; the PRD and the ADRs tell you *what to build*.
 
@@ -202,6 +202,55 @@ desktop. (Under Bochs: `make test-boot-bochs` — same boot via the mode-0x13
 fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
+
+> **CURRENT STATE (2026-10-16 ~04:30, WL-0114 -- THE SECOND NIGHT: SEVEN LANES MERGED, TWO
+> CERTIFICATES, THE ORACLE BIT REAL LOTUS. Supersedes every CURRENT STATE block below for "what
+> to do next".)**
+>
+> **Certificate (bd memory cert-2026-10-16):** host ALL GREEN 448 at b52a7ce; emu 1..146 at
+> b52a7ce, 147..200 at ed73278, 201..237 at 6865fc0, all green (the three HEADs differ only in
+> harness files; each red that stopped a vector was a real stale re-key -- fg-close Apple slot,
+> four mutant recipes split by a blank line, shutdown probes on the new alert edge -- or ENOSPC,
+> and was fixed on main before the vector resumed). The later merges 86b1742 (airx), 473883e
+> (jojk slice 2) and 2962734 (F16) were verified by their families first-person on main plus
+> emu 201..237 / the changed-checker emu gates, not by one full vector; the F16 lane itself ran
+> the full 691-gate vector green on its merged tree. A full clean `make clean && make test` of the final HEAD in ../initech-os-cert was started at session close (04:05, df 98 GB free); its result lands in bd memory cert-2026-10-16 (`bd memories cert-2026-10-16`) -- check it FIRST next session; if it never finished, run it.
+>
+> **Landed tonight (merge order, see WL-0114):** cjot real /Copy /Move goldens -> the corpus
+> differential went RED for real (5/8 pairs) -> nn46 fixed the engine to real R2.2 bytes;
+> chrome-controls (Codex sol: tdnl.99 label painting, tdnl.100 alert corners, L023 alert frame,
+> test-flair-alert-chrome); jojk slices 1+2 (InitechWord P2: codes, Reveal Codes, block ops,
+> 20 real WP 5.1 mints); tflp fixture-volume verifier (95+ contracts, test-fixture-volumes);
+> airx SAMIR REPORT FORM byte-identical to real dBASE III PLUS on 111 reports (WL-0113);
+> F16 Platinum body frame + widget corners (tdnl.51/.52; faces now 76 cells wide -- stated
+> re-keys). PM fixes: fg-close re-key b52a7ce, Makefile blank-line lint ed73278, samir-report
+> abspath 4da75d2, shutdown probes + fixture contracts 6865fc0/8080833, clip RECORD_DATA +
+> empty_trash marker e07b3d4. Beads hygiene by Sonnet (5 stale closed; aul/gmo await the
+> operator). 35 lane beads closed against the certificate.
+>
+> **Peer protocol (three sessions, bd memories 2026-10-15/16):** the AGGREGATE quota reading is
+> the signal -- stop dispatching above +12% ahead on Claude Weekly or Codex Weekly; Codex is
+> announce-only ("codex start <lane> <pid>" / "codex end"), the SIGKILL trap is retired on
+> codex-cli 0.162.1; one full vector per host; `df -h /` before any vector and remove finished
+> worktrees + clone build dirs promptly (root hit 0 bytes free twice tonight; one gate read
+> "output not exact" under ENOSPC and the F16 worktree's Makefile was truncated to 0 bytes).
+> Codex launch shape that passes the classifier: `codex exec -m gpt-6.1-sol -c
+> model_reasoning_effort=xhigh -s workspace-write -C ../initech-os-<lane> -o <msgfile> "<brief>"`
+> with INITECH_QMP_STDIO=1; never `--approve-for-me`. Opus lanes in `.claude/worktrees/` must
+> ff-merge main first (worktrees spawn stale) and export absolute `*_DECOMP` paths.
+>
+> **NEXT:** (0) if the close-time full certificate below did not finish green: re-run its red gate alone, fix on main, record. Then close jojk (slice 3 pending), airx, tdnl.99/.100, rgz1 per their notes. (1) Bochs legs owed for every new emu gate (Rule 5;
+> cqej), rgz1 eyeball + Bochs. (2) jojk slice 3 (notes on the bead). (3) SAMIR findings vfys,
+> k7lc, 5vmn, x5cc; a5sr (derive fixture contracts from FLAIR_DATA_%_IMG, rm the target on
+> verifier failure). (4) Remaining look batches: tdnl.98, film scene tdnl.102-.104, icons
+> tdnl.53; the chrome-controls residual (alert drop shadow). (5) 1z3o, L021.
+> **Owed to the operator:** (a) copy MINT06-20 from wordperfect51-decomp mint/work/WP51 into its
+> goldens/minted per re/mint-results-002.md and -003.md (the classifier refused the lanes'
+> writes under goldens/; md5s are in the ledgers); (b) the aul / gmo forced-close decision
+> (done, blocked only by a bookkeeping dep on open P0 f8v.4); (c) Law-4 eyeball of the clips
+> re-recorded tonight (i123_quit_guard, empty_trash, iword_codes, iword_block, scroll_look,
+> zoom_toggle) plus last night's eight; F16 rulings: the Word status line one column left of
+> WP 5.1 (Doc..Ln ends col 66, Pos col 68) and the /Range line cut at '...Trans  Sear'.
 
 > **CURRENT STATE (2026-10-15, WL-0104 -- THE FRONTIER NIGHT: FIFTEEN LANES MERGED, ONE LOOK
 > AUDIT, KERNEL HEADROOM RECOVERED. Supersedes every CURRENT STATE block below for "what to do
