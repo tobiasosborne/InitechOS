@@ -15,6 +15,16 @@ static inline pal_heap_block *pal_heap_init(void *memory,uint32_t n)
     if(n<=sizeof(*b)) return (void *)0;
     b->size=n-(uint32_t)sizeof(*b);b->free=1;b->next=(void *)0;return b;
 }
+/* Append a second, disjoint region (initech-airx: SAMIR.COM places part of
+ * the owned heap in the program's unused BSS reserve). First-fit walks both;
+ * coalescing below only joins physically adjacent blocks, never regions. */
+static inline void pal_heap_add(pal_heap_block *head,void *memory,uint32_t n)
+{
+    pal_heap_block *b=pal_heap_init(memory,n);
+    if(!head || !b) return;
+    while(head->next) head=head->next;
+    head->next=b;
+}
 static inline void *pal_heap_alloc(pal_heap_block *b,uint32_t n)
 {
     if(n>0xfffffff0u)return (void *)0;
@@ -42,7 +52,7 @@ static inline int pal_heap_free(pal_heap_block *head,void *memory)
     }
     if(!found)return -1;
     for(b=head;b && b->next;){
-        if(b->free && b->next->free){b->size+=(uint32_t)sizeof(*b)+b->next->size;b->next=b->next->next;}
+        if(b->free && b->next->free && (uint8_t *)(b+1)+b->size==(uint8_t *)b->next){b->size+=(uint32_t)sizeof(*b)+b->next->size;b->next=b->next->next;}
         else b=b->next;
     }
     return 0;
