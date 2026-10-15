@@ -22615,7 +22615,10 @@ RECORD_SETTLE_trash_window = 300
 # clicked: the window empties and the icon goes back to EMPTY.
 # FLAIR_EMPTY_OK_SPEC on the LONG double-click record image (60 events).
 RECORD_SPEC_empty_trash   = $(FLAIR_EMPTY_OK_SPEC)
-RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=5 refused=0
+# RE-KEY 2026-10-16: purged=5 -> purged=7 -- APPS gained 123.MNU (initech-uqah)
+# and WORD.EXE (initech-l4tj); README.TXT + APPS + its five files = 7, the
+# same count test-flair-empty-trash asserts (serial FINDER-TRASH-ALERT n=7).
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=7 refused=0
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
 # shutdown (bead initech-tdnl.78; Rule 14): the root window opens and is
@@ -22752,7 +22755,7 @@ RECORD_SPEC_i123_quit_guard = $(FLAIR_I123_QG_SAVE)
 RECORD_MARKER_i123_quit_guard = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retrieved q.wk1                                                              " fg=1 bg=0 -> 0
 RECORD_SETTLE_i123_quit_guard = 400
 RECORD_IMAGE_i123_quit_guard = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
-RECORD_DATA_i123_quit_guard = $(BUILD)/flair_i123_quit_data.img
+RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
 # The EXTRA-LONG double-click record image (bead initech-mfrb): the long
 # double-click record image with the pump life doubled again
 # (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
