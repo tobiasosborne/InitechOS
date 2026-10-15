@@ -222,11 +222,31 @@ int main(int argc, char **argv)
         g_fail = 1;
     }
 
-    /* (2) the box: the dBoxProc band and the Platinum face. */
-    want(BX_L + BX_BORDER / 2, 196, CIDX_BLACK, "box frame band, left");
-    want(BX_R - 1 - BX_BORDER / 2, 196, CIDX_BLACK, "box frame band, right");
-    want(320, BX_T + BX_BORDER / 2, CIDX_BLACK, "box frame band, top");
-    want(320, BX_B - 1 - BX_BORDER / 2, CIDX_BLACK, "box frame band, bottom");
+    /* (2) the box: the dBoxProc frame and the Platinum face.
+     * RE-KEY 2026-10-16 (L023 / initech-rgz1, main 08cf239): the heritage
+     * 7-px black slab became the capture-derived Platinum alert edge --
+     * inward from top/left: black, #FFB3B3, white, face; inward from
+     * bottom/right: black, #FF8787, #B3B3B3, face (s8_alert_modal.png frame
+     * x133..506 y87..190; harness/render/alert_capture.h; dialog.c Sec 42).
+     * The old probes sat 3 px inside the edge and now read face. Each edge
+     * is graded pixel by pixel through the band, so a slab relapse (all
+     * black) and a flat frame (no tint rows) both go RED. */
+    want(BX_L,     196, CIDX_BLACK,             "box frame left, outline");
+    want(BX_L + 1, 196, CIDX_ALERT_LIGHT,       "box frame left, tint row");
+    want(BX_L + 2, 196, CIDX_WHITE,             "box frame left, light row");
+    want(BX_L + 3, 196, CIDX_PLAT_FACE,         "box frame left, face begins");
+    want(BX_R - 1, 196, CIDX_BLACK,             "box frame right, outline");
+    want(BX_R - 2, 196, CIDX_ALERT_SHADOW,      "box frame right, tint row");
+    want(BX_R - 3, 196, CIDX_PLAT_FRAME_SHADOW, "box frame right, shadow row");
+    want(BX_R - 4, 196, CIDX_PLAT_FACE,         "box frame right, face begins");
+    want(320, BX_T,     CIDX_BLACK,             "box frame top, outline");
+    want(320, BX_T + 1, CIDX_ALERT_LIGHT,       "box frame top, tint row");
+    want(320, BX_T + 2, CIDX_WHITE,             "box frame top, light row");
+    want(320, BX_T + 3, CIDX_PLAT_FACE,         "box frame top, face begins");
+    want(320, BX_B - 1, CIDX_BLACK,             "box frame bottom, outline");
+    want(320, BX_B - 2, CIDX_ALERT_SHADOW,      "box frame bottom, tint row");
+    want(320, BX_B - 3, CIDX_PLAT_FRAME_SHADOW, "box frame bottom, shadow row");
+    want(320, BX_B - 4, CIDX_PLAT_FACE,         "box frame bottom, face begins");
     want(BX_L + BX_BORDER + 4, 240, CIDX_PLAT_FACE, "box face, lower left");
     want(300, 233, CIDX_PLAT_FACE, "box face, left of the button row");
     want(IC_X + 16, IC_Y - 4, CIDX_PLAT_FACE, "box face, above the icon");
