@@ -286,8 +286,12 @@ int main(void)
          * the bottom clamps to the top: an EMPTY content rect (was 33, i.e.
          * frame.bottom-1, which put the horizontal bar inside contRgn). The
          * pure seam is graded directly (the bbox of an empty region is not a
-         * rect). The realistic-size bottom edge is graded just below. */
-        rgn_rect_t want_content = { 23, 2, 23, 26 };
+         * rect). The realistic-size bottom edge is graded just below.
+         * RE-KEYED (bead initech-tdnl.51, stated): the left edge is now just
+         * inside the left body rail's inner black line, frame.left + FRAME(1)
+         * + BODY_BAR(4) + FRAME(1) = 1+6 = 7 (was 2, frame.left+1, which put
+         * the left raised bar inside contRgn; sys8/window-chrome.md Sec 4). */
+        rgn_rect_t want_content = { 23, 7, 23, 26 };
         mgr_attach(&M, FRAME);
         win_attach(&W);
         NewDocumentWindow(&M.wm, &W.rec, frame, documentKind, 1);
@@ -301,17 +305,17 @@ int main(void)
               got_content.left == want_content.left &&
               got_content.bottom == want_content.bottom &&
               got_content.right == want_content.right,
-              "CalcDoc: contRgn top=top+22 and right stops before body rail+16px scrollbar");
+              "CalcDoc: contRgn top=top+22, left=left+6 (inside the body rail), and right stops before body rail+16px scrollbar");
         CHECK(region_is_empty(W.rec.contRgn),
               "CalcDoc: a frame too short for title+horizontal bar has EMPTY content");
         {
             /* The default Finder frame (finder_windows.h Sec 3), by hand:
-             * (20,60)..(380,280) -> top 60+22=82, left 20+1=21,
-             * right 380-1-4-16=359, bottom 280-1-4-16=259. */
+             * (20,60)..(380,280) -> top 60+22=82, left 20+1+4+1=26 (tdnl.51;
+             * was 20+1=21), right 380-1-4-16=359, bottom 280-1-4-16=259. */
             rgn_rect_t f = { 60, 20, 280, 380 };
             rgn_rect_t c = CalcDocContentRect(f);
-            CHECK(c.top == 82 && c.left == 21 && c.right == 359 && c.bottom == 259,
-                  "CalcDoc (tdnl.35): content stops at BOTH scroll bars' outer lines");
+            CHECK(c.top == 82 && c.left == 26 && c.right == 359 && c.bottom == 259,
+                  "CalcDoc (tdnl.35/tdnl.51): content stops at BOTH scroll bars' outer lines and inside the left body rail");
         }
 
         CHECK(!region_contains_point(W.rec.strucRgn, 47, 2) &&

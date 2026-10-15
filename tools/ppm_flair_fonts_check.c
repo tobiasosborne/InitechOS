@@ -141,7 +141,9 @@ static int grade(int px0, int y0, int r0, int r1, int xa, int xb, int *fx, int *
 }
 
 /* ---- window -------------------------------------------------------------- */
-#define CONT_L 301
+/* RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the content starts
+ * inside the left body rail, frame.left 300 + 6 = 306 (was 301). */
+#define CONT_L 306
 #define CONT_T 192
 #define CONT_R 499           /* exclusive: column 499 is the scroll bar's line */
 #define LINE_X (CONT_L + 6)

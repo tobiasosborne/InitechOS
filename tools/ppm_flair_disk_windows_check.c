@@ -131,11 +131,15 @@ static int g_win_h = DEF_WIN_H;
 #define WIDGET_BOX        12   /* FLAIR_CHROME_WIDGET_BOX                      */
 
 /* content rect, relative to the window frame origin (L,T):
- *   left = L + 1, top = T + 22, right = L + 339, bottom = T + 219            */
-#define CONT_DX      (CHROME_FRAME)                                  /*   1 */
+ *   left = L + 6, top = T + 22, right = L + 339, bottom = T + 219
+ * RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the left edge is inside
+ * the left body rail -- outer line 1 + raised bar 4 + inner line 1 = 6 (was
+ * L + 1, which let the content fill erase the bar; sys8/window-chrome.md
+ * Sec 4). The width loses those 5 px: 360 - 6 - 1 - 4 - 16 = 333 (was 338). */
+#define CONT_DX      (CHROME_FRAME + BODY_BAR + CHROME_FRAME)        /*   6 */
 #define CONT_DY      (TITLEBAR_H)                                    /*  22 */
-#define CONT_W       (WIN_W - CHROME_FRAME - CHROME_FRAME - BODY_BAR - SCROLLBAR_W)
-                                                                     /* 338 */
+#define CONT_W       (WIN_W - CONT_DX - CHROME_FRAME - BODY_BAR - SCROLLBAR_W)
+                                                                     /* 333 */
 #define CONT_H       (WIN_H - TITLEBAR_H - CHROME_FRAME)             /* 197 */
 
 /* the invisible grid (finder_windows.h Sec 2) */
@@ -190,11 +194,11 @@ static const char *g_title = "Drive A Files";
  * (0,0)..(640,480) and spec/chrome_metrics.h FLAIR_CHROME_ZOOM_MARGIN_LEFT 4 /
  * TOP 40 / RIGHT 4 / BOTTOM 4:
  *     frame (4,40)..(636,476), 632 x 436
- *     content (5,62)..(615,475)   (CalcDocContentRect, as above)
- *     grid cols = (610 - 18) / 68 = 8, so the two shown root icons stay in row 0:
- *     sprites (23,66) (91,66); cells (159,66) and (227,66) bare.
+ *     content (10,62)..(615,475)  (CalcDocContentRect, as above; tdnl.51)
+ *     grid cols = (605 - 18) / 68 = 8, so the two shown root icons stay in row 0:
+ *     sprites (28,66) (96,66); cells (164,66) and (232,66) bare.
  * NOT derived from where the window was before the zoom: a model that kept the
- * icons where they were drawn at open (the F01 bug) puts them at (39,86)...,
+ * icons where they were drawn at open (the F01 bug) puts them at (44,86)...,
  * which is inside this content rect and therefore reads as WRONG, not blank. */
 #define ZOOM_L      4
 #define ZOOM_T     40
@@ -752,7 +756,7 @@ static void check_control_teal(void)
  * HELLO (left 60) so they are desktop in the un-windowed scene. */
 static const Point VACATED[] = {
     { ROOT_L,     ROOT_T,     "the default frame's top-left corner" },
-    { ROOT_L + 1, ROOT_T + CONT_DY, "the default frame's content top-left" }
+    { ROOT_L + CONT_DX, ROOT_T + CONT_DY, "the default frame's content top-left" }
 };
 #define VACATED_N ((int)(sizeof VACATED / sizeof VACATED[0]))
 
@@ -779,7 +783,7 @@ static void check_vacated(void)
  * surviving Trash window (20,60)..(380,280). What lies beneath is fixed by the
  * boot scene (spec/flair_tenants_demo.h; spec/flair_disk_windows_traces.mk):
  * HELLO (60,60)-(360,260), NOTES (260,120)-(560,340) with its content fill
- * FLAIR_TEN_NOTES_FILL = CIDX_CONTROL from (261,142), inactive (no accent) and
+ * FLAIR_TEN_NOTES_FILL = CIDX_CONTROL from (266,142), inactive (no accent) and
  * untoggled (no centre marker, which would sit at ~(404..416, 235..247)), and
  * the bare desktop elsewhere. A window that survived the purge paints its
  * WHITE content (or chrome) over every one of these points. */
@@ -850,9 +854,10 @@ static void check_empty_cells(int L, int T, int first, int last)
  * 22). Every number by hand (finder_windows.h Sec 2/3/10c,
  * window.c CalcDocContentRect, spec/chrome_metrics.h), never read from the
  * artifact:
- *   content (21,82)..(359,259): 177 high (the bottom stops at the horizontal
- *   scroll bar, frame.bottom - 21 -- bead initech-tdnl.35)
- *   rows: sprite y = 82 + 4 + 52r - value; cols x = 21 + 18 + 68c
+ *   content (26,82)..(359,259): 177 high (the bottom stops at the horizontal
+ *   scroll bar, frame.bottom - 21 -- bead initech-tdnl.35; the left edge is
+ *   inside the left body rail, frame.left + 6 -- bead initech-tdnl.51)
+ *   rows: sprite y = 82 + 4 + 52r - value; cols x = 26 + 18 + 68c
  *   vertical content = 4 + 5*52 + 47 + 4 = 315 -> max = 315 - 177 = 138
  *   vertical bar x [359,375) y [81,260): thumb track lo = 81+16 = 97,
  *   span = (260-16-15) - 97 = 132, thumb leading edge = 97 + value*132/138
@@ -890,7 +895,7 @@ static int grade_scroll(int value, int fit)
     if (fit) {
         int i;
         for (i = 0; i < 2; i++) {
-            int gx = 39 + i * GRID_PITCH_X, gy = 86;
+            int gx = 44 + i * GRID_PITCH_X, gy = 86;   /* 20+6+18 (tdnl.51) */
             check_sprite(ROSTER[i].name, gx, gy, ROSTER[i].kind);
             check_band(ROSTER[i].name, gx, gy);
             graded++;
@@ -921,7 +926,7 @@ static int grade_scroll(int value, int fit)
     } else {
         int pos = 97 + value * 132 / 138;
         for (int i = 0; i < 22; i++) {
-            int gx = 39 + (i % 4) * GRID_PITCH_X;
+            int gx = 44 + (i % 4) * GRID_PITCH_X;   /* 20+6+18 (tdnl.51) */
             int gy = SCR_CONT_TOP + 4 + (i / 4) * GRID_PITCH_Y - value;
             if (gy < SCR_CONT_TOP || gy + LABEL_BOT_OFF > SCR_CONT_BOT) continue;
             printf("    icon[%d] %-10s scrolled cell (%d,%d)\n",
@@ -940,10 +945,10 @@ static int grade_scroll(int value, int fit)
                    "enabled up-arrow separator black (Sec 2.1)");
         if (value == 48) {
             /* README.TXT's UNSCROLLED page top edge (DOC row 2) would be at
-             * (49,88); scrolled 48 px it is gone and the content is white
+             * (54,88); scrolled 48 px it is gone and the content is white
              * between the hidden row 0 and row 1 (sprite y 90). */
-            assert_idx(39 + 10, 86 + 2, CIDX_WHITE,
-                       "README.TXT's unscrolled top edge (49,88) is gone");
+            assert_idx(44 + 10, 86 + 2, CIDX_WHITE,
+                       "README.TXT's unscrolled top edge (54,88) is gone");
         }
     }
     check_control_teal();

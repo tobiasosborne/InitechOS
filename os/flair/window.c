@@ -174,7 +174,27 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
 #else
     content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
 #endif
+#if defined(CHROME_FID_MUT_CONTENT_LEFT_THIN)
+    /* MUTANT (Rule 6; test-chrome-fidelity CAPTURE-BODY legs, bead
+     * initech-tdnl.51): the pre-tdnl.51 one-pixel left inset -- every owner's
+     * content paint erases the left raised bar and its inner black line.
+     * NEVER in a real build. */
     content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME);
+#else
+    /* The content starts just inside the left body rail's INNER black line,
+     * exactly as the top starts just below the title's shared bottom line and
+     * the right/bottom stop at the scroll bars' outer lines: outer line (1) +
+     * the 4-px raised bar + inner line (1) = L+6 (bead initech-tdnl.51;
+     * sys8/window-chrome.md Sec 4, s8_doc_window_active hscan y=150: black 65,
+     * bar 66..69, black 70, content 71 = L+6). The 1-px content-inset
+     * highlight (Sec 4 "Content inset") is the first content column, as at the
+     * top; on a white body it is invisible, as on the Finder capture. Before
+     * this the left edge was L+1, so every owner's content fill painted over
+     * the left bar (audit F16, LOOK pass 6: root y=200 x=20..25 black + five
+     * whites). */
+    content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME +
+                             FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME);
+#endif
 #if defined(WINDOW_MUTATE_CONTENT_OVER_HSCROLL)
     /* MUTANT (Rule 6; test-window CalcDoc leg + test-flair-scroll): the
      * pre-tdnl.35 bottom edge, frame.bottom - 1 -- contRgn swallows the

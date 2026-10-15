@@ -7,10 +7,12 @@
  * expected value is derived HERE, independently of the renderer:
  *   - GEOMETRY from the fixture's own NEWWINDOW arguments (os/apps/tenantfx.asm
  *     WIN_* = (100,160)..(400,340)) and the locked chrome metrics arithmetic
- *     (spec/flair_app_launch_traces.mk "GEOMETRY"): content (101,182)..(379,319)
+ *     (spec/flair_app_launch_traces.mk "GEOMETRY"): content (106,182)..(379,319)
  *     (bottom = frame.bottom - 21: contRgn stops at the horizontal scroll bar
- *     since bead initech-tdnl.35 -- RE-KEYED from 339, stated);
- *     TEXTDRAW (16,16) and (16,40) content-local -> global (117,198), (117,222);
+ *     since bead initech-tdnl.35 -- RE-KEYED from 339, stated; left = frame.left
+ *     + 6, inside the left body rail, since bead initech-tdnl.51 -- RE-KEYED
+ *     2026-10-16 from 101, stated: every content-local x is +5 globally);
+ *     TEXTDRAW (16,16) and (16,40) content-local -> global (122,198), (122,222);
  *   - COLOURS from the independent canon (spec/assets/color_canon.h
  *     flair_canon_rgb, ADR-0010 -- never the renderer's palette);
  *   - INK COUNTS from the LOCKED Chicago 12 strike's ART (spec/assets/
@@ -33,7 +35,7 @@
  *   "about"          the tenant ANSWERED Fixture > About: its two V1 runs plus
  *                    the About run "TenantFix 1.0, a disk app" (tenantfx.asm
  *                    paint_about: TEXTDRAW (16,64) black on white -> global
- *                    (117,246)), exact ink, and nothing else in the content;
+ *                    (122,246)), exact ink, and nothing else in the content;
  *   "bar-tenant2"    band 2 is EXACTLY the bar About installed AFTER the
  *                    window (SETMBAR mbar2 + DRAWMENUBAR): File Edit Fixture
  *                    Info.
@@ -373,17 +375,17 @@ int main(int argc, char **argv)
 
     if (strcmp(argv[1], "about") == 0) {
         /* initech-tdnl.31: the tenant heard Fixture > About and drew its
-         * answer -- the third run at content-local (16,64) -> (117,246). */
+         * answer -- the third run at content-local (16,64) -> (122,246). */
         printf(">>> ppm_flair_app_launch_check [about]: %s\n", argv[2]);
         expect(100, 160, CIDX_BLACK, "tenant frame top-left corner");
         expect(399, 160, CIDX_BLACK, "tenant frame top-right corner");
-        text_band("LINE1", "Loaded from disk", 117, 198);
-        text_band("LINE2", "Click here to quit", 117, 222);
-        text_band("ABOUT", "TenantFix 1.0, a disk app", 117, 246);
-        solid("GAP", 101, 214, 379, 222, CIDX_WHITE);
-        solid("GAP2", 101, 238, 379, 246, CIDX_WHITE);
-        solid("BELOW", 101, 262, 379, 319, CIDX_WHITE);
-        solid("LEFT", 101, 182, 117, 262, CIDX_WHITE);
+        text_band("LINE1", "Loaded from disk", 122, 198);
+        text_band("LINE2", "Click here to quit", 122, 222);
+        text_band("ABOUT", "TenantFix 1.0, a disk app", 122, 246);
+        solid("GAP", 106, 214, 379, 222, CIDX_WHITE);
+        solid("GAP2", 106, 238, 379, 246, CIDX_WHITE);
+        solid("BELOW", 106, 262, 379, 319, CIDX_WHITE);
+        solid("LEFT", 106, 182, 122, 262, CIDX_WHITE);
         printf(">>> ppm_flair_app_launch_check [about]: %s\n",
                g_fail ? "RED" : "green");
         return g_fail ? 1 : 0;
@@ -397,7 +399,10 @@ int main(int argc, char **argv)
     /* FILLRECT painted the content white -- including (300,300), which is
      * NOTES' gray content, and (200,320), which is bare teal desktop, when the
      * tenant window is NOT in front of them. */
-    expect(105, 186, CIDX_WHITE, "content just inside the top-left");
+    expect(110, 186, CIDX_WHITE, "content just inside the top-left");
+    /* tdnl.51: the left body rail is NOT erased by the content fill -- its
+     * inner black line at L+5 and the raised bar's #B3B3B3 at L+4 stand. */
+    expect(105, 186, CIDX_BLACK, "the left body rail's inner black line (L+5)");
     expect(300, 300, CIDX_WHITE, "content over NOTES (the tenant is FRONT)");
     /* RE-KEYED (tdnl.35, stated): (200,320) is now the tenant window's
      * HORIZONTAL SCROLL BAR (y [319,335)), which content paint no longer
@@ -410,13 +415,13 @@ int main(int argc, char **argv)
            "the DISABLED horizontal scroll bar's trough (not erased by content)");
     expect(200, 319, CIDX_BLACK, "the horizontal scroll bar's outer line");
     /* The two TEXTDRAW runs, exactly. */
-    text_band("LINE1", "Loaded from disk", 117, 198);
-    text_band("LINE2", "Click here to quit", 117, 222);
+    text_band("LINE1", "Loaded from disk", 122, 198);
+    text_band("LINE2", "Click here to quit", 122, 222);
     /* No stray ink anywhere else in the content: the gap between the lines and
      * everything below the second one. */
-    solid("GAP", 101, 214, 379, 222, CIDX_WHITE);
-    solid("BELOW", 101, 238, 379, 319, CIDX_WHITE);
-    solid("LEFT", 101, 182, 117, 214, CIDX_WHITE);
+    solid("GAP", 106, 214, 379, 222, CIDX_WHITE);
+    solid("BELOW", 106, 238, 379, 319, CIDX_WHITE);
+    solid("LEFT", 106, 182, 122, 214, CIDX_WHITE);
 
     if (g_fail) {
         printf(">>> ppm_flair_app_launch_check [show]: RED\n");

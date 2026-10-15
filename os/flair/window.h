@@ -202,8 +202,11 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
 /* CalcDocContentRect -- the single document-WDEF content derivation seam.
  * The title boundary is frame.top+22 exactly (TITLEBAR_H already includes both
  * frame rows); the right edge stops at the actual outer line of the 16px
- * vertical scrollbar, after the four-pixel body rail. Ref: sys8/window-
- * chrome.md Sec 2.1/Sec 4 and scrollbars.md Sec 1; beads initech-javs/l0mh. */
+ * vertical scrollbar, after the four-pixel body rail; the bottom stops at the
+ * horizontal bar's outer line; the left edge is just inside the left body
+ * rail's inner black line (L + 1 + 4 + 1 = L+6, bead initech-tdnl.51). Ref:
+ * sys8/window-chrome.md Sec 2.1/Sec 4 and scrollbars.md Sec 1; beads
+ * initech-javs/l0mh/tdnl.35/tdnl.51. */
 rgn_rect_t CalcDocContentRect(rgn_rect_t frame);
 
 /* NewDocumentWindow -- CalcDocContentRect + NewWindow(zoomDocProc). Production

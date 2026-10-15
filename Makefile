@@ -11743,6 +11743,14 @@ test-chrome-mutant: $(TEST_CHROME_MUT_TITLE) $(TEST_CHROME_MUT_FRAME) $(TEST_CHR
 TEST_CHROME_FID     := $(BUILD)/test_chrome_fidelity
 TEST_CHROME_FID_SRC := harness/proptest/test_chrome_fidelity.c
 CHROME_FID_GOLDEN_H := spec/chrome_fidelity_golden.h spec/chicago12_nfnt_golden.h
+# Capture legs (beads initech-tdnl.51 / .52): the gate decodes the two
+# INDEPENDENT Mac OS 8.1 captures at test time (libpng, the test-scrollbar-look
+# pattern) and composes the window with its OWNER's content fill through the
+# real Window Manager seam (os/flair/window.c CalcDocContentRect). A missing
+# capture is RED, never skipped.
+CHROME_FID_CAPTURE_DIR = $(SYSTEM7_DECOMP)/goldens/captures
+CHROME_FID_WINDOW_DEPS := os/flair/window.c os/flair/window.h
+CHROME_FID_LINK = os/flair/window.c -DCHROME_FID_CAPTURE_DIR='"$(CHROME_FID_CAPTURE_DIR)"' -lpng
 TEST_CHROME_FID_MUT     := $(BUILD)/test_chrome_fidelity_mutant_phase
 TEST_CHROME_FID_MUT_TTL := $(BUILD)/test_chrome_fidelity_mutant_notitle
 TEST_CHROME_FID_MUT_CTR := $(BUILD)/test_chrome_fidelity_mutant_centeroff
@@ -11767,43 +11775,45 @@ TEST_CHROME_FID_MUT_ZCT := $(BUILD)/test_chrome_fidelity_mutant_zoom_centered
 TEST_CHROME_FID_MUT_SFW := $(BUILD)/test_chrome_fidelity_mutant_sb_flat_well
 TEST_CHROME_FID_MUT_STF := $(BUILD)/test_chrome_fidelity_mutant_sb_tile_flat
 TEST_CHROME_FID_MUT_SSG := $(BUILD)/test_chrome_fidelity_mutant_sb_sep_gray
+TEST_CHROME_FID_MUT_CLT := $(BUILD)/test_chrome_fidelity_mutant_content_left_thin
+TEST_CHROME_FID_MUT_WCE := $(BUILD)/test_chrome_fidelity_mutant_widget_corners_edge
 
-$(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_PHASE $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_TTL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_TTL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_TITLE_BLANK $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_CTR): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_CTR): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CENTER_OFF $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_NO_SHADOW (beads initech-54nw, Rule 6): skip the drop shadow.
 # test-chrome-fidelity leg (7a)/(7b) MUST go RED.
-$(TEST_CHROME_FID_MUT_SHA): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SHA): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_SHADOW $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_BOX_GEOM (beads initech-ts3t, Rule 6): revert the close/zoom box
 # to the OLD flat 1px 13x13 frame at inset fr+3 (wrong size/offset, no bevel, zoom
 # == close). test-chrome-fidelity box legs (9)/(10)/(11)/(12) MUST go RED.
-$(TEST_CHROME_FID_MUT_BOX): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_BOX): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BOX_GEOM $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_SCROLL_FLAT (beads initech-jh7m, Rule 6): revert the scrollbar
 # to the OLD render -- BTNFACE track (wrong), all-black cframe edges (inner
 # separators black not gray), no arrow glyphs (empty boxes).
 # test-chrome-fidelity scrollbar legs (14)/(15)/(16) MUST go RED.
-$(TEST_CHROME_FID_MUT_SBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_SCROLL_FLAT $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # tdnl.35 scroll-state mutants (Rule 6): CHROME_MUT_SCROLL_ALWAYS_ENABLED draws
 # every active gutter ENABLED even with nothing to scroll (the pre-tdnl.35
@@ -11811,116 +11821,128 @@ $(TEST_CHROME_FID_MUT_SBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_G
 # a held arrow idle -> leg SCROLL-PRESSED RED.
 TEST_CHROME_FID_MUT_SAE := $(BUILD)/test_chrome_fidelity_mutant_scroll_always_enabled
 TEST_CHROME_FID_MUT_SPI := $(BUILD)/test_chrome_fidelity_mutant_scroll_pressed_idle
-$(TEST_CHROME_FID_MUT_SAE): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SAE): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUT_SCROLL_ALWAYS_ENABLED $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
-$(TEST_CHROME_FID_MUT_SPI): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
+$(TEST_CHROME_FID_MUT_SPI): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_MUT_SCROLL_PRESSED_IDLE $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_NO_BEVEL (beads initech-92li, Rule 6): skip the title-bar bevel
 # rows -- revert to the OLD all-stripe title band (17 stripe rows, no bevel-hi /
 # bevel-lo, contiguous L/D run != 15). test-chrome-fidelity's bevel + 15-row leg
 # (4b) MUST go RED.
-$(TEST_CHROME_FID_MUT_BVL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_BVL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_BEVEL $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_NO_INACTIVE (beads initech-a9iq, Rule 6): ignore the `hilited`
 # argument entirely -- always render the ACTIVE pinstripe/bevel title-bar
 # interior, reproducing the original bug (every window, including background
 # ones, shows the racing stripe). test-chrome-fidelity's inactive-title leg
 # (17)/(18) MUST go RED.
-$(TEST_CHROME_FID_MUT_INA): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_INA): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NO_INACTIVE $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_INACTIVE_BLACK_FRAME (beads initech-hv7u, Rule 6): the inactive
 # window's own top + shared title frame lines stay black instead of dimming to
 # FLAIR_PART_HILITE_FRAME (#777777). test-chrome-fidelity legs (19)/(20) MUST go RED.
-$(TEST_CHROME_FID_MUT_IBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_IBF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_INACTIVE_BLACK_FRAME $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE (beads initech-hv7u, Rule 6): the inactive
 # window's title ink stays active black instead of dimming to
 # FLAIR_PART_HILITE_TEXT (#A5A5A5). test-chrome-fidelity legs (21)/(22) MUST go RED.
-$(TEST_CHROME_FID_MUT_IBT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_IBT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_INACTIVE_BRIGHT_TITLE $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # CHROME_FID_MUT_KEEP_GADGETS (beads initech-hv7u, Rule 6): the close/zoom
 # gadgets draw even when the window is inactive (a9iq's residual
 # "de-emphasized (still-present)" bug). test-chrome-fidelity leg (23)/(24) MUST
 # go RED.
-$(TEST_CHROME_FID_MUT_IKG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_IKG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_KEEP_GADGETS $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # Platinum-only tells added by DEC-10 Sec 4: third widget, diagonal ramp,
 # two-pixel shadow notch, and the four-pixel raised body rail.
-$(TEST_CHROME_FID_MUT_COL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_COL): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_COLLAPSE $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_RMP): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_RMP): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_RAMP $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_NTC): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_NTC): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NOTCH $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_BDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_BDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_BODYBAR $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_SOF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SOF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_STRIPE_UNSHIFTED $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_NDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_NDB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_NOTCH_DOUBLE $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_DRB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_DRB): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_DARK_RING_BLACK $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_CBC): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_CBC): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CBOX_CORNER $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_ZCT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_ZCT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_ZOOM_CENTERED $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_SFW): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SFW): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_FLAT_WELL $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_STF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_STF): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_TILE_FLAT $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
-$(TEST_CHROME_FID_MUT_SSG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SSG): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_SEP_GRAY $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
+# CHROME_FID_MUT_CONTENT_LEFT_THIN (bead initech-tdnl.51, Rule 6): window.c
+# CalcDocContentRect starts the content at L+1 again, so the owner's fill
+# erases the left raised bar -- CAPTURE-BODY and CAPTURE-BODY-INACTIVE RED.
+$(TEST_CHROME_FID_MUT_CLT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_CONTENT_LEFT_THIN $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
+# CHROME_FID_MUT_WIDGET_CORNERS_EDGE (bead initech-tdnl.52, Rule 6): the
+# widget interior shadow strokes run the full 9 px again, painting the two
+# off-diagonal corners #A5A5A5 -- CAPTURE-WIDGETS RED (2/169 per widget).
+$(TEST_CHROME_FID_MUT_WCE): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHROME_FID_MUT_WIDGET_CORNERS_EDGE $(CHROME_INC) \
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 # Font mutant (bead initech-tdnl.33): 'T' (code 84) one px wider in the
 # artifact's Chicago 12 advance. The title run is graded with the NFNT 5478
 # golden advances, so the re-keyed TITLE/INACTIVE legs must go RED.
 TEST_CHROME_FID_MUT_FONT := $(BUILD)/test_chrome_fidelity_mutant_font_advance
-$(TEST_CHROME_FID_MUT_FONT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(FLAIR_FONT_HDRS) | $(BUILD)
+$(TEST_CHROME_FID_MUT_FONT): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) $(FLAIR_FONT_HDRS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCHICAGO_MUT_ONE_ADVANCE=84 $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 # FLAIR_MUT_SKIN_WRONG_ERA (beads initech-chd4, Rule 6): resolve the live
 # chrome policy pointer to the retained SYS7 row instead of the Platinum
 # default. The existing Platinum fidelity legs MUST go RED, proving that the
 # era row is load-bearing in the pixel path rather than an oracle-only view.
-$(TEST_CHROME_FID_MUT_SKIN): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) | $(BUILD)
+$(TEST_CHROME_FID_MUT_SKIN): $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_MUT_SKIN_WRONG_ERA $(CHROME_INC) \
-		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK)
+		-o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
 
 .PHONY: test-chrome-fidelity test-chrome-fidelity-mutant
 test-chrome-fidelity: $(TEST_CHROME_FID)
@@ -11937,8 +11959,14 @@ test-chrome-fidelity: $(TEST_CHROME_FID)
 	@$(TEST_CHROME_FID)
 	@printf '>>> test-chrome-fidelity: green\n'
 
-test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG) $(TEST_CHROME_FID_MUT_FONT) $(TEST_CHROME_FID_MUT_SAE) $(TEST_CHROME_FID_MUT_SPI)
-	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-six Platinum chrome mutants go RED (Rule 6)\n'
+test-chrome-fidelity-mutant: $(TEST_CHROME_FID_MUT) $(TEST_CHROME_FID_MUT_TTL) $(TEST_CHROME_FID_MUT_CTR) $(TEST_CHROME_FID_MUT_SHA) $(TEST_CHROME_FID_MUT_BOX) $(TEST_CHROME_FID_MUT_SBF) $(TEST_CHROME_FID_MUT_BVL) $(TEST_CHROME_FID_MUT_INA) $(TEST_CHROME_FID_MUT_IBF) $(TEST_CHROME_FID_MUT_IBT) $(TEST_CHROME_FID_MUT_IKG) $(TEST_CHROME_FID_MUT_COL) $(TEST_CHROME_FID_MUT_RMP) $(TEST_CHROME_FID_MUT_NTC) $(TEST_CHROME_FID_MUT_BDB) $(TEST_CHROME_FID_MUT_SKIN) $(TEST_CHROME_FID_MUT_SOF) $(TEST_CHROME_FID_MUT_NDB) $(TEST_CHROME_FID_MUT_DRB) $(TEST_CHROME_FID_MUT_CBC) $(TEST_CHROME_FID_MUT_ZCT) $(TEST_CHROME_FID_MUT_SFW) $(TEST_CHROME_FID_MUT_STF) $(TEST_CHROME_FID_MUT_SSG) $(TEST_CHROME_FID_MUT_FONT) $(TEST_CHROME_FID_MUT_SAE) $(TEST_CHROME_FID_MUT_SPI) $(TEST_CHROME_FID_MUT_CLT) $(TEST_CHROME_FID_MUT_WCE)
+	@if $(TEST_CHROME_FID_MUT_CLT) > $(BUILD)/test_chrome_fid_mut_clt.log 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_CONTENT_LEFT_THIN PASSED -- the CAPTURE-BODY legs are decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_chrome_fid_mut_clt.log | grep -q 'leg CAPTURE-BODY:' && grep 'FAIL' $(BUILD)/test_chrome_fid_mut_clt.log | grep -q 'leg CAPTURE-BODY-INACTIVE:' && ! grep 'FAIL' $(BUILD)/test_chrome_fid_mut_clt.log | grep -q 'CAPTURE-LOAD' || { cat $(BUILD)/test_chrome_fid_mut_clt.log; printf '!!! test-chrome-fidelity-mutant FAIL: CONTENT_LEFT_THIN red for the wrong reason (want CAPTURE-BODY + CAPTURE-BODY-INACTIVE, captures loaded)\n'; exit 1; }
+	@printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_CONTENT_LEFT_THIN correctly RED -- an owner fill over the left raised bar is caught against both captures)\n'
+	@if $(TEST_CHROME_FID_MUT_WCE) > $(BUILD)/test_chrome_fid_mut_wce.log 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_FID_MUT_WIDGET_CORNERS_EDGE PASSED -- the CAPTURE-WIDGETS leg is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_chrome_fid_mut_wce.log | grep -q 'leg CAPTURE-WIDGETS:' && ! grep 'FAIL' $(BUILD)/test_chrome_fid_mut_wce.log | grep -q 'CAPTURE-LOAD' || { cat $(BUILD)/test_chrome_fid_mut_wce.log; printf '!!! test-chrome-fidelity-mutant FAIL: WIDGET_CORNERS_EDGE red for the wrong reason\n'; exit 1; }
+	@printf '>>> test-chrome-fidelity-mutant: green (CHROME_FID_MUT_WIDGET_CORNERS_EDGE correctly RED -- the #A5A5A5 off-diagonal widget corners are caught against the capture)\n'
+	@printf '>>> test-chrome-fidelity-mutant: confirming all twenty-eight Platinum chrome mutants go RED (Rule 6)\n'
 	@if $(TEST_CHROME_FID_MUT_SAE) > $(BUILD)/test_chrome_fid_mut_sae.log 2>&1; then printf '!!! test-chrome-fidelity-mutant FAIL: CHROME_MUT_SCROLL_ALWAYS_ENABLED PASSED -- the SCROLL-DISABLED leg is decoration\n'; exit 1; fi
 	@grep -q 'SCROLL-DISABLED' $(BUILD)/test_chrome_fid_mut_sae.log && grep 'FAIL' $(BUILD)/test_chrome_fid_mut_sae.log | grep -q 'SCROLL-DISABLED' || { printf '!!! test-chrome-fidelity-mutant FAIL: SCROLL_ALWAYS_ENABLED red for the wrong reason\n'; exit 1; }
 	@printf '>>> test-chrome-fidelity-mutant: green (CHROME_MUT_SCROLL_ALWAYS_ENABLED correctly RED -- an active window with nothing to scroll must draw the DISABLED bar)\n'
@@ -19514,8 +19542,11 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		--quit-after "FINDER-CLOSE-WINDOW win=0" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_MENU_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the FINDER-MENU boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-WIN-DRAG win=0 name=README.TXT x=189 y=166' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
-		|| { printf '!!! test-flair-disk-windows FAIL: the setup drag did not move README.TXT off its grid cell to the derived (189,166)\n'; grep -E '^FINDER-|^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+	@# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): README.TXT's cell is
+	@# (44,86) since the content starts at L+6, so the (+150,+80) drag lands at
+	@# (194,166) (was 189); the trace's press point (55,102) is still on the sprite.
+	@grep -qxF 'FINDER-WIN-DRAG win=0 name=README.TXT x=194 y=166' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
+		|| { printf '!!! test-flair-disk-windows FAIL: the setup drag did not move README.TXT off its grid cell to the derived (194,166)\n'; grep -E '^FINDER-|^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
 	@grep -qxF 'FLAIR-MENU-DROP menu=515' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: clicking the Special title at the hand-derived band-2 column (190,30) dropped no menu -- menu id 515 expected (F4-1)\n'; grep -E '^FLAIR-MENU' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
 	@grep -qxF 'FLAIR-MENU menu=515 item=1 (sel=0x02030001)' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
@@ -19525,7 +19556,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@grep -qxF 'FINDER-CLEANUP win=0 moved=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: Clean Up dispatched but did not SNAP the dragged icon back (moved=1 expected -- exactly one icon was off-grid)\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
 	@grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" \
-		|| { printf '!!! test-flair-disk-windows FAIL: README.TXT was not at its restored cell (39,86) after Clean Up -- the click at its centre (55,102) selected nothing\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
+		|| { printf '!!! test-flair-disk-windows FAIL: README.TXT was not at its restored cell (44,86) after Clean Up -- the click at (55,102), on its sprite, selected nothing\n'; grep -E '^FINDER-' "$(BUILD)/$(FLAIR_DW_MENU_NAME).serial" || true; exit 1; }
 	@# RE-KEY (bead initech-tdnl.36; spec/flair_disk_windows_traces.mk trace 4):
 	@# Get Info is unimplemented, so Cmd-I WITH a selection must route nothing;
 	@# the positive MenuKey half is Cmd-W (Close Window, lit by the front disk
@@ -20739,7 +20770,9 @@ test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) allsel "$(BUILD)/$(FLAIR_FC_FAKES_NAME).ppm" || { printf '!!! test-flair-finder-cmds FAIL: after Select All the four labels are not all drawn selected\n'; exit 1; }
 	@printf '>>> test-flair-finder-cmds [1/2]: Get Info / Duplicate / Open(doc) / band-1 About select NOTHING; Ctrl-I/D/O inert; Select All selects 4 (leg allsel)\n'
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FC_ARRANGE_NAME),$(BUILD)/$(FLAIR_FC_ARRANGE_NAME)_data.img,$(FLAIR_CMDS_ARRANGE_SPEC),FLAIR-MENU menu=514,1)
-	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-WIN-DRAG win=0 name=README.TXT x=129 y=186,the set-up drag did not move README.TXT off its cell)
+	@# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): cell (44,86) since the
+	@# content starts at L+6, so the set-up drag lands at x=134 (was 129).
+	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-WIN-DRAG win=0 name=README.TXT x=134 y=186,the set-up drag did not move README.TXT off its cell)
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FLAIR-MENU menu=514 item=12 (sel=0x0202000C),the release did not select View > Arrange (by Name))
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-ARRANGE win=0 moved=2,Arrange (by Name) did not move the two out-of-order icons)
 	@[ -s "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" ] || { printf '!!! test-flair-finder-cmds FAIL: ARRANGE screendump missing\n'; exit 1; }
@@ -21818,6 +21851,9 @@ $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_DRAW_NOT_PRESENTED,tbx_draw
 
 # region "<L> <T> <R> <B>" of dump $(1) vs the content's own white at (440,300):
 # prints the not-white pixel count.
+# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): CTENANT's content starts
+# at frame.left + 6 = 186 (was 181), so its content-local x=8 runs sit at
+# global x 194..234 (was 189..229).
 CTEN_NE = $(PPM_REGION_COUNT_BIN) $(1) $(2) 440 300 | sed -n 's/^ne=\([0-9]*\) .*/\1/p'
 CTEN_SERIAL = grep -qx 'TENANT-REGISTER ok app=CTENANT' $(1) && grep -qx 'FLAIR-DISPATCH app=CTENANT' $(1) && grep -qx 'TENANT-GATE ax=0x0030 win=1 x=8 y=40 s="Key q" fg=1 bg=0 -> 0' $(1) && grep -qx 'TENANT-GATE ax=0x0033 win=1 x=8 y=64 s="Key q" fg=0 bg=3 -> 0' $(1) && grep -qx 'TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0' $(1)
 
@@ -21831,7 +21867,7 @@ test-flair-ctenant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_R
 	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/2] FAIL: the desktop did not survive\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_ctenant.serial; exit 1; }
 	@$(call CTEN_SERIAL,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/2] FAIL: CTENANT.EXE did not load, register, come forward and draw exactly its keyDown/mouseDown runs\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant.serial; exit 1; }
 	@printf '>>> test-flair-ctenant [1/2] C PATH: %s; the keyDown/mouseDown draws are the TENANT-GATE lines ctenant.c issues\n' "$$(grep -m1 '^TENANT-LOAD name=CTENANT' $(BUILD)/flair_ctenant.serial)"
-	@k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,189 232 229 248)); c=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,189 256 229 272)); m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,189 288 229 304)); \
+	@k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,194 232 234 248)); c=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,194 256 234 272)); m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,194 288 234 304)); \
 		[ -n "$$k" ] && [ "$$k" -ge 15 ] && [ "$$c" -ge 400 ] && [ "$$m" -ge 400 ] || { printf '!!! test-flair-ctenant [2/2] FAIL: PRESENT -- the key/click draws are not on the screen (ink: TEXTDRAW %s, cells %s, click %s; want >=15, >=400, >=400)\n' "$$k" "$$c" "$$m"; exit 1; }; \
 		printf '>>> test-flair-ctenant [2/2] PRESENT: on screen after the budget -- TEXTDRAW "Key q" %s ink px, DRAWCELLS "Key q" %s px, "Click" %s px\n' "$$k" "$$c" "$$m"
 	@printf '>>> test-flair-ctenant: green\n'
@@ -21839,7 +21875,7 @@ test-flair-ctenant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_R
 test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
 	$(call appl-boot,flair_ctenant_mut,$(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img,$(FLAIR_DATA_IMG),FLAIR_CTENANT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant_mut.serial) && $(call CTEN_SERIAL,$(BUILD)/flair_ctenant_mut.serial) || { printf '!!! test-flair-ctenant-mutant FAIL: DRAW_NOT_PRESENTED went RED for the wrong reason (want: the tenant ran and drew exactly as in the clean leg)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant_mut.serial; exit 1; }
-	@m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,189 288 229 304)); k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,189 256 229 272)); \
+	@m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,194 288 234 304)); k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,194 256 234 272)); \
 		if [ "$$m" -ge 400 ]; then printf '!!! test-flair-ctenant-mutant FAIL: DRAW_NOT_PRESENTED PASSED -- the "Click" cells reached the screen anyway (%s px): the PRESENT leg is decoration\n' "$$m"; exit 1; fi; \
 		printf '>>> test-flair-ctenant-mutant: DRAW_NOT_PRESENTED correctly RED -- drawn (TENANT-GATE lines present) but not presented: "Click" %s px, "Key q" cells %s px on screen\n' "$$m" "$$k"
 	@printf '>>> test-flair-ctenant-mutant: green\n'
@@ -21877,13 +21913,17 @@ FLAIR_I123_SMOKE_IMG := $(BUILD)/flair_tenants_mut_tbx_smoke_i123.img
 # Row 1 as MINT01's screen shows it: A "Hello    " B "     123 " C "     1.5 "
 # D "      -7 ", E..H blank (72), + the one spare cell of the 73-cell row run.
 I123_E :=
-I123_ROW1 := $(I123_E)Hello         123      1.5       -7                                      $(I123_E)
+I123_ROW1 := $(I123_E)Hello         123      1.5       -7                                     $(I123_E)
 I123_TYPE_SERIAL = grep -qx 'TENANT-REGISTER ok app=123' $(1) && grep -qx 'FLAIR-DISPATCH app=123' $(1) && \
 	grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_ROW1)" fg=1 bg=0 -> 0' && \
 	grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 ' $(1) | tail -1 | grep -q '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: -7 *" fg=1 bg=0 -> 0$$' && \
-	grep '^TENANT-GATE ax=0x0033 win=1 x=577 y=0 ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="READY" fg=0 bg=3 -> 0' && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=569 y=0 ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=569 y=0 s="READY" fg=0 bg=3 -> 0' && \
 	grep '^TENANT-GATE ax=0x0033 win=1 x=249 y=64 ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=249 y=64 s="      -7 " fg=0 bg=3 -> 0'
 # region "<L> <T> <R> <B>" of dump $(1) vs reference pixel $(3): "ne eq"
+# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): every Face A region is
+# global x = 6 (content left, inside the body rail; was 1) + X0 1 + 8*col, so
+# +5 from its tdnl.35 value; the face is 76 cells (was 77), so the right-
+# anchored MODE / CIRC cells sit one cell left (net -3). WORD likewise.
 I123_PX = $(PPM_REGION_COUNT_BIN) $(1) $(2) $(3) | sed -n 's/^ne=\([0-9]*\) eq=\([0-9]*\) .*/\1 \2/p'
 
 .PHONY: test-flair-i123 test-flair-i123-mutant test-flair-i123-bochs
@@ -21897,14 +21937,14 @@ test-flair-i123: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_REGI
 	@$(call I123_TYPE_SERIAL,$(BUILD)/flair_i123_type.serial) || { printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- 123 did not come up, or row 1 / line 1 / the mode / the pointer are not what the typed MINT01 row must give\n'; grep -E '^(TENANT-(LOAD|REGISTER|CRASH|EXIT)|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_i123_type.serial; grep -E '^TENANT-GATE ax=0x0033 win=1 x=(1|33|249|577) y=(0|64) ' $(BUILD)/flair_i123_type.serial | tail -4; exit 1; }
 	@printf '>>> test-flair-i123 [1/3] TYPE: %s; row 1 drawn exactly as the real 1-2-3 showed MINT01 ("Hello 123 1.5 -7"), line 1 "D1: -7", READY, pointer on D1\n' "$$(grep -m1 '^TENANT-LOAD name=123' $(BUILD)/flair_i123_type.serial)"
 	@f=$(BUILD)/flair_i123_type.ppm; \
-		set -- $$($(call I123_PX,$$f,2 110 618 126,4 112)); bne=$$1; beq=$$2; \
-		set -- $$($(call I123_PX,$$f,578 62 618 78,4 112)); mne=$$1; meq=$$2; \
-		set -- $$($(call I123_PX,$$f,250 126 322 142,4 112)); pne=$$1; peq=$$2; \
-		set -- $$($(call I123_PX,$$f,34 126 106 142,300 452)); ane=$$1; \
-		set -- $$($(call I123_PX,$$f,250 142 322 158,4 112)); qeq=$$2; \
+		set -- $$($(call I123_PX,$$f,7 110 615 126,4 112)); bne=$$1; beq=$$2; \
+		set -- $$($(call I123_PX,$$f,575 62 615 78,4 112)); mne=$$1; meq=$$2; \
+		set -- $$($(call I123_PX,$$f,255 126 327 142,4 112)); pne=$$1; peq=$$2; \
+		set -- $$($(call I123_PX,$$f,39 126 111 142,300 452)); ane=$$1; \
+		set -- $$($(call I123_PX,$$f,255 142 327 158,4 112)); qeq=$$2; \
 		[ -n "$$beq" ] && [ "$$beq" -ge 7800 ] && [ "$$meq" -ge 380 ] && [ "$$peq" -ge 900 ] && [ "$$ane" -ge 40 ] && [ "$$qeq" -le 0 ] || { \
-			printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- the screen is not the Face A layout (border reverse %s/9856 px, mode %s/640, pointer on D1 %s/1152, A1 ink %s px, pointer below D1 %s px)\n' "$$beq" "$$meq" "$$peq" "$$ane" "$$qeq"; exit 1; }; \
-		printf '>>> test-flair-i123 [1/3] SCREEN: column border reverse %s/9856 px, mode indicator %s/640, pointer filled on D1 %s/1152, ink in A1 %s px, nothing reversed on D2\n' "$$beq" "$$meq" "$$peq" "$$ane"
+			printf '!!! test-flair-i123 [1/3] FAIL: TYPE -- the screen is not the Face A layout (border reverse %s/9728 px, mode %s/640, pointer on D1 %s/1152, A1 ink %s px, pointer below D1 %s px)\n' "$$beq" "$$meq" "$$peq" "$$ane" "$$qeq"; exit 1; }; \
+		printf '>>> test-flair-i123 [1/3] SCREEN: column border reverse %s/9728 px, mode indicator %s/640, pointer filled on D1 %s/1152, ink in A1 %s px, nothing reversed on D2\n' "$$beq" "$$meq" "$$peq" "$$ane"
 	$(call appl-boot,flair_i123_pre,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_PRE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_pre.serial) && ! grep -q '^TENANT-' $(BUILD)/flair_i123_pre.serial || { printf '!!! test-flair-i123 [3/3] FAIL: the never-launched baseline did not come up clean\n'; exit 1; }
 	$(call appl-boot,flair_i123_quit,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_QUIT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
@@ -21918,7 +21958,7 @@ test-flair-i123-mutant: test-flair-i123 $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLA
 	$(call appl-boot,flair_i123_mut,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_I123_ARROWS_IMG),FLAIR_I123_TYPE_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_mut.serial) && grep -qx 'TENANT-REGISTER ok app=123' $(BUILD)/flair_i123_mut.serial || { printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD went RED for the wrong reason (want: 123 up and typed into, desktop alive)\n'; exit 1; }
 	@if $(call I123_TYPE_SERIAL,$(BUILD)/flair_i123_mut.serial); then printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD PASSED -- the TYPE leg is decoration\n'; exit 1; fi
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_mut.ppm,250 126 322 142,4 112)); \
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_mut.ppm,255 126 327 142,4 112)); \
 		if [ "$$2" -ge 900 ]; then printf '!!! test-flair-i123-mutant FAIL: ARROWS_DEAD still shows the pointer on D1\n'; exit 1; fi; \
 		printf '>>> test-flair-i123-mutant: ARROWS_DEAD correctly RED -- row 1 is not the MINT01 row (last row-1 draw: %s) and the pointer is not on D1 (%s px)\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=64 .* fg=1 bg=0 -> 0$$' $(BUILD)/flair_i123_mut.serial | tail -1 | cut -c38-80)" "$$2"
 	@printf '>>> test-flair-i123-mutant: green\n'
@@ -21927,7 +21967,7 @@ test-flair-i123-mutant: test-flair-i123 $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLA
 # 640x480): every TENANT-* line -- the load with its BSS, the whole Face A
 # paint, the x87 entry/display of 123 / 1.5 / -7 / 1.23456789012345, Ctrl-Q --
 # byte-identical, and row 1 as the C core renders it.
-I123_SMOKE_ROW1 := $(I123_E)     123      1.5       -7 1.234567                                      $(I123_E)
+I123_SMOKE_ROW1 := $(I123_E)     123      1.5       -7 1.234567                                     $(I123_E)
 ifeq ($(SKIP_BOCHS),1)
 test-flair-i123-bochs:
 	@printf '!!! test-flair-i123-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass.\n'
@@ -22417,7 +22457,7 @@ RECORD_SETTLE_i123_menu = 400
 RECORD_IMAGE_i123_menu = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SCRIPTS += i123_formula
 RECORD_SPEC_i123_formula = $(FLAIR_I123_FORMULA_SPEC)
-RECORD_MARKER_i123_formula = TENANT-GATE ax=0x0033 win=1 x=585 y=368 s="CIRC" fg=0 bg=3 -> 0
+RECORD_MARKER_i123_formula = TENANT-GATE ax=0x0033 win=1 x=577 y=368 s="CIRC" fg=0 bg=3 -> 0
 RECORD_SETTLE_i123_formula = 400
 RECORD_IMAGE_i123_formula = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SCRIPTS += i123_quit_guard
@@ -29152,11 +29192,11 @@ test-flair-i123-files: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_F
 	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-saved.WK1 > $(BUILD)/i123-saved.ref
 	@$(call I123_DISK_CELLS,$(BUILD)/i123-saved.ref) || { printf '!!! test-flair-i123-files FAIL: independent WK1 cells\n'; cat $(BUILD)/i123-saved.ref; exit 1; }
 	@$(call I123_FILE_ROWS,$(BUILD)/flair_i123_files.serial) || { printf '!!! test-flair-i123-files FAIL: retrieved cells\n'; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_files.ppm,34 126 106 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-files FAIL: cells not presented\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_files.ppm,39 126 111 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-files FAIL: cells not presented\n'; exit 1; }
 	fsck.fat -n $(BUILD)/flair_i123_files_data.img
 	$(call appl-boot,flair_i123_corpus,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_FILE_DATA),FLAIR_I123_CORPUS,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_i123_corpus.serial) && $(call I123_FILE_ROWS,$(BUILD)/flair_i123_corpus.serial) && grep '^TENANT-GATE ax=0x0033 win=1 x=33 y=80 .* fg=1 bg=0 -> 0$$' $(BUILD)/flair_i123_corpus.serial | tail -1 | grep -q 's="     246    117\.5 39\.16666 big *"' || { printf '!!! test-flair-i123-files FAIL: real MINT01 rows vs screenshot\n'; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_corpus.ppm,250 142 322 158,4 112)); [ "$$2" -ge 900 ] || { printf '!!! test-flair-i123-files FAIL: corpus pointer/cells not presented\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_corpus.ppm,255 142 327 158,4 112)); [ "$$2" -ge 900 ] || { printf '!!! test-flair-i123-files FAIL: corpus pointer/cells not presented\n'; exit 1; }
 	@mcopy -o -i $(BUILD)/flair_i123_corpus_data.img ::MINT01.WK1 $(BUILD)/i123-corpus-after.WK1
 	@cmp $(BUILD)/i123-corpus-original.WK1 $(BUILD)/i123-corpus-after.WK1
 	@printf '>>> test-flair-i123-files: green (Save/Quit/Retrieve + wk1_ref.py + real MINT01 screenshot rows/pixels)\n'
@@ -29286,7 +29326,7 @@ test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I1
 	$(call appl-boot,flair_i123_qg_cancel,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_CANCEL,--screendump --screendump-after FLAIR-LIVE-OK)
 	@f=$(BUILD)/flair_i123_qg_cancel.serial; $(call APPL_ALIVE,$$f) && [ "$$(grep -c '^TENANT-ALERT up lines=3 buttons=3$$' $$f)" = 2 ] && $(call QG_CANCELLED,$$f) || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- Escape must keep 123 and its row, and the sheet must stay dirty (asked twice)\n'; grep -E '^(TENANT-(ALERT|EXIT|EVT what=144)|PANIC)' $$f; exit 1; }
 	@$(PPM_FLAIR_TRASH_CHECK_BIN) tenant3-gone $(BUILD)/flair_i123_qg_cancel.ppm > $(BUILD)/flair_i123_qg_cancel.pixels || { cat $(BUILD)/flair_i123_qg_cancel.pixels; printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- the alert footprint was not repainted\n'; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_cancel.ppm,34 126 106 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- row 1 is not on screen after Cancel\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_cancel.ppm,39 126 111 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [2/9] FAIL: CANCEL -- row 1 is not on screen after Cancel\n'; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [2/9] CANCEL: Escape twice -> two Cancel answers, no exit, row 1 drawn from the model, the alert footprint repainted\n'
 	$(call appl-boot,flair_i123_qg_dontsave,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_DONTSAVE,)
 	@f=$(BUILD)/flair_i123_qg_dontsave.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=3' $$f && grep -qx 'TENANT-EXIT rc=0 via=exit' $$f || { printf '!!! test-flair-i123-quitguard [3/9] FAIL: DONTSAVE -- the Don'"'"'t Save button must end 123\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
@@ -29302,7 +29342,7 @@ test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I1
 	@mcopy -o -i $(BUILD)/flair_i123_qg_save_data.img ::Q.WK1 $(BUILD)/i123-qg-saved.WK1 || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- no Q.WK1 on the volume (mtools)\n'; exit 1; }
 	@python3 $(LOTUS123_DECOMP)/tools/wk1_ref.py $(BUILD)/i123-qg-saved.WK1 > $(BUILD)/i123-qg-saved.ref
 	@$(call I123_DISK_CELLS,$(BUILD)/i123-qg-saved.ref) || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- Q.WK1 does not hold the row per wk1_ref.py\n'; cat $(BUILD)/i123-qg-saved.ref; exit 1; }
-	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_save.ppm,34 126 106 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- the retrieved row is not on screen\n'; exit 1; }
+	@set -- $$($(call I123_PX,$(BUILD)/flair_i123_qg_save.ppm,39 126 111 142,4 112)); [ "$$1" -ge 40 ] || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- the retrieved row is not on screen\n'; exit 1; }
 	@fsck.fat -n $(BUILD)/flair_i123_qg_save_data.img > /dev/null || { printf '!!! test-flair-i123-quitguard [5/9] FAIL: SAVE -- fsck.fat\n'; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [5/9] SAVE: Return (Save), q -> Q.WK1 (wk1_ref.py: Hello 123 1.5 -7), EXIT(0); relaunch + /FR q shows the row; fsck clean\n'
 	$(call appl-boot,flair_i123_qg_savefail,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SAVEFAIL,)
@@ -29316,7 +29356,7 @@ test-flair-i123-quitguard: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I1
 	@f=$(BUILD)/flair_i123_qg_closeclean.serial; $(call APPL_ALIVE,$$f) && grep -q '^FLAIR-CLOSE-ASK win ' $$f && grep -qx 'TENANT-EXIT rc=0 via=exit' $$f && ! grep -q '^TENANT-ALERT' $$f || { printf '!!! test-flair-i123-quitguard [8/9] FAIL: CLOSECLEAN -- a clean close box must end 123 at once\n'; grep -E '^(FLAIR-CLOSE|TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [8/9] CLOSECLEAN: the close box over a clean sheet -> EXIT(0), no question\n'
 	$(call appl-boot,flair_i123_qg_slash,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_SLASH,)
-	@f=$(BUILD)/flair_i123_qg_slash.serial; $(call APPL_ALIVE,$$f) && grep -qF 's="No  Yes' $$f && grep -qF 's="Do not end 1-2-3 session; return to READY mode' $$f && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=2' $$f && $(call QG_NO_EXIT,$$f) && grep '^TENANT-GATE ax=0x0033 win=1 x=577 y=0 ' $$f | tail -1 | grep -q 's="READY"' || { printf '!!! test-flair-i123-quitguard [9/9] FAIL: SLASH -- /Quit must offer No / Yes and Yes must ask\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
+	@f=$(BUILD)/flair_i123_qg_slash.serial; $(call APPL_ALIVE,$$f) && grep -qF 's="No  Yes' $$f && grep -qF 's="Do not end 1-2-3 session; return to READY mode' $$f && $(call QG_ASKED,$$f) && grep -qx 'TENANT-ALERT-HIT item=2' $$f && $(call QG_NO_EXIT,$$f) && grep '^TENANT-GATE ax=0x0033 win=1 x=569 y=0 ' $$f | tail -1 | grep -q 's="READY"' || { printf '!!! test-flair-i123-quitguard [9/9] FAIL: SLASH -- /Quit must offer No / Yes and Yes must ask\n'; grep -E '^(TENANT-(ALERT|EXIT)|PANIC)' $$f; exit 1; }
 	@printf '>>> test-flair-i123-quitguard [9/9] SLASH: /Quit shows "No  Yes" (123.RI 0x300/0x332), Yes asks, Escape -> READY\n'
 	@printf '>>> test-flair-i123-quitguard: green\n'
 
@@ -29364,14 +29404,14 @@ test-flair-i123-quitguard-mutant: test-flair-i123-quitguard $(HARNESS_BIN) $(FLA
 FLAIR_DATA_I123_NORECALC_IMG := $(BUILD)/flair_data_i123_norecalc.img
 $(eval $(call tenant-exe-rules,i123_no_recalc,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NO_RECALC,$(I123_APP_DEP)))
 $(eval $(call flair-data-rules,$(FLAIR_DATA_I123_NORECALC_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_no_recalc.exe,$(IWORD_EXE)))
-I123_FROW_A := $(I123_E)     123      1.5    124.5     -249                                      $(I123_E)
-I123_FROW_B := $(I123_E)     200      1.5    201.5     -403                                      $(I123_E)
+I123_FROW_A := $(I123_E)     123      1.5    124.5     -249                                     $(I123_E)
+I123_FROW_B := $(I123_E)     200      1.5    201.5     -403                                     $(I123_E)
 I123_FORMULA_ROWS = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_A)" fg=1 bg=0 -> 0' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_B)" fg=1 bg=0 -> 0' $(1)
 I123_FORMULA_TEXT = grep -q '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="D1: -C1\*2 *" fg=1 bg=0 -> 0$$' $(1) && \
 	grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 ' $(1) | tail -1 | grep -q '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="B1: @SUM(A1\.\.C1) *" fg=1 bg=0 -> 0$$'
-I123_FORMULA_CIRC = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=585 y=368 s="CIRC" fg=0 bg=3 -> 0' $(1) && \
-	awk -v r='TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_B)" fg=1 bg=0 -> 0' 'index($$0,"x=585 y=368 s=\"CIRC\"")&&!seen{bad=1} $$0==r{seen=1} END{exit bad||!seen}' $(1)
+I123_FORMULA_CIRC = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=577 y=368 s="CIRC" fg=0 bg=3 -> 0' $(1) && \
+	awk -v r='TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_B)" fg=1 bg=0 -> 0' 'index($$0,"x=577 y=368 s=\"CIRC\"")&&!seen{bad=1} $$0==r{seen=1} END{exit bad||!seen}' $(1)
 
 .PHONY: test-flair-i123-formula test-flair-i123-formula-mutant
 test-flair-i123-formula: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
@@ -29386,8 +29426,8 @@ test-flair-i123-formula: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_DATA
 	@printf '>>> test-flair-i123-formula [2/3] TEXT: line 1 "D1: -C1*2", finally "B1: @SUM(A1..C1)" (the decompiled, uppercased formula)\n'
 	@$(call I123_FORMULA_CIRC,$(BUILD)/flair_i123_formula.serial) || { printf '!!! test-flair-i123-formula FAIL [3/3] CIRC: the indicator is missing, or lit before the circular entry\n'; grep 'y=368 ' $(BUILD)/flair_i123_formula.serial | tail -3; exit 1; }
 	@f=$(BUILD)/flair_i123_formula.ppm; \
-		set -- $$($(call I123_PX,$$f,178 126 250 142,300 452)); cne=$$1; \
-		set -- $$($(call I123_PX,$$f,586 430 618 446,4 112)); ieq=$$2; \
+		set -- $$($(call I123_PX,$$f,183 126 255 142,300 452)); cne=$$1; \
+		set -- $$($(call I123_PX,$$f,583 430 615 446,4 112)); ieq=$$2; \
 		if [ "$$cne" -lt 20 ] || [ "$$ieq" -lt 200 ]; then printf '!!! test-flair-i123-formula FAIL [3/3] SCREEN: ink in C1 %s px (want >= 20), CIRC highlight %s/512 px (want >= 200)\n' "$$cne" "$$ieq"; exit 1; fi; \
 		printf '>>> test-flair-i123-formula [3/3] CIRC: drawn highlighted at the status line end only after B1 @SUM(A1..C1); screen: ink in C1 %s px, CIRC highlight %s/512 px\n' "$$cne" "$$ieq"
 	@printf '>>> test-flair-i123-formula: green\n'
@@ -29438,11 +29478,11 @@ FLAIR_DATA_IWORD_NOWRAP_IMG := $(BUILD)/flair_data_iword_nowrap.img
 FLAIR_DATA_IWORD_NOSAVE_IMG := $(BUILD)/flair_data_iword_nosave.img
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOWRAP_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_wrap.exe))
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOSAVE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_save_nothing.exe))
-IWORD_ROW0   := $(I123_E)Initech word processing is here. The quick brown fox jumps over              $(I123_E)
-IWORD_ROW1   := $(I123_E)the lazy dog.                                                                $(I123_E)
-IWORD_BLANK  := $(I123_E)                                                                             $(I123_E)
-IWORD_ST_SAV := $(I123_E)A:\MEMO                                          Doc 1 Pg 1 Ln 1.17" Pos 2.3"$(I123_E)
-IWORD_ST_END := $(I123_E)A:\MEMO                                             Doc 1 Pg 1 Ln 1" Pos 1"  $(I123_E)
+IWORD_ROW0   := $(I123_E)Initech word processing is here. The quick brown fox jumps over             $(I123_E)
+IWORD_ROW1   := $(I123_E)the lazy dog.                                                               $(I123_E)
+IWORD_BLANK  := $(I123_E)                                                                            $(I123_E)
+IWORD_ST_SAV := $(I123_E)A:\MEMO                                         Doc 1 Pg 1 Ln 1.17" Pos 2.3"$(I123_E)
+IWORD_ST_END := $(I123_E)A:\MEMO                                            Doc 1 Pg 1 Ln 1" Pos 1"  $(I123_E)
 # the last draw of line L (y = 16L, fg WHITE bg NAVY) in serial $(1) is $(2)
 IWORD_LAST = grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=$(2) .* fg=0 bg=3 -> 0$$' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=1 y=$(2) s="$(3)" fg=0 bg=3 -> 0'
 IWORD_DREW = grep -qF 'TENANT-GATE ax=0x0033 win=1 x=1 y=$(2) s="$(3)' $(1)
@@ -29476,11 +29516,11 @@ test-flair-iword: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM
 	@printf '>>> test-flair-iword [3/4] DISK: MEMO (%s bytes) == MINT02.WP5 prefix + paragraph with the SRt; wp5_ref.py: %s\n' "$$(wc -c < $(BUILD)/iword-memo.WP5)" "$$(grep -F 'END offset' $(BUILD)/iword-memo.WP5.ref | sed 's/^ *//')"
 	@$(call IWORD_BACK,$(BUILD)/flair_iword.serial) || { printf '!!! test-flair-iword FAIL [4/4] BACK: after Shift-F10 the paragraph / the status line are not the last draws\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=\(0\|16\|368\) ' $(BUILD)/flair_iword.serial | tail -6; exit 1; }
 	@f=$(BUILD)/flair_iword.ppm; \
-		set -- $$($(call IWORD_PX,$$f,10 62 506 78)); l1=$$1; \
-		set -- $$($(call IWORD_PX,$$f,506 62 522 78)); gap=$$1; \
-		set -- $$($(call IWORD_PX,$$f,2 78 106 94)); l2=$$1; \
-		set -- $$($(call IWORD_PX,$$f,2 62 10 78)); cur=$$1; \
-		set -- $$($(call IWORD_PX,$$f,2 94 618 430)); rest=$$1; \
+		set -- $$($(call IWORD_PX,$$f,15 62 511 78)); l1=$$1; \
+		set -- $$($(call IWORD_PX,$$f,511 62 527 78)); gap=$$1; \
+		set -- $$($(call IWORD_PX,$$f,7 78 111 94)); l2=$$1; \
+		set -- $$($(call IWORD_PX,$$f,7 62 15 78)); cur=$$1; \
+		set -- $$($(call IWORD_PX,$$f,7 94 615 430)); rest=$$1; \
 		if [ "$$l1" -lt 500 ] || [ "$$gap" -ne 0 ] || [ "$$l2" -lt 100 ] || [ "$$cur" -lt 48 ] || [ "$$rest" -ne 0 ]; then \
 			printf '!!! test-flair-iword FAIL [4/4] SCREEN: line 1 ink %s px (>= 500), columns 63-64 ink %s px (== 0), line 2 ink %s px (>= 100), cursor cell %s px (>= 48), lines 3-23 ink %s px (== 0)\n' "$$l1" "$$gap" "$$l2" "$$cur" "$$rest"; exit 1; fi; \
 		printf '>>> test-flair-iword [4/4] BACK: Shift-F10 brought the paragraph back (last draws); screen: line 1 ink %s px, columns 63-64 empty, line 2 ink %s px, cursor cell %s px, lines 3-23 empty\n' "$$l1" "$$l2" "$$cur"
@@ -29492,7 +29532,7 @@ test-flair-iword-mutant: test-flair-iword $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG)
 	@if $(call IWORD_TYPED,$(BUILD)/flair_iword_nowrap.serial); then printf '!!! test-flair-iword-mutant FAIL: NO_WRAP PASSED the TYPED leg -- it is decoration\n'; exit 1; fi
 	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(BUILD)/iword-memo-nowrap.WP5 > $(BUILD)/iword-memo-nowrap.ref
 	@if grep -qF '[SRt]' $(BUILD)/iword-memo-nowrap.ref; then printf '!!! test-flair-iword-mutant FAIL: NO_WRAP still saved a soft return\n'; exit 1; fi
-	@set -- $$($(call IWORD_PX,$(BUILD)/flair_iword_nowrap.ppm,506 62 522 78)); [ "$$1" -gt 0 ] || { printf '!!! test-flair-iword-mutant FAIL: NO_WRAP left columns 63-64 of line 1 empty\n'; exit 1; }
+	@set -- $$($(call IWORD_PX,$(BUILD)/flair_iword_nowrap.ppm,511 62 527 78)); [ "$$1" -gt 0 ] || { printf '!!! test-flair-iword-mutant FAIL: NO_WRAP left columns 63-64 of line 1 empty\n'; exit 1; }
 	@printf '>>> test-flair-iword-mutant: NO_WRAP correctly RED -- line 1 drawn "%s", MEMO has no [SRt] (wp5_ref.py), ink in columns 63-64\n' "$$(grep '^TENANT-GATE ax=0x0033 win=1 x=1 y=0 .* fg=0 bg=3 -> 0$$' $(BUILD)/flair_iword_nowrap.serial | tail -1 | cut -c40-110)"
 	$(call appl-boot,flair_iword_nosave,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IWORD_NOSAVE_IMG),FLAIR_IWORD_SPEC,)
 	@$(call APPL_ALIVE,$(BUILD)/flair_iword_nosave.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_nosave.serial) && $(call IWORD_DREW,$(BUILD)/flair_iword_nosave.serial,0,$(IWORD_ROW0)) || { printf '!!! test-flair-iword-mutant FAIL: SAVE_NOTHING went RED for the wrong reason (want: WORD up, the paragraph typed and wrapped)\n'; exit 1; }
@@ -29576,13 +29616,13 @@ $(FLAIR_IWORD_ULLOW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_
 	@dd if=$(BUILD)/kernel_flairtenants_mut_iword_ullow.bin of=$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-tenants MUTANT image (iword gate pump life + -DTBXGATE_MUT_CELL_UL_LOW): %s\n" "$@"
 
-IWORD_C_ROW    := $(I123_E)bold under slant                                                             $(I123_E)
-IWORD_C_ST     := $(I123_E)A:\CODES                                         Doc 1 Pg 1 Ln 1.17" Pos 2.6"$(I123_E)
-IWORD_C_P0     := $(I123_E)bold under slant[HRt]                                                        $(I123_E)
-IWORD_C_P1     := $(I123_E)[BOLD]bold[bold] [UND]under[und] [ITALC]slant[italc]                         $(I123_E)
-IWORD_C_MSG    := $(I123_E)Press Reveal Codes to restore screen                                         $(I123_E)
-IWORD_C_FONT   := $(I123_E)1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0                $(I123_E)
-IWORD_C_APPEAR := $(I123_E)1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0$(I123_E)
+IWORD_C_ROW    := $(I123_E)bold under slant                                                            $(I123_E)
+IWORD_C_ST     := $(I123_E)A:\CODES                                        Doc 1 Pg 1 Ln 1.17" Pos 2.6"$(I123_E)
+IWORD_C_P0     := $(I123_E)bold under slant[HRt]                                                       $(I123_E)
+IWORD_C_P1     := $(I123_E)[BOLD]bold[bold] [UND]under[und] [ITALC]slant[italc]                        $(I123_E)
+IWORD_C_MSG    := $(I123_E)Press Reveal Codes to restore screen                                        $(I123_E)
+IWORD_C_FONT   := $(I123_E)1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0               $(I123_E)
+IWORD_C_APPEAR := $(I123_E)1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: $(I123_E)
 # the styled draws of line 2 (y 16): col 0 "bold" bold, col 5 "under" underline, col 11 "slant" italic
 IWORD_STYLED = grep -qx 'TENANT-GATE ax=0x0033 win=1 x=1 y=16 s="bold" fg=256 bg=3 -> 0' $(1) && \
 	grep -qx 'TENANT-GATE ax=0x0033 win=1 x=41 y=16 s="under" fg=1024 bg=3 -> 0' $(1) && \
@@ -29597,7 +29637,9 @@ IWORD_C_REVEAL = $(call IWORD_LAST,$(1),0,$(IWORD_C_ROW)) && $(call IWORD_LAST,$
 	$(call IWORD_LAST,$(1),368,$(IWORD_C_MSG))
 IWORD_CODES_EXPECT := $(BUILD)/iword_codes.expect
 IWORD_MINT06 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT06.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT06)
-IWORD_CODES_CHECK = $(PPM_IWORD_CODES_BIN) $(1) 2 62 78 600 300 0:4:1 5:10:4 11:16:2
+# X0 = 7: content left 6 (inside the body rail, bead initech-tdnl.51; was 1)
+# + the face's 1-px margin (RE-KEYED 2026-10-16 from 2, stated).
+IWORD_CODES_CHECK = $(PPM_IWORD_CODES_BIN) $(1) 7 62 78 600 300 0:4:1 5:10:4 11:16:2
 
 .PHONY: test-flair-iword-codes test-flair-iword-codes-mutant
 test-flair-iword-codes: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_IWORD_CODES_BIN)
@@ -29794,7 +29836,7 @@ test-flair-scroll-look: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(S
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_shrink,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
 	@$(SCROLL_LOOK_CHECK) shrink $(BUILD)/scroll_look_shrink.ppm
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_click,$(FLAIR_SCROLL_LOOK_CLICK_SPEC))
-	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=30' $(BUILD)/scroll_look_click.serial
+	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=35' $(BUILD)/scroll_look_click.serial
 	@$(SCROLL_LOOK_CHECK) click $(BUILD)/scroll_look_click.ppm
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_restore,$(FLAIR_SCROLL_LOOK_RESTORE_SPEC))
 	@grep -qx 'FLAIR-GROW win 0 (128,120)->(360,220)' $(BUILD)/scroll_look_restore.serial
@@ -29918,13 +29960,13 @@ include spec/flair_i123_menu_traces.mk
 # no kernel source changes; extra ticks accommodate the longer trace.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1000,i123_menu_gate))
 FLAIR_I123_MENU_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_menu_gate.img
-I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80  $(I123_E)
+I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=123' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_MENU_ROW)" fg=1 bg=0 -> 0' $(1) && \
 	grep -qF 's="Enter range to copy FROM:' $(1) && grep -qF 's="Enter range to move FROM:' $(1) && \
 	grep -qF 's="Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Searc' $(1) && \
 	grep -qF 's="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset' $(1) && \
-	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=585 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
+	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
 $(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
 # Inherited BASE_COMMIT omitted the fourth argument: test-makefile-vars
 # failed on undefined4 (three sites); keep the standard WORD tenant.

@@ -50,7 +50,8 @@ int main(int argc,char **argv)
     }
     fclose(f);
     if(!strcmp(argv[1],"shrink") || !strcmp(argv[1],"click")) {
-        bad+=crop(1,!strcmp(argv[1],"click")?70:41,160);
+        /* value16 of max35 (tdnl.51: view 101, was max30 -> x70) */
+        bad+=crop(1,!strcmp(argv[1],"click")?66:41,160);
         bad+=crop(4,26,160)+crop(5,113,160);
         bad+=disabled(0,81,160,128);
         bad+=px(147,100)!=0 || px(80,60)!=0;

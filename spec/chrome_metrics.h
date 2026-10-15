@@ -107,7 +107,18 @@
 
 /* One-pixel outer/inner black lines enclose a four-pixel raised body bar.
  * The content inset is one pixel on each side.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 4. */
+ * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 4.
+ *
+ * NOTE 2026-10-16 (beads initech-tdnl.51/.52, Rule 8; NO value changed): the
+ * document content rect (os/flair/window.c CalcDocContentRect) now starts at
+ * L + FRAME + BODY_BAR + FRAME = L+6, just inside the left rail's inner line,
+ * as top/right/bottom already stopped at their inner/scroll-bar lines. These
+ * constants always described that geometry; the consumer had used L + FRAME,
+ * so every owner's content fill erased the left bar (audit F16). The 1-px
+ * CONTENT_INSET highlight is the first content column/row, painted by the
+ * WDEF and covered by a white owner body exactly as on the Finder capture
+ * (s8_doc_window_active x=71 / y=92). Graded against the decoded captures by
+ * test-chrome-fidelity CAPTURE-BODY / CAPTURE-BODY-INACTIVE. */
 #define FLAIR_CHROME_FRAME                  1
 #define FLAIR_CHROME_BODY_BAR               4
 #define FLAIR_CHROME_BODY_BAR_FACE_ROWS     2

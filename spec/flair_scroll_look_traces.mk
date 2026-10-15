@@ -1,10 +1,13 @@
 # Locked trace, 2026-10-15, initech-tdnl.82/.86/.96/.97/.101.
 # Root: frame (20,60)..(380,280), two visible entries. Content extent136x55.
-# Shrink at grow point(370,270) by(-232,-100) =>128x120, view106x77:
-# H max30, span56; thumb x41 (value0), x70 (value16). V disabled.
+# Shrink at grow point(370,270) by(-232,-100) =>128x120, view101x77:
+# H max35, span56; thumb x41 (value0), x66 (value16 = 41+16*56/35). V disabled.
+# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the content starts
+# inside the left body rail (frame.left+6, was +1), so every view is 5 px
+# narrower: was view106x77, H max30, thumb x70; min view74x45, H max62.
 # Right arrow(120,167). Restore grow(138,170) by(+232,+100) =>360x220:
 # both max0, value0. Request60x40 at grow point(370,270) by(-300,-180):
-# derived bar-fit clamp96x88, view74x45 => H max62, V max10.
+# derived bar-fit clamp96x88, view69x45 => H max67, V max10.
 # Min V bar (95,81)..(111,128), thumb(96,97)..(110,112), tiles y82/113.
 # Min H bar (25,127)..(96,143), thumb(41,128)..(56,142), tiles x26/81.
 # Click visible min down arrow(103,120) =>value10. PARK always(620,460).

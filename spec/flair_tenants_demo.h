@@ -130,7 +130,11 @@
  *      the switch (=> reads HELLO_FILL) and shows FLAIR_TEN_ACTIVE_ACCENT after
  *      NOTES is raised + activated. The skip-activate-pair mutant leaves it
  *      NOTES_FILL (no accent) -> RED. */
-#define FLAIR_TEN_NOTES_ACCENT_X   (FLAIR_TEN_NOTES_L + FLAIR_CHROME_FRAME)
+/* RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the content left edge
+ * is inside the left body rail, L + FRAME + BODY_BAR + FRAME = 260+6 = 266
+ * (window.c CalcDocContentRect; was L + FRAME = 261). */
+#define FLAIR_TEN_NOTES_ACCENT_X   (FLAIR_TEN_NOTES_L + FLAIR_CHROME_FRAME + \
+                                    FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME)
 #define FLAIR_TEN_NOTES_ACCENT_Y   (FLAIR_TEN_NOTES_T + FLAIR_CHROME_TITLEBAR_H)
 /* (3) NOTES sliver CLICK point: inside NOTES content, NOT under HELLO, so the
  *     O-5 trace can click the background tenant. x>=360 => right of HELLO's right
