@@ -13,7 +13,7 @@
  * Invocation: color_canon_extract spec/assets/color_canon.json
  *             > spec/assets/color_canon.h
  *
- * Emits deterministically: entries in idx order 0..8, no timestamps, no
+ * Emits deterministically: entries in idx order 0..10, no timestamps, no
  * map-ordering dependence.  Fails loud (nonzero exit + stderr) on malformed
  * input, missing fields, or wrong entry count.  Never emits a partial header.
  *
@@ -126,8 +126,8 @@ static int read_rgb_bytes(const char *p, const char *end,
 
 /* ---- Canon entry store ---------------------------------------------------- */
 
-#define CANON_N   9   /* exactly 9 indexed entries, idx 0..8 */
-#define DERIVED_N 4   /* exactly4 derived rows               */
+#define CANON_N  11   /* Nine retained entries + L023 sampled alert slots 9/10. */
+#define DERIVED_N 4   /* Four authored accent rows. */
 /* DEC-10 Sec 3.5.3 / initech-3knt: 2 retained SYS7 names + 11 appended
  * Platinum sampled-domain names; exact count remains a fail-loud invariant. */
 #define RAMP_N   13   /* exactly 13 named idx>=9 ramp indices */
@@ -402,7 +402,7 @@ static int parse_ramp(const char *json, ramp_t ramp[RAMP_N])
             fprintf(stderr, "color_canon_extract: cannot parse ramp \"idx\"\n");
             return -1;
         }
-        if (idx < 9 || idx > 255) {
+        if (idx < CANON_N || idx > 255) {
             fprintf(stderr,
                     "color_canon_extract: ramp idx %ld out of range 9..255\n", idx);
             return -1;
@@ -515,9 +515,9 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf(" * Canon version: %s\n", canon_version);
     printf(" *\n");
     printf(" * THE single color-policy authority for FLAIR.  Exposes flair_canon_rgb(idx):\n");
-    printf(" * idx 0..8  -> the 9-entry color_canon table;\n");
-    printf(" * idx >= 9  -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),\n");
-    printf(" *              identical to palette.h flair_palette_rgb default branch\n");
+    printf(" * idx 0..10 -> the 11-entry color_canon table;\n");
+    printf(" * idx >= 11 -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),\n");
+    printf(" *              via the shared palette.h flair_palette_rgb alias\n");
     printf(" *              (ADR-0004-AMENDMENT-DEC-09 ARB-1).\n");
     printf(" * Freestanding-safe: <stdint.h> only, no libc.\n");
     printf(" *\n");
@@ -539,10 +539,10 @@ static void emit_header(const entry_t tbl[CANON_N],
 
     /* ---- color_canon table + _Static_assert ---- */
     printf("/* ---------------------------------------------------------------------------\n");
-    printf(" * color_canon[idx][0..2] = {R, G, B}  --  9 entries, idx 0..8, index order.\n");
+    printf(" * color_canon[idx][0..2] = {R, G, B} -- 11 entries, idx 0..10, index order.\n");
     printf(" * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.9; color_canon.json \"entries\".\n");
     printf(" */\n");
-    printf("static const unsigned char color_canon[9][3] = {\n");
+    printf("static const unsigned char color_canon[11][3] = {\n");
     for (i = 0; i < CANON_N; i++) {
         const entry_t *e = &tbl[i];
         if (i < CANON_N - 1)
@@ -553,7 +553,7 @@ static void emit_header(const entry_t tbl[CANON_N],
                    e->idx, e->name, e->r, e->g, e->b);
     }
     printf("};\n");
-    printf("_Static_assert(sizeof(color_canon) == 27, \"9 x 3 canon bytes\");\n");
+    printf("_Static_assert(sizeof(color_canon) == 33, \"11 x 3 canon bytes\");\n");
     printf("\n");
 
     /* ---- CIDX_* index constants ---- */
@@ -590,6 +590,9 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf(" * Neither is wired to a wctb decomp golden; both gated by VALUE mutants.\n");
     printf(" * 2026-10-15 tdnl.93: MENU_DARK/MENU_SHADOW are dark teal title derivatives.\n");
     printf(" * White/face contrast6.56 >= captured6.37; indexed fallbacks63/0 add no slots.\n");
+    printf(" * L023: sampled ALERT_LIGHT/SHADOW are indexed entries 9/10 above.\n");
+    printf(" * Ref: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.\n");
+    printf(" * Slots 9/10 are product allocations, not reference palette indices.\n");
     printf(" * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.4 (ARB-5); color_canon.json derived_rows.\n");
     printf(" */\n");
     for (i = 0; i < DERIVED_N; i++) {
@@ -656,10 +659,10 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf("/* ---------------------------------------------------------------------------\n");
     printf(" * flair_canon_rgb(idx) -- single runtime index->0x00RRGGBB accessor.\n");
     printf(" *\n");
-    printf(" * idx 0..8  -> color_canon table (the 9 indexed canon entries above).\n");
-    printf(" * idx >= 9  -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.\n");
+    printf(" * idx 0..10 -> color_canon table (the 11 indexed canon entries above).\n");
+    printf(" * idx >= 11 -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.\n");
     printf(" *              This is the IDENTICAL default branch from palette.h\n");
-    printf(" *              flair_palette_rgb, so idx>=9 behavior is byte-identical.\n");
+    printf(" *              flair_palette_rgb; L023 deliberately allocates slots 9/10.\n");
     printf(" *\n");
     printf(" * Freestanding-safe (no libc).  Callable from the kernel (kmain.c live-DAC\n");
     printf(" * path) and the host harness.  Ref: ADR-0004-AMENDMENT-DEC-09 ARB-1;\n");
@@ -667,12 +670,12 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf(" */\n");
     printf("static inline uint32_t flair_canon_rgb(uint8_t idx)\n");
     printf("{\n");
-    printf("    if (idx < 9u) {\n");
+    printf("    if (idx < 11u) {\n");
     printf("        return ((uint32_t)color_canon[idx][0] << 16)\n");
     printf("             | ((uint32_t)color_canon[idx][1] <<  8)\n");
     printf("             |  (uint32_t)color_canon[idx][2];\n");
     printf("    }\n");
-    printf("    /* idx >= 9: deterministic gray ramp (identical to palette.h default). */\n");
+    printf("    /* idx >= 11: deterministic gray ramp (identical to palette.h default). */\n");
     printf("    {\n");
     printf("        uint32_t v = (uint32_t)idx;\n");
     printf("        return (v << 16) | (v << 8) | v;\n");
@@ -711,7 +714,7 @@ int main(int argc, char **argv)
     entry_t tbl[CANON_N];
     if (parse_entries(json, tbl)) { free(json); return 1; }
 
-    /* Parse the 2 derived rows. */
+    /* Parse the four authored derived rows. */
     derived_t drv[DERIVED_N];
     if (parse_derived(json, drv)) { free(json); return 1; }
 

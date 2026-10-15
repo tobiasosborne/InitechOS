@@ -32,9 +32,8 @@
  *     spec/assets/desk_icons.h (this file never includes it);
  *   - the colours: flair_canon_rgb (spec/assets/color_canon.h), the
  *     independently decomp-graded canon, never the renderer's palette.
- *   - the dBoxProc frame art is the existing Dialog Manager's (a 7-px black
- *     band, FLAIR_CHROME_DIALOG_BORDER); the Platinum alert frame is bead
- *     initech-81ft's, so only "a black band where the frame is" is graded.
+ *   - L023 / M011 / M012: frame perimeter, Cancel bevel rows and corners
+ *     are compared EXACTLY to the historical PNG decoded at runtime.
  *
  * Usage: ppm_flair_trash_check <alert|emptied> <dump.ppm>
  * Exit 0 iff every assertion passes; otherwise a loud message per failure.
@@ -45,6 +44,7 @@
 #include <string.h>
 
 #include "color_canon.h"   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
+#include "../harness/render/alert_capture.h"
 
 #define TOL 2
 enum { SCRW = 640, SCRH = 480 };
@@ -54,7 +54,7 @@ enum { SCRW = 640, SCRH = 480 };
 #define AL_T  87
 #define AL_R 507             /* exclusive: the capture's last column is 506   */
 #define AL_B 191
-#define AL_BORDER 7          /* dBoxProc band (FLAIR_CHROME_DIALOG_BORDER)     */
+#define AL_BORDER 7          /* retained layout inset, NOT a black paint band */
 #define TXT_X0 211
 #define TXT_X1 496           /* 211 + the 285-px column                        */
 #define TXT_Y0  97           /* line k occupies [97+16k, 113+16k)               */
@@ -74,6 +74,39 @@ enum { SCRW = 640, SCRH = 480 };
 static unsigned char *g_buf;
 static int g_fail;
 static const char *g_leg;
+
+/* Independent runtime capture comparisons (Rule 6: booted LABEL_OPAQUE,
+ * BTN_FRINGE and ALERT_SLAB images must fail the named respective class).
+ * Ref: s8_alert_modal.png x133..506,y87..190 (frame); x365..418,y160/175
+ * (bevel rows); x363..366/418..421,y158..161/174..177 (corner patches).
+ */
+static void alert_chrome(int button)
+{
+    unsigned char *gold = alert_capture_load();
+    int frame_bad = 0, row_bad = 0, corner_bad = 0;
+    if (!gold) { g_fail = 1; return; }
+    for (int y = AL_T; y < AL_B; y++) {
+        for (int x = AL_L; x < AL_R; x++) {
+            int frame = x < 140 || x >= 500 || y < 94 || y >= 184;
+            int row = button && x >= 365 && x <= 418 && (y == 160 || y == 175);
+            int corner = button && ((x >= 363 && x <= 366) || (x >= 418 && x <= 421)) &&
+                         ((y >= 158 && y <= 161) || (y >= 174 && y <= 177));
+            if (!frame && !row && !corner) continue;
+            uint32_t got = alert_capture_rgb(g_buf, x, y);
+            int bad = got != alert_capture_rgb(gold, x, y);
+            if (frame) frame_bad += bad;
+            if (row) row_bad += bad;
+            if (corner) corner_bad += bad;
+        }
+    }
+    free(gold);
+    printf("    ALERT-BANDS: %d/6496 matched; BUTTON-LABEL-BEVEL: %d/108; BUTTON-CORNERS: %d/64\n",
+           6496 - frame_bad, button ? 108 - row_bad : 0, button ? 64 - corner_bad : 0);
+    if (frame_bad) fprintf(stderr, "ppm_flair_trash_check: FAIL ALERT-BANDS: %d pixels\n", frame_bad);
+    if (row_bad) fprintf(stderr, "ppm_flair_trash_check: FAIL BUTTON-LABEL-BEVEL: %d pixels\n", row_bad);
+    if (corner_bad) fprintf(stderr, "ppm_flair_trash_check: FAIL BUTTON-CORNERS: %d pixels\n", corner_bad);
+    if (frame_bad || row_bad || corner_bad) g_fail = 1;
+}
 
 static int read_uint(FILE *f, long *out)
 {
@@ -166,8 +199,9 @@ int main(int argc, char **argv)
 
     if (argc != 3 || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
                      strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full") &&
-                     strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone"))) {
-        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone> <dump.ppm>\n", argv[0]);
+                     strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone") &&
+                     strcmp(argv[1], "chrome"))) {
+        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome> <dump.ppm>\n", argv[0]);
         return 2;
     }
     g_leg = argv[1];
@@ -188,11 +222,10 @@ int main(int argc, char **argv)
     fclose(f);
     printf("ppm_flair_trash_check: leg %s on %s\n", g_leg, argv[2]);
 
-    if (strcmp(g_leg, "tenant3") == 0) {
-        want(AL_L + AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, left");
-        want(AL_R - 1 - AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, right");
-        want(300, AL_T + AL_BORDER / 2, CIDX_BLACK, "alert frame band, top");
-        want(300, AL_B - 1 - AL_BORDER / 2, CIDX_BLACK, "alert frame band, bottom");
+    if (strcmp(g_leg, "chrome") == 0) {
+        alert_chrome(1);
+    } else if (strcmp(g_leg, "tenant3") == 0) {
+        alert_chrome(1);
         want(AL_L - 1, 150, CIDX_WHITE, "just outside the alert (the document content)");
         want(300, 150, CIDX_PLAT_FACE, "alert face between the message and the buttons");
         for (int k = 0; k < 3; k++) {
@@ -218,11 +251,7 @@ int main(int argc, char **argv)
         want((OK_L + OK_R) / 2, BT_T, CIDX_WHITE, "the alert is gone: no button edge");
     } else if (strcmp(g_leg, "alert") == 0 || strcmp(g_leg, "locked") == 0 ||
         strcmp(g_leg, "locked-full") == 0) {
-        /* the dBoxProc band on all four sides, mid-edge */
-        want(AL_L + AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, left");
-        want(AL_R - 1 - AL_BORDER / 2, 140, CIDX_BLACK, "alert frame band, right");
-        want(300, AL_T + AL_BORDER / 2, CIDX_BLACK, "alert frame band, top");
-        want(300, AL_B - 1 - AL_BORDER / 2, CIDX_BLACK, "alert frame band, bottom");
+        alert_chrome(strcmp(g_leg, "alert") == 0);
         want(AL_L - 1, 140, CIDX_WHITE, "just outside the alert (root window content)");
         want(300, 150, CIDX_PLAT_FACE, "alert face between the message and the buttons");
         /* the message: three inked lines in the text column, nothing below */

@@ -79,6 +79,7 @@
 #include "chrome_fidelity_golden.h" /* independent sampled scrollbar rows       */
 #include "text.h"               /* text_measure / text_center_in (-Ios/flair)  */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
+#include "alert_capture.h"
 
 TEST_HARNESS();
 
@@ -605,10 +606,11 @@ static void test_draw_controls(void)
                  "button bottom frame center (x=350, y=69) must be CTRL_BLACK (0)");
         CHECK(pidx(&ctx, 350u, 69u) == 0u, msg);
 
-        CHECK(pidx(&ctx, 300u, 50u) == FG_CTRL_SHADOW_IDX &&
-              pidx(&ctx, 301u, 50u) == FG_CTRL_DARK_SHADOW_IDX &&
+        /* M012 remeasurement: capture (363,158)/(364,158) are E7 face. */
+        CHECK(pidx(&ctx, 300u, 50u) == FG_CTRL_FACE_IDX &&
+              pidx(&ctx, 301u, 50u) == FG_CTRL_FACE_IDX &&
               pidx(&ctx, 302u, 50u) == FG_CTRL_DARK_RING_IDX,
-              "button TL smoothing ramp must be sampled C0/96/3F, never desktop");
+              "BUTTON-CORNERS: button TL must be sampled E7/E7/3F");
         CHECK(pidx(&ctx, 302u, 51u) == FG_CTRL_CORNER_SMOOTH_IDX,
               "button rounded corner must carry sampled CD smoothing pixel");
         CHECK(pidx(&ctx, 320u, 51u) == FG_CTRL_FACE_IDX,
@@ -944,6 +946,58 @@ static void test_thumb_drag(void)
 /* ===========================================================================
  * main -- run all properties; report.
  * ===========================================================================*/
+/* Ref: s8_alert_modal.png Cancel [363,422)x[158,178), controls.md Sec 5.1.
+ * M011 rows x=365..418: y160 has 54 white; y175 has 53 C0 and one E7.
+ * M012 patches: x363..366/418..421, y158..161/174..177, 64 pixels.
+ * Expectations are decoded from the historical PNG on EVERY run (Law 2).
+ */
+static void draw_capture_button(GrafPort *port)
+{
+    ControlRecord btn;
+    rgn_rect_t rect = {158, 363, 178, 422};
+    control_init(&btn, pushButton, rect, 0, 0, 1, 1, "Cancel");
+    DrawControl(port, &btn);
+}
+
+static void test_capture_button(void)
+{
+    unsigned char *gold = alert_capture_load();
+    CHECK(gold != NULL, "BUTTON-CAPTURE: independent PNG must decode");
+    if (!gold) return;
+    for (unsigned bpp = 8; bpp <= 32; bpp += 24) {
+        render_ctx_t ctx;
+        int rc = render_one(&ctx, bpp);
+        CHECK(rc == 0, "BUTTON-CAPTURE: render context must initialize");
+        if (rc) continue;
+        render_run(&ctx, draw_capture_button);
+        int row_bad = 0, corner_bad = 0, white = 0, shadow = 0, face = 0;
+        for (int x = 365; x <= 418; x++) {
+            uint32_t hi = render_pixel_rgb(&ctx, (unsigned)x, 160);
+            uint32_t lo = render_pixel_rgb(&ctx, (unsigned)x, 175);
+            row_bad += hi != alert_capture_rgb(gold, x, 160);
+            row_bad += lo != alert_capture_rgb(gold, x, 175);
+            white += hi == 0xFFFFFFu;
+            shadow += lo == 0xC0C0C0u;
+            face += lo == 0xE7E7E7u;
+        }
+        for (int y = 158; y <= 177; y++) {
+            if (y >= 162 && y < 174) continue;
+            for (int x = 363; x <= 421; x++) {
+                if (x >= 367 && x < 418) continue;
+                corner_bad += render_pixel_rgb(&ctx, (unsigned)x, (unsigned)y) !=
+                              alert_capture_rgb(gold, x, y);
+            }
+        }
+        printf("BUTTON-CAPTURE depth=%u: rows bad=%d white=%d shadow=%d face=%d; corners=%d/64 matched\n",
+               bpp, row_bad, white, shadow, face, 64 - corner_bad);
+        CHECK(row_bad == 0 && white == 54 && shadow == 53 && face == 1,
+              "BUTTON-LABEL-BEVEL: full labeled highlight/shadow rows equal capture");
+        CHECK(corner_bad == 0, "BUTTON-CORNERS: four patches equal runtime capture (64/64)");
+        render_ctx_free(&ctx);
+    }
+    free(gold);
+}
+
 int main(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -955,6 +1009,7 @@ int main(int argc, char **argv)
     test_progress_bar_math();
     test_button_hittest_and_track();
     test_draw_controls();
+    test_capture_button();
     test_scrollbar_draw_vs_math();
     test_scrollbar_thumb_anatomy();
     test_scrollbar_disabled_face();

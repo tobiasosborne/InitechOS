@@ -14019,28 +14019,35 @@ TEST_CONTROL_MUT_SB16 := $(BUILD)/test_control_mutant_sb_thumb_16
 TEST_CONTROL_MUT_SB_DISABLED := $(BUILD)/test_control_mutant_sb_disabled_enabled
 TEST_CONTROL_MUT_CHECK_FILL := $(BUILD)/test_control_mutant_check_fill
 TEST_CONTROL_MUT_BTN_FLAT := $(BUILD)/test_control_mutant_btn_flat
+TEST_CONTROL_MUT_LABEL := $(BUILD)/test_control_mutant_label_opaque
+TEST_CONTROL_MUT_FRINGE := $(BUILD)/test_control_mutant_btn_fringe
 TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
-                     spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H)
+                     spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H) harness/render/alert_capture.h $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h
 CONTROL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 CONTROL_LINK := os/flair/control.c os/flair/blitter.c os/flair/text.c os/flair/surface.c \
                 $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
 
 $(TEST_CONTROL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_THUMB): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_THUMB_OFF=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_THUMB_OFF=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_CLAMP): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_NO_CLAMP=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCONTROL_MUTATE_NO_CLAMP=1 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_SB16): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_THUMB_16 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_THUMB_16 $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_SB_DISABLED): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_DISABLED_ENABLED_LOOK $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSB_MUT_DISABLED_ENABLED_LOOK $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_CHECK_FILL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_CHECK_FILL $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_CHECK_FILL $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_BTN_FLAT): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_BTN_FLAT $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_BTN_FLAT $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
+
+$(TEST_CONTROL_MUT_LABEL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_LABEL_OPAQUE $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
+$(TEST_CONTROL_MUT_FRINGE): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_BTN_FRINGE $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 
 test-control: $(TEST_CONTROL)
 	@printf ">>> test-control: sampled checked box + unpressed push button + 16px Platinum scrollbar + FILE COPY progress bar + TestControl/TrackControl\n"
@@ -14049,14 +14056,19 @@ test-control: $(TEST_CONTROL)
 		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-control: green\n"
 
-test-control-mutant: $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED) $(TEST_CONTROL_MUT_CHECK_FILL) $(TEST_CONTROL_MUT_BTN_FLAT)
-	@printf ">>> test-control-mutant: confirming all six mutants go RED (Rule 6)\n"
+test-control-mutant: $(TEST_CONTROL_MUT_LABEL) $(TEST_CONTROL_MUT_FRINGE) $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED) $(TEST_CONTROL_MUT_CHECK_FILL) $(TEST_CONTROL_MUT_BTN_FLAT)
+	@printf ">>> test-control-mutant: confirming all eight mutants go RED (Rule 6)\n"
 	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_SB16) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: SB_MUT_THUMB_16 PASSED -- the sampled 15px thumb oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (SB_MUT_THUMB_16 correctly RED -- the heritage 16px thumb is caught)\n'; fi
 	@if $(TEST_CONTROL_MUT_SB_DISABLED) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: SB_MUT_DISABLED_ENABLED_LOOK PASSED -- the disabled-face oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (SB_MUT_DISABLED_ENABLED_LOOK correctly RED -- enabled art in the disabled state is caught)\n'; fi
 	@if $(TEST_CONTROL_MUT_CHECK_FILL) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: CTRL_MUT_CHECK_FILL PASSED -- accent-fill checkbox relapse escaped the exact tile/X oracle\n'; exit 1; else printf '>>> test-control-mutant: green (CTRL_MUT_CHECK_FILL correctly RED -- accent-fill relapse caught)\n'; fi
 	@if $(TEST_CONTROL_MUT_BTN_FLAT) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: CTRL_MUT_BTN_FLAT PASSED -- flat button escaped the bevel/corner oracle\n'; exit 1; else printf '>>> test-control-mutant: green (CTRL_MUT_BTN_FLAT correctly RED -- bevel/corner relapse caught)\n'; fi
+
+	@$(TEST_CONTROL_MUT_LABEL) > $(TEST_CONTROL_MUT_LABEL).log 2>&1; \
+	if grep -q 'FAIL.*BUTTON-LABEL-BEVEL' $(TEST_CONTROL_MUT_LABEL).log; then printf '>>> test-control-mutant: green (CTRL_MUT_LABEL_OPAQUE correctly RED: BUTTON-LABEL-BEVEL)\n'; else cat $(TEST_CONTROL_MUT_LABEL).log; exit 1; fi
+	@$(TEST_CONTROL_MUT_FRINGE) > $(TEST_CONTROL_MUT_FRINGE).log 2>&1; \
+	if grep -q 'FAIL.*BUTTON-CORNERS' $(TEST_CONTROL_MUT_FRINGE).log; then printf '>>> test-control-mutant: green (CTRL_MUT_BTN_FRINGE correctly RED: BUTTON-CORNERS)\n'; else cat $(TEST_CONTROL_MUT_FRINGE).log; exit 1; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-k8o5.12 + initech-859) -- the M4 CAPSTONE:
@@ -14135,6 +14147,7 @@ test-flair-shell-mutant: $(TEST_SHELL_MUT_ONEBAR) $(TEST_SHELL_MUT_NOMODAL) $(TE
 # ---------------------------------------------------------------------------
 TEST_DIALOG     := $(BUILD)/test_dialog
 TEST_DIALOG_SRC := harness/proptest/test_dialog.c
+TEST_DIALOG_MUT_SLAB := $(BUILD)/test_dialog_mutant_alert_slab
 TEST_DIALOG_MUT_BORDER  := $(BUILD)/test_dialog_mutant_border
 TEST_DIALOG_MUT_STATIC  := $(BUILD)/test_dialog_mutant_hit_static
 TEST_DIALOG_MUT_FILECOPY := $(BUILD)/test_dialog_mutant_filecopy_msg
@@ -14156,30 +14169,33 @@ TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
                     $(REGION_ENGINE_C) $(RENDER_SKEL_C) \
                     spec/chrome_metrics.h spec/grafport.h spec/event_model.h \
                     spec/window_record.h spec/region_algebra.h \
-                    spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H)
+                    spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H) harness/render/alert_capture.h $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h
 DIALOG_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 DIALOG_LINK := os/flair/dialog.c os/flair/control.c os/flair/text.c os/flair/event.c \
                os/flair/window.c os/flair/blitter.c os/flair/surface.c os/flair/chrome.c os/flair/heap.c \
                $(REGION_ENGINE_C) $(RENDER_SKEL_C) $(FLAIRLOOK_C)
 
 $(TEST_DIALOG): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_BORDER): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_BORDER=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_BORDER=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_STATIC): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_HIT_STATIC=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_HIT_STATIC=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_FILECOPY): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_FILECOPY_MSG=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_FILECOPY_MSG=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_TITLELESS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_TITLELESS_MODAL=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_TITLELESS_MODAL=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_PROGZERO): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_PROGRESS_ZERO=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_PROGRESS_ZERO=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_NO_DEFAULT_RING): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_NO_DEFAULT_RING=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_NO_DEFAULT_RING=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_MODAL_PASS): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMODAL_PASSTHROUGH $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMODAL_PASSTHROUGH $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 $(TEST_DIALOG_MUT_LOCAL_HIT): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_LOCAL_HIT=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUTATE_LOCAL_HIT=1 $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
+
+$(TEST_DIALOG_MUT_SLAB): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDIALOG_MUT_ALERT_SLAB $(DIALOG_INC) -o $@ $(TEST_DIALOG_SRC) $(DIALOG_LINK) -lpng
 
 test-dialog: $(TEST_DIALOG)
 	@printf ">>> test-dialog: FILE COPY E7/inset content + generic dBox + default ring/moat + canon layout + MODALDIALOG routing\n"
@@ -14189,8 +14205,8 @@ test-dialog: $(TEST_DIALOG)
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
 
-test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS) $(TEST_DIALOG_MUT_LOCAL_HIT)
-	@printf ">>> test-dialog-mutant: confirming all eight mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
+test-dialog-mutant: $(TEST_DIALOG_MUT_SLAB) $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS) $(TEST_DIALOG_MUT_LOCAL_HIT)
+	@printf ">>> test-dialog-mutant: confirming all nine mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
 	@$(TEST_DIALOG_MUT_LOCAL_HIT) > $(TEST_DIALOG_MUT_LOCAL_HIT).log 2>&1; \
 	if grep -q 'FAIL.*mouseDown in enabled ctrlItem' $(TEST_DIALOG_MUT_LOCAL_HIT).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_LOCAL_HIT correctly RED -- the click on the drawn OK button misses)\n'; \
 	else printf '!!! test-dialog-mutant FAIL: LOCAL_HIT mutant did not go RED on the click leg\n'; cat $(TEST_DIALOG_MUT_LOCAL_HIT).log; exit 1; fi
@@ -14215,6 +14231,9 @@ test-dialog-mutant: $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_D
 	@if $(TEST_DIALOG_MUT_MODAL_PASS) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: MODAL_PASSTHROUGH PASSED -- dispatch-level true-modality oracle is decoration\n'; exit 1; \
 	else printf '>>> test-dialog-mutant: green (MODAL_PASSTHROUGH correctly RED -- outside click reached FindWindow)\n'; fi
+
+	@$(TEST_DIALOG_MUT_SLAB) > $(TEST_DIALOG_MUT_SLAB).log 2>&1; \
+	if grep -q 'FAIL.*ALERT-BANDS' $(TEST_DIALOG_MUT_SLAB).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUT_ALERT_SLAB correctly RED: ALERT-BANDS)\n'; else cat $(TEST_DIALOG_MUT_SLAB).log; exit 1; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-flair-headers (beads initech-k8o5.3 grafport/imaging + zaqj
@@ -20123,8 +20142,8 @@ endif
 # ===========================================================================
 PPM_FLAIR_TRASH_CHECK_SRC := tools/ppm_flair_trash_check.c
 PPM_FLAIR_TRASH_CHECK_BIN := $(BUILD)/ppm_flair_trash_check
-$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
 
 FLAIR_ET_ALERT_NAME  := flair_empty_alert
 FLAIR_ET_CANCEL_NAME := flair_empty_cancel
@@ -29849,3 +29868,52 @@ test-samir-console-emu-mutant: $(BUILD)/SAMIR_SCREEN_SAMIR_MUTATE_CONSOLE.COM
 	 test $$rc = 1 && ! grep -Eq 'FAIL.*(guest|trace|shell|artifact|QMP|settings)' $(BUILD)/$@.log && grep -q 'console: program output and prompt suppressed' $(BUILD)/$@.log && grep -q 'checks,' $(BUILD)/$@.log || { cat $(BUILD)/$@.log; exit 1; }; \
 	 printf '%s: PASS (same CONSOLE suppression mutant RED in guest)\n' '$@'
 TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
+
+# M011/M012 (tdnl.99/.100), L023: boot the existing locked dirty-123 quit
+# trace and grade Cancel + the entire alert perimeter against the historical
+# s8_alert_modal.png at runtime. No record-flair block: PM owns Rule-14 clips.
+# Each Rule-6 image swaps just one drawing object; the other objects and the
+# 500-tick quitguard kernel are unchanged. Capture coordinates live in the
+# shared independent runtime grader tools/ppm_flair_trash_check.c.
+define alert-chrome-mutant-rules
+$(BUILD)/alert_chrome_$(2).o: $(3) $(TEST_CONTROL_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(5) -D$(1) $(DIALOG_INC) -c $(3) -o $$@
+$(BUILD)/kernel_alert_chrome_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o $(KERNEL_LD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o
+$(BUILD)/kernel_alert_chrome_$(2).bin: $(BUILD)/kernel_alert_chrome_$(2).elf
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! alert chrome mutant $(2) exceeds kernel window\n'; exit 1; fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
+	$$(call kernel-end-guard,$$<,alert-chrome-$(2))
+$(BUILD)/alert_chrome_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin
+	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(BUILD)/kernel_alert_chrome_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+endef
+$(eval $(call alert-chrome-mutant-rules,CTRL_MUT_LABEL_OPAQUE,label,os/flair/control.c,$(KERNEL_CONTROL_OBJ),$(FLAIR_CONTROL_OPT)))
+$(eval $(call alert-chrome-mutant-rules,CTRL_MUT_BTN_FRINGE,fringe,os/flair/control.c,$(KERNEL_CONTROL_OBJ),$(FLAIR_CONTROL_OPT)))
+$(eval $(call alert-chrome-mutant-rules,DIALOG_MUT_ALERT_SLAB,slab,os/flair/dialog.c,$(KERNEL_DIALOG_OBJ),$(FLAIR_DIALOG_OPT)))
+
+.PHONY: test-flair-alert-chrome test-flair-alert-chrome-mutant
+test-flair-alert-chrome: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_QUIT_DATA) $(PPM_FLAIR_TRASH_CHECK_BIN)
+	$(call appl-boot,flair_alert_chrome,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_ALERT,--screendump --screendump-after "TENANT-ALERT up")
+	@f=$(BUILD)/flair_alert_chrome.serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && $(call QG_NO_EXIT,$$f) || { cat $(BUILD)/flair_alert_chrome.report; printf '!!! test-flair-alert-chrome FAIL: dirty 123 quit alert not reached alive\n'; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) chrome $(BUILD)/flair_alert_chrome.ppm
+	@printf '>>> test-flair-alert-chrome: green\n'
+
+# The exact same runtime oracle must reject each regression on booted video.
+define alert-chrome-mutant-leg
+	$(call appl-boot,flair_alert_chrome_$(1),$(BUILD)/alert_chrome_$(1).img,$(FLAIR_I123_QUIT_DATA),FLAIR_I123_QG_ALERT,--screendump --screendump-after "TENANT-ALERT up")
+	@f=$(BUILD)/flair_alert_chrome_$(1).serial; $(call APPL_ALIVE,$$f) && $(call QG_ASKED,$$f) && $(call QG_NO_EXIT,$$f) || { cat $(BUILD)/flair_alert_chrome_$(1).report; printf '!!! test-flair-alert-chrome-mutant FAIL: $(1) did not reach alert alive\n'; exit 1; }
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) chrome $(BUILD)/flair_alert_chrome_$(1).ppm > $(BUILD)/flair_alert_chrome_$(1).pixels 2>&1; rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL $(2)' $(BUILD)/flair_alert_chrome_$(1).pixels || { cat $(BUILD)/flair_alert_chrome_$(1).pixels; printf '!!! test-flair-alert-chrome-mutant FAIL: $(3) did not fail $(2)\n'; exit 1; }
+	@printf '>>> test-flair-alert-chrome-mutant: $(3) correctly RED ($(2))\n'
+endef
+
+test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_label.img $(BUILD)/alert_chrome_fringe.img $(BUILD)/alert_chrome_slab.img
+	$(call alert-chrome-mutant-leg,label,BUTTON-LABEL-BEVEL,CTRL_MUT_LABEL_OPAQUE)
+	$(call alert-chrome-mutant-leg,fringe,BUTTON-CORNERS,CTRL_MUT_BTN_FRINGE)
+	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
+	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'

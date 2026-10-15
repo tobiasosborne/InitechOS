@@ -9,7 +9,7 @@
  *
  * Freestanding artifact code. Implements the Dialog Manager (FLAIR Layer 3,
  * ADR-0004 D-3): the modal FILE COPY box (Law 4 canon, PRD Sec 6.5), item
- * list management, dBoxProc 7-px border frame drawing, ModalDialog cooperative
+ * list management, Platinum dBoxProc frame drawing, ModalDialog cooperative
  * loop, and FindDialogItem hit-testing.
  *
  * FREESTANDING CONSTRAINTS (Law 3):
@@ -19,14 +19,15 @@
  *
  * MUTATION SWITCHES (Rule 6 -- named mutants, oracle-proven):
  *   DIALOG_MUTATE_BORDER       -- DrawDialog uses wrong border width (8 px
- *                                 instead of 7); oracle must go RED.
+ *                                 instead of the sampled 3); oracle RED.
+ *   DIALOG_MUT_ALERT_SLAB      -- restore the pre-L023 7-px black slab.
  *   DIALOG_MUTATE_HIT_STATIC   -- FindDialogItem + ModalDialog return statText
  *                                 items as enabled; oracle must go RED.
  *   DIALOG_MUTATE_FILECOPY_MSG -- FileCopyDialog uses a different (wrong)
  *                                 message string; oracle must go RED (Law 4).
  *   DIALOG_MUTATE_TITLELESS_MODAL -- FileCopyDialog reverts to the OLD
- *                                 titleless dBoxProc chrome (thick 7px
- *                                 border, no title bar) instead of the
+ *                                 titleless dBoxProc chrome (no title bar)
+ *                                 instead of the
  *                                 moveable titled modal; oracle must go RED
  *                                 (Law 4, beads initech-zvo6).
  *   DIALOG_MUTATE_PROGRESS_ZERO -- FileCopyDialog reverts the progress bar's
@@ -38,14 +39,15 @@
  *                                 (bead initech-zn61).
  *
  * DRAW MODEL:
- *   dBoxProc dialogs (the NewDialog default): a solid FLAIR_CHROME_DIALOG_
- *   BORDER (7)-px filled band around the content rect (the outer ring).
+ *   dBoxProc dialogs (the NewDialog default): black outline plus two raised
+ *   bevel rows, the outer row tinted (controls.md Sec 6, L023).
  *   movableDBoxProc dialogs (the FILE COPY modal; beads initech-zvo6): a
  *   Platinum title band + a PLAIN 1-px frame (os/flair/chrome.h
  *   flair_draw_movable_dbox_chrome -- the SAME title-bar composer
  *   flair_draw_document_window uses; NOT a hand-rolled second chrome path).
- *   Inside either border, the sampled E7 content field carries a white TL /
- *   C0 BR inset bevel. Items are drawn in order: statText via text_draw
+ *   The movable modal's E7 content carries a white TL / C0 BR inset bevel;
+ *   the titleless frame's inner bevel is white/B3 (controls.md Sec 6).
+ *   Items are drawn in order: statText via text_draw
  *   (Chicago), ctrlItem via DrawControl. All drawing flows through the
  *   dialog's GrafPort and is clipped to visRgn INTERSECT clipRgn (ADR-0004
  *   D-1/D-2 invariant).
@@ -102,7 +104,10 @@ enum {
     DLG_FACE      = FLAIR_PART_PLAT_FACE,/* sampled Platinum E7 content face     */
     DLG_SHADOW    = FLAIR_PART_PLAT_WELL,/* sampled Platinum C0 inset shadow     */
     DLG_DESKTOP   = FLAIR_PART_DESKTOP,  /* desktop background                  */
-    DLG_TEXT_INK  = FLAIR_PART_TEXT      /* text / static text foreground       */
+    DLG_TEXT_INK  = FLAIR_PART_TEXT,     /* text / static text foreground       */
+    DLG_ALERT_LIGHT = FLAIR_PART_ALERT_LIGHT,
+    DLG_ALERT_SHADOW = FLAIR_PART_ALERT_SHADOW,
+    DLG_FRAME_SHADOW = FLAIR_PART_PLAT_FRAME_SHADOW
 };
 
 /* ---------------------------------------------------------------------------
@@ -375,29 +380,49 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm)
     dialog_zero(dp);
 }
 
-/* ===========================================================================
- * DrawDialog
- *
- * Draws the dBoxProc 7-px solid border frame (FLAIR_CHROME_DIALOG_BORDER)
- * and then each dialog item.
- *
- * BORDER IMPLEMENTATION:
- *   The dBoxProc border is a solid filled band around the outer struct region.
- *   Per Inside Macintosh WDEF: "dBoxProc draws a thick border (7 pixels wide)
- *   around the dialog box" (IM-I Ch 6 / StandardWDEF.a dBoxBorderSize EQU 7).
- *   The border is drawn as FLAIR_CHROME_DIALOG_BORDER solid black filled
- *   bands on all four sides of the dialog's bounding rect.
- *
- * MUTATION:
- *   DIALOG_MUTATE_BORDER: uses border width 8 instead of 7.
- * ===========================================================================*/
-
-#if defined(DIALOG_MUTATE_BORDER) && DIALOG_MUTATE_BORDER
-/* NAMED MUTANT: wrong border width -> oracle must go RED (Rule 6). */
-#  define DLG_BORDER_W  8
+/* L023: Platinum dBox frame, measured from s8_alert_modal.png
+ * x133..506,y87..190 (controls.md Sec 6). Inward at x300:
+ * y87 black, y88 FFB3B3, y89 white, y90 E7 face;
+ * y190 black, y189 FF8787, y188 B3, y187 E7 face.
+ * At y140, x133/134/135/136 and x506/505/504/503 give the same bands.
+ * The structure->content layout inset remains the locked heritage 7;
+ * its old solid-black paint was not the Platinum appearance contract.
+ */
+#if defined(DIALOG_MUT_ALERT_SLAB) && DIALOG_MUT_ALERT_SLAB
+#  define DLG_BORDER_W 7  /* Rule 6: restore the pre-L023 black slab. */
+#elif defined(DIALOG_MUTATE_BORDER) && DIALOG_MUTATE_BORDER
+#  define DLG_BORDER_W 8  /* Retained named width mutant. */
 #else
-#  define DLG_BORDER_W  FLAIR_CHROME_DIALOG_BORDER  /* == 7 */
+#  define DLG_BORDER_W 3  /* Capture: outline plus two bevel rows. */
 #endif
+
+static void draw_alert_frame(GrafPort *port, int left, int top,
+                              int right, int bottom)
+{
+    static const int light[] = {DLG_BLACK, DLG_ALERT_LIGHT, DLG_WHITE};
+    static const int dark[] = {DLG_BLACK, DLG_ALERT_SHADOW, DLG_FRAME_SHADOW};
+    crect_dlg(port, left, top, right, bottom, DLG_FACE);
+    for (int i = 0; i < DLG_BORDER_W; i++) {
+        int hi = i < 3 ? light[i] : DLG_BLACK;
+        int lo = i < 3 ? dark[i] : DLG_BLACK;
+#if defined(DIALOG_MUT_ALERT_SLAB) && DIALOG_MUT_ALERT_SLAB
+        hi = lo = DLG_BLACK;
+#endif
+        int l = left + i, t = top + i, r = right - i, b = bottom - i;
+        cfill_dlg(port, l, t, r - l, hi);
+        for (int y = t + 1; y < b; y++) {
+            cfill_dlg(port, l, y, 1, hi);
+            cfill_dlg(port, r - 1, y, 1, lo);
+        }
+        cfill_dlg(port, l + 1, b - 1, r - l - 1, lo);
+    }
+#if !(defined(DIALOG_MUT_ALERT_SLAB) && DIALOG_MUT_ALERT_SLAB)
+    /* Capture corner joins: (504,89) and (135,188) are FFB3B3,
+     * belonging to the outer light bevel rather than the inner white. */
+    cfill_dlg(port, right - 3, top + 2, 1, DLG_ALERT_LIGHT);
+    cfill_dlg(port, left + 2, bottom - 3, 1, DLG_ALERT_LIGHT);
+#endif
+}
 
 void DrawDialog(DialogPtr dp)
 {
@@ -430,24 +455,8 @@ void DrawDialog(DialogPtr dp)
         flair_draw_movable_dbox_chrome(port, flair_look_default_skin(),
                                        bounds, dp->window.titleHandle);
     } else {
-        /* --- dBoxProc (the NewDialog default; every other/generic dialog):
-         * the classic solid FLAIR_CHROME_DIALOG_BORDER (7)-px border frame.
-         * Ref: WDEF dBoxBorderSize EQU 7; StandardWDEF.a; chrome_metrics.h. */
-        int bw = DLG_BORDER_W;
-
-        /* Fill sampled Platinum content + its one-pixel inset bevel. */
-        draw_dialog_content(port, left + bw, top + bw,
-                            right - bw, bottom - bw);
-
-        /* Draw the dBoxProc 7-px border frame (solid black bands).
-         * Top band: [left, right) x [top, top+bw)
-         * Bottom band: [left, right) x [bottom-bw, bottom)
-         * Left band:  [left, left+bw) x [top, bottom)
-         * Right band: [right-bw, right) x [top, bottom) */
-        crect_dlg(port, left,       top,        right,       top + bw,    DLG_BLACK);
-        crect_dlg(port, left,       bottom - bw, right,       bottom,      DLG_BLACK);
-        crect_dlg(port, left,       top,        left + bw,   bottom,      DLG_BLACK);
-        crect_dlg(port, right - bw, top,        right,       bottom,      DLG_BLACK);
+        /* dBoxProc: the sampled Platinum modal frame (L023). */
+        draw_alert_frame(port, left, top, right, bottom);
     }
 
     /* --- Draw each item. */

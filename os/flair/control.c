@@ -379,7 +379,7 @@ int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
  *
  * The 20px class uses the exact asymmetric edge families measured on both
  * s8_alert_modal buttons: E7 inset, white highlight, C0/96 shadow, and the
- * C0/96/3F/CD rounded-corner ramp. Pressed art is a golden GAP, so the
+ * E7/3F/CD rounded corners. Pressed art is a golden GAP, so the
  * pre-existing accent-fill tracking branch is retained and not claimed as
  * Platinum. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/Sec 8. */
 static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
@@ -412,29 +412,26 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         /* NAMED MUTANT: remove the sampled bevel/corner anatomy. */
         cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
 #else
-        /* Top and bottom rounded ramps: C0, 96, 3F, black run, 3F, 96, C0. */
-        cfill_ctrl(port, x0,     y0, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x0 + 1, y0, 1, CTRL_PLAT_DARK_SHADOW);
+        /* M012 / tdnl.100: decoded s8_alert_modal.png four 4x4 patches:
+         * x363..366 / x418..421, y158..161 / y174..177.
+         * Legend: e=E7E7E7, k=000000, d=3F3F3F, c=CDCDCD, w=FFFFFF,
+         * s=C0C0C0, g=969696. Rows are left-to-right, top-to-bottom:
+         * TL eedk ekce dcww keww     TR kdee ecke wecd esgk
+         * BL kewe dces ekcg eedk     BR ssgk sggd ggke kdee
+         * The outer two top/bottom corner pixels are FACE, not a gray fringe.
+         * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1. */
         cfill_ctrl(port, x0 + 2, y0, 1, CTRL_PLAT_DARK_RING);
         cfill_ctrl(port, x0 + 3, y0, w - 6, CTRL_BLACK);
         cfill_ctrl(port, x1 - 3, y0, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x1 - 2, y0, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 1, y0, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x0 + 1, y1 - 1, 1, CTRL_PLAT_DARK_SHADOW);
         cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
         cfill_ctrl(port, x0 + 3, y1 - 1, w - 6, CTRL_BLACK);
         cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-        cfill_ctrl(port, x1 - 2, y1 - 1, 1, CTRL_PLAT_DARK_SHADOW);
-        cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_PLAT_SHADOW);
 
         /* Corner-transition rows, transcribed from the two sampled buttons. */
-        cfill_ctrl(port, x0,     y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
         cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
         cfill_ctrl(port, x0 + 2, y0 + 1, 1, CTRL_PLAT_CORNER);
         cfill_ctrl(port, x1 - 3, y0 + 1, 1, CTRL_PLAT_CORNER);
         cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
-        cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
 
         cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
         cfill_ctrl(port, x0 + 1, y0 + 2, 1, CTRL_PLAT_CORNER);
@@ -462,12 +459,25 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         cfill_ctrl(port, x1 - 3, y1 - 3, 2, CTRL_PLAT_DARK_SHADOW);
         cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
 
-        cfill_ctrl(port, x0,     y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
         cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
         cfill_ctrl(port, x0 + 2, y1 - 2, 1, CTRL_PLAT_CORNER);
         cfill_ctrl(port, x0 + 3, y1 - 2, w - 6, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
         cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
+#if defined(CTRL_MUT_BTN_FRINGE) && CTRL_MUT_BTN_FRINGE
+        /* Rule 6: restore the thirteen pre-M012 corner errors. */
+        for (int y = y0; y < y1; y += h - 1) {
+            cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
+            cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 1, y, 1, CTRL_PLAT_SHADOW);
+        }
+        cfill_ctrl(port, x0, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x0, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
         cfill_ctrl(port, x1 - 1, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_FACE);
+#endif
 #endif
     }
 
@@ -482,7 +492,24 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         ly = y0 + 1;
     }
     if (label_w > 0) {
+#if defined(CTRL_MUT_LABEL_OPAQUE) && CTRL_MUT_LABEL_OPAQUE
+        /* Rule 6: restore the pre-M011 opaque run over the bevel rows. */
         ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
+#else
+        if (hilited) {
+            ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
+        } else if (w > 6 && h > 6) {
+            /* M011 / tdnl.99: s8_alert_modal.png x365..418 has 54 white
+             * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
+             * includes blank rows outside its ink; clip its opaque erase to
+             * the inner face, preserving both bevel rows and columns.
+             * Ref: controls.md Sec 5.1 (Cancel x363..421,y158..177). */
+            text_clip_t k = {port->visRgn, port->clipRgn,
+                             x0 + 3, y0 + 3, x1 - 3, y1 - 3};
+            (void)text_draw_run(&port->portBits.bm, lx, ly, ctrl->contrlTitle,
+                                FONT_CHICAGO, 0u, fg, bg, &k);
+        }
+#endif
     }
 }
 

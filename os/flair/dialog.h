@@ -322,13 +322,14 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
  * DrawDialog -- draw the dialog frame and all items into the dialog's port.
  *
  * Dispatches on the dialog window's windowDefProcVariant:
- *   dBoxProc (1, the default for all NewDialog callers): the classic 7-px
- *     solid border frame (FLAIR_CHROME_DIALOG_BORDER), unchanged.
+ *   dBoxProc (1, the default for all NewDialog callers): sampled Platinum
+ *     black outline + tinted outer bevel + white/B3 inner bevel (L023;
+ *     ../system7-decomp/specs/sys8/controls.md Sec 6). The heritage layout
+ *     inset FLAIR_CHROME_DIALOG_BORDER remains unchanged.
  *   movableDBoxProc (5, the FILE COPY modal; beads initech-zvo6): a pinstripe
  *     title bar + a PLAIN 1-px frame via os/flair/chrome.h
- *     flair_draw_movable_dbox_chrome (NOT the 7-px border).
- * Both variants carry the sampled Platinum E7 content face with a one-pixel
- * white top/left and C0 bottom/right inset bevel (sys8/controls.md Sec 1).
+ *     flair_draw_movable_dbox_chrome, with the sampled E7 content face and
+ *     white top/left, C0 bottom/right inset bevel (sys8/controls.md Sec 1).
  * Then draws each item in the item list:
  *   statText  -> text_draw (Chicago font, left-aligned within item rect).
  *   editText  -> text_draw (the current editBuf content) + cursor.
@@ -530,7 +531,7 @@ _Static_assert(offsetof(DialogRecord, items) > offsetof(DialogRecord, window),
 
 /* FLAIR_CHROME_DIALOG_BORDER must be 7 (dBoxBorderSize EQU 7; WDEF). */
 _Static_assert(FLAIR_CHROME_DIALOG_BORDER == 7,
-               "dBoxProc border must be 7 px (WDEF dBoxBorderSize EQU 7; "
+               "dBoxProc layout inset must be 7 px (WDEF dBoxBorderSize EQU 7; "
                "spec/chrome_metrics.h)");
 
 /* dBoxProc variant code must be 1 (MTE Table 4-1). */

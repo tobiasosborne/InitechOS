@@ -128,6 +128,9 @@ typedef enum {
      * gray row; the black ink stays ICON_INK.  Zero color rows accreted. */
     FLAIR_PART_ICON_HILITE_FACE,      /* highlighted body (white, darkened)         */
     FLAIR_PART_ICON_HILITE_SHADE,     /* highlighted detail (gray, darkened)        */
+    /* L023: sampled modal-alert outer bevel, controls.md Sec 6. */
+    FLAIR_PART_ALERT_LIGHT,
+    FLAIR_PART_ALERT_SHADOW,
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

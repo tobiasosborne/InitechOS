@@ -183,7 +183,11 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* ICON_HILITE_FACE */
     { CIDX_HILITE_FRAME, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* ICON_HILITE_SHADE */
-    { CIDX_PLAT_DARK_RING, 0u, FLAIR_NO_SKIN_SLOT, 0u }
+    { CIDX_PLAT_DARK_RING, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* L023: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.
+     * Indexed slots carry the exact sampled tints through the live offscreen. */
+    { CIDX_ALERT_LIGHT, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    { CIDX_ALERT_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,

@@ -8,9 +8,9 @@
  * Canon version: WL-0053 (Initech Color Canon, operator-ratified 2026-06-21)
  *
  * THE single color-policy authority for FLAIR.  Exposes flair_canon_rgb(idx):
- * idx 0..8  -> the 9-entry color_canon table;
- * idx >= 9  -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),
- *              identical to palette.h flair_palette_rgb default branch
+ * idx 0..10 -> the 11-entry color_canon table;
+ * idx >= 11 -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),
+ *              via the shared palette.h flair_palette_rgb alias
  *              (ADR-0004-AMENDMENT-DEC-09 ARB-1).
  * Freestanding-safe: <stdint.h> only, no libc.
  *
@@ -30,10 +30,10 @@
 #include <stdint.h>
 
 /* ---------------------------------------------------------------------------
- * color_canon[idx][0..2] = {R, G, B}  --  9 entries, idx 0..8, index order.
+ * color_canon[idx][0..2] = {R, G, B} -- 11 entries, idx 0..10, index order.
  * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.9; color_canon.json "entries".
  */
-static const unsigned char color_canon[9][3] = {
+static const unsigned char color_canon[11][3] = {
     /* [0] CIDX_BLACK       */ {   0,   0,   0 },
     /* [1] CIDX_WHITE       */ { 255, 255, 255 },
     /* [2] CIDX_DESKTOP     */ { 141, 220, 220 },
@@ -42,9 +42,11 @@ static const unsigned char color_canon[9][3] = {
     /* [5] CIDX_ACCENT      */ {   0,   0, 128 },
     /* [6] CIDX_CONTROL     */ { 192, 192, 192 },
     /* [7] CIDX_PIN_LIGHT   */ { 243, 243, 243 },
-    /* [8] CIDX_PIN_DARK    */ { 150, 150, 150 }
+    /* [8] CIDX_PIN_DARK    */ { 150, 150, 150 },
+    /* [9] CIDX_ALERT_LIGHT */ { 255, 179, 179 },
+    /* [10] CIDX_ALERT_SHADOW */ { 255, 135, 135 }
 };
-_Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
+_Static_assert(sizeof(color_canon) == 33, "11 x 3 canon bytes");
 
 /* ---------------------------------------------------------------------------
  * CIDX_* index constants -- name each slot so consumers can write
@@ -59,6 +61,8 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
 #define CIDX_CONTROL         6
 #define CIDX_PIN_LIGHT       7
 #define CIDX_PIN_DARK        8
+#define CIDX_ALERT_LIGHT     9
+#define CIDX_ALERT_SHADOW    10
 
 /* ---------------------------------------------------------------------------
  * INITECH_CANON_<SUFFIX>_RGB -- compile-time 0x00RRGGBB packed constant.
@@ -76,6 +80,8 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
 #define INITECH_CANON_CONTROL_RGB            0xC0C0C0u
 #define INITECH_CANON_PIN_LIGHT_RGB          0xF3F3F3u
 #define INITECH_CANON_PIN_DARK_RGB           0x969696u
+#define INITECH_CANON_ALERT_LIGHT_RGB        0xFFB3B3u
+#define INITECH_CANON_ALERT_SHADOW_RGB       0xFF8787u
 
 /* ---------------------------------------------------------------------------
  * Derived bevel rows  (WL-0053 lavender->teal swap; graded_by:authored).
@@ -83,6 +89,9 @@ _Static_assert(sizeof(color_canon) == 27, "9 x 3 canon bytes");
  * Neither is wired to a wctb decomp golden; both gated by VALUE mutants.
  * 2026-10-15 tdnl.93: MENU_DARK/MENU_SHADOW are dark teal title derivatives.
  * White/face contrast6.56 >= captured6.37; indexed fallbacks63/0 add no slots.
+ * L023: sampled ALERT_LIGHT/SHADOW are indexed entries 9/10 above.
+ * Ref: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.
+ * Slots 9/10 are product allocations, not reference palette indices.
  * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.4 (ARB-5); color_canon.json derived_rows.
  */
 #define INITECH_CANON_BEVEL_LIGHT_RGB        0x8DDCDCu
@@ -164,10 +173,10 @@ _Static_assert(((uint32_t)CIDX_PLAT_TILE_SHADOW << 16 | (uint32_t)CIDX_PLAT_TILE
 /* ---------------------------------------------------------------------------
  * flair_canon_rgb(idx) -- single runtime index->0x00RRGGBB accessor.
  *
- * idx 0..8  -> color_canon table (the 9 indexed canon entries above).
- * idx >= 9  -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.
+ * idx 0..10 -> color_canon table (the 11 indexed canon entries above).
+ * idx >= 11 -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.
  *              This is the IDENTICAL default branch from palette.h
- *              flair_palette_rgb, so idx>=9 behavior is byte-identical.
+ *              flair_palette_rgb; L023 deliberately allocates slots 9/10.
  *
  * Freestanding-safe (no libc).  Callable from the kernel (kmain.c live-DAC
  * path) and the host harness.  Ref: ADR-0004-AMENDMENT-DEC-09 ARB-1;
@@ -175,12 +184,12 @@ _Static_assert(((uint32_t)CIDX_PLAT_TILE_SHADOW << 16 | (uint32_t)CIDX_PLAT_TILE
  */
 static inline uint32_t flair_canon_rgb(uint8_t idx)
 {
-    if (idx < 9u) {
+    if (idx < 11u) {
         return ((uint32_t)color_canon[idx][0] << 16)
              | ((uint32_t)color_canon[idx][1] <<  8)
              |  (uint32_t)color_canon[idx][2];
     }
-    /* idx >= 9: deterministic gray ramp (identical to palette.h default). */
+    /* idx >= 11: deterministic gray ramp (identical to palette.h default). */
     {
         uint32_t v = (uint32_t)idx;
         return (v << 16) | (v << 8) | v;

@@ -18,8 +18,7 @@
  * THE PROPERTIES (in order of decisiveness):
  *
  *  1. LAYOUT:
- *     (a) dBoxProc border == FLAIR_CHROME_DIALOG_BORDER (7 px) -- checked
- *         via rendered pixel positions.
+ *     (a) dBoxProc retains its locked heritage structure->content inset.
  *     (b) Items are placed at their declared rects.
  *     (c) FILE COPY dialog:
  *         - statText item contains EXACTLY FLAIR_CANON_FILECOPY_MSG (byte-exact).
@@ -43,10 +42,13 @@
  *     (b) Sampled E7 content face with white TL / C0 BR inset legs.
  *     (c) Progress bar band: the ctrl_progress_fill_px region within the
  *         progress bar item rect matches the expected pixel value.
+ *     (d) L023: complete alert perimeter equals the runtime historical PNG
+ *         at both depths (outline, tinted outer bevel, inner bevel, face).
  *
  * MUTANTS (Rule 6), each MUST drive this oracle RED:
  *   DIALOG_MUTATE_BORDER       -- DrawDialog uses wrong border width (8 px).
- *                                 => property 1a (border width) and 3a go RED.
+ *                                 => property 3d goes RED.
+ *   DIALOG_MUT_ALERT_SLAB      -- pre-L023 slab => property 3d goes RED.
  *   DIALOG_MUTATE_HIT_STATIC   -- ModalDialog returns statText items.
  *                                 => property 2e goes RED.
  *   DIALOG_MUTATE_FILECOPY_MSG -- FileCopyDialog uses a wrong message string.
@@ -69,6 +71,7 @@
 #include "color_canon.h"        /* named sampled Platinum canon indices         */
 #include "chrome_fidelity_golden.h" /* independent controls.md expectations    */
 #include "text.h"               /* text_measure, FONT_CHICAGO (-Ios/flair)     */
+#include "alert_capture.h"
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
 /* Region storage for dialog tests (pool sizes mirror test_control.c). */
@@ -889,101 +892,58 @@ static void test_draw_filecopy(void)
     render_ctx_free(&ctx);
 }
 
-/* ===========================================================================
- * PROPERTY 3b -- DRAW: a GENERIC dBoxProc dialog (built directly via
- * NewDialog, NOT FileCopyDialog) still gets the classic 7-px solid border --
- * verifying that the movableDBoxProc upgrade in FileCopyDialog (initech-zvo6)
- * did NOT change the default chrome every OTHER dialog gets. This is also the
- * DIALOG_MUTATE_BORDER mutant's target (unaffected by the FILE COPY chrome
- * change, since it lives in the dBoxProc branch of DrawDialog).
- *
- * Sweep: pixels at y in [top, top+bw) should all be BLACK; y = top+bw WHITE.
- * ===========================================================================*/
-static void draw_generic_dbox_dialog(GrafPort *port)
+static void draw_capture_dbox(GrafPort *port)
 {
-    static DialogRecord  s_dr;
-    static DialogItem    s_items[1];
-    static ControlRecord s_ctrl;
-    static rgn_store_t   s_sruc, s_scont, s_supd;
-
-    rgn_store_init(&s_sruc);
-    rgn_store_init(&s_scont);
-    rgn_store_init(&s_supd);
-
-    rgn_rect_t bounds;
-    bounds.top = 200; bounds.left = 140; bounds.bottom = 280; bounds.right = 500;
-    rgn_rect_t r1;
-    r1.top = 236; r1.left = 154; r1.bottom = 256; r1.right = 486;
-    control_init(&s_ctrl, progressBar, r1, 50, 0, 100, 1, "");
-    s_items[0].type = ctrlItem; s_items[0].rect = r1;
-    s_items[0].text = 0; s_items[0].ctrl = &s_ctrl; s_items[0].enabled = 0;
-    s_items[0]._pad[0] = s_items[0]._pad[1] = s_items[0]._pad[2] = 0;
-
-    DialogPtr dp = NewDialog(&s_dr, bounds, "", s_items, 1u, 0u, 0u, 0,
-                             &s_sruc.r, &s_scont.r, &s_supd.r);
-    if (!dp) {
-        return;
-    }
+    DialogRecord dr;
+    DialogItem item;
+    rgn_store_t struc, cont, upd;
+    rgn_store_init(&struc);
+    rgn_store_init(&cont);
+    rgn_store_init(&upd);
+    memset(&item, 0, sizeof item);
+    item.type = statText;
+    rgn_rect_t bounds = {87, 133, 191, 507};
+    DialogPtr dp = NewDialog(&dr, bounds, "", &item, 1u, 0u, 0u, NULL,
+                             &struc.r, &cont.r, &upd.r);
+    if (!dp) return;
     dp->window.port = *port;
-    dp->window.port.portRect = dp->window.strucRgn->bbox;
+    dp->window.port.portRect = bounds;
     DrawDialog(dp);
 }
 
+/* L023: decode the historical frame at runtime. controls.md Sec 6 and
+ * s8_alert_modal.png: frame x133..506,y87..190; mid-edge inward bands
+ * TL 000000/FFB3B3/FFFFFF/E7E7E7, BR 000000/FF8787/B3B3B3/E7E7E7.
+ * Check the entire seven-pixel perimeter, including its four face pixels,
+ * so an outline over a residual slab cannot pass, at either color depth.
+ */
 static void test_draw_border_sweep(void)
 {
-    render_ctx_t ctx;
-    int rc = render_one(&ctx, 8u);
-    CHECK(rc == 0, "render_ctx_init(8bpp) for border sweep test must succeed");
-    if (rc != 0) { return; }
-
-    render_run(&ctx, draw_generic_dbox_dialog);
-
-    char msg[300];
-    int bw = FLAIR_CHROME_DIALOG_BORDER;  /* 7 */
-    int top  = 200;
-    int left = 140;
-    int x_probe = 200;  /* well inside the dialog horizontally */
-
-    /* Sweep top border rows. */
-    for (int row = top; row < top + bw; row++) {
-        snprintf(msg, sizeof msg,
-                 "top border pixel at (x=%d,y=%d) must be DLG_BLACK (0), got %u",
-                 x_probe, row, (unsigned)pidx(&ctx, (uint32_t)x_probe, (uint32_t)row));
-        CHECK(pidx(&ctx, (uint32_t)x_probe, (uint32_t)row) == 0u, msg);
+    unsigned char *gold = alert_capture_load();
+    CHECK(gold != NULL, "ALERT-BANDS: independent PNG must decode");
+    if (!gold) return;
+    for (unsigned bpp = 8; bpp <= 32; bpp += 24) {
+        render_ctx_t ctx;
+        int rc = render_one(&ctx, bpp);
+        CHECK(rc == 0, "ALERT-BANDS: render context must initialize");
+        if (rc) continue;
+        render_run(&ctx, draw_capture_dbox);
+        int bad = 0, total = 0;
+        for (int y = 87; y <= 190; y++) {
+            for (int x = 133; x <= 506; x++) {
+                if (x >= 140 && x < 500 && y >= 94 && y < 184) continue;
+                uint32_t want = alert_capture_rgb(gold, x, y);
+                bad += render_pixel_rgb(&ctx, (unsigned)x, (unsigned)y) != want;
+                total++;
+            }
+        }
+        printf("ALERT-BANDS depth=%u: %d/%d perimeter pixels matched capture\n",
+               bpp, total - bad, total);
+        CHECK(bad == 0, "ALERT-BANDS: outline + two bevel rows + face must equal capture");
+        render_ctx_free(&ctx);
     }
-
-    /* The row immediately after the border is the white inset highlight. */
-    snprintf(msg, sizeof msg,
-             "first content row at (x=%d,y=%d) [= top+bw=%d] must be sampled white highlight (1), got %u",
-             x_probe, top + bw, top + bw, (unsigned)pidx(&ctx, (uint32_t)x_probe, (uint32_t)(top + bw)));
-    CHECK(pidx(&ctx, (uint32_t)x_probe, (uint32_t)(top + bw)) == 1u, msg);
-
-    /* Sweep left border columns. */
-    int y_probe = 240;
-    for (int col = left; col < left + bw; col++) {
-        snprintf(msg, sizeof msg,
-                 "left border pixel at (x=%d,y=%d) must be DLG_BLACK (0), got %u",
-                 col, y_probe, (unsigned)pidx(&ctx, (uint32_t)col, (uint32_t)y_probe));
-        CHECK(pidx(&ctx, (uint32_t)col, (uint32_t)y_probe) == 0u, msg);
-    }
-
-    /* First content column after the left border is the white inset highlight. */
-    snprintf(msg, sizeof msg,
-             "first content col at (x=%d,y=%d) [= left+bw=%d] must be sampled white highlight (1), got %u",
-             left + bw, y_probe, left + bw,
-             (unsigned)pidx(&ctx, (uint32_t)(left + bw), (uint32_t)y_probe));
-    CHECK(pidx(&ctx, (uint32_t)(left + bw), (uint32_t)y_probe) == 1u, msg);
-
-    CHECK(pidx(&ctx, (uint32_t)(left + bw + 1),
-               (uint32_t)(top + bw + 1)) == FG_CTRL_FACE_IDX,
-          "generic dialog content body must use sampled E7 face");
-    CHECK(pidx(&ctx, 492u, 240u) == FG_CTRL_SHADOW_IDX &&
-          pidx(&ctx, 200u, 272u) == FG_CTRL_SHADOW_IDX,
-          "generic dialog content must carry sampled C0 right/bottom inset legs");
-
-    render_ctx_free(&ctx);
-
-    (void)lcg(); /* ensure LCG is exercised so the seed isn't dead weight */
+    free(gold);
+    (void)lcg();
 }
 
 /* Default item wiring: DrawDialog expands the default push button by 3 px,
