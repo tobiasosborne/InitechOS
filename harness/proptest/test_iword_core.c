@@ -522,10 +522,13 @@ static void p4_codes(void)
     for (uint32_t i = 1; i < ns; i++) { iw_ed_right(&e); if (e.cur != starts[i]) { fprintf(stderr, "  FAIL P4 right -> %u want %u\n", e.cur, starts[i]); bad = 1; } }
     for (uint32_t i = ns - 1u; i > 0; i--) { iw_ed_left(&e); if (e.cur != starts[i - 1]) { fprintf(stderr, "  FAIL P4 left -> %u want %u\n", e.cur, starts[i - 1]); bad = 1; } }
     /* Backspace right after [BOLD] and Delete right before the D0 group:
-     * the codes stay (P1 protects them), the cursor steps over them. */
+     * the codes stay. An attribute code is ASKED about (WP 5.1's "Delete
+     * [BOLD]? No (Yes)", bead initech-jojk slice 2, ../wordperfect51-decomp
+     * mint/shots_wpMINT11/01_bs_prompt.png): nothing changes until the
+     * answer; any other code is stepped over (P1 protection). */
     e.cur = 5;
-    CHECK(iw_ed_backspace(&e) == IW_E_PROTECTED, "Backspace over a code is refused");
-    CHECK(e.doc.len == nb && e.cur == 2u, "the code stays; the cursor steps before it");
+    CHECK(iw_ed_backspace(&e) == IW_E_ASK, "Backspace on an attribute code asks");
+    CHECK(e.doc.len == nb && e.cur == 5u && e.ask == 2u && e.ask_del == 0, "nothing changes until the answer; the question is about [BOLD]");
     e.cur = 12;
     CHECK(iw_ed_delete(&e) == IW_E_PROTECTED, "Delete on a code is refused");
     CHECK(e.doc.len == nb && e.cur == 28u, "the group stays; the cursor steps past it");

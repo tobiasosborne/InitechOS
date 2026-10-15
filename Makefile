@@ -10028,7 +10028,7 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # piece table in the .bss (e_minalloc). Never compiled into the kernel (plan
 # docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
-IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/fs/wp5.c
+IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
 IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
 $(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP)))
 $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP)))
@@ -13808,14 +13808,23 @@ test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUI
 #                            wp5_ref.py, re-wrapping at 65 columns reproduces
 #                            WP's own soft returns, typed MINT02 is the real
 #                            MINT02.WP5 byte for byte, malformed files are
-#                            refused. The corpus is required: absent, the gate
+#                            refused. Since bead initech-jojk: 19 goldens
+#                            (MINT06..19 from mint/work/WP51 until filed), WP's
+#                            bookkeeping (iw_ed_fixup: tab / indent / C6 / D4
+#                            payloads) changes none of them, and the keys of
+#                            mint/wpMINT06..19.steps typed through the editor
+#                            give every one of those files byte for byte
+#                            (attributes, tabs, indents, hard pages, the
+#                            "Delete [code]?" answers, Block / Move / Copy /
+#                            Delete, the cursor mark at 0x103).
+#                            The corpus is required: absent, the gate
 #                            FAILS (SKIP_WORDPERFECT51_DECOMP=1 is the one
 #                            shouting opt-out, initech-iv8c pattern).
 # Mutants: test-iword-core-mutant (SPLIT_OFF / REFLOW_STALE / PREV_VAR) and
-# test-iword-wp5-roundtrip-mutant (DROP_CODE / WRAP_EARLY), each RED for its
-# named reason.
+# test-iword-wp5-roundtrip-mutant (DROP_CODE / WRAP_EARLY / CURSOR_FLAG /
+# NO_D4), each RED for its named reason.
 # ---------------------------------------------------------------------------
-IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/fs/wp5.c
+IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
 IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
 IWORD_CORE_INC := -Ios/iword/core -Ispec
 TEST_IWORD_CORE := $(BUILD)/test_iword_core
@@ -13843,7 +13852,7 @@ test-iword-core-mutant: $(BUILD)/test_iword_core_mutant_IWORD_MUT_SPLIT_OFF $(BU
 
 IWORD_WP5_DIR     := harness/diff/wp5_diff
 TEST_IWORD_WP5    := $(BUILD)/test_iword_wp5_roundtrip
-IWORD_WP5_DEPS    := $(IWORD_WP5_DIR)/test_iword_wp5_roundtrip.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h $(ORACLE_POLICY_H)
+IWORD_WP5_DEPS    := $(IWORD_WP5_DIR)/test_iword_wp5_roundtrip.c $(IWORD_WP5_DIR)/iword_keys.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h $(ORACLE_POLICY_H)
 $(TEST_IWORD_WP5): $(IWORD_WP5_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -Iharness $(IWORD_CORE_INC) -o $@ $(IWORD_WP5_DIR)/test_iword_wp5_roundtrip.c $(IWORD_CORE_SRC)
 $(BUILD)/test_iword_wp5_mutant_%: $(IWORD_WP5_DEPS) | $(BUILD)
@@ -13861,22 +13870,22 @@ test-iword-wp5-roundtrip test-iword-wp5-roundtrip-mutant:
 else
 test-iword-wp5-roundtrip: $(TEST_IWORD_WP5)
 	$(call need_wp_goldens,test-iword-wp5-roundtrip)
-	@printf '>>> test-iword-wp5-roundtrip: the .WP5 codec + core vs the 8 real WordPerfect 5.1 goldens and wp5_ref.py (initech-l4tj, initech-jojk)\n'
+	@printf '>>> test-iword-wp5-roundtrip: the .WP5 codec + core vs the 19 real WordPerfect 5.1 goldens and wp5_ref.py (initech-l4tj, initech-jojk)\n'
 	@mkdir -p $(BUILD)/iword_wp5
 	@$(TEST_IWORD_WP5) $(WORDPERFECT51_DECOMP) $(BUILD)/iword_wp5
 	@printf '>>> test-iword-wp5-roundtrip: green\n'
 
-test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_CODE $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_WRAP_EARLY $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_ITALIC_FLAG
+test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_CODE $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_WRAP_EARLY $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_CURSOR_FLAG $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_NO_D4
 	$(call need_wp_goldens,test-iword-wp5-roundtrip-mutant)
 	@mkdir -p $(BUILD)/iword_wp5_mut
-	@for pair in 'IWORD_MUT_DROP_CODE:RED-REASON golden-rewrite' 'IWORD_MUT_WRAP_EARLY:RED-REASON typed' 'IWORD_MUT_ITALIC_FLAG:RED-REASON typed'; do \
+	@for pair in 'IWORD_MUT_DROP_CODE:RED-REASON golden-rewrite' 'IWORD_MUT_WRAP_EARLY:RED-REASON typed' 'IWORD_MUT_CURSOR_FLAG:RED-REASON typed' 'IWORD_MUT_NO_D4:RED-REASON typed'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_wp5_mutant_$$m; \
 		if $$bin $(WORDPERFECT51_DECOMP) $(BUILD)/iword_wp5_mut > $$bin.log 2>&1; then printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
 	done
-	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all three mutants RED for the named reason)\n'
+	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all four mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -13884,22 +13893,33 @@ endif
 # IWORD P2 slice 1: codes as first-class entities; plan docs/plans/INITECH-
 # WORD-plan.md Sec 6(c)/(d), Sec 7 P2).
 #   test-iword-codes         the PROPERTY SUITE (harness/proptest/
-#                            test_iword_codes.c): 600 random sessions mixing
-#                            text with F6 / F8 / Ctrl-F8 2 4 / Ctrl-F8 3 /
-#                            Alt-F3 against a token MODEL of WordPerfect's
-#                            attribute rules (Reference Manual Attributes p.
-#                            36-37 + the real WP.EXE in MINT06/MINT08): the
-#                            bytes, the cursor, whole units, balanced scopes,
-#                            the wrap with zero-width codes, the state.
+#                            test_iword_codes.c): three families of random
+#                            sessions against a token MODEL of WordPerfect's
+#                            rules (Reference Manual Attributes p. 36-37 + the
+#                            real WP.EXE in MINT06/08/11..15): "codes" (600:
+#                            F6 / F8 / Ctrl-F8 2 4 / Ctrl-F8 3 / Alt-F3 and the
+#                            "Delete [code]? No (Yes)" answers), "geometry"
+#                            (300: Tab / F4 / Ctrl-Enter among text, serialized
+#                            with an INDEPENDENT reference layout -- the tab /
+#                            indent / C6 / D4 payloads of MINT09/10), "block"
+#                            (400: Alt-F4, Ctrl-F4 1 1 / 1 2 / Delete y, Enter
+#                            to retrieve): every byte, the cursor, whole
+#                            units, balanced scopes, the wrap, the attribute
+#                            state at every token, cuts keeping attributes
+#                            (bead initech-jojk slices 1 + 2).
 #   test-iword-reveal-codes  the REVEAL CODES DUMP vs the real WP 5.1 screens
 #                            (harness/diff/wp5_diff/test_iword_reveal_codes.c):
-#                            every pane row of twelve Reveal Codes screens
-#                            (MINT01..08), transcribed into the test from the
-#                            shot files it cites, diffed at WP's 80 columns,
-#                            with the cursor's highlight.
-# Mutants: test-iword-codes-mutant (TOGGLE_DUP / PAIR_HALF -> RED-REASON codes)
-# and test-iword-reveal-codes-mutant (LABEL_ITALC -> RED-REASON label,
-# PANE_ANCHOR -> RED-REASON pane).
+#                            every pane row of 38 Reveal Codes screens
+#                            (MINT01..16: attributes, [Tab] / [->Indent] /
+#                            [HPg], the "Delete [code]?" answers, [Block] and
+#                            the Move results), transcribed into the test from
+#                            the shot files it cites, diffed at WP's 80 columns
+#                            x 11 lines, with the cursor's highlight.
+# Mutants: test-iword-codes-mutant (TOGGLE_DUP / PAIR_HALF / NO_ASK / ASK_STAY
+# -> RED-REASON codes; TAB_FIXED -> geometry; COPY_BARE / CUT_NO_MEND /
+# RETRIEVE_DUP -> block)
+# and test-iword-reveal-codes-mutant (LABEL_ITALC / BLOCK_LABEL -> RED-REASON
+# label, PANE_ANCHOR -> RED-REASON pane).
 # ---------------------------------------------------------------------------
 TEST_IWORD_CODES := $(BUILD)/test_iword_codes
 IWORD_CODES_DEPS := harness/proptest/test_iword_codes.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
@@ -13914,18 +13934,19 @@ test-iword-codes: $(TEST_IWORD_CODES)
 	@$(TEST_IWORD_CODES)
 	@printf '>>> test-iword-codes: green\n'
 
-test-iword-codes-mutant: $(BUILD)/test_iword_codes_mutant_IWORD_MUT_TOGGLE_DUP $(BUILD)/test_iword_codes_mutant_IWORD_MUT_PAIR_HALF
-	@for pair in 'IWORD_MUT_TOGGLE_DUP:RED-REASON codes' 'IWORD_MUT_PAIR_HALF:RED-REASON codes'; do \
+IWORD_CODES_MUTANTS := TOGGLE_DUP:codes PAIR_HALF:codes NO_ASK:codes ASK_STAY:codes TAB_FIXED:geometry COPY_BARE:block CUT_NO_MEND:block RETRIEVE_DUP:block
+test-iword-codes-mutant: $(foreach m,$(IWORD_CODES_MUTANTS),$(BUILD)/test_iword_codes_mutant_IWORD_MUT_$(firstword $(subst :, ,$(m))))
+	@for p in $(IWORD_CODES_MUTANTS); do pair="IWORD_MUT_$${p%%:*}:RED-REASON $${p#*:}"; \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_codes_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-iword-codes-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-codes-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-codes-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-codes-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -m1 'FAIL' $$bin.log | sed 's/^ *//')" "$$(grep -m1 '      C' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-codes-mutant: green (both mutants RED for the named reason)\n'
+	@printf '>>> test-iword-codes-mutant: green (all eight mutants RED for the named reason)\n'
 
 TEST_IWORD_REVEAL := $(BUILD)/test_iword_reveal_codes
-IWORD_REVEAL_DEPS := $(IWORD_WP5_DIR)/test_iword_reveal_codes.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
+IWORD_REVEAL_DEPS := $(IWORD_WP5_DIR)/test_iword_reveal_codes.c $(IWORD_WP5_DIR)/iword_keys.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
 $(TEST_IWORD_REVEAL): $(IWORD_REVEAL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed $(IWORD_CORE_INC) -o $@ $(IWORD_WP5_DIR)/test_iword_reveal_codes.c $(IWORD_CORE_SRC)
 $(BUILD)/test_iword_reveal_mutant_%: $(IWORD_REVEAL_DEPS) | $(BUILD)
@@ -13938,20 +13959,20 @@ test-iword-reveal-codes test-iword-reveal-codes-mutant:
 else
 test-iword-reveal-codes: $(TEST_IWORD_REVEAL)
 	$(call need_wp_goldens,test-iword-reveal-codes)
-	@printf '>>> test-iword-reveal-codes: the Reveal Codes pane vs twelve real WordPerfect 5.1 Reveal Codes screens (initech-jojk)\n'
+	@printf '>>> test-iword-reveal-codes: the Reveal Codes pane vs 38 real WordPerfect 5.1 Reveal Codes screens (initech-jojk)\n'
 	@$(TEST_IWORD_REVEAL) $(WORDPERFECT51_DECOMP)
 	@printf '>>> test-iword-reveal-codes: green\n'
 
-test-iword-reveal-codes-mutant: $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_LABEL_ITALC $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_PANE_ANCHOR
+test-iword-reveal-codes-mutant: $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_LABEL_ITALC $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_PANE_ANCHOR $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_BLOCK_LABEL
 	$(call need_wp_goldens,test-iword-reveal-codes-mutant)
-	@for pair in 'IWORD_MUT_LABEL_ITALC:RED-REASON label' 'IWORD_MUT_PANE_ANCHOR:RED-REASON pane'; do \
+	@for pair in 'IWORD_MUT_LABEL_ITALC:RED-REASON label' 'IWORD_MUT_PANE_ANCHOR:RED-REASON pane' 'IWORD_MUT_BLOCK_LABEL:RED-REASON label'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_reveal_mutant_$$m; \
 		if $$bin $(WORDPERFECT51_DECOMP) > $$bin.log 2>&1; then printf '!!! test-iword-reveal-codes-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-reveal-codes-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-reveal-codes-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-reveal-codes-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 'FAIL' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-reveal-codes-mutant: green (both mutants RED for the named reason)\n'
+	@printf '>>> test-iword-reveal-codes-mutant: green (all three mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -13967,9 +13988,14 @@ endif
 # saves are judged INDEPENDENTLY here: MEMO == the real MINT02.WP5 prefix +
 # the wrapped paragraph byte for byte, and wp5_ref.py reads MEMO / COPY /
 # GUARD with their text and zero trailer errors.
+# Legs F8..F10 (bead initech-jojk, P2 slice 2): Block / Move / Delete Block,
+# the "Delete [code]? No (Yes)" question, tabs / indents / hard pages -- every
+# prompt and row against the MINT09/11/12 shots; TABS (the keys of mint/
+# wpMINT09.steps) saved with a body byte-identical to MINT09's.
 # Mutants (test-iword-face-mutant): IWORD_MUT_NO_WRAP (the rows do not wrap),
 # IWORD_MUT_SAVE_NOTHING (MEMO is empty), IWORD_MUT_NO_FACE (leg F7, bead
-# initech-jojk: the attribute codes are kept but drawn plain).
+# initech-jojk: the attribute codes are kept but drawn plain),
+# IWORD_MUT_NO_BLOCK_ON (leg F8: "Block on" is not shown).
 # ---------------------------------------------------------------------------
 TEST_IWORD_FACE   := $(BUILD)/test_iword_face
 IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
@@ -13981,6 +14007,7 @@ $(BUILD)/test_iword_face_small: $(IWORD_FACE_DEPS) | $(BUILD)
 	$(CC) $(IWORD_FACE_CFLAGS) -DIWORD_SMALL_BUFFERS -o $@ harness/proptest/test_iword_face.c $(IWORD_CORE_SRC)
 $(BUILD)/test_iword_face_mutant_%: $(IWORD_FACE_DEPS) | $(BUILD)
 	$(CC) $(IWORD_FACE_CFLAGS) -D$* -o $@ harness/proptest/test_iword_face.c $(IWORD_CORE_SRC)
+IWORD_MINT09 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT09.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT09)
 IWORD_MEMO_TEXT := Initech word processing is here. The quick brown fox jumps over
 IWORD_MEMO_TAIL := the lazy dog.
 # leg F7 (bead initech-jojk): CODES as the independent reader lists it
@@ -14008,10 +14035,12 @@ test-iword-face: $(TEST_IWORD_FACE) $(BUILD)/test_iword_face_small
 	@$(call iword_ref_text,$(IWORD_FACE_FS)/GUARD,Keep me) || { printf '!!! test-iword-face FAIL: GUARD (saved from the exit guard) per wp5_ref.py\n'; cat $(IWORD_FACE_FS)/GUARD.ref; exit 1; }
 	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(IWORD_FACE_FS)_small/BIG | grep -q 'END offset=4096 filesize=4096 trailer-errors=0$$' || { printf '!!! test-iword-face FAIL: BIG (the compaction leg) does not parse clean\n'; exit 1; }
 	@$(call iword_ref_text,$(IWORD_FACE_FS)/CODES,Plain bold under slant xy) && grep -qF "$(IWORD_CODES_REF)" $(IWORD_FACE_FS)/CODES.ref || { printf '!!! test-iword-face FAIL: wp5_ref.py does not read CODES (leg F7) as the attribute pairs typed\n'; cat $(IWORD_FACE_FS)/CODES.ref; exit 1; }
-	@printf '>>> test-iword-face: green (MEMO byte-identical to the expected file; MEMO/COPY/GUARD/BIG/CODES read clean by wp5_ref.py; CODES carries bold/underline/italic pairs)\n'
+	@tail -c +328 $(IWORD_FACE_FS)/TABS > $(BUILD)/iword_face_tabs.body && tail -c +328 $(IWORD_MINT09) > $(BUILD)/iword_face_tabs.want && cmp $(BUILD)/iword_face_tabs.want $(BUILD)/iword_face_tabs.body || { printf '!!! test-iword-face FAIL: the body of TABS (leg F10, the keys of mint/wpMINT09.steps) is not the body WP.EXE saved in MINT09\n'; exit 1; }
+	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(IWORD_FACE_FS)/TABS | grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$$' || { printf '!!! test-iword-face FAIL: TABS does not parse clean\n'; exit 1; }
+	@printf '>>> test-iword-face: green (MEMO byte-identical to the expected file; MEMO/COPY/GUARD/BIG/CODES/TABS read clean by wp5_ref.py; CODES carries bold/underline/italic pairs; the body of TABS == MINT09 (%s bytes))\n' "$$(wc -c < $(BUILD)/iword_face_tabs.body)"
 
-test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUILD)/test_iword_face_mutant_IWORD_MUT_SAVE_NOTHING $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_FACE
-	@for pair in 'IWORD_MUT_NO_WRAP:FAIL F1 the paragraph wraps' 'IWORD_MUT_SAVE_NOTHING:FAIL F1 MEMO holds' 'IWORD_MUT_NO_FACE:FAIL F7 faces'; do \
+test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUILD)/test_iword_face_mutant_IWORD_MUT_SAVE_NOTHING $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_FACE $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_BLOCK_ON
+	@for pair in 'IWORD_MUT_NO_WRAP:FAIL F1 the paragraph wraps' 'IWORD_MUT_SAVE_NOTHING:FAIL F1 MEMO holds' 'IWORD_MUT_NO_FACE:FAIL F7 faces' 'IWORD_MUT_NO_BLOCK_ON:FAIL F8 Alt-F4: Block on'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_face_mutant_$$m; dir=$(BUILD)/iword_face_fs_$$m; \
 		rm -rf $$dir && mkdir -p $$dir; \
 		if $$bin $$dir > $$bin.log 2>&1; then printf '!!! test-iword-face-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
@@ -14019,7 +14048,7 @@ test-iword-face-mutant: $(BUILD)/test_iword_face_mutant_IWORD_MUT_NO_WRAP $(BUIL
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-face-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-face-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 -F "$$why" $$bin.log)"; \
 	done
-	@printf '>>> test-iword-face-mutant: green (all three mutants RED for the named reason)\n'
+	@printf '>>> test-iword-face-mutant: green (all four mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -22480,6 +22509,20 @@ RECORD_SPEC_iword_codes = $(FLAIR_IWORD_CODES_SPEC)
 RECORD_MARKER_iword_codes = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Press Reveal Codes to restore screen                                         " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_codes = 400
 RECORD_IMAGE_iword_codes = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# iword_block (bead initech-jojk, IWORD P2 slice 2; Rule 14): InitechWord's
+# Block and Move -- "Alpha Beta Gamma." typed, "Beta " blocked with Alt-F4
+# (Block on, the band), moved with Ctrl-F4 1 1 to the end of the line; "x",
+# F6, Backspace asks "Delete [BOLD]? No (Yes)", y; a Tab, "tab", Ctrl-Enter
+# (the hard page's bar), "Page two.", F10 saves, Alt-F3 shows [Tab] and
+# [HPg] in Reveal Codes. Replays the LOCKED FLAIR_IWORD_BLOCK_SPEC (test-
+# flair-iword-block; the keys of ../wordperfect51-decomp mint/wpMINT20.steps);
+# its marker is the restore message drawn on the last line. 90 recorded
+# events: the extra-long image, as iword_codes.
+RECORD_SCRIPTS += iword_block
+RECORD_SPEC_iword_block = $(FLAIR_IWORD_BLOCK_SPEC)
+RECORD_MARKER_iword_block = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Press Reveal Codes to restore screen                                         " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_block = 400
+RECORD_IMAGE_iword_block = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # fonts_styles (bead initech-tdnl.68, Font Manager slice 2; Rule 14): the FONTS
 # specimen opens from the Finder -- its narrow window titled "Font Manager
 # Styl" + the Chicago ellipsis, plain / bold / italic / underline / combined
@@ -29520,8 +29563,10 @@ test-flair-iword-mutant: test-flair-iword $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG)
 #                 5.1 screen (mint/shots_wpMINT06/01_font_menu.png,
 #                 01_appearance_menu.png).
 #   [3/5] DISK    CODES read off the stopped data volume with mtools: byte for
-#                 byte the prefix WP.EXE wrote for an italic body (MINT06's
-#                 327 bytes, 0x08 at 0x103) + the body with the three pairs
+#                 byte the prefix WP.EXE wrote for a save at the end (MINT02's
+#                 327 bytes, 0x00 at 0x103: saved with the cursor at the end --
+#                 the slice 2 correction, spec/iword/wp5_format.h
+#                 IW_WP5_PFX_CURSOR_OFF) + the body with the three pairs
 #                 (C3 0C C3 / C3 0E C3 / C3 08 C3 ...); wp5_ref.py, the
 #                 INDEPENDENT reader, lists the pairs, zero trailer errors.
 #   [4/5] REVEAL  the last draws: the status line above the ruler (row 10),
@@ -29596,7 +29641,7 @@ IWORD_C_REVEAL = $(call IWORD_LAST,$(1),0,$(IWORD_C_ROW)) && $(call IWORD_LAST,$
 	grep '^TENANT-GATE ax=0x0033 win=1 x=417 y=208 ' $(1) | tail -1 | grep -qx 'TENANT-GATE ax=0x0033 win=1 x=417 y=208 s=" " fg=3 bg=0 -> 0' && \
 	$(call IWORD_LAST,$(1),368,$(IWORD_C_MSG))
 IWORD_CODES_EXPECT := $(BUILD)/iword_codes.expect
-IWORD_MINT06 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT06.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT06)
+IWORD_MINT02 = $(WORDPERFECT51_DECOMP)/goldens/minted/MINT02.WP5
 IWORD_CODES_CHECK = $(PPM_IWORD_CODES_BIN) $(1) 2 62 78 600 300 0:4:1 5:10:4 11:16:2
 
 .PHONY: test-flair-iword-codes test-flair-iword-codes-mutant
@@ -29611,12 +29656,12 @@ test-flair-iword-codes: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG)
 	@$(call IWORD_C_KEYS,$(BUILD)/flair_iword_codes.serial) || { printf '!!! test-flair-iword-codes FAIL [2/5] KEYS: the plain line / the styled draws / the Font and Appearance menus were not all drawn\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=[0-9]* y=\(0\|16\|368\) ' $(BUILD)/flair_iword_codes.serial | tail -16; exit 1; }
 	@printf '>>> test-flair-iword-codes [2/5] KEYS: "bold" fg=256 (bold), "under" fg=1024 (underline), "slant" fg=512 (italic) drawn on line 2, accepted; Font menu + Appearance menu shown as WP 5.1 shows them\n'
 	@mcopy -o -i $(BUILD)/flair_iword_codes_data.img ::CODES $(BUILD)/iword-codes.WP5 || { printf '!!! test-flair-iword-codes FAIL [3/5] DISK: F10 did not create CODES on the data volume\n'; exit 1; }
-	@head -c 327 $(IWORD_MINT06) > $(IWORD_CODES_EXPECT)
+	@head -c 327 $(IWORD_MINT02) > $(IWORD_CODES_EXPECT)
 	@printf 'bold under slant\n\303\014\303bold\304\014\304 \303\016\303under\304\016\304 \303\010\303slant\304\010\304' >> $(IWORD_CODES_EXPECT)
-	@cmp $(IWORD_CODES_EXPECT) $(BUILD)/iword-codes.WP5 || { printf '!!! test-flair-iword-codes FAIL [3/5] DISK: CODES is not the italic-body prefix of MINT06 + the three attribute pairs\n'; exit 1; }
+	@cmp $(IWORD_CODES_EXPECT) $(BUILD)/iword-codes.WP5 || { printf '!!! test-flair-iword-codes FAIL [3/5] DISK: CODES is not the cursor-at-end prefix of MINT02 + the three attribute pairs\n'; exit 1; }
 	@$(call iword_ref_text,$(BUILD)/iword-codes.WP5,bold under slantbold under slant) && grep -qF "T'bold under slant' [HRt] [AttrOn Bold] T'bold' [AttrOff Bold] T' ' [AttrOn Underline] T'under' [AttrOff Underline] T' ' [AttrOn Italic] T'slant' [AttrOff Italic]" $(BUILD)/iword-codes.WP5.ref || { printf '!!! test-flair-iword-codes FAIL [3/5] DISK: wp5_ref.py does not read the three pairs in CODES\n'; cat $(BUILD)/iword-codes.WP5.ref; exit 1; }
 	fsck.fat -n $(BUILD)/flair_iword_codes_data.img
-	@printf '>>> test-flair-iword-codes [3/5] DISK: CODES (%s bytes) == MINT06 prefix (0x08 at 0x103) + the body with the pairs; wp5_ref.py: %s\n' "$$(wc -c < $(BUILD)/iword-codes.WP5)" "$$(grep -F 'END offset' $(BUILD)/iword-codes.WP5.ref | sed 's/^ *//')"
+	@printf '>>> test-flair-iword-codes [3/5] DISK: CODES (%s bytes) == MINT02 prefix (0x00 at 0x103: saved at the end) + the body with the pairs; wp5_ref.py: %s\n' "$$(wc -c < $(BUILD)/iword-codes.WP5)" "$$(grep -F 'END offset' $(BUILD)/iword-codes.WP5.ref | sed 's/^ *//')"
 	@$(call IWORD_C_REVEAL,$(BUILD)/flair_iword_codes.serial) || { printf '!!! test-flair-iword-codes FAIL [4/5] REVEAL: the status line / ruler / codes pane / cursor / message are not the last draws\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=[0-9]* y=\(160\|176\|192\|208\|368\) ' $(BUILD)/flair_iword_codes.serial | tail -8; exit 1; }
 	@printf '>>> test-flair-iword-codes [4/5] REVEAL: status above the ruler, "[BOLD]bold[bold] [UND]under[und] [ITALC]slant[italc]" in the pane, cursor after [italc], "Press Reveal Codes to restore screen"\n'
 	@$(call IWORD_CODES_CHECK,$(BUILD)/flair_iword_codes.ppm) > $(BUILD)/flair_iword_codes.style || { printf '!!! test-flair-iword-codes FAIL [5/5] STYLE:\n'; cat $(BUILD)/flair_iword_codes.style; exit 1; }
@@ -29637,6 +29682,115 @@ test-flair-iword-codes-mutant: test-flair-iword-codes $(HARNESS_BIN) $(FLAIR_IWO
 	@printf '>>> test-flair-iword-codes-mutant: UL_LOW correctly RED -- serial legs green, bold green, %s\n' "$$(grep -m1 '^STYLE RED' $(BUILD)/flair_iword_codes_ullow.style)"
 	@printf '>>> test-flair-iword-codes-mutant: green (both mutants RED for the named reason)\n'
 TEST_EMU_GATES += test-flair-iword-codes test-flair-iword-codes-mutant
+
+# ===========================================================================
+# REAL gate: test-flair-iword-block (bead initech-jojk, IWORD P2 slice 2; epic
+# initech-fdxa) -- BLOCK, MOVE, THE "DELETE [code]?" QUESTION, TAB AND HARD
+# PAGE ON THE BOOTED DESKTOP. QEMU, one boot of $(FLAIR_IWORD_GATE_IMG) (the
+# flagship kernel, pump life 1500 ticks) + a copy of the shipped data volume,
+# trace LOCKED in spec/flair_iword_traces.mk (FLAIR_IWORD_BLOCK_SPEC): the keys
+# of ../wordperfect51-decomp mint/wpMINT20.steps, the document the REAL WP.EXE
+# saved as MINT20 (re/mint-results-003.md).
+#   [1/5] UP      WORD loads, registers, its window comes forward.
+#   [2/5] KEYS    the prompts in the words of the real WP 5.1 screens: "Block
+#                 on" at the left of the status line (MINT12 01_block_on), the
+#                 block "Beta " drawn BLACK on GRAY (fg=1 bg=2) on line 1, the
+#                 Move menus (03_move_menu, 04_block_menu), "Move cursor;
+#                 press Enter to retrieve." (05_move_prompt), "Delete [BOLD]?
+#                 No (Yes)" (MINT11 01_bs_prompt).
+#   [3/5] DISK    BLOCK read off the stopped data volume with mtools is BYTE
+#                 FOR BYTE the file WP.EXE saved for the same keys (MINT20:
+#                 the moved block, the pair gone, [Tab] at column 1 -> stop 5,
+#                 the D4/00 group with line 3 / page 1, 0x0C, the cursor-at-
+#                 end prefix); wp5_ref.py, the INDEPENDENT reader, lists [Tab]
+#                 [var0xd4/0x00 ...] [HPg], zero trailer errors.
+#   [4/5] REVEAL  the last draws (Alt-F3): the document rows as MINT20's
+#                 04_typed (the hard page's bar on its own row), the status
+#                 line "A:\BLOCK ... Doc 1 Pg 2 Ln 1" Pos 1.9"", the pane rows
+#                 of 06_reveal "[HRt]", "Alpha Gamma.Beta [HRt]", "x[Tab]tab
+#                 [HPg]", "Page two." with the cursor cell after it.
+#   [5/5] PIXELS  the screendump (tools/ppm_region_count): the bar row (screen
+#                 y 110..126) inked across the window, the tab's gap (columns
+#                 1..4 of the "x    tab" row) empty, "tab" inked at column 5.
+# Mutants (test-flair-iword-block-mutant), each RED for its reason, on their
+# own gate-local data volumes:
+#   IWORD_MUT_NO_D4       a WORD.EXE writing the hard page bare: KEYS and the
+#                         screen green, DISK RED (BLOCK != MINT20);
+#   IWORD_MUT_NO_BLOCK_ON a WORD.EXE that never shows "Block on": KEYS RED,
+#                         DISK green.
+# Bochs / record-flair (iword_block) are the PM's on main (Rule 5 / Rule 14).
+# ===========================================================================
+$(eval $(call tenant-exe-rules,iword_no_d4,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_D4,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword_no_block_on,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_BLOCK_ON,$(IWORD_APP_DEP)))
+FLAIR_DATA_IWORD_NOD4_IMG := $(BUILD)/flair_data_iword_no_d4.img
+FLAIR_DATA_IWORD_NOBLK_IMG := $(BUILD)/flair_data_iword_no_block_on.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOD4_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_d4.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOBLK_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_block_on.exe))
+IWORD_MINT20 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT20.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT20)
+IWORD_B_BLKON  := $(I123_E)Block on                                         Doc 1 Pg 1 Ln 1.17" Pos 1.6"$(I123_E)
+IWORD_B_MOVE   := $(I123_E)Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0                              $(I123_E)
+IWORD_B_MOVE1  := $(I123_E)1 Move; 2 Copy; 3 Delete; 4 Append: 0                                        $(I123_E)
+IWORD_B_RETR   := $(I123_E)Move cursor; press Enter to retrieve.            Doc 1 Pg 1 Ln 1.17" Pos 1.6"$(I123_E)
+IWORD_B_ASK    := $(I123_E)Delete [BOLD]? No (Yes)                                                      $(I123_E)
+IWORD_B_R1     := $(I123_E)Alpha Gamma.Beta                                                             $(I123_E)
+IWORD_B_R2     := $(I123_E)x    tab                                                                     $(I123_E)
+IWORD_B_BAR    := $(I123_E)=============================================================================$(I123_E)
+IWORD_B_R4     := $(I123_E)Page two.                                                                    $(I123_E)
+IWORD_B_ST     := $(I123_E)A:\BLOCK                                            Doc 1 Pg 2 Ln 1" Pos 1.9"$(I123_E)
+IWORD_B_P0     := $(I123_E)[HRt]                                                                        $(I123_E)
+IWORD_B_P1     := $(I123_E)Alpha Gamma.Beta [HRt]                                                       $(I123_E)
+IWORD_B_P2     := $(I123_E)x[Tab]tab[HPg]                                                               $(I123_E)
+IWORD_B_P3     := $(I123_E)Page two.                                                                    $(I123_E)
+IWORD_B_KEYS = $(call IWORD_DREW,$(1),368,$(IWORD_B_BLKON)) && \
+	grep -qx 'TENANT-GATE ax=0x0033 win=1 x=49 y=16 s="Beta " fg=1 bg=2 -> 0' $(1) && \
+	$(call IWORD_DREW,$(1),368,$(IWORD_B_MOVE)) && $(call IWORD_DREW,$(1),368,$(IWORD_B_MOVE1)) && \
+	$(call IWORD_DREW,$(1),368,$(IWORD_B_RETR)) && $(call IWORD_DREW,$(1),368,$(IWORD_B_ASK))
+IWORD_B_REVEAL = $(call IWORD_LAST,$(1),16,$(IWORD_B_R1)) && $(call IWORD_LAST,$(1),32,$(IWORD_B_R2)) && \
+	$(call IWORD_LAST,$(1),48,$(IWORD_B_BAR)) && $(call IWORD_LAST,$(1),64,$(IWORD_B_R4)) && \
+	$(call IWORD_LAST,$(1),160,$(IWORD_B_ST)) && \
+	$(call IWORD_LAST,$(1),192,$(IWORD_B_P0)) && $(call IWORD_LAST,$(1),208,$(IWORD_B_P1)) && \
+	$(call IWORD_LAST,$(1),224,$(IWORD_B_P2)) && $(call IWORD_LAST,$(1),240,$(IWORD_B_P3)) && \
+	grep '^TENANT-GATE ax=0x0033 win=1 x=73 y=240 ' $(1) | tail -1 | grep -qx 'TENANT-GATE ax=0x0033 win=1 x=73 y=240 s=" " fg=3 bg=0 -> 0' && \
+	$(call IWORD_LAST,$(1),368,$(IWORD_C_MSG))
+IWORD_B_DISK = mcopy -o -i $(BUILD)/$(1)_data.img ::BLOCK $(BUILD)/$(1).WP5 && cmp $(IWORD_MINT20) $(BUILD)/$(1).WP5
+# [5/5]: ink counts (ne = pixels unlike the NAVY field) of dump $(1)
+IWORD_B_PIXELS = set -- $$($(call IWORD_PX,$(1),2 110 618 126)); bar=$$1; \
+	set -- $$($(call IWORD_PX,$(1),10 94 42 110)); gap=$$1; \
+	set -- $$($(call IWORD_PX,$(1),42 94 66 110)); tab=$$1; \
+	[ "$$bar" -ge 600 ] && [ "$$gap" -eq 0 ] && [ "$$tab" -ge 20 ]
+
+.PHONY: test-flair-iword-block test-flair-iword-block-mutant
+test-flair-iword-block: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+	$(call need_wp_goldens,test-flair-iword-block)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-iword-block : Block, Move, Delete [code]?, Tab and hard page (initech-jojk)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_iword_block,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_IWORD_BLOCK_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_block.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_block.serial) || { printf '!!! test-flair-iword-block FAIL [1/5] UP: WORD did not come up or the desktop died\n'; grep -E '^(PANIC|TENANT-(LOAD|REG|CRASH|EXIT)|HALTED|FLAIR-DISPATCH)' $(BUILD)/flair_iword_block.serial; exit 1; }
+	@printf '>>> test-flair-iword-block [1/5] UP: %s; registered, dispatched\n' "$$(grep -m1 '^TENANT-LOAD name=WORD' $(BUILD)/flair_iword_block.serial)"
+	@$(call IWORD_B_KEYS,$(BUILD)/flair_iword_block.serial) || { printf '!!! test-flair-iword-block FAIL [2/5] KEYS: Block on / the band / the Move menus / the Move prompt / Delete [BOLD]? were not all drawn\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=[0-9]* y=\(16\|368\) ' $(BUILD)/flair_iword_block.serial | tail -20; exit 1; }
+	@printf '>>> test-flair-iword-block [2/5] KEYS: "Block on", "Beta " in the band (fg=1 bg=2), the two Move menus, "Move cursor; press Enter to retrieve.", "Delete [BOLD]? No (Yes)" -- as WP 5.1 draws them\n'
+	@$(call IWORD_B_DISK,flair_iword_block) || { printf '!!! test-flair-iword-block FAIL [3/5] DISK: BLOCK is not byte for byte the MINT20 WP.EXE saved for the same keys\n'; cmp -l $(IWORD_MINT20) $(BUILD)/flair_iword_block.WP5 | head; exit 1; }
+	@python3 -I $(WORDPERFECT51_DECOMP)/tools/wp5_ref.py $(BUILD)/flair_iword_block.WP5 > $(BUILD)/flair_iword_block.WP5.ref && grep -qF "T'x' [Tab 02080708070f00] T'tab' [var0xd4/0x00" $(BUILD)/flair_iword_block.WP5.ref && grep -qF "[HPg] T'Page two.'" $(BUILD)/flair_iword_block.WP5.ref && grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$$' $(BUILD)/flair_iword_block.WP5.ref || { printf '!!! test-flair-iword-block FAIL [3/5] DISK: wp5_ref.py does not read BLOCK clean\n'; cat $(BUILD)/flair_iword_block.WP5.ref; exit 1; }
+	fsck.fat -n $(BUILD)/flair_iword_block_data.img
+	@printf '>>> test-flair-iword-block [3/5] DISK: BLOCK (%s bytes) == MINT20 byte for byte; wp5_ref.py: %s\n' "$$(wc -c < $(BUILD)/flair_iword_block.WP5)" "$$(grep -F 'END offset' $(BUILD)/flair_iword_block.WP5.ref | sed 's/^ *//')"
+	@$(call IWORD_B_REVEAL,$(BUILD)/flair_iword_block.serial) || { printf '!!! test-flair-iword-block FAIL [4/5] REVEAL: the rows / status / codes pane / cursor / message are not the last draws\n'; grep '^TENANT-GATE ax=0x0033 win=1 x=[0-9]* y=\(16\|32\|48\|64\|160\|192\|208\|224\|240\|368\) ' $(BUILD)/flair_iword_block.serial | tail -14; exit 1; }
+	@printf '>>> test-flair-iword-block [4/5] REVEAL: "Alpha Gamma.Beta", "x    tab", the bar, "Page two."; "Doc 1 Pg 2 Ln 1\" Pos 1.9\""; pane "[HRt]" / "Alpha Gamma.Beta [HRt]" / "x[Tab]tab[HPg]" / "Page two." + cursor (MINT20 04_typed, 06_reveal)\n'
+	@f=$(BUILD)/flair_iword_block.ppm; $(call IWORD_B_PIXELS,$$f) || { set -- $$($(call IWORD_PX,$$f,2 110 618 126)); printf '!!! test-flair-iword-block FAIL [5/5] PIXELS: bar ink %s (>= 600), tab gap %s (== 0), "tab" %s (>= 20)\n' "$$1" "$$($(call IWORD_PX,$$f,10 94 42 110) | cut -d' ' -f1)" "$$($(call IWORD_PX,$$f,42 94 66 110) | cut -d' ' -f1)"; exit 1; }
+	@f=$(BUILD)/flair_iword_block.ppm; printf '>>> test-flair-iword-block [5/5] PIXELS: bar row ink %s px, tab gap 0 px, "tab" %s px\n' "$$($(call IWORD_PX,$$f,2 110 618 126) | cut -d' ' -f1)" "$$($(call IWORD_PX,$$f,42 94 66 110) | cut -d' ' -f1)"
+	@printf '>>> test-flair-iword-block: green\n'
+
+test-flair-iword-block-mutant: test-flair-iword-block $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IWORD_NOD4_IMG) $(FLAIR_DATA_IWORD_NOBLK_IMG) $(PPM_REGION_COUNT_BIN)
+	$(call appl-boot,flair_iword_block_nod4,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IWORD_NOD4_IMG),FLAIR_IWORD_BLOCK_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_block_nod4.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_block_nod4.serial) && $(call IWORD_B_KEYS,$(BUILD)/flair_iword_block_nod4.serial) || { printf '!!! test-flair-iword-block-mutant FAIL: NO_D4 went RED for the wrong reason (want: WORD up, every prompt drawn)\n'; exit 1; }
+	@if $(call IWORD_B_DISK,flair_iword_block_nod4); then printf '!!! test-flair-iword-block-mutant FAIL: NO_D4 PASSED the DISK leg -- it is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-iword-block-mutant: NO_D4 correctly RED -- prompts drawn, BLOCK (%s bytes) != MINT20 (%s bytes): the hard page lost its D4/00 group\n' "$$(wc -c < $(BUILD)/flair_iword_block_nod4.WP5)" "$$(wc -c < $(IWORD_MINT20))"
+	$(call appl-boot,flair_iword_block_noblk,$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IWORD_NOBLK_IMG),FLAIR_IWORD_BLOCK_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_iword_block_noblk.serial) && $(call IWORD_UP,$(BUILD)/flair_iword_block_noblk.serial) && $(call IWORD_B_DISK,flair_iword_block_noblk) || { printf '!!! test-flair-iword-block-mutant FAIL: NO_BLOCK_ON went RED for the wrong reason (want: WORD up, BLOCK == MINT20)\n'; exit 1; }
+	@if $(call IWORD_B_KEYS,$(BUILD)/flair_iword_block_noblk.serial); then printf '!!! test-flair-iword-block-mutant FAIL: NO_BLOCK_ON PASSED the KEYS leg -- it is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-iword-block-mutant: NO_BLOCK_ON correctly RED -- BLOCK == MINT20, but "Block on" was never drawn\n'
+	@printf '>>> test-flair-iword-block-mutant: green (both mutants RED for the named reason)\n'
+TEST_EMU_GATES += test-flair-iword-block test-flair-iword-block-mutant
 
 # ===========================================================================
 # test-flair-fonts (bead initech-tdnl.68) -- scaffolding: the gate's own data

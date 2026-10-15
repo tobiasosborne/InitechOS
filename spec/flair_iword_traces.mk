@@ -51,3 +51,15 @@ FLAIR_IWORD_TYPE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 #    (Reveal Codes). Line 1 is the PLAIN reference the pixel checker
 #    synthesizes line 2 from (tools/ppm_iword_codes_check.c). 73 tokens.
 FLAIR_IWORD_CODES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kb,ko,kl,kd,kspc,ku,kn,kd,ke,kr,kspc,ks,kl,ka,kn,kt,kret,kf6,kb,ko,kl,kd,kf6,kspc,kf8,ku,kn,kd,ke,kr,kf8,kspc,kctrl-f8,k2,k4,ks,kl,ka,kn,kt,kctrl-f8,k2,k4,kf10,kc,ko,kd,ke,ks,kret,kalt-f3
+
+# 4. FLAIR_IWORD_BLOCK_SPEC -- test-flair-iword-block and the iword_block clip
+#    (bead initech-jojk, IWORD P2 slice 2): launch (A, B, CWORD + double-
+#    click), then the keys of ../wordperfect51-decomp mint/wpMINT20.steps, the
+#    document the real WP.EXE saved as MINT20 (re/mint-results-003.md): Return,
+#    "Alpha Beta Gamma.", Left x11, Alt-F4 (Block on), Right x5 ("Beta "),
+#    Ctrl-F4 1 1 (Move), End, Enter (retrieved), End, Return, "x", F6,
+#    Backspace ("Delete [BOLD]? No (Yes)"), y, Tab, "tab", Ctrl-Enter (hard
+#    page), "Page two.", F10 "block" Enter (saved), Alt-F3 (Reveal Codes).
+#    "kctrl-ret" is Ctrl-Enter, "ktab" the Tab key (harness/emu/qemu.c).
+#    90 tokens.
+FLAIR_IWORD_BLOCK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kret,kshift-a,kl,kp,kh,ka,kspc,kshift-b,ke,kt,ka,kspc,kshift-g,ka,km,km,ka,kdot,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kalt-f4,kright,kright,kright,kright,kright,kctrl-f4,k1,k1,kend,kret,kend,kret,kx,kf6,kbspc,ky,ktab,kt,ka,kb,kctrl-ret,kshift-p,ka,kg,ke,kspc,kt,kw,ko,kdot,kf10,kb,kl,ko,kc,kk,kret,kalt-f3

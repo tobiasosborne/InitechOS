@@ -501,6 +501,12 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "delete") == 0 || strcmp(tok, "end") == 0) {
         return tok;
     }
+    /* Tab (bead initech-jojk, IWORD P2 slice 2: WordPerfect's [Tab]). QEMU
+     * sends it as the plain set-1 make 0x0F (event.c cooks it to '\t').
+     * Ref: qapi/ui.json QKeyCode tab. */
+    if (strcmp(tok, "tab") == 0) {
+        return tok;
+    }
     /* MODIFIERS (beads initech-tdnl.10, R3.3 emu wiring). These exist ONLY as
      * members of a chord token (see qmp_send_key_chord): a bare "ctrl" would
      * press-and-release Control with nothing else, which no gate wants. The

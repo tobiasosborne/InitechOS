@@ -328,25 +328,44 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
             return put(out, cap, n, IW_RV_JUST_LEFT);
         return put(out, cap, n, IW_RV_UNKNOWN);
     case 0xD4u:
-        if (g[1] == 0x00u) return n;                  /* R3: no label */
+        if (g[1] == 0x00u) return n;                  /* R3, MINT09: no label */
         return put(out, cap, n, IW_RV_UNKNOWN);
+    case IW_WP5_INDENT:     return put(out, cap, n, IW_RV_INDENT);   /* MINT09 */
+    case IW_WP5_END_INDENT: return n;                 /* MINT09: no label */
     default:
         return put(out, cap, n, IW_RV_UNKNOWN);
     }
 }
 
-uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur,
+uint32_t iw_code_label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap)
+{
+    uint32_t n = label(d, pos, out, cap, 0);
+    if (cap) out[n < cap ? n : cap - 1u] = 0;
+    return n < cap ? n : (cap ? cap - 1u : 0u);
+}
+
+uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur, uint32_t blk,
                         char *out, uint32_t cap, uint32_t *cur_off, uint32_t *cur_len)
 {
     uint32_t p = ln->start, n = 0;
     *cur_off = NONE;
     *cur_len = 0;
+#ifdef IWORD_MUT_BLOCK_LABEL
+    /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): the block's anchor is
+     * not shown. NEVER real. */
+    blk = IW_NO_BLOCK;
+#endif
     while (p < ln->end) {
-        uint32_t before = n;
+        uint32_t before;
+        /* the block's anchor (MINT13 01b_block_reveal "word[Block]s[bold]") */
+        if (blk != IW_NO_BLOCK && p == blk) n = put(out, cap, n, IW_RV_BLOCK);
+        before = n;
         n = label(d, p, out, cap, n);
         if (p == cur) { *cur_off = before; *cur_len = n - before; }
         p = iw_unit_next(d, p);
     }
+    if (blk != IW_NO_BLOCK && blk == d->len && ln->end >= d->len && ln->term == IW_U_TEXT)
+        n = put(out, cap, n, IW_RV_BLOCK);
     /* the end of the document: one cell after the last label */
     if (cur == d->len && ln->end >= d->len && ln->term == IW_U_TEXT) {
         *cur_off = n;
@@ -364,6 +383,8 @@ void iw_reveal_pane(const iw_ed_t *e, uint32_t width, uint32_t nrows,
     iw_where_t w;
     uint32_t r = 0, got, li;
     for (uint32_t i = 0; i < nrows; i++) rows[i * stride] = 0;
+    /* WP fills IW_RV_PANE_ROWS rows; any row below stays blank (MINT16) */
+    if (nrows > IW_RV_PANE_ROWS) nrows = IW_RV_PANE_ROWS;
     iw_ed_where(e, &w);
 #ifdef IWORD_MUT_PANE_ANCHOR
     /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): two lines above the
@@ -376,7 +397,7 @@ void iw_reveal_pane(const iw_ed_t *e, uint32_t width, uint32_t nrows,
     got = iw_ed_lines(e, pane->first_line, nrows < 32u ? nrows : 32u, lines);
     for (li = 0; li < got && r < nrows; li++) {
         uint32_t off, clen, n, k;
-        n = iw_reveal_line(&e->doc, &lines[li], e->cur, buf, sizeof buf, &off, &clen);
+        n = iw_reveal_line(&e->doc, &lines[li], e->cur, e->blk, buf, sizeof buf, &off, &clen);
         /* the rows this line takes (at least one; the end-of-document cell
          * may open a row of its own) */
         k = 0;
