@@ -1,4 +1,4 @@
-# WL-0114 -- The second night: seven lanes merged, two certificates, the oracle bites real Lotus
+# WL-0114 -- The second night: seven lanes merged, three certificates, the oracle bites real Lotus
 
 ## Context
 
@@ -149,9 +149,10 @@ slice-2 merges were verified by their families first-person on main plus
 emu 201..237, not by a full vector. The F16 merge 2962734 was verified by
 its host family (9 gates incl. the two new mutants) and the 29 emu gates
 whose checkers it touched, first-person on main; the lane itself ran all
-691 gates green on its merged tree. A full clean certificate of the final
-HEAD (make clean && make test in ../initech-os-cert) was started at close;
-its result is recorded in bd memory cert-2026-10-16 and the HANDOFF.
+691 gates green on its merged tree. Then the full clean certificate:
+make clean && make test in ../initech-os-cert at 12f62a0, 04:02-05:11,
+ALL GREEN 450 host + 241 emu gates, one vector, no re-runs. Every merge
+of the night is under it.
 
 ## Frictions
 
