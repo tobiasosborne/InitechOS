@@ -1,39 +1,39 @@
 /*
  * harness/diff/wp5_diff/test_iword_reveal_codes.c -- THE REVEAL CODES DUMP
- * ORACLE of InitechWord (factory C; bead initech-jojk, IWORD P2 slice 1;
- * plan docs/plans/INITECH-WORD-plan.md Sec 6(d): "a diff oracle comparing a
- * serialized Reveal-Codes-mode screen dump (the code-glyph stream, not
+ * ORACLE of InitechWord (factory C; bead initech-jojk, IWORD P2 slices 1 and
+ * 2; plan docs/plans/INITECH-WORD-plan.md Sec 6(d): "a diff oracle comparing
+ * a serialized Reveal-Codes-mode screen dump (the code-glyph stream, not
  * pixels) against the P0 mint corpus's captures").
  *
- * THE REFERENCE is twelve Reveal Codes screens the real WP.EXE (5.1,
- * 03-09-92) drew under DOSBox-X, each pane row TRANSCRIBED BY HAND into the
- * table below from the shot file named beside it (../wordperfect51-decomp):
+ * THE REFERENCE is the Reveal Codes screens the real WP.EXE (5.1, 03-09-92)
+ * drew under DOSBox-X, each pane row TRANSCRIBED BY HAND into the table below
+ * from the shot file named beside it (../wordperfect51-decomp):
  *   goldens/minted/MINT01..05.shots/03_reveal.png      (mint session 001)
- *   mint/shots_wpMINT06/03_reveal.png, 05_reveal_top.png (bead initech-jojk)
- *   mint/shots_wpMINT07/03_reveal.png
- *   mint/shots_wpMINT08/03a_reveal_before.png, 03b_reveal_bs1.png,
- *                       03c_reveal_bs2.png, 03_reveal.png
+ *   mint/shots_wpMINT06..08                             (slice 1, ledger 002)
+ *   mint/shots_wpMINT09..16                             (slice 2, ledger 003:
+ *     tabs, indents, hard pages; the "Delete [code]?" answers; Block, Move,
+ *     Copy, Delete Block, retrieve into attributes; the pane's row count)
  * Nothing here is read from spec/iword/reveal_codes.h (Law 2: an oracle that
- * shares its expected strings with the artifact agrees by construction).
+ * shares its expected strings with the artifact agrees by construction). The
+ * right arrow of "[->Indent]" is CP437 0x1A as the screen shows it.
  *
- * FOR EACH SCREEN the document is the one WP.EXE saved (MINT01..07: the
- * file, read by the C codec; MINT08's four screens: its keystrokes typed
- * into the editor, the screens being taken before the save), the cursor
- * where the shot shows it, and the pane is rendered at WordPerfect's own 80
- * columns and 11 rows (iw_reveal_pane). Graded:
+ * FOR EACH SCREEN the document is the one WP.EXE saved (read by the C codec)
+ * or the mint's own keystrokes typed into the editor up to the shot
+ * (iword_keys.h: the step file, key for key), then the cursor keys the step
+ * file pressed before the shot; the pane is rendered for WordPerfect's 80
+ * columns and the 11 screen lines 13..23 (iw_reveal_pane). Graded:
  *   - the ANCHOR: the document line on the pane's first row (RED-REASON pane);
- *   - every ROW's text, character for character (RED-REASON label);
- *   - the CURSOR's highlight: row, column and length -- one cell at the end
- *     of the document, the whole label on a code (RED-REASON pane).
+ *   - every ROW's text, character for character (RED-REASON label) -- the
+ *     11th row (screen line 23) blank as WP leaves it (MINT09 05, MINT16 01);
+ *   - the CURSOR's highlight: row, column and length (RED-REASON pane).
  * ONE ROW IS EXCLUDED, by name: MINT05 row 1 ("Footnote host.[Footnote:1;
- * [Note Num]A footnote.] Cafe-acute and a hard[ ]space.[HRt]") -- the
- * footnote label and the extended character are later slices (P4 footnotes;
- * the C0 character sets), shown "[?]" by this one; its other two rows are
- * graded.
+ * [Note Num]A footnote.] Cafe-acute and a hard[ ]space.[HRt]") -- footnotes
+ * and the extended characters are later slices; its other rows are graded.
  *
  * Mutants (Rule 6; test-iword-reveal-codes-mutant):
  *   IWORD_MUT_LABEL_ITALC  italic labelled [ITAL]/[ital] -> RED-REASON label
  *   IWORD_MUT_PANE_ANCHOR  two lines above the cursor   -> RED-REASON pane
+ *   IWORD_MUT_BLOCK_LABEL  no [Block] at the anchor     -> RED-REASON label
  *
  * Usage: test_iword_reveal_codes <WORDPERFECT51_DECOMP>
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
@@ -45,6 +45,7 @@
 
 #include "test_assert.h"
 #include "iword.h"
+#include "iword_keys.h"
 
 TEST_HARNESS();
 
@@ -58,69 +59,271 @@ static iw_piece_t g_pc[8192];
 #define WP_COLS 80u
 #define WP_ROWS 11u
 #define SKIP_ROW "\x01"            /* an excluded row (see the header) */
+#define IND "[\x1A" "Indent]"
 
 typedef struct screen {
-    const char *shot;              /* the transcribed shot                   */
-    const char *doc;               /* a golden's name, or 0 = typed MINT08   */
-    int         typed_bs;          /* typed MINT08: Backspaces in Reveal     */
-    int         cursor_top;        /* 1 = the cursor at 0, else at the end   */
-    uint32_t    anchor;            /* the document line on pane row 0        */
+    const char *shot;              /* the transcribed shot                    */
+    const char *doc;               /* a golden's name, or 0 = typed (script)  */
+    const char *const *script;     /* keys (iword_keys.h); 0 = cursor at end  */
+    uint32_t    anchor;            /* the document line on pane row 0         */
     uint32_t    cur_row, cur_col, cur_len;
-    const char *rows[WP_ROWS];     /* unlisted rows are empty                */
+    const char *rows[WP_ROWS];     /* unlisted rows are empty                 */
 } screen_t;
 
+/* ---- the keys before each shot (the step files, key for key) ------------- */
+static const char *const TOP[] = { "%TOP", 0 };
+/* mint/wpMINT08.steps: Return; "Kept"; Ctrl-F8 2 4; "x"; Ctrl-F8 2 4; Alt-F3;
+ * then Backspace x0..3 */
+static const char *const M08_0[] = { "%RET", "Kept", "%ITAL", "x", "%ITAL", "%REV", 0 };
+static const char *const M08_1[] = { "%RET", "Kept", "%ITAL", "x", "%ITAL", "%REV", "%BS", 0 };
+static const char *const M08_2[] = { "%RET", "Kept", "%ITAL", "x", "%ITAL", "%REV", "%BS*2", 0 };
+static const char *const M08_3[] = { "%RET", "Kept", "%ITAL", "x", "%ITAL", "%REV", "%BS*3", 0 };
+/* mint/wpMINT09.steps: Home Home Up; Down x4; Down x3 */
+static const char *const M09_IND[] = { "%TOP", "%D*4", 0 };
+static const char *const M09_PG[]  = { "%TOP", "%D*7", 0 };
+/* mint/wpMINT11.steps, to 02c_del_no_reveal and 03_bs_no_reveal */
+static const char *const M11_02C[] = { "%RET", "Alpha", "%F6", "%BS", "%Y", " one", "%RET", "Beta", "%F6", "%DEL", "%N", "%REV", 0 };
+static const char *const M11_03[]  = { "%RET", "Alpha", "%F6", "%BS", "%Y", " one", "%RET", "Beta", "%F6", "%DEL", "%N", "%REV",
+                                       "%REV", "x", "%END", "%RET", "Gamma", "%F6", "%BS", "%N", "%REV", 0 };
+/* mint/wpMINT13.steps, to 01b, 01c, 02a, 02b, 03a, 03c, 04a, 04b */
+#define M13_L1 "%RET", "Plain", "%F6", "bold words", "%F6", " after.", "%END", "%L*9", "%BLK", "%R*4"
+#define M13_L1M M13_L1, "%MOVE", "%END", "%RET"
+#define M13_L2 M13_L1M, "%END", "%RET", "Keep", "%F8", "under words", "%F8", " tail.", "%HOME", "%R*2", "%BLK", "%R*4"
+#define M13_L2C M13_L2, "%COPY", "%END", "%RET"
+#define M13_L3 M13_L2C, "%END", "%RET", "Drop", "%F6", "bold here", "%F6", " end.", "%HOME", "%R*2", "%BLK", "%R*4"
+#define M13_L3D M13_L3, "%DEL", "%Y"
+#define M13_L4 M13_L3D, "%END", "%RET", "Cut", "%F8", "under here", "%F8", " end.", "%END", "%L*7", "%BLK", "%R*4"
+static const char *const M13_01B[] = { M13_L1, 0 };
+static const char *const M13_01C[] = { M13_L1M, 0 };
+static const char *const M13_02A[] = { M13_L2, 0 };
+static const char *const M13_02B[] = { M13_L2C, 0 };
+static const char *const M13_03A[] = { M13_L3, 0 };
+static const char *const M13_03C[] = { M13_L3D, 0 };
+static const char *const M13_04A[] = { M13_L4, 0 };
+static const char *const M13_04B[] = { M13_L4, "%DEL", "%Y", 0 };
+/* mint/wpMINT14.steps, to 01, 02, 03 */
+#define M14_L1 "%RET", "ab", "%F6", "CDEF", "%F6", "gh", "%RET", "xy", "%HOME", "%BLK", "%END", "%COPY", "%U", "%HOME", "%R*4", "%RET"
+#define M14_L3 M14_L1, "%D", "%END", "%RET", "pq", "%F6", "RS", "%F6", "tu", "%HOME", "%R*3", "%BLK", "%R*2", "%COPY", "%HOME", "%R", "%RET"
+#define M14_L4 M14_L3, "%END", "%RET", "%F6", "vwxyz", "%F6", "%HOME", "%R*2", "%BLK", "%R", "%COPY", "%R*2", "%RET"
+static const char *const M14_01[] = { M14_L1, 0 };
+static const char *const M14_02[] = { M14_L3, 0 };
+static const char *const M14_03[] = { M14_L4, 0 };
+/* mint/wpMINT15.steps, to 01 and 02 */
+static const char *const M15_01[] = { "%RET", "%F6", "vwxyz", "%F6", "%HOME", 0 };
+static const char *const M15_02[] = { "%RET", "%F6", "vwxyz", "%F6", "%HOME", "%R", "%BLK", "%R", "%COPY", "%R", "%RET", 0 };
+/* mint/wpMINT16.steps: Home Home Up; Down x6 */
+static const char *const M16_02[] = { "%TOP", "%D*6", 0 };
+
+#define M13R1 "Plain[BOLD]bold word[bold]fter.[BOLD]s[bold] a[HRt]"
+#define M13R2 "Keep[UND]under words[und] tail.ep[UND]u[und][HRt]"
+#define M14R1 "ab[BOLD]CxyDEF[bold]gh[HRt]"
+#define M14R3 "p[BOLD]RS[bold]q[BOLD]RS[bold]tu[HRt]"
+
 static const screen_t SCREENS[] = {
-    { "goldens/minted/MINT01.shots/03_reveal.png", "MINT01", 0, 0, 3, 3, 0, 1, {
+    /* ---- slice 1 ---------------------------------------------------------- */
+    { "goldens/minted/MINT01.shots/03_reveal.png", "MINT01", 0, 3, 3, 0, 1, {
       "[BOLD]Bold[bold] and [UND]underlined[und] words.[HRt]",
       "[Center]Centered line[HRt]",
       "[Tab]Tabbed line[HRt]",
       "" } },
-    { "goldens/minted/MINT02.shots/03_reveal.png", "MINT02", 0, 0, 0, 1, 16, 1, {
+    { "goldens/minted/MINT02.shots/03_reveal.png", "MINT02", 0, 0, 1, 16, 1, {
       "[HRt]",
       "Plain text only." } },
-    { "goldens/minted/MINT03.shots/03_reveal.png", "MINT03", 0, 0, 3, 3, 0, 1, {
+    { "goldens/minted/MINT03.shots/03_reveal.png", "MINT03", 0, 3, 3, 0, 1, {
       "[Flsh Rgt]Flush right[HRt]",
       "[HPg]",
       "Second page.[HRt]",
       "" } },
-    { "goldens/minted/MINT04.shots/03_reveal.png", "MINT04", 0, 0, 0, 3, 0, 1, {
+    { "goldens/minted/MINT04.shots/03_reveal.png", "MINT04", 0, 0, 3, 0, 1, {
       "[HRt]",
       "[L/R Mar:2\",2\"][Just:Left]Left justified with 2 inch margins.[HRt]",
       "[LARGE]Large text[large] then normal.[HRt]",
       "" } },
-    { "goldens/minted/MINT05.shots/03_reveal.png", "MINT05", 0, 0, 0, 2, 0, 1, {
+    { "goldens/minted/MINT05.shots/03_reveal.png", "MINT05", 0, 0, 2, 0, 1, {
       "[HRt]",
       SKIP_ROW,
       "" } },
-    { "mint/shots_wpMINT06/03_reveal.png", "MINT06", 0, 0, 1, 4, 0, 1, {
+    { "mint/shots_wpMINT06/03_reveal.png", "MINT06", 0, 1, 4, 0, 1, {
       "Italic:[ITALC]slanted words[italc] and plain.[HRt]",
       "[BOLD]Bold[UND]both[bold] under[und] plain. This sentence is long enough that th",
       "e[SRt]",
       "paragraph must wrap onto a second line here.[HRt]",
       "" } },
-    { "mint/shots_wpMINT06/05_reveal_top.png", "MINT06", 0, 1, 0, 0, 0, 5, {
+    { "mint/shots_wpMINT06/05_reveal_top.png", "MINT06", TOP, 0, 0, 0, 5, {
       "[HRt]",
       "Italic:[ITALC]slanted words[italc] and plain.[HRt]",
       "[BOLD]Bold[UND]both[bold] under[und] plain. This sentence is long enough that th",
       "e[SRt]",
       "paragraph must wrap onto a second line here.[HRt]",
       "" } },
-    { "mint/shots_wpMINT07/03_reveal.png", "MINT07", 0, 0, 0, 2, 0, 1, {
+    { "mint/shots_wpMINT07/03_reveal.png", "MINT07", 0, 0, 2, 0, 1, {
       "[HRt]",
       "[BOLD]Menu bold[bold][HRt]",
       "" } },
-    { "mint/shots_wpMINT08/03a_reveal_before.png", 0, 0, 0, 0, 1, 19, 1, {
+    { "mint/shots_wpMINT08/03a_reveal_before.png", 0, M08_0, 0, 1, 19, 1, {
       "[HRt]",
       "Kept[ITALC]x[italc]" } },
-    { "mint/shots_wpMINT08/03b_reveal_bs1.png", 0, 1, 0, 0, 1, 5, 1, {
+    { "mint/shots_wpMINT08/03b_reveal_bs1.png", 0, M08_1, 0, 1, 5, 1, {
       "[HRt]",
       "Keptx" } },
-    { "mint/shots_wpMINT08/03c_reveal_bs2.png", 0, 2, 0, 0, 1, 4, 1, {
+    { "mint/shots_wpMINT08/03c_reveal_bs2.png", 0, M08_2, 0, 1, 4, 1, {
       "[HRt]",
       "Kept" } },
-    { "mint/shots_wpMINT08/03_reveal.png", 0, 3, 0, 0, 1, 3, 1, {
+    { "mint/shots_wpMINT08/03_reveal.png", 0, M08_3, 0, 1, 3, 1, {
       "[HRt]",
       "Kep" } },
+    /* ---- slice 2: tabs, indents, hard pages ------------------------------- */
+    { "mint/shots_wpMINT09/05_reveal_top.png", "MINT09", TOP, 0, 0, 0, 5, {
+      "[HRt]",
+      "[Tab]Tab at zero[HRt]",
+      "abc[Tab]Tab at three[HRt]",
+      "abcde[Tab]Tab at five[HRt]",
+      IND "Indented once and long enough that the paragraph wraps under[SRt]",
+      "the indent here.[HRt]",
+      IND IND "Twice.[HRt]",
+      "Page one.[HPg]",
+      "Page two.[HRt]",
+      "[HPg]",
+      "" } },
+    { "mint/shots_wpMINT09/06_reveal_indent.png", "MINT09", M09_IND, 1, 3, 0, 9, {
+      "[Tab]Tab at zero[HRt]",
+      "abc[Tab]Tab at three[HRt]",
+      "abcde[Tab]Tab at five[HRt]",
+      IND "Indented once and long enough that the paragraph wraps under[SRt]",
+      "the indent here.[HRt]",
+      IND IND "Twice.[HRt]",
+      "Page one.[HPg]",
+      "Page two.[HRt]",
+      "[HPg]",
+      "Page three.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT09/07_reveal_pages.png", "MINT09", M09_PG, 4, 3, 0, 1, {
+      IND "Indented once and long enough that the paragraph wraps under[SRt]",
+      "the indent here.[HRt]",
+      IND IND "Twice.[HRt]",
+      "Page one.[HPg]",
+      "Page two.[HRt]",
+      "[HPg]",
+      "Page three.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT09/03_reveal.png", "MINT09", 0, 8, 3, 0, 1, {
+      "Page two.[HRt]",
+      "[HPg]",
+      "Page three.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT10/03_reveal.png", "MINT10", 0, 0, 3, 0, 1, {
+      "[HRt]",
+      "1234ab[Tab]x[HRt]",
+      "abc" IND "Indent from three.[HRt]",
+      "" } },
+    /* ---- slice 2: the "Delete [code]?" answers ---------------------------- */
+    { "mint/shots_wpMINT11/02c_del_no_reveal.png", 0, M11_02C, 0, 2, 16, 1, {
+      "[HRt]",
+      "Alpha one[HRt]",
+      "Beta[BOLD][bold]" } },
+    { "mint/shots_wpMINT11/03_bs_no_reveal.png", 0, M11_03, 0, 3, 5, 6, {
+      "[HRt]",
+      "Alpha one[HRt]",
+      "Beta[BOLD][bold]x[HRt]",
+      "Gamma[BOLD][bold]" } },
+    { "mint/shots_wpMINT11/09_reveal_top.png", "MINT11", TOP, 0, 0, 0, 5, {
+      "[HRt]",
+      "Alpha one[HRt]",
+      "Beta[BOLD][bold]x[HRt]",
+      "Gammay[BOLD][bold][HRt]",
+      "Deltaz[HRt]",
+      "qr[HRt]",
+      "Pages[HRt]",
+      "" } },
+    /* ---- slice 2: Block, Move, Copy, Delete Block ------------------------- */
+    { "mint/shots_wpMINT12/16_reveal_top.png", "MINT12", TOP, 0, 0, 0, 5, {
+      "[HRt]",
+      "Alpha Gamma.[HRt]",
+      "Copy me.Beta [HRt]",
+      "Keep this.Copy me.Beta [HRt]",
+      "Stay.[HRt]",
+      "Toggle[HRt]",
+      "Indent gone.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT13/01b_block_reveal.png", 0, M13_01B, 0, 1, 36, 1, {
+      "[HRt]",
+      "Plain[BOLD]bold word[Block]s[bold] after." } },
+    { "mint/shots_wpMINT13/01c_moved_reveal.png", 0, M13_01C, 0, 1, 31, 6, {
+      "[HRt]",
+      "Plain[BOLD]bold word[bold]fter.[BOLD]s[bold] a" } },
+    { "mint/shots_wpMINT13/02a_block_reveal.png", 0, M13_02A, 0, 2, 17, 1, {
+      "[HRt]",
+      M13R1,
+      "Ke[Block]ep[UND]under words[und] tail." } },
+    { "mint/shots_wpMINT13/02b_copied_reveal.png", 0, M13_02B, 0, 2, 31, 1, {
+      "[HRt]",
+      M13R1,
+      "Keep[UND]under words[und] tail.ep[UND]u[und]" } },
+    { "mint/shots_wpMINT13/03a_block_reveal.png", 0, M13_03A, 0, 3, 18, 1, {
+      "[HRt]",
+      M13R1,
+      M13R2,
+      "Dr[Block]op[BOLD]bold here[bold] end." } },
+    { "mint/shots_wpMINT13/03c_deleted_reveal.png", 0, M13_03C, 0, 3, 8, 1, {
+      "[HRt]",
+      M13R1,
+      M13R2,
+      "Dr[BOLD]old here[bold] end." } },
+    { "mint/shots_wpMINT13/04a_block_reveal.png", 0, M13_04A, 1, 3, 32, 1, {
+      M13R1,
+      M13R2,
+      "Dr[BOLD]old here[bold] end.[HRt]",
+      "Cut[UND]under her[Block]e[und] end." } },
+    { "mint/shots_wpMINT13/04b_deleted_reveal.png", 0, M13_04B, 1, 3, 22, 1, {
+      M13R1,
+      M13R2,
+      "Dr[BOLD]old here[bold] end.[HRt]",
+      "Cut[UND]under her[und]nd." } },
+    { "mint/shots_wpMINT13/06_reveal_top.png", "MINT13", TOP, 0, 0, 0, 5, {
+      "[HRt]",
+      M13R1,
+      M13R2,
+      "Dr[BOLD]old here[bold] end.[HRt]",
+      "Cut[UND]under her[und]nd.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT14/01_plain_into_bold_reveal.png", 0, M14_01, 0, 1, 9, 1, {
+      "[HRt]",
+      "ab[BOLD]CxyDEF[bold]gh[HRt]",
+      "xy" } },
+    { "mint/shots_wpMINT14/02_bold_into_plain_reveal.png", 0, M14_02, 0, 3, 1, 6, {
+      "[HRt]",
+      M14R1,
+      "xy[HRt]",
+      "p[BOLD]RS[bold]q[BOLD]RS[bold]tu" } },
+    { "mint/shots_wpMINT14/03_bold_into_bold_reveal.png", 0, M14_03, 1, 3, 11, 1, {
+      M14R1,
+      "xy[HRt]",
+      M14R3,
+      "[BOLD]vwxyzx[bold]" } },
+    { "mint/shots_wpMINT14/05_reveal_top.png", "MINT14", TOP, 0, 0, 0, 5, {
+      "[HRt]",
+      M14R1,
+      "xy[HRt]",
+      M14R3,
+      "[BOLD]vwxyzx[bold][HRt]",
+      "" } },
+    { "mint/shots_wpMINT15/01_home_left_reveal.png", 0, M15_01, 0, 1, 6, 1, {
+      "[HRt]",
+      "[BOLD]vwxyz[bold]" } },
+    { "mint/shots_wpMINT15/02_bold_into_bold_mid_reveal.png", 0, M15_02, 0, 1, 9, 1, {
+      "[HRt]",
+      "[BOLD]vwxw[bold]yz" } },
+    /* ---- slice 2: the pane fills 10 rows, the 11th stays blank ------------- */
+    { "mint/shots_wpMINT16/01_reveal_top.png", "MINT16", TOP, 0, 0, 0, 5, {
+      "[HRt]",
+      "a[BOLD]b[bold][BOLD]b[bold][BOLD]b[bold][BOLD]b[bold][BOLD]b[bold][BOLD]b[bold][",
+      "BOLD]b[bold][HRt]",
+      "L2[HRt]", "L3[HRt]", "L4[HRt]", "L5[HRt]", "L6[HRt]", "L7[HRt]", "L8[HRt]",
+      "" } },
+    { "mint/shots_wpMINT16/02_reveal_line6.png", "MINT16", M16_02, 3, 3, 0, 1, {
+      "L3[HRt]", "L4[HRt]", "L5[HRt]", "L6[HRt]", "L7[HRt]", "L8[HRt]", "L9[HRt]",
+      "L10[HRt]", "L11[HRt]", "L12[HRt]",
+      "" } },
 };
 #define NSCREENS ((int)(sizeof SCREENS / sizeof SCREENS[0]))
 
@@ -159,18 +362,11 @@ static int build(const screen_t *sc, iw_ed_t *e)
         uint32_t n = load_golden(sc->doc);
         if (!n || iw_wp5_read(g_in, n, &w) != IW_OK) return 0;
         iw_doc_load(&e->doc, w.body, w.body_len);
-        e->cur = sc->cursor_top ? 0u : e->doc.len;
-        return 1;
+        e->cur = e->doc.len;
+        return sc->script ? iwk_run(e, sc->script) : 1;
     }
-    /* mint/wpMINT08.steps: Return; "Kept"; Ctrl-F8 2 4; "x"; Ctrl-F8 2 4;
-     * Alt-F3; then Backspace x typed_bs */
     iw_doc_load(&e->doc, g_in, 0);
-    if (iw_ed_enter(e) != IW_OK) return 0;
-    for (const char *s = "Kept"; *s; s++) if (iw_ed_type(e, (uint8_t)*s) != IW_OK) return 0;
-    if (iw_ed_attr(e, 0x08) != IW_OK || iw_ed_type(e, 'x') != IW_OK || iw_ed_attr(e, 0x08) != IW_OK) return 0;
-    e->reveal = 1;
-    for (int i = 0; i < sc->typed_bs; i++) if (iw_ed_backspace(e) != IW_OK) return 0;
-    return 1;
+    return iwk_run(e, sc->script);
 }
 
 int main(int argc, char **argv)
@@ -213,9 +409,9 @@ int main(int argc, char **argv)
         CHECK(!bad_label && !bad_pane, "the pane equals the real WP 5.1 Reveal Codes screen");
         g_label_fail += bad_label;
         g_pane_fail += bad_pane;
-        printf("  %-46s %s\n", sc->shot, bad_label || bad_pane ? "RED" : "green");
+        printf("  %-52s %s\n", sc->shot, bad_label || bad_pane ? "RED" : "green");
     }
-    printf("  %d screens, %d pane rows diffed at 80 columns (%d excluded by name: MINT05 row 1, footnote + extended character)\n",
+    printf("  %d screens, %d pane rows diffed at 80 columns x 11 lines (%d excluded by name: MINT05 row 1, footnote + extended character)\n",
            NSCREENS, graded_rows, skipped);
     if (g_label_fail) fprintf(stderr, "  RED-REASON label: %d screens show a row WordPerfect does not\n", g_label_fail);
     if (g_pane_fail)  fprintf(stderr, "  RED-REASON pane: %d screens anchor or highlight differently from WordPerfect\n", g_pane_fail);

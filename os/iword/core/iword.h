@@ -17,16 +17,20 @@
  * codes (bold / underline / italic / any attribute number) are understood
  * since P2 slice 1 (bead initech-jojk, os/iword/core/codes.c): their state,
  * WordPerfect's rules for inserting / moving / deleting them, and their
- * Reveal Codes labels; every other code stays opaque.
+ * Reveal Codes labels. Since P2 slice 2 the tab ([Tab], C1 sub 02), the
+ * indent ([->Indent], C2), the hard page with its D4/00 group and the C6 of an
+ * indented paragraph are understood too (their columns, their geometry, WP's
+ * bookkeeping: edit.c iw_ed_fixup), and so are Block / Move (block.c); every
+ * other code stays opaque.
  *
  * UNITS. Every position the core hands out (cursor, insert point, delete
  * span) is a unit boundary. A unit's LAST byte identifies it from the right
  * (text 0x20..0x7F, a single code < 0x20 or 0x80..0xBF, a fixed group ends
  * with its own code 0xC0..0xCF, a variable group with its own code >= 0xD0
  * after a mirrored size), so walking backwards is as exact as forwards.
- * Edits insert only text, hard returns and whole attribute groups and delete
- * only whole units, so a well-formed body (validated on load, iw_wp5_read)
- * stays well-formed (test-iword-codes property C2).
+ * Edits insert only text, hard returns, whole groups and whole retrieved
+ * blocks and delete only whole units, so a well-formed body (validated on
+ * load, iw_wp5_read) stays well-formed (test-iword-codes property C2).
  *
  * WRAP (iw_reflow_para). Within a paragraph (the units between two hard
  * returns / hard pages) every SRt is a space; the paragraph is re-wrapped at
@@ -53,6 +57,10 @@
 #define IW_E_CODE     (-4)   /* a body code the corpus has not verified / a
                               * group whose trailer does not mirror its header  */
 #define IW_E_PROTECTED (-5)  /* the unit is an opaque code: P1 does not delete it */
+#define IW_E_ASK      (-6)   /* Backspace / Delete met an attribute code on the
+                              * editing screen: nothing changed, WordPerfect
+                              * asks "Delete [code]? No (Yes)" (e->ask holds
+                              * the code; iw_ed_answer; bead initech-jojk)      */
 
 /* ---- the piece table ------------------------------------------------------ */
 #define IW_PIECE_ADD 0x80000000u   /* off bit 31: the piece lies in the add buffer */
@@ -103,7 +111,13 @@ enum {
     IW_U_SRT,           /* soft return: ends the line (it is a space)       */
     IW_U_HPG,           /* hard page: ends the line, paragraph and page     */
     IW_U_HSPACE,        /* hard space: one column, never a break            */
-    IW_U_CODE           /* anything else: opaque, zero width (P1)           */
+    IW_U_CODE,          /* anything else: opaque, zero width (P1)           */
+    IW_U_TAB,           /* C1 sub 02 [Tab]: to the next tab stop (slice 2)   */
+    IW_U_INDENT,        /* C2 [->Indent]: to the next tab stop, and the rest
+                         * of the paragraph wraps there (slice 2)            */
+    IW_U_HIDDEN         /* bookkeeping WP writes beside a code, never shown:
+                         * C6 before the HRt of an indented paragraph, D4/00
+                         * before a hard page (iw_ed_fixup keeps them)       */
 };
 /* Length of the well-formed unit starting at b[pos] (n = bytes available),
  * or 0 when the bytes there are not a VERIFIED unit (spec/iword/
@@ -130,6 +144,10 @@ typedef struct iw_line {
     uint8_t  term;       /* IW_U_HRT / IW_U_SRT / IW_U_HPG, or IW_U_TEXT for
                           * a layout break or the last line              */
     uint8_t  pad;
+    uint16_t col0;       /* the column the line starts at: 0, or the left
+                          * margin an indent earlier in its paragraph set */
+    uint16_t margin;     /* the margin the NEXT line starts at (0 after a
+                          * hard return / hard page)                     */
 } iw_line_t;
 /* The line that starts at `start`. Every document has at least one line;
  * the last line ends at len with term IW_U_TEXT (it may be empty). */
@@ -144,8 +162,13 @@ typedef struct iw_ed {
     uint8_t  dirty;      /* changed since the last save / retrieve       */
     uint8_t  reveal;     /* Reveal Codes is on: Backspace / Delete remove an
                           * attribute code (and its partner) instead of
-                          * stepping over it (codes.c, initech-jojk)     */
+                          * asking (codes.c, initech-jojk)               */
+    uint8_t  ask_del;    /* the pending question came from Delete (1) or
+                          * Backspace (0)                                */
+    uint32_t ask;        /* the code "Delete [code]?" is about           */
+    uint32_t blk;        /* Block (Alt-F4): its anchor, or IW_NO_BLOCK   */
 } iw_ed_t;
+#define IW_NO_BLOCK 0xFFFFFFFFu
 
 /* Where the cursor is: the line index from the top of the document, the
  * line's first byte and the cursor's column on it. */
@@ -170,6 +193,54 @@ void     iw_ed_where(const iw_ed_t *e, iw_where_t *w);
 uint32_t iw_ed_pos_at(const iw_ed_t *e, uint32_t line, uint32_t col);
 /* Lines [first, first + n) into out; returns how many exist. */
 uint32_t iw_ed_lines(const iw_ed_t *e, uint32_t first, uint32_t n, iw_line_t *out);
+
+/* ---- tabs, indents, hard pages (bead initech-jojk, P2 slice 2; edit.c) ---- *
+ * WordPerfect 5.1's Tab, F4 (->Indent) and Ctrl-Enter (hard page), each a code
+ * at the cursor, the cursor after it (spec/iword/wp5_format.h "tabs, indents
+ * and hard pages"; mint/wpMINT09.steps). Columns: a tab or an indent moves to
+ * the next stop (every IW_WP5_TAB_EVERY columns); an indent also sets the left
+ * margin the rest of its paragraph wraps at.
+ * iw_ed_fixup is WordPerfect's own bookkeeping, run after every edit: the
+ * payloads of the tabs, indents and hard pages follow the layout (WP
+ * recomputes them, MINT10), every hard page has its D4/00 group right before
+ * it and every indented paragraph's HRt its C6 (and no stray ones remain);
+ * the cursor keeps its place in the text. Editing ops leave this to it. */
+int      iw_ed_tab(iw_ed_t *e);
+int      iw_ed_indent(iw_ed_t *e);
+int      iw_ed_hpage(iw_ed_t *e);
+int      iw_ed_fixup(iw_ed_t *e);
+/* The column of `pos` on line `ln` (tabs and indents expanded). */
+uint32_t iw_line_col(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos);
+
+/* ---- the "Delete [code]? No (Yes)" question (slice 2; MINT11) -------------- *
+ * On the editing screen Backspace / Delete meeting an attribute code return
+ * IW_E_ASK with e->ask = the code. iw_ed_answer(e, yes): Yes deletes it and its
+ * partner ("Alpha" F6 Backspace y -> "Alpha"); No moves the cursor over it --
+ * before it for Backspace, past it for Delete (MINT11 L3 / L2). Tabs, indents
+ * and hard pages are deleted without a question (MINT11 05_bs_tab, 06_bs_hpg;
+ * MINT12 13_bs_indent). */
+int      iw_ed_answer(iw_ed_t *e, int yes);
+
+/* ---- Block (Alt-F4) and Move (Ctrl-F4) (slice 2; os/iword/core/block.c) ---- *
+ * The block runs from the anchor to the cursor, [min, max) (MINT12/13). Its
+ * COPY is self-contained: an on code for every attribute on where it starts,
+ * its bytes, an off code for every attribute on where it ends (MINT14 "RS"
+ * copied out of bold came back "[BOLD]RS[bold]"; MINT13 "ep[UND]u" came back
+ * "ep[UND]u[und]"). CUTTING it (Move, Delete) leaves every other character in
+ * its attributes: the codes that change between its two ends are put where it
+ * was, the cursor after them (MINT13 "Dr[BOLD]old", "her[und]nd"). RETRIEVING
+ * (Enter at "Move cursor; press Enter to retrieve.") inserts the copy at the
+ * cursor, the cursor staying in front of it (MINT12 06_moved Pos 2.2"), and
+ * then drops every code that changes nothing from there on -- an on code of
+ * an attribute already on, an off code of one already off (MINT14 "xy" into
+ * bold is bold; MINT15 "[BOLD]w[bold]" into "vwx|yz" -> "vwxw[bold]yz"). */
+void     iw_ed_block(iw_ed_t *e);                       /* Alt-F4: on / off */
+void     iw_ed_block_span(const iw_ed_t *e, uint32_t *s, uint32_t *t);
+/* The self-contained copy into buf (cap bytes); IW_E_FULL when it does not fit. */
+int      iw_ed_block_copy(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n);
+/* Cut the block (Move: buf receives the copy; Delete: buf == 0). Block off. */
+int      iw_ed_block_cut(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n);
+int      iw_ed_retrieve(iw_ed_t *e, const uint8_t *buf, uint32_t n);
 
 /* WordPerfect's status-line measures (hundredths of an inch, 1" margins):
  * Ln = 1" + (line on page - 1) / 6", Pos = 1" + column / 10". Formats
@@ -200,8 +271,8 @@ uint32_t iw_fmt_inches(uint32_t hundredths, char *out);   /* returns length */
  *     verifies the step-past case].
  *   Backspace / Delete on an attribute code with `reveal` set delete the code
  *   AND its partner (MINT08 03b: Backspace on [italc] removed [ITALC] too).
- *   Without `reveal` they step over every code (P1; the edit screen's
- *   "Delete [code]?" question is not minted, left for the next slice). */
+ *   Without `reveal` they ask WordPerfect's question (IW_E_ASK, slice 2,
+ *   MINT11); on any other opaque code they still step over it (P1). */
 #define IW_A_BOLD       0x01u   /* the Face A draw faces == TBX txFace bits */
 #define IW_A_ITALIC     0x02u
 #define IW_A_UNDERLINE  0x04u
@@ -227,10 +298,13 @@ int      iw_ed_kill_code(iw_ed_t *e, uint32_t pos);
  * lies on the line, *cur_off / *cur_len are the run the pane highlights: the
  * label (or character) of the unit at the cursor, or one cell at the end of
  * the line's labels when the cursor is at the end of the document; otherwise
- * *cur_len = 0 and *cur_off = 0xFFFFFFFF. */
+ * *cur_len = 0 and *cur_off = 0xFFFFFFFF. While Block is on (blk != IW_NO_BLOCK)
+ * the label "[Block]" stands at the anchor (MINT13 01b_block_reveal). */
 #define IW_REVEAL_LINE_MAX 1024u
-uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur,
+uint32_t iw_reveal_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t cur, uint32_t blk,
                         char *out, uint32_t cap, uint32_t *cur_off, uint32_t *cur_len);
+/* The Reveal Codes label of the unit at pos (NUL-terminated); its length. */
+uint32_t iw_code_label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap);
 /* The pane: `nrows` rows of `width` columns (row r at rows + r * stride, each
  * NUL-terminated, width < stride; rows past the document are ""), starting at
  * the anchor line (IW_RV_PANE_ABOVE lines above the cursor's). */
@@ -249,8 +323,12 @@ typedef struct iw_wp5 {
 } iw_wp5_t;
 /* Validate a whole file (header [H Sec 1] and every body unit). */
 int      iw_wp5_read(const uint8_t *file, uint32_t n, iw_wp5_t *out);
-/* prefix + body into out; IW_E_FULL when it does not fit. */
-int      iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d,
+/* prefix + body into out; IW_E_FULL when it does not fit. `cur` is the
+ * cursor at the save -- the default prefix records whether it was before the
+ * end (spec/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF; bead initech-jojk
+ * slice 2) -- or IW_WP5_CUR_KEEP to write the prefix exactly as given. */
+#define IW_WP5_CUR_KEEP 0xFFFFFFFFu
+int      iw_wp5_write(const uint8_t *prefix, uint32_t prefix_len, const iw_doc_t *d, uint32_t cur,
                       uint8_t *out, uint32_t cap, uint32_t *out_len);
 /* The default prefix a new document is written with (327 bytes). */
 const uint8_t *iw_wp5_default_prefix(uint32_t *len);

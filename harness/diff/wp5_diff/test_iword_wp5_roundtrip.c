@@ -45,11 +45,25 @@
  *      (an italic pair, then Backspace x3 in Reveal Codes) driven through
  *      the editor (iw_ed_attr / iw_ed_backspace with reveal on) and written
  *      with the default prefix are BYTE-IDENTICAL to the files the real WP.EXE
- *      saved -- every body byte and the prefix's italic mark at 0x103.
+ *      saved -- every body byte and the prefix's byte 0x103, which records
+ *      that the cursor was before the end at the save (MINT06 was saved
+ *      after Home Home Up; spec/iword/wp5_format.h IW_WP5_PFX_CURSOR_OFF).
+ *   G  (bead initech-jojk, P2 slice 2) the keys of mint/wpMINT09..19.steps
+ *      -- tabs, indents and hard pages (MINT09), the tab WP recomputes when
+ *      the text before it grows (MINT10), the "Delete [code]? No (Yes)"
+ *      answers and Backspace over a tab / hard page / indent (MINT11, MINT12),
+ *      Block, Move, Copy, Delete Block and retrieve into attributes (MINT12..
+ *      15), a long line of pairs (MINT16), the cursor at the save (MINT17..
+ *      19: prefix byte 0x103) -- driven through the editor key for
+ *      key (iword_keys.h, iw_ed_fixup after each) and written with the
+ *      default prefix are BYTE-IDENTICAL to the files WP.EXE saved; and
+ *      iw_ed_fixup (WP's bookkeeping: the tab / indent / C6 / D4 payloads)
+ *      run on every golden changes no byte (part A2).
  *
- * THE GOLDENS: MINT01..05 from goldens/minted (mint session 001); MINT06..08
+ * THE GOLDENS: MINT01..05 from goldens/minted (mint session 001); MINT06..16
  * minted for bead initech-jojk (2026-10-16) by tools/mint_drive.sh with
- * mint/wpMINT06..08.steps -- read from goldens/minted/MINT0x.WP5 once the
+ * mint/wpMINT06..16.steps (ledgers re/mint-results-002.md, -003.md) -- read
+ * from goldens/minted/MINTxx.WP5 once the
  * corpus files them there, until then from the harness's own output
  * mint/work/WP51/MINT0x (the file WP.EXE wrote, untouched). Absent from both
  * places is RED, never a skip.
@@ -59,7 +73,9 @@
  *                         -> RED-REASON golden-rewrite
  *   IWORD_MUT_WRAP_EARLY  the wrap ends a line one column short
  *                         -> RED-REASON typed
- *   IWORD_MUT_ITALIC_FLAG the writer never marks an italic body at 0x103
+ *   IWORD_MUT_CURSOR_FLAG the writer never marks a save made with the cursor
+ *                         before the end (0x103) -> RED-REASON typed
+ *   IWORD_MUT_NO_D4       a hard page is written without its D4/00 group
  *                         -> RED-REASON typed
  *
  * Usage: test_iword_wp5_roundtrip <WORDPERFECT51_DECOMP> <scratch-dir>
@@ -74,6 +90,7 @@
 #include "oracle_policy.h"
 #include "iword.h"
 #include "iword/wp5_format.h"
+#include "iword_keys.h"
 
 TEST_HARNESS();
 
@@ -86,9 +103,11 @@ static uint8_t    g_in[CAP], g_out[CAP], g_add[CAP];
 static iw_piece_t g_pc[8192];
 static char       g_text[CAP];
 
-#define NMINT 8
+#define NMINT 19
 static const char *const MINTS[NMINT] = { "MINT01", "MINT02", "MINT03", "MINT04", "MINT05",
-                                          "MINT06", "MINT07", "MINT08" };
+                                          "MINT06", "MINT07", "MINT08", "MINT09", "MINT10",
+                                          "MINT11", "MINT12", "MINT13", "MINT14", "MINT15",
+                                          "MINT16", "MINT17", "MINT18", "MINT19" };
 
 /* The golden's path (see THE GOLDENS above). */
 static void golden_path(const char *name, char *out, size_t cap)
@@ -195,7 +214,7 @@ static void part_a(void)
         CHECK(w.prefix_len == IW_WP5_DEFAULT_DOCSTART, "docstart 0x147 (wp5-header-and-prefix.md Sec 1)");
         doc_bind(&d);
         iw_doc_load(&d, w.body, w.body_len);
-        rc = iw_wp5_write(w.prefix, w.prefix_len, &d, g_out, CAP, &olen);
+        rc = iw_wp5_write(w.prefix, w.prefix_len, &d, IW_WP5_CUR_KEEP, g_out, CAP, &olen);
         if (rc == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0) rewrites++;
         else {
             uint32_t k = 0;
@@ -213,22 +232,30 @@ static void part_a(void)
             g_ref_fail++;
             CHECK(0, "wp5_ref.py TEXT == C text; the rewrite parses clean");
         }
-        /* A2: WordPerfect's own wrap */
+        /* A2: WordPerfect's own wrap, and its bookkeeping (iw_ed_fixup: the
+         * tab / indent / C6 / D4 payloads from the layout) */
         rc = iw_reflow_all(&d, IW_WP5_WRAP_COLS);
-        if (rc == IW_OK && iw_wp5_write(w.prefix, w.prefix_len, &d, g_out, CAP, &olen) == IW_OK &&
+        if (rc == IW_OK) {
+            static iw_ed_t fe;
+            fe.doc = d;
+            iw_ed_init(&fe, IW_WP5_WRAP_COLS);
+            rc = iw_ed_fixup(&fe);
+            d = fe.doc;
+        }
+        if (rc == IW_OK && iw_wp5_write(w.prefix, w.prefix_len, &d, IW_WP5_CUR_KEEP, g_out, CAP, &olen) == IW_OK &&
             olen == n && memcmp(g_out, g_in, n) == 0) wraps++;
         else {
             uint32_t k = 0;
             while (k < n && k < olen && g_out[k] == g_in[k]) k++;
-            fprintf(stderr, "  FAIL %s: re-wrapping at %u columns changed byte @0x%x (0x%02x, WP wrote 0x%02x)\n",
+            fprintf(stderr, "  FAIL %s: re-wrapping at %u columns + the bookkeeping changed byte @0x%x (0x%02x, WP wrote 0x%02x)\n",
                     MINTS[i], IW_WP5_WRAP_COLS, k, k < olen ? g_out[k] : 0, k < n ? g_in[k] : 0);
             g_wrap_fail++;
             CHECK(0, "re-wrap at 65 columns reproduces WP's soft returns");
         }
     }
-    CHECK(files == NMINT, "all eight minted goldens graded");
+    CHECK(files == NMINT, "all nineteen minted goldens graded");
     printf("  part A: %d goldens; %d rewrites byte-identical; %d agree with wp5_ref.py (golden + rewrite)\n", files, rewrites, agreed);
-    printf("  part A2: %d goldens unchanged by re-wrapping at %u columns (WP's own soft returns)\n", wraps, IW_WP5_WRAP_COLS);
+    printf("  part A2: %d goldens unchanged by re-wrapping at %u columns + iw_ed_fixup (WP's own soft returns, tab / indent / C6 / D4 payloads)\n", wraps, IW_WP5_WRAP_COLS);
 }
 
 /* ---- PART B: typed documents ---------------------------------------------- */
@@ -254,7 +281,7 @@ static void part_b(void)
     n = load(path, g_in, CAP);
     CHECK(plen == IW_WP5_DEFAULT_DOCSTART && n > plen && memcmp(prefix, g_in, plen) == 0,
           "the default prefix == the 327 bytes WP.EXE wrote");
-    if (iw_wp5_write(prefix, plen, &e.doc, g_out, CAP, &olen) == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0) ok2 = 1;
+    if (iw_wp5_write(prefix, plen, &e.doc, e.cur, g_out, CAP, &olen) == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0) ok2 = 1;
     else { fprintf(stderr, "  FAIL typed MINT02 != MINT02.WP5 (%u vs %u bytes)\n", olen, n); g_typed_fail++; }
     CHECK(ok2, "typed MINT02 is byte-identical to the real MINT02.WP5");
     /* MINT01's first paragraph: the sentence, Return, Return
@@ -292,7 +319,9 @@ static void part_c(void)
      * extended char/hard space). */
     /* MINT06 / MINT07 carry attribute pairs; MINT08's pair was deleted
      * before the save ("[HRt] Kep"). */
-    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1 };
+    /* MINT12 (block ops on plain text) is plain; MINT09/10 carry tabs,
+     * indents, hard pages; MINT11, MINT13..16 attribute pairs. */
+    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1 };
     int ok = 1;
     printf("  part C: plain-text subset (text + HRt + SRt only, P1 interprets fully):");
     for (int i = 0; i < NMINT; i++) {
@@ -314,7 +343,7 @@ static void part_c(void)
         if (plain) printf(" %s", MINTS[i]);
     }
     printf("; every other golden carries codes (attribute pairs interpreted since initech-jojk; the rest opaque, byte-exact)\n");
-    CHECK(ok, "the plain-text subset is exactly {MINT02, MINT08}");
+    CHECK(ok, "the plain-text subset is exactly {MINT02, MINT08, MINT12, MINT17..19}");
 }
 
 /* ---- PART D: a synthetic typed document through wp5_ref.py ---------------- */
@@ -331,7 +360,7 @@ static void part_d(void)
     type_str(&e, "Short line.");
     CHECK(iw_ed_enter(&e) == IW_OK, "Return");
     type_str(&e, "Yeah, if you could just go ahead and make sure you do that from now on, that will be great. Mmm-kay?");
-    CHECK(iw_wp5_write(prefix, plen, &e.doc, g_out, CAP, &olen) == IW_OK, "write");
+    CHECK(iw_wp5_write(prefix, plen, &e.doc, e.cur, g_out, CAP, &olen) == IW_OK, "write");
     snprintf(path, sizeof path, "%s/iword_synthetic.WP5", g_scratch);
     CHECK(save(path, g_out, olen), "save the synthetic document");
     tl = iw_wp5_text(&e.doc, g_text, CAP);
@@ -354,7 +383,7 @@ static int typed_equals(const char *name, iw_ed_t *e)
     golden_path(name, path, sizeof path);
     n = load(path, g_in, CAP);
     if (!n) { fprintf(stderr, "  FAIL golden missing: %s\n", path); g_typed_fail++; return 0; }
-    if (iw_wp5_write(prefix, plen, &e->doc, g_out, CAP, &olen) == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0)
+    if (iw_wp5_write(prefix, plen, &e->doc, e->cur, g_out, CAP, &olen) == IW_OK && olen == n && memcmp(g_out, g_in, n) == 0)
         return 1;
     {
         uint32_t k = 0;
@@ -391,6 +420,7 @@ static void part_f(void)
     CHECK(iw_ed_attr(&e, IW_WP5_ATTR_UNDERLINE) == IW_OK, "F8 (steps past [und])");
     type_str(&e, " plain. This sentence is long enough that the paragraph must wrap onto a second line here.");
     CHECK(iw_ed_enter(&e) == IW_OK, "Return");
+    e.cur = 0;                 /* Home Home Up (05_reveal_top) before the save */
     ok6 = typed_equals("MINT06", &e);
     CHECK(ok6, "typed MINT06 is byte-identical to the file WP.EXE saved (483 bytes, 0x08 at 0x103)");
     /* mint/wpMINT07.steps: Return; Ctrl-F8 2 1; "Menu bold"; Ctrl-F8 2 1; Return */
@@ -417,8 +447,78 @@ static void part_f(void)
           "Backspace x3 in Reveal Codes");
     ok8 = typed_equals("MINT08", &e);
     CHECK(ok8, "typed MINT08 is byte-identical to the file WP.EXE saved (331 bytes: the pair went with [italc])");
-    printf("  part F %s: typed MINT06 %s, MINT07 %s, MINT08 %s (attribute pairs, the italic mark, Reveal Codes delete)\n",
+    printf("  part F %s: typed MINT06 %s, MINT07 %s, MINT08 %s (attribute pairs, the cursor mark at 0x103, Reveal Codes delete)\n",
            ok6 && ok7 && ok8 ? "green" : "RED", ok6 ? "==" : "!=", ok7 ? "==" : "!=", ok8 ? "==" : "!=");
+}
+
+/* ---- PART G: the slice 2 mints typed key for key (bead initech-jojk) --------- */
+/* Each script is its step file (../wordperfect51-decomp mint/wpMINTnn.steps)
+ * key for key up to the save; Alt-F3 pairs and the cursor keys between the
+ * shots are kept where they come before an edit. */
+static const char *const S09[] = { "%RET", "%TAB", "Tab at zero", "%RET", "abc", "%TAB", "Tab at three", "%RET",
+    "abcde", "%TAB", "Tab at five", "%RET", "%F4",
+    "Indented once and long enough that the paragraph wraps under the indent here.", "%RET",
+    "%F4", "%F4", "Twice.", "%RET", "Page one.", "%CRET", "Page two.", "%RET", "%CRET", "Page three.", "%RET",
+    "%TOP", 0 };
+static const char *const S10[] = { "%RET", "ab", "%TAB", "x", "%RET", "abc", "%F4", "Indent from three.", "%RET",
+    "%U", "%U", "%HOME", "1234", "%D", "%D", 0 };
+static const char *const S11[] = { "%RET", "Alpha", "%F6", "%BS", "%Y", " one", "%RET", "Beta", "%F6", "%DEL", "%N",
+    "%REV", "%REV", "x", "%END", "%RET", "Gamma", "%F6", "%BS", "%N", "%REV", "%REV", "y", "%END", "%RET",
+    "Delta", "%F6", "%DEL", "%Y", "z", "%RET", "q", "%TAB", "%BS", "r", "%RET", "Page", "%CRET", "%BS", "s", "%RET",
+    "%TOP", 0 };
+static const char *const S12[] = { "%RET", "Alpha Beta Gamma.", "%L*11", "%BLK", "%R*5", "%MOVE", "%END", "%RET",
+    "%RET", "Copy me.", "%HOME", "%BLK", "%END", "%COPY", "%END", "%RET",
+    "%RET", "Delete this. Keep this.", "%HOME", "%BLK", "%R*13", "%DEL", "%Y", "%END",
+    "%RET", "Cut via menu. Stay.", "%HOME", "%BLK", "%R*14", "%CUT", "%END",
+    "%RET", "Toggle", "%BLK", "%L*2", "%BLK", "%END", "%RET", "%F4", "%BS", "Indent gone.", "%RET", "%TOP", 0 };
+static const char *const S13[] = { "%RET", "Plain", "%F6", "bold words", "%F6", " after.", "%END", "%L*9", "%BLK", "%R*4",
+    "%REV", "%REV", "%MOVE", "%END", "%RET", "%REV", "%REV", "%END",
+    "%RET", "Keep", "%F8", "under words", "%F8", " tail.", "%HOME", "%R*2", "%BLK", "%R*4",
+    "%REV", "%REV", "%COPY", "%END", "%RET", "%REV", "%REV", "%END",
+    "%RET", "Drop", "%F6", "bold here", "%F6", " end.", "%HOME", "%R*2", "%BLK", "%R*4",
+    "%REV", "%REV", "%DEL", "%Y", "%REV", "%REV", "%END",
+    "%RET", "Cut", "%F8", "under here", "%F8", " end.", "%END", "%L*7", "%BLK", "%R*4",
+    "%REV", "%REV", "%DEL", "%Y", "%REV", "%REV", "%END", "%RET", "%TOP", 0 };
+static const char *const S14[] = { "%RET", "ab", "%F6", "CDEF", "%F6", "gh", "%RET", "xy", "%HOME", "%BLK", "%END", "%COPY",
+    "%U", "%HOME", "%R*4", "%RET", "%REV", "%REV", "%D", "%END",
+    "%RET", "pq", "%F6", "RS", "%F6", "tu", "%HOME", "%R*3", "%BLK", "%R*2", "%COPY", "%HOME", "%R", "%RET",
+    "%REV", "%REV", "%END",
+    "%RET", "%F6", "vwxyz", "%F6", "%HOME", "%R*2", "%BLK", "%R", "%COPY", "%R*2", "%RET",
+    "%REV", "%REV", "%END", "%RET", "%TOP", 0 };
+static const char *const S15[] = { "%RET", "%F6", "vwxyz", "%F6", "%HOME", "%REV", "%REV", "%R", "%BLK", "%R", "%COPY",
+    "%R", "%RET", "%REV", "%REV", "%END", "%RET", 0 };
+static const char *const S16[] = { "%RET", "a", "%F6", "b", "%F6", "%F6", "b", "%F6", "%F6", "b", "%F6", "%F6", "b", "%F6",
+    "%F6", "b", "%F6", "%F6", "b", "%F6", "%F6", "b", "%F6", "%RET",
+    "L2", "%RET", "L3", "%RET", "L4", "%RET", "L5", "%RET", "L6", "%RET", "L7", "%RET", "L8", "%RET",
+    "L9", "%RET", "L10", "%RET", "L11", "%RET", "L12", "%RET", "%TOP", "%D*6", 0 };
+/* the prefix byte 0x103: the cursor before the end (MINT17, MINT19) or back
+ * at the end after Home Home Up (MINT18) at the save */
+static const char *const S17[] = { "%RET", "One", "%RET", "Two", "%RET", "Three", "%RET", "%U", "%U", 0 };
+static const char *const S18[] = { "%RET", "One", "%RET", "Two", "%RET", "Three", "%RET", "%TOP", "%BOT", 0 };
+static const char *const S19[] = { "%RET", "One", "%RET", "Two", "%L", 0 };
+
+static void part_g(void)
+{
+    static const struct { const char *name; const char *const *script; } T[] = {
+        { "MINT09", S09 }, { "MINT10", S10 }, { "MINT11", S11 }, { "MINT12", S12 },
+        { "MINT13", S13 }, { "MINT14", S14 }, { "MINT15", S15 }, { "MINT16", S16 },
+        { "MINT17", S17 }, { "MINT18", S18 }, { "MINT19", S19 },
+    };
+    static iw_ed_t e;
+    int good = 0, n = (int)(sizeof T / sizeof T[0]);
+    printf("  part G:");
+    for (int i = 0; i < n; i++) {
+        int ok;
+        doc_bind(&e.doc);
+        iw_ed_init(&e, IW_WP5_WRAP_COLS);
+        ok = iwk_run(&e, T[i].script);
+        if (!ok) { fprintf(stderr, "  FAIL typed %s: a key was refused or a question was not asked where WP asked\n", T[i].name); g_typed_fail++; }
+        else ok = typed_equals(T[i].name, &e);
+        CHECK(ok, "the slice 2 mint typed key for key is byte-identical to the file WP.EXE saved");
+        good += ok;
+        printf(" %s %s", T[i].name, ok ? "==" : "!=");
+    }
+    printf(" (%d of %d byte-identical: tabs, indents, hard pages, the questions, Block / Move / Copy / Delete)\n", good, n);
 }
 
 /* ---- PART E: refusals ------------------------------------------------------- */
@@ -468,6 +568,7 @@ int main(int argc, char **argv)
     part_d();
     part_e();
     part_f();
+    part_g();
     if (g_rewrite_fail) fprintf(stderr, "  RED-REASON golden-rewrite: %d goldens not byte-identical\n", g_rewrite_fail);
     if (g_ref_fail)     fprintf(stderr, "  RED-REASON wp5-ref-disagrees: %d readings differ from wp5_ref.py\n", g_ref_fail);
     if (g_wrap_fail)    fprintf(stderr, "  RED-REASON wrap: %d goldens re-wrapped differently from WP\n", g_wrap_fail);

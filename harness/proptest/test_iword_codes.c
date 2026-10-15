@@ -1,55 +1,78 @@
 /*
  * harness/proptest/test_iword_codes.c -- THE PROPERTY SUITE of InitechWord's
  * codes as first-class entities (factory C; bead initech-jojk, IWORD P2
- * slice 1; plan docs/plans/INITECH-WORD-plan.md Sec 6(c): "a code's
+ * slices 1 and 2; plan docs/plans/INITECH-WORD-plan.md Sec 6(c): "a code's
  * insertion/removal never corrupts a neighboring run or code scope").
  *
- * The core (os/iword/core: piece.c + edit.c + codes.c) is graded against a
- * MODEL written here, never against itself. The model is a token list --
- * a character, a hard return, ON(n), OFF(n) -- edited by the WordPerfect 5.1
- * rules restated below from their sources:
- *   toggle(n)  (F6 / F8 / Ctrl-F8 2 n) -- Reference Manual, Attributes p.
- *              36-37: "When you select an attribute, both an on and off code
- *              are inserted, with the cursor resting just before the off
- *              code" (n off at the cursor); n on: the first code of n at or
- *              after the cursor is the pair's OFF -- it moves to the cursor
- *              and the cursor goes past it (the real WP.EXE, MINT06: F6
- *              after "both" with [und][bold] ahead gave "both[bold] under
- *              [und]"); when it is right at the cursor that is "press that
- *              keystroke once again ... to move beyond the attribute off
- *              code".
- *   normal     (Ctrl-F8 3) -- p. 37 "moves the cursor beyond existing off
- *              codes" then "inserts the necessary off codes": step past the
- *              OFF codes at the cursor, then toggle every attribute still on,
- *              lowest number first (iword.h: the order is authored).
- *   Backspace / Delete on a code -- Reveal Codes ON: the code AND its
- *              partner go (MINT08 03b_reveal_bs1.png: Backspace on [italc]
- *              left "Keptx", [ITALC] gone too); OFF: the cursor steps over
- *              it, nothing is deleted (P1's protection, kept).
+ * The core (os/iword/core: piece.c + edit.c + codes.c + block.c) is graded
+ * against a MODEL written here, never against itself. The model is a token
+ * list -- a character, a hard return, ON(n), OFF(n), TAB, INDENT, a hard page
+ * -- edited by WordPerfect 5.1's rules, restated below from their sources
+ * (../wordperfect51-decomp; Reference Manual, Attributes p. 36-37):
+ *   toggle(n)  (F6 / F8 / Ctrl-F8 2 n): n off at the cursor -> "both an on
+ *              and off code are inserted, with the cursor resting just
+ *              before the off code"; n on -> the first code of n at or after
+ *              the cursor is the pair's OFF: it moves to the cursor, the
+ *              cursor goes past it (MINT06); right at the cursor it is "press
+ *              that keystroke once again ... to move beyond" it.
+ *   normal     (Ctrl-F8 3): step past the OFF codes at the cursor, then
+ *              toggle every attribute still on, lowest number first.
+ *   Backspace / Delete on an attribute code -- Reveal Codes on: the code and
+ *              its partner go (MINT08 03b). Off: WordPerfect ASKS "Delete
+ *              [code]? No (Yes)" (MINT11 01_bs_prompt, 02_del_prompt); Yes
+ *              deletes the pair ("Alpha" F6 BS y -> "Alpha"), No moves the
+ *              cursor over the code -- before it for Backspace, past it for
+ *              Delete (MINT11: "Gammay[BOLD][bold]", "Beta[BOLD][bold]x").
+ *   Tab / F4 / Ctrl-Enter: a [Tab] / [->Indent] / hard page at the cursor;
+ *              Backspace / Delete remove them without a question (MINT11
+ *              05_bs_tab, 06_bs_hpg; MINT12 13_bs_indent).
+ *   Block      (Alt-F4 .. Ctrl-F4 1 1/2/3, Delete y; MINT12..15): the span
+ *              [min(anchor, cursor), max); its copy is self-contained (ON
+ *              codes of the attributes on at its start, its tokens, OFF codes
+ *              of those on at its end: MINT14 "[BOLD]RS[bold]", MINT13
+ *              "ep[UND]u[und]"); a cut leaves where it was the codes that
+ *              change between its ends, the cursor after them (MINT13
+ *              "Dr[BOLD]|old"); a retrieve inserts the copy at the cursor,
+ *              the cursor staying in front, then drops every code from there
+ *              on that changes nothing (MINT14 "CxyDEF" bold; MINT15
+ *              "[BOLD]vwxw[bold]yz").
+ * THE BYTES the model serializes to are WordPerfect's, with the geometry an
+ * INDEPENDENT reference layout computes here (spec rows restated from the
+ * mints, not read from spec/iword/wp5_format.h): a tab / indent moves to the
+ * next multiple of 5 columns s and stores 1200 + 120 s, 1200 + 120 s,
+ * 10 + s (MINT09 @0x148 / @0x17B); an indent's u16 600 (MINT09 @0x190); C6
+ * (9000, 1200 + 120 margin) before the HRt of an indented paragraph (MINT09
+ * @0x1E8, @0x20B); the 32-byte D4/00 group before a hard page with 200 x
+ * (line on page - 1) and the page number (MINT09 @0x21B, @0x246).
  *
- * PROPERTIES, after EVERY key of 600 random sessions (characters, spaces,
- * Enter, Backspace, Delete, arrows, Home/End/Up/Down, F6, F8, Ctrl-F8 2 4,
- * Ctrl-F8 3, Alt-F3), widths 8..67 and the WP 65:
- *   C1 MODEL      the body, soft returns read as spaces, == the model
- *                 serialized (C3 n C3 / C4 n C4 / 0A / text), and the cursor
- *                 sits at the model cursor's byte offset;
- *   C2 WELL-FORMED the body is a sequence of verified units (the codec's own
- *                 validator iw_unit_len) -- no code is ever split;
- *   C3 SCOPES     for every attribute number the codes alternate ON, OFF,
- *                 ON, OFF ... and are balanced (every scope closed, none
- *                 nested in itself, none stranded);
- *   C4 WRAP       the soft returns are exactly where an independent wrapper
- *                 of the visible characters (codes zero width) puts them;
- *   C5 STATE      iw_attr_state at the cursor == the model's state, and
- *                 iw_attr_faces maps bold / italic / underline to faces
- *                 1 / 2 / 4.
+ * PROPERTIES, after EVERY key of three random families (600 / 300 / 400
+ * sessions, widths 8..67 and the WP 65; each family names its RED-REASON):
+ *   codes     (slice 1's keys + the question): C1..C5 below;
+ *   geometry  (tabs, indents, hard pages among text and attributes);
+ *   block     (Alt-F4 and the Move menu among the edits):
+ *   C1 MODEL      the body == the model serialized (soft returns read as
+ *                 spaces; the geometry as above) and the cursor sits at the
+ *                 model cursor's offset (a hard return's / hard page's offset
+ *                 is that of the C6 / D4 WP writes before it);
+ *   C2 WELL-FORMED the body is a sequence of verified units (iw_unit_len);
+ *   C3 SCOPES     per attribute the codes alternate ON, OFF, ... balanced;
+ *   C4 WRAP       the soft returns are where the reference layout puts them;
+ *   C5 STATE      the attribute state at EVERY token boundary of the body
+ *                 (iw_attr_step) == the model's replay; iw_attr_state at the
+ *                 cursor == the model's; faces bold 1 / italic 2 / under 4;
+ *   B1 CUT KEEPS  a cut leaves every surviving character in the attributes
+ *                 it had (the model, by character identity).
  * A failing session is SHRUNK (one-key deletion to a fixpoint) and printed.
  *
  * Mutants (Rule 6; test-iword-codes-mutant, each RED for its named reason):
- *   IWORD_MUT_TOGGLE_DUP  the second F6 leaves the old [bold] behind
- *                         -> RED-REASON codes
- *   IWORD_MUT_PAIR_HALF   Reveal Codes Backspace strands the partner
- *                         -> RED-REASON codes
+ *   IWORD_MUT_TOGGLE_DUP    the second F6 leaves the old [bold] -> codes
+ *   IWORD_MUT_PAIR_HALF     Reveal Backspace strands the partner -> codes
+ *   IWORD_MUT_NO_ASK        no "Delete [code]?" question        -> codes
+ *   IWORD_MUT_ASK_STAY      "No" leaves the cursor               -> codes
+ *   IWORD_MUT_TAB_FIXED     a tab is always 5 columns           -> geometry
+ *   IWORD_MUT_COPY_BARE     the copy is not self-contained      -> block
+ *   IWORD_MUT_CUT_NO_MEND   a cut leaves no codes behind        -> block
+ *   IWORD_MUT_RETRIEVE_DUP  a retrieve keeps redundant codes    -> block
  *
  * Deterministic (fixed seeds, Rule 11). ASCII-clean (Rule 12).
  */
@@ -63,15 +86,15 @@
 
 TEST_HARNESS();
 
-static int g_codes_fail;
+static int g_fail_codes, g_fail_geo, g_fail_block;
 
 static uint32_t g_rng;
 static uint32_t rnd(void) { g_rng ^= g_rng << 13; g_rng ^= g_rng >> 17; g_rng ^= g_rng << 5; return g_rng; }
 static uint32_t rn(uint32_t n) { return n ? rnd() % n : 0; }
 
-#define CAP  (64u * 1024u)
+#define CAP  (256u * 1024u)
 #define PCS  4096u
-static uint8_t    g_add[CAP];
+static uint8_t    g_add[CAP], g_orig[CAP];
 static iw_piece_t g_pc[PCS];
 static uint8_t    g_empty[1];
 static uint8_t    g_buf[CAP], g_want[CAP];
@@ -87,33 +110,47 @@ static uint8_t    g_buf[CAP], g_want[CAP];
 #define T_HRT    0x100
 #define T_ON     0x200
 #define T_OFF    0x300
-#define T_KIND(t) ((t) & 0x300)
+#define T_TAB    0x400
+#define T_IND    0x500
+#define T_HPG    0x600
+#define T_KIND(t) ((t) & 0xF00)
 #define MAXT     4096
 static uint16_t m_t[MAXT];
+static uint32_t m_id[MAXT], m_next_id;
 static uint32_t m_n, m_cur;
 static int      m_reveal;
+static uint32_t m_blk;                 /* anchor token, or UINT32_MAX     */
+static uint32_t m_ask;                 /* the code asked about, or MAX    */
+static int      m_ask_del;
+static uint16_t m_buf[MAXT];
+static uint32_t m_buf_n;
+static int      m_pending;             /* "Move cursor; press Enter ..." */
 
 static void m_ins(uint32_t at, uint16_t t)
 {
     memmove(m_t + at + 1, m_t + at, (m_n - at) * sizeof *m_t);
+    memmove(m_id + at + 1, m_id + at, (m_n - at) * sizeof *m_id);
     m_t[at] = t;
+    m_id[at] = ++m_next_id;
     m_n++;
 }
 static void m_del(uint32_t at)
 {
     memmove(m_t + at, m_t + at + 1, (m_n - at - 1) * sizeof *m_t);
+    memmove(m_id + at, m_id + at + 1, (m_n - at - 1) * sizeof *m_id);
     m_n--;
 }
 static int is_code(uint16_t t) { return T_KIND(t) == T_ON || T_KIND(t) == T_OFF; }
-static int m_on(uint32_t at, int a)
+static uint32_t m_state(uint32_t at)
 {
-    int on = 0;
+    uint32_t st = 0;
     for (uint32_t i = 0; i < at; i++) {
-        if (m_t[i] == (T_ON | a)) on = 1;
-        if (m_t[i] == (T_OFF | a)) on = 0;
+        if (T_KIND(m_t[i]) == T_ON) st |= 1u << (m_t[i] & 0x1F);
+        if (T_KIND(m_t[i]) == T_OFF) st &= ~(1u << (m_t[i] & 0x1F));
     }
-    return on;
+    return st;
 }
+static int m_on(uint32_t at, int a) { return (int)((m_state(at) >> a) & 1u); }
 static void m_toggle(int a)
 {
     if (!m_on(m_cur, a)) {
@@ -160,90 +197,244 @@ static void m_kill(uint32_t i)
     else if (p != UINT32_MAX) { m_del(i); m_del(p); m_cur = i - 1; }
     else { m_del(i); m_cur = i; }
 }
+static void m_span(uint32_t *s, uint32_t *t)
+{
+    uint32_t a = m_blk == UINT32_MAX ? m_cur : m_blk;
+    *s = a < m_cur ? a : m_cur;
+    *t = a < m_cur ? m_cur : a;
+}
+static void m_copy(void)
+{
+    uint32_t s, t, ss, st;
+    m_span(&s, &t);
+    ss = m_state(s); st = m_state(t);
+    m_buf_n = 0;
+    for (int a = 0; a < 16; a++) if ((ss >> a) & 1u) m_buf[m_buf_n++] = (uint16_t)(T_ON | a);
+    for (uint32_t i = s; i < t; i++) m_buf[m_buf_n++] = m_t[i];
+    for (int a = 0; a < 16; a++) if ((st >> a) & 1u) m_buf[m_buf_n++] = (uint16_t)(T_OFF | a);
+    m_blk = UINT32_MAX;
+}
+static void m_cut(void)
+{
+    uint32_t s, t, ss, st, diff, k = 0;
+    m_span(&s, &t);
+    ss = m_state(s); st = m_state(t); diff = ss ^ st;
+    for (uint32_t i = s; i < t; i++) m_del(s);
+    for (int a = 0; a < 16; a++) if (((diff & st) >> a) & 1u) m_ins(s + k++, (uint16_t)(T_ON | a));
+    for (int a = 0; a < 16; a++) if (((diff & ~st) >> a) & 1u) m_ins(s + k++, (uint16_t)(T_OFF | a));
+    m_cur = s + k;
+    m_blk = UINT32_MAX;
+}
+static void m_retrieve(void)
+{
+    uint32_t at = m_cur, st;
+    for (uint32_t i = 0; i < m_buf_n; i++) m_ins(at + i, m_buf[i]);
+    st = m_state(at);
+    for (uint32_t i = at; i < m_n; ) {
+        uint16_t t = m_t[i];
+        if (is_code(t)) {
+            uint32_t bit = 1u << (t & 0x1F);
+            int redundant = T_KIND(t) == T_ON ? (st & bit) != 0 : (st & bit) == 0;
+            if (redundant) { m_del(i); continue; }
+            st = T_KIND(t) == T_ON ? (st | bit) : (st & ~bit);
+        }
+        i++;
+    }
+    m_cur = at;
+}
 
-static uint32_t m_bytes(uint8_t *out, uint32_t *cur_off)
+/* ---- the reference layout (independent of os/iword/core) --------------------- */
+#define EVERY 5u
+static uint32_t stop_after(uint32_t c) { return (c / EVERY + 1u) * EVERY; }
+static uint32_t adv_t(uint16_t t, uint32_t c)
+{
+    if (t < 0x100) return c + 1u;
+    if (t == T_TAB || t == T_IND) return stop_after(c);
+    return c;
+}
+static uint8_t  r_srt[MAXT];           /* this space token is a soft return     */
+static uint32_t r_col[MAXT];           /* the column the token starts at        */
+static uint32_t r_page[MAXT], r_pline[MAXT]; /* page / line on page of its line */
+static uint32_t r_marg[MAXT];          /* HRT: the paragraph's margin; 0 = none */
+static uint8_t  r_ind[MAXT];           /* HRT: its paragraph holds an indent    */
+
+static void ref_layout(uint32_t w)
+{
+    uint32_t i = 0;
+    memset(r_srt, 0, m_n + 1);
+    /* 1. the soft returns, paragraph by paragraph */
+    while (i <= m_n) {
+        uint32_t ps = i, pe = i, m = 0, ls;
+        while (pe < m_n && m_t[pe] != T_HRT && m_t[pe] != T_HPG) pe++;
+        ls = ps;
+        for (;;) {
+            uint32_t c = m, mm = m, mfit = m, mb = m, lastfit = UINT32_MAX, brk = UINT32_MAX, t;
+            for (t = ls; t < pe; t++) {
+                if (m_t[t] == ' ') {
+                    if (c <= w) { lastfit = t; mfit = mm; }
+                    else { if (lastfit != UINT32_MAX) { brk = lastfit; mb = mfit; } else { brk = t; mb = mm; } break; }
+                }
+                c = adv_t(m_t[t], c);
+                if (m_t[t] == T_IND) mm = c;
+            }
+            if (brk == UINT32_MAX && c > w && lastfit != UINT32_MAX) { brk = lastfit; mb = mfit; }
+            if (brk == UINT32_MAX) break;
+            r_srt[brk] = 1;
+            ls = brk + 1;
+            m = mb;
+        }
+        i = pe + 1;
+    }
+    /* 2. the display lines: columns, pages, margins */
+    {
+        uint32_t c = 0, m = 0, page = 1, pl = 1, first = 1, ind = 0;
+        for (i = 0; i < m_n; i++) {
+            uint16_t t = m_t[i];
+            int term = r_srt[i] || t == T_HRT || t == T_HPG;
+            if (!term && t < 0x100 && c + 1u > w && !first) {     /* the layout's own break */
+                if (pl >= 54u) { page++; pl = 1; } else pl++;
+                c = m;
+                first = 1;
+            }
+            r_col[i] = c;
+            r_page[i] = page;
+            r_pline[i] = pl;
+            if (t == T_HRT) { r_marg[i] = m; r_ind[i] = (uint8_t)ind; }
+            if (term) {
+                int hpg = t == T_HPG;
+                if (t == T_HRT || hpg) { m = 0; ind = 0; }
+                if (hpg || pl >= 54u) { page++; pl = 1; } else pl++;
+                c = m;
+                first = 1;
+                continue;
+            }
+            c = adv_t(t, c);
+            if (t == T_IND) { m = c; ind = 1; }
+            first = 0;
+        }
+    }
+}
+
+static uint32_t put16(uint8_t *o, uint32_t n, uint32_t v) { o[n] = (uint8_t)v; o[n + 1] = (uint8_t)(v >> 8); return n + 2; }
+
+/* The model as WordPerfect's bytes (the reference's soft returns); off[i] = token
+ * i's offset (a HRT / hard page at its C6 / D4); off[m_n] = the length. */
+static uint32_t m_off[MAXT + 1];
+static uint32_t m_bytes(uint8_t *out)
 {
     uint32_t n = 0;
     for (uint32_t i = 0; i < m_n; i++) {
         uint16_t t = m_t[i];
-        if (i == m_cur) *cur_off = n;
-        if (t < 0x100) out[n++] = (uint8_t)t;
-        else if (t == T_HRT) out[n++] = 0x0A;
-        else { uint8_t c = T_KIND(t) == T_ON ? 0xC3 : 0xC4; out[n++] = c; out[n++] = (uint8_t)(t & 0xFF); out[n++] = c; }
+        m_off[i] = n;
+        if (t < 0x100) out[n++] = (t == ' ' && r_srt[i]) ? 0x0D : (uint8_t)t;
+        else if (t == T_HRT) {
+            if (r_ind[i]) { out[n++] = 0xC6; n = put16(out, n, 9000); n = put16(out, n, 1200 + 120 * r_marg[i]); out[n++] = 0xC6; }
+            out[n++] = 0x0A;
+        } else if (t == T_TAB || t == T_IND) {
+            uint32_t s = stop_after(r_col[i]);
+            out[n++] = t == T_TAB ? 0xC1 : 0xC2;
+            if (t == T_TAB) out[n++] = 0x02;
+            else { out[n++] = 0x00; n = put16(out, n, 600); }
+            n = put16(out, n, 1200 + 120 * s);
+            n = put16(out, n, 1200 + 120 * s);
+            n = put16(out, n, 10 + s);
+            out[n++] = t == T_TAB ? 0xC1 : 0xC2;
+        } else if (t == T_HPG) {
+            static const uint8_t mid[18] = { 0,0,0,0,0,0,0,0, '0','*','0','*','0','*', 0xB0,0x04,0xB0,0x04 };
+            out[n++] = 0xD4; out[n++] = 0x00; out[n++] = 0x1C; out[n++] = 0x00;
+            out[n++] = 0x00; out[n++] = 0x16;
+            n = put16(out, n, (r_pline[i] - 1u) * 200u);
+            n = put16(out, n, r_page[i]);
+            memcpy(out + n, mid, sizeof mid); n += sizeof mid;
+            out[n++] = 0x1C; out[n++] = 0x00; out[n++] = 0x00; out[n++] = 0xD4;
+            out[n++] = 0x0C;
+        } else {
+            uint8_t c = T_KIND(t) == T_ON ? 0xC3 : 0xC4;
+            out[n++] = c; out[n++] = (uint8_t)(t & 0xFF); out[n++] = c;
+        }
     }
-    if (m_cur == m_n) *cur_off = n;
+    m_off[m_n] = n;
     return n;
 }
-
-/* C4: the soft returns an independent wrapper puts in the visible text. The
- * rule (iword.h WRAP; MINT01 @0x188 and MINT06 @0x1B5 for the real bytes):
- * per paragraph, from the line start s, if the rest fits in w columns it is
- * the last line; else the LAST space b with b - s <= w ends the line (it
- * becomes the SRt); with none, the first space after s + w. Codes take no
- * column, so the rule runs over the characters alone. */
-static void ref_srt(uint32_t w, uint8_t *srt /* per token: 1 = this space is an SRt */)
+static uint32_t tok_at(uint32_t b)
 {
-    static uint32_t vis[MAXT];                 /* visible char index -> token */
-    uint32_t nv = 0;
-    memset(srt, 0, m_n);
-    for (uint32_t i = 0; i <= m_n; i++) {
-        if (i < m_n && m_t[i] != T_HRT) { if (m_t[i] < 0x100) vis[nv++] = i; continue; }
-        /* a paragraph: vis[0..nv) */
-        uint32_t s = 0, e = nv;
-        while (e - s > w) {
-            uint32_t brk = UINT32_MAX;
-            for (uint32_t k = s; k <= s + w && k < e; k++) if (m_t[vis[k]] == ' ') brk = k;
-            if (brk == UINT32_MAX) {
-                uint32_t k = s + w + 1u;
-                while (k < e && m_t[vis[k]] != ' ') k++;
-                if (k >= e) break;
-                brk = k;
-            }
-            srt[vis[brk]] = 1;
-            s = brk + 1u;
-        }
-        nv = 0;
-    }
+    for (uint32_t i = 0; i <= m_n; i++) if (m_off[i] == b) return i;
+    return UINT32_MAX;
 }
 
 /* ---- the session ------------------------------------------------------------ */
 enum { K_CHAR, K_SPACE, K_ENTER, K_BS, K_DEL, K_LEFT, K_RIGHT, K_UP, K_DOWN, K_HOME, K_END,
-       K_F6, K_F8, K_ITAL, K_NORMAL, K_REVEAL, K_N };
+       K_F6, K_F8, K_ITAL, K_NORMAL, K_REVEAL, K_TAB, K_INDENT, K_HPG, K_BLOCK, K_MOVE, K_COPY,
+       K_BDEL, K_YES, K_NO, K_N };
 static const char *KNAME[K_N] = { "char", "space", "enter", "bs", "del", "left", "right", "up", "down",
-                                  "home", "end", "F6", "F8", "Ctrl-F8 2 4", "Ctrl-F8 3", "Alt-F3" };
+                                  "home", "end", "F6", "F8", "Ctrl-F8 2 4", "Ctrl-F8 3", "Alt-F3",
+                                  "Tab", "F4", "Ctrl-Enter", "Alt-F4", "Ctrl-F4 1 1", "Ctrl-F4 1 2",
+                                  "Delete (block) y", "y", "n" };
 typedef struct { uint8_t k, ch; } key_t3;
 #define MAXKEYS 400
 static key_t3 g_keys[MAXKEYS];
 
-/* model token index of byte offset b, or UINT32_MAX when b is not a token start */
-static uint32_t tok_at(uint32_t b)
+/* Compact as Face A does (one original, an empty add buffer): positions stay. */
+static void compact(iw_ed_t *e)
 {
-    uint32_t off = 0;
-    for (uint32_t i = 0; i <= m_n; i++) {
-        if (off == b) return i;
-        if (i == m_n) break;
-        off += is_code(m_t[i]) ? 3u : 1u;
-    }
-    return UINT32_MAX;
+    uint32_t n = iw_doc_read(&e->doc, 0, g_orig, CAP);
+    uint32_t cur = e->cur, blk = e->blk, ask = e->ask, goal = e->goal;
+    uint8_t rv = e->reveal, ad = e->ask_del;
+    iw_doc_init(&e->doc, g_add, CAP, g_pc, PCS, CAP);
+    iw_doc_load(&e->doc, g_orig, n);
+    e->cur = cur; e->blk = blk; e->ask = ask; e->goal = goal; e->reveal = rv; e->ask_del = ad;
 }
+
+/* The family a failure is charged to. */
+enum { FAM_CODES, FAM_GEO, FAM_BLOCK };
+static const char *FAMNAME[3] = { "codes", "geometry", "block" };
 
 static int run(const key_t3 *keys, int n, const uint8_t *skip, uint32_t width, int verbose)
 {
     static iw_ed_t e;
-    static uint8_t srt[MAXT];
+    static uint8_t cbuf[CAP];
+#define IDMAX (1u << 20)
+    static uint32_t idst[IDMAX];        /* B1: state of each character id before a cut */
+    uint32_t cbuf_n = 0;
     int step = 0;
     iw_doc_init(&e.doc, g_add, CAP, g_pc, PCS, CAP);
     iw_doc_load(&e.doc, g_empty, 0);
     iw_ed_init(&e, width);
     m_n = m_cur = 0;
+    m_next_id = 0;
     m_reveal = 0;
+    m_blk = m_ask = UINT32_MAX;
+    m_buf_n = 0;
+    m_pending = 0;
     for (int i = 0; i < n; i++) {
         const key_t3 *k = &keys[i];
-        uint32_t len, mlen, mcur = 0;
+        uint32_t len, mlen, mcur;
+        int cut = 0, rc;
         if (skip && skip[i]) continue;
+        if (m_n + 64 >= MAXT) break;
+        /* the face's own rules decide which keys reach the core (face_a.c):
+         * a pending question takes only its answer; while Block is on only
+         * the cursor keys, Alt-F4, the Move menu and Delete; while a move
+         * waits for Enter, the cursor keys and Enter */
+        if (m_ask != UINT32_MAX && k->k != K_YES && k->k != K_NO) continue;
+        if (m_ask == UINT32_MAX && (k->k == K_YES || k->k == K_NO)) continue;
+        if (m_blk != UINT32_MAX && !(k->k >= K_LEFT && k->k <= K_END) && k->k != K_BLOCK &&
+            k->k != K_MOVE && k->k != K_COPY && k->k != K_BDEL) continue;
+        if (m_blk == UINT32_MAX && (k->k == K_MOVE || k->k == K_COPY || k->k == K_BDEL)) continue;
+        if (m_pending && !(k->k >= K_LEFT && k->k <= K_END) && k->k != K_ENTER) continue;
         step++;
         if (verbose) printf("    %s%s%c%s\n", KNAME[k->k], k->k == K_CHAR ? " '" : "", k->k == K_CHAR ? k->ch : ' ', k->k == K_CHAR ? "'" : "");
-        if (m_n + 4 >= MAXT) break;
+        /* B1: the state of every character before a cut */
+        if (k->k == K_MOVE || k->k == K_BDEL) {
+            uint32_t st = 0;
+            cut = 1;
+            for (uint32_t q = 0; q < m_n; q++) {
+                uint16_t t = m_t[q];
+                if (T_KIND(t) == T_ON) st |= 1u << (t & 0x1F);
+                else if (T_KIND(t) == T_OFF) st &= ~(1u << (t & 0x1F));
+                if (m_id[q] < IDMAX) idst[m_id[q]] = st;
+            }
+        }
         switch (k->k) {
         case K_CHAR: case K_SPACE: {
             uint8_t c = k->k == K_SPACE ? ' ' : k->ch;
@@ -251,26 +442,43 @@ static int run(const key_t3 *keys, int n, const uint8_t *skip, uint32_t width, i
             m_ins(m_cur++, c);
             break; }
         case K_ENTER:
+            if (m_pending) {
+                if (iw_ed_retrieve(&e, cbuf, cbuf_n) != IW_OK) return step;
+                m_retrieve();
+                m_pending = 0;
+                break;
+            }
             if (iw_ed_enter(&e) != IW_OK) return step;
             m_ins(m_cur++, T_HRT);
             break;
+        case K_TAB:    if (iw_ed_tab(&e) != IW_OK) return step;    m_ins(m_cur++, T_TAB); break;
+        case K_INDENT: if (iw_ed_indent(&e) != IW_OK) return step; m_ins(m_cur++, T_IND); break;
+        case K_HPG:    if (iw_ed_hpage(&e) != IW_OK) return step;  m_ins(m_cur++, T_HPG); break;
         case K_BS:
-            (void)iw_ed_backspace(&e);
+            rc = iw_ed_backspace(&e);
             if (m_cur) {
                 uint16_t t = m_t[m_cur - 1];
                 if (!is_code(t)) { m_del(--m_cur); }
                 else if (m_reveal) m_kill(m_cur - 1);
-                else m_cur--;
+                else { m_ask = m_cur - 1; m_ask_del = 0; }
             }
+            if (m_ask != UINT32_MAX && rc != IW_E_ASK) { if (verbose) printf("      no question asked (rc %d)\n", rc); return step; }
             break;
         case K_DEL:
-            (void)iw_ed_delete(&e);
+            rc = iw_ed_delete(&e);
             if (m_cur < m_n) {
                 uint16_t t = m_t[m_cur];
                 if (!is_code(t)) m_del(m_cur);
                 else if (m_reveal) m_kill(m_cur);
-                else m_cur++;
+                else { m_ask = m_cur; m_ask_del = 1; }
             }
+            if (m_ask != UINT32_MAX && rc != IW_E_ASK) { if (verbose) printf("      no question asked (rc %d)\n", rc); return step; }
+            break;
+        case K_YES: case K_NO:
+            if (iw_ed_answer(&e, k->k == K_YES) != IW_OK) return step;
+            if (k->k == K_YES) m_kill(m_ask);
+            else m_cur = m_ask_del ? m_ask + 1 : m_ask;
+            m_ask = UINT32_MAX;
             break;
         case K_LEFT:  iw_ed_left(&e);  if (m_cur) m_cur--; break;
         case K_RIGHT: iw_ed_right(&e); if (m_cur < m_n) m_cur++; break;
@@ -281,7 +489,7 @@ static int run(const key_t3 *keys, int n, const uint8_t *skip, uint32_t width, i
             else if (k->k == K_HOME) iw_ed_line_home(&e);
             else iw_ed_line_end(&e);
             t = tok_at(e.cur);
-            if (t == UINT32_MAX) { if (verbose) printf("      the cursor %u is inside a code\n", e.cur); return step; }
+            if (t == UINT32_MAX) { if (verbose) printf("      the cursor %u is inside a code or between WP's bookkeeping and its HRt / HPg\n", e.cur); return step; }
             m_cur = t;
             break; }
         case K_F6:     if (iw_ed_attr(&e, A_BOLD) != IW_OK) return step; m_toggle(A_BOLD); break;
@@ -289,16 +497,50 @@ static int run(const key_t3 *keys, int n, const uint8_t *skip, uint32_t width, i
         case K_ITAL:   if (iw_ed_attr(&e, A_ITAL) != IW_OK) return step; m_toggle(A_ITAL); break;
         case K_NORMAL: if (iw_ed_normal(&e) != IW_OK) return step;       m_normal();       break;
         case K_REVEAL: e.reveal = (uint8_t)!e.reveal; m_reveal = !m_reveal; break;
+        case K_BLOCK:
+            iw_ed_block(&e);
+            m_blk = m_blk == UINT32_MAX ? m_cur : UINT32_MAX;
+            if ((e.blk == IW_NO_BLOCK) != (m_blk == UINT32_MAX)) return step;
+            break;
+        case K_COPY:
+            if (iw_ed_block_copy(&e, cbuf, CAP, &cbuf_n) != IW_OK) return step;
+            m_copy();
+            m_pending = 1;
+            break;
+        case K_MOVE:
+            if (iw_ed_block_cut(&e, cbuf, CAP, &cbuf_n) != IW_OK) return step;
+            {
+                uint32_t blk = m_blk;
+                m_copy();
+                m_blk = blk;
+                m_cut();
+            }
+            m_pending = 1;
+            break;
+        case K_BDEL:
+            if (iw_ed_block_cut(&e, 0, 0, 0) != IW_OK) return step;
+            m_cut();
+            break;
         }
-        /* C1 MODEL */
-        mlen = m_bytes(g_want, &mcur);
+        if (iw_ed_fixup(&e) != IW_OK) { if (verbose) printf("      fixup refused\n"); return step; }
+        if (e.doc.npc > PCS / 2u || e.doc.add_len > CAP / 2u) compact(&e);
+        /* C4 WRAP first (a misplaced soft return is named as such), then C1 */
+        ref_layout(width);
+        mlen = m_bytes(g_want);
+        mcur = m_off[m_cur];
         len = iw_doc_read(&e.doc, 0, g_buf, CAP);
-        if (len != e.doc.len || len != mlen) { if (verbose) printf("      C1 length %u, model %u\n", len, mlen); return step; }
-        for (uint32_t q = 0; q < len; q++) {
-            uint8_t a = g_buf[q] == 0x0D ? ' ' : g_buf[q];
-            if (a != g_want[q]) { if (verbose) printf("      C1 byte %u is 0x%02x, model 0x%02x\n", q, g_buf[q], g_want[q]); return step; }
+        if (len == mlen) {
+            for (uint32_t q = 0; q < m_n; q++) {
+                int is_srt = g_buf[m_off[q]] == 0x0D;
+                if (m_t[q] == ' ' && (r_srt[q] != 0) != is_srt) { if (verbose) printf("      C4 token %u: SRt %d, reference %d\n", q, is_srt, r_srt[q]); return step; }
+            }
         }
+        /* C1 MODEL: every byte, the geometry and the soft returns included */
+        if (len != e.doc.len || len != mlen) { if (verbose) printf("      C1 length %u, model %u\n", len, mlen); return step; }
+        for (uint32_t q = 0; q < len; q++)
+            if (g_buf[q] != g_want[q]) { if (verbose) printf("      C1 byte %u is 0x%02x, model 0x%02x\n", q, g_buf[q], g_want[q]); return step; }
         if (e.cur != mcur) { if (verbose) printf("      C1 cursor %u, model %u\n", e.cur, mcur); return step; }
+        if (m_blk != UINT32_MAX && e.blk != m_off[m_blk]) { if (verbose) printf("      C1 block anchor %u, model %u\n", e.blk, m_off[m_blk]); return step; }
         /* C2 WELL-FORMED */
         for (uint32_t q = 0; q < len; ) {
             uint32_t u = iw_unit_len(g_buf, len, q);
@@ -314,53 +556,80 @@ static int run(const key_t3 *keys, int n, const uint8_t *skip, uint32_t width, i
             }
             if (on) { if (verbose) printf("      C3 attribute 0x%02x left open\n", a); return step; }
         }
-        /* C4 WRAP */
-        ref_srt(width, srt);
+        /* C5 STATE at every token boundary, and at the cursor */
         {
-            uint32_t b = 0;
-            for (uint32_t q = 0; q < m_n; q++) {
-                int want_srt = srt[q] != 0, is_srt = g_buf[b] == 0x0D;
-                if (want_srt != is_srt) { if (verbose) printf("      C4 token %u: SRt %d, reference %d\n", q, is_srt, want_srt); return step; }
-                b += is_code(m_t[q]) ? 3u : 1u;
+            uint32_t st = 0, mst = 0, p = 0, q = 0, f, wf = 0;
+            while (q <= m_n) {
+                while (p < m_off[q]) { st = iw_attr_step(&e.doc, p, st); p = iw_unit_next(&e.doc, p); }
+                if (st != mst) { if (verbose) printf("      C5 state at token %u is 0x%x, model 0x%x\n", q, st, mst); return step; }
+                if (q == m_n) break;
+                if (T_KIND(m_t[q]) == T_ON) mst |= 1u << (m_t[q] & 0x1F);
+                else if (T_KIND(m_t[q]) == T_OFF) mst &= ~(1u << (m_t[q] & 0x1F));
+                q++;
             }
-        }
-        /* C5 STATE */
-        {
-            uint32_t st = iw_attr_state(&e.doc, e.cur), f = iw_attr_faces(st), wf = 0;
-            for (int a = 0; a < 32; a++) {
-                int on = m_on(m_cur, a);
-                if (((st >> a) & 1u) != (uint32_t)on) { if (verbose) printf("      C5 attribute 0x%02x state %u, model %d\n", a, (st >> a) & 1u, on); return step; }
-            }
+            st = iw_attr_state(&e.doc, e.cur);
+            if (st != m_state(m_cur)) { if (verbose) printf("      C5 state at the cursor 0x%x, model 0x%x\n", st, m_state(m_cur)); return step; }
+            f = iw_attr_faces(st);
             if (m_on(m_cur, A_BOLD)) wf |= 1u;
             if (m_on(m_cur, A_ITAL)) wf |= 2u;
             if (m_on(m_cur, A_UND))  wf |= 4u;
             if (f != wf) { if (verbose) printf("      C5 faces %u, model %u\n", f, wf); return step; }
         }
+        /* B1 a cut keeps every surviving character's attributes */
+        if (cut) {
+            uint32_t st = 0;
+            for (uint32_t q = 0; q < m_n; q++) {
+                uint16_t t = m_t[q];
+                if (T_KIND(t) == T_ON) st |= 1u << (t & 0x1F);
+                else if (T_KIND(t) == T_OFF) st &= ~(1u << (t & 0x1F));
+                else if (t < 0x100 && m_id[q] < IDMAX && idst[m_id[q]] != st) {
+                    if (verbose) printf("      B1 character %u ('%c') was 0x%x, is 0x%x after the cut\n", q, t, idst[m_id[q]], st);
+                    return step;
+                }
+            }
+        }
     }
     return 0;
 }
 
-static void gen(int n)
+static void gen(int n, int fam)
 {
     for (int i = 0; i < n; i++) {
         uint32_t r = rn(100);
-        g_keys[i].ch = (uint8_t)('a' + rn(26));
-        g_keys[i].k = r < 34 ? K_CHAR : r < 46 ? K_SPACE : r < 49 ? K_ENTER : r < 55 ? K_BS :
-                      r < 60 ? K_DEL : r < 66 ? K_LEFT : r < 72 ? K_RIGHT : r < 74 ? K_UP :
-                      r < 76 ? K_DOWN : r < 77 ? K_HOME : r < 78 ? K_END : r < 84 ? K_F6 :
-                      r < 89 ? K_F8 : r < 94 ? K_ITAL : r < 96 ? K_NORMAL : K_REVEAL;
+        key_t3 *k = &g_keys[i];
+        k->ch = (uint8_t)('a' + rn(26));
+        if (fam == FAM_CODES) {
+            k->k = r < 32 ? K_CHAR : r < 44 ? K_SPACE : r < 47 ? K_ENTER : r < 54 ? K_BS :
+                   r < 60 ? K_DEL : r < 65 ? K_LEFT : r < 70 ? K_RIGHT : r < 72 ? K_UP :
+                   r < 74 ? K_DOWN : r < 75 ? K_HOME : r < 76 ? K_END : r < 82 ? K_F6 :
+                   r < 86 ? K_F8 : r < 90 ? K_ITAL : r < 92 ? K_NORMAL : r < 94 ? K_REVEAL :
+                   r < 97 ? K_YES : K_NO;
+        } else if (fam == FAM_GEO) {
+            k->k = r < 34 ? K_CHAR : r < 46 ? K_SPACE : r < 50 ? K_ENTER : r < 56 ? K_BS :
+                   r < 60 ? K_DEL : r < 65 ? K_LEFT : r < 70 ? K_RIGHT : r < 73 ? K_UP :
+                   r < 76 ? K_DOWN : r < 77 ? K_HOME : r < 79 ? K_END : r < 85 ? K_TAB :
+                   r < 89 ? K_INDENT : r < 92 ? K_HPG : r < 94 ? K_F6 : r < 96 ? K_F8 :
+                   r < 98 ? K_YES : K_NO;
+        } else {
+            k->k = r < 28 ? K_CHAR : r < 38 ? K_SPACE : r < 41 ? K_ENTER : r < 45 ? K_BS :
+                   r < 48 ? K_DEL : r < 56 ? K_LEFT : r < 64 ? K_RIGHT : r < 66 ? K_UP :
+                   r < 68 ? K_DOWN : r < 69 ? K_HOME : r < 71 ? K_END : r < 76 ? K_F6 :
+                   r < 79 ? K_F8 : r < 81 ? K_ITAL : r < 86 ? K_BLOCK : r < 89 ? K_MOVE :
+                   r < 92 ? K_COPY : r < 94 ? K_BDEL : r < 95 ? K_TAB : r < 96 ? K_HPG :
+                   r < 98 ? K_YES : K_NO;
+        }
     }
 }
 
-static void sessions(void)
+static void family(int fam, int sessions, uint32_t seed)
 {
     int failed = 0;
-    g_rng = 0xC0D35u;
-    for (int t = 0; t < 600 && !failed; t++) {
+    g_rng = seed;
+    for (int t = 0; t < sessions && !failed; t++) {
         int n = 1 + (int)rn(MAXKEYS);
         uint32_t width = 8u + rn(60);
         if (t % 3 == 0) width = 65u;
-        gen(n);
+        gen(n, fam);
         if (run(g_keys, n, 0, width, 0)) {
             static uint8_t skip[MAXKEYS];
             int live = n, changed = 1;
@@ -373,47 +642,51 @@ static void sessions(void)
                     if (run(g_keys, n, skip, width, 0)) { changed = 1; live--; } else skip[i] = 0;
                 }
             }
-            fprintf(stderr, "  FAIL codes session %d (width %u): shrunk to %d key(s):\n", t, width, live);
+            fprintf(stderr, "  FAIL %s session %d (width %u): shrunk to %d key(s):\n", FAMNAME[fam], t, width, live);
             fflush(stderr);
             (void)run(g_keys, n, skip, width, 1);
             fflush(stdout);
             failed = 1;
         }
     }
-    CHECK(!failed, "600 sessions: model, well-formed units, balanced scopes, wrap, state");
-    if (failed) g_codes_fail++;
-    printf("  sessions %s: 600 random sessions (F6/F8/Ctrl-F8/Alt-F3 among the edits) == the model; units whole; scopes balanced; wrap; state\n",
-           failed ? "RED" : "green");
+    CHECK(!failed, "random sessions: model, well-formed units, balanced scopes, wrap, state, cuts");
+    if (failed) { if (fam == FAM_CODES) g_fail_codes++; else if (fam == FAM_GEO) g_fail_geo++; else g_fail_block++; }
+    printf("  %-8s %s: %d random sessions == the model; units whole; scopes balanced; wrap; state%s\n",
+           FAMNAME[fam], failed ? "RED" : "green", sessions, fam == FAM_BLOCK ? "; cuts keep attributes" : "");
 }
 
 /* Fixed cases from the real WP.EXE, so the model itself is pinned to it. */
+static void type_s(iw_ed_t *e, const char *s) { for (; *s; s++) (void)iw_ed_type(e, (uint8_t)*s); }
+static void fresh(iw_ed_t *e)
+{
+    iw_doc_init(&e->doc, g_add, CAP, g_pc, PCS, CAP);
+    iw_doc_load(&e->doc, g_empty, 0);
+    iw_ed_init(e, 65);
+}
 static void fixed(void)
 {
     static iw_ed_t e;
-    uint32_t len;
-    int bad = 0;
+    static uint8_t cb[256];
+    uint32_t len, cn = 0;
+    int bad = 0, badb = 0;
     /* MINT06's second line: F6 Bold F8 both F6 " under" F8 -> the body
      * C3 0C C3 "Bold" C3 0E C3 "both" C4 0C C4 " under" C4 0E C4 (@0x16E). */
     static const uint8_t want6[] = { 0xC3,0x0C,0xC3,'B','o','l','d',0xC3,0x0E,0xC3,'b','o','t','h',
                                      0xC4,0x0C,0xC4,' ','u','n','d','e','r',0xC4,0x0E,0xC4 };
-    iw_doc_init(&e.doc, g_add, CAP, g_pc, PCS, CAP);
-    iw_doc_load(&e.doc, g_empty, 0);
-    iw_ed_init(&e, 65);
+    fresh(&e);
     (void)iw_ed_attr(&e, A_BOLD);
-    for (const char *s = "Bold"; *s; s++) (void)iw_ed_type(&e, (uint8_t)*s);
+    type_s(&e, "Bold");
     (void)iw_ed_attr(&e, A_UND);
-    for (const char *s = "both"; *s; s++) (void)iw_ed_type(&e, (uint8_t)*s);
+    type_s(&e, "both");
     (void)iw_ed_attr(&e, A_BOLD);
-    for (const char *s = " under"; *s; s++) (void)iw_ed_type(&e, (uint8_t)*s);
+    type_s(&e, " under");
     (void)iw_ed_attr(&e, A_UND);
     len = iw_doc_read(&e.doc, 0, g_buf, CAP);
     if (len != sizeof want6 || memcmp(g_buf, want6, len) != 0) { fprintf(stderr, "  FAIL fixed: F6/F8 overlap != MINT06 @0x16E\n"); bad = 1; }
     if (e.cur != len) { fprintf(stderr, "  FAIL fixed: the cursor is not past [und]\n"); bad = 1; }
     /* MINT08: "Kept" [ITALC] "x" [italc], Backspace in Reveal Codes -> "Keptx" */
-    iw_doc_init(&e.doc, g_add, CAP, g_pc, PCS, CAP);
-    iw_doc_load(&e.doc, g_empty, 0);
-    iw_ed_init(&e, 65);
-    for (const char *s = "Kept"; *s; s++) (void)iw_ed_type(&e, (uint8_t)*s);
+    fresh(&e);
+    type_s(&e, "Kept");
     (void)iw_ed_attr(&e, A_ITAL);
     (void)iw_ed_type(&e, 'x');
     (void)iw_ed_attr(&e, A_ITAL);
@@ -421,21 +694,91 @@ static void fixed(void)
     (void)iw_ed_backspace(&e);
     len = iw_doc_read(&e.doc, 0, g_buf, CAP);
     if (len != 5u || memcmp(g_buf, "Keptx", 5) != 0 || e.cur != 5u) { fprintf(stderr, "  FAIL fixed: Reveal Backspace on [italc] != MINT08 03b \"Keptx\"\n"); bad = 1; }
-    /* Without Reveal Codes the code is stepped over, not deleted (P1). */
+    /* MINT11 (re/mint-results-003.md): on the editing screen the code is
+     * ASKED about. "Gamma" F6 BS n "y" -> "Gammay[BOLD][bold]" */
     e.reveal = 0;
-    (void)iw_ed_attr(&e, A_BOLD);              /* "Keptx" [BOLD]|[bold] */
-    (void)iw_ed_backspace(&e);                 /* steps before [BOLD]   */
+    fresh(&e);
+    type_s(&e, "Gamma");
+    (void)iw_ed_attr(&e, A_BOLD);
+    if (iw_ed_backspace(&e) != IW_E_ASK || e.doc.len != 11u) { fprintf(stderr, "  FAIL fixed: Backspace after [BOLD] did not ask\n"); bad = 1; }
+    (void)iw_ed_answer(&e, 0);
+    (void)iw_ed_type(&e, 'y');
     len = iw_doc_read(&e.doc, 0, g_buf, CAP);
-    if (len != 11u || e.cur != 5u) { fprintf(stderr, "  FAIL fixed: Backspace outside Reveal Codes deleted a code\n"); bad = 1; }
-    CHECK(!bad, "fixed cases from MINT06 / MINT08");
-    if (bad) g_codes_fail++;
-    printf("  fixed %s: the F6/F8 overlap of MINT06, the Reveal Codes pair delete of MINT08, P1 protection\n", bad ? "RED" : "green");
+    if (len != 12u || memcmp(g_buf, "Gammay\xC3\x0C\xC3\xC4\x0C\xC4", 12) != 0) { fprintf(stderr, "  FAIL fixed: BS n != MINT11 \"Gammay[BOLD][bold]\"\n"); bad = 1; }
+    /* "Beta" F6 Del n "x" -> "Beta[BOLD][bold]x" */
+    fresh(&e);
+    type_s(&e, "Beta");
+    (void)iw_ed_attr(&e, A_BOLD);
+    if (iw_ed_delete(&e) != IW_E_ASK) { fprintf(stderr, "  FAIL fixed: Delete before [bold] did not ask\n"); bad = 1; }
+    (void)iw_ed_answer(&e, 0);
+    (void)iw_ed_type(&e, 'x');
+    len = iw_doc_read(&e.doc, 0, g_buf, CAP);
+    if (len != 11u || memcmp(g_buf, "Beta\xC3\x0C\xC3\xC4\x0C\xC4x", 11) != 0) { fprintf(stderr, "  FAIL fixed: Del n != MINT11 \"Beta[BOLD][bold]x\"\n"); bad = 1; }
+    /* "Alpha" F6 BS y " one" -> "Alpha one" ; "Delta" F6 Del y "z" -> "Deltaz" */
+    fresh(&e);
+    type_s(&e, "Alpha");
+    (void)iw_ed_attr(&e, A_BOLD);
+    (void)iw_ed_backspace(&e);
+    (void)iw_ed_answer(&e, 1);
+    type_s(&e, " one");
+    len = iw_doc_read(&e.doc, 0, g_buf, CAP);
+    if (len != 9u || memcmp(g_buf, "Alpha one", 9) != 0) { fprintf(stderr, "  FAIL fixed: BS y != MINT11 \"Alpha one\"\n"); bad = 1; }
+    fresh(&e);
+    type_s(&e, "Delta");
+    (void)iw_ed_attr(&e, A_BOLD);
+    (void)iw_ed_delete(&e);
+    (void)iw_ed_answer(&e, 1);
+    (void)iw_ed_type(&e, 'z');
+    len = iw_doc_read(&e.doc, 0, g_buf, CAP);
+    if (len != 6u || memcmp(g_buf, "Deltaz", 6) != 0) { fprintf(stderr, "  FAIL fixed: Del y != MINT11 \"Deltaz\"\n"); bad = 1; }
+    CHECK(!bad, "fixed cases from MINT06 / MINT08 / MINT11");
+    if (bad) g_fail_codes++;
+    printf("  fixed %s: the F6/F8 overlap of MINT06, the Reveal Codes pair delete of MINT08, the four MINT11 answers\n", bad ? "RED" : "green");
+    /* MINT15: "[BOLD]vwxyz[bold]", Home (after [BOLD]) Right, Alt-F4, Right,
+     * Ctrl-F4 1 2, Right, Enter -> "[BOLD]vwxw[bold]yz", the cursor on the
+     * retrieved "w" (02_bold_into_bold_mid_reveal Pos 1.3"). */
+    fresh(&e);
+    (void)iw_ed_attr(&e, A_BOLD);
+    type_s(&e, "vwxyz");
+    (void)iw_ed_attr(&e, A_BOLD);
+    iw_ed_line_home(&e);
+    iw_ed_right(&e);
+    iw_ed_block(&e);
+    iw_ed_right(&e);
+    if (iw_ed_block_copy(&e, cb, sizeof cb, &cn) != IW_OK || cn != 7u || memcmp(cb, "\xC3\x0C\xC3w\xC4\x0C\xC4", 7) != 0) { fprintf(stderr, "  FAIL fixed: the copy of \"w\" in bold is not [BOLD]w[bold] (MINT14 \"[BOLD]RS[bold]\")\n"); badb = 1; }
+    iw_ed_right(&e);
+    (void)iw_ed_retrieve(&e, cb, cn);
+    len = iw_doc_read(&e.doc, 0, g_buf, CAP);
+    if (len != 12u || memcmp(g_buf, "\xC3\x0C\xC3vwxw\xC4\x0C\xC4yz", 12) != 0 || e.cur != 6u) { fprintf(stderr, "  FAIL fixed: MINT15 retrieve != \"[BOLD]vwxw[bold]yz\" with the cursor on w\n"); badb = 1; }
+    /* MINT13 line 3: "Drop[BOLD]bold here[bold] end.", Home Right x2, Alt-F4,
+     * Right x4 (o, p, [BOLD], b), Delete y -> "Dr[BOLD]old here[bold] end.",
+     * the cursor after [BOLD] (03c_deleted_reveal) */
+    fresh(&e);
+    type_s(&e, "Drop");
+    (void)iw_ed_attr(&e, A_BOLD);
+    type_s(&e, "bold here");
+    (void)iw_ed_attr(&e, A_BOLD);
+    type_s(&e, " end.");
+    iw_ed_line_home(&e);
+    iw_ed_right(&e); iw_ed_right(&e);
+    iw_ed_block(&e);
+    iw_ed_right(&e); iw_ed_right(&e); iw_ed_right(&e); iw_ed_right(&e);
+    (void)iw_ed_block_cut(&e, 0, 0, 0);
+    len = iw_doc_read(&e.doc, 0, g_buf, CAP);
+    if (len != 21u || memcmp(g_buf, "Dr\xC3\x0C\xC3old here\xC4\x0C\xC4 end.", 21) != 0 || e.cur != 5u) { fprintf(stderr, "  FAIL fixed: MINT13 block delete != \"Dr[BOLD]|old here[bold] end.\"\n"); badb = 1; }
+    CHECK(!badb, "fixed block cases from MINT13 / MINT14 / MINT15");
+    if (badb) g_fail_block++;
+    printf("  fixed %s: the self-contained copy (MINT14), the retrieve into bold (MINT15), the block delete (MINT13)\n", badb ? "RED" : "green");
 }
 
 int main(void)
 {
     fixed();
-    sessions();
-    if (g_codes_fail) fprintf(stderr, "  RED-REASON codes: the code stream disagrees with the WordPerfect rules\n");
+    family(FAM_CODES, 600, 0xC0D35u);
+    family(FAM_GEO, 300, 0x6E0u);
+    family(FAM_BLOCK, 400, 0xB10Cu);
+    if (g_fail_codes) fprintf(stderr, "  RED-REASON codes: the code stream disagrees with the WordPerfect rules\n");
+    if (g_fail_geo)   fprintf(stderr, "  RED-REASON geometry: tabs / indents / hard pages disagree with WordPerfect's layout and bytes\n");
+    if (g_fail_block) fprintf(stderr, "  RED-REASON block: a block copy / cut / retrieve disagrees with WordPerfect's rules\n");
     return TEST_SUMMARY("test-iword-codes");
 }

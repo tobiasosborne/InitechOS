@@ -91,23 +91,95 @@
 #define IW_WP5_ATTR_UNDERLINE  0x0Eu
 #define IW_WP5_ATTR_NUMBERS    16u     /* attr is one byte; WP 5.1's table runs 0..15 */
 
-/* The prefix records an italic body. MINT06 (a body with an italic pair) has
- * 0x08 at file offset 0x103 -- the first data byte of prefix packet 0x06
- * (index entry at 0x10: type 0x06, len 16, offset 0x103) -- where every other
- * mint has 0x00: MINT01 (bold + underline), MINT04 (large), MINT07 (bold
- * through the Font menu) and MINT08 (an italic pair inserted, then deleted in
- * Reveal Codes before the save). So the byte follows the SAVED body, not the
- * keys pressed: 0x08 when the body holds an italic code, else 0x00
- * [inferred: 1 positive, 6 negative documents; the packet itself is
- * undecoded, corpus GAPS F-1/W-3]. The writer applies it only to a prefix
- * that is the default one in every other byte. */
-#define IW_WP5_PFX_ITALIC_OFF  0x103u
-#define IW_WP5_PFX_ITALIC      0x08u
+/* The prefix records WHERE THE CURSOR WAS at the save. File offset 0x103 --
+ * the first data byte of prefix packet 0x06 (index entry at 0x10: type 0x06,
+ * len 16, offset 0x103) -- is 0x08 when the cursor was anywhere before the
+ * end of the document, 0x00 when it was at the end. CORRECTED in P2 slice 2
+ * (Rule 8, deliberate; bead initech-jojk): slice 1 read it as "the body holds
+ * italic" from MINT06 alone, whose save happened after Home Home Up -- a
+ * confound. The slice 2 mints (../wordperfect51-decomp re/mint-results-003.md)
+ * separate the two: 0x08 with NO italic in MINT09, 11..14, 16 (cursor at the
+ * top / line 6 at the save), MINT17 (cursor two lines up, moved with Up only)
+ * and MINT19 (cursor one character before the end, on the last line); 0x00 in
+ * MINT10, MINT15 (cursor at the end) and MINT18 (Home Home Up, then Home Home
+ * Down back to the end) -- and in MINT01..05, 07, 08 (every slice 1 save was
+ * at the end) [verified: 19 documents, 8 with 0x08 / 11 with 0x00; the
+ * packet itself is undecoded, corpus GAPS F-1/W-3, W-11]. The writer applies
+ * it only to a prefix that is the default one in every other byte. */
+#define IW_WP5_PFX_CURSOR_OFF  0x103u
+#define IW_WP5_PFX_NOT_AT_END  0x08u
+
+/* ---- tabs, indents and hard pages (bead initech-jojk, IWORD P2 slice 2) ---- *
+ * Minted for this slice from the real WP.EXE (5.1, 03-09-92) under DOSBox-X
+ * (../wordperfect51-decomp tools/mint_drive.sh, mint/wpMINT09.steps and
+ * wpMINT10.steps; documents mint/work/WP51/MINT09, MINT10; ledger
+ * re/mint-results-003.md). Units: 1200 WPU per inch; one Face A column is
+ * one character of Courier 10 Pitch = 0.1" = 120 WPU; column 0 is the 1"
+ * left margin (1200 WPU, 10 tenths of an inch from the paper's edge).
+ *
+ * TAB  `C1 02 <a u16> <b u16> <t u16> C1` (9 bytes; the Tab key). The cursor's
+ *      column c moves to the next tab stop s = (c / 5 + 1) * 5 (the default
+ *      stops every 0.5", the ruler's marks); a = b = 1200 + 120 s (WPU from
+ *      the paper's edge), t = 10 + s (tenths of an inch). MINT09 @0x148 and
+ *      @0x160 (c 0 and c 3 -> s 5: `02 08 07 08 07 0f 00`), @0x17B (c 5 ->
+ *      s 10: `02 60 09 60 09 14 00`); MINT01 @0x1DA (c 0).
+ *      WP RECOMPUTES the payload when the text before the tab changes: MINT10
+ *      typed "ab" Tab "x", then "1234" before "ab" -> saved @0x14E `02 60 09 60 09
+ *      14 00` (s 10), not the s 5 it was typed at.
+ * INDENT `C2 00 <600 u16> <a u16> <b u16> <t u16> C2` (11 bytes; F4 ->Indent):
+ *      a, b, t as for a tab, and the rest of the paragraph wraps at the new
+ *      left margin s. The u16 600 (0.5") is the same in all four minted
+ *      indents (MINT03 @0x154; MINT09 @0x190, @0x1EF, @0x1FA -- the second of
+ *      two F4s, from column 5 -> s 10; MINT10 from column 3) [constant as far
+ *      as minted: the default tab spacing].
+ * END OF INDENT `C6 <right u16> <left u16> C6` (6 bytes): written by WP just
+ *      before the HRt that ends a paragraph holding an indent: right = 9000
+ *      (the 7.5" right margin), left = the indented margin 1200 + 120 s of
+ *      the paragraph's last indent (MINT09 @0x1E8 `28 23 08 07`, @0x20B
+ *      `28 23 60 09`; MINT03 @0x172). No Reveal label (MINT09
+ *      05_reveal_top.png "the indent here.[HRt]").
+ * HARD PAGE  Ctrl-Enter writes the 32-byte group D4/00 and then 0x0C:
+ *      `D4 00 1C 00 | 00 16 | <v u16> | <page u16> | 8 x 00 | "0*0*0*" |
+ *      B0 04 B0 04 | 1C 00 00 D4`, v = 200 x (the hard page's line on its
+ *      page - 1) (200 WPU = one 6-lpi line), page = its page number (MINT09
+ *      @0x21B page 1 line 8 -> 1400, @0x246 page 2 line 2 -> 200; MINT03
+ *      @0x18F page 1 line 5 -> 800). The group has no Reveal label (MINT09
+ *      07_reveal_pages.png "Page one.[HPg]"). Backspace on the hard page
+ *      removes the group too (MINT11 "Page" Ctrl-Enter BS -> no D4 in the
+ *      saved file). Bytes 0..1, 10..27 are the same in all three [constant
+ *      as far as minted; their meaning is corpus GAPS F-2/F-3].
+ * The payloads assume the default 1"/1" margins: after a margin change (D0/01)
+ * they are left as they are (margins are a later slice). */
+#define IW_WP5_C1              0xC1u
+#define IW_WP5_C1_LEN          9u
+#define IW_WP5_C1_TAB          0x02u   /* C1 sub byte: [Tab]                 */
+#define IW_WP5_INDENT          0xC2u
+#define IW_WP5_INDENT_LEN      11u
+#define IW_WP5_INDENT_STEP     600u    /* the constant u16 of every C2       */
+#define IW_WP5_END_INDENT      0xC6u
+#define IW_WP5_END_INDENT_LEN  6u
+#define IW_WP5_MARGIN_GRP      0xD0u   /* D0/01 [L/R Mar]: geometry stops     */
+#define IW_WP5_MARGIN_SUB      0x01u
+#define IW_WP5_TAB_EVERY       5u      /* columns between default tab stops  */
+#define IW_WP5_LEFT_WPU        1200u   /* column 0 = 1" from the paper's edge */
+#define IW_WP5_RIGHT_WPU       9000u   /* the 7.5" right margin              */
+#define IW_WP5_WPU_PER_COL     120u
+#define IW_WP5_LEFT_TENTHS     10u
+#define IW_WP5_WPU_PER_LINE    200u
+#define IW_WP5_PAGE_GRP        0xD4u
+#define IW_WP5_PAGE_SUB        0x00u
+#define IW_WP5_PAGE_GRP_LEN    32u
+#define IW_WP5_PAGE_VPOS_OFF   6u      /* u16 v in the group                  */
+#define IW_WP5_PAGE_NUM_OFF    8u      /* u16 page in the group               */
+#define IW_WP5_PAGE_GRP_INIT { 0xD4, 0x00, 0x1C, 0x00, 0x00, 0x16, 0x00, 0x00, \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+    0x30, 0x2A, 0x30, 0x2A, 0x30, 0x2A, 0xB0, 0x04, 0xB0, 0x04, \
+    0x1C, 0x00, 0x00, 0xD4 }
 
 /* ---- the prefix area [H Sec 2, Sec 4] ---------------------------------- *
  * A fresh-install WP 5.1 writes the SAME 327 bytes (0x147) before the body
- * of every document in the corpus but one byte: 0x103 marks an italic body
- * (IW_WP5_PFX_ITALIC_OFF above; MINT06) -- the body length is recorded
+ * of every document in the corpus but one byte: 0x103 marks a save with the
+ * cursor before the end (IW_WP5_PFX_CURSOR_OFF above) -- the body length is recorded
  * nowhere in it; [H Sec 4]: "emit the 327-byte prefix of section 2 verbatim, then the
  * body." These are those bytes, transcribed from MINT02.WP5 0x000..0x146
  * (cmp -n 327 against MINT01/03/04/05: identical). The packets inside
