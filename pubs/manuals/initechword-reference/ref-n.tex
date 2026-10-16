@@ -1,0 +1,37 @@
+% Reference entries, N (AN-11).  Law 1: os/iword/app/face_a.c M_EXITQ /
+% clear_document (Exit WP? answered No: a new document, the standard
+% prefix, no name), doc_reset.
+% GATES: test-pubs-iword test-iword-face
+\Gates{test-pubs-iword test-iword-face}
+\begin{Feature}{New Document}
+InitechWord starts with a new, empty document on the screen.  To start
+another new document without leaving InitechWord, clear the screen with
+Exit.
+
+To start a new document,
+\begin{WPSteps}
+\item Press \FK{Exit}{F7}.
+\item At \Scr{Save Document? Yes (No)}, type \Typed{y} to save the document
+on the screen first, or \Typed{n} not to.
+\item At \Scr{Exit WP? No (Yes)}, type \Typed{n} or press \K{Enter}.  The
+screen clears.
+\end{WPSteps}
+
+\BeginReplay{ref-new}
+For example, type \TypeRun{A note not worth keeping.}, press
+\Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}:
+\WordScreen[rows=1]{ref-new}{A new document after Exit}
+\EndReplay
+
+\Notes
+\Topic{The Settings of a New Document}
+A new document has the settings of Appendix E: one inch margins, Full
+justification, single spacing.  Settings you made in the document before
+are gone with it.
+
+\Topic{What Stays}
+The text you last moved or copied stays in the Move buffer, so you can put
+it in the new document with Move, Retrieve (see \InRef{Move, Retrieve}).
+
+\SeeAlso{Exit; Move, Retrieve; Save}
+\end{Feature}

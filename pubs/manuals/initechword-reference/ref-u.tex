@@ -19,6 +19,13 @@ To underline text as you type it,
 \begin{WPNote}To underline text you have already typed, block it and press
 Underline (see \InRef{Block, Attributes}).\end{WPNote}
 
+\BeginReplay{ref-underline}
+For example, type \TypeRun{Please read the } (with the space), press
+\Press{Underline}{F8}, type \TypeRun{attached}, press \Press{Underline}{F8}
+and type \TypeRun{ memo.}:
+\WordScreen[rows=1]{ref-underline}{An underlined word}
+\EndReplay
+
 \Notes
 \Topic{Double Underline}
 For a double line, choose Dbl Und (3) from the Appearance menu of the Font
@@ -32,4 +39,27 @@ two codes, spaces included.
 Undln (2) on the Appearance menu of the Font key does what F8 does.
 
 \SeeAlso{Appearance; Block, Attributes; Bold; Codes}
+\end{Feature}
+
+\begin{Feature}{Units of Measure}
+InitechWord measures in inches.  The status line gives Ln and Pos in inches
+from the top and the left edge of the paper, and you type margins in inches
+(see \InRef{Margins, Left and Right}).  Line spacing is given in lines (see
+\InRef{Line Spacing}).
+
+\Notes
+\Topic{Characters and Lines}
+In the standard font, Courier 10 Pitch, a character is a tenth of an inch
+wide, and a single-spaced line is a sixth of an inch high: so Pos grows by
+0.1 inch with each character and Ln by 0.17 inch with each line.
+
+\Topic{Inside the Document File}
+In the document file, positions and margins are kept in WordPerfect units of
+1/1200 inch (see Appendix D).
+
+\Topic{Rounding}
+Ln and Pos are shown to two decimal places at most, without trailing zeros:
+\Scr{1.5"}, \Scr{1.17"}.
+
+\SeeAlso{Margins, Left and Right; Status Line}
 \end{Feature}

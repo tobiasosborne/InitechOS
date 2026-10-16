@@ -45,6 +45,34 @@ it, and it is not saved.
 \SeeAlso{Move, Sentence/Paragraph/Page; Return, Hard; Status Line}
 \end{Feature}
 
+\begin{Feature}{Page Break, Soft}
+InitechWord counts the lines of a document into pages of 54 single-spaced
+lines, the lines that fit between the one inch top and bottom margins of an
+11 inch page.  The status line shows the page and line the cursor is on;
+there is no code for the end of such a page, and the editing screen draws no
+line between the pages.
+
+\BeginReplay{ref-softpage}
+\Typing{Line 1}\Keys{Enter}%
+For example, in a document of 56 short lines, the 55th line is the first
+line of page 2:
+\directlua{for i = 2, 55 do tex.sprint("\string\\Typing{Line " .. i .. "}\string\\Keys{Enter}") end}%
+\Typing{Line 56}\Keys{Up}%
+\WordScreen[rows=23]{ref-softpage}{Line 55 is on page 2, at Ln 1"}
+\EndReplay
+
+\Notes
+\Topic{Hard Pages}
+To end a page sooner, put in a hard page (see \InRef{Page Break, Hard}).
+A hard page starts the count of the next page again.
+
+\Topic{Move, Page}
+Move's Page selection uses these pages (see \InRef{Move,
+Sentence/Paragraph/Page}).
+
+\SeeAlso{Move, Sentence/Paragraph/Page; Page Break, Hard; Status Line}
+\end{Feature}
+
 \begin{Feature}{Pull-Down Menus}
 InitechWord's pull-down menu is the \textbf{File} menu, in the second row
 of the menu bar while InitechWord is the application in front.  It holds

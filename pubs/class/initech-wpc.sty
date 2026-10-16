@@ -295,6 +295,8 @@ end
 \newcommand\Keys[1]{\im@rec{key #1}}
 %% A menu choice typed by its number: select Line (1).
 \newcommand\Choose[2]{\im@rec{type #2}\Ch{#1}{#2}}
+%% A click on the window's close box (recorded only).
+\newcommand\CloseBox{\im@rec{close}}
 %% Caps Lock on or off for the keys that follow (recorded only).
 \newcommand\CapsLock[1]{\im@rec{caps #1}}
 %% A pull-down menu choice (FLAIR menu bar).
@@ -533,9 +535,20 @@ function initech_wpc.write_feats(list)
   tex.sprint(luatexbase.registernumber("catcodetable@atletter"), table.concat(out))
 end
 }
+\directlua{
+function initech_wpc.index_feats(list)
+  local out = {}
+  for item in string.gmatch(list, "[^;]+") do
+    item = string.gsub(string.gsub(item, "^\@percentchar s+", ""), "\@percentchar s+$", "")
+    out[\string#out + 1] = "\string\\index{" .. item .. "}"
+  end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), table.concat(out))
+end
+}
 \newcommand\LessonFeatures[1]{%
   \protected@write\@auxout{}{\string\imLessonFeats{\im@lessonnum}{\im@lessontitle}{#1}}%
-  \directlua{initech_wpc.write_feats("\luaescapestring{#1}")}}
+  \directlua{initech_wpc.write_feats("\luaescapestring{#1}")}%
+  \directlua{initech_wpc.index_feats("\luaescapestring{#1}")}}
 \newcommand\Task[1]{\WPSide{#1}}
 \newcommand\FeatureListAlpha{\begingroup\setlength\parskip{1pt}\directlua{initech_wpc.alpha()}\endgroup}
 \newcommand\FeatureListByLesson{\begingroup\setlength\parskip{1pt}\directlua{initech_wpc.bylesson()}\endgroup}

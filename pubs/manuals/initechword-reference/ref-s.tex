@@ -47,9 +47,9 @@ Type \TypeName{y}: the document is saved again.
 Alt-F10 and Ctrl-F10 start Save as F10 does.
 
 \Topic{File Format}
-InitechWord saves documents in the format of WordPerfect 5.1, so the files
-can be used by WordPerfect 5.1 and by any program that reads its documents
-(see Appendix D).
+InitechWord saves documents in the format of WordPerfect 5.1, writing the
+text and codes as WordPerfect 5.1 does (see \InRef{WordPerfect 5.1
+Documents} and Appendix D).
 
 \Topic{Messages}
 \Scr{ERROR: Invalid file name} means the name breaks the rules for names
@@ -66,6 +66,40 @@ Exit (F7) asks whether to save the document before you leave it, and saves
 it as Save does (see \InRef{Exit}).
 
 \SeeAlso{Exit; Filenames; Retrieve}
+\end{Feature}
+
+\begin{Feature}{Screen}
+The editing screen is the InitechWord window as you type.  It shows 23
+lines of the document, 76 characters across, and the status line under
+them.  The first column of the screen is the left margin of a new document,
+one inch from the left edge of the paper.
+
+\Notes
+\Topic{Colors}
+Text is white on a blue field.  The cursor is the cell drawn in reverse,
+blue on white.  A block is black on grey; so is the ruler of Reveal Codes.
+
+\Topic{Faces}
+Bold, italic and underlined text is drawn in that face.  Text with any other
+appearance or size is drawn as ordinary text (see \InRef{Appearance} and
+\InRef{Size}).
+
+\Topic{Hard Pages and Spacing}
+A hard page is drawn as a row of equal signs below the line it ends.  With
+line spacing of more than one, blank rows are drawn under each line (see
+\InRef{Line Spacing}).
+
+\Topic{Margins Under One Inch}
+The first column of the screen is always one inch from the edge of the
+paper.  With a left margin of less than one inch, the start of each line
+lies to the left of the window and is not shown; the status line's Pos still
+tells where the cursor is.
+
+\Topic{Scrolling}
+When the cursor moves above the top line or below the bottom line, the
+screen moves to keep it in view.
+
+\SeeAlso{Reveal Codes; Status Line; Window}
 \end{Feature}
 
 \begin{Feature}{Size}
@@ -131,6 +165,13 @@ To read the status line,
 \Scr{Move cursor; press Enter to retrieve.} while moved text waits.
 \item Look at the right end: \Scr{Doc 1 Pg 1 Ln 1" Pos 1"}.
 \end{WPSteps}
+
+\BeginReplay{ref-status}
+For example, type
+\Type{Each line of a single-spaced paragraph is one sixth of an inch below the line before it, so Ln grows by 0.17 inch a line.}
+The cursor is on the second line, after the period:
+\WordScreen[rows=2]{ref-status}{Ln and Pos at the end of a two-line paragraph}
+\EndReplay
 
 \Notes
 \Topic{Doc}

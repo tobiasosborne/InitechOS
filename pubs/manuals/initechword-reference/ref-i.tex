@@ -43,6 +43,30 @@ margins, the stops move with the left margin (see \InRef{Tab}).
 \SeeAlso{Margins, Left and Right; Tab}
 \end{Feature}
 
+\begin{Feature}{Insert}
+Everything you type goes into the document at the cursor, in front of the
+character the cursor is on.  The text after the cursor moves along to make
+room, and the paragraph is wrapped again.  Nothing you type replaces what is
+already there; to replace text, delete it and type the new text (see
+\InRef{Delete}).
+
+\BeginReplay{ref-insert}
+For example, type \TypeRun{Old text}, press \PressKey{Home}, \PressKey{Left}
+and type \TypeRun{New } (with the space):
+\WordScreen[rows=1]{ref-insert}{Text typed at the start of a line goes in front of what is there}
+\EndReplay
+
+\Notes
+\Topic{Inserting Codes}
+Codes go in at the cursor in the same way: a hard return, a tab, the start
+of bold.
+
+\Topic{The Ins Key}
+The Ins key does nothing in InitechWord: typing always inserts.
+
+\SeeAlso{Delete; Word Wrap}
+\end{Feature}
+
 \begin{Feature}{Italics}
 Italic text slants to the right.  It is one of the appearances on the Font
 key's Appearance menu, Italc (4); InitechWord draws italic text in italic on

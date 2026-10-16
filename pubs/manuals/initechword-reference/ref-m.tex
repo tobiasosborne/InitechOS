@@ -51,6 +51,15 @@ left margin when you set them, InitechWord puts a hard return in front of
 the margin code, so that the text after the cursor begins a new line under
 the new margins.
 
+\BeginReplay{ref-margins-mid}
+For example, type \TypeRun{Middle}, press \PressKey{Left} three
+times\Keys{Left Left}, press \PressKC{Shift-F8}{1,7}{17}, type
+\TypeName{2}, press \PressKey{Enter}, type \TypeName{2}, press
+\PressKey{Enter} and \Press{Exit}{F7}, and press
+\Press{Reveal Codes}{Alt-F3}:
+\WordScreen[rows=14]{ref-margins-mid}{Margins set in the middle of a word: a hard return goes in first}
+\EndReplay
+
 \Topic{Measurements}
 Type a margin in inches, with up to two decimal places, and if you like an
 inch mark (\Typed{1.25"}).  A margin must be less than 9 inches.  A setting
@@ -68,6 +77,28 @@ The tab stops are measured from the left margin, so they move with it (see
 \InRef{Tab}).
 
 \SeeAlso{Format; Indent; Justification; Reveal Codes; Tab; Word Wrap}
+\end{Feature}
+
+\begin{Feature}{Messages}
+InitechWord tells you on the status line when it cannot do what you ask,
+and asks you questions there before it does something you might not mean.
+A message that begins \Scr{ERROR:} waits for a key; press any key to return
+to where you were.  Appendix C lists every message and question, with what
+it means and what to do.
+
+\Notes
+\Topic{Answering a Question}
+A question shows two answers, one of them in parentheses, as
+\Scr{Exit WP? No (Yes)}.  Type the first letter of the answer in parentheses
+to choose it; Enter or any other key gives the other answer.  Cancel (F1)
+backs out of the question.
+
+\Topic{Messages in Prompts}
+When an error happens at a name prompt -- a name not found, a name not
+allowed -- the key you press returns you to the prompt, with the name you
+typed, so that you can correct it.
+
+\SeeAlso{Cancel; Exit; Retrieve; Save}
 \end{Feature}
 
 \begin{Feature}{Move}

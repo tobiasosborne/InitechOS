@@ -36,6 +36,16 @@ If the screen already holds text, the retrieved document's text is put into
 it at the cursor, and the document on the screen keeps its own name.  The
 two documents are now one; the file you retrieved is not changed.
 
+\BeginReplay{ref-retrieve}
+For example, with a new document on the screen, type
+\TypeRun{Attached is the letter: } (with the space), press
+\Press{Retrieve}{Shift-F10}, type \TypeName{letter} -- the letter saved in
+\textit{A Brief Lesson} -- and press \PressKey{Enter}:
+\WordScreen[rows=6]{ref-retrieve}{A document retrieved into another, at the cursor}
+\EndReplay
+The text of the letter follows the text you typed, and the status line shows
+no name: the document on the screen has not been saved.
+
 \Topic{Messages}
 \Scr{ERROR: File Not Found} means there is no document by that name on the
 data volume: check the name and type it again.
@@ -143,6 +153,13 @@ type, block, move, format.  Both parts of the screen change as you work.
 \Topic{The Cursor in the Codes Area}
 The highlight covers the character or the whole code the cursor is on.  At
 the very end of the document it is one empty cell after the last code.
+
+\Topic{The End of the Document}
+\BeginReplay{ref-reveal-end}At the end of the document the highlight is one empty cell after the
+last character or code.  For example, type \TypeRun{Total:}, press
+\PressKey{Tab}, type \TypeRun{570} and press \Press{Reveal Codes}{Alt-F3}:
+\WordScreen[rows=13]{ref-reveal-end}{The cursor at the end of the document, in Reveal Codes}
+\EndReplay
 
 \Topic{The Ruler}
 The left margin is shown by \Scr{\{} and the right margin by \Scr{\}}; a
