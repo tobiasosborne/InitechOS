@@ -261,7 +261,14 @@ end
 %% Keys and messages are indexed where they are documented (AN-24 F-WPC).
 \newcommand\Documents[2]{\RegisterCommand{#2}{#1}{GATED}{\im@entryname}%
   \ifnum\pdf@strcmp{#1}{wpkey}=0 \im@indexkey{#2}\fi
-  \ifnum\pdf@strcmp{#1}{wpmsg}=0 \index{#2@\texttt{#2}}\fi}
+  \ifnum\pdf@strcmp{#1}{wpmsg}=0 \directlua{initech_wpc.index_msg("\luaescapestring{#2}")}\fi}
+\directlua{
+function initech_wpc.index_msg(s)
+  local key = string.gsub(s, "\string\\", "")
+  local disp = string.gsub(s, "\string\\", "\string\\textbackslash{}")
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), "\string\\index{" .. key .. "@\string\\texttt{" .. disp .. "}}")
+end
+}
 \newcommand\im@indexkey[1]{\im@indexkeyx#1=\relax}
 \def\im@indexkeyx#1=#2\relax{\index{#1}}
 
