@@ -1,0 +1,300 @@
+%% initech-flair.sty -- the FLAIR manuals' furniture for initech-manual.cls
+%% (bead initech-ipu5.11).  Loaded by the F-MAC books of the FLAIR line
+%% (FLR-UG, FLR-GS, FLR-ACC, FLR-QR) after \documentclass[apple]{...}.
+%% Binding reference: PUB-REF-0001 AN-14 (FLAIR entries), NT-13 (keyboard
+%% equivalents), NT-14 (menu paths), NT-20..23 (screens), NT-30/31 (F-MAC
+%% notices), GC-01 (one registration mechanism), GC-04 (screens re-proved).
+%%
+%% Every documented menu item, file, alert and desktop operation is
+%% REGISTERED through initech-syntax.sty's \RegisterCommand (the ONE
+%% registration mechanism; <job>.cmds), with the FLAIR kinds:
+%%   menu       <CTX>><Menu>><Item>><Key>><State>  (harness/pubs/flair_inventory.c
+%%              and flair_app_menus.c print the shipped list in the same form)
+%%   file       a file on the shipped INITECH volume (APPS\CALC.EXE)
+%%   alert      the first line of an alert or dialog, exactly as the source
+%%              draws it
+%%   operation  a desktop operation, named by the serial marker the shell
+%%              prints when it happens (FINDER-NEW-FOLDER); proved by a
+%%              captured screen whose trace settles on that marker
+%% and `make test-pubs-flair` compares the FLAIR books' lists with the
+%% shipped inventory in both directions.
+%%
+%% Screens (NT-20..22): \FlairScreen{name}{caption} prints the committed grey
+%% capture screens/<name>.grey (pubs/screens/flair_capture.sh, from the
+%% locked trace screens/<name>.mouse), expanded by the build into
+%% flair/<book>/<name>.png on TEXINPUTS, at an integer multiple of the 600 dpi
+%% device grid (NT-21: 3 x 3 in the text column, 4 x 4 across the full
+%% block), square crop, no frame, no shadow (NT-23 F-MAC), caption one line
+%% under (TY-12).  Each is entered in <job>.flairscreens, so the gate proves
+%% every printed figure has its trace and FLAIR capture row.
+%% ASCII only (Rule 12).
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-flair}[1992/03/01 Initech FLAIR manual furniture]
+\RequirePackage{graphicx}
+
+%% ---- the book id (screens live in flair/<id>/ on TEXINPUTS) ---------------
+\newcommand\im@flairbook{}
+\newcommand\FlairBook[1]{\gdef\im@flairbook{#1}}
+
+%% ---- screens ------------------------------------------------------------
+\newwrite\im@flairscreens
+\AtBeginDocument{\immediate\openout\im@flairscreens=\jobname.flairscreens}
+\AtEndDocument{\immediate\closeout\im@flairscreens}
+\directlua{
+initech_flair = {}
+function initech_flair.size(path)
+  local f = io.open(path, "rb")
+  if not f then tex.error("initech-flair: cannot open capture " .. path) return 1, 1 end
+  local head = f:read("*l")
+  f:close()
+  local w, h = string.match(head or "", "^FLAIRGREY 1 (\@percentchar d+) (\@percentchar d+) ")
+  if not w then tex.error("initech-flair: " .. path .. " is not a FLAIRGREY capture") return 1, 1 end
+  return tonumber(w), tonumber(h)
+end
+function initech_flair.width(path, scale)
+  local w, h = initech_flair.size(path)
+  tex.sprint(string.format("\@percentchar.4fmm", w * scale * 25.4 / 600))
+end
+}
+\newlength\im@fsw
+%% \FlairScreen[scale=3|4, label=key]{name}{caption}
+\ExplSyntaxOn
+\keys_define:nn { initech / flair }
+  {
+    scale .int_set:N = \l__initech_flair_scale_int ,
+    scale .initial:n = 3 ,
+    label .tl_set:N  = \l__initech_flair_label_tl ,
+    label .initial:n = ,
+  }
+\NewDocumentCommand \FlairScreen { O{} m m }
+  {
+    \group_begin:
+    \keys_set:nn { initech / flair } { #1 }
+    \tl_if_empty:NT \im@flairbook
+      { \PackageError{initech-flair}{\string\FlairBook{}~is~not~set}{} }
+    \immediate\write\im@flairscreens{screens/#2.grey}
+    \setlength\im@fsw{\directlua{initech_flair.width("screens/#2.grey",
+      \int_use:N \l__initech_flair_scale_int)}}
+    \par\addvspace{6pt}
+    \ifdim\im@fsw>\linewidth
+      \noindent\hspace*{-\imHang}
+      \begin{minipage}[t]{\imFullWidth}
+    \else
+      \noindent
+      \begin{minipage}[t]{\linewidth}
+    \fi
+      \includegraphics[width=\im@fsw]{flair/\im@flairbook/#2.png}
+      \par\vspace{3pt}
+      \refstepcounter{figure}
+      \tl_if_empty:NF \l__initech_flair_label_tl
+        { \label{ \l__initech_flair_label_tl } }
+      {\imCaptionFont\textbf{Figure~\thefigure}\enspace #3\par}
+    \end{minipage}
+    \par\addvspace{6pt}
+    \group_end:
+  }
+%% An inline capture (a glyph, an icon) set on the text line, 3 x 3.
+\NewDocumentCommand \FlairInline { m }
+  {
+    \immediate\write\im@flairscreens{screens/#1.grey}
+    \setlength\im@fsw{\directlua{initech_flair.width("screens/#1.grey", 3)}}
+    \raisebox{-0.15em}{\includegraphics[width=\im@fsw]{flair/\im@flairbook/#1.png}}
+  }
+\ExplSyntaxOff
+
+%% \FlairText[label=key]{name}{caption}: an InitechDOS console screen that
+%% FLAIR hands back (Exit to InitechDOS), captured by the text route into
+%% screens/<name>.console and set like the DOS books' \Screen (NT-21 (a),
+%% Cursor 7.5/8.5, dark on light, NT-22), down to its last line of text;
+%% the checks of initech-screen.sty apply (25 lines, 80 columns, ASCII).
+\directlua{
+function initech_flair.textscreen(path)
+  local f = io.open(path, "rb")
+  if not f then tex.error("initech-flair: cannot open " .. path) return end
+  local last, i = 0, 0
+  for line in f:lines() do i = i + 1; if string.find(line, "[^ ]") then last = i end end
+  f:close()
+  if last == 0 then tex.error("initech-flair: " .. path .. " is blank") return end
+  initech_screen.typeset(path, last)
+end
+}
+\NewDocumentCommand\FlairText{O{} m m}{%
+  \immediate\write\im@flairscreens{screens/#2.console}%
+  \par\addvspace{6pt}\noindent\hspace*{-\imHang}%
+  \begin{minipage}[t]{\imFullWidth}
+    \vbox{\imScreenFont\spaceskip=0.6em\xspaceskip=0.6em
+      \directlua{initech_flair.textscreen("screens/\luaescapestring{#2}.console")}}%
+    \par\vspace{3pt}\refstepcounter{figure}%
+    \ifx\relax#1\relax\else\label{#1}\fi
+    {\imCaptionFont\textbf{Figure~\thefigure}\enspace #3\par}
+  \end{minipage}\par\addvspace{6pt}}
+
+%% ---- back cover (PK-05) --------------------------------------------------
+%% Wordmark top left; the slogan (operator directive 2026-10-17: the back
+%% cover is one of its places); the address block bottom left (D-12); part
+%% number and print code bottom right.  Nothing else.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\par\medskip}
+\newcommand\BackCover{\thispagestyle{empty}%
+  \AtPage{23}{17}{\Wordmark[30mm]}%
+  \AtPage{23}{150}{\parbox{90mm}{\IsThisGoodForTheCompany}}%
+  \AtPage{23}{196}{\parbox{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
+  \im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr214mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}%
+  \null\newpage}
+
+%% ---- trademark marks (VO-11): sources write \tm{} / \reg{} --------------
+\providecommand\tm{\textsuperscript{\fontsize{5}{5}\selectfont TM}}
+\providecommand\reg{\textsuperscript{\fontsize{5}{5}\selectfont\textcircled{\tiny R}}}
+
+%% ---- keyboard equivalents (NT-13) ----------------------------------------
+%% In a menu entry the equivalent is printed as the shipped menu draws it:
+%% FLAIR's Menu Manager draws a command key as a caret and the character
+%% ("^N", os/flair/menu.c, right-aligned in the item), so the book prints
+%% the same two characters; the prose names the PC key the shell binds to
+%% the command modifier (CTRL: os/flair/event.c, the Ctrl make code; kmain.c
+%% "PC Ctrl IS Cmd"), per NT-10.
+\newcommand\CmdKey[1]{\mbox{\sffamily\char94 #1}}
+\newcommand\CtrlKey[1]{\key{Ctrl-#1}}
+
+%% ---- menu entries (AN-14, Reference part) ----------------------------------
+%% \begin{MenuReference}{CTX}{Menu}  ... \MenuItemEntry ... \end{MenuReference}
+%% \MenuItemEntry[draft reason]{Item}{Key}{State}{what it does}
+%%   Key   the command-key character, or empty
+%%   State on | off | cond  (as the inventory: enabled at rest, dimmed at
+%%         rest, enabled by a condition the text states)
+%% Prints one bulleted paragraph: **Item.** run-in, the text, then the
+%% keyboard equivalent (the glyph and the character, and the PC key).
+\newcommand\im@menuctx{}
+\newcommand\im@menutitle{}
+\NewDocumentEnvironment{MenuReference}{m m}
+  {\gdef\im@menuctx{#1}\gdef\im@menutitle{#2}%
+   \begin{itemize}[label={\rule[0.15ex]{0.9ex}{0.9ex}}, leftmargin=1.2em,
+     itemsep=3pt, parsep=2pt, topsep=4pt]}
+  {\end{itemize}}
+\NewDocumentCommand\MenuItemEntry{o m m m +m}{%
+  \IfValueTF{#1}%
+    {\RegisterCommand{\im@menuctx>\im@menutitle>#2>\ifx\relax#3\relax-\else#3\fi>#4}{menu}{DRAFT}{\im@menuctx>\im@menutitle}}%
+    {\RegisterCommand{\im@menuctx>\im@menutitle>#2>\ifx\relax#3\relax-\else#3\fi>#4}{menu}{GATED}{\im@menuctx>\im@menutitle}}%
+  \item {\bfseries #2.}\enspace #5%
+  \ifx\relax#3\relax\else\enspace Keyboard equivalent: \CmdKey{#3}
+    (hold down \key{Ctrl} and press \key{#3}).\fi
+  \IfValueT{#1}{\enspace\draft{#1}}%
+  \index{#2@\textbf{#2} (\im@menutitle\ menu)}}
+
+%% A menu item registered where the book describes it outside a menu
+%% reference (the Quick Reference, a summary table): same NAME, no text.
+\NewDocumentCommand\RegisterMenuItem{o m m m m m}{%
+  \IfValueTF{#1}%
+    {\RegisterCommand{#2>#3>#4>\ifx\relax#5\relax-\else#5\fi>#6}{menu}{DRAFT}{#2>#3}}%
+    {\RegisterCommand{#2>#3>#4>\ifx\relax#5\relax-\else#5\fi>#6}{menu}{GATED}{#2>#3}}}
+
+%% ---- files, alerts, operations -------------------------------------------
+%% \VolumeFile{APPS\CALC.EXE}{description}: a row of the volume table.
+\newcommand\VolumeFile[2]{\RegisterCommand{#1}{file}{GATED}{#1}%
+  \file{#1} & #2\\}
+%% \AlertEntry[draft]{first line exactly as drawn}{rest of the alert}{explanation}
+\NewDocumentCommand\AlertEntry{o m m +m}{%
+  \RegisterCommand{#2}{alert}{\IfValueTF{#1}{DRAFT}{GATED}}{#2}%
+  \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
+  \parbox[t]{\imFullWidth}{\RaggedRight\texttt{\bfseries #2}\ifx\relax#3\relax\else\\\texttt{#3}\fi}\par\nobreak
+  \vspace{2pt}#4\IfValueT{#1}{\enspace\draft{#1}}\par
+  \index{#2@\texttt{#2}}}
+%% \Operation{MARKER}: this passage documents the desktop operation the shell
+%% reports as MARKER; a screen of this book must be captured on it.
+\newcommand\Operation[1]{\RegisterCommand{#1}{operation}{GATED}{#1}}
+
+%% ---- F-MAC tasks (AN-14 Learning part) -----------------------------------
+%% Numbered steps: the numeral reversed in a small 40% black square hanging
+%% in the gap (mac s5.4), step text bold; \Result{} is the plain comment
+%% under a step.
+\newcommand\im@stepsquare[1]{\colorbox{black!40}{\makebox[1.1em]{%
+  \textcolor{white}{\sffamily\bfseries\footnotesize #1}}}}
+\newlist{TaskSteps}{enumerate}{1}
+\setlist[TaskSteps]{label={\im@stepsquare{\arabic*}}, leftmargin=2.2em,
+  labelsep=0.6em, itemsep=5pt, parsep=2pt, topsep=4pt, font=\bfseries}
+\newcommand\Step{\item\bfseries}
+\newcommand\Result[1]{\par{\normalfont #1}\par}
+
+%% ---- F-MAC notices (NT-30/31) --------------------------------------------
+\newenvironment{MacNote}{\par\addvspace{3pt}\noindent\textit{Note:}\enspace\ignorespaces}{\par\addvspace{3pt}}
+\newenvironment{MacTip}{\par\addvspace{3pt}\noindent\textit{Tip:}\enspace\ignorespaces}{\par\addvspace{3pt}}
+\newenvironment{MacWarning}
+  {\par\addvspace{6pt}\noindent\begin{lrbox}{\im@warnbox}\begin{minipage}{\dimexpr\linewidth-4mm\relax}%
+   {\sffamily\bfseries WARNING}\enspace\ignorespaces}
+  {\end{minipage}\end{lrbox}\colorbox{black!10}{\usebox{\im@warnbox}}\par\addvspace{6pt}}
+\newsavebox\im@warnbox
+
+%% ---- summary tables (AN-14 Summary) and troubleshooting ----------------------
+%% \begin{SummaryTable} \SummaryRow{To do this}{\begin{enumerate}..} \end{SummaryTable}
+\newenvironment{SummaryTable}
+  {\par\addvspace{6pt}\noindent\hspace*{-\imHang}\begin{minipage}{\imFullWidth}%
+   {\sffamily\bfseries\small\makebox[44mm][l]{To do this}Take these steps\par}%
+   \vspace{2pt}\rule{\imFullWidth}{0.5pt}\par}
+  {\par\vspace{2pt}\rule{\imFullWidth}{0.25pt}\end{minipage}\par\addvspace{6pt}}
+\newcommand\SummaryRow[2]{\par\vspace{4pt}\noindent
+  \parbox[t]{40mm}{\RaggedRight\bfseries\small #1}\hspace{4mm}%
+  \parbox[t]{\dimexpr\imFullWidth-44mm\relax}{\RaggedRight\small #2}\par}
+\newcounter{im@cause}
+\newcommand\Symptom[1]{\par\addvspace{9pt}\goodbreak\setcounter{im@cause}{0}%
+  \noindent{\im@condensed\bfseries\fontsize{11}{13}\selectfont #1}\par\nobreak\vspace{2pt}}
+\newcommand\Cause{\par\addvspace{2pt}\stepcounter{im@cause}\noindent\textit{Cause \arabic{im@cause}:}\enspace\ignorespaces}
+\newcommand\Solution{\par\addvspace{1pt}\noindent\textit{Solution \arabic{im@cause}:}\enspace\ignorespaces}
+
+%% ---- glossary (AN-14 / AN-23 F-MAC) ----------------------------------------
+\newcommand\GlossaryTerm[2]{\par\addvspace{4pt}\noindent\hangindent=1.5em
+  {\sffamily\bfseries #1}\enspace #2\par}
+%% A defined term at first use (TY-02); every one is in the Glossary.
+\newcommand\term[1]{\textbf{#1}}
+%% Menu paths in prose (NT-14): "Choose Open from the File menu".
+\newcommand\menuitem[1]{\textbf{#1}}
+\newcommand\menuname[1]{\textbf{#1}}
+
+%% ---- part openers (F-MAC, mac s5.2) ------------------------------------------
+\newcommand\FlairPart[2]{\cleardoublepage\thispagestyle{empty}%
+  \addcontentsline{toc}{chapter}{#1: #2}%
+  \vspace*{30mm}\noindent\hspace*{-\imHang}%
+  \colorbox{black!40}{\parbox[c][14mm][c]{60mm}{\hspace{4mm}\color{white}%
+    \sffamily\bfseries\fontsize{18}{20}\selectfont #1}}\par\vspace{8mm}%
+  \noindent\hspace*{-\imHang}{\im@condensed\bfseries\fontsize{28}{32}\selectfont #2\par}%
+  \vspace{10mm}}
+
+%% ---- F-MAC folios and running foot (PG-12) -----------------------------------
+%% Continuous arabic folios from the first chapter, roman front matter; the
+%% foot names "Chapter N: Title" only on the pages of a numbered chapter
+%% (front matter, the Summary, the Glossary and the Index name themselves).
+\newif\iffl@numbered
+\newcommand\FlairMainMatter{\cleardoublepage\gdef\thepage{\arabic{page}}%
+  \setcounter{page}{1}}
+\fancypagestyle{im@text}{%
+  \fancyhf{}%
+  \renewcommand\headrulewidth{0pt}%
+  \renewcommand\footrulewidth{0pt}%
+  \fancyhfoffset[LO,LE]{\imHang}%
+  \fancyfoot[RO,LE]{\imFolioFont\thepage}%
+  \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}%
+  \fancyfoot[LO,RE]{\imFootFont\iffl@numbered\im@chaptername\ \thechapter: \fi\im@foottitle}}
+\NewCommandCopy\fl@origchapterhook\im@chapterhook
+\renewcommand\im@chapterhook[1]{\global\fl@numberedtrue\fl@origchapterhook{#1}}
+\NewCommandCopy\fl@origFrontChapter\FrontChapter
+\RenewDocumentCommand\FrontChapter{m}{\global\fl@numberedfalse\fl@origFrontChapter{#1}}
+%% Unnumbered back-matter chapter (Summary, Glossary): continuous folios.
+\NewDocumentCommand\BackChapter{m}{\im@closeentry
+  \cleardoublepage\global\fl@numberedfalse\FootTitle{#1}\im@notab
+  \im@origchapter*{#1}\thispagestyle{plain}%
+  \addcontentsline{toc}{chapter}{#1}}
+\NewCommandCopy\fl@origtableofcontents\tableofcontents
+\renewcommand\tableofcontents{\global\fl@numberedfalse\fl@origtableofcontents}
+
+%% ---- F-MAC index (AN-24: three columns, menu commands qualified) ------------
+\renewenvironment{theindex}
+  {\im@closeentry\cleardoublepage\global\fl@numberedfalse
+   \FootTitle{Index}\im@notab
+   \im@origchapter*{Index}\thispagestyle{plain}%
+   \addcontentsline{toc}{chapter}{Index}%
+   \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{3}\@setfontsize\im@x{8.5}{10}%
+   \setlength\parskip{0pt}\setlength\parindent{0pt}%
+   \RaggedRight
+   \let\item\im@idxitem}
+  {\end{multicols}\end{adjustwidth}}
+
+\endinput

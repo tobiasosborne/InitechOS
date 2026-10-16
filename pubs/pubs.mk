@@ -209,11 +209,12 @@ test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples 
 # User's Guide teaches): their main.cmds lists (initech-syntax.sty, the one
 # registration mechanism) against the shipped inventory, both directions,
 # and every inline \cmd against the shipped names.  Any other book must
-# stay empty until its product has its own shipped inventory.
+# stay empty until its product has its own shipped inventory (the FLAIR
+# books' main.cmds have theirs: test-pubs-flair, pubs/flair.mk).
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/flair-*/main.cmds) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
@@ -239,3 +240,6 @@ else
 test-pubs-families:
 	@sh harness/pubs/families.sh
 endif
+
+# The FLAIR manuals' inventory, captures and gates (bead initech-ipu5.11).
+include $(PUBS_DIR)/flair.mk

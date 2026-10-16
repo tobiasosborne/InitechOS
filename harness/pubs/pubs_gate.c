@@ -124,8 +124,13 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
                 if(*q=='|') q++; else { k++;break; }
             }
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
+            /* FLAIR kinds (bead initech-ipu5.11, initech-flair.sty): menu,
+             * file, alert, operation -- checked by test-pubs-flair against
+             * harness/pubs/flair_inventory.c, never by the DOS books' gate. */
             if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
-               strcmp(f[1],"config") && strcmp(f[1],"int21")) die("COMMAND-INDEX",path,line);
+               strcmp(f[1],"config") && strcmp(f[1],"int21") && strcmp(f[1],"menu") &&
+               strcmp(f[1],"file") && strcmp(f[1],"alert") && strcmp(f[1],"operation"))
+                die("COMMAND-INDEX",path,line);
             if(strcmp(f[2],"GATED") && strcmp(f[2],"DRAFT")) die("COMMAND-INDEX",path,line);
             addkind(doc,f[0],f[1]);
             if(!strcmp(f[2],"DRAFT")) addkind(draft,f[0],f[1]);

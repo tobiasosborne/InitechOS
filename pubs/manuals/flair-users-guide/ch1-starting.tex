@@ -1,0 +1,189 @@
+% Chapter 1 -- Starting and Stopping (Part I, Learning; AN-14 task form).
+% Sources (Law 1): os/milton/kmain.c (the flagship desktop bring-up: the
+% INITECH volume mounted as drive A, TRASH and DESKTOP.DB created when
+% missing, FINDER then NOTES then HELLO launched, HELLO foreground; the
+% Special-menu power commands finder_power / finder_restart_now /
+% finder_shutdown_screen; Exit to InitechDOS finder_exit_dos and the
+% transient COMMAND.COM hand-off); os/flair/shell.h (the two stacked menu
+% bars); os/flair/menu.c (the menu-bar clock, MenuClock_*);
+% os/flair/finder_desktop.c (the volume and Trash icons);
+% spec/flair_tenants_demo.h (HELLO 60,60-360,260; NOTES 260,120-560,340);
+% spec/dos_banner.txt.  Model: Macintosh User's Guide 1991 Ch. 1 "Turning
+% the Macintosh On and Off" (apple-macintosh.md Sec 8.2); Mac OS 8
+% Installation task steps (Sec 5.4).
+% GATES: test-flair-desktop test-flair-appswitch test-flair-menubar-clock test-flair-restart test-flair-shutdown test-flair-exit-to-dos test-pubs-flair-screens
+\Gates{test-flair-desktop, test-flair-appswitch, test-flair-menubar-clock,
+  test-flair-restart, test-flair-shutdown, test-flair-exit-to-dos,
+  test-pubs-flair-screens}
+\chapter{Starting and Stopping}
+
+This chapter shows you how to start InitechOS and FLAIR, what you see when
+FLAIR is ready, and the three ways to finish your work: shutting the
+computer down, restarting it, and leaving FLAIR for the InitechDOS command
+prompt.
+
+\section{Before you begin}
+Your computer must be set up and connected as described in
+\doctitle{Getting Started with FLAIR}.  The two InitechOS disks must be in
+place: the \term{startup disk}, which holds InitechDOS and FLAIR, and the
+\term{data disk}, labelled INITECH, which holds your files and the
+applications.
+
+\section{Starting FLAIR}
+\index{starting FLAIR}\index{FLAIR!starting}
+\begin{TaskSteps}
+\Step Turn on the display.
+\Step Turn on the computer.
+\Result{The computer checks its memory and loads InitechOS from the
+startup disk.  InitechOS starts FLAIR at once; you do not type a command.
+After a few seconds the FLAIR desktop fills the screen.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:desktop]{desktop}{The FLAIR desktop when FLAIR starts}
+
+Figure~\ref{fig:desktop} shows the screen when FLAIR is ready for work.
+The parts of it are introduced here and described fully in Chapter~2.
+
+\SideHead{Desktop}The \term{desktop} is the teal working area that fills
+the screen.  Everything else lies on it.
+
+\SideHead{Menu bars}Across the top of the screen are two \term{menu bars}.
+The upper bar belongs to FLAIR itself: it holds the Apple menu (the apple
+at the left), the menu titles \menuname{File}, \menuname{Edit},
+\menuname{View} and \menuname{Special}, and the clock.  The lower bar
+belongs to the application you are working with, and changes when you
+change applications.
+
+\SideHead{Clock}The time of day is shown at the right end of the upper
+menu bar, in hours and minutes, with \texttt{am} or \texttt{pm}.  FLAIR
+reads the time from the computer's clock and changes the display when the
+minute changes.\index{clock}
+
+\SideHead{Disk icon}The icon at the top right, labelled \texttt{INITECH},
+stands for the data disk.  Opening it shows the files and folders on the
+disk (Chapter~3).
+
+\SideHead{Trash}The \term{Trash} icon at the bottom right is where you put
+the files and folders you want to throw away (Chapter~6).
+
+\SideHead{Windows}Two windows are open when FLAIR starts, \texttt{HELLO}
+and \texttt{NOTES}.  They belong to two small applications built into
+FLAIR, which you can use to practise working with windows (Chapter~3).
+\texttt{HELLO} is in front, so the lower menu bar is HELLO's.
+
+\SideHead{Pointer}The arrow is the \term{pointer}.  It moves on the screen
+when you move the mouse.  It appears the first time you move the mouse.
+
+\section{Using the mouse}
+\index{mouse}\index{pointer}
+You give FLAIR most of its instructions with the mouse.  Keep the mouse on
+a flat surface beside the keyboard, with its cable pointing away from you.
+\begin{TaskSteps}
+\Step Move the mouse across the desk.
+\Result{The pointer moves in the same direction on the screen.  If you run
+out of room on the desk, lift the mouse, put it down where you have room,
+and move it again; the pointer does not move while the mouse is in the
+air.}
+\Step Move the pointer to the \texttt{INITECH} icon.
+\Step Press the mouse button and release it.
+\Result{This is called \term{clicking}.  The icon is darkened: it is now
+\term{selected}.}
+\Step Click a bare part of the desktop.
+\Result{The icon is no longer selected.}
+\end{TaskSteps}
+FLAIR uses one mouse button.  If your mouse has two or three buttons, use
+the left one; FLAIR ignores the others.\index{mouse button}
+
+\section{Shutting down the computer}
+\index{shutting down}\index{Shut Down command}
+When you have finished working, shut the computer down before you turn it
+off.  Shut Down saves the arrangement of your desktop on the data disk, so
+that the windows and icons are where you left them the next time you start
+FLAIR, and asks an open application to quit first.
+\Operation{FLAIR-SHUTDOWN-SAFE}
+\begin{TaskSteps}
+\Step Click a bare part of the desktop.
+\Result{The lower menu bar changes to the menu bar of the Finder, the part
+of FLAIR that looks after the desktop.  Its \menuname{Special} menu holds
+the commands that stop the computer.}
+\Step Move the pointer to \menuname{Special} in the lower menu bar, and
+hold down the mouse button.
+\Result{The Special menu drops down.  Its commands appear while you hold
+down the button.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:special]{specialmenu}{The Special menu}
+
+\begin{TaskSteps}[resume]
+\Step Still holding down the button, move the pointer to \menuitem{Shut
+Down}, and release the button.
+\Result{If an application is open, FLAIR asks it to quit; an application
+with unsaved work asks you whether to save it (Chapter~5).  Then the screen
+goes black and a message tells you that it is safe to switch off the
+computer.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:shutdown]{shutdown}{The message after Shut Down}
+
+\begin{TaskSteps}[resume]
+\Step Turn off the computer, then the display.
+\Result{If you want to go on working instead, click \texttt{Restart} or
+press \key{Enter}: the computer starts again, as if you had just turned it
+on.}
+\end{TaskSteps}
+
+\begin{MacWarning}
+Do not turn off the computer while FLAIR is running.  The arrangement of
+your desktop is saved only by Shut Down, Restart and Exit to InitechDOS; a
+document you have not saved in its application is lost.
+\end{MacWarning}
+
+\section{Restarting the computer}
+\index{restarting}\index{Restart command}
+Restart does everything Shut Down does and then starts the computer again
+at once.
+\begin{TaskSteps}
+\Step Click a bare part of the desktop.
+\Step Choose \menuitem{Restart} from the \menuname{Special} menu.
+\Result{FLAIR asks an open application to quit, saves the arrangement of
+the desktop and restarts the computer.  FLAIR does not ask you to confirm
+Restart: choosing the command starts it.}
+\end{TaskSteps}
+
+\section{Leaving FLAIR for InitechDOS}
+\index{InitechDOS, leaving FLAIR for}\index{Exit to InitechDOS command}
+Some programs, such as the InitechDOS utility programs and the TPS Report
+Generator, run only at the InitechDOS command prompt.  To use them, leave
+FLAIR.
+\Operation{FINDER-EXIT-DOS-ALERT}
+\begin{TaskSteps}
+\Step Click a bare part of the desktop.
+\Step Choose \menuitem{Exit to InitechDOS} from the \menuname{Special}
+menu.
+\Result{An alert asks you to confirm.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:exitalert]{exitalert}{Confirming Exit to InitechDOS}
+
+\begin{TaskSteps}[resume]
+\Step Click \texttt{Exit}, or press \key{Enter}.
+\Result{FLAIR asks an open application to quit and saves the arrangement
+of the desktop.  Then the desktop disappears and the InitechDOS screen
+takes its place.  Because the data disk has no \file{AUTOEXEC.BAT} file,
+InitechDOS asks for the date and the time.  To cancel instead, click
+\texttt{Cancel} or press \key{Esc}; nothing changes.}
+\end{TaskSteps}
+
+\FlairText[fig:exitdate]{exitdate}{InitechDOS after Exit to InitechDOS}
+
+\begin{TaskSteps}[resume]
+\Step Press \key{Enter} to keep the date, and \key{Enter} again to keep
+the time.
+\Result{The command prompt \texttt{A:\textbackslash>} appears.  Drive A is
+the data disk; the programs that run at the prompt are in its folder
+\file{APPS}.  The \doctitle{InitechDOS User's Guide} tells you how to use
+the prompt.}
+\end{TaskSteps}
+FLAIR does not start again from the command prompt.  To return to FLAIR,
+restart the computer: press the computer's reset button, or turn it off
+and on again.

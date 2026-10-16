@@ -1,0 +1,14 @@
+# FLAIR screen captures of this book (pubs/screens/flair_capture.sh):
+#   name|marker[#N]|crop      crop = full | x,y,w,h | text
+# The trace of each is <name>.mouse (qemu_harness --mouse tokens; the
+# comments derive every move).  The pointer starts at (320,240).  The
+# marker is a serial line the shell prints AFTER the screen is drawn
+# (FLAIR-CURSOR x= y=: os/milton/kmain.c "Marker is emitted AFTER the
+# final-LFB draw completes"; FLAIR-MENU-DROP: captured while the button is
+# held).  `make pubs-flair-screens` writes the captures; `make
+# test-pubs-flair-screens` re-captures and compares them byte for byte.
+desktop|FLAIR-CURSOR x=420 y=380|full
+specialmenu|FLAIR-MENU-DROP menu=515|0,0,320,200
+shutdown|FLAIR-SHUTDOWN-SAFE|90,126,460,140
+exitalert|FINDER-EXIT-DOS-ALERT|120,76,400,130
+exitdate|Enter new date (mm-dd-yy):|text

@@ -1,0 +1,3 @@
+# desktop: the FLAIR desktop as it starts; the pointer moved into view.
+# go (420,380) rest the pointer on the desktop
+m100:100,m0:40

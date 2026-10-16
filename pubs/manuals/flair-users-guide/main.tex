@@ -1,0 +1,52 @@
+% FLAIR User's Guide -- part 1031-0000-10 (PUB-REF-0001 Sec 12, DS row
+% FLR-UG).  Family F-MAC: the Learning/Reference split of the Macintosh
+% User's Guide for desktop Macintosh computers (1991) set on the Mac OS 8
+% Platinum grid (apple-macintosh.md Sec 1, 5.4, 8.2; PUB-REF C-11).  Bead
+% initech-ipu5.11.  Every statement about the software is checked against
+% the shipped build (os/flair/*, os/milton/kmain.c, spec/); every figure is
+% a capture of the running desktop (screens/FLAIR, `make pubs-flair-screens`;
+% `make test-pubs-flair-screens` re-captures them).  Every menu item, file,
+% alert and desktop operation the book documents is registered
+% (initech-flair.sty) and checked against the shipped inventory by `make
+% test-pubs-flair` (harness/pubs/flair_inventory.c).  FLAIR displays no
+% version of its own, so the book prints none and the part number carries
+% 0000 (D-3, PN-03).
+\documentclass[apple]{initech-manual}
+\usepackage{initech-flair}
+\FlairBook{flair-users-guide}
+
+\ProductName{FLAIR}
+\ProductVersion{}
+\DocTitle{User's Guide}
+\PartNumber{1031-0000-10}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to FLAIR as delivered with InitechOS and
+  InitechDOS Version 3.30, and to all subsequent releases until otherwise
+  indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+% Operator directive (bead initech-ipu5.11 lane brief, 2026-10-17): the
+% design lane's class macro wins once it exists.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\par\medskip}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\FlairMainMatter
+\FlairPart{Part I}{Learning FLAIR}
+\input{ch1-starting}
+\appendix
+\input{glossary}
+\printindex
+\FinishBook[1]
+\end{document}
