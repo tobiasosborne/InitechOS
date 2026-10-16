@@ -406,8 +406,12 @@ static void t_into(void)
     tks("Hi ");
     fkey(F10, SHIFT);
     tks("memo\r");
-    CHECK(row_is(0, "Hi Initech word processing is here. The quick brown fox jumps") &&
-          row_is(1, "over the lazy dog."), "F5", "the file's text inserted at the cursor, re-wrapped");
+    /* RE-KEYED 2026-10-16 (bead initech-jojk slice 3, stated): a line holds
+     * 66 characters at 1"/1" -- one may START on the right margin
+     * (../wordperfect51-decomp mint/work/WP51/MINT22 @0x147, 01_wrap_edge.png;
+     * spec/iword/wp5_format.h WRAP); "...jumps over" is 66. */
+    CHECK(row_is(0, "Hi Initech word processing is here. The quick brown fox jumps over") &&
+          row_is(1, "the lazy dog."), "F5", "the file's text inserted at the cursor, re-wrapped");
     CHECK(status_is("", "1\"", "1.3\"", 0), "F5", "the on-screen document keeps no name of its own; cursor stays");
 }
 

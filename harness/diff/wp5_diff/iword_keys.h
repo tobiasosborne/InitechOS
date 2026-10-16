@@ -19,6 +19,9 @@
  *   %F6 %F8 %ITAL %REV      Bold, Underline, Ctrl-F8 2 4, Alt-F3
  *   %BLK                    Alt-F4
  *   %MOVE %COPY %CUT        Ctrl-F4 1 then 1 Move / 2 Copy / 3 Delete
+ *   %MAR=L,R                Shift-F8 1 7 L Enter R Enter (WPU: 1.3" = 1560)
+ *   %JL %JC %JR %JF         Shift-F8 1 3 1 / 2 / 3 / 4 (Left Center Right Full)
+ *                           (slice 3, mint/wpMINT21..24.steps)
  * iw_ed_fixup runs after every key, as WORD.EXE runs it. Returns 1 when every
  * key was accepted the way the mint saw it (a question asked where WP asked).
  *
@@ -27,6 +30,7 @@
 #ifndef IWORD_KEYS_H
 #define IWORD_KEYS_H
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "iword.h"
@@ -71,6 +75,15 @@ static int iwk_key(iw_ed_t *e, const char *k)
     else if (!strcmp(k, "MOVE")) { rc = iw_ed_block_cut(e, iwk_buf, IWK_BUF, &iwk_n); iwk_pending = 1; }
     else if (!strcmp(k, "COPY")) { rc = iw_ed_block_copy(e, iwk_buf, IWK_BUF, &iwk_n); iwk_pending = 1; }
     else if (!strcmp(k, "CUT")) rc = iw_ed_block_cut(e, 0, 0, 0);
+    else if (!strncmp(k, "MAR=", 4)) {
+        unsigned l = 0, r = 0;
+        if (sscanf(k + 4, "%u,%u", &l, &r) != 2) return 0;
+        rc = iw_ed_margins(e, l, r);
+    }
+    else if (!strcmp(k, "JL")) rc = iw_ed_just(e, 0);
+    else if (!strcmp(k, "JF")) rc = iw_ed_just(e, 1);
+    else if (!strcmp(k, "JC")) rc = iw_ed_just(e, 2);
+    else if (!strcmp(k, "JR")) rc = iw_ed_just(e, 3);
     else return 0;
     if (rc != IW_OK) return 0;
     return iw_ed_fixup(e) == IW_OK;

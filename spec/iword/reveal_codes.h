@@ -38,6 +38,15 @@
 #define IW_RV_FLSH_RGT   "[Flsh Rgt]"   /* R3, C1 sub 0x60                        */
 #define IW_RV_TAB        "[Tab]"        /* R1, C1 sub 0x02                        */
 #define IW_RV_JUST_LEFT  "[Just:Left]"  /* R4, D0/06 new value 0                  */
+/* P2 slice 3 (2026-10-16; ../wordperfect51-decomp mint/shots_wpMINT21..24,
+ * re/mint-results-004.md): the other three justifications and the deletable
+ * soft return. Full is the menu's word (MINT22 02_just_menu "4 Full") in the
+ * label's form -- [inferred]: no Reveal shot shows a [Just:Full] code on the
+ * pane (MINT22's scrolled off it). */
+#define IW_RV_JUST_FULL   "[Just:Full]"
+#define IW_RV_JUST_CENTER "[Just:Center]"  /* MINT22 05_reveal "[Just:Center]after" */
+#define IW_RV_JUST_RIGHT  "[Just:Right]"   /* MINT24 02_reveal "[Just:Right]Right line." */
+#define IW_RV_DSRT        "[DSRt]"         /* MINT22 05_reveal "Mid[DSRt]" (0x90)   */
 #define IW_RV_LR_MAR     "[L/R Mar:"    /* R4 "[L/R Mar:2\",2\"]": D0/01, the NEW
                                          * left and right margins in inches       */
 #define IW_RV_UNKNOWN    "[?]"          /* authored: no shot labels the code      */
@@ -99,6 +108,83 @@
 #define IW_RV_RULER_RIGHT  '}'
 #define IW_RV_RULER_TAB    0x1E
 #define IW_RV_RULER_EVERY  5u
+/* Slice 3 (2026-10-16, RULE 8 stated: the ruler follows the margins at the
+ * cursor). Reference Manual, Margins Left and Right p. 394: "the ruler ...
+ * displays the left margin as a left bracket ([) and the right margin as a
+ * right bracket (]). If a margin falls on a tab setting, it is displayed as a
+ * left brace ({) or a right brace (})". The tabs are relative to the left
+ * margin, every 0.5" from -1" (MINT21 02_format_line "Rel; -1", every
+ * 0.5""), so the left margin is always on one: MINT21 09_reveal '{' at
+ * column 3 under 1.3", '}' at 58; MINT23 03_reveal_mid '{' at 2 under 1.25",
+ * marks at 7, 12, .., 62, ']' at 63 (8820 WPU is no stop), marks on to the
+ * right edge; MINT04 '{' at 10, marks at 0 and 5 left of it. A mark sits at
+ * column (L + 600 k - 1200) / 120 rounded down, k >= -2. */
+#define IW_RV_RULER_LBRACK '['
+#define IW_RV_RULER_RBRACK ']'
+
+/* ---- the Format menus (Shift-F8; slice 3) -----------------------------------
+ * Transcribed from mint/shots_wpMINT21/01_format_menu.png and
+ * 02_format_line.png (80 x 25 screens: each row is (screen row, column,
+ * text); the 9-pixel cells give the columns). WP's screen has 25 rows,
+ * Face A's window 24 (os/iword/app/face_a.c): the Format screen drops its
+ * blank row 1 and Format: Line its blank row 22 [authored adaptation; no
+ * text is lost]. "Selection: 0" is on WP's last row. */
+#define IW_FMT_ROWS 34
+#define IW_FMT_INIT { \
+    {  0,  0, "Format" }, \
+    {  2,  5, "1 - Line" }, \
+    {  3, 14, "Hyphenation" },              {  3, 45, "Line Spacing" }, \
+    {  4, 14, "Justification" },            {  4, 45, "Margins Left/Right" }, \
+    {  5, 14, "Line Height" },              {  5, 45, "Tab Set" }, \
+    {  6, 14, "Line Numbering" },           {  6, 45, "Widow/Orphan Protection" }, \
+    {  8,  5, "2 - Page" }, \
+    {  9, 14, "Center Page (top to bottom)" }, {  9, 45, "Page Numbering" }, \
+    { 10, 14, "Force Odd/Even Page" },      { 10, 45, "Paper Size/Type/Labels" }, \
+    { 11, 14, "Headers and Footers" },      { 11, 45, "Suppress" }, \
+    { 12, 14, "Margins Top/Bottom" }, \
+    { 14,  5, "3 - Document" }, \
+    { 15, 14, "Display Pitch" },            { 15, 45, "Redline Method" }, \
+    { 16, 14, "Initial Codes/Font" },       { 16, 45, "Summary" }, \
+    { 18,  5, "4 - Other" }, \
+    { 19, 14, "Advance" },                  { 19, 45, "Printer Functions" }, \
+    { 20, 14, "Conditional End of Page" },  { 20, 45, "Underline Spaces/Tabs" }, \
+    { 21, 14, "Decimal Characters" },       { 21, 45, "Border Options" }, \
+    { 22, 14, "Language" },                 { 22, 45, "End Centering/Alignment" }, \
+    { 23, 14, "Overstrike" } \
+}
+#define IW_FMT_LINE_ROWS 14
+#define IW_FMT_LINE_INIT { \
+    {  0,  0, "Format: Line" }, \
+    {  2,  5, "1 - Hyphenation" }, \
+    {  4,  5, "2 - Hyphenation Zone -  Left" }, \
+    {  5, 28, "Right" }, \
+    {  7,  5, "3 - Justification" }, \
+    {  9,  5, "4 - Line Height" }, \
+    { 11,  5, "5 - Line Numbering" }, \
+    { 13,  5, "6 - Line Spacing" }, \
+    { 15,  5, "7 - Margins - Left" }, \
+    { 16, 19, "Right" }, \
+    { 18,  5, "8 - Tab Set" }, \
+    { 20,  5, "9 - Widow/Orphan Protection" }, \
+    {  0,  0, "" }, \
+    {  0,  0, "" } \
+}
+/* The values, at column 40 (02_format_line): the defaults of the fresh
+ * install; Justification, Margins and (P2: unchanged) Line Spacing follow the
+ * format at the cursor (06_margins_set "1.3"" / "1.7""). */
+#define IW_FMT_VALUE_COL   40u
+#define IW_FMT_V_HYPH      "No"
+#define IW_FMT_V_ZONE_L    "10%"
+#define IW_FMT_V_ZONE_R    "4%"
+#define IW_FMT_V_HEIGHT    "Auto"
+#define IW_FMT_V_NUMBER    "No"
+#define IW_FMT_V_SPACING   "1"
+#define IW_FMT_V_TABS      "Rel; -1\", every 0.5\""
+#define IW_FMT_V_WIDOW     "No"
+#define IW_FMT_JUST_NAMES  { "Left", "Full", "Center", "Right" }
+#define IW_FMT_SELECTION   "Selection: "            /* + the digit, "0" at rest */
+#define IW_FMT_JUST_PROMPT "Justification: 1 Left; 2 Center; 3 Right; 4 Full: 0"
+                                                    /* MINT22 02_just_menu      */
 
 /* ---- the Font menu (Ctrl-F8), on the status line (R6) ---------------------- */
 #define IW_FONT_MENU    "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"

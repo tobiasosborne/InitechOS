@@ -237,11 +237,35 @@ static uint32_t partner(const iw_doc_t *d, uint32_t q)
     }
 }
 
+/* A [L/R Mar] or [Just:] code (slice 3; spec/iword/wp5_format.h "margins
+ * and justification"): WP asks before deleting one (MINT23, MINT24). */
+int iw_code_is_format(const iw_doc_t *d, uint32_t pos)
+{
+    uint8_t g[4];
+    uint32_t size;
+    if (iw_doc_read(d, pos, g, sizeof g) != sizeof g || g[0] != IW_WP5_MARGIN_GRP) return 0;
+    size = (uint32_t)g[2] | ((uint32_t)g[3] << 8);
+    return (g[1] == IW_WP5_MARGIN_SUB && size == 12u) || (g[1] == IW_WP5_JUST_SUB && size == 6u);
+}
+
 int iw_ed_kill_code(iw_ed_t *e, uint32_t q)
 {
     iw_doc_t *d = &e->doc;
     uint32_t p;
     int rc;
+    if (iw_code_is_format(d, q)) {
+        /* a format code has no partner: it alone goes (MINT24 "Delete
+         * [Just:Center]? No (Yes)" y), and the text after it takes the format
+         * before it -- every paragraph after it re-wraps */
+        uint32_t n = iw_unit_next(d, q) - q;
+        if (!room(d, 0u, 1u)) return IW_E_FULL;
+        rc = iw_doc_delete(d, q, n);
+        if (rc != IW_OK) return rc;
+        e->cur = q;
+        e->dirty = 1;
+        e->goal = NONE;
+        return iw_reflow_from(d, q, e->width);
+    }
     if (iw_code_attr(d, q, 0) < 0) return IW_E_PROTECTED;
     p = partner(d, q);
 #ifdef IWORD_MUT_PAIR_HALF
@@ -293,6 +317,7 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
     case IW_WP5_SRT:        return put(out, cap, n, IW_RV_SRT);
     case IW_WP5_HPG:        return put(out, cap, n, IW_RV_HPG);
     case IW_WP5_HSPACE:     return put(out, cap, n, IW_RV_HSPACE);
+    case IW_WP5_DSRT:       return put(out, cap, n, IW_RV_DSRT);     /* MINT22 */
     case IW_WP5_END_CENTER: return n;                 /* R1/R3: no label */
     case IW_WP5_ATTR_ON:
     case IW_WP5_ATTR_OFF:
@@ -324,11 +349,22 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
             n = put(out, cap, n, num);
             return put(out, cap, n, "]");
         }
-        if (g[1] == 0x06u && got >= 10u && u16at(g, 2) == 6u && g[5] == 0u)
-            return put(out, cap, n, IW_RV_JUST_LEFT);
+        if (g[1] == 0x06u && got >= 10u && u16at(g, 2) == 6u) {
+            /* [Just:<new value>] (MINT04 Left; slice 3: MINT22 05_reveal
+             * Left / Center, MINT23 Left, MINT24A 02_reveal Right, MINT24
+             * 04_bs_question Center; Full from the menu, MINT22 02) */
+            static const char *const J[4] = { IW_RV_JUST_LEFT, IW_RV_JUST_FULL, IW_RV_JUST_CENTER, IW_RV_JUST_RIGHT };
+#ifdef IWORD_MUT_LABEL_JUST
+            /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): every
+             * justification shows as Left. NEVER real. */
+            return put(out, cap, n, J[0]);
+#endif
+            if (g[5] < 4u) return put(out, cap, n, J[g[5]]);
+        }
         return put(out, cap, n, IW_RV_UNKNOWN);
     case 0xD4u:
         if (g[1] == 0x00u) return n;                  /* R3, MINT09: no label */
+        if (g[1] == 0x05u) return n;                  /* MINT22 05_reveal: no label */
         return put(out, cap, n, IW_RV_UNKNOWN);
     case IW_WP5_INDENT:     return put(out, cap, n, IW_RV_INDENT);   /* MINT09 */
     case IW_WP5_END_INDENT: return n;                 /* MINT09: no label */

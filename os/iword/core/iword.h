@@ -115,9 +115,14 @@ enum {
     IW_U_TAB,           /* C1 sub 02 [Tab]: to the next tab stop (slice 2)   */
     IW_U_INDENT,        /* C2 [->Indent]: to the next tab stop, and the rest
                          * of the paragraph wraps there (slice 2)            */
-    IW_U_HIDDEN         /* bookkeeping WP writes beside a code, never shown:
+    IW_U_HIDDEN,        /* bookkeeping WP writes beside a code, never shown:
                          * C6 before the HRt of an indented paragraph, D4/00
                          * before a hard page (iw_ed_fixup keeps them)       */
+    IW_U_DSRT,          /* 0x90 deletable soft return: ends the line (and,
+                         * for the wrap, the paragraph) (slice 3, MINT22)    */
+    IW_U_LEAD           /* D4/05: WP's unseen record at the START of a
+                         * centered / right-justified line (slice 3; the
+                         * cursor always rests after it)                     */
 };
 /* Length of the well-formed unit starting at b[pos] (n = bytes available),
  * or 0 when the bytes there are not a VERIFIED unit (spec/iword/
@@ -148,7 +153,20 @@ typedef struct iw_line {
                           * margin an indent earlier in its paragraph set */
     uint16_t margin;     /* the margin the NEXT line starts at (0 after a
                           * hard return / hard page)                     */
+    /* slice 3 (bead initech-jojk; spec/iword/wp5_format.h "margins and
+     * justification"): the columns above are RELATIVE to the left margin in
+     * effect for the line; these place them on the paper. */
+    uint16_t lm;         /* the left margin L (WPU from the paper's edge)  */
+    uint16_t rm;         /* the right margin position 10200 - R (WPU)      */
+    uint16_t x0;         /* where column col0 is on the paper (WPU): lm +
+                          * 120 col0, or the centered / right-justified start */
+    uint8_t  just;       /* IW_WP5_JUST_* of the line                      */
+    uint8_t  fset;       /* a margin code is in effect (else `width` rules) */
 } iw_line_t;
+/* The paper position (WPU) of relative column `col` on line `ln`. */
+#define IW_LINE_X(ln, col) ((uint32_t)(ln)->x0 + 120u * ((uint32_t)(col) - (uint32_t)(ln)->col0))
+/* The screen column of paper position x: column 0 is 1" (rounded down). */
+#define IW_SCREEN_COL(x) ((x) >= 1200u ? ((x) - 1200u) / 120u : 0u)
 /* The line that starts at `start`. Every document has at least one line;
  * the last line ends at len with term IW_U_TEXT (it may be empty). */
 void     iw_line_at(const iw_doc_t *d, uint32_t start, uint32_t width, iw_line_t *ln);
@@ -175,6 +193,10 @@ typedef struct iw_ed {
 typedef struct iw_where {
     uint32_t line, line_start, col;
     uint32_t page, page_line;   /* 1-based, IW_WP5_LINES_PER_PAGE per page */
+    /* slice 3: the cursor on the paper and the format in effect there */
+    uint32_t x;                 /* WPU from the paper's edge (Pos = x / 12) */
+    uint32_t lm, rm;            /* the line's margins (WPU, iw_line_t)      */
+    uint32_t just;              /* IW_WP5_JUST_* at the cursor              */
 } iw_where_t;
 
 void     iw_ed_init(iw_ed_t *e, uint32_t width);   /* doc already bound */
@@ -241,6 +263,27 @@ int      iw_ed_block_copy(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n);
 /* Cut the block (Move: buf receives the copy; Delete: buf == 0). Block off. */
 int      iw_ed_block_cut(iw_ed_t *e, uint8_t *buf, uint32_t cap, uint32_t *n);
 int      iw_ed_retrieve(iw_ed_t *e, const uint8_t *buf, uint32_t n);
+
+/* ---- margins and justification (bead initech-jojk, P2 slice 3; edit.c) ---- *
+ * Shift-F8 1 7 / Shift-F8 1 3 (spec/iword/wp5_format.h "margins and
+ * justification"; mint/wpMINT21..24.steps). iw_ed_margins puts a [L/R Mar]
+ * code at the cursor -- a HRt first when the cursor is not at the left
+ * margin (Reference Manual p. 394; MINT21, MINT23) -- and re-wraps every
+ * paragraph after it; iw_ed_just puts a [Just:] code there -- a [DSRt] first
+ * when not at the left margin (MINT22). L and R in WPU (1200 an inch); j an
+ * IW_WP5_JUST_* value. iw_ed_fixup keeps WP's bookkeeping: each code's OLD
+ * values (the format before it, MINT24), the D4/05 line records (MINT22,
+ * MINT24A), the tab / indent / C6 payloads measured from the margins in
+ * effect (MINT21, MINT23).
+ * Backspace / Delete meeting a [L/R Mar] or [Just:] code ask "Delete
+ * [code]? No (Yes)" like an attribute code (MINT23 06/08, MINT24 04); Yes
+ * deletes the code alone. */
+int      iw_ed_margins(iw_ed_t *e, uint32_t left_wpu, uint32_t right_wpu);
+int      iw_ed_just(iw_ed_t *e, uint32_t just);
+/* 1 when the unit at pos is a [L/R Mar] or [Just:] code (asked about). */
+int      iw_code_is_format(const iw_doc_t *d, uint32_t pos);
+/* Re-wrap every paragraph from the one holding pos to the end. */
+int      iw_reflow_from(iw_doc_t *d, uint32_t pos, uint32_t width);
 
 /* WordPerfect's status-line measures (hundredths of an inch, 1" margins):
  * Ln = 1" + (line on page - 1) / 6", Pos = 1" + column / 10". Formats

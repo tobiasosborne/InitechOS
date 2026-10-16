@@ -244,8 +244,9 @@ int iw_iter_next(iw_iter_t *it)
 /* ---- units ---------------------------------------------------------------- */
 static int is_single(uint8_t b)
 {
+    /* 0x90 [DSRt]: slice 3 (bead initech-jojk; MINT22 @0x28A) */
     return b == IW_WP5_HRT || b == IW_WP5_SRT || b == IW_WP5_HPG ||
-           b == IW_WP5_HSPACE || b == IW_WP5_END_CENTER;
+           b == IW_WP5_HSPACE || b == IW_WP5_END_CENTER || b == IW_WP5_DSRT;
 }
 
 uint32_t iw_unit_len(const uint8_t *b, uint32_t n, uint32_t pos)
@@ -299,6 +300,11 @@ int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
     if (c == IW_WP5_INDENT) return IW_U_INDENT;
     if (c == IW_WP5_END_INDENT) return IW_U_HIDDEN;
     if (c == IW_WP5_PAGE_GRP && iw_doc_byte(d, pos + 1u) == (int)IW_WP5_PAGE_SUB) return IW_U_HIDDEN;
+    /* slice 3 (spec/iword/wp5_format.h "margins and justification"): the
+     * deletable soft return ends a line; D4/05 is WP's unseen record at the
+     * start of a centered / right-justified line */
+    if (c == IW_WP5_DSRT) return IW_U_DSRT;
+    if (c == IW_WP5_PAGE_GRP && iw_doc_byte(d, pos + 1u) == (int)IW_WP5_LINEPOS_SUB) return IW_U_LEAD;
     return IW_U_CODE;
 }
 

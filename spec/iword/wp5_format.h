@@ -148,8 +148,9 @@
  *      removes the group too (MINT11 "Page" Ctrl-Enter BS -> no D4 in the
  *      saved file). Bytes 0..1, 10..27 are the same in all three [constant
  *      as far as minted; their meaning is corpus GAPS F-2/F-3].
- * The payloads assume the default 1"/1" margins: after a margin change (D0/01)
- * they are left as they are (margins are a later slice). */
+ * The payloads above are for the default 1"/1" margins; under other margins
+ * see "margins and justification" below (slice 3; RULE 8 2026-10-16: slice 2
+ * left them as they were after a margin change). */
 #define IW_WP5_C1              0xC1u
 #define IW_WP5_C1_LEN          9u
 #define IW_WP5_C1_TAB          0x02u   /* C1 sub byte: [Tab]                 */
@@ -158,7 +159,7 @@
 #define IW_WP5_INDENT_STEP     600u    /* the constant u16 of every C2       */
 #define IW_WP5_END_INDENT      0xC6u
 #define IW_WP5_END_INDENT_LEN  6u
-#define IW_WP5_MARGIN_GRP      0xD0u   /* D0/01 [L/R Mar]: geometry stops     */
+#define IW_WP5_MARGIN_GRP      0xD0u   /* D0/01 [L/R Mar] (see "margins" below) */
 #define IW_WP5_MARGIN_SUB      0x01u
 #define IW_WP5_TAB_EVERY       5u      /* columns between default tab stops  */
 #define IW_WP5_LEFT_WPU        1200u   /* column 0 = 1" from the paper's edge */
@@ -175,6 +176,89 @@
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
     0x30, 0x2A, 0x30, 0x2A, 0x30, 0x2A, 0xB0, 0x04, 0xB0, 0x04, \
     0x1C, 0x00, 0x00, 0xD4 }
+
+/* ---- margins and justification (bead initech-jojk, IWORD P2 slice 3) ---- *
+ * Minted for this slice from the real WP.EXE (5.1, 03-09-92) under DOSBox-X
+ * (../wordperfect51-decomp tools/mint_drive.sh, mint/wpMINT21..24.steps;
+ * documents mint/work/WP51/MINT21, 22, 23, 24A, 24; ledger re/mint-results-
+ * 004.md). RULE 8, 2026-10-16 (deliberate, stated): the payload note of the
+ * tabs block above ("left as they are after a margin change") is replaced by
+ * the rows below -- WP measures tabs, indents and C6 from the margins in
+ * effect (MINT21, MINT23).
+ * PAPER  8.5" = 10200 WPU; a line runs from the left margin L to the right
+ *      margin position 10200 - R (WPU from the paper's left edge).
+ * L/R MARGINS (Shift-F8 1 7) `D0 01 0C 00 | oldL oldR newL newR | 0C 00 01 D0`
+ *      (16 bytes, u16 each): old = the margins in effect before the code, new
+ *      = the typed ones (MINT21 @0x148 `b0 04 b0 04 18 06 f8 07` = 1",1" ->
+ *      1.3",1.7"; @0x259 old 1.3",1.7" -> 2",2"; MINT23 @0x19B old 1.5",1"
+ *      -> 1.25",1.15"; MINT04 @0x148). Inserted at the cursor; when the cursor
+ *      is not at the left margin a HARD RETURN goes in first (MINT21 "Mid"
+ *      0A D0/01 "dle"; MINT23 "Mi" 0A D0/01 "d2", the cursor inside a word;
+ *      Reference Manual, Margins Left and Right p. 394: "If the cursor is not
+ *      at the left margin when you change margins, a Hard Return code [HRt]
+ *      is inserted just before the new Left and Right Margin code").
+ * JUSTIFICATION (Shift-F8 1 3 n) `D0 06 06 00 | old new | 06 00 06 D0` (10
+ *      bytes, one byte each): 0 Left, 1 Full (the default), 2 Center, 3 Right
+ *      (MINT22 @0x1E5 `01 02` Full -> Center, @0x21D `02 03`, @0x257 `03 01`,
+ *      @0x279 `01 00`). WP REWRITES old when the code before it goes: MINT24
+ *      (MINT24A's [Just:Center] deleted) saved [Just:Right] as `01 03`, it was
+ *      `02 03` in MINT24A. When the cursor is not at the left margin a
+ *      DELETABLE SOFT RETURN 0x90 [DSRt] goes in first (MINT22 "Mid" 90 D0/06
+ *      "after"; label from 05_reveal "Mid[DSRt]").
+ *      One trip through the menu that sets both writes them in the order set
+ *      (MINT23 @0x148: 3 then 7 -> [Just:Left][L/R Mar:1.5",1"]).
+ * LINE POSITION `D4 05 08 00 | t u16 | x u16 | 08 00 05 D4` (12 bytes, no
+ *      Reveal label: MINT22 05_reveal "[Just:Center]after[HRt]"): WP's record
+ *      of where a centered / right-justified stretch of text starts. One at
+ *      the start of every line (after a HRt, SRt, DSRt or the top) whose
+ *      justification is Center or Right, and one right after every [Just:]
+ *      code whose old or new value is Center or Right (MINT22: after
+ *      [Just:Full] from Right, none after [Just:Left] from Full; MINT24A: one
+ *      per wrapped line of a centered paragraph, @0x152 / @0x19E). x = where
+ *      the text up to the next one (or the line's end) starts: Center
+ *      L + (10200 - R - L - w) / 2, Right 10200 - R - w, Left / Full L, w =
+ *      120 WPU a character; t = x / 120 (MINT22 "Centered justification
+ *      line." 28 chars -> 28, 3420; an empty centered line 42, 5100; "Right
+ *      justified." 59, 7080; MINT24A 63 chars -> 11, 1320; 44 -> 20, 2460).
+ *      WP rewrites them as the text changes (MINT24A "xQyz": 40, 4860 after
+ *      the Q went in).
+ * WRAP (RULE 8, 2026-10-16, deliberate: corrects IW_WP5_WRAP_COLS 65 -> 66
+ *      below). A character fits on the line when it STARTS at or before the
+ *      right margin position: a line holds (10200 - R - L) / 120 + 1
+ *      characters -- 66 at 1"/1" (MINT22 @0x147: twelve "wxyz " + "abcdef",
+ *      66 characters, then the SRt; MINT22 01_wrap_edge.png), 56 at 1.3"/1.7"
+ *      (MINT21 "make ... which it", 56 characters), 60 + 1 at 1.25"/1.15"
+ *      (MINT23). MINT01's 65 characters before its SRt never separated 65
+ *      from 66 ("WordPerfect" did not fit either way).
+ * TABS AND INDENTS UNDER MARGINS. The stops are relative to the left margin
+ *      (the Format: Line screen "Tab Set  Rel; -1", every 0.5"", MINT21
+ *      02_format_line.png): every 600 WPU from L. A tab or an indent goes to
+ *      the next stop after the cursor's position x and stores a = b = the
+ *      stop (WPU from the paper's edge) and t = a / 120 (MINT21 @0x1CF from
+ *      1.3": `70 08 70 08 12 00` = 2160, 18; MINT23 @0x1AE from 1.25":
+ *      `34 08 34 08 11 00` = 2100, 17 -- the tenths ROUNDED DOWN; MINT21
+ *      @0x27A from 2": 3000, 25). C6: right = 10200 - R (MINT21 @0x24E
+ *      `e0 1f 70 08` = 8160, 2160).
+ * THE SCREEN. Screen column 0 is 1" from the paper's edge whatever the
+ *      margins; a position x shows at column (x - 1200) / 120 rounded down
+ *      (MINT21 07..11: text at column 3 under 1.3"; MINT23 04_typed: at 2
+ *      under 1.25", the tab's "y" at 7 = 2100; MINT22 04_typed: centered
+ *      "Centered justification line." at 18 = 3420, "Right justified." at
+ *      49 = 7080). Pos on the status line is x itself (MINT23 "Pos 1.25"").
+ * The screen and the status line are Face A's (os/iword/app/face_a.c). */
+#define IW_WP5_PAPER_WPU       10200u
+#define IW_WP5_MARGIN_LEN      16u
+#define IW_WP5_JUST_SUB        0x06u
+#define IW_WP5_JUST_LEN        10u
+#define IW_WP5_JUST_LEFT       0u
+#define IW_WP5_JUST_FULL       1u
+#define IW_WP5_JUST_CENTER     2u
+#define IW_WP5_JUST_RIGHT      3u
+#define IW_WP5_JUST_DEFAULT    IW_WP5_JUST_FULL
+#define IW_WP5_LINEPOS_SUB     0x05u
+#define IW_WP5_LINEPOS_LEN     12u
+#define IW_WP5_DSRT            0x90u   /* deletable soft return [DSRt]       */
+#define IW_WP5_TAB_STEP_WPU    600u    /* 0.5": the relative stops            */
 
 /* ---- the prefix area [H Sec 2, Sec 4] ---------------------------------- *
  * A fresh-install WP 5.1 writes the SAME 327 bytes (0x147) before the body
@@ -227,7 +311,12 @@
  * default setting is for a 1" margin on each side of the page" (Margins,
  * Left and Right, p. 394, PDF 411); the default paper is "Standard 8 1/2" x
  * 11"" (Conversion, PDF 154). */
-#define IW_WP5_WRAP_COLS       65u
+/* RULE 8, 2026-10-16 (bead initech-jojk slice 3, deliberate): 66, was 65.
+ * The (8.5 - 1 - 1) * 10 = 65 above counts the columns between the margins;
+ * WP also lets a character START on the right margin (MINT22: a 66-character
+ * line, see "margins and justification" WRAP). This is the number of
+ * characters a default line holds. */
+#define IW_WP5_WRAP_COLS       66u
 /* Vertical: the status line reads Ln 1" for the first line and 1.17" for the
  * second (MINT02.shots/02_typed.png): a 1" top margin and 6 lines per inch.
  * An 11" page with 1" top and bottom margins holds 9 * 6 = 54 lines

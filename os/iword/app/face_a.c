@@ -77,6 +77,26 @@
  *                   Append are not in this slice (any other key: back).
  *   Delete / Bksp   with Block on: "Delete Block? No (Yes)" (09_delete_prompt):
  *                   y deletes it, any other key keeps it.
+ * SLICE 3 (bead initech-jojk; the real WP.EXE in ../wordperfect51-decomp
+ * mint/wpMINT21..24.steps, re/mint-results-004.md):
+ *   Shift-F8 Format the Format screen (mint/shots_wpMINT21/01_format_menu),
+ *                   1 Line: the Format: Line screen (02_format_line) with the
+ *                   values at the cursor; 3 Justification "1 Left; 2 Center;
+ *                   3 Right; 4 Full: 0" on the bottom row (MINT22
+ *                   02_just_menu); 7 Margins: the Left then the Right field
+ *                   take a measurement in inches (04_left_typed "1.3_",
+ *                   05_right_field), Enter after each; F7 back to the
+ *                   document, Enter / 0 back to Format, Enter / 0 there to
+ *                   the document. The other selections are later slices
+ *                   (the key is ignored). Each setting goes in as WP puts
+ *                   it (os/iword/core/edit.c iw_ed_margins / iw_ed_just).
+ *   The document sits on the paper as WP shows it: screen column 0 is 1"
+ *                   whatever the margins (MINT21 text at column 3 under
+ *                   1.3"), a centered / right-justified line where the
+ *                   justification puts it (MINT22 04_typed), Pos the paper
+ *                   position (MINT23 "Pos 1.25""); the Reveal Codes ruler
+ *                   follows the margins at the cursor (spec/iword/
+ *                   reveal_codes.h "the ruler").
  * The text between the codes is drawn in its face through DRAWCELLS (bold,
  * italic, underline synthesized by the Font Manager rules, spec/
  * toolbox_gate.h Sec 7a STYLE). WordPerfect itself shows attributes as
@@ -260,7 +280,8 @@ static uint32_t g_clip_n;
 
 /* ---- prompts --------------------------------------------------------------- */
 enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_FONT, M_APPEAR,
-       M_DELCODE, M_DELBLOCK, M_MOVE, M_MOVEBLK, M_RETRIEVE };
+       M_DELCODE, M_DELBLOCK, M_MOVE, M_MOVEBLK, M_RETRIEVE,
+       M_FORMAT, M_FMTLINE, M_FMTJUST, M_FMTMARL, M_FMTMARR };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -271,6 +292,12 @@ static char     g_path[TBX_FILE_PATH_MAX];  /* "NAME" for the file verbs     */
 static char     g_current[24];              /* "A:\NAME" once saved/retrieved */
 static char     g_shown[24];                /* "A:\NAME" of the name being used */
 static uint8_t  g_exiting;                  /* the save is part of F7 Exit  */
+/* the Format: Line margin fields (Shift-F8 1 7): the text typed so far, the
+ * left value taken (WPU), whether anything was typed */
+static char     g_field[12];
+static uint32_t g_flen;
+static uint32_t g_fleft, g_fright;
+static uint8_t  g_ftyped;
 
 /* ---- small helpers --------------------------------------------------------- */
 static uint32_t slen(const char *s) { uint32_t n = 0; while (s[n]) n++; return n; }
@@ -381,7 +408,7 @@ static void ensure_room(void)
  * and try once more) or stopped the re-wrap after it (the length changed:
  * compact and finish the wrap -- reflow is idempotent). */
 enum { ED_TYPE, ED_ENTER, ED_BACKSPACE, ED_DELETE, ED_ATTR, ED_NORMAL, ED_TAB, ED_INDENT,
-       ED_HPAGE, ED_ANSWER, ED_CUT, ED_COPY, ED_RETRIEVE };
+       ED_HPAGE, ED_ANSWER, ED_CUT, ED_COPY, ED_RETRIEVE, ED_MARGINS, ED_JUST };
 static int edit_once(int op, uint8_t ch)
 {
     switch (op) {
@@ -397,6 +424,8 @@ static int edit_once(int op, uint8_t ch)
     case ED_CUT:       return iw_ed_block_cut(&g_ed, ch ? g_clip : 0, sizeof g_clip, &g_clip_n);
     case ED_COPY:      return iw_ed_block_copy(&g_ed, g_clip, sizeof g_clip, &g_clip_n);
     case ED_RETRIEVE:  return iw_ed_retrieve(&g_ed, g_clip, g_clip_n);
+    case ED_MARGINS:   return iw_ed_margins(&g_ed, g_fleft, g_fright);
+    case ED_JUST:      return iw_ed_just(&g_ed, ch);      /* ch = IW_WP5_JUST_* */
     default:           return iw_ed_delete(&g_ed);
     }
 }
@@ -431,6 +460,13 @@ static int edit(int op, uint8_t ch)
  * is the attribute state at ln->start and leaves as the state at ln->end
  * (the codes are walked, zero width). With Block on, the cells of the units
  * in [bs, bt) are the block's run. */
+/* The screen column of relative column c on line ln (slice 3: the paper
+ * position, screen column 0 at 1"). */
+static uint32_t scol(const iw_line_t *ln, uint32_t c)
+{
+    return IW_SCREEN_COL(IW_LINE_X(ln, c));
+}
+
 static void row_text(const iw_line_t *ln, uint32_t *state, row_t *r, uint32_t bs, uint32_t bt)
 {
     uint32_t p = ln->start, c = ln->col0, b0 = SCR_COLS, b1 = 0;
@@ -439,18 +475,19 @@ static void row_text(const iw_line_t *ln, uint32_t *state, row_t *r, uint32_t bs
         int k = iw_unit_kind(&g_ed.doc, p);
         uint32_t q = iw_unit_next(&g_ed.doc, p), c1 = c;
         if (p < ln->text_end) {
+            uint32_t sc = scol(ln, c);
             if (k == IW_U_TEXT || k == IW_U_HSPACE) {
-                if (c < SCR_COLS) {
-                    r->t[c] = k == IW_U_TEXT ? (char)iw_doc_byte(&g_ed.doc, p) : ' ';
-                    r->a[c] = (uint8_t)iw_attr_faces(*state);
+                if (sc < SCR_COLS) {
+                    r->t[sc] = k == IW_U_TEXT ? (char)iw_doc_byte(&g_ed.doc, p) : ' ';
+                    r->a[sc] = (uint8_t)iw_attr_faces(*state);
                 }
                 c1 = c + 1u;
             } else if (k == IW_U_TAB || k == IW_U_INDENT) {
                 c1 = iw_line_col(&g_ed.doc, ln, q);      /* blank, plain */
             }
             if (p >= bs && p < bt && c1 > c) {
-                if (c < b0) b0 = c;
-                if (c1 > b1) b1 = c1;
+                if (sc < b0) b0 = sc;
+                if (scol(ln, c1) > b1) b1 = scol(ln, c1);
             }
         }
         if (k == IW_U_CODE) *state = iw_attr_step(&g_ed.doc, p, *state);
@@ -511,7 +548,9 @@ static void paint_status(const iw_where_t *w, int line)
         s[STATUS_POS] = 'P';
         s[STATUS_POS + 1] = g_caps ? 'O' : 'o';
         s[STATUS_POS + 2] = g_caps ? 'S' : 's';
-        k = iw_fmt_inches(iw_pos_hundredths(w->col), num);
+        /* Pos: the paper position (slice 3, MINT23 "Pos 1.25""; at 1"/1" it
+         * is 1" + column / 10 as before) */
+        k = iw_fmt_inches(w->x / 12u, num);
         for (i = 0; i < k && STATUS_POS + 4 + i < SCR_COLS; i++) s[STATUS_POS + 4 + i] = num[i];
         if (g_mode == M_RETRIEVE) {
             /* "Enter" bright in WP's prompt: drawn bold here */
@@ -578,7 +617,7 @@ static void paint_doc(const iw_where_t *w, uint32_t rows)
     got = iw_ed_lines(&g_ed, g_top, rows, lines);
     if (got) state = iw_attr_state(&g_ed.doc, lines[0].start);
     if (g_ed.blk != IW_NO_BLOCK) iw_ed_block_span(&g_ed, &bs, &bt);
-    ccol = (int)(w->col < SCR_COLS ? w->col : SCR_COLS - 1u);
+    ccol = (int)(IW_SCREEN_COL(w->x) < SCR_COLS ? IW_SCREEN_COL(w->x) : SCR_COLS - 1u);
     for (li = 0; li < got && i < rows; li++) {
         row_text(&lines[li], &state, &r, bs, bt);
         if (g_top + li == w->line) {
@@ -602,17 +641,24 @@ static void paint_doc(const iw_where_t *w, uint32_t rows)
 
 /* Reveal Codes: the ruler, the codes pane and the restore message. */
 static char g_pane[IW_RV_PANE_ROWS][SCR_COLS + 1];
-static void paint_reveal(void)
+static void paint_reveal(const iw_where_t *w)
 {
     static row_t r;
     iw_pane_t pane;
-    uint32_t i;
+    uint32_t i, x;
     row_clear(&r);
     r.fg = (uint8_t)TBX_COLOR_BLACK;           /* authored: WP's band is red */
     r.bg = (uint8_t)TBX_COLOR_GRAY;
-    for (i = IW_RV_RULER_EVERY; i < SCR_COLS; i += IW_RV_RULER_EVERY) r.t[i] = (char)IW_RV_RULER_TAB;
-    r.t[0] = IW_RV_RULER_LEFT;
-    r.t[IW_WP5_WRAP_COLS] = IW_RV_RULER_RIGHT;
+    /* the tab marks every 0.5" from the left margin - 1" (relative tabs),
+     * the margins as braces (on a stop) or brackets (spec/iword/
+     * reveal_codes.h "the ruler"; MINT21 09_reveal, MINT23 03_reveal_mid) */
+    x = w->lm >= 2u * IW_WP5_TAB_STEP_WPU ? w->lm - 2u * IW_WP5_TAB_STEP_WPU : w->lm % IW_WP5_TAB_STEP_WPU;
+    for (; IW_SCREEN_COL(x) < SCR_COLS; x += IW_WP5_TAB_STEP_WPU)
+        if (x >= IW_WP5_LEFT_WPU) r.t[IW_SCREEN_COL(x)] = (char)IW_RV_RULER_TAB;
+    if (IW_SCREEN_COL(w->lm) < SCR_COLS) r.t[IW_SCREEN_COL(w->lm)] = IW_RV_RULER_LEFT;
+    if (IW_SCREEN_COL(w->rm) < SCR_COLS)
+        r.t[IW_SCREEN_COL(w->rm)] = (w->rm >= w->lm && (w->rm - w->lm) % IW_WP5_TAB_STEP_WPU == 0u)
+                                    ? IW_RV_RULER_RIGHT : IW_RV_RULER_RBRACK;
     put_row(RV_RULER, &r);
     iw_reveal_pane(&g_ed, SCR_COLS, IW_RV_PANE_ROWS, &g_pane[0][0], SCR_COLS + 1u, &pane);
     for (i = 0; i < IW_RV_PANE_ROWS; i++) {
@@ -625,10 +671,95 @@ static void paint_reveal(void)
     put_text_row(RV_MESSAGE, IW_RV_MESSAGE);
 }
 
+/* ---- the Format screens (Shift-F8; slice 3) ------------------------------------ */
+typedef struct fmt_row { uint8_t row, col; const char *text; } fmt_row_t;
+static const fmt_row_t FMT_MAIN[IW_FMT_ROWS] = IW_FMT_INIT;
+static const fmt_row_t FMT_LINE[IW_FMT_LINE_ROWS] = IW_FMT_LINE_INIT;
+
+static void put_at(row_t *r, uint32_t col, const char *t)
+{
+    for (uint32_t i = 0; t[i] && col + i < SCR_COLS; i++) r->t[col + i] = t[i];
+}
+
+/* A margin as the Format: Line screen shows it ("1"", "1.3"") */
+static void put_inches(row_t *r, uint32_t col, uint32_t wpu)
+{
+    char num[12];
+    (void)iw_fmt_inches(wpu / 12u, num);
+    put_at(r, col, num);
+}
+
+static void paint_format(const iw_where_t *w)
+{
+    static row_t rows[SCR_LINES];
+    static const char *const JN[4] = IW_FMT_JUST_NAMES;
+    uint32_t i, n = g_mode == M_FORMAT ? IW_FMT_ROWS : IW_FMT_LINE_ROWS;
+    const fmt_row_t *t = g_mode == M_FORMAT ? FMT_MAIN : FMT_LINE;
+    char sel[16];
+    for (i = 0; i < SCR_LINES; i++) row_clear(&rows[i]);
+    for (i = 0; i < n; i++) {
+        /* WP's 25 rows in 24: the Format screen drops its blank row 1 */
+        uint32_t r = t[i].row;
+        if (!t[i].text[0]) continue;
+        if (g_mode == M_FORMAT && r > 0u) r--;
+        put_at(&rows[r], t[i].col, t[i].text);
+    }
+    if (g_mode != M_FORMAT) {
+        put_at(&rows[2], IW_FMT_VALUE_COL, IW_FMT_V_HYPH);
+        put_at(&rows[4], IW_FMT_VALUE_COL, IW_FMT_V_ZONE_L);
+        put_at(&rows[5], IW_FMT_VALUE_COL, IW_FMT_V_ZONE_R);
+        put_at(&rows[7], IW_FMT_VALUE_COL, JN[w->just < 4u ? w->just : 1u]);
+        put_at(&rows[9], IW_FMT_VALUE_COL, IW_FMT_V_HEIGHT);
+        put_at(&rows[11], IW_FMT_VALUE_COL, IW_FMT_V_NUMBER);
+        put_at(&rows[13], IW_FMT_VALUE_COL, IW_FMT_V_SPACING);
+        put_inches(&rows[15], IW_FMT_VALUE_COL, w->lm);
+        put_inches(&rows[16], IW_FMT_VALUE_COL, IW_WP5_PAPER_WPU - w->rm);
+        put_at(&rows[18], IW_FMT_VALUE_COL, IW_FMT_V_TABS);
+        put_at(&rows[20], IW_FMT_VALUE_COL, IW_FMT_V_WIDOW);
+        if (g_mode == M_FMTMARL || g_mode == M_FMTMARR) {
+            /* the field being typed: the value until a key replaces it, then
+             * the text typed and the cursor after it (04_left_typed "1.3_") */
+            row_t *fr = &rows[g_mode == M_FMTMARL ? 15 : 16];
+            if (g_mode == M_FMTMARR) put_inches(&rows[15], IW_FMT_VALUE_COL, g_fleft);
+            if (g_ftyped) {
+                for (i = IW_FMT_VALUE_COL; i < SCR_COLS; i++) fr->t[i] = ' ';
+                for (i = 0; i < g_flen; i++) fr->t[IW_FMT_VALUE_COL + i] = g_field[i];
+                fr->inv_col = (uint8_t)(IW_FMT_VALUE_COL + g_flen);
+            } else {
+                fr->inv_col = (uint8_t)IW_FMT_VALUE_COL;
+            }
+            fr->inv_len = 1;
+        }
+    }
+    if (g_mode == M_FMTJUST) {
+        put_at(&rows[SCR_LINES - 1], 0, IW_FMT_JUST_PROMPT);
+    } else {
+        scopy(sel, IW_FMT_SELECTION);
+        i = slen(sel);
+        sel[i] = (g_mode == M_FMTMARL || g_mode == M_FMTMARR) ? '7' : '0';
+        sel[i + 1] = 0;
+        put_at(&rows[SCR_LINES - 1], 0, sel);
+        if (g_mode == M_FORMAT || g_mode == M_FMTLINE) {
+            rows[SCR_LINES - 1].inv_col = (uint8_t)i;
+            rows[SCR_LINES - 1].inv_len = 1;
+        }
+    }
+    for (i = 0; i < SCR_LINES; i++) put_row((int)i, &rows[i]);
+}
+
+static int format_mode(void)
+{
+    return g_mode == M_FORMAT || g_mode == M_FMTLINE || g_mode == M_FMTJUST || g_mode == M_FMTMARL || g_mode == M_FMTMARR;
+}
+
 static void paint(void)
 {
     iw_where_t w;
     iw_ed_where(&g_ed, &w);
+    if (format_mode()) {
+        paint_format(&w);
+        return;
+    }
     if (!g_reveal) {
         paint_doc(&w, EDIT_ROWS);
         paint_status(&w, LINE_STATUS);
@@ -636,7 +767,7 @@ static void paint(void)
     }
     paint_doc(&w, RV_TOP_ROWS);
     paint_status(&w, RV_STATUS);
-    paint_reveal();
+    paint_reveal(&w);
 }
 
 static void paint_all(void)
@@ -901,6 +1032,90 @@ static void prompt_key(char ch, uint8_t vk)
     if (font_rc == IW_E_FULL) error("ERROR: Document too large", M_EDIT);
 }
 
+/* A measurement typed in inches ("2", "1.3", "1.25", an optional '"') ->
+ * WPU; 0 when it is not one [authored: fractions like "1 1/2" (Reference
+ * Manual p. 394) are not taken]. Hundredths of an inch, 12 WPU each. */
+static uint32_t parse_inches(void)
+{
+    uint32_t i = 0, ip = 0, fr = 0, nf = 0, digits = 0;
+    while (i < g_flen && g_field[i] >= '0' && g_field[i] <= '9') { ip = ip * 10u + (uint32_t)(g_field[i] - '0'); i++; digits++; }
+    if (i < g_flen && g_field[i] == '.') {
+        i++;
+        while (i < g_flen && g_field[i] >= '0' && g_field[i] <= '9') {
+            if (nf < 2u) { fr = fr * 10u + (uint32_t)(g_field[i] - '0'); nf++; }
+            i++; digits++;
+        }
+    }
+    if (i < g_flen && g_field[i] == '"') i++;
+    if (i != g_flen || digits == 0u || ip > 8u) return 0;
+    if (nf == 1u) fr *= 10u;
+    return (ip * 100u + fr) * 12u;
+}
+
+static void field_start(void)
+{
+    g_flen = 0;
+    g_field[0] = 0;
+    g_ftyped = 0;
+}
+
+/* Shift-F8: the Format screen, Format: Line, its prompt and fields. */
+static void format_key(char ch, uint8_t vk)
+{
+    int rc = IW_OK;
+    int cancel = vk == VK_F1 || vk == VK_ESC || ch == 0x1B;
+    int enter = vk == VK_ENTER || ch == '\r';
+    iw_where_t w;
+    switch (g_mode) {
+    case M_FORMAT:
+        if (ch == '1') g_mode = M_FMTLINE;
+        else if (cancel || enter || ch == '0' || vk == VK_F7) g_mode = M_EDIT;
+        break;
+    case M_FMTLINE:
+        if (vk == VK_F7) g_mode = M_EDIT;                    /* Exit (F7) */
+        else if (cancel || enter || ch == '0') g_mode = M_FORMAT;
+        else if (ch == '3') g_mode = M_FMTJUST;
+        else if (ch == '7') { iw_ed_where(&g_ed, &w); g_fleft = w.lm; g_fright = IW_WP5_PAPER_WPU - w.rm; g_mode = M_FMTMARL; field_start(); }
+        break;
+    case M_FMTJUST:
+        /* "1 Left; 2 Center; 3 Right; 4 Full" (MINT22 02_just_menu) */
+        g_mode = M_FMTLINE;
+        if (ch == '1') rc = edit(ED_JUST, IW_WP5_JUST_LEFT);
+        else if (ch == '2') rc = edit(ED_JUST, IW_WP5_JUST_CENTER);
+        else if (ch == '3') rc = edit(ED_JUST, IW_WP5_JUST_RIGHT);
+        else if (ch == '4') rc = edit(ED_JUST, IW_WP5_JUST_FULL);
+        break;
+    case M_FMTMARL:
+    case M_FMTMARR:
+        if (cancel) { g_mode = M_FMTLINE; break; }
+        if (enter) {
+            uint32_t v = g_ftyped ? parse_inches() : 0u;
+            static uint8_t any;
+            if (g_mode == M_FMTMARL) any = 0;
+            if (v) { if (g_mode == M_FMTMARL) g_fleft = v; else g_fright = v; }
+            if (g_ftyped) any = 1;
+            if (g_mode == M_FMTMARL) { g_mode = M_FMTMARR; field_start(); break; }
+            /* both entered: the code goes in (when a value was typed) */
+            g_mode = M_FMTLINE;
+            if (any) rc = edit(ED_MARGINS, 0);
+            break;
+        }
+        if (vk == VK_BSPC || ch == 8) { if (g_flen) g_field[--g_flen] = 0; break; }
+        /* "WordPerfect allows ten input characters for margins" (p. 394) */
+        if (((ch >= '0' && ch <= '9') || ch == '.' || ch == '"') && g_flen < 10u) {
+            g_field[g_flen++] = ch;
+            g_field[g_flen] = 0;
+            g_ftyped = 1;
+        }
+        break;
+    default:
+        g_mode = M_EDIT;
+        break;
+    }
+    if (rc == IW_E_FULL) error("ERROR: Document too large", M_EDIT);
+    if (g_mode == M_EDIT) paint_all();
+}
+
 /* The cursor keys (the editing screen, Block, the Move prompt). */
 static int cursor_key(uint8_t vk)
 {
@@ -967,8 +1182,9 @@ static void edit_key(char ch, uint8_t vk, int32_t mods)
         case VK_F6:                      /* Bold; Shift-F6 Center etc. are later slices */
             if (!shift && !ctrl && !alt) rc = edit(ED_ATTR, IW_WP5_ATTR_BOLD);
             break;
-        case VK_F8:                      /* Underline; Ctrl-F8 Font */
+        case VK_F8:                      /* Underline; Ctrl-F8 Font; Shift-F8 Format */
             if (ctrl && !shift && !alt) g_mode = M_FONT;
+            else if (shift && !ctrl && !alt) g_mode = M_FORMAT;
             else if (!shift && !ctrl && !alt) rc = edit(ED_ATTR, IW_WP5_ATTR_UNDERLINE);
             break;
         case VK_F3:                      /* Alt-F3 Reveal Codes (F3 Help: not here) */
@@ -1007,6 +1223,7 @@ static void key(int32_t message, int32_t mods)
     g_caps = (mods & (int32_t)FLAIR_EVT_MOD_ALPHA_LOCK) != 0;
     g_ed.reveal = g_reveal;                       /* a new document resets it */
     if (g_mode == M_EDIT) edit_key(ch, vk, mods);
+    else if (format_mode()) format_key(ch, vk);
     else if (g_mode == M_RETRIEVE) retrieve_key(ch, vk, mods);
     else prompt_key(ch, vk);
     paint();
