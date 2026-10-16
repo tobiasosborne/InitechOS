@@ -18,6 +18,7 @@ static int check(int ok,const char *s)
 /* Structural five-slice check, independent of the artifact's atan2/rasterizer:
  * count colour transitions on a Pythagorean radius40 contour. Each of the
  * five positive PRD weights must have a visible sector, including the seam. */
+static int pie_cx=476, pie_cy=197;
 static int pie_transitions(void)
 {
     uint32_t prev=0; int n=0,seen=0;
@@ -25,7 +26,7 @@ static int pie_transitions(void)
         int x=0; while((x+1)*(x+1)+y*y<=1600) x++;
         int dx=q==0?x:q==1?-y:q==2?-x:y;
         int dy=q==0?y:q==1?x:q==2?-y:-x;
-        uint32_t c=px(p,476+dx,197+dy);
+        uint32_t c=px(p,pie_cx+dx,pie_cy+dy);
         if(seen&&c!=prev) n++;
         seen=1; prev=c;
     }
@@ -34,7 +35,7 @@ static int pie_transitions(void)
 int main(int argc,char **argv)
 {
     int w,h,m,bad=0; FILE *f; png_image im;
-    if(argc!=3) { fprintf(stderr,"usage: ppm_flair_calc_check dump.ppm s8_doc_window_active.png\n"); return 2; }
+    if(argc!=3&&argc!=4) { fprintf(stderr,"usage: ppm_flair_calc_check dump.ppm s8_doc_window_active.png\n"); return 2; }
     f=fopen(argv[1],"rb");
     if(!f||fscanf(f,"P6 %d %d %d",&w,&h,&m)!=3||w!=640||h!=480||m!=255||
         fgetc(f)==EOF||fread(p,1,sizeof p,f)!=sizeof p) return 2;
@@ -43,6 +44,35 @@ int main(int argc,char **argv)
     im.format=PNG_FORMAT_RGB;
     if(im.width!=640||im.height!=480||!png_image_finish_read(&im,0,g,0,0)) return 2;
     png_image_free(&im);
+    if(argc==4) {
+        int dragged=!strcmp(argv[3],"drag");
+        int l=dragged?360:300, t=dragged?160:120;
+        /* Deliberate FILM re-key from the old blank WDEF bodies: tenant ink
+         * is required in the original M024/M025 patches. Calc's existing
+         * local layout is retained; no photo dimensions/palette are graded. */
+        for(int y=0;y<22;y++) bad+=check(px(p,l+42,t+y)==px(g,120,70+y),"film independent Platinum title profile");
+        bad+=check(ink(74,126,230,141)>40&&ink(74,150,230,165)>40&&ink(74,174,230,189)>40,"FILM_LEDGER three known labels");
+        bad+=check(px(p,80,120)!=0xFFFFFF&&px(p,80,144)==px(p,80,120)&&px(p,80,168)==px(p,80,120),"FILM_GRID existing Calc rules");
+        if(dragged) {
+            pie_cx=436; pie_cy=257;
+            bad+=check(ink(388,209,485,306)>300,"PIE_DRAW real tenant pie");
+            bad+=check(pie_transitions()==5,"PIE_FIVE five visible sectors");
+            for(int i=0;i<5;i++) bad+=check(ink(486,202+22*i,520,214+22*i)>8,"PIE_LABELS five percentage labels");
+            bad+=check(ink(270,230,299,244)>8,"FILM_MINUS trailing-minus specimen cell");
+            bad+=check(px(p,300,150)==0xFFFFFF,"FILM_DRAG restored old chart footprint");
+        } else {
+            bad+=check(ink(330,170,420,198)>10,"PIE_DRAW original M024 patch no longer blank");
+            /* Independent literal silhouette from ADR-0004 AM-4 canon;
+             * no renderer asset includes. The film photo only establishes
+             * presence. Cursor hotspot(8,8) -> origin(462,220). */
+            static const unsigned short hourglass[]={0xffff,0xffff,0x7ffe,0x3ffc,0x1ff8,0xff0,0x7e0,0x180,0x180,0x7e0,0xff0,0x1ff8,0x3ffc,0x7ffe,0xffff,0xffff};
+            for(int y=0;y<16;y++) for(int x=0;x<16;x++) if(hourglass[y]&(0x8000u>>x))
+                bad+=check(px(p,462+x,220+y)==0,"BUSY_HOURGLASS Saving selects canon cursor");
+        }
+        if(bad) return 1;
+        puts("film pixels PASS: independent Platinum chrome + Calc ledger/grid/pie + Saving cursor or chart drag");
+        return 0;
+    }
     for(int y=0;y<22;y++) bad+=check(px(p,442,100+y)==px(g,120,70+y),"independent Platinum title profile");
     for(int y=0;y<12;y++) for(int x=0;x<12;x++)
         bad+=check(px(p,404+x,104+y)==px(g,69+x,74+y),"independent close widget");

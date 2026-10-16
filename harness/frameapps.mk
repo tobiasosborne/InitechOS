@@ -47,8 +47,8 @@ endef
 $(foreach m,$(CALC_MUTANTS),$(eval $(call calc-mut-volume,$(m))))
 $(eval $(call calc-mut-volume,$(CALC_PIXEL_MUTANT)))
 CALC_TEXT_OK = grep -qx 'TENANT-REGISTER ok app=CALC' $(1) && \
-	grep -qx 'FLAIR-DISPATCH app=CALC' $(1) && \
-	grep -q 'ax=0x0030 win=1 .*s="Film Costs" fg=65537 bg=0 -> 0' $(1) && \
+	grep -qx 'FLAIR-DISPATCH app=CALC' $(1) && $(call CALC_DRAW_OK,$(1))
+CALC_DRAW_OK = grep -q 'ax=0x0030 win=1 .*s="Film Costs" fg=65537 bg=0 -> 0' $(1) && \
 	grep -q 'ax=0x0030 win=1 .*s="Matte Cutters" fg=65537 bg=0 -> 0' $(1) && \
 	grep -q 'ax=0x0030 win=1 .*s="Exacto Blades" fg=65537 bg=0 -> 0' $(1) && \
 	grep -qF 's="$$112,276.87" fg=65537 bg=0 -> 0' $(1) && \

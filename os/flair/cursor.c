@@ -30,16 +30,16 @@ enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 #define CURSOR_BLACK_IDX  0u
 #define CURSOR_WHITE_IDX  1u
 
-#define cursor_data (FLAIR_CURSOR_ARROW.data)
-#define cursor_mask (FLAIR_CURSOR_ARROW.mask)
+#define cursor_data (g_cursor_shape->data)
+#define cursor_mask (g_cursor_shape->mask)
 
 #if defined(CURSOR_MUT_HOTSPOT)
 /* Rule-6 knob: +3,+3 off the locked hotspot. */
-#define CURSOR_HOT_X ((int)FLAIR_CURSOR_ARROW.hot_col + 3)
-#define CURSOR_HOT_Y ((int)FLAIR_CURSOR_ARROW.hot_row + 3)
+#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col + 3)
+#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row + 3)
 #else
-#define CURSOR_HOT_X ((int)FLAIR_CURSOR_ARROW.hot_col)
-#define CURSOR_HOT_Y ((int)FLAIR_CURSOR_ARROW.hot_row)
+#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col)
+#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row)
 #endif
 
 typedef struct flair_cursor_state {
@@ -56,6 +56,7 @@ typedef struct flair_cursor_state {
 } flair_cursor_state_t;
 
 static flair_cursor_state_t g_cursor;
+static const FLAIRCursor *g_cursor_shape = &FLAIR_CURSOR_ARROW;
 
 static uint32_t cursor_color(int white)
 {
@@ -135,6 +136,7 @@ void flair_cursor_init(void *fb, uint32_t pitch,
 {
     uint32_t bytes = bpp / 8u;
 
+    g_cursor_shape = &FLAIR_CURSOR_ARROW;
     g_cursor.surface.base = (volatile uint8_t *)fb;
     g_cursor.surface.pitch = pitch;
     g_cursor.surface.bpp = bpp;
@@ -202,4 +204,17 @@ void flair_cursor_unshield(void)
     if (g_cursor.shield_depth == 0u) return;
     g_cursor.shield_depth--;
     if (g_cursor.shield_depth == 0u) cursor_draw();
+}
+
+/* PRD Appendix A: hourglass, never the Mac wristwatch. Same CURS compositor. */
+void flair_cursor_set_busy(int busy)
+{
+#ifdef CURSOR_MUT_BUSY_ARROW
+    busy = 0;
+#endif
+    const FLAIRCursor *shape = busy ? &FLAIR_CURSOR_BUSY : &FLAIR_CURSOR_ARROW;
+    if (shape == g_cursor_shape) return;
+    cursor_erase();
+    g_cursor_shape = shape;
+    cursor_draw();
 }
