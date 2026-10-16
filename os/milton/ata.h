@@ -73,6 +73,10 @@ int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf);
  * initech-509.11). Ref: ATA/ATAPI-6 WRITE SECTORS + FLUSH CACHE. */
 int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf);
 
+/* DEC-17. ATA/ATAPI-6 IDENTIFY DEVICE words60..61 and control-register SRST. */
+int ata_identify(ata_ctx_t *ctx, uint32_t *sectors);
+int ata_reset(void *ctx);
+
 /*
  * Initialise `dev` as a blockdev_t wrapping the ATA PIO read on the channel +
  * drive described by `ctx`. Both `dev` and `ctx` are caller-owned (kernel BSS);
