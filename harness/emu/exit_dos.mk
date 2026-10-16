@@ -87,7 +87,8 @@ $(BUILD)/kernel_flairtenants_mut_cwdreset.elf: $(filter-out $(KERNEL_LOADER_OBJ)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_cwdreset.bin: $(BUILD)/kernel_flairtenants_mut_cwdreset.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
-	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); [ "$$sz" -le "$$max" ] || { printf '!!! %s (%s B) exceeds the KERNEL_SECTORS window\n' "$@" "$$sz"; exit 1; }
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); [ "$$sz" -le "$$max" ] || { printf '!!! %s (%s B) exceeds the KERNEL_SECTORS window\n' "$@" "$$sz"; exit 1; }; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-cwdreset)
 $(eval $(call exitdos-transient-rules,cwdreset,$(BUILD)/kernel_flairtenants_mut_cwdreset.elf))
 EXITDOS_MUT_CWDRESET_IMG := $(BUILD)/flair_exitdos_mut_cwdreset.img
