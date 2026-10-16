@@ -75,23 +75,23 @@ $(EXITDOS_MUT_NOTRANSIENT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_B
 # The clip image: the DOUBLE-CLICK record kernel (the trace opens the volume)
 # with a transient linked against IT.
 $(eval $(call exitdos-transient-rules,recorddbl,$(BUILD)/kernel_flairtenants_recorddbl.elf))
-$(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BUILD)/transient_recorddbl.bin | $(BUILD)
+$(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BUILD)/transient_recorddbl.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_recorddbl.bin,$(BUILD)/transient_recorddbl.bin)
 	@printf ">>> flair-tenants DOUBLE-CLICK RECORD image + transient COMMAND.COM: %s\n" "$@"
 
 # CWDRESET: the flagship objects with loader.o built -DLOADER_MUT_CWD_RESET
 # (the pre-3p1a reset-to-root at every launch), + its own transient.
 $(BUILD)/loader_mut_cwdreset.o: $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h spec/memory_map.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DLOADER_MUT_CWD_RESET -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
-$(BUILD)/kernel_flairtenants_mut_cwdreset.elf: $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUT_CWD_RESET -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+$(BUILD)/kernel_flairtenants_mut_cwdreset.elf: $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/loader_mut_cwdreset.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_cwdreset.bin: $(BUILD)/kernel_flairtenants_mut_cwdreset.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); [ "$$sz" -le "$$max" ] || { printf '!!! %s (%s B) exceeds the KERNEL_SECTORS window\n' "$@" "$$sz"; exit 1; }
 	$(call kernel-end-guard,$<,flairtenants-mut-cwdreset)
 $(eval $(call exitdos-transient-rules,cwdreset,$(BUILD)/kernel_flairtenants_mut_cwdreset.elf))
 EXITDOS_MUT_CWDRESET_IMG := $(BUILD)/flair_exitdos_mut_cwdreset.img
-$(EXITDOS_MUT_CWDRESET_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_cwdreset.bin $(BUILD)/transient_cwdreset.bin | $(BUILD)
+$(EXITDOS_MUT_CWDRESET_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_cwdreset.bin $(BUILD)/transient_cwdreset.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_cwdreset.bin,$(BUILD)/transient_cwdreset.bin)
 	@printf ">>> exit-to-DOS MUTANT image (-DLOADER_MUT_CWD_RESET): %s\n" "$@"
 
