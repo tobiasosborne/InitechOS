@@ -254,8 +254,25 @@ void kbd_irq_handler(void)
      * full state and re-arms IRQ1). */
     uint8_t sc = inb(KBD_DATA_PORT);
 
+    /* EDLIN template keys (MS-DOS 3.3 User's Guide pp.164-169).
+     * AH=07h reads DOS's two-byte 00,scan convention. Capture E0 state
+     * before kbd_translate consumes it. Publish both bytes together so a
+     * nearly-full ring cannot leave a dangling extended-key prefix.
+     * IBM DOS 3.30 Technical Reference pp.6-11--6-12 (PDF pp.134-135).
+     */
+    int special = !(sc & SC_BREAK_FLAG) &&
+        ((!g_kbd_state.e0 && sc >= 0x3Bu && sc <= 0x3Fu) ||
+         (sc == 0x52u || sc == 0x53u || sc == 0x4Bu));
     uint8_t ascii = kbd_translate(&g_kbd_state, sc);
-    if (ascii != 0u) {
+    if (special) {
+        uint16_t next = (uint16_t)((g_kbd.head + 1u) & (KBD_RING_CAP - 1u));
+        uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
+        if (next != g_kbd.tail && end != g_kbd.tail) {
+            g_kbd.buf[g_kbd.head] = 0;
+            g_kbd.buf[next] = sc;
+            g_kbd.head = end;
+        }
+    } else if (ascii != 0u) {
         (void)kbd_ring_put(&g_kbd, ascii);   /* full -> dropped (fail safe) */
     }
 

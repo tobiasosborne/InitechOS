@@ -858,6 +858,7 @@ MORE_PROG_ASM    := $(KERNEL_DIR)/more_program.asm
 MORE_PROG_BIN    := $(BUILD)/more_program.bin
 MORE_PROG_MUT_BIN := $(BUILD)/more_program_mut.bin
 CHKDSK_PROG_BIN  := $(BUILD)/chkdsk_program.bin
+EDLIN_PROG_BIN   := $(BUILD)/edlin_program.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -10155,7 +10156,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 FLAIR_DATA_RECIPE_IMAGES :=
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(EDLIN_PROG_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10172,7 +10173,8 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 		$(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CHKDSK_PROG_BIN) ::APPS/CHKDSK.COM
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(EDLIN_PROG_BIN) ::APPS/EDLIN.COM
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, EDLIN.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
@@ -31012,3 +31014,6 @@ test-flair-menubar-clock-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_clock
 	@grep -qx 'FLAIR-CLOCK 12:55 am' $(BUILD)/menubar_clock_stuck.serial
 	@printf '>>> test-flair-menubar-clock-mutant: green (wrong-hour and stale-minute regressions rejected)\n'
 TEST_EMU_GATES += test-flair-menubar-clock test-flair-menubar-clock-mutant
+
+# EDLIN (initech-udr1; DEBUG is a separate lane).
+include harness/edlin/edlin.mk

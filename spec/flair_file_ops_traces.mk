@@ -196,7 +196,11 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # the new click point.
 # initech-kd4a: CHKDSK.COM moves stranded TRASH to cell 6 (row 2, col 2).
 # Click +88,+72 from APPS; reduce the subsequent horizontal park by 68.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m100:84,m100:0,m4:0,m68:68,m68:68,m69:66
+# DELIBERATE RE-KEY initech-udr1: EDLIN.COM is appended after CHKDSK.COM.
+# mdir on the identically minted damaged volume places stranded TRASH at
+# cell 7 (row 2, col 3). Click +156,+72; park +136,+84 instead of +204,+84,
+# preserving the absolute final cursor position and the TRASH-open assertion.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m100:72,m56:0,l1,l0,l1,l0,m100:84,m36:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the
