@@ -45,6 +45,7 @@ $(COMMAND_FILE_IMG)/magic.img: $(FLAIRTENANTS_IMG)
 	@printf X | dd of=$(COMMAND_FILE_IMG)/magic.bin bs=1 conv=notrunc status=none
 	@touch -d '@315532800' $(COMMAND_FILE_IMG)/magic.bin
 	TZ=UTC mcopy -o -m -i $@@@32256 $(COMMAND_FILE_IMG)/magic.bin ::COMMAND.COM
+	@$(call fixture-check,recipe,$@)
 
 test-command-file-emu: $(HARNESS_BIN) $(BUILD)/command_file $(COMMAND_FILE_IMG)/fragment.img $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	@sh $(COMMAND_FILE_DIR)/command_file.sh $(COMMAND_FILE_IMG)/fragment.img $(BUILD)/transient_flairtenants.bin $(BUILD) fragmented
