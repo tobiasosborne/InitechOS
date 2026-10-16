@@ -21507,6 +21507,8 @@ test-flair-restart-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenan
 	@out=$$( ( $(call rs-check,$(BUILD)/flair_restart_mut_nopulse.serial,FINDER-CMD id=12 name=RESTART src=mouse sel=0,Special > Restart) ) ); rc=$$?; \
 	$(call pw-mut-verdict,NO_PULSE,$$out,$$rc,PANIC kernel_reset: the 8042 pulse did not reset,test-flair-restart-mutant)
 
+include harness/emu/power_cancel.mk
+
 # ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
 # WL-0075 -- THE FLAIR live-desktop SOLIDITY oracle: the one repaint contract
