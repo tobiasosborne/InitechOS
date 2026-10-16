@@ -47,11 +47,8 @@ $(BUILD)/kernel_chkdsk_cache.bin: $(BUILD)/kernel_chkdsk_cache.elf
 	$(OBJCOPY) -O binary $< $@
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$((max-sz))" conv=notrunc status=none
-$(BUILD)/chkdsk_cache_boot.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_chkdsk_cache.bin
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_chkdsk_cache.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/chkdsk_cache_boot.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_chkdsk_cache.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_chkdsk_cache.bin $(BOOT_SYSTEM_TOOL)
 
 .PHONY: test-chkdsk test-chkdsk-mutant test-chkdsk-emu test-chkdsk-emu-mutant
 test-chkdsk: $(CHKDSK_HOST) $(CHKDSK_FIXTURE)

@@ -17,11 +17,8 @@ $(BUILD)/kernel_startup_mut.bin: $(BUILD)/kernel_startup_mut.elf
 	$(OBJCOPY) -O binary $< $@
 	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))
 	@truncate -s $$(( $(KERNEL_SECTORS) * 512 )) $@
-$(BUILD)/tracer_startup_mut.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_startup_mut.bin
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_startup_mut.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/tracer_startup_mut.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_startup_mut.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_startup_mut.bin $(BOOT_SYSTEM_TOOL)
 
 $(BUILD)/fileio_stamp_mut.o: $(KERNEL_DIR)/fileio_fat.c $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/int21.h
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FILEIO_FAT_OPT) -DFILEIO_MUTATE_NO_STAMP -Ispec -I$(KERNEL_DIR) -c $< -o $@

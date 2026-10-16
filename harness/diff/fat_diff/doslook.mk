@@ -78,12 +78,10 @@ $(BUILD)/kernel_doslook_mut_$(1).elf: $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECO
 	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/doslook_$(1).o
 $(BUILD)/kernel_doslook_mut_$(1).bin: $(BUILD)/kernel_doslook_mut_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
-	@sz=$$$$(wc -c < $$@); test "$$$$sz" -le $$$$(( $(KERNEL_SECTORS)*512 ))
-$(BUILD)/doslook_mut_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_doslook_mut_$(1).bin
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_doslook_mut_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+	@set -eu; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS)*512 )); test "$$$$sz" -le "$$$$max"; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
+$(BUILD)/doslook_mut_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_doslook_mut_$(1).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_doslook_mut_$(1).bin $(BOOT_SYSTEM_TOOL)
 endef
 $(eval $(call doslook-emu-mutant,volume,command,CMD_MUTATE_DIR_NO_VOLUME))
 $(eval $(call doslook-emu-mutant,date,command,CMD_MUTATE_DIR_NO_DATE))

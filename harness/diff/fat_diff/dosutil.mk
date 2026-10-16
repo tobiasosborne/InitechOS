@@ -49,11 +49,8 @@ $(BUILD)/dosutil_cache.bin: $(BUILD)/dosutil_cache.elf
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$((max-sz))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,dosutil-cache-mutant)
-$(BUILD)/dosutil_cache.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/dosutil_cache.bin
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/dosutil_cache.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/dosutil_cache.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/dosutil_cache.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/dosutil_cache.bin $(BOOT_SYSTEM_TOOL)
 
 .PHONY: test-attrib test-attrib-mutant test-label-vol test-label-vol-mutant test-dosutil-emu test-dosutil-emu-mutant
 test-attrib: $(DOSUTIL_HOST)

@@ -47,11 +47,8 @@ $(BUILD)/kernel_shell_j1lu_$(1).bin: $(BUILD)/kernel_shell_j1lu_$(1).elf
 	printf '>>> j1lu headroom ($(1)): loaded %s B, headroom %s B\n' "$$$$sz" "$$$$(( max - sz ))"; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
 	$$(call kernel-end-guard,$$<,j1lu-$(1))
-$(BUILD)/j1lu_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_j1lu_$(1).bin
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_shell_j1lu_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/j1lu_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_j1lu_$(1).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_shell_j1lu_$(1).bin $(BOOT_SYSTEM_TOOL)
 endef
 $(eval $(call j1lu-emu-variant,ctrl,$(KERNEL_KBD_OBJ),$(BUILD)/kbd_j1lu_ctrl.o))
 $(eval $(call j1lu-emu-variant,restore,$(KERNEL_COMMAND_OBJ),$(BUILD)/command_j1lu_restore.o))
