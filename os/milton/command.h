@@ -60,6 +60,7 @@ typedef enum cmd_kind {
     CMD_REN,         /* REN/RENAME <old> <new> -- rename in place (56h)          */
     CMD_DATE,        /* DATE [MM-DD-YY[YY]] -- show/set the system date (2Ah/2Bh) */
     CMD_TIME,        /* TIME [HH:MM[:SS]] -- show/set the system time (2Ch/2Dh)   */
+    CMD_VOL,         /* VOL [drive:] -- DOS 3.3 volume identity                 */
     CMD_EXTERNAL     /* not a built-in -- try to EXEC <word>.COM                 */
 } cmd_kind_t;
 

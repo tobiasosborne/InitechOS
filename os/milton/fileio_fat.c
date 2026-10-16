@@ -606,8 +606,20 @@ int fileio_fat_volume_label(char out[12])
     out[0]=0;
     int rc = fat12_read_root_dir(g_vol,g_sector,dir_label_visit,out);
     if (rc < 0) return rc;
-    if (!rc && g_vol->bpb.boot_sig == 0x29u) {
-        for (int i=0; i<11; i++) out[i]=(char)g_vol->bpb.volume_label[i];
+    /* LABEL is an external absolute-sector writer (DEC-15). The mounted BPB
+     * snapshot predates its writes; read the current disk before falling back.
+     * Root entry remains authoritative, exactly as DIR already required. */
+    if (!rc) {
+#ifdef DU_MUTATE_LABEL_CACHE
+        g_sector[38]=g_vol->bpb.boot_sig;
+        for (int i=0;i<11;i++) g_sector[43+i]=g_vol->bpb.volume_label[i];
+#else
+        if (g_vol->dev->read_sectors(g_vol->dev->ctx,0u,1u,g_sector)<0)
+            return FAT12_ERR_READ;
+#endif
+    }
+    if (!rc && g_sector[38] == 0x29u) {
+        for (int i=0; i<11; i++) out[i]=(char)g_sector[43+i];
         out[11]=0;
         /* mformat's unlabelled extended BPB sentinel is not a volume name. */
         const char *none = "NO NAME    ";
