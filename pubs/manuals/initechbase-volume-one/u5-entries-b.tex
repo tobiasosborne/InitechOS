@@ -448,8 +448,11 @@ evaluates each expression and stores its value in the field before
 changed records are written to the disk at once.
 
 The value must be of the type of the field: a character value into a
-character or memo field, a number into a numeric field, a date into a date
-field, a logical value into a logical field.  Any other combination is
+character field, a number into a numeric field, a date into a date field, a
+logical value into a logical field.
+\draft{a character value replaced into a memo field is not stored by this
+version, and the text the field held is lost (mutate.c); change memo text with
+another program}  Any other combination is
 refused with \xmsg{9}{Data type mismatch.} (Appendix~E).  A character value
 longer than the field is cut off at the width of the field; a shorter one is
 filled with blanks.  A number too large for its field is stored as asterisks.
