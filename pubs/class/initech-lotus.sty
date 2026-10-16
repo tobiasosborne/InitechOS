@@ -1,0 +1,392 @@
+%% initech-lotus.sty -- F-LOT furniture and the Initech 123 registration
+%% macros for initech-manual.cls (option lotus).  Bead initech-ipu5.9.
+%% Binding source: PUB-REF-0001 (docs/pubs/DESIGN-REFERENCE.md) PG-14,
+%% PG-24, PG-29, PG-35, TY-03/04/12/15/16, NT-12/14/21/22/23/24/31, AN-08,
+%% AN-09, AN-10, AN-17, AN-23, AN-24, AN-25 (rating grid); the structural
+%% annex docs/pubs/originals/lotus-123-r22.md Sec 2-10.  Loaded by the
+%% Initech 123 books after the class (\usepackage{initech-lotus}); the
+%% class itself is not changed, so the other families are untouched.
+%%
+%% REGISTRATION (GC-01).  Every documented Initech 123 item goes through the
+%% ONE mechanism of initech-syntax.sty, \RegisterCommand{NAME}{KIND}{STATE}
+%% {ENTRY}, into <job>.cmds, with three new KINDs graded by harness/pubs/
+%% i123_gate.c against the inventory harness/pubs/i123_face.c obtains from
+%% the shipped application:
+%%   menu      a slash path as the control panel spells it ("/Range Format
+%%             Currency"): MenuEntry / SubEntry register their own path,
+%%             each \Option row registers <entry path> <option word>;
+%%   function  an @function ("@ROUND"): AtFunction;
+%%   key       a key ("F9", "HOME", "SLASH"): \KeyRow in a key table.
+%% STATE is GATED, or DRAFT when the optional argument gives the reason the
+%% build lacks the behaviour (D-14); the gate requires a menu path to be
+%% DRAFT exactly when the shipped application refuses it.
+%% Inline mentions (\slashcmd, \fn, \fkey) are written to <job>.mentions as
+%% NAME|KIND lines and must name shipped items.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-lotus}[1992/06/01 Initech 123 manual furniture]
+\RequirePackage{tikz}
+\usetikzlibrary{positioning,fit,backgrounds}
+\RequirePackage{array}
+\RequirePackage{longtable}
+
+%% F-LOT is single column (PG-05 table: side column not used): the "full
+%% block" of the class's verso, forms and screens is the 132 mm measure.
+\setlength\imFullWidth{132mm}
+\contentsmargin{6em}
+
+%% ---- heads (TY-03, TY-04; annex Sec 3) ---------------------------------
+%% A-head: Heros Bold 14/16 with a 2 pt rule beneath to the right margin.
+\titleformat{\section}[block]{\sffamily\bfseries\fontsize{14}{16}\selectfont\RaggedRight}
+  {}{0pt}{#1}[{\vspace{1pt}\titlerule[2pt]}]
+\titlespacing*{\section}{0pt}{18pt plus 4pt minus 2pt}{6pt}
+%% B-head: Heros Bold 11/13, no rule.
+\titleformat{\subsection}[block]{\sffamily\bfseries\fontsize{11}{13}\selectfont\RaggedRight}
+  {}{0pt}{#1}
+\titlespacing*{\subsection}{0pt}{10pt plus 3pt minus 2pt}{3pt}
+\titleformat{\subsubsection}[block]{\sffamily\bfseries\fontsize{10}{12}\selectfont\RaggedRight}
+  {}{0pt}{#1}
+\titlespacing*{\subsubsection}{0pt}{8pt plus 2pt}{2pt}
+\setcounter{secnumdepth}{0}
+%% The recto running foot names the A-head in force (PG-14).
+\renewcommand\sectionmark[1]{\markright{#1}}
+%% Small label heads ("Tip", "Example"): body bold, own line (annex Sec 3).
+\newcommand\LabelHead[1]{\par\addvspace{4pt}{\noindent\bfseries #1\par}\nobreak\@afterheading}
+\newcommand\BHead[1]{\subsection*{#1}}
+
+%% ---- contents (PG-35 F-LOT) ------------------------------------------------
+%% Chapter lines Heros Bold with leaders and bold folio; A-heads body bold.
+\titlecontents{chapter}[0pt]
+  {\addvspace{8pt}\sffamily\bfseries}
+  {\im@tocname~\thecontentslabel\quad}
+  {}
+  {\titlerule*[0.75em]{.}\contentspage}
+\titlecontents{section}[1.5em]
+  {\normalsize\bfseries}
+  {}{}
+  {\mdseries\titlerule*[0.75em]{.}\bfseries\contentspage}
+\titlecontents{lotpart}[0pt]
+  {\addvspace{14pt}\sffamily\bfseries\fontsize{12}{14}\selectfont}
+  {}{}{\hfill}
+\setcounter{tocdepth}{1}
+
+%% ---- parts with half-titles (CP-15; annex Sec 1, 4, 8) -------------------
+%% \LotusPart{SU}{Setting Up Initech 123}{one-line description}: a recto
+%% half-title; chapters restart at 1; the part code prefixes the Master
+%% Index lines of everything indexed in the part (AN-24 F-LOT).
+\newcommand\im@partcode{}
+\newcommand\im@partsort{}
+\newcommand\LotusPart[4]{% code, sort digit, title, line
+  \im@closeentry\cleardoublepage
+  \gdef\im@partcode{#1}\gdef\im@partsort{#2}%
+  \setcounter{chapter}{0}%
+  \gdef\thepage{\roman{page}}\thispagestyle{empty}%
+  \addtocontents{toc}{\protect\contentsline{lotpart}{#3}{}{}}%
+  \null\vspace{40mm}%
+  {\noindent\sffamily\bfseries\fontsize{24}{28}\selectfont #3\par}
+  \vspace{4mm}\noindent\rule{\linewidth}{2pt}\par\vspace{4mm}
+  {\noindent\itshape #4\par}
+  \FootTitle{#3}\markright{#3}%
+  \newpage\thispagestyle{empty}\null\newpage}
+%% \ix{entry} indexes the entry; inside a part, one line per part, headed by
+%% the bold part code (makeindex sub-level sorted by the part digit).
+\newcommand\ix[1]{\ifx\im@partcode\@empty\index{#1}\else
+  \index{#1!\im@partsort@\textbf{\im@partcode}}\fi}
+
+%% ---- the index: three columns, Heros Bold 14 letters (AN-24, TY-15) -------
+\renewenvironment{theindex}
+  {\im@closeentry\cleardoublepage
+   \ifim@continuous\else\im@setfolio{Index-}\setcounter{page}{1}\fi
+   \FootTitle{\im@indextitle}\markright{\im@indextitle}\im@notab
+   \im@origchapter*{\im@indextitle}\thispagestyle{plain}%
+   \addcontentsline{toc}{chapter}{\im@indextitle}%
+   \im@indexkey
+   \begin{multicols}{3}\@setfontsize\im@x{8.5}{10}%
+   \setlength\parskip{0pt}\setlength\parindent{0pt}%
+   \RaggedRight\setlength\columnsep{4mm}%
+   \let\item\im@idxitem}
+  {\end{multicols}}
+\newcommand\im@indextitle{Index}
+\newcommand\im@indexkey{}
+\newcommand\MasterIndex[1]{\gdef\im@indextitle{Master Index}\gdef\im@indexkey{#1}}
+\renewcommand\IndexLetter[1]{\par\addvspace{4pt}{\sffamily\bfseries\fontsize{14}{16}\selectfont #1\par}\nopagebreak}
+
+%% ---- registration (GC-01) ------------------------------------------------
+\newcommand\im@lotstate{GATED}
+\newcommand\im@lotdraft[1]{\ifx\relax#1\relax\gdef\im@lotstate{GATED}\else\gdef\im@lotstate{DRAFT}\fi}
+\newcommand\im@entrypath{}
+%% \MenuEntry[draft reason]{/Range Format}: an AN-09 command entry (A-head
+%% with the 2 pt rule).  \SubEntry: the smaller sub-command head (Heros Bold
+%% 11) for /Data Matrix Invert under /Data Matrix.
+\NewDocumentCommand\MenuEntry{o m}{%
+  \IfValueTF{#1}{\gdef\im@lotstate{DRAFT}}{\gdef\im@lotstate{GATED}}%
+  \gdef\im@entrypath{#2}%
+  \RegisterCommand{#2}{menu}{\im@lotstate}{#2}%
+  \section{#2}\index{#2@\texttt{#2}}%
+  \IfValueT{#1}{\noindent\draft{#1}\par}}
+\NewDocumentCommand\SubEntry{o m}{%
+  \IfValueTF{#1}{\gdef\im@lotstate{DRAFT}}{\gdef\im@lotstate{GATED}}%
+  \gdef\im@entrypath{#2}%
+  \RegisterCommand{#2}{menu}{\im@lotstate}{#2}%
+  \par\addvspace{10pt}{\noindent\sffamily\bfseries\fontsize{11}{13}\selectfont #2\par}\nobreak
+  \index{#2@\texttt{#2}}\@afterheading
+  \IfValueT{#1}{\noindent\draft{#1}\par}}
+%% Option tables: two columns between hairlines, the menu word bold at the
+%% left (annex Sec 7.2).  Each row documents (and registers) one menu path.
+\newenvironment{Options}
+  {\par\addvspace{4pt}\noindent\rule{\linewidth}{0.4pt}\par\nobreak\vspace{-2pt}%
+   \begin{list}{}{\leftmargin=30mm\labelwidth=28mm\labelsep=2mm\itemsep=2pt\parsep=0pt\topsep=2pt}}
+  {\end{list}\vspace{-4pt}\noindent\rule{\linewidth}{0.4pt}\par\addvspace{4pt}}
+\NewDocumentCommand\Option{o m}{%
+  \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
+  \RegisterCommand{\im@entrypath\space#2}{menu}{\im@ostate}{\im@entrypath}%
+  \item[\normalfont\bfseries #2\hfill]\IfValueT{#1}{\draft{#1}}}
+%% A path registered where it is described in running text (a menu whose
+%% only documentation is a sentence, e.g. a Quit item).
+\NewDocumentCommand\Registers{o m}{%
+  \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
+  \RegisterCommand{#2}{menu}{\im@ostate}{\im@entrypath}}
+
+%% AN-10: \AtFunction[draft]{@ROUND} -- head Heros Bold 12, no rule; the
+%% lead (syntax as a sentence) follows in the body.
+\NewDocumentCommand\AtFunction{o m}{%
+  \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
+  \RegisterCommand{#2}{function}{\im@ostate}{#2}%
+  \par\addvspace{12pt}\goodbreak
+  {\noindent\sffamily\bfseries\fontsize{12}{14}\selectfont #2\par}\nobreak
+  \markright{#2}\index{#2@\texttt{#2}}\@afterheading
+  \IfValueT{#1}{\noindent\draft{#1}\par}}
+\newcommand\Arg[1]{\textit{#1}\/}
+\newcommand\Examples{\LabelHead{Examples}}
+
+%% Key tables: \KeyRow[draft]{F9}{CALC}{what it does}; NAME is the probe's
+%% key name (i123_face.c KEYS), the printed cap is NT-10 small capitals.
+\newenvironment{KeyTable}[2]
+  {\par\addvspace{4pt}\noindent{\sffamily\fontsize{8}{10}\selectfont
+   \begin{tabular}{@{}p{24mm}p{24mm}@{}}\textbf{#1}&\textbf{#2}\end{tabular}}\par
+   \nobreak\vspace{-3pt}\noindent\rule{\linewidth}{0.5pt}\par\nobreak
+   \begin{list}{}{\leftmargin=50mm\labelwidth=48mm\labelsep=2mm\itemsep=1pt\parsep=0pt\topsep=2pt}}
+  {\end{list}\vspace{-3pt}\noindent\rule{\linewidth}{0.25pt}\par\addvspace{4pt}}
+\NewDocumentCommand\KeyRow{o m m m}{%
+  \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
+  \RegisterCommand{#2}{key}{\im@ostate}{#2}%
+  \item[\makebox[24mm][l]{#3}\makebox[24mm][l]{\im@keycap{#2}}\hfill]#4\IfValueT{#1}{ \draft{#1}}}
+\newcommand\im@keycap[1]{\ifcsname im@cap@#1\endcsname\csname im@cap@#1\endcsname\else\key{#1}\fi}
+\expandafter\def\csname im@cap@SLASH\endcsname{\texttt{/}}
+\expandafter\def\csname im@cap@LESS-THAN\endcsname{\texttt{<}}
+\expandafter\def\csname im@cap@UP\endcsname{\key{Up}}
+\expandafter\def\csname im@cap@DOWN\endcsname{\key{Down}}
+\expandafter\def\csname im@cap@LEFT\endcsname{\key{Left}}
+\expandafter\def\csname im@cap@RIGHT\endcsname{\key{Right}}
+\expandafter\def\csname im@cap@CTRL-BREAK\endcsname{\key{Ctrl-Break}}
+\expandafter\def\csname im@cap@BACKSPACE\endcsname{\key{Backspace}}
+
+%% The DRAFT box as the Conventions list shows it (not a marker: it counts
+%% nothing and marks no chapter).
+\newcommand\DraftSample{\mbox{\fboxsep=1pt\colorbox{black}{\textcolor{white}{\im@condensed\bfseries
+  \fontsize{7}{8}\selectfont DRAFT}}}}
+%% A mode or status indicator as the control panel shows it.
+\newcommand\ind[1]{\mbox{\textsf{#1}}}
+
+%% ---- inline mentions --------------------------------------------------
+%% A command path breaks only between its menu words (PG-09).
+\def\im@mboxwords#1 #2\@nil{\mbox{#1}\ifx\relax#2\relax\else\ \im@mboxwords#2\@nil\fi}
+\newcommand\slashcmd[1]{\immediate\write\im@mentions{#1|menu}{\bfseries\im@mboxwords#1 \@nil}}
+\newcommand\fn[1]{\immediate\write\im@mentions{#1|function}\mbox{\texttt{#1}}}
+%% NT-12: a named function key, NAME (KEY), in small capitals.
+\newcommand\fkey[2]{\immediate\write\im@mentions{#2|key}\mbox{\key{#1} (\key{#2})}}
+\newcommand\kname[1]{\immediate\write\im@mentions{#1|key}\im@keycap{#1}}
+
+%% ---- keystroke tables (AN-17) ---------------------------------------------
+%% \begin{Keystrokes} \Do{Type}{\type{123}}{to enter the number} ... \end
+%% The verb column is 18 mm, body bold; the gloss italic.
+\newenvironment{Keystrokes}
+  {\par\addvspace{4pt}\begin{list}{}{\leftmargin=20mm\labelwidth=18mm\labelsep=2mm
+     \itemsep=2pt\parsep=0pt\topsep=2pt}}
+  {\end{list}\par\addvspace{4pt}}
+\newcommand\Do[3]{\item[\bfseries #1\hfill]#2\ifx\relax#3\relax\else\enspace{\itshape #3}\fi}
+\newenvironment{Steps123}{\begin{enumerate}[label={\bfseries\arabic*.},leftmargin=1.5em,itemsep=2pt,parsep=2pt,topsep=3pt]}{\end{enumerate}}
+
+%% ---- tables (TY-11) -------------------------------------------------------
+\newenvironment{LotTable}[1]
+  {\par\addvspace{4pt}\noindent\sffamily\fontsize{8}{10}\selectfont
+   \setlength\tabcolsep{2mm}\setlength\LTpre{0pt}\setlength\LTpost{0pt}%
+   \begin{longtable}{@{}#1@{}}}
+  {\end{longtable}\par\addvspace{2pt}}
+\newcommand\LotHead[1]{#1\\\noalign{\global\arrayrulewidth=0.5pt}\hline\noalign{\vspace{1pt}}\endhead}
+\newcommand\LotEnd{\\\noalign{\global\arrayrulewidth=0.25pt}\hline\noalign{\global\arrayrulewidth=0.4pt}}
+
+%% ---- FLAIR screen figures (NT-20..24, GC-04) --------------------------------
+%% \FlairShot[label]{name}{caption}: screens/name.png, captured from the
+%% running system by pubs/screens/flair_capture.sh (screens/FLAIR names the
+%% crop and scale; screens/name.k123 the keystrokes) and re-proved by
+%% test-pubs-screens.  F-LOT framing: a 10% black panel with 2 mm rounded
+%% corners; caption flush left under, "Figure 3-1" bold (TY-12).  The image
+%% is placed at its own 600 dpi resolution: one screen pixel is `scale`
+%% device pixels, never resampled (NT-21).
+\newcounter{im@shotfig}
+\NewDocumentCommand\FlairShot{o m m}{%
+  \immediate\write\im@screens{screens/#2.png}%
+  \par\addvspace{6pt}\noindent
+  \begin{minipage}{\linewidth}
+    \begin{tikzpicture}
+      \node[inner sep=2.5mm, rounded corners=2mm, fill=black!10] {\includegraphics{screens/#2.png}};
+    \end{tikzpicture}\par\vspace{3pt}
+    \refstepcounter{figure}\IfValueT{#1}{\label{#1}}%
+    {\imCaptionFont\textbf{Figure~\thefigure}\quad #3\par}
+  \end{minipage}\par\addvspace{6pt}}
+
+%% ---- printed examples replayed (GC-03) -------------------------------------
+%% \LotExample{examples/round}: prints examples/round.txt (the formula =
+%% result lines) and registers examples/round.i23 for replay through the
+%% shipped application (harness/pubs/i123_face.c replay, test-pubs-i123-
+%% examples), byte for byte.
+\newwrite\im@ixreplays
+\AtBeginDocument{\immediate\openout\im@ixreplays=\jobname.i123ex}
+\AtEndDocument{\immediate\closeout\im@ixreplays}
+\newcommand\LotExample[1]{\immediate\write\im@ixreplays{#1}%
+  \VerbatimInput[fontsize=\fontsize{9}{12}\selectfont,xleftmargin=4mm,formatcom=\ttfamily]{#1.txt}}
+
+%% ---- back matter (PG-14 folios Glossary-1, Index-1; PG-29; AN-23; AN-25) ----
+%% \BackChapter{Glossary}: an unnumbered recto chapter whose folios are
+%% "Glossary-1" (annex Sec 2.1).
+\newcommand\BackChapter[1]{\im@closeentry\cleardoublepage
+  \im@setfolio{#1-}\im@folioform\setcounter{page}{1}%
+  \FootTitle{#1}\markright{#1}\im@notab
+  \im@origchapter*{#1}\thispagestyle{plain}\addcontentsline{toc}{chapter}{#1}}
+%% AN-23 F-LOT glossary entry: the term Heros Bold lower case on its own
+%% line, the definition below.
+\newcommand\GlossTerm[2]{\par\addvspace{6pt}{\noindent\sffamily\bfseries #1\par}\nobreak
+  \noindent #2\par}
+%% PG-29 F-LOT: "NOTES:" centred Heros Bold caps at the head of an otherwise
+%% blank leaf.
+\newcommand\im@notesleaf{\thispagestyle{empty}\null\vspace*{-\topskip}%
+  {\centering\sffamily\bfseries\fontsize{11}{13}\selectfont NOTES:\par}\newpage}
+%% AN-25 Lotus rating grid (one leaf): mail-to block, check-line questions,
+%% a grid of every piece of the set against Excellent ... Didn't use, free
+%% text, a dashed cut line along the binding edge; the back is the Business
+%% Reply mailer.  \RatingPieces{Piece one\\Piece two...} names the rows.
+\newcommand\im@pieces{}
+\newcommand\RatingPieces[1]{\gdef\im@pieces{#1}}
+\newcommand\im@rbox{\framebox[3mm]{\rule{0pt}{2mm}}}
+\newcommand\im@grid{\begingroup\def\\{\im@gridrow}\im@gridhead\im@pieces\im@gridrow\endgroup}
+\newcommand\im@gridhead{\noindent\makebox[52mm][l]{}\makebox[13mm]{\tiny Excellent}\makebox[13mm]{\tiny Very good}%
+  \makebox[13mm]{\tiny Good}\makebox[13mm]{\tiny Fair}\makebox[13mm]{\tiny Poor}\makebox[13mm]{\tiny Didn't use}\par\nobreak
+  \noindent\rule{\linewidth}{0.4pt}\par\def\im@cell{}}
+\def\im@gridrow{\par}
+\newcommand\GridRow[1]{\noindent\makebox[52mm][l]{\small #1}\makebox[13mm]{\im@rbox}\makebox[13mm]{\im@rbox}%
+  \makebox[13mm]{\im@rbox}\makebox[13mm]{\im@rbox}\makebox[13mm]{\im@rbox}\makebox[13mm]{\im@rbox}\par\vspace{2pt}}
+\newcommand\LotusRatingForm{\cleardoublepage\thispagestyle{empty}%
+  \AddToHookNext{shipout/foreground}{\put(\dimexpr\imInside-8mm\relax,-\dimexpr10mm\relax){%
+    \color{black!60}\rotatebox{-90}{\makebox[0pt][l]{\sffamily\tiny
+    \leaders\hbox to 3pt{\hss-\hss}\hskip 95mm\ cut here\ \leaders\hbox to 3pt{\hss-\hss}\hskip 95mm}}}}%
+  \noindent\begin{minipage}[t][\dimexpr\textheight-\topskip\relax][t]{\linewidth}
+    \RaggedRight\setlength\parskip{3pt}
+    {\sffamily\bfseries\fontsize{14}{16}\selectfont Reader Comment Form\par}
+    \noindent\rule{\linewidth}{0.5pt}\par
+    {\small Initech Systems Corporation would like to know how well this
+    documentation serves you.  Please answer the questions below, fold the
+    form, and mail it.  Questions about the software go to your Initech
+    representative or to the Help Desk, extension 2504.\par}
+    {\small\bfseries Mail to:}\ {\small\InitechAddressLine\par}
+    \vspace{2pt}{\sffamily\bfseries\small How long have you used electronic spreadsheets?}\par
+    \im@rbox\ {\small Less than six months}\quad\im@rbox\ {\small Six months to two years}\quad
+    \im@rbox\ {\small More than two years}\par
+    {\sffamily\bfseries\small Which pieces did you use, and how good were they?}\par\vspace{2pt}
+    \im@gridhead\im@pieces
+    \vspace{2pt}{\sffamily\bfseries\small What did you find hardest to do?}\par
+    \rule{\linewidth}{0.25pt}\par\vspace{9pt}\rule{\linewidth}{0.25pt}\par\vspace{9pt}\rule{\linewidth}{0.25pt}\par
+    {\sffamily\bfseries\small What should we add, change or correct?}\par
+    \rule{\linewidth}{0.25pt}\par\vspace{9pt}\rule{\linewidth}{0.25pt}\par\vspace{9pt}\rule{\linewidth}{0.25pt}\par
+    \vfill
+    {\sffamily\small Name}\hrulefill\par\vspace{6pt}
+    {\sffamily\small Company}\hrulefill\par\vspace{6pt}
+    {\sffamily\small Address}\hrulefill\par
+    \IsThisGoodForTheCompany\par
+  \end{minipage}\newpage
+  \thispagestyle{empty}%
+  \noindent\begin{minipage}[t][\dimexpr\textheight-\topskip\relax][t]{\linewidth}
+    \null\vspace{50mm}
+    \noindent{\tiny Fold here}\ \leaders\hbox to 3pt{\hss.\hss}\hfill\null\par\vspace{8mm}
+    \noindent\begin{minipage}[t]{90mm}
+      {\sffamily\bfseries\fontsize{16}{19}\selectfont BUSINESS REPLY MAIL\par}\vspace{2pt}
+      {\sffamily\bfseries\fontsize{7}{9}\selectfont FIRST CLASS MAIL\quad PERMIT NO.\ 2504\quad AUSTIN, TEXAS\par}
+      \vspace{6pt}{\sffamily\fontsize{7}{9}\selectfont POSTAGE WILL BE PAID BY ADDRESSEE\par}
+      \vspace{8pt}{\sffamily\fontsize{10}{13}\selectfont\InitechAddress\par}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{34mm}\centering
+      \fbox{\parbox{28mm}{\centering\imLegalFont NO POSTAGE\\ NECESSARY\\ IF MAILED\\ IN THE\\ UNITED STATES}}\par\vspace{5mm}
+      \rule{34mm}{2pt}\par\vspace{2.2pt}\rule{34mm}{2pt}\par\vspace{2.2pt}\rule{34mm}{2pt}\par\vspace{2.2pt}
+      \rule{34mm}{2pt}\par\vspace{2.2pt}\rule{34mm}{2pt}\par\vspace{2.2pt}\rule{34mm}{2pt}\par
+    \end{minipage}\par
+    \vfill\noindent{\tiny Fold here}\ \leaders\hbox to 3pt{\hss.\hss}\hfill\null\par
+    \vspace{4mm}{\imLegalFont Please do not staple.\quad\im@partno}\par
+  \end{minipage}\newpage}
+%% \LotusFinish[rcf]: ends the interior.  With rcf the rating-grid form
+%% (one leaf) follows the index; then NOTES leaves fill the last
+%% signature so that the colophon (AN-26, pubs/common/colophon.tex) is the
+%% last interior page and the book is a multiple of four pages.
+\NewDocumentCommand\LotusFinish{o}{\im@closeentry\clearpage
+  \IfValueT{#1}{\LotusRatingForm}%
+  \cleardoublepage
+  \im@padcount=\numexpr\ReadonlyShipoutCounter+1\relax
+  \loop
+    \@tempcnta=\numexpr\im@padcount-4*((\im@padcount-2)/4)\relax
+    \ifnum\@tempcnta=4 \@tempcnta=0 \fi
+  \ifnum\@tempcnta=0 \else
+    \im@notesleaf\advance\im@padcount by 1
+  \repeat
+  \input{colophon}}
+
+%% ---- AN-08 menu trees (generated: harness/pubs/i123_face.c tree) -----------
+%% The generator emits, depth first from the main menu,
+%%   \TreeBox{b3}{b1w0}{\TreeW{Format}\TreeW{Label-Prefix}...}
+%% (box id, the node of the word that opens it -- empty for the main menu --
+%% and its words; \TreeWB is the chapter's own word, set bold).  A box hangs
+%% under its parent word, clamped to the 132 mm measure; a line runs down
+%% from the word behind any box between them (annex Sec 7.1, PDF 75).
+\pgfdeclarelayer{treelines}\pgfsetlayers{treelines,background,main}
+\newlength\im@treex \newlength\im@treey \newlength\im@treew \newcount\im@treen
+\newlength\im@treemax \setlength\im@treemax{131mm}
+\newcommand\im@treefont{\sffamily\fontsize{5.5}{6.5}\selectfont}
+\newcommand\im@treegap{2.4mm}
+%% Vertical pitch, box depth, baseline drop; \CompactTree tightens them for
+%% the deepest tree (Worksheet: 34 boxes must fit one page).
+\newcommand\im@treestep{7mm}\newcommand\im@treebox{4.8mm}\newcommand\im@treebase{3.4mm}
+\newcommand\CompactTree{\renewcommand\im@treestep{5.2mm}\renewcommand\im@treebox{3.9mm}\renewcommand\im@treebase{2.85mm}}
+\newenvironment{I123Tree}
+  {\par\addvspace{6pt}\noindent\begin{tikzpicture}\global\im@treey=0pt }
+  {\end{tikzpicture}\par\addvspace{6pt}}
+\newcommand\TreeBox[3]{%
+  \begingroup
+    \def\TreeW##1{##1\hspace*{\im@treegap}}\let\TreeWB\TreeW
+    \pgfinterruptpicture\setbox0=\hbox{\normalfont\im@treefont #3}\global\im@treew=\wd0 \endpgfinterruptpicture
+    \global\im@treew=\dimexpr\im@treew-\im@treegap\relax
+  \endgroup
+  \ifx\relax#2\relax \global\im@treex=0pt \else
+    \path (#2.west); \pgfgetlastxy{\im@px}{\im@py}\global\im@treex=\im@px\relax\fi
+  \ifdim\dimexpr\im@treex+\im@treew+3mm\relax>\im@treemax
+    \global\im@treex=\dimexpr\im@treemax-\im@treew-3mm\relax\fi
+  \begingroup
+    \global\im@treen=0
+    \def\im@place##1##2{%
+      \ifnum\im@treen=0
+        \node[anchor=base west, inner sep=0pt, font=\im@treefont] (#1w\the\im@treen)
+          at (\im@treex+1.5mm,\im@treey-\im@treebase) {##2##1};
+      \else
+        \node[anchor=base west, inner sep=0pt, font=\im@treefont] (#1w\the\im@treen)
+          at ([xshift=\im@treegap]\im@last.base east) {##2##1};
+      \fi
+      \xdef\im@last{#1w\the\im@treen}\global\advance\im@treen by 1 }%
+    \def\TreeW##1{\im@place{##1}{}}\def\TreeWB##1{\im@place{##1}{\bfseries}}%
+    #3%
+    \begin{pgfonlayer}{background}
+      \draw[line width=0.4pt, fill=white] ([xshift=-1.5mm]#1w0.west |- 0,\im@treey) rectangle
+        ([xshift=1.5mm]\im@last.east |- 0,\im@treey-\im@treebox);
+    \end{pgfonlayer}
+  \endgroup
+  \ifx\relax#2\relax\else
+    \begin{pgfonlayer}{treelines}
+      \draw[line width=0.4pt] ([yshift=-1pt]#2.south) -- ([yshift=-1pt]#2.south |- 0,\im@treey);
+    \end{pgfonlayer}\fi
+  \global\advance\im@treey by -\im@treestep\relax}
+\endinput

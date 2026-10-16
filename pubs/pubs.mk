@@ -209,11 +209,12 @@ test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples 
 # User's Guide teaches): their main.cmds lists (initech-syntax.sty, the one
 # registration mechanism) against the shipped inventory, both directions,
 # and every inline \cmd against the shipped names.  Any other book must
-# stay empty until its product has its own shipped inventory.
+# stay empty until its product has its own shipped inventory (the Initech
+# 123 books have theirs: test-pubs-i123 below, bead initech-ipu5.9).
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/initech123-*/*) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
@@ -239,3 +240,123 @@ else
 test-pubs-families:
 	@sh harness/pubs/families.sh
 endif
+
+# ---------------------------------------------------------------------------
+# Initech 123 books (bead initech-ipu5.9; PUB-REF-0001 GC-01/03/04, CP-14,
+# CP-15, D-14).  The shipped inventory is OBTAINED by driving the shipped
+# application on the host (harness/pubs/i123_face.c: os/i123/app/face_a.c
+# over the core and the shipped menu resource, through a recording Toolbox
+# mock): every slash path of the menu resource, every @function the formula
+# compiler accepts when typed, every key that acts; plus the list of menu
+# leaves that answer "Command not implemented".  harness/pubs/i123_gate.c
+# grades the books' main.cmds (initech-syntax.sty \RegisterCommand, KINDs
+# menu / function / key) against it in both directions, and the state of
+# every documented menu path against the build (GATED = works, DRAFT =
+# refused).  Printed examples (.i23) are replayed through the same shipped
+# application; FLAIR figures are captured from the running system by
+# pubs/screens/flair_capture.sh (QEMU, the 123.EXE launch trace of
+# spec/flair_i123_traces.mk) and graded pixel for pixel.
+#   make pubs-i123-inventory      the inventory + the generated menu trees
+#   make test-pubs-i123           GC-01 both directions + state + mentions
+#   make test-pubs-i123-examples  GC-03: every printed example replayed
+#   make pubs-i123-examples       (re)write the printed .txt (deliberate)
+#   make pubs-i123-screens        (re)capture the FLAIR figures (deliberate)
+#   test-pubs-screens             also re-captures every FLAIR figure (GC-04)
+#   test-pubs-mutant              also runs harness/pubs/i123_mutants.sh
+# ---------------------------------------------------------------------------
+PUBS_I123_FACE   := $(BUILD)/pubs_i123_face
+PUBS_I123_GATE   := $(BUILD)/pubs_i123_gate
+PUBS_FLAIR_SHOT  := $(BUILD)/pubs_flair_shot
+PUBS_I123_BOOKS  := $(patsubst $(PUBS_DIR)/manuals/%/main.tex,%,$(wildcard $(PUBS_DIR)/manuals/initech123-*/main.tex))
+PUBS_I123_TOPS   := Worksheet Range Copy Move File Print Graph Data System Add-In Quit
+PUBS_I123_GEN    := $(foreach t,$(PUBS_I123_TOPS),$(PUBS_GEN)/i123-tree-$(t).tex) $(PUBS_GEN)/i123-keymap.tex
+PUBS_I123_DATA   := $(PUBS_BUILD)/i123_data.img
+PUBS_I123_SAMPLES := $(sort $(wildcard $(PUBS_DIR)/manuals/initech123-*/samples/*.k123))
+PUBS_I123_FACE_SRC := harness/pubs/i123_face.c os/i123/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h \
+                    spec/event_model.h $(I123_CORE_SRC) $(I123_CORE_HDR)
+
+$(PUBS_I123_FACE): $(PUBS_I123_FACE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -mfpmath=387 -Ios/apps/tbx $(I123_CORE_INC) -o $@ harness/pubs/i123_face.c $(I123_CORE_SRC)
+$(BUILD)/pubs_i123_face_mut_%: $(PUBS_I123_FACE_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -mfpmath=387 -D$* -Ios/apps/tbx $(I123_CORE_INC) -o $@ harness/pubs/i123_face.c $(I123_CORE_SRC)
+$(PUBS_I123_GATE): harness/pubs/i123_gate.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+$(PUBS_FLAIR_SHOT): harness/pubs/flair_shot.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $< -lpng
+$(PUBS_GEN)/i123-tree-%.tex: $(PUBS_I123_FACE)
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_I123_FACE) tree $* > $@.tmp && mv -f $@.tmp $@
+# The key map (PK-14 templates, the Quick Reference): one \LotKey line per
+# shipped key, in the probe's keyboard order.
+$(PUBS_GEN)/i123-keymap.tex: $(PUBS_I123_FACE)
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_I123_FACE) inventory | sed -n 's/^\(.*\)|key$$/\\LotKey{\1}/p' > $@.tmp && mv -f $@.tmp $@
+
+.PHONY: pubs-i123-inventory test-pubs-i123 test-pubs-i123-examples pubs-i123-examples pubs-i123-screens
+pubs-i123-inventory: $(PUBS_I123_FACE) $(PUBS_I123_GEN)
+	@mkdir -p $(PUBS_CHECK)
+	@$(PUBS_I123_FACE) inventory > $(PUBS_CHECK)/i123.shipped
+	@$(PUBS_I123_FACE) refusals > $(PUBS_CHECK)/i123.refused
+	@printf '>>> pubs-i123-inventory: %s menu paths, %s @functions, %s keys shipped; %s menu leaves refuse\n' \
+		"$$(grep -c '|menu$$' $(PUBS_CHECK)/i123.shipped)" "$$(grep -c '|function$$' $(PUBS_CHECK)/i123.shipped)" \
+		"$$(grep -c '|key$$' $(PUBS_CHECK)/i123.shipped)" "$$(wc -l < $(PUBS_CHECK)/i123.refused)"
+
+# The Reference documents every shipped menu path, @function and key; the
+# Quick Reference every @function and key; the other books may only name
+# shipped items (or DRAFT ones).
+ifeq ($(SKIP_PUBS),1)
+test-pubs-i123 test-pubs-i123-examples:
+	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the Initech 123 books were NOT checked. This is NOT a pass.\n'
+else
+test-pubs-i123: pubs-i123-inventory $(PUBS_I123_GATE) test-pubs-build
+	@$(PUBS_I123_GATE) commands $(PUBS_CHECK)/i123.shipped $(PUBS_CHECK)/i123.refused \
+		$(foreach b,$(PUBS_I123_BOOKS),$(if $(filter initech123-reference,$(b)),menu+function+key=,$(if $(filter initech123-quick-reference,$(b)),function+key=,other=))$(PUBS_BUILD)/gate/$(b)/main.cmds)
+	@$(PUBS_I123_GATE) mentions $(PUBS_CHECK)/i123.shipped $(foreach b,$(PUBS_I123_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
+test-pubs-i123-examples: $(PUBS_I123_FACE) $(PUBS_GATE) test-pubs-build
+	@sh harness/pubs/i123_replay.sh check $(PUBS_I123_FACE) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
+endif
+pubs-i123-examples: $(PUBS_I123_FACE)
+	@sh harness/pubs/i123_replay.sh write $(PUBS_I123_FACE) - - $(PUBS_CHECK)
+
+# FLAIR figures: the 500-tick gate image (short traces) and a publications
+# image living 6000 ticks (long traces), both the shipped FLAIR desktop
+# with only the -D tick budget changed; the data volume is the shipped one
+# plus the sample worksheets the samples/*.k123 scripts save when typed
+# into the shipped application (i123_face run: the same code as 123.EXE).
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,pubs_i123))
+PUBS_I123_LONG_IMG := $(BUILD)/flair_tenants_mut_pubs_i123.img
+$(PUBS_I123_DATA): $(FLAIR_DATA_IMG) $(PUBS_I123_FACE) $(PUBS_I123_SAMPLES)
+	@rm -rf $(PUBS_BUILD)/i123-samples; mkdir -p $(PUBS_BUILD)/i123-samples
+	@cp -f $(FLAIR_DATA_IMG) $@.tmp
+	@for s in $(PUBS_I123_SAMPLES); do $(PUBS_I123_FACE) run $$s $(PUBS_BUILD)/i123-samples > /dev/null || exit 1; done
+	@for f in $(PUBS_BUILD)/i123-samples/*.WK1; do [ -f "$$f" ] || continue; \
+		TZ=UTC touch -d @$(FLAIR_DATA_EPOCH) "$$f"; \
+		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -m -i $@.tmp "$$f" ::$$(basename $$f) || exit 1; done
+	@mv -f $@.tmp $@
+	@printf '>>> pubs: %s (the shipped data volume + %s sample worksheets)\n' "$@" "$$(ls $(PUBS_BUILD)/i123-samples | wc -l)"
+PUBS_FLAIR_DEPS := $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_DATA) $(PUBS_I123_FACE) \
+                   $(PUBS_FLAIR_SHOT) $(PUBS_DIR)/screens/flair_capture.sh spec/assets/clut.json spec/assets/color_canon.json
+pubs-i123-screens: $(PUBS_FLAIR_DEPS)
+	@set -e; for m in $(PUBS_I123_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/FLAIR ] || continue; \
+		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_DATA) \
+			$(PUBS_I123_FACE) $(PUBS_FLAIR_SHOT) $$d/FLAIR $(PUBS_BUILD)/flair/$$m spec/assets/clut.json spec/assets/color_canon.json; \
+		cp -f $(PUBS_BUILD)/flair/$$m/*.png $$d/; printf '>>> pubs-i123-screens: %s updated -- review the figures\n' "$$m"; done
+.PHONY: test-pubs-flair-screens
+test-pubs-flair-screens: $(PUBS_FLAIR_DEPS) test-pubs-build
+	@set -e; n=0; for m in $(PUBS_I123_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/FLAIR ] || continue; \
+		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_DATA) \
+			$(PUBS_I123_FACE) $(PUBS_FLAIR_SHOT) $$d/FLAIR $(PUBS_BUILD)/flair-check/$$m spec/assets/clut.json spec/assets/color_canon.json > $(PUBS_BUILD)/flair-check-$$m.log 2>&1 || { tail -5 $(PUBS_BUILD)/flair-check-$$m.log; exit 1; }; \
+		for p in $(PUBS_BUILD)/flair-check/$$m/*.png; do $(PUBS_FLAIR_SHOT) same $$d/$$(basename $$p) $$p; n=$$((n + 1)); done; \
+		for c in $$d/*.png; do [ -f $(PUBS_BUILD)/flair-check/$$m/$$(basename $$c) ] || { \
+			printf '!!! test-pubs RED SCREEN-UNREPLAYED: %s has no FLAIR entry\n' "$$c"; exit 1; }; done; done; \
+	printf '>>> test-pubs-flair-screens: green (%s FLAIR figures in the Initech 123 books == the running system, pixel for pixel)\n' "$$n"
+test-pubs-screens: test-pubs-flair-screens
+test-pubs: test-pubs-i123 test-pubs-i123-examples
+pubs: $(PUBS_I123_GEN)
+test-pubs-build: $(PUBS_I123_GEN)
+test-pubs-repro test-pubs-repro-mutant: $(PUBS_I123_GEN)
+test-pubs-mutant: test-pubs-i123-mutant
+.PHONY: test-pubs-i123-mutant
+test-pubs-i123-mutant: test-pubs-i123 test-pubs-i123-examples test-pubs-flair-screens $(PUBS_I123_GATE) $(PUBS_FLAIR_SHOT) $(BUILD)/pubs_i123_face_mut_I123_MUT_MENU_SPELLING
+	@sh harness/pubs/i123_mutants.sh $(PUBS_I123_GATE) $(PUBS_I123_FACE) $(PUBS_GATE) $(PUBS_FLAIR_SHOT) $(PUBS_CHECK) $(PUBS_BUILD)/gate \
+		$(BUILD)/pubs_i123_face_mut_I123_MUT_MENU_SPELLING
