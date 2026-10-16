@@ -11,13 +11,14 @@
 # THE SCENE: $(FLAIR_ITEXT_GATE_IMG) (the flagship kernel, pump life 1500
 # ticks) + a gate-local copy of $(FLAIR_DATA_IMG), whose APPS folder holds, in
 # directory order, TENANTFX.EXE (grid cell 0), CTENANT.EXE (1), 123.EXE (2),
-# WORD.EXE (3), 123.MNU (4) and TEXT.EXE (5).
+# WORD.EXE (3), 123.MNU (4), the DOS tools / CALC, then TEXT.EXE (12).
+# PM-authorized re-key for initech-tode part 2; fixture_volumes.mk FLAIR_FIXTURES.
 #
 # GEOMETRY (derived, never measured off a render):
 #   APPS window content.left 41, content.top 102 (flair_app_launch_traces.mk);
-#   grid cell 5 = row 1, column 1 (4 columns): sprite_x = 41 + 18 + 68 = 127,
-#     sprite_y = 102 + 4 + 52 (FINDER_GRID_PITCH_Y) = 158
-#     => TEXT.EXE sprite (127,158)..(159,190), centre (143,174)
+#   grid cell 12 = row 3, column 0 (4 columns): sprite_x = 41 + 18 = 59,
+#     sprite_y = 102 + 4 + 3*52 (FINDER_GRID_PITCH_Y) = 262
+#     => TEXT.EXE sprite (59,262)..(91,294), centre (75,278)
 #   the TEXT window frame (4,44)..(588,476) (itext.c WIN_*), content corner
 #     (10,66) (window.c CalcDocContentRect: left rail 6, title 22); the text
 #     origin (+5,+4) = GLOBAL (15,70); Geneva 9 lines are 11 px: line L
@@ -40,7 +41,9 @@
 #   left the shift stuck: "MEMO>TXT"), measured 2026-10-16.
 #
 # WAYPOINTS: A, B as flair_app_launch_traces.mk (the volume, then APPS, at
-#   (123,102)), then CTEXT (123,102) -> TEXT.EXE (143,174): m20:72.
+#   (123,102)), then CTEXT (123,102) -> TEXT.EXE (75,278): m-48:100,m0:76.
+#   After the double-click, m68:-100,m0:-4 returns to (143,174), preserving
+#   every continuation coordinate in the lane's locked editing trace.
 #
 # 1. FLAIR_ITEXT_SPEC -- test-flair-itext and the itext_savefile clip: launch
 #    (A, B, CTEXT + double-click); type "Saving tables to disk" Return
@@ -52,8 +55,8 @@
 #    to (15,86) [line 1 x 0], press, m44:0 -> (59,86) ("PC LOAD" ends at
 #    x 44: P 6, C 7, space 4, L 6, O 7, A 7, D 7), release; park on the
 #    window's right margin (580,300) so no Finder icon is hovered.
-FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
+FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
 
 # 2. FLAIR_ITEXT_EDIT_SPEC -- the itext_edit clip (Rule 14): launch, type,
 #    drag-select, Copy, click, Return, Paste (no save).
-FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v
+FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v

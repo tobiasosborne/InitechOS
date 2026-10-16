@@ -75,7 +75,7 @@ define doslook-emu-mutant
 $(BUILD)/doslook_$(1).o: os/milton/$(2).c $(DOS_MESSAGES_H) os/milton/console.h os/milton/command.h
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -D$(3) -Ispec -Ios/milton -Ibuild -c $$< -o $$@
 $(BUILD)/kernel_doslook_mut_$(1).elf: $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/doslook_$(1).o $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/doslook_$(1).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/doslook_$(1).o
 $(BUILD)/kernel_doslook_mut_$(1).bin: $(BUILD)/kernel_doslook_mut_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); test "$$$$sz" -le $$$$(( $(KERNEL_SECTORS)*512 ))

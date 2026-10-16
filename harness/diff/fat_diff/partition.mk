@@ -17,7 +17,7 @@ $(BUILD)/test_partition_$(1): $(PARTITION_SRC) os/milton/fat12.h | $(BUILD)
 $(BUILD)/fat12_partition_$(1).o: os/milton/fat12.c os/milton/fat12.h | $(BUILD)
 	$$(KERNEL_CC) $$(KERNEL_CFLAGS) $$(KERNEL_SECTION_FLAGS) -Ispec -Ios/milton -DFAT_PART_MUT_$(1) -c $$< -o $$@
 $(BUILD)/kernel_partition_$(1).elf: $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_partition_$(1).o $(KERNEL_LD)
-	$$(LD) $$(KERNEL_GC_LDFLAGS) -m elf_i386 -T $$(KERNEL_LD) -o $$@ $$(filter %.o,$$^)
+	$$(KERNEL_LINK) -o $$@ $$(filter %.o,$$^)
 $(BUILD)/kernel_partition_$(1).bin: $(BUILD)/kernel_partition_$(1).elf
 	$$(OBJCOPY) -O binary $$< $$@
 	@set -eu; sz=$$$$(wc -c < $$@); max=$$$$(( $$(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \

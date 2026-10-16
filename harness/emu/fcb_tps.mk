@@ -43,7 +43,7 @@ $(BUILD)/int21_fcb_%.o: $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/sf
 define fcb-emu-variant
 FCB_OBJS_$(1) := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/int21_fcb_$(1).o
 $(BUILD)/kernel_shell_fcb_$(1).elf: $$(FCB_OBJS_$(1)) $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $$(FCB_OBJS_$(1))
+	$(KERNEL_LINK) -o $$@ $$(FCB_OBJS_$(1))
 $(BUILD)/kernel_shell_fcb_$(1).bin: $(BUILD)/kernel_shell_fcb_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
