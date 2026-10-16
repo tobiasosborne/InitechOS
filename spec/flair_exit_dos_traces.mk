@@ -49,7 +49,10 @@ FLAIR_EXIT_DOS_CANCEL_SPEC := $(FLAIR_EXIT_DOS_PREFIX),kesc,kctrl-n
 #    E. WSHELL-READY ; DIR <Enter> -> COMMAND.COM lists drive A: (the
 #       flagship volume: " Volume in drive A is INITECH", README.TXT, APPS,
 #       the " bytes free" footer).
-FLAIR_EXIT_DOS_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,kd,ki,kr,kret
+# PM 2026-10-17: COMMAND.COM starts as the primary processor with no AUTOEXEC.BAT on the
+# flagship volume, so it asks for the date and time (initech-qskz, DOS 3.30); every
+# trace answers both prompts with Enter before its first command.
+FLAIR_EXIT_DOS_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,kret,kret,kd,ki,kr,kret
 
 # 4. FLAIR_TPS_JOURNEY_SPEC -- the north-star joke, end to end: exit the
 #    desktop, CD APPS, TPSREP TPS.DBF, and the whole operating procedure,
@@ -61,11 +64,11 @@ FLAIR_EXIT_DOS_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL
 FLAIR_TPS_KEYS_CD  := kc,kd,kspc,ka,kp,kp,ks,kret
 FLAIR_TPS_KEYS_CMD := kt,kp,ks,kr,ke,kp,kspc,kt,kp,ks,kdot,kd,kb,kf,kret
 FLAIR_TPS_KEYS_A   := kspc,kspc,kspc,kspc,kspc,kspc,kret,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kret,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kret,k4,k4,k1,k7,kret,k4,k4,k7,k1,kret,k4,k4,k1,k7,kret,k4,k4,k1,k7,kret,k8,k8,kminus,k1,k1,k3,kret,k8,k8,kminus,k1,k1,k4,kret,kx,ky
-FLAIR_TPS_JOURNEY_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,$(FLAIR_TPS_KEYS_CD),$(FLAIR_TPS_KEYS_CMD),$(FLAIR_TPS_KEYS_A),WTPS REPORT GENERATOR TERMINATED
+FLAIR_TPS_JOURNEY_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,kret,kret,$(FLAIR_TPS_KEYS_CD),$(FLAIR_TPS_KEYS_CMD),$(FLAIR_TPS_KEYS_A),WTPS REPORT GENERATOR TERMINATED
 
 # 5. FLAIR_TPS_SIX_SPEC -- the ritual mutant (Rule 6): the SAME journey with
 #    the accepted seven presses replaced by SIX (the third attempt). TPSREP
 #    must refuse it ("FORM NOT ALIGNED (6 PRESSES)") and never print FORM
 #    ALIGNED., so no report may appear.
 FLAIR_TPS_KEYS_SIX := kspc,kspc,kspc,kspc,kspc,kspc,kret,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kspc,kret,kspc,kspc,kspc,kspc,kspc,kspc,kret,k4,k4,k1,k7,kret,k4,k4,k7,k1,kret,k4,k4,k1,k7,kret,k4,k4,k1,k7,kret,k8,k8,kminus,k1,k1,k3,kret,k8,k8,kminus,k1,k1,k4,kret,kx,ky
-FLAIR_TPS_SIX_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,$(FLAIR_TPS_KEYS_CD),$(FLAIR_TPS_KEYS_CMD),$(FLAIR_TPS_KEYS_SIX)
+FLAIR_TPS_SIX_SPEC := $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,kret,kret,$(FLAIR_TPS_KEYS_CD),$(FLAIR_TPS_KEYS_CMD),$(FLAIR_TPS_KEYS_SIX)
