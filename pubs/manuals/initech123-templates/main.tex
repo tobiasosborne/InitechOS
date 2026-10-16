@@ -23,15 +23,15 @@
 \newcommand\kn[1]{\ifcsname lk@#1\endcsname\csname lk@#1\endcsname\fi}
 % One key cell: the name above, the keycap below.
 \newcommand\KeyCell[1]{\begin{tikzpicture}
-  \draw[line width=0.4pt, rounded corners=1.5mm] (0,0) rectangle (19mm,13mm);
-  \node[font=\sffamily\bfseries\fontsize{8}{9}\selectfont, anchor=north] at (9.5mm,11.5mm) {\kn{#1}\strut};
-  \node[font=\sffamily\fontsize{7}{8}\selectfont, anchor=south] at (9.5mm,1.5mm) {#1};
+  \draw[line width=0.4pt, rounded corners=1.5mm] (0,0) rectangle (18mm,13mm);
+  \node[font=\sffamily\bfseries\fontsize{8}{9}\selectfont, anchor=north] at (9mm,11.5mm) {\kn{#1}\strut};
+  \node[font=\sffamily\fontsize{7}{8}\selectfont, anchor=south] at (9mm,1.5mm) {#1};
   \end{tikzpicture}}
 \begin{document}
 \noindent{\sffamily\bfseries\small Initech 123\quad Function-Key Template\quad 101-key keyboard}\par
 \vspace{6mm}
 \noindent\begin{tikzpicture}
-\draw[dashed, line width=0.3pt] (-3mm,-3mm) rectangle (253mm,19mm);
+\draw[dashed, line width=0.3pt] (-3mm,-3mm) rectangle (240mm,19mm);
 \node[anchor=south west, inner sep=0] at (0,0) {\KeyCell{F1}\,\KeyCell{F2}\,\KeyCell{F3}\,\KeyCell{F4}\hspace{4mm}%
   \KeyCell{F5}\,\KeyCell{F6}\,\KeyCell{F7}\,\KeyCell{F8}\hspace{4mm}%
   \KeyCell{F9}\,\KeyCell{F10}\,\KeyCell{F11}\,\KeyCell{F12}};
