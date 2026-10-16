@@ -75,6 +75,10 @@ exponentiation.  Exponentiation is done first, then multiplication and
 division, then addition and subtraction; operators of the same rank are done
 from left to right.  Parentheses change the order.
 \DotExample{examples/u2-operators}
+The result of a calculation is shown with as many decimal places as SET
+DECIMALS gives, two when InitechBase starts; a result that is a whole number
+is shown without decimal places.  The value itself keeps its full precision:
+\DotExample{examples/u2-decimals}
 
 \SideHead{Character}\texttt{+} joins two strings as they are.  \texttt{-}
 joins them and moves the trailing blanks of the first to the end of the
@@ -86,13 +90,20 @@ capital and small letters are different.
 the result is a date.  One date subtracted from another gives the number of
 days between them.
 \DotExample{examples/u2-dates}
+Date arithmetic follows the calendar, leap years included:
+\DotExample{examples/u2-datecalc}
 
 \SideHead{Relational}\texttt{<} less than, \texttt{>} greater than,
 \texttt{=} equal, \texttt{<>} or \texttt{\#} not equal, \texttt{<=} less than or
 equal, \texttt{>=} greater than or equal.  Both sides must be of the same type;
 the result is logical.  Characters are compared by their codes (Appendix~D),
 so capital letters come before small letters.  For \texttt{=} between
-character strings, see SET EXACT in Chapter~5.
+character strings, see SET EXACT in Chapter~5.  While SET EXACT is OFF, \texttt{=}
+is true when the string on the left begins with the string on the right, so
+the order of the two sides matters, and an empty string on the right equals
+any string.  The characters are compared one by one, so \texttt{'10'} is less
+than \texttt{'9'}:
+\DotExample{examples/u2-compare}
 
 \SideHead{Logical}\texttt{.AND.}, \texttt{.OR.} and \texttt{.NOT.} combine
 logical values.  \texttt{.NOT.} is done first, then \texttt{.AND.}, then

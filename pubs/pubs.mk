@@ -172,10 +172,10 @@ $(PUBS_UTILS_STAMP): $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(X
 # `samir` disk, minted from this staging directory.
 PUBS_SAMIR_CAPTURE       := $(PUBS_BUILD)/samir-capture
 PUBS_SAMIR_CAPTURE_STAMP := $(PUBS_SAMIR_CAPTURE)/.staged
-$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_COM) $(PUBS_SAMIR_DISK)/.minted
+$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_COM) $(PUBS_BUILD)/samir-disk/.minted
 	@rm -rf $(PUBS_SAMIR_CAPTURE); mkdir -p $(PUBS_SAMIR_CAPTURE)
 	@cp $(SAMIR_COM) $(PUBS_SAMIR_CAPTURE)/SAMIR.COM
-	@for f in $(PUBS_SAMIR_DISK)/*; do cp $$f $(PUBS_SAMIR_CAPTURE)/; done
+	@for f in $(PUBS_BUILD)/samir-disk/*; do cp $$f $(PUBS_SAMIR_CAPTURE)/; done
 	@touch $@
 PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)/screens/capture.sh $(PUBS_DIR)/screens/keys.sh \
                     $(PUBS_UTILS_STAMP) $(PUBS_SAMIR_CAPTURE_STAMP)

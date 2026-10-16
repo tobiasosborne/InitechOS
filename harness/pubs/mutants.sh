@@ -119,6 +119,7 @@ sed -i 's/-36477/-36478/' "$m/v2/examples/p9-aging.txt"
 red REFERENCE_OUTPUT_DRIFT REFERENCE-OUTPUT sh harness/pubs/samir_programs.sh pubs/examples/samir/disk harness/diff/dbf_diff/canon "$m/v2"
 # The inventory probe must refuse a word the dot prompt refuses.
 [ -n "$sinv" ] && [ -x "$sinv" ] || { printf '!!! test-pubs-mutant FAIL: no InitechBase inventory probe\n'; exit 1; }
+sinv=$(cd "$(dirname "$sinv")" && pwd)/$(basename "$sinv")
 rm -rf "$m/probe"; mkdir -p "$m/probe"
 printf 'PUBSFAKE\nLIST\nUPPER\n' | (cd "$m/probe" && "$sinv") > "$m/probe.list"
 grep -qx 'LIST|command' "$m/probe.list" && grep -qx 'UPPER|function' "$m/probe.list" && ! grep -q '^PUBSFAKE|' "$m/probe.list" || {

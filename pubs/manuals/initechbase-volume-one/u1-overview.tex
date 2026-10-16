@@ -110,6 +110,31 @@ prompt}, and waits for a command.  You type the command and press
 \key{Enter}; InitechBase carries it out, displays its results and the dot
 prompt again.  Chapter~2 describes how commands are typed.
 
+\section{Commands by Task}
+The commands of InitechBase fall into a few groups.  Chapter~5 describes each
+command; the table names the commands of each task.
+
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{44mm}p{90mm}@{}}
+\hline
+\textsf{\textbf{Task}} & \textsf{\textbf{Commands}}\\
+\hline
+Opening and closing files & \cmd{USE}, \cmd{SELECT}, \cmd{CLOSE}, \cmd{QUIT}\\
+Looking at records & \cmd{LIST}, \cmd{DISPLAY}, \cmd{?}, \cmd{??}\\
+Moving the record pointer & \cmd{GO}, \cmd{SKIP}\\
+Finding records & \cmd{LOCATE}, \cmd{CONTINUE}, \cmd{SEEK}, \cmd{FIND}\\
+Adding and changing records & \cmd{APPEND BLANK}, \cmd{REPLACE}\\
+Deleting records & \cmd{DELETE}, \cmd{RECALL}, \cmd{PACK}, \cmd{ZAP}\\
+Reports & \cmd{REPORT FORM}\\
+Memory variables & \cmd{STORE}, \cmd{RELEASE}, \cmd{PUBLIC}, \cmd{PRIVATE}\\
+Questions to the user & \cmd{ACCEPT}, \cmd{INPUT}, \cmd{WAIT}\\
+Programs & \cmd{DO}, \cmd{PROCEDURE}, \cmd{PARAMETERS}, \cmd{RETURN},
+  \cmd{IF}, \cmd{DO CASE}, \cmd{DO WHILE}, \cmd{NOTE}, \cmd{ON ERROR}\\
+The environment & the SET commands: SET CENTURY, SET DATE, SET DECIMALS, SET
+  DELETED, SET EXACT, SET FILTER, SET HEADING, SET ORDER, SET SAFETY, SET
+  STATUS and the others of Chapter~5\\
+\hline
+\end{tabular}
+
 \section{The Sample Programs and Utilities Diskette}
 The diskette holds the databases, index files, report forms and programs used
 in the three sections of this manual: the staff roster \file{STAFF.DBF}, the

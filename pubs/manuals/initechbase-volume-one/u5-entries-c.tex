@@ -290,7 +290,7 @@ record.
 
 % SET SAFETY -- os/samir/cmd/set.c do_set_safety; os/samir/cmd/mutate.c
 % m_confirm_file (ZAP asks "ZAP <file>? (Y/N)" while ON).  Gate:
-% test-samir-zap-safety.
+% test-samir-safety-emu.
 \begin{XbaseEntry}{SAFETY}{set}
 Determines whether InitechBase asks for confirmation before it removes all
 the records of a database.
@@ -465,7 +465,7 @@ has read it, and to take a single-letter answer to a question.
 
 % ZAP -- os/samir/cmd/mutate.c m_zap (m_confirm_file while SAFETY ON; the
 % table emptied in place, its indexes emptied).  Gates:
-% test-samir-zap-safety, test-interp-replace.
+% test-samir-safety-emu, test-interp-replace.
 \begin{XbaseEntry}{ZAP}{command}
 Removes all the records of the database in USE.
 \Syntax
