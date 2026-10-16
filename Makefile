@@ -31968,4 +31968,5 @@ test-scrapbook-route-mutant: $(BUILD)/test_scrapbook_mut_DA_MUT_PASTE_WRONG_PAGE
 	 grep -q 'checks,' $$b.log && grep -q "^RED-REASON $$why:" $$b.log || { cat $$b.log; exit 1; }; \
 	 printf '>>> test-scrapbook-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$b.log)"; done
 TEST_UNIT_GATES += test-notepad-route-mutant test-scrapbook-route-mutant
+include harness/emu/vesa8.mk
 
