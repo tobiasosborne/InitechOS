@@ -14103,7 +14103,7 @@ test-iword-codes: $(TEST_IWORD_CODES)
 	@$(TEST_IWORD_CODES)
 	@printf '>>> test-iword-codes: green\n'
 
-IWORD_CODES_MUTANTS := TOGGLE_DUP:codes PAIR_HALF:codes NO_ASK:codes ASK_STAY:codes TAB_FIXED:geometry COPY_BARE:block CUT_NO_MEND:block RETRIEVE_DUP:block
+IWORD_CODES_MUTANTS := TOGGLE_DUP:codes PAIR_HALF:codes NO_ASK:codes ASK_STAY:codes TAB_FIXED:geometry COPY_BARE:block CUT_NO_MEND:block RETRIEVE_DUP:block TAB_ABS:format NO_LEAD:format OLD_STALE:format WRAP_65:format
 test-iword-codes-mutant: $(foreach m,$(IWORD_CODES_MUTANTS),$(BUILD)/test_iword_codes_mutant_IWORD_MUT_$(firstword $(subst :, ,$(m))))
 	@for p in $(IWORD_CODES_MUTANTS); do pair="IWORD_MUT_$${p%%:*}:RED-REASON $${p#*:}"; \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_codes_mutant_$$m; \
@@ -14112,7 +14112,7 @@ test-iword-codes-mutant: $(foreach m,$(IWORD_CODES_MUTANTS),$(BUILD)/test_iword_
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-codes-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-codes-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -m1 'FAIL' $$bin.log | sed 's/^ *//')" "$$(grep -m1 '      C' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-codes-mutant: green (all eight mutants RED for the named reason)\n'
+	@printf '>>> test-iword-codes-mutant: green (all twelve mutants RED for the named reason)\n'
 
 TEST_IWORD_REVEAL := $(BUILD)/test_iword_reveal_codes
 IWORD_REVEAL_DEPS := $(IWORD_WP5_DIR)/test_iword_reveal_codes.c $(IWORD_WP5_DIR)/iword_keys.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h

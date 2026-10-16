@@ -341,9 +341,9 @@ int iw_reflow_all(iw_doc_t *d, uint32_t width)
 static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fmt_t *fin,
                       uint32_t width0, iw_line_t *ln, fmt_t *fout)
 {
-    uint32_t p = start, c = col0, m = col0, width, w;
+    uint32_t p = start, c = col0, m = col0, width, w, lead_at = NONE;
     fmt_t lf = *fin, run = *fin;
-    int lead = 1, k = IW_U_TEXT, ended = 0;
+    int lead = 1, k = IW_U_TEXT, ended = 0, placed = 0;
     width = LINE_WIDTH(&lf, width0);
     ln->start = start;
     ln->pad = 0;
@@ -356,8 +356,16 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
             width = LINE_WIDTH(&lf, width0);
         }
         /* the layout's own break (never before the line's first unit, so a
-         * margin wider than the line still makes progress) */
-        if ((k == IW_U_TEXT || k == IW_U_HSPACE) && c + 1u > width && p > start) break;
+         * margin wider than the line still makes progress -- slice 3: a
+         * D4/05 is not that unit, or a line of a D4/05 alone would follow a
+         * line of a D4/05 alone forever) */
+        if ((k == IW_U_TEXT || k == IW_U_HSPACE) && c + 1u > width && placed) {
+            /* the D4/05 records right before the break start the next line */
+            if (lead_at != NONE) p = lead_at;
+            break;
+        }
+        if (k != IW_U_LEAD) placed = 1;
+        lead_at = k == IW_U_LEAD ? (lead_at == NONE ? p : lead_at) : NONE;
         if (advances(k)) lead = 0;
         c = advance(k, c);
         if (k == IW_U_INDENT) m = c;
@@ -1052,8 +1060,12 @@ static int fix_linepos(iw_ed_t *e)
     int rc;
     walk_first(e, &w);
     for (;;) {
+        uint32_t tries = 0;
         for (;;) {                 /* the line, again after every change */
             uint32_t p = w.ln.start, run = w.fin.just;
+            /* each change fixes one record; a line needing more than this
+             * means the layout and the rule disagree: fail loud (Rule 2) */
+            if (++tries > 64u) return IW_E_CODE;
             int need = cr_just(run), changed = 0;
             rc = IW_OK;
 #ifdef IWORD_MUT_NO_LEAD
