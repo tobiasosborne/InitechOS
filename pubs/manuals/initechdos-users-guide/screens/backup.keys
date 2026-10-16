@@ -1,0 +1,1 @@
+\n\nCLS\nXCOPY *.TXT BACKUP\\\nCD BACKUP\nDIR\n

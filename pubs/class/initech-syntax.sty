@@ -2,7 +2,7 @@
 %% step lists and DRAFT markers for initech-manual.cls (bead initech-ipu5.5).
 %% Conventions modelled on the period originals (ORIGINALS-PHYSICAL-SURVEY.md):
 %% IBM command entries (purpose / format / remarks / examples), Lotus run-in
-%% NOTE and CAUTION labels and key names ("HELP (F1)"); DESIGN-SYSTEM.md Sec 4:
+%% NOTE and CAUTION labels and key names ("HELP (F1)"); PUB-REF-0001 Sec 4/5:
 %% italics only for document titles and placeholders, no italic emphasis in
 %% procedures.  ASCII only (Rule 12).
 \NeedsTeXFormat{LaTeX2e}
@@ -13,7 +13,18 @@
 
 %% ---- inline names ---------------------------------------------------------
 %% Command, file and device names: Courier, never hyphenated (Sec 4).
-\newcommand\cmd[1]{\mbox{\texttt{#1}}}
+%% \cmd{NAME} also writes NAME to <job>.mentions: every inline command must
+%% be shipped (test-pubs-commands, GC-01).  Device names and environment
+%% variables are \file.  \UnknownCommand marks a deliberately invalid
+%% command in a negative teaching example; \UnshippedCommand names a DOS 3.3
+%% command this version does not ship, and belongs only in text that carries
+%% a \draft marker naming its bead (D-14).
+\newwrite\im@mentions
+\AtBeginDocument{\immediate\openout\im@mentions=\jobname.mentions}
+\AtEndDocument{\immediate\closeout\im@mentions}
+\newcommand\cmd[1]{\immediate\write\im@mentions{#1}\mbox{\texttt{#1}}}
+\newcommand\UnknownCommand[1]{\mbox{\texttt{#1}}}
+\newcommand\UnshippedCommand[1]{\mbox{\texttt{#1}}}
 \newcommand\file[1]{\mbox{\texttt{#1}}}
 %% What the reader types, in running text: Courier Bold.
 \newcommand\type[1]{\mbox{\texttt{\bfseries #1}}}
@@ -34,9 +45,16 @@
   {\noindent\imTypeFont\rightskip=0pt plus 1fil\relax\parfillskip=0pt plus 1fil\relax
    \hangindent=2em #1\par}}
 
-%% ---- key names: Helvetica Bold caps at 80% (Sec 4; Lotus convention) -------
-\newcommand\key[1]{\mbox{\sffamily\bfseries\fontsize{0.8\dimexpr\f@size pt\relax}{0}\selectfont
-  \MakeUppercase{#1}}}
+%% ---- key names: body small capitals (TY-10 / NT-10) ------------------------
+\newcommand\key[1]{\mbox{\normalfont\scshape\MakeLowercase{#1}}}
+%% The expected file is what is printed; the replay gate compares SAMIR
+%% output to these same bytes. A .prg is always required beside it.
+\newwrite\im@replays
+\AtBeginDocument{\immediate\openout\im@replays=\jobname.replays}
+\AtEndDocument{\immediate\closeout\im@replays}
+\NewDocumentEnvironment{Transcript}{m}{%
+  \immediate\write\im@replays{#1}%
+  \VerbatimInput[fontsize=\small,xleftmargin=4mm]{#1.txt}}{}
 
 %% ---- typed examples and verbatim text -------------------------------------
 \DefineVerbatimEnvironment{TypeIn}{Verbatim}
@@ -63,7 +81,10 @@
 %% lines, read by make test-pubs-build), and is a hard error under the
 %% class option `final`.
 \newcounter{im@drafts}
+\newcommand\imMarkDraft[1]{\expandafter\gdef\csname im@draft@#1\endcsname{1}}
 \newcommand\draft[1]{%
+  \gdef\im@draftfoot{DRAFT -- NOT FOR RELEASE}%
+  \protected@write\@auxout{}{\string\imMarkDraft{\thechapter}}%
   \stepcounter{im@drafts}%
   \ifim@final
     \PackageError{initech-syntax}{DRAFT marker in a final build: #1}{Verify the
@@ -79,41 +100,46 @@
 %% recorded in the log, invisible in print.
 \newcommand\Gates[1]{\typeout{initech-manual: gates for this section: #1}}
 
-%% ---- the documented-command list (GC-01; bead initech-ipu5.7) ----------------
-%% Every command entry REGISTERS the names it documents in <jobname>.cmds, a
-%% plain-text list written next to the PDF in the build directory
-%% (build/pubs/<manual>/main.cmds), so the documented-vs-shipped gate
-%% (make test-pubs, GC-01) can compare it with the shipped tables without
-%% parsing TeX.  One line per documented name, in document order:
+%% ---- the documented-command list (GC-01; beads initech-ipu5.6/5.7) -----------
+%% The ONE machine-readable list of what a book documents, never inferred
+%% from prose or the typographical index.  Every reference entry REGISTERS
+%% the names it documents in <jobname>.cmds, written next to the PDF
+%% (build/pubs/<manual>/main.cmds), and `make test-pubs` (pubs_gate commands)
+%% compares the InitechDOS books' lists with the shipped inventory in both
+%% directions.  One line per documented name, in document order:
 %%     NAME|KIND|STATE|ENTRY
-%% NAME   the command name as typed (COPY, ERASE, CHKDSK, FILES, GOTO)
-%% KIND   internal | external | batch | config  (the shipped table it is
-%%        checked against: command.c, the shipped disk, batch.c, config_sys.c)
+%% NAME   the command name as typed (COPY, ERASE, CHKDSK, FILES, GOTO,
+%%        INT21:3F)
+%% KIND   internal | external | batch | config | int21 -- the shipped table
+%%        it is checked against: command.c's dispatch table, the APPS
+%%        executables, batch_classify (batch.c), config_sys_parse
+%%        (config_sys.c), the INT 21h controlled register (int21.c)
 %% STATE  GATED, or DRAFT when the entry carries a \draft marker because the
-%%        build lacks the behaviour (D-14); a DRAFT name is exempt from the
+%%        build lacks the behaviour (D-14); a DRAFT pair is exempt from the
 %%        documented => shipped direction and is never released (GC-12)
 %% ENTRY  the entry that documents it (ERASE|internal|GATED|DEL)
-%% Comment lines start with '#'.  The entry environments below write the
-%% entry's own name; \AlsoNamed{ERASE} inside an entry adds another name
-%% (DEL (ERASE)).  A NAME registered twice with the same KIND in one book is
-%% an error (Rule 2); BREAK is both an internal and a config command.
+%% Comment lines start with '#'.  The entry environments (CommandEntry,
+%% DosEntry, \FunctionEntry) register their own name; \AlsoNamed{ERASE}
+%% inside an entry adds another name (DEL (ERASE)).  A NAME registered twice
+%% with the same KIND in one book is an error (Rule 2); BREAK is both an
+%% internal and a config command.  The file always exists (an empty list is
+%% a book with no entries).
 \newwrite\im@cmdsout
-\newif\ifim@cmdsopen
 {\catcode`\#=12 \gdef\im@hashchar{#}}
+\AtBeginDocument{\immediate\openout\im@cmdsout=\jobname.cmds\relax
+  \immediate\write\im@cmdsout{\im@hashchar\space initech-manual documented commands:
+    NAME|KIND|STATE|ENTRY (initech-syntax.sty)}}
+\AtEndDocument{\immediate\closeout\im@cmdsout}
 \newcommand\im@cmdkind{}
 \newcommand\im@cmdstate{GATED}
 \newcommand\RegisterCommand[4]{% NAME, KIND, STATE, ENTRY
-  \ifim@cmdsopen\else
-    \immediate\openout\im@cmdsout=\jobname.cmds\relax
-    \immediate\write\im@cmdsout{\im@hashchar\space initech-manual documented commands:
-      NAME|KIND|STATE|ENTRY (initech-syntax.sty)}%
-    \global\im@cmdsopentrue
-  \fi
   \ifcsname im@cmd@#1@#2\endcsname
     \PackageError{initech-syntax}{Command #1 (#2) documented twice in this book}{}%
   \fi
   \expandafter\gdef\csname im@cmd@#1@#2\endcsname{#4}%
   \immediate\write\im@cmdsout{#1|#2|#3|#4}}
+%% An INT 21h function entry (Technical Reference style): INT21:xx.
+\newcommand\FunctionEntry[1]{\RegisterCommand{INT21:#1}{int21}{GATED}{INT21:#1}\SideHead{#1H}}
 %% makeindex |see{} cross-reference (makeidx is not loaded): "See CD".
 \providecommand\see[2]{\textit{See}~#1}
 \newcommand\AlsoNamed[1]{%
@@ -135,28 +161,40 @@
       order (the fixed order is Purpose, Syntax, Remarks, Examples, See Also)}{}%
   \fi
   \stepcounter{im@entrystage}%
-  \SideHead{#2}}
-%% A User's Guide summary entry registers itself too (KIND from the type:
-%% Internal -> internal, External -> external).
+  \im@ifmodel{ibm}{\ifnum#1=4\relax\else\SideHead{#2:}\fi}{\SideHead{#2}}}
+%% A summary entry registers itself too (KIND from the type: Internal ->
+%% internal, External -> external).  F-IBM: the entry starts a new page and
+%% its title repeats on every continuation page (\im@openentry, PG-10).
 \newenvironment{CommandEntry}[2]
-  {\gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
+  {\im@ifmodel{ibm}{\clearpage\im@openentry{#1}{Command}}{}%
+   \gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
    \edef\im@cmdkind{\ifnum\pdf@strcmp{#2}{External}=0 external\else internal\fi}%
    \gdef\im@cmdstate{GATED}%
    \RegisterCommand{#1}{\im@cmdkind}{GATED}{#1}%
+   \im@ifmodel{ashtontate}{\DictionaryHeads}{}%
    \par\addvspace{19.5pt}\goodbreak
+   \im@ifmodel{ibm}{%
+     \noindent\hspace*{-\imHang}\makebox[\imFullWidth][l]{\sffamily\bfseries\fontsize{18}{20}\selectfont #1}\par\nobreak
+     \noindent\hspace*{-\imHang}{\sffamily\bfseries\fontsize{18}{20}\selectfont Command}\par\nobreak
+     \noindent\hspace*{-\imHang}\rule{\imFullWidth}{1pt}\par\nobreak}{%
    \noindent\hspace*{-\imHang}\makebox[\imFullWidth][l]{\imHeadOneFont #1%
      \hfill{\imSideHeadFont (#2)}}\par\nobreak\vspace{1pt}%
-   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
-   \index{#1 command}%
+   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak}%
+   \index{#1 command}\markboth{#1}{#1}%
    \def\Purpose{\im@stage{0}{Purpose}}%
-   \def\Syntax{\im@stage{1}{Syntax}}%
-   \def\Remarks{\im@stage{2}{Remarks}}%
-   \def\Examples{\im@stage{3}{Examples}}%
+   \def\Syntax{\im@ifmodel{ibm}{\im@stage{1}{Format}}{\im@stage{1}{Syntax}}}%
+   \def\Remarks{\im@ifmodel{ibm}{\par\addvspace{12pt}\noindent
+     \llap{\parbox[t]{\imSideCol}{\imSideHeadFont Type:}\hspace{\imSideGap}}%
+     \def\im@entrytype{#2}\def\im@internal{Internal}%
+     \begin{tabular}[t]{@{}ll}Internal & External\\
+       \ifx\im@entrytype\im@internal *** & \else & ***\fi
+     \end{tabular}\par}{}\im@stage{2}{Remarks}}%
+   \def\Examples{\im@ifmodel{ibm}{\im@stage{3}{Example}}{\im@stage{3}{Examples}}}%
    \def\SeeAlso{\im@stage{4}{See Also}}}
   {\ifnum\value{im@entrystage}=5\relax\else
      \PackageError{initech-syntax}{Command entry \im@entryname: \arabic{im@entrystage}
        of the five fixed sub-headings present}{}%
-   \fi\par}
+   \fi\par\im@ifmodel{ibm}{\im@closeentry}{}}
 
 %% ---- IBM command entry (F-IBM, PUB-REF-0001 AN-01; bead initech-ipu5.7) ------
 %% \begin{DosEntry}[draft reason]{NAME}{Expansion}{kind}

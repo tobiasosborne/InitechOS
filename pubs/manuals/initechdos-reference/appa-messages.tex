@@ -52,11 +52,11 @@ label of the disk.}{Make sure the disk is formatted and seated in the drive,
 then try the command again.  If the message persists, the disk may be
 damaged; copy the files you can read to another disk.}
 \MessageDetail{MSG-DOS-0006}{The drive \ph{d} was not ready: the door may be
-open or the drive may be empty.\draft{catalogue entry not displayed by any
+open or the drive may be empty.\draft{see bead initech-vlhp: catalogue entry not displayed by any
 code path of this version}}{Put a disk in the drive, close the door, and
 press \type{R}.}
 \MessageDetail{MSG-DOS-0008}{InitechDOS tried to write on a disk in drive
-\ph{d} that is write-protected.\draft{catalogue entry not displayed by any
+\ph{d} that is write-protected.\draft{see bead initech-vlhp: catalogue entry not displayed by any
 code path of this version}}{Remove the write protection, or use another
 disk, and press \type{R}.}
 \input{dos_messages_device}
@@ -77,7 +77,7 @@ display it when a file cannot be renamed or created.}{Check the spelling of
 the command.  If it is a program, make sure its directory is the current
 directory, is named in \texttt{PATH}, or is typed before the name.}
 \MessageDetail{MSG-DOS-0014}{The command processor could not be found or
-started.\draft{catalogue entry not displayed by any code path of this
+started.\draft{see bead initech-vlhp: catalogue entry not displayed by any code path of this
 version: COMMAND.COM is part of the system}}{Restart the system.  If the
 message appears again, call the Help Desk.}
 \MessageDetail{MSG-DOS-0020}{The source and target named in \cmd{COPY} or
@@ -86,7 +86,7 @@ different name, or copy it to another directory.}
 \MessageDetail{MSG-DOS-0003}{No file matches the name you gave.}{Check the
 name and the directory.  Use \cmd{DIR} to list the files.}
 \MessageDetail{MSG-DOS-0013}{The command processor must be loaded again from
-the disk in drive \ph{d}.\draft{catalogue entry not displayed by any code
+the disk in drive \ph{d}.\draft{see bead initech-vlhp: catalogue entry not displayed by any code
 path of this version: COMMAND.COM is never reloaded}}{Put the InitechDOS
 disk in the drive and press any key.}
 \MessageDetail{MSG-DOS-0005}{There is not enough room on the disk.  When you
@@ -104,16 +104,15 @@ not exist, it still holds files or subdirectories, or it is the current
 directory.}{Delete the files in the directory, move to another directory,
 and try again.}
 \MessageDetail{MSG-DOS-0015}{The disk in drive~A cannot start the
-system.\draft{catalogue entry not displayed by any code path of this
+system.\draft{see bead initech-vlhp: catalogue entry not displayed by any code path of this
 version}}{Put the InitechDOS disk in the drive and restart the system.}
-\MessageDetail{MSG-DOS-0016}{A batch file is paused at a \cmd{PAUSE}
-subcommand.}{Do what the batch file asks, then press any key.  Press
-\key{Ctrl-C} to end the batch file.}
+\MessageDetail{MSG-DOS-0016}{\cmd{DIR /P} has filled the screen.}{Press any
+key to see the next screen of the listing.}
 \MessageDetail{MSG-DOS-0011}{The command needs a parameter, such as a file
 name, that you did not give.}{Type the command again with the missing
 parameter.  The Format line of the command shows what is needed.}
 \MessageDetail{MSG-DOS-0010}{The command was given more parameters than it
-uses.}{Type the command again with only the parameters shown in its Format
+uses, or (\cmd{DIR}, \cmd{VOL}) a switch it does not have.}{Type the command again with only the parameters shown in its Format
 line.}
 \MessageDetail{MSG-DOS-0017}{\cmd{MD} could not create the directory: a file
 or directory of that name already exists, a directory in the path does not
@@ -130,6 +129,9 @@ named is stored in one piece.}{None.}
 \OtherMessage{Batch nesting too deep}{CALL}{Batch files have called each
 other too many times without ending.}{Reduce the number of nested
 \cmd{CALL} subcommands.}
+\OtherMessage{Cannot edit .BAK file--rename file}{EDLIN}{\cmd{EDLIN} does
+not edit backup files.}{Rename the file with \cmd{REN} and edit it under
+the new name.}
 \OtherMessage{Cannot perform a cyclic copy}{XCOPY}{You asked \cmd{XCOPY} to
 copy a directory, with its subdirectories, into itself or into one of its
 own subdirectories.}{Copy the directory to a place outside it.}
@@ -139,16 +141,28 @@ found errors, but you did not give \kw{/F}, so nothing was changed.}{Run
 \OtherMessage{Disk error reading (or writing) FAT}{CHKDSK}{\cmd{CHKDSK}
 could not read the file allocation table, or the disk is not formatted as
 InitechDOS expects.}{Copy the files you can read to another disk.}
+\OtherMessage{Disk full - file write not completed}{EDLIN}{The disk filled
+while \cmd{EDLIN} was writing the file.  The original file is
+unchanged.}{Make room on the disk, or quit with \kw{Q}.}
+\OtherMessage{Entry error}{EDLIN}{The command line is not a valid
+\cmd{EDLIN} command: an unknown letter, a line number out of range, or
+lines that overlap the destination of \kw{C} or \kw{M}.}{Type the command
+again.}
 \OtherMessage{Environment variable not defined}{SET}{The variable you named
 is not in the environment.}{Use \cmd{SET} alone to list the variables.}
+\OtherMessage{File access denied}{EDLIN}{\cmd{EDLIN} could not read, create
+or rename a file, for example because a file is read-only.}{Check the
+file's attributes with \cmd{ATTRIB}.}
 \OtherMessage{File creation error}{CHKDSK}{\cmd{CHKDSK /F} could not create
 a \file{FILE}\ph{nnnn}\file{.CHK} file for a lost chain, usually because the
 root directory is full.}{Delete or move files from the root directory and
 run \cmd{CHKDSK /F} again.}
+\OtherMessage{Insufficient memory}{EDLIN}{The lines do not fit in memory.}
+{Write part of the file to disk with \kw{W}, then go on.}
 \OtherMessage{Invalid characters in volume label}{LABEL}{The label contains
 a character that is not allowed, or has no characters.}{Type a label of
 letters, digits and spaces.}
-\OtherMessage{Invalid date}{DATE}{The date is not a real date, or is not in
+\OtherMessage{Invalid date}{DATE, start-up}{The date is not a real date, or is not in
 the form \ph{mm}\texttt{-}\ph{dd}\texttt{-}\ph{yy}.  The date was not
 changed.}{Type the command again with a valid date.}
 \OtherMessage{Invalid number of parameters}{ATTRIB, TREE, XCOPY}{The
@@ -163,15 +177,30 @@ line of the command.}
 \OtherMessage{Invalid path (or file not found)}{ATTRIB, TREE, XCOPY}{The
 file or directory does not exist, or a directory was named where a file was
 expected.}{Check the name and the path.}
-\OtherMessage{Invalid time}{TIME}{The time is not in the form
+\OtherMessage{Invalid time}{TIME, start-up}{The time is not in the form
 \ph{hh}\texttt{:}\ph{mm}, or a number is out of range.  The time was not
 changed.}{Type the command again with a valid time.}
 \OtherMessage{Label not found}{GOTO}{The batch file has no label of the name
 given in \cmd{GOTO}.  The batch file ends.}{Correct the label or the
 \cmd{GOTO} line.}
+\OtherMessage{Line too long}{EDLIN}{A replacement would make the line longer
+than \cmd{EDLIN} allows.  The line is not changed.}{Replace a shorter
+text, or split the line.}
+\OtherMessage{No Path}{PATH}{No search path is set: only the current
+directory is searched for commands.}{Set one with \cmd{PATH} if you need
+it.}
 \OtherMessage{No room in root directory}{LABEL}{The root directory has no
 free entry for the volume label.}{Delete a file from the root directory and
 try again.}
-\OtherMessage{Out of environment space}{SET, PROMPT}{The environment has no
+\OtherMessage{Not found}{EDLIN}{\kw{S} or \kw{R} found no match in the
+lines searched.}{Check the text; capital and small letters must match.}
+\OtherMessage{Out of environment space}{SET, PROMPT, PATH}{The environment has no
 room for the new variable.}{Remove variables you no longer need with
 \cmd{SET} \ph{name}\texttt{=}.}
+\OtherMessage{Strike a key when ready . . .}{PAUSE}{A batch file is paused at
+a \cmd{PAUSE} subcommand.}{Do what the batch file asks, then press any key.
+Press \key{Ctrl-C} to end the batch file.}
+\OtherMessage{WARNING! Backup file is read-only -- backup will not be
+made}{EDLIN}{The file's \file{.BAK} file is read-only, so \kw{E} will not
+replace it; the original is not kept.}{Make the \file{.BAK} file
+read-write with \cmd{ATTRIB -R} first if you want a backup.}

@@ -1,30 +1,29 @@
 /*
  * ppm_flair_cursor_check.c -- R0.1 booted CursorMgr pixel oracle.
  *
- * beads: initech-tdnl.1. The test-flair-cursor scaffold injects one (+80,+40)
- * move after FLAIR-LIVE-READY, taking Event Manager's center (320,240) to the
- * known hotspot (400,280), then captures after FLAIR-CURSOR x=400 y=280.
+ * beads: initech-tdnl.1. The test-flair-cursor scaffold injects two (+90,+70)
+ * moves after FLAIR-LIVE-READY, taking Event Manager's center (320,240) to the
+ * known hotspot (500,380), then captures after FLAIR-CURSOR x=500 y=380.
  *
- * INDEPENDENT GOLDEN (CLAUDE.md Law 2): expected pixels and coordinates are
- * hard-coded here from the clean-room strike review, not read from cursor.c or
- * cursor.h. With CURS hotspot (1,1), black data row 1/col 1 lands exactly at
- * (400,280); the mask-only pixel row 0/col 1 lands at (400,279) and is white.
- * Ref: Inside Macintosh: Imaging With QuickDraw, CURS data/mask/hotspot layout;
- *      docs/plans/GUI-remediation-plan.md R0.1; PRD Sec 6.3.
+ * M009 (initech-tdnl.98): grade ALL 256 cells at zero tolerance against
+ * the real Mac OS 8 arrow crop, using the same independent capture loader
+ * as the host suite. Clear cells must retain the canon seafoam desktop
+ * (#8DDCDC, spec/assets/color_canon.json); no renderer tables are included.
+ * Ref: audit 2026-10-15-look-pass6/REPORT.md M009; PRD Sec 6.3.
  *
- * Usage: ppm_flair_cursor_check <dump.ppm>
+ * Usage: ppm_flair_cursor_check dump.ppm s8_alert_modal.png s8_desktop_menubar.png
  * ASCII-only; deterministic; factory C (ADR-0002 / CLAUDE.md Law 3).
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "cursor_capture.h"
 
 enum {
     EXPECT_W = 640,
     EXPECT_H = 480,
-    CURSOR_X = 400,
-    CURSOR_Y = 280,
-    TOL = 2
+    CURSOR_X = 500,
+    CURSOR_Y = 380
 };
 
 typedef struct image {
@@ -72,50 +71,32 @@ static int read_ppm(const char *path, image_t *im)
     return 0;
 }
 
-static int close_channel(int got, int expected)
-{
-    int d = got - expected;
-    if (d < 0) d = -d;
-    return d <= TOL;
-}
-
-static int probe_rgb(const image_t *im, int x, int y,
-                     int er, int eg, int eb, const char *what)
-{
-    const unsigned char *p = im->pixels +
-        3u * ((size_t)y * (size_t)im->w + (size_t)x);
-    if (!close_channel((int)p[0], er) ||
-        !close_channel((int)p[1], eg) ||
-        !close_channel((int)p[2], eb)) {
-        fprintf(stderr,
-                "ppm_flair_cursor_check: FAIL %s at (%d,%d): "
-                "sampled #%02X%02X%02X expected #%02X%02X%02X (+/-%d)\n",
-                what, x, y, p[0], p[1], p[2], er, eg, eb, TOL);
-        return 1;
-    }
-    return 0;
-}
-
 int main(int argc, char **argv)
 {
-    image_t im;
-    int failed = 0;
-
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <dump.ppm>\n", argv[0]);
+    image_t im = { 0, 0, NULL };
+    char cells[256];
+    int bad = 0;
+    if (argc != 4) {
+        fprintf(stderr, "usage: %s dump.ppm s8_alert_modal.png s8_desktop_menubar.png\n", argv[0]);
         return 2;
     }
-    im.pixels = (unsigned char *)0;
-    if (read_ppm(argv[1], &im)) return 2;
-
-    failed |= probe_rgb(&im, CURSOR_X, CURSOR_Y, 0, 0, 0,
-                        "black arrow-tip data pixel is absent");
-    failed |= probe_rgb(&im, CURSOR_X, CURSOR_Y - 1, 255, 255, 255,
-                        "white mask-only outline pixel is absent");
-    if (!failed) {
-        printf("ppm_flair_cursor_check: PASS hotspot=(400,280) "
-               "black tip + white outline\n");
+    if (cursor_capture_cells(argv[2], argv[3], cells) || read_ppm(argv[1], &im)) return 2;
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++) {
+            char cell = cells[y * 16 + x];
+            unsigned want = cell == '#' ? 0 : cell == 'o' ? 0xFFFFFFu : 0x8DDCDCu;
+            const unsigned char *p = im.pixels +
+                3u * ((size_t)(CURSOR_Y - 1 + y) * (size_t)im.w + CURSOR_X - 1 + x);
+            unsigned got = p[0] * 65536u + p[1] * 256u + p[2];
+            if (got != want) {
+                if (!bad) fprintf(stderr, "cursor M009 first difference cell=(%d,%d): #%06X expected #%06X\n",
+                                  x, y, got, want);
+                bad++;
+            }
+        }
     }
+    printf("ppm_flair_cursor_check: %s M009 hotspot=(500,380) %d/256 differing cells "
+           "(zero tolerance; capture ink=54 paper=43 clear=159)\n", bad ? "RED" : "PASS", bad);
     free(im.pixels);
-    return failed ? 1 : 0;
+    return bad ? 1 : 0;
 }

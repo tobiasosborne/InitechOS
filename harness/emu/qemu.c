@@ -461,14 +461,13 @@ static const char *token_to_qcode(const char *tok)
     }
     /* DOS path/wildcard injection: ':' = shift-semicolon, '?' = shift-slash.
      * Ref: QMP QKeyCode (qapi/ui.json); audit K01/K03 keystroke oracles. */
-    if (strcmp(tok, "semicolon") == 0 || strcmp(tok, "slash") == 0) {
-        return tok;
-    }
-    /* The manual screens (bead initech-ipu5.7, pubs/screens/keys.sh) type the
-     * full DOS command syntax: '=' (SET NAME=VALUE, IF a==b), '+' (shift-
-     * equal, ATTRIB +R), ',' and '<' (shift-comma, input redirection), '"'
-     * (shift-apostrophe). Ref: qapi/ui.json QKeyCode equal, comma, apostrophe. */
-    if (strcmp(tok, "equal") == 0 || strcmp(tok, "comma") == 0 ||
+    /* The manual screens (bead initech-ipu5.7, pubs/screens/keys.sh) and EDLIN
+     * type the full DOS command syntax: '=' (SET NAME=VALUE, IF a==b), '+'
+     * (shift-equal, ATTRIB +R), ',' and '<' (shift-comma, EDLIN ranges, input
+     * redirection), '"' (shift-apostrophe). Ref: qapi/ui.json QKeyCode equal,
+     * comma, apostrophe. */
+    if (strcmp(tok, "semicolon") == 0 || strcmp(tok, "slash") == 0 ||
+        strcmp(tok, "comma") == 0 || strcmp(tok, "equal") == 0 ||
         strcmp(tok, "apostrophe") == 0) {
         return tok;
     }
@@ -506,7 +505,9 @@ static const char *token_to_qcode(const char *tok)
         (tok[2] == '\0' || (tok[1] == '1' && tok[2] >= '0' && tok[2] <= '2' && tok[3] == '\0'))) {
         return tok;
     }
-    if (strcmp(tok, "delete") == 0 || strcmp(tok, "end") == 0) {
+    /* EDLIN's template insertion (MS-DOS 3.3 User's Guide p.168). */
+    if (strcmp(tok, "delete") == 0 || strcmp(tok, "end") == 0 ||
+        strcmp(tok, "insert") == 0) {
         return tok;
     }
     /* Tab (bead initech-jojk, IWORD P2 slice 2: WordPerfect's [Tab]). QEMU

@@ -107,7 +107,7 @@ static int test_resolve(void *user, const char *name, uint16_t len, xb_val *out)
     if (strcmp(ub, "CABC")  == 0) { *out = xb_c("ABC", 3);       return 0; }
     if (strcmp(ub, "CBC")   == 0) { *out = xb_c("BC", 2);        return 0; }
     if (strcmp(ub, "CEMPTY")== 0) { *out = xb_c("", 0);          return 0; }
-    return 1; /* not found -> XBEE_UNBOUND */
+    return 1; /* not found -> #12, Using III+ U7-21 (PDF 509) */
 }
 
 /* -------------------------------------------------------------------------
@@ -381,8 +381,8 @@ int main(void)
               memcmp(v.u.c.p, "AB", 2) == 0,
               "K3: identifier CSTR resolves to C 'AB'");
     }
-    /* unbound identifier (no symbol) -> XBEE_UNBOUND (fail loud) */
-    err_is("NOSUCHFIELD", 0, XBEE_UNBOUND, "K4: unbound ident -> XBEE_UNBOUND (fail loud)");
+    /* Using III+ U7-21 (PDF 509): non-existent memory variable/field is #12. */
+    err_is("NOSUCHFIELD", 0, 12, "K4: missing variable -> #12 (fail loud)");
     /* identifier with no resolver at all -> XBEE_UNBOUND */
     {
         xb_token toks[TBUF]; xb_node pool[NBUF]; xb_ctx ctx;

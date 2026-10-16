@@ -85,7 +85,7 @@ static int32_t cap_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
     const char *s;
     uint32_t k;
     if (c->strip_prompt && c->len >= 2u && c->buf[c->len-2u]=='.' && c->buf[c->len-1u]==' ') {
-        c->buf[c->len-2u] = '\1';      /* command boundary marker (m005_squeeze) */
+        c->buf[c->len-2u] = '\1';      /* command boundary marker (m005_normalize) */
         c->buf[c->len -= 1u] = '\0';
     }
     if (c->lineidx >= c->nlines) { if (cap) buf[0] = '\0'; return -1; }
@@ -206,33 +206,26 @@ static int reference_copy(const char *source,const char *dest)
  *    default catalog rendering "<n>  <msg>" + newline (same code, same
  *    DBASE.MSG text);
  *  - the dot prompt the REPL prints before each read is removed;
- *  - blank runs collapse to one blank and line ends are trimmed, and output
- *    after a command boundary starts a line (in a program LIST and the trap
- *    open with CR LF, at the REPL the typed Enter does; LIST column spacing
- *    differs from the mint -- a separate finding, not graded here);
+ *  - LIST/DISPLAY commands run verbatim in single-command PRGs so their
+ *    program-opening CR LF is graded (M005U/M005N; initech-31d1);
+ *  - spaces, including trailing cell padding, are preserved. Only the error
+ *    renderer's missing opening newline is supplied at a command boundary;
  *  - the log's CR LF becomes LF and the closing ^Z is dropped. */
 static char m005_text[8192];
-/* Collapse blank runs to one blank and trim each line's ends. Column LAYOUT is
- * not graded here (the minted LIST spacing is a separate finding, see the
- * ledger); record order, values and the probe lines are. */
-static void m005_squeeze(const char *in,char *out,size_t cap)
+/* M005U/M005N are byte oracles for layout, not just record order. Never
+ * collapse spaces or repair a missing newline before a Record# heading. */
+static void m005_normalize(const char *in,char *out,size_t cap)
 {
     size_t k=0;
-    int blank=0,start=1;
     for(;*in && k+2<cap;in++) {
-        if(*in==' ') { blank=1; continue; }
-        if(*in=='\n') { out[k++]='\n'; blank=0; start=1; continue; }
         if(*in=='\1') {
-            /* A command boundary. In a program every command's output opens
-             * with CR LF (?, LIST, the ON ERROR line -- the mint); at the REPL
-             * the typed Enter does that, so output not opening a line gets one. */
             const char *q=in;
-            while(*q=='\1' || *q==' ') q++;
-            if(*q && *q!='\n' && k>0 && out[k-1]!='\n') { out[k++]='\n'; start=1; }
-            blank=0; in=q-1; continue;
+            while(*q=='\1') q++;
+            if(*q && *q!='\n' && *q!='\r' && strncmp(q,"Record#",7) && k>0 && out[k-1]!='\n')
+                out[k++]='\n';
+            in=q-1; continue;
         }
-        if(blank && !start) out[k++]=' ';
-        blank=0; start=0;
+        if(*in=='\r') continue;
         out[k++]=*in;
     }
     out[k]=0;
@@ -243,6 +236,7 @@ static void m005_replay(const char *corpus,const char *prg,const char *log,
 {
     char path[1200],dst[1200],cwd[1024],gold[8192],want[8192];
     const char *lines[SCRIPT_MAX_LINES];
+    char do_lines[SCRIPT_MAX_LINES][32];
     int nl=0,i;
     size_t n=0,k=0;
     char *p;
@@ -263,8 +257,17 @@ static void m005_replay(const char *corpus,const char *prg,const char *log,
         while(*e && *e!='\r' && *e!='\n') e++;
         if(*e) *e++=0;
         while(*e=='\r' || *e=='\n') e++;
-        if(*p && strncmp(p,"SET ALTERNATE",13) && strncmp(p,"ON ERROR",8) && strncmp(p,"QUIT",4))
-            lines[nl++]=p;
+        if(*p && strncmp(p,"SET ALTERNATE",13) && strncmp(p,"ON ERROR",8) && strncmp(p,"QUIT",4)) {
+            if(!strncmp(p,"LIST ",5) || !strncmp(p,"DISPLAY ",8)) {
+                snprintf(dst,sizeof dst,"build/samir.audit/m005/L%02d.PRG",nl);
+                f=fopen(dst,"wb");
+                CHECK(f!=NULL,"mint 005 verbatim table command PRG opened");
+                if(f) { fprintf(f,"%s\r\n",p);fclose(f); }
+                snprintf(do_lines[nl],sizeof do_lines[nl],"DO L%02d",nl);
+                lines[nl]=do_lines[nl];
+            } else lines[nl]=p;
+            nl++;
+        }
         p=e;
     }
     snprintf(path,sizeof path,"%s/mint/work/%s",corpus,log);
@@ -298,8 +301,8 @@ static void m005_replay(const char *corpus,const char *prg,const char *log,
         xb_interp_free(ip);
     }
     CHECK(chdir(cwd)==0,"mint 005 session directory left");
-    m005_squeeze(g_cap.buf,m005_norm,sizeof m005_norm);
-    m005_squeeze(want,gold,sizeof gold);
+    m005_normalize(g_cap.buf,m005_norm,sizeof m005_norm);
+    m005_normalize(want,gold,sizeof gold);
     rt_memcpy(want,gold,rt_strlen(gold)+1u);
     if(getenv("M005_TRACE") || strcmp(m005_norm,want)) {
         size_t j=0;
@@ -337,6 +340,28 @@ static void run(samir_pal_t *pal, const char **lines, int n, const char *expecte
     xb_interp_free(ip);
 }
 #define RUN(lines,want,why) run(pal,lines,(int)(sizeof(lines)/sizeof(lines[0])),want,why)
+/* initech-kdna: no "Variable not found" in re/mint-results-*.md or
+ * the mint/work LOG.TXT files. This is a MANUAL-GROUNDED transcript, not a minted
+ * differential. Using III+ U7-21 (PDF 509): #12, "Variable not found."
+ * Prompt/code/two spaces/LF follow the existing #1 house renderer.
+ * Programming III+ N5-30 (PDF 418): ERROR() receives the trapped error code.
+ * Expected bytes are literals from those sources, never the engine catalog. */
+static void undefined_variable(samir_pal_t *pal)
+{
+    const char *plain[]={"? nosuchvar"};
+    const char *open[]={"use build/samir.audit/CLIENTS.DBF","? nosuchvar"};
+    const char *bound[]={"store 7 to present","? present"};
+    const char *trap[]={"on error store error() to seen","? nosuchvar",
+                        "on error","? seen"};
+    RUN(plain,". 12  Variable not found.\n. ","kdna undefined variable is #12");
+    CHECK_STR_EQ(g_cap.buf,". 12  Variable not found.\n. ",
+                 "kdna exact dot-prompt error transcript");
+    RUN(open,"12  Variable not found.\n. ","kdna missing field/memvar with open table is #12");
+    RUN(bound,". . \n7. ","kdna bound memory variable still resolves");
+    RUN(trap,"\n12. ","kdna ON ERROR / ERROR() sees 12");
+    CHECK(!cap_has("Internal error."),"kdna trap does not lose the catalog error");
+    CHECK(!cap_has("Unrecognized command verb."),"kdna handler preserves the original error");
+}
 int main(int argc,char **argv)
 {
     (void)argc; (void)argv;
@@ -345,6 +370,7 @@ int main(int argc,char **argv)
     CHECK(host!=NULL,"host PAL constructed");
     if(!host) return 2;
     pal=cap_pal_make(host);
+    undefined_variable(pal);
 #ifdef TEST_AUDIT_USE
     {
         const char *s[]={"use build/samir.audit/CLIENTS","list"};
@@ -468,7 +494,7 @@ int main(int argc,char **argv)
         /* Re-keyed 2026-10-15 (initech-1y0h/r3pa): numeric cells render
          * right-aligned in their N(w,d) width (Using III+ U5-144), so BAL
          * N(8,2) prints " 1234.50". */
-        RUN(s," 1234.50\n 7777.77\n","K05 LIST excludes negative balance");
+        RUN(s," 1234.50\r\n 7777.77\r\n","K05 LIST excludes negative balance");
         CHECK(!cap_has("-42"),"K05 hidden row absent");
     }
     {
@@ -505,12 +531,12 @@ int main(int argc,char **argv)
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","display","list","set deleted on","list off name","go 2","display","set deleted off","recall","display"};
-        RUN(s,"*       2 WADDAMS","K06 marker precedes deleted record");
+        RUN(s,"*      2  WADDAMS","K06 marker precedes deleted record");
         CHECK(!cap_has("File already exists"),"K06 SET DELETED recognized");
-        /* Re-keyed 2026-10-15 (initech-3cz2/vz6z): the record number is
-         * right-aligned under the Record# heading (7 columns + a space, Using
-         * III+ U5-144 listings), so a live row reads "       2 WADDAMS". */
-        CHECK(cap_has("       2 WADDAMS"),"K06 RECALL removes marker");
+        /* initech-31d1: M005U/M005N real III+ transcripts use 7 record-number
+         * columns + TWO spaces. Deleted-marker placement remains authored:
+         * M005 contains no deleted rows, so that placement is unchanged. */
+        CHECK(cap_has("      2  WADDAMS"),"K06 RECALL removes marker");
     }
     {
         const char *s[]={"use build/samir.audit/CLIENTS.DBF","go 2","delete","set deleted on","set filter to bal < 0","go top","? eof()","set deleted off","go top","? recno()"};
@@ -567,7 +593,7 @@ int main(int argc,char **argv)
         const char *on[]={"use build/samir.audit/CLIENTS.DBF","set deleted on","go top"};
         const char *fresh[]={"use build/samir.audit/CLIENTS.DBF","go top","delete","list"};
         RUN(on,". ","K06 first session enables DELETED");
-        RUN(fresh,"*       1 PESTON","K06 new interpreter defaults DELETED OFF on reused arena");
+        RUN(fresh,"*      1  PESTON","K06 new interpreter defaults DELETED OFF on reused arena");
         CHECK(cap_has("1234.50"),"K06 fresh view renders numeric fields after arena reuse");
     }
     {

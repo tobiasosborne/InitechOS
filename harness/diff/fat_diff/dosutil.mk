@@ -41,9 +41,9 @@ $(BUILD)/dosutil_vol_mut: harness/diff/fat_diff/dosutil_vol.c os/milton/command.
 
 # V2: a native LABEL deletion must invalidate the old mounted BPB fallback.
 $(BUILD)/fileio_fat_mut_label_cache.o: os/milton/fileio_fat.c os/milton/fileio_fat.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FILEIO_FAT_OPT) -DDU_MUTATE_LABEL_CACHE -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FILEIO_FAT_OPT) -DDU_MUTATE_LABEL_CACHE -Ispec -Ios/milton -c $< -o $@
 $(BUILD)/dosutil_cache.elf: $(filter-out $(KERNEL_FILEIO_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fileio_fat_mut_label_cache.o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FILEIO_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fileio_fat_mut_label_cache.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FILEIO_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fileio_fat_mut_label_cache.o
 $(BUILD)/dosutil_cache.bin: $(BUILD)/dosutil_cache.elf
 	$(OBJCOPY) -O binary $< $@
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \

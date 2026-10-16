@@ -77,14 +77,133 @@ static int is_hidden(const iw_doc_t *d, uint32_t p)
     return p < d->len && iw_unit_kind(d, p) == IW_U_HIDDEN;
 }
 
-static int is_term(int kind)
+/* D4/05, the record WP keeps at the start of a centered / right line: the
+ * cursor always rests after it (slice 3). */
+static int is_lead(const iw_doc_t *d, uint32_t p)
 {
-    return kind == IW_U_HRT || kind == IW_U_SRT || kind == IW_U_HPG;
+    return p < d->len && iw_unit_kind(d, p) == IW_U_LEAD;
 }
 
+static uint32_t before_hidden(const iw_doc_t *d, uint32_t at);
+static uint32_t after_lead(const iw_doc_t *d, uint32_t at);
+
+static int is_term(int kind)
+{
+    return kind == IW_U_HRT || kind == IW_U_SRT || kind == IW_U_HPG || kind == IW_U_DSRT;
+}
+
+/* The wrap's paragraph: a [DSRt] is a line end WP put there on purpose
+ * (MINT22 "Mid[DSRt][Just:Center]after"), never re-wrapped across. */
 static int is_para_end(int kind)
 {
-    return kind == IW_U_HRT || kind == IW_U_HPG;
+    return kind == IW_U_HRT || kind == IW_U_HPG || kind == IW_U_DSRT;
+}
+
+/* The units that take the cursor across the paper (a line's first one ends
+ * its LEADING codes: a format code before it formats the line itself). */
+static int advances(int kind)
+{
+    return kind == IW_U_TEXT || kind == IW_U_HSPACE || kind == IW_U_TAB || kind == IW_U_INDENT ||
+           kind == IW_U_SRT;
+}
+
+/* ---- the format in effect (bead initech-jojk, P2 slice 3) ------------------ *
+ * spec/iword/wp5_format.h "margins and justification": the left margin L and
+ * the right margin position 10200 - R (WPU), the justification, and whether a
+ * margin code has been met (until then the caller's `width` rules the wrap,
+ * so the P1 / P2 property suites keep their free widths). */
+typedef struct fmt {
+    uint32_t lm, rm, just, set;
+    uint32_t sp;                 /* line spacing, 8.8 fixed (slice 3, MINT25) */
+} fmt_t;
+
+static void fmt_default(fmt_t *f)
+{
+    f->lm = IW_WP5_LEFT_WPU;
+    f->rm = IW_WP5_RIGHT_WPU;
+    f->just = IW_WP5_JUST_DEFAULT;
+    f->set = 0;
+    f->sp = IW_WP5_SPACING_ONE;
+}
+
+static uint32_t g16(const uint8_t *g, uint32_t i)
+{
+    return (uint32_t)g[i] | ((uint32_t)g[i + 1u] << 8);
+}
+
+/* A [L/R Mar] (1), [Just:] (2) or [Ln Spacing:] (3) code in the bytes at
+ * g, or 0. */
+static int fmt_kind(const uint8_t *g, uint32_t got)
+{
+    if (got >= IW_WP5_MARGIN_LEN && g[0] == IW_WP5_MARGIN_GRP && g[1] == IW_WP5_MARGIN_SUB && g16(g, 2) == 12u) return 1;
+    if (got >= IW_WP5_JUST_LEN && g[0] == IW_WP5_MARGIN_GRP && g[1] == IW_WP5_JUST_SUB && g16(g, 2) == 6u) return 2;
+    if (got >= IW_WP5_SPACING_LEN && g[0] == IW_WP5_MARGIN_GRP && g[1] == IW_WP5_SPACING_SUB && g16(g, 2) == 8u) return 3;
+    return 0;
+}
+
+static void fmt_take(const uint8_t *g, int k, fmt_t *f)
+{
+    if (k == 1) {
+        uint32_t r = g16(g, 10);
+        f->lm = g16(g, 8);
+        f->rm = r < IW_WP5_PAPER_WPU ? IW_WP5_PAPER_WPU - r : 0u;
+        f->set = 1;
+    } else if (k == 2) {
+        f->just = g[5] <= IW_WP5_JUST_RIGHT ? g[5] : IW_WP5_JUST_DEFAULT;
+    } else if (k == 3) {
+        f->sp = g16(g, 6);              /* the new spacing (MINT25 @0x148) */
+    }
+}
+
+/* Apply the format code at p, if it is one; returns its fmt_kind. */
+static int fmt_apply(const iw_doc_t *d, uint32_t p, fmt_t *f)
+{
+    uint8_t g[IW_WP5_MARGIN_LEN];
+    uint32_t got;
+    int k;
+    if (iw_doc_byte(d, p) != (int)IW_WP5_MARGIN_GRP) return 0;
+    got = iw_doc_read(d, p, g, sizeof g);
+    k = fmt_kind(g, got);
+    fmt_take(g, k, f);
+    return k;
+}
+
+/* The format in effect at pos (the codes in [0, pos)). One sequential pass. */
+static void fmt_at(const iw_doc_t *d, uint32_t pos, fmt_t *f)
+{
+    iw_iter_t it;
+    uint32_t p = 0;
+    fmt_default(f);
+    iw_iter_at(&it, d, 0);
+    while (p < pos) {
+        int b = iw_iter_next(&it);
+        uint32_t n = 1, i;
+        if (b < 0) return;
+        if (b >= (int)IW_WP5_FIXED_LO && b <= (int)IW_WP5_FIXED_HI) {
+            n = iw_unit_next(d, p) - p;
+            for (i = 1; i < n; i++) (void)iw_iter_next(&it);
+        } else if (b >= (int)IW_WP5_VAR_LO) {
+            uint8_t g[IW_WP5_MARGIN_LEN];
+            g[0] = (uint8_t)b;
+            for (i = 1; i < 4u; i++) g[i] = (uint8_t)iw_iter_next(&it);
+            n = IW_WP5_VAR_HDR + g16(g, 2);
+            for (i = 4; i < n; i++) {
+                int c = iw_iter_next(&it);
+                if (i < sizeof g) g[i] = (uint8_t)c;
+            }
+            if (b == (int)IW_WP5_MARGIN_GRP) fmt_take(g, fmt_kind(g, n < sizeof g ? n : sizeof g), f);
+        }
+        p += n;
+    }
+}
+
+/* Characters a line holds: a character fits when it STARTS at or before the
+ * right margin position (MINT22: 66 at 1"/1"; MINT21: 56 at 1.3"/1.7"). */
+static uint32_t fmt_width(const fmt_t *f, uint32_t width)
+{
+    if (!f->set) return width;
+    if (f->rm <= f->lm) return 1u;
+    return (f->rm - f->lm) / IW_WP5_WPU_PER_COL + 1u;
 }
 
 /* ---- paragraphs ------------------------------------------------------------ */
@@ -130,106 +249,197 @@ static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
 #endif
 }
 
-int iw_reflow_para(iw_doc_t *d, uint32_t pos, uint32_t width)
+#ifdef IWORD_MUT_WRAP_EARLY
+/* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): a line ends one column
+ * short of the margin. NEVER real. */
+#define LINE_WIDTH(f, w0) (fmt_width((f), (w0)) > 1u ? fmt_width((f), (w0)) - 1u : 1u)
+#elif defined(IWORD_MUT_WRAP_65)
+/* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): slice 1's rule -- a
+ * character must END by the right margin (65 at 1"/1"). NEVER real. */
+#define LINE_WIDTH(f, w0) ((f)->set ? fmt_width((f), (w0)) - 1u : ((w0) == IW_WP5_WRAP_COLS ? (w0) - 1u : (w0)))
+#else
+#define LINE_WIDTH(f, w0) fmt_width((f), (w0))
+#endif
+
+/* Re-wrap the paragraph [p, end) that starts in format *f; *f leaves as the
+ * format at its end. A format code among a line's leading units formats that
+ * line; one after them, the lines after it. */
+static int reflow_range(iw_doc_t *d, uint32_t p, uint32_t end, fmt_t *f, uint32_t width0)
 {
-    uint32_t p, end, m = 0;
+    uint32_t m = 0;
     int rc;
 #ifdef IWORD_MUT_NO_WRAP
     /* MUTANT (Rule 6; test-flair-iword-mutant): word wrap is off -- no soft
      * return is ever placed. NEVER real. */
-    (void)d; (void)pos; (void)width;
+    (void)d; (void)p; (void)end; (void)f; (void)width0; (void)m; (void)rc;
     return IW_OK;
 #endif
-#ifdef IWORD_MUT_WRAP_EARLY
-    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): a line ends one
-     * column short of the margin. NEVER real. */
-    if (width > 1u) width--;
-#endif
-    if (pos > d->len) return IW_E_RANGE;
-    p = para_start(d, pos);
-    end = para_end(d, pos);
     for (;;) {
         /* c: the column, from the line's margin m; mq: the margin the
-         * indents before q set -- the next line's, should it break at q */
-        uint32_t c = m, q = p, lastfit = NONE, brk = NONE, mq = m, mfit = m, mbrk = m;
+         * indents before q set -- the next line's, should it break at q;
+         * fq: the format after the units before q -- likewise */
+        uint32_t c = m, q = p, lastfit = NONE, brk = NONE, mq = m, mfit = m, mbrk = m, width;
+        fmt_t lf = *f, fq = *f, ffit = *f, fbrk = *f;
+        int lead = 1;
+        width = LINE_WIDTH(&lf, width0);
         while (q < end) {
             int k = iw_unit_kind(d, q);
-            if (breakable(d, q, k)) {
-                if (c <= width) { lastfit = q; mfit = mq; }
-                else if (lastfit != NONE) { brk = lastfit; mbrk = mfit; break; }
-                else { brk = q; mbrk = mq; break; }
+            if (k == IW_U_CODE && fmt_apply(d, q, &fq) && lead) {
+                (void)fmt_apply(d, q, &lf);
+                width = LINE_WIDTH(&lf, width0);
             }
+            if (breakable(d, q, k)) {
+                if (c <= width) { lastfit = q; mfit = mq; ffit = fq; }
+                else if (lastfit != NONE) { brk = lastfit; mbrk = mfit; fbrk = ffit; break; }
+                else { brk = q; mbrk = mq; fbrk = fq; break; }
+            }
+            if (advances(k)) lead = 0;
             c = (k == IW_U_SRT) ? c + 1u : advance(k, c);
             if (k == IW_U_INDENT) mq = c;
             q = iw_unit_next(d, q);
         }
-        if (brk == NONE && c > width && lastfit != NONE) { brk = lastfit; mbrk = mfit; }
-        if (brk == NONE) return unsoft(d, p, end);      /* the last line */
+        if (brk == NONE && c > width && lastfit != NONE) { brk = lastfit; mbrk = mfit; fbrk = ffit; }
+        if (brk == NONE) {                               /* the last line */
+            *f = fq;
+            return unsoft(d, p, end);
+        }
         rc = unsoft(d, p, brk);
         if (rc == IW_OK && iw_unit_kind(d, brk) != IW_U_SRT) rc = iw_doc_set(d, brk, IW_WP5_SRT);
         if (rc != IW_OK) return rc;
         p = iw_unit_next(d, brk);
         m = mbrk;
+        *f = fbrk;
     }
 }
 
-int iw_reflow_all(iw_doc_t *d, uint32_t width)
+int iw_reflow_para(iw_doc_t *d, uint32_t pos, uint32_t width)
 {
-    uint32_t p = 0;
+    uint32_t p;
+    fmt_t f;
+    if (pos > d->len) return IW_E_RANGE;
+    p = para_start(d, pos);
+    fmt_at(d, p, &f);
+    return reflow_range(d, p, para_end(d, pos), &f, width);
+}
+
+/* Every paragraph from the one holding pos on, the format carried along. */
+int iw_reflow_from(iw_doc_t *d, uint32_t pos, uint32_t width)
+{
+    uint32_t p;
+    fmt_t f;
+    if (pos > d->len) return IW_E_RANGE;
+    p = para_start(d, pos);
+    fmt_at(d, p, &f);
     for (;;) {
-        uint32_t e;
-        int rc = iw_reflow_para(d, p, width);
+        uint32_t e = para_end(d, p);
+        int rc = reflow_range(d, p, e, &f, width);
         if (rc != IW_OK) return rc;
-        e = para_end(d, p);
         if (e >= d->len) return IW_OK;
         p = iw_unit_next(d, e);
     }
 }
 
-/* ---- layout ------------------------------------------------------------------ */
-/* The line that starts at `start` at column col0 (its paragraph's margin). */
-static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, uint32_t width, iw_line_t *ln)
+int iw_reflow_all(iw_doc_t *d, uint32_t width)
 {
-    uint32_t p = start, c = col0, m = col0;
+    return iw_reflow_from(d, 0, width);
+}
+
+/* ---- layout ------------------------------------------------------------------ */
+/* The line that starts at `start` at column col0 (its paragraph's margin) in
+ * format *fin; *fout = the format at its end. */
+static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fmt_t *fin,
+                      uint32_t width0, iw_line_t *ln, fmt_t *fout)
+{
+    uint32_t p = start, c = col0, m = col0, width, w, lead_at = NONE;
+    fmt_t lf = *fin, run = *fin;
+    int lead = 1, k = IW_U_TEXT, ended = 0, placed = 0, after_just = 0;
+    width = LINE_WIDTH(&lf, width0);
     ln->start = start;
     ln->pad = 0;
     ln->col0 = (uint16_t)col0;
     while (p < d->len) {
-        int k = iw_unit_kind(d, p);
-        if (is_term(k)) {
-            ln->text_end = p;
-            ln->end = iw_unit_next(d, p);
-            ln->cols = (uint16_t)c;
-            ln->term = (uint8_t)k;
-            ln->margin = (uint16_t)(k == IW_U_SRT ? m : 0u);
-            return;
+        k = iw_unit_kind(d, p);
+        if (is_term(k)) { ended = 1; break; }
+        {
+            int fk = k == IW_U_CODE ? fmt_apply(d, p, &run) : 0;
+            if (fk && lead) {
+                (void)fmt_apply(d, p, &lf);
+                width = LINE_WIDTH(&lf, width0);
+            }
+            if (k != IW_U_LEAD) after_just = fk == 2;
         }
         /* the layout's own break (never before the line's first unit, so a
-         * margin wider than the line still makes progress) */
-        if ((k == IW_U_TEXT || k == IW_U_HSPACE) && c + 1u > width && p > start) break;
+         * margin wider than the line still makes progress -- slice 3: a
+         * D4/05 is not that unit, or a line of a D4/05 alone would follow a
+         * line of a D4/05 alone forever) */
+        if ((k == IW_U_TEXT || k == IW_U_HSPACE) && c + 1u > width && placed) {
+            /* the D4/05 records right before the break start the next line */
+            if (lead_at != NONE) p = lead_at;
+            break;
+        }
+        if (k != IW_U_LEAD) placed = 1;
+        /* (the D4/05 right after a [Just:] code is that code's own record:
+         * it stays on the code's line even when the layout breaks right
+         * after it -- otherwise the line would ask for it forever [the break
+         * there is not minted; stated 2026-10-16, test-iword-codes F4]) */
+        if (k == IW_U_LEAD) { if (lead_at == NONE && !after_just) lead_at = p; after_just = 0; }
+        else lead_at = NONE;
+        if (advances(k)) lead = 0;
         c = advance(k, c);
         if (k == IW_U_INDENT) m = c;
         p = iw_unit_next(d, p);
     }
     ln->text_end = p;
-    ln->end = p;
     ln->cols = (uint16_t)c;
-    ln->term = IW_U_TEXT;
-    ln->margin = (uint16_t)m;
+    if (ended) {
+        ln->end = iw_unit_next(d, p);
+        ln->term = (uint8_t)k;
+        ln->margin = (uint16_t)(k == IW_U_SRT ? m : 0u);
+    } else {
+        ln->end = p;
+        ln->term = IW_U_TEXT;
+        ln->margin = (uint16_t)m;
+    }
+    ln->lm = (uint16_t)lf.lm;
+    ln->rm = (uint16_t)lf.rm;
+    ln->just = (uint8_t)lf.just;
+    ln->fset = (uint8_t)lf.set;
+    /* the spacing at the line's END is the advance its SRt / HRt makes
+     * (Reference Manual, Line Spacing p. 345: "the number of lines that will
+     * be inserted for each Soft Return code [SRt] and Hard Return code
+     * [HRt]"; MINT25 "Mid[Ln Spacing:1]single" advanced one line) */
+    ln->sp = (uint16_t)run.sp;
+    /* where the text sits on the paper (MINT22 04_typed: a centered line
+     * halfway between the margins, a right-justified one ending at the right
+     * margin position) */
+    w = (c > col0 ? c - col0 : 0u) * IW_WP5_WPU_PER_COL;
+    ln->x0 = (uint16_t)(lf.lm + IW_WP5_WPU_PER_COL * col0);
+#ifndef IWORD_MUT_NO_CENTER
+    /* (IWORD_MUT_NO_CENTER, Rule 6, test-iword-face-mutant: a centered or
+     * right-justified line shows at the left margin. NEVER real.) */
+    if (lf.just == IW_WP5_JUST_CENTER && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.lm + (lf.rm - lf.lm - w) / 2u);
+    else if (lf.just == IW_WP5_JUST_RIGHT && lf.rm >= lf.lm + w) ln->x0 = (uint16_t)(lf.rm - w);
+#else
+    (void)w;
+#endif
+    *fout = run;
 }
 
 void iw_line_at(const iw_doc_t *d, uint32_t start, uint32_t width, iw_line_t *ln)
 {
-    /* the margin at `start`: walk its paragraph's lines up to it */
+    /* the margin and the format at `start`: walk its paragraph's lines up to it */
     uint32_t p = para_start(d, start), m = 0;
+    fmt_t f, fo;
+    fmt_at(d, p, &f);
     while (p < start) {
         iw_line_t t;
-        line_from(d, p, m, width, &t);
+        line_from(d, p, m, &f, width, &t, &fo);
         if (t.end > start || t.end <= p) break;
         m = t.margin;
         p = t.end;
+        f = fo;
     }
-    line_from(d, start, m, width, ln);
+    line_from(d, start, m, &f, width, ln, &fo);
 }
 
 uint32_t iw_line_col(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos)
@@ -263,35 +473,60 @@ static uint32_t line_max(const iw_doc_t *d, const iw_line_t *ln)
     return ln->end > ln->start ? iw_unit_prev(d, ln->end) : ln->start;
 }
 
-/* Walk the lines from the top. visit() returns nonzero to stop. */
+/* Walk the lines from the top. */
 typedef struct walk {
     iw_line_t ln;
     uint32_t  index, page, page_line;
+    uint32_t  y;                 /* down the page from its first line, in
+                                  * 1/256ths of a line (slice 3, spacing) */
+    fmt_t     fin, fout;         /* the format at the line's start / end */
 } walk_t;
 
 static void walk_first(const iw_ed_t *e, walk_t *w)
 {
-    line_from(&e->doc, 0, 0, e->width, &w->ln);
+    fmt_default(&w->fin);
+    line_from(&e->doc, 0, 0, &w->fin, e->width, &w->ln, &w->fout);
     w->index = 0;
     w->page = 1;
     w->page_line = 1;
+    w->y = 0;
 }
 
 /* Advance to the next line; 0 at the last line. */
 static int walk_next(const iw_ed_t *e, walk_t *w)
 {
     uint8_t term = w->ln.term;
+    uint32_t y;
     if (is_last(&e->doc, &w->ln)) return 0;
-    line_from(&e->doc, w->ln.end, w->ln.margin, e->width, &w->ln);
+    /* the line below sits the previous line's spacing further down (MINT25:
+     * Ln 2.83" = 1" + 11 lines); a line that would start past the page's
+     * last single-spaced line starts the next page -- at spacing 1 exactly
+     * IW_WP5_LINES_PER_PAGE lines a page as before [the page end under
+     * other spacings is inferred: no mint fills a page] */
+    y = w->y + w->ln.sp;
+    w->fin = w->fout;
+    line_from(&e->doc, w->ln.end, w->ln.margin, &w->fin, e->width, &w->ln, &w->fout);
     w->index++;
-    if (term == IW_U_HPG || w->page_line >= IW_WP5_LINES_PER_PAGE) { w->page++; w->page_line = 1; }
-    else w->page_line++;
+    if (term == IW_U_HPG || y > (IW_WP5_LINES_PER_PAGE - 1u) * IW_WP5_SPACING_ONE) { w->page++; w->page_line = 1; w->y = 0; }
+    else { w->page_line++; w->y = y; }
     return 1;
 }
 
 static int in_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos)
 {
     return pos < ln->end || is_last(d, ln) || (ln->term != IW_U_TEXT && pos == ln->text_end);
+}
+
+/* The format in effect at pos on line w->ln (its codes before pos). */
+static fmt_t fmt_in_line(const iw_doc_t *d, const walk_t *w, uint32_t pos)
+{
+    fmt_t f = w->fin;
+    uint32_t p = w->ln.start;
+    while (p < pos && p < d->len) {
+        if (iw_unit_kind(d, p) == IW_U_CODE) (void)fmt_apply(d, p, &f);
+        p = iw_unit_next(d, p);
+    }
+    return f;
 }
 
 void iw_ed_where(const iw_ed_t *e, iw_where_t *wh)
@@ -304,6 +539,15 @@ void iw_ed_where(const iw_ed_t *e, iw_where_t *wh)
     wh->col = iw_line_col(&e->doc, &w.ln, e->cur);
     wh->page = w.page;
     wh->page_line = w.page_line;
+    wh->y = w.y;
+    wh->x = IW_LINE_X(&w.ln, wh->col);
+    wh->lm = w.ln.lm;
+    wh->rm = w.ln.rm;
+    {
+        fmt_t f = fmt_in_line(&e->doc, &w, e->cur);
+        wh->just = f.just;
+        wh->sp = f.sp;
+    }
 }
 
 static int find_line(const iw_ed_t *e, uint32_t line, walk_t *w)
@@ -313,6 +557,10 @@ static int find_line(const iw_ed_t *e, uint32_t line, walk_t *w)
     return 1;
 }
 
+/* The position on line ln nearest relative column col. From the line's
+ * start it lands past the codes in front of its first character, as WP's
+ * Down did onto "[Just:Left][L/R Mar:1.5",1"]Same trip." (MINT23
+ * 05_reveal_line2: the cursor on "S") and Home, Left does (MINT15). */
 static uint32_t pos_in_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t col)
 {
     uint32_t p = ln->start, c = ln->col0, max = line_max(d, ln);
@@ -322,7 +570,15 @@ static uint32_t pos_in_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t col
         c = nc;
         p = iw_unit_next(d, p);
     }
+    if (p == ln->start)
+        while (p < max && (iw_unit_kind(d, p) == IW_U_CODE || iw_unit_kind(d, p) == IW_U_LEAD)) p = iw_unit_next(d, p);
     return p;
+}
+
+/* Relative column of paper position x on ln (the Up / Down goal is x). */
+static uint32_t col_of_x(const iw_line_t *ln, uint32_t x)
+{
+    return x <= ln->x0 ? ln->col0 : ln->col0 + (x - ln->x0) / IW_WP5_WPU_PER_COL;
 }
 
 uint32_t iw_ed_pos_at(const iw_ed_t *e, uint32_t line, uint32_t col)
@@ -394,7 +650,11 @@ int iw_ed_enter(iw_ed_t *e)
  * protection: no mint shows what WP does with it). */
 static int on_code(iw_ed_t *e, uint32_t q, int del)
 {
-    if (iw_code_attr(&e->doc, q, 0) >= 0) {
+    /* slice 3: a [L/R Mar] / [Just:] code is asked about too (MINT23
+     * 06_bs_question "Delete [L/R Mar:1.5",1"]? No (Yes)", 08_del_question;
+     * MINT24 04_bs_question "Delete [Just:Center]? No (Yes)"; Reference
+     * Manual p. 394 "you are asked to confirm the deletion") */
+    if (iw_code_attr(&e->doc, q, 0) >= 0 || iw_code_is_format(&e->doc, q)) {
         if (e->reveal) return iw_ed_kill_code(e, q);
 #ifdef IWORD_MUT_NO_ASK
         /* MUTANT (Rule 6; test-iword-codes-mutant): the editing screen keeps
@@ -418,8 +678,9 @@ int iw_ed_backspace(iw_ed_t *e)
     e->goal = NONE;
     if (e->cur == 0u) return IW_OK;
     q = iw_unit_prev(d, e->cur);
-    while (q > 0u && is_hidden(d, q)) q = iw_unit_prev(d, q);
+    while (q > 0u && (is_hidden(d, q) || is_lead(d, q))) q = iw_unit_prev(d, q);
     k = iw_unit_kind(d, q);
+    if (k == IW_U_LEAD) return IW_OK;                      /* the top */
     if (k == IW_U_HIDDEN) { e->cur = q; return IW_E_PROTECTED; }
     if (k == IW_U_CODE) return on_code(e, q, 0);
     /* text, a return, a tab, an indent or a hard page: deleted without a
@@ -438,7 +699,7 @@ int iw_ed_delete(iw_ed_t *e)
     uint32_t q = e->cur;
     int k, rc;
     e->goal = NONE;
-    while (q < d->len && is_hidden(d, q)) q = iw_unit_next(d, q);
+    while (q < d->len && (is_hidden(d, q) || is_lead(d, q))) q = iw_unit_next(d, q);
     if (q >= d->len) return IW_OK;
     k = iw_unit_kind(d, q);
     if (k == IW_U_CODE) return on_code(e, q, 1);
@@ -453,7 +714,7 @@ int iw_ed_answer(iw_ed_t *e, int yes)
     uint32_t q = e->ask;
     e->goal = NONE;
     e->ask = NONE;
-    if (q == NONE || iw_code_attr(&e->doc, q, 0) < 0) return IW_E_RANGE;
+    if (q == NONE || (iw_code_attr(&e->doc, q, 0) < 0 && !iw_code_is_format(&e->doc, q))) return IW_E_RANGE;
     /* Yes: the code and its partner (MINT11 "Alpha" F6 Backspace y, "Delta"
      * F6 Delete y -- both pairs gone, the text joined) */
     if (yes) return iw_ed_kill_code(e, q);
@@ -476,6 +737,8 @@ void iw_ed_left(iw_ed_t *e)
     e->goal = NONE;
     if (e->cur == 0u) return;
     q = iw_unit_prev(d, e->cur);
+    while (q > 0u && is_lead(d, q)) q = iw_unit_prev(d, q);   /* a line's D4/05 */
+    if (is_lead(d, q)) return;            /* the top of the document */
     while (q > 0u) {                      /* over the unseen codes too */
         uint32_t r = iw_unit_prev(d, q);
         if (!is_hidden(d, r)) break;
@@ -491,6 +754,7 @@ void iw_ed_right(iw_ed_t *e)
     e->goal = NONE;
     while (is_hidden(d, q)) q = iw_unit_next(d, q);
     if (q < d->len) q = iw_unit_next(d, q);
+    while (is_lead(d, q)) q = iw_unit_next(d, q);
     e->cur = q;
 }
 
@@ -499,10 +763,12 @@ static void vertical(iw_ed_t *e, int dir)
     iw_where_t wh;
     walk_t w;
     iw_ed_where(e, &wh);
-    if (e->goal == NONE) e->goal = wh.col;
+    /* the goal is the paper position (slice 3: lines under other margins or
+     * centered start elsewhere; at 1"/1" it is the column as before) */
+    if (e->goal == NONE) e->goal = wh.x;
     if (dir < 0 && wh.line == 0u) return;
     if (!find_line(e, dir < 0 ? wh.line - 1u : wh.line + 1u, &w)) return;
-    e->cur = pos_in_line(&e->doc, &w.ln, e->goal);
+    e->cur = pos_in_line(&e->doc, &w.ln, col_of_x(&w.ln, e->goal));
 }
 
 void iw_ed_up(iw_ed_t *e)   { vertical(e, -1); }
@@ -521,9 +787,70 @@ void iw_ed_line_home(iw_ed_t *e)
      * after [BOLD]); a tab or an indent is a column and is not passed */
     if (find_line(e, wh.line, &w)) {
         max = line_max(&e->doc, &w.ln);
-        while (p < max && iw_unit_kind(&e->doc, p) == IW_U_CODE) p = iw_unit_next(&e->doc, p);
+        while (p < max && (iw_unit_kind(&e->doc, p) == IW_U_CODE || iw_unit_kind(&e->doc, p) == IW_U_LEAD))
+            p = iw_unit_next(&e->doc, p);
     }
     e->cur = p;
+}
+
+/* ---- the Home prefix keys (bead initech-jojk, P2 slice 3) --------------------- *
+ * Reference Manual, Cursor Movement p. 103-104 (the table); the real WP.EXE
+ * in mint/wpMINT27.steps (re/mint-results-004.md). */
+/* Home, Home, Home, Left: the line's very start, BEFORE the codes in front
+ * of its first character (MINT27 08_hhh_left_reveal: on [BOLD]). */
+void iw_ed_line_start(iw_ed_t *e)
+{
+    iw_where_t wh;
+    e->goal = NONE;
+    iw_ed_where(e, &wh);
+#ifdef IWORD_MUT_HHH_AFTER
+    /* MUTANT (Rule 6; test-iword-codes-mutant): Home, Home, Home, Left
+     * stops after the codes, as Home, Left does. NEVER real. */
+    iw_ed_line_home(e);
+    return;
+#endif
+    e->cur = after_lead(&e->doc, wh.line_start);
+}
+
+/* Home, Home, Up: the beginning of the document "after any formatting
+ * codes" (p. 104; MINT27 10_hh_up_reveal: on the [HRt] after [Just:Left]);
+ * Home, Home, Home, Up "before any formatting codes" (12_hhh_up_reveal: on
+ * [Just:Left]). The codes passed are the zero-width ones up to the first
+ * character or return [inferred beyond [Just:Left]: the one code minted]. */
+void iw_ed_doc_top(iw_ed_t *e, int before_codes)
+{
+    uint32_t p = 0;
+    e->goal = NONE;
+    if (!before_codes)
+        while (p < e->doc.len && (iw_unit_kind(&e->doc, p) == IW_U_CODE || iw_unit_kind(&e->doc, p) == IW_U_LEAD))
+            p = iw_unit_next(&e->doc, p);
+    e->cur = after_lead(&e->doc, p);
+}
+
+/* Home, Home, Down: the end of the document (p. 104 "after any formatting
+ * codes"; MINT27 14_hh_down_reveal: after "Four."). */
+void iw_ed_doc_end(iw_ed_t *e)
+{
+    e->goal = NONE;
+    e->cur = before_hidden(&e->doc, e->doc.len);
+}
+
+/* Home, Up / Home, Down land on another line as Up / Down do, the goal kept
+ * (MINT27 15_home_up "Ln 1"", 16_home_down "Pos 1.5"": the column Up, Up
+ * left behind). */
+void iw_ed_to_line(iw_ed_t *e, uint32_t line)
+{
+    iw_where_t wh;
+    walk_t w;
+    iw_ed_where(e, &wh);
+    if (e->goal == NONE) e->goal = wh.x;
+    if (line == wh.line) return;
+    if (!find_line(e, line, &w)) {
+        /* past the end: the last line */
+        walk_first(e, &w);
+        while (walk_next(e, &w)) { }
+    }
+    e->cur = pos_in_line(&e->doc, &w.ln, col_of_x(&w.ln, e->goal));
 }
 
 void iw_ed_line_end(iw_ed_t *e)
@@ -697,42 +1024,193 @@ static void u16put(uint8_t *g, uint32_t v)
     g[1] = (uint8_t)((v >> 8) & 0xFFu);
 }
 
-static uint32_t wpu(uint32_t col) { return IW_WP5_LEFT_WPU + IW_WP5_WPU_PER_COL * col; }
-
-/* The geometry inside the codes, from the layout (spec/iword/wp5_format.h). */
+/* The geometry inside the codes, from the layout and the margins in effect
+ * (spec/iword/wp5_format.h; slice 3: tabs, indents and C6 measured from the
+ * line's left margin and right margin position, MINT21 @0x1CF / @0x24E,
+ * MINT23 @0x1AE), and each format code's OLD values -- the format in effect
+ * before it (MINT24: [Just:Right] old Center -> Full once the [Just:Center]
+ * before it was deleted). */
 static int fix_payloads(iw_ed_t *e)
 {
     iw_doc_t *d = &e->doc;
     walk_t w;
-    int geo = 1, rc = IW_OK;
+    int rc = IW_OK;
     walk_first(e, &w);
     for (;;) {
         uint32_t p = w.ln.start, c = w.ln.col0, m = w.ln.col0;
+        fmt_t run = w.fin;
         while (p < w.ln.end && rc == IW_OK) {
             int k = iw_unit_kind(d, p), b0 = iw_doc_byte(d, p);
             uint8_t g[10];
-            if (geo && (k == IW_U_TAB || k == IW_U_INDENT)) {
-                uint32_t s = next_stop(c), o = 0;
+            if (k == IW_U_TAB || k == IW_U_INDENT) {
+#ifdef IWORD_MUT_TAB_ABS
+                /* MUTANT (Rule 6; test-iword-codes-mutant, test-iword-wp5-
+                 * roundtrip-mutant): the stops stay where the 1" margin puts
+                 * them whatever the margins. NEVER real. */
+                uint32_t a = IW_WP5_LEFT_WPU + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
+#else
+                uint32_t a = w.ln.lm + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
+#endif
                 if (k == IW_U_TAB) g[o++] = IW_WP5_C1_TAB;
                 else { g[o++] = 0x00; u16put(g + o, IW_WP5_INDENT_STEP); o += 2u; }
-                u16put(g + o, wpu(s)); o += 2u;
-                u16put(g + o, wpu(s)); o += 2u;
-                u16put(g + o, IW_WP5_LEFT_TENTHS + s); o += 2u;
+                u16put(g + o, a); o += 2u;
+                u16put(g + o, a); o += 2u;
+                u16put(g + o, a / IW_WP5_WPU_PER_COL); o += 2u;     /* tenths, rounded down */
                 rc = put_bytes(d, p + 1u, g, o);
-            } else if (geo && k == IW_U_HIDDEN && b0 == (int)IW_WP5_END_INDENT) {
-                u16put(g, IW_WP5_RIGHT_WPU);
-                u16put(g + 2, wpu(m));
+            } else if (k == IW_U_HIDDEN && b0 == (int)IW_WP5_END_INDENT) {
+                u16put(g, w.ln.rm);
+                u16put(g + 2, w.ln.lm + IW_WP5_WPU_PER_COL * m);
                 rc = put_bytes(d, p + 1u, g, 4u);
-            } else if (geo && k == IW_U_HIDDEN) {
-                u16put(g, (w.page_line - 1u) * IW_WP5_WPU_PER_LINE);
+            } else if (k == IW_U_HIDDEN) {
+                u16put(g, w.y * IW_WP5_WPU_PER_LINE / IW_WP5_SPACING_ONE);
                 u16put(g + 2, w.page);
                 rc = put_bytes(d, p + IW_WP5_PAGE_VPOS_OFF, g, 4u);
+            } else if (k == IW_U_CODE && b0 == (int)IW_WP5_MARGIN_GRP) {
+                uint8_t h[IW_WP5_MARGIN_LEN];
+                uint32_t got = iw_doc_read(d, p, h, sizeof h);
+                int fk = fmt_kind(h, got);
+#ifndef IWORD_MUT_OLD_STALE
+                /* (IWORD_MUT_OLD_STALE, Rule 6, test-iword-wp5-roundtrip-
+                 * mutant: a code keeps the old values it was typed with.
+                 * NEVER real.) */
+                if (fk == 1) {
+                    u16put(g, run.lm);
+                    u16put(g + 2, IW_WP5_PAPER_WPU - run.rm);
+                    rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 4u);
+                } else if (fk == 2) {
+                    g[0] = (uint8_t)run.just;
+                    rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 1u);
+                } else if (fk == 3) {
+                    /* MINT26: [Ln Spacing:3] saved with old 1 once the
+                     * [Ln Spacing:1.33] before it was deleted */
+                    u16put(g, run.sp);
+                    rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 2u);
+                }
+#endif
+                fmt_take(h, fk, &run);
             }
-            if (b0 == (int)IW_WP5_MARGIN_GRP && iw_doc_byte(d, p + 1u) == (int)IW_WP5_MARGIN_SUB) geo = 0;
             c = advance(k, c);
             if (k == IW_U_INDENT) m = c;
             p = iw_unit_next(d, p);
         }
+        if (rc != IW_OK) return rc;
+        if (!walk_next(e, &w)) return IW_OK;
+    }
+}
+
+/* ---- D4/05: where a centered / right-justified stretch starts (slice 3) ------- *
+ * spec/iword/wp5_format.h "LINE POSITION": one at the start of every line
+ * whose justification is Center or Right, one right after every [Just:] code
+ * whose old or new value is one of them, no other; x from the text up to the
+ * next one (MINT22, MINT24A). */
+static int cr_just(uint32_t j)
+{
+    return j == IW_WP5_JUST_CENTER || j == IW_WP5_JUST_RIGHT;
+}
+
+/* A D4/05 into p; a cursor AT p goes after it (the line's text follows it:
+ * MINT24A "D4/05 ab", typed with the cursor at the line's start). */
+static int lead_insert(iw_ed_t *e, uint32_t p)
+{
+    static const uint8_t lp[IW_WP5_LINEPOS_LEN] = { IW_WP5_PAGE_GRP, IW_WP5_LINEPOS_SUB, 0x08, 0x00,
+        0, 0, 0, 0, 0x08, 0x00, IW_WP5_LINEPOS_SUB, IW_WP5_PAGE_GRP };
+    int rc;
+    if (!room_for(&e->doc, sizeof lp)) return IW_E_FULL;
+    rc = iw_doc_insert(&e->doc, p, lp, sizeof lp);
+    if (rc != IW_OK) return rc;
+    if (e->cur != NONE && e->cur >= p) e->cur += sizeof lp;
+    if (e->blk != NONE && e->blk >= p) e->blk += sizeof lp;
+    return IW_OK;
+}
+
+/* The D4/05 payloads of line w->ln. */
+static int lead_payloads(iw_ed_t *e, const walk_t *w)
+{
+    iw_doc_t *d = &e->doc;
+    uint32_t p = w->ln.start, run = w->fin.just;
+    while (p < w->ln.text_end) {
+        int k = iw_unit_kind(d, p);
+        if (k == IW_U_LEAD) {
+            uint32_t q = iw_unit_next(d, p), c = 0, x, wd, room;
+            uint8_t g[4];
+            int rc;
+            while (q < w->ln.text_end && iw_unit_kind(d, q) != IW_U_LEAD) {
+                c = advance(iw_unit_kind(d, q), c);
+                q = iw_unit_next(d, q);
+            }
+            wd = c * IW_WP5_WPU_PER_COL;
+            room = w->ln.rm > w->ln.lm ? (uint32_t)w->ln.rm - (uint32_t)w->ln.lm : 0u;
+            x = w->ln.lm;
+            if (run == IW_WP5_JUST_CENTER && wd <= room) x = w->ln.lm + (room - wd) / 2u;
+            else if (run == IW_WP5_JUST_RIGHT && wd <= room) x = w->ln.rm - wd;
+            u16put(g, x / IW_WP5_WPU_PER_COL);
+            u16put(g + 2, x);
+            rc = put_bytes(d, p + IW_WP5_VAR_HDR, g, 4u);
+            if (rc != IW_OK) return rc;
+        } else if (k == IW_U_CODE) {
+            fmt_t f;
+            f.just = run;
+            (void)fmt_apply(d, p, &f);
+            run = f.just;
+        }
+        p = iw_unit_next(d, p);
+    }
+    return IW_OK;
+}
+
+static int fix_linepos(iw_ed_t *e)
+{
+    iw_doc_t *d = &e->doc;
+    walk_t w;
+    int rc;
+    walk_first(e, &w);
+    for (;;) {
+        uint32_t tries = 0;
+        for (;;) {                 /* the line, again after every change */
+            uint32_t p = w.ln.start, run = w.fin.just;
+            /* each change fixes one record; a line needing more than this
+             * means the layout and the rule disagree: fail loud (Rule 2) */
+            if (++tries > 64u) return IW_E_CODE;
+            int need = cr_just(run), changed = 0;
+            rc = IW_OK;
+#ifdef IWORD_MUT_NO_LEAD
+            /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant, test-iword-
+             * codes-mutant): WP's D4/05 line records are never written.
+             * NEVER real. */
+            need = 0;
+#endif
+            for (;;) {
+                int k = p < w.ln.text_end ? iw_unit_kind(d, p) : -1;
+                if (need) {
+                    if (k == IW_U_LEAD) { need = 0; p = iw_unit_next(d, p); continue; }
+                    rc = lead_insert(e, p);
+                    changed = 1;
+                    break;
+                }
+                if (k < 0) break;
+                if (k == IW_U_LEAD) {
+                    rc = fix_delete(e, p, iw_unit_next(d, p) - p);
+                    changed = 1;
+                    break;
+                }
+                if (k == IW_U_CODE) {
+                    fmt_t f;
+                    f.just = run;
+                    if (fmt_apply(d, p, &f) == 2) {
+                        need = cr_just(run) || cr_just(f.just);
+#ifdef IWORD_MUT_NO_LEAD
+                        need = 0;
+#endif
+                        run = f.just;
+                    }
+                }
+                p = iw_unit_next(d, p);
+            }
+            if (rc != IW_OK) return rc;
+            if (!changed) break;
+            line_from(d, w.ln.start, w.ln.col0, &w.fin, e->width, &w.ln, &w.fout);
+        }
+        rc = lead_payloads(e, &w);
         if (rc != IW_OK) return rc;
         if (!walk_next(e, &w)) return IW_OK;
     }
@@ -750,13 +1228,255 @@ static uint32_t before_hidden(const iw_doc_t *d, uint32_t at)
     return at;
 }
 
+/* A position right before a line's D4/05 is moved past it. */
+static uint32_t after_lead(const iw_doc_t *d, uint32_t at)
+{
+    while (at != NONE && is_lead(d, at)) at = iw_unit_next(d, at);
+    return at;
+}
+
 int iw_ed_fixup(iw_ed_t *e)
 {
     int rc = fix_structure(e);
+    if (rc == IW_OK) rc = fix_linepos(e);
     if (rc == IW_OK) rc = fix_payloads(e);
-    e->cur = before_hidden(&e->doc, e->cur);
-    e->blk = before_hidden(&e->doc, e->blk);
+    e->cur = after_lead(&e->doc, before_hidden(&e->doc, e->cur));
+    e->blk = after_lead(&e->doc, before_hidden(&e->doc, e->blk));
     return rc;
+}
+
+/* ---- margins and justification (bead initech-jojk, P2 slice 3) ----------------- */
+/* The cursor is at the left margin: nothing on its line before it takes a
+ * column (codes do not). */
+static int at_left_margin(const iw_ed_t *e)
+{
+    iw_where_t wh;
+    walk_t w;
+    iw_ed_where(e, &wh);
+    if (!find_line(e, wh.line, &w)) return 1;
+    return wh.col == w.ln.col0;
+}
+
+static void u16at(uint8_t *g, uint32_t v) { u16put(g, v); }
+
+int iw_ed_margins(iw_ed_t *e, uint32_t left, uint32_t right)
+{
+    iw_doc_t *d = &e->doc;
+    uint8_t g[IW_WP5_MARGIN_LEN] = { IW_WP5_MARGIN_GRP, IW_WP5_MARGIN_SUB, 0x0C, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
+                                     0x0C, 0x00, IW_WP5_MARGIN_SUB, IW_WP5_MARGIN_GRP };
+    uint32_t from = e->cur;
+    fmt_t f;
+    int rc;
+    e->goal = NONE;
+    if (left >= IW_WP5_PAPER_WPU || right >= IW_WP5_PAPER_WPU || left + right + IW_WP5_WPU_PER_COL > IW_WP5_PAPER_WPU)
+        return IW_E_RANGE;
+    if (d->len + 1u + sizeof g > d->max_len) return IW_E_FULL;
+#ifndef IWORD_MUT_MAR_NO_HRT
+    /* (IWORD_MUT_MAR_NO_HRT, Rule 6, test-iword-wp5-roundtrip-mutant: the
+     * code goes in mid-line with no [HRt]. NEVER real.) */
+    if (!at_left_margin(e)) {
+        uint8_t h = IW_WP5_HRT;
+        rc = iw_doc_insert(d, e->cur, &h, 1u);
+        if (rc != IW_OK) return rc;
+        e->cur++;
+    }
+#endif
+    fmt_at(d, e->cur, &f);
+    u16at(g + 4, f.lm);
+    u16at(g + 6, IW_WP5_PAPER_WPU - f.rm);
+    u16at(g + 8, left);
+    u16at(g + 10, right);
+    rc = iw_doc_insert(d, e->cur, g, sizeof g);
+    if (rc != IW_OK) return rc;
+    e->cur += sizeof g;
+    e->dirty = 1;
+    /* every paragraph after it takes the new width (until the next code) */
+    return iw_reflow_from(d, from, e->width);
+}
+
+int iw_ed_just(iw_ed_t *e, uint32_t just)
+{
+    iw_doc_t *d = &e->doc;
+    uint8_t g[IW_WP5_JUST_LEN] = { IW_WP5_MARGIN_GRP, IW_WP5_JUST_SUB, 0x06, 0x00, 0, 0,
+                                   0x06, 0x00, IW_WP5_JUST_SUB, IW_WP5_MARGIN_GRP };
+    uint32_t from = e->cur;
+    fmt_t f;
+    int rc;
+    e->goal = NONE;
+    if (just > IW_WP5_JUST_RIGHT) return IW_E_RANGE;
+    if (d->len + 1u + sizeof g > d->max_len) return IW_E_FULL;
+    if (!at_left_margin(e)) {
+        uint8_t h = IW_WP5_DSRT;          /* MINT22 "Mid[DSRt][Just:Center]" */
+        rc = iw_doc_insert(d, e->cur, &h, 1u);
+        if (rc != IW_OK) return rc;
+        e->cur++;
+    }
+    fmt_at(d, e->cur, &f);
+    g[4] = (uint8_t)f.just;
+    g[5] = (uint8_t)just;
+    rc = iw_doc_insert(d, e->cur, g, sizeof g);
+    if (rc != IW_OK) return rc;
+    e->cur += sizeof g;
+    e->dirty = 1;
+    rc = iw_reflow_para(d, from, e->width);
+    if (rc == IW_OK) rc = iw_reflow_para(d, e->cur, e->width);
+    return rc;
+}
+
+/* ---- line spacing (bead initech-jojk, P2 slice 3) ---------------------------------- *
+ * spec/iword/wp5_format.h "line spacing": the code goes in at the cursor
+ * wherever it is -- no [HRt] / [DSRt] first (MINT25 "Mid[Ln Spacing:1]
+ * single"; Reference Manual, Line Spacing p. 345: "WordPerfect only changes
+ * the line spacing after the Line Spacing code"). */
+int iw_ed_spacing(iw_ed_t *e, uint32_t sp)
+{
+    iw_doc_t *d = &e->doc;
+    uint8_t g[IW_WP5_SPACING_LEN] = { IW_WP5_MARGIN_GRP, IW_WP5_SPACING_SUB, 0x08, 0x00, 0, 0, 0, 0,
+                                      0x08, 0x00, IW_WP5_SPACING_SUB, IW_WP5_MARGIN_GRP };
+    fmt_t f;
+    int rc;
+    e->goal = NONE;
+    if (sp == 0u || sp > 0xFFFFu) return IW_E_RANGE;
+    if (d->len + sizeof g > d->max_len) return IW_E_FULL;
+    fmt_at(d, e->cur, &f);
+    u16at(g + 4, f.sp);
+    u16at(g + 6, sp);
+#ifdef IWORD_MUT_SP_HRT
+    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): the spacing code is
+     * treated like a margin change -- a [HRt] first when the cursor is not
+     * at the left margin. NEVER real. */
+    if (!at_left_margin(e)) {
+        uint8_t h = IW_WP5_HRT;
+        rc = iw_doc_insert(d, e->cur, &h, 1u);
+        if (rc != IW_OK) return rc;
+        e->cur++;
+    }
+#endif
+    rc = iw_doc_insert(d, e->cur, g, sizeof g);
+    if (rc != IW_OK) return rc;
+    e->cur += sizeof g;
+    e->dirty = 1;
+    return IW_OK;
+}
+
+/* A spacing typed as hundredths ("1.33" -> 133) -> 8.8 fixed: times 256 /
+ * 100 rounded UP (MINT30 @0x148: 1.33 saved as 0x0155 = 341; 1.5 -> 384,
+ * 2.25 -> 576 exact, MINT25 / MINT30). */
+uint32_t iw_spacing_from_hundredths(uint32_t h)
+{
+#ifdef IWORD_MUT_SP_NEAR
+    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): rounded to the
+     * nearest (1.33 -> 340). NEVER real. */
+    return (h * IW_WP5_SPACING_ONE + 50u) / 100u;
+#endif
+    return (h * IW_WP5_SPACING_ONE + 99u) / 100u;
+}
+
+uint32_t iw_spacing_rows(uint32_t sp)
+{
+#ifdef IWORD_MUT_SP_CEIL
+    /* MUTANT (Rule 6; test-iword-face-mutant): a fractional spacing shows
+     * rounded UP (1.33 as two rows). NEVER real. */
+    uint32_t r = (sp + IW_WP5_SPACING_ONE - 1u) / IW_WP5_SPACING_ONE;
+#else
+    uint32_t r = (sp + IW_WP5_SPACING_ONE / 2u) / IW_WP5_SPACING_ONE;
+#endif
+    return r ? r : 1u;
+}
+
+/* ---- Move without a block: Sentence, Paragraph, Page (slice 3) ------------------- *
+ * Ctrl-F4 1 / 2 / 3 with Block off highlight the text the cursor is on and
+ * then act as a block does (Reference Manual, Move p. 440-442 "Text
+ * Delimiters"; the real WP.EXE in mint/wpMINT31.steps, re/mint-results-
+ * 004.md). iw_ed_select makes that text the block: the anchor at its start,
+ * the cursor at its END (MINT31 09_copy_prompt: after Paragraph the cursor is
+ * on the next line's start; 13_page_cancel: after Page, F1, at the page's
+ * end). */
+static int sentence_end_char(int b)
+{
+    /* ". ? or !" (p. 442); MINT31 mints the period */
+    return b == '.' || b == '?' || b == '!';
+}
+
+static int is_space_unit(const iw_doc_t *d, uint32_t p)
+{
+    int k = iw_unit_kind(d, p);
+    return k == IW_U_SRT || (k == IW_U_TEXT && iw_doc_byte(d, p) == ' ');
+}
+
+/* The end of the sentence that starts at p (paragraph end pe): through the
+ * punctuation that ends it and "as many as three spaces following it"; an
+ * [HRt] (pe) always ends one (p. 442). */
+static uint32_t sentence_after(const iw_doc_t *d, uint32_t p, uint32_t pe)
+{
+    while (p < pe) {
+        int k = iw_unit_kind(d, p);
+        uint32_t q = iw_unit_next(d, p);
+        if (k == IW_U_TEXT && sentence_end_char(iw_doc_byte(d, p)) && (q >= pe || is_space_unit(d, q))) {
+            uint32_t n = 0;
+#ifdef IWORD_MUT_SENT_BARE
+            /* MUTANT (Rule 6; test-iword-codes-mutant): the sentence stops at
+             * its punctuation, its spaces left behind. NEVER real. */
+            n = 3u;
+#endif
+            while (q < pe && n < 3u && is_space_unit(d, q)) { q = iw_unit_next(d, q); n++; }
+            return q;
+        }
+        p = q;
+    }
+    return pe;
+}
+
+int iw_ed_select(iw_ed_t *e, int what)
+{
+    iw_doc_t *d = &e->doc;
+    uint32_t s, t;
+    e->goal = NONE;
+    if (what == 1 || what == 2) {
+        /* the paragraph: from after the [HRt] / [HPg] before the cursor up to
+         * AND INCLUDING the next one (p. 442; MINT31 08_paragraph) */
+        uint32_t ps = e->cur, pe = e->cur;
+        while (ps > 0u) {
+            uint32_t r = iw_unit_prev(d, ps);
+            int k = iw_unit_kind(d, r);
+            if (k == IW_U_HRT || k == IW_U_HPG) break;
+            ps = r;
+        }
+        while (pe < d->len && iw_unit_kind(d, pe) != IW_U_HRT && iw_unit_kind(d, pe) != IW_U_HPG) pe = iw_unit_next(d, pe);
+        if (what == 2) {
+            /* (the unseen codes WP keeps before the HRt / HPg go with it) */
+            s = ps;
+            t = pe < d->len ? iw_unit_next(d, pe) : pe;
+        } else {
+            /* the sentence the cursor is on: the paragraph's sentences in
+             * turn, the one holding the cursor (the last one at its end) */
+            s = ps;
+            for (;;) {
+                t = sentence_after(d, s, pe);
+                if (e->cur < t || t >= pe) break;
+                s = t;
+            }
+        }
+    } else if (what == 3) {
+        /* the page: from its first line to the next page's (a hard page goes
+         * with it, p. 442; MINT31 12_page) */
+        iw_where_t wh;
+        walk_t w;
+        uint32_t page;
+        iw_ed_where(e, &wh);
+        page = wh.page;
+        walk_first(e, &w);
+        while (w.page < page && walk_next(e, &w)) { }
+        s = w.ln.start;
+        t = d->len;
+        while (walk_next(e, &w)) if (w.page != page) { t = w.ln.start; break; }
+    } else {
+        return IW_E_RANGE;
+    }
+    if (t <= s) return IW_E_RANGE;
+    e->blk = s;
+    e->cur = t;
+    return IW_OK;
 }
 
 /* ---- the status line ------------------------------------------------------------ */
@@ -764,6 +1484,12 @@ uint32_t iw_ln_hundredths(uint32_t page_line)
 {
     uint32_t k = page_line ? page_line - 1u : 0u;
     return 100u + (k * 100u + IW_WP5_LINES_PER_INCH / 2u) / IW_WP5_LINES_PER_INCH;
+}
+
+uint32_t iw_ln_y_hundredths(uint32_t y)
+{
+    uint32_t q = IW_WP5_LINES_PER_INCH * IW_WP5_SPACING_ONE;
+    return 100u + (y * 100u + q / 2u) / q;
 }
 
 uint32_t iw_pos_hundredths(uint32_t col)

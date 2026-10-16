@@ -1,7 +1,8 @@
 % Chapter 9 -- The Utility Programs.
 % Sources (Law 1): the external utilities on the shipped disk (Makefile
 % flair-data-rules: APPS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM
-% TREE.COM): os/milton/dosutil.c (ATTRIB, LABEL), chkdsk.c, xcopy_tree.c
+% TREE.COM EDLIN.COM): os/milton/dosutil.c (ATTRIB, LABEL), chkdsk.c,
+% edlin.c (EDLIN, documented in full in the Reference), xcopy_tree.c
 % (XCOPY, TREE); command.c run_external (explicit path -> .COM only; PATH).
 % GATES: test-attrib test-dosutil-emu test-label-vol test-chkdsk test-chkdsk-emu test-xcopy-tree test-xcopy-tree-emu test-pubs-screens
 \Gates{test-attrib, test-dosutil-emu, test-label-vol, test-chkdsk, test-chkdsk-emu, test-xcopy-tree, test-xcopy-tree-emu, test-pubs-screens}
@@ -9,7 +10,7 @@
 
 \section{Running a Utility Program}
 \index{utility programs}
-Five utility programs come with InitechDOS.  They are external commands:
+Six utility programs come with InitechDOS.  They are external commands:
 program files kept in the directory \file{\bs APPS} of the InitechDOS
 diskette.
 
@@ -17,6 +18,10 @@ diskette.
 attributes.
 
 \SideHead{CHKDSK}Checks a disk and reports on the disk and on memory.
+
+\SideHead{EDLIN}Creates and changes text files, such as batch files, one
+line at a time.  The \doctitle{InitechDOS Reference} describes its
+commands.
 
 \SideHead{LABEL}Creates, changes or deletes the volume label of a disk.
 
@@ -117,7 +122,7 @@ date.
 
 \SideHead{/V}Checks each copy against its original.
 
-\draft{bead needed: run from a subdirectory, the shipped XCOPY looks for a
+\draft{see bead initech-ktqk: run from a subdirectory, the shipped XCOPY looks for a
 relative source name in the root directory; DOS 3.3 uses the current
 directory}
 A source name without a path refers to the current directory.

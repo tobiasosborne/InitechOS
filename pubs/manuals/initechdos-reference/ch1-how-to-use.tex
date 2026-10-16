@@ -3,7 +3,10 @@
 % Sec 9 (notation); PUB-REF-0001 AN-01, NT-01..NT-17; pubs/screens/disk/
 % MANIFEST (the practice diskette); pubs/screens/capture.sh (pinned clock
 % 1992-03-02 09:30:00); os/milton/kmain.c (start-up order); os/milton/
-% command.c (prompt $P$G, drive A only: "B:" is not a command).
+% command.c (prompt $P$G, drive A only: "B:" is not a command;
+% startup_datetime: the date and time questions without AUTOEXEC.BAT,
+% initech-qskz; the startup screen boots the practice diskette without its
+% AUTOEXEC.BAT, screens/SCREENS disk field noautoexec).
 % GATES: test-boot test-shell test-pubs-screens
 \Gates{test-boot, test-shell, test-pubs-screens}
 \chapter{How to Use This Book}
@@ -63,8 +66,8 @@ files and directories:
 \file{MEMO.TXT}     & A short office memorandum\\
 \file{PHONE.TXT}    & The internal telephone list\\
 \file{APPS}         & A directory holding the utility programs
-  \file{CHKDSK.COM}, \file{ATTRIB.COM}, \file{LABEL.COM}, \file{XCOPY.COM}
-  and \file{TREE.COM}\\
+  \file{CHKDSK.COM}, \file{ATTRIB.COM}, \file{LABEL.COM}, \file{XCOPY.COM},
+  \file{TREE.COM} and \file{EDLIN.COM}\\
 \file{SAMPLES}      & A directory holding the batch files used in
   Chapter~4\\
 \end{tabular}
@@ -77,16 +80,17 @@ the examples, not the original: several examples change the files on it.
 \section{Starting InitechDOS}
 \index{starting InitechDOS}
 When the computer is turned on, InitechDOS displays its name and version
-and the copyright notice, lists the files in the root directory of drive~A,
-reads \file{CONFIG.SYS} (Chapter~3), carries out \file{AUTOEXEC.BAT}
-(Chapter~4), and displays the command prompt:
+and the copyright notice, reads \file{CONFIG.SYS} (Chapter~3), carries out
+\file{AUTOEXEC.BAT} (Chapter~4), and displays the command prompt.  When
+there is no \file{AUTOEXEC.BAT} file, InitechDOS instead displays the
+current date and asks for a new one, then does the same for the time,
+before it displays the prompt.  Press \key{Enter} at each question to keep
+the date or time shown, or type a new one as for the \cmd{DATE} and
+\cmd{TIME} commands; an answer that is not a valid date or time displays
+\texttt{Invalid date} or \texttt{Invalid time} and the question again.
+Started from the practice diskette with its \file{AUTOEXEC.BAT} removed,
+the screen looks like this:
 \Shot{startup}
-\draft{initech-qskz: DOS 3.3 asks for the date and the time when the system
-starts and has no AUTOEXEC.BAT; the shipped build lists the root directory
-instead.  The start-up sequence is described here as it is to be}
-When there is no \file{AUTOEXEC.BAT} file, InitechDOS asks for the date and
-the time before it displays the prompt; press \key{Enter} at each question
-to keep the date and time shown.
 
 \section{Drives}
 \index{drives}

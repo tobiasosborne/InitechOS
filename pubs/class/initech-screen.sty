@@ -7,15 +7,19 @@
 %%
 %%   \Screen[rows=N, label=key]{file}{caption}
 %%
-%% The frame is always 80 columns wide and spans the full 140 mm measure
-%% (Courier at 8 pt sets 80 columns in 135.5 mm).  rows=N prints only the top
+%% The text is 80 columns wide in the 142 mm full-block figure measure.
+%% Cursor is 7.5/8.5 (NT-21). rows=N prints only the top
 %% N rows, as period manuals printed partial screens; the rows left out must be
 %% blank, so cropping can never hide output.  Caption below in 8 pt Helvetica
-%% (DESIGN-SYSTEM.md Sec 5 "Figures").
+%% (PUB-REF-0001 NT-20..23).
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{initech-screen}[1992/03/01 Initech screen reproductions]
 
-\newcommand\imScreenFont{\ttfamily\fontsize{8}{9.5}\selectfont}
+\newcommand\imScreenFont{\ttfamily\fontsize{7.5}{8.5}\selectfont}
+\newcommand\im@screenframe[1]{\im@ifmodel{ibm}{#1}{\fbox{#1}}}
+\newwrite\im@screens
+\AtBeginDocument{\immediate\openout\im@screens=\jobname.screens}
+\AtEndDocument{\immediate\closeout\im@screens}
 
 \directlua{
 initech_screen = {}
@@ -70,32 +74,30 @@ end
 }
 
 %% ---- transcripts (F-IBM examples, NT-17; bead initech-ipu5.7) -------------
-%%   \Transcript[from=N]{screens/x.txt}{screens/SCREENS}{x}
+%%   \Shot[from=N]{x}      (= \ScreenTranscript[from=N]{screens/x.txt}{screens/x.keys})
 %% prints the lines of a committed capture as a transcript (no frame): from
 %% line N (default 1) to the last line that is not blank, leaving out the
 %% final empty prompt the capture settles on.  Every printed line IS a line
 %% of the capture (the same 25-line/80-column/ASCII checks as \Screen), so
 %% `make test-pubs-screens` re-proves the example against the running OS.
+%% Like \Screen, a \Shot is entered in the figure registry (<job>.screens),
+%% so test-pubs proves it has its .keys trace and SCREENS capture route (the
+%% environment Transcript of initech-syntax is the other kind of example, a
+%% replayed InitechBase program).
 %% What the user typed is set in Cursor Bold (NT-15): the keystrokes are read
-%% from the screen's SCREENS line, and a typed line is bold where the capture
-%% shows it after a prompt ("A:\>DIR") or after a question ("(Y/N)? N").
+%% from the screen's .keys file, and a typed line is bold where the capture
+%% shows it after a prompt ("A:\>DIR"), after EDLIN's asterisk prompt ("*4D")
+%% or after a question ("(Y/N)? N").
 %% Set in Cursor 9/12 indented 4 mm in the text column; a transcript wider
 %% than the column moves left into the full block, and one wider than the
 %% block drops to 8 pt (80 columns fit 135.5 mm).
 \directlua{
-function initech_screen.keys(defs, name)
-  local f = io.open(defs, "rb")
-  if not f then tex.error("initech-screen: cannot open " .. defs) return {} end
-  local found = nil
-  for line in f:lines() do
-    local n, rest = string.match(line, "^([^|]*)|[^|]*|(.*)$")
-    if n == name then found = rest end
-  end
+function initech_screen.keys(keyfile)
+  local f = io.open(keyfile, "rb")
+  if not f then tex.error("initech-screen: cannot open " .. keyfile) return {} end
+  local found = f:read("*a")
   f:close()
-  if found == nil then
-    tex.error("initech-screen: screen " .. name .. " is not in " .. defs)
-    return {}
-  end
+  found = string.gsub(found, "[\string\r\string\n]+$", "")
   local out, cur, i = {}, {}, 1
   while i <= string.len(found) do
     local c = string.sub(found, i, i)
@@ -126,7 +128,7 @@ local function texline(line, a, b)
   end
   return table.concat(out)
 end
-function initech_screen.transcript(path, defs, name, from)
+function initech_screen.transcript(path, keyfile, from)
   local f = io.open(path, "rb")
   if not f then tex.error("initech-screen: cannot open screen capture " .. path) return end
   local data = f:read("*a")
@@ -152,7 +154,7 @@ function initech_screen.transcript(path, defs, name, from)
     tex.error("initech-screen: " .. path .. " from=" .. from .. " leaves no lines")
     return
   end
-  local typed = initech_screen.keys(defs, name)
+  local typed = initech_screen.keys(keyfile)
   local k, width = 1, 0
   local rows = {}
   for i = from, last do
@@ -160,6 +162,7 @@ function initech_screen.transcript(path, defs, name, from)
     if string.len(line) > width then width = string.len(line) end
     local a, b = 0, -1
     local pfx, rest = string.match(line, "^([A-Z]:\string\\[^>]*>)(.+)$")
+    if pfx == nil then pfx, rest = string.match(line, "^([*])(.+)$") end
     local j = k
     while j <= \string#typed do
       local t = typed[j]
@@ -210,6 +213,7 @@ end
 \NewDocumentCommand \Screen { O{} m m }
   {
     \group_begin:
+    \immediate\write\im@screens{#2}
     \keys_set:nn { initech / screen } { #1 }
     \int_compare:nNnT { \l__initech_screen_rows_int } < { 1 }
       { \PackageError{initech-screen}{rows~must~be~1..25}{} }
@@ -220,7 +224,7 @@ end
     \begin{minipage}[t]{\imFullWidth}
       \centering
       \setlength\fboxrule{0.5pt}\setlength\fboxsep{2mm}
-      \fbox{\vbox{\imScreenFont\spaceskip=0.6em\xspaceskip=0.6em
+      \im@screenframe{\vbox{\imScreenFont\spaceskip=0.6em\xspaceskip=0.6em
         \directlua{initech_screen.typeset("\luaescapestring{#2}",
           \int_use:N \l__initech_screen_rows_int)}}}
       \par\vspace{4pt}
@@ -237,19 +241,19 @@ end
     from .int_set:N = \l__initech_transcript_from_int ,
     from .initial:n = 1 ,
   }
-\NewDocumentCommand \Transcript { O{} m m m }
+\NewDocumentCommand \ScreenTranscript { O{} m m }
   {
     \group_begin:
+    \immediate\write\im@screens{#2}
     \keys_set:nn { initech / transcript } { #1 }
     \directlua{initech_screen.transcript("\luaescapestring{#2}",
-      "\luaescapestring{#3}", "\luaescapestring{#4}",
-      \int_use:N \l__initech_transcript_from_int)}
+      "\luaescapestring{#3}", \int_use:N \l__initech_transcript_from_int)}
     \group_end:
   }
 %% \Shot[from=N]{name}: the transcript of screen `name` of this book
-%% (screens/name.txt, keystrokes from screens/SCREENS).
+%% (screens/name.txt, keystrokes from screens/name.keys).
 \NewDocumentCommand \Shot { O{} m }
-  { \Transcript[#1]{screens/#2.txt}{screens/SCREENS}{#2} }
+  { \ScreenTranscript[#1]{screens/#2.txt}{screens/#2.keys} }
 \ExplSyntaxOff
 
 \endinput

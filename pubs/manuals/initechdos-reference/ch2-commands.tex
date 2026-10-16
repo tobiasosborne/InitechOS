@@ -2,10 +2,10 @@
 % to all commands, then one AN-01 entry per command (IBM 3.10 Reference Ch. 7
 % order: alphabetical, one entry per page; docs/pubs/originals/ibm-dos.md
 % Sec 8.1).  The entry list is the shipped command table: the internal
-% commands of os/milton/command.c cmd_classify (24 names, 18 commands) and
+% commands of os/milton/command.c cmd_classify (25 names, 19 commands, PATH included) and
 % the external utilities on the shipped disk (Makefile flair-data-rules:
-% APPS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM TREE.COM).  PATH is a DRAFT
-% entry (initech-sy5f: not yet a command).
+% APPS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM TREE.COM EDLIN.COM; the
+% shipped volume's application programs are documented in their own books).
 % Sources (Law 1): os/milton/command.c (cmd_parse, run_external,
 % cmd_path_candidates: .COM .EXE .BAT, current directory then PATH),
 % os/milton/devices.c (CON AUX PRN CLOCK$ NUL), os/milton/int21.c
@@ -82,11 +82,11 @@ extension:
 \par\medskip
 \begin{tabular}{@{}l@{\quad}p{80mm}@{}}
 {\imSideHeadFont Name} & {\imSideHeadFont Device}\\[2pt]
-\cmd{CON}     & The console: the keyboard for input, the display for output\\
-\cmd{AUX}     & The first serial port\\
-\cmd{PRN}     & The printer\\
-\cmd{CLOCK\$} & The system clock\\
-\cmd{NUL}     & A dummy device: output to it is discarded, and input from
+\file{CON}     & The console: the keyboard for input, the display for output\\
+\file{AUX}     & The first serial port\\
+\file{PRN}     & The printer\\
+\file{CLOCK\$} & The system clock\\
+\file{NUL}     & A dummy device: output to it is discarded, and input from
   it is always empty\\
 \end{tabular}
 \par\medskip

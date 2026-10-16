@@ -38,6 +38,17 @@
 #define IW_RV_FLSH_RGT   "[Flsh Rgt]"   /* R3, C1 sub 0x60                        */
 #define IW_RV_TAB        "[Tab]"        /* R1, C1 sub 0x02                        */
 #define IW_RV_JUST_LEFT  "[Just:Left]"  /* R4, D0/06 new value 0                  */
+/* P2 slice 3 (2026-10-16; ../wordperfect51-decomp mint/shots_wpMINT21..24,
+ * re/mint-results-004.md): the other three justifications and the deletable
+ * soft return. Full is the menu's word (MINT22 02_just_menu "4 Full") in the
+ * label's form -- [inferred]: no Reveal shot shows a [Just:Full] code on the
+ * pane (MINT22's scrolled off it). */
+#define IW_RV_JUST_FULL   "[Just:Full]"
+#define IW_RV_JUST_CENTER "[Just:Center]"  /* MINT22 05_reveal "[Just:Center]after" */
+#define IW_RV_JUST_RIGHT  "[Just:Right]"   /* MINT24 02_reveal "[Just:Right]Right line." */
+#define IW_RV_DSRT        "[DSRt]"         /* MINT22 05_reveal "Mid[DSRt]" (0x90)   */
+#define IW_RV_LN_SPACING "[Ln Spacing:" /* + the new value + "]": MINT25 04_reveal
+                                         * "[Ln Spacing:1.5]", MINT26 "[Ln Spacing:3]" */
 #define IW_RV_LR_MAR     "[L/R Mar:"    /* R4 "[L/R Mar:2\",2\"]": D0/01, the NEW
                                          * left and right margins in inches       */
 #define IW_RV_UNKNOWN    "[?]"          /* authored: no shot labels the code      */
@@ -55,12 +66,28 @@
 
 /* Attribute labels: upper case = the ON code, lower case = the OFF code
  * (R1 [BOLD]/[bold] [UND]/[und]; R4 [LARGE]/[large]; R6 [ITALC]/[italc]). */
-#define IW_RV_ATTR_ROWS 4
+/* P2 slice 3 (2026-10-16): all sixteen, each typed from its menu and read
+ * off a real Reveal Codes pane (mint/shots_wpMINT28/20..23; the numbers from
+ * the saved file mint/work/WP51/MINT28, spec/iword/wp5_format.h
+ * IW_WP5_ATTR_*). */
+#define IW_RV_ATTR_ROWS 16
 #define IW_RV_ATTR_INIT { \
-    { 0x02u, "[LARGE]", "[large]" }, \
-    { 0x08u, "[ITALC]", "[italc]" }, \
-    { 0x0Cu, "[BOLD]",  "[bold]"  }, \
-    { 0x0Eu, "[UND]",   "[und]"   }  \
+    { 0x00u, "[EXT LARGE]", "[ext large]" }, \
+    { 0x01u, "[VRY LARGE]", "[vry large]" }, \
+    { 0x02u, "[LARGE]",     "[large]"     }, \
+    { 0x03u, "[SMALL]",     "[small]"     }, \
+    { 0x04u, "[FINE]",      "[fine]"      }, \
+    { 0x05u, "[SUPRSCPT]",  "[suprscpt]"  }, \
+    { 0x06u, "[SUBSCPT]",   "[subscpt]"   }, \
+    { 0x07u, "[OUTLN]",     "[outln]"     }, \
+    { 0x08u, "[ITALC]",     "[italc]"     }, \
+    { 0x09u, "[SHADW]",     "[shadw]"     }, \
+    { 0x0Au, "[REDLN]",     "[redln]"     }, \
+    { 0x0Bu, "[DBL UND]",   "[dbl und]"   }, \
+    { 0x0Cu, "[BOLD]",      "[bold]"      }, \
+    { 0x0Du, "[STKOUT]",    "[stkout]"    }, \
+    { 0x0Eu, "[UND]",       "[und]"       }, \
+    { 0x0Fu, "[SM CAP]",    "[sm cap]"    }  \
 }
 
 /* ---- the pane -------------------------------------------------------------- *
@@ -99,10 +126,97 @@
 #define IW_RV_RULER_RIGHT  '}'
 #define IW_RV_RULER_TAB    0x1E
 #define IW_RV_RULER_EVERY  5u
+/* Slice 3 (2026-10-16, RULE 8 stated: the ruler follows the margins at the
+ * cursor). Reference Manual, Margins Left and Right p. 394: "the ruler ...
+ * displays the left margin as a left bracket ([) and the right margin as a
+ * right bracket (]). If a margin falls on a tab setting, it is displayed as a
+ * left brace ({) or a right brace (})". The tabs are relative to the left
+ * margin, every 0.5" from -1" (MINT21 02_format_line "Rel; -1", every
+ * 0.5""), so the left margin is always on one: MINT21 09_reveal '{' at
+ * column 3 under 1.3", '}' at 58; MINT23 03_reveal_mid '{' at 2 under 1.25",
+ * marks at 7, 12, .., 62, ']' at 63 (8820 WPU is no stop), marks on to the
+ * right edge; MINT04 '{' at 10, marks at 0 and 5 left of it. A mark sits at
+ * column (L + 600 k - 1200) / 120 rounded down, k >= -2. */
+#define IW_RV_RULER_LBRACK '['
+#define IW_RV_RULER_RBRACK ']'
+
+/* ---- the Format menus (Shift-F8; slice 3) -----------------------------------
+ * Transcribed from mint/shots_wpMINT21/01_format_menu.png and
+ * 02_format_line.png (80 x 25 screens: each row is (screen row, column,
+ * text); the 9-pixel cells give the columns). WP's screen has 25 rows,
+ * Face A's window 24 (os/iword/app/face_a.c): the Format screen drops its
+ * blank row 1 and Format: Line its blank row 22 [authored adaptation; no
+ * text is lost]. "Selection: 0" is on WP's last row. */
+/* RULE 8, 2026-10-16 (this bead, deliberate): 33 rows listed below, the
+ * count said 34 -- the 34th was a zero row whose NULL text WORD.EXE read
+ * on Shift-F8 (caught by test-iword-face F11, the first test to open it). */
+#define IW_FMT_ROWS 33
+#define IW_FMT_INIT { \
+    {  0,  0, "Format" }, \
+    {  2,  5, "1 - Line" }, \
+    {  3, 14, "Hyphenation" },              {  3, 45, "Line Spacing" }, \
+    {  4, 14, "Justification" },            {  4, 45, "Margins Left/Right" }, \
+    {  5, 14, "Line Height" },              {  5, 45, "Tab Set" }, \
+    {  6, 14, "Line Numbering" },           {  6, 45, "Widow/Orphan Protection" }, \
+    {  8,  5, "2 - Page" }, \
+    {  9, 14, "Center Page (top to bottom)" }, {  9, 45, "Page Numbering" }, \
+    { 10, 14, "Force Odd/Even Page" },      { 10, 45, "Paper Size/Type/Labels" }, \
+    { 11, 14, "Headers and Footers" },      { 11, 45, "Suppress" }, \
+    { 12, 14, "Margins Top/Bottom" }, \
+    { 14,  5, "3 - Document" }, \
+    { 15, 14, "Display Pitch" },            { 15, 45, "Redline Method" }, \
+    { 16, 14, "Initial Codes/Font" },       { 16, 45, "Summary" }, \
+    { 18,  5, "4 - Other" }, \
+    { 19, 14, "Advance" },                  { 19, 45, "Printer Functions" }, \
+    { 20, 14, "Conditional End of Page" },  { 20, 45, "Underline Spaces/Tabs" }, \
+    { 21, 14, "Decimal Characters" },       { 21, 45, "Border Options" }, \
+    { 22, 14, "Language" },                 { 22, 45, "End Centering/Alignment" }, \
+    { 23, 14, "Overstrike" } \
+}
+#define IW_FMT_LINE_ROWS 14
+#define IW_FMT_LINE_INIT { \
+    {  0,  0, "Format: Line" }, \
+    {  2,  5, "1 - Hyphenation" }, \
+    {  4,  5, "2 - Hyphenation Zone -  Left" }, \
+    {  5, 28, "Right" }, \
+    {  7,  5, "3 - Justification" }, \
+    {  9,  5, "4 - Line Height" }, \
+    { 11,  5, "5 - Line Numbering" }, \
+    { 13,  5, "6 - Line Spacing" }, \
+    { 15,  5, "7 - Margins - Left" }, \
+    { 16, 19, "Right" }, \
+    { 18,  5, "8 - Tab Set" }, \
+    { 20,  5, "9 - Widow/Orphan Protection" }, \
+    {  0,  0, "" }, \
+    {  0,  0, "" } \
+}
+/* The values, at column 40 (02_format_line): the defaults of the fresh
+ * install; Justification, Margins and (P2: unchanged) Line Spacing follow the
+ * format at the cursor (06_margins_set "1.3"" / "1.7""). */
+#define IW_FMT_VALUE_COL   40u
+#define IW_FMT_V_HYPH      "No"
+#define IW_FMT_V_ZONE_L    "10%"
+#define IW_FMT_V_ZONE_R    "4%"
+#define IW_FMT_V_HEIGHT    "Auto"
+#define IW_FMT_V_NUMBER    "No"
+#define IW_FMT_V_SPACING   "1"
+#define IW_FMT_V_TABS      "Rel; -1\", every 0.5\""
+#define IW_FMT_V_WIDOW     "No"
+#define IW_FMT_JUST_NAMES  { "Left", "Full", "Center", "Right" }
+#define IW_FMT_SELECTION   "Selection: "            /* + the digit, "0" at rest */
+#define IW_FMT_JUST_PROMPT "Justification: 1 Left; 2 Center; 3 Right; 4 Full: 0"
+                                                    /* MINT22 02_just_menu      */
 
 /* ---- the Font menu (Ctrl-F8), on the status line (R6) ---------------------- */
 #define IW_FONT_MENU    "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"
 #define IW_APPEAR_MENU  "1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0"
+/* Slice 3 (mint/shots_wpMINT28): Ctrl-F8 1 (18_size_menu; with Block on
+ * 11_size_menu_block, the same), Ctrl-F8 with Block on (07_font_menu_block).
+ * The digit n of each menu -> its attribute number (MINT28 bytes): */
+#define IW_SIZE_MENU    "1 Suprscpt; 2 Subscpt; 3 Fine; 4 Small; 5 Large; 6 Vry Large; 7 Ext Large: 0"
+#define IW_FONT_BLK_MENU "Attribute: 1 Size; 2 Appearance: 0"
+#define IW_SIZE_ATTRS   { 0x05u, 0x06u, 0x04u, 0x03u, 0x02u, 0x01u, 0x00u }   /* 1..7 */
+#define IW_APPEAR_ATTRS { 0x0Cu, 0x0Eu, 0x0Bu, 0x08u, 0x07u, 0x09u, 0x0Fu, 0x0Au, 0x0Du } /* 1..9 */
 
 /* ---- block and code prompts, on the status line (P2 slice 2) -------------
  * Each transcribed from a real WP 5.1 screen (mint/shots_wpMINT11..13):    */
@@ -110,6 +224,11 @@
                                          * line while Block is on (WP blinks it) */
 #define IW_MOVE_MENU     "Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0"
                                         /* MINT12 03_move_menu (Ctrl-F4, Block on) */
+#define IW_MOVE_NB_MENU  "Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0"
+                                        /* slice 3: MINT29 / MINT31 02_move_menu
+                                         * (Ctrl-F4, Block off)                 */
+#define IW_RETRIEVE_MENU "Retrieve: 1 Block; 2 Tabular Column; 3 Rectangle: 0"
+                                        /* MINT29 14_retrieve_menu (Ctrl-F4 4)  */
 #define IW_MOVE_BLK_MENU "1 Move; 2 Copy; 3 Delete; 4 Append: 0"
                                         /* MINT12 04_block_menu (then 1 Block)  */
 #define IW_MOVE_RETRIEVE "Move cursor; press Enter to retrieve."

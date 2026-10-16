@@ -88,6 +88,8 @@ static void usage(const char *argv0)
         "  --rtc-base ISO     pin the guest RTC to a fixed instant via\n"
         "                     `-rtc base=ISO` (e.g. 2026-06-09T12:34:56) so the\n"
         "                     clock oracle is deterministic\n"
+        "  --rtc-wall         let the guest RTC follow the host clock (default: pinned\n"
+        "                     to 1992-03-01T09:00:00 unless --rtc-base is given)\n"
         "  --rtc-deterministic\n"
         "                     tie the pinned RTC to instructions-retired\n"
         "                     (`-icount shift=4,sleep=on -accel tcg`) instead\n"
@@ -107,6 +109,7 @@ int main(int argc, char **argv)
     memset(&cfg, 0, sizeof(cfg));
     int serial_stdout = 0;
 
+    bool rtc_wall = false; /* --rtc-wall: the one opt-out from the pinned default */
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
 #define NEED_ARG()                                            \
@@ -172,6 +175,8 @@ int main(int argc, char **argv)
             cfg.rtc_base = argv[++i];
         } else if (strcmp(a, "--rtc-deterministic") == 0) {
             cfg.rtc_deterministic = true;
+        } else if (strcmp(a, "--rtc-wall") == 0) {
+            rtc_wall = true;
         } else if (strcmp(a, "--gdb") == 0) {
             cfg.enable_gdb = true;
         } else if (strcmp(a, "--timeout-ms") == 0) {
@@ -251,6 +256,13 @@ int main(int argc, char **argv)
     }
 
     QemuResult res;
+    /* Rule 11 (reproducible everything): no gate may depend on the wall clock. The R3.6
+     * menu-bar clock paints the guest RTC, so an unpinned run that crosses a minute
+     * changes menu-bar pixels (seen on test-flair-app-launch 2026-10-17). Every run
+     * boots at a fixed instant unless a gate pins its own --rtc-base; --rtc-wall is
+     * the documented, explicit opt-out. */
+    if (!rtc_wall && (cfg.rtc_base == NULL || cfg.rtc_base[0] == '\0'))
+        cfg.rtc_base = "1992-03-01T09:00:00";
     if (qemu_run(&cfg, &res) != 0) {
         fprintf(stderr, "%s: harness failure\n", argv[0]);
         qemu_result_free(&res);

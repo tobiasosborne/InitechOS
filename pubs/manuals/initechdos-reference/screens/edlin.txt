@@ -1,0 +1,25 @@
+A:\>EDLIN PHONE.TXT
+End of input file
+*4D
+*L
+    1: INITECH SYSTEMS CORPORATION -- INTERNAL TELEPHONE LIST
+    2:
+    3: Switchboard ............................ 555-0100
+    4:*Publications Department ................ 555-0142
+    5: Order Desk ............................. 555-0175
+*E
+A:\>DIR PHONE.*
+
+ Volume in drive A is INITECH
+
+ Directory of A:\
+
+PHONE    BAK      263   3-02-92   8:51a
+PHONE    TXT      212   3-02-92   9:30a
+
+        2 File(s)   1417216 bytes free
+A:\>
+
+
+
+

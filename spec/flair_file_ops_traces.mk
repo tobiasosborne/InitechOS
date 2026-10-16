@@ -221,7 +221,25 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # PM MERGE RE-KEY (lane/frameapps): APPS holds 11 files, so the stranded TRASH is cell 11 = row 3, col 3:
 # +156,+124 from the APPS double-click (123,102) (cell n centre = 75+68*(n%4), 122+52*(n/4)). The park
 # keeps its ABSOLUTE target (+292,+156 from the APPS click): +136,+32 from the new click point.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m100:100,m56:24,l1,l0,l1,l0,m100:32,m36:0,m68:68,m68:68,m69:66
+# DELIBERATE RE-KEY initech-udr1: EDLIN.COM is appended after CHKDSK.COM.
+# mdir on the identically minted damaged volume places stranded TRASH at
+# cell 7 (row 2, col 3). Click +156,+72; park +136,+84 instead of +204,+84,
+# preserving the absolute final cursor position and the TRASH-open assertion.
+# PM MERGE RE-KEY (lane/edlin): APPS holds 12 files, so the stranded TRASH is cell 12 = row 4, col 0:
+# -48,+176 from the APPS double-click (123,102) (cell n centre = 75+68*(n%4), 122+52*(n/4)). The park
+# keeps its ABSOLUTE target (+292,+156 from the APPS click): +340,-20 from the new click point.
+# DELIBERATE RE-KEY 2026-10-16 (initech-tdnl.16): APPS gained TEXT.EXE (written
+# after 123.MNU, so it takes cell 5) and the stranded APPS\TRASH moved from
+# cell 5 to cell 6 = row 2, col 2: +68 in x, so the APPS -> TRASH move is
+# m88:72 (was m20:72) and the moves after the TRASH double-click keep the old
+# ABSOLUTE target: 204,84 from the new click point (was 272,84).
+# PM MERGE RE-KEY (lane/itext): APPS holds 13 files, so the stranded TRASH is cell 13 = row 4, col 1:
+# +20,+176 from the APPS double-click (123,102) (cell n centre = 75+68*(n%4), 122+52*(n/4)). The park
+# keeps its ABSOLUTE target (+292,+156 from the APPS click): +272,-20 from the new click point.
+# PM 2026-10-17 PERMANENT KEY: the stranded TRASH is APPS entry 0 (cell 0, centre (75,122)):
+# -48,+20 from the APPS double-click (123,102); park to the absolute target (415,258):
+# +340,+136 from the click. This key no longer moves when APPS gains files.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m100:100,m100:36,m100:0,m40:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the

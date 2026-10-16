@@ -2,7 +2,7 @@
 # Explicit contracts for seeded data-volume recipes. Included LAST so this
 # list cannot cause a read-before-definition (test-makefile-vars, tdnl.81).
 # Default mcopy flags are A; mtools lists read-only as A R and hidden as A H.
-FLAIR_FIXTURES := README.TXT APPS/TENANTFX.EXE APPS/CTENANT.EXE APPS/123.EXE APPS/WORD.EXE APPS/123.MNU APPS/CHKDSK.COM APPS/ATTRIB.COM APPS/LABEL.COM APPS/XCOPY.COM APPS/TREE.COM APPS/CALC.EXE
+FLAIR_FIXTURES := README.TXT APPS/TENANTFX.EXE APPS/CTENANT.EXE APPS/123.EXE APPS/WORD.EXE APPS/123.MNU APPS/CHKDSK.COM APPS/ATTRIB.COM APPS/LABEL.COM APPS/XCOPY.COM APPS/TREE.COM APPS/CALC.EXE APPS/EDLIN.COM APPS/TEXT.EXE
 FIXTURE_VOLUME_NAMES :=
 define fixture-contract
 FIXTURE_VOLUME_NAMES += $(1)
@@ -49,7 +49,7 @@ ifdef FIXTURE_MUT_UNDECLARED_VARIANT
 # Mutant (test-fixture-volumes-mutant, UNDECLARED_VARIANT): a flair-data
 # variant volume defined after the derivation above, so it has no contract.
 FLAIR_DATA_ZZZ_IMG := $(BUILD)/flair_data_zzz.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_ZZZ_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ZZZ_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
 endif
 $(eval $(call fixture-contract,$(FLAIR_DATA_CORRUPT_IMG),$(FLAIR_FIXTURES) DESKTOP.DB=AH))
 $(eval $(call fixture-contract,$(FLAIR_DAMAGED_DATA_IMG),NEWFOLD= TRASH= APPS/TRASH= APPS/TRASH/README.TXT $(filter-out README.TXT,$(FLAIR_FIXTURES))))

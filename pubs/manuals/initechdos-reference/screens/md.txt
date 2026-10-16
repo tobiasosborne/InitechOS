@@ -6,10 +6,10 @@ A:\REPORTS>DIR
 
  Directory of A:\REPORTS
 
-.               <DIR>   0-00-80  12:00a
-..              <DIR>   0-00-80  12:00a
+.               <DIR>   3-02-92   9:30a
+..              <DIR>   3-02-92   9:30a
 
-        2 File(s)   1424896 bytes free
+        2 File(s)   1417216 bytes free
 A:\REPORTS>
 
 

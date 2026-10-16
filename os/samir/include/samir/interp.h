@@ -151,7 +151,8 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n);
  *   err_code : output detail. On INTERP_ERR_LEX it is an xb_lex_err; on
  *              INTERP_ERR_PARSE an xb_parse_err; on INTERP_ERR_EVAL an
  *              xb_eval_err (the dBASE catalog ordinal, e.g. 9 mismatch, or the
- *              negative XBEE_UNBOUND if a field name has no open selected area).
+ *              XBEE_VAR_NOT_FOUND (#12) if a field/memvar name is absent;
+ *              Using III+ U7-21, PDF 509).
  *              Set to 0 on success.
  *
  * The expression's field-name identifiers resolve through the bound work-area

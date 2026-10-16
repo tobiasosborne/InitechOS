@@ -5,8 +5,9 @@
 % -> 01h..1Ah, so CTRL-H = BACKSPACE); command.c read_line (CMD_LINE_MAX 128
 % = 127 characters + CR); WL-0102 (COPY CON ends at CTRL-Z).  The DOS 3.3
 % template keys (F1-F6, INS, DEL, ESC) and CTRL-S / CTRL-P are not built --
-% DRAFT, bead needed.  At the prompt the shipped build displays the text
-% INT23-BREAK where DOS 3.3 displays ^C (seen in a capture; bead needed).
+% DRAFT; initech-lqdc was closed with the ^C / ^Z echo only, so they need a
+% bead.  CTRL-C echoes ^C on the console (INT23-BREAK goes to the serial
+% mirror only, lqdc): screens/ctrlc.
 % GATES: test-j1lu-control-emu test-j1lu-con-unit test-shell
 \Gates{test-j1lu-control-emu, test-j1lu-con-unit, test-shell}
 \chapter{The InitechDOS Editing Keys}
@@ -33,9 +34,15 @@ beginning of the line it does nothing.  \key{Ctrl-H} does the same.
 \SideHead{Ctrl-C}Cancels the line you are typing: InitechDOS discards it
 and displays the command prompt again.  If a command or program is waiting
 for you to type a line, \key{Ctrl-C} stops it; a batch file ends.
-\draft{bead needed: the shipped build displays the text INT23-BREAK after
-the cancelled line; DOS 3.3 displays the characters \textasciicircum C}
-InitechDOS displays \texttt{\textasciicircum C} after the cancelled line.
+InitechDOS displays \texttt{\textasciicircum C} after the cancelled line:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{DIR}, but do not press \key{Enter}: press \key{Ctrl-C}
+  instead.
+\end{Steps}
+
+\Screen[rows=2, label=fig:ctrlc]{screens/ctrlc.txt}{A line cancelled with
+  Ctrl-C}
 
 \SideHead{Ctrl-Z}Marks the end of a file.  When you copy from the keyboard
 with \cmd{COPY CON}, press \key{Ctrl-Z} and then \key{Enter} to end the
@@ -48,8 +55,9 @@ erased, then type the rest of the line again.  For example, if you type
 \type{DIR}, and pressing \key{Enter} lists the directory.
 
 \section{The Template Keys}
-\draft{bead needed: the template editing keys, CTRL-S and CTRL-P are not
-built; this section describes DOS 3.3}
+\draft{bead needed (initech-lqdc was closed without them): the template
+editing keys, CTRL-S and CTRL-P are not built; this section describes DOS
+3.3}
 InitechDOS keeps the last line you typed as a \term{template}, and the
 function keys let you use it to type the next line:
 

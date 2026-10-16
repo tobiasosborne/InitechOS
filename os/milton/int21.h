@@ -132,6 +132,10 @@ typedef void (*int21_exit_fn)(uint8_t code);
 /* Bind the CON sink (NULL clears it). Called once by the kernel at boot. */
 void int21_set_sink(int21_sink_fn sink);
 
+/* Serial-only INT23 debug marker; never sent through the CON sink.
+ * MS-DOS 3.3 Reference p.159; the console displays ^C and aborts. */
+void int21_set_break_trace(int21_sink_fn sink);
+
 /* Bind the terminate hook (NULL clears it). Called once by the kernel at boot. */
 void int21_set_exit(int21_exit_fn fn);
 
@@ -676,6 +680,14 @@ typedef int (*int21_clock_set_fn)(uint16_t year, uint8_t month, uint8_t day,
 /* Bind the clock source (either may be NULL to clear). The kernel binds RTC-
  * backed callbacks at boot; the host oracle binds a fixed mock. */
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set);
+
+/* Same clock, packed for FAT. IBM DOS 3.30 Tech Ref pp.5-12/13. Returns 0
+ * without changing the outputs when no clock is bound or its read fails. */
+int int21_file_stamp(uint16_t *mtime, uint16_t *mdate);
+
+/* Canonical root-relative directory spelling without changing CWD.
+ * DIR [drive:][pathname], MS-DOS 3.3 Reference p.57. */
+int int21_directory_path(const char *path, char *canon, uint32_t capacity);
 
 /* ---- INTERRUPT-VECTOR TABLE SEAM (beads initech-509.8) --------------------
  * AH=25h SETVECT / AH=35h GETVECT read and write the live interrupt vector for

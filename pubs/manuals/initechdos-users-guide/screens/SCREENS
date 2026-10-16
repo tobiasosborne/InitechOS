@@ -1,32 +1,41 @@
-# Screens for the InitechDOS 3.30 User's Guide (1024-3300-11), bead initech-ipu5.7.
-# name|serial marker[#count]|keystrokes (printf %b; \n = Enter, \\ = backslash)
-# The marker is text of the LAST command's output; #count is how many times it
-# has appeared on the serial mirror (typed keys echo there too) when the
-# screen is complete.  Regenerate with `make pubs-screens`; `make
-# test-pubs-screens` re-captures every screen and diffs it against the book.
-startup|SHELL-READY|
-errors|Required parameter missing|CLS\nB:\nDIRECTORY\nTYPE\n
-dir|bytes free|CLS\nDIR\n
-type|Copies of the cover sheet|CLS\nTYPE MEMO.TXT\n
-copy|bytes free|CLS\nCOPY MEMO.TXT MEMO.BAK\nDIR\n
-del|File not found|COPY MEMO.TXT MEMO.BAK\nCLS\nDEL MEMO.BAK\nTYPE MEMO.BAK\n
-paths|bytes free|CLS\nMD REPORTS\nCOPY MEMO.TXT REPORTS\nCD REPORTS\nDIR\n
-ren|bytes free|CLS\nREN MEMO.TXT MEMO.OLD\nDIR\n
-wild|A:\PHONE.TXT|CLS\nATTRIB *.TXT\n
-cdsub|bytes free|CLS\nCD SAMPLES\nCD\nCD ..\nCD\nCD SAMPLES\nDIR\n
-tree|None#2|CLS\nTREE\n
-vol|Volume in drive A is INITECH|CLS\nVOL\n
-label|Volume in drive A is WORKDISK|CLS\nLABEL\nWORKDISK\nVOL\n
-chkdsk|bytes free|CLS\nCHKDSK\n
-backup|bytes free|CLS\nXCOPY *.TXT BACKUP\\\nCD BACKUP\nDIR\n
-autoexec|PATH=A:\APPS#2|CLS\nTYPE AUTOEXEC.BAT\nSET\n
-greet|Your report is due Friday.|CLS\nCD SAMPLES\nTYPE GREET.BAT\nGREET Peter Friday\n
-check|cannot be found.#2|CLS\nCD SAMPLES\nTYPE CHECK.BAT\nCHECK GREET.BAT\nCHECK NOFILE.TXT\n
-cover|The cover sheets are ready.|CLS\nCD SAMPLES\nCOVER\n 
-set|DEPT=PUBS#2|CLS\nSET DEPT=PUBS\nSET\n
-prompt|A:\>#3|CLS\nPROMPT $N$G\nPROMPT\n
-redir|Second line#2|CLS\nVER > LIST.TXT\nECHO Second line >> LIST.TXT\nTYPE LIST.TXT\n
-stdin|Volume in drive A is REPORTS|CLS\nECHO REPORTS > NAME.TXT\nLABEL < NAME.TXT\nVOL\n
-attrib|Access denied|CLS\nATTRIB +R PHONE.TXT\nATTRIB PHONE.TXT\nDEL PHONE.TXT\n
-xcopys|File(s) copied|CLS\nXCOPY SAMPLES SAVED /S\nD
-
+# Screens for the InitechDOS 3.30 User's Guide (1024-3300-11), beads initech-ipu5.7 / ipu5.6.
+# name|serial marker[#count]|disk
+# The keystrokes of screen NAME are screens/NAME.keys, one line read with
+# printf %b (\n = Enter, \\ = backslash); it is the ONLY keyboard source
+# (test-pubs SCREEN-KEYS), and every .keys starts with the two Enters that
+# answer the startup date and time prompts.  The marker is text of the LAST
+# command's output; #count is how many times it has appeared on the serial
+# mirror (typed keys echo there too) when the screen is complete.  disk is
+# the practice diskette the screen boots with (pubs/screens/disk/MANIFEST):
+# empty = the practice diskette as shipped, whose AUTOEXEC.BAT sets PATH;
+# noautoexec = the same diskette without AUTOEXEC.BAT, the only case in
+# which InitechDOS asks for the date and time at startup (initech-qskz).
+# Regenerate with "make pubs-screens"; "make test-pubs-screens" re-captures
+# every screen and diffs it against the book.
+startup|A:\>|noautoexec
+errors|Required parameter missing|
+dir|bytes free|
+type|Copies of the cover sheet|
+copy|bytes free|
+del|File not found|
+paths|bytes free|
+ren|bytes free|
+wild|A:\PHONE.TXT|
+cdsub|bytes free|
+tree|None#2|
+vol|Volume in drive A is INITECH|
+label|Volume in drive A is WORKDISK|
+chkdsk|bytes free|
+backup|bytes free|
+autoexec|PATH=A:\APPS#2|
+greet|Your report is due Friday.|
+check|after CHECK.#2|
+cover|The cover sheets are ready.|
+set|DEPT=PUBS#2|
+prompt|A:\>#5|
+redir|Second line#2|
+stdin|Volume in drive A is REPORTS|
+attrib|Access denied|
+xcopys|File(s) copied|
+path|PATH=A:\APPS#2|
+ctrlc|A:\>#5|

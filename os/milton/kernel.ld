@@ -25,13 +25,24 @@ SECTIONS
     /* kstart.o is linked first on the ld command line, so its .text (which
      * begins with _start) is emitted first -- _start lands at KERNEL_BASE. */
     .text : {
+        /* initech-tode; round2 size-policy Sec 4 lever C. Firmware jumps to
+         * _start; interrupt delivery enters assembly without a C call edge.
+         * Keep the complete entry/ISR stubs, including their relocations. */
+        KEEP(*kstart.o(.text*))
+        KEEP(*(.text._start))
+        KEEP(*isr.o(.text*))
         *(.text*)
     }
 
-    .rodata : { *(.rodata*) }
+    .rodata : {
+        /* idt.c: the exception-vector table is an interrupt root. */
+        KEEP(*(.rodata.g_exc_stubs))
+        *(.rodata*)
+    }
     .data   : { *(.data*) }
 
     .bss : {
+        KEEP(*(.bss.g_idt .bss.g_idt_ptr))
         *(.bss*)
         *(COMMON)
     }

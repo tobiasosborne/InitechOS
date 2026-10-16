@@ -1,8 +1,8 @@
 % Chapter 3 -- Working with Files and Directories.
 % Sources (Law 1): os/milton/command.c (builtin_ren AH=56h same directory;
 % builtin_cd; builtin_del wildcards); os/milton/int21.c (8.3 search template
-% '*' '?', do_chdir: relative, absolute, ".."; "\" alone is a no-op in the
-% shipped build -- bead needed, WL-0119); os/milton/dosutil.c (ATTRIB
+% '*' '?', do_chdir: relative, absolute, "..", "\" alone = the root,
+% initech-33t2); os/milton/dosutil.c (ATTRIB
 % wildcard display); os/milton/xcopy_tree.c (TREE).
 % GATES: test-command test-ut6d test-fat-subdir test-attrib test-xcopy-tree test-pubs-screens
 \Gates{test-command, test-ut6d, test-fat-subdir, test-attrib, test-xcopy-tree, test-pubs-screens}
@@ -101,9 +101,6 @@ a backslash (\type{\bs}).
 \end{itemize}
 You may put the drive in front of a path: \file{A:\bs SAMPLES\bs GREET.BAT}.
 
-\draft{bead needed: CD \bs{} alone leaves the current directory unchanged in
-the shipped build (int21.c, do\_chdir); DOS 3.3 returns to the root.  Use
-CD .. until then}
 To go straight to the root directory from anywhere on the disk, type
 \type{CD \bs}.
 

@@ -178,3 +178,45 @@ the Reference (it exists).
 - pubs/class/initech-{manual.cls,syntax.sty,screen.sty,forms.sty}
 - pubs/screens/{capture.sh,keys.sh,disk/MANIFEST}, pubs/common/colophon.tex
 - tools/pubs_msgtable.c, harness/emu/qemu.c, harness/emu/qemu_main.c
+
+## Integration with the pubs-gates lane (2026-10-17)
+
+One merge of main (up to 1546f8e: pubs-gates cbbab02, DOS parity 1 and 2,
+EDLIN, InitechText, IO.SYS split, kernel GC) into lane/dosman, reconciled
+rather than sided:
+
+- Class: main's PUB-REF-0001 class is the base (family option, Termes/
+  Pagella, 142 mm block, per-family furniture, small-cap keys, cover grid);
+  the F-IBM pieces of this lane ride on it: \ChapterTab labels on stepped
+  every-recto tabs, the titletoc mini-contents (minitoc dropped), PG-35
+  contents, the shipout continuation title for every family (it replaces
+  the fancyhdr entry head, which claimed head height), the free ragged
+  margin.  \FinishBook[n] is the single padding mechanism (\PadForColophon
+  gone): colophon = last interior page, then n comment forms.
+- One documented-command list: \RegisterCommand{NAME}{KIND}{STATE}{ENTRY}
+  -> <job>.cmds, written by CommandEntry, DosEntry, \AlsoNamed and
+  \FunctionEntry.  pubs_gate.c reads the InitechDOS books' .cmds against a
+  NAME|KIND inventory; batch and config names come from the real
+  batch_classify / config_sys_parse (harness/pubs/dos_surface_inventory.c).
+  Mentions are checked by first word; \UnshippedCommand marks DOS 3.3
+  commands named only inside DRAFT text.
+- Screens: every screen has a .keys file starting with the two Enters;
+  SCREENS is name|marker|disk, disk = noautoexec mints the practice
+  diskette without AUTOEXEC.BAT (the only boot that asks for the date and
+  time).  \Shot reads the .keys and joins the figure registry.  EDLIN.COM
+  is on the practice diskette; CHECK.BAT now shows IF "%1"=="" GOTO.
+- DRAFT markers cleared against captures of the merged OS: qskz (startup,
+  both books), dwbl (directory stamps x3), e47v (DIR parameters, new
+  dirargs example), sy5f (PATH entry + path screens), and, after the
+  dosparity2 merge, 33t2 (CD \), s4e8 (IF ... GOTO), iffk (FOR wildcards
+  at the prompt, PROMPT $D/$$) and the lqdc ^C half (ctrlc screen).
+  Remaining markers name their bead (ktqk, vlhp x6, 2kgh, aai2 x2); two
+  still need a bead: COPY keeps the source's stamp in DOS 3.3 but the
+  shipped COPY stamps the current time, and the template keys / CTRL-S /
+  CTRL-P (lqdc was closed without them).  Front-matter markers (O-5/D-12,
+  DS-QR, package) are design items.
+- New Reference entry EDLIN (+ messages in Appendix A); PATH and DIR
+  entries rewritten as built; PAUSE now prints "Strike a key when
+  ready . . ." (not MSG-DOS-0016, which DIR /P prints).
+- Allow-list 104 -> 81: 24 rows removed as documented, TEXT added
+  (PM-directed, FLAIR application, loud header note).

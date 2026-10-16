@@ -3,10 +3,10 @@ A:\SAMPLES>CD
 A:\SAMPLES
 A:\SAMPLES>CD ..
 A:\>CD SAMPLES
-A:\SAMPLES>
-
-
-
+A:\SAMPLES>CD \
+A:\>CD
+A:\
+A:\>
 
 
 

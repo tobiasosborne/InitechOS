@@ -1,0 +1,92 @@
+# InitechDOS manuals: shipped items with no entry yet, established 2026-10-16.
+# NAME|date|reason. Remove each row when its reference entry lands; the gate
+# forbids growth against HEAD and HEAD^ and rejects stale rows.
+# 2026-10-17 (lane/dosman integration): 24 rows removed -- the InitechDOS
+# Reference documents them (ATTRIB BREAK CD CHDIR CHKDSK CLS DATE ECHO ERASE
+# EXIT LABEL MD MKDIR PROMPT RD REN RENAME RMDIR SET TIME TREE VER VOL XCOPY);
+# EDLIN got its Reference entry in the same pass.
+# !!! GROWTH, PM-directed 2026-10-17: TEXT (APPS\TEXT.EXE, InitechText) joined
+# !!! the shipped volume after the pilot rows were dated; like CALC and WORD it
+# !!! is a FLAIR application for its own manual (initech-ipu5.11), not a DOS
+# !!! command, so it is listed here explicitly rather than in the DOS books.
+123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:00|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:01|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:02|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:03|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:04|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:05|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:06|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:07|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:08|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:09|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:0A|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:0B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:0C|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:0E|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:0F|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:10|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:11|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:12|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:13|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:14|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:15|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:16|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:17|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:18|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:19|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:1A|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:1B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:1C|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:1D|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:1E|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:1F|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:20|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:21|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:22|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:23|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:24|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:25|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:2A|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:2B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:2C|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:2D|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:2F|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:30|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:31|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:33|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:35|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:36|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:39|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:3A|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:3B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:3C|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:3D|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:3E|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:3F|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:40|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:41|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:42|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:43|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:44|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:45|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:46|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:47|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:48|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:49|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:4A|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:4B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:4C|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:4D|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:4E|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:4F|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:56|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:57|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:59|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:5B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:62|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+TENANTFX|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+TEXT|2026-10-17|FLAIR application (InitechText); its own manual is not yet written (PM-directed explicit row)
+WORD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written

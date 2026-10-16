@@ -181,6 +181,7 @@ static int_frame_t fresh_frame(void)
 int main(void)
 {
     int21_set_sink(sink_capture);
+    int21_set_break_trace(sink_capture); /* Capture the serial debug seam too. */
     int21_set_exit(exit_observe);
     int21_set_conin(mock_get, mock_poll);
     int21_set_vectortable(mock_setvect, mock_getvect);
@@ -376,7 +377,7 @@ int main(void)
         int_frame_t f = fresh_frame();
         int23_dispatch(&f);
         CHECK(strstr(sink_str(), "INT23-BREAK") != NULL,
-              "[5b] INT 23h emits the \"INT23-BREAK\" marker to CON");
+              "[5b] INT 23h emits the \"INT23-BREAK\" marker to serial");
         CHECK(g_exit_called == 1, "[5b] INT 23h calls the terminate hook (break-abort)");
         CHECK(g_exit_code == 0u, "[5b] INT 23h terminates with code 0");
     }

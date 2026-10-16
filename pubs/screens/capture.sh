@@ -2,7 +2,7 @@
 # capture.sh -- capture manual screen reproductions from the running OS.
 #
 # Bead initech-ipu5.5.  Every \screen in an Initech manual is real InitechDOS
-# output (CLAUDE.md Law 2; DESIGN-SYSTEM.md Sec 5 "screen captures from the
+# output (CLAUDE.md Law 2; PUB-REF-0001 NT-20..23 "screen captures from the
 # emulator"): this script boots the default COMMAND.COM image in QEMU through
 # the factory harness, types the keystrokes named in the manual's SCREENS file,
 # takes the QMP screendump once the named marker text is on the serial mirror,
@@ -18,14 +18,23 @@
 # Makefile plants in APPS on the shipped data volume, build/flair_data.img);
 # any other source is a text file in <disk dir>, written with CR LF endings.
 #
+# Two practice diskettes are minted from the one MANIFEST: practice.img (the
+# diskette as shipped, whose AUTOEXEC.BAT sets PATH) and noautoexec.img (the
+# same without AUTOEXEC.BAT: the only case in which InitechDOS asks for the
+# date and time at startup, initech-qskz).
+#
 # Usage: capture.sh <qemu_harness> <boot.img> <console_text> <vgabios.bin>
 #                   <SCREENS file> <disk dir> <out dir> <utilities dir>
 # SCREENS format, one screen per line ('#' comments allowed):
-#   name|marker|keystrokes
+#   name|marker|disk
+# The keystrokes are <SCREENS dir>/name.keys (the only keyboard source,
+# ipu5.6): literal text read with printf %b (\n = Enter, \\ = backslash),
+# starting with the two Enters that answer the startup date/time prompts.
 # marker may end in #N: the capture is taken once the marker has appeared N
 # times on the serial mirror (typed keys echo there too), so a screen can end
 # on output whose text was already seen earlier in the session.
-# keystrokes are literal text read with printf %b (\n = Enter, \\ = backslash).
+# disk is empty (practice.img) or `noautoexec` (noautoexec.img); anything
+# else is RED, so a line in the old name|marker|keystrokes form cannot pass.
 # Thin shell (Law 3).  Fails loud on any capture that is not a settled prompt.
 set -eu
 runner=$1; boot=$2; decode=$3; rom=$4; defs=$5; disk=$6; out=$7; utils=$8
@@ -37,8 +46,10 @@ for t in mformat mcopy; do
 done
 [ -r "$rom" ] || { printf '!!! capture.sh FAIL: VGA BIOS %s not readable\n' "$rom"; exit 1; }
 
-# Mint the practice diskette once: 1.44 MB FAT12, label INITECH, CRLF text.
-img=$out/practice.img
+# Mint the practice diskettes once: 1.44 MB FAT12, label INITECH, CRLF text.
+# mint <image> <path to leave out, or empty>
+mint() {
+img=$1; skip=$2
 stage=$out/practice.d
 rm -rf "$stage"; mkdir -p "$stage"
 dd if=/dev/zero of="$img" bs=512 count=2880 status=none
@@ -48,6 +59,7 @@ SOURCE_DATE_EPOCH=$(TZ=UTC date -d "1992-03-01 08:00" +%s) TZ=UTC \
 [ -r "$disk/MANIFEST" ] || { printf '!!! capture.sh FAIL: %s/MANIFEST missing\n' "$disk"; exit 1; }
 while IFS='|' read -r path stamp src; do
     case $path in ''|'#'*) continue ;; esac
+    [ "$path" != "$skip" ] || continue
     epoch=$(TZ=UTC date -d "$stamp" +%s)
     case $path in
     */)
@@ -64,14 +76,29 @@ while IFS='|' read -r path stamp src; do
         TZ=UTC mcopy -m -i "$img" "$f" "::$path" < /dev/null ;;
     esac
 done < "$disk/MANIFEST"
+}
+grep -q '^AUTOEXEC.BAT|' "$disk/MANIFEST" || {
+    printf '!!! capture.sh FAIL: %s/MANIFEST has no AUTOEXEC.BAT (the noautoexec variant would equal the shipped one)\n' "$disk"; exit 1; }
+mint "$out/practice.img" ""
+mint "$out/noautoexec.img" AUTOEXEC.BAT
 
 n=0
-while IFS='|' read -r name marker keys; do
+while IFS='|' read -r name marker variant; do
     case $name in ''|'#'*) continue ;; esac
+    keyfile=$(dirname "$defs")/$name.keys
+    [ -f "$keyfile" ] || { printf '!!! test-pubs RED SCREEN-KEYS: %s missing\n' "$keyfile"; exit 1; }
+    case $variant in
+    '') img=$out/practice.img ;;
+    noautoexec) img=$out/noautoexec.img ;;
+    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: disk field "%s" is not empty or noautoexec (inline keys are forbidden)\n' "$name" "$variant"; exit 1 ;;
+    esac
+    keys=$(cat "$keyfile")
+    # Every screen answers the startup date and time prompts first (qskz).
+    case $keys in '\n\n'*) ;; *)
+        printf '!!! test-pubs RED SCREEN-KEYS: %s does not start with the two Enters (\\n\\n)\n' "$keyfile"; exit 1 ;; esac
     n=$((n + 1))
     work=$out/$name.img
-    cp "$img" "$work"
-    # An empty keystroke field captures the startup screen itself.
+    cp -f "$img" "$work"
     if [ -n "$keys" ]; then
         tokens=$(sh "$here/keys.sh" "$keys")
         # qemu_harness truncates a --keys spec past 4095 bytes; never let a

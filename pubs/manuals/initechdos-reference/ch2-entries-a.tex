@@ -70,7 +70,7 @@ other than \kw{ON} or \kw{OFF} leaves the setting unchanged.
 Whatever the setting, InitechDOS checks for \key{Ctrl-C} whenever it reads
 a line from the keyboard: the line is discarded, a program reading it is
 stopped, and the command prompt is displayed again.
-\draft{DEC-16 C-6: in DOS 3.3, BREAK ON also checks for CTRL-C during disk
+\draft{see bead initech-vlhp (DEC-16 C-6): in DOS 3.3, BREAK ON also checks for CTRL-C during disk
 and other operations; the shipped build records and reports the setting
 but checks only during keyboard input}
 With \kw{ON}, InitechDOS also checks for \key{Ctrl-C} while a program reads
@@ -81,8 +81,8 @@ or writes the disk, so a long operation can be stopped.
 
 % CD -- os/milton/command.c builtin_cd (no arg: cwd_display; failure:
 % MSG-DOS-0018 "Invalid directory"); int21.c do_chdir (relative, absolute,
-% ".."; "\" alone is a no-op in the shipped build -- no bead yet, reported
-% in WL-0119).  Gates: test-ut6d, test-fat-subdir, test-shell.
+% "..", "\" alone = the root since initech-33t2).  Gates: test-ut6d,
+% test-fat-subdir, test-shell.
 \begin{DosEntry}{CD}{Change Directory}{internal}
 \AlsoNamed{CHDIR}
 \Purpose Changes the current directory, or displays its name.
@@ -102,12 +102,12 @@ The command prompt shows the current directory, so a successful \cmd{CD}
 displays nothing more.  If the directory does not exist, \cmd{CD} displays
 \texttt{Invalid directory} and the current directory does not change.
 
-\draft{bead needed: CD \bs{} alone leaves the current directory unchanged in
-the shipped build (int21.c, do\_chdir); DOS 3.3 returns to the root
-directory}
 \type{CD \bs} makes the root directory the current directory, from any
 directory on the disk.
 \Example
+The example moves into \file{SAMPLES}, displays the current directory,
+moves back with \type{CD ..}, moves in again and goes straight to the root
+with \type{CD \bs}:
 \Shot{cd}
 \end{DosEntry}
 
@@ -212,7 +212,7 @@ replaced.  When the copy is complete, \cmd{COPY} displays
 Wildcards are not allowed in this version: name one file.  To copy groups
 of files, use \cmd{XCOPY}.
 
-You can copy from the keyboard by naming the device \cmd{CON} as the
+You can copy from the keyboard by naming the device \file{CON} as the
 source: type the lines of the file, then press \key{Ctrl-Z} and
 \key{Enter}.  \texttt{COPY CON NOTE.TXT} creates the file \file{NOTE.TXT}
 from what you type.
@@ -224,8 +224,9 @@ and the file is not changed.  If the source does not exist, it displays
 \texttt{Access denied}; if the target cannot be created for another reason,
 such as a full disk, it displays \texttt{Bad command or file name}.
 
-\draft{initech-dwbl: the shipped build stamps the copy 0-00-80 12:00a (see
-the DIR example); DOS 3.3 keeps the source's date and time}
+\draft{bead needed (follow-up of initech-dwbl): the shipped COPY stamps the
+copy with the current date and time; DOS 3.3 keeps the source's date and
+time}
 The copy has the same date and time as the source file.
 \Example
 The first command copies \file{MEMO.TXT} to a new file, \file{MEMO.BAK}; the
@@ -303,27 +304,39 @@ deletes the copy, and shows that it is gone:
 
 % DIR -- os/milton/command.c builtin_dir (MSG-DOS-0021..0026 display
 % fragments, cmd_format_dir_line, footer from AH=36h; empty -> File not
-% found).  Parameters are ignored in the shipped build: initech-e47v.
-% Gates: test-dir, test-dir-look, test-dir-volume, test-dir-free-space.
+% found; e47v: one operand -- drive A only, else MSG-DOS-0004 -- a directory
+% or a file name, "name" = name.* and ".ext" = *.ext, /P pauses with
+% MSG-DOS-0016 after 23 rows, /W five names to a line, a subdirectory in
+% brackets; any other switch or a second operand MSG-DOS-0010).
+% Gates: test-dir, test-dir-look, test-dir-volume, test-dir-free-space,
+% test-dir-page, test-dir-args-mutant (initech-e47v).
 \begin{DosEntry}{DIR}{Directory}{internal}
 \Purpose Lists the files and subdirectories in a directory.
 \Format \SyntaxLine{\kw{DIR} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\opt{\ph{filename}\opt{\kw{.}\ph{ext}}}
   \opt{\kw{/P}} \opt{\kw{/W}}}
 \Type{Internal}
 \Remarks
-\draft{initech-e47v: the shipped DIR ignores its parameters and always lists
-the current directory; the drive, path, file name, /P and /W remarks below
-describe DOS 3.3}
+\Param{d:} is the drive; it can only be drive~A.  Any other drive displays
+\texttt{Invalid drive specification}.
+
 \Param{path} names the directory to list.  If you leave it out, \cmd{DIR}
-lists the current directory.
+lists the current directory.  Listing a directory does not change the
+current directory.
 
 \Param{filename} limits the listing to matching files.  Wildcards are
-allowed.
+allowed.  A name without an extension lists every extension of that name
+(\type{DIR MEMO} lists \file{MEMO.*}), and an extension alone lists every
+name with that extension (\type{DIR .TXT} lists \file{*.TXT}).
 
-\Param{/P} pauses when the screen is full; press any key to see the next
+\Param{/P} pauses when the screen is full and displays
+\texttt{Press any key to continue . . .}; press any key to see the next
 screen.
 
-\Param{/W} lists the names only, five to a line.
+\Param{/W} lists the names only, five to a line, with the name of a
+subdirectory in brackets.
+
+Only one file specification may be given; a second one, or any switch
+other than \kw{/P} and \kw{/W}, displays \texttt{Too many parameters}.
 
 The listing begins with the volume label of the disk and the name of the
 directory.  Each file then has one line: its name, its extension, its size
@@ -337,4 +350,7 @@ by \texttt{File not found}.
 \Example
 To list the root directory of the practice diskette:
 \Shot{dir}
+To list only the text files, and then the directory \file{SAMPLES} in the
+wide form:
+\Shot{dirargs}
 \end{DosEntry}

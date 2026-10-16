@@ -52,6 +52,9 @@ cmd_kind_t cmd_classify(const char *upper_command)
     /* A tiny hand-rolled strcmp keeps this freestanding (no libc). */
     struct { const char *name; cmd_kind_t kind; } table[] = {
         { "DIR",   CMD_DIR  },
+#ifndef CMD_MUTATE_PATH_COMMAND
+        { "PATH",  CMD_PATH }, /* MS-DOS 3.3 Reference p.97 / PDF182. */
+#endif
 #ifndef DU_MUTATE_VOL
         { "VOL",   CMD_VOL  }, /* MS-DOS 3.3 User's Guide p.126 / PDF211 */
 #endif
@@ -169,6 +172,14 @@ void cmd_parse(const char *line, cmd_line_t *out)
      * Clamp to CMD_TOKEN_MAX-1 so an absurdly long word cannot overflow. */
     i = 0;
     while (*p && !is_space(*p) && i < CMD_TOKEN_MAX - 1) {
+        /* MS-DOS 3.3 Reference p.57 (DIR[/P][/W]), p.97 (PATH;),
+         * Guide p.48 (PATH=...). Preserve the adjacent delimiter as the
+         * operand; executable path names retain the ordinary tokenizer. */
+        if ((*p == '/' && i == 3 && out->command[0] == 'D' &&
+             out->command[1] == 'I' && out->command[2] == 'R') ||
+            ((*p == ';' || *p == '=') && i == 4 && out->command[0] == 'P' &&
+             out->command[1] == 'A' && out->command[2] == 'T' && out->command[3] == 'H'))
+            break;
 #ifdef CMD_MUTATE_NO_UPCASE
         /* MUTANT (Rule 6; make test-command-mutant only): copy the command word
          * WITHOUT upper-casing, so a lowercase "dir" no longer matches the
@@ -183,9 +194,8 @@ void cmd_parse(const char *line, cmd_line_t *out)
     out->command[i] = '\0';
     /* If the word was longer than the clamp, swallow the rest of it so it does
      * not bleed into arg (it is already a non-recognized command anyway). */
-    while (*p && !is_space(*p)) {
-        p++;
-    }
+    if (i == CMD_TOKEN_MAX - 1)
+        while (*p && !is_space(*p)) p++;
 
     /* DOS command tail (initech-456): capture the verbatim remainder -- INCLUDING
      * the leading separator space(s) -- BEFORE arg's leading-space trim below.
@@ -698,7 +708,8 @@ int cmd_format_date(uint8_t dow, uint16_t year, uint8_t mon, uint8_t day,
         out[pos++] = dname[i];
     }
     out[pos++] = ' ';
-    put_u_pad0(out, &pos, (uint32_t)mon, 2);     /* MM */
+    /* Guide pp.19-20 / PDF32-33: month and hour have no leading zero. */
+    put_u_pad0(out, &pos, (uint32_t)mon, mon >= 10u ? 2 : 1);
     out[pos++] = '-';
     put_u_pad0(out, &pos, (uint32_t)day, 2);     /* DD */
     out[pos++] = '-';
@@ -716,7 +727,7 @@ int cmd_format_time(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs, char *out)
     for (i = 0; prefix[i] != '\0'; i++) {
         out[pos++] = prefix[i];
     }
-    put_u_pad0(out, &pos, (uint32_t)hh, 2);       /* HH */
+    put_u_pad0(out, &pos, (uint32_t)hh, hh >= 10u ? 2 : 1);
     out[pos++] = ':';
     put_u_pad0(out, &pos, (uint32_t)mi, 2);       /* MM */
     out[pos++] = ':';
@@ -2431,6 +2442,29 @@ static void builtin_prompt(const char *arg)
     /* Success is SILENT (DOS PROMPT prints nothing on success). */
 }
 
+/* sy5f: PATH and SET PATH share the master environment used by EXEC/BAT
+ * resolution. Ref: ADR-0003 DEC-11; MS-DOS 3.3 Reference p.97 / PDF182,
+ * p.348 / PDF433 (empty-path diagnostic; task's DOS spelling "No Path"). */
+static void builtin_path(const char *arg)
+{
+    char value[CMD_LINE_MAX];
+    while (is_space(*arg) || *arg == '=') arg++;
+    if (!*arg) {
+        const char *path = env_get(&g_master_env, "PATH");
+        if (path && *path) {
+            dos_puts_raw("PATH="); dos_puts_raw(path); dos_print("\r\n$");
+        } else dos_print("No Path\r\n$");
+        return;
+    }
+    int n = 0;
+    while (*arg && n < CMD_LINE_MAX - 1) value[n++] = cmd_upcase_char(*arg++);
+    while (n && is_space(value[n-1])) n--;
+    value[n] = 0;
+    if (n == 1 && value[0] == ';') env_unset(&g_master_env, "PATH");
+    else if (!env_set(&g_master_env, "PATH", value))
+        dos_print("Out of environment space\r\n$");
+}
+
 /* DIR: existing FINDFIRST/FINDNEXT operand behavior, DOS 3.3 display.
  * Ref: User Guide pp.28-29 / PDF 41-42; controlled fragments from the
  * deliberate LOOK Rule-8 amendment to spec/dos_messages.json. DTA supplies
@@ -2460,12 +2494,62 @@ static void builtin_vol(const char *arg)
     else dos_puts_raw(MSG_DOS_0022);
     dos_print("\r\n$");
 }
-static void builtin_dir(void)
+/* e47v: MS-DOS 3.3 Reference pp.57-58 / PDF142-143: one qualified
+ * operand, filename.* / *.ext shorthand, /P and five-column /W. Directory
+ * canonicalization uses the backend without CHDIR, so DIR never changes CWD. */
+static void builtin_dir(const char *arg)
 {
     int n;
     uint32_t files = 0;
     char label[12], disp[3 + INT21_CWD_MAX + 4];
     uint32_t ax=0x3600u, bx, cx, dx=0u;
+    char spec[CMD_LINE_MAX], parent[CMD_LINE_MAX];
+    int wide = 0, page = 0, len = 0, rows = 6, column = 0;
+#ifdef CMD_MUTATE_DIR_ARGS
+    arg = ""; /* Rule 6: restore the ignored-operand regression. */
+#endif
+    while (*arg) {
+        if (is_space(*arg)) { arg++; continue; }
+        if (*arg == '/') {
+            char option = cmd_upcase_char(*++arg);
+            if (option == 'W') wide = 1;
+            else if (option == 'P') page = 1;
+            else { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+            arg++;
+            continue;
+        }
+        if (len) { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+        while (*arg && !is_space(*arg) && *arg != '/') {
+            if (len >= CMD_LINE_MAX - 5) {
+                dos_print(MSG_DOS_0010 "\r\n$"); return;
+            }
+            spec[len++] = cmd_upcase_char(*arg++);
+        }
+    }
+    spec[len] = 0;
+    if (len > 1 && spec[1] == ':' && spec[0] != 'A') {
+        dos_print(MSG_DOS_0004 "\r\n$"); return;
+    }
+    disp[0] = 'A'; disp[1] = ':'; disp[2] = '\\';
+    if (int21_directory_path(spec, disp+3, INT21_CWD_MAX)) {
+        if (len && spec[len-1] != '\\' && spec[len-1] != ':') spec[len++] = '\\';
+        spec[len++] = '*'; spec[len++] = '.'; spec[len++] = '*'; spec[len] = 0;
+    } else {
+        int leaf = 0;
+        for (int i=0; i<len; i++) if (spec[i] == '\\' || spec[i] == ':') leaf = i+1;
+        for (int i=0; i<leaf; i++) parent[i] = spec[i];
+        parent[leaf] = 0;
+        if (!int21_directory_path(parent, disp+3, INT21_CWD_MAX)) {
+            dos_print(MSG_DOS_0003 "\r\n$"); return;
+        }
+        if (spec[leaf] == '.') {
+            for (int i=len; i>=leaf; i--) spec[i+1] = spec[i];
+            spec[leaf] = '*'; len++;
+        }
+        int dot = 0;
+        for (int i=leaf; i<len; i++) if (spec[i] == '.') dot = 1;
+        if (!dot) { spec[len++] = '.'; spec[len++] = '*'; spec[len] = 0; }
+    }
 
     /* AH=36h counts live FAT free clusters; never infer space from file sizes.
      * Technical Reference AH=36h; the host gate compares this backend to mdir. */
@@ -2496,26 +2580,47 @@ static void builtin_dir(void)
     } else dos_puts_raw(MSG_DOS_0022);
     dos_print("\r\n\r\n$");
 #endif
-    cwd_display(disp);
     dos_puts_raw(MSG_DOS_0023);
     dos_puts_raw(disp);
     dos_print("\r\n\r\n$");
 
     /* Search attribute 0x10 (DIRECTORY) so subdir entries are listed too; the
      * dispatcher already includes plain files. */
-    if (!dos_findfirst("*.*", DIR_ATTR_DIRECTORY)) {
+    if (!dos_findfirst(spec, DIR_ATTR_DIRECTORY)) {
         dos_print(MSG_DOS_0003 "\r\n$");
         return;
     }
     do {
+        if (page && rows >= 23) {
+            dos_print(MSG_DOS_0016 "$" );
+            (void)dos_conin();
+            dos_print("\r\n$"); rows = 0;
+        }
+        if (wide) {
+            char cell[17];
+            int pos = 0;
+            if (g_shell_dta.attr & DIR_ATTR_DIRECTORY) cell[pos++] = '[';
+            for (int i=0; g_shell_dta.fname[i] && pos<15; i++) cell[pos++] = g_shell_dta.fname[i];
+            if (g_shell_dta.attr & DIR_ATTR_DIRECTORY) cell[pos++] = ']';
+            /* Last column ends at its name: padding to column 80 would wrap
+             * the console before the explicit newline. */
+            if (column != 4) while (pos < 16) cell[pos++] = ' ';
+            cell[16] = 0;
+            dos_write(cell, (uint32_t)pos);
+            if (++column == 5) { dos_print("\r\n$"); column = 0; rows++; }
+        } else {
         n = cmd_format_dir_line(g_shell_dta.fname, g_shell_dta.fsize,
                                 g_shell_dta.attr, g_shell_dta.fdate,
                                 g_shell_dta.ftime, g_out);
         /* cmd_format_dir_line ends the line with '\n'; the CON console + serial
          * treat '\n' as newline (the banner uses '\n' too). */
         dos_write(g_out, (uint32_t)n);
+        rows++;
+        }
         files++;
     } while (dos_findnext());
+
+    if (wide && column) dos_print("\r\n$");
 
     dos_print("\r\n$");
     n=cmd_format_dir_footer(files,free_bytes,g_out);
@@ -3200,6 +3305,38 @@ static void read_line(char *out)
     out[i] = '\0';
 }
 
+/* qskz: the primary processor without AUTOEXEC asks for DATE, then TIME.
+ * Empty answers accept the clock; invalid answers reprompt, successful ones
+ * use AH=2Bh/2Dh. Ref: MS-DOS 3.3 Guide pp.19-20 / PDF32-33;
+ * Reference pp.54-55,120-121,135 / PDF139-140,205-206,220;
+ * ADR-0003 Appendix A (0Ah,2Ah-2Dh). Secondary processors do not boot DOS. */
+static void startup_datetime(void)
+{
+    char answer[CMD_LINE_MAX];
+    uint16_t year;
+    uint8_t mon, day, dow, hh, mi, ss, cs;
+    dos_getdate(&year, &mon, &day, &dow);
+    cmd_format_date(dow, year, mon, day, g_out);
+    dos_puts_raw(g_out); dos_print("\r\n$");
+    for (;;) {
+        dos_print("Enter new date (mm-dd-yy): $");
+        read_line(answer);
+        if (!answer[0]) break;
+        if (cmd_parse_date(answer, &year, &mon, &day) && dos_setdate(year, mon, day)) break;
+        dos_print("Invalid date\r\n$");
+    }
+    dos_gettime(&hh, &mi, &ss, &cs);
+    cmd_format_time(hh, mi, ss, cs, g_out);
+    dos_puts_raw(g_out); dos_print("\r\n$");
+    for (;;) {
+        dos_print("Enter new time: $");
+        read_line(answer);
+        if (!answer[0]) break;
+        if (cmd_parse_time(answer, &hh, &mi, &ss) && dos_settime(hh, mi, ss)) break;
+        dos_print("Invalid time\r\n$");
+    }
+}
+
 /* Parse one command `line` and dispatch it to the matching built-in or to
  * run_external.  This is the SHARED dispatch the interactive REPL AND the .BAT
  * interpreter (run_batch's BL_COMMAND path) both call, so internal built-ins
@@ -3209,9 +3346,13 @@ static void read_line(char *out)
  * Returns 1 when a nonpermanent processor accepts EXIT, else 0. The REPL
  * returns on 1; run_batch unwinds the secondary's batches. A permanent
  * processor returns 0 for EXIT and continues without a diagnostic. */
+static int dispatch_control(const char *line);
+
 static int dispatch_line(const char *line)
 {
     cmd_line_t parsed;
+
+    if (dispatch_control(line)) return g_shell_exit;
 
     cmd_parse(line, &parsed);
 
@@ -3219,7 +3360,10 @@ static int dispatch_line(const char *line)
         case CMD_EMPTY:
             break;                       /* blank line -> nothing to do */
         case CMD_DIR:
-            builtin_dir();
+            builtin_dir(parsed.arg);
+            break;
+        case CMD_PATH:
+            builtin_path(parsed.arg);
             break;
         case CMD_VOL:
             builtin_vol(parsed.arg);
@@ -3753,6 +3897,21 @@ static const char *batch_env_cb(const char *name, void *ctx)
     return env_get((const env_store_t *)ctx, name);
 }
 
+/* PROMPT $D uses the same AH=2Ah clock seam as DATE, for both echoed
+ * batch lines and interactive prompts. MS-DOS 3.3 Reference p.101;
+ * ADR-0003 Appendix A (2Ah-2Dh). */
+static void prompt_date(prompt_ctx_t *ctx)
+{
+    uint16_t year=0;
+    uint8_t mon=0, day=0, dow=0;
+#ifndef CMD_MUTATE_PROMPT_DATE
+    dos_getdate(&year,&mon,&day,&dow);
+#else
+    (void)dow;
+#endif
+    ctx->year=year; ctx->month=mon; ctx->day=day;
+}
+
 /* Echo a batch line to CON with the DOS prompt prefix (the rendered $P$G + the
  * line text + CRLF), as real COMMAND.COM does when ECHO is ON.  We reuse the
  * prompt-render path so the echoed prefix matches the interactive prompt. */
@@ -3776,7 +3935,7 @@ static void batch_echo_line(const char *text)
         pctx.hour = (int)hh; pctx.minute = (int)mi;
         pctx.second = (int)ss; pctx.centisec = (int)cs;
     }
-    pctx.year = 0; pctx.month = 0; pctx.day = 0;
+    prompt_date(&pctx);
 
     rlen = cmd_render_prompt(templ, &pctx, rendered, (int)(sizeof(rendered) - 1));
     rendered[rlen] = '\0';
@@ -3918,340 +4077,204 @@ static int resolve_bat_path(const char *word, char *out)
     return 0;
 }
 
-/* Interpret one .BAT file.
- *
- *   `path` -- the ASCIIZ file path (already a resolved candidate, upcased).
- *   `argv` -- argv[0] = the batch name (for %0), argv[1..9] = the positional
- *             parameters; `argc` is the count.  Any argv[i] may be NULL.
- *
- * Reads the whole file (bounded by BATCH_FILE_MAX), then walks it line by line.
- * SHIFT is tracked as an argv offset (argv[1+shift]..); GOTO rescans from the
- * top; CALL recurses (depth-capped); EXIT sets g_shell_exit and unwinds.  ECHO
- * state starts ON (DOS default) but AUTOEXEC.BAT typically flips it OFF on the
- * first line.  Ref: MS-DOS 3.3 Tech Ref Ch.3; beads initech-xw1. */
-static void run_batch(const char *path, const char *const argv[], int argc)
-{
-    char *buf;
-    int   len;
-    int   pos = 0;
-    int   echo_on = 1;     /* ECHO defaults ON at batch entry (DOS 3.3)        */
-
-    /* A LOCAL, shiftable view of the positional parameters.  SHIFT slides the
-     * %1.. window left (argv[0]/%0 is unaffected in DOS SHIFT); we mutate this
-     * view, never the caller's array.  view[0] = %0 (batch name); view[1..] =
-     * the current %1.. parameters; vcount is the live count. */
+/* A batch frame owns control flow, positional parameters and ECHO state.
+ * IF/FOR bodies enter the same dispatcher as physical lines and prompt input.
+ * Ref: MS-DOS 3.3 Reference pp.141-149,152; ADR-0003 Appendix A. */
+typedef struct batch_frame {
+    const char *path;
     const char *view[10];
-    int   vcount = (argc > 10) ? 10 : argc;
-    {
-        int k;
-        for (k = 0; k < vcount; k++) {
-            view[k] = argv[k];
-        }
-    }
+    int count, pos, len, echo_on;
+    unsigned branch;
+    struct batch_frame *previous;
+} batch_frame_t;
+static batch_frame_t *g_batch_frame;
+static unsigned g_body_depth;
+/* Snapshot names before executing bodies: DIR, nested FOR and CALL all use
+ * FINDFIRST/NEXT too. One bounded arena, reclaimed on FOR return, avoids
+ * overwriting a live enumeration or putting file lists on the kernel stack. */
+static char g_for_names[BATCH_FILE_MAX];
+static unsigned g_for_used;
 
-    /* Depth cap (Rule 2): refuse runaway CALL recursion. */
-    if (g_batch_depth >= BATCH_NEST_MAX) {
+static void control_body(const char *line)
+{
+    if (g_body_depth >= BATCH_NEST_MAX) {
         dos_print("Batch nesting too deep\r\n$");
         return;
     }
-    buf = g_batch_buf;          /* shared across nesting; reloaded after CALL  */
+    g_body_depth++;
+    (void)run_pipeline_or_redirect(line);
+    g_body_depth--;
+}
+
+static int for_store(const char *name)
+{
+    unsigned n = str_len(name) + 1u;
+    if (n > sizeof(g_for_names) - g_for_used) {
+        dos_print("Insufficient memory\r\n$");
+        return 0;
+    }
+    for (unsigned i = 0; i < n; i++) g_for_names[g_for_used++] = name[i];
+    return 1;
+}
+
+static void control_for(const char *args)
+{
+    char var[BATCH_LABEL_MAX], set[BATCH_LINE_MAX], tmpl[BATCH_LINE_MAX];
+    char tok[BATCH_LINE_MAX];
+    int cur = 0;
+    unsigned mark = g_for_used;
+    batch_frame_t *frame = g_batch_frame;
+    unsigned branch = frame ? frame->branch : 0u;
+    if (!batch_for_parse(args, var, set, tmpl)) return;
+    /* Physical batch lines have already collapsed %% to %. Interactive FOR
+     * uses % directly (Reference pp.144-145). */
+    if (var[0] != '%' || !var[1] || var[2] ||
+        (var[1] >= '0' && var[1] <= '9')) return;
+    while (batch_for_next_token(set, &cur, tok, sizeof(tok))) {
+#ifndef CMD_MUTATE_FOR_WILDCARD
+        if (cmd_has_wildcard(tok)) {
+            char name[BATCH_LINE_MAX + 13];
+            unsigned prefix = 0;
+            for (unsigned i=0; tok[i]; i++)
+                if (tok[i]=='\\' || tok[i]=='/' || tok[i]==':') prefix=i+1;
+            dos_setdta(&g_shell_dta);
+            if (dos_findfirst(tok, 0u)) do {
+                /* AH=4Eh attr=0 selects files. Keep any supplied path prefix
+                 * when substituting the matched 8.3 name. */
+                del_path(name, tok, (int)prefix, g_shell_dta.fname);
+                if (!for_store(name)) goto done;
+            } while (dos_findnext());
+            break; /* Reference p.144: wildcard set has one member. */
+        }
+#endif
+        if (!for_store(tok)) goto done;
+    }
+    {
+        unsigned end = g_for_used;
+        for (unsigned p=mark; p<end && !g_shell_exit && !g_shell_break.interrupted;
+             p += str_len(g_for_names+p)+1u) {
+            char cmd[BATCH_LINE_MAX];
+            if (batch_for_subst(tmpl,var,g_for_names+p,cmd,sizeof(cmd)) >= 0)
+                control_body(cmd);
+            if (frame && frame->branch != branch) break; /* GOTO leaves FOR */
+        }
+    }
+done:
+    g_for_used = mark;
+}
+
+/* Return 1 for control commands, 0 for ordinary built-ins/executables. */
+static int dispatch_control(const char *line)
+{
+    batch_parsed_t bp;
+    batch_frame_t *frame = g_batch_frame;
+    const char *args = line;
+#ifdef CMD_MUTATE_BATCH_BODY
+    if (g_body_depth) return 0;
+#endif
+    while (*args==' ' || *args=='\t' || *args=='@') args++;
+    batch_classify(args,&bp);
+    while (*args && *args!=' ' && *args!='\t') args++;
+    while (*args==' ' || *args=='\t') args++;
+    switch (bp.kind) {
+    case BL_BLANK: case BL_REM: case BL_LABEL: return 1;
+    case BL_ECHO_ON: case BL_ECHO_OFF:
+        if (frame) frame->echo_on = bp.kind == BL_ECHO_ON;
+        return frame != 0;
+    case BL_ECHO_TEXT:
+        if (frame && !bp.echo_text[0]) {
+            dos_print(frame->echo_on ? "ECHO is on\r\n$" : "ECHO is off\r\n$");
+            return 1;
+        }
+        return 0;
+    case BL_IF: {
+        const char *body = 0;
+        if (batch_eval_if(args,g_errorlevel,batch_exist_probe,0,&body) && body && *body)
+            control_body(body);
+        return 1;
+    }
+    case BL_FOR:
+#ifdef CMD_MUTATE_FOR_PROMPT
+        if (!frame) return 0;
+#endif
+        control_for(args);
+        return 1;
+    case BL_GOTO:
+        if (frame) {
+            int target=batch_find_label(g_batch_buf,frame->len,bp.goto_target);
+            if (target<0) dos_print("Label not found\r\n$");
+            frame->pos = target<0 ? frame->len : target;
+            frame->branch++;
+        }
+        return 1;
+    case BL_SHIFT:
+        /* Reference p.151: SHIFT also discards the original %0. */
+        if (frame && frame->count>0) {
+#ifdef CMD_MUTATE_SHIFT_ZERO
+            int first=1;
+#else
+            int first=0;
+#endif
+            for (int k=first;k<frame->count-1;k++) frame->view[k]=frame->view[k+1];
+            frame->count--;
+        }
+        return 1;
+    case BL_CALL: {
+        char callee[CMD_TOKEN_MAX], resolved[CMD_PATH_MAX_LEN];
+        int n=0;
+        while (*args && *args!=' ' && *args!='\t') {
+            if (n<CMD_TOKEN_MAX-1) callee[n++]=*args;
+            args++;
+        }
+        callee[n]=0;
+        cmd_upcase_str(callee);
+        if (resolve_bat_path(callee,resolved)) {
+            run_batch_invoke(resolved,args);
+            if (frame) frame->len=batch_load_file(frame->path,g_batch_buf);
+        } else dos_print(MSG_DOS_0002 "\r\n$");
+        return 1;
+    }
+    case BL_PAUSE:
+        /* The manual's batch PAUSE wording differs from DIR /P's message. */
+        dos_print("Strike a key when ready . . .\r\n$");
+        (void)dos_conin();
+        return 1;
+    default: return 0;
+    }
+}
+
+static void run_batch(const char *path, const char *const argv[], int argc)
+{
+    batch_frame_t frame;
+    if (g_batch_depth >= BATCH_NEST_MAX) {
+        dos_print("Batch nesting too deep\r\n$"); return;
+    }
+    frame.path=path; frame.count=argc>10 ? 10 : argc;
+    for (int k=0;k<frame.count;k++) frame.view[k]=argv[k];
+    frame.pos=0; frame.echo_on=1; frame.branch=0;
+    frame.len=batch_load_file(path,g_batch_buf);
+    frame.previous=g_batch_frame;
+    g_batch_frame=&frame;
     g_batch_depth++;
-
-    /* ---- read the whole file into the shared buffer --------------------- */
-    len = batch_load_file(path, buf);
-    if (len < 0) {
-        /* Should not happen (the caller probed existence), but fail safe. */
-        g_batch_depth--;
-        return;
-    }
-
-    /* ---- interpret line by line ----------------------------------------- */
-    while (pos < len) {
-        char line[BATCH_LINE_MAX];
-        char expanded[BATCH_LINE_MAX];
+    while (frame.pos<frame.len && !g_shell_exit && !g_shell_break.interrupted) {
+        char line[BATCH_LINE_MAX], expanded[BATCH_LINE_MAX];
         batch_parsed_t bp;
-
-        if (!batch_next_line(buf, len, &pos, line)) {
-            break;
-        }
-
-        batch_classify(line, &bp);
-
-        switch (bp.kind) {
-            case BL_BLANK:
-            case BL_REM:
-            case BL_LABEL:
-                /* No execution, no echo (REM/LABEL/blank are silent). */
-                break;
-
-            case BL_ECHO_ON:
-                echo_on = 1;
-                break;
-
-            case BL_ECHO_OFF:
-                echo_on = 0;
-                break;
-
-            case BL_ECHO_TEXT: {
-                /* ECHO <text>: expand the text, then print it (ECHO text is
-                 * always printed regardless of the ECHO ON/OFF state -- it is a
-                 * command, not the line-echo).  Bare ECHO reports the state. */
-                if (bp.echo_text[0] == '\0') {
-                    dos_print(echo_on ? "ECHO is on\r\n$" : "ECHO is off\r\n$");
-                } else {
-                    if (batch_expand(bp.echo_text, view, vcount,
-                                     batch_env_cb, &g_master_env,
-                                     expanded, BATCH_LINE_MAX) >= 0) {
-                        /* OUTPUT redirection (initech-hsct): batch_classify peels
-                         * `ECHO` into BL_ECHO_TEXT and handles it inline (this
-                         * fast path), so a `>`/`>>` inside the text would never
-                         * reach run_with_redirect via BL_COMMAND.  When the
-                         * EXPANDED text carries a redirect operator, reconstruct
-                         * the full `ECHO <text>` line and route it through the
-                         * redirect driver, which strips `> target` and dispatches
-                         * the clean ECHO -- so `ECHO HELLO > FILE` in a .BAT
-                         * (incl. AUTOEXEC.BAT) writes to the file.  No redirect ->
-                         * the original inline print (no regression). */
-                        int has_gt = 0;
-                        {
-                            const char *s = expanded;
-                            while (*s) { if (*s == '>') { has_gt = 1; break; } s++; }
-                        }
-                        if (has_gt) {
-                            char echo_line[BATCH_LINE_MAX];
-                            /* "ECHO " + expanded, clamped to BATCH_LINE_MAX. */
-                            const char *pfx = "ECHO ";
-                            uint32_t w = 0;
-                            while (pfx[w] != '\0' &&
-                                   w + 1u < (uint32_t)BATCH_LINE_MAX) {
-                                echo_line[w] = pfx[w];
-                                w++;
-                            }
-                            {
-                                uint32_t e = 0;
-                                while (expanded[e] != '\0' &&
-                                       w + 1u < (uint32_t)BATCH_LINE_MAX) {
-                                    echo_line[w++] = expanded[e++];
-                                }
-                            }
-                            echo_line[w] = '\0';
-                            (void)run_pipeline_or_redirect(echo_line);
-                        } else {
-                            dos_puts_raw(expanded);
-                            dos_print("\r\n$");
-                        }
-                    } else {
-                        dos_print("\r\n$");
-                    }
-                }
-                break;
-            }
-
-            case BL_GOTO: {
-                int target = batch_find_label(buf, len, bp.goto_target);
-                if (target < 0) {
-                    /* DOS: "Label not found" aborts the batch. */
-                    dos_print("Label not found\r\n$");
-                    pos = len;       /* stop interpreting */
-                } else {
-                    pos = target;    /* resume from the label line */
-                }
-                break;
-            }
-
-            case BL_IF: {
-                /* Expand the whole line first (so %1 / %VAR% resolve), strip the
-                 * leading "IF " keyword, evaluate the condition, and on TRUE
-                 * dispatch the remainder.  We expand the raw line (minus any '@')
-                 * to keep quotes intact for the str==str form. */
-                const char *raw = line;
-                const char *cond = 0;
-                if (bp.at_suppressed) {
-                    /* skip the leading '@' (and ws) we already classified past */
-                    while (*raw == ' ' || *raw == '\t') raw++;
-                    if (*raw == '@') raw++;
-                }
-                if (batch_expand(raw, view, vcount, batch_env_cb, &g_master_env,
-                                 expanded, BATCH_LINE_MAX) >= 0) {
-                    /* Skip leading ws + the "IF" keyword + its trailing ws. */
-                    const char *q = expanded;
-                    while (*q == ' ' || *q == '\t') q++;
-                    /* q now points at "IF..."; advance past "IF". */
-                    if ((q[0] == 'I' || q[0] == 'i') &&
-                        (q[1] == 'F' || q[1] == 'f') &&
-                        (q[2] == ' ' || q[2] == '\t')) {
-                        q += 2;
-                        while (*q == ' ' || *q == '\t') q++;
-                        if (batch_eval_if(q, g_errorlevel,
-                                          batch_exist_probe, 0, &cond) &&
-                            cond != 0 && cond[0] != '\0') {
-                            /* Run the conditional body through the shared
-                             * dispatch via the redirect driver (initech-hsct),
-                             * so `IF ... ECHO x > log` redirects.  An EXIT inside
-                             * it sets g_shell_exit, which the loop checks at the
-                             * bottom to tear down. */
-                            (void)run_pipeline_or_redirect(cond);
-                        }
-                    }
-                }
-                break;
-            }
-
-            case BL_FOR: {
-                /* Expand the line, strip "FOR ", parse %%v IN (set) DO cmd, then
-                 * iterate the set substituting %%v in cmd and dispatching each. */
-                const char *raw = line;
-                if (bp.at_suppressed) {
-                    while (*raw == ' ' || *raw == '\t') raw++;
-                    if (*raw == '@') raw++;
-                }
-                if (batch_expand(raw, view, vcount, batch_env_cb, &g_master_env,
-                                 expanded, BATCH_LINE_MAX) >= 0) {
-                    const char *q = expanded;
-                    while (*q == ' ' || *q == '\t') q++;
-                    if ((q[0] == 'F' || q[0] == 'f') &&
-                        (q[1] == 'O' || q[1] == 'o') &&
-                        (q[2] == 'R' || q[2] == 'r') &&
-                        (q[3] == ' ' || q[3] == '\t')) {
-                        char var[BATCH_LABEL_MAX];
-                        char set[BATCH_LINE_MAX];
-                        char tmpl[BATCH_LINE_MAX];
-                        q += 3;
-                        while (*q == ' ' || *q == '\t') q++;
-                        if (batch_for_parse(q, var, set, tmpl)) {
-                            int cur = 0;
-                            char tok[BATCH_LINE_MAX];
-                            while (!g_shell_exit && !g_shell_break.interrupted &&
-                                   batch_for_next_token(set, &cur, tok,
-                                                        BATCH_LINE_MAX)) {
-                                char cmd[BATCH_LINE_MAX];
-                                if (batch_for_subst(tmpl, var, tok, cmd,
-                                                    BATCH_LINE_MAX) >= 0) {
-                                    /* FOR-body via the redirect driver so
-                                     * `FOR ... DO ECHO %X > log` redirects
-                                     * (initech-hsct). */
-                                    (void)run_pipeline_or_redirect(cmd);
-                                }
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-
-            case BL_SHIFT:
-                /* Shift the positional params left by one: %1 <- %2, %2 <- %3,
-                 * ...  %0 (the batch name) is unaffected in DOS SHIFT.  We slide
-                 * the LOCAL view, never the caller's array (Rule 3: no aliasing
-                 * surprises).  Ref: MS-DOS 3.3 Tech Ref Ch.3 SHIFT. */
-                if (vcount > 1) {
-                    int k;
-                    for (k = 1; k < vcount - 1; k++) {
-                        view[k] = view[k + 1];
-                    }
-                    vcount--;
-                }
-                break;
-
-            case BL_CALL: {
-                /* CALL <batchfile> [args]: nested run_batch.  Expand the line,
-                 * strip "CALL", take the first token as the .BAT path, and frame
-                 * the remainder as its tail.  Depth is capped inside run_batch. */
-                const char *raw = line;
-                if (bp.at_suppressed) {
-                    while (*raw == ' ' || *raw == '\t') raw++;
-                    if (*raw == '@') raw++;
-                }
-                if (batch_expand(raw, view, vcount, batch_env_cb, &g_master_env,
-                                 expanded, BATCH_LINE_MAX) >= 0) {
-                    const char *q = expanded;
-                    while (*q == ' ' || *q == '\t') q++;
-                    if ((q[0] == 'C' || q[0] == 'c') &&
-                        (q[1] == 'A' || q[1] == 'a') &&
-                        (q[2] == 'L' || q[2] == 'l') &&
-                        (q[3] == 'L' || q[3] == 'l') &&
-                        (q[4] == ' ' || q[4] == '\t')) {
-                        char callee[CMD_TOKEN_MAX];
-                        int  cn = 0;
-                        q += 4;
-                        while (*q == ' ' || *q == '\t') q++;
-                        /* First token = the callee .BAT name. */
-                        while (*q != '\0' && *q != ' ' && *q != '\t' &&
-                               cn < CMD_TOKEN_MAX - 1) {
-                            callee[cn++] = *q++;
-                        }
-                        callee[cn] = '\0';
-                        while (*q != '\0' && *q != ' ' && *q != '\t') {
-                            q++;   /* swallow an over-long name */
-                        }
-                        /* The remainder (with its leading separator) is the
-                         * callee's command tail -> its %1.. parameters. */
-                        if (callee[0] != '\0') {
-                            char resolved[CMD_PATH_MAX_LEN];
-                            cmd_upcase_str(callee);
-                            /* CALL targets are resolved relative to the CWD/PATH
-                             * like any external; reuse the candidate planner to
-                             * append .BAT and find the file. */
-                            if (resolve_bat_path(callee, resolved)) {
-                                run_batch_invoke(resolved, q);
-                                /* The nested CALL shared g_batch_buf, so it
-                                 * overwrote our contents.  Reload THIS file so
-                                 * the loop resumes correctly (our pos/len/view
-                                 * survived on the stack; only the bytes were
-                                 * lost).  DOS likewise re-reads on CALL return.
-                                 * If the file vanished (len<0), the `pos < len`
-                                 * loop guard exits cleanly on the next turn. */
-                                len = batch_load_file(path, buf);
-                            } else {
-                                dos_print(MSG_DOS_0002 "\r\n$");
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-
-            case BL_PAUSE:
-                /* DOS PAUSE: print the controlled message (MSG-DOS-0016,
-                 * "Press any key to continue . . .") and wait for one keystroke.
-                 * AH=08h (char input, no echo) is the DOS PAUSE read; in the
-                 * headless oracle the --keys injection satisfies it. */
-                dos_print(MSG_DOS_0016 "\r\n$");
-                (void)dos_conin();
-                break;
-
-            case BL_COMMAND:
-            default: {
-                /* A plain command line: echo it (when ECHO is ON and the line is
-                 * not '@'-suppressed), expand %0..%9 / %VAR%, and dispatch it
-                 * through the SAME path the interactive REPL uses. */
-                const char *raw = line;
-                if (bp.at_suppressed) {
-                    while (*raw == ' ' || *raw == '\t') raw++;
-                    if (*raw == '@') raw++;
-                }
-                if (batch_expand(raw, view, vcount, batch_env_cb, &g_master_env,
-                                 expanded, BATCH_LINE_MAX) >= 0) {
-                    if (echo_on && !bp.at_suppressed) {
-                        batch_echo_line(expanded);
-                    }
-                    /* Plain batch command via the redirect driver (initech-hsct)
-                     * so `ECHO HELLO > OUT.TXT` / `DIR >> log` in a .BAT (incl.
-                     * AUTOEXEC.BAT) repoint stdout around the command. */
-                    (void)run_pipeline_or_redirect(expanded);
-                }
-                break;
-            }
-        }
-
-        /* EXIT (typed in a dispatched line, or reached via IF/FOR/CALL) tears
-         * the whole shell down: stop this batch and propagate up. */
-        if (g_shell_exit || g_shell_break.interrupted) {
-            break;
-        }
+        if (!batch_next_line(g_batch_buf,frame.len,&frame.pos,line)) break;
+        batch_classify(line,&bp);
+        if (bp.kind==BL_BLANK || bp.kind==BL_REM || bp.kind==BL_LABEL) continue;
+        const char *raw=line;
+        while (*raw==' ' || *raw=='\t') raw++;
+        if (*raw=='@') raw++;
+        if (batch_expand(raw,frame.view,frame.count,batch_env_cb,&g_master_env,
+                         expanded,sizeof(expanded))<0) continue;
+        /* Preserve the established batch line-echo policy. Control bodies
+         * execute after this single physical-line parameter expansion. */
+        if (frame.echo_on && !bp.at_suppressed && bp.kind==BL_COMMAND)
+            batch_echo_line(expanded);
+        (void)run_pipeline_or_redirect(expanded);
     }
-
     g_batch_depth--;
+    g_batch_frame=frame.previous;
 }
 
 /* Build a .BAT argv from a command word + a DOS command tail and run it.
@@ -4362,6 +4385,13 @@ void command_repl(int permanent)
             (void)autoexec;
 #endif
         }
+        else if (g_shell_permanent) {
+#ifndef CMD_MUTATE_STARTUP
+            startup_datetime();
+#else
+            (void)&startup_datetime; /* Rule 6: omit both boot prompts. */
+#endif
+        }
     }
     if (g_shell_exit) {
         int21_set_break_recovery(previous_break);
@@ -4409,8 +4439,7 @@ void command_repl(int permanent)
             prompt_ctx_t pctx;
             pctx.drive    = 'A';
             pctx.cwd      = cwd_rel;   /* root-relative, passed to $P expander */
-            /* Seed time fields (AH=2Ch); date fields default to 0 for $D if
-             * $D is not in the template -- the REPL seeds them cheaply. */
+            /* Time and date come from the live INT21 clock seam. */
             {
                 uint8_t hh = 0, mi = 0, ss = 0, cs = 0;
                 dos_gettime(&hh, &mi, &ss, &cs);
@@ -4419,21 +4448,22 @@ void command_repl(int permanent)
                 pctx.second   = (int)ss;
                 pctx.centisec = (int)cs;
             }
-            pctx.year  = 0;
-            pctx.month = 0;
-            pctx.day   = 0;
+            prompt_date(&pctx);
 
-            /* Render the prompt into a scratch buffer.  Size: INT21_CWD_MAX (64)
-             * covers the CWD component; we add slack for the drive/colon/arrow
-             * plus time/date fields and other metacharacter expansions.  The
-             * rendered string is then printed via AH=09h (DOS '$'-terminated
-             * string), so we append '$' after the NUL position. */
+            /* Render into a bounded scratch buffer, then write the exact
+             * byte count so an embedded dollar cannot terminate output. */
             char rendered[INT21_CWD_MAX + 32];  /* generous; no overflow possible */
             int rlen = cmd_render_prompt(templ, &pctx,
                                          rendered, (int)(sizeof(rendered) - 1));
-            rendered[rlen++] = '$';    /* AH=09h '$'-terminator */
-            rendered[rlen]   = '\0';
+            /* Reference p.101: $$ is a literal dollar. AH=40h writes
+             * exactly the rendered bytes, including every embedded '$'. */
+#ifdef CMD_MUTATE_PROMPT_DOLLAR
+            rendered[rlen++] = '$';
+            rendered[rlen] = '\0';
             dos_print(rendered);
+#else
+            dos_write(rendered, (uint32_t)rlen);
+#endif
         }
 #endif
 

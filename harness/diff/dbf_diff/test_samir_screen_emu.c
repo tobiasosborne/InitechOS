@@ -1,5 +1,7 @@
-/* LOOK pass 6 OS oracle. Literal manual-derived expectations, no LIST/STATUS
- * golden: Using III+ U5-144/210/235/259, PDF 256/322/347/371. */
+/* LOOK pass 6 OS oracle. Numeric/status values are manual-derived:
+ * Using III+ U5-144/210/235/259, PDF 256/322/347/371. LIST/DISPLAY spacing
+ * re-keyed initech-31d1: real M005U/M005N, 7 columns + 2 spaces, final
+ * heading unpadded (dbase3-decomp/re/mint-results-005.md). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,7 +74,9 @@ int main(int argc,char **argv)
     } else if(status || off) {
         CHECK(strstr(serial,"Command Line")!=NULL,"status: serial Command Line");
         CHECK(strstr(serial,"CLIENTS")!=NULL,"status: serial database name");
-        CHECK(strstr(serial,"Record#  NAME       CITY         BAL     ")!=NULL,"heading: column-aligned DISPLAY titles");
+        /* STATUS draws positioned spans: CR LF moves its cursor without
+         * echoing newline bytes to serial. The next span is record 2. */
+        CHECK(strstr(serial,"Record#  NAME       CITY         BAL      2  WADDAMS")!=NULL,"heading: column-aligned DISPLAY titles");
         CHECK(strstr(serial,"Rec: 2/3")!=NULL,"status: serial live record count");
         CHECK(strstr(serial,"Enter a dBASE III PLUS command.")!=NULL,"status: serial guidance");
         if(status) {
@@ -85,11 +89,11 @@ int main(int argc,char **argv)
             CHECK(system(cmd)==0,"status: OFF erases both reserved rows");
         }
     } else {
-        CHECK(strstr(serial,"       1 PESTON     HONOLULU      1234.50")!=NULL,"numeric: LIST row 1 fixed N(8,2)");
-        CHECK(strstr(serial,"       2 WADDAMS    AUSTIN         -42.00")!=NULL,"numeric: integral fraction and right alignment");
-        CHECK(strstr(serial,"       3 LUMBERGH   DALLAS        7777.77")!=NULL,"numeric: LIST row 3");
+        CHECK(strstr(serial,"      1  PESTON     HONOLULU      1234.50")!=NULL,"numeric: LIST row 1 fixed N(8,2)");
+        CHECK(strstr(serial,"      2  WADDAMS    AUSTIN         -42.00")!=NULL,"numeric: integral fraction and right alignment");
+        CHECK(strstr(serial,"      3  LUMBERGH   DALLAS        7777.77")!=NULL,"numeric: LIST row 3");
         { const char *p=serial;int occurrences=0;
-          while((p=strstr(p,"       2 WADDAMS    AUSTIN         -42.00"))!=NULL) { occurrences++;p++; }
+          while((p=strstr(p,"      2  WADDAMS    AUSTIN         -42.00"))!=NULL) { occurrences++;p++; }
           CHECK(occurrences==2,"numeric: LIST and DISPLAY both use the field formatter"); }
     }
     return TEST_SUMMARY(console?"test-samir-console-emu":status?"test-samir-status-emu":off?"test-samir-status-off-emu":"test-samir-numeric-format-emu");

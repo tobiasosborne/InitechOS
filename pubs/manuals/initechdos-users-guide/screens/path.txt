@@ -1,0 +1,25 @@
+A:\>PATH
+PATH=A:\APPS
+A:\>PATH ;
+A:\>PATH
+No Path
+A:\>PATH A:\APPS
+A:\>PATH
+PATH=A:\APPS
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -36,9 +36,9 @@
  * non-fragile signal; the BAL values (1234.50 / -42.00 / 7777.77) exercise the
  * soft-float N formatting on-target.
  *
- * dBASE LIST renders each row as a right-justified recno column (width 8) then
- * the field columns, e.g. "       1 PESTON     HONOLULU      1234.50"
- * (see harness/diff/dbf_diff/test_interp_list.c). The gate asserts the field
+ * dBASE LIST renders each row as a right-justified recno column (width 7 + 2 spaces) then
+ * the field columns, e.g. "      1  PESTON     HONOLULU      1234.50"
+ * (real M005U/M005N, re/mint-results-005.md; initech-31d1). The gate asserts the field
  * tokens, not exact column math, so the fixture stays robust to spacing.
  *
  * Ref (Law 1):

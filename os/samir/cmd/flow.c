@@ -1651,6 +1651,8 @@ int samir_do(xb_interp *ip, const char *prg)
             fs->last_error = -rc;   /* the positive interp_err */
         return rc;
     }
-    fs->last_error = 0;
+    /* Programming III+ N5-30: successful handler statements must preserve
+     * the trapped error instead of replacing the original #12 with zero. */
+    fs->last_error = ctx->error_number;
     return INTERP_OK;
 }

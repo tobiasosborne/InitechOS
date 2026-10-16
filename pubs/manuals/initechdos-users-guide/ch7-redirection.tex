@@ -6,7 +6,7 @@
 % built and gated (os/milton/{more,find,sort}_program.asm; test-more-filter,
 % test-find-filter, test-sort-filter) but are NOT on the shipped disk
 % (Makefile flair-data-rules plants only CHKDSK ATTRIB LABEL XCOPY TREE) --
-% DRAFT, bead needed.
+% DRAFT, initech-2kgh.
 % GATES: test-redir test-redir-parse test-hsct-redir test-bsy7-redir test-bsy8-pipe test-bsy9-redir test-pubs-screens
 \Gates{test-redir, test-redir-parse, test-hsct-redir, test-bsy7-redir, test-bsy8-pipe, test-bsy9-redir, test-pubs-screens}
 \chapter{Redirecting Input and Output}
@@ -38,7 +38,7 @@ to add the output to the end of an existing file instead.
 \file{LIST.TXT} holds the output of both commands.  You can redirect the
 output of any command this way: \type{DIR > FILES.TXT} saves a directory
 listing to print or keep.  To throw output away, send it to the device
-\cmd{NUL}: \type{DIR > NUL}.
+\file{NUL}: \type{DIR > NUL}.
 
 \section{Taking Input from a File}
 Put \type{<} and a file name after a command to make it read from the file
@@ -68,7 +68,7 @@ for the file, it displays \texttt{Insufficient disk space}.
 A \term{filter} is a program that reads its standard input, changes it, and
 writes the result to its standard output.  Filters are most useful in
 pipes.
-\draft{bead needed: the filters MORE, FIND and SORT are built and pass
+\draft{see bead initech-2kgh: the filters MORE, FIND and SORT are built and pass
 their gates (test-more-filter, test-find-filter, test-sort-filter) but are
 not on the shipped disk; the examples below describe DOS 3.3}
 InitechDOS provides three:

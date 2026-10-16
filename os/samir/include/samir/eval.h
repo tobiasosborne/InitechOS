@@ -453,6 +453,7 @@ typedef enum {
                               /*   argument." -- wrong arg count, bad value   */
                               /*   (S3.5: arity mismatch, negative SPACE n,   */
                               /*   negative REPLICATE count, etc.)            */
+    XBEE_VAR_NOT_FOUND = 12,  /* Using III+ U7-21 (PDF 509): missing memvar/field */
     XBEE_NOT_NUMERIC   = 27,  /* dbase_msg_codes.tsv code 27 */
     XBEE_INVALID_FN    = 31,  /* dbase_msg_codes.tsv code 31 "Invalid function */
                               /*   name." -- unknown OR not-in-III+ function   */
@@ -492,7 +493,7 @@ typedef enum {
  *   an XBN_IDENT node (a field or memvar name), it calls
  *       resolve(user, name, len, &out)
  *   which must return 0 and fill *out with the bound value, or non-zero to
- *   signal "not found". If resolve is NULL, an identifier is a FAIL-LOUD error
+ *   signal "not found" (#12, Using III+ U7-21). If resolve is NULL, an identifier is a FAIL-LOUD error
  *   (XBEE_UNBOUND) -- full work-area / memvar binding is Phase 5 (S5.x), NOT
  *   this step. The test harness and the Phase-5 interpreter supply this hook.
  *   `name` points into the ORIGINAL source bytes (case-preserved, NOT NUL-
@@ -622,6 +623,8 @@ typedef struct xb_ctx {
      * dot_command is set only around a command entered at the dot prompt. */
     uint8_t set_heading, set_console, set_status, dot_command;
     int   set_exact;          /* 0 = OFF (III+ default); !=0 = ON */
+    /* Programming III+ N5-30 (PDF 418): ERROR() reads the trapped error. */
+    int   error_number;
 
     /*
      * SET DECIMALS / SET DATE / SET CENTURY formatter context.

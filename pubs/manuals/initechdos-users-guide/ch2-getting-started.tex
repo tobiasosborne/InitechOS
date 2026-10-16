@@ -1,8 +1,9 @@
 % Chapter 2 -- Getting Started.
 % Sources (Law 1): os/milton/command.c (builtin_dir/type/copy/del/cd/md/rd,
 % the REPL prompt $P$G, read_line CTRL-C discard, AUTOEXEC.BAT probe);
-% os/milton/kmain.c (start-up order, FAT-MOUNT root listing, SYSINIT
-% CONFIG.SYS-or-standard settings); spec/dos_messages.json;
+% os/milton/kmain.c (start-up order, SYSINIT CONFIG.SYS-or-standard
+% settings); command.c startup_datetime (the date and time questions when
+% there is no AUTOEXEC.BAT, initech-qskz); spec/dos_messages.json;
 % spec/dos_banner.txt; pubs/screens/disk/MANIFEST (the practice diskette).
 % Every figure is a capture of the shipped COMMAND.COM image
 % (build/tracer_boot.img) driven by screens/SCREENS through
@@ -24,7 +25,7 @@ files, \file{README.TXT}, \file{MEMO.TXT} and \file{PHONE.TXT}; the file
 programs; and the directory \file{SAMPLES}, which holds the batch files used
 in Chapter~5.  You will copy, delete and rename files, so use a copy of the
 practice diskette, not the original.
-\draft{bead needed: the package and the diskette-copying command (DISKCOPY)
+\draft{see bead initech-aai2: the package and the diskette-copying command (DISKCOPY)
 are not built; the screens use a practice volume minted by
 pubs/screens/capture.sh as drive A}
 
@@ -35,19 +36,23 @@ pubs/screens/capture.sh as drive A}
 \item Turn on the display, then the computer.
 \end{Steps}
 The computer checks its memory and then loads InitechDOS.  This takes a few
-seconds.  When InitechDOS is ready, the screen looks like
-Figure~\ref{fig:startup}.
+seconds.  Figure~\ref{fig:startup} shows the screen when InitechDOS starts
+from a diskette that has no \file{AUTOEXEC.BAT} file.
 
-\Screen[rows=8, label=fig:startup]{screens/startup.txt}{The start-up screen}
+\Screen[rows=8, label=fig:startup]{screens/startup.txt}{The start-up screen
+  of a diskette without AUTOEXEC.BAT}
 
 \SideHead{Copyright notice}The first two lines show the version of
 InitechDOS and the copyright notice.
 
-\SideHead{Start-up}\draft{initech-qskz: the shipped build lists the files in
-the root directory of drive A here (Figure~\ref{fig:startup}); DOS 3.3 asks for the date
-and time when there is no AUTOEXEC.BAT}When the disk has no
-\file{AUTOEXEC.BAT} file, InitechDOS asks for the date and the time; press
-\key{Enter} at each question to keep the date and time shown.
+\SideHead{Date and time}When the disk has no \file{AUTOEXEC.BAT} file,
+InitechDOS displays the current date and asks for a new one, then does the
+same for the time.  Press \key{Enter} at each question to keep the date or
+time shown, or type a new date or time in the form the \cmd{DATE} and
+\cmd{TIME} commands use (see the \doctitle{InitechDOS Reference}); if what
+you type is not a valid date or time, InitechDOS says so and asks again.  The practice diskette has an
+\file{AUTOEXEC.BAT} file, so when you start from it InitechDOS asks no
+questions and goes straight to the command prompt.
 
 \SideHead{Command prompt}The last line, \file{A:\bs>}, is the command
 prompt.  It tells you that InitechDOS is waiting for a command.
@@ -96,7 +101,7 @@ Your screen now looks like Figure~\ref{fig:errors}.
 
 \Screen[rows=7, label=fig:errors]{screens/errors.txt}{Two kinds of mistake}
 
-\cmd{B:} and \cmd{DIRECTORY} are not commands that InitechDOS knows, so it
+\UnknownCommand{B:} and \UnknownCommand{DIRECTORY} are not commands that InitechDOS knows, so it
 answers \texttt{Bad command or file name}.  \cmd{TYPE} is a command, but it
 needs the name of a file to work on; \texttt{Required parameter missing}
 tells you that something is missing from the command line.
@@ -158,8 +163,9 @@ to copy from first, and the file to copy to second.
 
 \cmd{COPY} reports \texttt{1 file(s) copied}, and the directory now lists
 \file{MEMO.BAK}, the same size as \file{MEMO.TXT}.
-\draft{initech-dwbl: the shipped build stamps the new file 0-00-80 12:00a
-(Figure~\ref{fig:copy}); DOS 3.3 gives a copy the date and time of the original}
+\draft{bead needed (follow-up of initech-dwbl): the shipped COPY stamps the
+copy with the current date and time (Figure~\ref{fig:copy}); DOS 3.3 gives a
+copy the date and time of the original}
 The copy has the same date and time as the original file.
 
 If the file you copy to already exists, \cmd{COPY} replaces it.  If you
@@ -219,9 +225,8 @@ the current directory.\index{CD@\texttt{CD}}
 Every subdirectory contains two special entries.  \file{.} stands for the
 directory itself, and \file{..} for the directory that contains it, its
 \term{parent}.  To go back up to the parent directory, type \type{CD ..}.
-\draft{initech-dwbl: the new directory and its copy are stamped 0-00-80
-12:00a in the shipped build (Figure~\ref{fig:paths}); DOS 3.3 stamps the current date
-and time}
+A new directory, and each file written into it, is stamped with the date
+and time at which it was made.
 
 To finish the exercise, remove the subdirectory.  A directory must be empty
 before \cmd{RD} will remove it, so delete its file first:

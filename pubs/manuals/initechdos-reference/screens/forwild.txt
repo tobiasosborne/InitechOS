@@ -1,0 +1,25 @@
+A:\>FOR %F IN (*.TXT) DO ECHO %F
+README.TXT
+MEMO.TXT
+PHONE.TXT
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

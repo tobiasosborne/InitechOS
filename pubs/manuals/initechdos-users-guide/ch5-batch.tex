@@ -1,11 +1,11 @@
 % Chapter 5 -- Batch Files.
 % Sources (Law 1): os/milton/batch.c (batch_classify, batch_expand %0..%9,
 % %VAR%, %%, batch_eval_if); os/milton/command.c (run_batch: ECHO on at
-% entry, @, PAUSE MSG-DOS-0016, CALL; IF hands its command to the command
-% dispatcher -- GOTO after IF is not recognized, bead needed; command_repl:
-% A:\AUTOEXEC.BAT); pubs/screens/disk/*.BAT (A:\SAMPLES of the practice
-% diskette).  COPY CON echoes CTRL-Z as a raw glyph that the text decoder
-% cannot read, so no screen of it is shown (bead needed, WL-0119).
+% entry, @, PAUSE "Strike a key when ready . . .", CALL; IF carries out any
+% command, GOTO included, initech-s4e8; command_repl: A:\AUTOEXEC.BAT);
+% pubs/screens/disk/*.BAT (A:\SAMPLES of the practice diskette).  No
+% COPY CON screen yet (the console echoes ^Z since initech-lqdc; a capture
+% is a follow-up).
 % GATES: test-batch test-batch-exec test-autoexec test-j1lu-control-emu test-pubs-screens
 \Gates{test-batch, test-batch-exec, test-autoexec, test-j1lu-control-emu, test-pubs-screens}
 \chapter{Batch Files}
@@ -21,7 +21,7 @@ carries out the commands in it, in order, as if you had typed them.
 \section{Creating a Batch File}
 A batch file is an ordinary text file.  You can make one with any program
 that saves plain text, or type it directly with \cmd{COPY CON}, which copies
-from the keyboard (\cmd{CON}) to a file:
+from the keyboard (\file{CON}) to a file:
 \begin{Steps}
 \item Type \type{COPY CON TODAY.BAT} and press \key{Enter}.
 \item Type \type{DATE} and press \key{Enter}.
@@ -79,24 +79,25 @@ them out.  \cmd{ECHO} followed by text displays the text.
 \index{IF@\texttt{IF}}
 The \cmd{IF} subcommand carries out a command only when a condition is
 true.  \file{CHECK.BAT} uses \cmd{IF EXIST} to say whether the file named
-by its parameter is on the disk:
+by its parameter is on the disk.  When you give it no parameter, its
+second line, \texttt{IF "\%1"=="" GOTO NONAME}, sends it to the label line
+\texttt{:NONAME}, a line beginning with a colon, and it tells you what to
+type:
 \begin{Steps}
 \item Type \type{CLS} and press \key{Enter}, then \type{CD SAMPLES}.
 \item Type \type{TYPE CHECK.BAT} and press \key{Enter}.
 \item Type \type{CHECK GREET.BAT} and press \key{Enter}.
 \item Type \type{CHECK NOFILE.TXT} and press \key{Enter}.
+\item Type \type{CHECK} and press \key{Enter}.
 \end{Steps}
 
-\Screen[rows=11, label=fig:check]{screens/check.txt}{Testing whether a file exists}
+\Screen[rows=18, label=fig:check]{screens/check.txt}{Testing whether a file exists}
 
 \cmd{IF NOT} reverses a condition.  \cmd{IF} can also compare two strings,
 and test the exit code a program returned (\cmd{IF ERRORLEVEL}); the
 \doctitle{InitechDOS Reference} gives the details.
-\draft{bead needed: the shipped IF passes its command to the command
-processor, so IF ... GOTO is not recognized; DOS 3.3 carries it out}
-With \cmd{GOTO} and a label line (a line beginning with a colon), a batch
-file can jump to another part of itself when a condition is true:
-\texttt{IF NOT EXIST \%1 GOTO NOFILE}.
+As \file{CHECK.BAT} shows, \cmd{GOTO} and a label line let a batch file
+jump to another part of itself when a condition is true.
 
 \section{Pausing and Calling Other Batch Files}
 \index{PAUSE@\texttt{PAUSE}}\index{CALL@\texttt{CALL}}
@@ -106,7 +107,7 @@ then carries on with the next line.  \file{COVER.BAT} does both:
 \begin{Steps}
 \item Type \type{CLS} and press \key{Enter}, then \type{CD SAMPLES}.
 \item Type \type{COVER} and press \key{Enter}.
-\item When \texttt{Press any key to continue . . .} appears, press the
+\item When \texttt{Strike a key when ready . . .} appears, press the
   space bar.
 \end{Steps}
 

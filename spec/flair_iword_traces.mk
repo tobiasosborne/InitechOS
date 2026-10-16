@@ -63,3 +63,15 @@ FLAIR_IWORD_CODES_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,
 #    "kctrl-ret" is Ctrl-Enter, "ktab" the Tab key (harness/emu/qemu.c).
 #    90 tokens.
 FLAIR_IWORD_BLOCK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kret,kshift-a,kl,kp,kh,ka,kspc,kshift-b,ke,kt,ka,kspc,kshift-g,ka,km,km,ka,kdot,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kleft,kalt-f4,kright,kright,kright,kright,kright,kctrl-f4,k1,k1,kend,kret,kend,kret,kx,kf6,kbspc,ky,ktab,kt,ka,kb,kctrl-ret,kshift-p,ka,kg,ke,kspc,kt,kw,ko,kdot,kf10,kb,kl,ko,kc,kk,kret,kalt-f3
+
+# 5. FLAIR_IWORD_FORMAT_SPEC -- test-flair-iword-format and the iword_format
+#    clip (bead initech-jojk, IWORD P2 slice 3; added 2026-10-16, a new locked
+#    trace, Rule 8): launch (A, B, CWORD + double-click), then the keys of
+#    ../wordperfect51-decomp mint/wpMINT32.steps, the document the real WP.EXE
+#    saved as MINT32 (re/mint-results-004.md): Return, Shift-F8 1 (Format:
+#    Line) 6 "2" Enter (Line Spacing 2) 3 2 (Justification Center) F7,
+#    "Centered.", Return, "Bold me.", Alt-F4 (Block on), Home, Left (WP's Home
+#    prefix: the line's start), F6 (the block bold), F10 "fmt" Enter (saved),
+#    Alt-F3 (Reveal Codes). "khome" is the Home key (harness/emu/qemu.c).
+#    59 tokens.
+FLAIR_IWORD_FORMAT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kret,kshift-f8,k1,k6,k2,kret,k3,k2,kf7,kshift-c,ke,kn,kt,ke,kr,ke,kd,kdot,kret,kshift-b,ko,kl,kd,kspc,km,ke,kdot,kalt-f4,khome,kleft,kf6,kf10,kf,km,kt,kret,kalt-f3

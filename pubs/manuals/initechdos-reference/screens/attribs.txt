@@ -4,8 +4,8 @@ A:\>ATTRIB /S *.COM
    A     A:\APPS\LABEL.COM
    A     A:\APPS\XCOPY.COM
    A     A:\APPS\TREE.COM
+   A     A:\APPS\EDLIN.COM
 A:\>
-
 
 
 

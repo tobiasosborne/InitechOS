@@ -2093,6 +2093,13 @@ int xb_call_builtin(const char *name, uint16_t namelen,
 
     if (name == 0 || namelen == 0) return fn_fail(err_code, XBEE_INVALID_FN);
 
+    /* Programming III+ N5-30 (PDF 418): number of the ON ERROR condition. */
+    if (name_is(name, namelen, "ERROR")) {
+        if (nargs != 0) return fn_fail(err_code, XBEE_INVALID_ARG);
+        *out = xb_n(ctx ? (double)ctx->error_number : 0.0);
+        return 0;
+    }
+
     /* String functions */
     if (name_is(name, namelen, "UPPER"))  return fn_case(ctx, args, nargs, 1, out, err_code);
     if (name_is(name, namelen, "LOWER"))  return fn_case(ctx, args, nargs, 0, out, err_code);

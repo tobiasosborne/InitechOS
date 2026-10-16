@@ -32,13 +32,13 @@ whichever kind of disk it is.
 
 \section{Preparing a New Disk}
 \index{formatting}
-\draft{bead needed: FORMAT, DISKCOPY and FDISK are not on the shipped disk;
+\draft{see bead initech-aai2: FORMAT, DISKCOPY and FDISK are not on the shipped disk;
 this section describes DOS 3.3}
 A new diskette must be \term{formatted} before InitechDOS can use it:
 formatting marks out the disk and creates an empty root directory.  A new
-fixed disk must first be divided into partitions with \cmd{FDISK}, then
-formatted.  The \cmd{FORMAT} command does both kinds of formatting, and
-\cmd{DISKCOPY} makes an exact copy of a whole diskette.  Formatting erases
+fixed disk must first be divided into partitions with \UnshippedCommand{FDISK}, then
+formatted.  The \UnshippedCommand{FORMAT} command does both kinds of formatting, and
+\UnshippedCommand{DISKCOPY} makes an exact copy of a whole diskette.  Formatting erases
 everything on a disk.
 
 \section{Volume Labels}
@@ -106,7 +106,6 @@ into a new directory, \file{BACKUP}:
 \cmd{XCOPY} lists each file as it copies it.  Each copy keeps the date and
 time of its original, so the listing shows when each file was last
 changed.  To copy only the files that have changed since your last backup,
-use \cmd{XCOPY} with \kw{/M} (Chapter~9).
-\draft{initech-dwbl: the new directory BACKUP and its . and .. entries are
-stamped 0-00-80 12:00a in the shipped build (Figure~\ref{fig:backup}); DOS
-3.3 stamps the current date and time}
+use \cmd{XCOPY} with \kw{/M} (Chapter~9).  The new directory
+\file{BACKUP} and its \file{.} and \file{..} entries carry the date and time
+at which \cmd{XCOPY} made it.

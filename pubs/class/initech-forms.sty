@@ -1,8 +1,8 @@
 %% initech-forms.sty -- title page, edition notice, wordmark, cover, spine and
 %% Reader's Comment Form for initech-manual.cls (bead initech-ipu5.5).
-%% Spec: DESIGN-SYSTEM.md Sec 2 (identity; D-8 wordmark only), Sec 6 (cover,
-%% title insert and spine positions, measured from trim), Sec 10 (part number
-%% PPPP-VVVV-II, edition notice, printer's key), Sec 11 (Reader's Comment Form
+%% Spec: PUB-REF-0001 D-8 (wordmark), PK-02/03 (cover and spine),
+%% PN-01/05/06 (part number, print code and printer's key), AN-20/25
+%% (edition notice and Reader's Comment Form
 %% with Business Reply panel, IBM model).  All boilerplate is newly written
 %% for Initech (Sec 10: never reuse the originals' wording).  D-12: the address
 %% is fictional and telephone numbers are in the 555-0100..0199 range.
@@ -56,26 +56,22 @@
   \put(\dimexpr #1mm\relax, -\dimexpr #2mm\relax){\makebox[0pt][l]{\raisebox{-\height}{#3}}}}}
 \newcommand\im@hook[1]{\AddToHookNext{shipout/foreground}{#1}}
 
-%% Positions shared by the title page, the cover and the spine (Sec 6):
-%% product name 19 mm from the top; document title at 70 mm; family band
-%% centred 142 mm from the top, 10 mm deep; wordmark 30 mm wide, 16 mm from
-%% the bottom and the left edge; part number lower right, 7 pt.
+%% PK-02 trim grid: product baseline 12, title baseline 28, band 55..61.5,
+%% wordmark top 183, part-number baseline 201 mm. Common x = 23 mm.
 \newcommand\im@coverlayout[1]{% #1 = 1 for colour (cover), 0 for black (title page)
-  \AtPage{16}{19}{\im@termes\fontsize{36}{40}\selectfont\im@product}%
-  \AtPage{16}{36}{\im@termes\fontsize{18}{22}\selectfont\im@version}%
-  \AtPage{16}{70}{\sffamily\fontsize{14}{17}\selectfont\im@doctitle}%
-  \ifnum#1=1
-    \im@hook{\put(0,-\dimexpr147mm\relax){\textcolor{\im@familycolor}{%
-      \rule{\paperwidth}{10mm}}}}%
-    \AtPage{16}{139.6}{\textcolor{white}{\im@condensed\bfseries
-      \fontsize{8}{8}\selectfont\im@family}}%
-  \else
-    \AtPage{16}{137}{\rule{144.6mm}{0.5pt}}%
-    \AtPage{16}{139.6}{\im@condensed\bfseries\fontsize{8}{8}\selectfont\im@family}%
-  \fi
-  \AtPage{16}{\fpeval{228.6-16-12}}{\Wordmark[30mm]}%
-  \im@hook{\put(\dimexpr 161.8mm\relax, -\dimexpr 212.6mm\relax){%
-    \makebox[0pt][r]{\sffamily\fontsize{7}{8}\selectfont\im@partno}}}}
+  %% PUB-REF-0001 PK-02: trim coordinates, 3 mm left bleed.
+  \im@hook{\put(\dimexpr23mm\relax,-\dimexpr12mm\relax){%
+    \sffamily\bfseries\fontsize{11}{12}\selectfont\im@product\quad\im@version}}
+  \AtPage{23}{14}{\rule{157.8mm}{0.5pt}}%
+  \im@hook{\put(\dimexpr23mm\relax,-\dimexpr28mm\relax){%
+    \im@display\fontsize{40}{44}\selectfont\im@doctitle}}
+  \im@hook{\put(-\dimexpr3mm\relax,-\dimexpr61.5mm\relax){%
+    \ifnum#1=1\color{\im@familycolor}\else\color{black}\fi\rule{156mm}{6.5mm}}}%
+  \AtPage{23}{56}{\textcolor{white}{\sffamily\bfseries
+    \fontsize{11}{12}\selectfont\im@family}}%
+  \AtPage{23}{183}{\Wordmark[30mm]}%
+  \ifnum#1=1\im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr201mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}\fi}
 
 %% ---- title page and verso (edition notice) ---------------------------------
 \newcommand\MakeTitlePage{%
@@ -101,27 +97,36 @@
    \noindent\makebox[\linewidth][l]{\im@partno\qquad\im@printcode\hfill}\par
    \end{minipage}\newpage}
 
-%% ---- signature padding (bead initech-ipu5.7) --------------------------------
-%% \FinishBook ends the interior: it pads with "Notes:" pages so that the
-%% colophon (AN-26, pubs/common/colophon.tex) falls on a verso whose physical
-%% page number is 2 mod 4; one or three two-page Reader's Comment Forms after
-%% it (each starting on a recto) then end the book on a multiple of four
-%% pages (printer signatures; test-pubs-build).  Call it after \printindex,
-%% then \ReadersCommentForm once or three times.
+%% ---- end of the book: padding, colophon, comment forms (ipu5.7 + ipu5.6) ---
+%% \FinishBook[n] ends the interior and is the ONE padding mechanism of the
+%% class: it pads with "Notes:" pages (blank pages outside F-IBM) so that
+%% the colophon (AN-26, pubs/common/colophon.tex, the last interior page)
+%% lands where the book then ends on a multiple of four pages (printer
+%% signatures; test-pubs-build): after it come n two-page Reader's Comment
+%% Forms (AN-25: x3 in a binder, the last leaves), each starting on a recto.
+%% n = 0 (default): the colophon is the last page (physical page 0 mod 4);
+%% n odd: the colophon falls on a verso at 2 mod 4.  Call after \printindex.
 \newcount\im@padcount
-\newcommand\FinishBook{\clearpage
+\newcount\im@padtarget
+\newcount\im@rcfcount
+\NewDocumentCommand\FinishBook{O{0}}{\clearpage
+  \im@rcfcount=#1\relax
+  \ifodd\im@rcfcount \im@padtarget=2 \else \im@padtarget=0 \fi
   \im@padcount=\numexpr\ReadonlyShipoutCounter+1\relax
   \loop
     %% x mod 4 = x - 4*((x-2)/4): \numexpr division rounds to nearest.
     \@tempcnta=\numexpr\im@padcount-4*((\im@padcount-2)/4)\relax
-  \ifnum\@tempcnta=2 \else
-    \thispagestyle{im@text}%
-    \hbox{}\vspace*{-\topskip}\vspace*{-\parskip}%
-    {\noindent\hspace*{-\imHang}\imHeadOneFont Notes:\par}%
+    \ifnum\@tempcnta=4 \@tempcnta=0 \fi
+  \ifnum\@tempcnta=\im@padtarget \else
+    \im@ifmodel{ibm}{\thispagestyle{im@text}%
+      \hbox{}\vspace*{-\topskip}\vspace*{-\parskip}%
+      {\noindent\hspace*{-\imHang}\imHeadOneFont Notes:\par}}%
+      {\null\thispagestyle{empty}}%
     \newpage
     \advance\im@padcount by 1
   \repeat
-  \input{colophon}}
+  \input{colophon}%
+  \loop\ifnum\im@rcfcount>0 \ReadersCommentForm\advance\im@rcfcount by -1 \repeat}
 
 %% ---- cover / binder title insert (class option `cover`) --------------------
 \newcommand\MakeCover{\thispagestyle{empty}\im@coverlayout{1}\null\newpage}
@@ -132,17 +137,18 @@
 %% shows one continuous stripe per family (Sec 6).
 \newcommand\MakeSpine{\thispagestyle{empty}%
   \im@hook{%
-    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr16mm\relax){\makebox[0pt][c]{%
+    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr8mm\relax){\makebox[0pt][c]{%
       \raisebox{-\height}{\ifdim\paperwidth<25mm
         \rotatebox{-90}{\Wordmark[24mm]}\else\Wordmark[\paperwidth-14mm]\fi}}}%
-    \put(\dimexpr0.5\paperwidth+3mm\relax,-\dimexpr44mm\relax){%
-      \rotatebox{-90}{\makebox[0pt][l]{\im@termes\fontsize{20}{24}\selectfont
-        \im@product\quad\sffamily\fontsize{12}{14}\selectfont\im@doctitle}}}%
-    \put(0,-\dimexpr147mm\relax){\textcolor{\im@familycolor}{\rule{\paperwidth}{10mm}}}%
-    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr139.6mm\relax){\makebox[0pt][c]{%
+    \put(\dimexpr0.5\paperwidth+3mm\relax,-\dimexpr24mm\relax){%
+      \rotatebox{-90}{\makebox[0pt][l]{\im@display\fontsize{14}{16}\selectfont\im@product}}}%
+    \put(\dimexpr0.5\paperwidth-4mm\relax,-\dimexpr24mm\relax){%
+      \rotatebox{-90}{\makebox[0pt][l]{\sffamily\fontsize{10}{12}\selectfont\im@doctitle}}}%
+    \put(0,-\dimexpr61.5mm\relax){\textcolor{\im@familycolor}{\rule{\paperwidth}{6.5mm}}}%
+    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr56mm\relax){\makebox[0pt][c]{%
       \raisebox{-\height}{\textcolor{white}{\im@condensed\bfseries\fontsize{8}{8}\selectfont
         \im@family}}}}%
-    \put(\dimexpr0.5\paperwidth+2mm\relax,-\dimexpr156mm\relax){%
+    \put(\dimexpr0.5\paperwidth+2mm\relax,-\dimexpr72mm\relax){%
       \rotatebox{-90}{\makebox[0pt][l]{\im@termes\fontsize{14}{16}\selectfont\im@version}}}%
     \put(\dimexpr0.5\paperwidth\relax,-\dimexpr218mm\relax){\makebox[0pt][c]{%
       \sffamily\fontsize{7}{8}\selectfont\im@partno}}}%

@@ -1,4 +1,4 @@
-% Chapter 2 entries ECHO .. REN (AN-01).
+% Chapter 2 entries ECHO .. REN (AN-01), EDLIN included.
 
 % ECHO -- os/milton/command.c builtin_echo (no arg: "ECHO is on"; else the
 % text as typed).  ECHO ON/OFF in batch files: Chapter 4 (batch.c).
@@ -18,6 +18,74 @@ command lines of the batch file are displayed as they are carried out.  See
 ``ECHO Subcommand'' in Chapter~4.
 \Example
 \Shot{echo}
+\end{DosEntry}
+
+% EDLIN -- os/milton/edlin.c (edlin_run: name, /B, the .BAK refusal, "New
+% file" / "End of input file", the '*' prompt; commands(): line numbers
+% n . # +n -n, A C D E I L M P Q R S T W and a bare line number; readline:
+% the template keys through AH=07h, Ctrl-C ends insert, Ctrl-V quotes;
+% save(): .$$$ then .BAK, Ctrl-Z appended).  Model: MS-DOS 3.3 User's Guide
+% pp.162-193 (harness/edlin/README.md).  Shipped as APPS\EDLIN.COM (Makefile
+% flair-data-rules).  Gates: test-edlin-host, test-edlin-emu (+ -mutant).
+\begin{DosEntry}{EDLIN}{Line Editor}{external}
+\Purpose Creates and changes text files, one line at a time.
+\Format \SyntaxLine{\kw{EDLIN} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}} \opt{\kw{/B}}}
+\Type{External}
+\Remarks
+\Param{filename} names the file to edit.  If the file does not exist,
+\cmd{EDLIN} displays \texttt{New file}; otherwise it reads the file into
+memory and, when the whole file has been read, displays \texttt{End of
+input file}.  A file with the extension \file{.BAK} cannot be edited:
+\cmd{EDLIN} displays \texttt{Cannot edit .BAK file--rename file}.
+
+\Param{/B} reads the whole file, including any \key{Ctrl-Z} characters in
+it.  Without \kw{/B}, the file ends at the first \key{Ctrl-Z}.
+
+\cmd{EDLIN} prompts with an asterisk (\texttt{*}).  Each command is a
+letter, preceded by the line numbers it works on; separate two line
+numbers with a comma.  A line number may be a number, a period (\type{.},
+the current line), a number sign (\type{\#}, the line after the last), or a
+plus or minus sign and a number (lines after or before the current line).
+When \cmd{EDLIN} lists lines it shows each line's number, and an asterisk
+after the number of the current line.
+\par\medskip
+\begin{list}{}{\leftmargin=56mm \labelwidth=54mm \labelsep=2mm
+  \itemsep=1pt \parsep=0pt \topsep=2pt
+  \renewcommand\makelabel[1]{\parbox[t]{54mm}{\RaggedRight #1}}}
+\item[{\imSideHeadFont Command}] {\imSideHeadFont Action}
+\item[\ph{line}] Displays the line and lets you change it
+\item[\opt{\ph{n}}\kw{A}] Reads \ph{n} more lines of a large file
+\item[\ph{line},\ph{line},\ph{line}\opt{,\ph{count}}\kw{C}] Copies lines in front of a line
+\item[\opt{\ph{line}}\opt{,\ph{line}}\kw{D}] Deletes lines
+\item[\kw{E}] Saves the file and ends \cmd{EDLIN}
+\item[\opt{\ph{line}}\kw{I}] Inserts lines in front of a line
+\item[\opt{\ph{line}}\opt{,\ph{line}}\kw{L}] Lists lines
+\item[\ph{line},\ph{line},\ph{line}\kw{M}] Moves lines in front of a line
+\item[\opt{\ph{line}}\opt{,\ph{line}}\kw{P}] Lists lines a screen at a time
+\item[\kw{Q}] Ends \cmd{EDLIN} without saving
+\item[\opt{\ph{line}}\opt{,\ph{line}}\opt{\kw{?}}\kw{R}\ph{old}\key{Ctrl-Z}\ph{new}] Replaces text
+\item[\opt{\ph{line}}\opt{,\ph{line}}\opt{\kw{?}}\kw{S}\ph{text}] Searches for text
+\item[\opt{\ph{line}}\kw{T}\ph{filename}] Merges another file in front of a line
+\item[\opt{\ph{n}}\kw{W}] Writes \ph{n} lines of a large file to disk
+\end{list}
+\par\medskip
+In insert mode (\kw{I}), each line you type is inserted when you press
+\key{Enter}; press \key{Ctrl-C} to return to the asterisk prompt.  When you
+change a line, \cmd{EDLIN} offers the old line as a template: \key{F3}
+copies the rest of it, \key{F1} one character of it, \key{Del} skips one
+character, \key{Ins} switches between inserting and overtyping, and
+\key{Esc} starts the line again.  Press \key{Enter} at once to keep the line
+unchanged.  With \kw{?}, \kw{R} and \kw{S} ask \texttt{O.K.?} at each match.
+\kw{S} and \kw{R} remember their text, and match capital and small letters
+exactly.
+
+\kw{E} writes the file and keeps the original under the same name with the
+extension \file{.BAK}.  \kw{Q} asks \texttt{Abort edit (Y/N)?}; type
+\type{Y} to end without changing the file.
+\Example
+The example deletes line 4 of the telephone list, lists the file, saves it,
+and lists the file and its backup:
+\Shot{edlin}
 \end{DosEntry}
 
 % EXIT -- os/milton/command.c dispatch_line CMD_EXIT (a permanent processor
@@ -106,22 +174,20 @@ directory of that name already exists), \cmd{MD} displays
 \texttt{Unable to create directory}.  With no path it displays
 \texttt{Required parameter missing}.
 
-\draft{initech-dwbl: the shipped build stamps new directories 0-00-80
-12:00a (see the example); DOS 3.3 stamps them with the current date and
-time}
-The new directory is stamped with the current date and time.
+The new directory, and its \file{.} and \file{..} entries, are stamped with
+the current date and time.
 \Example
 To create the directory \file{REPORTS}, make it the current directory and
 list it:
 \Shot{md}
 \end{DosEntry}
 
-% PATH -- not a command in the shipped build (cmd_classify has no PATH row;
-% typing it displays "Bad command or file name").  initech-sy5f.  The PATH
-% environment variable itself IS used (command.c run_external,
-% cmd_path_candidates; SET PATH= gated by test-command, test-env).
-\begin{DosEntry}[initech-sy5f: PATH is not yet an internal command in the
-shipped build; the entry describes DOS 3.3.  SET PATH= works today]{PATH}{}{internal}
+% PATH -- os/milton/command.c builtin_path (initech-sy5f: no parameter ->
+% "PATH=list" or "No Path"; "PATH ;" unsets; otherwise the list, in
+% capitals, into the PATH environment variable that run_external /
+% cmd_path_candidates search; "Out of environment space").  Gates:
+% test-path-command-mutant, test-command, test-env.
+\begin{DosEntry}{PATH}{}{internal}
 \Purpose Sets or displays the list of directories searched for commands.
 \Format \SyntaxLine{\kw{PATH} \opt{\opt{\ph{d}\kw{:}}\ph{path}\opt{\kw{;}\opt{\ph{d}\kw{:}}\ph{path}}\rep}}
   \SyntaxLine{\kw{PATH} \kw{;}}
@@ -132,22 +198,25 @@ semicolons.  When a command is not an internal command and is not in the
 current directory, InitechDOS searches these directories, in order.
 
 Typed with no parameter, \cmd{PATH} displays the current list, as
-\texttt{PATH=}\ph{list}.  \type{PATH ;} clears the list, so that only the
-current directory is searched.
+\texttt{PATH=}\ph{list}, or \texttt{No Path} when there is none.
+\type{PATH ;} clears the list, so that only the current directory is
+searched.  The list is stored in capital letters.
 
 \cmd{PATH} stores the list in the environment variable \texttt{PATH}; you
 can also set it with \type{SET PATH=A:\bs APPS}, as the practice
-diskette's \file{AUTOEXEC.BAT} does.
+diskette's \file{AUTOEXEC.BAT} does.  If the environment is full,
+\cmd{PATH} displays \texttt{Out of environment space}.
 \Example
-\type{PATH A:\bs APPS} makes InitechDOS search the directory
-\file{\bs APPS} for commands.
+The example displays the list that \file{AUTOEXEC.BAT} set, clears it, and
+sets it again:
+\Shot{path}
 \end{DosEntry}
 
 % PROMPT -- os/milton/command.c builtin_prompt (empty -> $P$G; env PROMPT;
 % "Out of environment space"), cmd_render_prompt ($P $G $L $B $Q $N $T $D
 % $$ $_; any other $x prints x).  Defects found: $D shows 00-00-0000 (the
-% REPL passes no date) and $$ cuts the prompt (AH=09h '$' terminator) --
-% beads needed, WL-0119.  Gates: test-command, test-shell.
+% REPL passed no date) and $$ cut the prompt (AH=09h '$' terminator) --
+% fixed by initech-iffk.  Gates: test-command, test-shell.
 \begin{DosEntry}{PROMPT}{}{internal}
 \Purpose Changes the command prompt.
 \Format \SyntaxLine{\kw{PROMPT} \opt{\ph{prompt-text}}}
@@ -171,10 +240,8 @@ the following:
 \par\medskip
 A dollar sign followed by any other character displays that character.
 
-\draft{bead needed: in the shipped build \$D displays 00-00-0000 and \$\$
-ends the prompt at that point; DOS 3.3 displays the date and a dollar sign}
-\kw{\$D} displays the date, and \kw{\$\$} displays the \texttt{\$}
-character.
+\kw{\$D} displays the date, as \ph{mm}\texttt{-}\ph{dd}\texttt{-}\ph{yyyy}, and
+\kw{\$\$} displays the \texttt{\$} character.
 
 Typed with no parameter, \cmd{PROMPT} restores the standard prompt,
 \kw{\$P\$G}.  The prompt is kept in the environment variable
@@ -182,7 +249,8 @@ Typed with no parameter, \cmd{PROMPT} restores the standard prompt,
 \cmd{PROMPT} displays \texttt{Out of environment space}.
 \Example
 The first command makes the prompt the drive letter alone; the second makes
-it the word \texttt{Ready}; the third restores the standard prompt:
+it the word \texttt{Ready}; the third shows the date and a dollar sign; the
+last restores the standard prompt:
 \Shot{prompt}
 \end{DosEntry}
 

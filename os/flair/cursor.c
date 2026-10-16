@@ -4,24 +4,23 @@
  * beads: initech-tdnl.1 (GUI remediation R0.1).
  * Ref: Inside Macintosh: Imaging With QuickDraw, cursor ('CURS') resource:
  *      sixteen 16-bit data rows, sixteen 16-bit mask rows, MSB-left, followed
- *      by a hotspot. The strike below is CLEAN-ROOM hand-authored per
- *      CLAUDE.md's glyph rule; it is not extracted or copied from a binary.
+ *      by a hotspot. Arrow v3 is transcribed from the Mac OS 8 capture
+ *      pair cited in spec/assets/cursors.h (initech-tdnl.98, audit M009).
  * Ref: PRD Sec 6.3; docs/plans/GUI-remediation-plan.md R0.1; surface.h
  *      (8/24/32bpp final-surface format and the sole pixel read/write seam).
  *
  * CURS compositing: mask=0 preserves the destination; mask=1,data=1 writes
- * black; mask=1,data=0 writes white. The mask is a one-pixel white dilation of
- * the black arrow body. Hotspot = arrow tip at (x=1,y=1).
+ * black; mask=1,data=0 writes white. Ink and mask are independently captured;
+ * do not derive the white paper by dilating the black body.
+ * Hotspot = arrow tip at (x=1,y=1).
  *
  * Artifact C per ADR-0002: freestanding, no allocation/libc, deterministic,
- * ASCII-only. The two mutation knobs are host-oracle builds only (Rule 6).
+ * ASCII-only. Mutation knobs are oracle builds only (Rule 6).
  */
 #include "cursor.h"
 #include "surface.h"
-#include "cursors.h"   /* spec/assets LOCKED FLAIR_CURSOR_ARROW v2 (Rule-8
-                        * amendment beads initech-tdnl.25): the strike + mask +
-                        * hotspot are the locked spec-data, consumed VERBATIM
-                        * (Law 1). test_cursor.c pins the exact bytes. */
+#include "cursors.h"   /* LOCKED FLAIR_CURSOR_ARROW v3, tdnl.98 (Rule 8).
+                        * Host + QEMU grade the independent capture (Law 2). */
 
 enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 
@@ -30,8 +29,21 @@ enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 #define CURSOR_BLACK_IDX  0u
 #define CURSOR_WHITE_IDX  1u
 
+#if defined(CURSOR_MUT_SQUARED_STEM)
+/* Rule 6 M009: restore the complete v2 squared stem and dilated white mask.
+ * The same knob is compiled into the host suite and the QEMU mutant image. */
+static const uint16_t cursor_data[16] = {
+    0x0000, 0x4000, 0x6000, 0x7000, 0x7800, 0x7C00, 0x7E00, 0x7F00,
+    0x7F80, 0x7FC0, 0x7C00, 0x6C00, 0x4C00, 0x0C00, 0x0C00, 0x0000
+};
+static const uint16_t cursor_mask[16] = {
+    0xE000, 0xF000, 0xF800, 0xFC00, 0xFE00, 0xFF00, 0xFF80, 0xFFC0,
+    0xFFE0, 0xFFE0, 0xFFE0, 0xFE00, 0xFE00, 0xFE00, 0x1E00, 0x1E00
+};
+#else
 #define cursor_data (FLAIR_CURSOR_ARROW.data)
 #define cursor_mask (FLAIR_CURSOR_ARROW.mask)
+#endif
 
 #if defined(CURSOR_MUT_HOTSPOT)
 /* Rule-6 knob: +3,+3 off the locked hotspot. */

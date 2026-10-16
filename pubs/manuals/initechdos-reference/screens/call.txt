@@ -8,7 +8,7 @@ ECHO The cover sheets are ready.
 
 A:\SAMPLES>COVER
 Put the cover sheets in the printer.
-Press any key to continue . . .
+Strike a key when ready . . .
 Good morning, Peter.
 Your report is due Friday.
 The cover sheets are ready.

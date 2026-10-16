@@ -413,7 +413,8 @@ static void test_corpus_session(samir_pal_t *pal, const char *base)
     /* CITY is NOT a TRAVEL field -> unbound while area 1 selected. */
     rc = xb_interp_eval_str(ip, "CITY", 4u, &out, &ec);
     snprintf(msg, sizeof(msg), "corpus: area1 selected -> CITY unbound (rc=%d ec=%d)", rc, ec);
-    CHECK(rc == -INTERP_ERR_EVAL && ec == XBEE_UNBOUND, msg);
+    /* Using III+ U7-21 (PDF 509): a name absent from this work area is #12. */
+    CHECK(rc == -INTERP_ERR_EVAL && ec == 12, msg);
 
     wa_select(env, 2);
     rc = xb_interp_eval_str(ip, "CITY", 4u, &out, &ec);          /* CLIENTS-only field */
@@ -427,7 +428,7 @@ static void test_corpus_session(samir_pal_t *pal, const char *base)
     /* TRAVELCODE is NOT a CLIENTS field -> unbound while area 2 selected. */
     rc = xb_interp_eval_str(ip, "TRAVELCODE", 10u, &out, &ec);
     snprintf(msg, sizeof(msg), "corpus: area2 selected -> TRAVELCODE unbound (rc=%d ec=%d)", rc, ec);
-    CHECK(rc == -INTERP_ERR_EVAL && ec == XBEE_UNBOUND, msg);
+    CHECK(rc == -INTERP_ERR_EVAL && ec == 12, msg);
 
     /* --- SELECT by ALIAS "TRAVEL" -> back to area 1; resolve follows --- */
     rc = wa_select_alias(env, "TRAVEL");

@@ -75,10 +75,22 @@ practice diskette's \file{AUTOEXEC.BAT} sets it with
 \type{SET PATH=A:\bs APPS}, so that the utility programs in \file{\bs APPS}
 can be run from any directory.  To search more than one directory, separate
 them with semicolons: \type{SET PATH=A:\bs APPS;A:\bs SAMPLES}.
-\draft{initech-sy5f: the PATH command is not yet built (typing PATH displays
-Bad command or file name); SET PATH= works}
-The \cmd{PATH} command does the same: \type{PATH A:\bs APPS}.  Typed alone,
-\cmd{PATH} displays the search path.
+
+The \cmd{PATH} command does the same with less typing:
+\type{PATH A:\bs APPS}.  Typed alone, \cmd{PATH} displays the search path;
+\type{PATH ;} clears it, so that InitechDOS looks only in the current
+directory, and \cmd{PATH} then displays \texttt{No Path}.
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{PATH} and press \key{Enter} to see the search path that
+  \file{AUTOEXEC.BAT} set.
+\item Type \type{PATH ;} and press \key{Enter}, then \type{PATH} again.
+\item Type \type{PATH A:\bs APPS} and press \key{Enter}, then \type{PATH}
+  again to see the search path restored.
+\end{Steps}
+
+\Screen[rows=9, label=fig:path]{screens/path.txt}{Displaying, clearing and
+  setting the search path}
 
 \section{Changing the Command Prompt}
 \index{PROMPT@\texttt{PROMPT}}

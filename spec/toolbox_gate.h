@@ -36,6 +36,13 @@
  *       7a TBX_CELL_BASELINE) -- WordPerfect's attribute codes drawn in the
  *       fixed cells. fg < TBX_COLOR_COUNT (face 0) is exactly the old call;
  *       no old value moved.
+ * bead: initech-tdnl.16 (R4.2 InitechText, the SimpleText-alike; absorbs the
+ *       initech-ww9c Scrap wiring). Deliberate Rule-8 additions: TEXTDRAW's
+ *       fg bits 16..23 select the txFont (Sec 7 FONT; 0 is the old call), the
+ *       Scrap codes 0x00A0/0x00A1 (Sec 12), Standard File 0x00B0/0x00B1 and
+ *       TBX_EVT_SFREPLY (Sec 13), mouse tracking 0x00C0 and TBX_EVT_TRACK
+ *       (Sec 14), the vertical scroll bar 0x00C1/0x00C2 + GLOBALTOLOCAL 0x00C3 (Sec 15) and
+ *       TBX_ERR_NOTYPE. No old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -222,6 +229,8 @@
 #define TBX_ERR_NOMEM     (-5)  /* master-heap carve failed (BC-5 fail-loud)  */
 #define TBX_ERR_BADREC    (-6)  /* FlairTenantRec failed validation           */
 #define TBX_ERR_NOTTENANT (-7)  /* no disk tenant is executing (stray int 81h)*/
+#define TBX_ERR_NOTYPE  (-102)  /* the Scrap holds no such flavor: IM noTypeErr,
+                                 * verbatim (Sec 12; initech-tdnl.16)         */
 
 /* ---------------------------------------------------------------------------
  * 5. THE LINK-SYNTHESIZED REGISTRATION RECORD (DEC-AC3-3; Part C item 4)
@@ -337,7 +346,8 @@
  * Face B is gated on it). TEXTDRAW's fg dword carries the colour token in bits
  * 0..7 and a QuickDraw txFace in bits 8..15 (grafport.h FLAIR_STYLE_*): only
  * bold 0x01, italic 0x02 and underline 0x04 are synthesized (os/flair/text.h);
- * any other face bit, or any bit 17..31, is TBX_ERR_BADARG -- an unsupported
+ * any other face bit, or any bit 16..31 other than a Sec 7 FONT value (bead
+ * initech-tdnl.16), is TBX_ERR_BADARG -- an unsupported
  * style fails loud, it is never drawn plain. The run's width is then the
  * STYLED width (bold adds 1 px per glyph); italic/underline do not change it.
  * fg < TBX_COLOR_COUNT (face 0) is exactly the V1 call. bg stays a bare token.
@@ -352,13 +362,27 @@
 /* R4.6 (initech-tdnl.20), PRD 6.4/6.5: the existing TEXTDRAW selects the
  * Font Manager's Geneva 9 with bit16. Zero retains Chicago 12. Bits17..31
  * remain invalid; DRAWCELLS retains its fixed-cell contract. */
-#define TBX_TEXT_GENEVA9      0x00010000u
+/* TBX_TEXT_GENEVA9 is defined below as TBX_TEXT_FONT(1u) (Sec 7 FONT field, tdnl.16); same bit. */
 /* Same NEWWINDOW verb, bounded two-document tenant capacity. Tokens are
  * stable creation-order 1..2, not a WindowPtr. All drawing/title verbs take
  * either token. Both windows remain owned by the ONE admitted app and are
  * reclaimed by the existing process teardown. Closing either asks with its
  * token when goAway=ASK. Ref: PRD6.5 ledger + pie; window_record.h list. */
 #define TBX_TENANT_WINDOWS    2u
+
+/* TEXTDRAW FONT (deliberate locked ABI extension, bead initech-tdnl.16 -- the
+ * SimpleText-alike draws its document in the application font). fg bits
+ * 16..23 carry a QuickDraw txFont (grafport.h: 0 systemFont = Chicago 12, 1
+ * applFont = Geneva 9, the text.h text_font_from_txfont mapping; PRD Sec 6.4
+ * "Geneva 9 (cell font)"); any other value is TBX_ERR_BADARG. The run, its
+ * advances and its opaque bg box are then that font's (Geneva 9: the
+ * GENEVA9_CELL_H = 11-row cell, its proportional advances); y is still the
+ * top of the cell. Bits 24..31 stay BADARG. fg < 0x10000 is exactly the old
+ * call (Chicago 12). */
+#define TBX_TEXT_FONT_SHIFT   16u
+#define TBX_TEXT_FONT(f)      ((uint32_t)(f) << TBX_TEXT_FONT_SHIFT)
+#define TBX_TEXT_GENEVA9      TBX_TEXT_FONT(1u)
+#define TBX_TEXT_FONT_MAX     1u      /* the strikes InitechOS owns */
 
 /* ---------------------------------------------------------------------------
  * 7a. FIXED-CELL TEXT (TBX_DRAWCELLS; bead initech-w96l)
@@ -560,5 +584,138 @@
 #define TBX_ALERT_DEFAULT      1u
 #define TBX_ALERT_CANCEL       2u
 #define TBX_ALERT_OTHER        3u
+
+/* ---------------------------------------------------------------------------
+ * 12. THE SCRAP (bead initech-tdnl.16, absorbing initech-ww9c)
+ *
+ * THE MODEL: the Inside Macintosh Scrap Manager (../system7-decomp/specs/
+ * toolbox/textedit.md Sec 6 TECut/TECopy/TEPaste "clipboard ops"; os/flair/
+ * scrap.h, the shell-owned FlairScrap of bead initech-b2vk): ONE desk scrap,
+ * owned by the SHELL (allocated once at desktop bring-up, fail loud), shared
+ * by every application and surviving each of them -- text cut in one tenant
+ * pastes in the next one launched. An application's Cut/Copy is ZeroScrap +
+ * PutScrap('TEXT'); its Paste is GetScrap('TEXT'). The gate carries the TEXT
+ * flavor only (PICT and the reserve slots stay shell-internal).
+ *
+ *   TBX_SCRAP_PUT (bufPtr, len) -> 0 | err
+ *       ZeroScrap, then PutScrap('TEXT', len bytes at bufPtr). len 0 ..
+ *       FLAIR_SCRAP_MAX_PAYLOAD (scrap.h, 8192); larger is BADARG and the
+ *       scrap is untouched (the check precedes the ZeroScrap). The buffer may
+ *       live in the module or the BSS (the Sec 10 span rule, PSP excluded).
+ *   TBX_SCRAP_GET (bufPtr, bufSize) -> length | err
+ *       GetScrap('TEXT'): copies the whole flavor to bufPtr and returns its
+ *       byte count. bufPtr == 0 copies nothing and returns the length (IM:
+ *       GetScrap with a NIL destination "returns the length"). No TEXT in the
+ *       scrap -> TBX_ERR_NOTYPE (IM noTypeErr, -102). bufSize smaller than
+ *       the flavor -> BADARG, nothing copied (never a partial paste, Rule 2).
+ * Serial: TENANT-SCRAP put n=<len> count=<scrapCount> | get n=<len|rc>.
+ * Values authored (no local number): the next dialog-free group after the
+ * Sec 11 alert.
+ * ------------------------------------------------------------------------- */
+#define TBX_SCRAP_PUT         0x00A0u
+#define TBX_SCRAP_GET         0x00A1u
+#define TBX_ARGC_SCRAP_PUT    2u
+#define TBX_ARGC_SCRAP_GET    2u
+
+/* ---------------------------------------------------------------------------
+ * 13. STANDARD FILE (bead initech-tdnl.16; the landed model os/flair/stdfile.h
+ *     of bead initech-gymo, IM-I SFGetFile / SFPutFile / SFReply)
+ *
+ * THE ONLY SANCTIONED WAY AN APPLICATION NAMES A FILE (gymo): a shell-owned
+ * modal dialog over the mounted data volume -- the real FAT directory read,
+ * folders listed and entered, the volume root the top. Under the App Contract
+ * a tenant never runs a modal loop (Sec 6a), so -- exactly like TBX_ALERT
+ * (Sec 11) -- the dialog is ASKED for by the trap and ANSWERED by an event:
+ *
+ *   TBX_SFGETFILE (replyPtr) -> 0 | err            the Open dialog
+ *   TBX_SFPUTFILE (promptPtr, namePtr, replyPtr) -> 0 | err
+ *                                                   the Save As dialog: the
+ *       prompt (ASCIZ in the image, 1..TBX_SF_PROMPT_MAX-1 bytes) over the
+ *       name field, which starts as namePtr (ASCIZ in the image,
+ *       0..TBX_SF_NAME_MAX-1 bytes) selected.
+ *   replyPtr: TBX_SF_REPLY_BYTES writable bytes in the module or the BSS (the
+ *       Sec 10 span rule), validated at the CALL.
+ * The verb validates and returns at once; once the tenant has RETURNED the
+ * shell runs the dialog and PUSHES
+ *     What = TBX_EVT_SFREPLY, Message = 1 (good: replyPtr now holds the
+ *            chosen file's NUL-terminated DOS path from the volume root,
+ *            e.g. "LETTER.TXT" or "APPS\LETTER.TXT", ready for the Sec 10
+ *            file verbs) or 0 (Cancel: replyPtr untouched),
+ * Modifiers/When/Where zero. GetFile returns only a FILE (Open on a folder
+ * enters it, gymo's folder-on-open rule); PutFile returns the typed 8.3 name
+ * in the folder shown, after the shell has asked "Replace existing" when that
+ * name already exists (a refused Replace keeps the dialog up, IM SFPutFile).
+ * A second ask while one is pending is BUSY. Nothing is shown for a refused
+ * call. Values authored (no local number).
+ * Serial: TENANT-SF get|put up dir=<path> n=<entries>, TENANT-SF-REPLY good=<0|1>
+ * [path=<reply>].
+ * ------------------------------------------------------------------------- */
+#define TBX_SFGETFILE         0x00B0u
+#define TBX_SFPUTFILE         0x00B1u
+#define TBX_ARGC_SFGETFILE    1u
+#define TBX_ARGC_SFPUTFILE    3u
+#define TBX_EVT_SFREPLY       0x00B0u
+#define TBX_SF_REPLY_BYTES    128u   /* == TBX_FILE_PATH_MAX */
+#define TBX_SF_PROMPT_MAX     40u
+#define TBX_SF_NAME_MAX       13u    /* 8 + '.' + 3 + NUL */
+
+/* ---------------------------------------------------------------------------
+ * 14. MOUSE TRACKING (bead initech-tdnl.16 -- TEClick's drag)
+ *
+ * A Mac application tracks a press itself (TEClick loops on StillDown, IM-I
+ * TextEdit); under the App Contract the loop is the SHELL's (Sec 6a: modal
+ * tracking loops stay shell-owned helpers). So, again asked-then-answered:
+ *
+ *   TBX_TRACKMOUSE () -> 0 | err   legal only while a mouseDown is being
+ *       delivered to the tenant (else BADARG). When the tenant RETURNS the
+ *       shell follows the pointer until the button comes up, PUSHING
+ *         What = TBX_EVT_TRACK, Message = 0, Where = the pointer (GLOBAL)
+ *       for every sample whose position changed, then
+ *         What = TBX_EVT_TRACK, Message = 1, Where = the release point,
+ *       presenting what the tenant drew after each. A press the image's life
+ *       ends inside is released at the last position (the tracker cut,
+ *       bead initech-tdnl.59).
+ * Serial: TENANT-TRACK up h=<h> v=<v> moves=<n>.
+ * ------------------------------------------------------------------------- */
+#define TBX_TRACKMOUSE        0x00C0u
+#define TBX_ARGC_TRACKMOUSE   0u
+#define TBX_EVT_TRACK         0x00C0u
+
+/* ---------------------------------------------------------------------------
+ * 15. THE VERTICAL SCROLL BAR (bead initech-tdnl.16; os/flair/winscroll.h,
+ *     bead initech-tdnl.35 -- the standard bars every document window draws)
+ *
+ * A tenant window's standard bars are DISABLED until the tenant gives the
+ * vertical one a range (winscroll.h: a window with no attached record has
+ * nothing to scroll). The SHELL tracks every click on the bar (arrows, page
+ * regions, thumb: winscroll.h's rules), and when the value changes it
+ * invalidates the content, so the tenant hears an ordinary updateEvt and
+ * reads the value back:
+ *
+ *   TBX_SETSCROLL (win, contentLen, value) -> the stored value | err
+ *       the document is contentLen pixels tall (0..32767): the bar's range
+ *       becomes contentLen minus the content height (winscroll.h
+ *       wscroll_set_extent; 0 when the document fits = the DISABLED bar),
+ *       value is clamped into it and returned; units are content PIXELS
+ *       scrolled (the arrow step WSCROLL_LINE_DEFAULT, the page step the view
+ *       less one step -- winscroll.h's stated choices).
+ *   TBX_GETSCROLL (win) -> value | err
+ * The horizontal bar stays disabled.
+ *
+ *   TBX_GLOBALTOLOCAL (win, h, v) -> (localV << 16) | (localH & 0xFFFF)
+ *       IM GlobalToLocal: a GLOBAL event point (Sec 6) in the window's
+ *       CONTENT-LOCAL coordinates (the TEXTDRAW/FILLRECT origin, Sec 7), packed
+ *       as the IM Point LONGINT (v in the high word, h in the low; both int16).
+ *       The window can be dragged by the shell at any time, so an application
+ *       converts every mouse point through this verb, never through a
+ *       remembered origin (IM-I QuickDraw GlobalToLocal; the content-click handlers of MTE ch. 2). Values outside int16 are
+ *       BADARG.
+ * ------------------------------------------------------------------------- */
+#define TBX_SETSCROLL         0x00C1u
+#define TBX_GETSCROLL         0x00C2u
+#define TBX_GLOBALTOLOCAL     0x00C3u
+#define TBX_ARGC_SETSCROLL    3u
+#define TBX_ARGC_GETSCROLL    1u
+#define TBX_ARGC_GLOBALTOLOCAL 3u
 
 #endif /* INITECH_SPEC_TOOLBOX_GATE_H */

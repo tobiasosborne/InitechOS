@@ -20,10 +20,12 @@ test-console-look: $(BUILD)/test_console_look
 test-dir-free-space: $(BUILD)/test_dir_disk $(FLAIR_DATA_IMG)
 	@LC_ALL=C TZ=UTC mdir -i $(FLAIR_DATA_IMG) :: > $(BUILD)/dir_space.mdir
 	@$(BUILD)/test_dir_disk $(FLAIR_DATA_IMG) $(BUILD)/dir_space.mdir $(BUILD)/dir_space.cells
-test-shell-dir-look: $(HARNESS_BIN) $(TRACER_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN) $(BUILD)/test_dir_disk
-	@BUILD=$(BUILD) sh $(DOSLOOK_DIR)/shell_dir_look.sh $(TRACER_IMG) $(FLAIR_DATA_IMG) shell_dir_look
+# qskz: these traces grade DIR/CLS/cursor in a secondary processor. The primary
+# without AUTOEXEC now asks for date/time; test-dos-startup grades that flow.
+test-shell-dir-look: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN) $(BUILD)/test_dir_disk
+	@BUILD=$(BUILD) sh $(DOSLOOK_DIR)/shell_dir_look.sh $(SECONDARY_TRACER_IMG) $(FLAIR_DATA_IMG) shell_dir_look
 	@$(BUILD)/test_dir_disk --fixture $(FLAIR_DATA_IMG) $(BUILD)/shell_dir_unlabelled.img none
-	@BUILD=$(BUILD) sh $(DOSLOOK_DIR)/shell_dir_look.sh $(TRACER_IMG) $(BUILD)/shell_dir_unlabelled.img shell_dir_unlabelled none
+	@BUILD=$(BUILD) sh $(DOSLOOK_DIR)/shell_dir_look.sh $(SECONDARY_TRACER_IMG) $(BUILD)/shell_dir_unlabelled.img shell_dir_unlabelled none
 
 TEST_UNIT_GATES += test-console-look test-dir-look test-dir-look-mutant test-dir-free-space test-dir-free-space-mutant
 TEST_EMU_GATES += test-shell-dir-look test-shell-dir-look-mutant
@@ -71,9 +73,9 @@ test-dir-free-space-mutant: $(BUILD)/test_dir_disk_mut_free $(FLAIR_DATA_IMG)
 # Images obey the same boot window and linker placement guard as tracer.
 define doslook-emu-mutant
 $(BUILD)/doslook_$(1).o: os/milton/$(2).c $(DOS_MESSAGES_H) os/milton/console.h os/milton/command.h
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -D$(3) -Ispec -Ios/milton -Ibuild -c $$< -o $$@
-$(BUILD)/kernel_doslook_mut_$(1).elf: $(filter-out $(BUILD)/$(2).o,$(KERNEL_SHELL_OBJS)) $(BUILD)/doslook_$(1).o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/$(2).o,$(KERNEL_SHELL_OBJS)) $(BUILD)/doslook_$(1).o
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -D$(3) -Ispec -Ios/milton -Ibuild -c $$< -o $$@
+$(BUILD)/kernel_doslook_mut_$(1).elf: $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/doslook_$(1).o $(KERNEL_LD)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/$(2).o,$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/doslook_$(1).o
 $(BUILD)/kernel_doslook_mut_$(1).bin: $(BUILD)/kernel_doslook_mut_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); test "$$$$sz" -le $$$$(( $(KERNEL_SECTORS)*512 ))
