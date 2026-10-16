@@ -529,9 +529,13 @@ static void p4_codes(void)
     e.cur = 5;
     CHECK(iw_ed_backspace(&e) == IW_E_ASK, "Backspace on an attribute code asks");
     CHECK(e.doc.len == nb && e.cur == 5u && e.ask == 2u && e.ask_del == 0, "nothing changes until the answer; the question is about [BOLD]");
+    /* RE-KEYED 2026-10-16 (bead initech-jojk slice 3, stated): Delete on the
+     * [L/R Mar] code ASKS too ("Delete [L/R Mar:1.5",1"]? No (Yes)",
+     * ../wordperfect51-decomp mint/shots_wpMINT23/08_del_question.png); No
+     * steps past it (09_after_del_no). */
     e.cur = 12;
-    CHECK(iw_ed_delete(&e) == IW_E_PROTECTED, "Delete on a code is refused");
-    CHECK(e.doc.len == nb && e.cur == 28u, "the group stays; the cursor steps past it");
+    CHECK(iw_ed_delete(&e) == IW_E_ASK && e.ask == 12u && e.ask_del == 1, "Delete on a margin code asks");
+    CHECK(iw_ed_answer(&e, 0) == IW_OK && e.doc.len == nb && e.cur == 28u, "No: the group stays; the cursor steps past it");
     /* Typing between codes never splits one; the bytes stay well-formed. */
     g_rng = 0xC0DEu;
     for (int k = 0; k < 300 && !bad; k++) {

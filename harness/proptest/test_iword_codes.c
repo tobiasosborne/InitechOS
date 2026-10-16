@@ -73,6 +73,8 @@
  *   IWORD_MUT_COPY_BARE     the copy is not self-contained      -> block
  *   IWORD_MUT_CUT_NO_MEND   a cut leaves no codes behind        -> block
  *   IWORD_MUT_RETRIEVE_DUP  a retrieve keeps redundant codes    -> block
+ *   (slice 3, the FORMAT family below: TAB_ABS / NO_LEAD / OLD_STALE /
+ *   WRAP_65                                                  -> format)
  *
  * Deterministic (fixed seeds, Rule 11). ASCII-clean (Rule 12).
  */
@@ -628,7 +630,7 @@ static void family(int fam, int sessions, uint32_t seed)
     for (int t = 0; t < sessions && !failed; t++) {
         int n = 1 + (int)rn(MAXKEYS);
         uint32_t width = 8u + rn(60);
-        if (t % 3 == 0) width = 65u;
+        if (t % 3 == 0) width = 66u;      /* WP's (slice 3, MINT22; was 65) */
         gen(n, fam);
         if (run(g_keys, n, 0, width, 0)) {
             static uint8_t skip[MAXKEYS];
@@ -771,14 +773,341 @@ static void fixed(void)
     printf("  fixed %s: the self-contained copy (MINT14), the retrieve into bold (MINT15), the block delete (MINT13)\n", badb ? "RED" : "green");
 }
 
+/* ======================================================================== *
+ * FORMAT (bead initech-jojk, P2 slice 3): margins and justification.
+ * The editor is driven by random keys (typing, Enter, Tab, F4, Backspace /
+ * Delete with the question answered, the cursor keys, Shift-F8 1 7 L R,
+ * Shift-F8 1 3 n) and after EVERY key the body is read back by an
+ * INDEPENDENT REFERENCE written here from the slice 3 rows restated from
+ * the mints (../wordperfect51-decomp re/mint-results-004.md; not from
+ * spec/iword/wp5_format.h):
+ *   F1 WELL-FORMED  verified units only; the cursor on a unit boundary and
+ *                   never right before a D4/05 (the line's text follows it);
+ *   F2 OLD VALUES   every [L/R Mar] (D0/01) holds the margins in effect
+ *                   before it as its first pair (MINT21 @0x259, MINT23
+ *                   @0x19B), every [Just:] (D0/06) the justification before
+ *                   it (MINT24: rewritten after a deletion);
+ *   F3 WRAP         a line holds (10200 - R - L) / 120 + 1 characters once a
+ *                   margin code is in effect (MINT21: 56; MINT22: 66), the
+ *                   free width before: every soft-returned line fits and the
+ *                   next word would not have;
+ *   F4 D4/05        one at the start of each line whose justification is
+ *                   Center / Right, one after each [Just:] whose old or new
+ *                   value is, no other (MINT22, MINT24A); x = Center L +
+ *                   (10200 - R - L - w) / 2, Right 10200 - R - w, else L; t =
+ *                   x / 120 (MINT22 28/3420, MINT24A 11/1320);
+ *   F5 TABS         a tab / indent stores the next stop after the cursor's
+ *                   column counted from the left margin, every 5 columns:
+ *                   a = L + 120 s, t = a / 120 (MINT21 @0x1CF, MINT23 @0x1AE);
+ *                   C6 = 10200 - R, L + 120 m (MINT21 @0x24E).
+ *   F6 SPACING      every [Ln Spacing] (D0/02) holds the spacing before it as
+ *                   its old value (MINT25 @0x1AE / @0x1D4; MINT26: rewritten
+ *                   after a deletion), 1/256ths of a line, 1 at the top.
+ * The sessions also press the slice-3 keys that only move the cursor or the
+ * text -- Line Spacing, Home x3 Left, Home Home (Home) Up, Home Home Down,
+ * and Move without a block (Ctrl-F4 1/2/3 then Move + retrieve, Copy +
+ * retrieve or Delete; re/mint-results-004.md MINT27, MINT31) -- and every
+ * rule above must hold after each.
+ * Mutants: TAB_ABS, NO_LEAD, OLD_STALE, WRAP_65 -> RED-REASON format.
+ * ======================================================================== */
+enum { F_CHAR, F_SPACE, F_ENTER, F_BS, F_DEL, F_LEFT, F_RIGHT, F_UP, F_DOWN, F_HOME, F_END,
+       F_TAB, F_INDENT, F_MAR, F_JUST, F_SPACING, F_HHHL, F_TOP, F_BOT, F_MOVE, F_NKEYS };
+static const char *const FNAME[F_NKEYS] = { "char", "space", "Enter", "Backspace", "Delete", "Left", "Right",
+    "Up", "Down", "Home", "End", "Tab", "F4", "Shift-F8 1 7", "Shift-F8 1 3", "Shift-F8 1 6",
+    "Home Home Home Left", "Home Home (Home) Up", "Home Home Down", "Ctrl-F4 n m" };
+static const uint32_t FM_SP[] = { 100, 133, 150, 200, 225, 300 };   /* hundredths (MINT25/26/30) */
+static uint8_t g_clipf[4096];
+static uint32_t g_clipf_n;
+typedef struct { uint8_t k, a, b; } fkey_t;
+static fkey_t g_fkeys[MAXKEYS];
+static int g_fail_format;
+static const uint32_t FM_L[] = { 1200, 1320, 1500, 1560, 1800, 2400 };
+static const uint32_t FM_R[] = { 1200, 1380, 2040, 2400, 3000 };
+
+static uint32_t rd16(const uint8_t *b, uint32_t i) { return (uint32_t)b[i] | ((uint32_t)b[i + 1] << 8); }
+
+/* The reference's unit length (verified rows only). */
+static uint32_t r_len(const uint8_t *b, uint32_t n, uint32_t p)
+{
+    uint8_t c = b[p];
+    static const uint8_t fixed[16] = { 4, 9, 11, 3, 3, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    if (c >= 0x20 && c <= 0x7E) return 1;
+    if (c == 0x0A || c == 0x0D || c == 0x0C || c == 0x90 || c == 0xA0 || c == 0x83) return 1;
+    if (c >= 0xC0 && c <= 0xCF) {
+        uint32_t L = fixed[c - 0xC0];
+        return (L && p + L <= n && b[p + L - 1] == c) ? L : 0;
+    }
+    if (c >= 0xD0 && p + 8 <= n) {
+        uint32_t L = 4 + rd16(b, p + 2);
+        if (p + L <= n && b[p + L - 1] == c && b[p + L - 2] == b[p + 1]) return L;
+    }
+    return 0;
+}
+
+#define R_TEXT(c) (((c) >= 0x20 && (c) <= 0x7E) || (c) == 0xA0)
+static int r_lead(const uint8_t *b, uint32_t p) { return b[p] == 0xD4 && b[p + 1] == 0x05; }
+static int r_mar(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x01; }
+static int r_jst(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x06; }
+static int r_spc(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x02; }
+static int r_tab(const uint8_t *b, uint32_t p) { return (b[p] == 0xC1 && b[p + 1] == 0x02) || b[p] == 0xC2; }
+static int r_term(uint8_t c) { return c == 0x0A || c == 0x0D || c == 0x0C || c == 0x90; }
+static int r_cr(uint32_t j) { return j == 2 || j == 3; }
+
+/* The reference check of body b[0..n) with the cursor at cur; 0 = good. */
+static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, int verbose)
+{
+    uint32_t p = 0, L = 1200, R = 1200, J = 1, set = 0, m = 0, S = 256;
+    int cur_ok = cur == n, tail = 0;   /* tail: the line continues a layout break */
+    /* F1: units */
+    for (p = 0; p < n; ) {
+        uint32_t u = r_len(b, n, p);
+        if (!u) { if (verbose) printf("      F1 no verified unit at %u (0x%02x)\n", p, b[p]); return 1; }
+        if (p == cur) {
+            cur_ok = 1;
+            if (r_lead(b, p)) { if (verbose) printf("      F1 the cursor rests before a D4/05 at %u\n", p); return 1; }
+        }
+        p += u;
+    }
+    if (!cur_ok) { if (verbose) printf("      F1 the cursor %u is not on a unit boundary\n", cur); return 1; }
+    /* lines */
+    p = 0;
+    for (;;) {
+        uint32_t s = p, c = m, lw, lL, lR, need, run = J, cols, q, after_m = m, mm = m;
+        uint32_t L0 = L, R0 = R, set0 = set;
+        int layout_break = 0, placed = 0, prev_jst = 0;
+        /* the line's leading format codes format it */
+        lL = L; lR = R;
+        q = s;
+        while (q < n && !r_term(b[q])) {
+            uint32_t u = r_len(b, n, q);
+            if (R_TEXT(b[q]) || r_tab(b, q)) break;
+            if (r_mar(b, q)) { lL = rd16(b, q + 8); lR = rd16(b, q + 10); set0 = 1; }
+            q += u;
+        }
+        lw = set0 ? (10200u - lR - lL) / 120u + 1u : width0;
+        (void)L0; (void)R0;
+        /* walk the line */
+        need = r_cr(J);
+        q = s;
+        while (q < n && !r_term(b[q])) {
+            uint32_t u = r_len(b, n, q);
+            /* the layout's own break: a character past the line, once a
+             * unit other than a D4/05 is on it */
+            if ((R_TEXT(b[q])) && c + 1u > lw && placed) { layout_break = 1; break; }
+            if (r_lead(b, q) && placed && !prev_jst) {
+                /* D4/05 records right before such a break start the next line
+                 * -- except the one right after a [Just:], which is that
+                 * code's own (stated 2026-10-16; no mint breaks there) */
+                uint32_t z = q;
+                while (z < n && r_lead(b, z)) z += r_len(b, n, z);
+                if (z < n && R_TEXT(b[z]) && c + 1u > lw) { layout_break = 1; break; }
+            }
+            if (!r_lead(b, q)) placed = 1;
+            prev_jst = r_jst(b, q);
+            if (need) {
+                if (!r_lead(b, q)) { if (verbose) printf("      F4 a D4/05 is missing at %u\n", q); return 1; }
+                need = 0;
+            } else if (r_lead(b, q)) { if (verbose) printf("      F4 a stray D4/05 at %u\n", q); return 1; }
+            if (r_lead(b, q)) {
+                /* its x: the text up to the next one or the line's end */
+                uint32_t w = 0, z = q + u, cc = 0, x, room = (10200u - lR) > lL ? 10200u - lR - lL : 0u;
+                while (z < n && !r_term(b[z]) && !r_lead(b, z)) {
+                    if (R_TEXT(b[z])) cc++;
+                    else if (r_tab(b, z)) cc = (cc / 5u + 1u) * 5u;
+                    z += r_len(b, n, z);
+                }
+                w = cc * 120u;
+                x = lL;
+                if (run == 2 && w <= room) x = lL + (room - w) / 2u;
+                else if (run == 3 && w <= room) x = 10200u - lR - w;
+                if (rd16(b, q + 4) != x / 120u || rd16(b, q + 6) != x) {
+                    if (verbose) printf("      F4 the D4/05 at %u holds %u/%u, the reference %u/%u\n", q, rd16(b, q + 4), rd16(b, q + 6), x / 120u, x);
+                    return 1;
+                }
+            }
+            if (r_mar(b, q)) {
+                if (rd16(b, q + 4) != L || rd16(b, q + 6) != R) {
+                    if (verbose) printf("      F2 the [L/R Mar] at %u holds old %u,%u, the margins before it are %u,%u\n", q, rd16(b, q + 4), rd16(b, q + 6), L, R);
+                    return 1;
+                }
+                L = rd16(b, q + 8); R = rd16(b, q + 10); set = 1;
+            }
+            if (r_spc(b, q)) {
+                if (rd16(b, q + 4) != S) {
+                    if (verbose) printf("      F6 the [Ln Spacing] at %u holds old %u, the spacing before it is %u\n", q, rd16(b, q + 4), S);
+                    return 1;
+                }
+                S = rd16(b, q + 6);
+            }
+            if (r_jst(b, q)) {
+                if (b[q + 4] != J) { if (verbose) printf("      F2 the [Just:] at %u holds old %u, the justification before it is %u\n", q, b[q + 4], J); return 1; }
+                need = r_cr(J) || r_cr(b[q + 5]);
+                J = b[q + 5];
+                run = J;
+            }
+            if (r_tab(b, q)) {
+                uint32_t st = (c / 5u + 1u) * 5u, a = lL + 120u * st;
+                uint32_t off = b[q] == 0xC2 ? 4 : 2;
+                if (rd16(b, q + off) != a || rd16(b, q + off + 2) != a || rd16(b, q + off + 4) != a / 120u) {
+                    if (verbose) printf("      F5 the tab / indent at %u holds %u, the reference stop %u (column %u from L %u)\n", q, rd16(b, q + off), a, st, lL);
+                    return 1;
+                }
+                c = st;
+                if (b[q] == 0xC2) mm = c;
+            } else if (b[q] == 0xC6) {
+                if (rd16(b, q + 1) != 10200u - lR || rd16(b, q + 3) != lL + 120u * mm) {
+                    if (verbose) printf("      F5 C6 at %u holds %u,%u, the reference %u,%u\n", q, rd16(b, q + 1), rd16(b, q + 3), 10200u - lR, lL + 120u * mm);
+                    return 1;
+                }
+            } else if (R_TEXT(b[q])) c++;
+            q += u;
+        }
+        if (need) { if (verbose) printf("      F4 a D4/05 is missing at the end of the line at %u\n", q); return 1; }
+        cols = c;
+        after_m = mm;
+        /* (the tail of a word longer than the line ends at its SRt: the P1
+         * rule, not graded for fit) */
+        if (q < n && b[q] == 0x0D && !layout_break && !tail) {
+            /* F3: it fits, and the next word would not have */
+            uint32_t z = q + 1, wd = 0;
+            /* (a single word longer than the line keeps its own line:
+             * the P1 rule, edit.c WRAP) */
+            int one_word = 1;
+            for (uint32_t z2 = s; z2 < q; z2 += r_len(b, n, z2)) if (b[z2] == ' ') one_word = 0;
+            if (cols > lw && !one_word) { if (verbose) printf("      F3 the line at %u is %u columns, it holds %u\n", s, cols, lw); return 1; }
+            while (z < n && !r_term(b[z]) && b[z] != ' ') { if (R_TEXT(b[z])) wd++; else if (r_tab(b, z)) wd = 1000; z += r_len(b, n, z); }
+            /* (a run of spaces at the wrap and a word after a tab are not
+             * minted: not graded) */
+            if (wd > 0 && wd < 1000 && cols + 1u + wd <= lw) {
+                if (verbose) printf("      F3 the line at %u (%u columns, holds %u) could take the next %u-column word\n", s, cols, lw, wd);
+                return 1;
+            }
+        }
+        if (q >= n) return 0;
+        tail = layout_break;
+        if (layout_break) { p = q; m = after_m; continue; }
+        m = b[q] == 0x0D ? after_m : 0u;
+        if (b[q] != 0x0D) mm = 0;
+        p = q + 1;
+    }
+}
+
+static int frun(const fkey_t *keys, int n, const uint8_t *skip, uint32_t width, int verbose)
+{
+    static iw_ed_t e;
+    iw_doc_init(&e.doc, g_add, CAP, g_pc, PCS, CAP);
+    iw_doc_load(&e.doc, g_empty, 0);
+    iw_ed_init(&e, width);
+    for (int i = 0; i < n; i++) {
+        const fkey_t *k = &keys[i];
+        int rc = IW_OK, edit = 1;
+        uint32_t len;
+        if (skip && skip[i]) continue;
+        if (verbose) printf("    %s %u %u\n", FNAME[k->k], k->a, k->b);
+        switch (k->k) {
+        case F_CHAR:  rc = iw_ed_type(&e, (uint8_t)('a' + k->a % 26u)); break;
+        case F_SPACE: rc = iw_ed_type(&e, ' '); break;
+        case F_ENTER: rc = iw_ed_enter(&e); break;
+        case F_BS: case F_DEL:
+            rc = k->k == F_BS ? iw_ed_backspace(&e) : iw_ed_delete(&e);
+            if (rc == IW_E_ASK) rc = iw_ed_answer(&e, k->a & 1u);
+            if (rc == IW_E_PROTECTED) rc = IW_OK;
+            break;
+        case F_LEFT:  iw_ed_left(&e); edit = 0; break;
+        case F_RIGHT: iw_ed_right(&e); edit = 0; break;
+        case F_UP:    iw_ed_up(&e); edit = 0; break;
+        case F_DOWN:  iw_ed_down(&e); edit = 0; break;
+        case F_HOME:  iw_ed_line_home(&e); edit = 0; break;
+        case F_END:   iw_ed_line_end(&e); edit = 0; break;
+        case F_TAB:   rc = iw_ed_tab(&e); break;
+        case F_INDENT: rc = iw_ed_indent(&e); break;
+        case F_MAR:   rc = iw_ed_margins(&e, FM_L[k->a % 6u], FM_R[k->b % 5u]); break;
+        case F_SPACING: rc = iw_ed_spacing(&e, iw_spacing_from_hundredths(FM_SP[k->a % 6u])); break;
+        case F_HHHL:  iw_ed_line_start(&e); edit = 0; break;
+        case F_TOP:   iw_ed_doc_top(&e, k->a & 1u); edit = 0; break;
+        case F_BOT:   iw_ed_doc_end(&e); edit = 0; break;
+        case F_MOVE:
+            /* Ctrl-F4 1/2/3 (Sentence, Paragraph, Page), then 1 Move +
+             * Enter, 2 Copy + Enter, or 3 Delete; nothing to select is a
+             * refusal WP shows as nothing happening */
+            if (iw_ed_select(&e, 1 + (int)(k->a % 3u)) != IW_OK) { edit = 0; break; }
+            if (k->b % 3u == 0u) {
+                rc = iw_ed_block_cut(&e, g_clipf, sizeof g_clipf, &g_clipf_n);
+                if (rc == IW_OK) rc = iw_ed_retrieve(&e, g_clipf, g_clipf_n);
+            } else if (k->b % 3u == 1u) {
+                rc = iw_ed_block_copy(&e, g_clipf, sizeof g_clipf, &g_clipf_n);
+                if (rc == IW_OK) rc = iw_ed_retrieve(&e, g_clipf, g_clipf_n);
+            } else {
+                rc = iw_ed_block_cut(&e, 0, 0, 0);
+            }
+            if (rc == IW_E_FULL) { rc = IW_OK; e.blk = IW_NO_BLOCK; }
+            break;
+        default:      rc = iw_ed_just(&e, k->a % 4u); break;
+        }
+        if (rc != IW_OK) { if (verbose) printf("      key refused rc=%d\n", rc); return i + 1; }
+        if (edit && iw_ed_fixup(&e) != IW_OK) { if (verbose) printf("      fixup refused\n"); return i + 1; }
+        len = iw_doc_read(&e.doc, 0, g_buf, CAP);
+        if (r_check(g_buf, len, e.cur, width, verbose)) return i + 1;
+    }
+    return 0;
+}
+
+static void format_family(int sessions, uint32_t seed)
+{
+    int failed = 0;
+    g_rng = seed;
+    for (int t = 0; t < sessions && !failed; t++) {
+        int n = 1 + (int)rn(MAXKEYS);
+        uint32_t width = (t % 2 == 0) ? 66u : 20u + rn(47);
+        for (int i = 0; i < n; i++) {
+            uint32_t r = rn(100);
+            fkey_t *k = &g_fkeys[i];
+            k->a = (uint8_t)rn(256);
+            k->b = (uint8_t)rn(256);
+            k->k = (uint8_t)(r < 38 ? F_CHAR : r < 52 ? F_SPACE : r < 57 ? F_ENTER : r < 62 ? F_BS :
+                   r < 66 ? F_DEL : r < 70 ? F_LEFT : r < 74 ? F_RIGHT : r < 76 ? F_UP : r < 78 ? F_DOWN :
+                   r < 79 ? F_HOME : r < 80 ? F_END : r < 82 ? F_TAB : r < 84 ? F_INDENT :
+                   r < 88 ? F_MAR : r < 91 ? F_JUST : r < 93 ? F_SPACING : r < 94 ? F_HHHL :
+                   r < 95 ? F_TOP : r < 96 ? F_BOT : F_MOVE);
+        }
+        if (frun(g_fkeys, n, 0, width, 0)) {
+            static uint8_t skip[MAXKEYS];
+            int live = n, changed = 1;
+            memset(skip, 0, sizeof skip);
+            while (changed) {
+                changed = 0;
+                for (int i = 0; i < n; i++) {
+                    if (skip[i]) continue;
+                    skip[i] = 1;
+                    if (frun(g_fkeys, n, skip, width, 0)) { changed = 1; live--; } else skip[i] = 0;
+                }
+            }
+            fprintf(stderr, "  FAIL format session %d (width %u): shrunk to %d key(s):\n", t, width, live);
+            fflush(stderr);
+            (void)frun(g_fkeys, n, skip, width, 1);
+            fflush(stdout);
+            failed = 1;
+        }
+    }
+    CHECK(!failed, "format sessions: units, old values, wrap, D4/05, tabs under the margins, spacing, Home keys, Move without a block");
+    if (failed) g_fail_format++;
+    printf("  format   %s: %d random sessions == the reference; units whole; old values; wrap under the margins; D4/05; tabs / C6; spacing old values; Home keys; Move without a block\n",
+           failed ? "RED" : "green", sessions);
+}
+
 int main(void)
 {
     fixed();
     family(FAM_CODES, 600, 0xC0D35u);
     family(FAM_GEO, 300, 0x6E0u);
     family(FAM_BLOCK, 400, 0xB10Cu);
+#ifndef FORMAT_SESSIONS
+#define FORMAT_SESSIONS 400
+#endif
+    format_family(FORMAT_SESSIONS, 0xF0A7u);
     if (g_fail_codes) fprintf(stderr, "  RED-REASON codes: the code stream disagrees with the WordPerfect rules\n");
     if (g_fail_geo)   fprintf(stderr, "  RED-REASON geometry: tabs / indents / hard pages disagree with WordPerfect's layout and bytes\n");
     if (g_fail_block) fprintf(stderr, "  RED-REASON block: a block copy / cut / retrieve disagrees with WordPerfect's rules\n");
+    if (g_fail_format) fprintf(stderr, "  RED-REASON format: margins / justification disagree with WordPerfect's bytes and layout\n");
     return TEST_SUMMARY("test-iword-codes");
 }

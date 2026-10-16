@@ -175,3 +175,45 @@ int iw_ed_retrieve(iw_ed_t *e, const uint8_t *buf, uint32_t n)
     e->cur = at;
     return IW_OK;
 }
+
+/* ---- an attribute given to the block (bead initech-jojk, P2 slice 3) ---------- *
+ * F6 / F8 / Ctrl-F8 1 n (Size) / Ctrl-F8 2 n (Appearance) with Block on: the
+ * on code at the block's start, the off code at its end, Block off
+ * (Reference Manual, Attributes p. 37 "Existing Text": "block the text ...
+ * then select the attribute"; minted mint/wpMINT28.steps). The cursor keeps
+ * its end of the block: at the end it rests after the off code (the manual,
+ * "the cursor is placed after the attribute off code"; MINT28 03_bolded_reveal
+ * "[BOLD]ghi[bold]|"), at the start after the on code (05/06 the block
+ * "kl" made with Left from its end: "j[UND]|kl[und]"). The codes go in even
+ * when other codes lie inside the block (MINT28 16_overlap_reveal
+ * "ab[BOLD]c[large] [ITALC]def[bold]|[italc]") [an attribute already on at
+ * either end is not minted: the pair goes in all the same -- inferred]. */
+int iw_ed_block_attr(iw_ed_t *e, uint8_t attr)
+{
+    iw_doc_t *d = &e->doc;
+    uint8_t on[IW_WP5_ATTR_LEN] = { IW_WP5_ATTR_ON, 0, IW_WP5_ATTR_ON };
+    uint8_t off[IW_WP5_ATTR_LEN] = { IW_WP5_ATTR_OFF, 0, IW_WP5_ATTR_OFF };
+    uint32_t s, t;
+    int at_end, rc;
+    if (e->blk == IW_NO_BLOCK) return iw_ed_attr(e, attr);
+    if (attr >= IW_WP5_ATTR_NUMBERS) return IW_E_RANGE;
+    on[1] = off[1] = attr;
+    iw_ed_block_span(e, &s, &t);
+    at_end = e->cur == t && t != s;
+    /* all or nothing: two inserts, two splits each at most */
+    if (d->npc + 4u > d->pc_cap || d->add_len + 2u * IW_WP5_ATTR_LEN > d->add_cap ||
+        d->len + 2u * IW_WP5_ATTR_LEN > d->max_len) return IW_E_FULL;
+    rc = iw_doc_insert(d, t, off, sizeof off);
+    if (rc == IW_OK) rc = iw_doc_insert(d, s, on, sizeof on);
+    if (rc != IW_OK) return rc;
+#ifdef IWORD_MUT_BLK_CUR_START
+    /* MUTANT (Rule 6; test-iword-codes-mutant): the cursor always goes
+     * after the off code, whichever end of the block it was at. NEVER real. */
+    at_end = 1;
+#endif
+    e->cur = at_end ? t + 2u * IW_WP5_ATTR_LEN : s + IW_WP5_ATTR_LEN;
+    e->blk = IW_NO_BLOCK;
+    e->goal = NONE;
+    e->dirty = 1;
+    return IW_OK;
+}
