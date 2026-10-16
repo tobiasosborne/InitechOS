@@ -21,7 +21,7 @@ TEST_EMU_GATES += test-flair-live-scene
 
 # Rule6: same disk-tenant recipe and volume replacement as Calc's own family.
 FILM_CALC_MUTANTS := CALC_MUT_NO_PIE CALC_MUT_NO_LABELS CALC_MUT_MERGE_SLICES
-$(foreach m,$(filter-out $(CALC_PIXEL_MUTANT),$(FILM_CALC_MUTANTS)),$(eval $(call tenant-exe-rules,calc_$(m),$(CALC_SRC),$(CALC_INC) -D$(m),$(CALC_DEP))))
+$(foreach m,$(filter-out $(CALC_PIXEL_MUTANT),$(FILM_CALC_MUTANTS)),$(eval $(call tenant-exe-rules,calc_$(m),$(CALC_SRC),$(CALC_INC) -D$(m),$(CALC_DEP),--gc-sections)))
 $(foreach m,$(filter-out $(CALC_PIXEL_MUTANT),$(FILM_CALC_MUTANTS)),$(eval $(call calc-mut-volume,$(m))))
 .PHONY: test-film-scene-mutant
 test-film-scene-mutant: test-film-scene $(foreach m,$(FILM_CALC_MUTANTS),$(BUILD)/test_calc_tenant_mut_$(m)) $(BUILD)/test_film_busy_mut
