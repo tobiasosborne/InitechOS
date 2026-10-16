@@ -23011,12 +23011,14 @@ RECORD_MARKER_menubar_clock = FLAIR-CLOCK 12:56 am
 RECORD_IMAGE_menubar_clock = $(BUILD)/flair_tenants_mut_menubar_clock_gate.img
 RECORD_DATA_menubar_clock = $(FLAIR_DATA_IMG)
 RECORD_RTC_BASE_menubar_clock = 1980-01-01T00:55:55
-RECORD_SETTLE_menubar_clock = 200
+RECORD_SETTLE_menubar_clock = 7000
+# PM 2026-10-17: the clip must outlive the pinned minute crossing (00:55:55 -> :56 at 5 s of guest time); 200 ms ended the recording at tick 40 with only "12:55 am" on serial.
 # Rule14: PM records on main after merge. Parse-time block MUST precede target.
 RECORD_SCRIPTS += calc_ledger
 RECORD_SPEC_calc_ledger = $(FLAIR_CALC_SPEC)
 RECORD_MARKER_calc_ledger = FLAIR-DISPATCH app=CALC
-RECORD_SETTLE_calc_ledger = 400
+RECORD_SETTLE_calc_ledger = 800
+# PM 2026-10-17: 400 ms raced a frame under a 12-lane host load (record-flair-repro differed once); 800 keeps the clip repro-stable.
 RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))

@@ -21,6 +21,10 @@
 #   Percentages (120,20+22*i), total (120,134); adjacent shades differ at
 #   all five boundaries. PRD-stated weights remain40/35/18/14/9, total116.
 #   Typography is PRD6.4/6.5 Geneva9 using the existing Font Manager strike.
-FLAIR_CALC_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,m0:100,m0:100,m0:86
+# PM MERGE RE-KEY 2026-10-17: on main APPS holds TENANTFX, CTENANT, 123.EXE, WORD.EXE,
+# 123.MNU, CHKDSK, ATTRIB, LABEL, XCOPY, TREE, CALC -- CALC.EXE is cell 10 = row 3,
+# col 2, centre (211,226): +88,+124 from the APPS double-click (123,102). The park
+# keeps its absolute end point (143,460): -68,+234 from the new click.
+FLAIR_CALC_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:100,m0:24,l1,l0,l1,l0,m-68:100,m0:100,m0:34
 # Same launch; an edit to A1, then a menu-key Quit tears down BOTH windows.
 FLAIR_CALC_EDIT_SPEC := $(FLAIR_CALC_SPEC),k7,k3,kret,kctrl-q

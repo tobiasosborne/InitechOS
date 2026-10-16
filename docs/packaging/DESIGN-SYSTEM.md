@@ -1,5 +1,6 @@
 <!-- INITECH CONFIDENTIAL -- INTERNAL USE ONLY -- DO NOT DISTRIBUTE -->
 <!-- Controlled Document. Printed copies are uncontrolled. Verify revision before use. -->
+<!-- SUPERSEDED 2026-10-16 by docs/pubs/DESIGN-REFERENCE.md (PUB-REF-0001, bead initech-ipu5.4); kept as research record only. -->
 
 # Initech Systems Corporation -- Publications and Packaging Design System (Proposal)
 
