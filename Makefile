@@ -30865,6 +30865,70 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
 	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'
 
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-alert-chrome-bochs (Rule 5 -- the BOCHS boot leg of the
+# alert-chrome gate image; owed by initech-tdnl.99 / tdnl.100 / rgz1, filed cqej).
+# Same TRUTHFUL CONSTRAINT as test-flair-appswitch-bochs: Bochs 2.7 ENOMODEs the
+# 640x480 VBE mode, the desktop guard fails loud and HALTS before the dirty-123
+# tenant and its alert come up, so the alert pixels are graded on QEMU only
+# (test-flair-alert-chrome); this leg proves the SAME alert-chrome kernel runs the
+# boot chain + FLAIR heap + FAT mount identically and the guard fires (no triple
+# fault). SKIP_BOCHS=1 is the one documented, shouting opt-out.
+# GATE HONESTY (PM 2026-10-16 22:45): test-flair-alert-chrome and its mutant were
+# defined by the chrome-controls lane but never appended to TEST_EMU_GATES, so the
+# 2026-10-16 certificate did not run them; appended here together with this leg.
+FLAIR_ALERTCHROME_BOCHS_NAME   := flair_alert_chrome_bochs
+FLAIR_ALERTCHROME_BOCHS_REPORT := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME).report.txt
+FLAIR_ALERTCHROME_BOCHS_SERIAL := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME).serial
+FLAIR_ALERTCHROME_BOCHS_DATA   := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME)_data.img
+.PHONY: test-flair-alert-chrome-bochs
+ifeq ($(SKIP_BOCHS),1)
+test-flair-alert-chrome-bochs:
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-alert-chrome-bochs : BOCHS leg (alert chrome)\n'
+	@printf '======================================================================\n'
+	@printf '!!! test-flair-alert-chrome-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
+	@printf '======================================================================\n'
+else
+test-flair-alert-chrome-bochs: $(BOCHS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_QUIT_DATA)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-alert-chrome-bochs : BOCHS leg (alert chrome)\n'
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). Beads initech-tdnl.99/.100, rgz1, cqej.\n'
+	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13; the desktop guard fails loud before the\n'
+	@printf '  alert; this leg proves the shared boot/heap/mount milestones + the guard.\n'
+	@printf '======================================================================\n'
+	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-alert-chrome-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2); SKIP_BOCHS=1 is the only documented opt-out.\n'; exit 1; }
+	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIR_I123_FILE_GATE_IMG)"
+	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
+	@printf '            guard (PANIC + HALTED), no triple-fault\n'
+	@printf '%s\n' '----------------------------------------------------------------------'
+	cp -f $(FLAIR_I123_QUIT_DATA) $(FLAIR_ALERTCHROME_BOCHS_DATA)
+	@$(BOCHS_BIN) --disk "$(FLAIR_I123_FILE_GATE_IMG)" --disk2 "$(FLAIR_ALERTCHROME_BOCHS_DATA)" --expect HALTED \
+		--name "$(FLAIR_ALERTCHROME_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
+		2> "$(FLAIR_ALERTCHROME_BOCHS_REPORT)" || true
+	@cat "$(FLAIR_ALERTCHROME_BOCHS_REPORT)"
+	@printf '%s\n' '----------------------------------------------------------------------'
+	@grep -q 'rfb_unblocked=1' "$(FLAIR_ALERTCHROME_BOCHS_REPORT)" \
+		|| { printf '!!! test-flair-alert-chrome-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
+	@if grep -q 'triple_fault=1' "$(FLAIR_ALERTCHROME_BOCHS_REPORT)"; then \
+		printf '!!! test-flair-alert-chrome-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
+	fi
+	@if [ ! -s "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)" ]; then \
+		printf '!!! test-flair-alert-chrome-bochs FAIL: no serial captured at %s\n' "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)"; exit 1; \
+	fi
+	@printf 'Serial markers captured:\n'
+	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
+		if grep -q "^$$m$$" "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
+		else printf '  %-14s : MISSING\n' "$$m"; fi; \
+	done
+	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
+		grep -q "^$$m$$" "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)" \
+			|| { printf '!!! test-flair-alert-chrome-bochs FAIL: marker %s missing\n' "$$m"; exit 1; }; \
+	done
+	@printf '>>> test-flair-alert-chrome-bochs: green (Bochs boot leg of the alert-chrome image: fallback + shared milestones + guard, no triple fault)\n'
+endif
+TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
+
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk
 
