@@ -82,6 +82,8 @@
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
 #include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
+#include "scrap.h"           /* the shell's desk scrap; spec Sec 12 (tdnl.16) */
+#include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
  * the validator reads, so the locked ABI and the Menu Manager never drift. */
@@ -143,6 +145,15 @@ typedef struct tbx_slot {
     uint8_t       alert_lines, alert_btns;
     char          alert_text[TBX_ALERT_LINES][TBX_ALERT_LINE_MAX];
     char          alert_btn[3][TBX_ALERT_LABEL_MAX];
+    uint8_t       in_mousedown; /* a mouseDown is being delivered (Sec 14)    */
+    flair_point_t down_where;   /* that mouseDown's point (Sec 14)            */
+    uint8_t       track;        /* TRACKMOUSE asked; the pump tracks (Sec 14) */
+    uint8_t       sf;           /* 0 none, 1 GetFile, 2 PutFile asked (Sec 13) */
+    uint32_t      sf_reply;     /* validated reply buffer (Sec 13)             */
+    char          sf_prompt[TBX_SF_PROMPT_MAX];
+    char          sf_name[TBX_SF_NAME_MAX];
+    WindowScroll *scroll;       /* the window's bars, records arena (Sec 15)   */
+    uint8_t       bar_dirty;    /* SETSCROLL changed the bar: chrome repaint   */
     int32_t       exit_rc;
     char          file[16];     /* the 8.3 file name (markers)                */
 } tbx_slot_t;
@@ -310,7 +321,10 @@ static void disk_tenant_event(FlairApp *self, const EventRecord *ev)
     tbx_evbuf_fill(eb, ev);
 
     g_slot.in_update = (ev->what == (uint16_t)updateEvt) ? 1u : 0u;
+    g_slot.in_mousedown = (ev->what == (uint16_t)mouseDown) ? 1u : 0u;
+    if (g_slot.in_mousedown) g_slot.down_where = ev->where;
     run_tenant(g_slot.eventproc);
+    g_slot.in_mousedown = 0u;
 }
 
 /* The close hook FlairProcess_terminate calls (step 1). V1 tenants register no
@@ -367,12 +381,15 @@ static uint32_t color_px(uint32_t tok)
  * (the sum of the NFNT 5478 advances, bead initech-tdnl.33) in the tenant's
  * txFace (bead initech-tdnl.68), its bg box exactly the styled width and one
  * CHICAGO_CELL_H line tall -- the Font Manager's ONE clipped run. */
-static void draw_text(int32_t gx, int32_t gy, const char *s, unsigned face,
-                      uint32_t fg, uint32_t bg, const region_t *clip)
+static void draw_text(int32_t gx, int32_t gy, const char *s, unsigned font,
+                      unsigned face, uint32_t fg, uint32_t bg,
+                      const region_t *clip)
 {
     text_clip_t k = { clip, 0, 0, 0, 0, 0 };
-    (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s, FONT_CHICAGO,
-                        face, fg, bg, &k);
+    /* spec Sec 7 FONT (bead initech-tdnl.16): the txFont of fg bits 16..23,
+     * through the ONE txFont mapping (text.c text_font_from_txfont). */
+    (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s,
+                        text_font_from_txfont((int)font), face, fg, bg, &k);
 }
 
 /* ===========================================================================
@@ -503,18 +520,21 @@ static int32_t v_setwtitle(const uint32_t *a)
 static int32_t v_textdraw(const uint32_t *a)
 {
     rgn_rect_t c;
-    uint32_t face;
+    uint32_t face, font;
     if (!check_win(a[0])) return TBX_ERR_BADARG;
     if (image_str(a[3], 81u) < 0) return TBX_ERR_BADARG;
-    /* fg = colour token | txFace << 8 (spec Sec 7, bead initech-tdnl.68) */
+    /* fg = colour token | txFace << 8 (spec Sec 7, bead initech-tdnl.68)
+     *      | txFont << 16 (spec Sec 7 FONT, bead initech-tdnl.16) */
     face = (a[4] >> TBX_TEXT_FACE_SHIFT) & 0xFFu;
-    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 16) != 0u ||
+    font = (a[4] >> TBX_TEXT_FONT_SHIFT) & 0xFFu;
+    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 24) != 0u ||
+        font > TBX_TEXT_FONT_MAX ||
         (face & ~TBX_TEXT_FACE_OK) != 0u || a[5] >= TBX_COLOR_COUNT)
         return TBX_ERR_BADARG;
     if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
     c = region_get_bbox(g_slot.win->contRgn);
     draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
-              (const char *)(uintptr_t)a[3], (unsigned)face,
+              (const char *)(uintptr_t)a[3], (unsigned)font, (unsigned)face,
               color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());
     g_slot.drew = 1u;
     return TBX_OK;
@@ -785,6 +805,124 @@ static int32_t v_alert(const uint32_t *a)
     return TBX_OK;
 }
 
+/* ---- Sec 12 THE SCRAP (bead initech-tdnl.16, absorbing initech-ww9c) ---- */
+static uint32_t img_lo(void)  { return g_slot.plan.load_base; }
+static uint32_t img_len(void) { return g_slot.plan.block_len - TBX_TENANT_PSP_BYTES; }
+
+static int32_t v_scrap_put(const uint32_t *a)
+{
+    FlairScrap *sc = g_host.scrap;
+    if (sc == (FlairScrap *)0) return TBX_ERR_BADCODE;   /* no shell scrap */
+    if (a[1] > FLAIR_SCRAP_MAX_PAYLOAD || !tbxf_span(img_lo(), img_len(), a[0], a[1]))
+        return TBX_ERR_BADARG;                  /* checked BEFORE ZeroScrap */
+    FlairZeroScrap(sc);
+    if (FlairPutScrap(sc, FLAIR_SCRAP_TYPE_TEXT, (const void *)(uintptr_t)a[0], a[1]) != 0)
+        return TBX_ERR_BADARG;
+    tputs("TENANT-SCRAP put n="); tputu(a[1]);
+    tputs(" count="); tputi(FlairInfoScrap(sc)); tputs("\n");
+    return TBX_OK;
+}
+
+static int32_t v_scrap_get(const uint32_t *a)
+{
+    FlairScrap *sc = g_host.scrap;
+    uint32_t got = 0u, need = 0u;
+    int32_t r;
+    if (sc == (FlairScrap *)0) return TBX_ERR_BADCODE;
+    /* the length first (IM GetScrap with a NIL destination) */
+    r = FlairGetScrap(sc, FLAIR_SCRAP_TYPE_TEXT, (void *)0, FLAIR_SCRAP_MAX_PAYLOAD, &need);
+    if (r == -1) {
+        r = TBX_ERR_NOTYPE;
+    } else if (a[0] == 0u) {
+        r = (int32_t)need;
+    } else if (a[1] < need || !tbxf_span(img_lo(), img_len(), a[0], need)) {
+        r = TBX_ERR_BADARG;                     /* never a partial paste */
+    } else {
+        r = FlairGetScrap(sc, FLAIR_SCRAP_TYPE_TEXT, (void *)(uintptr_t)a[0], a[1], &got);
+        r = (r < 0) ? TBX_ERR_BADARG : (int32_t)got;
+    }
+    tputs("TENANT-SCRAP get n="); tputi(r); tputs("\n");
+    return r;
+}
+
+/* ---- Sec 13 STANDARD FILE (asked now, answered by the pump) ------------ */
+static int sf_copy(char *dst, uint32_t cap, uint32_t src, int32_t lo_ok)
+{
+    int32_t n = image_str(src, cap);
+    if (n < lo_ok || (uint32_t)n >= cap) return 0;
+    for (int32_t i = 0; i <= n; i++) dst[i] = *(const volatile char *)(uintptr_t)(src + (uint32_t)i);
+    return 1;
+}
+
+static int32_t v_sf(uint32_t ax, const uint32_t *a)
+{
+    uint32_t reply = (ax == TBX_SFGETFILE) ? a[0] : a[2];
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+    if (g_slot.sf != 0u || g_slot.alert) return TBX_ERR_BUSY;
+    if (!tbxf_span(img_lo(), img_len(), reply, TBX_SF_REPLY_BYTES)) return TBX_ERR_BADARG;
+    if (ax == TBX_SFPUTFILE) {
+        if (!sf_copy(g_slot.sf_prompt, TBX_SF_PROMPT_MAX, a[0], 1) ||
+            !sf_copy(g_slot.sf_name, TBX_SF_NAME_MAX, a[1], 0))
+            return TBX_ERR_BADARG;
+    }
+    g_slot.sf_reply = reply;
+    g_slot.sf = (ax == TBX_SFGETFILE) ? 1u : 2u;
+    return TBX_OK;
+}
+
+/* ---- Sec 14 MOUSE TRACKING --------------------------------------------- */
+static int32_t v_trackmouse(void)
+{
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+    if (!g_slot.in_mousedown) return TBX_ERR_BADARG;
+    g_slot.track = 1u;
+    return TBX_OK;
+}
+
+/* ---- Sec 15 THE VERTICAL SCROLL BAR ------------------------------------ */
+static int32_t v_setscroll(const uint32_t *a)
+{
+    rgn_rect_t c;
+    if (!check_win(a[0])) return TBX_ERR_BADARG;
+    if (a[1] > 32767u || a[2] > 32767u) return TBX_ERR_BADARG;
+    if (g_slot.scroll == (WindowScroll *)0) {
+        WindowScroll *ws = (WindowScroll *)flair_alloc(&g_slot.app->records_arena,
+                                                       FLAIR_CLASS_HANDLE,
+                                                       (uint32_t)sizeof *ws);
+        if (ws == (WindowScroll *)0) return TBX_ERR_NOMEM;
+        tbx_zero(ws, (uint32_t)sizeof *ws);
+        for (int k = 0; k < WSCROLL_AXES; k++) ws->axis[k].drag_pos = -1;
+        WindowScrollAttach(g_host.wm, ws, g_slot.win);
+        g_slot.scroll = ws;
+    }
+    c = region_get_bbox(g_slot.win->contRgn);
+    (void)wscroll_set_extent(&g_slot.scroll->axis[WSCROLL_V], (int)a[1],
+                             (int)(c.bottom - c.top));
+    (void)wscroll_set_value(&g_slot.scroll->axis[WSCROLL_V], (int)a[2]);
+    WindowMgr_invalidate(g_host.wm, g_slot.win,
+                         wscroll_bar_rect(WindowFrameRect(g_slot.win), WSCROLL_V));
+    g_slot.bar_dirty = 1u;
+    return (int32_t)g_slot.scroll->axis[WSCROLL_V].value;
+}
+
+static int32_t v_getscroll(const uint32_t *a)
+{
+    if (!check_win(a[0])) return TBX_ERR_BADARG;
+    return g_slot.scroll ? (int32_t)g_slot.scroll->axis[WSCROLL_V].value : 0;
+}
+
+static int32_t v_global_to_local(const uint32_t *a)
+{
+    rgn_rect_t c;
+    int32_t h = (int32_t)a[1], v = (int32_t)a[2];
+    if (!check_win(a[0])) return TBX_ERR_BADARG;
+    if (h < -32768 || h > 32767 || v < -32768 || v > 32767) return TBX_ERR_BADARG;
+    c = region_get_bbox(g_slot.win->contRgn);
+    h -= c.left;
+    v -= c.top;
+    return (int32_t)(((uint32_t)(uint16_t)(int16_t)v << 16) | (uint32_t)(uint16_t)(int16_t)h);
+}
+
 static int32_t v_exit(uint32_t rc)
 {
     if (g_slot.app == (FlairApp *)0) return TBX_ERR_NOTREG;
@@ -840,6 +978,13 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_FILE_CLOSE: argc = TBX_ARGC_FILE_CLOSE; break;
     case TBX_FILE_DELETE: argc = TBX_ARGC_FILE_DELETE; break;
     case TBX_ALERT:     argc = TBX_ARGC_ALERT;     break;
+    case TBX_SCRAP_PUT: argc = TBX_ARGC_SCRAP_PUT; break;
+    case TBX_SCRAP_GET: argc = TBX_ARGC_SCRAP_GET; break;
+    case TBX_SFGETFILE: argc = TBX_ARGC_SFGETFILE; break;
+    case TBX_SFPUTFILE: argc = TBX_ARGC_SFPUTFILE; break;
+    case TBX_SETSCROLL: argc = TBX_ARGC_SETSCROLL; break;
+    case TBX_GETSCROLL: argc = TBX_ARGC_GETSCROLL; break;
+    case TBX_GLOBALTOLOCAL: argc = TBX_ARGC_GLOBALTOLOCAL; break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -860,6 +1005,17 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_DRAWMENUBAR: rc = v_drawmenubar(); break;
         case TBX_DRAWCELLS: rc = v_drawcells(a);   break;
         case TBX_ALERT:     rc = v_alert(a);       break;
+        case TBX_SCRAP_PUT:
+        case TBX_SCRAP_GET:
+            rc = g_slot.app == 0 || g_slot.exit_req ? TBX_ERR_NOTREG
+               : (ax == TBX_SCRAP_PUT ? v_scrap_put(a) : v_scrap_get(a));
+            break;
+        case TBX_SFGETFILE:
+        case TBX_SFPUTFILE: rc = v_sf(ax, a);      break;
+        case TBX_TRACKMOUSE: rc = v_trackmouse();  break;
+        case TBX_SETSCROLL: rc = v_setscroll(a);   break;
+        case TBX_GETSCROLL: rc = v_getscroll(a);   break;
+        case TBX_GLOBALTOLOCAL: rc = v_global_to_local(a); break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
         case TBX_FILE_DELETE:
@@ -920,6 +1076,16 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_FILE_SEEK:
         trace_int(" h=", a[0]); trace_int(" delta=", a[1]); trace_int(" origin=", a[2]); break;
     case TBX_FILE_CLOSE: trace_int(" h=", a[0]); break;
+    case TBX_SCRAP_PUT: case TBX_SCRAP_GET:
+        trace_int(" n=", a[1]); break;
+    case TBX_SFPUTFILE:
+        trace_str(" prompt=", a[0]); trace_str(" name=", a[1]); break;
+    case TBX_SETSCROLL:
+        trace_int(" win=", a[0]); trace_int(" len=", a[1]); trace_int(" value=", a[2]); break;
+    case TBX_GETSCROLL:
+        trace_int(" win=", a[0]); break;
+    case TBX_GLOBALTOLOCAL:
+        trace_int(" win=", a[0]); trace_int(" h=", a[1]); trace_int(" v=", a[2]); break;
     default:
         break;
     }
@@ -1190,6 +1356,60 @@ int tbx_take_alert(const char *lines[TBX_ALERT_LINES], uint32_t *n,
 void tbx_alert_answer(uint32_t item)
 {
     if (tenant_live()) push_evt((uint16_t)TBX_EVT_ALERT, item);
+}
+
+/* Sec 13: the asked Standard File dialog (once). */
+int tbx_take_sf(int *put, const char **prompt, const char **name)
+{
+    if (g_slot.sf == 0u || !tenant_live()) return 0;
+    *put = g_slot.sf == 2u;
+    *prompt = g_slot.sf_prompt;
+    *name = g_slot.sf_name;
+    return 1;
+}
+
+/* Sec 13: the answer. good -> the path (<= TBX_SF_REPLY_BYTES incl. NUL) is
+ * copied into the reply buffer validated at the ask; then the push. */
+void tbx_sf_answer(int good, const char *path)
+{
+    uint32_t i = 0u;
+    if (g_slot.sf == 0u) return;
+    g_slot.sf = 0u;
+    if (!tenant_live()) return;
+    if (good) {
+        volatile char *d = (volatile char *)(uintptr_t)g_slot.sf_reply;
+        for (; i + 1u < TBX_SF_REPLY_BYTES && path[i] != '\0'; i++) d[i] = path[i];
+        d[i] = '\0';
+    }
+    push_evt((uint16_t)TBX_EVT_SFREPLY, good ? 1u : 0u);
+}
+
+/* Sec 14: the asked track (once), then each sample / the release. */
+int tbx_take_track(flair_point_t *from)
+{
+    if (!g_slot.track || !tenant_live()) { g_slot.track = 0u; return 0; }
+    g_slot.track = 0u;
+    *from = g_slot.down_where;
+    return 1;
+}
+
+void tbx_track_push(int up, flair_point_t where)
+{
+    EventRecord e;
+    if (!tenant_live()) return;
+    tbx_zero(&e, (uint32_t)sizeof e);
+    e.what = (uint16_t)TBX_EVT_TRACK;
+    e.message = up ? 1u : 0u;
+    e.where = where;
+    disk_tenant_event(g_slot.app, &e);
+}
+
+/* Sec 15: SETSCROLL moved the bar (once): the pump repaints the chrome. */
+int tbx_take_bar_dirty(void)
+{
+    int d = g_slot.bar_dirty;
+    g_slot.bar_dirty = 0u;
+    return d;
 }
 
 int tbx_reap(void)

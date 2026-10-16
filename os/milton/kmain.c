@@ -101,6 +101,8 @@
 #include "tbxgate.h"             /* R3.7 the Initech Toolbox Gate + the one-slot
                                   * disk-tenant host (bead initech-tdnl.14)      */
 #include "toolbox_gate.h"        /* the LOCKED gate ABI (-Ispec; tdnl.14)        */
+#include "stdfile.h"             /* Standard File model (gymo; tdnl.16)          */
+#include "scrap.h"               /* the desk scrap (b2vk; tdnl.16 / ww9c)         */
 
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
 extern void tbx_gate_entry(void);
@@ -2799,6 +2801,9 @@ static GrafPort             *g_ten_barport;
  *       the NEW head (the shell fallback bar when the list is empty -- never a
  *       dead head's menubar). */
 static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static void flair_live_tenant_scrollbar(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static void flair_live_tenant_track(flair_live_ctx_t *ctx, const boot_info_t *bi);
 static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     FlairApp *app = tbx_take_affirm();
@@ -2833,6 +2838,11 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
     if (tbx_take_drew()) flair_desktop_present(bi, &ctx->off);
     /* (1d) bead initech-fvnj: a TBX_ALERT the tenant asked for (spec Sec 11). */
     flair_live_tenant_alert(ctx, bi);
+    /* (1e) bead initech-tdnl.16: the bar SETSCROLL moved, a Standard File
+     * dialog and a mouse track the tenant asked for (spec Sec 13-15). */
+    flair_live_tenant_scrollbar(ctx, bi);
+    flair_live_tenant_sf(ctx, bi);
+    flair_live_tenant_track(ctx, bi);
     if (!tbx_reap()) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
@@ -4272,6 +4282,527 @@ static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi
     flair_live_tenant_service(ctx, bi);
 }
 
+/* ===========================================================================
+ * THE TENANT'S STANDARD FILE, TRACKING AND BAR (bead initech-tdnl.16; spec/
+ * toolbox_gate.h Sec 13-15). Shell-owned helpers run once the tenant has
+ * RETURNED, exactly like the alert above.
+ * ===========================================================================*/
+
+/* Sec 15: SETSCROLL moved the bar -- repaint the chrome damage. */
+static void flair_live_tenant_scrollbar(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    if (!tbx_take_bar_dirty()) return;
+    desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
+    flair_desktop_present(bi, &ctx->off);
+}
+
+/* Sec 14: follow the pointer to mouseUp, pushing each moved sample and the
+ * release; present what the tenant drew after each (the tracker cut ends a
+ * press the image's life ends inside, tdnl.59). */
+static void flair_live_tenant_track(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    flair_point_t last;
+    EventRecord ev;
+    uint32_t t0, moves = 0u;
+    int cancel = 0;
+
+    if (!tbx_take_track(&last)) return;
+    t0 = flair_tick_count();
+    ev.where = last;
+    for (;;) {
+        int g = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 1u);
+        flair_live_cursor_track(&ev);
+        if (g) flair_live_emit_evt(&ev);
+        if (g && ev.what == (uint16_t)mouseUp) break;
+        if (flair_live_track_cut(t0, &cancel)) break;
+        if (ev.where.h != last.h || ev.where.v != last.v) {
+            last = ev.where;
+            moves++;
+            tbx_track_push(0, last);
+            if (tbx_take_drew()) flair_desktop_present(bi, &ctx->off);
+        }
+    }
+    if (ev.what != (uint16_t)mouseUp) ev.where = last;
+    serial_puts("TENANT-TRACK up h=");
+    serial_puti((int32_t)ev.where.h);
+    serial_puts(" v=");
+    serial_puti((int32_t)ev.where.v);
+    serial_puts(" moves=");
+    serial_putu(moves);
+    serial_putc('\n');
+    tbx_track_push(1, ev.where);
+    flair_live_tenant_service(ctx, bi);
+}
+
+/* ---- Sec 13 STANDARD FILE ------------------------------------------------
+ * The Mac OS 8.1 Standard File boxes (IM-I SFGetFile / SFPutFile; the landed
+ * model os/flair/stdfile.c drives the navigation). GEOMETRY, dialog-local,
+ * every number from ../system7-decomp specs/sys8/simpletext-stdfile.md
+ * (mint-results-007: s8_sf_open.png dialog 201..548 x 107..299, s8_sf_saveas
+ * .png 141..496 x 61..310 [MEAS]): WHITE dialog body (not the Platinum
+ * face), the folder popup above a framed list of 18-px rows with its
+ * vertical bar inside the frame, names 22 px in, the selected row black with
+ * white ink; 80x20 buttons in the right column -- Eject (disabled: one fixed
+ * volume), Desktop, [New, disabled: no New Folder yet], Cancel, the default
+ * Open/Save ringed at the bottom; the Open box's dotted divider; Save's
+ * prompt over the name field.
+ * DEVIATIONS (stated): the rows carry no small icons (no SICN strike in the
+ * corpus yet), the type is Chicago 12 (Charcoal is the 8.1 face, [INF] in the
+ * spec), the list bar is drawn disabled (the 32-entry first-cut cap of
+ * stdfile.h scrolls by the keyboard and the selection), the Open box opens in
+ * its classic layout (8.1 SimpleText first shows the QuickTime "Show Preview"
+ * variant), no Stationery radio pair, no Show Preview checkbox.
+ * ------------------------------------------------------------------------- */
+typedef struct sf_geom {
+    int16_t w, h;                 /* dialog size                             */
+    int16_t pop_l, pop_r;         /* folder popup x (y 12..31 both)          */
+    int16_t list_l, rows;         /* list frame x (width SF_LIST_W), rows    */
+    int16_t btn_l;                /* the 80-px button column                 */
+    int16_t eject_y, desk_y, new_y, cancel_y, def_y;   /* new_y 0: none     */
+} sf_geom_t;
+#define SF_POP_T     12
+#define SF_POP_B     31
+#define SF_LIST_T    35
+#define SF_LIST_W   218
+#define SF_ROW_H     18
+#define SF_BAR_W     16
+#define SF_NAME_IN   22
+#define SF_BTN_W     80
+#define SF_BTN_H     20
+static const sf_geom_t g_sf_geom[2] = {
+    { 348, 193,  68, 176, 13, 7, 250, 38, 66,  0, 110, 141 },   /* Open    */
+    { 356, 250,  73, 181, 18, 8, 258, 38, 66, 93, 136, 167 },   /* Save As */
+};
+#define SF_PUT_PROMPT_X  23
+#define SF_PUT_PROMPT_Y 194
+#define SF_PUT_NAME_L    18
+#define SF_PUT_NAME_R   220
+#define SF_PUT_NAME_T   212
+#define SF_PUT_NAME_B   234
+
+static FlairStandardFile g_sf;
+static DialogRecord      g_sf_dr;
+static DialogItem        g_sf_it[3];
+static ControlRecord     g_sf_btn[5];
+static finder_win_rgn_t  g_sf_rs, g_sf_rc, g_sf_ru;
+
+typedef struct sf_walk {
+    const char   *want;       /* a folder name to find, or NULL to list     */
+    uint16_t      dir;        /* found folder's cluster                     */
+    FlairSFEntry *out;
+    int16_t       n, max;
+    uint16_t      at;         /* the directory being enumerated             */
+} sf_walk_t;
+
+static int sf_upper(int c) { return (c >= 'a' && c <= 'z') ? c - 32 : c; }
+
+static int sf_ieq(const char *a, const char *b)
+{
+    while (*a != '\0' && sf_upper(*a) == sf_upper(*b)) { a++; b++; }
+    return sf_upper(*a) == sf_upper(*b);
+}
+
+static int sf_walk_cb(const finder_dirent_t *d, void *user)
+{
+    sf_walk_t *w = (sf_walk_t *)user;
+    if ((d->attribute & 0x0Au) != 0u) return 0;               /* label/hidden */
+    if (d->name83[0] == '.') return 0;                        /* . and ..     */
+    if (finder_win_is_service(w->at, d->name83)) return 0;     /* TRASH / DB   */
+    if (w->want != (const char *)0) {
+        if ((d->attribute & 0x10u) != 0u && sf_ieq(d->name83, w->want)) {
+            w->dir = d->start_cluster;
+            return 1;                                         /* stop: found  */
+        }
+        return 0;
+    }
+    if (w->n >= w->max) return 2;                             /* overflow     */
+    {
+        FlairSFEntry *e = &w->out[w->n++];
+        int i = 0;
+        for (; d->name83[i] != '\0' && i < FLAIR_SF_NAME_MAX - 1; i++)
+            e->name[i] = d->name83[i];
+        e->name[i] = '\0';
+        e->is_dir = (uint8_t)((d->attribute & 0x10u) != 0u);
+        e->size = d->size;
+    }
+    return 0;
+}
+
+/* The FlairSFEnumProc over the mounted volume: "/" or "/A/B" -> the real
+ * FAT directory (fat12_read_dir through the Finder's binding). */
+static int sf_provider(const char *path, FlairSFEntry *out, int16_t max, void *user)
+{
+    sf_walk_t w;
+    char comp[FLAIR_SF_NAME_MAX];
+    const char *p = path;
+    int rc;
+
+    (void)user;
+    w.dir = 0u;
+    while (*p == '/') p++;
+    while (*p != '\0') {                       /* resolve each component */
+        int n = 0;
+        while (*p != '\0' && *p != '/' && n < FLAIR_SF_NAME_MAX - 1) comp[n++] = *p++;
+        comp[n] = '\0';
+        while (*p == '/') p++;
+        w.want = comp; w.at = w.dir; w.n = 0; w.max = 0; w.out = out;
+        rc = finder_fat_enumerate((void *)0, w.at, sf_walk_cb, &w);
+        if (rc != 1) return -1;                /* no such folder */
+    }
+    w.want = (const char *)0; w.at = w.dir; w.n = 0; w.max = max; w.out = out;
+    rc = finder_fat_enumerate((void *)0, w.at, sf_walk_cb, &w);
+    if (rc < 0) return -1;
+    return rc == 2 ? (int)max + 1 : (int)w.n;  /* > max: FLAIR_SF_ERR_OVERFLOW */
+}
+
+static void sf_fill(flair_live_ctx_t *ctx, int l, int t, int r, int b, int part)
+{
+    blitter_fill_rect_clipped(&ctx->off, fta_rect(l, t, r, b),
+                              flair_look_pixel_depth(ctx->off.bpp, part),
+                              (const region_t *)0);
+}
+
+static void sf_frame(flair_live_ctx_t *ctx, int l, int t, int r, int b)
+{
+    sf_fill(ctx, l, t, r, t + 1, (int)FLAIR_PART_FRAME);
+    sf_fill(ctx, l, b - 1, r, b, (int)FLAIR_PART_FRAME);
+    sf_fill(ctx, l, t, l + 1, b, (int)FLAIR_PART_FRAME);
+    sf_fill(ctx, r - 1, t, r, b, (int)FLAIR_PART_FRAME);
+}
+
+static void sf_text(flair_live_ctx_t *ctx, int x, int y, const char *s,
+                    int fg, int bg)
+{
+    (void)text_draw_run(&ctx->off, x, y, s, FONT_CHICAGO, 0u,
+                        flair_look_pixel_depth(ctx->off.bpp, fg),
+                        flair_look_pixel_depth(ctx->off.bpp, bg),
+                        (const text_clip_t *)0);
+}
+
+typedef struct sf_ui {
+    int put, sel, top, l, t;
+    const sf_geom_t *g;
+    char name[TBX_SF_NAME_MAX];
+    const char *prompt;
+} sf_ui_t;
+
+/* The volume-relative DOS path of entry `name` in the current folder. */
+static void sf_dos_path(const char *name, char *out)
+{
+    int k = 0;
+    const char *p = g_sf.path;
+    while (*p == '/') p++;
+    for (; *p != '\0' && k < (int)TBX_SF_REPLY_BYTES - 14; p++)
+        out[k++] = (*p == '/') ? '\\' : *p;
+    if (k > 0) out[k++] = '\\';
+    for (int i = 0; name[i] != '\0' && k < (int)TBX_SF_REPLY_BYTES - 1; i++)
+        out[k++] = (char)sf_upper(name[i]);
+    out[k] = '\0';
+}
+
+static const char *sf_vol(void)
+{
+    return g_finder_vol_label[0] ? g_finder_vol_label : "INITECH";
+}
+
+/* A disabled push button: the button, its title re-inked dimmed. */
+static void sf_dim_button(flair_live_ctx_t *ctx, ControlRecord *c)
+{
+    rgn_rect_t r = c->contrlRect;
+    DrawControl(&g_sf_dr.window.port, c);
+    sf_text(ctx, r.left + (SF_BTN_W - text_measure(FONT_CHICAGO, c->contrlTitle)) / 2,
+            r.top + 2, c->contrlTitle, (int)FLAIR_PART_MENU_DISABLED_INK,
+            (int)FLAIR_PART_PLAT_FACE);
+}
+
+static void sf_draw_static(flair_live_ctx_t *ctx, const sf_ui_t *u)
+{
+    const sf_geom_t *g = u->g;
+    DrawDialog(&g_sf_dr);                         /* the frame + the buttons */
+    sf_fill(ctx, u->l + 4, u->t + 4, u->l + g->w - 4, u->t + g->h - 4,
+            (int)FLAIR_PART_CONTENT);             /* [MEAS] white body       */
+    for (int k = 0; k < 3; k++) {
+        if (k == 0) DrawControlDefaultRing(&g_sf_dr.window.port, &g_sf_btn[k]);
+        DrawControl(&g_sf_dr.window.port, &g_sf_btn[k]);
+    }
+    sf_dim_button(ctx, &g_sf_btn[3]);             /* Eject                   */
+    if (u->put) sf_dim_button(ctx, &g_sf_btn[4]); /* New                     */
+    if (!u->put)                                  /* the dotted divider y 97 */
+        for (int x = u->l + g->btn_l; x < u->l + g->btn_l + SF_BTN_W; x += 2)
+            sf_fill(ctx, x, u->t + 97, x + 1, u->t + 98, (int)FLAIR_PART_PLAT_INACTIVE_FRAME);
+    if (u->put)
+        sf_text(ctx, u->l + SF_PUT_PROMPT_X, u->t + SF_PUT_PROMPT_Y, u->prompt,
+                (int)FLAIR_PART_TEXT, (int)FLAIR_PART_CONTENT);
+}
+
+static void sf_draw_dynamic(flair_live_ctx_t *ctx, const sf_ui_t *u)
+{
+    const sf_geom_t *g = u->g;
+    int lx = u->l + g->list_l, ly = u->t + SF_LIST_T;
+    int lb = ly + g->rows * SF_ROW_H + 2, bx = lx + SF_LIST_W - SF_BAR_W;
+    const char *fold = (const char *)0;
+    for (const char *q = g_sf.path; *q != '\0'; q++)
+        if (*q == '/' && q[1] != '\0') fold = q + 1;
+    if (fold == (const char *)0) fold = sf_vol();
+
+    /* the folder popup: framed face box, name, the down triangle */
+    sf_fill(ctx, u->l + g->pop_l, u->t + SF_POP_T, u->l + g->pop_r, u->t + SF_POP_B,
+            (int)FLAIR_PART_PLAT_FACE);
+    sf_frame(ctx, u->l + g->pop_l, u->t + SF_POP_T, u->l + g->pop_r, u->t + SF_POP_B);
+    sf_text(ctx, u->l + g->pop_l + 6, u->t + SF_POP_T + 2, fold,
+            (int)FLAIR_PART_TEXT, (int)FLAIR_PART_PLAT_FACE);
+    for (int k = 0; k < 4; k++)
+        sf_fill(ctx, u->l + g->pop_r - 15 + k, u->t + SF_POP_T + 8 + k,
+                u->l + g->pop_r - 8 - k, u->t + SF_POP_T + 9 + k, (int)FLAIR_PART_FRAME);
+
+    /* the list: white rows, the (disabled) bar inside the frame */
+    sf_fill(ctx, lx, ly, lx + SF_LIST_W, lb, (int)FLAIR_PART_CONTENT);
+    sf_frame(ctx, lx, ly, lx + SF_LIST_W, lb);
+    sf_fill(ctx, bx, ly + 1, bx + 1, lb - 1, (int)FLAIR_PART_FRAME);
+    sf_fill(ctx, bx + 1, ly + 1, lx + SF_LIST_W - 1, lb - 1, (int)FLAIR_PART_PLAT_TROUGH);
+    for (int r = 0; r < g->rows && u->top + r < g_sf.count; r++) {
+        int i = u->top + r, y = ly + 1 + r * SF_ROW_H;
+        int hil = (i == u->sel);
+        if (hil) sf_fill(ctx, lx + 1, y, bx, y + SF_ROW_H, (int)FLAIR_PART_FRAME);
+        sf_text(ctx, lx + SF_NAME_IN, y + 1, g_sf.entries[i].name,
+                hil ? (int)FLAIR_PART_CONTENT : (int)FLAIR_PART_TEXT,
+                hil ? (int)FLAIR_PART_FRAME : (int)FLAIR_PART_CONTENT);
+    }
+
+    /* the volume, over the button column */
+    sf_text(ctx, u->l + g->btn_l, u->t + SF_POP_T + 2, sf_vol(),
+            (int)FLAIR_PART_TEXT, (int)FLAIR_PART_CONTENT);
+
+    if (u->put) {                                 /* the name field + caret */
+        int nl = u->l + SF_PUT_NAME_L, nt = u->t + SF_PUT_NAME_T;
+        int w = text_measure(FONT_CHICAGO, u->name);
+        sf_fill(ctx, nl, nt, u->l + SF_PUT_NAME_R, u->t + SF_PUT_NAME_B,
+                (int)FLAIR_PART_CONTENT);
+        sf_frame(ctx, nl, nt, u->l + SF_PUT_NAME_R, u->t + SF_PUT_NAME_B);
+        sf_text(ctx, nl + 3, nt + 3, u->name, (int)FLAIR_PART_TEXT,
+                (int)FLAIR_PART_CONTENT);
+        sf_fill(ctx, nl + 3 + w, nt + 3, nl + 4 + w, nt + 19, (int)FLAIR_PART_FRAME);
+    }
+}
+
+static void sf_select(sf_ui_t *u, int i)
+{
+    if (g_sf.count <= 0) { u->sel = -1; return; }
+    if (i < 0) i = 0;
+    if (i >= g_sf.count) i = g_sf.count - 1;
+    u->sel = i;
+    FlairSF_select(&g_sf, (int16_t)i);
+    if (i < u->top) u->top = i;
+    if (i >= u->top + u->g->rows) u->top = i - u->g->rows + 1;
+}
+
+static void sf_reset_view(sf_ui_t *u)
+{
+    u->top = 0;
+    u->sel = -1;
+    if (!u->put) sf_select(u, 0);       /* Open: the first item is selected */
+}
+
+static void sf_report(const char *what, const sf_ui_t *u)
+{
+    serial_puts("TENANT-SF ");
+    serial_puts(what);
+    serial_puts(" dir=");
+    serial_puts(g_sf.path);
+    serial_puts(" n=");
+    serial_puti((int32_t)g_sf.count);
+    if (u->put) { serial_puts(" name="); serial_puts(u->name); }
+    serial_putc('\n');
+}
+
+static int sf_name_ok(const char *n)
+{
+    int i = 0, base = 0, ext = -1;
+    if (n[0] == '\0' || n[0] == '.') return 0;
+    for (; n[i] != '\0'; i++) {
+        if (n[i] == '.') { if (ext >= 0) return 0; ext = 0; continue; }
+        if (ext >= 0) ext++; else base++;
+    }
+    return base >= 1 && base <= 8 && ext <= 3;
+}
+
+static void sf_button(ControlRecord *c, const sf_ui_t *u, int y, const char *t)
+{
+    control_init(c, pushButton,
+                 fta_rect(u->l + u->g->btn_l, u->t + y,
+                          u->l + u->g->btn_l + SF_BTN_W, u->t + y + SF_BTN_H),
+                 0, 0, 1, 1, t);
+}
+
+/* Returns 1 with `out` the reply path, 0 for Cancel. */
+static int sf_run(flair_live_ctx_t *ctx, const boot_info_t *bi, sf_ui_t *u,
+                  char *out)
+{
+    const sf_geom_t *g = u->g;
+    uint32_t t0 = flair_tick_count(), last_click = 0u;
+    int last_row = -1, cancel = 0, good = 0, k;
+
+    u->l = (FLAIR_SCREEN_W - g->w) / 2;
+    u->t = (FLAIR_SCREEN_H - g->h) / 2;
+    sf_button(&g_sf_btn[0], u, g->def_y, u->put ? "Save" : "Open");
+    sf_button(&g_sf_btn[1], u, g->cancel_y, "Cancel");
+    sf_button(&g_sf_btn[2], u, g->desk_y, "Desktop");
+    sf_button(&g_sf_btn[3], u, g->eject_y, "Eject");
+    sf_button(&g_sf_btn[4], u, g->new_y, "New");
+    for (k = 0; k < 3; k++) {
+        g_sf_it[k].type = ctrlItem;
+        g_sf_it[k].ctrl = &g_sf_btn[k];
+        g_sf_it[k].rect = g_sf_btn[k].contrlRect;
+        g_sf_it[k].text = (const char *)0;
+        g_sf_it[k].enabled = 1u;
+        g_sf_it[k]._pad[0] = g_sf_it[k]._pad[1] = g_sf_it[k]._pad[2] = 0u;
+    }
+    fta_rgn(&g_sf_rs); fta_rgn(&g_sf_rc); fta_rgn(&g_sf_ru);
+    (void)NewDialog(&g_sf_dr, fta_rect(u->l, u->t, u->l + g->w, u->t + g->h), "",
+                    g_sf_it, 3u, 1u, 2u, (WindowMgr *)0,
+                    &g_sf_rs.r, &g_sf_rc.r, &g_sf_ru.r);
+    g_sf_dr.window.port.portBits.bm = ctx->off;
+    g_sf_dr.window.port.visRgn  = (region_t *)0;
+    g_sf_dr.window.port.clipRgn = (region_t *)0;
+    g_sf_dr.window.port.portRect = region_get_bbox(g_sf_dr.window.strucRgn);
+    sf_draw_static(ctx, u);
+    sf_draw_dynamic(ctx, u);
+    flair_desktop_present(bi, &ctx->off);
+    sf_report(u->put ? "put up" : "get up", u);
+
+    for (;;) {
+        EventRecord ev;
+        uint16_t hit = 0u;
+        int act = 0;                          /* 1 default 2 cancel 3 desktop */
+        int g2 = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 3u);
+        flair_live_cursor_track(&ev);
+        if (flair_live_track_cut(t0, &cancel)) { act = 2; }
+        else if (!g2) continue;
+        else {
+            flair_live_emit_evt(&ev);
+            if (DialogModalDispatch(&g_sf_dr, &ev, (dialog_modal_block_fn)0,
+                                    (void *)0) != FLAIR_MODAL_CAPTURE)
+                continue;
+            if (ev.what == (uint16_t)keyDown || ev.what == (uint16_t)autoKey) {
+                uint8_t a = (uint8_t)(ev.message & 0xFFu);
+                uint8_t vk = (uint8_t)((ev.message >> 8) & 0xFFu);
+                int n = 0;
+                while (u->name[n] != '\0') n++;
+                if (vk == 0x48u && a == 0u)      { sf_select(u, u->sel - 1); }
+                else if (vk == 0x50u && a == 0u) { sf_select(u, u->sel + 1); }
+                else if (u->put && a == 0x08u)   { if (n > 0) u->name[n - 1] = '\0'; }
+                else if (u->put && a > 0x20u && a < 0x7Fu &&
+                         n < (int)TBX_SF_NAME_MAX - 1) {
+                    u->name[n] = (char)sf_upper(a);
+                    u->name[n + 1] = '\0';
+                    u->sel = -1;              /* typing a name deselects */
+                } else if (DialogHandleEvent(&g_sf_dr, &ev, (dialog_filter_fn)0, &hit)) {
+                    act = (int)hit;
+                }
+            } else if (ev.what == (uint16_t)mouseDown) {
+                int lx = u->l + g->list_l, ly = u->t + SF_LIST_T;
+                if (ev.where.h > lx && ev.where.h < lx + SF_LIST_W - SF_BAR_W &&
+                    ev.where.v > ly && ev.where.v < ly + 1 + g->rows * SF_ROW_H) {
+                    int row = u->top + (ev.where.v - ly - 1) / SF_ROW_H;
+                    if (row < g_sf.count) {
+                        if (row == last_row &&
+                            ev.when - last_click <= (uint32_t)FINDER_DBLCLICK_TICKS)
+                            act = 1;          /* double-click == Open */
+                        sf_select(u, row);
+                        last_row = row;
+                        last_click = ev.when;
+                    }
+                } else if (ev.where.h >= u->l + g->pop_l && ev.where.h < u->l + g->pop_r &&
+                           ev.where.v >= u->t + SF_POP_T && ev.where.v < u->t + SF_POP_B) {
+                    if (FlairSF_up(&g_sf) == FLAIR_SF_OK) sf_reset_view(u);
+                } else if (DialogHandleEvent(&g_sf_dr, &ev, (dialog_filter_fn)0, &hit)) {
+                    act = (int)hit;
+                }
+            }
+        }
+        if (act == 2) break;
+        if (act == 3) {                       /* Desktop: the volume root */
+            while (g_sf.path[1] != '\0' && FlairSF_up(&g_sf) == FLAIR_SF_OK) { }
+            sf_reset_view(u);
+        } else if (act == 1) {
+            if (u->sel >= 0 && g_sf.entries[u->sel].is_dir) {
+                if (FlairSF_navigate(&g_sf, (int16_t)u->sel) == FLAIR_SF_OK)
+                    sf_reset_view(u);
+            } else if (!u->put && u->sel >= 0) {
+                sf_dos_path(g_sf.entries[u->sel].name, out);
+                good = 1;
+                break;
+            } else if (u->put && sf_name_ok(u->name)) {
+                int exists = 0;
+                for (k = 0; k < g_sf.count; k++)
+                    if (sf_ieq(g_sf.entries[k].name, u->name)) exists = 1 + g_sf.entries[k].is_dir;
+                if (exists == 2) continue;    /* a folder of that name: no */
+                if (exists == 1) {            /* IM SFPutFile: ask to replace */
+                    static char line[FINDER_ALERT_LINE_MAX];
+                    static const char *const rl[2] = { "Replace", "Cancel" };
+                    const char *txt[1];
+                    int i = 0;
+                    const char *pre = "Replace existing \"";
+                    for (; pre[i] != '\0'; i++) line[i] = pre[i];
+                    for (k = 0; u->name[k] != '\0'; k++) line[i++] = u->name[k];
+                    line[i++] = '"'; line[i++] = '?'; line[i] = '\0';
+                    txt[0] = line;
+                    flair_live_alert_open(ctx, bi, txt, 1, rl, 2, 1);
+                    serial_puts("TENANT-SF replace ");
+                    serial_puts(u->name);
+                    serial_putc('\n');
+                    k = (int)flair_live_alert_run(ctx, bi);
+                    sf_draw_static(ctx, u);
+                    sf_draw_dynamic(ctx, u);
+                    flair_desktop_present(bi, &ctx->off);
+                    if (k != 1) continue;
+                }
+                sf_dos_path(u->name, out);
+                good = 1;
+                break;
+            }
+        }
+        sf_draw_dynamic(ctx, u);
+        flair_desktop_present(bi, &ctx->off);
+    }
+    DisposeDialog(&g_sf_dr, (WindowMgr *)0);
+    WindowMgr_invalidate_desktop(ctx->wm, fta_rect(u->l, u->t, u->l + g->w, u->t + g->h));
+    finder_desk_repaint(ctx, bi);
+    return good;
+}
+
+static void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    static sf_ui_t u;
+    static char out[TBX_SF_REPLY_BYTES];
+    const char *prompt, *name;
+    int put, good = 0, k;
+    Cell cs;
+    rgn_rect_t rv;
+
+    if (!tbx_take_sf(&put, &prompt, &name)) return;
+    u.put = put;
+    u.prompt = prompt;
+    u.g = &g_sf_geom[put ? 1 : 0];
+    for (k = 0; name[k] != '\0' && k < (int)TBX_SF_NAME_MAX - 1; k++) u.name[k] = (char)sf_upper(name[k]);
+    u.name[k] = '\0';
+    out[0] = '\0';
+    cs.h = SF_LIST_W; cs.v = SF_ROW_H;
+    rv = fta_rect(0, 0, SF_LIST_W, SF_ROW_H * u.g->rows);
+    if (FlairSF_open(&g_sf, sf_provider, (void *)0, cs, rv) != FLAIR_SF_OK) {
+        serial_puts("TENANT-SF fail open\n");
+    } else {
+        sf_reset_view(&u);
+        good = sf_run(ctx, bi, &u, out);
+    }
+    serial_puts("TENANT-SF-REPLY good=");
+    serial_putu((uint32_t)good);
+    if (good) { serial_puts(" path="); serial_puts(out); }
+    serial_putc('\n');
+    tbx_sf_answer(good, out);
+    flair_live_tenant_service(ctx, bi);
+}
+
 /* Special > Empty Trash, after the shell counted (bead initech-6k12). */
 static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                uint16_t items)
@@ -4956,6 +5487,7 @@ static void tbx_headless_smoke(void)
     th.list = &plist; th.wm = &wm; th.master = &heap; th.surface = &off;
     th.puts = serial_puts;
     th.cellfont = (const uint8_t *)(uintptr_t)FONT_STASH_ADDR;   /* initech-w96l */
+    th.scrap = (FlairScrap *)0;          /* the smoke has no desk scrap (tdnl.16) */
     tbx_bind(&th);
     idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                  (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
@@ -5568,6 +6100,18 @@ void kernel_main(void)
         th.surface = &ctx.off;
         th.puts    = serial_puts;
         th.cellfont = (const uint8_t *)(uintptr_t)b.font_addr;   /* initech-w96l */
+        /* THE DESK SCRAP (bead initech-tdnl.16, absorbing initech-ww9c; spec/
+         * toolbox_gate.h Sec 12): ONE shell-owned FlairScrap, carved once from
+         * the master FLAIR heap here at bring-up, before any tenant, and alive
+         * for the whole desktop -- what one application cuts the next pastes.
+         * A heap that cannot hold it is a broken bring-up: fail loud (Rule 2). */
+        th.scrap = (FlairScrap *)flair_alloc(ctx.master, FLAIR_CLASS_GENERAL,
+                                             (uint32_t)sizeof(FlairScrap));
+        if (th.scrap == (FlairScrap *)0) flair_desktop_oom("desk scrap");
+        FlairScrap_init(th.scrap);
+        serial_puts("FLAIR-SCRAP-READY bytes=");
+        serial_putu((uint32_t)sizeof(FlairScrap));
+        serial_putc('\n');
         tbx_bind(&th);
         idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                      (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);

@@ -51,6 +51,7 @@
 #include "process.h"   /* FlairProcessList, FlairApp, WindowMgr, flair_heap_t */
 #include "surface.h"   /* bitmap_t */
 #include "toolbox_gate.h" /* Sec 11 limits (initech-fvnj) */
+#include "scrap.h"     /* FlairScrap: the desk scrap (spec Sec 12, tdnl.16) */
 
 /* The kernel environment the host drives. Bound once, after the process list
  * and the shell WindowMgr exist. `puts` is the serial sink. */
@@ -63,6 +64,9 @@ typedef struct tbx_host {
     const uint8_t    *cellfont;  /* the VGA ROM 8x16 strike (boot_info.font_addr;
                                   * spec Sec 7a); NULL -> DRAWCELLS draws the
                                   * cell backgrounds only (bead initech-w96l) */
+    FlairScrap       *scrap;     /* the shell's ONE desk scrap (spec Sec 12,
+                                  * bead initech-tdnl.16); NULL -> the Scrap
+                                  * codes answer BADCODE */
 } tbx_host_t;
 
 void tbx_bind(const tbx_host_t *host);
@@ -152,6 +156,28 @@ int  tbx_close_ask(const WindowRecord *w);
 int  tbx_take_alert(const char *lines[TBX_ALERT_LINES], uint32_t *n,
                     const char *btns[3], uint32_t *nb);
 void tbx_alert_answer(uint32_t item);
+
+/* STANDARD FILE, TRACKING, THE BAR (bead initech-tdnl.16; spec Sec 13-15).
+ *
+ * tbx_take_sf: 1 (once) when the tenant asked SFGETFILE (*put 0) or
+ * SFPUTFILE (*put 1, with the copied prompt and default name) since the last
+ * take. The caller runs the shell's Standard File dialog and then
+ * tbx_sf_answer(good, path): good copies `path` (the DOS path from the volume
+ * root) into the reply buffer validated at the ask and pushes TBX_EVT_SFREPLY
+ * Message 1; !good pushes Message 0. The caller services the tenant after.
+ *
+ * tbx_take_track: 1 (once) when the tenant asked TRACKMOUSE inside its
+ * mouseDown (*from = that mouseDown's point). The caller follows the pointer to mouseUp, calling
+ * tbx_track_push(0, where) per moved sample and tbx_track_push(1, where) at
+ * the release, presenting after each (tbx_take_drew).
+ *
+ * tbx_take_bar_dirty: 1 (once) when SETSCROLL changed the window's bar; the
+ * caller repaints the chrome damage and presents. */
+int  tbx_take_sf(int *put, const char **prompt, const char **name);
+void tbx_sf_answer(int good, const char *path);
+int  tbx_take_track(flair_point_t *from);
+void tbx_track_push(int up, flair_point_t where);
+int  tbx_take_bar_dirty(void);
 
 /* THE GATE (called by os/milton/tbx_gate.asm with &int_frame_t). */
 void tbx_gate_dispatch(uint8_t *frame);
