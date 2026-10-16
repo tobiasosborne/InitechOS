@@ -1,0 +1,9 @@
+% initech-manual.ist -- makeindex style for initech-manual.cls (initech-ipu5.5).
+% Letter groups headed in Helvetica Condensed Bold; chapter-page folios
+% ("2-5") use the default '-' page compositor, so makeindex sorts them.
+headings_flag 1
+heading_prefix "\\IndexLetter{"
+heading_suffix "}"
+delim_0 ", "
+delim_1 ", "
+delim_2 ", "

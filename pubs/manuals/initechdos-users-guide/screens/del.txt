@@ -1,0 +1,25 @@
+A:\>DEL MEMO.BAK
+A:\>TYPE MEMO.BAK
+File not found
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

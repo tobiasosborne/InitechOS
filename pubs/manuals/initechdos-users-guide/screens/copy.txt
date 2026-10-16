@@ -1,0 +1,25 @@
+A:\>COPY MEMO.TXT MEMO.BAK
+        1 file(s) copied
+A:\>DIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\
+
+README   TXT      279   2-17-92   4:05p
+MEMO     TXT      258   2-28-92  11:42a
+PHONE    TXT      263   3-02-92   8:51a
+MEMO     BAK      258   0-00-80  12:00a
+
+        4 File(s)   1455616 bytes free
+A:\>
+
+
+
+
+
+
+
+
+
+

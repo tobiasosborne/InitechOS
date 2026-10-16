@@ -1,0 +1,35 @@
+% InitechDOS Version 3.30 User's Guide -- part 1024-3300-12.
+% Bead initech-ipu5.5: the specimen for the Initech Publications toolchain.
+% Plan: docs/packaging/INITECH-DOCUMENTATION-SET.md Sec 1 (the IBM DOS 3.30
+% "User's Guide": first-time setup and daily use, 64-96 pages finished).
+% This is the DRAFT START: front matter, Chapters 1-2, an appendix stub and the
+% back matter.  Every statement about the software is checked against the
+% shipped build (os/milton/command.c, ADR-0003, spec/); what is not yet
+% checked carries a visible \draft marker (D-14: gated behaviour only).
+% Screens are captured from the running OS: screens/SCREENS, `make pubs-screens`.
+\documentclass{initech-manual}
+
+\ProductName{InitechDOS}
+\ProductVersion{Version 3.30}
+\DocTitle{User's Guide}
+\PartNumber{1024-3300-12}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to Version 3.30 of InitechDOS and to all
+  subsequent releases until otherwise indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\PrintedIn{Germany}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{ch1-introduction}
+\input{ch2-getting-started}
+\appendix
+\input{appa-messages}
+\printindex
+\ReadersCommentForm
+\end{document}

@@ -1,0 +1,9 @@
+# latexmkrc for the Initech Publications build (bead initech-ipu5.5).
+# LuaLaTeX (D-11); the index style is resolved through INDEXSTYLE, which the
+# Makefile points at pubs/class.  Reproducibility (Rule 11) comes from the
+# Makefile's SOURCE_DATE_EPOCH / FORCE_SOURCE_DATE and the class's
+# \pdfvariable suppressoptionalinfo.
+$pdf_mode = 4;
+$lualatex = ($ENV{LUALATEX} || 'lualatex') . ' -interaction=nonstopmode -halt-on-error -file-line-error %O %S';
+$makeindex = 'makeindex -q -s initech-manual.ist %O -o %D %S';
+$max_repeat = 6;

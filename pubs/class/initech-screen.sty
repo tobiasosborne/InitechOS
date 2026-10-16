@@ -1,0 +1,107 @@
+%% initech-screen.sty -- 80x25 screen reproductions for initech-manual.cls.
+%% Bead initech-ipu5.5.  A screen is a text file captured from the RUNNING OS
+%% (pubs/screens/capture.sh: QEMU screendump -> harness/console_text), never
+%% text typed into the manual (CLAUDE.md Law 2).  The macro refuses a file that
+%% is not exactly 25 lines of at most 80 printable ASCII characters, so a
+%% hand-edited or truncated capture cannot reach print (Rule 2).
+%%
+%%   \Screen[rows=N, label=key]{file}{caption}
+%%
+%% The frame is always 80 columns wide and spans the full 140 mm measure
+%% (Courier at 8 pt sets 80 columns in 135.5 mm).  rows=N prints only the top
+%% N rows, as period manuals printed partial screens; the rows left out must be
+%% blank, so cropping can never hide output.  Caption below in 8 pt Helvetica
+%% (DESIGN-SYSTEM.md Sec 5 "Figures").
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-screen}[1992/03/01 Initech screen reproductions]
+
+\newcommand\imScreenFont{\ttfamily\fontsize{8}{9.5}\selectfont}
+
+\directlua{
+initech_screen = {}
+function initech_screen.typeset(path, rows)
+  local f = io.open(path, "rb")
+  if not f then
+    tex.error("initech-screen: cannot open screen capture " .. path)
+    return
+  end
+  local data = f:read("*a")
+  f:close()
+  local lines = {}
+  for line in string.gmatch(data, "([^\string\n]*)\string\n") do
+    lines[\string#lines + 1] = line
+  end
+  if \string#lines \string~= 25 then
+    tex.error("initech-screen: " .. path .. " has " .. \string#lines ..
+      " lines; a screen capture has exactly 25")
+    return
+  end
+  for i, line in ipairs(lines) do
+    if \string#line > 80 then
+      tex.error("initech-screen: " .. path .. " line " .. i .. " is wider than 80 columns")
+      return
+    end
+    if string.find(line, "[^\string\032-\string\126]") then
+      tex.error("initech-screen: " .. path .. " line " .. i .. " is not printable ASCII")
+      return
+    end
+    if i > rows and string.find(line, "[^ ]") then
+      tex.error("initech-screen: " .. path .. " rows=" .. rows ..
+        " would hide text on line " .. i)
+      return
+    end
+  end
+  for i = 1, rows do
+    local out = {}
+    local line = lines[i]
+    for j = 1, 80 do
+      local c = string.byte(line, j)
+      if c == nil or c == 32 then
+        out[\string#out + 1] = "\string\\ "
+      elseif (c >= 48 and c <= 57) or (c >= 65 and c <= 90) or (c >= 97 and c <= 122) then
+        out[\string#out + 1] = string.char(c)
+      else
+        out[\string#out + 1] = "\string\\char" .. c .. "\string\\relax "
+      end
+    end
+    tex.sprint("\string\\hbox{\string\\strut " .. table.concat(out) .. "}")
+  end
+end
+}
+
+\ExplSyntaxOn
+\keys_define:nn { initech / screen }
+  {
+    rows  .int_set:N = \l__initech_screen_rows_int ,
+    rows  .initial:n = 25 ,
+    label .tl_set:N  = \l__initech_screen_label_tl ,
+    label .initial:n = ,
+  }
+\NewDocumentCommand \Screen { O{} m m }
+  {
+    \group_begin:
+    \keys_set:nn { initech / screen } { #1 }
+    \int_compare:nNnT { \l__initech_screen_rows_int } < { 1 }
+      { \PackageError{initech-screen}{rows~must~be~1..25}{} }
+    \int_compare:nNnT { \l__initech_screen_rows_int } > { 25 }
+      { \PackageError{initech-screen}{rows~must~be~1..25}{} }
+    \par\addvspace{6.5pt}
+    \noindent\hspace*{-\imHang}
+    \begin{minipage}[t]{\imFullWidth}
+      \centering
+      \setlength\fboxrule{0.5pt}\setlength\fboxsep{2mm}
+      \fbox{\vbox{\imScreenFont\spaceskip=0.6em\xspaceskip=0.6em
+        \directlua{initech_screen.typeset("\luaescapestring{#2}",
+          \int_use:N \l__initech_screen_rows_int)}}}
+      \par\vspace{4pt}
+      \refstepcounter{figure}
+      \tl_if_empty:NF \l__initech_screen_label_tl
+        { \label{ \l__initech_screen_label_tl } }
+      {\imCaptionFont Figure~\thefigure.\enspace #3\par}
+    \end{minipage}
+    \par\addvspace{6.5pt}
+    \group_end:
+  }
+\ExplSyntaxOff
+
+\endinput
