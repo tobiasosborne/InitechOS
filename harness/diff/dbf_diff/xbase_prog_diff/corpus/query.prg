@@ -5,9 +5,10 @@
 * Corpus citation: ../dbase3-decomp/specs/commands/navigation-query-display.md
 *   sec on LIST (recno column + fields), GO/GOTO, LOCATE FOR / FOUND(), RECNO(),
 *   ? expression display; FOR visits every record (no early stop).
-* Manual-derived heading/column layout, no local LIST output golden:
-* Using III+ U5-235/PDF 347, U5-144/PDF 256.
-* LIST renders: recno right-justified width 8, space, then each field in display
+* Layout re-keyed initech-31d1: real M005U/M005N transcripts
+* (dbase3-decomp/re/mint-results-005.md): program-opening CR LF, no padding
+* after the final heading; Using III+ U5-235/PDF 347, U5-144/PDF 256.
+* LIST renders: recno right-justified width 7, TWO spaces, then fields in display
 *   width (CODE left-just 3, QTY right of its column, OK as T/F).
 USE PARTS
 ? RECNO()
