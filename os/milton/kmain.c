@@ -3336,9 +3336,8 @@ static void flair_tenant_mount_volume(void)
         int bind_rc;
 
         serial_puts("FLAIR-FAT-MOUNT-OK\n");
-        /* The INT 25h/26h device, bound only if the user exits to the
-         * InitechDOS prompt (bead initech-3p1a, flair_exit_to_dos). */
-        g_absdisk_dev = &ften_fatdev;
+        /* The INT 25h/26h volume is bound below (bind_absdisk_volume, DEC-07a partition
+         * base); the exit-to-DOS hand-off (bead initech-3p1a) connects the vectors to it. */
         bind_rc = fileio_fat_bind(&ften_vol);
         if (bind_rc == FAT12_OK) {
             bind_absdisk_volume(&ften_vol, &ften_fatdev);
@@ -5366,7 +5365,7 @@ static void flair_exit_to_dos(const boot_info_t *bi)
      * INT 25h/26h on the flagship volume's device (CHKDSK.COM lives in APPS). */
     int21_set_exec_backend(loader_exec_by_name);
     int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
-    if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_dev != 0) {
+    if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_vol.dev != 0) {
         int21_absdisk_backend_t absdisk;
         absdisk.read          = int21_absdisk_read;
         absdisk.write         = int21_absdisk_write;
