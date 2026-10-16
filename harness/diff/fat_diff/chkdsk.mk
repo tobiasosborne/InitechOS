@@ -42,7 +42,7 @@ $(foreach m,$(CHKDSK_MUTANTS),$(eval $(call chkdsk-mutant,$(m))))
 $(BUILD)/kmain_chkdsk_cache.o: $(KERNEL_MAIN_C) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -DCHKDSK_MUT_CACHE -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_chkdsk_cache.elf: $(filter-out $(KERNEL_SECONDARY_SHELL_MAIN_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/kmain_chkdsk_cache.o $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter %.o,$^)
+	$(KERNEL_LINK) -o $@ $(filter %.o,$^)
 $(BUILD)/kernel_chkdsk_cache.bin: $(BUILD)/kernel_chkdsk_cache.elf
 	$(OBJCOPY) -O binary $< $@
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \

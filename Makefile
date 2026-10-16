@@ -290,7 +290,7 @@ KERNEL_SECTORS  := 384
 # as KERNEL_SIZE_OPT_R2 below). Loaded bytes (.text*+.rodata*+.data*), measured:
 # kmain_flairtenants 34,130 -> 30,812; the family's largest kernel -9,056 B.
 # Still only the FLAIRTENANTS family changes; every other image is byte-identical.
-KERNEL_TENANTS_OPT := -Os -fno-strict-aliasing --param=min-pagesize=0
+KERNEL_TENANTS_OPT = -Os -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
 # High-kernel bounce capacity (docs/design/kernel-runway-relocation.md K2;
 # bead initech-tdnl.29). stage2's unchanged real-mode loop starts at
 # KERNEL_BOUNCE_BASE and may consume at most KERNEL_BOUNCE_CAP bytes, ending
@@ -461,7 +461,7 @@ test-kernel-headroom-mutant:
 		[ "$$pad" -gt 0 ] || { printf '!!! test-kernel-headroom-mutant: flagship already within the floor (pad=%s)\n' "$$pad"; exit 1; }; \
 		printf 'section .data align=1\nglobal khr_headroom_pad\nkhr_headroom_pad:\ntimes %d db 0x5A\n' "$$pad" > $(KHR_MUT_ASM); \
 		$(NASM) -f elf32 $(KHR_MUT_ASM) -o $(KHR_MUT_OBJ) || exit 1; \
-		$(LD) $(KERNEL_GC_LDFLAGS) --undefined=khr_headroom_pad -m elf_i386 -T $(KERNEL_LD) -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \
+		$(KERNEL_LINK) -u khr_headroom_pad -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \
 		$(OBJCOPY) -O binary $(KHR_MUT_ELF) $(BUILD)/.khr_mut.tmp; \
 		got=$$(( win - $$(wc -c < $(BUILD)/.khr_mut.tmp) )); rm -f $(BUILD)/.khr_mut.tmp; \
 		[ "$$got" -eq "$$want" ] || { printf '!!! test-kernel-headroom-mutant: pad kernel headroom %s != intended %s (layout assumption broke)\n' "$$got" "$$want"; exit 1; }; \
@@ -664,6 +664,21 @@ KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector 
 # Keep separate from KERNEL_CFLAGS: TENANT_CFLAGS inherits that base policy.
 KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections
 KERNEL_GC_LDFLAGS := --gc-sections
+# Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
+# cold-object optimisation. Native hot objects remain outside LTO.
+# Ref: PRD Sec 5/6.1/6.3/7; docs/worklog/WL-0127-kernel-size-round3.md.
+# The six file-at-a-time -Oz probes saved only 416 binding bytes. Selected
+# cold managers can additionally share/constant-fold code across TU boundaries.
+# Do not apply to the native blitter, ATKINSON, text, loader, event ring or
+# hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
+# Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
+KERNEL_COLD_LTO_FLAGS = -flto -Oz
+KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz \
+              -Wl,--build-id=none $(foreach flag,$(KERNEL_GC_LDFLAGS),-Xlinker $(flag)) -T $(KERNEL_LD)
+FLAIR_FINDER_OPS_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_STDFILE_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_LIST_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_WINDOW_OPT = -Os $(KERNEL_COLD_LTO_FLAGS)
 # KERNEL SIZE POLICY -- per-object optimisation levels (bead initech-8z9j).
 # KERNEL_CFLAGS carries NO -O level (gcc default -O0); KERNEL_SECTORS=384 is AT
 # the ratified K2 bounce ceiling, so the window cannot grow. Instead the largest
@@ -692,12 +707,12 @@ KERNEL_GC_LDFLAGS := --gc-sections
 # 196,608 B window); flagship kernel_flairtenants 194,212 -> 157,732 B (2,396 ->
 # 38,876 B). Guarded by test-kernel-headroom (mutant-aware, floor 4,096 B).
 # Boot frame (mbr.bin/stage2.bin) and KERNEL_SECTORS are untouched.
-KERNEL_INT21_OPT   := -Os
-KERNEL_FAT12_OPT   := -Os
-FLAIR_CONTROL_OPT  := -Os
-FLAIR_CHROME_OPT   := -Os
-FLAIR_DIALOG_OPT   := -Os
-FLAIR_MENU_OPT     := -Os
+KERNEL_INT21_OPT   := -Oz $(KERNEL_COLD_LTO_FLAGS)
+KERNEL_FAT12_OPT   := -Os $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_CONTROL_OPT  := -Os $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_CHROME_OPT   := -Os $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_DIALOG_OPT   := -Oz $(KERNEL_COLD_LTO_FLAGS)
+FLAIR_MENU_OPT     := -Os $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_REGION_OPT   := -Os
 # ROUND 2 (bead initech-opms, 2026-10-15; docs/design/kernel-size-policy-round2.md
 # Sec 3 lever B): the remaining SHARED -O0 objects that are pure logic -- no
@@ -722,19 +737,19 @@ FLAIR_REGION_OPT   := -Os
 # volatile ordering of head vs the non-volatile slot copy), and the hardware
 # drivers (ata/kbd/mouse/pic/irq/pit/idt/panic: port-I/O timing, ~3 KiB total).
 KERNEL_SIZE_OPT_R2    := -Os -fno-strict-aliasing
-KERNEL_FILEIO_FAT_OPT := $(KERNEL_SIZE_OPT_R2)
-KERNEL_DEVICES_OPT    := $(KERNEL_SIZE_OPT_R2)
-KERNEL_CONSOLE_OPT    := $(KERNEL_SIZE_OPT_R2)
+KERNEL_FILEIO_FAT_OPT := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
+KERNEL_DEVICES_OPT    := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
+KERNEL_CONSOLE_OPT    := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_MCB_OPT        := $(KERNEL_SIZE_OPT_R2)
-KERNEL_SYSINIT_OPT    := $(KERNEL_SIZE_OPT_R2)
-KERNEL_CONFIG_SYS_OPT := $(KERNEL_SIZE_OPT_R2)
-KERNEL_SFT_OPT        := $(KERNEL_SIZE_OPT_R2)
-KERNEL_PSP_OPT        := $(KERNEL_SIZE_OPT_R2)
+KERNEL_SYSINIT_OPT    := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
+KERNEL_CONFIG_SYS_OPT := -Oz -fno-strict-aliasing $(KERNEL_COLD_LTO_FLAGS)
+KERNEL_SFT_OPT        := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
+KERNEL_PSP_OPT        := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_BLITTER_OPT     := $(KERNEL_SIZE_OPT_R2)
 FLAIR_SHELL_OPT       := $(KERNEL_SIZE_OPT_R2)
 FLAIR_CURSOR_OPT      := $(KERNEL_SIZE_OPT_R2)
 FLAIR_LOOK_OPT        := $(KERNEL_SIZE_OPT_R2)
-FLAIR_HEAP_OPT        := $(KERNEL_SIZE_OPT_R2)
+FLAIR_HEAP_OPT        := $(KERNEL_SIZE_OPT_R2) $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_DESKTOP_OPT     := $(KERNEL_SIZE_OPT_R2)
 FLAIR_SURFACE_OPT     := $(KERNEL_SIZE_OPT_R2)
 KERNEL_LD     := $(KERNEL_DIR)/kernel.ld
@@ -8351,7 +8366,7 @@ $(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spe
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
 
 $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(WINDOW_INC) -c os/flair/window.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_WINDOW_OPT) $(WINDOW_INC) -c os/flair/window.c -o $@
 
 # R1 geometry operations are linked only into interactive FLAIR images. The
 # base DOS/static kernels keep the smaller Window Manager object; otherwise
@@ -8359,7 +8374,7 @@ $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h o
 # Like rtc.o's established size profile, -Os is deterministic and keeps the
 # shared Manager inside PROGRAM_BASE without changing its C contract.
 $(KERNEL_WINDOW_LIVE_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -DWINDOW_ENABLE_R1_OPS $(WINDOW_INC) -c os/flair/window.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_WINDOW_OPT) -DWINDOW_ENABLE_R1_OPS $(WINDOW_INC) -c os/flair/window.c -o $@
 
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_BLITTER_OPT) $(BLITTER_INC) -c os/flair/blitter.c -o $@
@@ -8691,7 +8706,7 @@ KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KE
 # their own lists below. Link-verified clean without it.
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_OBJS)
 
 # --- Self-test fault kernel (beads initech-a5a; make test-panic) -----------
 # Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
@@ -8709,7 +8724,7 @@ KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_ISR_OBJ)
 
 $(KERNEL_FAULT_ELF): $(KERNEL_FAULT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FAULT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FAULT_OBJS)
 
 $(KERNEL_FAULT_BIN): $(KERNEL_FAULT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8775,7 +8790,7 @@ $(BUILD)/sysinit_fpu_absent_mut_em.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
 # other kernel; the .bin is enumerated by test-kernel-headroom automatically.
 define fpu-kernel-rules
 $(BUILD)/kernel_fpu_$(1).elf: $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3)
 
 $(BUILD)/kernel_fpu_$(1).bin: $(BUILD)/kernel_fpu_$(1).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -8818,7 +8833,7 @@ KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL
                         $(KERNEL_ISR_OBJ)
 
 $(KERNEL_SPURIOUS_ELF): $(KERNEL_SPURIOUS_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SPURIOUS_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_SPURIOUS_OBJS)
 
 $(KERNEL_SPURIOUS_BIN): $(KERNEL_SPURIOUS_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8855,7 +8870,7 @@ KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_ECHO_ELF): $(KERNEL_ECHO_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ECHO_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_ECHO_OBJS)
 
 $(KERNEL_ECHO_BIN): $(KERNEL_ECHO_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8894,7 +8909,7 @@ KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_ISR_OBJ)
 
 $(KERNEL_CONIN_ELF): $(KERNEL_CONIN_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_CONIN_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_CONIN_OBJS)
 
 $(KERNEL_CONIN_BIN): $(KERNEL_CONIN_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8933,7 +8948,7 @@ KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_VECT_ELF): $(KERNEL_VECT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_VECT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_VECT_OBJS)
 
 $(KERNEL_VECT_BIN): $(KERNEL_VECT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8972,7 +8987,7 @@ KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_C
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_ABSDISK_ELF): $(KERNEL_ABSDISK_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ABSDISK_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_ABSDISK_OBJS)
 
 $(KERNEL_ABSDISK_BIN): $(KERNEL_ABSDISK_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9012,7 +9027,7 @@ KERNEL_MEMTEST_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_C
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_MEMTEST_ELF): $(KERNEL_MEMTEST_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_MEMTEST_OBJS)
 
 $(KERNEL_MEMTEST_BIN): $(KERNEL_MEMTEST_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9045,7 +9060,7 @@ KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERN
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_MEMTEST_MUT_ELF): $(KERNEL_MEMTEST_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_MEMTEST_MUT_OBJS)
 
 $(KERNEL_MEMTEST_MUT_BIN): $(KERNEL_MEMTEST_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9078,7 +9093,7 @@ KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_EXEC_ELF): $(KERNEL_EXEC_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXEC_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_EXEC_OBJS)
 
 $(KERNEL_EXEC_BIN): $(KERNEL_EXEC_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9159,9 +9174,9 @@ KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_
 KERNEL_MZFOREIGN_OBJS := $(filter-out $(KERNEL_MZEXEC_MAIN_OBJ),$(KERNEL_MZEXEC_OBJS)) $(KERNEL_MZFOREIGN_MAIN_OBJ)
 
 $(KERNEL_MZEXEC_ELF): $(KERNEL_MZEXEC_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZEXEC_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_MZEXEC_OBJS)
 $(KERNEL_MZFOREIGN_ELF): $(KERNEL_MZFOREIGN_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZFOREIGN_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_MZFOREIGN_OBJS)
 
 $(KERNEL_MZEXEC_BIN): $(KERNEL_MZEXEC_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9240,7 +9255,7 @@ KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_WRITE_ELF): $(KERNEL_WRITE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_WRITE_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_WRITE_OBJS)
 
 $(KERNEL_WRITE_BIN): $(KERNEL_WRITE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9278,7 +9293,7 @@ KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERN
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_MULTIOPEN_ELF): $(KERNEL_MULTIOPEN_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MULTIOPEN_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_MULTIOPEN_OBJS)
 
 $(KERNEL_MULTIOPEN_BIN): $(KERNEL_MULTIOPEN_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9315,7 +9330,7 @@ KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_DATETIME_ELF): $(KERNEL_DATETIME_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_DATETIME_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_DATETIME_OBJS)
 
 $(KERNEL_DATETIME_BIN): $(KERNEL_DATETIME_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9361,7 +9376,7 @@ KERNEL_IRQSTORM_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MAIN_OB
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_OBJ)
 
 $(KERNEL_IRQSTORM_ELF): $(KERNEL_IRQSTORM_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_IRQSTORM_OBJS)
 
 $(KERNEL_IRQSTORM_BIN): $(KERNEL_IRQSTORM_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9400,7 +9415,7 @@ KERNEL_IRQSTORM_MUTA_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MU
                     $(KERNEL_INT21_SEAM_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_MUT_SCRIBBLE_OBJ)
 
 $(KERNEL_IRQSTORM_MUTA_ELF): $(KERNEL_IRQSTORM_MUTA_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTA_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_IRQSTORM_MUTA_OBJS)
 
 $(KERNEL_IRQSTORM_MUTA_BIN): $(KERNEL_IRQSTORM_MUTA_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9429,7 +9444,7 @@ KERNEL_IRQSTORM_MUTB_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MU
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_MUT_INT21_OBJ)
 
 $(KERNEL_IRQSTORM_MUTB_ELF): $(KERNEL_IRQSTORM_MUTB_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTB_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_IRQSTORM_MUTB_OBJS)
 
 $(KERNEL_IRQSTORM_MUTB_BIN): $(KERNEL_IRQSTORM_MUTB_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9463,7 +9478,7 @@ KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_EXITH_ELF): $(KERNEL_EXITH_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_EXITH_OBJS)
 
 $(KERNEL_EXITH_BIN): $(KERNEL_EXITH_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9504,7 +9519,7 @@ KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERN
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_EXITH_MUT_ELF): $(KERNEL_EXITH_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_EXITH_MUT_OBJS)
 
 $(KERNEL_EXITH_MUT_BIN): $(KERNEL_EXITH_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9542,7 +9557,7 @@ KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_SYSI_ELF): $(KERNEL_SYSI_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SYSI_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_SYSI_OBJS)
 
 $(KERNEL_SYSI_BIN): $(KERNEL_SYSI_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9587,7 +9602,7 @@ KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SH
 $(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
 $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
 	$(OBJCOPY) -O binary $< $@
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
@@ -9601,7 +9616,7 @@ $(SECONDARY_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_secondar
 # conventional runway. The FLAIR desktop kernels keep their own lists below.
 
 $(KERNEL_SHELL_ELF): $(KERNEL_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SHELL_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_SHELL_OBJS)
 
 $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9635,7 +9650,7 @@ KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KE
                           $(KERNEL_FLAIR_OBJS)
 
 $(KERNEL_FLAIRSHELL_ELF): $(KERNEL_FLAIRSHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRSHELL_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRSHELL_OBJS)
 
 $(KERNEL_FLAIRSHELL_BIN): $(KERNEL_FLAIRSHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9678,7 +9693,7 @@ KERNEL_FLAIRLIVE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) $(KERN
                           $(subst $(KERNEL_WINDOW_OBJ),$(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIR_OBJS))
 
 $(KERNEL_FLAIRLIVE_ELF): $(KERNEL_FLAIRLIVE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_OBJS)
 
 $(KERNEL_FLAIRLIVE_BIN): $(KERNEL_FLAIRLIVE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9708,7 +9723,7 @@ $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ): $(KERNEL_FLAIRLIVE_MAIN_OBJ) | $(BUILD)
 KERNEL_FLAIRLIVE_NOMODAL_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_OBJS)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9739,7 +9754,7 @@ $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h os/flair/
 KERNEL_FLAIRLIVE_MUT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_ELF): $(KERNEL_FLAIRLIVE_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_MUT_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_BIN): $(KERNEL_FLAIRLIVE_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9766,7 +9781,7 @@ $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KER
 KERNEL_FLAIRLIVE_MUT_KBD_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_KBD_ELF): $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_KBD_BIN): $(KERNEL_FLAIRLIVE_MUT_KBD_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9796,7 +9811,7 @@ $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KE
 KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF): $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN): $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9827,7 +9842,7 @@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/p
 KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9856,7 +9871,7 @@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ): $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_O
 KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ),$(KERNEL_FLAIRLIVE_NOMODAL_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9887,7 +9902,7 @@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ): $(KERNEL_FLAIRLIVE_NOMODAL_MAI
 KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ),$(KERNEL_FLAIRLIVE_NOMODAL_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9917,7 +9932,7 @@ $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(K
 KERNEL_FLAIRLIVE_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
 
 $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9968,7 +9983,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 # kernels, so every other image stays byte-identical.
 # -Os by MEASUREMENT (the initech-8z9j size policy): tbxgate.o text is
 # 9,266 B at -O1, 7,606 B at -Os, 11,285 B at -O2.
-TBXGATE_OPT            := -Os
+TBXGATE_OPT            := -Os $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
 TBXGATE_DEPS := os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
@@ -9986,9 +10001,9 @@ KERNEL_LIST_OBJ    := $(BUILD)/list.o
 $(KERNEL_SCRAP_OBJ): os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ispec -c os/flair/scrap.c -o $@
 $(KERNEL_STDFILE_OBJ): os/flair/stdfile.c os/flair/stdfile.h os/flair/list.h spec/region_algebra.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/stdfile.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_STDFILE_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/stdfile.c -o $@
 $(KERNEL_LIST_OBJ): os/flair/list.c os/flair/list.h spec/region_algebra.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/list.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_LIST_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/list.c -o $@
 
 KERNEL_PROCESS_OBJ := $(BUILD)/process.o
 $(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
@@ -10028,7 +10043,7 @@ $(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.
 FINDER_OPS_KDEPS := os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/surface.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 KERNEL_FINDER_OPS_OBJ := $(BUILD)/finder_ops.o
 $(KERNEL_FINDER_OPS_OBJ): $(FINDER_OPS_KDEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_FINDER_OPS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
 
 # The R3 Finder COMMAND-TABLE SPINE object (bead initech-tdnl.27 / slice
 # tdnl.9a): one table, one finder_dispatch. R3.3 links it for real -- the
@@ -10284,7 +10299,7 @@ KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
 
 $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10313,7 +10328,7 @@ KERNEL_FLAIRTENANTS_DB_SKIP_OBJS := \
 	$(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ)
 
 $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF): $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS)
 
 $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN): $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10361,7 +10376,7 @@ $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ)
 
 $(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
 
 $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10410,10 +10425,10 @@ run-flair-tenants: $(FLAIRTENANTS_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
 # $(call flair-tenants-proc-mutant-rules,<KNOB>,<tag>): a Layer-5-dispatcher mutant.
 define flair-tenants-proc-mutant-rules
 $(BUILD)/process_mut_$(2).o: os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10441,7 +10456,7 @@ $(BUILD)/tbxgate_mut_$(2).o: $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10470,7 +10485,7 @@ $(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10513,7 +10528,7 @@ $(BUILD)/desktop_mut_$(2).o: os/flair/desktop.c os/flair/desktop.h os/flair/wind
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DESKTOP_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed -D$(1) -c os/flair/desktop.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10555,10 +10570,10 @@ endef
 # template above documents).
 define flair-tenants-window-mutant-rules
 $(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_WINDOW_OPT) -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10634,7 +10649,7 @@ $(BUILD)/finder_desktop_mut_$(2).o: os/flair/finder_desktop.c os/flair/finder_de
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10674,10 +10689,10 @@ $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_HILITE,de
 # Prereqs + flags spelled LITERALLY (the $(eval)-expands-once hazard above).
 define flair-tenants-finderops-mutant-rules
 $(BUILD)/finder_ops_mut_$(2).o: os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/window.h os/flair/winscroll.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_FINDER_OPS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10715,7 +10730,7 @@ $(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_wi
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10766,7 +10781,7 @@ $(BUILD)/finder_menu_mut_$(2).o: os/flair/finder_menu.c os/flair/finder_menu.h o
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10865,7 +10880,7 @@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(K
 KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF): $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN): $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10889,7 +10904,7 @@ $(FLAIRLIVE_MUT_MOUSE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUS
 KERNEL_FLAIRLIVE_MUT_EOI_OBJS := $(filter-out $(KERNEL_MOUSE_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_MOUSE_MUT_EOI_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_EOI_ELF): $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_EOI_BIN): $(KERNEL_FLAIRLIVE_MUT_EOI_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -11088,7 +11103,7 @@ $(BUILD)/flair_shell_mut_$(2).o: $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/fla
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_SHELL_OPT) -D$(1) $(SHELL_INC) -c $(SHELL_C) -o $$@
 
 $(BUILD)/kernel_flairshell_mut_$(2).elf: $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o
 
 $(BUILD)/kernel_flairshell_mut_$(2).bin: $(BUILD)/kernel_flairshell_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -12701,7 +12716,7 @@ $(TEST_WINDOW_MUT_CONTENT_OVER_HSCROLL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
 	@$(TEST_WINDOW)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_WINDOW_OPT) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
@@ -20894,7 +20909,7 @@ $(BUILD)/finder_windows_mut_l002.o: os/flair/finder_windows.c os/flair/finder_wi
 $(BUILD)/fat12_mut_l002.o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FAT12_OPT) -DFAT12_MUTATE_STALE_DIR_TRUSTED -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_flairtenants_mut_l002.elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o
 $(BUILD)/kernel_flairtenants_mut_l002.bin: $(BUILD)/kernel_flairtenants_mut_l002.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -22965,7 +22980,7 @@ $(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_d
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
 $(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o
 
 $(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recorddbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -22994,7 +23009,7 @@ FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
 # demo bound only; nothing an oracle grades changes.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,recordlong))
 $(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o
 $(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_recordlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -23070,7 +23085,7 @@ RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
 # meaning and its repro sha.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000,recordxlong))
 $(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
 $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -25003,7 +25018,7 @@ $(OJXN_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 OJXN_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(OJXN_MUT_COMMAND_OBJ)
 
 $(OJXN_MUT_SHELL_ELF): $(OJXN_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(OJXN_MUT_SHELL_OBJS)
+	$(KERNEL_LINK) -o $@ $(OJXN_MUT_SHELL_OBJS)
 
 $(OJXN_MUT_SHELL_BIN): $(OJXN_MUT_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25201,7 +25216,7 @@ $(WINH_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 WINH_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(WINH_MUT_COMMAND_OBJ)
 
 $(WINH_MUT_SHELL_ELF): $(WINH_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(WINH_MUT_SHELL_OBJS)
+	$(KERNEL_LINK) -o $@ $(WINH_MUT_SHELL_OBJS)
 
 $(WINH_MUT_SHELL_BIN): $(WINH_MUT_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25366,7 +25381,7 @@ $(UT6D_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 UT6D_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(UT6D_COMMAND_MUT_OBJ)
 
 $(UT6D_SHELL_MUT_ELF): $(UT6D_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(UT6D_SHELL_MUT_OBJS)
 
 $(UT6D_SHELL_MUT_BIN): $(UT6D_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25407,7 +25422,7 @@ $(UT6D_COMMAND_RDNOOP_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
 UT6D_SHELL_RDNOOP_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(UT6D_COMMAND_RDNOOP_OBJ)
 
 $(UT6D_SHELL_RDNOOP_ELF): $(UT6D_SHELL_RDNOOP_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_RDNOOP_OBJS)
+	$(KERNEL_LINK) -o $@ $(UT6D_SHELL_RDNOOP_OBJS)
 
 $(UT6D_SHELL_RDNOOP_BIN): $(UT6D_SHELL_RDNOOP_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25726,7 +25741,7 @@ $(ZS24EXEC_INT21_MUT_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)
 ZS24EXEC_SHELL_REJECT_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_INT21_MUT_OBJ)
 
 $(ZS24EXEC_SHELL_REJECT_ELF): $(ZS24EXEC_SHELL_REJECT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_REJECT_OBJS)
+	$(KERNEL_LINK) -o $@ $(ZS24EXEC_SHELL_REJECT_OBJS)
 
 $(ZS24EXEC_SHELL_REJECT_BIN): $(ZS24EXEC_SHELL_REJECT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25763,7 +25778,7 @@ $(ZS24EXEC_LOADER_MUT_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_D
 ZS24EXEC_SHELL_ROOTONLY_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_LOADER_MUT_OBJ)
 
 $(ZS24EXEC_SHELL_ROOTONLY_ELF): $(ZS24EXEC_SHELL_ROOTONLY_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_ROOTONLY_OBJS)
+	$(KERNEL_LINK) -o $@ $(ZS24EXEC_SHELL_ROOTONLY_OBJS)
 
 $(ZS24EXEC_SHELL_ROOTONLY_BIN): $(ZS24EXEC_SHELL_ROOTONLY_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -28164,7 +28179,7 @@ modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' $(1) \
 $(BUILD)/event_mut_set1.o: os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
 $(BUILD)/kernel_flairtenants_mut_set1.elf: $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o
 $(BUILD)/kernel_flairtenants_mut_set1.bin: $(BUILD)/kernel_flairtenants_mut_set1.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -28319,7 +28334,7 @@ menu-long-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
 $(BUILD)/menu_mut_trackcap.o: os/flair/menu.c os/flair/menu.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -DMENU_MUT_TRACK_CAP=1 -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 $(BUILD)/kernel_flairtenants_mut_trackcap.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o
 $(BUILD)/kernel_flairtenants_mut_trackcap.bin: $(BUILD)/kernel_flairtenants_mut_trackcap.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -28435,7 +28450,7 @@ define dos-safety-shell-mutant
 $(BUILD)/command_safety_$(1).o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/int21.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -D$(2) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $$< -o $$@
 $(BUILD)/kernel_shell_mut_safety_$(1).elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o
 $(BUILD)/kernel_shell_mut_safety_$(1).bin: $(BUILD)/kernel_shell_mut_safety_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
@@ -28588,7 +28603,7 @@ define dos-protection-fat-mutant
 $(BUILD)/fat12_protection_$(1).o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -D$(2) -Ispec -I$(KERNEL_DIR) -c $$< -o $$@
 $(BUILD)/kernel_shell_mut_protection_$(1).elf: $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o
 $(BUILD)/kernel_shell_mut_protection_$(1).bin: $(BUILD)/kernel_shell_mut_protection_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
@@ -28857,7 +28872,7 @@ $(AUTOEXEC_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNE
 AUTOEXEC_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(AUTOEXEC_COMMAND_MUT_OBJ)
 
 $(AUTOEXEC_SHELL_MUT_ELF): $(AUTOEXEC_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(AUTOEXEC_SHELL_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(AUTOEXEC_SHELL_MUT_OBJS)
 
 $(AUTOEXEC_SHELL_MUT_BIN): $(AUTOEXEC_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29002,7 +29017,7 @@ $(HSCT_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KER
 HSCT_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(HSCT_REDIR_COMMAND_MUT_OBJ)
 
 $(HSCT_REDIR_SHELL_MUT_ELF): $(HSCT_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(HSCT_REDIR_SHELL_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(HSCT_REDIR_SHELL_MUT_OBJS)
 
 $(HSCT_REDIR_SHELL_MUT_BIN): $(HSCT_REDIR_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29148,7 +29163,7 @@ $(BSY9_PSP_MUT_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(
 BSY9_SHELL_MUT_OBJS := $(filter-out $(KERNEL_PSP_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY9_PSP_MUT_OBJ)
 
 $(BSY9_SHELL_MUT_ELF): $(BSY9_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY9_SHELL_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(BSY9_SHELL_MUT_OBJS)
 
 $(BSY9_SHELL_MUT_BIN): $(BSY9_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29305,7 +29320,7 @@ $(BSY7_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KER
 BSY7_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY7_REDIR_COMMAND_MUT_OBJ)
 
 $(BSY7_REDIR_SHELL_MUT_ELF): $(BSY7_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY7_REDIR_SHELL_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(BSY7_REDIR_SHELL_MUT_OBJS)
 
 $(BSY7_REDIR_SHELL_MUT_BIN): $(BSY7_REDIR_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29462,7 +29477,7 @@ $(BSY8_PIPE_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERN
 BSY8_PIPE_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY8_PIPE_COMMAND_MUT_OBJ)
 
 $(BSY8_PIPE_SHELL_MUT_ELF): $(BSY8_PIPE_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY8_PIPE_SHELL_MUT_OBJS)
+	$(KERNEL_LINK) -o $@ $(BSY8_PIPE_SHELL_MUT_OBJS)
 
 $(BSY8_PIPE_SHELL_MUT_BIN): $(BSY8_PIPE_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -30416,7 +30431,7 @@ FLAIR_IWORD_ULLOW_IMG := $(BUILD)/flair_tenants_mut_iword_ullow.img
 $(BUILD)/tbxgate_mut_iword_ullow.o: $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -DTBXGATE_MUT_CELL_UL_LOW -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(BUILD)/kernel_flairtenants_mut_iword_ullow.elf: $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o
 $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin: $(BUILD)/kernel_flairtenants_mut_iword_ullow.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -30760,7 +30775,7 @@ $(PPM_FLAIR_FONTS_CHECK_BIN): tools/ppm_flair_fonts_check.c spec/assets/chicago1
 # flagship kernel with ONE object replaced (the desktop-mutant pattern above).
 define flair-tenants-objswap-mutant-rules
 $(BUILD)/kernel_flairtenants_mut_$(3).elf: $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2) $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2)
 
 $(BUILD)/kernel_flairtenants_mut_$(3).bin: $(BUILD)/kernel_flairtenants_mut_$(3).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -31215,7 +31230,7 @@ define alert-chrome-mutant-rules
 $(BUILD)/alert_chrome_$(2).o: $(3) $(TEST_CONTROL_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) $(DIALOG_INC) -c $(3) -o $$@
 $(BUILD)/kernel_alert_chrome_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o
 $(BUILD)/kernel_alert_chrome_$(2).bin: $(BUILD)/kernel_alert_chrome_$(2).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \

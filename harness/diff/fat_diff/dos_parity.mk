@@ -12,7 +12,7 @@ $(eval $(call dos-safety-shell-mutant,pathcmd,CMD_MUTATE_PATH_COMMAND))
 $(BUILD)/command_startup_mut.o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_STARTUP -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
 $(BUILD)/kernel_startup_mut.elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_startup_mut.o $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_startup_mut.o
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_startup_mut.o
 $(BUILD)/kernel_startup_mut.bin: $(BUILD)/kernel_startup_mut.elf
 	$(OBJCOPY) -O binary $< $@
 	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))

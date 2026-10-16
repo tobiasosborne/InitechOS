@@ -40,7 +40,7 @@ $(BUILD)/command_j1lu_restore.o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(T
 define j1lu-emu-variant
 J1LU_OBJS_$(1) := $(filter-out $(2),$(KERNEL_SECONDARY_SHELL_OBJS)) $(3)
 $(BUILD)/kernel_shell_j1lu_$(1).elf: $$(J1LU_OBJS_$(1)) $(KERNEL_LD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $$(J1LU_OBJS_$(1))
+	$(KERNEL_LINK) -o $$@ $$(J1LU_OBJS_$(1))
 $(BUILD)/kernel_shell_j1lu_$(1).bin: $(BUILD)/kernel_shell_j1lu_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
