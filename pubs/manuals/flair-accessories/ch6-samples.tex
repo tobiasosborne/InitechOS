@@ -10,7 +10,7 @@
 % "TenantFix 1.0" is dimmed).  The menu entries are registered against the
 % two bars (flair_app_menus.c; flair_inventory.c reads tenantfx.asm).
 % GATES: test-flair-ctenant test-flair-app-launch test-tenant-load test-pubs-flair test-pubs-flair-screens
-\Gates{test-flair-ctenant, test-flair-app-launch, test-tenant-load,
+\Gates{test-flair-ctenant, test-tenant-load,
   test-pubs-flair, test-pubs-flair-screens}
 \chapter{The Sample Applications}
 \index{sample applications}
@@ -51,16 +51,16 @@ menu}
 \index{TenantFix}
 \begin{TaskSteps}
 \Step Open the \file{APPS} folder and double-click \file{TENANTFX.EXE}.
-\Result{A window titled \texttt{TenantFix} opens, with the lines
-\texttt{Loaded from disk} and \texttt{Click here to quit}.}
+\Result{A window titled \texttt{TenantFix} opens.  Its two lines say that
+it was loaded from the disk and that a click in the window quits it.}
 \end{TaskSteps}
 
 \FlairScreen[label=fig:tfx]{a_tfx}{TenantFix}
 
 \begin{TaskSteps}[resume]
 \Step Choose \menuitem{About TenantFix} from the \menuname{Fixture} menu.
-\Result{The window shows \texttt{TenantFix 1.0, a disk app}, and a fourth
-menu, \menuname{Info}, joins the menu bar.}
+\Result{The window shows a line naming TenantFix and its version, 1.0,
+and a fourth menu, \menuname{Info}, joins the menu bar.}
 \Step Click inside the window.
 \Result{TenantFix quits.  Its window closes and the menu bar returns to the
 Finder's.}

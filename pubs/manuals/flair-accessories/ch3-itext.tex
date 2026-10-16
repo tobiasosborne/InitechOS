@@ -9,7 +9,7 @@
 % guarded(): the Save changes alert; save / save_as: Standard File, CR line
 % ends; doc_load: CR LF and LF become CR; say(): the three notices; the
 % caret does not blink; the window does not re-wrap when resized);
-% os/flair/textedit.h (FLAIR_TE_TEXT_MAX 4096 characters; word wrap);
+% os/flair/textedit.h (FLAIR_TE_TEXT_MAX 4,096 characters; word wrap);
 % os/flair/scrap.c (the Clipboard).  Model: the Mac OS 8.1 SimpleText it
 % follows (system7-decomp specs/sys8/simpletext-stdfile.md).  The menu
 % entries are registered against TEXT's own bar (flair_app_menus.c).
@@ -140,7 +140,7 @@ Choose \menuitem{Open...} from the \menuname{File} menu, or press
 
 InitechText holds one document at a time.  If the document in its window
 has unsaved changes, it first asks whether to save them.  A document can
-hold up to 4096 characters.  InitechText does not open a longer file, and
+hold up to 4,096 characters.  InitechText does not open a longer file, and
 does not take typing or pasting that would make a document longer.
 
 \section{Closing and quitting}

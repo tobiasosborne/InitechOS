@@ -1,4 +1,4 @@
-# a_calcmemo: 1200 * 3 = worked out for the memo.
+# a_calcmemo: 125 * 12 = worked out for the memo.
 # go (22,10) the apple in the upper menu bar
 m-100:-100,m-100:-100,m-98:-30
 # press at (22,10)
@@ -10,7 +10,7 @@ l0
 WTENANT-REGISTER
 # go (500,451) 
 m100:100,m100:100,m100:100,m100:100,m78:0
-# type "1200*3="
-k1,k2,k0,k0,kshift-8,k3,kequal
+# type "125*12="
+k1,k2,k5,kshift-8,k1,k2,kequal
 # go (500,465) 
 m0:14
