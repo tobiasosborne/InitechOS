@@ -43,6 +43,13 @@
  *   (menu_id 0), and the Apple-slot hit/drop seam in menu.c is left for the
  *   bead that adds it. Data present, route absent, stated -- not silently
  *   dropped.
+ *   SUPERSEDED FOR THE LIVE GLYPH (beads initech-tdnl.47 / tdnl.17): the
+ *   glyph of EVERY has_apple bar now drops ONE system Apple menu,
+ *   os/flair/apple_menu.c (menu.h Sec 3a, id FLAIR_MENU_ID_APPLE), with
+ *   About This Computer live and the installed accessories listed; kmain
+ *   routes its choices before any bar owner sees them. finder_menu_apple()
+ *   and the FCMD_ABOUT / FCMD_LAUNCH_APPLE rows below stay as the F4.2 data
+ *   their oracles grade; nothing dispatches menu id 0.
  *
  * OMIT-NOT-GRAY, APPLIED (ruling F4-3):
  *   "Apple-menu launchables are omit-if-not-installed; context-dependent

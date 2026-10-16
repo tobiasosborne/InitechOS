@@ -117,6 +117,12 @@ int32_t tbx_set_wtitle(int32_t win, const char *title)
     return tbx_trap(TBX_SETWTITLE, TBX_ARGC_SETWTITLE, a);
 }
 
+int32_t tbx_content_origin(int32_t win)
+{
+    uint32_t a[1] = { (uint32_t)win };
+    return tbx_trap(TBX_CONTENTORIGIN, TBX_ARGC_CONTENTORIGIN, a);
+}
+
 int32_t tbx_draw_text(int32_t win, int32_t x, int32_t y, const char *s,
                       uint32_t fg, uint32_t bg)
 {

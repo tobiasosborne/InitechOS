@@ -10068,6 +10068,19 @@ ITEXT_EXE := $(BUILD)/tenant/itext.exe
 $(eval $(call tenant-exe-rules,fonts,os/apps/fonts/fonts.c,,,))
 FONTS_EXE := $(BUILD)/tenant/fonts.exe
 
+# CALCULAT.EXE -- the Calculator desk accessory (os/apps/calcda; bead
+# initech-tdnl.17, GUI remediation R4.3): the engine (calc_core.c), the face
+# (calc_view.c, spec/calcda/calcda_layout.h + spec/assets/calcda_geneva9.h) and the
+# tenant (calcda.c) in the rounded rDocProc window. Ships in APPS (last cell)
+# and is listed in the Apple menu (spec/apple_menu_items.h). The two mutant
+# builds are the test-flair-calcda-mutant fixtures ONLY, on gate-local volumes.
+CALCDA_APP_SRC := os/apps/calcda/calcda.c os/apps/calcda/calc_core.c os/apps/calcda/calc_view.c
+CALCDA_APP_DEP := os/apps/calcda/calc_core.h os/apps/calcda/calc_view.h spec/calcda/calcda_layout.h spec/assets/calcda_geneva9.h
+$(eval $(call tenant-exe-rules,calcda,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets,$(CALCDA_APP_DEP),))
+$(eval $(call tenant-exe-rules,calcda_click_diverge,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_KEY_CLICK_DIVERGE,$(CALCDA_APP_DEP),))
+$(eval $(call tenant-exe-rules,calcda_precedence,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_PRECEDENCE,$(CALCDA_APP_DEP),))
+CALCDA_EXE := $(BUILD)/tenant/calcda.exe
+
 # 123.EXE -- Initech 123, Face A (os/i123/app/face_a.c over the slice-1 core,
 # beads initech-9u8w / initech-w96l): the same C path, the worksheet store in
 # its .bss (e_minalloc). Never compiled into the kernel (epic initech-68iw).
@@ -10112,6 +10125,8 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # them are unchanged.
 # R4.6 (initech-tdnl.20): CALC.EXE follows 123.MNU in cell5. All earlier
 # application cells remain fixed; stranded-folder and purge traces are re-keyed.
+# CALCULAT.EXE (the Calculator desk accessory, bead initech-tdnl.17) is appended
+# LAST, after 123.MNU, so every earlier cell and locked trace is unchanged.
 # Every image this recipe mints is REGISTERED in FLAIR_DATA_RECIPE_IMAGES so
 # harness/fixture_volumes.mk can lint that each one carries a declared fixture
 # contract (bead initech-a5sr: three InitechWord mutant volumes merged with no
@@ -10139,7 +10154,7 @@ FLAIR_TPSPARM_DAT := harness/diff/tps/tpsparm.dat
 FLAIR_TPS_DBF     := harness/diff/tps/tps.dbf
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10170,7 +10185,8 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSREP_COM) ::APPS/TPSREP.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSPARM_DAT) ::APPS/TPSPARM.DAT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPS_DBF) ::APPS/TPS.DBF
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALCDA_EXE) ::APPS/CALCULAT.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF, CALCULAT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -10202,8 +10218,19 @@ $(DESKTOP_DB_GOLDEN): | $(BUILD)
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
+# The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
+# spec/apple_menu_items.h filtered by "installed", and the choice -> action
+# map. Linked ONLY into the FLAIRTENANTS kernels (kmain registers it with the
+# Menu Manager once the data volume is mounted).
+KERNEL_APPLE_MENU_OBJ := $(BUILD)/apple_menu.o
+$(KERNEL_APPLE_MENU_OBJ): os/flair/apple_menu.c os/flair/apple_menu.h os/flair/menu.h spec/apple_menu_items.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/apple_menu.c -o $@
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): os/flair/apple_menu.h
+# The rDocProc WDEF geometry (bead initech-tdnl.17) is shared header data.
+$(KERNEL_WINDOW_OBJ) $(KERNEL_CHROME_OBJ) $(KERNEL_DESKTOP_OBJ): os/flair/rdoc.h
+
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
-KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ)
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ) $(KERNEL_APPLE_MENU_OBJ)
 
 # Interactive film-scene kernel (tdnl.102-.104): the flagship tenants objects with the
 # film-scene kmain; placed after KERNEL_FLAIRTENANTS_OBJS (read-before-definition lint).
@@ -22920,6 +22947,9 @@ RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=8 refused=0
 # TPSREP.COM, TPSPARM.DAT, TPS.DBF) = 16, the count test-flair-empty-trash
 # derives from mtools for its OK leg.
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=16 refused=0
+# RE-KEY 2026-10-16 (initech-tdnl.17): purged=7 -> purged=8 -- APPS gained
+# CALCULAT.EXE; README.TXT + APPS + its six files = 8.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=8 refused=0
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
 # shutdown (bead initech-tdnl.78; Rule 14): the root window opens and is
@@ -23316,6 +23346,26 @@ RECORD_IMAGE_film_scene = $(FLAIRLIVE_INTERACTIVE_IMG)
 RECORD_DATA_film_scene = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_film_scene = 800
 
+# apple_menu (bead initech-tdnl.47; Rule 14): the band-1 Apple glyph drops
+# the Apple menu (About This Computer..., the divider, Calculator); About
+# This Computer... raises the banner + memory alert. Replays the LOCKED
+# FLAIR_APPLE_ABOUT_SPEC (spec/flair_calcda_traces.mk).
+RECORD_SCRIPTS += apple_menu
+RECORD_SPEC_apple_menu = $(FLAIR_APPLE_ABOUT_SPEC)
+RECORD_MARKER_apple_menu = APPLE-ABOUT up
+RECORD_IMAGE_apple_menu = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_apple_menu = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_apple_menu = 300
+# calculator (bead initech-tdnl.17; Rule 14): HELLO closes, Apple >
+# Calculator opens the rounded Calculator, 9 - 2 = is CLICKED (readout 7),
+# then a desktop click leaves it inactive. Replays the LOCKED
+# FLAIR_CALCDA_CLICKS_SPEC.
+RECORD_SCRIPTS += calculator
+RECORD_SPEC_calculator = $(FLAIR_CALCDA_CLICKS_SPEC)
+RECORD_MARKER_calculator = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
+RECORD_IMAGE_calculator = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_calculator = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_calculator = 300
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -31147,6 +31197,198 @@ test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look
 	@! grep -Eq 'FAIL menu-look (ML1 title|ML4|ML9)' $(BUILD)/menu_look_mut_divider.pixels
 	@printf '>>> test-flair-menu-look-mutant: MENU_LOOK_MUT_OLD_DIVIDER_INSET correctly RED (ML10 whole divider rows)\n'
 TEST_EMU_GATES += test-flair-menu-look test-flair-menu-look-mutant
+
+# ===========================================================================
+# THE CALCULATOR DESK ACCESSORY + THE APPLE MENU (beads initech-tdnl.17 R4.3
+# and initech-tdnl.47 audit F13). Ground truth: the real Mac OS 8.1 Calculator
+# and Apple menu minted under Basilisk II (../system7-decomp
+# re/mint-results-007.md; goldens/captures/s8_calc_*, s8_calcprobe_*,
+# s8_apple_menu*.png, s8_about_this_computer.png). The pixel gates grade
+# against THOSE captures, never against the artifact's layout data (Law 2,
+# ADR-0010); a missing corpus fails loud (the captures are the golden).
+# ===========================================================================
+CALCDA_S7_CAPTURES = $(SYSTEM7_DECOMP)/goldens/captures
+
+# HOST: test-calcda -- the engine vs 101 key sequences typed into the real
+# Calculator (spec/calcda/calcda_vectors.tsv), vs an independent reference over
+# 20000 random sessions, click/key parity, and every readout + the idle face
+# pixel-exact against the captures (harness/proptest/test_calcda.c).
+TEST_CALCDA_SRC  := harness/proptest/test_calcda.c os/apps/calcda/calc_core.c os/apps/calcda/calc_view.c
+TEST_CALCDA_DEPS := $(TEST_CALCDA_SRC) $(CALCDA_APP_DEP)
+TEST_CALCDA_CF   := $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Ios/apps/calcda -Ispec -Ispec/assets
+$(BUILD)/test_calcda: $(TEST_CALCDA_DEPS) | $(BUILD)
+	$(CC) $(TEST_CALCDA_CF) -o $@ $(TEST_CALCDA_SRC) -lpng -lm
+$(BUILD)/test_calcda_mut_%: $(TEST_CALCDA_DEPS) | $(BUILD)
+	$(CC) $(TEST_CALCDA_CF) -D$* -o $@ $(TEST_CALCDA_SRC) -lpng -lm
+# mutant -> the leg it must turn RED (Rule 6, one per rule)
+CALCDA_HOST_MUTANTS := CALCDA_MUT_PRECEDENCE:C1 CALCDA_MUT_DIV0_ZERO:C1 CALCDA_MUT_ENTRY_CAP14:C1 \
+                     CALCDA_MUT_FIXED_E3:C1 CALCDA_MUT_KEY_CLICK_DIVERGE:C4 CALCDA_MUT_READOUT_SHIFT:C5
+.PHONY: test-calcda test-calcda-mutant
+test-calcda: $(BUILD)/test_calcda
+	@$< spec/calcda/calcda_vectors.tsv "$(SYSTEM7_DECOMP)"
+	@printf '>>> test-calcda: green (vectors vs the real Calculator, keymap, 20000-session reference property, click/key parity, readout + face pixels vs the captures)\n'
+test-calcda-mutant: test-calcda $(foreach m,$(CALCDA_HOST_MUTANTS),$(BUILD)/test_calcda_mut_$(word 1,$(subst :, ,$(m))))
+	@for p in $(CALCDA_HOST_MUTANTS); do m=$${p%%:*}; leg=$${p##*:}; \
+	 if $(BUILD)/test_calcda_mut_$$m spec/calcda/calcda_vectors.tsv "$(SYSTEM7_DECOMP)" > $(BUILD)/test_calcda_mut_$$m.log 2>&1; then \
+	   printf '!!! test-calcda-mutant: %s survived -- decoration\n' "$$m"; exit 1; fi; \
+	 grep -q "^FAIL $$leg" $(BUILD)/test_calcda_mut_$$m.log || { cat $(BUILD)/test_calcda_mut_$$m.log; printf '!!! %s RED, but not on %s\n' "$$m" "$$leg"; exit 1; }; \
+	 printf '>>> test-calcda-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^FAIL $$leg" $(BUILD)/test_calcda_mut_$$m.log | cut -c1-110)"; done
+TEST_UNIT_GATES += test-calcda test-calcda-mutant
+
+# HOST: test-apple-menu -- the rows, their order, the choice -> action map,
+# menu.c's Apple slot, its geometry vs s8_apple_menu.png, and tracking
+# (harness/proptest/test_apple_menu.c).
+TEST_APPLE_SRC  := harness/proptest/test_apple_menu.c os/flair/apple_menu.c
+TEST_APPLE_DEPS := $(TEST_APPLE_SRC) os/flair/apple_menu.h spec/apple_menu_items.h $(TEST_MENU_DEPS)
+$(BUILD)/test_apple_menu: $(TEST_APPLE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L $(MENU_INC) -o $@ $(TEST_APPLE_SRC) $(MENU_LINK) -lpng
+$(BUILD)/test_apple_menu_mut_%: $(TEST_APPLE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -D$* $(MENU_INC) -o $@ $(TEST_APPLE_SRC) $(MENU_LINK) -lpng
+APPLE_HOST_MUTANTS := MENU_MUT_APPLE_DEAD:A4 APPLE_MENU_MUT_LIST_ALL:A1
+.PHONY: test-apple-menu test-apple-menu-mutant
+test-apple-menu: $(BUILD)/test_apple_menu
+	@$< "$(SYSTEM7_DECOMP)"
+	@printf '>>> test-apple-menu: green (rows, order, actions, the Apple slot, geometry vs s8_apple_menu.png, tracking)\n'
+test-apple-menu-mutant: test-apple-menu $(foreach m,$(APPLE_HOST_MUTANTS),$(BUILD)/test_apple_menu_mut_$(word 1,$(subst :, ,$(m))))
+	@for p in $(APPLE_HOST_MUTANTS); do m=$${p%%:*}; leg=$${p##*:}; \
+	 if $(BUILD)/test_apple_menu_mut_$$m "$(SYSTEM7_DECOMP)" > $(BUILD)/test_apple_menu_mut_$$m.log 2>&1; then \
+	   printf '!!! test-apple-menu-mutant: %s survived -- decoration\n' "$$m"; exit 1; fi; \
+	 grep -q "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log || { cat $(BUILD)/test_apple_menu_mut_$$m.log; exit 1; }; \
+	 printf '>>> test-apple-menu-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^FAIL $$leg" $(BUILD)/test_apple_menu_mut_$$m.log | cut -c1-100)"; done
+TEST_UNIT_GATES += test-apple-menu test-apple-menu-mutant
+
+# EMU: the gate image (the flagship kernel, pump life 10 s: a launch and a
+# typed or clicked session fit), the pixel checker, and the mutant fixtures.
+include spec/flair_calcda_traces.mk
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1000,calcda_gate))
+FLAIR_CALCDA_GATE_IMG := $(BUILD)/flair_tenants_mut_calcda_gate.img
+PPM_FLAIR_CALCDA_CHECK := $(BUILD)/ppm_flair_calcda_check
+$(PPM_FLAIR_CALCDA_CHECK): tools/ppm_flair_calcda_check.c | $(BUILD)
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -o $@ $< -lpng
+# A gate-local volume: the flagship volume with the click/key-divergent
+# Calculator written over APPS\CALCULAT.EXE (same name, same contract).
+FLAIR_DATA_CALCDA_DIVERGE_IMG := $(BUILD)/flair_data_calcda_diverge.img
+$(FLAIR_DATA_CALCDA_DIVERGE_IMG): $(FLAIR_DATA_IMG) $(BUILD)/tenant/calcda_click_diverge.exe
+	cp -f $(FLAIR_DATA_IMG) $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/calcda_click_diverge.exe ::APPS/CALCULAT.EXE
+	@$(call fixture-check,recipe,$@)
+# Kernel mutants on the gate image: ONE object swapped besides its kmain.
+# $(call calcda-gate-objswap,<real obj>,<mutant obj>,<tag>)
+define calcda-gate-objswap
+$(BUILD)/kernel_flairtenants_calcda_$(3).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_calcda_gate.o $(2) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_calcda_gate.o $(2) @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_calcda_$(3).bin: $(BUILD)/kernel_flairtenants_calcda_$(3).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); [ "$$$$sz" -le "$$$$max" ] || { printf '!!! %s exceeds KERNEL_SECTORS\n' "$$@"; exit 1; }; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
+	$$(call kernel-end-guard,$$<,flairtenants-calcda-$(3))
+$(BUILD)/flair_tenants_calcda_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_calcda_$(3).bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_calcda_$(3).bin $(BOOT_SYSTEM_TOOL)
+	@printf ">>> flair-tenants calcda-gate MUTANT image ($(3): $(2)): %s\n" "$$@"
+endef
+$(BUILD)/menu_mut_apple_dead.o: os/flair/menu.c $(TEST_MENU_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_MUT_APPLE_DEAD -c $< -o $@
+$(BUILD)/chrome_mut_rdoc_no_close.o: os/flair/chrome.c os/flair/chrome.h os/flair/rdoc.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_RDOC_NO_CLOSE -c $(CHROME_DRAWER_C) -o $@
+$(eval $(call calcda-gate-objswap,$(KERNEL_MENU_OBJ),$(BUILD)/menu_mut_apple_dead.o,apple_dead))
+$(eval $(call calcda-gate-objswap,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_rdoc_no_close.o,rdoc_no_close))
+
+# $(call calcda-boot,<name>,<image>,<data>,<SPEC var>,<dump marker>)
+define calcda-boot
+@$(call fixture-preflight,$(3))
+cp -f $(3) $(BUILD)/$(1)_data.img
+@$(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
+	--mouse "$($(4))" --keys-after FLAIR-LIVE-READY --quit-after FLAIR-LIVE-OK \
+	--timeout-ms 40000 --screendump --screendump-after "$(5)" 2> "$(BUILD)/$(1).report" || true
+@! grep -q 'triple_fault=1' "$(BUILD)/$(1).report" || { printf '!!! %s: TRIPLE FAULT\n' "$(1)"; exit 1; }
+@grep -qx 'FLAIR-LIVE-OK' "$(BUILD)/$(1).serial" && ! grep -q '^PANIC' "$(BUILD)/$(1).serial" || { printf '!!! %s: the desktop did not live to FLAIR-LIVE-OK\n' "$(1)"; grep -E '^(PANIC|TENANT-CRASH)' "$(BUILD)/$(1).serial"; exit 1; }
+endef
+# the Calculator came up from the Apple menu (shared by both polarities)
+CALCDA_UP = grep -qx 'APPLE-LAUNCH name=CALCULAT.EXE dir=APPS' $(1) && grep -qx 'TENANT-REGISTER ok app=CALCULAT' $(1) && \
+	grep -qx 'TENANT-GATE ax=0x0020 l=267 t=94 r=373 b=262 goaway=4097 -> 1' $(1) && grep -qx 'FLAIR-DISPATCH app=CALCULAT' $(1)
+
+# EMU: test-flair-apple-menu (bead initech-tdnl.47; Rule 14 clip apple_menu)
+#   [1/3] DROP    the band-1 glyph drops the Apple menu (FLAIR-MENU-DROP
+#                 menu=1; APPLE-MENU n=3 = About, divider, Calculator); the
+#                 held panel graded vs s8_apple_menu.png (AP1-AP3).
+#   [2/3] LAUNCH  releasing on Calculator launches APPS\CALCULAT.EXE through the
+#                 double-click verb (APPLE-LAUNCH, TENANT-REGISTER, the
+#                 rounded window at the capture's place).
+#   [3/3] ABOUT   About This Computer... raises the alert with the banner
+#                 name/version and the machine's memory: Built-in Memory =
+#                 QEMU's default 128 MiB as E820 reports it (126..128 MiB),
+#                 the arena's largest free block walked off the MCB chain.
+# test-flair-apple-menu-mutant: MENU_MUT_APPLE_DEAD (menu.o) -- the audited
+#   F13 symptom returns: the press reports FLAIR-MENU menu=0 item=0, no drop.
+.PHONY: test-flair-apple-menu test-flair-apple-menu-mutant
+test-flair-apple-menu: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CALCDA_CHECK)
+	$(call calcda-boot,flair_apple_drop,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_APPLE_DROP_SPEC,FLAIR-MENU-DROP menu=1)
+	@grep -qx 'APPLE-MENU n=3' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
+	 || { printf '!!! test-flair-apple-menu FAIL [1/3] DROP: no Apple menu dropped from the band-1 glyph\n'; grep -E '^(APPLE|FLAIR-MENU)' $(BUILD)/flair_apple_drop.serial; exit 1; }
+	@$(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" | sed 's/^/    /'; \
+	 $(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" >/dev/null \
+	 || { printf '!!! test-flair-apple-menu FAIL [1/3] DROP: the panel does not match s8_apple_menu.png\n'; exit 1; }
+	@printf '>>> test-flair-apple-menu [1/3] DROP: Apple menu (About, divider, Calculator) dropped; block, panel, anatomy vs the Mac OS 8.1 capture\n'
+	@$(call CALCDA_UP,$(BUILD)/flair_apple_drop.serial) && grep -qx 'FLAIR-MENU menu=1 item=3 (sel=0x00010003)' $(BUILD)/flair_apple_drop.serial \
+	 || { printf '!!! test-flair-apple-menu FAIL [2/3] LAUNCH: Calculator did not launch from the Apple menu\n'; grep -E '^(APPLE|FLAIR-MENU|TENANT-(LOAD|REG|GATE ax=0x0020)|FLAIR-DISPATCH)' $(BUILD)/flair_apple_drop.serial; exit 1; }
+	@printf '>>> test-flair-apple-menu [2/3] LAUNCH: Apple > Calculator -> APPS\\CALCULAT.EXE registered, rDocProc window at (267,94)\n'
+	$(call calcda-boot,flair_apple_about,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_APPLE_ABOUT_SPEC,APPLE-ABOUT up)
+	@l=$$(grep -m1 '^APPLE-ABOUT mem_k=' $(BUILD)/flair_apple_about.serial); \
+	 mem=$$(printf '%s' "$$l" | sed -n 's/.*mem_k=\([0-9]*\).*/\1/p'); big=$$(printf '%s' "$$l" | sed -n 's/.*largest_k=\([0-9]*\).*/\1/p'); \
+	 grep -qx 'APPLE-ABOUT up' $(BUILD)/flair_apple_about.serial && [ -n "$$mem" ] && [ "$$mem" -ge 129024 ] && [ "$$mem" -le 131072 ] && [ -n "$$big" ] && [ "$$big" -gt 0 ] \
+	 || { printf '!!! test-flair-apple-menu FAIL [3/3] ABOUT: %s\n' "$$l"; exit 1; }; \
+	 printf '>>> test-flair-apple-menu [3/3] ABOUT: %s (QEMU 128 MiB; the MCB chain'"'"'s largest free block)\n' "$$l"
+	@printf '>>> test-flair-apple-menu: green\n'
+test-flair-apple-menu-mutant: test-flair-apple-menu $(BUILD)/flair_tenants_calcda_apple_dead.img
+	$(call calcda-boot,flair_apple_dead,$(BUILD)/flair_tenants_calcda_apple_dead.img,$(FLAIR_DATA_IMG),FLAIR_APPLE_DROP_SPEC,FLAIR-LIVE-OK)
+	@if grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_dead.serial; then printf '!!! test-flair-apple-menu-mutant: MENU_MUT_APPLE_DEAD still dropped the Apple menu -- decoration\n'; exit 1; fi
+	@grep -qx 'FLAIR-MENU menu=0 item=0 (sel=0x00000000)' $(BUILD)/flair_apple_dead.serial || { printf '!!! test-flair-apple-menu-mutant: RED for the wrong reason\n'; exit 1; }
+	@printf '>>> test-flair-apple-menu-mutant: MENU_MUT_APPLE_DEAD correctly RED (FLAIR-MENU menu=0 item=0: the F13 dead glyph)\n'
+TEST_EMU_GATES += test-flair-apple-menu test-flair-apple-menu-mutant
+
+# EMU: test-flair-calcda (bead initech-tdnl.17; Rule 14 clip calculator)
+#   [1/2] KEYS    Apple > Calculator, then TYPED 1 2 + 3 =: the whole window
+#                 class-exact vs s8_calc_12plus3eq.png (the Mac after the same
+#                 keys): CW1 frame (rDocProc; minus the Charcoal title glyphs),
+#                 CW2 face, CW3 readout "15".
+#   [2/2] CLICKS  Apple > Calculator, then CLICKED 9 - 2 =, then the desktop:
+#                 the inactive window, readout "7", class-exact vs
+#                 s8_calc_inactive.png (same keys' readout on the Mac).
+# test-flair-calcda-mutant:
+#   CALCDA_MUT_KEY_CLICK_DIVERGE (CALCULAT.EXE on its own volume): the click '-'
+#     commands '+' -- [2/2] reads 11, CW3 READOUT RED, frame and face green.
+#   CHROME_MUT_RDOC_NO_CLOSE (chrome.o): the active band without its close-box
+#     ring -- [1/2] CW1 FRAME RED, face and readout green.
+.PHONY: test-flair-calcda test-flair-calcda-mutant
+test-flair-calcda: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CALCDA_CHECK)
+	$(call calcda-boot,flair_calcda_keys,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_CALCDA_KEYS_SPEC,FLAIR-LIVE-OK)
+	@$(call CALCDA_UP,$(BUILD)/flair_calcda_keys.serial) && [ "$$(grep -c '^TENANT-EVT what=3$$' $(BUILD)/flair_calcda_keys.serial)" = 5 ] \
+	 || { printf '!!! test-flair-calcda FAIL [1/2] KEYS: Calculator not up, or not all five keys reached it\n'; grep -E '^(APPLE|TENANT-(REG|EVT|EXIT|CRASH))' $(BUILD)/flair_calcda_keys.serial; exit 1; }
+	@out=$$($(PPM_FLAIR_CALCDA_CHECK) window $(BUILD)/flair_calcda_keys.ppm "$(CALCDA_S7_CAPTURES)/s8_calc_12plus3eq.png"); rc=$$?; printf '%s\n' "$$out" | sed 's/^/    /'; \
+	 [ $$rc -eq 0 ] || { printf '!!! test-flair-calcda FAIL [1/2] KEYS: the window differs from s8_calc_12plus3eq.png\n'; exit 1; }
+	@printf '>>> test-flair-calcda [1/2] KEYS: typed 1 2 + 3 = -> the Mac'"'"'s window, readout 15\n'
+	$(call calcda-boot,flair_calcda_clicks,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_CALCDA_CLICKS_SPEC,FLAIR-LIVE-OK)
+	@$(call CALCDA_UP,$(BUILD)/flair_calcda_clicks.serial) && [ "$$(grep -c '^TENANT-EVT what=1$$' $(BUILD)/flair_calcda_clicks.serial)" = 4 ] \
+	 || { printf '!!! test-flair-calcda FAIL [2/2] CLICKS: Calculator not up, or not all four clicks reached it\n'; grep -E '^(APPLE|TENANT-(REG|EVT|EXIT|CRASH))' $(BUILD)/flair_calcda_clicks.serial; exit 1; }
+	@out=$$($(PPM_FLAIR_CALCDA_CHECK) window $(BUILD)/flair_calcda_clicks.ppm "$(CALCDA_S7_CAPTURES)/s8_calc_inactive.png"); rc=$$?; printf '%s\n' "$$out" | sed 's/^/    /'; \
+	 [ $$rc -eq 0 ] || { printf '!!! test-flair-calcda FAIL [2/2] CLICKS: the window differs from s8_calc_inactive.png\n'; exit 1; }
+	@printf '>>> test-flair-calcda [2/2] CLICKS: clicked 9 - 2 =, then the desktop -> the Mac'"'"'s inactive window, readout 7\n'
+	@printf '>>> test-flair-calcda: green\n'
+test-flair-calcda-mutant: test-flair-calcda $(FLAIR_DATA_CALCDA_DIVERGE_IMG) $(BUILD)/flair_tenants_calcda_rdoc_no_close.img
+	$(call calcda-boot,flair_calcda_diverge,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_CALCDA_DIVERGE_IMG),FLAIR_CALCDA_CLICKS_SPEC,FLAIR-LIVE-OK)
+	@$(call CALCDA_UP,$(BUILD)/flair_calcda_diverge.serial) || { printf '!!! test-flair-calcda-mutant: diverge RED for the wrong reason (Calculator not up)\n'; exit 1; }
+	@out=$$($(PPM_FLAIR_CALCDA_CHECK) window $(BUILD)/flair_calcda_diverge.ppm "$(CALCDA_S7_CAPTURES)/s8_calc_inactive.png"); rc=$$?; \
+	 [ $$rc -ne 0 ] || { printf '!!! test-flair-calcda-mutant: CALCDA_MUT_KEY_CLICK_DIVERGE passed -- decoration\n'; exit 1; }; \
+	 printf '%s\n' "$$out" | grep -q '^!!! CW3 READOUT' && printf '%s\n' "$$out" | grep -q '^>>> CW1 FRAME' && printf '%s\n' "$$out" | grep -q '^>>> CW2 FACE' \
+	 || { printf '%s\n' "$$out"; printf '!!! test-flair-calcda-mutant: diverge RED, but not on CW3 alone\n'; exit 1; }; \
+	 printf '>>> test-flair-calcda-mutant: CALCDA_MUT_KEY_CLICK_DIVERGE correctly RED (%s)\n' "$$(printf '%s\n' "$$out" | grep -m1 '^!!! CW3')"
+	$(call calcda-boot,flair_calcda_noclose,$(BUILD)/flair_tenants_calcda_rdoc_no_close.img,$(FLAIR_DATA_IMG),FLAIR_CALCDA_KEYS_SPEC,FLAIR-LIVE-OK)
+	@$(call CALCDA_UP,$(BUILD)/flair_calcda_noclose.serial) || { printf '!!! test-flair-calcda-mutant: rdoc_no_close RED for the wrong reason\n'; exit 1; }
+	@out=$$($(PPM_FLAIR_CALCDA_CHECK) window $(BUILD)/flair_calcda_noclose.ppm "$(CALCDA_S7_CAPTURES)/s8_calc_12plus3eq.png"); rc=$$?; \
+	 [ $$rc -ne 0 ] && printf '%s\n' "$$out" | grep -q '^!!! CW1 FRAME' && printf '%s\n' "$$out" | grep -q '^>>> CW2 FACE' || { printf '%s\n' "$$out"; printf '!!! test-flair-calcda-mutant: CHROME_MUT_RDOC_NO_CLOSE not RED on CW1 alone\n'; exit 1; }; \
+	 printf '>>> test-flair-calcda-mutant: CHROME_MUT_RDOC_NO_CLOSE correctly RED (%s)\n' "$$(printf '%s\n' "$$out" | grep -m1 '^!!! CW1')"
+	@printf '>>> test-flair-calcda-mutant: green (two mutants RED for the named reason)\n'
+TEST_EMU_GATES += test-flair-calcda test-flair-calcda-mutant
 
 $(BUILD)/test_chicago_check_mutant: $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_MUT_ONE_ADVANCE=18 -o $@ $< os/flair/text.c os/flair/surface.c

@@ -47,6 +47,14 @@
  *       Deliberate Rule-8 addition: TBX_FILECOPY 0x0091 + its arity, the
  *       TBX_EVT_FILECOPY delivery, the configuration path/key and the rate
  *       bounds (Sec 16). No old value moved.
+ * bead: initech-tdnl.17 (the Calculator desk accessory, 2026-10-16).
+ *       Deliberate Rule-8 extension: NEWWINDOW's goAway dword carries a
+ *       WDEF request in bits 8..15 (TBX_WDEF_RDOC = rDocProc 16, the
+ *       Calculator's rounded window; 0 = the zoomDocProc document window
+ *       every tenant had) and TBX_CONTENTORIGIN 0x0023 is added (the
+ *       GlobalToLocal a tenant needs: a mouseDown's where is GLOBAL, Sec 6,
+ *       and a dragged window moves its content). Bits 0..7 keep goAway's
+ *       0/1/2 exactly; no old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -136,6 +144,16 @@
 #define TBX_NEWWINDOW     0x0020u  /* V1  (l,t,r,b,goAway) -> window token     */
 #define TBX_DISPOSEWINDOW 0x0021u  /* reserved (V2)                            */
 #define TBX_SETWTITLE     0x0022u  /* V1  (win, strPtr) -> 0 | err             */
+#define TBX_CONTENTORIGIN 0x0023u  /* (win) -> (top << 16) | left of the
+                                    * window's content, GLOBAL (the tenant's
+                                    * GlobalToLocal; bead initech-tdnl.17)    */
+#define TBX_ARGC_CONTENTORIGIN 1u
+/* NEWWINDOW goAway dword: bits 0..7 goAway (0/1/2, Sec 11), bits 8..15 the
+ * WDEF: 0 = zoomDocProc (the document window), TBX_WDEF_RDOC = rDocProc 16
+ * (the rounded desk-accessory window, os/flair/rdoc.h). Any other bit is
+ * BADARG. Bead initech-tdnl.17. */
+#define TBX_WDEF_SHIFT    8u
+#define TBX_WDEF_RDOC     (16u << TBX_WDEF_SHIFT)
 #define TBX_TEXTDRAW      0x0030u  /* V1  (win, x, y, strPtr, fg, bg) -> 0|err */
 #define TBX_FILLRECT      0x0031u  /* V1  (win, l, t, r, b, color) -> 0 | err  */
 #define TBX_FRAMERECT     0x0032u  /* reserved (V2)                            */

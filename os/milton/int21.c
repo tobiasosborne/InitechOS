@@ -358,6 +358,20 @@ void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
  * so the memory functions report insufficient-memory rather than fault (Rule 2).
  * Lays the initial single terminal FREE block (mcb_init); int21_mcb_reset then
  * (re)assigns the owner to the current PSP on each program load. */
+/* About This Computer (bead initech-tdnl.47): the bound arena's size and
+ * its largest free block, in paragraphs, read off the live MCB chain.
+ * Returns 0 (all 0) when no arena is bound or the chain is corrupt. */
+int int21_mcb_stats(uint32_t *total_paras, uint32_t *largest_free_paras)
+{
+    uint32_t fr = 0u;
+    *total_paras = 0u;
+    *largest_free_paras = 0u;
+    if (!g_arena_bound) return 0;
+    if (!mcb_stats(&g_arena, &fr, largest_free_paras)) return 0;
+    *total_paras = g_arena.total_paras;
+    return 1;
+}
+
 void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear)
 {
     if (base == 0 || total_paras < 2u) {

@@ -154,4 +154,12 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
                                     rgn_rect_t frame,
                                     const char *title);
 
+/* flair_draw_rdoc_window -- the rDocProc (16) rounded window's WDEF (bead
+ * initech-tdnl.17; os/flair/rdoc.h): outline, title band (active: black with
+ * the white close-box ring and a white title; inactive: outlined white with
+ * a black title), and the body's sides. Never paints the content. */
+void flair_draw_rdoc_window(GrafPort *port, const flair_skin_t *skin,
+                            rgn_rect_t frame, const char *title, int hilited,
+                            uint8_t widget_flags);
+
 #endif /* INITECH_OS_FLAIR_CHROME_H */

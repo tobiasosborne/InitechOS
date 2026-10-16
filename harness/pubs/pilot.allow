@@ -14,6 +14,9 @@
 # !!! GROWTH, PM-directed 2026-10-17: TPSREP (APPS\TPSREP.COM, the TPS Report Generator)
 # !!! shipped on the flagship volume with the Exit-to-InitechDOS journey (initech-3p1a); it is
 # !!! documented by its own Operating Procedures manual (initech-ipu5.14), not the DOS books.
+# !!! GROWTH, PM-directed 2026-10-17: CALCULAT (APPS\CALCULAT.EXE, the Calculator desk
+# !!! accessory under the Apple menu, initech-tdnl.17) is a FLAIR desk accessory for the
+# !!! Finder manual (initech-ipu5.9), not a DOS command.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
@@ -97,3 +100,4 @@ PAINT|2026-10-17|FLAIR application (InitechPaint); its own manual is not yet wri
 TEXT|2026-10-17|FLAIR application (InitechText); its own manual is not yet written (PM-directed explicit row)
 WORD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 TPSREP|2026-10-17|DOS application (TPS Report Generator); documented by its own Operating Procedures manual, initech-ipu5.14 (PM-directed explicit row)
+CALCULAT|2026-10-17|FLAIR desk accessory (Calculator, Apple menu); documented by the Finder manual, initech-ipu5.9 (PM-directed explicit row)

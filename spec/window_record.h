@@ -251,6 +251,12 @@ typedef enum flair_part_code {
                                            * window-manager.md line 173)          */
 #define FLAIR_WDEF_ZOOM_DOC_PROC     8   /* zoomDocProc     = 8  (MTE Table 4-1) */
 #define FLAIR_WDEF_ZOOM_NO_GROW     12   /* zoomNoGrow      = 12 (MTE Table 4-1) */
+/* rDocProc = 16 (MTE Table 4-1: the rounded-corner window, WDEF resource 1,
+ * variant 0). Deliberate Rule-8 addition, bead initech-tdnl.17: the
+ * Calculator desk accessory's window. ../system7-decomp GAPS wind-1 confirms
+ * the real Calculator's WIND carries procID 16 (mint-006), and the Mac OS 8.1
+ * capture s8_calc_idle.png (mint-007) is the drawing it is graded against. */
+#define FLAIR_WDEF_RDOC_PROC        16   /* rDocProc        = 16 (MTE Table 4-1) */
 
 /* Aliases for verbatim IM names. */
 #define documentProc    FLAIR_WDEF_DOCUMENT_PROC
@@ -261,6 +267,7 @@ typedef enum flair_part_code {
 #define movableDBoxProc FLAIR_WDEF_MOVABLE_DBOX
 #define zoomDocProc     FLAIR_WDEF_ZOOM_DOC_PROC
 #define zoomNoGrow      FLAIR_WDEF_ZOOM_NO_GROW
+#define rDocProc        FLAIR_WDEF_RDOC_PROC
 
 /* ===========================================================================
  * 4. WindowRecord -- the window descriptor (verbatim field names)
@@ -492,6 +499,7 @@ _Static_assert(movableDBoxProc == 5, "movableDBoxProc=5 (MTE Table 4-1; "
                "../system7-decomp/specs/toolbox/window-manager.md line 173)");
 _Static_assert(zoomDocProc   == 8,  "zoomDocProc=8 (MTE Table 4-1)");
 _Static_assert(zoomNoGrow    == 12, "zoomNoGrow=12 (MTE Table 4-1)");
+_Static_assert(rDocProc      == 16, "rDocProc=16 (MTE Table 4-1)");
 
 /* WindowRecord.port must be the FIRST field at offset 0 (IM-I contract). */
 _Static_assert(offsetof(WindowRecord, port) == 0,

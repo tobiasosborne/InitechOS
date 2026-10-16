@@ -141,6 +141,12 @@ static void paint_window_chrome(const WindowMgr *wm, const bitmap_t *dst,
     /* The gutter bars draw from the window's scroll record, if it has one
      * (bead initech-tdnl.35; window.h Sec 4b): none == nothing to scroll ==
      * DISABLED bars (scrollbars.md Sec 3). */
+    if (w->windowDefProcVariant == rDocProc) {
+        /* the rounded desk-accessory window (bead initech-tdnl.17) */
+        flair_draw_rdoc_window(&port, skin, frame, w->titleHandle,
+                               w->hilited, w->widgetFlags);
+        return;
+    }
     flair_draw_document_window_scroll(&port, skin, frame,
                                       w->titleHandle, w->hilited,
                                       w->widgetFlags, WindowScrollOf(wm, w));
