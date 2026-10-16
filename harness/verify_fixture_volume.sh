@@ -9,6 +9,14 @@ image=$2
 shift 2
 fail() {
     printf '!!! fixture-volume %s ERROR: %s: %s\n' "$phase" "$image" "$*" >&2
+    # initech-a5sr: in the recipe phase the image is the make target being
+    # built. Leaving it on disk let the NEXT make run call a half-built,
+    # contract-less volume up to date (a mutant gate went GREEN). GNU make's
+    # .DELETE_ON_ERROR cannot be scoped to these recipes, so delete here.
+    if [ "$phase" = recipe ] && [ -e "$image" ]; then
+        rm -f -- "$image"
+        printf '!!! fixture-volume recipe: removed %s so the next make rebuilds it\n' "$image" >&2
+    fi
     exit 1
 }
 [ "$#" -gt 0 ] || fail 'no fixture contract declared'
