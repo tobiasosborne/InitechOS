@@ -1,0 +1,6 @@
+# @CLEAN
+A1 'Net 30
+= @CLEAN(A1)
+= @CLEAN("Net"&@CHAR(7)&" 30")
+= @LENGTH("Net"&@CHAR(7)&" 30")
+= @LENGTH(@CLEAN("Net"&@CHAR(7)&" 30"))

@@ -1,0 +1,1172 @@
+% Chapter 13 -- @Functions (AN-10 opener, F-LOT; annex Sec 8).
+% Sources (Law 1): os/i123/core/eval.c (the @function library: every argument
+% rule, ERR/NA case, population VAR/STD, the deterministic @RAND, @NOW with no
+% clock), spec/i123/wk1_formula.h (the @function table: names and argument
+% counts), os/i123/core/formula.c (how typed formulas compile, the
+% argument-count check).  Every example is replayed through the shipped
+% application (examples/fn-*.i23 -> .txt).
+% GATES: test-i123-formula test-i123-recalc-order test-pubs-i123 test-pubs-i123-examples
+\Gates{test-i123-formula, test-i123-recalc-order, test-pubs-i123, test-pubs-i123-examples}
+\chapter{@Functions}
+
+An \term{@function} is a built-in formula that does a calculation for you:
+it adds up a range, finds a payment on a loan, cuts a word out of a label,
+or tests a condition. You use an @function by typing it into a cell, alone
+or as part of a larger formula.
+
+\section{How to Use This Chapter}
+This chapter has three parts. The first part, ``Syntax of @Functions,''
+shows how to type an @function. The second part, ``Types of
+@Functions,'' groups the @functions by the kind of work they do, with a table of each group so
+that you can find the one you need. The third part, ``@Function
+Descriptions,'' describes every @function in alphabetical order, ignoring the
+@ sign. Each description gives the form of the @function, what each
+argument may be, how the result behaves, and an example that was produced by
+Initech 123 itself.
+
+In the descriptions, an argument that you replace with your own value is
+printed in italics, as in \fn{@ROUND}(\Arg{x},\Arg{n}). Text in double
+quotation marks is typed exactly as shown. Where an example shows a
+formula and its result on one line, the result is the value the cell
+displays in General format.
+
+\section{Syntax of @Functions}
+Every @function is typed in the same form:
+
+\begin{center}
+\begin{tikzpicture}[font=\sffamily\small, node distance=0pt,
+  lab/.style={align=center,font=\sffamily\scriptsize}]
+  \node[font=\ttfamily\large, inner sep=0pt] (at) {@};
+  \node[font=\ttfamily\large, inner sep=0pt, right=of at] (nm) {SUM};
+  \node[font=\ttfamily\large, inner sep=0pt, right=of nm] (lp) {(};
+  \node[font=\ttfamily\large, inner sep=0pt, right=of lp] (a1) {A1..A5};
+  \node[font=\ttfamily\large, inner sep=0pt, right=of a1] (cm) {,};
+  \node[font=\ttfamily\large, inner sep=0pt, right=of cm] (a2) {100};
+  \node[font=\ttfamily\large, inner sep=0pt, right=of a2] (rp) {)};
+  \node[lab, below=9mm of at] (l1) {@ sign};
+  \node[lab, below=17mm of nm] (l2) {Function name};
+  \node[lab, below=9mm of a1] (l3) {Arguments};
+  \node[lab, below=17mm of cm] (l4) {Argument separators};
+  \draw[->] (l1.north) -- (at.south);
+  \draw[->] (l2.north) -- (nm.south);
+  \draw[->] (l3.north) -- (a1.south);
+  \draw[->] (l4.north) -- (cm.south);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}
+\item The \term{@ sign} tells Initech 123 that what follows is an
+  @function and not a label. A cell that begins with the @ sign is read as a
+  formula. Type the @ sign first.
+\item The \term{function name} follows the @ sign. You can type it in
+  capital letters or small letters; Initech 123 displays the name in capitals.
+  Do not put a space between the @ sign and the name.
+\item The \term{arguments} are the values the @function works on, enclosed
+  in parentheses immediately after the name. An argument can be a number, a
+  string in double quotation marks, a cell address, a range, a range name,
+  or a formula, including another @function. Some @functions take no
+  arguments; for these you type the name alone, as in \fn{@PI}.
+\item Arguments are separated by the \term{argument separator}, a comma.
+  Do not put spaces between arguments.
+\end{itemize}
+
+An @function can stand anywhere a value can. The formula
+\texttt{+B1*@SQRT(A1)} multiplies cell B1 by the square root of the number
+in A1, and an @function can contain another @function, as in
+
+\begin{center}
+\texttt{@IF(@SUM(A1..A5)>100,"over","ok")}
+\end{center}
+
+Most @functions have a fixed number of arguments; if you give the wrong number,
+Initech 123 refuses the entry and switches to \ind{EDIT} mode so that you can correct it.
+The statistical @functions take any number of arguments, but at least one.
+A formula you type, with all its @functions, can be at most 74 characters long (see
+``Entering Data'' in Chapter~1).
+
+\begin{Note}
+Two values flow through formulas without being lost. ERR means that a
+calculation could not be done (dividing by 0, for example), and NA means that a
+value is not available. Any formula that uses a cell holding ERR or NA shows
+ERR or NA as well, unless it uses one of the tests \fn{@ISERR}, \fn{@ISNA} or \fn{@IF}
+to look for it.
+\end{Note}
+
+\section{Types of @Functions}
+Initech 123 has 90 @functions. They fall into eight groups.
+
+\subsection{Mathematical}
+The mathematical @functions do arithmetic and trigonometry on numbers. Their arguments are numbers, or cells and formulas that produce numbers; a blank cell counts as 0. Angles are always in radians. A result that cannot be calculated, such as the square root of a negative number, is ERR.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@ABS(x)} & Absolute value of a number\\
+\texttt{@ACOS(x)} & Arc cosine of a number\\
+\texttt{@ASIN(x)} & Arc sine of a number\\
+\texttt{@ATAN(x)} & Arc tangent of a number\\
+\texttt{@ATAN2(x,y)} & Four-quadrant arc tangent\\
+\texttt{@COS(x)} & Cosine of an angle in radians\\
+\texttt{@EXP(x)} & The number e raised to a power\\
+\texttt{@INT(x)} & Integer part of a number\\
+\texttt{@LN(x)} & Natural logarithm\\
+\texttt{@LOG(x)} & Base 10 logarithm\\
+\texttt{@MOD(x,y)} & Remainder of a division\\
+\texttt{@PI} & The constant pi\\
+\texttt{@RAND} & A pseudo-random number\\
+\texttt{@ROUND(x,n)} & Rounds to a number of decimal places\\
+\texttt{@SIN(x)} & Sine of an angle in radians\\
+\texttt{@SQRT(x)} & Square root\\
+\texttt{@TAN(x)} & Tangent of an angle in radians\LotEnd
+\end{LotTable}
+
+\subsection{Logical}
+The logical @functions test conditions and choose between results. Initech 123 has no separate true and false values: true is 1, false is 0, and any nonzero number counts as true when a condition is tested.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@FALSE} & The logical value 0\\
+\texttt{@IF(condition,x,y)} & Chooses between two values\\
+\texttt{@ISERR(x)} & Tests for the value ERR\\
+\texttt{@ISNA(x)} & Tests for the value NA\\
+\texttt{@ISNUMBER(x)} & Tests for a value\\
+\texttt{@ISSTRING(x)} & Tests for a string\\
+\texttt{@TRUE} & The logical value 1\LotEnd
+\end{LotTable}
+
+\subsection{Special}
+The special @functions look things up and give information about the worksheet and its cells: they pick a value from a list or a table, report on a cell, and produce the values ERR and NA.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@@(location)} & Contents of the cell a label names\\
+\texttt{@CELL(attribute,range)} & Information about a cell\\
+\texttt{@CELLPOINTER(attribute)} & Information about the current cell\\
+\texttt{@CHOOSE(x,v0,v1,...)} & Chooses a value from a list\\
+\texttt{@COLS(range)} & Number of columns in a range\\
+\texttt{@ERR} & The value ERR\\
+\texttt{@HLOOKUP(x,range,row)} & Looks up a value in a horizontal table\\
+\texttt{@INDEX(range,column,row)} & Entry at a position in a range\\
+\texttt{@NA} & The value NA\\
+\texttt{@ROWS(range)} & Number of rows in a range\\
+\texttt{@VLOOKUP(x,range,column)} & Looks up a value in a vertical table\LotEnd
+\end{LotTable}
+
+\subsection{Date and Time}
+The date and time @functions work with date serial numbers and time-of-day fractions. A date is the number of days since 1 January 1900, which is day 1; a time is a fraction of a day. In this version Initech 123 has no access to the system clock.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@DATE(year,month,day)} & Date serial number\\
+\texttt{@DATEVALUE(string)} & Date serial number from text\\
+\texttt{@DAY(serial)} & Day of the month\\
+\texttt{@HOUR(time)} & Hour of a time\\
+\texttt{@MINUTE(time)} & Minute of a time\\
+\texttt{@MONTH(serial)} & Month of a date\\
+\texttt{@NOW} & Current date and time\\
+\texttt{@SECOND(time)} & Second of a time\\
+\texttt{@TIME(hour,minute,second)} & Time-of-day number\\
+\texttt{@TIMEVALUE(string)} & Time-of-day number from text\\
+\texttt{@YEAR(serial)} & Year of a date\LotEnd
+\end{LotTable}
+
+\subsection{Financial}
+The financial @functions calculate loan payments, investment values and depreciation. The interest rate is always the rate for one period, as a decimal, and the term is a number of periods in the same unit.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@CTERM(interest,fv,pv)} & Periods for an investment to grow\\
+\texttt{@DDB(cost,salvage,life,period)} & Double-declining-balance depreciation\\
+\texttt{@FV(payment,interest,term)} & Future value of an annuity\\
+\texttt{@IRR(guess,range)} & Internal rate of return\\
+\texttt{@NPV(interest,range)} & Net present value\\
+\texttt{@PMT(principal,interest,term)} & Loan payment\\
+\texttt{@PV(payment,interest,term)} & Present value of an annuity\\
+\texttt{@RATE(fv,pv,term)} & Interest rate per period\\
+\texttt{@SLN(cost,salvage,life)} & Straight-line depreciation\\
+\texttt{@SYD(cost,salvage,life,period)} & Sum-of-the-years'-digits depreciation\\
+\texttt{@TERM(payment,interest,fv)} & Periods to reach a future value\LotEnd
+\end{LotTable}
+
+\subsection{Statistical}
+The statistical @functions work on lists of values: numbers, cell addresses, ranges and formulas separated by commas. Blank cells in a range are skipped; a label counts as 0.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@AVG(list)} & Average of a list of values\\
+\texttt{@COUNT(list)} & Number of nonblank entries\\
+\texttt{@MAX(list)} & Largest value in a list\\
+\texttt{@MIN(list)} & Smallest value in a list\\
+\texttt{@STD(list)} & Standard deviation\\
+\texttt{@SUM(list)} & Sum of a list of values\\
+\texttt{@VAR(list)} & Variance\LotEnd
+\end{LotTable}
+
+\subsection{Database statistical}
+The database statistical @functions work like the statistical @functions, but only on the records of a database range that meet conditions you set in a criteria range. All seven take three arguments: the database range, the column offset and the criteria range.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@DAVG(input,offset,criteria)} & Average of selected records\\
+\texttt{@DCOUNT(input,offset,criteria)} & Count of selected records\\
+\texttt{@DMAX(input,offset,criteria)} & Largest of selected records\\
+\texttt{@DMIN(input,offset,criteria)} & Smallest of selected records\\
+\texttt{@DSTD(input,offset,criteria)} & Standard deviation of selected records\\
+\texttt{@DSUM(input,offset,criteria)} & Sum of selected records\\
+\texttt{@DVAR(input,offset,criteria)} & Variance of selected records\LotEnd
+\end{LotTable}
+
+\subsection{String}
+The string @functions work on text. A string is text in double quotation marks, a label in a cell, or the result of a string formula. Positions within a string are counted from 0 for the first character. The \texttt{\&} operator joins strings.
+
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{@Function} & \textbf{Description}}
+\texttt{@CHAR(code)} & Character for a code number\\
+\texttt{@CLEAN(string)} & Removes control characters\\
+\texttt{@CODE(string)} & Code number of the first character\\
+\texttt{@EXACT(string1,string2)} & Compares two strings exactly\\
+\texttt{@FIND(search,string,start)} & Position of one string in another\\
+\texttt{@LEFT(string,n)} & First characters of a string\\
+\texttt{@LENGTH(string)} & Number of characters in a string\\
+\texttt{@LOWER(string)} & Converts to small letters\\
+\texttt{@MID(string,start,n)} & Characters from the middle of a string\\
+\texttt{@N(range)} & Number in the first cell of a range\\
+\texttt{@PROPER(string)} & Capitalizes each word\\
+\texttt{@REPEAT(string,n)} & Repeats a string\\
+\texttt{@REPLACE(original,start,n,new)} & Replaces part of a string\\
+\texttt{@RIGHT(string,n)} & Last characters of a string\\
+\texttt{@S(range)} & String in the first cell of a range\\
+\texttt{@STRING(x,n)} & Converts a number to a string\\
+\texttt{@TRIM(string)} & Removes extra spaces\\
+\texttt{@UPPER(string)} & Converts to capital letters\\
+\texttt{@VALUE(string)} & Converts a string to a number\LotEnd
+\end{LotTable}
+
+\section{@Function Descriptions}
+The descriptions are in alphabetical order, ignoring the @ sign; \fn{@@} comes first.
+
+\AtFunction{@@}
+\fn{@@}(\Arg{location}) returns the contents of the cell whose address is held in the cell \Arg{location}.
+
+\Arg{location} must be the address of a cell that contains a label (or a formula that produces a string) which is itself a single cell address, such as \texttt{B3}. A string typed straight into the formula is not accepted.
+
+Use \fn{@@} to look at a cell that is chosen by a label, so that changing the label changes which cell the formula reads. If the label is not a valid cell address, \fn{@@} returns ERR.
+
+\Examples
+\LotExample{examples/fn-atat}
+
+\AtFunction{@ABS}
+\fn{@ABS}(\Arg{x}) returns the absolute value of \Arg{x}: the number without its sign.
+
+The argument \Arg{x} can be a number, the address of a cell that holds a number, or a formula that produces a number. A blank cell counts as 0.
+
+Use \fn{@ABS} when only the size of a difference matters, for example the distance between a budget and an actual figure, whichever is larger.
+
+\Examples
+\LotExample{examples/fn-abs}
+
+\AtFunction{@ACOS}
+\fn{@ACOS}(\Arg{x}) returns the arc cosine of \Arg{x}, an angle in radians between 0 and \fn{@PI}.
+
+The argument \Arg{x} must be a number from -1 to 1, or a cell or formula that produces one. Any value outside that range gives ERR.
+
+The result is in radians. To get degrees, multiply the result by 180 and divide by \fn{@PI}.
+
+\Examples
+\LotExample{examples/fn-acos}
+
+\AtFunction{@ASIN}
+\fn{@ASIN}(\Arg{x}) returns the arc sine of \Arg{x}, an angle in radians between -pi/2 and pi/2.
+
+The argument \Arg{x} must be a number from -1 to 1, or a cell or formula that produces one. Any value outside that range gives ERR.
+
+The result is in radians. \fn{@ASIN} is the inverse of \fn{@SIN}.
+
+\Examples
+\LotExample{examples/fn-asin}
+
+\AtFunction{@ATAN}
+\fn{@ATAN}(\Arg{x}) returns the arc tangent of \Arg{x}, an angle in radians between -pi/2 and pi/2.
+
+The argument \Arg{x} can be any number, or a cell or formula that produces one.
+
+The result is in radians. \fn{@ATAN} is the inverse of \fn{@TAN}. When you know both the horizontal and vertical distances, \fn{@ATAN2} also tells you the quadrant.
+
+\Examples
+\LotExample{examples/fn-atan}
+
+\AtFunction{@ATAN2}
+\fn{@ATAN2}(\Arg{x},\Arg{y}) returns the angle in radians between the positive horizontal axis and the line from the origin to the point (\Arg{x},\Arg{y}).
+
+Both arguments are numbers, or cells or formulas that produce numbers. \Arg{x} is the horizontal distance of the point and \Arg{y} is the vertical distance.
+
+The result lies between -pi and pi and so identifies the quadrant of the point. \fn{@ATAN2} returns 0 when \Arg{y} is 0, and ERR when both arguments are 0.
+
+\begin{Note}
+In this version \fn{@ATAN2} returns 0 whenever \Arg{y} is 0, including when \Arg{x} is negative.
+\end{Note}
+
+\Examples
+\LotExample{examples/fn-atan2}
+
+\AtFunction{@AVG}
+\fn{@AVG}(\Arg{list}) returns the average (arithmetic mean) of the values in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Blank cells inside a range are not counted. A label counts as the value 0, and so lowers the average. If the list holds no values at all, \fn{@AVG} returns ERR.
+
+The average is the sum of the values divided by the number of values. A single blank cell given by itself counts as one value of 0. If any value in the list is ERR or NA, so is the result.
+
+\Examples
+\LotExample{examples/fn-avg}
+
+\AtFunction{@CELL}
+\fn{@CELL}(\Arg{attribute},\Arg{range}) returns the kind of information named by \Arg{attribute} about the first cell of \Arg{range}.
+
+\Arg{attribute} is one of the ten words listed below, in double quotation marks (capital or small letters), or a cell that holds one of them as a label. \Arg{range} is a cell address or a range; only its upper left cell is examined.
+
+An attribute that is not on the list gives ERR.
+
+\begin{LotTable}{p{26mm}p{102mm}}
+\LotHead{\textbf{Attribute} & \textbf{Returns}}
+\texttt{"address"} & The absolute address of the cell, such as \texttt{\$B\$3}\\
+\texttt{"col"} & The column number, 1 for column A\\
+\texttt{"row"} & The row number\\
+\texttt{"contents"} & The value of the cell; 0 if the cell is blank\\
+\texttt{"type"} & \texttt{b} for a blank cell, \texttt{l} for a label, \texttt{v} for a number or formula\\
+\texttt{"prefix"} & The label prefix character of a label, or an empty string for any other cell\\
+\texttt{"width"} & The width of the cell's column\\
+\texttt{"format"} & The display format code: \texttt{F2}, \texttt{C0} or \texttt{P1} (a letter and the decimal places), or \texttt{G}, \texttt{D1}, \texttt{T}\\
+\texttt{"protect"} & 1 if the cell is protected, 0 if it is not\\
+\texttt{"filename"} & An empty string in this version\LotEnd
+\end{LotTable}
+
+\Examples
+\LotExample{examples/fn-cell}
+
+\AtFunction{@CELLPOINTER}
+\fn{@CELLPOINTER}(\Arg{attribute}) returns the kind of information named by \Arg{attribute} about the cell where the cell pointer is.
+
+\Arg{attribute} takes the same ten words as in \fn{@CELL}: \texttt{"address"}, \texttt{"col"}, \texttt{"contents"}, \texttt{"filename"}, \texttt{"format"}, \texttt{"prefix"}, \texttt{"protect"}, \texttt{"row"}, \texttt{"type"} and \texttt{"width"}.
+
+The value is read when the worksheet is recalculated, so a cell that contains \fn{@CELLPOINTER} reports on the cell the pointer is on at that moment, not on itself. Use \fn{@CELL} when you need information about a particular cell.
+
+\Examples
+\LotExample{examples/fn-cellpointer}
+
+\AtFunction{@CHAR}
+\fn{@CHAR}(\Arg{code}) returns the character whose code number is \Arg{code}.
+
+\Arg{code} is an integer from 1 to 255, or a cell or formula that produces one. A fraction is cut off; a value outside the range gives ERR.
+
+Codes 32 to 126 are the ordinary keyboard characters. \fn{@CHAR} is the inverse of \fn{@CODE}.
+
+\Examples
+\LotExample{examples/fn-char}
+
+\AtFunction{@CHOOSE}
+\fn{@CHOOSE}(\Arg{x},\Arg{v0},\Arg{v1},\Arg{...}) returns the value in the list \Arg{v0}, \Arg{v1}, and so on that is in position \Arg{x}, counting the first value as position 0.
+
+\Arg{x} is an integer, or a cell or formula that produces one; a fraction is cut off. Each value in the list is a number, a string in double quotation marks, a cell address or a formula. A range is not allowed in the list.
+
+If \Arg{x} is negative, or larger than the position of the last value, \fn{@CHOOSE} returns ERR. \fn{@CHOOSE} suits a short list; for a long table use \fn{@VLOOKUP} or \fn{@INDEX}.
+
+\Examples
+\LotExample{examples/fn-choose}
+
+\AtFunction{@CLEAN}
+\fn{@CLEAN}(\Arg{string}) returns \Arg{string} with its nonprinting (control) characters removed.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+\fn{@CLEAN} deletes every character with a code below 32. Use it on text that was brought in from another source and shows odd marks in its cells. Ordinary text is returned unchanged.
+
+\Examples
+\LotExample{examples/fn-clean}
+
+\AtFunction{@CODE}
+\fn{@CODE}(\Arg{string}) returns the code number of the first character in \Arg{string}.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+An empty string gives ERR. \fn{@CODE} is the inverse of \fn{@CHAR}. Capital and small letters have different codes, which makes \fn{@CODE} useful for sorting keys and for testing the case of a letter.
+
+\Examples
+\LotExample{examples/fn-code}
+
+\AtFunction{@COLS}
+\fn{@COLS}(\Arg{range}) returns the number of columns in \Arg{range}.
+
+\Arg{range} is a range address or a range name. A single cell has one column.
+
+Use \fn{@COLS} with \fn{@ROWS} to measure a table without counting by hand.
+
+\Examples
+\LotExample{examples/fn-cols}
+
+\AtFunction{@COS}
+\fn{@COS}(\Arg{x}) returns the cosine of the angle \Arg{x}, which is measured in radians.
+
+The argument \Arg{x} is a number, or a cell or formula that produces a number. To convert degrees to radians, multiply by \fn{@PI} and divide by 180.
+
+The result is always between -1 and 1.
+
+\Examples
+\LotExample{examples/fn-cos}
+
+\AtFunction{@COUNT}
+\fn{@COUNT}(\Arg{list}) returns the number of entries in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Within a range, every cell that is not blank counts, whether it holds a number, a label or a formula; blank cells are skipped. A number, formula or lone cell address counts as one entry even if the cell is blank.
+
+Unlike the other statistical functions, \fn{@COUNT} counts cells that hold ERR or NA instead of returning them. Use it to find out how many entries a range has before you work out an average by hand.
+
+\Examples
+\LotExample{examples/fn-count}
+
+\AtFunction{@CTERM}
+\fn{@CTERM}(\Arg{interest},\Arg{fv},\Arg{pv}) returns the number of compounding periods it takes an investment of \Arg{pv} to grow to \Arg{fv} at the fixed interest rate \Arg{interest} per period.
+
+\Arg{interest} is the rate for one period as a decimal (.01 for 1 percent); it must be greater than -1 and not 0. \Arg{fv} is the future value you want and \Arg{pv} the present value you start with. Each can be a cell or a formula. \Arg{fv} divided by \Arg{pv} must be greater than 0, and \Arg{pv} must not be 0, or \fn{@CTERM} returns ERR.
+
+Express \Arg{interest} per period, not per year: for monthly compounding at 12 percent a year, use .01. The result is generally not a whole number. For regular payments, use \fn{@TERM}.
+
+\Examples
+\LotExample{examples/fn-cterm}
+
+\AtFunction{@DATE}
+\fn{@DATE}(\Arg{year},\Arg{month},\Arg{day}) returns the serial number of the date given by \Arg{year}, \Arg{month} and \Arg{day}.
+
+\Arg{year} is the year minus 1900, an integer from 0 to 199 (so 1992 is 92 and 1900 is 0). \Arg{month} is an integer from 1 to 12 and \Arg{day} an integer from 1 to the number of days in that month. Each can be a cell or a formula that produces an integer. A date that does not exist, such as day 31 of April, gives ERR.
+
+Initech 123 stores a date as a serial number: the number of days since the start of the century, where day 1 is 1 January 1900. Dates can then be added, subtracted and compared like any other numbers. The serial number of 29 February 1900 is 60; the engine counts that day, so 1 March 1900 is 61. The last date that can be stored is year 199, month 12, day 31, serial number 73050. To show the number as a date, format the cell with \slashcmd{/Range Format Date}.
+
+\Examples
+\LotExample{examples/fn-date}
+
+\AtFunction{@DATEVALUE}
+\fn{@DATEVALUE}(\Arg{string}) converts a date written as the string \Arg{string} into its serial number.
+
+\Arg{string} is text in double quotation marks, or a cell or formula that holds a string. The text must be in one of the date formats: \texttt{DD-MMM-YY} (as in \texttt{02-Mar-92}), \texttt{MMM-YY}, or \texttt{MM/DD/YY} (as in \texttt{03/02/92}). Capital and small letters do not matter in the month name.
+
+Use \fn{@DATEVALUE} when dates have been typed as labels and you want to calculate with them. \texttt{MMM-YY} gives the first day of the month. The short forms \texttt{DD-MMM} and \texttt{MM/DD}, which leave out the year, depend on the current date, and in this version Initech 123 has no access to the system clock, so they return ERR. A string in any other form, or a number, returns ERR.
+
+\Examples
+\LotExample{examples/fn-datevalue}
+
+\AtFunction{@DAVG}
+\fn{@DAVG}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the average of the numbers in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. Blank cells in the selected column are skipped. If no record is selected, \fn{@DAVG} returns ERR.
+
+\Examples
+\LotExample{examples/fn-davg}
+
+\AtFunction{@DAY}
+\fn{@DAY}(\Arg{serial}) returns the day of the month, from 1 to 31, of the date serial number \Arg{serial}.
+
+\Arg{serial} is a date serial number from 1 to 73050, or a cell or formula that produces one, such as \fn{@DATE} or \fn{@DATEVALUE}. The time of day, if any, is ignored. A value outside that range gives ERR.
+
+Use \fn{@DAY} with \fn{@MONTH} and \fn{@YEAR} to take a date apart.
+
+\Examples
+\LotExample{examples/fn-day}
+
+\AtFunction{@DCOUNT}
+\fn{@DCOUNT}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the number of nonblank cells in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. Use a column that is filled in for every record to count the records.
+
+\Examples
+\LotExample{examples/fn-dcount}
+
+\AtFunction{@DDB}
+\fn{@DDB}(\Arg{cost},\Arg{salvage},\Arg{life},\Arg{period}) returns the depreciation of an asset for one period, by the double-declining-balance method.
+
+\Arg{cost} is the price paid, \Arg{salvage} the value at the end of its useful life, \Arg{life} the number of periods in that life (it must be greater than 2) and \Arg{period} the period for which you want the figure, counting from 1. Each can be a cell or a formula. \Arg{cost} must not be less than \Arg{salvage}.
+
+Each period the asset loses two divided by \Arg{life} of its remaining book value, but never more than would take it below \Arg{salvage}. The depreciation is larger in early periods than late ones. Compare \fn{@SLN}, which spreads the loss evenly, and \fn{@SYD}.
+
+\Examples
+\LotExample{examples/fn-ddb}
+
+\AtFunction{@DMAX}
+\fn{@DMAX}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the largest value in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. Blank cells in the selected column are skipped.
+
+\Examples
+\LotExample{examples/fn-dmax}
+
+\AtFunction{@DMIN}
+\fn{@DMIN}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the smallest value in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. Blank cells in the selected column are skipped.
+
+\Examples
+\LotExample{examples/fn-dmin}
+
+\AtFunction{@DSTD}
+\fn{@DSTD}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the population standard deviation of the numbers in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. It uses the population method, like \fn{@STD}. If no record is selected, \fn{@DSTD} returns ERR.
+
+\Examples
+\LotExample{examples/fn-dstd}
+
+\AtFunction{@DSUM}
+\fn{@DSUM}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the sum of the numbers in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. Blank cells in the selected column are skipped.
+
+\Examples
+\LotExample{examples/fn-dsum}
+
+\AtFunction{@DVAR}
+\fn{@DVAR}(\Arg{input},\Arg{offset},\Arg{criteria}) returns the population variance of the numbers in column \Arg{offset} of the records in \Arg{input} that meet the conditions in \Arg{criteria}.
+
+\Arg{input} is the database: a range whose top row holds the field names and whose other rows are the records. \Arg{offset} says which column of the database to work on: 0 is the first column, 1 the second, and so on; an offset outside the database gives ERR. \Arg{criteria} is a range whose top row holds field names copied from the database and whose lower rows hold the conditions that select records.
+
+A record is selected when it meets every condition in one row of the criteria range; the conditions in different rows are alternatives. A label condition may use ? for any one character, * for the rest of the text, and a leading \texttt{\textasciitilde} to mean "not"; capital and small letters do not matter. A number condition matches equal numbers. A criteria row that is entirely blank selects every record. It uses the population method, like \fn{@VAR}. If no record is selected, \fn{@DVAR} returns ERR.
+
+\Examples
+\LotExample{examples/fn-dvar}
+
+\AtFunction{@ERR}
+\fn{@ERR} returns the value ERR.
+
+\fn{@ERR} takes no arguments and needs no parentheses.
+
+ERR spreads: any formula that uses a cell holding ERR also produces ERR, except tests such as \fn{@ISERR} and \fn{@IF}. Enter \fn{@ERR} in a cell to mark a result that must not be used, or inside \fn{@IF} to flag input that fails a check.
+
+\Examples
+\LotExample{examples/fn-err}
+
+\AtFunction{@EXACT}
+\fn{@EXACT}(\Arg{string1},\Arg{string2}) returns 1 (true) if \Arg{string1} and \Arg{string2} are exactly the same, and 0 (false) if they differ.
+
+Each string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell gives ERR.
+
+Unlike the = operator, which treats capital and small letters as the same, \fn{@EXACT} tells them apart.
+
+\Examples
+\LotExample{examples/fn-exact}
+
+\AtFunction{@EXP}
+\fn{@EXP}(\Arg{x}) returns the constant e (about 2.71828) raised to the power \Arg{x}.
+
+The argument \Arg{x} is a number, or a cell or formula that produces a number.
+
+\fn{@EXP} is the inverse of \fn{@LN}. When \Arg{x} is larger than 709 the result is too large to hold and \fn{@EXP} returns ERR; when \Arg{x} is smaller than -709 it returns 0.
+
+\Examples
+\LotExample{examples/fn-exp}
+
+\AtFunction{@FALSE}
+\fn{@FALSE} returns the logical value false, which is the number 0.
+
+\fn{@FALSE} takes no arguments and needs no parentheses.
+
+Initech 123 has no separate logical type: false is 0 and true is 1. Use \fn{@FALSE} to make a formula easier to read.
+
+\Examples
+\LotExample{examples/fn-false}
+
+\AtFunction{@FIND}
+\fn{@FIND}(\Arg{search},\Arg{string},\Arg{start}) returns the position at which the string \Arg{search} first occurs in \Arg{string}, looking from position \Arg{start} onward.
+
+\Arg{search} and \Arg{string} are strings: text in double quotation marks, labels in cells or formulas. \Arg{start} is the position at which to begin looking, counting the first character as 0; it is an integer, or a cell or formula that produces one, and must not be negative.
+
+The first character of \Arg{string} is at position 0, so a match at the very beginning returns 0. The search tells capital letters from small ones. If \Arg{search} does not occur, \fn{@FIND} returns ERR. To find a second occurrence, begin the search just past the first.
+
+\Examples
+\LotExample{examples/fn-find}
+
+\AtFunction{@FV}
+\fn{@FV}(\Arg{payment},\Arg{interest},\Arg{term}) returns the future value of an investment of equal \Arg{payment} amounts made at the end of each of \Arg{term} periods, earning \Arg{interest} per period.
+
+\Arg{payment} is the amount paid in each period. \Arg{interest} is the rate for one period as a decimal (.01 for 1 percent) and must be greater than -1. \Arg{term} is the number of periods. Each can be a cell or a formula.
+
+If \Arg{interest} is 0, the result is \Arg{payment} times \Arg{term}. Use the same units for \Arg{interest} and \Arg{term}: for 12 monthly payments at 12 percent a year, use .01 and 12. Compare \fn{@PV}, which returns the value today.
+
+\Examples
+\LotExample{examples/fn-fv}
+
+\AtFunction{@HLOOKUP}
+\fn{@HLOOKUP}(\Arg{x},\Arg{range},\Arg{row}) looks for the value \Arg{x} in the top row of the table \Arg{range} and returns the entry in the same column, \Arg{row} rows below the top.
+
+\Arg{x} is a number, a string in double quotation marks, or a cell or formula that produces one. \Arg{range} is the table, including its top row of lookup values. \Arg{row} is the offset down from the top row: 0 is the top row itself, 1 the row below it, and so on.
+
+When \Arg{x} is a number, the top row must be in ascending order. \fn{@HLOOKUP} finds the last entry that is less than or equal to \Arg{x}; if \Arg{x} is smaller than the first entry, or \Arg{row} lies outside the table, the result is ERR. When \Arg{x} is a string, it must match an entry exactly, apart from capital and small letters. Use \fn{@VLOOKUP} for a table that runs down the worksheet.
+
+\Examples
+\LotExample{examples/fn-hlookup}
+
+\AtFunction{@HOUR}
+\fn{@HOUR}(\Arg{time}) returns the hour, from 0 to 23, of the time-of-day number \Arg{time}.
+
+\Arg{time} is a number whose fractional part is a time of day, as produced by \fn{@TIME} or \fn{@TIMEVALUE}, or a cell or formula that produces one. The whole part, a date, is ignored. A negative number gives ERR.
+
+Initech 123 stores a time of day as a fraction of 24 hours: 0.5 is noon and 0.75 is 6 p.m.
+
+\Examples
+\LotExample{examples/fn-hour}
+
+\AtFunction{@IF}
+\fn{@IF}(\Arg{condition},\Arg{x},\Arg{y}) returns \Arg{x} if \Arg{condition} is true and \Arg{y} if it is false.
+
+\Arg{condition} is usually a comparison such as \texttt{A1>100}, but it can be any number, cell or formula. A nonzero number is true; 0, a blank cell and a label are false. \Arg{x} and \Arg{y} can be numbers, strings in double quotation marks, cell addresses or formulas.
+
+If \Arg{condition} is ERR or NA, \fn{@IF} returns that value. You can put one \fn{@IF} inside another to choose among more than two values. Combine conditions with \texttt{\#AND\#}, \texttt{\#OR\#} and \texttt{\#NOT\#}.
+
+\Examples
+\LotExample{examples/fn-if}
+
+\AtFunction{@INDEX}
+\fn{@INDEX}(\Arg{range},\Arg{column},\Arg{row}) returns the contents of the cell at offset \Arg{column} and \Arg{row} in \Arg{range}.
+
+\Arg{range} is the table. \Arg{column} and \Arg{row} are integers, or cells or formulas that produce integers; both count from 0, so the upper left cell of the range is at column 0 and row 0. The column is given first.
+
+If either offset is negative, or lies beyond the edge of \Arg{range}, \fn{@INDEX} returns ERR. A blank cell is returned as 0.
+
+\Examples
+\LotExample{examples/fn-index}
+
+\AtFunction{@INT}
+\fn{@INT}(\Arg{x}) returns the integer part of \Arg{x}, with the digits after the decimal point removed.
+
+The argument \Arg{x} is a number, or a cell or formula that produces a number.
+
+\fn{@INT} does not round: it cuts off the fraction, so a negative number moves toward zero. Use \fn{@ROUND} when you want the nearest whole number.
+
+\Examples
+\LotExample{examples/fn-int}
+
+\AtFunction{@IRR}
+\fn{@IRR}(\Arg{guess},\Arg{range}) returns the internal rate of return of the cash flows in \Arg{range}, starting the search at \Arg{guess}.
+
+\Arg{guess} is your estimate of the rate as a decimal, such as .1 for 10 percent; it can be a cell or a formula. \Arg{range} holds the cash flows, one per period, with the first entry (usually the negative initial investment) taken at time 0. The range must contain at least one negative and one positive value.
+
+\fn{@IRR} improves the guess step by step. If it has not settled on an answer after 30 steps, or the cash flows have no rate of return, it returns ERR; try another guess in that case. The cash flows are read across each row from the top of the range to the bottom, and a blank cell counts as 0. The result is a rate per period.
+
+\Examples
+\LotExample{examples/fn-irr}
+
+\AtFunction{@ISERR}
+\fn{@ISERR}(\Arg{x}) returns 1 (true) if \Arg{x} is the value ERR and 0 (false) otherwise.
+
+\Arg{x} is usually a cell address or a formula, since the point is to find out what it produces.
+
+\fn{@ISERR} returns 0 for NA. Use it to keep an error out of a total: \fn{@IF}(\fn{@ISERR}(\Arg{x}),0,\Arg{x}). To trap NA as well, use \fn{@ISNA}.
+
+\Examples
+\LotExample{examples/fn-iserr}
+
+\AtFunction{@ISNA}
+\fn{@ISNA}(\Arg{x}) returns 1 (true) if \Arg{x} is the value NA and 0 (false) otherwise.
+
+\Arg{x} is usually a cell address or a formula.
+
+NA stands for "not available." Enter \fn{@NA} in a cell that is waiting for a figure; every formula that depends on it then shows NA until the figure is supplied. \fn{@ISNA} returns 0 for ERR.
+
+\Examples
+\LotExample{examples/fn-isna}
+
+\AtFunction{@ISNUMBER}
+\fn{@ISNUMBER}(\Arg{x}) returns 1 (true) if \Arg{x} is a number and 0 (false) if it is a string.
+
+\Arg{x} can be a cell address, a number, a string in double quotation marks or a formula.
+
+A blank cell counts as a number, as do the values ERR and NA in this version. To test for a string, use \fn{@ISSTRING}.
+
+\Examples
+\LotExample{examples/fn-isnumber}
+
+\AtFunction{@ISSTRING}
+\fn{@ISSTRING}(\Arg{x}) returns 1 (true) if \Arg{x} is a string and 0 (false) otherwise.
+
+\Arg{x} can be a cell address, a string in double quotation marks or a formula.
+
+A cell that holds a label is a string; a blank cell is not.
+
+\Examples
+\LotExample{examples/fn-isstring}
+
+\AtFunction{@LEFT}
+\fn{@LEFT}(\Arg{string},\Arg{n}) returns the first \Arg{n} characters of \Arg{string}.
+
+The string can be text in double quotation marks, a label in a cell, or a formula that produces a string. \Arg{n} is an integer, or a cell or formula that produces one, and must not be negative. If \Arg{n} is larger than the string, the whole string is returned.
+
+Use \fn{@LEFT} to pick off a prefix such as an area code or a department code. See also \fn{@RIGHT} and \fn{@MID}.
+
+\Examples
+\LotExample{examples/fn-left}
+
+\AtFunction{@LENGTH}
+\fn{@LENGTH}(\Arg{string}) returns the number of characters in \Arg{string}.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+Spaces count as characters. The label prefix character that Initech 123 stores with a label is not counted. The length of an empty string is 0.
+
+\Examples
+\LotExample{examples/fn-length}
+
+\AtFunction{@LN}
+\fn{@LN}(\Arg{x}) returns the natural logarithm (base e) of \Arg{x}.
+
+The argument \Arg{x} must be a number greater than 0, or a cell or formula that produces one. Otherwise \fn{@LN} returns ERR.
+
+\fn{@LN} is the inverse of \fn{@EXP}. Use \fn{@LOG} for logarithms to base 10.
+
+\Examples
+\LotExample{examples/fn-ln}
+
+\AtFunction{@LOG}
+\fn{@LOG}(\Arg{x}) returns the base 10 logarithm of \Arg{x}.
+
+The argument \Arg{x} must be a number greater than 0, or a cell or formula that produces one. Otherwise \fn{@LOG} returns ERR.
+
+To find a logarithm to some other base, divide the natural logarithm of the number by the natural logarithm of the base: \fn{@LN}(\Arg{x})/\fn{@LN}(\Arg{base}).
+
+\Examples
+\LotExample{examples/fn-log}
+
+\AtFunction{@LOWER}
+\fn{@LOWER}(\Arg{string}) returns \Arg{string} with every capital letter changed to the corresponding small letter.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+Characters that are not letters are not changed. See also \fn{@UPPER} and \fn{@PROPER}.
+
+\Examples
+\LotExample{examples/fn-lower}
+
+\AtFunction{@MAX}
+\fn{@MAX}(\Arg{list}) returns the largest value in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Blank cells inside a range are skipped; a label counts as 0. If any value is ERR or NA, so is the result.
+
+A single blank cell given by itself counts as the value 0. Use \fn{@MAX} with \fn{@MIN} to find the spread of a set of figures.
+
+\Examples
+\LotExample{examples/fn-max}
+
+\AtFunction{@MID}
+\fn{@MID}(\Arg{string},\Arg{start},\Arg{n}) returns \Arg{n} characters of \Arg{string}, beginning at position \Arg{start}.
+
+The string can be text in double quotation marks, a label in a cell, or a formula that produces a string. \Arg{start} and \Arg{n} are integers, or cells or formulas that produce integers, and must not be negative. The first character of the string is at position 0.
+
+If \Arg{start} is beyond the end of the string, the result is an empty string; if fewer than \Arg{n} characters remain, you get what is left. Combine \fn{@MID} with \fn{@FIND} to cut out text between two markers.
+
+\Examples
+\LotExample{examples/fn-mid}
+
+\AtFunction{@MIN}
+\fn{@MIN}(\Arg{list}) returns the smallest value in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Blank cells inside a range are skipped; a label counts as 0. If any value is ERR or NA, so is the result.
+
+A single blank cell given by itself counts as the value 0. Because a label counts as 0, a range that mixes labels with positive numbers has a minimum of 0.
+
+\Examples
+\LotExample{examples/fn-min}
+
+\AtFunction{@MINUTE}
+\fn{@MINUTE}(\Arg{time}) returns the minute, from 0 to 59, of the time-of-day number \Arg{time}.
+
+\Arg{time} is a number whose fractional part is a time of day, as produced by \fn{@TIME} or \fn{@TIMEVALUE}, or a cell or formula that produces one. The whole part, a date, is ignored. A negative number gives ERR.
+
+The time is first rounded to the nearest second, so a time that falls a hair short of a full minute is read as that minute.
+
+\Examples
+\LotExample{examples/fn-minute}
+
+\AtFunction{@MOD}
+\fn{@MOD}(\Arg{x},\Arg{y}) returns the remainder when \Arg{x} is divided by \Arg{y}.
+
+Both arguments are numbers, or cells or formulas that produce numbers. \Arg{y}, the divisor, must not be 0.
+
+The remainder takes the sign of \Arg{x}. If \Arg{y} is 0, \fn{@MOD} returns ERR. A common use is testing whether a number divides evenly: \fn{@MOD}(\Arg{x},2) is 0 for every even number.
+
+\Examples
+\LotExample{examples/fn-mod}
+
+\AtFunction{@MONTH}
+\fn{@MONTH}(\Arg{serial}) returns the month, from 1 to 12, of the date serial number \Arg{serial}.
+
+\Arg{serial} is a date serial number from 1 to 73050, or a cell or formula that produces one. The time of day, if any, is ignored. A value outside that range gives ERR.
+
+Use \fn{@MONTH} with \fn{@DAY} and \fn{@YEAR} to take a date apart.
+
+\Examples
+\LotExample{examples/fn-month}
+
+\AtFunction{@N}
+\fn{@N}(\Arg{range}) returns the numeric value of the first cell of \Arg{range}.
+
+\Arg{range} is a cell address or a range; only its upper left cell is examined.
+
+If that cell holds a number or a formula with a numeric result, \fn{@N} returns it. If the cell holds a label or is blank, \fn{@N} returns 0. An ERR or NA value is passed on. Use \fn{@N} to keep a label from causing trouble in a calculation. The companion function \fn{@S} does the same job for strings.
+
+\Examples
+\LotExample{examples/fn-n}
+
+\AtFunction{@NA}
+\fn{@NA} returns the value NA, meaning "not available."
+
+\fn{@NA} takes no arguments and needs no parentheses.
+
+Enter \fn{@NA} in a cell for a figure you do not have yet. Formulas that depend on the cell show NA instead of a wrong answer, and \fn{@ISNA} lets you test for it.
+
+\Examples
+\LotExample{examples/fn-na}
+
+\AtFunction{@NOW}
+\fn{@NOW} is intended to return the serial number of the current date and time.
+
+\fn{@NOW} takes no arguments and needs no parentheses.
+
+In this version Initech 123 has no access to the system clock; \fn{@NOW} returns ERR. Enter dates and times yourself with \fn{@DATE} and \fn{@TIME}, or type the date into a cell as a number or with \fn{@DATEVALUE}. Every formula that depends on \fn{@NOW} shows ERR as well.
+
+\Examples
+\LotExample{examples/fn-now}
+
+\AtFunction{@NPV}
+\fn{@NPV}(\Arg{interest},\Arg{range}) returns the present value of the series of future cash flows in \Arg{range}, discounted at the rate \Arg{interest} per period.
+
+\Arg{interest} is the discount rate for one period as a decimal; it must be greater than -1. \Arg{range} holds the cash flows, one per period, at the end of each period. Blank cells are skipped.
+
+The first cash flow in the range is discounted by one full period, so a payment you make today belongs outside the range. To include an initial investment, add it to the result: \texttt{-100+@NPV(.1,B2..B5)}. The cash flows are read across each row from the top of the range to the bottom.
+
+\Examples
+\LotExample{examples/fn-npv}
+
+\AtFunction{@PI}
+\fn{@PI} returns the value of pi, about 3.14159265358979, the ratio of the circumference of a circle to its diameter.
+
+\fn{@PI} takes no arguments and needs no parentheses.
+
+Use \fn{@PI} in formulas for circles and in conversions between degrees and radians.
+
+\Examples
+\LotExample{examples/fn-pi}
+
+\AtFunction{@PMT}
+\fn{@PMT}(\Arg{principal},\Arg{interest},\Arg{term}) returns the payment due at the end of each period to repay a loan of \Arg{principal} over \Arg{term} periods at the rate \Arg{interest} per period.
+
+\Arg{principal} is the amount borrowed. \Arg{interest} is the rate for one period as a decimal (.01 for 1 percent) and must be greater than -1. \Arg{term} is the number of periods and must not be 0. Each can be a cell or a formula.
+
+If \Arg{interest} is 0, the payment is simply \Arg{principal} divided by \Arg{term}. Use the same units for \Arg{interest} and \Arg{term}. For a loan of 10000 repaid monthly over a year at 12 percent a year, use .01 as the rate and 12 as the term.
+
+\Examples
+\LotExample{examples/fn-pmt}
+
+\AtFunction{@PROPER}
+\fn{@PROPER}(\Arg{string}) returns \Arg{string} with the first letter of each word in capitals and every other letter in small letters.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+A word begins after any character that is not a letter, including a space, a hyphen or a digit. See also \fn{@UPPER} and \fn{@LOWER}.
+
+\Examples
+\LotExample{examples/fn-proper}
+
+\AtFunction{@PV}
+\fn{@PV}(\Arg{payment},\Arg{interest},\Arg{term}) returns the present value of a series of equal \Arg{payment} amounts received at the end of each of \Arg{term} periods, discounted at \Arg{interest} per period.
+
+\Arg{payment} is the amount received in each period. \Arg{interest} is the rate for one period as a decimal and must be greater than -1. \Arg{term} is the number of periods. Each can be a cell or a formula.
+
+If \Arg{interest} is 0, the result is \Arg{payment} times \Arg{term}. Use \fn{@PV} to find what a stream of payments is worth today, for example how much you can borrow if you can afford a given monthly payment. \fn{@PV} undoes \fn{@PMT}.
+
+\Examples
+\LotExample{examples/fn-pv}
+
+\AtFunction{@RAND}
+\fn{@RAND} returns a pseudo-random number greater than or equal to 0 and less than 1.
+
+\fn{@RAND} takes no arguments and needs no parentheses.
+
+Every time \fn{@RAND} is evaluated it produces the next number in a fixed sequence, and the sequence is the same every time you start Initech 123. Two \fn{@RAND} formulas on the same worksheet therefore differ from each other, but a sequence of worksheets built the same way gives the same numbers.
+
+\begin{Note}
+\fn{@RAND} is recalculated each time the worksheet is recalculated, so a cell that contains it changes whenever you press \fkey{Calc}{F9} or edit another cell. To keep a number, copy it with \slashcmd{/Range Value}.
+\end{Note}
+
+\Examples
+\LotExample{examples/fn-rand}
+
+\AtFunction{@RATE}
+\fn{@RATE}(\Arg{fv},\Arg{pv},\Arg{term}) returns the fixed interest rate per period at which an investment of \Arg{pv} grows to \Arg{fv} over \Arg{term} periods.
+
+\Arg{fv} is the future value, \Arg{pv} the present value and \Arg{term} the number of periods. Each can be a cell or a formula. \Arg{pv} and \Arg{term} must not be 0, and the ratio of \Arg{fv} to \Arg{pv} must be positive.
+
+The result is a rate per period, as a decimal: format the cell as a percent to read it more easily. If your periods are months, multiply by 12 for a yearly rate.
+
+\Examples
+\LotExample{examples/fn-rate}
+
+\AtFunction{@REPEAT}
+\fn{@REPEAT}(\Arg{string},\Arg{n}) returns \Arg{string} repeated \Arg{n} times.
+
+The string can be text in double quotation marks, a label in a cell, or a formula that produces a string. \Arg{n} is an integer, or a cell or formula that produces one, and must not be negative.
+
+An \Arg{n} of 0 gives an empty string. The result cannot be longer than 240 characters; a longer result returns ERR. \fn{@REPEAT} is handy for drawing a line of dashes or a simple bar chart in a column of cells.
+
+\Examples
+\LotExample{examples/fn-repeat}
+
+\AtFunction{@REPLACE}
+\fn{@REPLACE}(\Arg{original},\Arg{start},\Arg{n},\Arg{new}) returns \Arg{original} with \Arg{n} characters beginning at position \Arg{start} replaced by the string \Arg{new}.
+
+\Arg{original} and \Arg{new} are strings: text in double quotation marks, labels in cells or formulas. \Arg{start} and \Arg{n} are integers, or cells or formulas that produce integers, and must not be negative. The first character of \Arg{original} is at position 0.
+
+If \Arg{n} is 0, \Arg{new} is inserted at \Arg{start} and nothing is removed. If \Arg{new} is empty, the characters are deleted. A \Arg{start} or \Arg{n} that runs past the end is held to the end of \Arg{original}.
+
+\Examples
+\LotExample{examples/fn-replace}
+
+\AtFunction{@RIGHT}
+\fn{@RIGHT}(\Arg{string},\Arg{n}) returns the last \Arg{n} characters of \Arg{string}.
+
+The string can be text in double quotation marks, a label in a cell, or a formula that produces a string. \Arg{n} is an integer, or a cell or formula that produces one, and must not be negative. If \Arg{n} is larger than the string, the whole string is returned.
+
+Use \fn{@RIGHT} to pick off a suffix such as a file extension. See also \fn{@LEFT} and \fn{@MID}.
+
+\Examples
+\LotExample{examples/fn-right}
+
+\AtFunction{@ROUND}
+\fn{@ROUND}(\Arg{x},\Arg{n}) rounds the value \Arg{x} to \Arg{n} decimal places.
+
+The argument \Arg{x} can be a number, the address of a cell that holds a number, or a formula that produces a number. \Arg{n} is an integer from -15 to 15 or a cell or formula that produces one; any other value gives ERR.
+
+A positive \Arg{n} rounds to that many places after the decimal point, 0 rounds to a whole number, and a negative \Arg{n} rounds to tens (\Arg{n} is -1), hundreds (-2), and so on. A value exactly halfway between two possibilities rounds away from zero.
+
+\begin{Note}
+\fn{@ROUND} changes the number stored in the cell. Formatting with \slashcmd{/Range Format} changes only how the number is displayed.
+\end{Note}
+
+\Examples
+\LotExample{examples/fn-round}
+
+\AtFunction{@ROWS}
+\fn{@ROWS}(\Arg{range}) returns the number of rows in \Arg{range}.
+
+\Arg{range} is a range address or a range name. A single cell has one row.
+
+Use \fn{@ROWS} with \fn{@COLS} to measure a table without counting by hand.
+
+\Examples
+\LotExample{examples/fn-rows}
+
+\AtFunction{@S}
+\fn{@S}(\Arg{range}) returns the string in the first cell of \Arg{range}.
+
+\Arg{range} is a cell address or a range; only its upper left cell is examined.
+
+If that cell holds a label, or a formula that produces a string, \fn{@S} returns the string. If it holds a number or is blank, \fn{@S} returns an empty string. Use \fn{@S} to keep a number from causing trouble in a string formula. The companion function \fn{@N} does the same job for numbers.
+
+\Examples
+\LotExample{examples/fn-s}
+
+\AtFunction{@SECOND}
+\fn{@SECOND}(\Arg{time}) returns the second, from 0 to 59, of the time-of-day number \Arg{time}.
+
+\Arg{time} is a number whose fractional part is a time of day, as produced by \fn{@TIME} or \fn{@TIMEVALUE}, or a cell or formula that produces one. The whole part, a date, is ignored. A negative number gives ERR.
+
+The time is first rounded to the nearest second.
+
+\Examples
+\LotExample{examples/fn-second}
+
+\AtFunction{@SIN}
+\fn{@SIN}(\Arg{x}) returns the sine of the angle \Arg{x}, which is measured in radians.
+
+The argument \Arg{x} is a number, or a cell or formula that produces a number. To convert degrees to radians, multiply by \fn{@PI} and divide by 180.
+
+The result is always between -1 and 1.
+
+\Examples
+\LotExample{examples/fn-sin}
+
+\AtFunction{@SLN}
+\fn{@SLN}(\Arg{cost},\Arg{salvage},\Arg{life}) returns the straight-line depreciation of an asset for one period.
+
+\Arg{cost} is the price paid, \Arg{salvage} the value at the end of its useful life and \Arg{life} the number of periods in that life; \Arg{life} must not be 0. Each can be a cell or a formula.
+
+The asset loses the same amount in every period: the cost less the salvage value, divided by the life. Compare \fn{@SYD} and \fn{@DDB}, which write off more in the early periods.
+
+\Examples
+\LotExample{examples/fn-sln}
+
+\AtFunction{@SQRT}
+\fn{@SQRT}(\Arg{x}) returns the positive square root of \Arg{x}.
+
+The argument \Arg{x} is a number, or a cell or formula that produces a number. It must not be negative: the square root of a negative number is ERR.
+
+To find another root, raise the number to a fractional power, as in \texttt{27\^{}(1/3)} for a cube root.
+
+\Examples
+\LotExample{examples/fn-sqrt}
+
+\AtFunction{@STD}
+\fn{@STD}(\Arg{list}) returns the population standard deviation of the values in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Blank cells inside a range are skipped; a label counts as the value 0. If the list holds no values, \fn{@STD} returns ERR.
+
+\fn{@STD} uses the population method: the differences from the average are squared, added up and divided by the number of values (not by one less), and the square root is taken. It is the square root of \fn{@VAR}.
+
+\Examples
+\LotExample{examples/fn-std}
+
+\AtFunction{@STRING}
+\fn{@STRING}(\Arg{x},\Arg{n}) converts the number \Arg{x} to a string with \Arg{n} decimal places.
+
+\Arg{x} is a number, or a cell or formula that produces a number. \Arg{n} is an integer from 0 to 15, or a cell or formula that produces one; any other value gives ERR.
+
+The number is rounded to \Arg{n} places and always shown with exactly that many, without a thousands separator or currency symbol. Use \fn{@STRING} with the \texttt{\&} operator to put a number inside a sentence. \fn{@VALUE} converts in the other direction.
+
+\Examples
+\LotExample{examples/fn-string}
+
+\AtFunction{@SUM}
+\fn{@SUM}(\Arg{list}) returns the sum of the values in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Blank cells and labels in a range add 0. If any value is ERR or NA, so is the sum.
+
+\fn{@SUM} is the function you will use most often. Putting a whole column in the range, as in \texttt{@SUM(B2..B20)}, keeps the total right when you later insert a row inside the range. The sum of no entries is 0.
+
+\Examples
+\LotExample{examples/fn-sum}
+
+\AtFunction{@SYD}
+\fn{@SYD}(\Arg{cost},\Arg{salvage},\Arg{life},\Arg{period}) returns the sum-of-the-years'-digits depreciation of an asset for one period.
+
+\Arg{cost} is the price paid, \Arg{salvage} the value at the end of its useful life, \Arg{life} the number of periods in that life and \Arg{period} the period you want, counting from 1. \Arg{life} and \Arg{period} must be at least 1.
+
+The method writes off the most in the first period and a smaller amount in each period after it, according to the periods remaining. The depreciation for all the periods of the life adds up to the cost less the salvage value.
+
+\Examples
+\LotExample{examples/fn-syd}
+
+\AtFunction{@TAN}
+\fn{@TAN}(\Arg{x}) returns the tangent of the angle \Arg{x}, which is measured in radians.
+
+The argument \Arg{x} is a number, or a cell or formula that produces a number. To convert degrees to radians, multiply by \fn{@PI} and divide by 180.
+
+The tangent of an angle is its sine divided by its cosine.
+
+\Examples
+\LotExample{examples/fn-tan}
+
+\AtFunction{@TERM}
+\fn{@TERM}(\Arg{payment},\Arg{interest},\Arg{fv}) returns the number of periods it takes equal \Arg{payment} amounts, paid at the end of each period and earning \Arg{interest} per period, to grow to the future value \Arg{fv}.
+
+\Arg{payment} is the amount paid each period and must not be 0. \Arg{interest} is the rate for one period as a decimal; it must be greater than -1 and not 0. \Arg{fv} is the amount you want to reach. Each can be a cell or a formula.
+
+The result is generally not a whole number; round it up to find the number of payments you need. For a single lump sum instead of regular payments, use \fn{@CTERM}.
+
+\Examples
+\LotExample{examples/fn-term}
+
+\AtFunction{@TIME}
+\fn{@TIME}(\Arg{hour},\Arg{minute},\Arg{second}) returns the time-of-day number for \Arg{hour}, \Arg{minute} and \Arg{second}.
+
+\Arg{hour} is an integer from 0 to 23, \Arg{minute} and \Arg{second} integers from 0 to 59. Each can be a cell or a formula. Any value outside its range gives ERR, and a fraction is cut off.
+
+The result is a fraction of a day between 0 and just under 1: 12 noon is 0.5. Format the cell with \slashcmd{/Range Format Date Time} to display it as a time, or add it to a date serial number to hold both a date and a time.
+
+\Examples
+\LotExample{examples/fn-time}
+
+\AtFunction{@TIMEVALUE}
+\fn{@TIMEVALUE}(\Arg{string}) converts a time written as the string \Arg{string} into a time-of-day number.
+
+\Arg{string} is text in double quotation marks, or a cell or formula that holds a string, in one of these forms: \texttt{HH:MM:SS AM/PM}, \texttt{HH:MM AM/PM}, \texttt{HH:MM:SS} or \texttt{HH:MM}. With AM or PM the hour is from 1 to 12; without it the hour is from 0 to 23.
+
+Use \fn{@TIMEVALUE} to calculate with times that were typed as labels. A string in any other form returns ERR.
+
+\Examples
+\LotExample{examples/fn-timevalue}
+
+\AtFunction{@TRIM}
+\fn{@TRIM}(\Arg{string}) returns \Arg{string} with leading and trailing spaces removed, and each run of spaces inside it reduced to a single space.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+Use \fn{@TRIM} on text that was typed or brought in with irregular spacing, so that comparisons and lookups work. Only the space character is affected.
+
+\Examples
+\LotExample{examples/fn-trim}
+
+\AtFunction{@TRUE}
+\fn{@TRUE} returns the logical value true, which is the number 1.
+
+\fn{@TRUE} takes no arguments and needs no parentheses.
+
+Initech 123 has no separate logical type: true is 1 and false is 0. A comparison such as \texttt{3>2} produces the same value as \fn{@TRUE}.
+
+\Examples
+\LotExample{examples/fn-true}
+
+\AtFunction{@UPPER}
+\fn{@UPPER}(\Arg{string}) returns \Arg{string} with every small letter changed to the corresponding capital letter.
+
+The string can be text in double quotation marks, the address of a cell that holds a label, or a formula that produces a string. A number or a blank cell is not a string and gives ERR.
+
+Characters that are not letters are not changed. Use \fn{@UPPER} to make entries compare equal with \fn{@EXACT}, or to produce headings. See also \fn{@LOWER} and \fn{@PROPER}.
+
+\Examples
+\LotExample{examples/fn-upper}
+
+\AtFunction{@VALUE}
+\fn{@VALUE}(\Arg{string}) converts the string \Arg{string}, which looks like a number, to the number itself.
+
+The string can be text in double quotation marks, a label in a cell, or a formula that produces a string. An empty string, or a blank cell, gives 0. A string that is not a number gives ERR.
+
+\fn{@VALUE} understands whole numbers, decimals, scientific notation (\texttt{1.5E3}), a leading \texttt{\$}, thousands separators, a trailing \texttt{\%} (which divides by 100) and a mixed fraction such as \texttt{49 3/4}. Surrounding spaces are ignored. \fn{@STRING} converts in the other direction.
+
+\Examples
+\LotExample{examples/fn-value}
+
+\AtFunction{@VAR}
+\fn{@VAR}(\Arg{list}) returns the population variance of the values in \Arg{list}.
+
+\Arg{list} is one or more numbers, cell addresses, ranges or formulas, separated by commas. Blank cells inside a range are skipped; a label counts as the value 0. If the list holds no values, \fn{@VAR} returns ERR.
+
+\fn{@VAR} uses the population method: the differences from the average are squared, added up and divided by the number of values (not by one less). \fn{@STD} is its square root.
+
+\Examples
+\LotExample{examples/fn-var}
+
+\AtFunction{@VLOOKUP}
+\fn{@VLOOKUP}(\Arg{x},\Arg{range},\Arg{column}) looks for the value \Arg{x} in the first column of the table \Arg{range} and returns the entry in the same row, \Arg{column} columns to the right.
+
+\Arg{x} is a number, a string in double quotation marks, or a cell or formula that produces one. \Arg{range} is the table, including its first column of lookup values. \Arg{column} is the offset to the right of that column: 0 is the lookup column itself, 1 the column next to it, and so on.
+
+When \Arg{x} is a number, the lookup column must be in ascending order. \fn{@VLOOKUP} finds the last entry that is less than or equal to \Arg{x}; if \Arg{x} is smaller than the first entry, or \Arg{column} lies outside the table, the result is ERR. When \Arg{x} is a string, it must match an entry exactly, apart from capital and small letters. Use \fn{@HLOOKUP} for a table that runs across the worksheet.
+
+\Examples
+\LotExample{examples/fn-vlookup}
+
+\AtFunction{@YEAR}
+\fn{@YEAR}(\Arg{serial}) returns the year of the date serial number \Arg{serial}, as the number of years since 1900.
+
+\Arg{serial} is a date serial number from 1 to 73050, or a cell or formula that produces one. The time of day, if any, is ignored. A value outside that range gives ERR.
+
+The result is the year minus 1900, the same form that \fn{@DATE} takes: 1992 is 92. Add 1900 to display the full year.
+
+\Examples
+\LotExample{examples/fn-year}
+

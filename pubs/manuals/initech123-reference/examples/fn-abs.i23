@@ -1,0 +1,7 @@
+# @ABS
+# @ABS drops the sign
+A1 -42.5
+A2 17
+= @ABS(A1)
+= @ABS(A2)
+= @ABS(A1-A2)

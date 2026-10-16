@@ -1,0 +1,6 @@
+A1: 123.456
+@STRING(A1,2) = 123.46
+@STRING(A1,0) = 123
+@STRING(-5,3) = -5.000
++"Total: "&@STRING(A1,1) = Total: 123.5
+@STRING(A1,16) = ERR

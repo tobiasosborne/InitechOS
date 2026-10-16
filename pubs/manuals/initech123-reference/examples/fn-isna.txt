@@ -1,0 +1,6 @@
+A1: @NA
+A2: @ERR
+@ISNA(A1) = 1
+@ISNA(A2) = 0
+@ISNA(5) = 0
++A1+1 = NA

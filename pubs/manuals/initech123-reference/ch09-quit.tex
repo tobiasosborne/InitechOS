@@ -1,0 +1,73 @@
+% Chapter 9 -- The Quit Command (AN-08, AN-09).
+% Sources (Law 1): os/i123/app/face_a.c menu_select (/Quit No returns to
+% READY, /Quit Yes calls the exit guard), request_quit / quit_answer /
+% entry_pending (THE EXIT GUARD, bead initech-fvnj: unsaved work is a
+% committed change since the last Save or Retrieve, or an entry being
+% typed; the alert QUIT_TEXT and its buttons Save / Cancel / Don't Save;
+% Save runs /File Save and ends only on success), the FLAIR File menu
+% (Quit, the Q key equivalent) and the close box (TBX_GOAWAY_ASK).
+% GATES: test-i123-quit test-flair-i123-quitguard test-flair-i123 test-i123-menu-tree test-pubs-i123 test-pubs-screens
+\Gates{test-i123-quit, test-flair-i123-quitguard, test-flair-i123,
+  test-i123-menu-tree, test-pubs-i123, test-pubs-screens}
+\chapter[The Quit Command]{\textit{The Quit Command}}
+\input{i123-tree-Quit}
+
+The Quit command ends the Initech 123 session and closes its window.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Quit & Ends the Initech 123 session\LotEnd
+\end{LotTable}
+
+\section{Common Uses of the Quit Command}
+\begin{itemize}
+\item Ending work for the day, after saving the worksheet
+  (\slashcmd{/Quit Yes})
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item ``Starting and Ending Initech 123'' in Chapter~1
+\item \slashcmd{/File Save} in Chapter~5
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item \term{Unsaved work} is any change to the worksheet since you last
+  saved or retrieved it, and any entry you are in the middle of typing.
+\end{itemize}
+
+\MenuEntry{/Quit}
+/Quit asks whether to end the session.
+\begin{Options}
+\Option{No} Returns to \ind{READY} mode; the session continues.
+\Option{Yes} Ends the session.  If there is no unsaved work, the window
+  closes at once.  If there is, Initech 123 first asks what to do with it.
+\end{Options}
+
+The same question is asked, in the same way, when you choose \textbf{Quit}
+from the \textbf{File} menu of the menu bar, press its keyboard equivalent
+\key{Ctrl-Q}, or click the close box of the window.
+
+\FlairShot[fig:quitalert]{quitalert}{Ending the session with unsaved work}
+
+When there is unsaved work, Initech 123 displays an alert box with the
+message \texttt{WORKSHEET CHANGES NOT SAVED!} and three buttons
+(Figure~\ref{fig:quitalert}):
+\begin{Options}
+\item[\normalfont\bfseries Save\hfill] Saves the worksheet as
+  \slashcmd{/File Save} does: the control panel asks for the file name, and
+  an existing file offers Cancel and Replace.  When the worksheet has been
+  saved, the session ends.  If you cancel the save, or the save fails, the
+  session continues with the worksheet unchanged.  An entry you were typing
+  is completed first, as if you had pressed \kname{ENTER}.
+\item[\normalfont\bfseries Cancel\hfill] Closes the alert box.  The session
+  continues; the worksheet, and any entry you were typing, are as they
+  were.
+\item[\normalfont\bfseries Don't Save\hfill] Ends the session without
+  saving.  The changes are lost.
+\end{Options}
+
+\begin{Caution}
+Don't Save discards every change since you last saved the worksheet.
+\end{Caution}

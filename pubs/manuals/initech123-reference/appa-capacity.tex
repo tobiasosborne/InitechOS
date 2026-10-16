@@ -1,0 +1,61 @@
+% Appendix A -- Worksheet Capacity (in place of the model's "Managing
+% Memory", annex Sec 6 App. C).  Sources (Law 1): os/i123/app/face_a.c
+% (SHEET_CELLS 2048, the 32K entry pool and the 4K record area of SHEET_MEM;
+% the 64K file buffer g_wk; the typed-entry limit SCR_COLS - 2 = 74; the
+% 48-character file name g_name; the prompt ranges 1..240, 0..15, 1..50;
+% the two-bank transaction of every command), os/i123/core/i123.h
+% (I123_MAX_COLS/ROWS, I123_CODE_MAX), spec/i123/era_shortfalls.md
+% ("Capacity is an explicit implementation limit"), ADR-0009 Amendment
+% DEC-01a (Initech 123 computes with the 80387-class coprocessor).
+% GATES: test-i123-wk1-roundtrip test-i123-quit test-flair-i123-files test-pubs-i123
+\Gates{test-i123-wk1-roundtrip, test-i123-quit, test-flair-i123-files, test-pubs-i123}
+\ChapterTab{Capacity}
+\chapter{Worksheet Capacity}
+
+This appendix lists the limits of Initech 123 and explains what happens
+when a worksheet reaches them.
+
+\section{The Limits}
+\begin{LotTable}{p{60mm}p{68mm}}
+\LotHead{\textbf{Item} & \textbf{Limit}}
+Columns & 256 (A through IV)\\
+Rows & 8,192\\
+Cells with entries or formats & 2,048\\
+Characters in labels and formulas, all cells together & about 32,000\\
+Range names and other worksheet records & about 4,000 characters\\
+Characters in an entry you type & 74\\
+Characters in a range name & 15\\
+Column width & 1 to 240 characters\\
+Decimal places of a format & 0 to 15\\
+Iterations of a recalculation & 1 to 50\\
+Size of a worksheet file Initech 123 can retrieve & 64K (65,536 bytes)\\
+Characters in a file name typed at a prompt & 48\LotEnd
+\end{LotTable}
+
+A cell counts toward the limit of 2,048 when it holds an entry, and also when
+it is empty but has a format or protection setting of its own, as a cell
+does after \slashcmd{/Range Erase} or \slashcmd{/Range Format}.
+
+\section{When the Worksheet Is Full}
+Every command that changes the worksheet builds the changed worksheet
+first and puts it in place only when it is complete.  When a command would
+need more cells or more space than the limits allow, Initech 123 displays
+\texttt{Not enough worksheet memory}, and the worksheet is left exactly as it
+was before the command.  The same message appears, and the worksheet in
+memory is kept, when you retrieve a file that holds more entries than
+Initech 123 can take.
+
+An entry you type that does not fit is refused: Initech 123 switches to
+\ind{EDIT} mode and leaves the entry on the control panel.  Press
+\kname{ESC} to abandon it.
+
+If the worksheet in memory cannot be written as a file
+(\texttt{Worksheet too large to save}), /File Save leaves the file on disk
+untouched.  Erase entries you do not need, or move part of the work to a
+second worksheet, and save again.
+
+\section{Numbers}
+Initech 123 stores every number in the IEEE double format of the 80387 and
+80486 numeric coprocessor, with about 15 significant digits, and calculates
+with the coprocessor.  The General format displays as many of those digits
+as the column allows.

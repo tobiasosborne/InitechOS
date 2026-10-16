@@ -1,0 +1,5 @@
+# @ROWS
+= @ROWS(A1..D10)
+= @ROWS(B3)
+= @ROWS(C9..A1)
+= @ROWS(A1..D10)*@COLS(A1..D10)

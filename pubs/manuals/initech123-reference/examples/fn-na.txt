@@ -1,0 +1,6 @@
+A1: @NA
+A2: 40
++A1+A2 = NA
+@SUM(A1..A2) = NA
+@ISNA(A1+A2) = 1
+@ISERR(A1+A2) = 0

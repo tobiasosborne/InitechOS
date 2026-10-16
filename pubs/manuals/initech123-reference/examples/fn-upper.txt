@@ -1,0 +1,4 @@
+A1: 'Initech Systems 2
+@UPPER(A1) = INITECH SYSTEMS 2
+@UPPER("abc-def") = ABC-DEF
+@UPPER(@LOWER("ABC")) = ABC

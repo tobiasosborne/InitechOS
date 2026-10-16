@@ -1,0 +1,6 @@
+A1: 'Initech Systems
+@LENGTH(A1) = 15
+@LENGTH("") = 0
+@LENGTH("  a  ") = 5
+@LENGTH(@TRIM("  a  ")) = 1
+@LENGTH(12) = ERR

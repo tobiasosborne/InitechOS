@@ -1,0 +1,269 @@
+% Chapter 5 -- The File Commands (AN-08, AN-09).
+% Sources (Law 1): os/i123/app/face_a.c paint_command (the FILES prompts
+% "Name of file to retrieve: " / "Enter name of file to save: ", the
+% default A:\*.wk1 and the current file), file_name (the .wk1 default
+% extension; "Enter a file name", "Invalid file name"), retrieve (the
+% transaction: a failed Retrieve leaves the worksheet; "File not found",
+% "Path not found", "File I/O error", "File too large", "File read
+% incomplete", "Not enough worksheet memory", "Not a valid WK1 file"),
+% save / write_sheet (the Cancel / Replace / Backup menu, its
+% descriptions, Backup refusing; the status line "Saved ..." /
+% "Retrieved ..."; "Worksheet too large to save"), os/i123/fs/wk1.c (the
+% .WK1 codec); spec/i123/era_shortfalls.md I123-P3-02 (the other File
+% leaves refuse).  Menu tree generated from the shipped resource.
+% GATES: test-i123-wk1-roundtrip test-flair-i123-files test-flair-i123-file-ui test-i123-menu-tree test-pubs-i123 test-pubs-screens
+\Gates{test-i123-wk1-roundtrip, test-flair-i123-files, test-flair-i123-file-ui,
+  test-i123-menu-tree, test-pubs-i123, test-pubs-screens}
+\chapter[The File Commands]{\textit{The File Commands}}
+\input{i123-tree-File}
+
+The File commands store worksheets on disk and bring them back into
+memory.  A worksheet you have not saved exists only in memory, and is lost
+when you end Initech 123 or erase the worksheet.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/File Retrieve & Replaces the worksheet in memory with a worksheet file\\
+/File Save & Saves the worksheet in memory in a worksheet file\\
+/File Combine & Opens the menu for incorporating another file \draft{I123-P3-02: its commands refuse}\\
+/File Xtract & Opens the menu for saving part of a worksheet \draft{I123-P3-02: its commands refuse}\\
+/File Erase & Opens the menu for erasing files \draft{I123-P3-02: its commands refuse}\\
+/File List & Opens the menu for listing files \draft{I123-P3-02: its commands refuse}\\
+/File Import & Opens the menu for reading text files \draft{I123-P3-02: its commands refuse}\\
+/File Directory & Displays or changes the current directory \draft{I123-P3-02: refuses}\\
+/File Admin & Opens the menu of file administration \draft{I123-P3-02: its commands refuse}\LotEnd
+\end{LotTable}
+
+\section{Common Uses of the File Commands}
+\begin{itemize}
+\item Saving your work (\slashcmd{/File Save})
+\item Saving a second copy of a worksheet under another name
+  (\slashcmd{/File Save})
+\item Continuing work on a worksheet you saved earlier
+  (\slashcmd{/File Retrieve})
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item ``Worksheet Files'' in Chapter~1
+\item Chapter~9, ``The Quit Command'', on saving your work before you end
+  a session
+\item Lesson~3 in the \doctitle{Tutorial}
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item A \term{worksheet file} is a file on disk that holds a worksheet: its
+  entries, the formats and protection settings of its cells, its column
+  widths, its range names and its global settings.
+\item A \term{file name} has up to eight characters, optionally followed by
+  a period and an extension of up to three characters.  Worksheet files
+  have the extension \file{.WK1}.
+\item The \term{current file} is the file you last retrieved or saved.
+  /File Save offers its name.
+\end{itemize}
+
+\section{Before You Use the File Commands}
+Initech 123 reads and writes files on the InitechOS data disk, drive
+\file{A:}.  A file name you type without a drive refers to drive \file{A:}.
+You can type file names in capital or small letters.
+
+\begin{Caution}
+/File Retrieve replaces the worksheet in memory.  Save the worksheet you
+are working on first if you want to keep it.
+\end{Caution}
+
+\MenuEntry{/File}
+/File displays the File menu.  This version carries out /File Retrieve and
+/File Save; the other File commands appear in the menu and their own menus
+can be displayed, but they are not available in this version.
+
+\MenuEntry{/File Retrieve}
+/File Retrieve reads a worksheet file into memory, replacing the worksheet
+that was there.
+\FlairShot[fig:retrieve]{retrieve}{The Retrieve prompt}
+
+\BHead{Terms You Need to Know}
+\begin{itemize}
+\item The \term{current file} becomes the file you retrieve.
+\end{itemize}
+Initech 123 reads the file completely and checks it before it changes
+anything.  Only when the whole file has been read as a valid \file{.WK1}
+worksheet does the retrieved worksheet replace the one in memory, with its
+entries, formats, column widths, range names and global settings, and the
+cell pointer where the file left it.  If anything goes wrong, the worksheet
+in memory is left exactly as it was.
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /File Retrieve.  The mode indicator changes to \ind{FILES},
+  and the control panel shows \texttt{Name of file to retrieve:} and
+  \texttt{A:\textbackslash *.wk1}.
+\item Type the name of the file and press \kname{ENTER}.
+
+  You may leave out the extension: Initech 123 adds \file{.WK1}.  The
+  status line shows \texttt{Retrieved} and the name of the file, and
+  Initech 123 returns to \ind{READY} mode.
+\end{Steps123}
+
+\begin{Note}
+If Initech 123 cannot retrieve the file, the mode indicator changes to
+\ind{ERROR} and the control panel shows the reason; press \kname{ESC} to
+return to the worksheet.  The messages are:
+\begin{LotTable}{p{44mm}p{84mm}}
+\LotHead{\textbf{Message} & \textbf{Meaning}}
+\texttt{File not found} & There is no file of that name\\
+\texttt{Path not found} & A directory named in the file name does not
+  exist\\
+\texttt{Not a valid WK1 file} & The file is not a worksheet file, or it is
+  damaged\\
+\texttt{File too large} & The file is larger than Initech 123 can read
+  (64K)\\
+\texttt{Not enough worksheet memory} & The worksheet in the file has more
+  entries than Initech 123 can hold (Appendix~A)\\
+\texttt{File read incomplete} & The file could not be read to its end\\
+\texttt{File I/O error} & The disk could not be read\\
+\texttt{Enter a file name} & You pressed \kname{ENTER} without typing a
+  name\\
+\texttt{Invalid file name} & The name contains a space, \texttt{*} or
+  \texttt{?}\\
+\texttt{File name too long} & You typed more than 48 characters\LotEnd
+\end{LotTable}
+\end{Note}
+
+\MenuEntry{/File Save}
+/File Save saves the worksheet in memory, complete, in a worksheet file.
+\FlairShot[fig:saveprompt]{saveprompt}{The Save prompt}
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /File Save.  The control panel shows
+  \texttt{Enter name of file to save:} followed by the name of the current
+  file, or by \texttt{A:\textbackslash *.wk1} if the worksheet has not yet
+  been saved or retrieved.
+\item Press \kname{ENTER} to save under the name shown, or type a new name
+  and press \kname{ENTER}.
+
+  If there is no file of that name, Initech 123 saves the worksheet, shows
+  \texttt{Saved} and the file name on the status line, and returns to
+  \ind{READY} mode.
+\item If a file of that name already exists, Initech 123 displays a menu of
+  three choices (Figure~\ref{fig:replace}).  Select one:
+\begin{Options}
+\item[\normalfont\bfseries Cancel\hfill] Leaves the file on disk as it is;
+  Initech 123 returns to \ind{READY} mode without saving.
+\item[\normalfont\bfseries Replace\hfill] Replaces the file on disk with
+  the worksheet in memory.
+\item[\normalfont\bfseries Backup\hfill] \draft{not available in this
+  version: displays Command not implemented} Renames the file on disk with
+  the extension \file{.BAK} and then saves the worksheet.
+\end{Options}
+\end{Steps123}
+
+\FlairShot[fig:replace]{replace}{Saving under the name of an existing file}
+
+\begin{Note}
+Initech 123 checks that the worksheet can be written before it creates or
+replaces the file.  If it cannot (\texttt{Worksheet too large to save}), the
+file on disk is not touched.  If the disk fails while a new file is being
+written, Initech 123 removes the incomplete file and displays
+\texttt{File I/O error}.
+\end{Note}
+
+\LabelHead{Tip}
+\begin{itemize}
+\item Save often.  A saved worksheet is safe from a mistaken
+  \slashcmd{/Worksheet Erase Yes} and from a power failure.
+\item To keep the previous version of a worksheet, save the changed
+  worksheet under a new name.
+\end{itemize}
+
+\MenuEntry{/File Combine}
+/File Combine displays the menu for incorporating all or part of a
+worksheet file into the worksheet in memory.
+\begin{Options}
+\OptionMenu{Copy} Displays the menu for copying data from the file over the
+  worksheet.
+\OptionMenu{Add} Displays the menu for adding the file's values to the
+  worksheet's.
+\OptionMenu{Subtract} Displays the menu for subtracting the file's values from
+  the worksheet's.
+\end{Options}
+\SubEntry{/File Combine Copy}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Entire-File} Copies a whole file into the
+  worksheet at the cell pointer.
+\Option[I123-P3-02: refuses]{Named/Specified-Range} Copies a range of a
+  file into the worksheet at the cell pointer.
+\end{Options}
+\SubEntry{/File Combine Add}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Entire-File} Adds the values of a whole file
+  to the worksheet.
+\Option[I123-P3-02: refuses]{Named/Specified-Range} Adds the values of a
+  range of a file to the worksheet.
+\end{Options}
+\SubEntry{/File Combine Subtract}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Entire-File} Subtracts the values of a whole
+  file from the worksheet.
+\Option[I123-P3-02: refuses]{Named/Specified-Range} Subtracts the values
+  of a range of a file from the worksheet.
+\end{Options}
+
+\MenuEntry{/File Xtract}
+/File Xtract displays the menu for saving part of the worksheet in a file of
+its own.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Formulas} Saves a range with its formulas.
+\Option[I123-P3-02: refuses]{Values} Saves a range with the current values
+  of its formulas.
+\end{Options}
+
+\MenuEntry{/File Erase}
+/File Erase displays the menu for erasing a file from disk.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Worksheet} Erases a worksheet file.
+\Option[I123-P3-02: refuses]{Print} Erases a print file.
+\Option[I123-P3-02: refuses]{Graph} Erases a graph file.
+\Option[I123-P3-02: refuses]{Other} Erases a file of any kind.
+\end{Options}
+
+\MenuEntry{/File List}
+/File List displays the menu for listing the files on disk.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Worksheet} Lists the worksheet files.
+\Option[I123-P3-02: refuses]{Print} Lists the print files.
+\Option[I123-P3-02: refuses]{Graph} Lists the graph files.
+\Option[I123-P3-02: refuses]{Other} Lists every file.
+\Option[I123-P3-02: refuses]{Linked} Lists the files the worksheet's
+  formulas refer to.
+\end{Options}
+
+\MenuEntry{/File Import}
+/File Import displays the menu for reading a text file into the worksheet.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Text} Reads each line of the file into a cell
+  as a label.
+\Option[I123-P3-02: refuses]{Numbers} Reads the numbers and quoted text of
+  each line into separate cells.
+\end{Options}
+
+\MenuEntry[I123-P3-02: refuses]{/File Directory}
+Displays the current directory and lets you change it.
+
+\MenuEntry{/File Admin}
+/File Admin displays the menu of file administration commands.
+\begin{Options}
+\OptionMenu{Reservation} Displays the Reservation menu.
+\Option[I123-P3-02: refuses]{Table} Enters a table of file information in
+  the worksheet.
+\Option[I123-P3-02: refuses]{Link-Refresh} Updates the formulas that refer
+  to other files.
+\end{Options}
+\SubEntry{/File Admin Reservation}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Get} Obtains the reservation that permits
+  saving a shared file.
+\Option[I123-P3-02: refuses]{Release} Gives up the reservation.
+\end{Options}

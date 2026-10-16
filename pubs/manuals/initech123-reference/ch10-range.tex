@@ -1,0 +1,330 @@
+% Chapter 10 -- The Range Commands (AN-08, AN-09).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / range_accept (every
+% prompt text quoted below; the format codes of /Range Format and their
+% decimal-place prompt 0..15; Date 1-3 and Reset; the label prefixes of
+% /Range Label; Name Create / Delete / Labels / Reset / Table; Prot and
+% Unprot setting the cell protection bit; Value and Trans through
+% i123_transfer; the notices "Illegal number", "Invalid range",
+% "Invalid range name", "Command refused", "Not enough worksheet memory"),
+% os/i123/core/fmt.c (how each format displays a number: i123_format_number,
+% asterisks when the number does not fit, the +/- bar), os/i123/core/
+% range.c (names: i123_name_set / delete / labels / table; the name
+% retargeting rule), spec/i123/era_shortfalls.md I123-P3-04 (Justify,
+% Input, Search refuse), I123-P3-05 (international Date 4/5 and Time
+% refuse), I123-P3-06 (range names).  Menu tree generated from the shipped
+% resource.
+% GATES: test-i123-range-menu test-i123-wk1-roundtrip test-i123-copy-move-model test-i123-menu-tree test-pubs-i123 test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-range-menu, test-i123-wk1-roundtrip, test-i123-copy-move-model,
+  test-i123-menu-tree, test-pubs-i123, test-pubs-i123-examples, test-pubs-screens}
+\chapter[The Range Commands]{\textit{The Range Commands}}
+\input{i123-tree-Range}
+
+The Range commands work on a cell or a rectangle of cells: they set how
+numbers and labels are displayed, erase entries, name ranges, protect cells
+from change, and copy the values of formulas.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Range Format & Sets how the numbers in a range are displayed\\
+/Range Label & Sets the alignment of the labels in a range\\
+/Range Erase & Erases the entries in a range\\
+/Range Name & Names ranges, deletes names and lists them\\
+/Range Justify & Rearranges a column of labels \draft{I123-P3-04: refuses}\\
+/Range Prot & Marks a range as protected\\
+/Range Unprot & Marks a range as unprotected\\
+/Range Input & Restricts entry to unprotected cells \draft{I123-P3-04: refuses}\\
+/Range Value & Copies a range, replacing formulas by their values\\
+/Range Trans & Copies a range, exchanging its rows and columns\\
+/Range Search & Opens the menu for finding text in a range \draft{I123-P3-04: its commands refuse}\LotEnd
+\end{LotTable}
+
+\section{Common Uses of the Range Commands}
+\begin{itemize}
+\item Displaying amounts of money with dollar signs and two decimal places
+  (\slashcmd{/Range Format Currency})
+\item Showing dates as dates rather than serial numbers
+  (\slashcmd{/Range Format Date})
+\item Centering column headings over the numbers (\slashcmd{/Range Label
+  Center})
+\item Clearing a block of entries (\slashcmd{/Range Erase})
+\item Naming a range so that formulas are easier to read
+  (\slashcmd{/Range Name Create})
+\item Keeping formulas from being typed over (\slashcmd{/Range Unprot}
+  with \slashcmd{/Worksheet Global Protection Enable})
+\item Freezing the results of formulas as numbers (\slashcmd{/Range Value})
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item ``Ranges'' and ``Formulas'' in Chapter~1
+\item \slashcmd{/Worksheet Global Format} and \slashcmd{/Worksheet Global
+  Protection} in Chapter~12
+\item Lessons~3 and 4 in the \doctitle{Tutorial}
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item A \term{format} is the way a cell displays a number: with a fixed
+  number of decimal places, with a dollar sign, as a percentage, as a date.
+  A format changes only the display; the number stored in the cell is not
+  rounded.
+\item The \term{global format} is the format of every cell that has not been
+  given one with /Range Format.  It is set with
+  \slashcmd{/Worksheet Global Format}.
+\item A \term{range name} is a name of up to 15 characters that stands for
+  a range in prompts and formulas.
+\item A \term{protected cell} cannot be changed while worksheet protection is
+  enabled.  Every cell is protected until you unprotect it; protection has
+  no effect until you enable it with
+  \slashcmd{/Worksheet Global Protection Enable}.
+\end{itemize}
+
+\section{Before You Use the Range Commands}
+Each Range command asks for the range it is to work on
+(Figure~\ref{fig:rangeprompt}).  The control panel shows the address of the
+cell pointer: press \kname{ENTER} to work on that one cell, type a range,
+such as \type{B1..B3}, or a range name, and press \kname{ENTER}, or move the
+cell pointer to another cell with the arrow keys and press \kname{ENTER}.
+\FlairShot[fig:rangeprompt]{rangeprompt}{The range prompt of /Range Erase}
+
+\MenuEntry{/Range}
+/Range displays the Range menu.
+
+\MenuEntry{/Range Format}
+/Range Format sets the format of the cells in a range.
+\FlairShot[fig:currency]{currency}{B1..B3 in Currency format with two
+decimal places}
+
+\BHead{Terms You Need to Know}
+\begin{itemize}
+\item The number of \term{decimal places} is the number of digits shown
+  after the decimal point, from 0 to 15.
+\end{itemize}
+A format applies to the cell, not to its present entry: a number you type
+into the cell later is displayed in the same format.  A cell keeps its
+protection setting when you format it.  A number too wide for its column in
+its format is displayed as asterisks; widen the column with
+\slashcmd{/Worksheet Column Set-Width} to see it.
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Range Format and then the format.
+\item For Fixed, Sci, Currency, the comma format and Percent, Initech 123
+  asks \texttt{Enter number of decimal places (0..15):}.  Type a number from
+  0 to 15 and press \kname{ENTER}.
+\item At \texttt{Enter range to format:} specify the range and press
+  \kname{ENTER}.
+\end{Steps123}
+
+\begin{Options}
+\Option{Fixed} A fixed number of decimal places: \texttt{-1234.57}.
+\Option{Sci} Scientific notation, a number between 1 and 10 times a power
+  of ten: \texttt{-1.23E+03}.
+\Option{Currency} A dollar sign, commas between thousands and a fixed
+  number of decimal places; negative numbers in parentheses:
+  \texttt{(\$1,234.57)}.
+\Option{,} Commas between thousands and a fixed number of decimal places;
+  negative numbers in parentheses: \texttt{(1,234.57)}.
+\Option{General} As many decimal places as the number has and the column
+  allows; scientific notation for numbers too large or too small:
+  \texttt{-1234.567}.
+\Option{+/-} A bar of plus signs, one for each whole unit of a positive
+  number, or of minus signs for a negative number, rounded to the nearest
+  whole unit; a period when the number rounds to zero.
+\Option{Percent} The number times 100, with a percent sign and a fixed
+  number of decimal places: \texttt{45.7\%}.
+\OptionMenu{Date} Displays the Date menu (below).
+\Option{Text} A formula instead of its value; a number in General format.
+\Option{Hidden} Nothing: the cell appears empty, though its entry is still
+  there and is shown on the control panel.
+\Option{Reset} Returns the cells to the global format.
+\end{Options}
+
+The same number in each format, in a column 12 characters wide (the cell
+contents, then what the cell shows):
+\LotExample{examples/formats}
+
+\SubEntry{/Range Format Date}
+Initech 123 stores a date as a \term{date serial number}, the number of days
+since 31 December 1899: 1 January 1900 is 1.  A date format displays a
+serial number as a date.  Use \fn{@DATE} to enter a date.
+\begin{Options}
+\Option{1 (DD-MMM-YY)} Day, month and year: \texttt{02-Mar-92}.  The column
+  must be at least 10 characters wide.
+\Option{2 (DD-MMM)} Day and month: \texttt{02-Mar}.
+\Option{3 (MMM-YY)} Month and year: \texttt{Mar-92}.
+\Option[I123-P3-05: refuses]{4 (Long Intn'l)} The international long date
+  format.
+\Option[I123-P3-05: refuses]{5 (Short Intn'l)} The international short
+  date format.
+\OptionMenu{Time} Displays the Time menu (below).
+\end{Options}
+\LotExample{examples/datefmt}
+
+\SubEntry{/Range Format Date Time}
+\begin{Options}
+\Option[I123-P3-05: refuses]{1 (HH:MM:SS AM/PM)} Hours, minutes and seconds
+  in 12-hour form.
+\Option[I123-P3-05: refuses]{2 (HH:MM AM/PM)} Hours and minutes in 12-hour
+  form.
+\Option[I123-P3-05: refuses]{3 (Long Intn'l)} The international long time
+  format.
+\Option[I123-P3-05: refuses]{4 (Short Intn'l)} The international short time
+  format.
+\end{Options}
+
+\LabelHead{Tip}
+\begin{itemize}
+\item The +/- format makes a rough bar chart of small whole numbers:
+\end{itemize}
+\LotExample{examples/bargraph}
+
+\MenuEntry{/Range Label}
+/Range Label changes the label prefix, and so the alignment, of every label
+in a range.  Numbers and formulas in the range are not affected, and labels
+you type in the range later get the default prefix.
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Range Label and then Left, Right or Center.
+\item At \texttt{Enter range of labels:} specify the range and press
+  \kname{ENTER}.
+\end{Steps123}
+\begin{Options}
+\Option{Left} Gives the labels the prefix \texttt{'}: aligned at the left.
+\Option{Right} Gives the labels the prefix \texttt{"}: aligned at the right.
+\Option{Center} Gives the labels the prefix \texttt{\textasciicircum}:
+  centered.
+\end{Options}
+
+\MenuEntry{/Range Erase}
+/Range Erase erases the entries in a range.  The cells keep their formats
+and protection settings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Range Erase.
+\item At \texttt{Enter range to erase:} specify the range and press
+  \kname{ENTER}.
+\end{Steps123}
+\begin{Caution}
+Formulas that refer to an erased cell treat it as empty.  Save the
+worksheet before you erase entries you may want back.
+\end{Caution}
+
+\MenuEntry{/Range Name}
+/Range Name gives names to ranges, deletes them and lists them.
+\FlairShot[fig:nametable]{nametable}{The range name COSTS and its table}
+
+\BHead{Terms You Need to Know}
+\begin{itemize}
+\item A \term{range name} has up to 15 characters.  Initech 123 stores it
+  in capital letters; you can type it in either.
+\end{itemize}
+A formula can use a range name wherever it can use a range or a cell
+address: \type{@SUM(COSTS)}.  The control panel shows such a formula with
+the range the name stands for.  A name typed with a dollar sign before it,
+\type{\$COSTS}, is an absolute reference to the range.
+
+\begin{Options}
+\Option{Create} Names a range, or changes the range of an existing name.
+  At \texttt{Enter name:} type the name and press \kname{ENTER}; at
+  \texttt{Enter range:} specify the range and press \kname{ENTER}.
+\Option{Delete} Deletes one name.  At \texttt{Enter name to delete:} type
+  the name and press \kname{ENTER}.  Formulas that used the name keep the
+  range it stood for.
+\OptionMenu{Labels} Displays the Labels menu (below).
+\Option{Reset} Deletes every range name at once.  Formulas keep the ranges
+  the names stood for.
+\Option{Table} Lists the range names in the worksheet.  At
+  \texttt{Enter range for table:} specify the upper left cell; Initech 123
+  enters each name in that column and its range in the column to the
+  right.
+\end{Options}
+
+\SubEntry{/Range Name Labels}
+/Range Name Labels names single cells after labels next to them: each
+label in the range you specify becomes the name of the cell beside it.  At
+\texttt{Enter label range:} specify the range of labels.
+\begin{Options}
+\Option{Right} Each label names the cell to its right.
+\Option{Down} Each label names the cell below it.
+\Option{Left} Each label names the cell to its left.
+\Option{Up} Each label names the cell above it.
+\end{Options}
+
+\begin{Note}
+A name that is longer than 15 characters displays \texttt{Invalid range
+name}.  While the worksheet contains formulas, you cannot move an existing
+name to a different range with Create: Initech 123 displays
+\texttt{Command refused}.  Delete the name and create it again; formulas
+that used it keep its old range.
+\end{Note}
+
+\section{Naming a Range: An Example}
+B1 holds 120 and B2 holds 950.  Name B1..B2 \texttt{COSTS} with
+\slashcmd{/Range Name Create}, enter \type{@SUM(COSTS)} in B4, then move the
+cell pointer to D1 and select \slashcmd{/Range Name Table} and press
+\kname{ENTER}:
+\LotExample{examples/names}
+
+\MenuEntry[I123-P3-04: refuses]{/Range Justify}
+Rearranges a column of labels so that the text fills lines of a given
+width.
+
+\MenuEntry{/Range Prot}
+/Range Prot marks the cells of a range as protected again after
+\slashcmd{/Range Unprot}.  At \texttt{Enter range to protect:} specify the
+range and press \kname{ENTER}.
+
+\MenuEntry{/Range Unprot}
+/Range Unprot marks the cells of a range as unprotected, so that you can
+change them while worksheet protection is enabled.  At
+\texttt{Enter range to unprotect:} specify the range and press
+\kname{ENTER}.
+
+\begin{Note}
+While protection is enabled, typing an entry into a protected cell displays
+\texttt{Cell is protected}, and a command that would change a protected cell
+displays \texttt{Command refused}; nothing is changed.
+\end{Note}
+
+\MenuEntry[I123-P3-04: refuses]{/Range Input}
+Restricts the cell pointer to the unprotected cells of a range, for filling
+in a form.
+
+\MenuEntry{/Range Value}
+/Range Value copies a range, as \slashcmd{/Copy} does, except that each
+formula is copied as its current value: a number, or a label if the formula
+produces a string.
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Range Value.
+\item At \texttt{Enter range to copy FROM:} specify the range and press
+  \kname{ENTER}.
+\item At \texttt{Enter range to copy TO:} specify the upper left cell of the
+  destination and press \kname{ENTER}.
+\end{Steps123}
+\LabelHead{Tip}
+\begin{itemize}
+\item To freeze a block of results, give the same cell for FROM and TO: the
+  formulas are replaced by their values.
+\end{itemize}
+
+\MenuEntry{/Range Trans}
+/Range Trans copies a range with its rows and columns exchanged: the first
+row of the FROM range becomes the first column of the copy.  Formulas are
+copied as their current values.  The prompts are those of /Range Value.
+
+\MenuEntry{/Range Search}
+/Range Search displays the menu for finding or replacing text in a range.
+\begin{Options}
+\OptionMenu{Formulas} Displays the menu for searching formulas (below).
+\Option[I123-P3-04: refuses]{Label} Searches the labels only.
+\Option[I123-P3-04: refuses]{Both} Searches formulas and labels.
+\end{Options}
+\SubEntry{/Range Search Formulas}
+\begin{Options}
+\Option[I123-P3-04: refuses]{Find} Highlights each occurrence of the search
+  text.
+\Option[I123-P3-04: refuses]{Replace} Replaces each occurrence of the search
+  text.
+\end{Options}

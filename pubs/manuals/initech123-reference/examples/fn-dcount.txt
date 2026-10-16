@@ -1,0 +1,23 @@
+A1: 'Item
+B1: 'Qty
+C1: 'Price
+A2: 'Bolt
+B2: 10
+C2: 2.5
+A3: 'Nut
+B3: 20
+C3: 1.25
+A4: 'Washer
+B4: 30
+C4: 0.5
+A5: 'Bolt
+B5: 6
+C5: 3
+E1: 'Item
+E2: 'Bolt
+@DCOUNT(A1..C5,1,E1..E2) = 2
+@DCOUNT(A1..C5,0,E1..E2) = 2
+E2: '~Bolt
+@DCOUNT(A1..C5,1,E1..E2) = 2
+E2: 'Gasket
+@DCOUNT(A1..C5,1,E1..E2) = 0

@@ -1,0 +1,4 @@
+@ROWS(A1..D10) = 10
+@ROWS(B3) = 1
+@ROWS(C9..A1) = 9
+@ROWS(A1..D10)*@COLS(A1..D10) = 40

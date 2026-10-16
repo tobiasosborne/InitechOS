@@ -1,0 +1,12 @@
+# Chapter 1, Formulas: the operators and their order
+= 2+3*4
+= (2+3)*4
+= 2^3^2
+= -2^2
+= 10/4
+= 5>3
+= 5<>5
+= 2>1#AND#3>4
+= 2>1#OR#3>4
+= #NOT#(1=1)
+= +"First"&" Quarter"

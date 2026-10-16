@@ -1,0 +1,5 @@
+# @NOW
+= @NOW
+= @INT(@NOW)
+= @ISERR(@NOW)
+= @IF(@ISERR(@NOW),@DATE(92,3,2),@INT(@NOW))

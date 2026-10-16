@@ -1,0 +1,4 @@
+@TRUE = 1
+3>2 = 1
+3>2#AND#@FALSE = 0
+@IF(@TRUE,"yes","no") = yes

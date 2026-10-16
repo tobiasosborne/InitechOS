@@ -1,0 +1,4 @@
+# @COLS
+= @COLS(A1..D10)
+= @COLS(B3)
+= @COLS(C1..A9)

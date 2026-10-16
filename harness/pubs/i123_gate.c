@@ -24,6 +24,10 @@
  *                               ships it working -- the book is behind the
  *                               software (lockstep, Sec 11.3)
  *     A documented @function or key that IS shipped may not be DRAFT either.
+ *   i123_gate glossary BOOK.terms BOOK.gloss
+ *     CP-03: every bold defined term (\term) has a Glossary entry and every
+ *     Glossary entry is a defined term (TERM-NOT-IN-GLOSSARY,
+ *     GLOSSARY-TERM-UNUSED); case is ignored.
  *   i123_gate mentions SHIPPED MENTIONS...
  *     every NAME|KIND an inline \slashcmd / \fn / \fkey wrote is shipped
  *     (MENTION-NOT-SHIPPED).
@@ -135,6 +139,23 @@ int main(int argc, char **argv)
         printf(">>> test-pubs-i123-mentions: green (%d distinct inline items, all shipped)\n", m.n);
         return 0;
     }
-    red("USAGE", "i123_gate", "commands SHIPPED REFUSED K+K=book.cmds... other=book.cmds... | mentions SHIPPED FILES...");
+    if (argc == 4 && !strcmp(argv[1], "glossary")) {
+        /* CP-03: every \term is a glossary entry, every entry is used. */
+        static set_t t, g; FILE *f; char line[512];
+        for (int pass = 0; pass < 2; pass++) {
+            if (!(f = fopen(argv[2 + pass], "rb"))) red("I123-INPUT", argv[2 + pass], "cannot open");
+            while (fgets(line, sizeof line, f)) {
+                line[strcspn(line, "\r\n")] = 0;
+                for (char *p = line; *p; p++) if (*p >= 'A' && *p <= 'Z') *p = (char)(*p - 'A' + 'a');
+                if (line[0]) add(pass ? &g : &t, line, 'G');
+            }
+            fclose(f);
+        }
+        for (int k = 0; k < t.n; k++) if (find(&g, t.s[k]) < 0) red("TERM-NOT-IN-GLOSSARY", argv[2], t.s[k]);
+        for (int k = 0; k < g.n; k++) if (find(&t, g.s[k]) < 0) red("GLOSSARY-TERM-UNUSED", argv[3], g.s[k]);
+        printf(">>> test-pubs-i123-glossary: green (%d defined terms == %d glossary entries)\n", t.n, g.n);
+        return 0;
+    }
+    red("USAGE", "i123_gate", "glossary TERMS GLOSS | commands SHIPPED REFUSED K+K=book.cmds... other=book.cmds... | mentions SHIPPED FILES...");
     return 2;
 }

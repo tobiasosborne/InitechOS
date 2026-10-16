@@ -1,0 +1,8 @@
+# @FIND
+A1 'Initech Systems
+= @FIND("I",A1,0)
+= @FIND("tech",A1,0)
+= @FIND("s",A1,0)
+= @FIND("s",A1,@FIND("s",A1,0)+1)
+= @FIND("Q",A1,0)
+= @FIND("i",A1,1)

@@ -1,0 +1,6 @@
+# @CHOOSE
+A1 2
+= @CHOOSE(A1,"Low","Medium","High")
+= @CHOOSE(0,"Low","Medium","High")
+= @CHOOSE(A1-1,10,20,30)
+= @CHOOSE(5,"Low","Medium","High")

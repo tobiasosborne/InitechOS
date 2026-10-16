@@ -1,0 +1,7 @@
+# @MID
+A1 'Initech Systems
+= @MID(A1,0,3)
+= @MID(A1,2,5)
+= @MID(A1,8,99)
+= @MID(A1,40,2)
+= @MID(A1,@FIND(" ",A1,0)+1,7)

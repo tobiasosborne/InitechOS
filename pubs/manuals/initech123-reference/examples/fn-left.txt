@@ -1,0 +1,6 @@
+A1: 'Initech Systems
+@LEFT(A1,7) = Initech
+@LEFT(A1,1) = I
+@LEFT(A1,0) = 
+@LEFT(A1,99) = Initech Systems
+@LEFT(A1,-1) = ERR

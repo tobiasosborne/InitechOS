@@ -1,0 +1,6 @@
+# @CHAR
+= @CHAR(65)
+= @CHAR(97)
+= @CHAR(@CODE("A")+1)
+= @CHAR(0)
+= @CHAR(256)

@@ -1,0 +1,5 @@
+# @UPPER
+A1 'Initech Systems 2
+= @UPPER(A1)
+= @UPPER("abc-def")
+= @UPPER(@LOWER("ABC"))

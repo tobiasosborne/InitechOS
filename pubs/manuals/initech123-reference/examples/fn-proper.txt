@@ -1,0 +1,4 @@
+A1: 'initech SYSTEMS inc
+@PROPER(A1) = Initech Systems Inc
+@PROPER("o'brien-smith") = O'Brien-Smith
+@PROPER("3rd floor") = 3Rd Floor

@@ -1,0 +1,10 @@
+# Chapter 3, Copying a Formula Down a Column: An Example
+B2 100
+B3 250
+B4 40
+B6 .08
+C2 +B2*$B$6
+do {GOTO}C2~/c~C3~
+do /c~C4~
+show C3
+show C4

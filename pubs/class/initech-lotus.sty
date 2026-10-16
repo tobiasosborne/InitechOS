@@ -34,6 +34,24 @@
 \setlength\imFullWidth{132mm}
 \contentsmargin{6em}
 
+%% PG-14 F-LOT running feet: verso folio + chapter title, recto A-head in
+%% force + folio.  The DRAFT foot (Sec 11.4) sits one line above the feet,
+%% so that a long A-head never runs into it.
+\fancypagestyle{im@text}{%
+  \fancyhf{}\renewcommand\headrulewidth{0pt}\renewcommand\footrulewidth{0pt}%
+  \fancyfoot[RO,LE]{\imFolioFont\thepage}%
+  \fancyfoot[LO]{\imFootFont\rightmark}%
+  \fancyfoot[RE]{\imFootFont\im@foottitle}%
+  \fancyfoot[C]{\raisebox{11pt}[0pt][0pt]{\imFootFont\bfseries\im@draftfoot}}}
+\fancypagestyle{plain}{%
+  \fancyhf{}\renewcommand\headrulewidth{0pt}\renewcommand\footrulewidth{0pt}%
+  \fancyfoot[RO,LE]{\imFolioFont\thepage}%
+  \fancyfoot[C]{\raisebox{11pt}[0pt][0pt]{\imFootFont\bfseries\im@draftfoot}}}
+
+%% PG-24 F-LOT chapter opener; the label follows \appendix ("Appendix A").
+\titleformat{\chapter}[display]{\RaggedRight\sffamily\bfseries\fontsize{18}{20}\selectfont}
+  {\im@chaptername\ \thechapter}{6pt}{\im@fullhead{#1}}
+
 %% ---- heads (TY-03, TY-04; annex Sec 3) ---------------------------------
 %% A-head: Heros Bold 14/16 with a 2 pt rule beneath to the right margin.
 \titleformat{\section}[block]{\sffamily\bfseries\fontsize{14}{16}\selectfont\RaggedRight}
@@ -73,8 +91,8 @@
 %% \LotusPart{SU}{Setting Up Initech 123}{one-line description}: a recto
 %% half-title; chapters restart at 1; the part code prefixes the Master
 %% Index lines of everything indexed in the part (AN-24 F-LOT).
-\newcommand\im@partcode{}
-\newcommand\im@partsort{}
+\def\im@partcode{}
+\def\im@partsort{}
 \newcommand\LotusPart[4]{% code, sort digit, title, line
   \im@closeentry\cleardoublepage
   \gdef\im@partcode{#1}\gdef\im@partsort{#2}%
@@ -90,7 +108,7 @@
 %% \ix{entry} indexes the entry; inside a part, one line per part, headed by
 %% the bold part code (makeindex sub-level sorted by the part digit).
 \newcommand\ix[1]{\ifx\im@partcode\@empty\index{#1}\else
-  \index{#1!\im@partsort@\textbf{\im@partcode}}\fi}
+  \edef\im@tmp{\noexpand\index{#1!\im@partsort @\noexpand\textbf{\im@partcode}}}\im@tmp\fi}
 
 %% ---- the index: three columns, Heros Bold 14 letters (AN-24, TY-15) -------
 \renewenvironment{theindex}
@@ -140,6 +158,9 @@
   \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
   \RegisterCommand{\im@entrypath\space#2}{menu}{\im@ostate}{\im@entrypath}%
   \item[\normalfont\bfseries #2\hfill]\IfValueT{#1}{\draft{#1}}}
+%% A row for an item that opens a submenu documented by its own SubEntry
+%% (which registers the path): printed alike, registers nothing.
+\newcommand\OptionMenu[1]{\item[\normalfont\bfseries #1\hfill]}
 %% A path registered where it is described in running text (a menu whose
 %% only documentation is a sentence, e.g. a Quit item).
 \NewDocumentCommand\Registers{o m}{%
@@ -162,14 +183,14 @@
 %% key name (i123_face.c KEYS), the printed cap is NT-10 small capitals.
 \newenvironment{KeyTable}[2]
   {\par\addvspace{4pt}\noindent{\sffamily\fontsize{8}{10}\selectfont
-   \begin{tabular}{@{}p{24mm}p{24mm}@{}}\textbf{#1}&\textbf{#2}\end{tabular}}\par
+   \begin{tabular}{@{}p{24mm}p{24mm}@{}}\textbf{#2}&\textbf{#1}\end{tabular}}\par
    \nobreak\vspace{-3pt}\noindent\rule{\linewidth}{0.5pt}\par\nobreak
    \begin{list}{}{\leftmargin=50mm\labelwidth=48mm\labelsep=2mm\itemsep=1pt\parsep=0pt\topsep=2pt}}
   {\end{list}\vspace{-3pt}\noindent\rule{\linewidth}{0.25pt}\par\addvspace{4pt}}
 \NewDocumentCommand\KeyRow{o m m m}{%
   \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
   \RegisterCommand{#2}{key}{\im@ostate}{#2}%
-  \item[\makebox[24mm][l]{#3}\makebox[24mm][l]{\im@keycap{#2}}\hfill]#4\IfValueT{#1}{ \draft{#1}}}
+  \item[{\makebox[24mm][l]{#3}\makebox[24mm][l]{\im@keycap{#2}}\hfill}]#4\IfValueT{#1}{ \draft{#1}}}
 \newcommand\im@keycap[1]{\ifcsname im@cap@#1\endcsname\csname im@cap@#1\endcsname\else\key{#1}\fi}
 \expandafter\def\csname im@cap@SLASH\endcsname{\texttt{/}}
 \expandafter\def\csname im@cap@LESS-THAN\endcsname{\texttt{<}}
@@ -216,20 +237,23 @@
 \newcommand\LotEnd{\\\noalign{\global\arrayrulewidth=0.25pt}\hline\noalign{\global\arrayrulewidth=0.4pt}}
 
 %% ---- FLAIR screen figures (NT-20..24, GC-04) --------------------------------
-%% \FlairShot[label]{name}{caption}: screens/name.png, captured from the
+%% \FlairShot[label]{name}{caption}: the figure screens/name, captured from the
 %% running system by pubs/screens/flair_capture.sh (screens/FLAIR names the
 %% crop and scale; screens/name.k123 the keystrokes) and re-proved by
 %% test-pubs-screens.  F-LOT framing: a 10% black panel with 2 mm rounded
 %% corners; caption flush left under, "Figure 3-1" bold (TY-12).  The image
 %% is placed at its own 600 dpi resolution: one screen pixel is `scale`
 %% device pixels, never resampled (NT-21).
-\newcounter{im@shotfig}
+%% The figure is committed as screens/<name>.b64 (pubs/ is ASCII-only,
+%% GC-05) and decoded by the build into build/pubs/gen/i123shots/<manual>/
+%% (on TEXINPUTS); \ShotDir{<manual>} in the book's preamble names it.
+\newcommand\im@shotdir{}\newcommand\ShotDir[1]{\gdef\im@shotdir{#1}}
 \NewDocumentCommand\FlairShot{o m m}{%
   \immediate\write\im@screens{screens/#2.png}%
   \par\addvspace{6pt}\noindent
   \begin{minipage}{\linewidth}
     \begin{tikzpicture}
-      \node[inner sep=2.5mm, rounded corners=2mm, fill=black!10] {\includegraphics{screens/#2.png}};
+      \node[inner sep=2.5mm, rounded corners=2mm, fill=black!10] {\includegraphics{i123shots/\im@shotdir/#2.png}};
     \end{tikzpicture}\par\vspace{3pt}
     \refstepcounter{figure}\IfValueT{#1}{\label{#1}}%
     {\imCaptionFont\textbf{Figure~\thefigure}\quad #3\par}
@@ -254,8 +278,15 @@
   \FootTitle{#1}\markright{#1}\im@notab
   \im@origchapter*{#1}\thispagestyle{plain}\addcontentsline{toc}{chapter}{#1}}
 %% AN-23 F-LOT glossary entry: the term Heros Bold lower case on its own
-%% line, the definition below.
-\newcommand\GlossTerm[2]{\par\addvspace{6pt}{\noindent\sffamily\bfseries #1\par}\nobreak
+%% line, the definition below.  CP-03: \term writes every defined term to
+%% <job>.terms, \GlossTerm every glossary term to <job>.gloss; harness/pubs/
+%% i123_gate.c glossary checks both directions (case is ignored).
+\newwrite\im@termsout \newwrite\im@glossout
+\AtBeginDocument{\immediate\openout\im@termsout=\jobname.terms\immediate\openout\im@glossout=\jobname.gloss}
+\AtEndDocument{\immediate\closeout\im@termsout\immediate\closeout\im@glossout}
+\newcommand\term[1]{\immediate\write\im@termsout{#1}\textbf{#1}}
+\newcommand\GlossTerm[2]{\immediate\write\im@glossout{#1}%
+  \par\addvspace{6pt}{\noindent\sffamily\bfseries #1\par}\nobreak
   \noindent #2\par}
 %% PG-29 F-LOT: "NOTES:" centred Heros Bold caps at the head of an otherwise
 %% blank leaf.
@@ -346,7 +377,7 @@
 %% from the word behind any box between them (annex Sec 7.1, PDF 75).
 \pgfdeclarelayer{treelines}\pgfsetlayers{treelines,background,main}
 \newlength\im@treex \newlength\im@treey \newlength\im@treew \newcount\im@treen
-\newlength\im@treemax \setlength\im@treemax{131mm}
+\newlength\im@treemax \setlength\im@treemax{128mm}
 \newcommand\im@treefont{\sffamily\fontsize{5.5}{6.5}\selectfont}
 \newcommand\im@treegap{2.4mm}
 %% Vertical pitch, box depth, baseline drop; \CompactTree tightens them for

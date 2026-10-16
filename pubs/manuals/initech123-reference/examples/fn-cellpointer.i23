@@ -1,0 +1,5 @@
+# @CELLPOINTER
+A1 @CELLPOINTER("address")
+show A1
+B7 5
+show A1

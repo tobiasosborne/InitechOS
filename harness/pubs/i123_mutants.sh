@@ -47,7 +47,9 @@ row=$(grep "^$name|" pubs/manuals/initech123-reference/screens/FLAIR)
 set -- $(printf '%s' "$row" | cut -d'|' -f2) ; x0=$1; y0=$2; x1=$3; y1=$4
 sc=$(printf '%s' "$row" | cut -d'|' -f3)
 "$shot" png "$dump" $((x0 + 1)) "$y0" $((x1 + 1)) "$y1" "$sc" "$m/shifted.png" spec/assets/clut.json spec/assets/color_canon.json
-red SHIFTED_FIGURE SCREEN-DRIFT "$shot" same "pubs/manuals/initech123-reference/screens/$name.png" "$m/shifted.png"
+"$shot" unb64 "pubs/manuals/initech123-reference/screens/$name.b64" "$m/committed.png"
+"$shot" same "$m/committed.png" "$(dirname "$dump")/$name.png"
+red SHIFTED_FIGURE SCREEN-DRIFT "$shot" same "$m/committed.png" "$m/shifted.png"
 # 8. the inventory really is read from the shipped menu resource: a build
 #    whose first menu word is misspelled (I123_MUT_MENU_SPELLING, the
 #    test-i123-menu-tree-mutant knob) no longer ships /Worksheet

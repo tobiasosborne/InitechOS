@@ -1,0 +1,4 @@
+# @RAND
+= @RAND
+= @RAND
+= @INT(@RAND*6)+1

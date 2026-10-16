@@ -1,0 +1,8 @@
+# Chapter 1, relative and absolute references copied
+A1 10
+A2 20
+B1 +A1*2
+C1 2*$A$1
+do {GOTO}B1~/cb1..c1~b2~
+show B2
+show C2

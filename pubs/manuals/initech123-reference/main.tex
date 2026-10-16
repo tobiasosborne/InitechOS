@@ -1,0 +1,79 @@
+% Initech 123 Reference -- part 1051-0000-10 (PUB-REF-0001 Sec 12, DS row
+% 123-REF).  Family F-LOT; model the Lotus 1-2-3 Release 2.2 Reference,
+% docs/pubs/originals/lotus-123-r22.md Sec 1, 2, 5-7, 9 (one chapter per
+% top-level menu command in main-menu order, then @Functions; Problem/
+% Solution troubleshooting instead of an error appendix, C-16).  Bead
+% initech-ipu5.9.
+% Ground truth (Law 1): os/i123/app/face_a.c (123.EXE, Face A: keys, modes,
+% the slash menu, the prompts and messages), os/i123/core/*.c and
+% os/i123/fs/wk1.c (the worksheet, formulas, @functions, recalculation,
+% .WK1), the shipped menu resource (os/i123/core/menu_data.h -> APPS/
+% 123.MNU; = spec/i123/menu_tree.golden by test-i123-menu-tree),
+% spec/i123/wk1_formula.h (the @function table), spec/i123/
+% era_shortfalls.md (what this version refuses).
+% GC-01: every menu path, @function and key registers in main.cmds and is
+% graded against the inventory harness/pubs/i123_face.c obtains from the
+% shipped application (make test-pubs-i123); a path the application refuses
+% is documented DRAFT, never as working (D-14).  GC-03: every printed
+% example (examples/*.i23) is replayed through the shipped application
+% (make test-pubs-i123-examples).  GC-04: every figure is a capture of the
+% running system (screens/FLAIR, make test-pubs-screens).
+% D-3: the shipped 123.EXE displays no version; no version is printed and
+% the part number carries 0000 (PN-03).
+\documentclass[lotus]{initech-manual}
+\usepackage{initech-lotus}
+\ShotDir{initech123-reference}
+
+\ProductName{Initech 123}
+\ProductVersion{}
+\DocTitle{Reference}
+\PartNumber{1051-0000-10}
+\FamilyName{Decision Support Family}
+\FamilyColor{FamilyDecision}
+\Edition{First Edition (June 1992)}
+\EditionApplies{This edition applies to Initech 123 as supplied with
+  InitechOS, and to all subsequent releases until otherwise indicated in
+  new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-6/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Initech 123
+  is a trademark of Initech Systems Corporation.  Turbo Initech is a
+  registered trademark of Initech Systems Corporation.  Intel, 80387 and
+  80486 are trademarks of Intel Corporation.  Lotus and 1-2-3 are
+  registered trademarks of Lotus Development Corporation.  All other
+  product names are trademarks of their respective holders.}
+% Operator directive 2026-10-17: the slogan at the placements of the design
+% lane's rule; the class definition wins once it exists.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily
+  Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent
+  \rule{\linewidth}{0.5pt}\medskip}
+% A defined term at its first use in a chapter (TY-02) is \term{...}
+% (initech-lotus.sty); every one is in the Glossary (CP-03).
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{ch01-using}
+\input{ch02-addin}
+\input{ch03-copy}
+\input{ch04-data}
+\input{ch05-file}
+\input{ch06-graph}
+\input{ch07-move}
+\input{ch08-print}
+\input{ch09-quit}
+\input{ch10-range}
+\input{ch11-system}
+\input{ch12-worksheet}
+\input{ch13-functions}
+\appendix
+\input{appa-capacity}
+\input{appb-troubleshooting}
+\input{glossary}
+\printindex
+\LotusFinish
+\end{document}

@@ -1,0 +1,42 @@
+% Chapter -- The System Command (AN-08 opener, AN-09 entries; annex Sec 7).
+% Sources (Law 1): os/i123/app/face_a.c menu_select (a leaf of the main menu reaches
+% unsupported(), which displays Command not implemented), spec/i123/menu_tree.golden,
+% spec/i123/era_shortfalls.md I123-P3-03 (System refuses; no 16-bit DOS programs
+% under ADR-0001); build/pubs/correctness/i123.refused.
+% GATES: test-i123-menu-tree test-pubs-i123
+\Gates{test-i123-menu-tree, test-pubs-i123}
+
+\chapter[The System Command]{\textit{The System Command}}
+\input{i123-tree-System}
+
+The System command is the menu command for leaving the worksheet temporarily to issue operating system commands.  In this version of Initech 123 the System command is displayed in the main menu, but selecting it does not leave the worksheet: the control panel displays \texttt{Command not implemented}.  The description of what the command is planned to do is marked as a draft.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+
+/System & Suspends the worksheet for operating system commands. \draft{I123-P3-03: refuses}\LotEnd
+\end{LotTable}
+
+\section{Common Uses of /System}
+\begin{itemize}
+\item Issuing an operating system command without ending your work on the worksheet (\slashcmd{/System}) \draft{I123-P3-03: refuses}
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item Chapter~9, \slashcmd{/Quit}, which ends the session
+\item Chapter~2, \slashcmd{/Add-In}, the other command of this kind that is not available
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item The \term{operating system} is the program that manages files and runs other programs; in Initech 123 it is InitechDOS.
+\end{itemize}
+
+\section{Before You Use /System}
+\begin{Note}
+The System command is displayed, but selecting it does nothing except display \texttt{Command not implemented} and the \ind{ERROR} indicator.  Press \kname{ESC} to return to \ind{READY} mode.  The worksheet is not changed.
+\end{Note}
+
+\MenuEntry[I123-P3-03: refuses]{/System}
+/System is planned to suspend the worksheet so that you can issue operating system commands and then return to the worksheet.  In this version, selecting \texttt{System} from the main menu displays \texttt{Command not implemented} and the \ind{ERROR} indicator.  Press \kname{ESC} to return to \ind{READY} mode.

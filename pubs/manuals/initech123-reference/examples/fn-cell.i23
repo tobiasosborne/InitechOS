@@ -1,0 +1,17 @@
+# @CELL
+A1 'Region
+B1 123.5
+B2 +B1*2
+= @CELL("address",B1)
+= @CELL("col",B1)
+= @CELL("row",B1)
+= @CELL("contents",B2)
+= @CELL("type",A1)
+= @CELL("type",B1)
+= @CELL("type",C9)
+= @CELL("prefix",A1)
+= @CELL("width",A1)
+= @CELL("format",B1)
+= @CELL("protect",B1)
+= @CELL("filename",B1)
+= @CELL("colour",B1)

@@ -1,0 +1,7 @@
+# @EXACT
+A1 'Smith
+A2 'SMITH
+= @EXACT(A1,"Smith")
+= @EXACT(A1,A2)
+= +A1=A2
+= @EXACT(@UPPER(A1),A2)

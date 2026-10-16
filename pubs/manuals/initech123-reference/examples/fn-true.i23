@@ -1,0 +1,5 @@
+# @TRUE
+= @TRUE
+= 3>2
+= 3>2#AND#@FALSE
+= @IF(@TRUE,"yes","no")

@@ -1,0 +1,10 @@
+A1: 'Left
+A2: "Right
+A3: ^Center
+A4: \-
+A5: '1992
+A1: 'Left = Left
+A2: "Right = Right
+A3: ^Center = Center
+A4: \- = ---------
+A5: '1992 = 1992

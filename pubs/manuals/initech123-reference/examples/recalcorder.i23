@@ -1,0 +1,8 @@
+# Chapter 12, /Worksheet Global Recalculation: manual recalculation and CALC (F9)
+do /wgrm
+A1 10
+A2 +A1*2
+A1 50
+show A2
+do {CALC}
+show A2

@@ -1,0 +1,403 @@
+% Chapter 12 -- The Worksheet Commands (AN-08, AN-09).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / range_accept (the
+% global format codes and decimal-place prompt; Label-Prefix setting the
+% sheet's default prefix; "Enter global column width (1..240): ",
+% "Enter column width (1..240): ", "Enter iteration count (1..50): ";
+% Natural / Columnwise / Rowwise, Automatic / Manual, Protection Enable /
+% Disable; Column Set-Width / Reset-Width on the pointer's column; Erase
+% No / Yes), os/i123/core/recalc.c (the three orders; iteration only
+% while a circular reference exists; CALC / CIRC), os/i123/core/sheet.c
+% (the fresh sheet: width 9, General, the apostrophe prefix, natural
+% automatic recalculation, one pass), spec/i123/era_shortfalls.md
+% I123-P3-01 (Insert, Delete, Titles, Window, Status, Page, Learn, Column
+% Hide / Display / Column-Range, Global Default and Zero refuse),
+% I123-P3-05 (international Date and Time formats refuse).  Menu tree
+% generated from the shipped resource.
+% GATES: test-i123-recalc-order test-i123-range-menu test-i123-wk1-roundtrip test-i123-menu-tree test-pubs-i123 test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-recalc-order, test-i123-range-menu, test-i123-wk1-roundtrip,
+  test-i123-menu-tree, test-pubs-i123, test-pubs-i123-examples, test-pubs-screens}
+\chapter[The Worksheet Commands]{\textit{The Worksheet Commands}}
+
+The Worksheet commands control the worksheet as a whole: the settings that
+apply to every cell, the widths of columns, the way formulas are
+recalculated, protection, and erasing the worksheet.
+
+\begin{LotTable}{p{36mm}p{92mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Worksheet Global & Sets the format, label prefix, column width,
+  recalculation and protection of the whole worksheet\\
+/Worksheet Insert & Inserts columns or rows \draft{I123-P3-01: its commands refuse}\\
+/Worksheet Delete & Deletes columns or rows \draft{I123-P3-01: its commands refuse}\\
+/Worksheet Column & Sets the width of the current column\\
+/Worksheet Erase & Erases the worksheet from memory\\
+/Worksheet Titles & Freezes rows or columns on the screen \draft{I123-P3-01: its commands refuse}\\
+/Worksheet Window & Splits the screen \draft{I123-P3-01: its commands refuse}\\
+/Worksheet Status & Displays the worksheet settings \draft{I123-P3-01: refuses}\\
+/Worksheet Page & Inserts a page break \draft{I123-P3-01: refuses}\\
+/Worksheet Learn & Records keystrokes \draft{I123-P3-01: its commands refuse}\LotEnd
+\end{LotTable}
+
+\clearpage
+\CompactTree
+\input{i123-tree-Worksheet}
+
+\section{Common Uses of the Worksheet Commands}
+\begin{itemize}
+\item Displaying every number of a worksheet with two decimal places
+  (\slashcmd{/Worksheet Global Format Fixed})
+\item Making every column wider at once
+  (\slashcmd{/Worksheet Global Column-Width})
+\item Making one column wider (\slashcmd{/Worksheet Column Set-Width})
+\item Recalculating only when you press CALC (F9) in a large worksheet
+  (\slashcmd{/Worksheet Global Recalculation Manual})
+\item Protecting a finished worksheet from accidental change
+  (\slashcmd{/Worksheet Global Protection Enable})
+\item Starting again with an empty worksheet (\slashcmd{/Worksheet Erase
+  Yes})
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item ``Recalculation'' in Chapter~1
+\item \slashcmd{/Range Format} and \slashcmd{/Range Unprot} in Chapter~10
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item A \term{global setting} applies to every cell that has no setting of
+  its own.  A new worksheet has the global format General, the global
+  column width 9, the label prefix \texttt{'} (left-aligned), and natural,
+  automatic recalculation.
+\item The \term{recalculation order} is the order in which Initech 123
+  calculates the formulas of the worksheet.
+\end{itemize}
+
+\MenuEntry{/Worksheet}
+/Worksheet displays the Worksheet menu.
+
+\MenuEntry{/Worksheet Global}
+/Worksheet Global displays the menu of the global settings.  Every global
+setting is saved with the worksheet.
+\begin{Options}
+\OptionMenu{Format} Sets the global format (below).
+\OptionMenu{Label-Prefix} Sets the label prefix for new labels (below).
+\Option{Column-Width} Sets the width of every column that has no width of
+  its own.  At \texttt{Enter global column width (1..240):} type a number
+  from 1 to 240 and press \kname{ENTER}.
+\OptionMenu{Recalculation} Sets when and in what order formulas are
+  recalculated (below).
+\OptionMenu{Protection} Turns worksheet protection on or off (below).
+\OptionMenu{Default} Displays the Default menu (below).
+\Option[I123-P3-01: refuses]{Zero} Sets whether cells whose value is zero
+  appear empty.
+\end{Options}
+
+\SubEntry{/Worksheet Global Format}
+/Worksheet Global Format sets the format of every cell not given one with
+\slashcmd{/Range Format}.  The formats are those of /Range Format
+(Chapter~10), without Reset.  For Fixed, Sci, Currency, the comma format
+and Percent, Initech 123 asks \texttt{Enter number of decimal places
+(0..15):}.
+\begin{Options}
+\Option{Fixed} A fixed number of decimal places.
+\Option{Sci} Scientific notation.
+\Option{Currency} A dollar sign, commas and a fixed number of decimal
+  places.
+\Option{,} Commas between thousands and a fixed number of decimal places.
+\Option{General} As many decimal places as fit (the format of a new
+  worksheet).
+\Option{+/-} A bar of plus or minus signs.
+\Option{Percent} A percentage.
+\OptionMenu{Date} Displays the Date menu (below).
+\Option{Text} Formulas instead of their values.
+\Option{Hidden} Nothing.
+\end{Options}
+\SubEntry{/Worksheet Global Format Date}
+\begin{Options}
+\Option{1 (DD-MMM-YY)} Day, month and year.
+\Option{2 (DD-MMM)} Day and month.
+\Option{3 (MMM-YY)} Month and year.
+\Option[I123-P3-05: refuses]{4 (Long Intn'l)} The international long date.
+\Option[I123-P3-05: refuses]{5 (Short Intn'l)} The international short date.
+\OptionMenu{Time} Displays the Time menu (below).
+\end{Options}
+\SubEntry{/Worksheet Global Format Date Time}
+\begin{Options}
+\Option[I123-P3-05: refuses]{1 (HH:MM:SS AM/PM)} Hours, minutes and seconds.
+\Option[I123-P3-05: refuses]{2 (HH:MM AM/PM)} Hours and minutes.
+\Option[I123-P3-05: refuses]{3 (Long Intn'l)} The international long time.
+\Option[I123-P3-05: refuses]{4 (Short Intn'l)} The international short time.
+\end{Options}
+
+\SubEntry{/Worksheet Global Label-Prefix}
+Sets the prefix Initech 123 gives a label you type without one.  Labels
+already in the worksheet keep their prefixes; to change them use
+\slashcmd{/Range Label}.
+\begin{Options}
+\Option{Left} New labels are left-aligned (\texttt{'}).
+\Option{Right} New labels are right-aligned (\texttt{"}).
+\Option{Center} New labels are centered (\texttt{\textasciicircum}).
+\end{Options}
+
+\SubEntry{/Worksheet Global Recalculation}
+Sets when Initech 123 recalculates formulas and in what order.  While
+recalculation is automatic, selecting a setting recalculates the worksheet
+at once.
+\begin{Options}
+\Option{Natural} Calculates every formula after the formulas it depends
+  on (the setting of a new worksheet).
+\Option{Columnwise} Calculates column by column, from A1 down column A,
+  then down column B, and so on.
+\Option{Rowwise} Calculates row by row, from A1 across row 1, then across
+  row 2, and so on.
+\Option{Automatic} Recalculates after every entry (the setting of a new
+  worksheet).
+\Option{Manual} Recalculates only when you press \fkey{Calc}{F9}; the
+  \ind{CALC} indicator shows when the worksheet needs it.
+\Option{Iteration} Sets how many times a recalculation passes through the
+  worksheet while it contains a circular reference.  At \texttt{Enter
+  iteration count (1..50):} type a number from 1 to 50.  A worksheet
+  without a circular reference is calculated once in natural order.
+\end{Options}
+
+\begin{Note}
+In Columnwise and Rowwise order a formula may be calculated before a
+formula it depends on.  Recalculate again, with \fkey{Calc}{F9}, until the
+values no longer change, or use Natural order.
+\end{Note}
+
+Manual recalculation: after A1 changes from 10 to 50, A2 keeps its old
+value until CALC (F9) is pressed.
+\LotExample{examples/recalcorder}
+
+Iteration: B1 depends on itself.  After the iteration count is set to 5
+(which recalculates), and again after CALC (F9), B1 moves closer to 2:
+\LotExample{examples/iteration}
+
+\SubEntry{/Worksheet Global Protection}
+\begin{Options}
+\Option{Enable} Turns worksheet protection on: protected cells cannot be
+  changed by typing or by commands.  Cells are protected unless you have
+  unprotected them with \slashcmd{/Range Unprot}.
+\Option{Disable} Turns worksheet protection off.
+\end{Options}
+
+\SubEntry{/Worksheet Global Default}
+/Worksheet Global Default displays the menu of the settings that apply to
+every worksheet.  In this version the menus can be displayed, and their
+Quit items return to \ind{READY} mode; the settings themselves are not
+available.
+\begin{Options}
+\OptionMenu{Printer} The default printer settings (below).
+\Option[I123-P3-01: refuses]{Directory} Sets the default directory.
+\Option[I123-P3-01: refuses]{Status} Displays the default settings.
+\Option[I123-P3-01: refuses]{Update} Saves the default settings.
+\OptionMenu{Other} Other default settings (below).
+\OptionMenu{Autoexec} Whether autoexecute macros run (below).
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+\SubEntry{/Worksheet Global Default Printer}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Interface} Selects the printer port.
+\OptionMenu{AutoLF} Whether the printer adds a line feed (below).
+\Option[I123-P3-01: refuses]{Left} The default left margin.
+\Option[I123-P3-01: refuses]{Right} The default right margin.
+\Option[I123-P3-01: refuses]{Top} The default top margin.
+\Option[I123-P3-01: refuses]{Bot} The default bottom margin.
+\Option[I123-P3-01: refuses]{Pg-Length} The default page length.
+\OptionMenu{Wait} Whether to pause after each page (below).
+\Option[I123-P3-01: refuses]{Setup} The default setup string.
+\Option[I123-P3-01: refuses]{Name} Selects the printer.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+\SubEntry{/Worksheet Global Default Printer AutoLF}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Yes} The printer adds a line feed itself.
+\Option[I123-P3-01: refuses]{No} Initech 123 sends the line feed.
+\end{Options}
+\SubEntry{/Worksheet Global Default Printer Wait}
+\begin{Options}
+\Option[I123-P3-01: refuses]{No} Prints continuously.
+\Option[I123-P3-01: refuses]{Yes} Pauses for paper after each page.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other}
+\begin{Options}
+\OptionMenu{International} International formats (below).
+\OptionMenu{Help} The help method (below).
+\OptionMenu{Clock} The clock display (below).
+\OptionMenu{Undo} The undo feature (below).
+\OptionMenu{Beep} The error bell (below).
+\OptionMenu{Add-In} Add-ins attached at start-up (below).
+\end{Options}
+\SubEntry{/Worksheet Global Default Other International}
+\begin{Options}
+\OptionMenu{Punctuation} Numeric punctuation (below).
+\OptionMenu{Currency} The position of the currency sign (below).
+\OptionMenu{Date} The international date formats (below).
+\OptionMenu{Time} The international time formats (below).
+\OptionMenu{Negative} The display of negative numbers (below).
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other International Punctuation}
+Each choice sets the decimal point, the argument separator and the
+thousands separator.
+\begin{Options}
+\Option[I123-P3-01: refuses]{A (.,,)} Period, comma, comma.
+\Option[I123-P3-01: refuses]{B (,..)} Comma, period, period.
+\Option[I123-P3-01: refuses]{C (.;,)} Period, semicolon, comma.
+\Option[I123-P3-01: refuses]{D (,;.)} Comma, semicolon, period.
+\Option[I123-P3-01: refuses]{E (., )} Period, comma, space.
+\Option[I123-P3-01: refuses]{F (,. )} Comma, period, space.
+\Option[I123-P3-01: refuses]{G (.; )} Period, semicolon, space.
+\Option[I123-P3-01: refuses]{H (,; )} Comma, semicolon, space.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other International Currency}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Prefix} The currency sign before the number.
+\Option[I123-P3-01: refuses]{Suffix} The currency sign after the number.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other International Date}
+\begin{Options}
+\Option[I123-P3-01: refuses]{A (MM/DD/YY)} Month, day, year.
+\Option[I123-P3-01: refuses]{B (DD/MM/YY)} Day, month, year.
+\Option[I123-P3-01: refuses]{C (DD.MM.YY)} Day, month, year with periods.
+\Option[I123-P3-01: refuses]{D (YY-MM-DD)} Year, month, day.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other International Time}
+\begin{Options}
+\Option[I123-P3-01: refuses]{A (HH:MM:SS)} Colons.
+\Option[I123-P3-01: refuses]{B (HH.MM.SS)} Periods.
+\Option[I123-P3-01: refuses]{C (HH,MM,SS)} Commas.
+\Option[I123-P3-01: refuses]{D (HHhMMmSSs)} Letters.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other International Negative}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Parentheses} Negative numbers in parentheses.
+\Option[I123-P3-01: refuses]{Sign} Negative numbers with a minus sign.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other Help}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Instant} Help stays available at once.
+\Option[I123-P3-01: refuses]{Removable} The help file is opened only when
+  needed.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other Clock}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Standard} The standard date and time.
+\Option[I123-P3-01: refuses]{International} The international date and time.
+\Option[I123-P3-01: refuses]{None} No date and time on the status line.
+\Option[I123-P3-01: refuses]{Clock} The date and time on the status line.
+\Option[I123-P3-01: refuses]{Filename} The file name on the status line.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other Undo}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Enable} Turns undo on.
+\Option[I123-P3-01: refuses]{Disable} Turns undo off.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other Beep}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Enable} The bell sounds on an error.
+\Option[I123-P3-01: refuses]{Disable} The bell is silent.
+\end{Options}
+\SubEntry{/Worksheet Global Default Other Add-In}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Set} Names an add-in to attach at start-up.
+\Option[I123-P3-01: refuses]{Cancel} Cancels it.
+\end{Options}
+\SubEntry{/Worksheet Global Default Autoexec}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Enable} Autoexecute macros run.
+\Option[I123-P3-01: refuses]{Disable} Autoexecute macros do not run.
+\end{Options}
+
+\MenuEntry{/Worksheet Insert}
+/Worksheet Insert displays the Insert menu.
+\begin{Options}
+\Option[I123-P3-01: refuses]{Column} Inserts blank columns to the left of
+  the cell pointer.
+\Option[I123-P3-01: refuses]{Row} Inserts blank rows above the cell
+  pointer.
+\end{Options}
+
+\MenuEntry{/Worksheet Delete}
+/Worksheet Delete displays the Delete menu.
+\begin{Options}
+\Option[I123-P3-01: refuses]{Column} Deletes columns.
+\Option[I123-P3-01: refuses]{Row} Deletes rows.
+\end{Options}
+
+\MenuEntry{/Worksheet Column}
+/Worksheet Column sets the width of the column the cell pointer is in.
+\FlairShot[fig:colwidth]{colwidth}{Column A set to 12 characters}
+\begin{Options}
+\Option{Set-Width} At \texttt{Enter column width (1..240):} type a number
+  from 1 to 240 and press \kname{ENTER}.  The width of a column is the
+  number of characters it shows.
+\Option{Reset-Width} Returns the column to the global column width.
+\Option[I123-P3-01: refuses]{Hide} Hides a range of columns.
+\Option[I123-P3-01: refuses]{Display} Displays hidden columns again.
+\OptionMenu{Column-Range} Displays the Column-Range menu (below).
+\end{Options}
+\SubEntry{/Worksheet Column Column-Range}
+\begin{Options}
+\Option[I123-P3-01: refuses]{Set-Width} Sets the width of a range of
+  columns.
+\Option[I123-P3-01: refuses]{Reset-Width} Returns a range of columns to the
+  global width.
+\end{Options}
+\begin{Note}
+A width outside 1 to 240, or anything but a whole number, displays
+\texttt{Illegal number}.
+\end{Note}
+
+\MenuEntry{/Worksheet Erase}
+/Worksheet Erase clears the worksheet from memory, with every entry and
+setting, and starts a new worksheet.
+\begin{Options}
+\Option{No} Returns to \ind{READY} mode; nothing is erased.
+\Option{Yes} Erases the worksheet.
+\end{Options}
+\begin{Caution}
+/Worksheet Erase Yes does not ask whether to save the worksheet first.
+Save it with \slashcmd{/File Save} before you erase it.  The worksheet
+file on disk is not affected.
+\end{Caution}
+
+\MenuEntry{/Worksheet Titles}
+/Worksheet Titles displays the Titles menu.
+\begin{Options}
+\Option[I123-P3-01: refuses]{Both} Freezes the rows above and the columns
+  to the left of the cell pointer.
+\Option[I123-P3-01: refuses]{Horizontal} Freezes the rows above the cell
+  pointer.
+\Option[I123-P3-01: refuses]{Vertical} Freezes the columns to the left of
+  the cell pointer.
+\Option[I123-P3-01: refuses]{Clear} Unfreezes the titles.
+\end{Options}
+
+\MenuEntry{/Worksheet Window}
+/Worksheet Window displays the Window menu.
+\begin{Options}
+\Option[I123-P3-01: refuses]{Horizontal} Splits the screen at the current
+  row.
+\Option[I123-P3-01: refuses]{Vertical} Splits the screen at the current
+  column.
+\Option[I123-P3-01: refuses]{Sync} Scrolls the two windows together.
+\Option[I123-P3-01: refuses]{Unsync} Scrolls the windows separately.
+\Option[I123-P3-01: refuses]{Clear} Returns to one window.
+\end{Options}
+
+\MenuEntry[I123-P3-01: refuses]{/Worksheet Status}
+Displays the global settings and the memory available.
+
+\MenuEntry[I123-P3-01: refuses]{/Worksheet Page}
+Inserts a row with a page-break mark above the cell pointer.
+
+\MenuEntry{/Worksheet Learn}
+/Worksheet Learn displays the Learn menu.
+\begin{Options}
+\Option[I123-P3-01: refuses]{Range} Names the range in which typed
+  keystrokes are recorded.
+\Option[I123-P3-01: refuses]{Cancel} Cancels the learn range.
+\Option[I123-P3-01: refuses]{Erase} Erases the recorded keystrokes.
+\end{Options}

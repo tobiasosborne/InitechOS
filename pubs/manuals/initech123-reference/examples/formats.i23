@@ -1,0 +1,26 @@
+# Chapter 10, /Range Format: one number in each format (column width 12)
+do /wgc12~
+A1 -1234.567
+A2 -1234.567
+A3 -1234.567
+A4 -1234.567
+A5 -1234.567
+A6 .375
+A7 +A1*2
+A8 -1234.567
+do /rff2~a1~
+do /rfs2~a2~
+do /rfc2~a3~
+do /rf,2~a4~
+do /rfga5~
+do /rfp1~a6~
+do /rfta7~
+do /rfha8~
+show A1
+show A2
+show A3
+show A4
+show A5
+show A6
+show A7
+show A8

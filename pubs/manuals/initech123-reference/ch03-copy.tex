@@ -1,0 +1,158 @@
+% Chapter 3 -- The Copy Command (AN-08 opener, AN-09 entry; annex Sec 7).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / range_accept (the
+% FROM and TO prompts, the single-cell TO rule and its message),
+% os/i123/core/range.c i123_transfer (what is copied, what the destination
+% loses, reference words kept: relative words are offsets, absolute words
+% coordinates), spec/i123/era_shortfalls.md I123-P3-07 (TO ranges larger
+% than one cell refuse).  Menu tree generated from the shipped resource.
+% GATES: test-i123-copy-move-model test-i123-menu-tree test-pubs-i123 test-pubs-screens
+\Gates{test-i123-copy-move-model, test-i123-menu-tree, test-pubs-i123, test-pubs-screens}
+\chapter[The Copy Command]{\textit{The Copy Command}}
+\input{i123-tree-Copy}
+
+The Copy command copies the contents of a cell or a range of cells to
+another part of the worksheet, together with each cell's format and
+protection setting.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Copy & Copies a cell or a range to another location in the worksheet\LotEnd
+\end{LotTable}
+
+\section{Common Uses of the Copy Command}
+\begin{itemize}
+\item Entering the same formula in a row or a column of cells
+  (\slashcmd{/Copy})
+\item Repeating a heading, a label or a block of numbers elsewhere in the
+  worksheet (\slashcmd{/Copy})
+\item Making a working copy of a table before you change it
+  (\slashcmd{/Copy})
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item ``Formulas'' and ``Ranges'' in Chapter~1
+\item Chapter~7, ``The Move Command''
+\item \slashcmd{/Range Value} and \slashcmd{/Range Trans} in Chapter~10,
+  which copy the current values of formulas instead of the formulas
+\item Lesson~5 in the \doctitle{Tutorial}
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item The \term{FROM range} is the cell or range you copy.
+\item The \term{TO range} is where the copy goes.  In Initech 123 you name
+  the TO range by its upper left cell.
+\item A \term{relative reference} in a formula, such as \texttt{A1}, refers
+  to a cell by its position relative to the formula.  When you copy the
+  formula, the reference refers to the cell in the same position relative
+  to the copy.
+\item An \term{absolute reference}, such as \texttt{\$A\$1}, always refers
+  to the same cell, wherever the formula is copied.
+\end{itemize}
+
+\section{Before You Use /Copy}
+\begin{Caution}
+/Copy replaces whatever the TO range contains.  A cell in the TO range that
+is not part of the copy keeps nothing: the copy of a blank cell is a blank
+cell.  Save the worksheet before you copy over data you may want back.
+\end{Caution}
+
+\MenuEntry{/Copy}
+/Copy copies a cell or a range of cells, with their formats and protection
+settings, to another part of the worksheet.
+
+\FlairShot[fig:copy-to]{copyto}{The TO prompt of /Copy, with the FROM range
+B1..C1 already given}
+
+\BHead{Terms You Need to Know}
+\begin{itemize}
+\item The \term{FROM range} is the cell or range you copy.
+\item The \term{TO range} is the place the copy goes, named by its upper
+  left cell.
+\end{itemize}
+Initech 123 copies every cell of the FROM range to the cell in the same
+position relative to the upper left cell of the TO range.  The rectangle
+the copy covers is first cleared: whatever was there, including a cell's
+format, is replaced by the copy.  A label or a number is copied as it is.
+A formula is copied with its references: a relative reference keeps its
+distance from the formula, so a formula that adds the two cells to its left
+still adds the two cells to its left in the copy; an absolute reference
+keeps naming the same cell.
+
+When the worksheet is set to recalculate automatically (the setting
+\slashcmd{/Worksheet Global Recalculation Automatic}, which Initech 123 uses
+until you change it), the copied formulas are calculated as soon as the
+copy is made.
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Copy.  The control panel shows
+  \texttt{Enter range to copy FROM:} followed by the address of the cell
+  pointer.
+\item Specify the FROM range and press \kname{ENTER}.
+
+  Type the range, for example \type{B1..C1}, or a range name; or press
+  \kname{ENTER} at once to copy just the cell at the cell pointer.  You can
+  also move the cell pointer with the pointer-movement keys to the one cell
+  you want to copy, and press \kname{ENTER}.
+\item Specify the TO range and press \kname{ENTER}.
+
+  Type the address of the upper left cell of the place the copy goes, or
+  move the cell pointer there, and press \kname{ENTER}.  Initech 123 makes
+  the copy and returns to \ind{READY} mode.
+\end{Steps123}
+
+\FlairShot[fig:copy-done]{copydone}{The formulas in B1..C1 copied to D1..E1}
+
+Figure~\ref{fig:copy-done} shows the result of copying B1..C1, which hold
+the formulas \texttt{-A1*2} and \texttt{-B1*2}, to D1.  The copy in D1
+refers to C1, the cell to its left, and the copy in E1 to D1, just as the
+originals refer to the cells to their left.
+
+\LabelHead{Tip}
+\begin{itemize}
+\item To copy a formula to several places, copy it once to each place,
+  naming each upper left cell in turn.
+\item To keep a reference fixed when you copy a formula, make it absolute
+  with dollar signs, as in \texttt{\$B\$1}, before you copy.
+\end{itemize}
+
+\begin{Note}
+Give the TO range as a single cell.  If you type a TO range of more than one
+cell, such as \type{D1..E3}, Initech 123 displays
+\texttt{Specify the upper left destination cell} and makes no copy; press
+\kname{ESC} to return to the worksheet.  The size of the copy is always the
+size of the FROM range.
+\end{Note}
+
+\begin{Note}
+If the worksheet is protected (\slashcmd{/Worksheet Global Protection
+Enable}) and the TO range includes a protected cell, Initech 123 displays
+\texttt{Command refused} and makes no copy.
+\end{Note}
+
+\begin{Note}
+The FROM and TO ranges may overlap.  Initech 123 takes the contents of the
+FROM range as they were before the copy began, so every cell of the copy
+receives the original contents.
+\end{Note}
+
+\section{Copying a Formula Down a Column: An Example}
+In this example a column of prices in B2..B4 and a tax rate in B6 are used
+to compute the tax on each price.  The tax rate is referred to absolutely,
+so that every copy of the formula uses it.
+\begin{Steps123}
+\item Enter the prices: \type{100} in B2, \type{250} in B3 and \type{40} in
+  B4; enter \type{.08} in B6.
+\item Move the cell pointer to C2 and type \type{+B2*\$B\$6}, then press
+  \kname{ENTER}.  C2 shows \texttt{8}.
+\item Select /Copy, press \kname{ENTER} to copy C2, type \type{C3} and press
+  \kname{ENTER}.
+\item The cell pointer is still on C2.  Select /Copy again, press
+  \kname{ENTER}, type \type{C4} and press \kname{ENTER}.
+\end{Steps123}
+The entries and the three formula cells, as the control panel and the
+worksheet show them afterwards:
+
+\LotExample{examples/copytax}

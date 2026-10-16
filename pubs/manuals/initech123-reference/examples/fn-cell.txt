@@ -1,0 +1,16 @@
+A1: 'Region
+B1: 123.5
+B2: +B1*2
+@CELL("address",B1) = $B$1
+@CELL("col",B1) = 2
+@CELL("row",B1) = 1
+@CELL("contents",B2) = 247
+@CELL("type",A1) = l
+@CELL("type",B1) = v
+@CELL("type",C9) = b
+@CELL("prefix",A1) = '
+@CELL("width",A1) = 9
+@CELL("format",B1) = G
+@CELL("protect",B1) = 1
+@CELL("filename",B1) = 
+@CELL("colour",B1) = ERR

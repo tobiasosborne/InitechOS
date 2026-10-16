@@ -1,0 +1,11 @@
+# Chapter 1, Entering labels: the label-prefix characters
+A1 'Left
+A2 "Right
+A3 ^Center
+A4 \-
+A5 '1992
+show A1
+show A2
+show A3
+show A4
+show A5

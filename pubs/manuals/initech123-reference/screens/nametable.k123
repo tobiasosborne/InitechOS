@@ -1,0 +1,2 @@
+# Chapter 10: /Range Name Create and Table
+Supplies{DOWN}Rent{DOWN}Total{RIGHT}{UP}{UP}120{DOWN}950{DOWN}@sum(b1..b2)~/rnccosts~b1..b2~{GOTO}d1~/rntd1~

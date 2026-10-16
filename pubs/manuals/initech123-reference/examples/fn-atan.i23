@@ -1,0 +1,5 @@
+# @ATAN
+= @ATAN(0)
+= @ATAN(1)
+= @ATAN(1)*4
+= @ATAN(1)*4-@PI

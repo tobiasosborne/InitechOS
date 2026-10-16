@@ -1,0 +1,5 @@
+A1: @ERR
+@ISERR(A1) = 1
++A1+10 = ERR
+@SUM(A1,5) = ERR
+@IF(@ISERR(A1),0,A1) = 0

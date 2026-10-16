@@ -1,0 +1,8 @@
+# Chapter 7, Moving a formula: references to the moved cell follow it
+A1 10
+B1 +A1*2
+D3 +B1+1
+do {GOTO}B1~/m~C5~
+show C5
+show D3
+show B1

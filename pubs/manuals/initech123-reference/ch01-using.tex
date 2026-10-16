@@ -1,0 +1,460 @@
+% Chapter 1 -- Using Initech 123 (annex Sec 6, Reference Chapter 1: the
+% screen, the indicators, the keys, the menus, entering data, ranges,
+% formulas, recalculation, files).
+% Sources (Law 1): os/i123/app/face_a.c (the screen layout: control panel
+% lines 1-3, the column and row borders, the status line with CALC / CIRC;
+% MODE_TEXT; key handling in key() and command_key(); menu_select; the
+% prompts and notices; commit(): a value that does not parse drops into
+% EDIT; request_quit: the exit guard), os/i123/core/fmt.c (label prefixes,
+% i123_parse_value: the trailing %, the E exponent), os/i123/core/formula.c
+% and spec/i123/wk1_formula.h (operators and their precedence),
+% os/i123/core/recalc.c (natural / columnwise / rowwise order, automatic
+% and manual recalculation, iteration, circular references),
+% os/i123/core/range.c (range text: A1..B2, A1.B2, names).  The key table
+% registers every key the probe finds acting (harness/pubs/i123_face.c)
+% and, DRAFT, the Release 2.2 keys this version does not act on.
+% GATES: test-i123-wk1-roundtrip test-i123-formula test-i123-recalc-order test-i123-range-menu test-i123-quit test-flair-i123 test-pubs-i123 test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-wk1-roundtrip, test-i123-formula, test-i123-recalc-order,
+  test-i123-range-menu, test-i123-quit, test-flair-i123, test-pubs-i123,
+  test-pubs-i123-examples, test-pubs-screens}
+\chapter{Using Initech 123}
+
+This chapter describes the parts of the Initech 123 screen, the keys you
+use, the way you choose commands from the menus, and the kinds of
+information you can enter in a worksheet.  Read it before you use the rest
+of this book: the command chapters assume that you know the terms it
+introduces.
+
+\section{Starting and Ending Initech 123}
+\ix{starting Initech 123}
+Initech 123 is a FLAIR application.  Its program file, \file{123.EXE}, is
+in the folder \file{APPS} of the InitechOS data disk, together with
+\file{123.MNU}, the file that holds its menus.  To start Initech 123, open
+the \file{APPS} folder and double-click the \file{123.EXE} icon.  Initech
+123 opens its window, titled \texttt{Initech 123}, with a new, empty
+worksheet.
+
+\ix{ending Initech 123}
+To end Initech 123, select \slashcmd{/Quit Yes}, or choose \textbf{Quit}
+from the \textbf{File} menu of the menu bar (keyboard equivalent
+\key{Ctrl-Q}), or click the close box of the window.  Each of these first
+checks the worksheet: if you have made a change since you last saved or
+retrieved it, or if you are in the middle of typing an entry, Initech 123
+asks whether to save it before it ends (see Chapter~9, ``The Quit
+Command'').
+
+\begin{Note}
+Initech 123 needs \file{123.MNU} in the \file{APPS} folder.  If the file is
+missing or damaged, Initech 123 does not start.
+\end{Note}
+
+\section{The Initech 123 Screen}
+\ix{screen}
+Figure~\ref{fig:screen} shows the Initech 123 window with a small
+worksheet in it.
+
+\FlairShot[fig:screen]{screen}{The Initech 123 window}
+
+The window has four areas.
+\begin{itemize}
+\item The \term{control panel}, the top three lines of the window.  The
+  first line shows the address of the cell the cell pointer is in, a colon
+  and the cell's contents, and, at the right, the mode indicator.  The
+  second line shows the entry you are typing, the menu you are using, or a
+  prompt.  The third line describes the highlighted menu item.
+\item The \term{worksheet frame}: the column letters across the top of the
+  worksheet area and the row numbers down its left side, both in reverse
+  video.
+\item The \term{worksheet area}, which shows as many whole columns as fit
+  in the window (eight columns of the standard width) and nineteen rows.
+\item The \term{status line}, the bottom line of the window.  It shows
+  messages, such as the name of the file you last saved, and, at the right,
+  the status indicators.
+\end{itemize}
+
+\subsection{The Worksheet}
+\ix{worksheet!size}
+A \term{worksheet} has 256 columns, lettered A through Z, AA through AZ, and
+so on to IV, and 8,192 rows, numbered 1 through 8,192.  The intersection of a
+column and a row is a \term{cell}.  A cell is named by its column letter
+and row number, its \term{address}: \texttt{A1} is the upper left cell of
+the worksheet, \texttt{IV8192} the lower right.
+
+The \term{cell pointer} is the highlighted bar that marks the
+\term{current cell}, the cell that receives what you type.  It is as wide
+as the column it is in.
+
+\subsection{Mode Indicators}
+\ix{mode indicators}
+The \term{mode indicator} at the right of the first line of the control
+panel tells you what Initech 123 is doing and what it expects from you.
+
+\begin{LotTable}{p{24mm}p{104mm}}
+\LotHead{\textbf{Indicator} & \textbf{Meaning}}
+\ind{READY} & Initech 123 is waiting for you to make an entry or to select a
+  command.\\
+\ind{LABEL} & You are entering a label.\\
+\ind{VALUE} & You are entering a value: a number or a formula.\\
+\ind{EDIT} & Initech 123 found an error in a value you entered and is
+  waiting for you to correct it.\\
+\ind{MENU} & A menu is displayed in the control panel.\\
+\ind{FILES} & Initech 123 is asking for the name of a file.\\
+\ind{RANGE} & Initech 123 is asking for a range, an address, a range name
+  or a number.\\
+\ind{ERROR} & Initech 123 is displaying a message on the second line of
+  the control panel.  Press \kname{ESC} to return to the
+  worksheet.\LotEnd
+\end{LotTable}
+
+\subsection{Status Indicators}
+\ix{status indicators}
+The status indicators appear in reverse video at the right end of the
+status line.
+
+\begin{LotTable}{p{24mm}p{104mm}}
+\LotHead{\textbf{Indicator} & \textbf{Meaning}}
+\ind{CALC} & Recalculation is manual, and an entry has changed since the
+  worksheet was last recalculated.  Press \fkey{Calc}{F9} to recalculate.\\
+\ind{CIRC} & The worksheet contains a circular reference: a formula that
+  refers to itself, directly or through other formulas.\LotEnd
+\end{LotTable}
+
+\section{The Keyboard}
+\ix{keys}
+This section lists the keys Initech 123 uses.  A key marked \DraftSample\
+has a function in the Initech 123 design that this version does not yet
+carry out; pressing it has no effect.
+
+\subsection{Pointer-Movement Keys}
+\ix{pointer-movement keys}
+In \ind{READY} mode the pointer-movement keys move the cell pointer.  When
+the cell pointer reaches the edge of the window, the worksheet scrolls.
+While you are typing a label or a value, a pointer-movement key first
+completes the entry, as \kname{ENTER} does, and then moves the cell
+pointer.  At a range prompt, the arrow keys move the cell pointer to the
+cell you want to name.
+
+\begin{KeyTable}{Key}{Name}
+\KeyRow{UP}{Up arrow}{Moves the cell pointer up one row.}
+\KeyRow{DOWN}{Down arrow}{Moves the cell pointer down one row.}
+\KeyRow{LEFT}{Left arrow}{Moves the cell pointer left one column.}
+\KeyRow{RIGHT}{Right arrow}{Moves the cell pointer right one column.}
+\KeyRow{HOME}{Home}{Moves the cell pointer to cell A1.}
+\KeyRow[not available in this version]{PGUP}{PgUp}{Moves the cell pointer
+  up one window.}
+\KeyRow[not available in this version]{PGDN}{PgDn}{Moves the cell pointer
+  down one window.}
+\KeyRow[not available in this version]{TAB}{Tab}{Moves the cell pointer
+  right one window.}
+\KeyRow[not available in this version]{END}{End}{Used with an arrow key,
+  moves the cell pointer to the end of a block of entries.}
+\end{KeyTable}
+
+\subsection{Function Keys}
+\ix{function keys}
+Each function key that Initech 123 uses has a name, printed on the
+keyboard template.  This book refers to a function key by its name with
+the key in parentheses: \fkey{Goto}{F5}.
+
+\begin{KeyTable}{Key}{Name}
+\KeyRow[not available in this version]{F1}{HELP}{Displays a help screen.}
+\KeyRow{F2}{EDIT}{In \ind{READY} mode, places the contents of the current
+  cell on the second line of the control panel so that you can change
+  them.}
+\KeyRow[not available in this version]{F3}{NAME}{Lists the range names.}
+\KeyRow[not available in this version]{F4}{ABS}{Makes a cell reference
+  absolute.}
+\KeyRow{F5}{GOTO}{In \ind{READY} mode, asks for a cell address or a range
+  name and moves the cell pointer there.}
+\KeyRow[not available in this version]{F6}{WINDOW}{Moves the cell pointer
+  to the other window.}
+\KeyRow[not available in this version]{F7}{QUERY}{Repeats the last
+  query.}
+\KeyRow[not available in this version]{F8}{TABLE}{Repeats the last data
+  table.}
+\KeyRow{F9}{CALC}{In \ind{READY} mode, recalculates every formula in the
+  worksheet.}
+\KeyRow[not available in this version]{F10}{GRAPH}{Displays the current
+  graph.}
+\end{KeyTable}
+
+\subsection{Special Keys}
+\ix{special keys}
+\begin{KeyTable}{Key}{Name}
+\KeyRow{SLASH}{/}{In \ind{READY} mode, displays the main menu.}
+\KeyRow{LESS-THAN}{<}{The same as \kname{SLASH}.}
+\KeyRow{ENTER}{Enter}{Completes an entry, a menu choice or a prompt.}
+\KeyRow{ESC}{Esc}{Cancels the entry you are typing; in a menu, returns to
+  the previous menu; at a prompt, returns to the menu; after a message,
+  returns to the worksheet.}
+\KeyRow{BACKSPACE}{Backspace}{Erases the character to the left of the
+  cursor in an entry or a prompt.}
+\KeyRow{CTRL-BREAK}{Ctrl-Break}{Cancels a menu or a prompt and returns to
+  \ind{READY} mode.}
+\KeyRow[not available in this version]{DEL}{Del}{In \ind{EDIT} mode,
+  erases the character at the cursor.}
+\KeyRow[not available in this version]{INS}{Ins}{In \ind{EDIT} mode,
+  switches between inserting and overtyping.}
+\end{KeyTable}
+
+\begin{Note}
+On a keyboard without a \key{Break} key, \key{Ctrl-C} does the same as
+\kname{CTRL-BREAK}.
+\end{Note}
+
+\section{Using the Menus}
+\ix{menus}
+You give Initech 123 commands by selecting them from menus in the control
+panel.  Press \kname{SLASH} in \ind{READY} mode to display the
+\term{main menu}.  The mode indicator changes to \ind{MENU}, the second line
+of the control panel lists the commands of the menu with the first one
+highlighted by the \term{menu pointer}, and the third line describes the
+highlighted command (Figure~\ref{fig:menumain}).  If the highlighted
+command opens another menu, the third line lists the commands of that
+menu.
+
+\FlairShot[fig:menumain]{menumain}{The main menu}
+
+To select a command, do one of the following:
+\begin{itemize}
+\item Move the menu pointer to the command with \kname{RIGHT} or
+  \kname{LEFT} (\kname{DOWN} and \kname{UP} work the same way; \kname{HOME}
+  goes to the first command) and press \kname{ENTER}.
+\item Type the first character of the command, in capital or small
+  letters.  If two commands of a menu begin with the same character, typing
+  it selects the first of them.
+\end{itemize}
+Most commands open a further menu; you continue selecting until you reach
+the command you want.  Figure~\ref{fig:menurf} shows the menu that appears
+when you select Range and then Format.  This book names a command by the
+words you select, after a slash: \slashcmd{/Range Format Currency} means:
+press \kname{SLASH}, select Range, then Format, then Currency.
+
+\FlairShot[fig:menurf]{menurf}{The /Range Format menu}
+
+To back out of a menu, press \kname{ESC}: Initech 123 returns to the
+previous menu, with the command you selected from it still highlighted.
+\kname{ESC} at the main menu returns to \ind{READY} mode.  To leave the
+menus at once from any level, press \kname{CTRL-BREAK}.
+
+\subsection{Commands Not Available in This Version}
+\ix{Command not implemented}
+The menus of Initech 123 are complete: every command of the Initech 123
+design appears in them, in its place.  Some of those commands are not yet
+available in this version.  When you select one, the mode indicator changes
+to \ind{ERROR}, the control panel displays \texttt{Command not implemented},
+and nothing in the worksheet changes (Figure~\ref{fig:refused}).  Press
+\kname{ESC} to return to the worksheet.
+
+\FlairShot[fig:refused]{refused}{A command that is not available in this
+version}
+
+In this book such commands are described within passages marked \DraftSample.
+
+\subsection{Prompts}
+\ix{prompts}
+Many commands ask you for information: a range, a file name, a number.  The
+question, the \term{prompt}, appears on the second line of the control
+panel.  Type the answer and press \kname{ENTER}.  While you type,
+\kname{BACKSPACE} erases the last character.  \kname{ESC} returns you to
+the menu you came from; \kname{CTRL-BREAK} returns to \ind{READY} mode.
+
+When a prompt asks for a range, the control panel shows the address of the
+current cell after the prompt.  Press \kname{ENTER} at once to accept it,
+type a range, or move the cell pointer with the arrow keys to another cell
+and press \kname{ENTER}.
+
+If Initech 123 cannot accept the answer, it displays a message on the
+second line of the control panel, such as \texttt{Invalid range} or
+\texttt{Illegal number}, and the mode indicator changes to \ind{ERROR}.
+Press \kname{ESC} to return to the worksheet, and select the command again.
+
+\section{Entering Data}
+\ix{entries}
+To make an entry, move the cell pointer to the cell, type the entry and
+press \kname{ENTER}, or press one of the pointer-movement keys to complete
+the entry and move the cell pointer in one step.  While you type, the entry
+appears on the second line of the control panel, followed by the cursor.
+Press \kname{BACKSPACE} to erase the last character, or \kname{ESC} to
+abandon the entry.
+
+An entry you type can be up to 74 characters long; further characters are
+not accepted.  Initech 123 decides what kind of entry you are making from
+its first character:
+\begin{itemize}
+\item an entry that begins with a digit, or with one of the characters
+  \texttt{+ - . ( @ \# \$}, is a \term{value}; the mode indicator shows
+  \ind{VALUE};
+\item any other entry is a \term{label}; the mode indicator shows
+  \ind{LABEL} (Figure~\ref{fig:labelmode}).
+\end{itemize}
+
+\FlairShot[fig:labelmode]{labelmode}{Typing a label}
+
+\subsection{Labels}
+\ix{labels}
+A \term{label} is text.  Initech 123 stores a label with a
+\term{label prefix}, a character that says how to align the label in its
+cell.  The prefix is not displayed in the cell; it appears before the label
+on the first line of the control panel.
+
+\begin{LotTable}{p{24mm}p{104mm}}
+\LotHead{\textbf{Prefix} & \textbf{Alignment}}
+\texttt{'} (apostrophe) & Left-aligned\\
+\texttt{"} (quotation mark) & Right-aligned\\
+\texttt{\textasciicircum} (caret) & Centered\\
+\texttt{\textbackslash} (backslash) & Repeated to fill the cell\LotEnd
+\end{LotTable}
+
+If you do not type a prefix, Initech 123 adds the default prefix, the
+apostrophe unless you have changed it with
+\slashcmd{/Worksheet Global Label-Prefix}.  To enter a label that begins
+with a digit or with one of the value characters, such as a year or a part
+number, type a prefix first.  These entries, and the cells as they then
+appear:
+
+\LotExample{examples/labels}
+
+A left-aligned label longer than its column continues into the cells to its
+right as long as they are empty.
+
+\subsection{Values}
+\ix{values}
+A \term{value} is a number or a formula.  Type a number with or without a
+sign and a decimal point.  You can type a number in scientific notation,
+with \texttt{E} and a power of ten (\type{1.5E3} is 1500), and you can end a
+number with a percent sign to divide it by 100 (\type{15.5\%} is 0.155).
+Do not type commas, spaces or dollar signs in a number: the cell's format
+(Chapter~10, \slashcmd{/Range Format}) decides how the number is
+displayed.
+
+\LotExample{examples/values}
+
+If Initech 123 cannot accept a value, because it contains a character a
+number or formula cannot contain, it switches to \ind{EDIT} mode and leaves
+the entry on the second line of the control panel so that you can correct
+it.  Press \kname{ENTER} again when it is correct, or \kname{ESC} to
+abandon it.
+
+\subsection{Editing an Entry}
+\ix{editing}
+To change the entry in a cell, move the cell pointer to it and press
+\fkey{Edit}{F2}.  Initech 123 places the contents of the cell, with its
+label prefix if it is a label, on the second line of the control panel,
+and the mode indicator shows \ind{LABEL} or \ind{VALUE}
+(Figure~\ref{fig:editmode}).  Erase from the end with \kname{BACKSPACE},
+type the new characters, and press \kname{ENTER}.  An arrow key completes
+the entry as \kname{ENTER} does and then moves the cell pointer;
+\kname{ESC} abandons the change and leaves the cell as it was.
+
+\FlairShot[fig:editmode]{editmode}{A formula placed on the control panel by
+EDIT (F2)}
+
+\subsection{Erasing an Entry}
+To erase the contents of cells, use \slashcmd{/Range Erase}
+(Chapter~10).  To erase the whole worksheet, use
+\slashcmd{/Worksheet Erase Yes} (Chapter~12).
+
+\section{Ranges}
+\ix{ranges}
+A \term{range} is a rectangle of cells: a single cell, part of a row or a
+column, or a block of rows and columns.  You name a range by the addresses
+of two opposite corners separated by two periods, \type{A1..C5}; one period
+is also accepted, \type{A1.C5}.  The corners can be given in any order.  A
+single cell is named by its address alone.
+
+A \term{range name} is a name of up to 15 characters that you give a range
+with \slashcmd{/Range Name Create}.  You can then type the name wherever
+Initech 123 asks for a range, and in formulas.
+
+\section{Formulas}
+\ix{formulas}
+A \term{formula} calculates a value from numbers, cell references, range
+references and @functions.  A formula must begin with one of the value
+characters: to begin a formula with a cell address, type a plus sign
+first, as in \type{+B2*B3}.  When you complete the entry, the cell shows
+the result, and the first line of the control panel shows the formula.
+
+\subsection{Operators}
+\ix{operators}
+The operators combine the parts of a formula.  Initech 123 performs the
+operations in the order of the table below, the highest precedence first;
+operations of the same precedence are performed from left to right.
+Parentheses change the order: what is inside them is calculated first.
+
+\begin{LotTable}{p{24mm}p{74mm}p{26mm}}
+\LotHead{\textbf{Operator} & \textbf{Operation} & \textbf{Precedence}}
+\texttt{\textasciicircum} & Exponentiation & 7 (highest)\\
+\texttt{-} \texttt{+} & Negative, positive & 6\\
+\texttt{*} \texttt{/} & Multiplication, division & 5\\
+\texttt{+} \texttt{-} & Addition, subtraction & 4\\
+\texttt{= <> < > <= >=} & Comparison (true is 1, false is 0) & 3\\
+\texttt{\#NOT\#} & Logical NOT & 2\\
+\texttt{\#AND\# \#OR\#} & Logical AND, logical OR & 1\\
+\texttt{\&} & String concatenation & 1 (lowest)\LotEnd
+\end{LotTable}
+
+These formulas and their results show the order of operations:
+
+\LotExample{examples/operators}
+
+\subsection{Cell and Range References}
+\ix{references}
+A formula can refer to a cell by its address and to a range by its corners
+or its name.  A \term{relative reference}, such as \texttt{A1}, is stored as
+a distance from the formula's own cell; an \term{absolute reference}, such
+as \texttt{\$A\$1}, is stored as a fixed address.  A \term{mixed
+reference}, such as \texttt{\$A1} or \texttt{A\$1}, fixes only the column or
+only the row.  The difference matters when you copy a formula: the copy of
+a relative reference refers to the cell at the same distance from the copy,
+the copy of an absolute reference to the same cell.  Here B1 and C1 are
+copied to B2 and C2:
+
+\LotExample{examples/refs}
+
+\subsection{@Functions}
+An \term{@function} is a built-in formula, such as \fn{@SUM} or
+\fn{@ROUND}, that you use as part of a formula.  Chapter~13 describes every
+@function.
+
+\subsection{Formulas with Errors}
+If a formula cannot be calculated, for instance because it divides by zero
+or refers to a label where it needs a number, the cell shows \texttt{ERR}.
+Every formula that depends on such a cell also shows \texttt{ERR}, until the
+cause is corrected.
+
+\section{Recalculation}
+\ix{recalculation}
+Initech 123 recalculates the formulas of the worksheet whenever you change
+an entry, in \term{natural order}: before it calculates a formula, it
+calculates every formula the formula depends on.  You can change both when
+and in what order it recalculates, with
+\slashcmd{/Worksheet Global Recalculation} (Chapter~12).
+
+When recalculation is manual, Initech 123 does not recalculate after an
+entry; the \ind{CALC} indicator appears on the status line instead
+(Figure~\ref{fig:calcind}).  Press \fkey{Calc}{F9} to recalculate.
+
+\FlairShot[fig:calcind]{calcind}{Manual recalculation: B1 has changed, and
+the total in B3 waits for CALC (F9)}
+
+\subsection{Circular References}
+\ix{circular reference}
+A \term{circular reference} is a formula that depends on its own value,
+directly or through other formulas.  When the worksheet contains one, the
+\ind{CIRC} indicator appears on the status line (Figure~\ref{fig:circind}).
+Each recalculation then calculates the formulas once (or as many times as
+\slashcmd{/Worksheet Global Recalculation Iteration} specifies), so the
+values of the formulas in the circle change each time you recalculate.
+
+\FlairShot[fig:circind]{circind}{A circular reference: B2 adds itself and
+B3, and B3 adds B2}
+
+\section{Worksheet Files}
+\ix{files}
+A worksheet exists in memory until you save it in a \term{worksheet file}
+with \slashcmd{/File Save}.  Initech 123 saves and retrieves worksheet
+files in the \file{.WK1} format.  A file name has up to eight characters,
+optionally followed by a period and an extension of up to three characters;
+when you do not type an extension, Initech 123 adds \file{.WK1}.  The data
+disk is drive \file{A:}.  Chapter~5 describes the File commands.

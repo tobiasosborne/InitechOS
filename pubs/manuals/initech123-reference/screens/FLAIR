@@ -1,0 +1,28 @@
+# FLAIR figures of the Initech 123 Reference (1051-0000-10), bead initech-ipu5.9.
+# name|x0 y0 x1 y1|scale|life  -- crop of the 640 x 480 screendump (the 123
+# window frame is (0,40)..(640,480): the title bar, the three control-panel
+# lines from y 62, the column border y 110, row 1 from y 126, 16 px a line),
+# replication factor (NT-21: 4 = full-block figure, 108.4 mm wide) and the
+# image life (short 500, long 2000, longer 4500 ticks; pubs/screens/
+# flair_capture.sh) and, optionally, the screendump marker.  Keystrokes: screens/<name>.k123.  Regenerate with
+# "make pubs-i123-screens"; "make test-pubs-screens" re-captures every
+# figure and compares it pixel for pixel.
+copyto|0 40 640 222|4|long
+copydone|0 40 640 222|4|long
+screen|0 40 640 480|4|long
+menumain|0 40 640 190|4|long
+menurf|0 40 640 190|4|long
+labelmode|0 40 640 190|4|long
+editmode|0 40 640 190|4|long
+refused|0 40 640 190|4|long
+rangeprompt|0 40 640 190|4|long
+calcind|0 40 640 480|4|long
+circind|0 40 640 480|4|long
+retrieve|0 40 640 190|4|short
+saveprompt|0 40 640 190|4|long
+replace|0 40 640 190|4|long
+quitalert|0 0 640 480|4|long|TENANT-ALERT up
+currency|0 40 640 222|4|long
+nametable|0 40 640 222|4|long
+movedone|0 40 640 222|4|long
+colwidth|0 40 640 222|4|long

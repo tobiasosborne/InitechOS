@@ -1,0 +1,8 @@
+# Chapter 12, Iteration: a circular formula, one pass and then five per recalculation
+A1 1
+B1 +B1/2+A1
+show B1
+do /wgri5~
+show B1
+do {CALC}
+show B1

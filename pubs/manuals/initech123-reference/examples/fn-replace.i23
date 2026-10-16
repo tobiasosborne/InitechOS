@@ -1,0 +1,6 @@
+# @REPLACE
+A1 'Initech Systems
+= @REPLACE(A1,8,7,"Software")
+= @REPLACE(A1,0,0,"The ")
+= @REPLACE(A1,7,8,"")
+= @REPLACE(A1,0,7,"XX")

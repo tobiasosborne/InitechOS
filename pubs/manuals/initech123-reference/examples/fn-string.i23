@@ -1,0 +1,7 @@
+# @STRING
+A1 123.456
+= @STRING(A1,2)
+= @STRING(A1,0)
+= @STRING(-5,3)
+= +"Total: "&@STRING(A1,1)
+= @STRING(A1,16)

@@ -1,0 +1,7 @@
+# @TRIM
+A1 '  Initech    Systems
+= @TRIM(A1)
+= @TRIM("  a   b  ")
+= @LENGTH("  a   b  ")
+= @LENGTH(@TRIM("  a   b  "))
+= @EXACT(@TRIM(A1),"Initech Systems")

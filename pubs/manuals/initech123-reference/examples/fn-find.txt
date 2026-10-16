@@ -1,0 +1,7 @@
+A1: 'Initech Systems
+@FIND("I",A1,0) = 0
+@FIND("tech",A1,0) = 3
+@FIND("s",A1,0) = 10
+@FIND("s",A1,@FIND("s",A1,0)+1) = 14
+@FIND("Q",A1,0) = ERR
+@FIND("i",A1,1) = 2

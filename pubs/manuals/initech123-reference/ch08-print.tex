@@ -1,0 +1,206 @@
+% Chapter -- The Print Commands (AN-08 opener, AN-09 entries; annex Sec 7).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / menu_back / command_key (menu
+% navigation, Quit, unsupported() and its message), spec/i123/menu_tree.golden
+% (the /Print Printer and /Print File trees), spec/i123/era_shortfalls.md I123-P3-02
+% (Print Printer/File and settings menus navigate but printing refuses);
+% build/pubs/correctness/i123.refused.
+% GATES: test-i123-menu-tree test-pubs-i123
+\Gates{test-i123-menu-tree, test-pubs-i123}
+
+\chapter[The Print Commands]{\textit{The Print Commands}}
+\input{i123-tree-Print}
+
+The Print commands are the group of menu commands for printing a range of the worksheet, either on a printer or into a text file, and for choosing how the printed page looks: headers, footers, margins, borders, page length and the form of the cells.  In this version of Initech 123 you can display the Print menu and every menu below it, but nothing is printed and no print setting is stored: the commands display \texttt{Command not implemented}.  The descriptions of what each command is planned to do are marked as drafts.
+
+The menus of \slashcmd{/Print Printer} and \slashcmd{/Print File} have the same items.  They differ only in where the output would go, and they are described one after the other in this chapter.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Print Printer & Opens the menu for printing on a printer. \\
+/Print File & Opens the menu for printing to a text file.\LotEnd
+\end{LotTable}
+
+\section{Common Uses of /Print}
+\begin{itemize}
+\item Printing a report from a range of the worksheet (\slashcmd{/Print Printer Go}) \draft{I123-P3-02: refuses}
+\item Writing a range into a text file that another program can read (\slashcmd{/Print File Go}) \draft{I123-P3-02: refuses}
+\item Adding a header, a footer and margins to a printed report (\slashcmd{/Print Printer Options Header}) \draft{I123-P3-02: refuses}
+\item Repeating column and row headings on every page (\slashcmd{/Print Printer Options Borders Columns}) \draft{I123-P3-02: refuses}
+\item Listing the formulas of a worksheet instead of its values (\slashcmd{/Print Printer Options Other Cell-Formulas}) \draft{I123-P3-02: refuses}
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item Chapter~1, ``Using Initech 123,'' for ranges and modes
+\item Chapter~5, \slashcmd{/File}, for storing and retrieving whole worksheets, which does work in this version
+\item Chapter~6, \slashcmd{/Graph}, for printing graphs
+\item Chapter~10, \slashcmd{/Range}, for the formats that determine how cells look when printed
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item The \term{print range} is the block of cells that is printed.
+\item A \term{header} is a line of text at the top of every printed page; a \term{footer} is the same at the bottom.
+\item A \term{margin} is the blank space between the edge of the paper and the text.
+\item \term{Borders} are columns or rows repeated on each page of a large print range.
+\item A \term{setup string} is a sequence of codes sent to a printer to select a typeface or a mode.
+\item A \term{page break} marks where one printed page ends and the next begins.
+\end{itemize}
+
+\section{Before You Use /Print}
+\begin{Note}
+Every command in the /Print menu is displayed and can be explored, but this
+version of Initech 123 does not carry out the commands that would act on the
+worksheet.  When you select such a command, the control panel displays
+\texttt{Command not implemented} and the mode indicator changes to
+\ind{ERROR}.  Press \kname{ESC} to return to \ind{READY} mode.  The worksheet
+is not changed.  The menus themselves, and the \texttt{Quit} items, work as
+described in this chapter.
+\end{Note}
+How to tell a command from a menu: selecting a menu item that leads to another
+menu displays that menu; selecting a \texttt{Quit} item returns to
+\ind{READY} mode.  Anything else is a command, and a command that is not
+available displays \texttt{Command not implemented}.
+
+\MenuEntry{/Print}
+The /Print menu asks where the printed output is to go.  The /Print menu has 2 items: \texttt{Printer}, \texttt{File}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Print Printer}, \slashcmd{/Print File} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Print}: press \type{P}, or move the menu pointer to \texttt{Print} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Print menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+
+\MenuEntry{/Print Printer}
+The /Print Printer menu has 8 items: \texttt{Range}, \texttt{Line}, \texttt{Page}, \texttt{Options}, \texttt{Clear}, \texttt{Align}, \texttt{Go}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Print Printer Options}, \slashcmd{/Print Printer Clear} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Print}: press \type{P}, or move the menu pointer to \texttt{Print} and press \kname{ENTER}.
+\item Select \texttt{Printer}: press \type{P}, or move the menu pointer to \texttt{Printer} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Print Printer menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Range} Names the range of cells to print.
+\Option[I123-P3-02: refuses]{Line} Advances the paper by one line.
+\Option[I123-P3-02: refuses]{Page} Advances the paper to the top of the next page.
+\Option[I123-P3-02: refuses]{Align} Tells the program that the paper is at the top of a page, after you have adjusted it by hand.
+\Option[I123-P3-02: refuses]{Go} Prints the print range.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\SubEntry{/Print Printer Options}
+The /Print Printer Options menu has 8 items: \texttt{Header}, \texttt{Footer}, \texttt{Margins}, \texttt{Borders}, \texttt{Setup}, \texttt{Pg-Length}, \texttt{Other}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Print Printer Options Margins}, \slashcmd{/Print Printer Options Borders}, \slashcmd{/Print Printer Options Other} lead to menus of their own, described below under their own headings.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Header} Sets the text printed at the top of each page.
+\Option[I123-P3-02: refuses]{Footer} Sets the text printed at the bottom of each page.
+\Option[I123-P3-02: refuses]{Setup} Sets a string of codes sent to the printer before printing.
+\Option[I123-P3-02: refuses]{Pg-Length} Sets the number of lines on a page.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\SubEntry{/Print Printer Options Margins}
+The /Print Printer Options Margins menu has 5 items: \texttt{Left}, \texttt{Right}, \texttt{Top}, \texttt{Bottom}, \texttt{None}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Left} Sets the left margin.
+\Option[I123-P3-02: refuses]{Right} Sets the right margin.
+\Option[I123-P3-02: refuses]{Top} Sets the top margin.
+\Option[I123-P3-02: refuses]{Bottom} Sets the bottom margin.
+\Option[I123-P3-02: refuses]{None} Clears all the margin settings.
+\end{Options}
+
+\SubEntry{/Print Printer Options Borders}
+The /Print Printer Options Borders menu has 2 items: \texttt{Columns}, \texttt{Rows}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Columns} Names columns to repeat at the left of each part of the print range.
+\Option[I123-P3-02: refuses]{Rows} Names rows to repeat above each part of the print range.
+\end{Options}
+
+\SubEntry{/Print Printer Options Other}
+The /Print Printer Options Other menu has 4 items: \texttt{As-Displayed}, \texttt{Cell-Formulas}, \texttt{Formatted}, \texttt{Unformatted}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{As-Displayed} Prints the range as it appears on the screen.
+\Option[I123-P3-02: refuses]{Cell-Formulas} Lists the contents of the cells, one cell to a line.
+\Option[I123-P3-02: refuses]{Formatted} Includes headers, footers and page breaks.
+\Option[I123-P3-02: refuses]{Unformatted} Leaves out headers, footers and page breaks.
+\end{Options}
+
+\SubEntry{/Print Printer Clear}
+The /Print Printer Clear menu has 4 items: \texttt{All}, \texttt{Range}, \texttt{Borders}, \texttt{Format}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{All} Returns every print setting to its default.
+\Option[I123-P3-02: refuses]{Range} Clears the print range.
+\Option[I123-P3-02: refuses]{Borders} Clears the border column range and the border row range.
+\Option[I123-P3-02: refuses]{Format} Returns the margins, the page length and the setup string to their defaults.
+\end{Options}
+
+\MenuEntry{/Print File}
+The /Print File menu has 8 items: \texttt{Range}, \texttt{Line}, \texttt{Page}, \texttt{Options}, \texttt{Clear}, \texttt{Align}, \texttt{Go}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Print File Options}, \slashcmd{/Print File Clear} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Print}: press \type{P}, or move the menu pointer to \texttt{Print} and press \kname{ENTER}.
+\item Select \texttt{File}: press \type{F}, or move the menu pointer to \texttt{File} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Print File menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Range} Names the range of cells to print.
+\Option[I123-P3-02: refuses]{Line} Advances the paper by one line.
+\Option[I123-P3-02: refuses]{Page} Advances the paper to the top of the next page.
+\Option[I123-P3-02: refuses]{Align} Tells the program that the paper is at the top of a page, after you have adjusted it by hand.
+\Option[I123-P3-02: refuses]{Go} Writes the print range to the text file.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\SubEntry{/Print File Options}
+The /Print File Options menu has 8 items: \texttt{Header}, \texttt{Footer}, \texttt{Margins}, \texttt{Borders}, \texttt{Setup}, \texttt{Pg-Length}, \texttt{Other}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Print File Options Margins}, \slashcmd{/Print File Options Borders}, \slashcmd{/Print File Options Other} lead to menus of their own, described below under their own headings.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Header} Sets the text printed at the top of each page.
+\Option[I123-P3-02: refuses]{Footer} Sets the text printed at the bottom of each page.
+\Option[I123-P3-02: refuses]{Setup} Sets a string of codes sent to the printer before printing.
+\Option[I123-P3-02: refuses]{Pg-Length} Sets the number of lines on a page.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\SubEntry{/Print File Options Margins}
+The /Print File Options Margins menu has 5 items: \texttt{Left}, \texttt{Right}, \texttt{Top}, \texttt{Bottom}, \texttt{None}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Left} Sets the left margin.
+\Option[I123-P3-02: refuses]{Right} Sets the right margin.
+\Option[I123-P3-02: refuses]{Top} Sets the top margin.
+\Option[I123-P3-02: refuses]{Bottom} Sets the bottom margin.
+\Option[I123-P3-02: refuses]{None} Clears all the margin settings.
+\end{Options}
+
+\SubEntry{/Print File Options Borders}
+The /Print File Options Borders menu has 2 items: \texttt{Columns}, \texttt{Rows}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Columns} Names columns to repeat at the left of each part of the print range.
+\Option[I123-P3-02: refuses]{Rows} Names rows to repeat above each part of the print range.
+\end{Options}
+
+\SubEntry{/Print File Options Other}
+The /Print File Options Other menu has 4 items: \texttt{As-Displayed}, \texttt{Cell-Formulas}, \texttt{Formatted}, \texttt{Unformatted}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{As-Displayed} Prints the range as it appears on the screen.
+\Option[I123-P3-02: refuses]{Cell-Formulas} Lists the contents of the cells, one cell to a line.
+\Option[I123-P3-02: refuses]{Formatted} Includes headers, footers and page breaks.
+\Option[I123-P3-02: refuses]{Unformatted} Leaves out headers, footers and page breaks.
+\end{Options}
+
+\SubEntry{/Print File Clear}
+The /Print File Clear menu has 4 items: \texttt{All}, \texttt{Range}, \texttt{Borders}, \texttt{Format}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{All} Returns every print setting to its default.
+\Option[I123-P3-02: refuses]{Range} Clears the print range.
+\Option[I123-P3-02: refuses]{Borders} Clears the border column range and the border row range.
+\Option[I123-P3-02: refuses]{Format} Returns the margins, the page length and the setup string to their defaults.
+\end{Options}

@@ -1,0 +1,5 @@
+# @ACOS
+= @ACOS(1)
+= @ACOS(.5)
+= @ACOS(.5)*180/@PI
+= @ACOS(2)

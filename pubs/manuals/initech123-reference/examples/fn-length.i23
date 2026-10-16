@@ -1,0 +1,7 @@
+# @LENGTH
+A1 'Initech Systems
+= @LENGTH(A1)
+= @LENGTH("")
+= @LENGTH("  a  ")
+= @LENGTH(@TRIM("  a  "))
+= @LENGTH(12)

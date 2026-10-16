@@ -21,6 +21,13 @@
  *       non-interlaced, carries pHYs = 600 dpi so that the PDF places one
  *       source pixel on exactly `scale` device pixels of a 600 dpi grid, and
  *       no time or text chunk (Rule 11).
+ *   flair_shot b64 <in.png> <out.b64>  /  flair_shot unb64 <in.b64> <out.png>
+ *       the committed form of a figure.  pubs/ holds printable ASCII only
+ *       (GC-05, Rule 12; test-pubs-build and test-pubs-lint scan every file
+ *       of it), so a figure is committed as screens/<name>.b64, the PNG in
+ *       RFC 1421 base64, 76 characters a line; the build decodes it into
+ *       build/pubs/gen before typesetting.  unb64 refuses any character
+ *       outside the alphabet (Rule 2).
  *   flair_shot same <committed.png> <recaptured.png>
  *       the two images decode to the same size and the same grey bytes
  *       (independent of the zlib that wrote them); else
@@ -135,10 +142,49 @@ static void cmd_same(char **a)
     free(p); free(q);
 }
 
+static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static void cmd_b64(char **a)
+{
+    size_t n; unsigned char *d = slurp(a[2], &n);
+    FILE *o = fopen(a[3], "wb"); int col = 0;
+    if (!o) die("SCREEN-OUTPUT", a[3], "cannot write");
+    for (size_t i = 0; i < n; i += 3) {
+        unsigned v = (unsigned)d[i] << 16 | (i + 1 < n ? (unsigned)d[i + 1] << 8 : 0) | (i + 2 < n ? d[i + 2] : 0);
+        char q[4] = { B64[v >> 18 & 63], B64[v >> 12 & 63], i + 1 < n ? B64[v >> 6 & 63] : '=', i + 2 < n ? B64[v & 63] : '=' };
+        fwrite(q, 1, 4, o); col += 4;
+        if (col == 76) { fputc('\n', o); col = 0; }
+    }
+    if (col) fputc('\n', o);
+    if (fclose(o)) die("SCREEN-OUTPUT", a[3], "close");
+    free(d);
+}
+static void cmd_unb64(char **a)
+{
+    size_t n; unsigned char *d = slurp(a[2], &n);
+    FILE *o = fopen(a[3], "wb"); unsigned v = 0; int k = 0, pad = 0;
+    if (!o) die("SCREEN-OUTPUT", a[3], "cannot write");
+    for (size_t i = 0; i < n; i++) {
+        int c = d[i], x;
+        if (c == '\n') continue;
+        if (c == '=') { pad++; x = 0; }
+        else { const char *p = strchr(B64, c); if (!c || !p || pad) die("SCREEN-INPUT", a[2], "not base64"); x = (int)(p - B64); }
+        v = v << 6 | (unsigned)x;
+        if (++k == 4) {
+            unsigned char b[3] = { (unsigned char)(v >> 16), (unsigned char)(v >> 8), (unsigned char)v };
+            fwrite(b, 1, (size_t)(3 - pad), o); v = 0; k = 0;
+        }
+    }
+    if (k) die("SCREEN-INPUT", a[2], "truncated base64");
+    if (fclose(o)) die("SCREEN-OUTPUT", a[3], "close");
+    free(d);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 11 && !strcmp(argv[1], "png")) cmd_png(argv);
     else if (argc == 4 && !strcmp(argv[1], "same")) cmd_same(argv);
-    else die("USAGE", "flair_shot", "png DUMP X0 Y0 X1 Y1 SCALE OUT CLUT CANON | same A B");
+    else if (argc == 4 && !strcmp(argv[1], "b64")) cmd_b64(argv);
+    else if (argc == 4 && !strcmp(argv[1], "unb64")) cmd_unb64(argv);
+    else die("USAGE", "flair_shot", "png DUMP X0 Y0 X1 Y1 SCALE OUT CLUT CANON | same A B | b64 PNG B64 | unb64 B64 PNG");
     return 0;
 }

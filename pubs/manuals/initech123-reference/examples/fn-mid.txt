@@ -1,0 +1,6 @@
+A1: 'Initech Systems
+@MID(A1,0,3) = Ini
+@MID(A1,2,5) = itech
+@MID(A1,8,99) = Systems
+@MID(A1,40,2) = 
+@MID(A1,@FIND(" ",A1,0)+1,7) = Systems

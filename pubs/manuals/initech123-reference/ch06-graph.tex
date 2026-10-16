@@ -1,0 +1,147 @@
+% Chapter -- The Graph Commands (AN-08 opener, AN-09 entries; annex Sec 7).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / menu_back / command_key (menu
+% navigation, Quit, unsupported() and its message), spec/i123/menu_tree.golden
+% (the /Graph tree and descriptions), spec/i123/era_shortfalls.md I123-P3-02 (Graph
+% Type, Name and Group navigate; the graph commands themselves refuse);
+% build/pubs/correctness/i123.refused.
+% GATES: test-i123-menu-tree test-pubs-i123
+\Gates{test-i123-menu-tree, test-pubs-i123}
+
+\chapter[The Graph Commands]{\textit{The Graph Commands}}
+\input{i123-tree-Graph}
+
+The Graph commands are the group of menu commands for turning ranges of the worksheet into graphs: choosing the kind of graph, naming the ranges that supply its data, looking at the graph, saving it for printing, and keeping named graphs.  In this version of Initech 123 you can display the Graph menu and the menus below it, but no graph is drawn and no graph setting is changed: the commands display \texttt{Command not implemented}.  The descriptions of what each command is planned to do are marked as drafts.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Graph Type & Opens the menu of graph types. \\
+/Graph X & Names the X data range. \draft{I123-P3-02: refuses} \\
+/Graph A & Names the first data range. \draft{I123-P3-02: refuses} \\
+/Graph B & Names the second data range. \draft{I123-P3-02: refuses} \\
+/Graph C & Names the third data range. \draft{I123-P3-02: refuses} \\
+/Graph D & Names the fourth data range. \draft{I123-P3-02: refuses} \\
+/Graph E & Names the fifth data range. \draft{I123-P3-02: refuses} \\
+/Graph F & Names the sixth data range. \draft{I123-P3-02: refuses} \\
+/Graph Reset & Clears graph settings. \draft{I123-P3-02: refuses} \\
+/Graph View & Displays the current graph. \draft{I123-P3-02: refuses} \\
+/Graph Save & Saves the graph in a file. \draft{I123-P3-02: refuses} \\
+/Graph Options & Sets graph options. \draft{I123-P3-02: refuses} \\
+/Graph Name & Opens the menu of named graph commands. \\
+/Graph Group & Opens the menu for setting all data ranges. \\
+/Graph Quit & Returns to READY mode.\LotEnd
+\end{LotTable}
+
+\section{Common Uses of /Graph}
+\begin{itemize}
+\item Showing a column of figures as a line, a bar or a pie (\slashcmd{/Graph Type}, \slashcmd{/Graph View}) \draft{I123-P3-02: refuses}
+\item Naming the ranges that hold the numbers to be plotted (\slashcmd{/Graph A}, \slashcmd{/Graph Group Columnwise}) \draft{I123-P3-02: refuses}
+\item Keeping several graphs of the same worksheet under names (\slashcmd{/Graph Name Create}) \draft{I123-P3-02: refuses}
+\item Saving a graph in a file so that it can be printed (\slashcmd{/Graph Save}) \draft{I123-P3-02: refuses}
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item Chapter~1, ``Using Initech 123,'' for ranges and modes
+\item Chapter~8, \slashcmd{/Print}, for printing worksheet ranges
+\item Chapter~10, \slashcmd{/Range}, for naming ranges
+\item Chapter~5, \slashcmd{/File}, for the commands that store worksheets
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item A \term{data range} is a row or a column of values to be plotted.
+\item The \term{X range} supplies the labels or the horizontal positions along the X axis.
+\item A \term{named graph} is a set of graph settings kept under a name.
+\item A \term{pie chart} shows one data range as slices of a circle.
+\end{itemize}
+
+\section{Before You Use /Graph}
+\begin{Note}
+Every command in the /Graph menu is displayed and can be explored, but this
+version of Initech 123 does not carry out the commands that would act on the
+worksheet.  When you select such a command, the control panel displays
+\texttt{Command not implemented} and the mode indicator changes to
+\ind{ERROR}.  Press \kname{ESC} to return to \ind{READY} mode.  The worksheet
+is not changed.  The menus themselves, and the \texttt{Quit} items, work as
+described in this chapter.
+\end{Note}
+How to tell a command from a menu: selecting a menu item that leads to another
+menu displays that menu; selecting a \texttt{Quit} item returns to
+\ind{READY} mode.  Anything else is a command, and a command that is not
+available displays \texttt{Command not implemented}.
+
+\MenuEntry{/Graph}
+The /Graph menu is the menu that appears below the main menu when you select \texttt{Graph}. The /Graph menu has 15 items: \texttt{Type}, \texttt{X}, \texttt{A}, \texttt{B}, \texttt{C}, \texttt{D}, \texttt{E}, \texttt{F}, \texttt{Reset}, \texttt{View}, \texttt{Save}, \texttt{Options}, \texttt{Name}, \texttt{Group}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Graph Type}, \slashcmd{/Graph Name}, \slashcmd{/Graph Group} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Graph}: press \type{G}, or move the menu pointer to \texttt{Graph} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Graph menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{X} Names the range that supplies the X data.
+\Option[I123-P3-02: refuses]{A} Names the first data range.
+\Option[I123-P3-02: refuses]{B} Names the second data range.
+\Option[I123-P3-02: refuses]{C} Names the third data range.
+\Option[I123-P3-02: refuses]{D} Names the fourth data range.
+\Option[I123-P3-02: refuses]{E} Names the fifth data range.
+\Option[I123-P3-02: refuses]{F} Names the sixth data range.
+\Option[I123-P3-02: refuses]{Reset} Clears graph settings: the type, the data ranges and the options.
+\Option[I123-P3-02: refuses]{View} Displays the current graph.
+\Option[I123-P3-02: refuses]{Save} Saves the current graph in a file, ready for printing.
+\Option[I123-P3-02: refuses]{Options} Opens the menu of graph options: legend, format, titles, grid, scale, color, black and white, and data labels.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\MenuEntry{/Graph Type}
+The /Graph Type menu has 5 items: \texttt{Line}, \texttt{Bar}, \texttt{XY}, \texttt{Stack-Bar}, \texttt{Pie}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Graph}: press \type{G}, or move the menu pointer to \texttt{Graph} and press \kname{ENTER}.
+\item Select \texttt{Type}: press \type{T}, or move the menu pointer to \texttt{Type} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Graph Type menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Line} Selects a line graph.
+\Option[I123-P3-02: refuses]{Bar} Selects a bar graph.
+\Option[I123-P3-02: refuses]{XY} Selects an XY graph.
+\Option[I123-P3-02: refuses]{Stack-Bar} Selects a stacked bar graph.
+\Option[I123-P3-02: refuses]{Pie} Selects a pie chart.
+\end{Options}
+
+\MenuEntry{/Graph Name}
+The /Graph Name menu has 5 items: \texttt{Use}, \texttt{Create}, \texttt{Delete}, \texttt{Reset}, \texttt{Table}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Graph}: press \type{G}, or move the menu pointer to \texttt{Graph} and press \kname{ENTER}.
+\item Select \texttt{Name}: press \type{N}, or move the menu pointer to \texttt{Name} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Graph Name menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Use} Makes a named graph the current graph.
+\Option[I123-P3-02: refuses]{Create} Gives the current graph a name.
+\Option[I123-P3-02: refuses]{Delete} Deletes one named graph.
+\Option[I123-P3-02: refuses]{Reset} Deletes all named graphs.
+\Option[I123-P3-02: refuses]{Table} Lists the named graphs in a table in the worksheet.
+\end{Options}
+
+\MenuEntry{/Graph Group}
+The /Graph Group menu has 2 items: \texttt{Columnwise}, \texttt{Rowwise}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Graph}: press \type{G}, or move the menu pointer to \texttt{Graph} and press \kname{ENTER}.
+\item Select \texttt{Group}: press \type{G}, or move the menu pointer to \texttt{Group} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Graph Group menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Columnwise} Takes the data ranges from the columns of one range.
+\Option[I123-P3-02: refuses]{Rowwise} Takes the data ranges from the rows of one range.
+\end{Options}

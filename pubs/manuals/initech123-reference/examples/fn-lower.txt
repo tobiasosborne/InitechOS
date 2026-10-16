@@ -1,0 +1,4 @@
+A1: 'Initech SYSTEMS 2
+@LOWER(A1) = initech systems 2
+@LOWER("Mixed Case") = mixed case
+@LOWER(@UPPER("abc")) = abc

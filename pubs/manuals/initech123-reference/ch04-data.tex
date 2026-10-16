@@ -1,0 +1,206 @@
+% Chapter -- The Data Commands (AN-08 opener, AN-09 entries; annex Sec 7).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / menu_back / command_key (menu
+% navigation, the Quit items, unsupported() and its message), spec/i123/menu_tree.golden
+% (the /Data tree and descriptions), spec/i123/era_shortfalls.md I123-P3-02 (Data
+% menus navigate but commands refuse); build/pubs/correctness/i123.refused.
+% GATES: test-i123-menu-tree test-pubs-i123
+\Gates{test-i123-menu-tree, test-pubs-i123}
+
+\chapter[The Data Commands]{\textit{The Data Commands}}
+\input{i123-tree-Data}
+
+The Data commands are the group of menu commands for working with tables of values and with databases kept in the worksheet: filling ranges, building tables of results, sorting and searching records, working with matrices, fitting a straight line to data, and breaking long labels into cells.  In this version of Initech 123 you can display the Data menu and every menu below it, but the commands that would carry out the work display \texttt{Command not implemented}.  The descriptions of what each command is planned to do are marked as drafts.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Data Fill & Fills a range with a sequence of numbers. \draft{I123-P3-02: refuses} \\
+/Data Table & Opens the menu of data table commands. \\
+/Data Sort & Opens the menu of record sorting commands. \\
+/Data Query & Opens the menu of record search commands. \\
+/Data Distribution & Counts values in a range by interval. \draft{I123-P3-02: refuses} \\
+/Data Matrix & Opens the menu of matrix commands. \\
+/Data Regression & Opens the menu of regression commands. \\
+/Data Parse & Opens the menu of label parsing commands.\LotEnd
+\end{LotTable}
+
+\section{Common Uses of /Data}
+\begin{itemize}
+\item Filling a column with a series of numbers before you enter formulas beside it (\slashcmd{/Data Fill}) \draft{I123-P3-02: refuses}
+\item Looking at how a result changes as one or two inputs vary (\slashcmd{/Data Table 1}, \slashcmd{/Data Table 2}) \draft{I123-P3-02: refuses}
+\item Putting a list of records in order (\slashcmd{/Data Sort Go}) \draft{I123-P3-02: refuses}
+\item Finding the records in a list that meet a condition (\slashcmd{/Data Query Find}) \draft{I123-P3-02: refuses}
+\item Fitting a straight line to a set of observations (\slashcmd{/Data Regression Go}) \draft{I123-P3-02: refuses}
+\item Splitting a column of long labels into separate cells (\slashcmd{/Data Parse Go}) \draft{I123-P3-02: refuses}
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item Chapter~1, ``Using Initech 123,'' for ranges, cells and modes
+\item Chapter~10, \slashcmd{/Range}, for naming and formatting the ranges these commands use
+\item Chapter~12, \slashcmd{/Worksheet}, for the settings that govern recalculation
+\item Chapter~13, ``@Functions,'' for the functions that work on lists of values
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item The \term{data range} is the block of cells a Data command works on.
+\item A \term{database} is a table kept in the worksheet in which each row is a \term{record} and each column is a \term{field}.
+\item A \term{key} is the field by which records are ordered.
+\item A \term{criteria range} holds the conditions a record must meet to be selected.
+\item A \term{matrix} is a rectangular range of numbers treated as a unit.
+\end{itemize}
+
+\section{Before You Use /Data}
+\begin{Note}
+Every command in the /Data menu is displayed and can be explored, but this
+version of Initech 123 does not carry out the commands that would act on the
+worksheet.  When you select such a command, the control panel displays
+\texttt{Command not implemented} and the mode indicator changes to
+\ind{ERROR}.  Press \kname{ESC} to return to \ind{READY} mode.  The worksheet
+is not changed.  The menus themselves, and the \texttt{Quit} items, work as
+described in this chapter.
+\end{Note}
+How to tell a command from a menu: selecting a menu item that leads to another
+menu displays that menu; selecting a \texttt{Quit} item returns to
+\ind{READY} mode.  Anything else is a command, and a command that is not
+available displays \texttt{Command not implemented}.
+
+\MenuEntry{/Data}
+The /Data menu is the first menu that appears below the main menu when you select \texttt{Data}. The /Data menu has 8 items: \texttt{Fill}, \texttt{Table}, \texttt{Sort}, \texttt{Query}, \texttt{Distribution}, \texttt{Matrix}, \texttt{Regression}, \texttt{Parse}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Data Table}, \slashcmd{/Data Sort}, \slashcmd{/Data Query}, \slashcmd{/Data Matrix}, \slashcmd{/Data Regression}, \slashcmd{/Data Parse} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Fill} Fills a range with a sequence of numbers.
+\Option[I123-P3-02: refuses]{Distribution} Counts how many of the values in a range fall into each of a set of intervals.
+\end{Options}
+
+\MenuEntry{/Data Table}
+The /Data Table menu has 3 items: \texttt{1}, \texttt{2}, \texttt{Reset}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item Select \texttt{Table}: press \type{T}, or move the menu pointer to \texttt{Table} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data Table menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{1} Builds a table by varying one input cell and recalculating one or more formulas for each value.
+\Option[I123-P3-02: refuses]{2} Builds a table by varying two input cells and recalculating a single formula.
+\Option[I123-P3-02: refuses]{Reset} Clears the table ranges and input cells of all data tables.
+\end{Options}
+
+\MenuEntry{/Data Sort}
+The /Data Sort menu has 6 items: \texttt{Data-Range}, \texttt{Primary-Key}, \texttt{Secondary-Key}, \texttt{Reset}, \texttt{Go}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item Select \texttt{Sort}: press \type{S}, or move the menu pointer to \texttt{Sort} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data Sort menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Data-Range} Names the records to be sorted.
+\Option[I123-P3-02: refuses]{Primary-Key} Names the field that decides the main order of the records.
+\Option[I123-P3-02: refuses]{Secondary-Key} Names the field that orders records whose primary keys are equal.
+\Option[I123-P3-02: refuses]{Reset} Clears the data range and the sort keys.
+\Option[I123-P3-02: refuses]{Go} Sorts the records.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\MenuEntry{/Data Query}
+The /Data Query menu has 9 items: \texttt{Input}, \texttt{Criteria}, \texttt{Output}, \texttt{Find}, \texttt{Extract}, \texttt{Unique}, \texttt{Delete}, \texttt{Reset}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item Select \texttt{Query}: press \type{Q}, or move the menu pointer to \texttt{Query} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data Query menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Input} Names the range that holds the records to search.
+\Option[I123-P3-02: refuses]{Criteria} Names the range that holds the selection criteria.
+\Option[I123-P3-02: refuses]{Output} Names the range that receives extracted records.
+\Option[I123-P3-02: refuses]{Find} Highlights each record that meets the criteria, one after another.
+\Option[I123-P3-02: refuses]{Extract} Copies the records that meet the criteria to the output range.
+\Option[I123-P3-02: refuses]{Unique} Copies the records that meet the criteria to the output range, leaving out duplicates.
+\Option[I123-P3-02: refuses]{Delete} Deletes the records that meet the criteria.
+\Option[I123-P3-02: refuses]{Reset} Clears the input, criteria and output ranges.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\MenuEntry{/Data Matrix}
+The /Data Matrix menu has 2 items: \texttt{Invert}, \texttt{Multiply}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item Select \texttt{Matrix}: press \type{M}, or move the menu pointer to \texttt{Matrix} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data Matrix menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Invert} Computes the inverse of a matrix.
+\Option[I123-P3-02: refuses]{Multiply} Multiplies two ranges as matrices.
+\end{Options}
+
+\MenuEntry{/Data Regression}
+The /Data Regression menu has 7 items: \texttt{X-Range}, \texttt{Y-Range}, \texttt{Output-Range}, \texttt{Intercept}, \texttt{Reset}, \texttt{Go}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Data Regression Intercept} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item Select \texttt{Regression}: press \type{R}, or move the menu pointer to \texttt{Regression} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data Regression menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{X-Range} Names the independent variables.
+\Option[I123-P3-02: refuses]{Y-Range} Names the dependent variable.
+\Option[I123-P3-02: refuses]{Output-Range} Names the range that receives the results.
+\Option[I123-P3-02: refuses]{Reset} Clears the X range, the Y range and the output range, and sets the intercept back to its calculated setting.
+\Option[I123-P3-02: refuses]{Go} Performs the regression on the ranges you named.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\SubEntry{/Data Regression Intercept}
+The /Data Regression Intercept menu has 2 items: \texttt{Compute}, \texttt{Zero}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Compute} Has the y-axis intercept calculated from the data.
+\Option[I123-P3-02: refuses]{Zero} Fixes the y-axis intercept at zero.
+\end{Options}
+
+\MenuEntry{/Data Parse}
+The /Data Parse menu has 6 items: \texttt{Format-Line}, \texttt{Input-Column}, \texttt{Output-Range}, \texttt{Reset}, \texttt{Go}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+The items \slashcmd{/Data Parse Format-Line} lead to menus of their own, described below under their own headings.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Data}: press \type{D}, or move the menu pointer to \texttt{Data} and press \kname{ENTER}.
+\item Select \texttt{Parse}: press \type{P}, or move the menu pointer to \texttt{Parse} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Data Parse menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-02: refuses]{Input-Column} Names the column of labels to be parsed.
+\Option[I123-P3-02: refuses]{Output-Range} Names the range that receives the parsed data.
+\Option[I123-P3-02: refuses]{Reset} Clears the input column and the output range.
+\Option[I123-P3-02: refuses]{Go} Parses the labels in the input column into the output range.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}
+
+\SubEntry{/Data Parse Format-Line}
+The /Data Parse Format-Line menu has 2 items: \texttt{Create}, \texttt{Edit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\begin{Options}
+\Option[I123-P3-02: refuses]{Create} Creates a format line at the current cell.
+\Option[I123-P3-02: refuses]{Edit} Edits the format line at the current cell.
+\end{Options}

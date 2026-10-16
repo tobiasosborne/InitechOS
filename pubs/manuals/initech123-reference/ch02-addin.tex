@@ -1,0 +1,72 @@
+% Chapter -- The Add-In Commands (AN-08 opener, AN-09 entries; annex Sec 7).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / command_key (menu navigation, Quit,
+% unsupported() and its message), spec/i123/menu_tree.golden (the /Add-In tree),
+% spec/i123/era_shortfalls.md I123-P3-03 (Add-In menus navigate; loading and
+% invocation refuse); build/pubs/correctness/i123.refused.
+% GATES: test-i123-menu-tree test-pubs-i123
+\Gates{test-i123-menu-tree, test-pubs-i123}
+
+\chapter[The Add-In Commands]{\textit{The Add-In Commands}}
+\input{i123-tree-Add-In}
+
+The Add-In commands are the menu commands for loading and running add-in programs, small programs that extend the worksheet.  In this version of Initech 123 you can display the Add-In menu, but no add-in program can be loaded or started: the four commands that would load, remove or start an add-in display \texttt{Command not implemented}.  The descriptions of what each command is planned to do are marked as drafts.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Add-In Attach & Loads an add-in program. \draft{I123-P3-03: refuses} \\
+/Add-In Detach & Removes an attached add-in. \draft{I123-P3-03: refuses} \\
+/Add-In Invoke & Starts an attached add-in. \draft{I123-P3-03: refuses} \\
+/Add-In Clear & Removes all attached add-ins. \draft{I123-P3-03: refuses} \\
+/Add-In Quit & Returns to READY mode.\LotEnd
+\end{LotTable}
+
+\section{Common Uses of /Add-In}
+\begin{itemize}
+\item Loading an add-in program so that it is available in the session (\slashcmd{/Add-In Attach}) \draft{I123-P3-03: refuses}
+\item Starting an add-in that is already loaded (\slashcmd{/Add-In Invoke}) \draft{I123-P3-03: refuses}
+\item Freeing memory by removing add-ins you no longer need (\slashcmd{/Add-In Detach}, \slashcmd{/Add-In Clear}) \draft{I123-P3-03: refuses}
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item Chapter~1, ``Using Initech 123,'' for modes and the slash menu
+\item Chapter~11, \slashcmd{/System}, the other command of this kind that is not available
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item An \term{add-in program} is a program that is loaded alongside the worksheet and adds commands to it.
+\item To \term{attach} an add-in is to load it into memory; to \term{invoke} it is to start it.
+\end{itemize}
+
+\section{Before You Use /Add-In}
+\begin{Note}
+Every command in the /Add-In menu is displayed and can be explored, but this
+version of Initech 123 does not carry out the commands that would act on the
+worksheet.  When you select such a command, the control panel displays
+\texttt{Command not implemented} and the mode indicator changes to
+\ind{ERROR}.  Press \kname{ESC} to return to \ind{READY} mode.  The worksheet
+is not changed.  The menus themselves, and the \texttt{Quit} items, work as
+described in this chapter.
+\end{Note}
+How to tell a command from a menu: selecting a menu item that leads to another
+menu displays that menu; selecting a \texttt{Quit} item returns to
+\ind{READY} mode.  Anything else is a command, and a command that is not
+available displays \texttt{Command not implemented}.
+
+\MenuEntry{/Add-In}
+The /Add-In menu is the last menu but one on the main menu. The /Add-In menu has 5 items: \texttt{Attach}, \texttt{Detach}, \texttt{Invoke}, \texttt{Clear}, \texttt{Quit}.  You can move about in the menu and select its items; a command that acts on the worksheet is not available in this version and displays \texttt{Command not implemented} when you select it.
+\BHead{Procedure}
+\begin{Steps123}
+\item Press \kname{SLASH} to display the main menu.
+\item Select \texttt{Add-In}: press \type{A}, or move the menu pointer to \texttt{Add-In} and press \kname{ENTER}.
+\item The control panel now shows the items of the /Add-In menu.
+\item Press \kname{ESC} to back up one menu level, or \kname{CTRL-BREAK} to return to \ind{READY} mode.
+\end{Steps123}
+\begin{Options}
+\Option[I123-P3-03: refuses]{Attach} Loads an add-in program into memory.
+\Option[I123-P3-03: refuses]{Detach} Removes one attached add-in program from memory.
+\Option[I123-P3-03: refuses]{Invoke} Starts an attached add-in program.
+\Option[I123-P3-03: refuses]{Clear} Removes every attached add-in program from memory.
+\Option{Quit} Returns to \ind{READY} mode.
+\end{Options}

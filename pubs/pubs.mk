@@ -269,7 +269,9 @@ PUBS_I123_GATE   := $(BUILD)/pubs_i123_gate
 PUBS_FLAIR_SHOT  := $(BUILD)/pubs_flair_shot
 PUBS_I123_BOOKS  := $(patsubst $(PUBS_DIR)/manuals/%/main.tex,%,$(wildcard $(PUBS_DIR)/manuals/initech123-*/main.tex))
 PUBS_I123_TOPS   := Worksheet Range Copy Move File Print Graph Data System Add-In Quit
-PUBS_I123_GEN    := $(foreach t,$(PUBS_I123_TOPS),$(PUBS_GEN)/i123-tree-$(t).tex) $(PUBS_GEN)/i123-keymap.tex
+PUBS_I123_SHOTS  := $(patsubst $(PUBS_DIR)/manuals/%.b64,$(PUBS_GEN)/i123shots/%.png,$(subst /screens/,/,$(wildcard $(PUBS_DIR)/manuals/initech123-*/screens/*.b64)))
+PUBS_I123_GEN    := $(foreach t,$(PUBS_I123_TOPS),$(PUBS_GEN)/i123-tree-$(t).tex $(PUBS_GEN)/i123-map-$(t).tex) $(PUBS_GEN)/i123-keymap.tex \
+                    $(PUBS_I123_SHOTS)
 PUBS_I123_DATA   := $(PUBS_BUILD)/i123_data.img
 PUBS_I123_SAMPLES := $(sort $(wildcard $(PUBS_DIR)/manuals/initech123-*/samples/*.k123))
 PUBS_I123_FACE_SRC := harness/pubs/i123_face.c os/i123/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h \
@@ -286,6 +288,15 @@ $(PUBS_FLAIR_SHOT): harness/pubs/flair_shot.c | $(BUILD)
 $(PUBS_GEN)/i123-tree-%.tex: $(PUBS_I123_FACE)
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_I123_FACE) tree $* > $@.tmp && mv -f $@.tmp $@
+# A committed figure (screens/<name>.b64, ASCII) decoded for the build:
+# build/pubs/gen/i123shots/<manual>/<name>.png (\FlairShot, initech-lotus.sty).
+.SECONDEXPANSION:
+$(PUBS_GEN)/i123shots/%.png: $$(PUBS_DIR)/manuals/$$(dir $$*)screens/$$(notdir $$*).b64 $(PUBS_FLAIR_SHOT)
+	@mkdir -p $(@D)
+	@$(PUBS_FLAIR_SHOT) unb64 $< $@
+$(PUBS_GEN)/i123-map-%.tex: $(PUBS_I123_FACE)
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_I123_FACE) outline $* > $@.tmp && mv -f $@.tmp $@
 # The key map (PK-14 templates, the Quick Reference): one \LotKey line per
 # shipped key, in the probe's keyboard order.
 $(PUBS_GEN)/i123-keymap.tex: $(PUBS_I123_FACE)
@@ -318,36 +329,53 @@ endif
 pubs-i123-examples: $(PUBS_I123_FACE)
 	@sh harness/pubs/i123_replay.sh write $(PUBS_I123_FACE) - - $(PUBS_CHECK)
 
-# FLAIR figures: the 500-tick gate image (short traces) and a publications
-# image living 6000 ticks (long traces), both the shipped FLAIR desktop
+# FLAIR figures: the 500-tick gate image (short traces) and publications
+# images living 2000 and 4500 ticks (long and longer traces), all the shipped FLAIR desktop
 # with only the -D tick budget changed; the data volume is the shipped one
 # plus the sample worksheets the samples/*.k123 scripts save when typed
 # into the shipped application (i123_face run: the same code as 123.EXE).
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,pubs_i123))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=2000,pubs_i123))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=4500,pubs_i123x))
 PUBS_I123_LONG_IMG := $(BUILD)/flair_tenants_mut_pubs_i123.img
-$(PUBS_I123_DATA): $(FLAIR_DATA_IMG) $(PUBS_I123_FACE) $(PUBS_I123_SAMPLES)
-	@rm -rf $(PUBS_BUILD)/i123-samples; mkdir -p $(PUBS_BUILD)/i123-samples
-	@cp -f $(FLAIR_DATA_IMG) $@.tmp
-	@for s in $(PUBS_I123_SAMPLES); do $(PUBS_I123_FACE) run $$s $(PUBS_BUILD)/i123-samples > /dev/null || exit 1; done
-	@for f in $(PUBS_BUILD)/i123-samples/*.WK1; do [ -f "$$f" ] || continue; \
-		TZ=UTC touch -d @$(FLAIR_DATA_EPOCH) "$$f"; \
-		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -m -i $@.tmp "$$f" ::$$(basename $$f) || exit 1; done
-	@mv -f $@.tmp $@
-	@printf '>>> pubs: %s (the shipped data volume + %s sample worksheets)\n' "$@" "$$(ls $(PUBS_BUILD)/i123-samples | wc -l)"
-PUBS_FLAIR_DEPS := $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_DATA) $(PUBS_I123_FACE) \
+PUBS_I123_XLONG_IMG := $(BUILD)/flair_tenants_mut_pubs_i123x.img
+# The sample worksheets are typed in stages: samples/<N>-<name>.k123 runs
+# after every stage below N (a stage may /File Retrieve what an earlier one
+# saved).  Data volume s<N> is the shipped volume plus the files of stages
+# 1..N; s0 is the shipped volume unchanged.  A figure names its stage
+# (screens/FLAIR, field 6), so that a lesson that saves a file finds the
+# disk as the reader's disk is at that point of the book.
+PUBS_I123_DISKS := $(PUBS_BUILD)/i123disk/.staged
+$(PUBS_I123_DATA): $(PUBS_I123_DISKS)
+	@cp -f $(PUBS_BUILD)/i123disk/s$$(cat $(PUBS_BUILD)/i123disk/top).img $@
+$(PUBS_I123_DISKS): $(FLAIR_DATA_IMG) $(PUBS_I123_FACE) $(PUBS_I123_SAMPLES)
+	@rm -rf $(PUBS_BUILD)/i123disk $(PUBS_BUILD)/i123-samples; mkdir -p $(PUBS_BUILD)/i123disk $(PUBS_BUILD)/i123-samples
+	@cp -f $(FLAIR_DATA_IMG) $(PUBS_BUILD)/i123disk/s0.img; echo 0 > $(PUBS_BUILD)/i123disk/top
+	@for n in $$(for s in $(PUBS_I123_SAMPLES); do b=$$(basename $$s); echo $${b%%-*}; done | sort -n -u); do \
+		for s in $(PUBS_I123_SAMPLES); do b=$$(basename $$s); [ "$${b%%-*}" = "$$n" ] || continue; \
+			$(PUBS_I123_FACE) run $$s $(PUBS_BUILD)/i123-samples > /dev/null || exit 1; done; \
+		cp -f $(FLAIR_DATA_IMG) $(PUBS_BUILD)/i123disk/s$$n.img; \
+		for f in $(PUBS_BUILD)/i123-samples/*.WK1; do [ -f "$$f" ] || continue; \
+			TZ=UTC touch -d @$(FLAIR_DATA_EPOCH) "$$f"; \
+			SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -m -i $(PUBS_BUILD)/i123disk/s$$n.img "$$f" ::$$(basename $$f) || exit 1; done; \
+		echo $$n > $(PUBS_BUILD)/i123disk/top; done
+	@touch $@
+	@printf '>>> pubs: Initech 123 data volumes s0..s%s (the shipped volume + the sample worksheets of each stage)\n' "$$(cat $(PUBS_BUILD)/i123disk/top)"
+PUBS_FLAIR_DEPS := $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_XLONG_IMG) $(PUBS_I123_DISKS) $(PUBS_I123_FACE) \
                    $(PUBS_FLAIR_SHOT) $(PUBS_DIR)/screens/flair_capture.sh spec/assets/clut.json spec/assets/color_canon.json
 pubs-i123-screens: $(PUBS_FLAIR_DEPS)
 	@set -e; for m in $(PUBS_I123_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/FLAIR ] || continue; \
-		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_DATA) \
+		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_XLONG_IMG) $(PUBS_BUILD)/i123disk \
 			$(PUBS_I123_FACE) $(PUBS_FLAIR_SHOT) $$d/FLAIR $(PUBS_BUILD)/flair/$$m spec/assets/clut.json spec/assets/color_canon.json; \
-		cp -f $(PUBS_BUILD)/flair/$$m/*.png $$d/; printf '>>> pubs-i123-screens: %s updated -- review the figures\n' "$$m"; done
+		cp -f $(PUBS_BUILD)/flair/$$m/*.b64 $$d/; printf '>>> pubs-i123-screens: %s updated -- review the figures (build/pubs/flair/%s/*.png)\n' "$$m" "$$m"; done
 .PHONY: test-pubs-flair-screens
 test-pubs-flair-screens: $(PUBS_FLAIR_DEPS) test-pubs-build
 	@set -e; n=0; for m in $(PUBS_I123_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/FLAIR ] || continue; \
-		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_DATA) \
+		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_XLONG_IMG) $(PUBS_BUILD)/i123disk \
 			$(PUBS_I123_FACE) $(PUBS_FLAIR_SHOT) $$d/FLAIR $(PUBS_BUILD)/flair-check/$$m spec/assets/clut.json spec/assets/color_canon.json > $(PUBS_BUILD)/flair-check-$$m.log 2>&1 || { tail -5 $(PUBS_BUILD)/flair-check-$$m.log; exit 1; }; \
-		for p in $(PUBS_BUILD)/flair-check/$$m/*.png; do $(PUBS_FLAIR_SHOT) same $$d/$$(basename $$p) $$p; n=$$((n + 1)); done; \
-		for c in $$d/*.png; do [ -f $(PUBS_BUILD)/flair-check/$$m/$$(basename $$c) ] || { \
+		for p in $(PUBS_BUILD)/flair-check/$$m/*.png; do b=$$(basename $$p .png); \
+			$(PUBS_FLAIR_SHOT) unb64 $$d/$$b.b64 $(PUBS_BUILD)/flair-check/$$m/$$b.committed.png; \
+			$(PUBS_FLAIR_SHOT) same $(PUBS_BUILD)/flair-check/$$m/$$b.committed.png $$p; n=$$((n + 1)); done; \
+		for c in $$d/*.b64; do [ -f $(PUBS_BUILD)/flair-check/$$m/$$(basename $$c .b64).png ] || { \
 			printf '!!! test-pubs RED SCREEN-UNREPLAYED: %s has no FLAIR entry\n' "$$c"; exit 1; }; done; done; \
 	printf '>>> test-pubs-flair-screens: green (%s FLAIR figures in the Initech 123 books == the running system, pixel for pixel)\n' "$$n"
 test-pubs-screens: test-pubs-flair-screens

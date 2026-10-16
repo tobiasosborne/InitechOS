@@ -1,0 +1,5 @@
+@CHAR(65) = A
+@CHAR(97) = a
+@CHAR(@CODE("A")+1) = B
+@CHAR(0) = ERR
+@CHAR(256) = ERR

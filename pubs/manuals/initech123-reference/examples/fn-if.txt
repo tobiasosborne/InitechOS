@@ -1,0 +1,5 @@
+A1: 85
+@IF(A1>=60,"pass","fail") = pass
+@IF(A1>=90,"A",@IF(A1>=80,"B","C")) = B
+@IF(A1>50#AND#A1<100,1,0) = 1
+@IF(@ERR,1,2) = ERR

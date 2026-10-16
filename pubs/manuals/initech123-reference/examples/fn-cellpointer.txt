@@ -1,0 +1,4 @@
+A1: @CELLPOINTER("address")
+A1: @CELLPOINTER("address") = $A$1
+B7: 5
+A1: @CELLPOINTER("address") = $B$7

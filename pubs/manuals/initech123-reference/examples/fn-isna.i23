@@ -1,0 +1,7 @@
+# @ISNA
+A1 @NA
+A2 @ERR
+= @ISNA(A1)
+= @ISNA(A2)
+= @ISNA(5)
+= +A1+1

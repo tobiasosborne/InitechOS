@@ -1,0 +1,7 @@
+# @CODE
+A1 'Apple
+= @CODE(A1)
+= @CODE("a")
+= @CODE("apple")
+= @CODE("")
+= @CODE(5)

@@ -1,0 +1,4 @@
+@NOW = ERR
+@INT(@NOW) = ERR
+@ISERR(@NOW) = 1
+@IF(@ISERR(@NOW),@DATE(92,3,2),@INT(@NOW)) = 33665

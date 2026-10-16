@@ -1,0 +1,10 @@
+# Chapter 10, /Range Format +/-
+A1 5
+A2 -3
+A3 .5
+A4 12
+do /rf+a1..a4~
+show A1
+show A2
+show A3
+show A4

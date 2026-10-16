@@ -1,0 +1,12 @@
+# Chapter 10, /Range Format Date: the serial number of 2 March 1992
+A1 @DATE(92,3,2)
+A2 @DATE(92,3,2)
+A3 @DATE(92,3,2)
+A4 @DATE(92,3,2)
+do {GOTO}A1~/wcs10~/rfd1a2~
+do /rfd2a3~
+do /rfd3a4~
+show A1
+show A2
+show A3
+show A4

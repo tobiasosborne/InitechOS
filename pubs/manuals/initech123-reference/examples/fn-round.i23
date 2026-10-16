@@ -1,0 +1,7 @@
+# @ROUND
+A1 123.456
+= @ROUND(A1,2)
+= @ROUND(A1,0)
+= @ROUND(A1,-2)
+= @ROUND(2.5,0)
+= @ROUND(-2.5,0)

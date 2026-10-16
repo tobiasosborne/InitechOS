@@ -1,0 +1,5 @@
+A1: 2
+@CHOOSE(A1,"Low","Medium","High") = High
+@CHOOSE(0,"Low","Medium","High") = Low
+@CHOOSE(A1-1,10,20,30) = 20
+@CHOOSE(5,"Low","Medium","High") = ERR

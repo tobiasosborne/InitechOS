@@ -1,0 +1,7 @@
+# @REPEAT
+A1 7
+= @REPEAT("-",10)
+= @REPEAT("ab",3)
+= @REPEAT("*",A1)
+= @REPEAT("x",0)
+= @REPEAT("abcd",100)

@@ -1,0 +1,6 @@
+A1: 'Apple
+@CODE(A1) = 65
+@CODE("a") = 97
+@CODE("apple") = 97
+@CODE("") = ERR
+@CODE(5) = ERR

@@ -1,0 +1,11 @@
+# Chapter 1, Entering values
+A1 1234.5
+A2 -17
+A3 15.5%
+A4 1.5E3
+A5 +A1+A2
+show A1
+show A2
+show A3
+show A4
+show A5

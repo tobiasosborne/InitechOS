@@ -1,0 +1,10 @@
+# @VALUE
+A1 '1,250.25
+= @VALUE(A1)
+= @VALUE("$32.85")
+= @VALUE("85%")
+= @VALUE("49 3/4")
+= @VALUE("1.5E3")
+= @VALUE("")
+= @VALUE("twelve")
+= @VALUE(A1)/2

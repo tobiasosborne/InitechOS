@@ -1,0 +1,7 @@
+A1: 'Total
+B1: 250
+@S(A1) = Total
+@S(B1) = 
+@LENGTH(@S(B1)) = 0
+@S(A1)&": "&@STRING(B1,2) = Total: 250.00
+@S(A1..B1) = Total

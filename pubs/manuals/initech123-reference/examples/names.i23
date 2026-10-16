@@ -1,0 +1,9 @@
+# Chapter 10, /Range Name Create and a formula that uses the name
+B1 120
+B2 950
+do /rnccosts~b1..b2~
+B4 @SUM(COSTS)
+do {GOTO}D1~/rnt~
+show B4
+show D1
+show E1

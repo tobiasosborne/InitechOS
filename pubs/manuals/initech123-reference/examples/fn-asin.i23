@@ -1,0 +1,5 @@
+# @ASIN
+= @ASIN(0)
+= @ASIN(.5)
+= @ASIN(.5)*180/@PI
+= @ASIN(-2)

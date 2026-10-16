@@ -1,0 +1,171 @@
+% Appendix B -- Troubleshooting (AN-17 Problem/Solution; the model has no
+% error-message appendix, C-16; annex Sec 6 App. F, Sec 9).  Every message
+% quoted is a string of os/i123/app/face_a.c (notice(), the prompts) and
+% every cause is the code path that issues it.
+% GATES: test-i123-range-menu test-i123-quit test-flair-i123-files test-flair-i123-file-ui test-i123-formula test-pubs-i123
+\Gates{test-i123-range-menu, test-i123-quit, test-flair-i123-files,
+  test-flair-i123-file-ui, test-i123-formula, test-pubs-i123}
+\ChapterTab{Troubleshooting}
+\chapter{Troubleshooting}
+
+This appendix describes problems you may meet when you use Initech 123, and
+what to do about them.  The problems are grouped by area.
+
+\section{Related Reading}
+\begin{itemize}
+\item Chapter~1, ``Using Initech 123''
+\item Appendix~A, ``Worksheet Capacity''
+\item The \doctitle{Setting Up Initech 123} part of the Setting Up volume,
+  for problems starting Initech 123
+\end{itemize}
+
+\newcommand\Problem[1]{\par\addvspace{8pt}\noindent\textbf{Problem:\ #1}\par\nobreak\vspace{2pt}}
+\newcommand\Solution{\noindent\textbf{Solution:}\ }
+
+\section{Starting Initech 123}
+\Problem{Initech 123 does not start: its window opens and closes, or does not
+appear.}
+\Solution Initech 123 reads its menus from the file \file{123.MNU} in the
+\file{APPS} folder of the data disk when it starts.
+\begin{itemize}
+\item Make sure \file{123.MNU} is in the \file{APPS} folder, beside
+  \file{123.EXE}.
+\item If the file is there, it may be damaged.  Copy it again from your
+  InitechOS diskettes.
+\end{itemize}
+
+\section{Entering Data}
+\Problem{When I press ENTER, Initech 123 switches to EDIT mode and keeps the
+entry on the control panel.}
+\Solution Initech 123 took the entry for a value, because of its first
+character, and the entry is not a number or a formula it can accept.
+\begin{itemize}
+\item If the entry is text that begins with a digit or one of the
+  characters \texttt{+ - . ( @ \# \$}, press \kname{ESC} and type it again
+  with a label prefix: \type{'1992 Budget}.
+\item If the entry is a formula, check it for a missing parenthesis, a
+  misspelled @function or the wrong number of arguments.  Erase from the end
+  with \kname{BACKSPACE}, correct it and press \kname{ENTER}.
+\end{itemize}
+
+\Problem{A formula that begins with a cell address was stored as a label.}
+\Solution A formula must begin with a value character.  Type a plus sign
+before the address: \type{+B2*B3}.
+
+\Problem{I cannot type any more characters in an entry.}
+\Solution An entry you type can have up to 74 characters.  Split a long
+formula into two cells, the second using the result of the first.
+
+\Problem{A cell shows a row of asterisks.}
+\Solution The number does not fit the column in its format.
+\begin{itemize}
+\item Widen the column with \slashcmd{/Worksheet Column Set-Width}.
+\item Or choose a format with fewer decimal places with
+  \slashcmd{/Range Format}.
+\end{itemize}
+
+\Problem{A cell shows ERR.}
+\Solution The formula in the cell, or a formula it depends on, cannot be
+calculated: it divides by zero, uses a label where a number is needed, or
+gives an @function an argument it cannot use.  Find the first cell in the
+chain that shows ERR and correct it; the cells that depend on it are
+corrected with it.
+
+\Problem{A cell shows NA.}
+\Solution The formula depends on a cell that contains \fn{@NA}: NA passes
+through every formula that uses it, until the @NA is replaced.
+
+\Problem{My formulas do not change when I change the numbers they use.}
+\Solution Recalculation is manual: the \ind{CALC} indicator is on the status
+line.
+\begin{itemize}
+\item Press \fkey{Calc}{F9}.
+\item Or select \slashcmd{/Worksheet Global Recalculation Automatic}.
+\end{itemize}
+
+\Problem{The CIRC indicator is on the status line.}
+\Solution A formula refers to itself, directly or through other formulas.
+\begin{itemize}
+\item Look for a total whose range includes its own cell, such as
+  \texttt{@SUM(B1..B5)} in B5, and correct the range.
+\item If the circular reference is what you want, set the number of passes
+  with \slashcmd{/Worksheet Global Recalculation Iteration}.
+\end{itemize}
+
+\Problem{Initech 123 displays Cell is protected when I type an entry.}
+\Solution Worksheet protection is enabled and the cell is protected.
+\begin{itemize}
+\item Unprotect the cells you want to change with \slashcmd{/Range Unprot}.
+\item Or turn protection off with \slashcmd{/Worksheet Global Protection
+  Disable}.
+\end{itemize}
+
+\section{Commands}
+\Problem{Initech 123 displays Command not implemented.}
+\Solution The command appears in the menus but is not available in this
+version.  Press \kname{ESC} to return to the worksheet; nothing has been
+changed.  The commands of this book marked \DraftSample\ are those
+commands.
+
+\Problem{Initech 123 displays Invalid range.}
+\Solution The answer to a range prompt is not an address, a range or an
+existing range name.  Press \kname{ESC}, select the command again and type
+the range as two addresses separated by two periods, \type{A1..C5}.
+
+\Problem{Initech 123 displays Illegal number.}
+\Solution The number you typed at a prompt is not a whole number in the
+range the prompt shows, for example \texttt{(1..240)}.
+
+\Problem{Initech 123 displays Specify the upper left destination cell.}
+\Solution The TO range of /Copy, /Move, /Range Value or /Range Trans was
+given as a range of several cells.  Give only its upper left cell.
+
+\Problem{Initech 123 displays Command refused.}
+\Solution The command would change a protected cell while protection is
+enabled, or it would move an existing range name to a different range while
+the worksheet contains formulas.  Unprotect the cells, or delete the range
+name and create it again.
+
+\Problem{Initech 123 displays Invalid range name.}
+\Solution A range name can have at most 15 characters, and the name prompt
+needs at least one.
+
+\Problem{Initech 123 displays Not enough worksheet memory.}
+\Solution The worksheet is at a limit of Appendix~A.  The command was not
+carried out and the worksheet is unchanged.  Erase entries and formats you do
+not need, then try again.
+
+\section{Files}
+\Problem{Initech 123 displays File not found.}
+\Solution There is no file of the name you typed on drive \file{A:}.  Check
+the spelling.  If you typed an extension other than \file{.WK1}, type it as
+it is on the disk; if you typed none, Initech 123 looked for a \file{.WK1}
+file.
+
+\Problem{Initech 123 displays Not a valid WK1 file.}
+\Solution The file is not an Initech 123 worksheet file, or it is damaged.
+The worksheet in memory has not been changed.
+
+\Problem{Initech 123 displays File too large.}
+\Solution Initech 123 retrieves files of up to 64K.
+
+\Problem{Backup, in the menu that appears when I save over an existing file,
+displays Command not implemented.}
+\Solution Backup is not available in this version.  To keep the old file,
+select Cancel and save the worksheet under a new name.
+
+\Problem{Initech 123 displays Invalid file name.}
+\Solution A file name cannot contain spaces or the characters \texttt{*}
+and \texttt{?}.
+
+\section{Ending a Session}
+\Problem{When I quit, Initech 123 asks whether to save changes, although I
+saved the worksheet.}
+\Solution The worksheet has changed since you saved it, or you were in the
+middle of typing an entry.  Select Save to save it again, or Don't Save to
+end without the latest changes.
+
+\Problem{I selected Save in the quit alert, then pressed ESC at the file
+name, and Initech 123 did not end.}
+\Solution When the save does not happen, the session continues, so that no
+work is lost.  Save the worksheet and quit again.

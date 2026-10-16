@@ -1,0 +1,7 @@
+# @RIGHT
+A1 'REPORT.WK1
+= @RIGHT(A1,3)
+= @RIGHT(A1,1)
+= @RIGHT(A1,0)
+= @RIGHT(A1,99)
+= @LEFT(A1,@FIND(".",A1,0))

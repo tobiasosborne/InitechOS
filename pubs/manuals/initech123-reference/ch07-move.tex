@@ -1,0 +1,91 @@
+% Chapter 7 -- The Move Command (AN-08, AN-09).
+% Sources (Law 1): os/i123/app/face_a.c menu_select / range_accept (the
+% FROM and TO prompts; the single-cell TO rule), os/i123/core/range.c
+% i123_transfer mode MOVE (the FROM range erased; formulas anywhere that
+% refer into the FROM range re-encoded to follow it; range names whose
+% corners lie in it moved; protected cells refuse), the copy-move
+% reference rules graded against the real Release 2.2 MOVE01 goldens;
+% spec/i123/era_shortfalls.md I123-P3-07.
+% GATES: test-i123-copy-move-model test-i123-range-menu test-i123-menu-tree test-pubs-i123 test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-copy-move-model, test-i123-range-menu, test-i123-menu-tree,
+  test-pubs-i123, test-pubs-i123-examples, test-pubs-screens}
+\chapter[The Move Command]{\textit{The Move Command}}
+\input{i123-tree-Move}
+
+The Move command moves the contents of a cell or a range to another part of
+the worksheet.  Formulas that refer to the moved cells are adjusted so that
+they still refer to the same data in its new place.
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Command} & \textbf{Task}}
+/Move & Moves a cell or a range to another location in the worksheet\LotEnd
+\end{LotTable}
+
+\section{Common Uses of the Move Command}
+\begin{itemize}
+\item Rearranging the parts of a worksheet (\slashcmd{/Move})
+\item Making room for new rows or columns of data in a table
+  (\slashcmd{/Move})
+\end{itemize}
+
+\section{Related Reading}
+\begin{itemize}
+\item ``Formulas'' and ``Ranges'' in Chapter~1
+\item Chapter~3, ``The Copy Command''
+\item Lesson~5 in the \doctitle{Tutorial}
+\end{itemize}
+
+\section{Terms You Need to Know}
+\begin{itemize}
+\item The \term{FROM range} is the cell or range you move.
+\item The \term{TO range} is the place it goes, named by its upper left
+  cell.
+\end{itemize}
+
+\MenuEntry{/Move}
+/Move moves a cell or a range, with the formats and protection settings of
+its cells, to another part of the worksheet.
+
+Initech 123 moves every cell of the FROM range to the cell in the same
+position relative to the upper left cell of the TO range, and leaves the
+FROM range empty.  Whatever the TO range held is replaced.  Formulas are
+adjusted in two ways:
+\begin{itemize}
+\item a formula anywhere in the worksheet that refers to a cell of the FROM
+  range now refers to that cell in its new place;
+\item a moved formula's references to cells outside the FROM range still
+  refer to the same cells.
+\end{itemize}
+A range name whose range lies in the FROM range moves with it.
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Move.  The control panel shows
+  \texttt{Enter range to move FROM:} followed by the address of the cell
+  pointer.
+\item Specify the FROM range and press \kname{ENTER}.
+\item Specify the TO range, its upper left cell, and press \kname{ENTER}.
+\end{Steps123}
+
+\FlairShot[fig:movedone]{movedone}{B1..B3 moved to D1: the total in D3
+still adds the two numbers above it}
+
+\begin{Caution}
+/Move replaces whatever the TO range contains.  A formula elsewhere that
+referred to a cell of the TO range does not refer to the moved data.
+\end{Caution}
+
+\begin{Note}
+Give the TO range as a single cell; a larger TO range displays
+\texttt{Specify the upper left destination cell} and moves nothing.  If the
+worksheet is protected and a cell of the FROM or the TO range is
+protected, Initech 123 displays \texttt{Command refused} and moves nothing.
+\end{Note}
+
+\section{Moving a Formula: An Example}
+A1 holds 10, B1 the formula \texttt{+A1*2}, and D3 the formula
+\texttt{+B1+1}.  Move B1 to C5: select /Move with the cell pointer on B1,
+press \kname{ENTER}, type \type{C5} and press \kname{ENTER}.  The moved
+formula still uses A1, and the formula in D3 now refers to C5:
+
+\LotExample{examples/move}

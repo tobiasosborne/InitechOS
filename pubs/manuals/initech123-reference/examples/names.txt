@@ -1,0 +1,6 @@
+B1: 120
+B2: 950
+B4: @SUM(COSTS)
+B4: @SUM(B1..B2) = 1070
+D1: 'COSTS = COSTS
+E1: 'B1..B2 = B1..B2

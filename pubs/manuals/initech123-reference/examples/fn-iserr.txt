@@ -1,0 +1,6 @@
+A1: 10
+A2: 0
+@ISERR(A1/A2) = 1
+@ISERR(A1/5) = 0
+@ISERR(@NA) = 0
+@IF(@ISERR(A1/A2),0,A1/A2) = 0
