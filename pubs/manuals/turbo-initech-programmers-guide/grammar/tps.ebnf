@@ -1,0 +1,57 @@
+# Turbo Initech syntax, one rule per production of the shipped parser.
+# Source of truth: os/tps/tps.pas, the Parse* routines (production names are
+# those of WriteProductionName).  PUB-REF-0001 NT railroad dialect, CP-18.
+# harness/pubs/railroad.c draws one diagram per rule, generates random
+# programs from these rules (each must parse: TPS-PARSE-OK) and recognizes
+# every replayed program and tps.pas itself with them (both directions).
+# Notation: "word" reserved word, "+" symbol, name non-terminal, [ ] optional,
+# { } zero or more, ( ) group, | alternatives, rules end with " ." on a line.
+# Lexical classes (drawn as rectangles, defined in Chapter 1 of the book):
+#   identifier, unsigned-integer, string-literal.
+
+program = "program" identifier ";"
+          { section-const | section-type | section-var
+          | routine-procedure | routine-function }
+          block "." .
+section-const = "const" const-decl { const-decl } .
+const-decl = identifier "=" const-literal ";" .
+const-literal = [ "-" ] unsigned-integer | string-literal | "true" | "false" .
+section-type = "type" type-decl { type-decl } .
+type-decl = identifier "=" record-type ";" .
+record-type = "record" { field-group } "end" .
+field-group = identifier { "," identifier } ":" ( "integer" | "boolean" | "char" ) ";" .
+section-var = "var" var-decl ";" { var-decl ";" } .
+var-decl = identifier { "," identifier } ":" ( array-type | type-name ) .
+type-name = "integer" | "boolean" | "char" | "file" | identifier
+          | "string" [ "[" array-bound "]" ] .
+array-type = "array" "[" array-bound ".." array-bound "]" "of" type-name .
+array-bound = "-" unsigned-integer | unsigned-integer | identifier .
+result-type = "integer" | "boolean" | "char" .
+routine-procedure = "procedure" identifier [ param-list ] ";"
+                    ( "forward" ";" | [ section-var ] block ";" ) .
+routine-function = "function" identifier [ param-list ] ":" result-type ";"
+                   ( "forward" ";" | [ section-var ] block ";" ) .
+param-list = "(" [ param-group { ";" param-group } ] ")" .
+param-group = [ "var" ] identifier { "," identifier } ":" type-name .
+block = "begin" statement { ";" statement } "end" .
+statement = [ block | stmt-write | stmt-if | stmt-while | stmt-for
+            | stmt-repeat | ident-statement ] .
+ident-statement = identifier ( call | assignment ) .
+assignment = [ index-suffix ] [ field-suffix ] ":=" expression .
+call = "(" [ expression { "," expression } ] ")" .
+stmt-write = ( "write" | "writeln" ) [ "(" [ write-arg { "," write-arg } ] ")" ] .
+write-arg = string-literal | expression .
+stmt-if = "if" expression "then" statement [ else-clause ] .
+else-clause = "else" statement .
+stmt-while = "while" expression "do" statement .
+stmt-for = "for" identifier ":=" expression ( "to" | "downto" ) expression "do" statement .
+stmt-repeat = "repeat" statement { ";" statement } "until" expression .
+expression = simple-expression [ ( "=" | "<>" | "<" | "<=" | ">" | ">=" ) simple-expression ] .
+simple-expression = term { ( "+" | "-" | "or" ) term } .
+term = factor { ( "*" | "div" | "mod" | "and" ) factor } .
+factor = "-" factor | "not" factor | "true" | "false" | unsigned-integer
+       | string-literal | ( "ord" | "chr" | "length" ) "(" expression ")"
+       | identifier ( call | [ index-suffix ] [ field-suffix ] )
+       | "(" expression ")" .
+index-suffix = "[" expression "]" .
+field-suffix = "." identifier .
