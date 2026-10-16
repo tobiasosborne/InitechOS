@@ -142,7 +142,7 @@ $(BUILD)/control_mut_progress_flat.o: os/flair/control.c os/flair/control.h spec
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -DCTRL_MUT_PROGRESS_FLAT -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CONTROL_OBJ),$(BUILD)/control_mut_progress_flat.o,progress_flat))
 # Calc tenant mutant: the wrong caption, on an otherwise stock volume.
-$(eval $(call tenant-exe-rules,calc_CALC_MUT_CAPTION,$(CALC_SRC),$(CALC_INC) -DCALC_MUT_CAPTION,$(CALC_DEP)))
+$(eval $(call tenant-exe-rules,calc_CALC_MUT_CAPTION,$(CALC_SRC),$(CALC_INC) -DCALC_MUT_CAPTION,$(CALC_DEP),--gc-sections))
 $(eval $(call calc-mut-volume,CALC_MUT_CAPTION))
 
 FILE_COPY_CAPTION := Saving tables to disk...
@@ -221,8 +221,8 @@ TEST_EMU_GATES += test-flair-file-copy test-flair-file-copy-mutant
 PAINT_SRC := os/apps/paint/paint.c
 PAINT_DEP := spec/assets/menu_canon.h
 PAINT_MUTANTS := PAINT_MUT_BAR_TEXT PAINT_MUT_ITEMS_ENABLED
-$(eval $(call tenant-exe-rules,paint,$(PAINT_SRC),,$(PAINT_DEP)))
-$(foreach m,$(PAINT_MUTANTS),$(eval $(call tenant-exe-rules,paint_$(m),$(PAINT_SRC),-D$(m),$(PAINT_DEP))))
+$(eval $(call tenant-exe-rules,paint,$(PAINT_SRC),,$(PAINT_DEP),))
+$(foreach m,$(PAINT_MUTANTS),$(eval $(call tenant-exe-rules,paint_$(m),$(PAINT_SRC),-D$(m),$(PAINT_DEP),)))
 
 PPM_FLAIR_PAINT_CHECK_BIN := $(BUILD)/ppm_flair_paint_check
 $(PPM_FLAIR_PAINT_CHECK_BIN): tools/ppm_flair_paint_check.c spec/chicago12_nfnt_golden.h | $(BUILD)

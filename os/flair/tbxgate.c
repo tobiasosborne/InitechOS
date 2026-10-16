@@ -1461,8 +1461,10 @@ int tbx_take_bar_dirty(void)
     int d = g_slot.bar_dirty;
     g_slot.bar_dirty = 0u;
     return d;
+}
+
 /* ===========================================================================
- * THE FILE COPY ENGINE (spec Sec 12; bead initech-bf2). The shell runs the
+ * THE FILE COPY ENGINE (spec Sec 16; bead initech-bf2). The shell runs the
  * modal box; these do the DOS-handle-API work on the tenant's kernel-owned
  * JFT (g_slot.files, Sec 10) so every handle dies with the tenant.
  * ===========================================================================*/

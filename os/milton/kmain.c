@@ -4830,7 +4830,9 @@ static void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi)
     if (good) { serial_puts(" path="); serial_puts(out); }
     serial_putc('\n');
     tbx_sf_answer(good, out);
-=======
+    flair_live_tenant_service(ctx, bi);
+}
+
 /* TBX_FILECOPY (bead initech-bf2; spec/toolbox_gate.h Sec 12): the resident
  * tenant asked for the FILE COPY box and RETURNED. Read PROGRESS_BAR_RATE
  * (MICHAEL.CFG, the 8.3 alias of michael_bolton.conf, PRD Appendix B) through

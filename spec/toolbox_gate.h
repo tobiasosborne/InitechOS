@@ -725,7 +725,9 @@
 #define TBX_ARGC_SETSCROLL    3u
 #define TBX_ARGC_GETSCROLL    1u
 #define TBX_ARGC_GLOBALTOLOCAL 3u
- * 12. THE FILE COPY DIALOG (bead initech-bf2; PRD Sec 6.3/6.5, Appendix A/B)
+
+/* -------------------------------------------------------------------------
+ * 16. THE FILE COPY DIALOG (bead initech-bf2; PRD Sec 6.3/6.5, Appendix A/B)
  *
  * WHY. PRD Sec 6.3 puts "the FILE COPY box" in the Dialog Manager and "the
  * progress bar" in the Control Manager; Sec 6.5 / Appendix B: "progress bar
