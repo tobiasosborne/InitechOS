@@ -1,11 +1,13 @@
+# PM 2026-10-17 (initech-qskz merged): InitechDOS now asks for the date and time at startup when no
+# AUTOEXEC.BAT exists, exactly as DOS 3.30 does; every capture answers both prompts with Enter first.
 # Screen reproductions for the InitechDOS 3.30 User's Guide (1024-3300-12).
 # name|serial marker that ends the capture|keystrokes (printf %b; \n = Enter)
 # Regenerate with `make pubs-screens`; `make test-pubs-screens` re-captures
 # and diffs against the committed .txt files.
-startup|SHELL-READY|
-dir|bytes free|CLS\nDIR\n
-type|Copies of the cover sheet|CLS\nTYPE MEMO.TXT\n
-copy|bytes free|CLS\nCOPY MEMO.TXT MEMO.BAK\nDIR\n
-del|File not found|COPY MEMO.TXT MEMO.BAK\nCLS\nDEL MEMO.BAK\nTYPE MEMO.BAK\n
-errors|Required parameter missing|CLS\nB:\nDIRECTORY\nTYPE\n
-paths|bytes free|CLS\nMD REPORTS\nCOPY MEMO.TXT REPORTS\nCD REPORTS\nDIR\n
+startup|A:\>|\n\n
+dir|bytes free|\n\nCLS\nDIR\n
+type|Copies of the cover sheet|\n\nCLS\nTYPE MEMO.TXT\n
+copy|bytes free|\n\nCLS\nCOPY MEMO.TXT MEMO.BAK\nDIR\n
+del|File not found|\n\nCOPY MEMO.TXT MEMO.BAK\nCLS\nDEL MEMO.BAK\nTYPE MEMO.BAK\n
+errors|Required parameter missing|\n\nCLS\nB:\nDIRECTORY\nTYPE\n
+paths|bytes free|\n\nCLS\nMD REPORTS\nCOPY MEMO.TXT REPORTS\nCD REPORTS\nDIR\n

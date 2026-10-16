@@ -1,9 +1,9 @@
 InitechDOS  Version 3.30
 Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
-Directory of A:\
-README.TXT          279
-MEMO.TXT          258
-PHONE.TXT          263
+Current date is Mon 3-02-1992
+Enter new date (mm-dd-yy):
+Current time is 9:30:00.00
+Enter new time:
 A:\>
 
 
