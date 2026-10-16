@@ -135,7 +135,7 @@ test-pubs-repro-mutant: $(PUBS_MSG_TEX)
 
 # Screens: boot the shipped COMMAND.COM image (TRACER_IMG) per screen.  The
 # practice diskette (pubs/screens/disk/MANIFEST) carries the shipped external
-# utilities in APPS: the SAME binaries flair-data-rules plants in APPS on the
+# utilities in APPS: the SAME binaries flair-data-rules plants in DOS on the
 # shipped data volume, staged here under their shipped names (initech-ipu5.7).
 PUBS_UTILS_DIR   := $(PUBS_BUILD)/utils
 PUBS_UTILS       := CHKDSK.COM=$(CHKDSK_PROG_BIN) ATTRIB.COM=$(ATTRIB_PROG_BIN) LABEL.COM=$(LABEL_PROG_BIN) \
@@ -197,7 +197,7 @@ pubs-inventory: $(PUBS_GATE) $(PUBS_INT21) $(PUBS_SURFACE) $(DOS_MESSAGES_H)
 	@$(CC) -E -P -Ispec -Ios/milton -Ibuild os/milton/command.c > $(PUBS_CHECK)/command.i
 	@$(PUBS_INT21) > $(PUBS_CHECK)/int21.list
 	@grep -oh '"[A-Z][A-Z0-9]*"' os/milton/batch.c $(KERNEL_CONFIG_SYS_C) | tr -d '"' | sort -u | $(PUBS_SURFACE) > $(PUBS_CHECK)/surface.list
-	@$(PUBS_GATE) inventory $(PUBS_CHECK)/command.i $(PUBS_CHECK)/int21.list $(PUBS_CHECK)/surface.list $(filter APPS/%,$(FLAIR_FIXTURES)) > $(PUBS_CHECK)/shipped
+	@$(PUBS_GATE) inventory $(PUBS_CHECK)/command.i $(PUBS_CHECK)/int21.list $(PUBS_CHECK)/surface.list $(filter APPS/% DOS/%,$(FLAIR_FIXTURES)) > $(PUBS_CHECK)/shipped
 
 ifeq ($(SKIP_PUBS),1)
 test-pubs test-pubs-mutant:

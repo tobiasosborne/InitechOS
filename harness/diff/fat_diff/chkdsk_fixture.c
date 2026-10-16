@@ -38,6 +38,16 @@ static unsigned char *entry(const char *name) {
  unsigned char *e=find_entry(name);if(e)return e;
  fprintf(stderr,"missing fixture %.11s\n",name);exit(2);
 }
+/* initech-zc68: the emu fixture's external is in DOS, found by PATH.
+ * Independent directory decoding, ADR-0003 B.1; do not link artifact FAT. */
+static unsigned char *dos_program(void) {
+ unsigned c=rd(entry("DOS        ")+26);
+ for(unsigned i=0;i<spc*512;i+=32) {
+  unsigned char *e=b+(data+(c-2)*spc)*512+i;
+  if(!memcmp(e,"CHKDSK  COM",11))return e;
+ }
+ fprintf(stderr,"missing fixture DOS/CHKDSK.COM\n");exit(2);
+}
 static void save(const char *p){FILE*f=fopen(p,"wb");if(!f||fwrite(b,1,size,f)!=size||fclose(f))exit(2);}
 static void require(int yes,const char *rule) {if(!yes){fprintf(stderr,"RED CHKDSK-%s\n",rule);exit(1);}}
 static void normalize(unsigned char *p) {
@@ -88,25 +98,26 @@ int main(int argc,char **argv) {
   char*d=t;for(char*s=t;*s;s++)if(*s!='\r')*d++=*s;*d=0;
   require(strstr(t,"Volume CHKTEST      Created JAN  1, 1980  0:00\n")!=0,"REPORT-LABEL");
   require(strstr(t,"bytes total disk space\n") && strstr(t,"bytes in 2 hidden files\n") &&
-          strstr(t,"bytes in 2 directories\n") && strstr(t,"bytes in ") &&
+          strstr(t,!strncmp(mode,"emu",3)?"bytes in 3 directories\n":"bytes in 2 directories\n") && strstr(t,"bytes in ") &&
           strstr(t," user files\n") && strstr(t,"bytes available on disk\n"),"REPORT");
   /* Independently counted fixture: seven user files, five one-cluster files
    * plus 2560-byte FRAG and zero-length EMPTY. Two subdirectories, one hidden
    * data file, and the label (counted as hidden by IBM 7-50).
-   * The emulator additionally carries CHKDSK.COM and AUTOEXEC.BAT. */
+   * The emulator additionally carries DOS/CHKDSK.COM, DOS and AUTOEXEC.BAT. */
   unsigned unit=spc*512,users=7,userbytes=5*unit+((2560+unit-1)/unit)*unit;
   if(!strncmp(mode,"emu",3)) {
    users+=2;
-   userbytes+=((r32(entry("CHKDSK  COM")+28)+unit-1)/unit)*unit;
+   userbytes+=((r32(dos_program()+28)+unit-1)/unit)*unit;
    userbytes+=((r32(entry("AUTOEXECBAT")+28)+unit-1)/unit)*unit;
   }
   if(strstr(mode,"recover")){users++;userbytes+=2*unit;}
   char report[256];
-  snprintf(report,sizeof(report),"%9u bytes total disk space\n%9u bytes in 2 hidden files\n%9u bytes in 2 directories\n%9u bytes in %u user files\n",
-           count*unit,unit,2*unit,userbytes,users);
+  unsigned dirs=!strncmp(mode,"emu",3)?3:2;
+  snprintf(report,sizeof(report),"%9u bytes total disk space\n%9u bytes in 2 hidden files\n%9u bytes in %u directories\n%9u bytes in %u user files\n",
+           count*unit,unit,dirs*unit,dirs,userbytes,users);
   if(!strncmp(mode,"host",4))require(strstr(t,"     4064 bytes total memory\n     3808 bytes free\n")!=0,"MEMORY");
   else {
-   unsigned image_bytes=r32(entry("CHKDSK  COM")+28);
+   unsigned image_bytes=r32(dos_program()+28);
    unsigned base=(0x40100u+image_bytes+0x10000u+15u)&~15u;
    unsigned memory=0x6f000u-base-16u;char expected[128];
    snprintf(expected,sizeof(expected),"%9u bytes total memory\n%9u bytes free\n",memory,memory);

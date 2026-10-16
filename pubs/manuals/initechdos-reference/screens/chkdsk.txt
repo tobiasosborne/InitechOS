@@ -7,8 +7,8 @@ Volume INITECH      Created MAR  1, 1992  8:00
     38912 bytes in 17 user files
   1417728 bytes available on disk
 
-   118448 bytes total memory
-   118448 bytes free
+   118320 bytes total memory
+   118320 bytes free
 A:\>
 
 

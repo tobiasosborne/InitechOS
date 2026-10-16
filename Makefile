@@ -10108,85 +10108,58 @@ $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -D
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
 IWORD_EXE := $(BUILD)/tenant/iword.exe
 
-# Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
-# fixed SOURCE_DATE_EPOCH/TZ pin every FAT timestamp, and -N pins the serial.
-# Contents are intentionally small: README.TXT plus the APPS folder, which since
-# R3.7 (tdnl.14) holds the one disk-launched app, APPS\TENANTFX.EXE. It lives
-# INSIDE APPS, never at the root, so the locked root listing (n=2 shown since
-# tdnl.56 hid DESKTOP.DB and TRASH; n=4 on disk) of every R3.2/
-# R3.3 gate is untouched.
-# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>,<WORD exe to ship>,)
-# APPS also holds, IN THIS ORDER after TENANTFX.EXE (the Finder lays a folder
-# out in directory order, so TENANTFX keeps grid cell 0 and every locked trace
-# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l), 123.EXE
-# (cell 2; Initech 123, beads initech-9u8w / initech-w96l) and WORD.EXE
-# (cell 3; InitechWord, bead initech-l4tj -- $(IWORD_EXE), or a gate-local
-# variant). Appended LAST so cells 0-2 and every locked trace that reaches
-# them are unchanged.
-# R4.6 (initech-tdnl.20): CALC.EXE follows 123.MNU in cell5. All earlier
-# application cells remain fixed; stranded-folder and purge traces are re-keyed.
-# CALCULAT.EXE (the Calculator desk accessory, bead initech-tdnl.17) is appended
-# LAST, after 123.MNU, so every earlier cell and locked trace is unchanged.
-# Every image this recipe mints is REGISTERED in FLAIR_DATA_RECIPE_IMAGES so
-# harness/fixture_volumes.mk can lint that each one carries a declared fixture
-# contract (bead initech-a5sr: three InitechWord mutant volumes merged with no
-# contract and were caught only at emu-gate time, 6865fc0 / 8080833).
+# Deterministic flagship FAT12 volume (initech-zc68 / initech-2kgh).
+# Ref: PRD 6.1/6.5; ADR-0003 DEC-11/12, Appendix A 3Dh/4Bh/4Eh, B.1;
+# MS-DOS 3.3 User's Guide pp.97,135 (PDF182,220): PATH and AUTOEXEC.
+# A: at the transient prompt is the primary-slave data volume:
+# kmain.c flair_tenant_mount_volume fileio_fat_bind + flair_exit_to_dos
+# int21_cwd_reset; command.c command_repl opens A:\AUTOEXEC.BAT.
+# ONE deployment list of all DOS externals: source:name pairs, in disk order.
+FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM
+FLAIR_DATA_AUTOEXEC := $(BUILD)/flagship_autoexec.bat
+$(FLAIR_DATA_AUTOEXEC): Makefile | $(BUILD)
+	@printf '@ECHO OFF\r\nPATH=A:\\DOS\r\n' > $@
+# APPS entry -> file (directory order; independent golden spec/dos_folder_apps.txt):
+# 0 TENANTFX.EXE, 1 CTENANT.EXE, 2 123.EXE, 3 WORD.EXE, 4 123.MNU,
+# 5 CALC.EXE, 6 TEXT.EXE, 7 PAINT.EXE, 8 CALCULAT.EXE, 9 TPSREP.COM,
+# 10 TPSPARM.DAT, 11 TPS.DBF, 12 LEDGER.TXT, 13 MICHAEL.CFG.
+# Cell n centre = (75+68*(n%4),122+52*(n/4)); parks keep absolute targets.
+# Root cells: README.TXT (55,102), APPS (123,102), DOS (191,102),
+# AUTOEXEC.BAT (259,102). DESKTOP.DB/TRASH remain service entries, hidden.
+# Damaged fixture deliberately rebuilds APPS with TRASH at entry 0; unchanged.
 FLAIR_DATA_RECIPE_IMAGES :=
-# R4.6: append Calc after 123.MNU, preserving every existing launch cell.
 CALC_EXE := $(BUILD)/tenant/calc.exe
-# initech-bf2 / tdnl.20 (bar carrier): PAINT.EXE (cell 11), then the FILE COPY
-# data files LEDGER.TXT (cell 12, the ledger Calc's File > Save copies) and
-# MICHAEL.CFG (cell 13, the 8.3 alias of michael_bolton.conf, PRD Appendix B:
-# PROGRESS_BAR_RATE). Appended LAST: every earlier launch cell is unchanged.
 PAINT_EXE := $(BUILD)/tenant/paint.exe
 FLAIR_DATA_LEDGER  := $(FAT12_FIXTURE_DIR)/flagship_ledger.txt
 FLAIR_DATA_MICHAEL := $(FAT12_FIXTURE_DIR)/flagship_michael.cfg
-# TPSREP.COM (os/milton/tpsrep_program.asm, the SAME flat build test-tps-report
-# runs), its TPSPARM.DAT and the real-dBASE-written TPS.DBF (harness/diff/tps,
-# harness/emu/fcb_tps.mk). Appended to APPS AFTER CALC.EXE, so every existing
-# launch cell (0..10) is unchanged; they are cells 11, 12, 13. TPSREP reads
-# TPSPARM.DAT and the table from the CURRENT directory (spec/tps_ritual.json
-# R1), so the user exits to A:\>, types CD APPS, then TPSREP TPS.DBF. The
-# paths are spelled here (not via fcb_tps.mk's variables) because that file
-# is included after this recipe is expanded; fcb_tps.mk builds the .bin.
 FLAIR_TPSREP_COM  := $(BUILD)/tpsrep_program.bin
 FLAIR_TPSPARM_DAT := harness/diff/tps/tpsparm.dat
 FLAIR_TPS_DBF     := harness/diff/tps/tps.dbf
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(foreach pair,$(FLAIR_DOS_EXTERNALS),$(word 1,$(subst :, ,$(pair)))) $(FLAIR_DATA_AUTOEXEC) $(CALC_EXE) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
-		-N 0x494e4954 -v INITECH ::
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(FLAIR_DATA_README) ::README.TXT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 -N 0x494e4954 -v INITECH ::
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_README) ::README.TXT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $$@ ::APPS
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(2) ::APPS/TENANTFX.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(CTENANT_EXE) ::APPS/CTENANT.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(3) ::APPS/123.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(4) ::APPS/WORD.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $$@ ::DOS
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_AUTOEXEC) ::AUTOEXEC.BAT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(2) ::APPS/TENANTFX.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CTENANT_EXE) ::APPS/CTENANT.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(3) ::APPS/123.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CHKDSK_PROG_BIN) ::APPS/CHKDSK.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(ATTRIB_PROG_BIN) ::APPS/ATTRIB.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(LABEL_PROG_BIN) ::APPS/LABEL.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(XCOPY_PROG_BIN) ::APPS/XCOPY.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(TREE_PROG_BIN) ::APPS/TREE.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALC_EXE) ::APPS/CALC.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(EDLIN_PROG_BIN) ::APPS/EDLIN.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(or $(5),$(ITEXT_EXE)) ::APPS/TEXT.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(or $(5),$(ITEXT_EXE)) ::APPS/TEXT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(PAINT_EXE) ::APPS/PAINT.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALCDA_EXE) ::APPS/CALCULAT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSREP_COM) ::APPS/TPSREP.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSPARM_DAT) ::APPS/TPSPARM.DAT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPS_DBF) ::APPS/TPS.DBF
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALCDA_EXE) ::APPS/CALCULAT.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF, CALCULAT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
+	@set -e; $(foreach pair,$(FLAIR_DOS_EXTERNALS),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(word 1,$(subst :, ,$(pair))) ::DOS/$(word 2,$(subst :, ,$(pair)));)
+	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 14 files, DOS 9 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -10775,7 +10748,7 @@ endef
 #   FINDER_WIN_MUT_VOLLABEL_SHOWN -> finder_win_skip_entry never skips the FAT
 #                    volume-label entry, so the volume NAME leaks into the
 #                    listing as a fifth document icon -> the open marker says
-#                    "FINDER-OPEN-VOLUME win=0 n=3", never n=2 (design F1.1)
+#                    "FINDER-OPEN-VOLUME win=0 n=5", never n=2 (design F1.1)
 #   FINDER_WIN_MUT_SINGLETON_DUP -> finder_win_find always MISSES, so re-opening
 #                    an already-open folder builds a SECOND window instead of
 #                    raising the first -> the nav chain's closing line becomes
@@ -11397,7 +11370,7 @@ $(INITECH_IMG): $(FLAIRTENANTS_IMG) | $(BUILD)
 	@printf ">>> image: %s (flagship alias of %s -- FLAIR desktop + HELLO/NOTES co-resident tenants)\n" "$@" "$(FLAIRTENANTS_IMG)"
 
 image: $(INITECH_IMG) $(FLAIR_DATA_IMG)
-	@printf ">>> image data: %s (FAT12 primary-slave volume; README.TXT + APPS)\n" "$(FLAIR_DATA_IMG)"
+	@printf ">>> image data: %s (FAT12 primary-slave volume; README.TXT + APPS + DOS + AUTOEXEC.BAT)\n" "$(FLAIR_DATA_IMG)"
 
 # ---------------------------------------------------------------------------
 # REAL action target: run
@@ -19505,14 +19478,14 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_OPEN_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the OPEN boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the double-click did not open the root disk window with the expected 4-icon listing. Two failure axes, and the serial below says which: (a) NO FINDER-OPEN-VOLUME line at all = the double-click synthesiser did not fire (the measured delta was 8 ticks vs FINDER_DBLCLICK_TICKS=20 when this gate landed -- if the harness pacing has slowed, fix the harness or the trace, NEVER the constant); (b) a FINDER-OPEN-VOLUME line with a different win=/n= = the window opened but the enumeration changed (a file added to the data volume, or the VOLLABEL skip broke)\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" || true; exit 1; }
 	@! grep -q '^FINDER-WIN-OPEN-FAIL' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the disk window reported an open failure\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" || true; exit 1; }
-	@printf '>>> test-flair-desktop-icons [5/7]: FINDER-OPEN-VOLUME win=0 n=2 (the double-click opened the REAL root disk window)\n'
+	@printf '>>> test-flair-desktop-icons [5/7]: FINDER-OPEN-VOLUME win=0 n=4 (the double-click opened the REAL root disk window)\n'
 	@# ---- leg 6: drag the volume icon to (400,400) and persist. ----
 
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
@@ -19581,7 +19554,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 #       singles -> the FINDER-OPEN-VOLUME line is ABSENT entirely (and two
 #       SELECT lines appear instead) -> the leg-5 marker assertion RED.
 #       (Re-keyed with the leg itself at bead initech-tdnl.10: the clean image
-#       now emits "FINDER-OPEN-VOLUME win=0 n=2" and the mutant emits no
+#       now emits "FINDER-OPEN-VOLUME win=0 n=4" and the mutant emits no
 #       FINDER-OPEN-VOLUME line at all.)
 .PHONY: test-flair-desktop-icons-mutant
 test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
@@ -19607,9 +19580,9 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base_open --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" >/dev/null 2>&1 || true
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_deskicons_mut_base_open.serial" \
-		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=2 -- the baseline is broken\n'; exit 1; }
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_deskicons_mut_base_open.serial" \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken\n'; exit 1; }
 	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on leg DEFAULT and opens on a double-click\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# ---- mutant 1: NO_UNDERLAY -- the DEFAULT-leg grader MUST go RED. ----
@@ -19768,7 +19741,7 @@ endif
 #   1 ROOTWIN   FLAIR_ICON_OPEN_SPEC (the LOCKED R3.2 trace, reused verbatim --
 #               it is already the "double-click the volume" gesture and
 #               duplicating it here would be two sources of truth); dump after
-#               "FINDER-OPEN-VOLUME win=0 n=2"
+#               "FINDER-OPEN-VOLUME win=0 n=4"
 #               -> grader leg ROOTWIN: the window chrome at the cascaded default
 #                  frame (20,60)..(380,280) -- frame rules, the title bar's
 #                  bottom rule, the go-away box's dark ring, and the CENTRED
@@ -19778,7 +19751,7 @@ endif
 #               *** THIS is the pixel leg test-flair-desktop-icons leg 5
 #                   deliberately deferred to this lane.
 #   2 NAV       FLAIR_FOLDER_NAV_SPEC; serial only. The full chain, in order:
-#                  FINDER-OPEN-VOLUME win=0 n=2
+#                  FINDER-OPEN-VOLUME win=0 n=4
 #                  FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
 #                  FLAIR-DRAG win 0 (40,80)->(250,250)
 #                  FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
@@ -19792,7 +19765,7 @@ endif
 #                  FINDER-CLOSE-WINDOW win=0
 #                  DESKTOP-DB-SAVE n=3      (2 desktop icons + 1 kind=4 view)
 #   4 PERSIST-R REBOOT copy A, replay FLAIR_ICON_OPEN_SPEC; dump after
-#               "FINDER-OPEN-VOLUME win=0 n=2"
+#               "FINDER-OPEN-VOLUME win=0 n=4"
 #                  DESKTOP-DB-OK + DESKTOP-DB-VIEWS n=1 (never CREATE/REGEN)
 #               -> grader leg MOVEDWIN: the same window, same chrome, same four
 #                  icons, but at the SAVED origin (120,180) -- and the cascaded
@@ -19898,17 +19871,17 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_ROOT_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_ROOT_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the ROOTWIN boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the double-click did not open the root disk window with the expected 4-icon listing\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" || true; exit 1; }
 	@! grep -q '^FINDER-WIN-ICONS-FULL' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the per-window icon cap bit on a 4-entry root\n'; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: ROOTWIN screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the opened root window does not carry the derived chrome + the four grid icons\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [1/8]: FINDER-OPEN-VOLUME win=0 n=2 + grader leg ROOTWIN\n'
+	@printf '>>> test-flair-disk-windows [1/8]: FINDER-OPEN-VOLUME win=0 n=4 + grader leg ROOTWIN\n'
 	@# ---- leg 1b (bead initech-tdnl.12): the SAME dump, graded for BAND 2. ----
 	@# Opening a disk window makes the Finder the FOREGROUND TENANT, so band 2
 	@# must have swapped from HELLO's Photoshop bar to the Finder's own bar.
@@ -19926,7 +19899,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		--quit-after "FINDER-OPEN-FOLDER name=APPS win=1 singleton=1" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_NAV_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_NAV_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the NAV boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: NAV leg never opened the root window\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
 	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the double-click on the APPS folder icon at the derived cell (107,86)+(16,16) did not open a NEW folder window in slot 1\n'; grep -E '^FINDER-|^FLAIR-DRAG' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
@@ -19964,7 +19937,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSR_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_PERSR_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the PERSIST-REBOOT boot\n'; exit 1; fi
 	@grep -qxF 'DESKTOP-DB-OK' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
@@ -19978,7 +19951,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	fi
 	@grep -qxF 'DESKTOP-DB-VIEWS n=1' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the reboot did not take back exactly ONE kind=4 view record\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the reboot could not re-open the root window\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: PERSIST-REBOOT screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" \
@@ -20090,7 +20063,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 # GREEN first on BOTH mutated legs, so the only variable is the mutation.
 #   win_vollabel_shown (-DFINDER_WIN_MUT_VOLLABEL_SHOWN): the FAT volume-label
 #       entry is no longer skipped, so the volume NAME becomes a fifth icon ->
-#       the open marker must read "FINDER-OPEN-VOLUME win=0 n=3" and n=2 must be
+#       the open marker must read "FINDER-OPEN-VOLUME win=0 n=5" and n=2 must be
 #       ABSENT. Asserted as an EXACT divergence, both directions.
 #   win_singleton_dup  (-DFINDER_WIN_MUT_SINGLETON_DUP): finder_win_find always
 #       misses, so the second open of APPS builds a SECOND window ->
@@ -20114,9 +20087,9 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_open --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" >/dev/null 2>&1 || true
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
-		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=2 -- the baseline is broken (not a mutant)\n'; exit 1; }
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken (not a mutant)\n'; exit 1; }
 
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_nav --out "$(BUILD)" \
@@ -20131,17 +20104,17 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_vollabel_shown.img" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_vollabel --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=3" \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=5" \
 		2> "$(BUILD)/flair_diskwin_mut_vollabel.report" || true
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant missing mount marker (not comparable)\n'; exit 1; }
 	@if grep -q 'triple_fault=1' "$(BUILD)/flair_diskwin_mut_vollabel.report"; then printf '!!! test-flair-disk-windows-mutant FAIL: vollabel TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
-	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_diskwin_mut_vollabel.serial"; then \
+	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_vollabel.serial"; then \
 		printf '!!! test-flair-disk-windows-mutant FAIL: the leg-1 count tooth is DECORATION -- VOLLABEL_SHOWN still reported n=2\n'; exit 1; \
 	fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=3' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=5' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant did not report the EXPECTED n=3 -- wrong failure axis, the mutant is not doing what it claims\n'; grep '^FINDER-' "$(BUILD)/flair_diskwin_mut_vollabel.serial" || true; exit 1; }
-	@printf '>>> mutant win_vollabel_shown correctly RED: the volume LABEL leaked into the listing -- FINDER-OPEN-VOLUME win=0 n=3 (expected n=2)\n'
+	@printf '>>> mutant win_vollabel_shown correctly RED: the volume LABEL leaked into the listing -- FINDER-OPEN-VOLUME win=0 n=5 (expected n=4)\n'
 	@# ---- mutant 2: SINGLETON_DUP -- the second open MUST build a 2nd window. ----
 
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_singleton_dup.img" --disk2 "$(FLAIR_DW_DATA_A)" \
@@ -20378,7 +20351,7 @@ test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENA
 	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-file-ops FAIL: mtools (mdir/mtype/mcopy) missing\n'; exit 1; }
 	@# ---- leg 1: INTO a folder icon ----
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_INTO_NAME),$(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img,$(FLAIR_FILEOPS_INTO_SPEC),FINDER-MOVE name=README.TXT from=0 to=3,0)
-	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-OPEN-VOLUME win=0 n=2,the volume double-click did not open the root window)
+	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-OPEN-VOLUME win=0 n=4,the volume double-click did not open the root window)
 	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-DROP-HILITE name=APPS,the APPS folder was not lit as the drop target)
 	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-MOVE name=README.TXT from=0 to=3,the drop on APPS did not move README.TXT into APPS (cluster 3))
 	@mdir -i $(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img ::/APPS | grep -q '^README   TXT ' || { printf '!!! test-flair-file-ops FAIL: mtools does not see README.TXT in ::/APPS\n'; exit 1; }
@@ -20513,7 +20486,7 @@ FLAIR_SVC_NAME     := flair_finder_service
 FLAIR_SVC_DMG_NAME := flair_finder_service_damaged
 
 # $(call svc-leg1-check,<serial name>): exits 0 iff leg 1's serial + mtools hold.
-svc-leg1-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(1).serial" \
+svc-leg1-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(1).serial" \
 	&& grep -qxF 'FINDER-TRASH name=README.TXT origin=0' "$(BUILD)/$(1).serial" \
 	&& grep -qxF 'DESKTOP-DB-SAVE n=3' "$(BUILD)/$(1).serial"
 
@@ -20530,12 +20503,12 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_SVC_NAME)_open_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/$(FLAIR_SVC_NAME)_open_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(FLAIR_SVC_NAME)_open" --out "$(BUILD)" --mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_SVC_NAME)_open.report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_NAME)_open.report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial" || { printf '!!! test-flair-finder-service FAIL: leg 1a -- want FINDER-OPEN-VOLUME win=0 n=2 (README.TXT + APPS only)\n'; grep -E '^FINDER' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial"; exit 1; }
-	@[ -s "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" ] || { printf '!!! test-flair-finder-service FAIL: no screendump at FINDER-OPEN-VOLUME win=0 n=2\n'; exit 1; }
-	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" || { printf '!!! test-flair-finder-service FAIL: the root window is not README.TXT + APPS with bare cells where DESKTOP.DB / TRASH were drawn\n'; exit 1; }
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial" || { printf '!!! test-flair-finder-service FAIL: leg 1a -- want FINDER-OPEN-VOLUME win=0 n=4 (README.TXT + APPS + DOS + AUTOEXEC.BAT)\n'; grep -E '^FINDER' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial"; exit 1; }
+	@[ -s "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" ] || { printf '!!! test-flair-finder-service FAIL: no screendump at FINDER-OPEN-VOLUME win=0 n=4\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" || { printf '!!! test-flair-finder-service FAIL: the root window is not README/APPS/DOS/AUTOEXEC with service cells 4-5 bare\n'; exit 1; }
 	@# ---- leg 1b: a file dragged to the Trash is staged; the DB is written ----
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(FLAIR_SVC_NAME)_data.img
@@ -20544,12 +20517,12 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 		--name "$(FLAIR_SVC_NAME)" --out "$(BUILD)" --mouse "$(FLAIR_SVC_TRASH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "DESKTOP-DB-SAVE n=3" --timeout-ms 40000 2> "$(BUILD)/$(FLAIR_SVC_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_NAME).report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT\n'; exit 1; fi
-	@$(call svc-leg1-check,$(FLAIR_SVC_NAME)) || { printf '!!! test-flair-finder-service FAIL: leg 1b -- want FINDER-OPEN-VOLUME win=0 n=2, FINDER-TRASH name=README.TXT origin=0, DESKTOP-DB-SAVE n=3\n'; grep -E '^(FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_NAME).serial"; exit 1; }
+	@$(call svc-leg1-check,$(FLAIR_SVC_NAME)) || { printf '!!! test-flair-finder-service FAIL: leg 1b -- want FINDER-OPEN-VOLUME win=0 n=4, FINDER-TRASH name=README.TXT origin=0, DESKTOP-DB-SAVE n=3\n'; grep -E '^(FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_NAME).serial"; exit 1; }
 	@mdir -a -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img :: > $(BUILD)/$(FLAIR_SVC_NAME).root.lst
 	@grep -qE '^DESKTOP  DB ' $(BUILD)/$(FLAIR_SVC_NAME).root.lst && grep -qE '^TRASH .*<DIR>' $(BUILD)/$(FLAIR_SVC_NAME).root.lst || { printf '!!! test-flair-finder-service FAIL: mtools no longer lists DESKTOP.DB and TRASH in the root (hidden from the Finder only)\n'; cat $(BUILD)/$(FLAIR_SVC_NAME).root.lst; exit 1; }
 	@mtype -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-service FAIL: README.TXT was not staged byte-identical into ::/TRASH\n'; exit 1; }
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf '!!! test-flair-finder-service FAIL: DESKTOP.DB is not 8 + 3*24 = 80 bytes after the staging\n'; exit 1; }
-	@printf '>>> test-flair-finder-service [1/2]: root shows n=2 (pixel-graded, cells 2-3 bare); README staged, DB written (80 B); mtools still lists DESKTOP.DB + TRASH\n'
+	@printf '>>> test-flair-finder-service [1/2]: root shows n=4 (pixel-graded, cells 4-5 bare); README staged, DB written (80 B); mtools still lists DESKTOP.DB + TRASH\n'
 	@# ---- leg 2: the reviewer's damaged volume ----
 	@$(call fixture-preflight,$(FLAIR_DAMAGED_DATA_IMG))
 	cp -f $(FLAIR_DAMAGED_DATA_IMG) $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img
@@ -20558,12 +20531,12 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 		--name "$(FLAIR_SVC_DMG_NAME)" --out "$(BUILD)" --mouse "$(FLAIR_SVC_DAMAGED_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "FINDER-OPEN-FOLDER name=TRASH win=2" --timeout-ms 40000 2> "$(BUILD)/$(FLAIR_SVC_DMG_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_DMG_NAME).report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT on the damaged volume\n'; exit 1; fi
-	@for l in 'FLAIR-FAT-MOUNT-OK' 'FINDER-OPEN-VOLUME win=0 n=2' 'FINDER-TRASH name=NEWFOLD origin=0' 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' 'FINDER-OPEN-FOLDER name=TRASH win=2 singleton=0'; do \
+	@for l in 'FLAIR-FAT-MOUNT-OK' 'FINDER-OPEN-VOLUME win=0 n=4' 'FINDER-TRASH name=NEWFOLD origin=0' 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' 'FINDER-OPEN-FOLDER name=TRASH win=2 singleton=0'; do \
 		grep -qxF "$$l" "$(BUILD)/$(FLAIR_SVC_DMG_NAME).serial" || { printf '!!! test-flair-finder-service FAIL: leg 2 (damaged volume) -- missing serial line: %s\n' "$$l"; grep -E '^(FLAIR-FAT|FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_DMG_NAME).serial"; exit 1; }; done
 	@mdir -i $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img ::/TRASH | grep -qE '^NEWFOLD .*<DIR>' || { printf '!!! test-flair-finder-service FAIL: NEWFOLD is not in the ROOT ::/TRASH\n'; exit 1; }
 	@mtype -i $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img ::/APPS/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-service FAIL: the stranded ::/APPS/TRASH/README.TXT was lost or changed (no user data may be deleted)\n'; exit 1; }
 	@[ "$$(mdir -a -i $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img :: | grep -cE '^TRASH .*<DIR>')" = 1 ] || { printf '!!! test-flair-finder-service FAIL: the root does not hold exactly one TRASH\n'; exit 1; }
-	@printf '>>> test-flair-finder-service [2/2]: damaged volume boots; root n=2; NEWFOLD staged in ::/TRASH; stranded APPS\\TRASH opens as an ordinary folder and keeps README.TXT (mtools)\n'
+	@printf '>>> test-flair-finder-service [2/2]: damaged volume boots; root n=4; NEWFOLD staged in ::/TRASH; stranded APPS\\TRASH opens as an ordinary folder and keeps README.TXT (mtools)\n'
 	@printf '>>> test-flair-finder-service: green\n'
 
 test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_service_shown.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
@@ -20576,13 +20549,13 @@ test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_finder_service_mut_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_service_shown.img" --disk2 "$(BUILD)/flair_finder_service_mut_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_finder_service_mut --out "$(BUILD)" --mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=6" \
 		--timeout-ms 20000 2> "$(BUILD)/flair_finder_service_mut.report" || true
 	@grep -q '^FINDER-OPEN-VOLUME win=0 ' "$(BUILD)/flair_finder_service_mut.serial" && [ -s "$(BUILD)/flair_finder_service_mut.ppm" ] || { printf '!!! test-flair-finder-service-mutant: the mutant never opened the root / no dump (not comparable)\n'; exit 1; }
-	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_finder_service_mut.serial"; then printf '!!! test-flair-finder-service-mutant FAIL: the filter-removed kernel still reported n=2 -- decoration\n'; exit 1; fi
+	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_finder_service_mut.serial"; then printf '!!! test-flair-finder-service-mutant FAIL: the filter-removed kernel still reported n=4 -- decoration\n'; exit 1; fi
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/flair_finder_service_mut.ppm" > $(BUILD)/flair_finder_service_mut.grade 2>&1; then printf '!!! test-flair-finder-service-mutant FAIL: the grader PASSED a root window that draws DESKTOP.DB / TRASH -- decoration\n'; exit 1; fi
 	@grep -q 'is not bare content' $(BUILD)/flair_finder_service_mut.grade || { printf '!!! test-flair-finder-service-mutant FAIL: the grader went RED for the wrong reason\n'; cat $(BUILD)/flair_finder_service_mut.grade; exit 1; }
-	@printf '>>> test-flair-finder-service-mutant [1/2]: SERVICE_SHOWN correctly RED -- %s; grader: cells 2-3 not bare\n' "$$(grep -m1 '^FINDER-OPEN-VOLUME' $(BUILD)/flair_finder_service_mut.serial)"
+	@printf '>>> test-flair-finder-service-mutant [1/2]: SERVICE_SHOWN correctly RED -- %s; grader: cells 4-5 not bare\n' "$$(grep -m1 '^FINDER-OPEN-VOLUME' $(BUILD)/flair_finder_service_mut.serial)"
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_finder_service_guard_data.img
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_finder_service_guard_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
@@ -20682,7 +20655,7 @@ test-flair-trash-window: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(
 	@command -v mdir >/dev/null 2>&1 && command -v mshowfat >/dev/null 2>&1 || { printf '!!! test-flair-trash-window FAIL: mtools (mdir/mtype/mcopy/mshowfat) missing\n'; exit 1; }
 	@# ---- leg 1: OPEN the Trash ----
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_TW_OPEN_NAME),$(BUILD)/$(FLAIR_TW_OPEN_NAME)_data.img,$(FLAIR_TRASHWIN_OPEN_SPEC),FINDER-OPEN-TRASH win=,1)
-	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-OPEN-VOLUME win=0 n=2,the root window did not open showing README.TXT + APPS only (TRASH must stay hidden))
+	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-OPEN-VOLUME win=0 n=4,the root window did not open showing README.TXT + APPS only (TRASH must stay hidden))
 	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-TRASH name=README.TXT origin=0,README.TXT was not staged)
 	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-OPEN-TRASH win=1 n=1 singleton=0,the Trash double-click did not open a NEW Trash window in slot 1 listing the one staged item)
 	@! grep -q 'NYI' "$(BUILD)/$(FLAIR_TW_OPEN_NAME).serial" || { printf '!!! test-flair-trash-window FAIL: an NYI line on serial\n'; grep NYI "$(BUILD)/$(FLAIR_TW_OPEN_NAME).serial"; exit 1; }
@@ -20799,8 +20772,20 @@ mtype -i "$(1)" ::/TRASH/README.TXT 2>/dev/null | cmp -s - $(FLAIR_DATA_README) 
 [ "$$(mcopy -n -i "$(1)" ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf 'ET-CANCEL: DESKTOP.DB is not 80 bytes (the origin record was dropped)\n'; exit 1; }
 endef
 
+# Independent mtools allocation golden after purging README + APPS. DOS and
+# AUTOEXEC survive; bootstrap bookkeeping needs two clusters (DB and TRASH).
+FLAIR_EMPTY_REFERENCE_IMG := $(BUILD)/flair_empty_reference.img
+$(FLAIR_EMPTY_REFERENCE_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $@
+	@mdeltree -i $@ ::APPS
+	@mdel -i $@ ::README.TXT
+	@printf 'IDB1\001\000\000\000' | SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ - ::DESKTOP.DB
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::TRASH
+	@$(call fixture-check,recipe,$@)
+
 .PHONY: test-flair-empty-trash test-flair-empty-trash-mutant
-test-flair-empty-trash: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+test-flair-empty-trash: $(FLAIR_EMPTY_REFERENCE_IMG) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-empty-trash : Special > Empty Trash (bead initech-6k12)\n'
 	@printf '  Ref: os/flair/finder_windows.h Sec 12; spec/flair_trash_traces.mk Sec 3.\n'
@@ -20834,14 +20819,20 @@ test-flair-empty-trash: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	grep -E '^(FINDER-TRASH|FINDER-OPEN-TRASH|FINDER-CMD|DESK-TRASH-ICON|DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_ET_OK_NAME).serial" > $(FLAIR_ET_CHAIN).got || true; \
 	cmp -s $(FLAIR_ET_CHAIN).want $(FLAIR_ET_CHAIN).got || { printf '!!! test-flair-empty-trash FAIL: the OK serial chain differs from the locked one (n=%s k=%s from mtools)\n' "$$n" "$$k"; diff $(FLAIR_ET_CHAIN).want $(FLAIR_ET_CHAIN).got; exit 1; }
 	@[ "$$($(call tw-trash-entries,$(BUILD)/$(FLAIR_ET_OK_NAME)_data.img))" = 0 ] || { printf '!!! test-flair-empty-trash FAIL: ::/TRASH is not empty after OK\n'; mdir -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::/TRASH; exit 1; }
-	@[ "$$(mdir -a -b -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img :: | sort | tr '\n' ' ')" = '::/DESKTOP.DB ::/TRASH/ ' ] || { printf '!!! test-flair-empty-trash FAIL: the root holds more than DESKTOP.DB + TRASH after the purge\n'; mdir -a -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::; exit 1; }
-	@out=$$(fsck.fat -n $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img 2>&1); rc=$$?; printf '    fsck.fat: %s\n' "$$(printf '%s' "$$out" | tail -1)"; \
-	[ $$rc -eq 0 ] && printf '%s' "$$out" | tail -1 | grep -q ' 2/[0-9]* clusters$$' || { printf '!!! test-flair-empty-trash FAIL: fsck.fat is not clean with exactly 2 clusters in use (a purged chain leaked)\n%s\n' "$$out"; exit 1; }
+	@[ "$$(mdir -a -b -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img :: | sort | tr '\n' ' ')" = '::/AUTOEXEC.BAT ::/DESKTOP.DB ::/DOS/ ::/TRASH/ ' ] || { printf '!!! test-flair-empty-trash FAIL: the root differs from AUTOEXEC + DOS + DESKTOP.DB + TRASH after the purge\n'; mdir -a -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::; exit 1; }
+	@# The two surviving public root entries retain all DOS chains. Compare the
+	@# independent fsck used-cluster delta against mtools' pre-purge allocation.
+	@set -eu; img=$(BUILD)/$(FLAIR_ET_OK_NAME)_data.img; \
+	 fsck.fat -n $$img > $(BUILD)/flair_empty_fsck.log; \
+	 fsck.fat -n $(BUILD)/flair_empty_reference.img > $(BUILD)/flair_empty_reference.fsck; \
+	 a=$$(tail -1 $(BUILD)/flair_empty_fsck.log | sed 's/.*files, //'); \
+	 b=$$(tail -1 $(BUILD)/flair_empty_reference.fsck | sed 's/.*files, //'); \
+	 [ "$$a" = "$$b" ] || { echo '!!! empty-trash: surviving allocation differs from mtools'; exit 1; }
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 56 ] || { printf '!!! test-flair-empty-trash FAIL: DESKTOP.DB is not 56 bytes (the origins were not dropped)\n'; exit 1; }
 	@[ -s "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" ] || { printf '!!! test-flair-empty-trash FAIL: OK screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_TRASH_CHECK_BIN) emptied "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the alert is not gone / the Trash is not EMPTY again\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) trashempty "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the open Trash window did not empty\n'; exit 1; }
-	@printf '>>> test-flair-empty-trash [3/3]: OK -- purged=n (README + APPS + its files, from mtools) depth-first; mtools: ::/TRASH empty, root = DESKTOP.DB + TRASH; fsck.fat clean, 2 clusters used; Trash window + icon EMPTY (pixel-graded)\n'
+	@printf '>>> test-flair-empty-trash [3/3]: OK -- purged=n (README + APPS + its files, from mtools) depth-first; mtools: ::/TRASH empty, root = AUTOEXEC + DOS + DESKTOP.DB + TRASH; fsck.fat allocation == mtools; Trash window + icon EMPTY (pixel-graded)\n'
 	@printf '>>> test-flair-empty-trash: green\n'
 
 # Rule 6: FINDER_WIN_MUT_EMPTY_NO_CONFIRM (finder_windows.o) purges at the
@@ -20974,7 +20965,7 @@ $(FLAIR_SCROLL_DATA_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	@: > $(BUILD)/.flair_scroll_empty.txt
-	@for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19; do \
+	@for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17; do \
 		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/.flair_scroll_empty.txt ::F$$i.TXT || exit 1; \
 	done
 	@printf '>>> flair scroll data: %s (flagship + F00..F19.TXT, 22 root entries before boot; DESKTOP.DB and TRASH join at boot, hidden)\n' "$@"
@@ -21040,7 +21031,7 @@ test-flair-scroll: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_
 	@printf '>>> test-flair-scroll [5/6]: down arrow HELD -> 9 repeated steps to 138; graded at the end\n'
 	@# ---- [6] FIT: nothing to scroll ----
 	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_fit,$(FLAIR_DATA_IMG),$(FLAIR_SCROLL_FIT_SPEC),FLAIR-SCROLL-IGNORED win 0 h,1)
-	$(call fo-has,flair_scroll_fit,FINDER-OPEN-VOLUME win=0 n=2,the flagship volume did not open)
+	$(call fo-has,flair_scroll_fit,FINDER-OPEN-VOLUME win=0 n=4,the flagship volume did not open)
 	$(call fo-has,flair_scroll_fit,FLAIR-SCROLL-IGNORED win 0 v,the DISABLED vertical bar click was not reported as ignored)
 	$(call fo-has,flair_scroll_fit,FLAIR-SCROLL-IGNORED win 0 h,the DISABLED horizontal bar click was not reported as ignored)
 	@! grep -q '^FLAIR-SCROLL win' "$(BUILD)/flair_scroll_fit.serial" || { printf '!!! test-flair-scroll FAIL: a DISABLED bar scrolled\n'; exit 1; }
@@ -21106,7 +21097,7 @@ test-flair-finder-follow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $
 	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-finder-follow FAIL: mtools (mdir/mtype) missing\n'; exit 1; }
 	@# ---- [1] DRAG ----
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FF_DRAG_NAME),$(BUILD)/$(FLAIR_FF_DRAG_NAME)_data.img,$(FLAIR_FOLLOW_DRAG_SPEC),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),1)
-	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FINDER-OPEN-VOLUME win=0 n=2,the volume double-click did not open the root window)
+	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FINDER-OPEN-VOLUME win=0 n=4,the volume double-click did not open the root window)
 	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),the root window did not move by the locked (+100$(fo_comma)+120))
 	@[ -s "$(BUILD)/$(FLAIR_FF_DRAG_NAME).ppm" ] || { printf '!!! test-flair-finder-follow FAIL: DRAG screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_FF_DRAG_NAME).ppm" \
@@ -21293,7 +21284,7 @@ grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' $(1) || { printf 'FC
 grep -qxF 'FLAIR-MENU menu=128 item=0 (sel=0x00000000)' $(1) || { printf 'FC: band-1 File > About was selectable\n'; exit 1; }; \
 ! grep -qE 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)( |$$)' $(1) || { printf 'FC: a fake command reached the command spine: %s\n' "$$(grep -E 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)' $(1) | head -1)"; exit 1; }; \
 grep -q 'name=SELECT_ALL src=mouse sel=1$$' $(1) || { printf 'FC: Edit > Select All did not dispatch\n'; exit 1; }; \
-grep -qxF 'FINDER-SELECT-ALL win=0 n=2' $(1) || { printf 'FC: Select All did not select both shown icons\n'; exit 1; }
+grep -qxF 'FINDER-SELECT-ALL win=0 n=4' $(1) || { printf 'FC: Select All did not select both shown icons\n'; exit 1; }
 endef
 .PHONY: test-flair-finder-cmds test-flair-finder-cmds-mutant
 test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
@@ -21310,10 +21301,10 @@ test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	@# content starts at L+6, so the set-up drag lands at x=134 (was 129).
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-WIN-DRAG win=0 name=README.TXT x=134 y=186,the set-up drag did not move README.TXT off its cell)
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FLAIR-MENU menu=514 item=12 (sel=0x0202000C),the release did not select View > Arrange (by Name))
-	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-ARRANGE win=0 moved=2,Arrange (by Name) did not move the two out-of-order icons)
+	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-ARRANGE win=0 moved=3,Arrange (by Name) did not move the three out-of-order icons)
 	@[ -s "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" ] || { printf '!!! test-flair-finder-cmds FAIL: ARRANGE screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) arranged "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" || { printf '!!! test-flair-finder-cmds FAIL: the icons are not on the grid in NAME order\n'; exit 1; }
-	@printf '>>> test-flair-finder-cmds [2/2]: View > Arrange (by Name) -- FINDER-ARRANGE moved=2, icons graded in name order (leg arranged)\n'
+	@printf '>>> test-flair-finder-cmds [2/2]: View > Arrange (by Name) -- FINDER-ARRANGE moved=3, icons graded in name order (leg arranged)\n'
 	@printf '>>> test-flair-finder-cmds: green\n'
 
 $(eval $(call flair-tenants-findermenu-mutant-rules,FINDER_MENU_MUT_STUB_ENABLED,menu_stub_enabled))
@@ -22858,11 +22849,11 @@ RECORD_SETTLE_fg_desk = 300
 # out APPS, DESKTOP.DB, README.TXT, TRASH. DOUBLE-CLICK record image. Settle
 # 150 ms on the 46-event select_all trace (55 before tdnl.78) keeps it inside the image's pump life.
 RECORD_SPEC_select_all   = $(FLAIR_CMDS_FAKES_SPEC)
-RECORD_MARKER_select_all = FINDER-SELECT-ALL win=0 n=2
+RECORD_MARKER_select_all = FINDER-SELECT-ALL win=0 n=4
 RECORD_IMAGE_select_all  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_select_all = 150
 RECORD_SPEC_arrange      = $(FLAIR_CMDS_ARRANGE_SPEC)
-RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=2
+RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=3
 RECORD_IMAGE_arrange     = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_arrange    = 300
 # scroll_arrow / scroll_page / scroll_thumb (bead initech-tdnl.35, audit F02;
@@ -23359,6 +23350,14 @@ RECORD_MARKER_calculator = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
 RECORD_IMAGE_calculator = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_calculator = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_calculator = 300
+# initech-zc68: the DOS folder is a normal spatial Finder window. PM records
+# after merge. From DOS (191,102), park at (620,460): (+429,+358).
+RECORD_SCRIPTS += dos_folder
+RECORD_SPEC_dos_folder = $(DOS_FOLDER_FINDER_SPEC),m100:89,m100:89,m100:89,m100:89,m29:2
+RECORD_MARKER_dos_folder = FINDER-OPEN-FOLDER name=DOS win=1 singleton=0
+RECORD_IMAGE_dos_folder = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_dos_folder = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_dos_folder = 300
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -28227,7 +28226,7 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_C
 # plain n; press-and-release RIGHT Ctrl (E0 1D / E0 9D) then a plain w;
 # press-and-release Shift then click README.TXT and APPS; finally the REAL
 # Ctrl-N chord. Asserts (Law 2, the audit's own observable outcomes):
-#   1. no triple fault; the root window opened (FINDER-OPEN-VOLUME win=0 n=2);
+#   1. no triple fault; the root window opened (FINDER-OPEN-VOLUME win=0 n=4);
 #   2. the ONLY Finder command is the final chord:
 #        FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1   (exactly one FINDER-CMD)
 #      -- the plain n after a Ctrl release made no folder, the plain w after a
@@ -28243,7 +28242,7 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_C
 FLAIR_MODREL_NAME := flair_modrel
 FLAIR_MODREL_DATA  = $(BUILD)/$@_data.img
 # $(call modrel-check,<serial>): exits 0 iff the G11 properties hold.
-modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' $(1) \
+modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' $(1) \
 	&& [ "$$(grep -c '^FINDER-CMD ' $(1))" = 1 ] \
 	&& grep -qxF 'FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1' $(1) \
 	&& ! grep -q '^FINDER-CLOSE-WINDOW' $(1) \
@@ -28299,7 +28298,7 @@ test-flair-modifier-release-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_se
 		--expect FLAIR-FAT-MOUNT-OK --name flair_modrel_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MODREL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after FLAIR-LIVE-OK --timeout-ms 30000 2> "$(BUILD)/flair_modrel_mut.report" || true
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_modrel_mut.serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_modrel_mut.serial" \
 		|| { printf '!!! test-flair-modifier-release-mutant: the mutant never opened the root window (not comparable)\n'; exit 1; }
 	@if $(call modrel-check,"$(BUILD)/flair_modrel_mut.serial"); then \
 		printf '!!! test-flair-modifier-release-mutant FAIL: the pre-fix decoder PASSED -- the gate is decoration\n'; exit 1; fi
@@ -28375,7 +28374,7 @@ test-flair-held-gestures-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_MUT_IMG) $(F
 	@if $(call held-drag-check,"$(BUILD)/flair_held_drag_mut.serial"); then printf '!!! test-flair-held-gestures-mutant FAIL: HELD-DRAG passed on the timeout mutant -- decoration\n'; exit 1; fi
 	@printf '>>> test-flair-held-gestures-mutant [1/2]: RED as required -- %s\n' "$$(grep -m1 '^FLAIR-DRAG' $(BUILD)/flair_held_drag_mut.serial)"
 	$(call held-boot,$(FLAIRTENANTS_HOLD_MUT_IMG),flair_held_menu_mut,FLAIR_HELD_MENU_SPEC,FLAIR-LIVE-OK)
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_held_menu_mut.serial" || { printf '!!! test-flair-held-gestures-mutant: HELD-MENU mutant never opened the root (not comparable)\n'; exit 1; }
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_held_menu_mut.serial" || { printf '!!! test-flair-held-gestures-mutant: HELD-MENU mutant never opened the root (not comparable)\n'; exit 1; }
 	@if $(call held-menu-check,"$(BUILD)/flair_held_menu_mut.serial"); then printf '!!! test-flair-held-gestures-mutant FAIL: HELD-MENU passed on the timeout mutant -- decoration\n'; exit 1; fi
 	@printf '>>> test-flair-held-gestures-mutant [2/2]: RED as required -- %s\n' "$$(grep -E -m1 '^FINDER-(CMD|MOVE|WIN-DRAG)' $(BUILD)/flair_held_menu_mut.serial || echo 'no command')"
 
@@ -30924,7 +30923,7 @@ $(SCROLL_LOOK_CHECK): tools/ppm_flair_scroll_look_check.c $(SCROLLBAR_LOOK_GOLDE
 # Prefixes retain the same injected history; every capture is after release.
 define scroll-look-boot
 $(call scroll-boot,$(1),$(2),$(FLAIR_DATA_IMG),$(3),FLAIR-LIVE-OK,1)
-@grep -qx 'FINDER-OPEN-VOLUME win=0 n=2' $(BUILD)/$(2).serial
+@grep -qx 'FINDER-OPEN-VOLUME win=0 n=4' $(BUILD)/$(2).serial
 @grep -qx 'FLAIR-GROW win 0 (360,220)->(128,120)' $(BUILD)/$(2).serial
 @! grep -Eq '^(PANIC|FLAIR-SCROLL-IGNORED)' $(BUILD)/$(2).serial
 endef
@@ -30933,7 +30932,7 @@ test-flair-scroll-look: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(S
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_shrink,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
 	@$(SCROLL_LOOK_CHECK) shrink $(BUILD)/scroll_look_shrink.ppm
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_click,$(FLAIR_SCROLL_LOOK_CLICK_SPEC))
-	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=35' $(BUILD)/scroll_look_click.serial
+	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=171' $(BUILD)/scroll_look_click.serial
 	@$(SCROLL_LOOK_CHECK) click $(BUILD)/scroll_look_click.ppm
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_restore,$(FLAIR_SCROLL_LOOK_RESTORE_SPEC))
 	@grep -qx 'FLAIR-GROW win 0 (128,120)->(360,220)' $(BUILD)/scroll_look_restore.serial
@@ -31159,7 +31158,7 @@ $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --ou
  --quit-after "FLAIR-MENU menu=512 item=0" --timeout-ms 30000 \
  --screendump --screendump-after "$(3)" 2> $(BUILD)/$(1).report
 @! grep -q 'triple_fault=1' $(BUILD)/$(1).report
-@grep -qx 'FINDER-OPEN-VOLUME win=0 n=2' $(BUILD)/$(1).serial
+@grep -qx 'FINDER-OPEN-VOLUME win=0 n=4' $(BUILD)/$(1).serial
 @grep -qx 'FLAIR-MENU-DROP menu=512' $(BUILD)/$(1).serial
 @grep -qx 'FLAIR-MENU-XDROP menu=514' $(BUILD)/$(1).serial
 @grep -qx 'FLAIR-MENU menu=512 item=0 (sel=0x00000000)' $(BUILD)/$(1).serial
@@ -31633,7 +31632,7 @@ ITEXT_UP = grep -qx 'FLAIR-SCRAP-READY bytes=32808' $(1) && grep -q '^TENANT-LOA
 ITEXT_LAST = grep '^TENANT-GATE ax=0x0030 win=1 x=$(2) y=$(3) ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0030 win=1 x=$(2) y=$(3) s="$(4)" fg=$(5) bg=$(6) -> 0'
 ITEXT_EDIT = grep -q '^TENANT-TRACK up h=84 v=75 ' $(1) && grep -qx 'TENANT-SCRAP put n=6 count=1' $(1) && grep -qx 'TENANT-SCRAP get n=6' $(1) && \
 	$(call ITEXT_LAST,$(1),5,15,PC LOAD,65536,1) && $(call ITEXT_LAST,$(1),49,15, LETTER,65537,0) && $(call ITEXT_LAST,$(1),5,26,tables,65537,0)
-ITEXT_SAVEAS = grep -qx 'TENANT-SF put up dir=/ n=2 name=UNTITLED' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
+ITEXT_SAVEAS = grep -qx 'TENANT-SF put up dir=/ n=4 name=UNTITLED' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
 ITEXT_MEMO_EXPECT := $(BUILD)/itext_memo.expect
 ITEXT_DISK = mcopy -o -i $(1) ::MEMO.TXT $(1).memo 2>/dev/null && cmp -s $(ITEXT_MEMO_EXPECT) $(1).memo && fsck.fat -n $(1) >/dev/null
 # region "<L> <T> <R> <B>" of dump $(1) vs reference pixel $(3): "ne eq ref"
@@ -31891,6 +31890,11 @@ include harness/diff/fat_diff/dosmsg.mk
 # Physical two-file boot chain (initech-kod).
 include harness/diff/fat_diff/boot_system.mk
 include harness/diff/fat_diff/command_file.mk
+
+# Flagship DOS-folder layout / PATH / filters (initech-zc68, initech-2kgh).
+include harness/diff/fat_diff/dos_folder.mk
+# README + APPS + fourteen leaves = sixteen purged nodes.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=16 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
 include harness/bochs_legs.mk

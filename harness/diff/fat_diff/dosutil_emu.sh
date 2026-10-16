@@ -9,13 +9,14 @@ tag=$4
 b=build/dosutil_emu_$tag
 fail() { echo "FAIL: $1"; exit 1; }
 sh harness/diff/fat_diff/dosutil_fixture.sh "$b.img"
-mcopy -i "$b.img" "$attrib" ::ATTRIB.COM
-mcopy -i "$b.img" "$label" ::LABEL.COM
+mmd -i "$b.img" ::DOS
+mcopy -i "$b.img" "$attrib" ::DOS/ATTRIB.COM
+mcopy -i "$b.img" "$label" ::DOS/LABEL.COM
 printf '\r\nN\r\n' > "$b.no"
 printf '\r\ny\r\n' > "$b.yes"
 mcopy -i "$b.img" "$b.no" ::NO.TXT
 mcopy -i "$b.img" "$b.yes" ::YES.TXT
-printf '@ECHO OFF\r\nATTRIB +R -A A:\\ONE.TXT /S\r\nATTRIB A:\\SUB\\ONE.TXT > ATTR.OUT\r\nLABEL A:NEW LABEL\r\nVOL A: > VOL.OUT\r\nLABEL A: < NO.TXT > NO.OUT\r\nVOL > KEEP.OUT\r\nLABEL A: < YES.TXT > YES.OUT\r\nVOL > NONE.OUT\r\nLABEL A:LAST LABEL\r\nVOL B: > BAD.OUT\r\nECHO DOSUTIL-DONE\r\n' > "$b.bat"
+printf '@ECHO OFF\r\nPATH=A:\\DOS\r\nATTRIB +R -A A:\\ONE.TXT /S\r\nATTRIB A:\\SUB\\ONE.TXT > ATTR.OUT\r\nLABEL A:NEW LABEL\r\nVOL A: > VOL.OUT\r\nLABEL A: < NO.TXT > NO.OUT\r\nVOL > KEEP.OUT\r\nLABEL A: < YES.TXT > YES.OUT\r\nVOL > NONE.OUT\r\nLABEL A:LAST LABEL\r\nVOL B: > BAD.OUT\r\nECHO DOSUTIL-DONE\r\n' > "$b.bat"
 mcopy -i "$b.img" "$b.bat" ::AUTOEXEC.BAT
 cp -f "$b.img" "$b.ref"
 build/qemu_harness --disk "$boot" --disk2 "$b.img" --name "dosutil_emu_$tag" \
