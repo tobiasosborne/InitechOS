@@ -5,39 +5,72 @@
 \ix{token kinds}
 \QRHead{Token kinds}
 \noindent{\fontsize{7.5}{9}\selectfont
-\begin{tabular}{@{}p{20mm}p{11mm}p{20mm}p{11mm}@{}}
-\TokenItem{ASSIGN} & \code{:=} & \TokenItem{KW_MOD} & \rw{mod}\\
-\TokenItem{COLON} & \code{:} & \TokenItem{KW_NOT} & \rw{not}\\
-\TokenItem{COMMA} & \code{,} & \TokenItem{KW_OF} & \rw{of}\\
-\TokenItem{DOT} & \code{.} & \TokenItem{KW_OR} & \rw{or}\\
-\TokenItem{DOTDOT} & \code{..} & \TokenItem{KW_ORD} & \rw{ord}\\
-\TokenItem{EOF} & end of the file & \TokenItem{KW_PROCEDURE} & \rw{procedure}\\
-\TokenItem{EQ} & \code{=} & \TokenItem{KW_PROGRAM} & \rw{program}\\
-\TokenItem{GE} & \code{>=} & \TokenItem{KW_RECORD} & \rw{record}\\
-\TokenItem{GT} & \code{>} & \TokenItem{KW_REPEAT} & \rw{repeat}\\
-\TokenItem{IDENT} & an identifier & \TokenItem{KW_STRING} & \rw{string}\\
-\TokenItem{INTEGER} & an unsigned integer & \TokenItem{KW_THEN} & \rw{then}\\
-\TokenItem{KW_AND} & \rw{and} & \TokenItem{KW_TO} & \rw{to}\\
-\TokenItem{KW_ARRAY} & \rw{array} & \TokenItem{KW_TRUE} & \rw{true}\\
-\TokenItem{KW_BEGIN} & \rw{begin} & \TokenItem{KW_TYPE} & \rw{type}\\
-\TokenItem{KW_BOOLEAN} & \rw{boolean} & \TokenItem{KW_UNTIL} & \rw{until}\\
-\TokenItem{KW_CASE} & \rw{case} & \TokenItem{KW_VAR} & \rw{var}\\
-\TokenItem{KW_CHAR} & \rw{char} & \TokenItem{KW_WHILE} & \rw{while}\\
-\TokenItem{KW_CHR} & \rw{chr} & \TokenItem{KW_WRITE} & \rw{write}\\
-\TokenItem{KW_CONST} & \rw{const} & \TokenItem{KW_WRITELN} & \rw{writeln}\\
-\TokenItem{KW_DIV} & \rw{div} & \TokenItem{LBRACKET} & \code{[}\\
-\TokenItem{KW_DO} & \rw{do} & \TokenItem{LE} & \code{<=}\\
-\TokenItem{KW_DOWNTO} & \rw{downto} & \TokenItem{LPAREN} & \code{(}\\
-\TokenItem{KW_ELSE} & \rw{else} & \TokenItem{LT} & \code{<}\\
-\TokenItem{KW_END} & \rw{end} & \TokenItem{MINUS} & \code{-}\\
-\TokenItem{KW_FALSE} & \rw{false} & \TokenItem{NE} & \code{<>}\\
-\TokenItem{KW_FILE} & \rw{file} & \TokenItem{PLUS} & \code{+}\\
-\TokenItem{KW_FOR} & \rw{for} & \TokenItem{RBRACKET} & \code{]}\\
-\TokenItem{KW_FORWARD} & \rw{forward} & \TokenItem{RPAREN} & \code{)}\\
-\TokenItem{KW_FUNCTION} & \rw{function} & \TokenItem{SEMI} & \code{;}\\
-\TokenItem{KW_IF} & \rw{if} & \TokenItem{STAR} & \code{*}\\
-\TokenItem{KW_INTEGER} & \rw{integer} & \TokenItem{STRING} & a string literal\\
-\TokenItem{KW_LENGTH} & \rw{length} & & \\
+\begin{tabular}{@{}p{26mm}p{30mm}@{}}
+\TokenItem{ASSIGN} & \code{:=}\\
+\TokenItem{COLON} & \code{:}\\
+\TokenItem{COMMA} & \code{,}\\
+\TokenItem{DOT} & \code{.}\\
+\TokenItem{DOTDOT} & \code{..}\\
+\TokenItem{EOF} & end of the file\\
+\TokenItem{EQ} & \code{=}\\
+\TokenItem{GE} & \code{>=}\\
+\TokenItem{GT} & \code{>}\\
+\TokenItem{IDENT} & an identifier\\
+\TokenItem{INTEGER} & an unsigned integer\\
+\TokenItem{KW_AND} & \rw{and}\\
+\TokenItem{KW_ARRAY} & \rw{array}\\
+\TokenItem{KW_BEGIN} & \rw{begin}\\
+\TokenItem{KW_BOOLEAN} & \rw{boolean}\\
+\TokenItem{KW_CASE} & \rw{case}\\
+\TokenItem{KW_CHAR} & \rw{char}\\
+\TokenItem{KW_CHR} & \rw{chr}\\
+\TokenItem{KW_CONST} & \rw{const}\\
+\TokenItem{KW_DIV} & \rw{div}\\
+\TokenItem{KW_DO} & \rw{do}\\
+\TokenItem{KW_DOWNTO} & \rw{downto}\\
+\TokenItem{KW_ELSE} & \rw{else}\\
+\TokenItem{KW_END} & \rw{end}\\
+\TokenItem{KW_FALSE} & \rw{false}\\
+\TokenItem{KW_FILE} & \rw{file}\\
+\TokenItem{KW_FOR} & \rw{for}\\
+\TokenItem{KW_FORWARD} & \rw{forward}\\
+\TokenItem{KW_FUNCTION} & \rw{function}\\
+\TokenItem{KW_IF} & \rw{if}\\
+\TokenItem{KW_INTEGER} & \rw{integer}\\
+\TokenItem{KW_LENGTH} & \rw{length}\\
+\end{tabular}\par
+\noindent\begin{tabular}{@{}p{26mm}p{30mm}@{}}
+\TokenItem{KW_MOD} & \rw{mod}\\
+\TokenItem{KW_NOT} & \rw{not}\\
+\TokenItem{KW_OF} & \rw{of}\\
+\TokenItem{KW_OR} & \rw{or}\\
+\TokenItem{KW_ORD} & \rw{ord}\\
+\TokenItem{KW_PROCEDURE} & \rw{procedure}\\
+\TokenItem{KW_PROGRAM} & \rw{program}\\
+\TokenItem{KW_RECORD} & \rw{record}\\
+\TokenItem{KW_REPEAT} & \rw{repeat}\\
+\TokenItem{KW_STRING} & \rw{string}\\
+\TokenItem{KW_THEN} & \rw{then}\\
+\TokenItem{KW_TO} & \rw{to}\\
+\TokenItem{KW_TRUE} & \rw{true}\\
+\TokenItem{KW_TYPE} & \rw{type}\\
+\TokenItem{KW_UNTIL} & \rw{until}\\
+\TokenItem{KW_VAR} & \rw{var}\\
+\TokenItem{KW_WHILE} & \rw{while}\\
+\TokenItem{KW_WRITE} & \rw{write}\\
+\TokenItem{KW_WRITELN} & \rw{writeln}\\
+\TokenItem{LBRACKET} & \code{[}\\
+\TokenItem{LE} & \code{<=}\\
+\TokenItem{LPAREN} & \code{(}\\
+\TokenItem{LT} & \code{<}\\
+\TokenItem{MINUS} & \code{-}\\
+\TokenItem{NE} & \code{<>}\\
+\TokenItem{PLUS} & \code{+}\\
+\TokenItem{RBRACKET} & \code{]}\\
+\TokenItem{RPAREN} & \code{)}\\
+\TokenItem{SEMI} & \code{;}\\
+\TokenItem{STAR} & \code{*}\\
+\TokenItem{STRING} & a string literal\\
 \end{tabular}\par}
 
 \QRHead{ASCII codes}
