@@ -92,13 +92,11 @@ static long slurp(const char *path, char **out)
     return n;
 }
 
-/* The minted PRGs say USE ... INDEX TRIPS (dBASE supplies .ndx); SAMIR's USE
- * does not yet default the index extension (found by this gate, reported
- * separately), so the replay names TRIPS.NDX explicitly -- the same file. */
-
-/* Likewise real USE ... INDEX leaves the pointer on the first record in index
- * order; SAMIR's USE leaves it on physical record 1 (reported, not fixed here), so a
- * GO TOP precedes the two NEXT reports that follow a bare USE (R4D, R4E3). */
+/* The command lists below are the minted PRGs verbatim (USE ... INDEX TRIPS
+ * with the default .NDX, no added GO TOP, no trailing SET reset): SAMIR now
+ * defaults the index extension (initech-vfys), positions USE ... INDEX on the
+ * first record in index order (initech-k7lc) and gives every interpreter
+ * fresh SET state (initech-x5cc); mint 005, mint-results-005.md. */
 
 /* Copy a corpus mint/work input into the session dir (the REPL opens RW). */
 static void stage(const char *name)
@@ -183,7 +181,7 @@ static void diff(const char *out)
 static void expect(samir_pal_t *host, const char *const *in, const char *cmd, const char *want, const char *why)
 {
     const char *c[2];
-    c[0] = "USE TRAVEL INDEX TRIPS.NDX"; c[1] = cmd;
+    c[0] = "USE TRAVEL INDEX TRIPS"; c[1] = cmd;
     session(host, "refuse", in, c, 2);
     if (!strstr(C.buf, want)) fprintf(stderr, "TRANSCRIPT:\n%s\n", C.buf);
     CHECK(strstr(C.buf, want) != NULL, why);
@@ -213,8 +211,8 @@ int main(int argc, char **argv)
 
     {   /* R4G.PRG: the clean session goldens (no SET ALTERNATE). */
         static const char *const cmd[] = {
-            "USE AVAL_FLT INDEX AVAL_FLT.NDX, FLT_NO.NDX", "REPORT FORM FLT_INFO TO FILE G1FLT",
-            "USE TRAVEL INDEX TRIPS.NDX", "REPORT FORM TRAVELER TO FILE G2TRV",
+            "USE AVAL_FLT INDEX AVAL_FLT, FLT_NO", "REPORT FORM FLT_INFO TO FILE G1FLT",
+            "USE TRAVEL INDEX TRIPS", "REPORT FORM TRAVELER TO FILE G2TRV",
             "REPORT FORM TRAVELER PLAIN TO FILE G3TRVP", "REPORT FORM TRAVELER SUMMARY TO FILE G4TRVS",
             "REPORT FORM TRAVELER HEADING \"Mint session 004\" NOEJECT TO FILE G5TRVH",
             "GO TOP", "REPORT FORM TRAVELER NEXT 7 FOR PAID TO FILE G6TRVN",
@@ -233,7 +231,7 @@ int main(int argc, char **argv)
     }
     {   /* R4D.PRG: wrap / ';' / overflow / long HEADING / scope probes. */
         static const char *const cmd[] = {
-            "USE R4TRIP2", "REPORT FORM TRIP TO FILE R4DT", "USE TRAVEL INDEX TRIPS.NDX", "GO TOP",
+            "USE R4TRIP2", "REPORT FORM TRIP TO FILE R4DT", "USE TRAVEL INDEX TRIPS",
             "REPORT FORM TRAVELER NEXT 4 HEADING \"This is a very long heading that runs right across the page\" TO FILE R4DH",
             "REPORT FORM TRAVELER NEXT 4 HEADING \"\" TO FILE R4DE",
             "REPORT FORM TRAVELER RECORD 5 PLAIN SUMMARY TO FILE R4DS",
@@ -246,10 +244,9 @@ int main(int argc, char **argv)
     }
     {   /* R4H.PRG: empty selection with totals, ';' in HEADING, SET CENTURY. */
         static const char *const cmd[] = {
-            "USE R4TRIP", "REPORT FORM TRIP FOR .F. TO FILE R4HT", "USE TRAVEL INDEX TRIPS.NDX", "GO TOP",
+            "USE R4TRIP", "REPORT FORM TRIP FOR .F. TO FILE R4HT", "USE TRAVEL INDEX TRIPS", "GO TOP",
             "REPORT FORM TRAVELER NEXT 2 HEADING \"semi;colon\" TO FILE R4HS",
-            "SET CENTURY ON", "USE R4FLTB", "REPORT FORM FLT_INFO NEXT 2 TO FILE R4HC",
-            "SET CENTURY OFF" };   /* set.c state outlives xb_interp_free on the host */
+            "SET CENTURY ON", "USE R4FLTB", "REPORT FORM FLT_INFO NEXT 2 TO FILE R4HC" };
         printf("session R4H (empty totals, heading ';', century):\n");
         session(host, "r4h", base, cmd, N(cmd)); no_errors("r4h");
         diff("R4HT.TXT"); diff("R4HS.TXT"); diff("R4HC.TXT");
@@ -257,7 +254,7 @@ int main(int argc, char **argv)
     {   /* R4E1..R4E4: no-initial-eject reports in fresh sessions. */
         static const char *const e1[] = { "USE R4FLTB", "REPORT FORM FLT_INFO TO FILE E1" };
         static const char *const e2[] = { "USE R4FLTB", "? \"a\"", "? \"b\"", "? \"c\"", "? \"d\"", "? \"e\"", "REPORT FORM FLT_INFO TO FILE E2" };
-        static const char *const e3[] = { "USE TRAVEL INDEX TRIPS.NDX", "GO TOP", "REPORT FORM TRAVELER NEXT 3 TO FILE E3A", "USE R4FLTB", "REPORT FORM FLT_INFO TO FILE E3B" };
+        static const char *const e3[] = { "USE TRAVEL INDEX TRIPS", "REPORT FORM TRAVELER NEXT 3 TO FILE E3A", "USE R4FLTB", "REPORT FORM FLT_INFO TO FILE E3B" };
         static const char *const e4[] = { "USE R4FLTB", "REPORT FORM FLT_INFO TO FILE E4A", "REPORT FORM FLT_INFO TO FILE E4B" };
         printf("sessions R4E1..R4E4 (line count starts fresh without ALTERNATE):\n");
         session(host, "e1", base, e1, N(e1)); no_errors("e1"); diff("E1.TXT");
@@ -269,7 +266,7 @@ int main(int argc, char **argv)
         static const struct { const char *dir, *use, *frm, *out, *opt; int lo, hi; } sw[] = {
             { "r4ct", "USE R4TRIP", "TP", "CTP", "", 14, 40 },
             { "r4ct", 0, "TP", "CTS", " SUMMARY", 14, 24 },
-            { "r4cv", "USE TRAVEL INDEX TRIPS.NDX", "TV", "CTV", "", 18, 40 },
+            { "r4cv", "USE TRAVEL INDEX TRIPS", "TV", "CTV", "", 18, 40 },
             { "r4cv", 0, "TV", "CTL", " PLAIN", 18, 25 },
             { "r4cf", "USE R4FLTB", "FL", "CFL", "", 11, 24 } };
         static char names[160][16];
@@ -315,7 +312,7 @@ int main(int argc, char **argv)
         CHECK(f != NULL, "double-space fixture writable");
         if (f) { fseek(f, 0x7C0, SEEK_SET); fputc('Y', f); fclose(f); }
         {
-            static const char *const c[] = { "USE TRAVEL INDEX TRIPS.NDX", "REPORT FORM TRAVELER" };
+            static const char *const c[] = { "USE TRAVEL INDEX TRIPS", "REPORT FORM TRAVELER" };
             const char *none[] = { 0 };
             session(host, "refuse", none, c, 2);
         }

@@ -881,7 +881,8 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
  *   - DISPLAY default (QS_DEFAULT): the current record only (no GO TOP, no walk).
  *   - WHILE: stop at the first record where WHILE is .F.
  *   - FOR: render only records where FOR is .T., but keep walking.
- * Leaves the pointer at EOF for the multi-record scopes.
+ * Leaves the pointer at EOF for ALL/REST, on the n-th record for NEXT n (EOF
+ * only if the window runs off the end), on the failing record for WHILE.
  */
 static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
                   int is_display_default, int *ec)
@@ -979,6 +980,15 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
                 produced++;
             }
 
+            /* NEXT n leaves the pointer ON the n-th record (no skip past it):
+             * real dBASE III PLUS 1.1 LIST NEXT 4 from the TRIPS top ends on
+             * RECNO() 1, GO 5 + LIST NEXT 3 on 7, DISPLAY NEXT 2 on 8; only a
+             * window that runs off the end reaches EOF (mint 005 M005N
+             * [N1]..[N8], mint-results-005.md; initech-5vmn). */
+#ifndef SAMIR_MUTATE_NEXT_PAST
+            if (kind == QS_NEXT && visited >= limit)
+                break;
+#endif
             rc=wa_nav_skip(env, area, 1);
             if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }   /* advance in the active order */
         }

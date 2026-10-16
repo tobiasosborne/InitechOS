@@ -72,9 +72,9 @@ int main(int argc, char **argv)
     snprintf(cmd, sizeof cmd, "fsck.fat -n " D "/%s.img > " D "/%s-fsck-before.log", mode, mode);
     command(cmd);
     if (screen) {
-        /* SAMIR's USE leaves physical record 1 current (reported, initech-airx); GO TOP gives
-         * the real post-USE index position the R4S3 screenshot started from. */
-        keys("samir\nuse travel index trips.ndx\ngo top\nreport form traveler next 27\n", keybuf, sizeof keybuf);
+        /* R4S3.PRG verbatim: USE ... INDEX TRIPS (default .NDX, initech-vfys) leaves the
+         * first record in index order current (initech-k7lc; mint 005), so no GO TOP. */
+        keys("samir\nuse travel index trips\nreport form traveler next 27\n", keybuf, sizeof keybuf);
         snprintf(cmd, sizeof cmd, "build/qemu_harness --disk build/tracer_secondary.img --disk2 " D "/screen.img --name samir_report_screen --out build --rtc-base 1986-07-24T12:00:00 --timeout-ms 150000 --keys '%s' --keys-after SHELL-READY --screendump --screendump-after \"$(printf '1779.00 .T.\\r\\n. ')\" > " D "/screen.out 2> " D "/screen.report", keybuf);
         /* Grab once the last record (Arlich, the first 1779.00 row) is
          * followed by the dot prompt: SAMIR then idles on input, screen final. */
@@ -83,8 +83,8 @@ int main(int argc, char **argv)
         /* Commands arrive on redirected stdin (the K13 PAL line framer): keys
          * typed while a long report renders would overrun the keyboard. */
         FILE *f = fopen(D "/RPT.TXT", "wb");
-        const char *rpt = "use aval_flt index aval_flt.ndx\r\nreport form flt_info to file g1flt\r\n"
-                          "use travel index trips.ndx\r\nreport form traveler to file g2trv\r\n"
+        const char *rpt = "use aval_flt index aval_flt\r\nreport form flt_info to file g1flt\r\n"
+                          "use travel index trips\r\nreport form traveler to file g2trv\r\n"
                           "use r4trip\r\nreport form trip to file g8tp\r\nreport form trip summary to file g9ts\r\nquit\r\n";
         CHECK(f != NULL && fwrite(rpt, 1, strlen(rpt), f) == strlen(rpt), "command file written");
         if (f) fclose(f);

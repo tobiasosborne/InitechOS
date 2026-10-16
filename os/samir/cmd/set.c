@@ -671,8 +671,17 @@ int set_register(xb_interp *ip)
     if (!ss)
         return -INTERP_ERR_NOMEM;       /* registry full */
 
+    /* set_register is the per-interpreter construction step, so it ALWAYS
+     * applies the III+ defaults. The registry is keyed by address, and a new
+     * interpreter made on a reused arena gets the SAME address as a freed one:
+     * a hit is not "this interpreter's" state (initech-x5cc -- SET CENTURY ON
+     * leaked from one host session into the next). */
+#ifdef SET_MUTATE_KEEP_STALE
     if (is_new)
-        set_init_defaults(ip, ss);      /* fresh entry: apply defaults */
+#else
+    (void)is_new;
+#endif
+        set_init_defaults(ip, ss);
 
     return xb_interp_add_cmd_hook(ip, set_cmd_hook, (void *)0);
 }

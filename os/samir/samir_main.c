@@ -431,6 +431,23 @@ static void repl_mutation_error(samir_pal_t *pal, xb_interp *ip, int code)
     }
 }
 
+/* Append `ext` (".DBF" / ".NDX") when the FINAL path component of `name` has
+ * no extension; a dot in a directory name does not count. Returns 0, or -1 if
+ * the result would not fit in `cap`. */
+static int repl_default_ext(char *name, uint32_t cap, const char *ext)
+{
+    uint32_t i, len = rt_strlen(name);
+    int dot = 0;
+    for (i = 0; i < len; i++) {
+        if (name[i] == '/' || name[i] == '\\' || name[i] == ':') dot = 0;
+        else if (name[i] == '.') dot = 1;
+    }
+    if (dot) return 0;
+    if (len + 5u > cap) return -1;
+    rt_memcpy(name + len, ext, 5u);
+    return 0;
+}
+
 static int repl_do_use(xb_interp *ip, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -484,20 +501,18 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
         }
     }
 
-    /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF.
-     * Only the final path component controls the extension. */
+    /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF. */
 #ifndef SAMIR_MUTATE_USE_EXTENSION
+    if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+#endif
+    /* An index named without an extension is <name>.NDX: real dBASE III PLUS
+     * 1.1 opens TRIPS.NDX for USE TRAVEL INDEX TRIPS (mint 005 M005U [U1],
+     * dbase3-decomp/re/mint-results-005.md; initech-vfys). */
+#ifndef SAMIR_MUTATE_USE_NDX_EXTENSION
     {
-        uint32_t i, len=rt_strlen(file);
-        int dot=0;
-        for(i=0;i<len;i++) {
-            if(file[i]=='/' || file[i]=='\\' || file[i]==':') dot=0;
-            else if(file[i]=='.') dot=1;
-        }
-        if(!dot) {
-            if(len+5u>sizeof(file)) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
-            rt_memcpy(file+len,".DBF",5u);
-        }
+        int k;
+        for (k = 0; k < il.count; k++)
+            if (repl_default_ext(idxbuf[k], REPL_TOK_CAP, ".NDX") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
     }
 #endif
 
@@ -530,6 +545,17 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
         return -INTERP_ERR_EVAL;
     }
     wa_select(env, area);                     /* USE selects the area it opens */
+    /* USE with indexes leaves the FIRST record in master-index order current,
+     * not physical record 1: real dBASE III PLUS 1.1 shows RECNO() 23 after
+     * USE TRAVEL INDEX TRIPS, 2 after USE AVAL_FLT INDEX AVAL_FLT, FLT_NO and 6
+     * after INDEX FLT_NO, AVAL_FLT (mint 005 M005U [U1]/[U4]/[U5],
+     * mint-results-005.md; initech-k7lc). Natural-order USE stays on record 1. */
+#ifndef SAMIR_MUTATE_USE_INDEX_TOP
+    if (wa_index_count(env, area) > 0 && wa_nav_index_top(env, area) != NAV_OK) {
+        if (ec) *ec = 114;                    /* Index damaged */
+        return -INTERP_ERR_EVAL;
+    }
+#endif
     return INTERP_OK;
 }
 
