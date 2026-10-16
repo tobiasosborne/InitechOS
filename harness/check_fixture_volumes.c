@@ -276,7 +276,15 @@ static int check(const char *manifest, const char *inventory)
         fprintf(out, "fixture\t%s\t%s\n", fixtures[i].owner, fixtures[i].path);
         size_t j;
         for (j = 0; j < nc; ++j) if (!strcmp(fixtures[i].path, contracts[j].path)) break;
-        if (j == nc) { fprintf(stderr, "!!! test-fixture-volumes FAIL: fixture %s has no declared contract\n", fixtures[i].path); bad = 1; }
+        /* initech-a5sr: a SEEDED fixture (mcopy/mattrib/mmove) must carry a
+         * declared contract. The @unseeded fallback above exists for blank
+         * and directory-only goldens; a seeded recipe that also runs mformat
+         * was filed there too, which masked three undeclared InitechWord
+         * mutant volumes (6865fc0 / 8080833) until emu-gate time. */
+        if (j == nc || !strcmp(contracts[j].owner, "@unseeded\n")) {
+            fprintf(stderr, "!!! test-fixture-volumes FAIL: fixture %s has no declared contract\n", fixtures[i].path);
+            bad = 1;
+        }
     }
     for (size_t i = 0; i < ni; ++i) {
         size_t j, k;
