@@ -12594,8 +12594,6 @@ $(TEST_CURSOR_MUT_SQUARED): $(TEST_CURSOR_DEPS) | $(BUILD)
 test-cursor: $(TEST_CURSOR)
 	@printf ">>> test-cursor: 500 clipped save-under restores + hotspot/golden + shield nesting + move erase\n"
 	@$(TEST_CURSOR) $(CURSOR_CAPTURES)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CURSOR_OPT) $(CURSOR_INC) -c os/flair/cursor.c -o $(BUILD)/cursor_freestanding.o \
-	@$(TEST_CURSOR)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) $(CURSOR_INC) -c os/flair/cursor.c -o $(BUILD)/cursor_freestanding.o \
 		|| { printf '!!! test-cursor FAIL: cursor.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-cursor: green\n"
