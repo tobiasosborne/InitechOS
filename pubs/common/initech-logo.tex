@@ -1,0 +1,141 @@
+%% initech-logo.tex -- the Initech logo as original TikZ/PGF drawing commands.
+%% Loaded by initech-manual.cls (\input after tikz).  PUB-REF-0001 D-8 as
+%% revised by operator directive (WL-0132), Sec 7.1 PK-01 "Initech Cyan",
+%% Sec 7.2 PK-02 logo cell.  Bead: initech-ipu5 (identity lane, WL-0132).
+%%
+%% HONESTY (Law 1): this is an ORIGINAL vector drawing, AUTHORED FROM
+%% OBSERVATION of the reference frame's identity material -- the clean logo
+%% still and the headquarters-sign still in the private reference library
+%% (initech-manuals-ref/initech-identity/, outside this repository), cross-
+%% checked against a 1200-pixel third-party rendering of the same mark.
+%% Nothing here is traced, extracted or converted from an image: the
+%% numbers below are measurements of pixel runs, rounded, and the shapes are
+%% drawn from those numbers.  Nothing else from the references is copied.
+%%
+%% WHAT THE LOGO IS (measured):
+%%  * Mark: three identical blocks in a 2:1 dimetric projection (receding
+%%    edges rise 1 in 2, i.e. 26.565 deg; vertical edges sqrt(3/2) = 1.2247
+%%    of the receding edge's horizontal run -- the true orthographic view
+%%    from 30 deg elevation, 45 deg azimuth).  Each block is a cube of edge
+%%    2 with a cube of edge 1 removed from its top front corner, so the top
+%%    face reads as a chevron and the notch shows a floor and two walls.
+%%    Faces: tops and notch floors in Initech Cyan; faces turned to the
+%%    viewer's left (and the notch wall parallel to them) near-black; faces
+%%    turned to the right (and their notch wall) light grey.  One block at
+%%    the back, two in front of it at (-2.5u, -2u) and (+2.5u, -2u) on the
+%%    page, where u is the horizontal run of one unit edge: a triangle, one
+%%    unit of air between the two front blocks.  Mark: 9u wide x 6.449u tall.
+%%  * Logotype: INITECH in capitals of a black-weight, extended grotesque
+%%    (Helvetica-class: the C is a round bowl with horizontal terminals, not
+%%    the squared Eurostile C), oblique at 0.2065 (11.7 deg), cap height
+%%    2.536u, upright set width 14.740u, slanted width 15.264u, tight fitting
+%%    (0.25-0.40u between letters).  Stems 0.763u (30 % of the cap height).
+%%  * Lockup: mark centred over the slanted logotype's box, 1.471u of air
+%%    between cap line and the mark's lowest vertex.  Whole lockup 15.264u
+%%    wide x 10.459u high (baseline to apex): aspect 1.4594.
+%%  Measurements: clean still 300 x 207 px (u = 19.5 px) and the 1200-px
+%%  rendering (u = 62.89 px) agree to 2 %; colours sampled on the cube tops:
+%%  RGB 87/177/159 (#57B19F), median of nine samples, flat ink.
+%%
+%% PUBLIC MACROS (names are stable; other lanes call them):
+%%   \InitechLogo[<height>]       colour lockup (covers, spines, boxes, labels)
+%%   \InitechLogoBlack[<height>]  one-colour lockup, black + black tints:
+%%                                the ONLY form allowed inside a book (D-6)
+%%   \InitechMark[<height>]       the three blocks alone, colour
+%%   \InitechMarkBlack[<height>]  the three blocks alone, black + tints
+%%   \InitechLogotype[<cap ht>]   the letters alone, in the current colour
+%%   \InitechLogoAspect           1.4594 (lockup width / height)
+%%   \InitechLogoForWidth{<w>}    the lockup height that gives width <w>
+%%   Default height: 20 mm (lockup, mark), 5 mm (logotype cap height).
+%%   Each macro yields a box whose bottom is the baseline of the logotype
+%%   (lockup), the lowest vertex (mark) or the baseline (logotype).
+%% Colours used (defined in initech-manual.cls): InitechCyan, InitechBlack,
+%%   InitechCubeLight, InitechCubeMono.
+\ProvidesFile{initech-logo.tex}[1992/03/01 Initech logo drawing]
+\newdimen\im@lgu
+\def\InitechLogoAspect{1.459}
+%% height for a given width: h = w / 1.4594 = w * 685 / 1000
+\newcommand\InitechLogoForWidth[1]{\dimexpr #1 * 685 / 1000\relax}
+
+%% One block, origin = the screen point of the block's back bottom corner
+%% (3-D 0,0,0).  Screen (X, Y) = (x - y, z * 1.2247 - (x + y) / 2), unit u.
+%% Every face is filled and stroked with a 0.12 pt hairline in its own
+%% colour, so abutting faces leave no seam on screen and no halo in print.
+\tikzset{im@lgface/.style={fill=#1, draw=#1, line width=0.12pt}}
+\newcommand\im@lg@block[1]{\begin{scope}[shift={#1}]
+  %% right outer face (x = 2) and the notch wall x = 1: light
+  \path[im@lgface=InitechCubeLight] (2,-1) -- (0,-2) -- (0,-0.775) -- (1,-0.275)
+    -- (1,0.949) -- (2,1.449) -- cycle;
+  \path[im@lgface=InitechCubeLight] (0,0.225) -- (-1,-0.275) -- (-1,0.949)
+    -- (0,1.449) -- cycle;
+  %% left outer face (y = 2) and the notch wall y = 1: dark
+  \path[im@lgface=\im@lg@dark] (-2,-1) -- (0,-2) -- (0,-0.775) -- (-1,-0.275)
+    -- (-1,0.949) -- (-2,1.449) -- cycle;
+  \path[im@lgface=\im@lg@dark] (0,0.225) -- (1,-0.275) -- (1,0.949) -- (0,1.449)
+    -- cycle;
+  %% top (z = 2, a chevron) and the notch floor (z = 1)
+  \path[im@lgface=\im@lg@top] (0,2.449) -- (2,1.449) -- (1,0.949) -- (0,1.449)
+    -- (-1,0.949) -- (-2,1.449) -- cycle;
+  \path[im@lgface=\im@lg@top] (0,0.225) -- (1,-0.275) -- (0,-0.775) -- (-1,-0.275)
+    -- cycle;
+  \end{scope}}
+%% The mark, origin = the back block's origin: back block first, then the
+%% two front blocks (painter's order).  Extent X -4.5..4.5, Y -4..2.4495.
+\newcommand\im@lg@mark{\im@lg@block{(0,0)}\im@lg@block{(-2.5,-2)}%
+  \im@lg@block{(2.5,-2)}}
+%% The logotype, origin = baseline at the upright left edge of the first I.
+%% Upright outlines, then sheared by the measured oblique.
+\newcommand\im@lg@letters{\begin{scope}[xslant=0.207]
+  \fill (0,0) -- (0.763,0) -- (0.763,2.536) -- (0,2.536) -- cycle;
+  \fill (1.161,0) -- (1.908,0) -- (1.908,1.407) -- (2.668,0) -- (3.435,0)
+    -- (3.435,2.536) -- (2.687,2.536) -- (2.687,1.145) -- (1.956,2.536)
+    -- (1.161,2.536) -- cycle;
+  \fill (3.848,0) -- (4.611,0) -- (4.611,2.536) -- (3.848,2.536) -- cycle;
+  \fill (5.549,0) -- (6.325,0) -- (6.325,1.884) -- (7.025,1.884)
+    -- (7.025,2.536) -- (4.863,2.536) -- (4.863,1.884) -- (5.549,1.884)
+    -- cycle;
+  \fill (7.314,0) -- (9.413,0) -- (9.413,0.660) -- (8.078,0.660)
+    -- (8.078,0.986) -- (9.286,0.986) -- (9.286,1.582) -- (8.078,1.582)
+    -- (8.078,1.884) -- (9.398,1.884) -- (9.398,2.536) -- (7.314,2.536)
+    -- cycle;
+  %% C: outer ellipse centre (10.908,1.272), radii 1.209 x 1.304, cut by
+  %% the two horizontal terminals; the counter is four quarter ellipses and
+  %% a straight left side.
+  \fill (12.072,1.622) arc[start angle=15.563, end angle=347.320,
+      x radius=1.209, y radius=1.304]
+    -- (11.385,0.986)
+    arc[start angle=0, end angle=-90, x radius=0.477, y radius=0.350]
+    arc[start angle=270, end angle=180, x radius=0.413, y radius=0.382]
+    -- (10.495,1.590)
+    arc[start angle=180, end angle=90, x radius=0.413, y radius=0.334]
+    arc[start angle=90, end angle=0, x radius=0.477, y radius=0.302]
+    -- cycle;
+  \fill (12.482,0) -- (13.246,0) -- (13.246,1.018) -- (13.961,1.018)
+    -- (13.961,0) -- (14.740,0) -- (14.740,2.536) -- (13.961,2.536)
+    -- (13.961,1.654) -- (13.246,1.654) -- (13.246,2.536) -- (12.482,2.536)
+    -- cycle;
+  \end{scope}}
+
+%% #1 height, #2 lockup height in u (x 10000), #3 drawing, #4 bounding box
+\newcommand\im@lg@picture[4]{\begingroup
+  \im@lgu=\dimexpr #1 * 10000 / #2\relax
+  \begin{tikzpicture}[x=\im@lgu, y=\im@lgu, baseline=(current bounding box.south)]
+    \useasboundingbox #4;
+    #3
+  \end{tikzpicture}\endgroup}
+\newcommand\im@lg@colour{\def\im@lg@top{InitechCyan}\def\im@lg@dark{InitechBlack}}
+\newcommand\im@lg@mono{\def\im@lg@top{InitechCubeMono}\def\im@lg@dark{InitechBlack}}
+\newcommand\im@lg@lockup{%
+  \begin{scope}[shift={(7.632,8.010)}]\im@lg@mark\end{scope}%
+  \begin{scope}[InitechBlack]\im@lg@letters\end{scope}}
+\newcommand\InitechLogo[1][20mm]{{\im@lg@colour
+  \im@lg@picture{#1}{104590}{\im@lg@lockup}{(0,0) rectangle (15.264,10.459)}}}
+\newcommand\InitechLogoBlack[1][20mm]{{\im@lg@mono
+  \im@lg@picture{#1}{104590}{\im@lg@lockup}{(0,0) rectangle (15.264,10.459)}}}
+\newcommand\InitechMark[1][20mm]{{\im@lg@colour
+  \im@lg@picture{#1}{64495}{\im@lg@mark}{(-4.5,-4) rectangle (4.5,2.449)}}}
+\newcommand\InitechMarkBlack[1][20mm]{{\im@lg@mono
+  \im@lg@picture{#1}{64495}{\im@lg@mark}{(-4.5,-4) rectangle (4.5,2.449)}}}
+\newcommand\InitechLogotype[1][5mm]{%
+  \im@lg@picture{#1}{25362}{\im@lg@letters}{(0,0) rectangle (15.264,2.536)}}
+\endinput

@@ -47,7 +47,7 @@
 # --- waypoint arithmetic -------------------------------------------------
 # A. the volume double-click (spec/flair_disk_windows_traces.mk trace 1 A):
 #      m100:-88, m100:-88, m80:0 -> (600,64) ; l1,l0,l1,l0
-#    -> FINDER-OPEN-VOLUME win=0 n=2, root frame (20,60)..(380,280).
+#    -> FINDER-OPEN-VOLUME win=0 n=4, root frame (20,60)..(380,280).
 # B. (600,64) -> the root TITLE BAR (200,70): m-100:2 x3, m-100:0
 #    (FLAIR_WINDOW_DRAG_PERSIST_SPEC step B, byte for byte).
 # C. drag by (+100,+120): l1 ; m100:100, m0:20 -> (300,190) ; l0

@@ -1,1 +1,1 @@
-\n\nCLS\nDIR *.TXT\nDIR SAMPLES /W\n
+CLS\nDIR *.TXT\nDIR SAMPLES /W\n

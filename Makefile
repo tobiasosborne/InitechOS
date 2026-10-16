@@ -78,6 +78,7 @@ $(BUILD): .EXTRA_PREREQS =
 # header command.c includes (single source of truth). Defined here (early) so the
 # command.o prerequisite resolves; the codegen rule lives by SPEC_MESSAGES below.
 DOS_MESSAGES_H := $(BUILD)/dos_messages.h
+DOS_MESSAGES_INC := $(BUILD)/dos_messages.inc
 
 # The factory smoke stub (harness/factory_smoke.c) and its built binary.
 SMOKE_SRC := harness/factory_smoke.c
@@ -461,7 +462,7 @@ test-kernel-headroom-mutant:
 		[ "$$pad" -gt 0 ] || { printf '!!! test-kernel-headroom-mutant: flagship already within the floor (pad=%s)\n' "$$pad"; exit 1; }; \
 		printf 'section .data align=1\nglobal khr_headroom_pad\nkhr_headroom_pad:\ntimes %d db 0x5A\n' "$$pad" > $(KHR_MUT_ASM); \
 		$(NASM) -f elf32 $(KHR_MUT_ASM) -o $(KHR_MUT_OBJ) || exit 1; \
-		$(KERNEL_LINK) -u khr_headroom_pad -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \
+		$(KERNEL_LINK) -u khr_headroom_pad -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) @$(TRANSIENT_IMPORTS_LD) 2>/dev/null || exit 1; \
 		$(OBJCOPY) -O binary $(KHR_MUT_ELF) $(BUILD)/.khr_mut.tmp; \
 		got=$$(( win - $$(wc -c < $(BUILD)/.khr_mut.tmp) )); rm -f $(BUILD)/.khr_mut.tmp; \
 		[ "$$got" -eq "$$want" ] || { printf '!!! test-kernel-headroom-mutant: pad kernel headroom %s != intended %s (layout assumption broke)\n' "$$got" "$$want"; exit 1; }; \
@@ -659,7 +660,7 @@ KERNEL_CC     ?= gcc
 # (harness/emu/bochs.c) which has NO cmov -> PANIC vec=06 the first time a
 # Bochs-exercised path contained one. ADR-0001 targets 386+; the artifact must
 # never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
-KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
+KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -I$(BUILD) \
                  -fno-pie -std=c11 -Wall -Wextra -Werror
 # ROUND 3 (initech-tode): kernel-only reachability, not an optimiser change.
 # Ref: docs/design/kernel-size-policy-round2.md Sec 4 lever C; kernel.ld roots.
@@ -881,6 +882,7 @@ SORT_PROG_ASM    := $(KERNEL_DIR)/sort_program.asm
 SORT_PROG_BIN    := $(BUILD)/sort_program.bin
 SORT_PROG_MUT_BIN := $(BUILD)/sort_program_mut.bin
 FIND_PROG_ASM    := $(KERNEL_DIR)/find_program.asm
+FDISK_PROG_BIN   := $(BUILD)/fdisk_program.bin
 ATTRIB_PROG_BIN  := $(BUILD)/attrib_program.bin
 LABEL_PROG_BIN   := $(BUILD)/label_program.bin
 FIND_PROG_BIN    := $(BUILD)/find_program.bin
@@ -946,6 +948,7 @@ KERNEL_CONFIG_SYS_OBJ := $(BUILD)/config_sys.o
 KERNEL_SYSINIT_OBJ    := $(BUILD)/sysinit.o
 KERNEL_LOADER_OBJ := $(BUILD)/loader.o
 KERNEL_ATA_OBJ   := $(BUILD)/ata.o
+KERNEL_BLOCK_DEVICE_OBJ := $(BUILD)/block_device.o
 KERNEL_FAT12_OBJ := $(BUILD)/fat12.o
 KERNEL_FILEIO_OBJ := $(BUILD)/fileio_fat.o
 KERNEL_DESKTOP_DB_OBJ := $(BUILD)/desktop_db.o
@@ -1934,14 +1937,14 @@ $(GOBBLE_PROG_BIN): $(GOBBLE_PROG_ASM) | $(BUILD)
 # Classic DOS filters SORT / FIND / MORE (beads initech-m0dc). nasm -f bin is
 # deterministic (Rule 11). The *_mut.bin variants add a single -D mutation used
 # by the emu-gate mutant legs (Rule 6).
-$(SORT_PROG_BIN): $(SORT_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
-$(SORT_PROG_MUT_BIN): $(SORT_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin -DSORT_MUTATE_REVERSE $< -o $@
-$(FIND_PROG_BIN): $(FIND_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
-$(FIND_PROG_MUT_BIN): $(FIND_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin -DFIND_MUTATE_INVERT $< -o $@
+$(SORT_PROG_BIN): $(SORT_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
+$(SORT_PROG_MUT_BIN): $(SORT_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin -DSORT_MUTATE_REVERSE $< -o $@
+$(FIND_PROG_BIN): $(FIND_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
+$(FIND_PROG_MUT_BIN): $(FIND_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin -DFIND_MUTATE_INVERT $< -o $@
 $(MORE_PROG_BIN): $(MORE_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 $(MORE_PROG_MUT_BIN): $(MORE_PROG_ASM) | $(BUILD)
@@ -5027,7 +5030,7 @@ TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 # g_break_flag (DEC-16 7.1 step 5). config_sys.c is pure (no I/O), so the host
 # link is clean -- the SAME TU the kernel SYSINIT runs.
 TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C) $(KERNEL_CONFIG_SYS_C)
-TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/conedit.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h $(MILTON_DIR)/config_sys.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_INT21): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
@@ -5209,7 +5212,7 @@ TEST_CONIN_MUT_NOCTRLC := $(BUILD)/test_conin_mutant_noctrlc
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
 TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
-TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/conedit.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_CONIN): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
@@ -8431,7 +8434,7 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 # INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
 # includes sft.h -> psp.h -> dos_structs.h, so -Ispec (initech-509.3).
-$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
+$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/conedit.h $(KERNEL_DIR)/idt.h \
                      $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h $(KERNEL_DIR)/ata.h spec/dos_structs.h \
                      $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
@@ -8695,7 +8698,7 @@ $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-               $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+               $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                $(KERNEL_ISR_OBJ)
@@ -8718,7 +8721,7 @@ $(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                     $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
@@ -8821,7 +8824,7 @@ $(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                         $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                         $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                        $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                        $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                         $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                         $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                         $(KERNEL_ISR_OBJ)
@@ -8855,7 +8858,7 @@ $(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -8890,7 +8893,7 @@ $(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                     $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_CONIN_PROG_OBJ) \
@@ -8926,7 +8929,7 @@ $(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_VECT_PROG_OBJ) \
@@ -8962,7 +8965,7 @@ $(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_
 KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ABSDISK_PROG_OBJ) \
@@ -9000,7 +9003,7 @@ $(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_
 KERNEL_MEMTEST_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -9030,7 +9033,7 @@ $(KERNEL_MEMTEST_MUT_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNE
 KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_MEMTEST_MUT_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -9060,7 +9063,7 @@ $(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -9137,7 +9140,7 @@ $(KERNEL_MZFOREIGN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_D
 KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                          $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                          $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                         $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                         $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                          $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                          $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                          $(KERNEL_ISR_OBJ)
@@ -9212,7 +9215,7 @@ $(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_WRITE_PROG_OBJ) \
@@ -9247,7 +9250,7 @@ $(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_MULTIOPEN_PROG_OBJ) \
@@ -9281,7 +9284,7 @@ $(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_DATETIME_PROG_OBJ) \
@@ -9320,7 +9323,7 @@ $(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL
 KERNEL_IRQSTORM_OBJS_COMMON := $(KERNEL_START_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_IRQSTORM_PROG_OBJ) \
@@ -9418,7 +9421,7 @@ $(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -9456,7 +9459,7 @@ $(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_MUT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -9491,7 +9494,7 @@ $(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR
 KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                    $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                    $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                     $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                     $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                     $(KERNEL_ISR_OBJ)
@@ -9528,7 +9531,7 @@ $(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DI
 KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                      $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                     $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                     $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                      $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ) \
                      $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                      $(KERNEL_ISR_OBJ)
@@ -9580,7 +9583,7 @@ $(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERN
 KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                           $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                           $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                          $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                          $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                           $(KERNEL_KBD_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                           $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                           $(KERNEL_ISR_OBJ) \
@@ -9620,7 +9623,7 @@ $(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNE
 KERNEL_FLAIRLIVE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                           $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
                           $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PSP_OBJ) $(KERNEL_SFT_OBJ) $(KERNEL_CONFIG_SYS_OBJ) $(KERNEL_SYSINIT_OBJ) $(KERNEL_LOADER_OBJ) \
-                          $(KERNEL_ATA_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
+                          $(KERNEL_ATA_OBJ) $(KERNEL_BLOCK_DEVICE_OBJ) $(KERNEL_FAT12_OBJ) $(KERNEL_FILEIO_OBJ) \
                           $(KERNEL_KBD_OBJ) $(KERNEL_MOUSE_OBJ) $(KERNEL_PIT_OBJ) $(KERNEL_RTC_OBJ) $(KERNEL_IRQ_OBJ) \
                           $(KERNEL_TEST_PROG_OBJ) $(KERNEL_TYPE_PROG_OBJ) $(KERNEL_DIR_PROG_OBJ) \
                           $(KERNEL_ISR_OBJ) \
@@ -9876,7 +9879,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
+TBXGATE_DEPS := os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -10009,7 +10012,7 @@ TENANTFX_EXE := $(BUILD)/tenantfx.exe
 # $(call tenant-exe-rules,<name>,<C sources>,<extra cflags>,<extra deps>,<extra ldflags>)
 #   -> $(BUILD)/tenant/<name>.exe
 TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
-TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h
+TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
 TENANT_LD     := os/apps/tbx/tenant.ld
 TENANT_PROBE  := 0x01010140
 TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
@@ -10063,6 +10066,18 @@ $(eval $(call tenant-exe-rules,itext_sel_plain,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) 
 $(eval $(call tenant-exe-rules,itext_no_scroll,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SCROLL_NEVER_ENABLED,$(ITEXT_APP_DEP),--gc-sections))
 ITEXT_EXE := $(BUILD)/tenant/itext.exe
 
+# R4.4: two disk tenants share TextEdit, font metrics and the paged DA code.
+DA_APP_SRC := os/apps/notepad/notepad.c os/flair/textedit.c os/apps/itext/te_fonts.c
+DA_APP_DEP := $(ITEXT_APP_DEP) spec/notepad/store.h spec/notepad/store.json
+$(eval $(call tenant-exe-rules,notepad,$(DA_APP_SRC),$(ITEXT_APP_CF),$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,scrapbook,$(DA_APP_SRC),$(ITEXT_APP_CF) -DSCRAPBOOK,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,notepad_turn,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_TURN_OFFBYONE,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,notepad_close,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_SKIP_CLOSE_SAVE,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,notepad_paste,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_PASTE_WRONG_PAGE,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,scrapbook_paste,$(DA_APP_SRC),$(ITEXT_APP_CF) -DSCRAPBOOK -DDA_MUT_PASTE_WRONG_PAGE,$(DA_APP_DEP),--gc-sections))
+NOTEPAD_EXE := $(BUILD)/tenant/notepad.exe
+SCRAPBOOK_EXE := $(BUILD)/tenant/scrapbook.exe
+
 # FONTS.EXE -- the Font Manager specimen tenant (os/apps/fonts/fonts.c; bead
 # initech-tdnl.68): styled TEXTDRAW runs, a truncated title, a clipped line, a
 # Style menu in its own styles. The fixture of test-flair-fonts ONLY, shipped
@@ -10082,6 +10097,7 @@ $(eval $(call tenant-exe-rules,calcda,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/
 $(eval $(call tenant-exe-rules,calcda_click_diverge,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_KEY_CLICK_DIVERGE,$(CALCDA_APP_DEP),))
 $(eval $(call tenant-exe-rules,calcda_precedence,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_PRECEDENCE,$(CALCDA_APP_DEP),))
 CALCDA_EXE := $(BUILD)/tenant/calcda.exe
+CP_EXE := $(BUILD)/tenant/cpanels.exe
 
 # 123.EXE -- Initech 123, Face A (os/i123/app/face_a.c over the slice-1 core,
 # beads initech-9u8w / initech-w96l): the same C path, the worksheet store in
@@ -10110,85 +10126,61 @@ $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -D
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
 IWORD_EXE := $(BUILD)/tenant/iword.exe
 
-# Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
-# fixed SOURCE_DATE_EPOCH/TZ pin every FAT timestamp, and -N pins the serial.
-# Contents are intentionally small: README.TXT plus the APPS folder, which since
-# R3.7 (tdnl.14) holds the one disk-launched app, APPS\TENANTFX.EXE. It lives
-# INSIDE APPS, never at the root, so the locked root listing (n=2 shown since
-# tdnl.56 hid DESKTOP.DB and TRASH; n=4 on disk) of every R3.2/
-# R3.3 gate is untouched.
-# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>,<WORD exe to ship>,)
-# APPS also holds, IN THIS ORDER after TENANTFX.EXE (the Finder lays a folder
-# out in directory order, so TENANTFX keeps grid cell 0 and every locked trace
-# that reaches it): CTENANT.EXE (cell 1; bead initech-w96l), 123.EXE
-# (cell 2; Initech 123, beads initech-9u8w / initech-w96l) and WORD.EXE
-# (cell 3; InitechWord, bead initech-l4tj -- $(IWORD_EXE), or a gate-local
-# variant). Appended LAST so cells 0-2 and every locked trace that reaches
-# them are unchanged.
-# R4.6 (initech-tdnl.20): CALC.EXE follows 123.MNU in cell5. All earlier
-# application cells remain fixed; stranded-folder and purge traces are re-keyed.
-# CALCULAT.EXE (the Calculator desk accessory, bead initech-tdnl.17) is appended
-# LAST, after 123.MNU, so every earlier cell and locked trace is unchanged.
-# Every image this recipe mints is REGISTERED in FLAIR_DATA_RECIPE_IMAGES so
-# harness/fixture_volumes.mk can lint that each one carries a declared fixture
-# contract (bead initech-a5sr: three InitechWord mutant volumes merged with no
-# contract and were caught only at emu-gate time, 6865fc0 / 8080833).
+# Deterministic flagship FAT12 volume (initech-zc68 / initech-2kgh).
+# Ref: PRD 6.1/6.5; ADR-0003 DEC-11/12, Appendix A 3Dh/4Bh/4Eh, B.1;
+# MS-DOS 3.3 User's Guide pp.97,135 (PDF182,220): PATH and AUTOEXEC.
+# A: at the transient prompt is the primary-slave data volume:
+# kmain.c flair_tenant_mount_volume fileio_fat_bind + flair_exit_to_dos
+# int21_cwd_reset; command.c command_repl opens A:\AUTOEXEC.BAT.
+# ONE deployment list of all DOS externals: source:name pairs, in disk order.
+FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM
+FLAIR_DATA_AUTOEXEC := $(BUILD)/flagship_autoexec.bat
+$(FLAIR_DATA_AUTOEXEC): Makefile | $(BUILD)
+	@printf '@ECHO OFF\r\nPATH=A:\\DOS\r\n' > $@
+# APPS entry -> file (directory order; independent golden spec/dos_folder_apps.txt):
+# 0 TENANTFX.EXE, 1 CTENANT.EXE, 2 123.EXE, 3 WORD.EXE, 4 123.MNU,
+# 5 CALC.EXE, 6 TEXT.EXE, 7 PAINT.EXE, 8 CALCULAT.EXE, 9 TPSREP.COM,
+# 10 TPSPARM.DAT, 11 TPS.DBF, 12 LEDGER.TXT, 13 MICHAEL.CFG.
+# Cell n centre = (75+68*(n%4),122+52*(n/4)); parks keep absolute targets.
+# Root cells: README.TXT (55,102), APPS (123,102), DOS (191,102),
+# AUTOEXEC.BAT (259,102). DESKTOP.DB/TRASH remain service entries, hidden.
+# Damaged fixture deliberately rebuilds APPS with TRASH at entry 0; unchanged.
 FLAIR_DATA_RECIPE_IMAGES :=
-# R4.6: append Calc after 123.MNU, preserving every existing launch cell.
 CALC_EXE := $(BUILD)/tenant/calc.exe
-# initech-bf2 / tdnl.20 (bar carrier): PAINT.EXE (cell 11), then the FILE COPY
-# data files LEDGER.TXT (cell 12, the ledger Calc's File > Save copies) and
-# MICHAEL.CFG (cell 13, the 8.3 alias of michael_bolton.conf, PRD Appendix B:
-# PROGRESS_BAR_RATE). Appended LAST: every earlier launch cell is unchanged.
 PAINT_EXE := $(BUILD)/tenant/paint.exe
 FLAIR_DATA_LEDGER  := $(FAT12_FIXTURE_DIR)/flagship_ledger.txt
 FLAIR_DATA_MICHAEL := $(FAT12_FIXTURE_DIR)/flagship_michael.cfg
-# TPSREP.COM (os/milton/tpsrep_program.asm, the SAME flat build test-tps-report
-# runs), its TPSPARM.DAT and the real-dBASE-written TPS.DBF (harness/diff/tps,
-# harness/emu/fcb_tps.mk). Appended to APPS AFTER CALC.EXE, so every existing
-# launch cell (0..10) is unchanged; they are cells 11, 12, 13. TPSREP reads
-# TPSPARM.DAT and the table from the CURRENT directory (spec/tps_ritual.json
-# R1), so the user exits to A:\>, types CD APPS, then TPSREP TPS.DBF. The
-# paths are spelled here (not via fcb_tps.mk's variables) because that file
-# is included after this recipe is expanded; fcb_tps.mk builds the .bin.
 FLAIR_TPSREP_COM  := $(BUILD)/tpsrep_program.bin
 FLAIR_TPSPARM_DAT := harness/diff/tps/tpsparm.dat
 FLAIR_TPS_DBF     := harness/diff/tps/tps.dbf
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(foreach pair,$(FLAIR_DOS_EXTERNALS),$(word 1,$(subst :, ,$(pair)))) $(FLAIR_DATA_AUTOEXEC) $(CALC_EXE) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) $(NOTEPAD_EXE) $(SCRAPBOOK_EXE) $(CP_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
-		-N 0x494e4954 -v INITECH ::
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(FLAIR_DATA_README) ::README.TXT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 -N 0x494e4954 -v INITECH ::
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_README) ::README.TXT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $$@ ::APPS
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(2) ::APPS/TENANTFX.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(CTENANT_EXE) ::APPS/CTENANT.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(3) ::APPS/123.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(4) ::APPS/WORD.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $$@ ::DOS
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_AUTOEXEC) ::AUTOEXEC.BAT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(2) ::APPS/TENANTFX.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CTENANT_EXE) ::APPS/CTENANT.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(3) ::APPS/123.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CHKDSK_PROG_BIN) ::APPS/CHKDSK.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(ATTRIB_PROG_BIN) ::APPS/ATTRIB.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(LABEL_PROG_BIN) ::APPS/LABEL.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(XCOPY_PROG_BIN) ::APPS/XCOPY.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(TREE_PROG_BIN) ::APPS/TREE.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALC_EXE) ::APPS/CALC.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(EDLIN_PROG_BIN) ::APPS/EDLIN.COM
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(or $(5),$(ITEXT_EXE)) ::APPS/TEXT.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(or $(5),$(ITEXT_EXE)) ::APPS/TEXT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(PAINT_EXE) ::APPS/PAINT.EXE
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALCDA_EXE) ::APPS/CALCULAT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSREP_COM) ::APPS/TPSREP.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSPARM_DAT) ::APPS/TPSPARM.DAT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPS_DBF) ::APPS/TPS.DBF
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALCDA_EXE) ::APPS/CALCULAT.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF, CALCULAT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(NOTEPAD_EXE) ::APPS/NOTEPAD.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(SCRAPBOOK_EXE) ::APPS/SCRAPBK.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CP_EXE) ::APPS/CPANELS.EXE
+	@set -e; $(foreach pair,$(FLAIR_DOS_EXTERNALS),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(word 1,$(subst :, ,$(pair))) ::DOS/$(word 2,$(subst :, ,$(pair)));)
+	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 10 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -10267,7 +10259,7 @@ run-flair: $(FLAIR_DATA_IMG)
 # expanded when the rule is read -- test-makefile-vars, tdnl.81.)
 KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h $(DOS_MESSAGES_H)
 
 TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp   # gcc response file of -Wl,--undefined= flags; rule below, with the transient
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -10294,41 +10286,31 @@ $(INITDOS_SYS_BIN): $(KERNEL_FLAIRTENANTS_BIN)
 # flagship kernel fills the stage2 window (KERNEL_SECTORS is at the ratified
 # bounce ceiling) and the interpreter is ~33 KiB. ADR-0003 DEC-03 retains the
 # resident/transient split of the command interpreter as a fidelity feature,
-# so the interpreter rides as a TRANSIENT on the boot disk right after the
-# kernel window: the SAME command.o env.o batch.o the shell kernel links (no
+# so the interpreter rides as root COMMAND.COM on the boot FAT: the SAME
+# command.o env.o batch.o the shell kernel links (no
 # new compile, no new flags), relinked at TRANSIENT_BASE (spec/memory_map.h)
 # against ONE kernel ELF's symbols (ld --just-symbols), behind
 # os/milton/transient_hdr.asm. The kernel reads it at Exit time and refuses it
 # loudly unless every import address equals its own (MSG-DOS-0014 + PANIC).
 # Every image that can exit to DOS carries a transient linked against ITS OWN
-# kernel, and grows from IMG_SECTORS to EXITDOS_IMG_SECTORS (a whole 2x32
-# geometry, harness/emu/bochs.c) to hold it. Nothing is added to the kernel
+# kernel. MS-DOS 3.3 User's Guide pp28/46/119 (PDF41/131/204): visible file,
+# named disk reload, copied separately from SYS's hidden files (initech-e9sx).
+# The disk remains the boot-system tool's 46 complete 2x32 cylinders. This
+# geometry change from 48 owes Bochs + 86Box validation to the PM. Nothing is added to the kernel
 # window, so test-kernel-headroom measures the kernel alone.
 TRANSIENT_LD        := $(KERNEL_DIR)/transient.ld
 TRANSIENT_HDR_ASM   := $(KERNEL_DIR)/transient_hdr.asm
 TRANSIENT_HDR_OBJ   := $(BUILD)/transient_hdr.o
 TRANSIENT_OBJS      := $(TRANSIENT_HDR_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ)
-# PM 2026-10-17: the transient lives in the system area AFTER the 46-cylinder FAT
-# boot image (tools/mk_boot_system.sh, partition [63,2943)); the image grows to 48
-# whole 2x32 cylinders. Must equal TRANSIENT_LBA in os/milton/transient.h.
-TRANSIENT_LBA       := 2944
-EXITDOS_IMG_SECTORS := 3072
-TRANSIENT_MAX_SECTORS := $(shell expr $(EXITDOS_IMG_SECTORS) - $(TRANSIENT_LBA))
 TRANSIENT_BASE_HEX  := $(shell grep -E '^\#define[[:space:]]+TRANSIENT_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+TRANSIENT_CEIL_HEX  := $(shell grep -E '^\#define[[:space:]]+TRANSIENT_CEIL' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 # Parse-time agreement (Rule 2): the header constants the KERNEL compiles in
-# must equal the layout the IMAGE recipe writes, and the link script's base
-# must equal the locked map.
-ifneq ($(shell grep -cE '^\#define[[:space:]]+TRANSIENT_LBA[[:space:]]+$(TRANSIENT_LBA)u' $(KERNEL_DIR)/transient.h),1)
-$(error os/milton/transient.h TRANSIENT_LBA != 1 + STAGE2_SECTORS + KERNEL_SECTORS = $(TRANSIENT_LBA))
-endif
-ifneq ($(shell grep -cE '^\#define[[:space:]]+TRANSIENT_MAX_SECTORS[[:space:]]+$(TRANSIENT_MAX_SECTORS)u' $(KERNEL_DIR)/transient.h),1)
-$(error os/milton/transient.h TRANSIENT_MAX_SECTORS != EXITDOS_IMG_SECTORS - TRANSIENT_LBA = $(TRANSIENT_MAX_SECTORS))
-endif
+# must equal the link script's base and ceiling in the locked memory map.
 ifneq ($(shell grep -cE '^TRANSIENT_BASE = $(TRANSIENT_BASE_HEX);' $(TRANSIENT_LD)),1)
 $(error $(TRANSIENT_LD) TRANSIENT_BASE != spec/memory_map.h TRANSIENT_BASE $(TRANSIENT_BASE_HEX))
 endif
-ifneq ($(shell expr $(EXITDOS_IMG_SECTORS) % 64),0)
-$(error EXITDOS_IMG_SECTORS=$(EXITDOS_IMG_SECTORS) is not a whole 2x32 cylinder geometry)
+ifneq ($(shell grep -cE '^TRANSIENT_CEIL = $(TRANSIENT_CEIL_HEX);' $(TRANSIENT_LD)),1)
+$(error $(TRANSIENT_LD) TRANSIENT_CEIL != spec/memory_map.h TRANSIENT_CEIL $(TRANSIENT_CEIL_HEX))
 endif
 $(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
@@ -10346,29 +10328,32 @@ $(TRANSIENT_IMPORTS_LD): $(TRANSIENT_OBJS) $(KERNEL_FLAIRTENANTS_OBJS) | $(BUILD
 	printf '>>> transient imports: %s kernel symbols kept (%s undefined in the transient)\n' "$$(wc -l < $@.keep)" "$$(wc -l < $@.und)"
 define exitdos-transient-rules
 $(BUILD)/transient_$(1).elf: $(2) $(TRANSIENT_OBJS) $(TRANSIENT_LD) | $(BUILD)
-	@end=$$$$($(NM) $(2) | awk '$$$$3=="_kernel_end"{print "0x"$$$$1}'); \
+	@end=$$$$($(NM) $$< | awk '$$$$3=="_kernel_end"{print "0x"$$$$1}'); \
 	[ -n "$$$$end" ] && [ $$$$(( end )) -le $$$$(( $(TRANSIENT_BASE_HEX) )) ] || { printf '!!! transient(%s): kernel _kernel_end=%s reaches TRANSIENT_BASE=%s\n' '$(1)' "$$$$end" '$(TRANSIENT_BASE_HEX)'; exit 1; }
-	$(LD) -m elf_i386 -T $(TRANSIENT_LD) --just-symbols=$(2) -o $$@ $(TRANSIENT_OBJS)
+	$(LD) -m elf_i386 -T $(TRANSIENT_LD) --just-symbols=$$< -o $$@ $(TRANSIENT_OBJS)
 $(BUILD)/transient_$(1).bin: $(BUILD)/transient_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
-	@sz=$$$$(wc -c < $$@); max=$$$$(( $(TRANSIENT_MAX_SECTORS) * 512 )); \
-	[ "$$$$sz" -le "$$$$max" ] || { printf '!!! transient_$(1).bin (%s B) exceeds its %s-sector boot-disk window\n' "$$$$sz" '$(TRANSIENT_MAX_SECTORS)'; exit 1; }; \
-	printf '>>> transient COMMAND.COM (%s): %s B @LBA %s, linked against %s\n' '$(1)' "$$$$sz" '$(TRANSIENT_LBA)' '$(2)'
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(TRANSIENT_CEIL_HEX) - $(TRANSIENT_BASE_HEX) )); \
+	[ "$$$$sz" -le "$$$$max" ] || { printf '!!! transient_$(1).bin (%s B) exceeds its load window\n' "$$$$sz"; exit 1; }; \
+	printf '>>> transient COMMAND.COM (%s): %s B in boot root, linked against %s\n' '$(1)' "$$$$sz" '$(2)'
 endef
+
+# All desktop test/recording families expose Exit to InitechDOS. Give each its
+# own interpreter too, using the same link/header/budget checks as the flagship.
+$(eval $(call exitdos-transient-rules,kernel_%,$(BUILD)/kernel_%.elf))
+.PRECIOUS: $(BUILD)/transient_kernel_%.elf $(BUILD)/transient_kernel_%.bin
 
 # $(call exitdos-image-recipe,<kernel bin>,<transient bin>) -- the body of a
 # flagship-family image recipe that carries the transient.
 define exitdos-image-recipe
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(1) $(BOOT_SYSTEM_TOOL)
-	@dd if=$(2) of=$@ bs=512 seek=$(TRANSIENT_LBA) conv=notrunc status=none
-	@truncate -s $$(( $(EXITDOS_IMG_SECTORS) * 512 )) $@
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(1) $(BOOT_SYSTEM_TOOL) $(2)
 endef
 
 $(eval $(call exitdos-transient-rules,flairtenants,$(KERNEL_FLAIRTENANTS_ELF)))
 
 $(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BUILD)/transient_flairtenants.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(INITDOS_SYS_BIN),$(BUILD)/transient_flairtenants.bin)
-	@printf ">>> flair-tenants image: %s (HELLO+NOTES co-resident; flair_app_dispatch spine @s17; transient COMMAND.COM @s%s)\n" "$@" "$(TRANSIENT_LBA)"
+	@printf ">>> flair-tenants image: %s (HELLO+NOTES co-resident; COMMAND.COM in boot FAT root)\n" "$@"
 
 # R3.1 DB_WRITE_SKIP mutation image: identical flagship object set except the
 # desktop persistence object reports CREATE while skipping the FAT write.
@@ -10379,8 +10364,8 @@ KERNEL_FLAIRTENANTS_DB_SKIP_OBJS := \
 	$(filter-out $(KERNEL_DESKTOP_DB_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) \
 	$(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ)
 
-$(KERNEL_FLAIRTENANTS_DB_SKIP_ELF): $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS)
+$(KERNEL_FLAIRTENANTS_DB_SKIP_ELF): $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
 $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN): $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10392,8 +10377,8 @@ $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN): $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF) | $(BUILD
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-db-write-skip)
 
-$(FLAIRTENANTS_DB_SKIP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) $(BOOT_SYSTEM_TOOL)
+$(FLAIRTENANTS_DB_SKIP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_db_write_skip.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_db_write_skip.bin
 	@printf ">>> flair-tenants DB_WRITE_SKIP mutant image: %s\n" "$@"
 
 .PHONY: flair-tenants
@@ -10445,7 +10430,7 @@ $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 $(eval $(call exitdos-transient-rules,flairtenants_int,$(KERNEL_FLAIRTENANTS_INT_ELF)))
 $(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BUILD)/transient_flairtenants_int.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_INT_BIN),$(BUILD)/transient_flairtenants_int.bin)
-	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump; transient COMMAND.COM @s%s)\n" "$@" "$(TRANSIENT_LBA)"
+	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump; COMMAND.COM in boot FAT root)\n" "$@"
 
 # Windowed GUI run of the co-resident tenants (mirrors run-flair): click HELLO's
 # visible sliver to raise + activate it over NOTES, live, with a visible cursor.
@@ -10478,8 +10463,8 @@ define flair-tenants-proc-mutant-rules
 $(BUILD)/process_mut_$(2).o: os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10492,8 +10477,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10503,8 +10488,8 @@ define flair-tenants-tbx-mutant-rules
 $(BUILD)/tbxgate_mut_$(2).o: $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10517,8 +10502,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants R3.7 TOOLBOX-GATE MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10526,7 +10511,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -10543,8 +10528,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10569,8 +10554,8 @@ define flair-tenants-desktop-mutant-rules
 $(BUILD)/desktop_mut_$(2).o: os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h os/flair/flair_look.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DESKTOP_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed -D$(1) -c os/flair/desktop.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10583,8 +10568,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10611,8 +10596,8 @@ define flair-tenants-window-mutant-rules
 $(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_WINDOW_OPT) -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10625,8 +10610,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants SOLIDITY MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10684,8 +10669,8 @@ define flair-tenants-finderdesk-mutant-rules
 $(BUILD)/finder_desktop_mut_$(2).o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10698,8 +10683,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants DESKTOP-ICON MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10724,8 +10709,8 @@ define flair-tenants-finderops-mutant-rules
 $(BUILD)/finder_ops_mut_$(2).o: os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/window.h os/flair/winscroll.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_FINDER_OPS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10738,8 +10723,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants FILE-OPS MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE,ops_trash_no_stage))
@@ -10759,8 +10744,8 @@ define flair-tenants-finderwin-mutant-rules
 $(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10773,8 +10758,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants DISK-WINDOW MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10784,7 +10769,7 @@ endef
 #   FINDER_WIN_MUT_VOLLABEL_SHOWN -> finder_win_skip_entry never skips the FAT
 #                    volume-label entry, so the volume NAME leaks into the
 #                    listing as a fifth document icon -> the open marker says
-#                    "FINDER-OPEN-VOLUME win=0 n=3", never n=2 (design F1.1)
+#                    "FINDER-OPEN-VOLUME win=0 n=5", never n=2 (design F1.1)
 #   FINDER_WIN_MUT_SINGLETON_DUP -> finder_win_find always MISSES, so re-opening
 #                    an already-open folder builds a SECOND window instead of
 #                    raising the first -> the nav chain's closing line becomes
@@ -10807,8 +10792,8 @@ define flair-tenants-findermenu-mutant-rules
 $(BUILD)/finder_menu_mut_$(2).o: os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $$@
 
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10821,8 +10806,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants FINDER-MENU MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -11406,7 +11391,7 @@ $(INITECH_IMG): $(FLAIRTENANTS_IMG) | $(BUILD)
 	@printf ">>> image: %s (flagship alias of %s -- FLAIR desktop + HELLO/NOTES co-resident tenants)\n" "$@" "$(FLAIRTENANTS_IMG)"
 
 image: $(INITECH_IMG) $(FLAIR_DATA_IMG)
-	@printf ">>> image data: %s (FAT12 primary-slave volume; README.TXT + APPS)\n" "$(FLAIR_DATA_IMG)"
+	@printf ">>> image data: %s (FAT12 primary-slave volume; README.TXT + APPS + DOS + AUTOEXEC.BAT)\n" "$(FLAIR_DATA_IMG)"
 
 # ---------------------------------------------------------------------------
 # REAL action target: run
@@ -12853,7 +12838,7 @@ TEST_FINDER_DESK_MUT_DBL      := $(BUILD)/test_finder_desktop_mutant_dbltick_off
 TEST_FINDER_DESK_MUT_BAND     := $(BUILD)/test_finder_desktop_mutant_marquee_offbyone
 TEST_FINDER_DESK_MUT_UNDERLAY := $(BUILD)/test_finder_desktop_mutant_no_underlay
 FINDER_DESK_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
-FINDER_DESK_LINK := os/flair/finder_desktop.c os/flair/finder_icon.c \
+FINDER_DESK_LINK := os/flair/event.c os/flair/finder_desktop.c os/flair/finder_icon.c \
                     os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                     os/flair/surface.c os/flair/heap.c \
                     $(CHROME_DRAWER_C) $(REGION_ENGINE_C) $(FLAIRLOOK_C)
@@ -12926,7 +12911,7 @@ TEST_FINDER_WIN_MUT_SINGLETON := $(BUILD)/test_finder_windows_mutant_singleton_d
 TEST_FINDER_WIN_MUT_VOLLABEL  := $(BUILD)/test_finder_windows_mutant_vollabel_shown
 TEST_FINDER_WIN_MUT_CLEANUP   := $(BUILD)/test_finder_windows_mutant_cleanup_unsorted
 FINDER_WIN_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
-FINDER_WIN_LINK := os/flair/finder_windows.c os/flair/finder_desktop.c \
+FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_desktop.c \
                    os/flair/finder_icon.c os/flair/finder_cmd.c \
                    os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                    os/flair/surface.c os/flair/heap.c \
@@ -19538,14 +19523,14 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DI_OPEN_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 15000 2> "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).report"; then printf '!!! test-flair-desktop-icons FAIL: TRIPLE FAULT in the OPEN boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the double-click did not open the root disk window with the expected 4-icon listing. Two failure axes, and the serial below says which: (a) NO FINDER-OPEN-VOLUME line at all = the double-click synthesiser did not fire (the measured delta was 8 ticks vs FINDER_DBLCLICK_TICKS=20 when this gate landed -- if the harness pacing has slowed, fix the harness or the trace, NEVER the constant); (b) a FINDER-OPEN-VOLUME line with a different win=/n= = the window opened but the enumeration changed (a file added to the data volume, or the VOLLABEL skip broke)\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" || true; exit 1; }
 	@! grep -q '^FINDER-WIN-OPEN-FAIL' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" \
 		|| { printf '!!! test-flair-desktop-icons FAIL: the disk window reported an open failure\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DI_OPEN_NAME).serial" || true; exit 1; }
-	@printf '>>> test-flair-desktop-icons [5/7]: FINDER-OPEN-VOLUME win=0 n=2 (the double-click opened the REAL root disk window)\n'
+	@printf '>>> test-flair-desktop-icons [5/7]: FINDER-OPEN-VOLUME win=0 n=4 (the double-click opened the REAL root disk window)\n'
 	@# ---- leg 6: drag the volume icon to (400,400) and persist. ----
 
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
@@ -19614,7 +19599,7 @@ test-flair-desktop-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 #       singles -> the FINDER-OPEN-VOLUME line is ABSENT entirely (and two
 #       SELECT lines appear instead) -> the leg-5 marker assertion RED.
 #       (Re-keyed with the leg itself at bead initech-tdnl.10: the clean image
-#       now emits "FINDER-OPEN-VOLUME win=0 n=2" and the mutant emits no
+#       now emits "FINDER-OPEN-VOLUME win=0 n=4" and the mutant emits no
 #       FINDER-OPEN-VOLUME line at all.)
 .PHONY: test-flair-desktop-icons-mutant
 test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
@@ -19640,9 +19625,9 @@ test-flair-desktop-icons-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_deskicons_mut_base_open --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 15000 \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" >/dev/null 2>&1 || true
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_deskicons_mut_base_open.serial" \
-		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=2 -- the baseline is broken\n'; exit 1; }
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_deskicons_mut_base_open.serial" \
+		|| { printf '!!! test-flair-desktop-icons-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken\n'; exit 1; }
 	@printf '>>> baseline: the clean FLAIRTENANTS image grades GREEN on leg DEFAULT and opens on a double-click\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@# ---- mutant 1: NO_UNDERLAY -- the DEFAULT-leg grader MUST go RED. ----
@@ -19801,7 +19786,7 @@ endif
 #   1 ROOTWIN   FLAIR_ICON_OPEN_SPEC (the LOCKED R3.2 trace, reused verbatim --
 #               it is already the "double-click the volume" gesture and
 #               duplicating it here would be two sources of truth); dump after
-#               "FINDER-OPEN-VOLUME win=0 n=2"
+#               "FINDER-OPEN-VOLUME win=0 n=4"
 #               -> grader leg ROOTWIN: the window chrome at the cascaded default
 #                  frame (20,60)..(380,280) -- frame rules, the title bar's
 #                  bottom rule, the go-away box's dark ring, and the CENTRED
@@ -19811,7 +19796,7 @@ endif
 #               *** THIS is the pixel leg test-flair-desktop-icons leg 5
 #                   deliberately deferred to this lane.
 #   2 NAV       FLAIR_FOLDER_NAV_SPEC; serial only. The full chain, in order:
-#                  FINDER-OPEN-VOLUME win=0 n=2
+#                  FINDER-OPEN-VOLUME win=0 n=4
 #                  FINDER-OPEN-FOLDER name=APPS win=1 singleton=0
 #                  FLAIR-DRAG win 0 (40,80)->(250,250)
 #                  FINDER-OPEN-FOLDER name=APPS win=1 singleton=1
@@ -19825,7 +19810,7 @@ endif
 #                  FINDER-CLOSE-WINDOW win=0
 #                  DESKTOP-DB-SAVE n=3      (2 desktop icons + 1 kind=4 view)
 #   4 PERSIST-R REBOOT copy A, replay FLAIR_ICON_OPEN_SPEC; dump after
-#               "FINDER-OPEN-VOLUME win=0 n=2"
+#               "FINDER-OPEN-VOLUME win=0 n=4"
 #                  DESKTOP-DB-OK + DESKTOP-DB-VIEWS n=1 (never CREATE/REGEN)
 #               -> grader leg MOVEDWIN: the same window, same chrome, same four
 #                  icons, but at the SAVED origin (120,180) -- and the cascaded
@@ -19948,17 +19933,17 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_ROOT_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_ROOT_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the ROOTWIN boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the double-click did not open the root disk window with the expected 4-icon listing\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" || true; exit 1; }
 	@! grep -q '^FINDER-WIN-ICONS-FULL' "$(BUILD)/$(FLAIR_DW_ROOT_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the per-window icon cap bit on a 4-entry root\n'; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: ROOTWIN screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_DW_ROOT_NAME).ppm" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the opened root window does not carry the derived chrome + the four grid icons\n'; exit 1; }
-	@printf '>>> test-flair-disk-windows [1/8]: FINDER-OPEN-VOLUME win=0 n=2 + grader leg ROOTWIN\n'
+	@printf '>>> test-flair-disk-windows [1/8]: FINDER-OPEN-VOLUME win=0 n=4 + grader leg ROOTWIN\n'
 	@# ---- leg 1b (bead initech-tdnl.12): the SAME dump, graded for BAND 2. ----
 	@# Opening a disk window makes the Finder the FOREGROUND TENANT, so band 2
 	@# must have swapped from HELLO's Photoshop bar to the Finder's own bar.
@@ -19976,7 +19961,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 		--quit-after "FINDER-OPEN-FOLDER name=APPS win=1 singleton=1" \
 		--timeout-ms 30000 2> "$(BUILD)/$(FLAIR_DW_NAV_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_NAV_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the NAV boot\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: NAV leg never opened the root window\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
 	@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the double-click on the APPS folder icon at the derived cell (107,86)+(16,16) did not open a NEW folder window in slot 1\n'; grep -E '^FINDER-|^FLAIR-DRAG' "$(BUILD)/$(FLAIR_DW_NAV_NAME).serial" || true; exit 1; }
@@ -20014,7 +19999,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_DW_PERSR_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_DW_PERSR_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).report"; then printf '!!! test-flair-disk-windows FAIL: TRIPLE FAULT in the PERSIST-REBOOT boot\n'; exit 1; fi
 	@grep -qxF 'DESKTOP-DB-OK' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
@@ -20028,7 +20013,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 	fi
 	@grep -qxF 'DESKTOP-DB-VIEWS n=1' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the reboot did not take back exactly ONE kind=4 view record\n'; grep '^DESKTOP-DB' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" \
 		|| { printf '!!! test-flair-disk-windows FAIL: the reboot could not re-open the root window\n'; grep '^FINDER-' "$(BUILD)/$(FLAIR_DW_PERSR_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" ]; then printf '!!! test-flair-disk-windows FAIL: PERSIST-REBOOT screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_DW_PERSR_NAME).ppm" \
@@ -20140,7 +20125,7 @@ test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 # GREEN first on BOTH mutated legs, so the only variable is the mutation.
 #   win_vollabel_shown (-DFINDER_WIN_MUT_VOLLABEL_SHOWN): the FAT volume-label
 #       entry is no longer skipped, so the volume NAME becomes a fifth icon ->
-#       the open marker must read "FINDER-OPEN-VOLUME win=0 n=3" and n=2 must be
+#       the open marker must read "FINDER-OPEN-VOLUME win=0 n=5" and n=2 must be
 #       ABSENT. Asserted as an EXACT divergence, both directions.
 #   win_singleton_dup  (-DFINDER_WIN_MUT_SINGLETON_DUP): finder_win_find always
 #       misses, so the second open of APPS builds a SECOND window ->
@@ -20164,9 +20149,9 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_open --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=2" >/dev/null 2>&1 || true
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
-		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=2 -- the baseline is broken (not a mutant)\n'; exit 1; }
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=4" >/dev/null 2>&1 || true
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_base_open.serial" \
+		|| { printf '!!! test-flair-disk-windows-mutant FAIL: the CLEAN image did not emit FINDER-OPEN-VOLUME win=0 n=4 -- the baseline is broken (not a mutant)\n'; exit 1; }
 
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_base_nav --out "$(BUILD)" \
@@ -20181,17 +20166,17 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_vollabel_shown.img" --disk2 "$(FLAIR_DW_DATA_A)" \
 		--expect FLAIR-FAT-MOUNT-OK --name flair_diskwin_mut_vollabel --out "$(BUILD)" \
 		--mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
-		--quit-after "FINDER-OPEN-VOLUME win=0 n=3" \
+		--quit-after "FINDER-OPEN-VOLUME win=0 n=5" \
 		2> "$(BUILD)/flair_diskwin_mut_vollabel.report" || true
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant missing mount marker (not comparable)\n'; exit 1; }
 	@if grep -q 'triple_fault=1' "$(BUILD)/flair_diskwin_mut_vollabel.report"; then printf '!!! test-flair-disk-windows-mutant FAIL: vollabel TRIPLE-FAULTED (cannot judge the oracle)\n'; exit 1; fi
-	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_diskwin_mut_vollabel.serial"; then \
+	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_diskwin_mut_vollabel.serial"; then \
 		printf '!!! test-flair-disk-windows-mutant FAIL: the leg-1 count tooth is DECORATION -- VOLLABEL_SHOWN still reported n=2\n'; exit 1; \
 	fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=3' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=5' "$(BUILD)/flair_diskwin_mut_vollabel.serial" \
 		|| { printf '!!! test-flair-disk-windows-mutant FAIL: vollabel mutant did not report the EXPECTED n=3 -- wrong failure axis, the mutant is not doing what it claims\n'; grep '^FINDER-' "$(BUILD)/flair_diskwin_mut_vollabel.serial" || true; exit 1; }
-	@printf '>>> mutant win_vollabel_shown correctly RED: the volume LABEL leaked into the listing -- FINDER-OPEN-VOLUME win=0 n=3 (expected n=2)\n'
+	@printf '>>> mutant win_vollabel_shown correctly RED: the volume LABEL leaked into the listing -- FINDER-OPEN-VOLUME win=0 n=5 (expected n=4)\n'
 	@# ---- mutant 2: SINGLETON_DUP -- the second open MUST build a 2nd window. ----
 
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_singleton_dup.img" --disk2 "$(FLAIR_DW_DATA_A)" \
@@ -20428,7 +20413,7 @@ test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENA
 	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-file-ops FAIL: mtools (mdir/mtype/mcopy) missing\n'; exit 1; }
 	@# ---- leg 1: INTO a folder icon ----
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_INTO_NAME),$(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img,$(FLAIR_FILEOPS_INTO_SPEC),FINDER-MOVE name=README.TXT from=0 to=3,0)
-	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-OPEN-VOLUME win=0 n=2,the volume double-click did not open the root window)
+	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-OPEN-VOLUME win=0 n=4,the volume double-click did not open the root window)
 	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-DROP-HILITE name=APPS,the APPS folder was not lit as the drop target)
 	$(call fo-has,$(FLAIR_FO_INTO_NAME),FINDER-MOVE name=README.TXT from=0 to=3,the drop on APPS did not move README.TXT into APPS (cluster 3))
 	@mdir -i $(BUILD)/$(FLAIR_FO_INTO_NAME)_data.img ::/APPS | grep -q '^README   TXT ' || { printf '!!! test-flair-file-ops FAIL: mtools does not see README.TXT in ::/APPS\n'; exit 1; }
@@ -20563,7 +20548,7 @@ FLAIR_SVC_NAME     := flair_finder_service
 FLAIR_SVC_DMG_NAME := flair_finder_service_damaged
 
 # $(call svc-leg1-check,<serial name>): exits 0 iff leg 1's serial + mtools hold.
-svc-leg1-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(1).serial" \
+svc-leg1-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(1).serial" \
 	&& grep -qxF 'FINDER-TRASH name=README.TXT origin=0' "$(BUILD)/$(1).serial" \
 	&& grep -qxF 'DESKTOP-DB-SAVE n=3' "$(BUILD)/$(1).serial"
 
@@ -20580,12 +20565,12 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/$(FLAIR_SVC_NAME)_open_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/$(FLAIR_SVC_NAME)_open_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name "$(FLAIR_SVC_NAME)_open" --out "$(BUILD)" --mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=2" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
 		--timeout-ms 20000 2> "$(BUILD)/$(FLAIR_SVC_NAME)_open.report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_NAME)_open.report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT\n'; exit 1; fi
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial" || { printf '!!! test-flair-finder-service FAIL: leg 1a -- want FINDER-OPEN-VOLUME win=0 n=2 (README.TXT + APPS only)\n'; grep -E '^FINDER' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial"; exit 1; }
-	@[ -s "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" ] || { printf '!!! test-flair-finder-service FAIL: no screendump at FINDER-OPEN-VOLUME win=0 n=2\n'; exit 1; }
-	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" || { printf '!!! test-flair-finder-service FAIL: the root window is not README.TXT + APPS with bare cells where DESKTOP.DB / TRASH were drawn\n'; exit 1; }
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial" || { printf '!!! test-flair-finder-service FAIL: leg 1a -- want FINDER-OPEN-VOLUME win=0 n=4 (README.TXT + APPS + DOS + AUTOEXEC.BAT)\n'; grep -E '^FINDER' "$(BUILD)/$(FLAIR_SVC_NAME)_open.serial"; exit 1; }
+	@[ -s "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" ] || { printf '!!! test-flair-finder-service FAIL: no screendump at FINDER-OPEN-VOLUME win=0 n=4\n'; exit 1; }
+	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/$(FLAIR_SVC_NAME)_open.ppm" || { printf '!!! test-flair-finder-service FAIL: the root window is not README/APPS/DOS/AUTOEXEC with service cells 4-5 bare\n'; exit 1; }
 	@# ---- leg 1b: a file dragged to the Trash is staged; the DB is written ----
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(FLAIR_SVC_NAME)_data.img
@@ -20594,12 +20579,12 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 		--name "$(FLAIR_SVC_NAME)" --out "$(BUILD)" --mouse "$(FLAIR_SVC_TRASH_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "DESKTOP-DB-SAVE n=3" --timeout-ms 40000 2> "$(BUILD)/$(FLAIR_SVC_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_NAME).report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT\n'; exit 1; fi
-	@$(call svc-leg1-check,$(FLAIR_SVC_NAME)) || { printf '!!! test-flair-finder-service FAIL: leg 1b -- want FINDER-OPEN-VOLUME win=0 n=2, FINDER-TRASH name=README.TXT origin=0, DESKTOP-DB-SAVE n=3\n'; grep -E '^(FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_NAME).serial"; exit 1; }
+	@$(call svc-leg1-check,$(FLAIR_SVC_NAME)) || { printf '!!! test-flair-finder-service FAIL: leg 1b -- want FINDER-OPEN-VOLUME win=0 n=4, FINDER-TRASH name=README.TXT origin=0, DESKTOP-DB-SAVE n=3\n'; grep -E '^(FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_NAME).serial"; exit 1; }
 	@mdir -a -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img :: > $(BUILD)/$(FLAIR_SVC_NAME).root.lst
 	@grep -qE '^DESKTOP  DB ' $(BUILD)/$(FLAIR_SVC_NAME).root.lst && grep -qE '^TRASH .*<DIR>' $(BUILD)/$(FLAIR_SVC_NAME).root.lst || { printf '!!! test-flair-finder-service FAIL: mtools no longer lists DESKTOP.DB and TRASH in the root (hidden from the Finder only)\n'; cat $(BUILD)/$(FLAIR_SVC_NAME).root.lst; exit 1; }
 	@mtype -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-service FAIL: README.TXT was not staged byte-identical into ::/TRASH\n'; exit 1; }
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf '!!! test-flair-finder-service FAIL: DESKTOP.DB is not 8 + 3*24 = 80 bytes after the staging\n'; exit 1; }
-	@printf '>>> test-flair-finder-service [1/2]: root shows n=2 (pixel-graded, cells 2-3 bare); README staged, DB written (80 B); mtools still lists DESKTOP.DB + TRASH\n'
+	@printf '>>> test-flair-finder-service [1/2]: root shows n=4 (pixel-graded, cells 4-5 bare); README staged, DB written (80 B); mtools still lists DESKTOP.DB + TRASH\n'
 	@# ---- leg 2: the reviewer's damaged volume ----
 	@$(call fixture-preflight,$(FLAIR_DAMAGED_DATA_IMG))
 	cp -f $(FLAIR_DAMAGED_DATA_IMG) $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img
@@ -20608,12 +20593,12 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 		--name "$(FLAIR_SVC_DMG_NAME)" --out "$(BUILD)" --mouse "$(FLAIR_SVC_DAMAGED_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after "FINDER-OPEN-FOLDER name=TRASH win=2" --timeout-ms 40000 2> "$(BUILD)/$(FLAIR_SVC_DMG_NAME).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_DMG_NAME).report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT on the damaged volume\n'; exit 1; fi
-	@for l in 'FLAIR-FAT-MOUNT-OK' 'FINDER-OPEN-VOLUME win=0 n=2' 'FINDER-TRASH name=NEWFOLD origin=0' 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' 'FINDER-OPEN-FOLDER name=TRASH win=2 singleton=0'; do \
+	@for l in 'FLAIR-FAT-MOUNT-OK' 'FINDER-OPEN-VOLUME win=0 n=4' 'FINDER-TRASH name=NEWFOLD origin=0' 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' 'FINDER-OPEN-FOLDER name=TRASH win=2 singleton=0'; do \
 		grep -qxF "$$l" "$(BUILD)/$(FLAIR_SVC_DMG_NAME).serial" || { printf '!!! test-flair-finder-service FAIL: leg 2 (damaged volume) -- missing serial line: %s\n' "$$l"; grep -E '^(FLAIR-FAT|FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_DMG_NAME).serial"; exit 1; }; done
 	@mdir -i $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img ::/TRASH | grep -qE '^NEWFOLD .*<DIR>' || { printf '!!! test-flair-finder-service FAIL: NEWFOLD is not in the ROOT ::/TRASH\n'; exit 1; }
 	@mtype -i $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img ::/APPS/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-service FAIL: the stranded ::/APPS/TRASH/README.TXT was lost or changed (no user data may be deleted)\n'; exit 1; }
 	@[ "$$(mdir -a -i $(BUILD)/$(FLAIR_SVC_DMG_NAME)_data.img :: | grep -cE '^TRASH .*<DIR>')" = 1 ] || { printf '!!! test-flair-finder-service FAIL: the root does not hold exactly one TRASH\n'; exit 1; }
-	@printf '>>> test-flair-finder-service [2/2]: damaged volume boots; root n=2; NEWFOLD staged in ::/TRASH; stranded APPS\\TRASH opens as an ordinary folder and keeps README.TXT (mtools)\n'
+	@printf '>>> test-flair-finder-service [2/2]: damaged volume boots; root n=4; NEWFOLD staged in ::/TRASH; stranded APPS\\TRASH opens as an ordinary folder and keeps README.TXT (mtools)\n'
 	@printf '>>> test-flair-finder-service: green\n'
 
 test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_service_shown.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
@@ -20626,13 +20611,13 @@ test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_finder_service_mut_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
 	@$(HARNESS_BIN) --disk "$(BUILD)/flair_tenants_mut_win_service_shown.img" --disk2 "$(BUILD)/flair_finder_service_mut_data.img" --expect FLAIR-FAT-MOUNT-OK \
 		--name flair_finder_service_mut --out "$(BUILD)" --mouse "$(FLAIR_ICON_OPEN_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=4" \
+		--screendump --screendump-after "FINDER-OPEN-VOLUME win=0 n=6" \
 		--timeout-ms 20000 2> "$(BUILD)/flair_finder_service_mut.report" || true
 	@grep -q '^FINDER-OPEN-VOLUME win=0 ' "$(BUILD)/flair_finder_service_mut.serial" && [ -s "$(BUILD)/flair_finder_service_mut.ppm" ] || { printf '!!! test-flair-finder-service-mutant: the mutant never opened the root / no dump (not comparable)\n'; exit 1; }
-	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_finder_service_mut.serial"; then printf '!!! test-flair-finder-service-mutant FAIL: the filter-removed kernel still reported n=2 -- decoration\n'; exit 1; fi
+	@if grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_finder_service_mut.serial"; then printf '!!! test-flair-finder-service-mutant FAIL: the filter-removed kernel still reported n=4 -- decoration\n'; exit 1; fi
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) rootwin "$(BUILD)/flair_finder_service_mut.ppm" > $(BUILD)/flair_finder_service_mut.grade 2>&1; then printf '!!! test-flair-finder-service-mutant FAIL: the grader PASSED a root window that draws DESKTOP.DB / TRASH -- decoration\n'; exit 1; fi
 	@grep -q 'is not bare content' $(BUILD)/flair_finder_service_mut.grade || { printf '!!! test-flair-finder-service-mutant FAIL: the grader went RED for the wrong reason\n'; cat $(BUILD)/flair_finder_service_mut.grade; exit 1; }
-	@printf '>>> test-flair-finder-service-mutant [1/2]: SERVICE_SHOWN correctly RED -- %s; grader: cells 2-3 not bare\n' "$$(grep -m1 '^FINDER-OPEN-VOLUME' $(BUILD)/flair_finder_service_mut.serial)"
+	@printf '>>> test-flair-finder-service-mutant [1/2]: SERVICE_SHOWN correctly RED -- %s; grader: cells 4-5 not bare\n' "$$(grep -m1 '^FINDER-OPEN-VOLUME' $(BUILD)/flair_finder_service_mut.serial)"
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(BUILD)/flair_finder_service_guard_data.img
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(BUILD)/flair_finder_service_guard_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
@@ -20732,7 +20717,7 @@ test-flair-trash-window: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(
 	@command -v mdir >/dev/null 2>&1 && command -v mshowfat >/dev/null 2>&1 || { printf '!!! test-flair-trash-window FAIL: mtools (mdir/mtype/mcopy/mshowfat) missing\n'; exit 1; }
 	@# ---- leg 1: OPEN the Trash ----
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_TW_OPEN_NAME),$(BUILD)/$(FLAIR_TW_OPEN_NAME)_data.img,$(FLAIR_TRASHWIN_OPEN_SPEC),FINDER-OPEN-TRASH win=,1)
-	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-OPEN-VOLUME win=0 n=2,the root window did not open showing README.TXT + APPS only (TRASH must stay hidden))
+	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-OPEN-VOLUME win=0 n=4,the root window did not open showing README.TXT + APPS only (TRASH must stay hidden))
 	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-TRASH name=README.TXT origin=0,README.TXT was not staged)
 	$(call fo-has,$(FLAIR_TW_OPEN_NAME),FINDER-OPEN-TRASH win=1 n=1 singleton=0,the Trash double-click did not open a NEW Trash window in slot 1 listing the one staged item)
 	@! grep -q 'NYI' "$(BUILD)/$(FLAIR_TW_OPEN_NAME).serial" || { printf '!!! test-flair-trash-window FAIL: an NYI line on serial\n'; grep NYI "$(BUILD)/$(FLAIR_TW_OPEN_NAME).serial"; exit 1; }
@@ -20849,8 +20834,20 @@ mtype -i "$(1)" ::/TRASH/README.TXT 2>/dev/null | cmp -s - $(FLAIR_DATA_README) 
 [ "$$(mcopy -n -i "$(1)" ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf 'ET-CANCEL: DESKTOP.DB is not 80 bytes (the origin record was dropped)\n'; exit 1; }
 endef
 
+# Independent mtools allocation golden after purging README + APPS. DOS and
+# AUTOEXEC survive; bootstrap bookkeeping needs two clusters (DB and TRASH).
+FLAIR_EMPTY_REFERENCE_IMG := $(BUILD)/flair_empty_reference.img
+$(FLAIR_EMPTY_REFERENCE_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $@
+	@mdeltree -i $@ ::APPS
+	@mdel -i $@ ::README.TXT
+	@printf 'IDB1\001\000\000\000' | SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ - ::DESKTOP.DB
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::TRASH
+	@$(call fixture-check,recipe,$@)
+
 .PHONY: test-flair-empty-trash test-flair-empty-trash-mutant
-test-flair-empty-trash: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
+test-flair-empty-trash: $(FLAIR_EMPTY_REFERENCE_IMG) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-empty-trash : Special > Empty Trash (bead initech-6k12)\n'
 	@printf '  Ref: os/flair/finder_windows.h Sec 12; spec/flair_trash_traces.mk Sec 3.\n'
@@ -20884,14 +20881,20 @@ test-flair-empty-trash: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	grep -E '^(FINDER-TRASH|FINDER-OPEN-TRASH|FINDER-CMD|DESK-TRASH-ICON|DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_ET_OK_NAME).serial" > $(FLAIR_ET_CHAIN).got || true; \
 	cmp -s $(FLAIR_ET_CHAIN).want $(FLAIR_ET_CHAIN).got || { printf '!!! test-flair-empty-trash FAIL: the OK serial chain differs from the locked one (n=%s k=%s from mtools)\n' "$$n" "$$k"; diff $(FLAIR_ET_CHAIN).want $(FLAIR_ET_CHAIN).got; exit 1; }
 	@[ "$$($(call tw-trash-entries,$(BUILD)/$(FLAIR_ET_OK_NAME)_data.img))" = 0 ] || { printf '!!! test-flair-empty-trash FAIL: ::/TRASH is not empty after OK\n'; mdir -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::/TRASH; exit 1; }
-	@[ "$$(mdir -a -b -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img :: | sort | tr '\n' ' ')" = '::/DESKTOP.DB ::/TRASH/ ' ] || { printf '!!! test-flair-empty-trash FAIL: the root holds more than DESKTOP.DB + TRASH after the purge\n'; mdir -a -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::; exit 1; }
-	@out=$$(fsck.fat -n $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img 2>&1); rc=$$?; printf '    fsck.fat: %s\n' "$$(printf '%s' "$$out" | tail -1)"; \
-	[ $$rc -eq 0 ] && printf '%s' "$$out" | tail -1 | grep -q ' 2/[0-9]* clusters$$' || { printf '!!! test-flair-empty-trash FAIL: fsck.fat is not clean with exactly 2 clusters in use (a purged chain leaked)\n%s\n' "$$out"; exit 1; }
+	@[ "$$(mdir -a -b -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img :: | sort | tr '\n' ' ')" = '::/AUTOEXEC.BAT ::/DESKTOP.DB ::/DOS/ ::/TRASH/ ' ] || { printf '!!! test-flair-empty-trash FAIL: the root differs from AUTOEXEC + DOS + DESKTOP.DB + TRASH after the purge\n'; mdir -a -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::; exit 1; }
+	@# The two surviving public root entries retain all DOS chains. Compare the
+	@# independent fsck used-cluster delta against mtools' pre-purge allocation.
+	@set -eu; img=$(BUILD)/$(FLAIR_ET_OK_NAME)_data.img; \
+	 fsck.fat -n $$img > $(BUILD)/flair_empty_fsck.log; \
+	 fsck.fat -n $(BUILD)/flair_empty_reference.img > $(BUILD)/flair_empty_reference.fsck; \
+	 a=$$(tail -1 $(BUILD)/flair_empty_fsck.log | sed 's/.*files, //'); \
+	 b=$$(tail -1 $(BUILD)/flair_empty_reference.fsck | sed 's/.*files, //'); \
+	 [ "$$a" = "$$b" ] || { echo '!!! empty-trash: surviving allocation differs from mtools'; exit 1; }
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_ET_OK_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 56 ] || { printf '!!! test-flair-empty-trash FAIL: DESKTOP.DB is not 56 bytes (the origins were not dropped)\n'; exit 1; }
 	@[ -s "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" ] || { printf '!!! test-flair-empty-trash FAIL: OK screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_TRASH_CHECK_BIN) emptied "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the alert is not gone / the Trash is not EMPTY again\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) trashempty "$(BUILD)/$(FLAIR_ET_OK_NAME).ppm" || { printf '!!! test-flair-empty-trash FAIL: the open Trash window did not empty\n'; exit 1; }
-	@printf '>>> test-flair-empty-trash [3/3]: OK -- purged=n (README + APPS + its files, from mtools) depth-first; mtools: ::/TRASH empty, root = DESKTOP.DB + TRASH; fsck.fat clean, 2 clusters used; Trash window + icon EMPTY (pixel-graded)\n'
+	@printf '>>> test-flair-empty-trash [3/3]: OK -- purged=n (README + APPS + its files, from mtools) depth-first; mtools: ::/TRASH empty, root = AUTOEXEC + DOS + DESKTOP.DB + TRASH; fsck.fat allocation == mtools; Trash window + icon EMPTY (pixel-graded)\n'
 	@printf '>>> test-flair-empty-trash: green\n'
 
 # Rule 6: FINDER_WIN_MUT_EMPTY_NO_CONFIRM (finder_windows.o) purges at the
@@ -20958,16 +20961,16 @@ $(BUILD)/finder_windows_mut_l002.o: os/flair/finder_windows.c os/flair/finder_wi
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS -DFINDER_WIN_MUT_VIEW_UNCHECKED -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
 $(BUILD)/fat12_mut_l002.o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FAT12_OPT) -DFAT12_MUTATE_STALE_DIR_TRUSTED -Ispec -I$(KERNEL_DIR) -c $< -o $@
-$(BUILD)/kernel_flairtenants_mut_l002.elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o
+$(BUILD)/kernel_flairtenants_mut_l002.elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_l002.bin: $(BUILD)/kernel_flairtenants_mut_l002.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_l002.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-l002)
-$(BUILD)/flair_tenants_mut_l002.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_l002.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_l002.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_l002.bin
 	@printf ">>> flair-tenants L002-RESTORED MUTANT image: %s\n" "$@"
 
 .PHONY: test-flair-trash-purge-views test-flair-trash-purge-views-mutant
@@ -21024,7 +21027,7 @@ $(FLAIR_SCROLL_DATA_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $@
 	@: > $(BUILD)/.flair_scroll_empty.txt
-	@for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19; do \
+	@for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17; do \
 		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/.flair_scroll_empty.txt ::F$$i.TXT || exit 1; \
 	done
 	@printf '>>> flair scroll data: %s (flagship + F00..F19.TXT, 22 root entries before boot; DESKTOP.DB and TRASH join at boot, hidden)\n' "$@"
@@ -21090,7 +21093,7 @@ test-flair-scroll: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(FLAIR_
 	@printf '>>> test-flair-scroll [5/6]: down arrow HELD -> 9 repeated steps to 138; graded at the end\n'
 	@# ---- [6] FIT: nothing to scroll ----
 	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_scroll_fit,$(FLAIR_DATA_IMG),$(FLAIR_SCROLL_FIT_SPEC),FLAIR-SCROLL-IGNORED win 0 h,1)
-	$(call fo-has,flair_scroll_fit,FINDER-OPEN-VOLUME win=0 n=2,the flagship volume did not open)
+	$(call fo-has,flair_scroll_fit,FINDER-OPEN-VOLUME win=0 n=4,the flagship volume did not open)
 	$(call fo-has,flair_scroll_fit,FLAIR-SCROLL-IGNORED win 0 v,the DISABLED vertical bar click was not reported as ignored)
 	$(call fo-has,flair_scroll_fit,FLAIR-SCROLL-IGNORED win 0 h,the DISABLED horizontal bar click was not reported as ignored)
 	@! grep -q '^FLAIR-SCROLL win' "$(BUILD)/flair_scroll_fit.serial" || { printf '!!! test-flair-scroll FAIL: a DISABLED bar scrolled\n'; exit 1; }
@@ -21156,7 +21159,7 @@ test-flair-finder-follow: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $
 	@command -v mdir >/dev/null 2>&1 && command -v mtype >/dev/null 2>&1 || { printf '!!! test-flair-finder-follow FAIL: mtools (mdir/mtype) missing\n'; exit 1; }
 	@# ---- [1] DRAG ----
 	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FF_DRAG_NAME),$(BUILD)/$(FLAIR_FF_DRAG_NAME)_data.img,$(FLAIR_FOLLOW_DRAG_SPEC),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),1)
-	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FINDER-OPEN-VOLUME win=0 n=2,the volume double-click did not open the root window)
+	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FINDER-OPEN-VOLUME win=0 n=4,the volume double-click did not open the root window)
 	$(call fo-has,$(FLAIR_FF_DRAG_NAME),FLAIR-DRAG win 0 (20$(fo_comma)60)->(120$(fo_comma)180),the root window did not move by the locked (+100$(fo_comma)+120))
 	@[ -s "$(BUILD)/$(FLAIR_FF_DRAG_NAME).ppm" ] || { printf '!!! test-flair-finder-follow FAIL: DRAG screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin "$(BUILD)/$(FLAIR_FF_DRAG_NAME).ppm" \
@@ -21343,7 +21346,7 @@ grep -qxF 'FINDER-WIN-SELECT win=0 name=README.TXT count=1' $(1) || { printf 'FC
 grep -qxF 'FLAIR-MENU menu=128 item=0 (sel=0x00000000)' $(1) || { printf 'FC: band-1 File > About was selectable\n'; exit 1; }; \
 ! grep -qE 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)( |$$)' $(1) || { printf 'FC: a fake command reached the command spine: %s\n' "$$(grep -E 'name=(GET_INFO|DUPLICATE|OPEN|RESTART|SHUTDOWN)' $(1) | head -1)"; exit 1; }; \
 grep -q 'name=SELECT_ALL src=mouse sel=1$$' $(1) || { printf 'FC: Edit > Select All did not dispatch\n'; exit 1; }; \
-grep -qxF 'FINDER-SELECT-ALL win=0 n=2' $(1) || { printf 'FC: Select All did not select both shown icons\n'; exit 1; }
+grep -qxF 'FINDER-SELECT-ALL win=0 n=4' $(1) || { printf 'FC: Select All did not select both shown icons\n'; exit 1; }
 endef
 .PHONY: test-flair-finder-cmds test-flair-finder-cmds-mutant
 test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
@@ -21360,10 +21363,10 @@ test-flair-finder-cmds: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(P
 	@# content starts at L+6, so the set-up drag lands at x=134 (was 129).
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-WIN-DRAG win=0 name=README.TXT x=134 y=186,the set-up drag did not move README.TXT off its cell)
 	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FLAIR-MENU menu=514 item=12 (sel=0x0202000C),the release did not select View > Arrange (by Name))
-	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-ARRANGE win=0 moved=2,Arrange (by Name) did not move the two out-of-order icons)
+	$(call fo-has,$(FLAIR_FC_ARRANGE_NAME),FINDER-ARRANGE win=0 moved=3,Arrange (by Name) did not move the three out-of-order icons)
 	@[ -s "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" ] || { printf '!!! test-flair-finder-cmds FAIL: ARRANGE screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_DISKWIN_CHECK_BIN) arranged "$(BUILD)/$(FLAIR_FC_ARRANGE_NAME).ppm" || { printf '!!! test-flair-finder-cmds FAIL: the icons are not on the grid in NAME order\n'; exit 1; }
-	@printf '>>> test-flair-finder-cmds [2/2]: View > Arrange (by Name) -- FINDER-ARRANGE moved=2, icons graded in name order (leg arranged)\n'
+	@printf '>>> test-flair-finder-cmds [2/2]: View > Arrange (by Name) -- FINDER-ARRANGE moved=3, icons graded in name order (leg arranged)\n'
 	@printf '>>> test-flair-finder-cmds: green\n'
 
 $(eval $(call flair-tenants-findermenu-mutant-rules,FINDER_MENU_MUT_STUB_ENABLED,menu_stub_enabled))
@@ -21556,6 +21559,8 @@ test-flair-restart-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenan
 	$(call pw-reboot,$(BUILD)/flair_tenants_mut_no_pulse.img,flair_restart_mut_nopulse,$(BUILD)/flair_restart_mut_nopulse_data.img,$(FLAIR_RESTART_SPEC))
 	@out=$$( ( $(call rs-check,$(BUILD)/flair_restart_mut_nopulse.serial,FINDER-CMD id=12 name=RESTART src=mouse sel=0,Special > Restart) ) ); rc=$$?; \
 	$(call pw-mut-verdict,NO_PULSE,$$out,$$rc,PANIC kernel_reset: the 8042 pulse did not reset,test-flair-restart-mutant)
+
+include harness/emu/power_cancel.mk
 
 # ===========================================================================
 # REAL gate: test-flair-solid (epic initech-av7s; beads initech-gofc/-rqz5;
@@ -22906,11 +22911,11 @@ RECORD_SETTLE_fg_desk = 300
 # out APPS, DESKTOP.DB, README.TXT, TRASH. DOUBLE-CLICK record image. Settle
 # 150 ms on the 46-event select_all trace (55 before tdnl.78) keeps it inside the image's pump life.
 RECORD_SPEC_select_all   = $(FLAIR_CMDS_FAKES_SPEC)
-RECORD_MARKER_select_all = FINDER-SELECT-ALL win=0 n=2
+RECORD_MARKER_select_all = FINDER-SELECT-ALL win=0 n=4
 RECORD_IMAGE_select_all  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_select_all = 150
 RECORD_SPEC_arrange      = $(FLAIR_CMDS_ARRANGE_SPEC)
-RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=2
+RECORD_MARKER_arrange    = FINDER-ARRANGE win=0 moved=3
 RECORD_IMAGE_arrange     = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_arrange    = 300
 # scroll_arrow / scroll_page / scroll_thumb (bead initech-tdnl.35, audit F02;
@@ -23056,8 +23061,8 @@ $(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recordd
 	printf ">>> kernel(flairtenants-recorddbl): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairtenants-recorddbl)
 
-$(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_recorddbl.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_recorddbl.bin
 	@printf ">>> flair-tenants DOUBLE-CLICK RECORD image (widened pump + drag + dblclick bounds): %s\n" "$@"
 
 FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
@@ -23068,16 +23073,16 @@ FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
 # outlived the 3000-tick life (FLAIR-TRACK-EXPIRED mid-gesture). It widens a
 # demo bound only; nothing an oracle grades changes.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,recordlong))
-$(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o
+$(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_recordlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_recordlongdbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-recordlongdbl)
-$(BUILD)/flair_tenants_recordlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_recordlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_recordlongdbl.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_recordlongdbl.bin
 	@printf ">>> flair-tenants LONG DOUBLE-CLICK RECORD image: %s\n" "$@"
 FLAIRTENANTS_RECORDLONGDBL_IMG := $(BUILD)/flair_tenants_recordlongdbl.img
 RECORD_IMAGE_menu_long = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
@@ -23144,16 +23149,16 @@ RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
 # four moves complete the 500-tick copy at 125 ticks each, so the up/MID/DONE frames are
 # deterministic under record-flair-repro (PM 2026-10-17).
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125,recordxlong))
-$(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
+$(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_recordxlongdbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-recordxlongdbl)
-$(BUILD)/flair_tenants_recordxlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_recordxlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_recordxlongdbl.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_recordxlongdbl.bin
 	@printf ">>> flair-tenants EXTRA-LONG DOUBLE-CLICK RECORD image: %s\n" "$@"
 FLAIRTENANTS_RECORDXLONGDBL_IMG := $(BUILD)/flair_tenants_recordxlongdbl.img
 # iword_typing (bead initech-l4tj; Rule 14): InitechWord opens from the
@@ -23240,6 +23245,15 @@ RECORD_MARKER_itext_savefile = TENANT-SF-REPLY good=1 path=MEMO.TXT
 RECORD_SETTLE_itext_savefile = 400
 RECORD_IMAGE_itext_savefile = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # ehq4 Rule 14: the SAME locked forty-Return leg as test-flair-itext-scroll.
+# R4.5 tdnl.19: PM records on main after merge. Parse-time block.
+RECORD_SCRIPTS += control_panels
+RECORD_SPEC_control_panels = $(CP_CLIP_SPEC)
+RECORD_MARKER_control_panels = APPLE-LAUNCH name=CPANELS.EXE dir=APPS
+RECORD_IMAGE_control_panels = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_control_panels = $(FLAIR_DATA_IMG)
+# Volume re-key: README + APPS + its21 leaves; stranded TRASH stays cell0.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=23 refused=0
+
 # Defined before record-flair: its image/data prerequisites are read at parse time.
 RECORD_SCRIPTS += itext_scroll
 RECORD_SPEC_itext_scroll = $(FLAIR_ITEXT_SCROLL_SPEC)
@@ -23269,6 +23283,14 @@ RECORD_MARKER_scroll_look = FLAIR-GROW win 0 (360,220)->(96,88)
 RECORD_IMAGE_scroll_look = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_scroll_look = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scroll_look = 500
+# h6y1 Rule 14: PM records on main; prerequisites must precede record-flair.
+include spec/flair_grow_box_trace.mk
+RECORD_SCRIPTS += grow_box
+RECORD_SPEC_grow_box = $(FLAIR_GROW_BOX_SPEC)
+RECORD_MARKER_grow_box = FLAIR-GROW win 0 (360,220)->(400,260)
+RECORD_IMAGE_grow_box = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_grow_box = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_grow_box = 500
 # menu_look (initech-tdnl.93/.94/.95/.70; moved here 2026-10-15 PM: clip blocks
 # must precede the record-flair target, which reads RECORD_IMAGE_<script> at
 # parse time).
@@ -23407,6 +23429,27 @@ RECORD_MARKER_calculator = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
 RECORD_IMAGE_calculator = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_calculator = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_calculator = 300
+# initech-zc68: the DOS folder is a normal spatial Finder window. PM records
+# after merge. From DOS (191,102), park at (620,460): (+429,+358).
+RECORD_SCRIPTS += dos_folder
+RECORD_SPEC_dos_folder = $(DOS_FOLDER_FINDER_SPEC),m100:89,m100:89,m100:89,m100:89,m29:2
+RECORD_MARKER_dos_folder = FINDER-OPEN-FOLDER name=DOS win=1 singleton=0
+RECORD_IMAGE_dos_folder = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_dos_folder = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_dos_folder = 300
+# Rule 14 R4.4: PM records these on main after merge; parse-time block.
+include spec/flair_notepad_traces.mk
+RECORD_SCRIPTS += note_pad scrapbook
+RECORD_SPEC_note_pad = $(FLAIR_NOTEPAD_SPEC)
+RECORD_MARKER_note_pad = APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+RECORD_IMAGE_note_pad = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_note_pad = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_note_pad = 300
+RECORD_SPEC_scrapbook = $(FLAIR_SCRAPBOOK_SPEC)
+RECORD_MARKER_scrapbook = APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
+RECORD_IMAGE_scrapbook = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_scrapbook = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_scrapbook = 300
 # tdnl.44 Rule 14 registration, BEFORE record-flair (parse-time prerequisites).
 # Intentionally guarded: the trace currently ends after requesting by Name;
 # the Size-header click has no independent geometry yet. PM records on main
@@ -26721,19 +26764,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0026 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0060 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
-# (cf. test-spec). The loop iterates i in 1..26 EXPLICITLY (not dict order) so the
+# (cf. test-spec). The loop iterates i in 1..60 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (26 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (60 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
-ids=['MSG-DOS-%04d'%i for i in range(1,27)]; \
+esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
+ids=['MSG-DOS-%04d'%i for i in range(1,61)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -26757,6 +26800,9 @@ L.append(''); \
 L.append('#endif /* INITECH_DOS_MESSAGES_H */'); \
 open('$@','w').write(chr(10).join(L)+chr(10))" \
 		|| { printf '!!! codegen FAIL: %s invalid (missing id / bad shape / non-ASCII)\n' "$(SPEC_MESSAGES)"; exit 1; }
+
+$(DOS_MESSAGES_INC): $(DOS_MESSAGES_H) | $(BUILD)
+	@sed -n 's/^#define \(MSG_DOS_[0-9]*\) "\(.*\)"$$/%define \1 `\2`/p' $< > $@
 
 test-spec: $(SPEC_INT21H) $(SPEC_INT21H_CC) $(SPEC_MESSAGES) $(SPEC_STRUCTS_H) $(SPEC_BANNER) $(SPEC_ABSDISK) | $(BUILD)
 	@printf '======================================================================\n'
@@ -26798,12 +26844,12 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==26, 'expected 26 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,27)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0026: %r'%(sorted(set(m)^exp)); \
+assert len(m)==60, 'expected 60 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,61)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0060: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,27)), 'DIR Rule-8 source citations missing'; \
-print('    parsed 26 messages MSG-DOS-0001..0026; all non-empty; 6 DIR citations present')" \
+assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,61)), 'DIR Rule-8 source citations missing'; \
+print('    parsed 60 messages MSG-DOS-0001..0060; all non-empty; 40 extraction/DIR citations present')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -26858,31 +26904,20 @@ print('    INT 25h/26h: 2 trap vectors (0x8F/DPL0/0x08); EBX-buffer swap pinned;
 # must faithfully encode it. python3 is an established FACTORY tool (Law 3); no
 # new runtime enters the artifact. Deterministic + ASCII-clean (Rules 11, 12).
 #
-# Three teeth, each fail-loud and exit-non-zero on the first divergence:
-#   TOOTH 1 -- CONSISTENCY: build/dos_messages.h contains, for every i in 1..19,
-#     EXACTLY  #define MSG_DOS_%04d "<spec text>"  with the text VERBATIM
-#     (spacing / punctuation / %c included). Catches header drift from the spec.
-#   TOOTH 2 -- IMAGE PRESENCE (the bead's centerpiece): the REFERENCED SET R =
-#     the MSG_DOS_00NN macros actually used in os/milton/*.c (EXCLUDING test_*.c,
-#     comments stripped). For each id in R the spec text must appear VERBATIM in
-#     the printable strings of build/kernel_shell.bin. A missing one = the message
-#     got mangled/dropped in compilation (a real regression). %c is substituted at
-#     runtime, so for a referenced text containing "%c" we check the literal
-#     prefix BEFORE the first %c (the static part the linker actually emits).
-#   TOOTH 3 -- SOURCE PURITY ("no inline literals"): in every os/milton/*.c
-#     (EXCLUDING test_*.c, comments stripped) NONE of the 16 spec texts may appear
-#     as a quoted string literal -- a hit means a controlled message was inlined
-#     instead of referencing the catalogue macro. The generated header lives in
-#     build/ (not os/milton/) so it is naturally excluded; comment mentions are
-#     removed by `gcc -fpreprocessed -E -P` so command.c's comment does not bite.
-#
-# Comment stripping uses `gcc -fpreprocessed -E -P`: it removes C comments WITHOUT
-# expanding macros/includes, so a macro name (or message text) that lives only in
-# a comment is correctly NOT counted as a reference or a literal.
+# Three teeth: header == locked JSON, referenced text in the linked shell and
+# external .COM images, then exhaustive literal extraction in the named
+# diagnostic TUs. dosmsg.allow lists exact non-diagnostic UI and non-output
+# exceptions with dates/reasons; dosmsg.allow.baseline forbids growth.
+# The old inline-catalogue check remains over ALL non-test MILTON C files.
+# Ref: initech-bcg.13; ADR-0003 7 item 4; dosmsg_scan.c (factory C lexer).
+# PM 2026-10-17: dosmsg.mk defines DOSMSG_SCAN/ALLOW/BASELINE read by the test-dosmsg rule below
+# (prerequisites expand at parse time: test-makefile-vars, tdnl.81), so it is included here.
+include harness/diff/fat_diff/dosmsg.mk
 DOSMSG_SRCS := $(filter-out $(KERNEL_DIR)/test_%.c,$(wildcard $(KERNEL_DIR)/*.c))
+DOSMSG_KERNEL_SRCS := $(filter-out $(addprefix $(KERNEL_DIR)/,dosutil.c chkdsk.c xcopy_tree.c edlin.c edlin_program.c),$(DOSMSG_SRCS))
 
 .PHONY: test-dosmsg
-test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
+test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dosmsg : DEC-13 controlled-vocabulary oracle\n'
 	@printf '  Ref: ADR-0003 Appendix C / DEC-13; spec/dos_messages.json (LOCKED).\n'
@@ -26893,22 +26928,22 @@ test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
-esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
+esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,27) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,61) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
-print('    build/dos_messages.h has all 26 #define MSG_DOS_NNNN verbatim from spec')" \
+print('    build/dos_messages.h has all 74 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
-	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shell image\n'
+	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shipped kernels (shell + flagship; a FLAIR-only path such as exitdos_fail is section-GCed out of the shell kernel; PM 2026-10-17)\n'
 	@python3 -c "import json,re,subprocess; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-srcs='$(DOSMSG_SRCS)'.split(); \
+srcs='$(DOSMSG_KERNEL_SRCS)'.split(); \
 refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
 R=sorted(refs); \
 assert R, 'no MSG_DOS_* references found in os/milton/*.c (expected at least 0002/0003/0011)'; \
-img=open('$(KERNEL_SHELL_BIN)','rb').read(); \
+img=open('$(KERNEL_SHELL_BIN)','rb').read()+open('$(KERNEL_FLAIRTENANTS_BIN)','rb').read(); \
 runs=re.findall(rb'[\x20-\x7e]{2,}', img); \
 blob=b'\x00'.join(runs); \
 txt=lambda name: m['MSG-DOS-'+name[len('MSG_DOS_'):]]; \
@@ -26917,18 +26952,16 @@ mangled=[(name,txt(name)) for name in R if needle(txt(name)) not in blob]; \
 assert not mangled, 'referenced message text ABSENT from kernel_shell.bin (mangled/dropped): %r'%mangled; \
 print('    R = {%s} -- every referenced message present VERBATIM in build/kernel_shell.bin'%', '.join(R))" \
 		|| { printf '!!! test-dosmsg FAIL: a referenced controlled message is missing from build/kernel_shell.bin\n'; exit 1; }
-	@printf '>>> test-dosmsg [3/3]: SOURCE PURITY -- no controlled message inlined as a literal\n'
-	@python3 -c "import json,re,subprocess; \
-d=json.load(open('$(SPEC_MESSAGES)')); \
-m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-srcs='$(DOSMSG_SRCS)'.split(); \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,27)]; \
-strip=lambda s: subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout; \
-lits=lambda code: [l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
-hits=[(s,t) for s in srcs for t in (lambda L:[x for x in texts if x in L])(lits(strip(s)))]; \
-assert not hits, 'controlled message inlined as a quoted literal (use the MSG_DOS_* macro): %r'%hits; \
-print('    %d source files comment-stripped; no spec text appears as an inline literal'%len(srcs))" \
-		|| { printf '!!! test-dosmsg FAIL: a controlled message text was inlined as a literal instead of MSG_DOS_* (DEC-13)\n'; exit 1; }
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/dosutil.c $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/chkdsk.c $(CHKDSK_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/xcopy_tree.c $(XCOPY_PROG_BIN) $(TREE_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/edlin.c $(EDLIN_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/find_program.asm $(FIND_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/sort_program.asm $(SORT_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/tpsrep_program.asm $(TPSREP_BIN)
+	@printf '>>> test-dosmsg [3/3]: SOURCE PURITY -- exhaustive literal inventory, exact dated exceptions\n'
+	@$(DOSMSG_SCAN) --known $(DOS_MESSAGES_H) $(DOSMSG_SRCS)
+	@$(DOSMSG_SCAN) $(DOS_MESSAGES_H) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(DOSMSG_AUDIT_SRCS)
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- DEC-13 holds: catalogue verbatim, referenced in image, no inlines\n'
 	@printf '>>> test-dosmsg: green\n'
@@ -26938,13 +26971,12 @@ print('    %d source files comment-stripped; no spec text appears as an inline l
 # Mutation proof: test-dosmsg-mutant (beads initech-509.1; CLAUDE.md Rule 6)
 # ---------------------------------------------------------------------------
 # An oracle that has never bitten has proven nothing. This target deliberately
-# breaks the tree TWO ways and asserts the matching tooth goes RED, then restores
+# checks six temporary source/policy mutants and one rebuilt-image mutant, then restores
 # the tree byte-clean. It exits 0 (green) ONLY if BOTH mutants were detected.
 #
-#   Mutant A (PURITY tooth bites): a TEMP copy of command.c with one MSG_DOS_0002
-#     reference replaced by the raw literal "Bad command or file name"; run the
-#     TOOTH-3 purity scan against the temp and assert it reports the inline hit.
-#     Cheap -- no image rebuild.
+#   Source mutants use the SAME C extraction tooth (dosmsg_mutants.sh).
+#   Each diagnostic, split literal, unknown macro, growing/stale exception
+#   must fail its named assertion; no shipped source is modified.
 #   Mutant B (PRESENCE tooth bites): temporarily REWORD MSG_DOS_0002 in
 #     build/dos_messages.h to a typo ("Bad command or filename"), rebuild
 #     build/kernel_shell.bin, then run the TOOTH-2 presence check -- which reads
@@ -26956,25 +26988,7 @@ test-dosmsg-mutant: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dosmsg-mutant : Rule 6 (oracle must bite)\n'
 	@printf '======================================================================\n'
-	@printf '>>> test-dosmsg-mutant [A]: PURITY tooth must detect an inlined literal\n'
-	@tmp=$(BUILD)/command_mutantA.c; \
-	python3 -c "import sys; \
-src=open('$(KERNEL_DIR)/command.c').read(); \
-i=src.find('MSG_DOS_0002 \"'); \
-assert i>=0, 'could not find a MSG_DOS_0002 reference to mutate'; \
-mut=src[:i]+'\"Bad command or file name\"'+src[i+len('MSG_DOS_0002'):]; \
-open('$(BUILD)/command_mutantA.c','w').write(mut)"; \
-	python3 -c "import json,re,subprocess,sys; \
-d=json.load(open('$(SPEC_MESSAGES)')); \
-m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,27)]; \
-code=subprocess.run(['gcc','-fpreprocessed','-E','-P','$(BUILD)/command_mutantA.c'],capture_output=True,text=True).stdout; \
-lits=[l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
-hits=[t for t in texts if t in lits]; \
-sys.exit(0 if hits else 1)"; \
-	rc=$$?; rm -f $$tmp; \
-	if [ "$$rc" -ne 0 ]; then printf '!!! test-dosmsg-mutant FAIL: PURITY tooth did NOT detect the inlined literal\n'; exit 1; fi
-	@printf '>>> test-dosmsg-mutant [A]: purity tooth bit (inline literal detected)\n'
+	@$(MAKE) --no-print-directory test-dosmsg-source-mutant
 	@printf '>>> test-dosmsg-mutant [B]: PRESENCE tooth must detect a reworded message in the image\n'
 	@python3 -c "h=open('$(DOS_MESSAGES_H)').read(); \
 open('$(DOS_MESSAGES_H)','w').write(h.replace('\"Bad command or file name\"','\"Bad command or filename\"',1))"
@@ -26982,15 +26996,16 @@ open('$(DOS_MESSAGES_H)','w').write(h.replace('\"Bad command or file name\"','\"
 	@python3 -c "import json,re,subprocess,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-srcs='$(DOSMSG_SRCS)'.split(); \
+srcs='$(DOSMSG_KERNEL_SRCS)'.split(); \
 refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
-img=open('$(KERNEL_SHELL_BIN)','rb').read(); \
+img=open('$(KERNEL_SHELL_BIN)','rb').read()+open('$(KERNEL_FLAIRTENANTS_BIN)','rb').read(); \
 runs=re.findall(rb'[\x20-\x7e]{2,}', img); \
 blob=b'\x00'.join(runs); \
 txt=lambda name: m['MSG-DOS-'+name[len('MSG_DOS_'):]]; \
 needle=lambda t: (t.split('%c')[0] if '%c' in t else t).encode('ascii'); \
 absent=any(needle(txt(name)) not in blob for name in sorted(refs)); \
+print('RED dosmsg-image: REWORD_0002 canonical message absent') if absent else None; \
 sys.exit(1 if absent else 0)"; \
 	rc=$$?; \
 	rm -f $(DOS_MESSAGES_H); $(MAKE) --no-print-directory $(DOS_MESSAGES_H) >/dev/null 2>&1; \
@@ -28286,7 +28301,7 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_C
 # plain n; press-and-release RIGHT Ctrl (E0 1D / E0 9D) then a plain w;
 # press-and-release Shift then click README.TXT and APPS; finally the REAL
 # Ctrl-N chord. Asserts (Law 2, the audit's own observable outcomes):
-#   1. no triple fault; the root window opened (FINDER-OPEN-VOLUME win=0 n=2);
+#   1. no triple fault; the root window opened (FINDER-OPEN-VOLUME win=0 n=4);
 #   2. the ONLY Finder command is the final chord:
 #        FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1   (exactly one FINDER-CMD)
 #      -- the plain n after a Ctrl release made no folder, the plain w after a
@@ -28302,7 +28317,7 @@ test-samir-canon-salami-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_C
 FLAIR_MODREL_NAME := flair_modrel
 FLAIR_MODREL_DATA  = $(BUILD)/$@_data.img
 # $(call modrel-check,<serial>): exits 0 iff the G11 properties hold.
-modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' $(1) \
+modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' $(1) \
 	&& [ "$$(grep -c '^FINDER-CMD ' $(1))" = 1 ] \
 	&& grep -qxF 'FINDER-CMD id=2 name=NEW_FOLDER src=key sel=1' $(1) \
 	&& ! grep -q '^FINDER-CLOSE-WINDOW' $(1) \
@@ -28313,16 +28328,16 @@ modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' $(1) \
 # swapped for one built -DEVENT_MUTATE_SET1_BREAK_BLIND.
 $(BUILD)/event_mut_set1.o: os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
-$(BUILD)/kernel_flairtenants_mut_set1.elf: $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o
+$(BUILD)/kernel_flairtenants_mut_set1.elf: $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_set1.bin: $(BUILD)/kernel_flairtenants_mut_set1.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_set1.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-set1)
-$(BUILD)/flair_tenants_mut_set1.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_set1.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_set1.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_set1.bin
 	@printf ">>> flair-tenants SET1_BREAK_BLIND mutant image: %s\n" "$@"
 
 .PHONY: test-flair-modifier-release test-flair-modifier-release-mutant
@@ -28358,7 +28373,7 @@ test-flair-modifier-release-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_se
 		--expect FLAIR-FAT-MOUNT-OK --name flair_modrel_mut --out "$(BUILD)" \
 		--mouse "$(FLAIR_MODREL_SPEC)" --keys-after "FLAIR-LIVE-READY" \
 		--quit-after FLAIR-LIVE-OK --timeout-ms 30000 2> "$(BUILD)/flair_modrel_mut.report" || true
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_modrel_mut.serial" \
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_modrel_mut.serial" \
 		|| { printf '!!! test-flair-modifier-release-mutant: the mutant never opened the root window (not comparable)\n'; exit 1; }
 	@if $(call modrel-check,"$(BUILD)/flair_modrel_mut.serial"); then \
 		printf '!!! test-flair-modifier-release-mutant FAIL: the pre-fix decoder PASSED -- the gate is decoration\n'; exit 1; fi
@@ -28434,7 +28449,7 @@ test-flair-held-gestures-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_MUT_IMG) $(F
 	@if $(call held-drag-check,"$(BUILD)/flair_held_drag_mut.serial"); then printf '!!! test-flair-held-gestures-mutant FAIL: HELD-DRAG passed on the timeout mutant -- decoration\n'; exit 1; fi
 	@printf '>>> test-flair-held-gestures-mutant [1/2]: RED as required -- %s\n' "$$(grep -m1 '^FLAIR-DRAG' $(BUILD)/flair_held_drag_mut.serial)"
 	$(call held-boot,$(FLAIRTENANTS_HOLD_MUT_IMG),flair_held_menu_mut,FLAIR_HELD_MENU_SPEC,FLAIR-LIVE-OK)
-	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' "$(BUILD)/flair_held_menu_mut.serial" || { printf '!!! test-flair-held-gestures-mutant: HELD-MENU mutant never opened the root (not comparable)\n'; exit 1; }
+	@grep -qxF 'FINDER-OPEN-VOLUME win=0 n=4' "$(BUILD)/flair_held_menu_mut.serial" || { printf '!!! test-flair-held-gestures-mutant: HELD-MENU mutant never opened the root (not comparable)\n'; exit 1; }
 	@if $(call held-menu-check,"$(BUILD)/flair_held_menu_mut.serial"); then printf '!!! test-flair-held-gestures-mutant FAIL: HELD-MENU passed on the timeout mutant -- decoration\n'; exit 1; fi
 	@printf '>>> test-flair-held-gestures-mutant [2/2]: RED as required -- %s\n' "$$(grep -E -m1 '^FINDER-(CMD|MOVE|WIN-DRAG)' $(BUILD)/flair_held_menu_mut.serial || echo 'no command')"
 
@@ -28465,16 +28480,16 @@ menu-long-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
 	&& ! grep -Eq '^(FINDER-CMD id=2 |FINDER-NEW-FOLDER)' $(1)
 $(BUILD)/menu_mut_trackcap.o: os/flair/menu.c os/flair/menu.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -DMENU_MUT_TRACK_CAP=1 -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
-$(BUILD)/kernel_flairtenants_mut_trackcap.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o
+$(BUILD)/kernel_flairtenants_mut_trackcap.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_trackcap.bin: $(BUILD)/kernel_flairtenants_mut_trackcap.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_trackcap.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-trackcap)
-$(BUILD)/flair_tenants_mut_trackcap.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_trackcap.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_trackcap.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_trackcap.bin
 	@printf ">>> flair-tenants MENU_MUT_TRACK_CAP mutant image: %s\n" "$@"
 
 .PHONY: test-flair-menu-long test-flair-menu-long-mutant
@@ -30540,8 +30555,8 @@ $(PPM_IWORD_CODES_BIN): tools/ppm_iword_codes_check.c | $(BUILD)
 FLAIR_IWORD_ULLOW_IMG := $(BUILD)/flair_tenants_mut_iword_ullow.img
 $(BUILD)/tbxgate_mut_iword_ullow.o: $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -DTBXGATE_MUT_CELL_UL_LOW -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
-$(BUILD)/kernel_flairtenants_mut_iword_ullow.elf: $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o
+$(BUILD)/kernel_flairtenants_mut_iword_ullow.elf: $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin: $(BUILD)/kernel_flairtenants_mut_iword_ullow.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -30551,8 +30566,8 @@ $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin: $(BUILD)/kernel_flairtenants_m
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-iword_ullow)
-$(FLAIR_IWORD_ULLOW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin $(BOOT_SYSTEM_TOOL)
+$(FLAIR_IWORD_ULLOW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_iword_ullow.bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_iword_ullow.bin
 	@printf ">>> flair-tenants MUTANT image (iword gate pump life + -DTBXGATE_MUT_CELL_UL_LOW): %s\n" "$@"
 
 IWORD_C_ROW    := $(I123_E)bold under slant                                                            $(I123_E)
@@ -30895,8 +30910,8 @@ $(BUILD)/kernel_flairtenants_mut_$(3).bin: $(BUILD)/kernel_flairtenants_mut_$(3)
 	printf ">>> kernel(flairtenants-mut-$(3)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(3))
 
-$(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(3).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(3).bin
 	@printf ">>> flair-tenants MUTANT image ($(3): $(2)): %s\n" "$$@"
 endef
 # M009 cursor twin (PM 2026-10-17): the hand-written rule named the pre-LTO object list
@@ -30985,7 +31000,7 @@ $(SCROLL_LOOK_CHECK): tools/ppm_flair_scroll_look_check.c $(SCROLLBAR_LOOK_GOLDE
 # Prefixes retain the same injected history; every capture is after release.
 define scroll-look-boot
 $(call scroll-boot,$(1),$(2),$(FLAIR_DATA_IMG),$(3),FLAIR-LIVE-OK,1)
-@grep -qx 'FINDER-OPEN-VOLUME win=0 n=2' $(BUILD)/$(2).serial
+@grep -qx 'FINDER-OPEN-VOLUME win=0 n=4' $(BUILD)/$(2).serial
 @grep -qx 'FLAIR-GROW win 0 (360,220)->(128,120)' $(BUILD)/$(2).serial
 @! grep -Eq '^(PANIC|FLAIR-SCROLL-IGNORED)' $(BUILD)/$(2).serial
 endef
@@ -30994,7 +31009,7 @@ test-flair-scroll-look: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(S
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_shrink,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
 	@$(SCROLL_LOOK_CHECK) shrink $(BUILD)/scroll_look_shrink.ppm
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_click,$(FLAIR_SCROLL_LOOK_CLICK_SPEC))
-	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=35' $(BUILD)/scroll_look_click.serial
+	@grep -qx 'FLAIR-SCROLL win 0 h part=21 value=16 max=171' $(BUILD)/scroll_look_click.serial
 	@$(SCROLL_LOOK_CHECK) click $(BUILD)/scroll_look_click.ppm
 	$(call scroll-look-boot,$(FLAIRTENANTS_IMG),scroll_look_restore,$(FLAIR_SCROLL_LOOK_RESTORE_SPEC))
 	@grep -qx 'FLAIR-GROW win 0 (128,120)->(360,220)' $(BUILD)/scroll_look_restore.serial
@@ -31220,7 +31235,7 @@ $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --ou
  --quit-after "FLAIR-MENU menu=512 item=0" --timeout-ms 30000 \
  --screendump --screendump-after "$(3)" 2> $(BUILD)/$(1).report
 @! grep -q 'triple_fault=1' $(BUILD)/$(1).report
-@grep -qx 'FINDER-OPEN-VOLUME win=0 n=2' $(BUILD)/$(1).serial
+@grep -qx 'FINDER-OPEN-VOLUME win=0 n=4' $(BUILD)/$(1).serial
 @grep -qx 'FLAIR-MENU-DROP menu=512' $(BUILD)/$(1).serial
 @grep -qx 'FLAIR-MENU-XDROP menu=514' $(BUILD)/$(1).serial
 @grep -qx 'FLAIR-MENU menu=512 item=0 (sel=0x00000000)' $(BUILD)/$(1).serial
@@ -31336,8 +31351,8 @@ $(BUILD)/kernel_flairtenants_calcda_$(3).bin: $(BUILD)/kernel_flairtenants_calcd
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); [ "$$$$sz" -le "$$$$max" ] || { printf '!!! %s exceeds KERNEL_SECTORS\n' "$$@"; exit 1; }; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
 	$$(call kernel-end-guard,$$<,flairtenants-calcda-$(3))
-$(BUILD)/flair_tenants_calcda_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_calcda_$(3).bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_calcda_$(3).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_calcda_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_calcda_$(3).bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_calcda_$(3).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_calcda_$(3).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_calcda_$(3).bin
 	@printf ">>> flair-tenants calcda-gate MUTANT image ($(3): $(2)): %s\n" "$$@"
 endef
 $(BUILD)/menu_mut_apple_dead.o: os/flair/menu.c $(TEST_MENU_DEPS) | $(BUILD)
@@ -31363,7 +31378,7 @@ CALCDA_UP = grep -qx 'APPLE-LAUNCH name=CALCULAT.EXE dir=APPS' $(1) && grep -qx 
 
 # EMU: test-flair-apple-menu (bead initech-tdnl.47; Rule 14 clip apple_menu)
 #   [1/3] DROP    the band-1 glyph drops the Apple menu (FLAIR-MENU-DROP
-#                 menu=1; APPLE-MENU n=3 = About, divider, Calculator); the
+#                 menu=1; APPLE-MENU n=6 = About, divider, Calculator, Control Panels, Note Pad, Scrapbook); the
 #                 held panel graded vs s8_apple_menu.png (AP1-AP3).
 #   [2/3] LAUNCH  releasing on Calculator launches APPS\CALCULAT.EXE through the
 #                 double-click verb (APPLE-LAUNCH, TENANT-REGISTER, the
@@ -31377,7 +31392,7 @@ CALCDA_UP = grep -qx 'APPLE-LAUNCH name=CALCULAT.EXE dir=APPS' $(1) && grep -qx 
 .PHONY: test-flair-apple-menu test-flair-apple-menu-mutant
 test-flair-apple-menu: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CALCDA_CHECK)
 	$(call calcda-boot,flair_apple_drop,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_APPLE_DROP_SPEC,FLAIR-MENU-DROP menu=1)
-	@grep -qx 'APPLE-MENU n=3' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
+	@grep -qx 'APPLE-MENU n=6' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
 	 || { printf '!!! test-flair-apple-menu FAIL [1/3] DROP: no Apple menu dropped from the band-1 glyph\n'; grep -E '^(APPLE|FLAIR-MENU)' $(BUILD)/flair_apple_drop.serial; exit 1; }
 	@$(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" | sed 's/^/    /'; \
 	 $(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" >/dev/null \
@@ -31536,16 +31551,16 @@ TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
 define alert-chrome-mutant-rules
 $(BUILD)/alert_chrome_$(2).o: $(3) $(TEST_CONTROL_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) $(DIALOG_INC) -c $(3) -o $$@
-$(BUILD)/kernel_alert_chrome_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o $(KERNEL_LD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o
+$(BUILD)/kernel_alert_chrome_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_alert_chrome_$(2).bin: $(BUILD)/kernel_alert_chrome_$(2).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! alert chrome mutant $(2) exceeds kernel window\n'; exit 1; fi; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
 	$$(call kernel-end-guard,$$<,alert-chrome-$(2))
-$(BUILD)/alert_chrome_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/alert_chrome_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_alert_chrome_$(2).bin
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_alert_chrome_$(2).bin
 endef
 $(eval $(call alert-chrome-mutant-rules,CTRL_MUT_LABEL_OPAQUE,label,os/flair/control.c,$(KERNEL_CONTROL_OBJ),$(FLAIR_CONTROL_OPT)))
 $(eval $(call alert-chrome-mutant-rules,CTRL_MUT_BTN_FRINGE,fringe,os/flair/control.c,$(KERNEL_CONTROL_OBJ),$(FLAIR_CONTROL_OPT)))
@@ -31694,7 +31709,7 @@ ITEXT_UP = grep -qx 'FLAIR-SCRAP-READY bytes=32808' $(1) && grep -q '^TENANT-LOA
 ITEXT_LAST = grep '^TENANT-GATE ax=0x0030 win=1 x=$(2) y=$(3) ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0030 win=1 x=$(2) y=$(3) s="$(4)" fg=$(5) bg=$(6) -> 0'
 ITEXT_EDIT = grep -q '^TENANT-TRACK up h=84 v=75 ' $(1) && grep -qx 'TENANT-SCRAP put n=6 count=1' $(1) && grep -qx 'TENANT-SCRAP get n=6' $(1) && \
 	$(call ITEXT_LAST,$(1),5,15,PC LOAD,65536,1) && $(call ITEXT_LAST,$(1),49,15, LETTER,65537,0) && $(call ITEXT_LAST,$(1),5,26,tables,65537,0)
-ITEXT_SAVEAS = grep -qx 'TENANT-SF put up dir=/ n=2 name=UNTITLED' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
+ITEXT_SAVEAS = grep -qx 'TENANT-SF put up dir=/ n=4 name=UNTITLED' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
 ITEXT_MEMO_EXPECT := $(BUILD)/itext_memo.expect
 ITEXT_DISK = mcopy -o -i $(1) ::MEMO.TXT $(1).memo 2>/dev/null && cmp -s $(ITEXT_MEMO_EXPECT) $(1).memo && fsck.fat -n $(1) >/dev/null
 # region "<L> <T> <R> <B>" of dump $(1) vs reference pixel $(3): "ne eq ref"
@@ -31777,7 +31792,9 @@ test-flair-itext-scroll-mutant: test-flair-itext-scroll $(FLAIR_DATA_ITEXT_NOSCR
 TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
+include harness/emu/notepad.mk
 include harness/fixture_volumes.mk
+$(eval $(call fixture-contract,$(DA_CORRUPT_DATA),$(FLAIR_FIXTURES) NOTEPAD.DAT))
 
 TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
 
@@ -31867,6 +31884,8 @@ TEST_EMU_GATES += test-pubs-screens
 # EDLIN (initech-udr1; DEBUG is a separate lane).
 include harness/edlin/edlin.mk
 include harness/diff/fat_diff/partition.mk
+include harness/diff/fat_diff/block_device.mk
+include harness/diff/fat_diff/fdisk.mk
 # initech-31d1: byte-exact LIST/DISPLAY layout vs REAL mint 005 tables.
 # Same complete M005U/M005N replay as test-samir-use; no whitespace squeezing.
 SAMIR_LIST_LAYOUT_MUTS := $(addprefix $(BUILD)/test_samir_list_layout_,COLUMNS HEADING OPENING)
@@ -31947,14 +31966,278 @@ test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.COM $(TEST_SAMIR
 TEST_UNIT_GATES += test-samir-undefined test-samir-undefined-mutant
 TEST_EMU_GATES += test-samir-undefined-emu test-samir-undefined-emu-mutant
 
-include harness/diff/fat_diff/dosmsg.mk
 
 # Physical two-file boot chain (initech-kod).
 include harness/diff/fat_diff/boot_system.mk
+include harness/diff/fat_diff/command_file.mk
+
+# Flagship DOS-folder layout / PATH / filters (initech-zc68, initech-2kgh).
+include harness/diff/fat_diff/dos_folder.mk
+# README + APPS + seventeen leaves (incl. NOTEPAD.EXE, SCRAPBK.EXE, CPANELS.EXE) = nineteen purged nodes.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=19 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
 include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
+include harness/emu/ansi.mk
 
+
+# R4.4 Note Pad / Scrapbook host routing (initech-tdnl.18).
+DA_ROUTE_CF := $(TEST_ITEXT_ROUTE_CF)
+DA_ROUTE_LINK := $(TEST_ITEXT_ROUTE_LINK)
+DA_ROUTE_DEPS := harness/proptest/test_notepad_route.c os/apps/notepad/notepad.c spec/notepad/store.h $(TEST_ITEXT_ROUTE_DEPS)
+$(BUILD)/test_notepad_route: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -o $@ $< $(DA_ROUTE_LINK)
+$(BUILD)/test_scrapbook_route: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -DSCRAPBOOK -o $@ $< $(DA_ROUTE_LINK)
+.PHONY: test-notepad-route test-scrapbook-route
+test-notepad-route: $(BUILD)/test_notepad_route
+	@$<
+	@printf '>>> test-notepad-route: green\n'
+test-scrapbook-route: $(BUILD)/test_scrapbook_route
+	@$<
+	@printf '>>> test-scrapbook-route: green\n'
+TEST_UNIT_GATES += test-notepad-route test-scrapbook-route
+
+DA_HOST_MUTANTS := DA_MUT_TURN_OFFBYONE:page-turn DA_MUT_SKIP_CLOSE_SAVE:save-close DA_MUT_PASTE_WRONG_PAGE:paste-page DA_MUT_ACCEPT_CORRUPT:corrupt
+$(BUILD)/test_notepad_mut_%: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -D$* -o $@ $< $(DA_ROUTE_LINK)
+$(BUILD)/test_scrapbook_mut_%: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -DSCRAPBOOK -D$* -o $@ $< $(DA_ROUTE_LINK)
+.PHONY: test-notepad-route-mutant test-scrapbook-route-mutant
+test-notepad-route-mutant: $(foreach m,$(DA_HOST_MUTANTS),$(BUILD)/test_notepad_mut_$(firstword $(subst :, ,$(m))))
+	@for p in $(DA_HOST_MUTANTS); do m=$${p%%:*}; why=$${p#*:}; b=$(BUILD)/test_notepad_mut_$$m; \
+	 if $$b > $$b.log 2>&1; then printf 'FAIL %s survived\n' "$$m"; exit 1; fi; \
+	 grep -q 'checks,' $$b.log && grep -q "^RED-REASON $$why:" $$b.log || { cat $$b.log; exit 1; }; \
+	 printf '>>> test-notepad-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$b.log)"; done
+test-scrapbook-route-mutant: $(BUILD)/test_scrapbook_mut_DA_MUT_PASTE_WRONG_PAGE $(BUILD)/test_scrapbook_mut_DA_MUT_SKIP_CLOSE_SAVE $(BUILD)/test_scrapbook_mut_DA_MUT_ACCEPT_CORRUPT
+	@for p in DA_MUT_PASTE_WRONG_PAGE:paste-page DA_MUT_SKIP_CLOSE_SAVE:save-close DA_MUT_ACCEPT_CORRUPT:corrupt; do \
+	 m=$${p%%:*}; why=$${p#*:}; b=$(BUILD)/test_scrapbook_mut_$$m; \
+	 if $$b > $$b.log 2>&1; then printf 'FAIL %s survived\n' "$$m"; exit 1; fi; \
+	 grep -q 'checks,' $$b.log && grep -q "^RED-REASON $$why:" $$b.log || { cat $$b.log; exit 1; }; \
+	 printf '>>> test-scrapbook-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$b.log)"; done
+TEST_UNIT_GATES += test-notepad-route-mutant test-scrapbook-route-mutant
+include harness/emu/vesa8.mk
+
+
+include harness/conkeys/conkeys.mk
+# h6y1: DrawGrowIcon on the existing Platinum document path. Reuse the chrome
+# capture oracle, Window Manager routing/limits suite and spatial Finder suite.
+GROW_BOX_CHECK := $(BUILD)/ppm_flair_grow_box_check
+GROW_BOX_ACTIVE_PNG = $(CHROME_FID_CAPTURE_DIR)/s8_doc_window_active.png
+GROW_BOX_CHROME_MUTANTS := CHROME_MUT_GROW_FIGURE_SWAP CHROME_MUT_GROW_NO_REGION CHROME_MUT_GROW_OMIT CHROME_MUT_GROW_INACTIVE_ACTIVE
+$(GROW_BOX_CHECK): tools/ppm_flair_grow_box_check.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $< -lpng
+$(BUILD)/test_grow_box_mut_%: $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) -D$* -o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
+$(BUILD)/test_grow_box_no_commit: $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -DWINDOW_MUT_GROW_NO_COMMIT -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+.PHONY: test-grow-box test-grow-box-mutant test-flair-grow-box test-flair-grow-box-mutant
+test-grow-box: test-chrome-fidelity test-window test-finder-ops
+	@printf '>>> test-grow-box: green (324/324 active/inactive PNG pixels, both depths; noGrow absence; routing, bounds, spatial Finder content)\n'
+test-grow-box-mutant: test-grow-box $(foreach m,$(GROW_BOX_CHROME_MUTANTS),$(BUILD)/test_grow_box_mut_$(m)) $(BUILD)/test_grow_box_no_commit $(TEST_WINDOW_MUT_GROW_NO_MIN)
+	@for m in $(GROW_BOX_CHROME_MUTANTS); do \
+		if $(BUILD)/test_grow_box_mut_$$m > $(BUILD)/grow_box_$$m.log 2>&1; then printf 'FAIL grow-box mutant survived: %s\n' "$$m"; exit 1; fi; \
+		case "$$m" in *NO_REGION) leg='GROW-NO-REGION';; *INACTIVE_ACTIVE) leg='CAPTURE-GROW-INACTIVE';; *) leg='CAPTURE-GROW-ACTIVE';; esac; \
+		grep -Eq "$$leg +RED" $(BUILD)/grow_box_$$m.log || { cat $(BUILD)/grow_box_$$m.log; exit 1; }; \
+		printf '>>> test-grow-box-mutant: %s correctly RED: %s\n' "$$m" "$$(grep -m1 -E "$$leg +RED" $(BUILD)/grow_box_$$m.log)"; \
+	done
+	@for m in no_commit no_min; do \
+		case "$$m" in no_commit) bin=$(BUILD)/test_grow_box_no_commit; knob=WINDOW_MUT_GROW_NO_COMMIT;; no_min) bin=$(TEST_WINDOW_MUT_GROW_NO_MIN); knob=WINDOW_MUTATE_GROW_NO_MIN;; esac; \
+		if $$bin > $(BUILD)/grow_box_$$m.log 2>&1; then printf 'FAIL grow-box mutant survived: %s\n' "$$knob"; exit 1; fi; \
+		grep -q 'FAIL.*SizeWindow: 1x1 request clamps' $(BUILD)/grow_box_$$m.log || { cat $(BUILD)/grow_box_$$m.log; exit 1; }; \
+		printf '>>> test-grow-box-mutant: %s correctly RED: %s\n' "$$knob" "$$(grep -m1 'FAIL.*SizeWindow: 1x1 request clamps' $(BUILD)/grow_box_$$m.log)"; \
+	done
+	@printf '>>> test-grow-box-mutant: green (six named mutants RED)\n'
+
+# The existing scroll-boot helper makes a gate-local data copy, injects the
+# locked trace, and rejects triple faults. All QEMU recipes explicitly select
+# the documented stdio seam, including recursive prerequisite invocations.
+test-flair-grow-box test-flair-grow-box-mutant: export INITECH_QMP_STDIO=1
+test-flair-grow-box: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(GROW_BOX_CHECK)
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_grow_box,$(FLAIR_DATA_IMG),$(FLAIR_GROW_BOX_SPEC),FLAIR-LIVE-OK,1)
+	@$(call APPL_ALIVE,$(BUILD)/flair_grow_box.serial)
+	@grep -qx 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' $(BUILD)/flair_grow_box.serial
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(400,260)' $(BUILD)/flair_grow_box.serial
+	@! grep -Eq '^(PANIC|FLAIR-DRAG)' $(BUILD)/flair_grow_box.serial
+	@$(GROW_BOX_CHECK) $(BUILD)/flair_grow_box.ppm "$(GROW_BOX_ACTIVE_PNG)"
+	@printf '>>> test-flair-grow-box: green (APPS +40,+40; 400x260 serial marker and frame; 324/324 golden pixels)\n'
+$(BUILD)/chrome_mut_grow_figure.o: os/flair/chrome.c $(CHROME_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_GROW_FIGURE_SWAP -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_grow_figure.o,grow_figure))
+$(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUT_GROW_NO_COMMIT,grow_no_commit))
+test-flair-grow-box-mutant: test-flair-grow-box $(BUILD)/flair_tenants_mut_grow_figure.img $(BUILD)/flair_tenants_mut_grow_no_commit.img
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_grow_figure.img,flair_grow_box_mut_figure,$(FLAIR_DATA_IMG),$(FLAIR_GROW_BOX_SPEC),FLAIR-LIVE-OK,1)
+	@$(call APPL_ALIVE,$(BUILD)/flair_grow_box_mut_figure.serial)
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(400,260)' $(BUILD)/flair_grow_box_mut_figure.serial
+	@if $(GROW_BOX_CHECK) $(BUILD)/flair_grow_box_mut_figure.ppm "$(GROW_BOX_ACTIVE_PNG)" > $(BUILD)/flair_grow_box_mut_figure.pixels 2>&1; then printf 'FAIL grow figure mutant survived\n'; exit 1; fi
+	@grep -q 'FAIL grow-box active crop' $(BUILD)/flair_grow_box_mut_figure.pixels
+	@printf '>>> test-flair-grow-box-mutant: CHROME_MUT_GROW_FIGURE_SWAP correctly RED: %s\n' "$$(head -1 $(BUILD)/flair_grow_box_mut_figure.pixels)"
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_grow_no_commit.img,flair_grow_box_mut_commit,$(FLAIR_DATA_IMG),$(FLAIR_GROW_BOX_SPEC),FLAIR-LIVE-OK,1)
+	@$(call APPL_ALIVE,$(BUILD)/flair_grow_box_mut_commit.serial)
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(400,260)' $(BUILD)/flair_grow_box_mut_commit.serial
+	@if $(GROW_BOX_CHECK) $(BUILD)/flair_grow_box_mut_commit.ppm "$(GROW_BOX_ACTIVE_PNG)" > $(BUILD)/flair_grow_box_mut_commit.pixels 2>&1; then printf 'FAIL grow commit mutant survived\n'; exit 1; fi
+	@grep -q 'FAIL grow-box committed frame' $(BUILD)/flair_grow_box_mut_commit.pixels
+	@printf '>>> test-flair-grow-box-mutant: WINDOW_MUT_GROW_NO_COMMIT correctly RED: %s\n' "$$(grep 'FAIL grow-box committed frame' $(BUILD)/flair_grow_box_mut_commit.pixels)"
+	@printf '>>> test-flair-grow-box-mutant: green (colour and resize-commit mutants RED)\n'
+TEST_UNIT_GATES += test-grow-box test-grow-box-mutant
+TEST_EMU_GATES += test-flair-grow-box test-flair-grow-box-mutant
+
+
+# R4.5 initech-tdnl.19: host oracle FIRST, then the locked emu family.
+CP_APP_SRC := os/apps/cpanels/cpanels.c os/apps/cpanels/core.c
+CP_DEPS := os/apps/cpanels/cpanels.h spec/cpanels_record.h spec/cp_dialog.h
+CP_HOST_SRC := harness/proptest/test_cpanels.c os/apps/cpanels/core.c
+$(BUILD)/test_cpanels: $(CP_HOST_SRC) $(CP_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(DIALOG_INC) -Ios/apps/cpanels -o $@ $(CP_HOST_SRC) $(DIALOG_LINK) -lpng
+$(BUILD)/test_cpanels_mut_%: $(CP_HOST_SRC) $(CP_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(DIALOG_INC) -Ios/apps/cpanels -D$* -o $@ $(CP_HOST_SRC) $(DIALOG_LINK) -lpng
+CP_MUTANTS := CP_MUT_OK_NOTHING CP_MUT_CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED
+.PHONY: test-cpanels test-cpanels-mutant
+test-cpanels: $(BUILD)/test_cpanels
+	@$< "$(SYSTEM7_DECOMP)"
+test-cpanels-mutant: test-cpanels $(addprefix $(BUILD)/test_cpanels_mut_,$(CP_MUTANTS))
+	@set -e; for pair in CP_MUT_OK_NOTHING:OK_WRITES CP_MUT_CANCEL_WRITES:CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED:CLOCK_APPLIED; do \
+	 m=$${pair%:*}; rule=$${pair#*:}; if $(BUILD)/test_cpanels_mut_$$m "$(SYSTEM7_DECOMP)" > $(BUILD)/cp_$$m.log; then printf 'FAIL mutant survived %s\n' $$m; exit 1; fi; \
+	 grep -q "^FAIL $$rule" $(BUILD)/cp_$$m.log; printf '>>> test-cpanels-mutant: %s correctly RED: %s\n' $$m "$$(grep -m1 "^FAIL $$rule" $(BUILD)/cp_$$m.log)"; done
+TEST_UNIT_GATES += test-cpanels test-cpanels-mutant
+include spec/flair_cpanels_traces.mk
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1200,cpanels_gate))
+CP_GATE_IMG := $(BUILD)/flair_tenants_mut_cpanels_gate.img
+$(eval $(call tenant-exe-rules,cpanels,$(CP_APP_SRC),-Ios/apps/cpanels,$(CP_DEPS),))
+CP_EXE := $(BUILD)/tenant/cpanels.exe
+$(BUILD)/ppm_flair_cpanels_check: tools/ppm_flair_cpanels_check.c harness/menubar_clock_oracle.c harness/menubar_clock_oracle.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness -o $@ tools/ppm_flair_cpanels_check.c harness/menubar_clock_oracle.c -lpng
+.PHONY: test-flair-cpanels test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory
+define cp-panel-gate
+test-flair-cpanels-$(1): $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$$(call calcda-boot,cp_$(1),$$(CP_GATE_IMG),$$(FLAIR_DATA_IMG),FLAIR_CP_$(2)_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'APPLE-LAUNCH name=CPANELS.EXE dir=APPS' $(BUILD)/cp_$(1).serial
+	@grep -qx 'CPANEL title=$(3)' $(BUILD)/cp_$(1).serial
+	@$(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_$(1).ppm "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin" $(if $(filter patterns mouse sound,$(1)),radio,)
+	@printf '>>> test-flair-cpanels-$(1): green (locked trace, dialog routing, independent button/ring chrome)\n'
+endef
+$(eval $(call cp-panel-gate,date,DATE,Date & Time))
+$(eval $(call cp-panel-gate,patterns,PATTERNS,Desktop Patterns))
+$(eval $(call cp-panel-gate,mouse,MOUSE,Mouse))
+$(eval $(call cp-panel-gate,sound,SOUND,Sound))
+$(eval $(call cp-panel-gate,memory,MEMORY,Memory))
+test-flair-cpanels: test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory
+TEST_EMU_GATES += test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory
+
+$(KERNEL_TBXGATE_OBJ): os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h
+
+# Rule6: every panel's independent chrome gate has a twin, restoring the
+# old radius3 ring. Generic object-swap macro owns placement/headroom checks.
+$(BUILD)/control_mut_cp_ring.o: os/flair/control.c os/flair/control.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -DCTRL_MUT_RING_OLD_CORNERS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_CONTROL_OBJ),$(BUILD)/kmain_flairtenants_mut_cpanels_gate.o $(BUILD)/control_mut_cp_ring.o,cp_ring))
+define cp-panel-mutant
+test-flair-cpanels-$(1)-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_ring.img $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$$(call calcda-boot,cp_$(1)_ring,$(BUILD)/flair_tenants_mut_cp_ring.img,$(FLAIR_DATA_IMG),FLAIR_CP_$(2)_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'CPANEL title=$(3)' $(BUILD)/cp_$(1)_ring.serial
+	@if $(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_$(1)_ring.ppm "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin" > $(BUILD)/cp_$(1)_ring.pixels; then printf 'FAIL ring mutant survived\n'; exit 1; fi
+	@grep '^FAIL CP_CHROME' $(BUILD)/cp_$(1)_ring.pixels
+	@printf '>>> test-flair-cpanels-$(1)-mutant: CTRL_MUT_RING_OLD_CORNERS correctly RED (independent chrome)\n'
+endef
+$(eval $(call cp-panel-mutant,date,DATE,Date & Time))
+$(eval $(call cp-panel-mutant,patterns,PATTERNS,Desktop Patterns))
+$(eval $(call cp-panel-mutant,mouse,MOUSE,Mouse))
+$(eval $(call cp-panel-mutant,sound,SOUND,Sound))
+$(eval $(call cp-panel-mutant,memory,MEMORY,Memory))
+TEST_EMU_GATES += $(addsuffix -mutant,test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory)
+
+# The transaction mutants are real CPANELS.EXE binaries on gate-local disks.
+$(foreach m,$(CP_MUTANTS),$(eval $(call tenant-exe-rules,cp_$(m),$(CP_APP_SRC),-Ios/apps/cpanels -D$(m),$(CP_DEPS),)))
+define cp-data-mutant
+$(BUILD)/cp_$(1)_data.img: $(FLAIR_DATA_IMG) $(BUILD)/tenant/cp_$(1).exe
+	cp -f $(FLAIR_DATA_IMG) $$@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $$@ $(BUILD)/tenant/cp_$(1).exe ::APPS/CPANELS.EXE
+	@$$(call fixture-check,recipe,$$@)
+endef
+$(foreach m,$(CP_MUTANTS),$(eval $(call cp-data-mutant,$(m))))
+# A single reused boot/check pair makes each mutant face the same oracle.
+define cp-transaction-boot
+$(call calcda-boot,$(1),$(CP_GATE_IMG),$(2),$(3),FLAIR-LIVE-OK)
+endef
+define cp-disk-saved
+mtype -i $(1) ::CPANELS.DAT > $(1).record 2>/dev/null && \
+[ "$$(od -An -v -tx1 $(1).record | tr -d ' \n')" = '4350303101030101000201000000fd00' ]
+endef
+.PHONY: test-flair-cpanels-settings test-flair-cpanels-settings-mutant test-flair-cpanels-persist test-flair-cpanels-mutant
+# CLK follows real RTC; Mouse moves at2x AFTER OK; Sound uses PIT channel2.
+test-flair-cpanels-settings: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG)
+	$(call cp-transaction-boot,cp_clock,$(FLAIR_DATA_IMG),CP_CLOCK_SAVE_SPEC)
+	@grep -qx 'CPANELS-RTC hour=10 minute=0' $(BUILD)/cp_clock.serial && grep -qx 'FLAIR-CLOCK 10:00 am' $(BUILD)/cp_clock.serial
+	$(call cp-transaction-boot,cp_mouse_apply,$(FLAIR_DATA_IMG),CP_MOUSE_APPLY_SPEC)
+	@grep -qx 'CPANELS-APPLY pattern=0 tracking=2 double=2 ticks=10' $(BUILD)/cp_mouse_apply.serial && grep -qx 'FLAIR-CURSOR x=422 y=220' $(BUILD)/cp_mouse_apply.serial
+	$(call cp-transaction-boot,cp_sound_apply,$(FLAIR_DATA_IMG),CP_SOUND_APPLY_SPEC)
+	@grep -qx 'CPANELS-BEEP hz=660' $(BUILD)/cp_sound_apply.serial && grep -qx 'CPANELS-BEEP off' $(BUILD)/cp_sound_apply.serial
+	@printf '>>> test-flair-cpanels-settings: green (AH2D -> menu clock, real2x mouse pump, PIT660Hz on/off)\n'
+test-flair-cpanels-persist: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$(call pw-reboot,$(CP_GATE_IMG),cp_persist,$(BUILD)/cp_persist_data.img,$(CP_SAVE_SPEC))
+	@[ "$$(grep -cx 'FLAIR-LIVE-READY' $(BUILD)/cp_persist.serial)" = 2 ]
+	@$(call cp-disk-saved,$(BUILD)/cp_persist_data.img) || { printf 'FAIL CP_OK_WRITE independent16-byte record\n'; exit 1; }
+	@grep -qx 'CPANELS-LOAD pattern=3 tracking=1 double=1' $(BUILD)/cp_persist.serial
+	@$(HARNESS_BIN) --disk $(CP_GATE_IMG) --disk2 $(BUILD)/cp_persist_data.img --name cp_reload --out $(BUILD) --quit-after FLAIR-LIVE-OK --timeout-ms 25000 --screendump --screendump-after FLAIR-LIVE-OK 2>$(BUILD)/cp_reload.report
+	@$(BUILD)/ppm_flair_cpanels_check pattern $(BUILD)/cp_reload.ppm "$(SYSTEM7_DECOMP)/goldens/resources/PAT#_0.bin" 3
+	$(call cp-transaction-boot,cp_cancel,$(FLAIR_DATA_IMG),CP_CANCEL_SPEC)
+	@if mdir -i $(BUILD)/cp_cancel_data.img ::CPANELS.DAT >/dev/null 2>&1; then printf 'FAIL CP_CANCEL_WRITE created file\n'; exit 1; fi
+	@printf '>>> test-flair-cpanels-persist: green (OK disk bytes, actual Restart, boot reapply vs PAT# golden, Cancel no file)\n'
+test-flair-cpanels-settings-mutant: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(foreach m,$(CP_MUTANTS),$(BUILD)/cp_$(m)_data.img)
+	$(call cp-transaction-boot,cp_mut_ok,$(BUILD)/cp_CP_MUT_OK_NOTHING_data.img,CP_SAVE_ONLY_SPEC)
+	@grep -qx 'CPANELS-APPLY pattern=3 tracking=1 double=1 ticks=20' $(BUILD)/cp_mut_ok.serial
+	@if $(call cp-disk-saved,$(BUILD)/cp_mut_ok_data.img); then printf 'FAIL OK_NOTHING survived\n'; exit 1; fi
+	@printf '>>> CP_MUT_OK_NOTHING correctly RED: FAIL CP_OK_WRITE independent16-byte record\n'
+	$(call cp-transaction-boot,cp_mut_cancel,$(BUILD)/cp_CP_MUT_CANCEL_WRITES_data.img,CP_CANCEL_SPEC)
+	@mdir -i $(BUILD)/cp_mut_cancel_data.img ::CPANELS.DAT >/dev/null
+	@printf '>>> CP_MUT_CANCEL_WRITES correctly RED: FAIL CP_CANCEL_WRITE created file\n'
+	$(call cp-transaction-boot,cp_mut_clock,$(BUILD)/cp_CP_MUT_CLOCK_NOT_APPLIED_data.img,CP_CLOCK_SAVE_SPEC)
+	@grep -qx 'CPANEL title=Date & Time' $(BUILD)/cp_mut_clock.serial
+	@mdir -i $(BUILD)/cp_mut_clock_data.img ::CPANELS.DAT >/dev/null
+	@! grep -qx 'CPANELS-RTC hour=10 minute=0' $(BUILD)/cp_mut_clock.serial && ! grep -qx 'FLAIR-CLOCK 10:00 am' $(BUILD)/cp_mut_clock.serial
+	@printf '>>> CP_MUT_CLOCK_NOT_APPLIED correctly RED: FAIL CP_CLOCK_APPLY no10am clock\n'
+test-flair-cpanels-mutant: $(addsuffix -mutant,test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory) test-flair-cpanels-settings-mutant
+TEST_EMU_GATES += test-flair-cpanels-settings test-flair-cpanels-settings-mutant test-flair-cpanels-persist
+
+$(BUILD)/tbxgate_mut_cp_mouse.o: $(TBXGATE_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -DCP_MUT_MOUSE_INERT -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_TBXGATE_OBJ),$(BUILD)/kmain_flairtenants_mut_cpanels_gate.o $(BUILD)/tbxgate_mut_cp_mouse.o,cp_mouse))
+.PHONY: test-flair-cpanels-mouse-apply-mutant test-flair-cpanels-corrupt
+test-flair-cpanels-mouse-apply-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_mouse.img $(FLAIR_DATA_IMG)
+	$(call calcda-boot,cp_mouse_inert,$(BUILD)/flair_tenants_mut_cp_mouse.img,$(FLAIR_DATA_IMG),CP_MOUSE_APPLY_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'CPANELS-APPLY pattern=0 tracking=2 double=2 ticks=20' $(BUILD)/cp_mouse_inert.serial
+	@grep -qx 'FLAIR-CURSOR x=421 y=220' $(BUILD)/cp_mouse_inert.serial && ! grep -qx 'FLAIR-CURSOR x=422 y=220' $(BUILD)/cp_mouse_inert.serial
+	@printf '>>> CP_MUT_MOUSE_INERT correctly RED: FAIL CP_MOUSE_APPLY cursor421 expected422\n'
+# The corrupt-settings volume is a declared fixture minted by its own rule (fixture_volumes.mk contract).
+$(BUILD)/cp_corrupt_data.img: $(FLAIR_DATA_IMG) harness/fixture_volumes.mk | $(BUILD)
+	cp -f $(FLAIR_DATA_IMG) $@
+	@printf 'corrupt' > $(BUILD)/cp_corrupt.record
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/cp_corrupt.record ::CPANELS.DAT
+	@$(call fixture-check,recipe,$@)
+test-flair-cpanels-corrupt: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_corrupt_data.img
+	@$(HARNESS_BIN) --disk $(CP_GATE_IMG) --disk2 $(BUILD)/cp_corrupt_data.img --name cp_corrupt --out $(BUILD) --quit-after FLAIR-LIVE-OK --timeout-ms 25000 --screendump --screendump-after FLAIR-LIVE-OK 2>$(BUILD)/cp_corrupt.report
+	@grep -qx 'CPANELS-CORRUPT defaults' $(BUILD)/cp_corrupt.serial
+	@$(BUILD)/ppm_flair_cpanels_check pattern $(BUILD)/cp_corrupt.ppm "$(SYSTEM7_DECOMP)/goldens/resources/PAT#_0.bin" 0
+	@printf '>>> test-flair-cpanels-corrupt: green (fail-loud serial + locked teal defaults)\n'
+TEST_EMU_GATES += test-flair-cpanels-mouse-apply-mutant test-flair-cpanels-corrupt
+test-flair-cpanels-mutant: test-flair-cpanels-mouse-apply-mutant
+# The gate-local mutant data volumes keep exactly the stock file contract.
+$(foreach m,$(CP_MUTANTS),$(eval $(call fixture-contract,$(BUILD)/cp_$(m)_data.img,$(FLAIR_FIXTURES))))
+$(BUILD)/control_mut_cp_radio.o: os/flair/control.c os/flair/control.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -DCTRL_MUT_RADIO_DESKTOP_BG -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_CONTROL_OBJ),$(BUILD)/kmain_flairtenants_mut_cpanels_gate.o $(BUILD)/control_mut_cp_radio.o,cp_radio))
+.PHONY: test-flair-cpanels-radio-mutant
+test-flair-cpanels-radio-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_radio.img $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$(call calcda-boot,cp_radio,$(BUILD)/flair_tenants_mut_cp_radio.img,$(FLAIR_DATA_IMG),FLAIR_CP_MOUSE_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'CPANEL title=Mouse' $(BUILD)/cp_radio.serial
+	@if $(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_radio.ppm "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin" radio > $(BUILD)/cp_radio.pixels; then printf 'FAIL radio mutant survived\n'; exit 1; fi
+	@grep '^FAIL CP_RADIO_FACE' $(BUILD)/cp_radio.pixels
+	@printf '>>> CTRL_MUT_RADIO_DESKTOP_BG correctly RED: FAIL CP_RADIO_FACE inherited desktop instead of dialog face\n'
+TEST_EMU_GATES += test-flair-cpanels-radio-mutant
+test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
+
+# New locked header consumers must rebuild when the contract changes.
+$(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h

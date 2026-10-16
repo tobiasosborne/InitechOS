@@ -187,6 +187,9 @@
                                     * -> 0 | err; the answer is DELIVERED  */
 #define TBX_ARGC_ALERT    4u
 /* Deliberate locked ABI extension, initech-bf2. Sec 12 below. */
+/* R4.5 deliberately extends this ABI in spec/cp_dialog.h (0x92..0x96). */
+#include "cp_dialog.h"
+
 #define TBX_FILECOPY      0x0091u  /* (captionPtr, srcPath, dstPath) -> 0 | err;
                                     * the result is DELIVERED              */
 #define TBX_ARGC_FILECOPY 3u

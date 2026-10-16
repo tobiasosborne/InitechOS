@@ -36,6 +36,7 @@ extern void isr30(void);  extern void isr31(void);
 extern void isr_spurious(void);
 extern void isr_irq7_spurious(void);    /* 8259A master spurious (0x2F), bcg.7 */
 extern void isr_irq15_spurious(void);   /* 8259A slave  spurious (0x37), bcg.7 */
+extern void int13_entry(void);
 
 void idt_set_gate(uint8_t vec, void *handler, uint16_t sel, uint8_t type_attr)
 {
@@ -100,6 +101,10 @@ void idt_init(void)
         idt_set_gate((uint8_t)v, (void *)g_exc_stubs[v],
                      IDT_KERNEL_CS, IDT_GATE_INT32);
     }
+
+    /* DEC-17: BIOS disk service at vector19 on the 486 target. The true
+     * #XM panic path is forfeited by the PM's explicit decision. */
+    idt_install_trap(0x13, (void *)int13_entry);
 
     /* 8259A spurious-IRQ vectors get dedicated handlers (bcg.7) so the EOI
      * discipline is correct: IRQ7 -> PIC_MASTER_BASE+7 (master spurious, NO

@@ -98,6 +98,23 @@ static uint32_t desktop_px(const bitmap_t *dst)
     return flair_look_pixel_depth(dst->bpp, FLAIR_PART_DESKTOP);
 }
 
+/* R4.5, tdnl.19. Independent System7 PAT#_0 tiles; default stays locked teal.
+ * Source: spec/cpanels_record.h / QuickDraw port-origin phase convention.
+ * Every run uses the existing clipped blitter; damage semantics unchanged. */
+#include "cpanels_record.h"
+static unsigned desktop_pattern;
+void desktop_set_pattern(unsigned p) {desktop_pattern=p<=8?p:0;}
+static void desktop_fill(const bitmap_t *dst,rgn_rect_t r,uint32_t bg,const region_t *clip) {
+    if(!desktop_pattern){blitter_fill_rect_clipped(dst,r,bg,clip);return;}
+    for(int y=r.top;y<r.bottom;y++)for(int x=r.left;x<r.right;) {
+        int bit=(cp_patterns[desktop_pattern-1][y&7]>>(7-(x&7)))&1,start=x++;
+        while(x<r.right && ((cp_patterns[desktop_pattern-1][y&7]>>(7-(x&7)))&1)==bit)x++;
+        rgn_rect_t run={(int16_t)y,(int16_t)start,(int16_t)(y+1),(int16_t)x};
+        uint32_t px=flair_look_pixel_depth(dst->bpp,bit?FLAIR_PART_FRAME:FLAIR_PART_CONTENT);
+        blitter_fill_rect_clipped(dst,run,px,clip);
+    }
+}
+
 /* Build a GrafPort over `dst` with the given visRgn / clipRgn so the chrome drawer
  * clips to visRgn INTERSECT clipRgn (ADR-0004 D-1/D-2). portRect is the whole
  * bitmap (the surface module enforces the clip at the pixel level). */
@@ -193,7 +210,7 @@ void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
 
     /* 1. Fill the whole desktop background (seafoam) over the desktop frame.
      * NULL clip == no additional clip (blitter draws the whole rect). */
-    blitter_fill_rect_clipped(dst, wm->desktop_frame, desktop_px(dst), (const region_t *)0);
+    desktop_fill(dst, wm->desktop_frame, desktop_px(dst), (const region_t *)0);
 
     /* 1b. THE DESKTOP UNDERLAY (beads initech-tdnl.9; design F2.3 seam 1 /
      * F2-4): immediately after the base fill, with THIS site's clip (NULL ==
@@ -252,11 +269,11 @@ void desktop_paint_damage(WindowMgr *wm, const bitmap_t *dst, region_t *scratch)
     /* MUTANT: fill the WHOLE desktop frame with NO clip -- stomps every stationary
      * window's pixels with seafoam, changing pixels OUTSIDE the computed damage
      * union: (b) [no over-repaint] RED (and (a) RED). */
-    blitter_fill_rect_clipped(dst, wm->desktop_frame, bg, (const region_t *)0);
+    desktop_fill(dst, wm->desktop_frame, bg, (const region_t *)0);
 #else
     if (!region_is_empty(wm->desktop_update)) {
         rgn_rect_t dbb = region_get_bbox(wm->desktop_update);
-        blitter_fill_rect_clipped(dst, dbb, bg, wm->desktop_update);
+        desktop_fill(dst, dbb, bg, wm->desktop_update);
     }
 #endif
 

@@ -172,14 +172,15 @@ fi
 boot=$4; harness=$5; xcopy=$6; tree=$7
 cp -f "$seed" "$work/art.img"
 if [ "$mode" = cancel ]; then
-    printf '@echo off\r\nXCOPY SRC DST /W\r\nif errorlevel 2 echo ZUVO-CANCEL2\r\nif errorlevel 3 echo ZUVO-BAD-CANCEL\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
+    printf '@echo off\r\nPATH=A:\\DOS\r\nXCOPY SRC DST /W\r\nif errorlevel 2 echo ZUVO-CANCEL2\r\nif errorlevel 3 echo ZUVO-BAD-CANCEL\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
     trace='ctrl-c,ret,e,x,i,t,ret'
 else
-    printf '@echo off\r\nXCOPY SRC DST /S /E /V /W /P\r\nTREE SRC /F > TREEF.TXT\r\nTREE SRC > TREE.TXT\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
+    printf '@echo off\r\nPATH=A:\\DOS\r\nXCOPY SRC DST /S /E /V /W /P\r\nTREE SRC /F > TREEF.TXT\r\nTREE SRC > TREE.TXT\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
     trace='spc,y,y,y,y,ret,e,x,i,t,ret'
 fi
-mcopy -i "$work/art.img" "$xcopy" ::XCOPY.COM
-mcopy -i "$work/art.img" "$tree" ::TREE.COM
+mmd -i "$work/art.img" ::DOS
+mcopy -i "$work/art.img" "$xcopy" ::DOS/XCOPY.COM
+mcopy -i "$work/art.img" "$tree" ::DOS/TREE.COM
 mcopy -i "$work/art.img" "$work/autoexec.bat" ::AUTOEXEC.BAT
 name=$(basename "$work")
 "$harness" --disk "$boot" --disk2 "$work/art.img" --name "$name" --out "$work" --timeout-ms 30000 \

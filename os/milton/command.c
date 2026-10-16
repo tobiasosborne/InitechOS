@@ -2145,7 +2145,7 @@ static uint16_t dos_exec(const char *path, const char *tail)
         int wrote = env_serialize(&g_master_env, (uint8_t *)(uintptr_t)ENV_BLOCK,
                                   (int)ENV_BLOCK_CAP);
         if (wrote == 0) {
-            dos_print("Out of environment space\r\n$");
+            dos_print(MSG_DOS_0031 "\r\n$");
             env_block = 0u;           /* inherit-empty (clean), never a garbage env */
         }
     }
@@ -2353,9 +2353,7 @@ static char g_out[64];
  *   ASSIGN -> env_set(name, value); on overflow print env-full message.
  *   CLEAR  -> env_unset(name); silent on success (DOS SET NAME= is silent).
  *   QUERY  -> env_get(name); print "NAME=value\r\n" if found, else error.
- * "Out of environment space" and "Environment variable not defined" are not in
- * the controlled catalogue (dos_messages.json) so they are inlined here --
- * they are SET-specific; the catalogue covers the general DOS diagnostics. */
+ * SET-specific diagnostics also use the controlled catalogue (initech-bcg.13). */
 static void builtin_set(const char *arg)
 {
     set_cmd_t sc;
@@ -2383,7 +2381,7 @@ static void builtin_set(const char *arg)
             /* UPSERT; env_set upcases the name (DOS semantics). */
             if (!env_set(&g_master_env, sc.name, sc.value)) {
                 /* Overflow: the new entry would not fit in the 512-byte arena. */
-                dos_print("Out of environment space\r\n$");
+                dos_print(MSG_DOS_0031 "\r\n$");
             }
             break;
         }
@@ -2421,7 +2419,7 @@ static void builtin_set(const char *arg)
                 }
             } else {
                 /* Not defined: mirror the DOS "Variable not defined" phrasing. */
-                dos_print("Environment variable not defined\r\n$");
+                dos_print(MSG_DOS_0032 "\r\n$");
             }
             break;
         }
@@ -2454,7 +2452,7 @@ static void builtin_prompt(const char *arg)
     templ = (*p == '\0') ? "$P$G" : p;
 
     if (!env_set(&g_master_env, "PROMPT", templ)) {
-        dos_print("Out of environment space\r\n$");
+        dos_print(MSG_DOS_0031 "\r\n$");
     }
     /* Success is SILENT (DOS PROMPT prints nothing on success). */
 }
@@ -2479,7 +2477,7 @@ static void builtin_path(const char *arg)
     value[n] = 0;
     if (n == 1 && value[0] == ';') env_unset(&g_master_env, "PATH");
     else if (!env_set(&g_master_env, "PATH", value))
-        dos_print("Out of environment space\r\n$");
+        dos_print(MSG_DOS_0031 "\r\n$");
 }
 
 /* DIR: existing FINDFIRST/FINDNEXT operand behavior, DOS 3.3 display.
@@ -2825,7 +2823,7 @@ static void builtin_echo(const char *arg)
 {
     char first[CMD_TOKEN_MAX];
     if (cmd_first_token(arg, first) == 0) {
-        dos_print("ECHO is on\r\n$");
+        dos_print(MSG_DOS_0027 "\r\n$");
         return;
     }
     dos_puts_raw(arg);
@@ -2858,9 +2856,9 @@ static void builtin_break(const char *arg)
     /* Report the (possibly just-changed) state, read back via AH=33h GET so the
      * report reflects the live g_break_flag (DEC-16 single source of truth). */
     if (dos_get_break() != 0u) {
-        dos_print("BREAK is on\r\n$");
+        dos_print(MSG_DOS_0029 "\r\n$");
     } else {
-        dos_print("BREAK is off\r\n$");
+        dos_print(MSG_DOS_0030 "\r\n$");
     }
 }
 
@@ -3187,10 +3185,10 @@ static void builtin_date(const char *arg)
         uint8_t  smon, sday;
         if (cmd_parse_date(first, &syear, &smon, &sday)) {
             if (!dos_setdate(syear, smon, sday)) {
-                dos_print("Invalid date\r\n$");
+                dos_print(MSG_DOS_0033 "\r\n$");
             }
         } else {
-            dos_print("Invalid date\r\n$");
+            dos_print(MSG_DOS_0033 "\r\n$");
         }
     }
 
@@ -3215,10 +3213,10 @@ static void builtin_time(const char *arg)
         uint8_t shh, smi, sss;
         if (cmd_parse_time(first, &shh, &smi, &sss)) {
             if (!dos_settime(shh, smi, sss)) {
-                dos_print("Invalid time\r\n$");
+                dos_print(MSG_DOS_0034 "\r\n$");
             }
         } else {
-            dos_print("Invalid time\r\n$");
+            dos_print(MSG_DOS_0034 "\r\n$");
         }
     }
 
@@ -3331,12 +3329,12 @@ static void run_external(const char *command, const char *tail)
 static void read_line(char *out)
 {
     /* +2 for the AH=0Ah header (max + count) byte slots. */
-    uint8_t blk[CMD_LINE_MAX + 2];
+    static uint8_t blk[CMD_LINE_MAX + 2];
     uint8_t count;
     uint8_t i;
 
     blk[0] = (uint8_t)CMD_LINE_MAX;   /* max length including the CR */
-    blk[1] = 0;
+    /* MS-DOS 3.3 pp.153-158: retain the previous line as the template. */
     dos_getline(blk);
 
     count = blk[1];
@@ -3364,7 +3362,7 @@ static void startup_datetime(void)
         read_line(answer);
         if (!answer[0]) break;
         if (cmd_parse_date(answer, &year, &mon, &day) && dos_setdate(year, mon, day)) break;
-        dos_print("Invalid date\r\n$");
+        dos_print(MSG_DOS_0033 "\r\n$");
     }
     dos_gettime(&hh, &mi, &ss, &cs);
     cmd_format_time(hh, mi, ss, cs, g_out);
@@ -3374,7 +3372,7 @@ static void startup_datetime(void)
         read_line(answer);
         if (!answer[0]) break;
         if (cmd_parse_time(answer, &hh, &mi, &ss) && dos_settime(hh, mi, ss)) break;
-        dos_print("Invalid time\r\n$");
+        dos_print(MSG_DOS_0034 "\r\n$");
     }
 }
 
@@ -4139,7 +4137,7 @@ static unsigned g_for_used;
 static void control_body(const char *line)
 {
     if (g_body_depth >= BATCH_NEST_MAX) {
-        dos_print("Batch nesting too deep\r\n$");
+        dos_print(MSG_DOS_0037 "\r\n$");
         return;
     }
     g_body_depth++;
@@ -4151,7 +4149,7 @@ static int for_store(const char *name)
 {
     unsigned n = str_len(name) + 1u;
     if (n > sizeof(g_for_names) - g_for_used) {
-        dos_print("Insufficient memory\r\n$");
+        dos_print(MSG_DOS_0035 "\r\n$");
         return 0;
     }
     for (unsigned i = 0; i < n; i++) g_for_names[g_for_used++] = name[i];
@@ -4224,7 +4222,7 @@ static int dispatch_control(const char *line)
         return frame != 0;
     case BL_ECHO_TEXT:
         if (frame && !bp.echo_text[0]) {
-            dos_print(frame->echo_on ? "ECHO is on\r\n$" : "ECHO is off\r\n$");
+            dos_print(frame->echo_on ? MSG_DOS_0027 "\r\n$" : MSG_DOS_0028 "\r\n$");
             return 1;
         }
         return 0;
@@ -4243,7 +4241,7 @@ static int dispatch_control(const char *line)
     case BL_GOTO:
         if (frame) {
             int target=batch_find_label(g_batch_buf,frame->len,bp.goto_target);
-            if (target<0) dos_print("Label not found\r\n$");
+            if (target<0) dos_print(MSG_DOS_0036 "\r\n$");
             frame->pos = target<0 ? frame->len : target;
             frame->branch++;
         }
@@ -4288,7 +4286,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
 {
     batch_frame_t frame;
     if (g_batch_depth >= BATCH_NEST_MAX) {
-        dos_print("Batch nesting too deep\r\n$"); return;
+        dos_print(MSG_DOS_0037 "\r\n$"); return;
     }
     frame.path=path; frame.count=argc>10 ? 10 : argc;
     for (int k=0;k<frame.count;k++) frame.view[k]=argv[k];

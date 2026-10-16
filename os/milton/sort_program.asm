@@ -1,3 +1,4 @@
+%include "dos_messages.inc" ; DEC-13; MS-DOS 3.3 printed pp.337/341.
 ; sort_program.asm -- the FAT-sourced flat (.COM-equivalent) SORT filter.
 ;
 ; beads: initech-m0dc (the classic DOS filters MORE/SORT/FIND). SORT is the
@@ -324,7 +325,7 @@ compare_lines:
 
 ; --- Data -------------------------------------------------------------------
 crlf:      db 0x0D, 0x0A
-msg_oom:   db "SORT: Insufficient memory", 0x0D, 0x0A, "$"
+msg_oom:   db MSG_DOS_0060, 0x0D, 0x0A, "$"
 
 ; --- BSS-ish scratch (small; baked as zeros in the .COM image) --------------
 rflag:     dd 0

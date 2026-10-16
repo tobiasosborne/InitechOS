@@ -189,6 +189,45 @@ static int ata_wait_ready(uint16_t io_base, uint16_t ctrl_base)
 	return 0;
 }
 
+/* DEC-17: ATA/ATAPI-6 IDENTIFY DEVICE (ECh), native LBA28 capacity. */
+int ata_identify(ata_ctx_t *c, uint32_t *sectors)
+{
+    if(c==NULL || sectors==NULL)return ATA_ERR_ARG;
+    *sectors=0;
+    outb(c->io_base+ATA_REG_DRIVE,c->drive_select);
+    ata_delay_400ns(c->ctrl_base);
+    outb(c->io_base+ATA_REG_SECCOUNT,0);
+    outb(c->io_base+ATA_REG_LBA_LO,0);
+    outb(c->io_base+ATA_REG_LBA_MID,0);
+    outb(c->io_base+ATA_REG_LBA_HI,0);
+    outb(c->io_base+ATA_REG_COMMAND,0xec);
+    if(inb(c->io_base+ATA_REG_STATUS)==0)return ATA_ERR_NO_DRIVE;
+    int rc=ata_wait_drq(c->io_base,c->ctrl_base);
+    if(rc)return rc;
+    uint32_t n=0;
+    for(unsigned i=0;i<256;i++) {
+        uint16_t w=inw(c->io_base+ATA_REG_DATA);
+        if(i==60)n=w;
+        if(i==61)n|=(uint32_t)w<<16;
+    }
+    if(n==0 || n>0x10000000u)return ATA_ERR_ARG;
+    *sectors=n;return 0;
+}
+
+int ata_reset(void *ctx)
+{
+    const ata_ctx_t *c=ctx;
+    if(c==NULL)return ATA_ERR_ARG;
+    outb(c->ctrl_base,6); /* SRST + nIEN (polling) */
+    /* ATA/ATAPI-6 requires >=5us assertion. */
+    for(unsigned i=0;i<32;i++)ata_delay_400ns(c->ctrl_base);
+    outb(c->ctrl_base,2);
+    ata_delay_400ns(c->ctrl_base);
+    outb(c->io_base+ATA_REG_DRIVE,c->drive_select);
+    ata_delay_400ns(c->ctrl_base);
+    return ata_wait_ready(c->io_base,c->ctrl_base);
+}
+
 int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
 {
 	const ata_ctx_t *c = (const ata_ctx_t *)ctx;

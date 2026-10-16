@@ -240,6 +240,95 @@ static void emit_str(const char *s) { while (*s) emit((uint8_t)*s++); }
  * clean (the ESC byte is a numeric literal, not a source byte). */
 static void emit_esc(void) { emit(0x1Bu); }
 
+/* IBM DOS 3.30 Technical Reference printed pp. 3-10/3-11: the DSR reply
+ * is read from standard input. Drive public INT 21h calls, never ansi_apply
+ * directly. ADR-0003 Appendix A includes 06h/07h/0Bh CON I/O. */
+static void expect_report(const char *want)
+{
+    int_frame_t f;
+    memset(&f, 0, sizeof(f));
+    f.eax = 0x0b00u;
+    int21_dispatch(&f);
+    CHECK((f.eax & 0xffu) == 0xffu, "DSR: input status sees reply without consuming it");
+    for (int i = 0; want[i]; i++) {
+        memset(&f, 0, sizeof(f));
+        /* First byte also proves the blocking/raw input service is wired. */
+        f.eax = i == 0 ? 0x0700u : 0x0600u;
+        f.edx = 0xffu;
+        int21_dispatch(&f);
+        CHECK((f.eax & 0xffu) == (uint8_t)want[i] && !(f.eflags & 0x40u),
+              "DSR: INT 21h reads the independent expected cursor report");
+    }
+}
+
+static void test_ansi_lane_wire(void)
+{
+    /* 0u02/i427: SGR 8 must hide even bright text. IBM printed p. 3-15. */
+    static const uint8_t bg_nibbles[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
+    for (int bg = 0; bg < 8; bg++) {
+        char seq[] = "\033[H\033[0;1;5;37;40m\033[8mX";
+        seq[15] = (char)('0' + bg);
+        emit_str(seq);
+        CHECK(g_mock.glyph[0][0] == 'X' && g_mock.attr[0][0] ==
+              (uint8_t)(0x80u | (bg_nibbles[bg] << 4) | bg_nibbles[bg]),
+              "0u02/i427 wire: bright concealed glyph has equal foreground/background");
+    }
+    /* dzum: each dispatcher branch must actually move the mock console. */
+    static const int row[] = { 6, 12, 9, 9 };
+    static const int col[] = { 19, 19, 22, 16 };
+    static const char *reports[] = { "\033[07;20R", "\033[13;20R", "\033[10;23R", "\033[10;17R" };
+    for (int i = 0; i < 4; i++) {
+        char seq[] = "\033[3A";
+        seq[3] = (char)('A' + i);
+        emit_str("\033[10;20H");
+        emit_str(seq);
+        CHECK(g_mock.row == row[i] && g_mock.col == col[i],
+              "dzum: A/B/C/D dispatch reaches the live relative cursor callback");
+        CHECK(g_ansi_st.row == row[i] && g_ansi_st.col == col[i],
+              "s7cm wire: relative dispatch leaves FSM and console coherent");
+        emit_str("\033[6n");
+        expect_report(reports[i]);
+    }
+    static const char *zero_reports[] = { "\033[09;20R", "\033[11;20R", "\033[10;21R", "\033[10;19R" };
+    for (int i = 0; i < 4; i++) {
+        char seq[] = "\033[0A";
+        seq[3] = (char)('A' + i);
+        emit_str("\033[10;20H");
+        emit_str(seq);
+        CHECK(g_mock.row == 9 + (i == 0 ? -1 : i == 1 ? 1 : 0) &&
+              g_mock.col == 19 + (i == 2 ? 1 : i == 3 ? -1 : 0),
+              "mybc/ng8n wire: explicit zero moves one in every direction");
+        emit_str("\033[6n");
+        expect_report(zero_reports[i]);
+    }
+    /* 5y5r: identical huge operands in each direction; no wrapping. */
+    static const int edge_row[] = { 0, 24, 9, 9 };
+    static const int edge_col[] = { 19, 19, 79, 0 };
+    for (int i = 0; i < 4; i++) {
+        char seq[] = "\033[3000000000A";
+        seq[12] = (char)('A' + i);
+        emit_str("\033[10;20H");
+        emit_str(seq);
+        CHECK(g_ansi_st.params[0] == 9999,
+              "5y5r wire: numeric parameter is saturated before dispatch");
+        CHECK(g_mock.row == edge_row[i] && g_mock.col == edge_col[i],
+              "5y5r wire: huge parameters stop at the correct screen edge");
+    }
+    /* Plain output/control bytes and external cursor changes are owned by the
+     * live console. DSR must report it, and replies must remain FIFO. */
+    emit_str("\033[Habc\r\nxy\033[6n");
+    expect_report("\033[02;03R");
+    mock_set_cursor(&g_mock, 23, 78);
+    emit_str("\033[6n\033[H\033[6n");
+    expect_report("\033[24;79R");
+    expect_report("\033[01;01R");
+    int_frame_t f;
+    memset(&f, 0, sizeof(f));
+    f.eax = 0x0600u; f.edx = 0xffu;
+    int21_dispatch(&f);
+    CHECK((f.eflags & 0x40u) != 0, "DSR: input queue empty after complete reports");
+}
+
 int main(void)
 {
     int21_set_sink(sink_capture);
@@ -324,6 +413,7 @@ int main(void)
      *    The MUTANT (ANSIWIRE_MUTATE_IGNORE_GATE) makes con_ansi_active()
      *    ignore the gate, so the FSM swallows these bytes -> this is RED.
      * =================================================================*/
+    test_ansi_lane_wire();
     g_gate_on = 0;
     mock_reset();
     sink_reset();

@@ -16,6 +16,27 @@
 %% only in the foot, index folios Index-n, and the two-line title of a
 %% reference entry repeated flush outside on every continuation page (PG-10,
 %% drawn at shipout for every family: \im@openentry / \im@closeentry).
+%% IDENTITY (PUB-REF-0001 D-8 revised, Sec 7.0, PK-01, AN-27; WL-0132).
+%% Stable public names -- other manual lanes call them:
+%%   \InitechLogo[<height>]       the Initech logo, colour (colour pieces only)
+%%   \InitechLogoBlack[<height>]  the logo in black + black tints (interiors)
+%%   \InitechMark[<h>], \InitechMarkBlack[<h>]   the three blocks alone
+%%   \InitechLogotype[<cap height>]  the INITECH letters, current colour
+%%   \InitechLogoForWidth{<w>}    the lockup height giving width <w>
+%%   \Wordmark[<width>]           kept name: the logo at <width>, colour on
+%%                                colour pieces, black inside a book
+%%   \IsThisGoodForTheCompany[<width>]  the company banner, one display
+%%                                line (default \linewidth); COMPANY cyan on
+%%                                colour pieces, black inside (D-6)
+%%   \MakeCover, \MakeBackCover, \MakeSpine, \MakeTitlePage
+%%   \ColourPiece                 mark a document as a colour piece (box,
+%%                                label, card) so \Wordmark and the banner
+%%                                print in colour; covers and spines are
+%%                                colour pieces by their class option
+%%   colours: InitechCyan (the line colour), InitechCubeLight,
+%%   InitechCubeMono, InitechBlack, InitechPutty, Family*.
+%% The logo drawing lives in pubs/common/initech-logo.tex (TEXINPUTS must
+%% include pubs/common, as pubs/build.sh and the harness scripts do).
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{initech-manual}[1992/03/01 Initech manual class]
 
@@ -174,6 +195,19 @@
 \definecolor{FamilyDecision}{cmyk}{0.90,0.12,0.95,0.40}
 \definecolor{FamilyOffice}{cmyk}{0,1,0.63,0.29}
 \definecolor{FamilyProgramming}{cmyk}{0.90,1,0,0.15}
+%% Initech identity (PUB-REF-0001 D-8 as revised by operator directive, PK-01;
+%% worklog WL-0132).  InitechCyan is THE Initech identity
+%% colour, measured on the logo's cube tops (RGB 87/177/159, #57B19F); the
+%% press build 62/0/34/8 is the CMYK whose proof rendering is nearest that
+%% sample (PK-01 shows the arithmetic).  It is the LINE colour of every
+%% colour piece (logo, title hairline, foot line band, slogan); family
+%% colours keep the family band.  Never inside a book (D-6): interiors use
+%% the one-colour logo, whose cube tops are InitechCubeMono (the cyan's
+%% luminance, 42 % black).  InitechCubeLight: the logo's light faces
+%% (RGB 213/212/212 = 16 % black).
+\definecolor{InitechCyan}{cmyk}{0.62,0,0.34,0.08}
+\definecolor{InitechCubeLight}{cmyk}{0,0,0,0.16}
+\definecolor{InitechCubeMono}{cmyk}{0,0,0,0.42}
 
 %% ---- folios and running foot ----------------------------------------------
 \RequirePackage{fancyhdr}
@@ -199,8 +233,8 @@
   \im@ifmodel{ibm}{}{\fancyfoot[LO,RE]{\imFootFont\im@foottitle}}%
   \im@ifmodel{operations}{\renewcommand\headrulewidth{0.5pt}%
     \renewcommand\footrulewidth{0.5pt}%
-    \fancyfoot[RE]{\imFootFont\im@product\ \im@doctitle}%
-    \fancyfoot[LO]{\imFootFont Session \thechapter.\ \im@foottitle}}{}%
+    \fancyfoot[RE]{\imFootFont\im@opsshort}%
+    \fancyfoot[LO]{\imFootFont\im@footlabel\im@foottitle}}{}%
   \im@ifmodel{ashtontate}{\renewcommand\headrulewidth{0.5pt}%
     \fancyhead[RE]{\imFootFont\bfseries CHAPTER \thechapter}%
     \fancyhead[LO]{\imFootFont\bfseries\MakeUppercase{\im@foottitle}}%
@@ -223,7 +257,14 @@
 \fancypagestyle{empty}{\fancyhf{}\renewcommand\headrulewidth{0pt}%
   \renewcommand\footrulewidth{0pt}}
 \pagestyle{im@text}
-\newcommand\FootTitle[1]{\gdef\im@foottitle{#1}}
+%% F-OPS (PG-11): the recto foot names the numbered unit in force ("Session
+%% 3." / "Appendix B."); front matter, contents and index carry the title
+%% alone.  \im@chapterhook sets the label after its \FootTitle (ipu5.14).
+\newcommand\im@footlabel{}
+%% F-OPS verso foot: the book short title (ZR23 "DOS Versions 3.3 and 4.0").
+\newcommand\im@opsshort{\im@product\ \im@doctitle}
+\newcommand\ShortTitle[1]{\gdef\im@opsshort{#1}}
+\newcommand\FootTitle[1]{\gdef\im@foottitle{#1}\gdef\im@footlabel{}}
 \renewcommand\sectionmark[1]{\markright{#1}}
 
 %% Ashton-Tate pattern: the blank verso before a recto opener is a "Notes" page.
@@ -282,8 +323,10 @@
   \titleformat{\section}[block]{\imHeadOneFont}{}{0pt}{\im@fullhead{#1}}%
   \titlespacing*{\section}{0pt}{18pt}{6pt}}{}
 \im@ifmodel{operations}{%
+  %% PG-21: "Session N." openers; appendices keep "Appendix A." (ipu5.14).
+  \renewcommand\im@chaptername{Session}%
   \titleformat{\chapter}[display]{\RaggedRight}{\hspace*{-\imHang}\rule{40mm}{2pt}}{6pt}
-    {\im@fullhead{\sffamily\bfseries\fontsize{16}{18}\selectfont Session \thechapter.\ #1}}}{}
+    {\im@fullhead{\sffamily\bfseries\fontsize{16}{18}\selectfont \im@chaptername\ \thechapter.\ #1}}}{}
 \im@ifmodel{apple}{%
   \titleformat{\chapter}[block]{\RaggedRight}{}{0pt}
     {\im@fullhead{\colorbox{black!40}{\parbox[c][25mm][c]{25mm}{\centering\color{white}%
@@ -337,7 +380,11 @@
     \im@folioform
     \setcounter{page}{1}%
   \fi
-  \FootTitle{#1}}
+  \FootTitle{#1}%
+  %% the label of the chapter being opened, fixed now: \appendix may change
+  %% the numbering before this chapter's last page ships.
+  \begingroup\advance\c@chapter by 1
+    \xdef\im@footlabel{\im@chaptername\noexpand\ \thechapter.\noexpand\ }\endgroup}
 \RenewDocumentCommand\chapter{s o m}{%
   \im@closeentry
   \IfBooleanTF{#1}
@@ -385,6 +432,7 @@
 \setcounter{tocdepth}{1}
 \contentsmargin{5em}
 \newcommand\im@tocname{Chapter}
+\im@ifmodel{operations}{\renewcommand\im@tocname{Session}}{}
 \titlecontents{chapter}[0pt]
   {\addvspace{9pt}\imHeadTwoFont}
   {\im@tocname~\thecontentslabel.\enspace}
@@ -522,6 +570,10 @@
           \fontsize{7}{8}\selectfont\MakeUppercase{\im@tablabel}}}}}%
     \fi\fi}
 \fi
+
+%% ---- the Initech logo (PUB-REF-0001 D-8 revised; pubs/common) -------------
+\RequirePackage{tikz}
+\input{initech-logo.tex}
 
 %% ---- helpers -----------------------------------------------------------
 \RequirePackage{initech-syntax}

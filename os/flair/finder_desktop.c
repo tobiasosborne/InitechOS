@@ -16,6 +16,7 @@
  * host-oracle builds only (Rule 6) and are never compiled into a real build.
  */
 #include "finder_desktop.h"
+#include "event.h"
 
 #include "finder_icon.h"        /* finder_icon_draw (clipped, mask-honouring)  */
 #include "desk_icons.h"         /* the LOCKED 32x32 desktop strikes            */
@@ -397,7 +398,7 @@ finder_click_kind_t finder_click_classify(finder_click_track_t *t,
 #else
     if (t->armed && target >= 0 && target == t->last_target &&
         when >= t->last_when &&
-        (when - t->last_when) <= (uint32_t)FINDER_DBLCLICK_TICKS &&
+        (when - t->last_when) <= (uint32_t)flair_double_click_ticks &&
         fd_abs((int)h - (int)t->last_h) <= FINDER_DBLCLICK_SLOP &&
         fd_abs((int)v - (int)t->last_v) <= FINDER_DBLCLICK_SLOP) {
         is_double = 1;

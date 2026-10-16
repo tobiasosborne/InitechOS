@@ -10,7 +10,7 @@
  * ARTIFACT code: freestanding, <stdint.h> only, no libc.
  *
  * The block lives at a fixed physical address (BOOT_INFO_ADDR). stage2 writes
- * the 32 bytes in field order in real mode (before the PM switch); the flat C
+ * the 36 bytes in field order in real mode (before the PM switch); the flat C
  * kernel reads them by casting the constant to a volatile pointer -- no
  * register convention, no relocation (a physical constant, flat-binary safe).
  *
@@ -27,6 +27,10 @@
  * stage2 writes the high copy destination and the common kernel entry checks it
  * against KERNEL_BASE before continuing. This repeats the ext_mem_kb precedent:
  * append-only, 28 -> 32 bytes, and no earlier field or offset moves.
+ *
+ * EXTENSION (initech-2gva): lfb_dac_bits at offset 32 records the actual
+ * VBE 4F08h precision (or VGA default 6). Append-only, 32 -> 36 bytes; see
+ * docs/research/vesa8-ground-truth.md (VBE 2.0 Sec 4.11, printed p30).
  */
 #ifndef INITECH_BOOT_INFO_H
 #define INITECH_BOOT_INFO_H
@@ -36,7 +40,7 @@
 typedef struct {
     uint32_t lfb_addr;    /* physical base of the linear framebuffer        */
     uint32_t lfb_pitch;   /* bytes per scanline (may exceed width * bpp/8)  */
-    uint32_t lfb_bpp;     /* bits per pixel: 24 or 32                       */
+    uint32_t lfb_bpp;     /* bits per pixel: 8, 24 or 32                    */
     uint32_t lfb_width;   /* horizontal resolution in pixels (640)          */
     uint32_t lfb_height;  /* vertical resolution in pixels (480)            */
     uint32_t font_addr;   /* physical address of the 4096-byte ROM font     */
@@ -49,13 +53,17 @@ typedef struct {
     uint32_t kernel_base; /* physical/link base of the copied kernel image;  */
                           /* stage2 writes KERNEL_BASE. LAST field at +28;    */
                           /* append-only (tdnl.29 / runway design K2).        */
+    uint32_t lfb_dac_bits; /* appended by initech-2gva: 6 or 8 bits/channel; */
+                          /* VBE 4F08h result, or VGA default 6.             */
 } boot_info_t;
 
 /* Pin the append-only ABI consumed by stage2's literal +28 write. Ref:
  * kernel-runway-relocation.md K2 / bead initech-tdnl.29 (Rule 2 fail loud). */
-_Static_assert(sizeof(boot_info_t) == 32, "boot_info_t must remain 32 bytes");
+_Static_assert(sizeof(boot_info_t) == 36, "boot_info_t must remain 36 bytes");
 _Static_assert(__builtin_offsetof(boot_info_t, kernel_base) == 28,
                "boot_info_t.kernel_base must remain append-only at offset 28");
+_Static_assert(__builtin_offsetof(boot_info_t, lfb_dac_bits) == 32,
+               "boot_info_t.lfb_dac_bits must remain append-only at offset 32");
 
 /* Fixed physical address of the boot_info block (above the BDA at 0x4FF). */
 #define BOOT_INFO_ADDR  0x00000500u

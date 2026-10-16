@@ -1,0 +1,27 @@
+% Cover (PUB-REF-0001 PK-02: the trim grid; band at 55 mm, left bleed to
+% x = 153 mm; family colour on the cover only, D-6) and, as its second page,
+% the back cover (PK-05: wordmark top left, address bottom left, part number
+% and print code bottom right) with the house slogan (lane brief placement
+% rule: verso, Reader's Comment Form foot, back cover, the opening page of
+% the procedures part).  Trim only: bleed and the PDF/X settings are a
+% production step.
+\documentclass[operations,cover]{initech-manual}
+\usepackage{initech-ops}
+\ProductName{TPS Report Generator}
+\ProductVersion{Version 2.11}
+\DocTitle{\begin{tabular}[t]{@{}l@{}}Reference and\\Operating Procedures\end{tabular}}
+\PartNumber{1024-3300-12}
+\PrintCode{A1-3/92}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\begin{document}
+\MakeCover
+\thispagestyle{empty}%
+\AtPage{23}{19}{\Wordmark[30mm]}%
+\AtPage{23}{170}{\parbox[t]{100mm}{\sffamily\fontsize{8}{10}\selectfont
+  Initech Systems Corporation\\ One Initech Plaza\\ Austin, Texas 78799}}%
+\AtPage{23}{150}{\parbox[t]{131.8mm}{\IsThisGoodForTheCompany}}%
+\AtPage{108.8}{203}{\makebox[46mm][r]{\sffamily\fontsize{8}{10}\selectfont
+  1024-3300-12\quad A1-3/92}}%
+\null\newpage
+\end{document}

@@ -1,6 +1,9 @@
-%% initech-forms.sty -- title page, edition notice, wordmark, cover, spine and
-%% Reader's Comment Form for initech-manual.cls (bead initech-ipu5.5).
-%% Spec: PUB-REF-0001 D-8 (wordmark), PK-02/03 (cover and spine),
+%% initech-forms.sty -- title page, edition notice, logo, slogan, cover, back
+%% cover, spine and Reader's Comment Form for initech-manual.cls (bead
+%% initech-ipu5.5; identity revision WL-0132).
+%% Spec: PUB-REF-0001 D-8 as revised (the Initech logo, pubs/common/
+%% initech-logo.tex), PK-01 (Initech Cyan = the line colour), AN-27 (the
+%% company banner), PK-02/03/05 (cover, spine, back cover),
 %% PN-01/05/06 (part number, print code and printer's key), AN-20/25
 %% (edition notice and Reader's Comment Form
 %% with Business Reply panel, IBM model).  All boilerplate is newly written
@@ -39,16 +42,36 @@
 \newcommand\InitechAddressLine{Initech Systems Corporation, Publications
   Department, One Initech Plaza, Austin, Texas 78799}
 
-%% ---- the wordmark (D-8): INITECH, +100 tracking, 0.5 pt rule, Systems
-%% Corporation in Helvetica Regular.  Original artwork only (Sec 2).
-\newsavebox\im@wmbox
-\newcommand\Wordmark[1][30mm]{\begingroup
-  \sbox\im@wmbox{\im@wordmarkfont\fontsize{20}{20}\selectfont INITECH\kern-2pt}%
-  \resizebox{#1}{!}{\vbox{\hsize=\wd\im@wmbox \offinterlineskip
-    \hbox{\usebox\im@wmbox}%
-    \kern3pt\hrule height 0.5pt\kern3pt
-    \hbox to \wd\im@wmbox{\resizebox{\wd\im@wmbox}{!}{\sffamily
-      \fontsize{10}{10}\selectfont Systems Corporation}}}}\endgroup}
+%% ---- the publisher mark (D-8 as revised): the Initech logo -------------------
+%% \Wordmark[<width>] keeps its name and its argument (the WIDTH of the
+%% publisher-mark cell) for the lanes that call it; it now sets the logo
+%% lockup (three blocks over INITECH), colour on colour pieces (cover, spine,
+%% back cover, box, label: \ifim@colourpiece), one-colour inside a book
+%% (D-6).  The old INITECH + rule + Systems Corporation wordmark is retired.
+\newif\ifim@colourpiece
+\ifim@cover\im@colourpiecetrue\fi
+\ifim@spine\im@colourpiecetrue\fi
+\newcommand\ColourPiece{\global\im@colourpiecetrue}
+\newcommand\Wordmark[1][30mm]{\ifim@colourpiece
+  \InitechLogo[\InitechLogoForWidth{#1}]\else
+  \InitechLogoBlack[\InitechLogoForWidth{#1}]\fi}
+
+%% ---- the company banner (AN-27) ---------------------------------------------
+%% \IsThisGoodForTheCompany[<width>] sets the slogan exactly as the office
+%% banner of the reference frame reads it -- "Is This Good for the" in the
+%% plain sans, COMPANY in the bold oblique, a rule beneath, and a tall
+%% question mark standing over the end of the rule -- as one display line
+%% scaled to <width> (default: the line width).  Exact capitalisation is
+%% part of the text and is never changed.  COMPANY prints in Initech Cyan on
+%% colour pieces and in black inside a book (D-6).  Placement: AN-27.
+\newsavebox\im@slbox
+\NewDocumentCommand\IsThisGoodForTheCompany{O{\linewidth}}{\par
+  \noindent\resizebox{#1}{!}{\im@slogan}\par}
+\newcommand\im@slogan{\begingroup\sffamily
+  \sbox\im@slbox{\fontsize{20}{20}\selectfont Is This Good for the\
+    {\bfseries\itshape\ifim@colourpiece\color{InitechCyan}\fi COMPANY}\kern1pt}%
+  \hbox{\vbox{\copy\im@slbox\kern2.5pt\hrule height 1.2pt width \wd\im@slbox}%
+    \kern3pt\raisebox{-7pt}{\fontsize{36}{36}\selectfont ?}}\endgroup}
 
 %% ---- absolute placement on the page (mm from the top-left trim corner) ----
 %% \AtPage{x}{y}{material}: material's top-left corner at (x, y) mm.
@@ -57,21 +80,35 @@
 \newcommand\im@hook[1]{\AddToHookNext{shipout/foreground}{#1}}
 
 %% PK-02 trim grid: product baseline 12, title baseline 28, band 55..61.5,
-%% wordmark top 183, part-number baseline 201 mm. Common x = 23 mm.
+%% logo cell top 183 (30 mm wide), part-number baseline 201 mm, line band
+%% 222.6 mm to the foot (bleeds).  Common x = 23 mm.  Colour pieces draw the
+%% title hairline and the line band in Initech Cyan (PK-01 line colour);
+%% the title page (#1 = 0) is the same grid in black, without the line band.
 \newcommand\im@coverlayout[1]{% #1 = 1 for colour (cover), 0 for black (title page)
   %% PUB-REF-0001 PK-02: trim coordinates, 3 mm left bleed.
   \im@hook{\put(\dimexpr23mm\relax,-\dimexpr12mm\relax){%
     \sffamily\bfseries\fontsize{11}{12}\selectfont\im@product\quad\im@version}}
-  \AtPage{23}{14}{\rule{157.8mm}{0.5pt}}%
+  \AtPage{23}{14}{\ifnum#1=1\color{InitechCyan}\rule{157.8mm}{1pt}\else
+    \rule{157.8mm}{0.5pt}\fi}%
   \im@hook{\put(\dimexpr23mm\relax,-\dimexpr28mm\relax){%
     \im@display\fontsize{40}{44}\selectfont\im@doctitle}}
   \im@hook{\put(-\dimexpr3mm\relax,-\dimexpr61.5mm\relax){%
     \ifnum#1=1\color{\im@familycolor}\else\color{black}\fi\rule{156mm}{6.5mm}}}%
   \AtPage{23}{56}{\textcolor{white}{\sffamily\bfseries
     \fontsize{11}{12}\selectfont\im@family}}%
-  \AtPage{23}{183}{\Wordmark[30mm]}%
+  \AtPage{23}{183}{\ifnum#1=1\InitechLogo[\InitechLogoForWidth{30mm}]\else
+    \InitechLogoBlack[\InitechLogoForWidth{30mm}]\fi}%
+  \ifnum#1=1\im@lineband\fi
   \ifnum#1=1\im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr201mm\relax){%
     \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}\fi}
+
+%% The line band (PK-01, PK-02, PK-03): Initech Cyan, 6.0 mm from y 222.6 mm
+%% to the foot trim plus 3 mm bleed, across the full width plus bleed --
+%% the band at the foot of the headquarters sign of the reference frame.  On
+%% a shelf the books show one cyan line along their feet and one family
+%% stripe each at 55 mm.
+\newcommand\im@lineband{\im@hook{\put(-\dimexpr3mm\relax,-\dimexpr231.6mm\relax){%
+  \textcolor{InitechCyan}{\rule{\dimexpr\paperwidth+6mm\relax}{9mm}}}}}
 
 %% ---- title page and verso (edition notice) ---------------------------------
 \newcommand\MakeTitlePage{%
@@ -86,7 +123,9 @@
    \begin{minipage}[t][\dimexpr\textheight-\topskip\relax][b]{\imFullWidth}\small\RaggedRight
    \setlength\parskip{5pt}%
    {\im@condensed\bfseries\fontsize{9}{11}\selectfont\im@edition}\par
-   \im@applies\par}
+   \im@applies\par
+   %% AN-27: the company banner under the edition notice.
+   \vspace{2pt}\IsThisGoodForTheCompany[90mm]\vspace{2pt}}
   {\par
    \copyright\ Copyright Initech Systems Corporation \im@years.
    All rights reserved.\par
@@ -131,15 +170,37 @@
 %% ---- cover / binder title insert (class option `cover`) --------------------
 \newcommand\MakeCover{\thispagestyle{empty}\im@coverlayout{1}\null\newpage}
 
+%% ---- back cover (PK-05 as revised; AN-27) ---------------------------------
+%% Logo top left in the front cover's cell size; the company banner across
+%% the cover measure at 100 mm; address block bottom left; part number,
+%% print code and the "Printed in" line (only when set, D-1) bottom right;
+%% the line band at the foot, continuing the front cover's.
+\newcommand\MakeBackCover{\thispagestyle{empty}%
+  \AtPage{23}{19}{\InitechLogo[\InitechLogoForWidth{30mm}]}%
+  \AtPage{23}{100}{\parbox[t]{131.8mm}{\IsThisGoodForTheCompany}}%
+  \im@hook{\put(\dimexpr23mm\relax,-\dimexpr201mm\relax){\makebox[0pt][l]{%
+    \sffamily\fontsize{8}{10}\selectfont\begin{tabular}[b]{@{}l@{}}%
+      Initech Systems Corporation\\ One Initech Plaza\\
+      Austin, Texas 78799\end{tabular}}}}%
+  \im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr201mm\relax){\makebox[0pt][r]{%
+    \sffamily\fontsize{8}{10}\selectfont\begin{tabular}[b]{@{}r@{}}%
+      \ifx\im@printedin\@empty\else Printed in \im@printedin.\\\fi
+      \im@partno\quad\im@printcode\end{tabular}}}}%
+  \im@lineband
+  \null\newpage}
+
 %% ---- binder spine insert (class option `spine`) -----------------------------
 %% Text reads top to bottom (US convention; tell German printers explicitly);
 %% the family band sits at exactly the cover height so a shelf of Initech books
 %% shows one continuous stripe per family (Sec 6).
 \newcommand\MakeSpine{\thispagestyle{empty}%
   \im@hook{%
-    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr8mm\relax){\makebox[0pt][c]{%
+    %% The logo, horizontal on a spine of 25 mm or more (22 mm wide, 6 mm
+    %% from the top, clear of the product name at 24 mm), else rotated.
+    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr6mm\relax){\makebox[0pt][c]{%
       \raisebox{-\height}{\ifdim\paperwidth<25mm
-        \rotatebox{-90}{\Wordmark[24mm]}\else\Wordmark[\paperwidth-14mm]\fi}}}%
+        \rotatebox{-90}{\Wordmark[16mm]}\else
+        \InitechLogo[\InitechLogoForWidth{22mm}]\fi}}}%
     \put(\dimexpr0.5\paperwidth+3mm\relax,-\dimexpr24mm\relax){%
       \rotatebox{-90}{\makebox[0pt][l]{\im@display\fontsize{14}{16}\selectfont\im@product}}}%
     \put(\dimexpr0.5\paperwidth-4mm\relax,-\dimexpr24mm\relax){%
@@ -152,6 +213,7 @@
       \rotatebox{-90}{\makebox[0pt][l]{\im@termes\fontsize{14}{16}\selectfont\im@version}}}%
     \put(\dimexpr0.5\paperwidth\relax,-\dimexpr218mm\relax){\makebox[0pt][c]{%
       \sffamily\fontsize{7}{8}\selectfont\im@partno}}}%
+  \im@lineband
   \null\newpage}
 
 %% ---- Reader's Comment Form + Business Reply panel (IBM model, Sec 11) --------
@@ -191,6 +253,8 @@
     \im@writeline
     \vspace{2pt}{\imLegalFont No postage stamp necessary if mailed in the
       U.S.A.  Fold on the lines, tape, and mail.  Please do not staple.\par}
+    %% AN-27: the company banner at the foot of every comment form.
+    \vspace{4pt}\IsThisGoodForTheCompany[90mm]
   \end{minipage}
   \newpage
   \thispagestyle{empty}%

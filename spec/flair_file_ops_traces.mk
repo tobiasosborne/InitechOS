@@ -35,7 +35,7 @@
 # ===========================================================================
 # 1. FLAIR_FILEOPS_INTO_SPEC -- drag README.TXT onto the APPS folder icon.
 # ===========================================================================
-# Serial chain: FINDER-OPEN-VOLUME win=0 n=2 ; FINDER-DROP-HILITE name=APPS ;
+# Serial chain: FINDER-OPEN-VOLUME win=0 n=4 ; FINDER-DROP-HILITE name=APPS ;
 #               FINDER-MOVE name=README.TXT from=0 to=3
 # mtools: README.TXT in ::/APPS (its bytes == the fixture), absent from ::/.
 # A. volume double-click -> (600,64)                    (disk_windows trace 1 A)
@@ -51,7 +51,7 @@ FLAIR_FILEOPS_INTO_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m
 # 2. FLAIR_FILEOPS_BETWEEN_SPEC -- drag TENANTFX.EXE out of the APPS window
 #    into the ROOT window, then raise the root window to show it arrived.
 # ===========================================================================
-# Serial chain: FINDER-OPEN-VOLUME win=0 n=2 ;
+# Serial chain: FINDER-OPEN-VOLUME win=0 n=4 ;
 #               FINDER-OPEN-FOLDER name=APPS win=1 singleton=0 ;
 #               FINDER-MOVE name=TENANTFX.EXE from=3 to=0 ;
 #               FLAIR-DRAG win 0 (20,60)->(20,60)
@@ -161,7 +161,7 @@ FLAIR_FILEOPS_HOVER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,
 #    / .73 / .75; audit pass 3 H03 + H05). Gate: test-flair-finder-service.
 # ===========================================================================
 # 6a. FLAIR_SVC_TRASH_SPEC (flagship volume): the root window opens showing
-#     ONLY README.TXT and APPS -- FINDER-OPEN-VOLUME win=0 n=2 (the gate's
+#     ONLY README.TXT and APPS -- FINDER-OPEN-VOLUME win=0 n=4 (the gate's
 #     separate FLAIR_ICON_OPEN_SPEC boot screendumps that state for leg
 #     rootwin: cells 2-3 bare) -- then README.TXT is dragged
 #     onto the Trash: FINDER-TRASH name=README.TXT origin=0 ; DESKTOP-DB-SAVE
@@ -177,7 +177,7 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 #     re-keyed this trace) and the STRANDED old TRASH with README.TXT inside.
 #     Boot adds DESKTOP.DB (slot 4).
 #     So the root window shows NEWFOLD (cell 0, centre (55,102)) and APPS
-#     (cell 1, centre (123,102)): FINDER-OPEN-VOLUME win=0 n=2.
+#     (cell 1, centre (123,102)): FINDER-OPEN-VOLUME win=0 n=4.
 #   A ; B -> NEWFOLD (55,102) ; GO -> the Trash (600,422) ; l0
 #        -> FINDER-TRASH name=NEWFOLD origin=0 (staged in the ROOT \TRASH)
 #   (600,422) -> APPS (123,102): sum (-477,-320): m-100:-64 x4, m-77:-64 ;
@@ -239,6 +239,7 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # PM 2026-10-17 PERMANENT KEY: the stranded TRASH is APPS entry 0 (cell 0, centre (75,122)):
 # -48,+20 from the APPS double-click (123,102); park to the absolute target (415,258):
 # +340,+136 from the click. This key no longer moves when APPS gains files.
+# initech-aai2/ur7k: FDISK.COM lives in \DOS (zc68); APPS keys unchanged, TRASH remains entry 0.
 FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m100:100,m100:36,m100:0,m40:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
@@ -250,4 +251,7 @@ FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-
 #   A ; (600,64) -> (259,102): sum (-341,+38): m-100:10 x3, m-41:8 ; l1 ;
 #   m-68:0 x2 -> (123,102) ; m0:2 -> (123,104) ; l0 ; PARK (123,104) ->
 #   (620,460): sum (+497,+356): m100:71 x4, m97:72.
-FLAIR_SVC_GUARD_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-41:8,l1,m-68:0,m-68:0,m0:2,l0,m100:71,m100:71,m100:71,m100:71,m97:72
+# initech-zc68: shown service TRASH index5 centre (123,154), root APPS
+# index1 centre (123,102). From volume (-477,+90), drag (0,-52),
+# release jiggle (0,+2), park (+497,+356) to the original (620,460).
+FLAIR_SVC_GUARD_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:20,m-100:20,m-100:20,m-100:20,m-77:10,l1,m0:-52,m0:2,l0,m100:71,m100:71,m100:71,m100:71,m97:72

@@ -1,0 +1,10 @@
+Display Partition Information
+
+Current Fixed Disk Drive: 1
+
+Partition  Status   Type  Start  End  Size
+ C:  1       A    PRI DOS     0     7     8
+
+Total disk space is 8 cylinders.
+
+Press ESC to return to Fdisk Options

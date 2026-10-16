@@ -131,8 +131,12 @@ int main(int argc, char **argv)
 
     /* 3. nothing else lit */
     want(39 + 12,  86 + 10, 0xFFFFFFu, "README.TXT (the dragged icon) keeps a white body");
-    want(175 + 12, 86 + 10, 0xFFFFFFu, "cell 2 (DESKTOP.DB before tdnl.56, now hidden) is bare white");
-    want(243 + 10, 86 + 10, 0xFFFFFFu, "cell 3 (TRASH before tdnl.56, now hidden) is bare white");
+    /* initech-zc68: DOS and AUTOEXEC occupy root cells 2/3. The normal
+     * folder flap is CIDX_CONTROL, never the highlighted #3F3F3F.
+     * Ref: finder_icons.h folder row25 / color_canon.h CIDX_CONTROL. */
+    want(175 + 12, 86 + 10, 0xFFFFFFu, "DOS keeps its normal white body");
+    want(175 + 15, 86 + 25, 0xC0C0C0u, "DOS flap keeps its normal control gray");
+    want(243 + 10, 86 + 10, 0xFFFFFFu, "AUTOEXEC.BAT keeps its normal white body");
 
     /* 4. the gray outline */
     want(110, 86, 0x777777u, "the drag outline's top edge (README cell +68,0)");

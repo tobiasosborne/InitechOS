@@ -1,0 +1,168 @@
+% Session 6 -- The Cover Sheet and the Records Retained: Procedures TPS-P-06
+% and TPS-P-07, Checklist TPS-C-2.
+% Law 1 sources: spec/tps_ritual.json R5 (Y continues to the report; N ends
+% with return code 5 and no report file; other keys ignored) and file_rules
+% (TPSREPT.BAK deleted, TPSREPT.TXT renamed TPSREPT.BAK, TPSREPT.TXT
+% created and written, Ctrl-Z padded); os/milton/tpsrep_program.asm .r5
+% (the key folded to upper case, echoed, no ENTER), report (m_done1, and
+% m_done2 only when there was a previous report), totals (the corrective
+% action line only when a report lacks its cover sheet).  Screens tpsdone,
+% tpsbak: the journey route; test-flair-tps-journey and test-tps-report
+% prove TPSREPT.TXT byte for byte against real MS-DOS 6.22.
+% DRAFT (lane tpsr2, bead initech-5igf): the decided R5 prompt names FORM
+% TPS-1 (REV. 10/89); screens r5cover / r5refuse are hand-written until it
+% ships.
+% GATES: test-tps-report test-flair-tps-journey test-pubs-screens test-pubs-tps
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-screens, test-pubs-tps}
+\chapter{The Cover Sheet and the Output}
+
+\SideHead{Introduction}When the memo has been acknowledged, the program asks
+whether the new cover sheet is attached.  Only when the operator answers
+\type{Y} does it write the report.  In this session you attest the cover
+sheet, verify the report, and retain the records of the run.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item Attach the new cover sheet, \form{1} (Rev.\ 10/89), and attest it.
+\item State what happens when the answer is \type{N}.
+\item Verify that the report has been written and the previous report kept.
+\item Complete Checklist TPS-C-2 and \form{5}.
+\end{enumerate}
+
+\section{The Cover Sheet Attestation}
+\index{cover sheet attestation}\index{Form TPS-1}\index{TPS-005@\texttt{TPS-005}}
+The program asks:
+\TpsDraftMsg{R5.prompt}{DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET, FORM TPS-1
+  (REV. 10/89)? (Y/N) }{lane tpsr2, bead initech-5igf: the decided R5 prompt;
+  the shipped prompt does not yet name the form}
+The answer is one key, \type{Y} or \type{N}, in capital or small letters;
+\key{Enter} is not pressed.  Any other key is ignored.  The program displays
+the answer as a capital letter.
+
+\SideHead{Y}The program writes the report (\proc{07}).
+
+\SideHead{N}The program displays:
+\TpsMsg{TPS-005}
+where \ph{n} is the memo number, and ends with return code 5.  No report is
+written, and \rpt\ and \file{TPSREPT.BAK} are left as they were.
+
+\begin{Procedure}{TPS-P-06}{To Attest the Cover Sheet}
+\ProcField{Purpose}{To attach the new cover sheet to the report folder and
+  attest it to the program.}
+\ProcField{Frequency}{Each run, directly after \proc{05}.}
+\ProcField{Performed by}{The operator.}
+\ProcField{Prerequisites}{The cover sheet prompt is displayed.}
+\ProcField{Materials}{A new cover sheet, \form{1} (Rev.\ 10/89); the report
+  folder for this run.}
+\begin{ProcSteps}
+\item Check that the cover sheet is \form{1} with the revision date 10/89.
+  An earlier revision is not the new cover sheet.  If you do not have one,
+  answer \type{N} and see your supervisor.
+\item Enter on \form{1} the report number from \form{2}, column 2, and the
+  date.  Attach it to the front of the report folder.
+\item Press \type{Y}.
+  \DraftShot{r5cover}{lane tpsr2, bead initech-5igf: the decided R5 prompt,
+    hand-written; re-captured after the merge}
+\end{ProcSteps}
+\ProcField{Verification}{The report begins to be displayed.}
+\ProcField{Records retained}{\form{1}, in the report folder.}
+\ProcNote{An answer of \type{N} cannot be taken back.  To write the report,
+  run the program again from \proc{02}.}
+\end{Procedure}
+
+\DraftShot[caption={The answer N: the report is not written.}]{r5refuse}{lane
+  tpsr2, bead initech-5igf: the decided R5 prompt, hand-written; re-captured
+  after the merge}
+
+\section{The Report}
+\index{TPSREPT.TXT}\index{TPSREPT.BAK}
+When the answer is \type{Y}, the program keeps one previous report and
+writes the new one:
+\begin{enumerate}
+\item It deletes \file{TPSREPT.BAK}, if there is one.
+\item It renames \rpt, if there is one, to \file{TPSREPT.BAK}.
+\item It creates \rpt\ and writes the report to it, displaying each line on
+  the screen as it is written: the cover sheet, the detail pages and the
+  totals (Session~1).
+\end{enumerate}
+It then displays \texttt{TPS REPORT WRITTEN TO TPSREPT.TXT.}  When there was
+a previous report, it also displays \texttt{PREVIOUS REPORT RETAINED AS
+TPSREPT.BAK.}  It ends with return code 0.
+
+\begin{Procedure}{TPS-P-07}{To Verify and Retain the Output}
+\ProcField{Purpose}{To verify that the report has been written and the
+  previous report kept, and to retain the records of the run.}
+\ProcField{Frequency}{Each run that ends with return code 0.}
+\ProcField{Performed by}{The operator.}
+\ProcField{Prerequisites}{\proc{06} is complete with the answer \type{Y}.}
+\ProcField{Materials}{\form{5}; Checklist TPS-C-2.}
+\begin{ProcSteps}
+\item Wait until the prompt \texttt{A:\bs APPS>} is displayed.  Do not press
+  any key while the report is being written.
+\item Read the last lines of the screen.
+  \OpsShot[fromtext={REPORTS LISTED}, marks={1=WITHOUT COVER;2=CORRECTIVE;3=TPS REPORT WRITTEN;4=TPS REPORT GENERATOR TERMINATED},
+    label=fig:done, caption={The end of the report and of the run.}]{tpsdone}
+\item Enter the figure \texttt{WITHOUT COVER SHEET} on \form{5}, line 7.  If
+  the line \texttt{CORRECTIVE ACTION REQUIRED} is displayed, enter it too,
+  and give the report folder to your supervisor with the memo it names.
+\item Type \type{DIR TPSREPT.* /W} and press \key{Enter}.
+  \OpsShot[fromtext={A:\Bsl APPS>DIR TPSREPT}]{tpsbak}
+\item Complete Checklist TPS-C-2 and sign \form{5}.
+\end{ProcSteps}
+\ProcField{Verification}{\texttt{RETURN CODE 0} is displayed; the listing
+  names \rpt\ and, after the first run, \file{TPSREPT.BAK}.}
+\ProcField{Records retained}{\rpt\ (this report) and \file{TPSREPT.BAK} (the
+  previous report) in \file{A:\bs APPS}; \form{1} through \form{5};
+  Checklists TPS-C-1 and TPS-C-2.}
+\ProcNote{The program keeps one previous report only.  The report that was
+  in \file{TPSREPT.BAK} is deleted by the next run (Checklist TPS-C-1).}
+\end{Procedure}
+
+\begin{CalloutLegend}
+\LegendRow{1}{Without cover sheet}{The number of TPS reports on file filed
+  without a cover sheet.  Entered on \form{5}, line 7.}
+\LegendRow{2}{Corrective action}{Displayed only when that number is not
+  zero.  Names the memo.}
+\LegendRow{3}{Report written}{\rpt\ has been written.}
+\LegendRow{4}{End line}{Return code 0: the run is complete.}
+\end{CalloutLegend}
+
+When the run is the second or a later one, the end of the screen shows the
+previous report retained:
+
+\OpsShot[fromtext={TPS REPORT WRITTEN}, totext={TPS REPORT GENERATOR TERMINATED},
+  caption={A second run: the previous report is retained.}]{tpsbak}
+
+\section{After the Run}
+\index{post-run checklist}\index{operator sign-off sheet}\index{Form TPS-5}
+\begin{Checklist}{TPS-C-2}{Post-Run}
+\CheckItem{\texttt{RETURN CODE 0} was displayed.}
+\CheckItem{\rpt\ is listed in \file{A:\bs APPS}.}
+\CheckItem{\form{1} (Rev.\ 10/89) is attached to the front of the report
+  folder.}
+\CheckItem{\form{2}, \form{3} and \form{4} carry this run's line.}
+\CheckItem{The figure \texttt{WITHOUT COVER SHEET} is entered on \form{5},
+  line 7, and any corrective action has been given to your supervisor.}
+\CheckItem{\form{5} is signed and, with Checklists TPS-C-1 and TPS-C-2,
+  filed in the report folder.}
+\end{Checklist}
+
+\section{Lab Project 5. The Cover Sheet and the Report}
+Continue from Lab Project 4: the program displays the cover sheet prompt.
+\begin{enumerate}
+\item Carry out \proc{06} with a copy of \form{1} from Appendix F.
+\item Carry out \proc{07}.  Compare the end of your screen with
+  Figure~\ref{fig:done}.
+\item Run the program a second time, from \proc{02}, with report number
+  1015.  After \proc{07}, step 4, the listing names \file{TPSREPT.BAK}.
+\end{enumerate}
+
+\section{Study Questions}
+\begin{enumerate}
+\item What is the revision date of the new cover sheet?
+\item What happens when the answer to the cover sheet prompt is \type{N}?
+\item Is \key{Enter} pressed after the answer?
+\item Which file holds the report written before this one?
+\item When is the line \texttt{CORRECTIVE ACTION REQUIRED} displayed, and
+  what do you do?
+\end{enumerate}

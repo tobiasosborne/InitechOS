@@ -491,11 +491,13 @@ void DrawDialog(DialogPtr dp)
             /* Control item: delegate to DrawControl.
              * Ref: IM-I Ch 6 "ctrlItem"; MTE Ch 6. */
             if (item->ctrl) {
+                DrawControl(port, item->ctrl);
+                /* The ring's sampled corner moat overlaps the button's
+                 * bounding box. Paint it last; its centre stays untouched. */
                 if ((uint16_t)(i + 1) == dp->defaultItem &&
                     item->ctrl->contrlType == pushButton) {
                     DrawControlDefaultRing(port, item->ctrl);
                 }
-                DrawControl(port, item->ctrl);
             }
             break;
         }

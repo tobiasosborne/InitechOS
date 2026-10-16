@@ -1,0 +1,59 @@
+% Appendix E -- Final Quiz (ZR23-6845-01 App. E: true/false items, then
+% "select the best answer" items).  Every item tests recall of a procedure
+% (VO-06).  The alignment count is written here too (bead initech-5igf).
+% GATES: test-tps-report test-flair-tps-journey test-pubs-tps
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-tps}
+\chapter{Final Quiz}
+
+Answer every item without referring to the sessions.  Circle T (true) or F
+(false), or the letter of the best answer.  Give the completed quiz to your
+supervisor, who marks it against the answer sheet.
+
+\newcommand\TF[1]{\par\addvspace{8pt}\noindent\hangindent=16mm\hangafter=1
+  \makebox[16mm][l]{\sffamily T\quad F}#1\par}
+\newcounter{quiz}
+\newcommand\Q[1]{\stepcounter{quiz}\TF{\makebox[6mm][l]{\arabic{quiz}.}#1}}
+
+\Q{The TPS Report Generator is started from the FLAIR desktop.}
+\Q{The form is aligned by pressing the \key{Space Bar} exactly
+  \AlignCount{QUIZ} times, then \key{Enter}.}
+\Q{The program displays the number of presses required to align the form.}
+\Q{\key{Backspace} removes the last period of an alignment attempt.}
+\Q{The report number is keyed twice, and the second entry is taken from
+  \form{2}, not from the screen.}
+\Q{The memo number keyed must be the number in the \texttt{MEMO=} line of the
+  parameter record.}
+\Q{After the answer to the cover sheet prompt, \key{Enter} is pressed.}
+\Q{An answer of \type{N} to the cover sheet prompt ends the run with return
+  code 5 and no report.}
+\Q{The program keeps every previous report.}
+\Q{TPS-003 ends the run.}
+
+\newcommand\MC[2]{\stepcounter{quiz}\par\addvspace{8pt}\noindent
+  \makebox[6mm][l]{\arabic{quiz}.}(Select the best answer.)\ #1\par
+  \begin{list}{}{\leftmargin=12mm\itemsep=0pt\parsep=0pt\topsep=3pt}#2\end{list}}
+\MC{Message TPS-001 is displayed at the prompt \texttt{A:\bs>}.  You:}{%
+  \item[a.] Run the program again at the same prompt.
+  \item[b.] Type \type{CD APPS} and start again at \proc{02}.
+  \item[c.] Answer \type{N} to the cover sheet prompt.
+  \item[d.] Call the Help Desk at once.}
+\MC{The memo number is refused a second time.  You:}{%
+  \item[a.] Key the report number instead.
+  \item[b.] Press \key{Esc}.
+  \item[c.] See your supervisor, leaving the program waiting.
+  \item[d.] Leave the desktop again.}
+\MC{Which form records the alignment of the form?}{%
+  \item[a.] \form{1}
+  \item[b.] \form{2}
+  \item[c.] \form{3}
+  \item[d.] \form{4}}
+\MC{After a refusal that ends the run, the run is started again at:}{%
+  \item[a.] \proc{01}, step 1
+  \item[b.] \proc{02}, step 1
+  \item[c.] \proc{04}, step 1
+  \item[d.] \proc{07}, step 4}
+
+\section{Answer Sheet (Supervisor)}
+1 F; 2 T (\AlignCountNumber{QUIZ} presses); 3 F; 4 F; 5 T; 6 T; 7 F; 8 T;
+9 F (one previous report, \file{TPSREPT.BAK}); 10 F (it asks again);
+11 b; 12 c; 13 d; 14 b.

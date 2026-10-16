@@ -2,8 +2,8 @@
 # name|serial marker[#count]|disk
 # The keystrokes of screen NAME are screens/NAME.keys, one line read with
 # printf %b (\n = Enter, \\ = backslash); it is the ONLY keyboard source
-# (test-pubs SCREEN-KEYS), and every .keys starts with the two Enters that
-# answer the startup date and time prompts.  The marker is text of the LAST
+# (test-pubs SCREEN-KEYS). Only noautoexec keys start with the two Enters
+# that answer startup date/time.  The marker is text of the LAST
 # command's output; #count is how many times it has appeared on the serial
 # mirror (typed keys echo there too) when the screen is complete.  disk is
 # the practice diskette the screen boots with (pubs/screens/disk/MANIFEST):
@@ -32,10 +32,12 @@ greet|Your report is due Friday.|
 check|after CHECK.#2|
 cover|The cover sheets are ready.|
 set|DEPT=PUBS#2|
-prompt|A:\>#5|
+prompt|A:\>#3|
 redir|Second line#2|
 stdin|Volume in drive A is REPORTS|
 attrib|Access denied|
 xcopys|File(s) copied|
 path|PATH=A:\APPS#2|
-ctrlc|A:\>#5|
+ctrlc|A:\>#3|
+# initech-zc68: prompt occurrence counts omit the two removed startup Enters.
+template|A:\>#7|

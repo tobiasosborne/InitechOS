@@ -1,0 +1,135 @@
+% Session 4 -- Aligning the Form: Procedure TPS-P-03.
+% Law 1 sources: spec/tps_ritual.json R2 ("count": 7; the SPACE BAR exactly
+% the count, then ENTER; any other count restarts with the refusal; other
+% keys ignored; a period per press); os/milton/tpsrep_program.asm .r2/.r2k
+% (FORM_COUNT, getkey AH=08h with no echo, the period, ENTER ends the
+% attempt).  THE COUNT IS WRITTEN ONLY HERE (operator Law-4 ruling, bead
+% initech-5igf): \AlignCount prints it from the spec and registers its
+% place; test-pubs-tps requires TPS-P-03, FORM-TPS-4, STUDY and QUIZ.
+% DRAFT (lane tpsr2, bead initech-5igf, PM decision 2026-10-17 09:20): the
+% decided R2 prompt -- TOP OF FORM ALIGNMENT / the alignment test line /
+% ADVANCE THE FORM TO THE TEST LINE, THEN PRESS ENTER., reprinted after a
+% refusal -- is printed under DRAFT markers until it ships; the shipped
+% program still displays its earlier prompt (R2.prompt of the spec), so the
+% r2align transcript is hand-written (screens/r2align.draft) and is
+% re-captured after the merge.
+% GATES: test-tps-report test-flair-tps-journey test-pubs-tps
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-tps}
+\chapter{Aligning the Form}
+
+\SideHead{Introduction}When the parameter record has been accepted, the
+program requires the form to be aligned before it accepts anything else.
+The program displays the top-of-form alignment prompt with the alignment
+test line, and waits.  The form is aligned by pressing the \key{Space Bar}
+exactly \AlignCount{TPS-P-03} times, and then \key{Enter}.  The program
+does not display the number of presses.  It is given in this book, and the
+operator is responsible for knowing it.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item State the number of times the \key{Space Bar} is pressed to align the
+  form.
+\item Align the form and recognize the acceptance message.
+\item Recognize the refusal message and begin the alignment again.
+\item Complete \form{4}, the forms alignment record.
+\end{enumerate}
+
+\section{The Alignment Prompt}
+\index{alignment prompt}\index{form alignment}\index{Space Bar, presses to align the form}\index{alignment count}
+The alignment prompt is three lines: the heading, the alignment test line,
+and the instruction.
+
+\TpsDraftMsg{R2.prompt}{TOP OF FORM ALIGNMENT\\----- ALIGNMENT TEST LINE -----
+  FORM TPS-1 (REV. 10/89) -----\\ADVANCE THE FORM TO THE TEST LINE, THEN PRESS
+  ENTER.}{lane tpsr2, bead initech-5igf: the decided R2 prompt; the shipped
+  program still displays its earlier prompt}
+
+Each press of the \key{Space Bar} displays one period.  \key{Enter} ends the
+attempt.  Any other key is ignored and displays nothing.  When the number of
+presses is \AlignCount{TPS-P-03}, the program displays:
+\TpsMsg{R2.accept}
+and continues with the report number (Session~5).  When it is any other
+number, the program displays:
+\TpsMsg{R2.refuse}
+where \ph{n} is the number of presses counted.  The count starts again from
+zero, and the alignment prompt is displayed again.\draft{lane tpsr2: the
+prompt is displayed again after a refusal}
+
+\section{Aligning the Form}
+\begin{Procedure}{TPS-P-03}{To Align the Form}
+\ProcField{Purpose}{To align the form as the program requires before a
+  report is written.}
+\ProcField{Frequency}{Each run, directly after \proc{02}.}
+\ProcField{Performed by}{The operator.}
+\ProcField{Prerequisites}{The program has accepted the parameter record
+  (\proc{02}, step 2) and displays the alignment prompt.}
+\ProcField{Materials}{\form{4}.}
+\begin{ProcSteps}
+\item Read the alignment prompt (Figure~\ref{fig:r2align}, callouts 1 and
+  2).
+\item Press the \key{Space Bar} exactly \AlignCount{TPS-P-03} times.  Count
+  each press.  One period is displayed for each press.
+  \Response{.......}
+\item Count the periods on the screen.  There must be
+  \AlignCount{TPS-P-03}.
+\item Press \key{Enter}.
+  \TpsMsg{R2.accept}
+\item If the program displays \texttt{FORM NOT ALIGNED} instead, the count has
+  been reset.  Make a tally mark for the attempt on \form{4}, and begin
+  again at step 1.
+\item Enter on \form{4} the date, the time, the number of attempts, the
+  presses of the accepted attempt (\AlignCountNumber{FORM-TPS-4}), and your
+  initials.
+\end{ProcSteps}
+\ProcField{Verification}{\TpsLine{R2.accept}{1} is displayed, followed by
+  the report number prompt.}
+\ProcField{Records retained}{\form{4}.}
+\ProcNote{\index{Backspace key}A press cannot be taken back: \key{Backspace} is ignored, like any
+  key other than the \key{Space Bar} and \key{Enter}.  If you lose count,
+  press \key{Enter}; the attempt is refused and the count starts again.}
+\end{Procedure}
+
+\DraftShot[marks={1=TOP OF FORM;2=----- ALIGNMENT;3=......;4=FORM NOT;5=.......;6=FORM ALIGNED},
+  label=fig:r2align, caption={An attempt of six presses, refused, and an
+  attempt of seven, accepted.}]{r2align}{lane tpsr2, bead initech-5igf: the
+  decided R2 prompt, hand-written; re-captured after the merge}
+
+\begin{CalloutLegend}
+\LegendRow{1}{Heading}{The program is ready for the alignment.}
+\LegendRow{2}{Alignment test line}{Names the form, \form{1} (Rev.\ 10/89).}
+\LegendRow{3}{Periods}{Six presses: one period each.}
+\LegendRow{4}{Refusal}{The number of presses counted.  The count is reset
+  and the prompt is displayed again.}
+\LegendRow{5}{Periods}{The accepted attempt: \AlignCount{TPS-P-03} periods.}
+\LegendRow{6}{Acceptance}{The form is aligned.  The program continues.}
+\end{CalloutLegend}
+
+\section{The Forms Alignment Record}
+\index{Form TPS-4}\index{forms alignment record}
+\form{4} records each alignment: one line per run.  The column
+\textbf{Attempts} counts every attempt, the accepted one included.  The
+column \textbf{Presses} holds the number of presses of the accepted attempt,
+which is always \AlignCountNumber{FORM-TPS-4}.  \form{4} is reproduced in
+Appendix~F.
+
+\section{Lab Project 3. Aligning the Form}
+Continue from Lab Project 2: the program displays the alignment prompt.
+\begin{enumerate}
+\item Press the \key{Space Bar} six times and press \key{Enter}.  The attempt
+  is refused.  Write the message here:\par
+  \rule{\linewidth}{0.4pt}
+\item Press the \key{Space Bar} \AlignCount{TPS-P-03} times and press
+  \key{Enter}.  \TpsLine{R2.accept}{1} is displayed.
+\item Complete one line of \form{4}.  The number of attempts is 2.
+\item Continue with Lab Project 4 (Session~5) without leaving the program.
+\end{enumerate}
+
+\section{Study Questions}
+\begin{enumerate}
+\item True or false: the form is aligned by pressing the \key{Space Bar}
+  exactly \AlignCount{STUDY} times, then \key{Enter}.
+\item What does the program display for each press?
+\item What happens when \key{Backspace} is pressed during the alignment?
+\item The program refuses an attempt of eight presses.  What do you do?
+\item Which form records the alignment?
+\end{enumerate}

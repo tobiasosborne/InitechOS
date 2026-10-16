@@ -33,6 +33,7 @@
 #include "loader.h"      /* load_program (beads initech-509.5) */
 #include "test_prog.h"   /* the baked flat test/type/dir program bytes */
 #include "ata.h"         /* ATA PIO backend (FAT-mount over the emulator) */
+#include "block_device.h"
 #include "fat12.h"       /* FAT12 mount + root-dir enumerate (proto-DIR)  */
 #include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
@@ -66,6 +67,7 @@
 #include "chrome.h"          /* flair_draw_window_widget (TrackBox, tdnl.60)  */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
+#include "flair_dac.h"       /* generated from locked CLUT domain + canon */
 #include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
                               * flair_event_init / flair_raw_ring_t (FO-5);
                               * WaitNextEvent / flair_event_set_yield (FO-7)  */
@@ -109,8 +111,8 @@
 #include "toolbox_gate.h"        /* the LOCKED gate ABI (-Ispec; tdnl.14)        */
 #include "stdfile.h"             /* Standard File model (gymo; tdnl.16)          */
 #include "scrap.h"               /* the desk scrap (b2vk; tdnl.16 / ww9c)         */
-#include "transient.h"           /* the TRANSIENT COMMAND.COM header + boot-disk
-                                  * placement (bead initech-3p1a)               */
+#include "transient.h"           /* COMMAND.COM file header (3p1a/e9sx) */
+#include "dos_messages.h"        /* DEC-13 generated diagnostic catalogue */
 
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
 extern void tbx_gate_entry(void);
@@ -307,12 +309,15 @@ static void fb_clear(const boot_info_t *bi, uint8_t r, uint8_t g, uint8_t b)
  * light-gray ink here. The DAC is 6 bits/channel (0..63), so 8-bit RGB is
  * >> 2. Ports: 0x3C8 = write-index, 0x3C9 = R,G,B data in succession. The
  * direct-color VBE 24/32bpp paths need no palette and never call this. */
+/* VBE 4F08h negotiation, handed off by IO.SYS; VGA13 always uses six.
+ * Ref: docs/research/vesa8-ground-truth.md (VBE 2.0 Sec 4.11, p30). */
+static uint8_t g_vga_dac_shift = 2;
 static void vga_set_dac(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 {
     outb(0x3C8, index);
-    outb(0x3C9, (uint8_t)(r >> 2));
-    outb(0x3C9, (uint8_t)(g >> 2));
-    outb(0x3C9, (uint8_t)(b >> 2));
+    outb(0x3C9, (uint8_t)(r >> g_vga_dac_shift));
+    outb(0x3C9, (uint8_t)(g >> g_vga_dac_shift));
+    outb(0x3C9, (uint8_t)(b >> g_vga_dac_shift));
 }
 
 /* Emit a signed decimal (for FAT-MOUNT-FAIL rc=NN, which carries a negative
@@ -586,6 +591,9 @@ static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw
      * interactive INT24 wrapper. Copy geometry, retain the same offset seam. */
     g_absdisk_vol = *vol;
     g_absdisk_vol.dev = raw;
+    /* DEC-17: primary-slave data volumes. Translate the cache notice only. */
+    block_device_mounted(0x81,vol->base_lba,vol->total_sectors,
+                         fileio_fat_absdisk_written);
     backend.read = int21_absdisk_read;
     backend.write = raw->write_sectors ? int21_absdisk_write : 0;
     backend.total_sectors = vol->total_sectors;
@@ -866,7 +874,7 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
 
 /* Present the indexed-8 offscreen onto the live LFB, honoring lfb_bpp + the LFB
  * pitch (scanline padding). 8bpp: program the VGA DAC with the FLAIR palette
- * (only the indices the scene uses, 0..8) and copy indices row-by-row. 24/32bpp:
+ * (the COMPLETE generated index domain) and copy indices row-by-row. 24/32bpp:
  * convert each index -> 0x00RRGGBB via flair_palette_rgb and write it through the
  * ONE surface module (surface_put_pixel) into a bitmap_t wrapping the LFB. */
 static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
@@ -885,32 +893,31 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
     flair_cursor_shield();
 
     if (bi->lfb_bpp == 8u) {
-        /* Indexed-8 LFB present (the period-authentic SVGA depth, ADR-0004
-         * OD-2/AM-7: VBE 0x101 on a Cirrus/ET4000-class card). The LFB stores
-         * palette indices: program the DAC for every index flair_palette_rgb
-         * defines (0..8; DAC is 6 bits/channel so 8-bit RGB is >> 2,
-         * vga_set_dac) then copy indices row-by-row honoring lfb_pitch (not
-         * width).
-         *
-         * KEEP -- do NOT delete as dead code (committee ruling re30.3-chair,
-         * 2026-06-21). This path is correct + ratified but currently UNREACHED:
-         * stage2 vbe_setup requests only 640x480x32/24, and the sole 8bpp the
-         * boot yields is mode-0x13 320x200, which the 640x480 size guard below
-         * rejects before present runs. Reached when a 640x480x8 LFB exists
-         * (VESA 0x101 / 86Box at M4). Activation of the stage2 0x101 fallback
-         * AND a test that REACHES this wrapper are tracked in bead initech-2gva
-         * (host-modeled separately in harness/render/render.c). */
-        for (uint32_t idx = 0; idx <= 8u; idx++) {
-            uint32_t rgb = flair_palette_rgb((uint8_t)idx);
-            vga_set_dac((uint8_t)idx,
-                        (uint8_t)((rgb >> 16) & 0xFFu),
-                        (uint8_t)((rgb >> 8) & 0xFFu),
-                        (uint8_t)(rgb & 0xFFu));
+        /* ADR-0004 OD-2/AM-7; color_canon.json explicit entries + gray ramp.
+         * The generated table covers ALL 256 indices, including alert slots,
+         * named 119/165 hilites, Platinum chrome and unnamed app grays. The
+         * ROM CLUT's index assignments are different: never load it verbatim.
+         * test-flair-desktop-8bpp reaches THIS live DAC+copy wrapper. */
+#ifdef FLAIR_DAC_MUT_6BIT
+        g_vga_dac_shift = 2;
+#endif
+        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++) {
+#ifdef FLAIR_DAC_MUT_OMIT119
+            if (idx == 119u) continue;
+#endif
+#ifdef FLAIR_DAC_MUT_OMIT165
+            if (idx == 165u) continue;
+#endif
+            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
         }
         volatile uint8_t *lfb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
         for (uint32_t y = 0; y < H; y++) {
             const uint8_t *srow = (const uint8_t *)off->base + (uint32_t)y * off->pitch;
+#ifdef FLAIR_DAC_MUT_ROWCOPY
+            volatile uint8_t *drow = lfb + (uint32_t)y * W;
+#else
             volatile uint8_t *drow = lfb + (uint32_t)y * bi->lfb_pitch;
+#endif
             for (uint32_t x = 0; x < W; x++) {
                 drow[x] = srow[x];
             }
@@ -4760,7 +4767,7 @@ static int sf_run(flair_live_ctx_t *ctx, const boot_info_t *bi, sf_ui_t *u,
                     int row = u->top + (ev.where.v - ly - 1) / SF_ROW_H;
                     if (row < g_sf.count) {
                         if (row == last_row &&
-                            ev.when - last_click <= (uint32_t)FINDER_DBLCLICK_TICKS)
+                            ev.when - last_click <= (uint32_t)flair_double_click_ticks)
                             act = 1;          /* double-click == Open */
                         sf_select(u, row);
                         last_row = row;
@@ -5418,8 +5425,14 @@ static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * ------------------------------------------------------------------------- */
 static void exitdos_fail(const char *why, uint32_t v)
 {
-    /* ADR-0003 Appendix C, MSG-DOS-0014, verbatim (DEC-13). */
-    dos_puts("\nBad or missing Command Interpreter\n$");
+    /* Initial interpreter activation: MS-DOS 3.3 User's Guide printed p310
+     * (PDF395), ADR-0003 Appendix C/DEC-13. The post-EXEC overwrite/retry
+     * message on printed p338 is a different path. Halt is Rule 2 policy. */
+#ifndef KMAIN_MUT_COMMAND_MESSAGE
+    dos_puts("\n" MSG_DOS_0014 "\n$");
+#else
+    dos_puts("\n" MSG_DOS_0002 "\n$");
+#endif
     serial_puts("PANIC exit-to-dos: ");
     serial_puts(why);
     serial_puts(" v=");
@@ -5431,7 +5444,12 @@ static void exitdos_fail(const char *why, uint32_t v)
 /* Read + validate the transient. Returns its entry; never returns on failure. */
 static void (*exitdos_load_transient(void))(int)
 {
-    static ata_ctx_t boot_ata;
+    ata_ctx_t boot_ata;
+    blockdev_t boot_dev;
+    fat12_volume_t boot_vol;
+    fat12_fat_window_t window;
+    dir_entry_t command;
+    static uint8_t sector[512], fat_cache[1024], cluster[4096];
     transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
     const uint32_t want[TRANSIENT_N_IMPORTS] = {
         (uint32_t)(uintptr_t)&fileio_fat_volume_label,
@@ -5440,27 +5458,51 @@ static void (*exitdos_load_transient(void))(int)
         (uint32_t)(uintptr_t)&int21_same_file,
         (uint32_t)(uintptr_t)&int21_set_break_recovery
     };
-    uint32_t secs, k;
+    uint32_t bytes, k;
     int rc;
 
     if ((uint32_t)(uintptr_t)_kernel_end > TRANSIENT_BASE)
         exitdos_fail("the kernel overlaps the transient window",
                      (uint32_t)(uintptr_t)_kernel_end);
     ata_ctx_init_primary_master(&boot_ata);
-    rc = ata_read_sectors(&boot_ata, TRANSIENT_LBA, 1u, h);
-    if (rc != 0) exitdos_fail("boot-disk read of the header failed", (uint32_t)rc);
+#ifdef KMAIN_MUT_COMMAND_VOLUME
+    ata_ctx_init_primary_slave(&boot_ata);
+#endif
+    /* MS-DOS 3.3 User's Guide pp28/46/119: named COMMAND.COM on disk.
+     * ADR-0003 DEC-07a / spec/mbr_partition_contract.json: let fat12_mount
+     * discover the boot partition; all subsequent sectors are volume-relative.
+     * This private mount never changes drive A:'s data-volume/CWD binding. */
+    ata_blockdev_init(&boot_dev, &boot_ata);
+    rc = fat12_mount(&boot_vol, &boot_dev, sector);
+    if (rc != FAT12_OK) exitdos_fail("boot FAT mount failed", (uint32_t)rc);
+    if (boot_vol.bpb.sectors_per_cluster > sizeof cluster / 512u)
+        exitdos_fail("boot FAT cluster too large", boot_vol.bpb.sectors_per_cluster);
+    fat12_fat_window_init(&window, fat_cache, sizeof fat_cache);
+    boot_vol.fat_window = &window;
+    rc = fat12_find(&boot_vol, sector, "COMMAND.COM", &command);
+    if (rc != FAT12_OK) exitdos_fail("COMMAND.COM not found", (uint32_t)rc);
+    if ((command.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
+        command.file_size <= sizeof *h ||
+        command.file_size > TRANSIENT_CEIL - TRANSIENT_BASE)
+        exitdos_fail("COMMAND.COM file extents", command.file_size);
+    rc = fat12_read_partial(&boot_vol, 0, 0u, &command, 0u, sizeof *h,
+                           h, cluster, &bytes);
+    if (rc != FAT12_OK || bytes != sizeof *h)
+        exitdos_fail("boot FAT read of the header failed", (uint32_t)rc);
+#ifndef KMAIN_MUT_COMMAND_MAGIC
     for (k = 0u; k < TRANSIENT_MAGIC_LEN; k++)
         if (h->magic[k] != TRANSIENT_MAGIC[k])
             exitdos_fail("no COMMAND3 transient on the boot disk", k);
+#endif
     if (h->load_end <= TRANSIENT_BASE + (uint32_t)sizeof *h ||
+        h->load_end != TRANSIENT_BASE + command.file_size ||
         h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL ||
         h->n_imports != TRANSIENT_N_IMPORTS)
         exitdos_fail("transient header extents", h->bss_end);
-    secs = (h->load_end - TRANSIENT_BASE + 511u) / 512u;
-    if (secs > TRANSIENT_MAX_SECTORS)
-        exitdos_fail("transient larger than its boot-disk window", secs);
-    rc = ata_read_sectors(&boot_ata, TRANSIENT_LBA, secs, h);
-    if (rc != 0) exitdos_fail("boot-disk read of the transient failed", (uint32_t)rc);
+    rc = fat12_read_file(&boot_vol, 0, 0u, &command, h,
+                         TRANSIENT_CEIL - TRANSIENT_BASE, cluster, &bytes);
+    if (rc != FAT12_OK || bytes != command.file_size)
+        exitdos_fail("boot FAT read of the transient failed", (uint32_t)rc);
     for (k = 0u; k < TRANSIENT_N_IMPORTS; k++)
         if (h->imports[k] != want[k])
             exitdos_fail("transient linked against another kernel build", k);
@@ -6136,6 +6178,16 @@ void kernel_main(void)
     b.font_addr  = bi->font_addr;
     b.ext_mem_kb = bi->ext_mem_kb;   /* extended RAM probed by stage2 (DEC-03) */
     b.kernel_base = bi->kernel_base; /* append-only placement field (tdnl.29) */
+    b.lfb_dac_bits = bi->lfb_dac_bits;
+    g_vga_dac_shift = b.lfb_dac_bits == 8u ? 0u : 2u;
+    /* Report actual handoff geometry/stride/base; this is also the gate's
+     * proof that the real desktop reached indexed VBE, not VGA13 or a host
+     * renderer. Ref: PRD Sec 5/8, boot_info.h, initech-2gva. */
+    serial_puts("VIDEO "); serial_putu(b.lfb_width); serial_putc('x');
+    serial_putu(b.lfb_height); serial_puts(" bpp="); serial_putu(b.lfb_bpp);
+    serial_puts(" pitch="); serial_putu(b.lfb_pitch);
+    serial_puts(" lfb=0x"); serial_puthex32(b.lfb_addr);
+    serial_puts(" dac="); serial_putu(b.lfb_dac_bits); serial_putc('\n');
 
     /* Fail-loud kernel placement guard (Rule 2). Ref:
      * docs/design/kernel-runway-relocation.md K2/K3; bead initech-tdnl.29.
@@ -6233,6 +6285,18 @@ void kernel_main(void)
      * BEFORE any fill or glyph blit. The direct-color VBE 24/32bpp paths skip
      * this. */
     if (b.lfb_bpp == 8) {
+        /* VBE mode D5 may be non-VGA even on a VGA controller. Verify the
+         * palette ports before depending on them (VBE 2.0 p20; local
+         * vesa8-ground-truth.md). Index 255 is replaced by the desktop table.
+         * All sentinels fit both six- and eight-bit DACs. */
+        outb(0x3C8, 255);
+        outb(0x3C9, 17); outb(0x3C9, 34); outb(0x3C9, 51);
+        outb(0x3C7, 255);
+        uint8_t dr = inb(0x3C9), dg = inb(0x3C9), db = inb(0x3C9);
+        if (dr != 17u || dg != 34u || db != 51u) {
+            serial_puts("PANIC VGA-DAC: palette port readback failed\nHALTED\n");
+            for (;;) __asm__ __volatile__("cli; hlt");
+        }
         vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
         vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
     }
@@ -6620,6 +6684,7 @@ void kernel_main(void)
         serial_putu((uint32_t)sizeof(FlairScrap));
         serial_putc('\n');
         tbx_bind(&th);
+        tbx_preferences_boot(1024u+b.ext_mem_kb);
         idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                      (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
         panic_set_fault_hook(tbx_fault_triage);
@@ -6920,6 +6985,16 @@ void kernel_main(void)
             int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
                                     (uint32_t)FLAIR_TEN_WNE_SLICE);
             flair_live_cursor_track(&ev);
+            tbx_preferences_tick();
+            if(tbx_preferences_dirty()) {
+                for(WindowPtr w=ctx.wm->front;w;w=w->nextWindow)
+                    WindowMgr_invalidate(ctx.wm,w,region_get_bbox(w->contRgn));
+                desktop_paint_all(ctx.wm,&ctx.off,ctx.comp);
+                flair_live_content_phase(&ctx);
+                GrafPort cpbar=ten_barport;cpbar.portBits.bm=ctx.off;
+                MenuClock_draw(&cpbar,(const region_t *)0);
+                flair_desktop_present(&b,&ctx.off);
+            }
 
             uint32_t now = flair_tick_count();
             if (!clock_polled || now - clock_last_poll >= 100u) {
