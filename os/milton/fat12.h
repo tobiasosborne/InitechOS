@@ -55,6 +55,7 @@ enum {
  *   -18  FAT12_ERR_CYCLE      (MOVE of a directory into its own subtree)
  *   -19  FAT12_ERR_STALE_DIR  (a directory cluster that is no longer the live
  *                              directory the caller named; lifetime section)
+ *   -20  FAT12_ERR_PARTITION (invalid MBR / hidden-sectors conflict; DEC-07a)
  * WHY the ledger exists: FAT12_ERR_NOT_EMPTY originally ALIASED
  * FAT12_ERR_ACCESS at -15, so a caller switching on the code could not tell
  * "CHMOD access denied" from "RMDIR non-empty" (found by the R3 Finder design
@@ -83,6 +84,9 @@ typedef enum {
 	FAT_TYPE_FAT12   = 12,
 	FAT_TYPE_FAT16   = 16
 } fat_type_t;
+
+/* DEC-07a proposed -16 before -16..-19 were allocated. Keep codes unique. */
+#define FAT12_ERR_PARTITION (-20)
 
 /* The FAT12/16 cluster-count threshold (Microsoft FAT spec). */
 #define FAT12_MAX_CLUSTERS 4085u   /* total_clusters < 4085 => FAT12 */
@@ -125,6 +129,10 @@ typedef struct fat12_fat_window {
  * (bytes_per_sector each). */
 typedef struct fat12_volume {
 	const blockdev_t *dev;        /* backing block device (caller-owned)        */
+	/* DEC-07a: device origin; all geometry below remains VOLUME-relative.
+	 * IBM DOS 3.30 TR pp9-3,9-7..9; hidden/start mismatch fails loud. */
+	uint32_t    base_lba;
+	uint32_t    total_sectors;    /* validated BPB length, bounded by partition */
 	bpb_t       bpb;              /* parsed copy of the on-disk BPB             */
 
 	/* Derived geometry (brief Sec 2). */
@@ -161,8 +169,8 @@ typedef struct fat12_dir {
 } fat12_dir_t;
 
 /*
- * fat12_mount: read sector 0 from `dev`, validate it, copy the BPB into `vol`,
- * compute derived geometry, and classify FAT12 vs FAT16.
+ * fat12_mount: discover an MBR primary FAT partition or raw BPB at LBA 0,
+ * validate its VBR, compute volume-relative geometry, classify FAT12/FAT16.
  *
  * Validation (fail loud, CLAUDE.md Rule 2):
  *   - boot-sector signature must be 0xAA55           -> FAT12_ERR_SIGNATURE
@@ -170,11 +178,19 @@ typedef struct fat12_dir {
  *   - geometry must be sane (nonzero divisors etc.)  -> FAT12_ERR_GEOMETRY
  *   - any NULL argument                              -> FAT12_ERR_NULL
  *   - a failing device read                          -> FAT12_ERR_READ
+ *   - invalid partition / hidden-sector mismatch     -> FAT12_ERR_PARTITION
  *
  * `sector_buf` is a caller-provided scratch buffer of at least 512 bytes used
  * to read sector 0 (no malloc in the artifact). Returns FAT12_OK on success.
  */
 int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf);
+
+/* Volume-relative sector I/O, shared by FAT and DEC-15 absolute disk calls.
+ * IBM DOS 3.30 TR p9-3: utilities must not access other partitions. */
+int fat12_read_sectors(const fat12_volume_t *vol, uint32_t sector,
+                      uint32_t count, void *buf);
+int fat12_write_sectors(const fat12_volume_t *vol, uint32_t sector,
+                       uint32_t count, const void *buf);
 
 /* ---- FAT12 entry decode + cluster-chain walk (beads initech-adf) ---- */
 

@@ -1,0 +1,19 @@
+{
+  "_comment": "Locked by initech-kzfs under ADR-0003 DEC-07a; explicit lane ruling selects content sniffing so shipped ATA superfloppies remain valid. Not an INT21h AH register. IBM DOS 3.30 TR pp2-31,9-3..9; mtools mpartition type policy for type 06.",
+  "table_offset": 446,
+  "entry_count": 4,
+  "entry_size": 16,
+  "type_offset": 4,
+  "start_offset": 8,
+  "length_offset": 12,
+  "signature_offset": 510,
+  "signature_le": 43605,
+  "fat_types": [1, 4, 6],
+  "selection": "active FAT else first FAT",
+  "raw_detection": "E9 or EB xx 90; media F0 or F8..FF; validated BPB",
+  "hidden_sectors": "equal base_lba; mismatch fails loud (provisional DEC-07a)",
+  "offset_layer": "volume mount; raw blockdev stays device-relative",
+  "absolute_sector": "device LBA = volume base_lba + logical sector",
+  "partition_error": -20,
+  "error_note": "DEC-07a proposed -16 before later features allocated -16..-19; -20 preserves uniqueness."
+}

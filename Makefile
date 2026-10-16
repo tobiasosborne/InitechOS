@@ -31063,3 +31063,4 @@ include harness/diff/fat_diff/dosutil.mk
 include pubs/pubs.mk
 TEST_UNIT_GATES += test-pubs-build test-pubs-honesty
 TEST_EMU_GATES += test-pubs-screens
+include harness/diff/fat_diff/partition.mk
