@@ -1,0 +1,74 @@
+% Programming with InitechBase, Chapter 10: Finance-Charge Posting (AN-16).
+% The program is INTPOST.PRG of the sample diskette, whose body is byte for
+% byte the body of harness/diff/dbf_diff/canon/salami.prg
+% (test-pubs-samir-programs); its replayed output (examples/p10-intpost.dot)
+% is that of canon/salami.out.  Documented as the shipped program.
+\chapter{Finance-Charge Posting}
+\Gates{test-pubs-examples, test-pubs-samir-programs}
+Each month a finance charge is posted to every open invoice.  The charge is
+computed to full precision and posted to the customer at the precision of the
+billing statement; the difference, the rounding adjustment, is swept into the
+suspense account, so that the ledger foots to the cent at close.
+\file{INTPOST.PRG} is the finance-charge posting of the Initech Accounting
+System.
+
+\begin{ChapterCovers}
+\item The posting parameters RATE and SCALE
+\item Rounding with \fn{ROUND()}
+\item The rounding adjustment and the suspense account
+\item Reading the program
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE INVOICE}.
+
+\ATEHead{The Posting Parameters}
+Two memory variables, set at the dot prompt before the run, govern the posting.
+\texttt{RATE} is the monthly finance charge: 0.015, one and one half per cent a
+month, is the standard rate.  \texttt{SCALE} is the number of decimal places of
+the billing statement: the charge posted to each customer is rounded to that
+many places.  Initech's statements are posted in whole dollars, with
+\texttt{SCALE} 0.
+
+\ATEHead{Running the Posting}
+\begin{Steps}
+\item Type \type{RATE = 0.015}.
+\item Type \type{SCALE = 0}.
+\item Type \type{DO INTPOST}.
+\end{Steps}
+\DotExample{examples/p10-intpost}
+\SideHead{Charge}The finance charge of each open invoice, the amount times the
+rate, shown to four decimal places.
+
+\SideHead{Posted}The charge rounded to the statement: \fn{ROUND()} to
+\texttt{SCALE} places.
+
+\SideHead{Adjustment}The charge minus the posted amount, positive or negative.
+
+\SideHead{Suspense account}The adjustments of all the postings, added together
+in the memory variable \texttt{BOLTON}, the rounding-adjustment suspense
+account, for the month-end journal entry.
+
+\ATEHead{Reading the Program}
+\ProgramListing{INTPOST.PRG}
+The loop visits every invoice and posts only those not paid.  \texttt{CHARGE},
+\texttt{POSTED} and \texttt{ADJUST} are computed for each; \texttt{BOLTON} begins at
+zero and receives every adjustment.  \fn{STR()} prints the charge and the
+adjustment to four places and the posted amount to two.
+
+\begin{AteNote}
+Set \texttt{RATE} and \texttt{SCALE} before every run.  The program does not keep
+them from one month to the next.
+\end{AteNote}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~11 brings the daily tasks of the system together in a menu.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \texttt{RATE} is the monthly rate; \texttt{SCALE} the decimal places of the
+  statement.
+\item \fn{ROUND()} posts the charge; the remainder is the rounding adjustment.
+\item The adjustments are swept into the suspense account \texttt{BOLTON}.
+\end{enumerate}

@@ -50,6 +50,10 @@ printf '\200\n' > "$m/ascii.tex"
 red NON_ASCII ASCII "$gate" lint pubs/denylist.txt "$m/ascii.tex"
 printf 'Copyright 1994.\n' > "$m/year.tex"
 red LATE_YEAR PERIOD-YEAR "$gate" lint pubs/denylist.txt "$m/year.tex"
+# The decimal-places exemption (ipu5.8) must not let a year after a point
+# through: ".1994" with no digit before the point is still a year.
+printf 'Edition .1994 reprinted.\n' > "$m/year2.tex"
+red LATE_YEAR_POINT PERIOD-YEAR "$gate" lint pubs/denylist.txt "$m/year2.tex"
 printf '\\PartNumber{1024-bad-11}\n\\PrintCode{A1-3/92}\n' > "$m/part.tex"
 red BAD_PART METADATA "$gate" lint pubs/denylist.txt "$m/part.tex"
 printf '\\PartNumber{1024-3300-11}\n\\PrintCode{A1-13/92}\n' > "$m/print.tex"

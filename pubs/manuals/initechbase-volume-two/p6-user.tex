@@ -1,0 +1,71 @@
+% Programming with InitechBase, Chapter 6: Communicating with the User
+% (AN-16; annex Sec 8.2 P6).  Panels replayed (examples/p6-*.dot); sources
+% cmd/proc.c (ACCEPT, INPUT, WAIT), cmd/query.c (? and ??).
+\chapter{Communicating with the User}
+\Gates{test-pubs-examples, test-interp-proc}
+A program that does the same thing every time needs no questions.  Most need to
+know something first: which invoice, which customer, which choice of the menu.
+This chapter shows how a program asks, and how it answers.
+
+\begin{ChapterCovers}
+\item Displaying results: \cmd{?} and \cmd{??}
+\item Asking for characters: \cmd{ACCEPT}
+\item Asking for a value: \cmd{INPUT}
+\item Asking for a key: \cmd{WAIT}
+\item Finding an invoice by its number
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE INVOICE INDEX INVNO}.
+
+\ATEHead{Displaying Results}
+\cmd{?} begins a new line and displays its values; \cmd{??} displays them where
+the cursor is.  A program builds a line from several \cmd{??} commands, or from
+one \cmd{?} and the \texttt{+} operator.  \cmd{?} with nothing after it prints an
+empty line, which a program uses to separate its output.
+
+\ATEHead{Asking for Characters}
+\cmd{ACCEPT} displays a prompt and stores the line the user types in a memory
+variable, as characters:
+
+\SyntaxLine{\kw{ACCEPT} \xp{prompt} \kw{TO} \xp{memvar}}
+
+The user need not type quotation marks.  Convert the answer to capitals with
+\fn{UPPER()} before you compare it with fields kept in capitals.
+
+\ATEHead{Asking for a Value}
+\cmd{INPUT} evaluates the line the user types and stores its value, of whatever
+type: a number for an amount, \texttt{.T.} or \texttt{.F.} for a yes or no.  A
+character string must then be typed in quotation marks, so the system uses
+\cmd{ACCEPT} for characters and \cmd{INPUT} for amounts.
+
+\ATEHead{Asking for a Key}
+\cmd{WAIT} takes one key, without \key{Enter}.  The menu of Chapter~11 uses it
+for the clerk's choice.  \cmd{WAIT} without \kw{TO} only waits, to hold output
+on the screen.
+
+\ATEHead{Finding an Invoice}
+\file{FINDINV.PRG} asks for an invoice number and displays the invoice:
+\ProgramListing{FINDINV.PRG}
+\begin{Steps}
+\item Type \type{DO FINDINV}.
+\Response{The program asks \texttt{Invoice number:}.}
+\item Type \type{a1002} and press \key{Enter}.
+\item Type \type{DO FINDINV} again and answer \type{A9999}.
+\end{Steps}
+\DotExample{examples/p6-findinv}
+The answer is converted to capitals and looked up in the index \file{INVNO.NDX}
+with \cmd{SEEK}.  \fn{FOUND()} decides which of the two messages the program
+prints.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~7 adds records to the ledger from the answers to questions.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{?} and \cmd{??} display; \cmd{?} alone prints an empty line.
+\item \cmd{ACCEPT} asks for characters; \cmd{INPUT} for a value of any type;
+  \cmd{WAIT} for one key.
+\item Convert character answers with \fn{UPPER()} before comparing them.
+\end{enumerate}

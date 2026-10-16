@@ -1,0 +1,75 @@
+% Programming with InitechBase, Introduction (PUB-REF-0001 AN-21 F-ATE:
+% what the section is, who should read it, chapter-by-chapter list,
+% Conventions Used in This Manual; annex Sec 1, 8.1).  Folios PI-n.
+\SectionIntroduction{Introduction}
+\Gates{test-pubs-build}
+\doctitle{Programming with InitechBase} teaches you to write programs: files of
+InitechBase commands that do a task from beginning to end whenever you run
+them.  It is written for readers who have worked through
+\doctitle{Learning InitechBase} and know the commands at the dot prompt.  You
+need no experience of programming.
+
+The section builds one application, the Initech Accounting System, a chapter
+at a time.  The system keeps the accounts receivable ledger of Initech
+Systems Corporation in the database \file{INVOICE.DBF}: one record for each
+invoice, with its number, the customer, the amount, the due date and whether
+it has been paid.  Its programs list and find invoices, enter new ones, print
+the invoice register, age the open invoices at the end of the month, and post
+the monthly finance charges.  Every program is on the Sample Programs and
+Utilities diskette, and every program is printed in full in this section.
+
+For the exact form of a command or function, this section refers you to
+\doctitle{Using InitechBase} in Volume One.
+
+\section{How This Section Is Organized}
+\SideHead{Chapter 1}Programming in a Nutshell: what a program is, and the first
+program of the system.
+
+\SideHead{Chapter 2}Program Structure and Flow: sequence, decisions and loops.
+
+\SideHead{Chapter 3}Memory Variables: totals, types and the life of a memory
+variable.
+
+\SideHead{Chapter 4}Procedures and Parameters: dividing a program into parts.
+
+\SideHead{Chapter 5}Functions for Fields and Memory Variables: building and
+formatting values.
+
+\SideHead{Chapter 6}Communicating with the User: questions and answers.
+
+\SideHead{Chapter 7}Working with the Database: finding, adding and changing
+records in a program.
+
+\SideHead{Chapter 8}Printing: the invoice register.
+
+\SideHead{Chapter 9}The Aging Report: the month-end aging of the open invoices.
+
+\SideHead{Chapter 10}Finance-Charge Posting: the monthly finance charges and
+the rounding adjustment.
+
+\SideHead{Chapter 11}The Main Menu: the program the clerk uses every day.
+
+\SideHead{Chapter 12}Handling Errors: what a program does when a command
+fails.
+
+\SideHead{Chapter 13}Testing and Debugging: finding the mistake in a program.
+
+\SideHead{Chapter 14}Putting It Together: the Initech Accounting System as a
+whole, and the month-end procedure.
+
+\section{Conventions Used in This Manual}
+\SideHead{Programs}Program listings are printed in bold on a shaded panel,
+line for line as they are stored on the sample diskette.
+
+\SideHead{Examples}The panels of examples show the screen: the dot prompt, a
+period and a blank, the lines you type in bold, and what InitechBase displays.
+Every example was run against a fresh copy of the sample diskette; your
+results agree with the book if your files are as they were on the diskette.
+
+\SideHead{Names}The programs of this section begin the names of their memory
+variables with M, so that a memory variable is never taken for a field.
+
+\SideHead{Dates}The examples were run on the 1st of March 1992, the date
+\fn{DATE()} returns in them.  The accounting programs take their reporting
+date from a memory variable instead, so that a month can be closed again
+later.

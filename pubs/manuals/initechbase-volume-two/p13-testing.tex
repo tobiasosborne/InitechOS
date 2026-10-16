@@ -1,0 +1,66 @@
+% Programming with InitechBase, Chapter 13: Testing and Debugging (AN-16;
+% annex Sec 8.2 P15).  Panels replayed (examples/p13-*.dot); the program
+% BADTOTAL.PRG; the memory variables of a main program remain after it
+% (cmd/flow.c level 0, observed).
+\chapter{Testing and Debugging}
+\Gates{test-pubs-examples, test-interp-proc}
+A program that runs is not yet a program that is right.  This chapter gives the
+habits that find mistakes early, and shows how to find the command at fault
+when a program stops.
+
+\begin{ChapterCovers}
+\item Testing on copies
+\item Looking at a program after it ends
+\item Finding the command at fault
+\item Testing a part of a program at the dot prompt
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{Testing on Copies}
+Test a program on a copy of the databases, never on the files of the business.
+A program that changes records -- \file{NEWINV.PRG}, for one -- writes to the disk
+at once.  Keep a copy of the files as they were before the test, so that you can
+run it again from the same start.
+
+\ATEHead{Looking After the Run}
+The memory variables a program creates remain after it ends, and so does the
+record pointer.  Look at them with \cmd{?}:
+\DotExample{examples/p13-check}
+\fn{TYPE()} tells you whether a memory variable has the type you meant; a total
+that turns out to be of type C was given a character value somewhere.
+
+\ATEHead{Finding the Command at Fault}
+\file{BADTOTAL.PRG}, listed in Chapter~12, stops with a message:
+\DotExample{examples/p13-bad}
+The message says that a name was not found.  \texttt{MTOTAL} is still 0 and the
+record pointer is on record 1: the program stopped inside the loop, on the
+first record, before anything was added.  The only name used there that is not
+a memory variable is \texttt{AMOUNTS}: the field is \texttt{AMOUNT}.  Correct the
+line with your editor and run the program again.
+
+\ATEHead{Testing a Part at the Dot Prompt}
+Every command of a program can be typed at the dot prompt, except the
+structures \cmd{IF}, \cmd{DO CASE} and \cmd{DO WHILE}.  To test a calculation,
+open the database, move to a record, store the memory variables the
+calculation needs, and type the calculation with \cmd{?}.  When it gives the
+right result, copy it into the program.
+
+\begin{Tip}
+Add a \cmd{?} to a program to display a memory variable at the point where you
+suspect the mistake, and remove it when the program is right.
+\end{Tip}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~14 puts the system together.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Test on copies of the databases.
+\item Memory variables and the record pointer remain after a program; look at
+  them with \cmd{?} and \fn{TYPE()}.
+\item The message, the record number and the memory variables lead you to the
+  command at fault.
+\item Try calculations at the dot prompt before you put them in a program.
+\end{enumerate}

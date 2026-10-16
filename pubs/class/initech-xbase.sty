@@ -70,6 +70,18 @@
   \vspace*{-\topskip}{\noindent\hspace*{-\imHang}\im@display\fontsize{24}{28}\selectfont #1\par}%
   \newpage}
 
+%% ---- back cover (PUB-REF-0001 PK-05; operator directive 2026-10-17: the
+%% motto on the back cover) ------------------------------------------------------
+%% Wordmark top left; the motto; the address block bottom left; part number
+%% and print code bottom right; nothing else.
+\newcommand\MakeBackCover{\thispagestyle{empty}%
+  \AtPage{23}{14}{\Wordmark[30mm]}%
+  \AtPage{23}{40}{\parbox[t]{120mm}{\IsThisGoodForTheCompany}}%
+  \AtPage{23}{196}{\parbox[t]{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
+  \im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr212mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}%
+  \null\newpage}
+
 %% ---- dictionary heads (PG-13): on in Commands / Functions only -------------
 \newcommand\NoDictionaryHeads{\global\im@referencepagesfalse}
 
@@ -92,8 +104,10 @@
     \in@{|}{#1}%
     \ifin@
       \protected@write\@indexfile{}{\string\indexentry{#1}{\im@idxform\arabic{page}}}%
+      \protected@write\im@ownidx{}{\string\indexentry{#1}{\im@idxform\arabic{page}}}%
     \else
       \protected@write\@indexfile{}{\string\indexentry{#1|imIdxPage}{\im@idxform\arabic{page}}}%
+      \protected@write\im@ownidx{}{\string\indexentry{#1|imIdxPage}{\im@idxform\arabic{page}}}%
     \fi
     \endgroup\@esphack}%
   %% PG-32: the chapter's printed thumb mark, a solid black square at the top
@@ -112,6 +126,39 @@
     \fi\fi\fi
     \global\im@thumbfalse}}{}
 \newif\ifim@thumb
+%% ---- the master index (AN-24 F-ATE, CP-13): the index of each volume covers
+%% both.  Every entry is also written to <job>.own.idx; \MasterIndexPartner
+%% {initechbase-volume-two} merges the partner volume's own entries -- from
+%% the build directory pubs/build.sh names in INITECH_PUBS_OUT -- into this
+%% book's index before makeindex runs.  build.sh builds such books a second
+%% time after every book (the manual's MASTERINDEX file), so each volume sees
+%% the other's entries whatever the order; a partner not yet built is RED on
+%% the second pass, never silently left out.
+\newwrite\im@ownidx
+\AtBeginDocument{\immediate\openout\im@ownidx=\jobname.own.idx\relax}
+\directlua{
+initech_xbase = initech_xbase or {}
+function initech_xbase.mergeindex(partner)
+  local root = os.getenv("INITECH_PUBS_OUT")
+  if not root then tex.error("initech-xbase: INITECH_PUBS_OUT is not set (pubs/build.sh sets it)") return end
+  local path = root .. "/" .. partner .. "/main.own.idx"
+  local f = io.open(path, "rb")
+  if not f then
+    if os.getenv("INITECH_PUBS_PASS") == "2" then
+      tex.error("initech-xbase: master index partner " .. path .. " missing on the second pass")
+    end
+    return
+  end
+  for line in f:lines() do
+    tex.sprint("\string\\immediate\string\\write\string\\csname @indexfile\string\\endcsname{")
+    tex.sprint(-2, line)
+    tex.sprint("}")
+  end
+  f:close()
+end
+}
+\newcommand\MasterIndexPartner[1]{\AtEndDocument{\immediate\closeout\im@ownidx
+  \directlua{initech_xbase.mergeindex("\luaescapestring{#1}")}}}
 %% F-ATE prose quotes long commands and catalogue messages in Cursor, which
 %% cannot be hyphenated (PG-09): a free ragged margin, as the F-IBM books set.
 \im@ifmodel{ashtontate}{\emergencystretch=3em
@@ -240,7 +287,7 @@
 %% line boxes, so a long listing may break across pages.  The stem is entered
 %% in <job>.replays: make test-pubs replays it and compares byte for byte.
 \directlua{
-initech_xbase = {}
+initech_xbase = initech_xbase or {}
 local function lines_of(path)
   local f = io.open(path, "rb")
   if not f then tex.error("initech-xbase: cannot open " .. path) return nil end
@@ -307,7 +354,7 @@ function initech_xbase.listing(path)
   local width = 0
   for _, l in ipairs(t) do
     if string.len(l) > width then width = string.len(l) end
-    if string.len(l) > 80 then tex.error("initech-xbase: " .. path .. " has a line wider than 80") return end
+    if string.len(l) > 96 then tex.error("initech-xbase: " .. path .. " has a line wider than 96") return end
   end
   tex.sprint("\string\\InitechListingPanel{" .. width .. "}{")
   for _, l in ipairs(t) do tex.sprint("\string\\InitechDotRow{" .. esc(l) .. "}") end
@@ -341,8 +388,11 @@ end
 \newcommand\InitechDotPanel[2]{\begingroup
   \ifnum#1>56 \im@dotsetup{#1}{0}\else\im@dotsetup{#1}{1}\fi
   #2\InitechDotRow{}\endgroup\par\addvspace{6pt}}
+%% A listing is not a screen: its lines are as long as the program has them
+%% (up to 96 characters, at 7/9 in the full block beyond 80).
 \newcommand\InitechListingPanel[2]{\begingroup
   \ifnum#1>60 \im@dotsetup{#1}{0}\bfseries\else\im@dotsetup{#1}{1}\bfseries\fi
+  \ifnum#1>80 \fontsize{7}{9}\selectfont\spaceskip=0.6em\xspaceskip=0.6em\baselineskip=9pt\fi
   #2\InitechDotRow{}\endgroup\par\addvspace{6pt}}
 \newcommand\DotExample[1]{\immediate\write\im@replays{#1}%
   \directlua{initech_xbase.example("\luaescapestring{#1}")}}

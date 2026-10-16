@@ -1,0 +1,84 @@
+% Programming with InitechBase, Chapter 9: The Aging Report (AN-16).  The
+% program is Y2KACCT.PRG of the sample diskette, whose body is byte for byte
+% the body of harness/diff/dbf_diff/canon/y2k_accounting.prg
+% (test-pubs-samir-programs), and its replayed output (examples/p9-aging.dot)
+% is that of canon/y2k_accounting.out.  Documented as the shipped program,
+% with the date convention of SET CENTURY OFF (CTOD base 1900;
+% core/fn_builtins.c fn_ctod_impl; Using InitechBase, SET CENTURY).
+\chapter{The Aging Report}
+\Gates{test-pubs-examples, test-pubs-samir-programs}
+At the end of each month the Collections desk ages the open invoices: for each
+invoice it works out how many days have passed since the due date, flags the
+invoices more than thirty days past due as overdue, and totals the unpaid
+overdue amounts.  \file{Y2KACCT.PRG} is the aging report of the Initech
+Accounting System.
+
+\begin{ChapterCovers}
+\item The reporting date
+\item Date arithmetic
+\item The aging report
+\item Reading the program
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE INVOICE}.
+
+\ATEHead{The Reporting Date}
+The report is run as of a reporting date, the memory variable \texttt{ASOF},
+which the supervisor sets at the dot prompt before the run.  The report can
+therefore be run again for any month-end.  The date is entered, like every date
+of the system, in the standard form month, day and year with two digits each,
+converted with \fn{CTOD()}.
+
+Under the standard date convention of InitechBase (SET CENTURY OFF), a year
+entered with two digits is a year of the nineteen hundreds:
+\DotExample{examples/p9-dates}
+The due dates of the ledger were entered and stored the same way, on the data
+entry screen, so the reporting date and the due dates follow one convention.
+
+\ATEHead{Running the Report}
+\begin{Steps}
+\item Type \type{ASOF = CTOD('01/31/00')}.
+\item Type \type{DO Y2KACCT}.
+\end{Steps}
+\DotExample{examples/p9-aging}
+\SideHead{Age}The age of an invoice is the reporting date minus its due date,
+in days.  An invoice whose due date is later than the reporting date has a
+negative age: it is not yet due.
+
+\SideHead{Status}An invoice more than thirty days past due is
+\texttt{OVERDUE}; every other invoice is \texttt{CURRENT}.
+
+\SideHead{Total}The last line totals the amounts of the overdue invoices that
+have not been paid.  For this run every invoice is current, and the total is
+zero.
+
+\ATEHead{Reading the Program}
+\ProgramListing{Y2KACCT.PRG}
+\SideHead{Headings}The first lines print the title and the reporting date,
+converted with \fn{DTOC()}.
+
+\SideHead{The loop}For each invoice, \texttt{AGE = ASOF - DUEDATE} subtracts the
+dates and gives the age in days.  \fn{IIF()} chooses the status, and \cmd{?}
+prints the line, with the age converted by \fn{STR()} to six characters.
+
+\SideHead{The total}\cmd{IF AGE > 30 .AND. .NOT. PAID} adds the amount of each
+unpaid overdue invoice to \texttt{OVERTOT}, which is printed after the loop.
+
+\begin{AteNote}
+Set \texttt{ASOF} before you run the report.  The report uses the reporting date
+throughout, not the date of the computer, so that a month can be closed again
+with the same figures.
+\end{AteNote}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~10 is the second month-end program: the finance-charge posting.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item The reporting date is the memory variable \texttt{ASOF}, set with
+  \fn{CTOD()} before the run.
+\item Dates entered with two-digit years follow the standard date convention.
+\item One date minus another is a number of days; \fn{IIF()} chooses the status.
+\end{enumerate}

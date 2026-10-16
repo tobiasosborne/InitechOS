@@ -296,6 +296,15 @@ static void lintfile(const char *path)
         (p==src || !isalnum((unsigned char)p[-1]))) {
         /* Skip the complete PN-01 token, not arbitrary hyphenated years. */
         if(match("^[0-9]{4}-[0-9]{4}-[0-9]{2}([^0-9]|$)",p)) { p+=11;continue; }
+        /* The decimal places of a number (18.7500, 0.4998 in a replayed
+         * InitechBase posting) are not a year: digits right after a point
+         * that follows a digit are skipped (bead initech-ipu5.8).  A year is
+         * never so written, so no year escapes: "1994." and ".1994" alone
+         * are still read. */
+        if(p-src>=2 && p[-1]=='.' && isdigit((unsigned char)p[-2])) {
+            while(isdigit((unsigned char)p[1])) p++;
+            continue;
+        }
         char *end;long value=strtol(p,&end,10);
         int extension=0;
         if(value==2504) {

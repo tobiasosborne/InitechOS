@@ -1,0 +1,70 @@
+% Programming with InitechBase, Chapter 5: Functions for Fields and Memory
+% Variables (AN-16; annex Sec 8.2 P5).  Panels replayed (examples/p5-*.dot);
+% sources core/fn_builtins.c (STR, LTRIM, TRANSFORM, DTOC, CTOD, CMONTH,
+% IIF in core/eval.c).
+\chapter{Functions for Fields and Memory Variables}
+\Gates{test-pubs-examples, test-xbase-fn-a, test-xbase-fn-c, test-xbase-transform}
+A program prints values in columns, joins them into lines, and converts them
+from one type to another.  Functions do this work.  This chapter shows the
+functions the Initech Accounting System uses to build its lines; Chapter~6 of
+\doctitle{Using InitechBase} describes every function.
+
+\begin{ChapterCovers}
+\item Joining values into a line
+\item Numbers as characters: \fn{STR()}, \fn{LTRIM()}, \fn{TRANSFORM()}
+\item Dates as characters: \fn{DTOC()} and \fn{CTOD()}
+\item Choosing a value: \fn{IIF()}
+\item A formatted register
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE INVOICE}.
+
+\ATEHead{Joining Values}
+\texttt{+} joins character values into one, which \cmd{?} then prints as a single
+line.  Every part must be a character value: InitechBase does not join a number
+or a date to characters.  Fields of type Character are joined as they are,
+blanks and all, which keeps the columns of a listing in line.
+
+\ATEHead{Numbers as Characters}
+\fn{STR()} converts a number to characters of a fixed width, with a fixed number
+of decimal places, right-aligned; it is the function that lines numbers up in
+a column.  \fn{LTRIM()} removes the leading blanks when the number is to follow
+a word.  \fn{TRANSFORM()} converts a number by a picture, in which each 9 holds a
+digit:
+\DotExample{examples/p5-numbers}
+
+\ATEHead{Dates as Characters}
+\fn{DTOC()} converts a date to characters in the form set by SET DATE;
+\fn{CTOD()} converts characters to a date.  A date plus a number of days is a
+date; \fn{CMONTH()} gives the name of its month:
+\DotExample{examples/p5-dates}
+The year of a date has two digits unless SET CENTURY is ON.  Two digits typed
+into \fn{CTOD()} are a year of the nineteen hundreds; this is the date
+convention of every program of the system.
+
+\ATEHead{Choosing a Value}
+\fn{IIF()} returns its second argument when its first is true, and its third when
+it is false.  It chooses a word for a logical field without an \cmd{IF}.
+
+\ATEHead{A Formatted Register}
+\file{INVFMT.PRG} prints the ledger in fixed columns, with the status of each
+invoice in words:
+\ProgramListing{INVFMT.PRG}
+\DotExample{examples/p5-invfmt}
+Each line is built from the fields with \texttt{+}, in two steps to keep the
+program lines short: the memory variable \texttt{MLINE} holds the first part.
+\fn{DTOC()} converts the due date, \fn{TRANSFORM()} the amount, and \fn{IIF()}
+turns \texttt{PAID} into a word, kept in the memory variable \texttt{MSTAT}.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~6 lets the program ask the user for what it needs.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \texttt{+} joins character values; numbers and dates are converted first.
+\item \fn{STR()}, \fn{LTRIM()} and \fn{TRANSFORM()} turn numbers into characters.
+\item \fn{DTOC()} and \fn{CTOD()} convert between dates and characters.
+\item \fn{IIF()} chooses between two values.
+\end{enumerate}
