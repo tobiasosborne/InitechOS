@@ -38,12 +38,34 @@ PUBS_FLAIR_KMAIN := $(PUBS_CHECK)/flair_kmain.i
 PUBS_FLAIR_APPS  := os/apps/calc/calc.c os/apps/calcda/calcda.c os/apps/ctenant/ctenant.c \
                     os/apps/itext/itext.c os/apps/paint/paint.c
 PUBS_FLAIR_ALLOW := harness/pubs/flair.allow
-# The image the FLAIR figures are captured on: the Rule-14 record image of
-# the shipped desktop (pubs/screens/flair_capture.sh says why).
-PUBS_FLAIR_BOOT  := $(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG)
-# ... and, for a figure of the FILE COPY bar in mid-copy, the record image
-# whose bar steps per injected event (flair_capture.sh, image `step`).
-PUBS_FLAIR_STEP  := $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# The image the FLAIR figures are captured on: the Rule-14 EXTRA-LONG record
+# image of the shipped desktop (12000-tick pump; its FILE COPY bar steps per
+# injected event, so the mid-copy figure is the same every run) with the
+# transient COMMAND.COM linked against it (the exit_dos.mk recipe), so Exit
+# to InitechDOS works in a figure.  pubs/screens/flair_capture.sh says why a
+# record image: the shipped image's 250-tick pump ends before a manual-length
+# trace is injected, and the 3000-tick one ran out under host load.
+# The kernel: the extra-long record kernel's objects (kmain with
+# -DFLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125, the record
+# double-click bounds, the steady record console cursor) linked with the
+# transient's import list, as $(BUILD)/kernel_flairtenants_recorddbl.elf is.
+PUBS_FLAIR_KOBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) \
+                    $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(BUILD)/console_record.o
+$(BUILD)/kernel_flairtenants_pubs.elf: $(PUBS_FLAIR_KOBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(PUBS_FLAIR_KOBJS) @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_pubs.bin: $(BUILD)/kernel_flairtenants_pubs.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_pubs.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-pubs)
+$(eval $(call exitdos-transient-rules,pubs,$(BUILD)/kernel_flairtenants_pubs.elf))
+PUBS_FLAIR_IMG   := $(BUILD)/flair_tenants_pubs.img
+$(PUBS_FLAIR_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_pubs.bin $(BUILD)/transient_pubs.bin $(IO_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_pubs.bin,$(BUILD)/transient_pubs.bin)
+	@printf ">>> pubs: FLAIR capture image (extra-long record kernel + transient COMMAND.COM): %s\n" "$@"
+PUBS_FLAIR_BOOT  := $(PUBS_FLAIR_IMG)
+PUBS_FLAIR_STEP  := $(PUBS_FLAIR_IMG)
 
 $(PUBS_FLAIR_GREY): harness/pubs/flair_grey.c | $(BUILD)
 	$(CC) $(CFLAGS) -O2 -o $@ $<
@@ -98,8 +120,11 @@ test-pubs-flair: pubs-flair-inventory test-pubs-build $(PUBS_GATE)
 	@printf '>>> test-pubs-flair: green (FLAIR books == shipped menus, files, alerts; figures and operations proved)\n'
 test-pubs: test-pubs-flair
 test-pubs-mutant: test-pubs-flair-mutant
-test-pubs-flair-mutant: test-pubs-flair $(PUBS_FLAIR_GREY)
-	@sh harness/pubs/flair_mutants.sh $(PUBS_GATE) $(PUBS_FLAIR_GREY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_FLAIR_ALLOW) $(PUBS_FLAIR_BOOKS)
+test-pubs-flair-mutant: test-pubs-flair $(PUBS_FLAIR_GREY) $(PUBS_FLAIR_SCREEN_DEPS)
+	@CC="$(CC)" MENU_INC="$(MENU_INC)" FLAIR_KMAIN_I=$(PUBS_FLAIR_KMAIN) FLAIR_FIXTURES="$(FLAIR_FIXTURES)" \
+		HARNESS=$(HARNESS_BIN) FLAIR_BOOT=$(PUBS_FLAIR_BOOT) FLAIR_DATA=$(FLAIR_DATA_IMG) \
+		CONSOLE_TEXT=$(CONSOLE_TEXT_BIN) VGABIOS=$(PUBS_VGABIOS) \
+		sh harness/pubs/flair_mutants.sh $(PUBS_GATE) $(PUBS_FLAIR_GREY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_FLAIR_ALLOW) $(PUBS_FLAIR_BOOKS)
 else
 test-pubs-flair test-pubs-flair-mutant:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the FLAIR manuals were NOT checked. This is NOT a pass.\n'

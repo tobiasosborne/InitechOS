@@ -1,0 +1,56 @@
+% Appendix C -- Keyboards and Characters (the 1991 Macintosh User's Guide
+% Appendix A "Keyboards and Character Sets", apple-macintosh.md Sec 8.2).
+% Sources (Law 1): os/flair/event.c (sc_unshifted / sc_shifted: the US
+% layout of the 101-key keyboard, the keypad digits, Caps Lock, Ctrl, Alt,
+% Enter cooked to a line end); os/milton/kmain.c (make code 0x2B, the
+% backslash key, is the InitechBase key and is never delivered to an
+% application -- so neither the backslash nor the vertical bar on that key
+% can be typed); os/apps/itext/itext.c (the characters 0x20 to 0x7E are
+% typed into a document).
+% GATES: test-flair-key test-flair-mouse test-flair-itext
+\Gates{test-flair-key, test-flair-mouse, test-flair-itext}
+\chapter{Keyboards and Characters}
+\index{keyboard}\index{characters}
+
+FLAIR reads the Initech 101-key keyboard with the United States layout.
+The characters you can type in FLAIR's applications are the 95 printable
+characters of the ASCII set, less the two on the backslash key.
+
+\section{Characters}
+\begin{center}\small
+\begin{tabular}{@{}p{30mm}p{69mm}@{}}
+\textbf{Characters} & \textbf{Keys}\\\hline
+\texttt{a} to \texttt{z} & the letter keys\\
+\texttt{A} to \texttt{Z} & \key{Shift} and a letter key, or a letter key
+with \key{Caps Lock} on\\
+\texttt{0} to \texttt{9} & the top row, or the numeric keypad\\
+\texttt{- = [ ] ; ' ` , . /} & the punctuation keys\\
+\texttt{! @ \# \$ \% \^{} \& * ( ) \_ +} & \key{Shift} and a key of the top
+row\\
+\texttt{\{ \} : " \~{} < > ?} & \key{Shift} and a punctuation key\\
+\texttt{+ - * .} & the keys of the numeric keypad\\
+space & the space bar\\
+\end{tabular}
+\end{center}
+The key marked with the backslash and the vertical bar is reserved for
+InitechBase (Chapter~12): neither character can be typed in a FLAIR
+application.
+
+\section{Other keys}
+\begin{center}\small
+\begin{tabular}{@{}p{30mm}p{69mm}@{}}
+\textbf{Key} & \textbf{In FLAIR}\\\hline
+\key{Enter} & ends a line; chooses the default button of an alert or
+dialog box.  The \key{Enter} key of the numeric keypad does the same\\
+\key{Backspace} & erases the character before the insertion point\\
+\key{Tab} & used by some applications (InitechCalc)\\
+\key{Esc} & chooses \texttt{Cancel} in an alert or dialog box\\
+arrow keys & move the insertion point, a cell pointer or a list selection\\
+\key{Ctrl} & held down with a letter, chooses a menu command\\
+\key{Shift} & capitals; with a click, adds to the selection\\
+\key{Caps Lock} & capitals until you press it again\\
+\key{Alt} & not used by FLAIR\\
+\key{F1} to \key{F12} & not used by FLAIR; InitechWord and Initech 123 use
+them\\
+\end{tabular}
+\end{center}

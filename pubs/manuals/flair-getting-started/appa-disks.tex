@@ -1,0 +1,39 @@
+% Appendix A -- What Is on the Disks.  Sources (Law 1): the boot-system
+% image (os/boot, the boot-system tool: IO.SYS and INITDOS.SYS on the
+% startup disk, FLAIR in INITDOS.SYS, the transient COMMAND.COM in the
+% system area); harness/fixture_volumes.mk FLAIR_FIXTURES (the data disk;
+% each file is registered and described in the FLAIR User's Guide,
+% Appendix A).
+% GATES: test-boot-system test-flair-data-volume
+\Gates{test-boot-system, test-flair-data-volume}
+\chapter{What Is on the Disks}
+
+\section{The startup disk}
+The startup disk holds InitechDOS Version~3.30 and FLAIR.  Its two system
+files, \file{IO.SYS} and \file{INITDOS.SYS}, are loaded when the computer
+starts; FLAIR is part of \file{INITDOS.SYS}.  The startup disk also holds
+the InitechDOS command processor that takes over when you leave FLAIR with
+\menuitem{Exit to InitechDOS}.  Do not use the startup disk for your own
+files.
+
+\section{The data disk}
+The data disk, labelled INITECH, holds:
+\begin{itemize}
+\item at its top level, the file \file{README.TXT} and the folder
+  \file{APPS};
+\item in \file{APPS}, the applications that open on the desktop ---
+  \file{TEXT.EXE} (InitechText), \file{CALC.EXE} (InitechCalc),
+  \file{CALCULAT.EXE} (the Calculator), \file{PAINT.EXE} (InitechPaint),
+  \file{123.EXE} (Initech 123), \file{WORD.EXE} (InitechWord) and the
+  sample applications \file{CTENANT.EXE} and \file{TENANTFX.EXE};
+\item in \file{APPS}, the programs that run at the InitechDOS prompt ---
+  \file{ATTRIB.COM}, \file{CHKDSK.COM}, \file{EDLIN.COM}, \file{LABEL.COM},
+  \file{TREE.COM}, \file{XCOPY.COM} and the TPS Report Generator,
+  \file{TPSREP.COM};
+\item in \file{APPS}, the files those programs use --- \file{123.MNU},
+  \file{LEDGER.TXT}, \file{MICHAEL.CFG}, \file{TPSPARM.DAT} and
+  \file{TPS.DBF}.
+\end{itemize}
+FLAIR adds the Trash folder and the file \file{DESKTOP.DB} the first time it
+starts.  Appendix~A of the \doctitle{FLAIR User's Guide} describes every
+file.

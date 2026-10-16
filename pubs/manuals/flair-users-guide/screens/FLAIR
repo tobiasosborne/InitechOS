@@ -55,3 +55,5 @@ cleanedup|FLAIR-CURSOR x=500 y=439|10,50,380,240|FINDER-CLEANUP
 icondrag|FLAIR-CURSOR x=420 y=440|380,40,260,420|FINDER-ICON-DRAG
 iconkinds|FLAIR-CURSOR x=500 y=440|44,100,350,110
 calcwin|FLAIR-CURSOR x=500 y=441|262,88,116,180
+u_dosdir|bytes free|text
+u_doschk|A:\APPS>#2|text

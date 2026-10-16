@@ -3,6 +3,8 @@
 # initech-ipu5.11; PUB-REF-0001 GC-03/GC-04, NT-20).
 #
 # Usage: check_flair.sh <gate build dir> <book>...
+# The books' sources are read from $FLAIR_BOOKS_ROOT (default pubs/manuals;
+# the Rule-6 mutants point it at an isolated copy).
 # For every FLAIR book:
 #   SCREEN-PAIR       every printed \FlairScreen / \FlairInline / \FlairText
 #                     (registry <job>.flairscreens) has its committed capture
@@ -25,7 +27,7 @@ built=$1; shift
 rows=$(mktemp)
 trap 'rm -f "$rows"' EXIT
 for b in "$@"; do
-    dir=pubs/manuals/$b/screens
+    dir=${FLAIR_BOOKS_ROOT:-pubs/manuals}/$b/screens
     reg=$built/$b/main.flairscreens
     [ -f "$reg" ] || { printf '!!! test-pubs RED SCREEN-ROUTE: %s missing\n' "$reg"; exit 1; }
     [ -f "$dir/FLAIR" ] && sed -e '/^#/d' -e '/^$/d' "$dir/FLAIR" >> "$rows"

@@ -1,0 +1,62 @@
+% Chapter 8 -- Working with the Accessories: a worked example (the
+% What's New in System 7 habit of ending a topic with the reader's own
+% task).  Sources (Law 1): os/apps/calcda (the Calculator; its Edit menu
+% dimmed, so a result is typed, not pasted); os/apps/itext/itext.c (typing,
+% Save into a folder through Standard File: a double-click on a folder in
+% the list opens it, kmain.c sf_run); os/flair/tbxgate.c (one disk
+% application at a time: the Calculator is closed before InitechText
+% opens).
+% GATES: test-flair-calcda test-flair-itext test-stdfile test-flair-app-launch test-pubs-flair-screens
+\Gates{test-flair-calcda, test-flair-itext, test-stdfile, test-flair-app-launch,
+  test-pubs-flair-screens}
+\chapter{Working with the Accessories}
+
+This chapter puts the accessories to work on a small task: working out a
+figure with the Calculator and sending it round in a memo written with
+InitechText, saved in the \file{APPS} folder.
+
+\section{Working out the figure}
+\begin{TaskSteps}
+\Step Choose \menuitem{Calculator} from the Apple menu.
+\Step Type \type{1200*3=}.
+\Result{The display shows \texttt{3600}.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:calcmemo]{a_calcmemo}{1200 * 3 = 3600}
+
+\begin{TaskSteps}[resume]
+\Step Write the figure down, then click the Calculator's close box.
+\Result{The Calculator's \menuitem{Copy} command is dimmed in this
+version, so the figure is carried to the memo by hand.  The Calculator must
+be closed before InitechText can open: only one application from the disk
+is open at a time.}
+\end{TaskSteps}
+
+\section{Writing the memo}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and double-click \file{TEXT.EXE}.
+\Step Type the memo, with the figure in it.
+\Step Press \key{Ctrl-S}.
+\Result{The Save dialog box asks for a name.  It lists the top level of the
+data disk.}
+\Step Double-click \file{APPS} in the list.
+\Result{The list now shows the contents of the \file{APPS} folder, and the
+box at the top names it.  The document will be saved there.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:sfapps]{a_sfapps}{The Save dialog box, opened at the
+APPS folder}
+
+\begin{TaskSteps}[resume]
+\Step Erase the name in the name box with \key{Backspace}, type a name such
+as \type{memo.txt}, and press \key{Enter}.
+\Result{The memo is saved in the \file{APPS} folder, and the window takes
+its name.  Its icon appears in the \texttt{APPS} window the next time the
+window is opened.}
+\Step Press \key{Ctrl-Q} to quit InitechText.
+\end{TaskSteps}
+
+\section{Where to go from here}
+The \doctitle{FLAIR User's Guide} describes the desktop, the Finder and the
+Trash, and Chapter~14 of it tells you how to copy your memo to another disk
+at the InitechDOS prompt.

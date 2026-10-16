@@ -1,0 +1,50 @@
+% Chapter 15 -- Care and Maintenance (the 1991 Macintosh User's Guide Ch. 15
+% "Care and Maintenance", apple-macintosh.md Sec 8.2).  Sources (Law 1):
+% os/milton/kmain.c (Shut Down / Restart / Exit to InitechDOS commit
+% DESKTOP.DB; TRASH-CREATE and DESKTOP-DB-CREATE when they are missing);
+% os/flair/finder_ops.c (the Trash is a folder on the disk until emptied);
+% os/apps/itext/itext.c (unsaved work is in memory only); the InitechDOS
+% books for CHKDSK, COPY and XCOPY.  The hardware advice is general care of
+% the period's equipment and makes no claim about the software.
+% GATES: test-flair-shutdown test-desktop-db test-flair-empty-trash test-flair-itext
+\Gates{test-flair-shutdown, test-desktop-db, test-flair-empty-trash,
+  test-flair-itext}
+\chapter{Care and Maintenance}
+\index{care and maintenance}
+
+\section{Protecting your work}
+\SideHead{Save}A document is in memory until you save it.  Save it every
+few minutes, and before you leave the computer.
+\SideHead{Shut down}Always use \menuitem{Shut Down} before you turn the
+computer off.  It saves the arrangement of the desktop and gives the open
+application the chance to save your work.
+\SideHead{Empty the Trash with care}Items in the Trash still take up space
+on the disk; emptying the Trash frees it, and cannot be undone.
+\SideHead{Keep copies}Copy your documents to another disk at the end of the
+day, with \file{COPY} or \file{XCOPY} at the InitechDOS prompt
+(Chapter~14).
+
+\section{Checking the data disk}
+\index{CHKDSK}
+From time to time, check the data disk with \file{CHKDSK}: leave FLAIR,
+change to the \file{APPS} directory and type \type{CHKDSK} (Chapter~14).
+The \doctitle{InitechDOS Reference} explains its report and what to do if
+it finds a problem.
+
+\section{When the disk is nearly full}
+A new folder cannot be made, and documents cannot be saved, when the data
+disk is full.  Empty the Trash, then move documents you no longer need
+onto another disk at the InitechDOS prompt.
+
+\section{Looking after the equipment}
+\begin{itemize}
+\item Keep the computer, the display and the disks away from heat, damp
+  and dust, and leave room round the computer for air to flow.
+\item Keep disks away from magnets, telephones and the display, and do not
+  touch their surfaces.
+\item Clean the display with a soft cloth; never spray liquid on it.
+\item Turn the computer off before you connect or disconnect the keyboard,
+  the mouse or the display.
+\item Clean the mouse ball and rollers when the pointer stops moving
+  smoothly.
+\end{itemize}

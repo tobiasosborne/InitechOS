@@ -1,0 +1,101 @@
+% Chapter 14 -- FLAIR and InitechDOS (Part II, Reference).
+% Sources (Law 1): os/milton/kmain.c finder_exit_dos (the alert, the open
+% application asked to quit, DESKTOP.DB committed, the desktop's hooks
+% removed, the console handed back, a TRANSIENT COMMAND.COM run as the
+% permanent command processor: there is no way back to FLAIR but a restart;
+% "TPSREP runs only from this prompt"); os/milton/command.c (the startup
+% date and time questions when the disk has no AUTOEXEC.BAT; $P$G; DIR,
+% CD, the external programs found in the current directory or by the path
+% given); harness/fixture_volumes.mk (the data volume: no AUTOEXEC.BAT, the
+% programs in APPS); the InitechDOS books for the commands themselves.
+% GATES: test-flair-exit-to-dos test-flair-tps-journey test-shell test-dir test-pubs-flair-screens
+\Gates{test-flair-exit-to-dos, test-flair-tps-journey, test-shell, test-dir,
+  test-pubs-flair-screens}
+\chapter{FLAIR and InitechDOS}
+\index{InitechDOS}
+
+FLAIR runs on InitechDOS.  This chapter tells you how the things you see in
+FLAIR appear at the InitechDOS command prompt, and how to use the programs
+that run only there.
+
+\section{The same disk, two views}
+\index{drive A}\index{directories}
+\begin{center}\small
+\begin{tabular}{@{}p{46mm}p{53mm}@{}}
+\textbf{In FLAIR} & \textbf{At the InitechDOS prompt}\\\hline
+the \texttt{INITECH} icon & drive A\\
+the \texttt{Drive A Files} window & the root directory, \file{A:\textbackslash}\\
+a folder & a directory\\
+the \file{APPS} folder & the directory \file{A:\textbackslash APPS}\\
+an icon's name & the file name, in capital letters\\
+the Trash & the directory \file{A:\textbackslash TRASH}\\
+the arrangement of the desktop & the file \file{A:\textbackslash DESKTOP.DB}\\
+\end{tabular}
+\end{center}
+Every file you see in FLAIR is an ordinary InitechDOS file, and the
+InitechDOS commands work on it as on any other.  Folders you make with
+\menuitem{New Folder} are directories, and files you throw away are kept in
+the \file{TRASH} directory until you empty the Trash.
+
+\section{Going to the InitechDOS prompt}
+\index{Exit to InitechDOS command}
+Choose \menuitem{Exit to InitechDOS} from the Finder's \menuname{Special}
+menu and click \texttt{Exit} (Chapter~1).  FLAIR asks the open application
+to quit, saves the arrangement of the desktop and hands the screen to
+InitechDOS.
+
+Because the data disk has no \file{AUTOEXEC.BAT} file, InitechDOS asks for
+the date and the time.  Press \key{Enter} twice to keep them.  The prompt
+\texttt{A:\textbackslash>} shows that you are at the top level of drive A.
+
+\section{Looking at the disk from the prompt}
+\begin{TaskSteps}
+\Step Type \type{CLS} and press \key{Enter}.
+\Result{The screen is cleared.}
+\Step Type \type{DIR} and press \key{Enter}.
+\Result{InitechDOS lists the top level of the data disk: \file{README.TXT},
+the directory \file{APPS}, and the directory \file{TRASH} and the file
+\file{DESKTOP.DB} that FLAIR does not show in its windows.}
+\end{TaskSteps}
+
+\FlairText[fig:dosdir]{u_dosdir}{The top level of the data disk at the
+InitechDOS prompt}
+
+\section{Running a program from the APPS folder}
+\index{CHKDSK}
+The programs in \file{APPS} whose names end in \file{.COM} run at the
+prompt.  Change to the directory first, then type the program's name.
+\begin{TaskSteps}
+\Step Type \type{CLS} and press \key{Enter}.
+\Step Type \type{CD APPS} and press \key{Enter}.
+\Result{The prompt changes to \texttt{A:\textbackslash APPS>}.}
+\Step Type \type{CHKDSK} and press \key{Enter}.
+\Result{CHKDSK checks the data disk and reports on it.}
+\end{TaskSteps}
+
+\FlairText[fig:doschk]{u_doschk}{CHKDSK run from the APPS directory}
+
+The \doctitle{InitechDOS Reference} describes \file{ATTRIB}, \file{CHKDSK},
+\file{EDLIN}, \file{LABEL}, \file{TREE} and \file{XCOPY}.  The TPS Report
+Generator, \file{TPSREP}, also runs only from this prompt; its book,
+\doctitle{TPS Report Generator Operating Procedures}, tells you how.
+
+\section{Returning to FLAIR}
+\index{FLAIR!returning to}
+FLAIR does not start again from the prompt.  To return to it, restart the
+computer: press its reset button, or turn it off and on.  FLAIR starts with
+the arrangement of the desktop it saved when you left.
+
+\begin{MacWarning}
+Do not delete \file{DESKTOP.DB} or the \file{TRASH} directory at the
+InitechDOS prompt, and do not move files in or out of \file{TRASH} there.
+FLAIR makes a new \file{DESKTOP.DB} if the file is missing, but the
+arrangement of your desktop is lost.
+\end{MacWarning}
+
+\section{Copying files}
+\index{copying files}
+The Finder moves files but does not copy them.  To make a copy of a file,
+use the \file{COPY} command at the prompt; to copy a directory with
+everything in it, use \file{XCOPY}.  The \doctitle{InitechDOS User's Guide}
+shows you how.

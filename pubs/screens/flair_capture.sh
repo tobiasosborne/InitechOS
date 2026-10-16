@@ -17,13 +17,15 @@
 # the ASCII grey listing the manual commits (the build expands it into the
 # PNG it prints; harness/pubs/flair_grey.c documents the format).
 #
-# The image is the Rule-14 RECORD image of the shipped desktop
-# (FLAIRTENANTS_RECORDLONGDBL_IMG): the SAME flair_tenants kernel as
-# build/initech.img with only the live pump's life widened (6000 ticks) and
-# the double-click bounds of the record machinery -- every record-flair clip
-# is captured on it.  The shipped image's 250-tick pump ends before a
+# The image (pubs/flair.mk PUBS_FLAIR_IMG, build/flair_tenants_pubs.img) is
+# the Rule-14 EXTRA-LONG RECORD kernel of the shipped desktop -- the SAME
+# flair_tenants objects as build/initech.img with only the record knobs:
+# a 12000-tick pump life, the record double-click bounds, the steady record
+# console cursor, and the FILE COPY bar stepped per injected event
+# (FILECOPY_RECORD_STEP) -- plus the transient COMMAND.COM, so Exit to
+# InitechDOS works.  The shipped image's 250-tick pump ends before a
 # manual-length trace has been injected.
-#
+
 # Determinism (Rule 11): the guest RTC is pinned to 1992-03-02 09:30:00 (the
 # record-flair pattern, RECORD_RTC_DEFAULT: wall-paced, not icount -- under
 # --rtc-deterministic an application launch spends the pump's 30-second life
