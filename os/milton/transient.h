@@ -12,16 +12,16 @@
  * WHY A TRANSIENT. The flagship FLAIR kernel fills the stage2 load window
  * (KERNEL_SECTORS is at the ratified bounce ceiling, ~16 KiB free); the
  * COMMAND.COM interpreter (command.o + env.o + batch.o, ~33 KiB) cannot ride
- * in it. So the flagship image carries the interpreter AFTER the kernel window
- * on the boot disk, LINKED AGAINST THAT IMAGE'S OWN KERNEL (ld --just-symbols)
+ * in it. So the flagship image carries the interpreter as root COMMAND.COM
+ * on the boot FAT, LINKED AGAINST THAT IMAGE'S OWN KERNEL (ld --just-symbols)
  * at TRANSIENT_BASE, and the kernel reads it in only when the user leaves the
  * desktop for the prompt -- the period's resident/transient split, literally.
  *
- * THE IMAGE LAYOUT: sector 0 MBR, 1..16 stage2, 17..400 the kernel window,
- * then the transient from TRANSIENT_LBA (= 1 + 16 + KERNEL_SECTORS; the
- * Makefile fails the build if the arithmetic ever drifts), at most
- * TRANSIENT_MAX_SECTORS sectors (the image is grown to a whole 2x32-cylinder
- * count for it: 512 sectors).
+ * THE FILE (initech-e9sx): MS-DOS 3.3 User's Guide printed pp28/119
+ * (PDF41/204): COMMAND.COM is visible to DIR, copied separately from SYS's
+ * hidden IO.SYS/MSDOS.SYS. tools/mk_boot_system.sh copies it with archive-only
+ * attributes into the boot root. DEC-07a mounts the primary-master partition;
+ * FAT lookup/chain reading replaces the former raw system-area sector slot.
  *
  * THE HEADER (first bytes of the transient, os/milton/transient_hdr.asm). The
  * kernel trusts NOTHING it reads: the magic must match, the extents must lie
@@ -37,14 +37,6 @@
 
 #define TRANSIENT_MAGIC          "COMMAND3"   /* 8 bytes, no NUL on disk     */
 #define TRANSIENT_MAGIC_LEN      8u
-#define TRANSIENT_LBA            2944u        /* the SYSTEM AREA right after the
-                                              * 46-cylinder FAT boot image that
-                                              * tools/mk_boot_system.sh mints
-                                              * (partition [63,2943)); PM
-                                              * 2026-10-17: LBA 401 fell inside
-                                              * INITDOS.SYS under the two-file
-                                              * layout (initech-kod).           */
-#define TRANSIENT_MAX_SECTORS    128u         /* 3072-sector image - 2944     */
 #define TRANSIENT_N_IMPORTS      5u
 
 typedef struct transient_hdr {
