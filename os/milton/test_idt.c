@@ -40,6 +40,7 @@ STUB(24) STUB(25) STUB(26) STUB(27) STUB(28) STUB(29) STUB(30) STUB(31)
 void isr_spurious(void) {}
 void isr_irq7_spurious(void) {}    /* 8259A master spurious stub (bcg.7) */
 void isr_irq15_spurious(void) {}   /* 8259A slave  spurious stub (bcg.7) */
+void int13_entry(void) {}          /* DEC-17 software disk-service stub */
 
 /* Hand-compute the 8 descriptor bytes for a sample handler (the independent
  * expected value -- NOT derived from idt_set_gate's code). */

@@ -40,6 +40,8 @@ static void spec_check(const char *path)
         "\"entry_size\": 16,","\"type_offset\": 4,","\"start_offset\": 8,",
         "\"length_offset\": 12,","\"signature_offset\": 510,",
         "\"signature_le\": 43605,","\"fat_types\": [1, 4, 6],",
+        "\"translation_heads\": 16,","\"translation_sectors_per_track\": 63,",
+        "\"first_partition_lba\": 63,",
         "\"selection\": \"active FAT else first FAT\",",
         "\"partition_error\": -20,",
         "\"absolute_sector\": \"device LBA = volume base_lba + logical sector\",",

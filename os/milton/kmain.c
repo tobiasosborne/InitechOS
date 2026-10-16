@@ -33,6 +33,7 @@
 #include "loader.h"      /* load_program (beads initech-509.5) */
 #include "test_prog.h"   /* the baked flat test/type/dir program bytes */
 #include "ata.h"         /* ATA PIO backend (FAT-mount over the emulator) */
+#include "block_device.h"
 #include "fat12.h"       /* FAT12 mount + root-dir enumerate (proto-DIR)  */
 #include "fileio_fat.h"  /* bind the FAT12 file backend into int21 (509.5) */
 #include "kbd.h"         /* PS/2 keyboard IRQ1 driver (initech-3rs) */
@@ -590,6 +591,9 @@ static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw
      * interactive INT24 wrapper. Copy geometry, retain the same offset seam. */
     g_absdisk_vol = *vol;
     g_absdisk_vol.dev = raw;
+    /* DEC-17: primary-slave data volumes. Translate the cache notice only. */
+    block_device_mounted(0x81,vol->base_lba,vol->total_sectors,
+                         fileio_fat_absdisk_written);
     backend.read = int21_absdisk_read;
     backend.write = raw->write_sectors ? int21_absdisk_write : 0;
     backend.total_sectors = vol->total_sectors;
