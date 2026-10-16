@@ -12,7 +12,7 @@ MEMO     TXT      258   2-28-92  11:42a
 PHONE    TXT      263   3-02-92   8:51a
 APPS            <DIR>   3-01-92  12:00p
 SAMPLES         <DIR>   3-01-92  12:30p
-MEMO     BAK      258   3-02-92   9:30a
+MEMO     BAK      258   2-28-92  11:42a
 
         7 File(s)   1417216 bytes free
 A:\>
