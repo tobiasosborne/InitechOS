@@ -1206,9 +1206,9 @@ FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG             := $(BUILD)/flair_live_nomodal_mut
 # INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on):
 # the SAME BOOT_FLAIR_LIVE kmain but compiled ALSO with -DFLAIR_LIVE_INTERACTIVE,
 # which makes the WaitNextEvent pump UNBOUNDED (for(;;), until power-off).
-# R0.1 CursorMgr is now common to bounded and interactive live images and appears
-# only after first mouse activity; this variant differs only in pump lifetime.
-# NOT a gate image (it never halts); driven by `make run-flair`.
+# M024-M026: this film image opts into the existing disk-tenant pump and boots
+# CALC.EXE in the authored scene bounds, with the Saving modal still on top.
+# Pointer visibility still starts on first mouse activity; the pump is unbounded.
 KERNEL_FLAIRLIVE_INT_MAIN_OBJ := $(BUILD)/kmain_flairlive_int.o
 KERNEL_FLAIRLIVE_INT_ELF      := $(BUILD)/kernel_flairlive_int.elf
 KERNEL_FLAIRLIVE_INT_BIN      := $(BUILD)/kernel_flairlive_int.bin
@@ -9831,15 +9831,18 @@ $(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIV
 
 # --- INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on)
 # Same BOOT_FLAIR_LIVE kmain but ALSO -DFLAIR_LIVE_INTERACTIVE: an UNBOUNDED
-# pump (for(;;), runs until power-off). R0.1 CursorMgr is shared by every live
-# image; this variant swaps only main to change loop lifetime. -------------------
+# pump (for(;;), runs until power-off). M024-M026 also opt into the SAME
+# disk-tenant host as the flagship; only CALC is launched in this tableau. -------
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -DFLAIR_LIVE_TENANTS -DFLAIR_FILM_SCENE $(KERNEL_TENANTS_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
-KERNEL_FLAIRLIVE_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
+KERNEL_FLAIRLIVE_INT_OBJS = $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
+$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
 
 $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9855,12 +9858,15 @@ $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 $(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live INTERACTIVE image: %s (visible arrow cursor + unbounded pump)\n" "$@"
+$(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL)
+	@printf ">>> flair-live INTERACTIVE image: %s (real Calc film scene + Saving hourglass + unbounded pump)\n" "$@"
 
 # Windowed GUI run so the operator can DRAG windows + use menus with a VISIBLE
 # cursor (Law 4's live, draggable arrangement). Serial -> stdio narrates the pump.
 .PHONY: run-flair
 run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
-	qemu-system-i386 -drive format=raw,file=$(FLAIRLIVE_INTERACTIVE_IMG) -serial stdio
+	qemu-system-i386 -drive format=raw,file=$(FLAIRLIVE_INTERACTIVE_IMG) -drive format=raw,file=$(FLAIR_DATA_IMG),if=ide,index=1 -serial stdio
 
 # ===========================================================================
 # FLAIR APP CONTRACT, BOOTED -- the FLAIRTENANTS image (ADR-0013; Wave-4 Step 4;
@@ -10195,6 +10201,12 @@ $(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KE
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
 KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ)
+
+# The film image reuses the disk-tenant host object set. Resolve prerequisites
+# here, after those objects and the data-volume variable exist (tdnl.81).
+$(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS)
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_FLAIRTENANTS_MAIN_OBJ) os/flair/film_scene.h os/flair/tbxgate.h os/flair/cursor.h
+run-flair: $(FLAIR_DATA_IMG)
 
 # R3.7 (tdnl.14): every FLAIRTENANTS kmain variant includes the gate headers.
 # (The INT object is named here, so it is defined here: a rule's targets are
@@ -23106,6 +23118,15 @@ RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # RECORD_RTC_BASE_<script> boot at RECORD_RTC_DEFAULT (clock=vm, no icount: the minute cannot
 # roll within a recording shorter than 60 s).
 RECORD_RTC_DEFAULT := 1992-03-01T09:00:00
+# M024-M026 Rule14: PM records after merge. Authored scene then chart drag.
+include spec/flair_film_scene_traces.mk
+RECORD_SCRIPTS += film_scene
+RECORD_SPEC_film_scene = $(FLAIR_FILM_DRAG_SPEC)
+RECORD_MARKER_film_scene = FLAIR-DRAG win 0 (300,120)->(360,160)
+RECORD_IMAGE_film_scene = $(FLAIRLIVE_INTERACTIVE_IMG)
+RECORD_DATA_film_scene = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_film_scene = 800
+
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -31122,6 +31143,7 @@ endif
 TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
 include harness/diff/fat_diff/chkdsk.mk
 include harness/frameapps.mk
+include harness/film_scene.mk
 # FCB legacy API (initech-509.9) + TPS Report Generator (initech-8479.1).
 include harness/emu/fcb_tps.mk
 
@@ -31407,3 +31429,4 @@ include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
+

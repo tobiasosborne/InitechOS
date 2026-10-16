@@ -81,7 +81,7 @@ static void paint_ledger(void)
 /* Integer atan2 approximation (one turn=65536), used only to partition a
  * mathematical disk by the five PRD weights. No trig runtime or bitmap asset.
  * All percentages retain their stated values, even though total is 116. */
-static int sector(int x,int y)
+static int __attribute__((unused)) sector(int x,int y)
 {
     int ay=y<0?-y:y, a;
     if(!x&&!y) return 0;
@@ -101,7 +101,9 @@ static void paint_chart(void)
 #else
     static const uint32_t shades[]={TBX_COLOR_BLACK,TBX_COLOR_GRAY,TBX_COLOR_NAVY,TBX_COLOR_BLACK,TBX_COLOR_GRAY};
 #endif
+    (void)shades;
     (void)tbx_fill_rect(chart,0,0,208,217,TBX_COLOR_WHITE);
+#ifndef CALC_MUT_NO_PIE
     for(int y=-48;y<=48;y++) {
         int x=-48;
         while(x<=48) {
@@ -111,11 +113,14 @@ static void paint_chart(void)
             (void)tbx_fill_rect(chart,70+begin,75+y,70+x,76+y,shades[s]);
         }
     }
+#endif
+#ifndef CALC_MUT_NO_LABELS
     for(int i=0;i<5;i++) {
         i123_number_text((double)calc_slice(i),line,sizeof line);
         unsigned n=length(line); line[n]='%'; line[n+1]=0;
         text(chart,120,20+22*i,line);
     }
+#endif
     i123_number_text((double)calc_pie_sum(),line,sizeof line);
     unsigned n=length(line); line[n]='%'; line[n+1]=0;
     text(chart,120,134,line);

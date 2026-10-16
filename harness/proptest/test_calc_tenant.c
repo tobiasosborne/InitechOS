@@ -8,6 +8,21 @@
 
 static int failures, checks, nw, exits, draws[3], total, negative;
 static const tbx_menubar_t *installed;
+static uint32_t chart_pixels[217][208];
+static int percent_labels[5];
+static int contour_changes(void)
+{
+    uint32_t prev=chart_pixels[75][110]; int n=0;
+    for(int q=0;q<4;q++) for(int y=0;y<=40;y++) {
+        int x=0; while((x+1)*(x+1)+y*y<=1600) x++;
+        int dx=q==0?x:q==1?-y:q==2?-x:y;
+        int dy=q==0?y:q==1?x:q==2?-y:-x;
+        uint32_t c=chart_pixels[75+dy][70+dx];
+        if(c!=prev) n++;
+        prev=c;
+    }
+    return n;
+}
 #define CHECK(c,s) do { checks++; if (!(c)) { failures++; fprintf(stderr,"FAIL %s\n",s); } } while(0)
 int32_t tbx_register(void) { return 0; }
 int32_t tbx_new_window(int32_t l,int32_t t,int32_t r,int32_t b,int32_t g)
@@ -17,7 +32,12 @@ int32_t tbx_set_wtitle(int32_t w,const char *s)
 int32_t tbx_set_mbar(const tbx_menubar_t *b) { installed=b; return 0; }
 int32_t tbx_draw_menubar(void) { return 0; }
 int32_t tbx_fill_rect(int32_t w,int32_t l,int32_t t,int32_t r,int32_t b,uint32_t c)
-{ (void)l;(void)t;(void)r;(void)b;(void)c; CHECK(w==1||w==2,"fill token"); return 0; }
+{
+    CHECK(w==1||w==2,"fill token");
+    if(w==2) for(int y=t;y<b&&y<217;y++) for(int x=l;x<r&&x<208;x++)
+        if(y>=0&&x>=0) chart_pixels[y][x]=c;
+    return 0;
+}
 int32_t tbx_draw_text(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uint32_t b)
 {
     (void)x;(void)y;(void)b;
@@ -26,6 +46,8 @@ int32_t tbx_draw_text(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uin
     CHECK(f==65537u,"Geneva 9 token");
     if(!strcmp(s,"$112,276.87")) total++;
     if(!strcmp(s,"570-")) negative++;
+    static const char *pct[]={"40%","35%","18%","14%","9%"};
+    if(w==2) for(int i=0;i<5;i++) if(!strcmp(s,pct[i])) percent_labels[i]++;
     return 0;
 }
 int32_t tbx_exit(int32_t r) { CHECK(r==0,"exit status"); exits++; return 0; }
@@ -55,6 +77,9 @@ int main(void)
     CHECK(calc_pie_sum()==116,"PIE_SUM 40+35+18+14+9 == 116");
     for(int i=0;i<5;i++) CHECK((calc_slice(i)==(int[]){40,35,18,14,9}[i]),"PRD slice");
     event(updateEvt,0);
+    CHECK(chart_pixels[75][70]!=TBX_COLOR_WHITE,"PIE_DRAW chart is painted");
+    CHECK(contour_changes()==5,"PIE_FIVE five distinct visible sectors");
+    for(int i=0;i<5;i++) CHECK(percent_labels[i]>0,"PIE_LABELS each percentage rendered");
     CHECK(draws[1]>0&&draws[2]>0,"both window tokens painted");
     CHECK(total&&negative,"footer total and trailing-minus specimen actually drawn");
     event(keyDown,'7'); event(keyDown,'3'); event(keyDown,'\r');

@@ -79,6 +79,9 @@
  * (every tenant symbol is behind this guard; Rule 11). */
 #include "process.h"             /* FlairProcessList, FlairProcess_launch,
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
+#ifdef FLAIR_FILM_SCENE
+#include "film_scene.h"
+#endif
 #include "ref_tenant.h"          /* hello_procs / notes_procs (-Ios/apps)            */
 #include "flair_tenants_demo.h"  /* FLAIR_TEN_* demo layout + budget (-Ispec)        */
 #include "finder_desktop.h"      /* R3.2 DesktopMgr: the Finder shell tenant, the
@@ -1136,7 +1139,7 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                       dlg, dlg_items, dlg_progress,
                       dlg_struc, dlg_cont, dlg_upd,
                       overlay,   /* always-on-top occluder (bars + modal); initech-pipa */
-#if defined(FLAIR_LIVE_TENANTS) || defined(FLAIR_LIVE_NO_MODAL)
+#if (defined(FLAIR_LIVE_TENANTS) && !defined(FLAIR_FILM_SCENE)) || defined(FLAIR_LIVE_NO_MODAL)
                       0 /* FLAIR App Contract demo: NO modal -- the two canon doc
                          * windows are hidden by the tenant arm and the co-resident
                          * tenants are launched on top (ADR-0013), OR the R1.4
@@ -1353,7 +1356,7 @@ static void flair_live_cursor_track(const EventRecord *ev)
     serial_putc('\n');
 }
 
-#ifndef FLAIR_LIVE_TENANTS
+#if !defined(FLAIR_LIVE_TENANTS) || defined(FLAIR_FILM_SCENE)
 /* Period dBoxProc click-outside feedback was SysBeep. InitechOS has no beep;
  * DialogModalDispatch invokes this callback at the dispatch seam instead. */
 static void flair_live_modal_block_marker(flair_point_t where, void *user)
@@ -1815,7 +1818,7 @@ static void flair_live_do_drag(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puts(")\n");
 }
 
-#ifndef FLAIR_LIVE_TENANTS
+#if !defined(FLAIR_LIVE_TENANTS) || defined(FLAIR_FILM_SCENE)
 /* movableDBoxProc keeps inDrag on the MODAL ITSELF. The dialog is intentionally
  * a standalone shell layer, so this tracker moves its global dialog/item/control
  * geometry, rebuilds the overlay union, restores the old footprint through the
@@ -2951,7 +2954,7 @@ static int finder_abs(int v) { return v < 0 ? -v : v; }
  * to forbid. Every dispatched Finder command therefore lands on serial as
  *     FINDER-CMD id=<n> name=<NAME> src=mouse|key sel=<n>
  * exactly as design F4.4 specifies. */
-static void finder_trace_serial(void *user, const char *line)
+static void __attribute__((unused)) finder_trace_serial(void *user, const char *line)
 {
     (void)user;
     if (line == (const char *)0) return;
@@ -3179,7 +3182,7 @@ static int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
                                               g_finder_clusbuf, out_written));
 }
 
-static const finder_fs_t g_finder_fs_binding = {
+static const finder_fs_t g_finder_fs_binding __attribute__((unused)) = {
     finder_fat_enumerate,
     finder_fat_mkdir,
     finder_fat_move,
@@ -3254,7 +3257,7 @@ static void finder_desk_persist(void)
  * DB is NOT fatal: the defaults stand and the reason goes to serial (F1.3
  * "regenerate-default, loudly"). The 8-byte header the tdnl.8 bootstrap writes
  * on a fresh volume parses as zero records, which is the silent normal path. */
-static void finder_desk_load_positions(void)
+static void __attribute__((unused)) finder_desk_load_positions(void)
 {
     uint32_t len = 0u;
     int rc;
@@ -5960,9 +5963,11 @@ void kernel_main(void)
      * reach them; all behind FLAIR_LIVE_TENANTS so the non-tenant arms compile
      * byte-identically. */
     FlairProcessList ten_plist;
+#ifndef FLAIR_FILM_SCENE
     FlairApp        *ten_hello  = (FlairApp *)0;
     FlairApp        *ten_notes  = (FlairApp *)0;
     FlairApp        *ten_finder = (FlairApp *)0;   /* R3.2 shell tenant (tdnl.9) */
+#endif
 #endif
     flair_desktop_run(&b, &ctx);
     serial_puts("FLAIR-DESKTOP\n");
@@ -5998,6 +6003,7 @@ void kernel_main(void)
      * the LAST launch becomes list->head == the foreground (process.c). */
     FlairProcessList_init(&ten_plist);
 
+#ifndef FLAIR_FILM_SCENE
     /* (1b) THE FINDER SHELL TENANT, LAUNCHED FIRST (bead initech-tdnl.9; design
      * F2-1: "an always-resident, compiled-in App Contract tenant ... registered
      * FIRST, before any guest tenant"). It owns the desktop surface only -- no
@@ -6110,6 +6116,7 @@ void kernel_main(void)
     }
     /* ARM the DQ2 content phase: from here on the drag/close dispatches route
      * tenant-owed content damage instead of validating it away (initech-gofc). */
+#endif
     ctx.plist = &ten_plist;
 
     /* R3.7 (bead initech-tdnl.14): bind the disk-tenant host to the live list /
@@ -6145,6 +6152,32 @@ void kernel_main(void)
         serial_puts("TBX-GATE-READY vec=0x81\n");
     }
 
+#ifdef FLAIR_FILM_SCENE
+    /* M024/M025: real disk tenant, existing one-slot host and WM verbs.
+     * The scene authors placement; Calc alone paints its live content. */
+    {
+        dir_entry_t apps;
+        if (!g_finder_vol || fat12_find(g_finder_vol,g_finder_secbuf,"APPS",&apps)!=FAT12_OK ||
+            tbx_launch("CALC.EXE",apps.start_cluster)!=TBX_OK)
+            flair_desktop_oom("film CALC.EXE launch");
+        FlairApp *calc=tbx_take_affirm();
+        if (!calc || !calc->windows || !calc->windows->nextWindow)
+            flair_desktop_oom("film Calc two windows");
+        EventRecord ev0 = {0};
+        (void)FlairProcess_activate(&ten_plist,ctx.wm,&ev0,calc);
+        flair_film_arrange(ctx.wm,calc->windows->nextWindow,calc->windows);
+        /* shell_render retains the authored Photoshop bar for the tableau. */
+        g_ten_plist=&ten_plist;
+        shell_render(ctx.scene,&ctx.off);
+        desktop_validate_all(ctx.wm);
+        for (WindowPtr w=ctx.wm->front;w;w=w->nextWindow)
+            if (tbx_owns_window(w)) WindowMgr_invalidate(ctx.wm,w,region_get_bbox(w->contRgn));
+        flair_route_updates(&ten_plist,ctx.wm);
+        flair_film_cursor(ctx.scene->modal_up);
+        flair_desktop_present(&b,&ctx.off);
+        serial_puts("FLAIR-FILM-SCENE CALC ledger+chart\n");
+    }
+#else
     /* (3) Each tenant's OWN menu is its menubar; the live app-switch loop swaps the
      * FOREGROUND tenant's menu into the SECOND (Photoshop-chimera) band (ref beads
      * initech-4w15 / initech-7tjp: band 1 == the SHELL-OWNED static System-7 bar,
@@ -6210,6 +6243,7 @@ void kernel_main(void)
     flair_desktop_present(&b, &ctx.off);
     serial_puts("FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground\n");
 
+#endif /* FLAIR_FILM_SCENE */
     /* The primary-slave volume and loader were bound before desktop build, in
      * flair_tenant_mount_volume(), so O-7 needs no late-pump mount seam here. */
 #endif
@@ -6446,6 +6480,38 @@ void kernel_main(void)
 
             /* Cooked-event marker (FO-5/6 reconciliation). */
             flair_live_emit_evt(&ev);
+
+#ifdef FLAIR_FILM_SCENE
+            /* The Saving scene is staged, not a fake I/O operation. Escape
+             * dismisses it to let the operator use/drag the real windows. */
+            if (ctx.scene->modal_up && flair_film_dismiss(&ev)) {
+                ctx.scene->modal_up=0;
+                shell_sync_overlay(ctx.scene);
+                flair_film_cursor(0);
+                shell_render(ctx.scene,&ctx.off);
+                for (WindowPtr w=ctx.wm->front;w;w=w->nextWindow)
+                    if (tbx_owns_window(w)) WindowMgr_invalidate(ctx.wm,w,region_get_bbox(w->contRgn));
+                flair_live_content_phase(&ctx);
+                DrawMenuBar(g_ten_barport,flair_live_tenant_bar(&ctx,&ten_plist),-1,
+                            (const region_t *)0);
+                flair_desktop_present(&b,&ctx.off);
+                serial_puts("FLAIR-FILM-MODAL dismissed\n");
+                continue;
+            }
+            if (ctx.scene->modal_up && ctx.scene->dlg) {
+                flair_modal_disposition_t md=DialogModalDispatch(ctx.scene->dlg,&ev,
+                    flair_live_modal_block_marker,(void *)0);
+                if (md!=FLAIR_MODAL_PASSTHROUGH) {
+                    if (md==FLAIR_MODAL_DRAG && ev.what==mouseDown)
+                        flair_live_do_modal_drag(&ctx,&b,ev.where);
+                    else if (md==FLAIR_MODAL_CAPTURE) {
+                        uint16_t hit=0;
+                        (void)DialogHandleEvent(ctx.scene->dlg,&ev,(dialog_filter_fn)0,&hit);
+                    }
+                    continue;
+                }
+            }
+#endif
 
             /* O-7 (ADR-0013 Sec 3.2 class-2): the SYSTEM HOTKEY ('\', PS/2 SET-1
              * make 0x2B) launches SAMIR as a full-screen TEXT tenant. Detect the
