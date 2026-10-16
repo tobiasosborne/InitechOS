@@ -15,6 +15,10 @@
  *        CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Law 3
  *        (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic),
  *        Rule 12 (ASCII).
+ * Lane fixes: IBM DOS 3.30 Technical Reference (80X0945), printed pp. 3-4
+ * (zero defaults), 3-7/3-8 (relative movement stops at edges), 3-10 (DSR
+ * reports current position), 3-15 (SGR 8 invisible). See test_ansi_lane and
+ * test_ansi_lane_wire for independent regression data and named mutants.
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * No libc; hand-rolled helpers only (same discipline as batch.c / env.c).
@@ -220,9 +224,15 @@ static void ansi_do_sgr(ansi_state_t *st,
 
         } else if (p == 8) {
             /* Conceal: set fg = bg so text is invisible.
-             * Ref: ECMA-48 Sec 8.3.117 SGR 8 "concealed characters". */
+             * Ref: IBM DOS 3.30 Technical Reference printed p. 3-15.
+             * The entire foreground nibble must match the background;
+             * retaining intensity leaves bright text visible (0u02/i427). */
             uint8_t bg3 = (st->attr >> 4) & 0x07u;
+#ifdef ANSI_MUTATE_CONCEAL_BRIGHT
             st->attr = (uint8_t)((st->attr & 0xF8u) | bg3);
+#else
+            st->attr = (uint8_t)((st->attr & 0xF0u) | bg3);
+#endif
 
         } else if (p >= 30 && p <= 37) {
             /* Foreground colour (SGR 30-37).
@@ -285,37 +295,30 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
 
     /* -- Cursor movement -------------------------------------------------- */
 
-    case 'A': /* ESC[<n>A -- Cursor Up.
-               * Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUU".
-               * Default n=1.  Stops at row 0 (top of screen). */
-        a.kind      = ANSI_ACT_CURSOR_REL;
-        a.delta_row = -ansi_param(st, 0, 1);
-        a.delta_col = 0;
-        ansi_emit(&a, cb, ctx);
-        break;
-
-    case 'B': /* ESC[<n>B -- Cursor Down.
-               * Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUD". Default n=1. */
-        a.kind      = ANSI_ACT_CURSOR_REL;
-        a.delta_row = ansi_param(st, 0, 1);
-        a.delta_col = 0;
-        ansi_emit(&a, cb, ctx);
-        break;
-
-    case 'C': /* ESC[<n>C -- Cursor Forward (right).
-               * Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUF". Default n=1. */
-        a.kind      = ANSI_ACT_CURSOR_REL;
-        a.delta_row = 0;
-        a.delta_col = ansi_param(st, 0, 1);
-        ansi_emit(&a, cb, ctx);
-        break;
-
-    case 'D': /* ESC[<n>D -- Cursor Backward (left).
-               * Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUB". Default n=1. */
-        a.kind      = ANSI_ACT_CURSOR_REL;
-        a.delta_row = 0;
-        a.delta_col = -ansi_param(st, 0, 1);
-        ansi_emit(&a, cb, ctx);
+    case 'A': /* CUU */
+    case 'B': /* CUD */
+    case 'C': /* CUF */
+    case 'D': /* CUB */
+        {
+            /* IBM DOS 3.30 pp. 3-4, 3-7/3-8: omitted OR zero means one;
+             * movement stops at the edge. Keep FSM position coherent for
+             * DSR/save, even with no console attached (mybc/ng8n/s7cm). */
+            int n = ansi_param(st, 0, 1);
+#ifndef ANSI_MUTATE_ZERO_LITERAL
+            if (n == 0) n = 1;
+#endif
+            a.kind = ANSI_ACT_CURSOR_REL;
+            if (final == 'A') a.delta_row = -n;
+            if (final == 'B') a.delta_row = n;
+            if (final == 'C') a.delta_col = n;
+            if (final == 'D') a.delta_col = -n;
+#ifndef ANSI_MUTATE_STALE_REL
+            /* Bound the delta BEFORE addition, including on large grids. */
+            st->row += ansi_clamp(a.delta_row, -st->row, st->rows - 1 - st->row);
+            st->col += ansi_clamp(a.delta_col, -st->col, st->cols_wide - 1 - st->col);
+#endif
+            ansi_emit(&a, cb, ctx);
+        }
         break;
 
     case 'H': /* ESC[<r>;<c>H -- Cursor Position (CUP).              */
@@ -558,8 +561,19 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
             } else {
 #ifdef ANSI_MUTATE_PARAM_ACCUM
                 st->param_current = st->param_current * 1 + digit;
+#elif defined(ANSI_MUTATE_PARAM_UNBOUNDED)
+                /* Named no-cap mutant without invoking signed C UB itself. */
+                st->param_current = (int)(((uint32_t)st->param_current * 10u +
+                                          (uint32_t)digit) & 0x7fffffffu);
 #else
-                st->param_current = st->param_current * 10 + digit;
+                /* 5y5r: saturate before multiplying. This is a parser safety
+                 * choice; the visible movement limit is the screen edge
+                 * (IBM DOS 3.30 printed pp. 3-7/3-8), not an invented DOS
+                 * maximum. Excess digits are consumed, never wrap negative. */
+                if (st->param_current > (ANSI_PARAM_VALUE_MAX - digit) / 10)
+                    st->param_current = ANSI_PARAM_VALUE_MAX;
+                else
+                    st->param_current = st->param_current * 10 + digit;
 #endif
             }
         } else if (byte == ';') {
@@ -573,18 +587,6 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
              * Ref: ECMA-48 Sec 5.4 -- final byte range 0x40..0x7E. */
             ansi_dispatch_csi(st, byte, cb, ctx);
             st->fsm = ANSI_ST_GROUND;
-
-            /* If the dispatched command moved the cursor (MOVE_CURSOR action),
-             * the caller is responsible for updating the physical cursor.
-             * But CURSOR_REL actions need the FSM's own cursor to be updated
-             * so save/restore works.  Apply relative deltas here so st->row /
-             * st->col stay coherent even when wired to an external console.
-             * Note: absolute MOVE_CURSOR also updates st->row/st->col (in the
-             * dispatch case handlers 'H'/'f').  CURSOR_REL deltas are applied
-             * here, after dispatch, because the action was already emitted. */
-            /* (cursor state is kept coherent by the 's'/'u' and 'H'/'f'
-             *  handlers above; relative actions leave it to the caller -- see
-             *  WIRING NOTES in the module header comment.) */
 
         } else if (byte == 0x1Bu) {
             /* ESC inside a CSI sequence: abort the current sequence, re-arm.
