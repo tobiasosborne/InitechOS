@@ -11,6 +11,9 @@
 # !!! command, so it is listed here explicitly rather than in the DOS books.
 # !!! GROWTH, PM-directed 2026-10-17: PAINT (APPS\PAINT.EXE, InitechPaint, the bar
 # !!! carrier of initech-tdnl.20) likewise -- a FLAIR application for its own manual.
+# !!! GROWTH, PM-directed 2026-10-17: TPSREP (APPS\TPSREP.COM, the TPS Report Generator)
+# !!! shipped on the flagship volume with the Exit-to-InitechDOS journey (initech-3p1a); it is
+# !!! documented by its own Operating Procedures manual (initech-ipu5.14), not the DOS books.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
@@ -93,3 +96,4 @@ TENANTFX|2026-10-16|Pilot covers daily file tasks; Reference entry not yet writt
 PAINT|2026-10-17|FLAIR application (InitechPaint); its own manual is not yet written (PM-directed explicit row)
 TEXT|2026-10-17|FLAIR application (InitechText); its own manual is not yet written (PM-directed explicit row)
 WORD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+TPSREP|2026-10-17|DOS application (TPS Report Generator); documented by its own Operating Procedures manual, initech-ipu5.14 (PM-directed explicit row)

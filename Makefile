@@ -23329,7 +23329,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 		*) : ;; \
 	esac
 	@if [ -n '$(RECORD_MARKER_$(SCRIPT))' ]; then \
-		grep -Fqx '$(RECORD_MARKER_$(SCRIPT))' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial" \
+		tr -d '\r' < "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial" | grep -Fqx '$(RECORD_MARKER_$(SCRIPT))' \
 		|| { printf '!!! record-flair [%s]: required interaction marker missing: %s\n' "$(SCRIPT)" '$(RECORD_MARKER_$(SCRIPT))'; exit 1; }; \
 	fi
 	@n=$$(ls "$(RECORD_CLIPS_DIR)"/rec_$(SCRIPT)_frame_*.ppm 2>/dev/null | wc -l); \
