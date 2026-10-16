@@ -535,6 +535,10 @@ static int nav_find_visible(wa_env *env, int area, int dir)
     }
     return NAV_OK;
 }
+int wa_nav_index_top(wa_env *env, int area)
+{
+    return nav_raw_go_top(env, area);
+}
 int wa_nav_go_top(wa_env *env, int area)
 {
     int rc;

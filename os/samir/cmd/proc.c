@@ -880,6 +880,20 @@ int proc_fire_onerror(xb_interp *ip, int err_code);
 
 int proc_register(xb_interp *ip)
 {
+    /* Registration is per-interpreter construction: drop any state a freed
+     * interpreter at the same (reused-arena) address left behind -- its ON
+     * ERROR trap must not fire in the new one (initech-x5cc). */
+#ifndef PROC_MUTATE_KEEP_STALE
+    proc_state *ps = proc_state_for(ip);
+    if (!ps)
+        return -INTERP_ERR_NOMEM;
+    ps->source = (const char *)0;
+    ps->onerr[0] = '\0';
+    ps->has_onerr = 0;
+    ps->in_handler = 0;
+    ps->pending_nargs = 0;
+    ps->params_seen = 0;
+#endif
     return xb_interp_add_cmd_hook(ip, proc_cmd_hook, (void *)0);
 }
 

@@ -314,7 +314,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
     /* Step 1: open. */
     fd = pal->open(pal, name, pal_mode);
     if (fd < 0)
-        return -NDX_ERR_IO;
+        return fd == -PAL_ENOENT ? -NDX_ERR_NOENT : -NDX_ERR_IO;
 
     /* Step 2: file size. */
     fsize_raw = pal->seek(pal, fd, 0, PAL_SEEK_END);

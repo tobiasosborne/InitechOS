@@ -89,6 +89,17 @@ void wa_nav_reset(int area);
 int wa_nav_go_top(wa_env *env, int area);
 
 /* -----------------------------------------------------------------------
+ * wa_nav_index_top: the cursor placement of USE ... INDEX -- the first record
+ * in master-index order, by key alone (the raw GO TOP step, no filter/DELETED
+ * visibility pass; a fresh USE has no filter, and natural-order USE likewise
+ * sits on record 1 whatever DELETED says). Natural order: record 1.
+ * Returns NAV_OK or -(nav_err).
+ *
+ * Ref: mint 005 M005U [U1]/[U4]/[U5] (dbase3-decomp/re/mint-results-005.md).
+ * ----------------------------------------------------------------------- */
+int wa_nav_index_top(wa_env *env, int area);
+
+/* -----------------------------------------------------------------------
  * GO BOTTOM: position at the last record in the active order.
  *
  *   Physical: recno nrec. Index: last key's recno.

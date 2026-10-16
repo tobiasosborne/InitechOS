@@ -113,7 +113,9 @@ typedef enum {
     NDX_ERR_NOROOM       = 12, /* split would require 3+ tree levels; corpus-open
                                 * (no minted golden for 3-level III+ split) --
                                 * fail loud (Law 1 / Rule 2) rather than guess. */
-    NDX_ERR_NOTFOUND     = 13  /* key+recno to delete not found in the index */
+    NDX_ERR_NOTFOUND     = 13, /* key+recno to delete not found in the index */
+    NDX_ERR_NOENT        = 14  /* typed PAL open failure: the .ndx does not exist
+                                * (USE ... INDEX NOSUCH is DBASE.MSG #1, mint 005) */
 } ndx_err;
 
 /* -----------------------------------------------------------------------

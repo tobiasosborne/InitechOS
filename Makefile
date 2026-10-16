@@ -3268,10 +3268,18 @@ test-samir-view: $(TEST_SAMIR_VIEW)
 	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
 	@$(TEST_SAMIR_VIEW)
 	@printf '>>> test-samir-view: green\n'
-test-samir-use: $(TEST_SAMIR_USE)
+# Mint 005 (initech-vfys/k7lc/5vmn): test-samir-use also replays the corpus
+# M005U/M005N.PRG and diffs the transcript against the SET ALTERNATE logs real
+# DBASE.EXE 1.1 wrote ($(DBASE3_DECOMP)/re/mint-results-005.md); use_mint005.md5
+# pins the programs, logs and inputs, checked before the replay.
+SAMIR_USE_MD5 := $(DBF_DIFF_DIR)/use_mint005.md5
+.PHONY: samir-use-goldens
+samir-use-goldens:
+	@cd "$(DBASE3_DECOMP)/mint/work" && md5sum -c --quiet "$(CURDIR)/$(SAMIR_USE_MD5)" || { printf '!!! samir-use-goldens FAIL: mint 005 files absent or changed under %s/mint/work\n' "$(DBASE3_DECOMP)"; exit 1; }
+test-samir-use: $(TEST_SAMIR_USE) samir-use-goldens
 	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
-	@$(TEST_SAMIR_USE) $(DBASE3_DECOMP)
-	@printf '>>> test-samir-use: green\n'
+	@$(TEST_SAMIR_USE) $(abspath $(DBASE3_DECOMP))
+	@printf '>>> test-samir-use: green (incl. mint 005 USE INDEX / NEXT n replays vs real dBASE III PLUS 1.1)\n'
 
 # REPORT FORM (initech-airx): REAL-dBASE differential. Every expected byte is
 # a file real DBASE.EXE 1.1 wrote under dosbox-x (mint session 004,
@@ -3315,13 +3323,17 @@ test-samir-input: $(TEST_SAMIR_INPUT)
 
 # Rule 6: implementation mutants must fail the named assertion, with a summary.
 SAMIR_VIEW_MUTS := $(BUILD)/test_samir_view_filter $(BUILD)/test_samir_view_deleted $(BUILD)/test_samir_view_marker
-SAMIR_USE_MUTS := $(BUILD)/test_samir_use_extension $(BUILD)/test_samir_use_error
+SAMIR_USE_MUTS := $(BUILD)/test_samir_use_extension $(BUILD)/test_samir_use_error \
+	$(BUILD)/test_samir_use_ndxext $(BUILD)/test_samir_use_indextop $(BUILD)/test_samir_use_nextpast \
+	$(BUILD)/test_samir_use_setstale $(BUILD)/test_samir_use_procstale
 SAMIR_INPUT_MUT := $(BUILD)/test_samir_input_mut
 $(SAMIR_VIEW_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
 	@case "$@" in *_filter) flag=SAMIR_MUTATE_FILTER_VIEW;; *_deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; *_marker) flag=SAMIR_MUTATE_DELETE_MARK;; esac; \
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 $(SAMIR_USE_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
-	@case "$@" in *_extension) flag=SAMIR_MUTATE_USE_EXTENSION;; *_error) flag=SAMIR_MUTATE_USE_ERROR;; esac; \
+	@case "$@" in *_extension) flag=SAMIR_MUTATE_USE_EXTENSION;; *_error) flag=SAMIR_MUTATE_USE_ERROR;; \
+	  *_ndxext) flag=SAMIR_MUTATE_USE_NDX_EXTENSION;; *_indextop) flag=SAMIR_MUTATE_USE_INDEX_TOP;; \
+	  *_nextpast) flag=SAMIR_MUTATE_NEXT_PAST;; *_setstale) flag=SET_MUTATE_KEEP_STALE;; *_procstale) flag=PROC_MUTATE_KEEP_STALE;; esac; \
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -D$$flag -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
 $(SAMIR_INPUT_MUT): $(DBF_DIFF_DIR)/test_samir_input.c $(SAMIR_DIR)/pal/line_input.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_MUTATE_STDIN_LINES -Iseed -I$(SAMIR_INC_DIR) -o $@ $<
@@ -3336,11 +3348,14 @@ test-samir-view-mutant: $(SAMIR_VIEW_MUTS)
 	  printf '>>> test-samir-view-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \
 	done
 	@printf '>>> test-samir-view-mutant: green\n'
-test-samir-use-mutant: $(SAMIR_USE_MUTS)
+test-samir-use-mutant: $(SAMIR_USE_MUTS) samir-use-goldens
 	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
-	@set -e; for kind in extension error; do \
-	  case $$kind in extension) reason='K09 short USE defaults to .DBF';; error) reason='K09 missing file is';; esac; \
-	  if $(BUILD)/test_samir_use_$$kind $(DBASE3_DECOMP) > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
+	@set -e; for kind in extension error ndxext indextop nextpast setstale procstale; do \
+	  case $$kind in extension) reason='K09 short USE defaults to .DBF';; error) reason='K09 missing file is';; \
+	    ndxext) reason='samir: 1 File does not exist.';; indextop) reason='samir: [U1] 1 CI10Buckman notEOF';; \
+	    nextpast) reason='samir: [N1] 32 notEOF';; setstale) reason='x5cc SET SAFETY does not leak';; \
+	    procstale) reason='x5cc ON ERROR trap does not leak';; esac; \
+	  if $(BUILD)/test_samir_use_$$kind $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
 	  grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-$$kind.log; \
 	  grep -Fq "$$reason" $(BUILD)/samir-audit/mut-$$kind.log; \
 	  printf '>>> test-samir-use-mutant: %s correctly RED (%s)\n' "$$kind" "$$reason"; \

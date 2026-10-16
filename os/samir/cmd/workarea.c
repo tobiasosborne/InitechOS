@@ -506,6 +506,11 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
                 rc = ndx_open(pal, idx->names[i], &ix);
             if (rc != NDX_OK) {
                 close_handles(wa);
+                /* A missing index is the same "File does not exist." (#1) as a
+                 * missing table: real III+ USE TRAVEL INDEX NOSUCH (mint 005
+                 * M005U, after [U6]). The ndx and dbf enums overlap, so
+                 * translate to the area-level missing-file code here. */
+                if (rc == -NDX_ERR_NOENT) return -DBF_ERR_NOENT;
                 return rc;             /* propagate the ndx error */
             }
             wa->idx[i] = ix;
@@ -1236,6 +1241,8 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     ip->ctx.dot_command = 0;
     ip->ctx.set_decimals = 2;
     ip->ctx.set_exact    = 0;
+    ip->ctx.set_century  = 0;          /* III+ default OFF (mint-results-003) */
+    ip->ctx.set_date_fmt = XB_DATE_AMERICAN;  /* III+ default (mint-results-003) */
     ip->ctx.scratch      = ip->scratch;
     ip->ctx.scratch_cap  = INTERP_SCRATCH_CAP;
     ip->ctx.scratch_used = 0u;
