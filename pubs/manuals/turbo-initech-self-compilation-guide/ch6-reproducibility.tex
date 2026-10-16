@@ -1,0 +1,50 @@
+% Chapter 6 -- Reproducible builds.  Sources (Law 1): ADR-0007 DEC-04
+% (insertion-ordered tables, no hashing; one label counter, never
+% re-derived; no timestamps, host paths or nondeterministic iteration),
+% DEC-06 (reproducibility is the precondition; test-seed-repro);
+% os/tps/CODEGEN.md s6; CLAUDE.md Rule 11.  Proved by test-seed-repro
+% (two scratch builds compared) and test-tps-gen-fpc (every corpus program
+% and tps.pas generated twice, compared byte for byte).
+\Gates{test-seed-repro, test-seed-repro-mutant, test-tps-gen-fpc, test-tps-gen-mutant, test-pubs-tps}
+\chapter{Reproducible builds}
+\ix{reproducibility}
+
+Every step of the bootstrap must give the same bytes from the same input,
+on any development system, at any time.  Without that, the comparison of
+$K_2$ and $K_3$ proves nothing.
+
+\section{The rules}
+Turbo Initech, the genesis compiler and the build that runs them keep these
+rules:
+
+\begin{itemize}
+\item \textbf{No date, time or place in any output.}  No compiler, assembly
+  file or program records when, where or on which machine it was made.
+\item \textbf{Tables in declaration order.}  Every table of the compiler is
+  an array kept in the order in which the declarations appear.  No table is
+  a hash table, whose order could depend on anything but the program.
+\item \textbf{One counter for labels.}  Every label takes its number from a
+  single counter that runs through the whole compilation; no second pass
+  computes label numbers again.
+\item \textbf{One output for one input.}  The compiler has no options and
+  no settings: its output depends only on the bytes of \file{TPSIN.PAS}.
+\end{itemize}
+
+\section{The checks}
+\ix{reproducibility, checks}
+The build checks the rules directly.  Procedure TIN-P-01 builds every test
+program of the genesis compiler twice, in two separate directories, and
+compares the assembly language, the objects and the linked programs.
+Procedure TIN-P-03 compiles every corpus program and the Turbo Initech
+source twice and compares the results, and its first lines report each
+program as \code{deterministic}.  Each of these checks is itself checked:
+a deliberately broken genesis compiler that varies its output, and a
+deliberately broken Turbo Initech that reuses label numbers, must each be
+caught by the build.
+
+\section{When a build is not reproducible}
+A difference between two builds of the same source is a defect, never a
+nuisance to be worked around.  Look first for a value that depends on the
+time, the directory, the order of files in a directory, or memory that
+was never set; then for a table read in an order that is not the order of
+the source.  Report the two differing files with the defect.

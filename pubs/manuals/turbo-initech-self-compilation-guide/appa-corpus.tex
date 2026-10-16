@@ -1,0 +1,58 @@
+% Appendix A -- The shared compiler corpus.  Source (Law 1): os/tps/
+% CORPUS.md s2 (the controlled register: stem, DOS name, family, coverage)
+% and the Makefile variable TPS_COMPILER_CORPUS (the order, shared by the
+% host and InitechDOS legs).  The table is checked against the shipped
+% corpus through the replayed run of TIN-P-03 (make test-compiler-os prints
+% one PASS line per program, in this order); a program added, removed or
+% renamed changes that run and turns test-pubs-tps red.
+\Gates{test-compiler, test-compiler-os, test-pubs-tps}
+\chapter{The shared compiler corpus}
+\ix{corpus}
+
+Every build of Turbo Initech must compile these seventeen programs, and the
+code it makes for each must print exactly what the code made by the Free
+Pascal compiler prints, which in turn must match the output worked out by
+hand for that program.  The programs are in \file{os/tps/fixtures/}; each
+has a sibling file \file{.golden} holding the expected output.  On
+InitechDOS they run under the names in the second column.
+
+\begin{BorTable}{The corpus}{p{39mm}p{17mm}p{40mm}}
+\Hd{Program} & \Hd{Name} & \Hd{What it exercises}\EndHd
+\code{gen\_tiny} & \file{CTINY} & loops, a branch, two value parameters, a
+  local\\
+\code{gen\_bool\_deep} & \file{CBOOL} & every relation, \rw{and}, \rw{or},
+  \rw{not}, precedence\\
+\code{gen\_control\_deep} & \file{CCTRL} & \rw{if}, \rw{while}, \rw{for} in
+  both directions, \rw{repeat}\\
+\code{gen\_char\_deep} & \file{CCHAR} & constants, characters, \std{ord}{Ord},
+  \std{chr}{Chr}\\
+\code{gen\_func\_shared} & \file{CFUNCS} & recursion, mutual recursion with
+  \rw{forward}, a \rw{var} swap\\
+\code{gen\_func\_deep} & \file{CFUNC} & locals, value and \rw{var}
+  parameters, aliasing\\
+\code{gen\_recursion\_depth} & \file{CDEPTH} & negative \rw{div} and \rw{mod},
+  thirteen recursive frames, complete evaluation\\
+\code{gen\_array\_shared} & \file{CARRAYS} & global and local arrays, bounds,
+  elements as \rw{var} arguments\\
+\code{gen\_array\_deep} & \file{CARRAY} & integer, Boolean and character
+  arrays; a local array\\
+\code{gen\_record\_shared} & \file{CRECS} & fields, record \rw{var}
+  parameters and copies, arrays of records\\
+\code{gen\_record\_deep} & \file{CRECORD} & record layout, local records,
+  nested references\\
+\code{gen\_local\_record\_array} & \file{CLRECORD} & a local array of
+  records with a negative lower bound\\
+\code{gen\_string\_shared} & \file{CSTRS} & concatenation, length, indexing,
+  comparison\\
+\code{gen\_string\_deep} & \file{CSTRING} & truncation, every comparison,
+  recursion with strings\\
+\code{gen\_string\_temporaries} & \file{CSTRTEMP} & four nested
+  temporary strings; doubled apostrophes\\
+\code{gen\_file\_shared} & \file{CFILES} & writing and reading back bytes and
+  blocks; a local file\\
+\code{gen\_fileio\_deep} & \file{CFILEIO} & the same file operations, written
+  independently\\
+\end{BorTable}
+
+The run of procedure TIN-P-03 in Chapter 4 reports each program in this
+order, first on the development system and then on InitechDOS.

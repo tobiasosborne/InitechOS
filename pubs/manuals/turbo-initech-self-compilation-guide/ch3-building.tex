@@ -1,0 +1,76 @@
+% Chapter 3 -- Building Turbo Initech and its programs on the development
+% system.  Sources (Law 1): the Makefile recipes of test-tps-lex-build
+% (INITECHC compiles os/tps/tps.pas; links bare and InitechDOS images;
+% TPS.COM; the BSS reserve and the 0x6f000 ceiling), test-tps-gen-fpc
+% (Free Pascal build of tps.pas; the corpus; self-generation twice; nasm
+% -f elf32, ld -m elf_i386 with seed/rt/seed.ld or seed_dos.ld, objcopy -O
+% binary), test-tps-gen-os (TPS.COM on InitechDOS).  The make runs printed
+% are replayed by test-pubs-tps; harness/pubs/tps_replay.sh runs the same
+% assemble/link commands for every program printed in the manuals.
+\Gates{test-tps-lex-build, test-tps-gen-fpc, test-tps-gen-build, test-tps-gen-os, test-pubs-tps}
+\chapter{Building Turbo Initech}
+\ix{building Turbo Initech}
+
+All the steps of this chapter run on the development system, from the
+directory that holds the InitechOS sources, with the \code{make} program
+and the targets named here.
+
+\section{The pieces}
+\begin{BorTable}{Sources and products}{p{36mm}p{62mm}}
+\Hd{Piece} & \Hd{What it is}\EndHd
+\file{seed/} & the C source of the genesis compiler \file{INITECHC}\\
+\file{os/tps/tps.pas} & the Pascal source of Turbo Initech, one file\\
+\file{seed/rt/} & the run-time library: the InitechDOS start object, the
+  stand-alone start object, the file object, and the two link maps\\
+\file{os/tps/fixtures/} & the corpus of test programs (Appendix A)\\
+\file{TPS.COM} & the Turbo Initech compiler for InitechDOS, made by
+  \file{INITECHC}: $K_1$\\
+\end{BorTable}
+
+\section{Making the first compiler}
+\ix{K1}
+\file{INITECHC} compiles \file{tps.pas} to assembly language, which is
+assembled and linked twice: once with the stand-alone start object, and
+once with the InitechDOS start object and the file object to make
+\file{TPS.COM}.  The build checks that the compiler's global variables stay
+within their reserve and that the whole image ends below 6F000h, the top of
+the InitechDOS program area:
+
+\MakeRun{tps-lex-build}
+
+\section{Compiling a program on the development system}
+\ix{assembling}
+\ix{linking}
+The development system also runs Turbo Initech itself, in a build made by
+the Free Pascal compiler from the same \file{tps.pas}; the InitechDOS
+compiler \file{TPS.COM} is checked to print the same output.  A program is
+compiled and made into a \file{.COM} file with these commands, which are
+the ones the build runs:
+
+\begin{BorTable}{From TPSIN.PAS to a .COM file}{p{20mm}p{78mm}}
+\Hd{Step} & \Hd{Command}\EndHd
+Compile & run Turbo Initech in the directory that holds
+  \file{TPSIN.PAS}\\
+Assemble & \code{nasm -f elf32 TPSOUT.S -o TPSOUT.o}\\
+Link & \texttt{ld -m elf\_i386 -T seed/rt/seed\_dos.ld -o PROG.ELF
+  build/seed\_rt\_dos.o build/seed\_fileio\_rt.o TPSOUT.o}\\
+Convert & \code{objcopy -O binary PROG.ELF PROG.COM}\\
+\end{BorTable}
+
+The InitechDOS start object must be first.  To test a program without
+InitechDOS, link it instead with \file{seed/rt/seed.ld} and the stand-alone
+start object \file{build/seed\_rt.o}; a program that uses files needs
+InitechDOS.  Every program printed in the Turbo Initech manuals is built
+with these commands, run, and compared with its printed output each time
+the manuals are checked.
+
+\section{Turbo Initech compiling its own source}
+\ix{self-generation}
+The build compiles every program of the corpus, and then the Turbo
+Initech source itself, twice each, and requires the two results to be the
+same bytes:
+
+\MakeRun{tps-gen-fpc}
+
+The last lines give the size of the assembly language Turbo Initech writes
+for its own source and show that the linked compiler ends below 6F000h.

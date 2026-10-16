@@ -125,6 +125,10 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             [ -f "$ex/$name.cmd" ] && [ -f "$ex/$name.txt" ] || red TRANSCRIPT-PAIR "$ex/$name" "needs $name.cmd and $name.txt"
             target=$(cat "$ex/$name.cmd")
             mkdir -p "$w"
+            # The first run brings every prerequisite up to date (their own
+            # build messages vary with what was stale); the second run is the
+            # one printed.
+            "$MAKE" --no-print-directory $target > "$w/make0.log" 2>&1 || true
             "$MAKE" --no-print-directory $target > "$w/make.log" 2>&1 || true
             grep -E '^(>>> |!!! |[a-z_]+_pass_rate=)' "$w/make.log" > "$w/make.txt" || true
             same TRANSCRIPT-DRIFT "$ex/$name.txt" "$w/make.txt"

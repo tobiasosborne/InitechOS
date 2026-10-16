@@ -1,0 +1,50 @@
+% Turbo Initech Self-Compilation Guide -- part 1077-0000-13 (PUB-REF-0001
+% Sec 12, DS row TIN-SCG).  Family F-BOR, the fourth book of the set in the
+% place of the Turbo Vision Guide; AN-12 for the genesis compiler's
+% switches, an AN-15-style acceptance procedure for the bootstrap and the
+% K2 == K3 certificate (CP-19).  Sources: ADR-0007 DEC-01, DEC-04, DEC-06,
+% DEC-07; PRD Sec 7; seed/initechc.c; the Makefile gates.  Every
+% development-system run printed is replayed (make), every switch
+% registered (KIND switch).  The certificate itself (make selfhost) and DDC
+% (make ddc) are M8 placeholders, so those procedures are DRAFT (D-14).
+% Bead initech-ipu5.12.
+\documentclass[borland]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+
+\ProductName{Turbo Initech}
+\ProductVersion{}
+\DocTitle{Self-Compilation Guide}
+\PartNumber{1077-0000-13}
+\FamilyName{Programming Family}
+\FamilyColor{FamilyProgramming}
+\Edition{First Edition (September 1992)}
+\EditionApplies{This edition applies to Turbo Initech and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1992}
+\Revision{R1}
+\PrintCode{A1-9/92}
+\Trademarks{Turbo Initech is a registered trademark of Initech Systems
+  Corporation.  InitechOS, InitechDOS and FLAIR are trademarks of Initech
+  Systems Corporation.  Intel, 80386 and 80486 are trademarks of Intel
+  Corporation.  All other product names are trademarks of their respective
+  holders.}
+\newcommand\term[1]{\textbf{#1}}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{introduction}
+\input{ch1-bootstrap}
+\input{ch2-initechc}
+\input{ch3-building}
+\input{ch4-acceptance}
+\input{ch5-ddc}
+\input{ch6-reproducibility}
+\appendix
+\input{appa-corpus}
+\printindex
+\FinishBook
+\end{document}

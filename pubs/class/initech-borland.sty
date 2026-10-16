@@ -30,6 +30,7 @@
 \usetikzlibrary{arrows.meta,shapes.misc}
 \RequirePackage{listings}
 \RequirePackage{tcolorbox}
+\RequirePackage{fvextra}
 \tcbuselibrary{skins,breakable}
 
 %% ---- folios and running feet (PG-16, PG-27) -------------------------------
@@ -244,10 +245,15 @@
 %% \Transcript-like development-system run (Self-Compilation Guide):
 %% examples/name.cmd holds one make target; examples/name.txt the lines of
 %% its output that begin with ">>> " or "!!! " or carry a pass rate.
+\newif\ifim@inproc
 \newcommand\MakeRun[1]{\immediate\write\im@tpsexamples{make|#1}%
-  {\par\addvspace{4pt}\noindent\hspace*{4mm}\ttfamily\fontsize{9}{12}\selectfont
+  {\par\addvspace{4pt}\noindent\ifim@inproc\else\hspace*{4mm}\fi\ttfamily\fontsize{9}{12}\selectfont
    \$ \textbf{make \input{examples/#1.cmd}}\par}%
-  \VerbatimInput[fontsize=\fontsize{8}{10.5},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.txt}}
+  \begingroup\def\im@mrsize{\fontsize{7.5}{9.5}}\ifim@inproc\def\im@mrmargin{0pt}%
+    \def\im@mrsize{\fontsize{6.8}{8.8}}\else
+    \setlength\linewidth{\imFullWidth}\def\im@mrmargin{-\imHang}\fi
+  \VerbatimInput[fontsize=\im@mrsize,xleftmargin=\im@mrmargin,formatcom=\ttfamily,
+    breaklines=true,breakanywhere=true,breaksymbolleft={},breakautoindent=false,breakindent=2em]{examples/#1.txt}\endgroup}
 
 %% ---- railroad diagrams (Sec 5.1 railroad dialect) -------------------------
 %% Drawn by harness/pubs/railroad.c from the printed grammar file; each
@@ -385,7 +391,8 @@
   fonttitle=\sffamily\bfseries\fontsize{9}{11}\selectfont, coltitle=black,
   colbacktitle=white, title={Procedure #1: #2}, attach boxed title to top left={xshift=4mm,yshift=-2.5mm},
   boxed title style={boxrule=0pt, colframe=white, sharp corners},
-  before upper={\setlength\parskip{4pt}\RaggedRight}}
-\newcommand\PField[1]{\par\noindent\makebox[30mm][l]{\sffamily\bfseries\fontsize{9}{11}\selectfont #1}\hangindent=30mm\ignorespaces}
+  before upper={\setlength\parskip{4pt}\RaggedRight\im@inproctrue},
+  grow to left by=\imHang}
+\newcommand\PField[1]{\par\noindent\makebox[33mm][l]{\sffamily\bfseries\fontsize{9}{11}\selectfont #1}\hangindent=33mm\ignorespaces}
 
 \endinput
