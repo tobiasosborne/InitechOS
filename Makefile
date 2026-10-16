@@ -31065,5 +31065,5 @@ include harness/diff/fat_diff/dosutil.mk
 # test-pubs-screens (emu gate).  See pubs/pubs.mk.
 # ---------------------------------------------------------------------------
 include pubs/pubs.mk
-TEST_UNIT_GATES += test-pubs-build test-pubs-honesty
+TEST_UNIT_GATES += test-pubs-build test-pubs test-pubs-mutant test-pubs-honesty
 TEST_EMU_GATES += test-pubs-screens

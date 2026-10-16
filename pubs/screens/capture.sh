@@ -2,7 +2,7 @@
 # capture.sh -- capture manual screen reproductions from the running OS.
 #
 # Bead initech-ipu5.5.  Every \screen in an Initech manual is real InitechDOS
-# output (CLAUDE.md Law 2; DESIGN-SYSTEM.md Sec 5 "screen captures from the
+# output (CLAUDE.md Law 2; PUB-REF-0001 NT-20..23 "screen captures from the
 # emulator"): this script boots the default COMMAND.COM image in QEMU through
 # the factory harness, types the keystrokes named in the manual's SCREENS file,
 # takes the QMP screendump once the named marker text is on the serial mirror,
@@ -45,9 +45,13 @@ done
 n=0
 while IFS='|' read -r name marker keys; do
     case $name in ''|'#'*) continue ;; esac
+    keyfile=$(dirname "$defs")/$name.keys
+    [ -f "$keyfile" ] || { printf '!!! test-pubs RED SCREEN-KEYS: %s missing\n' "$keyfile"; exit 1; }
+    [ -z "$keys" ] || { printf '!!! test-pubs RED SCREEN-KEYS: inline keys forbidden: %s\n' "$name"; exit 1; }
+    keys=$(cat "$keyfile")
     n=$((n + 1))
     work=$out/$name.img
-    cp "$img" "$work"
+    cp -f "$img" "$work"
     # An empty keystroke field captures the startup screen itself.
     if [ -n "$keys" ]; then
         tokens=$(sh "$here/keys.sh" "$keys")

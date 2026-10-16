@@ -1,4 +1,4 @@
-% InitechDOS Version 3.30 User's Guide -- part 1024-3300-12.
+% InitechDOS Version 3.30 User's Guide -- part 1024-3300-11.
 % Bead initech-ipu5.5: the specimen for the Initech Publications toolchain.
 % Plan: docs/packaging/INITECH-DOCUMENTATION-SET.md Sec 1 (the IBM DOS 3.30
 % "User's Guide": first-time setup and daily use, 64-96 pages finished).
@@ -7,19 +7,19 @@
 % shipped build (os/milton/command.c, ADR-0003, spec/); what is not yet
 % checked carries a visible \draft marker (D-14: gated behaviour only).
 % Screens are captured from the running OS: screens/SCREENS, `make pubs-screens`.
-\documentclass{initech-manual}
+\documentclass[ibm]{initech-manual}
 
 \ProductName{InitechDOS}
 \ProductVersion{Version 3.30}
 \DocTitle{User's Guide}
-\PartNumber{1024-3300-12}
+\PartNumber{1024-3300-11}
+\PrintCode{A1-3/92}
 \FamilyName{Systems Family}
 \FamilyColor{FamilySystems}
 \Edition{First Edition (March 1992)}
 \EditionApplies{This edition applies to Version 3.30 of InitechDOS and to all
   subsequent releases until otherwise indicated in new editions.}
 \CopyrightYears{1991, 1992}
-\PrintedIn{Germany}
 
 \begin{document}
 \FrontMatterFolios
@@ -32,4 +32,6 @@
 \input{appa-messages}
 \printindex
 \ReadersCommentForm
+\PadForColophon
+\input{colophon}
 \end{document}

@@ -98,7 +98,7 @@ Your screen now looks like Figure~\ref{fig:errors}.
 
 \Screen[rows=8, label=fig:errors]{screens/errors.txt}{Two kinds of mistake}
 
-\cmd{B:} and \cmd{DIRECTORY} are not commands that InitechDOS knows, so it
+\UnknownCommand{B:} and \UnknownCommand{DIRECTORY} are not commands that InitechDOS knows, so it
 answers \texttt{Bad command or file name}.  \cmd{TYPE} is a command, but it
 needs the name of a file to work on; \texttt{Required parameter missing}
 tells you that something is missing from the command line.
@@ -142,7 +142,7 @@ still free on the disk.
 \begin{TypeIn}
 DIR
 \end{TypeIn}
-\SeeAlso \cmd{CD}, \cmd{TYPE}
+\SeeAlso
 \end{CommandEntry}
 
 \section{Displaying a File}
@@ -170,7 +170,7 @@ will fill the screen with strange characters.
 \begin{TypeIn}
 TYPE A:\REPORTS\MEMO.TXT
 \end{TypeIn}
-\SeeAlso \cmd{DIR}, \cmd{COPY}
+\SeeAlso
 \end{CommandEntry}
 
 \section{Copying a File}
@@ -202,7 +202,7 @@ copied onto itself} and copies nothing.
 \Remarks \ph{source} is the file to copy.  \ph{target} is the name of the
   copy, or a directory; if it is a directory, the copy keeps the name of the
   source file.  Either may include a drive and path.  Wildcards are not
-  allowed in this version.  The device name \cmd{CON} may be used as the
+  allowed in this version.  The device name \file{CON} may be used as the
   source to type a new file at the keyboard: end it with \key{Ctrl-Z} and
   \key{Enter}.
 \Examples To copy \file{MEMO.TXT} into the directory \file{REPORTS}:
@@ -213,7 +213,7 @@ To create the file \file{NOTE.TXT} from the keyboard:
 \begin{TypeIn}
 COPY CON NOTE.TXT
 \end{TypeIn}
-\SeeAlso \cmd{DEL}, \cmd{TYPE}
+\SeeAlso
 \end{CommandEntry}
 
 \section{Deleting Files}
@@ -249,7 +249,7 @@ name before you press \key{Enter}.
 \begin{TypeIn}
 DEL *.BAK
 \end{TypeIn}
-\SeeAlso \cmd{COPY}, \cmd{RD}
+\SeeAlso
 \end{CommandEntry}
 
 \section{Working with Directories}

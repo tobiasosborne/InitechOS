@@ -144,11 +144,11 @@ extension.\index{device names}
 \par\medskip
 \begin{tabular}{@{}l@{\quad}p{80mm}@{}}
 {\imSideHeadFont Name} & {\imSideHeadFont Device}\\[2pt]
-\cmd{CON}    & The console: the keyboard for input, the display for output\\
-\cmd{PRN}    & The printer\\
-\cmd{AUX}    & The auxiliary (serial) port\\
-\cmd{CLOCK\$} & The system clock\\
-\cmd{NUL}    & A device that discards whatever is written to it\\
+\file{CON}    & The console: the keyboard for input, the display for output\\
+\file{PRN}    & The printer\\
+\file{AUX}    & The auxiliary (serial) port\\
+\file{CLOCK\$} & The system clock\\
+\file{NUL}    & A device that discards whatever is written to it\\
 \end{tabular}
 \index{CON@\texttt{CON}}\index{PRN@\texttt{PRN}}\index{AUX@\texttt{AUX}}%
 \index{NUL@\texttt{NUL}}
@@ -212,7 +212,7 @@ a program or batch file on disk; these are called \emph{external
 commands}\index{external commands}.  The command processor looks for a file
 with that name and the extension \file{.COM}, \file{.EXE} or \file{.BAT}, in
 that order, first in the current directory and then in each directory
-listed in the \cmd{PATH} environment variable.  If it finds none, it
+listed in the \file{PATH} environment variable.  If it finds none, it
 displays:
 \begin{TypeIn}
 Bad command or file name

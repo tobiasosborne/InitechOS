@@ -7,15 +7,19 @@
 %%
 %%   \Screen[rows=N, label=key]{file}{caption}
 %%
-%% The frame is always 80 columns wide and spans the full 140 mm measure
-%% (Courier at 8 pt sets 80 columns in 135.5 mm).  rows=N prints only the top
+%% The text is 80 columns wide in the 142 mm full-block figure measure.
+%% Cursor is 7.5/8.5 (NT-21). rows=N prints only the top
 %% N rows, as period manuals printed partial screens; the rows left out must be
 %% blank, so cropping can never hide output.  Caption below in 8 pt Helvetica
-%% (DESIGN-SYSTEM.md Sec 5 "Figures").
+%% (PUB-REF-0001 NT-20..23).
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{initech-screen}[1992/03/01 Initech screen reproductions]
 
-\newcommand\imScreenFont{\ttfamily\fontsize{8}{9.5}\selectfont}
+\newcommand\imScreenFont{\ttfamily\fontsize{7.5}{8.5}\selectfont}
+\newcommand\im@screenframe[1]{\im@ifmodel{ibm}{#1}{\fbox{#1}}}
+\newwrite\im@screens
+\AtBeginDocument{\immediate\openout\im@screens=\jobname.screens}
+\AtEndDocument{\immediate\closeout\im@screens}
 
 \directlua{
 initech_screen = {}
@@ -80,6 +84,7 @@ end
 \NewDocumentCommand \Screen { O{} m m }
   {
     \group_begin:
+    \immediate\write\im@screens{#2}
     \keys_set:nn { initech / screen } { #1 }
     \int_compare:nNnT { \l__initech_screen_rows_int } < { 1 }
       { \PackageError{initech-screen}{rows~must~be~1..25}{} }
@@ -90,7 +95,7 @@ end
     \begin{minipage}[t]{\imFullWidth}
       \centering
       \setlength\fboxrule{0.5pt}\setlength\fboxsep{2mm}
-      \fbox{\vbox{\imScreenFont\spaceskip=0.6em\xspaceskip=0.6em
+      \im@screenframe{\vbox{\imScreenFont\spaceskip=0.6em\xspaceskip=0.6em
         \directlua{initech_screen.typeset("\luaescapestring{#2}",
           \int_use:N \l__initech_screen_rows_int)}}}
       \par\vspace{4pt}

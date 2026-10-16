@@ -3,9 +3,9 @@
 # Regenerate with `make pubs-screens`; `make test-pubs-screens` re-captures
 # and diffs against the committed .txt files.
 startup|SHELL-READY|
-dir|bytes free|CLS\nDIR\n
-type|Copies of the cover sheet|CLS\nTYPE MEMO.TXT\n
-copy|bytes free|CLS\nCOPY MEMO.TXT MEMO.BAK\nDIR\n
-del|File not found|COPY MEMO.TXT MEMO.BAK\nCLS\nDEL MEMO.BAK\nTYPE MEMO.BAK\n
-errors|Required parameter missing|CLS\nB:\nDIRECTORY\nTYPE\n
-paths|bytes free|CLS\nMD REPORTS\nCOPY MEMO.TXT REPORTS\nCD REPORTS\nDIR\n
+dir|bytes free|
+type|Copies of the cover sheet|
+copy|bytes free|
+del|File not found|
+errors|Required parameter missing|
+paths|bytes free|

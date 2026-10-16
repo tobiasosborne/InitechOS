@@ -1,0 +1,28 @@
+# PUB-REF-0001 GC-06, VO-17/18. Case-insensitive words or literal phrases.
+http://
+https://
+www.
+Internet
+web
+click here
+app
+download
+e-mail
+email
+joke
+easter egg
+canon
+intentional
+film
+movie
+QEMU
+LuaLaTeX
+TeX Live
+GitHub
+ChatGPT
+OpenAI
+Windows 95
+Windows 98
+Windows XP
+macOS
+smartphone

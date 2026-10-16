@@ -2,7 +2,7 @@
 %% step lists and DRAFT markers for initech-manual.cls (bead initech-ipu5.5).
 %% Conventions modelled on the period originals (ORIGINALS-PHYSICAL-SURVEY.md):
 %% IBM command entries (purpose / format / remarks / examples), Lotus run-in
-%% NOTE and CAUTION labels and key names ("HELP (F1)"); DESIGN-SYSTEM.md Sec 4:
+%% NOTE and CAUTION labels and key names ("HELP (F1)"); PUB-REF-0001 Sec 4/5:
 %% italics only for document titles and placeholders, no italic emphasis in
 %% procedures.  ASCII only (Rule 12).
 \NeedsTeXFormat{LaTeX2e}
@@ -12,7 +12,11 @@
 
 %% ---- inline names ---------------------------------------------------------
 %% Command, file and device names: Courier, never hyphenated (Sec 4).
-\newcommand\cmd[1]{\mbox{\texttt{#1}}}
+\newwrite\im@mentions
+\AtBeginDocument{\immediate\openout\im@mentions=\jobname.mentions}
+\AtEndDocument{\immediate\closeout\im@mentions}
+\newcommand\cmd[1]{\immediate\write\im@mentions{#1}\mbox{\texttt{#1}}}
+\newcommand\UnknownCommand[1]{\mbox{\texttt{#1}}}
 \newcommand\file[1]{\mbox{\texttt{#1}}}
 %% What the reader types, in running text: Courier Bold.
 \newcommand\type[1]{\mbox{\texttt{\bfseries #1}}}
@@ -30,9 +34,23 @@
 \newcommand\SyntaxLine[1]{\par
   {\noindent\imTypeFont\RaggedRight\hangindent=2em #1\par}}
 
-%% ---- key names: Helvetica Bold caps at 80% (Sec 4; Lotus convention) -------
-\newcommand\key[1]{\mbox{\sffamily\bfseries\fontsize{0.8\dimexpr\f@size pt\relax}{0}\selectfont
-  \MakeUppercase{#1}}}
+%% ---- key names: body small capitals (TY-10 / NT-10) ------------------------
+\newcommand\key[1]{\mbox{\normalfont\scshape\MakeLowercase{#1}}}
+%% GC-01: a separate machine-readable reference-entry index, never inferred
+%% from prose or the typographical index. Function entries use INT21:xx.
+\newwrite\im@commands
+\AtBeginDocument{\immediate\openout\im@commands=\jobname.commands}
+\AtEndDocument{\immediate\closeout\im@commands}
+\newcommand\RegisterCommand[1]{\immediate\write\im@commands{#1}}
+\newcommand\FunctionEntry[1]{\RegisterCommand{INT21:#1}\SideHead{#1H}}
+%% The expected file is what is printed; the replay gate compares SAMIR
+%% output to these same bytes. A .prg is always required beside it.
+\newwrite\im@replays
+\AtBeginDocument{\immediate\openout\im@replays=\jobname.replays}
+\AtEndDocument{\immediate\closeout\im@replays}
+\NewDocumentEnvironment{Transcript}{m}{%
+  \immediate\write\im@replays{#1}%
+  \VerbatimInput[fontsize=\small,xleftmargin=4mm]{#1.txt}}{}
 
 %% ---- typed examples and verbatim text -------------------------------------
 \DefineVerbatimEnvironment{TypeIn}{Verbatim}
@@ -59,7 +77,10 @@
 %% lines, read by make test-pubs-build), and is a hard error under the
 %% class option `final`.
 \newcounter{im@drafts}
+\newcommand\imMarkDraft[1]{\expandafter\gdef\csname im@draft@#1\endcsname{1}}
 \newcommand\draft[1]{%
+  \gdef\im@draftfoot{DRAFT -- NOT FOR RELEASE}%
+  \protected@write\@auxout{}{\string\imMarkDraft{\thechapter}}%
   \stepcounter{im@drafts}%
   \ifim@final
     \PackageError{initech-syntax}{DRAFT marker in a final build: #1}{Verify the
@@ -89,23 +110,35 @@
       order (the fixed order is Purpose, Syntax, Remarks, Examples, See Also)}{}%
   \fi
   \stepcounter{im@entrystage}%
-  \SideHead{#2}}
+  \im@ifmodel{ibm}{\ifnum#1=4\relax\else\SideHead{#2:}\fi}{\SideHead{#2}}}
 \newenvironment{CommandEntry}[2]
-  {\gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
+  {\im@ifmodel{ibm}{\clearpage}{}%
+   \global\im@entryactivetrue\global\im@entrypage=\value{page}%
+   \RegisterCommand{#1}\gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
+   \im@ifmodel{ashtontate}{\DictionaryHeads}{}%
    \par\addvspace{19.5pt}\goodbreak
+   \im@ifmodel{ibm}{%
+     \noindent\hspace*{-\imHang}\makebox[\imFullWidth][l]{\sffamily\bfseries\fontsize{18}{20}\selectfont #1}\par\nobreak
+     \noindent\hspace*{-\imHang}{\sffamily\bfseries\fontsize{18}{20}\selectfont Command}\par\nobreak
+     \noindent\hspace*{-\imHang}\rule{\imFullWidth}{1pt}\par\nobreak}{%
    \noindent\hspace*{-\imHang}\makebox[\imFullWidth][l]{\imHeadOneFont #1%
      \hfill{\imSideHeadFont (#2)}}\par\nobreak\vspace{1pt}%
-   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
-   \index{#1 command}%
+   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak}%
+   \index{#1 command}\markboth{#1}{#1}%
    \def\Purpose{\im@stage{0}{Purpose}}%
-   \def\Syntax{\im@stage{1}{Syntax}}%
-   \def\Remarks{\im@stage{2}{Remarks}}%
-   \def\Examples{\im@stage{3}{Examples}}%
+   \def\Syntax{\im@ifmodel{ibm}{\im@stage{1}{Format}}{\im@stage{1}{Syntax}}}%
+   \def\Remarks{\im@ifmodel{ibm}{\par\addvspace{12pt}\noindent
+     \llap{\parbox[t]{\imSideCol}{\imSideHeadFont Type:}\hspace{\imSideGap}}%
+     \def\im@entrytype{#2}\def\im@internal{Internal}%
+     \begin{tabular}[t]{@{}ll}Internal & External\\
+       \ifx\im@entrytype\im@internal *** & \else & ***\fi
+     \end{tabular}\par}{}\im@stage{2}{Remarks}}%
+   \def\Examples{\im@ifmodel{ibm}{\im@stage{3}{Example}}{\im@stage{3}{Examples}}}%
    \def\SeeAlso{\im@stage{4}{See Also}}}
   {\ifnum\value{im@entrystage}=5\relax\else
      \PackageError{initech-syntax}{Command entry \im@entryname: \arabic{im@entrystage}
        of the five fixed sub-headings present}{}%
-   \fi\par}
+   \fi\par\im@ifmodel{ibm}{\clearpage}{}\global\im@entryactivefalse}
 
 %% ---- message lists (generated from spec/dos_messages.json) -------------------
 %% \MessageEntry{MSG-DOS-0003}{File not found}: the text exactly as displayed,
