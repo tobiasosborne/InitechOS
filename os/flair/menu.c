@@ -67,6 +67,72 @@
  * titles measurably (the oracle catches a wrong x). */
 #define FLAIR_MENU_MUTANT_FIXED_W   48
 
+/* R3.6, initech-tdnl.13. Ref: GUI-remediation-plan R3.6; PRD Sec 6.3/6.4;
+ * system7-decomp s8_desktop_menubar.png "12:56 am" and s8_menu_dropped.png
+ * "1:00 am". Clock format is twelve-hour, lowercase suffix, no hour padding.
+ * Chicago12 is the PRD's system-font substitution. Only the shell's explicitly
+ * bound bar has a clock; tenant MenuBars and their shared ABI stay unchanged. */
+static const MenuBar *clock_bar;
+static char clock_text[9];
+static unsigned clock_minute;
+
+int MenuClock_format(unsigned hour, unsigned minute, char out[9])
+{
+    if (!out || hour > 23 || minute > 59) return 0;
+    unsigned h = hour % 12;
+    if (!h) h = 12;
+#ifdef CLOCK_WRONG_HOUR
+    h = hour;                 /* Rule 6: incorrect twenty-four-hour display */
+#endif
+    int i = 0;
+    if (h >= 10) out[i++] = (char)('0' + h / 10);
+    out[i++] = (char)('0' + h % 10);
+    out[i++] = ':';
+    out[i++] = (char)('0' + minute / 10);
+    out[i++] = (char)('0' + minute % 10);
+    out[i++] = ' ';
+    out[i++] = hour < 12 ? 'a' : 'p';
+    out[i++] = 'm';
+    out[i] = 0;
+    return 1;
+}
+
+int MenuClock_set(unsigned hour, unsigned minute)
+{
+    if (hour > 23 || minute > 59) return 0;
+    unsigned key = hour * 60 + minute;
+    if (clock_text[0] && key == clock_minute) return 0;
+#ifdef CLOCK_STUCK
+    if (clock_text[0]) return 0; /* Rule 6: never refresh the initial minute */
+#endif
+    clock_minute = key;
+    return MenuClock_format(hour, minute, clock_text);
+}
+
+const char *MenuClock_text(void) { return clock_text; }
+void MenuClock_attach(const MenuBar *bar) { clock_bar = bar; }
+
+void MenuClock_draw(GrafPort *port, const region_t *clip)
+{
+    if (!port || !clock_text[0]) return;
+    const bitmap_t *bm = &port->portBits.bm;
+    uint32_t face = flair_look_pixel(port, FLAIR_PART_MENU_BAR_FACE);
+    uint32_t ink = flair_look_pixel(port, FLAIR_PART_TEXT);
+    /* Capture: clock's last ink column592 on a640px bar, cap rows5..13.
+     * Chicago 'm' advance12/bearing1/ink10 leaves two cells after last ink:
+     * exclusive cell end594. Erase the full reserved interval before drawing
+     * so a shorter hour (12->1) cannot leave old digits behind. The bar's
+     * highlight, shadow and baseline are outside this face-only overlay. */
+    int right = (int)bm->width - 46;
+    rgn_rect_t area = { 1, (int16_t)((int)bm->width - 120),
+                       18, (int16_t)((int)bm->width - 40) };
+    blitter_fill_rect_clipped(bm, area, face, clip);
+    text_clip_t tk = { clip, 0, 0, 0, 0, 0 };
+    (void)text_draw_run(bm, right - text_measure(FONT_CHICAGO, clock_text),
+                        FLAIR_MENU_TITLE_VPAD, clock_text, FONT_CHICAGO, 0,
+                        ink, face, &tk);
+}
+
 /* --------------------------------------------------------------------------
  * Internal: the proportional width of one title slot (PAD + text + PAD).
  *
@@ -607,6 +673,7 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
                             bar->menus[k].title, FONT_CHICAGO, 0u, title_fg,
                             title_bg, &tk);
     }
+    if (bar == clock_bar) MenuClock_draw(port, clip);
 }
 
 void HiliteMenu(GrafPort *port, const MenuBar *bar, int mi,

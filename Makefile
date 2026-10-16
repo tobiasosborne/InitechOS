@@ -22972,6 +22972,15 @@ RECORD_MARKER_trash_purge_views = FINDER-TRASH-VIEW-CLOSED win=3
 RECORD_IMAGE_trash_purge_views  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_trash_purge_views   = $(FLAIR_PURGE_VIEWS_DATA)
 RECORD_SETTLE_trash_purge_views = 500
+# R3.6 (tdnl.13): PM records on main. Defined BEFORE record-flair because
+# RECORD_IMAGE is a parse-time prerequisite. Reuse the harness RTC switches.
+RECORD_SCRIPTS += menubar_clock
+RECORD_SPEC_menubar_clock = $(FLAIR_MENUBAR_CLOCK_SPEC)
+RECORD_MARKER_menubar_clock = FLAIR-CLOCK 12:56 am
+RECORD_IMAGE_menubar_clock = $(BUILD)/flair_tenants_mut_menubar_clock_gate.img
+RECORD_DATA_menubar_clock = $(FLAIR_DATA_IMG)
+RECORD_RTC_BASE_menubar_clock = 1980-01-01T00:55:55
+RECORD_SETTLE_menubar_clock = 200
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -22984,6 +22993,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
+		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic) \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
@@ -30936,3 +30946,69 @@ include harness/diff/fat_diff/chkdsk.mk
 include harness/fixture_volumes.mk
 
 TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
+
+# R3.6 (initech-tdnl.13): host oracle first, independent historical references.
+MENUBAR_CLOCK_PNG = $(SYSTEM7_DECOMP)/goldens/captures/s8_desktop_menubar.png
+MENUBAR_CLOCK_NFNT = $(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin
+MENUBAR_CLOCK_ORACLE := harness/menubar_clock_oracle.c harness/menubar_clock_oracle.h
+$(BUILD)/test_menubar_clock: harness/proptest/test_menubar_clock.c $(MENUBAR_CLOCK_ORACLE) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -Iharness -o $@ $< harness/menubar_clock_oracle.c $(MENU_LINK) -lpng
+$(BUILD)/test_menubar_clock_mut_%: harness/proptest/test_menubar_clock.c $(MENUBAR_CLOCK_ORACLE) $(TEST_MENU_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -Iharness -D$* -o $@ $< harness/menubar_clock_oracle.c $(MENU_LINK) -lpng
+.PHONY: test-menubar-clock test-menubar-clock-mutant
+test-menubar-clock: $(BUILD)/test_menubar_clock
+	@$< "$(MENUBAR_CLOCK_PNG)" "$(MENUBAR_CLOCK_NFNT)"
+	@printf '>>> test-menubar-clock: green (1440 readings, minute transitions, independent Chicago NFNT + Mac OS 8 bar)\n'
+test-menubar-clock-mutant: $(BUILD)/test_menubar_clock_mut_CLOCK_WRONG_HOUR $(BUILD)/test_menubar_clock_mut_CLOCK_STUCK
+	@for m in CLOCK_WRONG_HOUR CLOCK_STUCK; do \
+	 if $(BUILD)/test_menubar_clock_mut_$$m "$(MENUBAR_CLOCK_PNG)" "$(MENUBAR_CLOCK_NFNT)" > $(BUILD)/menubar_clock_$$m.log 2>&1; then printf 'FAIL clock mutant %s survived\n' "$$m"; exit 1; fi; \
+	 case "$$m" in CLOCK_WRONG_HOUR) leg=MC1;; CLOCK_STUCK) leg=MC4;; esac; \
+	 grep -q "FAIL.*$$leg" $(BUILD)/menubar_clock_$$m.log || { cat $(BUILD)/menubar_clock_$$m.log; exit 1; }; \
+	 printf '>>> test-menubar-clock-mutant: %s correctly RED: %s\n' "$$m" "$$(grep -m1 "FAIL.*$$leg" $(BUILD)/menubar_clock_$$m.log)"; done
+	@printf '>>> test-menubar-clock-mutant: green (both named regressions rejected)\n'
+TEST_UNIT_GATES += test-menubar-clock test-menubar-clock-mutant
+
+include spec/flair_menubar_clock_traces.mk
+MENUBAR_CLOCK_CHECK := $(BUILD)/ppm_flair_menubar_clock_check
+$(MENUBAR_CLOCK_CHECK): tools/ppm_flair_menubar_clock_check.c $(MENUBAR_CLOCK_ORACLE) | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness -o $@ $< harness/menubar_clock_oracle.c -lpng
+# Longer lifetime is a gate/clip fixture only; flagship remains250 ticks.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1200,menubar_clock_gate))
+define menubar-clock-boot
+@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(1)_data.img
+@$(call fixture-check,harness,$(BUILD)/$(1)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG)))
+INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
+ --mouse "$(FLAIR_MENUBAR_CLOCK_SPEC)" --keys-after FLAIR-LIVE-READY \
+ --rtc-base 1980-01-01T00:55:55 --rtc-deterministic \
+ --screendump --screendump-after FLAIR-LIVE-OK --quit-after FLAIR-LIVE-OK \
+ --timeout-ms 30000 2> $(BUILD)/$(1).report
+@! grep -q 'triple_fault=1' $(BUILD)/$(1).report
+@grep -qx FLAIR-FAT-MOUNT-OK $(BUILD)/$(1).serial
+@grep -qx FLAIR-LIVE-OK $(BUILD)/$(1).serial
+@! grep -q '^PANIC' $(BUILD)/$(1).serial
+endef
+.PHONY: test-flair-menubar-clock test-flair-menubar-clock-mutant
+test-flair-menubar-clock: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menubar_clock_gate.img $(FLAIR_DATA_IMG) $(MENUBAR_CLOCK_CHECK)
+	$(call menubar-clock-boot,menubar_clock,$(BUILD)/flair_tenants_mut_menubar_clock_gate.img)
+	@$(MENUBAR_CLOCK_CHECK) $(BUILD)/menubar_clock.ppm "$(MENUBAR_CLOCK_PNG)" "$(MENUBAR_CLOCK_NFNT)"
+	@grep -qx 'FLAIR-CLOCK 12:55 am' $(BUILD)/menubar_clock.serial
+	@grep -qx 'FLAIR-CLOCK 12:56 am' $(BUILD)/menubar_clock.serial
+	@test "$$(grep -c '^FLAIR-CLOCK ' $(BUILD)/menubar_clock.serial)" -eq 2
+	@printf '>>> test-flair-menubar-clock: green (pinned RTC crossed a minute, exactly two paints, independent1600-pixel golden)\n'
+$(BUILD)/menu_mut_clock_%.o: os/flair/menu.c $(TEST_MENU_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -D$* -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/menu_mut_clock_CLOCK_WRONG_HOUR.o $(BUILD)/kmain_flairtenants_mut_menubar_clock_gate.o,clock_wrong_hour))
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/menu_mut_clock_CLOCK_STUCK.o $(BUILD)/kmain_flairtenants_mut_menubar_clock_gate.o,clock_stuck))
+define menubar-clock-mutant
+$(call menubar-clock-boot,menubar_clock_$(1),$(BUILD)/flair_tenants_mut_clock_$(1).img)
+@if $(MENUBAR_CLOCK_CHECK) $(BUILD)/menubar_clock_$(1).ppm "$(MENUBAR_CLOCK_PNG)" "$(MENUBAR_CLOCK_NFNT)" > $(BUILD)/menubar_clock_$(1).pixels 2>&1; then printf 'FAIL $(2) survived clock pixel gate\n'; exit 1; fi
+@grep -q 'FAIL clock MC5 pixel' $(BUILD)/menubar_clock_$(1).pixels || { cat $(BUILD)/menubar_clock_$(1).pixels; exit 1; }
+@printf '>>> test-flair-menubar-clock-mutant: $(2) correctly RED: %s\n' "$$(head -1 $(BUILD)/menubar_clock_$(1).pixels)"
+endef
+test-flair-menubar-clock-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_clock_wrong_hour.img $(BUILD)/flair_tenants_mut_clock_stuck.img $(FLAIR_DATA_IMG) $(MENUBAR_CLOCK_CHECK)
+	$(call menubar-clock-mutant,wrong_hour,CLOCK_WRONG_HOUR)
+	$(call menubar-clock-mutant,stuck,CLOCK_STUCK)
+	@grep -qx 'FLAIR-CLOCK 12:55 am' $(BUILD)/menubar_clock_stuck.serial
+	@printf '>>> test-flair-menubar-clock-mutant: green (wrong-hour and stale-minute regressions rejected)\n'
+TEST_EMU_GATES += test-flair-menubar-clock test-flair-menubar-clock-mutant

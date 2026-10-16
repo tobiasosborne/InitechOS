@@ -89,6 +89,17 @@
  * "Edit" ink rows 5..13; initech-tdnl.33). */
 #define FLAIR_MENU_TITLE_VPAD    ((FLAIR_MENUBAR_H - 16) / 2)
 
+/* R3.6 shell-owned clock (PRD Sec 6.3; GUI-remediation-plan R3.6).
+ * Mac OS 8 captures s8_desktop_menubar / s8_menu_dropped show "12:56 am"
+ * and "1:00 am". Hour has no zero padding; minutes have two digits.
+ * The caller supplies INT 21h AH=2Ch's binary CH/CL. Set returns 1 only
+ * when the displayed minute changes. Draw overlays ONLY the top shell bar;
+ * ordinary DrawMenuBar / tenant bars do not acquire a second clock. */
+int MenuClock_format(unsigned hour, unsigned minute, char out[9]);
+int MenuClock_set(unsigned hour, unsigned minute);
+const char *MenuClock_text(void);
+void MenuClock_draw(GrafPort *port, const region_t *clip);
+
 /* ===========================================================================
  * 2. PULL-DOWN PANEL LAYOUT CONSTANTS
  * ---------------------------------------------------------------------------
@@ -165,6 +176,10 @@ typedef struct MenuBar {
     uint16_t   n_menus;     /* number of live menus                            */
     uint8_t    has_apple;   /* 1 == draw the Apple-menu glyph slot at the left  */
 } MenuBar;
+
+/* Bind the shell's top bar so every ordinary menu redraw retains its clock.
+ * NULL detaches. No MenuBar ABI/layout change (disk tenants share that ABI). */
+void MenuClock_attach(const MenuBar *bar);
 
 /* ===========================================================================
  * 4. RESULT WORD HELPERS  (ADR-0004 D-3: result == menuID<<16 | item)

@@ -5830,6 +5830,15 @@ void kernel_main(void)
          * every click-driven switch runs, and that needs this port. */
         g_ten_barport = &ten_barport;
 
+        /* R3.6 (tdnl.13): the top shell bar alone owns the RTC clock.
+         * DrawMenuBar retains it through menu tracking and scene restores.
+         * Poll through the EXISTING AH=2Ch dispatcher/clock seam (int21.h),
+         * never directly through CMOS. PIT100Hz bounds reads to once a second;
+         * MenuClock_set repaints only when CH/CL's displayed minute changes. */
+        MenuClock_attach(&ctx.scene->bar_sys);
+        uint32_t clock_last_poll = 0;
+        int clock_polled = 0;
+
 #ifdef FLAIR_LIVE_INTERACTIVE
         for (;;) {
 #else
@@ -5841,6 +5850,22 @@ void kernel_main(void)
             flair_live_cursor_track(&ev);
 
             uint32_t now = flair_tick_count();
+            if (!clock_polled || now - clock_last_poll >= 100u) {
+                clock_polled = 1;
+                clock_last_poll = now;
+                int_frame_t time = { 0 };
+                time.eax = 0x2C00u;
+                int21_dispatch(&time);
+                if (MenuClock_set((time.ecx >> 8) & 255u, time.ecx & 255u)) {
+                    GrafPort clock_port = ten_barport;
+                    clock_port.portBits.bm = ctx.off; /* whole offscreen: band1 */
+                    MenuClock_draw(&clock_port, (const region_t *)0);
+                    flair_desktop_present(&b, &ctx.off);
+                    serial_puts("FLAIR-CLOCK ");
+                    serial_puts(MenuClock_text());
+                    serial_putc('\n');
+                }
+            }
             if (now != last) {
                 last = now;
                 seen++;
