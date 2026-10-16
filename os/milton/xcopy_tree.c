@@ -243,7 +243,9 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
         if (!n) break;
         if (call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf) != n) { error=5; break; }
     }
-    /* Preserve modification date/time, not the host clock or the run date. */
+    /* Source date/time survives the last WRITE and CLOSE (initech-qqrz).
+     * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
+     * IBM DOS 3.30 Tech Ref p.6-208 (PDF331), AH=57h CX=time, DX=date. */
     du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
 #ifdef DU_MUT_TIME
     r.c=0; r.d=0;

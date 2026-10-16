@@ -13,7 +13,7 @@
 
 /* -no-pie keeps these DOS flat pointers below 4 GiB on the hosted build. */
 static psp_t process;
-static char path[128], data[8] = "stamp\r\n";
+static char path[128], data[2048] = "stamp\r\n";
 static int later;
 static int clock_get(uint16_t *y, uint8_t *mo, uint8_t *d, uint8_t *h,
                      uint8_t *mi, uint8_t *s, uint8_t *dow)
@@ -27,7 +27,10 @@ static unsigned call(unsigned ax, unsigned bx, unsigned cx, const char *name)
 {
     int_frame_t f;
     memset(&f, 0, sizeof f);
-    if (name) snprintf(path, sizeof path, "%s", name);
+    if (name) {
+        snprintf(path, sizeof path, "%s", name);
+        for (char *p=path; *p; p++) if (*p=='/') *p='\\';
+    }
     f.eax = ax; f.ebx = bx; f.ecx = cx;
     f.edx = (uint32_t)(uintptr_t)(ax == 0x4000 ? data : path);
     int21_dispatch(&f);
@@ -62,6 +65,35 @@ static dir_entry_t entry(const char *image, const char *name)
     blockdev_file_close(&disk);
     return result;
 }
+/* AH=57h oracle: IBM DOS 3.30 Tech Ref p.6-208 (PDF331). A live,
+ * different clock makes WRITE stamp the destination before SET restores it.
+ * The shell's actual syscall sequence is graded separately in QEMU. */
+static void copy_file(const char *source, const char *target)
+{
+    unsigned in = call(0x3d00, 0, 0, source);
+    unsigned out = call(0x3c00, 0, 0, target);
+    int_frame_t f = {0};
+    f.eax = 0x5700; f.ebx = in;
+    int21_dispatch(&f);
+    if (f.eflags & 1) { fputs("COPY API RED: FILETIME get\n", stderr); exit(1); }
+    unsigned time = f.ecx, date = f.edx;
+    for (;;) {
+        f = (int_frame_t){0};
+        f.eax = 0x3f00; f.ebx = in; f.ecx = sizeof(data);
+        f.edx = (uint32_t)(uintptr_t)data;
+        int21_dispatch(&f);
+        if (f.eflags & 1) { fputs("COPY API RED: read\n", stderr); exit(1); }
+        if (!f.eax) break;
+        if (call(0x4000, out, f.eax, NULL) != f.eax) {
+            fputs("COPY API RED: short write\n", stderr); exit(1);
+        }
+    }
+    f = (int_frame_t){0};
+    f.eax = 0x5701; f.ebx = out; f.ecx = time; f.edx = date;
+    int21_dispatch(&f);
+    if (f.eflags & 1) { fputs("COPY API RED: FILETIME set\n", stderr); exit(1); }
+    call(0x3e00, in, 0, NULL); call(0x3e00, out, 0, NULL);
+}
 int main(int argc, char **argv)
 {
     blockdev_file_t disk;
@@ -80,13 +112,21 @@ int main(int argc, char **argv)
                argv[3], actual.mtime, actual.mdate);
         return 0;
     }
-    if (argc != 2) return 2;
+    int copying = argc == 5 && !strcmp(argv[1], "--copy");
+    if (argc != 2 && !copying) return 2;
     memset(&params, 0, sizeof params);
     params.alloc_end_linear = 0x70000;
-    if (blockdev_file_open_rw(&disk, argv[1]) ||
+    if (blockdev_file_open_rw(&disk, argv[copying ? 2 : 1]) ||
         fat12_mount(&vol, &disk.dev, sector) || fileio_fat_bind(&vol)) return 2;
     psp_build(&process, &params); sft_init(); int21_set_psp(&process);
     int21_set_clock(clock_get, NULL);
+    if (copying) {
+        later = 1;
+        copy_file(argv[3], argv[4]);
+        blockdev_file_close(&disk);
+        puts("COPY API: GET/write/SET/close with live 1988 clock completed");
+        return 0;
+    }
     create("NEW.TXT", 0);
     create("OLD.TXT", 1);
     create("TRUNC.TXT", 1);

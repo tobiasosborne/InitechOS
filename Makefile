@@ -31325,6 +31325,7 @@ test-flair-menubar-clock-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_clock
 TEST_EMU_GATES += test-flair-menubar-clock test-flair-menubar-clock-mutant
 
 include harness/diff/fat_diff/dos_parity.mk
+include harness/diff/fat_diff/copy_stamp.mk
 # DOS utility lane: separate recipe file keeps its COM/oracle family together.
 include harness/diff/fat_diff/dosutil.mk
 # ---------------------------------------------------------------------------

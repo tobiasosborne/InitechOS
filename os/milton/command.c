@@ -1852,6 +1852,23 @@ static void dos_close(int handle)
         : "cc", "memory");
 }
 
+/* IBM DOS 3.30 Technical Reference p.6-208 (PDF331), ADR-0003 Appendix A:
+ * AH=57h AL=0 gets / AL=1 sets CX=packed time, DX=packed date by handle.
+ * Keep both registers as outputs: GET returns them through the interrupt. */
+static int dos_filetime(int handle, unsigned set, uint16_t *time, uint16_t *date)
+{
+    uint32_t ax = 0x5700u | set, cx = *time, dx = *date, carry;
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "sbb %1, %1"
+        : "+a"(ax), "=r"(carry), "+c"(cx), "+d"(dx)
+        : "b"((uint32_t)handle)
+        : "cc", "memory");
+    if (carry) return -(int)(ax & 0xFFFFu);
+    *time = (uint16_t)cx; *date = (uint16_t)dx;
+    return 0;
+}
+
 /* AH=3Ch CREAT (CREATE/TRUNCATE FILE): EDX -> ASCIIZ 8.3 path, CX = attribute
  * (0 = normal). Returns the write handle (>=0) on success (CF clear), or
  * -(error) on failure (CF set; e.g. 0x0005 access denied / 0x0003 path). The
@@ -2849,7 +2866,8 @@ static void builtin_break(const char *arg)
 
 /* COPY <src> <dst> (beads initech-hpls, Tranche F). Single-file copy:
  *   OPEN src (3Dh) -> CREAT dst (3Ch) -> READ/WRITE loop (3Fh/40h) -> CLOSE both
- *   (3Eh). On success: "        1 file(s) copied" (the DOS COPY footer, Law 4).
+ *   (3Eh). Restore source date/time with 57h after the last write, before close.
+ *   On success: "        1 file(s) copied" (the DOS COPY footer, Law 4).
  * Errors: a missing operand -> "Required parameter missing" (MSG-DOS-0011); a
  * missing/unopenable source -> "File not found" (MSG-DOS-0003); a destination
  * that cannot be created or a short write -> "Bad command or file name"
@@ -2951,9 +2969,32 @@ static void builtin_copy(const char *arg)
         }
     }
 
+    /* initech-qqrz. MS-DOS 3.3 Reference p.50 (PDF135): the copy keeps the
+     * original date/time. WRITE stamps with the current clock, so FILETIME SET
+     * belongs AFTER every write, including the empty-file/truncate case.
+     * AH=57h's device rejection (int21.c do_filetime) leaves COPY CON/PRN
+     * transfers without a disk stamp. Other failures must not print success. */
+    uint16_t time = 0, date = 0;
+    int stamp = 0;
+    if (!g_shell_break.interrupted) {
+        stamp = dos_filetime(src_h, 0, &time, &date);
+        if (stamp == 0) {
+#ifdef CMD_MUTATE_COPY_TIME
+            time = 0; /* Rule 6: discard just the source time word. */
+#endif
+#ifdef CMD_MUTATE_COPY_DATE
+            date = 0; /* Rule 6: discard just the source date word. */
+#endif
+            stamp = dos_filetime(dst_h, 1, &time, &date);
+        }
+    }
     dos_close(src_h);
     dos_close(dst_h);
     if (g_shell_break.interrupted) return; /* abort is not a completed COPY */
+    if (stamp != 0 && stamp != -(int)INT21_ERR_INVALID_FUNCTION) {
+        dos_print(MSG_DOS_0002 "\r\n$");
+        return;
+    }
     /* DOS COPY footer: a count column then " file(s) copied" (Law 4). */
     dos_print("        1 file(s) copied\r\n$");
 }
