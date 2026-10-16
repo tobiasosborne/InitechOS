@@ -3,7 +3,7 @@
 # Ref: ADR-0003 DEC-01/07/08; IBM DOS 3.30 TR p1-7,5-4,5-11;
 # MS-DOS 3.3 User's Guide p119 SYS: copy IO first, then the DOS kernel.
 set -eu
-out=$1; mbr=$2; loader=$3; io=$4; kernel=$5; layout=$6
+out=$1; mbr=$2; loader=$3; io=$4; kernel=$5; layout=$6; command=${7:-}
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C
 work=$(mktemp -d "${out}.mint.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
@@ -21,6 +21,15 @@ touch -d '@315532800' "$work/IO.SYS" "$work/INITDOS.SYS"
 mcopy -m -i "$volume" "$work/IO.SYS" ::IO.SYS
 mcopy -m -i "$volume" "$work/INITDOS.SYS" ::INITDOS.SYS
 mattrib -i "$volume" +h +s +r -a ::IO.SYS ::INITDOS.SYS
+# initech-e9sx, MS-DOS 3.3 User's Guide pp28/119 (PDF41/204): COMMAND.COM
+# is an ordinary visible file, copied separately from the two hidden SYS files.
+# -m preserves the fixed epoch rather than the linker's host modification time.
+if [ -n "$command" ]; then
+ cp -f "$command" "$work/COMMAND.COM"
+ touch -d '@315532800' "$work/COMMAND.COM"
+ mcopy -m -i "$volume" "$work/COMMAND.COM" ::COMMAND.COM
+ mattrib -i "$volume" +a -h -s -r ::COMMAND.COM
+fi
 # A label consumes a root entry: add it only AFTER both system files.
 mlabel -i "$volume" ::BOOT
 printf '>>> boot-system image: %s (BOOT FAT12@63; root[0]=IO.SYS, root[1]=INITDOS.SYS; HSR)\n' "$out"

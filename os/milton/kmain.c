@@ -109,8 +109,8 @@
 #include "toolbox_gate.h"        /* the LOCKED gate ABI (-Ispec; tdnl.14)        */
 #include "stdfile.h"             /* Standard File model (gymo; tdnl.16)          */
 #include "scrap.h"               /* the desk scrap (b2vk; tdnl.16 / ww9c)         */
-#include "transient.h"           /* the TRANSIENT COMMAND.COM header + boot-disk
-                                  * placement (bead initech-3p1a)               */
+#include "transient.h"           /* COMMAND.COM file header (3p1a/e9sx) */
+#include "dos_messages.h"        /* DEC-13 generated diagnostic catalogue */
 
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
 extern void tbx_gate_entry(void);
@@ -5418,8 +5418,14 @@ static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * ------------------------------------------------------------------------- */
 static void exitdos_fail(const char *why, uint32_t v)
 {
-    /* ADR-0003 Appendix C, MSG-DOS-0014, verbatim (DEC-13). */
-    dos_puts("\nBad or missing Command Interpreter\n$");
+    /* Initial interpreter activation: MS-DOS 3.3 User's Guide printed p310
+     * (PDF395), ADR-0003 Appendix C/DEC-13. The post-EXEC overwrite/retry
+     * message on printed p338 is a different path. Halt is Rule 2 policy. */
+#ifndef KMAIN_MUT_COMMAND_MESSAGE
+    dos_puts("\n" MSG_DOS_0014 "\n$");
+#else
+    dos_puts("\n" MSG_DOS_0002 "\n$");
+#endif
     serial_puts("PANIC exit-to-dos: ");
     serial_puts(why);
     serial_puts(" v=");
@@ -5431,7 +5437,12 @@ static void exitdos_fail(const char *why, uint32_t v)
 /* Read + validate the transient. Returns its entry; never returns on failure. */
 static void (*exitdos_load_transient(void))(int)
 {
-    static ata_ctx_t boot_ata;
+    ata_ctx_t boot_ata;
+    blockdev_t boot_dev;
+    fat12_volume_t boot_vol;
+    fat12_fat_window_t window;
+    dir_entry_t command;
+    static uint8_t sector[512], fat_cache[1024], cluster[4096];
     transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
     const uint32_t want[TRANSIENT_N_IMPORTS] = {
         (uint32_t)(uintptr_t)&fileio_fat_volume_label,
@@ -5440,27 +5451,51 @@ static void (*exitdos_load_transient(void))(int)
         (uint32_t)(uintptr_t)&int21_same_file,
         (uint32_t)(uintptr_t)&int21_set_break_recovery
     };
-    uint32_t secs, k;
+    uint32_t bytes, k;
     int rc;
 
     if ((uint32_t)(uintptr_t)_kernel_end > TRANSIENT_BASE)
         exitdos_fail("the kernel overlaps the transient window",
                      (uint32_t)(uintptr_t)_kernel_end);
     ata_ctx_init_primary_master(&boot_ata);
-    rc = ata_read_sectors(&boot_ata, TRANSIENT_LBA, 1u, h);
-    if (rc != 0) exitdos_fail("boot-disk read of the header failed", (uint32_t)rc);
+#ifdef KMAIN_MUT_COMMAND_VOLUME
+    ata_ctx_init_primary_slave(&boot_ata);
+#endif
+    /* MS-DOS 3.3 User's Guide pp28/46/119: named COMMAND.COM on disk.
+     * ADR-0003 DEC-07a / spec/mbr_partition_contract.json: let fat12_mount
+     * discover the boot partition; all subsequent sectors are volume-relative.
+     * This private mount never changes drive A:'s data-volume/CWD binding. */
+    ata_blockdev_init(&boot_dev, &boot_ata);
+    rc = fat12_mount(&boot_vol, &boot_dev, sector);
+    if (rc != FAT12_OK) exitdos_fail("boot FAT mount failed", (uint32_t)rc);
+    if (boot_vol.bpb.sectors_per_cluster > sizeof cluster / 512u)
+        exitdos_fail("boot FAT cluster too large", boot_vol.bpb.sectors_per_cluster);
+    fat12_fat_window_init(&window, fat_cache, sizeof fat_cache);
+    boot_vol.fat_window = &window;
+    rc = fat12_find(&boot_vol, sector, "COMMAND.COM", &command);
+    if (rc != FAT12_OK) exitdos_fail("COMMAND.COM not found", (uint32_t)rc);
+    if ((command.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
+        command.file_size <= sizeof *h ||
+        command.file_size > TRANSIENT_CEIL - TRANSIENT_BASE)
+        exitdos_fail("COMMAND.COM file extents", command.file_size);
+    rc = fat12_read_partial(&boot_vol, 0, 0u, &command, 0u, sizeof *h,
+                           h, cluster, &bytes);
+    if (rc != FAT12_OK || bytes != sizeof *h)
+        exitdos_fail("boot FAT read of the header failed", (uint32_t)rc);
+#ifndef KMAIN_MUT_COMMAND_MAGIC
     for (k = 0u; k < TRANSIENT_MAGIC_LEN; k++)
         if (h->magic[k] != TRANSIENT_MAGIC[k])
             exitdos_fail("no COMMAND3 transient on the boot disk", k);
+#endif
     if (h->load_end <= TRANSIENT_BASE + (uint32_t)sizeof *h ||
+        h->load_end != TRANSIENT_BASE + command.file_size ||
         h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL ||
         h->n_imports != TRANSIENT_N_IMPORTS)
         exitdos_fail("transient header extents", h->bss_end);
-    secs = (h->load_end - TRANSIENT_BASE + 511u) / 512u;
-    if (secs > TRANSIENT_MAX_SECTORS)
-        exitdos_fail("transient larger than its boot-disk window", secs);
-    rc = ata_read_sectors(&boot_ata, TRANSIENT_LBA, secs, h);
-    if (rc != 0) exitdos_fail("boot-disk read of the transient failed", (uint32_t)rc);
+    rc = fat12_read_file(&boot_vol, 0, 0u, &command, h,
+                         TRANSIENT_CEIL - TRANSIENT_BASE, cluster, &bytes);
+    if (rc != FAT12_OK || bytes != command.file_size)
+        exitdos_fail("boot FAT read of the transient failed", (uint32_t)rc);
     for (k = 0u; k < TRANSIENT_N_IMPORTS; k++)
         if (h->imports[k] != want[k])
             exitdos_fail("transient linked against another kernel build", k);
