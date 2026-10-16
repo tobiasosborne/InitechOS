@@ -1,0 +1,36 @@
+% Programming with InitechBase, Appendix C: Programming Conventions of the
+% Initech Accounting System -- the rules every program of the sample
+% diskette follows (pubs/examples/samir/disk/*.PRG).
+\chapter{Programming Conventions}
+\Gates{test-pubs-build}
+The programs of the Initech Accounting System are written to the same rules,
+so that any programmer of the Finance and Accounting section can read and
+maintain any of them.  Follow the same rules in your own programs.
+
+\SideHead{Comment header}Every program begins with comment lines that give its
+file name and title, the section that owns it, the database and index files it
+expects to find open, and in a sentence or two what it does and how it is run.
+
+\SideHead{Names}Memory variables begin with M (\texttt{MTOTAL}); parameters with P
+(\texttt{PAMOUNT}).  No memory variable has the name of a field.
+
+\SideHead{Structure}Each structure is indented by two blanks.  A program that is
+more than a screen long is divided into procedures with names that say what
+they do.
+
+\SideHead{Lines}One command to a line, and no line longer than the screen.  A
+long expression is built in steps, in memory variables.
+
+\SideHead{Checking first}A program checks before it changes: that the record
+exists, that it may be changed, and, for a change that cannot be undone, that
+the operator confirms.
+
+\SideHead{Questions}Character answers are taken with \cmd{ACCEPT} and converted to
+capitals; amounts with \cmd{INPUT}, checked with \fn{TYPE()}; choices with
+\cmd{WAIT}.
+
+\SideHead{Dates}Dates are entered in the standard form month, day and year,
+two digits each, and converted with \fn{CTOD()}.  A report that is run as of a
+date takes the date from a memory variable set before the run.
+
+\SideHead{The end}Every program and procedure ends with \cmd{RETURN}.
