@@ -58,3 +58,34 @@ the first match with a Boolean flag.
 \id{ReadLine} reads one byte at a time into a string of capacity 1 and ends
 a line at the line-feed character.  Because a file cannot be a parameter,
 the routine reads the global file variable \id{Data}.
+
+\section{Inserting and deleting characters}
+\ix{inserting characters}
+\ix{deleting characters}
+\Program{insert}
+\ProgramOutput{insert}
+
+Both routines build the new value in a local string and assign it back, so
+that no character is overwritten before it has been copied.
+
+\section{Removing blanks}
+\ix{blanks, removing}
+\Program{trim}
+\ProgramOutput{trim}
+
+\section{Comparing without regard to case}
+\ix{comparing strings}
+\Program{sametext}
+\ProgramOutput{sametext}
+
+The relational operators compare character codes, so \code{'Initech'} and
+\code{'INITECH'} differ; \id{SameText} compares the letters after changing
+them to small letters.
+
+\section{Hexadecimal}
+\ix{hexadecimal}
+\Program{hex}
+\ProgramOutput{hex}
+
+Turbo Initech has no hexadecimal constants, but a program can write numbers
+in hexadecimal, such as the load address of a program, 40100h.

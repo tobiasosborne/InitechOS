@@ -173,6 +173,15 @@ only.
 \Program{reset}
 \ProgramOutput{reset}
 The second \std{reset}{Reset} moves back to the beginning of the file.
+
+When the file does not exist, the program stops.  On InitechDOS, with no
+file \file{LEDGER.OLD} in the current directory, this program
+
+\DosProgram{resetmiss}
+
+prints:
+
+\ProgramOutput{resetmiss}
 \end{LibEntry}
 
 \begin{LibEntry}{Rewrite}{procedure}{rewrite}

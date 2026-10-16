@@ -86,6 +86,7 @@
   {\global\im@tpsnumberedtrue\im@borlabel}
   {6pt}{\im@fullhead{\raggedleft\itshape\fontsize{24}{28}\selectfont #1}}
 \titlespacing*{\chapter}{0pt}{0pt}{14mm}
+\titlespacing*{name=\chapter,numberless}{0pt}{0pt}{9mm}
 
 %% Parts (PG-26: "P A R T", numeral, oblique title; counted, recto, folio
 %% printed).  Contents lines for parts are underlined (PG-35).
@@ -127,18 +128,21 @@
 
 %% ---- contents (PG-35 F-BOR: two columns, chapter lines Heros Bold) -------
 \setcounter{tocdepth}{2}
+\contentsmargin{0pt}
+\newcommand\im@tocpg{\makebox[2.2em][r]{\thecontentspage}}
 \titlecontents{part}[0pt]{\addvspace{10pt}\sffamily\bfseries}
   {}{}{\hfill}[\endgraf\vspace{-3pt}\titlerule]
-\titlecontents{chapter}[0pt]{\addvspace{7pt}\sffamily\bfseries\fontsize{9}{11}\selectfont\hyphenpenalty=10000\RaggedRight}
-  {\im@tocname~\thecontentslabel\quad}{}{\hfill\contentspage}
-\titlecontents{section}[0.8em]{\fontsize{9}{11}\selectfont}
-  {}{}{\titlerule*[0.6em]{.}\contentspage}
-\titlecontents{subsection}[1.6em]{\fontsize{8.5}{10.5}\selectfont}
-  {}{}{\titlerule*[0.6em]{.}\contentspage}
+\titlecontents{chapter}[0pt]{\addvspace{5pt}\sffamily\bfseries\fontsize{9}{11}\selectfont
+  \hyphenpenalty=10000\exhyphenpenalty=10000\rightskip=0pt plus 2em\relax}
+  {\im@tocname~\thecontentslabel\quad}{}{\nobreak\hfill\im@tocpg}
+\titlecontents{section}[0.8em]{\fontsize{9}{11}\selectfont\rightskip=0pt plus 2em\relax}
+  {}{}{\nobreak\titlerule*[0.6em]{.}\im@tocpg}
+\titlecontents{subsection}[1.6em]{\fontsize{8.5}{10.5}\selectfont\rightskip=0pt plus 2em\relax}
+  {}{}{\nobreak\titlerule*[0.6em]{.}\im@tocpg}
 \renewcommand\tableofcontents{\im@closeentry\cleardoublepage\FootTitle{Contents}\im@notab
   \im@origchapter*{Contents}\thispagestyle{plain}%
   \begin{adjustwidth}{-\imHang}{0pt}\ifim@booklet\RaggedRight\@starttoc{toc}\else
-  \begin{multicols}{2}\RaggedRight\@starttoc{toc}\end{multicols}\fi\end{adjustwidth}}
+  \raggedcolumns\begin{multicols}{2}\RaggedRight\@starttoc{toc}\end{multicols}\fi\end{adjustwidth}}
 
 %% ---- index (AN-24 F-BOR: Adventor 14 letter heads, Adventor Oblique
 %% locators).  \ix{entry} is the only index command of these books.
