@@ -23021,6 +23021,12 @@ RECORD_SETTLE_calc_ledger = 800
 # PM 2026-10-17: 400 ms raced a frame under a 12-lane host load (record-flair-repro differed once); 800 keeps the clip repro-stable.
 RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 
+# PM 2026-10-17: every clip pins the RTC. The R3.6 menu-bar clock (tdnl.13) paints wall-clock
+# time at (563..568, 5..13); unpinned, two captures a minute apart differ in that patch and
+# record-flair-repro goes RED for every script (seen on calc_ledger). Scripts without their own
+# RECORD_RTC_BASE_<script> boot at RECORD_RTC_DEFAULT (clock=vm, no icount: the minute cannot
+# roll within a recording shorter than 60 s).
+RECORD_RTC_DEFAULT := 1992-03-01T09:00:00
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -23033,7 +23039,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
-		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic) \
+		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic,--rtc-base "$(RECORD_RTC_DEFAULT)") \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
