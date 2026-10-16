@@ -1,0 +1,50 @@
+% Programming with InitechBase, Chapter 16: Working with Dates (AN-16).
+% Panels replayed (examples/p16-*.dot); sources core/eval.c (date - date,
+% date + n), core/fn_builtins.c (CTOD, DOW, CDOW, DAY), the program
+% SERVICE.PRG.
+\chapter{Working with Dates}
+\Gates{test-pubs-examples, test-xbase-fn-b, test-xbase-eval}
+Personnel records are full of dates: of hire, of review, of birth.  This
+chapter computes the years of service of every employee, as of a date the
+program is given.
+
+\begin{ChapterCovers}
+\item Date arithmetic
+\item The day of the week
+\item Years of service
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE STAFF}.
+
+\ATEHead{Date Arithmetic}
+One date minus another is the number of days between them; a date plus or
+minus a number of days is a date.  The calendar is followed exactly, leap years
+included:
+\DotExample{examples/p16-dates}
+\fn{DOW()} numbers the days of the week from 1, Sunday, to 7, Saturday;
+\fn{CDOW()} names them.
+
+\ATEHead{Years of Service}
+\file{SERVICE.PRG} computes, for each employee, the complete years of service
+as of the date in \texttt{MASOF}, and counts the staff in three classes:
+\ProgramListing{SERVICE.PRG}
+\begin{Steps}
+\item Type \type{MASOF = CTOD('03/01/92')}.
+\item Type \type{DO SERVICE}.
+\end{Steps}
+\DotExample{examples/p16-service}
+The days of service divided by 365, with the fraction dropped by \fn{INT()},
+give the years.  Like the aging report of Chapter~9, the program takes its date
+from a memory variable, so it can be run as of any date.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~17 works with the characters of names.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Date minus date gives days; date plus days gives a date.
+\item \fn{DOW()} and \fn{CDOW()} give the day of the week.
+\item \fn{INT()} of the days divided by 365 gives complete years.
+\end{enumerate}

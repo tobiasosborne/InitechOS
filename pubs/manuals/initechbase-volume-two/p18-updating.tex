@@ -1,0 +1,51 @@
+% Programming with InitechBase, Chapter 18: Changing Many Records (AN-16).
+% Panels replayed (examples/p18-*.dot); sources cmd/mutate.c (REPLACE on
+% the current record, written at once), the programs RAISEDPT.PRG and
+% PAYTOTAL.PRG.
+\chapter{Changing Many Records}
+\Gates{test-pubs-examples, test-interp-replace}
+Once a year Initech raises its salaries, by a percentage that depends on the
+department.  A single \cmd{REPLACE} with \kw{FOR} gives every record the same
+raise; a program gives each department its own.
+
+\begin{ChapterCovers}
+\item Changing records one at a time in a loop
+\item A value that depends on the record
+\item Showing every change
+\item Checking the result
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE STAFF}.  The program of this chapter changes the roster: copy the
+diskette again afterwards.
+
+\ATEHead{Raises by Department}
+\file{RAISEDPT.PRG} chooses the percentage of each employee with \cmd{DO CASE},
+keeps the old salary, replaces it, and prints both:
+\ProgramListing{RAISEDPT.PRG}
+\begin{Steps}
+\item Type \type{DO RAISEDPT}.
+\end{Steps}
+\DotExample{examples/p18-raisedpt}
+\fn{ROUND()} keeps every new salary to the cent.  The total added to the
+payroll is the sum of the differences.
+
+\ATEHead{Checking the Result}
+Run a report of the totals after the change.  \file{PAYTOTAL.PRG}, of Volume
+One, totals the payroll of the exempt and the non-exempt staff:
+\DotExample{examples/p18-after}
+\begin{AteWarning}
+A program that replaces fields changes the database at once and cannot undo the
+change.  Run it on a copy, and keep the copy until the result has been checked.
+\end{AteWarning}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~19 puts the Initech Accounting System together.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item A loop with \cmd{REPLACE} gives each record its own new value.
+\item Keep the old value in a memory variable to show or check the change.
+\item Check the totals after the change, and work on a copy.
+\end{enumerate}
