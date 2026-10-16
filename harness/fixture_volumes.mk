@@ -96,6 +96,14 @@ $(foreach img,$(SORT_IMG) $(SORT_MUT_IMG),$(eval $(call fixture-inline-contract,
 $(foreach img,$(FIND_IMG) $(FIND_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FIND.COM FIN.TXT)))
 $(foreach img,$(MORE_IMG) $(MORE_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT MORE.COM MIN.TXT)))
 $(foreach img,$(FCBX_IMG) $(foreach m,$(FCB_MUTANTS),$(BUILD)/fcbx_data_$(m).img),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FCBX.COM)))
+# initech-tdnl.19: the corrupt-settings Control Panels data volume.
+# initech-tdnl.19: the three transaction-mutant data volumes carry a mutant CPANELS.EXE in place (same leaves).
+$(foreach m,CP_MUT_OK_NOTHING CP_MUT_CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED,$(eval $(call fixture-inline-contract,$(BUILD)/cp_$(m)_data.img,$(FLAIR_FIXTURES))))
+# initech-0u02..dzum: the ANSI probe diskette (mformat + two mcopy, verified in its rule).
+$(eval $(call fixture-inline-contract,$(BUILD)/ansi_probe_data.img,ANSIPROB.COM AUTOEXEC.BAT))
+$(eval $(call fixture-inline-contract,$(BUILD)/cp_corrupt_data.img,$(FLAIR_FIXTURES) CPANELS.DAT))
+# initech-2gva: the VESA 0x101 boot images (IO.SYS re-copied at the DEC-07a partition offset).
+$(foreach n,scene flagship mut_omit119 mut_omit165 mut_rowcopy mut_dac6,$(eval $(call fixture-inline-contract,$(BUILD)/vesa8/$(n).img,@@32256 IO.SYS=RHS INITDOS.SYS=RHS COMMAND.COM)))
 # initech-e9sx: the corrupted-magic COMMAND.COM boot image (FAT at the DEC-07a partition offset).
 $(eval $(call fixture-inline-contract,$(BUILD)/command-file/magic.img,@@32256 COMMAND.COM))
 $(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img $(BUILD)/tps_say7.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))

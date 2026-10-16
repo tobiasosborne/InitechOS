@@ -52,6 +52,7 @@ $(VESA8_DIR)/$(1).img: $(2) $(VESA8_DIR)/stage2.bin harness/emu/vesa8.mk
 	SOURCE_DATE_EPOCH=315532800 TZ=UTC mcopy -m -o -i $$@@@32256 $$@.io ::IO.SYS
 	mattrib -i $$@@@32256 +r +s +h -a ::IO.SYS
 	rm -f $$@.io
+	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call vesa8-image,scene,$(FLAIRSHELL_IMG)))
 $(eval $(call vesa8-image,flagship,$(FLAIRTENANTS_IMG)))

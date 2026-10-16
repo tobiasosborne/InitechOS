@@ -88,7 +88,7 @@ DOSMSG_ALLOW := harness/diff/fat_diff/dosmsg.allow
 DOSMSG_BASELINE := harness/diff/fat_diff/dosmsg.allow.baseline
 DOSMSG_SCAN := $(BUILD)/dosmsg_scan
 # This include is parsed after the external-program variables are defined.
-test-dosmsg: $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN) $(TPSREP_BIN)
+test-dosmsg: $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN)
 $(DOSMSG_SCAN): harness/diff/fat_diff/dosmsg_scan.c | $(BUILD)
 	$(CC) $(CFLAGS) $< -o $@
 .PHONY: test-dosmsg-source-mutant

@@ -26710,19 +26710,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0074 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0060 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
-# (cf. test-spec). The loop iterates i in 1..74 EXPLICITLY (not dict order) so the
+# (cf. test-spec). The loop iterates i in 1..60 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (74 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (60 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
-ids=['MSG-DOS-%04d'%i for i in range(1,75)]; \
+ids=['MSG-DOS-%04d'%i for i in range(1,61)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -26790,12 +26790,12 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==74, 'expected 74 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,75)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0074: %r'%(sorted(set(m)^exp)); \
+assert len(m)==60, 'expected 60 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,61)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0060: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,75)), 'DIR Rule-8 source citations missing'; \
-print('    parsed 74 messages MSG-DOS-0001..0074; all non-empty; 54 extraction/DIR citations present')" \
+assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,61)), 'DIR Rule-8 source citations missing'; \
+print('    parsed 60 messages MSG-DOS-0001..0060; all non-empty; 40 extraction/DIR citations present')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -26856,11 +26856,14 @@ print('    INT 25h/26h: 2 trap vectors (0x8F/DPL0/0x08); EBX-buffer swap pinned;
 # exceptions with dates/reasons; dosmsg.allow.baseline forbids growth.
 # The old inline-catalogue check remains over ALL non-test MILTON C files.
 # Ref: initech-bcg.13; ADR-0003 7 item 4; dosmsg_scan.c (factory C lexer).
+# PM 2026-10-17: dosmsg.mk defines DOSMSG_SCAN/ALLOW/BASELINE read by the test-dosmsg rule below
+# (prerequisites expand at parse time: test-makefile-vars, tdnl.81), so it is included here.
+include harness/diff/fat_diff/dosmsg.mk
 DOSMSG_SRCS := $(filter-out $(KERNEL_DIR)/test_%.c,$(wildcard $(KERNEL_DIR)/*.c))
 DOSMSG_KERNEL_SRCS := $(filter-out $(addprefix $(KERNEL_DIR)/,dosutil.c chkdsk.c xcopy_tree.c edlin.c edlin_program.c),$(DOSMSG_SRCS))
 
 .PHONY: test-dosmsg
-test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN) $(TPSREP_BIN) | $(BUILD)
+test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dosmsg : DEC-13 controlled-vocabulary oracle\n'
 	@printf '  Ref: ADR-0003 Appendix C / DEC-13; spec/dos_messages.json (LOCKED).\n'
@@ -26873,11 +26876,11 @@ m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
 esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,75) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,61) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
 print('    build/dos_messages.h has all 74 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
-	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shell image\n'
+	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shipped kernels (shell + flagship; a FLAIR-only path such as exitdos_fail is section-GCed out of the shell kernel; PM 2026-10-17)\n'
 	@python3 -c "import json,re,subprocess; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
@@ -26886,7 +26889,7 @@ refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
 R=sorted(refs); \
 assert R, 'no MSG_DOS_* references found in os/milton/*.c (expected at least 0002/0003/0011)'; \
-img=open('$(KERNEL_SHELL_BIN)','rb').read(); \
+img=open('$(KERNEL_SHELL_BIN)','rb').read()+open('$(KERNEL_FLAIRTENANTS_BIN)','rb').read(); \
 runs=re.findall(rb'[\x20-\x7e]{2,}', img); \
 blob=b'\x00'.join(runs); \
 txt=lambda name: m['MSG-DOS-'+name[len('MSG_DOS_'):]]; \
@@ -26942,7 +26945,7 @@ m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 srcs='$(DOSMSG_KERNEL_SRCS)'.split(); \
 refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
-img=open('$(KERNEL_SHELL_BIN)','rb').read(); \
+img=open('$(KERNEL_SHELL_BIN)','rb').read()+open('$(KERNEL_FLAIRTENANTS_BIN)','rb').read(); \
 runs=re.findall(rb'[\x20-\x7e]{2,}', img); \
 blob=b'\x00'.join(runs); \
 txt=lambda name: m['MSG-DOS-'+name[len('MSG_DOS_'):]]; \
@@ -31907,7 +31910,6 @@ test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.COM $(TEST_SAMIR
 TEST_UNIT_GATES += test-samir-undefined test-samir-undefined-mutant
 TEST_EMU_GATES += test-samir-undefined-emu test-samir-undefined-emu-mutant
 
-include harness/diff/fat_diff/dosmsg.mk
 
 # Physical two-file boot chain (initech-kod).
 include harness/diff/fat_diff/boot_system.mk
@@ -32097,6 +32099,7 @@ define cp-data-mutant
 $(BUILD)/cp_$(1)_data.img: $(FLAIR_DATA_IMG) $(BUILD)/tenant/cp_$(1).exe
 	cp -f $(FLAIR_DATA_IMG) $$@
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $$@ $(BUILD)/tenant/cp_$(1).exe ::APPS/CPANELS.EXE
+	@$$(call fixture-check,recipe,$$@)
 endef
 $(foreach m,$(CP_MUTANTS),$(eval $(call cp-data-mutant,$(m))))
 # A single reused boot/check pair makes each mutant face the same oracle.
@@ -32152,10 +32155,13 @@ test-flair-cpanels-mouse-apply-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut
 	@grep -qx 'CPANELS-APPLY pattern=0 tracking=2 double=2 ticks=20' $(BUILD)/cp_mouse_inert.serial
 	@grep -qx 'FLAIR-CURSOR x=421 y=220' $(BUILD)/cp_mouse_inert.serial && ! grep -qx 'FLAIR-CURSOR x=422 y=220' $(BUILD)/cp_mouse_inert.serial
 	@printf '>>> CP_MUT_MOUSE_INERT correctly RED: FAIL CP_MOUSE_APPLY cursor421 expected422\n'
-test-flair-cpanels-corrupt: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
-	cp -f $(FLAIR_DATA_IMG) $(BUILD)/cp_corrupt_data.img
+# The corrupt-settings volume is a declared fixture minted by its own rule (fixture_volumes.mk contract).
+$(BUILD)/cp_corrupt_data.img: $(FLAIR_DATA_IMG) harness/fixture_volumes.mk | $(BUILD)
+	cp -f $(FLAIR_DATA_IMG) $@
 	@printf 'corrupt' > $(BUILD)/cp_corrupt.record
-	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $(BUILD)/cp_corrupt_data.img $(BUILD)/cp_corrupt.record ::CPANELS.DAT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/cp_corrupt.record ::CPANELS.DAT
+	@$(call fixture-check,recipe,$@)
+test-flair-cpanels-corrupt: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_corrupt_data.img
 	@$(HARNESS_BIN) --disk $(CP_GATE_IMG) --disk2 $(BUILD)/cp_corrupt_data.img --name cp_corrupt --out $(BUILD) --quit-after FLAIR-LIVE-OK --timeout-ms 25000 --screendump --screendump-after FLAIR-LIVE-OK 2>$(BUILD)/cp_corrupt.report
 	@grep -qx 'CPANELS-CORRUPT defaults' $(BUILD)/cp_corrupt.serial
 	@$(BUILD)/ppm_flair_cpanels_check pattern $(BUILD)/cp_corrupt.ppm "$(SYSTEM7_DECOMP)/goldens/resources/PAT#_0.bin" 0
