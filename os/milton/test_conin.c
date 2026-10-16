@@ -182,11 +182,12 @@ static int_frame_t fresh_frame(void)
 int main(void)
 {
     int21_set_sink(sink_capture);
+    int21_set_break_trace(sink_capture); /* Capture the serial debug seam too. */
     int21_set_conin(mock_get, mock_poll);
     /* Bind the terminate hook so int23's default handler (do_terminate -> g_exit)
      * is observable in the [4tw.*] ^C cases without actually exiting the test
      * process. With no hook bound do_terminate just returns (the host default);
-     * with it bound we get a second witness alongside the CON "INT23-BREAK"
+     * with it bound we get a second witness alongside the serial "INT23-BREAK"
      * marker. Ref: os/milton/int21.c int23_dispatch_body / do_terminate. */
     int21_set_exit(exit_observe);
     /* Bind a process so AH=3Fh on handle 0 resolves to the CON read device. */

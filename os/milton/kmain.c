@@ -5738,6 +5738,7 @@ void kernel_main(void)
      * far below, in its original position. The serial markers are emitted from the
      * phase so the capture is byte-for-byte identical. */
     sysinit_early(int21_con_sink, int21_exit_hook, &g_kernel_psp, serial_puts);
+    int21_set_break_trace(serial_putc);
 
     /* LIVE self-test: install a trap gate on an UNUSED vector (0x80 -- not an
      * IRQ vector after the 0x28/0x30 remap), fire `int 0x80`, and confirm

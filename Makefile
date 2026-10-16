@@ -31594,3 +31594,4 @@ include harness/diff/fat_diff/boot_system.mk
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
 include harness/bochs_legs.mk
+include harness/diff/fat_diff/batch2.mk

@@ -49,6 +49,7 @@
 #define ZF_BIT 0x40u
 
 static int21_sink_fn g_sink = 0;
+static int21_sink_fn g_break_trace = 0;
 static int21_exit_fn g_exit = 0;
 static int21_break_recovery_t *g_break_recovery = 0;
 
@@ -275,6 +276,7 @@ void int21_irqtest_bump_find(void)
 #endif
 
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
+void int21_set_break_trace(int21_sink_fn sink) { g_break_trace = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
 int21_break_recovery_t *int21_set_break_recovery(int21_break_recovery_t *scope)
 {
@@ -1266,7 +1268,14 @@ static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap, int_frame_t *f, int 
         if (count < cap) {
             out[count] = c;
             count++;
-            con_putc((char)c);                  /* echo */
+            /* MS-DOS 3.3 Reference p.132: COPY CON, Ctrl-Z then Return.
+             * IBM DOS 3.30 Technical Reference pp.4-11/12: EOF and caret echo.
+             * Keep 1Ah as input data; handle reads interpret it as EOF. */
+#ifndef INT21_MUTATE_CARET_Z
+            if (c == 0x1Au) con_puts("^Z");
+            else
+#endif
+                con_putc((char)c);
         } else {
             /* Buffer full: ignore further non-CR chars, beep (BEL). Rule 2: do
              * NOT overflow the caller's buffer. */
@@ -4600,10 +4609,21 @@ static void do_chdir(int_frame_t *f)
         return;
     }
 
+    /* Reference pp.41-42: CD \ selects root even from a subdirectory.
+     * ADR-0003 Appendix A: AH=3Bh changes CWD, AH=47h reports it. */
+#ifndef INT21_MUTATE_CD_ROOT
+    if (path[0] == '\\' && path[1] == '\0') {
+        int21_cwd_reset();
+        cf_clear(f);
+        return;
+    }
+#endif
     /* Empty / root '\' / '.' -> stay in the current directory (success). DOS
      * 'CD' with no movement leaves the CWD unchanged. */
     if (path[0] == '\0' ||
+#ifdef INT21_MUTATE_CD_ROOT
         (path[0] == '\\' && path[1] == '\0') ||
+#endif
         (path[0] == '.'  && path[1] == '\0')) {
         cf_clear(f);
         return;
@@ -4887,12 +4907,21 @@ static void int22_dispatch_body(int_frame_t *frame)
 /* INT 23h CONTROL-BREAK (vector 0x23). The DOS default control-break action
  * ABORTS the program, so route to the SAME terminate path as 22h (the break-
  * abort). No keyboard ^C wiring here (beads initech-4tw); this is the default
- * handler the loader points the PSP 0Eh-0Fh vector at. A grep-able marker rides
- * the CON sink (the kernel routes the sink to console + serial; mirrors the
- * controlled-scope diagnostics) so a break-abort is visible in a serial log. */
+ * handler the loader points the PSP 0Eh-0Fh vector at. The console displays
+ * ^C; the independent trace sink emits the serial debug marker. */
 static void int23_dispatch_body(int_frame_t *frame)
 {
+    /* MS-DOS 3.3 Reference p.159: abort command with ^C on CON.
+     * Factory debugging remains on its separate serial-only seam. */
+#ifndef INT21_MUTATE_CARET_C
+    con_puts("^C\r\n");
+#else
     con_puts("INT23-BREAK\n");
+#endif
+    if (g_break_trace) {
+        const char *s = "INT23-BREAK\n";
+        while (*s) g_break_trace(*s++);
+    }
 #ifndef INT21_MUTATE_BREAK_RECOVERY
     /* Returning INT 23h recovery for a resident built-in. Keep this PSP's
      * handles/CWD/arena live so COMMAND.COM's ordinary epilogue restores
