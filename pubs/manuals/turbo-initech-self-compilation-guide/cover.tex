@@ -1,7 +1,10 @@
 % Cover of the Turbo Initech Self-Compilation Guide (PUB-REF-0001 PK-02; band in
 % the Programming family colour, D-6).  No version: the build displays none
-% (D-3).
+% (D-3).  Page 2 is the back cover (PK-05) with the slogan (operator
+% directive 2026-10-17).
 \documentclass[borland,cover]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
 \ProductName{Turbo Initech}
 \ProductVersion{}
 \DocTitle{Self-Compilation Guide}
@@ -11,4 +14,5 @@
 \FamilyColor{FamilyProgramming}
 \begin{document}
 \MakeCover
+\MakeBackCover
 \end{document}

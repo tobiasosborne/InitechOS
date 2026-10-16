@@ -1,0 +1,41 @@
+% The compiler, summarized.  Sources: the User's Guide Chapter 8
+% (os/tps/tps.pas driver and constants).  Editor keys and keyboard
+% templates: the IDE is not built (ADR-0007 DEC-08, M8), DRAFT.
+\Gates{test-tps-gen-fpc, test-tps-gen-os, test-pubs-tps}
+\chapter{The compiler}
+\ix{compiler summary}
+
+\QRHead{Compiling}
+\QRItem{TPS}{Reads TPSIN.PAS in the current directory; writes TPSOUT.S when
+  all four passes succeed.  No options.  Output on COM1.  Exit code 0.}
+\QRItem{TPS-LEX-BEGIN ... TPS-LEX-END}{One token per line.}
+\QRItem{TPS-PARSE-BEGIN ... TPS-PARSE-OK ... TPS-PARSE-END}{ENTER and EXIT
+  of each grammar rule, with the line reached.}
+\QRItem{TPS-TYPE-BEGIN ... TPS-TYPE-OK ... TPS-TYPE-END}{SCOPE, SYM and
+  FIELD rows: every name, its type, offset and size.}
+\QRItem{TPS-GEN-BEGIN\\ TPS-GEN-OK bytes=\textit{n} labels=\textit{n}\\
+  TPS-GEN-END}{TPSOUT.S written.}
+\QRItem{TPS-\textit{pass}-SKIP \textit{reason}}{A pass skipped after an
+  earlier error.}
+
+\QRHead{Capacities}
+\noindent{\fontsize{8.5}{10.5}\selectfont
+\begin{tabular}{@{}p{25mm}p{10mm}p{29mm}@{}}
+SourceMax & 262144 & source characters\\
+PoolMax & 6144 & identifier characters\\
+NameMax & 704 & different identifiers\\
+SymbolMax & 1024 & symbol table rows\\
+HeaderParamMax & 32 & parameters, arguments\\
+PendingNameMax & 32 & names in one list\\
+\end{tabular}\par}
+
+\QRHead{Compiler directives}
+\noindent{\fontsize{8.5}{10}\selectfont There are none.  A comment that
+begins with \texttt{\{\$} is an ordinary comment.\par}
+
+\QRHead{Editor keys}
+\noindent{\fontsize{8.5}{10}\selectfont
+\draft{the integrated environment and its editor are milestone M8 (ADR-0007
+DEC-08); their keys are not designed (ADR-0007 OQ-3), so this section and
+the keyboard templates (PK-14) are not produced}
+Write programs with any text editor, such as EDLIN.\par}

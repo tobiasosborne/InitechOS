@@ -40,6 +40,7 @@
 %% book title.  Library Reference: guide word (first entry on the page) in
 %% the outer top corner.
 \newif\ifim@tpsnumbered
+\newif\ifim@booklet
 \renewcommand\FootTitle[1]{\gdef\im@foottitle{#1}\global\im@tpsnumberedfalse}
 \newcommand\im@borfootlabel{\ifim@tpsnumbered\im@chaptername\ \thechapter, \fi\im@foottitle}
 \fancypagestyle{im@text}{%
@@ -50,8 +51,8 @@
   \fancyhead[LE,RO]{\ifim@referencepages\sffamily\bfseries\fontsize{10}{12}\selectfont\rightmark\fi}%
   \fancyfoot[RO,LE]{\imFolioFont\thepage}%
   \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}%
-  \fancyfoot[RE]{\imFootFont\im@product\ \im@doctitle}%
-  \fancyfoot[LO]{\im@adventor\itshape\fontsize{8}{10}\selectfont\im@borfootlabel}}
+  \fancyfoot[RE]{\ifim@booklet\else\imFootFont\im@product\ \im@doctitle\fi}%
+  \fancyfoot[LO]{\im@adventor\itshape\fontsize{8}{10}\selectfont\ifim@booklet\else\im@borfootlabel\fi}}
 \pagestyle{im@text}
 \fancypagestyle{plain}{%
   \fancyhf{}%
@@ -136,7 +137,8 @@
   {}{}{\titlerule*[0.6em]{.}\contentspage}
 \renewcommand\tableofcontents{\im@closeentry\cleardoublepage\FootTitle{Contents}\im@notab
   \im@origchapter*{Contents}\thispagestyle{plain}%
-  \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{2}\RaggedRight\@starttoc{toc}\end{multicols}\end{adjustwidth}}
+  \begin{adjustwidth}{-\imHang}{0pt}\ifim@booklet\RaggedRight\@starttoc{toc}\else
+  \begin{multicols}{2}\RaggedRight\@starttoc{toc}\end{multicols}\fi\end{adjustwidth}}
 
 %% ---- index (AN-24 F-BOR: Adventor 14 letter heads, Adventor Oblique
 %% locators).  \ix{entry} is the only index command of these books.
@@ -394,5 +396,63 @@
   before upper={\setlength\parskip{4pt}\RaggedRight\im@inproctrue},
   grow to left by=\imHang}
 \newcommand\PField[1]{\par\noindent\makebox[33mm][l]{\sffamily\bfseries\fontsize{9}{11}\selectfont #1}\hangindent=33mm\ignorespaces}
+
+%% ---- Quick Reference booklet (PUB-REF-0001 PK-11) ---------------------------
+%% \BookletTrim in the preamble: 88.9 x 228.6 mm (the house trim halved),
+%% one 73 mm column, no side column.  \QRHead{TITLE}: section head in Heros
+%% Bold capitals between two rules.  \QRItem{syntax}{description}: an entry,
+%% the syntax in Cursor Bold over a one-line description.  \NotesToSignature
+%% fills the booklet with Notes pages so that the colophon \FinishBook adds
+%% ends it on a multiple of four pages.
+\newcommand\BookletTrim{\global\im@booklettrue
+  \setlength\imHang{0mm}\setlength\imFullWidth{73mm}\setlength\imTextWidth{73mm}%
+  \setlength\imSideCol{0mm}\setlength\imSideGap{0mm}%
+  \geometry{paperwidth=88.9mm, paperheight=228.6mm, twoside, textwidth=73mm,
+    top=14mm, textheight=196mm, footskip=9mm, headheight=10pt, headsep=3mm,
+    inner=9mm, nomarginpar}%
+  \AtBeginDocument{\setlength\evensidemargin{\dimexpr6.9mm-1in\relax}%
+    \setlength\oddsidemargin{\dimexpr9mm-1in\relax}}}
+\newcommand\QRHead[1]{\par\addvspace{10pt}\goodbreak\noindent\rule{\linewidth}{0.8pt}\par\nobreak
+  \vspace{2pt}{\noindent\sffamily\bfseries\fontsize{9}{11}\selectfont\MakeUppercase{#1}\par}\nobreak
+  \vspace{1pt}\noindent\rule{\linewidth}{0.4pt}\par\nobreak\vspace{3pt}\@afterheading
+  \addcontentsline{toc}{section}{#1}}
+\newcommand\QRItem[2]{\par\addvspace{3pt}{\noindent\ttfamily\bfseries\fontsize{8}{10}\selectfont
+  \RaggedRight #1\par}\nobreak{\noindent\fontsize{8.5}{10}\selectfont\RaggedRight #2\par}}
+\newcommand\QRDisplay{\im@display}
+\newcommand\NotesToSignature{\clearpage
+  \loop
+    \@tempcnta=\numexpr\ReadonlyShipoutCounter+1\relax
+    \@tempcnta=\numexpr\@tempcnta-4*((\@tempcnta-2)/4)\relax
+    \ifnum\@tempcnta=4 \@tempcnta=0 \fi
+  \ifnum\@tempcnta=0 \else
+    \thispagestyle{plain}\noindent{\sffamily\bfseries Notes}\par\newpage
+  \repeat}
+
+%% ---- back cover (PUB-REF-0001 PK-05) and the booklet cover (PK-11) --------
+%% \MakeBackCover: wordmark top left; the slogan (operator directive
+%% 2026-10-17); address block bottom left (D-12); part number and print code
+%% bottom right; nothing else.  Measured from the trim of the page in use.
+\newcommand\MakeBackCover{\thispagestyle{empty}%
+  \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 12\else 19\fi}{\Wordmark[\ifim@booklet 22mm\else 30mm\fi]}%
+  \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 40\else 45\fi}{\parbox{\ifim@booklet 70mm\else 110mm\fi}{%
+    \IsThisGoodForTheCompany}}%
+  \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 196\else 198\fi}{\parbox{60mm}{\sffamily
+    \fontsize{7}{9}\selectfont\InitechAddress}}%
+  \AddToHookNext{shipout/foreground}{\put(\dimexpr\paperwidth-\ifim@booklet 8mm\else 23mm\fi\relax,
+    -\dimexpr\paperheight-12mm\relax){\makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont
+    \im@partno\quad\im@printcode}}}%
+  \null\newpage}
+%% \MakeBookletCover: the PK-02 grid scaled to the 88.9 mm trim.
+\newcommand\MakeBookletCover{\thispagestyle{empty}%
+  \AtPage{8}{9}{\sffamily\bfseries\fontsize{9}{10}\selectfont\im@product}%
+  \AtPage{8}{13}{\rule{80.9mm}{0.5pt}}%
+  \AtPage{8}{16}{\parbox{72mm}{\im@display\fontsize{24}{27}\selectfont Quick\\Reference}}%
+  \AddToHookNext{shipout/foreground}{\put(-\dimexpr3mm\relax,-\dimexpr61.5mm\relax){%
+    \color{\im@familycolor}\rule{81mm}{6.5mm}}}%
+  \AtPage{8}{56.2}{\textcolor{white}{\sffamily\bfseries\fontsize{8}{9}\selectfont\im@family}}%
+  \AtPage{8}{190}{\Wordmark[22mm]}%
+  \AddToHookNext{shipout/foreground}{\put(\dimexpr80.9mm\relax,-\dimexpr214mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{7}{8}\selectfont\im@partno\quad\im@printcode}}}%
+  \null\newpage}
 
 \endinput

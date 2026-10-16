@@ -1,0 +1,81 @@
+% Every diagnostic of the compiler by number (PUB-REF-0001 DS row TIN-QR
+% "error numbers"; AN-13 thinned): the texts are written to main.msgs and
+% checked verbatim against the catalogue generated from os/tps/tps.pas
+% (tps_gate messages).  Explanations in full: Programmer's Guide App. A.
+\Gates{test-tps-lex-fpc, test-tps-parse-fpc, test-tps-type-fpc, test-pubs-tps}
+\chapter{Messages}
+\ix{messages}
+{\fontsize{8.5}{10}\selectfont
+\QRHead{Lexical errors (TPS-LEX-ERROR)}
+\ErrorEntry{LEX-1}{1}{bad character code=}{\textit{n}}A character that is
+no token.
+\ErrorEntry{LEX-2}{2}{unterminated string}{}A string not closed on its line.
+\ErrorEntry{LEX-3}{3}{unterminated brace comment}{}No closing brace.
+\ErrorEntry{LEX-4}{4}{unterminated paren-star comment}{}No closing
+\texttt{*)}.
+\ErrorEntry{LEX-5}{5}{token text exceeds 255 bytes}{}An identifier or string
+too long.
+\ErrorEntry{LEX-6}{6}{input exceeds SOURCEMAX=}{\textit{n}}The source is too
+long.
+\ErrorEntry{LEX-7}{7}{char pool exceeds POOLMAX=}{\textit{n}}Too many
+identifier characters.
+\ErrorEntry{LEX-8}{8}{name table exceeds NAMEMAX=}{\textit{n}}Too many
+identifiers.
+\ErrorEntry{LEX-9}{9}{char pool invariant failed}{}A compiler error; report
+it.
+\ErrorEntry{LEX-10}{10}{decimal integer exceeds 2147483647}{}A number too
+large.
+\ErrorEntry{LEX-UNKNOWN}{}{unknown lexer failure code=}{\textit{n}}A
+compiler error; report it.
+
+\QRHead{Syntax errors (TPS-PARSE-ERROR)}
+\noindent Each gives \texttt{expected=} a token kind or one of these, and
+\texttt{found=} the token kind found.
+\ErrorEntry{PARSE-FACTOR}{}{expected=FACTOR}{}An operand.
+\ErrorEntry{PARSE-TYPE_NAME}{}{expected=TYPE_NAME}{}A type.
+\ErrorEntry{PARSE-RESULT_TYPE}{}{expected=RESULT_TYPE}{}integer, boolean or
+char.
+\ErrorEntry{PARSE-CONST_LITERAL}{}{expected=CONST_LITERAL}{}A constant name
+or literal.
+\ErrorEntry{PARSE-PARAM_NAME}{}{expected=PARAM_NAME}{}A parameter name.
+\ErrorEntry{PARSE-FIELD_NAME}{}{expected=FIELD_NAME}{}A field name.
+\ErrorEntry{PARSE-VAR_NAME}{}{expected=VAR_NAME}{}A variable name.
+\ErrorEntry{PARSE-ROUTINE_NAME}{}{expected=ROUTINE_NAME}{}A routine name.
+\ErrorEntry{PARSE-PROGRAM_NAME}{}{expected=PROGRAM_NAME}{}The program name.
+\ErrorEntry{PARSE-ARRAY_BOUND}{}{expected=ARRAY_BOUND}{}A bound or capacity.
+\ErrorEntry{PARSE-TO_OR_DOWNTO}{}{expected=TO_OR_DOWNTO}{}\textbf{to} or
+\textbf{downto}.
+\ErrorEntry{PARSE-NO_CHAINED_RELATION}{}{expected=NO_CHAINED_RELATION}{}A
+second relation; add parentheses.
+
+\QRHead{Semantic errors (TPS-TYPE-ERROR)}
+\ErrorEntry{TYPE-1}{1}{duplicate identifier:}{ \textit{name}}Declared twice
+in one scope.
+\ErrorEntry{TYPE-2}{2}{unknown type:}{ \textit{name}}Not a record type
+declared earlier.
+\ErrorEntry{TYPE-3}{3}{type mismatch in assignment: expected}{ \textit{t}
+  \texttt{got} \textit{t}}Wrong type assigned.
+\ErrorEntry{TYPE-4}{4}{var parameter requires a variable: argument}{
+  \textit{n} \texttt{of} \textit{r}}Not a variable.
+\ErrorEntry{TYPE-5}{5}{array bound requires an integer literal or integer constant}{}Bad bound.
+\ErrorEntry{TYPE-6}{6}{file variables cannot be assigned}{}A file
+assigned.
+\ErrorEntry{TYPE-7}{7}{semantic rule violation}{}Any other rule; see the
+\doctitle{Programmer's Guide}, Appendix A.
+\ErrorEntry{TYPE-UNKNOWN}{}{unknown semantic failure code=}{\textit{n}}A
+compiler error; report it.
+
+\QRHead{Code-generation errors (TPS-GEN-ERROR)}
+\ErrorEntry{GEN-1}{1}{output short write}{}TPSOUT.S not fully written.
+\ErrorEntry{GEN-2}{2}{invalid symbol storage}{}A compiler error.
+\ErrorEntry{GEN-3}{3}{invalid expression storage}{}A compiler error.
+\ErrorEntry{GEN-4}{4}{call stack invariant}{}A compiler error.
+\ErrorEntry{GEN-UNKNOWN}{}{internal invariant code=}{\textit{n}}A compiler
+error; report it.
+
+\QRHead{Run-time error}
+\ErrorEntry{RUN-FILEIO}{}{FILEIO-ERROR AX=}{\textit{code}}A file operation
+failed; the program ends with exit code 1.  Codes: 1 bad record size or
+count; 2 file not found; 3 path not found; 4 too many open files; 5 access
+denied; 6 file not open.
+\par}
