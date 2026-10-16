@@ -1,0 +1,25 @@
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+Directory of A:\
+README.TXT          279
+MEMO.TXT          258
+PHONE.TXT          263
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

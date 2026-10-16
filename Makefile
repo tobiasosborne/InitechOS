@@ -12883,7 +12883,7 @@ test-makefile-vars: | $(BUILD)
 	@$(MAKE) --no-print-directory --warn-undefined-variables -pn help >/dev/null 2>$(MAKEFILE_VARS_LOG) \
 		|| { printf '!!! test-makefile-vars FAIL: the Makefile did not parse\n'; cat $(MAKEFILE_VARS_LOG); exit 1; }
 	@bad=$$(sed -n "s/^\(.*\): warning: undefined variable '\(.*\)'$$/\2 \1/p" $(MAKEFILE_VARS_LOG) \
-		| grep -v -E '^(SKIP_BOCHS|SKIP_FPC|SCRIPT|RECORD_IMAGE_|RECORD_DATA_) ' || true); \
+		| grep -v -E '^(SKIP_BOCHS|SKIP_FPC|SKIP_PUBS|SCRIPT|RECORD_IMAGE_|RECORD_DATA_) ' || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-makefile-vars FAIL: read before definition (variable, site):\n%s\n' "$$bad"; exit 1; fi
 	@# Leg 2 (2026-10-16, found by the b52a7ce certificate at emu gate 147): a
 	@# blank line right after a backslash-continued recipe line ends the shell
@@ -30869,3 +30869,13 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 include harness/fixture_volumes.mk
 
 TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
+
+# ---------------------------------------------------------------------------
+# Initech Publications (bead initech-ipu5.5): `make pubs`, test-pubs-build
+# (host gate; SKIP_PUBS=1 is its one documented, shouting opt-out),
+# test-pubs-honesty, test-pubs-repro(-mutant), pubs-screens and
+# test-pubs-screens (emu gate).  See pubs/pubs.mk.
+# ---------------------------------------------------------------------------
+include pubs/pubs.mk
+TEST_UNIT_GATES += test-pubs-build test-pubs-honesty
+TEST_EMU_GATES += test-pubs-screens

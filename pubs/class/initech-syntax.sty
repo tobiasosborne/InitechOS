@@ -1,0 +1,117 @@
+%% initech-syntax.sty -- notation, keys, command reference entries, notes,
+%% step lists and DRAFT markers for initech-manual.cls (bead initech-ipu5.5).
+%% Conventions modelled on the period originals (ORIGINALS-PHYSICAL-SURVEY.md):
+%% IBM command entries (purpose / format / remarks / examples), Lotus run-in
+%% NOTE and CAUTION labels and key names ("HELP (F1)"); DESIGN-SYSTEM.md Sec 4:
+%% italics only for document titles and placeholders, no italic emphasis in
+%% procedures.  ASCII only (Rule 12).
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-syntax}[1992/03/01 Initech manual notation]
+\RequirePackage{fancyvrb}
+\RequirePackage{enumitem}
+
+%% ---- inline names ---------------------------------------------------------
+%% Command, file and device names: Courier, never hyphenated (Sec 4).
+\newcommand\cmd[1]{\mbox{\texttt{#1}}}
+\newcommand\file[1]{\mbox{\texttt{#1}}}
+%% What the reader types, in running text: Courier Bold.
+\newcommand\type[1]{\mbox{\texttt{\bfseries #1}}}
+%% Document titles.
+\newcommand\doctitle[1]{\textit{#1}}
+
+%% ---- syntax notation -------------------------------------------------------
+%% UPPERCASE keywords upright, placeholders italic, [optional], {a|b}, ...
+\newcommand\kw[1]{\texttt{#1}}
+\newcommand\ph[1]{\textit{#1}\/}
+\newcommand\opt[1]{\texttt{[}#1\texttt{]}}
+\newcommand\choice[2]{\texttt{\{}#1\texttt{|}#2\texttt{\}}}
+\newcommand\rep{\texttt{...}}
+%% A syntax line, set in the text column, Courier 9/12.
+\newcommand\SyntaxLine[1]{\par
+  {\noindent\imTypeFont\RaggedRight\hangindent=2em #1\par}}
+
+%% ---- key names: Helvetica Bold caps at 80% (Sec 4; Lotus convention) -------
+\newcommand\key[1]{\mbox{\sffamily\bfseries\fontsize{0.8\dimexpr\f@size pt\relax}{0}\selectfont
+  \MakeUppercase{#1}}}
+
+%% ---- typed examples and verbatim text -------------------------------------
+\DefineVerbatimEnvironment{TypeIn}{Verbatim}
+  {formatcom=\imTypeFont, xleftmargin=1.5em, baselinestretch=1}
+
+%% ---- notes and cautions: run-in labels (Lotus) ------------------------------
+\newenvironment{Note}
+  {\par\addvspace{3pt}\noindent{\sffamily\bfseries NOTE}\enspace\ignorespaces}
+  {\par\addvspace{3pt}}
+\newenvironment{Caution}
+  {\par\addvspace{3pt}\noindent{\sffamily\bfseries CAUTION}\enspace\ignorespaces}
+  {\par\addvspace{3pt}}
+
+%% ---- tutorial step lists ----------------------------------------------------
+\newlist{Steps}{enumerate}{1}
+\setlist[Steps]{label={\sffamily\bfseries\arabic*}, leftmargin=1.5em,
+  labelsep=0.5em, itemsep=3pt, parsep=3pt, topsep=3pt}
+\setlist[itemize]{label=\textbullet, leftmargin=1.5em, itemsep=1pt,
+  parsep=1pt, topsep=3pt}
+
+%% ---- DRAFT markers -----------------------------------------------------------
+%% Anything not yet verified against the shipped build is wrapped in
+%% \draft{why}.  It prints visibly, is counted in the log ("DRAFT marker"
+%% lines, read by make test-pubs-build), and is a hard error under the
+%% class option `final`.
+\newcounter{im@drafts}
+\newcommand\draft[1]{%
+  \stepcounter{im@drafts}%
+  \ifim@final
+    \PackageError{initech-syntax}{DRAFT marker in a final build: #1}{Verify the
+      text against the shipped build, then remove the marker.}%
+  \fi
+  \PackageWarning{initech-syntax}{DRAFT marker \arabic{im@drafts}: #1}%
+  \mbox{\fboxsep=1pt\colorbox{black}{\textcolor{white}{\im@condensed\bfseries
+    \fontsize{7}{8}\selectfont DRAFT}}}%
+  \nobreak\hskip0.3em{\imCaptionFont[#1]}\ }
+\AtEndDocument{\typeout{initech-manual: \arabic{im@drafts} DRAFT markers}}
+
+%% Gates that prove a chapter (INITECH-DOCUMENTATION-SET.md Sec 0 rule 1):
+%% recorded in the log, invisible in print.
+\newcommand\Gates[1]{\typeout{initech-manual: gates for this section: #1}}
+
+%% ---- command reference entry ------------------------------------------------
+%% \begin{CommandEntry}{COPY}{Internal}
+%%   \Purpose ... \Syntax ... \Remarks ... \Examples ... \SeeAlso ...
+%% \end{CommandEntry}
+%% The five sub-headings are fixed and must appear once each, in this order;
+%% anything else is an error (Rule 2: fail loud).
+\newcounter{im@entrystage}
+\newcommand\im@entryname{}
+\newcommand\im@stage[2]{%
+  \ifnum\value{im@entrystage}=#1\relax\else
+    \PackageError{initech-syntax}{Command entry \im@entryname: `#2' out of
+      order (the fixed order is Purpose, Syntax, Remarks, Examples, See Also)}{}%
+  \fi
+  \stepcounter{im@entrystage}%
+  \SideHead{#2}}
+\newenvironment{CommandEntry}[2]
+  {\gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
+   \par\addvspace{19.5pt}\goodbreak
+   \noindent\hspace*{-\imHang}\makebox[\imFullWidth][l]{\imHeadOneFont #1%
+     \hfill{\imSideHeadFont (#2)}}\par\nobreak\vspace{1pt}%
+   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
+   \index{#1 command}%
+   \def\Purpose{\im@stage{0}{Purpose}}%
+   \def\Syntax{\im@stage{1}{Syntax}}%
+   \def\Remarks{\im@stage{2}{Remarks}}%
+   \def\Examples{\im@stage{3}{Examples}}%
+   \def\SeeAlso{\im@stage{4}{See Also}}}
+  {\ifnum\value{im@entrystage}=5\relax\else
+     \PackageError{initech-syntax}{Command entry \im@entryname: \arabic{im@entrystage}
+       of the five fixed sub-headings present}{}%
+   \fi\par}
+
+%% ---- message lists (generated from spec/dos_messages.json) -------------------
+%% \MessageEntry{MSG-DOS-0003}{File not found}: the text exactly as displayed,
+%% with the catalogue number at the right in small type.
+\newcommand\MessageEntry[2]{\par\addvspace{4pt}\noindent
+  \llap{\makebox[\imHang][l]{\imCaptionFont #1}}\texttt{\bfseries #2}\par
+  \index{#2@\texttt{#2}}}
+
+\endinput

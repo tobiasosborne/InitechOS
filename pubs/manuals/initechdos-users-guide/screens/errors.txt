@@ -1,0 +1,25 @@
+A:\>B:
+Bad command or file name
+A:\>DIRECTORY
+Bad command or file name
+A:\>TYPE
+Required parameter missing
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,185 @@
+%% initech-forms.sty -- title page, edition notice, wordmark, cover, spine and
+%% Reader's Comment Form for initech-manual.cls (bead initech-ipu5.5).
+%% Spec: DESIGN-SYSTEM.md Sec 2 (identity; D-8 wordmark only), Sec 6 (cover,
+%% title insert and spine positions, measured from trim), Sec 10 (part number
+%% PPPP-VVVV-II, edition notice, printer's key), Sec 11 (Reader's Comment Form
+%% with Business Reply panel, IBM model).  All boilerplate is newly written
+%% for Initech (Sec 10: never reuse the originals' wording).  D-12: the address
+%% is fictional and telephone numbers are in the 555-0100..0199 range.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-forms}[1992/03/01 Initech manual forms]
+\RequirePackage{graphicx}
+
+%% ---- document metadata --------------------------------------------------
+\newcommand\im@product{}       \newcommand\ProductName[1]{\gdef\im@product{#1}}
+\newcommand\im@version{}       \newcommand\ProductVersion[1]{\gdef\im@version{#1}}
+\newcommand\im@doctitle{}      \newcommand\DocTitle[1]{\gdef\im@doctitle{#1}}
+\newcommand\im@partno{}        \newcommand\PartNumber[1]{\gdef\im@partno{#1}}
+\newcommand\im@family{}        \newcommand\FamilyName[1]{\gdef\im@family{#1}}
+\newcommand\im@familycolor{FamilySystems}
+\newcommand\FamilyColor[1]{\gdef\im@familycolor{#1}}
+\newcommand\im@edition{}       \newcommand\Edition[1]{\gdef\im@edition{#1}}
+\newcommand\im@applies{}       \newcommand\EditionApplies[1]{\gdef\im@applies{#1}}
+\newcommand\im@years{}         \newcommand\CopyrightYears[1]{\gdef\im@years{#1}}
+\newcommand\im@printedin{Germany}\newcommand\PrintedIn[1]{\gdef\im@printedin{#1}}
+\newcommand\im@printkey{10 9 8 7 6 5 4 3 2 1}
+\newcommand\PrintersKey[1]{\gdef\im@printkey{#1}}
+
+%% The company's fictional address (D-12).  One definition, used everywhere.
+\newcommand\InitechAddress{Initech Systems Corporation\\
+  Publications Department\\
+  One Initech Plaza\\
+  Austin, Texas 78799}
+\newcommand\InitechAddressLine{Initech Systems Corporation, Publications
+  Department, One Initech Plaza, Austin, Texas 78799}
+
+%% ---- the wordmark (D-8): INITECH, +100 tracking, 0.5 pt rule, Systems
+%% Corporation in Helvetica Regular.  Original artwork only (Sec 2).
+\newsavebox\im@wmbox
+\newcommand\Wordmark[1][30mm]{\begingroup
+  \sbox\im@wmbox{\im@wordmarkfont\fontsize{20}{20}\selectfont INITECH\kern-2pt}%
+  \resizebox{#1}{!}{\vbox{\hsize=\wd\im@wmbox \offinterlineskip
+    \hbox{\usebox\im@wmbox}%
+    \kern3pt\hrule height 0.5pt\kern3pt
+    \hbox to \wd\im@wmbox{\resizebox{\wd\im@wmbox}{!}{\sffamily
+      \fontsize{10}{10}\selectfont Systems Corporation}}}}\endgroup}
+
+%% ---- absolute placement on the page (mm from the top-left trim corner) ----
+%% \AtPage{x}{y}{material}: material's top-left corner at (x, y) mm.
+\newcommand\AtPage[3]{\AddToHookNext{shipout/foreground}{%
+  \put(\dimexpr #1mm\relax, -\dimexpr #2mm\relax){\makebox[0pt][l]{\raisebox{-\height}{#3}}}}}
+\newcommand\im@hook[1]{\AddToHookNext{shipout/foreground}{#1}}
+
+%% Positions shared by the title page, the cover and the spine (Sec 6):
+%% product name 19 mm from the top; document title at 70 mm; family band
+%% centred 142 mm from the top, 10 mm deep; wordmark 30 mm wide, 16 mm from
+%% the bottom and the left edge; part number lower right, 7 pt.
+\newcommand\im@coverlayout[1]{% #1 = 1 for colour (cover), 0 for black (title page)
+  \AtPage{16}{19}{\im@termes\fontsize{36}{40}\selectfont\im@product}%
+  \AtPage{16}{36}{\im@termes\fontsize{18}{22}\selectfont\im@version}%
+  \AtPage{16}{70}{\sffamily\fontsize{14}{17}\selectfont\im@doctitle}%
+  \ifnum#1=1
+    \im@hook{\put(0,-\dimexpr147mm\relax){\textcolor{\im@familycolor}{%
+      \rule{\paperwidth}{10mm}}}}%
+    \AtPage{16}{139.6}{\textcolor{white}{\im@condensed\bfseries
+      \fontsize{8}{8}\selectfont\im@family}}%
+  \else
+    \AtPage{16}{137}{\rule{144.6mm}{0.5pt}}%
+    \AtPage{16}{139.6}{\im@condensed\bfseries\fontsize{8}{8}\selectfont\im@family}%
+  \fi
+  \AtPage{16}{\fpeval{228.6-16-12}}{\Wordmark[30mm]}%
+  \im@hook{\put(\dimexpr 161.8mm\relax, -\dimexpr 212.6mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{7}{8}\selectfont\im@partno}}}}
+
+%% ---- title page and verso (edition notice) ---------------------------------
+\newcommand\MakeTitlePage{%
+  \thispagestyle{empty}\im@coverlayout{0}\null\newpage}
+\newenvironment{TitleVerso}
+  {\thispagestyle{empty}\noindent\hspace*{-\imHang}%
+   \begin{minipage}[t][\dimexpr\textheight-\topskip\relax][b]{\imFullWidth}\small\RaggedRight
+   \setlength\parskip{5pt}}
+  {\par\vspace{6pt}
+   {\im@condensed\bfseries\fontsize{8}{10}\selectfont\im@edition}\par
+   \im@applies\par
+   \copyright\ Copyright Initech Systems Corporation \im@years.
+   All rights reserved.\par
+   \vspace{4pt}\noindent\makebox[\linewidth][l]{Printed in \im@printedin.\hfill
+     \im@partno\qquad\im@printkey}\par
+   \end{minipage}\newpage}
+
+%% ---- cover / binder title insert (class option `cover`) --------------------
+\newcommand\MakeCover{\thispagestyle{empty}\im@coverlayout{1}\null\newpage}
+
+%% ---- binder spine insert (class option `spine`) -----------------------------
+%% Text reads top to bottom (US convention; tell German printers explicitly);
+%% the family band sits at exactly the cover height so a shelf of Initech books
+%% shows one continuous stripe per family (Sec 6).
+\newcommand\MakeSpine{\thispagestyle{empty}%
+  \im@hook{%
+    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr16mm\relax){\makebox[0pt][c]{%
+      \raisebox{-\height}{\ifdim\paperwidth<25mm
+        \rotatebox{-90}{\Wordmark[24mm]}\else\Wordmark[\paperwidth-14mm]\fi}}}%
+    \put(\dimexpr0.5\paperwidth+3mm\relax,-\dimexpr44mm\relax){%
+      \rotatebox{-90}{\makebox[0pt][l]{\im@termes\fontsize{20}{24}\selectfont
+        \im@product\quad\sffamily\fontsize{12}{14}\selectfont\im@doctitle}}}%
+    \put(0,-\dimexpr147mm\relax){\textcolor{\im@familycolor}{\rule{\paperwidth}{10mm}}}%
+    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr139.6mm\relax){\makebox[0pt][c]{%
+      \raisebox{-\height}{\textcolor{white}{\im@condensed\bfseries\fontsize{8}{8}\selectfont
+        \im@family}}}}%
+    \put(\dimexpr0.5\paperwidth+2mm\relax,-\dimexpr156mm\relax){%
+      \rotatebox{-90}{\makebox[0pt][l]{\im@termes\fontsize{14}{16}\selectfont\im@version}}}%
+    \put(\dimexpr0.5\paperwidth\relax,-\dimexpr218mm\relax){\makebox[0pt][c]{%
+      \sffamily\fontsize{7}{8}\selectfont\im@partno}}}%
+  \null\newpage}
+
+%% ---- Reader's Comment Form + Business Reply panel (IBM model, Sec 11) --------
+\newcommand\im@writeline{\par\noindent\rule{\linewidth}{0.25pt}\par}
+\newcommand\im@box{\framebox[2.4mm]{\rule{0pt}{1.6mm}}}
+\newcommand\ReadersCommentForm{%
+  \cleardoublepage
+  \thispagestyle{empty}%
+  \noindent\hspace*{-\imHang}\begin{minipage}[t][\dimexpr\textheight-\topskip\relax][t]{\imFullWidth}
+    \RaggedRight\setlength\parskip{4pt}
+    {\imHeadOneFont Reader's Comment Form\par}\vspace{2pt}
+    \noindent\rule{\linewidth}{0.5pt}\par
+    {\sffamily\bfseries \im@product\ \im@version\ \im@doctitle\hfill\im@partno\par}
+    {\small Initech Systems Corporation welcomes your comments on this book.
+    Tell us what was hard to find, what was unclear, and what was wrong.
+    We read every form.  Comments on this book only, please: questions about
+    the software, orders and requests for copies go to the Help Desk
+    (extension 2504) or to your Initech representative.  Initech may use
+    the information you supply in any way it believes appropriate without
+    incurring any obligation to you.\par}
+    \vspace{4pt}
+    {\imSideHeadFont How did you use this book?}\quad\small
+    \im@box\ As an introduction\quad
+    \im@box\ For reference\quad
+    \im@box\ For training\par
+    {\imSideHeadFont Did you find the information you needed?}\quad
+    \im@box\ Yes\quad \im@box\ No\par
+    \vspace{2pt}
+    {\imSideHeadFont Comments}\par\setlength\parskip{9pt}
+    \im@writeline\im@writeline\im@writeline\im@writeline\im@writeline
+    \im@writeline\im@writeline\im@writeline\im@writeline\im@writeline
+    \im@writeline\im@writeline
+    \vfill\setlength\parskip{9pt}
+    {\imSideHeadFont Name}\hfill\im@writeline
+    {\imSideHeadFont Company}\im@writeline
+    {\imSideHeadFont Address}\im@writeline
+    \im@writeline
+    \vspace{2pt}{\imLegalFont No postage stamp necessary if mailed in the
+      U.S.A.  Fold on the lines, tape, and mail.  Please do not staple.\par}
+  \end{minipage}
+  \newpage
+  \thispagestyle{empty}%
+  \noindent\hspace*{-\imHang}\begin{minipage}[t][\dimexpr\textheight-\topskip\relax][t]{\imFullWidth}
+    \RaggedRight
+    \null\vspace{58mm}
+    \noindent{\imLegalFont Fold here}\ \leaders\hbox to 3pt{\hss.\hss}\hfill\null\par
+    \vspace{6mm}
+    \noindent\begin{minipage}[t]{95mm}
+      {\sffamily\bfseries\fontsize{16}{19}\selectfont BUSINESS REPLY MAIL\par}
+      \vspace{2pt}
+      {\sffamily\bfseries\fontsize{7}{9}\selectfont FIRST CLASS MAIL\quad
+        PERMIT NO.\ 2504\quad AUSTIN, TEXAS\par}
+      \vspace{6pt}
+      {\sffamily\fontsize{7}{9}\selectfont POSTAGE WILL BE PAID BY ADDRESSEE\par}
+      \vspace{8pt}
+      {\sffamily\fontsize{10}{13}\selectfont\InitechAddress\par}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{36mm}\centering
+      \fbox{\parbox{30mm}{\centering\imLegalFont NO POSTAGE\\ NECESSARY\\
+        IF MAILED\\ IN THE\\ UNITED STATES}}\par\vspace{5mm}
+      \rule{36mm}{2pt}\par\vspace{2.2pt}\rule{36mm}{2pt}\par\vspace{2.2pt}
+      \rule{36mm}{2pt}\par\vspace{2.2pt}\rule{36mm}{2pt}\par\vspace{2.2pt}
+      \rule{36mm}{2pt}\par\vspace{2.2pt}\rule{36mm}{2pt}\par\vspace{2.2pt}
+      \rule{36mm}{2pt}\par\vspace{2.2pt}\rule{36mm}{2pt}\par
+    \end{minipage}\par
+    \vfill
+    \noindent{\imLegalFont Fold here}\ \leaders\hbox to 3pt{\hss.\hss}\hfill\null\par
+    \vspace{4mm}
+    {\imLegalFont \im@partno}\par
+  \end{minipage}
+  \newpage}
+
+\endinput
