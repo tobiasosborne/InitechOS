@@ -873,6 +873,61 @@ int finder_shell_note_view(finder_shell_t *sh, uint16_t dir_start,
 const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
                                                 uint16_t dir_start);
 
+/* tdnl.44 PREPARATORY LOGIC ONLY. No new mode is enabled or painted yet.
+ * Ref: design F1.3 fixes bit 0 = list; the lane's Name/Size/Kind/Date
+ * requirements assign bits 2..3 to the sort key and bit 1 to small icons.
+ * Bits 4..15 are preserved. This extends the reserved bits without changing
+ * the 24-byte kind=4 codec. These are product policy, NOT captured Mac bits.
+ * Pixel blocker: ../system7-decomp has no Mac OS 8.1 Finder list capture.
+ * Header/row heights, column widths, small strikes and sort underline remain
+ * unmeasured. Do not enable finder_menu.c rows until the emu gate is green.
+ * list.c remains the List Manager; the helpers below own no cell store,
+ * selection, scrolling or painting. Column widths must come from the future
+ * independent capture, not from the arithmetic oracle's synthetic inputs.
+ */
+#define FINDER_VIEW_ICONS       0x0000u
+#define FINDER_VIEW_SMALL       0x0002u
+#define FINDER_VIEW_NAME        0x0001u
+#define FINDER_VIEW_SIZE        0x0005u
+#define FINDER_VIEW_KIND        0x0009u
+#define FINDER_VIEW_DATE        0x000du
+#define FINDER_VIEW_MASK        0x000fu
+#define FINDER_VIEW_COLUMNS     4
+
+/* View menu item numbers from finder_menu.c (1-based, dividers counted).
+ * Unsupported items, including Label/Buttons/Pop-up, leave bits unchanged. */
+uint16_t finder_win_view_choose(uint16_t bits, uint16_t menu_item);
+
+/* A borrowed sort key, valid for the duration of the call only. FAT dates
+ * are packed modification date/time words (fat12.h); no host clock involved.
+ * FUTURE enumeration must copy these alongside the existing icon records.
+ * Ascending primary key, then case-insensitive full 8.3 name; equal keys
+ * retain directory enumeration order. Kind uses finder_win_kind_of's existing
+ * numeric enum order (folder/file/app). No locale or natural sort.
+ */
+typedef struct finder_list_key {
+    const char *name83;
+    uint32_t size;
+    uint16_t date, time;
+    uint8_t attribute;
+} finder_list_key_t;
+int finder_win_list_compare(const finder_list_key_t *a,
+                             const finder_list_key_t *b, uint16_t bits);
+int finder_win_list_rank(const finder_list_key_t *keys, int n, int index,
+                          uint16_t bits);
+
+/* Header-only geometry: four positive caller-supplied widths in order
+ * Name/Size/Kind/Date, half-open rectangles, horizontal scroll in pixels.
+ * Returns 1 with a clipped column rect, 0 on invalid/offscreen input (out is
+ * untouched). Header clicks preserve bits on a miss or in a non-list mode.
+ * No default pixel metrics are supplied in this blocked slice.
+ */
+int finder_win_list_column(rgn_rect_t header, const int16_t widths[4],
+                            int16_t scroll_x, int column, rgn_rect_t *out);
+uint16_t finder_win_list_header(uint16_t bits, rgn_rect_t header,
+                                 const int16_t widths[4], int16_t scroll_x,
+                                 int16_t x, int16_t y);
+
 /* Record `slot`'s CURRENT window frame origin + view bits into the view set.
  * Returns 1 when the set changed (commit needed). Called on close and after a
  * window move. */

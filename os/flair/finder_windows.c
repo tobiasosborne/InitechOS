@@ -73,6 +73,27 @@ static char fw_upper(char c)
     return (c >= 'a' && c <= 'z') ? (char)(c - 'a' + 'A') : c;
 }
 
+/* ONE case-insensitive 8.3 ordering for Arrange and the pending list view.
+ * Ref: design F1.1 (FAT names), tdnl.67 Arrange's stable name ordering. */
+static int fw_name_compare(const char *a, const char *b)
+{
+    if (a == (const char *)0) a = "";
+    if (b == (const char *)0) b = "";
+    while (*a != '\0' && fw_upper(*a) == fw_upper(*b)) { a++; b++; }
+    return ((unsigned char)fw_upper(*a) > (unsigned char)fw_upper(*b)) -
+           ((unsigned char)fw_upper(*a) < (unsigned char)fw_upper(*b));
+}
+
+/* Arrange and list ordering share the SAME stable rank rule (tdnl.67). */
+static int fw_rank_before(int comparison, int candidate, int index)
+{
+#if defined(FINDER_VIEW_MUT_SORT_UNSTABLE)
+    return comparison < 0 || (comparison == 0 && candidate > index);
+#else
+    return comparison < 0 || (comparison == 0 && candidate < index);
+#endif
+}
+
 static uint32_t fw_len(const char *s)
 {
     uint32_t n = 0u;
@@ -164,6 +185,104 @@ int finder_win_skip_entry(uint8_t attribute)
      * it would test TRUE here anyway -- both are correct outcomes. */
     return ((attribute & (uint8_t)FINDER_ATTR_VOLLABEL) != 0u) ? 1 : 0;
 #endif
+}
+
+/* tdnl.44 pure preparation; finder_windows.h documents the source boundary.
+ * No mode is wired to the UI until independent list pixels are available.
+ * Keep design F1.3's bit0=list, and reuse its existing kind=4 codec. */
+uint16_t finder_win_view_choose(uint16_t bits, uint16_t menu_item)
+{
+    uint16_t mode;
+    switch (menu_item) {
+    case 1: mode = FINDER_VIEW_ICONS; break;
+    case 2: mode = FINDER_VIEW_SMALL; break;
+    case 3: mode = FINDER_VIEW_NAME; break;
+    case 4: mode = FINDER_VIEW_SIZE; break;
+    case 5: mode = FINDER_VIEW_KIND; break;
+    case 7: mode = FINDER_VIEW_DATE; break;
+    default: return bits;
+    }
+    return (uint16_t)((bits & (uint16_t)~FINDER_VIEW_MASK) | mode);
+}
+
+int finder_win_list_compare(const finder_list_key_t *a,
+                             const finder_list_key_t *b, uint16_t bits)
+{
+    uint32_t x = 0u, y = 0u;
+    if (a == (const finder_list_key_t *)0 || b == (const finder_list_key_t *)0)
+        return 0;
+    switch (bits & FINDER_VIEW_MASK) {
+    case FINDER_VIEW_SIZE: x = a->size; y = b->size; break;
+    case FINDER_VIEW_KIND:
+        x = (uint32_t)finder_win_kind_of(a->name83, a->attribute);
+        y = (uint32_t)finder_win_kind_of(b->name83, b->attribute);
+        break;
+    case FINDER_VIEW_DATE:
+        /* FAT's packed year/month/day/hour/minute/2-second fields are
+         * monotonically ordered as unsigned words. Ref: fat12.h time API. */
+        x = ((uint32_t)a->date << 16) | a->time;
+        y = ((uint32_t)b->date << 16) | b->time;
+        break;
+    default: break;
+    }
+    if (x != y) return x < y ? -1 : 1;
+    return fw_name_compare(a->name83, b->name83);
+}
+
+int finder_win_list_rank(const finder_list_key_t *keys, int n, int index,
+                          uint16_t bits)
+{
+    int rank = 0;
+    if (keys == (const finder_list_key_t *)0 || index < 0 || index >= n)
+        return -1;
+    /* Same rank-by-comparison mechanism as Arrange. Do not shuffle the icon
+     * array: selection and drag trackers retain indices into that array. */
+    for (int j = 0; j < n; j++) {
+        int c = finder_win_list_compare(&keys[j], &keys[index], bits);
+        if (fw_rank_before(c, j, index)) rank++;
+    }
+    return rank;
+}
+
+int finder_win_list_column(rgn_rect_t header, const int16_t widths[4],
+                            int16_t scroll_x, int column, rgn_rect_t *out)
+{
+    int32_t left, right;
+    if (widths == (const int16_t *)0 || out == (rgn_rect_t *)0 ||
+        column < 0 || column >= FINDER_VIEW_COLUMNS || scroll_x < 0 ||
+        header.left >= header.right || header.top >= header.bottom) return 0;
+    for (int i = 0; i < FINDER_VIEW_COLUMNS; i++)
+        if (widths[i] <= 0) return 0;
+    left = (int32_t)header.left - scroll_x;
+    for (int i = 0; i < column; i++) left += widths[i];
+    right = left + widths[column];
+#if defined(FINDER_VIEW_MUT_SIZE_COLUMN_OFFBYONE)
+    if (column == 1) left++;
+#endif
+    if (left < header.left) left = header.left;
+    if (right > header.right) right = header.right;
+    if (left >= right) return 0;
+    *out = header;
+    out->left = (int16_t)left;
+    out->right = (int16_t)right;
+    return 1;
+}
+
+uint16_t finder_win_list_header(uint16_t bits, rgn_rect_t header,
+                                 const int16_t widths[4], int16_t scroll_x,
+                                 int16_t x, int16_t y)
+{
+#if defined(FINDER_VIEW_MUT_HEADER_IGNORED)
+    return bits;
+#endif
+    if ((bits & 1u) == 0u) return bits; /* design F1.3 bit0 = list */
+    for (int col = 0; col < FINDER_VIEW_COLUMNS; col++) {
+        rgn_rect_t r;
+        if (finder_win_list_column(header, widths, scroll_x, col, &r) &&
+            x >= r.left && x < r.right && y >= r.top && y < r.bottom)
+            return finder_win_view_choose(bits, (uint16_t)(col == 3 ? 7 : col + 3));
+    }
+    return bits;
 }
 
 rgn_rect_t finder_win_default_frame(int slot)
@@ -982,7 +1101,11 @@ int finder_shell_save_view(finder_shell_t *sh, int slot)
     if (frame.top < 0) frame.top = 0;
     return finder_shell_note_view(sh, w->dir_start, w->name83,
                                   (uint16_t)frame.left, (uint16_t)frame.top,
+#if defined(FINDER_VIEW_MUT_SAVE_ICONS)
+                                  0u); /* Rule 6: discard per-folder mode. */
+#else
                                   w->view_bits);
+#endif
 }
 
 /* ===========================================================================
@@ -1406,12 +1529,6 @@ static void fw_do_select_all(finder_shell_t *sh, finder_cmd_id id, int slot)
  * pure function of the listing (Rule 11). The icon ARRAY is not reordered
  * (stored indices -- the click tracker, a lit drop target -- stay valid);
  * each icon is snapped to the cell of its RANK. */
-static int fw_name_less(const char *a, const char *b)
-{
-    while (*a != '\0' && fw_upper(*a) == fw_upper(*b)) { a++; b++; }
-    return (unsigned char)fw_upper(*a) < (unsigned char)fw_upper(*b);
-}
-
 int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
 {
     finder_window_t *w;
@@ -1428,12 +1545,10 @@ int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
 #if defined(FINDER_WIN_MUT_ARRANGE_NOOP)
             /* MUTANT (Rule 6; audit G10): rank by LISTING order, i.e. the
              * pre-fix "Arrange does not reorder" -- a plain Clean Up. */
-            (void)fw_name_less;
             if (j < i) rank++;
 #else
-            if (fw_name_less(w->view.icons[j].name, w->view.icons[i].name) ||
-                (!fw_name_less(w->view.icons[i].name, w->view.icons[j].name) &&
-                 j < i))
+            if (fw_rank_before(fw_name_compare(w->view.icons[j].name,
+                                              w->view.icons[i].name), j, i))
                 rank++;
 #endif
         }

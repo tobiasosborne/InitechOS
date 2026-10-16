@@ -592,6 +592,7 @@ PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
 # 8/11): FLAIR_FOLDER_NAV_SPEC, FLAIR_WINDOW_DRAG_PERSIST_SPEC and
 # FLAIR_NEW_FOLDER_SPEC. Sibling of the R3.2 file above, never an edit to it.
 include spec/flair_disk_windows_traces.mk
+include spec/flair_list_view_traces.mk
 # R3.4a (bead initech-34dh): the LOCKED drag-move / drag-to-Trash traces.
 include spec/flair_file_ops_traces.mk
 # tdnl.34 (audit F01): the LOCKED "contents follow the window" traces.
@@ -8113,6 +8114,7 @@ endef
         test-finder-menu test-finder-menu-mutant \
         test-finder-desktop test-finder-desktop-mutant \
         test-finder-windows test-finder-windows-mutant \
+        test-finder-list-view test-finder-list-view-mutant \
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
@@ -12941,6 +12943,30 @@ FINDER_WIN_DEPS := $(TEST_FINDER_WIN_SRC) os/flair/finder_windows.h \
 
 $(TEST_FINDER_WIN): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+
+# tdnl.44: geometry-independent preparation while the Mac OS 8.1 Finder
+# list-view capture is missing. These tests DO NOT accept a painted list.
+TEST_FINDER_LIST_SRC := harness/proptest/test_finder_list_view.c
+TEST_FINDER_LIST := $(BUILD)/test_finder_list_view
+FINDER_LIST_MUTANTS := SORT_UNSTABLE SIZE_COLUMN_OFFBYONE HEADER_IGNORED SAVE_ICONS
+$(TEST_FINDER_LIST): $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK)
+$(BUILD)/test_finder_list_view_mutant_%: $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_VIEW_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK)
+.PHONY: test-finder-list-view test-finder-list-view-mutant
+test-finder-list-view: $(TEST_FINDER_LIST)
+	@$(TEST_FINDER_LIST)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_windows.c -o $(BUILD)/finder_list_view_freestanding.o
+	@printf '>>> test-finder-list-view: green (logic only; UI capture blocked)\n'
+test-finder-list-view-mutant: test-finder-list-view $(foreach m,$(FINDER_LIST_MUTANTS),$(BUILD)/test_finder_list_view_mutant_$(m))
+	@set -eu; for pair in 'SORT_UNSTABLE:V2 stable rank' 'SIZE_COLUMN_OFFBYONE:V3 column boundaries' 'HEADER_IGNORED:V4 Size header click' 'SAVE_ICONS:V5 Restart kind=4 bytes'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_finder_list_view_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-list-view-mutant FAIL: %s PASSED\n' "$$m"; exit 1; fi; \
+		grep -F "$$why" $$bin.log | grep -q FAIL || { cat $$bin.log; printf '!!! mutant RED for wrong reason: %s\n' "$$m"; exit 1; }; \
+		grep -F "$$why" $$bin.log | head -1; \
+		printf '>>> test-finder-list-view-mutant: %s correctly RED\n' "$$m"; \
+	done
+	@printf '>>> test-finder-list-view-mutant: green (four named mutants RED)\n'
 $(TEST_FINDER_WIN_MUT_SINGLETON): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_SINGLETON_DUP $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_VOLLABEL): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
@@ -19877,6 +19903,23 @@ FLAIR_DW_FBAR_NAME    := flair_diskwin_rootwin
 FLAIR_DW_MENU_NAME    := flair_diskwin_findermenu
 FLAIR_DW_CANCEL_NAME  := flair_diskwin_menucancel
 .PHONY: test-flair-disk-windows
+# tdnl.44 STOP CONDITION (Law 1/2): s8_doc_window_active and s8_81_finder
+# are ICON views; even s7_window_listview is an icon view. No captured list
+# header/rows exist in the read-only corpus. Do not turn this RED gate green
+# by rendering/reading the same metrics, substituting an icon capture, or by
+# merely finding a file with the requested name. Mint and independently
+# measure the capture, then finish the header-click trace, serial assertions,
+# screendump probes, Restart leg and emu mutant. No QEMU run can supply that
+# missing independent expectation. Both targets remain in TEST_EMU_GATES.
+.PHONY: finder-list-view-capture-required test-flair-list-view test-flair-list-view-mutant
+finder-list-view-capture-required:
+	@printf '!!! test-flair-list-view RED: missing independent Mac OS 8.1 Finder disk/folder window in View > as List, showing Name/Size/Kind/Date header and rows with Size selected/underlined; required capture: %s/goldens/captures/s8_finder_list_view_size.png. Header/row metrics and Size-click trace are unresolved.\n' '$(SYSTEM7_DECOMP)'
+	@exit 1
+test-flair-list-view: finder-list-view-capture-required
+test-flair-list-view-mutant: test-flair-list-view
+	@printf '!!! test-flair-list-view-mutant RED: baseline blocked; no emu mutant proof\n'
+	@exit 1
+
 test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 			 $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -23364,6 +23407,17 @@ RECORD_MARKER_calculator = APPLE-LAUNCH name=CALCULAT.EXE dir=APPS
 RECORD_IMAGE_calculator = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_calculator = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_calculator = 300
+# tdnl.44 Rule 14 registration, BEFORE record-flair (parse-time prerequisites).
+# Intentionally guarded: the trace currently ends after requesting by Name;
+# the Size-header click has no independent geometry yet. PM records on main
+# only after the missing capture and full emu acceptance leg are supplied.
+RECORD_SCRIPTS += finder_list_view
+RECORD_SPEC_finder_list_view = $(FLAIR_LIST_VIEW_PRELUDE_SPEC)
+RECORD_MARKER_finder_list_view = FINDER-VIEW win=1
+RECORD_IMAGE_finder_list_view = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_finder_list_view = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_finder_list_view = 300
+record-flair: $(if $(filter finder_list_view,$(SCRIPT)),finder-list-view-capture-required)
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -28771,6 +28825,7 @@ TEST_UNIT_GATES := \
 	test-finder-menu test-finder-menu-mutant \
 	test-finder-desktop test-finder-desktop-mutant \
 	test-finder-windows test-finder-windows-mutant \
+	test-finder-list-view test-finder-list-view-mutant \
 	test-interact test-interact-mutant \
 	test-process test-process-mutant test-process-mutant-build \
 	test-process-teardown test-process-teardown-mutant \
@@ -29905,6 +29960,7 @@ TEST_EMU_GATES := \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
+	test-flair-list-view test-flair-list-view-mutant \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
