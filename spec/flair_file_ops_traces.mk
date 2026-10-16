@@ -206,7 +206,16 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # -48,+124 from the APPS double-click (123,102) (cell n centre = 75+68*(n%4),
 # 122+52*(n/4)). The park keeps its ABSOLUTE target (+292,+156 from the APPS
 # click): +340,+32 from the new click point. Second park unchanged.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m-48:100,m0:24,l1,l0,l1,l0,m100:32,m100:0,m100:0,m40:0,m68:68,m68:68,m69:66
+# initech-zuvo deliberate re-key (operator requested grown-volume gates):
+# XCOPY.COM and TREE.COM append at cells 5/6, so stranded TRASH is cell 7,
+# row 1 col 3 (zero based), center (279,174). From APPS (123,102), move
+# (+156,+72), then to the unchanged next waypoint (415,278): (+136,+104).
+# PM MERGE RE-KEY 2026-10-17 (zuvo on top of kd4a + gyvx/f88h): APPS now holds
+# ten files (+ XCOPY.COM, TREE.COM), so the stranded TRASH is cell 10 = row 3,
+# col 2: centre (211,226) = +88,+124 from the APPS double-click (123,102). The
+# park keeps its ABSOLUTE target (+292,+156 from the APPS click): +204,+32 from
+# the new click point. Second park unchanged.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m88:100,m0:24,l1,l0,l1,l0,m100:32,m100:0,m4:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the

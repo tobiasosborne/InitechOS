@@ -2,7 +2,7 @@
 # Explicit contracts for seeded data-volume recipes. Included LAST so this
 # list cannot cause a read-before-definition (test-makefile-vars, tdnl.81).
 # Default mcopy flags are A; mtools lists read-only as A R and hidden as A H.
-FLAIR_FIXTURES := README.TXT APPS/TENANTFX.EXE APPS/CTENANT.EXE APPS/123.EXE APPS/WORD.EXE APPS/123.MNU APPS/CHKDSK.COM APPS/ATTRIB.COM APPS/LABEL.COM
+FLAIR_FIXTURES := README.TXT APPS/TENANTFX.EXE APPS/CTENANT.EXE APPS/123.EXE APPS/WORD.EXE APPS/123.MNU APPS/CHKDSK.COM APPS/ATTRIB.COM APPS/LABEL.COM APPS/XCOPY.COM APPS/TREE.COM
 FIXTURE_VOLUME_NAMES :=
 define fixture-contract
 FIXTURE_VOLUME_NAMES += $(1)

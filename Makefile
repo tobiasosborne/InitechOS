@@ -860,6 +860,8 @@ MORE_PROG_ASM    := $(KERNEL_DIR)/more_program.asm
 MORE_PROG_BIN    := $(BUILD)/more_program.bin
 MORE_PROG_MUT_BIN := $(BUILD)/more_program_mut.bin
 CHKDSK_PROG_BIN  := $(BUILD)/chkdsk_program.bin
+XCOPY_PROG_BIN   := $(BUILD)/xcopy_program.bin
+TREE_PROG_BIN    := $(BUILD)/tree_program.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -10172,7 +10174,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 FLAIR_DATA_RECIPE_IMAGES :=
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10191,7 +10193,9 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CHKDSK_PROG_BIN) ::APPS/CHKDSK.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(ATTRIB_PROG_BIN) ::APPS/ATTRIB.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(LABEL_PROG_BIN) ::APPS/LABEL.COM
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(XCOPY_PROG_BIN) ::APPS/XCOPY.COM
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(TREE_PROG_BIN) ::APPS/TREE.COM
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
@@ -30704,6 +30708,7 @@ TEST_UNIT_GATES += test-i123-copy-move-baseline
 $(BUILD)/check_i123_menu_levels: harness/diff/wk1_diff/check_i123_menu_levels.c
 	$(CC) $(CFLAGS) -o $@ $<
 include harness/diff/fat_diff/doslook.mk
+include harness/diff/fat_diff/xcopy_tree.mk
 
 # LOOK pass6 menu batch: independent Mac column crop and NFNT check, RED first.
 MENU_LOOK_GOLDEN := spec/menu_look_golden.h
