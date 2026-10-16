@@ -101,3 +101,6 @@ TEXT|2026-10-17|FLAIR application (InitechText); its own manual is not yet writt
 WORD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 TPSREP|2026-10-17|DOS application (TPS Report Generator); documented by its own Operating Procedures manual, initech-ipu5.14 (PM-directed explicit row)
 CALCULAT|2026-10-17|FLAIR desk accessory (Calculator, Apple menu); documented by the Finder manual, initech-ipu5.9 (PM-directed explicit row)
+NOTEPAD|2026-10-17|FLAIR desk accessory (Note Pad, Apple menu); documented by the FLAIR Accessories Guide, initech-ipu5.11 (PM-directed explicit row)
+SCRAPBK|2026-10-17|FLAIR desk accessory (Scrapbook, Apple menu); documented by the FLAIR Accessories Guide, initech-ipu5.11 (PM-directed explicit row)
+CPANELS|2026-10-17|FLAIR desk accessory (Control Panels, Apple menu); documented by the FLAIR User's Guide, initech-ipu5.11 (PM-directed explicit row)
