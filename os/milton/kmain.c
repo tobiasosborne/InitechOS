@@ -4861,6 +4861,17 @@ static void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t 
     uint32_t size = 0u, t0, dt = 0u, v = 0u, shown = 101u, limit;
     int32_t rate, rc, done = 0;
     int mid = 0;
+#ifdef FILECOPY_RECORD_STEP
+    /* Record images ONLY (make record-flair, FLAIRTENANTS_RECORDXLONGDBL_IMG):
+     * the bar advances a fixed FILECOPY_RECORD_STEP ticks per injected input
+     * event (a mouse move), never by the clock -- per-event clip frames are
+     * grabbed on a wall-clock settle and a clock-driven bar raced them
+     * (record-flair-repro file_copy, 2026-10-17). The shipped kernel copies
+     * by the tick at the MICHAEL.CFG rate. */
+    uint32_t fc_steps = 0u;
+    int16_t fc_h = 0, fc_v = 0;
+    int fc_have = 0;
+#endif
 
     if (!tbx_take_filecopy(&cap, &src, &dst)) return;
     rate = tbx_fc_rate();
@@ -4897,10 +4908,18 @@ static void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t 
     t0 = flair_tick_count();
     for (;;) {
         EventRecord ev;
-        if (WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 1u))
+        int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 1u);
+        if (got)
             flair_live_emit_evt(&ev);          /* absorbed: the box is modal */
         flair_live_cursor_track(&ev);
         dt = flair_tick_count() - t0;
+#ifdef FILECOPY_RECORD_STEP
+        if (!fc_have) { fc_have = 1; fc_h = ev.where.h; fc_v = ev.where.v; }
+        else if (got || ev.where.h != fc_h || ev.where.v != fc_v) {
+            fc_steps++; fc_h = ev.where.h; fc_v = ev.where.v;
+        }
+        dt = fc_steps * (uint32_t)FILECOPY_RECORD_STEP;
+#endif
         v = (uint32_t)rate * dt / 100u;
         if (v > 100u) v = 100u;
         /* size * v / 100 without a 64-bit divide (freestanding, no libgcc). */

@@ -90,6 +90,12 @@ void console_cursor_wait(console_t *con, uint32_t ticks, int active)
 #ifdef CONSOLE_MUTATE_CURSOR_OFF
     want = 0;
 #endif
+#ifdef CONSOLE_RECORD_CURSOR_STEADY
+    /* Record-image kernels ONLY (make record-flair): per-event clip frames are
+     * grabbed on a wall-clock settle, so the tick-phase blink made the repro
+     * proof flap (tps_journey, 2026-10-17). The shipped kernel keeps the blink. */
+    want = active;
+#endif
     bitmap_t bm = con_bitmap(con);
     if (con->cursor_on && (!want || con->cursor_col != con->cur_col ||
                                   con->cursor_row != con->cur_row)) {

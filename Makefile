@@ -22965,8 +22965,13 @@ FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 $(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
-$(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
+# The record kernel's console keeps a STEADY cursor (console.c CONSOLE_RECORD_CURSOR_STEADY):
+# per-event clip frames are grabbed on a wall-clock settle and the tick-phase blink made
+# record-flair-repro flap on the DOS-prompt frames of tps_journey (PM 2026-10-17).
+$(BUILD)/console_record.o: $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)/boot_info.h os/flair/surface.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_CONSOLE_OPT) -DCONSOLE_RECORD_CURSOR_STEADY -I$(KERNEL_DIR) -Ios/flair -c $(KERNEL_CONSOLE_C) -o $@
+$(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(BUILD)/console_record.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(BUILD)/console_record.o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recorddbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -23063,7 +23068,10 @@ RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
 # 12000 is ~1.6x the measured need (load headroom). It widens a demo bound only;
 # nothing an oracle grades changes, and every existing record image keeps its
 # meaning and its repro sha.
-$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000,recordxlong))
+# recordxlong also steps the FILE COPY bar per injected event (kmain.c FILECOPY_RECORD_STEP):
+# four moves complete the 500-tick copy at 125 ticks each, so the up/MID/DONE frames are
+# deterministic under record-flair-repro (PM 2026-10-17).
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125,recordxlong))
 $(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
 $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
@@ -23251,8 +23259,10 @@ RECORD_SPEC_tps_journey       = $(FLAIR_TPS_JOURNEY_SPEC)
 RECORD_MARKER_tps_journey     = TPS REPORT GENERATOR TERMINATED. RETURN CODE 0.
 RECORD_IMAGE_tps_journey      = $(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG)
 RECORD_DATA_tps_journey       = $(FLAIR_DATA_IMG)
-RECORD_SETTLE_tps_journey     = 150
-RECORD_TIMEOUT_MS_tps_journey = 120000
+RECORD_SETTLE_tps_journey     = 700
+# (700 ms: COMMAND.COM and TPSREP take keys by polling, and the report prints ~50 console
+#  rows after the last key; at 150 ms the cursor and the scrolling report raced the frame.)
+RECORD_TIMEOUT_MS_tps_journey = 180000
 # Rule14: PM records on main after merge. Parse-time block MUST precede target.
 RECORD_SCRIPTS += calc_ledger
 RECORD_SPEC_calc_ledger = $(FLAIR_CALC_SPEC)
@@ -23268,7 +23278,7 @@ RECORD_SCRIPTS += file_copy
 # PM 2026-10-17: frames are taken on the dialog's own serial markers (box up, mid-fill,
 # done) through the W<marker> holds, not on wall-clock cursor nudges: the bar advances
 # per tick, so two nudge-paced captures differed (record-flair-repro RED).
-RECORD_SPEC_file_copy = $(FLAIR_FILE_COPY_SPEC),WTENANT-FILECOPY up,m1:0,WTENANT-FILECOPY-MID,m-1:0,WTENANT-FILECOPY-DONE,m1:0
+RECORD_SPEC_file_copy = $(FLAIR_FILE_COPY_SPEC),WTENANT-FILECOPY up,m1:0,m-1:0,WTENANT-FILECOPY-MID,m1:0,m-1:0,WTENANT-FILECOPY-DONE,m1:0
 RECORD_MARKER_file_copy = TENANT-FILECOPY-DONE rc=156 ticks=500
 RECORD_SETTLE_file_copy = 400
 RECORD_IMAGE_file_copy = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
