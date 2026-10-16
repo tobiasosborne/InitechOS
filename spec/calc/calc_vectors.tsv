@@ -1,0 +1,120 @@
+# spec/calc/calc_vectors.tsv -- LOCKED golden vectors of the Calculator desk
+# accessory (bead initech-tdnl.17; CLAUDE.md Rule 8). Each row is ONE key
+# sequence typed into the REAL Mac OS 8.1 Calculator under Basilisk II from a
+# cleared calculator, and the 12-character readout the capture shows after it.
+# Minted 2026-10-16 (../system7-decomp re/mint-results-007.md; the captures
+# goldens/captures/<capture>.png, the readout interior at screen x 276..359,
+# y 121..138). Transcribed BY HAND from the captures -- never from InitechOS
+# (Law 2: the oracle's expectation is the real Mac, not the artifact).
+# harness/proptest/test_calc.c also re-reads every capture (when the corpus is
+# present) and grades the transcription pixel-exact through the locked
+# readout strike, so a mistyped row cannot hide.
+#
+# columns: id <TAB> capture <TAB> keys <TAB> readout
+# keys: 0-9 . + - * / = as typed; c / C the clear key (letter); K the Mac
+#   keypad Clear (Basilisk: NumLock); E keypad Enter; R Return; X Escape;
+#   B Backspace. q16 (R ignored) is a MAC-ONLY row: the PC cooks Return and
+#   keypad Enter to ONE message (os/flair/event.c), so InitechOS's keyboard
+#   map sends both to '=' (calc_core.h); the row is graded at the COMMAND
+#   level (R -> no command), not through the PC key map.
+idle	s8_calc_idle		0
+v12p3	s8_calc_12plus3	12+3	3
+v12p3e	s8_calc_12plus3eq	12+3=	15
+click7	s8_calc_after_click7	12+3=7	7
+p00	s8_calcprobe_p00	12+3=c	0
+p01	s8_calcprobe_p01	2+3*4=	20
+p03	s8_calcprobe_p03	1/0=	infinity
+p04	s8_calcprobe_p04	1/0=5	5
+p06	s8_calcprobe_p06	2+3==	5
+p08	s8_calcprobe_p08	1/3=	.33333333333
+p10	s8_calcprobe_p10	1234567890123456	1234567890123
+p12	s8_calcprobe_p12	2-5=	-3
+p14	s8_calcprobe_p14	5+*2=	10
+p16	s8_calcprobe_p16	99999999*99999999=	9.9999998E15
+q01	s8_calcprobe_q01	2/3=	.66666666667
+q02	s8_calcprobe_q02	10/3=	3.3333333333
+q03	s8_calcprobe_q03	100000*100000=	10000000000
+q04	s8_calcprobe_q04	1000000*1000000=	1E12
+q05	s8_calcprobe_q05	9999999*9999999=	9.999998E13
+q06	s8_calcprobe_q06	.1+.2=	.3
+q07	s8_calcprobe_q07	1/8=	.125
+q08	s8_calcprobe_q08	1/1000000=	1E-6
+q09	s8_calcprobe_q09	1/3*3=	1
+q10	s8_calcprobe_q10	0-1/3=	-.3333333333
+q11	s8_calcprobe_q11	2+3=4	4
+q12	s8_calcprobe_q12	2+3=+1=	6
+q13	s8_calcprobe_q13	1.2.3	1.23
+q14	s8_calcprobe_q14	.	0.
+q15	s8_calcprobe_q15	007	7
+q16	s8_calcprobe_q16	2+3R	3
+q17	s8_calcprobe_q17	2+3E	5
+q18	s8_calcprobe_q18	123B	123
+q19	s8_calcprobe_q19	0/0=	not a number
+q20	s8_calcprobe_q20	1/0=+1=	infinity
+q21	s8_calcprobe_q21	2+	2
+q22	s8_calcprobe_q22	2+3+	5
+q23	s8_calcprobe_q23	123456789012.5	123456789012.
+q24	s8_calcprobe_q24	1/30000000=	3.3333333E-8
+q26	s8_calcprobe_q26	1-1/30000000=	0
+r01	s8_calcprobe_r01	1000000*100000=	100000000000
+r02	s8_calcprobe_r02	123456789012*1=	123456789012
+r03	s8_calcprobe_r03	12345678901*10=	123456789010
+r04	s8_calcprobe_r04	1/100=	.01
+r05	s8_calcprobe_r05	1/1000=	1E-3
+r06	s8_calcprobe_r06	1/10000=	1E-4
+r07	s8_calcprobe_r07	1/100000=	1E-5
+r08	s8_calcprobe_r08	1/7=	.14285714286
+r09	s8_calcprobe_r09	1/7000=	1.4285714E-4
+r10	s8_calcprobe_r10	1/70=	.01428571429
+r11	s8_calcprobe_r11	99999999999+1=	100000000000
+r12	s8_calcprobe_r12	999999999999+1=	1E12
+r13	s8_calcprobe_r13	2/3000000000000=	6.666667E-13
+r14	s8_calcprobe_r14	0-2/3=	-.6666666667
+r15	s8_calcprobe_r15	0-1000000*1000000=	-1E12
+r16	s8_calcprobe_r16	1234567890123+0=	1.2345679E12
+r17	s8_calcprobe_r17	5-	5
+r18	s8_calcprobe_r18	*3=	0
+r19	s8_calcprobe_r19	3=	3
+r20	s8_calcprobe_r20	1.500+0=	1.5
+r21	s8_calcprobe_r21	0-1/7000=	-1.428571E-4
+r22	s8_calcprobe_r22	10/4=	2.5
+s01	s8_calcprobe_s01	.5	0.5
+s02	s8_calcprobe_s02	0.05	0.05
+s03	s8_calcprobe_s03	1.00	1.00
+s04	s8_calcprobe_s04	5.+	5
+s05	s8_calcprobe_s05	.123456789012345	0.12345678901
+s06	s8_calcprobe_s06	2+=	2
+s07	s8_calcprobe_s07	2*=	2
+s08	s8_calcprobe_s08	-5=	-5
+s09	s8_calcprobe_s09	5X	5
+s10	s8_calcprobe_s10	5C	0
+s11	s8_calcprobe_s11	5K	0
+s13	s8_calcprobe_s13	00	0
+s14	s8_calcprobe_s14	1.00+2=	3
+s15	s8_calcprobe_s15	2+3=-	5
+s16	s8_calcprobe_s16	2+3=.5	0.5
+s17	s8_calcprobe_s17	1/0=5+1=	6
+s18	s8_calcprobe_s18	0-1000000*100000=	-1E11
+s19	s8_calcprobe_s19	99999999999.9+0=	1E11
+s20	s8_calcprobe_s20	0-1/100=	-.01
+t01	s8_calcprobe_t01	0-1/0=	-infinity
+t02	s8_calcprobe_t02	0-0/0=	not a number
+t03	s8_calcprobe_t03	1/3+1=	1.3333333333
+t04	s8_calcprobe_t04	1/0-1/0=	infinity
+t05	s8_calcprobe_t05	9999999999999*9999999999999=*=	1E26
+t06	s8_calcprobe_t06	2=3	3
+t07	s8_calcprobe_t07	2+3==+=	5
+u00	s8_calcprobe_u00	99999999999+0=	99999999999
+u01	s8_calcprobe_u01	99999999999+.9=	1E11
+u02	s8_calcprobe_u02	99999999999+.99=	100000000000
+u03	s8_calcprobe_u03	99999999999+.999=	100000000000
+u05	s8_calcprobe_u05	99999999999+.99999=	100000000000
+u08	s8_calcprobe_u08	99999999999+.99999999=	100000000000
+u09	s8_calcprobe_u09	100000000000+.1-.1=	100000000000
+u10	s8_calcprobe_u10	1/3-.33333333333=	3.333333E-12
+u11	s8_calcprobe_u11	2/3*3-2=	0
+v01	s8_calcprobe_v01	1234567850000+0=	1.2345678E12
+v02	s8_calcprobe_v02	1.00000000005+0=	1.0000000001
+v03	s8_calcprobe_v03	1.00000000025+0=	1.0000000002
+v04	s8_calcprobe_v04	1234567815000+0=	1.2345678E12
+v05	s8_calcprobe_v05	.012345678905+0=	.0123456789

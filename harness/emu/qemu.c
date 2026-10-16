@@ -488,6 +488,12 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "minus") == 0 || strcmp(tok, "-") == 0) {
         return "minus";
     }
+    /* The Calculator's keys (bead initech-tdnl.17): '=' and, as the chord
+     * "shift-equal", '+' (US set 1 make 0x0D; event.c cooks '=' / '+').
+     * Ref: qapi/ui.json QKeyCode equal. */
+    if (strcmp(tok, "equal") == 0) {
+        return "equal";
+    }
     /* The word-processor keys (bead initech-l4tj, InitechWord Face A): the
      * WordPerfect 5.1 function keys (F10 Save, Shift-F10 Retrieve as the
      * chord "shift-f10", F7 Exit, F1 Cancel), Delete and End. QEMU sends F1..

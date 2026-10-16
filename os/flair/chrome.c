@@ -17,6 +17,7 @@
 #include "flair_look.h"
 #include "text.h"
 #include "window_record.h"  /* FLAIR_WINDOW_TITLE_MAX: kernel-held title seam */
+#include "rdoc.h"           /* rDocProc geometry (bead initech-tdnl.17)        */
 
 /* True when a port-local pixel is in visRgn INTERSECT clipRgn. */
 static int clip_in(const GrafPort *port, int x, int y)
@@ -1191,4 +1192,97 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
         port, skin, left, top, right, title, 1,
         left + 1, right - 1);
     cframe(port, left, top, right, bottom, FLAIR_PART_FRAME);
+}
+
+/* ===========================================================================
+ * flair_draw_rdoc_window -- the rDocProc (16) WDEF: the Calculator's rounded
+ * window (bead initech-tdnl.17; geometry and its ground truth: rdoc.h).
+ * Paints the outline + title band + the body's sides, NEVER the content (the
+ * owner paints that through contRgn). Every span is clipped like the rest of
+ * the chrome (chrome_cfill). Inks resolve through the C-8 seam: FRAME black,
+ * CONTENT white.
+ *
+ * The outline's rounding is ALSO the window's structure (window.c builds the
+ * same rdoc.h insets into strucRgn), so the drawer can never paint outside
+ * it; the insets here pick the outline's own pixels.
+ *
+ * CHROME_MUT_RDOC_NO_CLOSE (Rule 6; test-flair-calc-mutant): the active band
+ * loses its close-box ring (a solid black band, as a window without a go-away
+ * box). NEVER in a real build.
+ * =========================================================================*/
+static int rdoc_inset(int y, int h)
+{
+    if (y < FLAIR_RDOC_CORNER_ROWS) return flair_rdoc_corner[y];
+    if (h - 1 - y < FLAIR_RDOC_CORNER_ROWS) return flair_rdoc_corner[h - 1 - y];
+    return 0;
+}
+
+void flair_draw_rdoc_window(GrafPort *port, const flair_skin_t *skin,
+                            rgn_rect_t frame, const char *title, int hilited,
+                            uint8_t widget_flags)
+{
+    int L = frame.left, T = frame.top;
+    int W = (int)frame.right - L, H = (int)frame.bottom - T;
+    int cl = FLAIR_RDOC_INSET_L, cr = W - FLAIR_RDOC_INSET_R;  /* content [cl,cr) */
+    int ch_top = FLAIR_RDOC_TITLE_H, ch_bot = H - FLAIR_RDOC_INSET_B;
+
+    if (port == (GrafPort *)0 || W < 2 * FLAIR_RDOC_TITLE_H || H <= ch_top + FLAIR_RDOC_INSET_B)
+        return;
+
+    for (int y = 0; y < H; y++) {
+        int in = rdoc_inset(y, H);
+        int a = in, b = W - in;                       /* outline [a, b) */
+        if (y < ch_top) {
+            if (hilited || y == 0 || y == ch_top - 1) {
+                chrome_cfill(port, skin, L + a, T + y, b - a, FLAIR_PART_FRAME);
+            } else {
+                /* inactive band: the rounded 1-px outline, white inside */
+                /* the outline is as wide as the step from the row above
+                 * plus one (s8_calc_inactive rows 1..5: 3,2,2,1,2 px; then
+                 * 1 px down the straight sides) */
+                int ia = a + 1, ib = b - 1;
+                int p = rdoc_inset(y - 1, H) + 1;
+                if (p > ia) ia = p;
+                if (W - p < ib) ib = W - p;
+                chrome_cfill(port, skin, L + a, T + y, ia - a, FLAIR_PART_FRAME);
+                chrome_cfill(port, skin, L + ib, T + y, b - ib, FLAIR_PART_FRAME);
+                chrome_cfill(port, skin, L + ia, T + y, ib - ia, FLAIR_PART_CONTENT);
+            }
+        } else if (y >= ch_bot) {
+            chrome_cfill(port, skin, L + a, T + y, b - a, FLAIR_PART_FRAME);
+        } else {
+            /* the body's sides + the content's inner corners (rdoc.h) */
+            int k = y - ch_top, nl = 0, nr = 0, rows = ch_bot - ch_top;
+            if (k < 2) { nl = flair_rdoc_notch_top_l[k]; nr = flair_rdoc_notch_top_r[k]; }
+            else if (rows - k <= 3) {
+                nl = flair_rdoc_notch_bot_l[3 - (rows - k)];
+                nr = flair_rdoc_notch_bot_r[3 - (rows - k)];
+            }
+            chrome_cfill(port, skin, L + a, T + y, cl + nl - a, FLAIR_PART_FRAME);
+            chrome_cfill(port, skin, L + cr - nr, T + y, b - (cr - nr), FLAIR_PART_FRAME);
+        }
+    }
+
+#if !defined(CHROME_MUT_RDOC_NO_CLOSE)
+    if (hilited && (widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u) {
+#else
+    if (0 && widget_flags) {
+#endif
+        int x0 = L + FLAIR_RDOC_CLOSE_L, y0 = T + FLAIR_RDOC_CLOSE_T;
+        chrome_cframe(port, skin, x0, y0, x0 + FLAIR_RDOC_CLOSE_W,
+                      y0 + FLAIR_RDOC_CLOSE_W, FLAIR_PART_CONTENT);
+    }
+
+    if (title != (const char *)0 && title[0] != '\0') {
+        int tw = 0;
+        for (int i = 0; title[i]; i++) tw += chicago_advance((unsigned char)title[i]);
+        int area = W - FLAIR_RDOC_TITLE_LEFT;
+        int pen = L + FLAIR_RDOC_TITLE_LEFT + (area - tw) / 2;
+        uint32_t ink = flair_look_pixel_for_skin(port, skin,
+                         hilited ? FLAIR_PART_CONTENT : FLAIR_PART_FRAME);
+        uint32_t bg = flair_look_pixel_for_skin(port, skin,
+                         hilited ? FLAIR_PART_FRAME : FLAIR_PART_CONTENT);
+        chrome_ctext(port, pen, T + FLAIR_RDOC_TITLE_CAP - CHICAGO_CAP_TOP,
+                     title, ink, bg);
+    }
 }

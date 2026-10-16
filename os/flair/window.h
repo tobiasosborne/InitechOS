@@ -209,6 +209,12 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
  * initech-javs/l0mh/tdnl.35/tdnl.51. */
 rgn_rect_t CalcDocContentRect(rgn_rect_t frame);
 
+/* CalcRDocContentRect -- the rDocProc content rect (os/flair/rdoc.h): frame
+ * + (1, 19) .. frame - (3, 3). NewWindow/MoveWindow give an rDocProc
+ * window's contRgn up its four inner-corner pixels (the WDEF's). Bead
+ * initech-tdnl.17 (the Calculator desk accessory). */
+rgn_rect_t CalcRDocContentRect(rgn_rect_t frame);
+
 /* NewDocumentWindow -- CalcDocContentRect + NewWindow(zoomDocProc). Production
  * Platinum documents carry close/zoom/collapse/grow through one record flag set;
  * callers use this WDEF seam instead of repeating chrome formulas. */

@@ -443,9 +443,11 @@ static int32_t v_newwindow(const uint32_t *a)
 
     if (app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
     if (g_slot.win != (WindowRecord *)0) return TBX_ERR_BUSY;   /* V1 cap 1 */
+    uint32_t goaway = a[4] & 0xFFu, wdef = a[4] & ~0xFFu;
     if (l < 0 || r > FLAIR_SCREEN_W || t < 2 * FLAIR_CHROME_MENUBAR_H ||
         b > FLAIR_SCREEN_H || r - l < 96 || b - t < 64 ||
-        a[4] > TBX_GOAWAY_ASK)                    /* Sec 11: 0, 1 or 2 */
+        goaway > TBX_GOAWAY_ASK ||                /* Sec 11: 0, 1 or 2 */
+        (wdef != 0u && wdef != TBX_WDEF_RDOC))    /* tdnl.17 */
         return TBX_ERR_BADARG;
 
     rec = (WindowRecord *)flair_alloc(&app->records_arena, FLAIR_CLASS_HANDLE,
@@ -476,12 +478,17 @@ static int32_t v_newwindow(const uint32_t *a)
 
     fr.left = (int16_t)l; fr.top = (int16_t)t;
     fr.right = (int16_t)r; fr.bottom = (int16_t)b;
-    NewDocumentWindow(g_host.wm, rec, fr, (int16_t)documentKind,
-                      (uint8_t)(a[4] != 0u ? 1u : 0u));
+    if (wdef == TBX_WDEF_RDOC)
+        NewWindow(g_host.wm, rec, fr, CalcRDocContentRect(fr),
+                  (int16_t)documentKind, (int16_t)rDocProc,
+                  (uint8_t)(goaway != 0u ? 1u : 0u));
+    else
+        NewDocumentWindow(g_host.wm, rec, fr, (int16_t)documentKind,
+                          (uint8_t)(goaway != 0u ? 1u : 0u));
     rec->refCon  = (int32_t)(uintptr_t)app;   /* the demux key, Sec 3.1 */
     app->windows = rec;
     g_slot.win   = rec;
-    g_slot.ask_close = (uint8_t)(a[4] == TBX_GOAWAY_ASK);   /* Sec 11 */
+    g_slot.ask_close = (uint8_t)(goaway == TBX_GOAWAY_ASK);  /* Sec 11 */
     g_slot.affirm = 1u;                       /* DEC-AC3-4 */
     return 1;                                 /* window token 1 (opaque) */
 }
@@ -490,6 +497,17 @@ static int check_win(uint32_t tok)
 {
     return g_slot.app != (FlairApp *)0 && !g_slot.exit_req &&
            g_slot.win != (WindowRecord *)0 && tok == 1u;
+}
+
+/* CONTENTORIGIN (bead initech-tdnl.17): the content's top-left, GLOBAL --
+ * the same origin FILLRECT/TEXTDRAW add to their content-local coordinates,
+ * so (whereH - left, whereV - top) is the tenant's GlobalToLocal. */
+static int32_t v_contentorigin(const uint32_t *a)
+{
+    rgn_rect_t c;
+    if (!check_win(a[0])) return TBX_ERR_BADARG;
+    c = region_get_bbox(g_slot.win->contRgn);
+    return (int32_t)(((uint32_t)(uint16_t)c.top << 16) | (uint32_t)(uint16_t)c.left);
 }
 
 static int32_t v_setwtitle(const uint32_t *a)
@@ -826,6 +844,7 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_REGISTER:  argc = TBX_ARGC_REGISTER;  break;
     case TBX_NEWWINDOW: argc = TBX_ARGC_NEWWINDOW; break;
     case TBX_SETWTITLE: argc = TBX_ARGC_SETWTITLE; break;
+    case TBX_CONTENTORIGIN: argc = TBX_ARGC_CONTENTORIGIN; break;
     case TBX_TEXTDRAW:  argc = TBX_ARGC_TEXTDRAW;  break;
     case TBX_FILLRECT:  argc = TBX_ARGC_FILLRECT;  break;
     case TBX_EXIT:      argc = TBX_ARGC_EXIT;      break;
@@ -853,6 +872,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_REGISTER:  rc = v_register(a[0]); break;
         case TBX_NEWWINDOW: rc = v_newwindow(a);   break;
         case TBX_SETWTITLE: rc = v_setwtitle(a);   break;
+        case TBX_CONTENTORIGIN: rc = v_contentorigin(a); break;
         case TBX_TEXTDRAW:  rc = v_textdraw(a);    break;
         case TBX_FILLRECT:  rc = v_fillrect(a);    break;
         case TBX_EXIT:      rc = v_exit(a[0]);     break;
@@ -886,6 +906,9 @@ void tbx_gate_dispatch(uint8_t *frame)
         break;
     case TBX_SETWTITLE:
         trace_int(" win=", a[0]); trace_str(" s=", a[1]);
+        break;
+    case TBX_CONTENTORIGIN:
+        trace_int(" win=", a[0]);
         break;
     case TBX_TEXTDRAW:
     case TBX_DRAWCELLS:

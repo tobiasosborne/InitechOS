@@ -118,6 +118,31 @@ int mcb_chain_intact(const mcb_arena_t *a)
     }
 }
 
+/* The chain's free-memory figures (bead initech-tdnl.47: About This
+ * Computer's "Largest Unused Block"). A corrupt or empty chain reports 0/0
+ * and returns 0 (Rule 2: the caller says so; never a guess). */
+int mcb_stats(const mcb_arena_t *a, uint32_t *free_paras, uint32_t *largest_paras)
+{
+    uint32_t fr = 0u, big = 0u, para = 0u;
+    *free_paras = 0u;
+    *largest_paras = 0u;
+    if (!mcb_chain_intact(a)) {
+        return 0;
+    }
+    for (;;) {
+        const mcb_t *h = mcb_hdr(a, para);
+        if (h->owner == MCB_OWNER_FREE) {
+            fr += h->size_paras;
+            if (h->size_paras > big) big = h->size_paras;
+        }
+        if (h->signature == MCB_SIG_TERMINAL) break;
+        para += 1u + h->size_paras;
+    }
+    *free_paras = fr;
+    *largest_paras = big;
+    return 1;
+}
+
 /* Merge every run of adjacent FREE blocks into one. Idempotent. Assumes the
  * chain is intact (callers check first). */
 static void mcb_coalesce(mcb_arena_t *a)

@@ -125,4 +125,8 @@ uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
  * chain is intact, 0 if corrupt. For the oracle + fail-loud entry guards. */
 int mcb_chain_intact(const mcb_arena_t *a);
 
+/* Free paragraphs in total and the largest free block, walking the chain.
+ * Returns 1, or 0 (both 0) for a corrupt/empty chain. Bead initech-tdnl.47. */
+int mcb_stats(const mcb_arena_t *a, uint32_t *free_paras, uint32_t *largest_paras);
+
 #endif /* INITECH_OS_MCB_H */

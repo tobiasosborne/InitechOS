@@ -46,7 +46,8 @@
 #include <stddef.h>
 
 #include "region_algebra.h"   /* the LOCKED region contract (-Ispec)             */
-#include "window.h"           /* the Window Manager API (-Ios/flair)             */
+#include "window.h"
+#include "rdoc.h"             /* rDocProc geometry (bead initech-tdnl.17)       */           /* the Window Manager API (-Ios/flair)             */
 #include "chrome_metrics.h"    /* SetWTitle title-band invalidation height         */
 #include "../../spec/assets/chicago12.h" /* titleWidth = sum of Chicago 12 advances
                                               * (relative: window.c builds without
@@ -105,7 +106,7 @@ static int document_variant(int16_t variant)
 static uint8_t widget_flags_for_variant(int16_t variant, uint8_t go_away)
 {
     uint8_t flags = 0u;
-    if (go_away && document_variant(variant))
+    if (go_away && (document_variant(variant) || variant == rDocProc))
         flags |= FLAIR_WINDOW_WIDGET_CLOSE;
     if (variant == zoomDocProc || variant == zoomNoGrow)
         flags |= FLAIR_WINDOW_WIDGET_ZOOM;
@@ -121,6 +122,28 @@ static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
 {
     region_t *a = wm->scratch_a;
     region_set_rect(a, frame);
+    if (variant == rDocProc) {
+        /* The rounded outline (rdoc.h): the frame minus the {5,3,2,1,1}-px
+         * corner insets of its first and last five rows. */
+        region_t *b = wm->scratch_b;
+        region_t *c = wm->scratch_c;
+        for (int k = 0; k < FLAIR_RDOC_CORNER_ROWS; k++) {
+            int in = flair_rdoc_corner[k];
+            int16_t rows[2] = { (int16_t)(frame.top + k),
+                                (int16_t)(frame.bottom - 1 - k) };
+            for (int e = 0; e < 2; e++) {
+                rgn_rect_t l = { rows[e], frame.left, (int16_t)(rows[e] + 1),
+                                 (int16_t)(frame.left + in) };
+                rgn_rect_t r = { rows[e], (int16_t)(frame.right - in),
+                                 (int16_t)(rows[e] + 1), frame.right };
+                region_set_rect(b, l);
+                region_op(c, a, b, RGN_OP_DIFF);
+                region_set_rect(b, r);
+                region_op(a, c, b, RGN_OP_DIFF);
+            }
+        }
+        return a;
+    }
 #if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
     if (document_variant(variant)) {
         region_t *b = wm->scratch_b;
@@ -575,6 +598,45 @@ void WindowMgr_init(WindowMgr *wm, rgn_rect_t desktop_frame,
     region_set_empty(scratch_c);
 }
 
+rgn_rect_t CalcRDocContentRect(rgn_rect_t frame)
+{
+    rgn_rect_t c;
+    c.left   = (int16_t)(frame.left + FLAIR_RDOC_INSET_L);
+    c.top    = (int16_t)(frame.top + FLAIR_RDOC_TITLE_H);
+    c.right  = (int16_t)(frame.right - FLAIR_RDOC_INSET_R);
+    c.bottom = (int16_t)(frame.bottom - FLAIR_RDOC_INSET_B);
+    return c;
+}
+
+/* contRgn := the content rect; an rDocProc window gives up the inner-corner
+ * pixels its WDEF paints black (rdoc.h), so a tenant's content draw -- clipped
+ * to contRgn -- can never overpaint them. Uses scratch b/c only. */
+static void set_content(WindowMgr *wm, WindowPtr w, rgn_rect_t content)
+{
+    region_set_rect(w->contRgn, content);
+    if (w->windowDefProcVariant != rDocProc) return;
+    for (int k = 0; k < 5; k++) {
+        int16_t row = (k < 2) ? (int16_t)(content.top + k)
+                              : (int16_t)(content.bottom - 5 + k);
+        int nl = (k < 2) ? flair_rdoc_notch_top_l[k] : flair_rdoc_notch_bot_l[k - 2];
+        int nr = (k < 2) ? flair_rdoc_notch_top_r[k] : flair_rdoc_notch_bot_r[k - 2];
+        if (nl > 0) {
+            rgn_rect_t r = { row, content.left, (int16_t)(row + 1),
+                             (int16_t)(content.left + nl) };
+            region_set_rect(wm->scratch_b, r);
+            region_op(wm->scratch_c, w->contRgn, wm->scratch_b, RGN_OP_DIFF);
+            rgn_copy(w->contRgn, wm->scratch_c);
+        }
+        if (nr > 0) {
+            rgn_rect_t r = { row, (int16_t)(content.right - nr), (int16_t)(row + 1),
+                             content.right };
+            region_set_rect(wm->scratch_b, r);
+            region_op(wm->scratch_c, w->contRgn, wm->scratch_b, RGN_OP_DIFF);
+            rgn_copy(w->contRgn, wm->scratch_c);
+        }
+    }
+}
+
 void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content,
                int16_t wKind, int16_t wVariant, uint8_t goAway)
 {
@@ -586,11 +648,11 @@ void NewWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t bounds, rgn_rect_t content
         WIN_PANIC("NewWindow: window region pools unattached");
 
     rgn_copy(w->strucRgn, structure_scratch(wm, bounds, wVariant));
-    region_set_rect(w->contRgn, content);
+    w->windowDefProcVariant = wVariant;
+    set_content(wm, w, content);
     region_set_empty(w->updateRgn);
 
     w->windowKind           = wKind;
-    w->windowDefProcVariant = wVariant;
     w->goAwayFlag           = goAway;
     w->visible              = 1;
     w->spareFlag            = 0;
@@ -765,7 +827,7 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
      * is about the OTHER windows + the desktop. */
     rgn_copy(w->strucRgn,
              structure_scratch(wm, ns, w->windowDefProcVariant));
-    region_set_rect(w->contRgn, nc);
+    set_content(wm, w, nc);
 
     distribute_exposure(wm, w, exposed);
     region_set_empty(w->updateRgn);
@@ -1061,6 +1123,17 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
         int16_t zone_shift = 0;
 #endif
 
+        if (p->windowDefProcVariant == rDocProc) {
+            /* the rounded window's one widget: its 10x10 close box (rdoc.h) */
+            int16_t cx = (int16_t)(s.left + FLAIR_RDOC_CLOSE_L);
+            int16_t cy = (int16_t)(s.top + FLAIR_RDOC_CLOSE_T);
+            if (p->hilited && p->goAwayFlag &&
+                (p->widgetFlags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u &&
+                h >= cx && h < (int16_t)(cx + FLAIR_RDOC_CLOSE_W) &&
+                v >= cy && v < (int16_t)(cy + FLAIR_RDOC_CLOSE_W))
+                return inGoAway;
+            return inDrag;
+        }
         if (p->hilited &&
             (p->widgetFlags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u &&
             p->goAwayFlag) {

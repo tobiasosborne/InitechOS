@@ -85,6 +85,34 @@ static int title_slot_w(const char *title)
 }
 
 /* --------------------------------------------------------------------------
+ * The system Apple menu (menu.h Sec 3a; bead initech-tdnl.47).
+ * -------------------------------------------------------------------------- */
+static const MenuInfo *g_apple_menu = (const MenuInfo *)0;
+
+void MenuBar_set_apple_menu(const MenuInfo *apple)
+{
+    g_apple_menu = apple;
+}
+
+const MenuInfo *MenuBar_menu(const MenuBar *bar, int mi)
+{
+    if (!bar)
+        return (const MenuInfo *)0;
+    if (mi == FLAIR_MENU_APPLE_MI)
+        return (bar->has_apple && g_apple_menu) ? g_apple_menu
+                                                : (const MenuInfo *)0;
+    if (mi < 0 || mi >= (int)bar->n_menus)
+        return (const MenuInfo *)0;
+    return &bar->menus[mi];
+}
+
+int16_t MenuBar_menu_id(const MenuBar *bar, int mi)
+{
+    const MenuInfo *m = MenuBar_menu(bar, mi);
+    return m ? m->menuID : (int16_t)0;
+}
+
+/* --------------------------------------------------------------------------
  * Bar layout queries (proportional cumulative; ADR-0004 D-7).
  * -------------------------------------------------------------------------- */
 int MenuBar_title_x(const MenuBar *bar, int i)
@@ -109,9 +137,15 @@ int MenuBar_hit(const MenuBar *bar, int x)
     if (!bar)
         return -1;
     int cur = bar->has_apple ? (int)FLAIR_MENU_APPLE_W : 0;
-    /* x in the Apple slot (or left of the first title) is not a title hit. */
-    if (x < cur)
+    /* x in the Apple slot drops the system Apple menu when one is registered
+     * (menu.h Sec 3a); otherwise (and left of the first title) no hit. */
+    if (x < cur) {
+#if !defined(MENU_MUT_APPLE_DEAD)
+        if (x >= 0 && MenuBar_menu(bar, FLAIR_MENU_APPLE_MI))
+            return FLAIR_MENU_APPLE_MI;
+#endif
         return -1;
+    }
     for (int k = 0; k < (int)bar->n_menus; k++) {
         int w = title_slot_w(bar->menus[k].title);
         if (x >= cur && x < cur + w)
@@ -181,11 +215,12 @@ static int menu_panel_w(const MenuInfo *m)
 rgn_rect_t MenuInfo_panel_rect(const MenuBar *bar, int mi)
 {
     rgn_rect_t r = { 0, 0, 0, 0 };
-    if (!bar || mi < 0 || mi >= (int)bar->n_menus)
+    const MenuInfo *m = MenuBar_menu(bar, mi);
+    if (!m)
         return r;
-    const MenuInfo *m = &bar->menus[mi];
 
-    int left = MenuBar_title_x(bar, mi);
+    int left = (mi == FLAIR_MENU_APPLE_MI) ? FLAIR_MENU_APPLE_HILITE_L
+                                           : MenuBar_title_x(bar, mi);
     if (left < 0)
         return r;
 
@@ -232,7 +267,8 @@ static int item_row_top(const MenuInfo *m, int it)
  * -------------------------------------------------------------------------- */
 int MenuInfo_item_at(const MenuBar *bar, int mi, int x, int y)
 {
-    if (!bar || mi < 0 || mi >= (int)bar->n_menus)
+    const MenuInfo *m = MenuBar_menu(bar, mi);
+    if (!m)
         return -1;
     rgn_rect_t panel = MenuInfo_panel_rect(bar, mi);
     if (panel.right <= panel.left || panel.bottom <= panel.top)
@@ -240,7 +276,6 @@ int MenuInfo_item_at(const MenuBar *bar, int mi, int x, int y)
     if (x < panel.left || x >= panel.right || y < panel.top || y >= panel.bottom)
         return -1;
 
-    const MenuInfo *m = &bar->menus[mi];
     int row_top = panel.top + FLAIR_MENU_PANEL_INSET;
     for (int k = 0; k < (int)m->n_items; k++) {
         int h = item_row_h(&m->items[k]);
@@ -261,9 +296,9 @@ int MenuInfo_item_at(const MenuBar *bar, int mi, int x, int y)
  * -------------------------------------------------------------------------- */
 int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it)
 {
-    if (!bar || mi < 0 || mi >= (int)bar->n_menus)
+    const MenuInfo *m = MenuBar_menu(bar, mi);
+    if (!m)
         return 0;
-    const MenuInfo *m = &bar->menus[mi];
     if (it < 0 || it >= (int)m->n_items)
         return 0;
 #if defined(MENU_MUTATE_SELECT_DISABLED) && MENU_MUTATE_SELECT_DISABLED
@@ -285,6 +320,13 @@ int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it)
 rgn_rect_t MenuBar_hilite_rect(const MenuBar *bar, int mi)
 {
     rgn_rect_t r = { 0, 0, 0, 0 };
+    if (mi == FLAIR_MENU_APPLE_MI && MenuBar_menu(bar, mi)) {
+        r.top = 0;
+        r.left = (int16_t)FLAIR_MENU_APPLE_HILITE_L;
+        r.bottom = (int16_t)(FLAIR_MENUBAR_H - 1);
+        r.right = (int16_t)FLAIR_MENU_APPLE_HILITE_R;
+        return r;
+    }
     if (!bar || mi < 0 || mi >= (int)bar->n_menus)
         return r;
     int left = MenuBar_title_x(bar, mi);
@@ -396,7 +438,7 @@ void MenuTrack_begin(const MenuBar *bar, flair_point_t startPt,
 
 void MenuTrack_step(const MenuBar *bar, MenuTrackState *st, flair_point_t pt)
 {
-    if (st->mi < 0)
+    if (!MenuBar_menu(bar, st->mi))
         return;                         /* no menu dropped: nothing tracks    */
     /* Each point may switch the open menu (if it is in the bar band and over a
      * DIFFERENT title) and always updates the hilited item against whichever
@@ -412,7 +454,7 @@ void MenuTrack_step(const MenuBar *bar, MenuTrackState *st, flair_point_t pt)
 #endif
         ) {
         int nb = MenuBar_hit(bar, (int)pt.h);
-        if (nb >= 0)
+        if (nb >= 0 || nb == FLAIR_MENU_APPLE_MI)
             st->mi = nb;                /* a different title -> switch open menu */
     }
 #endif
@@ -425,11 +467,11 @@ uint32_t MenuTrack_result(const MenuBar *bar, const MenuTrackState *st)
     /* The selection is the item under the RELEASE point (the latest step),
      * evaluated against the FINAL tracked menu. With no step the release is
      * the click itself (on the title, not on any item) -> nothing chosen. */
-    if (!bar || st->mi < 0 || st->n <= 0 || st->hi < 0)
+    if (!MenuBar_menu(bar, st->mi) || st->n <= 0 || st->hi < 0)
         return 0;                       /* released outside any item row       */
     if (!MenuInfo_item_selectable(bar, st->mi, st->hi))
         return 0;                       /* disabled / divider: not selectable  */
-    return MenuResult(bar->menus[st->mi].menuID,
+    return MenuResult(MenuBar_menu_id(bar, st->mi),
                       (uint16_t)(st->hi + 1));                 /* 1-based  */
 }
 
@@ -545,8 +587,28 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
     draw_menu_bar_corners(port, clip);
 #endif
 
+#if defined(MENU_MUT_TITLE_NO_HILITE) && MENU_MUT_TITLE_NO_HILITE
+    hilited_menu = -1;
+#endif
+    /* The pulled Apple slot (menu.h Sec 3a): the accent block first, the
+     * glyph over it in white -- the same inversion a pulled title gets. */
+    int apple_pulled = (hilited_menu == FLAIR_MENU_APPLE_MI &&
+                        MenuBar_menu(bar, hilited_menu) != (const MenuInfo *)0);
+    if (apple_pulled) {
+        rgn_rect_t hr = MenuBar_hilite_rect(bar, hilited_menu);
+        rgn_rect_t r0 = { 0, hr.left, 1, hr.right };
+        rgn_rect_t rf = { 1, hr.left, (int16_t)(FLAIR_MENUBAR_H - 2), hr.right };
+        rgn_rect_t rs = { (int16_t)(FLAIR_MENUBAR_H - 2), hr.left,
+                          (int16_t)(FLAIR_MENUBAR_H - 1), hr.right };
+        blitter_fill_rect_clipped(bm, r0, flair_look_pixel(port,
+                                  FLAIR_PART_MENU_TITLE_HILITE_HL), clip);
+        blitter_fill_rect_clipped(bm, rf, pulled_face, clip);
+        blitter_fill_rect_clipped(bm, rs, flair_look_pixel(port,
+                                  FLAIR_PART_MENU_TITLE_HILITE_SHADOW), clip);
+    }
     /* Apple stays the locked monochrome authored strike pending D3-3 row 32. */
     if (bar->has_apple) {
+        uint32_t apple_ink = apple_pulled ? white : ink;
         rgn_rect_t apple;
         apple.top = (int16_t)FLAIR_MENU_TITLE_VPAD;
         apple.left = (int16_t)FLAIR_MENU_APPLE_LEFT;
@@ -554,7 +616,7 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
         apple.right = (int16_t)(FLAIR_MENU_APPLE_LEFT + APPLE_GLYPH_W);
 
 #if defined(MENU_MUT_APPLE_SQUARE) && MENU_MUT_APPLE_SQUARE
-        blitter_fill_rect_clipped(bm, apple, ink, clip);
+        blitter_fill_rect_clipped(bm, apple, apple_ink, clip);
 #else
         for (int gy = 0; gy < APPLE_GLYPH_H; gy++) {
             uint16_t bits = APPLE_GLYPH_ROWS[gy];
@@ -564,16 +626,13 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
                                       (int16_t)(apple.left + gx),
                                       (int16_t)(apple.top + gy + 1),
                                       (int16_t)(apple.left + gx + 1) };
-                    blitter_fill_rect_clipped(bm, px, ink, clip);
+                    blitter_fill_rect_clipped(bm, px, apple_ink, clip);
                 }
             }
         }
 #endif
     }
 
-#if defined(MENU_MUT_TITLE_NO_HILITE) && MENU_MUT_TITLE_NO_HILITE
-    hilited_menu = -1;
-#endif
     if (hilited_menu >= 0 && hilited_menu < (int)bar->n_menus) {
         rgn_rect_t hr = MenuBar_hilite_rect(bar, hilited_menu);
         uint32_t htop = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_HL);
@@ -622,7 +681,7 @@ void HiliteMenu(GrafPort *port, const MenuBar *bar, int mi,
 void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
                            int hilite_item, const region_t *clip)
 {
-    if (!port || !bar || mi < 0 || mi >= (int)bar->n_menus)
+    if (!port || !MenuBar_menu(bar, mi))
         return;
     const bitmap_t *bm = &port->portBits.bm;
     rgn_rect_t panel = MenuInfo_panel_rect(bar, mi);
@@ -654,7 +713,7 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
     blitter_fill_rect_clipped(bm, drop_b, drop, clip);
     blitter_fill_rect_clipped(bm, panel, face, clip);
 
-    const MenuInfo *m = &bar->menus[mi];
+    const MenuInfo *m = MenuBar_menu(bar, mi);
     int draw_hi = (hilite_item >= 0 &&
                    MenuInfo_item_selectable(bar, mi, hilite_item))
                   ? hilite_item : -1;

@@ -100,6 +100,9 @@
                                   * recompute) (bead initech-tdnl.12; -Ios/flair) */
 #include "tbxgate.h"             /* R3.7 the Initech Toolbox Gate + the one-slot
                                   * disk-tenant host (bead initech-tdnl.14)      */
+#include "apple_menu.h"          /* the system Apple menu: About This Computer +
+                                  * the installed desk accessories (beads
+                                  * initech-tdnl.47 / initech-tdnl.17)          */
 #include "toolbox_gate.h"        /* the LOCKED gate ABI (-Ispec; tdnl.14)        */
 
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
@@ -1951,7 +1954,11 @@ static int flair_live_track_box(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     for (;;) {
         int g;
-        if (inside != drawn) {
+        /* An rDocProc close box (bead initech-tdnl.17) has no pressed art in
+         * the corpus (mint-007 captured none), so it is tracked undrawn
+         * rather than given an invented look; the Platinum widget art would
+         * land on its black band. */
+        if (inside != drawn && w->windowDefProcVariant != rDocProc) {
             flair_draw_window_widget(&port, flair_look_default_skin(), frame,
                                      (int)pc, inside);
             flair_desktop_present(bi, &ctx->off);
@@ -2462,12 +2469,21 @@ static void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
  * finder_dispatch(..., "mouse"), converging with the keyboard path on the ONE
  * spine (F4-4). Every other caller ignores it and keeps its existing
  * serial-marker-only behaviour, byte for byte. */
+#ifdef FLAIR_LIVE_TENANTS
+static void flair_live_apple_refresh(void);   /* the Apple menu (tdnl.47) */
+#endif
 static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                       MenuBar *bar, flair_point_t where0,
                                       uint32_t y_top)
 {
+#ifdef FLAIR_LIVE_TENANTS
+    /* The Apple menu lists what is installed NOW (bead initech-tdnl.47):
+     * re-read before its glyph's panel drops. */
+    if (bar->has_apple && where0.h < (int16_t)FLAIR_MENU_APPLE_W)
+        flair_live_apple_refresh();
+#endif
     int mi = MenuBar_hit(bar, (int)where0.h);
-    int16_t menuID = (mi >= 0) ? bar->menus[mi].menuID : (int16_t)0;
+    int16_t menuID = MenuBar_menu_id(bar, mi);
 
 #ifndef FLAIR_LIVE_MUTATE_MENU_NOOP
     /* Menu Manager geometry is local to a bar at y=0. For stacked band 2,
@@ -2484,7 +2500,7 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
     MenuTrackState st;
     MenuTrack_begin(bar, menu_where0, &st);
     mi = st.mi;
-    if (mi < 0) {
+    if (!MenuBar_menu(bar, mi)) {
         /* In the bar but not on a title (Apple slot / past the last title): no
          * menu drops. Emit the marker with sel=0 so the gate can tell. */
         serial_puts("FLAIR-MENU menu=0 item=0 (sel=0x00000000)\n");
@@ -2549,7 +2565,7 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
             flair_desktop_present(bi, &ctx->off);
             if (mi != last_mi) {
                 serial_puts("FLAIR-MENU-XDROP menu=");
-                serial_puti((int32_t)bar->menus[mi].menuID);
+                serial_puti((int32_t)MenuBar_menu_id(bar, mi));
                 serial_putc('\n');
             }
             last_mi = mi;
@@ -2600,6 +2616,7 @@ static uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *
 
 /* The retained FO-7/8 single-bar pump remains a y=0 client. Keep its two call
  * sites unchanged; only the tenants pump calls flair_live_do_menu_at for band 2. */
+__attribute__((unused)) /* the tenants pump calls flair_live_do_menu_at (tdnl.47) */
 static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                MenuBar *bar, flair_point_t where0)
 {
@@ -3353,6 +3370,9 @@ static void flair_tenant_mount_volume(void)
             g_finder_fat     = fat;
             g_finder_fat_len = fat_len;
             g_finder_secbuf  = ften_secbuf;
+            /* The Apple menu lists what this volume holds (bead
+             * initech-tdnl.47; spec/apple_menu_items.h, rule F4-3). */
+            flair_live_apple_refresh();
             if (desktop_db_volume_label(&ften_vol, ften_secbuf,
                                         g_finder_vol_label,
                                         (uint32_t)sizeof g_finder_vol_label) !=
@@ -4270,6 +4290,130 @@ static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi
     serial_putc('\n');
     tbx_alert_answer(hit);
     flair_live_tenant_service(ctx, bi);
+}
+
+/* ===========================================================================
+ * THE APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17). os/flair/
+ * apple_menu.c holds the rows (spec/apple_menu_items.h) and the choice ->
+ * action map; THIS is the binding: "is it installed" asks FAT, About This
+ * Computer reads the banner and the live MCB chain, a desk accessory
+ * launches through the ONE verb a double-click uses (flair_live_launch_app,
+ * design F4.3). Serial:
+ *   APPLE-MENU n=<rows>                      (each rebuild)
+ *   APPLE-ABOUT mem_k=<n> arena_k=<n> largest_k=<n>
+ *   APPLE-LAUNCH name=<8.3> dir=<8.3>
+ * ===========================================================================*/
+static int flair_live_apple_installed(void *user, const char *dir83,
+                                      const char *file83)
+{
+    dir_entry_t d, f;
+    uint32_t slot;
+    (void)user;
+    if (g_finder_vol == (const fat12_volume_t *)0) return 0;
+    if (fat12_find(g_finder_vol, g_finder_secbuf, dir83, &d) != FAT12_OK ||
+        (d.attribute & 0x10u) == 0u)
+        return 0;
+    return fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                              d.start_cluster, g_finder_secbuf, file83, &f,
+                              &slot) == FAT12_OK;
+}
+
+static void flair_live_apple_refresh(void)
+{
+    const MenuInfo *m = apple_menu_build(flair_live_apple_installed, (void *)0);
+    MenuBar_set_apple_menu(m);
+    serial_puts("APPLE-MENU n=");
+    serial_putu((uint32_t)m->n_items);
+    serial_putc('\n');
+}
+
+static int about_put(char *o, int at, const char *s)
+{
+    while (*s && at < 47) o[at++] = *s++;
+    o[at] = '\0';
+    return at;
+}
+
+static int about_putu(char *o, int at, uint32_t v)
+{
+    char t[12];
+    int n = 0;
+    do { t[n++] = (char)('0' + (int)(v % 10u)); v /= 10u; } while (v != 0u);
+    while (n > 0 && at < 47) o[at++] = t[--n];
+    o[at] = '\0';
+    return at;
+}
+
+/* About This Computer: the shipped banner's name/version (BANNER_LINE1,
+ * spec/dos_banner.txt) and the machine's REAL memory -- the RAM stage2
+ * probed (1 MiB + ext_mem_kb) and the InitechDOS arena's largest free block,
+ * walked live off the MCB chain (int21_mcb_stats). An unbound arena says so
+ * ("none"), it never shows a made-up figure. The Mac OS 8 window of the
+ * capture (s8_about_this_computer.png) is shown through the shell's alert
+ * (the banner art and the per-application bars are a recorded gap). */
+static void flair_live_about(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    static char l2[48], l3[48];
+    static const char *const ok_label[1] = { "OK" };
+    const char *text[3];
+    uint32_t mem_k = 1024u + bi->ext_mem_kb, arena = 0u, largest = 0u;
+    int bound = int21_mcb_stats(&arena, &largest);
+    int at;
+
+    at = about_put(l2, 0, "Built-in Memory: ");
+    at = about_putu(l2, at, mem_k);
+    (void)about_put(l2, at, "K");
+    at = about_put(l3, 0, "Largest Unused Block: ");
+    if (bound) {
+        at = about_putu(l3, at, largest / 64u);        /* paragraphs -> K */
+        (void)about_put(l3, at, "K");
+    } else {
+        (void)about_put(l3, at, "none");
+    }
+    text[0] = BANNER_LINE1;
+    text[1] = l2;
+    text[2] = l3;
+    serial_puts("APPLE-ABOUT mem_k=");
+    serial_putu(mem_k);
+    serial_puts(" arena_k=");
+    serial_putu(arena / 64u);
+    serial_puts(" largest_k=");
+    serial_putu(largest / 64u);
+    serial_putc('\n');
+    flair_live_alert_open(ctx, bi, text, 3, ok_label, 1, 1);
+    serial_puts("APPLE-ABOUT up\n");
+    (void)flair_live_alert_run(ctx, bi);
+    serial_puts("APPLE-ABOUT closed\n");
+}
+
+/* Returns 1 when `sel` was an Apple-menu choice (handled here). */
+static int flair_live_apple_result(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                   uint32_t sel)
+{
+    const apple_da_t *da = (const apple_da_t *)0;
+    dir_entry_t d;
+
+    if (sel == 0u || MenuResultID(sel) != (int16_t)FLAIR_MENU_ID_APPLE) return 0;
+    switch (apple_menu_action(sel, &da)) {
+    case APPLE_ACT_ABOUT:
+        flair_live_about(ctx, bi);
+        break;
+    case APPLE_ACT_LAUNCH:
+        serial_puts("APPLE-LAUNCH name=");
+        serial_puts(da->file83);
+        serial_puts(" dir=");
+        serial_puts(da->dir83);
+        serial_putc('\n');
+        if (g_finder_vol != (const fat12_volume_t *)0 &&
+            fat12_find(g_finder_vol, g_finder_secbuf, da->dir83, &d) == FAT12_OK)
+            flair_live_launch_app(ctx, bi, da->file83, d.start_cluster);
+        else
+            serial_puts("APPLE-LAUNCH-FAIL\n");
+        break;
+    default:
+        break;
+    }
+    return 1;
 }
 
 /* Special > Empty Trash, after the shell counted (bead initech-6k12). */
@@ -5958,7 +6102,11 @@ void kernel_main(void)
                         flair_live_do_collapse(&ctx, &b, chrome_w);
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
-                    flair_live_do_menu(&ctx, &b, &ctx.scene->bar_sys, ev.where);
+                    /* Band 1: its titles stay marker-only; its Apple glyph
+                     * drops the system Apple menu (bead initech-tdnl.47). */
+                    (void)flair_live_apple_result(&ctx, &b,
+                        flair_live_do_menu_at(&ctx, &b, &ctx.scene->bar_sys,
+                                              ev.where, 0u));
 #if !defined(KMAIN_MUT_MENU2_DEAD)
                 } else if (ev.where.v >= (int16_t)SHELL_MENUBAR2_TOP &&
                            ev.where.v < (int16_t)(SHELL_MENUBAR2_TOP +
@@ -5984,10 +6132,14 @@ void kernel_main(void)
                     uint32_t menu2_sel =
                         flair_live_do_menu_at(&ctx, &b, menu2_bar, ev.where,
                                               (uint32_t)SHELL_MENUBAR2_TOP);
-                    flair_live_finder_menu_result(&ctx, &b, menu2_bar,
-                                                  menu2_sel);
-                    flair_live_tenant_menu_result(&ctx, &b, menu2_bar,
-                                                  menu2_sel, &ev);
+                    /* An Apple-menu choice is the SYSTEM's (tdnl.47), never
+                     * the bar owner's command. */
+                    if (!flair_live_apple_result(&ctx, &b, menu2_sel)) {
+                        flair_live_finder_menu_result(&ctx, &b, menu2_bar,
+                                                      menu2_sel);
+                        flair_live_tenant_menu_result(&ctx, &b, menu2_bar,
+                                                      menu2_sel, &ev);
+                    }
 #else
                     /* NAMED MUTANT (Rule 6; initech-t1rv): restore the original
                      * y<FLAIR_MENUBAR_H-only test, leaving band 2 dead. */

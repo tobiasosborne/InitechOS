@@ -95,6 +95,11 @@ void tbx_app_event(const tbx_event_t *ev);
 int32_t tbx_register(void);
 int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t go_away);
 int32_t tbx_set_wtitle(int32_t win, const char *title);
+/* (top << 16) | left of the window's content, GLOBAL: a mouseDown at
+ * (whereh, wherev) is content-local (whereh - left, wherev - top). The
+ * NEWWINDOW go_away argument may carry TBX_WDEF_RDOC (the rounded desk-
+ * accessory window). Spec Sec 3; bead initech-tdnl.17. */
+int32_t tbx_content_origin(int32_t win);
 int32_t tbx_draw_text(int32_t win, int32_t x, int32_t y, const char *s,
                       uint32_t fg, uint32_t bg);
 int32_t tbx_fill_rect(int32_t win, int32_t l, int32_t t, int32_t r, int32_t b,

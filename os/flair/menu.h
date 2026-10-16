@@ -167,6 +167,43 @@ typedef struct MenuBar {
 } MenuBar;
 
 /* ===========================================================================
+ * 3a. THE APPLE MENU  (bead initech-tdnl.47; the system menu behind the glyph)
+ * ---------------------------------------------------------------------------
+ * The Apple glyph slot of every has_apple bar (menu bands 1 AND 2) drops ONE
+ * system Apple menu, registered once by the shell (MenuBar_set_apple_menu;
+ * its rows are os/flair/apple_menu.c's data). A bar never carries it in
+ * menus[] -- that would lay it out as a titled menu and shift every title
+ * (finder_menu.h banner) -- so the Menu Manager addresses it by the reserved
+ * index FLAIR_MENU_APPLE_MI: MenuBar_hit returns it for the slot, and every
+ * panel / item / track / hilite verb below accepts it. With NO registered
+ * Apple menu the slot is dead exactly as before (MenuBar_hit -1), so every
+ * host oracle that never registers one sees the old Menu Manager byte for
+ * byte.
+ *
+ * GEOMETRY, measured off the real Mac OS 8.1 Apple menu
+ * (../system7-decomp/goldens/captures/s8_apple_menu.png, mint-007): the
+ * pulled block is x 9..37 (the 10-px ink pad around the glyph's ink, like a
+ * title's), and the panel's left edge is that block's left, x 9 (a titled
+ * menu's panel starts at its slot left instead).
+ * MENU_MUT_APPLE_DEAD (Rule 6): MenuBar_hit never answers the Apple slot --
+ * the audited F13 bug (both glyphs open nothing). NEVER in a real build.
+ * ===========================================================================*/
+#define FLAIR_MENU_APPLE_MI        (-2)
+#define FLAIR_MENU_ID_APPLE        1      /* IM sample convention appleID = 1;
+                                           * disjoint from every bar's ids
+                                           * (128.., 256.., 384.., 512..) */
+#define FLAIR_MENU_APPLE_HILITE_L  9
+#define FLAIR_MENU_APPLE_HILITE_R  38     /* exclusive */
+
+/* Register (or with NULL withdraw) the system Apple menu. */
+void MenuBar_set_apple_menu(const MenuInfo *apple);
+/* The menu a bar index names: bar->menus[mi], the Apple menu for
+ * FLAIR_MENU_APPLE_MI on a has_apple bar, else NULL. */
+const MenuInfo *MenuBar_menu(const MenuBar *bar, int mi);
+/* Its menuID, or 0 when MenuBar_menu is NULL. */
+int16_t MenuBar_menu_id(const MenuBar *bar, int mi);
+
+/* ===========================================================================
  * 4. RESULT WORD HELPERS  (ADR-0004 D-3: result == menuID<<16 | item)
  * ---------------------------------------------------------------------------
  * MenuSelect / MenuKey pack the chosen (menuID, item) into a uint32_t exactly
