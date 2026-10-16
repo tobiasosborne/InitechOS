@@ -27386,8 +27386,11 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@if [ ! -s "$(SAMIRBOOT_PPM)" ]; then \
 		printf '!!! test-samir-boot FAIL: no screendump captured at %s (live guest required)\n' "$(SAMIRBOOT_PPM)"; exit 1; \
 	fi
-	@$(PPM_TEXT_CHECK_BIN) "$(SAMIRBOOT_PPM)" 160 176 300 \
-		|| { printf '!!! test-samir-boot FAIL: the LIST rows did not render on the framebuffer (band [160,176) < 300 fg)\n'; exit 1; }
+	@# PM RE-KEY 2026-10-17 (initech-31d1 merged): the real dBASE III PLUS LIST layout prints no
+	@# blank line before the table at the dot prompt (mint 005), so the three rows now ink
+	@# y in [112,160); the band [144,160) holds row 3 (LUMBERGH), pure seafoam without LIST.
+	@$(PPM_TEXT_CHECK_BIN) "$(SAMIRBOOT_PPM)" 144 160 300 \
+		|| { printf '!!! test-samir-boot FAIL: the LIST rows did not render on the framebuffer (band [144,160) < 300 fg)\n'; exit 1; }
 	@printf '>>> test-samir-boot [5/5]: screendump shows SAMIR'"'"'s dot prompt + LIST table on the seafoam desktop\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- InitechBase (SAMIR) booted inside InitechOS, opened a .dbf and LISTed it\n'
