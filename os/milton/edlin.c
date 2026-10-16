@@ -6,6 +6,7 @@
  * the input handle remains open for A/W staged editing (pp.163,174,193).
  */
 #include "edlin.h"
+#include "conedit.h"
 #include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 p.330 (EDLIN). */
 #define CAP 49152u
 #define FILL (CAP*3u/4u)
@@ -58,33 +59,37 @@ static int change(unsigned n,const char *s){
     if(size>CAP-(used-(b-a))){emit("Insufficient memory\r\n");return 0;}
     shift(text+a+size,text+b,used-b);copy(text+a,s,size);used=used-(b-a)+size;return 1;
 }
-/* pp.164-169,177: own template editor because AH=0Ah currently lacks it.
- * AH=07h avoids the kernel's terminating Ctrl-C checkpoint; in insert mode
- * Ctrl-C returns to '*', as p.180 requires. DOS extended keys are 00,scan.
- * F2/F4/F5 also follow the manual, in addition to required F1/F3/Ins/Del/Esc.
- */
+/* pp.164-169,177: share the resident editor mechanics. EDLIN keeps its
+ * own template per edited line and its raw Ctrl-C / Ctrl-V policy (p.171). */
+typedef struct {char bytes[512];unsigned n;} editor_echo;
+static void edlin_echo(uint8_t c,void *ctx){
+    editor_echo *e=ctx;
+    /* Emit one key's response in one DOS write. This keeps a template recall
+     * one output operation, including CR/LF and the backspace erase triplet;
+     * raw Ctrl-C belongs to the next get(), not a per-glyph disk operation. */
+    if(c<32&&c!=9&&c!=8&&c!=13&&c!=10&&c!=7){
+        e->bytes[e->n++]='^';e->bytes[e->n++]=(char)(c+64);
+    }else e->bytes[e->n++]=(char)c;
+}
 static int readline(char *out,const char *source){
-    char tmpl[254];copy(tmpl,source,length(source)+1);
-    unsigned n=0,t=0;int ins=0;
+    conedit_t editor;conedit_init(&editor,(const uint8_t *)source,length(source));
     for(;;){int c=io->get();
         if(c<0){failed=1;return -1;}
-        if(c==13){out[n]=0;crlf();return (int)n;}
         if(c==3){emit("^C\r\n");return -1;}
-        if(c==27){emit("\\\r\n");n=t=0;ins=0;continue;}
-        if(c==8){if(n){n--;if(t&&!ins)t--;emit("\b \b");}continue;}
-        if(!c){int scan=io->get();unsigned end=length(tmpl),stop=end;
-            if(scan==82){ins=!ins;continue;}
-            if(scan==83){if(t<end)t++;continue;}
-            if(scan==75){if(n){n--;if(t&&!ins)t--;emit("\b \b");}continue;}
-            if(scan==63){out[n]=0;copy(tmpl,out,n+1);emit("@\r\n");n=t=0;ins=0;continue;}
-            if(scan==59)stop=t+1;
-            else if(scan==60||scan==62){int target=io->get();stop=t;while(stop<end&&(unsigned char)tmpl[stop]!=target)stop++;if(stop==end)continue;}
-            else if(scan!=61)continue;
-            while(t<stop&&t<end){if(scan!=62){if(n<MAXLINE){out[n++]=tmpl[t];echo((unsigned char)tmpl[t]);}else emit("\007");}t++;}
-            ins=0;continue;
+        if(c==22 && !editor.extended && !editor.target){
+            c=upper(io->get())&31;
+            /* Quoted controls are data, even Enter or Escape (p.171). */
+            if(editor.count<MAXLINE){out[editor.count++]=(char)c;echo(c);
+                if(!editor.insert&&editor.pos<editor.length)editor.pos++;}
+            else emit("\007");
+            continue;
         }
-        if(c==22)c=upper(io->get())&31; /* p.171 CONTROL-V quotes next letter */
-        if(n<MAXLINE){out[n++]=(char)c;echo(c);if(!ins&&tmpl[t])t++;}else emit("\007");
+        editor_echo response={{0},0};
+        int done=conedit_key(&editor,(uint8_t)c,(uint8_t *)out,MAXLINE,edlin_echo,&response);
+        if(response.n)putn(response.bytes,response.n);
+        if(done){
+            out[editor.count]=0;return (int)editor.count;
+        }
     }
 }
 static void reader_init(reader *r,int h){r->h=h;r->eof=0;r->pos=r->size=0;r->push=-1;r->ready=0;}

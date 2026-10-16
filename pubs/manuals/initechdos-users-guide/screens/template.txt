@@ -1,0 +1,25 @@
+A:\>ECHO Quarter
+Quarter
+A:\>ECHO Quarter
+Quarter
+A:\>ECHO Month
+Month
+A:\>ECHO Friday@
+ECHO Friday
+Friday
+A:\>WRONG\
+ECHO Friday
+Friday
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
