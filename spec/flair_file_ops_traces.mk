@@ -196,7 +196,16 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # the new click point.
 # initech-kd4a: CHKDSK.COM moves stranded TRASH to cell 6 (row 2, col 2).
 # Click +88,+72 from APPS; reduce the subsequent horizontal park by 68.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m100:84,m100:0,m4:0,m68:68,m68:68,m69:66
+# gyvx/f88h re-key: ATTRIB.COM and LABEL.COM append after the five existing
+# APPS files. The stranded TRASH moves to cell 7 (row 2, col 3), centre
+# (279,174): +156,+72 from the APPS double-click. Parking keeps the same
+# absolute targets (415,258), then (620,460). Grid pitches remain 68x52.
+# PM MERGE RE-KEY 2026-10-16 (kd4a + gyvx/f88h together): APPS now holds eight
+# files (TENANTFX, CTENANT, 123.EXE, WORD.EXE, 123.MNU, CHKDSK.COM, ATTRIB.COM,
+# LABEL.COM), so the stranded TRASH is cell 8 = row 3, col 1: +20,+124 from the
+# APPS double-click (PITCH_Y 52). The park keeps its ABSOLUTE target (+292,+156
+# from the APPS click): 272,32 from the new click point. Second park unchanged.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m20:100,m0:24,l1,l0,l1,l0,m100:32,m100:0,m72:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the

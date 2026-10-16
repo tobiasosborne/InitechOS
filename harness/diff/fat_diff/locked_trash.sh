@@ -35,11 +35,12 @@ if [ "$mode" = stage ]; then
     if mdir -i "$img" ::TRASH/README.TXT >/dev/null 2>&1; then fail 'locked file staged'; fi
     grep -qx 'FINDER-MOVE-REFUSED reason=locked name=README.TXT' "build/$name.serial" || fail 'protection-specific refusal missing'
 else
-    # initech-kd4a: APPS\CHKDSK.COM adds one writable leaf to the shipped volume.
-    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU TRASH/APPS/CHKDSK.COM; do
+    # kd4a + gyvx/f88h: APPS gained CHKDSK.COM, ATTRIB.COM and LABEL.COM. Eight writable
+    # leaves are removed; locked TENANTFX.EXE and its containing APPS are refused.
+    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU TRASH/APPS/CHKDSK.COM TRASH/APPS/ATTRIB.COM TRASH/APPS/LABEL.COM; do
         if mdir -i "$img" "::$leaf" >/dev/null 2>&1; then fail 'writable purge control survived'; fi
     done
-    grep -qx 'FINDER-TRASH-EMPTIED purged=6 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
+    grep -qx 'FINDER-TRASH-EMPTIED purged=8 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
 fi
 grep -qx 'FINDER-LOCKED-ALERT' "build/$name.serial" || fail 'visible message missing'
 grep -q 'OK=1' "$out/emu.report" || fail 'emulator did not complete'

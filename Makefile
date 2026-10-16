@@ -852,6 +852,8 @@ SORT_PROG_ASM    := $(KERNEL_DIR)/sort_program.asm
 SORT_PROG_BIN    := $(BUILD)/sort_program.bin
 SORT_PROG_MUT_BIN := $(BUILD)/sort_program_mut.bin
 FIND_PROG_ASM    := $(KERNEL_DIR)/find_program.asm
+ATTRIB_PROG_BIN  := $(BUILD)/attrib_program.bin
+LABEL_PROG_BIN   := $(BUILD)/label_program.bin
 FIND_PROG_BIN    := $(BUILD)/find_program.bin
 FIND_PROG_MUT_BIN := $(BUILD)/find_program_mut.bin
 MORE_PROG_ASM    := $(KERNEL_DIR)/more_program.asm
@@ -10170,7 +10172,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 FLAIR_DATA_RECIPE_IMAGES :=
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10187,7 +10189,9 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 		$(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CHKDSK_PROG_BIN) ::APPS/CHKDSK.COM
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(ATTRIB_PROG_BIN) ::APPS/ATTRIB.COM
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(LABEL_PROG_BIN) ::APPS/LABEL.COM
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
@@ -22717,10 +22721,8 @@ RECORD_SETTLE_trash_window = 300
 # clicked: the window empties and the icon goes back to EMPTY.
 # FLAIR_EMPTY_OK_SPEC on the LONG double-click record image (60 events).
 RECORD_SPEC_empty_trash   = $(FLAIR_EMPTY_OK_SPEC)
-# RE-KEY 2026-10-16: purged=5 -> purged=7 -- APPS gained 123.MNU (initech-uqah)
-# and WORD.EXE (initech-l4tj); README.TXT + APPS + its five files = 7, the
-# same count test-flair-empty-trash asserts (serial FINDER-TRASH-ALERT n=7).
-RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=7 refused=0
+# gyvx/f88h re-key: README.TXT + APPS + its seven files = 9.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=9 refused=0
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
 # shutdown (bead initech-tdnl.78; Rule 14): the root window opens and is
@@ -31027,3 +31029,5 @@ test-flair-menubar-clock-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_clock
 	@grep -qx 'FLAIR-CLOCK 12:55 am' $(BUILD)/menubar_clock_stuck.serial
 	@printf '>>> test-flair-menubar-clock-mutant: green (wrong-hour and stale-minute regressions rejected)\n'
 TEST_EMU_GATES += test-flair-menubar-clock test-flair-menubar-clock-mutant
+# DOS utility lane: separate recipe file keeps its COM/oracle family together.
+include harness/diff/fat_diff/dosutil.mk

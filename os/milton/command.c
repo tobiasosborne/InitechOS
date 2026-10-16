@@ -52,6 +52,9 @@ cmd_kind_t cmd_classify(const char *upper_command)
     /* A tiny hand-rolled strcmp keeps this freestanding (no libc). */
     struct { const char *name; cmd_kind_t kind; } table[] = {
         { "DIR",   CMD_DIR  },
+#ifndef DU_MUTATE_VOL
+        { "VOL",   CMD_VOL  }, /* MS-DOS 3.3 User's Guide p.126 / PDF211 */
+#endif
         { "TYPE",  CMD_TYPE },
         { "CD",    CMD_CD   },
         { "CHDIR", CMD_CD   },   /* CHDIR is the long form of CD (DOS) */
@@ -2433,6 +2436,30 @@ static void builtin_prompt(const char *arg)
  * deliberate LOOK Rule-8 amendment to spec/dos_messages.json. DTA supplies
  * the packed timestamp, AH=36h the FAT free count, mounted root the label. */
 static void cwd_display(char *out);
+/* VOL reuses DIR's root-label reader and controlled text. Only the mounted
+ * drive A exists (INT21 GETCWD/GETSPACE contract). MS 3.3 p.126 / PDF211. */
+static void builtin_vol(const char *arg)
+{
+    while (is_space(*arg)) arg++;
+    if (*arg) {
+        if (cmd_upcase_char(arg[0])!='A' || arg[1]!=':') {
+            dos_print(MSG_DOS_0004 "\r\n$");
+            return;
+        }
+        arg+=2;
+        while (is_space(*arg)) arg++;
+        if (*arg) { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+    }
+    char label[12];
+    if (fileio_fat_volume_label(label)<0) {
+        dos_print(MSG_DOS_0009 "\r\n$");
+        return;
+    }
+    dos_print("\r\n$");
+    if (label[0]) { dos_puts_raw(MSG_DOS_0021); dos_puts_raw(label); }
+    else dos_puts_raw(MSG_DOS_0022);
+    dos_print("\r\n$");
+}
 static void builtin_dir(void)
 {
     int n;
@@ -3193,6 +3220,9 @@ static int dispatch_line(const char *line)
             break;                       /* blank line -> nothing to do */
         case CMD_DIR:
             builtin_dir();
+            break;
+        case CMD_VOL:
+            builtin_vol(parsed.arg);
             break;
         case CMD_TYPE:
             builtin_type(parsed.arg);
