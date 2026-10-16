@@ -31922,7 +31922,7 @@ include harness/diff/fat_diff/command_file.mk
 
 # Flagship DOS-folder layout / PATH / filters (initech-zc68, initech-2kgh).
 include harness/diff/fat_diff/dos_folder.mk
-# README + APPS + fourteen leaves = sixteen purged nodes.
+# README + APPS + sixteen leaves (incl. NOTEPAD.EXE, SCRAPBK.EXE) = eighteen purged nodes.
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=18 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
