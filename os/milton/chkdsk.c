@@ -129,7 +129,7 @@ static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
     }
     if(s.pass==0 && invalid) {
 #ifndef CHKDSK_MUT_INVALID
-        diagnostic("Has invalid cluster, file truncated");
+        diagnostic(MSG_DOS_0042);
 #endif
         if(s.fix) {
             if(previous){if(fat_set(previous,s.eoc))return units;}
@@ -144,7 +144,7 @@ static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
         /* Second pass names BOTH owners of each shared cluster. A-46 explicitly
          * forbids automatic correction, even with /F. */
         for(uint32_t n=2;n<s.clusters+2;n++)if(bit(s.local,n)&&bit(s.duplicate,n)){
-            put(s.path);nl();put("File is cross-linked:\r\non cluster ");num(n,0);nl();s.error=1;
+            put(s.path);nl();put(MSG_DOS_0043);num(n,0);nl();s.error=1;
         }
 #endif
         if(selected()){
@@ -196,7 +196,7 @@ static void directory(uint32_t start,unsigned depth) {
             }
             if(e[11]&16){
                 if(!valid(u16(e+26))){
-                    if(s.pass==0){put("Cannot CHDIR to ");put(s.path);put(", tree past this point not processed\r\n");}
+                    if(s.pass==0){put(MSG_DOS_0044);put(s.path);put(MSG_DOS_0045 "\r\n");}
                     s.incomplete=1;
                 }else{s.path[base_len+n]='\\';s.path[base_len+n+1]=0;directory(u16(e+26),depth+1);}
             }
@@ -238,7 +238,7 @@ static int recover(uint32_t head,uint32_t units) {
         zero(e,32);copy(e,name,11);w16(e+26,head);w32(e+28,units*s.spc*512);
         copy(a,e,32);return write_sector(s.root+i/16,p);
     }
-    put("File creation error\r\n");s.failed=1;return -1;
+    put(MSG_DOS_0046 "\r\n");s.failed=1;return -1;
 }
 static int answer(void) {
     /* IBM 7-49: Y/N must be followed by Enter. Redirected handle 0 is valid. */
@@ -295,7 +295,7 @@ static int parse(const char*t) {
 }
 int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     zero(&s,sizeof(s));s.io=io;s.cache_lba=0xffffffffu;s.total=1;
-    if(parse(tail)){put("Invalid parameter\r\n");return -1;}
+    if(parse(tail)){put(MSG_DOS_0048 "\r\n");return -1;}
     uint8_t b[512];if(read_sector(0,b))goto failed;
     s.spc=b[13];s.fat=u16(b+14);s.fats=b[16];s.roots=u16(b+17);s.spf=u16(b+22);
     s.total=u16(b+19)?u16(b+19):u32(b+32);s.root=s.fat+s.fats*s.spf;
@@ -310,7 +310,7 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     if(s.operand[0]&&!s.matched){put(MSG_DOS_0003 "\r\n");s.error=1;}
     else if(s.operand[0]&&!s.fragmented)put("All specified file(s) are contiguous\r\n");
     lost();
-    if(s.error&&!s.fix)put("Corrections will not be written to disk\r\n");
+    if(s.error&&!s.fix)put(MSG_DOS_0047 "\r\n");
     for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(next(c)==0)s.free++;
 #ifdef CHKDSK_MUT_REPORT
     s.hidden=0;
@@ -334,5 +334,5 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     if(s.failed)goto failed;
     return s.error?1:0;
 failed:
-    put("Disk error reading (or writing) FAT\r\n");return -1;
+    put(MSG_DOS_0049 "\r\n");return -1;
 }

@@ -482,7 +482,7 @@ int du_main(int tree, char *tail)
 #ifdef DU_MUT_CYCLIC
                 return 0;
 #else
-                line("Cannot perform a cyclic copy"); return 4;
+                line(MSG_DOS_0050); return 4;
 #endif
             }
         }
@@ -502,9 +502,9 @@ int du_main(int tree, char *tail)
     number(copied); line(MSG_DOS_0024 "copied");
     return error ? error : copied ? 0 : 1;
 invalid:
-    line("Invalid parameter(s)"); return 4;
+    line(MSG_DOS_0051); return 4;
 parameters:
-    line("Invalid number of parameters"); return 4;
+    line(MSG_DOS_0038); return 4;
 path_error:
-    line("Invalid path (or file not found)"); return 4;
+    line(MSG_DOS_0039); return 4;
 }

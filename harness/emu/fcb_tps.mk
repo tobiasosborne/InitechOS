@@ -29,9 +29,9 @@ FCBX_IMG       := $(BUILD)/fcbx_data.img
 FCBX_FNAME     := fcbx
 
 $(FCBX_BIN): $(FCBX_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
 $(FCBX_BIN16): $(FCBX_ASM) | $(BUILD)
-	$(NASM) -f bin -DREALDOS $< -o $@
+	$(NASM) -I$(BUILD)/ -f bin -DREALDOS $< -o $@
 
 # Mutant secondary-shell kernels: one int21.o swapped (pattern: dos_control.mk).
 FCB_MUTANTS := seq noattr nozero

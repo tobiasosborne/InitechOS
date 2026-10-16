@@ -1,3 +1,4 @@
+%include "dos_messages.inc" ; DEC-13; catalogue preserves existing bytes.
 ; tpsrep_program.asm -- TPSREP.COM, the INITECH TPS REPORT GENERATOR
 ; (beads initech-8479.1; the flagship vestigial-feature program).
 ;
@@ -1113,7 +1114,7 @@ m_banner:
     db 'INITECH CORPORATION', 13, 10
     db 'TPS REPORT GENERATOR  VERSION 2.11', 13, 10
     db '(C) 1989 INITECH CORPORATION. FOR INTERNAL USE ONLY.', 13, 10, 13, 10, '$'
-m_r1a:   db 'TPS-001 PARAMETER FILE TPSPARM.DAT NOT FOUND.$'
+m_r1a:   db MSG_DOS_0061, '$'
 m_op73:  db 'REFER TO OPERATING PROCEDURE OP-7.3 (PARAMETER FILES).$'
 m_r1c:   db 'TPS-002 PARAMETER $'
 m_r1d:   db ' MISSING FROM TPSPARM.DAT.$'
@@ -1129,7 +1130,7 @@ m_r2d:   db ' PRESSES). THE COUNT HAS BEEN RESET.$'
 m_r2ok:  db 'FORM ALIGNED.$'
 m_r3a:   db 'ENTER TPS REPORT NUMBER: $'
 m_r3b:   db 'RE-ENTER TPS REPORT NUMBER: $'
-m_r3c:   db 'TPS-003 REPORT NUMBERS DO NOT AGREE. PLEASE BEGIN AGAIN.$'
+m_r3c:   db MSG_DOS_0066, '$'
 m_r4a:   db 'KEY THE NUMBER OF THE MEMO ABOUT THE NEW COVER SHEETS: $'
 m_r4b:   db 'TPS-004 THAT IS NOT THE MEMO NUMBER. SEE YOUR SUPERVISOR.$'
 m_r5a:   db 'DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET, FORM TPS-1 (REV. 10/89)? (Y/N) $'
@@ -1140,7 +1141,7 @@ m_e6a:   db 'TPS-006 TABLE IS NOT A TPS TABLE (FIELD $'
 m_e6b:   db ' NOT FOUND).$'
 m_e7a:   db 'TPS-007 TABLE NOT FOUND.$'
 m_e7b:   db 'USAGE: TPSREP table.DBF$'
-m_e8:    db 'TPS-008 TPSREPT.TXT COULD NOT BE CREATED.$'
+m_e8:    db MSG_DOS_0074, '$'
 m_done1: db 'TPS REPORT WRITTEN TO TPSREPT.TXT.$'
 m_done2: db 'PREVIOUS REPORT RETAINED AS TPSREPT.BAK.$'
 m_end1:  db 'TPS REPORT GENERATOR TERMINATED. RETURN CODE $'

@@ -410,6 +410,52 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 | MSG-DOS-0025 | ` bytes free` |
 | MSG-DOS-0026 | `<DIR>` |
 
+| MSG-DOS-0027 | `ECHO is on` |
+| MSG-DOS-0028 | `ECHO is off` |
+| MSG-DOS-0029 | `BREAK is on` |
+| MSG-DOS-0030 | `BREAK is off` |
+| MSG-DOS-0031 | `Out of environment space` |
+| MSG-DOS-0032 | `Environment variable not defined` |
+| MSG-DOS-0033 | `Invalid date` |
+| MSG-DOS-0034 | `Invalid time` |
+| MSG-DOS-0035 | `Insufficient memory` |
+| MSG-DOS-0036 | `Label not found` |
+| MSG-DOS-0037 | `Insufficient memory` |
+| MSG-DOS-0038 | `Invalid number of parameters` |
+| MSG-DOS-0039 | `Invalid path (or file not found)` |
+| MSG-DOS-0040 | `No room in root directory` |
+| MSG-DOS-0041 | `Invalid characters in volume label` |
+| MSG-DOS-0042 | `Has invalid cluster, file truncated` |
+| MSG-DOS-0043 | `File is cross-linked:\r\non cluster ` |
+| MSG-DOS-0044 | `Cannot CHDIR to ` |
+| MSG-DOS-0045 | `, tree past this point not processed` |
+| MSG-DOS-0046 | `File creation error` |
+| MSG-DOS-0047 | `Corrections will not be written to disk` |
+| MSG-DOS-0048 | `Invalid parameter(s)` |
+| MSG-DOS-0049 | `Disk error reading (or writing) FAT` |
+| MSG-DOS-0050 | `Cannot perform a cyclic copy` |
+| MSG-DOS-0051 | `Invalid parameter(s)` |
+| MSG-DOS-0052 | `Entry error` |
+| MSG-DOS-0053 | `File access denied` |
+| MSG-DOS-0054 | `Disk full - file write not completed` |
+| MSG-DOS-0055 | `Line too long` |
+| MSG-DOS-0056 | `Not found` |
+| MSG-DOS-0057 | `Cannot edit .BAK file--rename file` |
+| MSG-DOS-0058 | `WARNING! Backup file is read-only -- backup\r\nwill not be made` |
+| MSG-DOS-0059 | `Invalid number of parameters` |
+| MSG-DOS-0060 | `Insufficient memory` |
+
+> Catalogue extraction amendment (initech-bcg.13, 2026-10-17): the lane instruction
+> explicitly authorizes catalogue coverage of all diagnostic TUs. Entries 0027 onward
+> centralize existing output. Four inherited diagnostics (batch depth, FIND
+> parameter error, SORT memory error and CHKDSK invalid parameter) now use the
+> exact wording on printed pp.337/341 of the MS-DOS 3.3 manual. Numeric alias
+> entries preserve the extraction inventory; no old catalogue ID changes.
+> Command-specific and TPS text
+> retains its own cited authority (spec/dos_messages.json citations); TPS is an
+> Initech application, not an MS-DOS command. Escaped \r\n denotes existing line breaks.
+> Non-diagnostic UI and non-output strings are enumerated in dosmsg.allow.
+
 > LOOK pass 6 amendment (initech-vjtp/d31e/b0qk/irp2/veub): explicitly
 > authorized by the DOS console lane instruction. DIR output is now controlled
 > vocabulary alongside diagnostics. MSG-DOS-0021/0023 are heading fragments
