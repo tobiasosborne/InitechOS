@@ -1,0 +1,144 @@
+% Chapter 2 -- InitechDOS Commands.  The notation and the information common
+% to all commands, then one AN-01 entry per command (IBM 3.10 Reference Ch. 7
+% order: alphabetical, one entry per page; docs/pubs/originals/ibm-dos.md
+% Sec 8.1).  The entry list is the shipped command table: the internal
+% commands of os/milton/command.c cmd_classify (24 names, 18 commands) and
+% the external utilities on the shipped disk (Makefile flair-data-rules:
+% APPS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM TREE.COM).  PATH is a DRAFT
+% entry (initech-sy5f: not yet a command).
+% Sources (Law 1): os/milton/command.c (cmd_parse, run_external,
+% cmd_path_candidates: .COM .EXE .BAT, current directory then PATH),
+% os/milton/devices.c (CON AUX PRN CLOCK$ NUL), os/milton/int21.c
+% (8.3 search template, '*' and '?').
+% GATES: test-command test-shell test-devices test-pubs-screens
+\Gates{test-command, test-shell, test-devices, test-pubs-screens}
+\chapter{InitechDOS Commands}
+
+\section{Format Notation}
+\index{notation}
+The Format line of each entry shows exactly how the command is typed.  These
+conventions are used:
+\begin{itemize}
+\item Words in capital letters, such as \kw{COPY}, are keywords.  Type them
+  as shown; you may use capital or small letters.
+\item Words in \ph{italics} are parameters: replace them with your own
+  information, such as a file name.
+\item Items in square brackets \opt{\ph{like this}} are optional.  Do not
+  type the brackets.
+\item A vertical bar between items, as in \kw{ON}\texttt{|}\kw{OFF}, means
+  that you type one of them.
+\item Three periods \rep{} mean that the item before them may be repeated.
+\item Type all other punctuation, such as colons, backslashes, equal signs
+  and slashes, exactly as shown.
+\end{itemize}
+
+\section{Information Common to All Commands}
+
+\subsection{Entering Commands}
+Type a command at the command prompt and press \key{Enter}.  Separate the
+command name from its first parameter, and the parameters from each other,
+with a space.  A command line may be up to 127 characters long.  InitechDOS
+reads the whole line only when you press \key{Enter}; until then you can
+correct it with \key{Backspace}, or press \key{Ctrl-C} to cancel it.
+
+\subsection{File Specifications}
+\index{file specification}
+Commands that work on files take a \emph{file specification}:
+\SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}}
+\Param{d:} is the drive.  In this version it is always drive~A, and you may
+leave it out.
+
+\Param{path} is the list of directories that leads to the file, each name
+followed by a backslash.  A path that begins with a backslash starts at the
+root directory; any other path starts at the current directory.  The name
+\file{..} stands for the parent of a directory.  If you leave the path out,
+InitechDOS uses the current directory.
+
+\Param{filename} is the name of the file, one to eight characters.
+
+\Param{ext} is the extension, one to three characters, separated from the
+name by a period.
+
+Make your names from letters and digits.  Do not use spaces, periods
+(except the one before the extension), or the characters
+\texttt{\textbackslash{} / : * ? " < > | + = ; , [ ]}, which have other
+meanings on the command line.  InitechDOS stores and displays names in
+capital letters, whatever you type.
+
+\subsection{Wildcard Characters}
+\index{wildcards}
+Some commands accept the wildcard characters \type{?} and \type{*} in a
+file name or extension.  A question mark stands for any one character in
+its position.  An asterisk stands for any characters from its position to
+the end of the name or of the extension.  \file{*.TXT} names every file
+with the extension \file{TXT}; \file{*.*} names every file.  Each entry
+states whether the command accepts wildcards.
+
+\subsection{Reserved Device Names}
+\index{device names}
+These names belong to the devices of the system.  You can use them in place
+of a file name, but no file may have one of these names, with or without an
+extension:
+\par\medskip
+\begin{tabular}{@{}l@{\quad}p{80mm}@{}}
+{\imSideHeadFont Name} & {\imSideHeadFont Device}\\[2pt]
+\cmd{CON}     & The console: the keyboard for input, the display for output\\
+\cmd{AUX}     & The first serial port\\
+\cmd{PRN}     & The printer\\
+\cmd{CLOCK\$} & The system clock\\
+\cmd{NUL}     & A dummy device: output to it is discarded, and input from
+  it is always empty\\
+\end{tabular}
+\par\medskip
+\index{CON@\texttt{CON}}\index{AUX@\texttt{AUX}}\index{PRN@\texttt{PRN}}%
+\index{CLOCK\$@\texttt{CLOCK\$}}\index{NUL@\texttt{NUL}}
+
+\subsection{Internal and External Commands}
+\index{internal commands}\index{external commands}
+\emph{Internal} commands are part of the command processor,
+\file{COMMAND.COM}, and are available at any time:
+\par\medskip
+\begin{tabular}{@{}llllll@{}}
+\cmd{BREAK} & \cmd{CLS}  & \cmd{DEL}   & \cmd{ERASE}  & \cmd{PROMPT} & \cmd{RMDIR}\\
+\cmd{CD}    & \cmd{COPY} & \cmd{DIR}   & \cmd{EXIT}   & \cmd{RD}     & \cmd{SET}\\
+\cmd{CHDIR} & \cmd{DATE} & \cmd{ECHO}  & \cmd{MD}     & \cmd{REN}    & \cmd{TIME}\\
+            &            &             & \cmd{MKDIR}  & \cmd{RENAME} & \cmd{TYPE}\\
+            &            &             &              &              & \cmd{VER}\\
+            &            &             &              &              & \cmd{VOL}\\
+\end{tabular}
+\par\medskip
+\emph{External} commands are program files on disk.  The external commands
+of InitechDOS are \cmd{ATTRIB}, \cmd{CHKDSK}, \cmd{LABEL}, \cmd{TREE} and
+\cmd{XCOPY}, kept in the directory \file{\bs APPS} of the InitechDOS
+diskette.  Any other program or batch file you run is an external command
+too.
+
+When you type a name that is not an internal command, InitechDOS looks for
+a file of that name with the extension \file{.COM}, then \file{.EXE}, then
+\file{.BAT}, first in the current directory and then in each directory named
+in the \cmd{PATH} environment variable, in order.  It runs the first file it
+finds.  If the name includes a path, such as \type{\bs APPS\bs CHKDSK},
+InitechDOS looks only for that file, with the extension \file{.COM}.  If no
+file is found, it displays:
+\begin{TypeIn}
+Bad command or file name
+\end{TypeIn}
+The Format line of an external command shows \opt{\ph{d}\kw{:}}%
+\opt{\ph{path}} before the command name: the drive and path of the program
+file, needed when its directory is not named in \cmd{PATH}.
+
+\subsection{Exit Codes}
+\index{exit codes}
+When a program ends it returns a number, its \emph{exit code}, to
+InitechDOS.  A batch file can test the exit code of the last program it ran
+with \cmd{IF ERRORLEVEL} (Chapter~4).  The entries of the external commands
+list the codes they return.
+
+\subsection{Messages}
+When InitechDOS cannot carry out a command, it displays a message and the
+command prompt; nothing is changed.  The messages are listed, with their
+meaning and the action to take, in Appendix~A.
+
+\input{ch2-entries-a}
+\input{ch2-entries-b}
+\input{ch2-entries-c}

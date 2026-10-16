@@ -1,0 +1,249 @@
+% Chapter 4 -- Batch Files.  IBM 3.10 Reference nests the batch subcommands
+% under "Batch File Commands" with "... Subcommand" titles (ibm-dos.md
+% Sec 8.1; AN-01).  The entry list is the shipped directive table of
+% os/milton/batch.c batch_classify: REM ECHO GOTO IF FOR SHIFT CALL PAUSE
+% (+ :label and @).  Behaviour: os/milton/command.c run_batch (ECHO on at
+% entry; @; %0..%9, %VAR%, %%; GOTO "Label not found" stops the file; IF and
+% FOR hand their command to the command dispatcher, so a batch subcommand
+% after IF or FOR is not recognized -- defect, bead needed, WL-0119; SHIFT
+% keeps %0; CALL nests, "Batch nesting too deep"; PAUSE MSG-DOS-0016),
+% run_batch_invoke, command_repl (A:\AUTOEXEC.BAT).  The sample files are
+% pubs/screens/disk/*.BAT in A:\SAMPLES of the practice diskette.
+% GATES: test-batch test-batch-exec test-autoexec test-pubs-screens
+\Gates{test-batch, test-batch-exec, test-autoexec, test-pubs-screens}
+\chapter{Batch Files}
+
+\section{What a Batch File Is}
+\index{batch files}
+A \emph{batch file} is a text file of InitechDOS commands with the extension
+\file{.BAT}.  When you type its name, InitechDOS carries out the commands in
+it one after another, as if you had typed them at the keyboard.  Batch files
+save typing for jobs you do often.
+
+A batch file can contain any InitechDOS command or program name, and the
+batch subcommands described in this chapter: \cmd{CALL}, \cmd{ECHO},
+\cmd{FOR}, \cmd{GOTO}, \cmd{IF}, \cmd{PAUSE}, \cmd{REM} and \cmd{SHIFT}.
+
+\section{Creating and Running a Batch File}
+Create a batch file with \cmd{COPY CON}, or with any program that saves
+plain text.  Each command goes on a line of its own.
+
+To run a batch file, type its name without the extension, followed by any
+parameters, and press \key{Enter}.  InitechDOS looks for it as it looks for
+any external command (Chapter~2): in the current directory and then in the
+directories named in \texttt{PATH}.  A program file with the same name and
+the extension \file{.COM} or \file{.EXE} is found first.
+
+To stop a batch file, press \key{Ctrl-C}.  The batch file ends and the
+command prompt is displayed.
+
+\section{The AUTOEXEC.BAT File}
+\index{AUTOEXEC.BAT@\texttt{AUTOEXEC.BAT}}
+When the system starts, the command processor carries out the batch file
+\file{AUTOEXEC.BAT} in the root directory of drive~A, if there is one, before
+it displays the first prompt.  Use it for the commands you want carried out
+every time, such as setting \texttt{PATH}.  The practice diskette's
+\file{AUTOEXEC.BAT} holds two lines:
+\begin{TypeIn}
+@ECHO OFF
+SET PATH=A:\APPS
+\end{TypeIn}
+
+\section{Replaceable Parameters}
+\index{replaceable parameters}
+The words you type after the name of a batch file are its
+\emph{parameters}.  Inside the file, \texttt{\%1} stands for the first
+parameter, \texttt{\%2} for the second, and so on up to \texttt{\%9};
+\texttt{\%0} stands for the name of the batch file itself.  A parameter you
+do not give is replaced by nothing.  A batch file receives at most nine
+parameters; any more that you type are ignored.
+
+The name of an environment variable between percent signs, as
+\texttt{\%PATH\%}, stands for the value of that variable.  To put a single
+percent sign in a command, write two: \texttt{\%\%}.
+
+\section{Labels and the @ Character}
+A line that begins with a colon, as \texttt{:START}, is a \emph{label}: it
+marks a place that \cmd{GOTO} can jump to.  Labels are not carried out.
+
+While echoing is on (see ``ECHO Subcommand''), each command line is
+displayed, after the prompt, before it is carried out.  A line that begins
+with \texttt{@} is never displayed.  Most batch files begin with
+\texttt{@ECHO OFF}, so that only the output of the commands appears.
+
+\section{Batch Subcommands}
+The entries that follow describe the batch subcommands.  The examples run
+the sample batch files in the directory \file{SAMPLES} of the practice
+diskette; each example first displays the file with \cmd{TYPE}.
+
+% CALL -- command.c run_batch BL_CALL (resolve_bat_path, run_batch_invoke,
+% reload and continue; not found MSG-DOS-0002); BATCH_NEST_MAX ("Batch
+% nesting too deep").
+\begin{DosEntry}{CALL}{}{batch}
+\Purpose Runs another batch file and then continues with the next line of
+the first.
+\Format \SyntaxLine{\kw{CALL} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename} \opt{\ph{parameters}}}
+\Remarks
+\Param{filename} names the batch file to run, without the extension.
+
+\Param{parameters} become \texttt{\%1} through \texttt{\%9} of the called
+file.
+
+When the called file ends, InitechDOS continues with the line after the
+\cmd{CALL}.  A called file may itself use \cmd{CALL}.  If batch files are
+nested too deeply, InitechDOS displays \texttt{Batch nesting too deep}.  If
+the file is not found, it displays \texttt{Bad command or file name}.
+
+\cmd{CALL} is used only in batch files.
+\Example
+\file{COVER.BAT} calls \file{GREET.BAT}; a key was pressed at the
+\cmd{PAUSE} message:
+\Shot{call}
+\end{DosEntry}
+
+% ECHO -- batch.c batch_classify (ECHO ON / ECHO OFF / text); command.c
+% run_batch (echo_on starts 1; bare ECHO prints the state).
+\begin{DosEntry}{ECHO}{}{batch}
+\Purpose Turns the display of batch command lines on or off, or displays a
+message.
+\Format \SyntaxLine{\kw{ECHO} \opt{\kw{ON}\texttt{|}\kw{OFF}\texttt{|}\ph{message}}}
+\Remarks
+\Param{ON} displays each command line of the batch file, after the prompt,
+before it is carried out.  Echoing is on when a batch file starts.
+
+\Param{OFF} stops the display of command lines.  Messages and the output of
+commands are still displayed.
+
+\Param{message} is displayed whether echoing is on or off.  Parameters and
+variables in it are replaced first.
+
+Typed alone in a batch file, \cmd{ECHO} displays \texttt{ECHO is on} or
+\texttt{ECHO is off}.  Put \texttt{@} before \cmd{ECHO OFF} so that the
+\cmd{ECHO OFF} line itself is not displayed.
+\Example
+\file{GREET.BAT} uses \cmd{ECHO} to display two messages built from its
+parameters:
+\Shot{echobat}
+\end{DosEntry}
+
+% FOR -- batch.c batch_for_parse / batch_for_next_token (set separated by
+% spaces, commas; no wildcard expansion), batch_for_subst; command.c
+% run_batch BL_FOR (each command to the dispatcher).  Batch files only.
+\begin{DosEntry}{FOR}{}{batch}
+\Purpose Carries out a command once for each item in a set.
+\Format \SyntaxLine{\kw{FOR \%\%}\ph{c} \kw{IN} \kw{(}\ph{set}\kw{)} \kw{DO} \ph{command}}
+\Remarks
+\Param{\%\%c} is the variable: two percent signs and a single character.
+
+\Param{set} is a list of items separated by spaces or commas.  Each item is
+used exactly as written.
+
+\Param{command} is an InitechDOS command or program.  It is carried out once
+for each item, with \texttt{\%\%}\ph{c} replaced by the item.
+
+\cmd{FOR} is used only in batch files.
+
+\draft{bead needed: in DOS 3.3 an item with wildcards stands for every
+matching file, and FOR can be typed at the prompt with \%c; the shipped
+build uses each item as written, in batch files only}
+An item that contains wildcard characters stands for every matching file
+name.
+\Example
+\Shot{for}
+\end{DosEntry}
+
+% GOTO -- batch.c batch_goto_target (leading ':' optional, case-
+% insensitive); command.c BL_GOTO ("Label not found", file stops).
+\begin{DosEntry}{GOTO}{}{batch}
+\Purpose Continues the batch file at the line after a label.
+\Format \SyntaxLine{\kw{GOTO} \ph{label}}
+\Remarks
+\Param{label} is the name of a label line in the batch file, written with
+or without its colon, in capital or small letters.
+
+InitechDOS goes to the label line and continues with the line after it.  If
+there is no such label, it displays \texttt{Label not found} and the batch
+file ends.
+\Example
+\Shot{goto}
+\end{DosEntry}
+
+% IF -- batch.c batch_eval_if (NOT; ERRORLEVEL n true if >= n; EXIST via
+% OPEN, one file; string==string exact, case-sensitive); command.c BL_IF
+% (the command goes to the command dispatcher: GOTO, SHIFT, CALL, PAUSE
+% after IF are not recognized -- defect, bead needed).
+\begin{DosEntry}{IF}{}{batch}
+\Purpose Carries out a command only when a condition is true.
+\Format \SyntaxLine{\kw{IF} \opt{\kw{NOT}} \kw{ERRORLEVEL} \ph{number} \ph{command}}
+  \SyntaxLine{\kw{IF} \opt{\kw{NOT}} \ph{string1}\kw{==}\ph{string2} \ph{command}}
+  \SyntaxLine{\kw{IF} \opt{\kw{NOT}} \kw{EXIST} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}} \ph{command}}
+\Remarks
+\Param{NOT} reverses the condition: the command is carried out when the
+condition is false.
+
+\Param{ERRORLEVEL number} is true when the exit code of the last program
+the batch file ran is \ph{number} or greater.
+
+\Param{string1==string2} is true when the two strings are the same,
+character for character; capital and small letters differ.  Parameters are
+replaced first, so \texttt{IF "\%1"=="" ...} tests whether a parameter was
+given.
+
+\Param{EXIST filename} is true when the file exists.  Name one file; do not
+use wildcards.
+
+\Param{command} is the InitechDOS command or program to carry out when the
+condition is true.
+
+\draft{bead needed: the shipped IF passes its command to the command
+processor, so IF ... GOTO, SHIFT, CALL and PAUSE are not recognized
+(Bad command or file name); DOS 3.3 carries them out}
+The command may also be a batch subcommand, as in
+\texttt{IF ERRORLEVEL 1 GOTO ERROR}.
+\Example
+\file{CHECK.BAT} tests whether the file named by its parameter exists:
+\Shot{if}
+\file{SAVE.BAT} copies files with \cmd{XCOPY} and tests its exit code; the
+second run finds nothing to copy:
+\Shot{iferr}
+\end{DosEntry}
+
+% PAUSE -- command.c BL_PAUSE (MSG-DOS-0016, waits for one key).
+\begin{DosEntry}{PAUSE}{}{batch}
+\Purpose Suspends the batch file until a key is pressed.
+\Format \SyntaxLine{\kw{PAUSE}}
+\Remarks
+\cmd{PAUSE} displays \texttt{Press any key to continue . . .} and waits.
+Press any key to continue the batch file, or \key{Ctrl-C} to end it.
+
+Use \cmd{PAUSE} before a step that needs the operator, such as putting
+paper in the printer; display the instruction with \cmd{ECHO} first.
+\Example
+See the example of \cmd{CALL}: \file{COVER.BAT} displays an instruction
+and pauses for a key.
+\end{DosEntry}
+
+% REM -- batch.c BL_REM (never carried out, never displayed).
+\begin{DosEntry}{REM}{Remark}{batch}
+\Purpose Puts a remark in a batch file.
+\Format \SyntaxLine{\kw{REM} \opt{\ph{remark}}}
+\Remarks
+\Param{remark} is any text.  InitechDOS does not carry out or display a
+\cmd{REM} line.  Use remarks to say what a batch file is for.
+\Example
+The second line of \file{GREET.BAT}, in the example of the \cmd{ECHO}
+subcommand, is a remark.
+\end{DosEntry}
+
+% SHIFT -- command.c BL_SHIFT (%1 dropped, %2..%9 move down, %0 kept).
+\begin{DosEntry}{SHIFT}{}{batch}
+\Purpose Moves the replaceable parameters one place to the left.
+\Format \SyntaxLine{\kw{SHIFT}}
+\Remarks
+After \cmd{SHIFT}, \texttt{\%1} holds what was the second parameter,
+\texttt{\%2} the third, and so on; the first parameter is discarded.  A
+batch file can use \cmd{SHIFT} to work through its parameters one at a
+time, always looking at \texttt{\%1}.  \texttt{\%0}, the name of the batch file, is not changed.
+\Example
+\Shot{shift}
+\end{DosEntry}

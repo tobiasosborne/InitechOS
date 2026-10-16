@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>COVER
+Put the cover sheets in the printer.
+Press any key to continue . . .
+Good morning, Peter.
+Your report is due Friday.
+The cover sheets are ready.
+A:\SAMPLES>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

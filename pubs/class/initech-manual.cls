@@ -21,6 +21,19 @@
 %%   final          every \draft marker becomes a hard error (ship gate)
 %%   cover          one-page cover/title insert (colour allowed, D-6)
 %%   spine          binder spine insert; width from \SpineWidth (see below)
+%%   ibm            F-IBM family furniture (PUB-REF-0001 Sec 2, PG-10, PG-20,
+%%                  PG-28, PG-30, TY table; bead initech-ipu5.7): body in TeX
+%%                  Gyre Termes 10.5 pt (Body serif B); chapter openers are a
+%%                  recto with "Chapter N. Title" (Heros Bold 20/24) over a
+%%                  chapter mini-contents (AN-22), the rest of the page empty,
+%%                  a "Notes:" verso behind it, text from the next recto (N-3);
+%%                  black thumb tabs on rectos stepping down the fore-edge,
+%%                  six positions, label from \ChapterTab{}; running foot =
+%%                  folio only, Heros Bold 9, outside; no running head except
+%%                  the repeated two-line title of a command entry that runs
+%%                  over a page (PG-10); index folios "Index-n".  The 13 pt
+%%                  grid and 140 mm block stay as built here: the PG-03/PG-05
+%%                  grid change is the toolchain follow-up of PUB-REF Sec 11.5.
 %%
 %% Font substitution table (DESIGN-SYSTEM.md Sec 4 names the PostScript 35
 %% faces a 1991 publications department would have used; we use the free,
@@ -77,6 +90,8 @@
 \newif\ifim@final
 \newif\ifim@cover
 \newif\ifim@spine
+\newif\ifim@ibm
+\DeclareOption{ibm}{\im@ibmtrue}
 \DeclareOption{chapterfolio}{\im@continuousfalse}
 \DeclareOption{continuous}{\im@continuoustrue}
 \DeclareOption{binder}{\im@bindertrue}
@@ -114,6 +129,12 @@
 \setmonofont{texgyrecursor}[
   Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
   ItalicFont=*-italic, BoldItalicFont=*-bolditalic, HyphenChar=None]
+\ifim@ibm
+  %% F-IBM body serif B (TY table, TY-01): Times-style, set 0.5 pt larger.
+  \setmainfont{texgyretermes}[
+    Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+    ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\fi
 \newfontfamily\im@condensed{texgyreheroscn}[
   Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
   ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
@@ -124,7 +145,9 @@
   Extension=.otf, UprightFont=*-bold, LetterSpace=10]
 
 %% Type sizes.  Body 10/13 (Sec 4).
-\renewcommand\normalsize{\@setfontsize\normalsize{10}{13}%
+\newcommand\im@bodysize{10}
+\ifim@ibm \renewcommand\im@bodysize{10.5}\fi
+\renewcommand\normalsize{\@setfontsize\normalsize{\im@bodysize}{13}%
   \abovedisplayskip 6.5pt \belowdisplayskip 6.5pt
   \abovedisplayshortskip 0pt \belowdisplayshortskip 6.5pt}
 \renewcommand\small{\@setfontsize\small{9}{11}}
@@ -274,16 +297,20 @@
   \fi
   \FootTitle{#1}}
 \RenewDocumentCommand\chapter{s o m}{%
+  \im@closeentry
   \IfBooleanTF{#1}
-    {\cleardoublepage\FootTitle{#3}%
-     \im@origchapter*{#3}}
-    {\im@chapterhook{#3}%
-     \IfValueTF{#2}{\im@origchapter[#2]{#3}}{\im@origchapter{#3}}}%
-  \thispagestyle{plain}}
+    {\cleardoublepage\FootTitle{#3}\im@notab
+     \im@origchapter*{#3}%
+     \thispagestyle{plain}}
+    {\im@chapterhook{#3}\im@applytab
+     \IfValueTF{#2}{\im@origchapter[#2]{#3}}{\im@origchapter{#3}}%
+     \thispagestyle{plain}%
+     \ifim@ibm\im@ibmopener\fi}}
 
 %% Unnumbered front-matter chapter (Preface, Contents): roman folios.
 \NewDocumentCommand\FrontChapter{m}{%
-  \cleardoublepage\FootTitle{#1}%
+  \im@closeentry
+  \cleardoublepage\FootTitle{#1}\im@notab
   \im@origchapter*{#1}\thispagestyle{plain}%
   \addcontentsline{toc}{chapter}{#1}}
 
@@ -328,10 +355,11 @@
 %% ---- index (two columns, 8.5/11; folios "X-1", IBM) ---------------------------
 \RequirePackage{multicol}
 \makeindex
+\newcommand\im@indexprefix{X-}
 \renewenvironment{theindex}
-  {\cleardoublepage
-   \ifim@continuous\else\im@setfolio{X-}\setcounter{page}{1}\fi
-   \FootTitle{Index}%
+  {\im@closeentry\cleardoublepage
+   \ifim@continuous\else\im@setfolio{\im@indexprefix}\setcounter{page}{1}\fi
+   \FootTitle{Index}\im@notab
    \im@origchapter*{Index}\thispagestyle{plain}%
    \addcontentsline{toc}{chapter}{Index}%
    \begin{multicols}{2}\@setfontsize\im@x{8.5}{11}%
@@ -346,6 +374,131 @@
 \newcommand\IndexLetter[1]{{\imSideHeadFont #1}\par\nopagebreak}
 \newcommand\printindex{\InputIfFileExists{\jobname.ind}{}{%
   \ClassWarningNoLine{initech-manual}{No index file \jobname.ind yet}}}
+
+%% ---- command-entry continuation title (PG-10; used by every family) -------
+%% A reference entry that runs over a page repeats its two-line title at the
+%% top of each continuation page, flush to the OUTSIDE edge, no rule (IBM
+%% 3.10 Reference PDF p. 120-121).  The entry environments (initech-syntax)
+%% call \im@openentry{line 1}{line 2}; \im@closeentry ships the entry's last
+%% page while its title is still in force, then forgets it.
+\newif\ifim@inentry
+\newcount\im@entrystart
+\newcommand\im@entrytitleA{}
+\newcommand\im@entrytitleB{}
+\newcommand\imContTitleFont{\sffamily\bfseries\@setfontsize\im@x{11}{13}}
+\newcommand\im@openentry[2]{\im@closeentry
+  \gdef\im@entrytitleA{#1}\gdef\im@entrytitleB{#2}%
+  \global\im@entrystart=\c@page \global\im@inentrytrue}
+\newcommand\im@closeentry{\ifim@inentry\clearpage\global\im@inentryfalse\fi}
+%% Drawn at shipout (not as a fancyhdr head, which would claim head height
+%% and move the text block): the two lines end 4 mm above the block, flush
+%% with its outside edge (recto: 16 mm from the right trim; verso: the side
+%% column's left edge, 16 mm from the left trim).
+\AddToHook{shipout/foreground}{%
+  \ifim@inentry\ifnum\c@page>\im@entrystart
+    \ifodd\c@page
+      \put(\dimexpr\paperwidth-\imOutside\relax,-15mm){\makebox(0,0)[rb]{%
+        \imContTitleFont\begin{tabular}[b]{@{}r@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
+    \else
+      \put(\imOutside,-15mm){\makebox(0,0)[lb]{%
+        \imContTitleFont\begin{tabular}[b]{@{}l@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
+    \fi
+  \fi\fi}
+
+%% ---- F-IBM furniture (option ibm; PUB-REF-0001 PG-10, PG-20, PG-30) -------
+\newcommand\imIBMChapterFont{\sffamily\bfseries\@setfontsize\im@x{20}{24}}
+\newcommand\imFolioFont{\sffamily\bfseries\@setfontsize\im@x{9}{11}}
+%% Thumb-tab label of the chapter in force ("" = no tab: front matter, index).
+%% \ChapterTab{LABEL} BEFORE \chapter names the tab of the chapter it opens;
+%% the chapter applies it once the previous chapter's pages have shipped, and
+%% takes the next of the six positions (counted through the whole book).
+\def\im@tablabel{}
+\def\im@nexttab{}
+\newcommand\ChapterTab[1]{\gdef\im@nexttab{#1}}
+\newcount\im@tabseq
+\newcount\im@tabpos
+\ifim@ibm
+  \fancypagestyle{im@text}{%
+    \fancyhf{}%
+    \renewcommand\headrulewidth{0pt}%
+    \renewcommand\footrulewidth{0pt}%
+    \fancyhfoffset[LO,LE]{\imHang}%
+    \fancyfoot[RO,LE]{\imFolioFont\thepage}}
+  \fancypagestyle{plain}{%
+    \fancyhf{}%
+    \renewcommand\headrulewidth{0pt}%
+    \renewcommand\footrulewidth{0pt}%
+    \fancyhfoffset[LO,LE]{\imHang}%
+    \fancyfoot[RO,LE]{\imFolioFont\thepage}}
+  \pagestyle{im@text}
+  \renewcommand\im@indexprefix{Index-}
+  \contentsmargin{4.5em}
+  %% Running text quotes long messages, paths and commands in Cursor that
+  %% cannot be broken (PG-09): ragged right with a free right margin, as the
+  %% IBM model sets it, instead of ragged2e's 4 em stretch.
+  \emergencystretch=3em
+  \setlength\RaggedRightRightskip{0pt plus 1fil}
+  %% PG-28: the verso behind an opener, and any leftover verso, is "Notes:".
+  \renewcommand\cleardoublepage{\clearpage
+    \if@twoside\ifodd\c@page\else
+      \thispagestyle{im@text}%
+      \hbox{}\vspace*{-\topskip}\vspace*{-\parskip}%
+      {\noindent\hspace*{-\imHang}\imHeadOneFont Notes:\par}%
+      \newpage
+    \fi\fi}
+  %% PG-20: "Chapter N. Title" at the top of the block, Heros Bold 20/24.
+  \titleformat{\chapter}[block]{\im@headrag\imIBMChapterFont}
+    {\im@chaptername\ \thechapter.\enspace}{0pt}{#1}
+  \titleformat{name=\chapter,numberless}[block]{\im@headrag\imIBMChapterFont}
+    {}{0pt}{#1}
+  \titlespacing*{\chapter}{-\imHang}{0pt}{22pt}
+  %% PG-35: chapter lines bold with bold folio, dot leaders.
+  \titlecontents{chapter}[0pt]
+    {\addvspace{7pt}\sffamily\bfseries}
+    {\im@tocname~\thecontentslabel.\enspace}
+    {}
+    {\titlerule*[0.75em]{.}\contentspage}
+  \titlecontents{section}[1.5em]
+    {\normalsize}
+    {}{}
+    {\titlerule*[0.75em]{.}\contentspage}
+  %% AN-22: the chapter mini-contents ("Contents", 3.10 form) under the title.
+  \titlecontents{lsection}[0pt]
+    {\sffamily\bfseries\fontsize{9}{12}\selectfont}
+    {}{}
+    {\titlerule*[0.75em]{.}\contentspage}
+  \titlecontents{lsubsection}[1.5em]
+    {\fontsize{9.5}{12}\selectfont}
+    {}{}
+    {\titlerule*[0.75em]{.}\contentspage}
+  \newcommand\im@ibmopener{%
+    \startcontents[chapters]%
+    \par\noindent\hspace*{-\imHang}%
+    \begin{minipage}[t]{\imFullWidth}\RaggedRight
+      {\imHeadTwoFont Contents\par}\vspace{4pt}%
+      \printcontents[chapters]{l}{1}{\setcounter{tocdepth}{2}}%
+    \end{minipage}\par
+    \cleardoublepage}
+  %% PG-30: black tabs bleeding off the fore-edge of every recto in a
+  %% chapter, 9 mm visible x 30 mm, label reversed reading bottom to top,
+  %% one position lower per chapter, six positions, then from the top again.
+  \AddToHook{shipout/background}{%
+    \ifodd\c@page\ifx\im@tablabel\@empty\else
+      \put(\dimexpr\paperwidth-9mm\relax,-\dimexpr24mm+30mm*\im@tabpos+30mm\relax){%
+        \textcolor{InitechBlack}{\rule{9mm}{30mm}}}%
+      \put(\dimexpr\paperwidth-4.5mm\relax,-\dimexpr24mm+30mm*\im@tabpos+15mm\relax){%
+        \makebox(0,0){\rotatebox{90}{\textcolor{white}{\im@condensed\bfseries
+          \fontsize{7}{8}\selectfont\MakeUppercase{\im@tablabel}}}}}%
+    \fi\fi}
+\fi
+\newcommand\im@notab{\gdef\im@tablabel{}}
+\newcommand\im@applytab{%
+  \ifx\im@nexttab\@empty \gdef\im@tablabel{}\else
+    \global\let\im@tablabel\im@nexttab \gdef\im@nexttab{}%
+    \global\im@tabpos=\im@tabseq
+    \loop\ifnum\im@tabpos>5 \global\advance\im@tabpos by -6 \repeat
+    \global\advance\im@tabseq by 1
+  \fi}
 
 %% ---- helpers -----------------------------------------------------------
 \RequirePackage{initech-syntax}

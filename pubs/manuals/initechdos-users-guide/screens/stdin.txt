@@ -1,0 +1,25 @@
+A:\>ECHO REPORTS > NAME.TXT
+A:\>LABEL < NAME.TXT
+Volume in drive A is INITECH
+Volume label (11 characters, ENTER for none)?A:\>VOL
+
+ Volume in drive A is REPORTS
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

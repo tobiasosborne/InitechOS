@@ -1,0 +1,25 @@
+A:\>MD REPORTS
+A:\>CD REPORTS
+A:\REPORTS>DIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\REPORTS
+
+.               <DIR>   0-00-80  12:00a
+..              <DIR>   0-00-80  12:00a
+
+        2 File(s)   1424896 bytes free
+A:\REPORTS>
+
+
+
+
+
+
+
+
+
+
+
+

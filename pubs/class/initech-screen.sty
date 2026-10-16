@@ -69,6 +69,136 @@ function initech_screen.typeset(path, rows)
 end
 }
 
+%% ---- transcripts (F-IBM examples, NT-17; bead initech-ipu5.7) -------------
+%%   \Transcript[from=N]{screens/x.txt}{screens/SCREENS}{x}
+%% prints the lines of a committed capture as a transcript (no frame): from
+%% line N (default 1) to the last line that is not blank, leaving out the
+%% final empty prompt the capture settles on.  Every printed line IS a line
+%% of the capture (the same 25-line/80-column/ASCII checks as \Screen), so
+%% `make test-pubs-screens` re-proves the example against the running OS.
+%% What the user typed is set in Cursor Bold (NT-15): the keystrokes are read
+%% from the screen's SCREENS line, and a typed line is bold where the capture
+%% shows it after a prompt ("A:\>DIR") or after a question ("(Y/N)? N").
+%% Set in Cursor 9/12 indented 4 mm in the text column; a transcript wider
+%% than the column moves left into the full block, and one wider than the
+%% block drops to 8 pt (80 columns fit 135.5 mm).
+\directlua{
+function initech_screen.keys(defs, name)
+  local f = io.open(defs, "rb")
+  if not f then tex.error("initech-screen: cannot open " .. defs) return {} end
+  local found = nil
+  for line in f:lines() do
+    local n, rest = string.match(line, "^([^|]*)|[^|]*|(.*)$")
+    if n == name then found = rest end
+  end
+  f:close()
+  if found == nil then
+    tex.error("initech-screen: screen " .. name .. " is not in " .. defs)
+    return {}
+  end
+  local out, cur, i = {}, {}, 1
+  while i <= string.len(found) do
+    local c = string.sub(found, i, i)
+    if c == "\string\\" then
+      local d = string.sub(found, i + 1, i + 1)
+      if d == "n" then out[\string#out + 1] = table.concat(cur); cur = {}; i = i + 2
+      elseif d == "\string\\" then cur[\string#cur + 1] = "\string\\"; i = i + 2
+      elseif d == "0" then
+        local oct = string.match(found, "^0([0-7]?[0-7]?[0-7]?)", i + 1)
+        cur[\string#cur + 1] = string.char(tonumber(oct \string~= "" and oct or "0", 8))
+        i = i + 2 + string.len(oct)
+      else cur[\string#cur + 1] = c; i = i + 1 end
+    else cur[\string#cur + 1] = c; i = i + 1 end
+  end
+  if \string#cur > 0 then out[\string#out + 1] = table.concat(cur) end
+  return out
+end
+local function texline(line, a, b)
+  local out = {}
+  for j = 1, string.len(line) do
+    if j == a then out[\string#out + 1] = "{\string\\bfseries " end
+    local c = string.byte(line, j)
+    if c == 32 then out[\string#out + 1] = "\string\\ "
+    elseif (c >= 48 and c <= 57) or (c >= 65 and c <= 90) or (c >= 97 and c <= 122) then
+      out[\string#out + 1] = string.char(c)
+    else out[\string#out + 1] = "\string\\char" .. c .. "\string\\relax " end
+    if j == b then out[\string#out + 1] = "}" end
+  end
+  return table.concat(out)
+end
+function initech_screen.transcript(path, defs, name, from)
+  local f = io.open(path, "rb")
+  if not f then tex.error("initech-screen: cannot open screen capture " .. path) return end
+  local data = f:read("*a")
+  f:close()
+  local lines = {}
+  for line in string.gmatch(data, "([^\string\n]*)\string\n") do
+    lines[\string#lines + 1] = line
+  end
+  if \string#lines \string~= 25 then
+    tex.error("initech-screen: " .. path .. " has " .. \string#lines .. " lines; a capture has exactly 25")
+    return
+  end
+  for i, line in ipairs(lines) do
+    if \string#line > 80 or string.find(line, "[^\string\032-\string\126]") then
+      tex.error("initech-screen: " .. path .. " line " .. i .. " is not 80 columns of printable ASCII")
+      return
+    end
+  end
+  local last = 25
+  while last > 0 and not string.find(lines[last], "[^ ]") do last = last - 1 end
+  if last > 0 and string.match(lines[last], "^[A-Z]:\string\\[^>]*>$") then last = last - 1 end
+  if from < 1 or from > last then
+    tex.error("initech-screen: " .. path .. " from=" .. from .. " leaves no lines")
+    return
+  end
+  local typed = initech_screen.keys(defs, name)
+  local k, width = 1, 0
+  local rows = {}
+  for i = from, last do
+    local line = string.gsub(lines[i], " +$", "")
+    if string.len(line) > width then width = string.len(line) end
+    local a, b = 0, -1
+    local pfx, rest = string.match(line, "^([A-Z]:\string\\[^>]*>)(.+)$")
+    local j = k
+    while j <= \string#typed do
+      local t = typed[j]
+      if t \string~= "" then
+        if rest \string~= nil and rest == t then
+          a = string.len(pfx) + 1; b = string.len(line); break
+        end
+        local tail = string.sub(line, -string.len(t))
+        local before = string.sub(line, 1, string.len(line) - string.len(t))
+        if rest == nil and tail == t and string.match(before, "\@percentchar?\@percentchar s?$") then
+          a = string.len(before) + 1; b = string.len(line); break
+        end
+      end
+      j = j + 1
+    end
+    if a > 0 then k = j + 1 end
+    rows[\string#rows + 1] = "\string\\hbox{\string\\strut " .. texline(line, a, b) .. "}"
+  end
+  tex.sprint("\string\\InitechTranscriptBox{" .. width .. "}{" .. table.concat(rows) .. "}")
+end
+}
+\newlength\im@trwidth
+\newcommand\InitechTranscriptBox[2]{%
+  \par\addvspace{4pt}%
+  \setlength\im@trwidth{\dimexpr 5.4pt*#1\relax}%
+  \ifdim\dimexpr\im@trwidth+4mm\relax>\linewidth
+    \ifdim\im@trwidth>\imFullWidth
+      \noindent\hspace*{-\imHang}%
+      \vbox{\ttfamily\fontsize{8}{10.5}\selectfont\spaceskip=0.6em\xspaceskip=0.6em #2}%
+    \else
+      \noindent\hspace*{-\imHang}%
+      \vbox{\ttfamily\fontsize{9}{12}\selectfont\spaceskip=0.6em\xspaceskip=0.6em #2}%
+    \fi
+  \else
+    \noindent\hspace*{4mm}%
+    \vbox{\ttfamily\fontsize{9}{12}\selectfont\spaceskip=0.6em\xspaceskip=0.6em #2}%
+  \fi
+  \par\addvspace{4pt}}
+
 \ExplSyntaxOn
 \keys_define:nn { initech / screen }
   {
@@ -102,6 +232,24 @@ end
     \par\addvspace{6.5pt}
     \group_end:
   }
+\keys_define:nn { initech / transcript }
+  {
+    from .int_set:N = \l__initech_transcript_from_int ,
+    from .initial:n = 1 ,
+  }
+\NewDocumentCommand \Transcript { O{} m m m }
+  {
+    \group_begin:
+    \keys_set:nn { initech / transcript } { #1 }
+    \directlua{initech_screen.transcript("\luaescapestring{#2}",
+      "\luaescapestring{#3}", "\luaescapestring{#4}",
+      \int_use:N \l__initech_transcript_from_int)}
+    \group_end:
+  }
+%% \Shot[from=N]{name}: the transcript of screen `name` of this book
+%% (screens/name.txt, keystrokes from screens/SCREENS).
+\NewDocumentCommand \Shot { O{} m }
+  { \Transcript[#1]{screens/#2.txt}{screens/SCREENS}{#2} }
 \ExplSyntaxOff
 
 \endinput

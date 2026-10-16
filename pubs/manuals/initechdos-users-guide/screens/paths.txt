@@ -12,7 +12,7 @@ A:\REPORTS>DIR
 ..              <DIR>   0-00-80  12:00a
 MEMO     TXT      258   0-00-80  12:00a
 
-        3 File(s)   1455104 bytes free
+        3 File(s)   1424384 bytes free
 A:\REPORTS>
 
 

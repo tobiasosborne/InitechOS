@@ -1,0 +1,97 @@
+% Chapter 1 -- How to Use This Book.
+% Sources (Law 1): docs/pubs/originals/ibm-dos.md Sec 8.1 (entry anatomy),
+% Sec 9 (notation); PUB-REF-0001 AN-01, NT-01..NT-17; pubs/screens/disk/
+% MANIFEST (the practice diskette); pubs/screens/capture.sh (pinned clock
+% 1992-03-02 09:30:00); os/milton/kmain.c (start-up order); os/milton/
+% command.c (prompt $P$G, drive A only: "B:" is not a command).
+% GATES: test-boot test-shell test-pubs-screens
+\Gates{test-boot, test-shell, test-pubs-screens}
+\chapter{How to Use This Book}
+
+\section{How the Commands Are Described}
+\index{command entries}
+Chapters 2, 3 and 4 describe the commands of InitechDOS, one command to an
+entry.  Each entry begins on a new page.  Its title gives the name of the
+command and, in parentheses, the word the name is made from: \cmd{MD}
+(Make Directory).  If an entry runs on to a second page, the title is
+repeated at the top of that page.
+
+Every entry has the same parts, always in the same order:
+
+\SideHead{Purpose:}One sentence that says what the command does.
+
+\SideHead{Format:}The exact form of the command, in the notation described
+at the beginning of Chapter~2.
+
+\SideHead{Type:}Whether the command is \emph{internal} (built into the
+command processor and always available) or \emph{external} (a program file
+on disk).  Three asterisks are printed under the word that applies.
+Configuration commands and batch subcommands have no Type line.
+
+\SideHead{Remarks:}What each parameter does, followed by the details you
+need to use the command: what it displays, the limits on its use, and the
+messages it can produce.
+
+\SideHead{Example:}One or more examples, each introduced by a sentence that
+says what it does.
+
+\section{The Examples}
+\index{examples}
+Every example in this book that shows the display was produced by typing
+the command shown at an InitechDOS system and recording what appeared.
+What you type is shown in \type{bold type}; what InitechDOS displays is in
+\texttt{regular type}.  The command prompt is shown as part of each line
+you type, exactly as it appears on the screen:
+\begin{TypeIn}
+A:\>
+\end{TypeIn}
+Each example begins with a freshly started system and a copy of the
+InitechDOS practice diskette in drive~A.  The examples were recorded with
+the system clock set to 9:30 a.m.\ on March~2, 1992, so the dates you see
+on your screen will differ from those in the book.
+
+\section{The Practice Diskette}
+\index{practice diskette}
+The practice diskette has the volume label \file{INITECH} and holds these
+files and directories:
+\par\medskip
+\begin{tabular}{@{}l@{\quad}p{66mm}@{}}
+{\imSideHeadFont Name} & {\imSideHeadFont Contents}\\[2pt]
+\file{AUTOEXEC.BAT} & Two commands carried out when the system starts:
+  \texttt{@ECHO OFF} and \texttt{SET PATH=A:\bs APPS}\\
+\file{README.TXT}   & A note about the diskette\\
+\file{MEMO.TXT}     & A short office memorandum\\
+\file{PHONE.TXT}    & The internal telephone list\\
+\file{APPS}         & A directory holding the utility programs
+  \file{CHKDSK.COM}, \file{ATTRIB.COM}, \file{LABEL.COM}, \file{XCOPY.COM}
+  and \file{TREE.COM}\\
+\file{SAMPLES}      & A directory holding the batch files used in
+  Chapter~4\\
+\end{tabular}
+\par\medskip
+Because \file{AUTOEXEC.BAT} names the directory \file{\bs APPS} in the
+\cmd{PATH} environment variable, you can run the utility programs from any
+directory by typing their names.  Use a copy of the practice diskette for
+the examples, not the original: several examples change the files on it.
+
+\section{Starting InitechDOS}
+\index{starting InitechDOS}
+When the computer is turned on, InitechDOS displays its name and version
+and the copyright notice, lists the files in the root directory of drive~A,
+reads \file{CONFIG.SYS} (Chapter~3), carries out \file{AUTOEXEC.BAT}
+(Chapter~4), and displays the command prompt:
+\Shot{startup}
+\draft{initech-qskz: DOS 3.3 asks for the date and the time when the system
+starts and has no AUTOEXEC.BAT; the shipped build lists the root directory
+instead.  The start-up sequence is described here as it is to be}
+When there is no \file{AUTOEXEC.BAT} file, InitechDOS asks for the date and
+the time before it displays the prompt; press \key{Enter} at each question
+to keep the date and time shown.
+
+\section{Drives}
+\index{drives}
+In this version of InitechDOS your files are kept on one disk, drive~A, and
+the command prompt always begins with \file{A:}.  Where a format in this
+book shows a drive letter, \ph{d}\kw{:}, the drive is drive~A; you may
+type \type{A:} or leave the drive out.  Typing another drive letter, such
+as \type{B:}, at the prompt displays \texttt{Bad command or file name}.

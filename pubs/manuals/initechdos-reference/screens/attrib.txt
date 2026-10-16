@@ -1,0 +1,25 @@
+A:\>ATTRIB +R MEMO.TXT
+A:\>ATTRIB *.TXT
+   A     A:\README.TXT
+R  A     A:\MEMO.TXT
+   A     A:\PHONE.TXT
+A:\>DEL MEMO.TXT
+Access denied
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>TYPE JUMP.BAT
+@ECHO OFF
+GOTO START
+ECHO This line is never displayed.
+:START
+ECHO Processing starts at the label START.
+
+A:\SAMPLES>JUMP
+Processing starts at the label START.
+A:\SAMPLES>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

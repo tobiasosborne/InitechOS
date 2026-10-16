@@ -1,0 +1,123 @@
+% Chapter 9 -- The Utility Programs.
+% Sources (Law 1): the external utilities on the shipped disk (Makefile
+% flair-data-rules: APPS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM
+% TREE.COM): os/milton/dosutil.c (ATTRIB, LABEL), chkdsk.c, xcopy_tree.c
+% (XCOPY, TREE); command.c run_external (explicit path -> .COM only; PATH).
+% GATES: test-attrib test-dosutil-emu test-label-vol test-chkdsk test-chkdsk-emu test-xcopy-tree test-xcopy-tree-emu test-pubs-screens
+\Gates{test-attrib, test-dosutil-emu, test-label-vol, test-chkdsk, test-chkdsk-emu, test-xcopy-tree, test-xcopy-tree-emu, test-pubs-screens}
+\chapter{The Utility Programs}
+
+\section{Running a Utility Program}
+\index{utility programs}
+Five utility programs come with InitechDOS.  They are external commands:
+program files kept in the directory \file{\bs APPS} of the InitechDOS
+diskette.
+
+\SideHead{ATTRIB}Makes files read-only, or read-write, and displays their
+attributes.
+
+\SideHead{CHKDSK}Checks a disk and reports on the disk and on memory.
+
+\SideHead{LABEL}Creates, changes or deletes the volume label of a disk.
+
+\SideHead{TREE}Displays the directories of a disk.
+
+\SideHead{XCOPY}Copies groups of files and whole directories.
+
+To run a utility program, InitechDOS must be able to find its file.  Either
+put \file{A:\bs APPS} in the search path, as the practice diskette's
+\file{AUTOEXEC.BAT} does (Chapter~6), and then type the name of the program
+from any directory; or type the path in front of the name, as in
+\type{\bs APPS\bs CHKDSK}.  This chapter introduces each program; the
+\doctitle{InitechDOS Reference} describes all of their parameters.
+
+\section{Protecting a File with ATTRIB}
+\index{ATTRIB@\texttt{ATTRIB}}\index{read-only files}
+A \term{read-only} file can be read and copied, but not changed or deleted.
+Make a file read-only when it must not be lost by mistake:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{ATTRIB +R PHONE.TXT} and press \key{Enter}.
+\item Type \type{ATTRIB PHONE.TXT} and press \key{Enter} to display the
+  attributes of the file.
+\item Type \type{DEL PHONE.TXT} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=6, label=fig:attrib]{screens/attrib.txt}{A read-only file cannot be deleted}
+
+\texttt{R} shows that the file is read-only, and \texttt{A} that its archive
+attribute is set: the file has been created or changed since it was last
+backed up.  To make the file read-write again, type
+\type{ATTRIB -R PHONE.TXT}.
+
+\section{Checking a Disk with CHKDSK}
+\index{CHKDSK@\texttt{CHKDSK}}
+Chapter~4 showed the report \cmd{CHKDSK} gives for a disk without errors.
+Two parameters change what it does:
+
+\SideHead{/V}Lists the full path of every file as it is checked.
+
+\SideHead{/F}Corrects the errors \cmd{CHKDSK} finds.  Without \kw{/F},
+\cmd{CHKDSK} only reports them and displays \texttt{Corrections will not be
+written to disk}.
+
+The commonest error is \term{lost allocation units}: space on the disk
+marked as in use that belongs to no file, left behind when a program stopped
+before it closed a file.  \cmd{CHKDSK} asks
+\texttt{Convert lost chains to files (Y/N)?}  With \kw{/F}, answer \type{Y}
+to save the lost space as files named \file{FILE0000.CHK},
+\file{FILE0001.CHK}, and so on, in the root directory; look at them with
+\cmd{TYPE} and delete the ones you do not need.  Answer \type{N} to free the
+space.
+
+You can also name files after \cmd{CHKDSK}, as in \type{CHKDSK *.TXT}, to
+find out whether they are stored in one piece.
+
+\section{Changing a Volume Label with LABEL}
+\index{LABEL@\texttt{LABEL}}
+Chapter~4 showed \cmd{LABEL} asking for a new label.  You can give the label
+on the command line instead: \type{LABEL INITECH}.  A label is up to eleven
+characters; letters are made capitals.  Punctuation such as periods and
+commas is not allowed: \cmd{LABEL} displays \texttt{Invalid characters in
+volume label}.
+
+\section{Displaying the Directories with TREE}
+\index{TREE@\texttt{TREE}}
+Chapter~3 showed \cmd{TREE} displaying the directories of the practice
+diskette.  Add \kw{/F} to list the files in each directory as well, and give
+a path to start from a directory other than the root:
+\type{TREE \bs SAMPLES /F}.
+
+\section{Copying Files and Directories with XCOPY}
+\index{XCOPY@\texttt{XCOPY}}
+\cmd{COPY} copies one file at a time; \cmd{XCOPY} copies many.  Name the
+files to copy, with wildcards or as a directory, and where to put them.  If
+the target does not exist and does not end with a backslash, \cmd{XCOPY}
+asks whether it is a file or a directory.  In this exercise you copy the
+whole directory \file{SAMPLES} to a new directory, \file{SAVED}:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{XCOPY SAMPLES SAVED /S} and press \key{Enter}.
+\item At the question, press \type{D}: \file{SAVED} is to be a directory.
+\end{Steps}
+
+\Screen[rows=12, label=fig:xcopys]{screens/xcopys.txt}{Copying a directory with XCOPY}
+
+These parameters are the ones you will use most:
+
+\SideHead{/S}Copies the subdirectories, and the files in them, as well.
+
+\SideHead{/E}With \kw{/S}, creates empty subdirectories too.
+
+\SideHead{/M}Copies only files that have changed since they were last copied
+with \kw{/M}, and marks them as copied.  Use it to bring a backup up to
+date.
+
+\SideHead{/P}Asks before copying each file.
+
+\SideHead{/V}Checks each copy against its original.
+
+\draft{bead needed: run from a subdirectory, the shipped XCOPY looks for a
+relative source name in the root directory; DOS 3.3 uses the current
+directory}
+A source name without a path refers to the current directory.

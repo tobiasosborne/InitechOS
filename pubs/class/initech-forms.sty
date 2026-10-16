@@ -21,7 +21,13 @@
 \newcommand\im@edition{}       \newcommand\Edition[1]{\gdef\im@edition{#1}}
 \newcommand\im@applies{}       \newcommand\EditionApplies[1]{\gdef\im@applies{#1}}
 \newcommand\im@years{}         \newcommand\CopyrightYears[1]{\gdef\im@years{#1}}
-\newcommand\im@printedin{Germany}\newcommand\PrintedIn[1]{\gdef\im@printedin{#1}}
+%% D-1 (PUB-REF-0001 AN-20): the "Printed in ..." line appears only when the
+%% production country is set, and is never false; unset by default.
+\def\im@printedin{}\newcommand\PrintedIn[1]{\gdef\im@printedin{#1}}
+%% PN-05: print code (edition letter, printing digit, month/year) and the
+%% revision shown at the left of the printer's key.
+\newcommand\im@printcode{}  \newcommand\PrintCode[1]{\gdef\im@printcode{#1}}
+\newcommand\im@revision{}   \newcommand\Revision[1]{\gdef\im@revision{#1}}
 \newcommand\im@printkey{10 9 8 7 6 5 4 3 2 1}
 \newcommand\PrintersKey[1]{\gdef\im@printkey{#1}}
 
@@ -74,18 +80,48 @@
 %% ---- title page and verso (edition notice) ---------------------------------
 \newcommand\MakeTitlePage{%
   \thispagestyle{empty}\im@coverlayout{0}\null\newpage}
+%% AN-20 order: edition, applicability, (the environment body: warranty
+%% disclaimer, changes, ordering, Reader's Comment Form paragraph, licence
+%% summary), copyright, trademarks (\Trademarks{}), "Printed in" (only when
+%% set, D-1), revision + printer's key, part number + print code (PN-05).
+\def\im@trademarks{}  \newcommand\Trademarks[1]{\gdef\im@trademarks{#1}}
 \newenvironment{TitleVerso}
   {\thispagestyle{empty}\noindent\hspace*{-\imHang}%
    \begin{minipage}[t][\dimexpr\textheight-\topskip\relax][b]{\imFullWidth}\small\RaggedRight
-   \setlength\parskip{5pt}}
-  {\par\vspace{6pt}
-   {\im@condensed\bfseries\fontsize{8}{10}\selectfont\im@edition}\par
-   \im@applies\par
+   \setlength\parskip{5pt}%
+   {\im@condensed\bfseries\fontsize{9}{11}\selectfont\im@edition}\par
+   \im@applies\par}
+  {\par
    \copyright\ Copyright Initech Systems Corporation \im@years.
    All rights reserved.\par
-   \vspace{4pt}\noindent\makebox[\linewidth][l]{Printed in \im@printedin.\hfill
-     \im@partno\qquad\im@printkey}\par
+   \ifx\im@trademarks\@empty\else{\imLegalFont\im@trademarks\par}\fi
+   \ifx\im@printedin\@empty\else Printed in \im@printedin.\par\fi
+   \vspace{4pt}\noindent\makebox[\linewidth][l]{\im@revision\hfill
+     \im@printkey}\par
+   \noindent\makebox[\linewidth][l]{\im@partno\qquad\im@printcode\hfill}\par
    \end{minipage}\newpage}
+
+%% ---- signature padding (bead initech-ipu5.7) --------------------------------
+%% \FinishBook ends the interior: it pads with "Notes:" pages so that the
+%% colophon (AN-26, pubs/common/colophon.tex) falls on a verso whose physical
+%% page number is 2 mod 4; one or three two-page Reader's Comment Forms after
+%% it (each starting on a recto) then end the book on a multiple of four
+%% pages (printer signatures; test-pubs-build).  Call it after \printindex,
+%% then \ReadersCommentForm once or three times.
+\newcount\im@padcount
+\newcommand\FinishBook{\clearpage
+  \im@padcount=\numexpr\ReadonlyShipoutCounter+1\relax
+  \loop
+    %% x mod 4 = x - 4*((x-2)/4): \numexpr division rounds to nearest.
+    \@tempcnta=\numexpr\im@padcount-4*((\im@padcount-2)/4)\relax
+  \ifnum\@tempcnta=2 \else
+    \thispagestyle{im@text}%
+    \hbox{}\vspace*{-\topskip}\vspace*{-\parskip}%
+    {\noindent\hspace*{-\imHang}\imHeadOneFont Notes:\par}%
+    \newpage
+    \advance\im@padcount by 1
+  \repeat
+  \input{colophon}}
 
 %% ---- cover / binder title insert (class option `cover`) --------------------
 \newcommand\MakeCover{\thispagestyle{empty}\im@coverlayout{1}\null\newpage}

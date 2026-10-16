@@ -1,0 +1,77 @@
+% Chapter 8 -- The InitechDOS Editing Keys.
+% Sources (Law 1): os/milton/int21.c conin_cooked_line (echo; BACKSPACE 08h
+% erases, ignored at the start; CR ends the line; BEL when the buffer is
+% full; CTRL-C 03h -> INT 23h, line discarded); os/milton/kbd.c (Ctrl+A..Z
+% -> 01h..1Ah, so CTRL-H = BACKSPACE); command.c read_line (CMD_LINE_MAX 128
+% = 127 characters + CR); WL-0102 (COPY CON ends at CTRL-Z).  The DOS 3.3
+% template keys (F1-F6, INS, DEL, ESC) and CTRL-S / CTRL-P are not built --
+% DRAFT, bead needed.  At the prompt the shipped build displays the text
+% INT23-BREAK where DOS 3.3 displays ^C (seen in a capture; bead needed).
+% GATES: test-j1lu-control-emu test-j1lu-con-unit test-shell
+\Gates{test-j1lu-control-emu, test-j1lu-con-unit, test-shell}
+\chapter{The InitechDOS Editing Keys}
+
+\section{Typing a Command Line}
+\index{editing keys}
+InitechDOS reads what you type one line at a time.  The characters appear on
+the screen as you type them, and nothing happens until you press
+\key{Enter}.  Until then you can correct the line with the keys described
+in this chapter.  The same keys work whenever a command or program asks you
+to type a line, for example when \cmd{LABEL} asks for a volume label.
+
+A line can be up to 127 characters long.  When it is full, InitechDOS
+ignores any further characters until you press \key{Enter} or erase
+some.
+
+\section{The Keys}
+\SideHead{Enter}Ends the line.  InitechDOS moves the cursor to the next
+line and carries out the command.
+
+\SideHead{Backspace}Erases the character to the left of the cursor.  At the
+beginning of the line it does nothing.  \key{Ctrl-H} does the same.
+
+\SideHead{Ctrl-C}Cancels the line you are typing: InitechDOS discards it
+and displays the command prompt again.  If a command or program is waiting
+for you to type a line, \key{Ctrl-C} stops it; a batch file ends.
+\draft{bead needed: the shipped build displays the text INT23-BREAK after
+the cancelled line; DOS 3.3 displays the characters \textasciicircum C}
+InitechDOS displays \texttt{\textasciicircum C} after the cancelled line.
+
+\SideHead{Ctrl-Z}Marks the end of a file.  When you copy from the keyboard
+with \cmd{COPY CON}, press \key{Ctrl-Z} and then \key{Enter} to end the
+file.
+
+\section{Correcting a Line with Backspace}
+To correct a mistake, press \key{Backspace} until the wrong character is
+erased, then type the rest of the line again.  For example, if you type
+\type{DIT}, press \key{Backspace} once and type \type{R}: the line becomes
+\type{DIR}, and pressing \key{Enter} lists the directory.
+
+\section{The Template Keys}
+\draft{bead needed: the template editing keys, CTRL-S and CTRL-P are not
+built; this section describes DOS 3.3}
+InitechDOS keeps the last line you typed as a \term{template}, and the
+function keys let you use it to type the next line:
+
+\SideHead{F1}Copies one character from the template.
+
+\SideHead{F2}Copies the template up to the character you type next.
+
+\SideHead{F3}Copies the rest of the template.  Press \key{F3} at the prompt
+to repeat the last command.
+
+\SideHead{F4}Skips the template up to the character you type next.
+
+\SideHead{F5}Makes the line you have typed the new template, without
+carrying it out.
+
+\SideHead{Del}Skips one character of the template.
+
+\SideHead{Ins}Lets you insert characters without moving through the
+template.
+
+\SideHead{Esc}Cancels the line without changing the template.
+
+\key{Ctrl-S} stops the display scrolling until you press any key, and
+\key{Ctrl-P} sends everything that is displayed to the printer as well,
+until you press it again.

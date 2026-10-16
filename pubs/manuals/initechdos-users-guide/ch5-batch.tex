@@ -1,0 +1,133 @@
+% Chapter 5 -- Batch Files.
+% Sources (Law 1): os/milton/batch.c (batch_classify, batch_expand %0..%9,
+% %VAR%, %%, batch_eval_if); os/milton/command.c (run_batch: ECHO on at
+% entry, @, PAUSE MSG-DOS-0016, CALL; IF hands its command to the command
+% dispatcher -- GOTO after IF is not recognized, bead needed; command_repl:
+% A:\AUTOEXEC.BAT); pubs/screens/disk/*.BAT (A:\SAMPLES of the practice
+% diskette).  COPY CON echoes CTRL-Z as a raw glyph that the text decoder
+% cannot read, so no screen of it is shown (bead needed, WL-0119).
+% GATES: test-batch test-batch-exec test-autoexec test-j1lu-control-emu test-pubs-screens
+\Gates{test-batch, test-batch-exec, test-autoexec, test-j1lu-control-emu, test-pubs-screens}
+\chapter{Batch Files}
+
+\section{What a Batch File Does}
+\index{batch files}
+If you type the same commands often, you can put them in a file and carry
+them all out by typing one name.  Such a file is a \term{batch file}.  Its
+name has the extension \file{.BAT}, and each line holds one command.  When
+you type the name of the batch file, without the extension, InitechDOS
+carries out the commands in it, in order, as if you had typed them.
+
+\section{Creating a Batch File}
+A batch file is an ordinary text file.  You can make one with any program
+that saves plain text, or type it directly with \cmd{COPY CON}, which copies
+from the keyboard (\cmd{CON}) to a file:
+\begin{Steps}
+\item Type \type{COPY CON TODAY.BAT} and press \key{Enter}.
+\item Type \type{DATE} and press \key{Enter}.
+\item Type \type{DIR} and press \key{Enter}.
+\item Press \key{Ctrl-Z}, then \key{Enter}.  InitechDOS displays
+  \texttt{1 file(s) copied}.
+\end{Steps}
+Now type \type{TODAY} and press \key{Enter}: InitechDOS displays the date
+and then lists the current directory.  If you make a mistake while typing a
+line, correct it with \key{Backspace} before you press \key{Enter}; to
+change a line already entered, type the whole file again.
+
+\section{The AUTOEXEC.BAT File}
+\index{AUTOEXEC.BAT@\texttt{AUTOEXEC.BAT}}
+One batch file is special.  When InitechDOS starts, the command processor
+looks for a file named \file{AUTOEXEC.BAT} in the root directory of drive~A
+and, if it is there, carries it out before it displays the first prompt.
+Put in it the commands you want carried out every time you start the
+system.  The practice diskette has one:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{TYPE AUTOEXEC.BAT} and press \key{Enter}.
+\item Type \type{SET} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=9, label=fig:autoexec]{screens/autoexec.txt}{The practice diskette's AUTOEXEC.BAT}
+
+The first line, \texttt{@ECHO OFF}, stops InitechDOS from displaying the
+commands of the batch file as it carries them out.  The second puts the
+directory \file{A:\bs APPS} in the \texttt{PATH} environment variable, so
+that InitechDOS can find the utility programs from any directory.
+\cmd{SET} shows the result (Chapter~6).
+
+\section{Replaceable Parameters}
+\index{replaceable parameters}
+A batch file can be written to work on whatever you name when you run it.
+The words you type after its name are its \term{parameters}.  Inside the
+file, \texttt{\%1} stands for the first parameter, \texttt{\%2} for the
+second, and so on up to \texttt{\%9}.  The batch files used in the rest of
+this chapter are in the directory \file{SAMPLES}:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{CD SAMPLES} and press \key{Enter}.
+\item Type \type{TYPE GREET.BAT} and press \key{Enter} to see the file.
+\item Type \type{GREET Peter Friday} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=11, label=fig:greet]{screens/greet.txt}{A batch file with two parameters}
+
+\texttt{\%1} was replaced by \texttt{Peter} and \texttt{\%2} by
+\texttt{Friday}.  \cmd{REM} lines are remarks: InitechDOS does not carry
+them out.  \cmd{ECHO} followed by text displays the text.
+
+\section{Making Decisions}
+\index{IF@\texttt{IF}}
+The \cmd{IF} subcommand carries out a command only when a condition is
+true.  \file{CHECK.BAT} uses \cmd{IF EXIST} to say whether the file named
+by its parameter is on the disk:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}, then \type{CD SAMPLES}.
+\item Type \type{TYPE CHECK.BAT} and press \key{Enter}.
+\item Type \type{CHECK GREET.BAT} and press \key{Enter}.
+\item Type \type{CHECK NOFILE.TXT} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=11, label=fig:check]{screens/check.txt}{Testing whether a file exists}
+
+\cmd{IF NOT} reverses a condition.  \cmd{IF} can also compare two strings,
+and test the exit code a program returned (\cmd{IF ERRORLEVEL}); the
+\doctitle{InitechDOS Reference} gives the details.
+\draft{bead needed: the shipped IF passes its command to the command
+processor, so IF ... GOTO is not recognized; DOS 3.3 carries it out}
+With \cmd{GOTO} and a label line (a line beginning with a colon), a batch
+file can jump to another part of itself when a condition is true:
+\texttt{IF NOT EXIST \%1 GOTO NOFILE}.
+
+\section{Pausing and Calling Other Batch Files}
+\index{PAUSE@\texttt{PAUSE}}\index{CALL@\texttt{CALL}}
+\cmd{PAUSE} stops a batch file until you press a key, so that you can, for
+example, put paper in the printer.  \cmd{CALL} runs another batch file and
+then carries on with the next line.  \file{COVER.BAT} does both:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}, then \type{CD SAMPLES}.
+\item Type \type{COVER} and press \key{Enter}.
+\item When \texttt{Press any key to continue . . .} appears, press the
+  space bar.
+\end{Steps}
+
+\Screen[rows=8, label=fig:cover]{screens/cover.txt}{A batch file that pauses and calls another}
+
+\section{Stopping a Batch File}
+To stop a batch file before it has finished, press \key{Ctrl-C}.  The batch
+file ends and the command prompt is displayed.
+
+\section{Batch Subcommands}
+These subcommands are used in batch files.  The \doctitle{InitechDOS
+Reference}, Chapter~4, describes each one.
+\par\medskip
+\begin{tabular}{@{}l@{\quad}p{70mm}@{}}
+{\imSideHeadFont Subcommand} & {\imSideHeadFont What it does}\\[2pt]
+\cmd{CALL}  & Runs another batch file, then continues\\
+\cmd{ECHO}  & Displays a message, or turns the display of commands on or off\\
+\cmd{FOR}   & Carries out a command once for each item in a list\\
+\cmd{GOTO}  & Continues at a label line\\
+\cmd{IF}    & Carries out a command when a condition is true\\
+\cmd{PAUSE} & Waits for a key\\
+\cmd{REM}   & Holds a remark\\
+\cmd{SHIFT} & Moves the parameters one place to the left\\
+\end{tabular}

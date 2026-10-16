@@ -1,0 +1,25 @@
+A:\>ATTRIB +R PHONE.TXT
+A:\>ATTRIB PHONE.TXT
+R  A     A:\PHONE.TXT
+A:\>DEL PHONE.TXT
+Access denied
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

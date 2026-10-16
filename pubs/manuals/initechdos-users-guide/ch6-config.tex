@@ -1,0 +1,102 @@
+% Chapter 6 -- Configuring Your System: CONFIG.SYS and the Environment.
+% Sources (Law 1): os/milton/config_sys.c, os/milton/sysinit.c (FILES cap
+% 20; BREAK; DEVICE=ANSI.SYS; others recorded); spec/dos_config_sys_
+% baseline.txt (standard settings); os/milton/env.c (512 bytes);
+% os/milton/command.c (builtin_set, builtin_prompt, command_repl COMSPEC /
+% PROMPT / PATH, run_external PATH search).  PATH as a command:
+% initech-sy5f.
+% GATES: test-config-sys test-sysinit test-env test-command test-pubs-screens
+\Gates{test-config-sys, test-sysinit, test-env, test-command, test-pubs-screens}
+\chapter{Configuring Your System}
+
+\section{The CONFIG.SYS File}
+\index{CONFIG.SYS@\texttt{CONFIG.SYS}}
+When InitechDOS starts, it reads the file \file{CONFIG.SYS} from the root
+directory of drive~A.  This file holds \term{configuration commands}, one to
+a line, in the form \ph{command}\kw{=}\ph{value}.  If there is no
+\file{CONFIG.SYS}, InitechDOS uses its standard settings.  Most users never
+need to change them.
+
+These are the configuration commands; the \doctitle{InitechDOS Reference},
+Chapter~3, describes each one:
+\par\medskip
+\begin{tabular}{@{}l@{\quad}l@{\quad}p{44mm}@{}}
+{\imSideHeadFont Command} & {\imSideHeadFont Standard} & {\imSideHeadFont What it sets}\\[2pt]
+\cmd{BREAK}     & \texttt{ON}      & Whether \key{Ctrl-C} is checked often\\
+\cmd{BUFFERS}   & \texttt{20}      & The number of disk buffers\\
+\cmd{DEVICE}    & \texttt{ANSI.SYS} & A device driver to install\\
+\cmd{FILES}     & \texttt{20}      & How many files can be open at once\\
+\cmd{INSTALL}   & \texttt{SHARE.EXE} & A program to load at start-up\\
+\cmd{LASTDRIVE} & \texttt{Z}       & The last drive letter\\
+\cmd{SHELL}     & \texttt{COMMAND.COM} & The command processor\\
+\end{tabular}
+\par\medskip
+In this version of InitechDOS, \cmd{FILES}, \cmd{BREAK} and
+\texttt{DEVICE=ANSI.SYS} take effect; the other commands are checked and
+recorded, and do not change the way the system runs.  To create a
+\file{CONFIG.SYS} file, use \cmd{COPY CON} as described in Chapter~5, for
+example with the single line \texttt{BREAK=OFF}, and then restart the
+system.  Lines InitechDOS does not recognize are ignored.
+
+\section{The Environment}
+\index{environment}\index{SET@\texttt{SET}}
+The \term{environment} is a small area of memory in which InitechDOS keeps
+named settings, called \term{environment variables}, for itself and for the
+programs you run.  The \cmd{SET} command lists them and changes them.  In
+this exercise you add a variable of your own:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{SET DEPT=PUBS} and press \key{Enter}.
+\item Type \type{SET} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=7, label=fig:set]{screens/set.txt}{The environment}
+
+InitechDOS sets three variables itself:
+
+\SideHead{COMSPEC}Where the command processor is.
+
+\SideHead{PROMPT}The form of the command prompt (see below).
+
+\SideHead{PATH}The directories InitechDOS searches for a program or batch
+file that is not in the current directory, separated by semicolons.
+
+To remove a variable, type its name and an equal sign with nothing after
+it: \type{SET DEPT=}.  The environment holds 512 characters; when it is
+full, \cmd{SET} displays \texttt{Out of environment space}.  Batch files can
+use variables by name: \texttt{\%DEPT\%} in a batch file stands for
+\texttt{PUBS}.
+
+\section{The Search Path}
+\index{PATH@\texttt{PATH}}\index{search path}
+When you type the name of a program that is not in the current directory,
+InitechDOS looks in each directory named in \texttt{PATH}, in order.  The
+practice diskette's \file{AUTOEXEC.BAT} sets it with
+\type{SET PATH=A:\bs APPS}, so that the utility programs in \file{\bs APPS}
+can be run from any directory.  To search more than one directory, separate
+them with semicolons: \type{SET PATH=A:\bs APPS;A:\bs SAMPLES}.
+\draft{initech-sy5f: the PATH command is not yet built (typing PATH displays
+Bad command or file name); SET PATH= works}
+The \cmd{PATH} command does the same: \type{PATH A:\bs APPS}.  Typed alone,
+\cmd{PATH} displays the search path.
+
+\section{Changing the Command Prompt}
+\index{PROMPT@\texttt{PROMPT}}
+The \cmd{PROMPT} command changes the command prompt.  A dollar sign and a
+letter stand for information: \kw{\$P} is the current drive and directory,
+\kw{\$G} the \texttt{>} character, \kw{\$N} the drive letter, and \kw{\$T}
+the time.  Any other text is displayed as you type it.  The standard prompt
+is \kw{\$P\$G}.
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{PROMPT \$N\$G} and press \key{Enter}.  The prompt becomes
+  \texttt{A>}.
+\item Type \type{PROMPT} and press \key{Enter}.  The standard prompt comes
+  back.
+\end{Steps}
+
+\Screen[rows=3, label=fig:prompt]{screens/prompt.txt}{Changing the prompt and back}
+
+The \doctitle{InitechDOS Reference} lists all the \kw{\$} codes.  We
+recommend a prompt that includes \kw{\$P}, so that you always know which
+directory you are in.

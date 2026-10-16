@@ -1,18 +1,22 @@
-% Front matter: title verso (edition notice, Sec 10) and About This Book.
-% All boilerplate newly written for Initech (DESIGN-SYSTEM.md Sec 10).
+% Front matter: edition notice (PUB-REF-0001 AN-20) and About This Book
+% (AN-21, F-IBM sub-heads in the fixed order).  All boilerplate newly
+% written (VO-12).  The colophon is pubs/common/colophon.tex (AN-26).
+% GATES: test-pubs-build
+\Gates{test-pubs-build}
 \begin{TitleVerso}
 {\imLegalFont
-\textbf{INITECH SYSTEMS CORPORATION PROVIDES THIS PUBLICATION ``AS IS''
-WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE.}  Some states do not allow the exclusion of implied
-warranties, so the above exclusion may not apply to you.\par
+\textbf{The following paragraph does not apply to any country where such
+provisions are inconsistent with local law:} INITECH SYSTEMS CORPORATION
+PROVIDES THIS PUBLICATION ``AS IS'' WITHOUT WARRANTY OF ANY KIND, EITHER
+EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  Some states do not
+allow the exclusion of implied warranties, so the above exclusion may not
+apply to you.\par
 This publication may contain technical inaccuracies or typographical errors.
-The information in it is revised from time to time; revisions are issued as
-new editions or technical newsletters.  Initech Systems Corporation may change
-the products and programs described in this publication at any time without
-notice.  A reference to an Initech product or program does not imply that only
-that product or program may be used.\par
+The information in it is revised from time to time, and the revisions are
+published in new editions.  Initech Systems Corporation may change the
+products and programs described in this publication at any time without
+notice.\par
 Requests for copies of Initech publications and for technical information
 about Initech products should be made to your authorized Initech dealer or
 your Initech representative.\par}
@@ -20,61 +24,109 @@ your Initech representative.\par}
 {\footnotesize
 A Reader's Comment Form is provided at the back of this publication.  If the
 form has been removed, address comments to: \InitechAddressLine.
-\draft{D-12: confirm the address belongs to no real business before print}
+\draft{PUB-REF-0001 O-5 and D-12: the address and permit number are to be
+checked against real businesses before print}
 Initech may use or distribute the information you supply in any way it
-believes appropriate without incurring any obligation to you.\par}
-
-{\imLegalFont
-InitechDOS, FLAIR, InitechBase and the Initech logo are trademarks of
-Initech Systems Corporation.  Turbo Initech is a registered trademark of
-Initech Systems Corporation.  Intel, 80386 and 80486 are trademarks of Intel
-Corporation.  All other product names are trademarks of their respective
-holders.\par}
-
-{\footnotesize
-This book was typeset by Initech Publications with LuaTeX (TeX Live) in TeX
-Gyre Schola, TeX Gyre Heros and TeX Gyre Cursor, metric-compatible
-replacements for New Century Schoolbook, Helvetica and Courier.  The screen
-reproductions are the text of the InitechDOS display, read back from
-screendumps of the shipped system running under the QEMU emulator.\par}
+believes appropriate without incurring any obligation to you.\par
+The software described in this publication is furnished under the Initech
+Program License Agreement and may be copied only as that agreement
+permits.\par}
 \end{TitleVerso}
 
 \FrontChapter{About This Book}
-% Gates: none (orientation text); the conventions list is checked against
-% pubs/class/initech-syntax.sty.
-This book shows you how to start InitechDOS, how to give it commands, and how
-to look after the files you keep on your disks.  It is written for people who
-have not used a personal computer operating system before, and for
-experienced users who are new to InitechDOS.  You do not need to know
+This book shows you how to start InitechDOS, how to give it commands, and
+how to look after the files you keep on your disks.  It is written for
+people who have not used a personal computer operating system before, and
+for experienced users who are new to InitechDOS.  You do not need to know
 anything about programming.
 
 \section{Read This First}
 Before you begin, make sure your computer has been set up as described in
 the instructions that came with it, and that you have the InitechDOS
 diskettes from the package.  Keep this book beside your computer while you
-work: Chapter~2 is written as a series of short exercises that you carry
-out as you read.
+work: most chapters are written as short exercises that you carry out as you
+read.
+
+\section{First-Time Users}
+Read Chapters 1 and 2 in order and do every exercise in Chapter~2.  Then
+read the other chapters as you need them.  When you want the exact form of a
+command, look it up in the \doctitle{InitechDOS Reference}.
+
+\section{Experienced Users}
+Skim Chapter~1, then read the chapters on the subjects you need.  Chapter~9
+introduces the utility programs; the \doctitle{InitechDOS Reference}
+describes every command in full, including the places where InitechDOS
+differs from what you may be used to.
+
+\section{Terms Used}
+\SideHead{Diskette}A flexible disk in a diskette drive.
+
+\SideHead{Fixed disk}A disk that is built into the computer and cannot be
+removed.
+
+\SideHead{Disk}Either a diskette or a fixed disk.
+
+\SideHead{Source}The disk, directory or file that information is copied
+from.
+
+\SideHead{Target}The disk, directory or file that information is copied
+to.
 
 \section{How This Book Is Organized}
 \SideHead{Chapter 1}Introduction to InitechDOS explains what an operating
-system does, names the parts of InitechDOS, and introduces drives, files,
-directories and commands.
+system does and introduces drives, files, directories and commands.
 
 \SideHead{Chapter 2}Getting Started takes you from turning on the computer
-to listing, displaying, copying and deleting files, and to working with
+to listing, displaying, copying and deleting files, and working with
 directories.
 
+\SideHead{Chapter 3}Working with Files and Directories covers file names,
+wildcards, paths and the directory tree.
+
+\SideHead{Chapter 4}Diskettes and the Fixed Disk covers volume labels,
+checking a disk, and keeping backup copies of your files.
+
+\SideHead{Chapter 5}Batch Files shows how to put commands in a file and
+carry them out with one name, and describes \file{AUTOEXEC.BAT}.
+
+\SideHead{Chapter 6}Configuring Your System describes \file{CONFIG.SYS},
+the environment, and the command prompt.
+
+\SideHead{Chapter 7}Redirecting Input and Output shows how to send the
+output of a command to a file and take input from a file.
+
+\SideHead{Chapter 8}The InitechDOS Editing Keys describes the keys you use
+when you type a command.
+
+\SideHead{Chapter 9}The Utility Programs introduces \cmd{ATTRIB},
+\cmd{CHKDSK}, \cmd{LABEL}, \cmd{TREE} and \cmd{XCOPY}.
+
 \SideHead{Appendix A}Messages lists the messages InitechDOS displays.
+
+\SideHead{Appendix B}Glossary defines the terms used in this book.
 
 An index and a Reader's Comment Form are at the back of the book.
 
 \section{Related Publications}
 \SideHead{Reference}\doctitle{InitechDOS Version 3.30 Reference}
-(1024-3300-11) describes every command and configuration option in detail.
+(1024-3300-10) describes every command, the configuration commands, the
+batch subcommands and the messages in detail.
 
 \SideHead{Quick Reference}\doctitle{InitechDOS Quick Reference}
-(1024-3300-20) summarizes the commands on a single card.
-\draft{the Reference and Quick Reference are planned, not yet written}
+(1024-3300-20) summarizes the commands.
+\draft{the Quick Reference (DS row DOS-QR) is not yet written}
+
+\section{What Comes in the InitechDOS Package}
+\begin{itemize}
+\item The \doctitle{InitechDOS Version 3.30 Reference}, in a binder
+\item This book, the \doctitle{InitechDOS Version 3.30 User's Guide}
+\item The InitechDOS diskette, sealed in the License Agreement envelope.
+  The utility programs are in its directory \file{\bs APPS}.
+\item The Proof of License card, the Warranty Registration Card and the
+  Initech Customer Support Guide
+\end{itemize}
+\draft{package pieces other than the two books follow the PUB-REF-0001
+PK-12/PK-13 plan and are not yet produced}
 
 \section{Conventions Used in This Book}
 \SideHead{What you type}Text that you type is shown in this typeface:
@@ -82,16 +134,16 @@ An index and a Reader's Comment Form are at the back of the book.
 treats them the same.  Unless the text tells you otherwise, finish each
 command by pressing \key{Enter}.
 
-\SideHead{Keys}The names of keys are shown in small capitals, for example
-\key{Enter}, \key{Backspace} and \key{Ctrl}.  \key{Ctrl-C} means: hold down
-\key{Ctrl}, press \key{C}, and release both keys.
+\SideHead{Keys}The names of keys are shown like this: \key{Enter},
+\key{Backspace}, \key{Ctrl}.  \key{Ctrl-C} means: hold down \key{Ctrl},
+press \key{C}, and release both keys.
 
-\SideHead{Command syntax}When this book shows the form of a command, words in
+\SideHead{Command forms}When this book shows the form of a command, words in
 capital letters, such as \kw{COPY}, are typed exactly as shown.  Words in
 \ph{italics} stand for information you supply, such as a file name.  Items
 in square brackets \opt{\ph{like this}} are optional; do not type the
-brackets.  Three periods \rep{} mean that the item before them may be
-repeated.
+brackets.
 
 \SideHead{Screens}Figures that show the display are reproductions of the
-InitechDOS screen exactly as it appeared when the example was carried out.
+InitechDOS screen exactly as it appeared when the exercise was carried out,
+with the system clock set to 9:30 a.m.\ on March~2, 1992.

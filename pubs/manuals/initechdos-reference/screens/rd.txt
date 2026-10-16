@@ -1,0 +1,25 @@
+A:\>MD TEMP
+A:\>RD TEMP
+A:\>RD SAMPLES
+Invalid path, not directory, or directory not empty
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

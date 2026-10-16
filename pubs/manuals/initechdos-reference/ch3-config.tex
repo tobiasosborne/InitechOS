@@ -1,0 +1,194 @@
+% Chapter 3 -- Configuring Your System (the CONFIG.SYS commands; IBM 3.10
+% Reference Ch. 4 "Configuring Your System"; AN-01 "Configuration Command"
+% entries).  The entry list is the shipped directive table of
+% os/milton/config_sys.c config_sys_parse: BREAK BUFFERS DEVICE FILES INSTALL
+% LASTDRIVE SHELL.  What each one does is os/milton/sysinit.c (FILES applied
+% to the SFT cap of 20; BREAK applied; DEVICE=ANSI.SYS enables the ANSI
+% console, int21_set_ansi_gate; the others recorded "accepted(deferred)").
+% Standard settings: spec/dos_config_sys_baseline.txt (LOCKED).  The file is
+% read from A:\CONFIG.SYS, first 1024 bytes, to the last whole line.
+% GATES: test-config-sys test-config-fuzz test-sysinit test-sysinit-oversize test-ansi
+\Gates{test-config-sys, test-config-fuzz, test-sysinit, test-sysinit-oversize, test-ansi}
+\chapter{Configuring Your System}
+
+\section{The CONFIG.SYS File}
+\index{CONFIG.SYS@\texttt{CONFIG.SYS}}
+When InitechDOS starts, before it displays the command prompt, it reads the
+file \file{CONFIG.SYS} in the root directory of drive~A.  The file holds
+\emph{configuration commands}, one to a line, that set up the system: how
+many files can be open at once, which device drivers are used, and so on.
+
+Each line has the form
+\SyntaxLine{\ph{command}\kw{=}\ph{value}}
+in capital or small letters.  Spaces around the equal sign are ignored.
+Blank lines, lines that begin with a semicolon (\texttt{;}), and lines
+InitechDOS does not recognize are ignored, so you can use semicolon lines
+for remarks.  A value outside the allowed range is changed to the nearest
+allowed value.
+
+InitechDOS reads the first 1,024 characters of the file, up to the end of
+the last complete line.  Changes to \file{CONFIG.SYS} take effect the next
+time you start the system.
+
+\section{Creating CONFIG.SYS}
+\file{CONFIG.SYS} is an ordinary text file.  You can create it from the
+keyboard with \cmd{COPY CON}:
+\begin{TypeIn}
+COPY CON CONFIG.SYS
+FILES=20
+BREAK=OFF
+\end{TypeIn}
+and then press \key{Ctrl-Z} and \key{Enter}.  Restart the system to use the
+new file.
+
+\section{The Standard Settings}
+\index{standard settings}
+If drive~A has no \file{CONFIG.SYS} file, InitechDOS uses these standard
+settings, exactly as if they were in the file:
+\begin{TypeIn}
+FILES=20
+BUFFERS=20
+LASTDRIVE=Z
+DEVICE=ANSI.SYS
+DEVICE=INITNET.SYS
+INSTALL=SHARE.EXE
+SHELL=COMMAND.COM /P /E:512
+\end{TypeIn}
+The CTRL-BREAK check is on unless a \file{CONFIG.SYS} file says
+\texttt{BREAK=OFF}.
+
+The entries that follow describe each configuration command.
+
+% BREAK= -- config_sys.c (ON/OFF case-insensitive; other values ignored);
+% sysinit.c int21_set_break_flag (default ON).
+\begin{DosEntry}{BREAK}{Control-Break}{config}
+\Purpose Sets the CTRL-BREAK check when the system starts.
+\Format \SyntaxLine{\kw{BREAK=ON}\texttt{|}\kw{OFF}}
+\Remarks
+\kw{ON} turns the check on and \kw{OFF} turns it off.  Without a
+\texttt{BREAK} line the check is on.  Any other value is ignored.
+
+The setting can be changed and displayed at any time with the internal
+command \cmd{BREAK} (Chapter~2), which describes what the check does.
+\Example
+\begin{TypeIn}
+BREAK=OFF
+\end{TypeIn}
+\end{DosEntry}
+
+% BUFFERS= -- config_sys.c (1..99, clamped); sysinit.c records it
+% "accepted(deferred)": there is no buffer pool in this version.
+\begin{DosEntry}{BUFFERS}{}{config}
+\Purpose Sets the number of disk buffers.
+\Format \SyntaxLine{\kw{BUFFERS=}\ph{n}}
+\Remarks
+\Param{n} is a number from 1 to 99.  The standard setting is 20.
+
+InitechDOS checks the value and records it when the system starts.  This
+version reads and writes disk sectors directly, without a pool of disk
+buffers, so the number does not change the way the system runs.
+\Example
+\begin{TypeIn}
+BUFFERS=20
+\end{TypeIn}
+\end{DosEntry}
+
+% DEVICE= -- config_sys.c (up to 8 lines; first token kept); sysinit.c
+% (ANSI.SYS -> ansi-enabled; any other driver accepted(deferred)); the ANSI
+% console: int21.c (ESC[ sequences, gate test-ansi).
+\begin{DosEntry}{DEVICE}{}{config}
+\Purpose Names a device driver to be installed when the system starts.
+\Format \SyntaxLine{\kw{DEVICE=}\opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \opt{\ph{parameters}}}
+\Remarks
+\Param{filename} names the driver.  Up to eight \texttt{DEVICE} lines are
+used.
+
+\texttt{DEVICE=ANSI.SYS} installs the extended screen and keyboard control
+of the console: a program can then move the cursor, clear the screen and
+set display attributes by writing escape sequences to the display.  The
+ANSI.SYS support is part of InitechDOS; no file of that name is needed on
+the disk.  It is installed by the standard settings.
+
+This version of InitechDOS supports ANSI.SYS only.  Any other
+\texttt{DEVICE} line is checked and recorded when the system starts, and the
+driver it names is not loaded.  The console, printer, serial port, clock and
+\texttt{NUL} devices are always present and need no \texttt{DEVICE} line.
+\Example
+\begin{TypeIn}
+DEVICE=ANSI.SYS
+\end{TypeIn}
+\end{DosEntry}
+
+% FILES= -- config_sys.c (8..255 clamped); sysinit.c sft_set_files_limit
+% (table of 20: cap=20).
+\begin{DosEntry}{FILES}{}{config}
+\Purpose Sets the number of files that can be open at one time.
+\Format \SyntaxLine{\kw{FILES=}\ph{n}}
+\Remarks
+\Param{n} is a number from 8 to 255.  The standard setting is 20.
+
+InitechDOS keeps a table of 20 open files for the whole system, so a value
+larger than 20 is treated as 20.
+\Example
+\begin{TypeIn}
+FILES=20
+\end{TypeIn}
+\end{DosEntry}
+
+% INSTALL= -- config_sys.c (up to 8 lines; first token); sysinit.c
+% "accepted(deferred)".
+\begin{DosEntry}{INSTALL}{}{config}
+\Purpose Names a program to be loaded when the system starts.
+\Format \SyntaxLine{\kw{INSTALL=}\opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \opt{\ph{parameters}}}
+\Remarks
+\Param{filename} names the program.  Up to eight \texttt{INSTALL} lines are
+used.
+
+This version of InitechDOS checks and records each \texttt{INSTALL} line
+when the system starts; it does not load the program.  The standard
+settings name \file{SHARE.EXE}.
+\Example
+\begin{TypeIn}
+INSTALL=SHARE.EXE
+\end{TypeIn}
+\end{DosEntry}
+
+% LASTDRIVE= -- config_sys.c (A..Z); sysinit.c "accepted(deferred)".
+\begin{DosEntry}{LASTDRIVE}{}{config}
+\Purpose Sets the last drive letter InitechDOS can use.
+\Format \SyntaxLine{\kw{LASTDRIVE=}\ph{x}}
+\Remarks
+\Param{x} is a letter from A to Z.  The standard setting is Z.
+
+InitechDOS checks and records the letter when the system starts.  In this
+version the disk is always drive~A, so the setting does not change the
+drives you can use.
+\Example
+\begin{TypeIn}
+LASTDRIVE=E
+\end{TypeIn}
+\end{DosEntry}
+
+% SHELL= -- config_sys.c (whole tail kept, 64 characters); sysinit.c
+% records it; COMMAND.COM is resident (command.c command_repl, COMSPEC
+% A:\COMMAND.COM); environment fixed at 512 bytes (env.h ENV_ARENA_MAX).
+\begin{DosEntry}{SHELL}{}{config}
+\Purpose Names the command processor and its parameters.
+\Format \SyntaxLine{\kw{SHELL=}\opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \opt{\ph{parameters}}}
+\Remarks
+The standard setting is \texttt{SHELL=COMMAND.COM /P /E:512}: the command
+processor \file{COMMAND.COM}, made permanent (\kw{/P}), with an environment
+of 512 characters (\kw{/E:512}).
+
+InitechDOS checks and records the line when the system starts.  In this
+version the command processor is always \file{COMMAND.COM}, it is always
+permanent, and its environment is always 512 characters, whatever the
+\texttt{SHELL} line says.
+\Example
+\begin{TypeIn}
+SHELL=COMMAND.COM /P /E:512
+\end{TypeIn}
+\end{DosEntry}

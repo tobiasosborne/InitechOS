@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>CD
+A:\SAMPLES
+A:\SAMPLES>CD ..
+A:\>CD SAMPLES
+A:\SAMPLES>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

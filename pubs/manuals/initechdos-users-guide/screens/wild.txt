@@ -1,0 +1,25 @@
+A:\>ATTRIB *.TXT
+   A     A:\README.TXT
+   A     A:\MEMO.TXT
+   A     A:\PHONE.TXT
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

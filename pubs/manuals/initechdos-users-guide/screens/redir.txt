@@ -1,0 +1,25 @@
+A:\>VER > LIST.TXT
+A:\>ECHO Second line >> LIST.TXT
+A:\>TYPE LIST.TXT
+
+InitechDOS Version 3.30
+Second line
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

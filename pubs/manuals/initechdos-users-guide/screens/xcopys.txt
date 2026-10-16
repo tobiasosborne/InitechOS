@@ -1,0 +1,25 @@
+A:\>XCOPY SAMPLES SAVED /S
+Does SAVED specify a file name or directory name on the target (F = file, D = di
+rectory)?
+\SAMPLES\GREET.BAT
+\SAMPLES\SHOWALL.BAT
+\SAMPLES\CHECK.BAT
+\SAMPLES\WEEK.BAT
+\SAMPLES\COVER.BAT
+\SAMPLES\SAVE.BAT
+\SAMPLES\JUMP.BAT
+7 File(s) copied
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+

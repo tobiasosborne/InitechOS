@@ -1,0 +1,112 @@
+% Chapter 4 -- Diskettes and the Fixed Disk.
+% Sources (Law 1): os/milton/command.c builtin_vol; os/milton/dosutil.c
+% label_main; os/milton/chkdsk.c; os/milton/xcopy_tree.c (XCOPY into a new
+% directory, names shown, keeps date and time); spec/hardware.json storage
+% (FAT12 diskette image, FAT16 fixed-disk image, ATA PIO).  FORMAT, DISKCOPY
+% and FDISK are not shipped (no such program on the shipped disk).
+% GATES: test-label-vol test-dosutil-emu test-chkdsk test-chkdsk-emu test-xcopy-tree-emu test-fat test-pubs-screens
+\Gates{test-label-vol, test-dosutil-emu, test-chkdsk, test-chkdsk-emu, test-xcopy-tree-emu, test-fat, test-pubs-screens}
+\chapter{Diskettes and the Fixed Disk}
+
+\section{Kinds of Disk}
+\index{diskettes}\index{fixed disk}
+InitechDOS keeps files on two kinds of disk.  A \term{diskette} is a
+flexible disk in a protective jacket that you put in a diskette drive and
+take out again.  A \term{fixed disk} is built into the computer; it holds
+far more than a diskette and is much faster.  InitechDOS reads and writes
+both in the same way, and the commands in this book work on either.
+
+In this version of InitechDOS the disk that holds your files is drive~A,
+whichever kind of disk it is.
+
+\section{Taking Care of Diskettes}
+\begin{itemize}
+\item Hold a diskette by its label.  Do not touch the recording surface.
+\item Keep diskettes away from magnets, telephones and the display, and
+  out of direct sunlight.
+\item Write on a diskette's label before you put it on the diskette, or
+  use a felt-tip pen.
+\item Do not remove a diskette from its drive while the drive light is on.
+\item Store diskettes upright in their envelopes, in a box.
+\end{itemize}
+
+\section{Preparing a New Disk}
+\index{formatting}
+\draft{bead needed: FORMAT, DISKCOPY and FDISK are not on the shipped disk;
+this section describes DOS 3.3}
+A new diskette must be \term{formatted} before InitechDOS can use it:
+formatting marks out the disk and creates an empty root directory.  A new
+fixed disk must first be divided into partitions with \cmd{FDISK}, then
+formatted.  The \cmd{FORMAT} command does both kinds of formatting, and
+\cmd{DISKCOPY} makes an exact copy of a whole diskette.  Formatting erases
+everything on a disk.
+
+\section{Volume Labels}
+\index{volume label}\index{VOL@\texttt{VOL}}\index{LABEL@\texttt{LABEL}}
+A volume label names a disk, so that you can tell your disks apart.  The
+\cmd{VOL} command displays the label:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{VOL} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=4, label=fig:vol]{screens/vol.txt}{Displaying the volume label}
+
+The \cmd{LABEL} utility program changes the label.  Typed alone, it shows
+the current label and asks for a new one, of up to eleven characters:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{LABEL} and press \key{Enter}.
+\item At the question, type \type{WORKDISK} and press \key{Enter}.
+\item Type \type{VOL} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=7, label=fig:label]{screens/label.txt}{Changing the volume label}
+
+You can also give the label on the command line: \type{LABEL INITECH} puts
+the original label back.  If you press \key{Enter} without typing a label,
+\cmd{LABEL} asks whether to delete the current label.
+
+\section{Checking a Disk}
+\index{checking a disk}\index{CHKDSK@\texttt{CHKDSK}}
+The \cmd{CHKDSK} utility program checks that the directories and the file
+allocation table of a disk agree, and reports how the disk and the memory of
+the computer are used.  Run it from time to time, and whenever a program
+has stopped while it was writing to the disk.
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{CHKDSK} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=12, label=fig:chkdsk]{screens/chkdsk.txt}{A disk with no errors}
+
+The report gives the space on the disk, how much of it is used by hidden
+files, directories and your own files, how much is still available, and the
+total and free memory.  When \cmd{CHKDSK} finds errors it describes them.
+Run it again as \type{CHKDSK /F} to correct them; Chapter~9 and the
+\doctitle{InitechDOS Reference} describe what it does.
+
+\section{Making Backup Copies}
+\index{backup copies}\index{XCOPY@\texttt{XCOPY}}
+A disk can be damaged or lost, and a file can be deleted by mistake.  Keep
+copies of your important files on another disk, and bring them up to date
+regularly.  The \cmd{XCOPY} utility program copies groups of files, and
+whole directories, in one command.  In this exercise you copy the text files
+into a new directory, \file{BACKUP}:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{XCOPY *.TXT BACKUP\bs} and press \key{Enter}.  The
+  backslash at the end tells \cmd{XCOPY} that \file{BACKUP} is a directory;
+  it creates it.
+\item Type \type{CD BACKUP} and press \key{Enter}, then \type{DIR}.
+\end{Steps}
+
+\Screen[rows=20, label=fig:backup]{screens/backup.txt}{Copying the text files with XCOPY}
+
+\cmd{XCOPY} lists each file as it copies it.  Each copy keeps the date and
+time of its original, so the listing shows when each file was last
+changed.  To copy only the files that have changed since your last backup,
+use \cmd{XCOPY} with \kw{/M} (Chapter~9).
+\draft{initech-dwbl: the new directory BACKUP and its . and .. entries are
+stamped 0-00-80 12:00a in the shipped build (Figure~\ref{fig:backup}); DOS
+3.3 stamps the current date and time}

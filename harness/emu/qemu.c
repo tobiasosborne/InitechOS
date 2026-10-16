@@ -464,6 +464,14 @@ static const char *token_to_qcode(const char *tok)
     if (strcmp(tok, "semicolon") == 0 || strcmp(tok, "slash") == 0) {
         return tok;
     }
+    /* The manual screens (bead initech-ipu5.7, pubs/screens/keys.sh) type the
+     * full DOS command syntax: '=' (SET NAME=VALUE, IF a==b), '+' (shift-
+     * equal, ATTRIB +R), ',' and '<' (shift-comma, input redirection), '"'
+     * (shift-apostrophe). Ref: qapi/ui.json QKeyCode equal, comma, apostrophe. */
+    if (strcmp(tok, "equal") == 0 || strcmp(tok, "comma") == 0 ||
+        strcmp(tok, "apostrophe") == 0) {
+        return tok;
+    }
     /* '\' for an ABSOLUTE DOS path like "\SUB\GREET" (beads initech-zs24: the
      * subdir-EXEC oracle types an absolute program path at the shell). The QMP
      * QKeyCode name is "backslash". Ref: QMP send-key + qapi/ui.json. */
@@ -668,8 +676,9 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
      * 30+ tokens of "m<dx>:<dy>" and blew the old cap, which TRUNCATES -- i.e.
      * silently replays a PREFIX of a locked trace and grades the wrong scene.
      * The cap still exists and still shouts; it is simply above every trace the
-     * repo locks. */
-    char buf[1024];
+     * repo locks. 4096 since bead initech-ipu5.7: the manual screens type
+     * whole batch files through COPY CON. */
+    char buf[4096];
     /* Copy so we can tokenize in place. Oversized specs are truncated loudly. */
     size_t L = strlen(keys_spec);
     if (L >= sizeof(buf)) {
@@ -800,7 +809,7 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
 {
     int sent = 0;
     int left_down = 0;
-    char buf[1024];   /* see qmp_inject_keys: 256 truncated the R3.3 traces */
+    char buf[4096];   /* see qmp_inject_keys: 256 truncated the R3.3 traces */
     size_t L = strlen(mouse_spec);
     if (L >= sizeof(buf)) {
         fprintf(stderr, "[harness] --mouse spec too long (max %zu); truncating\n",
@@ -916,6 +925,32 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
  * Returns 1 if the marker was seen, 0 on timeout. Used as the robust "guest is
  * ready" trigger for key injection (beads initech-43b: --keys-after).
  */
+/* --screendump-after-count (bead initech-ipu5.7); set from the config by the
+ * run function before the QMP session, read only by the screendump wait. */
+static int g_screendump_after_count = 1;
+static int wait_for_serial_marker_n(const char *serial_path, const char *marker,
+                                    int budget_ms, int count)
+{
+    long long deadline = mono_ms() + budget_ms;
+    if (count < 1) {
+        count = 1;
+    }
+    for (;;) {
+        size_t len = 0;
+        char *txt = read_file(serial_path, &len);
+        if (txt) {
+            int hit = count_substr(txt, marker) >= count;
+            free(txt);
+            if (hit) {
+                return 1;
+            }
+        }
+        if (mono_ms() >= deadline) {
+            return 0;
+        }
+        sleep_ms(25);
+    }
+}
 static int wait_for_serial_marker(const char *serial_path, const char *marker,
                                   int budget_ms)
 {
@@ -1225,8 +1260,8 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                         "screendump captured\n",
                         screendump_after);
                 capture_ready = 0;
-            } else if (!wait_for_serial_marker(serial_path, screendump_after,
-                                               budget)) {
+            } else if (!wait_for_serial_marker_n(serial_path, screendump_after,
+                                                 budget, g_screendump_after_count)) {
                 fprintf(stderr,
                         "[harness] --screendump-after marker '%s' not seen "
                         "before deadline; no screendump captured\n",
@@ -1596,6 +1631,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         int qseen = 0;
         int after_end = 0;
         int first_dead = 0;
+        g_screendump_after_count = cfg->screendump_after_count;
         if (qmp_session(qmp_pair[0], sock_path, ppm,
                         want_keys ? cfg->keys_spec : NULL,
                         (want_keys || want_mouse) ? cfg->keys_after : NULL,

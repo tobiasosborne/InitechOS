@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>TYPE SAVE.BAT
+@ECHO OFF
+REM SAVE.BAT copies files with XCOPY and checks the exit code.
+XCOPY %1 %2
+IF ERRORLEVEL 1 ECHO Check the file names and try again.
+IF NOT ERRORLEVEL 1 ECHO The files were copied.
+
+A:\SAMPLES>SAVE A:\MEMO.TXT A:\KEEP\
+\MEMO.TXT
+1 File(s) copied
+The files were copied.
+A:\SAMPLES>SAVE A:\NOFILE.TXT A:\KEEP\
+0 File(s) copied
+Check the file names and try again.
+A:\SAMPLES>
+
+
+
+
+
+
+
+
+

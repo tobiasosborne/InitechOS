@@ -1,0 +1,42 @@
+# Screens for the InitechDOS 3.30 Reference (1024-3300-10), bead initech-ipu5.7.
+# name|serial marker[#count]|keystrokes (printf %b; \n = Enter, \\ = backslash)
+# The marker is text of the LAST command's output; #count is how many times it
+# has appeared on the serial mirror (typed keys echo there too) when the
+# screen is complete.  Regenerate with `make pubs-screens`; `make
+# test-pubs-screens` re-captures every screen and diffs it against the book.
+startup|SHELL-READY|
+attrib|Access denied|CLS\nATTRIB +R MEMO.TXT\nATTRIB *.TXT\nDEL MEMO.TXT\n
+attribs|A:\APPS\TREE.COM|CLS\nATTRIB /S *.COM\n
+break|BREAK is on#2|CLS\nBREAK\nBREAK OFF\nBREAK\nBREAK ON\n
+cd|A:\SAMPLES#4|CLS\nCD SAMPLES\nCD\nCD ..\nCD SAMPLES\n
+chkdsk|bytes free|CLS\nCHKDSK\n
+chkfile|bytes free|CLS\nCHKDSK MEMO.TXT\n
+copy|file(s) copied#3|CLS\nCOPY MEMO.TXT MEMO.BAK\nCOPY PHONE.TXT SAMPLES\nCOPY MEMO.TXT MEMO.TXT\n
+date|Current date is#3|CLS\nDATE\nDATE 3-16-92\nDATE 2-30-92\n
+del|File not found|CLS\nCOPY MEMO.TXT MEMO.BAK\nDEL *.*\nN\nDEL MEMO.BAK\nTYPE MEMO.BAK\n
+dir|bytes free|CLS\nDIR\n
+echo|The report is ready.#2|CLS\nECHO\nECHO The report is ready.\n
+label|Volume in drive A is REPORTS|CLS\nLABEL\nREPORTS\nVOL\n
+labelset|Invalid characters in volume label|CLS\nLABEL A:INITECH\nLABEL BAD.NAME\n
+md|bytes free|CLS\nMD REPORTS\nCD REPORTS\nDIR\n
+prompt|A:\>#3|CLS\nPROMPT $N$G\nPROMPT Ready$G\nPROMPT\n
+rd|Invalid path, not directory, or directory not empty|CLS\nMD TEMP\nRD TEMP\nRD SAMPLES\n
+ren|bytes free|CLS\nREN MEMO.TXT MEMO.OLD\nDIR\n
+set|DEPT=PUBS#2|CLS\nSET\nSET DEPT=PUBS\nSET\n
+setclr|PATH=A:\APPS|CLS\nSET DEPT=PUBS\nSET DEPT\nSET DEPT=\nSET DEPT\nSET\n
+time|Current time is|CLS\nTIME 13:45\n
+tree|None#2|CLS\nTREE\n
+treef|JUMP.BAT|CLS\nCD SAMPLES\nTREE \\SAMPLES /F\n
+type|555-0175|CLS\nTYPE PHONE.TXT\n
+ver|Version 3.30#2|CLS\nVER\n
+vol|Invalid drive specification|CLS\nVOL\nVOL B:\n
+xcopy|File(s) copied#2|CLS\nXCOPY *.TXT BACKUP\\\nXCOPY SAMPLES SAVED /S\nD
+xcopyp|File(s) copied|CLS\nXCOPY *.TXT A:\\KEEP\\ /P\nYNY
+call|The cover sheets are ready.#2|CLS\nCD SAMPLES\nTYPE COVER.BAT\nCOVER\n 
+echobat|Your report is due Friday.|CLS\nCD SAMPLES\nTYPE GREET.BAT\nGREET Peter Friday\n
+for|Reports are collected on WED.|CLS\nCD SAMPLES\nTYPE WEEK.BAT\nWEEK\n
+goto|Processing starts at the label START.#2|CLS\nCD SAMPLES\nTYPE JUMP.BAT\nJUMP\n
+if|cannot be found.#2|CLS\nCD SAMPLES\nTYPE CHECK.BAT\nCHECK GREET.BAT\nCHECK NOFILE.TXT\n
+iferr|Check the file names and try again.#2|CLS\nCD SAMPLES\nTYPE SAVE.BAT\nSAVE A:\\MEMO.TXT A:\\KEEP\\\nSAVE A:\\NOFILE.TXT A:\\KEEP\\\n
+shift|THREE#4|CLS\nCD SAMPLES\nTYPE SHOWALL.BAT\nSHOWALL ONE TWO THREE\n
+

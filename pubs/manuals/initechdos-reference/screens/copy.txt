@@ -1,0 +1,25 @@
+A:\>COPY MEMO.TXT MEMO.BAK
+        1 file(s) copied
+A:\>COPY PHONE.TXT SAMPLES
+        1 file(s) copied
+A:\>COPY MEMO.TXT MEMO.TXT
+File cannot be copied onto itself
+        0 file(s) copied
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

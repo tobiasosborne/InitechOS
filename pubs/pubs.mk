@@ -34,7 +34,7 @@ PUBS_DIR          := pubs
 PUBS_BUILD        := $(BUILD)/pubs
 PUBS_GEN          := $(PUBS_BUILD)/gen
 PUBS_SOURCES      := $(sort $(wildcard $(PUBS_DIR)/*.sh $(PUBS_DIR)/*.mk $(PUBS_DIR)/latexmkrc \
-                       $(PUBS_DIR)/class/* $(PUBS_DIR)/screens/*.sh $(PUBS_DIR)/screens/disk/* \
+                       $(PUBS_DIR)/class/* $(PUBS_DIR)/common/* $(PUBS_DIR)/screens/*.sh $(PUBS_DIR)/screens/disk/* \
                        $(PUBS_DIR)/manuals/*/*.tex $(PUBS_DIR)/manuals/*/screens/*))
 PUBS_MANUALS      := $(patsubst $(PUBS_DIR)/manuals/%/main.tex,%,$(wildcard $(PUBS_DIR)/manuals/*/main.tex))
 LUALATEX          ?= lualatex
@@ -44,6 +44,8 @@ PUBS_VGABIOS      ?= /usr/share/seabios/vgabios-stdvga.bin
 CONSOLE_TEXT_BIN  := $(BUILD)/console_text
 PUBS_MSGTABLE_BIN := $(BUILD)/pubs_msgtable
 PUBS_MSG_TEX      := $(PUBS_GEN)/dos_messages.tex
+PUBS_MSG_DEV_TEX  := $(PUBS_GEN)/dos_messages_device.tex
+PUBS_MSG_OTH_TEX  := $(PUBS_GEN)/dos_messages_other.tex
 export LATEXMK LUALATEX
 
 $(CONSOLE_TEXT_BIN): harness/console_text.c | $(BUILD)
@@ -53,6 +55,8 @@ $(PUBS_MSGTABLE_BIN): tools/pubs_msgtable.c | $(BUILD)
 $(PUBS_MSG_TEX): $(PUBS_MSGTABLE_BIN) spec/dos_messages.json
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json > $@.tmp && mv -f $@.tmp $@
+	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json device > $(PUBS_MSG_DEV_TEX).tmp && mv -f $(PUBS_MSG_DEV_TEX).tmp $(PUBS_MSG_DEV_TEX)
+	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json other > $(PUBS_MSG_OTH_TEX).tmp && mv -f $(PUBS_MSG_OTH_TEX).tmp $(PUBS_MSG_OTH_TEX)
 
 # Build all documents into $(1) (fresh), optional mode $(2) (mutant).
 define pubs-build-into
@@ -130,20 +134,32 @@ test-pubs-repro-mutant: $(PUBS_MSG_TEX)
 	@printf '>>> test-pubs-repro-mutant: green (timestamp-injected builds differ: '; \
 		cmp $(PUBS_BUILD)/mutant-a/initechdos-users-guide/main.pdf $(PUBS_BUILD)/mutant-b/initechdos-users-guide/main.pdf | tr -d '\n'; printf ')\n'
 
-# Screens: boot the shipped COMMAND.COM image (TRACER_IMG) per screen.
-PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)/screens/capture.sh $(PUBS_DIR)/screens/keys.sh
+# Screens: boot the shipped COMMAND.COM image (TRACER_IMG) per screen.  The
+# practice diskette (pubs/screens/disk/MANIFEST) carries the shipped external
+# utilities in APPS: the SAME binaries flair-data-rules plants in APPS on the
+# shipped data volume, staged here under their shipped names (initech-ipu5.7).
+PUBS_UTILS_DIR   := $(PUBS_BUILD)/utils
+PUBS_UTILS       := CHKDSK.COM=$(CHKDSK_PROG_BIN) ATTRIB.COM=$(ATTRIB_PROG_BIN) LABEL.COM=$(LABEL_PROG_BIN) \
+                    XCOPY.COM=$(XCOPY_PROG_BIN) TREE.COM=$(TREE_PROG_BIN)
+PUBS_UTILS_STAMP := $(PUBS_UTILS_DIR)/.staged
+$(PUBS_UTILS_STAMP): $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN)
+	@rm -rf $(PUBS_UTILS_DIR); mkdir -p $(PUBS_UTILS_DIR)
+	@for u in $(PUBS_UTILS); do cp $${u#*=} $(PUBS_UTILS_DIR)/$${u%%=*}; done
+	@touch $@
+PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)/screens/capture.sh $(PUBS_DIR)/screens/keys.sh \
+                    $(PUBS_UTILS_STAMP)
 pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; for m in $(PUBS_MANUALS); do \
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
 		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
-			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens/$$m; \
+			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens/$$m $(PUBS_UTILS_DIR); \
 		cp $(PUBS_BUILD)/screens/$$m/*.txt $$d/; \
 		printf '>>> pubs-screens: %s updated -- review `git diff %s`\n' "$$m" "$$d"; done
 test-pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; n=0; for m in $(PUBS_MANUALS); do \
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
 		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
-			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens-check/$$m; \
+			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens-check/$$m $(PUBS_UTILS_DIR); \
 		for t in $(PUBS_BUILD)/screens-check/$$m/*.txt; do \
 			diff -u $$d/$$(basename $$t) $$t || { printf '!!! test-pubs-screens FAIL: %s/%s: the OS no longer prints what the book shows\n' "$$m" "$$(basename $$t)"; exit 1; }; \
 			n=$$((n + 1)); done; \

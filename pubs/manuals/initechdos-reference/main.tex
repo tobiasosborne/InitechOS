@@ -1,0 +1,56 @@
+% InitechDOS Version 3.30 Reference -- part 1024-3300-10 (PUB-REF-0001 Sec 12,
+% DS row DOS-REF).  Family F-IBM; model IBM DOS 3.10 Reference (6138519),
+% docs/pubs/originals/ibm-dos.md Sec 7.1, 8.1, 8.5.  Bead initech-ipu5.7.
+% Ground truth (Law 1): os/milton/command.c (internal commands, messages),
+% os/milton/batch.c (batch subcommands), os/milton/config_sys.c + sysinit.c
+% (CONFIG.SYS), os/milton/dosutil.c, chkdsk.c, xcopy_tree.c (the external
+% utilities planted in APPS on the shipped data volume, Makefile
+% flair-data-rules), spec/dos_messages.json (Appendix A, generated).
+% Every example transcript is a capture of the running system:
+% screens/SCREENS, `make pubs-screens`; `make test-pubs-screens` re-proves it.
+% Every command entry registers its name in build/pubs/initechdos-reference/
+% main.cmds (initech-syntax.sty, GC-01).
+\documentclass[ibm]{initech-manual}
+
+\ProductName{InitechDOS}
+\ProductVersion{Version 3.30}
+\DocTitle{Reference}
+\PartNumber{1024-3300-10}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to Version 3.30 of InitechDOS and to all
+  subsequent releases until otherwise indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+
+\newcommand\bs{\textbackslash}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\ChapterTab{Introduction}
+\input{ch1-how-to-use}
+\ChapterTab{Commands}
+\input{ch2-commands}
+\ChapterTab{Configuring}
+\input{ch3-config}
+\ChapterTab{Batch Files}
+\input{ch4-batch}
+\appendix
+\ChapterTab{Messages}
+\input{appa-messages}
+\printindex
+\FinishBook
+\ReadersCommentForm
+\ReadersCommentForm
+\ReadersCommentForm
+\end{document}

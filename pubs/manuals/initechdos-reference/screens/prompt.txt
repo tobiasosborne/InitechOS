@@ -1,0 +1,25 @@
+A:\>PROMPT $N$G
+A>PROMPT Ready$G
+Ready>PROMPT
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

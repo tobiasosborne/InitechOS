@@ -1,0 +1,25 @@
+A:\>TYPE AUTOEXEC.BAT
+@ECHO OFF
+SET PATH=A:\APPS
+
+A:\>SET
+COMSPEC=A:\COMMAND.COM
+PROMPT=$P$G
+PATH=A:\APPS
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
