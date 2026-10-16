@@ -244,13 +244,11 @@ fallback, asserted on serial.)
 > k7lc, 5vmn, x5cc; a5sr (derive fixture contracts from FLAIR_DATA_%_IMG, rm the target on
 > verifier failure). (4) Remaining look batches: tdnl.98, film scene tdnl.102-.104, icons
 > tdnl.53; the chrome-controls residual (alert drop shadow). (5) 1z3o, L021.
-> **Owed to the operator:** (a) copy MINT06-20 from wordperfect51-decomp mint/work/WP51 into its
-> goldens/minted per re/mint-results-002.md and -003.md (the classifier refused the lanes'
-> writes under goldens/; md5s are in the ledgers); (b) the aul / gmo forced-close decision
-> (done, blocked only by a bookkeeping dep on open P0 f8v.4); (c) Law-4 eyeball of the clips
-> re-recorded tonight (i123_quit_guard, empty_trash, iword_codes, iword_block, scroll_look,
-> zoom_toggle) plus last night's eight; F16 rulings: the Word status line one column left of
-> WP 5.1 (Doc..Ln ends col 66, Pos col 68) and the /Range line cut at '...Trans  Sear'.
+> **Operator acceptance 2026-10-16 ~11:00 (bd memory operator-acceptance-2026-10-16):** all 14 clips
+> of WL-0104/WL-0114 eyeballed and accepted; the two F16 rulings accepted (Word status line one
+> column left of WP 5.1, /Range line cut at '...Trans  Sear'); MINT06-20 copied into
+> wordperfect51-decomp goldens/minted (3ebb783); aul / gmo force-closed. Nothing is owed to the
+> operator at this point; tdnl.99 / tdnl.100 / rgz1 wait only on their Bochs legs.
 
 > **CURRENT STATE (2026-10-15, WL-0104 -- THE FRONTIER NIGHT: FIFTEEN LANES MERGED, ONE LOOK
 > AUDIT, KERNEL HEADROOM RECOVERED. Supersedes every CURRENT STATE block below for "what to do
