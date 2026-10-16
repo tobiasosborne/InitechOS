@@ -174,6 +174,19 @@
 \definecolor{FamilyDecision}{cmyk}{0.90,0.12,0.95,0.40}
 \definecolor{FamilyOffice}{cmyk}{0,1,0.63,0.29}
 \definecolor{FamilyProgramming}{cmyk}{0.90,1,0,0.15}
+%% Initech identity (PUB-REF-0001 D-8 as revised by operator directive, PK-01;
+%% worklog WL-0132).  InitechCyan is THE Initech identity
+%% colour, measured on the logo's cube tops (RGB 87/177/159, #57B19F); the
+%% press build 62/0/34/8 is the CMYK whose proof rendering is nearest that
+%% sample (PK-01 shows the arithmetic).  It is the LINE colour of every
+%% colour piece (logo, title hairline, foot line band, slogan); family
+%% colours keep the family band.  Never inside a book (D-6): interiors use
+%% the one-colour logo, whose cube tops are InitechCubeMono (the cyan's
+%% luminance, 42 % black).  InitechCubeLight: the logo's light faces
+%% (RGB 213/212/212 = 16 % black).
+\definecolor{InitechCyan}{cmyk}{0.62,0,0.34,0.08}
+\definecolor{InitechCubeLight}{cmyk}{0,0,0,0.16}
+\definecolor{InitechCubeMono}{cmyk}{0,0,0,0.42}
 
 %% ---- folios and running foot ----------------------------------------------
 \RequirePackage{fancyhdr}
@@ -522,6 +535,10 @@
           \fontsize{7}{8}\selectfont\MakeUppercase{\im@tablabel}}}}}%
     \fi\fi}
 \fi
+
+%% ---- the Initech logo (PUB-REF-0001 D-8 revised; pubs/common) -------------
+\RequirePackage{tikz}
+\input{initech-logo.tex}
 
 %% ---- helpers -----------------------------------------------------------
 \RequirePackage{initech-syntax}
