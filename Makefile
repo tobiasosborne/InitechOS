@@ -31591,3 +31591,6 @@ TEST_EMU_GATES += test-samir-undefined-emu test-samir-undefined-emu-mutant
 
 # Physical two-file boot chain (initech-kod).
 include harness/diff/fat_diff/boot_system.mk
+
+# Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
+include harness/bochs_legs.mk
