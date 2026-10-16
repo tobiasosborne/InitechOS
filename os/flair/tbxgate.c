@@ -128,7 +128,9 @@ typedef struct tbx_slot {
     FlairApp     *app;          /* non-NULL once REGISTERed                   */
     uint32_t      evbuf;        /* validated flat FlairEvent address          */
     uint32_t      eventproc;    /* validated flat eventProc address           */
-    WindowRecord *win;          /* the V1 single window (token 1)             */
+    WindowRecord *win;          /* selected by the current drawing token     */
+    WindowRecord *wins[TBX_TENANT_WINDOWS]; /* creation-order opaque tokens */
+    uint8_t       nwins, ask_close[TBX_TENANT_WINDOWS];
     tbx_srgn_t   *sa, *sb;      /* draw-clip scratch                          */
     uint8_t       in_call;      /* tenant code is executing                   */
     uint8_t       in_update;    /* an updateEvt is being delivered            */
@@ -138,7 +140,6 @@ typedef struct tbx_slot {
     uint8_t       torn_down;    /* terminate/kill already ran (close hook)    */
     uint8_t       mbar_redraw;  /* DRAWMENUBAR asked for a band-2 redraw      */
     uint8_t       drew;         /* a draw verb reached the offscreen (8zii)   */
-    uint8_t       ask_close;    /* NEWWINDOW goAway == TBX_GOAWAY_ASK (fvnj)  */
     uint8_t       alert;        /* an ALERT waits for the pump (fvnj)         */
     uint8_t       alert_lines, alert_btns;
     char          alert_text[TBX_ALERT_LINES][TBX_ALERT_LINE_MAX];
@@ -363,15 +364,15 @@ static uint32_t color_px(uint32_t tok)
     return flair_look_pixel_depth(g_host.surface->bpp, part);
 }
 
-/* spec/toolbox_gate.h Sec 7: the run is the proportional Chicago 12 string
- * (the sum of the NFNT 5478 advances, bead initech-tdnl.33) in the tenant's
- * txFace (bead initech-tdnl.68), its bg box exactly the styled width and one
- * CHICAGO_CELL_H line tall -- the Font Manager's ONE clipped run. */
-static void draw_text(int32_t gx, int32_t gy, const char *s, unsigned face,
+/* spec/toolbox_gate.h Sec7: the selected proportional font in the tenant's
+ * txFace; its bg box is exactly the styled width and one font cell tall.
+ * PRD6.4/6.5 selects Geneva9 for Calc, Chicago12 remains the default.
+ * Both use the Font Manager's ONE clipped run. */
+static void draw_text(int32_t gx, int32_t gy, const char *s, text_font_t font, unsigned face,
                       uint32_t fg, uint32_t bg, const region_t *clip)
 {
     text_clip_t k = { clip, 0, 0, 0, 0, 0 };
-    (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s, FONT_CHICAGO,
+    (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s, font,
                         face, fg, bg, &k);
 }
 
@@ -442,7 +443,7 @@ static int32_t v_newwindow(const uint32_t *a)
     rgn_rect_t fr;
 
     if (app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
-    if (g_slot.win != (WindowRecord *)0) return TBX_ERR_BUSY;   /* V1 cap 1 */
+    if (g_slot.nwins == TBX_TENANT_WINDOWS) return TBX_ERR_BUSY;
     if (l < 0 || r > FLAIR_SCREEN_W || t < 2 * FLAIR_CHROME_MENUBAR_H ||
         b > FLAIR_SCREEN_H || r - l < 96 || b - t < 64 ||
         a[4] > TBX_GOAWAY_ASK)                    /* Sec 11: 0, 1 or 2 */
@@ -456,10 +457,10 @@ static int32_t v_newwindow(const uint32_t *a)
                                   (uint32_t)sizeof *rc);
     ru = (tbx_rgn_t *)flair_alloc(&app->records_arena, FLAIR_CLASS_REGION,
                                   (uint32_t)sizeof *ru);
-    g_slot.sa = (tbx_srgn_t *)flair_alloc(&app->records_arena,
+    if (g_slot.sa == 0) g_slot.sa = (tbx_srgn_t *)flair_alloc(&app->records_arena,
                                           FLAIR_CLASS_REGION,
                                           (uint32_t)sizeof(tbx_srgn_t));
-    g_slot.sb = (tbx_srgn_t *)flair_alloc(&app->records_arena,
+    if (g_slot.sb == 0) g_slot.sb = (tbx_srgn_t *)flair_alloc(&app->records_arena,
                                           FLAIR_CLASS_REGION,
                                           (uint32_t)sizeof(tbx_srgn_t));
     if (rec == 0 || rs == 0 || rc == 0 || ru == 0 || g_slot.sa == 0 ||
@@ -481,15 +482,21 @@ static int32_t v_newwindow(const uint32_t *a)
     rec->refCon  = (int32_t)(uintptr_t)app;   /* the demux key, Sec 3.1 */
     app->windows = rec;
     g_slot.win   = rec;
-    g_slot.ask_close = (uint8_t)(a[4] == TBX_GOAWAY_ASK);   /* Sec 11 */
+    g_slot.wins[g_slot.nwins] = rec;
+    g_slot.ask_close[g_slot.nwins++] = (uint8_t)(a[4] == TBX_GOAWAY_ASK);
     g_slot.affirm = 1u;                       /* DEC-AC3-4 */
-    return 1;                                 /* window token 1 (opaque) */
+    return (int32_t)g_slot.nwins;
 }
 
 static int check_win(uint32_t tok)
 {
-    return g_slot.app != (FlairApp *)0 && !g_slot.exit_req &&
-           g_slot.win != (WindowRecord *)0 && tok == 1u;
+    if (g_slot.app == 0 || g_slot.exit_req || tok < 1u || tok > g_slot.nwins)
+        return 0;
+    g_slot.win = g_slot.wins[tok - 1u];
+#ifdef TBX_MUT_TOKEN_ALIAS
+    g_slot.win = g_slot.wins[0]; /* Rule6: second token paints first window */
+#endif
+    return 1;
 }
 
 static int32_t v_setwtitle(const uint32_t *a)
@@ -508,13 +515,18 @@ static int32_t v_textdraw(const uint32_t *a)
     if (image_str(a[3], 81u) < 0) return TBX_ERR_BADARG;
     /* fg = colour token | txFace << 8 (spec Sec 7, bead initech-tdnl.68) */
     face = (a[4] >> TBX_TEXT_FACE_SHIFT) & 0xFFu;
-    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 16) != 0u ||
+    if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT || (a[4] >> 17) != 0u ||
         (face & ~TBX_TEXT_FACE_OK) != 0u || a[5] >= TBX_COLOR_COUNT)
         return TBX_ERR_BADARG;
     if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
     c = region_get_bbox(g_slot.win->contRgn);
+    text_font_t font = (a[4] & TBX_TEXT_GENEVA9) ? FONT_GENEVA9 : FONT_CHICAGO;
+#ifdef TBX_MUT_GENEVA_IGNORED
+    font = FONT_CHICAGO; /* Rule6: claims success but ignores requested font */
+#endif
     draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
-              (const char *)(uintptr_t)a[3], (unsigned)face,
+              (const char *)(uintptr_t)a[3],
+              font, (unsigned)face,
               color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());
     g_slot.drew = 1u;
     return TBX_OK;
@@ -1148,7 +1160,10 @@ const char *tbx_resident_name(void)
 
 int tbx_owns_window(const WindowRecord *w)
 {
-    return w != (const WindowRecord *)0 && g_slot.block != 0 && w == g_slot.win;
+    if (w == 0 || g_slot.block == 0) return 0;
+    for (uint32_t i = 0; i < g_slot.nwins; i++)
+        if (w == g_slot.wins[i]) return 1;
+    return 0;
 }
 
 /* Push a TBX_EVT_* the shell synthesizes (Sec 11): what + message, the rest 0
@@ -1170,9 +1185,13 @@ static int tenant_live(void)
 
 int tbx_close_ask(const WindowRecord *w)
 {
-    if (!tbx_owns_window(w) || !g_slot.ask_close || !tenant_live()) return 0;
-    push_evt((uint16_t)TBX_EVT_GOAWAY, 1u);
-    return 1;
+    if (!tbx_owns_window(w) || !tenant_live()) return 0;
+    for (uint32_t i = 0; i < g_slot.nwins; i++) {
+        if (w != g_slot.wins[i] || !g_slot.ask_close[i]) continue;
+        push_evt((uint16_t)TBX_EVT_GOAWAY, i + 1u);
+        return 1;
+    }
+    return 0;
 }
 
 int tbx_take_alert(const char *lines[TBX_ALERT_LINES], uint32_t *n,

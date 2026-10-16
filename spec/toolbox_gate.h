@@ -337,17 +337,28 @@
  * Face B is gated on it). TEXTDRAW's fg dword carries the colour token in bits
  * 0..7 and a QuickDraw txFace in bits 8..15 (grafport.h FLAIR_STYLE_*): only
  * bold 0x01, italic 0x02 and underline 0x04 are synthesized (os/flair/text.h);
- * any other face bit, or any bit 16..31, is TBX_ERR_BADARG -- an unsupported
+ * any other face bit, or any bit 17..31, is TBX_ERR_BADARG -- an unsupported
  * style fails loud, it is never drawn plain. The run's width is then the
  * STYLED width (bold adds 1 px per glyph); italic/underline do not change it.
  * fg < TBX_COLOR_COUNT (face 0) is exactly the V1 call. bg stays a bare token.
- * FILLRECT/DRAWCELLS colours are unchanged (bare tokens). */
+ * FILLRECT/DRAWCELLS retain their previous colour/style contracts. Bit16
+ * selects Geneva 9 for TEXTDRAW only (R4.6 extension below). */
 #define TBX_TEXT_FACE_SHIFT   8u
 #define TBX_TEXT_FACE(f)      ((uint32_t)(f) << TBX_TEXT_FACE_SHIFT)
 #define TBX_TEXT_BOLD         TBX_TEXT_FACE(0x01u)
 #define TBX_TEXT_ITALIC       TBX_TEXT_FACE(0x02u)
 #define TBX_TEXT_UNDERLINE    TBX_TEXT_FACE(0x04u)
 #define TBX_TEXT_FACE_OK      0x07u   /* the synthesized faces */
+/* R4.6 (initech-tdnl.20), PRD 6.4/6.5: the existing TEXTDRAW selects the
+ * Font Manager's Geneva 9 with bit16. Zero retains Chicago 12. Bits17..31
+ * remain invalid; DRAWCELLS retains its fixed-cell contract. */
+#define TBX_TEXT_GENEVA9      0x00010000u
+/* Same NEWWINDOW verb, bounded two-document tenant capacity. Tokens are
+ * stable creation-order 1..2, not a WindowPtr. All drawing/title verbs take
+ * either token. Both windows remain owned by the ONE admitted app and are
+ * reclaimed by the existing process teardown. Closing either asks with its
+ * token when goAway=ASK. Ref: PRD6.5 ledger + pie; window_record.h list. */
+#define TBX_TENANT_WINDOWS    2u
 
 /* ---------------------------------------------------------------------------
  * 7a. FIXED-CELL TEXT (TBX_DRAWCELLS; bead initech-w96l)

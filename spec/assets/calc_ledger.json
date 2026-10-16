@@ -1,0 +1,19 @@
+{
+  "_comment": "LOCKED spec-data; initech-tdnl.20. Source: InitechOS-PRD.md 6.5, Appendix A/B. Unknown cells are TODO_FRAME, never invented. ADR-0010 HER-11: no preview.webp oracle. Generate calc_ledger.h with tools/calc_ledger_gen.c.",
+  "schema_version": 1,
+  "ledger_row_count": "TODO_FRAME",
+  "ledger_column_count": "TODO_FRAME",
+  "ledger_column_headings": "TODO_FRAME",
+  "ledger_labels": ["Film Costs", "Matte Cutters", "Exacto Blades"],
+  "ledger_amounts": ["TODO_FRAME", "TODO_FRAME", "TODO_FRAME"],
+  "remaining_rows": "TODO_FRAME",
+  "footer_total_cents": 11227687,
+  "trailing_minus_value": -570,
+  "trailing_minus_cell_address": "TODO_FRAME",
+  "pie_slices": [40, 35, 18, 14, 9],
+  "pie_labels": ["TODO_FRAME", "TODO_FRAME", "TODO_FRAME", "TODO_FRAME", "TODO_FRAME"],
+  "paint_menu": "File Edit Image Layer Select View Window Help",
+  "copy_caption": "Saving tables to disk...",
+  "copy_rate_file": "michael_bolton.conf",
+  "copy_rate_key": "PROGRESS_BAR_RATE"
+}

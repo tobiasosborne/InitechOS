@@ -10080,8 +10080,8 @@ $(BUILD)/tenant/$(1).o0.elf: $(2) $(TBX_RT_SRC) $(TBX_HDRS) $(TENANT_LD) $(4) | 
 		o=$(BUILD)/tenant/$(1)/$$$$(basename $$$$s .c).o; \
 		$(KERNEL_CC) $(TENANT_CFLAGS) $(3) $(if $(filter os/i123/app/face_a.c,$(2)),-DI123_MENU_DISK -flto -ffunction-sections -fdata-sections -Oz -fno-jump-tables -fno-inline -fno-ipa-cp-clone -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2,) -c $$$$s -o $$$$o; objs="$$$$objs $$$$o"; \
 	done; \
-	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK0),$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=0) -o $$@ $$$$objs; \
-	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK1),$(LD) -m elf_i386 --no-warn-rwx-segments -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE)) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
+	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK0),$(LD) -m elf_i386 --no-warn-rwx-segments $(if $(filter os/apps/calc/calc.c,$(2)),--gc-sections,) -T $(TENANT_LD) --defsym=TBX_BASE=0) -o $$@ $$$$objs; \
+	$(if $(filter os/i123/app/face_a.c,$(2)),$(I123_LINK1),$(LD) -m elf_i386 --no-warn-rwx-segments $(if $(filter os/apps/calc/calc.c,$(2)),--gc-sections,) -T $(TENANT_LD) --defsym=TBX_BASE=$(TENANT_PROBE)) -o $(BUILD)/tenant/$(1).o1.elf $$$$objs
 $(BUILD)/tenant/$(1).exe: $(BUILD)/tenant/$(1).o0.elf $(MZLINK_BIN) | $(BUILD)
 	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o0.elf $(BUILD)/tenant/$(1).o0.bin
 	$(OBJCOPY) -O binary $(BUILD)/tenant/$(1).o1.elf $(BUILD)/tenant/$(1).o1.bin
@@ -10147,14 +10147,18 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # (cell 3; InitechWord, bead initech-l4tj -- $(IWORD_EXE), or a gate-local
 # variant). Appended LAST so cells 0-2 and every locked trace that reaches
 # them are unchanged.
+# R4.6 (initech-tdnl.20): CALC.EXE follows 123.MNU in cell5. All earlier
+# application cells remain fixed; stranded-folder and purge traces are re-keyed.
 # Every image this recipe mints is REGISTERED in FLAIR_DATA_RECIPE_IMAGES so
 # harness/fixture_volumes.mk can lint that each one carries a declared fixture
 # contract (bead initech-a5sr: three InitechWord mutant volumes merged with no
 # contract and were caught only at emu-gate time, 6865fc0 / 8080833).
 FLAIR_DATA_RECIPE_IMAGES :=
+# R4.6: append Calc after 123.MNU, preserving every existing launch cell.
+CALC_EXE := $(BUILD)/tenant/calc.exe
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CALC_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10170,7 +10174,8 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALC_EXE) ::APPS/CALC.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CALC.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
@@ -22703,7 +22708,8 @@ RECORD_SPEC_empty_trash   = $(FLAIR_EMPTY_OK_SPEC)
 # RE-KEY 2026-10-16: purged=5 -> purged=7 -- APPS gained 123.MNU (initech-uqah)
 # and WORD.EXE (initech-l4tj); README.TXT + APPS + its five files = 7, the
 # same count test-flair-empty-trash asserts (serial FINDER-TRASH-ALERT n=7).
-RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=7 refused=0
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=8 refused=0
+# R4.6: CALC.EXE adds one leaf (7 -> 8), initech-tdnl.20.
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
 # shutdown (bead initech-tdnl.78; Rule 14): the root window opens and is
@@ -22970,6 +22976,13 @@ RECORD_MARKER_trash_purge_views = FINDER-TRASH-VIEW-CLOSED win=3
 RECORD_IMAGE_trash_purge_views  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_trash_purge_views   = $(FLAIR_PURGE_VIEWS_DATA)
 RECORD_SETTLE_trash_purge_views = 500
+# Rule14: PM records on main after merge. Parse-time block MUST precede target.
+RECORD_SCRIPTS += calc_ledger
+RECORD_SPEC_calc_ledger = $(FLAIR_CALC_SPEC)
+RECORD_MARKER_calc_ledger = FLAIR-DISPATCH app=CALC
+RECORD_SETTLE_calc_ledger = 400
+RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -30864,6 +30877,8 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 	$(call alert-chrome-mutant-leg,fringe,BUTTON-CORNERS,CTRL_MUT_BTN_FRINGE)
 	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
 	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'
+
+include harness/frameapps.mk
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk

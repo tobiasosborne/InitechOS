@@ -36,12 +36,12 @@ if [ "$mode" = stage ]; then
     grep -qx 'FINDER-MOVE-REFUSED reason=locked name=README.TXT' "build/$name.serial" || fail 'protection-specific refusal missing'
 else
     # Re-keyed 2026-10-15 (initech-l4tj, initech-uqah): the data volume gained
-    # APPS\WORD.EXE and APPS\123.MNU, so the staged APPS folder holds five
-    # writable leaves and the purge count is 5.
-    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU; do
+    # APPS\WORD.EXE and APPS\123.MNU; R4.6 appends CALC.EXE. Six writable
+    # leaves are purged; the locked executable and its folder are refused.
+    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU TRASH/APPS/CALC.EXE; do
         if mdir -i "$img" "::$leaf" >/dev/null 2>&1; then fail 'writable purge control survived'; fi
     done
-    grep -qx 'FINDER-TRASH-EMPTIED purged=5 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
+    grep -qx 'FINDER-TRASH-EMPTIED purged=6 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
 fi
 grep -qx 'FINDER-LOCKED-ALERT' "build/$name.serial" || fail 'visible message missing'
 grep -q 'OK=1' "$out/emu.report" || fail 'emulator did not complete'
