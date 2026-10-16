@@ -59,4 +59,8 @@ sed 's/RETURN CODE 0\./RETURN CODE 9./' pubs/manuals/tps-report-generator/screen
 cmp -s "$m/tpsdone.txt" pubs/manuals/tps-report-generator/screens/tpsdone.txt && {
     printf '!!! test-pubs-mutant FAIL: the screen mutation changed nothing\n'; exit 1; }
 red CHANGED_TPS_SCREEN SCREEN-DRIFT "$gate" same SCREEN-DRIFT "$m/tpsdone.txt" "$root/build/pubs/screens-check/tps-report-generator/tpsdone.txt"
-printf '>>> test-pubs-mutant: green (6 TPS-manual mutants rejected by their gate legs)\n'
+# 7. A printed program file that no gate compares with the running program.
+{ cat "$book/main.reports"; printf '../../../harness/diff/tps/old_tpsrept.txt|1|4\n'; } > "$m/reports"
+red UNPROVED_REPORT_FILE REPORT-UNPROVED "$inv" reports "$m/reports" \
+    ../../../harness/diff/tps/tpsrept_expected.txt ../../../harness/diff/tps/tpsparm.dat ../../../spec/dos_banner.txt
+printf '>>> test-pubs-mutant: green (7 TPS-manual mutants rejected by their gate legs)\n'

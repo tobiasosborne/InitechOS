@@ -27,6 +27,10 @@
  *       four required places (COUNT-PLACEMENT).  Every other pair (TPSREP
  *       external) must be in the DOS shipped inventory, and TPSREP|external
  *       must be documented.
+ *   tps_inventory reports <book main.reports> <proved file>...
+ *       every file the book prints with \ReportLines (path|first|last) is
+ *       one of the proved files: a file a named gate compares byte for byte
+ *       with what the running program writes or reads (REPORT-UNPROVED).
  * Diagnostics are "!!! test-pubs RED <TAG>: ..." (the mutants grep them). */
 #include <stdio.h>
 #include <stdlib.h>
@@ -337,6 +341,29 @@ static void check(const char *inv, const char *cmds, const char *dos)
            "alignment count written in %d places; TPSREP documented)\n", ship.n, tpsdoc, draft.n, places.n);
 }
 
+static void reports(int argc, char **argv)
+{
+    char *t = readfile(argv[2]), *l = t;
+    int n = 0;
+    while (*l) {
+        char *e = strchr(l, '\n');
+        if (e) *e = 0;
+        if (*l) {
+            char *bar = strchr(l, '|');
+            int ok = 0;
+            if (!bar) die("REPORT-INDEX", argv[2], l);
+            *bar = 0;
+            for (int i = 3; i < argc; i++) if (!strcmp(l, argv[i])) ok = 1;
+            if (!ok) die("REPORT-UNPROVED", argv[2], l);
+            n++;
+        }
+        if (!e) break;
+        l = e + 1;
+    }
+    free(t);
+    printf(">>> test-pubs-tps: green (%d printed extracts of program files, each file compared with the running program by its gate)\n", n);
+}
+
 int main(int argc, char **argv)
 {
     if (argc == 3 && !strcmp(argv[1], "inventory")) {
@@ -360,6 +387,8 @@ int main(int argc, char **argv)
         printf("\\TpsDefineCount{%d}\n", count);
     } else if (argc == 5 && !strcmp(argv[1], "check")) {
         check(argv[2], argv[3], argv[4]);
-    } else die("USAGE", "tps_inventory", "inventory|tex <spec> | check <inventory> <cmds> <shipped>");
+    } else if (argc >= 4 && !strcmp(argv[1], "reports")) {
+        reports(argc, argv);
+    } else die("USAGE", "tps_inventory", "inventory|tex <spec> | check <inventory> <cmds> <shipped> | reports <list> <file>...");
     return 0;
 }

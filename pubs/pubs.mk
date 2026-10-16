@@ -249,10 +249,19 @@ test-pubs-commands: pubs-inventory test-pubs-build
 # shipped command.  DRAFT transcripts (decided, not yet shipped) are listed
 # on every run and must exist with their .keys.
 PUBS_TPS_GATE_DIR := $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK)
+# The files the book prints with \ReportLines (paths as the book names them,
+# from its own directory), each compared with the running program by a gate:
+# tpsrept_expected.txt == TPSREPT.TXT written on the flagship and under real
+# MS-DOS 6.22 (test-flair-tps-journey, test-tps-report leg A); tpsparm.dat is
+# the very file the Makefile plants as APPS\TPSPARM.DAT (FLAIR_TPSPARM_DAT)
+# and the one test-tps-report runs with; dos_banner.txt == the banner after
+# Exit to InitechDOS (test-flair-exit-to-dos leg 3).
+PUBS_TPS_PROVED := ../../../harness/diff/tps/tpsrept_expected.txt ../../../$(FLAIR_TPSPARM_DAT) ../../../spec/dos_banner.txt
 test-pubs-tps: test-pubs-build pubs-inventory $(PUBS_TPS_INV_BIN) $(PUBS_GATE)
 	@$(PUBS_TPS_INV_BIN) inventory spec/tps_ritual.json > $(PUBS_CHECK)/tps.inventory
 	@$(PUBS_TPS_INV_BIN) check $(PUBS_CHECK)/tps.inventory $(PUBS_TPS_GATE_DIR)/main.cmds $(PUBS_CHECK)/shipped
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(PUBS_TPS_GATE_DIR)/main.mentions
+	@$(PUBS_TPS_INV_BIN) reports $(PUBS_TPS_GATE_DIR)/main.reports $(PUBS_TPS_PROVED)
 	@set -e; n=0; while IFS='|' read -r f why; do [ -n "$$f" ] || continue; \
 		d=$(PUBS_DIR)/manuals/$(PUBS_TPS_BOOK); \
 		[ -f "$$d/$$f" ] && [ -f "$$d/$${f%.draft}.keys" ] || { printf '!!! test-pubs RED DRAFT-SCREEN-PAIR: %s/%s\n' "$$d" "$$f"; exit 1; }; \

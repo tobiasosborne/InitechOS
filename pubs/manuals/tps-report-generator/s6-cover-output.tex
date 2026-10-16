@@ -14,7 +14,7 @@
 % ships.
 % GATES: test-tps-report test-flair-tps-journey test-pubs-screens test-pubs-tps
 \Gates{test-tps-report, test-flair-tps-journey, test-pubs-screens, test-pubs-tps}
-\chapter{The Cover Sheet and the Records Retained}
+\chapter{The Cover Sheet and the Output}
 
 \SideHead{Introduction}When the memo has been acknowledged, the program asks
 whether the new cover sheet is attached.  Only when the operator answers
@@ -30,7 +30,7 @@ sheet, verify the report, and retain the records of the run.
 \end{enumerate}
 
 \section{The Cover Sheet Attestation}
-\index{cover sheet attestation}
+\index{cover sheet attestation}\index{Form TPS-1}\index{TPS-005@\texttt{TPS-005}}
 The program asks:
 \TpsDraftMsg{R5.prompt}{DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET, FORM TPS-1
   (REV. 10/89)? (Y/N) }{lane tpsr2, bead initech-5igf: the decided R5 prompt;
@@ -134,6 +134,7 @@ previous report retained:
   caption={A second run: the previous report is retained.}]{tpsbak}
 
 \section{After the Run}
+\index{post-run checklist}\index{operator sign-off sheet}\index{Form TPS-5}
 \begin{Checklist}{TPS-C-2}{Post-Run}
 \CheckItem{\texttt{RETURN CODE 0} was displayed.}
 \CheckItem{\rpt\ is listed in \file{A:\bs APPS}.}

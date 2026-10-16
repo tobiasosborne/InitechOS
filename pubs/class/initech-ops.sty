@@ -193,6 +193,11 @@
 \newwrite\tps@draftscreens
 \AtBeginDocument{\immediate\openout\tps@draftscreens=\jobname.draftscreens}
 \AtEndDocument{\immediate\closeout\tps@draftscreens}
+%% <job>.reports: every file \ReportLines prints from; test-pubs-tps admits
+%% only files that a named gate compares with the running program.
+\newwrite\tps@reports
+\AtBeginDocument{\immediate\openout\tps@reports=\jobname.reports}
+\AtEndDocument{\immediate\closeout\tps@reports}
 \newlength\tps@w
 \newif\iftps@wide
 \newcommand\OpsCallout[1]{\hbox to 6mm{\hss\colorbox{black}{\makebox[2.6mm]{%
@@ -272,6 +277,7 @@
   {
     \group_begin:
     \keys_set:nn { initech / ops } { #1 }
+    \immediate\write\tps@reports{#2|#3|#4}
     \directlua{initech_ops.report("\luaescapestring{#2}", #3, #4)}
     \__tps_caption:
     \group_end:

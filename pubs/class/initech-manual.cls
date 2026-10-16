@@ -346,7 +346,11 @@
     \im@folioform
     \setcounter{page}{1}%
   \fi
-  \FootTitle{#1}\gdef\im@footlabel{\im@chaptername\ \thechapter.\ }}
+  \FootTitle{#1}%
+  %% the label of the chapter being opened, fixed now: \appendix may change
+  %% the numbering before this chapter's last page ships.
+  \begingroup\advance\c@chapter by 1
+    \xdef\im@footlabel{\im@chaptername\noexpand\ \thechapter.\noexpand\ }\endgroup}
 \RenewDocumentCommand\chapter{s o m}{%
   \im@closeentry
   \IfBooleanTF{#1}
