@@ -10960,28 +10960,30 @@ test-flair-mouse: $(HARNESS_BIN) $(FLAIRLIVE_IMG)
 	@printf '======================================================================\n'
 
 # --- R0.1 EMU SCAFFOLD: visible final-LFB CursorMgr -----------------------
-# Orchestrator-owned first-person leg. The single relative move takes the Event
-# Manager's (320,240) start to hotspot (400,280). Capture is marker-gated AFTER
-# CursorMgr draws; the independent C grader probes the black tip and white mask.
+# Orchestrator-owned first-person leg. Two bounded moves take the Event
+# Manager's (320,240) start to the audit hotspot (500,380), on clear desktop.
+# Capture is marker-gated AFTER CursorMgr draws; the C grader compares every
+# ink/paper/clear cell against the independent M009 Mac crop.
 FLAIR_CURSOR_NAME   := flair_cursor
 FLAIR_CURSOR_SERIAL := $(BUILD)/$(FLAIR_CURSOR_NAME).serial
 FLAIR_CURSOR_REPORT := $(BUILD)/$(FLAIR_CURSOR_NAME).report
 FLAIR_CURSOR_PPM    := $(BUILD)/$(FLAIR_CURSOR_NAME).ppm
-FLAIR_CURSOR_SPEC   := m80:40
+FLAIR_CURSOR_SPEC   := m90:70,m90:70
+FLAIR_CURSOR_IMAGE  ?= $(FLAIRTENANTS_IMG)
 .PHONY: test-flair-cursor
-test-flair-cursor: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
+test-flair-cursor: $(HARNESS_BIN) $(FLAIR_CURSOR_IMAGE) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
 	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-cursor : R0.1 CursorMgr emu scaffold\n'
-	@printf '  Move center (320,240) -> hotspot (400,280); grade black tip + white outline.\n'
-	@printf '  beads initech-tdnl.1; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-cursor : M009 CursorMgr independent capture gate\n'
+	@printf '  Move center (320,240) -> hotspot (500,380); grade all 256 cells against the Mac OS 8 capture.\n'
+	@printf '  beads initech-tdnl.1/.98; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
 	@printf '======================================================================\n'
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
 	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
 	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" \
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_IMAGE)" --disk2 "$(FLAIR_GATE_DATA)" \
 		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_NAME)" --out "$(BUILD)" \
 		--mouse "$(FLAIR_CURSOR_SPEC)" --keys-after "FLAIR-LIVE-READY" \
-		--screendump --screendump-after "FLAIR-CURSOR x=400 y=280" --timeout-ms 15000 \
+		--screendump --screendump-after "FLAIR-CURSOR x=500 y=380" --timeout-ms 15000 \
 		2> "$(FLAIR_CURSOR_REPORT)" || true
 	@cat "$(FLAIR_CURSOR_REPORT)"
 	@if grep -q 'triple_fault=1' "$(FLAIR_CURSOR_REPORT)"; then \
@@ -10991,15 +10993,41 @@ test-flair-cursor: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FL
 		|| { printf '!!! test-flair-cursor FAIL: FLAIR-LIVE-READY missing\n'; exit 1; }
 	@grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(FLAIR_CURSOR_SERIAL)" \
 		|| { printf '!!! test-flair-cursor FAIL: FLAIR-FAT-MOUNT-OK missing\n'; exit 1; }
-	@grep -q '^FLAIR-CURSOR x=400 y=280$$' "$(FLAIR_CURSOR_SERIAL)" \
+	@grep -q '^FLAIR-CURSOR x=500 y=380$$' "$(FLAIR_CURSOR_SERIAL)" \
 		|| { printf '!!! test-flair-cursor FAIL: expected position marker missing\n'; grep '^FLAIR-CURSOR ' "$(FLAIR_CURSOR_SERIAL)" || true; exit 1; }
 	@if [ ! -s "$(FLAIR_CURSOR_PPM)" ]; then \
 		printf '!!! test-flair-cursor FAIL: marker-gated screendump missing\n'; exit 1; \
 	fi
-	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(FLAIR_CURSOR_PPM)" \
-		|| { printf '!!! test-flair-cursor FAIL: arrow tip/outline pixels absent\n'; exit 1; }
+	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(FLAIR_CURSOR_PPM)" $(CURSOR_CAPTURES) \
+		|| { printf '!!! test-flair-cursor FAIL: independent Mac arrow crop differs\n'; exit 1; }
 	@printf 'VERDICT   : PASS -- booted CursorMgr tracks the injected mouse position\n'
 	@printf '======================================================================\n'
+
+# M009 Rule-6 twin: same kernel, locked trace and grader; swap cursor.o only.
+$(BUILD)/cursor_mut_squared_stem.o: os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CURSOR_OPT) -DCURSOR_MUT_SQUARED_STEM -Ios/flair -Ispec/assets -c $< -o $@
+
+$(BUILD)/kernel_flairtenants_mut_cursor_squared.elf: $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o $(KERNEL_LD) | $(BUILD)
+	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o
+
+$(BUILD)/kernel_flairtenants_mut_cursor_squared.bin: $(BUILD)/kernel_flairtenants_mut_cursor_squared.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	[ "$$sz" -le "$$max" ] || { printf '!!! M009 mutant kernel exceeds load window\n'; exit 1; }; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,cursor-squared-mutant)
+
+$(BUILD)/flair_tenants_mut_cursor_squared.img: $(FLAIRTENANTS_IMG) $(BUILD)/kernel_flairtenants_mut_cursor_squared.bin
+	cp -f $(FLAIRTENANTS_IMG) $@
+	@dd if=$(BUILD)/kernel_flairtenants_mut_cursor_squared.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+
+.PHONY: test-flair-cursor-mutant
+test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img
+	@rc=0; $(MAKE) --no-print-directory test-flair-cursor FLAIR_CURSOR_IMAGE=$(BUILD)/flair_tenants_mut_cursor_squared.img FLAIR_CURSOR_NAME=flair_cursor_mut_squared \
+		>$(BUILD)/flair_cursor_mut_squared.log 2>&1 || rc=$$?; \
+	[ "$$rc" -ne 0 ] && grep -qF 'RED M009 hotspot=(500,380) 48/256 differing cells' $(BUILD)/flair_cursor_mut_squared.log \
+		|| { cat $(BUILD)/flair_cursor_mut_squared.log; printf '!!! test-flair-cursor-mutant FAIL: old strike did not fail on the independent crop\n'; exit 1; }; \
+	printf '>>> test-flair-cursor-mutant: green (CURSOR_MUT_SQUARED_STEM RED -- 48/256 cells against Mac capture)\n'
 
 .PHONY: test-flair-mouse-mutant
 test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_MUT_EOI_IMG)
@@ -11150,8 +11178,8 @@ $(PPM_FLAIR_APPSWITCH_CHECK_BIN): $(PPM_FLAIR_APPSWITCH_CHECK_SRC) spec/flair_te
 $(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_demo.h spec/assets/color_canon.h spec/chrome_metrics.h os/flair/menu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec -Ispec/assets -Ios/flair -o $@ $<
 
-$(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) | $(BUILD)
-	$(CC) $(CFLAGS) -o $@ $<
+$(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) harness/render/cursor_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/render -o $@ $< -lpng
 
 # The R3.2 desktop-icon grader needs ONLY the independent canon (-Ispec/assets).
 # It must NOT gain -Ios/flair or -Ispec/assets/desk_icons.h consumers: its
@@ -12521,32 +12549,42 @@ test-palette-seafoam-mutant: $(TEST_PALETTE_SEAFOAM_MUT)
 TEST_CURSOR              := $(BUILD)/test_cursor
 TEST_CURSOR_MUT_NO_ERASE := $(BUILD)/test_cursor_mut_no_erase
 TEST_CURSOR_MUT_HOTSPOT  := $(BUILD)/test_cursor_mut_hotspot
+TEST_CURSOR_MUT_SQUARED  := $(BUILD)/test_cursor_mut_squared_stem
 TEST_CURSOR_SRC          := harness/proptest/test_cursor.c
-TEST_CURSOR_DEPS         := $(TEST_CURSOR_SRC) os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h
-CURSOR_INC               := -Ios/flair -Ispec/assets -Iseed
+TEST_CURSOR_DEPS         := $(TEST_CURSOR_SRC) harness/render/cursor_capture.h os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h
+CURSOR_INC               := -Ios/flair -Ispec/assets -Iseed -Iharness/render
+CURSOR_CAPTURES = "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/captures/s8_desktop_menubar.png"
 CURSOR_LINK              := os/flair/cursor.c
 
 $(TEST_CURSOR): $(TEST_CURSOR_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK) -lpng
 
 $(TEST_CURSOR_MUT_NO_ERASE): $(TEST_CURSOR_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_NO_ERASE $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_NO_ERASE $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK) -lpng
 
 $(TEST_CURSOR_MUT_HOTSPOT): $(TEST_CURSOR_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_HOTSPOT $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_HOTSPOT $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK) -lpng
+
+# M009: restore the entire old squared strike (48/256 differing cells).
+$(TEST_CURSOR_MUT_SQUARED): $(TEST_CURSOR_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCURSOR_MUT_SQUARED_STEM $(CURSOR_INC) -o $@ $(TEST_CURSOR_SRC) $(CURSOR_LINK) -lpng
 
 .PHONY: test-cursor test-cursor-mutant
 test-cursor: $(TEST_CURSOR)
 	@printf ">>> test-cursor: 500 clipped save-under restores + hotspot/golden + shield nesting + move erase\n"
-	@$(TEST_CURSOR)
+	@$(TEST_CURSOR) $(CURSOR_CAPTURES)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CURSOR_OPT) $(CURSOR_INC) -c os/flair/cursor.c -o $(BUILD)/cursor_freestanding.o \
 		|| { printf '!!! test-cursor FAIL: cursor.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-cursor: green\n"
 
-test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT)
-	@printf ">>> test-cursor-mutant: confirming both CursorMgr mutants go RED (Rule 6)\n"
-	@if $(TEST_CURSOR_MUT_NO_ERASE) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_NO_ERASE PASSED -- the trail oracle is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_NO_ERASE correctly RED)\n'; fi
-	@if $(TEST_CURSOR_MUT_HOTSPOT) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_HOTSPOT PASSED -- the independent position golden is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_HOTSPOT correctly RED)\n'; fi
+test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT) $(TEST_CURSOR_MUT_SQUARED)
+	@printf ">>> test-cursor-mutant: confirming CursorMgr mutants go RED (Rule 6)\n"
+	@if $(TEST_CURSOR_MUT_NO_ERASE) $(CURSOR_CAPTURES) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_NO_ERASE PASSED -- the trail oracle is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_NO_ERASE correctly RED)\n'; fi
+	@if $(TEST_CURSOR_MUT_HOTSPOT) $(CURSOR_CAPTURES) >/dev/null 2>&1; then printf '!!! test-cursor-mutant FAIL: CURSOR_MUT_HOTSPOT PASSED -- the independent position golden is decoration\n'; exit 1; else printf '>>> test-cursor-mutant: green (CURSOR_MUT_HOTSPOT correctly RED)\n'; fi
+	@rc=0; $(TEST_CURSOR_MUT_SQUARED) $(CURSOR_CAPTURES) >$(BUILD)/cursor_mut_squared_stem.log 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 1 ] && grep -qxF 'cursor M009 RED: 48/256 differing cells (zero tolerance)' $(BUILD)/cursor_mut_squared_stem.log \
+		|| { cat $(BUILD)/cursor_mut_squared_stem.log; printf '!!! test-cursor-mutant FAIL: squared stem did not fail on the independent crop\n'; exit 1; }; \
+	printf '>>> CURSOR_MUT_SQUARED_STEM: RED -- 48/256 differing cells against Mac capture\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-desk-icons (bead initech-tdnl.9; GUI remediation R3 Finder).
@@ -29745,7 +29783,7 @@ TEST_EMU_GATES := \
 	test-samir-audit-emu test-samir-input-emu test-samir-audit-emu-mutant test-samir-input-emu-mutant \
 	test-samir-report-emu test-samir-report-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
-	test-flair-cursor \
+	test-flair-cursor test-flair-cursor-mutant \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \
 	test-harness test-tracer-boot test-boot-bochs test-bochs-concurrent test-bochs-concurrent-mutant test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \

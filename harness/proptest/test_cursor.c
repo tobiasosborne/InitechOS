@@ -8,9 +8,9 @@
  *      cursor ('CURS') resource layout (16 data words, 16 mask words, MSB-left,
  *      then hotspot). CLAUDE.md Law 2 / Rules 1, 6, 11, and 12.
  *
- * INDEPENDENCE (Law 2): the canonical-position golden below has its own literal
- * strike and a deliberately trivial reference blitter. It never reads the
- * implementation tables and never calls CursorMgr to compute expected pixels.
+ * M009 (initech-tdnl.98): expected cells are recovered at runtime from the
+ * independent Mac OS 8 captures (cursor_capture.h), never artifact constants.
+ * A trivial reference blitter also checks clipping, placement and restoration.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -19,50 +19,15 @@
 
 #include "cursor.h"
 #include "test_assert.h"
+#include "cursor_capture.h"
 
 TEST_HARNESS();
 
 enum { FB_W = 48, FB_H = 40, CURS_DIM = 16 };
 
-/* Independent copy of the clean-room R0.1 golden. '#' = black data bit.
- * The mask-only white outline is carried separately below. */
-static const uint16_t golden_data[CURS_DIM] = {
-    0x0000u, /* ................ */
-    0x4000u, /* .#.............. */
-    0x6000u, /* .##............. */
-    0x7000u, /* .###............ */
-    0x7800u, /* .####........... */
-    0x7C00u, /* .#####.......... */
-    0x7E00u, /* .######......... */
-    0x7F00u, /* .#######........ */
-    0x7F80u, /* .########....... */
-    0x7FC0u, /* .#########...... */
-    0x7C00u, /* .#####.......... */
-    0x6C00u, /* .##.##.......... */
-    0x4C00u, /* .#..##.......... */
-    0x0C00u, /* ....##.......... */
-    0x0C00u, /* ....##.......... */
-    0x0000u  /* ................ */
-};
-
-static const uint16_t golden_mask[CURS_DIM] = {
-    0xE000u, /* ooo............. */
-    0xF000u, /* o#oo............ */
-    0xF800u, /* o##oo........... */
-    0xFC00u, /* o###oo.......... */
-    0xFE00u, /* o####oo......... */
-    0xFF00u, /* o#####oo........ */
-    0xFF80u, /* o######oo....... */
-    0xFFC0u, /* o#######oo...... */
-    0xFFE0u, /* o########oo..... */
-    0xFFE0u, /* o#########o..... */
-    0xFFE0u, /* o#####ooooo..... */
-    0xFE00u, /* o##o##o......... */
-    0xFE00u, /* o#oo##o......... */
-    0xFE00u, /* oooo##o......... */
-    0x1E00u, /* ...o##o......... */
-    0x1E00u  /* ...oooo......... */
-};
+/* Re-keyed from the independent capture pair, not spec/assets/cursors.h. */
+static uint16_t golden_data[CURS_DIM];
+static uint16_t golden_mask[CURS_DIM];
 
 static uint32_t rng_state = 0xC0750A11u;
 
@@ -93,7 +58,7 @@ static void reference_put(uint8_t *fb, uint32_t pitch, uint32_t bpp,
     }
 }
 
-/* Trivial independent CURS blitter: fixed 16x16 loops, literal hotspot (1,1),
+/* Trivial independent CURS blitter: fixed 16x16 loops, captured hotspot (1,1),
  * mask 0 leaves the destination unchanged, data selects black vs white. */
 static void reference_draw(uint8_t *fb, uint32_t pitch, uint32_t bpp,
                            int w, int h, int x, int y)
@@ -170,8 +135,17 @@ static void canonical_golden_and_hotspot(void)
 
     flair_cursor_init(fb, pitch, FB_W, FB_H, bpp);
     flair_cursor_show(x, y);
+    int differences = 0;
+    for (int row = 0; row < 16; row++) {
+        for (int col = 0; col < 16; col++) {
+            size_t off = (size_t)(y - 1 + row) * pitch + (size_t)(x - 1 + col) * 4u;
+            differences += memcmp(fb + off, expected + off, 4) != 0;
+        }
+    }
+    printf("cursor M009 %s: %d/256 differing cells (zero tolerance)\n",
+           differences ? "RED" : "PASS", differences);
     CHECK(memcmp(fb, expected, size) == 0,
-          "CursorMgr matches the independent canonical-position golden");
+          "CursorMgr matches the independent Mac capture, every ink/paper/clear cell");
 
     for (int py = 0; py < FB_H; py++) {
         for (int px = 0; px < FB_W; px++) {
@@ -259,8 +233,21 @@ static void move_restores_old_site(void)
     free(fb);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    char cells[256];
+    if (argc != 3) {
+        fprintf(stderr, "usage: %s s8_alert_modal.png s8_desktop_menubar.png\n", argv[0]);
+        return 2;
+    }
+    if (cursor_capture_cells(argv[1], argv[2], cells)) return 2;
+    for (int row = 0; row < 16; row++) {
+        for (int col = 0; col < 16; col++) {
+            char cell = cells[row * 16 + col];
+            if (cell == '#') golden_data[row] |= (uint16_t)(0x8000u >> col);
+            if (cell != '.') golden_mask[row] |= (uint16_t)(0x8000u >> col);
+        }
+    }
     property_show_hide();
     canonical_golden_and_hotspot();
     shield_nesting();
