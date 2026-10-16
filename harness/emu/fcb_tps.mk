@@ -278,3 +278,5 @@ tps-mint-realdos: $(TPSREP_BIN16) $(TPS_FIXTURES)
 	@for f in tps_a_expected.txt tpsrept_expected.txt tps_b_expected.txt tps_c_expected.txt; do \
 	  cmp -s $(TPS_MINT_DIR)/$$f $(TPS_DIR)/$$f && printf '>>> tps-mint-realdos: %s reproduces the committed golden\n' $$f \
 	  || printf '!!! tps-mint-realdos: %s DIFFERS from the committed golden (%s)\n' $$f $(TPS_MINT_DIR)/$$f; done
+
+TEST_EMU_GATES += test-fcb-api test-fcb-api-mutant test-tps-report test-tps-report-mutant
