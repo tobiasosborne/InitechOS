@@ -203,6 +203,74 @@ fallback, asserted on serial.)
 
 ## 5. Branch state + next work (resume here)
 
+> **CURRENT STATE (2026-10-17, WL-0131 -- THE THIRD NIGHT: GOING WIDE. Supersedes every
+> CURRENT STATE block below for "what to do next".)**
+>
+> **Certificate:** NOT run tonight. Every lane's family + mutants and the volume re-key gates
+> (finder-service, locked-purge, empty-trash, app-launch) were run first-person on main after
+> each merge; the function-key tenants (iword/i123) after the kbd change; RTC-sensitive gates
+> after the harness default. FIRST ACTION NEXT SESSION: `df -h /`, then `make clean && make test`
+> in ../initech-os-cert at main HEAD, then close the in_progress beads listed in WL-0131 and
+> run the owed Bochs legs (initech-cqej lists them).
+>
+> **Operator directives 2026-10-16 22:00 (`bd memories operator-directives-2026-10-16`):** go WIDE
+> to the north star; the MANUALS programme (epic initech-ipu5) is a product line: print quality,
+> mirrored on the originals, correctness enforced by `make test-pubs`, lockstep with the software;
+> burn the whole Claude AND Codex weekly quota, Fable and Claude at the same rate; Opus codes,
+> Sonnet busywork, Codex gpt-6.1-sol review/coding/computer use, astra occasionally; smaller apps
+> one-shot by Opus/sol; ZENO WARNING against review loops. The TPS Report Generator gets its own
+> operating-procedures manual (initech-ipu5.14); its busywork rituals are specified behaviour.
+>
+> **Landed tonight (merge order; WL-0131):** alert-chrome gates into the vector + Bochs leg;
+> CHKDSK; menu-bar clock (+ DELIBERATE chicago12.art 11 px, WL-0115); ATTRIB/LABEL/VOL; SAMIR
+> USE/INDEX/NEXT/SET-leak fixes (mint 005); XCOPY/TREE; the pubs toolchain (`make pubs`,
+> byte-reproducible 7x9in LuaLaTeX, real decoded console screens, 32-page InitechDOS specimen);
+> InitechCalc (shared i123 core, LOCKED calc_ledger.json, 116% pie); FCB API 0Fh-24h in full +
+> TPSREP.COM with the five rituals (goldens from REAL MS-DOS 6.22 under dosbox-x); the Initech
+> Publications Design Reference PUB-REF-0001 from seven page-cited annexes of the originals;
+> EDLIN; MBR partition mount (DEC-07a contract); DOS 3.3 parity (date stamps, DIR args, PATH,
+> startup date/time prompts); InitechWord P2 slice 3 (MINT21..32); SAMIR LIST/DISPLAY layout
+> byte-exact (mint 005); the harness pins the guest RTC by default (--rtc-wall opts out) and
+> record-flair pins it too; InitechText (TextEdit surface, desk Scrap, Standard File, TEXT.EXE);
+> the film scene runs the real InitechCalc windows; the pubs correctness gates (`make test-pubs`,
+> 11 mutants); the IO.SYS/INITDOS.SYS two-file split with EVERY boot image through the boot-system
+> tool; kernel size round 3 (headroom ~24.6 KB); FILE COPY + InitechPaint (Platinum bar from a real
+> Mac OS 8.1 copy); Exit to InitechDOS + the TPS journey (transient COMMAND.COM in the system area
+> past the FAT boot image, TRANSIENT_LBA 2944; --undefined response file keeps its imports under
+> LTO); arrow cursor; SAMIR error 12; COPY keeps the source stamp; the InitechDOS manuals pilot
+> (Reference 108 pp + User's Guide 88 pp); menu divider + InitechText scroll; DOS messages
+> (Ctrl-Break, not-ready) + test-qemu-paths; DEC-13 source purity; Calculator DA + Apple menu.
+> APPS holds TWENTY files. Clip determinism: record-image kernels keep a steady console cursor
+> and step the FILE COPY bar per injected event (shipped kernel untouched). `make test-pubs` is
+> RED for ALLOWLIST-GROWTH (CALCULAT) until two commits carry the row -- by design.
+>
+> **How lanes ran (keep doing this):** Codex gpt-6.1-sol lanes in sibling clones
+> `../initech-os-<name>` with `INITECH_QMP_STDIO=1`, launched `codex exec ... </dev/null` in the
+> background, briefs in the PM scratchpad (COMMON.md / COMMON-FLAIR.md headers + lane scope);
+> they do NOT commit (the PM commits on `lane/<name>` after an ism skim: getenv, /home, non-ASCII,
+> 2026); they stop honestly on missing goldens (progress bar, floppy icon) or precedence questions
+> (EDLIN rule vs printed example) and the PM decides + relaunches, or re-routes to an Opus lane
+> that can MINT in the decomp repos. Opus lanes in `.claude/worktrees/lane-<name>` or sibling
+> clones. The PM merges serially on main (one build dir), resolves the volume re-key conflicts
+> with the scratchpad resolve.py (cell n centre = 75+68*(n%4), 122+52*(n/4); parks keep absolute
+> targets), re-runs each family + the re-key gates, records clips (repro-proven), closes beads.
+> `git add` with explicit paths on main while a writing lane works in the main tree.
+>
+> **NEXT:** (0) the certificate (`make clean && make test` in ../initech-os-cert at main HEAD);
+> (1) the Bochs legs owed (cqej lists sixteen); (2) the manuals: ipu5.14 (the TPS Report
+> Generator Operating Procedures manual, rituals from spec/tps_ritual.json), ipu5.8-.13;
+> (4) design decision initech-aai2 (physical block-device contract; unblocks FDISK, DISKCOPY,
+> FORMAT B:, SYS); (5) APPS overflow / \DOS folder (initech-zc68); COMMAND.COM as a file (initech-e9sx); kernel
+> headroom round 4 if a lane breaches (initech-tode);
+> (6) Finder icon art (tdnl.53) needs an Opus mint lane; Note Pad/Scrapbook (tdnl.18), Control
+> Panels (tdnl.19), Puzzle, Key Caps as one-shot lanes.
+> **Owed to the operator:** Law-4 eyeball of the new clips in build/clips/ (calc_ledger,
+> menubar_clock, iword_format and the three re-recorded iword clips, itext_edit, itext_savefile,
+> film_scene, file_copy, paint_bar, tps_journey, itext_scroll, apple_menu, calculator); the film still is private: fill
+> the TODO_FRAME cells of spec/assets/calc_ledger.json from it (or say the PRD values suffice);
+> rulings: progress-bar colour (measured lavender -> teal per OQ-2, PM ruled teal), LEDGER.TXT +
+> MICHAEL.CFG in APPS (PM ruled yes), the loader CWD inheritance (PM ruled DOS-correct).
+>
 > **CURRENT STATE (2026-10-16 ~04:30, WL-0114 -- THE SECOND NIGHT: SEVEN LANES MERGED, TWO
 > CERTIFICATES, THE ORACLE BIT REAL LOTUS. Supersedes every CURRENT STATE block below for "what
 > to do next".)**
