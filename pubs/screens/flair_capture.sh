@@ -95,11 +95,21 @@ while IFS='|' read -r name marker crop proves image; do
           img=$stepimg ;;
     *) printf '!!! test-pubs RED SCREEN-KEYS: %s: image "%s" is not empty, step or nodisk\n' "$name" "$image"; exit 1 ;;
     esac
-    "$runner" --disk "$img" $d2 --name "$name" --out "$out" \
-        --mouse "$spec" --keys-after FLAIR-LIVE-READY --timeout-ms 90000 \
-        --screendump --screendump-after "$marker" --screendump-after-count "$count" \
-        --rtc-base 1992-03-02T09:30:00 \
-        < /dev/null 2> "$out/$name.report" || true
+    # A run whose marker never reaches serial is tried once more (a PS/2
+    # packet lost by a loaded host leaves the trace short); whatever the
+    # attempt, the capture is still compared byte for byte by the gate.
+    for attempt in 1 2; do
+        rm -f "$out/$name.ppm" "$out/$name.serial"
+        cp -f "$data" "$work"
+        "$runner" --disk "$img" $d2 --name "$name" --out "$out" \
+            --mouse "$spec" --keys-after FLAIR-LIVE-READY --timeout-ms 90000 \
+            --screendump --screendump-after "$marker" --screendump-after-count "$count" \
+            --rtc-base 1992-03-02T09:30:00 \
+            < /dev/null 2> "$out/$name.report" || true
+        [ -s "$out/$name.ppm" ] && break
+        grep -q 'triple_fault=1' "$out/$name.report" && break
+        [ "$attempt" = 1 ] && printf '>>> flair_capture.sh: %s: marker not reached, capturing again\n' "$name"
+    done
     if grep -q 'triple_fault=1' "$out/$name.report"; then
         printf '!!! flair_capture.sh FAIL: %s: triple fault\n' "$name"; exit 1
     fi

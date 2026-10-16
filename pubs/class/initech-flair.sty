@@ -251,8 +251,10 @@ end
 \newcommand\Solution{\par\addvspace{1pt}\noindent\textit{Solution \arabic{im@cause}:}\enspace\ignorespaces}
 
 %% ---- glossary (AN-14 / AN-23 F-MAC) ----------------------------------------
-\newcommand\GlossaryTerm[2]{\par\addvspace{4pt}\noindent\hangindent=1.5em
-  {\sffamily\bfseries #1}\enspace #2\par}
+%% \GlossaryTerm{term}definition... (the definition runs on to the next
+%% \GlossaryTerm or the end of the paragraph).
+\newcommand\GlossaryTerm[1]{\par\addvspace{4pt}\noindent\hangindent=1.5em
+  {\sffamily\bfseries #1}\enspace\ignorespaces}
 %% A defined term at first use (TY-02); every one is in the Glossary.
 \newcommand\term[1]{\textbf{#1}}
 %% Menu paths in prose (NT-14): "Choose Open from the File menu".
@@ -283,6 +285,8 @@ end
   \fancyfoot[RO,LE]{\imFolioFont\thepage}%
   \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}%
   \fancyfoot[LO,RE]{\imFootFont\iffl@numbered\im@chaptername\ \thechapter: \fi\im@foottitle}}
+%% fancyhdr fixes a style when \pagestyle selects it: select it again.
+\pagestyle{im@text}
 \NewCommandCopy\fl@origchapterhook\im@chapterhook
 \renewcommand\im@chapterhook[1]{\global\fl@numberedtrue\fl@origchapterhook{#1}}
 \NewCommandCopy\fl@origFrontChapter\FrontChapter
