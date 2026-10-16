@@ -1220,6 +1220,19 @@ static void leg_power(void)
     CHECK(o != NULL && o->id == FCMD_RESTART && o->status == FINDER_WIN_OK &&
           o->moved == 1 && vr != NULL && vr->x == 200 && vr->y == 150,
           "O15 Special > Restart notes the moved ROOT frame (200,150) the same way");
+
+    /* bead initech-3p1a: Special > Exit to InitechDOS leaves the desktop by
+     * the SAME put-everything-away path (the kernel commits DESKTOP.DB before
+     * the console hand-off), so it notes the moved ROOT frame exactly the same
+     * way and leaves the windows open for the kernel. */
+    MoveWindow(&S.wm, &S.sh.windows[ROOT].rec, 210, 160);
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 10u, "mouse");  /* Exit DOS */
+    o = finder_shell_take_outcome(&S.sh);
+    vr = finder_shell_find_view(&S.sh, CL_ROOT);
+    CHECK(o != NULL && o->id == FCMD_EXIT_DOS && o->status == FINDER_WIN_OK &&
+          o->moved == 1 && vr != NULL && vr->x == 210 && vr->y == 160 &&
+          S.sh.windows[ROOT].open,
+          "O15 Special > Exit to InitechDOS notes the moved ROOT frame (210,160) the same way");
 }
 
 /* L118: attributes come from the live binding, after the window was built.

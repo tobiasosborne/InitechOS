@@ -173,10 +173,11 @@ struct psp *int21_get_psp(void);
  * a psp_t field -- psp_t is LOCKED spec with sizeof==256). Until the CHDIR writer
  * (AH=3Bh, beads initech-u6wa) lands the CWD never leaves the root, but the
  * read-side plumbing is established now:
- *   int21_cwd_reset   : set the CWD to the root. The loader calls it on each
- *                       program launch (beside int21_mcb_reset); do_terminate
- *                       calls it on exit. So a freshly loaded program starts at
- *                       the root and a child's CWD never leaks on terminate.
+ *   int21_cwd_reset   : set the CWD to the root. do_terminate calls it on
+ *                       exit, so a child's CWD never leaks on terminate. A
+ *                       freshly loaded program starts in the drive's CURRENT
+ *                       directory (bead initech-3p1a: the loader no longer
+ *                       resets it -- DOS 3.30 Tech Ref pp. 6-121/6-188/4-4).
  *   int21_cwd_save / int21_cwd_restore : snapshot + restore the CWD around a
  *                       kernel-context PSP rebind (kmain restores its own PSP
  *                       after a child run; the CWD is saved/restored in lockstep

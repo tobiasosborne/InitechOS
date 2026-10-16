@@ -976,4 +976,10 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
 int finder_trash_alert_text(uint16_t items, uint32_t bytes,
                             char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
 
+/* Special > Exit to InitechDOS (bead initech-3p1a): the confirmation alert's
+ * message, "Are you sure you want to exit to InitechDOS?" (operator wording,
+ * 2026-10-16), wrapped by the SAME greedy Chicago 12 rule into `out`. Returns
+ * the line count. Pure. */
+int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
 #endif /* INITECH_OS_FLAIR_FINDER_WINDOWS_H */

@@ -604,6 +604,7 @@ include spec/flair_fg_close_traces.mk
 include spec/flair_finder_cmds_traces.mk
 # tdnl.78: the LOCKED Special > Restart / Shut Down traces.
 include spec/flair_power_traces.mk
+include spec/flair_exit_dos_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
 include spec/flair_protection_traces.mk
@@ -10124,9 +10125,20 @@ CALC_EXE := $(BUILD)/tenant/calc.exe
 PAINT_EXE := $(BUILD)/tenant/paint.exe
 FLAIR_DATA_LEDGER  := $(FAT12_FIXTURE_DIR)/flagship_ledger.txt
 FLAIR_DATA_MICHAEL := $(FAT12_FIXTURE_DIR)/flagship_michael.cfg
+# TPSREP.COM (os/milton/tpsrep_program.asm, the SAME flat build test-tps-report
+# runs), its TPSPARM.DAT and the real-dBASE-written TPS.DBF (harness/diff/tps,
+# harness/emu/fcb_tps.mk). Appended to APPS AFTER CALC.EXE, so every existing
+# launch cell (0..10) is unchanged; they are cells 11, 12, 13. TPSREP reads
+# TPSPARM.DAT and the table from the CURRENT directory (spec/tps_ritual.json
+# R1), so the user exits to A:\>, types CD APPS, then TPSREP TPS.DBF. The
+# paths are spelled here (not via fcb_tps.mk's variables) because that file
+# is included after this recipe is expanded; fcb_tps.mk builds the .bin.
+FLAIR_TPSREP_COM  := $(BUILD)/tpsrep_program.bin
+FLAIR_TPSPARM_DAT := harness/diff/tps/tpsparm.dat
+FLAIR_TPS_DBF     := harness/diff/tps/tps.dbf
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10154,7 +10166,10 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(PAINT_EXE) ::APPS/PAINT.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSREP_COM) ::APPS/TPSREP.COM
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSPARM_DAT) ::APPS/TPSPARM.DAT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPS_DBF) ::APPS/TPS.DBF
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -10222,6 +10237,7 @@ run-flair: $(FLAIR_DATA_IMG)
 # expanded when the rule is read -- test-makefile-vars, tdnl.81.)
 KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
@@ -10242,6 +10258,76 @@ $(INITDOS_SYS_BIN): $(KERNEL_FLAIRTENANTS_BIN)
 
 $(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL)
+# ---------------------------------------------------------------------------
+# THE TRANSIENT COMMAND.COM (bead initech-3p1a; os/milton/transient.h).
+# Special > Exit to InitechDOS hands the console to COMMAND.COM, but the
+# flagship kernel fills the stage2 window (KERNEL_SECTORS is at the ratified
+# bounce ceiling) and the interpreter is ~33 KiB. ADR-0003 DEC-03 retains the
+# resident/transient split of the command interpreter as a fidelity feature,
+# so the interpreter rides as a TRANSIENT on the boot disk right after the
+# kernel window: the SAME command.o env.o batch.o the shell kernel links (no
+# new compile, no new flags), relinked at TRANSIENT_BASE (spec/memory_map.h)
+# against ONE kernel ELF's symbols (ld --just-symbols), behind
+# os/milton/transient_hdr.asm. The kernel reads it at Exit time and refuses it
+# loudly unless every import address equals its own (MSG-DOS-0014 + PANIC).
+# Every image that can exit to DOS carries a transient linked against ITS OWN
+# kernel, and grows from IMG_SECTORS to EXITDOS_IMG_SECTORS (a whole 2x32
+# geometry, harness/emu/bochs.c) to hold it. Nothing is added to the kernel
+# window, so test-kernel-headroom measures the kernel alone.
+TRANSIENT_LD        := $(KERNEL_DIR)/transient.ld
+TRANSIENT_HDR_ASM   := $(KERNEL_DIR)/transient_hdr.asm
+TRANSIENT_HDR_OBJ   := $(BUILD)/transient_hdr.o
+TRANSIENT_OBJS      := $(TRANSIENT_HDR_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ)
+TRANSIENT_LBA       := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
+EXITDOS_IMG_SECTORS := 512
+TRANSIENT_MAX_SECTORS := $(shell expr $(EXITDOS_IMG_SECTORS) - $(TRANSIENT_LBA))
+TRANSIENT_BASE_HEX  := $(shell grep -E '^\#define[[:space:]]+TRANSIENT_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+# Parse-time agreement (Rule 2): the header constants the KERNEL compiles in
+# must equal the layout the IMAGE recipe writes, and the link script's base
+# must equal the locked map.
+ifneq ($(shell grep -cE '^\#define[[:space:]]+TRANSIENT_LBA[[:space:]]+$(TRANSIENT_LBA)u' $(KERNEL_DIR)/transient.h),1)
+$(error os/milton/transient.h TRANSIENT_LBA != 1 + STAGE2_SECTORS + KERNEL_SECTORS = $(TRANSIENT_LBA))
+endif
+ifneq ($(shell grep -cE '^\#define[[:space:]]+TRANSIENT_MAX_SECTORS[[:space:]]+$(TRANSIENT_MAX_SECTORS)u' $(KERNEL_DIR)/transient.h),1)
+$(error os/milton/transient.h TRANSIENT_MAX_SECTORS != EXITDOS_IMG_SECTORS - TRANSIENT_LBA = $(TRANSIENT_MAX_SECTORS))
+endif
+ifneq ($(shell grep -cE '^TRANSIENT_BASE = $(TRANSIENT_BASE_HEX);' $(TRANSIENT_LD)),1)
+$(error $(TRANSIENT_LD) TRANSIENT_BASE != spec/memory_map.h TRANSIENT_BASE $(TRANSIENT_BASE_HEX))
+endif
+ifneq ($(shell expr $(EXITDOS_IMG_SECTORS) % 64),0)
+$(error EXITDOS_IMG_SECTORS=$(EXITDOS_IMG_SECTORS) is not a whole 2x32 cylinder geometry)
+endif
+$(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) | $(BUILD)
+	$(NASM) -f elf32 $< -o $@
+
+# $(call exitdos-transient-rules,<label>,<kernel ELF>): build/transient_<label>.bin
+define exitdos-transient-rules
+$(BUILD)/transient_$(1).elf: $(2) $(TRANSIENT_OBJS) $(TRANSIENT_LD) | $(BUILD)
+	@end=$$$$($(NM) $(2) | awk '$$$$3=="_kernel_end"{print "0x"$$$$1}'); \
+	[ -n "$$$$end" ] && [ $$$$(( end )) -le $$$$(( $(TRANSIENT_BASE_HEX) )) ] || { printf '!!! transient(%s): kernel _kernel_end=%s reaches TRANSIENT_BASE=%s\n' '$(1)' "$$$$end" '$(TRANSIENT_BASE_HEX)'; exit 1; }
+	$(LD) -m elf_i386 -T $(TRANSIENT_LD) --just-symbols=$(2) -o $$@ $(TRANSIENT_OBJS)
+$(BUILD)/transient_$(1).bin: $(BUILD)/transient_$(1).elf
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(TRANSIENT_MAX_SECTORS) * 512 )); \
+	[ "$$$$sz" -le "$$$$max" ] || { printf '!!! transient_$(1).bin (%s B) exceeds its %s-sector boot-disk window\n' "$$$$sz" '$(TRANSIENT_MAX_SECTORS)'; exit 1; }; \
+	printf '>>> transient COMMAND.COM (%s): %s B @LBA %s, linked against %s\n' '$(1)' "$$$$sz" '$(TRANSIENT_LBA)' '$(2)'
+endef
+
+# $(call exitdos-image-recipe,<kernel bin>,<transient bin>) -- the body of a
+# flagship-family image recipe that carries the transient.
+define exitdos-image-recipe
+	@dd if=/dev/zero of=$@ bs=512 count=$(EXITDOS_IMG_SECTORS) status=none
+	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
+	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
+	@dd if=$(1) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@dd if=$(2) of=$@ bs=512 seek=$(TRANSIENT_LBA) conv=notrunc status=none
+endef
+
+$(eval $(call exitdos-transient-rules,flairtenants,$(KERNEL_FLAIRTENANTS_ELF)))
+
+$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(BUILD)/transient_flairtenants.bin | $(BUILD)
+	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_BIN),$(BUILD)/transient_flairtenants.bin)
+	@printf ">>> flair-tenants image: %s (HELLO+NOTES co-resident; flair_app_dispatch spine @s17; transient COMMAND.COM @s%s)\n" "$@" "$(TRANSIENT_LBA)"
 
 # R3.1 DB_WRITE_SKIP mutation image: identical flagship object set except the
 # desktop persistence object reports CREATE while skipping the FAT write.
@@ -10314,6 +10400,12 @@ $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 $(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump)\n" "$@"
+# bead initech-3p1a: the playable image can Exit to InitechDOS too, so it
+# carries a transient COMMAND.COM linked against ITS kernel.
+$(eval $(call exitdos-transient-rules,flairtenants_int,$(KERNEL_FLAIRTENANTS_INT_ELF)))
+$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BUILD)/transient_flairtenants_int.bin | $(BUILD)
+	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_INT_BIN),$(BUILD)/transient_flairtenants_int.bin)
+	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump; transient COMMAND.COM @s%s)\n" "$@" "$(TRANSIENT_LBA)"
 
 # Windowed GUI run of the co-resident tenants (mirrors run-flair): click HELLO's
 # visible sliver to raise + activate it over NOTES, live, with a visible cursor.
@@ -12969,7 +13061,7 @@ MENU_HANDLERS_LINK := $(FINDER_WIN_LINK) os/flair/finder_menu.c os/flair/menu.c 
                       os/flair/text.c harness/render/render.c
 MENU_HANDLERS_DEPS := $(TEST_MENU_HANDLERS_SRC) $(FINDER_WIN_DEPS) \
                       os/flair/finder_menu.h os/flair/menu.h os/flair/shell_menus.h
-MENU_HANDLERS_MUTANTS := FINDER_MENU_MUT_STUB_ENABLED SHELL_MENUS_MUT_ABOUT_LIVE FINDER_CMD_MUT_EXEC_SWALLOWS
+MENU_HANDLERS_MUTANTS := FINDER_MENU_MUT_STUB_ENABLED SHELL_MENUS_MUT_ABOUT_LIVE FINDER_CMD_MUT_EXEC_SWALLOWS FINDER_WIN_MUT_EXIT_DOS_UNWIRED
 $(TEST_MENU_HANDLERS): $(MENU_HANDLERS_DEPS) $(MENU_HANDLERS_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_MENU_HANDLERS_SRC) $(MENU_HANDLERS_LINK)
 $(BUILD)/test_menu_handlers_mutant_%: $(MENU_HANDLERS_DEPS) $(MENU_HANDLERS_LINK) | $(BUILD)
@@ -12982,13 +13074,13 @@ test-menu-handlers: $(TEST_MENU_HANDLERS)
 	@printf ">>> test-menu-handlers: green\n"
 
 test-menu-handlers-mutant: $(foreach m,$(MENU_HANDLERS_MUTANTS),$(BUILD)/test_menu_handlers_mutant_$(m))
-	@for pair in 'FINDER_MENU_MUT_STUB_ENABLED:H1 [all-live] enabled row menu=512 item=6' 'SHELL_MENUS_MUT_ABOUT_LIVE:H2 band-1 enabled row "About"' 'FINDER_CMD_MUT_EXEC_SWALLOWS:H3 an unimplemented command'; do \
+	@for pair in 'FINDER_MENU_MUT_STUB_ENABLED:H1 [all-live] enabled row menu=512 item=6' 'SHELL_MENUS_MUT_ABOUT_LIVE:H2 band-1 enabled row "About"' 'FINDER_CMD_MUT_EXEC_SWALLOWS:H3 an unimplemented command' 'FINDER_WIN_MUT_EXIT_DOS_UNWIRED:H5 Special > Exit to InitechDOS is implemented'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_menu_handlers_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-menu-handlers-mutant FAIL: %s PASSED -- the guard is decoration\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { printf '!!! test-menu-handlers-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-menu-handlers-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
-	@printf '>>> test-menu-handlers-mutant: green (all three mutants RED for the named reason)\n'
+	@printf '>>> test-menu-handlers-mutant: green (all four mutants RED for the named reason)\n'
 
 
 # ---------------------------------------------------------------------------
@@ -22812,6 +22904,10 @@ RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=8 refused=0
 # LANE RE-KEY (initech-bf2 / tdnl.20): APPS holds fourteen files (TENANTFX ..
 # CALC.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG); README.TXT + APPS + 14 = 16,
 # the n test-flair-empty-trash derives from mtools.
+# initech-3p1a re-key: README.TXT + APPS + its FOURTEEN files (the eleven of
+# lane/frameapps -- the count above was left at 8 by that merge -- plus
+# TPSREP.COM, TPSPARM.DAT, TPS.DBF) = 16, the count test-flair-empty-trash
+# derives from mtools for its OK leg.
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=16 refused=0
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
@@ -23124,6 +23220,29 @@ RECORD_DATA_menubar_clock = $(FLAIR_DATA_IMG)
 RECORD_RTC_BASE_menubar_clock = 1980-01-01T00:55:55
 RECORD_SETTLE_menubar_clock = 7000
 # PM 2026-10-17: the clip must outlive the pinned minute crossing (00:55:55 -> :56 at 5 s of guest time); 200 ms ended the recording at tick 40 with only "12:55 am" on serial.
+# tps_journey (bead initech-3p1a; Rule 14 -- THE NORTH-STAR JOKE ON FILM):
+# the volume opens, Special > Exit to InitechDOS, "Are you sure you want to
+# exit to InitechDOS?", Exit -- the desktop goes and the InitechDOS banner and
+# A:\> come up; CD APPS; TPSREP TPS.DBF; the space bar six times (refused),
+# eight (refused), seven (FORM ALIGNED.); the report number keyed twice
+# (mismatch, again); the wrong memo, then 88-114; the cover-sheet question;
+# the report runs to "TPS REPORT GENERATOR TERMINATED. RETURN CODE 0.". The
+# keystrokes after the exit ride the mouse stream as k-tokens, gated by the
+# W token on the guest's SHELL-READY (harness/emu/qemu.c), so every key is a
+# frame. The image is the DOUBLE-CLICK record kernel (the trace double-clicks
+# the volume) plus its own transient COMMAND.COM (harness/emu/exit_dos.mk).
+# The FLAIR pump life ends at the exit, so FLAIR-LIVE-OK never prints and no
+# event goes to a halted guest; ~120 recorded events need a longer harness
+# budget than the default 45 s (RECORD_TIMEOUT_MS). Parse-time block: MUST
+# precede the record-flair target. The PM records on main.
+FLAIRTENANTS_RECORDDBL_EXITDOS_IMG := $(BUILD)/flair_tenants_recorddbl_exitdos.img
+RECORD_SCRIPTS += tps_journey
+RECORD_SPEC_tps_journey       = $(FLAIR_TPS_JOURNEY_SPEC)
+RECORD_MARKER_tps_journey     = TPS REPORT GENERATOR TERMINATED. RETURN CODE 0.
+RECORD_IMAGE_tps_journey      = $(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG)
+RECORD_DATA_tps_journey       = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_tps_journey     = 150
+RECORD_TIMEOUT_MS_tps_journey = 120000
 # Rule14: PM records on main after merge. Parse-time block MUST precede target.
 RECORD_SCRIPTS += calc_ledger
 RECORD_SPEC_calc_ledger = $(FLAIR_CALC_SPEC)
@@ -23182,6 +23301,8 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
 		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic,--rtc-base "$(RECORD_RTC_DEFAULT)") \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
+		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic) \
+		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms $(or $(RECORD_TIMEOUT_MS_$(SCRIPT)),45000) \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
 	@# initech-mfrb: a bounded record image halts at FLAIR-LIVE-OK when its pump
@@ -31187,6 +31308,8 @@ include harness/frameapps.mk
 include harness/film_scene.mk
 # FCB legacy API (initech-509.9) + TPS Report Generator (initech-8479.1).
 include harness/emu/fcb_tps.mk
+# bead initech-3p1a: Special > Exit to InitechDOS + the TPS journey (reuses fcb_tps.mk).
+include harness/emu/exit_dos.mk
 
 # ===========================================================================
 # REAL gate: test-flair-itext (bead initech-tdnl.16, GUI-remediation R4.2;

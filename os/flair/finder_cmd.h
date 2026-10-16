@@ -95,7 +95,9 @@ typedef enum finder_cmd_id {
     /* apple */
     FCMD_LAUNCH_APPLE    = 15,  /* Apple: a launchable DA entry (F4.3);        */
                                 /* the TARGET is carried by serial_name        */
-    FCMD_COUNT           = 16
+    /* the chimera */
+    FCMD_EXIT_DOS        = 16,  /* Special: Exit to InitechDOS (initech-3p1a)  */
+    FCMD_COUNT           = 17
 } finder_cmd_id;
 
 /* ===========================================================================

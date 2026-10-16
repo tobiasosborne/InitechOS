@@ -150,7 +150,7 @@ fcb-mint-realdos: $(FCBX_BIN16)
 # must the FCB kernel mutant `seq` (the report depends on the FCB layer).
 TPS_DIR        := harness/diff/tps
 TPSREP_ASM     := $(KERNEL_DIR)/tpsrep_program.asm
-TPSREP_BIN     := $(BUILD)/tpsrep_program.bin
+TPSREP_BIN     := $(FLAIR_TPSREP_COM)
 TPSREP_MUT_BIN := $(BUILD)/tpsrep_program_count6.bin
 TPSREP_BIN16   := $(BUILD)/TPSREP16.COM
 TPS_SPEC       := spec/tps_ritual.json

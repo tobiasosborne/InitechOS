@@ -21,6 +21,12 @@
  *              the corpus has no three-button alert) without a ring.
  *   tenant3-gone  after the answer: the footprint repainted by the white
  *              document content beneath (the worksheet's empty cells).
+ *   exitdos  bead initech-3p1a: Special > Exit to InitechDOS's confirmation
+ *              over the open root window -- the SAME alert (frame bands,
+ *              Cancel bevel + corners against the capture), the message in
+ *              exactly TWO inked lines ("Are you sure you want to exit to" /
+ *              "InitechDOS?", test-menu-handlers H5 derives the wrap), the
+ *              default (Exit) in OK's place WITH the ring, Cancel without.
  *
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2):
  *   - the alert geometry: MEASURED off the corpus capture
@@ -200,8 +206,8 @@ int main(int argc, char **argv)
     if (argc != 3 || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
                      strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full") &&
                      strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone") &&
-                     strcmp(argv[1], "chrome"))) {
-        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome> <dump.ppm>\n", argv[0]);
+                     strcmp(argv[1], "chrome") && strcmp(argv[1], "exitdos"))) {
+        fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome|exitdos> <dump.ppm>\n", argv[0]);
         return 2;
     }
     g_leg = argv[1];
@@ -224,6 +230,25 @@ int main(int argc, char **argv)
 
     if (strcmp(g_leg, "chrome") == 0) {
         alert_chrome(1);
+    } else if (strcmp(g_leg, "exitdos") == 0) {
+        alert_chrome(1);
+        want(AL_L - 1, 140, CIDX_WHITE, "just outside the alert (root window content)");
+        want(300, 150, CIDX_PLAT_FACE, "alert face between the message and the buttons");
+        for (int k = 0; k < 2; k++) {
+            char what[64];
+            snprintf(what, sizeof what, "message line %d", k + 1);
+            want_ink(TXT_X0, TXT_Y0 + 16 * k, TXT_X1, TXT_Y0 + 16 * (k + 1), 1, what);
+        }
+        want_ink(TXT_X0, TXT_Y0 + 32, CA_L - 3, BT_B, 0, "no third message line");
+        want_ink(AL_L + AL_BORDER + 1, TXT_Y0, TXT_X0 - 2, TXT_Y0 + 32, 0,
+                 "nothing left of the text column");
+        /* line 2 is the one word "InitechDOS?" (78 px): no ink past x 211+78+4 */
+        want_ink(TXT_X0 + 82, TXT_Y0 + 16, TXT_X1, TXT_Y0 + 32, 0,
+                 "line 2 is the single wrapped word");
+        want_ink(OK_L + 4, BT_T + 3, OK_R - 4, BT_B - 2, 1, "default (Exit) button label");
+        want_ink(CA_L + 4, BT_T + 3, CA_R - 4, BT_B - 2, 1, "Cancel button label");
+        want((OK_L + OK_R) / 2, BT_T - 3, CIDX_BLACK, "Exit default ring (InsetRect -3)");
+        want((CA_L + CA_R) / 2, BT_T - 3, CIDX_PLAT_FACE, "Cancel has NO ring");
     } else if (strcmp(g_leg, "tenant3") == 0) {
         alert_chrome(1);
         want(AL_L - 1, 150, CIDX_WHITE, "just outside the alert (the document content)");

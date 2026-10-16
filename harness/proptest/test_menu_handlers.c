@@ -37,6 +37,16 @@
  *   SHELL_MENUS_MUT_ABOUT_LIVE    -- band-1 About enabled again (H2 RED)
  *   FINDER_CMD_MUT_EXEC_SWALLOWS  -- dispatch returns after the hook whatever
  *                                    it says, the audited root cause (H3 RED)
+ *   FINDER_WIN_MUT_EXIT_DOS_UNWIRED -- the Special > Exit to InitechDOS row
+ *                                    stays lit but the shell's execution
+ *                                    table lost it (H5 RED)
+ *
+ * H5 (bead initech-3p1a) -- THE EXIT-TO-DOS ROUTE: Special item 10 "Exit to
+ *   InitechDOS" (after a divider, item 9) is lit at rest and when all-live,
+ *   resolves to FCMD_EXIT_DOS (serial name EXIT_DOS), the shell implements it,
+ *   a mouse dispatch prints the FINDER-CMD line and leaves the outcome the
+ *   kernel services (EXIT_DOS, OK), and the confirmation alert says, wrapped
+ *   at the 285-px Chicago 12 column, exactly the two lines hand-derived below.
  *
  * Ref: os/flair/finder_cmd.h (FinderCtx.exec returns handled),
  *      os/flair/finder_windows.h (finder_shell_implements),
@@ -72,7 +82,8 @@ static const finder_cmd_id CAN_LIGHT[] = {
     FCMD_NEW_FOLDER, FCMD_OPEN, FCMD_CLOSE_WINDOW, FCMD_SELECT_ALL,
     FCMD_VIEW_ICONS, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME,
     FCMD_EMPTY_TRASH,         /* bead initech-6k12: implemented, lit iff full */
-    FCMD_RESTART, FCMD_SHUTDOWN  /* bead initech-tdnl.78: implemented, always lit */
+    FCMD_RESTART, FCMD_SHUTDOWN, /* bead initech-tdnl.78: implemented, always lit */
+    FCMD_EXIT_DOS                /* bead initech-3p1a: implemented, always lit */
 };
 #define N_CAN_LIGHT ((int)(sizeof CAN_LIGHT / sizeof CAN_LIGHT[0]))
 
@@ -200,10 +211,67 @@ static void leg_fallback(void)
           "H3 an unimplemented command reaching dispatch says FINDER-NYI (never silence)");
 }
 
+/* H5 (bead initech-3p1a). The alert wording is the operator's (2026-10-16);
+ * the wrap is hand-derived from the System 7.0.1 Chicago 12 advances typed
+ * from ../system7-decomp specs/fonts/chicago.md "Advance-width table" (NOT
+ * read from the artifact's table -- Law 2), space 4:
+ *   Are A8 r6 e8 = 22 | you y8 o8 u8 = 24 | sure s7 u8 r6 e8 = 29 |
+ *   want w12 a8 n8 t6 = 34 | to t6 o8 = 14 | exit e8 x8 i4 t6 = 26 |
+ *   InitechDOS? I6 n8 i4 t6 e8 c7 h8 D8 O8 S7 ?8 = 78
+ *   "Are you sure you want to exit to" = 22+24+29+24+34+14+26+14 + 7*4 = 215;
+ *   + " InitechDOS?" = 215 + 4 + 78 = 297 > 285 -> the last word wraps. */
+static void leg_exit_dos(void)
+{
+    static finder_shell_t sh;
+    MenuBar *bar = finder_menu_bar();
+    const MenuInfo *sp = &bar->menus[FINDER_MENU_IX_SPECIAL];
+    FinderCtx rest = mk(0, 0, 0, 0), live = mk(2, 1, 1, 1);
+    const finder_cmd_t *c;
+    char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+    const finder_cmd_outcome_t *o;
+    char first[160];
+    int n;
+
+    CHECK(sp->n_items == 10u && sp->items[8].is_divider &&
+          sp->items[9].text != NULL &&
+          strcmp(sp->items[9].text, "Exit to InitechDOS") == 0,
+          "H5 Special item 10 is \"Exit to InitechDOS\", after a divider (item 9)");
+    finder_menu_refresh_enables(&rest);
+    CHECK(sp->items[9].enabled == 1u, "H5 Exit to InitechDOS is lit at rest");
+    finder_menu_refresh_enables(&live);
+    CHECK(sp->items[9].enabled == 1u, "H5 Exit to InitechDOS is lit all-live");
+    c = finder_cmd_lookup(515, 10u);
+    CHECK(c != NULL && c->id == FCMD_EXIT_DOS && c->serial_name != NULL &&
+          strcmp(c->serial_name, "EXIT_DOS") == 0,
+          "H5 lookup(515,10) is FCMD_EXIT_DOS, serial name EXIT_DOS");
+    CHECK(finder_shell_implements(FCMD_EXIT_DOS),
+          "H5 Special > Exit to InitechDOS is implemented by the shell's execution table");
+
+    memset(&sh, 0, sizeof sh);
+    live.trace = sink;
+    finder_shell_bind_ctx(&sh, &live);
+    g_lines = 0; g_last[0] = '\0'; first[0] = '\0';
+    finder_dispatch(&live, ((uint32_t)515u << 16) | 10u, "mouse");
+    if (g_lines >= 1) strncpy(first, g_last, sizeof first - 1);
+    o = finder_shell_take_outcome(&sh);
+    CHECK(g_lines == 1 &&
+          strcmp(first, "FINDER-CMD id=16 name=EXIT_DOS src=mouse sel=0") == 0,
+          "H5 a mouse Exit to InitechDOS prints exactly its FINDER-CMD line (no FINDER-NYI)");
+    CHECK(o != NULL && o->id == FCMD_EXIT_DOS && o->status == FINDER_WIN_OK &&
+          o->moved == 0,
+          "H5 the shell leaves the EXIT_DOS outcome (OK, no open view) for the kernel");
+
+    n = finder_exit_dos_alert_text(lines);
+    CHECK(n == 2 && strcmp(lines[0], "Are you sure you want to exit to") == 0 &&
+          strcmp(lines[1], "InitechDOS?") == 0,
+          "H5 the alert reads \"Are you sure you want to exit to\" / \"InitechDOS?\"");
+}
+
 int main(void)
 {
     leg_finder_bar();
     leg_shell_bar();
     leg_fallback();
+    leg_exit_dos();
     return TEST_SUMMARY("test-menu-handlers");
 }
