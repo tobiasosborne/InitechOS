@@ -22,11 +22,8 @@ $(BUILD)/kernel_partition_$(1).bin: $(BUILD)/kernel_partition_$(1).elf
 	$$(OBJCOPY) -O binary $$< $$@
 	@set -eu; sz=$$$$(wc -c < $$@); max=$$$$(( $$(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
 	dd if=/dev/zero of=$$@ bs=1 seek=$$$$sz count=$$$$((max-sz)) conv=notrunc status=none
-$(BUILD)/partition_$(1)_boot.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_partition_$(1).bin
-	@dd if=/dev/zero of=$$@ bs=512 count=$$(IMG_SECTORS) status=none
-	@dd if=$$(MBR_BIN) of=$$@ conv=notrunc status=none
-	@dd if=$$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_partition_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/partition_$(1)_boot.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_partition_$(1).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $$(MBR_BIN) $$(STAGE2_BIN) $$(IO_SYS_BIN) $(BUILD)/kernel_partition_$(1).bin $$(BOOT_SYSTEM_TOOL)
 endef
 $(foreach m,$(PARTITION_MUTANTS),$(eval $(call partition-mutant,$(m))))
 

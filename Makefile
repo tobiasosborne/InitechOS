@@ -8302,11 +8302,8 @@ $(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SHELL_BIN) $(BOOT_SYSTEM_TOOL) 
 # test-program / test-type / test-dir -- the demos that the default shell boot no
 # longer runs. Same MBR/stage2 layout as TRACER_IMG.
 DEMO_IMG := $(BUILD)/demo_boot.img
-$(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> demo image: %s (MBR@s0, stage2@s1, baked-demo kernel@s17, %d sectors)\n" \
 		"$@" "$(IMG_SECTORS)"
 
@@ -8739,11 +8736,8 @@ $(KERNEL_FAULT_BIN): $(KERNEL_FAULT_ELF) | $(BUILD)
 
 # The self-test fault disk image: identical layout to TRACER_IMG but with the
 # fault kernel at sector 17.
-$(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FAULT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FAULT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> panic image: %s (self-test #DE fault kernel @s17)\n" "$@"
 
 # --- x87 FPU bring-up self-test kernels (beads initech-zj6w; make test-fpu) ---
@@ -8803,11 +8797,8 @@ $(BUILD)/kernel_fpu_$(1).bin: $(BUILD)/kernel_fpu_$(1).elf | $(BUILD)
 	printf ">>> kernel(fpu-$(1)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,fpu-$(1))
 
-$(BUILD)/fpu_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fpu_$(1).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_fpu_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/fpu_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fpu_$(1).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_fpu_$(1).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> fpu self-test image ($(1)): %s\n" "$$@"
 endef
 $(eval $(call fpu-kernel-rules,test,$(BUILD)/kmain_fpu_test.o,$(KERNEL_SYSINIT_OBJ)))
@@ -8848,11 +8839,8 @@ $(KERNEL_SPURIOUS_BIN): $(KERNEL_SPURIOUS_ELF) | $(BUILD)
 
 # The spurious-vector disk image: identical layout to TRACER_IMG but with the
 # spurious-test kernel at sector 17.
-$(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_SPURIOUS_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_SPURIOUS_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> spurious image: %s (self-test stray-int kernel @s17)\n" "$@"
 
 # --- Keyboard-echo kernel (beads initech-3rs / initech-43b; make test-kbd) --
@@ -8885,11 +8873,8 @@ $(KERNEL_ECHO_BIN): $(KERNEL_ECHO_ELF) | $(BUILD)
 
 # The keyboard-echo disk image: identical layout to TRACER_IMG but with the echo
 # kernel at sector 17.
-$(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_ECHO_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_ECHO_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> kbd-echo image: %s (keyboard-echo kernel @s17)\n" "$@"
 
 # --- CON-INPUT self-test kernel (beads initech-n62; make test-conin) --------
@@ -8924,11 +8909,8 @@ $(KERNEL_CONIN_BIN): $(KERNEL_CONIN_ELF) | $(BUILD)
 
 # The CON-input self-test disk image: identical layout to TRACER_IMG but with
 # the conin kernel at sector 17.
-$(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_CONIN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_CONIN_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> conin image: %s (CON-input self-test kernel @s17)\n" "$@"
 
 # --- SETVECT/GETVECT + INT 24h self-test kernel (beads initech-509.8; make
@@ -8963,11 +8945,8 @@ $(KERNEL_VECT_BIN): $(KERNEL_VECT_ELF) | $(BUILD)
 
 # The vect self-test disk image: identical layout to CONIN_IMG but with the vect
 # kernel at sector 17.
-$(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_VECT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_VECT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> vect image: %s (SETVECT/GETVECT + INT 24h self-test kernel @s17)\n" "$@"
 
 # --- INT 25h/26h ABSOLUTE-DISK asm-stub self-test kernel (beads initech-8403;
@@ -9002,11 +8981,8 @@ $(KERNEL_ABSDISK_BIN): $(KERNEL_ABSDISK_ELF) | $(BUILD)
 
 # The absdisk self-test disk image: identical layout to VECT_IMG but with the
 # absdisk kernel at sector 17.
-$(ABSDISK_BOOT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ABSDISK_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_ABSDISK_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(ABSDISK_BOOT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ABSDISK_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_ABSDISK_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> absdisk-emu image: %s (INT 25h/26h asm-stub self-test kernel @s17)\n" "$@"
 
 # --- MEMORY ARENA self-test kernel (beads initech-509.6; test-mcb-emu) -------
@@ -9040,11 +9016,8 @@ $(KERNEL_MEMTEST_BIN): $(KERNEL_MEMTEST_ELF) | $(BUILD)
 	printf ">>> kernel(memtest): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,memtest)
 
-$(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_MEMTEST_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_MEMTEST_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> memtest image: %s (AH=48h/49h/4Ah arena self-test kernel @s17)\n" "$@"
 
 # Mutant kernel: int21.o built with -DINT21_MUTATE_ALLOC_NO_SEGBASE (Rule 6).
@@ -9069,11 +9042,8 @@ $(KERNEL_MEMTEST_MUT_BIN): $(KERNEL_MEMTEST_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(memtest-mutant): %s\n" "$@"
 	$(call kernel-end-guard,$<,memtest-mutant)
 
-$(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_MEMTEST_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_MEMTEST_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> memtest mutant image: %s (no-segbase int21.o)\n" "$@"
 
 # --- FAT-sourced load + EXEC self-test kernel (beads initech-saw; test-exec) -
@@ -9108,11 +9078,8 @@ $(KERNEL_EXEC_BIN): $(KERNEL_EXEC_ELF) | $(BUILD)
 
 # The EXEC self-test disk image: identical layout to TRACER_IMG but with the
 # exec kernel at sector 17.
-$(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_EXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(EXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXEC_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_EXEC_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> exec image: %s (FAT-sourced load + EXEC self-test kernel @s17)\n" "$@"
 
 # ---------------------------------------------------------------------------
@@ -9197,17 +9164,11 @@ $(KERNEL_MZFOREIGN_BIN): $(KERNEL_MZFOREIGN_ELF) | $(BUILD)
 	printf ">>> kernel(mzforeign): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,mzforeign)
 
-$(MZEXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZEXEC_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_MZEXEC_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(MZEXEC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZEXEC_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_MZEXEC_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> mzexec image: %s (InitechMZ EXEC self-test kernel @s17)\n" "$@"
-$(MZFOREIGN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZFOREIGN_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_MZFOREIGN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(MZFOREIGN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MZFOREIGN_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_MZFOREIGN_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> mzforeign image: %s (InitechMZ foreign-panic self-test kernel @s17)\n" "$@"
 
 # FAT data disks (--disk2): reloc (MZEXEC-OK prints), no-reloc mutant (absent),
@@ -9268,11 +9229,8 @@ $(KERNEL_WRITE_BIN): $(KERNEL_WRITE_ELF) | $(BUILD)
 	printf ">>> kernel(write): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,write)
 
-$(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_WRITE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_WRITE_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> write image: %s (FAT WRITE round-trip self-test kernel @s17)\n" "$@"
 
 # --- MULTI-OPEN self-test kernel (beads initech-0qh; make test-multiopen) -----
@@ -9306,11 +9264,8 @@ $(KERNEL_MULTIOPEN_BIN): $(KERNEL_MULTIOPEN_ELF) | $(BUILD)
 	printf ">>> kernel(multiopen): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,multiopen)
 
-$(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_MULTIOPEN_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_MULTIOPEN_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> multiopen image: %s (MULTI-OPEN self-test kernel @s17)\n" "$@"
 
 # --- DATE/TIME self-test kernel (beads initech-yv9; make test-datetime) -------
@@ -9343,11 +9298,8 @@ $(KERNEL_DATETIME_BIN): $(KERNEL_DATETIME_ELF) | $(BUILD)
 	printf ">>> kernel(datetime): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,datetime)
 
-$(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_DATETIME_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_DATETIME_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> datetime image: %s (DATE/TIME self-test kernel @s17)\n" "$@"
 
 # --- IRQ-STORM reentrancy self-test kernel (beads initech-xk2; make
@@ -9389,11 +9341,8 @@ $(KERNEL_IRQSTORM_BIN): $(KERNEL_IRQSTORM_ELF) | $(BUILD)
 	printf ">>> kernel(irqstorm): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,irqstorm)
 
-$(IRQSTORM_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_IRQSTORM_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(IRQSTORM_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_IRQSTORM_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> irqstorm image: %s (IRQ-STORM reentrancy self-test kernel @s17)\n" "$@"
 
 # --- Rule-6 MUTANT A: pit.c -DPIT_MUTATE_SCRIBBLE_DOS + int21.c
@@ -9424,11 +9373,8 @@ $(KERNEL_IRQSTORM_MUTA_BIN): $(KERNEL_IRQSTORM_MUTA_ELF) | $(BUILD)
 	printf ">>> kernel(irqstorm mutant A): %s\n" "$@"
 	$(call kernel-end-guard,$<,irqstorm-mutant-A)
 
-$(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_IRQSTORM_MUTA_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> irqstorm mutant-A image: %s\n" "$@"
 
 # --- Rule-6 MUTANT B: pit.c -DPIT_MUTATE_ISSUE_INT21 (the mutant ISR issues
@@ -9453,11 +9399,8 @@ $(KERNEL_IRQSTORM_MUTB_BIN): $(KERNEL_IRQSTORM_MUTB_ELF) | $(BUILD)
 	printf ">>> kernel(irqstorm mutant B): %s\n" "$@"
 	$(call kernel-end-guard,$<,irqstorm-mutant-B)
 
-$(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_IRQSTORM_MUTB_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> irqstorm mutant-B image: %s\n" "$@"
 
 # --- EXIT-handle teardown self-test kernel (beads initech-6hk; epic initech-6qy;
@@ -9491,11 +9434,8 @@ $(KERNEL_EXITH_BIN): $(KERNEL_EXITH_ELF) | $(BUILD)
 	printf ">>> kernel(exith): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,exith)
 
-$(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_EXITH_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_EXITH_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> exith image: %s (EXIT-handle teardown self-test kernel @s17)\n" "$@"
 
 # --- Rule-6 MUTANT image: elide the per-handle release in sft_close_process ----
@@ -9532,11 +9472,8 @@ $(KERNEL_EXITH_MUT_BIN): $(KERNEL_EXITH_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(exith-mutant): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,exith-mutant)
 
-$(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_EXITH_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_EXITH_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> exith MUTANT image: %s (sft_close_process elided -- expected RED)\n" "$@"
 
 # --- SYSINIT / CONFIG.SYS FILES= cap kernel (beads initech-509.2; make
@@ -9570,11 +9507,8 @@ $(KERNEL_SYSI_BIN): $(KERNEL_SYSI_ELF) | $(BUILD)
 	printf ">>> kernel(sysi): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,sysi)
 
-$(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_SYSI_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_SYSI_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> sysi image: %s (SYSINIT / CONFIG.SYS FILES= cap self-test kernel @s17)\n" "$@"
 
 # --- COMMAND.COM shell kernel (beads initech-7pc; make test-shell) ----------
@@ -9666,11 +9600,8 @@ $(KERNEL_FLAIRSHELL_BIN): $(KERNEL_FLAIRSHELL_ELF) | $(BUILD)
 # The live FLAIR desktop disk image: identical layout to TRACER_IMG but with the
 # BOOT_FLAIR_SHELL kernel at sector 17. Boot it under QEMU via the harness with
 # --screendump-after FLAIR-DESKTOP to capture the composed desktop.
-$(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRSHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRSHELL_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-desktop image: %s (live FLAIR desktop kernel @s17)\n" "$@"
 
 # --- LIVE FLAIR COOPERATIVE EVENT LOOP kernel/image (beads initech-5l5z FO-4) -
@@ -9706,11 +9637,8 @@ $(KERNEL_FLAIRLIVE_BIN): $(KERNEL_FLAIRLIVE_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive)
 
-$(FLAIRLIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live image: %s (FLAIR cooperative tick kernel @s17)\n" "$@"
 
 # --- NO-MODAL FLAIR live kernel/image (initech-zn61; authorized 2026-08-24). -
@@ -9736,11 +9664,8 @@ $(KERNEL_FLAIRLIVE_NOMODAL_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-nomodal): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-nomodal)
 
-$(FLAIRLIVE_NOMODAL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_NOMODAL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_NOMODAL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live NO-MODAL image: %s (same windows/bars/menus; show_modal=0)\n" "$@"
 
 # --- Rule-6 MUTANT FLAIR-live kernel (beads initech-5l5z FO-4; ADR-0006 BC-9) -
@@ -9767,11 +9692,8 @@ $(KERNEL_FLAIRLIVE_MUT_BIN): $(KERNEL_FLAIRLIVE_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-mutant): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-mutant)
 
-$(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live MUTANT image: %s (no tick hook -- FLAIR-TICK never advances)\n" "$@"
 
 # --- FO-5 kbd-hook MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6) -
@@ -9794,11 +9716,8 @@ $(KERNEL_FLAIRLIVE_MUT_KBD_BIN): $(KERNEL_FLAIRLIVE_MUT_KBD_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-mutant-nokbdhook): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-mutant-nokbdhook)
 
-$(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_KBD_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live kbd-MUTANT image: %s (no kbd hook -- FLAIR-KEY never appears)\n" "$@"
 
 # --- FO-7/8 drag-noop MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6;
@@ -9824,11 +9743,8 @@ $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN): $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-mutant-dragnoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-mutant-dragnoop)
 
-$(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live drag-noop MUTANT image: %s (document/modal commits no-op; markers still fire)\n" "$@"
 
 # --- reverse modal-restoration MUTANT (R1.4 / initech-dc4v re-key). The modal
@@ -9855,11 +9771,8 @@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_
 	printf ">>> kernel(flairlive-mutant-modal-restore): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-mutant-modal-restore)
 
-$(FLAIRLIVE_MUT_MODAL_RESTORE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_MUT_MODAL_RESTORE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live modal-restore MUTANT image: %s (old modal footprint left stale)\n" "$@"
 
 # --- FO-8b menu-noop MUTANT on the NO-MODAL live scene (initech-zn61). The
@@ -9884,11 +9797,8 @@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_EL
 	printf ">>> kernel(flairlive-nomodal-mutant-menunoop): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-nomodal-mutant-menunoop)
 
-$(FLAIRLIVE_NOMODAL_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_NOMODAL_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live NO-MODAL menu-noop MUTANT image: %s\n" "$@"
 
 # --- CROSS-MENU DRAG no-rehit MUTANT flair_live kernel/image (beads initech-9op1;
@@ -9915,11 +9825,8 @@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NORE
 	printf ">>> kernel(flairlive-nomodal-mutant-norehit): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-nomodal-mutant-norehit)
 
-$(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live NO-MODAL cross-menu no-rehit MUTANT image: %s\n" "$@"
 
 # --- INTERACTIVE flair_live kernel/image (beads initech-5l5z usability follow-on)
@@ -9945,11 +9852,8 @@ $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-interactive): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-interactive)
 
-$(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_INT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live INTERACTIVE image: %s (visible arrow cursor + unbounded pump)\n" "$@"
 
 # Windowed GUI run so the operator can DRAG windows + use menus with a VISIBLE
@@ -10340,11 +10244,8 @@ $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN): $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF) | $(BUILD
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-db-write-skip)
 
-$(FLAIRTENANTS_DB_SKIP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRTENANTS_DB_SKIP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants DB_WRITE_SKIP mutant image: %s\n" "$@"
 
 .PHONY: flair-tenants
@@ -10389,11 +10290,8 @@ $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 	printf ">>> kernel(flairtenants-interactive): %s (visible cursor + unbounded pump, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairtenants-interactive)
 
-$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRTENANTS_INT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump)\n" "$@"
 
 # Windowed GUI run of the co-resident tenants (mirrors run-flair): click HELLO's
@@ -10441,11 +10339,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10469,11 +10364,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants R3.7 TOOLBOX-GATE MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10498,11 +10390,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10541,11 +10430,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants O-5 MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10586,11 +10472,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants SOLIDITY MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10662,11 +10545,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants DESKTOP-ICON MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10705,11 +10585,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants FILE-OPS MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE,ops_trash_no_stage))
@@ -10743,11 +10620,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants DISK-WINDOW MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10794,11 +10668,8 @@ $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2)
 	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
 
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants FINDER-MENU MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 
@@ -10893,11 +10764,8 @@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN): $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-mut-nomousehook): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-mut-nomousehook)
 
-$(FLAIRLIVE_MUT_MOUSE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_MUT_MOUSE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live mouse-MUTANT image: %s (no mouse hook -- FLAIR-MOUSE never appears)\n" "$@"
 
 # (2) master-only-EOI mutant: swap ONLY mouse.o for the EOI-mutant mouse.o.
@@ -10917,11 +10785,8 @@ $(KERNEL_FLAIRLIVE_MUT_EOI_BIN): $(KERNEL_FLAIRLIVE_MUT_EOI_ELF) | $(BUILD)
 	printf ">>> kernel(flairlive-mut-eoi): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairlive-mut-eoi)
 
-$(FLAIRLIVE_MUT_EOI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_EOI_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRLIVE_MUT_EOI_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIRLIVE_MUT_EOI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_EOI_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_MUT_EOI_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live EOI-MUTANT image: %s (master-only EOI -- slave wedges after first IRQ12)\n" "$@"
 
 # --- REAL gate: test-flair-mouse (beads initech-5l5z FO-6) ------------------
@@ -11029,6 +10894,7 @@ $(BUILD)/cursor_mut_squared_stem.o: os/flair/cursor.c os/flair/cursor.h os/flair
 # M009 Rule-6 twin kernel: built through flair-tenants-objswap-mutant-rules, instantiated
 # right after that macro's definition (the macro is defined later in this file).
 
+.PHONY: test-flair-cursor-mutant
 test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img
 	@rc=0; $(MAKE) --no-print-directory test-flair-cursor FLAIR_CURSOR_IMAGE=$(BUILD)/flair_tenants_mut_cursor_squared.img FLAIR_CURSOR_NAME=flair_cursor_mut_squared \
 		>$(BUILD)/flair_cursor_mut_squared.log 2>&1 || rc=$$?; \
@@ -11104,11 +10970,8 @@ $(BUILD)/kernel_flairshell_mut_$(2).bin: $(BUILD)/kernel_flairshell_mut_$(2).elf
 	printf ">>> kernel(flairshell-mut-$(2)): %s (flat binary, padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairshell-mut-$(2))
 
-$(BUILD)/flair_desktop_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairshell_mut_$(2).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairshell_mut_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_desktop_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairshell_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairshell_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-desktop MUTANT image ($(1)): %s\n" "$$@"
 endef
 # NB: the $(eval $(call flair-desktop-mutant-rules,...)) instantiations live AFTER
@@ -20904,11 +20767,8 @@ $(BUILD)/kernel_flairtenants_mut_l002.bin: $(BUILD)/kernel_flairtenants_mut_l002
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_l002.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-l002)
-$(BUILD)/flair_tenants_mut_l002.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_l002.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_l002.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_l002.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants L002-RESTORED MUTANT image: %s\n" "$@"
 
 .PHONY: test-flair-trash-purge-views test-flair-trash-purge-views-mutant
@@ -22981,11 +22841,8 @@ $(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recordd
 	printf ">>> kernel(flairtenants-recorddbl): %s (padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairtenants-recorddbl)
 
-$(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_recorddbl.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recorddbl.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants DOUBLE-CLICK RECORD image (widened pump + drag + dblclick bounds): %s\n" "$@"
 
 FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
@@ -23004,11 +22861,8 @@ $(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_rec
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_recordlongdbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-recordlongdbl)
-$(BUILD)/flair_tenants_recordlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_recordlongdbl.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_recordlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recordlongdbl.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants LONG DOUBLE-CLICK RECORD image: %s\n" "$@"
 FLAIRTENANTS_RECORDLONGDBL_IMG := $(BUILD)/flair_tenants_recordlongdbl.img
 RECORD_IMAGE_menu_long = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
@@ -23080,11 +22934,8 @@ $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_re
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_recordxlongdbl.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-recordxlongdbl)
-$(BUILD)/flair_tenants_recordxlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_recordxlongdbl.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_recordxlongdbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_recordxlongdbl.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants EXTRA-LONG DOUBLE-CLICK RECORD image: %s\n" "$@"
 FLAIRTENANTS_RECORDXLONGDBL_IMG := $(BUILD)/flair_tenants_recordxlongdbl.img
 # iword_typing (bead initech-l4tj; Rule 14): InitechWord opens from the
@@ -25019,11 +24870,8 @@ $(OJXN_MUT_SHELL_BIN): $(OJXN_MUT_SHELL_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-ojxn): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-ojxn)
 
-$(OJXN_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(OJXN_MUT_SHELL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(OJXN_MUT_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(OJXN_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(OJXN_MUT_SHELL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(OJXN_MUT_SHELL_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> ojxn mutant image: %s (same-file guard disabled -- COPY FOO FOO truncates FOO)\n" "$@"
 
 # Re-mint a FRESH writable FAT12 disk with a MULTI-CLUSTER TEST.TXT (HEAD marker,
@@ -25217,11 +25065,8 @@ $(WINH_MUT_SHELL_BIN): $(WINH_MUT_SHELL_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-winh): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-winh)
 
-$(WINH_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(WINH_MUT_SHELL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(WINH_MUT_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(WINH_MUT_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(WINH_MUT_SHELL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(WINH_MUT_SHELL_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> winh mutant image: %s (dos_read CF-check bypassed -- TYPE/COPY PRN must hang)\n" "$@"
 
 .PHONY: test-readerr-winh test-readerr-winh-mutant
@@ -25382,11 +25227,8 @@ $(UT6D_SHELL_MUT_BIN): $(UT6D_SHELL_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-ut6d): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-ut6d)
 
-$(UT6D_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(UT6D_SHELL_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(UT6D_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(UT6D_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(UT6D_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(UT6D_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> ut6d mutant image: %s (prompt pinned to root -- the subdir-prompt mutant)\n" "$@"
 
 # Second mutant (Rule 6): command.c with RD turned into a SILENT no-op
@@ -25423,11 +25265,8 @@ $(UT6D_SHELL_RDNOOP_BIN): $(UT6D_SHELL_RDNOOP_ELF) | $(BUILD)
 	printf ">>> kernel(shell-rdnoop-ut6d): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-rdnoop-ut6d)
 
-$(UT6D_TRACER_RDNOOP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(UT6D_SHELL_RDNOOP_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(UT6D_SHELL_RDNOOP_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(UT6D_TRACER_RDNOOP_IMG): $(MBR_BIN) $(STAGE2_BIN) $(UT6D_SHELL_RDNOOP_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(UT6D_SHELL_RDNOOP_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> ut6d rdnoop mutant image: %s (RD is a silent no-op -- the RD-removal mutant)\n" "$@"
 
 UT6D_RDNOOP_NAME   := ut6d_rdnoop
@@ -25742,11 +25581,8 @@ $(ZS24EXEC_SHELL_REJECT_BIN): $(ZS24EXEC_SHELL_REJECT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-zs24reject): %s (subdir EXEC restored to root-reject)\n" "$@"
 	$(call kernel-end-guard,$<,shell-mut-zs24reject)
 
-$(ZS24EXEC_TRACER_REJECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(ZS24EXEC_SHELL_REJECT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(ZS24EXEC_SHELL_REJECT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(ZS24EXEC_TRACER_REJECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(ZS24EXEC_SHELL_REJECT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(ZS24EXEC_SHELL_REJECT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> zs24exec reject mutant image: %s (do_exec rejects subdir paths -- the dispatch mutant)\n" "$@"
 
 # Leg B (ROOTONLY): loader.c compiled with -DLOADER_MUTATE_EXEC_ROOTONLY --
@@ -25779,11 +25615,8 @@ $(ZS24EXEC_SHELL_ROOTONLY_BIN): $(ZS24EXEC_SHELL_ROOTONLY_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-zs24rootonly): %s (loader ignores dir_start -- root-only find)\n" "$@"
 	$(call kernel-end-guard,$<,shell-mut-zs24rootonly)
 
-$(ZS24EXEC_TRACER_ROOTONLY_IMG): $(MBR_BIN) $(STAGE2_BIN) $(ZS24EXEC_SHELL_ROOTONLY_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(ZS24EXEC_SHELL_ROOTONLY_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(ZS24EXEC_TRACER_ROOTONLY_IMG): $(MBR_BIN) $(STAGE2_BIN) $(ZS24EXEC_SHELL_ROOTONLY_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(ZS24EXEC_SHELL_ROOTONLY_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> zs24exec rootonly mutant image: %s (loader ignores dir_start -- the loader mutant)\n" "$@"
 
 ZS24EXEC_REJECT_NAME    := zs24exec_reject
@@ -28174,11 +28007,8 @@ $(BUILD)/kernel_flairtenants_mut_set1.bin: $(BUILD)/kernel_flairtenants_mut_set1
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_set1.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-set1)
-$(BUILD)/flair_tenants_mut_set1.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_set1.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_set1.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_set1.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants SET1_BREAK_BLIND mutant image: %s\n" "$@"
 
 .PHONY: test-flair-modifier-release test-flair-modifier-release-mutant
@@ -28329,11 +28159,8 @@ $(BUILD)/kernel_flairtenants_mut_trackcap.bin: $(BUILD)/kernel_flairtenants_mut_
 	if [ "$$sz" -gt "$$max" ]; then printf '!!! kernel_flairtenants_mut_trackcap.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; exit 1; fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-trackcap)
-$(BUILD)/flair_tenants_mut_trackcap.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_trackcap.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_trackcap.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_trackcap.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants MENU_MUT_TRACK_CAP mutant image: %s\n" "$@"
 
 .PHONY: test-flair-menu-long test-flair-menu-long-mutant
@@ -28443,11 +28270,8 @@ $(BUILD)/kernel_shell_mut_safety_$(1).bin: $(BUILD)/kernel_shell_mut_safety_$(1)
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$((max - sz))" conv=notrunc status=none
-$(BUILD)/tracer_mut_safety_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_safety_$(1).bin
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_shell_mut_safety_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/tracer_mut_safety_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_safety_$(1).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_shell_mut_safety_$(1).bin $(BOOT_SYSTEM_TOOL)
 endef
 $(eval $(call dos-safety-shell-mutant,k02,CMD_MUTATE_COPY_DIR_RAW))
 $(eval $(call dos-safety-shell-mutant,k03,CMD_MUTATE_DEL_LOSE_PARENT))
@@ -28596,11 +28420,8 @@ $(BUILD)/kernel_shell_mut_protection_$(1).bin: $(BUILD)/kernel_shell_mut_protect
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$((max - sz))" conv=notrunc status=none
-$(BUILD)/tracer_mut_protection_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_protection_$(1).bin
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_shell_mut_protection_$(1).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/tracer_mut_protection_$(1).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_mut_protection_$(1).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_shell_mut_protection_$(1).bin $(BOOT_SYSTEM_TOOL)
 endef
 $(eval $(call dos-protection-fat-mutant,copy,FAT12_MUTATE_CREATE_READONLY))
 $(eval $(call dos-protection-fat-mutant,del,FAT12_MUTATE_UNLINK_READONLY))
@@ -28873,11 +28694,8 @@ $(AUTOEXEC_SHELL_MUT_BIN): $(AUTOEXEC_SHELL_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-autoexec): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-autoexec)
 
-$(AUTOEXEC_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(AUTOEXEC_SHELL_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(AUTOEXEC_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(AUTOEXEC_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(AUTOEXEC_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(AUTOEXEC_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> autoexec mutant image: %s (AUTOEXEC hook skipped -- markers must be ABSENT)\n" "$@"
 
 test-autoexec-mutant: $(HARNESS_BIN) $(AUTOEXEC_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(AUTOEXEC_BAT) $(AUTOEXEC_SUB_BAT)
@@ -29018,11 +28836,8 @@ $(HSCT_REDIR_SHELL_MUT_BIN): $(HSCT_REDIR_SHELL_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-redirbypass): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-redirbypass)
 
-$(HSCT_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(HSCT_REDIR_SHELL_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(HSCT_REDIR_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(HSCT_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(HSCT_REDIR_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(HSCT_REDIR_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> hsct-redir mutant image: %s (redirect driver BYPASSED -- RZZHELLO must leak / OUT.TXT empty)\n" "$@"
 
 test-hsct-redir-mutant: $(HARNESS_BIN) $(HSCT_REDIR_TRACER_MUT_IMG) $(HSCT_REDIR_BAT)
@@ -29164,11 +28979,8 @@ $(BSY9_SHELL_MUT_BIN): $(BSY9_SHELL_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-no-jft-inherit): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-no-jft-inherit)
 
-$(BSY9_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY9_SHELL_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BSY9_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BSY9_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY9_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BSY9_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> bsy9-redir mutant image: %s (JFT inheritance DISABLED -- GREETINGS must leak / GOUT.TXT empty)\n" "$@"
 
 test-bsy9-redir-mutant: $(HARNESS_BIN) $(BSY9_REDIR_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(BSY9_REDIR_BAT)
@@ -29321,11 +29133,8 @@ $(BSY7_REDIR_SHELL_MUT_BIN): $(BSY7_REDIR_SHELL_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-nolt): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-nolt)
 
-$(BSY7_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY7_REDIR_SHELL_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BSY7_REDIR_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BSY7_REDIR_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY7_REDIR_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BSY7_REDIR_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> bsy7-redir mutant image: %s (LT-parse DISABLED -- GOBBLE reads keyboard / GOBBLED42 absent)\n" "$@"
 
 test-bsy7-redir-mutant: $(HARNESS_BIN) $(BSY7_REDIR_TRACER_MUT_IMG) $(GOBBLE_PROG_BIN) $(BSY7_REDIR_BAT) $(BSY7_REDIR_IN)
@@ -29478,11 +29287,8 @@ $(BSY8_PIPE_SHELL_MUT_BIN): $(BSY8_PIPE_SHELL_MUT_ELF) | $(BUILD)
 	printf ">>> kernel(shell-mut-nostdin): %s (flat binary, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,shell-mut-nostdin)
 
-$(BSY8_PIPE_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY8_PIPE_SHELL_MUT_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BSY8_PIPE_SHELL_MUT_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
+$(BSY8_PIPE_TRACER_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BSY8_PIPE_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BSY8_PIPE_SHELL_MUT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> bsy8-pipe mutant image: %s (consumer STDIN repoint DISABLED -- GOBBLE reads keyboard / GREETINGS absent)\n" "$@"
 
 test-bsy8-pipe-mutant: $(HARNESS_BIN) $(BSY8_PIPE_TRACER_MUT_IMG) $(GREET_PROG_BIN) $(GOBBLE_PROG_BIN) $(BSY8_PIPE_BAT)
@@ -30429,11 +30235,8 @@ $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin: $(BUILD)/kernel_flairtenants_m
 	fi; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
 	$(call kernel-end-guard,$<,flairtenants-mut-iword_ullow)
-$(FLAIR_IWORD_ULLOW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_iword_ullow.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(FLAIR_IWORD_ULLOW_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants MUTANT image (iword gate pump life + -DTBXGATE_MUT_CELL_UL_LOW): %s\n" "$@"
 
 IWORD_C_ROW    := $(I123_E)bold under slant                                                            $(I123_E)
@@ -30776,11 +30579,8 @@ $(BUILD)/kernel_flairtenants_mut_$(3).bin: $(BUILD)/kernel_flairtenants_mut_$(3)
 	printf ">>> kernel(flairtenants-mut-$(3)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(3))
 
-$(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin | $(BUILD)
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_flairtenants_mut_$(3).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(3).bin $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-tenants MUTANT image ($(3): $(2)): %s\n" "$$@"
 endef
 # M009 cursor twin (PM 2026-10-17): the hand-written rule named the pre-LTO object list
@@ -31228,11 +31028,8 @@ $(BUILD)/kernel_alert_chrome_$(2).bin: $(BUILD)/kernel_alert_chrome_$(2).elf
 	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! alert chrome mutant $(2) exceeds kernel window\n'; exit 1; fi; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
 	$$(call kernel-end-guard,$$<,alert-chrome-$(2))
-$(BUILD)/alert_chrome_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin
-	@dd if=/dev/zero of=$$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_alert_chrome_$(2).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
+$(BUILD)/alert_chrome_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_alert_chrome_$(2).bin $(BOOT_SYSTEM_TOOL)
 endef
 $(eval $(call alert-chrome-mutant-rules,CTRL_MUT_LABEL_OPAQUE,label,os/flair/control.c,$(KERNEL_CONTROL_OBJ),$(FLAIR_CONTROL_OPT)))
 $(eval $(call alert-chrome-mutant-rules,CTRL_MUT_BTN_FRINGE,fringe,os/flair/control.c,$(KERNEL_CONTROL_OBJ),$(FLAIR_CONTROL_OPT)))
