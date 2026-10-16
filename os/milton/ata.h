@@ -117,7 +117,8 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx);
  * These two values MUST equal int21.h's INT21_CRIT_FAIL / INT21_CRIT_RETRY (the
  * hook is int21_run_critical_error); they are re-stated here so ata.c does not
  * include int21.h (keeping the disk layer's INT 24h knowledge to one function
- * pointer). op_is_write: 0 = a read failed, 1 = a write failed. */
+ * pointer). op_is_write: 0 = a read failed, 1 = a write failed;
+ * device_error preserves the backend's exact ATA_ERR_* for diagnostics. */
 #define CRIT_BLOCKDEV_FAIL        0   /* propagate the inner error (Fail/Abort) */
 #define CRIT_BLOCKDEV_RETRY       1   /* re-issue the failed inner op (Retry)   */
 #define CRIT_BLOCKDEV_MAX_RETRIES 5u  /* bound the Retry loop (a dead drive must
@@ -126,7 +127,7 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx);
                                        * here is one operator decision; this caps
                                        * the AUTOMATIC re-issues per decision. */
 
-typedef int (*crit_blockdev_hook_t)(int op_is_write);
+typedef int (*crit_blockdev_hook_t)(int op_is_write, int device_error);
 
 /* The wrapper's backing state (caller-owned, kernel BSS / host stack). `inner`
  * points at the real backend (an ata blockdev or the host file backend); `dev`

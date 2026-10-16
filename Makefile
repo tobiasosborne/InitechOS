@@ -8430,7 +8430,7 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
 # includes sft.h -> psp.h -> dos_structs.h, so -Ispec (initech-509.3).
 $(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
-                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
+                     $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h $(KERNEL_DIR)/ata.h spec/dos_structs.h \
                      $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
@@ -31650,6 +31650,8 @@ test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.COM $(TEST_SAMIR
 	@printf '>>> test-samir-undefined-emu-mutant: green (clean guest return)\n'
 TEST_UNIT_GATES += test-samir-undefined test-samir-undefined-mutant
 TEST_EMU_GATES += test-samir-undefined-emu test-samir-undefined-emu-mutant
+
+include harness/diff/fat_diff/dosmsg.mk
 
 # Physical two-file boot chain (initech-kod).
 include harness/diff/fat_diff/boot_system.mk

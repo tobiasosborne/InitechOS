@@ -1560,6 +1560,22 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         return -1;
     }
 
+    /* initech-nstg; PRD Sec 8 / Rule 2. A filesystem path fitting our
+     * buffers can still exceed sockaddr_un.sun_path. Reject BEFORE unlink,
+     * fork or QEMU's own socket error; stdio has no Unix pathname limit. */
+#ifndef QEMU_MUTATE_PATH_PREFLIGHT
+    if (!getenv("INITECH_QMP_STDIO") &&
+        (cfg->enable_qmp_screendump ||
+         (cfg->keys_spec && cfg->keys_spec[0]) ||
+         (cfg->mouse_spec && cfg->mouse_spec[0])) &&
+        strlen(sock_path) >= sizeof(((struct sockaddr_un *)0)->sun_path)) {
+        fprintf(stderr, "qemu_run: QMP socket path too long (%zu bytes; maximum %zu); "
+                "use a shorter --out or INITECH_QMP_STDIO=1\n",
+                strlen(sock_path), sizeof(((struct sockaddr_un *)0)->sun_path)-1);
+        return -1;
+    }
+#endif
+
     /* Fresh outputs: remove stale files so we never read a previous run's
      * serial/log/ppm (a classic false-green source -- Law 2). */
     unlink(out->serial_path);

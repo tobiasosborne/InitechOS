@@ -25,6 +25,7 @@
 #include "memory_map.h"  /* ENV_BLOCK -- the canonical populated-env sentinel (1i0x) */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
+#include "ata.h"        /* typed disk-driver failure for MSG-DOS-0006 */
 #include "dos_messages.h" /* MSG_DOS_0001 controlled diagnostic (DEC-13; -Ibuild) */
 
 /* The ANSI.SYS escape-sequence FSM (beads initech-p96i, consuming x3mh). ansi.c
@@ -233,9 +234,8 @@ int dos_in_dos(void)
  * Boot default ON (1): DOS 3.3 defaults BREAK ON per the DOS 3.3 PRM (DEC-16
  * Sec 3.3; C-7 86Box-confirmation obligation -- editorial-erratum flippable).
  * 4tw's ^C check-point reads this via int21_get_break_flag (the CON-input
- * functions are always a check-point under Fork A; the ON-widening to every
- * INT 21h call is the C-6 forward obligation). This bead provides ONLY the flag
- * + the seam; it adds NO ^C detection. */
+ * functions are always a check-point under Fork A; int21_dispatch_body adds
+ * the ON-only non-console check, DEC-16 C-6 / initech-vlhp). */
 #if defined(INT21_MUTATE_BREAK_DEFAULT_OFF)
 /* MUTANT M6 (Rule 6; make test-er3h-mutant only): boot the flag OFF instead of
  * ON, so the [er3h.1] boot-default GET assertion goes RED. NEVER in a real
@@ -1046,13 +1046,9 @@ static int conin_poll_pb(void)
  * FORK A GATING (DEC-16 Sec 3.3, the binding consumer obligation): under the
  * ratified Fork A the CON character-input family is ALWAYS a ^C check-point --
  * when BREAK is OFF, CON-I/O is the *only* check-point; when ON, it is one of
- * many (the ON-widening to every INT 21h call is the C-6 forward obligation, NOT
- * landed here). So the CON ^C detection fires whether g_break_flag is 0 or 1. We
- * still READ g_break_flag (per DEC-16 Sec 3.3 (ii) "read g_break_flag rather than
- * hard-coding") so the flag is a live input and the seam is ready for C-6: the
- * `(g_break_flag, ON or OFF)` -> CON-checks-^C truth is the Fork-A row. When the
- * non-CON every-call check-points are added (C-6) THEY are the ones gated to fire
- * only when g_break_flag is ON; the CON path stays unconditional here.
+ * many (the ON-widening is in int21_dispatch_body, DEC-16 C-6). So the CON
+ * ^C detection fires whether g_break_flag is 0 or 1. The non-CON entry check
+ * is gated by BREAK ON; the CON path stays unconditional here.
  *
  * int23_dispatch is the existing default break handler (DEC-10 / initech-509.8);
  * its default action terminates the current program (the DOS Ctrl-Break abort).
@@ -1089,8 +1085,7 @@ static int conin_check_ctrlc(int c, int_frame_t *f)
  * (and in do_conin_noecho / do_buffered_input), reading the BREAK state via
  * int21_get_break_flag() (the seam this bead, initech-er3h, provides). Under
  * Fork A the CON family is ALWAYS a check-point (BREAK ON or OFF); the
- * ON-widening to every INT 21h call is the C-6 forward obligation. This bead
- * adds NO ^C logic -- only the flag + the seam. */
+ * ON-only non-CON widening is in int21_dispatch_body (C-6). */
 static void do_conin_echo(int_frame_t *f)
 {
     int c = conin_get_pb();
@@ -4975,6 +4970,21 @@ static void int21_dispatch_body(int_frame_t *frame)
 {
     uint8_t ah = (uint8_t)((frame->eax >> 8) & 0xFFu);
 
+    /* DEC-16 Sec 3.3 Fork A / C-6; MS-DOS 3.3 Reference p.38 (PDF123):
+     * BREAK ON extends Ctrl-C checking to disk reads/writes and other DOS
+     * calls. Nonblocking entry check; preserve ordinary keyboard typeahead.
+     * The character family keeps its existing checks and raw 06h/07h rules. */
+#ifndef INT21_MUTATE_DISK_BREAK
+    if ((ah == 0u || ah > 0x0cu) && int21_get_break_flag()) {
+        int c = conin_poll_pb();
+        if (c == 3) {
+            int23_dispatch(frame);
+            return; /* a returning recovery hook must not run the service */
+        }
+        g_conin_pushback = c;
+    }
+#endif
+
     switch (ah) {
         case 0x00:                       /* TERMINATE (alias for 4Ch AL=0) */
             do_terminate(frame, 0u);
@@ -5357,21 +5367,38 @@ void int24_dispatch(int_frame_t *frame)
  *                 prompt has no Ignore key this milestone); were it ever returned
  *                 it is treated as Fail (the bead's defer-Ignore-as-Fail note).
  *
- * `op_is_write` (0 read / 1 write) is accepted for a future per-direction
- * diagnostic + matches the DOS INT 24h AH bit0 (read/write) semantics; it does
- * not change the A/R/F contract here. The frame is local (NOT the interrupted
+ * `op_is_write` (0 read / 1 write) matches DOS INT 24h AH bit0. The original
+ * device_error selects the not-ready read diagnostic; neither changes the
+ * A/R/F contract. The frame is local (NOT the interrupted
  * caller's): int24_dispatch only reads/writes AL+CF on it, so a synthetic frame
  * is sufficient and keeps the disk layer ignorant of int_frame_t. Ref: DOS 3.3
  * INT 24h (RBIL INT 24h: AL return 0=Ignore/1=Retry/2=Abort/3=Fail historically
  * varies; we use the crit_error_action A/R/F mapping pinned in int21.h); ADR-0003
  * DEC-10. */
-int int21_run_critical_error(int op_is_write)
+int int21_run_critical_error(int op_is_write, int device_error)
 {
     int_frame_t f;
     uint8_t     action;
     uint32_t    i;
 
-    (void)op_is_write;   /* reserved for a future per-direction diagnostic */
+    /* vlhp; DOS 3.3 Appendix F p.350/PDF435: the device cannot transmit
+     * data. Use only the driver's explicit NO_DRIVE condition, never an
+     * arbitrary read error. The bound FAT data volume is DOS drive A.
+     * Wording is the approved ADR-0003 Appendix C / MSG-DOS-0006 form. */
+#ifndef INT21_MUTATE_NOT_READY
+    if (!op_is_write && device_error == ATA_ERR_NO_DRIVE) {
+        const char *s = MSG_DOS_0006;
+        while (*s) {
+            if (s[0] == '%' && s[1] == 'c') {
+                con_putc('A');
+                s += 2;
+            } else con_putc(*s++);
+        }
+        con_puts("\r\n");
+    }
+#else
+    (void)op_is_write; (void)device_error;
+#endif
 
     /* A zeroed frame with CF preset so we can prove int24 CLEARS it (mirrors the
      * host oracle's fresh_frame; the only fields int24 touches are AL + CF). */

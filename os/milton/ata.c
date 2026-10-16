@@ -388,12 +388,12 @@ void crit_blockdev_set_hook(crit_blockdev_hook_t hook)
  * RETRIES); any other answer (Fail, or a returned Abort) returns 0 (propagate
  * the inner error). No hook bound -> 0 (transparent: never re-issue, return the
  * error -- the historical behavior). */
-static int crit_should_retry(int op_is_write)
+static int crit_should_retry(int op_is_write, int device_error)
 {
 	if (g_crit_hook == NULL) {
 		return 0;                  /* transparent: propagate the inner error */
 	}
-	return (g_crit_hook(op_is_write) == CRIT_BLOCKDEV_RETRY) ? 1 : 0;
+	return (g_crit_hook(op_is_write, device_error) == CRIT_BLOCKDEV_RETRY) ? 1 : 0;
 }
 
 /* Wrapped READ: call the inner read; on a negative return raise the critical-
@@ -422,12 +422,12 @@ static int crit_blockdev_read(void *ctx, uint32_t lba, uint32_t count, void *buf
 		 * bound -- an always-Retry operator on a dead drive then loops forever.
 		 * Scenario [E]'s bounded queue underflows (mock_get exit(2)) -> RED,
 		 * proving the bound is load-bearing (Rule 2). NEVER in a real build. */
-		if (!crit_should_retry(0 /* read */)) {
+		if (!crit_should_retry(0 /* read */, rc)) {
 			return rc;
 		}
 #else
 		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
-		    !crit_should_retry(0 /* read */)) {
+		    !crit_should_retry(0 /* read */, rc)) {
 			return rc;             /* Fail / Abort-returned / budget -> error */
 		}
 #endif
@@ -462,12 +462,12 @@ static int crit_blockdev_write(void *ctx, uint32_t lba, uint32_t count,
 #if defined(MVG_MUTATE_RETRY_UNBOUNDED)
 		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the write
 		 * retry bound (see the read twin above). [E] underflows -> RED. */
-		if (!crit_should_retry(1 /* write */)) {
+		if (!crit_should_retry(1 /* write */, rc)) {
 			return rc;
 		}
 #else
 		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
-		    !crit_should_retry(1 /* write */)) {
+		    !crit_should_retry(1 /* write */, rc)) {
 			return rc;
 		}
 #endif

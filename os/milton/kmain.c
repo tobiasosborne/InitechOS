@@ -7976,6 +7976,11 @@ void kernel_main(void)
         __asm__ __volatile__("hlt");
     }
 #elif defined(BOOT_SHELL)
+#ifdef BOOT_DOSMSG_FAULT
+    /* Factory-only disconnected-media backend; not in any shipped image. */
+    extern void dosmsg_fixture_arm(blockdev_t *disk);
+    dosmsg_fixture_arm(&fatdev);
+#endif
     /* COMMAND.COM INTERACTIVE SHELL BUILD ONLY (beads initech-7pc; make
      * test-shell). The M2 capstone: instead of the demo+halt, enter the resident
      * COMMAND.COM REPL. It prints the $P$G prompt (A:\>), reads a line via INT 21h
