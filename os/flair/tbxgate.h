@@ -69,6 +69,9 @@ typedef struct tbx_host {
                                   * codes answer BADCODE */
 } tbx_host_t;
 
+void tbx_preferences_boot(uint32_t total_k);
+int tbx_preferences_dirty(void);
+void tbx_preferences_tick(void);
 void tbx_bind(const tbx_host_t *host);
 
 /* Launch the disk tenant `name83` from the directory whose first cluster is

@@ -125,6 +125,8 @@ typedef struct flair_raw_ring {
  * consumer's progress), computes next head, checks for full (next == tail),
  * writes slot, stores new head with a volatile write.
  */
+/* R4.5 runtime pump preferences; defaults preserve existing constants. */
+extern unsigned flair_mouse_tracking,flair_double_click_ticks;
 int flair_raw_post(flair_raw_ring_t *ring, const flair_raw_event_t *raw);
 
 /* ============================================================

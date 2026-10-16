@@ -615,6 +615,14 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
  * Ref: IM-I Ch 5. */
 static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
 {
+    /* R4.5: a radio is embedded in a dialog, not on the desktop. Keep the
+     * existing unminted shape; its ambient face follows the already sampled
+     * control/dialog face (s8_controls_dialog.png, sys8/controls.md sec1). */
+#ifdef CTRL_MUT_RADIO_DESKTOP_BG
+    const int background=CTRL_DESKTOP;
+#else
+    const int background=CTRL_PLAT_FACE;
+#endif
     int x0 = (int)ctrl->contrlRect.left;
     int y0 = (int)ctrl->contrlRect.top;
     int y1 = (int)ctrl->contrlRect.bottom;
@@ -630,10 +638,10 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
     crect_ctrl(port,  x0, box_y, x0 + RADIO_SZ, box_y + RADIO_SZ, CTRL_WHITE);
     cframe_ctrl(port, x0, box_y, x0 + RADIO_SZ, box_y + RADIO_SZ, CTRL_BLACK);
     /* clear 4 corners */
-    cfill_ctrl(port, x0,              box_y,              1, CTRL_DESKTOP);
-    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y,              1, CTRL_DESKTOP);
-    cfill_ctrl(port, x0,              box_y + RADIO_SZ-1, 1, CTRL_DESKTOP);
-    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y + RADIO_SZ-1, 1, CTRL_DESKTOP);
+    cfill_ctrl(port, x0,              box_y,              1, background);
+    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y,              1, background);
+    cfill_ctrl(port, x0,              box_y + RADIO_SZ-1, 1, background);
+    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y + RADIO_SZ-1, 1, background);
 
     /* Dot if selected. */
     if (ctrl->contrlValue != 0) {
@@ -649,7 +657,7 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
             ly = y0;
         }
         uint32_t fg = ctrl_px(port, CTRL_BLACK);
-        uint32_t bg = ctrl_px(port, CTRL_DESKTOP);
+        uint32_t bg = ctrl_px(port, background);
         ctrl_text(port, x0 + RADIO_SZ + 4, ly, ctrl->contrlTitle, fg, bg);
     }
 }
@@ -946,7 +954,10 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
     }
 
     /* Establish the sampled E7 field within the expanded bounds. */
-    crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
+    crect_ctrl(port,x0,y0,x1,by0,CTRL_PLAT_FACE);
+    crect_ctrl(port,x0,by1,x1,y1,CTRL_PLAT_FACE);
+    crect_ctrl(port,x0,by0,bx0,by1,CTRL_PLAT_FACE);
+    crect_ctrl(port,bx1,by0,x1,by1,CTRL_PLAT_FACE);
 
     /* One-pixel rounded black ring with sampled 3F smoothing pixels. */
     cfill_ctrl(port, x0 + 3, y0,     x1 - x0 - 6, CTRL_BLACK);
@@ -979,6 +990,28 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
     }
     cfill_ctrl(port, bx0, by1,     bx1 - bx0, CTRL_PLAT_SHADOW);
     cfill_ctrl(port, bx0, by1 + 1, bx1 - bx0, CTRL_PLAT_DARK_SHADOW);
+    /* R4.5 independent whole-ring gate exposed the old radius-3 corners.
+     * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
+     * sampled smoothing/moat. These are the four 5x5 corner crops; straight
+     * legs above remain stretchable. The oracle reads the PNG independently.
+     * Named mutant restores the old corners (Rule6). */
+#ifndef CTRL_MUT_RING_OLD_CORNERS
+    static const char corners[4][5][6]={
+        {"...dK","..K..",".K..C","d..CS","K.CSK"},
+        {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
+        {"K.CSK","dACCS",".KHCC","..KGS","...dK"},
+        {"KSCSK","SCGSd","CGSK.","SSK..","Kd..."}
+    };
+    for(unsigned k=0;k<4;k++)for(int y=0;y<5;y++)for(int x=0;x<5;x++) {
+        char c=corners[k][y][x];int part=CTRL_PLAT_FACE;
+        if(c=='K')part=CTRL_BLACK;else if(c=='d')part=CTRL_PLAT_DARK_RING;
+        else if(c=='C')part=CTRL_PLAT_SHADOW;else if(c=='S')part=CTRL_PLAT_DARK_SHADOW;
+        else if(c=='A')part=FLAIR_PART_PLAT_FRAME_FACE;else if(c=='H')part=CTRL_PLAT_CORNER;
+        else if(c=='G')part=CTRL_PLAT_WIDGET_EDGE;
+        cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
+    }
+#endif
+
 #endif
 }
 

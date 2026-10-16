@@ -15,7 +15,7 @@ int menubar_clock_golden(const char *capture, const char *nfnt,
                          uint32_t out[20][80])
 {
     png_image im;
-    unsigned char rgb[640 * 480 * 3], font[4096];
+    unsigned char rgb[640 * 480 * 3];
     memset(&im, 0, sizeof im);
     im.version = PNG_IMAGE_VERSION;
     if (!png_image_begin_read_from_file(&im, capture)) {
@@ -43,6 +43,16 @@ int menubar_clock_golden(const char *capture, const char *nfnt,
         uint32_t color = (uint32_t)p[0] * 65536u + (uint32_t)p[1] * 256u + p[2];
         for (int x = 0; x < 80; x++) out[y][x] = color;
     }
+    /* The independent original strike, shared with dialog-client oracles. */
+    return oracle_chicago_text(nfnt,"12:56 am",&out[0][0],80,20,-1,2);
+}
+
+/* x==-1: the clock's right-aligned anchor. Otherwise x/y are the top-left
+ * text cell. No artifact font tables, metrics or drawing calls are used. */
+int oracle_chicago_text(const char *nfnt,const char *text,uint32_t *out,
+                         int width,int height,int x,int y0)
+{
+    unsigned char font[4096];
     FILE *f = fopen(nfnt, "rb");
     if (!f) { fprintf(stderr, "FAIL clock reference: missing NFNT %s\n", nfnt); return 1; }
     size_t n = fread(font, 1, sizeof font, f);
@@ -53,20 +63,20 @@ int menubar_clock_golden(const char *capture, const char *nfnt,
         return 1;
     }
     unsigned loc = 2126, ow = 2612;
-    const char *s = "12:56 am"; /* independent captured reading */
-    int width = 0;
-    for (const char *c = s; *c; c++) width += font[ow + 2u * (unsigned char)*c + 1];
+    const char *s = text;
+    int advance = 0;
+    for (const char *c = s; *c; c++) advance += font[ow + 2u * (unsigned char)*c + 1];
     /* Original 'm': advance12, bearing1, bitmap10 -> last ink end-2.
      * Clock's captured right ink592 thus gives the exclusive cell end594. */
-    int pen = 594 - width;
+    int pen = x==-1 ? 74-advance : x;
     for (; *s; s++) {
         unsigned c = (unsigned char)*s;
         unsigned start = be16(font, loc + 2u * c), end = be16(font, loc + 2u * c + 2);
         int bearing = (int)font[ow + 2u * c] + (int)(short)be16(font, 8);
         for (unsigned y = 0; y < 15; y++) for (unsigned k = start; k < end; k++) {
-            int x = pen + bearing + (int)(k - start) - 520;
-            if ((font[26 + y * 140 + k / 8] & (128u >> (k % 8))) && x >= 0 && x < 80)
-                out[y + 2][x] = 0;
+            int x = pen + bearing + (int)(k - start);
+            if ((font[26 + y * 140 + k / 8] & (128u >> (k % 8))) && x >= 0 && x < width && (int)y+y0>=0 && (int)y+y0<height)
+                out[((int)y+y0)*width+x] = 0;
         }
         pen += font[ow + 2u * c + 1];
     }

@@ -96,6 +96,7 @@
  * when the displayed minute changes. Draw overlays ONLY the top shell bar;
  * ordinary DrawMenuBar / tenant bars do not acquire a second clock. */
 int MenuClock_format(unsigned hour, unsigned minute, char out[9]);
+void MenuClock_enable(int enabled);
 int MenuClock_set(unsigned hour, unsigned minute);
 const char *MenuClock_text(void);
 void MenuClock_draw(GrafPort *port, const region_t *clip);

@@ -26,7 +26,8 @@
 /* { title, directory (8.3, from the volume root), program (8.3) } */
 #define APPLE_MENU_DA_TABLE {                         \
     { "Calculator", "APPS", "CALCULAT.EXE" },             \
+    { "Control Panels", "APPS", "CPANELS.EXE" },             \
 }
-#define APPLE_MENU_DA_COUNT 1
+#define APPLE_MENU_DA_COUNT 2
 
 #endif /* INITECH_SPEC_APPLE_MENU_ITEMS_H */

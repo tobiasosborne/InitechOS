@@ -224,6 +224,7 @@ void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear)
 /* The bound arena's total paragraphs and its largest FREE block (the MCB
  * chain walked live; About This Computer, bead initech-tdnl.47). Returns 0
  * with both 0 when no arena is bound or the chain is corrupt. */
+int int21_mcb_usage(uint32_t *total,uint32_t *free,uint32_t *largest);
 int int21_mcb_stats(uint32_t *total_paras, uint32_t *largest_free_paras);
 
 /* Lay a single terminal FREE-or-owned block over the bound arena and (re)assign

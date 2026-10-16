@@ -9874,7 +9874,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
+TBXGATE_DEPS := os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -10007,7 +10007,7 @@ TENANTFX_EXE := $(BUILD)/tenantfx.exe
 # $(call tenant-exe-rules,<name>,<C sources>,<extra cflags>,<extra deps>,<extra ldflags>)
 #   -> $(BUILD)/tenant/<name>.exe
 TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
-TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h
+TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
 TENANT_LD     := os/apps/tbx/tenant.ld
 TENANT_PROBE  := 0x01010140
 TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
@@ -10080,6 +10080,7 @@ $(eval $(call tenant-exe-rules,calcda,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/
 $(eval $(call tenant-exe-rules,calcda_click_diverge,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_KEY_CLICK_DIVERGE,$(CALCDA_APP_DEP),))
 $(eval $(call tenant-exe-rules,calcda_precedence,$(CALCDA_APP_SRC),-Ios/apps/calcda -Ispec/assets -DCALCDA_MUT_PRECEDENCE,$(CALCDA_APP_DEP),))
 CALCDA_EXE := $(BUILD)/tenant/calcda.exe
+CP_EXE := $(BUILD)/tenant/cpanels.exe
 
 # 123.EXE -- Initech 123, Face A (os/i123/app/face_a.c over the slice-1 core,
 # beads initech-9u8w / initech-w96l): the same C path, the worksheet store in
@@ -10154,7 +10155,7 @@ FLAIR_TPSPARM_DAT := harness/diff/tps/tpsparm.dat
 FLAIR_TPS_DBF     := harness/diff/tps/tps.dbf
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) $(CP_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10186,7 +10187,8 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPSPARM_DAT) ::APPS/TPSPARM.DAT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPS_DBF) ::APPS/TPS.DBF
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALCDA_EXE) ::APPS/CALCULAT.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF, CALCULAT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CP_EXE) ::APPS/CPANELS.EXE
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG, TPSREP.COM, TPSPARM.DAT, TPS.DBF, CALCULAT.EXE, CPANELS.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -12853,7 +12855,7 @@ TEST_FINDER_DESK_MUT_DBL      := $(BUILD)/test_finder_desktop_mutant_dbltick_off
 TEST_FINDER_DESK_MUT_BAND     := $(BUILD)/test_finder_desktop_mutant_marquee_offbyone
 TEST_FINDER_DESK_MUT_UNDERLAY := $(BUILD)/test_finder_desktop_mutant_no_underlay
 FINDER_DESK_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
-FINDER_DESK_LINK := os/flair/finder_desktop.c os/flair/finder_icon.c \
+FINDER_DESK_LINK := os/flair/event.c os/flair/finder_desktop.c os/flair/finder_icon.c \
                     os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                     os/flair/surface.c os/flair/heap.c \
                     $(CHROME_DRAWER_C) $(REGION_ENGINE_C) $(FLAIRLOOK_C)
@@ -12926,7 +12928,7 @@ TEST_FINDER_WIN_MUT_SINGLETON := $(BUILD)/test_finder_windows_mutant_singleton_d
 TEST_FINDER_WIN_MUT_VOLLABEL  := $(BUILD)/test_finder_windows_mutant_vollabel_shown
 TEST_FINDER_WIN_MUT_CLEANUP   := $(BUILD)/test_finder_windows_mutant_cleanup_unsorted
 FINDER_WIN_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
-FINDER_WIN_LINK := os/flair/finder_windows.c os/flair/finder_desktop.c \
+FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_desktop.c \
                    os/flair/finder_icon.c os/flair/finder_cmd.c \
                    os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                    os/flair/surface.c os/flair/heap.c \
@@ -23199,6 +23201,15 @@ RECORD_MARKER_itext_savefile = TENANT-SF-REPLY good=1 path=MEMO.TXT
 RECORD_SETTLE_itext_savefile = 400
 RECORD_IMAGE_itext_savefile = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # ehq4 Rule 14: the SAME locked forty-Return leg as test-flair-itext-scroll.
+# R4.5 tdnl.19: PM records on main after merge. Parse-time block.
+RECORD_SCRIPTS += control_panels
+RECORD_SPEC_control_panels = $(CP_CLIP_SPEC)
+RECORD_MARKER_control_panels = APPLE-LAUNCH name=CPANELS.EXE dir=APPS
+RECORD_IMAGE_control_panels = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_control_panels = $(FLAIR_DATA_IMG)
+# Volume re-key: README + APPS + its21 leaves; stranded TRASH stays cell0.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=23 refused=0
+
 # Defined before record-flair: its image/data prerequisites are read at parse time.
 RECORD_SCRIPTS += itext_scroll
 RECORD_SPEC_itext_scroll = $(FLAIR_ITEXT_SCROLL_SPEC)
@@ -31309,7 +31320,7 @@ CALCDA_UP = grep -qx 'APPLE-LAUNCH name=CALCULAT.EXE dir=APPS' $(1) && grep -qx 
 
 # EMU: test-flair-apple-menu (bead initech-tdnl.47; Rule 14 clip apple_menu)
 #   [1/3] DROP    the band-1 glyph drops the Apple menu (FLAIR-MENU-DROP
-#                 menu=1; APPLE-MENU n=3 = About, divider, Calculator); the
+#                 menu=1; APPLE-MENU n=4 = About, divider, Calculator, Control Panels); the
 #                 held panel graded vs s8_apple_menu.png (AP1-AP3).
 #   [2/3] LAUNCH  releasing on Calculator launches APPS\CALCULAT.EXE through the
 #                 double-click verb (APPLE-LAUNCH, TENANT-REGISTER, the
@@ -31323,7 +31334,7 @@ CALCDA_UP = grep -qx 'APPLE-LAUNCH name=CALCULAT.EXE dir=APPS' $(1) && grep -qx 
 .PHONY: test-flair-apple-menu test-flair-apple-menu-mutant
 test-flair-apple-menu: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CALCDA_CHECK)
 	$(call calcda-boot,flair_apple_drop,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_APPLE_DROP_SPEC,FLAIR-MENU-DROP menu=1)
-	@grep -qx 'APPLE-MENU n=3' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
+	@grep -qx 'APPLE-MENU n=4' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
 	 || { printf '!!! test-flair-apple-menu FAIL [1/3] DROP: no Apple menu dropped from the band-1 glyph\n'; grep -E '^(APPLE|FLAIR-MENU)' $(BUILD)/flair_apple_drop.serial; exit 1; }
 	@$(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" | sed 's/^/    /'; \
 	 $(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" >/dev/null \
@@ -31904,3 +31915,155 @@ include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
 
+
+# R4.5 initech-tdnl.19: host oracle FIRST, then the locked emu family.
+CP_APP_SRC := os/apps/cpanels/cpanels.c os/apps/cpanels/core.c
+CP_DEPS := os/apps/cpanels/cpanels.h spec/cpanels_record.h spec/cp_dialog.h
+CP_HOST_SRC := harness/proptest/test_cpanels.c os/apps/cpanels/core.c
+$(BUILD)/test_cpanels: $(CP_HOST_SRC) $(CP_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(DIALOG_INC) -Ios/apps/cpanels -o $@ $(CP_HOST_SRC) $(DIALOG_LINK) -lpng
+$(BUILD)/test_cpanels_mut_%: $(CP_HOST_SRC) $(CP_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(DIALOG_INC) -Ios/apps/cpanels -D$* -o $@ $(CP_HOST_SRC) $(DIALOG_LINK) -lpng
+CP_MUTANTS := CP_MUT_OK_NOTHING CP_MUT_CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED
+.PHONY: test-cpanels test-cpanels-mutant
+test-cpanels: $(BUILD)/test_cpanels
+	@$< "$(SYSTEM7_DECOMP)"
+test-cpanels-mutant: test-cpanels $(addprefix $(BUILD)/test_cpanels_mut_,$(CP_MUTANTS))
+	@set -e; for pair in CP_MUT_OK_NOTHING:OK_WRITES CP_MUT_CANCEL_WRITES:CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED:CLOCK_APPLIED; do \
+	 m=$${pair%:*}; rule=$${pair#*:}; if $(BUILD)/test_cpanels_mut_$$m "$(SYSTEM7_DECOMP)" > $(BUILD)/cp_$$m.log; then printf 'FAIL mutant survived %s\n' $$m; exit 1; fi; \
+	 grep -q "^FAIL $$rule" $(BUILD)/cp_$$m.log; printf '>>> test-cpanels-mutant: %s correctly RED: %s\n' $$m "$$(grep -m1 "^FAIL $$rule" $(BUILD)/cp_$$m.log)"; done
+TEST_UNIT_GATES += test-cpanels test-cpanels-mutant
+include spec/flair_cpanels_traces.mk
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1200,cpanels_gate))
+CP_GATE_IMG := $(BUILD)/flair_tenants_mut_cpanels_gate.img
+$(eval $(call tenant-exe-rules,cpanels,$(CP_APP_SRC),-Ios/apps/cpanels,$(CP_DEPS),))
+CP_EXE := $(BUILD)/tenant/cpanels.exe
+$(BUILD)/ppm_flair_cpanels_check: tools/ppm_flair_cpanels_check.c harness/menubar_clock_oracle.c harness/menubar_clock_oracle.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness -o $@ tools/ppm_flair_cpanels_check.c harness/menubar_clock_oracle.c -lpng
+.PHONY: test-flair-cpanels test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory
+define cp-panel-gate
+test-flair-cpanels-$(1): $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$$(call calcda-boot,cp_$(1),$$(CP_GATE_IMG),$$(FLAIR_DATA_IMG),FLAIR_CP_$(2)_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'APPLE-LAUNCH name=CPANELS.EXE dir=APPS' $(BUILD)/cp_$(1).serial
+	@grep -qx 'CPANEL title=$(3)' $(BUILD)/cp_$(1).serial
+	@$(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_$(1).ppm "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin" $(if $(filter patterns mouse sound,$(1)),radio,)
+	@printf '>>> test-flair-cpanels-$(1): green (locked trace, dialog routing, independent button/ring chrome)\n'
+endef
+$(eval $(call cp-panel-gate,date,DATE,Date & Time))
+$(eval $(call cp-panel-gate,patterns,PATTERNS,Desktop Patterns))
+$(eval $(call cp-panel-gate,mouse,MOUSE,Mouse))
+$(eval $(call cp-panel-gate,sound,SOUND,Sound))
+$(eval $(call cp-panel-gate,memory,MEMORY,Memory))
+test-flair-cpanels: test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory
+TEST_EMU_GATES += test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory
+
+$(KERNEL_TBXGATE_OBJ): os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h
+
+# Rule6: every panel's independent chrome gate has a twin, restoring the
+# old radius3 ring. Generic object-swap macro owns placement/headroom checks.
+$(BUILD)/control_mut_cp_ring.o: os/flair/control.c os/flair/control.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -DCTRL_MUT_RING_OLD_CORNERS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_CONTROL_OBJ),$(BUILD)/kmain_flairtenants_mut_cpanels_gate.o $(BUILD)/control_mut_cp_ring.o,cp_ring))
+define cp-panel-mutant
+test-flair-cpanels-$(1)-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_ring.img $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$$(call calcda-boot,cp_$(1)_ring,$(BUILD)/flair_tenants_mut_cp_ring.img,$(FLAIR_DATA_IMG),FLAIR_CP_$(2)_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'CPANEL title=$(3)' $(BUILD)/cp_$(1)_ring.serial
+	@if $(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_$(1)_ring.ppm "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin" > $(BUILD)/cp_$(1)_ring.pixels; then printf 'FAIL ring mutant survived\n'; exit 1; fi
+	@grep '^FAIL CP_CHROME' $(BUILD)/cp_$(1)_ring.pixels
+	@printf '>>> test-flair-cpanels-$(1)-mutant: CTRL_MUT_RING_OLD_CORNERS correctly RED (independent chrome)\n'
+endef
+$(eval $(call cp-panel-mutant,date,DATE,Date & Time))
+$(eval $(call cp-panel-mutant,patterns,PATTERNS,Desktop Patterns))
+$(eval $(call cp-panel-mutant,mouse,MOUSE,Mouse))
+$(eval $(call cp-panel-mutant,sound,SOUND,Sound))
+$(eval $(call cp-panel-mutant,memory,MEMORY,Memory))
+TEST_EMU_GATES += $(addsuffix -mutant,test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory)
+
+# The transaction mutants are real CPANELS.EXE binaries on gate-local disks.
+$(foreach m,$(CP_MUTANTS),$(eval $(call tenant-exe-rules,cp_$(m),$(CP_APP_SRC),-Ios/apps/cpanels -D$(m),$(CP_DEPS),)))
+define cp-data-mutant
+$(BUILD)/cp_$(1)_data.img: $(FLAIR_DATA_IMG) $(BUILD)/tenant/cp_$(1).exe
+	cp -f $(FLAIR_DATA_IMG) $$@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $$@ $(BUILD)/tenant/cp_$(1).exe ::APPS/CPANELS.EXE
+endef
+$(foreach m,$(CP_MUTANTS),$(eval $(call cp-data-mutant,$(m))))
+# A single reused boot/check pair makes each mutant face the same oracle.
+define cp-transaction-boot
+$(call calcda-boot,$(1),$(CP_GATE_IMG),$(2),$(3),FLAIR-LIVE-OK)
+endef
+define cp-disk-saved
+mtype -i $(1) ::CPANELS.DAT > $(1).record 2>/dev/null && \
+[ "$$(od -An -v -tx1 $(1).record | tr -d ' \n')" = '4350303101030101000201000000fd00' ]
+endef
+.PHONY: test-flair-cpanels-settings test-flair-cpanels-settings-mutant test-flair-cpanels-persist test-flair-cpanels-mutant
+# CLK follows real RTC; Mouse moves at2x AFTER OK; Sound uses PIT channel2.
+test-flair-cpanels-settings: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG)
+	$(call cp-transaction-boot,cp_clock,$(FLAIR_DATA_IMG),CP_CLOCK_SAVE_SPEC)
+	@grep -qx 'CPANELS-RTC hour=10 minute=0' $(BUILD)/cp_clock.serial && grep -qx 'FLAIR-CLOCK 10:00 am' $(BUILD)/cp_clock.serial
+	$(call cp-transaction-boot,cp_mouse_apply,$(FLAIR_DATA_IMG),CP_MOUSE_APPLY_SPEC)
+	@grep -qx 'CPANELS-APPLY pattern=0 tracking=2 double=2 ticks=10' $(BUILD)/cp_mouse_apply.serial && grep -qx 'FLAIR-CURSOR x=422 y=220' $(BUILD)/cp_mouse_apply.serial
+	$(call cp-transaction-boot,cp_sound_apply,$(FLAIR_DATA_IMG),CP_SOUND_APPLY_SPEC)
+	@grep -qx 'CPANELS-BEEP hz=660' $(BUILD)/cp_sound_apply.serial && grep -qx 'CPANELS-BEEP off' $(BUILD)/cp_sound_apply.serial
+	@printf '>>> test-flair-cpanels-settings: green (AH2D -> menu clock, real2x mouse pump, PIT660Hz on/off)\n'
+test-flair-cpanels-persist: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$(call pw-reboot,$(CP_GATE_IMG),cp_persist,$(BUILD)/cp_persist_data.img,$(CP_SAVE_SPEC))
+	@[ "$$(grep -cx 'FLAIR-LIVE-READY' $(BUILD)/cp_persist.serial)" = 2 ]
+	@$(call cp-disk-saved,$(BUILD)/cp_persist_data.img) || { printf 'FAIL CP_OK_WRITE independent16-byte record\n'; exit 1; }
+	@grep -qx 'CPANELS-LOAD pattern=3 tracking=1 double=1' $(BUILD)/cp_persist.serial
+	@$(HARNESS_BIN) --disk $(CP_GATE_IMG) --disk2 $(BUILD)/cp_persist_data.img --name cp_reload --out $(BUILD) --quit-after FLAIR-LIVE-OK --timeout-ms 25000 --screendump --screendump-after FLAIR-LIVE-OK 2>$(BUILD)/cp_reload.report
+	@$(BUILD)/ppm_flair_cpanels_check pattern $(BUILD)/cp_reload.ppm "$(SYSTEM7_DECOMP)/goldens/resources/PAT#_0.bin" 3
+	$(call cp-transaction-boot,cp_cancel,$(FLAIR_DATA_IMG),CP_CANCEL_SPEC)
+	@if mdir -i $(BUILD)/cp_cancel_data.img ::CPANELS.DAT >/dev/null 2>&1; then printf 'FAIL CP_CANCEL_WRITE created file\n'; exit 1; fi
+	@printf '>>> test-flair-cpanels-persist: green (OK disk bytes, actual Restart, boot reapply vs PAT# golden, Cancel no file)\n'
+test-flair-cpanels-settings-mutant: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(foreach m,$(CP_MUTANTS),$(BUILD)/cp_$(m)_data.img)
+	$(call cp-transaction-boot,cp_mut_ok,$(BUILD)/cp_CP_MUT_OK_NOTHING_data.img,CP_SAVE_ONLY_SPEC)
+	@grep -qx 'CPANELS-APPLY pattern=3 tracking=1 double=1 ticks=20' $(BUILD)/cp_mut_ok.serial
+	@if $(call cp-disk-saved,$(BUILD)/cp_mut_ok_data.img); then printf 'FAIL OK_NOTHING survived\n'; exit 1; fi
+	@printf '>>> CP_MUT_OK_NOTHING correctly RED: FAIL CP_OK_WRITE independent16-byte record\n'
+	$(call cp-transaction-boot,cp_mut_cancel,$(BUILD)/cp_CP_MUT_CANCEL_WRITES_data.img,CP_CANCEL_SPEC)
+	@mdir -i $(BUILD)/cp_mut_cancel_data.img ::CPANELS.DAT >/dev/null
+	@printf '>>> CP_MUT_CANCEL_WRITES correctly RED: FAIL CP_CANCEL_WRITE created file\n'
+	$(call cp-transaction-boot,cp_mut_clock,$(BUILD)/cp_CP_MUT_CLOCK_NOT_APPLIED_data.img,CP_CLOCK_SAVE_SPEC)
+	@grep -qx 'CPANEL title=Date & Time' $(BUILD)/cp_mut_clock.serial
+	@mdir -i $(BUILD)/cp_mut_clock_data.img ::CPANELS.DAT >/dev/null
+	@! grep -qx 'CPANELS-RTC hour=10 minute=0' $(BUILD)/cp_mut_clock.serial && ! grep -qx 'FLAIR-CLOCK 10:00 am' $(BUILD)/cp_mut_clock.serial
+	@printf '>>> CP_MUT_CLOCK_NOT_APPLIED correctly RED: FAIL CP_CLOCK_APPLY no10am clock\n'
+test-flair-cpanels-mutant: $(addsuffix -mutant,test-flair-cpanels-date test-flair-cpanels-patterns test-flair-cpanels-mouse test-flair-cpanels-sound test-flair-cpanels-memory) test-flair-cpanels-settings-mutant
+TEST_EMU_GATES += test-flair-cpanels-settings test-flair-cpanels-settings-mutant test-flair-cpanels-persist
+
+$(BUILD)/tbxgate_mut_cp_mouse.o: $(TBXGATE_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -DCP_MUT_MOUSE_INERT -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_TBXGATE_OBJ),$(BUILD)/kmain_flairtenants_mut_cpanels_gate.o $(BUILD)/tbxgate_mut_cp_mouse.o,cp_mouse))
+.PHONY: test-flair-cpanels-mouse-apply-mutant test-flair-cpanels-corrupt
+test-flair-cpanels-mouse-apply-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_mouse.img $(FLAIR_DATA_IMG)
+	$(call calcda-boot,cp_mouse_inert,$(BUILD)/flair_tenants_mut_cp_mouse.img,$(FLAIR_DATA_IMG),CP_MOUSE_APPLY_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'CPANELS-APPLY pattern=0 tracking=2 double=2 ticks=20' $(BUILD)/cp_mouse_inert.serial
+	@grep -qx 'FLAIR-CURSOR x=421 y=220' $(BUILD)/cp_mouse_inert.serial && ! grep -qx 'FLAIR-CURSOR x=422 y=220' $(BUILD)/cp_mouse_inert.serial
+	@printf '>>> CP_MUT_MOUSE_INERT correctly RED: FAIL CP_MOUSE_APPLY cursor421 expected422\n'
+test-flair-cpanels-corrupt: $(HARNESS_BIN) $(CP_GATE_IMG) $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/cp_corrupt_data.img
+	@printf 'corrupt' > $(BUILD)/cp_corrupt.record
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $(BUILD)/cp_corrupt_data.img $(BUILD)/cp_corrupt.record ::CPANELS.DAT
+	@$(HARNESS_BIN) --disk $(CP_GATE_IMG) --disk2 $(BUILD)/cp_corrupt_data.img --name cp_corrupt --out $(BUILD) --quit-after FLAIR-LIVE-OK --timeout-ms 25000 --screendump --screendump-after FLAIR-LIVE-OK 2>$(BUILD)/cp_corrupt.report
+	@grep -qx 'CPANELS-CORRUPT defaults' $(BUILD)/cp_corrupt.serial
+	@$(BUILD)/ppm_flair_cpanels_check pattern $(BUILD)/cp_corrupt.ppm "$(SYSTEM7_DECOMP)/goldens/resources/PAT#_0.bin" 0
+	@printf '>>> test-flair-cpanels-corrupt: green (fail-loud serial + locked teal defaults)\n'
+TEST_EMU_GATES += test-flair-cpanels-mouse-apply-mutant test-flair-cpanels-corrupt
+test-flair-cpanels-mutant: test-flair-cpanels-mouse-apply-mutant
+# The gate-local mutant data volumes keep exactly the stock file contract.
+$(foreach m,$(CP_MUTANTS),$(eval $(call fixture-contract,$(BUILD)/cp_$(m)_data.img,$(FLAIR_FIXTURES))))
+$(BUILD)/control_mut_cp_radio.o: os/flair/control.c os/flair/control.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -DCTRL_MUT_RADIO_DESKTOP_BG -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_CONTROL_OBJ),$(BUILD)/kmain_flairtenants_mut_cpanels_gate.o $(BUILD)/control_mut_cp_radio.o,cp_radio))
+.PHONY: test-flair-cpanels-radio-mutant
+test-flair-cpanels-radio-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_cp_radio.img $(FLAIR_DATA_IMG) $(BUILD)/ppm_flair_cpanels_check
+	$(call calcda-boot,cp_radio,$(BUILD)/flair_tenants_mut_cp_radio.img,$(FLAIR_DATA_IMG),FLAIR_CP_MOUSE_SPEC,FLAIR-LIVE-OK)
+	@grep -qx 'CPANEL title=Mouse' $(BUILD)/cp_radio.serial
+	@if $(BUILD)/ppm_flair_cpanels_check $(BUILD)/cp_radio.ppm "$(SYSTEM7_DECOMP)/goldens/captures/s8_alert_modal.png" "$(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin" radio > $(BUILD)/cp_radio.pixels; then printf 'FAIL radio mutant survived\n'; exit 1; fi
+	@grep '^FAIL CP_RADIO_FACE' $(BUILD)/cp_radio.pixels
+	@printf '>>> CTRL_MUT_RADIO_DESKTOP_BG correctly RED: FAIL CP_RADIO_FACE inherited desktop instead of dialog face\n'
+TEST_EMU_GATES += test-flair-cpanels-radio-mutant
+test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
+
+# New locked header consumers must rebuild when the contract changes.
+$(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
