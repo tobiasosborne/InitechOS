@@ -1,5 +1,5 @@
 /*
- * cursors.h -- InitechOS FLAIR cursor assets v1 (LOCKED spec-data).
+ * cursors.h -- InitechOS FLAIR cursor assets (LOCKED: busy v1, arrow v3).
  *
  * beads: initech-zaqj (canon assets: hourglass CURS bytes + Photoshop menu
  *        string, ADR-0004 AM-4 / FO-E).
@@ -55,14 +55,13 @@
  *   data[16]  -- uint16_t per row; 1 = black (ink), 0 = white (paper).
  *                MSB (bit 15) = leftmost column (col 0).
  *   mask[16]  -- uint16_t per row; 1 = cursor pixel is opaque (drawn);
- *                0 = transparent (screen shows through). The mask is the
- *                union / convex hull of the image: every ink pixel is
- *                opaque, and in our case the mask == data (no dilation
- *                needed because the cursor is a solid silhouette).
+ *                0 = transparent (screen shows through). Every ink pixel
+ *                is opaque. The hourglass mask equals its data (solid
+ *                silhouette); the captured arrow mask also paints white.
  *   hotSpot   -- (row, col) of the active pixel, 0-indexed. For the busy
  *                (hourglass) cursor, hotspot = center = (8, 8) so that the
  *                waist of the glass tracks the click point.
- *                For the arrow cursor, hotspot = tip = (0, 0).
+ *                For the arrow cursor, hotspot = tip = (1, 1).
  *
  * Encoding: uint16_t in native byte order of the host rendering code.
  * The CURS resource body is big-endian on the Mac; here we use uint16_t
@@ -177,46 +176,40 @@ static const FLAIRCursor FLAIR_CURSOR_BUSY = {
  * FLAIR_CURSOR_ARROW -- standard northwest-pointing arrow (period-standard)
  * =========================================================================
  *
- * PROVENANCE: HAND-AUTHORED clean-room. Period-standard Mac arrow cursor
- * shape; NOT extracted from any ROM or frame.
- * v1 authored 2026-06-19 (beads initech-zaqj): solid silhouette, mask==data,
- *    hotspot (0,0).
- * v2 authored 2026-08-23 (beads initech-tdnl.25, DELIBERATE Rule-8 amendment,
- *    GUI remediation R0.1): the period Mac arrow composites a 1px WHITE
- *    OUTLINE around the black body (CURS mask = one-pixel dilation of data;
- *    Ref: Inside Macintosh, Imaging With QuickDraw, 'CURS' compositing --
- *    mask&~data pixels paint white). The body sits at +1,+1 so the dilation
- *    fits the 16x16 grid; hotspot = tip ink pixel = (row 1, col 1). The
- *    undilated v1 read as a flat silhouette on the desktop (operator
- *    pixel-perfect ruling 2026-08-23). Supersedes v1 wholesale.
+ * v3: DELIBERATE Rule-8 correction, initech-tdnl.98 (audit M009).
+ * Ref: ../system7-decomp/goldens/captures/s8_alert_modal.png
+ * [229,28,245,44), subtracting the identical wallpaper patch in
+ * s8_desktop_menubar.png. This is a pixel transcription of a real capture,
+ * not a ROM/CURS-resource copy or a mask inferred by dilating the ink.
+ * The v2 hand-authored squared stem differed in 48/256 cells. The captured
+ * angled stem has 54 black, 43 white and 159 transparent cells; hotspot
+ * remains (1,1). Includes the isolated white cell at (0,13), as captured.
+ * Worklog: docs/worklog/WL-0122-arrow-cursor.md.
  *
- * Shape v2 (16x16; '#' = ink, 'o' = white outline (mask only), '.' = clear):
+ * Shape v3 (16x16; '#' = ink, 'o' = white paper, '.' = transparent):
  *
- *   col:  0123456789012345
- *   row 0: ooo.............
- *   row 1: o#oo............   tip (hotspot 1,1)
- *   row 2: o##oo...........
- *   row 3: o###oo..........
- *   row 4: o####oo.........
- *   row 5: o#####oo........
- *   row 6: o######oo.......
- *   row 7: o#######oo......
- *   row 8: o########oo.....
- *   row 9: o#########o.....   widest
- *   row10: o#####ooooo.....   back-edge diagonal cuts in
- *   row11: o##o##o.........
- *   row12: o#oo##o.........
- *   row13: oooo##o.........   stem only
- *   row14: ...o##o.........
- *   row15: ...oooo.........
+ *   row  0: oo..............
+ *   row  1: o#o.............
+ *   row  2: o##o............
+ *   row  3: o###o...........
+ *   row  4: o####o..........
+ *   row  5: o#####o.........
+ *   row  6: o######o........
+ *   row  7: o#######o.......
+ *   row  8: o########o......
+ *   row  9: o#####ooooo.....
+ *   row 10: o##o##o.........
+ *   row 11: o#o.o##o........
+ *   row 12: oo..o##o........
+ *   row 13: o....o##o.......
+ *   row 14: .....o##o.......
+ *   row 15: ......ooo.......
  *
- * NOTE: This is a secondary (non-canon-gated) asset; the hourglass above is
- * the CANON deliverable gated by the canon oracle. The arrow's drift tooth
- * is harness/proptest/test_cursor.c, whose independent hard-coded golden
- * tables must equal these bytes (a silent edit here goes RED there).
+ * test_cursor.c and ppm_flair_cursor_check.c decode the independent capture
+ * pair at runtime and compare every cell at zero tolerance (Law 2).
  */
 static const FLAIRCursor FLAIR_CURSOR_ARROW = {
-    /* data[16] -- ink */
+    /* data[16] -- captured ink */
     {
         /* row  0 */ 0x0000, /* ................ */
         /* row  1 */ 0x4000, /* .#.............. */
@@ -227,37 +220,36 @@ static const FLAIRCursor FLAIR_CURSOR_ARROW = {
         /* row  6 */ 0x7E00, /* .######......... */
         /* row  7 */ 0x7F00, /* .#######........ */
         /* row  8 */ 0x7F80, /* .########....... */
-        /* row  9 */ 0x7FC0, /* .#########...... */
-        /* row 10 */ 0x7C00, /* .#####.......... */
-        /* row 11 */ 0x6C00, /* .##.##.......... */
-        /* row 12 */ 0x4C00, /* .#..##.......... */
-        /* row 13 */ 0x0C00, /* ....##.......... */
-        /* row 14 */ 0x0C00, /* ....##.......... */
+        /* row  9 */ 0x7C00, /* .#####.......... */
+        /* row 10 */ 0x6C00, /* .##.##.......... */
+        /* row 11 */ 0x4600, /* .#...##......... */
+        /* row 12 */ 0x0600, /* .....##......... */
+        /* row 13 */ 0x0300, /* ......##........ */
+        /* row 14 */ 0x0300, /* ......##........ */
         /* row 15 */ 0x0000  /* ................ */
     },
-    /* mask[16] -- opaque region (1px dilation of data; mask&~data = white) */
+    /* mask[16] -- captured opacity; mask&~data = white paper */
     {
-        /* row  0 */ 0xE000,
-        /* row  1 */ 0xF000,
-        /* row  2 */ 0xF800,
-        /* row  3 */ 0xFC00,
-        /* row  4 */ 0xFE00,
-        /* row  5 */ 0xFF00,
-        /* row  6 */ 0xFF80,
-        /* row  7 */ 0xFFC0,
-        /* row  8 */ 0xFFE0,
+        /* row  0 */ 0xC000,
+        /* row  1 */ 0xE000,
+        /* row  2 */ 0xF000,
+        /* row  3 */ 0xF800,
+        /* row  4 */ 0xFC00,
+        /* row  5 */ 0xFE00,
+        /* row  6 */ 0xFF00,
+        /* row  7 */ 0xFF80,
+        /* row  8 */ 0xFFC0,
         /* row  9 */ 0xFFE0,
-        /* row 10 */ 0xFFE0,
-        /* row 11 */ 0xFE00,
-        /* row 12 */ 0xFE00,
-        /* row 13 */ 0xFE00,
-        /* row 14 */ 0x1E00,
-        /* row 15 */ 0x1E00
+        /* row 10 */ 0xFE00,
+        /* row 11 */ 0xEF00,
+        /* row 12 */ 0xCF00,
+        /* row 13 */ 0x8780,
+        /* row 14 */ 0x0780,
+        /* row 15 */ 0x0380
     },
     /* hot_row */ 1,
     /* hot_col */ 1
 };
-
 
 /* =========================================================================
  * Canon-assertion helpers (for use by the canon oracle, beads k8o5.10)
