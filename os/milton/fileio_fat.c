@@ -999,6 +999,7 @@ int fileio_fat_bind(fat12_volume_t *vol)
     g_vol = vol;
 
     int21_set_file_backend(&g_fat_backend);
+    int21_set_media(vol->bpb.media_descriptor);   /* AH=1Bh/1Ch (509.9) */
     return 0;
 }
 

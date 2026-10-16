@@ -94,6 +94,7 @@ $(foreach img,$(BSY8_PIPE_IMG) $(BSY8_PIPE_MUT_IMG),$(eval $(call fixture-inline
 $(foreach img,$(SORT_IMG) $(SORT_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT SORT.COM SIN.TXT)))
 $(foreach img,$(FIND_IMG) $(FIND_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FIND.COM FIN.TXT)))
 $(foreach img,$(MORE_IMG) $(MORE_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT MORE.COM MIN.TXT)))
+$(foreach img,$(FCBX_IMG) $(foreach m,$(FCB_MUTANTS),$(BUILD)/fcbx_data_$(m).img),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FCBX.COM)))
 
 # Ref: bead initech-a5sr, rm-on-failure proof. A tiny dedicated fixture no
 # gate consumes, so test-fixture-volumes-mutant can break its contract and

@@ -501,6 +501,12 @@ typedef struct int21_file_backend {
  * the FAT12 backend after a successful mount; the host oracle binds a mock. */
 void int21_set_file_backend(const int21_file_backend_t *backend);
 
+/* AH=1Bh/1Ch ALLOCATION TABLE INFORMATION (beads initech-509.9): the mounted
+ * volume's BPB media descriptor byte (F0h = 1.44 MB diskette, F8h = fixed
+ * disk), which 1Bh/1Ch return a pointer to (IBM DOS 3.30 Technical Reference
+ * pp. 6-83/6-84). The FAT binder sets it at mount; 0 (unset) -> AL=FFh. */
+void int21_set_media(uint8_t media);
+
 /* Kernel adapters that expose DATA files must reserve the same device names
  * OPEN resolves first (including drive/path/extension normalization).
  * Ref: int21.c dev_open_lookup; MS-DOS 3.3 Technical Reference Ch. 4.

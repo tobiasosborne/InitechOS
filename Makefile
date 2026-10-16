@@ -30865,6 +30865,9 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
 	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'
 
+# FCB legacy API (initech-509.9) + TPS Report Generator (initech-8479.1).
+include harness/emu/fcb_tps.mk
+
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk
 
