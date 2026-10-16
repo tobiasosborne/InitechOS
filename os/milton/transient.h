@@ -37,8 +37,14 @@
 
 #define TRANSIENT_MAGIC          "COMMAND3"   /* 8 bytes, no NUL on disk     */
 #define TRANSIENT_MAGIC_LEN      8u
-#define TRANSIENT_LBA            401u         /* 1 + 16 + KERNEL_SECTORS 384  */
-#define TRANSIENT_MAX_SECTORS    111u         /* 512-sector image - 401       */
+#define TRANSIENT_LBA            2944u        /* the SYSTEM AREA right after the
+                                              * 46-cylinder FAT boot image that
+                                              * tools/mk_boot_system.sh mints
+                                              * (partition [63,2943)); PM
+                                              * 2026-10-17: LBA 401 fell inside
+                                              * INITDOS.SYS under the two-file
+                                              * layout (initech-kod).           */
+#define TRANSIENT_MAX_SECTORS    128u         /* 3072-sector image - 2944     */
 #define TRANSIENT_N_IMPORTS      5u
 
 typedef struct transient_hdr {

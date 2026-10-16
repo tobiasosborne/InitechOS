@@ -10239,8 +10239,9 @@ KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h
 
-$(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
+TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp   # gcc response file of -Wl,--undefined= flags; rule below, with the transient
+$(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
 $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10256,8 +10257,7 @@ $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 $(INITDOS_SYS_BIN): $(KERNEL_FLAIRTENANTS_BIN)
 	cp -f $< $@
 
-$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL)
+# (the flagship image rule lives with the exit-to-DOS transient rules below -- PM 2026-10-17)
 # ---------------------------------------------------------------------------
 # THE TRANSIENT COMMAND.COM (bead initech-3p1a; os/milton/transient.h).
 # Special > Exit to InitechDOS hands the console to COMMAND.COM, but the
@@ -10278,8 +10278,11 @@ TRANSIENT_LD        := $(KERNEL_DIR)/transient.ld
 TRANSIENT_HDR_ASM   := $(KERNEL_DIR)/transient_hdr.asm
 TRANSIENT_HDR_OBJ   := $(BUILD)/transient_hdr.o
 TRANSIENT_OBJS      := $(TRANSIENT_HDR_OBJ) $(KERNEL_COMMAND_OBJ) $(KERNEL_ENV_OBJ) $(KERNEL_BATCH_OBJ)
-TRANSIENT_LBA       := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
-EXITDOS_IMG_SECTORS := 512
+# PM 2026-10-17: the transient lives in the system area AFTER the 46-cylinder FAT
+# boot image (tools/mk_boot_system.sh, partition [63,2943)); the image grows to 48
+# whole 2x32 cylinders. Must equal TRANSIENT_LBA in os/milton/transient.h.
+TRANSIENT_LBA       := 2944
+EXITDOS_IMG_SECTORS := 3072
 TRANSIENT_MAX_SECTORS := $(shell expr $(EXITDOS_IMG_SECTORS) - $(TRANSIENT_LBA))
 TRANSIENT_BASE_HEX  := $(shell grep -E '^\#define[[:space:]]+TRANSIENT_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 # Parse-time agreement (Rule 2): the header constants the KERNEL compiles in
@@ -10301,6 +10304,16 @@ $(TRANSIENT_HDR_OBJ): $(TRANSIENT_HDR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
 # $(call exitdos-transient-rules,<label>,<kernel ELF>): build/transient_<label>.bin
+# The flagship kernels that carry a transient must KEEP every kernel symbol the
+# transient objects import (section GC + LTO drop them otherwise): a generated
+# response file of -Wl,--undefined= flags (EXTERN() in a script is invisible to the LTO
+# plugin), derived from the objects, no hand-kept list (PM 2026-10-17).
+$(TRANSIENT_IMPORTS_LD): $(TRANSIENT_OBJS) $(KERNEL_FLAIRTENANTS_OBJS) | $(BUILD)
+	@for o in $(TRANSIENT_OBJS); do gcc-nm -u $$o 2>/dev/null | awk '{print $$NF}'; done | grep -v ':$$' | sort -u > $@.und; \
+	for o in $(KERNEL_FLAIRTENANTS_OBJS); do gcc-nm --defined-only $$o 2>/dev/null | awk 'NF==3{print $$3}'; done | sort -u > $@.kdef; \
+	grep -xF -f $@.kdef $@.und > $@.keep || true; \
+	sed 's/^/-Wl,--undefined=/' $@.keep > $@; \
+	printf '>>> transient imports: %s kernel symbols kept (%s undefined in the transient)\n' "$$(wc -l < $@.keep)" "$$(wc -l < $@.und)"
 define exitdos-transient-rules
 $(BUILD)/transient_$(1).elf: $(2) $(TRANSIENT_OBJS) $(TRANSIENT_LD) | $(BUILD)
 	@end=$$$$($(NM) $(2) | awk '$$$$3=="_kernel_end"{print "0x"$$$$1}'); \
@@ -10316,16 +10329,14 @@ endef
 # $(call exitdos-image-recipe,<kernel bin>,<transient bin>) -- the body of a
 # flagship-family image recipe that carries the transient.
 define exitdos-image-recipe
-	@dd if=/dev/zero of=$@ bs=512 count=$(EXITDOS_IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(1) of=$@ bs=512 seek=17 conv=notrunc status=none
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(1) $(BOOT_SYSTEM_TOOL)
 	@dd if=$(2) of=$@ bs=512 seek=$(TRANSIENT_LBA) conv=notrunc status=none
+	@truncate -s $$(( $(EXITDOS_IMG_SECTORS) * 512 )) $@
 endef
 
 $(eval $(call exitdos-transient-rules,flairtenants,$(KERNEL_FLAIRTENANTS_ELF)))
 
-$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(BUILD)/transient_flairtenants.bin | $(BUILD)
+$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_BIN) $(BUILD)/transient_flairtenants.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_BIN),$(BUILD)/transient_flairtenants.bin)
 	@printf ">>> flair-tenants image: %s (HELLO+NOTES co-resident; flair_app_dispatch spine @s17; transient COMMAND.COM @s%s)\n" "$@" "$(TRANSIENT_LBA)"
 
@@ -10383,8 +10394,8 @@ $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 # found when the mutant-aware headroom gate below enumerated every kernel*.bin.
 KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ)
 
-$(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
+$(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS) @$(TRANSIENT_IMPORTS_LD)
 
 $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10397,13 +10408,12 @@ $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 	printf ">>> kernel(flairtenants-interactive): %s (visible cursor + unbounded pump, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairtenants-interactive)
 
-$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BOOT_SYSTEM_TOOL)
+# (interactive image rule: see the exit-to-DOS transient rules -- PM 2026-10-17)
 	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump)\n" "$@"
 # bead initech-3p1a: the playable image can Exit to InitechDOS too, so it
 # carries a transient COMMAND.COM linked against ITS kernel.
 $(eval $(call exitdos-transient-rules,flairtenants_int,$(KERNEL_FLAIRTENANTS_INT_ELF)))
-$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BUILD)/transient_flairtenants_int.bin | $(BUILD)
+$(FLAIRTENANTS_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_INT_BIN) $(BUILD)/transient_flairtenants_int.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
 	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_INT_BIN),$(BUILD)/transient_flairtenants_int.bin)
 	@printf ">>> flair-tenants INTERACTIVE image: %s (visible cursor + unbounded pump; transient COMMAND.COM @s%s)\n" "$@" "$(TRANSIENT_LBA)"
 
