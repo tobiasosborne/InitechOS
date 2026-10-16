@@ -4,6 +4,8 @@
 # harness/pubs/railroad.c draws one diagram per rule, generates random
 # programs from these rules (each must parse: TPS-PARSE-OK) and recognizes
 # every replayed program and tps.pas itself with them (both directions).
+# Alternatives are tried in order, as the recursive-descent parser does: a
+# write-arg that begins with a string literal is that literal alone.
 # Notation: "word" reserved word, "+" symbol, name non-terminal, [ ] optional,
 # { } zero or more, ( ) group, | alternatives, rules end with " ." on a line.
 # Lexical classes (drawn as rectangles, defined in Chapter 1 of the book):

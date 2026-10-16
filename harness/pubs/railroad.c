@@ -382,8 +382,29 @@ static void gen(E *e, int depth)
             for (int i = 0; i < e->n && pick < 0; i++) if (!hits[e->c[i]->id]) pick = i;
             if (pick < 0) pick = (int)rnd((unsigned)e->n);
         }
+        /* Ordered choice (the shipped parser is recursive descent): an
+         * alternative after a single-token alternative may not begin with
+         * that token, or the parser takes the earlier alternative.  The
+         * one case is write-arg: an argument that begins with a string
+         * literal is the literal alone (tps.pas ParseWriteArg). */
+        size_t mark = slen;
+        int tries = 0;
+        for (;;) {
+            gen(e->c[pick], depth);
+            int clash = 0;
+            for (int j = 0; j < pick; j++) {
+                E *a = e->c[j];
+                if (a->k == E_NT && !strcmp(a->s, "string-literal") && sbuf[mark] == '\'') clash = 1;
+                if (a->k == E_TERM) {
+                    size_t n = strlen(a->s);
+                    if (!strncmp(sbuf + mark, a->s, n) && sbuf[mark + n] == ' ') clash = 1;
+                }
+            }
+            if (!clash) break;
+            slen = mark;
+            if (++tries == 50) { pick = 0; gen(e->c[0], depth); break; }
+        }
         hits[e->c[pick]->id]++;
-        gen(e->c[pick], depth);
         break; }
     case E_OPT: {
         int take = depth > DLIM ? 0 : (!hits[e->id] ? 1 : (int)rnd(2));

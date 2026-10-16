@@ -12,7 +12,7 @@ red() {
     if "$@" > "$m/$name.log" 2>&1; then
         printf '!!! test-pubs-tps-mutant FAIL: %s survived\n' "$name"; exit 1
     fi
-    grep -F "test-pubs RED $tag:" "$m/$name.log" | head -1 || {
+    grep -m1 -F "test-pubs RED $tag:" "$m/$name.log" || {
         cat "$m/$name.log"; printf '!!! test-pubs-tps-mutant FAIL: %s failed for the wrong reason\n' "$name"; exit 1; }
     printf '>>> test-pubs-tps-mutant: %s rejected\n' "$name"
 }
@@ -34,10 +34,10 @@ red CHANGED_MESSAGE MESSAGE-TEXT "$GATE" msgcheck "$MSGS" "$m/changed.msgs"
 # CP-18, grammar => parser: an alternative the parser does not have.
 sed 's/^factor = "-" factor/factor = "@" factor | "-" factor/' "$GRAMMAR" > "$m/extra.ebnf"
 grep -q '"@"' "$m/extra.ebnf" || { printf '!!! test-pubs-tps-mutant FAIL: grammar mutant not applied\n'; exit 1; }
-red EXTRA_ALTERNATIVE GRAMMAR-PARSER sh harness/pubs/tps_grammar.sh "$RAILROAD" "$m/extra.ebnf" "$TPS_BIN" "$m/g1" 60 "$PARSE_RICH"
+red EXTRA_ALTERNATIVE GRAMMAR-PARSER sh harness/pubs/tps_grammar.sh "$RAILROAD" "$m/extra.ebnf" "$TPS_BIN" "$m/g1" 300 "$PARSE_RICH"
 # CP-18, parser => grammar: `downto' dropped from the for statement.
 sed 's/( "to" | "downto" )/"to"/' "$GRAMMAR" > "$m/missing.ebnf"
-red MISSING_ALTERNATIVE GRAMMAR-INCOMPLETE sh harness/pubs/tps_grammar.sh "$RAILROAD" "$m/missing.ebnf" "$TPS_BIN" "$m/g2" 20 \
+red MISSING_ALTERNATIVE GRAMMAR-INCOMPLETE sh harness/pubs/tps_grammar.sh "$RAILROAD" "$m/missing.ebnf" "$TPS_BIN" "$m/g2" 300 \
     "$FIXTURES/gen_control_deep.pas"
 # GC-03: one digit of a printed program output changed.
 book=$(ls -d "$BUILT"/turbo-initech-* | head -1); book=$(basename "$book")
@@ -50,4 +50,7 @@ cmp -s "pubs/manuals/$book/examples/$first.out" "$m/tree/$book/examples/$first.o
     printf '!!! test-pubs-tps-mutant FAIL: %s.out has no digit to change\n' "$first"; exit 1; }
 printf 'program|%s\noutput|%s\n' "$first" "$first" > "$m/built/$book/main.tpsexamples"
 red CHANGED_OUTPUT TRANSCRIPT-DRIFT env EXROOT="$m/tree" BUILT="$m/built" OUT="$m/replay" sh harness/pubs/tps_replay.sh
-printf '>>> test-pubs-tps-mutant: green (7 named mutants rejected by their gate legs)\n'
+# GC-09: a chapter cites a gate that does not exist.
+printf 'test-pubs-build, test-tps-no-such-gate\n' > "$m/bad.gates"
+red FAKE_GATE GATE-CITATION sh harness/pubs/tps_gates_cited.sh "$m/bad.gates"
+printf '>>> test-pubs-tps-mutant: green (8 named mutants rejected by their gate legs)\n'

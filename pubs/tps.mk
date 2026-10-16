@@ -12,6 +12,7 @@
 #                            (tps_gate commands), diagnostics verbatim
 #                            (msgcheck), inline names shipped (mentions),
 #                            InitechDOS commands named in the books shipped,
+#                            every cited gate a real target (GC-09),
 #                            the printed grammar == the shipped parser both
 #                            ways (tps_grammar.sh), every printed program,
 #                            output, compiler output, assembly excerpt and
@@ -78,9 +79,10 @@ test-pubs-tps: $(PUBS_TPS_GATE_DEPS)
 	@$(PUBS_TPS_GATE) msgcheck $(PUBS_TPS_MSGS) $(foreach b,$(PUBS_TPS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.msgs)
 	@$(PUBS_TPS_GATE) mentions $(PUBS_TPS_SHIPPED) $(foreach b,$(PUBS_TPS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.tpsmentions)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_TPS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
+	@sh harness/pubs/tps_gates_cited.sh $(foreach b,$(PUBS_TPS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.gates)
 	@sh harness/pubs/tps_grammar.sh $(PUBS_RAILROAD) $(PUBS_TPS_GRAMMAR) $(TPS_LEX_FPC_BIN) $(PUBS_TPS_DIR)/grammar \
 		$(PUBS_TPS_GRAMMAR_N) $(wildcard $(TPS_LEX_FIXTURE_DIR)/gen_*.pas) $(TPS_PARSE_RICH) $(TPS_LEX_SRC) \
-		$(filter-out %/err-%.pas,$(wildcard $(PUBS_DIR)/manuals/turbo-initech-*/examples/*.pas))
+		$(foreach f,$(wildcard $(PUBS_DIR)/manuals/turbo-initech-*/examples/*.pas),$(if $(findstring /err-,$(f)),,$(f)))
 	@$(PUBS_TPS_REPLAY_ENV) BUILT=$(PUBS_BUILD)/gate OUT=$(PUBS_TPS_DIR)/replay sh harness/pubs/tps_replay.sh
 	@printf '>>> test-pubs-tps: green\n'
 test-pubs-tps-mutant: test-pubs-tps

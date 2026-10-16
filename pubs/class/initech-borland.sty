@@ -175,6 +175,15 @@
 \providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for
   the \textbf{\textit{COMPANY}}?}\par\nobreak\vspace{2pt}\hrule height 0.5pt\medskip}
 
+%% GC-09: the gates each chapter cites also go, one list per line, to
+%% <job>.gates (a \write to a file is never wrapped, unlike the log), which
+%% harness/pubs/tps_gates_cited.sh checks against the Makefile targets.
+\newwrite\im@tpsgates
+\AtBeginDocument{\immediate\openout\im@tpsgates=\jobname.gates}
+\AtEndDocument{\immediate\closeout\im@tpsgates}
+\renewcommand\Gates[1]{\typeout{initech-manual: gates for this section: #1}%
+  \immediate\write\im@tpsgates{#1}}
+
 %% ---- inline notation (NT railroad dialect; VO-14) ---------------------------
 %% \rw{begin}: a reserved word in running text, Heros Bold lower case;
 %% \std{writeln}{Writeln}: a standard routine (italic) -- the first argument
