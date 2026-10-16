@@ -1,11 +1,11 @@
 /*
- * os/apps/calc/calc_core.h -- the Calculator desk accessory's ENGINE: the
+ * os/apps/calcda/calc_core.h -- the Calculator desk accessory's ENGINE: the
  * four-function state machine and the 12-character display formatter
  * (THE ARTIFACT; bead initech-tdnl.17, GUI remediation R4.3).
  *
  * Pure, freestanding C (no libc, no 64-bit division -- the i386 tenant links
- * no libgcc): compiled into CALC.EXE (os/apps/calc/calc.c) and, hosted, into
- * the oracle harness/proptest/test_calc.c. The window, the keys and the font
+ * no libgcc): compiled into CALCULAT.EXE (os/apps/calcda/calcda.c) and, hosted, into
+ * the oracle harness/proptest/test_calcda.c. The window, the keys and the font
  * live in calc.c; everything a key DOES lives here, so the click path and the
  * keyboard path are the SAME call (calc_press) by construction of the tenant
  * and by test (the parity leg).
@@ -14,7 +14,7 @@
  * under Basilisk II (../system7-decomp re/mint-results-007.md, captures
  * goldens/captures/s8_calc_* and s8_calcprobe_*), 101 key sequences typed into
  * it and the 12-character readout read back. Every rule below cites the probe
- * that settles it; spec/calc/calc_vectors.tsv is the transcription and the
+ * that settles it; spec/calcda/calcda_vectors.tsv is the transcription and the
  * oracle's golden.
  *
  *   CHAIN, NOT PRECEDENCE   2+3*4= shows 20 (p01): each operator applies the
@@ -74,13 +74,13 @@
  * (calc_format's big-integer expansion; ties to even), never from a scaled
  * approximation.
  *
- * MUTANT KNOBS (Rule 6; -D on this TU only, harness/proptest/test_calc.c and
- * the CALC.EXE mutant builds):
- *   CALC_MUT_PRECEDENCE  -- '*' and '/' bind tighter than '+' and '-' (the
+ * MUTANT KNOBS (Rule 6; -D on this TU only, harness/proptest/test_calcda.c and
+ * the CALCULAT.EXE mutant builds):
+ *   CALCDA_MUT_PRECEDENCE  -- '*' and '/' bind tighter than '+' and '-' (the
  *                           pocket-calculator-with-memory rule, not the Mac's).
- *   CALC_MUT_DIV0_ZERO   -- division by zero yields 0 instead of infinity.
- *   CALC_MUT_ENTRY_CAP14 -- the entry accepts 14 characters.
- *   CALC_MUT_FIXED_E3    -- the fixed range starts at e >= -3 (.001 fixed).
+ *   CALCDA_MUT_DIV0_ZERO   -- division by zero yields 0 instead of infinity.
+ *   CALCDA_MUT_ENTRY_CAP14 -- the entry accepts 14 characters.
+ *   CALCDA_MUT_FIXED_E3    -- the fixed range starts at e >= -3 (.001 fixed).
  *
  * ASCII-clean (Rule 12). No timestamps, no nondeterminism (Rule 11).
  */
@@ -114,7 +114,7 @@ typedef struct calc {
     uint8_t     pending;             /* CALC_ADD..CALC_DIV, or CALC_NONE     */
     uint8_t     entering;            /* 1 while a number is being typed      */
     uint8_t     len;                 /* entry length (chars, as shown)       */
-#if defined(CALC_MUT_PRECEDENCE)
+#if defined(CALCDA_MUT_PRECEDENCE)
     long double lo_acc;              /* mutant only: the deferred + / - side */
     uint8_t     lo_op;
 #endif

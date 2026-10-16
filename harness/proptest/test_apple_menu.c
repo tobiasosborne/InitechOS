@@ -41,7 +41,7 @@ static int g_fail = 0, g_checks = 0;
 
 static int g_calls = 0;
 static int all_installed(void *u, const char *d, const char *f)
-{ (void)u; g_calls++; return strcmp(d, "APPS") == 0 && strcmp(f, "CALC.EXE") == 0; }
+{ (void)u; g_calls++; return strcmp(d, "APPS") == 0 && strcmp(f, "CALCULAT.EXE") == 0; }
 static int none_installed(void *u, const char *d, const char *f)
 { (void)u; (void)d; (void)f; return 0; }
 
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     const apple_da_t *da = NULL;
     CHECK("A3 ACTION", apple_menu_action(MenuResult(FLAIR_MENU_ID_APPLE, 1), &da) == APPLE_ACT_ABOUT, "item 1 is not About");
     CHECK("A3 ACTION", apple_menu_action(MenuResult(FLAIR_MENU_ID_APPLE, 3), &da) == APPLE_ACT_LAUNCH &&
-          da && strcmp(da->file83, "CALC.EXE") == 0 && strcmp(da->dir83, "APPS") == 0, "item 3 does not launch APPS\\CALC.EXE");
+          da && strcmp(da->file83, "CALCULAT.EXE") == 0 && strcmp(da->dir83, "APPS") == 0, "item 3 does not launch APPS\\CALCULAT.EXE");
     CHECK("A3 ACTION", apple_menu_action(MenuResult(FLAIR_MENU_ID_APPLE, 2), &da) == APPLE_ACT_NONE, "the divider acts");
     CHECK("A3 ACTION", apple_menu_action(MenuResult(FLAIR_MENU_ID_APPLE, 4), &da) == APPLE_ACT_NONE, "item 4 acts");
     CHECK("A3 ACTION", apple_menu_action(MenuResult(129, 1), &da) == APPLE_ACT_NONE, "a File choice acts as Apple");

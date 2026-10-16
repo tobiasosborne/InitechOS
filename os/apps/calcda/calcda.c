@@ -1,18 +1,18 @@
 /*
- * os/apps/calc/calc.c -- CALC.EXE, the Calculator desk accessory (THE
+ * os/apps/calcda/calcda.c -- CALCULAT.EXE, the Calculator desk accessory (THE
  * ARTIFACT; bead initech-tdnl.17, GUI remediation R4.3). A C disk tenant
  * (os/apps/tbx) launched from the Apple menu (os/flair/apple_menu.c) or by
  * double-click in APPS.
  *
  * Behaviour (ground truth: calc_core.h, the real Mac OS 8.1 Calculator):
  *   entry      REGISTER, SETMBAR (File: Close ^W), the rounded rDocProc
- *              window at the capture's own place (spec/calc/calc_layout.h)
+ *              window at the capture's own place (spec/calcda/calcda_layout.h)
  *              titled "Calculator", return.
  *   updateEvt  the whole face (calc_view_paint).
  *   mouseDown  in a key: THAT key's command (calc_view_hit/_click_cmd).
  *   keyDown    the key map's command (calc_cmd_from_key).
  *              BOTH routes end in the ONE calc_press + readout repaint --
- *              click/key parity is structural (and graded, test_calc C4).
+ *              click/key parity is structural (and graded, test_calcda C4).
  *   close box / File > Close: EXIT(0).
  * Every repaint is FILLRECTs of calc_view's rects; no string reaches the
  * gate, so the engine's state may live in .bss.
@@ -32,9 +32,9 @@
 #include "tbx.h"
 #include "calc_core.h"
 #include "calc_view.h"
-#include "calc/calc_layout.h"
+#include "calcda/calcda_layout.h"
 
-const char tbx_app_name[] = "CALC";
+const char tbx_app_name[] = "CALCULAT";
 
 #define MENU_FILE  129
 #define MENU_EDIT  130

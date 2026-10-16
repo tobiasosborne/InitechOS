@@ -1,5 +1,5 @@
 /*
- * spec/calc/calc_layout.h -- the Calculator desk accessory's LAYOUT (LOCKED
+ * spec/calcda/calcda_layout.h -- the Calculator desk accessory's LAYOUT (LOCKED
  * spec-data; bead initech-tdnl.17; CLAUDE.md Rule 8).
  *
  * MEASURED (Law 1) off the real Mac OS 8.1 Calculator,
@@ -7,7 +7,7 @@
  * rDocProc window frame (267,94)..(372,261) inclusive, its content origin
  * (268,113). Every number below is CONTENT-LOCAL (origin = content top-left)
  * unless it says FRAME. The oracle never reads this header to grade the
- * pixels: harness/proptest/test_calc.c and tools/ppm_flair_calc_check.c read
+ * pixels: harness/proptest/test_calcda.c and tools/ppm_flair_calcda_check.c read
  * the CAPTURE (Law 2 / ADR-0010) -- this file only tells the artifact where
  * to draw and what a click hits.
  *
@@ -57,7 +57,7 @@
 #define CALC_KEY_COUNT     18
 
 typedef struct calc_key_rect {
-    signed char cmd;               /* calc_cmd_t (os/apps/calc/calc_core.h) */
+    signed char cmd;               /* calc_cmd_t (os/apps/calcda/calc_core.h) */
     unsigned char l, t, w, h;      /* frame, content-local                  */
     char label;                    /* the glyph drawn on the key            */
     unsigned char ldx, ldy;        /* label cell origin - frame top-left    */

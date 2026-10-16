@@ -1,19 +1,19 @@
 /*
- * os/apps/calc/calc_view.h -- the Calculator's FACE: the layout's paint and
+ * os/apps/calcda/calc_view.h -- the Calculator's FACE: the layout's paint and
  * hit-test (THE ARTIFACT; bead initech-tdnl.17). Pure and freestanding, like
- * calc_core: CALC.EXE sends its rects through TBX_FILLRECT, the host oracle
+ * calc_core: CALCULAT.EXE sends its rects through TBX_FILLRECT, the host oracle
  * rasterizes the SAME rects into a bitmap and grades them against the real
- * Mac OS 8.1 capture (never against spec/calc/calc_layout.h -- Law 2).
+ * Mac OS 8.1 capture (never against spec/calcda/calcda_layout.h -- Law 2).
  *
  * Colours are the gate's tokens (spec/toolbox_gate.h Sec 7): 0 white,
  * 1 black, 2 gray. Rects are content-local, right/bottom EXCLUSIVE.
  *
  * MUTANT KNOBS (Rule 6; -D on this TU only):
- *   CALC_MUT_KEY_CLICK_DIVERGE -- a click on the '-' key commands '+', while
+ *   CALCDA_MUT_KEY_CLICK_DIVERGE -- a click on the '-' key commands '+', while
  *                                 the keyboard's '-' still commands '-': the
  *                                 click and key paths disagree (the bead's
  *                                 named mutant). The parity leg goes RED.
- *   CALC_MUT_READOUT_SHIFT     -- the readout is right-aligned one pixel
+ *   CALCDA_MUT_READOUT_SHIFT     -- the readout is right-aligned one pixel
  *                                 further left: every readout crop goes RED.
  *
  * ASCII-clean (Rule 12).

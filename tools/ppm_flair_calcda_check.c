@@ -1,5 +1,5 @@
 /*
- * tools/ppm_flair_calc_check.c -- the PIXEL GATE of the Calculator desk
+ * tools/ppm_flair_calcda_check.c -- the PIXEL GATE of the Calculator desk
  * accessory and the Apple menu (factory C; beads initech-tdnl.17 /
  * initech-tdnl.47). Grades a QEMU screendump (P6 PPM) against the REAL
  * Mac OS 8.1 capture (PNG) it was minted to match -- never against the

@@ -1,5 +1,5 @@
 /*
- * spec/assets/calc_geneva9.h -- the Calculator readout + key-label strike
+ * spec/assets/calcda_geneva9.h -- the Calculator readout + key-label strike
  * (LOCKED asset; bead initech-tdnl.17; CLAUDE.md Rule 8).
  *
  * PROVENANCE (Law 1 honesty): HAND-AUTHORED, glyph by glyph, to match the
@@ -9,8 +9,8 @@
  * font file, ROM or NFNT was copied. It is NOT FLAIR's spec/assets/geneva9.h
  * (that clean-room v0 strike does not match the real face: its '0' is
  * slashed, its '1' has a foot -- a defect of that asset, not touched here).
- * The back-check is mechanical: harness/proptest/test_calc.c renders every
- * locked readout of spec/calc/calc_vectors.tsv through this strike and
+ * The back-check is mechanical: harness/proptest/test_calcda.c renders every
+ * locked readout of spec/calcda/calcda_vectors.tsv through this strike and
  * compares it PIXEL-EXACT with the capture it was transcribed from, and the
  * labels against s8_calc_idle (loud-skip when the corpus is absent).
  *

@@ -25,7 +25,7 @@
 
 /* { title, directory (8.3, from the volume root), program (8.3) } */
 #define APPLE_MENU_DA_TABLE {                         \
-    { "Calculator", "APPS", "CALC.EXE" },             \
+    { "Calculator", "APPS", "CALCULAT.EXE" },             \
 }
 #define APPLE_MENU_DA_COUNT 1
 

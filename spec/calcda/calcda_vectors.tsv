@@ -1,4 +1,4 @@
-# spec/calc/calc_vectors.tsv -- LOCKED golden vectors of the Calculator desk
+# spec/calcda/calcda_vectors.tsv -- LOCKED golden vectors of the Calculator desk
 # accessory (bead initech-tdnl.17; CLAUDE.md Rule 8). Each row is ONE key
 # sequence typed into the REAL Mac OS 8.1 Calculator under Basilisk II from a
 # cleared calculator, and the 12-character readout the capture shows after it.
@@ -6,7 +6,7 @@
 # goldens/captures/<capture>.png, the readout interior at screen x 276..359,
 # y 121..138). Transcribed BY HAND from the captures -- never from InitechOS
 # (Law 2: the oracle's expectation is the real Mac, not the artifact).
-# harness/proptest/test_calc.c also re-reads every capture (when the corpus is
+# harness/proptest/test_calcda.c also re-reads every capture (when the corpus is
 # present) and grades the transcription pixel-exact through the locked
 # readout strike, so a mistyped row cannot hide.
 #

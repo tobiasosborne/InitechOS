@@ -194,7 +194,7 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # per row (FINDER_GRID_PITCH_X 68, PITCH_Y 52: +20,+72). The two moves after the
 # TRASH double-click keep their old ABSOLUTE target (+292,+156): 272,84 from
 # the new click point.
-# DELIBERATE RE-KEY 2026-10-16 (initech-tdnl.17): APPS gained CALC.EXE (the
+# DELIBERATE RE-KEY 2026-10-16 (initech-tdnl.17): APPS gained CALCULAT.EXE (the
 # Calculator desk accessory, appended after 123.MNU), so the stranded APPS\TRASH
 # moved from cell 5 to cell 6 = row 2, col 2 (+88,+72 from the APPS
 # double-click). The moves after the TRASH double-click keep the same ABSOLUTE

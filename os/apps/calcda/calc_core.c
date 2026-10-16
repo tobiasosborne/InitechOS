@@ -1,5 +1,5 @@
 /*
- * os/apps/calc/calc_core.c -- the Calculator engine (THE ARTIFACT; bead
+ * os/apps/calcda/calc_core.c -- the Calculator engine (THE ARTIFACT; bead
  * initech-tdnl.17). The rules, their ground truth and the mutant knobs are in
  * calc_core.h. Freestanding: no libc, no 64-bit division (uint16 limbs keep
  * every quotient a 32-by-32 one), no floating-point library call.
@@ -222,7 +222,7 @@ void calc_format(long double v, char *out)
             if (i >= 0 && r[i] != '0') { integral = 0; break; }
     }
 
-#if defined(CALC_MUT_FIXED_E3)
+#if defined(CALCDA_MUT_FIXED_E3)
     int fixed_lo = -3;
 #else
     int fixed_lo = -2;
@@ -310,7 +310,7 @@ static long double apply(long double a, uint8_t op, long double b)
     case CALC_SUB: return a - b;
     case CALC_MUL: return a * b;
     case CALC_DIV:
-#if defined(CALC_MUT_DIV0_ZERO)
+#if defined(CALCDA_MUT_DIV0_ZERO)
         if (b == 0.0L) return 0.0L;
 #endif
         return a / b;
@@ -335,7 +335,7 @@ void calc_init(calc_t *c)
     c->pending = (uint8_t)CALC_NONE;
     c->entering = 0u;
     c->len = 0u;
-#if defined(CALC_MUT_PRECEDENCE)
+#if defined(CALCDA_MUT_PRECEDENCE)
     c->lo_acc = 0.0L;
     c->lo_op = (uint8_t)CALC_NONE;
 #endif
@@ -344,7 +344,7 @@ void calc_init(calc_t *c)
     c->disp[1] = '\0';
 }
 
-#if defined(CALC_MUT_PRECEDENCE)
+#if defined(CALCDA_MUT_PRECEDENCE)
 /* MUTANT (Rule 6): '*' and '/' bind tighter -- a deferred low-precedence
  * side. NEVER in a real build. */
 static long double fold(calc_t *c, long double x, int to_low)
@@ -375,7 +375,7 @@ static void operate(calc_t *c, calc_cmd_t op)
 {
     if (c->entering) {
         long double x = entry_value(c);
-#if defined(CALC_MUT_PRECEDENCE)
+#if defined(CALCDA_MUT_PRECEDENCE)
         c->acc = fold(c, x, op == CALC_ADD || op == CALC_SUB || op == CALC_EQ);
 #else
         c->acc = (c->pending != CALC_NONE) ? apply(c->acc, c->pending, x) : x;
@@ -401,7 +401,7 @@ static void type_char(calc_t *c, char ch)
     } else if (c->len == 1u && c->entry[0] == '0') {
         c->len = 0u;                                 /* "007" -> "7" (q15) */
     }
-#if defined(CALC_MUT_ENTRY_CAP14)
+#if defined(CALCDA_MUT_ENTRY_CAP14)
     if (c->len >= CALC_ENTRY_MAX + 1) return;
 #else
     if (c->len >= CALC_ENTRY_MAX) return;            /* 13 chars (p10/s05) */

@@ -1,13 +1,13 @@
 /*
- * harness/proptest/test_calc.c -- the Calculator desk accessory's HOST ORACLE
+ * harness/proptest/test_calcda.c -- the Calculator desk accessory's HOST ORACLE
  * (factory C; bead initech-tdnl.17, GUI remediation R4.3).
  *
- * Grades the artifact's engine (os/apps/calc/calc_core.c) and face
- * (os/apps/calc/calc_view.c) against goldens that are NOT the artifact
+ * Grades the artifact's engine (os/apps/calcda/calc_core.c) and face
+ * (os/apps/calcda/calc_view.c) against goldens that are NOT the artifact
  * (Law 2 / ADR-0010):
  *
  *   C1 VECTORS   87 key sequences typed into the REAL Mac OS 8.1 Calculator
- *                (spec/calc/calc_vectors.tsv, hand-transcribed from the
+ *                (spec/calcda/calcda_vectors.tsv, hand-transcribed from the
  *                mint-007 captures): the engine's readout must equal each.
  *   C2 KEYMAP    the PC keyDown messages (os/flair/event.c cooking) map to
  *                the Calculator's commands: digits . + - * / = c C, Enter,
@@ -32,11 +32,11 @@
  *                for pixel. LOUD-SKIP (ADR-0010 CD-8) when absent.
  *
  * Mutants (Rule 6; each -D on the artifact TUs; the Makefile proves each RED
- * on its leg): CALC_MUT_PRECEDENCE (C1/C3), CALC_MUT_DIV0_ZERO (C1),
- * CALC_MUT_ENTRY_CAP14 (C1/C3), CALC_MUT_FIXED_E3 (C1),
- * CALC_MUT_KEY_CLICK_DIVERGE (C4), CALC_MUT_READOUT_SHIFT (C5).
+ * on its leg): CALCDA_MUT_PRECEDENCE (C1/C3), CALCDA_MUT_DIV0_ZERO (C1),
+ * CALCDA_MUT_ENTRY_CAP14 (C1/C3), CALCDA_MUT_FIXED_E3 (C1),
+ * CALCDA_MUT_KEY_CLICK_DIVERGE (C4), CALCDA_MUT_READOUT_SHIFT (C5).
  *
- * Usage: test_calc <calc_vectors.tsv> <system7-decomp root>
+ * Usage: test_calcda <calc_vectors.tsv> <system7-decomp root>
  * ASCII-clean (Rule 12). Deterministic (Rule 11: a fixed seed).
  */
 #define _POSIX_C_SOURCE 200809L
@@ -48,7 +48,7 @@
 
 #include "calc_core.h"
 #include "calc_view.h"
-#include "calc/calc_layout.h"
+#include "calcda/calcda_layout.h"
 
 static int g_fail = 0;
 static int g_checks = 0;
@@ -457,7 +457,7 @@ int main(int argc, char **argv)
     leg_property();
     leg_parity();
     int graded = leg_capture(argv[2]);
-    printf("test_calc: %d checks, %d failures; %d vectors; %d capture crops graded\n",
+    printf("test_calcda: %d checks, %d failures; %d vectors; %d capture crops graded\n",
            g_checks, g_fail, g_nvec, graded);
     return g_fail ? 1 : 0;
 }

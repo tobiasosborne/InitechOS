@@ -1,12 +1,12 @@
 /*
- * os/apps/calc/calc_view.c -- the Calculator's face (THE ARTIFACT; bead
+ * os/apps/calcda/calc_view.c -- the Calculator's face (THE ARTIFACT; bead
  * initech-tdnl.17). See calc_view.h. The geometry is the locked
- * spec/calc/calc_layout.h; the glyphs the locked spec/assets/calc_geneva9.h.
+ * spec/calcda/calcda_layout.h; the glyphs the locked spec/assets/calcda_geneva9.h.
  * ASCII-clean (Rule 12).
  */
 #include "calc_view.h"
-#include "calc/calc_layout.h"
-#include "calc_geneva9.h"
+#include "calcda/calcda_layout.h"
+#include "calcda_geneva9.h"
 
 static const calc_key_rect_t g_keys[CALC_KEY_COUNT] = CALC_KEY_TABLE;
 static const calc_glyph_t    g_g9[CALC_G9_COUNT] = CALC_G9_TABLE;
@@ -41,7 +41,7 @@ int calc_view_text_left(const char *s)
 {
     int w = 0;
     for (int i = 0; s[i]; i++) w += glyph(s[i])->adv;
-#if defined(CALC_MUT_READOUT_SHIFT)
+#if defined(CALCDA_MUT_READOUT_SHIFT)
     return CALC_DISP_TEXT_RIGHT - w - 1;
 #else
     return CALC_DISP_TEXT_RIGHT - w;
@@ -105,7 +105,7 @@ int calc_view_hit(int x, int y)
 calc_cmd_t calc_view_click_cmd(int idx)
 {
     if (idx < 0 || idx >= CALC_KEY_COUNT) return CALC_NONE;
-#if defined(CALC_MUT_KEY_CLICK_DIVERGE)
+#if defined(CALCDA_MUT_KEY_CLICK_DIVERGE)
     if (g_keys[idx].cmd == CALC_SUB) return CALC_ADD;   /* MUTANT, never real */
 #endif
     return (calc_cmd_t)g_keys[idx].cmd;
