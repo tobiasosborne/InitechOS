@@ -60,6 +60,14 @@
  *      iw_ed_fixup (WP's bookkeeping: the tab / indent / C6 / D4 payloads)
  *      run on every golden changes no byte (part A2).
  *
+ *   H  (bead initech-jojk, P2 slice 3) the keys of mint/wpMINT21..24.steps --
+ *      margins (Shift-F8 1 7) and the tabs / indent / C6 measured from them,
+ *      the [HRt] WP puts before a margin code typed mid-line, the 66-character
+ *      line, justification (Shift-F8 1 3) with its [DSRt] and D4/05 line
+ *      records, both codes in one trip, the "Delete [L/R Mar]?" / "Delete
+ *      [Just:Center]?" answers and the old value WP rewrites after one is
+ *      deleted -- typed key for key are BYTE-IDENTICAL to the files WP.EXE
+ *      saved (MINT21, 22, 23, 24A, 24).
  * THE GOLDENS: MINT01..05 from goldens/minted (mint session 001); MINT06..16
  * minted for bead initech-jojk (2026-10-16) by tools/mint_drive.sh with
  * mint/wpMINT06..16.steps (ledgers re/mint-results-002.md, -003.md) -- read
@@ -77,6 +85,12 @@
  *                         before the end (0x103) -> RED-REASON typed
  *   IWORD_MUT_NO_D4       a hard page is written without its D4/00 group
  *                         -> RED-REASON typed
+ *   (slice 3, each -> RED-REASON typed)
+ *   IWORD_MUT_WRAP_65     a character must END by the right margin
+ *   IWORD_MUT_TAB_ABS     tab stops ignore the left margin
+ *   IWORD_MUT_MAR_NO_HRT  no [HRt] before a margin code typed mid-line
+ *   IWORD_MUT_NO_LEAD     no D4/05 line records
+ *   IWORD_MUT_OLD_STALE   a format code keeps the old values it was typed with
  *
  * Usage: test_iword_wp5_roundtrip <WORDPERFECT51_DECOMP> <scratch-dir>
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
@@ -103,11 +117,12 @@ static uint8_t    g_in[CAP], g_out[CAP], g_add[CAP];
 static iw_piece_t g_pc[8192];
 static char       g_text[CAP];
 
-#define NMINT 19
+#define NMINT 24
 static const char *const MINTS[NMINT] = { "MINT01", "MINT02", "MINT03", "MINT04", "MINT05",
                                           "MINT06", "MINT07", "MINT08", "MINT09", "MINT10",
                                           "MINT11", "MINT12", "MINT13", "MINT14", "MINT15",
-                                          "MINT16", "MINT17", "MINT18", "MINT19" };
+                                          "MINT16", "MINT17", "MINT18", "MINT19",
+                                          "MINT21", "MINT22", "MINT23", "MINT24A", "MINT24" };
 
 /* The golden's path (see THE GOLDENS above). */
 static void golden_path(const char *name, char *out, size_t cap)
@@ -253,7 +268,7 @@ static void part_a(void)
             CHECK(0, "re-wrap at 65 columns reproduces WP's soft returns");
         }
     }
-    CHECK(files == NMINT, "all nineteen minted goldens graded");
+    CHECK(files == NMINT, "all twenty-four minted goldens graded");
     printf("  part A: %d goldens; %d rewrites byte-identical; %d agree with wp5_ref.py (golden + rewrite)\n", files, rewrites, agreed);
     printf("  part A2: %d goldens unchanged by re-wrapping at %u columns + iw_ed_fixup (WP's own soft returns, tab / indent / C6 / D4 payloads)\n", wraps, IW_WP5_WRAP_COLS);
 }
@@ -321,7 +336,8 @@ static void part_c(void)
      * before the save ("[HRt] Kep"). */
     /* MINT12 (block ops on plain text) is plain; MINT09/10 carry tabs,
      * indents, hard pages; MINT11, MINT13..16 attribute pairs. */
-    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1 };
+    /* MINT21..24 (slice 3) all carry margin / justification codes. */
+    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0 };
     int ok = 1;
     printf("  part C: plain-text subset (text + HRt + SRt only, P1 interprets fully):");
     for (int i = 0; i < NMINT; i++) {
@@ -521,6 +537,54 @@ static void part_g(void)
     printf(" (%d of %d byte-identical: tabs, indents, hard pages, the questions, Block / Move / Copy / Delete)\n", good, n);
 }
 
+/* ---- PART H: the slice 3 mints typed key for key (bead initech-jojk) --------- */
+/* mint/wpMINT21.steps .. wpMINT24.steps up to each save (Alt-F3 pairs and the
+ * shots between keys dropped; "%MAR=L,R" is Shift-F8 1 7 L Enter R Enter F7
+ * in WPU, "%Jx" Shift-F8 1 3 n F7). */
+static const char *const S21[] = { "%RET", "%MAR=1560,2040",
+    "Margins of one point three and one point seven inches make this paragraph wrap at fifty five columns, which it does.",
+    "%RET", "%TAB", "tab", "%RET", "ab", "%TAB", "x", "%RET", "%F4",
+    "An indented paragraph under the new margins that is long enough to wrap twice over the lines.", "%RET",
+    "Mid", "%MAR=2400,2400", "dle of a line.", "%RET", "%TAB", "t2", "%RET", 0 };
+static const char *const S22[] = { "%RET",
+    "wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz abcdef next words.", "%RET",
+    "wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz abcde next words.", "%RET",
+    "%JC", "Centered justification line.", "%RET", "%JR", "Right justified.", "%RET",
+    "%JF", "Full again.", "%RET", "%JL", "Left.", "%RET", "Mid", "%JC", "after", "%RET", 0 };
+static const char *const S23[] = { "%RET", "%JL", "%MAR=1800,1200", "Same trip.", "%RET", "%CRET", "Page two.", "%RET",
+    "Mid2", "%L", "%L", "%MAR=1500,1380", "%END", "%RET", "x", "%TAB", "y", "%RET",
+    "The quarter inch margins wrap this paragraph somewhere near the right edge of the page, see where.", "%RET",
+    "%TOP", "%D", "%BS", "%N", "%DEL", "%N", "%BOT", 0 };
+static const char *const S24A[] = { "%RET", "%JC",
+    "A centered paragraph long enough to wrap onto a second line and then a third line of text, to see each line.",
+    "%RET", "ab", "%RET", "xyz", "%L", "%L", "Q", "%END", "%RET", "%JR", "Right line.", "%RET", "Plain", 0 };
+static const char *const S24[] = { "%RET", "%JC",
+    "A centered paragraph long enough to wrap onto a second line and then a third line of text, to see each line.",
+    "%RET", "ab", "%RET", "xyz", "%L", "%L", "Q", "%END", "%RET", "%JR", "Right line.", "%RET", "Plain",
+    "%TOP", "%D", "%BS", "%Y", "%BOT", 0 };
+
+static void part_h(void)
+{
+    static const struct { const char *name; const char *const *script; } T[] = {
+        { "MINT21", S21 }, { "MINT22", S22 }, { "MINT23", S23 }, { "MINT24A", S24A }, { "MINT24", S24 },
+    };
+    static iw_ed_t e;
+    int good = 0, n = (int)(sizeof T / sizeof T[0]);
+    printf("  part H:");
+    for (int i = 0; i < n; i++) {
+        int ok;
+        doc_bind(&e.doc);
+        iw_ed_init(&e, IW_WP5_WRAP_COLS);
+        ok = iwk_run(&e, T[i].script);
+        if (!ok) { fprintf(stderr, "  FAIL typed %s: a key was refused or a question was not asked where WP asked\n", T[i].name); g_typed_fail++; }
+        else ok = typed_equals(T[i].name, &e);
+        CHECK(ok, "the slice 3 mint typed key for key is byte-identical to the file WP.EXE saved");
+        good += ok;
+        printf(" %s %s", T[i].name, ok ? "==" : "!=");
+    }
+    printf(" (%d of %d byte-identical: margins, tabs under them, justification, D4/05, [DSRt], the questions)\n", good, n);
+}
+
 /* ---- PART E: refusals ------------------------------------------------------- */
 static void part_e(void)
 {
@@ -569,6 +633,7 @@ int main(int argc, char **argv)
     part_e();
     part_f();
     part_g();
+    part_h();
     if (g_rewrite_fail) fprintf(stderr, "  RED-REASON golden-rewrite: %d goldens not byte-identical\n", g_rewrite_fail);
     if (g_ref_fail)     fprintf(stderr, "  RED-REASON wp5-ref-disagrees: %d readings differ from wp5_ref.py\n", g_ref_fail);
     if (g_wrap_fail)    fprintf(stderr, "  RED-REASON wrap: %d goldens re-wrapped differently from WP\n", g_wrap_fail);

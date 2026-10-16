@@ -13983,9 +13983,13 @@ test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUI
 #                            The corpus is required: absent, the gate
 #                            FAILS (SKIP_WORDPERFECT51_DECOMP=1 is the one
 #                            shouting opt-out, initech-iv8c pattern).
+#                            Slice 3 (initech-jojk, 2026-10-16): MINT21..24
+#                            (margins, justification, D4/05, [DSRt], the
+#                            66-character line) typed key for key (part H).
 # Mutants: test-iword-core-mutant (SPLIT_OFF / REFLOW_STALE / PREV_VAR) and
 # test-iword-wp5-roundtrip-mutant (DROP_CODE / WRAP_EARLY / CURSOR_FLAG /
-# NO_D4), each RED for its named reason.
+# NO_D4; slice 3: WRAP_65 / TAB_ABS / MAR_NO_HRT / NO_LEAD / OLD_STALE),
+# each RED for its named reason.
 # ---------------------------------------------------------------------------
 IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
 IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
@@ -14033,22 +14037,23 @@ test-iword-wp5-roundtrip test-iword-wp5-roundtrip-mutant:
 else
 test-iword-wp5-roundtrip: $(TEST_IWORD_WP5)
 	$(call need_wp_goldens,test-iword-wp5-roundtrip)
-	@printf '>>> test-iword-wp5-roundtrip: the .WP5 codec + core vs the 19 real WordPerfect 5.1 goldens and wp5_ref.py (initech-l4tj, initech-jojk)\n'
+	@printf '>>> test-iword-wp5-roundtrip: the .WP5 codec + core vs the 24 real WordPerfect 5.1 goldens and wp5_ref.py (initech-l4tj, initech-jojk)\n'
 	@mkdir -p $(BUILD)/iword_wp5
 	@$(TEST_IWORD_WP5) $(WORDPERFECT51_DECOMP) $(BUILD)/iword_wp5
 	@printf '>>> test-iword-wp5-roundtrip: green\n'
 
-test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_CODE $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_WRAP_EARLY $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_CURSOR_FLAG $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_NO_D4
+IWORD_WP5_S3_MUTANTS := WRAP_65 TAB_ABS MAR_NO_HRT NO_LEAD OLD_STALE
+test-iword-wp5-roundtrip-mutant: $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_DROP_CODE $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_WRAP_EARLY $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_CURSOR_FLAG $(BUILD)/test_iword_wp5_mutant_IWORD_MUT_NO_D4 $(foreach m,$(IWORD_WP5_S3_MUTANTS),$(BUILD)/test_iword_wp5_mutant_IWORD_MUT_$(m))
 	$(call need_wp_goldens,test-iword-wp5-roundtrip-mutant)
 	@mkdir -p $(BUILD)/iword_wp5_mut
-	@for pair in 'IWORD_MUT_DROP_CODE:RED-REASON golden-rewrite' 'IWORD_MUT_WRAP_EARLY:RED-REASON typed' 'IWORD_MUT_CURSOR_FLAG:RED-REASON typed' 'IWORD_MUT_NO_D4:RED-REASON typed'; do \
+	@for pair in 'IWORD_MUT_DROP_CODE:RED-REASON golden-rewrite' 'IWORD_MUT_WRAP_EARLY:RED-REASON typed' 'IWORD_MUT_CURSOR_FLAG:RED-REASON typed' 'IWORD_MUT_NO_D4:RED-REASON typed' $(foreach m,$(IWORD_WP5_S3_MUTANTS),'IWORD_MUT_$(m):RED-REASON typed'); do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_wp5_mutant_$$m; \
 		if $$bin $(WORDPERFECT51_DECOMP) $(BUILD)/iword_wp5_mut > $$bin.log 2>&1; then printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-wp5-roundtrip-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
-		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)"; \
+		printf '>>> test-iword-wp5-roundtrip-mutant: %s correctly RED (%s; %s)\n' "$$m" "$$(grep -F "$$why" $$bin.log)" "$$(grep -m1 'FAIL typed' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all four mutants RED for the named reason)\n'
+	@printf '>>> test-iword-wp5-roundtrip-mutant: green (all nine mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------
@@ -14081,8 +14086,9 @@ endif
 # Mutants: test-iword-codes-mutant (TOGGLE_DUP / PAIR_HALF / NO_ASK / ASK_STAY
 # -> RED-REASON codes; TAB_FIXED -> geometry; COPY_BARE / CUT_NO_MEND /
 # RETRIEVE_DUP -> block)
-# and test-iword-reveal-codes-mutant (LABEL_ITALC / BLOCK_LABEL -> RED-REASON
-# label, PANE_ANCHOR -> RED-REASON pane).
+# and test-iword-reveal-codes-mutant (LABEL_ITALC / BLOCK_LABEL / LABEL_JUST
+# -> RED-REASON label, PANE_ANCHOR -> RED-REASON pane). Slice 3 (2026-10-16):
+# 7 more screens (MINT21..24: [L/R Mar], [Just:], [DSRt], the answers).
 # ---------------------------------------------------------------------------
 TEST_IWORD_CODES := $(BUILD)/test_iword_codes
 IWORD_CODES_DEPS := harness/proptest/test_iword_codes.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
@@ -14122,20 +14128,20 @@ test-iword-reveal-codes test-iword-reveal-codes-mutant:
 else
 test-iword-reveal-codes: $(TEST_IWORD_REVEAL)
 	$(call need_wp_goldens,test-iword-reveal-codes)
-	@printf '>>> test-iword-reveal-codes: the Reveal Codes pane vs 38 real WordPerfect 5.1 Reveal Codes screens (initech-jojk)\n'
+	@printf '>>> test-iword-reveal-codes: the Reveal Codes pane vs 45 real WordPerfect 5.1 Reveal Codes screens (initech-jojk)\n'
 	@$(TEST_IWORD_REVEAL) $(WORDPERFECT51_DECOMP)
 	@printf '>>> test-iword-reveal-codes: green\n'
 
-test-iword-reveal-codes-mutant: $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_LABEL_ITALC $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_PANE_ANCHOR $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_BLOCK_LABEL
+test-iword-reveal-codes-mutant: $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_LABEL_ITALC $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_PANE_ANCHOR $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_BLOCK_LABEL $(BUILD)/test_iword_reveal_mutant_IWORD_MUT_LABEL_JUST
 	$(call need_wp_goldens,test-iword-reveal-codes-mutant)
-	@for pair in 'IWORD_MUT_LABEL_ITALC:RED-REASON label' 'IWORD_MUT_PANE_ANCHOR:RED-REASON pane' 'IWORD_MUT_BLOCK_LABEL:RED-REASON label'; do \
+	@for pair in 'IWORD_MUT_LABEL_ITALC:RED-REASON label' 'IWORD_MUT_PANE_ANCHOR:RED-REASON pane' 'IWORD_MUT_BLOCK_LABEL:RED-REASON label' 'IWORD_MUT_LABEL_JUST:RED-REASON label'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_iword_reveal_mutant_$$m; \
 		if $$bin $(WORDPERFECT51_DECOMP) > $$bin.log 2>&1; then printf '!!! test-iword-reveal-codes-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		grep -q 'checks,' $$bin.log || { printf '!!! test-iword-reveal-codes-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; cat $$bin.log; exit 1; }; \
 		grep -qF "$$why" $$bin.log || { printf '!!! test-iword-reveal-codes-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-iword-reveal-codes-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 'FAIL' $$bin.log | sed 's/^ *//')"; \
 	done
-	@printf '>>> test-iword-reveal-codes-mutant: green (all three mutants RED for the named reason)\n'
+	@printf '>>> test-iword-reveal-codes-mutant: green (all four mutants RED for the named reason)\n'
 endif
 
 # ---------------------------------------------------------------------------

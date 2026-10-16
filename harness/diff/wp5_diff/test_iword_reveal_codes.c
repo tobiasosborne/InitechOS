@@ -13,6 +13,10 @@
  *   mint/shots_wpMINT09..16                             (slice 2, ledger 003:
  *     tabs, indents, hard pages; the "Delete [code]?" answers; Block, Move,
  *     Copy, Delete Block, retrieve into attributes; the pane's row count)
+ *   mint/shots_wpMINT21..24                             (slice 3, ledger 004:
+ *     [L/R Mar:..] with the [HRt] WP puts before one typed mid-line,
+ *     [Just:Left/Center/Right], [DSRt], the codes Down lands after, the
+ *     answers to "Delete [L/R Mar:..]?")
  * Nothing here is read from spec/iword/reveal_codes.h (Law 2: an oracle that
  * shares its expected strings with the artifact agrees by construction). The
  * right arrow of "[->Indent]" is CP437 0x1A as the screen shows it.
@@ -34,6 +38,7 @@
  *   IWORD_MUT_LABEL_ITALC  italic labelled [ITAL]/[ital] -> RED-REASON label
  *   IWORD_MUT_PANE_ANCHOR  two lines above the cursor   -> RED-REASON pane
  *   IWORD_MUT_BLOCK_LABEL  no [Block] at the anchor     -> RED-REASON label
+ *   IWORD_MUT_LABEL_JUST   every [Just:] shows as Left   -> RED-REASON label
  *
  * Usage: test_iword_reveal_codes <WORDPERFECT51_DECOMP>
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
@@ -113,6 +118,29 @@ static const char *const M15_01[] = { "%RET", "%F6", "vwxyz", "%F6", "%HOME", 0 
 static const char *const M15_02[] = { "%RET", "%F6", "vwxyz", "%F6", "%HOME", "%R", "%BLK", "%R", "%COPY", "%R", "%RET", 0 };
 /* mint/wpMINT16.steps: Home Home Up; Down x6 */
 static const char *const M16_02[] = { "%TOP", "%D*6", 0 };
+/* slice 3: mint/wpMINT21..24.steps up to each shot ("%MAR=L,R" WPU, "%Jx") */
+#define M21_A "%RET", "%MAR=1560,2040", \
+    "Margins of one point three and one point seven inches make this paragraph wrap at fifty five columns, which it does.", \
+    "%RET", "%TAB", "tab", "%RET", "ab", "%TAB", "x", "%RET", "%F4", \
+    "An indented paragraph under the new margins that is long enough to wrap twice over the lines.", "%RET"
+static const char *const M21_09[] = { M21_A, 0 };
+static const char *const M21_11[] = { M21_A, "Mid", "%MAR=2400,2400", "dle of a line.", "%RET", "%TAB", "t2", "%RET", 0 };
+static const char *const M22_05[] = { "%RET",
+    "wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz abcdef next words.", "%RET",
+    "wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz wxyz abcde next words.", "%RET",
+    "%JC", "Centered justification line.", "%RET", "%JR", "Right justified.", "%RET",
+    "%JF", "Full again.", "%RET", "%JL", "Left.", "%RET", "Mid", "%JC", "after", "%RET", 0 };
+#define M23_A "%RET", "%JL", "%MAR=1800,1200", "Same trip.", "%RET", "%CRET", "Page two.", "%RET", \
+    "Mid2", "%L", "%L", "%MAR=1500,1380"
+#define M23_B M23_A, "%END", "%RET", "x", "%TAB", "y", "%RET", \
+    "The quarter inch margins wrap this paragraph somewhere near the right edge of the page, see where.", "%RET"
+static const char *const M23_03[] = { M23_A, 0 };
+static const char *const M23_05[] = { M23_B, "%TOP", "%D", 0 };
+static const char *const M23_09[] = { M23_B, "%TOP", "%D", "%BS", "%N", "%DEL", "%N", 0 };
+static const char *const M24_02[] = { "%RET", "%JC",
+    "A centered paragraph long enough to wrap onto a second line and then a third line of text, to see each line.",
+    "%RET", "ab", "%RET", "xyz", "%L", "%L", "Q", "%END", "%RET", "%JR", "Right line.", "%RET", "Plain", 0 };
+#define M23R1 "[Just:Left][L/R Mar:1.5\",1\"]Same trip.[HRt]"
 
 #define M13R1 "Plain[BOLD]bold word[bold]fter.[BOLD]s[bold] a[HRt]"
 #define M13R2 "Keep[UND]under words[und] tail.ep[UND]u[und][HRt]"
@@ -324,6 +352,54 @@ static const screen_t SCREENS[] = {
       "L3[HRt]", "L4[HRt]", "L5[HRt]", "L6[HRt]", "L7[HRt]", "L8[HRt]", "L9[HRt]",
       "L10[HRt]", "L11[HRt]", "L12[HRt]",
       "" } },
+    /* ---- slice 3: margins and justification ----------------------------------- */
+    { "mint/shots_wpMINT21/09_reveal.png", 0, M21_09, 5, 3, 0, 1, {
+      "ab[Tab]x[HRt]",
+      IND "An indented paragraph under the new margins that is[SRt]",
+      "long enough to wrap twice over the lines.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT21/11_reveal_second.png", 0, M21_11, 8, 3, 0, 1, {
+      "Mid[HRt]",
+      "[L/R Mar:2\",2\"]dle of a line.[HRt]",
+      "[Tab]t2[HRt]",
+      "" } },
+    { "mint/shots_wpMINT22/05_reveal.png", 0, M22_05, 8, 3, 0, 1, {
+      "[Just:Left]Left.[HRt]",
+      "Mid[DSRt]",
+      "[Just:Center]after[HRt]",
+      "" } },
+    { "mint/shots_wpMINT23/03_reveal_mid.png", 0, M23_03, 2, 3, 21, 1, {
+      "[HPg]",
+      "Page two.[HRt]",
+      "Mi[HRt]",
+      "[L/R Mar:1.25\",1.15\"]d2" } },
+    { "mint/shots_wpMINT23/05_reveal_line2.png", 0, M23_05, 0, 1, 28, 1, {
+      "[HRt]",
+      M23R1,
+      "[HPg]",
+      "Page two.[HRt]",
+      "Mi[HRt]",
+      "[L/R Mar:1.25\",1.15\"]d2[HRt]",
+      "x[Tab]y[HRt]",
+      "The quarter inch margins wrap this paragraph somewhere near[SRt]",
+      "the right edge of the page, see where.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT23/09_after_del_no.png", 0, M23_09, 0, 1, 28, 1, {
+      "[HRt]",
+      M23R1,
+      "[HPg]",
+      "Page two.[HRt]",
+      "Mi[HRt]",
+      "[L/R Mar:1.25\",1.15\"]d2[HRt]",
+      "x[Tab]y[HRt]",
+      "The quarter inch margins wrap this paragraph somewhere near[SRt]",
+      "the right edge of the page, see where.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT24/02_reveal.png", 0, M24_02, 3, 3, 5, 1, {
+      "ab[HRt]",
+      "xQyz[HRt]",
+      "[Just:Right]Right line.[HRt]",
+      "Plain" } },
 };
 #define NSCREENS ((int)(sizeof SCREENS / sizeof SCREENS[0]))
 
@@ -356,7 +432,9 @@ static uint32_t load_golden(const char *name)
 static int build(const screen_t *sc, iw_ed_t *e)
 {
     iw_doc_init(&e->doc, g_add, CAP, g_pc, 8192u, CAP);
-    iw_ed_init(e, 65u);
+    /* RE-KEYED 2026-10-16 (slice 3, stated): WP's line holds 66 characters
+     * at 1"/1" (MINT22; spec/iword/wp5_format.h WRAP), was 65 */
+    iw_ed_init(e, 66u);
     if (sc->doc) {
         iw_wp5_t w;
         uint32_t n = load_golden(sc->doc);
