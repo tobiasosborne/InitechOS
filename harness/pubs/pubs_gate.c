@@ -124,8 +124,12 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
                 if(*q=='|') q++; else { k++;break; }
             }
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
+            /* InitechWord (harness/pubs/iword_probe.c, bead initech-ipu5.10):
+             * wpkey wpmenu wppull wpcode wpmsg */
             if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
-               strcmp(f[1],"config") && strcmp(f[1],"int21")) die("COMMAND-INDEX",path,line);
+               strcmp(f[1],"config") && strcmp(f[1],"int21") && strcmp(f[1],"wpkey") &&
+               strcmp(f[1],"wpmenu") && strcmp(f[1],"wppull") && strcmp(f[1],"wpcode") &&
+               strcmp(f[1],"wpmsg")) die("COMMAND-INDEX",path,line);
             if(strcmp(f[2],"GATED") && strcmp(f[2],"DRAFT")) die("COMMAND-INDEX",path,line);
             addkind(doc,f[0],f[1]);
             if(!strcmp(f[2],"DRAFT")) addkind(draft,f[0],f[1]);
@@ -271,12 +275,28 @@ int main(int argc,char **argv)
             die("DOC-NOT-SHIPPED",argv[3],mentions.item[i]);
         printf(">>> test-pubs-mentions: green (%zu distinct inline commands)\n",mentions.n);
     }
+    else if(argc>=4 && !strcmp(argv[1],"keys")) {
+        /* InitechWord running-text keys (initech-wpc.sty \K -> <job>.wpkeys):
+         * every key of a mention ("Shift-F8", "Home, Home, Up") must be a
+         * single shipped key, NAME|wpkey of the inventory (GC-01). */
+        Set pairs=list(argv[2],0);size_t n=0;
+        for(int f=3;f<argc;f++) { Set m=list(argv[f],-1); for(size_t i=0;i<m.n;i++) {
+            const char *p=m.item[i];
+            while(*p) {
+                char tok[MAX_NAME],want[MAX_NAME+8];size_t k=strcspn(p,", ");
+                if(k) { memcpy(tok,p,k);tok[k]=0;snprintf(want,sizeof want,"%s|wpkey",tok);
+                    if(!has(&pairs,want)) die("DOC-NOT-SHIPPED",argv[f],m.item[i]);
+                    n++; }
+                p+=k;while(*p==',' || *p==' ') p++;
+            } } }
+        printf(">>> test-pubs-iword-keys: green (%zu keys named in running text, every one shipped)\n",n);
+    }
     else if(argc==5 && !strcmp(argv[1],"same")) same(argv[2],argv[3],argv[4]);
     else if(argc>=4 && !strcmp(argv[1],"lint")) {
         denied=list(argv[2],0);
         for(size_t i=0;i<denied.n;i++) for(char *p=denied.item[i];*p;p++) *p=(char)tolower((unsigned char)*p);
         for(int i=3;i<argc;i++) walk(argv[i]);
         puts(">>> test-pubs-lint: green (ASCII, period vocabulary/years, part numbers and print codes)");
-    } else die("USAGE","pubs_gate","inventory|commands|monotonic|same|lint");
+    } else die("USAGE","pubs_gate","inventory|commands|monotonic|keys|same|lint");
     return 0;
 }
