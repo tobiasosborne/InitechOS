@@ -10147,7 +10147,13 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # (cell 3; InitechWord, bead initech-l4tj -- $(IWORD_EXE), or a gate-local
 # variant). Appended LAST so cells 0-2 and every locked trace that reaches
 # them are unchanged.
+# Every image this recipe mints is REGISTERED in FLAIR_DATA_RECIPE_IMAGES so
+# harness/fixture_volumes.mk can lint that each one carries a declared fixture
+# contract (bead initech-a5sr: three InitechWord mutant volumes merged with no
+# contract and were caught only at emu-gate time, 6865fc0 / 8080833).
+FLAIR_DATA_RECIPE_IMAGES :=
 define flair-data-rules
+FLAIR_DATA_RECIPE_IMAGES += $(1)
 $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
@@ -12895,6 +12901,7 @@ $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 .PHONY: test-fixture-volumes test-fixture-volumes-mutant
 test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
+	@$(MAKE) --no-print-directory -s fixture-volume-recipe-lint
 	@$(MAKE) --no-print-directory -pn help > $(FIXTURE_VOLUMES_SCAN).db
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
 	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe
@@ -12904,7 +12911,41 @@ test-fixture-volumes-mutant: test-fixture-volumes
 	 printf '!!! test-fixture-volumes-mutant FAIL: QUIT_DATA_COLLISION survived\n'; exit 1; fi
 	@grep -F 'scratch $(BUILD)/flair_i123_quit_data.img (gate test-flair-i123) collides with fixture $(BUILD)/flair_i123_quit_data.img' $(BUILD)/fixture-volumes-mutant.log \
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: wrong RED reason\n'; exit 1; }
-	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION correctly RED; real Makefile restored)\n'
+	@# initech-a5sr mutants. HANDLIST_DRIFT: the pre-8080833 hand list (no
+	@# no-block-on InitechWord volume) -- the exact 2026-10-16 regression.
+	@if $(MAKE) --no-print-directory test-fixture-volumes FIXTURE_MUT_HANDLIST=1 FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: HANDLIST_DRIFT survived\n'; exit 1; fi
+	@grep -F '!!! test-fixture-volumes FAIL: flair-data image $(FLAIR_DATA_IWORD_NOBLK_IMG) has no declared fixture contract' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: HANDLIST_DRIFT wrong RED reason\n'; exit 1; }
+	@# UNDECLARED_VARIANT: a FLAIR_DATA_ZZZ_IMG flair-data volume with no contract.
+	@if $(MAKE) --no-print-directory test-fixture-volumes FIXTURE_MUT_UNDECLARED_VARIANT=1 FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: UNDECLARED_VARIANT survived\n'; exit 1; fi
+	@grep -F '!!! test-fixture-volumes FAIL: flair-data image $(BUILD)/flair_data_zzz.img has no declared fixture contract' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: UNDECLARED_VARIANT wrong RED reason\n'; exit 1; }
+	@# UNSEEDED_MASK: the C inventory leg alone, fed the real expansion minus
+	@# one seeded volume's contract, must not let the @unseeded fallback hide it.
+	@awk -v p='@@contract $(FLAIR_DATA_IWORD_NOBLK_IMG) ' 'index($$0, p) != 1' $(FIXTURE_VOLUMES_SCAN).expanded > $(BUILD)/fixture-volumes-unseeded.expanded
+	@test $$(( $$(wc -l < $(FIXTURE_VOLUMES_SCAN).expanded) - $$(wc -l < $(BUILD)/fixture-volumes-unseeded.expanded) )) -eq 1 \
+	 || { printf '!!! test-fixture-volumes-mutant FAIL: UNSEEDED_MASK did not drop exactly one contract line\n'; exit 1; }
+	@if $(FIXTURE_VOLUMES_CHECK) --check $(BUILD)/fixture-volumes-unseeded.expanded $(BUILD)/fixture-volumes-unseeded.tsv > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: UNSEEDED_MASK survived\n'; exit 1; fi
+	@grep -F '!!! test-fixture-volumes FAIL: fixture $(FLAIR_DATA_IWORD_NOBLK_IMG) has no declared contract' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: UNSEEDED_MASK wrong RED reason\n'; exit 1; }
+	@# BROKEN_CONTRACT: the end-of-recipe verifier fails; the half-built image
+	@# must be deleted, and the next plain make must REBUILD it (not call it
+	@# up to date) -- the stale-image GREEN of 2026-10-16.
+	@rm -f $(FIXTURE_RMPROOF_IMG)
+	@if $(MAKE) --no-print-directory $(FIXTURE_RMPROOF_IMG) FIXTURE_MUT_BROKEN_CONTRACT=1 > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: BROKEN_CONTRACT survived\n'; exit 1; fi
+	@grep -F 'fixture-volume recipe ERROR: $(FIXTURE_RMPROOF_IMG): missing fixture ::ZZZMUT.TXT' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: BROKEN_CONTRACT wrong RED reason\n'; exit 1; }
+	@test ! -e $(FIXTURE_RMPROOF_IMG) \
+	 || { printf '!!! test-fixture-volumes-mutant FAIL: BROKEN_CONTRACT left the half-built %s on disk\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
+	@$(MAKE) --no-print-directory $(FIXTURE_RMPROOF_IMG) > $(BUILD)/fixture-volumes-mutant.log 2>&1 \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: clean rebuild of %s failed\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
+	@grep -F '>>> fixture_rmproof: minted $(FIXTURE_RMPROOF_IMG)' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: next make did not rebuild %s\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
+	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION, HANDLIST_DRIFT, UNDECLARED_VARIANT, UNSEEDED_MASK, BROKEN_CONTRACT correctly RED; failed image deleted and rebuilt; real Makefile restored)\n'
 
 # Ref: CLAUDE.md Law 2 / Rule 6; initech-iv8c. These run only host gates.
 .PHONY: test-gate-honesty test-gate-honesty-mutant
