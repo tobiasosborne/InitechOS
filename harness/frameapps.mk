@@ -5,9 +5,9 @@ CALC_DEP := spec/assets/calc_ledger.h os/i123/core/i123.h spec/i123/wk1_format.h
 CALC_INC := -Ios/apps/tbx -Ios/i123/core -Ispec -Ispec/assets -ffunction-sections -fdata-sections
 CALC_MUTANTS := CALC_MUT_PIE100 CALC_MUT_LEADING_MINUS
 CALC_PIXEL_MUTANT := CALC_MUT_MERGE_SLICES
-$(eval $(call tenant-exe-rules,calc,$(CALC_SRC),$(CALC_INC),$(CALC_DEP)))
-$(foreach m,$(CALC_MUTANTS),$(eval $(call tenant-exe-rules,calc_$(m),$(CALC_SRC),$(CALC_INC) -D$(m),$(CALC_DEP))))
-$(eval $(call tenant-exe-rules,calc_$(CALC_PIXEL_MUTANT),$(CALC_SRC),$(CALC_INC) -D$(CALC_PIXEL_MUTANT),$(CALC_DEP)))
+$(eval $(call tenant-exe-rules,calc,$(CALC_SRC),$(CALC_INC),$(CALC_DEP),))
+$(foreach m,$(CALC_MUTANTS),$(eval $(call tenant-exe-rules,calc_$(m),$(CALC_SRC),$(CALC_INC) -D$(m),$(CALC_DEP),)))
+$(eval $(call tenant-exe-rules,calc_$(CALC_PIXEL_MUTANT),$(CALC_SRC),$(CALC_INC) -D$(CALC_PIXEL_MUTANT),$(CALC_DEP),))
 $(BUILD)/test_calc_tenant: harness/proptest/test_calc_tenant.c $(CALC_SRC) $(CALC_DEP) | $(BUILD)
 	$(CC) $(CFLAGS) $(CALC_INC) -Wl,--gc-sections -o $@ $< $(filter-out os/apps/calc/calc.c,$(CALC_SRC))
 $(BUILD)/test_calc_tenant_mut_%: harness/proptest/test_calc_tenant.c $(CALC_SRC) $(CALC_DEP) | $(BUILD)

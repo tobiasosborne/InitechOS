@@ -49,7 +49,7 @@ ifdef FIXTURE_MUT_UNDECLARED_VARIANT
 # Mutant (test-fixture-volumes-mutant, UNDECLARED_VARIANT): a flair-data
 # variant volume defined after the derivation above, so it has no contract.
 FLAIR_DATA_ZZZ_IMG := $(BUILD)/flair_data_zzz.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_ZZZ_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ZZZ_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
 endif
 $(eval $(call fixture-contract,$(FLAIR_DATA_CORRUPT_IMG),$(FLAIR_FIXTURES) DESKTOP.DB=AH))
 $(eval $(call fixture-contract,$(FLAIR_DAMAGED_DATA_IMG),NEWFOLD= TRASH= APPS/TRASH= APPS/TRASH/README.TXT $(filter-out README.TXT,$(FLAIR_FIXTURES))))

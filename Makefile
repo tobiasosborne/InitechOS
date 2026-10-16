@@ -10096,7 +10096,7 @@ TENANTFX_EXE := $(BUILD)/tenantfx.exe
 # zeroed by the loader (spec/toolbox_gate.h Sec 8). The .EXE must fit the V1
 # file cap TBX_TENANT_IMAGE_MAX (64 KiB). Reproducible (Rule 11): no paths,
 # dates or host state reach the bytes.
-# $(call tenant-exe-rules,<name>,<C sources>,<extra cflags>,<extra deps>)
+# $(call tenant-exe-rules,<name>,<C sources>,<extra cflags>,<extra deps>,<extra ldflags>)
 #   -> $(BUILD)/tenant/<name>.exe
 TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
 TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h
@@ -10134,7 +10134,7 @@ endef
 
 # CTENANT.EXE -- the smallest C tenant (os/apps/ctenant/ctenant.c): proves the
 # C path above end to end, and is the fixture of test-flair-ctenant (initech-8zii).
-$(eval $(call tenant-exe-rules,ctenant,os/apps/ctenant/ctenant.c,,))
+$(eval $(call tenant-exe-rules,ctenant,os/apps/ctenant/ctenant.c,,,))
 CTENANT_EXE := $(BUILD)/tenant/ctenant.exe
 
 # TEXT.EXE -- InitechText, the SimpleText-alike (os/apps/itext/itext.c; bead
@@ -10158,7 +10158,7 @@ ITEXT_EXE := $(BUILD)/tenant/itext.exe
 # initech-tdnl.68): styled TEXTDRAW runs, a truncated title, a clipped line, a
 # Style menu in its own styles. The fixture of test-flair-fonts ONLY, shipped
 # on that gate's own data volume (never on the flagship volume).
-$(eval $(call tenant-exe-rules,fonts,os/apps/fonts/fonts.c,,))
+$(eval $(call tenant-exe-rules,fonts,os/apps/fonts/fonts.c,,,))
 FONTS_EXE := $(BUILD)/tenant/fonts.exe
 
 # 123.EXE -- Initech 123, Face A (os/i123/app/face_a.c over the slice-1 core,
@@ -10170,8 +10170,8 @@ FONTS_EXE := $(BUILD)/tenant/fonts.exe
 I123_APP_SRC := os/i123/app/face_a.c os/i123/core/sheet.c os/i123/core/fmt.c os/i123/fs/wk1.c \
                 os/i123/core/formula.c os/i123/core/eval.c os/i123/core/recalc.c os/i123/core/range.c os/i123/core/menu.c
 I123_APP_DEP := os/i123/core/i123.h os/i123/core/menu.h os/i123/core/menu_data.h spec/i123/wk1_format.h spec/i123/wk1_formula.h
-$(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP)))
-$(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123,$(I123_APP_SRC),-Ios/i123/core,$(I123_APP_DEP),))
+$(eval $(call tenant-exe-rules,i123_arrows_dead,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_ARROWS_DEAD,$(I123_APP_DEP),))
 I123_EXE := $(BUILD)/tenant/i123.exe
 
 # WORD.EXE -- InitechWord, Face A (os/iword/app/face_a.c over the document
@@ -10183,9 +10183,9 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
 IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
 IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
-$(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP)))
-$(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP)))
-$(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP),))
+$(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP),))
+$(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
 IWORD_EXE := $(BUILD)/tenant/iword.exe
 
 # Deterministic flagship FAT12 volume (Rule 11): mtools authors the filesystem,
@@ -10195,7 +10195,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # INSIDE APPS, never at the root, so the locked root listing (n=2 shown since
 # tdnl.56 hid DESKTOP.DB and TRASH; n=4 on disk) of every R3.2/
 # R3.3 gate is untouched.
-# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>,<WORD exe to ship>)
+# $(call flair-data-rules,<image>,<TENANTFX exe to ship>,<123 exe to ship>,<WORD exe to ship>,)
 # APPS also holds, IN THIS ORDER after TENANTFX.EXE (the Finder lays a folder
 # out in directory order, so TENANTFX keeps grid cell 0 and every locked trace
 # that reaches it): CTENANT.EXE (cell 1; bead initech-w96l), 123.EXE
@@ -10241,15 +10241,15 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
 # Gate-local VARIANT volumes (tdnl.14 legs): the SAME recipe shipping a knobbed
 # fixture under the SAME name, so the SAME locked trace drives it.
 FLAIR_DATA_TFX_NOREG_IMG := $(BUILD)/flair_data_tfx_noreg.img
 FLAIR_DATA_TFX_CRASH_IMG := $(BUILD)/flair_data_tfx_crash.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe,$(I123_EXE),$(IWORD_EXE)))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe,$(I123_EXE),$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_NOREG_IMG),$(BUILD)/tenantfx_noreg.exe,$(I123_EXE),$(IWORD_EXE),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_CRASH_IMG),$(BUILD)/tenantfx_crash.exe,$(I123_EXE),$(IWORD_EXE),))
 FLAIR_DATA_TFX_BADMBAR_IMG := $(BUILD)/flair_data_tfx_badmbar.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe,$(I123_EXE),$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_TFX_BADMBAR_IMG),$(BUILD)/tenantfx_badmbar.exe,$(I123_EXE),$(IWORD_EXE),))
 
 # DB_MAGIC_FLIP volume mutant: corruption is authored independently at image
 # build time; the REAL kernel must announce REGEN and rewrite the golden header.
@@ -20436,13 +20436,14 @@ $(FLAIR_DAMAGED_DATA_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 	@# grid cell and FLAIR_SVC_DAMAGED_SPEC was re-keyed five times in one night; with
 	@# 16+ files it fell off the visible 4x4 grid. Bytes are unchanged (mtools-proven).
 	@rm -rf $(BUILD)/damaged_apps && mkdir -p $(BUILD)/damaged_apps
-	@for f in $(patsubst APPS/%,%,$(filter APPS/%,$(FLAIR_FIXTURES))); do \
-		mcopy -n -i $@ ::APPS/$$f $(BUILD)/damaged_apps/$$f || exit 1; done
+	@# The shipped APPS order comes from the image itself (mdir -b lists directory order),
+	@# not from a Makefile variable defined later (test-makefile-vars, tdnl.81).
+	@mdir -b -i $@ ::APPS | sed 's#.*/##' > $(BUILD)/damaged_apps.order
+	@while read -r f; do mcopy -n -i $@ ::APPS/$$f $(BUILD)/damaged_apps/$$f || exit 1; done < $(BUILD)/damaged_apps.order
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mdeltree -i $@ ::APPS
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::APPS
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::APPS/TRASH
-	@for f in $(patsubst APPS/%,%,$(filter APPS/%,$(FLAIR_FIXTURES))); do \
-		SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -m -i $@ $(BUILD)/damaged_apps/$$f ::APPS/$$f || exit 1; done
+	@while read -r f; do SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -m -i $@ $(BUILD)/damaged_apps/$$f ::APPS/$$f || exit 1; done < $(BUILD)/damaged_apps.order
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmove -i $@ ::README.TXT ::APPS/TRASH/README.TXT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::NEWFOLD
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::TRASH
@@ -22438,7 +22439,7 @@ test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tena
 # and display, Ctrl-Q) on the headless smoke kernel, byte-identical to QEMU.
 # ===========================================================================
 FLAIR_DATA_I123_ARROWS_IMG := $(BUILD)/flair_data_i123_arrows.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_ARROWS_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_arrows_dead.exe,$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_ARROWS_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_arrows_dead.exe,$(IWORD_EXE),))
 $(eval $(call flair-tenants-kmain-mutant-rules,TBX_HEADLESS_SMOKE -DTBX_SMOKE_I123,tbx_smoke_i123))
 FLAIR_I123_SMOKE_IMG := $(BUILD)/flair_tenants_mut_tbx_smoke_i123.img
 
@@ -29890,7 +29891,7 @@ test-tbx-file-mutant: $(BUILD)/test_tbx_file_mutant_TBX_MUT_FILE_BOUNDS $(BUILD)
 
 # initech-tdnl.91: booted C file tenant + independent stopped-disk judgement.
 include spec/flair_file_traces.mk
-$(eval $(call tenant-exe-rules,fileten,os/apps/ctenant/files.c,,))
+$(eval $(call tenant-exe-rules,fileten,os/apps/ctenant/files.c,,,))
 FLAIR_FILE_DATA := $(BUILD)/flair_file_data.img
 $(FLAIR_FILE_DATA): $(FLAIR_DATA_IMG) $(BUILD)/tenant/fileten.exe
 	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
@@ -29990,13 +29991,13 @@ test-flair-i123-file-ui: $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123
 	fsck.fat -n $(BUILD)/flair_i123_replace_data.img
 	@printf '>>> test-flair-i123-file-ui: green (reference menus/prompts, visible refusal/error, Cancel/Replace judged by mtools)\n'
 
-$(eval $(call tenant-exe-rules,i123_save_empty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_SAVE_EMPTY,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_save_empty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_SAVE_EMPTY,$(I123_APP_DEP),))
 # Re-keyed 2026-10-15 (initech-uqah): the COMMAND_SILENT knob died with the
 # 'Command not implemented' refusal (the complete slash tree opens every top
 # level); the UI mutant now misspells the first menu title (I123_MUT_MENU_SPELLING,
 # the knob test-i123-menu-tree-mutant already proves) so the 123.RI-exact
 # top line is what the gate's first clause defends. Image name kept.
-$(eval $(call tenant-exe-rules,i123_command_silent,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MENU_SPELLING,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_command_silent,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MENU_SPELLING,$(I123_APP_DEP),))
 $(BUILD)/flair_i123_file_mut_%.img: $(FLAIR_I123_FILE_DATA) $(BUILD)/tenant/i123_%.exe
 	@$(call fixture-preflight,$(FLAIR_I123_FILE_DATA))
 	cp -f $(FLAIR_I123_FILE_DATA) $@
@@ -30024,7 +30025,7 @@ test-flair-i123-file-ui-mutant: test-flair-i123-file-ui $(BUILD)/flair_i123_file
 	@if $(call I123_FILE_ROWS,$(BUILD)/flair_i123_get_mut.serial); then printf '!!! test-flair-i123-file-ui-mutant FAIL: GET_CLOBBER survived\n'; exit 1; fi
 	@printf '>>> test-flair-i123-file-ui-mutant: green (GET_CLOBBER correctly RED: malformed file refused, old cells lost on repaint, desktop alive)\n'
 
-$(eval $(call tenant-exe-rules,i123_get_clobber,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_GET_CLOBBER,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_get_clobber,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_GET_CLOBBER,$(I123_APP_DEP),))
 
 # ===========================================================================
 # REAL gate: test-flair-i123-quitguard (bead initech-fvnj; astra audit L008
@@ -30069,8 +30070,8 @@ $(FLAIR_I123_QUIT_DATA): $(FLAIR_I123_FILE_DATA)
 	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ $(BUILD)/i123-corpus-original.WK1 ::RO.WK1
 	mattrib -i $@ +r ::RO.WK1
 	@$(call fixture-check,recipe,$@)
-$(eval $(call tenant-exe-rules,i123_never_dirty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NEVER_DIRTY,$(I123_APP_DEP)))
-$(eval $(call tenant-exe-rules,i123_cancel_quits,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_CANCEL_QUITS,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_never_dirty,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NEVER_DIRTY,$(I123_APP_DEP),))
+$(eval $(call tenant-exe-rules,i123_cancel_quits,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_CANCEL_QUITS,$(I123_APP_DEP),))
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=500 -DKMAIN_MUT_CLOSE_NO_ASK,i123_close_noask))
 FLAIR_I123_CLOSE_NOASK_IMG := $(BUILD)/flair_tenants_mut_i123_close_noask.img
 
@@ -30170,8 +30171,8 @@ test-flair-i123-quitguard-mutant: test-flair-i123-quitguard $(HARNESS_BIN) $(FLA
 # the same kernel objects otherwise).
 # ---------------------------------------------------------------------------
 FLAIR_DATA_I123_NORECALC_IMG := $(BUILD)/flair_data_i123_norecalc.img
-$(eval $(call tenant-exe-rules,i123_no_recalc,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NO_RECALC,$(I123_APP_DEP)))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_NORECALC_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_no_recalc.exe,$(IWORD_EXE)))
+$(eval $(call tenant-exe-rules,i123_no_recalc,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_NO_RECALC,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_NORECALC_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_no_recalc.exe,$(IWORD_EXE),))
 I123_FROW_A := $(I123_E)     123      1.5    124.5     -249                                     $(I123_E)
 I123_FROW_B := $(I123_E)     200      1.5    201.5     -403                                     $(I123_E)
 I123_FORMULA_ROWS = grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=33 y=64 s="$(I123_FROW_A)" fg=1 bg=0 -> 0' $(1) && \
@@ -30244,8 +30245,8 @@ $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1500,iword_
 FLAIR_IWORD_GATE_IMG := $(BUILD)/flair_tenants_mut_iword_gate.img
 FLAIR_DATA_IWORD_NOWRAP_IMG := $(BUILD)/flair_data_iword_nowrap.img
 FLAIR_DATA_IWORD_NOSAVE_IMG := $(BUILD)/flair_data_iword_nosave.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOWRAP_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_wrap.exe))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOSAVE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_save_nothing.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOWRAP_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_wrap.exe,))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOSAVE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_save_nothing.exe,))
 IWORD_ROW0   := $(I123_E)Initech word processing is here. The quick brown fox jumps over             $(I123_E)
 IWORD_ROW1   := $(I123_E)the lazy dog.                                                               $(I123_E)
 IWORD_BLANK  := $(I123_E)                                                                            $(I123_E)
@@ -30356,9 +30357,9 @@ test-flair-iword-mutant: test-flair-iword $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG)
 #                           "under".
 # Bochs / record-flair (iword_codes) are the PM's on main (Rule 5 / Rule 14).
 # ===========================================================================
-$(eval $(call tenant-exe-rules,iword_no_face,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_FACE,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword_no_face,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_FACE,$(IWORD_APP_DEP),))
 FLAIR_DATA_IWORD_NOFACE_IMG := $(BUILD)/flair_data_iword_noface.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOFACE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_face.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOFACE_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_face.exe,))
 PPM_IWORD_CODES_BIN := $(BUILD)/ppm_iword_codes_check
 $(PPM_IWORD_CODES_BIN): tools/ppm_iword_codes_check.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -30487,12 +30488,12 @@ TEST_EMU_GATES += test-flair-iword-codes test-flair-iword-codes-mutant
 #                         DISK green.
 # Bochs / record-flair (iword_block) are the PM's on main (Rule 5 / Rule 14).
 # ===========================================================================
-$(eval $(call tenant-exe-rules,iword_no_d4,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_D4,$(IWORD_APP_DEP)))
-$(eval $(call tenant-exe-rules,iword_no_block_on,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_BLOCK_ON,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword_no_d4,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_D4,$(IWORD_APP_DEP),))
+$(eval $(call tenant-exe-rules,iword_no_block_on,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_BLOCK_ON,$(IWORD_APP_DEP),))
 FLAIR_DATA_IWORD_NOD4_IMG := $(BUILD)/flair_data_iword_no_d4.img
 FLAIR_DATA_IWORD_NOBLK_IMG := $(BUILD)/flair_data_iword_no_block_on.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOD4_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_d4.exe))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOBLK_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_block_on.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOD4_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_d4.exe,))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOBLK_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_block_on.exe,))
 IWORD_MINT20 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT20.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT20)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the face is 76 cells
 # (was 77), so each row is one cell shorter and the Doc group ends at column
@@ -30602,12 +30603,12 @@ TEST_EMU_GATES += test-flair-iword-block test-flair-iword-block-mutant
 #                           green, DISK RED (0x103 = 0x00, MINT32 has 0x08).
 # Bochs / record-flair (iword_format) are the PM's on main (Rule 5 / Rule 14).
 # ===========================================================================
-$(eval $(call tenant-exe-rules,iword_no_center,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_CENTER,$(IWORD_APP_DEP)))
-$(eval $(call tenant-exe-rules,iword_blk_cur_start,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_BLK_CUR_START,$(IWORD_APP_DEP)))
+$(eval $(call tenant-exe-rules,iword_no_center,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_CENTER,$(IWORD_APP_DEP),))
+$(eval $(call tenant-exe-rules,iword_blk_cur_start,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_BLK_CUR_START,$(IWORD_APP_DEP),))
 FLAIR_DATA_IWORD_NOCTR_IMG := $(BUILD)/flair_data_iword_no_center.img
 FLAIR_DATA_IWORD_BLKCUR_IMG := $(BUILD)/flair_data_iword_blk_cur_start.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOCTR_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_center.exe))
-$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_BLKCUR_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_blk_cur_start.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_NOCTR_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_no_center.exe,))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_IWORD_BLKCUR_IMG),$(TENANTFX_EXE),$(I123_EXE),$(BUILD)/tenant/iword_blk_cur_start.exe,))
 IWORD_MINT32 = $(firstword $(wildcard $(WORDPERFECT51_DECOMP)/goldens/minted/MINT32.WP5) $(WORDPERFECT51_DECOMP)/mint/work/WP51/MINT32)
 IWORD_F_SEL6   := $(I123_E)Selection: 6                                                                $(I123_E)
 IWORD_F_SP2    := $(I123_E)     6 - Line Spacing                   2                                   $(I123_E)
@@ -30674,7 +30675,7 @@ TEST_EMU_GATES += test-flair-iword-format test-flair-iword-format-mutant
 # volume (FONTS.EXE in APPS cell 3, see spec/flair_fonts_traces.mk).
 # ===========================================================================
 FLAIR_DATA_FONTS_IMG := $(BUILD)/flair_data_fonts.img
-$(eval $(call flair-data-rules,$(FLAIR_DATA_FONTS_IMG),$(TENANTFX_EXE),$(I123_EXE),$(FONTS_EXE)))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_FONTS_IMG),$(TENANTFX_EXE),$(I123_EXE),$(FONTS_EXE),))
 
 # ===========================================================================
 # REAL gate: test-flair-fonts (bead initech-tdnl.68, Font Manager slice 2;
@@ -30958,10 +30959,10 @@ I123_MENU_OPS_OK = $(call APPL_ALIVE,$(1)) && grep -qx 'TENANT-REGISTER ok app=1
 	grep -qF 's="Format  Label  Erase  Name  Justify  Prot  Unprot  Input  Value  Trans  Sear' $(1) && \
 	grep -qF 's="Fixed  Sci  Currency  ,  General  +/-  Percent  Date  Text  Hidden  Reset' $(1) && \
 	grep -qxF 'TENANT-GATE ax=0x0033 win=1 x=577 y=0 s="MENU" fg=0 bg=3 -> 0' $(1)
-$(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP)))
+$(eval $(call tenant-exe-rules,i123_menu_stale,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_MOVE_STALE,$(I123_APP_DEP),))
 # Inherited BASE_COMMIT omitted the fourth argument: test-makefile-vars
 # failed on undefined4 (three sites); keep the standard WORD tenant.
-$(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe,$(IWORD_EXE)))
+$(eval $(call flair-data-rules,$(BUILD)/flair_i123_menu_stale.img,$(TENANTFX_EXE),$(BUILD)/tenant/i123_menu_stale.exe,$(IWORD_EXE),))
 .PHONY: test-flair-i123-menu test-flair-i123-menu-mutant
 test-flair-i123-menu: test-i123-menu-tree $(BUILD)/check_i123_menu_levels $(HARNESS_BIN) $(FLAIR_I123_MENU_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
 	$(call appl-boot,flair_i123_menu_ops,$(FLAIR_I123_MENU_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_MENU_OPS,--screendump --screendump-after FLAIR-LIVE-OK)
