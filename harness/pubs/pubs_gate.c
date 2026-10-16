@@ -278,14 +278,20 @@ int main(int argc,char **argv)
     else if(argc>=4 && !strcmp(argv[1],"keys")) {
         /* InitechWord running-text keys (initech-wpc.sty \K -> <job>.wpkeys):
          * every key of a mention ("Shift-F8", "Home, Home, Up") must be a
-         * single shipped key, NAME|wpkey of the inventory (GC-01). */
+         * single shipped key, NAME|wpkey of the inventory, or a key that acts as
+         * another (NAME=KEY|wpkey) (GC-01). */
         Set pairs=list(argv[2],0);size_t n=0;
         for(int f=3;f<argc;f++) { Set m=list(argv[f],-1); for(size_t i=0;i<m.n;i++) {
             const char *p=m.item[i];
             while(*p) {
                 char tok[MAX_NAME],want[MAX_NAME+8];size_t k=strcspn(p,", ");
                 if(k) { memcpy(tok,p,k);tok[k]=0;snprintf(want,sizeof want,"%s|wpkey",tok);
-                    if(!has(&pairs,want)) die("DOC-NOT-SHIPPED",argv[f],m.item[i]);
+                    int ok=has(&pairs,want);
+                    /* a key that acts as another key: "Shift-Backspace=Backspace|wpkey" */
+                    if(!ok) { size_t tl=strlen(tok);
+                        for(size_t q=0;q<pairs.n && !ok;q++) { const char *it=pairs.item[q];size_t il=strlen(it);
+                            ok=!strncmp(it,tok,tl) && it[tl]=='=' && il>6 && !strcmp(it+il-6,"|wpkey"); } }
+                    if(!ok) die("DOC-NOT-SHIPPED",argv[f],m.item[i]);
                     n++; }
                 p+=k;while(*p==',' || *p==' ') p++;
             } } }
