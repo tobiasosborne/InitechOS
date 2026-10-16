@@ -101,7 +101,10 @@ while IFS='|' read -r name marker crop proves image; do
     for attempt in 1 2; do
         rm -f "$out/$name.ppm" "$out/$name.serial"
         cp -f "$data" "$work"
-        "$runner" --disk "$img" $d2 --name "$name" --out "$out" \
+        # A private copy of the boot image too: QEMU write-locks its disks,
+        # so two captures (or a capture and a gate) never share one.
+        cp -f "$img" "$out/$name.boot.img"
+        "$runner" --disk "$out/$name.boot.img" $d2 --name "$name" --out "$out" \
             --mouse "$spec" --keys-after FLAIR-LIVE-READY --timeout-ms 90000 \
             --screendump --screendump-after "$marker" --screendump-after-count "$count" \
             --rtc-base 1992-03-02T09:30:00 \
@@ -132,7 +135,7 @@ while IFS='|' read -r name marker crop proves image; do
         "$grey" capture "$clut" "$canon" "$out/$name.ppm" "$@" "$out/$name.grey" || {
             printf '!!! flair_capture.sh FAIL: %s: flair_grey refused the screendump\n' "$name"; exit 1; }
     fi
-    rm -f "$work"
+    rm -f "$work" "$out/$name.boot.img"
     printf '>>> flair_capture.sh: %s (%s, %s)\n' "$name" "$marker" "$crop"
 done < "$defs"
 [ "$n" -gt 0 ] || { printf '!!! flair_capture.sh FAIL: %s defines no screens\n' "$defs"; exit 1; }

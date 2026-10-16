@@ -1,0 +1,54 @@
+% Chapter 16 -- Command Summary: every Finder and Apple-menu command that
+% does something in this version, with its menu, keyboard equivalent and
+% the condition that makes it available, collected from Chapter 8 (whose
+% \MenuItemEntry registrations are the checked ones; this table restates
+% them).  Sources (Law 1): os/flair/finder_menu.c (FINDER_MENU_PREDS),
+% os/flair/finder_cmd.c, os/flair/apple_menu.c.
+% GATES: test-finder-menu test-finder-cmd test-flair-finder-cmds test-apple-menu
+\Gates{test-finder-menu, test-finder-cmd, test-flair-finder-cmds,
+  test-apple-menu}
+\chapter{Command Summary}
+\index{commands, summary}
+
+\section{Commands that act}
+\begin{center}\small
+\begin{tabular}{@{}p{28mm}p{13mm}p{8mm}p{41mm}@{}}
+\textbf{Command} & \textbf{Menu} & \textbf{Key} & \textbf{Available when}\\\hline
+About This Computer... & Apple & & always\\
+Calculator & Apple & & \file{CALCULAT.EXE} is on the disk and no other
+application from the disk is open\\
+New Folder & File & \CmdKey{N} & a Finder window is in front (always
+drawn available)\\
+Open & File & \CmdKey{O} & a folder is selected in the front Finder window\\
+Close Window & File & \CmdKey{W} & a Finder window is in front\\
+Select All & Edit & \CmdKey{A} & always\\
+by Icons & View & & a Finder window is in front\\
+Clean Up & View, Special & & a Finder window is in front\\
+Arrange (by Name) & View & & a Finder window is in front\\
+Empty Trash & Special & & the Trash holds something\\
+Restart & Special & & always\\
+Shut Down & Special & & always\\
+Exit to InitechDOS & Special & & always\\
+\end{tabular}
+\end{center}
+Every other command of the Finder's menus is dimmed in this version of
+FLAIR; Chapter~8 lists them.
+
+\section{Actions without a command}
+\begin{center}\small
+\begin{tabular}{@{}p{40mm}p{59mm}@{}}
+\textbf{To} & \textbf{Do this}\\\hline
+open an icon & double-click it\\
+move an item to a folder & drag it onto the folder or into its window\\
+move an item to the top level & drag it onto the \texttt{INITECH} icon\\
+throw an item away & drag it onto the Trash\\
+take an item out of the Trash & drag it out of the Trash window\\
+move a window & drag its title bar\\
+change a window's size & drag its size box\\
+fill the screen with a window & click its zoom box\\
+roll a window up & click its collapse box\\
+close a window & click its close box\\
+bring a window to the front & click it\\
+select several icons & Shift-click them, or drag a rectangle round them\\
+\end{tabular}
+\end{center}
