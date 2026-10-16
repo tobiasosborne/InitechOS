@@ -14,7 +14,8 @@
 #   --list                    : one "NAME.EXT <size>" line per REGULAR file,
 #                               sorted ascending by name. Timestamps / volume
 #                               serial normalized away (never emitted).
-#   --cat NAME.EXT            : write the named file's EXACT bytes to stdout.
+#   --cat NAME.EXT            : write the named file's EXACT bytes to stdout
+#                               (a backslash PATH walks subdirectories).
 #   --stat-path-time PATH     : print "MTIME MDATE" (two decimal words) unpacked
 #                               from the on-disk dir entry (0x16/0x18) of the file
 #                               at a backslash PATH. The INVERSE of every other
@@ -361,7 +362,14 @@ def main(argv):
         if len(argv) != 4:
             sys.stderr.write("fat12_ref: --cat needs a NAME.EXT\n")
             return 2
-        ent = fs.find(argv[3])
+        # A backslash PATH resolves through the subdir walk (find_path; the
+        # FILE COPY differential reads APPS\TABLES.TXT, bead initech-bf2); a
+        # bare NAME.EXT keeps the original root lookup.
+        try:
+            ent = fs.find_path(argv[3]) if "\\" in argv[3] else fs.find(argv[3])
+        except ValueError as exc:
+            sys.stderr.write("fat12_ref: path failed: %s\n" % exc)
+            return 1
         if ent is None:
             sys.stderr.write("fat12_ref: file not found: %s\n" % argv[3])
             return 1

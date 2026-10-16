@@ -51,6 +51,7 @@ int32_t tbx_draw_text(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uin
     return 0;
 }
 int32_t tbx_exit(int32_t r) { CHECK(r==0,"exit status"); exits++; return 0; }
+int32_t tbx_file_copy(const char *c,const char *s,const char *d) { (void)c; (void)s; (void)d; return 0; } /* bf2: routed in test_calc_file_copy.c */
 static void event(int what,int msg)
 { tbx_event_t e={what,msg,0,0,0,0}; tbx_app_event(&e); }
 static void content(int c,int r,char *s)
@@ -68,7 +69,7 @@ int main(void)
     for(int i=0;i<3;i++) { content(0,i,s); CHECK(!strcmp(s,labels[i]),"PRD ledger label");
         content(1,i,s); CHECK(!strcmp(s,"'TODO_FRAME"),"unknown amount stays TODO_FRAME"); }
     CHECK(installed&&installed->n_menus==1,"File menu installed");
-    CHECK(!strcmp(installed->menus[0].items[0].text,"Save")&&!installed->menus[0].items[0].enabled,"Save visibly deferred");
+    CHECK(!strcmp(installed->menus[0].items[0].text,"Save")&&installed->menus[0].items[0].enabled,"Save enabled: the FILE COPY box (initech-bf2)");
     CHECK(!strcmp(installed->menus[0].items[1].text,"Quit")&&installed->menus[0].items[1].enabled,"Quit enabled");
     calc_format(-570,s); CHECK(!strcmp(s,"570-"),"TRAILING_MINUS -570 -> 570-");
     calc_format(570,s); CHECK(!strcmp(s,"570"),"positive has no sign");

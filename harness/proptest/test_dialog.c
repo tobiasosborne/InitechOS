@@ -863,31 +863,32 @@ static void test_draw_filecopy(void)
              (unsigned)pidx(&ctx, 300u, 279u));
     CHECK(pidx(&ctx, 300u, 279u) == 0u, msg);
 
-    /* (f) Progress bar: item rect left=154, top=249, right=486, bottom=269
-     * (below the Platinum title band; was top=236/bottom=256 under the
-     * old 7px-border layout). inner_w = (486-154)-2 = 330; at
-     * FLAIR_CANON_FILECOPY_PROGRESS (68), filled_px = 330*68/100 = 224
-     * (integer division), so x in [155, 155+224)=[155,379) reads CTRL_ACCENT
-     * (idx 5, navy blue "solid blue fill"); x >= 379 (still inside the bar)
-     * reads white (idx 1). MUTATION: DIALOG_MUTATE_PROGRESS_ZERO reverts
-     * value to 0 -> filled_px=0 -> the fill-side check goes RED (Law 4,
-     * initech-a90f). */
+    /* (f) Progress bar: item rect left=154, top=249, right=486, bottom=263
+     * -- the Platinum CDEF 5 etched bar (initech-bf2; the minted
+     * ../system7-decomp s8_progress_determinate*.png, 14 rows). The black
+     * frame is x=155; interior x=156..483, rows 251..260. At
+     * FLAIR_CANON_FILECOPY_PROGRESS (68) the fill count is 328*68/100 = 223,
+     * edge E = 378. Row y=259 is interior row 8: inside the fill it is the
+     * clut-208 #5454B3 rung -> the ratified dark teal role (8bpp idx 63,
+     * #3F3F3F); in the empty track it is #CDCDCD (idx 205). The pixel-exact
+     * anatomy is graded against the PNGs by test-control PROPERTY 5b.
+     * MUTATION: DIALOG_MUTATE_PROGRESS_ZERO -> no fill -> RED (initech-a90f). */
     snprintf(msg, sizeof msg,
-             "progress bar left border (x=154,y=259) must be DLG_BLACK (0), got %u",
-             (unsigned)pidx(&ctx, 154u, 259u));
-    CHECK(pidx(&ctx, 154u, 259u) == 0u, msg);
+             "progress bar black frame (x=155,y=259) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 155u, 259u));
+    CHECK(pidx(&ctx, 155u, 259u) == 0u, msg);
 
     snprintf(msg, sizeof msg,
-             "progress bar FILL at (x=160,y=259) must be idx 5 (CTRL_ACCENT "
-             "navy blue) -- proves a non-zero fill (initech-a90f), got %u",
+             "progress bar FILL at (x=160,y=259) must be idx 63 (the dark teal "
+             "rung) -- proves a non-zero fill (initech-a90f), got %u",
              (unsigned)pidx(&ctx, 160u, 259u));
-    CHECK(pidx(&ctx, 160u, 259u) == 5u, msg);
+    CHECK(pidx(&ctx, 160u, 259u) == 63u, msg);
 
     snprintf(msg, sizeof msg,
-             "progress bar UNFILLED remainder at (x=400,y=259) must be "
-             "DLG_WHITE (1), got %u",
+             "progress bar empty TRACK at (x=400,y=259) must be idx 205 "
+             "(#CDCDCD), got %u",
              (unsigned)pidx(&ctx, 400u, 259u));
-    CHECK(pidx(&ctx, 400u, 259u) == 1u, msg);
+    CHECK(pidx(&ctx, 400u, 259u) == 205u, msg);
 
     render_ctx_free(&ctx);
 }

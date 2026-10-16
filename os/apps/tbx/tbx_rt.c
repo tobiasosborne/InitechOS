@@ -183,6 +183,14 @@ int32_t tbx_alert(const char *text, const char *def, const char *cancel,
     return tbx_trap(TBX_ALERT, TBX_ARGC_ALERT, a);
 }
 
+/* Ref: spec/toolbox_gate.h Sec 12, deliberately extended in initech-bf2. */
+int32_t tbx_file_copy(const char *caption, const char *src, const char *dst)
+{
+    uint32_t a[3] = { (uint32_t)(uintptr_t)caption, (uint32_t)(uintptr_t)src,
+                      (uint32_t)(uintptr_t)dst };
+    return tbx_trap(TBX_FILECOPY, TBX_ARGC_FILECOPY, a);
+}
+
 /* ---- the four routines gcc may call on its own (struct copies, zeroing).
  * Built with -fno-tree-loop-distribute-patterns so these loops are never
  * turned back into calls to themselves. ---------------------------------- */

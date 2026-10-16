@@ -8395,6 +8395,8 @@ $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/a
 
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
+$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
@@ -10117,9 +10119,16 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 FLAIR_DATA_RECIPE_IMAGES :=
 # R4.6: append Calc after 123.MNU, preserving every existing launch cell.
 CALC_EXE := $(BUILD)/tenant/calc.exe
+# initech-bf2 / tdnl.20 (bar carrier): PAINT.EXE (cell 11), then the FILE COPY
+# data files LEDGER.TXT (cell 12, the ledger Calc's File > Save copies) and
+# MICHAEL.CFG (cell 13, the 8.3 alias of michael_bolton.conf, PRD Appendix B:
+# PROGRESS_BAR_RATE). Appended LAST: every earlier launch cell is unchanged.
+PAINT_EXE := $(BUILD)/tenant/paint.exe
+FLAIR_DATA_LEDGER  := $(FAT12_FIXTURE_DIR)/flagship_ledger.txt
+FLAIR_DATA_MICHAEL := $(FAT12_FIXTURE_DIR)/flagship_michael.cfg
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10143,8 +10152,10 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALC_EXE) ::APPS/CALC.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(EDLIN_PROG_BIN) ::APPS/EDLIN.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
-		$(or $(5),$(ITEXT_EXE)) ::APPS/TEXT.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(PAINT_EXE) ::APPS/PAINT.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -14408,10 +14419,12 @@ TEST_CONTROL_MUT_CHECK_FILL := $(BUILD)/test_control_mutant_check_fill
 TEST_CONTROL_MUT_BTN_FLAT := $(BUILD)/test_control_mutant_btn_flat
 TEST_CONTROL_MUT_LABEL := $(BUILD)/test_control_mutant_label_opaque
 TEST_CONTROL_MUT_FRINGE := $(BUILD)/test_control_mutant_btn_fringe
+TEST_CONTROL_MUT_PROGRESS_FLAT := $(BUILD)/test_control_mutant_progress_flat
 TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
-                     spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H) harness/render/alert_capture.h $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h
+                     spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H) harness/render/alert_capture.h $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h \
+                     spec/progress_platinum.h harness/render/progress_golden.h
 CONTROL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 CONTROL_LINK := os/flair/control.c os/flair/blitter.c os/flair/text.c os/flair/surface.c \
                 $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) $(FLAIRLOOK_C)
@@ -14435,6 +14448,9 @@ $(TEST_CONTROL_MUT_LABEL): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_LABEL_OPAQUE $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 $(TEST_CONTROL_MUT_FRINGE): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_BTN_FRINGE $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
+# initech-bf2: the retired flat progress bar must fail the golden-derived property.
+$(TEST_CONTROL_MUT_PROGRESS_FLAT): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_PROGRESS_FLAT $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
 
 test-control: $(TEST_CONTROL)
 	@printf ">>> test-control: sampled checked box + unpressed push button + 16px Platinum scrollbar + FILE COPY progress bar + TestControl/TrackControl\n"
@@ -14443,7 +14459,7 @@ test-control: $(TEST_CONTROL)
 		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-control: green\n"
 
-test-control-mutant: $(TEST_CONTROL_MUT_LABEL) $(TEST_CONTROL_MUT_FRINGE) $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED) $(TEST_CONTROL_MUT_CHECK_FILL) $(TEST_CONTROL_MUT_BTN_FLAT)
+test-control-mutant: $(TEST_CONTROL_MUT_LABEL) $(TEST_CONTROL_MUT_FRINGE) $(TEST_CONTROL_MUT_PROGRESS_FLAT) $(TEST_CONTROL_MUT_THUMB) $(TEST_CONTROL_MUT_CLAMP) $(TEST_CONTROL_MUT_SB16) $(TEST_CONTROL_MUT_SB_DISABLED) $(TEST_CONTROL_MUT_CHECK_FILL) $(TEST_CONTROL_MUT_BTN_FLAT)
 	@printf ">>> test-control-mutant: confirming all eight mutants go RED (Rule 6)\n"
 	@if $(TEST_CONTROL_MUT_THUMB) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: THUMB_OFF PASSED -- the scrollbar-math oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (THUMB_OFF correctly RED)\n'; fi
 	@if $(TEST_CONTROL_MUT_CLAMP) >/dev/null 2>&1; then printf '!!! test-control-mutant FAIL: NO_CLAMP PASSED -- the value-clamp oracle is decoration\n'; exit 1; else printf '>>> test-control-mutant: green (NO_CLAMP correctly RED)\n'; fi
@@ -14456,6 +14472,8 @@ test-control-mutant: $(TEST_CONTROL_MUT_LABEL) $(TEST_CONTROL_MUT_FRINGE) $(TEST
 	if grep -q 'FAIL.*BUTTON-LABEL-BEVEL' $(TEST_CONTROL_MUT_LABEL).log; then printf '>>> test-control-mutant: green (CTRL_MUT_LABEL_OPAQUE correctly RED: BUTTON-LABEL-BEVEL)\n'; else cat $(TEST_CONTROL_MUT_LABEL).log; exit 1; fi
 	@$(TEST_CONTROL_MUT_FRINGE) > $(TEST_CONTROL_MUT_FRINGE).log 2>&1; \
 	if grep -q 'FAIL.*BUTTON-CORNERS' $(TEST_CONTROL_MUT_FRINGE).log; then printf '>>> test-control-mutant: green (CTRL_MUT_BTN_FRINGE correctly RED: BUTTON-CORNERS)\n'; else cat $(TEST_CONTROL_MUT_FRINGE).log; exit 1; fi
+	@$(TEST_CONTROL_MUT_PROGRESS_FLAT) > $(TEST_CONTROL_MUT_PROGRESS_FLAT).log 2>&1; \
+	if grep -q 'FAIL.*PROGRESS_GOLDEN capture E=274' $(TEST_CONTROL_MUT_PROGRESS_FLAT).log; then printf '>>> test-control-mutant: green (CTRL_MUT_PROGRESS_FLAT correctly RED: %s)\n' "$$(grep -m1 'FAIL.*PROGRESS_GOLDEN capture E=274' $(TEST_CONTROL_MUT_PROGRESS_FLAT).log)"; else cat $(TEST_CONTROL_MUT_PROGRESS_FLAT).log; exit 1; fi
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-shell (beads initech-k8o5.12 + initech-859) -- the M4 CAPSTONE:
@@ -22792,6 +22810,10 @@ RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=9 refused=0
 # same count test-flair-empty-trash asserts (serial FINDER-TRASH-ALERT n=7).
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=8 refused=0
 # R4.6: CALC.EXE adds one leaf (7 -> 8), initech-tdnl.20.
+# LANE RE-KEY (initech-bf2 / tdnl.20): APPS holds fourteen files (TENANTFX ..
+# CALC.EXE, PAINT.EXE, LEDGER.TXT, MICHAEL.CFG); README.TXT + APPS + 14 = 16,
+# the n test-flair-empty-trash derives from mtools.
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=16 refused=0
 RECORD_IMAGE_empty_trash  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_SETTLE_empty_trash = 300
 # shutdown (bead initech-tdnl.78; Rule 14): the root window opens and is
@@ -23110,6 +23132,24 @@ RECORD_MARKER_calc_ledger = FLAIR-DISPATCH app=CALC
 RECORD_SETTLE_calc_ledger = 800
 # PM 2026-10-17: 400 ms raced a frame under a 12-lane host load (record-flair-repro differed once); 800 keeps the clip repro-stable.
 RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# Rule 14 (initech-bf2): the FILE COPY box. Calc launches, Ctrl-S asks the box;
+# sixteen 1-px cursor nudges (the box is modal: absorbed) give the recorder a
+# frame every settle while the Platinum bar fills at PROGRESS_BAR_RATE=20
+# (5 s); the clip ends when the copy is done. PM records on main.
+RECORD_SCRIPTS += file_copy
+RECORD_SPEC_file_copy = $(FLAIR_FILE_COPY_SPEC),m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0
+RECORD_MARKER_file_copy = TENANT-FILECOPY-DONE
+RECORD_SETTLE_file_copy = 400
+RECORD_IMAGE_file_copy = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# Rule 14 (initech-tdnl.20 bar carrier): PAINT.EXE launches, band 2 becomes
+# the canon File Edit Image Layer Select View Window Help bar over the blank
+# canvas; File is pulled and dragged onto Edit (all grayed), Cut is released
+# (nothing happens), File > Quit ends Paint. PM records on main.
+RECORD_SCRIPTS += paint_bar
+RECORD_SPEC_paint_bar = $(FLAIR_PAINT_MENU_SPEC)
+RECORD_MARKER_paint_bar = TENANT-EXIT rc=0 via=exit
+RECORD_SETTLE_paint_bar = 400
+RECORD_IMAGE_paint_bar = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 
 # PM 2026-10-17: every clip pins the RTC. The R3.6 menu-bar clock (tdnl.13) paints wall-clock
 # time at (563..568, 5..13); unpinned, two captures a minute apart differ in that patch and

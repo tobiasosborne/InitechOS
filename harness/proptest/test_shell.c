@@ -532,10 +532,10 @@ int main(int argc, char **argv)
               "(4) FILE COPY 'Saving tables to disk...' text is RENDERED as ink");
 
         /* The progress bar item is a progressBar control at the CANON non-zero
-         * value (beads initech-a90f), and its rendered border (black) + a
-         * NON-ZERO solid-blue fill (idx 5, CTRL_ACCENT navy) are present.
-         * bar_rect: left=154, top=249, right=486, bottom=269 (re-based below
-         * the title band; was top=236/bottom=256 under the old layout).
+         * value (beads initech-a90f), and its rendered black frame + a
+         * NON-ZERO fill are present. bar_rect: left=154, top=249, right=486,
+         * bottom=263 -- the Platinum CDEF 5 etched bar (initech-bf2): fill
+         * rung #5454B3 -> the dark teal role (idx 63), empty track #CDCDCD.
          * SHELL/DIALOG_MUTATE_PROGRESS_ZERO reverts to value=0 -> the fill
          * check goes RED (this leg's own mutation coverage is
          * DIALOG_MUTATE_PROGRESS_ZERO in test-dialog). */
@@ -550,14 +550,14 @@ int main(int argc, char **argv)
                  (int)S.scene.dlg->items[1].ctrl->contrlValue);
         CHECK(S.scene.dlg->items[1].ctrl->contrlValue ==
               FLAIR_CANON_FILECOPY_PROGRESS, msg);
-        CHECK(idx_at(&ctx, 154, 259) == 0,
-              "(4) FILE COPY progress bar left border is painted (black)");
-        CHECK(idx_at(&ctx, 160, 259) == 5,
-              "(4) FILE COPY progress bar FILL (x=160,y=259) is idx5 "
-              "CTRL_ACCENT navy -- a non-zero fill (initech-a90f)");
-        CHECK(idx_at(&ctx, 400, 259) == 1,
-              "(4) FILE COPY progress bar unfilled remainder (x=400,y=259) "
-              "is white");
+        CHECK(idx_at(&ctx, 155, 259) == 0,
+              "(4) FILE COPY progress bar black frame is painted (x=155)");
+        CHECK(idx_at(&ctx, 160, 259) == 63,
+              "(4) FILE COPY progress bar FILL (x=160,y=259) is the dark "
+              "teal rung idx63 -- a non-zero fill (initech-a90f, bf2)");
+        CHECK(idx_at(&ctx, 400, 259) == 205,
+              "(4) FILE COPY progress bar empty track (x=400,y=259) "
+              "is #CDCDCD idx205 (bf2)");
     }
 
     /* ======================================================================

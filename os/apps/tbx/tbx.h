@@ -144,6 +144,12 @@ int32_t tbx_track_mouse(void);
 int32_t tbx_set_scroll(int32_t win, int32_t content_len, int32_t value);
 int32_t tbx_get_scroll(int32_t win);
 int32_t tbx_global_to_local(int32_t win, int32_t h, int32_t v);
+/* The FILE COPY box: spec Sec 16 (initech-bf2). Asks the shell to copy
+ * `src` to a new `dst` (data-volume paths) under the modal FILE COPY box
+ * captioned `caption`, its Platinum bar filling at PROGRESS_BAR_RATE from
+ * APPS\MICHAEL.CFG. Returns 0 when ASKED; the result arrives later as a
+ * TBX_EVT_FILECOPY event (Message = bytes copied, or a negative error). */
+int32_t tbx_file_copy(const char *caption, const char *src, const char *dst);
 
 /* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest). */
 int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);

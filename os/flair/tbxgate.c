@@ -155,6 +155,10 @@ typedef struct tbx_slot {
     char          sf_name[TBX_SF_NAME_MAX];
     WindowScroll *scroll;       /* the window's bars, records arena (Sec 15)   */
     uint8_t       bar_dirty;    /* SETSCROLL changed the bar: chrome repaint   */
+    uint8_t       fcopy;        /* a FILECOPY waits for the pump (bf2)        */
+    char          fc_caption[TBX_ALERT_LINE_MAX];
+    char          fc_src[TBX_FILE_PATH_MAX];
+    char          fc_dst[TBX_FILE_PATH_MAX];
     int32_t       exit_rc;
     char          file[16];     /* the 8.3 file name (markers)                */
 } tbx_slot_t;
@@ -933,6 +937,31 @@ static int32_t v_global_to_local(const uint32_t *a)
     return (int32_t)(((uint32_t)(uint16_t)(int16_t)v << 16) | (uint32_t)(uint16_t)(int16_t)h);
 }
 
+/* TBX_FILECOPY (spec Sec 12; initech-bf2): validate + copy now, run the
+ * FILE COPY box when the tenant returns (the TBX_ALERT shape). */
+static int fc_path_copy(char *dst, uint32_t p)
+{
+    int32_t len = image_str(p, TBX_FILE_PATH_MAX);
+    if (len <= 0 || (uint32_t)len >= TBX_FILE_PATH_MAX) return 0;
+    for (int32_t i = 0; i <= len; i++) dst[i] = ((const char *)(uintptr_t)p)[i];
+    return 1;
+}
+static int32_t v_filecopy(const uint32_t *a)
+{
+    const char *t = (const char *)(uintptr_t)a[0];
+    int32_t len = image_str(a[0], TBX_ALERT_LINE_MAX);
+
+    if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+    if (g_slot.alert || g_slot.fcopy) return TBX_ERR_BUSY;
+    if (len <= 0) return TBX_ERR_BADARG;
+    for (int32_t i = 0; i < len; i++) if (t[i] == '\r') return TBX_ERR_BADARG;
+    if (!alert_copy(g_slot.fc_caption, TBX_ALERT_LINE_MAX, t, len, TBX_FILECOPY_TEXT_W) ||
+        !fc_path_copy(g_slot.fc_src, a[1]) || !fc_path_copy(g_slot.fc_dst, a[2]))
+        return TBX_ERR_BADARG;
+    g_slot.fcopy = 1u;
+    return TBX_OK;
+}
+
 static int32_t v_exit(uint32_t rc)
 {
     if (g_slot.app == (FlairApp *)0) return TBX_ERR_NOTREG;
@@ -995,6 +1024,7 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_SETSCROLL: argc = TBX_ARGC_SETSCROLL; break;
     case TBX_GETSCROLL: argc = TBX_ARGC_GETSCROLL; break;
     case TBX_GLOBALTOLOCAL: argc = TBX_ARGC_GLOBALTOLOCAL; break;
+    case TBX_FILECOPY:  argc = TBX_ARGC_FILECOPY;  break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -1026,6 +1056,7 @@ void tbx_gate_dispatch(uint8_t *frame)
         case TBX_SETSCROLL: rc = v_setscroll(a);   break;
         case TBX_GETSCROLL: rc = v_getscroll(a);   break;
         case TBX_GLOBALTOLOCAL: rc = v_global_to_local(a); break;
+        case TBX_FILECOPY:  rc = v_filecopy(a);    break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
         case TBX_FILE_DELETE:
@@ -1068,6 +1099,9 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_ALERT:
         trace_str(" def=", a[1]); trace_str(" cancel=", a[2]);
         trace_str(" other=", a[3]);
+        break;
+    case TBX_FILECOPY:
+        trace_str(" s=", a[0]); trace_str(" src=", a[1]); trace_str(" dst=", a[2]);
         break;
     case TBX_SETMBAR:
         tputs(" bar=+0x");
@@ -1427,6 +1461,123 @@ int tbx_take_bar_dirty(void)
     int d = g_slot.bar_dirty;
     g_slot.bar_dirty = 0u;
     return d;
+/* ===========================================================================
+ * THE FILE COPY ENGINE (spec Sec 12; bead initech-bf2). The shell runs the
+ * modal box; these do the DOS-handle-API work on the tenant's kernel-owned
+ * JFT (g_slot.files, Sec 10) so every handle dies with the tenant.
+ * ===========================================================================*/
+static struct { int32_t src, dst; uint32_t size, done; } g_fc = { -1, -1, 0u, 0u };
+static uint8_t g_fc_buf[TBX_FILECOPY_CHUNK];
+
+/* One INT 21h call under the tenant's PSP with the root CWD (tbxf_call's
+ * discipline). Returns EAX, or TBX_ERR_DOS(code) on carry. */
+static int32_t fc_dos(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx)
+{
+    int_frame_t f = { 0 };
+    psp_t *saved = int21_get_psp();
+    int21_cwd_snapshot_t cwd = int21_cwd_save();
+    f.eax = ax; f.ebx = bx; f.ecx = cx; f.edx = dx;
+    int21_set_psp(&g_slot.files); int21_cwd_reset();
+    int21_dispatch(&f);
+    int21_set_psp(saved); int21_cwd_restore(&cwd);
+    return (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
+}
+
+int tbx_take_filecopy(const char **caption, const char **src, const char **dst)
+{
+    if (!g_slot.fcopy || !tenant_live()) return 0;
+    g_slot.fcopy = 0u;
+    *caption = g_slot.fc_caption;
+    *src = g_slot.fc_src;
+    *dst = g_slot.fc_dst;
+    return 1;
+}
+
+int32_t tbx_fc_rate(void)
+{
+#ifdef TBX_MUT_FILECOPY_RATE_IGNORED
+    /* NAMED MUTANT (Rule 6; test-flair-file-copy-mutant): the configured
+     * PROGRESS_BAR_RATE is never read -- a compiled-in 100 %/s. */
+    return 100;
+#else
+    static const char key[] = TBX_FILECOPY_RATE_KEY;
+    static char cfg[TBX_FILECOPY_CFG_MAX + 1];
+    int32_t h = fc_dos(0x3d00u, 0u, 0u, (uint32_t)(uintptr_t)TBX_FILECOPY_CFG_PATH);
+    int32_t n, rate = -1;
+    if (h < 0) return h;
+    n = fc_dos(0x3f00u, (uint32_t)h, TBX_FILECOPY_CFG_MAX, (uint32_t)(uintptr_t)cfg);
+    (void)fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
+    if (n < 0) return n;
+    cfg[n] = 0;
+    for (int32_t i = 0; i < n && rate < 0; ) {
+        uint32_t k = 0u;
+        while (key[k] && cfg[i + (int32_t)k] == key[k]) k++;
+        if (!key[k]) {
+            int32_t j = i + (int32_t)k;
+            rate = 0;
+            if (cfg[j] < '0' || cfg[j] > '9') return TBX_ERR_BADARG;
+            while (cfg[j] >= '0' && cfg[j] <= '9' && rate <= (int32_t)TBX_FILECOPY_RATE_MAX)
+                rate = rate * 10 + (cfg[j++] - '0');
+        }
+        while (i < n && cfg[i] != '\n') i++;   /* next line */
+        i++;
+    }
+    if (rate < (int32_t)TBX_FILECOPY_RATE_MIN || rate > (int32_t)TBX_FILECOPY_RATE_MAX)
+        return TBX_ERR_BADARG;
+    return rate;
+#endif
+}
+
+int32_t tbx_fc_open(uint32_t *size)
+{
+    int32_t end;
+    g_fc.done = 0u;
+    g_fc.src = fc_dos(0x3d00u, 0u, 0u, (uint32_t)(uintptr_t)g_slot.fc_src);
+    if (g_fc.src < 0) { int32_t e = g_fc.src; g_fc.src = -1; return e; }
+    end = fc_dos(0x4202u, (uint32_t)g_fc.src, 0u, 0u);     /* size = seek end */
+    if (end < 0 || fc_dos(0x4200u, (uint32_t)g_fc.src, 0u, 0u) < 0) {
+        tbx_fc_close();
+        return end < 0 ? end : TBX_ERR_BADARG;
+    }
+    g_fc.size = (uint32_t)end;
+#ifndef TBX_MUT_FILECOPY_NO_COPY
+    g_fc.dst = fc_dos(0x3c00u, 0u, 0u, (uint32_t)(uintptr_t)g_slot.fc_dst);
+    if (g_fc.dst < 0) { int32_t e = g_fc.dst; g_fc.dst = -1; tbx_fc_close(); return e; }
+#endif
+    *size = g_fc.size;
+    return TBX_OK;
+}
+
+int32_t tbx_fc_step(uint32_t upto)
+{
+    if (upto > g_fc.size) upto = g_fc.size;
+    while (g_fc.done < upto) {
+        uint32_t want = upto - g_fc.done;
+        if (want > TBX_FILECOPY_CHUNK) want = TBX_FILECOPY_CHUNK;
+        int32_t got = fc_dos(0x3f00u, (uint32_t)g_fc.src, want, (uint32_t)(uintptr_t)g_fc_buf);
+        if (got <= 0) return got < 0 ? got : TBX_ERR_BADARG;   /* short source */
+#ifdef TBX_MUT_FILECOPY_NO_COPY
+        /* NAMED MUTANT (Rule 6): the bar runs, the bytes never reach disk. */
+#else
+        int32_t put = fc_dos(0x4000u, (uint32_t)g_fc.dst, (uint32_t)got,
+                             (uint32_t)(uintptr_t)g_fc_buf);
+        if (put != got) return put < 0 ? put : TBX_ERR_DOS(0x1d);  /* write fault */
+#endif
+        g_fc.done += (uint32_t)got;
+    }
+    return (int32_t)g_fc.done;
+}
+
+void tbx_fc_close(void)
+{
+    if (g_fc.src >= 0) (void)fc_dos(0x3e00u, (uint32_t)g_fc.src, 0u, 0u);
+    if (g_fc.dst >= 0) (void)fc_dos(0x3e00u, (uint32_t)g_fc.dst, 0u, 0u);
+    g_fc.src = g_fc.dst = -1;
+}
+
+void tbx_filecopy_answer(int32_t result)
+{
+    if (tenant_live()) push_evt((uint16_t)TBX_EVT_FILECOPY, (uint32_t)result);
 }
 
 int tbx_reap(void)

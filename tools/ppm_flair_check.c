@@ -806,12 +806,16 @@ int main(int argc, char **argv)
          * NON-ZERO solid-blue fill (idx5, CTRL_ACCENT navy) at the canon value
          * FILECOPY_CANON_PROGRESS (68), and white for the unfilled remainder.
          * Beads initech-a90f -- the old bug rendered value=0 (zero fill). */
-        assert_idx(154, 259, 0, "(d) progress bar left border is painted (black)");
-        assert_idx(160, 259, 5,
-                   "(d) progress bar FILL (x=160,y=259) is idx5 CTRL_ACCENT navy "
+        /* initech-bf2: the Platinum CDEF 5 etched bar (14 rows; frame
+         * x=155; row 259 = interior row 8: fill rung #5454B3 -> dark teal
+         * idx 63, empty track #CDCDCD idx 205; graded pixel-exact against
+         * the minted PNGs by test-control PROPERTY 5b). */
+        assert_idx(155, 259, 0, "(d) progress bar black frame is painted (x=155)");
+        assert_idx(160, 259, 63,
+                   "(d) progress bar FILL (x=160,y=259) is the dark teal rung "
                    "-- a non-zero fill (initech-a90f)");
-        assert_idx(400, 259, 1,
-                   "(d) progress bar unfilled remainder (x=400,y=259) is white");
+        assert_idx(400, 259, 205,
+                   "(d) progress bar empty track (x=400,y=259) is #CDCDCD");
 
         /* Z-ORDER: the modal occludes the windows. Probe (140,240) lies BOTH
          * ON the modal's plain 1-px LEFT frame column AND inside window 0

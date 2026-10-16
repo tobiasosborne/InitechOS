@@ -43,6 +43,10 @@
  *       TBX_EVT_SFREPLY (Sec 13), mouse tracking 0x00C0 and TBX_EVT_TRACK
  *       (Sec 14), the vertical scroll bar 0x00C1/0x00C2 + GLOBALTOLOCAL 0x00C3 (Sec 15) and
  *       TBX_ERR_NOTYPE. No old value moved.
+ * bead: initech-bf2 (the FILE COPY dialog, PRD Sec 6.5 / Appendix B).
+ *       Deliberate Rule-8 addition: TBX_FILECOPY 0x0091 + its arity, the
+ *       TBX_EVT_FILECOPY delivery, the configuration path/key and the rate
+ *       bounds (Sec 16). No old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -164,6 +168,10 @@
 #define TBX_ALERT         0x0090u  /* (textPtr, defPtr, cancelPtr, otherPtr)
                                     * -> 0 | err; the answer is DELIVERED  */
 #define TBX_ARGC_ALERT    4u
+/* Deliberate locked ABI extension, initech-bf2. Sec 12 below. */
+#define TBX_FILECOPY      0x0091u  /* (captionPtr, srcPath, dstPath) -> 0 | err;
+                                    * the result is DELIVERED              */
+#define TBX_ARGC_FILECOPY 3u
 #define TBX_ARGC_FILE_CREATE 1u
 #define TBX_ARGC_FILE_OPEN   2u
 #define TBX_ARGC_FILE_READ   3u
@@ -717,5 +725,52 @@
 #define TBX_ARGC_SETSCROLL    3u
 #define TBX_ARGC_GETSCROLL    1u
 #define TBX_ARGC_GLOBALTOLOCAL 3u
+ * 12. THE FILE COPY DIALOG (bead initech-bf2; PRD Sec 6.3/6.5, Appendix A/B)
+ *
+ * WHY. PRD Sec 6.3 puts "the FILE COPY box" in the Dialog Manager and "the
+ * progress bar" in the Control Manager; Sec 6.5 / Appendix B: "progress bar
+ * fills at the rate set in michael_bolton.conf -> PROGRESS_BAR_RATE". Under
+ * the App Contract a tenant never runs a modal loop (Sec 6a/11), so -- like
+ * TBX_ALERT -- the copy is ASKED for by the trap and ANSWERED by an event.
+ *
+ * TBX_FILECOPY (captionPtr, srcPath, dstPath) -> 0 | err. The verb validates
+ * and COPIES the three strings and returns at once: caption ASCIZ wholly in
+ * the image, ONE line (no CR) of 1..TBX_ALERT_LINE_MAX-1 bytes measuring at
+ * most TBX_FILECOPY_TEXT_W Chicago 12 pixels; paths ASCIZ in the image, 1..
+ * TBX_FILE_PATH_MAX-1 bytes, resolved from the data-volume root exactly like
+ * Sec 10 (8.3 names, '\' separators). BUSY while an ALERT or another
+ * FILECOPY is pending. Once the tenant has RETURNED the shell:
+ *   1. reads TBX_FILECOPY_CFG_PATH from the data volume THROUGH THE DOS
+ *      HANDLE API and takes the decimal value of the first line that starts
+ *      "PROGRESS_BAR_RATE=" -- percent of the bar per second, valid
+ *      TBX_FILECOPY_RATE_MIN..MAX; missing file/key/out-of-range refuses the
+ *      copy (nothing is shown, the delivered result is the error);
+ *   2. opens srcPath for reading and CREATES dstPath (DOS 3Dh / 3Ch, the
+ *      tenant's kernel-owned JFT, Sec 10), then runs the modal FILE COPY box
+ *      (dialog.h FileCopyDialog: title "FILE COPY", the caption as its
+ *      statText, the Platinum CDEF 5 progress bar, spec/progress_platinum.h);
+ *   3. each tick sets the bar to v = min(100, rate * elapsed_ticks / 100)
+ *      percent (PIT 100 Hz) and copies src -> dst (DOS 3Fh / 40h, chunks of
+ *      TBX_FILECOPY_CHUNK) until size * v / 100 bytes are on disk -- the bar
+ *      never runs ahead of the bytes; closes both files at v == 100;
+ *   4. disposes the box, restores what it covered and PUSHES
+ *        What = TBX_EVT_FILECOPY, Message = bytes copied (>= 0) or the
+ *        negative TBX_ERR_* / TBX_ERR_DOS(code) that stopped it,
+ *      Modifiers/When/Where zero.
+ * The value 0x0091 is authored (no local reference for a number): the next
+ * code in the Sec 11 dialog group; TBX_EVT_FILECOPY reuses it so a TENANT-EVT
+ * what=145 line names its provenance (outside every Event Manager code).
+ * MICHAEL.CFG is the 8.3 ALIAS of the PRD's michael_bolton.conf (a DOS 3.3
+ * volume holds only 8.3 names); it lives in APPS beside the applications
+ * because the data volume's root listing is locked by every R3.2/R3.3 gate.
+ * ------------------------------------------------------------------------- */
+#define TBX_EVT_FILECOPY       0x0091u
+#define TBX_FILECOPY_TEXT_W    332u   /* FileCopyDialog statText 14..346     */
+#define TBX_FILECOPY_CFG_PATH  "APPS\\MICHAEL.CFG"
+#define TBX_FILECOPY_RATE_KEY  "PROGRESS_BAR_RATE="
+#define TBX_FILECOPY_RATE_MIN  1u
+#define TBX_FILECOPY_RATE_MAX  100u
+#define TBX_FILECOPY_CHUNK     64u    /* bytes per DOS read/write            */
+#define TBX_FILECOPY_CFG_MAX   256u   /* configuration bytes examined        */
 
 #endif /* INITECH_SPEC_TOOLBOX_GATE_H */

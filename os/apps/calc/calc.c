@@ -12,9 +12,22 @@
 #include "calc_ledger.h"
 const char tbx_app_name[]="CALC";
 static const tbx_menuitem_t file_items[]={
-    {"Save",0,'S',0,0,0,{0,0,0}}, /* bf2 deferred: never advertise a fake save */
+    {"Save",0,'S',0,1,0,{0,0,0}}, /* bf2: the FILE COPY box (Sec 12) */
     {"Quit",0,'Q',0,1,0,{0,0,0}}
 };
+/* initech-bf2, PRD 6.5 / Appendix A: File > Save is the FILE COPY box. The
+ * caption is the locked PRD literal (calc_ledger.json copy_caption); the copy
+ * is REAL: the shipped ledger file is copied byte-for-byte, through the DOS
+ * handle API, to a new file on the data volume (spec/toolbox_gate.h Sec 12).
+ * Paths are authored product policy (APPS holds the volume's data files; the
+ * root listing is locked). */
+#ifdef CALC_MUT_CAPTION
+static const char copy_caption[]="Saving tables to disk"; /* NAMED MUTANT */
+#else
+static const char copy_caption[]=CALC_COPY_CAPTION;
+#endif
+static const char copy_src[]="APPS\\LEDGER.TXT";
+static const char copy_dst[]="APPS\\TABLES.TXT";
 static const tbx_menuinfo_t menus[]={{129,0,"File",file_items,2,0}};
 static const tbx_menubar_t mbar={menus,1,1,0};
 static uint8_t store[8192];
@@ -155,6 +168,11 @@ void tbx_app_event(const tbx_event_t *e)
     if(!e) return;
     if(e->what==updateEvt) { paint(); return; }
     if(e->what==TBX_EVT_GOAWAY||(e->what==TBX_EVT_MENU&&e->message==TBX_MENU_WORD(129,2))) { (void)tbx_exit(0); return; }
+    if(e->what==TBX_EVT_MENU&&e->message==TBX_MENU_WORD(129,1)) {
+        (void)tbx_file_copy(copy_caption,copy_src,copy_dst);
+        return;
+    }
+    if(e->what==TBX_EVT_FILECOPY) return; /* the shell restored what the box covered */
     if(e->what!=keyDown) return;
     unsigned ch=(unsigned)e->message&255, vk=((unsigned)e->message>>8)&255;
     int c=i123_cursor_col(&g_sheet), r=i123_cursor_row(&g_sheet);

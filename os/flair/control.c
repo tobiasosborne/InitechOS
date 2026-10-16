@@ -35,6 +35,7 @@
  *   CTRL_MUT_CHECK_FILL -- checked checkbox relapses to the accent fill.
  *   CTRL_MUT_BTN_FLAT -- unpressed push button loses its sampled bevel.
  *   CTRL_MUT_NO_DEFAULT_RING -- Dialog Manager default ring is suppressed.
+ *   CTRL_MUT_PROGRESS_FLAT -- the progress bar relapses to the retired flat bar.
  *
  * Ref: control.h (the full API contract + Law 1 citations);
  *      spec/chrome_metrics.h (LOCKED native metrics);
@@ -55,6 +56,7 @@
 #include "chrome_metrics.h"     /* FLAIR_CHROME_SCROLLBAR_W (-Ispec)            */
 #include "region_algebra.h"     /* region_contains_point (-Ispec)              */
 #include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam)   */
+#include "progress_platinum.h"   /* CDEF 5 anatomy, locked spec-data (-Ispec)    */
 
 /* ===========================================================================
  * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)
@@ -79,7 +81,16 @@ enum {
     CTRL_SB_THUMB_HL = FLAIR_PART_SB_THUMB_HL,
     CTRL_SB_THUMB_FACE = FLAIR_PART_SB_THUMB_FACE,
     CTRL_SB_THUMB_SHADOW = FLAIR_PART_SB_THUMB_SHADOW,
-    CTRL_SB_THUMB_GRIP = FLAIR_PART_SB_THUMB_GRIP
+    CTRL_SB_THUMB_GRIP = FLAIR_PART_SB_THUMB_GRIP,
+    /* Progress bar (spec/progress_platinum.h): the clut-208 rungs take the
+     * scroll thumb's ratified H/P/S/R roles (DEC-10 OQ-2/OQ-3, flair_look.c
+     * tdnl.96/.97); the #000077 cap takes the menu title's dark edge. */
+    CTRL_PROG_H     = FLAIR_PART_SB_THUMB_HL,
+    CTRL_PROG_P     = FLAIR_PART_SB_THUMB_FACE,
+    CTRL_PROG_S     = FLAIR_PART_SB_THUMB_SHADOW,
+    CTRL_PROG_R     = FLAIR_PART_SB_THUMB_GRIP,
+    CTRL_PROG_CAP   = FLAIR_PART_MENU_TITLE_HILITE_SHADOW,
+    CTRL_PROG_TRACK_EDGE = FLAIR_PART_PLAT_INACTIVE_FRAME /* #777777 */
 };
 
 /* ===========================================================================
@@ -351,13 +362,15 @@ int16_t ctrl_value_from_thumb_y(const ControlRecord *ctrl, int16_t thumb_y)
 }
 
 /* ===========================================================================
- * PROGRESS BAR FILL MATH
+ * PROGRESS BAR FILL MATH  (spec/progress_platinum.h VALUE -> FILL)
  * filled_px = inner_w * contrlValue / contrlMax   (integer division)
- * inner_w = contrlRect.right - contrlRect.left - 2  (1 px border each side)
+ * inner_w = contrlRect width - 2 * FLAIR_PROGRESS_INSET (etch + black frame)
+ * The count INCLUDES the black edge column (golden: f = E - 191).
  * ===========================================================================*/
 int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
 {
-    int inner_w = (int)ctrl->contrlRect.right - (int)ctrl->contrlRect.left - 2;
+    int inner_w = (int)ctrl->contrlRect.right - (int)ctrl->contrlRect.left -
+                  2 * FLAIR_PROGRESS_INSET;
     if (inner_w <= 0 || ctrl->contrlMax <= 0) {
         return 0;
     }
@@ -814,35 +827,93 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
     draw_ctrl_down_triangle(port, cx, y1 - 10, FLAIR_PART_FRAME);
 }
 
-/* draw_progress_bar -- FILE COPY determinate progress bar.
+/* draw_progress_bar -- the Mac OS 8.1 Platinum DETERMINATE progress bar
+ * (Appearance CDEF 5), the FILE COPY bar (PRD Sec 6.5, initech-bf2).
  *
- * Layout:
- *   outer frame (1 px black border) around contrlRect.
- *   inner area: [left+1, right-1) x [top+1, bottom-1).
- *   filled portion: [left+1, left+1+filled_px) in CTRL_ACCENT (blue).
- *   unfilled remainder in CTRL_WHITE.
- *
- * Ref: PRD Sec 6.5 (the comedic FILE COPY progress bar; ADR-0004 D-3). */
+ * Every pixel class is spec/progress_platinum.h, transcribed from the minted
+ * Finder copy window (../system7-decomp/re/mint-results-s8-progress.md). The
+ * lavender rungs resolve through the ratified lavender->teal roles (DEC-10
+ * OQ-2/OQ-3; the scroll thumb's H/P/S/R mapping, flair_look.c tdnl.96/.97):
+ * no new colour row. A rect that is not FLAIR_PROGRESS_H tall draws nothing
+ * (the only measured CDEF 5 height; never a guessed stretch, Law 1).
+ * CTRL_MUT_PROGRESS_FLAT (Rule 6) relapses to the retired flat bar. */
+static int prog_part(char c)
+{
+    switch (c) {
+    case '1': return CTRL_PROG_H;       /* #DADAFF -> white            */
+    case '2': return CTRL_PROG_P;       /* #B3B3FF -> teal             */
+    case '3': return CTRL_PROG_S;       /* #8787DA -> dark teal        */
+    case '4': return CTRL_PROG_R;       /* #5454B3 -> dark teal        */
+    case 'D': return CTRL_PROG_CAP;     /* #000077 -> menu dark edge   */
+    case 'K': return CTRL_BLACK;
+    case '7': return CTRL_PROG_TRACK_EDGE; /* #777777                  */
+    case 'A': return CTRL_PLAT_WIDGET_EDGE; /* #A5A5A5                 */
+    case 'C': return CTRL_PLAT_CORNER;  /* #CDCDCD                     */
+    case 'E': return CTRL_PLAT_FACE;    /* #E7E7E7                     */
+    case 'L': return CTRL_PLAT_SHADOW;  /* #C0C0C0                     */
+    default:  return CTRL_WHITE;        /* 'W' #FFFFFF                 */
+    }
+}
+
 static void draw_progress_bar(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
     int y0 = (int)ctrl->contrlRect.top;
     int x1 = (int)ctrl->contrlRect.right;
     int y1 = (int)ctrl->contrlRect.bottom;
-    if (x1 - x0 < 4 || y1 - y0 < 3) {
+#if defined(CTRL_MUT_PROGRESS_FLAT)
+    /* NAMED MUTANT: the retired authored flat bar (black frame, white well,
+     * one accent fill). The golden-derived oracle must go RED. */
+    if (x1 - x0 < 4 || y1 - y0 < 3) return;
+    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
+    crect_ctrl(port, x0 + 1, y0 + 1, x1 - 1, y1 - 1, CTRL_WHITE);
+    {
+        int flat = (int)ctrl_progress_fill_px(ctrl);
+        if (flat > 0) crect_ctrl(port, x0 + 1, y0 + 1, x0 + 1 + flat, y1 - 1, CTRL_ACCENT);
+    }
+    return;
+#endif
+    if (y1 - y0 != FLAIR_PROGRESS_H || x1 - x0 < 2 * FLAIR_PROGRESS_INSET + 1) {
         return;
     }
+    /* Etched outer edge and the black frame. */
+    cfill_ctrl(port, x0, y0, x1 - x0 - 1, CTRL_PLAT_SHADOW);
+    for (int y = y0; y < y1 - 1; y++) cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
+    cfill_ctrl(port, x0 + 1, y1 - 1, x1 - x0 - 1, CTRL_WHITE);
+    for (int y = y0 + 1; y < y1; y++) cfill_ctrl(port, x1 - 1, y, 1, CTRL_WHITE);
+    cframe_ctrl(port, x0 + 1, y0 + 1, x1 - 1, y1 - 1, CTRL_BLACK);
 
-    /* Outer frame. */
-    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-
-    /* Inner area: white background first. */
-    crect_ctrl(port, x0 + 1, y0 + 1, x1 - 1, y1 - 1, CTRL_WHITE);
-
-    /* Filled portion. */
-    int filled = (int)ctrl_progress_fill_px(ctrl);
-    if (filled > 0) {
-        crect_ctrl(port, x0 + 1, y0 + 1, x0 + 1 + filled, y1 - 1, CTRL_ACCENT);
+    int L = x0 + FLAIR_PROGRESS_INSET, R = x1 - 1 - FLAIR_PROGRESS_INSET;
+    int f = (int)ctrl_progress_fill_px(ctrl);
+    int E = L + f - 1;                 /* the black edge column (f > 0)  */
+    int T = f > 0 ? E + 1 : L;         /* first track column             */
+    for (int r = 0; r < FLAIR_PROGRESS_ROWS; r++) {
+        int y = y0 + FLAIR_PROGRESS_INSET + r;
+        for (int x = L; x <= R; x++) {
+            char c;
+            if (f > 0 && x == E) {
+                c = 'K';
+            } else if (f > 0 && x < E) {
+                if (f <= FLAIR_PROGRESS_SOLID_MAX) c = '4';
+                else if (x == L)     c = '3';
+                else if (x == L + 1) c = FLAIR_PROGRESS_COL1[r];
+                else if (x == E - 1) c = FLAIR_PROGRESS_CAP1[r];
+                else if (x == E - 2) c = FLAIR_PROGRESS_CAP2[r];
+                else if (x == E - 3) c = FLAIR_PROGRESS_CAP3[r];
+                else                 c = FLAIR_PROGRESS_BODY[r];
+            } else if (x == T) {
+                c = '7';
+            } else if (x == T + 1) {
+                c = 'A';
+            } else if (r == 0) {
+                c = x == R ? 'C' : 'A';
+            } else if (r == FLAIR_PROGRESS_ROWS - 1) {
+                c = 'E';
+            } else {
+                c = x == R ? 'E' : 'C';
+            }
+            cfill_ctrl(port, x, y, 1, prog_part(c));
+        }
     }
 }
 
