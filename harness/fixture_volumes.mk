@@ -95,6 +95,9 @@ $(foreach img,$(SORT_IMG) $(SORT_MUT_IMG),$(eval $(call fixture-inline-contract,
 $(foreach img,$(FIND_IMG) $(FIND_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FIND.COM FIN.TXT)))
 $(foreach img,$(MORE_IMG) $(MORE_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT MORE.COM MIN.TXT)))
 $(foreach img,$(FCBX_IMG) $(foreach m,$(FCB_MUTANTS),$(BUILD)/fcbx_data_$(m).img),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FCBX.COM)))
+$(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
+$(eval $(call fixture-inline-contract,$(TPS_IMG_B),TPSREP.COM TPS.DBF AUTOEXEC.BAT))
+$(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DAT AUTOEXEC.BAT))
 
 # Ref: bead initech-a5sr, rm-on-failure proof. A tiny dedicated fixture no
 # gate consumes, so test-fixture-volumes-mutant can break its contract and
