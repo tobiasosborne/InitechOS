@@ -9834,19 +9834,8 @@ $(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIV
 # pump (for(;;), runs until power-off). M024-M026 also opt into the SAME
 # disk-tenant host as the flagship; only CALC is launched in this tableau. -------
 # (the interactive-scene kernel rules moved below KERNEL_FLAIRTENANTS_OBJS -- PM 2026-10-17)
-	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
-	if [ "$$sz" -gt "$$max" ]; then \
-		printf '!!! kernel_flairlive_int.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
-		exit 1; \
-	fi; \
-	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairlive-interactive): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
-	$(call kernel-end-guard,$<,flairlive-interactive)
 
 $(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL)
-	@printf ">>> flair-live INTERACTIVE image: %s (visible arrow cursor + unbounded pump)\n" "$@"
-$(FLAIRLIVE_INTERACTIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) | $(BUILD)
 	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRLIVE_INT_BIN) $(BOOT_SYSTEM_TOOL)
 	@printf ">>> flair-live INTERACTIVE image: %s (real Calc film scene + Saving hourglass + unbounded pump)\n" "$@"
 
@@ -10202,6 +10191,14 @@ $(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD
 
 $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then \
+		printf '!!! kernel_flairlive_int.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairlive-interactive): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	$(call kernel-end-guard,$<,flairlive-interactive)
 
 
 # The film image reuses the disk-tenant host object set. Resolve prerequisites
