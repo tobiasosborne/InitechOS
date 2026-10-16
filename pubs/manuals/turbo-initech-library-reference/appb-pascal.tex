@@ -1,0 +1,60 @@
+% Appendix B -- Routines written in Pascal.  Turbo Initech's library stops
+% at the ADR-0007 DEC-05 boundary; DEC-05 itself names the integer-to-
+% decimal conversion as hand-written in-subset Pascal.  These are user
+% routines (not registered as standard routines), each a complete program
+% replayed by test-pubs-tps.  Idioms per ADR-0007 DEC-03 (nested-if guards,
+% flag loops).
+\Gates{test-compiler, test-compiler-os, test-pubs-tps}
+\chapter{Routines written in Pascal}
+\ix{routines, written in Pascal}
+
+The routines of this appendix are not part of Turbo Initech.  They are
+the routines that other Pascal libraries provide and that Turbo Initech
+programs write for themselves, each in a complete program you can compile
+as it stands.  Copy the routine you need into your own program.  Each one
+follows the rules of complete evaluation: every test that protects an
+index is a separate \rw{if}.
+
+\section{Converting an integer to a string}
+\ix{integer to string}
+\Program{inttostr}
+\ProgramOutput{inttostr}
+
+The digits are produced from the last to the first with \rw{mod} and
+\rw{div} and are placed in front of the string built so far.  The routine
+is correct for every integer except $-2147483648$, whose negation is not an
+integer.
+
+\section{Converting a string to an integer}
+\ix{string to integer}
+\Program{strtoint}
+\ProgramOutput{strtoint}
+
+\section{Converting letters to capitals}
+\ix{capital letters}
+\Program{upcase}
+\ProgramOutput{upcase}
+
+The nested \rw{if} statements test the two bounds separately; with \rw{and}
+the routine would do the same, since both operands are characters, but
+the nested form is the one that also works where the second test may only
+be made when the first is true.
+
+\section{Taking part of a string and finding a character}
+\ix{substrings}
+\Program{copy}
+\ProgramOutput{copy}
+
+\id{Copy} tests each index against both ends of the string before it reads
+the character, so that a request past the end is safe.  \id{Pos} stops at
+the first match with a Boolean flag.
+
+\section{Reading lines from a file}
+\ix{reading lines}
+\ix{files, lines}
+\Program{readline}
+\ProgramOutput{readline}
+
+\id{ReadLine} reads one byte at a time into a string of capacity 1 and ends
+a line at the line-feed character.  Because a file cannot be a parameter,
+the routine reads the global file variable \id{Data}.

@@ -1,0 +1,63 @@
+% Introduction (PUB-REF-0001 AN-21 F-BOR).  Sources: ADR-0007 DEC-05 (the
+% RTL boundary); docs/pubs/originals/borland-turbo-pascal.md s1, s3, s4.3.
+\Gates{test-pubs-build, test-pubs-tps}
+\IntroductionChapter
+
+This book describes the standard procedures and functions of Turbo
+Initech\reg{} in alphabetical order.  Each entry tells you what the routine
+does, gives its declaration, explains its parameters and its behavior in
+every case, and shows a complete program that uses it, with the output the
+program produces.  Appendix A describes the entry points of the run-time
+library for programmers who read the assembly language the compiler
+writes.
+
+\section{What is in the library}
+\ix{run-time library}
+The run-time library of Turbo Initech is deliberately small.  It provides
+output to the serial port, conversion between characters, Boolean values
+and integers, the length of a string, and five procedures that read and
+write files in blocks of bytes through InitechDOS.  Everything else a
+program needs, it writes itself in Pascal: the compiler's own conversion of
+integers to decimal text, for example, is an ordinary Turbo Initech
+function built from \rw{div}, \rw{mod}, \std{chr}{Chr} and string
+concatenation.
+
+\section{The Turbo Initech manuals}
+\ix{manuals}
+\SideHead{User's Guide}The \doctitle{Turbo Initech User's Guide}
+(1077-0000-10) shows you how to compile and run programs and teaches the
+language by example.
+
+\SideHead{Programmer's Guide}The \doctitle{Turbo Initech Programmer's
+Guide} (1077-0000-11) is the definition of the language.  Its Chapter 9
+lists the standard routines by purpose.
+
+\SideHead{Library Reference}This book (1077-0000-12) describes each
+standard routine.
+
+\SideHead{Self-Compilation Guide}The \doctitle{Turbo Initech
+Self-Compilation Guide} (1077-0000-13) describes how Turbo Initech is built
+from its own source.
+
+\SideHead{Quick Reference}The \doctitle{Turbo Initech Quick Reference}
+(1077-0000-20) summarizes the syntax, the routines and the messages.
+
+\section{Typefaces used in these books}
+\ix{typefaces}
+\begin{BorTable}{Typefaces}{p{38mm}p{62mm}}
+\Hd{Example} & \Hd{Meaning}\EndHd
+\texttt{Writeln(Total);} & Program text, declarations, and what programs
+  print\\
+\texttt{\bfseries begin} & A reserved word inside program text\\
+\textbf{begin} & A reserved word in running text\\
+\textit{Count} & A parameter, an identifier of a program, or a routine
+  named in running text\\
+\MarginFace Margin note & A note on the paragraph beside it
+\end{BorTable}
+
+The arrow in the margin marks a remark that you should not overlook.
+
+\section{How to contact Initech}
+\ix{technical support}
+If you have a question that this book does not answer, call the Initech
+Help Desk at 555-0125, extension 2504, or write to \InitechAddressLine.

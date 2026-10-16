@@ -305,13 +305,14 @@
 \NewDocumentEnvironment{LibEntry}{m m o m}
   {% #1 display name, #2 procedure|function, #3 qualifier, #4 inventory name
    \gdef\im@libname{#1}\setcounter{im@libstage}{0}%
-   \RegisterCommand{#4}{routine}{GATED}{#1}%
-   \ix{#1 #2\IfValueT{#3}{ (#3)}}%
+   \ifx\relax#4\relax\else\RegisterCommand{#4}{routine}{GATED}{#1}\fi  % empty: the Sample entry
+
+   \ifx\relax#4\relax\else\ix{#1 #2\IfValueT{#3}{ (#3)}}\fi
    \par\addvspace{18pt}\goodbreak
    \noindent\hspace*{-\imHang}\begin{minipage}{\imFullWidth}
      {\im@adventor\fontsize{17}{20}\selectfont #1 #2\IfValueT{#3}{ (#3)}\par}%
      \vspace{2pt}\rule{\imFullWidth}{2.2pt}\end{minipage}\par\nobreak
-   \markright{#1}\xdef\im@lettertab{\expandafter\@car#1\@nil}%
+   \markright{#1}\ifx\relax#4\relax\gdef\im@lettertab{}\else\xdef\im@lettertab{\expandafter\@car#1\@nil}\fi
    \def\LFunction{\im@libstage{0}{Function}}%
    \def\LDeclaration{\im@libstage{1}{Declaration}}%
    \def\LResultType{\im@libstage{2}{Result type}}%
@@ -322,8 +323,27 @@
    \def\LSeeAlso{\im@libstage{6}{See also}}%
    \def\LExample{\im@libstage{7}{Example}}}
   {\par}
+%% Run-time entry point (Library Reference Appendix A): the AN-12 frame for
+%% an assembly-language entry; registers KIND rtlentry.  Labels: Function,
+%% Calling sequence (in the Declaration slot), Remarks, See also.
+\NewDocumentEnvironment{RtlEntry}{m m}% #1 the name, #2 its printed form (\_ for _)
+  {\gdef\im@libname{#1}\setcounter{im@libstage}{0}%
+   \RegisterCommand{#1}{rtlentry}{GATED}{#1}%
+   \ix{#1@\texttt{#2} (entry point)}%
+   \par\addvspace{18pt}\goodbreak
+   \noindent\hspace*{-\imHang}\begin{minipage}{\imFullWidth}
+     {\im@adventor\fontsize{17}{20}\selectfont\texttt{\detokenize{#1}}\hfill
+       {\fontsize{11}{12}\selectfont entry point}\par}%
+     \vspace{2pt}\rule{\imFullWidth}{2.2pt}\end{minipage}\par\nobreak
+   \markright{\texttt{\detokenize{#1}}}\gdef\im@lettertab{}%
+   \def\LFunction{\im@libstage{0}{Function}}%
+   \def\LCalling{\im@libstage{1}{Calling sequence}}%
+   \def\LRemarks{\im@libstage{3}{Remarks}}%
+   \def\LSeeAlso{\im@libstage{6}{See also}}}
+  {\par}
+\newcommand\NoLetterTabs{\global\im@lettertabsfalse\gdef\im@lettertab{}}
 %% Declarations are set in Cursor with reserved words bold (AN-12).
-\newcommand\Decl[1]{\lstinline[basicstyle=\ttfamily\fontsize{9}{12}\selectfont]{#1}}
+\newcommand\Decl[1]{{\ttfamily\fontsize{9}{12}\selectfont\RaggedRight\hangindent=2em #1\par}}
 %% PG-31 letter tabs (Library Reference): solid black on rectos, stepping
 %% down the fore-edge with the letter of the entry in force.
 \newif\ifim@lettertabs
