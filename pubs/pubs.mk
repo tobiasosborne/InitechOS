@@ -232,10 +232,16 @@ endif
 test-pubs-screens: test-pubs-build $(PUBS_GATE)
 
 .PHONY: test-pubs-families
+# The identity leg (PUB-REF-0001 D-8 revised, PK-01/02/03/05; WL-0132) grades
+# rendered covers with cover_check (C) against the measured Initech Cyan.
+PUBS_COVER_CHECK := $(BUILD)/pubs_cover_check
+$(PUBS_COVER_CHECK): harness/pubs/cover_check.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
 ifeq ($(SKIP_PUBS),1)
 test-pubs-families:
 	@printf '!!! test-pubs-families SKIPPED (SKIP_PUBS=1 opt-out) -- family furniture was NOT checked; this is NOT a pass.\n'
 else
-test-pubs-families:
-	@sh harness/pubs/families.sh
+test-pubs-families: $(PUBS_COVER_CHECK)
+	@command -v pdftoppm >/dev/null 2>&1 || { printf '!!! test-pubs-families FAIL: pdftoppm (poppler-utils) not found; the identity leg renders the covers with it\n'; exit 1; }
+	@COVER_CHECK=$(PUBS_COVER_CHECK) sh harness/pubs/families.sh
 endif

@@ -30,7 +30,7 @@ cat > "$m/fake.tex" <<'TEX'
 TEX
 SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
 TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" \
-TEXINPUTS="$root/pubs/class//:" \
+TEXINPUTS="$root/pubs/class//:$root/pubs/common//:" \
 "${LUALATEX:-lualatex}" -interaction=batchmode -halt-on-error -output-directory="$m" "$m/fake.tex" > "$m/fake-typeset.log" 2>&1
 # The fake entry's own main.cmds line joins the real books' lists.
 grep -q '^PUBSFAKE|internal|GATED|PUBSFAKE$' "$m/fake.cmds" || {
