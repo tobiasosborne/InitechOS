@@ -1,0 +1,4 @@
+. USE STAFF
+. GO 3
+. REPLACE SALARY WITH 'LOTS'
+9  Data type mismatch.

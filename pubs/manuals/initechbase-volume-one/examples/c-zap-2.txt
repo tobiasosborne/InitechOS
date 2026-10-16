@@ -1,0 +1,6 @@
+. USE INVOICE
+. SET SAFETY OFF
+. ZAP
+. ? RECCOUNT()
+
+0

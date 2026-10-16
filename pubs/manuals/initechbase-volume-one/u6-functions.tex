@@ -1,1 +1,42 @@
-% stub
+% Using InitechBase, Chapter 6: Functions (PUB-REF-0001 AN-05; annex Sec
+% 9.1, 9.2).  Opener "Using Functions" and the TIP; then one entry per
+% function of the shipped evaluator (core/fn_builtins.c xb_call_builtin and
+% the IIF special form of core/eval.c), alphabetical; the list is checked
+% against the shipped dot prompt in both directions (test-pubs-commands).
+\chapter{Functions}
+\Gates{test-pubs-commands, test-pubs-examples, test-xbase-fn-a, test-xbase-fn-b}
+A function is a part of an expression that computes a value from the values it
+is given and returns it in place.  \fn{UPPER(LASTNAME)} returns the last name
+of the current record in capital letters; \fn{DATE()} returns the date of the
+day.  This chapter describes every InitechBase function in alphabetical order,
+each on its own page.
+
+\ATEHead{Using Functions}
+A function is written as its name followed by parentheses.  The values given
+to the function, its arguments, are written inside the parentheses and
+separated by commas.  A function that takes no argument is written with empty
+parentheses: \fn{RECNO()}.  An argument may be any expression of the right
+type, including another function: \fn{TRIM(UPPER(LASTNAME))}.
+
+Each function returns a value of one type: character, numeric, date or
+logical.  The entry of each function names the types of its arguments and of
+its result, in the symbols of Chapter~5: \xp{expC}, \xp{expN}, \xp{expD},
+\xp{expL}.  A function may be used wherever a value of its type may be used: in
+the expression list of \cmd{?}, \cmd{LIST} and \cmd{DISPLAY}, after \kw{WITH} in
+\cmd{REPLACE}, in a \kw{FOR} or \kw{WHILE} condition, and in programs.
+
+An argument of the wrong type is refused with \xmsg{9}{Data type mismatch.},
+and the wrong number of arguments with \xmsg{11}{Invalid function argument.}
+A name that is not an InitechBase function gives \xmsg{31}{Invalid function
+name.}
+
+The functions that report on the database -- \fn{BOF()}, \fn{DBF()},
+\fn{DELETED()}, \fn{EOF()}, \fn{FIELD()}, \fn{FOUND()}, \fn{RECCOUNT()} and
+\fn{RECNO()} -- report on the database in USE in the selected work area.
+
+\begin{Tip}
+Use \cmd{?} at the dot prompt to try a function before you put it in a
+program: \type{? SUBSTR('INITECH', 3, 4)}.
+\end{Tip}
+
+\input{u6-entries}

@@ -110,6 +110,10 @@
     \fi\fi\fi
     \global\im@thumbfalse}}{}
 \newif\ifim@thumb
+%% F-ATE prose quotes long commands and catalogue messages in Cursor, which
+%% cannot be hyphenated (PG-09): a free ragged margin, as the F-IBM books set.
+\im@ifmodel{ashtontate}{\emergencystretch=3em
+  \setlength\RaggedRightRightskip{0pt plus 1fil}}{}
 
 %% ---- trademark marks (VO-11): sources write \tm{} and \reg{} ---------------
 \providecommand\tm{\textsuperscript{\sffamily\fontsize{5}{5}\selectfont TM}}
@@ -126,7 +130,7 @@
 \AtBeginDocument{\immediate\openout\im@msgsout=\jobname.msgs\relax}
 \AtEndDocument{\immediate\closeout\im@msgsout}
 \newcommand\xmsg[2]{\immediate\write\im@msgsout{#1|\detokenize{#2}|MENTION}%
-  \mbox{\texttt{#1\ \ #2}}}
+  \texttt{\mbox{#1\ \ }#2}}
 
 %% ---- the AN-04 / AN-05 reference entry ----------------------------------------
 %% \begin{XbaseEntry}[draft reason]{NAME}{command|function|set}
@@ -268,7 +272,7 @@ function initech_xbase.example(stem)
     if t and t \string~= "" and string.len(line) >= string.len(t) and
        string.sub(line, -string.len(t)) == t then
       local before = string.sub(line, 1, string.len(line) - string.len(t))
-      if before == "" or string.match(before, "[ :?]$") then
+      if before == "" or string.match(before, "[ :?)]$") then
         a = string.len(before) + 1; k = k + 1
       end
     elseif t == "" and line == "" then k = k + 1 end
@@ -345,6 +349,11 @@ end
 %% bold Courier on the panel (annex Sec 5: listings in bold monospace).
 \newcommand\ProgramListing[1]{%
   \directlua{initech_xbase.listing("../../examples/samir/disk/\luaescapestring{#1}")}}
+
+%% ---- generated table rows ---------------------------------------------------
+%% \TableRows{samir_limits}: the rows a generator wrote (pubs/pubs.mk), read
+%% with the primitive \input so that they can sit inside a tabular.
+\def\TableRows#1{\@@input #1.tex }
 
 %% ---- conventions box (NT-31 F-ATE: ruled box, label on its own line) --------
 \newenvironment{AteBox}[1]

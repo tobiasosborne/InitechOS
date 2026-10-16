@@ -58,6 +58,21 @@ $(PUBS_MSG_TEX): $(PUBS_MSGTABLE_BIN) spec/dos_messages.json
 	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json device > $(PUBS_MSG_DEV_TEX).tmp && mv -f $(PUBS_MSG_DEV_TEX).tmp $(PUBS_MSG_DEV_TEX)
 	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json other > $(PUBS_MSG_OTH_TEX).tmp && mv -f $(PUBS_MSG_OTH_TEX).tmp $(PUBS_MSG_OTH_TEX)
 
+# The InitechBase tables (bead initech-ipu5.8): the Limitations table from
+# the shipped engine's capacity constants, the coercion appendix from
+# spec/samir/xbase_coercion.json (harness/pubs/samir_tables.c).
+PUBS_SAMIR_TABLES   := $(BUILD)/pubs_samir_tables
+PUBS_SAMIR_GEN      := $(PUBS_GEN)/samir_limits.tex $(PUBS_GEN)/samir_coercion.tex
+PUBS_SAMIR_TBL_LINK  = $(filter-out $(SAMIR_FLOW_SRC) $(SAMIR_PROC_SRC) $(SAMIR_REPORT_SRC),$(INTERP_PROC_ENG)) $(SAMIR_PAL_HOST_SRC)
+$(PUBS_SAMIR_TABLES): harness/pubs/samir_tables.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) spec/samir/dbf_format.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -Ispec/samir -o $@ harness/pubs/samir_tables.c $(PUBS_SAMIR_TBL_LINK)
+$(PUBS_GEN)/samir_limits.tex: $(PUBS_SAMIR_TABLES)
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_SAMIR_TABLES) limits > $@.tmp && mv -f $@.tmp $@
+$(PUBS_GEN)/samir_coercion.tex: $(PUBS_SAMIR_TABLES) spec/samir/xbase_coercion.json
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_SAMIR_TABLES) coercion spec/samir/xbase_coercion.json > $@.tmp && mv -f $@.tmp $@
+
 # Build all documents into $(1) (fresh), optional mode $(2) (mutant).
 define pubs-build-into
 	@rm -rf $(1)
@@ -66,7 +81,7 @@ endef
 
 .PHONY: pubs test-pubs-build test-pubs-honesty test-pubs-repro test-pubs-repro-mutant \
 	pubs-screens test-pubs-screens
-pubs: $(PUBS_MSG_TEX)
+pubs: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	@command -v $(LUALATEX) >/dev/null 2>&1 && command -v $(LATEXMK) >/dev/null 2>&1 || { \
 		printf '!!! pubs FAIL: %s / %s not found (TeX Live: apt install texlive-luatex latexmk texlive-fonts-extra)\n' "$(LUALATEX)" "$(LATEXMK)"; exit 1; }
 	@sh $(PUBS_DIR)/build.sh $(PUBS_BUILD) $(PUBS_GEN)
@@ -75,7 +90,7 @@ ifeq ($(SKIP_PUBS),1)
 test-pubs-build:
 	@printf '!!! test-pubs-build SKIPPED (SKIP_PUBS=1 opt-out) -- the Initech manuals were NOT typeset or linted. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_PUBS and re-run before trusting this gate.\n'
 else
-test-pubs-build: $(PUBS_MSG_TEX)
+test-pubs-build: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	@printf '>>> test-pubs-build: every manual typesets clean (initech-ipu5.5; D-11 LuaLaTeX)\n'
 	@for t in $(LUALATEX) $(LATEXMK); do command -v $$t >/dev/null 2>&1 || { \
 		printf '!!! test-pubs-build FAIL: %s not found (TeX Live is required to typeset the manuals). A skipped oracle is worse than a red one (Law 2). Set SKIP_PUBS=1 to explicitly (and loudly) opt out.\n' "$$t"; exit 1; }; done
@@ -113,7 +128,7 @@ test-pubs-honesty:
 	@printf '>>> test-pubs-honesty: green (missing lualatex RED and names SKIP_PUBS=1; SKIP_PUBS=1 explicitly SKIPPED)\n'
 
 # Two independent clean builds must agree byte for byte (Rule 11).
-test-pubs-repro: $(PUBS_MSG_TEX)
+test-pubs-repro: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	$(call pubs-build-into,$(PUBS_BUILD)/repro-a)
 	$(call pubs-build-into,$(PUBS_BUILD)/repro-b)
 	@set -e; n=0; for a in $(PUBS_BUILD)/repro-a/*/*.pdf; do \
@@ -125,7 +140,7 @@ test-pubs-repro: $(PUBS_MSG_TEX)
 	printf '>>> test-pubs-repro: green (%s PDFs byte-identical across two clean builds)\n' "$$n"
 
 # Rule 6: inject the build time on every page; the cmp above must then bite.
-test-pubs-repro-mutant: $(PUBS_MSG_TEX)
+test-pubs-repro-mutant: $(PUBS_MSG_TEX) $(PUBS_SAMIR_GEN)
 	$(call pubs-build-into,$(PUBS_BUILD)/mutant-a,mutant)
 	$(call pubs-build-into,$(PUBS_BUILD)/mutant-b,mutant)
 	@if cmp -s $(PUBS_BUILD)/mutant-a/initechdos-users-guide/main.pdf $(PUBS_BUILD)/mutant-b/initechdos-users-guide/main.pdf; then \

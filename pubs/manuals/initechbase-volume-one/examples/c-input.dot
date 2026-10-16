@@ -1,0 +1,6 @@
+INPUT 'Number of copies: ' TO MCOPIES
+3
+? MCOPIES * 2
+INPUT 'Start date: ' TO MSTART
+CTOD('03/02/92')
+? MSTART + 30

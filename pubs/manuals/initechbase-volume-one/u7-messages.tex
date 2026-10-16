@@ -1,1 +1,20 @@
-% stub
+% Using InitechBase, Chapter 7: Error Messages (PUB-REF-0001 AN-06; annex
+% Sec 9.3).  Single full-measure column; one entry per message of the
+% shipped catalogue (samir_main.c g_msg), alphabetical, the ERROR() number in
+% brackets; every text checked byte for byte against the catalogue and every
+% catalogue message required (pubs_gate messages, GC-02).
+\chapter{Error Messages}
+\Gates{test-pubs-commands, test-samir-repl}
+\NoDictionaryHeads
+When InitechBase cannot carry out a command, it stops and displays a message
+on a line of its own.  The message begins with its number, the same number the
+function \fn{ERROR()} returns while an \cmd{ON ERROR} command runs; then comes
+the text of the message.  At the dot prompt InitechBase then displays the
+prompt again, and you can correct the command and type it again.  In a program,
+the program stops.
+
+The messages are listed below in alphabetical order of their text.  The number
+in brackets at the right is the message number.  The explanation under each
+message gives the cause first and then the remedy.
+
+\input{u7-entries}

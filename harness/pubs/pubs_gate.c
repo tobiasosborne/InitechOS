@@ -177,7 +177,8 @@ static void same(const char *tag,const char *a,const char *b)
 }
 /* InitechBase inline mentions (bead initech-ipu5.8): \cmd{LIST FOR ...}
  * names the command LIST, \cmd{SET EXACT ON} the option EXACT|set, and
- * \fn{SUBSTR()} the function SUBSTR|function -- each must be shipped
+ * \fn{SUBSTR()} or \fn{SUBSTR(NAME, 1, 3)} the function SUBSTR|function (a
+ * name followed at once by a parenthesis) -- each must be shipped
  * (samir_inventory.c NAME|KIND lines). */
 static void samirmentions(int argc,char **argv)
 {
@@ -185,9 +186,11 @@ static void samirmentions(int argc,char **argv)
     for(int f=3;f<argc;f++) {
         Set m=list(argv[f],-1);
         for(size_t i=0;i<m.n;i++) {
-            const char *t=m.item[i];size_t len=strlen(t);
-            if(len>2 && !strcmp(t+len-2,"()")) {
-                snprintf(key,sizeof(key),"%.*s|function",(int)(len-2),t);
+            const char *t=m.item[i];size_t id=0;
+            while(isupper((unsigned char)t[id]) || isdigit((unsigned char)t[id])) id++;
+            if(id && t[id]=='(') {
+                /* \fn{UPPER(LASTNAME)}: a function call names the function */
+                snprintf(key,sizeof(key),"%.*s|function",(int)id,t);
             } else {
                 w1[0]=w2[0]=0;sscanf(t,"%127s %127s",w1,w2);
                 if(!strcmp(w1,"SET")) snprintf(key,sizeof(key),"%s|set",w2);

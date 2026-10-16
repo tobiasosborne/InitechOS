@@ -1,0 +1,340 @@
+% Using InitechBase Chapter 5, entries ? .. DO WHILE (AN-04).
+
+% ? -- os/samir/cmd/query.c q_cmd_hook "?" (leading CR LF, values joined by
+% one blank, no trailing newline; q_render_val: N without trailing zeros of
+% a computed value, field N without its decimals, L as .T./.F., D by SET
+% DATE).  Gates: test-samir-query, test-interp-list.
+\begin{XbaseEntry}{?}{command}
+Displays the value of one or more expressions on a new line.
+\Syntax
+\SyntaxLine{\kw{?} \opt{\xp{expression list}}}
+\Usage
+\cmd{?} moves to the beginning of a new line and displays the value of each
+expression in the list.  The values are separated by one blank.  With no
+expression, \cmd{?} displays an empty line.
+
+Character values are displayed with their trailing blanks, so a character
+field takes its full width.  Numbers are displayed without leading blanks;
+a numeric field or a whole number is displayed without its decimal places,
+and the result of a division or other calculation with as many decimal places
+as SET DECIMALS gives (two when InitechBase starts).  Logical values are
+displayed as \texttt{.T.} or \texttt{.F.}; dates in the form set by SET DATE.
+
+The cursor stays at the end of the displayed line.  At the dot prompt the next
+prompt therefore follows on the same line as the value, as the examples show.
+\Tips
+Use \cmd{?} at the dot prompt to look at a field of the current record, a
+memory variable or the result of a function without listing the record.
+\Examples
+\DotExample{examples/c-qmark}
+A character string and a number:
+\DotExample{examples/c-qmark-2}
+\SeeAlso{??, DISPLAY, LIST, SET DECIMALS, STR(), TRANSFORM()}
+\end{XbaseEntry}
+
+% ?? -- os/samir/cmd/query.c "??" (no leading CR LF).  Gate: test-samir-query.
+\begin{XbaseEntry}{??}{command}
+Displays the value of one or more expressions where the cursor is, without
+moving to a new line.
+\Syntax
+\SyntaxLine{\kw{??} \xp{expression list}}
+\Usage
+\cmd{??} displays the values in the same way as \cmd{?}, but at the current
+position of the cursor: it does not begin a new line.  A program uses it to
+build one line of output from several commands.
+\Examples
+\DotExample{examples/c-qqmark}
+\SeeAlso{?, DISPLAY, LIST}
+\end{XbaseEntry}
+
+% ACCEPT -- os/samir/cmd/proc.c p_accept (prompt expression, then one
+% cooked line into a Character memvar; empty line -> "").  Gate:
+% test-interp-proc.
+\begin{XbaseEntry}{ACCEPT}{command}
+Displays a prompt, reads a line typed at the keyboard and stores it in a
+memory variable as a character string.
+\Syntax
+\SyntaxLine{\kw{ACCEPT} \opt{\xp{expC}} \kw{TO} \xp{memvar}}
+\Usage
+\cmd{ACCEPT} displays the character expression \xp{expC}, if one is given, and
+waits for a line to be typed.  The line ends when you press \key{Enter}.  The
+characters typed are stored in \xp{memvar} as a character string, whatever
+they are: a number typed in answer to \cmd{ACCEPT} is stored as characters.  If
+you press \key{Enter} alone, \xp{memvar} is an empty string.  The memory
+variable is created if it does not exist.
+
+The prompt is usually a character string in quotation marks.  It is displayed
+as it stands, so end it with a blank or a colon and a blank to keep the answer
+apart from it.
+\Tips
+Use \cmd{INPUT} when the answer is a number, a date or a logical value, and
+\cmd{WAIT} when one keystroke is enough.  To compare an answer with stored
+data in capitals, convert it with \fn{UPPER()}.
+\Examples
+\DotExample{examples/c-accept}
+Without a prompt, \cmd{ACCEPT} waits on a new line:
+\DotExample{examples/c-accept-2}
+\SeeAlso{INPUT, STORE, UPPER(), WAIT}
+\end{XbaseEntry}
+
+% APPEND BLANK -- os/samir/cmd/mutate.c m_append (BLANK required; adds a
+% blank record, makes it current, inserts its key into every open index).
+% Gate: test-interp-replace, test-samir-write.
+\begin{XbaseEntry}{APPEND}{command}
+Adds a blank record to the end of the database in USE.
+\Syntax
+\SyntaxLine{\kw{APPEND BLANK}}
+\Usage
+\cmd{APPEND BLANK} adds one record to the end of the database in the selected
+work area and makes it the current record.  Every field of the new record is
+empty: character fields are blanks, numeric fields are zero, date fields are
+blank and logical fields are false.  The record count, \fn{RECCOUNT()}, grows
+by one.
+
+The new record is written to the disk at once.  If index files are open with
+the database, the new record is entered in each of them.
+
+Fill in the fields of the new record with \cmd{REPLACE}.  In a program, an
+\cmd{ACCEPT} or \cmd{INPUT} for each field followed by \cmd{APPEND BLANK} and
+\cmd{REPLACE} enters a record.
+\Examples
+A new record is added and two of its fields are filled in:
+\DotExample{examples/c-append}
+\SeeAlso{REPLACE, RECCOUNT(), DELETE}
+\end{XbaseEntry}
+
+% CLOSE -- os/samir/samir_main.c repl_do_close (every CLOSE form closes
+% all databases and their indexes; turns the status bar off).  Gate:
+% test-samir-repl.
+\begin{XbaseEntry}{CLOSE}{command}
+Closes all open databases and their index files.
+\Syntax
+\SyntaxLine{\kw{CLOSE DATABASES}}
+\par or\par
+\SyntaxLine{\kw{CLOSE ALL}}
+\Usage
+\cmd{CLOSE} closes the database open in every work area, with its index
+files.  Afterwards no database is in USE in any work area.  Memory variables
+are not affected.
+
+The word after \cmd{CLOSE} is not examined: \cmd{CLOSE DATABASES},
+\cmd{CLOSE ALL} and \cmd{CLOSE} alone all close every database.  When the
+status bar is displayed (SET STATUS ON), \cmd{CLOSE} also removes it.
+
+\cmd{CLOSE} is a dot prompt command; it is not used in programs.
+\Tips
+To close only the database of the selected work area, type \cmd{USE} with no
+file name.
+\Examples
+\DotExample{examples/c-close}
+\SeeAlso{QUIT, SELECT, USE}
+\end{XbaseEntry}
+
+% CONTINUE -- os/samir/cmd/query.c q_continue (re-applies the stored LOCATE
+% FOR from the record after the current one; #42 without LOCATE).
+% Gate: test-samir-query.
+\begin{XbaseEntry}{CONTINUE}{command}
+Moves to the next record that meets the condition of the last \cmd{LOCATE}.
+\Syntax
+\SyntaxLine{\kw{CONTINUE}}
+\Usage
+\cmd{CONTINUE} goes on with the search begun by \cmd{LOCATE} in the selected
+work area.  It tests the records after the current one against the
+\kw{FOR} condition of the \cmd{LOCATE} and stops at the first that meets it.
+\fn{FOUND()} is then true.  When no further record meets the condition, the
+record pointer is at the end of the file: \fn{EOF()} is true and
+\fn{FOUND()} false.
+
+\cmd{CONTINUE} uses only the \kw{FOR} condition.  The scope and the \kw{WHILE}
+condition of the \cmd{LOCATE}, if it had them, no longer apply.  Without an
+earlier \cmd{LOCATE}, \cmd{CONTINUE} displays
+\xmsg{42}{CONTINUE without LOCATE.}
+\Tips
+In a program, test \fn{FOUND()} after each \cmd{CONTINUE}, and stop when it is
+false.
+\Examples
+\DotExample{examples/c-continue}
+\SeeAlso{LOCATE, FOUND(), EOF(), SEEK}
+\end{XbaseEntry}
+
+% DELETE -- os/samir/cmd/mutate.c m_delete (default the current record;
+% FOR without a scope = ALL; marks with 0x2A, written at once).
+% Gate: test-interp-replace, test-dbf-mutate.
+\begin{XbaseEntry}{DELETE}{command}
+Marks records of the database in USE for deletion.
+\Syntax
+\SyntaxLine{\kw{DELETE} \opt{\xp{scope}} \opt{\kw{FOR} \xp{condition}}
+  \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+Without a scope or a condition, \cmd{DELETE} marks the current record only.
+With a \kw{FOR} condition and no scope, the scope is \kw{ALL}.
+\Usage
+A record marked for deletion stays in the database.  \cmd{LIST} and
+\cmd{DISPLAY} show it with an asterisk in front of its record number, and the
+function \fn{DELETED()} is true for it.  \cmd{RECALL} removes the mark;
+\cmd{PACK} removes the marked records from the database for good.
+
+While SET DELETED is ON, the commands that process records leave out the
+records marked for deletion.
+
+The mark is written to the disk at once.
+\Examples
+\DotExample{examples/c-delete}
+\SeeAlso{PACK, RECALL, SET DELETED, ZAP, DELETED()}
+\end{XbaseEntry}
+
+% DISPLAY -- os/samir/cmd/query.c q_list (is_display: default scope the
+% current record; heading line per SET HEADING; deleted records '*').
+% Gates: test-samir-query, test-samir-list-layout, test-interp-list.
+\begin{XbaseEntry}{DISPLAY}{command}
+Displays the current record, or the records in a scope.
+\Syntax
+\SyntaxLine{\kw{DISPLAY} \opt{\xp{scope}} \opt{\xp{expression list}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+The scope is the current record.  Without an expression list, every field of
+the record is displayed.
+\Usage
+\cmd{DISPLAY} works as \cmd{LIST} does, with one difference: without a scope it
+shows only the current record.  With a scope, such as \kw{ALL} or \kw{NEXT}
+\xp{n}, it shows the records of the scope that meet the conditions.  A
+\kw{FOR} condition alone tests the current record only; to search the
+database, give the scope \kw{ALL}.
+
+The first line is a heading (unless SET HEADING is OFF): \texttt{Record\#}
+and the names of the fields, or the expressions, as typed.  Each record follows
+on its own line, with its record number.  A record marked for deletion has an
+asterisk in front of its number.  A memo field is displayed with its text.
+
+The scope must come before the expression list; \kw{FOR} and \kw{WHILE} may
+follow it.  A \cmd{DISPLAY} of a scope leaves the record pointer on the last
+record it examined.
+\Examples
+\DotExample{examples/c-display}
+Every record that meets a condition:
+\DotExample{examples/c-display-2}
+\SeeAlso{LIST, ?, SET HEADING, GO, SKIP}
+\end{XbaseEntry}
+
+% DO -- os/samir/samir_main.c repl_try_do_file (DO <name> at the dot prompt
+% runs <name>.PRG from the disk; 8191-byte cap, #18) and os/samir/cmd/proc.c
+% p_do / p_call (a PROCEDURE of the program running; WITH arguments by value;
+% #16 unknown target).  Gates: test-samir-canon-y2k, test-interp-proc.
+\begin{XbaseEntry}{DO}{command}
+Runs a program file, or a procedure of the program that is running.
+\Syntax
+\SyntaxLine{\kw{DO} \xp{program}}
+\par or\par
+\SyntaxLine{\kw{DO} \xp{procedure} \opt{\kw{WITH} \xp{expression list}}}
+\Usage
+At the dot prompt, \cmd{DO} \xp{program} reads the program file
+\xp{program}\texttt{.PRG} from the disk and runs it.  You need not type the
+extension.  The program runs from its first line until it reaches
+\cmd{RETURN}, its first \cmd{PROCEDURE} or its last line; then the dot prompt
+returns.  A program file may hold at most 8,191 characters; a larger file is
+refused with \xmsg{18}{Line exceeds maximum of 254 characters.}
+
+In a program, \cmd{DO} \xp{procedure} runs a procedure of the same program
+file: the lines that follow its \cmd{PROCEDURE} line, up to the next
+\cmd{RETURN}.  When the procedure returns, the program goes on with the line
+after the \cmd{DO}.  Procedures may call other procedures, and themselves, to a
+depth of 64.
+
+\kw{WITH} passes the values of the expressions to the procedure, which
+receives them in the memory variables of its \cmd{PARAMETERS} line, in order.
+The procedure receives a copy of each value: a change it makes to a parameter
+does not change the expression that was passed.
+\draft{a character constant written directly in the WITH list is not passed
+intact by this version (proc.c); pass a character value
+through a memory variable or an expression}
+
+A name that is neither a program file on the disk nor a procedure of the
+program running is refused with \xmsg{16}{*** Unrecognized command verb.}
+\Tips
+The programs that come with InitechBase work on the database already in USE:
+open it at the dot prompt with \cmd{USE} before you type \cmd{DO}.
+\Examples
+\file{RAISE.PRG} calls its procedure \texttt{NEWSAL} with two values:
+\ProgramListing{RAISE.PRG}
+\DotExample{examples/c-do}
+\SeeAlso{PARAMETERS, PROCEDURE, RETURN, PUBLIC, PRIVATE}
+\end{XbaseEntry}
+
+% DO CASE -- os/samir/cmd/flow.c LK_DOCASE/LK_CASE/LK_OTHERWISE/LK_ENDCASE
+% (first true CASE runs; guard must be Logical, #37; program lines only).
+% Gate: test-interp-flow.
+\begin{XbaseEntry}{DO CASE}{compound}
+\XAlso{CASE}{CASE}\XAlso{OTHERWISE}{OTHERWISE}\XAlso{ENDCASE}{ENDCASE}%
+Chooses one of several groups of commands in a program.
+\Syntax
+\SyntaxLine{\kw{DO CASE}}
+\SyntaxLine{\kw{CASE} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\opt{\kw{CASE} \xp{condition}}}
+\SyntaxLine{\ \ \opt{\xp{commands}}}
+\SyntaxLine{\rep}
+\SyntaxLine{\opt{\kw{OTHERWISE}}}
+\SyntaxLine{\ \ \opt{\xp{commands}}}
+\SyntaxLine{\kw{ENDCASE}}
+\Usage
+InitechBase tests the condition of each \cmd{CASE} in turn.  It carries out
+the commands of the first \cmd{CASE} whose condition is true, and then goes on
+after \cmd{ENDCASE}; the other \cmd{CASE} groups are skipped, even if their
+conditions are also true.  If no condition is true, the commands after
+\cmd{OTHERWISE} are carried out; without \cmd{OTHERWISE}, none are.
+
+Each condition must be a logical expression.  A condition of another type
+stops the program with \xmsg{37}{Not a Logical expression.}
+
+\cmd{DO CASE} is used only in programs.  The commands in each group may be any
+commands, including further \cmd{DO CASE}, \cmd{IF} and \cmd{DO WHILE}
+structures.
+\Tips
+Use \cmd{DO CASE} instead of a chain of \cmd{IF} commands whenever there are
+more than two possibilities.
+\Examples
+The program \file{DEPTNAME.PRG} gives the name of the department of the
+current employee:
+\ProgramListing{DEPTNAME.PRG}
+\DotExample{examples/c-docase}
+\SeeAlso{IF, DO WHILE}
+\end{XbaseEntry}
+
+% DO WHILE -- os/samir/cmd/flow.c LK_DOWHILE/LK_ENDDO/LK_LOOP/LK_EXIT (guard
+% must be Logical, #37; LOOP back to the test; EXIT after ENDDO).
+% Gates: test-interp-flow, test-samir-canon-y2k.
+\begin{XbaseEntry}{DO WHILE}{compound}
+\XAlso{ENDDO}{ENDDO}\XAlso{LOOP}{LOOP}\XAlso{EXIT}{EXIT}%
+Repeats a group of commands in a program as long as a condition is true.
+\Syntax
+\SyntaxLine{\kw{DO WHILE} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\ \ \opt{\kw{LOOP}}}
+\SyntaxLine{\ \ \opt{\kw{EXIT}}}
+\SyntaxLine{\kw{ENDDO}}
+\Usage
+InitechBase tests the condition.  If it is true, the commands up to
+\cmd{ENDDO} are carried out and the condition is tested again; when it is
+false, the program goes on after \cmd{ENDDO}.  The condition must be a logical
+expression, or the program stops with \xmsg{37}{Not a Logical expression.}
+
+\cmd{LOOP} goes back to the test at once, leaving out the rest of the commands
+of the loop.  \cmd{EXIT} leaves the loop at once and goes on after
+\cmd{ENDDO}.  Both are normally written inside an \cmd{IF}.
+
+The commonest loop of an InitechBase program processes every record of a
+database: it begins at the first record, ends when \fn{EOF()} is true, and
+moves to the next record with \cmd{SKIP} before \cmd{ENDDO}.
+
+\cmd{DO WHILE} is used only in programs.  At the dot prompt, \cmd{EXIT} is a
+different command: it leaves InitechBase (see \cmd{QUIT}).
+\Tips
+Make sure that something in the loop changes the condition.  A loop that
+processes records and forgets the \cmd{SKIP} never ends.
+\Examples
+\file{PAYTOTAL.PRG} totals the salaries of exempt and non-exempt staff,
+leaving out the records marked for deletion with \cmd{LOOP}:
+\ProgramListing{PAYTOTAL.PRG}
+\DotExample{examples/c-dowhile}
+\SeeAlso{DO CASE, IF, SKIP, EOF()}
+\end{XbaseEntry}

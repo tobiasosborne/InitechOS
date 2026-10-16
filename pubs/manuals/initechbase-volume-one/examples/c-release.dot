@@ -1,0 +1,5 @@
+STORE 10 TO MA, MB
+MC = 'TEXT'
+RELEASE MA, MC
+? MB
+? MA

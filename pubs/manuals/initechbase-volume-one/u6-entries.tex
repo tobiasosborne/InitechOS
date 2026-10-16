@@ -216,7 +216,7 @@ Returns the number of the error being handled by an ON ERROR command, as a numer
 \Usage
 \fn{ERROR()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. While the command named in ON ERROR runs, the function returns the number of the message that caused it. At any other time the result is 0.
 \Examples
-The handler displays the number of the error it was called for; outside the handler the result is 0:
+The ON ERROR command stores the number of the error in a memory variable; outside the ON ERROR command the result is 0:
 \DotExample{examples/fn-error}
 \SeeAlso{ON ERROR, CHR()}
 \end{XbaseEntry}

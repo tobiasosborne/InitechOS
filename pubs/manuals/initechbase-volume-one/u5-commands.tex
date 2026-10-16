@@ -1,14 +1,65 @@
+% Using InitechBase, Chapter 5: Commands (PUB-REF-0001 AN-04; annex Sec 9.1,
+% 9.2).  The chapter front holds Symbols and Conventions, Limitations
+% (generated from the shipped engine: harness/pubs/samir_tables.c limits)
+% and the TIP box; then one entry per command, symbols first, then A-Z.
+% The entry list is the shipped dot prompt's (samir_inventory.c): every entry
+% registers what it documents and test-pubs-commands checks both directions.
+% Sources per entry in the comment above it.
 \chapter{Commands}
-\Gates{test-pubs-commands, test-pubs-examples}
-Test chapter.
-\begin{XbaseEntry}{LIST}{command}
-Displays records of the database in USE.
-\Syntax
-\SyntaxLine{\kw{LIST} \opt{\kw{OFF}} \opt{\xp{scope}} \opt{\xp{expression list}} \opt{\kw{FOR} \xp{condition}}}
-\Usage
-LIST shows records.
-\Examples
-Listing:
-\DotExample{examples/test1}
-\SeeAlso{DISPLAY, ?}
-\end{XbaseEntry}
+\Gates{test-pubs-commands, test-pubs-examples, test-samir-repl, test-interp-list}
+This chapter describes every InitechBase command in alphabetical order.  The
+symbol commands \cmd{?} and \cmd{??} come first.  Each command begins on a new
+page.  The entry gives the purpose of the command, its syntax, its default
+values, how it works, its options, practical tips, examples and the related
+commands, in that order; a heading that does not apply to a command is left
+out.
+
+\ATEHead{Symbols and Conventions}
+The syntax lines use the following symbols.  None of them is typed.
+
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{38mm}p{96mm}@{}}
+\hline
+\textsf{\textbf{Symbol}} & \textsf{\textbf{Use}}\\
+\hline
+\texttt{< >} & Enclose an item you supply, such as a field name, a file name or an
+  expression.\\
+\texttt{[ ]} & Enclose an item you may leave out.\\
+\texttt{/} & Separates items of which you choose one.\\
+\texttt{...} & The item before it may be repeated, separated by commas.\\
+\xp{expC} & A character expression.\\
+\xp{expN} & A numeric expression.\\
+\xp{expD} & A date expression.\\
+\xp{expL} & A logical expression.\\
+\xp{exp} & An expression of any type.\\
+\xp{expression list} & Expressions separated by commas.\\
+\xp{condition} & A logical expression that each record is tested against.\\
+\xp{scope} & The records a command works on: \kw{ALL}, \kw{NEXT} \xp{n},
+  \kw{RECORD} \xp{n} or \kw{REST} (Chapter~2).\\
+\xp{memvar} & The name of a memory variable.\\
+\xp{file} & The name of a file, with a drive and an extension if needed.\\
+\xp{alias} & The alias of a database open in another work area.\\
+\texttt{*} & At the beginning of a line, a comment (\cmd{NOTE}).\\
+\texttt{\&\&} & After a command, a comment that runs to the end of the line.\\
+\hline
+\end{tabular}
+
+\ATEHead{Limitations}
+InitechBase works within the following limits.
+
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{90mm}p{44mm}@{}}
+\hline
+\textsf{\textbf{Item}} & \textsf{\textbf{Limitation}}\\
+\hline
+\TableRows{samir_limits}
+\hline
+\end{tabular}
+
+\begin{Tip}
+Work on a copy of the Sample Programs and Utilities diskette, never on the
+diskette itself.  Several examples in this chapter change, delete or remove
+records, and each example begins with the files as they are on the diskette.
+\end{Tip}
+
+\input{u5-entries-a}
+\input{u5-entries-b}
+\input{u5-entries-c}

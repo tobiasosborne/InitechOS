@@ -1,7 +1,6 @@
-. ON ERROR ? "Trapped", ERROR()
+. ON ERROR STORE ERROR() TO MERR
 . ? CHR(300)
+57  CHR() : Out of range.
+. ? MERR, ERROR()
 
-Trapped 5757  CHR() : Out of range.
-. ? ERROR()
-
-0
+57 0

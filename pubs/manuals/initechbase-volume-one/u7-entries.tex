@@ -192,7 +192,7 @@ A file to be created has the same name as a file already on the diskette.
 
 % 1 -- os/samir/samir_main.c:539 (USE: -DBF_ERR_NOENT); samir_main.c:673 (DO program read fault); os/samir/cmd/report.c:322 (REPORT FORM: form file absent)
 \begin{XbaseMessageEntry}{1}{File does not exist.}
-The \cmd{USE} command could not find the database named, or an index file named in its \cmd{INDEX} clause, on the diskette. \cmd{REPORT FORM} reports the same message when the report form file named does not exist. A program file that cannot be read in full while \cmd{DO} loads it is reported the same way.
+The \cmd{USE} command could not find the database named, or an index file named in its \kw{INDEX} clause, on the diskette. \cmd{REPORT FORM} reports the same message when the report form file named does not exist. A program file that cannot be read in full while \cmd{DO} loads it is reported the same way.
 
 Check the spelling of the file name and the diskette that is in use. When no extension is typed, \cmd{USE} supplies \file{.DBF} and an index name receives \file{.NDX}, and \cmd{REPORT FORM} supplies \file{.FRM}.
 \end{XbaseMessageEntry}
@@ -307,7 +307,7 @@ A vector of a DIF file does not match the fields of the database.
 
 % 99 -- not raised: no source line sets ordinal 99 for the condition the message names (checked os/samir)
 \begin{XbaseMessageEntry}[no command of this version raises this message]{99}{Invalid DOS SET option.}
-An operating system option given to \cmd{SET} is not valid.
+An operating system option given to the SET command is not valid.
 \end{XbaseMessageEntry}
 
 % 11 -- os/samir/core/fn_builtins.c:190,237,280,293,313 and following (argument count); os/samir/core/eval.c:673-703 (IIF)
@@ -374,9 +374,9 @@ A keyword that a command requires was not found.
 A label file is not valid.
 \end{XbaseMessageEntry}
 
-% 18 -- os/samir/samir_main.c:650 (DO: program file of 8192 bytes or more); os/samir/cmd/report.c:430 (command text of 256 or more characters)
+% 18 -- os/samir/samir_main.c:650 (DO: program file of 8,192 bytes or more); os/samir/cmd/report.c:430 (command text of 256 or more characters)
 \begin{XbaseMessageEntry}{18}{Line exceeds maximum of 254 characters.}
-\cmd{DO} was given a program file of 8192 bytes or more, which is too large to load. \cmd{REPORT FORM} reports the same message for a command whose text is too long.
+\cmd{DO} was given a program file of 8,192 bytes or more, which is too large to load. \cmd{REPORT FORM} reports the same message for a command whose text is too long.
 
 Divide the program into smaller files that call one another with \cmd{DO}, and keep each command line within 254 characters.
 \end{XbaseMessageEntry}
