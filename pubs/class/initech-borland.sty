@@ -1,0 +1,347 @@
+%% initech-borland.sty -- F-BOR furniture and the Turbo Initech notation for
+%% the Turbo Initech manuals (bead initech-ipu5.12).  Loaded after
+%% \documentclass[borland]{initech-manual} by every Turbo Initech book; no
+%% other family uses it, so the shared class stays untouched.
+%% Binding reference: PUB-REF-0001 (docs/pubs/DESIGN-REFERENCE.md) PG-16,
+%% PG-26, PG-27, PG-31, PG-35 (F-BOR), TY-03..05, TY-12, TY-13, TY-15, NT
+%% railroad dialect (Sec 5.1), NT-17, NT-23, NT-31, AN-12, AN-13, AN-15,
+%% AN-19, AN-21, AN-24 (F-BOR).  Model: docs/pubs/originals/borland-turbo-
+%% pascal.md s2-s6 (TP 6.0 set).  Original drawings only: no Borland art.
+%%
+%% Registration (GC-01; the ONE mechanism of initech-syntax.sty): every
+%% documented item calls \RegisterCommand{NAME}{KIND}{STATE}{ENTRY}, so it
+%% lands in <job>.cmds; harness/pubs/tps_gate.c checks those lists against
+%% the inventory generated from os/tps/tps.pas, seed/ and seed/rt/ in BOTH
+%% directions.  KINDs: reserved routine production token message protocol
+%% dumprow limit switch rtlentry.  Printed diagnostic texts go to <job>.msgs
+%% (ID|text, GC-02, verbatim); inline \rw / \std names to <job>.tpsmentions;
+%% every printed program, program output, compiler output and assembly
+%% excerpt to <job>.tpsexamples, replayed by harness/pubs/tps_replay.sh
+%% through Free Pascal, the seed and Turbo Initech itself (GC-03).
+%% ASCII only (Rule 12).
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-borland}[1992/03/01 Initech F-BOR furniture]
+%% Program text: straight apostrophes and back-quotes (no TeX ligatures in
+%% the monospace; a curly quote in a Pascal string would be a lie).
+\setmonofont{texgyrecursor}[Ligatures=TeXOff,
+  Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+  ItalicFont=*-italic, BoldItalicFont=*-bolditalic, HyphenChar=None]
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta,shapes.misc}
+\RequirePackage{listings}
+\RequirePackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+%% ---- folios and running feet (PG-16, PG-27) -------------------------------
+%% Arabic folios run on from the Introduction; roman before it.  Recto foot:
+%% the chapter label in Adventor Oblique ("Chapter 1, Getting started",
+%% "Appendix A, Error messages", "Introduction", "Index"); verso foot: the
+%% book title.  Library Reference: guide word (first entry on the page) in
+%% the outer top corner.
+\newif\ifim@tpsnumbered
+\renewcommand\FootTitle[1]{\gdef\im@foottitle{#1}\global\im@tpsnumberedfalse}
+\newcommand\im@borfootlabel{\ifim@tpsnumbered\im@chaptername\ \thechapter, \fi\im@foottitle}
+\fancypagestyle{im@text}{%
+  \fancyhf{}%
+  \renewcommand\headrulewidth{0pt}%
+  \renewcommand\footrulewidth{0pt}%
+  \fancyhfoffset[LO,LE]{\imHang}%
+  \fancyhead[LE,RO]{\ifim@referencepages\sffamily\bfseries\fontsize{10}{12}\selectfont\rightmark\fi}%
+  \fancyfoot[RO,LE]{\imFolioFont\thepage}%
+  \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}%
+  \fancyfoot[RE]{\imFootFont\im@product\ \im@doctitle}%
+  \fancyfoot[LO]{\im@adventor\itshape\fontsize{8}{10}\selectfont\im@borfootlabel}}
+\pagestyle{im@text}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \renewcommand\headrulewidth{0pt}%
+  \renewcommand\footrulewidth{0pt}%
+  \fancyhfoffset[LO,LE]{\imHang}%
+  \fancyfoot[RO,LE]{\imFolioFont\thepage}%
+  \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}%
+  \fancyfoot[LO]{\im@adventor\itshape\fontsize{8}{10}\selectfont\im@borfootlabel}}
+%% The Introduction begins the arabic folios (PG-16).
+\newcommand\IntroductionChapter{\cleardoublepage\gdef\thepage{\arabic{page}}%
+  \setcounter{page}{1}\FrontChapter{Introduction}}
+
+%% ---- openers: the letterspaced display word (PG-26) -----------------------
+\newcommand\im@spacedword[1]{\directlua{
+  local s = "\luaescapestring{#1}"
+  local t = {}
+  for c in string.gmatch(string.upper(s), ".") do
+    if c == " " then t[\string##t + 1] = "\string\\hspace{1em}" else t[\string##t + 1] = c end
+  end
+  tex.sprint(table.concat(t, "\string\\hfill "))}}
+\newcommand\im@displaylabel[1]{\im@fullhead{\raggedleft\vspace*{24mm}%
+  {\im@adventor\fontsize{11}{12}\selectfont\makebox[\imFullWidth][s]{\im@spacedword{#1}}}\par
+  \vspace{6mm}\rule{\imFullWidth}{1pt}\par\vspace{6pt}}}
+\titleformat{name=\chapter,numberless}[display]
+  {\raggedleft\im@adventor}
+  {}
+  {0pt}
+  {\im@displaylabel{#1}\endgraf\im@fullhead{\raggedleft\itshape\fontsize{24}{28}\selectfont #1}}
+\titleformat{\chapter}[display]{\raggedleft\im@adventor}
+  {\global\im@tpsnumberedtrue\im@borlabel}
+  {6pt}{\im@fullhead{\raggedleft\itshape\fontsize{24}{28}\selectfont #1}}
+\titlespacing*{\chapter}{0pt}{0pt}{14mm}
+
+%% Parts (PG-26: "P A R T", numeral, oblique title; counted, recto, folio
+%% printed).  Contents lines for parts are underlined (PG-35).
+\newcounter{tpspart}
+\newcommand\BorlandPart[1]{\cleardoublepage
+  \stepcounter{tpspart}\gdef\im@draftfoot{}\gdef\im@foottitle{Part \arabic{tpspart}, #1}\global\im@tpsnumberedfalse
+  \gdef\im@tablabel{}%
+  \addcontentsline{toc}{part}{Part \arabic{tpspart}\quad #1}%
+  \thispagestyle{plain}%
+  \noindent\hspace*{-\imHang}\begin{minipage}[t]{\imFullWidth}\raggedleft\im@adventor
+    \vspace*{24mm}{\fontsize{11}{12}\selectfont\makebox[\imFullWidth][s]{P\hfill A\hfill R\hfill T}}\par
+    \vspace{6mm}\rule{\imFullWidth}{1pt}\par\vspace{6pt}
+    {\fontsize{24}{28}\selectfont\arabic{tpspart}\par}\vspace{6pt}
+    {\itshape\fontsize{24}{28}\selectfont #1\par}
+  \end{minipage}\par\clearpage}
+
+%% ---- heads (TY-03..TY-05) --------------------------------------------------
+%% A-head: Adventor 17/20 from the side-column edge, over a 2.2 pt rule
+%% across the full block.  B-head: Adventor 14/16 flush right in the side
+%% column, 0.5 pt rule across the text column.  C-head: Adventor 10/12 flush
+%% right in the side column, the paragraph level with it.  Sentence case.
+\titleformat{\section}[block]{\im@adventor}{}{0pt}
+  {\im@fullhead{\fontsize{17}{20}\selectfont #1\endgraf\vspace{2pt}\rule{\imFullWidth}{2.2pt}}}
+\titlespacing*{\section}{0pt}{18pt plus 4pt minus 2pt}{8pt}
+\renewcommand\subsection[1]{\par\addvspace{12pt plus 3pt}\goodbreak
+  \addcontentsline{toc}{subsection}{#1}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\raggedleft\im@adventor\fontsize{14}{16}\selectfont
+    \strut#1}}\hspace{\imSideGap}}\rule[9pt]{\linewidth}{0.5pt}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\vspace{2pt}\@afterheading}
+\renewcommand\subsubsection[1]{\par\addvspace{6pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\raggedleft\im@adventor\fontsize{10}{12}\selectfont
+    \strut#1}}\hspace{\imSideGap}}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
+%% Side labels flush right (F-BOR side column convention, PG-05 usage).
+\renewcommand\SideHead[1]{\par\addvspace{6pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\raggedleft\sffamily\bfseries\fontsize{9}{12}\selectfont
+    \strut#1}}\hspace{\imSideGap}}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
+
+%% ---- contents (PG-35 F-BOR: two columns, chapter lines Heros Bold) -------
+\setcounter{tocdepth}{2}
+\titlecontents{part}[0pt]{\addvspace{10pt}\sffamily\bfseries}
+  {}{}{\hfill}[\endgraf\vspace{-3pt}\titlerule]
+\titlecontents{chapter}[0pt]{\addvspace{7pt}\sffamily\bfseries\fontsize{9}{11}\selectfont}
+  {\im@tocname\ \thecontentslabel\enspace}{}{\hfill\contentspage}
+\titlecontents{section}[0.8em]{\fontsize{9}{11}\selectfont}
+  {}{}{\titlerule*[0.6em]{.}\contentspage}
+\titlecontents{subsection}[1.6em]{\fontsize{8.5}{10.5}\selectfont}
+  {}{}{\titlerule*[0.6em]{.}\contentspage}
+\renewcommand\tableofcontents{\im@closeentry\cleardoublepage\FootTitle{Contents}\im@notab
+  \im@origchapter*{Contents}\thispagestyle{plain}%
+  \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{2}\RaggedRight\@starttoc{toc}\end{multicols}\end{adjustwidth}}
+
+%% ---- index (AN-24 F-BOR: Adventor 14 letter heads, Adventor Oblique
+%% locators).  \ix{entry} is the only index command of these books.
+\renewcommand\IndexLetter[1]{{\im@adventor\fontsize{14}{16}\selectfont #1}\par\nopagebreak}
+\newcommand\tpspage[1]{{\im@adventor\itshape #1}}
+\newcommand\ix[1]{\index{#1|tpspage}}
+
+%% ---- tables and figures (TY-11, TY-12 F-BOR) --------------------------------
+\renewcommand\thetable{\ifnum\c@chapter=0 \arabic{table}\else\thechapter.\arabic{table}\fi}
+\renewcommand\thefigure{\thechapter.\arabic{figure}}
+\NewDocumentEnvironment{BorTable}{m m}
+  {\par\addvspace{8pt}\refstepcounter{table}%
+   \noindent\llap{\parbox[t]{\imSideCol}{\raggedleft\im@adventor\fontsize{8.5}{10}\selectfont
+     Table \thetable\\#1}\hspace{\imSideGap}}%
+   \begin{minipage}[t]{\linewidth}\vspace{0pt}\sffamily\fontsize{8}{10}\selectfont
+   \setlength\tabcolsep{4pt}\begin{tabular}{@{}#2@{}}\hline\noalign{\vspace{1pt}}}
+  {\\[1pt]\hline\end{tabular}\end{minipage}\par\addvspace{8pt}}
+\newcommand\Hd[1]{\textbf{#1}}
+
+%% ---- margin notes and the arrow remark (TY-13, NT-31 F-BOR) --------------
+\newcommand\MarginNote[1]{\leavevmode\llap{\smash{\parbox[t]{\imSideCol}{\raggedleft
+  \im@adventor\itshape\fontsize{8}{10}\selectfont\strut #1}}\hspace{\imSideGap}}\ignorespaces}
+\newcommand\im@arrowicon{\begin{tikzpicture}[baseline=-2.5pt]
+  \fill (0,-1.2pt) rectangle (7pt,1.2pt);
+  \fill (6pt,-4pt) -- (11pt,0) -- (6pt,4pt) -- cycle;\end{tikzpicture}}
+\newcommand\ArrowNote[1]{\par\addvspace{4pt}\noindent
+  \llap{\im@arrowicon\hspace{\imSideGap}}#1\par\addvspace{4pt}}
+
+%% ---- inline notation (NT railroad dialect; VO-14) ---------------------------
+%% \rw{begin}: a reserved word in running text, Heros Bold lower case;
+%% \std{writeln}{Writeln}: a standard routine (italic) -- the first argument
+%% is the lower-case name checked against the inventory; \id{x} an
+%% identifier (italic); \code{...} program text; \typed{...} what you type.
+\newwrite\im@tpsmentions
+\AtBeginDocument{\immediate\openout\im@tpsmentions=\jobname.tpsmentions}
+\AtEndDocument{\immediate\closeout\im@tpsmentions}
+\newcommand\rw[1]{\immediate\write\im@tpsmentions{#1|reserved}\mbox{\sffamily\bfseries #1}}
+\newcommand\std[2]{\immediate\write\im@tpsmentions{#1|routine}\mbox{\textit{#2}}}
+\newcommand\id[1]{\textit{#1}}
+\newcommand\MarginFace{\im@adventor\itshape}
+%% VO-11 trademark marks at first use (the class renders them).
+\providecommand\reg{\textsuperscript{\textregistered}}
+\providecommand\tm{\textsuperscript{\fontsize{5}{5}\selectfont TM}}
+\newcommand\code[1]{\mbox{\texttt{#1}}}
+\newcommand\typed[1]{\mbox{\texttt{\bfseries #1}}}
+
+%% ---- program text (NT-17, F-BOR: reserved words bold) ------------------
+%% The keyword list is generated from the shipped lexer (tps_keywords.tex,
+%% harness/pubs/tps_gate.c `keywords').
+\InputIfFileExists{tps_keywords}{}{\PackageError{initech-borland}{tps_keywords.tex
+  missing: run make pubs-tps-gen}{}}
+\edef\im@tpslang{\noexpand\lstdefinelanguage{TurboInitech}{morekeywords={\TPSKeywordList},
+  sensitive=false}}\im@tpslang
+\lstdefinelanguage[x]{TurboInitech}[]{TurboInitech}{morecomment=[s]{\{}{\}},
+  morecomment=[s]{(*}{*)}, morestring=[d]'}
+\lstset{language=[x]TurboInitech, basicstyle=\ttfamily\fontsize{9}{12}\selectfont,
+  keywordstyle=\bfseries, commentstyle={}, stringstyle={}, columns=fixed,
+  basewidth=0.6em, xleftmargin=4mm, aboveskip=6pt, belowskip=6pt,
+  showstringspaces=false, upquote=false, tabsize=8}
+\newwrite\im@tpsexamples
+\AtBeginDocument{\immediate\openout\im@tpsexamples=\jobname.tpsexamples}
+\AtEndDocument{\immediate\closeout\im@tpsexamples}
+%% \Program{name}: the complete program examples/name.pas, replayed: Free
+%% Pascal, the seed and Turbo Initech must each run it to examples/name.out.
+\newcommand\Program[1]{\immediate\write\im@tpsexamples{program|#1}%
+  \lstinputlisting{examples/#1.pas}}
+%% \ProgramLines{name}{first}{last}: lines of a replayed program.
+\newcommand\ProgramLines[3]{\immediate\write\im@tpsexamples{program|#1}%
+  \lstinputlisting[firstline=#2,lastline=#3]{examples/#1.pas}}
+%% \ProgramOutput{name}: what the program prints (examples/name.out).
+\newcommand\ProgramOutput[1]{\immediate\write\im@tpsexamples{output|#1}%
+  \VerbatimInput[fontsize=\fontsize{9}{12},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.out}}
+%% \CompilerOutput{name}{REGION}: the region (LEX, PARSE, TYPE, GEN) of what
+%% Turbo Initech prints when it compiles examples/name.pas, from
+%% examples/name.REGION.txt; replayed through the compiler.
+\newcommand\CompilerOutput[2]{\immediate\write\im@tpsexamples{compiler|#1|#2}%
+  \VerbatimInput[fontsize=\fontsize{8.5}{10.5},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.#2.txt}}
+%% \AssemblyOutput{name}{label}: the lines of TPSOUT.S for examples/name.pas
+%% from `label:' to the next top-level label, from examples/name.label.s.
+\newcommand\AssemblyOutput[2]{\immediate\write\im@tpsexamples{assembly|#1|#2}%
+  \VerbatimInput[fontsize=\fontsize{8.5}{10.5},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.#2.s}}
+%% \Transcript-like development-system run (Self-Compilation Guide):
+%% examples/name.cmd holds one make target; examples/name.txt the lines of
+%% its output that begin with ">>> " or "!!! " or carry a pass rate.
+\newcommand\MakeRun[1]{\immediate\write\im@tpsexamples{make|#1}%
+  {\par\addvspace{4pt}\noindent\hspace*{4mm}\ttfamily\fontsize{9}{12}\selectfont
+   \$ \textbf{make \input{examples/#1.cmd}}\par}%
+  \VerbatimInput[fontsize=\fontsize{8}{10.5},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.txt}}
+
+%% ---- railroad diagrams (Sec 5.1 railroad dialect) -------------------------
+%% Drawn by harness/pubs/railroad.c from the printed grammar file; each
+%% diagram registers its production.  Non-terminals Heros 8.5 in
+%% rectangles, symbols in circles, reserved words Heros Bold in pills,
+%% 0.5 pt square-cornered lines, solid arrowheads, label at left.
+\tikzset{
+  rr-nt/.style={draw, line width=0.5pt, rectangle, minimum height=12pt, inner xsep=2pt,
+    font=\sffamily\fontsize{8.5}{9}\selectfont},
+  rr-rw/.style={draw, line width=0.5pt, rounded rectangle, minimum height=12pt, inner xsep=2pt,
+    font=\sffamily\bfseries\fontsize{8.5}{9}\selectfont},
+  rr-sym/.style={draw, line width=0.5pt, rounded rectangle, minimum height=12pt, inner xsep=1.5pt,
+    font=\ttfamily\bfseries\fontsize{8.5}{9}\selectfont},
+  rr-label/.style={font=\sffamily\fontsize{8.5}{9}\selectfont},
+  rr-arrow/.style={-{Stealth[length=3.4pt,width=2.8pt]}, line width=0.5pt},
+  every path/.style={line width=0.5pt}}
+\newcommand\rrsym[1]{#1}
+\newsavebox\im@rrbox
+\newcommand\RailroadDiagram[2]{%
+  \RegisterCommand{#1}{production}{GATED}{#1}%
+  \ix{#1@\textit{#1} (syntax)}%
+  \sbox\im@rrbox{\begin{tikzpicture}[x=1pt,y=1pt]#2\end{tikzpicture}}%
+  \par\addvspace{8pt}\noindent\hspace*{2.5mm}%
+  \ifdim\wd\im@rrbox>\dimexpr\linewidth-2.5mm\relax
+    \resizebox{\dimexpr\linewidth-2.5mm\relax}{!}{\usebox\im@rrbox}%
+  \else\usebox\im@rrbox\fi\par\addvspace{8pt}}
+%% Lexical diagrams (Chapter 1): drawn the same way, not productions of
+%% the parser, so not registered.
+\newcommand\LexicalDiagram[2]{%
+  \sbox\im@rrbox{\begin{tikzpicture}[x=1pt,y=1pt]#2\end{tikzpicture}}%
+  \par\addvspace{8pt}\noindent\hspace*{2.5mm}%
+  \ifdim\wd\im@rrbox>\dimexpr\linewidth-2.5mm\relax
+    \resizebox{\dimexpr\linewidth-2.5mm\relax}{!}{\usebox\im@rrbox}%
+  \else\usebox\im@rrbox\fi\par\addvspace{8pt}}
+\newcommand\Syntax[1]{\input{rr-#1}}
+
+%% ---- reference entries --------------------------------------------------
+%% Registration helpers: one printed item, one .cmds line.
+\newcommand\RegisterItem[3][GATED]{\RegisterCommand{#2}{#3}{#1}{#2}}
+%% Library entry (AN-12): \begin{LibEntry}{Assign}{procedure}[qualifier]
+%% then \LFunction \LDeclaration \LResultType \LRemarks \LRestrictions
+%% \LArrow \LSeeAlso \LExample, in that order (thinned, never permuted).
+\newcounter{im@libstage}
+\newcommand\im@libname{}
+\newcommand\im@libstage[2]{%
+  \ifnum\value{im@libstage}>#1\relax
+    \PackageError{initech-borland}{Library entry \im@libname: `#2' out of order (Function,
+      Declaration, Result type, Remarks, Restrictions, arrow, See also, Example)}{}\fi
+  \setcounter{im@libstage}{#1}\stepcounter{im@libstage}%
+  \par\addvspace{5pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\raggedleft\sffamily\bfseries\fontsize{9}{12}\selectfont
+    \strut#2}}\hspace{\imSideGap}}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
+\newcommand\im@lettertab{}
+\NewDocumentEnvironment{LibEntry}{m m o m}
+  {% #1 display name, #2 procedure|function, #3 qualifier, #4 inventory name
+   \gdef\im@libname{#1}\setcounter{im@libstage}{0}%
+   \RegisterCommand{#4}{routine}{GATED}{#1}%
+   \ix{#1 #2\IfValueT{#3}{ (#3)}}%
+   \par\addvspace{18pt}\goodbreak
+   \noindent\hspace*{-\imHang}\begin{minipage}{\imFullWidth}
+     {\im@adventor\fontsize{17}{20}\selectfont #1 #2\IfValueT{#3}{ (#3)}\par}%
+     \vspace{2pt}\rule{\imFullWidth}{2.2pt}\end{minipage}\par\nobreak
+   \markright{#1}\xdef\im@lettertab{\expandafter\@car#1\@nil}%
+   \def\LFunction{\im@libstage{0}{Function}}%
+   \def\LDeclaration{\im@libstage{1}{Declaration}}%
+   \def\LResultType{\im@libstage{2}{Result type}}%
+   \def\LRemarks{\im@libstage{3}{Remarks}}%
+   \def\LRestrictions{\im@libstage{4}{Restrictions}}%
+   \def\LArrow{\par\addvspace{4pt}\setcounter{im@libstage}{6}\noindent
+     \llap{\im@arrowicon\hspace{\imSideGap}}}%
+   \def\LSeeAlso{\im@libstage{6}{See also}}%
+   \def\LExample{\im@libstage{7}{Example}}}
+  {\par}
+%% Declarations are set in Cursor with reserved words bold (AN-12).
+\newcommand\Decl[1]{\lstinline[basicstyle=\ttfamily\fontsize{9}{12}\selectfont]{#1}}
+%% PG-31 letter tabs (Library Reference): solid black on rectos, stepping
+%% down the fore-edge with the letter of the entry in force.
+\newif\ifim@lettertabs
+\newcommand\LetterTabs{\global\im@lettertabstrue}
+\AddToHook{shipout/background}{%
+  \ifim@lettertabs\ifodd\c@page\ifx\im@lettertab\@empty\else
+    \@tempcnta=\numexpr\expandafter`\im@lettertab-65\relax
+    \@tempcnta=\numexpr\@tempcnta*15/26\relax
+    \put(\dimexpr\paperwidth-9mm\relax,-\dimexpr20mm+12mm*\@tempcnta+12mm\relax){%
+      \textcolor{InitechBlack}{\rule{12mm}{12mm}}}%
+    \put(\dimexpr\paperwidth-4.5mm\relax,-\dimexpr20mm+12mm*\@tempcnta+6mm\relax){%
+      \makebox(0,0){\textcolor{white}{\sffamily\bfseries\fontsize{8}{9}\selectfont\im@lettertab}}}%
+  \fi\fi\fi}
+
+%% Error message entry (AN-13): run-in Heros Bold number, the message text
+%% exactly as the compiler prints it (Cursor), explanation in the body.  The
+%% text is written to <job>.msgs and compared with the shipped catalogue.
+\newwrite\im@tpsmsgs
+\AtBeginDocument{\immediate\openout\im@tpsmsgs=\jobname.msgs}
+\AtEndDocument{\immediate\closeout\im@tpsmsgs}
+\newcommand\ErrorEntry[4]{% ID, number shown, exact text, placeholder tail
+  \RegisterCommand{#1}{message}{GATED}{#1}%
+  \immediate\write\im@tpsmsgs{#1|\detokenize{#3}}%
+  \par\addvspace{7pt}\goodbreak\noindent
+  {\sffamily\bfseries #2}\enspace\texttt{\detokenize{#3}}#4\par\nobreak\vspace{2pt}\noindent}
+%% Items that are listed rather than given an entry each.
+\newcommand\TokenItem[1]{\RegisterCommand{#1}{token}{GATED}{#1}\texttt{\detokenize{#1}}}
+\newcommand\ProtocolItem[1]{\RegisterCommand{#1}{protocol}{GATED}{#1}\texttt{#1}}
+\newcommand\DumpRowItem[1]{\RegisterCommand{#1}{dumprow}{GATED}{#1}\texttt{#1}}
+\newcommand\RtlItem[1]{\RegisterCommand{#1}{rtlentry}{GATED}{#1}\texttt{\detokenize{#1}}}
+\newcommand\SwitchItem[1]{\RegisterCommand{#1}{switch}{GATED}{#1}\texttt{\detokenize{#1}}}
+\newcommand\ReservedItem[1]{\RegisterCommand{#1}{reserved}{GATED}{#1}{\sffamily\bfseries #1}}
+%% \LimitItem{SourceMax}{262144}: a capacity and its value as shipped.
+\newcommand\LimitItem[2]{\uppercase{\RegisterCommand{#1=#2}}{limit}{GATED}{#1}\texttt{#1}}
+
+%% ---- the acceptance procedure box (AN-15 style, Self-Compilation Guide) --
+\newtcolorbox{AcceptanceProcedure}[2]{enhanced, breakable, sharp corners,
+  colback=white, colframe=black, boxrule=0.5pt, left=3mm, right=3mm, top=3mm,
+  fonttitle=\sffamily\bfseries\fontsize{9}{11}\selectfont, coltitle=black,
+  colbacktitle=white, title={Procedure #1: #2}, attach boxed title to top left={xshift=4mm,yshift=-2.5mm},
+  boxed title style={boxrule=0pt, colframe=white, sharp corners},
+  before upper={\setlength\parskip{4pt}\RaggedRight}}
+\newcommand\PField[1]{\par\noindent\makebox[30mm][l]{\sffamily\bfseries\fontsize{9}{11}\selectfont #1}\hangindent=30mm\ignorespaces}
+
+\endinput

@@ -1,0 +1,65 @@
+% Turbo Initech Programmer's Guide -- part 1077-0000-11 (PUB-REF-0001 Sec 12,
+% DS row TIN-PG).  Family F-BOR; model the Turbo Pascal 6.0 Programmer's
+% Guide (docs/pubs/originals/borland-turbo-pascal.md s1, s4.2, s5, s6.2).
+% Bead initech-ipu5.12.  The language is ADR-0007 DEC-02 as the shipped
+% compiler os/tps/tps.pas implements it; the grammar is
+% grammar/tps.ebnf, drawn by harness/pubs/railroad.c and proved against the
+% shipped parser both ways; every program is replayed (Free Pascal, the
+% seed, Turbo Initech, InitechDOS) by make test-pubs-tps.  The build
+% displays no version, so the book prints none and the part number carries
+% 0000 (D-3, PN-03).
+\documentclass[borland]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+
+\ProductName{Turbo Initech}
+\ProductVersion{}
+\DocTitle{Programmer's Guide}
+\PartNumber{1077-0000-11}
+\FamilyName{Programming Family}
+\FamilyColor{FamilyProgramming}
+\Edition{First Edition (September 1992)}
+\EditionApplies{This edition applies to Turbo Initech and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1992}
+\Revision{R1}
+\PrintCode{A1-9/92}
+\Trademarks{Turbo Initech is a registered trademark of Initech Systems
+  Corporation.  InitechOS, InitechDOS and FLAIR are trademarks of Initech
+  Systems Corporation.  Intel, 80386 and 80486 are trademarks of Intel
+  Corporation.  All other product names are trademarks of their respective
+  holders.}
+\newcommand\term[1]{\textbf{#1}}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{introduction}
+\BorlandPart{The Turbo Initech language}
+\input{ch01-tokens}
+\input{ch02-blocks}
+\input{ch03-types}
+\input{ch04-variables}
+\input{ch05-expressions}
+\input{ch06-statements}
+\input{ch07-routines}
+\input{ch08-programs}
+\BorlandPart{The standard library}
+\input{ch09-library}
+\BorlandPart{Inside Turbo Initech}
+\input{ch10-memory}
+\input{ch11-control}
+\input{ch12-io}
+\input{ch13-codegen}
+\input{ch14-directives}
+\BorlandPart{Turbo Initech and assembly language}
+\input{ch15-assembly}
+\BorlandPart{Appendixes}
+\appendix
+\input{appa-errors}
+\input{appb-reference}
+\printindex
+\FinishBook
+\end{document}

@@ -1,0 +1,119 @@
+% Introduction (PUB-REF-0001 AN-21 F-BOR: what the book covers, the manuals
+% and their jobs with routing, installing, typefaces, contacting Initech).
+% Sources (Law 1): ADR-0007 DEC-01, DEC-02, DEC-08; os/tps/tps.pas;
+% docs/pubs/originals/borland-turbo-pascal.md s1, s3.
+\Gates{test-pubs-build, test-compiler, test-pubs-tps}
+\IntroductionChapter
+
+This book is the language definition and the technical reference for Turbo
+Initech\reg{}.  It tells you exactly which programs Turbo Initech accepts,
+what each construct means, how the compiler lays out your data and your
+routines in memory, what the run-time library does, and what every message
+of the compiler means.  It is written for programmers who already know how
+to write a program and want the precise rule.  If you are new to Pascal,
+start with the \doctitle{User's Guide}, which teaches the language by
+example.
+
+\section{What Turbo Initech is}
+Turbo Initech is a single-pass Pascal compiler for InitechOS.  It reads one
+source file, checks it completely, and writes the program as 80386
+assembly language for the InitechOS run-time library.  The language it
+accepts is a compact Pascal designed to be exactly as large as a compiler
+needs in order to compile itself: Turbo Initech is written in the language
+this book describes, and it compiles its own source.
+
+The Turbo Initech language provides:
+\begin{itemize}
+\item 32-bit signed \rw{integer} values, \rw{boolean} and \rw{char} values,
+  and strings of up to 255 characters;
+\item constants, static arrays, and record types with integer, boolean and
+  character fields;
+\item \rw{if}, \rw{while}, \rw{for}, and \rw{repeat} statements and
+  compound statements;
+\item procedures and functions with value and \rw{var} parameters, local
+  variables, recursion, and \rw{forward} declarations;
+\item complete evaluation of every Boolean expression;
+\item untyped files read and written in blocks of bytes through InitechDOS.
+\end{itemize}
+
+Every program is one source file; all storage is static or is allocated in
+the frame of the routine that declares it.  Turbo Initech has no pointers,
+no sets, no enumerated types, no real numbers, no units and no \rw{case}
+statement.  The word \rw{case} is reserved so that no program can use it as
+an identifier.  These limits are part of the definition, and Chapter 3,
+``Types,'' shows the constructions Turbo Initech programs use in their
+place.
+
+\section{The Turbo Initech manuals}
+\ix{manuals}
+Turbo Initech comes with four books and a Quick Reference.  Each book has
+one job.
+
+\SideHead{User's Guide}The \doctitle{Turbo Initech User's Guide}
+(1077-0000-10) shows you how to run the compiler and teaches the language
+by building programs, from the first one to programs that read and write
+files.  It also describes the compiler's command and everything it prints.
+
+\SideHead{Programmer's Guide}This book (1077-0000-11) defines the language,
+the standard routines as a group, the internal representation of data, the
+calling conventions, the code the compiler writes, and every compiler
+message.
+
+\SideHead{Library Reference}The \doctitle{Turbo Initech Library Reference}
+(1077-0000-12) describes every standard procedure and function in
+alphabetical order, each with an example program, and the entry points of
+the run-time library.
+
+\SideHead{Self-Compilation Guide}The \doctitle{Turbo Initech
+Self-Compilation Guide} (1077-0000-13) describes how Turbo Initech is built
+from its own source and the acceptance procedure that proves a new
+compiler reproduces itself.
+
+\SideHead{Quick Reference}The \doctitle{Turbo Initech Quick Reference}
+(1077-0000-20) summarizes the syntax, the standard routines and the
+messages.
+
+Read the \doctitle{User's Guide} if you want to learn the language or to
+know how to compile and run a program.  Read the \doctitle{Library
+Reference} if you want the exact behavior of one standard routine.  Read the
+\doctitle{Self-Compilation Guide} if you build Turbo Initech itself.
+
+\section{Installing Turbo Initech}
+\ix{installing}
+The compiler is the single program \file{TPS.COM}.  Turbo Initech programs
+are compiled with it and run under InitechDOS.  The \doctitle{User's Guide},
+Chapter 1, describes the files you need and how to compile and run your
+first program.
+\draft{the Turbo Initech distribution diskette and its installation are not
+produced (DS row TIN; PUB-REF-0001 Sec 12); TPS.COM is built by the
+genesis compiler as the Self-Compilation Guide describes}
+
+\section{Typefaces used in these books}
+\ix{typefaces}
+\ix{conventions}
+The Turbo Initech manuals use these typefaces to mean these things:
+
+\begin{BorTable}{Typefaces}{p{38mm}p{62mm}}
+\Hd{Example} & \Hd{Meaning}\\\hline
+\texttt{Writeln(Total);} & Program text, examples, and what the compiler and
+  your programs print\\
+\texttt{\bfseries begin} & A reserved word inside program text\\
+\textbf{begin} & A reserved word in running text\\
+\textit{Count} & An identifier of your program, a placeholder in a syntax
+  description, or a standard routine named in running text\\
+\textbf{\texttt{TPS}} & Something you type\\
+\key{Enter} & A key on the keyboard\\
+\MarginFace Margin note & A note that comments on the paragraph
+  beside it
+\end{BorTable}
+
+Syntax is given by syntax diagrams; Chapter 1 explains how to read them.
+Numbers in program text are decimal.
+
+\section{How to contact Initech}
+\ix{technical support}
+If you have a question about Turbo Initech that this book does not answer,
+call the Initech Help Desk at 555-0125, extension 2504, or write to
+\InitechAddressLine.  Please have the part number of your manual and the
+text of any message the compiler printed at hand.  Your Initech
+representative can order further copies of the manuals for you.
