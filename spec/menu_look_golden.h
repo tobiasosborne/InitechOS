@@ -25,6 +25,16 @@ static const uint16_t ML_check[16] = {
 static const uint16_t ML_file_F[9] = {
     0x7C00,0x6000,0x6000,0x6000,0x7800,0x6000,0x6000,0x6000,0x6000
 };
+/* Deliberate r78f expectation re-key: s8_menu_dropped.png y102/103,
+ * x33..230 INCLUDING both frame and inner-bevel columns. The groove crosses
+ * x34 and x229; menus.md's x35..228 scan omitted these endpoints. Stretch
+ * only the uniform interior when the Finder's inventory changes panel width.
+ * This factory-only profile is verified against every captured row pixel. */
+static inline uint32_t ml_divider_rgb(int x,int width,int row)
+{
+    if(x==0 || x==width-1) return 0;
+    return row==0 ? 0xA5A5A5 : 0xFFFFFF;
+}
 static inline uint32_t ml_band_rgb(int y,int bpp)
 {
     if(y==19) return 0;

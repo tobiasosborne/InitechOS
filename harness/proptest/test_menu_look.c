@@ -10,8 +10,9 @@
 #include "menu_look_golden.h"
 #include "test_assert.h"
 TEST_HARNESS();
-static MenuItem items[]={{"New Folder",0,'N',0,1,0},{"by Icons",18,0,0,1,0}};
-static MenuInfo menus[]={{512,"File",items,2,0}};
+static MenuItem items[]={{"New Folder",0,'N',0,1,0},{"by Icons",18,0,0,1,0},
+                        {"-",0,0,0,0,1}};
+static MenuInfo menus[]={{512,"File",items,3,0}};
 static MenuBar bar={menus,1,1};
 static void draw(GrafPort *p){HiliteMenu(p,&bar,0,NULL);flair_draw_menu_panel(p,&bar,0,-1,NULL);}
 static int be(const unsigned char *b,int p){return b[p]*256+b[p+1];}
@@ -29,6 +30,10 @@ static int original(const char *png,const char *nfnt)
     /* Independent geometry crops: first New Folder ink x53/y23; last
      * shortcut ink216; right frame230. Never query the renderer for them. */
     if(!bad) {
+        for(int y=0;y<2;y++)for(int x=0;x<198;x++) {
+            const unsigned char *q=p+3*((102+y)*640+33+x);
+            bad+=(unsigned)(q[0]*65536+q[1]*256+q[2])!=ml_divider_rgb(x,198,y);
+        }
         int l=640,t=480,r=-1;
         for(int y=23;y<32;y++)for(int x=35;x<229;x++) {
             const unsigned char *q=p+3*(y*640+x);
@@ -97,6 +102,9 @@ int main(int argc,char **argv)
             count+=ink;bad+=ink!=!!(ML_check[y]&(0x8000u>>x));
         }
         CHECK(!bad && count==18,"ML5 mark equals NFNT check:9x8,18 pixels,advance11");
+        bad=0;for(int y=0;y<2;y++)for(int x=panel.left;x<panel.right;x++)
+            bad+=render_pixel_rgb(&r,x,54+y)!=ml_divider_rgb(x-panel.left,panel.right-panel.left,y);
+        CHECK(!bad,"ML10 whole divider rows match capture, including both bevel columns");
         /* Idle title and Apple placement, then repeat with an effective clip.
          * Compare a clipped draw to the complete draw, including unchanged
          * outside pixels; this detects text that bypasses the clip. */
@@ -109,13 +117,13 @@ int main(int argc,char **argv)
         CHECK(lx==17,"ML7 retained Apple first ink17 (capture)");
         render_ctx_t c;if(render_ctx_init(&c,&b))return 2;
         region_t *clip=&c.clipRgn;
-        rgn_rect_t cr={7,45,50,80};region_set_rect(clip,cr);
+        rgn_rect_t cr={7,34,60,80};region_set_rect(clip,cr);
         draw(&r.port);HiliteMenu(&c.port,&bar,0,clip);flair_draw_menu_panel(&c.port,&bar,0,-1,clip);
         bad=0;for(int y=0;y<80;y++)for(int x=0;x<200;x++) {
-            uint32_t want=(x>=45&&x<80&&y>=7&&y<50)?render_pixel_rgb(&r,x,y):0x8DDCDC;
+            uint32_t want=(x>=34&&x<80&&y>=7&&y<60)?render_pixel_rgb(&r,x,y):0x8DDCDC;
             bad+=render_pixel_rgb(&c,x,y)!=want;
         }
-        CHECK(!bad,"ML8 band, title, item and check respect effective clip");
+        CHECK(!bad,"ML8 band, title, item, check and divider respect effective clip");
         render_ctx_free(&c);render_ctx_free(&r);
     }
     return TEST_SUMMARY("test-menu-look");

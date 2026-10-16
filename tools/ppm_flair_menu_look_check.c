@@ -37,6 +37,14 @@ int main(int argc,char **argv)
         int geom=left!=53||top!=43||right!=169||px(183,45)!=0||px(33,45)!=0;
         if(geom)fprintf(stderr,"FAIL menu-look ML4 geometry: first(%d,%d), last%d, want53,43/169 + frame183 = clearance14\n",left,top,right);
         bad+=geom;
+        int divider=0;
+        /* Finder has four items before its first divider: captured row102
+         * translated to y106 for this inventory and second menu band. Grade
+         * EVERY column x33..183; neither inner bevel is exempt (r78f). */
+        for(int y=0;y<2;y++)for(int x=33;x<=183;x++)
+            divider+=px(x,106+y)!=ml_divider_rgb(x-33,151,y);
+        if(divider)fprintf(stderr,"FAIL menu-look ML10 whole divider rows: %d/302 differ\n",divider);
+        bad+=divider;
         int ink=0;for(int y=0;y<9;y++)for(int x=0;x<7;x++) {
             uint32_t want=(ML_file_F[y]&(0x8000u>>x))?0xFFFFFF:ml_band_rgb(y+5,8);
             ink+=px(42+x,25+y)!=want;

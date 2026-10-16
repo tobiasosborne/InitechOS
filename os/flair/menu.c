@@ -732,27 +732,7 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
         int row_top = item_row_top(m, k);
         int h = item_row_h(it);
 
-        if (it->is_divider) {
-#if defined(MENU_MUT_SEP_PLAIN) && MENU_MUT_SEP_PLAIN
-            rgn_rect_t plain = { (int16_t)(row_top + h / 2),
-                                 (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
-                                 (int16_t)(row_top + h / 2 + 1),
-                                 (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
-            blitter_fill_rect_clipped(bm, plain, disabled, clip);
-#else
-            rgn_rect_t dark = { (int16_t)(row_top + 1),
-                                (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
-                                (int16_t)(row_top + 2),
-                                (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
-            rgn_rect_t light = { (int16_t)(row_top + 2),
-                                 (int16_t)(panel.left + FLAIR_MENU_PANEL_INSET),
-                                 (int16_t)(row_top + 3),
-                                 (int16_t)(panel.right - FLAIR_MENU_PANEL_INSET) };
-            blitter_fill_rect_clipped(bm, dark, disabled, clip);
-            blitter_fill_rect_clipped(bm, light, bevel_hl, clip);
-#endif
-            continue;
-        }
+        if (it->is_divider) continue;
 
         uint32_t row_fg = text_ink;
         uint32_t row_bg = face;
@@ -818,8 +798,8 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
         }
     }
 
-    /* Last: sampled inner bevel and outer black frame cover the last item's
-     * final two rows, exactly as the captured panel anatomy does. */
+    /* After the items: sampled inner bevel covers their final two rows.
+     * The grooves below cross its side columns; the outer frame stays last. */
 #if !defined(MENU_MUT_NO_PANEL_BEVEL) || !MENU_MUT_NO_PANEL_BEVEL
     rgn_rect_t hi_top = { (int16_t)(panel.top + 1),
                           (int16_t)(panel.left + 1),
@@ -842,6 +822,33 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
     blitter_fill_rect_clipped(bm, sh_bottom, bevel_shadow, clip);
     blitter_fill_rect_clipped(bm, sh_right, bevel_shadow, clip);
 #endif
+
+    /* Ref: s8_menu_dropped.png x33..230,y102/103 (r78f). The groove
+     * crosses BOTH inner bevel columns: x34..229, one pixel inside the
+     * black frame. Draw it after the bevel so the latter cannot erase its
+     * endpoints. The item origin's +2 inset is unrelated to this stroke. */
+    for (int k = 0; k < (int)m->n_items; k++) {
+        if (!m->items[k].is_divider) continue;
+        int row_top = item_row_top(m, k);
+#ifdef MENU_LOOK_MUT_OLD_DIVIDER_INSET
+        int inset = 2;                 /* Rule 6: the original short groove */
+#else
+        int inset = 1;
+#endif
+#if defined(MENU_MUT_SEP_PLAIN) && MENU_MUT_SEP_PLAIN
+        int y = row_top + item_row_h(&m->items[k]) / 2;
+        rgn_rect_t plain = { (int16_t)y, (int16_t)(panel.left + inset),
+                             (int16_t)(y + 1), (int16_t)(panel.right - inset) };
+        blitter_fill_rect_clipped(bm, plain, disabled, clip);
+#else
+        rgn_rect_t dark = { (int16_t)(row_top + 1), (int16_t)(panel.left + inset),
+                            (int16_t)(row_top + 2), (int16_t)(panel.right - inset) };
+        rgn_rect_t light = { (int16_t)(row_top + 2), (int16_t)(panel.left + inset),
+                             (int16_t)(row_top + 3), (int16_t)(panel.right - inset) };
+        blitter_fill_rect_clipped(bm, dark, disabled, clip);
+        blitter_fill_rect_clipped(bm, light, bevel_hl, clip);
+#endif
+    }
 
     rgn_rect_t fr_top = { panel.top, panel.left,
                           (int16_t)(panel.top + 1), panel.right };

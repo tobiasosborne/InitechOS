@@ -42,7 +42,7 @@ static int disabled(int axis,int lo,int hi,int cross)
 }
 int main(int argc,char **argv)
 {
-    if(argc!=3) {fprintf(stderr,"usage: ppm_flair_scroll_look_check shrink|click|restore|min dump.ppm\n");return 2;}
+    if(argc!=3) {fprintf(stderr,"usage: ppm_flair_scroll_look_check shrink|click|restore|min|itext dump.ppm\n");return 2;}
     FILE *f=fopen(argv[2],"rb"); int w,h,max,bad=0;
     if(!f || fscanf(f,"P6 %d %d %d",&w,&h,&max)!=3 || w!=640 || h!=480 || max!=255 ||
        fgetc(f)==EOF || fread(pixels,1,sizeof pixels,f)!=sizeof pixels) {
@@ -62,6 +62,46 @@ int main(int argc,char **argv)
         bad+=crop(0,96,97)+crop(1,41,128);
         bad+=crop(2,96,82)+crop(3,96,113)+crop(4,26,128)+crop(5,81,128);
         bad+=px(115,120)!=0 || px(80,147)!=0 || px(80,60)!=0;
+    } else if(!strcmp(argv[1],"itext")) {
+        /* ehq4: locked TEXT frame(4,44)..(588,476), 40 Returns -> 41
+         * Geneva9 lines, doc459/view389, value=max70. V-bar x567..582,
+         * y65..455; thumb at the far end425..439. Never query a renderer.
+         * The six independent SL crops are PNG-verified by test-scrollbar-
+         * look. The well's five-value cross-section + near-end shadow are
+         * measured in s8_doc_window_inactive.png x608..621,y327..384
+         * (scrollbars.md 2.3). Check the ENTIRE bar, including its frame. */
+        bad+=crop(0,568,425)+crop(2,568,66)+crop(3,568,441);
+        int band=0;
+        for(int y=65;y<456;y++) {
+            band+=px(567,y)!=0;band+=px(582,y)!=0;
+            if(y==65 || y==80 || y==424 || y==440 || y==455)
+                for(int x=568;x<582;x++)band+=px(x,y)!=0;
+        }
+        for(int y=81;y<424;y++)for(int c=0;c<14;c++) {
+            uint32_t want;
+            if(y==81) want=0x969696;
+            else if(y==82) want=0xA5A5A5;
+            else if(c==0) want=0x969696;
+            else if(c==1) want=0xA5A5A5;
+            else if(c==12) want=0xCDCDCD;
+            else if(c==13) want=0xDADADA;
+            else want=0xC0C0C0;
+            band+=px(568+c,y)!=want;
+        }
+        if(band)fprintf(stderr,"FAIL itext-scroll whole enabled bar: %d pixels\n",band);
+        bad+=band;
+        /* s8_simpletext_doc_caret.png: black, 1px wide, one line tall, one
+         * pixel left of text position. Global(14,440)..(15,451) after the
+         * locked input; all other content must be white (empty CR lines).
+         * Thus a clipped/offscreen caret cannot satisfy the gate. */
+        int caret=0;
+        for(int y=66;y<455;y++)for(int x=10;x<567;x++) {
+            uint32_t want=x==14 && y>=440 && y<451 ? 0 : 0xFFFFFF;
+            caret+=px(x,y)!=want;
+        }
+        if(caret)fprintf(stderr,"FAIL itext-scroll caret/content: %d pixels\n",caret);
+        bad+=caret;
+        bad+=disabled(1,9,568,456);
     } else {fprintf(stderr,"FAIL unknown scroll-look phase\n");return 2;}
     if(bad) {fprintf(stderr,"FAIL scroll-look %s: %d pixel differences\n",argv[1],bad);return 1;}
     printf("scroll-look %s PASS: independent crops + full disabled bands + frame endpoint\n",argv[1]);
