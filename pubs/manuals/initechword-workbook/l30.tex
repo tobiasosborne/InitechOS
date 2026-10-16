@@ -1,0 +1,48 @@
+% Lesson 30 (AN-18): copying between documents -- the Move buffer keeps a
+% copy across a cleared screen; Move, Retrieve puts it into another
+% document.  Uses PROCS and MEMO; nothing saved.  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{30}{Copying Between Documents}
+\LessonFeatures{Move, Block; Move, Retrieve; Move, Sentence/Paragraph/Page; Retrieve; Exit}
+The text you copy stays in InitechWord's Move buffer until you copy or move
+something else, even when you clear the screen and retrieve another
+document.  In this lesson you copy a step of the procedure and put it at the
+end of the memo.
+
+\BeginReplay{l30}
+\Task{Copying the Step}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{procs} and press
+\PressKey{Enter}.
+\item Press \PressKey{Down} five times to go to the line that begins with
+\textit{3.}\Keys{Down Down Down Down}
+\item Press \Press{Move}{Ctrl-F4}, select \Choose{Paragraph}{2} and
+\Choose{Copy}{2}.  The status line shows \Scr{Move cursor; press Enter to
+retrieve.}
+\item Press \Press{Cancel}{F1}.  The copy stays in the Move buffer.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}: the screen
+clears.
+\end{WPSteps}
+
+\Task{Putting the Step in the Memo}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{memo} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the memo, and press \PressKey{Enter} twice.\Keys{Enter}
+\item Press \Press{Move}{Ctrl-F4}, select \Choose{Retrieve}{4} and
+\Choose{Block}{1}.  The step from the procedure is put in at the cursor,
+with its indent.
+\end{WPSteps}
+\CompareScreen[rows=21]{l30-1}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.  The memo
+on the disk is unchanged.
+\end{WPSteps}
+\EndReplay
+This is the last lesson.  For everything else InitechWord does, see the
+\textit{InitechWord Reference}.

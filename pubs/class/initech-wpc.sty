@@ -288,6 +288,9 @@ end
 %% Characters typed into a menu or prompt, recorded only (the text names
 %% them already, as in "press Shift-F8,1,3,3").
 \newcommand\Typing[1]{\im@rec{type #1}}
+%% n spaces typed, recorded only (input would collapse them):
+%% \TypeSpaces{30}.
+\newcommand\TypeSpaces[1]{\im@rec{type \directlua{tex.sprint(string.rep("\string\\space ", #1))}}}
 %% Keys recorded but already named in the step text.
 \newcommand\Keys[1]{\im@rec{key #1}}
 %% A menu choice typed by its number: select Line (1).

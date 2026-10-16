@@ -1,0 +1,49 @@
+% Lesson 27 (AN-18): revising a list -- a line deleted as a paragraph (each
+% line ends with a hard return), a line inserted.  Uses PHONE (Lesson 5);
+% saves it.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{27}{Revising the Phone List}
+\LessonFeatures{Move, Sentence/Paragraph/Page; Cursor Movement; Tab; Save}
+Milton Waddams has moved to the basement, and a new person, Carl Adams, has
+joined the third floor.  In this lesson you take Milton's line out of the
+phone list and put Carl's in, in its place in the alphabet.
+
+\BeginReplay{l27}
+\Task{Deleting a Line}
+Each line of the list ends with a hard return, so to InitechWord each line is
+a paragraph, and Move can delete it whole.
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{phone} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the list, and \PressKey{Up} to go to the last line, \textit{Waddams,
+Milton}.
+\item Press \Press{Move}{Ctrl-F4} and select \Choose{Paragraph}{2}.  The line
+is highlighted, through its hard return.
+\end{WPSteps}
+\CompareScreen[rows=23]{l27-1}
+\begin{WPSteps}[resume]
+\item Select \Choose{Delete}{3}.  The line is gone.
+\end{WPSteps}
+
+\Task{Inserting a Line}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Up}, then
+\PressKey{Down}\Keys{Down Down} three times to go to the start of the second
+name of the list, \textit{Bolton, Michael}: \textit{Adams} comes after
+\textit{Abernathy} and before \textit{Bolton}.
+\item Type \TypeRun{Adams, Carl}, press \PressKey{Tab} three
+times\Keys{Tab Tab}, type \TypeRun{125} and press \PressKey{Enter}.  The new
+line goes in front of Bolton's, which moves down.
+\end{WPSteps}
+\CompareScreen[rows=23]{l27-2}
+
+\Task{Saving the List}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, press \PressKey{Enter}, and type
+\TypeName{y} to replace the old list.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 28 you combine a centered heading with a size.
