@@ -26978,16 +26978,16 @@ test-samir-input-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_
 	@printf '>>> test-samir-input-emu: green\n'
 
 # On-target mutants re-run the SAME complete oracle (no crash counts as RED).
-SAMIR_AUDIT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_AUDIT_,filter.COM deleted.COM marker.COM extension.COM useerror.COM input.COM)
+SAMIR_AUDIT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_AUDIT_,filter.COM deleted.COM marker.COM extension.COM useerror.COM input.COM undefined.COM)
 $(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
-	@case "$*" in filter) flag=SAMIR_MUTATE_FILTER_VIEW;; deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; marker) flag=SAMIR_MUTATE_DELETE_MARK;; extension) flag=SAMIR_MUTATE_USE_EXTENSION;; useerror) flag=SAMIR_MUTATE_USE_ERROR;; input) flag=SAMIR_MUTATE_STDIN_LINES;; esac; \
+	@case "$*" in filter) flag=SAMIR_MUTATE_FILTER_VIEW;; deleted) flag=SAMIR_MUTATE_DELETED_VIEW;; marker) flag=SAMIR_MUTATE_DELETE_MARK;; extension) flag=SAMIR_MUTATE_USE_EXTENSION;; useerror) flag=SAMIR_MUTATE_USE_ERROR;; input) flag=SAMIR_MUTATE_STDIN_LINES;; undefined) flag=SAMIR_MUTATE_UNDEFINED_ERROR1;; esac; \
 	set -e; d=$(BUILD)/samir_audit_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
 	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 .PHONY: test-samir-audit-emu-mutant test-samir-input-emu-mutant
-test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM $(BUILD)/SAMIR_AUDIT_undefined.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
 	@set -e; for kind in filter deleted marker extension useerror; do \
 	  case $$kind in filter) reason='K05 active FILTER excludes negative row';; deleted) reason='K06 ON hides deleted row';; marker) reason='K06 audit DELETE+DISPLAY has asterisk';; extension) reason='K09 implicit extension succeeded before explicit control';; useerror) reason='K09 missing table is';; esac; \
 	  if $(TEST_SAMIR_AUDIT_EMU) view $(BUILD)/SAMIR_AUDIT_$$kind.COM > $(BUILD)/samir-audit/mut-emu-$$kind.log 2>&1; then echo '!!! emu mutant passed'; exit 1; fi; \
@@ -31129,3 +31129,36 @@ test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LA
 	done
 	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes rejected)\n'
 TEST_EMU_GATES += test-samir-list-layout-emu test-samir-list-layout-emu-mutant
+
+# initech-kdna: Using III+ U7-21 (PDF 509), Programming III+ N5-30 (PDF 418).
+# Manual-grounded undefined-variable transcript; the USE host family still
+# replays the independent real M005U/M005N logs. One error-1 mutant, both lanes.
+SAMIR_UNDEFINED_MUT := $(BUILD)/test_samir_undefined_error1
+$(SAMIR_UNDEFINED_MUT): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -DSAMIR_MUTATE_UNDEFINED_ERROR1 -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-undefined test-samir-undefined-mutant test-samir-undefined-emu test-samir-undefined-emu-mutant
+test-samir-undefined: test-samir-use
+	@printf '>>> test-samir-undefined: green (manual #12 transcript; ON ERROR / ERROR())\n'
+test-samir-undefined-mutant: $(SAMIR_UNDEFINED_MUT) samir-use-goldens
+	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
+	@if $(SAMIR_UNDEFINED_MUT) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-audit/mut-undefined.log 2>&1; then echo '!!! undefined error-1 mutant passed'; exit 1; fi
+	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-undefined.log
+	@grep -Fq 'kdna exact dot-prompt error transcript' $(BUILD)/samir-audit/mut-undefined.log
+	@printf '>>> test-samir-undefined-mutant: SAMIR_MUTATE_UNDEFINED_ERROR1 correctly RED: '
+	@grep -F 'FAIL' $(BUILD)/samir-audit/mut-undefined.log | grep -F 'kdna exact dot-prompt error transcript'
+	@printf '>>> test-samir-undefined-mutant: green\n'
+test-samir-undefined-emu: $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+	@INITECH_QMP_STDIO=1 $(TEST_SAMIR_AUDIT_EMU) undefined
+	@printf '>>> test-samir-undefined-emu: green (typed dot prompt; ON ERROR / ERROR(); clean shell return)\n'
+test-samir-undefined-emu-mutant: $(BUILD)/SAMIR_AUDIT_undefined.COM $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
+	@mkdir -p $(BUILD)/samir-audit
+	@if INITECH_QMP_STDIO=1 $(TEST_SAMIR_AUDIT_EMU) undefined $(BUILD)/SAMIR_AUDIT_undefined.COM > $(BUILD)/samir-audit/mut-emu-undefined.log 2>&1; then echo '!!! undefined emu error-1 mutant passed'; exit 1; fi
+	@grep -q 'checks,.*failures' $(BUILD)/samir-audit/mut-emu-undefined.log
+	@grep -Fq 'kdna exact guest dot-prompt error transcript' $(BUILD)/samir-audit/mut-emu-undefined.log
+	@grep -q 'triple_fault=0' $(BUILD)/samir-audit/emu.report
+	@grep -q 'quit_after_found=1' $(BUILD)/samir-audit/emu.report
+	@printf '>>> test-samir-undefined-emu-mutant: SAMIR_MUTATE_UNDEFINED_ERROR1 correctly RED: '
+	@grep -F 'FAIL' $(BUILD)/samir-audit/mut-emu-undefined.log | grep -F 'kdna exact guest dot-prompt error transcript'
+	@printf '>>> test-samir-undefined-emu-mutant: green (clean guest return)\n'
+TEST_UNIT_GATES += test-samir-undefined test-samir-undefined-mutant
+TEST_EMU_GATES += test-samir-undefined-emu test-samir-undefined-emu-mutant

@@ -340,6 +340,28 @@ static void run(samir_pal_t *pal, const char **lines, int n, const char *expecte
     xb_interp_free(ip);
 }
 #define RUN(lines,want,why) run(pal,lines,(int)(sizeof(lines)/sizeof(lines[0])),want,why)
+/* initech-kdna: no "Variable not found" in re/mint-results-*.md or
+ * the mint/work LOG.TXT files. This is a MANUAL-GROUNDED transcript, not a minted
+ * differential. Using III+ U7-21 (PDF 509): #12, "Variable not found."
+ * Prompt/code/two spaces/LF follow the existing #1 house renderer.
+ * Programming III+ N5-30 (PDF 418): ERROR() receives the trapped error code.
+ * Expected bytes are literals from those sources, never the engine catalog. */
+static void undefined_variable(samir_pal_t *pal)
+{
+    const char *plain[]={"? nosuchvar"};
+    const char *open[]={"use build/samir.audit/CLIENTS.DBF","? nosuchvar"};
+    const char *bound[]={"store 7 to present","? present"};
+    const char *trap[]={"on error store error() to seen","? nosuchvar",
+                        "on error","? seen"};
+    RUN(plain,". 12  Variable not found.\n. ","kdna undefined variable is #12");
+    CHECK_STR_EQ(g_cap.buf,". 12  Variable not found.\n. ",
+                 "kdna exact dot-prompt error transcript");
+    RUN(open,"12  Variable not found.\n. ","kdna missing field/memvar with open table is #12");
+    RUN(bound,". . \n7. ","kdna bound memory variable still resolves");
+    RUN(trap,"\n12. ","kdna ON ERROR / ERROR() sees 12");
+    CHECK(!cap_has("Internal error."),"kdna trap does not lose the catalog error");
+    CHECK(!cap_has("Unrecognized command verb."),"kdna handler preserves the original error");
+}
 int main(int argc,char **argv)
 {
     (void)argc; (void)argv;
@@ -348,6 +370,7 @@ int main(int argc,char **argv)
     CHECK(host!=NULL,"host PAL constructed");
     if(!host) return 2;
     pal=cap_pal_make(host);
+    undefined_variable(pal);
 #ifdef TEST_AUDIT_USE
     {
         const char *s[]={"use build/samir.audit/CLIENTS","list"};

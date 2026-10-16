@@ -50,6 +50,9 @@ static void keys(const char *text,char *out,size_t cap)
         else if(*text=='.') t="dot";
         else if(*text=='>') t="shift-dot";
         else if(*text=='-') t="minus";
+        else if(*text=='?') t="shift-slash";
+        else if(*text=='(') t="shift-9";
+        else if(*text==')') t="shift-0";
         else if((*text>='a' && *text<='z') || (*text>='0' && *text<='9')) t=one;
         CHECK(t!=NULL,"key script character supported");
         if(!t) exit(2);
@@ -66,6 +69,7 @@ int main(int argc,char **argv)
     char cmd[16384],keybuf[8192],raw[262144];
     FILE *f;size_t n,i,j;
     int input=strcmp(mode,"input")==0;
+    int undefined=strcmp(mode,"undefined")==0;
     command("mkdir -p build/samir-audit");
     f=fopen("build/samir-audit/emu.img","wb");
     CHECK(f!=NULL,"FAT image allocated");
@@ -82,6 +86,11 @@ int main(int argc,char **argv)
           "samir < input.txt > dbout2.txt\r\ntype dbout2.txt\r\n");
         command("mcopy -o -i build/samir-audit/emu.img build/samir-audit/INPUT.BAT ::INPUT.BAT");
         keys("input\nsamir\nuse clients.dbf\nlist\nquit\nexit\n",keybuf,sizeof(keybuf));
+    }else if(undefined){
+        /* Using III+ U7-21 (PDF 509), Programming III+ N5-30 (PDF 418).
+         * Manual wording + existing #1 house line format; no minted log.
+         * Exercise the actual typed dot prompt and its trap, then recover. */
+        keys("samir\n? nosuchvar\nstore 7 to present\n? present\non error store error() to seen\n? nosuchvar\non error\n? seen\nquit\nexit\n",keybuf,sizeof(keybuf));
     }else{
         /* The audit's own LIST FOR control, SET FILTER+GO TOP+LIST, and
          * GO TOP+DELETE+DISPLAY before PACK. Also grade ON/OFF and missing USE. */
@@ -109,6 +118,15 @@ int main(int argc,char **argv)
         CHECK(strstr(a,"PESTON") && strstr(a,"WADDAMS") && strstr(a,"LUMBERGH"),"K13 USE/LIST/QUIT rendered all three rows");
         CHECK(!strstr(a,"Unrecognized") && !strstr(a,"Not a dBASE"),"K13 no combined-command error");
         CHECK(strstr(serial,"PESTON") && strstr(serial,"WADDAMS") && strstr(serial,"LUMBERGH"),"K13 interactive control renders same rows");
+    }else if(undefined){
+        CHECK_STR_EQ(between(". ? nosuchvar\n",". store 7"),
+                     "12  Variable not found.\n","kdna exact guest dot-prompt error transcript");
+        CHECK_STR_EQ(between(". ? present\n",". on error store"),
+                     "\n7","kdna guest bound variable still resolves");
+        CHECK_STR_EQ(between(". ? seen\n",". quit"),
+                     "\n12","kdna guest ON ERROR / ERROR() sees 12");
+        CHECK(!strstr(serial,"Internal error."),"kdna guest trap keeps catalog error");
+        CHECK(!strstr(serial,"Unrecognized command verb."),"kdna guest handler preserves original error");
     }else{
         const char *p=between(". list for bal > 1000\n",". set filter");
         CHECK(strstr(p,"PESTON") && strstr(p,"LUMBERGH") && !strstr(p,"WADDAMS"),"K05 LIST FOR audit control");
@@ -128,5 +146,5 @@ int main(int argc,char **argv)
         CHECK(!strstr(serial,"File already exists."),"K06 SET DELETED accepted");
     }
     command("fsck.fat -n build/samir-audit/emu.img > build/samir-audit/fsck-after.log");
-    return TEST_SUMMARY(input?"test-samir-input-emu":"test-samir-audit-emu");
+    return TEST_SUMMARY(undefined?"test-samir-undefined-emu":input?"test-samir-input-emu":"test-samir-audit-emu");
 }
