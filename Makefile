@@ -862,6 +862,7 @@ MORE_PROG_MUT_BIN := $(BUILD)/more_program_mut.bin
 CHKDSK_PROG_BIN  := $(BUILD)/chkdsk_program.bin
 XCOPY_PROG_BIN   := $(BUILD)/xcopy_program.bin
 TREE_PROG_BIN    := $(BUILD)/tree_program.bin
+EDLIN_PROG_BIN   := $(BUILD)/edlin_program.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -10178,7 +10179,7 @@ FLAIR_DATA_RECIPE_IMAGES :=
 CALC_EXE := $(BUILD)/tenant/calc.exe
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(CALC_EXE) $(EDLIN_PROG_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10200,7 +10201,8 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(XCOPY_PROG_BIN) ::APPS/XCOPY.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(TREE_PROG_BIN) ::APPS/TREE.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALC_EXE) ::APPS/CALC.EXE
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(EDLIN_PROG_BIN) ::APPS/EDLIN.COM
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
@@ -31076,3 +31078,6 @@ include harness/diff/fat_diff/dosutil.mk
 include pubs/pubs.mk
 TEST_UNIT_GATES += test-pubs-build test-pubs-honesty
 TEST_EMU_GATES += test-pubs-screens
+
+# EDLIN (initech-udr1; DEBUG is a separate lane).
+include harness/edlin/edlin.mk
