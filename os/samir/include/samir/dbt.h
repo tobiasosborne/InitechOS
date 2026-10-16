@@ -202,6 +202,9 @@ uint32_t dbt_next_free(const dbt_file *f);
  *      recipe step 1), sec 6 (block-0 tail is don't-care / NORMALIZE).
  * ----------------------------------------------------------------------- */
 int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out);
+/* Open an existing III+ companion for append, without truncating its memos.
+ * Ref: dbt.md ss8 writer recipe; used by dbf_replace (initech-1pd7). */
+int dbt_open_rw(samir_pal_t *pal, const char *name, dbt_file **out);
 
 /* -----------------------------------------------------------------------
  * dbt_append: append a new memo to an open, writable .dbt.

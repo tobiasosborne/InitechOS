@@ -147,6 +147,10 @@ static int concat_plus(xb_ctx *ctx, const xb_val *a, const xb_val *b,
     uint32_t lb = b->u.c.len;
     uint32_t tot = la + lb;
     char *dst;
+    /* Using III+ U7-5: + overflow is 77, not SPACE's 59 (8w5e/u468). */
+#ifndef SAMIR_CORE_MUTATE_CONCAT_PLUS
+    if (tot > 254u) return fail(err, XBEE_CONCAT_PLUS);
+#endif
     if (tot == 0) {
         *out = xb_c("", 0);
         *err = XBEE_OK;
@@ -180,6 +184,10 @@ static int concat_minus(xb_ctx *ctx, const xb_val *a, const xb_val *b,
     char *dst;
     uint32_t off;
     uint32_t k;
+    /* Using III+ U7-5: - overflow has its own catalog code, 76. */
+#ifndef SAMIR_CORE_MUTATE_CONCAT_MINUS
+    if (tot > 254u) return fail(err, XBEE_CONCAT_MINUS);
+#endif
     if (tot == 0) {
         *out = xb_c("", 0);
         *err = XBEE_OK;

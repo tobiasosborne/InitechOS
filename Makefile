@@ -2220,12 +2220,12 @@ test-samir-value: $(TEST_SAMIR_VALUE)
 # ($(DBASE3_DECOMP)): missing fixtures FAIL LOUD unless SKIP_DBASE3_DECOMP=1
 # explicitly opts out. Tier-0 still runs with that opt-out. The mutant perturbs the invariant-1b
 # record_length check (reclen off-by-one) so a valid golden fails dbf_open (Rule 6).
-$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-header
 test-dbf-header: $(TEST_DBF_HEADER)
@@ -2249,12 +2249,12 @@ test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
 # length/dec descriptors. The mutant decodes at a 48-byte (dBASE-7) stride
 # instead of 32, shifting every field after the first so a non-type byte fails
 # the C/N/D/L/M validation -> RED (Rule 6).
-$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_STRIDE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-fields
 test-dbf-fields: $(TEST_DBF_FIELDS)
@@ -2278,20 +2278,20 @@ test-dbf-fields-mutant: $(TEST_DBF_FIELDS_MUT)
 # field per its type (C/N/D/L + M block-ptr) + the delete flag. The mutant shifts
 # the record offset by +1 (consumes the delete-flag byte as field data) so every
 # field decodes shifted -> a non-flag byte fails the 0x20/0x2A check -> RED (Rule 6).
-$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECOFF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 # P1 initech-jf8p mutant: restores the pre-fix eager (+1-form-at-open-time)
 # header_length normalization in dbf_open_common's want_writable branch, so a
 # +2-form file (BANK.DBF/TAX.DBF) opened dbf_open_rw truncates its true
 # on-disk record offset by one byte again. Must drive test_tax_rw_plus2form /
 # test_synthetic_plus2_rw_roundtrip (in this same test file) RED (Rule 6).
-$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_OPENRW_EAGER_HDRLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-read
 test-dbf-read: $(TEST_DBF_READ)
@@ -2328,12 +2328,12 @@ test-dbf-read-openrw-hdrlen-mutant: $(TEST_DBF_READ_MUT2)
 # (the independence barrier; the host oracle invokes python3 via system(),
 # FAIL LOUD if absent; SKIP_REFERENCE_TOOLS=1 opts out) + golden masked-cmp. The mutant drops the 0x80 memo bit
 # (emits 0x03 where 0x83 required) -> a memo schema reads back has_memo=false -> RED.
-$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_VERSION -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-roundtrip
 test-dbf-roundtrip: $(TEST_DBF_ROUNDTRIP)
@@ -2358,12 +2358,12 @@ test-dbf-roundtrip-mutant: $(TEST_DBF_ROUNDTRIP_MUT)
 # overflow, cross-type -> mismatch) + deterministic PACK (survivors in original
 # order). The mutant writes the live flag 0x20 where delete needs 0x2A -> the
 # deleted state + PACK survivor set go wrong -> RED (Rule 6).
-$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_DELFLAG -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-mutate
 test-dbf-mutate: $(TEST_DBF_MUTATE)
@@ -2479,7 +2479,7 @@ test-ndx-seek-mutant: $(TEST_NDX_SEEK_MUT)
 # links the evaluator for key extraction; the engine codec ndx.c does NOT. Multi-
 # level (3-level) interior packing is corpus-OPEN -> ndx_build fails loud
 # NDX_ERR_PAGE_OVF (no golden to ground it). Mutant: 50/50 leaf split -> RED.
-NDX_BUILD_ENG := $(SAMIR_NDX_SRC) $(SAMIR_DBF_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+NDX_BUILD_ENG := $(SAMIR_NDX_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_NDX_BUILD): $(DBF_DIFF_DIR)/test_ndx_build.c $(ORACLE_POLICY_H) $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -27367,9 +27367,9 @@ $(SAMIR_COM_MUT): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pa
 #     intermediate, NOT committed. ---
 MINT_CLIENTS_BIN := $(BUILD)/mint_clients_dbf
 CLIENTS_DBF      := $(BUILD)/CLIENTS.DBF
-$(MINT_CLIENTS_BIN): $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(MINT_CLIENTS_BIN): $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 $(CLIENTS_DBF): $(MINT_CLIENTS_BIN) | $(BUILD)
 	@$(MINT_CLIENTS_BIN) $@
 	@printf '>>> CLIENTS.DBF: minted %s (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)\n' "$@"
@@ -27835,7 +27835,7 @@ MINT_INVOICE_BIN     := $(BUILD)/mint_invoice_dbf
 MINT_INVOICE_FIX_BIN := $(BUILD)/mint_invoice_dbf_fix
 INVOICE_DBF          := $(BUILD)/INVOICE.DBF
 INVOICE_FIX_DBF      := $(BUILD)/INVOICE.fix.dbf
-MINT_INVOICE_DEPS    := $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+MINT_INVOICE_DEPS    := $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 $(MINT_INVOICE_BIN): $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS)
@@ -31967,4 +31967,68 @@ test-scrapbook-route-mutant: $(BUILD)/test_scrapbook_mut_DA_MUT_PASTE_WRONG_PAGE
 	 grep -q 'checks,' $$b.log && grep -q "^RED-REASON $$why:" $$b.log || { cat $$b.log; exit 1; }; \
 	 printf '>>> test-scrapbook-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$b.log)"; done
 TEST_UNIT_GATES += test-notepad-route-mutant test-scrapbook-route-mutant
+
+# samir-core-hardening: authored safety properties + period error catalog.
+SAMIR_CORE_SRC := $(DBF_DIFF_DIR)/test_samir_core.c
+SAMIR_CORE_ENG := $(sort $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC))
+SAMIR_CORE_RULES := DBF_SIZE DATE_WIDTH MEMO_POINTER DBT_SPAN NDX_SIZE NDX_BUILD_SIZE NDX_DUP_DESCENT MEMVAR_RECLAIM CONCAT_PLUS CONCAT_MINUS FILE_NEEDS_USE
+SAMIR_CORE_MUTS := $(addprefix $(BUILD)/test_samir_core_,$(SAMIR_CORE_RULES))
+$(BUILD)/test_samir_core: $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG)
+$(SAMIR_CORE_MUTS): $(BUILD)/test_samir_core_%: $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_CORE_MUTATE_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG)
+.PHONY: test-samir-core test-samir-core-mutants test-samir-core-emu test-samir-core-emu-mutants
+test-samir-core: $(BUILD)/test_samir_core
+	@$<
+test-samir-core-mutants: $(SAMIR_CORE_MUTS)
+	@set -e; for rule in $(SAMIR_CORE_RULES); do \
+	  log=$(BUILD)/samir-core-$$rule.log; set +e; $(BUILD)/test_samir_core_$$rule > $$log 2>&1; rc=$$?; set -e; \
+	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log || { cat $$log; exit 1; }; \
+	  printf 'test-samir-core-mutants: %s correctly RED: ' $$rule; grep -m1 "FAIL .*$$rule:" $$log; \
+	done
+	@printf 'test-samir-core-mutants: GREEN (all named regressions caught)\n'
+$(BUILD)/test_samir_core_emu: $(DBF_DIFF_DIR)/test_samir_core_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) -Iseed -o $@ $<
+SAMIR_CORE_EMU_RULES := CONCAT_PLUS CONCAT_MINUS MEMVAR_RECLAIM
+SAMIR_CORE_COM_MUTS := $(addprefix $(BUILD)/SAMIR_CORE_,$(addsuffix .COM,$(SAMIR_CORE_EMU_RULES)))
+$(SAMIR_CORE_COM_MUTS): $(BUILD)/SAMIR_CORE_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@set -e; d=$(BUILD)/samir_core_$*; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_CORE_MUTATE_$* -c $$src -o $$obj; done; \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
+	@INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(SAMIR_COM)
+test-samir-core-emu-mutants: $(SAMIR_CORE_COM_MUTS) $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@set -e; for rule in $(SAMIR_CORE_EMU_RULES); do \
+	  log=$(BUILD)/samir-core-emu-$$rule.log; set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_CORE_$$rule.COM > $$log 2>&1; rc=$$?; set -e; \
+	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log && grep -q 'triple_fault=0' $(BUILD)/samir-core-emu/report.log && grep -q 'quit_after_found=1' $(BUILD)/samir-core-emu/report.log || { cat $$log; exit 1; }; \
+	  printf 'test-samir-core-emu-mutants: %s correctly RED: ' $$rule; grep -m1 "FAIL .*$$rule:" $$log; \
+	done
+	@printf 'test-samir-core-emu-mutants: GREEN (all guest regressions caught)\n'
+TEST_UNIT_GATES += test-samir-core test-samir-core-mutants
+TEST_EMU_GATES += test-samir-core-emu test-samir-core-emu-mutants
+
+# New golden mint lives in build only; requires the real III+ 1.1 binaries.
+$(BUILD)/samir_core_ref: $(DBF_DIFF_DIR)/samir_core_ref.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+.PHONY: test-samir-core-diff test-samir-core-diff-mutant
+test-samir-core-diff: test-samir-core $(BUILD)/samir_core_ref
+	@command -v dosbox-x >/dev/null || { echo 'missing dosbox-x: real III+ mint required'; exit 1; }
+	@mkdir -p $(BUILD)/samir-core-mint
+	@$(BUILD)/samir_core_ref prepare
+	@cp -f $(DBASE3_DECOMP)/mint/work/DBASE.EXE $(DBASE3_DECOMP)/mint/work/DBASE.OVL $(DBASE3_DECOMP)/mint/work/DBASE.MSG $(DBASE3_DECOMP)/mint/work/DBASEINL.OVL $(BUILD)/samir-core-mint/
+	@cp -f $(BUILD)/core-memo.dbf $(BUILD)/samir-core-mint/MEMO.DBF
+	@cp -f $(BUILD)/core-memo.dbt $(BUILD)/samir-core-mint/MEMO.DBT
+	@rm -f $(BUILD)/samir-core-mint/MINT.TXT $(BUILD)/samir-core-mint/REF.NDX
+	@SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout -k 5 30 dosbox-x -conf $(BUILD)/samir-core-mint/ref.conf -exit > $(BUILD)/samir-core-mint/run.log 2>&1
+	@$(BUILD)/samir_core_ref
+test-samir-core-diff-mutant: test-samir-core-diff $(BUILD)/test_samir_core_NDX_DUP_DESCENT
+	@set +e; $(BUILD)/test_samir_core_NDX_DUP_DESCENT > $(BUILD)/samir-core-diff-mutant-engine.log 2>&1; rc=$$?; set -e; test $$rc = 1
+	@set +e; $(BUILD)/samir_core_ref > $(BUILD)/samir-core-diff-mutant.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'FAIL .*same-key append/split differential' $(BUILD)/samir-core-diff-mutant.log && grep -q 'checks,' $(BUILD)/samir-core-diff-mutant.log || { cat $(BUILD)/samir-core-diff-mutant.log; exit 1; }; \
+	 printf 'test-samir-core-diff-mutant: GREEN (NDX_DUP_DESCENT correctly RED: same-key append/split differential vs real III+)\n'
+	@$(BUILD)/test_samir_core > $(BUILD)/samir-core-restored.log
+	@$(BUILD)/samir_core_ref
+TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 
