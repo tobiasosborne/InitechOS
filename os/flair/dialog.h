@@ -333,8 +333,8 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
  * Then draws each item in the item list:
  *   statText  -> text_draw (Chicago font, left-aligned within item rect).
  *   editText  -> text_draw (the current editBuf content) + cursor.
- *   ctrlItem  -> draw default ring/moat when selected by defaultItem, then
- *                DrawControl(dp->window.port, item->ctrl).
+ *   ctrlItem  -> DrawControl, then the default ring/moat when selected by
+ *                defaultItem (the sampled corner moat overlaps the button).
  *   userItem  -> no-op (caller handles).
  *   iconItem  -> no-op (reserved).
  *

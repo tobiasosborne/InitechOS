@@ -323,12 +323,18 @@ static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 
 /* Apply a signed 8-bit delta (packed as int8_t in a uint8_t slot) to a
  * coordinate and clamp to [0, max-1]. Returns the new clamped position. */
+unsigned flair_mouse_tracking=1;
+unsigned flair_double_click_ticks=20;
+
 #ifdef __GNUC__
 __attribute__((unused))
 #endif
 static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
 {
-    int32_t next = (int32_t)cur + (int32_t)delta;
+    int32_t step=(int32_t)delta;
+    if(flair_mouse_tracking==0)step=step/2+(step%2);
+    if(flair_mouse_tracking==2)step*=2;
+    int32_t next = (int32_t)cur + step;
     if (next < 0)           next = 0;
     if (next >= (int32_t)max) next = (int32_t)max - 1;
     return (int16_t)next;

@@ -385,6 +385,12 @@ void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
 /* About This Computer (bead initech-tdnl.47): the bound arena's size and
  * its largest free block, in paragraphs, read off the live MCB chain.
  * Returns 0 (all 0) when no arena is bound or the chain is corrupt. */
+/* R4.5: expose the same ONE MCB walk's total free for Memory's system usage. */
+int int21_mcb_usage(uint32_t *total,uint32_t *free,uint32_t *largest) {
+    *total=*free=*largest=0;
+    if(!g_arena_bound || !mcb_stats(&g_arena,free,largest))return 0;
+    *total=g_arena.total_paras;return 1;
+}
 int int21_mcb_stats(uint32_t *total_paras, uint32_t *largest_free_paras)
 {
     uint32_t fr = 0u;

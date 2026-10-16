@@ -75,6 +75,8 @@
 static const MenuBar *clock_bar;
 static char clock_text[9];
 static unsigned clock_minute;
+static int clock_enabled=1;
+void MenuClock_enable(int enabled) {clock_enabled=enabled;}
 
 int MenuClock_format(unsigned hour, unsigned minute, char out[9])
 {
@@ -127,6 +129,7 @@ void MenuClock_draw(GrafPort *port, const region_t *clip)
     rgn_rect_t area = { 1, (int16_t)((int)bm->width - 120),
                        18, (int16_t)((int)bm->width - 40) };
     blitter_fill_rect_clipped(bm, area, face, clip);
+    if (!clock_enabled) return;
     text_clip_t tk = { clip, 0, 0, 0, 0, 0 };
     (void)text_draw_run(bm, right - text_measure(FONT_CHICAGO, clock_text),
                         FLAIR_MENU_TITLE_VPAD, clock_text, FONT_CHICAGO, 0,

@@ -42,7 +42,7 @@ else
         if mdir -i "$img" "::$path" >/dev/null 2>&1; then fail 'writable purge control survived'; fi
     done
     # R4.4 tdnl.18: two additional writable leaves, NOTEPAD/SCRAPBK.EXE.
-    for leaf in TRASH/APPS/NOTEPAD.EXE TRASH/APPS/SCRAPBK.EXE; do
+    for leaf in TRASH/APPS/NOTEPAD.EXE TRASH/APPS/SCRAPBK.EXE TRASH/APPS/CPANELS.EXE; do
         if mdir -i "$img" "::$leaf" >/dev/null 2>&1; then fail 'writable DA purge control survived'; fi
     done
     for leaf in AUTOEXEC.BAT $(sed 's#^#DOS/#' spec/dos_folder_externals.txt); do
@@ -50,7 +50,7 @@ else
         mcopy -i "$img" "::$leaf" - > "$out/control.got" || fail 'DOS control disappeared'
         cmp -s "$out/control.want" "$out/control.got" || fail 'DOS control changed'
     done
-    grep -qx 'FINDER-TRASH-EMPTIED purged=16 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
+    grep -qx 'FINDER-TRASH-EMPTIED purged=17 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
 fi
 grep -qx 'FINDER-LOCKED-ALERT' "build/$name.serial" || fail 'visible message missing'
 grep -q 'OK=1' "$out/emu.report" || fail 'emulator did not complete'

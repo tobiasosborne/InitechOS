@@ -78,7 +78,8 @@
 #include "window.h"            /* WindowMgr + NewWindow (-Ios/flair)           */
 #include "desktop.h"           /* desktop_paint_all / _damage                  */
 #include "desk_icons.h"        /* the LOCKED strikes (-Ispec/assets)           */
-#include "finder_desktop.h"    /* the module under test                        */
+#include "finder_desktop.h"
+#include "event.h"    /* the module under test                        */
 #include "test_assert.h"       /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)     */
 
 TEST_HARNESS();
@@ -338,6 +339,18 @@ static void leg_marquee(void)
 static void leg_dblclick(void)
 {
     finder_click_track_t t;
+
+    /* tdnl.19: the SAME classifier uses the runtime Mouse preference. A
+     * 15-tick pair is slow at Fast(10), accepted at Normal(20)/Slow(40). */
+    const unsigned intervals[]={10,20,40};
+    for(unsigned i=0;i<3;i++) {
+        flair_double_click_ticks=intervals[i];finder_click_reset(&t);
+        (void)finder_click_classify(&t,0,100,100,1000);
+        CHECK(finder_click_classify(&t,0,100,100,1015)==
+              (i==0?FINDER_CLICK_SINGLE:FINDER_CLICK_DOUBLE),
+              "L6 runtime double-click preference reaches real classifier");
+    }
+    flair_double_click_ticks=20;
 
     /* Stream 1: two clicks on icon 0, 20 ticks apart, 2px/1px slop => DOUBLE.
      * Expected stream: SINGLE, DOUBLE. */

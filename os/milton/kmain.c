@@ -4763,7 +4763,7 @@ static int sf_run(flair_live_ctx_t *ctx, const boot_info_t *bi, sf_ui_t *u,
                     int row = u->top + (ev.where.v - ly - 1) / SF_ROW_H;
                     if (row < g_sf.count) {
                         if (row == last_row &&
-                            ev.when - last_click <= (uint32_t)FINDER_DBLCLICK_TICKS)
+                            ev.when - last_click <= (uint32_t)flair_double_click_ticks)
                             act = 1;          /* double-click == Open */
                         sf_select(u, row);
                         last_row = row;
@@ -6680,6 +6680,7 @@ void kernel_main(void)
         serial_putu((uint32_t)sizeof(FlairScrap));
         serial_putc('\n');
         tbx_bind(&th);
+        tbx_preferences_boot(1024u+b.ext_mem_kb);
         idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
                      (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
         panic_set_fault_hook(tbx_fault_triage);
@@ -6980,6 +6981,16 @@ void kernel_main(void)
             int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
                                     (uint32_t)FLAIR_TEN_WNE_SLICE);
             flair_live_cursor_track(&ev);
+            tbx_preferences_tick();
+            if(tbx_preferences_dirty()) {
+                for(WindowPtr w=ctx.wm->front;w;w=w->nextWindow)
+                    WindowMgr_invalidate(ctx.wm,w,region_get_bbox(w->contRgn));
+                desktop_paint_all(ctx.wm,&ctx.off,ctx.comp);
+                flair_live_content_phase(&ctx);
+                GrafPort cpbar=ten_barport;cpbar.portBits.bm=ctx.off;
+                MenuClock_draw(&cpbar,(const region_t *)0);
+                flair_desktop_present(&b,&ctx.off);
+            }
 
             uint32_t now = flair_tick_count();
             if (!clock_polled || now - clock_last_poll >= 100u) {
