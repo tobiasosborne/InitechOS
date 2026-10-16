@@ -186,7 +186,7 @@ static void want_ink(int x0, int y0, int x1, int y1, int some, const char *what)
 static icap_cell_t g_cap[ICAP__KINDS];
 static int g_cap_ok;
 
-static void icon_cell(int kind, int x0, int y0, unsigned int bg, const char *what)
+static void icon_cell(int kind, int state, int x0, int y0, unsigned int bg, const char *what)
 {
     int d;
     if (!g_cap_ok) {
@@ -198,7 +198,7 @@ static void icon_cell(int kind, int x0, int y0, unsigned int bg, const char *wha
         }
         g_cap_ok = 1;
     }
-    d = icap_grade_frame(g_buf, SCRW, SCRH, x0, y0, &g_cap[kind], ICAP_UNSEL, bg, what);
+    d = icap_grade_frame(g_buf, SCRW, SCRH, x0, y0, &g_cap[kind], state, bg, what);
     printf("    %-52s @(%d,%d): %d/1024 cells differ from the capture\n", what, x0, y0, d);
     if (d) {
         fprintf(stderr, "ppm_flair_trash_check: FAIL leg %s -- %s: %d/1024 cells differ "
@@ -209,12 +209,14 @@ static void icon_cell(int kind, int x0, int y0, unsigned int bg, const char *wha
 
 static void trash_full(void)
 {
-    icon_cell(ICAP_TRASH_FULL, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
+    icon_cell(ICAP_TRASH_FULL, ICAP_UNSEL, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
 }
 
-static void trash_empty(void)
+/* `state`: the emptied leg's Trash was double-clicked open, so it is the
+ * SELECTED can (the captured selected form); the locked leg's is not. */
+static void trash_empty(int state)
 {
-    icon_cell(ICAP_TRASH, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "EMPTY Trash (TRASH)");
+    icon_cell(ICAP_TRASH, state, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "EMPTY Trash (TRASH)");
 }
 
 /* The Empty Trash confirm's caution icon (tdnl.87): the iconItem at the
@@ -224,7 +226,7 @@ static void trash_empty(void)
 #define CAU_Y 100
 static void caution(void)
 {
-    icon_cell(ICAP_CAUTION, CAU_X, CAU_Y, (flair_canon_rgb((unsigned char)CIDX_PLAT_FACE) & 0x00FFFFFFu), "the CAUTION icon");
+    icon_cell(ICAP_CAUTION, ICAP_UNSEL, CAU_X, CAU_Y, (flair_canon_rgb((unsigned char)CIDX_PLAT_FACE) & 0x00FFFFFFu), "the CAUTION icon");
     want_ink(AL_L + AL_BORDER + 1, TXT_Y0, CAU_X, TXT_Y0 + 48, 0, "nothing left of the icon");
     want_ink(CAU_X + 32, TXT_Y0, TXT_X0 - 2, TXT_Y0 + 48, 0, "nothing between the icon and the text");
     want_ink(CAU_X, TXT_Y0, CAU_X + 32, CAU_Y, 0, "nothing above the icon");
@@ -332,13 +334,13 @@ int main(int argc, char **argv)
                  strcmp(g_leg, "alert") == 0, "Cancel only in confirmation");
         want((OK_L + OK_R) / 2, BT_T - 3, CIDX_BLACK, "OK default ring (InsetRect -3)");
         want((CA_L + CA_R) / 2, BT_T - 3, CIDX_PLAT_FACE, "Cancel has NO ring");
-        if (strcmp(g_leg, "locked") == 0) trash_empty(); else trash_full();
+        if (strcmp(g_leg, "locked") == 0) trash_empty(ICAP_UNSEL); else trash_full();
     } else {
         want(AL_L + AL_BORDER / 2, 140, CIDX_WHITE,
              "the alert is gone: its left band repainted by the Trash window content");
         want(300, AL_B - 1 - AL_BORDER / 2, CIDX_WHITE,
              "the alert is gone: its bottom band repainted by the Trash window content");
-        trash_empty();
+        trash_empty(ICAP_SEL);
     }
     free(g_buf);
     if (g_fail) {

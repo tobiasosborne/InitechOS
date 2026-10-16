@@ -20507,7 +20507,7 @@ test-flair-file-ops-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DROP_CH
 	printf '>>> test-flair-file-ops-mutant: TRASH_NO_STAGE correctly RED (%s)\n' "$$out"
 	$(call fo-boot,$(BUILD)/flair_tenants_mut_desk_no_hilite.img,flair_fileops_mut_nohilite,$(BUILD)/flair_fileops_mut_nohilite_data.img,$(FLAIR_FILEOPS_HOVER_SPEC),FINDER-DROP-HILITE name=APPS,1)
 	@if $(PPM_FLAIR_DROP_CHECK_BIN) $(BUILD)/flair_fileops_mut_nohilite.ppm > $(BUILD)/flair_fileops_mut_nohilite.grade 2>&1; then printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE PASSED the mid-drag grader -- decoration\n'; exit 1; fi
-	@grep -q 'HIGHLIGHTED #777777' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
+	@grep -q 'APPS face pixel is the HIGHLIGHTED #545487' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
 	@printf '>>> test-flair-file-ops-mutant: NO_HILITE correctly RED (the target body is not darkened)\n'
 	@printf '>>> test-flair-file-ops-mutant: green (both emu mutants RED for the named reason)\n'
 
@@ -21337,7 +21337,7 @@ test-flair-finder-follow-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DI
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin $(BUILD)/flair_follow_mut_abs.ppm > $(BUILD)/flair_follow_mut_abs.grade 2>&1; then printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS PASSED the moved-window grader -- decoration\n'; exit 1; fi
 	@# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): README.TXT's cell is
 	@# (44,86) since the content starts at L+6, so the moved cell is (144,206).
-	@grep -q 'README.TXT DOC sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
+	@grep -q 'README.TXT DOC UNSEL sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
 	@printf '>>> test-flair-finder-follow-mutant: ABS_COORDS correctly RED (README.TXT is not drawn at the moved cell (144,206))\n'
 	@printf '>>> test-flair-finder-follow-mutant: green\n'
 
@@ -23143,7 +23143,18 @@ RECORD_SPEC_shutdown   = $(FLAIR_SHUTDOWN_SPEC)
 RECORD_MARKER_shutdown = FLAIR-SHUTDOWN-SAFE
 RECORD_IMAGE_shutdown  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_shutdown = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown
+# finder_icons (beads initech-tdnl.53 / tdnl.74 / tdnl.87; Rule 14 -- WL-0140):
+# the Platinum icon art, live: the volume is opened (it darkens, selected),
+# the APPS folder is opened, its window dragged to (250,180) showing the
+# APPLICATION and DOCUMENT art, and README.TXT is selected (darkened) beside
+# the FOLDER -- FLAIR_FINDER_ICONS_SPEC on the DOUBLE-CLICK record image, the
+# frame test-flair-finder-icons grades cell for cell. (empty_trash, above,
+# re-recorded after the merge shows the FULL can and the caution icon.)
+RECORD_SPEC_finder_icons   = $(FLAIR_FINDER_ICONS_SPEC)
+RECORD_MARKER_finder_icons = $(FLAIR_ICONS_SCENE_MARK)
+RECORD_IMAGE_finder_icons  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_finder_icons = 300
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
