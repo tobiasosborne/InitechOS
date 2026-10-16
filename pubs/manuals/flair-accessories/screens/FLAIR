@@ -1,0 +1,46 @@
+# FLAIR screen captures of this book (pubs/screens/flair_capture.sh):
+#   name|marker[#N]|crop[|proves]   crop = full | x,y,w,h | text;
+#   proves = the operation markers the trace must put on serial
+# The trace of each is <name>.mouse (qemu_harness --mouse tokens; the
+# comments derive every move).  The pointer starts at (320,240).  The
+# marker is a serial line the shell prints AFTER the screen is drawn
+# (FLAIR-CURSOR x= y=: os/milton/kmain.c "Marker is emitted AFTER the
+# final-LFB draw completes"; FLAIR-MENU-DROP: captured while the button is
+# held).  `make pubs-flair-screens` writes the captures; `make
+# test-pubs-flair-screens` re-captures and compares them byte for byte.
+a_calc|FLAIR-CURSOR x=500 y=450|250,80,140,200|APPLE-LAUNCH
+a_calcsum|FLAIR-CURSOR x=500 y=452|262,88,116,180
+a_calcchain|FLAIR-CURSOR x=500 y=453|262,88,116,180
+a_calcclick|FLAIR-CURSOR x=500 y=454|262,88,116,180
+a_calcfile|FLAIR-MENU-DROP menu=129|0,0,200,70
+a_calcedit|FLAIR-MENU-DROP menu=130|0,0,220,140
+a_text|FLAIR-CURSOR x=300 y=310|full|TENANT-LOAD
+a_textfile|FLAIR-MENU-DROP menu=129|0,0,240,210
+a_textedit0|FLAIR-MENU-DROP menu=130|0,0,240,150
+a_textsave|FLAIR-CURSOR x=300 y=313|130,100,380,280|TENANT-SF
+a_textopen|FLAIR-CURSOR x=300 y=314|130,100,380,280|TENANT-SF
+a_textask|FLAIR-CURSOR x=300 y=315|120,76,400,130|TENANT-ALERT
+a_icalc|FLAIR-CURSOR x=500 y=455|full
+a_icalcfile|FLAIR-MENU-DROP menu=129|0,0,200,80
+a_filecopy|TENANT-FILECOPY-MID|120,180,400,120|TENANT-FILECOPY
+a_paintfile|FLAIR-MENU-DROP menu=128|0,0,200,130
+a_paintedit|FLAIR-MENU-DROP menu=129|0,0,200,130
+a_paintimage|FLAIR-MENU-DROP menu=130|60,0,200,100
+a_paintlayer|FLAIR-MENU-DROP menu=131|120,0,200,100
+a_paintselect|FLAIR-MENU-DROP menu=132|180,0,200,100
+a_paintview|FLAIR-MENU-DROP menu=133|230,0,200,100
+a_paintwindow|FLAIR-MENU-DROP menu=134|290,0,200,80
+a_painthelp|FLAIR-MENU-DROP menu=135|350,0,200,70
+a_ctenantfile|FLAIR-MENU-DROP menu=129|0,0,200,70
+a_tfx|FLAIR-CURSOR x=500 y=459|full|TENANT-LOAD
+a_tfxfixture|FLAIR-MENU-DROP menu=131|0,0,280,70
+a_tfxinfo|FLAIR-MENU-DROP menu=132|0,0,320,70
+a_tfxedit|FLAIR-MENU-DROP menu=130|0,0,240,130
+applemenu|FLAIR-MENU-DROP menu=1|0,0,240,70
+about|APPLE-ABOUT up|120,76,400,130
+a_icalcentry|FLAIR-CURSOR x=500 y=457|0,40,400,330
+a_textsel|FLAIR-CURSOR x=300 y=311|0,40,400,60
+a_textedit1|FLAIR-MENU-DROP menu=130|0,0,240,150
+a_textpaste|FLAIR-CURSOR x=300 y=312|0,40,400,80|TENANT-SCRAP
+a_paint|FLAIR-CURSOR x=300 y=440|full|FLAIR-DISPATCH
+a_ctenant|FLAIR-CURSOR x=500 y=458|170,150,310,190|TENANT-REGISTER

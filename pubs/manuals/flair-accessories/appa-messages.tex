@@ -1,0 +1,51 @@
+% Appendix A -- Messages: every alert and dialog text of the applications
+% this guide describes, keyed by its first line as the source draws it
+% (\AlertEntry, KIND alert; harness/pubs/flair_alerts.sh is the shipped
+% list).  Sources (Law 1): os/apps/itext/itext.c (say(), guarded(), the
+% Save prompt); os/milton/kmain.c sf_run (the Replace question);
+% os/flair/dialog.h (the FILE COPY title and message), shown by
+% os/apps/calc/calc.c through tbx_file_copy.  Texts quoted character for
+% character (NT-16).
+% GATES: test-flair-itext test-itext-route test-stdfile test-flair-file-copy test-pubs-flair
+\Gates{test-flair-itext, test-itext-route, test-stdfile, test-flair-file-copy,
+  test-pubs-flair}
+\chapter{Messages}
+\index{messages}
+This appendix lists, in alphabetical order, the alerts and boxes that the
+applications in this guide display, each exactly as it appears on the
+screen; words in italic stand for what the application fills in.  The
+\doctitle{FLAIR User's Guide}, Chapter~11, lists the alerts of FLAIR
+itself.
+
+\AlertEntry{FILE COPY}{}{The title of InitechCalc's progress box, shown
+while it saves its tables (Chapter~4).}
+
+\AlertEntry{Replace existing}{Replace existing "\textit{NAME}"?}{InitechText's
+Save dialog box: a file of that name is already in the folder.  Click
+\texttt{Replace} to write the document over it, or \texttt{Cancel} to type
+another name.}
+
+\AlertEntry{Save changes to the document}{Save changes to the document\\
+"\textit{name}" before closing?}{InitechText: the document has changes you
+have not saved.  The second line ends \texttt{before quitting?} when you
+chose \menuitem{Close} or \menuitem{Quit}.  \texttt{Save} saves first;
+\texttt{Don't Save} goes on without saving; \texttt{Cancel} returns to the
+document.}
+
+\AlertEntry{Save this document as:}{}{The prompt of InitechText's Save
+dialog box, above the box for the name.}
+
+\AlertEntry{Saving tables to disk...}{}{The message in InitechCalc's
+\texttt{FILE COPY} box.  Wait until the bar is full; the box goes away by
+itself.}
+
+\AlertEntry{The document could not be opened.}{}{InitechText could not read
+the file.  Click \texttt{OK}, and check that the file is a text file.}
+
+\AlertEntry{The document could not be saved.}{}{InitechText could not write
+the file, usually because the disk is full or the file is locked.  Click
+\texttt{OK}, then make room on the disk, or save under another name.}
+
+\AlertEntry{This document is too large to be}{This document is too large
+to be\\ opened by InitechText.}{The file holds more than the 4096
+characters InitechText can hold.  Click \texttt{OK}.}

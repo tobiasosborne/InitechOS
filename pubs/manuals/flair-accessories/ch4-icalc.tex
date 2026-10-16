@@ -1,0 +1,142 @@
+% Chapter 4 -- InitechCalc (feature topic).  Sources (Law 1):
+% os/apps/calc/calc.c (CALC.EXE: the ledger window "InitechCalc" at
+% (10,65)-(390,360) and the "Pie Chart" window at (400,100)-(635,360); the
+% two columns A and B, three rows; the entry line; calc_format: a negative
+% amount with its minus sign at the end, 570-; the footer total; the five
+% slices and their total from calc_ledger.h; the keys: arrows and Tab end
+% an entry and move, Esc abandons, Backspace erases; the entry is ended on
+% CR only -- the PS/2 table of os/flair/event.c cooks Enter to LF, so Enter
+% does not end it (a defect, flagged below); File: Save ^S -> the FILE COPY
+% box copying APPS\LEDGER.TXT to APPS\TABLES.TXT, Quit ^Q; the close box of
+% either window quits without asking); spec/assets/calc_ledger.json /
+% calc_ledger.h (the locked ledger: the labels, the amounts still
+% TODO_FRAME, the 570- specimen, the $112,276.87 total, the pie weights
+% 40/35/18/14/9 = 116); os/milton/kmain.c flair_live_tenant_filecopy (the
+% modal box: title FILE COPY, the caption, the Platinum bar from 0, filling
+% at PROGRESS_BAR_RATE per cent a second from APPS\MICHAEL.CFG, every event
+% absorbed); os/flair/tbxgate.c tbx_fc_open (the target is created afresh,
+% replacing a TABLES.TXT already there).  The menu is registered against
+% CALC's own bar (flair_app_menus.c).
+% GATES: test-calc-tenant test-calc-spec test-flair-calc test-flair-file-copy test-calc-file-copy-routing test-pubs-flair test-pubs-flair-screens
+\Gates{test-calc-tenant, test-calc-spec, test-flair-calc, test-flair-file-copy,
+  test-calc-file-copy-routing, test-pubs-flair, test-pubs-flair-screens}
+\chapter{InitechCalc}
+\index{InitechCalc}
+
+InitechCalc keeps the quarterly ledger and draws its pie chart.  It opens
+with the ledger already filled in, so that you can check the figures,
+change them, and save the tables to the disk.
+
+\section{Opening InitechCalc}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and double-click \file{CALC.EXE}.
+\Result{InitechCalc opens two windows: \texttt{InitechCalc}, the ledger,
+at the left, and \texttt{Pie Chart} at the right.  The lower menu bar shows
+its menus: the Apple menu and \menuname{File}.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:icalc]{a_icalc}{InitechCalc: the ledger
+and the pie chart}
+
+\section{The ledger}
+\index{InitechCalc!ledger}
+The ledger has two columns, \texttt{A} and \texttt{B}, and three rows of
+entries: an item in column A and its amount in column B.  Below them are:
+
+\SideHead{The minus format}A heading and an amount that show how the
+ledger writes a negative amount: with its minus sign at the end,
+\texttt{570-}.  Every negative amount in the ledger is written this way.
+
+\SideHead{The entry line}The line on which what you type appears before you
+place it in a cell.
+
+\SideHead{The total}The total of the quarter, \texttt{\$112,276.87}.
+
+\draft{the amounts of the three ledger rows, and the empty entry line,
+show the placeholder TODO\_FRAME until their values are locked
+(spec/assets/calc\_ledger.json)}
+
+\section{Changing an amount}
+\index{InitechCalc!entering}
+The \term{cell pointer}, a black line above a cell, shows which cell you are
+working in.  It starts at the first row of column A.
+\begin{TaskSteps}
+\Step Press \key{Right Arrow} to move the cell pointer to column B.
+\Step Type the new amount, for example \type{1200}.
+\Result{What you type appears on the entry line.  Press \key{Backspace} to
+correct it, or \key{Esc} to start again.}
+\Step Press \key{Tab}.
+\Result{The amount takes its place in the cell, and the entry line is
+cleared.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:icalcentry]{a_icalcentry}{1200 entered in
+the first row of column B}
+
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{61mm}@{}}
+\textbf{Press} & \textbf{To}\\\hline
+\key{Left Arrow} & place the entry and move to column A\\
+\key{Right Arrow}, \key{Tab} & place the entry and move to column B\\
+\key{Up Arrow}, \key{Down Arrow} & place the entry and move to the row
+above or below\\
+\key{Backspace} & erase the last character of the entry\\
+\key{Esc} & abandon the entry\\
+\end{tabular}
+\end{center}
+An entry that is a number, such as \type{1200} or \type{-570}, is placed as
+a number, and a negative number is shown with its minus sign at the end; any
+other entry is placed as text.  The cell pointer moves within the three
+rows of the two columns.
+
+\draft{InitechCalc ends an entry on a carriage return, and the keyboard
+sends Enter as a line feed: pressing Enter does not place the entry in this
+version (calc.c, event.c)}
+
+\section{The pie chart}
+\index{InitechCalc!pie chart}\index{pie chart}
+The \texttt{Pie Chart} window shows the quarter's five shares as the
+slices of a pie, shaded so that neighbouring slices differ, with the share
+of each slice beside it: 40\%, 35\%, 18\%, 14\% and 9\%.  Below them is
+their total, 116\%.
+
+\section{Saving the tables}
+\index{InitechCalc!saving}\index{FILE COPY}
+\Operation{TENANT-FILECOPY}
+\begin{TaskSteps}
+\Step Choose \menuitem{Save} from the \menuname{File} menu, or press
+\key{Ctrl-S}.
+\Result{The \texttt{FILE COPY} box appears in the middle of the screen,
+with the message \texttt{Saving tables to disk...} and a progress bar.  The
+bar fills from left to right as InitechCalc copies its ledger file,
+\file{LEDGER.TXT}, to the file \file{TABLES.TXT} in the \file{APPS}
+folder.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:filecopy]{a_filecopy}{Saving tables to
+disk: the FILE COPY box half way}
+
+While the box is on the screen the computer is busy with the copy: clicks
+and keys are ignored, and the box cannot be moved or cancelled.  When the
+bar is full the box goes away by itself and you can go on working.
+
+The speed of the bar is set by the file \file{MICHAEL.CFG} in the
+\file{APPS} folder, whose line \file{PROGRESS\_BAR\_RATE=20} makes the bar
+fill 20 per cent of its length each second, so that a save takes five
+seconds.  Each save writes \file{TABLES.TXT} afresh, replacing the copy
+made by the save before.
+
+\section{Quitting InitechCalc}
+Choose \menuitem{Quit} from the \menuname{File} menu, press \key{Ctrl-Q},
+or click the close box of either window.  InitechCalc quits at once, and
+both its windows close.  The amounts you typed are not kept: the ledger
+opens with its own figures the next time.
+
+\section{The File menu}
+\FlairScreen[scale=4, label=fig:icalcfile]{a_icalcfile}{InitechCalc's File
+menu}
+\begin{MenuReference}{CALC}{File}
+\MenuItemEntry{Save}{S}{on}{Saves the tables to the disk, under the
+\texttt{FILE COPY} box.}
+\MenuItemEntry{Quit}{Q}{on}{Quits InitechCalc.}
+\end{MenuReference}

@@ -1,0 +1,28 @@
+# a_calcclick: 7 + 8 = clicked on the Calculator's keys.
+# go (22,10) the apple in the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10)
+l1
+# hold (22,51) Calculator
+m0:41
+# release at (22,51)
+l0
+WTENANT-REGISTER
+# go (284,175) the 7 key
+m100:100,m100:24,m62:0
+# click at (284,175)
+l1,l0
+# go (350,197) the + key
+m66:22
+# click at (350,197)
+l1,l0
+# go (306,175) the 8 key
+m-44:-22
+# click at (306,175)
+l1,l0
+# go (350,230) the = key
+m44:55
+# click at (350,230)
+l1,l0
+# go (500,454) 
+m100:100,m50:100,m0:24

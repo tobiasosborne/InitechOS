@@ -1,0 +1,59 @@
+% Chapter 1 -- The Apple Menu (What's New in System 7 "Apple Menu Items"
+% topic form, apple-macintosh.md Sec 8.3).  Sources (Law 1):
+% os/flair/apple_menu.c and spec/apple_menu_items.h (About This
+% Computer..., a divider, then each accessory whose program is installed,
+% in alphabetical order: "omit, never gray"); os/milton/kmain.c
+% (flair_live_apple_installed asks the disk each time the menu is pulled
+% down; flair_live_about: BANNER_LINE1, Built-in Memory = 1024K + the
+% extended memory stage2 found, Largest Unused Block from the InitechDOS
+% memory chain; APPLE-LAUNCH through the same launch verb as a
+% double-click).  The menu itself is registered in the FLAIR User's Guide,
+% Chapter 8.
+% GATES: test-apple-menu test-flair-apple-menu test-flair-calcda test-pubs-flair-screens
+\Gates{test-apple-menu, test-flair-apple-menu, test-flair-calcda,
+  test-pubs-flair-screens}
+\chapter{The Apple Menu}
+
+The Apple menu, at the left end of the upper menu bar, is available
+whatever you are doing.  It tells you about your computer, and it lists the
+accessories on the data disk, so that you can open one without going back
+to the Finder.
+
+\FlairScreen[scale=4, label=fig:applemenu]{applemenu}{The Apple menu}
+
+\section{About This Computer}
+\index{About This Computer}
+\Operation{APPLE-ABOUT}
+Choose \menuitem{About This Computer...} to see an alert box with three
+lines of information.
+
+\FlairScreen[label=fig:about]{about}{About This Computer}
+
+\SideHead{Version}The first line names the operating system on the
+startup disk and its version: \texttt{InitechDOS Version 3.30}.  Quote it
+when you call the Help Desk.
+
+\SideHead{Built-in Memory}All the memory of the computer, in kilobytes:
+the first 1024K and the extended memory above it.
+
+\SideHead{Largest Unused Block}The largest piece of the memory InitechDOS
+gives to its programs that is free at this moment.  When FLAIR has not
+handed that memory to InitechDOS, the line reads \texttt{none}.
+
+Click \texttt{OK} or press \key{Enter} to put the alert away.
+
+\section{Accessories}
+\index{accessories}
+Below the line, the Apple menu lists one command for each accessory whose
+program is on the data disk, in alphabetical order.  The data disk as
+delivered holds one accessory, the Calculator (Chapter~2), whose program is
+\file{CALCULAT.EXE} in the \file{APPS} folder.
+
+FLAIR looks at the disk each time you pull the menu down.  If an
+accessory's program is not in its folder, the accessory is simply not
+listed --- FLAIR never shows a command you cannot use.  If the menu holds
+no accessories, the line is left out too.
+
+Choosing an accessory opens it just as double-clicking its icon would.  An
+accessory is an application from the disk, so it does not open while
+another one is open: quit the other application first.

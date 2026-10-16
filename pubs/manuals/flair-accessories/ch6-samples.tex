@@ -1,0 +1,94 @@
+% Chapter 6 -- The Sample Applications (feature topic).  Sources (Law 1):
+% os/apps/ctenant/ctenant.c (CTENANT.EXE, "C Tenant": the window at
+% (180,170)-(470,330) with "A C application, from disk"; a key draws "Key
+% <c>" twice, in the proportional face and in the cell face; a click in the
+% window draws "Click"; File > Quit ^Q; the close box quits);
+% os/apps/tenantfx.asm (TENANTFX.EXE, "TenantFix": the window with "Loaded
+% from disk" / "Click here to quit", a click in it quits; the bar File /
+% Edit / Fixture, Edit all dimmed; Fixture > About TenantFix draws
+% "TenantFix 1.0, a disk app" and adds the Info menu, whose one item
+% "TenantFix 1.0" is dimmed).  The menu entries are registered against the
+% two bars (flair_app_menus.c; flair_inventory.c reads tenantfx.asm).
+% GATES: test-flair-ctenant test-flair-app-launch test-tenant-load test-pubs-flair test-pubs-flair-screens
+\Gates{test-flair-ctenant, test-flair-app-launch, test-tenant-load,
+  test-pubs-flair, test-pubs-flair-screens}
+\chapter{The Sample Applications}
+\index{sample applications}
+
+Two small applications on the data disk show the way a FLAIR application
+behaves: how it opens its window and its menus from the disk, receives the
+keys you press and the clicks you make, and quits.  Use them to check that
+FLAIR loads applications from the data disk correctly, or to see in their
+simplest form the steps every application follows.
+
+\section{C Tenant}
+\index{C Tenant}
+\Operation{TENANT-REGISTER}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and double-click \file{CTENANT.EXE}.
+\Result{A window titled \texttt{C Tenant} opens, with the line \texttt{A C
+application, from disk}.}
+\Step Press a letter key, such as \key{K}.
+\Result{The window shows \texttt{Key k} twice: once in the window's type,
+once in reverse in the fixed-width type of the console.}
+\Step Click inside the window.
+\Result{The window shows \texttt{Click}.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:ctenant]{a_ctenant}{C Tenant after a key and
+a click}
+
+To quit, choose \menuitem{Quit} from its \menuname{File} menu, press
+\key{Ctrl-Q}, or click the close box.
+
+\FlairScreen[scale=4, label=fig:ctenantfile]{a_ctenantfile}{C Tenant's File
+menu}
+\begin{MenuReference}{CTENANT}{File}
+\MenuItemEntry{Quit}{Q}{on}{Quits C Tenant.}
+\end{MenuReference}
+
+\section{TenantFix}
+\index{TenantFix}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and double-click \file{TENANTFX.EXE}.
+\Result{A window titled \texttt{TenantFix} opens, with the lines
+\texttt{Loaded from disk} and \texttt{Click here to quit}.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:tfx]{a_tfx}{TenantFix}
+
+\begin{TaskSteps}[resume]
+\Step Choose \menuitem{About TenantFix} from the \menuname{Fixture} menu.
+\Result{The window shows \texttt{TenantFix 1.0, a disk app}, and a fourth
+menu, \menuname{Info}, joins the menu bar.}
+\Step Click inside the window.
+\Result{TenantFix quits.  Its window closes and the menu bar returns to the
+Finder's.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:tfxfixture]{a_tfxfixture}{TenantFix's
+Fixture menu}
+\FlairScreen[scale=4, label=fig:tfxedit]{a_tfxedit}{TenantFix's Edit menu}
+\FlairScreen[scale=4, label=fig:tfxinfo]{a_tfxinfo}{The Info menu, after
+About TenantFix}
+
+\subsection{File}
+\begin{MenuReference}{TENANTFX}{File}
+\MenuItemEntry{Quit}{Q}{on}{Quits TenantFix.}
+\end{MenuReference}
+\subsection{Edit}
+\begin{MenuReference}{TENANTFX}{Edit}
+\MenuItemEntry{Undo}{Z}{off}{Dimmed.}
+\MenuItemEntry{Cut}{X}{off}{Dimmed.}
+\MenuItemEntry{Copy}{C}{off}{Dimmed.}
+\MenuItemEntry{Paste}{V}{off}{Dimmed.}
+\end{MenuReference}
+\subsection{Fixture}
+\begin{MenuReference}{TENANTFX}{Fixture}
+\MenuItemEntry{About TenantFix}{}{on}{Shows the version line in the window
+and adds the Info menu.}
+\end{MenuReference}
+\subsection{Info}
+\begin{MenuReference}{TENANTFX}{Info}
+\MenuItemEntry{TenantFix 1.0}{}{off}{Dimmed: the menu shows the version.}
+\end{MenuReference}

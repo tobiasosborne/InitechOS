@@ -1,0 +1,123 @@
+% Chapter 2 -- The Calculator (feature topic).  Sources (Law 1):
+% os/apps/calcda/calcda.c (CALCULAT.EXE: the rounded window titled
+% "Calculator", the File menu Close ^W, the Edit menu all dimmed; a click
+% on a key and the key map end in the one calc_press); calc_core.h and
+% calc_core.c (the engine, from 101 probes of the real Mac OS 8.1
+% Calculator: chain arithmetic without precedence, an operator replaces an
+% operator, '=' does not repeat, 13 characters of entry, the 12-character
+% readout, infinity / -infinity / not a number, C / c / NumLock clear,
+% Enter is '=', Escape / Backspace do nothing; calc_cmd_from_key);
+% spec/calcda/calcda_layout.h (18 keys, the readout).  The menu entries
+% are registered against CALCULAT's own bar (flair_app_menus.c).
+% GATES: test-calcda test-flair-calcda test-flair-apple-menu test-pubs-flair test-pubs-flair-screens
+\Gates{test-calcda, test-flair-calcda, test-flair-apple-menu, test-pubs-flair,
+  test-pubs-flair-screens}
+\chapter{The Calculator}
+\index{Calculator}
+
+The Calculator works like a pocket calculator.  You can use it while you
+work in another window, and copy its arithmetic onto paper or into a
+document.
+
+\section{Opening the Calculator}
+\Operation{APPLE-LAUNCH}
+\begin{TaskSteps}
+\Step Choose \menuitem{Calculator} from the Apple menu.
+\Result{The Calculator opens in a small window with rounded corners, near
+the top of the screen.  The lower menu bar changes to the Calculator's
+menus.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:calc]{a_calc}{The Calculator}
+
+You can also open it by double-clicking \file{CALCULAT.EXE} in the
+\file{APPS} folder.  Like every application from the disk, it does not
+open while another one is open.
+
+\section{The parts of the Calculator}
+\SideHead{Display}The box at the top shows the number you are typing, or
+the result.  It holds 12 characters.
+\SideHead{Keys}Eighteen keys: the digits \texttt{0} to \texttt{9}, the
+decimal point, the four operations \texttt{+ - * /}, \texttt{=}, and
+\texttt{C}, which clears the Calculator.
+\SideHead{Close box}Closes the Calculator.  It does not ask anything: the
+Calculator keeps nothing that needs saving.
+
+\section{Working out a sum}
+\index{Calculator!using}
+\begin{TaskSteps}
+\Step Type \type{12+30=} on the keyboard.
+\Result{The display shows \texttt{42}.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:calcsum]{a_calcsum}{12 + 30 = 42}
+
+Clicking the Calculator's keys does exactly what typing does.
+
+\begin{TaskSteps}[resume]
+\Step Click \texttt{7}, \texttt{+}, \texttt{8} and \texttt{=} on the
+Calculator.
+\Result{The display shows \texttt{15}.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:calcclick]{a_calcclick}{7 + 8 = 15, clicked}
+
+\section{The keys on the keyboard}
+\index{Calculator!keys}
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{61mm}@{}}
+\textbf{Press} & \textbf{To}\\\hline
+\key{0} to \key{9}, \key{.} & enter a number\\
+\key{+} \key{-} \key{*} \key{/} & add, subtract, multiply, divide\\
+\key{=} or \key{Enter} & see the result\\
+\key{C} or \key{Num Lock} & clear the Calculator\\
+\end{tabular}
+\end{center}
+Other keys, \key{Esc} and \key{Backspace} among them, do nothing.  To
+correct a number you have typed, clear the Calculator and start the
+calculation again.
+
+\section{How the Calculator works out results}
+\index{Calculator!order of operations}
+The Calculator carries out each operation as you go, from left to right.
+It does not do multiplication and division before addition and
+subtraction: typing \type{2+3*4=} shows \texttt{20}, because 2 + 3 is
+worked out first and then multiplied by 4.
+
+\FlairScreen[scale=4, label=fig:calcchain]{a_calcchain}{2 + 3 * 4 = 20}
+
+\SideHead{Two operations}If you type one operation right after another,
+the second replaces the first: \type{5+*2=} shows \texttt{10}.
+\SideHead{The equals key}\key{=} finishes the calculation.  Pressing it
+again does not repeat the last operation.  Pressing it straight after an
+operation drops that operation: \type{2+=} shows \texttt{2}.
+\SideHead{After a result}Typing a digit or a point after \key{=} starts a
+new number; typing an operation goes on from the result.
+\SideHead{Long numbers}A number you type can have up to 13 characters,
+the point and a leading \texttt{0.} included; more digits are ignored.
+Results that do not fit the 12-character display are shown in powers of
+ten, such as \texttt{1E12} for 1,000,000,000,000 and \texttt{3.3333333E-8}
+for 0.000000033333333.
+\SideHead{Dividing by zero}\type{1/0=} shows \texttt{infinity},
+\type{0-1/0=} shows \texttt{-infinity}, and \type{0/0=} shows \texttt{not a
+number}.  Clear the Calculator, or type a digit, to go on.
+
+\section{The Calculator's menus}
+\FlairScreen[scale=4, label=fig:calcfile]{a_calcfile}{The Calculator's File
+menu}
+\subsection{File}
+\begin{MenuReference}{CALCULAT}{File}
+\MenuItemEntry{Close}{W}{on}{Closes the Calculator.}
+\end{MenuReference}
+\FlairScreen[scale=4, label=fig:calcedit]{a_calcedit}{The Calculator's Edit
+menu}
+\subsection{Edit}
+\begin{MenuReference}{CALCULAT}{Edit}
+\MenuItemEntry{Undo}{Z}{off}{Dimmed.}
+\MenuItemEntry{Cut}{X}{off}{Dimmed.}
+\MenuItemEntry{Copy}{}{off}{Dimmed.  The Calculator does not put its
+display on the Clipboard in this version; write the result down, or type
+it into your document.}
+\MenuItemEntry{Paste}{V}{off}{Dimmed.}
+\MenuItemEntry{Clear}{}{off}{Dimmed.  Use the \texttt{C} key.}
+\end{MenuReference}

@@ -41,6 +41,9 @@ PUBS_FLAIR_ALLOW := harness/pubs/flair.allow
 # The image the FLAIR figures are captured on: the Rule-14 record image of
 # the shipped desktop (pubs/screens/flair_capture.sh says why).
 PUBS_FLAIR_BOOT  := $(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG)
+# ... and, for a figure of the FILE COPY bar in mid-copy, the record image
+# whose bar steps per injected event (flair_capture.sh, image `step`).
+PUBS_FLAIR_STEP  := $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 
 $(PUBS_FLAIR_GREY): harness/pubs/flair_grey.c | $(BUILD)
 	$(CC) $(CFLAGS) -O2 -o $@ $<
@@ -102,13 +105,13 @@ test-pubs-flair test-pubs-flair-mutant:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the FLAIR manuals were NOT checked. This is NOT a pass.\n'
 endif
 
-PUBS_FLAIR_SCREEN_DEPS := $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) $(CONSOLE_TEXT_BIN) \
+PUBS_FLAIR_SCREEN_DEPS := $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(PUBS_FLAIR_STEP) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) $(CONSOLE_TEXT_BIN) \
                           $(PUBS_DIR)/screens/flair_capture.sh spec/assets/clut.json spec/assets/color_canon.json
 pubs-flair-screens: $(PUBS_FLAIR_SCREEN_DEPS)
 	@set -e; for b in $(PUBS_FLAIR_BOOKS); do \
 		d=$(PUBS_DIR)/manuals/$$b/screens; [ -f $$d/FLAIR ] || continue; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) \
-			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens/$$b; \
+			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens/$$b $(PUBS_FLAIR_STEP); \
 		for f in $(PUBS_BUILD)/flair-screens/$$b/*.grey $(PUBS_BUILD)/flair-screens/$$b/*.console; do \
 			[ -f "$$f" ] && cp -f "$$f" $$d/; done; \
 		printf '>>> pubs-flair-screens: %s updated -- review `git diff %s`\n' "$$b" "$$d"; done
@@ -117,7 +120,7 @@ test-pubs-flair-screens: $(PUBS_FLAIR_SCREEN_DEPS) $(PUBS_GATE)
 		d=$(PUBS_DIR)/manuals/$$b/screens; [ -f $$d/FLAIR ] || continue; \
 		rm -rf $(PUBS_BUILD)/flair-screens-check/$$b; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) \
-			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens-check/$$b; \
+			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens-check/$$b $(PUBS_FLAIR_STEP); \
 		for t in $(PUBS_BUILD)/flair-screens-check/$$b/*.grey $(PUBS_BUILD)/flair-screens-check/$$b/*.console; do \
 			[ -f "$$t" ] || continue; \
 			$(PUBS_GATE) same SCREEN-DRIFT $$d/$$(basename $$t) $$t || exit 1; n=$$((n + 1)); done; \

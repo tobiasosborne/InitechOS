@@ -1,0 +1,26 @@
+# a_ctenant: C Tenant opened; a key typed and a click in its window.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (111,82) CTENANT.EXE
+m-100:-8,m-100:0,m-61:0
+# double-click at (111,82)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# key k
+kk
+# go (300,300) inside the C Tenant window
+m100:100,m89:100,m0:18
+# click at (300,300)
+l1,l0
+# go (500,458) 
+m100:100,m100:58

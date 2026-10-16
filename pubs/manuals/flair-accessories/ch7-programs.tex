@@ -1,0 +1,35 @@
+% Chapter 7 -- Other Programs on the Data Disk.  A pointer chapter: what
+% else FLAIR_FIXTURES ships and where its book is (the files themselves are
+% registered in the FLAIR User's Guide, Appendix A).  Sources (Law 1):
+% harness/fixture_volumes.mk FLAIR_FIXTURES; os/milton/kmain.c
+% finder_surface_open (only .EXE files open from the desktop); the
+% README.TXT of the data volume (harness/diff/fat_diff/fixtures/
+% flagship_readme.txt: "Run them from the DOS prompt").
+% GATES: test-flair-data-volume test-flair-app-launch
+\Gates{test-flair-data-volume, test-flair-app-launch}
+\chapter{Other Programs on the Data Disk}
+
+The \file{APPS} folder holds more programs than the ones this guide
+describes.  Each has its own book.
+
+\SideHead{Initech 123}\file{123.EXE} with its menu file \file{123.MNU}: the
+spreadsheet.  Double-click \file{123.EXE} to open it.  See the
+\doctitle{Initech 123 Reference}.
+
+\SideHead{InitechWord}\file{WORD.EXE}: the word processor.  Double-click it
+to open it.  See the \doctitle{InitechWord Reference}.
+
+\SideHead{InitechDOS programs}\file{ATTRIB.COM}, \file{CHKDSK.COM},
+\file{EDLIN.COM}, \file{LABEL.COM}, \file{TREE.COM} and \file{XCOPY.COM}.
+These run at the InitechDOS command prompt, not on the desktop: choose
+\menuitem{Exit to InitechDOS} from the Finder's \menuname{Special} menu,
+change to the folder with \type{CD APPS}, and type the program's name.  See
+the \doctitle{InitechDOS Reference}.
+
+\SideHead{TPS Report Generator}\file{TPSREP.COM}, with its settings file
+\file{TPSPARM.DAT} and its database \file{TPS.DBF}.  It runs at the
+InitechDOS command prompt.  See \doctitle{TPS Report Generator Operating
+Procedures}.
+
+Appendix~A of the \doctitle{FLAIR User's Guide} lists every file on the
+data disk.

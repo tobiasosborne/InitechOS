@@ -1,0 +1,56 @@
+% FLAIR Accessories Guide -- part 1031-0000-12 (PUB-REF-0001 Sec 12, DS row
+% FLR-ACC).  Family F-MAC; structural model What's New in System 7 (1991):
+% one topic per feature, each a few pages, with figures and pointers to the
+% User's Guide (apple-macintosh.md Sec 1, 5.3, 8.3).  Bead initech-ipu5.11.
+% It documents every shipped accessory and application of the data disk
+% that has no book of its own: the Apple menu and About This Computer, the
+% Calculator, InitechText, InitechCalc (and its FILE COPY box), InitechPaint
+% and the two sample applications.  Every menu item of their bars is
+% registered (initech-flair.sty) and checked against the bars their own
+% sources hand SETMBAR (harness/pubs/flair_app_menus.c) by `make
+% test-pubs-flair`; every figure is a capture of the running desktop
+% (screens/FLAIR).  FLAIR displays no version: no version, part 0000 (D-3).
+\documentclass[apple]{initech-manual}
+\usepackage{initech-flair}
+\FlairBook{flair-accessories}
+
+\ProductName{FLAIR}
+\ProductVersion{}
+\DocTitle{Accessories Guide}
+\PartNumber{1031-0000-12}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to the accessories and applications
+  delivered with FLAIR on the InitechOS data disk, and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+% Operator directive (lane brief, 2026-10-17): the class macro wins once it
+% exists.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\par\medskip}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\FlairMainMatter
+\input{ch1-apple}
+\input{ch2-calculator}
+\input{ch3-itext}
+\input{ch4-icalc}
+\input{ch5-paint}
+\input{ch6-samples}
+\input{ch7-programs}
+\appendix
+\input{appa-messages}
+\printindex
+\FinishBook[1]
+\end{document}

@@ -1,0 +1,74 @@
+% Chapter 5 -- InitechPaint (feature topic).  Sources (Law 1):
+% os/apps/paint/paint.c (PAINT.EXE: REGISTER, the eight-menu bar titled
+% from spec/assets/menu_canon.h with no Apple menu, one white canvas
+% window "Untitled-1" at (330,150)-(630,400), every item dimmed except File
+% > Quit ^Q, the close box quits; PRD Sec 6.5: InitechPaint carries the
+% bar).  The menu entries are registered against PAINT's own bar
+% (flair_app_menus.c); the bar's titles equal the canon string
+% FLAIR_CANON_PHOTOSHOP_MENUBAR (GC-11).
+% GATES: test-paint-tenant test-flair-paint test-pubs-flair test-pubs-flair-screens
+\Gates{test-paint-tenant, test-flair-paint, test-pubs-flair,
+  test-pubs-flair-screens}
+\chapter{InitechPaint}
+\index{InitechPaint}
+
+InitechPaint opens a blank canvas in a document window, under a menu bar of
+eight menus: \menuname{File}, \menuname{Edit}, \menuname{Image},
+\menuname{Layer}, \menuname{Select}, \menuname{View}, \menuname{Window} and
+\menuname{Help}.  In this version of FLAIR the canvas stays blank and every
+command except \menuitem{Quit} is dimmed.
+
+\section{Opening and quitting InitechPaint}
+\Operation{FLAIR-DISPATCH}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and double-click \file{PAINT.EXE}.
+\Result{A canvas window titled \texttt{Untitled-1} opens at the right of
+the screen, and the lower menu bar shows InitechPaint's eight menus.
+InitechPaint's menu bar has no Apple menu; the Apple menu stays in the
+upper bar.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:paint]{a_paint}{InitechPaint}
+
+To quit, choose \menuitem{Quit} from the \menuname{File} menu, press
+\key{Ctrl-Q}, or click the close box of the canvas.
+
+\newcommand\PaintMenu[3]{%
+\section{The #1 menu}
+\FlairScreen[scale=4, label=fig:paint#2]{a_paint#2}{InitechPaint's #1 menu}
+\begin{MenuReference}{PAINT}{#1}
+#3
+\end{MenuReference}}
+\PaintMenu{File}{file}{%
+\MenuItemEntry{New...}{}{off}{Dimmed.}
+\MenuItemEntry{Open...}{}{off}{Dimmed.}
+\MenuItemEntry{Close}{}{off}{Dimmed.  Use the close box of the canvas.}
+\MenuItemEntry{Save}{}{off}{Dimmed.}
+\MenuItemEntry{Quit}{Q}{on}{Quits InitechPaint.}}
+\PaintMenu{Edit}{edit}{%
+\MenuItemEntry{Undo}{}{off}{Dimmed.}
+\MenuItemEntry{Cut}{}{off}{Dimmed.}
+\MenuItemEntry{Copy}{}{off}{Dimmed.}
+\MenuItemEntry{Paste}{}{off}{Dimmed.}
+\MenuItemEntry{Clear}{}{off}{Dimmed.}}
+\PaintMenu{Image}{image}{%
+\MenuItemEntry{Adjust}{}{off}{Dimmed.}
+\MenuItemEntry{Image Size...}{}{off}{Dimmed.}
+\MenuItemEntry{Canvas Size...}{}{off}{Dimmed.}}
+\PaintMenu{Layer}{layer}{%
+\MenuItemEntry{New Layer...}{}{off}{Dimmed.}
+\MenuItemEntry{Delete Layer}{}{off}{Dimmed.}
+\MenuItemEntry{Flatten Image}{}{off}{Dimmed.}}
+\PaintMenu{Select}{select}{%
+\MenuItemEntry{All}{}{off}{Dimmed.}
+\MenuItemEntry{None}{}{off}{Dimmed.}
+\MenuItemEntry{Inverse}{}{off}{Dimmed.}}
+\PaintMenu{View}{view}{%
+\MenuItemEntry{Zoom In}{}{off}{Dimmed.}
+\MenuItemEntry{Zoom Out}{}{off}{Dimmed.}
+\MenuItemEntry{Show Rulers}{}{off}{Dimmed.}}
+\PaintMenu{Window}{window}{%
+\MenuItemEntry{Show Brushes}{}{off}{Dimmed.}
+\MenuItemEntry{Show Layers}{}{off}{Dimmed.}}
+\PaintMenu{Help}{help}{%
+\MenuItemEntry{Paint Help}{}{off}{Dimmed.}}

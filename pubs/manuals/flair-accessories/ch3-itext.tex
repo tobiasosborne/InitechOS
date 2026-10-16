@@ -1,0 +1,197 @@
+% Chapter 3 -- InitechText (feature topic).  Sources (Law 1):
+% os/apps/itext/itext.c (TEXT.EXE: the window "untitled" at (4,44) to
+% (588,476), Geneva 9, text 5 px right of / 4 px below the content corner;
+% the File and Edit menus and their keys; menus_sync: Cut, Copy and Clear
+% only with a selection, Paste only when the Clipboard holds text; Undo,
+% Page Setup..., Print... and Print One Copy dimmed; key(): arrows,
+% Backspace, printable characters, Return a line end, Ctrl chords to the
+% menus only; mouseDown: click, Shift-click, drag selection; Close == Quit;
+% guarded(): the Save changes alert; save / save_as: Standard File, CR line
+% ends; doc_load: CR LF and LF become CR; say(): the three notices; the
+% caret does not blink; the window does not re-wrap when resized);
+% os/flair/textedit.h (FLAIR_TE_TEXT_MAX 4096 characters; word wrap);
+% os/flair/scrap.c (the Clipboard).  Model: the Mac OS 8.1 SimpleText it
+% follows (system7-decomp specs/sys8/simpletext-stdfile.md).  The menu
+% entries are registered against TEXT's own bar (flair_app_menus.c).
+% GATES: test-flair-itext test-itext-route test-flair-itext-scroll test-stdfile test-scrap test-pubs-flair test-pubs-flair-screens
+\Gates{test-flair-itext, test-itext-route, test-flair-itext-scroll,
+  test-stdfile, test-scrap, test-pubs-flair, test-pubs-flair-screens}
+\chapter{InitechText}
+\index{InitechText}
+
+InitechText is a simple text editor.  Use it for memos, notes and lists:
+any document that is words and lines, without type styles or pictures.
+InitechText saves documents as plain text files, which InitechDOS programs
+and the other Initech applications can read.
+
+\section{Opening InitechText}
+\Operation{TENANT-LOAD}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and double-click \file{TEXT.EXE}.
+\Result{InitechText opens with a new, empty document in a window titled
+\texttt{untitled} that fills most of the screen.  The lower menu bar shows
+its menus: the Apple menu, \menuname{File} and \menuname{Edit}.}
+\Step Type your text.
+\Result{What you type appears at the insertion point.  When a line is full,
+the next word goes to the start of the next line by itself; press
+\key{Enter} only to end a paragraph or to leave a blank line.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:text]{a_text}{A memo in InitechText}
+
+\section{Moving and editing}
+\index{InitechText!keys}
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{61mm}@{}}
+\textbf{Press} & \textbf{To}\\\hline
+letters, digits, punctuation, \key{Space} & insert the character\\
+\key{Enter} & end the line\\
+\key{Backspace} & erase the character before the insertion point, or the
+selected text\\
+\key{Left Arrow}, \key{Right Arrow} & move one character\\
+\key{Up Arrow}, \key{Down Arrow} & move one line\\
+\end{tabular}
+\end{center}
+There is no key that erases the character after the insertion point, and
+\key{Home} and \key{End} are not used.  The backslash key is reserved by
+FLAIR (see the \doctitle{FLAIR User's Guide}, Chapter~12), so a backslash
+cannot be typed.  The insertion point is a steady vertical line; it does
+not blink.
+
+\section{Selecting text}
+\index{InitechText!selecting}
+To change or move text, first select it.  Selected text is shown white on
+black.
+
+\SideHead{Click}Click to move the insertion point to the place you click.
+\SideHead{Drag}Drag across text to select it.
+\SideHead{Shift-click}Hold down \key{Shift} and click to select everything
+between the insertion point and the place you click.
+\SideHead{Select All}Choose \menuitem{Select All} from the \menuname{Edit}
+menu, or press \key{Ctrl-A}, to select the whole document.
+
+\FlairScreen[label=fig:textsel]{a_textsel}{A word selected}
+
+Typing replaces the selected text with what you type; \key{Backspace}
+erases it.
+
+\section{Cutting, copying and pasting}
+\index{Clipboard}\index{InitechText!Cut, Copy, Paste}
+\begin{TaskSteps}
+\Step Select the text you want to copy.
+\Step Choose \menuitem{Copy} from the \menuname{Edit} menu, or press
+\key{Ctrl-C}.
+\Result{A copy of the text is put on the Clipboard.  \menuitem{Cut}
+(\key{Ctrl-X}) does the same and removes the text from the document.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:textedit1]{a_textedit1}{The Edit menu with
+text selected}
+
+\begin{TaskSteps}[resume]
+\Step Click where you want the text to go.
+\Step Choose \menuitem{Paste} from the \menuname{Edit} menu, or press
+\key{Ctrl-V}.
+\Result{The text on the Clipboard is put at the insertion point, or in
+place of the selected text.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:textpaste]{a_textpaste}{The copied word, pasted on
+a new line}
+\Operation{TENANT-SCRAP}
+
+The text stays on the Clipboard until you cut or copy something else, even
+after you quit InitechText, so you can paste it into another document
+later.  The Clipboard is emptied when the computer is restarted.
+
+\section{Saving a document}
+\index{InitechText!saving}
+\Operation{TENANT-SF}
+Choose \menuitem{Save} from the \menuname{File} menu, or press
+\key{Ctrl-S}.  The first time you save a document, InitechText asks for a
+name in the Save dialog box (the \doctitle{FLAIR User's Guide}, Chapter~5,
+describes it).
+
+\FlairScreen[label=fig:textsave]{a_textsave}{Saving a new document}
+
+After that, \menuitem{Save} saves the document under its name without
+asking.  \menuitem{Save As...} always asks for a name, so you can keep a
+copy under another name; the window then takes the new name.
+
+InitechText saves a document as a text file, with a carriage return at the
+end of each paragraph.  When it opens a file whose lines end with a
+carriage return and line feed, or a line feed alone, as files written by
+InitechDOS programs do, it reads each of them as one line end, and saves
+the file with carriage returns.
+
+\section{Opening a document}
+\index{InitechText!opening a document}
+Choose \menuitem{Open...} from the \menuname{File} menu, or press
+\key{Ctrl-O}, select the document in the Open dialog box, and click
+\texttt{Open}.
+
+\FlairScreen[label=fig:textopen]{a_textopen}{Opening a document}
+
+InitechText holds one document at a time.  If the document in its window
+has unsaved changes, it first asks whether to save them.  A document can
+hold up to 4096 characters.  InitechText does not open a longer file, and
+does not take typing or pasting that would make a document longer.
+
+\section{Closing and quitting}
+\index{InitechText!quitting}
+\Operation{TENANT-ALERT}
+InitechText has one window; closing it quits InitechText.  Choose
+\menuitem{Close} or \menuitem{Quit} from the \menuname{File} menu, press
+\key{Ctrl-W} or \key{Ctrl-Q}, or click the close box.  If the document has
+changes you have not saved, InitechText asks what to do with them.
+
+\FlairScreen[label=fig:textask]{a_textask}{InitechText asks before quitting}
+
+Click \texttt{Save} to save the document first, \texttt{Don't Save} to quit
+without saving, or \texttt{Cancel} to go back to the document.
+
+\section{The File menu}
+\FlairScreen[scale=4, label=fig:textfile]{a_textfile}{InitechText's File
+menu}
+\begin{MenuReference}{TEXT}{File}
+\MenuItemEntry{New}{N}{on}{Clears the window for a new, untitled document,
+after asking about unsaved changes.}
+\MenuItemEntry{Open...}{O}{on}{Opens a document with the Open dialog box,
+after asking about unsaved changes.}
+\MenuItemEntry{Close}{W}{on}{Closes the window and quits InitechText, after
+asking about unsaved changes.}
+\MenuItemEntry{Save}{S}{on}{Saves the document under its name; for a new
+document, asks for a name first.}
+\MenuItemEntry{Save As...}{}{on}{Saves the document under a name you give
+in the Save dialog box.}
+\MenuItemEntry{Page Setup...}{}{off}{Dimmed.  InitechText does not print.}
+\MenuItemEntry{Print...}{P}{off}{Dimmed.}
+\MenuItemEntry{Print One Copy}{}{off}{Dimmed.}
+\MenuItemEntry{Quit}{Q}{on}{Quits InitechText, after asking about unsaved
+changes.}
+\end{MenuReference}
+
+\section{The Edit menu}
+\FlairScreen[scale=4, label=fig:textedit0]{a_textedit0}{InitechText's Edit
+menu with nothing selected}
+\begin{MenuReference}{TEXT}{Edit}
+\MenuItemEntry{Undo}{Z}{off}{Dimmed.}
+\MenuItemEntry{Cut}{X}{off}{Removes the selected text and puts it on the
+Clipboard.  Dimmed when no text is selected.}
+\MenuItemEntry{Copy}{C}{off}{Puts a copy of the selected text on the
+Clipboard.  Dimmed when no text is selected.}
+\MenuItemEntry{Paste}{V}{off}{Puts the text on the Clipboard at the
+insertion point, or in place of the selection.  Dimmed when the Clipboard
+is empty.}
+\MenuItemEntry{Clear}{}{off}{Removes the selected text without putting it
+on the Clipboard.  Dimmed when no text is selected.}
+\MenuItemEntry{Select All}{A}{on}{Selects the whole document.}
+\end{MenuReference}
+
+\section{Notes}
+\begin{itemize}
+\item The window's text is set in a single size of type, Geneva 9 point.
+\item The lines are always the same length, whatever the size of the
+  window: changing the size of the window does not rearrange the text.
+\item Use the scroll bar to see a document longer than the window.
+\end{itemize}

@@ -1,0 +1,16 @@
+# a_calcsum: 12 + 30 = typed on the keyboard.
+# go (22,10) the apple in the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10)
+l1
+# hold (22,51) Calculator
+m0:41
+# release at (22,51)
+l0
+WTENANT-REGISTER
+# go (500,451) 
+m100:100,m100:100,m100:100,m100:100,m78:0
+# type "12+30="
+k1,k2,kshift-equal,k3,k0,kequal
+# go (500,452) 
+m0:1

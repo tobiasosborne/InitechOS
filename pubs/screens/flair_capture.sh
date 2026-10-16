@@ -37,9 +37,9 @@
 #
 # Usage: flair_capture.sh <qemu_harness> <boot.img> <data.img> <flair_grey>
 #                         <clut.json> <color_canon.json> <console_text>
-#                         <vgabios.bin> <FLAIR file> <out dir>
+#                         <vgabios.bin> <FLAIR file> <out dir> [<step image>]
 # FLAIR file format, one screen per line ('#' comments allowed):
-#   name|marker|crop[|proves]
+#   name|marker|crop[|proves[|image]]
 # crop is `full` or x,y,w,h in screen pixels (640 x 480), or `text`: the
 # screen is the InitechDOS console FLAIR hands back on Exit to InitechDOS,
 # decoded character for character by harness/console_text (NT-21 text
@@ -52,15 +52,19 @@
 # of the serial markers of the desktop operations the trace performs
 # (FINDER-OPEN-VOLUME, FLAIR-ZOOM ...): each must be on the serial capture,
 # or the row is RED -- a documented operation is replayed, not asserted.
+# image (optional) is `step`: the row is captured on <step image>, the
+# record image whose FILE COPY bar advances a fixed step per injected event
+# (FLAIRTENANTS_RECORDXLONGDBL_IMG, kmain.c FILECOPY_RECORD_STEP) instead of
+# by the clock, so a figure of the bar in mid-copy is the same every run.
 # Thin shell (Law 3).  Fails loud on a missing marker, a triple fault, a
 # guest whose pump ended before the capture, or a pixel outside the palette.
 set -eu
-runner=$1; boot=$2; data=$3; grey=$4; clut=$5; canon=$6; decode=$7; rom=$8; defs=$9; out=${10}
+runner=$1; boot=$2; data=$3; grey=$4; clut=$5; canon=$6; decode=$7; rom=$8; defs=$9; out=${10}; stepimg=${11:-}
 mkdir -p "$out"
 [ -r "$boot" ] || { printf '!!! flair_capture.sh FAIL: boot image %s not readable\n' "$boot"; exit 1; }
 [ -r "$data" ] || { printf '!!! flair_capture.sh FAIL: data volume %s not readable\n' "$data"; exit 1; }
 n=0
-while IFS='|' read -r name marker crop proves; do
+while IFS='|' read -r name marker crop proves image; do
     case $name in ''|'#'*) continue ;; esac
     trace=$(dirname "$defs")/$name.mouse
     [ -f "$trace" ] || { printf '!!! test-pubs RED SCREEN-KEYS: %s missing\n' "$trace"; exit 1; }
@@ -78,7 +82,14 @@ while IFS='|' read -r name marker crop proves; do
     work=$out/$name.data.img
     cp -f "$data" "$work"
     rm -f "$out/$name.ppm" "$out/$name.serial"
-    "$runner" --disk "$boot" --disk2 "$work" --name "$name" --out "$out" \
+    img=$boot
+    case $image in
+    '') ;;
+    step) [ -n "$stepimg" ] && [ -r "$stepimg" ] || { printf '!!! flair_capture.sh FAIL: %s: no step image given\n' "$name"; exit 1; }
+          img=$stepimg ;;
+    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: image "%s" is not empty or step\n' "$name" "$image"; exit 1 ;;
+    esac
+    "$runner" --disk "$img" --disk2 "$work" --name "$name" --out "$out" \
         --mouse "$spec" --keys-after FLAIR-LIVE-READY --timeout-ms 90000 \
         --screendump --screendump-after "$marker" --screendump-after-count "$count" \
         --rtc-base 1992-03-02T09:30:00 \

@@ -1,0 +1,28 @@
+# a_icalcentry: an entry typed in cell B1.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (179,186) CALC.EXE
+m-100:96,m-93:0
+# double-click at (179,186)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (500,456) 
+m100:100,m100:100,m100:70,m21:0
+# key right
+kright
+# type "1200"
+k1,k2,k0,k0
+# key tab
+ktab
+# go (500,457) 
+m0:1
