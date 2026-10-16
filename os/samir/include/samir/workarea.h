@@ -467,9 +467,9 @@ int wa_goto(wa_env *env, int area, uint32_t recno);
  *
  * Behaviour:
  *   1. Take the SELECTED area (env->cur). If it is closed -> return non-zero
- *      (the evaluator reports XBEE_UNBOUND); *out is left untouched.
+ *      (the evaluator reports #12, Using III+ U7-21); *out is left untouched.
  *   2. Match `name` (case-insensitive) against the .dbf field descriptors. No
- *      match -> return non-zero (XBEE_UNBOUND). [memvars are S5.7; S5.1 binds
+ *      match -> return non-zero (#12). [memvars are S5.7; S5.1 binds
  *      ONLY fields.]
  *   3. Ensure the current record (RECNO) is decoded into the area's cache
  *      (wa_touch_record). For an EMPTY table (eof) yield the field's BLANK value

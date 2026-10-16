@@ -942,14 +942,19 @@ int proc_run(xb_interp *ip, const char *prg)
 int proc_fire_onerror(xb_interp *ip, int err_code)
 {
     proc_state *ps = proc_state_for(ip);
-    int rc;
-    (void)err_code;
+    xb_ctx *ctx = xb_interp_ctx(ip);
+    int rc, saved_error;
     if (!ps || !ps->has_onerr || ps->in_handler)
         return INTERP_OK;
     ps->in_handler = 1;
+    /* Programming III+ N5-30 (PDF 418): ERROR() sees the condition being
+     * handled, even while the handler evaluates a new expression. */
+    saved_error = ctx->error_number;
+    ctx->error_number = err_code;
     rc = samir_do(ip, ps->onerr);           /* almost always "DO <handler>" */
     if (rc == PROC_RC_RETURN)
         rc = INTERP_OK;
     ps->in_handler = 0;
+    ctx->error_number = saved_error;
     return rc;
 }

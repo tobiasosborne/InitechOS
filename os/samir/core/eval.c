@@ -751,7 +751,13 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
             return fail(err, XBEE_UNBOUND);
         }
         if (ctx->resolve(ctx->user, n->u.str.p, n->u.str.len, &v) != 0) {
-            return fail(err, XBEE_UNBOUND); /* resolver said "not found" */
+            /* Using III+ U7-21 (PDF 509): absent memory variable or field.
+             * Keep a missing resolver as an internal wiring error above. */
+#ifdef SAMIR_MUTATE_UNDEFINED_ERROR1
+            return fail(err, XBEE_UNBOUND); /* restore old error 1/Internal error */
+#else
+            return fail(err, XBEE_VAR_NOT_FOUND);
+#endif
         }
         *out = v;
         *err = XBEE_OK; return 0;
