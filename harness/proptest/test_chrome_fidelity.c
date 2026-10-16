@@ -452,6 +452,36 @@ static void draw_capture_inactive(GrafPort *port)
     owner_fill_content(port);
 }
 
+static void draw_capture_no_grow(GrafPort *port)
+{
+    /* The capability datum is shared with FindWindow (window_record.h).
+     * A noGrowDocProc / zoomNoGrow owner must never receive a grow glyph. */
+    flair_draw_document_window(port, flair_look_default_skin(), win_frame(),
+                               TEST_TITLE, 1,
+                               FLAIR_WINDOW_WIDGET_ALL & ~FLAIR_WINDOW_WIDGET_GROW);
+    owner_fill_content(port);
+}
+
+/* h6y1: grade the ENTIRE cell directly against the independent capture,
+ * including the three rows omitted by FG_GROW_PROFILE. No chrome_metrics.h
+ * or renderer palette is an input to the expectation. DEC-10 governs: this
+ * is the Platinum 18x18 grip, not the retained System-7 nested squares.
+ * Ref: sys8/window-chrome.md Sec 5/6, active (461,296), inactive (306,179). */
+static int cap_grow(const char *state, const render_ctx_t *r,
+                    const capture_img_t *c, int cx, int cy)
+{
+    int bad = 0;
+    for (int y = 0; y < 18; y++) {
+        for (int x = 0; x < 18; x++) {
+            bad += our_rgb(r, WIN_RIGHT - 20 + x, WIN_BOTTOM - 20 + y) !=
+                   cap_rgb(c, cx + x, cy + y);
+        }
+    }
+    printf("  CAPTURE-GROW-%s depth%u: %d/324 differ\n",
+           state, r->boot.lfb_bpp, bad);
+    return bad == 0;
+}
+
 typedef struct cap_frame { int l, t, r, b; } cap_frame_t;
 
 static size_t cap_hex(char *buf, size_t at, size_t cap, uint32_t v)
@@ -1080,6 +1110,7 @@ int main(int argc, char **argv)
 
     /* CAPTURE LEGS (tdnl.51 / tdnl.52) -- see the banner above main. */
     int cap_body_ok = 0, cap_body_inactive_ok = 0, cap_widgets_ok = 0;
+    int cap_grow_ok = 0, cap_grow_inactive_ok = 0, no_grow_ok = 1;
     {
         char pa[1024], pi[1024];
         capture_img_t ca, ci;
@@ -1098,6 +1129,7 @@ int main(int argc, char **argv)
               "(640x480) -- a missing golden is RED, never skipped");
         if (have_a && have_i && render_ctx_init(&sa, &boot) == 0) {
             render_run(&sa, draw_capture_active);
+            cap_grow_ok = cap_grow("ACTIVE", &sa, &ca, 461, 296);
             int ok = 1;
             ok &= cap_section("CAPTURE-BODY", "left", &sa, of, &ca, cfa, 0, 80, 7);
             ok &= cap_section("CAPTURE-BODY", "right", &sa, of, &ca, cfa, 1, 80, 21);
@@ -1113,6 +1145,7 @@ int main(int argc, char **argv)
         }
         if (have_a && have_i && render_ctx_init(&si, &boot) == 0) {
             render_run(&si, draw_capture_inactive);
+            cap_grow_inactive_ok = cap_grow("INACTIVE", &si, &ci, 306, 179);
             int ok = 1;
             ok &= cap_section("CAPTURE-BODY-INACTIVE", "left", &si, of, &ci, cfi, 0, 91, 7);
             ok &= cap_section("CAPTURE-BODY-INACTIVE", "right", &si, of, &ci, cfi, 1, 91, 21);
@@ -1120,6 +1153,27 @@ int main(int argc, char **argv)
             ok &= cap_section("CAPTURE-BODY-INACTIVE", "top", &si, of, &ci, cfi, 3, 200, 22);
             cap_body_inactive_ok = ok;
             render_ctx_free(&si);
+        }
+        for (unsigned depth = 8; depth <= 32; depth += 24) {
+            render_boot_info_t gb = { 0, 0, depth, 640, 480 };
+            render_ctx_t gr;
+            if (!have_a || !have_i || render_ctx_init(&gr, &gb) != 0) {
+                cap_grow_ok = cap_grow_inactive_ok = no_grow_ok = 0;
+                break;
+            }
+            render_run(&gr, draw_capture_active);
+            cap_grow_ok &= cap_grow("ACTIVE", &gr, &ca, 461, 296);
+            render_run(&gr, draw_capture_inactive);
+            cap_grow_inactive_ok &= cap_grow("INACTIVE", &gr, &ci, 306, 179);
+            render_run(&gr, draw_capture_no_grow);
+            /* Sec 4: white content with a one-pixel C0 bottom/right inset
+             * shadow. The whole 14x14 interior must be free of a gadget. */
+            for (int y = 0; y < 14; y++)
+                for (int x = 0; x < 14; x++)
+                    no_grow_ok &= our_rgb(&gr, WIN_RIGHT - 20 + x,
+                                          WIN_BOTTOM - 20 + y) ==
+                                  (x == 13 || y == 13 ? 0xC0C0C0u : 0xFFFFFFu);
+            render_ctx_free(&gr);
         }
         free(ca.rgb);
         free(ci.rgb);
@@ -1137,6 +1191,9 @@ int main(int argc, char **argv)
           "leg CAPTURE-WIDGETS: close/zoom/collapse 13x13 footprints must equal "
           "s8_doc_window_active's, all 169 pixels each, including the #DADADA "
           "off-diagonal interior corners (window-chrome.md Sec 3.2; tdnl.52)");
+    CHECK(cap_grow_ok, "leg CAPTURE-GROW-ACTIVE: all 324 pixels equal the independent PNG at both depths");
+    CHECK(cap_grow_inactive_ok, "leg CAPTURE-GROW-INACTIVE: all 324 pixels equal the independent PNG at both depths");
+    CHECK(no_grow_ok, "leg GROW-NO-REGION: no gadget when the window has no grow capability");
 
 #define LEG_STATUS(name, ok, why) \
     printf("  %-24s %s -- %s\n", name, (ok) ? "PASS" : "RED", why)
@@ -1167,6 +1224,9 @@ int main(int argc, char **argv)
     LEG_STATUS("CAPTURE-BODY", cap_body_ok, "live body frame == active capture");
     LEG_STATUS("CAPTURE-BODY-INACTIVE", cap_body_inactive_ok, "live body frame == inactive capture");
     LEG_STATUS("CAPTURE-WIDGETS", cap_widgets_ok, "widget faces == active capture, 169/169");
+    LEG_STATUS("CAPTURE-GROW-ACTIVE", cap_grow_ok, "324/324 independent PNG pixels, both depths");
+    LEG_STATUS("CAPTURE-GROW-INACTIVE", cap_grow_inactive_ok, "324/324 independent PNG pixels, both depths");
+    LEG_STATUS("GROW-NO-REGION", no_grow_ok, "absent capability leaves content clear");
 #undef LEG_STATUS
 
     if (rc == 0) render_ctx_free(&trunc);

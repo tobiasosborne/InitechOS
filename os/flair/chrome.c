@@ -841,6 +841,19 @@ static void draw_grow_box(GrafPort *port, const flair_skin_t *skin,
                           int gx, int gy, int active)
 {
     const int cell = FLAIR_CHROME_GROW;
+    int trail_part = FLAIR_PART_PLAT_STRIPE_DARK;
+
+    /* h6y1 Rule-6 perturbations. Default art remains the independent
+     * Mac OS 8.1 cell (sys8/window-chrome.md Sec 5/6), not System-7 art. */
+#if defined(CHROME_MUT_GROW_OMIT)
+    return;
+#endif
+#if defined(CHROME_MUT_GROW_INACTIVE_ACTIVE)
+    active = 1;
+#endif
+#if defined(CHROME_MUT_GROW_FIGURE_SWAP)
+    trail_part = FLAIR_PART_PLAT_FACE;
+#endif
 
     crect(port, gx, gy, gx + cell, gy + cell,
           active ? FLAIR_PART_PLAT_FRAME_FACE : FLAIR_PART_PLAT_FACE);
@@ -861,12 +874,12 @@ static void draw_grow_box(GrafPort *port, const flair_skin_t *skin,
             cfill(port, gx + start_x - step, gy + start_row + step,
                   1, FLAIR_PART_CONTENT);
             cfill(port, gx + start_x - step + 2, gy + start_row + step,
-                  1, FLAIR_PART_PLAT_STRIPE_DARK);
+                  1, trail_part);
         }
         cfill(port, gx + start_x - 5, gy + start_row + 6,
               1, FLAIR_PART_PLAT_WELL);
         cfill(port, gx + start_x - 4, gy + start_row + 6,
-              1, FLAIR_PART_PLAT_STRIPE_DARK);
+              1, trail_part);
     }
 }
 
@@ -1097,7 +1110,11 @@ void flair_draw_document_window_scroll(GrafPort *port,
         draw_horizontal_scrollbar(port, skin, left + 5,
                                   grow_y - FLAIR_CHROME_FRAME,
                                   grow_x, bi - 5, active, &sbh);
-        if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u)
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u
+#if defined(CHROME_MUT_GROW_NO_REGION)
+            || 1
+#endif
+        )
             draw_grow_box(port, skin, grow_x, grow_y, active);
     }
 
