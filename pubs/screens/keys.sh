@@ -9,9 +9,29 @@
 set -eu
 printf '%b' "$1" | od -An -v -tx1 | tr -s ' ' '\n' | sed '/^$/d' | {
   out=
+  extended=0
   while read -r h; do
     c=$(printf "\\$(printf '%03o' 0x$h)")
+    # DOS extended-key pairs in .keys files: NUL followed by the scan byte
+    # (for example, literal \0000\0075 is F3).
+    # Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12; kbd.c;
+    # MS-DOS 3.3 User's Guide pp.154-155,165-169.
+    if [ "$extended" = 1 ]; then
+      case $h in
+        3b) t=f1 ;; 3c) t=f2 ;; 3d) t=f3 ;; 3e) t=f4 ;; 3f) t=f5 ;;
+        52) t=insert ;; 53) t=delete ;;
+        *) printf 'keys.sh: unsupported extended scan 0x%s\n' "$h" >&2; exit 1 ;;
+      esac
+      extended=0
+      out=${out:+$out,}$t
+      continue
+    fi
     case $h in
+      00) extended=1; continue ;;
+      1b) t=esc ;;
+      0e) t=ctrl-n ;;
+      10) t=ctrl-p ;;
+      13) t=ctrl-s ;;
       0a) t=ret ;;
       20) t=spc ;;
       2e) t=dot ;;
@@ -48,5 +68,6 @@ printf '%b' "$1" | od -An -v -tx1 | tr -s ' ' '\n' | sed '/^$/d' | {
     esac
     out=${out:+$out,}$t
   done
+  [ "$extended" = 0 ] || { printf 'keys.sh: incomplete extended key\n' >&2; exit 1; }
   printf '%s\n' "$out"
 }

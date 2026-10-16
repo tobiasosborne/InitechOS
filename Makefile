@@ -5026,7 +5026,7 @@ TEST_INT21_MUT_NOOP   := $(BUILD)/test_int21_mutant_noop
 # g_break_flag (DEC-16 7.1 step 5). config_sys.c is pure (no I/O), so the host
 # link is clean -- the SAME TU the kernel SYSINIT runs.
 TEST_INT21_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C) $(KERNEL_CONFIG_SYS_C)
-TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+TEST_INT21_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/conedit.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h $(MILTON_DIR)/config_sys.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_INT21): $(TEST_INT21_SRC) $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
@@ -5208,7 +5208,7 @@ TEST_CONIN_MUT_NOCTRLC := $(BUILD)/test_conin_mutant_noctrlc
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
 TEST_CONIN_DEPS := $(KERNEL_INT21_C) $(KERNEL_DEVICES_C) $(KERNEL_MCB_C) $(KERNEL_SFT_C) $(KERNEL_PSP_C) $(KERNEL_IRQ_C)
-TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
+TEST_CONIN_HDRS := $(MILTON_DIR)/int21.h $(MILTON_DIR)/conedit.h $(MILTON_DIR)/idt.h $(MILTON_DIR)/sft.h \
                    $(MILTON_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H)
 
 $(TEST_CONIN): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
@@ -8429,7 +8429,7 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 # INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
 # includes sft.h -> psp.h -> dos_structs.h, so -Ispec (initech-509.3).
-$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
+$(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/conedit.h $(KERNEL_DIR)/idt.h \
                      $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h $(KERNEL_DIR)/ata.h spec/dos_structs.h \
                      $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
@@ -31902,3 +31902,5 @@ include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
 
+
+include harness/conkeys/conkeys.mk

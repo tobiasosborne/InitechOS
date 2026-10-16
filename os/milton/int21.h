@@ -132,8 +132,9 @@ typedef void (*int21_exit_fn)(uint8_t code);
 /* Bind the CON sink (NULL clears it). Called once by the kernel at boot. */
 void int21_set_sink(int21_sink_fn sink);
 
-/* Serial-only INT23 debug marker; never sent through the CON sink.
- * MS-DOS 3.3 Reference p.159; the console displays ^C and aborts. */
+/* Serial-only INT23 and console-control debug markers; never CON output.
+ * MS-DOS 3.3 pp.158-159; Ctrl-C displays ^C, pause/printer state stays on this
+ * debug seam. PRN's serial backend is not a physical printer driver. */
 void int21_set_break_trace(int21_sink_fn sink);
 
 /* Bind the terminate hook (NULL clears it). Called once by the kernel at boot. */

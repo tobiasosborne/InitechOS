@@ -3331,12 +3331,12 @@ static void run_external(const char *command, const char *tail)
 static void read_line(char *out)
 {
     /* +2 for the AH=0Ah header (max + count) byte slots. */
-    uint8_t blk[CMD_LINE_MAX + 2];
+    static uint8_t blk[CMD_LINE_MAX + 2];
     uint8_t count;
     uint8_t i;
 
     blk[0] = (uint8_t)CMD_LINE_MAX;   /* max length including the CR */
-    blk[1] = 0;
+    /* MS-DOS 3.3 pp.153-158: retain the previous line as the template. */
     dos_getline(blk);
 
     count = blk[1];
