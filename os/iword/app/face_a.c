@@ -167,6 +167,7 @@
 #include "iword.h"
 #include "iword/wp5_format.h"
 #include "iword/reveal_codes.h"
+#include "iword/settings.h"
 
 const char tbx_app_name[] = "WORD";
 
@@ -306,7 +307,9 @@ static uint32_t g_clip_n;
 enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_FONT, M_APPEAR,
        M_DELCODE, M_DELBLOCK, M_MOVE, M_MOVEBLK, M_RETRIEVE,
        M_FORMAT, M_FMTLINE, M_FMTJUST, M_FMTMARL, M_FMTMARR,
-       M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH };
+       M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH,
+       M_RCONF, M_RSEARCH, M_RTEXT, M_RASK, M_UNDO,
+       M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -321,6 +324,23 @@ static uint8_t g_search_back;
 static uint8_t g_query[QUERY_CAP];
 static uint32_t g_query_n, g_query_cur;
 static uint8_t g_query_fresh;
+/* Replace: Reference pp. 551-553. Input streams keep complete code units.
+ * Search and replacement are separate; inserted text is never searched again. */
+static uint8_t g_find[QUERY_CAP], g_replacement[QUERY_CAP];
+static uint32_t g_find_n, g_replacement_n, g_rs, g_re;
+static uint8_t g_confirm;
+/* Reference pp. 697-698: three deletion GROUPS, delimited by cursor motion.
+ * Backspace/Delete paired attribute codes are deliberately not retained.
+ * Block copies use the MINT12..15 self-contained unit stream. */
+/* Fixed arenas respect the existing 512 KiB tenant BSS contract. A group
+ * beyond this arena is refused before deletion, never silently discarded. */
+#define UNDO_CAP (BANK / 2u)
+static uint8_t g_undo[3][UNDO_CAP], g_deleted[UNDO_CAP];
+#define g_preview (g_bank[1u - g_live])
+static uint32_t g_undo_n[3], g_undo_count, g_undo_sel, g_undo_at;
+static uint8_t g_undo_join;
+static uint8_t g_settings[IW_SETTINGS_SIZE], g_settings_io[IW_SETTINGS_SIZE+1];
+static uint8_t g_unit_target;
 static uint32_t query_label(char *out, uint32_t cap);
 static char     g_name[16];                 /* the name being typed        */
 static uint32_t g_nlen;
@@ -385,7 +405,9 @@ static void put_row(int line, const row_t *r)
         while (c < SCR_COLS && r->a[c] == f) c++;
         put_cells(line, (int)s0, r->t + s0, c - s0, (uint32_t)r->fg | TBX_TEXT_FACE(f), r->bg);
     }
-    if (r->blk_len) put_cells(line, r->blk_col, r->t + r->blk_col, r->blk_len, TBX_COLOR_BLACK, TBX_COLOR_GRAY);
+    if (r->blk_len) put_cells(line, r->blk_col, r->t + r->blk_col, r->blk_len,
+                             g_mode == M_UNDO ? BG : TBX_COLOR_BLACK,
+                             g_mode == M_UNDO ? FG : TBX_COLOR_GRAY);
     if (r->inv_len) put_cells(line, r->inv_col, r->t + r->inv_col, r->inv_len, r->bg, r->fg);
 }
 
@@ -406,6 +428,7 @@ static void doc_reset(void)
     g_prefix = iw_wp5_default_prefix(&g_prefix_len);
     g_top = 0;
     g_skip = 0;
+    g_undo_count = 0; g_undo_join = 0;
 }
 
 /* Flatten prefix + body into the spare bank; *n = its length. */
@@ -477,8 +500,36 @@ static int edit_once(int op, uint8_t ch)
 static int edit(int op, uint8_t ch)
 {
     uint32_t before = g_ed.doc.len;
+    uint32_t ds = g_ed.cur, dt = ds, dn = 0;
     int rc, fx;
     ensure_room();
+    if (op == ED_BACKSPACE && ds) ds = iw_unit_prev(&g_ed.doc, ds);
+    else if (op == ED_DELETE && dt < before) dt = iw_unit_next(&g_ed.doc, dt);
+    else if (op == ED_ANSWER && ch) { ds = g_ed.ask; dt = iw_unit_next(&g_ed.doc, ds); }
+    else if (op == ED_CUT && !ch && g_ed.blk != IW_NO_BLOCK) {
+        uint32_t anchor = g_ed.blk;
+        iw_ed_block_span(&g_ed, &ds, &dt);
+        int copied = iw_ed_block_copy(&g_ed, g_deleted, UNDO_CAP, &dn);
+#ifndef IWORD_MUT_UNDO_BLOCK
+        g_ed.blk = anchor;
+#else
+        (void)anchor;
+#endif
+        if (copied != IW_OK) return IW_E_FULL;
+    }
+    if (dt > ds && !dn) {
+        if (dt-ds > UNDO_CAP) return IW_E_FULL;
+        /* Paired attributes removed with Backspace/Delete are not restored
+         * (p. 697). Other complete units retain their P2 byte identity. */
+        for (uint32_t p = ds; p < dt; p = iw_unit_next(&g_ed.doc, p)) {
+            uint32_t n = iw_unit_next(&g_ed.doc, p)-p;
+            int c = iw_doc_byte(&g_ed.doc, p);
+            if (c == 0xC3 || c == 0xC4) continue;
+            dn += iw_doc_read(&g_ed.doc, p, g_deleted+dn, n);
+        }
+    }
+    if (dn && g_undo_join && g_undo_count && (ds == g_undo_at || dt == g_undo_at) &&
+        g_undo_n[0] + dn > UNDO_CAP) return IW_E_FULL;
     rc = edit_once(op, ch);
     if (rc == IW_E_FULL) {
         compact();
@@ -494,6 +545,32 @@ static int edit(int op, uint8_t ch)
      * room is compacted away and run again */
     fx = iw_ed_fixup(&g_ed);
     if (fx == IW_E_FULL) { compact(); fx = iw_ed_fixup(&g_ed); }
+    if (rc == IW_OK && dn && g_ed.doc.len < before) {
+        uint32_t limit = 3;
+#ifdef IWORD_MUT_UNDO_LEVEL
+        limit = 2;
+#endif
+        int join = g_undo_join && g_undo_count && (ds == g_undo_at || dt == g_undo_at);
+        if (!join) {
+            if (g_undo_count < limit) g_undo_count++;
+            for (uint32_t j = g_undo_count-1; j; j--) {
+                g_undo_n[j] = g_undo_n[j-1];
+                for (uint32_t i = 0; i < g_undo_n[j]; i++) g_undo[j][i] = g_undo[j-1][i];
+            }
+            g_undo_n[0] = 0;
+        }
+        if (dn + g_undo_n[0] <= UNDO_CAP) {
+            int prepend = join && dt == g_undo_at && ds < dt;
+#ifdef IWORD_MUT_UNDO_ORDER
+            prepend = 0;
+#endif
+            if (prepend) {
+                for (uint32_t i = g_undo_n[0]; i; i--) g_undo[0][i+dn-1] = g_undo[0][i-1];
+                for (uint32_t i = 0; i < dn; i++) g_undo[0][i] = g_deleted[i];
+            } else for (uint32_t i = 0; i < dn; i++) g_undo[0][g_undo_n[0]+i] = g_deleted[i];
+            g_undo_n[0] += dn; g_undo_at = ds; g_undo_join = 1;
+        }
+    }
     return rc == IW_OK ? fx : rc;
 }
 
@@ -679,7 +756,16 @@ static void paint_status(const iw_where_t *w, int line)
         else if (g_mode == M_EXITQ) t = "Exit WP? No (Yes)";
         else if (g_mode == M_ERROR) t = g_err;
         else if (g_mode == M_GRAY) t = g_gray;
-        else if (g_mode == M_SEARCH) {
+        else if (g_mode == M_RCONF) {
+            t = "w/Confirm? No (Yes)";
+#ifdef IWORD_MUT_REPLACE_PROMPT
+            t = "Confirm?";
+#endif
+        }
+        else if (g_mode == M_RASK) t = "Replace? Yes (No)";
+        else if (g_mode == M_UNDO) t = "Undelete 1 Restore; 2 Previous Deletion: 0";
+        else if (g_mode == M_RTEXT) t = "Replace with:";
+        else if (g_mode == M_SEARCH || g_mode == M_RSEARCH) {
             t = g_search_back ? "<- Srch:" : "-> Srch:";
 #ifdef IWORD_MUT_SEARCH_PROMPT
             t = "Search:";
@@ -714,7 +800,8 @@ static void paint_status(const iw_where_t *w, int line)
         }
         n = 0;
         for (i = 0; t[i] && n < SCR_COLS; i++) s[n++] = t[i];
-        if (g_mode == M_SEARCH) query_cursor = n + query_label(s + n, SCR_COLS - n + 1);
+        if (g_mode == M_SEARCH || g_mode == M_RSEARCH || g_mode == M_RTEXT)
+            query_cursor = n + query_label(s + n, SCR_COLS - n + 1);
         if (g_mode == M_SAVE_NAME || g_mode == M_GET_NAME)
             for (i = 0; i < g_nlen && n < SCR_COLS; i++) s[n++] = g_name[i];
         if (g_mode == M_SAVEQ && !g_ed.dirty) {
@@ -723,7 +810,7 @@ static void paint_status(const iw_where_t *w, int line)
             for (i = 0; i < k; i++) s[SCR_COLS - k + i] = nm[i];
         }
     }
-    if (g_mode == M_GRAY || g_mode == M_SEARCH) {
+    if (g_mode == M_GRAY || g_mode == M_SEARCH || g_mode == M_RSEARCH || g_mode == M_RTEXT) {
         row_t r;
         row_clear(&r);
         for (i = 0; i < SCR_COLS; i++) r.t[i] = s[i];
@@ -901,9 +988,80 @@ static int format_mode(void)
            g_mode == M_FMTSP;
 }
 
+/* Minimal Setup, Reference pp. 574-575; Environment 3 / Backup 1 (p. 42),
+ * Units 8 and its two independent selections (pp. 698-700). Unavailable
+ * entries retain their printed names in gray. Layout fits the native face. */
+static int setup_mode(void) { return g_mode >= M_SETUP && g_mode <= M_BACKUPVALUE; }
+static const char *unit_name(uint8_t u)
+{
+    switch (u) {
+    case 'i': return "Inches"; case 'c': return "Centimeters"; case 'p': return "Points";
+    case 'w': return "1200ths of an inch"; case 'u': return "WordPerfect 4.2 units";
+    default: return "?";
+    }
+}
+static void setup_row(int line, const char *text, int gray)
+{
+    row_t r; row_clear(&r); put_at(&r, 0, text);
+    if (gray) r.fg = TBX_COLOR_GRAY;
+    put_row(line, &r);
+}
+static void setup_value(int line, const char *text, const char *value)
+{
+    row_t r; row_clear(&r); put_at(&r, 0, text); put_at(&r, slen(text)+2, value); put_row(line, &r);
+}
+static void paint_setup(void)
+{
+    for (int i = 0; i < SCR_LINES; i++) put_text_row(i, "");
+    if (g_mode == M_SETUP) {
+        setup_row(0, "Setup", 0);
+        setup_row(4, "2 Display", 1); setup_row(6, "3 Environment", 0);
+        setup_row(8, "4 Initial Settings", 1); setup_row(10, "5 Keyboard Layout", 1);
+        setup_row(12, "6 Location of Files", 1);
+    } else if (g_mode == M_ENV) {
+        setup_row(0, "Setup: Environment", 0);
+        setup_row(4, "1 Backup Options", 0); setup_row(6, "8 Units of Measure", 0);
+    } else if (g_mode == M_UNITS || g_mode == M_UNITVALUE) {
+        setup_row(0, "Setup: Units of Measure", 0);
+        setup_value(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.", unit_name(g_settings[4]));
+        setup_value(6, "2 Status Line Display", unit_name(g_settings[5]));
+        setup_row(10, "i Inches; c Centimeters; p Points", 0);
+        setup_row(12, "w 1200ths of an inch; u WordPerfect 4.2 units", 0);
+    } else {
+        setup_row(0, "Setup: Backup", 0);
+        setup_row(4, "1 Timed Document Backup", 1);
+        setup_value(6, "2 Original Document Backup", g_settings[6] ? "Yes" : "No");
+    }
+    if (g_mode == M_UNITVALUE) setup_row(23, "Units of Measure:", 0);
+    else if (g_mode == M_BACKUPVALUE) setup_row(23, "Original Document Backup? No (Yes)", 0);
+    else setup_row(23, "Selection: 0", 0);
+}
+
 static void paint(void)
 {
     iw_where_t w;
+    if (setup_mode()) { paint_setup(); return; }
+    if (g_mode == M_UNDO) {
+        /* Preview is a borrowed temporary document. The live piece table,
+         * add arena, original bytes, cursor and dirty flag never change. */
+        iw_ed_t saved = g_ed;
+        iw_piece_t pc;
+        uint32_t n = g_undo_count ? g_undo_n[g_undo_sel] : 0, at = g_ed.cur;
+        if (g_ed.doc.len+n <= BANK) {
+            (void)iw_doc_read(&g_ed.doc, 0, g_preview, at);
+            for (uint32_t i = 0; i < n; i++) g_preview[at+i] = g_undo[g_undo_sel][i];
+            (void)iw_doc_read(&g_ed.doc, at, g_preview+at+n, g_ed.doc.len-at);
+            iw_doc_init(&g_ed.doc, 0, 0, &pc, 1, BANK);
+            iw_doc_load(&g_ed.doc, g_preview, saved.doc.len+n);
+            g_ed.blk = at; g_ed.cur = at+n;
+#ifdef IWORD_MUT_UNDO_PREVIEW
+            g_ed.blk = IW_NO_BLOCK;
+#endif
+        }
+        iw_ed_where(&g_ed, &w); paint_doc(&w, EDIT_ROWS); paint_status(&w, LINE_STATUS);
+        g_ed = saved;
+        return;
+    }
     iw_ed_where(&g_ed, &w);
     if (format_mode()) {
         paint_format(&w);
@@ -932,6 +1090,85 @@ static void error(const char *msg, int back)
     g_err = msg;
     g_err_return = back;
     g_mode = M_ERROR;
+}
+
+static void settings_defaults(void)
+{
+    for (uint32_t i = 0; i < 4; i++) g_settings[i] = IW_SETTINGS_MAGIC[i];
+    g_settings[4] = g_settings[5] = IW_SETTINGS_DEFAULT_UNIT;
+    g_settings[6] = g_settings[7] = 0;
+}
+static void settings_load(void)
+{
+    int32_t h, n, cl;
+    uint32_t pos = 0;
+    settings_defaults();
+    h = tbx_file_open(IW_SETTINGS_PATH, TBX_FILE_READ_ONLY);
+    if (h < 0) return;
+    do {
+        n = tbx_file_read(h, g_settings_io+pos, sizeof g_settings_io-pos);
+        if (n <= 0 || (uint32_t)n > sizeof g_settings_io-pos) break;
+        pos += (uint32_t)n;
+    } while (pos < sizeof g_settings_io);
+    cl = tbx_file_close(h);
+    if (n < 0 || pos != IW_SETTINGS_SIZE || cl < 0) return;
+    for (uint32_t i = 0; i < 4; i++) if (g_settings_io[i] != IW_SETTINGS_MAGIC[i]) return;
+#ifndef IWORD_MUT_SETUP_VALIDATE
+    if (g_settings_io[6] > 1 || g_settings_io[7] || unit_name(g_settings_io[4])[0] == '?' ||
+        unit_name(g_settings_io[5])[0] == '?') return;
+#endif
+#ifndef IWORD_MUT_SETUP_LOAD
+    for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings[i] = g_settings_io[i];
+#endif
+}
+static int settings_save(void)
+{
+    int32_t h, n, cl;
+    uint32_t pos = 0;
+    for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings_io[i] = g_settings[i];
+#ifdef IWORD_MUT_SETUP_SAVE
+    g_settings_io[4] = 'i';
+#endif
+    h = tbx_file_create(IW_SETTINGS_PATH);
+    if (h < 0) return IW_E_FULL;
+    while (pos < IW_SETTINGS_SIZE) {
+        n = tbx_file_write(h, g_settings_io+pos, IW_SETTINGS_SIZE-pos);
+        if (n <= 0 || (uint32_t)n > IW_SETTINGS_SIZE-pos) break;
+        pos += (uint32_t)n;
+#ifdef IWORD_MUT_SETUP_SHORT
+        break;
+#endif
+    }
+    cl = tbx_file_close(h);
+    return pos == IW_SETTINGS_SIZE && cl >= 0 ? IW_OK : IW_E_FULL;
+}
+static void setup_key(char ch, uint8_t vk)
+{
+    if (vk == VK_F1 || vk == VK_ESC) { g_mode = M_EDIT; paint_all(); return; }
+    if (vk == VK_F7) {
+        g_mode = g_mode == M_SETUP ? M_EDIT : g_mode == M_ENV ? M_SETUP : M_ENV;
+        paint_all(); return;
+    }
+    if (g_mode == M_SETUP && ch == '3') g_mode = M_ENV;
+    else if (g_mode == M_ENV && ch == '8') g_mode = M_UNITS;
+    else if (g_mode == M_ENV && ch == '1') g_mode = M_BACKUP;
+    else if (g_mode == M_UNITS && (ch == '1' || ch == '2')) { g_unit_target = ch == '1' ? 4 : 5; g_mode = M_UNITVALUE; }
+    else if (g_mode == M_BACKUP && ch == '2') g_mode = M_BACKUPVALUE;
+    else if (g_mode == M_UNITVALUE || g_mode == M_BACKUPVALUE) {
+        uint8_t at = g_mode == M_UNITVALUE ? g_unit_target : 6, old = g_settings[at], value;
+        if (g_mode == M_UNITVALUE) {
+            value = (uint8_t)ch;
+            if (unit_name(value)[0] == '?') return;
+        } else {
+            if (ch != 'y' && ch != 'Y' && ch != 'n' && ch != 'N') return;
+            value = ch == 'y' || ch == 'Y';
+        }
+        g_settings[at] = value;
+        if (settings_save() != IW_OK) {
+            g_settings[at] = old; error("ERROR: File I/O error", M_EDIT); return;
+        }
+        g_mode = at == 6 ? M_BACKUP : M_UNITS;
+    }
 }
 
 static void offer_name(void)
@@ -1428,6 +1665,11 @@ static int function_key(uint8_t vk, int32_t mods)
 #endif
     f = &IW_FKEYS[m][k];
     switch (f->action) {
+    case IW_FK_setup: g_mode = M_SETUP; break;
+    case IW_FK_undelete:
+        g_undo_sel = 0; g_undo_join = 0; g_mode = M_UNDO; break;
+    case IW_FK_replace:
+        g_search_back = 0; g_confirm = 0; g_mode = M_RCONF; break;
     case IW_FK_search_forward: case IW_FK_search_backward:
         g_search_back = f->action == IW_FK_search_backward;
         g_query_cur = g_query_n; g_query_fresh = 1; g_mode = M_SEARCH; break;
@@ -1528,6 +1770,76 @@ static void query_insert(const uint8_t *s, uint32_t n)
     g_query_cur += n; g_query_n += n;
 }
 
+/* One complete span. The old P2 model remains the sole byte-format writer:
+ * reflow and fixup recompute position-bearing codes (MINT09..32). Lowercase
+ * replacement preserves the found word's case (Reference p. 552). */
+static int replace_match(void)
+{
+    uint8_t r[QUERY_CAP];
+    uint32_t letters = 0, capitals = 0, first = 0, lower = 1;
+    for (uint32_t i = 0; i < g_find_n; i++)
+        if (g_find[i] >= 'A' && g_find[i] <= 'Z') lower = 0;
+    for (uint32_t i = 0; i < g_replacement_n; i++) {
+        r[i] = g_replacement[i];
+        if (r[i] >= 'A' && r[i] <= 'Z') lower = 0;
+    }
+    for (uint32_t p = g_rs; p < g_re; p = iw_unit_next(&g_ed.doc, p)) {
+        int c = iw_doc_byte(&g_ed.doc, p);
+        if (iw_unit_kind(&g_ed.doc, p) == IW_U_TEXT &&
+            ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))) {
+            if (!letters) first = c >= 'A' && c <= 'Z';
+            letters++; capitals += c >= 'A' && c <= 'Z';
+        }
+    }
+#ifndef IWORD_MUT_REPLACE_CASE
+    if (lower && letters) {
+        int initial = 1;
+        for (uint32_t p = 0; p < g_replacement_n; ) {
+            uint32_t n = iw_unit_len(r, g_replacement_n, p);
+            if (n == 1 && r[p] >= 'a' && r[p] <= 'z') {
+                if (capitals == letters || (initial && first)) r[p] -= 32;
+                initial = 0;
+            }
+            p += n;
+        }
+    }
+#else
+    (void)lower; (void)letters; (void)capitals; (void)first;
+#endif
+    ensure_room();
+    /* Refuse BEFORE the delete if an insert cannot fit. The small fixed
+     * query cap and P2's room reserve also leave room for code fixup. */
+    if (g_ed.doc.len - (g_re-g_rs) + g_replacement_n > g_ed.doc.max_len ||
+        g_ed.doc.add_cap - g_ed.doc.add_len < g_replacement_n ||
+        g_ed.doc.pc_cap - g_ed.doc.npc < 4u) return IW_E_FULL;
+#ifndef IWORD_MUT_REPLACE_CODE
+    (void)iw_doc_delete(&g_ed.doc, g_rs, g_re-g_rs);
+#else
+    if (g_find[0] >= 0xC0) { g_ed.cur = g_re; return IW_OK; }
+    (void)iw_doc_delete(&g_ed.doc, g_rs, g_re-g_rs);
+#endif
+    if (g_replacement_n && iw_doc_insert(&g_ed.doc, g_rs, r, g_replacement_n) != IW_OK) return IW_E_FULL;
+    g_ed.cur = g_search_back ? g_rs : g_rs + g_replacement_n;
+#ifdef IWORD_MUT_REPLACE_SKIP
+    if (!g_search_back && g_ed.cur < g_ed.doc.len) g_ed.cur = iw_unit_next(&g_ed.doc, g_ed.cur);
+#endif
+    g_ed.blk = IW_NO_BLOCK; g_ed.dirty = 1; g_ed.goal = 0xFFFFFFFFu;
+    (void)iw_reflow_all(&g_ed.doc, g_ed.width);
+    return iw_ed_fixup(&g_ed);
+}
+
+static void replace_next(void)
+{
+    iw_doc_t q; iw_piece_t pc;
+    iw_doc_init(&q, 0, 0, &pc, 1, QUERY_CAP); iw_doc_load(&q, g_find, g_find_n);
+    g_ed.blk = IW_NO_BLOCK;
+    while (iw_search(&g_ed.doc, &q, g_ed.cur, g_search_back, &g_rs, &g_re) == IW_OK) {
+        if (g_confirm) { g_ed.blk = g_rs; g_ed.cur = g_re; g_mode = M_RASK; return; }
+        if (replace_match() != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
+    }
+    error("* Not found *", M_EDIT);
+}
+
 static void search_key(char ch, uint8_t vk, int32_t mods)
 {
     iw_doc_t q; iw_piece_t pc;
@@ -1541,6 +1853,20 @@ static void search_key(char ch, uint8_t vk, int32_t mods)
         g_mode = M_EDIT; return;
     }
     if (vk == VK_F2 || vk == VK_ESC || ch == 0x1B) {
+        if (g_mode == M_RSEARCH) {
+            if (!g_query_n) { g_mode = M_EDIT; return; }
+            g_find_n = g_query_n;
+            for (uint32_t i = 0; i < g_find_n; i++) g_find[i] = g_query[i];
+            g_query_n = g_query_cur = 0; g_query_fresh = 0; g_mode = M_RTEXT; return;
+        }
+        if (g_mode == M_RTEXT) {
+            g_replacement_n = g_query_n;
+            for (uint32_t i = 0; i < g_replacement_n; i++) g_replacement[i] = g_query[i];
+            /* Retain the search string for F2/F2, never the replacement. */
+            g_query_n = g_find_n; g_query_cur = g_query_n;
+            for (uint32_t i = 0; i < g_find_n; i++) g_query[i] = g_find[i];
+            replace_next(); return;
+        }
         if (iw_search(&g_ed.doc, &q, g_ed.cur, g_search_back, &s, &e) == IW_OK) {
             g_ed.cur = g_search_back ? s : e; g_ed.goal = 0xFFFFFFFFu; g_mode = M_EDIT;
         } else {
@@ -1552,7 +1878,7 @@ static void search_key(char ch, uint8_t vk, int32_t mods)
         }
         return;
     }
-    if (vk == VK_UP || vk == VK_DOWN) { g_search_back = vk == VK_UP; return; }
+    if ((vk == VK_UP || vk == VK_DOWN) && g_mode != M_RTEXT) { g_search_back = vk == VK_UP; return; }
     if (vk == VK_LEFT || vk == VK_RIGHT) {
         g_query_fresh = 0;
         if (vk == VK_LEFT && g_query_cur) g_query_cur = iw_unit_prev(&q, g_query_cur);
@@ -1568,7 +1894,23 @@ static void search_key(char ch, uint8_t vk, int32_t mods)
         for (uint32_t i = p; i + n < g_query_n; i++) g_query[i] = g_query[i + n];
         g_query_n -= n; g_query_cur = p; return;
     }
-    if (plain && (vk == VK_F6 || vk == VK_F8)) {
+    /* Reference p. 553 allows Tab, Indent and Hard Page in replacement.
+     * Their position-bearing payloads are the existing MINT09/P2 codes;
+     * replace_match's fixup fills the coordinates at the destination. */
+    if (vk == VK_TAB || ch == '\t') {
+        static const uint8_t tab[9] = {0xC1,2,0,0,0,0,0,0,0xC1};
+        query_insert(tab, sizeof tab); return;
+    }
+    if (vk == VK_F4 && plain) {
+        static const uint8_t indent[11] = {0xC2,0,0x58,2,0,0,0,0,0,0,0xC2};
+        query_insert(indent, sizeof indent); return;
+    }
+    if (vk == VK_ENTER && (mods & FLAIR_EVT_MOD_CONTROL_KEY)) {
+        uint8_t pg = IW_WP5_HPG; query_insert(&pg, 1); return;
+    }
+    /* Appearance in replacement text needs WP's Alt-R macro (p. 553),
+     * which P3 does not claim. Codes ARE searchable/deletable as tokens. */
+    if (plain && (vk == VK_F6 || vk == VK_F8) && g_mode != M_RTEXT) {
         uint8_t attr = vk == VK_F6 ? IW_WP5_ATTR_BOLD : IW_WP5_ATTR_UNDERLINE;
         uint8_t code[3];
         uint32_t state = g_query_fresh ? 0 : iw_attr_state(&q, g_query_cur);
@@ -1580,20 +1922,82 @@ static void search_key(char ch, uint8_t vk, int32_t mods)
     else if (ch == 13 && (mods & FLAIR_EVT_MOD_CONTROL_KEY)) { uint8_t c = 0x0D; query_insert(&c, 1); }
 }
 
+static void replace_key(char ch, uint8_t vk)
+{
+    if (vk == VK_F1) { g_ed.blk = IW_NO_BLOCK; g_mode = M_EDIT; return; }
+    if (g_mode == M_RCONF) {
+        if (ch != 'y' && ch != 'Y' && ch != 'n' && ch != 'N' && vk != VK_ENTER) return;
+        g_confirm = ch == 'y' || ch == 'Y';
+        g_query_n = g_query_cur = 0; g_query_fresh = 0; g_mode = M_RSEARCH; return;
+    }
+    if (ch == 'y' || ch == 'Y' || ch == 'n' || ch == 'N' || vk == VK_ENTER) {
+        int yes = ch != 'n' && ch != 'N';
+#ifdef IWORD_MUT_REPLACE_CONFIRM
+        yes = 1;
+#endif
+        g_ed.blk = IW_NO_BLOCK;
+        if (yes) {
+            if (replace_match() != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
+        } else g_ed.cur = g_search_back ? g_rs : g_re;
+        replace_next();
+    }
+}
+
+static void undo_key(char ch, uint8_t vk)
+{
+    int restore = ch == '1';
+    if (vk == VK_F1 || vk == VK_ESC) {
+#ifdef IWORD_MUT_UNDO_CANCEL
+        restore = 1;
+#else
+        g_mode = M_EDIT; return;
+#endif
+    }
+    if (restore) {
+        g_mode = M_EDIT;
+        if (g_undo_count) {
+            ensure_room();
+            int rc = iw_ed_retrieve(&g_ed, g_undo[g_undo_sel], g_undo_n[g_undo_sel]);
+#ifndef IWORD_MUT_UNDO_FIXUP
+            if (rc == IW_OK) rc = iw_ed_fixup(&g_ed);
+#endif
+            if (rc != IW_OK) error("ERROR: Document too large", M_EDIT);
+        }
+    } else if ((ch == '2' || vk == VK_UP) && g_undo_sel+1 < g_undo_count) g_undo_sel++;
+    else if (vk == VK_DOWN && g_undo_sel) g_undo_sel--;
+}
+
 static void key(int32_t message, int32_t mods)
 {
     char ch = (char)(message & 0xFF);
     uint8_t vk = (uint8_t)((message >> 8) & 0xFF);
+    uint32_t cur_before = g_ed.cur;
+    int mode_before = g_mode;
     g_caps = (mods & (int32_t)FLAIR_EVT_MOD_ALPHA_LOCK) != 0;
     g_ed.reveal = g_reveal;                       /* a new document resets it */
     g_hin = g_home;                               /* Home is a prefix: it waits */
     g_home = 0;                                   /* for the next key (slice 3) */
+    if (vk == VK_LEFT || vk == VK_RIGHT || vk == VK_UP || vk == VK_DOWN || vk == VK_HOME || vk == VK_END)
+        g_undo_join = 0;
     if (g_mode == M_GRAY) g_mode = M_EDIT;
     if (g_mode == M_EDIT) edit_key(ch, vk, mods);
-    else if (g_mode == M_SEARCH) search_key(ch, vk, mods);
+    else if (g_mode == M_SEARCH || g_mode == M_RSEARCH || g_mode == M_RTEXT) search_key(ch, vk, mods);
+    else if (g_mode == M_RCONF || g_mode == M_RASK) replace_key(ch, vk);
+    else if (g_mode == M_UNDO) undo_key(ch, vk);
+    else if (setup_mode()) setup_key(ch, vk);
     else if (format_mode()) format_key(ch, vk);
     else if (g_mode == M_RETRIEVE) retrieve_key(ch, vk, mods);
     else prompt_key(ch, vk);
+    /* Reference p. 697: ANY cursor motion ends a deletion group, including
+     * Search. The motion caused by the deletion itself remains in its group. */
+#ifndef IWORD_MUT_UNDO_MOVEMENT
+    if (g_ed.cur != cur_before &&
+        !((mode_before == M_EDIT || mode_before == M_GRAY) && (vk == VK_DEL || vk == VK_BSPC || ch == 8)) &&
+        !((mode_before == M_DELCODE || mode_before == M_DELBLOCK) && (ch == 'y' || ch == 'Y')) &&
+        !(mode_before == M_MOVEBLK && ch == '3')) g_undo_join = 0;
+#else
+    (void)cur_before; (void)mode_before;
+#endif
     paint();
 }
 
@@ -1602,6 +2006,7 @@ int tbx_app_main(void)
 {
     if (tbx_register() != TBX_OK) return 1;
     doc_reset();
+    settings_load();
     (void)tbx_set_mbar(&mbar);
     g_win = tbx_new_window(WIN_L, WIN_T, WIN_R, WIN_B, (int32_t)TBX_GOAWAY_ASK);
     if (g_win <= 0) {

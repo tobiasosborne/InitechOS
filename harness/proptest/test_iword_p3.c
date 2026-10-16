@@ -23,9 +23,9 @@ static void template_test(void)
 {
     int dispatched = 0;
     for (int m = 0; m < 4; m++) for (int k = 0; k < 12; k++) {
-        int live = (m == 0 && (k == 1 || k == 3 || k == 5 || k == 6 || k == 7 || k >= 9)) ||
-                   (m == 1 && (k == 1 || k == 7 || k == 9)) ||
-                   (m == 2 && (k == 2 || k == 3)) ||
+        int live = (m == 0 && (k == 0 || k == 1 || k == 3 || k == 5 || k == 6 || k == 7 || k >= 9)) ||
+                   (m == 1 && (k == 0 || k == 1 || k == 7 || k == 9)) ||
+                   (m == 2 && (k == 1 || k == 2 || k == 3)) ||
                    (m == 3 && (k == 3 || k == 7));
         reset_face();
         CHECK(!strcmp(names[m][k], IW_FKEYS[m][k].name), "template", "all command names equal the independent Reference transcription");
@@ -38,6 +38,9 @@ static void template_test(void)
         } else {
             /* Real action effects, independently specified. No test-only dispatch counter. */
             int ok = 0;
+            if (m == 0 && k == 0) ok = row_is(23, "Undelete 1 Restore; 2 Previous Deletion: 0");
+            if (m == 1 && k == 0) ok = row_is(0, "Setup");
+            if (m == 2 && k == 1) ok = row_is(23, "w/Confirm? No (Yes)");
             if (m == 0 && k == 3) ok = g_ed.doc.len == 11;
             if (m == 0 && k == 5) ok = g_ed.doc.len == 6;
             if (m == 0 && k == 7) ok = g_ed.doc.len == 6;
@@ -77,9 +80,9 @@ static void serial_template(const char *path)
     fclose(f);
     CHECK(up, "template", "WORD registered in emulator");
     CHECK(!seen[1][10], "template", "unmapped keys do not clear the status line");
-    const unsigned gray[4] = { (1u<<0)|(1u<<2)|(1u<<4)|(1u<<8),
-        (1u<<0)|(1u<<2)|(1u<<3)|(1u<<4)|(1u<<5)|(1u<<6)|(1u<<8),
-        0x3FFu ^ ((1u<<2)|(1u<<3)), 0x3FFu ^ ((1u<<3)|(1u<<7)) };
+    const unsigned gray[4] = { (1u<<2)|(1u<<4)|(1u<<8),
+        (1u<<2)|(1u<<3)|(1u<<4)|(1u<<5)|(1u<<6)|(1u<<8),
+        0x3FFu ^ ((1u<<1)|(1u<<2)|(1u<<3)), 0x3FFu ^ ((1u<<3)|(1u<<7)) };
     for (int m = 0; m < 4; m++) for (int k = 0; k < 12; k++) if (gray[m] & (1u<<k)) {
         if (!seen[m][k]) fprintf(stderr, "missing gray key row %d F%d '%s'\n", m, k+1, names[m][k]);
         CHECK(seen[m][k], "template", "emulator drew the grayed manual name");

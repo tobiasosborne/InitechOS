@@ -17,11 +17,14 @@ enum {
     IW_FK_format = 12,
     IW_FK_move = 13,
     IW_FK_font = 14,
+    IW_FK_replace = 15,
+    IW_FK_undelete = 16,
+    IW_FK_setup = 17,
 };
 typedef struct { const char *name; unsigned char action; } iw_fkey_t;
 static const iw_fkey_t IW_FKEYS[4][12] = {
     {
-        { "Cancel", IW_FK_gray },
+        { "Cancel", IW_FK_undelete },
         { "Search", IW_FK_search_forward },
         { "Help", IW_FK_gray },
         { "Indent", IW_FK_indent },
@@ -35,7 +38,7 @@ static const iw_fkey_t IW_FKEYS[4][12] = {
         { "Block", IW_FK_block },
     },
     {
-        { "Setup", IW_FK_gray },
+        { "Setup", IW_FK_setup },
         { "Search", IW_FK_search_backward },
         { "Switch", IW_FK_gray },
         { "Indent", IW_FK_gray },
@@ -50,7 +53,7 @@ static const iw_fkey_t IW_FKEYS[4][12] = {
     },
     {
         { "Thesaurus", IW_FK_gray },
-        { "Replace", IW_FK_gray },
+        { "Replace", IW_FK_replace },
         { "Reveal Codes", IW_FK_reveal },
         { "Block", IW_FK_block },
         { "Mark Text", IW_FK_gray },

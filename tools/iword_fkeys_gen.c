@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 static const char *const mods[] = { "plain", "shift", "alt", "ctrl" };
-static const char *const acts[] = { "gray", "unmapped", "search_forward", "search_backward", "indent", "bold", "exit", "underline", "save", "retrieve", "reveal", "block", "format", "move", "font" };
+static const char *const acts[] = { "gray", "unmapped", "search_forward", "search_backward", "indent", "bold", "exit", "underline", "save", "retrieve", "reveal", "block", "format", "move", "font", "replace", "undelete", "setup" };
 int main(int argc, char **argv)
 {
     char line[512], names[48][40];

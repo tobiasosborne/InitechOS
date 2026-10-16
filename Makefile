@@ -10102,7 +10102,7 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
 IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
-IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h
+IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/settings.h
 $(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
@@ -14415,7 +14415,7 @@ endif
 # IWORD_MUT_NO_BLOCK_ON (leg F8: "Block on" is not shown).
 # ---------------------------------------------------------------------------
 TEST_IWORD_FACE   := $(BUILD)/test_iword_face
-IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
+IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
 IWORD_FACE_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
 IWORD_FACE_FS     := $(BUILD)/iword_face_fs
 $(TEST_IWORD_FACE): $(IWORD_FACE_DEPS) | $(BUILD)
@@ -23180,6 +23180,23 @@ RECORD_SPEC_iword_search = $(FLAIR_IWORD_SEARCH_SPEC)
 RECORD_MARKER_iword_search = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="* Not found *                                                               " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_search = 400
 RECORD_IMAGE_iword_search = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# WL-0146 Part 2, Rule 14: all registrations precede record-flair.
+RECORD_SCRIPTS += iword_replace iword_undo iword_setup
+RECORD_SPEC_iword_replace = $(FLAIR_IWORD_REPLACE_CLIP_SPEC)
+RECORD_MARKER_iword_replace = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="keep                                                                        " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_replace = 400
+RECORD_IMAGE_iword_replace = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_RTC_BASE_iword_replace = 1992-03-01T09:00:00
+RECORD_SPEC_iword_undo = $(FLAIR_IWORD_UNDO_CLIP_SPEC)
+RECORD_MARKER_iword_undo = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Undelete 1 Restore; 2 Previous Deletion: 0                                  " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_undo = 400
+RECORD_IMAGE_iword_undo = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_RTC_BASE_iword_undo = 1992-03-01T09:00:00
+RECORD_SPEC_iword_setup = $(FLAIR_IWORD_SETUP_CLIP_SPEC)
+RECORD_MARKER_iword_setup = TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="2 Original Document Backup  Yes                                             " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_setup = 400
+RECORD_IMAGE_iword_setup = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_RTC_BASE_iword_setup = 1992-03-01T09:00:00
 # itext_edit (bead initech-tdnl.16, R4.2 InitechText; Rule 14): the
 # SimpleText-alike opens from the Finder -- double-click APPS\TEXT.EXE, the
 # "untitled" window -- "Saving tables to disk" / "PC LOAD LETTER" typed in
@@ -31729,6 +31746,7 @@ TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/diff/wp5_diff/p3.mk
+include harness/diff/wp5_diff/p3_part2.mk
 include harness/fixture_volumes.mk
 
 TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
