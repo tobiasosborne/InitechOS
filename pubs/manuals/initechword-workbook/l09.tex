@@ -1,1 +1,54 @@
-% stub
+% Lesson 9 (AN-18): Block (Alt-F4) forward and backward; giving a block bold
+% and underline; Block off with Cancel.  Uses PROCS from Lesson 7; saves it.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{9}{Blocking Text}
+\LessonFeatures{Block; Block, Attributes; Bold; Underline; Cancel}
+Bold and Underline can be pressed before you type, as in Lesson 4.  For text
+that is already typed, you block it first: mark it with Block, then press
+the key.  In this lesson you make the title of the procedure bold and
+underline two words of it.
+
+\BeginReplay{l09}
+\Task{Blocking the Title}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{procs} and press
+\PressKey{Enter}.  The cursor is at the start of the title.
+\item Press \Press{Block}{Alt-F4}.  \Scr{Block on} appears at the left of the
+status line.
+\item Press \PressKey{End}.  The block stretches to the end of the title.
+\end{WPSteps}
+\CompareScreen[rows=9]{l09-1}
+\begin{WPSteps}[resume]
+\item Press \Press{Bold}{F6}.  The title is bold, and Block is off.
+\end{WPSteps}
+
+\Task{Blocking Backward}
+A block can be stretched backward as well as forward.
+\begin{WPSteps}
+\item Press \PressKey{Down} four times to go to the line
+\textit{clearly, using a black pen.}, then \PressKey{End}.\Keys{Down Down Down}
+\item Press \PressKey{Left} once to put the cursor on the period.
+\item Press \Press{Block}{Alt-F4}, then press \PressKey{Left} nine times: the
+block runs back over \textit{black pen}.\Keys{Left Left Left Left Left Left Left Left}
+\item Press \Press{Underline}{F8}.
+\end{WPSteps}
+\CompareScreen[rows=9]{l09-2}
+
+\Task{Turning Block Off}
+If you turn Block on by mistake, Cancel turns it off without changing
+anything.
+\begin{WPSteps}
+\item Press \Press{Block}{Alt-F4} and \PressKey{Right} twice.\Keys{Right}
+\item Press \Press{Cancel}{F1}.  The highlight and \Scr{Block on} go.
+\end{WPSteps}
+
+\Task{Saving the Procedure}
+\begin{WPSteps}
+\item Press \Press{Save}{F10} and \PressKey{Enter}, and type \TypeName{y} to
+replace the earlier version.
+\item Press \Press{Exit}{F7}, then type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 10 you move a block of text to another place.

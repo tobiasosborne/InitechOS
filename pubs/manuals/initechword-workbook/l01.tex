@@ -17,7 +17,7 @@ Backspace until the mistake is erased, then type the text again.
 \Type{Peter, the new cover sheets for the TPS reports are in the supply room. Please make sure that every report going out this week has one, and send me a copy of the memo when it is ready. Thanks, Bill}
 \end{WPSteps}
 Compare your screen with the one below.
-\CompareScreen[rows=24]{l01-1}
+\CompareScreen[rows=3]{l01-1}
 Three things have happened as you typed.  First, the cursor has moved ahead
 of the text: it marks where the next character goes.  Second, each time a
 line filled, InitechWord moved the word that did not fit to the next line
@@ -33,7 +33,7 @@ Bill signs with a period.
 \item Press \PressKey{Backspace} four times to erase the name.\Keys{Backspace Backspace Backspace}
 \item Type \TypeRun{Bill.}
 \end{WPSteps}
-\CompareScreen[rows=24]{l01-2}
+\CompareScreen[rows=4]{l01-2}
 With the period, the name no longer fits on the third line, so InitechWord
 has moved it to the fourth.  The status line shows the cursor there:
 \Scr{Ln 1.5"}, a sixth of an inch below the third line, and \Scr{Pos
@@ -45,7 +45,7 @@ You do not need to keep the note.  To clear the screen without saving it,
 \item Press \Press{Exit}{F7}.  The status line asks
 \Scr{Save Document? Yes (No)}.
 \item Type \TypeName{n}.  The status line asks \Scr{Exit WP? No (Yes)}.
-\CompareScreen[rows=24]{l01-3}
+\CompareScreen[rows=4]{l01-3}
 \item Type \TypeName{n} again to stay in InitechWord.  The screen clears.
 \end{WPSteps}
 \EndReplay

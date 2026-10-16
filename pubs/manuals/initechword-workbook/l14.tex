@@ -1,1 +1,57 @@
-% stub
+% Lesson 14 (AN-18): Appearance (Ctrl-F8,2,n): italic, double underline,
+% small capitals; what the editing screen shows of each; Reveal Codes.
+% Saves NOTICE (used by Lesson 15).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{14}{Appearance}
+\LessonFeatures{Appearance; Italics; Font; Reveal Codes; Save}
+Bold and underline have keys of their own.  The other appearances -- italic,
+double underline, small capitals and the rest -- are on the Font key's
+Appearance menu.  In this lesson you type a notice with three of them.
+
+\BeginReplay{l14}
+\Task{Typing the Notice}
+\begin{WPSteps}
+\item Type \TypeRun{NOTICE TO ALL STAFF} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\item Type \TypeRun{Effective immediately, the } (with the space at the end).
+\item Press \Press{Font}{Ctrl-F8}.  The Font menu appears on the status line.
+Select \Choose{Appearance}{2}; the Appearance menu replaces it.  Select
+\Choose{Italc}{4}.
+\item Type \TypeRun{new}.
+\item Press \PressKC{Ctrl-F8}{2,4}{24} again to end the italic.
+\item Type \TypeRun{ cover sheet is } (with a space at each end).
+\item Press \PressKC{Ctrl-F8}{2,3}{23} for double underline, type
+\TypeRun{required}, and press \PressKC{Ctrl-F8}{2,3}{23} again.
+\item Type \TypeRun{ on every TPS report.} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\item Type \TypeRun{Questions go to } (with the space), press
+\PressKC{Ctrl-F8}{2,7}{27} for small capitals, type \TypeRun{Bill Lumbergh},
+press \PressKC{Ctrl-F8}{2,7}{27} again, and type a period:
+\TypeRun{.}
+\end{WPSteps}
+\CompareScreen[rows=6]{l14-1}
+The italic word is drawn in italic.  Double underline and small capitals are
+in the notice, but the editing screen draws that text as ordinary text.
+Reveal Codes shows which appearance each word has.
+
+\Task{Checking the Codes}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=17]{l14-2}
+Each appearance is a pair of codes: \Code{[ITALC]} and \Code{[italc]},
+\Code{[DBL UND]} and \Code{[dbl und]}, \Code{[SM CAP]} and \Code{[sm cap]}.
+A line too long for the screen runs on into the next row of the codes area.
+\begin{WPSteps}[resume]
+\item Press \Press{Reveal Codes}{Alt-F3} again.
+\end{WPSteps}
+
+\Task{Saving the Notice}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}, type \TypeName{notice} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 15 you change the size of text in the notice.

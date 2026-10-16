@@ -1,1 +1,39 @@
-% stub
+% Lesson 16 (AN-18): Font, Normal (Ctrl-F8,3): ending every attribute at the
+% cursor.  Nothing saved.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{16}{Normal}
+\LessonFeatures{Font; Bold; Underline; Reveal Codes}
+When text has several attributes at once -- bold and underlined, say --
+ending them one by one takes a keystroke each.  Normal, on the Font menu,
+ends them all.  In this lesson you type a bold, underlined word and go back
+to normal text with one choice.
+
+\BeginReplay{l16}
+\Task{Typing the Word}
+\begin{WPSteps}
+\item Press \Press{Bold}{F6} and \Press{Underline}{F8}.
+\item Type \TypeRun{URGENT:}
+\item Press \Press{Font}{Ctrl-F8} and select \Choose{Normal}{3}.  The cursor
+moves past the codes that end the underline and the bold.
+\item Type \TypeRun{ the staff meeting moves to Conference Room B.} (with the
+space at the start).
+\end{WPSteps}
+\CompareScreen[rows=1]{l16-1}
+
+\Task{Checking the Codes}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=13]{l16-2}
+The word is inside \Code{[BOLD][UND]} \ldots\ \Code{[und][bold]}, and the
+text after it is plain.
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+This ends the second section.  The lessons of the last section change the
+format of a document: its margins, justification and line spacing.

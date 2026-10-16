@@ -1,1 +1,56 @@
-% stub
+% Lesson 12 (AN-18): Move, Sentence/Paragraph/Page (Ctrl-F4,1 and 2): Move
+% selects the text the cursor is in.  Uses MEMO; saves nothing.  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{12}{Moving Sentences and Paragraphs}
+\LessonFeatures{Move, Sentence/Paragraph/Page; Move, Block}
+To move a whole sentence or paragraph you need not block it: Move can find
+its ends for you.  In this lesson you try two changes to the memo -- the
+questions paragraph moved first, and a sentence moved to the end of its
+paragraph -- without saving them.
+
+\BeginReplay{l12}
+\Task{Moving a Paragraph}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{memo} and press
+\PressKey{Enter}.
+\item Press \PressKey{Down} twelve times to put the cursor on the first line
+of the paragraph that begins \textit{If you have
+questions}.\Keys{Down Down Down Down Down Down Down Down Down Down Down}
+\item Press \Press{Move}{Ctrl-F4} and select \Choose{Paragraph}{2}.
+InitechWord highlights the paragraph, through its hard return, and shows
+\Scr{1 Move; 2 Copy; 3 Delete; 4 Append: 0}.
+\end{WPSteps}
+\CompareScreen[rows=18]{l12-1}
+\begin{WPSteps}[resume]
+\item Select \Choose{Move}{1}.
+\item Press \PressKey{Up}\Keys{Up Up Up} four times to go to the start of the
+first paragraph, and press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=18]{l12-2}
+The questions paragraph now comes first.  It moved without its blank line,
+which stayed behind; delete or add blank lines with Backspace and Enter as
+you need.
+
+\Task{Moving a Sentence}
+\begin{WPSteps}
+\item Press \PressKey{Down}\Keys{Down Down} three times to go to the second
+line of the paragraph that begins \textit{Beginning Monday}, the line that
+begins with \textit{sheet.}
+\item Press \PressKey{End}, then \PressKey{Home}, \PressKey{Left}, and
+\PressKey{Right} ten times to put the cursor in the sentence \textit{The
+change takes effect immediately.}\Keys{Right Right Right Right Right Right Right Right Right}
+\item Press \Press{Move}{Ctrl-F4}, select \Choose{Sentence}{1}, then
+\Choose{Move}{1}.
+\end{WPSteps}
+\CompareScreen[rows=18]{l12-3}
+
+\Task{Leaving Without Saving}
+\begin{WPSteps}
+\item Press \Press{Cancel}{F1}: the sentence stays out of the memo.  You can
+still put it back with Move's Retrieve, but you are not saving these changes.
+\item Press \Press{Exit}{F7}, type \TypeName{n}, then \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 13 you delete text in larger pieces.

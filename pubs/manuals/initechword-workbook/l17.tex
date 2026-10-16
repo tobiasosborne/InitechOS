@@ -1,1 +1,73 @@
-% stub
+% Lesson 17 (AN-18): Margins, Left and Right (Shift-F8,1,7) set and reset
+% around a quoted passage; [L/R Mar:] in Reveal Codes; the ruler.  Saves
+% MARTINEZ.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{17}{Margins}
+\LessonFeatures{Margins, Left and Right; Format; Reveal Codes; Save}
+A passage quoted in a letter stands out when its margins are narrower than
+the rest.  In this lesson you write a short letter to Rosa Martinez, setting
+one and a half inch margins for the quoted paragraph and returning to one
+inch margins after it.
+
+\BeginReplay{l17}
+\Task{Typing the Opening}
+\begin{WPSteps}
+\item Type \TypeRun{Dear Ms. Martinez:} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\item Type
+\Type{As you asked, here is the part of the new procedure that applies to your department:}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Narrowing the Margins}
+\begin{WPSteps}
+\item Press \Press{Format}{Shift-F8} and select \Choose{Line}{1}.  The
+Format: Line screen shows the margins in effect: 1 inch each.
+\item Select \Choose{Margins}{7}.  The cursor moves to the left margin.
+\item Type \TypeName{1.5} and press \PressKey{Enter}.  The cursor moves to the
+right margin.
+\item Type \TypeName{1.5} and press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=21]{l17-1}
+\begin{WPSteps}[resume]
+\item Press \Press{Exit}{F7} to return to the document.
+\item Type the quoted paragraph:
+\Type{Every TPS report must carry the new cover sheet. Reports without one will be returned to the sender for correction.}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Returning to the Standard Margins}
+\begin{WPSteps}
+\item Press \Press{Format}{Shift-F8}, select \Choose{Line}{1} and
+\Choose{Margins}{7}, type \TypeName{1}, press \PressKey{Enter}, type
+\TypeName{1} and press \PressKey{Enter}.
+\item Press \Press{Exit}{F7}.
+\item Type \TypeRun{Please call me if you have any questions.}
+\end{WPSteps}
+\CompareScreen[rows=10]{l17-2}
+The quoted paragraph is indented half an inch from each side.  Its lines are
+shorter, so it wraps sooner.
+
+\Task{Checking the Codes}
+\begin{WPSteps}
+\item Press \PressKey{Up} three times to put the cursor on the quoted
+paragraph, and press \Press{Reveal Codes}{Alt-F3}.\Keys{Up Up}
+\end{WPSteps}
+\CompareScreen[rows=20]{l17-3}
+The margin codes stand where you set them, one before the paragraph and
+one after it:
+\par\noindent\hspace*{4mm}\Code{[L/R Mar:1.5",1.5"]}\quad\Code{[L/R Mar:1",1"]}\par\noindent  The ruler shows
+the margins in effect at the cursor; a margin that does not fall on a tab
+stop is shown by a bracket instead of a brace.
+
+\Task{Saving the Letter}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Save}{F10}, type \TypeName{martinez} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 18 you center a letterhead and set a date against the right
+margin.

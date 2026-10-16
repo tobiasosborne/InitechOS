@@ -1,1 +1,54 @@
-% stub
+% Lesson 13 (AN-18): Block, Delete ("Delete Block? No (Yes)"), Move Sentence
+% Delete (Ctrl-F4,1,3), deleting a hard page with Backspace.  Uses REPORT from
+% Lesson 8; nothing saved.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{13}{Deleting Text}
+\LessonFeatures{Block, Delete; Move, Sentence/Paragraph/Page; Page Break, Hard; Delete}
+Backspace and Delete erase a character at a time.  For more, block the text
+and delete the block, or let Move find a sentence, a paragraph or a page and
+delete it.  In this lesson you take the report of Lesson 8 apart, without
+saving the result.
+
+\BeginReplay{l13}
+\Task{Deleting a Block}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{report} and press
+\PressKey{Enter}.
+\item Press \PressKey{Down} twice to go to the line \textit{Report
+Number}.\Keys{Down}
+\item Press \Press{Block}{Alt-F4} and \PressKey{Down} to block the line.
+\item Press \PressKey{Delete}.
+\end{WPSteps}
+\CompareScreen[rows=7]{l13-1}
+\begin{WPSteps}[resume]
+\item Type \TypeName{y}.  The line is deleted.
+\end{WPSteps}
+
+\Task{Deleting a Sentence}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the report, on its second page.
+\item Press \Press{Move}{Ctrl-F4} and select \Choose{Sentence}{1}.  The
+sentence is highlighted.
+\item Select \Choose{Delete}{3}.  Move deletes it without asking.
+\end{WPSteps}
+\CompareScreen[rows=6]{l13-2}
+
+\Task{Deleting the Hard Page}
+The second page is empty now.  Its hard page is a code at the end of the
+date line, and the cursor is just after it.
+\begin{WPSteps}
+\item Press \PressKey{Backspace}.  The hard page is deleted -- InitechWord
+does not ask about hard pages -- and the bar goes.
+\end{WPSteps}
+\CompareScreen[rows=4]{l13-3}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.  The report
+on the disk is as Lesson 8 saved it.
+\end{WPSteps}
+\EndReplay
+In Lesson 14 you give text other appearances: italic, double underline and
+small capitals.

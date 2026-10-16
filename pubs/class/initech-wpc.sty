@@ -282,6 +282,9 @@ end
 %% Press a feature key: **Bold** (F6); a plain key: Enter.
 \newcommand\Press[2]{\im@rec{key #2}\FK{#1}{#2}}
 \newcommand\PressKey[1]{\im@rec{key #1}\K{#1}}
+%% A key and the menu choices typed after it, printed "Ctrl-F8,2,3" and
+%% recorded: \PressKC{Ctrl-F8}{2,3}{23}.
+\newcommand\PressKC[3]{\im@rec{key #1}\im@rec{type #3}\KC{#1}{#2}}
 %% Characters typed into a menu or prompt, recorded only (the text names
 %% them already, as in "press Shift-F8,1,3,3").
 \newcommand\Typing[1]{\im@rec{type #1}}

@@ -1,1 +1,57 @@
-% stub
+% Lesson 10 (AN-18): Move, Block (Ctrl-F4,1,1): cutting a block and putting
+% it back at the cursor with Enter.  Saves AGENDA (used by Lesson 11).
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{10}{Moving Text}
+\LessonFeatures{Move; Move, Block; Block; Save}
+The staff meeting agenda is typed, but the items are in the wrong order:
+the birthday cake should come first, before the people who bake it leave.
+In this lesson you type the agenda and move its last item to the top.
+
+\BeginReplay{l10}
+\Task{Typing the Agenda}
+\begin{WPSteps}
+\item Type \TypeRun{STAFF MEETING AGENDA} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\item Type each item and press \K{Enter} after it:
+\Type{Cover sheets for TPS reports}\Keys{Enter}
+\Type{Parking assignments}\Keys{Enter}
+\Type{Friday dress code}\Keys{Enter}
+\Type{Birthday cake for the third floor}\Keys{Enter}
+\end{WPSteps}
+
+\Task{Blocking the Item}
+\begin{WPSteps}
+\item Press \PressKey{Up} to go to the start of the last item.
+\item Press \Press{Block}{Alt-F4}, then \PressKey{Down}.  The block runs to the
+start of the next line, so that it holds the whole item and its hard
+return.
+\end{WPSteps}
+\CompareScreen[rows=7]{l10-1}
+
+\Task{Moving the Item}
+\begin{WPSteps}
+\item Press \Press{Move}{Ctrl-F4}.  The status line shows
+\Scr{Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0}.
+\item Select \Choose{Block}{1}.  The status line shows
+\Scr{1 Move; 2 Copy; 3 Delete; 4 Append: 0}.
+\item Select \Choose{Move}{1}.  The item leaves the document, and the status
+line says \Scr{Move cursor; press Enter to retrieve.}
+\item Press \PressKey{Up}\Keys{Up Up} three times to put the cursor at the
+start of the first item.
+\end{WPSteps}
+\CompareScreen[rows=5]{l10-2}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Enter}.  The item is put in front of the cursor.
+\end{WPSteps}
+\CompareScreen[rows=6]{l10-3}
+
+\Task{Saving the Agenda}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}, type \TypeName{agenda} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, then type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 11 you copy text instead of moving it.
