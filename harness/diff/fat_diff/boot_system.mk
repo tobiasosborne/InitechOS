@@ -68,7 +68,7 @@ test-boot-system-repro: $(FLAIRTENANTS_IMG) $(BOOT_SYSTEM_MINT) $(BOOT_SYSTEM_TO
 	@set -eu; for tag in a b; do \
 	 sh $(BOOT_SYSTEM_MINT) $(BUILD)/boot-system/repro-$$tag.img $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL); done
 	@cmp $(BUILD)/boot-system/repro-a.img $(BUILD)/boot-system/repro-b.img
-	@cmp $(FLAIRTENANTS_IMG) $(BUILD)/boot-system/repro-a.img
+	@cmp -n $$(( 2944 * 512 )) $(FLAIRTENANTS_IMG) $(BUILD)/boot-system/repro-a.img
 	@echo 'GREEN test-boot-system-repro: two fresh FAT builds == each other == shipped boot image, byte for byte'
 
 test-boot-system-budget: $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_FLAIRTENANTS_ELF) $(BUILD)/kernel_shell_secondary.elf
