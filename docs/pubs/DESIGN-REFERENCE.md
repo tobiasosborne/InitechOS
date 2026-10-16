@@ -13,9 +13,10 @@ label and box is typeset and written from)
 | Field | Value |
 |---|---|
 | Document ID | PUB-REF-0001 |
-| Version | 1.0 |
-| Date | 2026-10-16 |
-| Status | RATIFIED for D-2, D-3, D-4, D-6, D-8, D-10, D-11, D-12, D-14, D-15 (PM decisions 2026-10-16). D-1, D-5, D-7, D-9, D-13 OPEN and non-blocking (Sec 1) |
+| Version | 1.1 |
+| Date | 2026-10-17 |
+| Revision history | 1.0 (2026-10-16): first ratified issue. 1.1 (2026-10-17, worklog WL-0132, operator directive 2026-10-17): **D-8 revised** -- the Initech logo replaces the wordmark; **Initech Cyan** added to PK-01 as the line colour; **AN-27** company banner; PK-02..PK-15 logo cells and line band; PN-10 part-number plate; C-17..C-20; O-6..O-9 |
+| Status | RATIFIED for D-2, D-3, D-4, D-6, D-8 (revised 2026-10-17), D-10, D-11, D-12, D-14, D-15 (PM decisions 2026-10-16). D-1, D-5, D-7, D-9, D-13 OPEN and non-blocking (Sec 1) |
 | Supersedes | `docs/packaging/DESIGN-SYSTEM.md` (PUB-RES-0001-C) in full; the design rules (not the outlines) of `docs/packaging/INITECH-DOCUMENTATION-SET.md` (PUB-RES-0001-B) |
 | Evidence base | The seven structural annexes in `docs/pubs/originals/` (PUB-ORIG-0001-A/B/C, PUB-ORIG-DB3P, -L123, -WP51, -TP60), and `docs/packaging/` PUB-RES-0001, -A, -B, -D. Where an annex corrects the 2026-10-04 survey, the annex governs |
 | Consumers | The `initech-manual` LuaLaTeX class author; technical writers; the `test-pubs` gate lane; package artwork |
@@ -56,6 +57,8 @@ printed folio or PDF page where the annex records one.
 | `[wpc sN]` | `docs/pubs/originals/wordperfect-51.md` |
 | `[bor sN]` | `docs/pubs/originals/borland-turbo-pascal.md` |
 | `[dsy sN]`, `[set sN]`, `[res sN]`, `[sur sN]`, `[src sN]` | `docs/packaging/` DESIGN-SYSTEM, INITECH-DOCUMENTATION-SET, MANUALS-AND-BOXES-RESEARCH, ORIGINALS-PHYSICAL-SURVEY, PRODUCTION-SOURCING |
+| `[idn sN]` | The Initech identity references, private, outside the repository: `initech-manuals-ref/initech-identity/` -- `Initech.png` (the clean logo, 300 x 207), `SQ.png` (the headquarters sign of the reference frame, 1000 x 535), `Culture-Change-Methods.jpg` (the office banner, 1280 x 688), `clip/COLOURS.md` (colour samples with coordinates, astra lane). Measured, never copied (worklog WL-0132) |
+| `[web]` | Web sources consulted for the identity, nothing downloaded into the repository: the third-party logo vector at `https://www.brandsoftheworld.com/logo/initech-coloured` (designer's note: a copy of the logo placed inside the Initech office) and its 1200-px rendering at `https://vectorseek.com/vector_logo/initech-logo-vector/`; Pantone simulations `https://www.pantone.com/color-finder/7472-C`, `https://www.pantone.com/color-finder/563-c` with third-party sRGB values (colorxs.com, icolorpalette.com) |
 | `[D-n]` | PM decision, Sec 1 |
 | `[CL ...]`, `[PRD sN]`, `[ADR-nnnn ...]` | `CLAUDE.md`, `InitechOS-PRD.md`, `docs/adr/` |
 | `[house: reason]` | House ruling made in this document |
@@ -76,7 +79,7 @@ type, **NT** notation, **AN** anatomy, **PK** packaging, **PN** part numbers, **
 | D-3 | **Version numbers on manuals and boxes match the shipped About box or banner.** InitechDOS is fixed at **3.30** (`spec/dos_banner.txt`; `os/milton/kmain.c`). Every other product prints the version string its shipped build displays; until the build displays one, the book prints no version and its part number carries `0000` (PN-03) | The box must agree with the screen; the rule is decided in software first [res s9 D-3]. Enforced by GC-08 |
 | D-4 | **One trim, 7 x 9 in (177.8 x 228.6 mm), for every book**, binder or bound | The dominant trim of the originals: Ashton-Tate 7.00 x 9.00 [ate s2], Lotus 6.97 x 9.02 [lot s2], Borland about 7 x 9 [bor s2]; Apple 7.2-7.5 x 9 [mac s2]. IBM's 5.5 x 8.5 half-letter [ibm s2] is folded into the house grid (Sec 3) for shelf unity |
 | D-6 | **Black-only interiors.** Colour only on covers, spines, tab dividers, boxes, labels and cards | IBM, Borland and Lotus interiors are black only [ibm s2; bor s2; lot s4]; it is also the cost lever [res s1]. Two-colour models (Ashton-Tate blue [ate s6], WordPerfect blue [wpc s2.3]) are converted by NT-22, NT-23 and TY-20 |
-| D-8 | **Wordmark only**: "INITECH" + "Systems Corporation" + a rule. No illustration logo, no film artwork | Bland is correct; IBM and Ashton-Tate both ran a wordmark-plus-rule title system [dsy s2; ate s8.1; ibm s3] |
+| D-8 | **REVISED 2026-10-17 (operator directive 2026-10-17; supersedes the 2026-10-16 ruling "wordmark only, no illustration logo, no film artwork" and the caution at `docs/packaging/MANUALS-AND-BOXES-RESEARCH.md` Sec 8).** The publisher mark of every piece is **the Initech logo as it appears in the reference frame**: three notched blocks over the logotype INITECH (Sec 7.0), reproduced as an original vector drawing authored from observation (`pubs/common/initech-logo.tex`), in colour on colour pieces and in black and black tints inside books (D-6). The old wordmark (INITECH + rule + Systems Corporation) is retired; the macro name `\Wordmark` survives and sets the logo | The operator: "It currently does not feature the initech logo correctly from the movie, nor the official cyan. Our manuals must mirror the originals both in terms of content and presentation and also completeness." The originals carried their makers' marks, not bland substitutes: IBM's logo block [pkg s2; ibm s3], Ashton-Tate's stripe mark [ate s8.1] -- the Initech pieces carry Initech's. Honesty rule kept: drawn, never traced or extracted (CL Law 1); the legal note of [res s8] is an owner's matter (D-9) and is recorded, not acted on, here |
 | D-10 | **Sources live in this repo under `pubs/`** | Chapters can cite gates and generators can read `spec/` [res s9]; the scans stay outside the repo |
 | D-11 | **LuaLaTeX house class `initech-manual`** | Installed, PDF/X capable, reproducible with `SOURCE_DATE_EPOCH`, indexes and cross-references native [res s7] |
 | D-12 | **Fictional address; telephone numbers 555-0100 to 555-0199; Technical Support extension 2504** | 555-01xx is reserved for fiction; extension 2504 is already in `README.md` [res s8] |
@@ -102,6 +105,9 @@ type, **NT** notation, **AN** anatomy, **PK** packaging, **PN** part numbers, **
 | Updated **in lockstep** with the software | GC-11, GC-12 (bead rule) |
 | **Print quality** | PG, TY, NT-21 (screen reproduction at integer scale), PK, GC-07 (reproducible PDF/X) |
 | The **TPS Report Generator** gets a dedicated operating-procedures manual in the IBM operations-training register, its busywork rituals documented straight-faced | Family F-OPS (Sec 2), AN-15, VO-06, DS row DOS-TPS |
+| (2026-10-17) The manuals carry **the Initech logo correctly** as in the reference frame, not a substitute wordmark | D-8 revised; Sec 7.0 (the logo, measured); PK-02..PK-15 logo cells; `pubs/common/initech-logo.tex`; GC identity leg in `test-pubs-families` |
+| (2026-10-17) The manuals carry **the official cyan** | PK-01 *Initech Cyan* (`#57B19F`, measured on the logo's cube tops [idn]) as the line colour of every colour piece; Sec 7.1 comparison with the desktop teal and the recommendation O-6 |
+| (2026-10-17) The slogan **"Is This Good for the COMPANY?"** appears at strategic places in every manual, in exactly that capitalisation | AN-27; `\IsThisGoodForTheCompany` in `initech-forms.sty` |
 
 ## 2. Book families
 
@@ -207,6 +213,7 @@ TeX Live path, sha256) so two machines produce the same PDF (GC-07). [house: Rul
 | -- not used -- | New Century Schoolbook (proposed in [dsy s4]) | TeX Gyre Schola | -- | -- | none | No original uses it: the IBM body is Times-style [ibm s10], correcting [dsy s4] |
 | -- not used -- | Optima/Frutiger (Ashton-Tate heads) | none free | -- | -- | Heros substitutes | [ate s5]; [house: no metric clone; one sans in the line] |
 | -- not used -- | Apple Garamond, the Borland cover sans, WordPerfect and Ashton-Tate wordmarks | -- | -- | -- | none | Trade dress [res s8; bor rules; ate rules; wpc rules] |
+| -- drawn, never typeset -- | The INITECH logotype of the logo (a black, extended, oblique grotesque, Sec 7.0) | none: no free face has its proportions | -- | -- | logo only | Drawn as outlines in `pubs/common/initech-logo.tex` (D-8 revised); never set from a font, never used for any other word [house: the mark is artwork, not type] |
 | -- never typeset -- | Chicago 12, Geneva 9 (FLAIR screen faces) | none in TeX Live | -- | -- | Appear **only** inside emulator captures. The command-key glyph and any FLAIR-only glyph in running text are generated as bitmaps from the shipped strikes (`spec/assets/chicago12.h`, `geneva9.h`, `apple_glyph.h`) at integer scale (NT-21) | [house: no free metric Chicago; the repo strikes are the independent truth, CL Law 2] |
 
 ### 4.2 Sizes and leading
@@ -566,7 +573,9 @@ a chapter [bor s1, s7].
 ### 6.3 Front matter
 
 **AN-20 -- Title page and verso** (all books). Title page = the cover grid (PK-02) in black on
-white, family band in black with reversed text, no part number [ibm s3]. Verso, fixed order
+white, family band in black with reversed text, the one-colour logo (`\InitechLogoBlack`) in
+the logo cell, no line band, no part number [ibm s3; D-6; D-8 revised]. The verso carries
+the company banner directly under the edition notice (AN-27). Verso, fixed order
 (IBM edition notice [ibm s4.2] + Ashton-Tate licence summary [ate s8.1] + Borland imprint
 [bor s3, s9]):
 
@@ -627,20 +636,66 @@ with bold initials. F-MAC: AN-14. [ate s9.4; lot s9; wpc s4.6; mac s9]
 
 | Variant | Used in | Layout | Source |
 |---|---|---|---|
-| IBM two-page unit, x3 | every binder book (F-IBM, F-ATE, F-WPC Reference) as the last leaves | Form side: wordmark top left, product family top right, **Reader's Comment Form**, book short title left + part number right, three short paragraphs (how comments are used; Initech may use them; not for technical questions), *Comments:* and open space. Mailer side: BUSINESS REPLY MAIL box with a fictional permit number, POSTAGE WILL BE PAID BY ADDRESSEE, the fictional Initech address (D-12), indicia bars, "Fold here" dotted line with inverted text, "Please do not staple", "Tape" | [ibm s12] |
+| IBM two-page unit, x3 | every binder book (F-IBM, F-ATE, F-WPC Reference) as the last leaves | Form side: one-colour logo top left (D-8 revised; not yet drawn by the class, Sec 11.5), product family top right, **Reader's Comment Form**, book short title left + part number right, three short paragraphs (how comments are used; Initech may use them; not for technical questions), *Comments:* and open space. Mailer side: BUSINESS REPLY MAIL box with a fictional permit number, POSTAGE WILL BE PAID BY ADDRESSEE, the fictional Initech address (D-12), indicia bars, "Fold here" dotted line with inverted text, "Please do not staple", "Tape" | [ibm s12] |
 | Lotus rating grid, x1 | F-LOT volumes, bound in | mail-to block; check-line questions; grid rows = every piece of the set, columns Excellent / Very good / Good / Fair / Poor / Didn't use; free-text; dashed cut line along the binding edge | [lot s9] |
 | Internal mail, x1 | F-OPS | "Possible topics for comment" line; internal routing address rules | [ibm s12] |
 
-Postal bars on any form encode nothing routable [house: D-12 fiction rule].
+Postal bars on any form encode nothing routable [house: D-12 fiction rule]. The form side of
+every variant ends with the company banner (AN-27).
 
 **AN-26 -- Colophon** (D-15): last interior page of every book (Apple position [mac s6]); in
 F-BOR also folded into *Typefaces used in these books* [bor s9]. Fixed text kept once in
 `pubs/common/colophon.tex`, naming truthfully: LuaLaTeX and the `initech-manual` class; the
 faces by their real names (TeX Gyre Pagella/Termes/Heros/Heros Cn/Adventor/Cursor, EB
 Garamond); that screens were captured from InitechOS running in an emulator under the
-project harness. It is the only page exempt from the period vocabulary check (GC-06).
+project harness; that the logo is an original drawing authored from observation (D-8
+revised). It is the only page exempt from the period vocabulary check (GC-06).
+
+**AN-27 -- Company banner** (operator directive 2026-10-17). The slogan
+**Is This Good for the COMPANY?** -- exactly that capitalisation, never paraphrased,
+abbreviated or recased -- as the office banner of the reference frame shows it [idn s3]:
+"Is This Good for the" in Heros regular, **COMPANY** in Heros Bold Italic, a 1.2 pt rule
+beneath the words, and a question mark at 1.8 times the size standing past the end of the
+rule, its point below it. One display line, set by `\IsThisGoodForTheCompany[<width>]`
+(`initech-forms.sty`; default width the line width). COMPANY prints in Initech Cyan on colour
+pieces (covers, back covers, spines, box, labels, cards) and in black inside a book (D-6);
+the rest is always black.
+
+| Place | Width | Applied |
+|---|---|---|
+| Title verso, directly under the edition notice (AN-20) | 90 mm | every book (class: `TitleVerso`) |
+| Foot of the form side of every Reader's Comment Form (AN-25) | 90 mm | every binder book (class: `\ReadersCommentForm`) |
+| Opening page of every F-OPS book: the first Session opener, under the Objectives | text column | DOS-TPS when written (author places it) |
+| Back cover of every book, top at 100 mm from the top trim, x 23 mm (PK-05) | 131.8 mm (the cover measure) | every book (class: `\MakeBackCover`) |
+| Box back panel, left half, under **Options supported:** (PK-08) | 93 mm | box artwork |
+
+Nowhere else, and never more than once on a page: a banner, not wallpaper [house: the
+reference shows one banner over the whole office]. Never in running text, a running head or a
+chapter title. Checked at review; its presence in the classes is exercised by every build.
 
 ## 7. Covers, spines, dividers, boxes, labels, cards
+
+### 7.0 The Initech logo (D-8 revised)
+
+What the logo **is**, as measured on the clean logo still and the headquarters sign of the
+reference frame [idn s1, s2], cross-checked on a 1200-px third-party rendering [web]; the
+two measurements agree within 2 %. Unit **u** = the horizontal run of one unit edge of the
+block drawing (clean still: 19.5 px; rendering: 62.89 px).
+
+| Element | Measurement | Rule |
+|---|---|---|
+| Projection | Receding edges rise 1 in 2 (26.565 deg); vertical edges sqrt(3/2) = 1.2247 u per unit: the true orthographic view from 30 deg elevation, 45 deg azimuth (2:1 dimetric). Mark height 6.45 u measured on both images = 2v + 4u exactly | drawn with these constants, nothing eyeballed |
+| Block | A cube of edge 2 with a cube of edge 1 removed from its **top front corner**: the top reads as a chevron; the notch shows a floor and two walls | three identical blocks |
+| Arrangement | One block at the back; two in front at (-2.5 u, -2 u) and (+2.5 u, -2 u) on the page: a triangle with one unit of air between the front blocks. Mark 9 u wide x 6.449 u high | painter's order: back, then front |
+| Faces | Tops and notch floors **Initech Cyan**; left-facing faces and the parallel notch wall near-black (RGB 18/19/20 = Initech Black); right-facing faces and their notch wall light grey (RGB 213/212/212 = 16 % black). No outlines | colour form; one-colour form: tops 42 % black (the cyan's luminance) |
+| Logotype | INITECH, capitals of a black-weight extended **grotesque** (Helvetica-class: the C is a round bowl with horizontal terminals, not Eurostile's squared C), oblique 0.2065 (11.7 deg), cap height 2.536 u, slanted set width 15.264 u, stems 0.763 u (30 % of cap height), tight fitting 0.25-0.40 u | drawn as outlines, never typeset (TY table) |
+| Lockup | Mark centred over the slanted logotype's box; 1.471 u from cap line to the mark's lowest vertex. Whole logo 15.264 u x 10.459 u: **aspect 1.459** | the only lockup; nothing is ever added to it |
+| Sign variant | On the headquarters sign the logotype is a light, outlined bevel on a grey monolith with a cyan band at its foot [idn s2] | the cyan foot band of the sign is the line band (PK-01) |
+| Macros | `\InitechLogo[<h>]`, `\InitechLogoBlack[<h>]`, `\InitechMark[<h>]`, `\InitechMarkBlack[<h>]`, `\InitechLogotype[<cap height>]`, `\InitechLogoForWidth{<w>}` (height for a width), `\Wordmark[<w>]` (kept name: the logo at width w, colour on colour pieces, black inside) | `pubs/common/initech-logo.tex`, loaded by the class |
+| Clear space and minimum | Clear space 1 u all round (u = logo height / 10.459); minimum width 16 mm (spine rotation), 22 mm horizontal | [house: below 16 mm the notch walls close up at 600 dpi] |
+
+Law-1 honesty: the drawing is authored from observation and measurement; it is not traced,
+extracted or converted from any image, and no reference image enters the repository.
 
 ### 7.1 Colour system (PK-01)
 
@@ -650,7 +705,10 @@ interior (D-6). Family assignment from [dsy s3]; the band *grid* below is IBM's 
 
 | Name | Use | CMYK (approx.) | Pantone (approx.) |
 |---|---|---|---|
+| **Initech Cyan** (the official cyan; the line colour) | logo cube tops; title hairline (1 pt) on covers and box; the **line band** at the foot of every cover, back cover, spine, binder, box panel, divider face, card and label; COMPANY in the banner (AN-27) on colour pieces. RGB 87/177/159, `#57B19F`; class `InitechCyan` | **62/0/34/8** (press build); 51/0/10/31 by the house device arithmetic | **7472 C** |
 | Initech Black | type, rules, interiors; rich black 40/30/30/100 for large solids | 0/0/0/100 | Black C |
+| Logo light grey | the logo's right-facing faces (`InitechCubeLight`); a tint, so allowed anywhere | 0/0/0/16 | -- |
+| Logo mono top | the one-colour logo's cube tops inside books (`InitechCubeMono`) | 0/0/0/42 | -- |
 | Initech Putty | box and binder ground | 0/3/12/10 | 7527 C |
 | Interior tint | screen panels, F-MAC warning boxes, numeral squares (black screen, not a colour) | 0/0/0/10 and 0/0/0/40 | -- |
 | Systems family (InitechDOS incl. TPS manual, FLAIR) | family band, spine band, tabs, label band | 100/0/45/35 | 3292 C |
@@ -658,12 +716,57 @@ interior (D-6). Family assignment from [dsy s3]; the band *grid* below is IBM's 
 | Decision Support family (Initech 123) | as above | 90/12/95/40 | 349 C |
 | Office Systems family (InitechWord) | as above | 0/100/63/29 | 201 C |
 | Programming family (Turbo Initech) | as above | 90/100/0/15 | 2627 C |
-| Desktop Teal | FLAIR box illustration only (the desktop `#8DDCDC`) | 36/0/0/14 | 324 C |
+| Desktop Teal | FLAIR box illustration only (the desktop `#8DDCDC`); never the identity colour (Initech Cyan is) | 36/0/0/14 | 324 C |
 | Rule grey | Reader's Comment Form and card hairlines | 0/0/0/50 | Cool Gray 8 C |
 | Support red | Customer Support Guide band and support literature (document-class colour) | 0/100/100/10 | 485 C |
 
 Support red follows Ashton-Tate's practice of colour-coding support literature apart from
 product manuals [ate s11.2]. [house: one extra colour, outside the family set]
+
+**Initech Cyan -- the measurement.** Sampled on the identity references [idn; `clip/COLOURS.md`]:
+
+| Sample | RGB (median) | Hex | Hue | Note |
+|---|---|---|---|---|
+| Clean logo, cube tops (9 samples) | 87/177/159 | `#57B19F` | 168 deg | flat ink: **the value of record** |
+| Headquarters sign, cube tops (9) | 75/151/147 | `#4B9793` | 177 deg | the same ink photographed outdoors |
+| Office banner, COMPANY (11) | 120/169/157 | `#78A99D` | 165 deg | the same ink printed on a banner, photographed indoors |
+| Locked desktop canon `CIDX_DESKTOP` | 141/220/220 | `#8DDCDC` | 180 deg | authored WL-0053 (VIC-20 cyan, a phosphor value), `spec/assets/color_canon.json` idx 2; **not** the identity ink |
+| Reference frame desktop | 115/105/108 | -- | -- | the frame shows no cyan desktop: the windows cover it; the sampled ground is grey (`spec/assets/palette.json` `desktop_bg_frame_v0`) |
+
+The identity cyan is a green-leaning teal, 12 deg greener and markedly darker than the
+desktop canon; the brief's working assumption that `#8DDCDC` is the identity colour does not
+survive the measurement, and the frame still cannot confirm it.
+
+**Arithmetic.** House device conversion (the formula behind every other row, e.g. Desktop
+Teal 36/0/0/14): K = 1 - 177/255 = 0.306; C = (1 - 87/255 - K)/(1 - K) = 0.353/0.694 = 0.51;
+M = (1 - 177/255 - K)/(1 - K) = 0; Y = (1 - 159/255 - K)/(1 - K) = 0.070/0.694 = 0.10 --
+**51/0/10/31**, which the proof renderer (poppler 24.02, the rasteriser of every proof and of
+the identity gate) shows as 91/153/166, a blue-grey 30 levels off. The **press build
+62/0/34/8** is the CMYK whose proof rendering is nearest the sample (search over C 60-74,
+M 0-12, Y 34-48, K 0-12 in 2-4 % steps; result 87/179/160, distance 2.2); it is the class
+value. Nearest Pantone by sRGB distance (third-party values of Pantone's simulations [web]):
+**7472 C** `#5CB8B2` (92/184/178), distance sqrt(5^2 + 7^2 + 19^2) = 20.9; next 563 C
+`#6BBBAE`, 26.9. Proof both against a physical guide before a spot job (D-13).
+
+**Recommendation on the desktop canon (not performed).** The FLAIR desktop `#8DDCDC` should
+**not** silently follow. It is a locked, operator-authored screen value (WL-0053), graded by
+its own value mutant, named in the PRD's acceptance line, and it renders a phosphor on a
+monitor, where the identity cyan is an ink on paper; unifying them is a locked-spec change
+(`color_canon.json` idx 2 and `bevel_light`, the generated header, the PRD Sec 0 line, the
+seafoam-relapse mutant's target) for a **separate bead** and an operator decision (O-6). If
+the operator wants one Initech colour across screen and paper, the identity value `#57B19F`
+is the one to adopt, because it is the one measured in the reference.
+
+**Line colour, not band colour (decision).** Initech Cyan is the **line colour** common to
+every colour piece; the family colours keep the family band. Precedent: the IBM 1984-88
+package line kept one ground, one hairline and the logo block in fixed places on every
+package and let only the band's colour change by family [pkg s2, s7 rule 1]; Ashton-Tate
+repeated the same wordmark, hairline and stripe mark on every title sheet of the set [ate
+s8.1]. Replacing the bands with cyan would erase the family coding that the spine shelf logic
+depends on (PK-03) -- one stripe per family at 55 mm -- so the cyan is added as what every
+piece shares: the logo, the title hairline and the line band at the foot (the cyan band at
+the foot of the headquarters sign [idn s2]). A shelf of Initech books shows one cyan line
+along the feet and one family stripe each.
 
 ### 7.2 Book covers (PK-02)
 
@@ -675,19 +778,22 @@ the 177.8 x 228.6 mm cover; fractions from [ibm s3] with a 12 mm minimum safety.
 | Zone | Content | Position (mm from top / left) | Type |
 |---|---|---|---|
 | Product line | `<Product>  Version <v>` (version omitted until shipped, D-3) | baseline 12.0; x 23.0 | Heros Bold 11, black |
-| Hairline | -- | y 14.0; x 23.0 to right trim + bleed | 0.5 pt black |
+| Hairline | -- | y 14.0; x 23.0 to right trim + bleed | **1 pt Initech Cyan** (title page: 0.5 pt black) |
 | Title | `Reference`, `User's Guide`, `Technical Reference` ... | cap top 17.0, baseline 28.0 (second line +44 pt); x 23.0 | EB Garamond 40, black |
 | Family band | product family name reversed | top 55.0, depth 6.5; from left bleed to x 153.0 | band in family colour; text Heros Bold 11 white from x 23.0 |
-| Wordmark | `INITECH` letterspaced +100 over a 0.5 pt rule over `Systems Corporation` | top 183.0; x 23.0; 30.0 mm wide | Heros Bold (extended by tracking) / Heros 7 |
-| Part number | `<part number>` | baseline 201.0; flush right at x 154.8 | Heros 8 |
+| **Logo cell** (the publisher mark, IBM's logo-block position) | the Initech logo (Sec 7.0), colour; title page one-colour | top 183.0; x 23.0; 30.0 mm wide x 20.6 mm (aspect 1.459) | `\InitechLogo` / `\InitechLogoBlack` |
+| Part number | `<part number>  <print code>` (PN-10 plate) | baseline 201.0; flush right at x 154.8 | Heros 8 |
+| **Line band** | -- | y 222.6 to the foot trim + 3 mm bleed (6.0 mm visible), full width + bleed both sides | Initech Cyan; omitted on the title page |
 | Illustration | none on manuals | -- | [dsy s6] |
 
 ### 7.3 Spines (PK-03)
 
 Text reads **top to bottom** (state it to German printers) [dsy s6; mac s3]. From the top:
-wordmark (horizontal if the spine is at least 25 mm, else rotated), product name, book
-title, the family band at **exactly the cover height** (55.0-61.5 mm from the top) so a shelf
-of Initech books shows one stripe per family, version, part number at the foot. No spine
+the logo (colour; horizontal, 22 mm wide, top at 6 mm, if the spine is at least 25 mm, else
+rotated at 16 mm), product name, book title, the family band at **exactly the cover height**
+(55.0-61.5 mm from the top) so a shelf of Initech books shows one stripe per family,
+version, part number, and the cyan line band at exactly the cover's foot position (222.6 mm
+to the foot), so the shelf also shows one continuous cyan line (PK-01). No spine
 text below 6 mm (about 120 pages on 80 g/m2 uncoated); the exact width comes from the
 printer's calculator [dsy s6; res s7].
 
@@ -695,14 +801,14 @@ printer's calculator [dsy s6; res s7].
 
 | ID | Item | Rule | Source |
 |---|---|---|---|
-| PK-04 | Binder cover | Initech Putty vinyl or printed board; black + family band; same grid as PK-02; spine label printed or in a spine pocket (D-5) | [dsy s6] |
-| PK-05 | Back cover (books) | wordmark top left; address block (D-12) bottom left; part number, print code and "Printed in" line (if true) bottom right; nothing else | Apple constant 1988-1997 [mac s3]; IBM colophon block [ibm s3] |
+| PK-04 | Binder cover | Initech Putty vinyl or printed board; black + family band + Initech Cyan line colour (logo, hairline, line band); same grid as PK-02; spine label printed or in a spine pocket (D-5) | [dsy s6; PK-01] |
+| PK-05 | Back cover (books) | colour logo top left (x 23, top 19 mm, 30 mm wide); the company banner (AN-27) at 100 mm across the cover measure; address block (D-12) bottom left (baseline 201); part number, print code and "Printed in" line (if true) bottom right (PN-10); the line band at the foot; nothing else. Class: `\MakeBackCover` (page 2 of `cover.tex`) | Apple constant 1988-1997 [mac s3]; IBM colophon block [ibm s3]; AN-27 |
 
 ### 7.5 Dividers (PK-06, PK-07)
 
 | ID | Used in | Rule | Source |
 |---|---|---|---|
-| PK-06 | F-IBM and F-ATE binders | Cut-tab dividers, 200-250 g/m2 board, 3 holes at 70 mm; page 177.8 x 228.6 + tab projection 12.7 mm; 5-position bank, tab 38.0 mm tall, positions stepped top to bottom in book order; tab in the family colour, label reversed Heros Cn Bold caps 9 pt; divider face: section title (EB Garamond 24) + short contents list. F-ATE tabs carry the section letters L, U, P, X matching the folio prefixes | [dsy s8; ate s4] |
+| PK-06 | F-IBM and F-ATE binders | Cut-tab dividers, 200-250 g/m2 board, 3 holes at 70 mm; page 177.8 x 228.6 + tab projection 12.7 mm; 5-position bank, tab 38.0 mm tall, positions stepped top to bottom in book order; tab in the family colour, label reversed Heros Cn Bold caps 9 pt; divider face: section title (EB Garamond 24) + short contents list + the colour logo 22 mm wide at the foot left + the cyan line band at the foot (the divider is a colour piece, D-6). F-ATE tabs carry the section letters L, U, P, X matching the folio prefixes | [dsy s8; ate s4] |
 | PK-07 | F-WPC Reference and Workbook | Printed divider **leaf** on text stock per section (Getting Started, Reference, Appendix, Glossary/Index): a solid bar at the fore-edge 9.0 mm visible + bleed, running from 15 mm below the top to 23 mm above the foot, all sections at the **same** position (no stepping); section name reversed Heros Cn Bold, reading top to bottom; a 6 x 9 field of small triangles at 10% black with the middle row solid and pointing to the tab. Reference: bar in the Office Systems colour (a divider is a tab, D-6); Workbook: black. Blank verso | [wpc s2.1, s5] |
 
 ### 7.6 Boxes and slipcases (PK-08, PK-09)
@@ -718,14 +824,15 @@ printer's calculator [dsy s6; res s7].
 |---|---|---|---|
 | Ground | full bleed | Initech Putty, matt | -- |
 | Kicker (optional) | x 23-74, baseline 12 | series or category, e.g. `Initech Systems Software` | Heros Bold 14, black |
-| Hairline | y 13, x 23 to right edge (bleeds) | -- | 1 pt white |
+| Hairline | y 13, x 23 to right edge (bleeds) | -- | 1 pt Initech Cyan (IBM: white; the line colour, PK-01) |
 | Product title | x 23; y 15-39; one to three lines | `InitechDOS` / `Version 3.30` | EB Garamond 60, black, tight leading |
 | Media legend | x 132-178; y 15-32 | `5.25" diskettes` (D-7 parameter) | EB Garamond 36, white |
 | Document line | x 23; y 49-54 | name of the binder or book inside (`Reference`) | Heros 14, black |
 | Family band | y 60.0-66.1; left edge (bleed) to x 176 | family name reversed from x 23 | Heros Bold 16, white on family colour |
 | Illustration | x 38-176; y 66-196, hung from the band, right edge aligned to the band | one real emulator capture in full colour (NT-20), no border | -- |
-| Wordmark | x 23-50; y 194-228 | wordmark block (PK-02), white | -- |
+| Logo cell | x 23-50; y 194-212.5 | the colour logo, 27 mm wide (Sec 7.0) | -- |
 | Blurb | x 97-174; y 196-235, ragged right | three to seven imperative verb phrases ("Manages files on diskette and fixed disk") | Heros 14, black |
+| Line band | y 239-245 + bleed, full width | -- | Initech Cyan; continues round the side panels at the same height |
 
 **Back panel** [pkg s3]: left half (x 8-101): fixed bold heads, each over a 1 pt rule, in
 this order: **Software required:** -> **Software included:** (diskette count and size) ->
@@ -733,7 +840,10 @@ half-width family band echo, no text (y 64-69, left edge to x 101) -> **System r
 (processor, memory, display, diskette drive, as `README.md` states them) -> **Options
 supported:**; then the limited-warranty line; footnotes; colophon lower left (y 194-233):
 copyright, "All rights reserved.", corporate name, address (D-12), "Printed in ..." (if
-true), **box part number alone on the last line**. Wordmark centred at x 59-80, y 194-201.
+true), **box part number alone on the last line** (PN-10). The colour logo 21 mm wide at
+x 59-80, y 194-208.4 (the colophon block keeps to x 8-55). The company banner (AN-27) in the
+left half under **Options supported:**, 93 mm wide. The line band at y 239-245 as on the
+front.
 Right half (x 107-206, full height): the Initech Program License Agreement, heads in order
 **License** (lettered a-d) / **Term** / **Limited Warranty** / **Limitation of Remedies** /
 **Service** / **General**, Heros 6.5/8, licence form number with month/year at the foot. The
@@ -750,6 +860,7 @@ round an identical slipcase [dsy s7]. Shrink-wrapped [dsy s7].
 |---|---|---|
 | Stock | 5.25 in about 105 x 38 mm; 3.5 in front about 70 x 54 mm with top wrap; set from the purchased stock | [dsy s9 INF] |
 | Band | family colour across the top (and over the wrap on 3.5 in) with `INITECH  INITECH  INITECH` letterspaced reversed Heros Bold 6 caps | [wpc s8; dsy s9] |
+| Logo and line | colour logo 16 mm wide at the lower left; a 2.0 mm Initech Cyan line band along the foot of the label (the line colour, PK-01) | [house: the label is the smallest colour piece of the line] |
 | Product line | product name EB Garamond 10 with TM, hairline under | [ate s11.4] |
 | Disk title | EB Garamond 14 (`Startup`, `Utilities`, `Sample Programs and Utilities`) | [wpc s8; ate s11.4] |
 | Fields | `Version:` and `Format:` labels Heros Bold 7, values Heros 7; `Disk n of m` | [ate s11.4] |
@@ -761,10 +872,10 @@ round an identical slipcase [dsy s7]. Shrink-wrapped [dsy s7].
 
 | ID | Item | Size | Rule | Source |
 |---|---|---|---|---|
-| PK-11 | Quick Reference booklet | 88.9 x 228.6 mm (3.5 x 9 in: the house trim halved), saddle-stitched | Cover in the PK-02 grid scaled; inside: section heads Heros Bold caps between two rules; commands with full syntax bold over a one-line description; F-ATE functions name / description in two columns; Notes pages fill the booklet; part number back cover bottom right | [ate s11.1; lot s1; house: D-4 governs books, booklets take the halved trim for shelf height] |
+| PK-11 | Quick Reference booklet | 88.9 x 228.6 mm (3.5 x 9 in: the house trim halved), saddle-stitched | Cover in the PK-02 grid scaled, logo 22 mm wide, line band at the foot; inside: section heads Heros Bold caps between two rules; commands with full syntax bold over a one-line description; F-ATE functions name / description in two columns; Notes pages fill the booklet; part number back cover bottom right | [ate s11.1; lot s1; house: D-4 governs books, booklets take the halved trim for shelf height] |
 | PK-15 | Initech Customer Support Guide | 7 x 9 in book, saddle-stitched (D-4) | Contents ruled list item/folio; sections: Software Registration / Software Updates / Disk Replacement / Software Support / Support Plans / Corporate Services / Publications / Limited 90-Day Warranty / Software License Agreement / Important Telephone Numbers (555-01xx, extension 2504) / Notes (ruled lines) / perforated reply cards (Disk Replacement, Change of Address) | [ate s11.2; D-12] |
-| PK-12 | License Agreement envelope | to fit the diskettes | Putty; front `INITECH SYSTEMS CORPORATION LICENSE AGREEMENT` + "Read before opening"; full licence on the back, Heros 6.5/8; seal sticker across the flap. Turbo Initech: single-sheet **Initech License Statement** instead | [dsy s9; sur s4; bor s9] |
-| PK-13 | Cards | as stated per card | Warranty Registration Card 6 x 4.25 in perforated postcard, business-reply back; In This Package card 7 x 9 in (checklist with part numbers); media exchange coupon 6 x 4.25 in; Proof of License card (InitechDOS); InitechWord install card 5.0 x 4.25 in folded once: black band with title reversed in Heros Cn Bold caps, numbered steps 1-n with Heros Cn Bold numerals, "(See other side)", code bottom right; Turbo Initech Run-Time Library Source order form | [dsy s11; wpc s7; set s6, s7] |
+| PK-12 | License Agreement envelope | to fit the diskettes | Putty; front: colour logo + `INITECH SYSTEMS CORPORATION LICENSE AGREEMENT` + "Read before opening"; full licence on the back, Heros 6.5/8; seal sticker across the flap. Turbo Initech: single-sheet **Initech License Statement** instead | [dsy s9; sur s4; bor s9] |
+| PK-13 | Cards | as stated per card | Every card: colour logo (minimum 16 mm) and a 2 mm cyan line band at the foot of its face. Warranty Registration Card 6 x 4.25 in perforated postcard, business-reply back; In This Package card 7 x 9 in (checklist with part numbers); media exchange coupon 6 x 4.25 in; Proof of License card (InitechDOS); InitechWord install card 5.0 x 4.25 in folded once: black band with title reversed in Heros Cn Bold caps, numbered steps 1-n with Heros Cn Bold numerals, "(See other side)", code bottom right; Turbo Initech Run-Time Library Source order form | [dsy s11; wpc s7; set s6, s7] |
 | PK-14 | Keyboard templates | die-cut 0.4 mm card, sized to the keyboard | InitechWord: long strip for the 101-key top row, cells of five centred lines (CTRL command red, ALT blue, SHIFT green, plain black, key name italic), groups of four keys with legend cells, quick-list panel at the left, Heros / Heros Oblique, vertical rules only. Initech 123 and Turbo Initech: 101-key strip and 84-key L-shaped template (F-keys at the left), key name above each command. Command text generated from the shipped key map | [wpc s6; lot s10; set s4] |
 
 Sleeves: white paper sleeve, handling pictograms and temperature range on the back in
@@ -783,6 +894,7 @@ English, German, French and Dutch [sur s1 MCN sleeve; dsy s9].
 | PN-07 | Diskette serial `S<PPPP>-<VV>-<nnnnnn>`, e.g. `S1024-33-000127`, sequence per copy | [dsy s9; bor s8.2] |
 | PN-08 | Licence form number `LF-<PPPP>-<YY>` at the foot of every licence text | [pkg s3: IBM licence form number] |
 | PN-09 | Bar codes, if any: UPC-A in a restricted-circulation prefix (2 or 4) only | [dsy s10] |
+| PN-10 | **Part-number plate.** The part number and print code always print together, Heros 8, black, never cyan, never inside the logo's clear space (Sec 7.0): front cover baseline 201.0 flush right at x 154.8 (PK-02), back cover the same position (PK-05), spine foot centred above the line band (PK-03), box back panel alone on the last line of the colophon (PK-08), diskette label right-aligned above the line band (PK-10), card face bottom right (PK-13). The verso keeps its AN-20 position | [ibm s3, s4.2; pkg s3; ate s11.4; house: the plate is the one fixed reading point of every piece] |
 
 Examples: `1024-3300-10 A1-3/92` InitechDOS Reference, first edition, first printing;
 `1024-3300-31` InitechDOS 5.25 in Disk 1; `1024-3300-01` InitechDOS package (box);
@@ -880,6 +992,14 @@ references or missing glyphs, ASCII-only, DRAFT count; in `make test` with the s
 emulator gate `test-pubs-screens` = GC-04 for the text route. `test-pubs` is the umbrella
 the remaining checks join. Each check is mutation-proven (CL Rule 6).
 
+**Identity leg** (WL-0132, in `test-pubs-families`): a proof cover (front and back) and spine
+are typeset with the house class, rendered by pdftoppm at 150 dpi and graded by
+`harness/pubs/cover_check.c` against the **independently measured** Initech Cyan (`#57B19F`,
+a constant in the checker, never read from the class): the logo cell of front, back and
+spine must hold all three logo inks, and the line band must be at least 90 % cyan.
+Mutants: a cover without the logo goes RED `COVER-LOGO`; a cover in the wrong cyan (the
+desktop teal's build 36/0/0/14) goes RED `COVER-CYAN`.
+
 | ID | Check | Truth source | Proving mutant |
 |---|---|---|---|
 | GC-01 | **Documented = shipped, both directions.** Every command, switch, CONFIG.SYS directive, menu, menu item, keyboard equivalent, function key binding, @function, xBase command/function, RTL routine and directive named in an entry or a `\cmd`/`\key` macro exists in the shipped table; every shipped user-visible item has its entry (CP rows) | InitechDOS: command table in `os/milton/command.c`, `batch.c`, `config_sys.c`, external utilities listed from the built image. FLAIR: `os/flair/shell_menus.h`, `finder_menu.c`, `spec/assets/menu_canon.h`. InitechBase: SAMIR shipped tables (`os/samir/`). Initech 123: `spec/i123/menu_tree.golden` + `os/i123/`. InitechWord: `spec/iword/`, `os/iword/`. Turbo Initech: compiler and RTL tables (`os/tps/`) | rename one documented command; delete one shipped menu item |
@@ -925,6 +1045,7 @@ it changes as follows (a follow-up for the toolchain lane):
 | Cover titles | Termes 30-40 | EB Garamond 40 (TY-18); IBM cover grid (PK-02) |
 | Furniture | one foot style; options chapterfolio / continuous | per-family heads, feet and folios (PG-10..PG-17), incl. F-ATE section prefixes and F-IBM `Index-n` |
 | Chapter opener | number over a 2 pt rule, 24 pt title | per-family recipes (PG-20..PG-27) |
+| Publisher mark | INITECH + rule + Systems Corporation wordmark (D-8 as of 1.0) | the Initech logo, Initech Cyan line colour, line band, back cover, company banner (D-8 revised, PK-01..05, AN-27): **landed** WL-0132. Still open: the logo on the Reader's Comment Form's form side (AN-25), box, label, divider and card templates (no class templates exist yet) |
 
 ## 12. The Documentation Set (DS)
 
@@ -986,6 +1107,10 @@ exchange coupon, companion-products flyer; Reader's Comment Forms in every binde
 | C-14 | Print codes: IBM edition ordinal only; Ashton-Tate month/year; WordPerfect type-market code + month/year; Borland revision + printer's key; Apple none | One Initech code combining edition letter, printing digit and month/year, with IBM ordinal and Borland key on the verso | PN-05, PN-06 |
 | C-15 | Colophon honesty (D-15) vs no 2026-isms (CL Law 3) | The colophon is the single exempt page, held in one file | AN-26, GC-06 |
 | C-16 | Lotus 2.2 has no error appendix [lot s6]; other models do | Each product follows its model: Initech 123 uses Problem/Solution | AN-17, CP-14 |
+| C-17 | D-8 (1.0): "wordmark only, no film artwork" and the [res s8] caution vs the operator directive 2026-10-17: the Initech logo as in the reference frame | The directive governs; D-8 revised. The honesty half of the old rule survives: original drawing, authored from observation, nothing traced or copied, no reference image in the repository | D-8, Sec 7.0 |
+| C-18 | The lane brief's assumption "Initech Cyan = the desktop canon `#8DDCDC`" vs the measurement of the identity references (`#57B19F`) | The measurement governs (Law 1): the identity ink is `#57B19F`; the desktop canon is untouched, its future is O-6 | PK-01 |
+| C-19 | Cyan as the band colour vs as the line colour | Line colour; family colours keep the band (IBM line system [pkg s2, s7]; Ashton-Tate title sheets [ate s8.1]); the shelf keeps one stripe per family | PK-01, PK-03 |
+| C-20 | The logotype's face: Eurostile/Microgramma Bold Extended Oblique (operator's reading) vs a Helvetica-class black extended oblique (the measured C: round bowl, horizontal terminals) | The drawing follows the measured outlines; the face is never typeset either way, so the identification changes nothing printed | Sec 7.0, TY table |
 
 ### 13.2 Open items (do not block typesetting)
 
@@ -996,3 +1121,7 @@ exchange coupon, companion-products flyer; Reader's Comment Forms in every binde
 | O-3 | Cursor at 9 pt may proof too light; Nimbus Mono PS is the named fallback (TY table) | first specimen print |
 | O-4 | All [MEAS]/[INF] physical figures (box sizes, label stock, tab projection) pending D-13 | PM |
 | O-5 | The fictional address string and Business Reply permit number are fixed once in `pubs/common/` and checked not to collide with a real business (D-12) | publications |
+| O-6 | Whether the FLAIR desktop canon `#8DDCDC` should follow the identity cyan `#57B19F`. Recommendation (Sec 7.1): not silently; a locked-spec change with its own bead; if unified, adopt `#57B19F` | operator (separate bead) |
+| O-7 | Proof Initech Cyan 62/0/34/8 and Pantone 7472 C against a physical guide and a press proof; the Pantone hex values are third-party simulations | publications (D-13) |
+| O-8 | Logo in the class templates still to be made: Reader's Comment Form form side, box panels, diskette labels, dividers, cards (rules are in PK-06..PK-15) | toolchain lane |
+| O-9 | The reference clip (`clip/INDEX.md`) could not be acquired; when its frames land, re-sample the cyan and look for stationery, forms and covers carrying the identity | astra lane |

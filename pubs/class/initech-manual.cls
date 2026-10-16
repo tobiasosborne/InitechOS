@@ -16,6 +16,27 @@
 %% only in the foot, index folios Index-n, and the two-line title of a
 %% reference entry repeated flush outside on every continuation page (PG-10,
 %% drawn at shipout for every family: \im@openentry / \im@closeentry).
+%% IDENTITY (PUB-REF-0001 D-8 revised, Sec 7.0, PK-01, AN-27; WL-0132).
+%% Stable public names -- other manual lanes call them:
+%%   \InitechLogo[<height>]       the Initech logo, colour (colour pieces only)
+%%   \InitechLogoBlack[<height>]  the logo in black + black tints (interiors)
+%%   \InitechMark[<h>], \InitechMarkBlack[<h>]   the three blocks alone
+%%   \InitechLogotype[<cap height>]  the INITECH letters, current colour
+%%   \InitechLogoForWidth{<w>}    the lockup height giving width <w>
+%%   \Wordmark[<width>]           kept name: the logo at <width>, colour on
+%%                                colour pieces, black inside a book
+%%   \IsThisGoodForTheCompany[<width>]  the company banner, one display
+%%                                line (default \linewidth); COMPANY cyan on
+%%                                colour pieces, black inside (D-6)
+%%   \MakeCover, \MakeBackCover, \MakeSpine, \MakeTitlePage
+%%   \ColourPiece                 mark a document as a colour piece (box,
+%%                                label, card) so \Wordmark and the banner
+%%                                print in colour; covers and spines are
+%%                                colour pieces by their class option
+%%   colours: InitechCyan (the line colour), InitechCubeLight,
+%%   InitechCubeMono, InitechBlack, InitechPutty, Family*.
+%% The logo drawing lives in pubs/common/initech-logo.tex (TEXINPUTS must
+%% include pubs/common, as pubs/build.sh and the harness scripts do).
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{initech-manual}[1992/03/01 Initech manual class]
 
