@@ -118,15 +118,50 @@ from the compiler without test-pubs-tps going red.
 
 ## Acceptance
 
-See the lane report: make pubs / test-pubs-build / test-pubs-tps /
-test-pubs-tps-mutant / test-pubs-lint / test-pubs-repro / -families /
-test-makefile-vars tails.
+Books (build/pubs/gate, `make test-pubs-build` green, 0 overfull boxes,
+page counts multiples of 4): User's Guide 68 pp (6 DRAFT markers),
+Programmer's Guide 132 pp (3), Library Reference 44 pp (1), Self-
+Compilation Guide 36 pp (5), Quick Reference 32 pp (2); covers 2 pp each
+(front + back), spines 1 p. 202 printed items replayed (73 programs).
+
+```text
+>>> test-pubs-tps-commands: green (238 shipped == documented: 40 reserved, 10 routines, 36 productions, 63 tokens, 37 messages, 18 protocol, 9 dump rows, 7 limits, 3 switches, 15 run-time entries; 0 DRAFT)
+>>> test-pubs-tps-messages: green (37 diagnostics printed verbatim)
+>>> test-pubs-tps-mentions: green (50 distinct inline Pascal names, all shipped)
+>>> test-pubs-tps-gates: green (62 distinct gate citations per book, every one a real target)
+>>> test-pubs-tps-grammar: 300 generated programs accepted by the shipped parser (grammar => parser)
+>>> test-pubs-tps-grammar: green (92 accepted programs derived by the printed rules: parser => grammar)
+>>> test-pubs-tps-examples: green (202 printed items replayed; 73 programs: Free Pascal == printed, 59 also seed and Turbo Initech bare images == printed, 73 Turbo Initech .COM files == printed on InitechDOS)
+>>> test-pubs-tps: green
+>>> test-pubs-tps-mutant: green (8 named mutants rejected by their gate legs)
+>>> test-pubs-repro: green (21 PDFs byte-identical across two clean builds)
+>>> test-pubs-repro-mutant: green
+>>> test-pubs-families: green (7 model families typeset with their required body faces)
+>>> test-pubs-lint: green (ASCII, period vocabulary/years, part numbers and print codes)
+>>> test-pubs-mentions: green (43 distinct inline commands)   [test-pubs-commands]
+>>> test-makefile-vars: green
+>>> test-pubs-mutant (DOS pilot legs, run directly): green (11 named mutants)
+```
+
+Mutants (tps_mutants.sh): FAKE_ROUTINE (DOC-NOT-SHIPPED Halt|routine),
+DROPPED_ENTRY (SHIPPED-NOT-DOCUMENTED blockwrite|routine), WRONG_LIMIT
+(DOC-NOT-SHIPPED SYMBOLMAX=1,025|limit), CHANGED_MESSAGE (MESSAGE-TEXT),
+EXTRA_ALTERNATIVE (GRAMMAR-PARSER), MISSING_ALTERNATIVE (GRAMMAR-INCOMPLETE,
+stops at KW downto), CHANGED_OUTPUT (TRANSCRIPT-DRIFT), FAKE_GATE
+(GATE-CITATION).
+
+Not green: test-pubs-screens (and so the test-pubs umbrella) is RED on the
+pre-existing DOS drift of friction 2 (initechdos-reference chkdsk.txt).
 
 ## Where to resume
 
-- Extents are below the DS targets (UG 60/180, PG 120/200, LR 40/80, SCG
-  32/60, QR 20/32): the content is complete for what ships; further pages
-  need further shipped features (the IDE, M8) or more tutorial depth.
+- Extents against the DS planning targets: UG 68 (180-260), PG 132
+  (200-320), LR 44 (80-160), SCG 36 (60-120), QR 32 (32-48). Everything the
+  compiler ships is documented; the model's remaining bulk is features
+  Turbo Initech does not have (the IDE and editor, OOP, the debugger, the
+  Graph/Dos/Crt/Overlay units, inline assembler, 220 RTL routines).
+- 8. The two-column contents overfilled a page once (multicols, SCG);
+  tightened spacing cleared it, the cause is not understood.
 - When M8 lands: clear the DRAFT markers (UG 6, 7; SCG TIN-P-04/05; PG/UG
   resident assembler notes; QR editor keys) and add AN-13 IDE entries.
 

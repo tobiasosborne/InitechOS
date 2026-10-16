@@ -252,7 +252,10 @@ The position points at the construct concerned.  The rules are:
   \rw{forward} declaration is never completed;
 \item a file procedure is called with the wrong arguments, or a file
   variable is used anywhere else;
-\item a standard file routine's name is declared.
+\item a standard file routine's name is declared;
+\item a capacity of the compiler is exceeded: more than 1,024 rows in the
+  symbol table, 32 parameters or arguments, or 32 names in one declaration
+  list (\doctitle{User's Guide}, Chapter 8).
 \end{itemize}
 
 \Source{err-cond}
