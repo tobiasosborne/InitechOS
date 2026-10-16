@@ -614,7 +614,7 @@ int fileio_fat_volume_label(char out[12])
         g_sector[38]=g_vol->bpb.boot_sig;
         for (int i=0;i<11;i++) g_sector[43+i]=g_vol->bpb.volume_label[i];
 #else
-        if (g_vol->dev->read_sectors(g_vol->dev->ctx,0u,1u,g_sector)<0)
+        if (fat12_read_sectors(g_vol,0u,1u,g_sector)<0)
             return FAT12_ERR_READ;
 #endif
     }

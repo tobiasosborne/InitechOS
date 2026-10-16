@@ -113,7 +113,8 @@ static int mount_image(const char *img, blockdev_file_t *bf,
 	}
 	rc = fat12_mount(vol, &bf->dev, sector_buf);
 	if (rc != FAT12_OK) {
-		fprintf(stderr, "fat_dump: fat12_mount('%s') failed: rc=%d\n", img, rc);
+		fprintf(stderr, "fat_dump: fat12_mount('%s') failed: rc=%d base_lba=%u hidden_sectors=%u\n",
+		        img, rc, vol->base_lba, vol->bpb.hidden_sectors);
 		blockdev_file_close(bf);
 		return 1;
 	}

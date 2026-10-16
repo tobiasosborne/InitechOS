@@ -547,30 +547,48 @@ static uint32_t int21_getvect_idt(uint8_t vec)
  * The int21 absolute-disk seam (int21_absdisk_backend_t) wants read/write
  * thunks of shape (lba,count,buf); the blockdev_t members carry a ctx as their
  * first arg. These thunks bridge the two by capturing the mounted volume's
- * blockdev pointer (set on the mounted==1 path below). int21.c never sees the
+ * volume view (set on the mounted==1 path below). int21.c never sees the
  * blockdev/FAT types (Law 3); the binding lives here in the kernel. */
-static const blockdev_t *g_absdisk_dev = 0;
+static fat12_volume_t g_absdisk_vol;
 
 static int int21_absdisk_read(uint32_t lba, uint32_t count, void *buf)
 {
-    if (g_absdisk_dev == 0 || g_absdisk_dev->read_sectors == 0) {
-        return -1;   /* fail loud (Rule 2) -- never a silent short read */
-    }
-    return g_absdisk_dev->read_sectors(g_absdisk_dev->ctx, lba, count, buf);
+    return fat12_read_sectors(&g_absdisk_vol, lba, count, buf);
 }
 
 static int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
 {
-    if (g_absdisk_dev == 0 || g_absdisk_dev->write_sectors == 0) {
-        return -1;   /* read-only / unbound -> the seam maps this to fail-loud */
-    }
-    int rc = g_absdisk_dev->write_sectors(g_absdisk_dev->ctx, lba, count, buf);
+    int rc = fat12_write_sectors(&g_absdisk_vol, lba, count, buf);
 #ifndef CHKDSK_MUT_CACHE
     /* ADR-0003 DEC-15: raw CHKDSK repairs must be visible to AH=36h and the
      * handle allocator immediately, before either can flush a stale FAT. */
     if (rc == 0) fileio_fat_absdisk_written(lba, count, buf);
 #endif
     return rc;
+}
+
+/* DEC-07a Sec5.3: the same origin for FAT, INT25/26 and raw CHKDSK repairs.
+ * IBM DOS 3.30 TR p9-3 requires utilities to stay inside their partition. */
+static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw)
+{
+    int21_absdisk_backend_t backend;
+    /* DEC-15 keeps raw-vector failures as CF/AX, without the file path's
+     * interactive INT24 wrapper. Copy geometry, retain the same offset seam. */
+    g_absdisk_vol = *vol;
+    g_absdisk_vol.dev = raw;
+    backend.read = int21_absdisk_read;
+    backend.write = raw->write_sectors ? int21_absdisk_write : 0;
+    backend.total_sectors = vol->total_sectors;
+    int21_set_blockdev(&backend);
+}
+
+/* Rule 2 / DEC-07a: retain the disagreeing values in the serial diagnostic. */
+static void mount_context(int rc, const fat12_volume_t *vol)
+{
+    serial_puti((int32_t)rc);
+    serial_puts(" base_lba="); serial_putu(vol->base_lba);
+    serial_puts(" hidden_sectors="); serial_putu(vol->bpb.hidden_sectors);
+    serial_putc('\n');
 }
 
 /* Issue AH=09h DISPLAY STRING via a literal `int 0x21`: EDX = flat ptr to a
@@ -3290,6 +3308,7 @@ static void flair_tenant_mount_volume(void)
     static uint8_t         ften_secbuf[BLOCKDEV_SECTOR_SIZE];
     uint8_t                ften_cluster[BLOCKDEV_SECTOR_SIZE];
     uint8_t                ften_db_header[DESKTOP_DB_HEADER_SIZE];
+    int                    mount_rc;
 
     /* The FLAIR pump and DOS CON input use separate keyboard rings. */
     int21_set_conin(int21_conin_get_kbd, int21_conin_poll_kbd);
@@ -3297,12 +3316,14 @@ static void flair_tenant_mount_volume(void)
     ata_ctx_init_primary_slave(&ften_ata);
     ata_blockdev_init(&ften_fatdev, &ften_ata);
     crit_blockdev_init(&ften_crit, &ften_fatdev);
-    if (fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf) == FAT12_OK) {
+    mount_rc = fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf);
+    if (mount_rc == FAT12_OK) {
         int bind_rc;
 
         serial_puts("FLAIR-FAT-MOUNT-OK\n");
         bind_rc = fileio_fat_bind(&ften_vol);
         if (bind_rc == FAT12_OK) {
+            bind_absdisk_volume(&ften_vol, &ften_fatdev);
             uint32_t fat_len = 0u;
             uint8_t *fat = (uint8_t *)fileio_fat_fat_buffer(&fat_len);
             desktop_db_boot_state_t db_state = DESKTOP_DB_BOOT_OK;
@@ -3375,7 +3396,8 @@ static void flair_tenant_mount_volume(void)
         crit_blockdev_set_hook(int21_run_critical_error);
         int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
     } else {
-        serial_puts("FLAIR-FAT-MOUNT-FAIL\n");
+        serial_puts("FLAIR-FAT-MOUNT-FAIL rc=");
+        mount_context(mount_rc, &ften_vol);
     }
 }
 
@@ -6448,24 +6470,13 @@ void kernel_main(void)
              * bounds check (DX>=total / DX+CX>total) self-adjusts to the media.
              * The seam reaches the disk through the adapter thunks above; int21
              * never sees the blockdev/FAT types (Law 3). */
-            g_absdisk_dev = &fatdev;
-            {
-                uint32_t total = vol.bpb.total_sectors_16 != 0u
-                                   ? (uint32_t)vol.bpb.total_sectors_16
-                                   : vol.bpb.total_sectors_32;
-                int21_absdisk_backend_t absdisk;
-                absdisk.read          = int21_absdisk_read;
-                absdisk.write         = int21_absdisk_write;
-                absdisk.total_sectors = total;
-                int21_set_blockdev(&absdisk);
-            }
+            bind_absdisk_volume(&vol, &fatdev);
             serial_puts("ABSDISK-BIND-OK\n");
         } else {
             /* Fail loud + continue (do NOT hang). A missing disk yields
              * ATA_ERR_NO_DRIVE propagated as FAT12_ERR_READ. */
             serial_puts("FAT-MOUNT-FAIL rc=");
-            serial_puti((int32_t)rc);
-            serial_putc('\n');
+            mount_context(rc, &vol);
         }
     }
     serial_puts("FAT-MOUNT-END\n");

@@ -30,6 +30,49 @@ static uint16_t rd_le16(const uint8_t *p)
 	return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
 }
 
+/* Ref: IBM DOS 3.30 Technical Reference pp9-7..9 (relative-sector dword,
+ * little endian); p2-31 (jump/media BPB); ADR-0003 DEC-07a Sec9 explicitly
+ * permits discovery in fat12_mount. Raw blockdev remains device-relative.
+ * The lane contract admits type 06 as well (mtools mpartition type policy);
+ * IBM 3.30 p9-8 itself documents only 01,04,05. No extended-chain walk. */
+static uint32_t rd_le32(const uint8_t *p)
+{
+	return rd_le16(p) | ((uint32_t)rd_le16(p + 2) << 16);
+}
+
+static int boot_bpb(const uint8_t *p)
+{
+	return (p[0] == 0xe9u || (p[0] == 0xebu && p[2] == 0x90u)) &&
+	       (p[21] == 0xf0u || p[21] >= 0xf8u);
+}
+
+/* The single offset seam. DOS logical sector 0 is the VBR, never the MBR.
+ * Bounds use subtraction before addition (Rule 2, including 32-bit wrap).
+ * Ref: IBM TR pp9-3,6-24..25; ADR-0003 DEC-07a Sec5.3 / DEC-15. */
+static int sector_range(const fat12_volume_t *v, uint32_t s, uint32_t n)
+{
+	return s < v->total_sectors && n <= v->total_sectors - s &&
+	       v->base_lba <= UINT32_MAX - s &&
+	       n <= UINT32_MAX - (v->base_lba + s);
+}
+
+int fat12_read_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n, void *p)
+{
+	if (!v || !v->dev || !v->dev->read_sectors || !p)
+		return FAT12_ERR_NULL;
+	if (!sector_range(v, s, n)) return FAT12_ERR_PARTITION;
+	return v->dev->read_sectors(v->dev->ctx, v->base_lba + s, n, p);
+}
+
+int fat12_write_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n,
+                        const void *p)
+{
+	if (!v || !v->dev || !v->dev->write_sectors || !p)
+		return FAT12_ERR_WRITE;
+	if (!sector_range(v, s, n)) return FAT12_ERR_PARTITION;
+	return v->dev->write_sectors(v->dev->ctx, v->base_lba + s, n, p);
+}
+
 int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 {
 	const uint8_t *sec;
@@ -37,6 +80,7 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	uint32_t total_sectors;
 	uint32_t data_sectors;
 	uint32_t root_dir_sectors;
+	uint32_t partition_sectors = 0u;
 
 	/* Fail loud on NULLs (Rule 2): a missing dev or buffer is a programming
 	 * error, not something to paper over. */
@@ -53,6 +97,10 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	 * window for a FAT16 volume; a unit caller that walks via a whole-FAT buffer
 	 * leaves this NULL. */
 	vol->fat_window = 0;
+	vol->dev = dev;
+	vol->base_lba = 0u;
+	vol->total_sectors = 0u;
+	vol->bpb.hidden_sectors = 0u; /* diagnostic context even on early errors */
 
 	/* Read the boot sector (LBA 0, one sector) into the caller's scratch. */
 	if (dev->read_sectors(dev->ctx, 0u, 1u, sector_buf) != 0) {
@@ -62,8 +110,45 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 
 	/* Validate the 0xAA55 boot signature at offset 510 (brief Sec 1). */
 	sig = rd_le16(sec + FAT12_BOOTSIG_OFFSET);
+#ifndef FAT_PART_MUT_SIGNATURE
 	if (sig != FAT12_BOOTSIG_VALUE) {
 		return FAT12_ERR_SIGNATURE;
+	}
+#else
+	(void)sig; /* Rule 6: accept a missing MBR signature. */
+#endif
+
+	if (!boot_bpb(sec)) {
+		uint32_t chosen = 0u;
+		unsigned active = 0u;
+		for (unsigned i = 0u; i < 4u; i++) {
+			const uint8_t *e = sec + 446u + i * 16u;
+			uint8_t type = e[4];
+			/* IBM TR pp9-5,9-8: only 00/80, only one active. */
+			if (e[0] != 0u && e[0] != 0x80u) return FAT12_ERR_PARTITION;
+			if (e[0] == 0x80u && ++active > 1u) return FAT12_ERR_PARTITION;
+			if (type == 1u || type == 4u || type == 6u
+#ifdef FAT_PART_MUT_EXTENDED
+			    || type == 5u /* Rule 6: extended container is NOT a FAT volume. */
+#endif
+			   ) {
+				if (!chosen || e[0] == 0x80u) chosen = 446u + i * 16u;
+			}
+		}
+		if (!chosen) return FAT12_ERR_PARTITION;
+		vol->base_lba = rd_le32(sec + chosen + 8u);
+		partition_sectors = rd_le32(sec + chosen + 12u);
+		if (!vol->base_lba || !partition_sectors ||
+		    partition_sectors > UINT32_MAX - vol->base_lba)
+			return FAT12_ERR_PARTITION;
+#ifdef FAT_PART_MUT_IGNORE_BASE
+		vol->base_lba = 0u; /* Rule 6: read the MBR as the BPB, not LBA 63. */
+#endif
+		if (dev->read_sectors(dev->ctx, vol->base_lba, 1u, sector_buf))
+			return FAT12_ERR_READ;
+		if (rd_le16(sec + FAT12_BOOTSIG_OFFSET) != FAT12_BOOTSIG_VALUE)
+			return FAT12_ERR_SIGNATURE;
+		if (!boot_bpb(sec)) return FAT12_ERR_PARTITION;
 	}
 
 	/* Copy the BPB (offsets 0x00..0x3D, the first 62 bytes; brief Sec 6 /
@@ -76,6 +161,12 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 			dst[i] = sec[i];
 		}
 	}
+	/* ADR-0003 DEC-07a: require equality, not two additive offsets. The
+	 * shipped ATA superfloppy remains valid (explicit lane ruling over the
+	 * old BIOS-first heuristic). IBM TR p2-31 names the hidden-sector field;
+	 * pp9-7..9 define the partition's preceding-sector count. */
+	if (vol->bpb.hidden_sectors != vol->base_lba)
+		return FAT12_ERR_PARTITION;
 
 	/* Sector size must be 512 (brief Sec 1; BLOCKDEV_SECTOR_SIZE). Anything
 	 * else means a non-floppy or corrupt BPB -- fail loud (Rule 2). */
@@ -114,6 +205,9 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	if (total_sectors == 0u) {
 		return FAT12_ERR_GEOMETRY;
 	}
+	if (partition_sectors && total_sectors > partition_sectors)
+		return FAT12_ERR_PARTITION;
+	vol->total_sectors = total_sectors;
 
 	/* Derived geometry (brief Sec 2; macros in spec/dos_structs.h). */
 	vol->dev              = dev;
@@ -213,7 +307,7 @@ int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf, uint32_t fat_buf_le
 	}
 
 	/* One contiguous read of all sectors_per_fat sectors of FAT #1. */
-	if (vol->dev->read_sectors(vol->dev->ctx, vol->first_fat_sector,
+	if (fat12_read_sectors(vol, vol->first_fat_sector,
 	                           vol->bpb.sectors_per_fat, fat_buf) != 0) {
 		return FAT12_ERR_READ;
 	}
@@ -340,7 +434,7 @@ int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
 	      first_sec + need_count <= win->cached_first_sector + win->cached_count)) {
 		/* Miss: read need_count sector(s) into the window. */
 		uint32_t lba = vol->first_fat_sector + read_first_sec;
-		if (vol->dev->read_sectors(vol->dev->ctx, lba, need_count,
+		if (fat12_read_sectors(vol, lba, need_count,
 		                           win->buf) != 0) {
 			win->valid = 0;
 			return FAT12_ERR_READ;
@@ -776,7 +870,7 @@ int fat12_read_root_dir(const fat12_volume_t *vol, void *sector_buf,
 		const uint8_t *sec;
 		uint32_t       i;
 
-		if (vol->dev->read_sectors(vol->dev->ctx,
+		if (fat12_read_sectors(vol,
 		                           vol->root_dir_sector + s, 1u,
 		                           sector_buf) != 0) {
 			return FAT12_ERR_READ;
@@ -1038,7 +1132,7 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 		lba = BPB_FIRST_DATA_SECTOR(&vol->bpb) +
 		      (uint32_t)cur * (uint32_t)vol->bpb.sectors_per_cluster;
 #endif
-		if (vol->dev->read_sectors(vol->dev->ctx, lba,
+		if (fat12_read_sectors(vol, lba,
 		                           vol->bpb.sectors_per_cluster,
 		                           cluster_buf) != 0) {
 			return FAT12_ERR_READ;
@@ -1294,7 +1388,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		 * slice out. Reading the whole cluster keeps the LBA math identical to
 		 * fat12_read_file; only `take` bytes ever reach out_buf. */
 		lba = BPB_CLUSTER_LBA(&vol->bpb, cur);
-		if (vol->dev->read_sectors(vol->dev->ctx, lba,
+		if (fat12_read_sectors(vol, lba,
 		                           vol->bpb.sectors_per_cluster,
 		                           cluster_buf) != 0) {
 			return FAT12_ERR_READ;
@@ -1407,7 +1501,7 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
 	 * the redundant copy diverges -- the both-FAT-sync assertion + an mtools
 	 * read that prefers FAT #2 go RED. NEVER define in a real build. */
 	{
-		if (vol->dev->write_sectors(vol->dev->ctx, vol->first_fat_sector,
+		if (fat12_write_sectors(vol, vol->first_fat_sector,
 		                            vol->bpb.sectors_per_fat, fat) != 0) {
 			return FAT12_ERR_WRITE;
 		}
@@ -1417,7 +1511,7 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
 	for (i = 0u; i < vol->bpb.num_fats; i++) {
 		uint32_t lba = vol->first_fat_sector +
 		               (uint32_t)i * (uint32_t)vol->bpb.sectors_per_fat;
-		if (vol->dev->write_sectors(vol->dev->ctx, lba,
+		if (fat12_write_sectors(vol, lba,
 		                            vol->bpb.sectors_per_fat, fat) != 0) {
 			return FAT12_ERR_WRITE;
 		}
@@ -1633,7 +1727,7 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 		cb[b] = 0u;
 	}
 	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
-	if (vol->dev->write_sectors(vol->dev->ctx, lba,
+	if (fat12_write_sectors(vol, lba,
 	                            vol->bpb.sectors_per_cluster, cb) != 0) {
 #ifndef FAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
@@ -1806,7 +1900,7 @@ static int fat12_read_dirent_in_dir(const fat12_volume_t *vol, const void *fat,
 			return rc;
 		}
 	}
-	if (vol->dev->read_sectors(vol->dev->ctx, lba, 1u, sector_buf) != 0) {
+	if (fat12_read_sectors(vol, lba, 1u, sector_buf) != 0) {
 		return FAT12_ERR_READ;
 	}
 	for (k = 0u; k < 32u; k++) {
@@ -1867,13 +1961,13 @@ static int fat12_write_dirent_in_dir(const fat12_volume_t *vol, const void *fat,
 			return rc;
 		}
 	}
-	if (vol->dev->read_sectors(vol->dev->ctx, lba, 1u, sb) != 0) {
+	if (fat12_read_sectors(vol, lba, 1u, sb) != 0) {
 		return FAT12_ERR_READ;
 	}
 	for (k = 0u; k < 32u; k++) {
 		sb[in_sec + k] = src[k];
 	}
-	if (vol->dev->write_sectors(vol->dev->ctx, lba, 1u, sb) != 0) {
+	if (fat12_write_sectors(vol, lba, 1u, sb) != 0) {
 		return FAT12_ERR_WRITE;
 	}
 	return FAT12_OK;
@@ -1982,7 +2076,7 @@ static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
 		for (s = 0u; s < vol->root_dir_sectors; s++) {
 			const uint8_t *sb;
 			int r;
-			if (vol->dev->read_sectors(vol->dev->ctx, vol->root_dir_sector + s,
+			if (fat12_read_sectors(vol, vol->root_dir_sector + s,
 			                           1u, sector_buf) != 0) {
 				return FAT12_ERR_READ;
 			}
@@ -2024,7 +2118,7 @@ static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
 			for (s = 0u; s < spc; s++) {
 				const uint8_t *sb;
 				int r;
-				if (vol->dev->read_sectors(vol->dev->ctx, lba + s, 1u,
+				if (fat12_read_sectors(vol, lba + s, 1u,
 				                           sector_buf) != 0) {
 					return FAT12_ERR_READ;
 				}
@@ -2217,7 +2311,7 @@ static int fat12_dir_live(const fat12_volume_t *vol, const void *fat,
 	if (chain_is_free(vol, v) || chain_is_bad(vol, v) || v == 1u) {
 		return FAT12_ERR_STALE_DIR;   /* freed (or never a chain head) */
 	}
-	if (vol->dev->read_sectors(vol->dev->ctx, BPB_CLUSTER_LBA(&vol->bpb, dir),
+	if (fat12_read_sectors(vol, BPB_CLUSTER_LBA(&vol->bpb, dir),
 	                           1u, sector_buf) != 0) {
 		return FAT12_ERR_READ;
 	}
@@ -2768,7 +2862,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		}
 
 		lba = BPB_CLUSTER_LBA(&vol->bpb, cl);
-		if (vol->dev->write_sectors(vol->dev->ctx, lba,
+		if (fat12_write_sectors(vol, lba,
 		                            vol->bpb.sectors_per_cluster, cb) != 0) {
 #ifndef FAT12_MUTATE_WRITEFILE_NO_ROLLBACK
 			if (first_cluster != 0u) {
@@ -3029,7 +3123,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 
 			/* Zero-fill the fresh cluster on disk (hole + slack read as zero). */
 			lba = BPB_CLUSTER_LBA(&vol->bpb, cl);
-			if (vol->dev->write_sectors(vol->dev->ctx, lba,
+			if (fat12_write_sectors(vol, lba,
 			                            vol->bpb.sectors_per_cluster, cb) != 0) {
 				if (ext_first != 0u) {
 					(void)fat12_free_chain(vol, fat, fat_len, ext_first);
@@ -3122,7 +3216,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			/* Read-modify-write: when the write does NOT cover the whole cluster,
 			 * read the existing contents first so the splice preserves the rest. */
 			if (in_off != 0u || take != bytes_per_cluster) {
-				if (vol->dev->read_sectors(vol->dev->ctx, lba,
+				if (fat12_read_sectors(vol, lba,
 				                           vol->bpb.sectors_per_cluster,
 				                           cb) != 0) {
 					return FAT12_ERR_READ;
@@ -3133,7 +3227,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 				cb[in_off + i] = data[written + i];
 			}
 
-			if (vol->dev->write_sectors(vol->dev->ctx, lba,
+			if (fat12_write_sectors(vol, lba,
 			                            vol->bpb.sectors_per_cluster, cb) != 0) {
 				return FAT12_ERR_WRITE;
 			}
@@ -4137,7 +4231,7 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	lba = BPB_CLUSTER_LBA(&vol->bpb, newc);
-	if (vol->dev->write_sectors(vol->dev->ctx, lba,
+	if (fat12_write_sectors(vol, lba,
 	                            vol->bpb.sectors_per_cluster, cb) != 0) {
 		/* Roll back the allocation so a write failure leaves no orphan cluster
 		 * (Rule 2). If the parent GREW for this MKDIR, also detach + free the
@@ -4390,7 +4484,7 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 		for (s = 0u; s < vol->bpb.sectors_per_cluster; s++) {
 			uint32_t i;
 
-			if (vol->dev->read_sectors(vol->dev->ctx, lba + s, 1u,
+			if (fat12_read_sectors(vol, lba + s, 1u,
 			                           sector_buf) != 0) {
 				return FAT12_ERR_READ;
 			}

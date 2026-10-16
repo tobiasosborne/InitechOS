@@ -31081,3 +31081,4 @@ TEST_EMU_GATES += test-pubs-screens
 
 # EDLIN (initech-udr1; DEBUG is a separate lane).
 include harness/edlin/edlin.mk
+include harness/diff/fat_diff/partition.mk
