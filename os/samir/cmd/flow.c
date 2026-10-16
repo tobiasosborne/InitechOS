@@ -45,6 +45,7 @@
 #include "samir/value.h"
 #include "samir/rt.h"
 #include "samir/pal.h"
+#include "samir/set.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)           */
@@ -52,7 +53,9 @@
 
 #define FLOW_MAX_LINES     512   /* logical lines per program */
 #define FLOW_MAX_MEMVARS   256   /* live memory variables */
-#define FLOW_MEMVAR_ARENA  16384u/* bytes for memvar names + C/M payloads */
+#ifndef FLOW_MEMVAR_ARENA
+#define FLOW_MEMVAR_ARENA  16384u/* host stress profile; target uses III+ 6000 */
+#endif
 #define FLOW_MAX_NAME      11    /* dBASE memvar name: 10 chars + NUL */
 #define FLOW_MAX_TOKS      128   /* per-expression token pool */
 #define FLOW_MAX_NODES     128   /* per-expression node pool */
@@ -371,6 +374,9 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         fs->vars[slot].val.u.c.len = len;
     } else {
         fs->vars[slot].val = *v;
+        /* Real III+ DML-02/03 and PROG-flow: numeric memory variables have
+         * ten integer columns, independent of the assigning literal. */
+        if(v->t==XB_N) fs->vars[slot].val.num_width=10+(v->num_dec?v->num_dec+1:0);
     }
     return INTERP_OK;
 }
@@ -925,6 +931,104 @@ static int find_top_level(flow_prog *fp, int from, int to,
  *   5. otherwise -> the registered command hook (S5.4..S5.7); CMD_UNKNOWN ->
  *      fail loud #16.
  */
+/* SAVE/RESTORE scalar records. Using III+ U5-180/181/187; DML-09/10
+ * and mint-001 .MEM bytes. 0x12 is the real DO level (DML-09 = 2),
+ * not an invented reserved zero. Transient pool pointers are never written. */
+static int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
+static int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
+{
+    samir_pal_t *p=xb_interp_pal(ip);char word[16],name[128];
+    const char *s;unsigned n=0;int dot=0,add=0,rc=0;pal_fd fd;
+    split_verb(args,word,sizeof word,&s);
+    if(!fl_ci_eq(word,restore?"FROM":"TO"))return fl_memfail(ec,10);
+    while(fl_isspace(*s))s++;
+    while(*s && !fl_isspace(*s)) {
+        if(n+5>=sizeof name)return fl_memfail(ec,18);
+        if(*s=='.')dot=1;
+        name[n++]=fl_up1(*s++);
+    }
+    name[n]=0;
+    if(!n)return fl_memfail(ec,10);
+    if(!dot) {rt_memcpy(name+n,".MEM",5);}
+    while(fl_isspace(*s))s++;
+    if(*s) {if(!restore || !fl_ci_eq(s,"ADDITIVE"))return fl_memfail(ec,10);add=1;}
+    if(restore) {
+        unsigned char *b;int32_t size;unsigned at=0;
+        fd=p->open(p,name,PAL_RD);if(fd<0)return fl_memfail(ec,fd==-PAL_ENOENT?1:29);
+        size=p->seek(p,fd,0,PAL_SEEK_END);
+        if(size<1 || size>32768) {p->close(p,fd);return fl_memfail(ec,55);}
+        b=p->acquire(p,(unsigned)size);if(!b){p->close(p,fd);return fl_memfail(ec,43);}
+        p->seek(p,fd,0,PAL_SEEK_SET);
+        if(p->read(p,fd,b,(unsigned)size)!=size)rc=29;
+        p->close(p,fd);
+        /* Validate the entire record framing before changing live variables. */
+        while(!rc && at<(unsigned)size && b[at]!=26) {
+            unsigned len,type;
+            if(at+32>(unsigned)size){rc=55;break;}
+            type=b[at+11]&127;
+            len=type=='C'?b[at+16]+256u*b[at+17]:type=='L'?1:8;
+            if((type!='C'&&type!='N'&&type!='D'&&type!='L') || !b[at] || b[at+10] ||
+               at+32+len>=(unsigned)size || (type=='C' && (!len || b[at+31+len]))) {rc=55;break;}
+            at+=32+len;
+        }
+        if(!rc && (at+1!=(unsigned)size || b[at]!=26))rc=55;
+#ifndef SAMIR_DML_MUTANT_restore
+        if(!rc && !add)xb_interp_release_all(ip);
+#else
+        (void)add; /* retain old variables, incorrectly additive every time */
+#endif
+        at=0;
+        while(!rc && b[at]!=26) {
+            xb_val v;char variable[11];unsigned type=b[at+11]&127;
+            unsigned len=type=='C'?b[at+16]+256u*b[at+17]:type=='L'?1:8;
+            rt_memcpy(variable,b+at,10);variable[10]=0;
+            if(type=='C')v=xb_c((char *)b+at+32,(uint16_t)(len-1));
+            else if(type=='L')v=xb_l(b[at+32]);
+            else { union {double d;uint64_t u;} x;x.u=0;
+                for(unsigned j=0;j<8;j++)x.u|=(uint64_t)b[at+32+j]<<(j*8);
+                v=type=='D'?xb_d(x.d):xb_n(x.d);
+                if(type=='N'){v.num_width=b[at+16];v.num_dec=b[at+17];}
+            }
+            if(fs->cur_level==0)xb_interp_declare_public(ip,variable);
+            if(memvar_set(fs,variable,&v))rc=21;
+            at+=32+len;
+        }
+        p->release(p,b);
+    } else {
+        unsigned char h[32],eof=26;
+        fd=p->open(p,name,PAL_RD);
+        if(fd>=0) {p->close(p,fd);if(set_get_safety(ip))return fl_memfail(ec,7);}
+        else if(fd!=-PAL_ENOENT)return fl_memfail(ec,29);
+        fd=p->open(p,name,PAL_RDWR|PAL_CREATE|PAL_TRUNC);if(fd<0)return fl_memfail(ec,29);
+        for(int i=0;!rc && i<fs->nvars;i++)if(fs->vars[i].live && memvar_find(fs,fs->vars[i].name)==i) {
+            xb_val *v=&fs->vars[i].val;unsigned type=(unsigned char)xb_type_char(v->t),len;
+            union {double d;unsigned char b[8];} x;unsigned char text[255];const void *payload;
+            if(v->t==XB_U)continue;
+            rt_memset(h,0,sizeof h);rt_memcpy(h,fs->vars[i].name,rt_strlen(fs->vars[i].name));
+            h[11]=(unsigned char)(type|128);
+            /* EXTRA-12/13: PUBLIC is zero, private variables retain their
+             * declaring level (including outer variables saved by a callee).
+             * The real mint's main routine is level 2 (DML-09). */
+            h[18]=fs->vars[i].is_public?0:(unsigned char)(fs->vars[i].level+2);
+            if(type=='C') {
+                len=v->u.c.len+1;if(len>sizeof text){rc=21;break;}
+                rt_memcpy(text,v->u.c.p,len-1);text[len-1]=0;payload=text;
+                h[16]=(unsigned char)len;h[17]=(unsigned char)(len>>8);
+            } else if(type=='L') {len=1;text[0]=v->u.l;payload=text;h[16]=1;}
+            else {len=8;x.d=type=='D'?v->u.d:v->u.n;payload=x.b;
+                if(type=='N'){h[16]=(unsigned char)v->num_width;h[17]=(unsigned char)v->num_dec;}
+            }
+#ifdef SAMIR_DML_MUTANT_save
+            h[11]='C'|128; /* corrupt the saved scalar type, not the oracle */
+#endif
+            if(p->write(p,fd,h,32)!=32 || p->write(p,fd,payload,len)!=(int32_t)len)rc=56;
+        }
+        if(!rc && p->write(p,fd,&eof,1)!=1)rc=56;
+        if(p->close(p,fd) && !rc)rc=29;
+    }
+    return rc?fl_memfail(ec,rc):INTERP_OK;
+}
+
 static int exec_command(flow_prog *fp, const char *line, int *ec)
 {
     xb_interp  *ip = fp->ip;
@@ -935,6 +1039,15 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     int rc;
 
     if (ec) *ec = 0;
+
+    /* Ref: Using III+ U5-51; mint samirdml/clear. Unlike RELEASE,
+     * CLEAR MEMORY also drops hidden callers and PUBLIC variables. */
+    if (fl_ci_eq(line, "CLEAR MEMORY")) {
+#ifndef SAMIR_DML_MUTANT_clear
+        xb_interp_release_all(ip);
+#endif
+        return INTERP_OK;
+    }
 
     /* (1) assignment? */
     if (detect_assign(line, name, sizeof(name), &rhs)) {
@@ -948,6 +1061,9 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     }
 
     (void)split_verb(line, verb, sizeof(verb), &args);
+
+    if(fl_ci_eq(verb,"SAVE") || fl_ci_eq(verb,"RESTORE"))
+        return fl_memfile(ip,fs,args,fl_ci_eq(verb,"RESTORE"),ec);
 
     /* (2) STORE */
     if (fl_ci_eq(verb, "STORE"))
@@ -1032,6 +1148,48 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     /* unrecognised verb: fail loud (#16). */
     if (ec) *ec = FLOW_MSG_UNRECOGNIZED;
     return -INTERP_ERR_UNKNOWN_CMD;
+}
+
+/* Ref: Using III+ U6-7/8; real mint samirdml/macro. Expansion occurs
+ * when a statement executes, so loop assignments can change the macro.
+ * Bounded to the documented 254-character command line (U7, error #18). */
+static int flow_expand(xb_interp *ip, char *line, int *ec)
+{
+#ifndef SAMIR_DML_MUTANT_macro
+    char next[FLOW_MAX_LINELEN+1];
+    unsigned pass;
+    for(pass=0;pass<16;pass++) {
+        uint32_t i=0,n=0;int changed=0;
+        while(line[i]) {
+            if(line[i]=='&') {
+                char name[FLOW_MAX_NAME];uint32_t k=0;xb_val v;
+                i++;
+                while((line[i]>='A'&&line[i]<='Z') ||
+                      (line[i]>='a'&&line[i]<='z') ||
+                      (line[i]>='0'&&line[i]<='9') || line[i]=='_') {
+                    if(k+1>=sizeof name) { *ec=10;return -INTERP_ERR_SYNTAX; }
+                    name[k++]=line[i++];
+                }
+                name[k]=0;
+                if(!k) { *ec=10;return -INTERP_ERR_SYNTAX; }
+                if(xb_interp_get_memvar(ip,name,&v)) { *ec=12;return -INTERP_ERR_EVAL; }
+                if(v.t!=XB_C) { *ec=9;return -INTERP_ERR_EVAL; }
+                if(n+v.u.c.len>FLOW_MAX_LINELEN) { *ec=18;return -INTERP_ERR_DEPTH; }
+                rt_memcpy(next+n,v.u.c.p,v.u.c.len);n+=v.u.c.len;
+                if(line[i]=='.')i++;
+                changed=1;
+            } else {
+                if(n>=FLOW_MAX_LINELEN) { *ec=18;return -INTERP_ERR_DEPTH; }
+                next[n++]=line[i++];
+            }
+        }
+        next[n]=0;rt_memcpy(line,next,n+1);
+        if(!changed)return INTERP_OK;
+    }
+    *ec=18;return -INTERP_ERR_DEPTH;
+#else
+    (void)ip;(void)line;(void)ec;return INTERP_OK;
+#endif
 }
 
 /* ===================================================================== */
@@ -1290,6 +1448,8 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
         default:
             if (copy_line(&fp->lines[i], buf, sizeof(buf)) != 0)
                 return -INTERP_ERR_DEPTH;
+            rc = flow_expand(fp->ip, buf, ec);
+            if (rc != INTERP_OK) return rc;
             rc = exec_command(fp, buf, ec);
             if (rc != INTERP_OK)
                 return rc;

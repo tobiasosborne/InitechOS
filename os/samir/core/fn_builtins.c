@@ -398,6 +398,8 @@ static int fn_val(const xb_val *args, int nargs, xb_val *out, int *err)
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
     if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
     *out = xb_n(dec_parse(args[0].u.c.p, (int)args[0].u.c.len));
+    /* PROG-funcs real III+ mint: VAL('42') prints 42.00 (five columns). */
+    out->num_dec=2; out->num_width=args[0].u.c.len+3;
     *err = XBEE_OK;
     return 0;
 }
@@ -737,6 +739,8 @@ static int fn_dmy(const xb_val *args, int nargs, int which,
     case 1:  *out = xb_n((double)m); break;
     default: *out = xb_n((double)y); break;     /* YEAR is full 4-digit        */
     }
+    /* Real III+ PROG-funcs YEAR result occupies five columns. */
+    if(which==2) out->num_width=5;
     *err = XBEE_OK;
     return 0;
 }
@@ -745,31 +749,42 @@ static int fn_dmy(const xb_val *args, int nargs, int which,
 /* TYPE(<expC>) -> C (1-char code)                                            */
 /* ======================================================================== */
 
-/*
- * TYPE() in real III+ takes a STRING expression and reports the type of the
- * expression that string denotes, WITHOUT a value resolver evaluating it for
- * value. At the eval layer (S3.5) the argument has ALREADY been evaluated to a
- * value (eager XBN_CALL args), so what we receive is the value of the
- * expression -- we report ITS type. This matches TYPE("3+4")->"N",
- * TYPE("'x'")->"C", TYPE(".T.")->"L" for literal/constant argument strings,
- * which is the test surface available at S3.5. Full TYPE("FIELDNAME") /
- * TYPE("RECNO()") semantics (re-parsing the inner string, returning "U" for an
- * undefined/invalid inner expression) require the inner expression to be lexed/
- * parsed from the string CONTENTS -- that is a Phase-5 concern (TYPE feeding
- * SET FILTER) and is GATED here: an unresolved inner symbol surfaces as the
- * eager-eval XBEE_UNBOUND BEFORE TYPE runs, so TYPE never sees it. This is the
- * documented honest boundary (system-and-database-functions.md TYPE).
- */
+/* Using III+ U6-86/87: evaluate the expression contained in the Character
+ * argument. Invalid or undefined expressions return U without raising them.
+ * DML-01 is the real CLEAR MEMORY / TYPE transcript. */
 static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
                    xb_val *out, int *err)
 {
-    char *dst;
+    char *dst, code='U';
+    xb_token toks[128];
+    xb_node nodes[128];
+    xb_ctx inner;
+    xb_val value;
+    int nt,root,e;
+    static unsigned depth;
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
+    /* Using III+ U6-86/87: the Character argument contains an expression;
+     * an absent name or invalid expression reports U, without raising it.
+     * DML-01 real III+ transcript pins TYPE("N") after CLEAR MEMORY. */
+    if(args[0].t!=XB_C) return fn_fail(err,XBEE_MISMATCH);
+    if(depth<8) {
+        nt=xb_lex(args[0].u.c.p,args[0].u.c.len,toks,128,&e);
+        root=nt<0?-1:xb_parse(toks,(uint32_t)nt,nodes,128,&e);
+        if(root>=0) {
+            inner=*ctx;
+            if(inner.scratch) inner.scratch+=ctx->scratch_used;
+            inner.scratch_cap-=ctx->scratch_used;
+            inner.scratch_used=0;
+            depth++;
+            if(xb_eval(nodes,root,&inner,&value,&e)==0) code=xb_type_char(value.t);
+            depth--;
+        }
+    }
     dst = fn_scratch(ctx, 1);
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
     /* xb_type_char maps XB_U -> 'U' too, so an undefined value reports "U"
      * (the III+ "undefined/invalid expression" code). */
-    dst[0] = xb_type_char(args[0].t);
+    dst[0] = code;
     *out = xb_c(dst, 1);
     *err = XBEE_OK;
     return 0;
@@ -825,6 +840,7 @@ static int fn_int(const xb_val *args, int nargs, xb_val *out, int *err)
     /* PROVISIONAL/GATED (numfn-2): truncate toward zero via cast. */
     v = (double)(int64_t)args[0].u.n;
     *out = xb_n(v);
+    out->num_width=args[0].num_width;
     *err = XBEE_OK;
     return 0;
 }
@@ -858,6 +874,7 @@ static int fn_mod(const xb_val *args, int nargs, xb_val *out, int *err)
      * INT(a/b) via (int64_t) cast (truncation toward zero). */
     q = (double)(int64_t)(a / b);
     *out = xb_n(a - b * q);
+    out->num_width=(args[0].num_width>args[1].num_width?args[0].num_width:args[1].num_width)+1;
     *err = XBEE_OK;
     return 0;
 }

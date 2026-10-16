@@ -42,7 +42,7 @@
 
 xb_val xb_c(const char *p, uint16_t len)
 {
-    xb_val v;
+    xb_val v = {0};
     v.t     = XB_C;
     v.u.c.p = (char *)p; /* drop const: caller owns; engine treats as read-only */
     v.u.c.len = len;
@@ -51,15 +51,16 @@ xb_val xb_c(const char *p, uint16_t len)
 
 xb_val xb_n(double val)
 {
-    xb_val v;
+    xb_val v = {0};
     v.t   = XB_N;
+    v.num_width = 10;
     v.u.n = val;
     return v;
 }
 
 xb_val xb_d(double jdn)
 {
-    xb_val v;
+    xb_val v = {0};
     v.t   = XB_D;
     v.u.d = jdn;
     return v;
@@ -67,7 +68,7 @@ xb_val xb_d(double jdn)
 
 xb_val xb_l(int truth)
 {
-    xb_val v;
+    xb_val v = {0};
     v.t   = XB_L;
     v.u.l = (truth != 0) ? (uint8_t)1 : (uint8_t)0;
     return v;
@@ -75,7 +76,7 @@ xb_val xb_l(int truth)
 
 xb_val xb_m(const char *p, uint16_t len)
 {
-    xb_val v;
+    xb_val v = {0};
     v.t     = XB_M;
     v.u.c.p = (char *)p; /* same layout as XB_C (shared union member) */
     v.u.c.len = len;
@@ -84,7 +85,7 @@ xb_val xb_m(const char *p, uint16_t len)
 
 xb_val xb_u(void)
 {
-    xb_val v;
+    xb_val v = {0};
     v.t = XB_U;
     /* No payload; zero the union to avoid any uninitialised-bytes noise that
      * could confuse a future binary-equality check on the struct. */

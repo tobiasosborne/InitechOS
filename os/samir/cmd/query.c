@@ -281,64 +281,10 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
     q_append(buf, pos, cap, tmp, (uint32_t)n);
 }
 
-/*
- * q_render_val: render one xb_val to display text into buf[*pos] (bounded by cap).
- * dBASE display forms (navigation-query-display.md "Output presentation" + ?/??):
- *   C/M : the characters as-is (raw bytes).
- *   N   : right-formatted; we use dec_format with a generous width then trim the
- *         leading spaces so a bare "?" prints a compact number (matching the
- *         dot-prompt's left-trimmed numeric echo). dec places from the field's
- *         own dec_count is not known here, so we render with 0 decimals for an
- *         integral value and up to a small precision otherwise.
- *   D   : YYYYMMDD/AMERICAN -- we render MM/DD/YY (SET DATE AMERICAN default).
- *   L   : ".T." / ".F." for ? / ?? (the dotted echo form); bare "T" / "F" for
- *         LIST/DISPLAY columns -- selected by the `logical_dotted` argument.
- *         Ref (Law 1): ../dbase3-decomp/specs/commands/navigation-query-display.md
- *         L.803 "? ... logicals as .T./.F." (dotted echo) vs L.689 "logical
- *         fields print as T/F" (bare LIST/DISPLAY column).
- *   U   : blank (an unset value renders empty).
- *
- * SET DECIMALS scope (numeric-and-string-formatting.md line 33, HELP.DBS:1413-1416
- * [verified: HELP.DBS]): division / SQRT / LOG / VAL / EXP results use SET DECIMALS
- * as the minimum decimal-place count in display. The headline verified case is:
- *   ? 1/3  ->  0.33  (SET DECIMALS=2, the III+ default)
- *   [verified: ../dbase3-decomp/re/mint-results-002.md: "? 1/3 -> 0.33;
- *    SET DECIMALS default = 2"]
- *
- * At the rendering layer we have only the xb_val double -- we cannot distinguish
- * a division result from any other non-integral computed value. We apply the
- * following verified+gated policy:
- *
- *   VERIFIED: a non-integral computed numeric uses ctx->set_decimals decimal
- *   places. This is correct for the headline division case and for VAL
- *   (numeric-and-string-formatting.md S5.3: both are in the closed SET DECIMALS
- *   scope [verified: HELP.DBS:1413-1416]).
- *
- *   GATED: distinguishing division/VAL from other non-integral results (e.g. the
- *   result of a user arithmetic expression that happens to be non-integral but is
- *   not division/VAL) would require value tagging through the AST -- [oracle-resolves].
- *   The CONSERVATIVE CHOICE is to apply set_decimals to ALL non-integral computed
- *   numerics, which at minimum satisfies the verified cases without silently
- *   under-formatting them.
- *
- *   NOT AFFECTED: integer-valued results (fr <= 1e-9) always display with 0
- *   decimals regardless of SET DECIMALS. "? 5" -> "5" (integral literal);
- *   "? VAL('42')" -> "42" (VAL of an integer string yields an integral double).
- *   [ground: numeric-and-string-formatting.md S5.3: "a literal numeric memvar is
- *   NOT widened to DECIMALS places merely by being ?-printed".]
- *
- *   STR IS UNAFFECTED: STR() returns a C value (not an N), so this XB_N branch
- *   is never taken for STR output. STR always uses dec=0 by default regardless
- *   of SET DECIMALS [verified: numeric-and-string-formatting.md lines 11-13].
- *
- *   SQRT / LOG / EXP: GATED (bead 7az.13 -- not yet implemented). If those
- *   functions land, they will produce XB_N values that pass through this same
- *   path and will automatically honor set_decimals.
- *
- * ctx: the evaluation context; carries ctx->set_decimals (uint8_t, default 2).
- *   NULL ctx is a caller bug -- if it occurs we fall back to dec=2 (fail safe;
- *   Rule 2 note: a NULL ctx here means the interpreter was not initialized).
- */
+/* Shared value printer. Using III+ U5-15 and real PROG-01..07/DML
+ * transcripts: numeric widths/decimals are carried with values; fields use
+ * their descriptors in q_render_field. Character bytes, date formats and
+ * dotted Logical output retain their separate, period-defined forms. */
 void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
                   const xb_val *v, const xb_ctx *ctx, int logical_dotted);
 void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
@@ -350,48 +296,14 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         q_append(buf, pos, cap, v->u.c.p ? v->u.c.p : "", (uint32_t)v->u.c.len);
         break;
     case XB_N: {
-        /*
-         * Render the numeric value.
-         *
-         * decimal count selection:
-         *   - integral value (fr <= 1e-9): dec = 0  (no forced decimal places).
-         *   - non-integral value: dec = ctx->set_decimals (honors SET DECIMALS).
-         *     Default = 2 [verified: mint-results-002.md].
-         *
-         * Ref (Law 1):
-         *   - numeric-and-string-formatting.md line 33 (SET DECIMALS scope:
-         *     division/SQRT/LOG/VAL/EXP [verified: HELP.DBS:1413-1416]).
-         *   - mint-results-002.md: "? 1/3 -> 0.33 (DECIMALS=2)" [verified].
-         *   - numeric-and-string-formatting.md S5.1 "floor, not a fixed count"
-         *     (FIXED OFF default: set_decimals is the MINIMUM; more fractional
-         *     digits may show if present; [oracle-resolves] for FIXED ON edge).
-         *
-         * MUTATION GUARD (-DDEC_MUTATE_IGNORE_SETDEC):
-         *   Force dec=2 regardless of ctx->set_decimals so that SET DECIMALS TO 4
-         *   followed by "? 1/3" still shows "0.33" (wrong) not "0.3333" (correct).
-         *   Also SET DECIMALS TO 0 would give "0.33" (wrong) not "0" (correct).
-         *   The test oracle assertions for these cases go RED, proving the oracle
-         *   catches the missing ctx->set_decimals read. (Rule 6 mutation proof.)
-         */
-        char tmp[40];
-        int width = 20, dec = 0, w, lead = 0;
-        double n = v->u.n, fr;
-        /* integral test: fractional part within a small epsilon */
-        fr = n - (double)(int64_t)n;
-        if (fr < 0.0) fr = -fr;
-        if (fr > 1e-9) {
+        char cell[256];
+        int width=v->num_width?v->num_width:10,dec=v->num_dec;
 #ifdef DEC_MUTATE_IGNORE_SETDEC
-            (void)ctx;  /* mutant: ctx deliberately unused; suppress -Wunused-parameter */
-            dec = 2;    /* MUTANT: ignore SET DECIMALS, always use 2 */
-#else
-            /* Non-integral: use SET DECIMALS (the verified scope).
-             * ctx->set_decimals is uint8_t, always safe to cast to int. */
-            dec = (ctx != (const xb_ctx *)0) ? (int)ctx->set_decimals : 2;
+        if(dec)dec=2;
 #endif
-        }
-        w = dec_format(n, width, dec, tmp);   /* writes exactly `width` bytes */
-        while (lead < w && tmp[lead] == ' ') lead++;
-        q_append(buf, pos, cap, tmp + lead, (uint32_t)(w - lead));
+        if(width>255)width=255;
+        int n=dec_format(v->u.n,width,dec,cell);
+        q_append(buf,pos,cap,cell,(uint32_t)n);
         break;
     }
     case XB_D: {
@@ -749,7 +661,7 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
 #endif
         q_append(buf,pos,cap,cell,(uint32_t)width);
     } else {
-        q_render_val(buf,pos,cap,v,ctx,0);
+        q_render_val(buf,pos,cap,v,ctx,v->t==XB_L);
         while(*pos-start<width && *pos<cap) buf[(*pos)++]=' ';
     }
 }
@@ -757,6 +669,7 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
 static uint32_t q_column_width(const dbf_field_t *f,const char *expr,const xb_val *v,const xb_ctx *ctx)
 {
     uint32_t width=f ? f->field_len : 0, name=rt_strlen(expr);
+    if(f && f->type=='L') width=3; /* real PROG-query .T./.F. columns */
     if(!f) { char b[256]; uint32_t n=0; q_render_val(b,&n,sizeof(b),v,ctx,0); width=n; }
     /* Using III+ U5-235: heading length or field width, whichever is larger. */
     if(ctx->set_heading && name>width) width=name;
@@ -773,6 +686,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
 #endif
     if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
     if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
+    else q_append_cstr(line,&pos,sizeof(line)," "); /* real PROG-query OFF */
     while(qc->has_exprlist ? q_next_expr(&p,expr,sizeof(expr),&ok) : fi<(int)dbf_nfields(tbl)) {
         const dbf_field_t *f; xb_val v; uint32_t width,n; int rc;
         if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
@@ -783,8 +697,16 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         if(!first) q_append_cstr(line,&pos,sizeof(line)," ");
         first=0;
         if(pos+width+1>=sizeof(line)) { q_putn(ip,line,pos);pos=0; }
-        n=rt_strlen(expr); q_append(line,&pos,sizeof(line),expr,n);
-        while(n++<width) q_append_cstr(line,&pos,sizeof(line)," ");
+        n=rt_strlen(expr);
+        /* Real III+ PROG-query: numeric headings align at the right edge
+         * of their column, just like their numeric data (minted QTY N5). */
+        if(f && f->type=='N') {
+            for(uint32_t j=n;j<width;j++) q_append_cstr(line,&pos,sizeof(line)," ");
+            q_append(line,&pos,sizeof(line),expr,n);
+        } else {
+            q_append(line,&pos,sizeof(line),expr,n);
+            while(n++<width) q_append_cstr(line,&pos,sizeof(line)," ");
+        }
     }
     if(!ok) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
     /* Real III+ 1.1 M005U/M005N: the final heading is not column-padded,
@@ -831,6 +753,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
         q_append_cstr(line, &pos, sizeof(line), "  ");
 #endif
     }
+    else if(!pos) q_append_cstr(line,&pos,sizeof(line)," ");
 
     if (qc->has_exprlist) {
         const char *p = qc->exprlist;
@@ -1022,7 +945,7 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
 /*
  * q_question: implement ? / ?? . `leading_nl` is 1 for ? (a leading CR/LF) and
  * 0 for ?? . The expression list is comma-separated; values are separated on
- * output by a single space; ? ends with a newline, ?? does not.
+ * output by a single space. Neither verb appends a trailing newline.
  * A bare ? prints a blank line; a bare ?? prints nothing.
  */
 static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
@@ -1033,8 +956,14 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
     char expr[Q_MAX_EXPR + 1];
     int ok = 1, first = 1, any = 0, rc;
 
-    if (leading_nl)
+    if (leading_nl) {
+        /* Using III+ U5-15; DML-01..03 real alternate streams. */
+#ifdef SAMIR_PRINT_MUTATE_LF
         q_append_cstr(line, &pos, sizeof(line), "\n");
+#else
+        q_append_cstr(line, &pos, sizeof(line), "\r\n");
+#endif
+    }
 
     while (q_next_expr(&p, expr, sizeof(expr), &ok)) {
         xb_val v;
@@ -1045,8 +974,11 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
         rc = q_eval(ip, expr, &v, ec);
         if (rc != INTERP_OK)
             return rc;
-        q_render_val(line, &pos, sizeof(line), &v, xb_interp_ctx(ip),
-                     /*logical_dotted=*/1);   /* ? / ?? echo: dotted .T./.F. */
+        if(v.t==XB_N) {
+            const dbf_field_t *f=q_field_descriptor(ip,expr);
+            if(f){v.num_width=f->field_len;v.num_dec=f->dec_count;}
+        }
+        q_render_val(line,&pos,sizeof(line),&v,xb_interp_ctx(ip),1);
     }
     if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 

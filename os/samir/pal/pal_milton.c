@@ -106,8 +106,12 @@
  * Scratch reset cannot reclaim a live table/memo/index (audit L003).
  * Ref: spec/memory_map.h PROGRAM_BSS_RESERVE / ENV_BLOCK; ADR-0009 DEC-04.
  */
-#define PAL_MILTON_HEAP_PARAS  1920u    /* 30 KiB: 16 KiB scratch + 14 KiB owned */
-#define PAL_MILTON_TAIL_BYTES  6144u    /* + 6 KiB owned in the BSS reserve tail */
+/* Using III+ U5-180: the standard memory-variable pool is 6000 bytes.
+ * Reclaim 10384 bytes from the old 16 KiB static pool; move the same amount
+ * of owned heap into its BSS reserve tail. Scratch and total owned capacity
+ * stay unchanged. Link-time assertions prove both disjoint intervals. */
+#define PAL_MILTON_HEAP_PARAS  1271u
+#define PAL_MILTON_TAIL_BYTES  16528u
 extern uint8_t _samir_heap_tail[];      /* samir.ld: first byte after .bss */
 #define PAL_MILTON_HEAP_BYTES  (PAL_MILTON_HEAP_PARAS * 16u)
 
@@ -903,7 +907,7 @@ samir_pal_t *pal_milton_make(void)
     st->heap_base = (uint8_t *)(uintptr_t)(heap_seg << 4);
     st->heap_ptr  = st->heap_base;
     st->heap_end  = st->heap_base + 16384u;
-    st->blocks=pal_heap_init(st->heap_end,14336u);
+    st->blocks=pal_heap_init(st->heap_end,3952u);
     pal_heap_add(st->blocks,_samir_heap_tail,PAL_MILTON_TAIL_BYTES);
 
     return &st->vtable;
