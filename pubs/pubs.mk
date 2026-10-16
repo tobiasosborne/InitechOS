@@ -62,13 +62,17 @@ $(PUBS_MSG_TEX): $(PUBS_MSGTABLE_BIN) spec/dos_messages.json
 # the shipped engine's capacity constants, the coercion appendix from
 # spec/samir/xbase_coercion.json (harness/pubs/samir_tables.c).
 PUBS_SAMIR_TABLES   := $(BUILD)/pubs_samir_tables
-PUBS_SAMIR_GEN      := $(PUBS_GEN)/samir_limits.tex $(PUBS_GEN)/samir_coercion.tex $(PUBS_GEN)/samir_formats.tex
+PUBS_SAMIR_GEN      := $(PUBS_GEN)/samir_limits.tex $(PUBS_GEN)/samir_coercion.tex $(PUBS_GEN)/samir_formats.tex \
+                       $(PUBS_GEN)/samir_messages.tex
 PUBS_SAMIR_TBL_LINK  = $(filter-out $(SAMIR_FLOW_SRC) $(SAMIR_PROC_SRC) $(SAMIR_REPORT_SRC),$(INTERP_PROC_ENG)) $(SAMIR_PAL_HOST_SRC)
 $(PUBS_SAMIR_TABLES): harness/pubs/samir_tables.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) spec/samir/dbf_format.h spec/samir/ndx_format.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -Ispec/samir -o $@ harness/pubs/samir_tables.c $(PUBS_SAMIR_TBL_LINK)
 $(PUBS_GEN)/samir_limits.tex: $(PUBS_SAMIR_TABLES)
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_SAMIR_TABLES) limits > $@.tmp && mv -f $@.tmp $@
+$(PUBS_GEN)/samir_messages.tex: $(PUBS_SAMIR_TABLES)
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_SAMIR_TABLES) messages > $@.tmp && mv -f $@.tmp $@
 $(PUBS_GEN)/samir_formats.tex: $(PUBS_SAMIR_TABLES)
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_SAMIR_TABLES) formats > $@.tmp && mv -f $@.tmp $@

@@ -82,6 +82,72 @@
     \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}%
   \null\newpage}
 
+%% ---- the Quick Reference booklet (PK-11; annex Sec 11.1; class option
+%% quickref, 88.9 x 228.6 mm) -------------------------------------------------
+%% Single column: no side column, folio centred at the foot.  \QRSection
+%% heads (sans capitals between two rules); \QREntry{NAME}{kind}{syntax}
+%% {description} -- the syntax bold over a one-line description, registering
+%% NAME|kind like XbaseEntry (kind command, set, or compound with \XAlso);
+%% \QRFunction{NAME}{description} -- name and description in two columns.
+\ifim@quickref
+  \setlength\imHang{0pt}%
+  \AtBeginDocument{\setlength\imFullWidth{\textwidth}\setlength\imTextWidth{\textwidth}}%
+  \fancypagestyle{im@qr}{\fancyhf{}\renewcommand\headrulewidth{0pt}%
+    \renewcommand\footrulewidth{0pt}\fancyfoot[C]{\imFolioFont\thepage\quad\imFootFont\bfseries\im@draftfoot}}%
+  \AtBeginDocument{\pagestyle{im@qr}\gdef\thepage{\arabic{page}}}%
+\fi
+\newcommand\QRSection[1]{\par\addvspace{10pt}\goodbreak\noindent\rule{\linewidth}{0.5pt}\par
+  \vspace{2pt}{\centering\sffamily\bfseries\fontsize{9}{11}\selectfont\MakeUppercase{#1}\par}%
+  \vspace{1pt}\noindent\rule{\linewidth}{0.5pt}\par\nobreak\vspace{4pt}}
+\NewDocumentCommand\QREntry{o m m m m}{%
+  \gdef\im@entryname{#2}%
+  \IfValueTF{#1}{\gdef\im@cmdstate{DRAFT}}{\gdef\im@cmdstate{GATED}}%
+  \ifnum\pdf@strcmp{#3}{compound}=0 \gdef\im@cmdkind{command}\else
+    \RegisterCommand{#2}{#3}{\im@cmdstate}{#2}\fi
+  \par\addvspace{3pt}\goodbreak
+  {\noindent\RaggedRight\ttfamily\bfseries\fontsize{7.5}{9}\selectfont
+   \hangindent=1em #4\par}\nobreak
+  {\leftskip=1em\noindent\fontsize{8}{9.5}\selectfont #5%
+   \IfValueT{#1}{ \draft{#1}}\par}}
+\newcommand\QRFunction[2]{\RegisterCommand{#1}{function}{GATED}{#1}%
+  \par\noindent\fontsize{8}{9.5}\selectfont
+  \makebox[24mm][l]{\ttfamily\bfseries #1()}\parbox[t]{\dimexpr\linewidth-24mm\relax}{\RaggedRight #2}\par
+  \addvspace{1pt}}
+\newcommand\QRMessage[2]{\par\noindent\fontsize{7.5}{9}\selectfont
+  \makebox[7mm][r]{\sffamily\bfseries #1}\hspace{2mm}%
+  \parbox[t]{\dimexpr\linewidth-9mm\relax}{\RaggedRight\im@screenmono #2}\par}
+%% The cover (PK-02 grid, scaled to the booklet) and the end: Notes pages
+%% fill the booklet to a multiple of four with the colophon and the back
+%% cover as its last two pages.
+\newcommand\QRCover{\thispagestyle{empty}%
+  \AtPage{8}{10}{\Wordmark[24mm]}%
+  \AtPage{8}{26}{\rule{72.9mm}{0.5pt}}%
+  \AtPage{8}{32}{\parbox[t]{72.9mm}{\raggedright\im@display\fontsize{22}{26}\selectfont
+    \MakeUppercase{\im@product}\\[2pt]\fontsize{16}{20}\selectfont Quick Reference\\Guide}}%
+  \im@hook{\put(-\dimexpr3mm\relax,-\dimexpr67mm\relax){\color{\im@familycolor}\rule{84mm}{6.5mm}}}%
+  \AtPage{8}{61.5}{\textcolor{white}{\sffamily\bfseries\fontsize{8}{10}\selectfont\im@family}}%
+  \null\newpage}
+%% \QRFinish[n]: the booklet has at least n pages (the model's 36 include
+%% fourteen Notes pages).
+\NewDocumentCommand\QRFinish{O{0}}{\clearpage
+  %% shipped pages + one Notes leaf + the colophon + the back cover
+  \@tempcnta=\numexpr\ReadonlyShipoutCounter+3\relax
+  \im@notesleaf{Notes}%
+  \loop\ifnum\numexpr\@tempcnta-4*((\@tempcnta-2)/4)\relax>0
+    \im@notesleaf{Notes}\advance\@tempcnta by 1 \repeat
+  \loop\ifnum\@tempcnta<#1
+    \im@notesleaf{Notes}\im@notesleaf{Notes}\im@notesleaf{Notes}\im@notesleaf{Notes}%
+    \advance\@tempcnta by 4 \repeat
+  \thispagestyle{empty}\begingroup\input{colophon}\endgroup
+  \clearpage\thispagestyle{empty}%
+  \AtPage{8}{12}{\Wordmark[24mm]}%
+  \AtPage{8}{40}{\parbox[t]{72.9mm}{\IsThisGoodForTheCompany}}%
+  \AtPage{8}{196}{\parbox[t]{60mm}{\sffamily\fontsize{7}{9}\selectfont\InitechAddress\par
+    \vspace{3pt}\copyright\ Copyright Initech Systems Corporation \im@years.  All rights reserved.}}%
+  \im@hook{\put(\dimexpr84mm\relax,-\dimexpr220mm\relax){%
+    \makebox[0pt][r]{\sffamily\fontsize{7}{9}\selectfont\im@partno\quad\im@printcode}}}%
+  \null\newpage}
+
 %% ---- dictionary heads (PG-13): on in Commands / Functions only -------------
 \newcommand\NoDictionaryHeads{\global\im@referencepagesfalse}
 
