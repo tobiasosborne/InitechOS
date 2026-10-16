@@ -1,76 +1,111 @@
 /*
- * os/flair/finder_icon.c -- the Finder desktop-icon blitter (THE ARTIFACT).
+ * os/flair/finder_icon.c -- the Finder icon blitter (THE ARTIFACT).
  *
- * beads: initech-tdnl.9 (R3 "STAPLER-DESK": desktop icon assets + their blit).
+ * beads: initech-tdnl.9 (R3 desktop icon blit), initech-tdnl.53 (the v2
+ *        Platinum 4bpp strikes + the measured selection function),
+ *        initech-tdnl.87 (the Dialog Manager's iconItem draws through here).
  * Ref:   os/flair/finder_icon.h (the contract and the three rules);
- *        spec/assets/desk_icons.h (the LOCKED strike format + tone decode);
- *        os/flair/flair_look.h (the ONE policy seam -- C-8);
- *        os/flair/cursor.c (the per-pixel CURS composite precedent);
- *        os/flair/desktop.c :: desktop_px (the PART->pixel idiom mirrored here).
+ *        spec/assets/desk_icons.h (the LOCKED v2 strike format, the DESK_IC_*
+ *        colour ordinals and DESK_IC_SELECTED -- mint-008 Sec 3);
+ *        os/flair/flair_look.h FLAIR_PART_ICON_CLUT (the ONE policy seam --
+ *        C-8: this TU names a colour ORDINAL, never a colour or an index);
+ *        os/flair/cursor.c (the per-pixel composite precedent).
  *
  * Artifact C per ADR-0002: freestanding, no allocation, no libc, deterministic,
- * ASCII-only. The two mutation knobs are host-oracle builds only (Rule 6) and
- * are never compiled into a real build.
+ * ASCII-only. The mutation knobs are host-oracle builds only (Rule 6) and are
+ * never compiled into a real build.
  */
 #include "finder_icon.h"
 
 #include "flair_look.h"     /* flair_look_pixel_depth -- the ONE color seam */
 
-/* Column bit for col c: MSB (bit 31) is col 0 (the cursors.h convention). */
-static uint32_t icon_bit(int c)
-{
-    return (uint32_t)1u << (31 - c);
-}
+/* One policy role per non-clear colour ordinal, in ordinal order. */
+_Static_assert((int)FLAIR_PART_ICON_CLUT_LAST - (int)FLAIR_PART_ICON_CLUT + 1 ==
+               (int)DESK_IC__COUNT - 1,
+               "one FLAIR_PART_ICON_CLUT role per DESK_IC_* colour (desk_icons.h)");
 
-/* Decode the tone of strike pixel (r,c) from the three planes.
+/* The 4-bit nibble of strike pixel (r,c); 0 is clear.
  *
- * Rule-6 knob DESK_ICON_MUT_MASK_IGNORED: treat every pixel as opaque, so the
- * transparent cells get painted and the oracle's sentinel-survival check must
- * go RED. Rule-6 knob DESK_ICON_MUT_ROW_OFF1: read the NEXT strike row, so the
- * image shifts up by one and the probe pixels must go RED. */
-static desk_tone_t icon_tone(const FLAIRDeskIcon *icon, int r, int c)
+ * Rule-6 knob DESK_ICON_MUT_MASK_IGNORED: a clear nibble is painted as nibble
+ * 1, so the transparent cells get painted and the oracles' sentinel /
+ * background checks must go RED. Rule-6 knob DESK_ICON_MUT_ROW_OFF1: read the
+ * NEXT strike row, so the image shifts up by one and every cell oracle must
+ * go RED. */
+static uint32_t icon_nibble(const FLAIRDeskIcon *icon, int r, int c)
 {
-    uint32_t b = icon_bit(c);
-    uint32_t mask;
-    uint32_t ink;
-    uint32_t shade;
 #if defined(DESK_ICON_MUT_ROW_OFF1)
     int sr = (r + 1) % DESK_ICON_DIM;
 #else
     int sr = r;
 #endif
-
-    mask  = icon->mask[sr];
-    ink   = icon->ink[sr];
-    shade = icon->shade[sr];
-
+    uint32_t n = (icon->px[sr][c >> 3] >> (28 - 4 * (c & 7))) & 0xFu;
 #if defined(DESK_ICON_MUT_MASK_IGNORED)
-    mask = 0xFFFFFFFFu;
+    if (n == 0u) n = 1u;
 #endif
-
-    if ((mask & b) == 0u) return DESK_TONE_CLEAR;
-    if ((ink & b) != 0u)  return DESK_TONE_INK;
-    if ((shade & b) != 0u) return DESK_TONE_SHADE;
-    return DESK_TONE_FACE;
-}
-
-/* Tone -> the SEMANTIC role the policy seam resolves. No color is named here
- * and no palette index is named here (C-8). */
-static int icon_tone_part(desk_tone_t tone, int hilite)
-{
-    if (tone == DESK_TONE_INK)   return (int)FLAIR_PART_ICON_INK;
-    /* bead initech-34dh: the HIGHLIGHTED state (a drop target under a dragged
-     * icon) darkens the body and the detail; the black ink is unchanged
-     * (IM VI p. 2-19..2-20; finder_icon.h). */
-    if (tone == DESK_TONE_SHADE)
-        return hilite ? (int)FLAIR_PART_ICON_HILITE_SHADE
-                      : (int)FLAIR_PART_ICON_SHADE;
-    return hilite ? (int)FLAIR_PART_ICON_HILITE_FACE : (int)FLAIR_PART_ICON_FACE;
+    return n;
 }
 
 static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip,
-                      int hilite);
+                      int hilite)
+{
+    uint32_t tone_px[DESK_ICON_TONES];
+    uint8_t  tone_on[DESK_ICON_TONES];
+    int r;
+    int c;
+    int n;
+
+    /* Fail-soft on a NULL/zero destination or strike (Rule 2: never write past
+     * a buffer we were not given). */
+    if (dst == (const bitmap_t *)0 || dst->base == (volatile uint8_t *)0 ||
+        dst->width == 0u || dst->height == 0u ||
+        icon == (const FLAIRDeskIcon *)0) {
+        return;
+    }
+
+    /* Resolve the strike's tones ONCE per blit at this drawing-context
+     * boundary (the desktop.c desktop_px idiom), not once per pixel. A
+     * SELECTED / drop-target draw first maps each colour through the
+     * measured selection function (desk_icons.h DESK_IC_SELECTED). */
+    for (n = 0; n < DESK_ICON_TONES; n++) {
+        int k = (int)icon->tone[n];
+        tone_on[n] = 0u;
+        tone_px[n] = 0u;
+        if (n == 0 || k <= (int)DESK_IC_CLEAR || k >= (int)DESK_IC__COUNT) continue;
+#if !defined(DESK_ICON_MUT_NO_SELECT)
+        if (hilite) k = (int)DESK_IC_SELECTED[k];
+#endif
+        tone_on[n] = 1u;
+        tone_px[n] = flair_look_pixel_depth(dst->bpp,
+                                            (int)FLAIR_PART_ICON_CLUT + k - 1);
+    }
+#if defined(DESK_ICON_MUT_NO_SELECT)
+    (void)hilite;   /* MUTANT (Rule 6): selection draws the unselected art */
+#endif
+
+    for (r = 0; r < DESK_ICON_DIM; r++) {
+        int py = (int)y + r;
+        if (py < 0 || py >= (int)dst->height) continue;
+        for (c = 0; c < DESK_ICON_DIM; c++) {
+            int px = (int)x + c;
+            uint32_t nib;
+            uint32_t off;
+
+            if (px < 0 || px >= (int)dst->width) continue;
+
+            nib = icon_nibble(icon, r, c);
+            if (!tone_on[nib]) continue;             /* transparency (rule 1) */
+
+            if (clip != (const region_t *)0 &&
+                !region_contains_point(clip, (int16_t)px, (int16_t)py)) {
+                continue;                            /* the clip (rule 3)     */
+            }
+
+            off = (uint32_t)py * dst->pitch + (uint32_t)px * dst->bytes_per_pixel;
+            surface_put_pixel(dst, off, tone_px[nib]);
+        }
+    }
+}
 
 void finder_icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip)
@@ -84,64 +119,9 @@ void finder_icon_draw_hilite(const bitmap_t *dst, int16_t x, int16_t y,
     icon_draw(dst, x, y, icon, clip, 1);
 }
 
-static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
-                      const FLAIRDeskIcon *icon, const region_t *clip,
-                      int hilite)
-{
-    uint32_t tone_px[4];
-    int r;
-    int c;
-
-    /* Fail-soft on a NULL/zero destination or strike (Rule 2: never write past
-     * a buffer we were not given). */
-    if (dst == (const bitmap_t *)0 || dst->base == (volatile uint8_t *)0 ||
-        dst->width == 0u || dst->height == 0u ||
-        icon == (const FLAIRDeskIcon *)0) {
-        return;
-    }
-
-    /* Resolve the three tones ONCE per blit at this drawing-context boundary
-     * (the desktop.c desktop_px idiom), not once per pixel. The tone enum
-     * values double as the index (CLEAR=0 is never drawn). */
-    tone_px[DESK_TONE_CLEAR] = 0u;
-    tone_px[DESK_TONE_INK]   = flair_look_pixel_depth(dst->bpp,
-                                                      icon_tone_part(DESK_TONE_INK, hilite));
-    tone_px[DESK_TONE_FACE]  = flair_look_pixel_depth(dst->bpp,
-                                                      icon_tone_part(DESK_TONE_FACE, hilite));
-    tone_px[DESK_TONE_SHADE] = flair_look_pixel_depth(dst->bpp,
-                                                      icon_tone_part(DESK_TONE_SHADE, hilite));
-
-    for (r = 0; r < DESK_ICON_DIM; r++) {
-        int py = (int)y + r;
-        if (py < 0 || py >= (int)dst->height) continue;
-        for (c = 0; c < DESK_ICON_DIM; c++) {
-            int px = (int)x + c;
-            desk_tone_t tone;
-            uint32_t off;
-
-            if (px < 0 || px >= (int)dst->width) continue;
-
-            tone = icon_tone(icon, r, c);
-            if (tone == DESK_TONE_CLEAR) continue;   /* transparency (rule 1) */
-
-            if (clip != (const region_t *)0 &&
-                !region_contains_point(clip, (int16_t)px, (int16_t)py)) {
-                continue;                            /* the clip (rule 3)     */
-            }
-
-            off = (uint32_t)py * dst->pitch + (uint32_t)px * dst->bytes_per_pixel;
-            surface_put_pixel(dst, off, tone_px[tone]);
-        }
-    }
-}
-
 int finder_icon_hit(int16_t x, int16_t y,
                     const FLAIRDeskIcon *icon, int16_t icon_x, int16_t icon_y)
 {
-    int r = (int)y - (int)icon_y;
-    int c = (int)x - (int)icon_x;
-
-    if (icon == (const FLAIRDeskIcon *)0) return 0;
-    if (r < 0 || r >= DESK_ICON_DIM || c < 0 || c >= DESK_ICON_DIM) return 0;
-    return (icon->mask[r] & icon_bit(c)) != 0u ? 1 : 0;
+    return desk_icon_colour(icon, (int)y - (int)icon_y, (int)x - (int)icon_x) !=
+           (int)DESK_IC_CLEAR ? 1 : 0;
 }

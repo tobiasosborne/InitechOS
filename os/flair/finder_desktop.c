@@ -817,15 +817,21 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
         if (strike == (const FLAIRDeskIcon *)0) continue;
 
         /* The sprite (mask-honouring + clipped; os/flair/finder_icon.c). A
-         * DROP TARGET (bead initech-34dh) draws in its HIGHLIGHTED state --
-         * darkened body, same mask -- per finder_icon_draw_hilite's refs. */
+         * SELECTED icon and a DROP TARGET (beads initech-34dh, tdnl.53) draw
+         * in the selected state -- every colour through the measured Mac OS
+         * 8.1 selection function, same mask (finder_icon_draw_hilite; the
+         * Finder darkens a selected icon: ../system7-decomp/re/
+         * mint-results-008.md Sec 3, s8_icons_*_sel.png). */
 #if defined(FINDER_DESK_MUT_NO_HILITE)
         /* MUTANT (Rule 6): the drop-target highlight is never drawn, so a
          * dragged icon over a folder / the Trash shows NO destination
-         * feedback and the hand-authored hilite pixels go RED. */
-        finder_icon_draw(dst, ic->x, ic->y, strike, clip);
+         * feedback and the captured selected-state pixels go RED. */
+        if (ic->selected && !ic->hilite)
+            finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
+        else
+            finder_icon_draw(dst, ic->x, ic->y, strike, clip);
 #else
-        if (ic->hilite)
+        if (ic->hilite || ic->selected)
             finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
         else
             finder_icon_draw(dst, ic->x, ic->y, strike, clip);

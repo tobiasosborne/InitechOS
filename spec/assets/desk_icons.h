@@ -1,84 +1,96 @@
 /*
- * desk_icons.h -- InitechOS FLAIR desktop icon strikes v1 (LOCKED spec-data).
+ * desk_icons.h -- InitechOS FLAIR desktop icon strikes v2 (LOCKED spec-data).
  *
- * beads: initech-tdnl.9 (R3 "STAPLER-DESK": the Finder desktop icon assets --
- *        the VOLUME 3.5-inch floppy and the TRASH waste basket, 32x32).
+ * beads: initech-tdnl.53 (Platinum dimensional icon art; supersedes the v1
+ *        outline strikes of initech-tdnl.9), initech-tdnl.74 (the FULL Trash),
+ *        initech-6k12 (the FULL-trash state's consumer).
  *
- * Ref: docs/design/GUI-remediation-R3-finder-design.md F1.2 ("Sprite size:
- *      32x32 (the classic ICN# size; uncontroversial across the era).
- *      Hand-authored strikes per the glyph rule"), F1.1 (the VOLUME and TRASH
- *      icon records that consume these strikes).
- *      spec/assets/cursors.h (the 16x16 CURS data/mask idiom this format
- *      EXTENDS: MSB = col 0; a mask bit of 0 means the screen shows through).
- *      os/flair/flair_look.h (FLAIR_PART_ICON_INK / _FACE / _SHADE: the three
- *      tones are SEMANTIC roles resolved at the ONE policy seam. This file
- *      names NO color and NO palette index -- ADR-0004-AMENDMENT-DEC-09
- *      Sec 3.1 constraint C-8).
- *      CLAUDE.md Law 1 (ground truth, and honesty about where a strike came
+ * Ref: ../system7-decomp/re/mint-results-008.md (mint-008, 2026-10-17: the
+ *      Mac OS 8.1 Finder icon kinds at 1:1 under Basilisk II -- the cells,
+ *      the two-background opacity recovery, the 30 colours and the selection
+ *      colour function this file transcribes);
+ *      ../system7-decomp/goldens/captures/s8_icons_*.png (the captures; the
+ *      host oracle test-finder-icon-art and the emulator gates decode them
+ *      at run time and grade every strike cell-for-cell, zero tolerance);
+ *      docs/design/GUI-remediation-R3-finder-design.md F1.2 (32x32 sprites);
+ *      os/flair/flair_look.h FLAIR_PART_ICON_CLUT (the colour ordinals below
+ *      are SEMANTIC icon-colour roles resolved at the ONE policy seam -- this
+ *      file names NO palette index; ADR-0004-AMENDMENT-DEC-09 Sec 3.1 C-8);
+ *      CLAUDE.md Law 1 (ground truth + honesty about where a strike came
  *      from), Law 4 (period fidelity), Rule 8 (locked spec-data), Rule 11
- *      (byte-stable / deterministic), Rule 12 (ASCII-clean).
+ *      (byte-stable), Rule 12 (ASCII-clean); docs/worklog/WL-0140.
  *
  * =========================================================================
  * PROVENANCE -- READ BEFORE ANY EDIT
  * =========================================================================
  *
- * HAND-AUTHORED clean-room ASCII pixel map (reproduced below in full); the
- * packed rows were mechanically transcribed from that map by a one-shot
- * factory transcriber; NO IMAGE EXTRACTION.
- *
- * These strikes are NOT recovered from the frame still (a dim, compressed CRT
- * photo -- pixel recovery is impossible and would be an IP violation; CLAUDE.md
- * hallucination-risk callout "Glyphs are hand-authored, not pixel-extracted"),
- * NOT lifted from any ROM, any 'ICN#' resource, or any icon-set binary. They
- * are fresh shapes authored to read as the period objects they depict -- a
- * 3.5-inch diskette and a ridged waste basket -- and to be byte-stable
- * (Rule 11). Authored 2026-08-24, bead initech-tdnl.9.
- *
- * The ASCII map in each block below IS the authored artifact and the source of
- * truth for the words; the words are its transcription. If the two ever
- * disagree, the map wins and the words are wrong. The drift tooth is
- * harness/proptest/test_desk_icons.c, whose per-row (ink, shade, opaque) table
- * and probe pixels are read off these maps by hand -- a silent edit to a word
- * that the map does not justify goes RED there.
+ * TRANSCRIBED, cell for cell, from the mint-008 Mac OS 8.1 captures named
+ * in each block (the WL-0126 arrow-cursor pattern). The ASCII map in each
+ * block was PRINTED from that capture cell by a one-shot factory transcriber
+ * (a scratch script, not committed and never run by a gate) and is
+ * reproduced verbatim; the packed words were generated from the map by the
+ * same pass. Nothing here is drawn freehand, nothing is read from a ROM, an
+ * 'icl8' / 'ICN#' resource or an icon-set binary, and nothing comes from the
+ * frame still. The strikes reproduce what the Mac OS 8.1 Finder put on the
+ * screen for its generic icon kinds, because fidelity to that screen is the
+ * product (Law 4) -- they are graded against the captures, not against this
+ * file (Law 2): harness/proptest/test_finder_icon_art.c decodes the PNGs and
+ * never includes this header's maps.
  *
  * Changing these bytes is a DELIBERATE, issue-tracked Rule 8 act.
  *
  * =========================================================================
- * FORMAT -- FLAIRDeskIcon: 32x32, three 32-bit bitplanes
+ * FORMAT -- FLAIRDeskIcon v2: 32x32, 4 bits per pixel, a 16-entry tone table
  * =========================================================================
  *
- *   mask[32]  -- uint32_t per row; bit 1 = the pixel is OPAQUE (drawn),
- *                bit 0 = TRANSPARENT (the desktop shows through).
- *   ink[32]   -- bit 1 = tone INK   (the black outline).
- *   shade[32] -- bit 1 = tone SHADE (the mid gray).
- *   MSB (bit 31) = leftmost column (col 0) -- the cursors.h convention.
+ *   tone[16]   -- nibble value -> a DESK_IC_* icon colour (below).
+ *                 tone[0] is DESK_IC_CLEAR: nibble 0 is TRANSPARENT (the
+ *                 desktop shows through); unused trailing entries are CLEAR.
+ *   px[32][4]  -- one row = four 32-bit words of eight 4-bit pixels; column
+ *                 c lives in word c/8, bits (31 - 4*(c%8)) .. (28 - 4*(c%8))
+ *                 (the leftmost pixel in the top nibble -- the cursors.h
+ *                 MSB-first convention, widened to a nibble).
  *
- * Tone decode for pixel (row r, col c), with b = 1u << (31 - c):
- *      (mask[r] & b) == 0                          -> DESK_TONE_CLEAR (skip)
- *      (mask[r] & b) && (ink[r] & b)               -> DESK_TONE_INK
- *      (mask[r] & b) && !(ink[r] & b) && (shade&b) -> DESK_TONE_SHADE
- *      (mask[r] & b) && !(ink[r] & b) && !(shade&b)-> DESK_TONE_FACE
+ * Pixel (r,c):  n = (px[r][c >> 3] >> (28 - 4*(c & 7))) & 0xF;
+ *               n == 0 -> clear (skip); else colour = tone[n].
+ * Opacity / hit-test = (n != 0); there is no separate mask plane (v1 had
+ * one): a nibble is never both clear and coloured.
  *
  * INVARIANTS (asserted by the oracle, not assumed):
- *      ink[r]   & ~mask[r] == 0     (no ink outside the silhouette)
- *      shade[r] & ~mask[r] == 0     (no gray outside the silhouette)
- *      ink[r]   &  shade[r] == 0    (a pixel is never two tones at once)
+ *      tone[0] == DESK_IC_CLEAR;  tone[n] != DESK_IC_CLEAR for every n a
+ *      pixel uses;  every tone < DESK_IC__COUNT;  every used colour has an
+ *      OBSERVED selected form in DESK_IC_SELECTED (mint-008 Sec 3).
  *
- * WHY THREE PLANES RATHER THAN ONE PACKED 2bpp WORD PER ROW:
- *   (a) every row stays a single 32-bit word -- the ADR-0001 32-bit flat
- *       target's natural type, no 64-bit literals in freestanding kernel code;
- *   (b) the mask plane is bit-for-bit the same concept the CursorMgr already
- *       consumes from cursors.h, so the Toolbox learns one transparency rule,
- *       not two;
- *   (c) each row word lines up 1:1 with exactly one line of the ASCII map,
- *       which is what keeps the transcription auditable by eye.
- * A 2bpp packed row would have interleaved two tones into every nibble and
- * made the map-to-word correspondence unreadable, which is the property that
- * makes this locked data reviewable.
+ * WHY 4bpp + A TONE TABLE: a Platinum icon is up to 14 colours (the generic
+ * application: 14 + clear), so v1's three bit-planes (four tones) cannot
+ * carry it; 4 bits per pixel with a per-strike table is the smallest exact
+ * form (512 + 16 bytes a strike), and each 32-pixel row is still one line of
+ * the ASCII map, so the transcription stays auditable by eye.
  *
- * ASCII map legend (used in every block below):
- *      '.' = clear (transparent)      '#' = ink   (black outline)
- *      'w' = white face               'g' = gray  (shade)
+ * =========================================================================
+ * SELECTION (mint-008 Sec 3): ONE colour function for every icon
+ * =========================================================================
+ * The Finder draws a SELECTED icon (and a drop target, IM VI p. 2-19..2-20:
+ * "The selection mechanism for color icons lowers the brightness of colors")
+ * with every colour replaced by DESK_IC_SELECTED[colour]; the silhouette is
+ * unchanged. The map below is the measured function -- each unselected colour
+ * maps to exactly one selected colour across all seven captured icon kinds.
+ * Rows marked (unobserved) are colours that occur in no strike as an INPUT
+ * (they exist only as selected results); they map to themselves and the
+ * oracle asserts no strike uses them.
+ *
+ * ASCII map legend (every block below):
+ *   '.' clear            '#' BLACK #000000
+ *   'W' WHITE #FFFFFF    'w' GRAY_F3   'v' GRAY_E7   'u' GRAY_DA   't' GRAY_CD
+ *   's' GRAY_C0          'r' GRAY_A5   'q' GRAY_96   'p' GRAY_87   'o' GRAY_77
+ *   'n' GRAY_66          'm' GRAY_54   'l' GRAY_3F   'k' GRAY_27
+ *   'L' LAV_LIGHT #DADAFF 'V' LAV #B3B3FF 'D' LAV_DARK #8787DA
+ *   'S' LAV_SEL #545487  'N' NAVY_SEL #000087
+ *   'Y' YELLOW #FFFF00   'T' TAN #DAB387  'F' FLESH #FFDAB3  'R' RED #E70000
+ *   'P' PINK #FF87DA     'y' YELLOW_SEL #878700  'j' TAN_SEL #875400
+ *   'f' FLESH_SEL #875454 'e' RED_SEL #870000   'i' PINK_SEL #870054
+ * (The hex values are the mint-008 measurements, quoted for the reader; the
+ * value a role renders as is the canon row flair_look resolves it to.)
  *
  * All identifiers are prefixed FLAIR_ / DESK_ to stay in the InitechOS
  * namespace. Freestanding-safe: <stdint.h> only, no libc (Law 3).
@@ -89,543 +101,488 @@
 
 #include <stdint.h>
 
-/* Sprite edge, in pixels. 32x32 is the classic ICN# size (design F1.2). */
-#define DESK_ICON_DIM 32
+/* Sprite edge, in pixels. 32x32 is the classic ICN# / icl8 size (F1.2). */
+#define DESK_ICON_DIM    32
+#define DESK_ICON_TONES  16   /* nibble values; 0 = clear                    */
+#define DESK_ICON_WORDS   4   /* 32-bit words per 32-pixel row               */
 
-/* The four tones a strike can name. The VALUES are an internal encoding of the
- * two bitplanes; they are NOT colors and NOT palette indices (C-8). The blitter
- * maps each tone to a FLAIR_PART_* semantic role and resolves it at the ONE
- * policy seam (os/flair/finder_icon.c). */
+/* The icon colour ordinals (mint-008 Sec 3). The VALUES are an internal
+ * encoding; they are NOT colours and NOT palette indices (C-8). The blitter
+ * turns ordinal k into the semantic role FLAIR_PART_ICON_CLUT + (k - 1) and
+ * resolves it at the ONE policy seam (os/flair/finder_icon.c). */
 typedef enum {
-    DESK_TONE_CLEAR = 0,   /* transparent: leave the destination alone      */
-    DESK_TONE_INK   = 1,   /* black outline    -> FLAIR_PART_ICON_INK       */
-    DESK_TONE_FACE  = 2,   /* white body       -> FLAIR_PART_ICON_FACE      */
-    DESK_TONE_SHADE = 3    /* mid-gray detail  -> FLAIR_PART_ICON_SHADE     */
-} desk_tone_t;
+    DESK_IC_CLEAR = 0,  /* transparent: leave the destination alone          */
+    DESK_IC_WHITE,      /* 'W' */
+    DESK_IC_GRAY_F3,    /* 'w' */
+    DESK_IC_GRAY_E7,    /* 'v' */
+    DESK_IC_GRAY_DA,    /* 'u' */
+    DESK_IC_GRAY_CD,    /* 't' */
+    DESK_IC_GRAY_C0,    /* 's' */
+    DESK_IC_GRAY_A5,    /* 'r' */
+    DESK_IC_GRAY_96,    /* 'q' */
+    DESK_IC_GRAY_87,    /* 'p' */
+    DESK_IC_GRAY_77,    /* 'o' */
+    DESK_IC_GRAY_66,    /* 'n' */
+    DESK_IC_GRAY_54,    /* 'm' */
+    DESK_IC_GRAY_3F,    /* 'l' */
+    DESK_IC_GRAY_27,    /* 'k' */
+    DESK_IC_BLACK,      /* '#' */
+    DESK_IC_LAV_LIGHT,  /* 'L' folder face                                   */
+    DESK_IC_LAV,        /* 'V' folder bevel                                  */
+    DESK_IC_LAV_DARK,   /* 'D' folder edge                                   */
+    DESK_IC_LAV_SEL,    /* 'S' selected folder face (unobserved as input)     */
+    DESK_IC_NAVY_SEL,   /* 'N' selected folder edge (unobserved as input)     */
+    DESK_IC_YELLOW,     /* 'Y' pencil / caution body                         */
+    DESK_IC_TAN,        /* 'T' hand shade / caution rim                      */
+    DESK_IC_FLESH,      /* 'F' hand                                          */
+    DESK_IC_RED,        /* 'R' pencil ferrule                                */
+    DESK_IC_PINK,       /* 'P' eraser                                        */
+    DESK_IC_YELLOW_SEL, /* 'y' (unobserved as input)                         */
+    DESK_IC_TAN_SEL,    /* 'j' (unobserved as input)                         */
+    DESK_IC_FLESH_SEL,  /* 'f' (unobserved as input)                         */
+    DESK_IC_RED_SEL,    /* 'e' (unobserved as input)                         */
+    DESK_IC_PINK_SEL,   /* 'i' (unobserved as input)                         */
+    DESK_IC__COUNT
+} desk_ic_t;
 
-/* A 32x32 three-plane desktop icon strike (see FORMAT above). */
+/* A 32x32 4bpp desktop icon strike (see FORMAT above). */
 typedef struct {
-    uint32_t mask[DESK_ICON_DIM];   /* 1 = opaque                            */
-    uint32_t ink[DESK_ICON_DIM];    /* 1 = INK tone                          */
-    uint32_t shade[DESK_ICON_DIM];  /* 1 = SHADE tone                        */
+    uint8_t  tone[DESK_ICON_TONES];
+    uint32_t px[DESK_ICON_DIM][DESK_ICON_WORDS];
 } FLAIRDeskIcon;
 
+/* The SELECTION colour function (mint-008 Sec 3 table, verbatim). */
+static const uint8_t DESK_IC_SELECTED[DESK_IC__COUNT] = {
+    /* CLEAR      */ DESK_IC_CLEAR,
+    /* WHITE      */ DESK_IC_GRAY_96,
+    /* GRAY_F3    */ DESK_IC_GRAY_96,
+    /* GRAY_E7    */ DESK_IC_GRAY_87,
+    /* GRAY_DA    */ DESK_IC_GRAY_87,
+    /* GRAY_CD    */ DESK_IC_GRAY_77,
+    /* GRAY_C0    */ DESK_IC_GRAY_77,
+    /* GRAY_A5    */ DESK_IC_GRAY_66,
+    /* GRAY_96    */ DESK_IC_GRAY_54,
+    /* GRAY_87    */ DESK_IC_GRAY_87,
+    /* GRAY_77    */ DESK_IC_GRAY_3F,
+    /* GRAY_66    */ DESK_IC_GRAY_3F,
+    /* GRAY_54    */ DESK_IC_GRAY_54,
+    /* GRAY_3F    */ DESK_IC_GRAY_27,
+    /* GRAY_27    */ DESK_IC_GRAY_27,      /* (unobserved) */
+    /* BLACK      */ DESK_IC_BLACK,
+    /* LAV_LIGHT  */ DESK_IC_LAV_SEL,
+    /* LAV        */ DESK_IC_LAV_SEL,
+    /* LAV_DARK   */ DESK_IC_NAVY_SEL,
+    /* LAV_SEL    */ DESK_IC_LAV_SEL,      /* (unobserved) */
+    /* NAVY_SEL   */ DESK_IC_NAVY_SEL,     /* (unobserved) */
+    /* YELLOW     */ DESK_IC_YELLOW_SEL,
+    /* TAN        */ DESK_IC_TAN_SEL,
+    /* FLESH      */ DESK_IC_FLESH_SEL,
+    /* RED        */ DESK_IC_RED_SEL,
+    /* PINK       */ DESK_IC_PINK_SEL,
+    /* YELLOW_SEL */ DESK_IC_YELLOW_SEL,   /* (unobserved) */
+    /* TAN_SEL    */ DESK_IC_TAN_SEL,      /* (unobserved) */
+    /* FLESH_SEL  */ DESK_IC_FLESH_SEL,    /* (unobserved) */
+    /* RED_SEL    */ DESK_IC_RED_SEL,      /* (unobserved) */
+    /* PINK_SEL   */ DESK_IC_PINK_SEL      /* (unobserved) */
+};
+
+/* 1 when colour `k` is ever an INPUT of the measured selection function
+ * (a colour some captured unselected icon used). The oracle asserts every
+ * strike uses only these. */
+static inline int desk_ic_observed_input(int k)
+{
+    return k == (int)DESK_IC_WHITE || (k >= (int)DESK_IC_GRAY_F3 && k <= (int)DESK_IC_GRAY_3F) ||
+           k == (int)DESK_IC_BLACK || k == (int)DESK_IC_LAV_LIGHT ||
+           k == (int)DESK_IC_LAV || k == (int)DESK_IC_LAV_DARK ||
+           (k >= (int)DESK_IC_YELLOW && k <= (int)DESK_IC_PINK);
+}
+
+/* Decode the colour ordinal of strike pixel (r,c); DESK_IC_CLEAR when clear
+ * or out of the cell. Pure; shared by the blitter and the hit test. */
+static inline int desk_icon_colour(const FLAIRDeskIcon *icon, int r, int c)
+{
+    uint32_t n;
+    if (icon == (const FLAIRDeskIcon *)0 || r < 0 || r >= DESK_ICON_DIM ||
+        c < 0 || c >= DESK_ICON_DIM) {
+        return (int)DESK_IC_CLEAR;
+    }
+    n = (icon->px[r][c >> 3] >> (28 - 4 * (c & 7))) & 0xFu;
+    return n == 0u ? (int)DESK_IC_CLEAR : (int)icon->tone[n];
+}
+
 
 /* =========================================================================
- * FLAIR_DESK_ICON_VOLUME -- the mounted volume: a 3.5-inch diskette
+ * FLAIR_DESK_ICON_VOLUME -- the mounted volume: the generic 3.5-inch floppy
  * =========================================================================
  *
- * PROVENANCE: HAND-AUTHORED clean-room ASCII pixel map (below); packed rows
- * mechanically transcribed from the map by a one-shot factory transcriber; no
- * image extraction. Authored 2026-08-24, bead initech-tdnl.9.
+ * PROVENANCE: TRANSCRIBED from mint-008 (re/mint-results-008.md Sec 2) cell
+ * [576,608) x [156,188) of s8_icons_boot.png (== s8_icons_desktop_empty.png);
+ * opacity from those two plus s8_icons_floppy_sel.png against the 128x128
+ * desktop picture. The InitechOS data volume is a 1.44 MB FAT12 floppy image,
+ * and the 8.1 Finder drew a 1.44 MB volume with exactly this art. 934 opaque
+ * cells; the clear cell at row 1 col 5 is a real mask hole (clear in every
+ * capture). The two-column #3F3F3F drop shadow at cols 29..31 is part of the
+ * icon. Selected form: s8_icons_floppy_sel.png (DESK_IC_SELECTED).
  *
- * The subject is the period object the Finder's mounted-volume icon depicts
- * (design F1.1, "Volume icon ... always on-desktop"): a 3.5-inch diskette seen
- * square-on -- square body with the anti-mis-insertion bevel cut into the
- * top-right corner, the metal shutter with its read slot across the top
- * centre, and the write-on label with its ruled lines across the bottom.
+ * Tones (nibble: map char = colour):
+ *   0 .=clear 1 W=DESK_IC_WHITE 2 w=DESK_IC_GRAY_F3 3 v=DESK_IC_GRAY_E7
+ *   4 u=DESK_IC_GRAY_DA 5 t=DESK_IC_GRAY_CD 6 s=DESK_IC_GRAY_C0
+ *   7 r=DESK_IC_GRAY_A5 8 q=DESK_IC_GRAY_96 9 o=DESK_IC_GRAY_77
+ *   10 l=DESK_IC_GRAY_3F 11 #=DESK_IC_BLACK
  *
- * Shape (32x32; legend '.' clear, '#' ink, 'w' white, 'g' gray):
- *
-     * row  0: ................................
-     * row  1: ................................
-     * row  2: ................................
-     * row  3: ...#######################......
-     * row  4: ...#wwwwwwwwwwwwwwwwwwwwww#.....
-     * row  5: ...#wwwwwww###########wwwww#....
-     * row  6: ...#wwwwwww#ggggggggg#wwwwww#...
-     * row  7: ...#wwwwwww#gwwwggggg#wwwwww#...
-     * row  8: ...#wwwwwww#gwwwggggg#wwwwww#...
-     * row  9: ...#wwwwwww#gwwwggggg#wwwwww#...
-     * row 10: ...#wwwwwww#gwwwggggg#wwwwww#...
-     * row 11: ...#wwwwwww#gwwwggggg#wwwwww#...
-     * row 12: ...#wwwwwww#gwwwggggg#wwwwww#...
-     * row 13: ...#wwwwwww#ggggggggg#wwwwww#...
-     * row 14: ...#wwwwwww###########wwwwww#...
-     * row 15: ...#wwwwwwwwwwwwwwwwwwwwwwww#...
-     * row 16: ...#www##################www#...
-     * row 17: ...#www#wwwwwwwwwwwwwwww#www#...
-     * row 18: ...#www#wwwwwwwwwwwwwwww#www#...
-     * row 19: ...#www#wwggggggggggggww#www#...
-     * row 20: ...#www#wwwwwwwwwwwwwwww#www#...
-     * row 21: ...#www#wwggggggggggggww#www#...
-     * row 22: ...#www#wwwwwwwwwwwwwwww#www#...
-     * row 23: ...#www#wwggggggggggggww#www#...
-     * row 24: ...#www#wwwwwwwwwwwwwwww#www#...
-     * row 25: ...#www#wwwwwwwwwwwwwwww#www#...
-     * row 26: ...#www##################www#...
-     * row 27: ...#wwwwwwwwwwwwwwwwwwwwwwww#...
-     * row 28: ...##########################...
-     * row 29: ................................
-     * row 30: ................................
-     * row 31: ................................
- *
- * Worked bit arithmetic -- ONE row shown; the other 31 rows follow the
- * identical rule and were transcribed mechanically by the same pass:
- *   row 3 is the body's top edge: ink runs cols 3..25 inclusive.
- *   bit(c) = 1u << (31 - c), so the run spans bit 28 (col 3) down to
- *   bit 6 (col 25):
- *       word = 2^29 - 2^6 = 536870912 - 64 = 536870848 = 0x1FFFFFC0
- *   The row is fully opaque ink, so mask[3] = ink[3] = 0x1FFFFFC0 and
- *   shade[3] = 0x00000000.
+ * Map (32x32):
+ *   row  0: ................................
+ *   row  1: .####.l#####################....
+ *   row  2: #WWWWqvvvlWWWWWWWWWWWvlWWwwu#...
+ *   row  3: #WvvvqsssrWvWvWvvvvvvvqWvutsr#..
+ *   row  4: #WvuuqsssrWWvWWooooWvvqWuttsr#..
+ *   row  5: #WvruqsssrWvWvWorrrWvvqWuttsr#..
+ *   row  6: #WsrrqsssrWWvvWorrrWvvqWtttsr#..
+ *   row  7: #WurtqsssrWvvvWorrrWvvqWtttsr#..
+ *   row  8: #WurtqsssrWvvvWorrrWvvqWtttsr#..
+ *   row  9: #WuttqsssrWvvvWorrrWvvqWtttsr#..
+ *   row 10: #WuttqsssrWvvvWWWWWWvvqWtttsr#..
+ *   row 11: #WuttqsssrWvvvvvvvvvvvqWtttsr#..
+ *   row 12: #WuttqssssqqqqqqqqqqqqoWtttsr#..
+ *   row 13: #WutttWWWWWWWWWWWWWWWWWWtttsr#..
+ *   row 14: #Wuttttttttttttttttttttttttsr#..
+ *   row 15: #Wuttttttttttttttttttttttttsr#..
+ *   row 16: #Wutttqqqqqqqqqqqqqqqqqqqttsr#..
+ *   row 17: #WuttqtttttttttttttttttttWtsr#..
+ *   row 18: #WuttqtttttttttttttttttttWtsr#..
+ *   row 19: #WuttqtttttttttttttttttttWtsr#..
+ *   row 20: #WuttqtttttttttttttttttttWtsr#..
+ *   row 21: #WuttqtttttttttttttttttttWtsr#..
+ *   row 22: #WuttqtttttttttttttttttttWtsr#..
+ *   row 23: #WuttqtttttttttttttttttttWtsr#..
+ *   row 24: #WuttqtttttttttttttttttttWtsr#..
+ *   row 25: #WuttqtttttttttttttttttttWtsr#..
+ *   row 26: #WuttqtttttttttttttttttttWtsr#l.
+ *   row 27: #WrrtqtttttttttttttttttttWtsr#ll
+ *   row 28: #W##WqtttttttttttttttttttWtsr#ll
+ *   row 29: #WwWWqtttttttttttttttttttWtsr#ll
+ *   row 30: #rrrrqrrrrrrrrrrrrrrrrrrrurrr#ll
+ *   row 31: .############################ll.
  */
 static const FLAIRDeskIcon FLAIR_DESK_ICON_VOLUME = {
-    /* mask[32] */
+    /* tone[16] */
+    { DESK_IC_CLEAR, DESK_IC_WHITE, DESK_IC_GRAY_F3, DESK_IC_GRAY_E7,
+      DESK_IC_GRAY_DA, DESK_IC_GRAY_CD, DESK_IC_GRAY_C0, DESK_IC_GRAY_A5,
+      DESK_IC_GRAY_96, DESK_IC_GRAY_77, DESK_IC_GRAY_3F, DESK_IC_BLACK,
+      DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR },
+    /* px[32][4] -- 4bpp, col 8w+k in bits (31-4k)..(28-4k) of word w */
     {
-        /* row  0 */ 0x00000000u,  /* ................................ */
-        /* row  1 */ 0x00000000u,  /* ................................ */
-        /* row  2 */ 0x00000000u,  /* ................................ */
-        /* row  3 */ 0x1FFFFFC0u,  /* ...#######################...... */
-        /* row  4 */ 0x1FFFFFE0u,  /* ...#wwwwwwwwwwwwwwwwwwwwww#..... */
-        /* row  5 */ 0x1FFFFFF0u,  /* ...#wwwwwww###########wwwww#.... */
-        /* row  6 */ 0x1FFFFFF8u,  /* ...#wwwwwww#ggggggggg#wwwwww#... */
-        /* row  7 */ 0x1FFFFFF8u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row  8 */ 0x1FFFFFF8u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row  9 */ 0x1FFFFFF8u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 10 */ 0x1FFFFFF8u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 11 */ 0x1FFFFFF8u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 12 */ 0x1FFFFFF8u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 13 */ 0x1FFFFFF8u,  /* ...#wwwwwww#ggggggggg#wwwwww#... */
-        /* row 14 */ 0x1FFFFFF8u,  /* ...#wwwwwww###########wwwwww#... */
-        /* row 15 */ 0x1FFFFFF8u,  /* ...#wwwwwwwwwwwwwwwwwwwwwwww#... */
-        /* row 16 */ 0x1FFFFFF8u,  /* ...#www##################www#... */
-        /* row 17 */ 0x1FFFFFF8u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 18 */ 0x1FFFFFF8u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 19 */ 0x1FFFFFF8u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 20 */ 0x1FFFFFF8u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 21 */ 0x1FFFFFF8u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 22 */ 0x1FFFFFF8u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 23 */ 0x1FFFFFF8u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 24 */ 0x1FFFFFF8u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 25 */ 0x1FFFFFF8u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 26 */ 0x1FFFFFF8u,  /* ...#www##################www#... */
-        /* row 27 */ 0x1FFFFFF8u,  /* ...#wwwwwwwwwwwwwwwwwwwwwwww#... */
-        /* row 28 */ 0x1FFFFFF8u,  /* ...##########################... */
-        /* row 29 */ 0x00000000u,  /* ................................ */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u  /* ................................ */
-    },
-    /* ink[32] */
-    {
-        /* row  0 */ 0x00000000u,  /* ................................ */
-        /* row  1 */ 0x00000000u,  /* ................................ */
-        /* row  2 */ 0x00000000u,  /* ................................ */
-        /* row  3 */ 0x1FFFFFC0u,  /* ...#######################...... */
-        /* row  4 */ 0x10000020u,  /* ...#wwwwwwwwwwwwwwwwwwwwww#..... */
-        /* row  5 */ 0x101FFC10u,  /* ...#wwwwwww###########wwwww#.... */
-        /* row  6 */ 0x10100408u,  /* ...#wwwwwww#ggggggggg#wwwwww#... */
-        /* row  7 */ 0x10100408u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row  8 */ 0x10100408u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row  9 */ 0x10100408u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 10 */ 0x10100408u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 11 */ 0x10100408u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 12 */ 0x10100408u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 13 */ 0x10100408u,  /* ...#wwwwwww#ggggggggg#wwwwww#... */
-        /* row 14 */ 0x101FFC08u,  /* ...#wwwwwww###########wwwwww#... */
-        /* row 15 */ 0x10000008u,  /* ...#wwwwwwwwwwwwwwwwwwwwwwww#... */
-        /* row 16 */ 0x11FFFF88u,  /* ...#www##################www#... */
-        /* row 17 */ 0x11000088u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 18 */ 0x11000088u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 19 */ 0x11000088u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 20 */ 0x11000088u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 21 */ 0x11000088u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 22 */ 0x11000088u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 23 */ 0x11000088u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 24 */ 0x11000088u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 25 */ 0x11000088u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 26 */ 0x11FFFF88u,  /* ...#www##################www#... */
-        /* row 27 */ 0x10000008u,  /* ...#wwwwwwwwwwwwwwwwwwwwwwww#... */
-        /* row 28 */ 0x1FFFFFF8u,  /* ...##########################... */
-        /* row 29 */ 0x00000000u,  /* ................................ */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u  /* ................................ */
-    },
-    /* shade[32] */
-    {
-        /* row  0 */ 0x00000000u,  /* ................................ */
-        /* row  1 */ 0x00000000u,  /* ................................ */
-        /* row  2 */ 0x00000000u,  /* ................................ */
-        /* row  3 */ 0x00000000u,  /* ...#######################...... */
-        /* row  4 */ 0x00000000u,  /* ...#wwwwwwwwwwwwwwwwwwwwww#..... */
-        /* row  5 */ 0x00000000u,  /* ...#wwwwwww###########wwwww#.... */
-        /* row  6 */ 0x000FF800u,  /* ...#wwwwwww#ggggggggg#wwwwww#... */
-        /* row  7 */ 0x0008F800u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row  8 */ 0x0008F800u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row  9 */ 0x0008F800u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 10 */ 0x0008F800u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 11 */ 0x0008F800u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 12 */ 0x0008F800u,  /* ...#wwwwwww#gwwwggggg#wwwwww#... */
-        /* row 13 */ 0x000FF800u,  /* ...#wwwwwww#ggggggggg#wwwwww#... */
-        /* row 14 */ 0x00000000u,  /* ...#wwwwwww###########wwwwww#... */
-        /* row 15 */ 0x00000000u,  /* ...#wwwwwwwwwwwwwwwwwwwwwwww#... */
-        /* row 16 */ 0x00000000u,  /* ...#www##################www#... */
-        /* row 17 */ 0x00000000u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 18 */ 0x00000000u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 19 */ 0x003FFC00u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 20 */ 0x00000000u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 21 */ 0x003FFC00u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 22 */ 0x00000000u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 23 */ 0x003FFC00u,  /* ...#www#wwggggggggggggww#www#... */
-        /* row 24 */ 0x00000000u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 25 */ 0x00000000u,  /* ...#www#wwwwwwwwwwwwwwww#www#... */
-        /* row 26 */ 0x00000000u,  /* ...#www##################www#... */
-        /* row 27 */ 0x00000000u,  /* ...#wwwwwwwwwwwwwwwwwwwwwwww#... */
-        /* row 28 */ 0x00000000u,  /* ...##########################... */
-        /* row 29 */ 0x00000000u,  /* ................................ */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u  /* ................................ */
+        /* row  0 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  1 */ { 0x0BBBB0ABu, 0xBBBBBBBBu, 0xBBBBBBBBu, 0xBBBB0000u },
+        /* row  2 */ { 0xB1111833u, 0x3A111111u, 0x111113A1u, 0x1224B000u },
+        /* row  3 */ { 0xB1333866u, 0x67131313u, 0x33333381u, 0x34567B00u },
+        /* row  4 */ { 0xB1344866u, 0x67113119u, 0x99913381u, 0x45567B00u },
+        /* row  5 */ { 0xB1374866u, 0x67131319u, 0x77713381u, 0x45567B00u },
+        /* row  6 */ { 0xB1677866u, 0x67113319u, 0x77713381u, 0x55567B00u },
+        /* row  7 */ { 0xB1475866u, 0x67133319u, 0x77713381u, 0x55567B00u },
+        /* row  8 */ { 0xB1475866u, 0x67133319u, 0x77713381u, 0x55567B00u },
+        /* row  9 */ { 0xB1455866u, 0x67133319u, 0x77713381u, 0x55567B00u },
+        /* row 10 */ { 0xB1455866u, 0x67133311u, 0x11113381u, 0x55567B00u },
+        /* row 11 */ { 0xB1455866u, 0x67133333u, 0x33333381u, 0x55567B00u },
+        /* row 12 */ { 0xB1455866u, 0x66888888u, 0x88888891u, 0x55567B00u },
+        /* row 13 */ { 0xB1455511u, 0x11111111u, 0x11111111u, 0x55567B00u },
+        /* row 14 */ { 0xB1455555u, 0x55555555u, 0x55555555u, 0x55567B00u },
+        /* row 15 */ { 0xB1455555u, 0x55555555u, 0x55555555u, 0x55567B00u },
+        /* row 16 */ { 0xB1455588u, 0x88888888u, 0x88888888u, 0x85567B00u },
+        /* row 17 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 18 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 19 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 20 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 21 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 22 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 23 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 24 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 25 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567B00u },
+        /* row 26 */ { 0xB1455855u, 0x55555555u, 0x55555555u, 0x51567BA0u },
+        /* row 27 */ { 0xB1775855u, 0x55555555u, 0x55555555u, 0x51567BAAu },
+        /* row 28 */ { 0xB1BB1855u, 0x55555555u, 0x55555555u, 0x51567BAAu },
+        /* row 29 */ { 0xB1211855u, 0x55555555u, 0x55555555u, 0x51567BAAu },
+        /* row 30 */ { 0xB7777877u, 0x77777777u, 0x77777777u, 0x74777BAAu },
+        /* row 31 */ { 0x0BBBBBBBu, 0xBBBBBBBBu, 0xBBBBBBBBu, 0xBBBBBAA0u }
     }
 };
 
-
 /* =========================================================================
- * FLAIR_DESK_ICON_TRASH -- the Trash: a ridged waste basket (EMPTY variant)
+ * FLAIR_DESK_ICON_HARDDISK -- a hard-disk volume
  * =========================================================================
  *
- * PROVENANCE: HAND-AUTHORED clean-room ASCII pixel map (below); packed rows
- * mechanically transcribed from the map by a one-shot factory transcriber; no
- * image extraction. Authored 2026-08-24, bead initech-tdnl.9.
+ * PROVENANCE: TRANSCRIBED from mint-008 cell [576,608) x [28,60) of
+ * s8_icons_desktop_empty.png (selected: s8_icons_hd_sel.png). HONESTY: this
+ * is the icon the Basilisk II disk driver hands the Finder (Control csCode
+ * 21/22) for the emulated SCSI disk -- what the 8.1 Finder displayed for this
+ * machine's hard disk -- NOT Apple's generic hard-disk art (mint-008 Sec 0,
+ * Sec 5). No InitechOS volume is a hard disk yet (the one data volume is a
+ * 1.44 MB floppy image), so no painter selects this strike today; the host
+ * oracle grades it so it is ready, and an unreferenced static const costs the
+ * kernel nothing.
  *
- * The subject is the period desk object (design F1.1, "Trash icon ... fixed
- * bottom-right of the desktop"): a lidded, ridged waste basket seen square-on
- * -- arched lid handle, a slab lid, and a tapered body whose ridges run
- * vertically down the walls. This slice ships the EMPTY variant only; the
- * bulging FULL variant is a later bead's asset (design F1.4 Trash semantics)
- * -- landed as FLAIR_DESK_ICON_TRASH_FULL below (bead initech-6k12).
+ * Tones (nibble: map char = colour):
+ *   0 .=clear 1 W=DESK_IC_WHITE 2 #=DESK_IC_BLACK
  *
- * Shape (32x32; legend '.' clear, '#' ink, 'w' white, 'g' gray):
+ * Map (32x32):
+ *   row  0: ................................
+ *   row  1: ................................
+ *   row  2: ................................
+ *   row  3: ................................
+ *   row  4: ................................
+ *   row  5: ................................
+ *   row  6: ................................
+ *   row  7: ................................
+ *   row  8: ................................
+ *   row  9: ................................
+ *   row 10: ................................
+ *   row 11: ................................
+ *   row 12: ................................
+ *   row 13: ................................
+ *   row 14: ................................
+ *   row 15: ................................
+ *   row 16: ................................
+ *   row 17: ................................
+ *   row 18: ................................
+ *   row 19: .##############################.
+ *   row 20: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 21: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 22: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 23: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 24: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 25: #WWW##WWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 26: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 27: #WWWWWWWWWWWWWWWWWWWWWWWWWWWWWW#
+ *   row 28: .##############################.
+ *   row 29: ................................
+ *   row 30: ................................
+ *   row 31: ................................
+ */
+static const FLAIRDeskIcon FLAIR_DESK_ICON_HARDDISK = {
+    /* tone[16] */
+    { DESK_IC_CLEAR, DESK_IC_WHITE, DESK_IC_BLACK, DESK_IC_CLEAR,
+      DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR,
+      DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR,
+      DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR },
+    /* px[32][4] -- 4bpp, col 8w+k in bits (31-4k)..(28-4k) of word w */
+    {
+        /* row  0 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  1 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  2 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  3 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  4 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  5 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  6 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  7 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  8 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row  9 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 10 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 11 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 12 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 13 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 14 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 15 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 16 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 17 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 18 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 19 */ { 0x02222222u, 0x22222222u, 0x22222222u, 0x22222220u },
+        /* row 20 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 21 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 22 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 23 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 24 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 25 */ { 0x21112211u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 26 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 27 */ { 0x21111111u, 0x11111111u, 0x11111111u, 0x11111112u },
+        /* row 28 */ { 0x02222222u, 0x22222222u, 0x22222222u, 0x22222220u },
+        /* row 29 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 30 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        /* row 31 */ { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u }
+    }
+};
+
+/* =========================================================================
+ * FLAIR_DESK_ICON_TRASH -- the Trash, EMPTY
+ * =========================================================================
  *
-     * row  0: ................................
-     * row  1: ................................
-     * row  2: .............######.............
-     * row  3: .............#....#.............
-     * row  4: .......##################.......
-     * row  5: .......#gggggggggggggggg#.......
-     * row  6: .......##################.......
-     * row  7: .........##############.........
-     * row  8: .........#wwwwwwwwwwww#.........
-     * row  9: .........#wwwgwwgwwgww#.........
-     * row 10: .........#wwwgwwgwwgww#.........
-     * row 11: .........#wwwgwwgwwgww#.........
-     * row 12: .........#wwwgwwgwwgww#.........
-     * row 13: .........#wwwgwwgwwgww#.........
-     * row 14: .........#wwwgwwgwwgww#.........
-     * row 15: ..........#wwgwwgwwgw#..........
-     * row 16: ..........#wwgwwgwwgw#..........
-     * row 17: ..........#wwgwwgwwgw#..........
-     * row 18: ..........#wwgwwgwwgw#..........
-     * row 19: ..........#wwgwwgwwgw#..........
-     * row 20: ..........#wwgwwgwwgw#..........
-     * row 21: ..........#wwgwwgwwgw#..........
-     * row 22: ...........#wgwwgwwg#...........
-     * row 23: ...........#wgwwgwwg#...........
-     * row 24: ...........#wgwwgwwg#...........
-     * row 25: ...........#wgwwgwwg#...........
-     * row 26: ...........#wgwwgwwg#...........
-     * row 27: ...........#wgwwgwwg#...........
-     * row 28: ...........#wwwwwwww#...........
-     * row 29: ...........##########...........
-     * row 30: ................................
-     * row 31: ................................
+ * PROVENANCE: TRANSCRIBED from mint-008 cell [576,608) x [412,444) of
+ * s8_icons_desktop_empty.png (selected: s8_icons_trash_empty_sel.png). The
+ * lidded can, the lid handle at rows 0..2, the ridged body, its shadow to the
+ * right. 644 opaque cells.
  *
- * Worked bit arithmetic -- ONE row shown; the other 31 rows follow the
- * identical rule and were transcribed mechanically by the same pass:
- *   row 29 is the basket's base: ink runs cols 11..20 inclusive.
- *   bit(c) = 1u << (31 - c), so the run spans bit 20 (col 11) down to
- *   bit 11 (col 20):
- *       word = 2^21 - 2^11 = 2097152 - 2048 = 2095104 = 0x001FF800
- *   The row is fully opaque ink, so mask[29] = ink[29] = 0x001FF800 and
- *   shade[29] = 0x00000000.
+ * Tones (nibble: map char = colour):
+ *   0 .=clear 1 W=DESK_IC_WHITE 2 v=DESK_IC_GRAY_E7 3 t=DESK_IC_GRAY_CD
+ *   4 s=DESK_IC_GRAY_C0 5 r=DESK_IC_GRAY_A5 6 q=DESK_IC_GRAY_96
+ *   7 p=DESK_IC_GRAY_87 8 o=DESK_IC_GRAY_77 9 n=DESK_IC_GRAY_66
+ *   10 m=DESK_IC_GRAY_54 11 l=DESK_IC_GRAY_3F 12 #=DESK_IC_BLACK
+ *
+ * Map (32x32):
+ *   row  0: .........##.....................
+ *   row  1: .......##rvn#...................
+ *   row  2: .....nnnnlnrW##n................
+ *   row  3: ...nnrvnrlllqv#r#nr.............
+ *   row  4: .nntvvWnlntnrq#srrn#............
+ *   row  5: nstvWWWWvttnq#lqsrron...........
+ *   row  6: #tvWWWWWWWWn#nqqrsrq#...........
+ *   row  7: #qvWWWWWWvvrrqqqrsro#...........
+ *   row  8: #qrvWWWWWvvvttssrrnn#...........
+ *   row  9: #rvtttvWWvvtttroooon#...........
+ *   row 10: nrvvvvtttsrrqqooqqon#...........
+ *   row 11: .lnvvWWvvtssrrqqqol#q...........
+ *   row 12: .#qoptvvvtssrrqommn#............
+ *   row 13: .#sttrrpnnnnmmmooon#............
+ *   row 14: .#sssWvvvttsrrqqqqn#............
+ *   row 15: .#sqsvWWqvvtsosssmn#............
+ *   row 16: .#sqsvWqssvtoqqsqlo#............
+ *   row 17: .#sqsvWqssvtoqqsqlo#ooo.........
+ *   row 18: .#sqsvWqssvtoqqsqlo#nnooo.......
+ *   row 19: .#sqsvWqssvtoqqsqlo#llnnoo......
+ *   row 20: .#sqsvWqssvtoqqsqlo#llllnoo.....
+ *   row 21: .#sqsvWqssvtoqqsqlo#lllllnoo....
+ *   row 22: .#sqsvWqssvtoqqsqlo#lllllnno....
+ *   row 23: .#sqsvWqssvtoqqsqlo#llllllnn....
+ *   row 24: .#sqsvWqssvtoqqsqlo#llllllnn....
+ *   row 25: .#sqsvWqssvtoqqsqlo#llllllnn....
+ *   row 26: .#sssvWqssvtoqqsqoo#lllllnn.....
+ *   row 27: .#ssvvWqssvtoqqsqqo#lllln.......
+ *   row 28: .lqvvWWWqvvttossqon#lll.........
+ *   row 29: ..l#sWWvvvvsssrrq##ll...........
+ *   row 30: ....l#qssttssq#l#ll.............
+ *   row 31: ......ll#####llll...............
  */
 static const FLAIRDeskIcon FLAIR_DESK_ICON_TRASH = {
-    /* mask[32] */
+    /* tone[16] */
+    { DESK_IC_CLEAR, DESK_IC_WHITE, DESK_IC_GRAY_E7, DESK_IC_GRAY_CD,
+      DESK_IC_GRAY_C0, DESK_IC_GRAY_A5, DESK_IC_GRAY_96, DESK_IC_GRAY_87,
+      DESK_IC_GRAY_77, DESK_IC_GRAY_66, DESK_IC_GRAY_54, DESK_IC_GRAY_3F,
+      DESK_IC_BLACK, DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR },
+    /* px[32][4] -- 4bpp, col 8w+k in bits (31-4k)..(28-4k) of word w */
     {
-        /* row  0 */ 0x00000000u,  /* ................................ */
-        /* row  1 */ 0x00000000u,  /* ................................ */
-        /* row  2 */ 0x0007E000u,  /* .............######............. */
-        /* row  3 */ 0x00042000u,  /* .............#....#............. */
-        /* row  4 */ 0x01FFFF80u,  /* .......##################....... */
-        /* row  5 */ 0x01FFFF80u,  /* .......#gggggggggggggggg#....... */
-        /* row  6 */ 0x01FFFF80u,  /* .......##################....... */
-        /* row  7 */ 0x007FFE00u,  /* .........##############......... */
-        /* row  8 */ 0x007FFE00u,  /* .........#wwwwwwwwwwww#......... */
-        /* row  9 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 10 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 11 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 12 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 13 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 14 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 15 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 16 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 17 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 18 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 19 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 20 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 21 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 22 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 23 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 24 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 25 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 26 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 27 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 28 */ 0x001FF800u,  /* ...........#wwwwwwww#........... */
-        /* row 29 */ 0x001FF800u,  /* ...........##########........... */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u  /* ................................ */
-    },
-    /* ink[32] */
-    {
-        /* row  0 */ 0x00000000u,  /* ................................ */
-        /* row  1 */ 0x00000000u,  /* ................................ */
-        /* row  2 */ 0x0007E000u,  /* .............######............. */
-        /* row  3 */ 0x00042000u,  /* .............#....#............. */
-        /* row  4 */ 0x01FFFF80u,  /* .......##################....... */
-        /* row  5 */ 0x01000080u,  /* .......#gggggggggggggggg#....... */
-        /* row  6 */ 0x01FFFF80u,  /* .......##################....... */
-        /* row  7 */ 0x007FFE00u,  /* .........##############......... */
-        /* row  8 */ 0x00400200u,  /* .........#wwwwwwwwwwww#......... */
-        /* row  9 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 10 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 11 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 12 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 13 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 14 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 15 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 16 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 17 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 18 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 19 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 20 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 21 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 22 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 23 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 24 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 25 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 26 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 27 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 28 */ 0x00100800u,  /* ...........#wwwwwwww#........... */
-        /* row 29 */ 0x001FF800u,  /* ...........##########........... */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u  /* ................................ */
-    },
-    /* shade[32] */
-    {
-        /* row  0 */ 0x00000000u,  /* ................................ */
-        /* row  1 */ 0x00000000u,  /* ................................ */
-        /* row  2 */ 0x00000000u,  /* .............######............. */
-        /* row  3 */ 0x00000000u,  /* .............#....#............. */
-        /* row  4 */ 0x00000000u,  /* .......##################....... */
-        /* row  5 */ 0x00FFFF00u,  /* .......#gggggggggggggggg#....... */
-        /* row  6 */ 0x00000000u,  /* .......##################....... */
-        /* row  7 */ 0x00000000u,  /* .........##############......... */
-        /* row  8 */ 0x00000000u,  /* .........#wwwwwwwwwwww#......... */
-        /* row  9 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 10 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 11 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 12 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 13 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 14 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 15 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 16 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 17 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 18 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 19 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 20 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 21 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 22 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 23 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 24 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 25 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 26 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 27 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 28 */ 0x00000000u,  /* ...........#wwwwwwww#........... */
-        /* row 29 */ 0x00000000u,  /* ...........##########........... */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u  /* ................................ */
+        /* row  0 */ { 0x00000000u, 0x0CC00000u, 0x00000000u, 0x00000000u },
+        /* row  1 */ { 0x0000000Cu, 0xC529C000u, 0x00000000u, 0x00000000u },
+        /* row  2 */ { 0x00000999u, 0x9B951CC9u, 0x00000000u, 0x00000000u },
+        /* row  3 */ { 0x00099529u, 0x5BBB62C5u, 0xC9500000u, 0x00000000u },
+        /* row  4 */ { 0x09932219u, 0xB93956C4u, 0x559C0000u, 0x00000000u },
+        /* row  5 */ { 0x94321111u, 0x23396CB6u, 0x45589000u, 0x00000000u },
+        /* row  6 */ { 0xC3211111u, 0x1119C966u, 0x5456C000u, 0x00000000u },
+        /* row  7 */ { 0xC6211111u, 0x12255666u, 0x5458C000u, 0x00000000u },
+        /* row  8 */ { 0xC6521111u, 0x12223344u, 0x5599C000u, 0x00000000u },
+        /* row  9 */ { 0xC5233321u, 0x12233358u, 0x8889C000u, 0x00000000u },
+        /* row 10 */ { 0x95222233u, 0x34556688u, 0x6689C000u, 0x00000000u },
+        /* row 11 */ { 0x0B922112u, 0x23445566u, 0x68BC6000u, 0x00000000u },
+        /* row 12 */ { 0x0C687322u, 0x23445568u, 0xAA9C0000u, 0x00000000u },
+        /* row 13 */ { 0x0C433557u, 0x9999AAA8u, 0x889C0000u, 0x00000000u },
+        /* row 14 */ { 0x0C444122u, 0x23345566u, 0x669C0000u, 0x00000000u },
+        /* row 15 */ { 0x0C464211u, 0x62234844u, 0x4A9C0000u, 0x00000000u },
+        /* row 16 */ { 0x0C464216u, 0x44238664u, 0x6B8C0000u, 0x00000000u },
+        /* row 17 */ { 0x0C464216u, 0x44238664u, 0x6B8C8880u, 0x00000000u },
+        /* row 18 */ { 0x0C464216u, 0x44238664u, 0x6B8C9988u, 0x80000000u },
+        /* row 19 */ { 0x0C464216u, 0x44238664u, 0x6B8CBB99u, 0x88000000u },
+        /* row 20 */ { 0x0C464216u, 0x44238664u, 0x6B8CBBBBu, 0x98800000u },
+        /* row 21 */ { 0x0C464216u, 0x44238664u, 0x6B8CBBBBu, 0xB9880000u },
+        /* row 22 */ { 0x0C464216u, 0x44238664u, 0x6B8CBBBBu, 0xB9980000u },
+        /* row 23 */ { 0x0C464216u, 0x44238664u, 0x6B8CBBBBu, 0xBB990000u },
+        /* row 24 */ { 0x0C464216u, 0x44238664u, 0x6B8CBBBBu, 0xBB990000u },
+        /* row 25 */ { 0x0C464216u, 0x44238664u, 0x6B8CBBBBu, 0xBB990000u },
+        /* row 26 */ { 0x0C444216u, 0x44238664u, 0x688CBBBBu, 0xB9900000u },
+        /* row 27 */ { 0x0C442216u, 0x44238664u, 0x668CBBBBu, 0x90000000u },
+        /* row 28 */ { 0x0B622111u, 0x62233844u, 0x689CBBB0u, 0x00000000u },
+        /* row 29 */ { 0x00BC4112u, 0x22244455u, 0x6CCBB000u, 0x00000000u },
+        /* row 30 */ { 0x0000BC64u, 0x433446CBu, 0xCBB00000u, 0x00000000u },
+        /* row 31 */ { 0x000000BBu, 0xCCCCCBBBu, 0xB0000000u, 0x00000000u }
     }
 };
 
-/* Row 5 of the FULL strike, behind its mutant knob (see that block). */
-#if defined(DESK_ICONS_MUT_FULL_ROW)
-#define DESK_FULL_ROW5(w) 0x00000000u
-#else
-#define DESK_FULL_ROW5(w) (w)
-#endif
-
-
 /* =========================================================================
- * FLAIR_DESK_ICON_TRASH_FULL -- the Trash holding items (FULL variant)
+ * FLAIR_DESK_ICON_TRASH_FULL -- the Trash, FULL
  * =========================================================================
  *
- * PROVENANCE: HAND-AUTHORED clean-room ASCII pixel map (below); packed rows
- * mechanically transcribed from the map by a one-shot factory transcriber (an
- * awk pass, MSB = col 0; the SAME pass reproduces FLAIR_DESK_ICON_TRASH's 96
- * locked words byte-for-byte, which is how it was checked); no image
- * extraction. Authored 2026-10-04, bead initech-6k12 (design F1.4 Trash
- * semantics: "the bulging FULL variant is a later bead's asset").
+ * PROVENANCE: TRANSCRIBED from mint-008 cell [576,608) x [412,444) of
+ * s8_icons_trash_full.png (== s8_icons_boot.png, whose Trash held 3 items;
+ * selected: s8_icons_trash_full_sel.png). Paper bulging under a lid pushed
+ * ajar. Drawn while \TRASH holds anything (finder_desk_t.trash_full, bead
+ * initech-6k12 / tdnl.74). 725 opaque cells.
  *
- * WHAT IT DEPICTS. The period convention a full Trash follows (the corpus
- * capture ../system7-decomp/goldens/captures/s8_alert_modal.png shows a FULL
- * desktop wastebasket at x~562..600 y~404..440, at a size and in colours this
- * format cannot and does not copy): the SAME ridged basket as the empty strike
- * -- rows 7..31 are the empty map's rows verbatim, so the swap never moves the
- * basket -- with its lid LIFTED two rows and pushed ajar to the right, and
- * crumpled paper bulging out over the rim between lid and basket (rows 5..6,
- * wider than the rim).
+ * Tones (nibble: map char = colour):
+ *   0 .=clear 1 W=DESK_IC_WHITE 2 v=DESK_IC_GRAY_E7 3 t=DESK_IC_GRAY_CD
+ *   4 s=DESK_IC_GRAY_C0 5 r=DESK_IC_GRAY_A5 6 q=DESK_IC_GRAY_96
+ *   7 p=DESK_IC_GRAY_87 8 o=DESK_IC_GRAY_77 9 n=DESK_IC_GRAY_66
+ *   10 m=DESK_IC_GRAY_54 11 l=DESK_IC_GRAY_3F 12 #=DESK_IC_BLACK
  *
- * Shape (32x32; legend '.' clear, '#' ink, 'w' white, 'g' gray):
- *
-     * row  0: ...............######...........
-     * row  1: ...............#....#...........
-     * row  2: ..........##################....
-     * row  3: ..........#gggggggggggggggg#....
-     * row  4: ..........##################....
-     * row  5: ........###.#w#.###.##.###......
-     * row  6: .......#www##ww#www##w#www#.....
-     * row  7: .........##############.........
-     * row  8: .........#wwwwwwwwwwww#.........
-     * row  9: .........#wwwgwwgwwgww#.........
-     * row 10: .........#wwwgwwgwwgww#.........
-     * row 11: .........#wwwgwwgwwgww#.........
-     * row 12: .........#wwwgwwgwwgww#.........
-     * row 13: .........#wwwgwwgwwgww#.........
-     * row 14: .........#wwwgwwgwwgww#.........
-     * row 15: ..........#wwgwwgwwgw#..........
-     * row 16: ..........#wwgwwgwwgw#..........
-     * row 17: ..........#wwgwwgwwgw#..........
-     * row 18: ..........#wwgwwgwwgw#..........
-     * row 19: ..........#wwgwwgwwgw#..........
-     * row 20: ..........#wwgwwgwwgw#..........
-     * row 21: ..........#wwgwwgwwgw#..........
-     * row 22: ...........#wgwwgwwg#...........
-     * row 23: ...........#wgwwgwwg#...........
-     * row 24: ...........#wgwwgwwg#...........
-     * row 25: ...........#wgwwgwwg#...........
-     * row 26: ...........#wgwwgwwg#...........
-     * row 27: ...........#wgwwgwwg#...........
-     * row 28: ...........#wwwwwwww#...........
-     * row 29: ...........##########...........
-     * row 30: ................................
-     * row 31: ................................
- *
- * Worked bit arithmetic -- ONE row shown; the other 31 rows follow the
- * identical rule and were transcribed mechanically by the same pass:
- *   row 5 is the paper tops: ink at cols 8,9,10, 12, 14, 16,17,18, 20,21,
- *   23,24,25 and white at col 13. bit(c) = 1u << (31 - c):
- *       ink  = 0x00E00000 (8..10) + 0x00080000 (12) + 0x00020000 (14)
- *            + 0x0000E000 (16..18) + 0x00000C00 (20..21) + 0x000001C0 (23..25)
- *            = 0x00EAEDC0
- *       mask = ink + 0x00040000 (13) = 0x00EEEDC0 ; shade = 0.
- *
- * MUTANT (Rule 6): DESK_ICONS_MUT_FULL_ROW drops row 5's paper tops from all
- * three planes (a transcription that lost a row); test-desk-icons' hand table
- * for this strike goes RED at row 5.
+ * Map (32x32):
+ *   row  0: ......l........l................
+ *   row  1: .....lvl......lWl...............
+ *   row  2: ....lvvvllllllWWWl..............
+ *   row  3: ...#lllllllllWWWWWl.............
+ *   row  4: .##vlWWvvvvlWWWlWtt#............
+ *   row  5: ##tvlWWvvvlWWWlvlttln...........
+ *   row  6: ##ttlWvvvlWWWlvvvlno#...........
+ *   row  7: #q#tlvvvlWWvlvvttnor#...........
+ *   row  8: #Wr###vlWvvlttqnnorr#...........
+ *   row  9: #rWWro#######llrrrqo#...........
+ *   row 10: #rvvWWttttttttrrqonn#...........
+ *   row 11: .lnvvvvvvttsrrqol#####..........
+ *   row 12: .#qoptvvvtssrrqlovvqts#.........
+ *   row 13: .#sttrqoonnnmmmovvrvvt#r........
+ *   row 14: .#sssWvvvttsrr#vvtvvWvt#........
+ *   row 15: .#sqsvWWqvvts#tvvrvWWWv#........
+ *   row 16: .#sqsvWqssvto#tWvrvWWWvr#.......
+ *   row 17: .#sqsvWqssvto#vWtvWWWWWv#.......
+ *   row 18: .#sqsvWqssvto#vvrvWWWWnnn#......
+ *   row 19: .#sqsvWqssvto#vvrvWWWvltn#......
+ *   row 20: .#sqsvWqssvto#ttrvvvWtn#lr#.....
+ *   row 21: .#sqsvWqssvto#ssqvvvWtt#nv#oo...
+ *   row 22: .#sqsvWqssvto#ssqtvrnnnlW#oooo..
+ *   row 23: .#sqsvWqssvto#rrotvr#orqv#nnooo.
+ *   row 24: .#sqsvWqssvto#rrotvqn#rv#lnnnnoo
+ *   row 25: .#sqsvWqssvto#nqorvqnl###nnnnnoo
+ *   row 26: .#sssvWqssvtoolooovqqnnn#nnnnnoo
+ *   row 27: .#ssvvWqssvtoq#oootvrnnn#nnnnoo.
+ *   row 28: .lqvvWWWqvvtto#noorvtrn#nnnnoo..
+ *   row 29: ..l#sWWvvvvsssrloonrtrr#nnno....
+ *   row 30: ....###ssttssq##nnnoqo#nnno.....
+ *   row 31: .......l#####llll#####ooo.......
  */
 static const FLAIRDeskIcon FLAIR_DESK_ICON_TRASH_FULL = {
-    /* mask[32] */
+    /* tone[16] */
+    { DESK_IC_CLEAR, DESK_IC_WHITE, DESK_IC_GRAY_E7, DESK_IC_GRAY_CD,
+      DESK_IC_GRAY_C0, DESK_IC_GRAY_A5, DESK_IC_GRAY_96, DESK_IC_GRAY_87,
+      DESK_IC_GRAY_77, DESK_IC_GRAY_66, DESK_IC_GRAY_54, DESK_IC_GRAY_3F,
+      DESK_IC_BLACK, DESK_IC_CLEAR, DESK_IC_CLEAR, DESK_IC_CLEAR },
+    /* px[32][4] -- 4bpp, col 8w+k in bits (31-4k)..(28-4k) of word w */
     {
-        /* row  0 */ 0x0001F800u,  /* ...............######........... */
-        /* row  1 */ 0x00010800u,  /* ...............#....#........... */
-        /* row  2 */ 0x003FFFF0u,  /* ..........##################.... */
-        /* row  3 */ 0x003FFFF0u,  /* ..........#gggggggggggggggg#.... */
-        /* row  4 */ 0x003FFFF0u,  /* ..........##################.... */
-        /* row  5 */ DESK_FULL_ROW5(0x00EEEDC0u),  /* ........###.#w#.###.##.###...... */
-        /* row  6 */ 0x01FFFFE0u,  /* .......#www##ww#www##w#www#..... */
-        /* row  7 */ 0x007FFE00u,  /* .........##############......... */
-        /* row  8 */ 0x007FFE00u,  /* .........#wwwwwwwwwwww#......... */
-        /* row  9 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 10 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 11 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 12 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 13 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 14 */ 0x007FFE00u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 15 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 16 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 17 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 18 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 19 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 20 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 21 */ 0x003FFC00u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 22 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 23 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 24 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 25 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 26 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 27 */ 0x001FF800u,  /* ...........#wgwwgwwg#........... */
-        /* row 28 */ 0x001FF800u,  /* ...........#wwwwwwww#........... */
-        /* row 29 */ 0x001FF800u,  /* ...........##########........... */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u   /* ................................ */
-    },
-    /* ink[32] */
-    {
-        /* row  0 */ 0x0001F800u,  /* ...............######........... */
-        /* row  1 */ 0x00010800u,  /* ...............#....#........... */
-        /* row  2 */ 0x003FFFF0u,  /* ..........##################.... */
-        /* row  3 */ 0x00200010u,  /* ..........#gggggggggggggggg#.... */
-        /* row  4 */ 0x003FFFF0u,  /* ..........##################.... */
-        /* row  5 */ DESK_FULL_ROW5(0x00EAEDC0u),  /* ........###.#w#.###.##.###...... */
-        /* row  6 */ 0x01191A20u,  /* .......#www##ww#www##w#www#..... */
-        /* row  7 */ 0x007FFE00u,  /* .........##############......... */
-        /* row  8 */ 0x00400200u,  /* .........#wwwwwwwwwwww#......... */
-        /* row  9 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 10 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 11 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 12 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 13 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 14 */ 0x00400200u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 15 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 16 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 17 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 18 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 19 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 20 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 21 */ 0x00200400u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 22 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 23 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 24 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 25 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 26 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 27 */ 0x00100800u,  /* ...........#wgwwgwwg#........... */
-        /* row 28 */ 0x00100800u,  /* ...........#wwwwwwww#........... */
-        /* row 29 */ 0x001FF800u,  /* ...........##########........... */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u   /* ................................ */
-    },
-    /* shade[32] */
-    {
-        /* row  0 */ 0x00000000u,  /* ...............######........... */
-        /* row  1 */ 0x00000000u,  /* ...............#....#........... */
-        /* row  2 */ 0x00000000u,  /* ..........##################.... */
-        /* row  3 */ 0x001FFFE0u,  /* ..........#gggggggggggggggg#.... */
-        /* row  4 */ 0x00000000u,  /* ..........##################.... */
-        /* row  5 */ 0x00000000u,  /* ........###.#w#.###.##.###...... */
-        /* row  6 */ 0x00000000u,  /* .......#www##ww#www##w#www#..... */
-        /* row  7 */ 0x00000000u,  /* .........##############......... */
-        /* row  8 */ 0x00000000u,  /* .........#wwwwwwwwwwww#......... */
-        /* row  9 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 10 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 11 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 12 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 13 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 14 */ 0x00049000u,  /* .........#wwwgwwgwwgww#......... */
-        /* row 15 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 16 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 17 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 18 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 19 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 20 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 21 */ 0x00049000u,  /* ..........#wwgwwgwwgw#.......... */
-        /* row 22 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 23 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 24 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 25 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 26 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 27 */ 0x00049000u,  /* ...........#wgwwgwwg#........... */
-        /* row 28 */ 0x00000000u,  /* ...........#wwwwwwww#........... */
-        /* row 29 */ 0x00000000u,  /* ...........##########........... */
-        /* row 30 */ 0x00000000u,  /* ................................ */
-        /* row 31 */ 0x00000000u   /* ................................ */
+        /* row  0 */ { 0x000000B0u, 0x0000000Bu, 0x00000000u, 0x00000000u },
+        /* row  1 */ { 0x00000B2Bu, 0x000000B1u, 0xB0000000u, 0x00000000u },
+        /* row  2 */ { 0x0000B222u, 0xBBBBBB11u, 0x1B000000u, 0x00000000u },
+        /* row  3 */ { 0x000CBBBBu, 0xBBBBB111u, 0x11B00000u, 0x00000000u },
+        /* row  4 */ { 0x0CC2B112u, 0x222B111Bu, 0x133C0000u, 0x00000000u },
+        /* row  5 */ { 0xCC32B112u, 0x22B111B2u, 0xB33B9000u, 0x00000000u },
+        /* row  6 */ { 0xCC33B122u, 0x2B111B22u, 0x2B98C000u, 0x00000000u },
+        /* row  7 */ { 0xC6C3B222u, 0xB112B223u, 0x3985C000u, 0x00000000u },
+        /* row  8 */ { 0xC15CCC2Bu, 0x122B3369u, 0x9855C000u, 0x00000000u },
+        /* row  9 */ { 0xC51158CCu, 0xCCCCCBB5u, 0x5568C000u, 0x00000000u },
+        /* row 10 */ { 0xC5221133u, 0x33333355u, 0x6899C000u, 0x00000000u },
+        /* row 11 */ { 0x0B922222u, 0x23345568u, 0xBCCCCC00u, 0x00000000u },
+        /* row 12 */ { 0x0C687322u, 0x2344556Bu, 0x822634C0u, 0x00000000u },
+        /* row 13 */ { 0x0C433568u, 0x8999AAA8u, 0x225223C5u, 0x00000000u },
+        /* row 14 */ { 0x0C444122u, 0x233455C2u, 0x2322123Cu, 0x00000000u },
+        /* row 15 */ { 0x0C464211u, 0x62234C32u, 0x2521112Cu, 0x00000000u },
+        /* row 16 */ { 0x0C464216u, 0x44238C31u, 0x25211125u, 0xC0000000u },
+        /* row 17 */ { 0x0C464216u, 0x44238C21u, 0x32111112u, 0xC0000000u },
+        /* row 18 */ { 0x0C464216u, 0x44238C22u, 0x52111199u, 0x9C000000u },
+        /* row 19 */ { 0x0C464216u, 0x44238C22u, 0x521112B3u, 0x9C000000u },
+        /* row 20 */ { 0x0C464216u, 0x44238C33u, 0x5222139Cu, 0xB5C00000u },
+        /* row 21 */ { 0x0C464216u, 0x44238C44u, 0x6222133Cu, 0x92C88000u },
+        /* row 22 */ { 0x0C464216u, 0x44238C44u, 0x6325999Bu, 0x1C888800u },
+        /* row 23 */ { 0x0C464216u, 0x44238C55u, 0x8325C856u, 0x2C998880u },
+        /* row 24 */ { 0x0C464216u, 0x44238C55u, 0x83269C52u, 0xCB999988u },
+        /* row 25 */ { 0x0C464216u, 0x44238C96u, 0x85269BCCu, 0xC9999988u },
+        /* row 26 */ { 0x0C444216u, 0x442388B8u, 0x88266999u, 0xC9999988u },
+        /* row 27 */ { 0x0C442216u, 0x442386C8u, 0x88325999u, 0xC9999880u },
+        /* row 28 */ { 0x0B622111u, 0x622338C9u, 0x8852359Cu, 0x99998800u },
+        /* row 29 */ { 0x00BC4112u, 0x2224445Bu, 0x8895355Cu, 0x99980000u },
+        /* row 30 */ { 0x0000CCC4u, 0x433446CCu, 0x999868C9u, 0x99800000u },
+        /* row 31 */ { 0x0000000Bu, 0xCCCCCBBBu, 0xBCCCCC88u, 0x80000000u }
     }
 };
 

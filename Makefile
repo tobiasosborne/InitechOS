@@ -8106,6 +8106,7 @@ endef
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
+        test-finder-icon-art test-finder-icon-art-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -8397,7 +8398,7 @@ $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/a
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
-$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
+$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
@@ -12608,22 +12609,26 @@ test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT) $(TES
 	printf '>>> CURSOR_MUT_SQUARED_STEM: RED -- 48/256 differing cells against Mac capture\n'
 
 # ---------------------------------------------------------------------------
-# REAL gate: test-desk-icons (bead initech-tdnl.9; GUI remediation R3 Finder).
-# The hand-authored 32x32 VOLUME + TRASH strikes (spec/assets/desk_icons.h) and
-# the finder_icon blit/hit-test. Independent hand tables read off the ASCII maps
-# (per-row ink/shade/opaque + probe pixels) + hand-restated canon pixel values;
-# transparency, clipping, off-surface edges and mask hit-testing all graded.
-# Mutants MASK_IGNORED / ROW_OFF1 must bite.
+# REAL gate: test-desk-icons (beads initech-tdnl.9, initech-tdnl.53). The
+# finder_icon BLITTER mechanics -- transparency, clipping, off-surface edges,
+# the hit test, NULL guards, 8bpp + 32bpp, unselected + selected -- on the
+# VOLUME / TRASH / TRASH_FULL strikes, graded against the INDEPENDENT mint-008
+# Mac OS 8.1 captures (harness/render/icon_capture.h decodes the PNGs; Law 2).
+# Mutants MASK_IGNORED / ROW_OFF1 (finder_icon.c) and FULL_ROW (the FULL
+# strike's paper-tops row blanked) must bite. The art of every strike is
+# test-finder-icon-art's job.
 # ---------------------------------------------------------------------------
+ICON_CAPTURES_DIR             := $(SYSTEM7_DECOMP)/goldens/captures
 TEST_DESK_ICONS               := $(BUILD)/test_desk_icons
 TEST_DESK_ICONS_MUT_MASK      := $(BUILD)/test_desk_icons_mutant_mask_ignored
 TEST_DESK_ICONS_MUT_ROW       := $(BUILD)/test_desk_icons_mutant_row_off1
-# bead initech-6k12: the FULL Trash strike's row 5 dropped from the packed words.
+# bead initech-6k12: the FULL Trash strike's row 5 (paper tops) blanked.
 TEST_DESK_ICONS_MUT_FULLROW   := $(BUILD)/test_desk_icons_mutant_full_row
 TEST_DESK_ICONS_SRC           := harness/proptest/test_desk_icons.c
-TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
+TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) harness/render/icon_capture.h \
                                  os/flair/finder_icon.c os/flair/finder_icon.h \
                                  spec/assets/desk_icons.h spec/assets/finder_icons.h \
+                                 spec/assets/alert_icons.h \
                                  os/flair/surface.c os/flair/surface.h \
                                  $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h \
                                  spec/assets/color_canon.h \
@@ -12631,7 +12636,7 @@ TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
                                  spec/region_algebra.h spec/grafport.h
 DESK_ICONS_INC                := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed
 DESK_ICONS_LINK               := os/flair/finder_icon.c os/flair/surface.c \
-                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C)
+                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C) -lpng
 
 $(TEST_DESK_ICONS): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
@@ -12647,19 +12652,65 @@ $(TEST_DESK_ICONS_MUT_FULLROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 
 .PHONY: test-desk-icons test-desk-icons-mutant
 test-desk-icons: $(TEST_DESK_ICONS)
-	@printf ">>> test-desk-icons: VOLUME + TRASH strike invariants, per-row hand tables, probe tones (8bpp + 32bpp), transparency, clip, off-surface edges, mask hit-test\n"
-	@$(TEST_DESK_ICONS)
+	@printf ">>> test-desk-icons: blitter mechanics (transparency, clip, edges, hit test, 8bpp + 32bpp, selected) vs the mint-008 captures\n"
+	@$(TEST_DESK_ICONS) "$(ICON_CAPTURES_DIR)"
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(DESK_ICONS_INC) -c os/flair/finder_icon.c -o $(BUILD)/finder_icon_freestanding.o \
 		|| { printf '!!! test-desk-icons FAIL: finder_icon.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-desk-icons: green\n"
 
 test-desk-icons-mutant: $(TEST_DESK_ICONS_MUT_MASK) $(TEST_DESK_ICONS_MUT_ROW) $(TEST_DESK_ICONS_MUT_FULLROW)
 	@printf ">>> test-desk-icons-mutant: confirming the desktop-icon mutants go RED (Rule 6)\n"
-	@$(TEST_DESK_ICONS_MUT_FULLROW) > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
-	if grep -q 'row 5: got ink=0 shade=0 opaque=0, want ink=13 shade=0 opaque=14' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row)\n'; \
-	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike table\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
-	@if $(TEST_DESK_ICONS_MUT_MASK) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted mask holes overwrite the sentinel)\n'; fi
-	@if $(TEST_DESK_ICONS_MUT_ROW) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the independent row/probe tables are decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the hand table)\n'; fi
+	@$(TEST_DESK_ICONS_MUT_FULLROW) "$(ICON_CAPTURES_DIR)" > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
+	if grep -q 'TRASH_FULL draw: 21/3072 differing pixels' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row: 21/3072)\n'; \
+	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
+	@if $(TEST_DESK_ICONS_MUT_MASK) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted clear nibbles overwrite the sentinel)\n'; fi
+	@if $(TEST_DESK_ICONS_MUT_ROW) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the capture cell grade is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the capture)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-icon-art (beads initech-tdnl.53 / tdnl.74 / tdnl.87).
+# Every LOCKED strike -- VOLUME, HARDDISK, TRASH, TRASH_FULL, FOLDER, DOC, APP
+# (spec/assets/desk_icons.h + finder_icons.h) and the alert CAUTION
+# (alert_icons.h) -- drawn by the artifact blitter through the artifact policy
+# seam, unselected and selected, 32bpp + 8bpp, cell for cell against the
+# INDEPENDENT mint-008 Mac OS 8.1 captures (../system7-decomp/re/
+# mint-results-008.md) at ZERO tolerance. A missing capture FAILS.
+# Mutant (Rule 6): ICON_ART_MUT_STRIKE=<k> puts strike k one row off; each
+# of the eight must go RED on exactly that strike. DESK_ICON_MUT_NO_SELECT
+# (finder_icon.c: selection draws the unselected art) must go RED too.
+# ---------------------------------------------------------------------------
+TEST_ICON_ART       := $(BUILD)/test_finder_icon_art
+TEST_ICON_ART_SRC   := harness/proptest/test_finder_icon_art.c
+TEST_ICON_ART_NAMES := VOLUME HARDDISK TRASH TRASH_FULL FOLDER DOC APP CAUTION
+
+$(TEST_ICON_ART): $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+$(BUILD)/test_finder_icon_art_mut_%: $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DICON_ART_MUT_STRIKE=$* $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+$(BUILD)/test_finder_icon_art_mut_noselect: $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICON_MUT_NO_SELECT $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+.PHONY: test-finder-icon-art test-finder-icon-art-mutant
+test-finder-icon-art: $(TEST_ICON_ART)
+	@$(TEST_ICON_ART) "$(ICON_CAPTURES_DIR)"
+
+test-finder-icon-art-mutant: $(foreach k,0 1 2 3 4 5 6 7,$(BUILD)/test_finder_icon_art_mut_$(k)) $(BUILD)/test_finder_icon_art_mut_noselect
+	@printf ">>> test-finder-icon-art-mutant: one strike row off, per strike (Rule 6)\n"
+	@k=0; for n in $(TEST_ICON_ART_NAMES); do \
+		pre=FLAIR_DESK_ICON; case $$n in FOLDER|DOC|APP) pre=FLAIR_FINDER_ICON;; CAUTION) pre=FLAIR_ALERT_ICON;; esac; \
+		rc=0; $(BUILD)/test_finder_icon_art_mut_$$k "$(ICON_CAPTURES_DIR)" > $(BUILD)/test_finder_icon_art_mut_$$k.log 2>&1 || rc=$$?; \
+		reds=$$(grep -c '^  RED ' $(BUILD)/test_finder_icon_art_mut_$$k.log); \
+		if [ "$$rc" -eq 1 ] && grep -q "^  RED $${pre}_$$n UNSEL" $(BUILD)/test_finder_icon_art_mut_$$k.log && \
+		   [ "$$(grep '^  RED ' $(BUILD)/test_finder_icon_art_mut_$$k.log | grep -vc " $${pre}_$$n ")" = 0 ]; then \
+			printf '>>> ICON_ART_MUT_STRIKE=%s: RED on %s_%s only (%s grade(s)) -- %s\n' "$$k" "$$pre" "$$n" "$$reds" "$$(grep 'MUTANT' $(BUILD)/test_finder_icon_art_mut_$$k.log | sed 's/^ *MUTANT (Rule 6): //')"; \
+		else cat $(BUILD)/test_finder_icon_art_mut_$$k.log; printf '!!! test-finder-icon-art-mutant FAIL: strike %s one row off did not go RED on that strike alone\n' "$$n"; exit 1; fi; \
+		k=$$((k + 1)); done
+	@rc=0; $(BUILD)/test_finder_icon_art_mut_noselect "$(ICON_CAPTURES_DIR)" > $(BUILD)/test_finder_icon_art_mut_noselect.log 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 1 ] && [ "$$(grep -c '^  RED .* SEL$$' $(BUILD)/test_finder_icon_art_mut_noselect.log)" = 7 ] \
+		|| { cat $(BUILD)/test_finder_icon_art_mut_noselect.log; printf '!!! test-finder-icon-art-mutant FAIL: DESK_ICON_MUT_NO_SELECT did not turn all 7 selected grades RED\n'; exit 1; }; \
+	printf '>>> DESK_ICON_MUT_NO_SELECT: RED -- all 7 selected-state grades miss the captures\n'
+	@printf ">>> test-finder-icon-art-mutant: green\n"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-window (beads initech-9qf) -- FLAIR Window Manager.
@@ -14690,7 +14741,7 @@ TEST_DIALOG_MUT_MODAL_PASS := $(BUILD)/test_dialog_mutant_modal_passthrough
 # bead initech-6k12: the click hit-tested in portRect-LOCAL space again (the
 # pre-fix subtraction) -- a click on a DRAWN button misses it.
 TEST_DIALOG_MUT_LOCAL_HIT := $(BUILD)/test_dialog_mutant_local_hit
-TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
+TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
                     os/flair/event.c os/flair/event.h \
@@ -28764,6 +28815,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
+	test-finder-icon-art test-finder-icon-art-mutant \
 	test-window test-window-mutant test-winscroll test-winscroll-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \

@@ -80,6 +80,7 @@
 #include "region_algebra.h"   /* region_contains_point (-Ispec)               */
 #include "event_model.h"      /* flair_event_what_t, EventRecord (-Ispec)      */
 #include "flair_look.h"       /* flair_look_pixel + FLAIR_PART_* (the seam)    */
+#include "alert_icons.h"      /* FLAIR_ALERT_ICON_CAUTION (-Ispec/assets)      */
 
 /* ---------------------------------------------------------------------------
  * FAIL-LOUD (Rule 2): dual panic (kernel infinite loop / hosted abort).
@@ -380,6 +381,36 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm)
     dialog_zero(dp);
 }
 
+/* dlg_draw_icon -- an iconItem (bead initech-tdnl.87). Inside Macintosh Vol I
+ * p. I-419: an alert's icon item names an ICON resource -- Stop 0, Note 1,
+ * Caution 2. FLAIR carries ONE captured strike, FLAIR_ALERT_ICON_CAUTION
+ * (spec/assets/alert_icons.h, transcribed from the mint-008 Empty Wastebasket
+ * alert); Stop and Note have no local golden, so they draw nothing rather
+ * than an invented icon (Law 1). The 32x32 strike is drawn at the item's
+ * top-left, nibble 0 transparent, every pixel through the ONE policy seam
+ * (FLAIR_PART_ICON_CLUT + ordinal - 1; C-8) and clipped like every other
+ * dialog primitive. The finder_icon blitter is not linked here: dialog.o
+ * ships in kernels that carry no Finder.
+ * MUTANT DIALOG_MUT_NO_ICON (Rule 6): the iconItem is a no-op again -- the
+ * alert probe's caution cells go RED. NEVER in a real build. */
+static void dlg_draw_icon(GrafPort *port, int x0, int y0, unsigned id)
+{
+#if defined(DIALOG_MUT_NO_ICON) && DIALOG_MUT_NO_ICON
+    (void)port; (void)x0; (void)y0; (void)id;
+#else
+    const FLAIRDeskIcon *icon = (const FLAIRDeskIcon *)0;
+    if (id == DIALOG_ICON_ID_CAUTION) icon = &FLAIR_ALERT_ICON_CAUTION;
+    if (icon == (const FLAIRDeskIcon *)0) return;
+    for (int r = 0; r < DESK_ICON_DIM; r++) {
+        for (int c = 0; c < DESK_ICON_DIM; c++) {
+            int k = desk_icon_colour(icon, r, c);
+            if (k == (int)DESK_IC_CLEAR) continue;
+            cfill_dlg(port, x0 + c, y0 + r, 1, (int)FLAIR_PART_ICON_CLUT + k - 1);
+        }
+    }
+#endif
+}
+
 /* L023: Platinum dBox frame, measured from s8_alert_modal.png
  * x133..506,y87..190 (controls.md Sec 6). Inward at x300:
  * y87 black, y88 FFB3B3, y89 white, y90 E7 face;
@@ -499,10 +530,15 @@ void DrawDialog(DialogPtr dp)
             }
             break;
         }
-        case userItem:
         case iconItem:
+            /* bead initech-tdnl.87: the item's ICON resource ID rides in
+             * _pad[0] (dialog.h); only CAUTION has a captured strike. */
+            dlg_draw_icon(port, (int)item->rect.left, (int)item->rect.top,
+                          DIALOG_ITEM_ICON_ID(item));
+            break;
+        case userItem:
         default:
-            /* User/icon items: caller handles; no-op here. */
+            /* User items: caller handles; no-op here. */
             break;
         }
     }

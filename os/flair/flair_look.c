@@ -187,7 +187,42 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* L023: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.
      * Indexed slots carry the exact sampled tints through the live offscreen. */
     { CIDX_ALERT_LIGHT, 0u, FLAIR_NO_SKIN_SLOT, 0u },
-    { CIDX_ALERT_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u }
+    { CIDX_ALERT_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* Finder icon colour roles, DESK_IC_* ordinal order (bead initech-tdnl.53;
+     * mint-008 Sec 3).  Grays reuse the named sampled-ramp rows of the same
+     * value (the ICON_SHADE / ICON_HILITE precedent); the non-grays are the
+     * fifteen WL-0140 canon slots.  Graded by test-finder-icon-art against the
+     * mint-008 captures at TOL=0. */
+    /* ICON_CLUT DESK_IC_WHITE      */ { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_F3    */ { CIDX_PLAT_TROUGH, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_E7    */ { CIDX_PLAT_FACE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_DA    */ { CIDX_PLAT_FRAME_FACE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_CD    */ { CIDX_PLAT_TILE_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_C0    */ { CIDX_PLAT_WELL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_A5    */ { CIDX_PLAT_WIDGET_EDGE, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_96    */ { CIDX_PLAT_STRIPE_DARK, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_87    */ { CIDX_PLAT_INACTIVE_TEXT, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_77    */ { CIDX_PLAT_INACTIVE_FRAME, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_66    */ { CIDX_ICON_GRAY_66, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_54    */ { CIDX_ICON_GRAY_54, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_3F    */ { CIDX_PLAT_DARK_RING, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_GRAY_27    */ { CIDX_ICON_GRAY_27, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_BLACK      */ { CIDX_BLACK, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_LAV_LIGHT  */ { CIDX_ICON_LAV_LIGHT, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_LAV        */ { CIDX_ICON_LAV, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_LAV_DARK   */ { CIDX_ICON_LAV_DARK, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_LAV_SEL    */ { CIDX_ICON_LAV_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_NAVY_SEL   */ { CIDX_ICON_NAVY_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_YELLOW     */ { CIDX_ICON_YELLOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_TAN        */ { CIDX_ICON_TAN, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_FLESH      */ { CIDX_ICON_FLESH, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_RED        */ { CIDX_ICON_RED, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_PINK       */ { CIDX_ICON_PINK, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_YELLOW_SEL */ { CIDX_ICON_YELLOW_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_TAN_SEL    */ { CIDX_ICON_TAN_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_FLESH_SEL  */ { CIDX_ICON_FLESH_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_RED_SEL    */ { CIDX_ICON_RED_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* ICON_CLUT DESK_IC_PINK_SEL   */ { CIDX_ICON_PINK_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,
