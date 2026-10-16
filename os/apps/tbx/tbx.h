@@ -127,6 +127,13 @@ int32_t tbx_file_delete(const char *path);
 int32_t tbx_alert(const char *text, const char *def, const char *cancel,
                   const char *other);
 
+/* The FILE COPY box: spec Sec 12 (initech-bf2). Asks the shell to copy
+ * `src` to a new `dst` (data-volume paths) under the modal FILE COPY box
+ * captioned `caption`, its Platinum bar filling at PROGRESS_BAR_RATE from
+ * APPS\MICHAEL.CFG. Returns 0 when ASKED; the result arrives later as a
+ * TBX_EVT_FILECOPY event (Message = bytes copied, or a negative error). */
+int32_t tbx_file_copy(const char *caption, const char *src, const char *dst);
+
 /* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest). */
 int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);
 

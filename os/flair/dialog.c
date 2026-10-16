@@ -839,7 +839,8 @@ void ModalDialog(DialogPtr dp, flair_raw_ring_t *ring,
  *   Item 1 (statText): "Saving tables to disk..."
  *     rect: left=14, top=25, right=346, bottom=41  (below the title band)
  *   Item 2 (ctrlItem/progressBar): 0..100
- *     rect: left=14, top=49, right=346, bottom=69  (below the title band)
+ *     rect: left=14, top=49, right=346, bottom=63  (below the title band;
+ *     14 rows = the minted Platinum CDEF 5 etched height, initech-bf2)
  *
  * Ref: PRD Sec 6.5 / Appendix A -- the canon FILE COPY box dimensions and
  *      message string from the Office Space reference frame (Law 4).
@@ -865,7 +866,9 @@ void ModalDialog(DialogPtr dp, flair_raw_ring_t *ring,
 #define FILECOPY_TEXT_TOP     25
 #define FILECOPY_TEXT_BOTTOM  41
 #define FILECOPY_BAR_TOP      49
-#define FILECOPY_BAR_BOTTOM   69
+#define FILECOPY_BAR_BOTTOM   63   /* FLAIR_PROGRESS_H = 14: the measured CDEF 5
+                                     * etched height (initech-bf2,
+                                     * spec/progress_platinum.h) */
 #define FILECOPY_ITEM_LEFT    14
 #define FILECOPY_ITEM_RIGHT   346
 

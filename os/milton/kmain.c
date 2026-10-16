@@ -2805,6 +2805,7 @@ static GrafPort             *g_ten_barport;
  *       the NEW head (the shell fallback bar when the list is empty -- never a
  *       dead head's menubar). */
 static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi);
 static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     FlairApp *app = tbx_take_affirm();
@@ -2839,6 +2840,8 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
     if (tbx_take_drew()) flair_desktop_present(bi, &ctx->off);
     /* (1d) bead initech-fvnj: a TBX_ALERT the tenant asked for (spec Sec 11). */
     flair_live_tenant_alert(ctx, bi);
+    /* (1e) bead initech-bf2: a TBX_FILECOPY the tenant asked for (Sec 12). */
+    flair_live_tenant_filecopy(ctx, bi);
     if (!tbx_reap()) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
@@ -4275,6 +4278,108 @@ static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi
     serial_putu(hit);
     serial_putc('\n');
     tbx_alert_answer(hit);
+    flair_live_tenant_service(ctx, bi);
+}
+
+/* TBX_FILECOPY (bead initech-bf2; spec/toolbox_gate.h Sec 12): the resident
+ * tenant asked for the FILE COPY box and RETURNED. Read PROGRESS_BAR_RATE
+ * (MICHAEL.CFG, the 8.3 alias of michael_bolton.conf, PRD Appendix B) through
+ * the DOS handle API, open/create the files, then run the modal box: each
+ * tick the Platinum bar (control.c, spec/progress_platinum.h) shows
+ * v = min(100, rate * ticks / 100) percent and the copy is advanced to
+ * size * v / 100 bytes -- the bar never runs ahead of the disk. The box has
+ * no buttons: Dialog Manager modal, events are absorbed (the period's
+ * uninterruptible copy). Markers: TENANT-FILECOPY (request), -REFUSED,
+ * "TENANT-FILECOPY up" (the box is on screen), -MID (first v >= 50, the mid
+ * screendump marker), -DONE (bytes + elapsed ticks, the rate oracle), then
+ * the TBX_EVT_FILECOPY delivery. A run past twice its own duration (plus a
+ * second) is abandoned loudly (FILECOPY-STALL), never left hanging. */
+static DialogRecord     g_fc_dr;
+static DialogItem       g_fc_it[2];
+static ControlRecord    g_fc_bar;
+static finder_win_rgn_t g_fc_rs, g_fc_rc, g_fc_ru;
+
+static void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi)
+{
+    const char *cap, *src, *dst;
+    uint32_t size = 0u, t0, dt = 0u, v = 0u, shown = 101u, limit;
+    int32_t rate, rc, done = 0;
+    int mid = 0;
+
+    if (!tbx_take_filecopy(&cap, &src, &dst)) return;
+    rate = tbx_fc_rate();
+    serial_puts("TENANT-FILECOPY s=\"");
+    serial_puts(cap);
+    serial_puts("\" src=");
+    serial_puts(src);
+    serial_puts(" dst=");
+    serial_puts(dst);
+    serial_puts(" rate=");
+    serial_puti(rate);
+    serial_putc('\n');
+    rc = rate < 0 ? rate : tbx_fc_open(&size);
+    if (rc < 0) {
+        serial_puts("TENANT-FILECOPY-REFUSED rc=");
+        serial_puti(rc);
+        serial_putc('\n');
+        tbx_filecopy_answer(rc);
+        flair_live_tenant_service(ctx, bi);
+        return;
+    }
+    fta_rgn(&g_fc_rs); fta_rgn(&g_fc_rc); fta_rgn(&g_fc_ru);
+    (void)FileCopyDialog(&g_fc_dr, g_fc_it, &g_fc_bar, &g_fc_rs.r, &g_fc_rc.r, &g_fc_ru.r);
+    g_fc_it[0].text = cap;                     /* the tenant's statText line */
+    g_fc_bar.contrlValue = 0;
+    g_fc_dr.window.port.portBits.bm = ctx->off;
+    g_fc_dr.window.port.visRgn  = (region_t *)0;
+    g_fc_dr.window.port.clipRgn = (region_t *)0;
+    g_fc_dr.window.port.portRect = region_get_bbox(g_fc_dr.window.strucRgn);
+    serial_puts("TENANT-FILECOPY up bytes=");
+    serial_putu(size);
+    serial_putc('\n');
+    limit = 2u * (10000u + (uint32_t)rate - 1u) / (uint32_t)rate + 100u;
+    t0 = flair_tick_count();
+    for (;;) {
+        EventRecord ev;
+        if (WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev, 1u))
+            flair_live_emit_evt(&ev);          /* absorbed: the box is modal */
+        flair_live_cursor_track(&ev);
+        dt = flair_tick_count() - t0;
+        v = (uint32_t)rate * dt / 100u;
+        if (v > 100u) v = 100u;
+        /* size * v / 100 without a 64-bit divide (freestanding, no libgcc). */
+        done = tbx_fc_step((size / 100u) * v + (size % 100u) * v / 100u);
+        if (done < 0) break;
+        if (v != shown) {
+            shown = v;
+            g_fc_bar.contrlValue = (int16_t)v;
+            DrawDialog(&g_fc_dr);
+            flair_desktop_present(bi, &ctx->off);
+        }
+        if (!mid && v >= 50u) {
+            mid = 1;
+            serial_puts("TENANT-FILECOPY-MID v=");
+            serial_putu(v);
+            serial_puts(" ticks=");
+            serial_putu(dt);
+            serial_putc('\n');
+        }
+        if (v >= 100u && (uint32_t)done >= size) break;
+        if (dt > limit) { serial_puts("FILECOPY-STALL\n"); done = TBX_ERR_BUSY; break; }
+    }
+    tbx_fc_close();
+    serial_puts("TENANT-FILECOPY-DONE rc=");
+    serial_puti(done);
+    serial_puts(" ticks=");
+    serial_putu(dt);
+    serial_putc('\n');
+    {
+        rgn_rect_t box = region_get_bbox(g_fc_dr.window.strucRgn);
+        DisposeDialog(&g_fc_dr, (WindowMgr *)0);
+        WindowMgr_invalidate_desktop(ctx->wm, box);
+    }
+    finder_desk_repaint(ctx, bi);
+    tbx_filecopy_answer(done);
     flair_live_tenant_service(ctx, bi);
 }
 

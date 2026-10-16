@@ -37,10 +37,12 @@ if [ "$mode" = stage ]; then
 else
     # PM merge re-key (lane/frameapps): APPS holds TENANTFX.EXE, CTENANT.EXE, 123.EXE, WORD.EXE, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE. 11 writable leaves are removed;
     # locked TENANTFX.EXE and its containing APPS are refused.
-    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU TRASH/APPS/CHKDSK.COM TRASH/APPS/ATTRIB.COM TRASH/APPS/LABEL.COM TRASH/APPS/XCOPY.COM TRASH/APPS/TREE.COM TRASH/APPS/CALC.EXE; do
+    # initech-bf2 / tdnl.20 re-key: APPS also holds PAINT.EXE, LEDGER.TXT and
+    # MICHAEL.CFG (fourteen files), so 14 writable leaves are removed.
+    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU TRASH/APPS/CHKDSK.COM TRASH/APPS/ATTRIB.COM TRASH/APPS/LABEL.COM TRASH/APPS/XCOPY.COM TRASH/APPS/TREE.COM TRASH/APPS/CALC.EXE TRASH/APPS/PAINT.EXE TRASH/APPS/LEDGER.TXT TRASH/APPS/MICHAEL.CFG; do
         if mdir -i "$img" "::$leaf" >/dev/null 2>&1; then fail 'writable purge control survived'; fi
     done
-    grep -qx 'FINDER-TRASH-EMPTIED purged=11 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
+    grep -qx 'FINDER-TRASH-EMPTIED purged=14 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
 fi
 grep -qx 'FINDER-LOCKED-ALERT' "build/$name.serial" || fail 'visible message missing'
 grep -q 'OK=1' "$out/emu.report" || fail 'emulator did not complete'

@@ -21,6 +21,34 @@
 #   Percentages (120,20+22*i), total (120,134); adjacent shades differ at
 #   all five boundaries. PRD-stated weights remain40/35/18/14/9, total116.
 #   Typography is PRD6.4/6.5 Geneva9 using the existing Font Manager strike.
-FLAIR_CALC_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,m0:100,m0:100,m0:86
+# PM MERGE RE-KEY 2026-10-17 (carried into lane/frameapps verbatim from main's
+# working tree): APPS holds TENANTFX, CTENANT, 123.EXE, WORD.EXE, 123.MNU,
+# CHKDSK, ATTRIB, LABEL, XCOPY, TREE, CALC -- CALC.EXE is cell 10 = row 3,
+# col 2, centre (211,226): +88,+124 from the APPS double-click (123,102). The
+# park keeps its absolute end point (143,460): -68,+234 from the new click.
+# initech-bf2 / tdnl.20: PAINT.EXE, LEDGER.TXT, MICHAEL.CFG append AFTER Calc
+# (cells 11..13), so CALC.EXE's cell 10 does not move.
+FLAIR_CALC_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:100,m0:24,l1,l0,l1,l0,m-68:100,m0:100,m0:34
 # Same launch; an edit to A1, then a menu-key Quit tears down BOTH windows.
 FLAIR_CALC_EDIT_SPEC := $(FLAIR_CALC_SPEC),k7,k3,kret,kctrl-q
+# initech-bf2: the same launch, then Cmd/Ctrl-S -- the shell's MenuKey
+# resolves it to File > Save (enabled, cmdChar 'S'; spec/toolbox_gate.h
+# Sec 6a) and Calc asks the FILE COPY box (Sec 12). The cursor is parked at
+# (143,460), clear of the box (140,200)-(500,280).
+FLAIR_FILE_COPY_SPEC := $(FLAIR_CALC_SPEC),kctrl-s
+# initech-tdnl.20 (bar carrier): PAINT.EXE is APPS cell 11 = row 3, col 4
+# (1-based), centre (279,226) = +156,+124 from the APPS double-click (123,102)
+# (cell n centre = 75+68*(n%4), 122+52*(n/4)). Same disk/APPS prefix as Calc.
+#   FLAIR_PAINT_SPEC: launch, park straight down at (279,460) -- band 2 shows
+#     PAINT's bar, the canvas (330,150)-(630,400) is up, nothing pulled.
+#   FLAIR_PAINT_MENU_SPEC: launch; to the File title (20,30) in band 2 (no
+#     Apple slot; File slot x 0..41, Edit 41..84 = StringWidth+18, NFNT 5478):
+#     -259,-196; press (File drops); drag right +42 onto Edit (62,30): the
+#     cross-drag drops Edit (FLAIR-MENU-XDROP menu=129, the mid-track capture --
+#     an XDROP capture waits only on held moves, so the launch double-clicks
+#     keep their timing); drag to Cut (item 2, row centre 41+16+8 = 65): +35;
+#     release on a GRAYED item: nothing is delivered. Then File (20,30):
+#     -42,-35; press, drag to Quit (item 5, centre 41+4*16+8 = 113): +83;
+#     release -> EXIT.
+FLAIR_PAINT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:100,m56:24,l1,l0,l1,l0,m0:100,m0:100,m0:34
+FLAIR_PAINT_MENU_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:100,m56:24,l1,l0,l1,l0,m-100:-98,m-100:-98,m-59:0,l1,m42:0,m0:35,l0,m-42:-35,l1,m0:83,l0

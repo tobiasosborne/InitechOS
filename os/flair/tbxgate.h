@@ -153,6 +153,22 @@ int  tbx_take_alert(const char *lines[TBX_ALERT_LINES], uint32_t *n,
                     const char *btns[3], uint32_t *nb);
 void tbx_alert_answer(uint32_t item);
 
+/* THE FILE COPY BOX (spec/toolbox_gate.h Sec 12; bead initech-bf2).
+ * tbx_take_filecopy: 1 (once) when the tenant asked TBX_FILECOPY; returns
+ * the copied caption and paths. tbx_fc_rate: PROGRESS_BAR_RATE read from
+ * TBX_FILECOPY_CFG_PATH through the DOS handle API (1..100, or an error).
+ * tbx_fc_open opens the source and creates the destination (size out);
+ * tbx_fc_step(upto) copies until `upto` bytes are on disk (returns the
+ * running total or an error); tbx_fc_close closes both. Every handle is in
+ * the tenant's kernel-owned JFT. tbx_filecopy_answer pushes
+ * TBX_EVT_FILECOPY (Message = bytes copied or the error). */
+int     tbx_take_filecopy(const char **caption, const char **src, const char **dst);
+int32_t tbx_fc_rate(void);
+int32_t tbx_fc_open(uint32_t *size);
+int32_t tbx_fc_step(uint32_t upto);
+void    tbx_fc_close(void);
+void    tbx_filecopy_answer(int32_t result);
+
 /* THE GATE (called by os/milton/tbx_gate.asm with &int_frame_t). */
 void tbx_gate_dispatch(uint8_t *frame);
 

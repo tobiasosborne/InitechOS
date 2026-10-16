@@ -221,7 +221,12 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # PM MERGE RE-KEY (lane/frameapps): APPS holds 11 files, so the stranded TRASH is cell 11 = row 3, col 3:
 # +156,+124 from the APPS double-click (123,102) (cell n centre = 75+68*(n%4), 122+52*(n/4)). The park
 # keeps its ABSOLUTE target (+292,+156 from the APPS click): +136,+32 from the new click point.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m100:100,m56:24,l1,l0,l1,l0,m100:32,m36:0,m68:68,m68:68,m69:66
+# LANE RE-KEY (initech-bf2 / tdnl.20, lane/frameapps): APPS now holds FOURTEEN files
+# (+ PAINT.EXE, LEDGER.TXT, MICHAEL.CFG), so the stranded TRASH is cell 14 = row 4,
+# col 2 (1-based): centre (211,278) = +88,+176 from the APPS double-click (123,102)
+# (cell n centre = 75+68*(n%4), 122+52*(n/4)). The park keeps its ABSOLUTE target
+# (415,258): +204,-20 from the new click point. Second park unchanged.
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m88:100,m0:76,l1,l0,l1,l0,m100:-10,m100:-10,m4:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the

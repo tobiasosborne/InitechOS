@@ -85,9 +85,12 @@
  *             (thumb_y - track_top) * range / (track_h - thumb_h)
  *   (integer division; the forward and inverse are verified by the oracle.)
  *
- * PROGRESS BAR FILL MODEL:
- *   filled_px = inner_w * contrlValue / contrlMax   (integer division)
- *   inner_w = contrlRect.right - contrlRect.left - 2  (inside the 1 px border)
+ * PROGRESS BAR FILL MODEL (initech-bf2; spec/progress_platinum.h):
+ *   contrlRect is the Platinum CDEF 5 ETCHED bounds, FLAIR_PROGRESS_H (14)
+ *   rows tall (any other height draws nothing).
+ *   filled_px = inner_w * contrlValue / contrlMax   (integer division; the
+ *               count includes the black fill-edge column)
+ *   inner_w = contrlRect.right - contrlRect.left - 4  (inside etch + frame)
  *   At contrlValue==0: filled_px == 0 (no fill).
  *   At contrlValue==contrlMax: filled_px == inner_w (full fill).
  *

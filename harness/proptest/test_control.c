@@ -80,6 +80,7 @@
 #include "text.h"               /* text_measure / text_center_in (-Ios/flair)  */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 #include "alert_capture.h"
+#include "progress_golden.h"   /* initech-bf2: the minted CDEF 5 captures */
 
 TEST_HARNESS();
 
@@ -387,11 +388,12 @@ static void test_progress_bar_math(void)
 {
     ControlRecord pb;
     rgn_rect_t r;
-    /* A 202 px wide bar: inner_w = 202 - 2 = 200. */
-    r.top = 100; r.left = 50; r.bottom = 120; r.right = 252;
+    /* A 204 px wide bar: inner_w = 204 - 2*2 (etch + frame) = 200
+     * (spec/progress_platinum.h FLAIR_PROGRESS_INSET). */
+    r.top = 100; r.left = 50; r.bottom = 114; r.right = 254;
     control_init(&pb, progressBar, r, 0, 0, 100, 1, "");
 
-    int inner_w = (int)r.right - (int)r.left - 2; /* = 200 */
+    int inner_w = (int)r.right - (int)r.left - 4; /* = 200 */
     char msg[160];
 
     CHECK(inner_w == 200, "test fixture: inner_w must be 200");
@@ -428,7 +430,7 @@ static void test_progress_bar_math(void)
 
     /* Degenerate: max==0 -> 0 (no divide-by-zero). */
     ControlRecord pb2;
-    r.top = 100; r.left = 50; r.bottom = 120; r.right = 252;
+    r.top = 100; r.left = 50; r.bottom = 114; r.right = 254;
     control_init(&pb2, progressBar, r, 0, 0, 0, 1, "");
     CHECK(ctrl_progress_fill_px(&pb2) == 0,
           "progress bar max==0 -> fill==0 (no divide by zero)");
@@ -557,15 +559,6 @@ static void draw_all_controls(GrafPort *port)
         r.top = 100; r.left = 50; r.bottom = 300; r.right = 66;
         control_init(&sb, scrollBar, r, 50, 0, 100, 1, "");
         DrawControl(port, &sb);
-    }
-
-    /* Progress bar: [200,150) to [440,170) -- 240px wide, value=50/100. */
-    {
-        ControlRecord pb;
-        rgn_rect_t r;
-        r.top = 150; r.left = 200; r.bottom = 170; r.right = 440;
-        control_init(&pb, progressBar, r, 50, 0, 100, 1, "");
-        DrawControl(port, &pb);
     }
 }
 
@@ -714,45 +707,102 @@ static void test_draw_controls(void)
         CHECK(pidx(&ctx, 49u, 200u) == (uint32_t)RENDER_DESKTOP_INDEX, msg);
     }
 
-    /* --- PROGRESS BAR ASSERTIONS ---
-     * Progress bar: top=150, left=200, bottom=170, right=440 (240px wide).
-     * inner_w = 240 - 2 = 238. Value=50/100: filled_px = 238*50/100 = 119.
-     * Filled region: x in [201, 201+119) = [201, 320). Index CTRL_ACCENT=5.
-     * Unfilled region: x in [320, 439). Index CTRL_WHITE=1.
-     * Border at x=200 (left), x=439 (right), y=150 (top), y=169 (bottom). */
-    {
-        /* Left border. */
-        snprintf(msg, sizeof msg,
-                 "progress bar left border (x=200, y=160) must be CTRL_BLACK (0)");
-        CHECK(pidx(&ctx, 200u, 160u) == 0u, msg);
-
-        /* Top border. */
-        snprintf(msg, sizeof msg,
-                 "progress bar top border (x=300, y=150) must be CTRL_BLACK (0)");
-        CHECK(pidx(&ctx, 300u, 150u) == 0u, msg);
-
-        /* Filled region: x=250, y=160 (inside filled half). */
-        snprintf(msg, sizeof msg,
-                 "progress bar filled region (x=250, y=160) must be CTRL_ACCENT (5)");
-        CHECK(pidx(&ctx, 250u, 160u) == 5u, msg);
-
-        /* Unfilled region: x=380, y=160 (inside unfilled half). */
-        snprintf(msg, sizeof msg,
-                 "progress bar unfilled region (x=380, y=160) must be CTRL_WHITE (1)");
-        CHECK(pidx(&ctx, 380u, 160u) == 1u, msg);
-
-        /* Exact boundary: filled_px=119 -> last filled x = 201+119-1 = 319.
-         * x=319 should be CTRL_ACCENT; x=320 should be CTRL_WHITE. */
-        snprintf(msg, sizeof msg,
-                 "progress bar at boundary (x=319, y=160) must be CTRL_ACCENT (5)");
-        CHECK(pidx(&ctx, 319u, 160u) == 5u, msg);
-
-        snprintf(msg, sizeof msg,
-                 "progress bar at boundary+1 (x=320, y=160) must be CTRL_WHITE (1)");
-        CHECK(pidx(&ctx, 320u, 160u) == 1u, msg);
-    }
-
     render_ctx_free(&ctx);
+}
+
+/* ===========================================================================
+ * PROPERTY 5b -- PLATINUM PROGRESS BAR vs THE MINTED CAPTURES (initech-bf2)
+ *
+ * The expected pixels are READ FROM THE PNGs (harness/render/progress_golden.h
+ * -- never spec/progress_platinum.h, the artifact's own transcription; Law 2):
+ *   (a) at the golden's own width (188 x 14 etched), the three captured
+ *       states (fill edge E = 193 / 274 / 375) reproduce pixel-for-pixel after
+ *       the ratified lavender->teal mapping, at 8bpp AND 32bpp;
+ *   (b) at the FILE COPY dialog's width every fill count f = 0..W matches the
+ *       golden's column classes (8bpp, the emulator's depth).
+ * CTRL_MUT_PROGRESS_FLAT (the retired authored bar) must go RED here.
+ * ===========================================================================*/
+static pg_golden_t g_pg;
+static int g_pg_w, g_pg_f;
+static void draw_one_progress(GrafPort *port)
+{
+    ControlRecord pb;
+    rgn_rect_t r;
+    r.left = 100; r.top = 200; r.right = (int16_t)(100 + g_pg_w); r.bottom = 200 + PG_H;
+    control_init(&pb, progressBar, r, (int16_t)g_pg_f, 0, (int16_t)(g_pg_w - 4), 1, "");
+    DrawControl(port, &pb);
+}
+static int progress_diff(int depth, int w, int f, const char *what)
+{
+    render_ctx_t ctx;
+    int bad = 0, first = -1, fx = 0, fy = 0;
+    uint32_t want0 = 0, got0 = 0;
+    if (render_one(&ctx, (uint32_t)depth) != 0) {
+        CHECK(0, "render_ctx_init for the progress golden");
+        return 1;
+    }
+    g_pg_w = w; g_pg_f = f;
+    render_run(&ctx, draw_one_progress);
+    for (int dy = 0; dy < PG_H; dy++)
+        for (int dx = 0; dx < w; dx++) {
+            uint32_t want = pg_expected(&g_pg, w, f, dx, dy, depth);
+            if (want == PG_NONE) continue;
+            uint32_t got = render_pixel_rgb(&ctx, (uint32_t)(100 + dx), (uint32_t)(200 + dy));
+            if (got != want) {
+                if (first < 0) { first = 1; fx = dx; fy = dy; want0 = want; got0 = got; }
+                bad++;
+            }
+        }
+    render_ctx_free(&ctx);
+    if (bad) {
+        char msg[220];
+        snprintf(msg, sizeof msg,
+                 "PROGRESS_GOLDEN %s depth=%d w=%d f=%d: %d pixels differ "
+                 "(first at +%d,+%d want #%06X got #%06X)",
+                 what, depth, w, f, bad, fx, fy, (unsigned)want0, (unsigned)got0);
+        CHECK(0, msg);
+    }
+    return bad;
+}
+static void test_progress_platinum_golden(void)
+{
+    if (!pg_golden_load(&g_pg)) {
+        CHECK(0, "PROGRESS_GOLDEN: the minted s8_progress_determinate captures load");
+        pg_golden_free(&g_pg);
+        return;
+    }
+    /* (a) the three captured states at the golden's own geometry. */
+    static const int edges[3] = { 193, 274, 375 };
+    for (int i = 0; i < 3; i++) {
+        int f = edges[i] - PG_L + 1;
+        for (int d = 0; d < 2; d++) {
+            int depth = d ? 32 : 8;
+            render_ctx_t ctx;
+            int bad = 0;
+            if (render_one(&ctx, (uint32_t)depth) != 0) { CHECK(0, "render"); continue; }
+            g_pg_w = PG_W; g_pg_f = f;
+            render_run(&ctx, draw_one_progress);
+            for (int dy = 0; dy < PG_H; dy++)
+                for (int dx = 0; dx < PG_W; dx++) {
+                    if ((dx == PG_W - 1 && dy == 0) || (dx == 0 && dy == PG_H - 1)) continue;
+                    const unsigned char *src = i == 0 ? g_pg.start : i == 1 ? g_pg.partial : g_pg.full;
+                    uint32_t want = pg_map(pg_rgb(src, PG_X0 + dx, PG_Y0 + dy), depth);
+                    bad += render_pixel_rgb(&ctx, (uint32_t)(100 + dx), (uint32_t)(200 + dy)) != want;
+                }
+            render_ctx_free(&ctx);
+            char msg[160];
+            snprintf(msg, sizeof msg, "PROGRESS_GOLDEN capture E=%d depth=%d reproduced (%d pixels differ)",
+                     edges[i], depth, bad);
+            CHECK(bad == 0, msg);
+        }
+    }
+    /* (b) the FILE COPY width (FileCopyDialog: 332 px etched), every f. */
+    {
+        int w = 332, worst = 0;
+        for (int f = 0; f <= w - 4 && worst < 3; f++)
+            if (progress_diff(8, w, f, "sweep")) worst++;
+    }
+    pg_golden_free(&g_pg);
 }
 
 /* ===========================================================================
@@ -1009,6 +1059,7 @@ int main(int argc, char **argv)
     test_progress_bar_math();
     test_button_hittest_and_track();
     test_draw_controls();
+    test_progress_platinum_golden();
     test_capture_button();
     test_scrollbar_draw_vs_math();
     test_scrollbar_thumb_anatomy();
