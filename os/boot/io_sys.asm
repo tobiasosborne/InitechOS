@@ -82,7 +82,7 @@ E820_BUF        equ 0x7400
 
 ; -- Handoff contract (boot_info.h / docs/research/boot-to-text-ground-truth.md
 ;    Sec 2-3). All physical low-memory addresses; flat == physical.
-BOOT_INFO_ADDR  equ 0x0500      ; 32-byte boot_info struct (above the BDA)
+BOOT_INFO_ADDR  equ 0x0500      ; 36-byte boot_info struct (above the BDA)
                                 ; append-only: 24->28 ext_mem_kb, then 28->32
                                 ; kernel_base (kernel-runway-relocation.md K2;
                                 ; bead initech-tdnl.29; boot_info.h)
@@ -239,10 +239,10 @@ start:
     mov [ext_mem_kb], eax
 
     ; -- Build boot_info at BOOT_INFO_ADDR (0x500), real mode, DS=0 ---------
-    ; 32-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
+    ; 36-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
     ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr,
-    ;   ext_mem_kb, kernel_base. The final field is an append-only placement
-    ;   contract (kernel-runway-relocation.md K2; bead initech-tdnl.29).
+    ;   ext_mem_kb, kernel_base, lfb_dac_bits. The placement field remains at
+    ;   +28 (tdnl.29); actual DAC precision is appended at +32 (initech-2gva).
     ; lfb_addr/pitch/bpp were captured by vbe_setup. width/height use the
     ; WANT_W/WANT_H constants -- valid because vbe_setup matched the mode to
     ; them before proceeding (stage2.asm XResolution/YResolution checks).
@@ -263,6 +263,8 @@ start:
     mov eax, [ext_mem_kb]
     mov [BOOT_INFO_ADDR + 24], eax     ; ext_mem_kb (KiB above 1 MiB; DEC-03)
     mov dword [BOOT_INFO_ADDR + 28], KERNEL_BASE ; kernel_base (append-only)
+    mov eax, [lfb_dac_bits]
+    mov [BOOT_INFO_ADDR + 32], eax   ; negotiated DAC width (initech-2gva)
 
     cmp byte [fat_loaded], 1
     je .kload_done
@@ -397,10 +399,13 @@ start:
 
 ; ===========================================================================
 ; vbe_setup -- query VBE controller, walk the mode list, find a 640x480 mode
-; with a linear framebuffer at 32bpp (preferred) or 24bpp, set it with the LFB
-; bit, and record lfb_addr / lfb_pitch / lfb_bpp. Fails loud + halts on error.
+; with a linear framebuffer: 32 -> 24 -> 8 (0x101) -> VGA13 floor.
+; Ref: PRD Sec 5; ADR-0004 OD-2/AM-7; vesa8-ground-truth.md (VBE 2.0
+; pp6,13-14,16-20,25,30). FORCE_VBE_101 filters the BIOS offer ONLY in gate
+; IO.SYS images; the query/validation/set/handoff path is production code.
 ; ===========================================================================
 vbe_setup:
+    mov dword [lfb_dac_bits], 6  ; VBE mode sets reset the DAC to six bits
     ; 1. VbeInfoBlock: request VBE 2.0 info ("VBE2" signature in the buffer).
     mov ax, VBE_CTRL_BUF >> 4    ; segment for the buffer (es:di)
     ; We placed buffers at flat low addresses; use es=0, di=offset instead.
@@ -419,6 +424,15 @@ vbe_setup:
     cmp eax, 0x41534556          ; "VESA"
     jne .errsig
 
+%ifdef FORCE_VBE_101
+    mov byte [wanted_bpp], 8
+%endif
+%ifdef VBE_MUT_8_FIRST
+    mov byte [wanted_bpp], 8
+%endif
+.restart:
+    ; Rescan the BIOS list at each depth: BIOS enumeration order is NOT
+    ; preference order. All modes in the higher tier must be tried first.
     ; 2. VbeInfoBlock.VideoModePtr is a far pointer at offset 0x0E (off:seg).
     mov ax, [es:VBE_CTRL_BUF + 0x0E]   ; offset
     mov [mode_ptr_off], ax
@@ -432,9 +446,13 @@ vbe_setup:
     mov si, [mode_ptr_off]
     mov cx, [fs:si]              ; mode number
     cmp cx, 0xFFFF
-    je .errnomode                ; end of list, no suitable mode -> fail loud
+    je .next_depth
     add word [mode_ptr_off], 2
     mov [cur_mode], cx
+%ifdef FORCE_VBE_101
+    cmp cx, 0x101
+    jne .scan
+%endif
 
     ; 3. Query ModeInfoBlock for this mode.
     xor ax, ax
@@ -445,12 +463,26 @@ vbe_setup:
     int 0x10
     cmp ax, 0x004F
     jne .scan                    ; couldn't query -> skip
+%ifdef FORCE_VBE_101
+    mov si, msg_101_info
+    call serial_puts
+    mov ax, [es:VBE_MODE_BUF]
+    call serial_hex16
+    movzx ax, byte [es:VBE_MODE_BUF + 0x19]
+    call serial_hex16
+    movzx ax, byte [es:VBE_MODE_BUF + 0x1B]
+    call serial_hex16
+    mov ax, [es:VBE_CTRL_BUF + 0x0A]
+    call serial_hex16
+%endif
 
     ; ModeAttributes (offset 0x00): bit0 supported, bit4 graphics, bit7 LFB.
     mov ax, [es:VBE_MODE_BUF + 0x00]
     test ax, 0x0001              ; mode supported in hardware?
     jz .scan
     test ax, 0x0080              ; linear framebuffer available?
+    jz .scan
+    test ax, 0x0010              ; graphics mode?
     jz .scan
 
     ; XResolution (0x12), YResolution (0x14).
@@ -461,15 +493,39 @@ vbe_setup:
     cmp ax, WANT_H
     jne .scan
 
-    ; BitsPerPixel (0x19, byte). Accept 32 (preferred) or 24.
+    ; A genuine 0x101 packed-pixel VGA-compatible LFB is the indexed tier.
+    ; Non-VGA palette programming needs a different hardware backend.
     mov al, [es:VBE_MODE_BUF + 0x19]
-    cmp al, 32
-    je .good
-    cmp al, 24
-    je .good
+    cmp al, [wanted_bpp]
+    jne .scan
+    cmp al, 8
+    jne .direct
+%ifdef VBE_MUT_NO_101
     jmp .scan
+%endif
+    cmp word [cur_mode], 0x101
+    jne .scan
+    ; D5 may mark the extended mode non-VGA (SeaBIOS returns 00BBh).
+    ; Controller compatibility alone does not promise mode-level registers:
+    ; the kernel verifies the ONLY registers it needs by DAC readback.
+    test byte [es:VBE_CTRL_BUF + 0x0A], 2 ; controller must be VGA-compatible
+    jnz .scan
+    cmp byte [es:VBE_MODE_BUF + 0x1B], 4 ; packed pixels
+    jne .scan
+    jmp .good
+.direct:
+    cmp byte [es:VBE_MODE_BUF + 0x1B], 6 ; direct color
+    jne .scan
 
 .good:
+    ; Reject invalid geometry metadata before it can reach the kernel.
+    movzx ax, byte [wanted_bpp]
+    shr ax, 3
+    imul ax, WANT_W
+    cmp [es:VBE_MODE_BUF + 0x10], ax
+    jb .scan
+    cmp dword [es:VBE_MODE_BUF + 0x28], 0
+    je .scan
     ; Record bpp.
     mov al, [es:VBE_MODE_BUF + 0x19]
     movzx eax, al
@@ -491,13 +547,57 @@ vbe_setup:
     or bx, 0x4000                ; request linear framebuffer
     int 0x10
     cmp ax, 0x004F
+    jne .scan                    ; try the remaining modes / lower tiers
+%ifdef FORCE_VBE_101
+    ; Gate-only padding: real VBE 4F06h logical scanline (VBE 2.0 Sec 4.9,
+    ; p28), not manufactured boot_info. Keep 640 visible pixels, but request
+    ; 648 virtual pixels so the live row copy must honor the returned stride.
+    mov ax, 0x4F06
+    xor bx, bx
+    mov cx, 648
+    int 0x10
+    cmp ax, 0x004F
     jne .err02
+    movzx eax, bx
+    mov [lfb_pitch], eax
+%endif
+    ; Optional eight-bit DAC precision (VBE 2.0 Sec 4.11, p30). Retain the
+    ; authentic six-bit path on fixed-width hardware. BH is the ACTUAL width,
+    ; not a promise that the requested eight bits were supported.
+    cmp dword [lfb_bpp], 8
+    jne .mode_ready
+    test byte [VBE_CTRL_BUF + 0x0A], 1
+    jz .mode_ready
+    mov ax, 0x4F08
+    mov bx, 0x0800
+    int 0x10
+    cmp ax, 0x004F
+    jne .mode_ready
+    cmp bh, 8
+    jne .mode_ready
+    mov dword [lfb_dac_bits], 8
+.mode_ready:
     ; VBE 640x480 LFB is live: record the resolution (the kernel reads
     ; width/height from boot_info, not from WANT_W/WANT_H constants, so the
     ; mode-0x13 fallback below can report a different geometry).
     mov dword [lfb_width],  WANT_W
     mov dword [lfb_height], WANT_H
+    mov si, msg_vbe_mode
+    call serial_puts
+    mov ax, [cur_mode]
+    call serial_hex16
     ret
+
+.next_depth:
+    cmp byte [wanted_bpp], 32
+    jne .try8
+    mov byte [wanted_bpp], 24
+    jmp .restart
+.try8:
+    cmp byte [wanted_bpp], 24
+    jne .errnomode
+    mov byte [wanted_bpp], 8
+    jmp .restart
 
     ; -- VBE error paths: print the specific marker, then fall back to a
     ; standard VGA mode (Rule 2 -- a loud, recorded path change, not a halt).
@@ -755,6 +855,27 @@ serial_puts:
     pop si
     ret
 
+; Actual selected mode, four ASCII hex digits; serial diagnostics only.
+serial_hex16:
+    push cx
+    mov cx, 4
+.digit:
+    rol ax, 4
+    push ax
+    and al, 15
+    add al, '0'
+    cmp al, '9'
+    jbe .emit
+    add al, 7
+.emit:
+    call serial_putc
+    pop ax
+    loop .digit
+    mov al, 10
+    call serial_putc
+    pop cx
+    ret
+
 ; ===========================================================================
 ; 32-bit protected/flat entry
 ; ===========================================================================
@@ -881,6 +1002,7 @@ DATA_SEL equ gdt_data - gdt_start    ; 0x10
 mode_ptr_off: dw 0
 mode_ptr_seg: dw 0
 cur_mode:     dw 0
+wanted_bpp:   db 32
 
 ; Boot drive (DL at stage2 entry; used by the kernel-load INT 13h).
 boot_drive_s2: db 0
@@ -901,6 +1023,7 @@ lfb_pitch:  dd 0
 lfb_bpp:    dd 0
 lfb_width:  dd 0
 lfb_height: dd 0
+lfb_dac_bits: dd 6
 
 ; Extended-memory probe result (KiB above 1 MiB), filled by mem_probe; written
 ; to boot_info_t.ext_mem_kb. 0 means every INT 15h probe failed (ADR-0004
@@ -910,6 +1033,10 @@ ext_mem_kb: dd 0
 ; Serial marker strings.
 msg_s2:      db "S2", 0x0A, 0
 msg_vbe:     db "VBE", 0x0A, 0
+msg_vbe_mode: db "VBE-MODE=", 0
+%ifdef FORCE_VBE_101
+msg_101_info: db "VBE101-INFO attr/bpp/model/caps", 10, 0
+%endif
 msg_a20:     db "A20", 0x0A, 0
 msg_gdt:     db "GDT", 0x0A, 0
 msg_err_vbe: db "ERR-VBE", 0x0A, 0

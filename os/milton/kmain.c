@@ -66,6 +66,7 @@
 #include "chrome.h"          /* flair_draw_window_widget (TrackBox, tdnl.60)  */
 #include "menu_canon.h"      /* FLAIR_CANON_PHOTOSHOP_MENU_COUNT (-Ispec/assets)*/
 #include "palette.h"         /* flair_palette_rgb + INITECH_*_RGB (-Ispec/assets)*/
+#include "flair_dac.h"       /* generated from locked CLUT domain + canon */
 #include "event.h"           /* flair_tick_advance/count (FO-4) + flair_raw_post/
                               * flair_event_init / flair_raw_ring_t (FO-5);
                               * WaitNextEvent / flair_event_set_yield (FO-7)  */
@@ -307,12 +308,15 @@ static void fb_clear(const boot_info_t *bi, uint8_t r, uint8_t g, uint8_t b)
  * light-gray ink here. The DAC is 6 bits/channel (0..63), so 8-bit RGB is
  * >> 2. Ports: 0x3C8 = write-index, 0x3C9 = R,G,B data in succession. The
  * direct-color VBE 24/32bpp paths need no palette and never call this. */
+/* VBE 4F08h negotiation, handed off by IO.SYS; VGA13 always uses six.
+ * Ref: docs/research/vesa8-ground-truth.md (VBE 2.0 Sec 4.11, p30). */
+static uint8_t g_vga_dac_shift = 2;
 static void vga_set_dac(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 {
     outb(0x3C8, index);
-    outb(0x3C9, (uint8_t)(r >> 2));
-    outb(0x3C9, (uint8_t)(g >> 2));
-    outb(0x3C9, (uint8_t)(b >> 2));
+    outb(0x3C9, (uint8_t)(r >> g_vga_dac_shift));
+    outb(0x3C9, (uint8_t)(g >> g_vga_dac_shift));
+    outb(0x3C9, (uint8_t)(b >> g_vga_dac_shift));
 }
 
 /* Emit a signed decimal (for FAT-MOUNT-FAIL rc=NN, which carries a negative
@@ -866,7 +870,7 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
 
 /* Present the indexed-8 offscreen onto the live LFB, honoring lfb_bpp + the LFB
  * pitch (scanline padding). 8bpp: program the VGA DAC with the FLAIR palette
- * (only the indices the scene uses, 0..8) and copy indices row-by-row. 24/32bpp:
+ * (the COMPLETE generated index domain) and copy indices row-by-row. 24/32bpp:
  * convert each index -> 0x00RRGGBB via flair_palette_rgb and write it through the
  * ONE surface module (surface_put_pixel) into a bitmap_t wrapping the LFB. */
 static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
@@ -885,32 +889,31 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
     flair_cursor_shield();
 
     if (bi->lfb_bpp == 8u) {
-        /* Indexed-8 LFB present (the period-authentic SVGA depth, ADR-0004
-         * OD-2/AM-7: VBE 0x101 on a Cirrus/ET4000-class card). The LFB stores
-         * palette indices: program the DAC for every index flair_palette_rgb
-         * defines (0..8; DAC is 6 bits/channel so 8-bit RGB is >> 2,
-         * vga_set_dac) then copy indices row-by-row honoring lfb_pitch (not
-         * width).
-         *
-         * KEEP -- do NOT delete as dead code (committee ruling re30.3-chair,
-         * 2026-06-21). This path is correct + ratified but currently UNREACHED:
-         * stage2 vbe_setup requests only 640x480x32/24, and the sole 8bpp the
-         * boot yields is mode-0x13 320x200, which the 640x480 size guard below
-         * rejects before present runs. Reached when a 640x480x8 LFB exists
-         * (VESA 0x101 / 86Box at M4). Activation of the stage2 0x101 fallback
-         * AND a test that REACHES this wrapper are tracked in bead initech-2gva
-         * (host-modeled separately in harness/render/render.c). */
-        for (uint32_t idx = 0; idx <= 8u; idx++) {
-            uint32_t rgb = flair_palette_rgb((uint8_t)idx);
-            vga_set_dac((uint8_t)idx,
-                        (uint8_t)((rgb >> 16) & 0xFFu),
-                        (uint8_t)((rgb >> 8) & 0xFFu),
-                        (uint8_t)(rgb & 0xFFu));
+        /* ADR-0004 OD-2/AM-7; color_canon.json explicit entries + gray ramp.
+         * The generated table covers ALL 256 indices, including alert slots,
+         * named 119/165 hilites, Platinum chrome and unnamed app grays. The
+         * ROM CLUT's index assignments are different: never load it verbatim.
+         * test-flair-desktop-8bpp reaches THIS live DAC+copy wrapper. */
+#ifdef FLAIR_DAC_MUT_6BIT
+        g_vga_dac_shift = 2;
+#endif
+        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++) {
+#ifdef FLAIR_DAC_MUT_OMIT119
+            if (idx == 119u) continue;
+#endif
+#ifdef FLAIR_DAC_MUT_OMIT165
+            if (idx == 165u) continue;
+#endif
+            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
         }
         volatile uint8_t *lfb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
         for (uint32_t y = 0; y < H; y++) {
             const uint8_t *srow = (const uint8_t *)off->base + (uint32_t)y * off->pitch;
+#ifdef FLAIR_DAC_MUT_ROWCOPY
+            volatile uint8_t *drow = lfb + (uint32_t)y * W;
+#else
             volatile uint8_t *drow = lfb + (uint32_t)y * bi->lfb_pitch;
+#endif
             for (uint32_t x = 0; x < W; x++) {
                 drow[x] = srow[x];
             }
@@ -6136,6 +6139,16 @@ void kernel_main(void)
     b.font_addr  = bi->font_addr;
     b.ext_mem_kb = bi->ext_mem_kb;   /* extended RAM probed by stage2 (DEC-03) */
     b.kernel_base = bi->kernel_base; /* append-only placement field (tdnl.29) */
+    b.lfb_dac_bits = bi->lfb_dac_bits;
+    g_vga_dac_shift = b.lfb_dac_bits == 8u ? 0u : 2u;
+    /* Report actual handoff geometry/stride/base; this is also the gate's
+     * proof that the real desktop reached indexed VBE, not VGA13 or a host
+     * renderer. Ref: PRD Sec 5/8, boot_info.h, initech-2gva. */
+    serial_puts("VIDEO "); serial_putu(b.lfb_width); serial_putc('x');
+    serial_putu(b.lfb_height); serial_puts(" bpp="); serial_putu(b.lfb_bpp);
+    serial_puts(" pitch="); serial_putu(b.lfb_pitch);
+    serial_puts(" lfb=0x"); serial_puthex32(b.lfb_addr);
+    serial_puts(" dac="); serial_putu(b.lfb_dac_bits); serial_putc('\n');
 
     /* Fail-loud kernel placement guard (Rule 2). Ref:
      * docs/design/kernel-runway-relocation.md K2/K3; bead initech-tdnl.29.
@@ -6233,6 +6246,18 @@ void kernel_main(void)
      * BEFORE any fill or glyph blit. The direct-color VBE 24/32bpp paths skip
      * this. */
     if (b.lfb_bpp == 8) {
+        /* VBE mode D5 may be non-VGA even on a VGA controller. Verify the
+         * palette ports before depending on them (VBE 2.0 p20; local
+         * vesa8-ground-truth.md). Index 255 is replaced by the desktop table.
+         * All sentinels fit both six- and eight-bit DACs. */
+        outb(0x3C8, 255);
+        outb(0x3C9, 17); outb(0x3C9, 34); outb(0x3C9, 51);
+        outb(0x3C7, 255);
+        uint8_t dr = inb(0x3C9), dg = inb(0x3C9), db = inb(0x3C9);
+        if (dr != 17u || dg != 34u || db != 51u) {
+            serial_puts("PANIC VGA-DAC: palette port readback failed\nHALTED\n");
+            for (;;) __asm__ __volatile__("cli; hlt");
+        }
         vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
         vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
     }

@@ -31901,4 +31901,5 @@ include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
+include harness/emu/vesa8.mk
 
