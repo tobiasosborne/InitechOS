@@ -243,7 +243,7 @@ $(PUBS_SAMIR_DISK)/.minted: $(PUBS_SAMIR_DISKTOOL) $(PUBS_SAMIR_DISK_SRC)
 	@rm -rf $(PUBS_SAMIR_DISK) && mkdir -p $(PUBS_SAMIR_DISK)
 	@$(PUBS_SAMIR_DISKTOOL) $(PUBS_DIR)/examples/samir/disk $(PUBS_SAMIR_DISK)
 	@touch $@
-.PHONY: pubs-samir-inventory pubs-examples test-pubs-samir-disk
+.PHONY: pubs-samir-inventory pubs-examples test-pubs-samir-disk test-pubs-samir-programs
 pubs-samir-inventory: $(PUBS_SAMIR_INV)
 	@mkdir -p $(PUBS_CHECK)/samir-probe
 	@{ grep -oh '"[A-Z][A-Z0-9]*"' $(SAMIR_MAIN_SRC) $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c | tr -d '"'; \
@@ -288,7 +288,7 @@ ifeq ($(SKIP_PUBS),1)
 test-pubs test-pubs-mutant:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- publication correctness was NOT checked. This is NOT a pass; unset SKIP_PUBS before trusting this gate.\n'
 else
-test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-screens
+test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-screens test-pubs-samir-programs
 	@printf '>>> test-pubs: green (command coverage, example replay, source lints, build cap)\n'
 # GC-01 over the InitechDOS books together (the Reference documents, the
 # User's Guide teaches): their main.cmds lists (initech-syntax.sty, the one
@@ -321,7 +321,11 @@ test-pubs-lint: $(PUBS_GATE)
 	@printf '>>> test-pubs-fonts: green (all font files match fonts.lock)\n'
 test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE) test-pubs-samir-disk
 	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_SAMIR_DISK)
-test-pubs-mutant: test-pubs $(PUBS_GATE)
+# GC-11 for InitechBase: the month-end programs and their output as the
+# reference programs of harness/diff/dbf_diff run them.
+test-pubs-samir-programs:
+	@sh harness/pubs/samir_programs.sh $(PUBS_DIR)/examples/samir/disk $(CANON_DIR) $(PUBS_DIR)/manuals/initechbase-volume-two
+test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_SAMIR_INV)
 	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV)
 endif
 
