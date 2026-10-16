@@ -588,20 +588,18 @@ static inline void dos_puts(const char *dollar_terminated)
 
 /* ---- Proto-DIR (beads initech-saw) ----------------------------------------
  * Walk the mounted FAT12 root directory and render a DOS-style "DIR" listing
- * to BOTH the LFB console and COM1 serial. This is the FIRST end-to-end
+ * to COM1 serial. This is the FIRST end-to-end
  * exercise of ata.c + fat12.c on the emulator: no INT 21h, no SFT -- a direct
  * call into the oracle-green FAT reader over the (newly live) ATA backend.
  * Ref: fs-mount-sft-ground-truth.md Sec 5.1.
  *
- * The callback fans each line to the console (when bound) and serial, so the
- * harness can grep the filenames on the wire AND a screendump shows the list. */
-static console_t *g_dir_con = 0;
+ * qskz: this mount self-test is debug output, not DOS startup console output.
+ * Keep serial filenames/DIR-OK unchanged for test-dir, test-fat-mount and
+ * test-dos*; test-boot still grades its banner. The primary console instead
+ * asks for date/time when AUTOEXEC is absent (Guide pp.19-20, Ref p.135). */
 
 static void dir_putc(char c)
 {
-    if (g_dir_con) {
-        console_putc(g_dir_con, c);
-    }
     serial_putc(c);
 }
 
@@ -612,8 +610,7 @@ static void dir_puts(const char *s)
     }
 }
 
-/* Emit an unsigned decimal right-justified into a field of `width`, fanned to
- * console+serial (so the size column lines up DOS-style). */
+/* Emit an unsigned decimal right-justified into a serial debug field. */
 static void dir_putu_field(uint32_t v, int width)
 {
     char buf[10];
@@ -5224,7 +5221,7 @@ void kernel_main(void)
      * Fail loud (Rule 2): if console_init refuses (NULL/zero addr/bad bpp/no
      * font) emit CON-BAD + the code and skip drawing; the seafoam fill above
      * still satisfies the screendump so the handoff gate stays diagnosable. */
-    /* `con` MUST live for the rest of kernel_main: g_int21_con / g_dir_con / the
+    /* `con` MUST live for the rest of kernel_main: g_int21_con / the
      * panic console all hold &con and are dereferenced by the program demo and
      * the proto-DIR far below. A block-local here would dangle once the block
      * ends (its stack is reused by the loader/mount locals), so the console is
@@ -6368,7 +6365,6 @@ void kernel_main(void)
 
         /* Fan the proto-DIR to the live console too (the SAME console the
          * banner used, already bound via g_int21_con). */
-        g_dir_con = g_int21_con;
 
         ata_ctx_init_primary_slave(&ata_slave);
         ata_blockdev_init(&fatdev, &ata_slave);

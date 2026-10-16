@@ -10,6 +10,9 @@
 #include "int21.h"
 static const int21_file_backend_t *backend;
 void int21_set_file_backend(const int21_file_backend_t *b) { backend = b; }
+/* This read-only oracle binds no clock. The integration stamp oracle binds
+ * the real INT21 seam instead (dos_parity_host.c). */
+int int21_file_stamp(uint16_t *t, uint16_t *d) { (void)t; (void)d; return 0; }
 
 /* Fixed on-disk fixtures, independent of the artifact label reader. They
  * deliberately disagree between root and BPB, to prove root precedence. */

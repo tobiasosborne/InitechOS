@@ -671,6 +671,14 @@ typedef int (*int21_clock_set_fn)(uint16_t year, uint8_t month, uint8_t day,
  * backed callbacks at boot; the host oracle binds a fixed mock. */
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set);
 
+/* Same clock, packed for FAT. IBM DOS 3.30 Tech Ref pp.5-12/13. Returns 0
+ * without changing the outputs when no clock is bound or its read fails. */
+int int21_file_stamp(uint16_t *mtime, uint16_t *mdate);
+
+/* Canonical root-relative directory spelling without changing CWD.
+ * DIR [drive:][pathname], MS-DOS 3.3 Reference p.57. */
+int int21_directory_path(const char *path, char *canon, uint32_t capacity);
+
 /* ---- INTERRUPT-VECTOR TABLE SEAM (beads initech-509.8) --------------------
  * AH=25h SETVECT / AH=35h GETVECT read and write the live interrupt vector for
  * a given vector number. On this 32-bit protected-flat kernel that means the

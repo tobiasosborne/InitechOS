@@ -457,6 +457,21 @@ void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
     g_clock_get = get;
     g_clock_set = set;
 }
+
+/* dwbl: runtime metadata uses the AH=2Ah/2Ch clock, never the build host.
+ * Ref: ADR-0003 Appendix A/B.1; IBM DOS 3.30 Tech Ref pp.5-12/13. */
+int int21_file_stamp(uint16_t *mtime, uint16_t *mdate)
+{
+    uint16_t year;
+    uint8_t mon, day, hh, mi, ss, dow;
+    if (!g_clock_get || !g_clock_get(&year, &mon, &day, &hh, &mi, &ss, &dow))
+        return 0;
+    if (year < 1980u || year > 2099u || mon < 1u || mon > 12u ||
+        day < 1u || day > 31u || hh > 23u || mi > 59u || ss > 59u) return 0;
+    *mtime = (uint16_t)((hh << 11) | (mi << 5) | (ss / 2u));
+    *mdate = (uint16_t)(((year - 1980u) << 9) | (mon << 5) | day);
+    return 1;
+}
 void int21_set_vectortable(int21_setvect_fn set, int21_getvect_fn get)
 {
     g_setvect = set;
@@ -2157,6 +2172,20 @@ int int21_directory_exists(const char *path)
     return path != 0 && !path_overlength(path) && g_file != 0 &&
         g_file->resolve_dir != 0 &&
         g_file->resolve_dir(path, g_cwd_start_cluster, &dir, 0, 0u) == 0u;
+}
+
+int int21_directory_path(const char *path, char *canon, uint32_t capacity)
+{
+    uint16_t dir;
+    if (!path || path_overlength(path) || !g_file || !g_file->resolve_dir)
+        return 0;
+    /* A: is drive-relative, A:\ is absolute. Only A: is mounted (AH=19h/36h).
+     * Ref: MS-DOS 3.3 Reference p.57 and pp.12-13. */
+    if (path[0] && path[1] == ':') {
+        if (path[0] != 'A' && path[0] != 'a') return 0;
+        path += 2;
+    }
+    return g_file->resolve_dir(path, g_cwd_start_cluster, &dir, canon, capacity) == 0u;
 }
 
 int int21_path_is_device(const char *path)
