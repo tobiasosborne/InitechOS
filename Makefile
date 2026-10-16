@@ -10061,6 +10061,18 @@ $(eval $(call tenant-exe-rules,itext_sel_plain,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) 
 $(eval $(call tenant-exe-rules,itext_no_scroll,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SCROLL_NEVER_ENABLED,$(ITEXT_APP_DEP),--gc-sections))
 ITEXT_EXE := $(BUILD)/tenant/itext.exe
 
+# R4.4: two disk tenants share TextEdit, font metrics and the paged DA code.
+DA_APP_SRC := os/apps/notepad/notepad.c os/flair/textedit.c os/apps/itext/te_fonts.c
+DA_APP_DEP := $(ITEXT_APP_DEP) spec/notepad/store.h spec/notepad/store.json
+$(eval $(call tenant-exe-rules,notepad,$(DA_APP_SRC),$(ITEXT_APP_CF),$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,scrapbook,$(DA_APP_SRC),$(ITEXT_APP_CF) -DSCRAPBOOK,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,notepad_turn,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_TURN_OFFBYONE,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,notepad_close,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_SKIP_CLOSE_SAVE,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,notepad_paste,$(DA_APP_SRC),$(ITEXT_APP_CF) -DDA_MUT_PASTE_WRONG_PAGE,$(DA_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,scrapbook_paste,$(DA_APP_SRC),$(ITEXT_APP_CF) -DSCRAPBOOK -DDA_MUT_PASTE_WRONG_PAGE,$(DA_APP_DEP),--gc-sections))
+NOTEPAD_EXE := $(BUILD)/tenant/notepad.exe
+SCRAPBOOK_EXE := $(BUILD)/tenant/scrapbook.exe
+
 # FONTS.EXE -- the Font Manager specimen tenant (os/apps/fonts/fonts.c; bead
 # initech-tdnl.68): styled TEXTDRAW runs, a truncated title, a clipped line, a
 # Style menu in its own styles. The fixture of test-flair-fonts ONLY, shipped
@@ -10137,7 +10149,7 @@ FLAIR_TPSPARM_DAT := harness/diff/tps/tpsparm.dat
 FLAIR_TPS_DBF     := harness/diff/tps/tps.dbf
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(foreach pair,$(FLAIR_DOS_EXTERNALS),$(word 1,$(subst :, ,$(pair)))) $(FLAIR_DATA_AUTOEXEC) $(CALC_EXE) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(foreach pair,$(FLAIR_DOS_EXTERNALS),$(word 1,$(subst :, ,$(pair)))) $(FLAIR_DATA_AUTOEXEC) $(CALC_EXE) $(or $(5),$(ITEXT_EXE)) $(PAINT_EXE) $(FLAIR_DATA_LEDGER) $(FLAIR_DATA_MICHAEL) $(FLAIR_TPSREP_COM) $(FLAIR_TPSPARM_DAT) $(FLAIR_TPS_DBF) $(CALCDA_EXE) $(NOTEPAD_EXE) $(SCRAPBOOK_EXE) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 -N 0x494e4954 -v INITECH ::
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_README) ::README.TXT
@@ -10158,8 +10170,10 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_TPS_DBF) ::APPS/TPS.DBF
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_LEDGER) ::APPS/LEDGER.TXT
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(FLAIR_DATA_MICHAEL) ::APPS/MICHAEL.CFG
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(NOTEPAD_EXE) ::APPS/NOTEPAD.EXE
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(SCRAPBOOK_EXE) ::APPS/SCRAPBK.EXE
 	@set -e; $(foreach pair,$(FLAIR_DOS_EXTERNALS),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(word 1,$(subst :, ,$(pair))) ::DOS/$(word 2,$(subst :, ,$(pair)));)
-	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 14 files, DOS 9 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
+	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 16 files, DOS 9 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -23358,6 +23372,19 @@ RECORD_MARKER_dos_folder = FINDER-OPEN-FOLDER name=DOS win=1 singleton=0
 RECORD_IMAGE_dos_folder = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_DATA_dos_folder = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_dos_folder = 300
+# Rule 14 R4.4: PM records these on main after merge; parse-time block.
+include spec/flair_notepad_traces.mk
+RECORD_SCRIPTS += note_pad scrapbook
+RECORD_SPEC_note_pad = $(FLAIR_NOTEPAD_SPEC)
+RECORD_MARKER_note_pad = APPLE-LAUNCH name=NOTEPAD.EXE dir=APPS
+RECORD_IMAGE_note_pad = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_note_pad = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_note_pad = 300
+RECORD_SPEC_scrapbook = $(FLAIR_SCRAPBOOK_SPEC)
+RECORD_MARKER_scrapbook = APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
+RECORD_IMAGE_scrapbook = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_scrapbook = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_scrapbook = 300
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -31315,7 +31342,7 @@ CALCDA_UP = grep -qx 'APPLE-LAUNCH name=CALCULAT.EXE dir=APPS' $(1) && grep -qx 
 .PHONY: test-flair-apple-menu test-flair-apple-menu-mutant
 test-flair-apple-menu: $(HARNESS_BIN) $(FLAIR_CALCDA_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CALCDA_CHECK)
 	$(call calcda-boot,flair_apple_drop,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_APPLE_DROP_SPEC,FLAIR-MENU-DROP menu=1)
-	@grep -qx 'APPLE-MENU n=3' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
+	@grep -qx 'APPLE-MENU n=5' $(BUILD)/flair_apple_drop.serial && grep -qx 'FLAIR-MENU-DROP menu=1' $(BUILD)/flair_apple_drop.serial && [ -s $(BUILD)/flair_apple_drop.ppm ] \
 	 || { printf '!!! test-flair-apple-menu FAIL [1/3] DROP: no Apple menu dropped from the band-1 glyph\n'; grep -E '^(APPLE|FLAIR-MENU)' $(BUILD)/flair_apple_drop.serial; exit 1; }
 	@$(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" | sed 's/^/    /'; \
 	 $(PPM_FLAIR_CALCDA_CHECK) apple $(BUILD)/flair_apple_drop.ppm "$(CALCDA_S7_CAPTURES)/s8_apple_menu.png" >/dev/null \
@@ -31715,7 +31742,9 @@ test-flair-itext-scroll-mutant: test-flair-itext-scroll $(FLAIR_DATA_ITEXT_NOSCR
 TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
+include harness/emu/notepad.mk
 include harness/fixture_volumes.mk
+$(eval $(call fixture-contract,$(DA_CORRUPT_DATA),$(FLAIR_FIXTURES) NOTEPAD.DAT))
 
 TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
 
@@ -31894,11 +31923,48 @@ include harness/diff/fat_diff/command_file.mk
 # Flagship DOS-folder layout / PATH / filters (initech-zc68, initech-2kgh).
 include harness/diff/fat_diff/dos_folder.mk
 # README + APPS + fourteen leaves = sixteen purged nodes.
-RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=16 refused=0
+RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=18 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
 include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
+
+
+# R4.4 Note Pad / Scrapbook host routing (initech-tdnl.18).
+DA_ROUTE_CF := $(TEST_ITEXT_ROUTE_CF)
+DA_ROUTE_LINK := $(TEST_ITEXT_ROUTE_LINK)
+DA_ROUTE_DEPS := harness/proptest/test_notepad_route.c os/apps/notepad/notepad.c spec/notepad/store.h $(TEST_ITEXT_ROUTE_DEPS)
+$(BUILD)/test_notepad_route: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -o $@ $< $(DA_ROUTE_LINK)
+$(BUILD)/test_scrapbook_route: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -DSCRAPBOOK -o $@ $< $(DA_ROUTE_LINK)
+.PHONY: test-notepad-route test-scrapbook-route
+test-notepad-route: $(BUILD)/test_notepad_route
+	@$<
+	@printf '>>> test-notepad-route: green\n'
+test-scrapbook-route: $(BUILD)/test_scrapbook_route
+	@$<
+	@printf '>>> test-scrapbook-route: green\n'
+TEST_UNIT_GATES += test-notepad-route test-scrapbook-route
+
+DA_HOST_MUTANTS := DA_MUT_TURN_OFFBYONE:page-turn DA_MUT_SKIP_CLOSE_SAVE:save-close DA_MUT_PASTE_WRONG_PAGE:paste-page DA_MUT_ACCEPT_CORRUPT:corrupt
+$(BUILD)/test_notepad_mut_%: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -D$* -o $@ $< $(DA_ROUTE_LINK)
+$(BUILD)/test_scrapbook_mut_%: $(DA_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DA_ROUTE_CF) -DSCRAPBOOK -D$* -o $@ $< $(DA_ROUTE_LINK)
+.PHONY: test-notepad-route-mutant test-scrapbook-route-mutant
+test-notepad-route-mutant: $(foreach m,$(DA_HOST_MUTANTS),$(BUILD)/test_notepad_mut_$(firstword $(subst :, ,$(m))))
+	@for p in $(DA_HOST_MUTANTS); do m=$${p%%:*}; why=$${p#*:}; b=$(BUILD)/test_notepad_mut_$$m; \
+	 if $$b > $$b.log 2>&1; then printf 'FAIL %s survived\n' "$$m"; exit 1; fi; \
+	 grep -q 'checks,' $$b.log && grep -q "^RED-REASON $$why:" $$b.log || { cat $$b.log; exit 1; }; \
+	 printf '>>> test-notepad-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$b.log)"; done
+test-scrapbook-route-mutant: $(BUILD)/test_scrapbook_mut_DA_MUT_PASTE_WRONG_PAGE $(BUILD)/test_scrapbook_mut_DA_MUT_SKIP_CLOSE_SAVE $(BUILD)/test_scrapbook_mut_DA_MUT_ACCEPT_CORRUPT
+	@for p in DA_MUT_PASTE_WRONG_PAGE:paste-page DA_MUT_SKIP_CLOSE_SAVE:save-close DA_MUT_ACCEPT_CORRUPT:corrupt; do \
+	 m=$${p%%:*}; why=$${p#*:}; b=$(BUILD)/test_scrapbook_mut_$$m; \
+	 if $$b > $$b.log 2>&1; then printf 'FAIL %s survived\n' "$$m"; exit 1; fi; \
+	 grep -q 'checks,' $$b.log && grep -q "^RED-REASON $$why:" $$b.log || { cat $$b.log; exit 1; }; \
+	 printf '>>> test-scrapbook-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$b.log)"; done
+TEST_UNIT_GATES += test-notepad-route-mutant test-scrapbook-route-mutant
 
