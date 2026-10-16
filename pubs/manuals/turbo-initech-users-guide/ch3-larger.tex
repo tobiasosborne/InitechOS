@@ -88,6 +88,50 @@ program, where another language would use an enumerated type:
 
 \ProgramOutput{states}
 
+\section{A larger application: the staff directory}
+\ix{staff directory}
+\ix{application, sample}
+The program \file{DIRECTRY.PAS} keeps a staff directory.  It saves the
+staff to a file as lines of text, reads the file back into its tables,
+sorts the people by name and prints a report.  It uses every technique of
+this chapter, and it shows how a Turbo Initech program does without the
+features the language leaves out.
+
+\Program{directory}
+
+On InitechDOS it writes \file{STAFF.TXT} and prints:
+
+\ProgramOutput{directory}
+
+\SideHead{Names in one string}A string cannot be an element of an array or a
+field of a record.  The program therefore keeps all the names in the one
+string \id{Pool}, \id{NameLen} characters each, and \id{GetName} and
+\id{PutName} copy one name out of or into its slot.  The main block first
+fills \id{Pool} with blanks so that every slot exists.
+
+\SideHead{Records and an index}The badge and desk numbers are fields of the
+records in \id{Staff}.  \id{Names} holds the slot numbers in the order the
+report wants; \id{SortByName} rearranges this index, not the records, so
+the records and the names stay in step.
+
+\SideHead{Text in a file}\id{Save} writes each person as one line, the three
+values separated by commas and the line ended by a line feed (\code{Chr(10)}).
+\id{ReadLine} reads the file one byte at a time until a line feed, and
+\id{Field} takes a number off the front of a line.  A text file written in
+this way can be read with \cmd{TYPE} at the InitechDOS prompt.
+
+\SideHead{One file, two uses}The file variable \id{Data} is global, because
+a file cannot be passed as a parameter.  \std{assign}{Assign} names it once;
+\id{Save} opens it with \std{rewrite}{Rewrite} and \id{Load} reopens it with
+\std{reset}{Reset}, which closes it first.
+
+\SideHead{Guards}Every loop that might run past the end of a string or an
+array stops on a Boolean flag and tests the index in an \rw{if} of its own:
+\id{ReadLine}, \id{Field} and the inner loop of \id{SortByName}.
+
+\SideHead{Columns}\id{Report} pads each name with spaces to 13 characters,
+since \std{write}{Write} has no field widths.
+
 \section{Keeping a program in order}
 \SideHead{Constants for sizes}Declare every array bound and string capacity
 as a constant, as \id{MaxReports} is, so that one change resizes the

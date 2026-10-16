@@ -69,6 +69,73 @@ The name \id{Totl}, misspelled, is not declared.  The message
 own; the \doctitle{Programmer's Guide}, Appendix A, lists the rules, and
 the column points at the construct concerned.
 
+\section{Messages you will meet}
+\ix{error messages, examples}
+These are the messages that new Turbo Initech programmers see most often,
+each with a program that produces it and the change that cures it.
+
+\subsection{A semicolon before else}
+\Source{err-elsesemi}
+\CompilerOutput{err-elsesemi}{ERR}
+The semicolon on line 7 ends the \rw{if} statement, so the \rw{else} on line
+8 begins nothing the grammar allows; the compiler expected the \rw{end} of
+the block.  Remove the semicolon before \rw{else}.
+
+\subsection{A missing end}
+\Source{err-noend}
+\CompilerOutput{err-noend}{ERR}
+The \rw{begin} on line 6 is closed by the \rw{end} on line 8, which leaves the
+main block open when the compiler reaches the period.  Every \rw{begin} needs
+its own \rw{end}.
+
+\subsection{An equal sign for an assignment}
+\Source{err-equals}
+\CompilerOutput{err-equals}{ERR}
+An assignment is written with \code{:=}; the equal sign compares two values.
+
+\subsection{Two relations in one expression}
+\Source{err-chain}
+\CompilerOutput{err-chain}{ERR}
+An expression holds one relation.  Write \code{(A < B) and (B < C)}.
+
+\subsection{A number too large}
+\Source{err-huge}
+\CompilerOutput{err-huge}{ERR}
+The largest integer is 2147483647.  Turbo Initech has no larger whole
+numbers and no real numbers; keep quantities in units that fit, such as
+thousands.
+
+\subsection{A comment that does not end}
+\Source{err-comment}
+\CompilerOutput{err-comment}{ERR}
+The comment that begins on line 2 runs to the end of the file, swallowing
+the program.  The position given is where the comment begins.
+
+\subsection{Values of different types}
+\Source{err-mix}
+\CompilerOutput{err-mix}{ERR}
+A character is not a number.  To store the code of the character, write
+\code{Count := Ord(Mark)}.
+
+\subsection{A string passed by value}
+\Source{err-strparam}
+\CompilerOutput{err-strparam}{ERR}
+Strings are passed to routines only as \rw{var} parameters of type
+\rw{string}.  Write the heading as \code{procedure Show(var S: string)} and
+pass a \rw{string} variable; a literal must first be assigned to one.
+
+\subsection{An expression for a var parameter}
+\Source{err-vararg}
+\CompilerOutput{err-vararg}{ERR}
+\id{Double} changes its argument, so the argument must be a variable.  Assign
+\code{A + 1} to a variable and pass that.
+
+\subsection{The same name twice}
+\Source{err-dup}
+\CompilerOutput{err-dup}{ERR}
+Names are the same whether they are written in capitals or small letters:
+\id{Count} and \id{count} are one name.
+
 \section{Seeing how the compiler read a statement}
 \ix{parse trace}
 The second part of the compiler's output traces every rule of the grammar

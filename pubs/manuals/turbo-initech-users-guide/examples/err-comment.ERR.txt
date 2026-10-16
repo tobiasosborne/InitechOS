@@ -1,0 +1,4 @@
+TPS-LEX-ERROR pos=18 line=2 col=1 unterminated brace comment
+TPS-PARSE-SKIP lexer-error
+TPS-TYPE-SKIP lexer-error
+TPS-GEN-SKIP lexer-error
