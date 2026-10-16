@@ -355,6 +355,35 @@ end
 %% with the primitive \input so that they can sit inside a tabular.
 \def\TableRows#1{\@@input #1.tex }
 
+%% \FormatRow{table}{offset}{size}{contents} rows (samir_tables formats) are
+%% collected per table and printed by \FormatTable{table} (Appendix C).
+\newcommand\FormatRow[4]{\ifcsname imfmt@#1\endcsname\else
+  \expandafter\gdef\csname imfmt@#1\endcsname{}\fi
+  \expandafter\g@addto@macro\csname imfmt@#1\endcsname{\FormatLine{#2}{#3}{#4}}}
+\newcommand\FormatLine[3]{\texttt{#1} & #2 & #3\\}
+\newcommand\FormatTable[1]{\par\noindent\begin{tabular}{@{}p{16mm}p{12mm}p{66mm}@{}}
+  \hline\textsf{\textbf{Offset}} & \textsf{\textbf{Bytes}} & \textsf{\textbf{Contents}}\\\hline
+  \csname imfmt@#1\endcsname\hline\end{tabular}\par}
+%% The coercion tables of Appendix E (samir_tables coercion): one row per
+%% combination; \CoercionRule{R_name} prints the note the book defines with
+%% \DefineCoercionRule (an undefined rule is an error).
+\RequirePackage{longtable}
+\newenvironment{CoercionTable}[1]
+  {\par\setlength\LTleft{-\imHang}\setlength\LTright{0pt plus 1fill}%
+   \begin{longtable}{@{}p{14mm}p{20mm}p{20mm}p{32mm}p{38mm}@{}}
+   \hline\textsf{\textbf{#1}} & \textsf{\textbf{Left}} & \textsf{\textbf{Right}} &
+   \textsf{\textbf{Result}} & \textsf{\textbf{Note}}\\\hline\endhead}
+  {\hline\end{longtable}\par}
+\newenvironment{AssignmentTable}
+  {\par\setlength\LTleft{-\imHang}\setlength\LTright{0pt plus 1fill}%
+   \begin{longtable}{@{}p{26mm}p{26mm}p{40mm}p{36mm}@{}}
+   \hline\textsf{\textbf{Field type}} & \textsf{\textbf{Value type}} &
+   \textsf{\textbf{Result}} & \textsf{\textbf{Note}}\\\hline\endhead}
+  {\hline\end{longtable}\par}
+\newcommand\DefineCoercionRule[2]{\expandafter\gdef\csname imrule@#1\endcsname{#2}}
+\newcommand\CoercionRule[1]{\ifcsname imrule@#1\endcsname\csname imrule@#1\endcsname
+  \else\PackageError{initech-xbase}{coercion rule #1 has no text}{}\fi}
+
 %% ---- conventions box (NT-31 F-ATE: ruled box, label on its own line) --------
 \newenvironment{AteBox}[1]
   {\par\addvspace{8pt}\noindent\begin{tabular}{@{}|p{\dimexpr\linewidth-2\tabcolsep-1pt\relax}|@{}}\hline

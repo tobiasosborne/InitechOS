@@ -1,1 +1,44 @@
-% stub
+% Using InitechBase, Appendix D: ASCII Character Codes (annex Sec 8.2 UD).
+% Generated at typesetting time from the code points (Lua), so no value is
+% typed: codes 0-31 by their standard names, 32-126 as the characters, 127
+% DEL.  CHR() and ASC() convert between a code and its character
+% (core/fn_builtins.c); comparisons and index order follow the codes.
+\chapter{ASCII Character Codes}
+\Gates{test-xbase-fn-a}
+\NoDictionaryHeads
+InitechBase stores every character as a number from 0 to 255, its code.  The
+codes from 0 to 127 are those of the American Standard Code for Information
+Interchange (ASCII), listed below.  \fn{CHR()} gives the character of a code and
+\fn{ASC()} the code of a character.  Characters are compared, and index keys
+are ordered, by their codes: digits come before capital letters, and capital
+letters before small letters.
+
+\begingroup\setlength\tabcolsep{4pt}
+\noindent\hspace*{-\imHang}\directlua{
+local ctl = {"NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL","BS","HT","LF","VT",
+  "FF","CR","SO","SI","DLE","DC1","DC2","DC3","DC4","NAK","SYN","ETB","CAN","EM",
+  "SUB","ESC","FS","GS","RS","US"}
+local function cell(c)
+  if c < 32 then return "\string\\textsf{" .. ctl[c + 1] .. "}" end
+  if c == 32 then return "\string\\textsf{SP}" end
+  if c == 127 then return "\string\\textsf{DEL}" end
+  return "\string\\texttt{\string\\char" .. c .. "\string\\relax}"
+end
+tex.sprint("\string\\begin{tabular}{@{}" .. string.rep("r@{\string\\quad}l@{\string\\qquad}", 3) .. "r@{\string\\quad}l@{}}")
+tex.sprint("\string\\hline")
+for r = 0, 31 do
+  local row = {}
+  for col = 0, 3 do
+    local c = col * 32 + r
+    row[\string#row + 1] = tostring(c) .. " & " .. cell(c)
+  end
+  tex.sprint(table.concat(row, " & ") .. " \string\\\string\\")
+end
+tex.sprint("\string\\hline\string\\end{tabular}")
+}
+\endgroup
+
+The codes from 128 to 255 are the additional characters of the computer's
+character set: letters with accents, line-drawing characters and symbols.
+They can be stored in character fields and produced with \fn{CHR()}, and are
+displayed as the screen shows them.

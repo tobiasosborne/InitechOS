@@ -1,1 +1,56 @@
-% stub
+% Using InitechBase, Chapter 4: The InitechBase Environment (annex Sec 8.2
+% U4, Configuration; InitechBase reads no configuration file: its settings
+% start at the defaults of cmd/set.c set_init_defaults and cmd/workarea.c
+% xb_interp_make, and change only by SET commands).  The table states each
+% default as the code sets it; the example replays three of them.
+\chapter{The InitechBase Environment}
+\Gates{test-pubs-examples, test-interp-set, test-interp-setfmt, test-interp-decimals}
+The environment is the set of choices that govern how InitechBase works: the
+form of dates, the number of decimal places shown, whether deleted records are
+processed, and so on.  Each choice is made with a SET command and stays in
+force until it is changed or InitechBase ends.  Every time InitechBase starts,
+the settings are as the table below shows.
+
+\section{The Settings When InitechBase Starts}
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{34mm}p{28mm}p{68mm}@{}}
+\hline
+\textsf{\textbf{Setting}} & \textsf{\textbf{Value}} & \textsf{\textbf{Governs}}\\
+\hline
+SET CENTURY & OFF & Two digits for the year\\
+SET CONSOLE & ON & Display of output\\
+SET DATE & AMERICAN & The form \texttt{mm/dd/yy}\\
+SET DECIMALS & 2 & Decimal places of calculated values\\
+SET DELETED & OFF & Deleted records are processed\\
+SET EXACT & OFF & Character comparison by beginning\\
+SET FILTER & (none) & Every record is visible\\
+SET HEADING & ON & Heading lines of \cmd{LIST} and \cmd{DISPLAY}\\
+SET ORDER & 1 & The first index named in \cmd{USE} is master\\
+SET SAFETY & ON & \cmd{ZAP} asks for confirmation\\
+SET STATUS & OFF & No status bar\\
+SET TALK & ON & Reporting of results\\
+\hline
+\end{tabular}
+
+The settings apply to every work area, except SET FILTER and SET ORDER, which
+apply to the database in USE in the work area selected when they are given.
+\DotExample{examples/u4-defaults}
+
+\section{Changing the Settings}
+Type the SET command at the dot prompt, or put it at the beginning of a
+program.  A program that needs particular settings should set them itself
+rather than rely on what was in force before it ran: a program that compares
+names exactly begins with SET EXACT ON, and one that skips deleted records
+with SET DELETED ON.  Each SET command is described in Chapter~5 under its
+option word.
+
+\section{The Date}
+\fn{DATE()} returns the date kept by InitechDOS, which you set at the
+InitechDOS prompt with the command \file{DATE} (\doctitle{InitechDOS
+Reference}).  Dates are displayed and typed in the form chosen with SET DATE;
+two-digit years are years of the nineteen hundreds.
+
+\section{Memory}
+InitechBase takes the memory it needs when it starts.  The databases, index
+files, memory variables and programs share it.  If a command needs more memory
+than is left, InitechBase displays \xmsg{43}{Insufficient memory.}  Close the
+databases you no longer need, release memory variables, and try again.

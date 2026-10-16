@@ -1,1 +1,47 @@
-% stub
+% Using InitechBase, Appendix B: Beginning and End of File (annex Sec 8.2
+% UB, "Beginning/End of File and Filter Conditions").  Every row was
+% observed through the shipped dot prompt (the examples below and those of
+% Chapter 5); sources cmd/nav.c, cmd/query.c, cmd/mutate.c, cmd/report.c.
+\chapter{Beginning and End of File}
+\Gates{test-pubs-examples, test-interp-nav, test-samir-query}
+\NoDictionaryHeads
+The record pointer of a work area is always on a record, at the end of the
+file after the last record, or, after a \cmd{SKIP} back from the first record,
+at the beginning of the file.  \fn{EOF()} is true at the end of the file; there
+\fn{RECNO()} is the number of records plus one.  \fn{BOF()} is true after a
+movement back past the first record; \fn{RECNO()} is then 1.  The table gives
+the position of the pointer after each command that moves it.
+
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{38mm}p{96mm}@{}}
+\hline
+\textsf{\textbf{Command}} & \textsf{\textbf{Record pointer afterwards}}\\
+\hline
+\cmd{USE} & The first record; with an index, the first in index order.\\
+\cmd{GO TOP} & The first record, in index order and among the records the
+  filter admits.  If no record is admitted, the end of the file.\\
+\cmd{GO BOTTOM} & The last record, in the same sense.\\
+\cmd{GO} \xp{n} & Record \xp{n}.\\
+\cmd{SKIP} past the last record & The end of the file.  No message.\\
+\cmd{SKIP} back past the first & The first record, with \fn{BOF()} true.  No
+  message.\\
+\cmd{LIST}, \cmd{DISPLAY ALL} & The end of the file.\\
+\cmd{LIST NEXT} \xp{n}, \cmd{DISPLAY NEXT} \xp{n} & The last record listed.\\
+\kw{WHILE} & The first record for which the condition is false.\\
+\cmd{LOCATE}, \cmd{CONTINUE} & The record found, with \fn{FOUND()} true; if
+  none, the end of the file.\\
+\cmd{SEEK}, \cmd{FIND} & The first record with the key, with \fn{FOUND()} true;
+  if none, the end of the file.\\
+\cmd{REPORT FORM} & The end of the file.\\
+\cmd{APPEND BLANK} & The new record.\\
+\cmd{PACK} & The first record.\\
+\cmd{ZAP} & The end of the file (record 1 of an empty database).\\
+\hline
+\end{tabular}
+
+\section{Conditions that Hide Records}
+Two settings make records invisible to the commands that move the record
+pointer.  While SET DELETED is ON, records marked for deletion are passed over.
+While SET FILTER is in force, records that do not meet the filter condition are
+passed over.  \cmd{GO} \xp{n} still goes to record \xp{n} itself.  When every
+record is hidden, \cmd{GO TOP} leaves the pointer at the end of the file:
+\DotExample{examples/ub-filter}
