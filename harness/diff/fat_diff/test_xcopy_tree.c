@@ -19,6 +19,12 @@ static const char *keys;
 static int corrupt_verify, verify_reads;
 static unsigned char dest_handle[256];
 static void sink(char c) { putchar(c); }
+static int copy_clock(uint16_t *y, uint8_t *mo, uint8_t *d, uint8_t *h,
+                      uint8_t *mi, uint8_t *s, uint8_t *dow)
+{
+    *y=1988; *mo=2; *d=29; *h=23; *mi=59; *s=58; *dow=1;
+    return 1;
+}
 
 int du_call(du_regs *r)
 {
@@ -139,6 +145,7 @@ int main(int argc, char **argv)
     psp_params_t params = {0};
     params.alloc_end_linear = 0x80000;
     psp_build(&psp, &params); sft_init(); int21_set_psp(&psp); int21_set_sink(sink);
+    if (getenv("DOS_COPY_CLOCK")) int21_set_clock(copy_clock, NULL);
     const char *working = getenv("ZUVO_CWD");
     if (working) {
         du_regs cd={0x3b00,0,0,(uintptr_t)working,0};
