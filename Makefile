@@ -23226,6 +23226,14 @@ RECORD_MARKER_scroll_look = FLAIR-GROW win 0 (360,220)->(96,88)
 RECORD_IMAGE_scroll_look = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_scroll_look = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scroll_look = 500
+# h6y1 Rule 14: PM records on main; prerequisites must precede record-flair.
+include spec/flair_grow_box_trace.mk
+RECORD_SCRIPTS += grow_box
+RECORD_SPEC_grow_box = $(FLAIR_GROW_BOX_SPEC)
+RECORD_MARKER_grow_box = FLAIR-GROW win 0 (360,220)->(400,260)
+RECORD_IMAGE_grow_box = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_DATA_grow_box = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_grow_box = 500
 # menu_look (initech-tdnl.93/.94/.95/.70; moved here 2026-10-15 PM: clip blocks
 # must precede the record-flair target, which reads RECORD_IMAGE_<script> at
 # parse time).
@@ -31901,4 +31909,66 @@ include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
+
+# h6y1: DrawGrowIcon on the existing Platinum document path. Reuse the chrome
+# capture oracle, Window Manager routing/limits suite and spatial Finder suite.
+GROW_BOX_CHECK := $(BUILD)/ppm_flair_grow_box_check
+GROW_BOX_ACTIVE_PNG = $(CHROME_FID_CAPTURE_DIR)/s8_doc_window_active.png
+GROW_BOX_CHROME_MUTANTS := CHROME_MUT_GROW_FIGURE_SWAP CHROME_MUT_GROW_NO_REGION CHROME_MUT_GROW_OMIT CHROME_MUT_GROW_INACTIVE_ACTIVE
+$(GROW_BOX_CHECK): tools/ppm_flair_grow_box_check.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $< -lpng
+$(BUILD)/test_grow_box_mut_%: $(TEST_CHROME_FID_SRC) $(CHROME_DEPS) $(CHROME_FID_GOLDEN_H) $(CHROME_FID_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(CHROME_INC) -D$* -o $@ $(TEST_CHROME_FID_SRC) $(CHROME_DRAWER_C) $(CHROME_LINK) $(CHROME_FID_LINK)
+$(BUILD)/test_grow_box_no_commit: $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -DWINDOW_MUT_GROW_NO_COMMIT -o $@ $(TEST_WINDOW_SRC) $(WINDOW_LINK)
+.PHONY: test-grow-box test-grow-box-mutant test-flair-grow-box test-flair-grow-box-mutant
+test-grow-box: test-chrome-fidelity test-window test-finder-ops
+	@printf '>>> test-grow-box: green (324/324 active/inactive PNG pixels, both depths; noGrow absence; routing, bounds, spatial Finder content)\n'
+test-grow-box-mutant: test-grow-box $(foreach m,$(GROW_BOX_CHROME_MUTANTS),$(BUILD)/test_grow_box_mut_$(m)) $(BUILD)/test_grow_box_no_commit $(TEST_WINDOW_MUT_GROW_NO_MIN)
+	@for m in $(GROW_BOX_CHROME_MUTANTS); do \
+		if $(BUILD)/test_grow_box_mut_$$m > $(BUILD)/grow_box_$$m.log 2>&1; then printf 'FAIL grow-box mutant survived: %s\n' "$$m"; exit 1; fi; \
+		case "$$m" in *NO_REGION) leg='GROW-NO-REGION';; *INACTIVE_ACTIVE) leg='CAPTURE-GROW-INACTIVE';; *) leg='CAPTURE-GROW-ACTIVE';; esac; \
+		grep -Eq "$$leg +RED" $(BUILD)/grow_box_$$m.log || { cat $(BUILD)/grow_box_$$m.log; exit 1; }; \
+		printf '>>> test-grow-box-mutant: %s correctly RED: %s\n' "$$m" "$$(grep -m1 -E "$$leg +RED" $(BUILD)/grow_box_$$m.log)"; \
+	done
+	@for m in no_commit no_min; do \
+		case "$$m" in no_commit) bin=$(BUILD)/test_grow_box_no_commit; knob=WINDOW_MUT_GROW_NO_COMMIT;; no_min) bin=$(TEST_WINDOW_MUT_GROW_NO_MIN); knob=WINDOW_MUTATE_GROW_NO_MIN;; esac; \
+		if $$bin > $(BUILD)/grow_box_$$m.log 2>&1; then printf 'FAIL grow-box mutant survived: %s\n' "$$knob"; exit 1; fi; \
+		grep -q 'FAIL.*SizeWindow: 1x1 request clamps' $(BUILD)/grow_box_$$m.log || { cat $(BUILD)/grow_box_$$m.log; exit 1; }; \
+		printf '>>> test-grow-box-mutant: %s correctly RED: %s\n' "$$knob" "$$(grep -m1 'FAIL.*SizeWindow: 1x1 request clamps' $(BUILD)/grow_box_$$m.log)"; \
+	done
+	@printf '>>> test-grow-box-mutant: green (six named mutants RED)\n'
+
+# The existing scroll-boot helper makes a gate-local data copy, injects the
+# locked trace, and rejects triple faults. All QEMU recipes explicitly select
+# the documented stdio seam, including recursive prerequisite invocations.
+test-flair-grow-box test-flair-grow-box-mutant: export INITECH_QMP_STDIO=1
+test-flair-grow-box: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(GROW_BOX_CHECK)
+	$(call scroll-boot,$(FLAIRTENANTS_IMG),flair_grow_box,$(FLAIR_DATA_IMG),$(FLAIR_GROW_BOX_SPEC),FLAIR-LIVE-OK,1)
+	@$(call APPL_ALIVE,$(BUILD)/flair_grow_box.serial)
+	@grep -qx 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' $(BUILD)/flair_grow_box.serial
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(400,260)' $(BUILD)/flair_grow_box.serial
+	@! grep -Eq '^(PANIC|FLAIR-DRAG)' $(BUILD)/flair_grow_box.serial
+	@$(GROW_BOX_CHECK) $(BUILD)/flair_grow_box.ppm "$(GROW_BOX_ACTIVE_PNG)"
+	@printf '>>> test-flair-grow-box: green (APPS +40,+40; 400x260 serial marker and frame; 324/324 golden pixels)\n'
+$(BUILD)/chrome_mut_grow_figure.o: os/flair/chrome.c $(CHROME_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_GROW_FIGURE_SWAP -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_grow_figure.o,grow_figure))
+$(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUT_GROW_NO_COMMIT,grow_no_commit))
+test-flair-grow-box-mutant: test-flair-grow-box $(BUILD)/flair_tenants_mut_grow_figure.img $(BUILD)/flair_tenants_mut_grow_no_commit.img
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_grow_figure.img,flair_grow_box_mut_figure,$(FLAIR_DATA_IMG),$(FLAIR_GROW_BOX_SPEC),FLAIR-LIVE-OK,1)
+	@$(call APPL_ALIVE,$(BUILD)/flair_grow_box_mut_figure.serial)
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(400,260)' $(BUILD)/flair_grow_box_mut_figure.serial
+	@if $(GROW_BOX_CHECK) $(BUILD)/flair_grow_box_mut_figure.ppm "$(GROW_BOX_ACTIVE_PNG)" > $(BUILD)/flair_grow_box_mut_figure.pixels 2>&1; then printf 'FAIL grow figure mutant survived\n'; exit 1; fi
+	@grep -q 'FAIL grow-box active crop' $(BUILD)/flair_grow_box_mut_figure.pixels
+	@printf '>>> test-flair-grow-box-mutant: CHROME_MUT_GROW_FIGURE_SWAP correctly RED: %s\n' "$$(head -1 $(BUILD)/flair_grow_box_mut_figure.pixels)"
+	$(call scroll-boot,$(BUILD)/flair_tenants_mut_grow_no_commit.img,flair_grow_box_mut_commit,$(FLAIR_DATA_IMG),$(FLAIR_GROW_BOX_SPEC),FLAIR-LIVE-OK,1)
+	@$(call APPL_ALIVE,$(BUILD)/flair_grow_box_mut_commit.serial)
+	@grep -qx 'FLAIR-GROW win 0 (360,220)->(400,260)' $(BUILD)/flair_grow_box_mut_commit.serial
+	@if $(GROW_BOX_CHECK) $(BUILD)/flair_grow_box_mut_commit.ppm "$(GROW_BOX_ACTIVE_PNG)" > $(BUILD)/flair_grow_box_mut_commit.pixels 2>&1; then printf 'FAIL grow commit mutant survived\n'; exit 1; fi
+	@grep -q 'FAIL grow-box committed frame' $(BUILD)/flair_grow_box_mut_commit.pixels
+	@printf '>>> test-flair-grow-box-mutant: WINDOW_MUT_GROW_NO_COMMIT correctly RED: %s\n' "$$(grep 'FAIL grow-box committed frame' $(BUILD)/flair_grow_box_mut_commit.pixels)"
+	@printf '>>> test-flair-grow-box-mutant: green (colour and resize-commit mutants RED)\n'
+TEST_UNIT_GATES += test-grow-box test-grow-box-mutant
+TEST_EMU_GATES += test-flair-grow-box test-flair-grow-box-mutant
 
