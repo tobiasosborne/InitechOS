@@ -23008,7 +23008,7 @@ RECORD_SETTLE_trash_purge_views = 500
 RECORD_SCRIPTS += menubar_clock
 RECORD_SPEC_menubar_clock = $(FLAIR_MENUBAR_CLOCK_SPEC)
 RECORD_MARKER_menubar_clock = FLAIR-CLOCK 12:56 am
-RECORD_IMAGE_menubar_clock = $(BUILD)/flair_tenants_mut_menubar_clock_gate.img
+RECORD_IMAGE_menubar_clock = $(BUILD)/flair_tenants_mut_menubar_clock_clip.img
 RECORD_DATA_menubar_clock = $(FLAIR_DATA_IMG)
 RECORD_RTC_BASE_menubar_clock = 1980-01-01T00:55:55
 RECORD_SETTLE_menubar_clock = 7000
@@ -31024,6 +31024,9 @@ $(MENUBAR_CLOCK_CHECK): tools/ppm_flair_menubar_clock_check.c $(MENUBAR_CLOCK_OR
 	$(CC) $(CFLAGS) -Iharness -o $@ $< harness/menubar_clock_oracle.c -lpng
 # Longer lifetime is a gate/clip fixture only; flagship remains250 ticks.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=1200,menubar_clock_gate))
+# PM 2026-10-17: the Rule-14 clip grabs 3-4 frames with a 7 s settle each (the minute must
+# cross on film), so the clip image lives 3000 ticks; the gate keeps 1200.
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=3000,menubar_clock_clip))
 define menubar-clock-boot
 @$(call fixture-preflight,$(FLAIR_DATA_IMG))
 cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(1)_data.img
