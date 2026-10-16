@@ -1021,3 +1021,20 @@ void *fileio_fat_fat_buffer(uint32_t *out_len)
     }
     return g_fat;
 }
+
+void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf)
+{
+    if (g_vol == 0 || buf == 0 || count == 0u) return;
+    uint32_t first = g_vol->first_fat_sector;
+    uint32_t end = first + g_vol->bpb.sectors_per_fat;
+    uint32_t lo = lba > first ? lba : first;
+    uint32_t hi = lba + count < end ? lba + count : end;
+    if (lo >= hi) return;
+    if (g_vol->fat_window != 0) g_vol->fat_window->valid = 0;
+    if (g_fat_len != 0u) {
+        const uint8_t *src = (const uint8_t *)buf + (lo - lba) * 512u;
+        uint8_t *dst = g_fat + (lo - first) * 512u;
+        uint32_t n = (hi - lo) * 512u;
+        while (n-- != 0u) *dst++ = *src++;
+    }
+}

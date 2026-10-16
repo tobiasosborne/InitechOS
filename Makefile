@@ -857,6 +857,7 @@ FIND_PROG_MUT_BIN := $(BUILD)/find_program_mut.bin
 MORE_PROG_ASM    := $(KERNEL_DIR)/more_program.asm
 MORE_PROG_BIN    := $(BUILD)/more_program.bin
 MORE_PROG_MUT_BIN := $(BUILD)/more_program_mut.bin
+CHKDSK_PROG_BIN  := $(BUILD)/chkdsk_program.bin
 KERNEL_ISR_ASM   := $(KERNEL_DIR)/isr.asm
 KERNEL_START_OBJ := $(BUILD)/kstart.o
 KERNEL_MAIN_OBJ  := $(BUILD)/kmain.o
@@ -10154,7 +10155,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 FLAIR_DATA_RECIPE_IMAGES :=
 define flair-data-rules
 FLAIR_DATA_RECIPE_IMAGES += $(1)
-$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu | $(BUILD)
+$(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu $(CHKDSK_PROG_BIN) | $(BUILD)
 	@dd if=/dev/zero of=$$@ bs=512 count=2880 status=none
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mformat -i $$@ -f 1440 \
 		-N 0x494e4954 -v INITECH ::
@@ -10170,7 +10171,8 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
 		$(4) ::APPS/WORD.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(BUILD)/i123-menu.mnu ::APPS/123.MNU
-	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU)\n" "$$@" "$(2)" "$(3)" "$(4)"
+	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CHKDSK_PROG_BIN) ::APPS/CHKDSK.COM
+	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE)))
@@ -30928,6 +30930,7 @@ test-flair-alert-chrome-bochs: $(BOCHS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_
 	@printf '>>> test-flair-alert-chrome-bochs: green (Bochs boot leg of the alert-chrome image: fallback + shared milestones + guard, no triple fault)\n'
 endif
 TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
+include harness/diff/fat_diff/chkdsk.mk
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk

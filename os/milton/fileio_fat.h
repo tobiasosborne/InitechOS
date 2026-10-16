@@ -34,6 +34,12 @@ int fileio_fat_bind(fat12_volume_t *vol);
  * Returns 0 / *out_len = 0 before a successful fileio_fat_bind. */
 void *fileio_fat_fat_buffer(uint32_t *out_len);
 
+/* INT 26h writes bypass handle I/O. After a SUCCESSFUL absolute write, mirror
+ * any overlapping primary-FAT bytes into the handle backend cache and
+ * invalidate its FAT16 window. Ref: ADR-0003 DEC-15 (CHKDSK raw repairs),
+ * DEC-07 (one filesystem); CHKDSK's post-/F DIR/mdir differential. */
+void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf);
+
 /* DIR volume identity, root label preferred over the extended BPB fallback.
  * out holds 12 bytes, no dot separator (label is one 11-byte field).
  * Empty string means no label. Errors are negative FAT12_ERR_* values. */
