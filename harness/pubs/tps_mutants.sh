@@ -26,7 +26,7 @@ red FAKE_ROUTINE DOC-NOT-SHIPPED "$GATE" commands "$SHIPPED" "$m/all.cmds"
 cat $cmds | grep -v '^blockwrite|routine|' > "$m/drop.cmds"
 red DROPPED_ENTRY SHIPPED-NOT-DOCUMENTED "$GATE" commands "$SHIPPED" "$m/drop.cmds"
 # GC-01 limits: a capacity printed with the wrong value.
-cat $cmds | sed 's/^SYMBOLMAX=1024|limit|/SYMBOLMAX=1025|limit|/' > "$m/limit.cmds"
+cat $cmds | sed 's/^SYMBOLMAX=1,024|limit|/SYMBOLMAX=1,025|limit|/' > "$m/limit.cmds"
 red WRONG_LIMIT DOC-NOT-SHIPPED "$GATE" commands "$SHIPPED" "$m/limit.cmds"
 # GC-02: one character of a printed diagnostic changed.
 cat $msgs | sed 's/^LEX-2|unterminated string/LEX-2|unterminated strinG/' > "$m/changed.msgs"

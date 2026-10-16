@@ -304,7 +304,17 @@ static void inventory(int argc, char **argv)
                 if (k >= sizeof nm) die("INVENTORY", tpsp, "limit name");
                 memcpy(nm, s, k); nm[k] = 0;
                 for (size_t i = 0; i <= k; i++) up[i] = (char)toupper((unsigned char)nm[i]);
-                snprintf(w, sizeof w, "%s=%ld", up, strtol(p + 6, NULL, 10));
+                /* the value in the books' form: thousands separated by
+                 * commas (6,144), as period manuals print capacities */
+                long v = strtol(p + 6, NULL, 10);
+                char num[32], sep[40]; int len, j = 0;
+                len = snprintf(num, sizeof num, "%ld", v);
+                for (int d = 0; d < len; d++) {
+                    if (d && (len - d) % 3 == 0) sep[j++] = ',';
+                    sep[j++] = num[d];
+                }
+                sep[j] = 0;
+                snprintf(w, sizeof w, "%s=%s", up, sep);
                 put(&out, w, "limit");
             }
             p += 6;

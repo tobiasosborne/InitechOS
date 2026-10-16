@@ -141,8 +141,6 @@ record types the number of \code{fields=} and their \code{size=}.  The
 
 \CompilerOutput{kinds}{TYPE}
 
-\CompilerOutput{kinds}{GEN}
-
 \ProgramOutput{kinds}
 
 \section{Capacities}
@@ -153,11 +151,11 @@ capacities:
 
 \begin{BorTable}{Compiler capacities}{p{30mm}p{14mm}p{52mm}}
 \Hd{Capacity} & \Hd{Value} & \Hd{Limits}\EndHd
-\LimitItem{SourceMax}{262144} & 262144 & characters in the source file\\
-\LimitItem{PoolMax}{6144} & 6144 & characters in the spellings of all
+\LimitItem{SourceMax}{262,144} & 262,144 & characters in the source file\\
+\LimitItem{PoolMax}{6,144} & 6,144 & characters in the spellings of all
   the different identifiers together\\
 \LimitItem{NameMax}{704} & 704 & different identifiers\\
-\LimitItem{SymbolMax}{1024} & 1024 & rows of the symbol table: every
+\LimitItem{SymbolMax}{1,024} & 1,024 & rows of the symbol table: every
   constant, type, field, variable, routine, parameter, result and local\\
 \LimitItem{HeaderParamMax}{32} & 32 & parameters of a routine; arguments of
   a call\\
