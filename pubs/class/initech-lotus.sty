@@ -139,15 +139,19 @@
   \IfValueTF{#1}{\gdef\im@lotstate{DRAFT}}{\gdef\im@lotstate{GATED}}%
   \gdef\im@entrypath{#2}%
   \RegisterCommand{#2}{menu}{\im@lotstate}{#2}%
-  \section{#2}\index{#2@\texttt{#2}}%
+  \section{#2}\im@pathindex{#2}%
   \IfValueT{#1}{\noindent\draft{#1}\par}}
 \NewDocumentCommand\SubEntry{o m}{%
   \IfValueTF{#1}{\gdef\im@lotstate{DRAFT}}{\gdef\im@lotstate{GATED}}%
   \gdef\im@entrypath{#2}%
   \RegisterCommand{#2}{menu}{\im@lotstate}{#2}%
   \par\addvspace{10pt}{\noindent\sffamily\bfseries\fontsize{11}{13}\selectfont #2\par}\nobreak
-  \index{#2@\texttt{#2}}\@afterheading
+  \im@pathindex{#2}\@afterheading
   \IfValueT{#1}{\noindent\draft{#1}\par}}
+%% Index a command path under its first menu word: "/Range Format" sorts as
+%% "Range Format" (the slash is not a letter of the index).
+\def\im@pathindex#1{\im@pathindexi#1\@nil}
+\def\im@pathindexi/#1\@nil{\index{#1@\texttt{/#1}}}
 %% Option tables: two columns between hairlines, the menu word bold at the
 %% left (annex Sec 7.2).  Each row documents (and registers) one menu path.
 \newenvironment{Options}
@@ -174,8 +178,12 @@
   \RegisterCommand{#2}{function}{\im@ostate}{#2}%
   \par\addvspace{12pt}\goodbreak
   {\noindent\sffamily\bfseries\fontsize{12}{14}\selectfont #2\par}\nobreak
-  \markright{#2}\index{#2@\texttt{#2}}\@afterheading
+  \markright{#2}\im@fnindex{#2}\@afterheading
   \IfValueT{#1}{\noindent\draft{#1}\par}}
+%% Index an @function under its name; the @ is quoted for makeindex ("@).
+\def\im@fnindex#1{\im@fnindexi#1\@nil}
+\def\im@fnindexi#1#2\@nil{\def\im@tmp{#2}\def\im@at{@}%
+  \ifx\im@tmp\im@at\index{"@"@@\texttt{"@"@}}\else\index{#2@\texttt{"@#2}}\fi}
 \newcommand\Arg[1]{\textit{#1}\/}
 \newcommand\Examples{\LabelHead{Examples}}
 
@@ -285,7 +293,7 @@
 \newwrite\im@termsout \newwrite\im@glossout
 \AtBeginDocument{\immediate\openout\im@termsout=\jobname.terms\immediate\openout\im@glossout=\jobname.gloss}
 \AtEndDocument{\immediate\closeout\im@termsout\immediate\closeout\im@glossout}
-\newcommand\term[1]{\immediate\write\im@termsout{#1}\textbf{#1}}
+\newcommand\term[1]{\immediate\write\im@termsout{#1}\ix{#1}\textbf{#1}}
 \newcommand\GlossTerm[2]{\immediate\write\im@glossout{#1}%
   \par\addvspace{6pt}{\noindent\sffamily\bfseries #1\par}\nobreak
   \noindent #2\par}

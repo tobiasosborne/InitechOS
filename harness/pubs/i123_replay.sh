@@ -8,8 +8,17 @@
 #   i123_replay.sh check <i123_face> <pubs_gate> <built gate dir> <out dir>
 #   i123_replay.sh write <i123_face> - - <out dir>   (rewrites the .txt:
 #                                     a deliberate act, review the diff)
+#   i123_replay.sh canon <quarterly.txt>   GC-11: the share of quarterly
+#                                     results, as printed, totals 116%
+#                                     (CANON-116); run by check mode too.
 set -eu
-mode=$1; face=$2; gate=$3; builds=$4; out=$5
+mode=$1
+canon() {
+    grep -qx 'B9: @SUM(B4\.\.B8) = 116%' "$1" || {
+        printf '!!! test-pubs RED CANON-116: %s: the quarterly shares must total 116%% (PUB-REF-0001 GC-11, NT-36)\n' "$1"; exit 1; }
+}
+if [ "$mode" = canon ]; then canon "$2"; printf '>>> test-pubs-i123-canon: green (the quarterly shares total 116%%)\n'; exit 0; fi
+face=$2; gate=$3; builds=$4; out=$5
 mkdir -p "$out/i123-replay"
 n=0
 if [ "$mode" = write ]; then
@@ -39,4 +48,6 @@ for index in "$builds"/initech123-*/main.i123ex; do
     done
 done
 [ "$n" -gt 0 ] || { printf '!!! test-pubs RED TRANSCRIPT-EMPTY: no Initech 123 examples replayed\n'; exit 1; }
+canon pubs/manuals/initech123-setting-up/examples/quarterly.txt
+printf '>>> test-pubs-i123-canon: green (the quarterly shares total 116%%, GC-11)\n'
 printf '>>> test-pubs-i123-examples: green (%s printed examples replayed through the shipped application, byte for byte)\n' "$n"

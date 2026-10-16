@@ -290,10 +290,12 @@ $(PUBS_GEN)/i123-tree-%.tex: $(PUBS_I123_FACE)
 	@$(PUBS_I123_FACE) tree $* > $@.tmp && mv -f $@.tmp $@
 # A committed figure (screens/<name>.b64, ASCII) decoded for the build:
 # build/pubs/gen/i123shots/<manual>/<name>.png (\FlairShot, initech-lotus.sty).
-.SECONDEXPANSION:
-$(PUBS_GEN)/i123shots/%.png: $$(PUBS_DIR)/manuals/$$(dir $$*)screens/$$(notdir $$*).b64 $(PUBS_FLAIR_SHOT)
-	@mkdir -p $(@D)
-	@$(PUBS_FLAIR_SHOT) unb64 $< $@
+define pubs-i123-shot-rule
+$(PUBS_GEN)/i123shots/$(1)/$(2).png: $(PUBS_DIR)/manuals/$(1)/screens/$(2).b64 $(PUBS_FLAIR_SHOT)
+	@mkdir -p $$(@D)
+	@$(PUBS_FLAIR_SHOT) unb64 $$< $$@
+endef
+$(foreach f,$(wildcard $(PUBS_DIR)/manuals/initech123-*/screens/*.b64),$(eval $(call pubs-i123-shot-rule,$(word 3,$(subst /, ,$(f))),$(basename $(notdir $(f))))))
 $(PUBS_GEN)/i123-map-%.tex: $(PUBS_I123_FACE)
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_I123_FACE) outline $* > $@.tmp && mv -f $@.tmp $@
@@ -314,7 +316,8 @@ pubs-i123-inventory: $(PUBS_I123_FACE) $(PUBS_I123_GEN)
 
 # The Reference documents every shipped menu path, @function and key; the
 # Quick Reference every @function and key; the other books may only name
-# shipped items (or DRAFT ones).
+# shipped items (or DRAFT ones).  CP-03: the bold terms of every Initech 123
+# book are entries of the Reference Glossary, and every entry is used.
 ifeq ($(SKIP_PUBS),1)
 test-pubs-i123 test-pubs-i123-examples:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the Initech 123 books were NOT checked. This is NOT a pass.\n'
@@ -323,6 +326,8 @@ test-pubs-i123: pubs-i123-inventory $(PUBS_I123_GATE) test-pubs-build
 	@$(PUBS_I123_GATE) commands $(PUBS_CHECK)/i123.shipped $(PUBS_CHECK)/i123.refused \
 		$(foreach b,$(PUBS_I123_BOOKS),$(if $(filter initech123-reference,$(b)),menu+function+key=,$(if $(filter initech123-quick-reference,$(b)),function+key=,other=))$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_I123_GATE) mentions $(PUBS_CHECK)/i123.shipped $(foreach b,$(PUBS_I123_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
+	@cat $(foreach b,$(PUBS_I123_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.terms) > $(PUBS_CHECK)/i123.terms
+	@$(PUBS_I123_GATE) glossary $(PUBS_CHECK)/i123.terms $(PUBS_BUILD)/gate/initech123-reference/main.gloss
 test-pubs-i123-examples: $(PUBS_I123_FACE) $(PUBS_GATE) test-pubs-build
 	@sh harness/pubs/i123_replay.sh check $(PUBS_I123_FACE) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
 endif

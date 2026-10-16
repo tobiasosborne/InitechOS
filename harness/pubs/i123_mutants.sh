@@ -55,4 +55,11 @@ red SHIFTED_FIGURE SCREEN-DRIFT "$shot" same "$m/committed.png" "$m/shifted.png"
 #    test-i123-menu-tree-mutant knob) no longer ships /Worksheet
 "$facemut" inventory > "$m/mut.shipped"
 red MENU_RESOURCE_MISSPELLED DOC-NOT-SHIPPED "$gate" commands "$m/mut.shipped" "$refused" "menu+function+key=$ref"
-printf '>>> test-pubs-i123-mutant: green (8 named mutants rejected by their gate legs)\n'
+# 9. canon: the quarterly shares printed as totalling 100%
+sed 's/= 116%$/= 100%/' pubs/manuals/initech123-setting-up/examples/quarterly.txt > "$m/quarterly.txt"
+red CANON_100 CANON-116 sh harness/pubs/i123_replay.sh canon "$m/quarterly.txt"
+# 10. CP-03: a defined term missing from the glossary
+ref_dir=$built/initech123-reference
+{ cat "$ref_dir/main.terms"; printf 'frobnication\n'; } > "$m/main.terms"
+red TERM_NOT_IN_GLOSSARY TERM-NOT-IN-GLOSSARY "$gate" glossary "$m/main.terms" "$ref_dir/main.gloss"
+printf '>>> test-pubs-i123-mutant: green (10 named mutants rejected by their gate legs)\n'
