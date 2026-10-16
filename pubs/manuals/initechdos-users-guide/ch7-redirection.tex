@@ -1,0 +1,83 @@
+% Chapter 7 -- Redirecting Input and Output.
+% Sources (Law 1): os/milton/command.c (cmd_redir_parse, run_with_redirect,
+% run_output_and_dispatch: '>' create, '>>' append, '<' input; cmd_pipe_split
+% and run_pipeline: '|' through temporary files, MSG-DOS-0005 when one
+% cannot be created); devices.c NUL.  The filters MORE, FIND and SORT are
+% built and gated (os/milton/{more,find,sort}_program.asm; test-more-filter,
+% test-find-filter, test-sort-filter) but are NOT on the shipped disk
+% (Makefile flair-data-rules plants only CHKDSK ATTRIB LABEL XCOPY TREE) --
+% DRAFT, initech-2kgh.
+% GATES: test-redir test-redir-parse test-hsct-redir test-bsy7-redir test-bsy8-pipe test-bsy9-redir test-pubs-screens
+\Gates{test-redir, test-redir-parse, test-hsct-redir, test-bsy7-redir, test-bsy8-pipe, test-bsy9-redir, test-pubs-screens}
+\chapter{Redirecting Input and Output}
+
+\section{Standard Input and Standard Output}
+\index{standard input}\index{standard output}
+Most commands read what they need from the keyboard and write their results
+to the display.  The keyboard is their \term{standard input} and the
+display their \term{standard output}.  InitechDOS lets you change both for
+a single command: you can send what a command displays to a file, or have a
+command read from a file what it would otherwise read from the keyboard.
+This is called \term{redirection}.
+
+\section{Sending Output to a File}
+\index{redirection}
+Put \type{>} and a file name after a command to send its output to that file
+instead of the display.  If the file exists, it is replaced.  Use \type{>>}
+to add the output to the end of an existing file instead.
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{VER > LIST.TXT} and press \key{Enter}.  Nothing is
+  displayed: the output went to \file{LIST.TXT}.
+\item Type \type{ECHO Second line >> LIST.TXT} and press \key{Enter}.
+\item Type \type{TYPE LIST.TXT} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=8, label=fig:redir]{screens/redir.txt}{Output sent to a file}
+
+\file{LIST.TXT} holds the output of both commands.  You can redirect the
+output of any command this way: \type{DIR > FILES.TXT} saves a directory
+listing to print or keep.  To throw output away, send it to the device
+\file{NUL}: \type{DIR > NUL}.
+
+\section{Taking Input from a File}
+Put \type{<} and a file name after a command to make it read from the file
+what it would otherwise read from the keyboard.  For example, \cmd{LABEL}
+asks for the new label; here the answer comes from a file made with
+\cmd{ECHO}:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{ECHO REPORTS > NAME.TXT} and press \key{Enter}.
+\item Type \type{LABEL < NAME.TXT} and press \key{Enter}.
+\item Type \type{VOL} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=7, label=fig:stdin]{screens/stdin.txt}{Input taken from a file}
+
+\cmd{LABEL} read \texttt{REPORTS} from \file{NAME.TXT}, so its question is
+not answered on the screen; \cmd{VOL} shows the new label.  Put the original
+label back with \type{LABEL INITECH}.
+
+\section{Pipes and Filters}
+\index{pipes}\index{filters}
+A \term{pipe}, the character \type{|} between two commands, sends the output
+of the first command to the second as its input.  InitechDOS keeps the text
+in a temporary file on the disk while it passes it on; if there is no room
+for the file, it displays \texttt{Insufficient disk space}.
+
+A \term{filter} is a program that reads its standard input, changes it, and
+writes the result to its standard output.  Filters are most useful in
+pipes.
+\draft{see bead initech-2kgh: the filters MORE, FIND and SORT are built and pass
+their gates (test-more-filter, test-find-filter, test-sort-filter) but are
+not on the shipped disk; the examples below describe DOS 3.3}
+InitechDOS provides three:
+
+\SideHead{MORE}Displays its input one screen at a time.  \type{TYPE
+PHONE.TXT | MORE}
+
+\SideHead{FIND}Displays the lines that contain a string.  \type{TYPE
+PHONE.TXT | FIND "Help"}
+
+\SideHead{SORT}Sorts the lines of its input.  \type{SORT < PHONE.TXT >
+SORTED.TXT}

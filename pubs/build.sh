@@ -7,6 +7,9 @@
 # FORCE_SOURCE_DATE=1 makes \today and friends obey it; the class suppresses
 # the PDF /ID and date fields.  The third argument `mutant` injects the build
 # time into every page (make test-pubs-repro-mutant: proves the cmp bites).
+# -interaction=nonstopmode -halt-on-error go to latexmk itself as well: with
+# -usepretex (the mutant) latexmk builds its own command line, and a LaTeX
+# error there used to wait for terminal input forever (ipu5.7).
 # Thin shell (Law 3); TeX is an external tool like nasm.
 set -eu
 out=$1; gen=$2; mode=${3:-}
@@ -30,7 +33,7 @@ for dir in "$root"/manuals/*/; do
         if ! ( cd "$dir" && \
                SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
                TEXINPUTS="$root/class//:$root/common//:$gen//:" INDEXSTYLE="$root/class:" \
-               "$LATEXMK" -g -r "$root/latexmkrc" -outdir="$out/$m" $pretex "$doc.tex" \
+               "$LATEXMK" -g -r "$root/latexmkrc" -interaction=nonstopmode -halt-on-error -outdir="$out/$m" $pretex "$doc.tex" \
              ) > "$log" 2>&1; then
             grep -E '^[^ ]*:[0-9]+: |^! ' "$out/$m/$doc.log" 2>/dev/null | head -20 || true
             tail -20 "$log"

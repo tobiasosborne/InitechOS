@@ -1,12 +1,31 @@
-% PUB-REF-0001 AN-26, D-15: the single period-vocabulary exemption.
-\thispagestyle{empty}
-\section*{Colophon}
-This book is set with LuaLaTeX and the initech-manual class. The house faces
-are TeX Gyre Termes and Pagella, Heros, Heros Cn, Adventor and Cursor, with
-EB Garamond for display titles. The InitechDOS specimen uses Termes.
-Screens are captured from InitechOS running in QEMU under the project
-harness. They are decoded from emulator pixels, without redrawing.
-\par
-The publications factory and its correctness tools are C, make and thin
-shell. LuaLaTeX is the ratified document-tool exception, decision D-11.
+% Colophon (PUB-REF-0001 AN-26, D-15): the last interior page of every book,
+% held once here and typeset by \FinishBook (initech-forms.sty).  It names
+% the real tools truthfully and is the ONLY page exempt from the period-
+% vocabulary check (GC-06; pubs_gate.c exempts exactly this path).
+% Beads initech-ipu5.6 and initech-ipu5.7.
 \clearpage
+\thispagestyle{empty}
+\vspace*{\fill}
+\noindent\hspace*{-\imHang}\begin{minipage}[b]{\imFullWidth}
+\RaggedRight\small\setlength\parskip{4pt}
+{\sffamily\bfseries Colophon\par}
+\vspace{4pt}
+This book was typeset by Initech Publications with LuaLaTeX from TeX Live,
+using the \texttt{initech-manual} document class.  The house faces are TeX
+Gyre Termes or TeX Gyre Pagella for the text, according to the book's
+family; TeX Gyre Heros and TeX Gyre Heros Cn for headings, labels and
+tables; TeX Gyre Adventor; TeX Gyre Cursor for examples and screens; and EB
+Garamond for the display titles.  The TeX Gyre faces are metric-compatible
+replacements for Times, Palatino, Helvetica, Avant Garde and Courier.
+
+Every screen reproduction and example transcript in this book was captured
+from InitechOS running under the QEMU emulator, driven by the project's test
+harness from a recorded list of keystrokes.  The text of the display was read
+back from each screendump character by character by the harness program
+\texttt{console\_text}, without redrawing, and the build compares every
+capture with the running system again before the book is printed.
+
+The publications factory and its correctness tools are C, make and thin
+shell.  LuaLaTeX is the ratified document-tool exception, decision D-11.
+\end{minipage}
+\par

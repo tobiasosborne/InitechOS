@@ -1,0 +1,25 @@
+A:\>ECHO
+ECHO is on
+A:\>ECHO The report is ready.
+The report is ready.
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

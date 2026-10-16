@@ -1,0 +1,25 @@
+A:\>DATE
+Current date is Mon 3-02-1992
+A:\>DATE 3-16-92
+Current date is Mon 3-16-1992
+A:\>DATE 2-30-92
+Invalid date
+Current date is Mon 3-16-1992
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

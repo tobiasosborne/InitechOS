@@ -1,0 +1,206 @@
+% Appendix A -- Messages (PUB-REF-0001 AN-03; IBM 3.10 Reference Appendix A,
+% ibm-dos.md Sec 8.5).  The message lists are GENERATED from the locked
+% catalogue spec/dos_messages.json by tools/pubs_msgtable.c (device / other
+% selectors); only the Explanation and Action of each message are authored
+% here, keyed by catalogue id with \MessageDetail; a missing or stray detail
+% fails the build (CP-06).  Where each message comes from (Law 1):
+% MSG-DOS-0001 int21.c int24_dispatch_body (A/R/F, crit_error_action);
+% 0002..0005, 0007, 0009..0012, 0016..0020 command.c (and the utilities);
+% 0006, 0008, 0013, 0014, 0015 are catalogue entries no code path of this
+% version displays (DRAFT, each says so).  "Other Messages Displayed by
+% Commands" quotes the strings of command.c, dosutil.c, chkdsk.c and
+% xcopy_tree.c that are not in the catalogue.
+% GATES: test-dosmsg test-shell test-command test-attrib test-label-vol test-chkdsk test-xcopy-tree
+\Gates{test-dosmsg, test-shell, test-command, test-attrib, test-label-vol, test-chkdsk, test-xcopy-tree}
+\chapter{Messages}
+\MessageDetailsOn
+
+\section{How to Use This Appendix}
+This appendix lists the messages InitechDOS displays.  Each message is shown
+exactly as it appears on the screen, followed by an explanation of what it
+means and the action you should take.  Where a message names a drive, the
+letter \ph{d} stands for the drive letter.  The number beside each message
+identifies it when you call the Help Desk (extension 2504).
+
+The device error messages come first.  The other messages follow in
+alphabetical order, and then the messages that individual commands display.
+
+\section{Responses}
+When InitechDOS cannot read or write a disk, it displays a device error
+message and asks \texttt{Abort, Retry, Fail?}  Press one of these letters;
+you need not press \key{Enter}:
+
+\SideHead{A (Abort)}Ends the program that was using the disk and returns to
+the command prompt.
+
+\SideHead{R (Retry)}Tries the operation again.  Correct the cause first,
+for example by closing the drive door.
+
+\SideHead{F (Fail)}Tells the program that the operation failed and lets it
+continue.  The program decides what to do next.
+
+Any other key displays the question again.
+
+\section{Device Error Messages}
+\MessageDetail{MSG-DOS-0001}{InitechDOS could not read or write a disk and
+asks what to do.  It is displayed after a device error message.}{Press
+\type{R} to try again after correcting the problem, \type{A} to end the
+program, or \type{F} to let the program continue.}
+\MessageDetail{MSG-DOS-0007}{InitechDOS could not read the disk in drive
+\ph{d}.  \cmd{DIR} displays this message when it cannot read the volume
+label of the disk.}{Make sure the disk is formatted and seated in the drive,
+then try the command again.  If the message persists, the disk may be
+damaged; copy the files you can read to another disk.}
+\MessageDetail{MSG-DOS-0006}{The drive \ph{d} was not ready: the door may be
+open or the drive may be empty.\draft{see bead initech-vlhp: catalogue entry not displayed by any
+code path of this version}}{Put a disk in the drive, close the door, and
+press \type{R}.}
+\MessageDetail{MSG-DOS-0008}{InitechDOS tried to write on a disk in drive
+\ph{d} that is write-protected.\draft{see bead initech-vlhp: catalogue entry not displayed by any
+code path of this version}}{Remove the write protection, or use another
+disk, and press \type{R}.}
+\input{dos_messages_device}
+
+\section{Other Messages}
+\MessageDetail{MSG-DOS-0009}{The file is read-only, or the disk cannot be
+written or read.  \cmd{DEL} and \cmd{COPY} display it for a read-only file;
+\cmd{VOL} displays it when the disk cannot be read.}{Use \cmd{ATTRIB} to
+display the file's attributes and, if you must change the file, \cmd{ATTRIB
+-R} to make it read-write.}
+\MessageDetail{MSG-DOS-0012}{\cmd{DEL} was asked to delete every file in a
+directory (\file{*.*}).}{Type \type{Y} and press \key{Enter} to delete the
+files, or any other answer to keep them.}
+\MessageDetail{MSG-DOS-0002}{The command name is not an internal command,
+and no program or batch file of that name was found in the current directory
+or in the directories named by \texttt{PATH}.  \cmd{REN} and \cmd{COPY} also
+display it when a file cannot be renamed or created.}{Check the spelling of
+the command.  If it is a program, make sure its directory is the current
+directory, is named in \texttt{PATH}, or is typed before the name.}
+\MessageDetail{MSG-DOS-0014}{The command processor could not be found or
+started.\draft{see bead initech-vlhp: catalogue entry not displayed by any code path of this
+version: COMMAND.COM is part of the system}}{Restart the system.  If the
+message appears again, call the Help Desk.}
+\MessageDetail{MSG-DOS-0020}{The source and target named in \cmd{COPY} or
+\cmd{XCOPY} are the same file.  Nothing was copied.}{Give the copy a
+different name, or copy it to another directory.}
+\MessageDetail{MSG-DOS-0003}{No file matches the name you gave.}{Check the
+name and the directory.  Use \cmd{DIR} to list the files.}
+\MessageDetail{MSG-DOS-0013}{The command processor must be loaded again from
+the disk in drive \ph{d}.\draft{see bead initech-vlhp: catalogue entry not displayed by any code
+path of this version: COMMAND.COM is never reloaded}}{Put the InitechDOS
+disk in the drive and press any key.}
+\MessageDetail{MSG-DOS-0005}{There is not enough room on the disk.  When you
+use a pipe (\texttt{|}), InitechDOS displays this message if it cannot
+create the temporary file that joins the two commands.}{Delete files you no
+longer need, then try again.}
+\MessageDetail{MSG-DOS-0018}{\cmd{CD} could not find the directory you
+named.}{Check the path.  Use \cmd{DIR} or \cmd{TREE} to see the
+directories on the disk.}
+\MessageDetail{MSG-DOS-0004}{The drive letter is not a drive of this system.
+In this version only drive~A exists.}{Use drive~A, or leave the drive
+out.}
+\MessageDetail{MSG-DOS-0019}{\cmd{RD} could not remove the directory: it does
+not exist, it still holds files or subdirectories, or it is the current
+directory.}{Delete the files in the directory, move to another directory,
+and try again.}
+\MessageDetail{MSG-DOS-0015}{The disk in drive~A cannot start the
+system.\draft{see bead initech-vlhp: catalogue entry not displayed by any code path of this
+version}}{Put the InitechDOS disk in the drive and restart the system.}
+\MessageDetail{MSG-DOS-0016}{\cmd{DIR /P} has filled the screen.}{Press any
+key to see the next screen of the listing.}
+\MessageDetail{MSG-DOS-0011}{The command needs a parameter, such as a file
+name, that you did not give.}{Type the command again with the missing
+parameter.  The Format line of the command shows what is needed.}
+\MessageDetail{MSG-DOS-0010}{The command was given more parameters than it
+uses, or (\cmd{DIR}, \cmd{VOL}) a switch it does not have.}{Type the command again with only the parameters shown in its Format
+line.}
+\MessageDetail{MSG-DOS-0017}{\cmd{MD} could not create the directory: a file
+or directory of that name already exists, a directory in the path does not
+exist, or the disk is full.}{Choose another name, or check the path.}
+\input{dos_messages_other}
+\CheckMessageDetails
+
+\section{Other Messages Displayed by Commands}
+These messages are displayed by particular commands.  The command is shown
+at the right.
+
+\OtherMessage{All specified file(s) are contiguous}{CHKDSK}{Every file you
+named is stored in one piece.}{None.}
+\OtherMessage{Batch nesting too deep}{CALL}{Batch files have called each
+other too many times without ending.}{Reduce the number of nested
+\cmd{CALL} subcommands.}
+\OtherMessage{Cannot edit .BAK file--rename file}{EDLIN}{\cmd{EDLIN} does
+not edit backup files.}{Rename the file with \cmd{REN} and edit it under
+the new name.}
+\OtherMessage{Cannot perform a cyclic copy}{XCOPY}{You asked \cmd{XCOPY} to
+copy a directory, with its subdirectories, into itself or into one of its
+own subdirectories.}{Copy the directory to a place outside it.}
+\OtherMessage{Corrections will not be written to disk}{CHKDSK}{\cmd{CHKDSK}
+found errors, but you did not give \kw{/F}, so nothing was changed.}{Run
+\cmd{CHKDSK /F} to correct the errors.}
+\OtherMessage{Disk error reading (or writing) FAT}{CHKDSK}{\cmd{CHKDSK}
+could not read the file allocation table, or the disk is not formatted as
+InitechDOS expects.}{Copy the files you can read to another disk.}
+\OtherMessage{Disk full - file write not completed}{EDLIN}{The disk filled
+while \cmd{EDLIN} was writing the file.  The original file is
+unchanged.}{Make room on the disk, or quit with \kw{Q}.}
+\OtherMessage{Entry error}{EDLIN}{The command line is not a valid
+\cmd{EDLIN} command: an unknown letter, a line number out of range, or
+lines that overlap the destination of \kw{C} or \kw{M}.}{Type the command
+again.}
+\OtherMessage{Environment variable not defined}{SET}{The variable you named
+is not in the environment.}{Use \cmd{SET} alone to list the variables.}
+\OtherMessage{File access denied}{EDLIN}{\cmd{EDLIN} could not read, create
+or rename a file, for example because a file is read-only.}{Check the
+file's attributes with \cmd{ATTRIB}.}
+\OtherMessage{File creation error}{CHKDSK}{\cmd{CHKDSK /F} could not create
+a \file{FILE}\ph{nnnn}\file{.CHK} file for a lost chain, usually because the
+root directory is full.}{Delete or move files from the root directory and
+run \cmd{CHKDSK /F} again.}
+\OtherMessage{Insufficient memory}{EDLIN}{The lines do not fit in memory.}
+{Write part of the file to disk with \kw{W}, then go on.}
+\OtherMessage{Invalid characters in volume label}{LABEL}{The label contains
+a character that is not allowed, or has no characters.}{Type a label of
+letters, digits and spaces.}
+\OtherMessage{Invalid date}{DATE, start-up}{The date is not a real date, or is not in
+the form \ph{mm}\texttt{-}\ph{dd}\texttt{-}\ph{yy}.  The date was not
+changed.}{Type the command again with a valid date.}
+\OtherMessage{Invalid number of parameters}{ATTRIB, TREE, XCOPY}{The
+command has too many or too few file names.}{Check the Format line of the
+command.}
+\OtherMessage{Invalid parameter}{CHKDSK}{A switch other than \kw{/F} or
+\kw{/V}, or more than one file name, was given.}{Check the Format line of
+\cmd{CHKDSK}.}
+\OtherMessage{Invalid parameter(s)}{TREE, XCOPY}{A switch is not one the
+command accepts, or the switches cannot be used together.}{Check the Format
+line of the command.}
+\OtherMessage{Invalid path (or file not found)}{ATTRIB, TREE, XCOPY}{The
+file or directory does not exist, or a directory was named where a file was
+expected.}{Check the name and the path.}
+\OtherMessage{Invalid time}{TIME, start-up}{The time is not in the form
+\ph{hh}\texttt{:}\ph{mm}, or a number is out of range.  The time was not
+changed.}{Type the command again with a valid time.}
+\OtherMessage{Label not found}{GOTO}{The batch file has no label of the name
+given in \cmd{GOTO}.  The batch file ends.}{Correct the label or the
+\cmd{GOTO} line.}
+\OtherMessage{Line too long}{EDLIN}{A replacement would make the line longer
+than \cmd{EDLIN} allows.  The line is not changed.}{Replace a shorter
+text, or split the line.}
+\OtherMessage{No Path}{PATH}{No search path is set: only the current
+directory is searched for commands.}{Set one with \cmd{PATH} if you need
+it.}
+\OtherMessage{No room in root directory}{LABEL}{The root directory has no
+free entry for the volume label.}{Delete a file from the root directory and
+try again.}
+\OtherMessage{Not found}{EDLIN}{\kw{S} or \kw{R} found no match in the
+lines searched.}{Check the text; capital and small letters must match.}
+\OtherMessage{Out of environment space}{SET, PROMPT, PATH}{The environment has no
+room for the new variable.}{Remove variables you no longer need with
+\cmd{SET} \ph{name}\texttt{=}.}
+\OtherMessage{Strike a key when ready . . .}{PAUSE}{A batch file is paused at
+a \cmd{PAUSE} subcommand.}{Do what the batch file asks, then press any key.
+Press \key{Ctrl-C} to end the batch file.}
+\OtherMessage{WARNING! Backup file is read-only -- backup will not be
+made}{EDLIN}{The file's \file{.BAK} file is read-only, so \kw{E} will not
+replace it; the original is not kept.}{Make the \file{.BAK} file
+read-write with \cmd{ATTRIB -R} first if you want a backup.}

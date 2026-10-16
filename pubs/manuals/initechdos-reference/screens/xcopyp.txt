@@ -1,0 +1,25 @@
+A:\>XCOPY *.TXT A:\KEEP\ /P
+\README.TXT (Y/N?)Y
+\MEMO.TXT (Y/N?)N
+\PHONE.TXT (Y/N?)Y
+2 File(s) copied
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

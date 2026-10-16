@@ -1,0 +1,25 @@
+A:\>TYPE PHONE.TXT
+INITECH SYSTEMS CORPORATION -- INTERNAL TELEPHONE LIST
+
+Switchboard ............................ 555-0100
+Help Desk ......................... extension 2504
+Publications Department ................ 555-0142
+Order Desk ............................. 555-0175
+
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

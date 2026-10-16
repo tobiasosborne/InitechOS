@@ -1,13 +1,41 @@
-# PM 2026-10-17 (initech-qskz merged): InitechDOS now asks for the date and time at startup when no
-# AUTOEXEC.BAT exists, exactly as DOS 3.30 does; every capture answers both prompts with Enter first.
-# Screen reproductions for the InitechDOS 3.30 User's Guide (1024-3300-12).
-# name|serial marker that ends the capture|keystrokes (printf %b; \n = Enter)
-# Regenerate with `make pubs-screens`; `make test-pubs-screens` re-captures
-# and diffs against the committed .txt files.
-startup|A:\>|
+# Screens for the InitechDOS 3.30 User's Guide (1024-3300-11), beads initech-ipu5.7 / ipu5.6.
+# name|serial marker[#count]|disk
+# The keystrokes of screen NAME are screens/NAME.keys, one line read with
+# printf %b (\n = Enter, \\ = backslash); it is the ONLY keyboard source
+# (test-pubs SCREEN-KEYS), and every .keys starts with the two Enters that
+# answer the startup date and time prompts.  The marker is text of the LAST
+# command's output; #count is how many times it has appeared on the serial
+# mirror (typed keys echo there too) when the screen is complete.  disk is
+# the practice diskette the screen boots with (pubs/screens/disk/MANIFEST):
+# empty = the practice diskette as shipped, whose AUTOEXEC.BAT sets PATH;
+# noautoexec = the same diskette without AUTOEXEC.BAT, the only case in
+# which InitechDOS asks for the date and time at startup (initech-qskz).
+# Regenerate with "make pubs-screens"; "make test-pubs-screens" re-captures
+# every screen and diffs it against the book.
+startup|A:\>|noautoexec
+errors|Required parameter missing|
 dir|bytes free|
 type|Copies of the cover sheet|
 copy|bytes free|
 del|File not found|
-errors|Required parameter missing|
 paths|bytes free|
+ren|bytes free|
+wild|A:\PHONE.TXT|
+cdsub|bytes free|
+tree|None#2|
+vol|Volume in drive A is INITECH|
+label|Volume in drive A is WORKDISK|
+chkdsk|bytes free|
+backup|bytes free|
+autoexec|PATH=A:\APPS#2|
+greet|Your report is due Friday.|
+check|after CHECK.#2|
+cover|The cover sheets are ready.|
+set|DEPT=PUBS#2|
+prompt|A:\>#5|
+redir|Second line#2|
+stdin|Volume in drive A is REPORTS|
+attrib|Access denied|
+xcopys|File(s) copied|
+path|PATH=A:\APPS#2|
+ctrlc|A:\>#5|

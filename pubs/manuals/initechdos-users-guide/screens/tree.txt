@@ -1,0 +1,25 @@
+A:\>TREE
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \
+
+Sub-directories: APPS
+               : SAMPLES
+
+Path: \APPS
+
+Sub-directories: None
+
+Path: \SAMPLES
+
+Sub-directories: None
+A:\>
+
+
+
+
+
+
+
+
+

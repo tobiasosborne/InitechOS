@@ -1,0 +1,25 @@
+A:\>PROMPT $N$G
+A>PROMPT Ready$G
+Ready>PROMPT $D $$$G
+03-02-1992 $>PROMPT
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

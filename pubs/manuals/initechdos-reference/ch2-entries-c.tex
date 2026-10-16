@@ -1,0 +1,244 @@
+% Chapter 2 entries SET .. XCOPY (AN-01).
+
+% SET -- os/milton/command.c builtin_set, cmd_set_parse (list; NAME=VALUE,
+% name upcased; NAME= clears, silent; NAME alone queries:
+% "Environment variable not defined"); os/milton/env.c (512-byte arena:
+% "Out of environment space"); command_repl (COMSPEC, PROMPT, PATH).
+% Gates: test-env, test-command, test-interp-set.
+\begin{DosEntry}{SET}{}{internal}
+\Purpose Sets, removes or displays environment variables.
+\Format \SyntaxLine{\kw{SET} \opt{\ph{name}\opt{\kw{=}\opt{\ph{string}}}}}
+\Type{Internal}
+\Remarks
+The \emph{environment} is an area of memory that holds named strings, called
+environment variables, for InitechDOS and for the programs you run.
+
+Typed with no parameter, \cmd{SET} lists every variable, one to a line, as
+\ph{name}\texttt{=}\ph{string}.
+
+\Param{name=string} sets the variable \ph{name} to \ph{string}, replacing
+any earlier value.  The name is changed to capital letters; the string is
+kept exactly as you type it.
+
+\Param{name=} with no string removes the variable.  Nothing is displayed.
+
+\Param{name} alone displays that variable, or
+\texttt{Environment variable not defined}.
+
+InitechDOS sets three variables when it starts: \texttt{COMSPEC}, the
+location of the command processor; \texttt{PROMPT}, the command prompt (see
+\cmd{PROMPT}); and \texttt{PATH}, the directories searched for commands
+(see Chapter~1, ``The Practice Diskette'').  A batch file can use the value
+of a variable by writing its name between percent signs, as
+\texttt{\%PATH\%} (Chapter~4).
+
+The environment holds 512 characters.  If a new variable does not fit,
+\cmd{SET} displays \texttt{Out of environment space} and the environment is
+not changed.
+\Example
+To list the environment, add the variable \texttt{DEPT}, and list it
+again:
+\Shot{set}
+To display one variable, remove it, and look for it again:
+\Shot{setclr}
+\end{DosEntry}
+
+% TIME -- os/milton/command.c builtin_time, cmd_parse_time (hh:mm[:ss],
+% 0..23 / 0..59; "Invalid time" then the unchanged time),
+% cmd_format_time ("Current time is hh:mm:ss.cc").  Gates: test-datetime,
+% test-command.
+\begin{DosEntry}{TIME}{}{internal}
+\Purpose Sets or displays the system time.
+\Format \SyntaxLine{\kw{TIME} \opt{\ph{hh}\kw{:}\ph{mm}\opt{\kw{:}\ph{ss}}}}
+\Type{Internal}
+\Remarks
+\Param{hh} is the hour, 0 through 23, on the 24-hour clock.
+
+\Param{mm} is the minutes, 0 through 59.
+
+\Param{ss} is the seconds, 0 through 59.  If you leave them out, the
+seconds are set to 0.
+
+With a valid time, \cmd{TIME} sets the system clock and displays the new
+time.  With no parameter it displays the current time:
+\texttt{Current time is} \ph{hh}\texttt{:}\ph{mm}\texttt{:}\ph{ss}%
+\texttt{.}\ph{cc}, where \ph{cc} is hundredths of a second.
+
+If the time is not valid, \cmd{TIME} displays \texttt{Invalid time}, leaves
+the clock unchanged and displays the current time.
+\Example
+To set the clock to a quarter to two in the afternoon:
+\Shot{time}
+\end{DosEntry}
+
+% TREE -- os/milton/xcopy_tree.c du_main(tree) (one path operand, default
+% the root; /F; volume heading; "Path:", "Sub-directories:", ":" at column
+% 16, "None", "Files:"; messages).  Shipped as APPS\TREE.COM.
+% Gates: test-xcopy-tree, test-xcopy-tree-emu.
+\begin{DosEntry}{TREE}{}{external}
+\Purpose Displays the directories of a disk and, optionally, the files in
+each.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{TREE}
+  \opt{\ph{d}\kw{:}}\opt{\ph{path}} \opt{\kw{/F}}}
+\Type{External}
+\Remarks
+\Param{path} names the directory to start from.  If you leave it out,
+\cmd{TREE} starts at the root directory.
+
+\Param{/F} also lists the files in each directory.
+
+\cmd{TREE} displays the heading \texttt{DIRECTORY PATH LISTING FOR VOLUME}
+and the volume label.  Then, for the starting directory and each directory
+below it, it displays \texttt{Path:} and the path, and
+\texttt{Sub-directories:} followed by the names of the subdirectories, one
+to a line, or \texttt{None}.  With \kw{/F}, \texttt{Files:} and the names
+of the files follow, or \texttt{None}.
+
+If the path is not a directory, \cmd{TREE} displays \texttt{Invalid path
+(or file not found)}.  A parameter other than \kw{/F} displays
+\texttt{Invalid parameter(s)}, and a second path displays \texttt{Invalid
+number of parameters}.
+\Example
+To display the directories of the practice diskette:
+\Shot{tree}
+To list the files in the directory \file{SAMPLES}:
+\Shot{treef}
+\end{DosEntry}
+
+% TYPE -- os/milton/command.c builtin_type (first token; open by name, no
+% wildcard search; MSG-DOS-0003, MSG-DOS-0011; CR LF after the file).
+% Gates: test-command, test-shell.
+\begin{DosEntry}{TYPE}{}{internal}
+\Purpose Displays the contents of a file.
+\Format \SyntaxLine{\kw{TYPE} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}}
+\Type{Internal}
+\Remarks
+\Param{filename} names the file to display.  Wildcards are not allowed.
+
+The file is displayed exactly as it is stored.  Use \cmd{TYPE} for text
+files only; a program file contains codes that are not meant to be
+displayed.
+
+If the file does not exist, \cmd{TYPE} displays \texttt{File not found}.
+With no file name it displays \texttt{Required parameter missing}.
+\Example
+To display the telephone list:
+\Shot{type}
+\end{DosEntry}
+
+% VER -- os/milton/command.c builtin_ver (AH=30h: 3.30; "InitechDOS
+% Version 3.30" after a blank line); spec/dos_banner.txt.  Gates:
+% test-command, test-shell.
+\begin{DosEntry}{VER}{Version}{internal}
+\Purpose Displays the version number of InitechDOS.
+\Format \SyntaxLine{\kw{VER}}
+\Type{Internal}
+\Remarks
+\cmd{VER} displays a blank line and then the name and version of the
+operating system.  Parameters are ignored.
+\Example
+\Shot{ver}
+\end{DosEntry}
+
+% VOL -- os/milton/command.c builtin_vol (drive A only, MSG-DOS-0004;
+% extra parameters MSG-DOS-0010; MSG-DOS-0021/0022; read failure
+% MSG-DOS-0009).  Gates: test-label-vol, test-dir-volume.
+\begin{DosEntry}{VOL}{Volume}{internal}
+\Purpose Displays the volume label of a disk.
+\Format \SyntaxLine{\kw{VOL} \opt{\ph{d}\kw{:}}}
+\Type{Internal}
+\Remarks
+\cmd{VOL} displays \texttt{Volume in drive A is} and the label, or
+\texttt{Volume in drive A has no label}.  Create or change the label with
+\cmd{LABEL}.
+
+A drive other than A displays \texttt{Invalid drive specification}.
+Anything after the drive displays \texttt{Too many parameters}.  If the disk
+cannot be read, \cmd{VOL} displays \texttt{Access denied}.
+\Example
+\Shot{vol}
+\end{DosEntry}
+
+% XCOPY -- os/milton/xcopy_tree.c du_main (operands; /A /D:date /E /M /P /S
+% /V /W; F/D question; names copied; "n File(s) copied"; exit codes 0, 1,
+% 4, 5; cyclic and self-copy refusals; date/time kept via AH=57h; copies
+% get archive set, source read-only kept).  Relative source from a
+% subdirectory resolves against the root in the shipped build (no bead
+% yet; WL-0119).  Shipped as APPS\XCOPY.COM.  Gates: test-xcopy-tree,
+% test-xcopy-tree-emu, test-xcopy-tree-emu-cancel.
+\begin{DosEntry}{XCOPY}{Extended Copy}{external}
+\Purpose Copies groups of files, and the directories that contain them.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{XCOPY}
+  \opt{\ph{d}\kw{:}}\opt{\ph{path}}\opt{\ph{filename}\opt{\kw{.}\ph{ext}}}
+  \opt{\ph{d}\kw{:}}\opt{\ph{path}}\opt{\ph{filename}\opt{\kw{.}\ph{ext}}}
+  \opt{\kw{/A}\texttt{|}\kw{/M}} \opt{\kw{/D:}\ph{date}} \opt{\kw{/E}}
+  \opt{\kw{/P}} \opt{\kw{/S}} \opt{\kw{/V}} \opt{\kw{/W}}}
+\Type{External}
+\Remarks
+The first file specification names the source files.  It may be a file
+name, a name with wildcards, or a directory, which means every file in it.
+
+The second names the target.  If you leave it out, the files are copied to
+the current directory.  If the target ends with a backslash, or is an
+existing directory, the files are copied into it, and the directory is
+created if necessary.  If the target does not exist and does not end with a
+backslash, \cmd{XCOPY} asks:
+\begin{TypeIn}
+Does name specify a file name or directory name on the target
+(F = file, D = directory)?
+\end{TypeIn}
+Press \type{F} to copy into a file of that name, or \type{D} to create a
+directory.
+
+\cmd{XCOPY} displays the name of each file as it copies it, and at the end
+the number of files copied.  Each copy keeps the date and time of its
+source and has its archive attribute set; a read-only source gives a
+read-only copy.
+
+\Param{/A} copies only files whose archive attribute is set, and leaves the
+attribute unchanged.
+
+\Param{/M} copies only files whose archive attribute is set, and clears the
+attribute of each source file copied.  Use \kw{/M} to copy only the files
+that have changed since the last copy.
+
+\Param{/D:date} copies only files changed on or after \ph{date}, given as
+for the \cmd{DATE} command.
+
+\Param{/S} also copies the files in every subdirectory of the source,
+creating the matching directories in the target.  Directories that hold no
+files to copy are not created.
+
+\Param{/E} used with \kw{/S} also creates the empty subdirectories.
+\kw{/E} without \kw{/S} displays \texttt{Invalid parameter(s)}.
+
+\Param{/P} asks before each file:
+\ph{filename} \texttt{(Y/N?)}.  Press \type{Y} to copy the file or \type{N}
+to skip it.
+
+\Param{/V} reads back each copy and compares it with the source.
+
+\Param{/W} displays \texttt{Press any key when ready to start copying
+files} and waits, so that you can change diskettes first.
+
+\cmd{XCOPY} will not copy a directory into one of its own subdirectories:
+it displays \texttt{Cannot perform a cyclic copy}.  A file copied onto
+itself displays \texttt{File cannot be copied onto itself}.
+
+\cmd{XCOPY} returns exit code 0 when it copied files, 1 when no files were
+found to copy, 4 for an error in the command line or a path, and 5 when a
+file could not be read or written.
+
+\draft{see bead initech-ktqk: run from a subdirectory, the shipped XCOPY finds a
+relative source name in the root directory (XCOPY *.BAT in A:\bs SAMPLES
+copies A:\bs AUTOEXEC.BAT); DOS 3.3 uses the current directory}
+A source name without a path refers to the current directory.
+\Example
+The first command copies the text files into a new directory,
+\file{BACKUP}; the second copies the directory \file{SAMPLES} to a new
+directory, \file{SAVED}, the answer \type{D} being typed at the question:
+\Shot{xcopy}
+To be asked about each file, use \kw{/P}; here the answers are \type{Y},
+\type{N} and \type{Y}:
+\Shot{xcopyp}
+\end{DosEntry}

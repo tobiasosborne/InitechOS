@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>CD
+A:\SAMPLES
+A:\SAMPLES>CD ..
+A:\>CD
+A:\
+A:\>CD SAMPLES
+A:\SAMPLES>DIR
+
+ Volume in drive A is INITECH
+
+ Directory of A:\SAMPLES
+
+.               <DIR>   3-01-92  12:30p
+..              <DIR>   3-01-92  12:30p
+GREET    BAT      123   3-01-92  12:30p
+SHOWALL  BAT      126   3-01-92  12:30p
+CHECK    BAT      188   3-01-92  12:30p
+WEEK     BAT       75   3-01-92  12:30p
+COVER    BAT      120   3-01-92  12:30p
+SAVE     BAT      195   3-01-92  12:30p
+JUMP     BAT      111   3-01-92  12:30p
+
+        9 File(s)   1417728 bytes free
+A:\SAMPLES>

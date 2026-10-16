@@ -1,0 +1,53 @@
+# Screens for the InitechDOS 3.30 Reference (1024-3300-10), beads initech-ipu5.7 / ipu5.6.
+# name|serial marker[#count]|disk
+# The keystrokes of screen NAME are screens/NAME.keys, one line read with
+# printf %b (\n = Enter, \\ = backslash); it is the ONLY keyboard source
+# (test-pubs SCREEN-KEYS), and every .keys starts with the two Enters that
+# answer the startup date and time prompts.  The marker is text of the LAST
+# command's output; #count is how many times it has appeared on the serial
+# mirror (typed keys echo there too) when the screen is complete.  disk is
+# the practice diskette the screen boots with (pubs/screens/disk/MANIFEST):
+# empty = the practice diskette as shipped, whose AUTOEXEC.BAT sets PATH;
+# noautoexec = the same diskette without AUTOEXEC.BAT, the only case in
+# which InitechDOS asks for the date and time at startup (initech-qskz).
+# Regenerate with "make pubs-screens"; "make test-pubs-screens" re-captures
+# every screen and diffs it against the book.
+startup|A:\>|noautoexec
+attrib|Access denied|
+attribs|A:\APPS\EDLIN.COM|
+break|BREAK is on#2|
+cd|A:\>#7|
+chkdsk|bytes free|
+chkfile|bytes free|
+copy|file(s) copied#3|
+date|Current date is#3|
+del|File not found|
+dir|bytes free|
+echo|The report is ready.#2|
+label|Volume in drive A is REPORTS|
+labelset|Invalid characters in volume label|
+md|bytes free|
+prompt|A:\>#5|
+rd|Invalid path, not directory, or directory not empty|
+ren|bytes free|
+set|DEPT=PUBS#2|
+setclr|PATH=A:\APPS|
+time|Current time is|
+tree|None#2|
+treef|JUMP.BAT|
+type|555-0175|
+ver|Version 3.30#2|
+vol|Invalid drive specification|
+xcopy|File(s) copied#2|
+xcopyp|File(s) copied|
+call|The cover sheets are ready.#2|
+echobat|Your report is due Friday.|
+for|Reports are collected on WED.|
+goto|Processing starts at the label START.#2|
+if|after CHECK.#2|
+iferr|Check the file names and try again.#2|
+shift|THREE#4|
+path|PATH=A:\APPS#2|
+edlin|bytes free|
+dirargs|bytes free#2|
+forwild|PHONE.TXT|

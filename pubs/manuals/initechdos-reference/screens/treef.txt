@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>TREE \SAMPLES /F
+DIRECTORY PATH LISTING FOR VOLUME INITECH
+
+Path: \SAMPLES
+
+Sub-directories: None
+
+Files:
+        GREET.BAT
+        SHOWALL.BAT
+        CHECK.BAT
+        WEEK.BAT
+        COVER.BAT
+        SAVE.BAT
+        JUMP.BAT
+A:\SAMPLES>
+
+
+
+
+
+
+
+

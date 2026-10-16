@@ -1,0 +1,25 @@
+A:\>VOL
+
+ Volume in drive A is INITECH
+A:\>VOL B:
+Invalid drive specification
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

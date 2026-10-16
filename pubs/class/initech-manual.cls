@@ -7,6 +7,15 @@
 %% 34 + 4 + 104 mm, fixed left on BOTH pages. Lotus uses 132 mm measure.
 %% All font files are pinned in pubs/fonts.lock. PDF optional dates and ID
 %% are suppressed; test-pubs-repro compares independent clean builds.
+%% F-IBM furniture (option ibm; PG-10, PG-20, PG-28, PG-30, PG-35; merged
+%% from the InitechDOS manuals lane, bead initech-ipu5.7): "Chapter N. Title"
+%% openers over the AN-22 mini-contents (titletoc partial contents), a
+%% "Notes:" verso behind every opener, black thumb tabs on every recto of a
+%% chapter stepping down the fore-edge (six positions, counted through the
+%% book; label from \ChapterTab{} before \chapter, else "Chapter N"), folio
+%% only in the foot, index folios Index-n, and the two-line title of a
+%% reference entry repeated flush outside on every continuation page (PG-10,
+%% drawn at shipout for every family: \im@openentry / \im@closeentry).
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{initech-manual}[1992/03/01 Initech manual class]
 
@@ -40,6 +49,8 @@
 \im@ifmodel{apple}{\im@continuoustrue}{}
 \im@ifmodel{borland}{\im@continuoustrue}{}
 \im@ifmodel{wordperfect}{\im@continuoustrue}{}
+\newif\ifim@ibm
+\im@ifmodel{ibm}{\im@ibmtrue}{}
 
 \LoadClass[10pt,twoside,openright]{book}
 
@@ -168,8 +179,6 @@
 \RequirePackage{fancyhdr}
 \newcommand\im@foottitle{}
 \newcommand\im@draftfoot{}
-\newif\ifim@entryactive
-\newcount\im@entrypage
 \newif\ifim@referencepages
 \newcommand\DictionaryHeads{\global\im@referencepagestrue}
 \newcommand\LibraryHeads{\global\im@referencepagestrue}
@@ -187,8 +196,6 @@
   \fancyhfoffset[LO,LE]{\imHang}%
   \fancyfoot[RO,LE]{\imFolioFont\thepage}%
   \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}%
-  \im@ifmodel{ibm}{\fancyhead[RO,LE]{\ifim@entryactive
-    \ifnum\value{page}>\im@entrypage\sffamily\bfseries\im@entryname\\Command\fi\fi}}{}%
   \im@ifmodel{ibm}{}{\fancyfoot[LO,RE]{\imFootFont\im@foottitle}}%
   \im@ifmodel{operations}{\renewcommand\headrulewidth{0.5pt}%
     \renewcommand\footrulewidth{0.5pt}%
@@ -224,16 +231,13 @@
   \if@twoside\ifodd\c@page\else
     \im@ifmodel{borland}{\thispagestyle{im@text}}{\thispagestyle{empty}}%
     \hbox{}%
-    \im@ifmodel{ibm}{\thispagestyle{im@text}%
+    \im@ifmodel{ibm}{\thispagestyle{im@text}\vspace*{-\topskip}\vspace*{-\parskip}%
       {\noindent\hspace*{-\imHang}\imHeadOneFont Notes:\par}}{}%
     \newpage
   \fi\fi}
 
 %% ---- headings (Sec 4, Sec 5 chapter opener) -------------------------------
 \RequirePackage[explicit]{titlesec}
-\RequirePackage{minitoc}
-\setcounter{minitocdepth}{2}
-\renewcommand\mtctitle{Contents}
 \setcounter{secnumdepth}{0}
 \renewcommand\thechapter{\arabic{chapter}}
 \newcommand\im@chaptername{Chapter}
@@ -273,6 +277,8 @@
     {}{0pt}{\im@fullhead{\im@chaptername\ \thechapter.\ #1}}%
   \renewcommand\imHeadOneFont{\sffamily\bfseries\fontsize{16}{18}\selectfont}%
   \renewcommand\imHeadTwoFont{\sffamily\bfseries\fontsize{12}{14}\selectfont}%
+  \titleformat{name=\chapter,numberless}[block]{\RaggedRight\sffamily\bfseries\fontsize{20}{24}\selectfont}
+    {}{0pt}{\im@fullhead{#1}}%
   \titleformat{\section}[block]{\imHeadOneFont}{}{0pt}{\im@fullhead{#1}}%
   \titlespacing*{\section}{0pt}{18pt}{6pt}}{}
 \im@ifmodel{operations}{%
@@ -333,10 +339,11 @@
   \fi
   \FootTitle{#1}}
 \RenewDocumentCommand\chapter{s o m}{%
+  \im@closeentry
   \IfBooleanTF{#1}
-    {\cleardoublepage\FootTitle{#3}%
+    {\cleardoublepage\FootTitle{#3}\im@notab
      \im@origchapter*{#3}}
-    {\im@chapterhook{#3}%
+    {\im@chapterhook{#3}\im@applytab
      \IfValueTF{#2}{\im@origchapter[#2\im@drafttoc]{#3}}{\im@origchapter[#3\im@drafttoc]{#3}}}%
   \thispagestyle{plain}%
   \IfBooleanF{#1}{\im@ifmodel{wordperfect}{%
@@ -344,19 +351,14 @@
     \AtPage{168.8}{15}{\colorbox{FamilyOffice}{\parbox[c][190.6mm][c]{9mm}{%
       \centering\color{white}\rotatebox{-90}{\im@condensed\bfseries\fontsize{9}{10}\selectfont #3}}}}%
     \newpage\null\thispagestyle{empty}\newpage}{} }%
-  \IfBooleanF{#1}{\im@ifmodel{ibm}{%
-    \noindent\hspace*{-\imHang}\begin{minipage}{\imFullWidth}\minitoc\end{minipage}%
-    \AtPage{168.8}{\fpeval{19+30*(\value{chapter}-1-6*floor((\value{chapter}-1)/6))}}{%
-      \colorbox{black}{\parbox[c][28mm][c]{9mm}{\centering\color{white}%
-        \rotatebox{90}{\im@condensed\bfseries\fontsize{7}{8}\selectfont\im@chaptername\ \thechapter}}}}%
-    \newpage\thispagestyle{plain}\noindent\hspace*{-\imHang}%
-    {\imHeadOneFont Notes:\par}\newpage}{} }}
+  \IfBooleanF{#1}{\im@ifmodel{ibm}{\im@ibmopener}{}}}
 
 %% Unnumbered front-matter chapter (Preface, Contents): roman folios.
 \newcounter{im@frontchapters}
 \NewDocumentCommand\FrontChapter{m}{%
   \stepcounter{im@frontchapters}%
-  \cleardoublepage\FootTitle{#1}%
+  \im@closeentry
+  \cleardoublepage\FootTitle{#1}\im@notab
   \im@origchapter*{#1}\thispagestyle{plain}%
   \addcontentsline{toc}{chapter}{#1}}
 
@@ -392,10 +394,9 @@
   {\normalsize}
   {}{}
   {\titlerule*[0.75em]{.}\contentspage}
-\renewcommand\tableofcontents{\dominitoc\cleardoublepage\FootTitle{Contents}%
+\renewcommand\tableofcontents{\im@closeentry\cleardoublepage\FootTitle{Contents}\im@notab
   \im@origchapter*{Contents}\thispagestyle{plain}%
-  \begin{adjustwidth}{-\imHang}{0pt}\@starttoc{toc}\end{adjustwidth}%
-  \setcounter{mtc}{\value{im@frontchapters}}}
+  \begin{adjustwidth}{-\imHang}{0pt}\@starttoc{toc}\end{adjustwidth}}
 \def\contentsname{Contents}
 
 %% ---- figures: chapter-numbered "Figure 2-1." --------------------------------
@@ -406,10 +407,10 @@
 \RequirePackage{multicol}
 \makeindex
 \renewenvironment{theindex}
-  {\cleardoublepage
+  {\im@closeentry\cleardoublepage
    \ifim@continuous\else\im@setfolio{Index-}%
      \im@ifmodel{ashtontate}{\im@setfolio{X-}}{}\setcounter{page}{1}\fi
-   \FootTitle{Index}%
+   \FootTitle{Index}\im@notab
    \im@origchapter*{Index}\thispagestyle{plain}%
    \addcontentsline{toc}{chapter}{Index}%
    \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{2}\@setfontsize\im@x{8.5}{10}%
@@ -425,17 +426,105 @@
 \newcommand\printindex{\InputIfFileExists{\jobname.ind}{}{%
   \ClassWarningNoLine{initech-manual}{No index file \jobname.ind yet}}}
 
+%% ---- reference-entry continuation title (PG-10; every family) -------------
+%% A reference entry that runs over a page repeats its two-line title at the
+%% top of each continuation page, flush to the OUTSIDE edge, no rule (IBM
+%% 3.10 Reference PDF p. 120-121).  The entry environments (initech-syntax:
+%% CommandEntry, DosEntry) call \im@openentry{line 1}{line 2};
+%% \im@closeentry ships the entry's last page while its title is still in
+%% force, then forgets it.  Drawn at shipout, not as a fancyhdr head, which
+%% would claim head height and move the text block: the two lines end 15 mm
+%% from the top trim, flush with the outside edge of the full block.
+\newif\ifim@inentry
+\newcount\im@entrystart
+\newcommand\im@entrytitleA{}
+\newcommand\im@entrytitleB{}
+\newcommand\imContTitleFont{\sffamily\bfseries\@setfontsize\im@x{11}{13}}
+\newcommand\im@openentry[2]{\im@closeentry
+  \gdef\im@entrytitleA{#1}\gdef\im@entrytitleB{#2}%
+  \global\im@entrystart=\c@page \global\im@inentrytrue}
+\newcommand\im@closeentry{\ifim@inentry\clearpage\global\im@inentryfalse\fi}
+\AddToHook{shipout/foreground}{%
+  \ifim@inentry\ifnum\c@page>\im@entrystart
+    \ifodd\c@page
+      \put(\dimexpr\paperwidth-\imOutside\relax,-15mm){\makebox(0,0)[rb]{%
+        \imContTitleFont\begin{tabular}[b]{@{}r@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
+    \else
+      \put(\imOutside,-15mm){\makebox(0,0)[lb]{%
+        \imContTitleFont\begin{tabular}[b]{@{}l@{}}\im@entrytitleA\\\im@entrytitleB\end{tabular}}}%
+    \fi
+  \fi\fi}
+
+%% ---- thumb tabs (PG-30) ---------------------------------------------------
+%% \ChapterTab{LABEL} BEFORE \chapter names the tab of the chapter it opens
+%% (default "Chapter N" / "Appendix A"); the chapter applies it once the
+%% previous chapter's pages have shipped and takes the next of the six
+%% positions, counted through the whole book.  Front matter and the index
+%% carry no tab.
+\def\im@tablabel{}
+\def\im@nexttab{}
+\newcommand\ChapterTab[1]{\gdef\im@nexttab{#1}}
+\newcount\im@tabseq
+\newcount\im@tabpos
+\newcommand\im@notab{\gdef\im@tablabel{}}
+\newcommand\im@applytab{%
+  %% (\im@chapterhook has left the counter at the previous chapter.)
+  \ifx\im@nexttab\@empty
+    \begingroup\advance\c@chapter by 1
+      \xdef\im@tablabel{\im@chaptername\space\thechapter}\endgroup
+  \else
+    \global\let\im@tablabel\im@nexttab \gdef\im@nexttab{}\fi
+  \global\im@tabpos=\im@tabseq
+  \loop\ifnum\im@tabpos>5 \global\advance\im@tabpos by -6 \repeat
+  \global\advance\im@tabseq by 1 }
+
+%% ---- F-IBM furniture (PG-20, PG-28, PG-30, PG-35, AN-22) ------------------
+\ifim@ibm
+  %% Running text quotes long messages, paths and commands in Cursor that
+  %% cannot be broken (PG-09): ragged right with a free right margin, as the
+  %% IBM model sets it, instead of ragged2e's 4 em stretch.
+  \emergencystretch=3em
+  \setlength\RaggedRightRightskip{0pt plus 1fil}
+  \contentsmargin{4.5em}
+  %% PG-35: chapter lines bold with bold folio, dot leaders.
+  \titlecontents{chapter}[0pt]
+    {\addvspace{7pt}\sffamily\bfseries}
+    {\im@tocname~\thecontentslabel.\enspace}
+    {}
+    {\titlerule*[0.75em]{.}\contentspage}
+  %% AN-22: the chapter mini-contents ("Contents", 3.10 form) under the title.
+  \titlecontents{lsection}[0pt]
+    {\sffamily\bfseries\fontsize{9}{12}\selectfont}
+    {}{}
+    {\titlerule*[0.75em]{.}\contentspage}
+  \titlecontents{lsubsection}[1.5em]
+    {\fontsize{9.5}{12}\selectfont}
+    {}{}
+    {\titlerule*[0.75em]{.}\contentspage}
+  %% PG-20: the rest of the opener is empty; PG-28 the verso behind it is
+  %% "Notes:" (\cleardoublepage above); text starts on the next recto.
+  \newcommand\im@ibmopener{%
+    \startcontents[chapters]%
+    \par\noindent\hspace*{-\imHang}%
+    \begin{minipage}[t]{\imFullWidth}\RaggedRight
+      {\imHeadTwoFont Contents\par}\vspace{4pt}%
+      \printcontents[chapters]{l}{1}{\setcounter{tocdepth}{2}}%
+    \end{minipage}\par
+    \cleardoublepage}
+  %% PG-30: black tabs bleeding off the fore-edge of every recto in a
+  %% chapter, 9 mm visible x 30 mm, label reversed reading bottom to top.
+  \AddToHook{shipout/background}{%
+    \ifodd\c@page\ifx\im@tablabel\@empty\else
+      \put(\dimexpr\paperwidth-9mm\relax,-\dimexpr24mm+30mm*\im@tabpos+30mm\relax){%
+        \textcolor{InitechBlack}{\rule{12mm}{30mm}}}%
+      \put(\dimexpr\paperwidth-4.5mm\relax,-\dimexpr24mm+30mm*\im@tabpos+15mm\relax){%
+        \makebox(0,0){\rotatebox{90}{\textcolor{white}{\im@condensed\bfseries
+          \fontsize{7}{8}\selectfont\MakeUppercase{\im@tablabel}}}}}%
+    \fi\fi}
+\fi
+
 %% ---- helpers -----------------------------------------------------------
 \RequirePackage{initech-syntax}
 \RequirePackage{initech-screen}
 \RequirePackage{initech-forms}
-%% Printer's signatures: preserve the last interior page for the colophon.
-\newcount\im@sheetpages
-\AddToHook{shipout/after}{\global\advance\im@sheetpages by 1}
-\ExplSyntaxOn
-\newcommand\PadForColophon{\clearpage
-  \prg_replicate:nn {\int_mod:nn {7-\int_mod:nn {\im@sheetpages}{4}}{4}}
-    {\null\thispagestyle{empty}\newpage}}
-\ExplSyntaxOff
-
 \endinput

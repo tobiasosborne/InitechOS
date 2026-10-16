@@ -1,18 +1,17 @@
-# InitechDOS User's Guide pilot omissions, established 2026-10-16.
-# NAME|date|reason. Remove each row when its reference entry lands.
+# InitechDOS manuals: shipped items with no entry yet, established 2026-10-16.
+# NAME|date|reason. Remove each row when its reference entry lands; the gate
+# forbids growth against HEAD and HEAD^ and rejects stale rows.
+# 2026-10-17 (lane/dosman integration): 24 rows removed -- the InitechDOS
+# Reference documents them (ATTRIB BREAK CD CHDIR CHKDSK CLS DATE ECHO ERASE
+# EXIT LABEL MD MKDIR PROMPT RD REN RENAME RMDIR SET TIME TREE VER VOL XCOPY);
+# EDLIN got its Reference entry in the same pass.
+# !!! GROWTH, PM-directed 2026-10-17: TEXT (APPS\TEXT.EXE, InitechText) joined
+# !!! the shipped volume after the pilot rows were dated; like CALC and WORD it
+# !!! is a FLAIR application for its own manual (initech-ipu5.11), not a DOS
+# !!! command, so it is listed here explicitly rather than in the DOS books.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-ATTRIB|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-BREAK|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-CD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-CHDIR|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-CHKDSK|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-CLS|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-DATE|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-ECHO|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-ERASE|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-EXIT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:00|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:01|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:02|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
@@ -88,19 +87,6 @@ INT21:57|2026-10-16|Pilot covers daily file tasks; Reference entry not yet writt
 INT21:59|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:5B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:62|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-LABEL|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-MD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-MKDIR|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-PROMPT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-RD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-REN|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-RENAME|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-RMDIR|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-SET|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 TENANTFX|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-TIME|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-TREE|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-VER|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-VOL|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+TEXT|2026-10-17|FLAIR application (InitechText); its own manual is not yet written (PM-directed explicit row)
 WORD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
-XCOPY|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written

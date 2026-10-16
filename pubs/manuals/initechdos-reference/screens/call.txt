@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>TYPE COVER.BAT
+@ECHO OFF
+ECHO Put the cover sheets in the printer.
+PAUSE
+CALL GREET Peter Friday
+ECHO The cover sheets are ready.
+
+A:\SAMPLES>COVER
+Put the cover sheets in the printer.
+Strike a key when ready . . .
+Good morning, Peter.
+Your report is due Friday.
+The cover sheets are ready.
+A:\SAMPLES>
+
+
+
+
+
+
+
+
+
+

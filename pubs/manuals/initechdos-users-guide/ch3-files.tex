@@ -1,0 +1,132 @@
+% Chapter 3 -- Working with Files and Directories.
+% Sources (Law 1): os/milton/command.c (builtin_ren AH=56h same directory;
+% builtin_cd; builtin_del wildcards); os/milton/int21.c (8.3 search template
+% '*' '?', do_chdir: relative, absolute, "..", "\" alone = the root,
+% initech-33t2); os/milton/dosutil.c (ATTRIB
+% wildcard display); os/milton/xcopy_tree.c (TREE).
+% GATES: test-command test-ut6d test-fat-subdir test-attrib test-xcopy-tree test-pubs-screens
+\Gates{test-command, test-ut6d, test-fat-subdir, test-attrib, test-xcopy-tree, test-pubs-screens}
+\chapter{Working with Files and Directories}
+
+\section{Naming Files}
+\index{file names}
+Chapter~1 described the two parts of a file name: a name of up to eight
+characters and an extension of up to three.  Choose names that tell you
+what a file holds, and use the extension to group files of one kind:
+\file{.TXT} for text, \file{.BAK} for backup copies, \file{.BAT} for batch
+files.  Make your names from letters and digits; do not use spaces, or the
+characters \texttt{\textbackslash{} / : * ? " < > | + = ; , [ ]}, which have
+other meanings on the command line.
+
+\section{Renaming a File}
+\index{renaming files}\index{REN@\texttt{REN}}
+The \cmd{REN} command gives a file a new name.  \cmd{RENAME} is another
+name for the same command.  Name the file first and the new name second.
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{REN MEMO.TXT MEMO.OLD} and press \key{Enter}.
+\item Type \type{DIR} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=16, label=fig:ren]{screens/ren.txt}{Renaming MEMO.TXT}
+
+The file keeps its size, date and directory; only the name changes.  If a
+file with the new name already exists, or the file you named does not,
+\cmd{REN} displays \texttt{Bad command or file name} and nothing is
+changed.  To put the old name back, type \type{REN MEMO.OLD MEMO.TXT}.
+
+\section{Naming Groups of Files}
+\index{wildcards}
+Some commands can act on a group of files at once.  To name the group, use
+the \term{wildcard} characters:
+
+\SideHead{* (asterisk)}Stands for any characters from its position to the
+end of the name, or of the extension.  \file{*.TXT} means every file with
+the extension \file{TXT}; \file{MEMO.*} means every file named \file{MEMO},
+whatever its extension; \file{*.*} means every file.
+
+\SideHead{? (question mark)}Stands for any one character in its position.
+\file{MEMO.?AK} matches \file{MEMO.BAK} but not \file{MEMO.TXT}.
+
+The commands that accept wildcards are \cmd{DEL}, \cmd{ATTRIB},
+\cmd{CHKDSK} and \cmd{XCOPY}; the \doctitle{InitechDOS Reference} states it
+for each command.  To see which files a wildcard name matches, give it to
+\cmd{ATTRIB}, which lists every match:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{ATTRIB *.TXT} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=5, label=fig:wild]{screens/wild.txt}{The files that match *.TXT}
+
+\begin{Important}
+Check a wildcard name with \cmd{ATTRIB} before you give it to \cmd{DEL}:
+\cmd{DEL} deletes every file the name matches.
+\end{Important}
+
+\section{The Current Directory}
+\index{current directory}
+The directory you are working in is the \term{current directory}.  Commands
+look for files in the current directory unless you tell them otherwise, and
+the command prompt always shows it.  The practice diskette has two
+subdirectories, \file{APPS} and \file{SAMPLES}.  In this exercise you move
+into \file{SAMPLES} and back:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{CD SAMPLES} and press \key{Enter}.  The prompt becomes
+  \file{A:\bs SAMPLES>}.
+\item Type \type{CD} and press \key{Enter}.  \cmd{CD} alone displays the
+  current directory.
+\item Type \type{CD ..} and press \key{Enter} to go back to the parent
+  directory, the root.
+\item Type \type{CD}, then \type{CD SAMPLES}, then \type{DIR}, pressing
+  \key{Enter} after each.
+\end{Steps}
+
+\Screen[rows=25, label=fig:cdsub]{screens/cdsub.txt}{Moving between directories}
+
+\section{Paths}
+\index{paths}
+To name a file in a directory other than the current one, write its
+\term{path}: the names of the directories that lead to it, each followed by
+a backslash (\type{\bs}).
+\begin{itemize}
+\item A path that begins with a backslash starts at the root directory:
+  \file{\bs SAMPLES\bs GREET.BAT} is the file \file{GREET.BAT} in the
+  directory \file{SAMPLES}, which is in the root directory.
+\item Any other path starts at the current directory: from the root,
+  \file{SAMPLES\bs GREET.BAT} names the same file.
+\item \file{..} names the parent directory: from \file{SAMPLES},
+  \file{..\bs MEMO.TXT} is the file \file{MEMO.TXT} in the root.
+\end{itemize}
+You may put the drive in front of a path: \file{A:\bs SAMPLES\bs GREET.BAT}.
+
+To go straight to the root directory from anywhere on the disk, type
+\type{CD \bs}.
+
+\section{The Directory Tree}
+\index{directory tree}\index{TREE@\texttt{TREE}}
+Because directories can hold other directories, the directories of a disk
+form a \term{tree}, with the root directory at its base.  The \cmd{TREE}
+utility program displays it:
+\begin{Steps}
+\item Type \type{CLS} and press \key{Enter}.
+\item Type \type{TREE} and press \key{Enter}.
+\end{Steps}
+
+\Screen[rows=16, label=fig:tree]{screens/tree.txt}{The directories of the practice diskette}
+
+For each directory \cmd{TREE} shows its path and the subdirectories it
+holds.  Type \type{TREE /F} to see the files in each directory as well.
+
+\section{Organizing Your Files}
+A few habits keep a disk easy to use:
+\begin{itemize}
+\item Keep programs in one directory and your own files in others, one
+  directory to a subject or a project.
+\item Keep the root directory short: the practice diskette's root holds
+  only a few files and the two directories.
+\item Remove files you no longer need, and directories that are empty.
+\item Make copies of important files on another diskette regularly
+  (Chapter~4).
+\end{itemize}

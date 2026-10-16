@@ -19,40 +19,57 @@ says it is not a pass. Normal runs do not skip missing tools.
 
 ## Command coverage
 
-The house class writes `.commands` (reference entries), `.mentions`
-(inline `cmd` uses), `.screens` and `.replays` beside each PDF. A
-`CommandEntry` registers its name; aliases can use `RegisterCommand`;
-`FunctionEntry{3F}` registers `INT21:3F`. Device names are `file`, not `cmd`.
-`UnknownCommand` explicitly marks a deliberately invalid command in a
-negative teaching example.
+The house class writes `.cmds` (the one documented-command list),
+`.mentions` (inline `cmd` uses), `.screens` and `.replays` beside each PDF.
+Every reference entry registers what it documents through
+`RegisterCommand{NAME}{KIND}{STATE}{ENTRY}` (initech-syntax.sty): the IBM
+`DosEntry` and the summary `CommandEntry` register their own name,
+`AlsoNamed{ERASE}` adds another name to the entry it is in, and
+`FunctionEntry{3F}` registers `INT21:3F` (KIND int21). A `.cmds` line is
+`NAME|KIND|STATE|ENTRY`; KIND is internal, external, batch, config or int21;
+STATE is GATED, or DRAFT for an entry carrying a draft marker. Device names
+and environment variables are `file`, not `cmd`. `UnknownCommand` marks a
+deliberately invalid command in a negative teaching example, and
+`UnshippedCommand` a DOS 3.3 command this version does not ship (only in
+DRAFT-marked text).
 
-`pubs-inventory` preprocesses command.c and reads the actual classifier's
-name table, so conditional rows are handled by the C preprocessor. Its
-INT 21h probe includes int21.c and calls the actual `ah_is_listed()`
-controlled register, rather than copying test-40oq's manifest. This is the
-controlled function surface, including the registered legacy FCB range;
-it does not claim that each subfunction has a functional implementation.
-Externals are executable names from the build's `FLAIR_FIXTURES` APPS
-contract; data files such as 123.MNU are excluded by extension.
+`pubs-inventory` writes the shipped inventory as `NAME|KIND` lines:
+internal from the preprocessed command.c dispatch table; int21 from the
+actual `ah_is_listed()` controlled register (int21.c, included by a probe);
+external from the build's `FLAIR_FIXTURES` APPS executables (data files such
+as 123.MNU are excluded by extension); batch and config from the real
+`batch_classify` and `config_sys_parse` (dos_surface_inventory.c), asked
+about every quoted upper-case word of batch.c and config_sys.c. The int21
+register is the controlled function surface, including the registered legacy
+FCB range; it does not claim that each subfunction has a functional
+implementation.
 
-The pilot checks both directions against reference entries and checks all
-inline commands against the shipped set. The initial dated omission file
-is `harness/pubs/pilot.allow`. Every omission is printed on every gate run;
-stale allowances and already-documented allowances fail. The shrink check
-compares with both HEAD and HEAD^ using read-only git show. A new file has
-no historical comparison: its ALLOWLIST-BOOTSTRAP warning is intentional
-and must be reviewed in the initial PM change. Subsequent additions fail.
-Other books cannot silently add command entries or mentions without their
-own shipped inventory: the aggregate reports COMMAND-SURFACE.
+`test-pubs-commands` checks the InitechDOS books together (the Reference
+and the User's Guide `.cmds`) against the inventory in both directions, by
+NAME|KIND pair: a documented pair the build lacks is DOC-NOT-SHIPPED unless
+its entry is DRAFT; a shipped pair with no entry is SHIPPED-NOT-DOCUMENTED
+unless its NAME is in `harness/pubs/pilot.allow`. Inline commands are
+checked by their first word against the shipped names. Every omission is
+printed on every gate run; stale allowances (nothing shipped by that name,
+or every shipped pair of it documented) fail. The shrink check compares with
+both HEAD and HEAD^ using read-only git show, so an added row is RED for the
+commit that adds it and the next. Other books cannot silently add command
+entries or mentions without their own shipped inventory: the aggregate
+reports COMMAND-SURFACE.
 
 ## Replay and lints
 
-Every printed Screen must name a committed `screens/name.txt` and have a
-`screens/name.keys` trace plus a SCREENS marker row. SCREENS contains names
-and settlement markers only; the .keys file is the sole keyboard source.
-The old capture route still boots COMMAND.COM, settles on the named serial
-marker, captures pixels and decodes the console. The gate compares those
-bytes using the same C comparator exercised by CHANGED_SCREEN.
+Every printed Screen (and every F-IBM `Shot` transcript) must name a
+committed `screens/name.txt` and have a `screens/name.keys` trace plus a
+SCREENS row `name|marker|disk`. The .keys file is the sole keyboard source
+and starts with the two Enters that answer the startup date/time prompts.
+`disk` is empty for the practice diskette as shipped (its AUTOEXEC.BAT sets
+PATH) or `noautoexec` for the same diskette without AUTOEXEC.BAT, the only
+case in which InitechDOS asks for the date and time (the startup screens).
+The capture route boots COMMAND.COM, settles on the named serial marker
+(`marker#N` = its N-th occurrence), captures pixels and decodes the console.
+The gate compares those bytes using the same C comparator exercised by
+CHANGED_SCREEN.
 
 `begin{Transcript}{path/stem}` / `end{Transcript}` prints `stem.txt` and
 registers `stem.prg` for replay through the SAMIR host PAL/interpreter.

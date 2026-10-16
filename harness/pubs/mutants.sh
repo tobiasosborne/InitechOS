@@ -32,11 +32,15 @@ SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
 TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" \
 TEXINPUTS="$root/pubs/class//:" \
 "${LUALATEX:-lualatex}" -interaction=batchmode -halt-on-error -output-directory="$m" "$m/fake.tex" > "$m/fake-typeset.log" 2>&1
-cat "$built/initechdos-users-guide/main.commands" "$m/fake.commands" > "$m/fake.index"
-red FAKE_COMMAND DOC-NOT-SHIPPED "$gate" commands "$out/shipped" "$m/fake.index" "$allow"
+# The fake entry's own main.cmds line joins the real books' lists.
+grep -q '^PUBSFAKE|internal|GATED|PUBSFAKE$' "$m/fake.cmds" || {
+    cat "$m/fake.cmds"; printf '!!! test-pubs-mutant FAIL: the class did not register PUBSFAKE\n'; exit 1; }
+red FAKE_COMMAND DOC-NOT-SHIPPED "$gate" commands "$out/shipped" "$allow" "$m/fake.cmds" \
+    "$built/initechdos-reference/main.cmds" "$built/initechdos-users-guide/main.cmds"
 # The first dated row represents a genuinely shipped undocumented item.
 sed '0,/^[^#]/ { /^[^#]/d; }' "$allow" > "$m/removed.allow"
-red REMOVED_ALLOWANCE SHIPPED-NOT-DOCUMENTED "$gate" commands "$out/shipped" "$built/initechdos-users-guide/main.commands" "$m/removed.allow"
+red REMOVED_ALLOWANCE SHIPPED-NOT-DOCUMENTED "$gate" commands "$out/shipped" "$m/removed.allow" \
+    "$built/initechdos-reference/main.cmds" "$built/initechdos-users-guide/main.cmds"
 "$replay" pubs/examples/samir/salary.prg > "$m/salary.actual"
 sed 's/1225/1226/' pubs/examples/samir/salary.txt > "$m/changed.txt"
 red CHANGED_TRANSCRIPT TRANSCRIPT-DRIFT "$gate" same TRANSCRIPT-DRIFT "$m/changed.txt" "$m/salary.actual"

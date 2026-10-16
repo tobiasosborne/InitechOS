@@ -1,23 +1,19 @@
 % Chapter 1 -- Introduction to InitechDOS.
 % Sources (Law 1): ADR-0003 DEC-01/02/06/07/09/11/12/13; os/milton/command.c
-% (internal-command table, run_external PATH search .COM/.EXE/.BAT);
-% os/milton/devices.c (CON PRN AUX CLOCK$ NUL); README.md (requirements);
-% spec/hardware.json (cpu row); spec/dos_banner.txt.
+% (internal-command table cmd_classify, run_external search .COM .EXE .BAT,
+% AUTOEXEC.BAT probe); os/milton/devices.c (CON AUX PRN CLOCK$ NUL);
+% spec/hardware.json (cpu "486+ (386 desirable)", video VBE 2.0 LFB,
+% storage ATA PIO) and spec/memory_map.h FLAIR_HEAP_MIN (4 MiB of extended
+% memory, the boot panics below it) -- these govern the requirements list
+% where README.md still says 80386 / 2 MB; spec/dos_banner.txt.
+% GATES: test-boot test-shell test-command test-devices test-sysinit test-autoexec test-hardware-spec
 \Gates{test-boot, test-shell, test-command, test-devices, test-sysinit, test-autoexec, test-hardware-spec}
 \chapter{Introduction to InitechDOS}
-\begin{ChapterCovers}
-\item What an operating system does
-\item The parts of InitechDOS
-\item What you need to use InitechDOS
-\item Drives, files and file names
-\item Directories
-\item Commands and messages
-\end{ChapterCovers}
 
 \section{What an Operating System Does}
 \index{operating system}
 A computer by itself does not know how to read a disk, show text on the
-display, or run a program.  An \emph{operating system} is the program that
+display, or run a program.  An \term{operating system} is the program that
 does these things for you and for the other programs you use.  It is the
 first program the computer loads when you turn it on, and it stays in
 control until you turn the computer off.
@@ -26,7 +22,7 @@ InitechDOS\index{InitechDOS} is the operating system for Initech business
 workstations.  It does three kinds of work:
 \begin{itemize}
 \item It keeps track of the information stored on your disks, in units
-  called \emph{files}.
+  called \term{files}.
 \item It runs programs: word processors, spreadsheets, data managers and
   the programs your company writes for itself.
 \item It accepts commands that you type at the keyboard and carries them
@@ -45,84 +41,78 @@ InitechDOS is made of three parts that work together.
 attached to the computer: the keyboard, the display, the disks, the printer,
 the serial port and the clock.  When the computer starts, it also reads the
 configuration file \file{CONFIG.SYS}\index{CONFIG.SYS@\texttt{CONFIG.SYS}},
-which describes how your system is set up.
+which describes how your system is set up (Chapter~6).
 
 \SideHead{Kernel}The kernel manages files, directories and memory, and
 loads and runs programs.  Programs ask the kernel for these services; you
 do not deal with it directly.
-\draft{ADR-0003 DEC-01 names the system files IO.SYS and INITDOS.SYS;
-the shipped startup disk does not yet carry them as files, so this book does
-not name them}
 
-\SideHead{Command processor}The command processor, \file{COMMAND.COM}%
-\index{COMMAND.COM@\texttt{COMMAND.COM}}, is the part you talk to.  It
-displays the command prompt, reads each command you type, and either
-carries the command out itself or finds the program you named and runs it.
-When it starts, \file{COMMAND.COM} carries out the commands in the file
-\file{AUTOEXEC.BAT}\index{AUTOEXEC.BAT@\texttt{AUTOEXEC.BAT}} if that file is
-on drive~A.  Chapter~2 shows the command processor at work.
+\SideHead{Command processor}The \term{command processor},
+\file{COMMAND.COM}\index{COMMAND.COM@\texttt{COMMAND.COM}}, is the part you
+talk to.  It displays the command prompt, reads each command you type, and
+either carries the command out itself or finds the program you named and
+runs it.  When it starts, it carries out the commands in the file
+\file{AUTOEXEC.BAT}\index{AUTOEXEC.BAT@\texttt{AUTOEXEC.BAT}} if that file
+is on drive~A (Chapter~5).
 
 \section{What You Need}
 \index{system requirements}
 To use InitechDOS Version~3.30 you need:
 \begin{itemize}
 \item An Initech workstation or a compatible personal computer with an
-  Intel 80486 or 80386 microprocessor
-\item 4~MB of memory (2~MB minimum)
-\item A fixed-disk controller and one fixed disk
-\item One 5.25-inch or 3.5-inch diskette drive
-\item A VGA-compatible display adapter and monitor
+  Intel 80486 microprocessor
+\item At least 5~MB of memory: the first megabyte and 4~MB of extended
+  memory above it
+\item A VGA display adapter with the VESA BIOS Extensions, Version~2.0,
+  and a VGA monitor
+\item A disk drive with an AT-compatible (ATA) controller
 \end{itemize}
-\draft{list from README.md; spec/hardware.json makes the 80486 the target and
-the 80386 desirable -- confirm the wording and the memory figures with the
-hardware contract before print}
+InitechDOS checks the memory when it starts, and stops with a message if
+there is not enough.
 
 \section{Drives and Disks}
 \index{drives}\index{disks}
 InitechDOS keeps files on disks.  Each disk drive is known by a letter
 followed by a colon: the first drive is drive~A, written \file{A:}.
 The letter of the drive you are working with appears in the command prompt,
-\file{A:\textbackslash>}, which you will see in Chapter~2.
+\file{A:\bs>}, which you will see in Chapter~2.
 
-In this version of InitechDOS, the disk that holds your files is drive~A.
-When you need to name a drive in a command, type its letter and a colon.
-\draft{single drive: the shipped build mounts one FAT volume as drive A; a
-second letter such as B: is answered "Bad command or file name" (screen
-"errors"); the Reference will cover other drives when they are built}
+In this version of InitechDOS, the disk that holds your files is always
+drive~A, and you never need to type another drive letter.
 
 \SideHead{Volume label}A disk may be given a name of up to eleven characters,
-called its \emph{volume label}\index{volume label}.  InitechDOS shows the
+called its \term{volume label}\index{volume label}.  InitechDOS shows the
 label at the top of every directory listing, so that you can tell your
-disks apart.  The practice diskette used in Chapter~2 has the label
+disks apart.  The practice diskette used in this book has the label
 \file{INITECH}.
 
 \SideHead{Disk space}InitechDOS reports how much room is left on a disk at
-the end of every directory listing, as a number of bytes.  A byte holds one
-character of text.  A 3.5-inch high-capacity diskette holds 1,457,664 bytes
-of files when it is empty.\index{bytes free}
+the end of every directory listing, as a number of \term{bytes}.  A byte
+holds one character of text.  A 3.5-inch high-capacity diskette holds
+1,457,664 bytes of files when it is empty.\index{bytes free}
 
-\begin{Caution}
+\begin{Important}
 Do not remove a diskette from its drive while the drive light is on.  The
 information on the diskette can be damaged.
-\end{Caution}
+\end{Important}
 
 \section{Files and File Names}
 \index{files}\index{file names}
-Everything InitechDOS keeps on a disk is kept in a \emph{file}: a letter, a
-list of telephone numbers, a spreadsheet, or a program.  Each file on a disk
-has a name, and no two files in the same directory can have the same name.
+Everything InitechDOS keeps on a disk is kept in a file: a letter, a list of
+telephone numbers, a spreadsheet, or a program.  Each file on a disk has a
+name, and no two files in the same directory can have the same name.
 
-A file name has two parts: the \emph{name} and an optional
-\emph{extension}\index{extensions}.
+A file name has two parts: the name and an optional
+\term{extension}\index{extensions}.
 \begin{itemize}
 \item The name is from one to eight characters long.
 \item The extension is from one to three characters long.  It is separated
   from the name by a period.
 \end{itemize}
-For example, in the file name \file{MEMO.TXT} the name is \file{MEMO} and the
-extension is \file{TXT}.  Use letters and numbers in your file names; they
-are always safe.  You may type a file name in capital or small letters:
-InitechDOS stores and displays it in capitals.
+For example, in the file name \file{MEMO.TXT} the name is \file{MEMO} and
+the extension is \file{TXT}.  Use letters and digits in your file names;
+they are always safe.  You may type a file name in capital or small
+letters: InitechDOS stores and displays it in capitals.
 
 The extension usually tells you what kind of file it is.  Some extensions
 have a meaning to InitechDOS:
@@ -131,7 +121,7 @@ have a meaning to InitechDOS:
 without the extension.
 
 \SideHead{.BAT}Batch files: lists of InitechDOS commands that the command
-processor carries out one after another.
+processor carries out one after another (Chapter~5).
 
 \SideHead{.SYS}System files, such as \file{CONFIG.SYS}.
 
@@ -142,7 +132,7 @@ Choose extensions that help you recognize your files.
 the computer.  Do not use them as file names, with or without an
 extension.\index{device names}
 \par\medskip
-\begin{tabular}{@{}l@{\quad}p{80mm}@{}}
+\begin{tabular}{@{}l@{\quad}p{70mm}@{}}
 {\imSideHeadFont Name} & {\imSideHeadFont Device}\\[2pt]
 \file{CON}    & The console: the keyboard for input, the display for output\\
 \file{PRN}    & The printer\\
@@ -153,71 +143,49 @@ extension.\index{device names}
 \index{CON@\texttt{CON}}\index{PRN@\texttt{PRN}}\index{AUX@\texttt{AUX}}%
 \index{NUL@\texttt{NUL}}
 
-\SideHead{Wildcards}Some commands can act on a group of files at once.  To
-name the group, use the \emph{wildcard}\index{wildcards} characters in the
-file name.  An asterisk (\type{*}) stands for any characters from its
-position to the end of the name or the extension; a question mark
-(\type{?}) stands for any one character.  \file{*.TXT} means every file
-with the extension \file{TXT}; \file{*.*} means every file.  Chapter~2 shows
-which of the commands described there accept wildcards.
-
 \section{Directories}
 \index{directories}
 A disk may hold a great many files.  To keep them in order, InitechDOS lets
-you group files into \emph{directories}.  Every disk has one main
-directory, the \emph{root directory}\index{root directory}, which is
+you group files into \term{directories}.  Every disk has one main
+directory, the \term{root directory}\index{root directory}, which is
 created when the disk is formatted.  You can create further directories,
-called \emph{subdirectories}\index{subdirectories}, inside the root
+called \term{subdirectories}\index{subdirectories}, inside the root
 directory and inside other subdirectories, and give each one a name, in
-the same form as a file name.
-
-The directory you are working in is the \emph{current
-directory}\index{current directory}.  The command prompt shows it: at
-\file{A:\textbackslash>} you are in the root directory of drive~A, and at
-\file{A:\textbackslash REPORTS>} you are in the subdirectory
-\file{REPORTS}.
-
-To name a file in another directory, write its \emph{path}\index{paths}:
-the names of the directories that lead to it, each followed by a backslash
-(\type{\textbackslash}).  A path that begins with a backslash starts at the
-root directory.  \file{A:\textbackslash REPORTS\textbackslash MEMO.TXT} is
-the file \file{MEMO.TXT} in the directory \file{REPORTS}, which is in the
-root directory of drive~A.  Chapter~2 shows you how to create directories,
-move between them, and remove them.
+the same form as a file name.  Chapter~3 shows how.
 
 \section{Commands}
 \index{commands}
-You tell InitechDOS what to do by typing a \emph{command} at the command
+You tell InitechDOS what to do by typing a \term{command} at the command
 prompt.  A command is a command name, sometimes followed by
-\emph{parameters}\index{parameters} that tell the command what to work on;
+\term{parameters}\index{parameters} that tell the command what to work on;
 for example, \type{TYPE MEMO.TXT}.  Separate the command name and each
 parameter with a space.
 
 \SideHead{Internal commands}Some commands are built into the command
-processor and are always available.  They are called \emph{internal
+processor and are always available.  They are called \term{internal
 commands}\index{internal commands}:
 \par\medskip
 \begin{tabular}{@{}l@{\quad}l@{\quad}l@{\quad}l@{}}
-\cmd{BREAK} & \cmd{COPY} & \cmd{ECHO} & \cmd{REN} (\cmd{RENAME})\\
-\cmd{CD} (\cmd{CHDIR}) & \cmd{DATE} & \cmd{EXIT} & \cmd{SET}\\
-\cmd{CLS} & \cmd{DEL} (\cmd{ERASE}) & \cmd{MD} (\cmd{MKDIR}) & \cmd{TIME}\\
- & \cmd{DIR} & \cmd{PROMPT} & \cmd{TYPE}\\
- & & \cmd{RD} (\cmd{RMDIR}) & \cmd{VER}\\
+\cmd{BREAK}           & \cmd{DATE}             & \cmd{MD} (\cmd{MKDIR})   & \cmd{SET}\\
+\cmd{CD} (\cmd{CHDIR}) & \cmd{DEL} (\cmd{ERASE}) & \cmd{PATH}              & \cmd{TIME}\\
+\cmd{CLS}             & \cmd{DIR}              & \cmd{PROMPT}            & \cmd{TYPE}\\
+\cmd{COPY}            & \cmd{ECHO}             & \cmd{RD} (\cmd{RMDIR})   & \cmd{VER}\\
+                      & \cmd{EXIT}             & \cmd{REN} (\cmd{RENAME}) & \cmd{VOL}\\
 \end{tabular}
 \par\medskip
 A name in parentheses is another name for the same command.
 
-\SideHead{External commands}Any other command name is taken to be the name of
-a program or batch file on disk; these are called \emph{external
-commands}\index{external commands}.  The command processor looks for a file
-with that name and the extension \file{.COM}, \file{.EXE} or \file{.BAT}, in
-that order, first in the current directory and then in each directory
-listed in the \file{PATH} environment variable.  If it finds none, it
-displays:
+\SideHead{External commands}Any other command name is taken to be the name
+of a program or batch file on disk; these are called \term{external
+commands}\index{external commands}.  The utility programs that come with
+InitechDOS, such as \cmd{CHKDSK}, are external commands.  The command
+processor looks for a file with the name you typed and the extension
+\file{.COM}, \file{.EXE} or \file{.BAT}, in that order, first in the current
+directory and then in each directory listed in the \cmd{PATH} environment
+variable (Chapter~6).  If it finds none, it displays:
 \begin{TypeIn}
 Bad command or file name
 \end{TypeIn}
-\index{Bad command or file name@\texttt{Bad command or file name}}
 The same message appears when you mistype a command name.  Check the
 spelling and type the command again.
 
@@ -226,5 +194,5 @@ spelling and type the command again.
 When InitechDOS cannot do what you asked, it tells you why in a short
 message, such as \texttt{File not found}.  Each message always has exactly
 the same wording, so that you can look it up.  Appendix~A lists the
-messages; the \doctitle{InitechDOS Reference} explains each one and what
-to do about it.
+messages; Appendix~A of the \doctitle{InitechDOS Reference} explains each
+one and what to do about it.

@@ -1,0 +1,304 @@
+% Chapter 2 entries ECHO .. REN (AN-01), EDLIN included.
+
+% ECHO -- os/milton/command.c builtin_echo (no arg: "ECHO is on"; else the
+% text as typed).  ECHO ON/OFF in batch files: Chapter 4 (batch.c).
+% Gates: test-command, test-batch.
+\begin{DosEntry}{ECHO}{}{internal}
+\Purpose Displays a message, or the state of batch-file echoing.
+\Format \SyntaxLine{\kw{ECHO} \opt{\ph{message}}}
+\Type{Internal}
+\Remarks
+\Param{message} is the text to display.  It is displayed exactly as you
+type it, in capital and small letters.
+
+Typed with no message, \cmd{ECHO} displays \texttt{ECHO is on}.
+
+In a batch file, \cmd{ECHO ON} and \cmd{ECHO OFF} control whether the
+command lines of the batch file are displayed as they are carried out.  See
+``ECHO Subcommand'' in Chapter~4.
+\Example
+\Shot{echo}
+\end{DosEntry}
+
+% EDLIN -- os/milton/edlin.c (edlin_run: name, /B, the .BAK refusal, "New
+% file" / "End of input file", the '*' prompt; commands(): line numbers
+% n . # +n -n, A C D E I L M P Q R S T W and a bare line number; readline:
+% the template keys through AH=07h, Ctrl-C ends insert, Ctrl-V quotes;
+% save(): .$$$ then .BAK, Ctrl-Z appended).  Model: MS-DOS 3.3 User's Guide
+% pp.162-193 (harness/edlin/README.md).  Shipped as APPS\EDLIN.COM (Makefile
+% flair-data-rules).  Gates: test-edlin-host, test-edlin-emu (+ -mutant).
+\begin{DosEntry}{EDLIN}{Line Editor}{external}
+\Purpose Creates and changes text files, one line at a time.
+\Format \SyntaxLine{\kw{EDLIN} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}} \opt{\kw{/B}}}
+\Type{External}
+\Remarks
+\Param{filename} names the file to edit.  If the file does not exist,
+\cmd{EDLIN} displays \texttt{New file}; otherwise it reads the file into
+memory and, when the whole file has been read, displays \texttt{End of
+input file}.  A file with the extension \file{.BAK} cannot be edited:
+\cmd{EDLIN} displays \texttt{Cannot edit .BAK file--rename file}.
+
+\Param{/B} reads the whole file, including any \key{Ctrl-Z} characters in
+it.  Without \kw{/B}, the file ends at the first \key{Ctrl-Z}.
+
+\cmd{EDLIN} prompts with an asterisk (\texttt{*}).  Each command is a
+letter, preceded by the line numbers it works on; separate two line
+numbers with a comma.  A line number may be a number, a period (\type{.},
+the current line), a number sign (\type{\#}, the line after the last), or a
+plus or minus sign and a number (lines after or before the current line).
+When \cmd{EDLIN} lists lines it shows each line's number, and an asterisk
+after the number of the current line.
+\par\medskip
+\begin{list}{}{\leftmargin=56mm \labelwidth=54mm \labelsep=2mm
+  \itemsep=1pt \parsep=0pt \topsep=2pt
+  \renewcommand\makelabel[1]{\parbox[t]{54mm}{\RaggedRight #1}}}
+\item[{\imSideHeadFont Command}] {\imSideHeadFont Action}
+\item[\ph{line}] Displays the line and lets you change it
+\item[\opt{\ph{n}}\kw{A}] Reads \ph{n} more lines of a large file
+\item[\ph{line},\ph{line},\ph{line}\opt{,\ph{count}}\kw{C}] Copies lines in front of a line
+\item[\opt{\ph{line}}\opt{,\ph{line}}\kw{D}] Deletes lines
+\item[\kw{E}] Saves the file and ends \cmd{EDLIN}
+\item[\opt{\ph{line}}\kw{I}] Inserts lines in front of a line
+\item[\opt{\ph{line}}\opt{,\ph{line}}\kw{L}] Lists lines
+\item[\ph{line},\ph{line},\ph{line}\kw{M}] Moves lines in front of a line
+\item[\opt{\ph{line}}\opt{,\ph{line}}\kw{P}] Lists lines a screen at a time
+\item[\kw{Q}] Ends \cmd{EDLIN} without saving
+\item[\opt{\ph{line}}\opt{,\ph{line}}\opt{\kw{?}}\kw{R}\ph{old}\key{Ctrl-Z}\ph{new}] Replaces text
+\item[\opt{\ph{line}}\opt{,\ph{line}}\opt{\kw{?}}\kw{S}\ph{text}] Searches for text
+\item[\opt{\ph{line}}\kw{T}\ph{filename}] Merges another file in front of a line
+\item[\opt{\ph{n}}\kw{W}] Writes \ph{n} lines of a large file to disk
+\end{list}
+\par\medskip
+In insert mode (\kw{I}), each line you type is inserted when you press
+\key{Enter}; press \key{Ctrl-C} to return to the asterisk prompt.  When you
+change a line, \cmd{EDLIN} offers the old line as a template: \key{F3}
+copies the rest of it, \key{F1} one character of it, \key{Del} skips one
+character, \key{Ins} switches between inserting and overtyping, and
+\key{Esc} starts the line again.  Press \key{Enter} at once to keep the line
+unchanged.  With \kw{?}, \kw{R} and \kw{S} ask \texttt{O.K.?} at each match.
+\kw{S} and \kw{R} remember their text, and match capital and small letters
+exactly.
+
+\kw{E} writes the file and keeps the original under the same name with the
+extension \file{.BAK}.  \kw{Q} asks \texttt{Abort edit (Y/N)?}; type
+\type{Y} to end without changing the file.
+\Example
+The example deletes line 4 of the telephone list, lists the file, saves it,
+and lists the file and its backup:
+\Shot{edlin}
+\end{DosEntry}
+
+% EXIT -- os/milton/command.c dispatch_line CMD_EXIT (a permanent processor
+% ignores EXIT without a message; a secondary returns to its parent).
+% Gates: test-shell-permanent, test-exit-handles.
+\begin{DosEntry}{EXIT}{}{internal}
+\Purpose Ends a secondary command processor and returns to the program that
+started it.
+\Format \SyntaxLine{\kw{EXIT}}
+\Type{Internal}
+\Remarks
+A program can start a second copy of the command processor so that you can
+type commands without leaving the program.  \cmd{EXIT} ends that copy and
+returns you to the program.
+
+The command processor that InitechDOS starts when the system is turned on
+is permanent.  At its prompt \cmd{EXIT} has no effect and displays nothing.
+\Example
+At the \texttt{A:\bs>} prompt of a freshly started system, type
+\type{EXIT} and press \key{Enter}.  The prompt is displayed again, because
+the command processor started with the system is permanent.
+\end{DosEntry}
+
+% LABEL -- os/milton/dosutil.c label_main / label_read / label_write
+% (current drive only; prompts; the invalid characters; 11 characters,
+% capitals; root VOLLABEL entry + extended BPB label field; messages).
+% Shipped as APPS\LABEL.COM.  Gates: test-label-vol, test-dosutil-emu.
+\begin{DosEntry}{LABEL}{Volume Label}{external}
+\Purpose Creates, changes or deletes the volume label of a disk.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{LABEL}
+  \opt{\ph{d}\kw{:}}\opt{\ph{label}}}
+\Type{External}
+\Remarks
+\Param{d:} is the drive of the disk.  Only the current drive can be
+labeled; another drive letter displays \texttt{Invalid drive
+specification}.
+
+\Param{label} is the new volume label, up to 11 characters.  Letters are
+changed to capitals; characters after the eleventh are ignored.  A label
+may contain spaces, but not the characters
+\texttt{* ? / \textbackslash{} | . , ; : + = < > [ ] ( ) \& \textasciicircum{} "};
+\cmd{LABEL} displays \texttt{Invalid characters in volume label} and
+leaves the label unchanged.
+
+If you type \cmd{LABEL} with no label, it displays the current label (or
+\texttt{has no label}) and asks for a new one:
+\begin{TypeIn}
+Volume label (11 characters, ENTER for none)?
+\end{TypeIn}
+Type the new label and press \key{Enter}.  If you press \key{Enter} alone
+and the disk has a label, \cmd{LABEL} asks
+\texttt{Delete current volume label (Y/N)?}  Type \type{Y} to delete the
+label; any other answer keeps it.
+
+The label is shown by \cmd{DIR}, \cmd{VOL}, \cmd{CHKDSK} and \cmd{TREE}.
+If the root directory has no room for the label, \cmd{LABEL} displays
+\texttt{No room in root directory}.
+\Example
+To give the practice diskette the label \file{REPORTS}, answering the
+question, and display it:
+\Shot{label}
+To set the label in one command, and an attempt with a period in it:
+\Shot{labelset}
+\end{DosEntry}
+
+% MD -- os/milton/command.c builtin_md (MSG-DOS-0011, MSG-DOS-0017; silent
+% success); int21.c AH=39h.  Directory date stamp: initech-dwbl.
+% Gates: test-ut6d, test-fat12-mkdir, test-fat-subdir.
+\begin{DosEntry}{MD}{Make Directory}{internal}
+\AlsoNamed{MKDIR}
+\Purpose Creates a subdirectory.
+\Format \SyntaxLine{\kw{MD} \opt{\ph{d}\kw{:}}\ph{path}}
+  \SyntaxLine{\kw{MKDIR} \opt{\ph{d}\kw{:}}\ph{path}}
+\Type{Internal}
+\Remarks
+\Param{path} names the new directory.  A path that begins with a backslash
+starts at the root directory; any other path starts at the current
+directory.  Every directory named before the last one must already exist.
+A directory name has the same form as a file name.
+
+\cmd{MD} displays nothing when it succeeds.  A new directory contains two
+entries: \file{.}, the directory itself, and \file{..}, its parent.
+
+If the directory cannot be created (for example, because a file or
+directory of that name already exists), \cmd{MD} displays
+\texttt{Unable to create directory}.  With no path it displays
+\texttt{Required parameter missing}.
+
+The new directory, and its \file{.} and \file{..} entries, are stamped with
+the current date and time.
+\Example
+To create the directory \file{REPORTS}, make it the current directory and
+list it:
+\Shot{md}
+\end{DosEntry}
+
+% PATH -- os/milton/command.c builtin_path (initech-sy5f: no parameter ->
+% "PATH=list" or "No Path"; "PATH ;" unsets; otherwise the list, in
+% capitals, into the PATH environment variable that run_external /
+% cmd_path_candidates search; "Out of environment space").  Gates:
+% test-path-command-mutant, test-command, test-env.
+\begin{DosEntry}{PATH}{}{internal}
+\Purpose Sets or displays the list of directories searched for commands.
+\Format \SyntaxLine{\kw{PATH} \opt{\opt{\ph{d}\kw{:}}\ph{path}\opt{\kw{;}\opt{\ph{d}\kw{:}}\ph{path}}\rep}}
+  \SyntaxLine{\kw{PATH} \kw{;}}
+\Type{Internal}
+\Remarks
+\Param{path} names a directory to search.  Separate the directories with
+semicolons.  When a command is not an internal command and is not in the
+current directory, InitechDOS searches these directories, in order.
+
+Typed with no parameter, \cmd{PATH} displays the current list, as
+\texttt{PATH=}\ph{list}, or \texttt{No Path} when there is none.
+\type{PATH ;} clears the list, so that only the current directory is
+searched.  The list is stored in capital letters.
+
+\cmd{PATH} stores the list in the environment variable \texttt{PATH}; you
+can also set it with \type{SET PATH=A:\bs APPS}, as the practice
+diskette's \file{AUTOEXEC.BAT} does.  If the environment is full,
+\cmd{PATH} displays \texttt{Out of environment space}.
+\Example
+The example displays the list that \file{AUTOEXEC.BAT} set, clears it, and
+sets it again:
+\Shot{path}
+\end{DosEntry}
+
+% PROMPT -- os/milton/command.c builtin_prompt (empty -> $P$G; env PROMPT;
+% "Out of environment space"), cmd_render_prompt ($P $G $L $B $Q $N $T $D
+% $$ $_; any other $x prints x).  Defects found: $D shows 00-00-0000 (the
+% REPL passed no date) and $$ cut the prompt (AH=09h '$' terminator) --
+% fixed by initech-iffk.  Gates: test-command, test-shell.
+\begin{DosEntry}{PROMPT}{}{internal}
+\Purpose Changes the command prompt.
+\Format \SyntaxLine{\kw{PROMPT} \opt{\ph{prompt-text}}}
+\Type{Internal}
+\Remarks
+\Param{prompt-text} is the new prompt.  Characters are displayed as you
+type them, except that a dollar sign and the character after it stand for
+the following:
+\par\medskip
+\begin{tabular}{@{}l@{\quad}p{75mm}@{}}
+{\imSideHeadFont Code} & {\imSideHeadFont Displays}\\[2pt]
+\kw{\$P} & The current drive and directory, for example \texttt{A:\bs SAMPLES}\\
+\kw{\$G} & The \texttt{>} character\\
+\kw{\$L} & The \texttt{<} character\\
+\kw{\$B} & The \texttt{|} character\\
+\kw{\$Q} & The \texttt{=} character\\
+\kw{\$N} & The current drive letter\\
+\kw{\$T} & The time, as \texttt{hh:mm:ss.cc}\\
+\kw{\$\_} & Starts a new line\\
+\end{tabular}
+\par\medskip
+A dollar sign followed by any other character displays that character.
+
+\kw{\$D} displays the date, as \ph{mm}\texttt{-}\ph{dd}\texttt{-}\ph{yyyy}, and
+\kw{\$\$} displays the \texttt{\$} character.
+
+Typed with no parameter, \cmd{PROMPT} restores the standard prompt,
+\kw{\$P\$G}.  The prompt is kept in the environment variable
+\texttt{PROMPT}, which \cmd{SET} displays.  If there is no room for it,
+\cmd{PROMPT} displays \texttt{Out of environment space}.
+\Example
+The first command makes the prompt the drive letter alone; the second makes
+it the word \texttt{Ready}; the third shows the date and a dollar sign; the
+last restores the standard prompt:
+\Shot{prompt}
+\end{DosEntry}
+
+% RD -- os/milton/command.c builtin_rd (MSG-DOS-0011, MSG-DOS-0019; silent
+% success).  Gates: test-ut6d, test-fat-subdir.
+\begin{DosEntry}{RD}{Remove Directory}{internal}
+\AlsoNamed{RMDIR}
+\Purpose Removes a subdirectory.
+\Format \SyntaxLine{\kw{RD} \opt{\ph{d}\kw{:}}\ph{path}}
+  \SyntaxLine{\kw{RMDIR} \opt{\ph{d}\kw{:}}\ph{path}}
+\Type{Internal}
+\Remarks
+\Param{path} names the directory to remove.  The directory must be empty
+except for its \file{.} and \file{..} entries.  You cannot remove the root
+directory or the current directory.
+
+\cmd{RD} displays nothing when it succeeds.  If the directory does not
+exist, is not empty, or is the current directory, \cmd{RD} displays
+\texttt{Invalid path, not directory, or directory not empty} and nothing is
+removed.  Delete the files in a directory with \cmd{DEL} before you remove
+it.
+\Example
+The example creates and removes the directory \file{TEMP}, then tries to
+remove \file{SAMPLES}, which still holds files:
+\Shot{rd}
+\end{DosEntry}
+
+% REN -- os/milton/command.c builtin_ren (AH=56h, same directory; failure
+% MSG-DOS-0002; MSG-DOS-0011; silent success).  Gates: test-command,
+% test-fat12-dir.
+\begin{DosEntry}{REN}{Rename}{internal}
+\AlsoNamed{RENAME}
+\Purpose Changes the name of a file.
+\Format \SyntaxLine{\kw{REN} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \ph{filename}\opt{\kw{.}\ph{ext}}}
+  \SyntaxLine{\kw{RENAME} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \ph{filename}\opt{\kw{.}\ph{ext}}}
+\Type{Internal}
+\Remarks
+The first file specification names the file to rename.  The second is the
+new name; do not give it a drive or path.  The file stays in its directory.
+Wildcards are not allowed in this version.
+
+\cmd{REN} displays nothing when it succeeds.  If the file does not exist,
+or a file with the new name already exists, \cmd{REN} displays
+\texttt{Bad command or file name}.  With only one name it displays
+\texttt{Required parameter missing}.
+\Example
+To rename \file{MEMO.TXT} to \file{MEMO.OLD} and list the directory:
+\Shot{ren}
+\end{DosEntry}

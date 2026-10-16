@@ -167,6 +167,10 @@ typedef struct {
      * best-effort frame that can mask a missing behavioral milestone (bead
      * initech-b3hl; Law 2). NULL => legacy immediate-dump behaviour. */
     const char *screendump_after; /* serial marker to wait for, or NULL.     */
+    /* --screendump-after-count N (bead initech-ipu5.7): the marker must have
+     * been seen N times (the manual screens end on output whose text also
+     * appeared earlier in the session). <=1 = first occurrence. */
+    int screendump_after_count;
 
     /* Interaction VIDEO record mode (beads initech-l9cd). When true, the
      * harness dumps ONE framebuffer PPM per injected input event (keys and

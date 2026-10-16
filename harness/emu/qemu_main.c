@@ -70,6 +70,9 @@ static void usage(const char *argv0)
         "                     wait for MARK on serial before the --screendump\n"
         "                     grab (the guest signals paint-complete); the\n"
         "                     wall-clock timeout stays the hard backstop\n"
+        "  --screendump-after-count N\n"
+        "                     the --screendump-after MARK must have been seen\n"
+        "                     N times on serial (default 1)\n"
         "  --record           dump one PPM frame per injected input event\n"
         "                     (plus an initial and a final frame) to\n"
         "                     <out>/<name>_frame_%%05d.ppm -- the raw material\n"
@@ -156,6 +159,9 @@ int main(int argc, char **argv)
         } else if (strcmp(a, "--screendump-after") == 0) {
             NEED_ARG();
             cfg.screendump_after = argv[++i];
+        } else if (strcmp(a, "--screendump-after-count") == 0) {
+            NEED_ARG();
+            cfg.screendump_after_count = atoi(argv[++i]);
         } else if (strcmp(a, "--record") == 0) {
             cfg.record_frames = true;
         } else if (strcmp(a, "--record-settle-ms") == 0) {

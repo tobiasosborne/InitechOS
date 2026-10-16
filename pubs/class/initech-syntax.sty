@@ -9,14 +9,22 @@
 \ProvidesPackage{initech-syntax}[1992/03/01 Initech manual notation]
 \RequirePackage{fancyvrb}
 \RequirePackage{enumitem}
+\RequirePackage{pdftexcmds}
 
 %% ---- inline names ---------------------------------------------------------
 %% Command, file and device names: Courier, never hyphenated (Sec 4).
+%% \cmd{NAME} also writes NAME to <job>.mentions: every inline command must
+%% be shipped (test-pubs-commands, GC-01).  Device names and environment
+%% variables are \file.  \UnknownCommand marks a deliberately invalid
+%% command in a negative teaching example; \UnshippedCommand names a DOS 3.3
+%% command this version does not ship, and belongs only in text that carries
+%% a \draft marker naming its bead (D-14).
 \newwrite\im@mentions
 \AtBeginDocument{\immediate\openout\im@mentions=\jobname.mentions}
 \AtEndDocument{\immediate\closeout\im@mentions}
 \newcommand\cmd[1]{\immediate\write\im@mentions{#1}\mbox{\texttt{#1}}}
 \newcommand\UnknownCommand[1]{\mbox{\texttt{#1}}}
+\newcommand\UnshippedCommand[1]{\mbox{\texttt{#1}}}
 \newcommand\file[1]{\mbox{\texttt{#1}}}
 %% What the reader types, in running text: Courier Bold.
 \newcommand\type[1]{\mbox{\texttt{\bfseries #1}}}
@@ -31,18 +39,14 @@
 \newcommand\choice[2]{\texttt{\{}#1\texttt{|}#2\texttt{\}}}
 \newcommand\rep{\texttt{...}}
 %% A syntax line, set in the text column, Courier 9/12.
+%% Plain \raggedright (1fil stretch): a syntax line of long unbreakable tokens
+%% must break at its spaces; ragged2e's 4 em stretch cannot (ipu5.7).
 \newcommand\SyntaxLine[1]{\par
-  {\noindent\imTypeFont\RaggedRight\hangindent=2em #1\par}}
+  {\noindent\imTypeFont\rightskip=0pt plus 1fil\relax\parfillskip=0pt plus 1fil\relax
+   \hangindent=2em #1\par}}
 
 %% ---- key names: body small capitals (TY-10 / NT-10) ------------------------
 \newcommand\key[1]{\mbox{\normalfont\scshape\MakeLowercase{#1}}}
-%% GC-01: a separate machine-readable reference-entry index, never inferred
-%% from prose or the typographical index. Function entries use INT21:xx.
-\newwrite\im@commands
-\AtBeginDocument{\immediate\openout\im@commands=\jobname.commands}
-\AtEndDocument{\immediate\closeout\im@commands}
-\newcommand\RegisterCommand[1]{\immediate\write\im@commands{#1}}
-\newcommand\FunctionEntry[1]{\RegisterCommand{INT21:#1}\SideHead{#1H}}
 %% The expected file is what is printed; the replay gate compares SAMIR
 %% output to these same bytes. A .prg is always required beside it.
 \newwrite\im@replays
@@ -96,6 +100,53 @@
 %% recorded in the log, invisible in print.
 \newcommand\Gates[1]{\typeout{initech-manual: gates for this section: #1}}
 
+%% ---- the documented-command list (GC-01; beads initech-ipu5.6/5.7) -----------
+%% The ONE machine-readable list of what a book documents, never inferred
+%% from prose or the typographical index.  Every reference entry REGISTERS
+%% the names it documents in <jobname>.cmds, written next to the PDF
+%% (build/pubs/<manual>/main.cmds), and `make test-pubs` (pubs_gate commands)
+%% compares the InitechDOS books' lists with the shipped inventory in both
+%% directions.  One line per documented name, in document order:
+%%     NAME|KIND|STATE|ENTRY
+%% NAME   the command name as typed (COPY, ERASE, CHKDSK, FILES, GOTO,
+%%        INT21:3F)
+%% KIND   internal | external | batch | config | int21 -- the shipped table
+%%        it is checked against: command.c's dispatch table, the APPS
+%%        executables, batch_classify (batch.c), config_sys_parse
+%%        (config_sys.c), the INT 21h controlled register (int21.c)
+%% STATE  GATED, or DRAFT when the entry carries a \draft marker because the
+%%        build lacks the behaviour (D-14); a DRAFT pair is exempt from the
+%%        documented => shipped direction and is never released (GC-12)
+%% ENTRY  the entry that documents it (ERASE|internal|GATED|DEL)
+%% Comment lines start with '#'.  The entry environments (CommandEntry,
+%% DosEntry, \FunctionEntry) register their own name; \AlsoNamed{ERASE}
+%% inside an entry adds another name (DEL (ERASE)).  A NAME registered twice
+%% with the same KIND in one book is an error (Rule 2); BREAK is both an
+%% internal and a config command.  The file always exists (an empty list is
+%% a book with no entries).
+\newwrite\im@cmdsout
+{\catcode`\#=12 \gdef\im@hashchar{#}}
+\AtBeginDocument{\immediate\openout\im@cmdsout=\jobname.cmds\relax
+  \immediate\write\im@cmdsout{\im@hashchar\space initech-manual documented commands:
+    NAME|KIND|STATE|ENTRY (initech-syntax.sty)}}
+\AtEndDocument{\immediate\closeout\im@cmdsout}
+\newcommand\im@cmdkind{}
+\newcommand\im@cmdstate{GATED}
+\newcommand\RegisterCommand[4]{% NAME, KIND, STATE, ENTRY
+  \ifcsname im@cmd@#1@#2\endcsname
+    \PackageError{initech-syntax}{Command #1 (#2) documented twice in this book}{}%
+  \fi
+  \expandafter\gdef\csname im@cmd@#1@#2\endcsname{#4}%
+  \immediate\write\im@cmdsout{#1|#2|#3|#4}}
+%% An INT 21h function entry (Technical Reference style): INT21:xx.
+\newcommand\FunctionEntry[1]{\RegisterCommand{INT21:#1}{int21}{GATED}{INT21:#1}\SideHead{#1H}}
+%% makeindex |see{} cross-reference (makeidx is not loaded): "See CD".
+\providecommand\see[2]{\textit{See}~#1}
+\newcommand\AlsoNamed[1]{%
+  \RegisterCommand{#1}{\im@cmdkind}{\im@cmdstate}{\im@entryname}%
+  \edef\im@tempa{\noexpand\index{#1@\noexpand\texttt{#1}|see{\noexpand\texttt{\im@entryname}}}}%
+  \im@tempa}
+
 %% ---- command reference entry ------------------------------------------------
 %% \begin{CommandEntry}{COPY}{Internal}
 %%   \Purpose ... \Syntax ... \Remarks ... \Examples ... \SeeAlso ...
@@ -111,10 +162,15 @@
   \fi
   \stepcounter{im@entrystage}%
   \im@ifmodel{ibm}{\ifnum#1=4\relax\else\SideHead{#2:}\fi}{\SideHead{#2}}}
+%% A summary entry registers itself too (KIND from the type: Internal ->
+%% internal, External -> external).  F-IBM: the entry starts a new page and
+%% its title repeats on every continuation page (\im@openentry, PG-10).
 \newenvironment{CommandEntry}[2]
-  {\im@ifmodel{ibm}{\clearpage}{}%
-   \global\im@entryactivetrue\global\im@entrypage=\value{page}%
-   \RegisterCommand{#1}\gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
+  {\im@ifmodel{ibm}{\clearpage\im@openentry{#1}{Command}}{}%
+   \gdef\im@entryname{#1}\setcounter{im@entrystage}{0}%
+   \edef\im@cmdkind{\ifnum\pdf@strcmp{#2}{External}=0 external\else internal\fi}%
+   \gdef\im@cmdstate{GATED}%
+   \RegisterCommand{#1}{\im@cmdkind}{GATED}{#1}%
    \im@ifmodel{ashtontate}{\DictionaryHeads}{}%
    \par\addvspace{19.5pt}\goodbreak
    \im@ifmodel{ibm}{%
@@ -138,13 +194,148 @@
   {\ifnum\value{im@entrystage}=5\relax\else
      \PackageError{initech-syntax}{Command entry \im@entryname: \arabic{im@entrystage}
        of the five fixed sub-headings present}{}%
-   \fi\par\im@ifmodel{ibm}{\clearpage}{}\global\im@entryactivefalse}
+   \fi\par\im@ifmodel{ibm}{\im@closeentry}{}}
+
+%% ---- IBM command entry (F-IBM, PUB-REF-0001 AN-01; bead initech-ipu5.7) ------
+%% \begin{DosEntry}[draft reason]{NAME}{Expansion}{kind}
+%%   \Purpose <one sentence, third person present>
+%%   \Format  <\SyntaxLine{...} lines>
+%%   \Type{Internal|External}          (commands only: kind internal/external)
+%%   \Remarks <parameter by parameter; \Param{x} leads each paragraph; Note>
+%%   \Example <prose lead and \Transcript{...}>
+%% \end{DosEntry}
+%% kind = internal | external (title line 2 "Command"), batch ("Subcommand"),
+%% config ("Configuration Command").  Every entry starts a new page (IBM 3.10
+%% Reference PDF p. 121), opens with the two-line title (Heros Bold 18/20) and
+%% a 1 pt full-block rule; continuation pages repeat the title flush outside
+%% (\im@openentry, the class).  The labels hang in the side column in the
+%% fixed order Purpose, Format, Type, Remarks, Example; a template is only
+%% thinned (Type is omitted for batch and config entries), never permuted --
+%% anything else is an error (Rule 2).  The optional argument marks the whole
+%% entry DRAFT: a \draft marker under the title and STATE=DRAFT in .cmds.
+\newcommand\imEntryTitleFont{\sffamily\bfseries\@setfontsize\im@x{18}{20}}
+\newcommand\imLabelFont{\sffamily\bfseries\@setfontsize\im@x{9.5}{13}}
+\newcommand\im@dosstage[2]{%
+  \ifnum\value{im@entrystage}>#1\relax
+    \PackageError{initech-syntax}{Entry \im@entryname: `#2' out of order (the
+      fixed order is Purpose, Format, Type, Remarks, Example)}{}%
+  \fi
+  \ifnum\value{im@entrystage}<#1\relax
+    %% Labels were skipped.  Only Type may be thinned, and only from a batch
+    %% or configuration entry (AN-01).
+    \ifnum\value{im@entrystage}=2 \ifnum#1=3 \ifim@needtype
+      \PackageError{initech-syntax}{Entry \im@entryname: Type: missing}{}\fi
+      \else\PackageError{initech-syntax}{Entry \im@entryname: a label is
+        missing before `#2'}{}\fi
+    \else\PackageError{initech-syntax}{Entry \im@entryname: a label is
+      missing before `#2'}{}\fi
+  \fi
+  \setcounter{im@entrystage}{#1}\stepcounter{im@entrystage}%
+  \par\addvspace{6.5pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight\imLabelFont
+    \strut#2\strut}}\hspace{\imSideGap}}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
+\newif\ifim@needtype
+\newcommand\im@typeword{}
+\NewDocumentEnvironment{DosEntry}{o m m m}
+  {\gdef\im@entryname{#2}\setcounter{im@entrystage}{0}%
+   \gdef\im@cmdkind{#4}%
+   \IfValueTF{#1}{\gdef\im@cmdstate{DRAFT}}{\gdef\im@cmdstate{GATED}}%
+   \im@needtypefalse
+   \ifnum\pdf@strcmp{#4}{internal}=0 \im@needtypetrue\gdef\im@typeword{Command}\fi
+   \ifnum\pdf@strcmp{#4}{external}=0 \im@needtypetrue\gdef\im@typeword{Command}\fi
+   \ifnum\pdf@strcmp{#4}{batch}=0 \gdef\im@typeword{Subcommand}\fi
+   \ifnum\pdf@strcmp{#4}{config}=0 \gdef\im@typeword{Configuration Command}\fi
+   \im@openentry{#2\ifx\relax#3\relax\else\ (#3)\fi}{\im@typeword}%
+   \RegisterCommand{#2}{#4}{\im@cmdstate}{#2}%
+   \noindent\hspace*{-\imHang}\begin{minipage}[t]{\imFullWidth}\RaggedRight
+     {\imEntryTitleFont #2\ifx\relax#3\relax\else\ (#3)\fi\par \im@typeword\par}%
+     \vspace{3pt}\rule{\imFullWidth}{1pt}%
+   \end{minipage}\par\nobreak
+   \addcontentsline{toc}{section}{#2\ifx\relax#3\relax\else\ (#3)\fi\
+     \im@typeword}%
+   \index{#2@\texttt{#2}}%
+   \IfValueT{#1}{\par\nobreak\vspace{3pt}\noindent\draft{#1}\par}%
+   \def\Purpose{\im@dosstage{0}{Purpose:}}%
+   \def\Format{\im@dosstage{1}{Format:}}%
+   \def\Type##1{\ifim@needtype\else\PackageError{initech-syntax}{Entry
+     \im@entryname: Type: belongs to commands only}{}\fi
+     \im@dosstage{2}{Type:}\im@typeline{##1}}%
+   \def\Remarks{\im@dosstage{3}{Remarks:}}%
+   \def\Example{\im@dosstage{4}{Example:}}}
+  {\ifnum\value{im@entrystage}=5\relax\else
+     \PackageError{initech-syntax}{Entry \im@entryname: ends before its
+       Example (stage \arabic{im@entrystage} of 5)}{}%
+   \fi\par}
+%% Type: "Internal  External" with three asterisks under the one that applies
+%% (IBM 3.10 Reference PDF p. 119).
+\newcommand\im@typeline[1]{%
+  \ifnum\pdf@strcmp{#1}{Internal}=0 \else\ifnum\pdf@strcmp{#1}{External}=0 \else
+    \PackageError{initech-syntax}{Type must be Internal or External}{}\fi\fi
+  \begin{tabular}[t]{@{}l@{\hspace{2.5em}}l@{}}
+    Internal & External\\[-2pt]
+    \ifnum\pdf@strcmp{#1}{Internal}=0 \makebox[\widthof{Internal}]{\texttt{***}}\fi &
+    \ifnum\pdf@strcmp{#1}{External}=0 \makebox[\widthof{External}]{\texttt{***}}\fi
+  \end{tabular}\par}
+%% A parameter paragraph in Remarks: the placeholder in italic leads it.
+\newcommand\Param[1]{\par\addvspace{3pt}\noindent\ph{#1}\enspace\ignorespaces}
+%% F-IBM notices (NT-31): run-in Note: indented one step further than body.
+\newenvironment{IBMNote}
+  {\par\addvspace{3pt}\begin{list}{}{\leftmargin=1.5em\rightmargin=0pt
+     \topsep=0pt\parsep=3pt\itemsep=0pt}\item[]{\bfseries Note:}\enspace\ignorespaces}
+  {\end{list}\par\addvspace{3pt}}
+\newenvironment{Important}
+  {\par\addvspace{3pt}\begin{list}{}{\leftmargin=1.5em\rightmargin=0pt
+     \topsep=0pt\parsep=3pt\itemsep=0pt}\item[]{\bfseries Important:}\enspace\ignorespaces}
+  {\end{list}\par\addvspace{3pt}}
 
 %% ---- message lists (generated from spec/dos_messages.json) -------------------
 %% \MessageEntry{MSG-DOS-0003}{File not found}: the text exactly as displayed,
 %% with the catalogue number at the right in small type.
-\newcommand\MessageEntry[2]{\par\addvspace{4pt}\noindent
-  \llap{\makebox[\imHang][l]{\imCaptionFont #1}}\texttt{\bfseries #2}\par
+%% Two modes.  List mode (default; the User's Guide): the text and the number.
+%% Detail mode (\MessageDetailsOn; the Reference, AN-03): the text bold at the
+%% head margin, then the authored Explanation: and Action: run-in paragraphs,
+%% keyed by catalogue id with \MessageDetail{MSG-DOS-nnnn}{explanation}{action}.
+%% A catalogue entry without a detail, or a detail for an id the catalogue
+%% does not have (checked by \CheckMessageDetails), is an error (CP-06).
+\newif\ifim@msgdetails
+\newcount\im@msgdefined
+\newcount\im@msgused
+\newcommand\MessageDetailsOn{\im@msgdetailstrue}
+\newcommand\MessageDetail[3]{%
+  \ifcsname im@msgx@#1\endcsname
+    \PackageError{initech-syntax}{Message #1 detailed twice}{}\fi
+  \global\advance\im@msgdefined by 1
+  \expandafter\gdef\csname im@msgx@#1\endcsname{#2}%
+  \expandafter\gdef\csname im@msga@#1\endcsname{#3}}
+\newcommand\CheckMessageDetails{%
+  \ifnum\im@msgdefined=\im@msgused\else
+    \PackageError{initech-syntax}{\the\im@msgdefined\space message details
+      written but \the\im@msgused\space catalogue messages printed: a detail
+      names an id the catalogue does not have}{}\fi}
+\newcommand\MessageEntry[2]{%
+  \ifim@msgdetails
+    \ifcsname im@msgx@#1\endcsname\else
+      \PackageError{initech-syntax}{Message #1 (#2) has no Explanation and
+        Action (\string\MessageDetail)}{CP-06: every catalogue message is
+        explained.}\fi
+    \global\advance\im@msgused by 1
+    \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
+    \texttt{\bfseries #2}\hfill{\imCaptionFont #1}\par\nobreak
+    \vspace{2pt}\noindent{\bfseries Explanation:}\enspace\csname im@msgx@#1\endcsname\par
+    \vspace{2pt}\noindent{\bfseries Action:}\enspace\csname im@msga@#1\endcsname\par
+  \else
+    \par\addvspace{4pt}\noindent
+    \llap{\makebox[\imHang][l]{\imCaptionFont #1}}\texttt{\bfseries #2}\par
+  \fi
   \index{#2@\texttt{#2}}}
+%% Messages a command prints that are not in the locked catalogue (they are
+%% quoted from the command's source; same layout as detail mode).
+\newcommand\OtherMessage[4]{% text, issued by, explanation, action
+  \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
+  \texttt{\bfseries #1}\hfill{\imCaptionFont #2}\par\nobreak
+  \vspace{2pt}\noindent{\bfseries Explanation:}\enspace #3\par
+  \vspace{2pt}\noindent{\bfseries Action:}\enspace #4\par
+  \index{#1@\texttt{#1}}}
 
 \endinput

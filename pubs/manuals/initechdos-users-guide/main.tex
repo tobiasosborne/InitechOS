@@ -1,37 +1,64 @@
-% InitechDOS Version 3.30 User's Guide -- part 1024-3300-11.
-% Bead initech-ipu5.5: the specimen for the Initech Publications toolchain.
-% Plan: docs/packaging/INITECH-DOCUMENTATION-SET.md Sec 1 (the IBM DOS 3.30
-% "User's Guide": first-time setup and daily use, 64-96 pages finished).
-% This is the DRAFT START: front matter, Chapters 1-2, an appendix stub and the
-% back matter.  Every statement about the software is checked against the
-% shipped build (os/milton/command.c, ADR-0003, spec/); what is not yet
-% checked carries a visible \draft marker (D-14: gated behaviour only).
-% Screens are captured from the running OS: screens/SCREENS, `make pubs-screens`.
+% InitechDOS Version 3.30 User's Guide -- part 1024-3300-11 (PUB-REF-0001
+% Sec 12, DS row DOS-UG).  Family F-IBM; structural model the IBM DOS User's
+% Guide with the Microsoft MS-DOS 3.3 User's Guide as stand-in (ibm-dos.md
+% Sec 1, 7.4).  Bead initech-ipu5.7 grew it from the ipu5.5 specimen to the
+% complete book.  Every statement about the software is checked against the
+% shipped build (os/milton/*.c, spec/); what the build does not yet do
+% carries a visible \draft marker naming its bead (D-14).  Every figure is a
+% capture of the running system: screens/SCREENS, `make pubs-screens`; `make
+% test-pubs-screens` re-captures them and fails if the system has changed.
 \documentclass[ibm]{initech-manual}
 
 \ProductName{InitechDOS}
 \ProductVersion{Version 3.30}
 \DocTitle{User's Guide}
 \PartNumber{1024-3300-11}
-\PrintCode{A1-3/92}
 \FamilyName{Systems Family}
 \FamilyColor{FamilySystems}
 \Edition{First Edition (March 1992)}
 \EditionApplies{This edition applies to Version 3.30 of InitechDOS and to all
   subsequent releases until otherwise indicated in new editions.}
 \CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+
+\newcommand\bs{\textbackslash}
+% A defined term at its first use (TY-02); every one is in the Glossary.
+\newcommand\term[1]{\textbf{#1}}
 
 \begin{document}
 \FrontMatterFolios
 \MakeTitlePage
 \input{frontmatter}
 \tableofcontents
+\ChapterTab{Introduction}
 \input{ch1-introduction}
+\ChapterTab{Getting Started}
 \input{ch2-getting-started}
+\ChapterTab{Files}
+\input{ch3-files}
+\ChapterTab{Disks}
+\input{ch4-disks}
+\ChapterTab{Batch Files}
+\input{ch5-batch}
+\ChapterTab{Configuring}
+\input{ch6-config}
+\ChapterTab{Redirection}
+\input{ch7-redirection}
+\ChapterTab{Editing Keys}
+\input{ch8-keys}
+\ChapterTab{Utilities}
+\input{ch9-utilities}
 \appendix
+\ChapterTab{Messages}
 \input{appa-messages}
+\ChapterTab{Glossary}
+\input{glossary}
 \printindex
-\ReadersCommentForm
-\PadForColophon
-\input{colophon}
+\FinishBook[1]
 \end{document}

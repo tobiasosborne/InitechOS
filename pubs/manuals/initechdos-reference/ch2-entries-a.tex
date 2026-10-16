@@ -1,0 +1,356 @@
+% Chapter 2 entries ATTRIB .. DIR (AN-01).  Sources per entry in the comment
+% above it; every Example is a capture listed in screens/SCREENS.
+
+% ATTRIB -- os/milton/dosutil.c attrib_main/attrib_walk (+R -R +A -A /S,
+% display R col 1 / A col 4 / full path col 10; messages); shipped as
+% APPS\ATTRIB.COM.  Gates: test-attrib, test-dosutil-emu.
+\begin{DosEntry}{ATTRIB}{Attribute}{external}
+\Purpose Sets or displays the read-only and archive attributes of a file.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{ATTRIB}
+  \opt{\kw{+R}\texttt{|}\kw{-R}} \opt{\kw{+A}\texttt{|}\kw{-A}}
+  \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \opt{\kw{/S}}}
+\Type{External}
+\Remarks
+\Param{+R} makes the file read-only.  A read-only file can be read, typed
+and copied, but it cannot be changed or deleted.
+
+\Param{-R} makes the file read-write again.
+
+\Param{+A} sets the archive attribute of the file.  The archive attribute
+marks a file that has been created or changed since it was last backed up;
+\cmd{XCOPY} uses it with its \kw{/A} and \kw{/M} parameters.
+
+\Param{-A} clears the archive attribute.
+
+\Param{filename} names the files to change or display.  Wildcards are
+allowed.  Directories are not changed.
+
+\Param{/S} processes the matching files in the named directory and in all
+of its subdirectories.
+
+If you give no \kw{+} or \kw{-} parameter, \cmd{ATTRIB} displays the
+attributes of each matching file: \texttt{R} in the first column for a
+read-only file, \texttt{A} in the fourth column when the archive attribute is
+set, then the full path of the file.
+
+If no file matches, or the name is a directory, \cmd{ATTRIB} displays
+\texttt{Invalid path (or file not found)}.  If you give no file name, or
+more than one, it displays \texttt{Invalid number of parameters}.
+
+\cmd{ATTRIB} returns exit code 0 when it succeeds and 1 when it displays a
+message.
+\Example
+The first command makes \file{MEMO.TXT} read-only; the second displays the
+attributes of every file with the extension \file{TXT}; the \cmd{DEL}
+command then cannot delete the read-only file:
+\Shot{attrib}
+To display the attributes of the program files in every directory of the
+disk, begin at the root directory and use \kw{/S}:
+\Shot{attribs}
+\end{DosEntry}
+
+% BREAK -- os/milton/command.c builtin_break (ON/OFF case-insensitive, other
+% arguments leave the state; "BREAK is on|off"); sysinit.c (default ON
+% unless CONFIG.SYS BREAK=OFF); int21.c conin_cooked_line (CTRL-C on CON).
+% ADR-0003 Amendment DEC-16.  Gates: test-command, test-j1lu-control-emu.
+\begin{DosEntry}{BREAK}{Control-Break}{internal}
+\Purpose Sets or displays the CTRL-BREAK check.
+\Format \SyntaxLine{\kw{BREAK} \opt{\kw{ON}\texttt{|}\kw{OFF}}}
+\Type{Internal}
+\Remarks
+Type \cmd{BREAK} with no parameter to display the current setting:
+\texttt{BREAK is on} or \texttt{BREAK is off}.  After \kw{ON} or \kw{OFF},
+\cmd{BREAK} also displays the new setting.
+
+The check is on when InitechDOS starts, unless \file{CONFIG.SYS} contains
+the configuration command \texttt{BREAK=OFF} (Chapter~3).  Any parameter
+other than \kw{ON} or \kw{OFF} leaves the setting unchanged.
+
+Whatever the setting, InitechDOS checks for \key{Ctrl-C} whenever it reads
+a line from the keyboard: the line is discarded, a program reading it is
+stopped, and the command prompt is displayed again.
+\draft{see bead initech-vlhp (DEC-16 C-6): in DOS 3.3, BREAK ON also checks for CTRL-C during disk
+and other operations; the shipped build records and reports the setting
+but checks only during keyboard input}
+With \kw{ON}, InitechDOS also checks for \key{Ctrl-C} while a program reads
+or writes the disk, so a long operation can be stopped.
+\Example
+\Shot{break}
+\end{DosEntry}
+
+% CD -- os/milton/command.c builtin_cd (no arg: cwd_display; failure:
+% MSG-DOS-0018 "Invalid directory"); int21.c do_chdir (relative, absolute,
+% "..", "\" alone = the root since initech-33t2).  Gates: test-ut6d,
+% test-fat-subdir, test-shell.
+\begin{DosEntry}{CD}{Change Directory}{internal}
+\AlsoNamed{CHDIR}
+\Purpose Changes the current directory, or displays its name.
+\Format \SyntaxLine{\kw{CD} \opt{\ph{d}\kw{:}}\opt{\ph{path}}}
+  \SyntaxLine{\kw{CHDIR} \opt{\ph{d}\kw{:}}\opt{\ph{path}}}
+\Type{Internal}
+\Remarks
+\Param{path} names the directory that is to become the current directory.
+A path that begins with a backslash starts at the root directory; any other
+path starts at the current directory.  \file{..} names the parent of the
+current directory.
+
+Type \cmd{CD} with no parameter to display the drive and full path of the
+current directory.
+
+The command prompt shows the current directory, so a successful \cmd{CD}
+displays nothing more.  If the directory does not exist, \cmd{CD} displays
+\texttt{Invalid directory} and the current directory does not change.
+
+\type{CD \bs} makes the root directory the current directory, from any
+directory on the disk.
+\Example
+The example moves into \file{SAMPLES}, displays the current directory,
+moves back with \type{CD ..}, moves in again and goes straight to the root
+with \type{CD \bs}:
+\Shot{cd}
+\end{DosEntry}
+
+% CHKDSK -- os/milton/chkdsk.c (parse: one file operand, /F /V; report
+% lines; contiguity; lost chains + FILE0000.CHK; cross-links reported, never
+% repaired; memory from the live MCB chain); chkdsk_program.c.  Shipped as
+% APPS\CHKDSK.COM.  Gates: test-chkdsk, test-chkdsk-emu.
+\begin{DosEntry}{CHKDSK}{Check Disk}{external}
+\Purpose Checks the directories and the file allocation table of a disk and
+reports on the disk and on memory.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{CHKDSK}
+  \opt{\ph{d}\kw{:}}\opt{\ph{path}}\opt{\ph{filename}\opt{\kw{.}\ph{ext}}}
+  \opt{\kw{/F}} \opt{\kw{/V}}}
+\Type{External}
+\Remarks
+\cmd{CHKDSK} reads every directory of the disk and follows the chain of
+allocation units of every file.  It then displays a status report:
+\begin{itemize}
+\item the volume label and the date and time the volume was created
+\item the total disk space, in bytes
+\item the bytes and number of hidden files, of directories, and of user
+  files
+\item the bytes still available on the disk
+\item the total memory and the free memory, in bytes
+\end{itemize}
+
+\Param{filename} names files to check for fragmentation.  Wildcards are
+allowed.  For each named file stored in more than one piece, \cmd{CHKDSK}
+displays its path and \texttt{Contains} \ph{n} \texttt{non-contiguous
+blocks}; when every named file is in one piece it displays \texttt{All
+specified file(s) are contiguous}.  If no file matches, it displays
+\texttt{File not found}.
+
+\Param{/F} lets \cmd{CHKDSK} correct the errors it finds.  Without
+\kw{/F}, \cmd{CHKDSK} reports what it would do and displays
+\texttt{Corrections will not be written to disk}; nothing on the disk is
+changed.
+
+\Param{/V} displays the full path of every file as it is checked.
+
+When \cmd{CHKDSK} finds allocation units that are marked in use but belong
+to no file, it displays
+\ph{n} \texttt{lost allocation units found in} \ph{n} \texttt{chains.}
+and asks \texttt{Convert lost chains to files (Y/N)?}  With \kw{/F}, answer
+\type{Y} to save each chain as a file named \file{FILE0000.CHK},
+\file{FILE0001.CHK}, and so on, in the root directory, where you can examine
+it; answer \type{N} to free the space.  Without \kw{/F}, \cmd{CHKDSK}
+displays the number of bytes that would be freed.
+
+A file whose allocation chain points outside the disk is reported with
+\texttt{Has invalid cluster, file truncated}.  Two files that share an
+allocation unit are both reported with \texttt{File is cross-linked: on
+cluster} \ph{n}; \cmd{CHKDSK} does not repair a cross-link.  Copy both
+files, check their contents, and delete the damaged one.
+
+\cmd{CHKDSK} returns exit code 0 when the disk has no errors and 1 when it
+reports errors.
+\Example
+To check the practice diskette:
+\Shot{chkdsk}
+To check whether \file{MEMO.TXT} is stored in one piece:
+\Shot{chkfile}
+\end{DosEntry}
+
+% CLS -- os/milton/command.c builtin_cls (form feed: clear and home; any
+% parameters ignored).  Gate: test-command, test-pubs-screens (every screen
+% begins with CLS).
+\begin{DosEntry}{CLS}{Clear Screen}{internal}
+\Purpose Clears the display.
+\Format \SyntaxLine{\kw{CLS}}
+\Type{Internal}
+\Remarks
+The display is cleared and the command prompt appears on the top line.
+Parameters typed after \cmd{CLS} are ignored.
+\Example
+Type \type{CLS} and press \key{Enter}.  The screen is cleared and shows only
+the command prompt, \texttt{A:\bs>}.  Every example in this book begins
+this way.
+\end{DosEntry}
+
+% COPY -- os/milton/command.c builtin_copy (two operands; directory target
+% keeps the name; same-file refusal MSG-DOS-0020 + "0 file(s) copied";
+% source missing MSG-DOS-0003; create refused MSG-DOS-0009 or MSG-DOS-0002;
+% footer "        1 file(s) copied"); COPY CON ends at Ctrl-Z (WL-0102).
+% Gates: test-copy-selfcopy, test-dos-safety-k01, test-dos-safety-k02,
+% test-j1lu-control-emu.  Date stamp of the copy: initech-dwbl.
+\begin{DosEntry}{COPY}{Copy File}{internal}
+\Purpose Copies a file.
+\Format \SyntaxLine{\kw{COPY} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}
+  \opt{\ph{d}\kw{:}}\opt{\ph{path}}\opt{\ph{filename}\opt{\kw{.}\ph{ext}}}}
+\Type{Internal}
+\Remarks
+The first file specification names the \emph{source}, the file to copy.
+The second names the \emph{target}: the new file, or the directory to copy
+into.  Both are required.
+
+If the target is a directory, the copy is put in that directory with the
+name of the source file.  If the target is an existing file, it is
+replaced.  When the copy is complete, \cmd{COPY} displays
+\texttt{1 file(s) copied}.
+
+Wildcards are not allowed in this version: name one file.  To copy groups
+of files, use \cmd{XCOPY}.
+
+You can copy from the keyboard by naming the device \file{CON} as the
+source: type the lines of the file, then press \key{Ctrl-Z} and
+\key{Enter}.  \texttt{COPY CON NOTE.TXT} creates the file \file{NOTE.TXT}
+from what you type.
+
+If the source and target are the same file, \cmd{COPY} displays
+\texttt{File cannot be copied onto itself} and \texttt{0 file(s) copied},
+and the file is not changed.  If the source does not exist, it displays
+\texttt{File not found}.  If the target is read-only, it displays
+\texttt{Access denied}; if the target cannot be created for another reason,
+such as a full disk, it displays \texttt{Bad command or file name}.
+
+\draft{bead needed (follow-up of initech-dwbl): the shipped COPY stamps the
+copy with the current date and time; DOS 3.3 keeps the source's date and
+time}
+The copy has the same date and time as the source file.
+\Example
+The first command copies \file{MEMO.TXT} to a new file, \file{MEMO.BAK}; the
+second copies \file{PHONE.TXT} into the directory \file{SAMPLES}; the third
+names the same file twice:
+\Shot{copy}
+\end{DosEntry}
+
+% DATE -- os/milton/command.c builtin_date, cmd_parse_date (mm-dd-yy[yy],
+% '-' or '/' used twice; 80..99 -> 19xx, 00..79 -> 20xx; four-digit years from 1980 on, upper bound in cmd_parse_date;
+% days per month with leap years), cmd_format_date ("Current date is Day
+% mm-dd-yyyy"); "Invalid date" then the unchanged date.  No prompt for a new
+% date in the shipped build (documented as built).  Gates: test-datetime,
+% test-command.
+\begin{DosEntry}{DATE}{}{internal}
+\Purpose Sets or displays the system date.
+\Format \SyntaxLine{\kw{DATE} \opt{\ph{mm}\kw{-}\ph{dd}\kw{-}\ph{yy}}}
+\Type{Internal}
+\Remarks
+\Param{mm} is the month, 1 through 12.
+
+\Param{dd} is the day, 1 through the last day of the month.
+
+\Param{yy} is the year.  Two digits from 80 through 99 stand for the years
+from 1980 to the end of the century; two digits from 00 through 79 stand for
+the years of the next century.  You may also give all four digits.
+
+Separate the parts with hyphens or with slashes, the same character both
+times.  InitechDOS works out the day of the week for you.
+
+With a valid date, \cmd{DATE} sets the system date and displays it.  With
+no parameter, it displays the current date:
+\texttt{Current date is} followed by the day of the week and the date.
+
+If the date is not valid (for example, February~30), \cmd{DATE} displays
+\texttt{Invalid date}, leaves the system date unchanged and displays it.
+
+\Example
+\Shot{date}
+\end{DosEntry}
+
+% DEL -- os/milton/command.c builtin_del (wildcards: restart FINDFIRST per
+% unlink; *.* asks MSG-DOS-0012 first, only Y deletes; read-only:
+% MSG-DOS-0009 + the names left; MSG-DOS-0003; MSG-DOS-0011).  Gates:
+% test-dos-safety-k03, test-dos-safety-k04, test-dos-safety-k15,
+% test-dos-safety-del-failure.
+\begin{DosEntry}{DEL}{Delete}{internal}
+\AlsoNamed{ERASE}
+\Purpose Deletes files.
+\Format \SyntaxLine{\kw{DEL} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}}
+  \SyntaxLine{\kw{ERASE} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}\opt{\kw{.}\ph{ext}}}
+\Type{Internal}
+\Remarks
+\Param{filename} names the file or files to delete.  Wildcards are
+allowed: \type{DEL *.BAK} deletes every file with the extension \file{BAK}
+in the current directory.
+
+To delete every file in a directory, name \file{*.*}.  \cmd{DEL} first asks
+\texttt{Are you sure (Y/N)?}  Type \type{Y} and press \key{Enter} to delete
+the files; any other answer deletes nothing.
+
+\cmd{DEL} displays nothing when it succeeds.  If no file matches, it
+displays \texttt{File not found}.  A read-only file is not deleted:
+\cmd{DEL} displays \texttt{Access denied}, and when you used wildcards it
+also lists the matching files that remain.  \cmd{DEL} does not delete directories; use \cmd{RD}.
+
+\begin{Important}
+A deleted file cannot be recovered with InitechDOS commands.
+\end{Important}
+\Example
+The example makes a copy of \file{MEMO.TXT}, refuses to delete every file,
+deletes the copy, and shows that it is gone:
+\Shot{del}
+\end{DosEntry}
+
+% DIR -- os/milton/command.c builtin_dir (MSG-DOS-0021..0026 display
+% fragments, cmd_format_dir_line, footer from AH=36h; empty -> File not
+% found; e47v: one operand -- drive A only, else MSG-DOS-0004 -- a directory
+% or a file name, "name" = name.* and ".ext" = *.ext, /P pauses with
+% MSG-DOS-0016 after 23 rows, /W five names to a line, a subdirectory in
+% brackets; any other switch or a second operand MSG-DOS-0010).
+% Gates: test-dir, test-dir-look, test-dir-volume, test-dir-free-space,
+% test-dir-page, test-dir-args-mutant (initech-e47v).
+\begin{DosEntry}{DIR}{Directory}{internal}
+\Purpose Lists the files and subdirectories in a directory.
+\Format \SyntaxLine{\kw{DIR} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\opt{\ph{filename}\opt{\kw{.}\ph{ext}}}
+  \opt{\kw{/P}} \opt{\kw{/W}}}
+\Type{Internal}
+\Remarks
+\Param{d:} is the drive; it can only be drive~A.  Any other drive displays
+\texttt{Invalid drive specification}.
+
+\Param{path} names the directory to list.  If you leave it out, \cmd{DIR}
+lists the current directory.  Listing a directory does not change the
+current directory.
+
+\Param{filename} limits the listing to matching files.  Wildcards are
+allowed.  A name without an extension lists every extension of that name
+(\type{DIR MEMO} lists \file{MEMO.*}), and an extension alone lists every
+name with that extension (\type{DIR .TXT} lists \file{*.TXT}).
+
+\Param{/P} pauses when the screen is full and displays
+\texttt{Press any key to continue . . .}; press any key to see the next
+screen.
+
+\Param{/W} lists the names only, five to a line, with the name of a
+subdirectory in brackets.
+
+Only one file specification may be given; a second one, or any switch
+other than \kw{/P} and \kw{/W}, displays \texttt{Too many parameters}.
+
+The listing begins with the volume label of the disk and the name of the
+directory.  Each file then has one line: its name, its extension, its size
+in bytes, and the date and time it was last changed, with \texttt{a} for
+morning and \texttt{p} for afternoon.  A subdirectory shows
+\texttt{<DIR>} in place of a size.  The last line gives the number of
+entries listed and the number of bytes free on the disk.
+
+If the directory has no entries, \cmd{DIR} displays the headings followed
+by \texttt{File not found}.
+\Example
+To list the root directory of the practice diskette:
+\Shot{dir}
+To list only the text files, and then the directory \file{SAMPLES} in the
+wide form:
+\Shot{dirargs}
+\end{DosEntry}

@@ -1,0 +1,25 @@
+A:\>CD SAMPLES
+A:\SAMPLES>TYPE GREET.BAT
+@ECHO OFF
+REM GREET.BAT shows the replaceable parameters %1 and %2.
+ECHO Good morning, %1.
+ECHO Your report is due %2.
+
+A:\SAMPLES>GREET Peter Friday
+Good morning, Peter.
+Your report is due Friday.
+A:\SAMPLES>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

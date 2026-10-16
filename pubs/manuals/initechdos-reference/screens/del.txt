@@ -1,0 +1,25 @@
+A:\>COPY MEMO.TXT MEMO.BAK
+        1 file(s) copied
+A:\>DEL *.*
+Are you sure (Y/N)? N
+A:\>DEL MEMO.BAK
+A:\>TYPE MEMO.BAK
+File not found
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

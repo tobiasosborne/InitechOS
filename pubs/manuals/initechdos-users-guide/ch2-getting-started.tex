@@ -1,34 +1,33 @@
 % Chapter 2 -- Getting Started.
 % Sources (Law 1): os/milton/command.c (builtin_dir/type/copy/del/cd/md/rd,
-% the REPL prompt $P$G, read_line ^C discard, AUTOEXEC.BAT probe);
-% os/milton/kmain.c (start-up order, SYSINIT CONFIG.SYS-or-baseline);
-% spec/dos_messages.json; spec/dos_banner.txt.  Every figure is a capture of
-% the shipped COMMAND.COM image (build/tracer_boot.img) driven by
-% screens/SCREENS through pubs/screens/capture.sh; `make test-pubs-screens`
-% re-captures them and fails if the OS output no longer matches the book.
+% the REPL prompt $P$G, read_line CTRL-C discard, AUTOEXEC.BAT probe);
+% os/milton/kmain.c (start-up order, SYSINIT CONFIG.SYS-or-standard
+% settings); command.c startup_datetime (the date and time questions when
+% there is no AUTOEXEC.BAT, initech-qskz); spec/dos_messages.json;
+% spec/dos_banner.txt; pubs/screens/disk/MANIFEST (the practice diskette).
+% Every figure is a capture of the shipped COMMAND.COM image
+% (build/tracer_boot.img) driven by screens/SCREENS through
+% pubs/screens/capture.sh; `make test-pubs-screens` re-captures them.
+% GATES: test-boot test-shell test-dir test-command test-copy-selfcopy test-dos-safety-k01 test-dos-safety-k03 test-dos-safety-k04 test-j1lu-control-emu test-ut6d test-fat-subdir test-pubs-screens
 \Gates{test-boot, test-shell, test-dir, test-command, test-copy-selfcopy,
   test-dos-safety-k01, test-dos-safety-k03, test-dos-safety-k04,
   test-j1lu-control-emu, test-ut6d, test-fat-subdir, test-pubs-screens}
 \chapter{Getting Started}
-\begin{ChapterCovers}
-\item Starting InitechDOS and reading the start-up screen
-\item The command prompt and how to type commands
-\item Listing, displaying, copying and deleting files
-\item Creating directories and moving between them
-\end{ChapterCovers}
 
 This chapter is a series of short exercises.  Do them in order, at the
 computer, with this book open beside you.  Each exercise shows the screen
 as it should look when you have finished.
 
 \section{Before You Begin}
-The exercises use the files on the InitechDOS practice diskette:
-\file{README.TXT}, \file{MEMO.TXT} and \file{PHONE.TXT}.  You will copy,
-delete and move these files, so use a copy of the practice diskette, not
-the original.
-\draft{practice diskette: the captures use a FAT12 volume minted by
-pubs/screens/capture.sh and attached as drive A; the package contents and the
-diskette-copying procedure (DISKCOPY) are not built yet}
+The exercises use the InitechDOS practice diskette.  It holds three text
+files, \file{README.TXT}, \file{MEMO.TXT} and \file{PHONE.TXT}; the file
+\file{AUTOEXEC.BAT}; the directory \file{APPS}, which holds the utility
+programs; and the directory \file{SAMPLES}, which holds the batch files used
+in Chapter~5.  You will copy, delete and rename files, so use a copy of the
+practice diskette, not the original.
+\draft{see bead initech-aai2: the package and the diskette-copying command (DISKCOPY)
+are not built; the screens use a practice volume minted by
+pubs/screens/capture.sh as drive A}
 
 \section{Starting the System}
 \index{starting InitechDOS}
@@ -37,40 +36,42 @@ diskette-copying procedure (DISKCOPY) are not built yet}
 \item Turn on the display, then the computer.
 \end{Steps}
 The computer checks its memory and then loads InitechDOS.  This takes a few
-seconds.  When InitechDOS is ready, the screen looks like
-Figure~\ref{fig:startup}.
+seconds.  Figure~\ref{fig:startup} shows the screen when InitechDOS starts
+from a diskette that has no \file{AUTOEXEC.BAT} file.
 
-\Screen[rows=8, label=fig:startup]{screens/startup.txt}{The start-up screen}
+\Screen[rows=8, label=fig:startup]{screens/startup.txt}{The start-up screen
+  of a diskette without AUTOEXEC.BAT}
 
 \SideHead{Copyright notice}The first two lines show the version of
 InitechDOS and the copyright notice.
 
-\SideHead{Start-up listing}While it starts, InitechDOS reads drive~A and lists
-the files in its root directory, with the size of each file in bytes.
-\draft{this listing is printed by the kernel's FAT mount check (kmain.c
-FAT-MOUNT); real DOS 3.30 asks for the date and time here instead -- confirm
-it ships before this text is final}
+\SideHead{Date and time}When the disk has no \file{AUTOEXEC.BAT} file,
+InitechDOS displays the current date and asks for a new one, then does the
+same for the time.  Press \key{Enter} at each question to keep the date or
+time shown, or type a new date or time in the form the \cmd{DATE} and
+\cmd{TIME} commands use (see the \doctitle{InitechDOS Reference}); if what
+you type is not a valid date or time, InitechDOS says so and asks again.  The practice diskette has an
+\file{AUTOEXEC.BAT} file, so when you start from it InitechDOS asks no
+questions and goes straight to the command prompt.
 
-\SideHead{Command prompt}The last line, \file{A:\textbackslash>}, is the
-command prompt.  It tells you that InitechDOS is waiting for a command.
+\SideHead{Command prompt}The last line, \file{A:\bs>}, is the command
+prompt.  It tells you that InitechDOS is waiting for a command.
 
 \SideHead{Configuration}Before the prompt appears, InitechDOS reads
 \file{CONFIG.SYS} from drive~A to learn how your system is set up; if there
-is no such file, it uses the standard Initech settings.  Then, if there is a
-file named \file{AUTOEXEC.BAT} on drive~A, the command processor carries out
-the commands in it.  The practice diskette has neither file, so the prompt
-appears straight away.  The \doctitle{InitechDOS Reference} describes both
-files.
+is no such file, it uses the standard Initech settings (Chapter~6).  Then
+the command processor carries out the commands in \file{AUTOEXEC.BAT}.  The
+practice diskette's \file{AUTOEXEC.BAT} tells InitechDOS where to find the
+utility programs, and displays nothing (Chapter~5).
 
 \section{The Command Prompt}
 \index{command prompt}\index{prompt}
 The command prompt shows the current drive and directory, followed by the
-character \file{>}.  At \file{A:\textbackslash>} the current drive is
-drive~A and the current directory is its root directory.  When you change
-to another directory, the prompt changes to match, as you will see later in
-this chapter.  You can change the form of the prompt with the \cmd{PROMPT}
-command, which the \doctitle{Reference} describes; this book always shows
-the standard prompt.
+character \file{>}.  At \file{A:\bs>} the current drive is drive~A and the
+current directory is its root directory.  When you change to another
+directory, the prompt changes to match, as you will see later in this
+chapter.  You can change the form of the prompt with the \cmd{PROMPT}
+command (Chapter~6); this book always shows the standard prompt.
 
 \section{Typing Commands}
 \index{typing commands}
@@ -83,26 +84,27 @@ mistakes first:
 \item Press \key{Ctrl-C} to cancel the whole line.  InitechDOS ignores what
   you typed and displays the prompt again.\index{Ctrl-C}
 \end{itemize}
-You can type commands in capital or small letters.  This book shows them in
-capitals.  If InitechDOS does not recognize a command, or a command is
-missing information it needs, it displays a message and the prompt again.
-Nothing is changed on the disk.  Try it now:
+Chapter~8 describes these keys.  You can type commands in capital or small
+letters.  This book shows them in capitals.  If InitechDOS does not
+recognize a command, or a command is missing information it needs, it
+displays a message and the prompt again.  Nothing is changed on the disk.
+Try it now:
 \begin{Steps}
-\item Type \type{CLS} and press \key{Enter}.  The \cmd{CLS}\index{CLS@\texttt{CLS}}
-  command clears the screen and displays the prompt at the top.
+\item Type \type{CLS} and press \key{Enter}.  The \cmd{CLS}%
+  \index{CLS@\texttt{CLS}} command clears the screen and displays the prompt
+  at the top.
 \item Type \type{B:} and press \key{Enter}.
 \item Type \type{DIRECTORY} and press \key{Enter}.
 \item Type \type{TYPE} and press \key{Enter}.
 \end{Steps}
 Your screen now looks like Figure~\ref{fig:errors}.
 
-\Screen[rows=8, label=fig:errors]{screens/errors.txt}{Two kinds of mistake}
+\Screen[rows=7, label=fig:errors]{screens/errors.txt}{Two kinds of mistake}
 
 \UnknownCommand{B:} and \UnknownCommand{DIRECTORY} are not commands that InitechDOS knows, so it
 answers \texttt{Bad command or file name}.  \cmd{TYPE} is a command, but it
 needs the name of a file to work on; \texttt{Required parameter missing}
 tells you that something is missing from the command line.
-\index{Required parameter missing@\texttt{Required parameter missing}}
 
 \section{Listing the Files on a Disk}
 \index{listing files}\index{DIR@\texttt{DIR}}
@@ -112,38 +114,24 @@ The \cmd{DIR} command lists the files in the current directory.
 \item Type \type{DIR} and press \key{Enter}.
 \end{Steps}
 
-\Screen[rows=13, label=fig:dir]{screens/dir.txt}{A directory listing}
+\Screen[rows=15, label=fig:dir]{screens/dir.txt}{A directory listing}
 
 The listing in Figure~\ref{fig:dir} begins with the volume label of the disk
 and the name of the directory being listed.  Then comes one line for each
-file:
+file or directory:
 
 \SideHead{Name}The name of the file, followed by its extension in a column of
 its own.  \file{README TXT} is the file \file{README.TXT}.
 
-\SideHead{Size}The size of the file in bytes.
+\SideHead{Size}The size of the file in bytes.  A directory shows
+\texttt{<DIR>} instead.
 
 \SideHead{Date and time}When the file was last changed: month, day and
 year, then the time of day, with \file{a} for morning and \file{p} for
 afternoon.
 
-The last line gives the number of files listed and the number of bytes
+The last line gives the number of entries listed and the number of bytes
 still free on the disk.
-
-\begin{CommandEntry}{DIR}{Internal}
-\Purpose Lists the files and subdirectories in the current directory.
-\Syntax \SyntaxLine{\kw{DIR}}
-\Remarks Subdirectories are listed with \texttt{<DIR>} in place of a size.
-  If the directory is empty, \cmd{DIR} displays the headings followed by
-  \texttt{File not found}.
-  \draft{DIR ignores parameters in this build (DIR B: lists A:); drive, path,
-  wildcard, /P and /W forms are for the Reference once built}
-\Examples To list the current directory:
-\begin{TypeIn}
-DIR
-\end{TypeIn}
-\SeeAlso
-\end{CommandEntry}
 
 \section{Displaying a File}
 \index{displaying a file}\index{TYPE@\texttt{TYPE}}
@@ -160,19 +148,6 @@ screen.
 only: a program file contains codes that are not meant to be displayed and
 will fill the screen with strange characters.
 
-\begin{CommandEntry}{TYPE}{Internal}
-\Purpose Displays the contents of a file.
-\Syntax \SyntaxLine{\kw{TYPE} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}}
-\Remarks Wildcards are not allowed.  If the file does not exist, \cmd{TYPE}
-  displays \texttt{File not found}.
-\Examples To display the file \file{MEMO.TXT} in the subdirectory
-  \file{REPORTS}:
-\begin{TypeIn}
-TYPE A:\REPORTS\MEMO.TXT
-\end{TypeIn}
-\SeeAlso
-\end{CommandEntry}
-
 \section{Copying a File}
 \index{copying files}\index{COPY@\texttt{COPY}}
 Make a copy of a file before you change it, so that you can go back to the
@@ -184,73 +159,42 @@ to copy from first, and the file to copy to second.
 \item Type \type{DIR} and press \key{Enter} to see the new file.
 \end{Steps}
 
-\Screen[rows=16, label=fig:copy]{screens/copy.txt}{Copying MEMO.TXT to MEMO.BAK}
+\Screen[rows=18, label=fig:copy]{screens/copy.txt}{Copying MEMO.TXT to MEMO.BAK}
 
 \cmd{COPY} reports \texttt{1 file(s) copied}, and the directory now lists
 \file{MEMO.BAK}, the same size as \file{MEMO.TXT}.
-\draft{the new file is listed 0-00-80 12:00a: the shipped FAT write path does
-not stamp the date and time of new files; DOS 3.30 stamps the current date
-and time.  Software bead needed before this figure is final}
+\draft{bead needed (follow-up of initech-dwbl): the shipped COPY stamps the
+copy with the current date and time (Figure~\ref{fig:copy}); DOS 3.3 gives a
+copy the date and time of the original}
+The copy has the same date and time as the original file.
 
 If the file you copy to already exists, \cmd{COPY} replaces it.  If you
 name the same file twice, \cmd{COPY} refuses with \texttt{File cannot be
-copied onto itself} and copies nothing.
-
-\begin{CommandEntry}{COPY}{Internal}
-\Purpose Copies a file.
-\Syntax \SyntaxLine{\kw{COPY} \ph{source} \ph{target}}
-\Remarks \ph{source} is the file to copy.  \ph{target} is the name of the
-  copy, or a directory; if it is a directory, the copy keeps the name of the
-  source file.  Either may include a drive and path.  Wildcards are not
-  allowed in this version.  The device name \file{CON} may be used as the
-  source to type a new file at the keyboard: end it with \key{Ctrl-Z} and
-  \key{Enter}.
-\Examples To copy \file{MEMO.TXT} into the directory \file{REPORTS}:
-\begin{TypeIn}
-COPY MEMO.TXT REPORTS
-\end{TypeIn}
-To create the file \file{NOTE.TXT} from the keyboard:
-\begin{TypeIn}
-COPY CON NOTE.TXT
-\end{TypeIn}
-\SeeAlso
-\end{CommandEntry}
+copied onto itself} and copies nothing.  \cmd{COPY} copies one file at a
+time; to copy a group of files, use \cmd{XCOPY} (Chapter~9).
 
 \section{Deleting Files}
 \index{deleting files}\index{DEL@\texttt{DEL}}
 The \cmd{DEL} command removes a file from the disk.  \cmd{ERASE} is another
-name for the same command.
+name for the same command.  For this exercise a copy, \file{MEMO.BAK}, has
+been made first.
 \begin{Steps}
 \item Type \type{CLS} and press \key{Enter}.
 \item Type \type{DEL MEMO.BAK} and press \key{Enter}.
 \item Type \type{TYPE MEMO.BAK} and press \key{Enter}.
 \end{Steps}
 
-\Screen[rows=5, label=fig:del]{screens/del.txt}{Deleting MEMO.BAK}
+\Screen[rows=4, label=fig:del]{screens/del.txt}{Deleting MEMO.BAK}
 
 \cmd{DEL} displays nothing when it succeeds.  The \cmd{TYPE} command shows
-that the file is gone.
+that the file is gone.  \cmd{DEL} accepts the wildcard names described in
+Chapter~3, and asks \texttt{Are you sure (Y/N)?} before it deletes every
+file in a directory.
 
-\begin{Caution}
+\begin{Important}
 A deleted file cannot be brought back with InitechDOS commands.  Check the
 name before you press \key{Enter}.
-\end{Caution}
-
-\begin{CommandEntry}{DEL}{Internal}
-\Purpose Deletes one file, or every file that matches a wildcard name.
-\Syntax \SyntaxLine{\choice{\kw{DEL}}{\kw{ERASE}} \opt{\ph{d}\kw{:}}\opt{\ph{path}}\ph{filename}}
-\Remarks Wildcards are allowed: \type{DEL *.BAK} deletes every file with
-  the extension \file{BAK} in the current directory.  Before deleting
-  every file in a directory (\file{*.*}), \cmd{DEL} asks
-  \texttt{Are you sure (Y/N)?}; type \type{Y} and press \key{Enter} to
-  delete them, or any other answer to delete nothing.  A read-only file is
-  not deleted; \cmd{DEL} displays \texttt{Access denied}.
-\Examples To delete every file whose extension is \file{BAK}:
-\begin{TypeIn}
-DEL *.BAK
-\end{TypeIn}
-\SeeAlso
-\end{CommandEntry}
+\end{Important}
 
 \section{Working with Directories}
 \index{directories}
@@ -272,24 +216,22 @@ the current directory.\index{CD@\texttt{CD}}
 \item Type \type{MD REPORTS} and press \key{Enter}.
 \item Type \type{COPY MEMO.TXT REPORTS} and press \key{Enter}.
 \item Type \type{CD REPORTS} and press \key{Enter}.  The prompt changes to
-  \file{A:\textbackslash REPORTS>}.
+  \file{A:\bs REPORTS>}.
 \item Type \type{DIR} and press \key{Enter}.
 \end{Steps}
 
-\Screen[rows=17, label=fig:paths]{screens/paths.txt}{The REPORTS subdirectory}
+\Screen[rows=16, label=fig:paths]{screens/paths.txt}{The REPORTS subdirectory}
 
 Every subdirectory contains two special entries.  \file{.} stands for the
 directory itself, and \file{..} for the directory that contains it, its
-\emph{parent}.  To go back up to the parent directory, type \type{CD ..};
-to go straight to the root directory from anywhere on the disk, type
-\type{CD \textbackslash}.
-\draft{subdirectory entries are listed 0-00-80 12:00a (same date-stamp gap
-as Figure 2-5)}
+\term{parent}.  To go back up to the parent directory, type \type{CD ..}.
+A new directory, and each file written into it, is stamped with the date
+and time at which it was made.
 
 To finish the exercise, remove the subdirectory.  A directory must be empty
 before \cmd{RD} will remove it, so delete its file first:
 \begin{TypeIn}
-CD \
+CD ..
 DEL REPORTS\MEMO.TXT
 RD REPORTS
 \end{TypeIn}
@@ -298,8 +240,6 @@ path, not directory, or directory not empty} and leaves it in place.
 
 \section{Where to Go Next}
 You can now start InitechDOS, list and display files, copy and delete
-them, and organize them in directories.  The \doctitle{InitechDOS Version
-3.30 Reference} describes the other internal commands (\cmd{DATE},
-\cmd{TIME}, \cmd{VER}, \cmd{REN}, \cmd{SET}, \cmd{PROMPT}, \cmd{ECHO},
-\cmd{BREAK} and \cmd{EXIT}), batch files, and the \file{CONFIG.SYS} and
-\file{AUTOEXEC.BAT} files.
+them, and organize them in directories.  Chapter~3 tells you more about
+file names and directories; the \doctitle{InitechDOS Reference} describes
+every command in detail.

@@ -1,0 +1,25 @@
+A:\>LABEL A:INITECH
+A:\>LABEL BAD.NAME
+Invalid characters in volume label
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
