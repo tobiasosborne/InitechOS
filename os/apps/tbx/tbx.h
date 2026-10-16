@@ -127,6 +127,24 @@ int32_t tbx_file_delete(const char *path);
 int32_t tbx_alert(const char *text, const char *def, const char *cancel,
                   const char *other);
 
+/* InitechText's platform services (bead initech-tdnl.16; spec Sec 12-15).
+ * The Scrap: put replaces the desk scrap's TEXT (ZeroScrap + PutScrap); get
+ * copies it (buf 0: the length only) or answers TBX_ERR_NOTYPE. Standard File:
+ * ASKED here, ANSWERED by a TBX_EVT_SFREPLY event (Message 1: `reply`, which
+ * must be TBX_SF_REPLY_BYTES of module/BSS storage, holds the DOS path).
+ * tbx_track_mouse: inside a mouseDown, asks the shell to follow the pointer
+ * (TBX_EVT_TRACK events, Message 0 moved / 1 released). The vertical bar:
+ * set the document height + value, read the value back after an updateEvt.
+ * tbx_global_to_local: the IM Point (v << 16 | h) in content coordinates. */
+int32_t tbx_scrap_put(const void *buf, uint32_t len);
+int32_t tbx_scrap_get(void *buf, uint32_t bufsz);
+int32_t tbx_sf_getfile(char *reply);
+int32_t tbx_sf_putfile(const char *prompt, const char *name, char *reply);
+int32_t tbx_track_mouse(void);
+int32_t tbx_set_scroll(int32_t win, int32_t content_len, int32_t value);
+int32_t tbx_get_scroll(int32_t win);
+int32_t tbx_global_to_local(int32_t win, int32_t h, int32_t v);
+
 /* The raw trap: AX = code, `argc` dwords pushed cdecl (args[0] lowest). */
 int32_t tbx_trap(uint32_t code, uint32_t argc, const uint32_t *args);
 

@@ -158,7 +158,9 @@ void FlairTESetSelect(FlairTE *te, int16_t selStart, int16_t selEnd);
 /* FlairTEKey -- type one char at the insertion point (textedit.md Sec 6).
  * A range selection is deleted first; then `ch` is inserted at selStart and the
  * caret advances past it (selStart=selEnd=insertion+1). Backspace (0x08) deletes
- * the selected range if any, else the char before the caret. Recomputes lines. */
+ * the selected range if any, else the char before the caret. Recomputes lines.
+ * The arrow charCodes FLAIR_TE_CH_LEFT..DOWN move the selection instead (the
+ * editing-surface rules below; bead initech-tdnl.16) and change no text. */
 void FlairTEKey(FlairTE *te, char ch);
 
 /* FlairTEInsert -- insert `len` bytes from `s` at the insertion point (deleting
@@ -183,5 +185,69 @@ int FlairTECut(FlairTE *te, FlairScrap *scrap);
  * -1 if the scrap has no TEXT flavor. Fails loud (Rule 2) if the TEXT flavor is
  * larger than the FlairTE text buffer can hold. */
 int FlairTEPaste(FlairTE *te, const FlairScrap *scrap);
+
+/* ==========================================================================
+ * THE EDITING SURFACE (bead initech-tdnl.16, R4.2 InitechText -- the
+ * SimpleText-alike is the first REAL client of this record). The IM routines
+ * an application needs to put a caret and a selection on the screen and take
+ * them off the mouse and the arrow keys (textedit.md Sec 2 selPoint/TEClick,
+ * Sec 4 lineHeight, Sec 6 TEKey/TEClick), in the reduced record's terms.
+ *
+ * COORDINATES are destRect-local PIXELS: h from the left edge of the wrap
+ * column, v from the top of line 0; line L occupies v in
+ * [L * FlairTELineHeight, (L + 1) * FlairTELineHeight). Monostyled: the line
+ * height is the record font's cell height (textedit.md Sec 4 step 3,
+ * lineHeight/fontAscent "actual values" for monostyled; text.h
+ * text_cell_height: Geneva 9 11, Chicago 12 its cell).
+ *
+ * WHAT THE REFERENCES DO NOT SAY, AND WHAT WAS CHOSEN (Law 1, stated):
+ *   - hit-testing (TEGetOffset): the point's line is v / lineHeight clamped to
+ *     [0, nLines - 1] (above the text -> line 0, below -> the last line); on
+ *     that line the offset is the character BOUNDARY nearest h, a character
+ *     splitting at its advance midpoint (IM-I TEClick "the nearest character
+ *     boundary" [documented, IM-I TextEdit]); a CR ends the reachable range of
+ *     its line (the caret goes BEFORE the CR); a wrapped line reaches the next
+ *     line's start offset, where the caret is shown at the start of the next
+ *     line [INF: the one offset has one place].
+ *   - shift-click (TEClick extend) grows or shrinks the selection to the
+ *     point, keeping the end FARTHER from it as the anchor [INF].
+ *   - arrows (TEKey 0x1C..0x1F, IM-IV TextEdit [documented, not local]): left /
+ *     right collapse a range to its start / end, else move one character;
+ *     up / down keep the caret's h on the line above / below; up on line 0 goes
+ *     to offset 0 and down on the last line to teLength [INF].
+ *   - FlairTECanReplace is the NON-PANICKING capacity probe the fail-loud
+ *     caps need (Rule 2 stays: an edit past a cap still panics): an
+ *     application asks before every mutation and refuses one that cannot fit
+ *     (the IM 32 K TEKey limit behaves the same way -- the keystroke is
+ *     dropped) [INF].
+ * ==========================================================================*/
+#define FLAIR_TE_CH_LEFT   0x1C   /* IM charCodes: left arrow   */
+#define FLAIR_TE_CH_RIGHT  0x1D   /*               right arrow  */
+#define FLAIR_TE_CH_UP     0x1E   /*               up arrow     */
+#define FLAIR_TE_CH_DOWN   0x1F   /*               down arrow   */
+
+/* The record's line height in pixels (monostyled: the font's cell height). */
+int16_t FlairTELineHeight(const FlairTE *te);
+
+/* FlairTEGetPoint (IM TEGetPoint) -- the destRect-local pixel position of the
+ * boundary BEFORE char `offset` (clamped to [0, teLength]): *h its x, *v the TOP
+ * of its line. */
+void FlairTEGetPoint(const FlairTE *te, int16_t offset, int16_t *h, int16_t *v);
+
+/* FlairTEGetOffset (IM TEGetOffset) -- the char boundary nearest the
+ * destRect-local point (h, v), per the rules above. */
+int16_t FlairTEGetOffset(const FlairTE *te, int16_t h, int16_t v);
+
+/* FlairTEClick (IM TEClick) -- a mouseDown at (h, v): plain -> an insertion
+ * point there; extend (shift) -> the selection grows/shrinks to the point.
+ * Returns the ANCHOR (the end that stays put) for a following drag: each drag
+ * sample is FlairTESetSelect(anchor, FlairTEGetOffset(h, v)). */
+int16_t FlairTEClick(FlairTE *te, int16_t h, int16_t v, int extend);
+
+/* FlairTECanReplace -- 1 iff replacing [a, b) (clamped, ordered) with the
+ * `len` bytes at `s` keeps teLength <= FLAIR_TE_TEXT_MAX AND the laid-out line
+ * count <= FLAIR_TE_MAX_LINES; else 0. Changes nothing. */
+int FlairTECanReplace(const FlairTE *te, int16_t a, int16_t b, const char *s,
+                      int16_t len);
 
 #endif /* INITECH_OS_FLAIR_TEXTEDIT_H */

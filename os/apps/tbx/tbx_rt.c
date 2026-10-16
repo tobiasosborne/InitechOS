@@ -217,3 +217,22 @@ int memcmp(const void *a, const void *b, uint32_t n)
         if (x[i] != y[i]) return (int)x[i] - (int)y[i];
     return 0;
 }
+
+/* Ref: spec/toolbox_gate.h Sec 12-15, deliberately extended in initech-tdnl.16. */
+int32_t tbx_scrap_put(const void *buf, uint32_t len)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)buf, len }; return tbx_trap(TBX_SCRAP_PUT, TBX_ARGC_SCRAP_PUT, a); }
+int32_t tbx_scrap_get(void *buf, uint32_t bufsz)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)buf, bufsz }; return tbx_trap(TBX_SCRAP_GET, TBX_ARGC_SCRAP_GET, a); }
+int32_t tbx_sf_getfile(char *reply)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)reply }; return tbx_trap(TBX_SFGETFILE, TBX_ARGC_SFGETFILE, a); }
+int32_t tbx_sf_putfile(const char *prompt, const char *name, char *reply)
+{ uint32_t a[] = { (uint32_t)(uintptr_t)prompt, (uint32_t)(uintptr_t)name, (uint32_t)(uintptr_t)reply };
+  return tbx_trap(TBX_SFPUTFILE, TBX_ARGC_SFPUTFILE, a); }
+int32_t tbx_track_mouse(void)
+{ return tbx_trap(TBX_TRACKMOUSE, TBX_ARGC_TRACKMOUSE, (const uint32_t *)0); }
+int32_t tbx_set_scroll(int32_t win, int32_t content_len, int32_t value)
+{ uint32_t a[] = { (uint32_t)win, (uint32_t)content_len, (uint32_t)value }; return tbx_trap(TBX_SETSCROLL, TBX_ARGC_SETSCROLL, a); }
+int32_t tbx_get_scroll(int32_t win)
+{ uint32_t a[] = { (uint32_t)win }; return tbx_trap(TBX_GETSCROLL, TBX_ARGC_GETSCROLL, a); }
+int32_t tbx_global_to_local(int32_t win, int32_t h, int32_t v)
+{ uint32_t a[] = { (uint32_t)win, (uint32_t)h, (uint32_t)v }; return tbx_trap(TBX_GLOBALTOLOCAL, TBX_ARGC_GLOBALTOLOCAL, a); }
