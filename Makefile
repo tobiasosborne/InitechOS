@@ -23139,7 +23139,7 @@ RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # (5 s); the clip ends when the copy is done. PM records on main.
 RECORD_SCRIPTS += file_copy
 RECORD_SPEC_file_copy = $(FLAIR_FILE_COPY_SPEC),m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0
-RECORD_MARKER_file_copy = TENANT-FILECOPY-DONE
+RECORD_MARKER_file_copy = TENANT-FILECOPY-DONE rc=156 ticks=500
 RECORD_SETTLE_file_copy = 400
 RECORD_IMAGE_file_copy = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # Rule 14 (initech-tdnl.20 bar carrier): PAINT.EXE launches, band 2 becomes
