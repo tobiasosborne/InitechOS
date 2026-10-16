@@ -787,7 +787,9 @@ int crit_error_action(int ch);
  * MSG-DOS-0001. */
 #define INT21_CRIT_FAIL   0   /* propagate the error up the syscall (Fail)     */
 #define INT21_CRIT_RETRY  1   /* re-issue the failed sector operation (Retry)  */
-int int21_run_critical_error(int op_is_write);
+/* device_error is the original ATA_ERR_* (ata.h); NO_DRIVE on a read
+ * prints MSG-DOS-0006 before A/R/F. Other failures keep their old handling. */
+int int21_run_critical_error(int op_is_write, int device_error);
 
 /* Record the most recent DOS error code so AH=59h GET EXTENDED ERROR can report
  * it (beads initech-yv9). The error-returning functions (OPEN/UNLINK/etc.) call

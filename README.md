@@ -11,7 +11,7 @@ Part No. 1024-3300-01 &middot; Document Control: STAPLER &middot; Revision G
 ---
 
 InitechOS&trade; is a single-user, single-tasking 32-bit operating environment
-for Intel&reg; 80386&trade; and compatible business workstations. It integrates
+for Intel&reg; 486-class and compatible business workstations. It integrates
 the InitechDOS&trade; operating system, the FLAIR&trade; graphical operating
 environment, and the InitechBase&trade; data management system into one unified,
 fully conformant computing platform suitable for the modern automated office.
@@ -32,12 +32,17 @@ Software License Agreement (see [`LICENSE`](LICENSE)).
 
 ## System requirements
 
-- Intel 80386 or higher microprocessor
-- 4 MB of system memory (2 MB minimum)
+- Intel 486-class or higher microprocessor (386 support desirable, non-blocking)
+- At least 4 MB of extended memory above 1 MB (5 MB total minimum)
 - Fixed-disk controller and one fixed disk
 - One 5.25-inch or 3.5-inch diskette drive
 - VGA-compatible display adapter and monitor
 - Serial pointing device (recommended)
+
+CPU and memory requirements follow [`spec/hardware.json`](spec/hardware.json)
+(`cpu`, `memory.flair_heap`) and
+[ADR-0001 DEC-02](docs/adr/ADR-0001-Hardware-Target-386-Origin-486-Floor.md).
+The kernel checks the extended-memory minimum at boot.
 
 ## Features
 
@@ -80,7 +85,7 @@ requirement of the platform.
 ### Appendix A &mdash; Operation on contemporary host systems
 
 The distribution may be operated on a present-day host by means of an
-80386-compatible system emulator. The build and emulation harness targets, in
+486-class system emulator. The build and emulation harness targets, in
 order of fidelity, QEMU (development), Bochs (transition accuracy), and 86Box
 (period authenticity).
 
