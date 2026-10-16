@@ -39,11 +39,11 @@ FCB_KNOB_seq    := INT21_MUTATE_FCB_SEQ_NO_ADVANCE
 FCB_KNOB_noattr := INT21_MUTATE_FCB_EXT_NOATTR
 FCB_KNOB_nozero := INT21_MUTATE_FCB_PARTIAL_NOZERO
 $(BUILD)/int21_fcb_%.o: $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -D$(FCB_KNOB_$*) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -D$(FCB_KNOB_$*) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
 define fcb-emu-variant
 FCB_OBJS_$(1) := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/int21_fcb_$(1).o
 $(BUILD)/kernel_shell_fcb_$(1).elf: $$(FCB_OBJS_$(1)) $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $$(FCB_OBJS_$(1))
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $$(FCB_OBJS_$(1))
 $(BUILD)/kernel_shell_fcb_$(1).bin: $(BUILD)/kernel_shell_fcb_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
