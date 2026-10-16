@@ -461,7 +461,7 @@ test-kernel-headroom-mutant:
 		[ "$$pad" -gt 0 ] || { printf '!!! test-kernel-headroom-mutant: flagship already within the floor (pad=%s)\n' "$$pad"; exit 1; }; \
 		printf 'section .data align=1\nglobal khr_headroom_pad\nkhr_headroom_pad:\ntimes %d db 0x5A\n' "$$pad" > $(KHR_MUT_ASM); \
 		$(NASM) -f elf32 $(KHR_MUT_ASM) -o $(KHR_MUT_OBJ) || exit 1; \
-		$(KERNEL_LINK) -u khr_headroom_pad -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \ @$(TRANSIENT_IMPORTS_LD)
+		$(KERNEL_LINK) -u khr_headroom_pad -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) @$(TRANSIENT_IMPORTS_LD) 2>/dev/null || exit 1; \
 		$(OBJCOPY) -O binary $(KHR_MUT_ELF) $(BUILD)/.khr_mut.tmp; \
 		got=$$(( win - $$(wc -c < $(BUILD)/.khr_mut.tmp) )); rm -f $(BUILD)/.khr_mut.tmp; \
 		[ "$$got" -eq "$$want" ] || { printf '!!! test-kernel-headroom-mutant: pad kernel headroom %s != intended %s (layout assumption broke)\n' "$$got" "$$want"; exit 1; }; \
