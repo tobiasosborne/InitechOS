@@ -5,9 +5,9 @@ DOSUTIL_HDR := os/milton/dosutil.h
 ATTRIB_PROG_BIN := $(BUILD)/attrib_program.bin
 LABEL_PROG_BIN := $(BUILD)/label_program.bin
 DOSUTIL_HOST := $(BUILD)/dosutil_host
-DOSUTIL_HOST_DEPS := $(DOSUTIL_SRC) $(DOSUTIL_HDR) harness/diff/fat_diff/dosutil_host.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
-DOSUTIL_HOST_FLAGS := $(CFLAGS) -Ios/milton -Ispec -Iharness/diff/fat_diff
-DOSUTIL_COM_FLAGS := $(KERNEL_CFLAGS) -Os -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -Ios/milton -Ispec
+DOSUTIL_HOST_DEPS := $(DOSUTIL_SRC) $(DOSUTIL_HDR) harness/diff/fat_diff/dosutil_host.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) $(DOS_MESSAGES_H)
+DOSUTIL_HOST_FLAGS := $(CFLAGS) -Ios/milton -Ispec -Iharness/diff/fat_diff -I$(BUILD)
+DOSUTIL_COM_FLAGS := $(KERNEL_CFLAGS) -Os -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -Ios/milton -Ispec -I$(BUILD)
 DOSUTIL_ATTR_MUTANTS := R A PRESERVE WILD RECURSE DISPLAY SYNTAX
 DOSUTIL_LABEL_MUTANTS := ROOT BPB CONFIRM TRUNCATE PROMPT INVALID ROOM
 
@@ -20,7 +20,7 @@ endef
 $(foreach m,$(DOSUTIL_ATTR_MUTANTS) $(DOSUTIL_LABEL_MUTANTS),$(eval $(call dosutil-host-mutant,$(m))))
 
 define dosutil-com
-$(BUILD)/$(1)_core.o: $(DOSUTIL_SRC) $(DOSUTIL_HDR) | $(BUILD)
+$(BUILD)/$(1)_core.o: $(DOSUTIL_SRC) $(DOSUTIL_HDR) $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(DOSUTIL_COM_FLAGS) $(3) -c $$< -o $$@
 $(BUILD)/$(1)_target.o: os/milton/dosutil_target.c $(DOSUTIL_HDR) spec/find_data.h | $(BUILD)
 	$(KERNEL_CC) $(DOSUTIL_COM_FLAGS) $(2) -c $$< -o $$@

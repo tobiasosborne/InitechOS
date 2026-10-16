@@ -9,6 +9,7 @@
  * Stream sectors; six 8KiB bitmaps cover FAT16 without a geometry-sized stack.
  */
 #include "chkdsk.h"
+#include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.43,330. */
 
 #define MAP 8192u
 typedef struct scan {
@@ -306,7 +307,7 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     if((s.clusters+2)*(s.bits==12?3u:4u)>s.spf*1024)goto failed;
     s.path[0]=(char)('A'+io->drive);s.path[1]=':';s.path[2]='\\';s.path[3]=0;
     directory(0,0);s.pass=1;zero(s.visited,MAP);directory(0,0);
-    if(s.operand[0]&&!s.matched){put("File not found\r\n");s.error=1;}
+    if(s.operand[0]&&!s.matched){put(MSG_DOS_0003 "\r\n");s.error=1;}
     else if(s.operand[0]&&!s.fragmented)put("All specified file(s) are contiguous\r\n");
     lost();
     if(s.error&&!s.fix)put("Corrections will not be written to disk\r\n");
@@ -329,7 +330,7 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
 #ifdef CHKDSK_MUT_MEMORY
     free=total=655360;
 #endif
-    line(total," bytes total memory");line(free," bytes free");
+    line(total," bytes total memory");line(free,MSG_DOS_0025);
     if(s.failed)goto failed;
     return s.error?1:0;
 failed:
