@@ -1,3 +1,101 @@
-\Gates{test-pubs-build}
-\chapter{ch09-library}
-Stub.
+% Chapter 9 -- The standard routines (model: TP 6.0 PG Ch 10 "The System
+% unit": the routines grouped by purpose in tables -- the first of the two
+% depths at which the RTL is documented [bor s1]; the Library Reference has
+% one entry each).
+% Sources (Law 1): ADR-0007 DEC-05 (the RTL boundary); os/tps/tps.pas
+% ParseWrite/ParseWriteArg, ParseFactor (Ord, Chr, Length), NameIsFileBuiltin
+% and the file-call checks (argument counts and kinds; Reset/Rewrite size
+% defaults to 1); seed/rt/fileio.asm.  The routine names are those of the
+% generated inventory (KIND routine).
+\Gates{test-tps-type-fpc, test-tps-gen-fpc, test-compiler, test-compiler-os, test-pubs-tps}
+\chapter{The standard routines}
+\ix{standard routines}
+\ix{run-time library}
+
+Turbo Initech provides ten standard procedures and functions.  They need no
+declaration and are available in every program.  This chapter lists them by
+purpose; the \doctitle{Library Reference} describes each one in full, with
+an example program.
+
+\section{Output}
+\ix{output}
+\begin{BorTable}{Output procedures}{p{22mm}p{76mm}}
+\Hd{Procedure} & \Hd{Purpose}\EndHd
+\std{write}{Write} & writes integers, Boolean values, characters and strings\\
+\std{writeln}{Writeln} & writes the same, then ends the line\\
+\end{BorTable}
+
+\std{write}{Write} and \std{writeln}{Writeln} are reserved words with a
+statement form of their own (Chapter 6).  They write to the first serial
+communications port, COM1 (Chapter 12).
+
+\section{Conversion}
+\ix{conversion}
+\begin{BorTable}{Conversion functions}{p{22mm}p{76mm}}
+\Hd{Function} & \Hd{Purpose}\EndHd
+\std{ord}{Ord}\code{(X)} & the integer code of a character, the number 0 or 1
+  of a Boolean value, or an integer unchanged\\
+\std{chr}{Chr}\code{(I)} & the character whose code is the low 8 bits of the
+  integer \textit{I}\\
+\end{BorTable}
+
+\section{Strings}
+\ix{strings, routines}
+\begin{BorTable}{String function}{p{22mm}p{76mm}}
+\Hd{Function} & \Hd{Purpose}\EndHd
+\std{length}{Length}\code{(S)} & the current number of characters of the
+  string \textit{S}\\
+\end{BorTable}
+
+Concatenation and comparison of strings are operators (Chapter 5).
+
+\section{Files}
+\ix{files, routines}
+\begin{BorTable}{File procedures}{p{22mm}p{76mm}}
+\Hd{Procedure} & \Hd{Purpose}\EndHd
+\std{assign}{Assign} & names the InitechDOS file a file variable will use\\
+\std{reset}{Reset} & opens an existing file for reading\\
+\std{rewrite}{Rewrite} & creates a file, or empties an existing one, and
+  opens it for writing\\
+\std{blockread}{BlockRead} & reads bytes from a file into a string\\
+\std{blockwrite}{BlockWrite} & writes bytes from a string to a file\\
+\end{BorTable}
+
+The five file procedures are called like other procedures, with their
+arguments in parentheses:
+
+\begin{BorTable}{Arguments of the file procedures}{p{22mm}p{76mm}}
+\Hd{Procedure} & \Hd{Arguments}\EndHd
+\std{assign}{Assign} & a file variable; a string or character expression
+  giving the file name\\
+\std{reset}{Reset} & a file variable; optionally an integer record size, which
+  must be 1\\
+\std{rewrite}{Rewrite} & the same as \std{reset}{Reset}\\
+\std{blockread}{BlockRead} & a file variable; a character of a string
+  variable, where the bytes go; the integer number of bytes; an integer
+  variable that receives the number of bytes read\\
+\std{blockwrite}{BlockWrite} & a file variable; a character of a string
+  variable, where the bytes come from; the integer number of bytes; an
+  integer variable that receives the number of bytes written\\
+\end{BorTable}
+
+The file variable is a variable of type \rw{file} named by itself, not an
+element or a field.  The file procedures cannot be used in expressions.
+When the record size of \std{reset}{Reset} or \std{rewrite}{Rewrite} is
+left out it is 1; a record size other than 1 stops the program with a
+file error.  Chapter 12 describes how the file procedures behave and what
+happens when an operation fails.
+
+\section{Standard names}
+\ix{standard names}
+The names of the standard routines cannot be declared by a program.
+\std{write}{Write}, \std{writeln}{Writeln}, \std{ord}{Ord}, \std{chr}{Chr}
+and \std{length}{Length} are reserved words (Chapter 1).  The five file
+procedures are identifiers, but a declaration of a constant, variable,
+parameter or routine with one of their names is an error.  The types
+\rw{integer}, \rw{boolean}, \rw{char}, \rw{string} and \rw{file} and the
+constants \rw{true} and \rw{false} are reserved words as well.
+
+Turbo Initech has no other standard routines: there are no routines for
+reading the keyboard, for the screen, for the date and time, or for memory
+allocation.  A program reads its input from files.

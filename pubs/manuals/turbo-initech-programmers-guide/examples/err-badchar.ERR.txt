@@ -1,0 +1,4 @@
+TPS-LEX-ERROR pos=38 line=3 col=15 bad character code=37
+TPS-PARSE-SKIP lexer-error
+TPS-TYPE-SKIP lexer-error
+TPS-GEN-SKIP lexer-error

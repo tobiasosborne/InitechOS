@@ -1,3 +1,98 @@
-\Gates{test-pubs-build}
-\chapter{ch12-io}
-Stub.
+% Chapter 12 -- Input and output issues (model: TP 6.0 PG Ch 19).
+% Sources (Law 1): seed/rt/start.asm and start_dos.asm (serial_putc,
+% serial_puts, serial_put_int: OUT to COM1 port 3F8h; decimal integers;
+% NUL-terminated literals); os/tps/tps.pas ParseWriteArg (TRUE/FALSE
+% strings, __str_write length-counted strings, char via serial_putc, line
+% end chr 10); seed/rt/fileio.asm (Assign/Reset/Rewrite/BlockRead/BlockWrite
+% over INT 21h 3Ch/3Dh/3Eh/3Fh/40h; record size 1; negative count; the
+% FILEIO-ERROR AX= diagnostic and exit code 1); os/milton/int21.h (error
+% codes); os/milton/int21.c do_terminate (handles closed at exit).  The
+% file examples run on InitechDOS in test-pubs-tps.
+\Gates{test-seed-fileio-fpc, test-tps-gen-fpc, test-compiler-os, test-pubs-tps}
+\chapter{Input and output issues}
+\ix{input and output}
+
+\section{Output from Write and Writeln}
+\ix{COM1}
+\ix{serial port}
+\std{write}{Write} and \std{writeln}{Writeln} send their output to the
+first serial communications port, COM1, one byte at a time.  They do not
+write to the display, and the output is not redirected by InitechDOS.  To
+see the output of a program, connect a terminal or a second computer to
+COM1, or capture the port as the \doctitle{User's Guide}, Chapter 1,
+describes.
+
+\begin{BorTable}{How values are written}{p{24mm}p{74mm}}
+\Hd{Argument} & \Hd{Bytes written}\EndHd
+\rw{integer} & the decimal digits, preceded by \code{-} when the value is
+  negative; no spaces\\
+\rw{boolean} & \code{TRUE} or \code{FALSE}\\
+\rw{char} & the character\\
+\rw{string} & the characters of its current length\\
+string literal & the characters of the literal\\
+end of line & \std{writeln}{Writeln} ends the line with one line-feed
+  character, code 10\\
+\end{BorTable}
+
+\section{Files}
+\ix{files}
+\ix{untyped files}
+A Turbo Initech file is an \term{untyped file}: a sequence of bytes that a
+program reads and writes in blocks.  The five file procedures (Chapter 9)
+use the handle functions of InitechDOS.
+
+\begin{BorTable}{File operations}{p{22mm}p{76mm}}
+\Hd{Procedure} & \Hd{What it does}\EndHd
+\std{assign}{Assign} & closes the file if it is open, and records the file
+  name (up to 255 characters) for the next \std{reset}{Reset} or
+  \std{rewrite}{Rewrite}\\
+\std{reset}{Reset} & closes the file if it is open, and opens the named file,
+  which must exist, for reading from its first byte\\
+\std{rewrite}{Rewrite} & closes the file if it is open, and creates the
+  named file, or empties it if it exists, for writing\\
+\std{blockread}{BlockRead} & reads up to the given number of bytes from the
+  current position into memory starting at the given string character, and
+  sets the result variable to the number of bytes read; at the end of the
+  file it reads fewer bytes, or none\\
+\std{blockwrite}{BlockWrite} & writes the given number of bytes from memory
+  starting at the given string character, and sets the result variable to
+  the number of bytes written\\
+\end{BorTable}
+
+\std{blockread}{BlockRead} places the bytes in the string's storage but does
+not change the string's length; make the string long enough first, as the
+example below does.  Neither procedure checks that the bytes fit in the
+string: a count larger than the room left in the string reads or writes
+the memory that follows it.  There is no procedure that closes a file.  A
+file is closed when it is assigned, reset or rewritten again, and
+InitechDOS closes every file a program still has open when the program
+ends.
+
+\Program{files}
+
+\ProgramOutput{files}
+
+\section{File errors}
+\ix{file errors}
+\ix{FILEIO-ERROR}
+When InitechDOS reports that a file operation failed, or when a program
+gives \std{reset}{Reset} or \std{rewrite}{Rewrite} a record size other
+than 1, or \std{blockread}{BlockRead} or \std{blockwrite}{BlockWrite} a
+negative count, the run-time library writes a line of the form
+
+\begin{TypeIn}
+FILEIO-ERROR AX=code
+\end{TypeIn}
+
+to COM1 and ends the program with exit code 1.  The \textit{code} is the
+InitechDOS error code, or 1 for an argument the run-time library refused.
+Appendix A lists the codes.  A program cannot test for an error and
+continue: a file that might not exist must not be opened with
+\std{reset}{Reset} unless the program is prepared to stop.
+
+\DosProgram{fileerr}
+
+On InitechDOS, with no file \file{TPSCOVER.TXT} in the current directory,
+the program prints:
+
+\ProgramOutput{fileerr}

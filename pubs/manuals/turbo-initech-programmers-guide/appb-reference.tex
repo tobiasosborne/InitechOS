@@ -1,3 +1,91 @@
-\Gates{test-pubs-build}
-\chapter{appb-reference}
-Stub.
+% Appendix B -- Reference materials (model: TP 6.0 PG App. B).
+% The token-kind table registers every name of tps.pas WriteTokenName
+% (KIND token, tps_gate inventory) -- the names that syntax-error messages
+% use.  Sources: os/tps/tps.pas WriteTokenName, NextToken; os/tps/
+% LEXER-DUMP.md.
+\Gates{test-tps-lex-fpc, test-tps-parse-fpc, test-pubs-tps}
+\chapter{Reference materials}
+
+\section{Token kinds}
+\ix{token kinds}
+The lexical pass of the compiler and its syntax-error messages name each
+kind of token as follows.  In the lexical listing the reserved words appear
+as \code{KW} followed by the word in small letters (Chapter 1); in a
+\code{found=} or \code{expected=} field of a syntax error they appear in this
+form.
+
+\begin{BorTable}{Token kinds}{p{21mm}p{25mm}p{21mm}p{25mm}}
+\Hd{Kind} & \Hd{Token} & \Hd{Kind} & \Hd{Token}\EndHd
+\TokenItem{ASSIGN} & \code{:=} & \TokenItem{KW_MOD} & \rw{mod}\\
+\TokenItem{COLON} & \code{:} & \TokenItem{KW_NOT} & \rw{not}\\
+\TokenItem{COMMA} & \code{,} & \TokenItem{KW_OF} & \rw{of}\\
+\TokenItem{DOT} & \code{.} & \TokenItem{KW_OR} & \rw{or}\\
+\TokenItem{DOTDOT} & \code{..} & \TokenItem{KW_ORD} & \rw{ord}\\
+\TokenItem{EOF} & end of the file & \TokenItem{KW_PROCEDURE} & \rw{procedure}\\
+\TokenItem{EQ} & \code{=} & \TokenItem{KW_PROGRAM} & \rw{program}\\
+\TokenItem{GE} & \code{>=} & \TokenItem{KW_RECORD} & \rw{record}\\
+\TokenItem{GT} & \code{>} & \TokenItem{KW_REPEAT} & \rw{repeat}\\
+\TokenItem{IDENT} & an identifier & \TokenItem{KW_STRING} & \rw{string}\\
+\TokenItem{INTEGER} & an unsigned integer & \TokenItem{KW_THEN} & \rw{then}\\
+\TokenItem{KW_AND} & \rw{and} & \TokenItem{KW_TO} & \rw{to}\\
+\TokenItem{KW_ARRAY} & \rw{array} & \TokenItem{KW_TRUE} & \rw{true}\\
+\TokenItem{KW_BEGIN} & \rw{begin} & \TokenItem{KW_TYPE} & \rw{type}\\
+\TokenItem{KW_BOOLEAN} & \rw{boolean} & \TokenItem{KW_UNTIL} & \rw{until}\\
+\TokenItem{KW_CASE} & \rw{case} & \TokenItem{KW_VAR} & \rw{var}\\
+\TokenItem{KW_CHAR} & \rw{char} & \TokenItem{KW_WHILE} & \rw{while}\\
+\TokenItem{KW_CHR} & \rw{chr} & \TokenItem{KW_WRITE} & \rw{write}\\
+\TokenItem{KW_CONST} & \rw{const} & \TokenItem{KW_WRITELN} & \rw{writeln}\\
+\TokenItem{KW_DIV} & \rw{div} & \TokenItem{LBRACKET} & \code{[}\\
+\TokenItem{KW_DO} & \rw{do} & \TokenItem{LE} & \code{<=}\\
+\TokenItem{KW_DOWNTO} & \rw{downto} & \TokenItem{LPAREN} & \code{(}\\
+\TokenItem{KW_ELSE} & \rw{else} & \TokenItem{LT} & \code{<}\\
+\TokenItem{KW_END} & \rw{end} & \TokenItem{MINUS} & \code{-}\\
+\TokenItem{KW_FALSE} & \rw{false} & \TokenItem{NE} & \code{<>}\\
+\TokenItem{KW_FILE} & \rw{file} & \TokenItem{PLUS} & \code{+}\\
+\TokenItem{KW_FOR} & \rw{for} & \TokenItem{RBRACKET} & \code{]}\\
+\TokenItem{KW_FORWARD} & \rw{forward} & \TokenItem{RPAREN} & \code{)}\\
+\TokenItem{KW_FUNCTION} & \rw{function} & \TokenItem{SEMI} & \code{;}\\
+\TokenItem{KW_IF} & \rw{if} & \TokenItem{STAR} & \code{*}\\
+\TokenItem{KW_INTEGER} & \rw{integer} & \TokenItem{STRING} & a string literal\\
+\TokenItem{KW_LENGTH} & \rw{length} & & 
+\end{BorTable}
+
+\section{Operators}
+\ix{operators, summary}
+\begin{BorTable}{Operators by precedence}{p{30mm}p{30mm}p{38mm}}
+\Hd{Operator} & \Hd{Operands} & \Hd{Result}\EndHd
+\code{-} (unary) & integer & integer\\
+\rw{not} & Boolean & Boolean\\
+\code{*} \rw{div} \rw{mod} & integer & integer\\
+\rw{and} & Boolean & Boolean\\
+\code{+} \code{-} & integer & integer\\
+\code{+} & string or character, at least one string & string\\
+\rw{or} & Boolean & Boolean\\
+\code{= <> < <= > >=} & two of one simple type, or strings & Boolean\\
+\end{BorTable}
+
+\section{The ASCII character set}
+\ix{ASCII}
+Turbo Initech programs are written in the printable ASCII characters,
+codes 32 through 126.  \std{chr}{Chr} and \std{ord}{Ord} convert between
+these characters and their codes.
+
+\begin{BorTable}{Printable ASCII characters}{p{6.5mm}p{3.5mm}p{6.5mm}p{3.5mm}p{6.5mm}p{3.5mm}p{6.5mm}p{3.5mm}p{6.5mm}p{3.5mm}p{6.5mm}p{3.5mm}}
+\Hd{No.} & \Hd{} & \Hd{No.} & \Hd{} & \Hd{No.} & \Hd{} & \Hd{No.} & \Hd{} & \Hd{No.} & \Hd{} & \Hd{No.} & \Hd{}\EndHd
+32 & \textit{sp} & 48 & \texttt{0} & 64 & \texttt{@} & 80 & \texttt{P} & 96 & \texttt{`} & 112 & \texttt{p}\\
+33 & \texttt{!} & 49 & \texttt{1} & 65 & \texttt{A} & 81 & \texttt{Q} & 97 & \texttt{a} & 113 & \texttt{q}\\
+34 & \texttt{"} & 50 & \texttt{2} & 66 & \texttt{B} & 82 & \texttt{R} & 98 & \texttt{b} & 114 & \texttt{r}\\
+35 & \texttt{\#} & 51 & \texttt{3} & 67 & \texttt{C} & 83 & \texttt{S} & 99 & \texttt{c} & 115 & \texttt{s}\\
+36 & \texttt{\$} & 52 & \texttt{4} & 68 & \texttt{D} & 84 & \texttt{T} & 100 & \texttt{d} & 116 & \texttt{t}\\
+37 & \texttt{\%} & 53 & \texttt{5} & 69 & \texttt{E} & 85 & \texttt{U} & 101 & \texttt{e} & 117 & \texttt{u}\\
+38 & \texttt{\&} & 54 & \texttt{6} & 70 & \texttt{F} & 86 & \texttt{V} & 102 & \texttt{f} & 118 & \texttt{v}\\
+39 & \texttt{'} & 55 & \texttt{7} & 71 & \texttt{G} & 87 & \texttt{W} & 103 & \texttt{g} & 119 & \texttt{w}\\
+40 & \texttt{(} & 56 & \texttt{8} & 72 & \texttt{H} & 88 & \texttt{X} & 104 & \texttt{h} & 120 & \texttt{x}\\
+41 & \texttt{)} & 57 & \texttt{9} & 73 & \texttt{I} & 89 & \texttt{Y} & 105 & \texttt{i} & 121 & \texttt{y}\\
+42 & \texttt{*} & 58 & \texttt{:} & 74 & \texttt{J} & 90 & \texttt{Z} & 106 & \texttt{j} & 122 & \texttt{z}\\
+43 & \texttt{+} & 59 & \texttt{;} & 75 & \texttt{K} & 91 & \texttt{[} & 107 & \texttt{k} & 123 & \texttt{\{}\\
+44 & \texttt{,} & 60 & \texttt{<} & 76 & \texttt{L} & 92 & \texttt{\textbackslash} & 108 & \texttt{l} & 124 & \texttt{|}\\
+45 & \texttt{-} & 61 & \texttt{=} & 77 & \texttt{M} & 93 & \texttt{]} & 109 & \texttt{m} & 125 & \texttt{\}}\\
+46 & \texttt{.} & 62 & \texttt{>} & 78 & \texttt{N} & 94 & \texttt{\^{}} & 110 & \texttt{n} & 126 & \texttt{\~{}}\\
+47 & \texttt{/} & 63 & \texttt{?} & 79 & \texttt{O} & 95 & \texttt{\_} & 111 & \texttt{o} &  & 
+\end{BorTable}

@@ -15,6 +15,10 @@
 #                    QEMU harness; EVERY Turbo Initech-generated program is
 #                    also linked as a .COM and run on InitechDOS in one
 #                    bounded boot.  All outputs == examples/NAME.out.
+#   dosprogram|NAME  as program, InitechDOS only: what a program prints when
+#                    the run-time library stops it (FILEIO-ERROR), which
+#                    Free Pascal reports in its own words; Turbo Initech
+#                    .COM on InitechDOS == examples/NAME.out.
 #   output|NAME      examples/NAME.out is printed; NAME must be a program.
 #   source|NAME      examples/NAME.pas printed for its diagnostic; it must
 #                    also be printed with a compiler|NAME|R item.
@@ -22,7 +26,8 @@
 #                    for examples/NAME.pas == examples/NAME.R.txt; R = ERR
 #                    selects the status lines (TPS-x-OK, -ERROR, -SKIP).
 #   assembly|NAME|L  TPSOUT.S for examples/NAME.pas from `L:' to the next
-#                    top-level label == examples/NAME.L.s.
+#                    top-level label == examples/NAME.L.s (L = FILE: all of
+#                    TPSOUT.S).
 #   make|NAME        `make $(cat examples/NAME.cmd)': its lines that begin
 #                    ">>> ", "!!! " or carry a pass rate == examples/NAME.txt.
 # Inputs come from the environment (pubs/tps.mk exports them).  Thin shell.
@@ -50,15 +55,17 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
         src=$ex/$name.pas
         w=$OUT/$book-$name
         case $kind in
-        program)
+        program|dosprogram)
             [ -f "$src" ] && [ -f "$ex/$name.out" ] || red TRANSCRIPT-PAIR "$src" "needs $name.pas and $name.out"
             mkdir -p "$w/fpc" "$w/tps" "$w/seed"
+            if [ "$kind" = program ]; then
             # Free Pascal: the independent root under the DEC-02 pins.
             printf '{$MODE DELPHI}{$B+}{$H-}\n' > "$w/fpc/$name.pas"; cat "$src" >> "$w/fpc/$name.pas"
             fpc -B -O- -v0 -FU"$w/fpc" -FE"$w/fpc" -o"$w/fpc/prog" "$w/fpc/$name.pas" > "$w/fpc/log" 2>&1 \
                 || { cat "$w/fpc/log" >&2; red FPC-REJECTS "$src" "Free Pascal did not compile the printed program"; }
             (cd "$w/fpc" && ./prog > out.txt) || red FPC-RUN "$src" "the Free Pascal program failed"
             same TRANSCRIPT-DRIFT "$ex/$name.out" "$w/fpc/out.txt"
+            fi
             # Turbo Initech: compile, assemble, link.
             cp "$src" "$w/tps/TPSIN.PAS"
             (cd "$w/tps" && "$TPS_BIN" > tps.out) || red TPS-RUN "$src" "Turbo Initech exited non-zero"
@@ -70,7 +77,7 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             cp "$w/tps/P.COM" "$OUT/dos/$dos.COM"
             printf 'ECHO PUBS-EX-BEGIN %s\r\n%s\r\nECHO PUBS-EX-END %s\r\n' "$dos" "$dos" "$dos" >> "$OUT/dos/AUTOEXEC.BAT"
             printf '%s|%s\n' "$dos" "$ex/$name.out" >> "$OUT/dos.bat"
-            if ! grep -q 'rtl_file_' "$w/tps/TPSOUT.S"; then
+            if [ "$kind" = program ] && ! grep -q 'rtl_file_' "$w/tps/TPSOUT.S"; then
                 "$LD" -m elf_i386 -T "$SEED_RT_LD" -o "$w/tps/bare.elf" "$SEED_RT_OBJ" "$w/tps/p.o" 2>/dev/null
                 "$HARNESS_BIN" --kernel "$w/tps/bare.elf" --serial-stdout --name "pubs_tps_$ndos" \
                     --out "$OUT" --timeout-ms 10000 2>/dev/null > "$w/tps/out.txt" || true
@@ -91,7 +98,7 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             grep -q "^compiler|$name|" "$OUT/$book.list" || red TRANSCRIPT-PAIR "$src" "a printed source must show its compiler output"
             ;;
         output)
-            grep -qx "program|$name" "$OUT/$book.list" || red TRANSCRIPT-PAIR "$ex/$name.out" "printed output of a program that is not printed"
+            grep -qx "program|$name" "$OUT/$book.list" || grep -qx "dosprogram|$name" "$OUT/$book.list" || red TRANSCRIPT-PAIR "$ex/$name.out" "printed output of a program that is not printed"
             ;;
         compiler)
             [ -f "$src" ] && [ -f "$ex/$name.$arg.txt" ] || red TRANSCRIPT-PAIR "$src" "needs $name.$arg.txt"
@@ -109,8 +116,8 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             [ -f "$src" ] && [ -f "$ex/$name.$arg.s" ] || red TRANSCRIPT-PAIR "$src" "needs $name.$arg.s"
             mkdir -p "$w/a"; cp "$src" "$w/a/TPSIN.PAS"
             (cd "$w/a" && "$TPS_BIN" > tps.out) || red TPS-RUN "$src" "Turbo Initech exited non-zero"
-            awk -v l="$arg:" '$0 == l { on = 1; print; next } on && /^[A-Za-z_][A-Za-z0-9_]*:$/ { exit } on && /^section / { exit } on { print }' \
-                "$w/a/TPSOUT.S" > "$w/a/$arg.s"
+            if [ "$arg" = FILE ]; then cp "$w/a/TPSOUT.S" "$w/a/$arg.s"
+            else sh harness/pubs/tps_asmblock.sh "$arg" "$w/a/TPSOUT.S" > "$w/a/$arg.s"; fi
             [ -s "$w/a/$arg.s" ] || red ASSEMBLY-LABEL "$src" "no label $arg in TPSOUT.S"
             same TRANSCRIPT-DRIFT "$ex/$name.$arg.s" "$w/a/$arg.s"
             ;;

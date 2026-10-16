@@ -14,7 +14,8 @@ begin
   writeln(Fresh, ' [', Empty, '] ', Flag);
   Word := 'LUMBERGH';
   Word[1] := 'l';
-  writeln(Word, ' ', Word[8], ' ', ord(Word[0]));
+  write(Word, ' ', Word[8], ' ');
+  writeln(ord(Word[0]));
   for I := 0 to 3 do
   begin
     Path[I].X := I * 10;

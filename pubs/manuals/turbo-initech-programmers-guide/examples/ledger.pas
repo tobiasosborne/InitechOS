@@ -1,6 +1,7 @@
 program Ledger;
-{ The quarterly ledger: a complete program in the
-  order declarations are usually written. }
+{ The quarterly ledger: a complete program,
+  in the order declarations are usually
+  written. }
 const
   Accounts = 4;
   Width = 24;

@@ -425,6 +425,8 @@ static Set readlist(const char *path)
     char *t = slurp(path), *l = t;
     while (*l) {
         char *e = strchr(l, '\n'); if (e) *e = 0;
+        /* a trailing blank is not part of a name or a message text */
+        for (char *z = l + strlen(l); z > l && z[-1] == ' '; z--) z[-1] = 0;
         if (*l && *l != '#') add(&s, l);
         if (!e) break;
         l = e + 1;

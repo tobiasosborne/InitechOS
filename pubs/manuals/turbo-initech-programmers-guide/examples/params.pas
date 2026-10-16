@@ -23,7 +23,8 @@ begin
   writeln('Bump sees ', N)
 end;
 
-procedure Credit(var R: Account; Amount: integer);
+procedure Credit(var R: Account;
+                 Amount: integer);
 begin
   R.Balance := R.Balance + Amount
 end;

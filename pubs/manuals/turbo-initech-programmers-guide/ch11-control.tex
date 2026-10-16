@@ -1,3 +1,95 @@
-\Gates{test-pubs-build}
-\chapter{ch11-control}
-Stub.
+% Chapter 11 -- Control issues (model: TP 6.0 PG Ch 18).
+% Sources (Law 1): os/tps/CODEGEN.md s2 (registers), s3 (cdecl frames,
+% prologue/epilogue, left-to-right evaluation then reversed duplicate
+% pushes, one caller cleanup), s5 (string temporaries); seed/rt/start.asm,
+% seed/rt/start_dos.asm (_start, pas_main, exit).  The assembly excerpts are
+% replayed by test-pubs-tps from the compiler's own TPSOUT.S.
+\Gates{test-tps-gen-fpc, test-tps-gen-os, test-tps-gen-mutant, test-compiler-os, test-compiler-os-mutant, test-pubs-tps}
+\chapter{Control issues}
+\ix{calling conventions}
+
+This chapter describes how a Turbo Initech program starts and ends, how
+routines are called, and which registers the generated code uses.  You need
+it to read the assembly language the compiler writes (Chapter 15).
+
+\section{Program start and exit}
+\ix{program start}
+\ix{pas\_main}
+The run-time library's entry point, \code{\_start}, is the first byte of
+the program.  It sets the global variables to zero, sets the stack
+pointer, and calls \code{pas\_main}, the code of the main block.  When
+\code{pas\_main} returns, \code{\_start} ends the program with InitechDOS
+function 4Ch and exit code 0.
+
+\section{Calling conventions}
+\ix{cdecl}
+\ix{calls, convention}
+Procedures and functions are called with a single, fixed convention:
+
+\begin{itemize}
+\item The caller evaluates the arguments from left to right and keeps each
+  value.  For a value parameter the value is the argument's value; for a
+  \rw{var} parameter it is the address of the argument.
+\item The caller then pushes one double word per argument, the last argument
+  first, so that the first argument is nearest the top of the stack, and
+  calls the routine.
+\item The routine saves EBP, sets up its frame (Chapter 10) and reserves
+  space for its result variable and locals:
+  \code{push ebp}, \code{mov ebp, esp}, \code{sub esp, }\textit{n}.
+\item The routine returns with \code{leave} and \code{ret}.  A function
+  returns its result in EAX.
+\item The caller removes the arguments, and the values it kept while
+  evaluating them, from the stack with one \code{add esp}.
+\end{itemize}
+
+The routine names in the assembly file are \code{pf\_}\textit{name}, with
+the name in small letters.  For this program,
+
+\Program{addpair}
+
+the function \id{Add} becomes:
+
+\AssemblyOutput{addpair}{pf_add}
+
+The function reserves four bytes for its result variable at EBP $-$ 4.
+The assignment \code{Add := A + B} computes the address of the result
+variable, then the value of \id{A} from EBP + 8 and of \id{B} from EBP + 12,
+adds them, and stores the sum.  The result is loaded into EAX before the
+return.  The main block calls it so:
+
+\AssemblyOutput{addpair}{pas_main}
+
+The main block computes the address of \id{Total}, the target of the
+assignment, and evaluates the arguments 2 and 3 in order.  It then pushes
+copies of them in reverse order, calls \code{pf\_add}, removes 16 bytes
+(the two kept values and the two arguments), and stores EAX into
+\id{Total}.
+
+\ProgramOutput{addpair}
+
+\section{Registers}
+\ix{registers}
+\begin{BorTable}{Register use}{p{22mm}p{76mm}}
+\Hd{Register} & \Hd{Use}\EndHd
+EAX & the value of the expression being computed; addresses; function
+  results\\
+ECX & the right operand of a binary operator\\
+EDX & the address of the target of an assignment; the high half of a
+  division\\
+ESI, EDI & the string routines\\
+EBP & the frame of the current routine\\
+ESP & the stack\\
+\end{BorTable}
+
+No value is kept in a register across a call.  The generated code does
+not preserve EAX, ECX, EDX, ESI or EDI for its caller; the run-time
+library's file routines preserve EBX, ESI, EDI and EBP.
+
+\section{Temporary values}
+\ix{temporaries}
+\ix{strings, temporary}
+A binary operator saves its left operand on the stack while it computes the
+right one.  A string expression, such as a concatenation, builds its value
+in a temporary area on the stack of the current routine; each call of a
+routine has its own temporaries, so recursion cannot disturb them, and the
+statement that uses the value removes the area when it is done.

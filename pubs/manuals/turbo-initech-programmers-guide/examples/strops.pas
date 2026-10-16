@@ -9,6 +9,7 @@ begin
   Full := First + ' ' + Last;
   writeln(Full, ' (', length(Full), ')');
   writeln(First + Initial + '.');
-  writeln((First < Last), ' ', ('Pete' < First));
+  write((First < Last), ' ');
+  writeln(('Pete' < First));
   writeln((Initial = 'G'), ' ', ('a' > 'Z'))
 end.

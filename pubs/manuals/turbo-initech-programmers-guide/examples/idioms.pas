@@ -27,8 +27,10 @@ begin
   if Light = Amber then writeln('amber');
   writeln(IsVowel('E'), ' ', IsVowel('S'));
   { the list Item[3] -> Item[1] -> Item[4] }
-  Item[1] := 'B'; Item[3] := 'A'; Item[4] := 'D';
-  Link[3] := 1; Link[1] := 4; Link[4] := Nothing;
+  Item[1] := 'B'; Item[3] := 'A';
+  Item[4] := 'D';
+  Link[3] := 1; Link[1] := 4;
+  Link[4] := Nothing;
   Head := 3;
   Here := Head;
   while Here <> Nothing do

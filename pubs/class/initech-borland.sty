@@ -150,10 +150,12 @@
   {\par\addvspace{8pt}\refstepcounter{table}%
    \noindent\llap{\parbox[t]{\imSideCol}{\raggedleft\im@adventor\fontsize{8.5}{10}\selectfont
      Table \thetable\\#1}\hspace{\imSideGap}}%
-   \begin{minipage}[t]{\linewidth}\vspace{0pt}\sffamily\fontsize{8}{10}\selectfont
+   \begin{minipage}[t]{\dimexpr\linewidth-1.5pt}\vspace{0pt}\sffamily\fontsize{8}{10}\selectfont
    \setlength\tabcolsep{4pt}\begin{tabular}{@{}#2@{}}\hline\noalign{\vspace{1pt}}}
-  {\\[1pt]\hline\end{tabular}\end{minipage}\par\addvspace{8pt}}
+  {\crcr\noalign{\vspace{1pt}}\hline\end{tabular}\end{minipage}\par\addvspace{8pt}}
 \newcommand\Hd[1]{\textbf{#1}}
+%% \EndHd ends the heading row of a BorTable: rule, then a little air.
+\newcommand\EndHd{\\\hline\noalign{\vspace{1.5pt}}}
 
 %% ---- margin notes and the arrow remark (TY-13, NT-31 F-BOR) --------------
 \newcommand\MarginNote[1]{\leavevmode\llap{\smash{\parbox[t]{\imSideCol}{\raggedleft
@@ -163,6 +165,12 @@
   \fill (6pt,-4pt) -- (11pt,0) -- (6pt,4pt) -- cycle;\end{tikzpicture}}
 \newcommand\ArrowNote[1]{\par\addvspace{4pt}\noindent
   \llap{\im@arrowicon\hspace{\imSideGap}}#1\par\addvspace{4pt}}
+
+%% The slogan (operator directive 2026-10-17).  The design lane's class
+%% macro wins once it exists; until then this rendering (the coordinator's
+%% wording, the rule drawn in vertical mode so it never overfills a line).
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for
+  the \textbf{\textit{COMPANY}}?}\par\nobreak\vspace{2pt}\hrule height 0.5pt\medskip}
 
 %% ---- inline notation (NT railroad dialect; VO-14) ---------------------------
 %% \rw{begin}: a reserved word in running text, Heros Bold lower case;
@@ -210,6 +218,11 @@
 %% compiled (never run) by the replay of its \CompilerOutput.  Such files
 %% are named err-*.pas and stay out of the grammar recognition set.
 \newcommand\Source[1]{\immediate\write\im@tpsexamples{source|#1}%
+  \lstinputlisting{examples/#1.pas}}
+%% \DosProgram{name}: a program whose printed output is what it prints on
+%% InitechDOS only (a run-time error report that other compilers word
+%% differently); replayed by Turbo Initech and one InitechDOS boot.
+\newcommand\DosProgram[1]{\immediate\write\im@tpsexamples{dosprogram|#1}%
   \lstinputlisting{examples/#1.pas}}
 %% \ProgramLines{name}{first}{last}: lines of a replayed program.
 \newcommand\ProgramLines[3]{\immediate\write\im@tpsexamples{program|#1}%
@@ -335,7 +348,7 @@
   \RegisterCommand{#1}{message}{GATED}{#1}%
   \immediate\write\im@tpsmsgs{#1|\detokenize{#3}}%
   \par\addvspace{7pt}\goodbreak\noindent
-  {\sffamily\bfseries #2}\enspace\texttt{\detokenize{#3}}#4\par\nobreak\vspace{2pt}\noindent}
+  {\sffamily\bfseries #2}\enspace\texttt{\detokenize{#3}}#4\par\nobreak\vspace{2pt}\noindent\ignorespaces}
 %% Items that are listed rather than given an entry each.
 \newcommand\TokenItem[1]{\RegisterCommand{#1}{token}{GATED}{#1}\texttt{\detokenize{#1}}}
 \newcommand\ProtocolItem[1]{\RegisterCommand{#1}{protocol}{GATED}{#1}\texttt{#1}}

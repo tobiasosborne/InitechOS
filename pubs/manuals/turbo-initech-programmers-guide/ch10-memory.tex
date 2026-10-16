@@ -1,3 +1,138 @@
-\Gates{test-pubs-build}
-\chapter{ch10-memory}
-Stub.
+% Chapter 10 -- Memory issues (model: TP 6.0 PG Ch 16).
+% Sources (Law 1): os/tps/SYMBOLS-DUMP.md s4-s5 (row forms, offsets, sizes:
+% 4-byte scalars and fields, round4(N+1) strings, 260-byte files, cdecl
+% parameter slots, descending locals, frame = result + locals);
+% os/tps/CODEGEN.md s4-s6 (storage, sections, labels); spec/memory_map.h
+% (PROGRAM_IMAGE 0x40100, image arena to 0x6F000, PROGRAM_STACK_TOP
+% 0x7FFFC, 64 KiB program stack); seed/rt/start_dos.asm (.bss zeroed);
+% seed/rt/fileio.asm (file object layout).  The symbol dump printed here is
+% replayed by test-pubs-tps.
+\Gates{test-tps-type-fpc, test-tps-type-os, test-tps-gen-fpc, test-tps-gen-build, test-compiler-os, test-pubs-tps}
+\chapter{Memory issues}
+\ix{memory}
+
+This chapter describes where a Turbo Initech program and its data are
+placed in memory and how each type is represented.
+
+\section{The memory map of a program}
+\ix{memory map}
+\ix{.COM file}
+A Turbo Initech program runs as an InitechDOS \file{.COM} program in the
+flat 32-bit address space of InitechOS.  InitechDOS loads the program image
+at address 40100h, directly after its program segment prefix, and starts it
+at its first byte.  The image may extend up to address 6F000h, about 187K
+for the code, the constant data and the global variables together.  The
+stack of the program begins below address 80000h and grows downward; it is
+64K long.
+
+\begin{BorTable}{Program memory}{p{34mm}p{64mm}}
+\Hd{Address} & \Hd{Contents}\EndHd
+40100h & the start of the run-time library, then the code of the program
+  (section \code{.text}) and its constant data (section \code{.rodata})\\
+after the code & the global variables (section \code{.bss}), set to zero
+  when the program starts\\
+up to 6F000h & the end of the image area\\
+7FFFCh downward & the stack: return addresses, parameters, local variables
+  and the temporary values of expressions\\
+\end{BorTable}
+
+There is no heap.  All storage of a program is either a global variable,
+allocated once in the \code{.bss} section, or a local item in the frame of
+a routine, allocated on the stack for the duration of a call.
+
+\section{Representation of data}
+\ix{data representation}
+\ix{size of types}
+Every simple value occupies one 32-bit double word.
+
+\begin{BorTable}{Sizes of types}{p{34mm}p{20mm}p{44mm}}
+\Hd{Type} & \Hd{Size} & \Hd{Contents}\EndHd
+\rw{integer} & 4 bytes & two's-complement 32-bit value\\
+\rw{boolean} & 4 bytes & 0 for \rw{false}, 1 for \rw{true}\\
+\rw{char} & 4 bytes & the character code in the low byte\\
+\code{string[}\textit{n}\code{]} & $n + 1$ bytes, rounded up to a multiple
+  of 4 & the length byte, then the characters\\
+\rw{string} & 256 bytes & the same, capacity 255\\
+record & 4 bytes per field & the fields in the order declared\\
+array & the size of the element type times the number of elements &
+  the elements in index order\\
+\rw{file} & 260 bytes & the InitechDOS handle, then the file name\\
+\end{BorTable}
+
+\ix{strings, representation}
+A string is stored as a \term{length byte} followed by its characters.
+Byte 0 holds the current length, and bytes 1 through \textit{n} hold the
+characters, so that \code{S[0]} is the length as a character and
+\code{S[1]} is the first character.  The bytes beyond the current length
+have no meaning.
+
+\ix{records, layout}
+The fields of a record take four bytes each, at offsets 0, 4, 8, and so on,
+in the order in which they are declared.  A record of three fields
+occupies 12 bytes.
+
+\ix{files, representation}
+A file variable holds the InitechDOS handle of the open file in its first
+double word (0 when the file is not open), followed by a 256-byte area for
+the file name given to \std{assign}{Assign}, ended by a zero byte.
+
+\section{Global variables}
+\ix{global variables, layout}
+Global variables are placed in the \code{.bss} section in the order in
+which they are declared, each at the next free offset.  In the assembly
+file each global variable is named \code{v\_}\textit{name}, with the name in
+small letters (Chapter 13).
+
+\section{Frames}
+\ix{frames}
+\ix{stack frame}
+Each call of a procedure or function has a \term{frame} on the stack,
+addressed through the register EBP:
+
+\begin{BorTable}{A routine's frame}{p{30mm}p{68mm}}
+\Hd{Address} & \Hd{Contents}\EndHd
+EBP + 12, EBP + 16, \dots & the second and later parameters\\
+EBP + 8 & the first parameter\\
+EBP + 4 & the return address\\
+EBP & the caller's EBP\\
+EBP $-$ 4 & the result variable of a function, or the first local variable\\
+EBP $-$ 8, \dots & the following local variables\\
+\end{BorTable}
+
+Every parameter occupies one double word: a value parameter holds the
+value, and a \rw{var} parameter holds the address of the argument.  Local
+variables are placed below EBP in the order declared; a local string, array
+or record occupies as many bytes as its type, and the offset given for it
+is that of its lowest byte.  The size of the frame is the space for the
+result variable and the local variables; the parameters are in the frame of
+the caller.
+
+\section{The symbol dump}
+\ix{symbol dump}
+The third part of the compiler's output, between \code{TPS-TYPE-BEGIN} and
+\code{TPS-TYPE-END}, lists every name of the program with its kind, its type,
+its offset and its size.  It is the exact layout the code generator uses.
+For this program,
+
+\Program{layout}
+
+the symbol dump is:
+
+\CompilerOutput{layout}{TYPE}
+
+The global variables occupy 316 bytes: \id{Count} at offset 0, \id{Done} at
+4, the three 12-byte \id{Cell} records of \id{Grid} at 8, the 12 bytes of
+the \code{string[10]} \id{Name} at 44, and the 260 bytes of the file \id{Log}
+at 56.  In the frame of \id{Area} the parameters are at EBP + 8, + 12 and
++ 16, the result variable at EBP $-$ 4, and the locals below it; the
+\code{string[3]} \id{Tag} takes four bytes.  The \doctitle{User's Guide},
+Chapter 8, describes every row of the dump.
+
+\ProgramOutput{layout}
+
+\section{Fixed capacities}
+\ix{capacities}
+The compiler itself keeps every table in a fixed array, and so a program
+it compiles is limited in the number of names, symbols and parameters it
+may have.  The limits, and the messages that report them, are in the
+\doctitle{User's Guide}, Chapter 8, and in Appendix A.

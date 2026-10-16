@@ -5,7 +5,7 @@ var
 
 procedure Show();
 var
-  Count: char;          { hides the global Count }
+  Count: char;     { hides the global Count }
 begin
   Count := 'L';
   Mark := '*';          { the global Mark }

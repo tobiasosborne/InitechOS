@@ -1,3 +1,79 @@
-\Gates{test-pubs-build}
-\chapter{ch15-assembly}
-Stub.
+% Chapter 15 -- The assembly-language output (model: TP 6.0 PG Part 4,
+% "Using Turbo Pascal with assembly language"; Turbo Initech has no inline
+% assembler and no external routines, ADR-0007 DEC-02, so the chapter
+% describes the assembly language it writes and how it is linked).
+% Sources (Law 1): os/tps/CODEGEN.md s1, s4-s6 (sections, labels, inline
+% literals, intrinsics emitted on use, file externs on use); os/tps/tps.pas
+% RunCodeGenerator (header, externs, str_bool_* constants); seed/rt/
+% seed.ld, seed_dos.ld (load address, section order); the Makefile link
+% recipes of test-tps-gen-fpc / test-tps-gen-os (both runtime pairs,
+% objcopy to a flat .COM).  The listing is replayed by test-pubs-tps.
+\Gates{test-tps-gen-fpc, test-tps-gen-build, test-tps-gen-os, test-compiler-os, test-pubs-tps}
+\chapter{The assembly-language output}
+\ix{assembly language}
+\ix{TPSOUT.S}
+
+Turbo Initech writes every program it compiles as 80386 assembly language
+in the file \file{TPSOUT.S}.  The program becomes an executable file when
+\file{TPSOUT.S} is assembled and linked with the run-time library.  Turbo
+Initech has no inline assembler and no way to call routines written in
+assembly language: the assembly-language file is its output, not part of
+the language.
+
+\section{A complete output file}
+For the program
+
+\Program{hello}
+
+Turbo Initech writes this \file{TPSOUT.S}:
+
+\AssemblyOutput{hello}{FILE}
+
+\ProgramOutput{hello}
+
+\section{The parts of the file}
+\SideHead{Heading}Two comment lines name the compiler, followed by
+\code{bits 32}.
+
+\SideHead{External names}\code{extern} lines name the run-time routines
+the program calls: always the three output routines \code{serial\_putc},
+\code{serial\_puts} and \code{serial\_put\_int}, and the five
+\code{rtl\_file\_} routines when the program uses files.
+
+\SideHead{Constants}The section \code{.rodata} holds the texts
+\code{TRUE} and \code{FALSE} used by \std{write}{Write}, as bytes ending in
+a zero byte.
+
+\SideHead{Variables}The section \code{.bss} reserves the global variables,
+\code{v\_}\textit{name} for each, in the order declared.
+
+\SideHead{Code}The section \code{.text} holds the routines,
+\code{pf\_}\textit{name}, in the order declared, and the main block,
+\code{pas\_main}, which is the only name made known to the run-time library
+with \code{global}.  A string literal is placed in the code where it is
+used, behind a jump over it.  When the program uses strings, the compiler
+also writes the four string routines \code{\_\_str\_assign},
+\code{\_\_str\_concat}, \code{\_\_str\_cmp} and \code{\_\_str\_write} into the
+file.
+
+\section{Linking}
+\ix{linking}
+\ix{run-time library, objects}
+The object module assembled from \file{TPSOUT.S} is linked with the objects
+of the run-time library (the \doctitle{Library Reference}, Appendix A):
+
+\begin{BorTable}{Run-time objects}{p{36mm}p{62mm}}
+\Hd{Object} & \Hd{Contains}\EndHd
+InitechDOS start & \code{\_start} for a \file{.COM} program and the three
+  output routines\\
+File routines & the five \code{rtl\_file\_} routines\\
+\end{BorTable}
+
+The program is linked to run at address 40100h, with the start object
+first, and the linked image is written out as a flat binary: the
+\file{.COM} file.  The same object module can also be linked with the
+stand-alone start object of the development system, which runs a program
+without InitechDOS and is used to test programs that do not use files.
+\draft{an InitechOS-resident assembler and linker are not built: TPSOUT.S
+is assembled and linked on the development system (Self-Compilation Guide,
+Chapter 3); the resident build is milestone M8, bead initech-ls4}
