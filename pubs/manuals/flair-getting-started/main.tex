@@ -1,0 +1,48 @@
+% Getting Started with FLAIR -- part 1031-0000-11 (PUB-REF-0001 Sec 12, DS
+% row FLR-GS).  Family F-MAC; structural model the Mac OS 8 Installation
+% Manual (1997): Welcome, Setting Up, After Starting, Learning About,
+% Troubleshooting (apple-macintosh.md Sec 1, 5.4, 8.4; the Internet chapter
+% of the model has no counterpart).  Bead initech-ipu5.11.  AN-14 task and
+% troubleshooting entries; every figure is a capture of the running
+% desktop (screens/FLAIR).  FLAIR displays no version: no version, part 0000
+% (D-3).
+\documentclass[apple]{initech-manual}
+\usepackage{initech-flair}
+\FlairBook{flair-getting-started}
+
+\ProductName{FLAIR}
+\ProductVersion{}
+\DocTitle{Getting Started}
+\PartNumber{1031-0000-11}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to FLAIR as delivered with InitechOS and
+  InitechDOS Version 3.30, and to all subsequent releases until otherwise
+  indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+% Operator directive (lane brief, 2026-10-17): the class macro wins once it
+% exists.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\par\medskip}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\FlairMainMatter
+\input{ch1-welcome}
+\input{ch2-setup}
+\input{ch3-after}
+\input{ch4-learning}
+\input{ch5-trouble}
+\printindex
+\FinishBook[0]
+\end{document}

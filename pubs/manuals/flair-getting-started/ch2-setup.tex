@@ -1,0 +1,82 @@
+% Chapter 2 -- Setting Up (Mac OS 8 Installation Ch. 2 form; the operations
+% chapter of this book, so it opens with the slogan, operator directive
+% 2026-10-17).  Sources (Law 1): spec/hardware.json and spec/memory_map.h
+% FLAIR_HEAP_MIN (the requirements, as the FLAIR User's Guide Appendix B);
+% os/milton/kmain.c (the startup disk: IO.SYS and INITDOS.SYS, FLAIR started
+% with no command; the data disk on the IDE primary slave mounted as drive
+% A, label INITECH; TRASH-CREATE and DESKTOP-DB-CREATE on a disk that has
+% neither); harness/emu/qemu.c (--disk the startup disk, --disk2 the data
+% disk: the first and second drives).
+% GATES: test-hardware-spec test-flair-desktop test-flair-data-volume test-desktop-db test-boot-system test-pubs-flair-screens
+\Gates{test-hardware-spec, test-flair-desktop, test-flair-data-volume,
+  test-desktop-db, test-boot-system, test-pubs-flair-screens}
+\chapter{Setting Up}
+\IsThisGoodForTheCompany
+
+This chapter tells you what your computer needs, how to put the InitechOS
+disks in place, and how to start FLAIR for the first time.
+
+\section{Checking what you need}
+\index{system requirements}
+To use FLAIR you need:
+\begin{itemize}
+\item An Initech workstation or a compatible personal computer with an
+  Intel 80486 microprocessor.
+\item At least 5~MB of memory: the first megabyte and 4~MB of extended
+  memory above it.
+\item A VGA display adapter with the VESA BIOS Extensions, Version~2.0,
+  able to show 640 by 480 dots in 256 colours, and a VGA monitor.
+\item A keyboard and a mouse.
+\item Two disk drives on an AT-compatible (ATA) controller: one for the
+  startup disk and one for the data disk.
+\end{itemize}
+A math coprocessor is not needed for FLAIR; Initech 123 needs one.
+
+\section{Connecting the computer}
+\begin{TaskSteps}
+\Step Make sure the computer and the display are turned off.
+\Step Connect the keyboard and the mouse to the computer.
+\Result{FLAIR uses one mouse button, the left one.}
+\Step Connect the display to the VGA adapter, and the display and the
+computer to the power.
+\end{TaskSteps}
+The instructions that came with your computer and your display show where
+each cable goes.
+
+\section{Making backup copies}
+\index{backup copies}
+Before you use the InitechOS disks, make copies of them and keep the
+originals in a safe place.  Work with the copies.  If a disk is damaged or a
+file is deleted by mistake, you can make a new copy from the original.
+\draft{the package and a disk-copying command (DISKCOPY) are not built;
+see bead initech-aai2}
+
+\section{Putting the disks in place}
+\begin{TaskSteps}
+\Step Put the startup disk in the first drive.
+\Result{The computer starts InitechDOS and FLAIR from it.}
+\Step Put the data disk, labelled INITECH, in the second drive.
+\Result{FLAIR shows this disk on the desktop as the \texttt{INITECH} icon,
+and InitechDOS calls it drive A.}
+\end{TaskSteps}
+Leave both disks in place while you use FLAIR.
+
+\section{Starting FLAIR for the first time}
+\index{starting FLAIR}
+\begin{TaskSteps}
+\Step Turn on the display, then the computer.
+\Result{The computer checks its memory and loads InitechDOS from the
+startup disk.  InitechDOS starts FLAIR by itself.  After a few seconds the
+FLAIR desktop appears.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:gs-start]{g_desktop}{FLAIR, ready for work}
+
+The first time FLAIR starts with a data disk, it adds two items to the
+disk: the folder in which it keeps the Trash, and the file
+\file{DESKTOP.DB}, in which it records the arrangement of your desktop.  You
+do not see either of them in the disk's window, and you should leave them
+alone.
+
+If the desktop does not appear, or looks different from
+Figure~\ref{fig:gs-start}, turn to Chapter~5.

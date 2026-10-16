@@ -1,0 +1,89 @@
+% Chapter 5 -- Troubleshooting (Mac OS 8 Installation Ch. 6 form; AN-14:
+% bold symptom, then Cause / Solution).  The real messages, quoted from the
+% source: os/boot/stage2.asm (the Non-System disk message, then a halt);
+% os/milton/kmain.c (FLAIR-FAT-MOUNT-FAIL: the desktop starts without the
+% data disk -- the disk icon has no name, the clock reads 12:00 am because
+% the clock is read through InitechDOS; the PC LOAD LETTER lines "FLAIR
+% heap exhausted" and "FLAIR needs a 640x480 framebuffer"; MSG-DOS-0014
+% after a failed Exit to InitechDOS); os/milton/panic.c (PC LOAD LETTER
+% (exception 0xhh), then the system halts); spec/dos_messages.json
+% MSG-DOS-0014 / 0015; os/flair/event.c (one mouse button).
+% GATES: test-flair-desktop test-flair-heap test-boot-system test-flair-exit-to-dos test-dosmsg test-pubs-flair-screens
+\Gates{test-flair-desktop, test-flair-heap, test-boot-system,
+  test-flair-exit-to-dos, test-dosmsg, test-pubs-flair-screens}
+\chapter{Troubleshooting}
+\index{troubleshooting}
+
+\Symptom{Nothing appears on the screen}
+\Cause The display is not turned on, or not connected.
+\Solution Check that the display is plugged in, connected to the computer
+and turned on, and that its brightness is turned up.
+\Cause The display adapter cannot show 640 by 480 dots in 256 colours.
+\Solution FLAIR needs a VGA adapter with the VESA BIOS Extensions,
+Version~2.0 (Chapter~2).
+
+\Symptom{The screen shows ``Non-System disk or disk error''}
+The full message is:
+\begin{TypeIn}
+Non-System disk or disk error
+Replace and strike any key when ready
+\end{TypeIn}
+\Cause The disk in the first drive is not the startup disk, or the startup
+disk is damaged.
+\Solution Put the startup disk in the first drive and restart the computer
+with its reset button or by turning it off and on.  Pressing a key does not
+restart it.  If the message appears again, use your other copy of the
+startup disk.
+
+\Symptom{The disk icon has no name, and the clock reads 12:00 am}
+\Cause FLAIR started without the data disk.  The \texttt{INITECH} icon
+stands for the second drive, but there is no disk to show; and FLAIR reads
+the time through InitechDOS, which has no disk to work with.
+
+\FlairScreen[scale=4, label=fig:gs-nodisk]{g_nodisk}{FLAIR started without
+its data disk}
+\Operation{FLAIR-FAT-MOUNT-FAIL}
+
+\Solution Shut down, put the data disk in the second drive, and start the
+computer again.
+
+\Symptom{The screen shows ``PC LOAD LETTER''}
+InitechOS has stopped because of a problem it cannot work around.  The
+words in parentheses tell you which:
+\begin{TypeIn}
+PC LOAD LETTER  (FLAIR heap exhausted)
+\end{TypeIn}
+\Cause The computer has less memory than FLAIR needs.
+\Solution FLAIR needs 4~MB of extended memory.  Have more memory
+installed.
+\begin{TypeIn}
+PC LOAD LETTER  (FLAIR needs a 640x480 framebuffer)
+\end{TypeIn}
+\Cause The display adapter cannot give FLAIR a screen of 640 by 480 dots.
+\Solution Use a display adapter with the VESA BIOS Extensions,
+Version~2.0.
+\par\noindent\hspace*{1.5em}\texttt{PC LOAD LETTER\ \ (exception 0x\textit{nn})}\par
+\Cause A program has failed in a way the computer cannot recover from.  The
+two characters after \texttt{0x} name the kind of failure.
+\Solution Write down the whole message and restart the computer.  If the
+message appears again when you repeat what you were doing, call the
+Initech Help Desk (extension 2504) with the message you wrote down.
+
+\Symptom{The pointer does not move}
+\Cause The mouse is not connected.
+\Solution Shut down if you can, turn off the computer, connect the mouse,
+and turn the computer on again.
+
+\Symptom{The pointer moves, but clicks do nothing}
+\Cause You are pressing the right button of a two-button mouse.
+\Solution FLAIR uses the left button only.
+
+\Symptom{The screen shows ``Bad or missing Command Interpreter''}
+\Cause You chose \menuitem{Exit to InitechDOS}, and InitechDOS could not
+load its command processor from the startup disk.
+\Solution Restart the computer.  If it happens again, make a new copy of
+the startup disk from the original.
+
+\Symptom{Other problems}
+The \doctitle{FLAIR User's Guide}, Chapter~13, describes the problems you
+may meet once FLAIR is running.

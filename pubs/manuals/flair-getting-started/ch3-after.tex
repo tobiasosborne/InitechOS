@@ -1,0 +1,77 @@
+% Chapter 3 -- After Starting FLAIR (Mac OS 8 Installation Ch. 3 form): a
+% first session in AN-14 task steps.  Sources (Law 1): as the FLAIR User's
+% Guide Chapters 1-5 (kmain.c finder_surface_open, the Finder windows,
+% tbx_launch; os/apps/itext/itext.c; finder_power / finder_shutdown_screen).
+% GATES: test-flair-disk-windows test-flair-app-launch test-flair-itext test-flair-shutdown test-pubs-flair-screens
+\Gates{test-flair-disk-windows, test-flair-app-launch, test-flair-itext,
+  test-flair-shutdown, test-pubs-flair-screens}
+\chapter{After Starting FLAIR}
+
+This chapter takes you through a first session with FLAIR: looking at the
+data disk, opening an application, typing a few lines, and shutting the
+computer down.  It takes about ten minutes.  The \doctitle{FLAIR User's
+Guide} teaches each of these skills in full.
+
+\section{Looking at the data disk}
+\Operation{FINDER-OPEN-VOLUME}
+\begin{TaskSteps}
+\Step Move the mouse until the pointer is on the \texttt{INITECH} icon, at
+the top right of the screen.
+\Step Press and release the mouse button twice, quickly, without moving
+the mouse.
+\Result{This is called double-clicking.  A window titled \texttt{Drive A
+Files} opens.  It shows the top level of the data disk: the file
+\file{README.TXT} and the folder \file{APPS}.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:gs-rootwin]{g_rootwin}{The Drive A Files window}
+
+\section{Opening the APPS folder}
+\Operation{FINDER-OPEN-FOLDER}
+\begin{TaskSteps}
+\Step Double-click the \file{APPS} folder.
+\Result{The \texttt{APPS} window opens in front.}
+\Step Click the zoom box, the first of the two small boxes at the right end
+of the window's title bar.
+\Result{The window fills the screen and shows all twenty files of the
+folder.  The diamonds are applications; the pages are documents and
+programs for the InitechDOS prompt.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:gs-apps]{g_apps}{The APPS folder, zoomed}
+
+\section{Writing a memo}
+\Operation{TENANT-LOAD}
+\begin{TaskSteps}
+\Step Double-click \file{TEXT.EXE}.
+\Result{InitechText, the text editor, opens with an empty document.}
+\Step Type a few lines.  Press \key{Enter} at the end of each paragraph.
+\end{TaskSteps}
+
+\FlairScreen[label=fig:gs-text]{g_text}{A memo in InitechText}
+
+\begin{TaskSteps}[resume]
+\Step Hold down \key{Ctrl} and press \key{Q}.
+\Result{InitechText asks whether to save your changes.  For this practice,
+click \texttt{Don't Save}.  InitechText quits.  To keep a document, click
+\texttt{Save} and give it a name; the \doctitle{FLAIR User's Guide},
+Chapter~5, shows you how.}
+\end{TaskSteps}
+
+\section{Shutting down}
+\Operation{FLAIR-SHUTDOWN-SAFE}
+\begin{TaskSteps}
+\Step Click a bare part of the desktop.
+\Result{The lower menu bar shows the menus of the Finder.}
+\Step Point at \menuname{Special} in the lower menu bar, hold down the
+mouse button, move down to \menuitem{Shut Down}, and release the button.
+\Result{FLAIR saves the arrangement of your desktop.  The screen goes black
+and a message tells you that it is safe to switch off the computer.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:gs-shutdown]{g_shutdown}{It is safe to switch off}
+
+\begin{TaskSteps}[resume]
+\Step Turn off the computer, then the display.
+\end{TaskSteps}
+Always shut down this way before you turn off the computer.

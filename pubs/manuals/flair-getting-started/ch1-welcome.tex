@@ -1,0 +1,42 @@
+% Chapter 1 -- Welcome to FLAIR (Mac OS 8 Installation Ch. 1 form).
+% Sources (Law 1): ADR-0004 (FLAIR, the Toolbox over InitechDOS; the
+% Platinum desktop); os/milton/kmain.c (the flagship start: InitechDOS
+% loads, FLAIR starts with no command, the INITECH data volume mounted as
+% drive A, the Finder, HELLO and NOTES); harness/fixture_volumes.mk
+% FLAIR_FIXTURES (the applications on the data disk); the DS table of
+% PUB-REF-0001 Sec 12 (the FLAIR books and their part numbers).
+% GATES: test-flair-desktop test-flair-data-volume test-pubs-flair-screens
+\Gates{test-flair-desktop, test-flair-data-volume, test-pubs-flair-screens}
+\chapter{Welcome to FLAIR}
+
+FLAIR is the graphical desktop of InitechOS.  It shows your files as
+icons, runs your applications in windows, and lets you give commands by
+pointing with the mouse and choosing from menus.  FLAIR runs on InitechDOS
+Version~3.30: InitechDOS keeps the files on the disks, and you can leave
+FLAIR at any time for the InitechDOS command prompt.
+
+\FlairScreen[label=fig:gs-desktop]{g_desktop}{The FLAIR desktop}
+
+\section{What comes with FLAIR}
+\index{package}
+\begin{itemize}
+\item The \term{startup disk}, which holds InitechDOS and FLAIR.  The
+  computer starts from it.
+\item The \term{data disk}, labelled INITECH, which holds the applications
+  and your documents.  On the desktop it appears as the \texttt{INITECH}
+  icon.
+\item This book, the \doctitle{FLAIR User's Guide}, the \doctitle{FLAIR
+  Accessories Guide} and the \doctitle{FLAIR Quick Reference} card.
+\end{itemize}
+\draft{the package pieces other than the books follow the PUB-REF-0001
+PK-12/PK-13 plan and are not yet produced}
+
+\section{What you can do with FLAIR}
+\begin{itemize}
+\item Look at the files on the data disk, organize them in folders, and
+  throw away the ones you no longer need.
+\item Open applications from the disk: InitechText for memos, InitechCalc
+  for the quarterly ledger, the Calculator, Initech 123 and InitechWord.
+\item Leave FLAIR for the InitechDOS command prompt to run the InitechDOS
+  utility programs and the TPS Report Generator.
+\end{itemize}

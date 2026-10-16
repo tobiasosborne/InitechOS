@@ -55,7 +55,9 @@
 # image (optional) is `step`: the row is captured on <step image>, the
 # record image whose FILE COPY bar advances a fixed step per injected event
 # (FLAIRTENANTS_RECORDXLONGDBL_IMG, kmain.c FILECOPY_RECORD_STEP) instead of
-# by the clock, so a figure of the bar in mid-copy is the same every run.
+# by the clock, so a figure of the bar in mid-copy is the same every run;
+# or `nodisk`: the row is captured with NO data disk attached (the
+# troubleshooting figure of a computer started without its data disk).
 # Thin shell (Law 3).  Fails loud on a missing marker, a triple fault, a
 # guest whose pump ended before the capture, or a pixel outside the palette.
 set -eu
@@ -83,13 +85,15 @@ while IFS='|' read -r name marker crop proves image; do
     cp -f "$data" "$work"
     rm -f "$out/$name.ppm" "$out/$name.serial"
     img=$boot
+    d2="--disk2 $work"
     case $image in
     '') ;;
+    nodisk) d2= ;;
     step) [ -n "$stepimg" ] && [ -r "$stepimg" ] || { printf '!!! flair_capture.sh FAIL: %s: no step image given\n' "$name"; exit 1; }
           img=$stepimg ;;
-    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: image "%s" is not empty or step\n' "$name" "$image"; exit 1 ;;
+    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: image "%s" is not empty, step or nodisk\n' "$name" "$image"; exit 1 ;;
     esac
-    "$runner" --disk "$img" --disk2 "$work" --name "$name" --out "$out" \
+    "$runner" --disk "$img" $d2 --name "$name" --out "$out" \
         --mouse "$spec" --keys-after FLAIR-LIVE-READY --timeout-ms 90000 \
         --screendump --screendump-after "$marker" --screendump-after-count "$count" \
         --rtc-base 1992-03-02T09:30:00 \
