@@ -38,10 +38,12 @@ else
     # Re-keyed 2026-10-15 (initech-l4tj, initech-uqah): the data volume gained
     # APPS\WORD.EXE and APPS\123.MNU, so the staged APPS folder holds five
     # writable leaves and the purge count is 5.
-    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU; do
+    # Re-keyed 2026-10-16 (initech-tdnl.16): the data volume gained
+    # APPS\TEXT.EXE (InitechText), a sixth writable leaf: the purge count is 6.
+    for leaf in README.TXT TRASH/README.TXT TRASH/APPS/CTENANT.EXE TRASH/APPS/123.EXE TRASH/APPS/WORD.EXE TRASH/APPS/123.MNU TRASH/APPS/TEXT.EXE; do
         if mdir -i "$img" "::$leaf" >/dev/null 2>&1; then fail 'writable purge control survived'; fi
     done
-    grep -qx 'FINDER-TRASH-EMPTIED purged=5 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
+    grep -qx 'FINDER-TRASH-EMPTIED purged=6 refused=2' "build/$name.serial" || fail 'mixed purge counts wrong'
 fi
 grep -qx 'FINDER-LOCKED-ALERT' "build/$name.serial" || fail 'visible message missing'
 grep -q 'OK=1' "$out/emu.report" || fail 'emulator did not complete'

@@ -29,6 +29,16 @@
 #   "PC LOAD LETTER" is 85 px: a click at (110,86) is past its end -> the
 #     caret at the end of line 1 (the end of the text).
 #
+# PACING: "w<ms>" holds (harness/emu/qemu.c) after the launch, after the
+#   typing, around the drag / Copy / paste, and after Ctrl-S and the Save
+#   (the Standard File box reads the FAT directory over ATA PIO): a step the
+#   guest is still busy with must not have its next input land in a full ring
+#   on a loaded host (a dropped Backspace or move is a harness artifact, not
+#   the app's -- the waits change no event the app sees). Typing pauses
+#   w120 after every space and Return: a burst of shifted chords at the
+#   harness's ~40 ms pace outran a loaded host's guest (a dropped Shift break
+#   left the shift stuck: "MEMO>TXT"), measured 2026-10-16.
+#
 # WAYPOINTS: A, B as flair_app_launch_traces.mk (the volume, then APPS, at
 #   (123,102)), then CTEXT (123,102) -> TEXT.EXE (143,174): m20:72.
 #
@@ -42,8 +52,8 @@
 #    to (15,86) [line 1 x 0], press, m44:0 -> (59,86) ("PC LOAD" ends at
 #    x 44: P 6, C 7, space 4, L 6, O 7, A 7, D 7), release; park on the
 #    window's right margin (580,300) so no Finder icon is hovered.
-FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,kshift-s,ka,kv,ki,kn,kg,kspc,kt,ka,kb,kl,ke,ks,kspc,kt,ko,kspc,kd,ki,ks,kk,kret,kshift-p,kshift-c,kspc,kshift-l,kshift-o,kshift-a,kshift-d,kspc,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,m-90:-99,l1,m31:0,l0,kctrl-c,m26:11,l1,l0,kret,kctrl-v,kctrl-s,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
+FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
 
 # 2. FLAIR_ITEXT_EDIT_SPEC -- the itext_edit clip (Rule 14): launch, type,
 #    drag-select, Copy, click, Return, Paste (no save).
-FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,kshift-s,ka,kv,ki,kn,kg,kspc,kt,ka,kb,kl,ke,ks,kspc,kt,ko,kspc,kd,ki,ks,kk,kret,kshift-p,kshift-c,kspc,kshift-l,kshift-o,kshift-a,kshift-d,kspc,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,m-90:-99,l1,m31:0,l0,kctrl-c,m26:11,l1,l0,kret,kctrl-v
+FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v

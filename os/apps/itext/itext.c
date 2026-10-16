@@ -153,10 +153,23 @@ static int draw_run(int a, int b, int x, int y, int hil)
     return x;
 }
 
+/* The paint. `full` (an updateEvt, a scroll, an activate) erases the whole
+ * content; an edit repaints each line's own row and erases only below the
+ * text -- a keystroke costs one row per line, not a 557 x 389 fill (the pump
+ * presents after every tenant return, and a slow keystroke lets the next
+ * input wait in the ring). */
+static int g_full = 1, g_last_bottom, g_ps;
+
+/* An edit or a selection move changes nothing BEFORE the lower of the old and
+ * the new selection start (TextEdit edits at the selection; a greedy wrap that
+ * pulls a word up changes the earlier line's end, which then reaches the
+ * edit), so a partial paint starts at the first line ending at or after it:
+ * typing at the end of a document repaints one line. */
 static void paint(void)
 {
-    int L, h = lh(), s = g_te.selStart, e = g_te.selEnd;
-    (void)tbx_fill_rect(g_win, 0, 0, CONT_W, CONT_H, TBX_COLOR_WHITE);
+    int L, h = lh(), s = g_te.selStart, e = g_te.selEnd, bottom;
+    int lo = (g_ps < s) ? g_ps : s;
+    if (g_full) (void)tbx_fill_rect(g_win, 0, 0, CONT_W, CONT_H, TBX_COLOR_WHITE);
     for (L = 0; L < g_te.nLines; L++) {
         int y = TEXT_Y + L * h - g_scroll;
         int ls = g_te.lineStarts[L];
@@ -165,6 +178,9 @@ static void paint(void)
         int x = TEXT_X, a, b;
         if (y + h <= 0) continue;
         if (y >= CONT_H) break;
+        if (!g_full && ns < lo) continue;            /* untouched line */
+        if (!g_full)                                /* this line's own row */
+            (void)tbx_fill_rect(g_win, 0, y < 0 ? 0 : y, CONT_W, y + h, TBX_COLOR_WHITE);
         a = (s > ls) ? (s < le ? s : le) : ls;     /* the selected part */
         b = (e > ls) ? (e < le ? e : le) : ls;
         if (s >= e) { a = b = le; }
@@ -179,6 +195,13 @@ static void paint(void)
             { }
 #endif
     }
+    bottom = TEXT_Y + g_te.nLines * h - g_scroll;   /* below the text */
+    if (bottom < 0) bottom = 0;
+    if (!g_full && g_last_bottom > bottom && bottom < CONT_H)
+        (void)tbx_fill_rect(g_win, 0, bottom, CONT_W, g_last_bottom, TBX_COLOR_WHITE);
+    g_last_bottom = bottom;
+    g_full = 0;
+    g_ps = s;
     if (s == e && g_active) {                       /* [MEAS] 1 px, x - 1 */
         int16_t ph, pv;
         FlairTEGetPoint(&g_te, (int16_t)s, &ph, &pv);
@@ -199,8 +222,12 @@ static void show_caret(void)
     if (top - TEXT_Y < g_scroll) g_scroll = top - TEXT_Y;
     if (bot + TEXT_Y > g_scroll + CONT_H) g_scroll = bot + TEXT_Y - CONT_H;
     if (g_scroll < 0) g_scroll = 0;
-    g_scroll = tbx_set_scroll(g_win, doc, g_scroll);
-    if (g_scroll < 0) g_scroll = 0;
+    {
+        int was = g_scroll;
+        g_scroll = tbx_set_scroll(g_win, doc, g_scroll);
+        if (g_scroll < 0) g_scroll = 0;
+        if (g_scroll != was) g_full = 1;
+    }
 }
 
 static void menus_sync(void)
@@ -244,6 +271,7 @@ static void doc_new(void)
     g_path[0] = '\0';
     g_dirty = 0;
     g_scroll = 0;
+    g_full = 1;
     set_title();
 }
 
@@ -282,6 +310,7 @@ static int doc_load(const char *path)
     g_path[i] = '\0';
     g_dirty = 0;
     g_scroll = 0;
+    g_full = 1;
     set_title();
     return 1;
 }
@@ -482,6 +511,7 @@ void tbx_app_event(const tbx_event_t *ev)
     case updateEvt: {
         int32_t sv = tbx_get_scroll(g_win);
         if (sv >= 0) g_scroll = (int)sv;
+        g_full = 1;
         paint();
         break;
     }
@@ -489,6 +519,7 @@ void tbx_app_event(const tbx_event_t *ev)
         g_active = (ev->modifiers & FLAIR_EVT_MOD_ACTIVE_FLAG) != 0;
         if (g_active) query_scrap();
         menus_sync();
+        g_full = 1;
         paint();
         break;
     case mouseDown:

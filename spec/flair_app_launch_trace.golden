@@ -45,9 +45,17 @@
 #                               initech-tdnl.31 moved it 3523968 -> 3523616,
 #                               256 + roundup16(1028-byte .EXE) = 1296 minus
 #                               944, i.e. 352 bytes.
+#   RE-KEY initech-tdnl.16       the desk FlairScrap (32808 bytes, FLAIR-SCRAP-
+#                               READY) is carved from the master heap at
+#                               bring-up, BEFORE any tenant: the code block
+#                               base moved 0x0019e710 -> 0x001a6750 and
+#                               HEAPAVAIL 3523616 -> 3490784, both by exactly
+#                               32832 = 32808 + the 24-byte block overhead
+#                               (heap.c) -- a heap-layout change upstream,
+#                               surfaced here as this golden says it must be.
 # Mutation-proven: NO_REGISTER (test-flair-app-launch-mutant) diverges here.
 FLAIR-DISPATCH app=FINDER
-TENANT-LOAD name=TENANTFX.EXE len=812 base=0x0019e710
+TENANT-LOAD name=TENANTFX.EXE len=812 base=0x001a6750
 TENANT-REGISTER ok app=TENANTFX
 TENANT-GATE ax=0x0001 rec=+0x00e4 -> 0
 TENANT-GATE ax=0x0050 bar=+0x00fc -> 0
@@ -65,4 +73,4 @@ FLAIR-DISPATCH app=TENANTFX
 TENANT-EVT what=1
 TENANT-GATE ax=0x0070 rc=0 -> 0
 TENANT-EXIT rc=0 via=exit
-TENANT-HEAPAVAIL n=3523616
+TENANT-HEAPAVAIL n=3490784

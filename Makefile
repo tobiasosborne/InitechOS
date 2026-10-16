@@ -13451,6 +13451,44 @@ test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surfa
 	@printf '>>> test-te-surface-mutant: green (all five mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
+# test-itext-route (bead initech-tdnl.16, R4.2 InitechText): the HOST ROUTING
+# SUITE of TEXT.EXE's verbs -- the real os/apps/itext/itext.c over the real
+# TextEdit, the gate replaced by a recording mock (a desk scrap that outlives a
+# launch, an in-memory volume, the asked-then-answered Standard File / alert /
+# track the test answers as the shell would). Expected values from the Mac OS
+# 8.1 SimpleText mint + IM (harness/proptest/test_itext_route.c header).
+# Mutants (test-itext-route-mutant), each RED for its named reason:
+# ITEXT_MUT_COPY_NOTHING (copy), ITEXT_MUT_SAVE_NO_CR (save),
+# ITEXT_MUT_QUIT_NO_ASK (quit), ITEXT_MUT_SEL_NOT_INVERSE (inverse).
+# ---------------------------------------------------------------------------
+TEST_ITEXT_ROUTE      := $(BUILD)/test_itext_route
+TEST_ITEXT_ROUTE_SRC  := harness/proptest/test_itext_route.c
+TEST_ITEXT_ROUTE_LINK := os/flair/textedit.c os/flair/scrap.c
+TEST_ITEXT_ROUTE_DEPS := $(TEST_ITEXT_ROUTE_SRC) os/apps/itext/itext.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(TEST_TEXTEDIT_DEPS)
+TEST_ITEXT_ROUTE_CF   := -Ios/apps/tbx -Ispec -Ios/flair -Ios/flair/atkinson -Ispec/assets
+$(TEST_ITEXT_ROUTE): $(TEST_ITEXT_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEST_ITEXT_ROUTE_CF) -o $@ $(TEST_ITEXT_ROUTE_SRC) $(TEST_ITEXT_ROUTE_LINK)
+$(BUILD)/test_itext_route_mutant_%: $(TEST_ITEXT_ROUTE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* $(TEST_ITEXT_ROUTE_CF) -o $@ $(TEST_ITEXT_ROUTE_SRC) $(TEST_ITEXT_ROUTE_LINK)
+
+.PHONY: test-itext-route test-itext-route-mutant
+test-itext-route: $(TEST_ITEXT_ROUTE)
+	@printf '>>> test-itext-route: InitechText verbs over the real TextEdit, gate mocked (initech-tdnl.16)\n'
+	@$(TEST_ITEXT_ROUTE)
+	@printf '>>> test-itext-route: green\n'
+
+ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse
+test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_route_mutant_$(firstword $(subst :, ,$(m))))
+	@for pair in $(ITEXT_ROUTE_MUTANTS); do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_itext_route_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-itext-route-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-itext-route-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; tail -5 $$bin.log; exit 1; }; \
+		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-itext-route-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
+		printf '>>> test-itext-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
+	done
+	@printf '>>> test-itext-route-mutant: green (all four mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
 # the HOST oracle for FLAIR List Manager (os/flair/list.{c,h}) -- the reduced
 # FLAIR-ListRec (Cell=flair_point_t h=col/v=row, ListBounds=rgn_rect_t of cell
@@ -22981,6 +23019,29 @@ RECORD_SPEC_iword_block = $(FLAIR_IWORD_BLOCK_SPEC)
 RECORD_MARKER_iword_block = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Press Reveal Codes to restore screen                                         " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_block = 400
 RECORD_IMAGE_iword_block = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# itext_edit (bead initech-tdnl.16, R4.2 InitechText; Rule 14): the
+# SimpleText-alike opens from the Finder -- double-click APPS\TEXT.EXE, the
+# "untitled" window -- "Saving tables to disk" / "PC LOAD LETTER" typed in
+# Geneva 9, a drag selects "tables" (black, white ink), Ctrl-C copies it to
+# the shell's desk scrap, a click puts the caret at the end, Return, Ctrl-V
+# pastes it. Replays the LOCKED FLAIR_ITEXT_EDIT_SPEC; its marker is the
+# paste's scrap read. ~70 recorded events: the extra-long image, as iword.
+RECORD_SCRIPTS += itext_edit
+RECORD_SPEC_itext_edit = $(FLAIR_ITEXT_EDIT_SPEC)
+RECORD_MARKER_itext_edit = TENANT-SCRAP get n=6
+RECORD_SETTLE_itext_edit = 400
+RECORD_IMAGE_itext_edit = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# itext_savefile (bead initech-tdnl.16; Rule 14): the itext_edit document,
+# then Ctrl-S on the untitled document brings up the Standard File Save As
+# box over the real volume (README.TXT, APPS), the name typed over UNTITLED,
+# Return saves MEMO.TXT on the FAT volume and the window takes its name; a
+# last drag selects "PC LOAD". Replays the LOCKED FLAIR_ITEXT_SPEC
+# (test-flair-itext); its marker is the Save As reply.
+RECORD_SCRIPTS += itext_savefile
+RECORD_SPEC_itext_savefile = $(FLAIR_ITEXT_SPEC)
+RECORD_MARKER_itext_savefile = TENANT-SF-REPLY good=1 path=MEMO.TXT
+RECORD_SETTLE_itext_savefile = 400
+RECORD_IMAGE_itext_savefile = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # fonts_styles (bead initech-tdnl.68, Font Manager slice 2; Rule 14): the FONTS
 # specimen opens from the Finder -- its narrow window titled "Font Manager
 # Styl" + the Chicago ellipsis, plain / bold / italic / underline / combined
@@ -31000,6 +31061,110 @@ test-flair-alert-chrome-bochs: $(BOCHS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_
 	@printf '>>> test-flair-alert-chrome-bochs: green (Bochs boot leg of the alert-chrome image: fallback + shared milestones + guard, no triple fault)\n'
 endif
 TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
+
+# ===========================================================================
+# REAL gate: test-flair-itext (bead initech-tdnl.16, GUI-remediation R4.2;
+# absorbs initech-ww9c) -- INITECHTEXT, THE SIMPLETEXT-ALIKE, ON THE BOOTED
+# DESKTOP. QEMU, one boot of $(FLAIR_ITEXT_GATE_IMG) (the flagship kernel,
+# pump life 1500 ticks -- the iword gate kernel, reused) + a copy of the
+# shipped data volume, trace LOCKED in spec/flair_itext_traces.mk
+# (FLAIR_ITEXT_SPEC): double-click APPS\TEXT.EXE, type two lines, drag-select
+# "tables", Ctrl-C, click at the end, Return, Ctrl-V, Ctrl-S -> Save As ->
+# "MEMO.TXT" Return, drag-select "PC LOAD".
+#   [1/5] UP      the desk scrap exists (FLAIR-SCRAP-READY), TEXT loads,
+#                 registers, its window comes forward.
+#   [2/5] EDIT    the drag was TRACKED by the shell to (84,75); Copy put 6
+#                 bytes on the desk scrap (TENANT-SCRAP put n=6 count=1); the
+#                 paste read them back (get n=6); the last paint draws "PC
+#                 LOAD" in Geneva 9 white-on-black (fg 65536 bg 1), " LETTER"
+#                 and line 2 "tables" black-on-white (fg 65537 bg 0).
+#   [3/5] SAVEAS  the Standard File Save As box listed the volume root (2
+#                 entries: README.TXT, APPS) with UNTITLED, and replied
+#                 MEMO.TXT.
+#   [4/5] DISK    the FAT DIFFERENTIAL: mtools reads MEMO.TXT off the stopped
+#                 volume, byte for byte "Saving tables to disk" CR "PC LOAD
+#                 LETTER" CR "tables" (the Mac TEXT bytes typed + pasted,
+#                 independent of the app), fsck.fat clean.
+#   [5/5] PIXEL   the screendump graded against the Mac OS 8.1 SimpleText
+#                 mint (../system7-decomp specs/sys8/simpletext-stdfile.md
+#                 [MEAS], ADR-0010: an independent golden, never the
+#                 renderer): the selection band behind "PC LOAD" is #000000
+#                 with white ink, exactly one line tall (the row under it
+#                 clean white); the document body #FFFFFF; the text inset 5 px
+#                 left / 4 px top of the content corner (no ink in content
+#                 columns 10..14 or rows 66..69).
+# Mutants (test-flair-itext-mutant, gate-local volumes carrying a knobbed
+# TEXT.EXE under the same name), each RED for its reason:
+#   ITEXT_MUT_COPY_NOTHING     Copy puts 0 bytes: EDIT and DISK RED (no
+#                              "tables" pasted), UP holds;
+#   ITEXT_MUT_SAVE_NO_CR       DISK RED (the CRs are gone), EDIT holds;
+#   ITEXT_MUT_SEL_NOT_INVERSE  PIXEL RED (no black band), DISK holds.
+# Bochs / record-flair are the PM's (Rule 5 / Rule 14 on main).
+# ===========================================================================
+FLAIR_ITEXT_GATE_IMG := $(FLAIR_IWORD_GATE_IMG)
+FLAIR_DATA_ITEXT_NOCOPY_IMG := $(BUILD)/flair_data_itext_nocopy.img
+FLAIR_DATA_ITEXT_NOCR_IMG   := $(BUILD)/flair_data_itext_nocr.img
+FLAIR_DATA_ITEXT_PLAIN_IMG  := $(BUILD)/flair_data_itext_plain.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ITEXT_NOCOPY_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),$(BUILD)/tenant/itext_copy_nothing.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ITEXT_NOCR_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),$(BUILD)/tenant/itext_save_no_cr.exe))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ITEXT_PLAIN_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),$(BUILD)/tenant/itext_sel_plain.exe))
+ITEXT_UP = grep -qx 'FLAIR-SCRAP-READY bytes=32808' $(1) && grep -q '^TENANT-LOAD name=TEXT.EXE ' $(1) && grep -qx 'TENANT-REGISTER ok app=TEXT' $(1) && grep -qx 'FLAIR-DISPATCH app=TEXT' $(1)
+ITEXT_LAST = grep '^TENANT-GATE ax=0x0030 win=1 x=$(2) y=$(3) ' $(1) | tail -1 | grep -qxF 'TENANT-GATE ax=0x0030 win=1 x=$(2) y=$(3) s="$(4)" fg=$(5) bg=$(6) -> 0'
+ITEXT_EDIT = grep -q '^TENANT-TRACK up h=84 v=75 ' $(1) && grep -qx 'TENANT-SCRAP put n=6 count=1' $(1) && grep -qx 'TENANT-SCRAP get n=6' $(1) && \
+	$(call ITEXT_LAST,$(1),5,15,PC LOAD,65536,1) && $(call ITEXT_LAST,$(1),49,15, LETTER,65537,0) && $(call ITEXT_LAST,$(1),5,26,tables,65537,0)
+ITEXT_SAVEAS = grep -qx 'TENANT-SF put up dir=/ n=2 name=UNTITLED' $(1) && grep -qx 'TENANT-SF-REPLY good=1 path=MEMO.TXT' $(1)
+ITEXT_MEMO_EXPECT := $(BUILD)/itext_memo.expect
+ITEXT_DISK = mcopy -o -i $(1) ::MEMO.TXT $(1).memo 2>/dev/null && cmp -s $(ITEXT_MEMO_EXPECT) $(1).memo && fsck.fat -n $(1) >/dev/null
+# region "<L> <T> <R> <B>" of dump $(1) vs reference pixel $(3): "ne eq ref"
+ITEXT_PX = $(PPM_REGION_COUNT_BIN) $(1) $(2) $(3) | sed -n 's/^ne=\([0-9]*\) eq=\([0-9]*\) ref=\([0-9a-f]*\).*/\1 \2 \3/p'
+# [MEAS] simpletext-stdfile.md: selection #000000, body #FFFFFF. The band is
+# "PC LOAD" = text x 0..44 on line 1 = GLOBAL x [15,59), y [81,92).
+ITEXT_PIXEL = set -- $$($(call ITEXT_PX,$(1),15 81 59 92,15 81)); bne=$$1; beq=$$2; bref=$$3; \
+	set -- $$($(call ITEXT_PX,$(1),15 92 59 93,300 300)); une=$$1; uref=$$3; \
+	set -- $$($(call ITEXT_PX,$(1),10 66 15 103,300 300)); lne=$$1; \
+	set -- $$($(call ITEXT_PX,$(1),10 66 300 70,300 300)); tne=$$1; \
+	set -- $$($(call ITEXT_PX,$(1),10 110 560 450,300 300)); body=$$1; \
+	[ "$$bref" = 000000 ] && [ "$$beq" -ge 250 ] && [ "$$bne" -ge 60 ] && [ "$$uref" = ffffff ] && [ "$$une" -eq 0 ] && [ "$$lne" -eq 0 ] && [ "$$tne" -eq 0 ] && [ "$$body" -eq 0 ]
+
+.PHONY: test-flair-itext test-flair-itext-mutant
+$(ITEXT_MEMO_EXPECT): spec/flair_itext_traces.mk | $(BUILD)
+	@printf 'Saving tables to disk\rPC LOAD LETTER\rtables' > $@
+test-flair-itext: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN) $(ITEXT_MEMO_EXPECT)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-itext : InitechText edits, copies, pastes and saves through Standard File (initech-tdnl.16)\n'
+	@printf '======================================================================\n'
+	$(call appl-boot,flair_itext,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext.serial) || { printf '!!! test-flair-itext FAIL [1/5] UP: the scrap / TEXT did not come up, or the desktop died\n'; grep -E '^(PANIC|FLAIR-SCRAP|TENANT-(LOAD|REG|CRASH|EXIT)|HALTED|FLAIR-DISPATCH)' $(BUILD)/flair_itext.serial; exit 1; }
+	@printf '>>> test-flair-itext [1/5] UP: %s; %s; registered, dispatched\n' "$$(grep -m1 '^FLAIR-SCRAP-READY' $(BUILD)/flair_itext.serial)" "$$(grep -m1 '^TENANT-LOAD name=TEXT' $(BUILD)/flair_itext.serial)"
+	@$(call ITEXT_EDIT,$(BUILD)/flair_itext.serial) || { printf '!!! test-flair-itext FAIL [2/5] EDIT: the tracked drag / the scrap put+get / the last paint are not as locked\n'; grep -E '^TENANT-(TRACK|SCRAP)' $(BUILD)/flair_itext.serial; grep '^TENANT-GATE ax=0x0030 win=1 ' $(BUILD)/flair_itext.serial | tail -6; exit 1; }
+	@printf '>>> test-flair-itext [2/5] EDIT: %s; Copy -> "%s"; paste -> "%s"; last paint "PC LOAD" white on black, " LETTER", "tables"\n' "$$(grep -m1 '^TENANT-TRACK' $(BUILD)/flair_itext.serial)" "$$(grep -m1 '^TENANT-SCRAP put' $(BUILD)/flair_itext.serial)" "$$(grep -m1 '^TENANT-SCRAP get n=6' $(BUILD)/flair_itext.serial)"
+	@$(call ITEXT_SAVEAS,$(BUILD)/flair_itext.serial) || { printf '!!! test-flair-itext FAIL [3/5] SAVEAS: the Save As box / its reply are not as locked\n'; grep '^TENANT-SF' $(BUILD)/flair_itext.serial; exit 1; }
+	@printf '>>> test-flair-itext [3/5] SAVEAS: %s -> %s\n' "$$(grep -m1 '^TENANT-SF put up' $(BUILD)/flair_itext.serial)" "$$(grep -m1 '^TENANT-SF-REPLY' $(BUILD)/flair_itext.serial)"
+	@$(call ITEXT_DISK,$(BUILD)/flair_itext_data.img) || { printf '!!! test-flair-itext FAIL [4/5] DISK: MEMO.TXT is missing or is not the typed + pasted bytes\n'; xxd $(BUILD)/flair_itext_data.img.memo 2>/dev/null | head -5; exit 1; }
+	fsck.fat -n $(BUILD)/flair_itext_data.img
+	@printf '>>> test-flair-itext [4/5] DISK: MEMO.TXT (%s bytes) == "Saving tables to disk" CR "PC LOAD LETTER" CR "tables" (mtools, independent of the app); fsck.fat clean\n' "$$(wc -c < $(BUILD)/flair_itext_data.img.memo)"
+	@f=$(BUILD)/flair_itext.ppm; $(call ITEXT_PIXEL,$$f) || { printf '!!! test-flair-itext FAIL [5/5] PIXEL: band ref %s eq %s ne %s (want 000000, >=250, >=60); row under it ref %s ne %s (want ffffff, 0); left inset ink %s, top inset ink %s, body ink %s (all 0)\n' "$$bref" "$$beq" "$$bne" "$$uref" "$$une" "$$lne" "$$tne" "$$body"; exit 1; }; \
+		printf '>>> test-flair-itext [5/5] PIXEL: the "PC LOAD" band is #%s (%s px) with %s px of white ink, one line tall; body #FFFFFF; the (5,4) text inset clean -- the Mac OS 8.1 SimpleText measurements\n' "$$bref" "$$beq" "$$bne"
+	@printf '>>> test-flair-itext: green\n'
+
+test-flair-itext-mutant: test-flair-itext $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_ITEXT_NOCOPY_IMG) $(FLAIR_DATA_ITEXT_NOCR_IMG) $(FLAIR_DATA_ITEXT_PLAIN_IMG) $(PPM_REGION_COUNT_BIN) $(ITEXT_MEMO_EXPECT)
+	$(call appl-boot,flair_itext_nocopy,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_NOCOPY_IMG),FLAIR_ITEXT_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_nocopy.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_nocopy.serial) && $(call ITEXT_SAVEAS,$(BUILD)/flair_itext_nocopy.serial) || { printf '!!! test-flair-itext-mutant FAIL: COPY_NOTHING went RED for the wrong reason (want: TEXT up, Save As answered)\n'; exit 1; }
+	@if $(call ITEXT_EDIT,$(BUILD)/flair_itext_nocopy.serial); then printf '!!! test-flair-itext-mutant FAIL: COPY_NOTHING PASSED the EDIT leg -- it is decoration\n'; exit 1; fi
+	@if $(call ITEXT_DISK,$(BUILD)/flair_itext_nocopy_data.img); then printf '!!! test-flair-itext-mutant FAIL: COPY_NOTHING PASSED the DISK leg\n'; exit 1; fi
+	@printf '>>> test-flair-itext-mutant: COPY_NOTHING correctly RED -- %s; MEMO.TXT is %s bytes, not the locked 43\n' "$$(grep -m1 '^TENANT-SCRAP put' $(BUILD)/flair_itext_nocopy.serial)" "$$(wc -c < $(BUILD)/flair_itext_nocopy_data.img.memo)"
+	$(call appl-boot,flair_itext_nocr,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_NOCR_IMG),FLAIR_ITEXT_SPEC,)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_nocr.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_nocr.serial) && $(call ITEXT_EDIT,$(BUILD)/flair_itext_nocr.serial) && $(call ITEXT_SAVEAS,$(BUILD)/flair_itext_nocr.serial) || { printf '!!! test-flair-itext-mutant FAIL: SAVE_NO_CR went RED for the wrong reason (want: edit and Save As as locked)\n'; exit 1; }
+	@if $(call ITEXT_DISK,$(BUILD)/flair_itext_nocr_data.img); then printf '!!! test-flair-itext-mutant FAIL: SAVE_NO_CR PASSED the DISK leg -- it is decoration\n'; exit 1; fi
+	@printf '>>> test-flair-itext-mutant: SAVE_NO_CR correctly RED -- MEMO.TXT is %s bytes with %s CRs (the differential wants 43 with 2)\n' "$$(wc -c < $(BUILD)/flair_itext_nocr_data.img.memo)" "$$(tr -cd '\r' < $(BUILD)/flair_itext_nocr_data.img.memo | wc -c)"
+	$(call appl-boot,flair_itext_plain,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_PLAIN_IMG),FLAIR_ITEXT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_plain.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_plain.serial) && $(call ITEXT_DISK,$(BUILD)/flair_itext_plain_data.img) || { printf '!!! test-flair-itext-mutant FAIL: SEL_NOT_INVERSE went RED for the wrong reason (want: TEXT up, MEMO.TXT as locked)\n'; exit 1; }
+	@f=$(BUILD)/flair_itext_plain.ppm; if $(call ITEXT_PIXEL,$$f); then printf '!!! test-flair-itext-mutant FAIL: SEL_NOT_INVERSE PASSED the PIXEL leg -- it is decoration\n'; exit 1; fi; \
+		printf '>>> test-flair-itext-mutant: SEL_NOT_INVERSE correctly RED -- the "PC LOAD" band ref #%s, %s px equal (want #000000, >= 250)\n' "$$bref" "$$beq"
+	@printf '>>> test-flair-itext-mutant: green (all three mutants RED for the named reason)\n'
+
+TEST_UNIT_GATES += test-te-surface test-te-surface-mutant test-itext-route test-itext-route-mutant
+TEST_EMU_GATES += test-flair-itext test-flair-itext-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk

@@ -194,7 +194,12 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # per row (FINDER_GRID_PITCH_X 68, PITCH_Y 52: +20,+72). The two moves after the
 # TRASH double-click keep their old ABSOLUTE target (+292,+156): 272,84 from
 # the new click point.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,m100:84,m100:0,m72:0,m68:68,m68:68,m69:66
+# DELIBERATE RE-KEY 2026-10-16 (initech-tdnl.16): APPS gained TEXT.EXE (written
+# after 123.MNU, so it takes cell 5) and the stranded APPS\TRASH moved from
+# cell 5 to cell 6 = row 2, col 2: +68 in x, so the APPS -> TRASH move is
+# m88:72 (was m20:72) and the moves after the TRASH double-click keep the old
+# ABSOLUTE target: 204,84 from the new click point (was 272,84).
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m100:84,m100:0,m4:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the
