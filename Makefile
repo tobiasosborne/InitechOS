@@ -23481,15 +23481,13 @@ test-fs: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK
 	@printf 'Data disk : %s (primary SLAVE, if=ide,index=1)\n' "$(FAT_DATA_IMG)"
 	@printf 'Expecting : FAT-MOUNT-OK + proto-DIR filenames (HELLO.TXT ...) + DIR-OK + no triple-fault\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@# --screendump-after DIR-OK (beads initech-3pe): the ppm gate asserts text in
-	@# the proto-DIR band (rows 3..8); DIR-OK is serial-emitted only AFTER
-	@# fat12_read_root_dir returns, i.e. after every filename has been blitted to
-	@# the LFB console (dir_visit -> dir_puts -> console_putc). Waiting for it
-	@# guarantees the asserted band is painted before the grab, killing the race.
-	@# The 6000 ms timeout stays the hard backstop.
+	@# qskz: mount-check filenames and DIR-OK remain on serial; they no longer
+	@# paint the console. Synchronize the screenshot with the secondary shell,
+	@# then grade its prompt and the blank former mount-listing rows explicitly.
+	@# Primary DOS startup is separately graded by test-dos-startup.
 	@$(call fixture-preflight,$(FAT_DATA_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_DATA_IMG)" --screendump \
-		--screendump-after DIR-OK \
+		--screendump-after SHELL-READY \
 		--name "$(FS_NAME)" --out "$(BUILD)" --timeout-ms 6000 \
 		2> "$(FS_REPORT)" || true
 	@cat "$(FS_REPORT)"
@@ -23526,15 +23524,12 @@ test-fs: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_DATA_IMG) $(PPM_TEXT_CHECK
 		printf '!!! test-fs FAIL: no screendump captured at %s (live guest required)\n' "$(FS_PPM)"; \
 		exit 1; \
 	fi
-	@# Assert text in the proto-DIR band (rows 3..8 => y in [48,144)), NOT just
-	@# the banner -- the banner alone would false-pass [A]/[B] even if the DIR
-	@# never rendered (the dangling-console bug fixed in this step). Band fg must
-	@# be healthy (the listing is ~6 lines of text). Rule 6: the gate now BITES.
-	@$(PPM_TEXT_CHECK_BIN) "$(FS_PPM)" 48 144 100 \
-		|| { printf '!!! test-fs FAIL: proto-DIR listing did not render on screen (band [48,144))\n'; exit 1; }
-	@printf '>>> test-fs [4/4]: screendump shows the proto-DIR listing rendered on the seafoam desktop\n'
+	@{ printf '2 0 A:\\>\n'; for row in 3 4 5 6 7 8; do printf '%s 0 %80s\n' $$row ''; done; } > $(BUILD)/fs_console.cells
+	@$(PPM_TEXT_CHECK_BIN) --cells "$(FS_PPM)" $(BUILD)/fs_console.cells \
+		|| { printf '!!! test-fs FAIL: mount diagnostics leaked onto the DOS console\n'; exit 1; }
+	@printf '>>> test-fs [4/4]: mount listing stays on serial; console shows the exact secondary prompt\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- InitechDOS mounted a FAT12 volume over ATA and listed its root directory (proto-DIR)\n'
+	@printf 'VERDICT   : PASS -- InitechDOS mounted FAT12 over ATA; root scan on serial, clean DOS console\n'
 	@printf '            (QEMU only; tri-emulator agreement pending beads initech-x0i)\n'
 	@printf '======================================================================\n'
 
@@ -24682,22 +24677,15 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@printf '>>> test-shell [6/7]: `badcmd` -> "%s"; EXIT halted cleanly (SHELL-EXIT + SHELL-DONE)\n' "$(SHELL_BADCMD)"
 	@# ---- 7. SCREENDUMP (Run 2): the "A:\>" prompt actually RENDERED on the
 	@# framebuffer -- the visual half of the shell (Law 4). This is a SEPARATE,
-	@# clean boot with NO --keys: the REPL prints its first "A:\>" prompt and then
-	@# BLOCKS on read_line, so the screen holds only the boot console (banner rows
-	@# 0..1; the boot proto-DIR header + HELLO.TXT/GREET.COM in rows 2..4) and that
-	@# one prompt at cell ROW 5 (y in [80,96)), staying pure seafoam below y=240 --
-	@# which lets ppm_text_check's [C] "seafoam below the banner" guard pass. (A
-	@# keys-run grab would instead inject the whole DIR/TYPE/greet/EXIT transcript,
-	@# scrolling text past y=240 and tripping [C]; hence the dedicated clean boot.)
+	@# clean secondary processor with NO --keys. qskz deliberately moves the
+	@# mount listing to serial-only debug, preserving test-dir/test-dos* markers.
+	@# Banner rows 0..1 are followed by the exact prompt on row 2 (y=32..48).
+	@# Primary startup prompts are graded by test-dos-startup (Guide pp.19-20).
 	@# --screendump-after SHELL-READY syncs the grab to the prompt's blit. Same
 	@# ppm_text_check pattern as test-boot (~4112) / test-fs (~4270): the 1-arg
 	@# checks (banner [A]/[B] + intact seafoam bg [C]) always run; the 4-arg form
-	@# adds the prompt-band assertion. CRITICAL (Rule 6): the band MUST be row 5
-	@# (y in [80,96)) -- the row the "A:\>" prompt lands on -- NOT rows 2..4, which
-	@# hold the boot-time proto-DIR and would false-pass even with the prompt
-	@# suppressed. The "A:\>" glyphs ink ~86 fg pixels there (A=39, :=8, \=21,
-	@# >=18); require >=40 so a non-rendering prompt (an empty row 5) goes RED while
-	@# leaving margin for sub-pixel rounding (Rule 6 -- the gate BITES).
+	@# adds the row-2 prompt-band assertion. Exact cells below also reject the
+	@# old console mount listing, whose header formerly occupied that row.
 	@$(call fixture-preflight,$(FAT_EXEC_IMG))
 	@$(HARNESS_BIN) --disk "$(SECONDARY_TRACER_IMG)" --disk2 "$(FAT_EXEC_IMG)" \
 		--screendump --screendump-after SHELL-READY \
@@ -24709,8 +24697,10 @@ test-shell: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(FAT_EXEC_IMG) $(PPM_TEXT_CH
 	@if [ ! -s "$(SHELL_PPM)" ]; then \
 		printf '!!! test-shell FAIL: no screendump captured at %s (live guest required)\n' "$(SHELL_PPM)"; exit 1; \
 	fi
-	@$(PPM_TEXT_CHECK_BIN) "$(SHELL_PPM)" 80 96 40 \
-		|| { printf '!!! test-shell FAIL: the COMMAND.COM "A:\\>" prompt did not render on the framebuffer (band [80,96))\n'; exit 1; }
+	@$(PPM_TEXT_CHECK_BIN) "$(SHELL_PPM)" 32 48 40 \
+		|| { printf '!!! test-shell FAIL: the COMMAND.COM "A:\\>" prompt did not render on the framebuffer (band [32,48))\n'; exit 1; }
+	@printf '2 0 A:\\>\n' > $(BUILD)/shell_prompt.cells
+	@$(PPM_TEXT_CHECK_BIN) --cells "$(SHELL_PPM)" $(BUILD)/shell_prompt.cells
 	@printf '>>> test-shell [7/7]: screendump shows the "A:\\>" COMMAND.COM prompt rendered on the seafoam desktop\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- booted InitechDOS, got an A:\\> prompt, ran DIR/TYPE/a program/EXIT via COMMAND.COM\n'
@@ -31067,6 +31057,8 @@ test-flair-menubar-clock-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_clock
 	@grep -qx 'FLAIR-CLOCK 12:55 am' $(BUILD)/menubar_clock_stuck.serial
 	@printf '>>> test-flair-menubar-clock-mutant: green (wrong-hour and stale-minute regressions rejected)\n'
 TEST_EMU_GATES += test-flair-menubar-clock test-flair-menubar-clock-mutant
+
+include harness/diff/fat_diff/dos_parity.mk
 # DOS utility lane: separate recipe file keeps its COM/oracle family together.
 include harness/diff/fat_diff/dosutil.mk
 # ---------------------------------------------------------------------------

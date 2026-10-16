@@ -52,6 +52,9 @@ cmd_kind_t cmd_classify(const char *upper_command)
     /* A tiny hand-rolled strcmp keeps this freestanding (no libc). */
     struct { const char *name; cmd_kind_t kind; } table[] = {
         { "DIR",   CMD_DIR  },
+#ifndef CMD_MUTATE_PATH_COMMAND
+        { "PATH",  CMD_PATH }, /* MS-DOS 3.3 Reference p.97 / PDF182. */
+#endif
 #ifndef DU_MUTATE_VOL
         { "VOL",   CMD_VOL  }, /* MS-DOS 3.3 User's Guide p.126 / PDF211 */
 #endif
@@ -169,6 +172,14 @@ void cmd_parse(const char *line, cmd_line_t *out)
      * Clamp to CMD_TOKEN_MAX-1 so an absurdly long word cannot overflow. */
     i = 0;
     while (*p && !is_space(*p) && i < CMD_TOKEN_MAX - 1) {
+        /* MS-DOS 3.3 Reference p.57 (DIR[/P][/W]), p.97 (PATH;),
+         * Guide p.48 (PATH=...). Preserve the adjacent delimiter as the
+         * operand; executable path names retain the ordinary tokenizer. */
+        if ((*p == '/' && i == 3 && out->command[0] == 'D' &&
+             out->command[1] == 'I' && out->command[2] == 'R') ||
+            ((*p == ';' || *p == '=') && i == 4 && out->command[0] == 'P' &&
+             out->command[1] == 'A' && out->command[2] == 'T' && out->command[3] == 'H'))
+            break;
 #ifdef CMD_MUTATE_NO_UPCASE
         /* MUTANT (Rule 6; make test-command-mutant only): copy the command word
          * WITHOUT upper-casing, so a lowercase "dir" no longer matches the
@@ -183,9 +194,8 @@ void cmd_parse(const char *line, cmd_line_t *out)
     out->command[i] = '\0';
     /* If the word was longer than the clamp, swallow the rest of it so it does
      * not bleed into arg (it is already a non-recognized command anyway). */
-    while (*p && !is_space(*p)) {
-        p++;
-    }
+    if (i == CMD_TOKEN_MAX - 1)
+        while (*p && !is_space(*p)) p++;
 
     /* DOS command tail (initech-456): capture the verbatim remainder -- INCLUDING
      * the leading separator space(s) -- BEFORE arg's leading-space trim below.
@@ -698,7 +708,8 @@ int cmd_format_date(uint8_t dow, uint16_t year, uint8_t mon, uint8_t day,
         out[pos++] = dname[i];
     }
     out[pos++] = ' ';
-    put_u_pad0(out, &pos, (uint32_t)mon, 2);     /* MM */
+    /* Guide pp.19-20 / PDF32-33: month and hour have no leading zero. */
+    put_u_pad0(out, &pos, (uint32_t)mon, mon >= 10u ? 2 : 1);
     out[pos++] = '-';
     put_u_pad0(out, &pos, (uint32_t)day, 2);     /* DD */
     out[pos++] = '-';
@@ -716,7 +727,7 @@ int cmd_format_time(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs, char *out)
     for (i = 0; prefix[i] != '\0'; i++) {
         out[pos++] = prefix[i];
     }
-    put_u_pad0(out, &pos, (uint32_t)hh, 2);       /* HH */
+    put_u_pad0(out, &pos, (uint32_t)hh, hh >= 10u ? 2 : 1);
     out[pos++] = ':';
     put_u_pad0(out, &pos, (uint32_t)mi, 2);       /* MM */
     out[pos++] = ':';
@@ -2431,6 +2442,29 @@ static void builtin_prompt(const char *arg)
     /* Success is SILENT (DOS PROMPT prints nothing on success). */
 }
 
+/* sy5f: PATH and SET PATH share the master environment used by EXEC/BAT
+ * resolution. Ref: ADR-0003 DEC-11; MS-DOS 3.3 Reference p.97 / PDF182,
+ * p.348 / PDF433 (empty-path diagnostic; task's DOS spelling "No Path"). */
+static void builtin_path(const char *arg)
+{
+    char value[CMD_LINE_MAX];
+    while (is_space(*arg) || *arg == '=') arg++;
+    if (!*arg) {
+        const char *path = env_get(&g_master_env, "PATH");
+        if (path && *path) {
+            dos_puts_raw("PATH="); dos_puts_raw(path); dos_print("\r\n$");
+        } else dos_print("No Path\r\n$");
+        return;
+    }
+    int n = 0;
+    while (*arg && n < CMD_LINE_MAX - 1) value[n++] = cmd_upcase_char(*arg++);
+    while (n && is_space(value[n-1])) n--;
+    value[n] = 0;
+    if (n == 1 && value[0] == ';') env_unset(&g_master_env, "PATH");
+    else if (!env_set(&g_master_env, "PATH", value))
+        dos_print("Out of environment space\r\n$");
+}
+
 /* DIR: existing FINDFIRST/FINDNEXT operand behavior, DOS 3.3 display.
  * Ref: User Guide pp.28-29 / PDF 41-42; controlled fragments from the
  * deliberate LOOK Rule-8 amendment to spec/dos_messages.json. DTA supplies
@@ -2460,12 +2494,62 @@ static void builtin_vol(const char *arg)
     else dos_puts_raw(MSG_DOS_0022);
     dos_print("\r\n$");
 }
-static void builtin_dir(void)
+/* e47v: MS-DOS 3.3 Reference pp.57-58 / PDF142-143: one qualified
+ * operand, filename.* / *.ext shorthand, /P and five-column /W. Directory
+ * canonicalization uses the backend without CHDIR, so DIR never changes CWD. */
+static void builtin_dir(const char *arg)
 {
     int n;
     uint32_t files = 0;
     char label[12], disp[3 + INT21_CWD_MAX + 4];
     uint32_t ax=0x3600u, bx, cx, dx=0u;
+    char spec[CMD_LINE_MAX], parent[CMD_LINE_MAX];
+    int wide = 0, page = 0, len = 0, rows = 6, column = 0;
+#ifdef CMD_MUTATE_DIR_ARGS
+    arg = ""; /* Rule 6: restore the ignored-operand regression. */
+#endif
+    while (*arg) {
+        if (is_space(*arg)) { arg++; continue; }
+        if (*arg == '/') {
+            char option = cmd_upcase_char(*++arg);
+            if (option == 'W') wide = 1;
+            else if (option == 'P') page = 1;
+            else { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+            arg++;
+            continue;
+        }
+        if (len) { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+        while (*arg && !is_space(*arg) && *arg != '/') {
+            if (len >= CMD_LINE_MAX - 5) {
+                dos_print(MSG_DOS_0010 "\r\n$"); return;
+            }
+            spec[len++] = cmd_upcase_char(*arg++);
+        }
+    }
+    spec[len] = 0;
+    if (len > 1 && spec[1] == ':' && spec[0] != 'A') {
+        dos_print(MSG_DOS_0004 "\r\n$"); return;
+    }
+    disp[0] = 'A'; disp[1] = ':'; disp[2] = '\\';
+    if (int21_directory_path(spec, disp+3, INT21_CWD_MAX)) {
+        if (len && spec[len-1] != '\\' && spec[len-1] != ':') spec[len++] = '\\';
+        spec[len++] = '*'; spec[len++] = '.'; spec[len++] = '*'; spec[len] = 0;
+    } else {
+        int leaf = 0;
+        for (int i=0; i<len; i++) if (spec[i] == '\\' || spec[i] == ':') leaf = i+1;
+        for (int i=0; i<leaf; i++) parent[i] = spec[i];
+        parent[leaf] = 0;
+        if (!int21_directory_path(parent, disp+3, INT21_CWD_MAX)) {
+            dos_print(MSG_DOS_0003 "\r\n$"); return;
+        }
+        if (spec[leaf] == '.') {
+            for (int i=len; i>=leaf; i--) spec[i+1] = spec[i];
+            spec[leaf] = '*'; len++;
+        }
+        int dot = 0;
+        for (int i=leaf; i<len; i++) if (spec[i] == '.') dot = 1;
+        if (!dot) { spec[len++] = '.'; spec[len++] = '*'; spec[len] = 0; }
+    }
 
     /* AH=36h counts live FAT free clusters; never infer space from file sizes.
      * Technical Reference AH=36h; the host gate compares this backend to mdir. */
@@ -2496,26 +2580,47 @@ static void builtin_dir(void)
     } else dos_puts_raw(MSG_DOS_0022);
     dos_print("\r\n\r\n$");
 #endif
-    cwd_display(disp);
     dos_puts_raw(MSG_DOS_0023);
     dos_puts_raw(disp);
     dos_print("\r\n\r\n$");
 
     /* Search attribute 0x10 (DIRECTORY) so subdir entries are listed too; the
      * dispatcher already includes plain files. */
-    if (!dos_findfirst("*.*", DIR_ATTR_DIRECTORY)) {
+    if (!dos_findfirst(spec, DIR_ATTR_DIRECTORY)) {
         dos_print(MSG_DOS_0003 "\r\n$");
         return;
     }
     do {
+        if (page && rows >= 23) {
+            dos_print(MSG_DOS_0016 "$" );
+            (void)dos_conin();
+            dos_print("\r\n$"); rows = 0;
+        }
+        if (wide) {
+            char cell[17];
+            int pos = 0;
+            if (g_shell_dta.attr & DIR_ATTR_DIRECTORY) cell[pos++] = '[';
+            for (int i=0; g_shell_dta.fname[i] && pos<15; i++) cell[pos++] = g_shell_dta.fname[i];
+            if (g_shell_dta.attr & DIR_ATTR_DIRECTORY) cell[pos++] = ']';
+            /* Last column ends at its name: padding to column 80 would wrap
+             * the console before the explicit newline. */
+            if (column != 4) while (pos < 16) cell[pos++] = ' ';
+            cell[16] = 0;
+            dos_write(cell, (uint32_t)pos);
+            if (++column == 5) { dos_print("\r\n$"); column = 0; rows++; }
+        } else {
         n = cmd_format_dir_line(g_shell_dta.fname, g_shell_dta.fsize,
                                 g_shell_dta.attr, g_shell_dta.fdate,
                                 g_shell_dta.ftime, g_out);
         /* cmd_format_dir_line ends the line with '\n'; the CON console + serial
          * treat '\n' as newline (the banner uses '\n' too). */
         dos_write(g_out, (uint32_t)n);
+        rows++;
+        }
         files++;
     } while (dos_findnext());
+
+    if (wide && column) dos_print("\r\n$");
 
     dos_print("\r\n$");
     n=cmd_format_dir_footer(files,free_bytes,g_out);
@@ -3200,6 +3305,38 @@ static void read_line(char *out)
     out[i] = '\0';
 }
 
+/* qskz: the primary processor without AUTOEXEC asks for DATE, then TIME.
+ * Empty answers accept the clock; invalid answers reprompt, successful ones
+ * use AH=2Bh/2Dh. Ref: MS-DOS 3.3 Guide pp.19-20 / PDF32-33;
+ * Reference pp.54-55,120-121,135 / PDF139-140,205-206,220;
+ * ADR-0003 Appendix A (0Ah,2Ah-2Dh). Secondary processors do not boot DOS. */
+static void startup_datetime(void)
+{
+    char answer[CMD_LINE_MAX];
+    uint16_t year;
+    uint8_t mon, day, dow, hh, mi, ss, cs;
+    dos_getdate(&year, &mon, &day, &dow);
+    cmd_format_date(dow, year, mon, day, g_out);
+    dos_puts_raw(g_out); dos_print("\r\n$");
+    for (;;) {
+        dos_print("Enter new date (mm-dd-yy): $");
+        read_line(answer);
+        if (!answer[0]) break;
+        if (cmd_parse_date(answer, &year, &mon, &day) && dos_setdate(year, mon, day)) break;
+        dos_print("Invalid date\r\n$");
+    }
+    dos_gettime(&hh, &mi, &ss, &cs);
+    cmd_format_time(hh, mi, ss, cs, g_out);
+    dos_puts_raw(g_out); dos_print("\r\n$");
+    for (;;) {
+        dos_print("Enter new time: $");
+        read_line(answer);
+        if (!answer[0]) break;
+        if (cmd_parse_time(answer, &hh, &mi, &ss) && dos_settime(hh, mi, ss)) break;
+        dos_print("Invalid time\r\n$");
+    }
+}
+
 /* Parse one command `line` and dispatch it to the matching built-in or to
  * run_external.  This is the SHARED dispatch the interactive REPL AND the .BAT
  * interpreter (run_batch's BL_COMMAND path) both call, so internal built-ins
@@ -3219,7 +3356,10 @@ static int dispatch_line(const char *line)
         case CMD_EMPTY:
             break;                       /* blank line -> nothing to do */
         case CMD_DIR:
-            builtin_dir();
+            builtin_dir(parsed.arg);
+            break;
+        case CMD_PATH:
+            builtin_path(parsed.arg);
             break;
         case CMD_VOL:
             builtin_vol(parsed.arg);
@@ -4360,6 +4500,13 @@ void command_repl(int permanent)
              * emu gate's marker assertions go RED -- proving the gate bites.
              * NEVER in a real build. */
             (void)autoexec;
+#endif
+        }
+        else if (g_shell_permanent) {
+#ifndef CMD_MUTATE_STARTUP
+            startup_datetime();
+#else
+            (void)&startup_datetime; /* Rule 6: omit both boot prompts. */
 #endif
         }
     }

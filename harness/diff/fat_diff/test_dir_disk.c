@@ -11,6 +11,9 @@
 static const int21_file_backend_t *backend;
 void int21_set_file_backend(const int21_file_backend_t *b) { backend = b; }
 void int21_set_media(uint8_t media) { (void)media; }   /* AH=1Bh/1Ch seam (509.9) */
+/* This read-only oracle binds no clock. The integration stamp oracle binds
+ * the real INT21 seam instead (dos_parity_host.c). */
+int int21_file_stamp(uint16_t *t, uint16_t *d) { (void)t; (void)d; return 0; }
 
 /* Fixed on-disk fixtures, independent of the artifact label reader. They
  * deliberately disagree between root and BPB, to prove root precedence. */

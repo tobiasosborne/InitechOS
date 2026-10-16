@@ -47,6 +47,14 @@ static void test_parse_basic(void)
     CHECK_STR_EQ(p.arg, "", "cmd_parse: 'dir' has no arg");
     CHECK_STR_EQ(p.tail, "", "cmd_parse: 'dir' has an empty DOS tail (initech-456)");
 
+    /* Reference p.57 accepts switches adjacent to DIR; p.97 has PATH;. */
+    cmd_parse("dir/w", &p);
+    CHECK(p.kind == CMD_DIR, "DIR/W is the internal DIR");
+    CHECK_STR_EQ(p.arg, "/w", "DIR/W switch reaches DIR");
+    cmd_parse("path;", &p);
+    CHECK(p.kind == CMD_PATH, "PATH; clears the command path");
+    CHECK_STR_EQ(p.arg, ";", "PATH; clear operand reaches PATH");
+
     /* "type hello.txt" -> command TYPE (upper), arg "hello.txt" (verbatim). The
      * DOS tail keeps the leading separator (what a child reads at PSP:80h). */
     cmd_parse("type hello.txt", &p);
@@ -83,6 +91,8 @@ static void test_parse_basic(void)
 
 static void test_classify(void)
 {
+    CHECK(cmd_classify("PATH") == CMD_PATH,
+          "PATH is an internal command (Reference p.97)");
     CHECK(cmd_classify("DIR")   == CMD_DIR,      "classify DIR");
     CHECK(cmd_classify("TYPE")  == CMD_TYPE,     "classify TYPE");
     CHECK(cmd_classify("CD")    == CMD_CD,       "classify CD");
@@ -459,20 +469,20 @@ static void test_date_time_format(void)
 {
     char out[40];
 
-    /* Fri 2026-06-20: dow=5 (Fri), 06-20-2026 zero-padded. */
+    /* MS-DOS 3.3 Guide pp.19-20 / PDF32-33: unpadded month and hour. */
     cmd_format_date(5u, 2026u, 6u, 20u, out);
-    CHECK_STR_EQ(out, "Current date is Fri 06-20-2026",
-                 "format_date: Fri 06-20-2026 zero-padded");
+    CHECK_STR_EQ(out, "Current date is Fri 6-20-2026",
+                 "format_date: manual month width");
 
-    /* Sun 1980-01-01 (the epoch; single-digit month/day -> zero-padded). */
+    /* Explicit weekday field, epoch date: unpadded month, two-digit day. */
     cmd_format_date(0u, 1980u, 1u, 1u, out);
-    CHECK_STR_EQ(out, "Current date is Sun 01-01-1980",
-                 "format_date: Sun 01-01-1980 epoch");
+    CHECK_STR_EQ(out, "Current date is Sun 1-01-1980",
+                 "format_date: manual epoch");
 
-    /* 09:05:03.00 -- all fields zero-padded to two digits. */
+    /* 9:05:03.00 -- unpadded hour, remaining fields two digits. */
     cmd_format_time(9u, 5u, 3u, 0u, out);
-    CHECK_STR_EQ(out, "Current time is 09:05:03.00",
-                 "format_time: 09:05:03.00 zero-padded");
+    CHECK_STR_EQ(out, "Current time is 9:05:03.00",
+                 "format_time: manual hour width");
 
     /* 23:59:59.00 -- the upper bounds. */
     cmd_format_time(23u, 59u, 59u, 0u, out);

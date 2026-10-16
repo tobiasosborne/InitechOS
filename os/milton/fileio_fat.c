@@ -93,6 +93,24 @@ static uint8_t            g_fat_window_buf[2u * BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_cluster[BLOCKDEV_SECTOR_SIZE];
 
+/* dwbl: per-call disk commits include the runtime last-write stamp. Explicit
+ * AH=57h remains authoritative until the next write. Ref: IBM DOS 3.30 Tech
+ * Ref pp.5-12/13,6-136/139; ADR-0003 Appendix A/B.1. */
+static int stamp_entry(uint16_t parent, uint32_t slot, dir_entry_t *entry)
+{
+#ifdef FILEIO_MUTATE_NO_STAMP
+    (void)parent; (void)slot; (void)entry;
+    return FAT12_OK;
+#else
+    uint16_t time, date;
+    if (!int21_file_stamp(&time, &date)) return FAT12_OK;
+    int rc = fat12_set_dirent_time(g_vol, g_fat, g_fat_len, parent, slot,
+                                  time, date, g_sector);
+    if (rc == FAT12_OK && entry) { entry->mtime = time; entry->mdate = date; }
+    return rc;
+#endif
+}
+
 /* ------------------------------------------------------------------------ *
  * Directory leaf lookup (beads initech-mzxa READ side; initech-zs24 WRITE side).
  * fat12_find_slot_in locates the bare 8.3 `name83` in the directory whose first
@@ -270,6 +288,9 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
         return FILEIO_ERR_ACCESS_DENIED;   /* bad name / write error */
     }
 
+    if (stamp_entry(parent, slot, &de) != FAT12_OK)
+        return FILEIO_ERR_ACCESS_DENIED;
+
     *out_entry = de;
     *out_slot  = slot;
     return 0u;
@@ -299,6 +320,9 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
         return FILEIO_ERR_ACCESS_DENIED;
     }
     *out_written = wrote;
+
+    if (stamp_entry(dir_start, slot, 0) != FAT12_OK)
+        return FILEIO_ERR_ACCESS_DENIED;
 
     /* Re-read the (now-patched) dir entry at the same slot OF THE SAME DIRECTORY
      * so the caller refreshes the SFT copy's size + start_cluster
@@ -497,6 +521,13 @@ static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
     int rc = fat12_mkdir(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
                          g_sector, g_cluster);
     if (rc == FAT12_OK) {
+        dir_entry_t de;
+        uint32_t slot;
+        if (locate_in_dir(name83, dir_start_cluster, &de, &slot) ||
+            stamp_entry(dir_start_cluster, slot, &de) != FAT12_OK ||
+            stamp_entry(de.start_cluster, 0u, 0) != FAT12_OK ||
+            stamp_entry(de.start_cluster, 1u, 0) != FAT12_OK)
+            return FILEIO_ERR_ACCESS_DENIED;
         return 0u;
     }
     /* Every failure mode maps to ACCESS_DENIED for DOS MKDIR (name exists, dir
