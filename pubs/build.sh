@@ -11,6 +11,9 @@
 set -eu
 out=$1; gen=$2; mode=${3:-}
 root=$(cd "$(dirname "$0")" && pwd)
+cache=$root/../build/pubs-tex-cache
+mkdir -p "$cache"
+export TEXMFVAR="$cache" TEXMFCACHE="$cache"
 LATEXMK=${LATEXMK:-latexmk}
 mkdir -p "$out"
 out=$(cd "$out" && pwd); gen=$(cd "$gen" && pwd)
@@ -26,8 +29,8 @@ for dir in "$root"/manuals/*/; do
         log=$out/$m/$doc.latexmk.out
         if ! ( cd "$dir" && \
                SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
-               TEXINPUTS="$root/class//:$gen//:" INDEXSTYLE="$root/class:" \
-               "$LATEXMK" -r "$root/latexmkrc" -outdir="$out/$m" $pretex "$doc.tex" \
+               TEXINPUTS="$root/class//:$root/common//:$gen//:" INDEXSTYLE="$root/class:" \
+               "$LATEXMK" -g -r "$root/latexmkrc" -outdir="$out/$m" $pretex "$doc.tex" \
              ) > "$log" 2>&1; then
             grep -E '^[^ ]*:[0-9]+: |^! ' "$out/$m/$doc.log" 2>/dev/null | head -20 || true
             tail -20 "$log"

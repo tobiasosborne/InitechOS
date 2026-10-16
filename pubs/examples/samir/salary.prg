@@ -1,0 +1,4 @@
+SET TALK OFF
+SET DECIMALS TO 2
+salary = 1200
+? salary + 25

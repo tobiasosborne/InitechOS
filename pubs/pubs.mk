@@ -81,8 +81,7 @@ test-pubs-build: $(PUBS_MSG_TEX)
 	@set -e; for log in $(PUBS_BUILD)/gate/*/*.log; do \
 		doc=$${log%.log}; name=$${doc#$(PUBS_BUILD)/gate/}; \
 		over=$$(grep -c '^Overfull \\[hv]box' $$log || true); \
-		if [ "$$over" -gt $(PUBS_OVERFULL_MAX) ]; then grep -A2 '^Overfull' $$log || true; \
-			printf '!!! test-pubs-build FAIL: %s: %s overfull boxes (cap PUBS_OVERFULL_MAX=%s)\n' "$$name" "$$over" "$(PUBS_OVERFULL_MAX)"; exit 1; fi; \
+		sh harness/pubs/check_log.sh "$$log" "$(PUBS_OVERFULL_MAX)"; \
 		if grep -E -q 'There were undefined references|Reference .* undefined|Label\(s\) may have changed' $$log; then \
 			printf '!!! test-pubs-build FAIL: %s: undefined or unsettled references\n' "$$name"; exit 1; fi; \
 		if grep -q 'Missing character' $$log; then grep 'Missing character' $$log | head -5; \
@@ -137,7 +136,7 @@ pubs-screens: $(PUBS_SCREEN_DEPS)
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
 		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
 			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens/$$m; \
-		cp $(PUBS_BUILD)/screens/$$m/*.txt $$d/; \
+		cp -f $(PUBS_BUILD)/screens/$$m/*.txt $$d/; \
 		printf '>>> pubs-screens: %s updated -- review `git diff %s`\n' "$$m" "$$d"; done
 test-pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; n=0; for m in $(PUBS_MANUALS); do \
@@ -145,8 +144,67 @@ test-pubs-screens: $(PUBS_SCREEN_DEPS)
 		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
 			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens-check/$$m; \
 		for t in $(PUBS_BUILD)/screens-check/$$m/*.txt; do \
-			diff -u $$d/$$(basename $$t) $$t || { printf '!!! test-pubs-screens FAIL: %s/%s: the OS no longer prints what the book shows\n' "$$m" "$$(basename $$t)"; exit 1; }; \
+			$(PUBS_GATE) same SCREEN-DRIFT $$d/$$(basename $$t) $$t || { diff -u $$d/$$(basename $$t) $$t || true; exit 1; }; \
 			n=$$((n + 1)); done; \
 		for c in $$d/*.txt; do [ -f $(PUBS_BUILD)/screens-check/$$m/$$(basename $$c) ] || { \
 			printf '!!! test-pubs-screens FAIL: %s has no SCREENS entry\n' "$$c"; exit 1; }; done; done; \
 	printf '>>> test-pubs-screens: green (%s screens in the manuals == live OS output)\n' "$$n"
+	@sh harness/pubs/check_screens.sh $(PUBS_BUILD)/gate
+
+# PUB-REF-0001 GC-01/03/05/06 and PN-01/05 (initech-ipu5.6).
+PUBS_GATE := $(BUILD)/pubs_gate
+PUBS_INT21 := $(BUILD)/pubs_int21_inventory
+PUBS_REPLAY := $(BUILD)/pubs_samir_replay
+PUBS_CHECK := $(PUBS_BUILD)/correctness
+PUBS_ALLOW := harness/pubs/pilot.allow
+PUBS_GATE_INPUTS := $(shell find pubs -type f)
+
+$(PUBS_GATE): harness/pubs/pubs_gate.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+$(PUBS_INT21): harness/pubs/int21_inventory.c $(KERNEL_INT21_C) $(DOS_MESSAGES_H) | $(BUILD)
+	$(CC) $(CFLAGS) -ffunction-sections -fdata-sections -Ispec -Ios/milton -Iseed -Ibuild -Wl,--gc-sections -o $@ $<
+$(PUBS_REPLAY): harness/pubs/samir_replay.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+
+.PHONY: test-pubs test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory
+# Recursive expansion sees FLAIR_FIXTURES, included after this makefile.
+pubs-inventory: $(PUBS_GATE) $(PUBS_INT21) $(DOS_MESSAGES_H)
+	@mkdir -p $(PUBS_CHECK)
+	@$(CC) -E -P -Ispec -Ios/milton -Ibuild os/milton/command.c > $(PUBS_CHECK)/command.i
+	@$(PUBS_INT21) > $(PUBS_CHECK)/int21.list
+	@$(PUBS_GATE) inventory $(PUBS_CHECK)/command.i $(PUBS_CHECK)/int21.list $(filter APPS/%,$(FLAIR_FIXTURES)) > $(PUBS_CHECK)/shipped
+
+ifeq ($(SKIP_PUBS),1)
+test-pubs test-pubs-mutant:
+	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- publication correctness was NOT checked. This is NOT a pass; unset SKIP_PUBS before trusting this gate.\n'
+else
+test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-screens
+	@printf '>>> test-pubs: green (command coverage, example replay, source lints, build cap)\n'
+test-pubs-commands: pubs-inventory test-pubs-build
+	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.commands $(PUBS_BUILD)/gate/*/main.mentions; do \
+		case $$idx in */initechdos-users-guide/*) continue;; esac; \
+		[ ! -s "$$idx" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
+	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_BUILD)/gate/initechdos-users-guide/main.commands $(PUBS_ALLOW)
+	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(PUBS_BUILD)/gate/initechdos-users-guide/main.mentions
+	@sh harness/pubs/check_allowlist.sh $(PUBS_GATE) $(PUBS_ALLOW) $(PUBS_CHECK)
+test-pubs-lint: $(PUBS_GATE)
+	@$(PUBS_GATE) lint pubs/denylist.txt pubs
+	@sha256sum -c pubs/fonts.lock > $(BUILD)/pubs-fonts.log
+	@printf '>>> test-pubs-fonts: green (all font files match fonts.lock)\n'
+test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE)
+	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
+test-pubs-mutant: test-pubs $(PUBS_GATE)
+	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW)
+endif
+
+# TeX emits the figure registry, preventing unchecked printed captures.
+test-pubs-screens: test-pubs-build $(PUBS_GATE)
+
+.PHONY: test-pubs-families
+ifeq ($(SKIP_PUBS),1)
+test-pubs-families:
+	@printf '!!! test-pubs-families SKIPPED (SKIP_PUBS=1 opt-out) -- family furniture was NOT checked; this is NOT a pass.\n'
+else
+test-pubs-families:
+	@sh harness/pubs/families.sh
+endif
