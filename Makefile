@@ -11009,10 +11009,10 @@ test-flair-cursor: $(HARNESS_BIN) $(FLAIR_CURSOR_IMAGE) $(FLAIR_DATA_IMG) $(PPM_
 
 # M009 Rule-6 twin: same kernel, locked trace and grader; swap cursor.o only.
 $(BUILD)/cursor_mut_squared_stem.o: os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CURSOR_OPT) -DCURSOR_MUT_SQUARED_STEM -Ios/flair -Ispec/assets -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) -DCURSOR_MUT_SQUARED_STEM -Ios/flair -Ispec/assets -c $< -o $@
 
 $(BUILD)/kernel_flairtenants_mut_cursor_squared.elf: $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o
 
 $(BUILD)/kernel_flairtenants_mut_cursor_squared.bin: $(BUILD)/kernel_flairtenants_mut_cursor_squared.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
