@@ -31515,3 +31515,5 @@ test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LA
 	done
 	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes rejected)\n'
 TEST_EMU_GATES += test-samir-list-layout-emu test-samir-list-layout-emu-mutant
+
+include harness/diff/fat_diff/batch2.mk
