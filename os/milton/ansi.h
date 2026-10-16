@@ -73,6 +73,11 @@
  * (SGR can take up to ~4 in practice).  16 is ample and bounded (Rule 2). */
 #define ANSI_PARAM_MAX   16
 
+/* Local numeric safety bound (initech-5y5r), not a DOS-defined digit limit.
+ * IBM DOS 3.30 Technical Reference pp. 3-7/3-8 bounds movement at screen
+ * edges; 9999 exceeds the canonical 25x80 screen without signed overflow. */
+#define ANSI_PARAM_VALUE_MAX 9999
+
 /* The default parameter value when a numeric field is omitted.  Most DOS
  * ANSI.SYS sequences treat an absent parameter as 1 (cursor movement) or 0
  * (SGR / erase).  Callers use ANSI_PARAM_DEFAULT to distinguish "not set". */

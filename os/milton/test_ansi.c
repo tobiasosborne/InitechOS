@@ -948,8 +948,80 @@ static void test_key_remap(void)
  * main
  * =========================================================================*/
 
+/* Lane regression oracle: IBM DOS 3.30 Technical Reference, printed pp. 3-4
+ * (zero defaults), 3-7/3-8 (bounded relative movement), 3-10 (DSR), 3-12
+ * (save/restore), 3-15 (SGR 8 invisible). The 9999 parser bound is a local
+ * safety limit, not a claimed DOS numeric limit; it exceeds this screen. */
+static void test_ansi_lane(void)
+{
+    ansi_state_t st;
+    action_log_t log;
+    const int dr[] = { -1, 1, 0, 0 };
+    const int dc[] = { 0, 0, 1, -1 };
+    for (int i = 0; i < 4; i++) {
+        char seq[] = "\033[0A";
+        seq[3] = (char)('A' + i);
+        ansi_init(&st, 25, 80);
+        log_reset(&log);
+        feed_str(&st, "\033[10;20H", &log);
+        log_reset(&log);
+        feed_str(&st, seq, &log);
+        CHECK(log.count == 1 && log.acts[0].kind == ANSI_ACT_CURSOR_REL &&
+              log.acts[0].delta_row == dr[i] && log.acts[0].delta_col == dc[i],
+              "mybc/ng8n: explicit zero A/B/C/D defaults to one");
+        log_reset(&log);
+        feed_str(&st, "\033[6n", &log);
+        CHECK(log.count == 1 && log.acts[0].row == 9 + dr[i] &&
+              log.acts[0].col == 19 + dc[i],
+              "s7cm: DSR follows each relative direction in the pure FSM");
+    }
+    for (int bg = 0; bg < 8; bg++) {
+        /* Independent CGA background nibbles in ANSI colour order. */
+        static const uint8_t bg_nibbles[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
+        char seq[] = "\033[0;1;5;37;40m\033[8m";
+        seq[12] = (char)('0' + bg);
+        ansi_init(&st, 25, 80);
+        log_reset(&log);
+        feed_str(&st, seq, &log);
+        CHECK(log.count == 2 && log.acts[1].attr ==
+              (uint8_t)(0x80u | (bg_nibbles[bg] << 4) | bg_nibbles[bg]),
+              "0u02/i427: conceal clears bright foreground on every background");
+    }
+    /* Check every prefix, including one far beyond any machine integer. */
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    feed_str(&st, "\033[", &log);
+    for (int i = 0; i < 1024; i++) {
+        ansi_feed(&st, '9', log_cb, &log);
+        CHECK(st.param_current >= 0 && st.param_current <= 9999,
+              "5y5r: every numeric prefix stays within the parser safety cap");
+    }
+    feed_str(&st, "B\033[6n", &log);
+    CHECK(log.count == 2 && log.acts[0].delta_row == 9999 &&
+          log.acts[1].row == 24 && log.acts[1].col == 0,
+          "5y5r: saturated movement reaches bottom without wraparound");
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    feed_str(&st, "\033[3000000000;3000000000H\033[6n", &log);
+    CHECK(log.count == 2 && log.acts[1].row == 24 && log.acts[1].col == 79,
+          "5y5r: huge CUP parameters reach the bottom right corner");
+
+    ansi_init(&st, 25, 80);
+    log_reset(&log);
+    feed_str(&st, "\033[4;7H\033[3B\033[5C\033[2A\033[4D\033[s"
+                  "\033[9999B\033[9999C\033[9999A\033[9999D\033[6n", &log);
+    const ansi_action_t *a = find_action(&log, ANSI_ACT_DEVICE_STATUS, 0);
+    CHECK(a && a->row == 0 && a->col == 0,
+          "s7cm: all four relative directions clamp at screen edges");
+    log_reset(&log);
+    feed_str(&st, "\033[u\033[6n", &log);
+    CHECK(log.count == 2 && log.acts[1].row == 4 && log.acts[1].col == 7,
+          "s7cm: save/restore retains the position after mixed relative moves");
+}
+
 int main(void)
 {
+    test_ansi_lane();
     test_erase_display();
     test_cursor_position();
     test_sgr_bright_red();

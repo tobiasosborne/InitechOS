@@ -82,6 +82,13 @@ static int21_ansi_gate_fn g_ansi_gate   = 0;
 /* The apply-layer cursor save slot (ESC[s/ESC[u); the console is the truth. */
 static int                g_ansi_saved_row = 0;
 static int                g_ansi_saved_col = 0;
+/* IBM DOS 3.30 Technical Reference pp. 3-10/3-11: DSR places CPR bytes in
+ * console input. Keep complete replies in a bounded FIFO; never emit a partial
+ * CPR if unread replies have filled it. No keyboard-driver mutation needed. */
+#define ANSI_REPLY_CAP 64u
+static uint8_t g_ansi_reply[ANSI_REPLY_CAP];
+static unsigned g_ansi_reply_head = 0u;
+static unsigned g_ansi_reply_count = 0u;
 
 /* The current process's PSP (beads initech-509.3). Handle functions resolve a
  * handle through g_cur_psp->jft into the system SFT. NULL until the kernel binds
@@ -528,8 +535,19 @@ static void zf_set(int_frame_t *f)   { f->eflags |=  ZF_BIT; }
  * conin_get: BLOCKING read of one char (0..255). With no source bound it
  * returns 0 -- a graceful no-input result, NEVER a hang (Rule 2). conin_poll: a
  * non-blocking read; returns the char (0..255) or -1 when none / no source. */
+static int ansi_reply_poll(void)
+{
+    if (g_ansi_reply_count == 0u) return -1;
+    int c = g_ansi_reply[g_ansi_reply_head];
+    g_ansi_reply_head = (g_ansi_reply_head + 1u) % ANSI_REPLY_CAP;
+    g_ansi_reply_count--;
+    return c;
+}
+
 static int conin_get(void)
 {
+    int c = ansi_reply_poll();
+    if (c >= 0) return c;
     if (g_conin_get) {
         return g_conin_get() & 0xFF;
     }
@@ -538,6 +556,8 @@ static int conin_get(void)
 
 static int conin_poll(void)
 {
+    int c = ansi_reply_poll();
+    if (c >= 0) return c;
     if (g_conin_poll) {
         return g_conin_poll();
     }
@@ -613,9 +633,11 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
         break;
 
     case ANSI_ACT_CURSOR_REL:
+#ifndef ANSIWIRE_MUTATE_DROP_REL
         if (g_ansi_ops.cursor_rel) {
             g_ansi_ops.cursor_rel(g_ansi_ops.ctx, act->delta_row, act->delta_col);
         }
+#endif
         break;
 
     case ANSI_ACT_SAVE_CURSOR:
@@ -652,13 +674,27 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
         break;
 
     case ANSI_ACT_DEVICE_STATUS:
-        /* ESC[6n Device Status Report. The response (ESC[<row+1>;<col+1>R) must
-         * be injected into the CON INPUT queue so a program reading stdin sees
-         * it. There is no keyboard-INJECT seam yet (g_conin_* are READ-only), so
-         * this is a DEFERRED follow-up: we read the live cursor (proving the data
-         * path) but drop the response. Wiring it needs a kbd-inject seam bound by
-         * the kernel. Ref: MS-DOS 3.3 Tech Ref Ch 4 "DSR" / RBIL ANSI.SYS 6n. */
-        /* (deferred -- see bd follow-up) */
+        {
+            /* IBM DOS 3.30 printed pp. 3-10/3-11: ESC[rr;ccR via stdin.
+             * The manual's example reads TWO row and TWO column digits.
+             * con_putc synchronises the FSM with the live 25x80 console. */
+            unsigned row = (unsigned)ansi_clamp(act->row, 0, 24) + 1u;
+            unsigned col = (unsigned)ansi_clamp(act->col, 0, 79) + 1u;
+            uint8_t reply[8] = { 0x1bu, '[', (uint8_t)('0' + row / 10u),
+                (uint8_t)('0' + row % 10u), ';', (uint8_t)('0' + col / 10u),
+                (uint8_t)('0' + col % 10u), 'R' };
+#ifndef ANSIWIRE_MUTATE_DROP_DSR
+            if (g_ansi_reply_count <= ANSI_REPLY_CAP - sizeof(reply)) {
+                for (unsigned i = 0; i < sizeof(reply); i++) {
+                    unsigned tail = (g_ansi_reply_head + g_ansi_reply_count) % ANSI_REPLY_CAP;
+                    g_ansi_reply[tail] = reply[i];
+                    g_ansi_reply_count++;
+                }
+            }
+#else
+            (void)reply;
+#endif
+        }
         break;
 
     case ANSI_ACT_BELL:
@@ -691,6 +727,15 @@ static void con_putc(char c)
              * clamp absolute moves, and the console clamps again defensively. */
             ansi_init(&g_ansi_st, 25, 80);
             g_ansi_inited = 1;
+        }
+        /* Plain text, wrapping, scrolling and external console clients also
+         * move the cursor. IBM DOS 3.30 p. 3-10 requires the CURRENT position;
+         * refresh before feeding so DSR, relative moves and saves share it. */
+        if (g_ansi_ops.get_cursor) {
+            int row, col;
+            g_ansi_ops.get_cursor(g_ansi_ops.ctx, &row, &col);
+            g_ansi_st.row = ansi_clamp(row, 0, g_ansi_st.rows - 1);
+            g_ansi_st.col = ansi_clamp(col, 0, g_ansi_st.cols_wide - 1);
         }
         ansi_feed(&g_ansi_st, (uint8_t)c, ansi_apply, 0);
         return;
