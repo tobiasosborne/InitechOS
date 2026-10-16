@@ -48,6 +48,8 @@
  *                            (test-itext-route)
  *   ITEXT_MUT_SEL_NOT_INVERSE  a range is drawn as plain text
  *                            (test-itext-route, test-flair-itext PIXEL leg)
+ *   ITEXT_MUT_SCROLL_NEVER_ENABLED  reports a fitting document forever
+ *                            (test-itext-route, test-flair-itext-scroll)
  *
  * Freestanding C (Law 3). ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
@@ -222,6 +224,10 @@ static void show_caret(void)
     if (top - TEXT_Y < g_scroll) g_scroll = top - TEXT_Y;
     if (bot + TEXT_Y > g_scroll + CONT_H) g_scroll = bot + TEXT_Y - CONT_H;
     if (g_scroll < 0) g_scroll = 0;
+#ifdef ITEXT_MUT_SCROLL_NEVER_ENABLED
+    /* Rule 6 (ehq4): the shared bar is never given an overflowing extent. */
+    doc = CONT_H;
+#endif
     {
         int was = g_scroll;
         g_scroll = tbx_set_scroll(g_win, doc, g_scroll);

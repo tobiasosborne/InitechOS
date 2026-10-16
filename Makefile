@@ -10057,6 +10057,7 @@ $(eval $(call tenant-exe-rules,itext,$(ITEXT_APP_SRC),$(ITEXT_APP_CF),$(ITEXT_AP
 $(eval $(call tenant-exe-rules,itext_copy_nothing,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_COPY_NOTHING,$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_save_no_cr,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SAVE_NO_CR,$(ITEXT_APP_DEP),--gc-sections))
 $(eval $(call tenant-exe-rules,itext_sel_plain,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SEL_NOT_INVERSE,$(ITEXT_APP_DEP),--gc-sections))
+$(eval $(call tenant-exe-rules,itext_no_scroll,$(ITEXT_APP_SRC),$(ITEXT_APP_CF) -DITEXT_MUT_SCROLL_NEVER_ENABLED,$(ITEXT_APP_DEP),--gc-sections))
 ITEXT_EXE := $(BUILD)/tenant/itext.exe
 
 # FONTS.EXE -- the Font Manager specimen tenant (os/apps/fonts/fonts.c; bead
@@ -13430,7 +13431,7 @@ test-itext-route: $(TEST_ITEXT_ROUTE)
 	@$(TEST_ITEXT_ROUTE)
 	@printf '>>> test-itext-route: green\n'
 
-ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse
+ITEXT_ROUTE_MUTANTS := ITEXT_MUT_COPY_NOTHING:copy ITEXT_MUT_SAVE_NO_CR:save ITEXT_MUT_QUIT_NO_ASK:quit ITEXT_MUT_SEL_NOT_INVERSE:inverse ITEXT_MUT_SCROLL_NEVER_ENABLED:scroll
 test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_route_mutant_$(firstword $(subst :, ,$(m))))
 	@for pair in $(ITEXT_ROUTE_MUTANTS); do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_itext_route_mutant_$$m; \
@@ -13439,7 +13440,7 @@ test-itext-route-mutant: $(foreach m,$(ITEXT_ROUTE_MUTANTS),$(BUILD)/test_itext_
 		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-itext-route-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
 		printf '>>> test-itext-route-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
 	done
-	@printf '>>> test-itext-route-mutant: green (all four mutants RED for the named reason)\n'
+	@printf '>>> test-itext-route-mutant: green (all five mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
@@ -23032,6 +23033,14 @@ RECORD_SPEC_itext_savefile = $(FLAIR_ITEXT_SPEC)
 RECORD_MARKER_itext_savefile = TENANT-SF-REPLY good=1 path=MEMO.TXT
 RECORD_SETTLE_itext_savefile = 400
 RECORD_IMAGE_itext_savefile = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# ehq4 Rule 14: the SAME locked forty-Return leg as test-flair-itext-scroll.
+# Defined before record-flair: its image/data prerequisites are read at parse time.
+RECORD_SCRIPTS += itext_scroll
+RECORD_SPEC_itext_scroll = $(FLAIR_ITEXT_SCROLL_SPEC)
+RECORD_MARKER_itext_scroll = TENANT-GATE ax=0x00c1 win=1 len=459 value=70 -> 70
+RECORD_SETTLE_itext_scroll = 400
+RECORD_IMAGE_itext_scroll = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_itext_scroll = $(FLAIR_DATA_IMG)
 # fonts_styles (bead initech-tdnl.68, Font Manager slice 2; Rule 14): the FONTS
 # specimen opens from the Finder -- its narrow window titled "Font Manager
 # Styl" + the Chicago ellipsis, plain / bold / italic / underline / combined
@@ -30899,15 +30908,15 @@ $(BUILD)/test_menu_look: harness/proptest/test_menu_look.c $(TEST_MENU_DEPS) $(M
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -o $@ $< $(MENU_LINK) -lpng
 $(BUILD)/test_menu_look_mut_%: harness/proptest/test_menu_look.c $(TEST_MENU_DEPS) $(MENU_LOOK_GOLDEN)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(MENU_INC) -D$* -o $@ $< $(MENU_LINK) -lpng
-MENU_LOOK_MUTANTS := MENU_LOOK_MUT_FLAT_HILITE MENU_LOOK_MUT_WRONG_RPAD MENU_LOOK_MUT_V_MARK
+MENU_LOOK_MUTANTS := MENU_LOOK_MUT_FLAT_HILITE MENU_LOOK_MUT_WRONG_RPAD MENU_LOOK_MUT_V_MARK MENU_LOOK_MUT_OLD_DIVIDER_INSET
 .PHONY: test-menu-look test-menu-look-mutant
 test-menu-look: $(BUILD)/test_menu_look
 	@$< "$(MENU_LOOK_PNG)" "$(MENU_LOOK_NFNT)"
-	@printf '>>> test-menu-look: green (independent title band, item20/4, shortcut14, NFNT check18; both depths; clipping)\n'
+	@printf '>>> test-menu-look: green (independent title band, item20/4, shortcut14, NFNT check18, whole divider rows; both depths; clipping)\n'
 test-menu-look-mutant: test-menu-look $(foreach m,$(MENU_LOOK_MUTANTS),$(BUILD)/test_menu_look_mut_$(m))
 	@for m in $(MENU_LOOK_MUTANTS); do \
 	 if $(BUILD)/test_menu_look_mut_$$m "$(MENU_LOOK_PNG)" "$(MENU_LOOK_NFNT)" > $(BUILD)/menu_look_$$m.log 2>&1; then printf 'FAIL mutant %s survived\n' "$$m"; exit 1; fi; \
-	 case "$$m" in *FLAT*) leg=ML1;; *RPAD*) leg=ML4;; *MARK*) leg=ML5;; esac; \
+	 case "$$m" in *FLAT*) leg=ML1;; *RPAD*) leg=ML4;; *MARK*) leg=ML5;; *DIVIDER*) leg=ML10;; esac; \
 	 grep -q "FAIL.*$$leg" $(BUILD)/menu_look_$$m.log || { cat $(BUILD)/menu_look_$$m.log; exit 1; }; \
 	 printf '>>> test-menu-look-mutant: %s correctly RED (%s)\n' "$$m" "$$leg"; done
 TEST_UNIT_GATES += test-menu-look test-menu-look-mutant
@@ -30937,15 +30946,23 @@ test-flair-menu-look: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_gate.i
 	@$(MENU_LOOK_CHECK) file $(BUILD)/menu_look_file.ppm
 	$(call menu-look-boot,menu_look_view,$(BUILD)/flair_tenants_mut_menu_look_gate.img,FLAIR-MENU-XDROP menu=514)
 	@$(MENU_LOOK_CHECK) view $(BUILD)/menu_look_view.ppm
-	@printf '>>> test-flair-menu-look: green (File dark band/white ink/item20/4/shortcut14; View NFNT check18)\n'
+	@printf '>>> test-flair-menu-look: green (File dark band/white ink/item20/4/shortcut14/whole divider rows; View NFNT check18)\n'
 $(BUILD)/menu_mut_look_flat.o: os/flair/menu.c $(TEST_MENU_DEPS)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_FLAT_HILITE -c $< -o $@
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/menu_mut_look_flat.o $(BUILD)/finder_desktop_recorddbl.o,menu_look_flat))
-test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_flat.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
+$(BUILD)/menu_mut_old_divider_inset.o: os/flair/menu.c $(TEST_MENU_DEPS)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_OLD_DIVIDER_INSET -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/menu_mut_old_divider_inset.o $(BUILD)/finder_desktop_recorddbl.o,menu_old_divider_inset))
+test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_flat.img $(BUILD)/flair_tenants_mut_menu_old_divider_inset.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
 	$(call menu-look-boot,menu_look_mut,$(BUILD)/flair_tenants_mut_menu_look_flat.img,FLAIR-MENU-DROP menu=512)
 	@if $(MENU_LOOK_CHECK) file $(BUILD)/menu_look_mut.ppm > $(BUILD)/menu_look_mut.pixels 2>&1; then printf 'FAIL flat hilite survived\n'; exit 1; fi
 	@grep -q 'FAIL menu-look ML1 title band' $(BUILD)/menu_look_mut.pixels
 	@printf '>>> test-flair-menu-look-mutant: MENU_LOOK_MUT_FLAT_HILITE correctly RED (ML1 title band)\n'
+	$(call menu-look-boot,menu_look_mut_divider,$(BUILD)/flair_tenants_mut_menu_old_divider_inset.img,FLAIR-MENU-DROP menu=512)
+	@if $(MENU_LOOK_CHECK) file $(BUILD)/menu_look_mut_divider.ppm > $(BUILD)/menu_look_mut_divider.pixels 2>&1; then printf 'FAIL old divider inset survived\n'; exit 1; fi
+	@grep -q 'FAIL menu-look ML10 whole divider rows' $(BUILD)/menu_look_mut_divider.pixels
+	@! grep -Eq 'FAIL menu-look (ML1 title|ML4|ML9)' $(BUILD)/menu_look_mut_divider.pixels
+	@printf '>>> test-flair-menu-look-mutant: MENU_LOOK_MUT_OLD_DIVIDER_INSET correctly RED (ML10 whole divider rows)\n'
 TEST_EMU_GATES += test-flair-menu-look test-flair-menu-look-mutant
 
 $(BUILD)/test_chicago_check_mutant: $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS)
@@ -31249,6 +31266,34 @@ test-flair-itext-mutant: test-flair-itext $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG)
 
 TEST_UNIT_GATES += test-te-surface test-te-surface-mutant test-itext-route test-itext-route-mutant
 TEST_EMU_GATES += test-flair-itext test-flair-itext-mutant
+
+# ehq4: the existing C tenant / SETSCROLL service, driven by forty Returns.
+# Golden pixels are the scroll-look Mac OS 8 crops (PNG-verified host leg).
+# The frame, full enabled vertical bar, disabled horizontal bar and visible
+# caret are all graded. Mutant volume substitutes only TEXT.EXE; it adds no
+# file to the shipped volume and preserves APPS cell12 / the locked prefix.
+FLAIR_DATA_ITEXT_NOSCROLL_IMG := $(BUILD)/flair_data_itext_noscroll.img
+$(eval $(call flair-data-rules,$(FLAIR_DATA_ITEXT_NOSCROLL_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),$(BUILD)/tenant/itext_no_scroll.exe))
+ITEXT_SCROLL_INPUT = [ "$$(grep -c '^TENANT-EVT what=3$$' $(1))" -eq 40 ]
+ITEXT_SCROLL_SERIAL = grep '^TENANT-GATE ax=0x00c1 ' $(1) | tail -1 | grep -qx 'TENANT-GATE ax=0x00c1 win=1 len=459 value=70 -> 70'
+.PHONY: test-flair-itext-scroll test-flair-itext-scroll-mutant
+test-flair-itext-scroll: $(HARNESS_BIN) $(FLAIR_ITEXT_GATE_IMG) $(FLAIR_DATA_IMG) $(SCROLL_LOOK_CHECK) test-itext-route test-scrollbar-look
+	$(call appl-boot,flair_itext_scroll,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_ITEXT_SCROLL_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_scroll.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_scroll.serial)
+	@$(call ITEXT_SCROLL_INPUT,$(BUILD)/flair_itext_scroll.serial) || { printf 'FAIL itext-scroll: expected exactly forty key events\n'; exit 1; }
+	@$(call ITEXT_SCROLL_SERIAL,$(BUILD)/flair_itext_scroll.serial) || { printf 'FAIL itext-scroll: forty Returns did not set range/value70\n'; exit 1; }
+	@$(SCROLL_LOOK_CHECK) itext $(BUILD)/flair_itext_scroll.ppm
+	@printf '>>> test-flair-itext-scroll: green (40 Returns; range/value70; whole enabled bar; caret in view)\n'
+test-flair-itext-scroll-mutant: test-flair-itext-scroll $(FLAIR_DATA_ITEXT_NOSCROLL_IMG)
+	$(call appl-boot,flair_itext_scroll_mut,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_ITEXT_NOSCROLL_IMG),FLAIR_ITEXT_SCROLL_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
+	@$(call APPL_ALIVE,$(BUILD)/flair_itext_scroll_mut.serial) && $(call ITEXT_UP,$(BUILD)/flair_itext_scroll_mut.serial)
+	@$(call ITEXT_SCROLL_INPUT,$(BUILD)/flair_itext_scroll_mut.serial)
+	@grep '^TENANT-GATE ax=0x00c1 ' $(BUILD)/flair_itext_scroll_mut.serial | tail -1 | grep -qx 'TENANT-GATE ax=0x00c1 win=1 len=389 value=70 -> 0'
+	@if $(call ITEXT_SCROLL_SERIAL,$(BUILD)/flair_itext_scroll_mut.serial); then printf 'FAIL scroll-never-enabled passed serial leg\n'; exit 1; fi
+	@if $(SCROLL_LOOK_CHECK) itext $(BUILD)/flair_itext_scroll_mut.ppm > $(BUILD)/flair_itext_scroll_mut.pixels 2>&1; then printf 'FAIL scroll-never-enabled passed pixel leg\n'; exit 1; fi
+	@grep -q 'FAIL scroll-look crop thumb-v' $(BUILD)/flair_itext_scroll_mut.pixels
+	@printf '>>> test-flair-itext-scroll-mutant: ITEXT_MUT_SCROLL_NEVER_ENABLED correctly RED (range0; independent thumb-v crop)\n'
+TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk

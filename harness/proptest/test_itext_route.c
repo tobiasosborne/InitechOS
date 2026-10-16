@@ -40,8 +40,8 @@
 static long g_checks, g_fails;
 static int  g_said[16];
 static const char *const g_rn[] = { "copy", "save", "quit", "inverse", "route",
-                                    "scrap", "file", "menu", "open", "edit" };
-enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT };
+                                    "scrap", "file", "menu", "open", "edit", "scroll" };
+enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL };
 #define CHECK(c, r, ...) do { g_checks++; if (!(c)) { g_fails++; if (!g_said[r]) {    \
     g_said[r] = 1; printf("RED-REASON %s: ", g_rn[r]); printf(__VA_ARGS__);           \
     printf(" (line %d)\n", __LINE__); } else { printf("  FAIL line %d\n", __LINE__); } } } while (0)
@@ -340,6 +340,23 @@ int main(void)
     CHECK(m_sf == 2, R_SAVE, "untitled Save from the alert asks a name");
     sf_answer(NULL);
     CHECK(m_exits == 0 && g_dirty, R_QUIT, "Cancel in Save As keeps it open and dirty");
+
+    /* ehq4: the exact emu history, forty Returns from an empty document.
+     * Expected extent is 41 Geneva9 lines x 11 + two SimpleText 4px insets;
+     * view389 is the locked frame's content. IM TextEdit keeps the insertion
+     * point visible; SimpleText's one-pixel caret is visible in independent
+     * goldens/captures/s8_simpletext_doc_caret.png (system7-decomp). Its
+     * line height is adapted to the owned Geneva9 strike as documented by
+     * itext.c. No expected value reads the app's geometry or TE record. */
+    launch();
+    for (int i = 0; i < 40; i++) type("\r");
+    CHECK(m_scroll_len == 459 && m_scroll_val == 70, R_SCROLL,
+          "40 Returns must enable range70: len=%d value=%d", m_scroll_len, m_scroll_val);
+    {
+        const op_t *c = &m_ops[m_nops - 1];
+        CHECK(c->kind == 1 && c->x == 4 && c->r == 5 && c->y == 374 && c->b == 385 &&
+              c->fg == TBX_COLOR_BLACK, R_SCROLL, "caret stays in view at (4,374)..(5,385)");
+    }
 
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);
     return g_fails == 0 ? 0 : 1;

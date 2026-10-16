@@ -62,3 +62,12 @@ FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:
 # 2. FLAIR_ITEXT_EDIT_SPEC -- the itext_edit clip (Rule 14): launch, type,
 #    drag-select, Copy, click, Return, Paste (no save).
 FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v
+
+# 3. ehq4 -- forty Returns enable the standard vertical scroll bar and keep
+# the insertion point visible. Launch prefix copied EXACTLY from
+# FLAIR_ITEXT_SPEC through w400, including cell12 and the cursor return.
+# Each Return is paced as in the original trace. Expected 41 lines x 11 +
+# 2*4 inset = doc459; the locked view389 gives range/value70. Caret global
+# x14,y440..450; thumb at the far end of the bar (568,425)..(582,440).
+# The same trace drives test-flair-itext-scroll and record-flair itext_scroll.
+FLAIR_ITEXT_SCROLL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,w300
