@@ -9,6 +9,8 @@
 # !!! the shipped volume after the pilot rows were dated; like CALC and WORD it
 # !!! is a FLAIR application for its own manual (initech-ipu5.11), not a DOS
 # !!! command, so it is listed here explicitly rather than in the DOS books.
+# !!! GROWTH, PM-directed 2026-10-17: PAINT (APPS\PAINT.EXE, InitechPaint, the bar
+# !!! carrier of initech-tdnl.20) likewise -- a FLAIR application for its own manual.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
@@ -88,5 +90,6 @@ INT21:59|2026-10-16|Pilot covers daily file tasks; Reference entry not yet writt
 INT21:5B|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:62|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 TENANTFX|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+PAINT|2026-10-17|FLAIR application (InitechPaint); its own manual is not yet written (PM-directed explicit row)
 TEXT|2026-10-17|FLAIR application (InitechText); its own manual is not yet written (PM-directed explicit row)
 WORD|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written

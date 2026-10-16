@@ -23138,7 +23138,10 @@ RECORD_IMAGE_calc_ledger = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # frame every settle while the Platinum bar fills at PROGRESS_BAR_RATE=20
 # (5 s); the clip ends when the copy is done. PM records on main.
 RECORD_SCRIPTS += file_copy
-RECORD_SPEC_file_copy = $(FLAIR_FILE_COPY_SPEC),m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0,m1:0,m-1:0
+# PM 2026-10-17: frames are taken on the dialog's own serial markers (box up, mid-fill,
+# done) through the W<marker> holds, not on wall-clock cursor nudges: the bar advances
+# per tick, so two nudge-paced captures differed (record-flair-repro RED).
+RECORD_SPEC_file_copy = $(FLAIR_FILE_COPY_SPEC),WTENANT-FILECOPY up,m1:0,WTENANT-FILECOPY-MID,m-1:0,WTENANT-FILECOPY-DONE,m1:0
 RECORD_MARKER_file_copy = TENANT-FILECOPY-DONE rc=156 ticks=500
 RECORD_SETTLE_file_copy = 400
 RECORD_IMAGE_file_copy = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
