@@ -1,1 +1,90 @@
-% stub
+% Learning InitechBase, Chapter 8: Working with Several Databases (AN-16).
+% Every panel replayed (examples/l8-*.dot); sources cmd/flow.c SELECT,
+% cmd/workarea.c (10 areas, aliases), cmd/set.c SET FILTER.
+\chapter{Working with Several Databases}
+\Gates{test-pubs-examples, test-interp-use, test-interp-set}
+The staff database gives each employee's department as a code; the name of the
+department and the floor it is on are in another database,
+\file{DEPTS.DBF}.  In this lesson you open both at once, look up a department
+from an employee's record, and set a filter that makes a database show only
+the records you want.
+
+\begin{ChapterCovers}
+\item Work areas and \cmd{SELECT}
+\item Aliases
+\item Looking up a record in another database
+\item Filters
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.
+
+\ATEHead{Work Areas}
+InitechBase has ten work areas, numbered 1 to 10.  Each can hold one open
+database, with its index files and its own record pointer.  \cmd{SELECT}
+chooses the work area in which the next commands work, and \cmd{USE} opens a
+database in the selected work area.  Work area 1 is selected when InitechBase
+starts.
+\begin{Steps}
+\item Type \type{SELECT 1}, then \type{USE STAFF}.
+\item Type \type{SELECT 2}, then \type{USE DEPTS INDEX DEPTS}.
+\item Type \type{SELECT 1}, then \type{? DBF(), LASTNAME}.
+\item Type \type{SELECT 2}, then \type{? DBF(), DEPTNAME}.
+\end{Steps}
+\DotExample{examples/l8-areas}
+\fn{DBF()} names the database of the selected work area.  Each database keeps
+its own current record.
+
+A database can be open in only one work area at a time:
+\DotExample{examples/l8-inuse}
+
+\ATEHead{Aliases}
+The alias of a database is the name by which \cmd{SELECT} knows it: its file
+name without the extension, or a name you give with \kw{ALIAS}.
+\DotExample{examples/l8-alias}
+
+\ATEHead{Looking Up a Department}
+To find the department of an employee, keep the department code of the
+employee's record in a memory variable, select the departments, and seek the
+code in their index.
+\begin{Steps}[resume]
+\item Type \type{SELECT 2}, then \type{USE DEPTS INDEX DEPTS}.
+\item Type \type{SELECT 1}, then \type{USE STAFF}, then \type{GO 12}.
+\item Type \type{MDEPT = DEPT}.
+\item Type \type{SELECT DEPTS}, then \type{SEEK MDEPT}, then \type{? DEPTNAME,
+FLOOR}.
+\item Type \type{SELECT STAFF}, then \type{? LASTNAME, DEPT}.
+\end{Steps}
+\DotExample{examples/l8-lookup}
+Carol Pruitt works in Accounting, on the second floor.  The staff database is
+still on her record.
+
+\ATEHead{Filters}
+SET FILTER makes a database show only the records that meet a condition, until
+the filter is removed.  \cmd{LIST}, \cmd{GO TOP} and \cmd{SKIP} pass over the
+other records.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}.
+\item Type \type{SET FILTER TO DEPT = 'SOFT'}, then \type{LIST LASTNAME,
+FIRSTNAME}.
+\item Type \type{GO TOP}, \type{? RECNO()}, \type{SKIP}, \type{? RECNO()}.
+\item Type \type{SET FILTER TO} to remove the filter.
+\end{Steps}
+\DotExample{examples/l8-filter}
+The condition of a filter may be as detailed as any \kw{FOR} condition:
+\DotExample{examples/l8-filter-2}
+
+\ATEHead{Where Do You Go From Here?}
+You have worked with two databases and with a filter.  Looking up a department
+for every employee by hand is slow; a program does it for you.  In Chapter~9 you
+run your first programs.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{SELECT} \xp{n} or \cmd{SELECT} \xp{alias} chooses a work area; each
+  has its own database and record pointer.
+\item \cmd{USE} \ldots{} \kw{ALIAS} gives a database another name.
+\item To use a value of one database in another, store it in a memory variable.
+\item SET FILTER TO \xp{condition} hides the records that do not meet the
+  condition; SET FILTER TO removes the filter.
+\end{enumerate}

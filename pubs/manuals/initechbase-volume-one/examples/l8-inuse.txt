@@ -1,0 +1,5 @@
+. SELECT 2
+. USE STAFF
+. SELECT 1
+. USE STAFF
+3  File is already open.

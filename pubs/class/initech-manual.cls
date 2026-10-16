@@ -426,12 +426,17 @@
    \FootTitle{Index}\im@notab
    \im@origchapter*{Index}\thispagestyle{plain}%
    \addcontentsline{toc}{chapter}{Index}%
-   \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{2}\@setfontsize\im@x{8.5}{10}%
+   \begin{adjustwidth}{-\imHang}{0pt}\im@indexpreamble
+   \begin{multicols}{2}\@setfontsize\im@x{8.5}{10}%
    \setlength\parskip{0pt}\setlength\parindent{0pt}%
    \RaggedRight
    \let\item\im@idxitem}
   {\end{multicols}\end{adjustwidth}}
 \newcommand\im@idxitem{\par\hangindent 1.5em\relax}
+%% Material printed under the Index heading before the entries (F-ATE: the
+%% boxed Key to Index Page Numbers, AN-24); empty unless a book sets it.
+\newcommand\im@indexpreamble{}
+\newcommand\IndexPreamble[1]{\gdef\im@indexpreamble{#1}}
 \renewcommand\subitem{\par\hangindent 2.5em\hspace*{1em}}
 \renewcommand\subsubitem{\par\hangindent 3.5em\hspace*{2em}}
 \renewcommand\indexspace{\par\vspace{5.5pt plus 2pt}}

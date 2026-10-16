@@ -163,20 +163,30 @@ $(PUBS_UTILS_STAMP): $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(X
 	@rm -rf $(PUBS_UTILS_DIR); mkdir -p $(PUBS_UTILS_DIR)
 	@for u in $(PUBS_UTILS); do cp $${u#*=} $(PUBS_UTILS_DIR)/$${u%%=*}; done
 	@touch $@
+# The InitechBase screens (bead initech-ipu5.8) boot with SAMIR.COM and the
+# Sample Programs and Utilities diskette on the second drive: capture.sh's
+# `samir` disk, minted from this staging directory.
+PUBS_SAMIR_CAPTURE       := $(PUBS_BUILD)/samir-capture
+PUBS_SAMIR_CAPTURE_STAMP := $(PUBS_SAMIR_CAPTURE)/.staged
+$(PUBS_SAMIR_CAPTURE_STAMP): $(SAMIR_COM) $(PUBS_SAMIR_DISK)/.minted
+	@rm -rf $(PUBS_SAMIR_CAPTURE); mkdir -p $(PUBS_SAMIR_CAPTURE)
+	@cp $(SAMIR_COM) $(PUBS_SAMIR_CAPTURE)/SAMIR.COM
+	@for f in $(PUBS_SAMIR_DISK)/*; do cp $$f $(PUBS_SAMIR_CAPTURE)/; done
+	@touch $@
 PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)/screens/capture.sh $(PUBS_DIR)/screens/keys.sh \
-                    $(PUBS_UTILS_STAMP)
+                    $(PUBS_UTILS_STAMP) $(PUBS_SAMIR_CAPTURE_STAMP)
 pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; for m in $(PUBS_MANUALS); do \
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
 		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
-			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens/$$m $(PUBS_UTILS_DIR); \
+			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens/$$m $(PUBS_UTILS_DIR) $(PUBS_SAMIR_CAPTURE); \
 		cp -f $(PUBS_BUILD)/screens/$$m/*.txt $$d/; \
 		printf '>>> pubs-screens: %s updated -- review `git diff %s`\n' "$$m" "$$d"; done
 test-pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; n=0; for m in $(PUBS_MANUALS); do \
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
 		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
-			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens-check/$$m $(PUBS_UTILS_DIR); \
+			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens-check/$$m $(PUBS_UTILS_DIR) $(PUBS_SAMIR_CAPTURE); \
 		for t in $(PUBS_BUILD)/screens-check/$$m/*.txt; do \
 			$(PUBS_GATE) same SCREEN-DRIFT $$d/$$(basename $$t) $$t || { diff -u $$d/$$(basename $$t) $$t || true; exit 1; }; \
 			n=$$((n + 1)); done; \

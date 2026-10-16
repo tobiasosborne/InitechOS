@@ -1,1 +1,45 @@
-% stub
+% Getting Started, Chapter 2: Starting and Leaving InitechBase.  Sources:
+% samir_main.c samir_repl (the ". " prompt, QUIT/EXIT, closes every file);
+% the screen is a capture of the running system (screens/gs-start: boot,
+% SAMIR, USE, LIST, QUIT; screens/SCREENS).
+\chapter{Starting and Leaving InitechBase}
+\Gates{test-pubs-screens, test-samir-boot, test-samir-repl}
+This chapter shows you how to start InitechBase, how to give it a command, and
+how to leave it.
+
+\ATEHead{Starting InitechBase}
+\begin{Steps}
+\item Start InitechDOS, and answer its questions for the date and the time.
+\item Make the drive and directory that hold your working copy of InitechBase
+  the current ones.
+\item Type \type{SAMIR} and press \key{Enter}.
+\Response{InitechBase starts and displays the dot prompt, a period and a
+blank.}
+\end{Steps}
+The dot prompt means that InitechBase is ready for a command.
+
+\ATEHead{Giving a Command}
+Type the command after the dot prompt and press \key{Enter}.  The screen below
+shows InitechBase started from drive A; the commands open the staff database,
+list the first four names and leave InitechBase:
+\Screen{screens/gs-start.txt}{Starting InitechBase, a first command, and
+QUIT}
+\doctitle{Learning InitechBase} teaches you the commands one lesson at a time.
+If InitechBase does not know a command, it displays a message such as
+\xmsg{16}{*** Unrecognized command verb.} and the dot prompt again; nothing
+has been changed.
+
+\ATEHead{Leaving InitechBase}
+\begin{Steps}[resume]
+\item Type \type{QUIT} and press \key{Enter}.
+\Response{InitechBase closes every database and returns to the InitechDOS
+prompt.}
+\end{Steps}
+\begin{AteWarning}
+Always leave InitechBase with \cmd{QUIT} before you turn off or restart the
+computer, or take a diskette out of its drive.  \cmd{QUIT} closes the files
+properly.
+\end{AteWarning}
+
+\ATEHead{Where Do You Go From Here?}
+Turn to \doctitle{Learning InitechBase} and begin with Chapter~1, Quick Start.

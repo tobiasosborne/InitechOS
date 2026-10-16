@@ -1,1 +1,97 @@
-% stub
+% Learning InitechBase, Chapter 9: From Commands to Programs (AN-16; annex
+% Sec 10 "Learning ch. 10 ... a first program").  Every panel replayed
+% (examples/l9-*.dot); the programs are the sample diskette's
+% (pubs/examples/samir/disk/*.PRG), printed as they stand.
+\chapter{From Commands to Programs}
+\Gates{test-pubs-examples, test-interp-proc, test-interp-flow}
+Everything you have typed at the dot prompt can be written in a file and
+carried out again with one command.  Such a file is a program.  In this last
+lesson you run three programs from the sample diskette and read them, so that
+you can follow how they do their work.
+
+\begin{ChapterCovers}
+\item Running a program with \cmd{DO}
+\item Answering a program's question
+\item Reading a program: comments, memory variables, loops and decisions
+\item What to read next
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.  The programs work on
+the staff database; open it first:
+\begin{Steps}
+\item Type \type{USE STAFF}.
+\end{Steps}
+
+\ATEHead{Running a Program}
+\file{STAFFLST.PRG} lists the employees of one department with their
+extensions.  It asks you which department.
+\begin{Steps}[resume]
+\item Type \type{DO STAFFLST}.
+\Response{The program asks \texttt{Department code:}.}
+\item Type \type{CUST} and press \key{Enter}.
+\Response{The program lists the staff of Customer Relations and counts them.}
+\end{Steps}
+\DotExample{examples/l9-run}
+When the program ends, InitechBase displays the dot prompt again.
+
+\ATEHead{Reading the Program}
+This is \file{STAFFLST.PRG}:
+\ProgramListing{STAFFLST.PRG}
+The lines that begin with an asterisk are comments, which InitechBase passes
+over.  \cmd{ACCEPT} asks the question and stores the answer in the memory
+variable \texttt{MDEPT}; the next line converts it to capitals, so that
+\type{cust} would do as well as \type{CUST}.  \cmd{?} prints the title.
+
+\texttt{MCOUNT} starts at 0, and \cmd{GO TOP} goes to the first record.  The
+lines from \cmd{DO WHILE} to \cmd{ENDDO} are repeated as long as the end of the
+file has not been reached.  Each time, \cmd{IF} tests whether the current
+employee is in the department; if so, the program prints the name and the
+extension and adds one to the count.  \cmd{SKIP} moves to the next record.  At
+the end of the file the loop ends and the program prints the count.
+\cmd{RETURN} ends the program.
+
+\ATEHead{Totals}
+\file{PAYTOTAL.PRG} adds up the payroll of exempt and non-exempt staff:
+\ProgramListing{PAYTOTAL.PRG}
+\DotExample{examples/l9-paytotal}
+\cmd{STORE} sets three memory variables to zero at once.  \cmd{LOOP} goes back
+to the \cmd{DO WHILE} at once, so a record marked for deletion is skipped and
+not counted.  \cmd{IF} \ldots{} \cmd{ELSE} \ldots{} \cmd{ENDIF} adds each
+salary to one total or the other.  \fn{STR()} turns the totals into characters
+of a fixed width, so that the columns line up.  The memory variables of the
+program remain after it ends, so you can look at them at the dot prompt.
+
+\ATEHead{Decisions}
+\file{DEPTNAME.PRG} names the department of the current employee.  \cmd{DO CASE}
+tests each \cmd{CASE} in turn and carries out the commands of the first that
+is true:
+\ProgramListing{DEPTNAME.PRG}
+\begin{Steps}[resume]
+\item Type \type{GO 6}, then \type{DO DEPTNAME}.
+\end{Steps}
+\DotExample{examples/l9-deptname}
+
+\ATEHead{Writing Your Own Programs}
+A program file is a text file with the extension \file{.PRG}, one command on
+each line.  Write it with any text editor, such as the InitechDOS line editor
+\file{EDLIN}, and run it with \cmd{DO}.  Begin with a copy of one of the sample
+programs and change it a little at a time.
+
+\ATEHead{Where Do You Go From Here?}
+You have finished \doctitle{Learning InitechBase}.  \doctitle{Using
+InitechBase}, the next section of this volume, describes every command and
+function in full; use it when you need the exact form of a command.
+\doctitle{Programming with InitechBase}, in Volume Two, teaches you to write
+programs by building the Initech Accounting System, the accounts receivable
+application of the sample diskette, one module at a time.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{DO} \xp{program} runs the program file \xp{program}\file{.PRG}.
+\item Open the databases a program works on before you run it.
+\item \cmd{ACCEPT} asks a question in a program; \cmd{?} prints a line.
+\item \cmd{DO WHILE} \ldots{} \cmd{ENDDO} repeats; \cmd{IF} \ldots{}
+  \cmd{ENDIF} and \cmd{DO CASE} \ldots{} \cmd{ENDCASE} decide.
+\item Comments begin with an asterisk; \cmd{RETURN} ends the program.
+\end{enumerate}

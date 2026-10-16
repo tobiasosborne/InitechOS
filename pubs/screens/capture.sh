@@ -23,8 +23,17 @@
 # same without AUTOEXEC.BAT: the only case in which InitechDOS asks for the
 # date and time at startup, initech-qskz).
 #
+# A third diskette serves the InitechBase manuals (bead initech-ipu5.8):
+# samir.img, the InitechBase System diskette and the Sample Programs and
+# Utilities diskette on one disk -- every file of <samir dir> (SAMIR.COM, the
+# shipped .COM, and the sample files minted by harness/pubs/samir_sample_disk
+# through the shipped writers), copied byte for byte (the .PRG programs as
+# the sample diskette holds them) with one pinned date, in name order.  It
+# has no AUTOEXEC.BAT, so InitechDOS asks for the date and time first.
+#
 # Usage: capture.sh <qemu_harness> <boot.img> <console_text> <vgabios.bin>
 #                   <SCREENS file> <disk dir> <out dir> <utilities dir>
+#                   [<samir dir>]
 # SCREENS format, one screen per line ('#' comments allowed):
 #   name|marker|disk
 # The keystrokes are <SCREENS dir>/name.keys (the only keyboard source,
@@ -33,11 +42,12 @@
 # marker may end in #N: the capture is taken once the marker has appeared N
 # times on the serial mirror (typed keys echo there too), so a screen can end
 # on output whose text was already seen earlier in the session.
-# disk is empty (practice.img) or `noautoexec` (noautoexec.img); anything
-# else is RED, so a line in the old name|marker|keystrokes form cannot pass.
+# disk is empty (practice.img), `noautoexec` (noautoexec.img) or `samir`
+# (samir.img); anything else is RED, so a line in the old
+# name|marker|keystrokes form cannot pass.
 # Thin shell (Law 3).  Fails loud on any capture that is not a settled prompt.
 set -eu
-runner=$1; boot=$2; decode=$3; rom=$4; defs=$5; disk=$6; out=$7; utils=$8
+runner=$1; boot=$2; decode=$3; rom=$4; defs=$5; disk=$6; out=$7; utils=$8; samir=${9:-}
 here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$out"
 
@@ -81,6 +91,21 @@ grep -q '^AUTOEXEC.BAT|' "$disk/MANIFEST" || {
     printf '!!! capture.sh FAIL: %s/MANIFEST has no AUTOEXEC.BAT (the noautoexec variant would equal the shipped one)\n' "$disk"; exit 1; }
 mint "$out/practice.img" ""
 mint "$out/noautoexec.img" AUTOEXEC.BAT
+# The InitechBase diskette, only for a SCREENS file that asks for it.
+if grep -q '|samir$' "$defs"; then
+    [ -n "$samir" ] && [ -r "$samir/SAMIR.COM" ] || {
+        printf '!!! capture.sh FAIL: %s needs the samir diskette directory (with SAMIR.COM)\n' "$defs"; exit 1; }
+    img=$out/samir.img
+    dd if=/dev/zero of="$img" bs=512 count=2880 status=none
+    SOURCE_DATE_EPOCH=$(TZ=UTC date -d "1992-03-01 08:00" +%s) TZ=UTC \
+        mformat -i "$img" -f 1440 -N 19920302 -v INITECH :: < /dev/null
+    stage=$out/samir.d; rm -rf "$stage"; mkdir -p "$stage"
+    for f in $(cd "$samir" && LC_ALL=C ls); do
+        cp "$samir/$f" "$stage/$f"
+        TZ=UTC touch -d "1992-03-01 12:00" "$stage/$f"
+        TZ=UTC mcopy -m -i "$img" "$stage/$f" "::$f" < /dev/null
+    done
+fi
 
 n=0
 while IFS='|' read -r name marker variant; do
@@ -90,7 +115,8 @@ while IFS='|' read -r name marker variant; do
     case $variant in
     '') img=$out/practice.img ;;
     noautoexec) img=$out/noautoexec.img ;;
-    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: disk field "%s" is not empty or noautoexec (inline keys are forbidden)\n' "$name" "$variant"; exit 1 ;;
+    samir) img=$out/samir.img ;;
+    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: disk field "%s" is not empty, noautoexec or samir (inline keys are forbidden)\n' "$name" "$variant"; exit 1 ;;
     esac
     keys=$(cat "$keyfile")
     # Every screen answers the startup date and time prompts first (qskz).

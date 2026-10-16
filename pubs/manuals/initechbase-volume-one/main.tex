@@ -37,12 +37,15 @@
 % merges): the corporate motto at the placements the directive names.
 \providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
 
-\newcommand\term[1]{\textbf{#1}}
+% A defined term at its first use (TY-02, NT-34): bold, indexed, and in the
+% Glossary (CP-03); the optional argument is the singular index form.
+\NewDocumentCommand\term{om}{\textbf{#2}\IfValueTF{#1}{\index{#1}}{\index{#2}}}
 % What the reader types (NT-15), breakable at its blanks: the dot-prompt
 % commands of the lessons are longer than a DOS command.
 \renewcommand\type[1]{\texttt{\bfseries #1}}
 \newcommand\bs{\textbackslash}
 
+\XbaseIndexMentions
 \begin{document}
 \FrontMatterFolios
 \MakeTitlePage
@@ -85,7 +88,9 @@
 \input{ug-glossary}
 \SectionNotes{Using Notes}
 
-\input{indexkey}
+\EndSections
+\IndexKey{\IndexKeyLine{G}{Getting Started}\IndexKeyLine{L}{Learning InitechBase}%
+  \IndexKeyLine{U}{Using InitechBase}\IndexKeyLine{P}{Programming with InitechBase (Volume Two)}}
 \printindex
 \FinishBook[3]
 \end{document}

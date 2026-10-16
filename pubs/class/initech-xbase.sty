@@ -38,6 +38,9 @@
 \newcommand\im@tocsection[1]{\par\addvspace{14pt}{\noindent\sffamily\bfseries
   \fontsize{11}{13}\selectfont\MakeUppercase{#1}\par}\vspace{1pt}%
   {\noindent\rule{\linewidth}{0.5pt}\par}}
+%% \EndSections: the matter after the last section (the master index) is the
+%% book's own: its running foot names the book (annex Sec 2.2, index pages).
+\newcommand\EndSections{\im@closeentry\NoDictionaryHeads\cleardoublepage\gdef\im@secttitle{}}
 %% \SectionIntroduction{Introduction}: the section's unnumbered Introduction,
 %% folios LI-1, UI-1 (annex Sec 4).
 \newcommand\SectionIntroduction[1]{%
@@ -82,8 +85,7 @@
 \newcommand\im@idxform{\ifx\im@idxspecial\@empty\im@sectionprefix-\thechapter-\else\im@idxspecial\fi}
 \newcommand\imIdxPage[1]{\directlua{
   local s = "\luaescapestring{#1}"
-  local a, b = string.match(s, "^(\@percentchar u+)-(.+-.+)$")
-  if a then s = a .. b end
+  s = string.gsub(s, "(\@percentchar u+)\@percentchar-(\@percentchar w+\@percentchar-\@percentchar w+)", "\@percentchar 1\@percentchar 2")
   tex.sprint(-2, s)}}
 \im@ifmodel{ashtontate}{%
   \def\@wrindex#1{%
@@ -177,7 +179,7 @@
    \global\im@referencepagestrue
    \markboth{\im@xshown}{\im@xshown}%
    \addcontentsline{toc}{section}{\im@xshown}%
-   \edef\im@tempa{\noexpand\index{\im@xshown @\noexpand\texttt{\im@xshown}}}\im@tempa
+   \directlua{initech_xbase.indexname("\luaescapestring{\im@xshown}")}%
    \par\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight
      \sffamily\bfseries\fontsize{12}{14}\selectfont\strut\im@xshown\strut}}\hspace{\imSideGap}}%
    \IfValueT{#1}{\draft{#1}\par\noindent}%
@@ -350,6 +352,36 @@ end
 \newcommand\ProgramListing[1]{%
   \directlua{initech_xbase.listing("../../examples/samir/disk/\luaescapestring{#1}")}}
 
+%% ---- index entries from the inline names (AN-24) ----------------------------
+%% \XbaseIndexMentions (an F-ATE book's preamble) makes every \cmd and \fn
+%% an index entry too: the command word (SET and its option word together;
+%% \cmd{LIST FOR DELETED()} -> LIST), or the function with empty
+%% parentheses (\fn{UPPER(LASTNAME)} -> UPPER()), filed as the entries of
+%% Chapters 5 and 6 are, so each page that uses a command is found under it.
+\directlua{
+function initech_xbase.indexkey(s, isfn)
+  local k
+  if isfn then
+    k = string.match(s, "^(\@percentchar u[\@percentchar u\@percentchar d]*)\@percentchar(")
+    if k then k = k .. "()" end
+  else
+    local a, b = string.match(s, "^(\@percentchar S+)\@percentchar s+(\@percentchar S+)")
+    if a == "SET" and b then k = a .. " " .. b
+    else k = string.match(s, "^(\@percentchar S+)") end
+  end
+  if not k or string.find(k, "[^\@percentchar w\@percentchar(\@percentchar)\@percentchar ?\@percentchar*]") then return end
+  if k == "?" or k == "??" or k == "*" then return end
+  initech_xbase.indexname(k)
+end
+function initech_xbase.indexname(k)
+  tex.sprint("\string\\index{" .. k .. "@\string\\texttt{" .. k .. "}}")
+end
+}
+\newcommand\XbaseIndexMentions{%
+  \let\im@origcmd\cmd \let\im@origfn\fn
+  \renewcommand\cmd[1]{\im@origcmd{##1}\directlua{initech_xbase.indexkey("\luaescapestring{\detokenize{##1}}", false)}}%
+  \renewcommand\fn[1]{\im@origfn{##1}\directlua{initech_xbase.indexkey("\luaescapestring{\detokenize{##1}}", true)}}}
+
 %% ---- generated table rows ---------------------------------------------------
 %% \TableRows{samir_limits}: the rows a generator wrote (pubs/pubs.mk), read
 %% with the primitive \input so that they can sit inside a tabular.
@@ -392,6 +424,19 @@ end
 \newenvironment{Tip}{\begin{AteBox}{TIP}}{\end{AteBox}}
 \newenvironment{AteNote}{\begin{AteBox}{NOTE}}{\end{AteBox}}
 \newenvironment{AteWarning}{\begin{AteBox}{WARNING}}{\end{AteBox}}
+
+%% ---- glossary (AN-07 / AN-23 F-ATE: term in the side column, Heros Bold
+%% 9.5/12; definition in the text column) -------------------------------------
+\newcommand\GlossaryEntry[2]{\par\addvspace{6pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight
+    \sffamily\bfseries\fontsize{9.5}{12}\selectfont\strut#1\strut}}\hspace{\imSideGap}}%
+  #2\par}}
+%% The boxed Key to Index Page Numbers of an F-ATE master index (AN-24):
+%% \IndexKey{\IndexKeyLine{G}{Getting Started} ...}.
+\newcommand\IndexKeyLine[2]{\textbf{#1} & #2\\}
+\newcommand\IndexKey[1]{\IndexPreamble{\par\noindent\fbox{\begin{tabular}{@{}ll@{}}
+  \multicolumn{2}{@{}l@{}}{\sffamily\bfseries Key to Index Page Numbers}\\[2pt]
+  #1\end{tabular}}\par\vspace{10pt}}}
 
 %% ---- tutorial frame (AN-16) ---------------------------------------------------
 %% \ATEHead{Preparing for This Chapter}: an A-head in the side column.
