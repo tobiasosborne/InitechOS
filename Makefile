@@ -166,6 +166,10 @@ MBR_ASM         := $(BOOT_DIR)/mbr.asm
 STAGE2_ASM      := $(BOOT_DIR)/stage2.asm
 MBR_BIN         := $(BUILD)/mbr.bin
 STAGE2_BIN      := $(BUILD)/stage2.bin
+IO_SYS_BIN      := $(BUILD)/IO.SYS
+INITDOS_SYS_BIN := $(BUILD)/INITDOS.SYS
+BOOT_SYSTEM_TOOL := $(BUILD)/boot_system
+BOOT_SYSTEM_MINT := tools/mk_boot_system.sh
 TRACER_IMG      := $(BUILD)/tracer_boot.img
 SECONDARY_TRACER_IMG := $(BUILD)/tracer_secondary.img
 # stage2 is loaded by the MBR as STAGE2_SECTORS (16) sectors = 8 KiB; we pad
@@ -8249,27 +8253,26 @@ $(MBR_BIN): $(MBR_ASM) | $(BUILD)
 # Makefile is a prerequisite so editing KERNEL_SECTORS actually re-assembles
 # stage2 and re-runs the check (without it the stale stage2.bin would keep the
 # old read count and silently truncate or over-read the kernel window).
-$(STAGE2_BIN): $(STAGE2_ASM) Makefile | $(BUILD)
+$(IO_SYS_BIN): $(BOOT_DIR)/io_sys.asm Makefile | $(BUILD)
 	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
+	@test $$(wc -c < $@) -le 4096
 
-# Assemble the raw disk image deterministically:
-#   sector 0       : MBR (512 bytes)
-#   sectors 1..    : stage2, padded to STAGE2_SECTORS sectors
-#   image padded   : to IMG_SECTORS total sectors
-# We build a zero-filled image then dd the parts in at fixed offsets. No
-# timestamps/host paths -> reproducible (CLAUDE.md Rule 11).
+$(STAGE2_BIN): $(STAGE2_ASM) $(IO_SYS_BIN) Makefile | $(BUILD)
+	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(IO_SYS_BIN)"' $< -o $@
+
+# The primary/secondary shell and flagship now use the physical two-file
+# BOOT volume (initech-kod): MBR@0, stage2@1..16, FAT12 partition@63;
+# IO.SYS / INITDOS.SYS are HSR root slots 0/1, allocated by mtools.
+# Other diagnostic images retain the raw layout and enter the embedded
+# IO.SYS fallback. Its raw kernel window remains LBA17..400.
+# SOURCE_DATE_EPOCH and fixed mtools geometry/serial keep BOOT reproducible.
 #
 # THE DEFAULT BOOT IS NOW COMMAND.COM (beads initech-k6x): TRACER_IMG carries
 # the SHELL kernel (KERNEL_SHELL_BIN), so the real boot drops to the A:\> prompt
 # after the banner -- authentic DOS, not a parade of baked demos. The baked
 # PROGRAM/TYPE/DIR demos moved to DEMO_IMG below (test-program/type/dir).
-$(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SHELL_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_SHELL_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> tracer image: %s (MBR@s0, stage2@s1..%d, COMMAND.COM kernel@s17..%d, %d sectors)\n" \
-		"$@" "$(STAGE2_SECTORS)" "$$((17 + $(KERNEL_SECTORS) - 1))" "$(IMG_SECTORS)"
+$(TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SHELL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(KERNEL_SHELL_BIN) $(BOOT_SYSTEM_TOOL)
 
 # DEMO_IMG (beads initech-k6x): the M2 baked-demo scaffolding kernel (KERNEL_BIN,
 # which runs PROGRAM/TYPE/DIR then halts) wrapped as a boot image. Booted by
@@ -9581,11 +9584,8 @@ $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
 	$(OBJCOPY) -O binary $< $@
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
 	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$((max - sz))" conv=notrunc status=none
-$(SECONDARY_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_secondary.bin
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(BUILD)/kernel_shell_secondary.bin of=$@ bs=512 seek=17 conv=notrunc status=none
+$(SECONDARY_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_secondary.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_shell_secondary.bin $(BOOT_SYSTEM_TOOL)
 # KERNEL_FLAIR_OBJS REMOVED from the COMMAND.COM shell kernel (2026-08-24,
 # beads initech-yrzo/-5dr8 + the sjvq-lane bust of the PROGRAM_BASE window):
 # kmain_shell.o references ZERO FLAIR symbols (nm-verified); dropping the dead
@@ -10257,12 +10257,11 @@ $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 	printf ">>> kernel(flairtenants): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
 	$(call kernel-end-guard,$<,flairtenants)
 
-$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) | $(BUILD)
-	@dd if=/dev/zero of=$@ bs=512 count=$(IMG_SECTORS) status=none
-	@dd if=$(MBR_BIN) of=$@ bs=512 seek=0 conv=notrunc status=none
-	@dd if=$(STAGE2_BIN) of=$@ bs=512 seek=1 conv=notrunc status=none
-	@dd if=$(KERNEL_FLAIRTENANTS_BIN) of=$@ bs=512 seek=17 conv=notrunc status=none
-	@printf ">>> flair-tenants image: %s (HELLO+NOTES co-resident; flair_app_dispatch spine @s17)\n" "$@"
+$(INITDOS_SYS_BIN): $(KERNEL_FLAIRTENANTS_BIN)
+	cp -f $< $@
+
+$(FLAIRTENANTS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(INITDOS_SYS_BIN) $(BOOT_SYSTEM_TOOL)
 
 # R3.1 DB_WRITE_SKIP mutation image: identical flagship object set except the
 # desktop persistence object reports CREATE while skipping the FAT write.
@@ -31074,3 +31073,6 @@ TEST_EMU_GATES += test-pubs-screens
 # EDLIN (initech-udr1; DEBUG is a separate lane).
 include harness/edlin/edlin.mk
 include harness/diff/fat_diff/partition.mk
+
+# Physical two-file boot chain (initech-kod).
+include harness/diff/fat_diff/boot_system.mk

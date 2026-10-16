@@ -166,6 +166,10 @@ msg_s1:  db "S1", 0x0A, 0
 msg_jmp: db "JMP2", 0x0A, 0
 msg_err: db "ERR-DISK", 0x0A, 0
 
-; -- Boot signature ---------------------------------------------------------
-times 510 - ($ - $$) db 0
+; -- DOS partition table and boot signature --------------------------------
+; Ref: IBM DOS 3.30 Technical Reference p9-6 (PDF393), ADR-0003 DEC-07a.
+; The image tool installs BOOT here. An empty table identifies legacy raw
+; images to stage2. Keep code strictly below the four 16-byte table entries.
+times 446 - ($ - $$) db 0
+times 64 db 0
 dw 0xAA55
