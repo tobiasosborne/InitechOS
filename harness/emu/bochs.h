@@ -18,7 +18,7 @@
  * TCP connection to the Bochs RFB server, completes the trivial RFB 3.3
  * handshake (security type None) IN C, and holds it (draining) for the run so
  * Bochs proceeds. Serial is captured via `com1: mode=file`. The guest
- * hlt-loops, so the run ALWAYS times out -- that is expected (like the QEMU
+ * hlt-loops, so without quit_after the run times out -- expected (like the QEMU
  * tracer-boot gate); the verdict is driven by serial markers + fault scan, not
  * the exit code.
  *
@@ -63,6 +63,16 @@ typedef struct {
 
     const char *expect_marker; /* if non-NULL, asserted present (line-exact,
                                   see bochs.c) in the serial capture.        */
+
+    /* Completion-gated capture (initech-cqej; PRD Sec 8 and the independent
+     * restart contract in spec/flair_power_traces.mk). Bochs already honors
+     * hardware RESET without a QEMU-style -no-reboot switch. allow_reboot
+     * explicitly opts into a multi-boot wait; it NEVER permits a triple
+     * fault. quit_after is a COMPLETE exact serial line; count <=1 means 1.
+     * No marker => original deadline-driven boot-leg behavior. */
+    bool allow_reboot;
+    const char *quit_after;
+    int quit_after_count;
 } BochsConfig;
 
 typedef struct {
@@ -81,9 +91,12 @@ typedef struct {
     bool triple_fault;         /* "3rd (13) exception" or "IDT.limit = 0x0"
                                   seen in the bochs log (a triple fault).    */
     bool marker_found;         /* expect_marker present (false if NULL).     */
+    bool quit_marker_found;    /* requested completion count reached.        */
+    int quit_markers_seen;     /* complete exact quit_after lines captured.  */
 
     bool ok;                   /* launched && rfb_unblocked && !triple_fault
-                                  && (expect_marker ? marker_found : true).
+                                  && (expect_marker ? marker_found : true)
+                                  && (quit_after ? quit_marker_found : true).
                                   NOT gated on timed_out (hlt-loop).         */
 } BochsResult;
 

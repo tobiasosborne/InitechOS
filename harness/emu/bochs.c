@@ -14,7 +14,8 @@
  *    client; we connect + do the RFB 3.3 handshake (sec type None) and hold
  *    the socket (draining it so Bochs never blocks on a full send buffer).
  *  - Serial is captured via `com1: mode=file`. The guest hlt-loops, so the run
- *    ALWAYS times out -- expected; the verdict is markers + fault scan.
+ *    times out unless a completion marker was requested; the verdict is
+ *    markers + fault scan (PRD Sec 8; initech-cqej reboot-and-wait).
  *  - Bochs locks the disk image (<disk>.lock); we remove a stale lock before
  *    launch and after reaping so a killed run does not poison the next.
  */
@@ -103,6 +104,40 @@ static void strip_cr(char *s, size_t *len)
     if (len) *len = w;
 }
 
+/* A live capture may end mid-line. Count only COMPLETE exact lines, allowing
+ * the UART's CRLF. Ref: bochs.h expect_marker contract, spec/flair_power_
+ * traces.mk: one boot marker cannot certify a completed restart (Rule 5). */
+static int serial_marker_count(const char *text, const char *marker)
+{
+    int count = 0;
+    size_t want = strlen(marker);
+    const char *line = text;
+    const char *nl;
+    while ((nl = strchr(line, '\n')) != NULL) {
+        size_t n = (size_t)(nl - line);
+        if (n && line[n - 1] == '\r') n--;
+#ifdef BOCHS_MUTATE_MARKER_SUBSTRING
+        const char *hit = strstr(line, marker);
+        if (hit && hit + want <= nl) count++;
+#else
+        if (n == want && memcmp(line, marker, n) == 0) count++;
+#endif
+        line = nl + 1;
+    }
+#ifdef BOCHS_MUTATE_PARTIAL_LINE
+    if (strcmp(line, marker) == 0) count++;
+#endif
+    return count;
+}
+
+static bool serial_completion(const char *text, const char *marker, int count)
+{
+#ifdef BOCHS_MUTATE_NO_REBOOT_WAIT
+    count = 1;                /* Rule 6: falsely finish on the first boot. */
+#endif
+    return serial_marker_count(text, marker) >= (count > 0 ? count : 1);
+}
+
 /* ---- disk geometry ------------------------------------------------------- */
 
 /* Compute the cylinder count for the fixed 2/32 geometry. Returns -1 if the
@@ -187,7 +222,10 @@ static int rfb_unblock(int port, long long deadline_ms, int *out_handshook)
     int fd = -1;
     while (mono_ms() < deadline_ms) {
         fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (fd < 0) return -1;
+        if (fd < 0) {
+            fprintf(stderr, "bochs_run: RFB socket: %s\n", strerror(errno));
+            return -1;
+        }
         struct sockaddr_in sa;
         memset(&sa, 0, sizeof(sa));
         sa.sin_family = AF_INET;
@@ -300,6 +338,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         fprintf(stderr, "bochs_run: disk_path is required\n");
         return -1;
     }
+    if (cfg->quit_after_count > 1 && (!cfg->quit_after || !cfg->allow_reboot)) {
+        fprintf(stderr, "bochs_run: a repeated boot wait needs --quit-after and --allow-reboot\n");
+        return -1;
+    }
 
     const char *dir  = cfg->output_dir ? cfg->output_dir : "build";
     const char *name = cfg->name       ? cfg->name       : "bochs";
@@ -396,14 +438,23 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     int rfb_fd = rfb_unblock(port, rfb_deadline, &handshook);
     out->rfb_unblocked = (handshook != 0);
 
-    /* Poll waitpid against the deadline, draining the RFB socket so Bochs never
-     * blocks on a full send buffer. The guest hlt-loops -> we run to deadline. */
+    /* Poll the SAME capture across guest RESET; never restart Bochs or clear
+     * serial at reset. Ref: qemu.c wait_for_serial_marker_live and the locked
+     * power traces. Missing completion is RED, even if expect_marker arrived.
+     * Without quit_after the original deadline-driven boot legs are unchanged. */
     int status = 0;
     bool reaped = false;
     for (;;) {
         pid_t w = waitpid(pid, &status, WNOHANG);
         if (w == pid) { reaped = true; break; }
         if (w < 0 && errno != EINTR) break;
+        if (cfg->quit_after) {
+            char *txt = read_file(out->serial_path, NULL);
+            bool complete = txt && serial_completion(txt, cfg->quit_after,
+                                                       cfg->quit_after_count);
+            free(txt);
+            if (complete) break;
+        }
         if (mono_ms() >= deadline) {
             out->timed_out = true;
             break;
@@ -487,7 +538,14 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
     }
 
+    if (cfg->quit_after && out->serial_text) {
+        out->quit_markers_seen = serial_marker_count(out->serial_text, cfg->quit_after);
+        out->quit_marker_found = serial_completion(out->serial_text, cfg->quit_after,
+                                                   cfg->quit_after_count);
+    }
+
     out->ok = out->launched && out->rfb_unblocked && !out->triple_fault &&
-              (cfg->expect_marker ? out->marker_found : true);
+              (cfg->expect_marker ? out->marker_found : true) &&
+              (cfg->quit_after ? out->quit_marker_found : true);
     return 0;
 }
