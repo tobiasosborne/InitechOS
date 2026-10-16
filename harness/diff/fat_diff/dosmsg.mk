@@ -78,3 +78,37 @@ test-dos-not-ready-emu-mutant: $(HARNESS_BIN) $(BUILD)/dosmsg_mut.img $(BUILD)/c
 	@echo 'GREEN test-dos-not-ready-emu-mutant: INT21_MUTATE_NOT_READY caught RED'
 TEST_UNIT_GATES += test-dos-not-ready test-dos-not-ready-mutant
 TEST_EMU_GATES += test-dos-not-ready-emu test-dos-not-ready-emu-mutant
+
+# initech-bcg.13: extend test-dosmsg's source-purity tooth, not a parallel lint.
+DOSMSG_AUDIT_SRCS := $(addprefix os/milton/,command.c batch.c config_sys.c sysinit.c dosutil.c chkdsk.c xcopy_tree.c edlin.c edlin_program.c find_program.asm more_program.asm sort_program.asm tpsrep_program.asm)
+DOSMSG_ALLOW := harness/diff/fat_diff/dosmsg.allow
+DOSMSG_BASELINE := harness/diff/fat_diff/dosmsg.allow.baseline
+DOSMSG_SCAN := $(BUILD)/dosmsg_scan
+# This include is parsed after the external-program variables are defined.
+test-dosmsg: $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN) $(TPSREP_BIN)
+$(DOSMSG_SCAN): harness/diff/fat_diff/dosmsg_scan.c | $(BUILD)
+	$(CC) $(CFLAGS) $< -o $@
+.PHONY: test-dosmsg-source-mutant
+test-dosmsg-source-mutant: $(DOSMSG_SCAN) $(DOS_MESSAGES_H) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE)
+	@sh harness/diff/fat_diff/dosmsg_mutants.sh $(DOSMSG_SCAN) $(DOS_MESSAGES_H) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(DOSMSG_AUDIT_SRCS)
+TEST_UNIT_GATES += test-dosmsg-source-mutant
+
+$(BUILD)/dir_match: harness/diff/fat_diff/dir_match.c $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -Ispec -I$(MILTON_DIR) -Ibuild -o $@ $< $(TEST_INT21_DEPS)
+$(BUILD)/dir_match_mut: harness/diff/fat_diff/dir_match.c $(TEST_INT21_DEPS) $(TEST_INT21_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_WILDCARD_TESTSEAM -DINT21_MUTATE_WILD_QMARK_LITERAL -Ispec -I$(MILTON_DIR) -Ibuild -o $@ $< $(TEST_INT21_DEPS)
+.PHONY: test-dir-match-host test-dir-match-host-mutant test-dir-match-emu test-dir-match-emu-mutant
+test-dir-match-host: $(BUILD)/dir_match
+	@sh harness/diff/fat_diff/dir_match.sh host
+test-dir-match-host-mutant: $(BUILD)/dir_match_mut
+	@if DIR_MATCH_HOST=$(BUILD)/dir_match_mut sh harness/diff/fat_diff/dir_match.sh host unused mutant >$(BUILD)/dir_match_host_mutant.log 2>&1; then echo 'FAIL INT21_MUTATE_WILD_QMARK_LITERAL survived'; exit 1; fi
+	@grep '^RED dir-match: \*.TXT host != mdir' $(BUILD)/dir_match_host_mutant.log
+	@echo 'GREEN test-dir-match-host-mutant: INT21_MUTATE_WILD_QMARK_LITERAL caught RED'
+test-dir-match-emu: $(BUILD)/dir_match $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@sh harness/diff/fat_diff/dir_match.sh emu $(SECONDARY_TRACER_IMG)
+test-dir-match-emu-mutant: $(BUILD)/dir_match $(HARNESS_BIN) $(BUILD)/tracer_mut_safety_dirargs.img
+	@if sh harness/diff/fat_diff/dir_match.sh emu $(BUILD)/tracer_mut_safety_dirargs.img mutant >$(BUILD)/dir_match_mutant.log 2>&1; then echo 'FAIL CMD_MUTATE_DIR_ARGS survived'; exit 1; fi
+	@grep '^RED dir-match: TXT shell membership != mdir/test-80k matcher' $(BUILD)/dir_match_mutant.log
+	@echo 'GREEN test-dir-match-emu-mutant: CMD_MUTATE_DIR_ARGS caught RED'
+TEST_UNIT_GATES += test-dir-match-host test-dir-match-host-mutant
+TEST_EMU_GATES += test-dir-match-emu test-dir-match-emu-mutant

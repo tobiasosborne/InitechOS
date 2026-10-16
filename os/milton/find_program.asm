@@ -1,3 +1,4 @@
+%include "dos_messages.inc" ; DEC-13; MS-DOS 3.3 printed pp.337/341.
 ; find_program.asm -- the FAT-sourced flat (.COM-equivalent) FIND filter.
 ;
 ; beads: initech-m0dc (the classic DOS filters MORE/SORT/FIND). FIND prints the
@@ -22,7 +23,8 @@
 ;     /I; it arrived in later DOS -- implemented here as a cheap, documented,
 ;     backward-compatible superset and reported as such.]
 ;   - A missing/empty quoted string is a parameter error ("FIND: Parameter format
-;     not correct") -> fail loud (Rule 2).
+;     not correct" was inherited; manual p.341 uses "Invalid number of
+;     parameters") -> fail loud (Rule 2).
 ;
 ; Ref:   os/milton/int21.c do_read (AH=3Fh), do_write (AH=40h), do_puts (AH=09h),
 ;        do_terminate (AH=4Ch); spec/memory_map.h (PROGRAM_IMAGE=0x00040100 == org;
@@ -376,7 +378,7 @@ emit_decimal:
 crlf:      db 0x0D, 0x0A
 lbrack:    db "["
 rbrack:    db "]"
-msg_param: db "FIND: Parameter format not correct", 0x0D, 0x0A, "$"
+msg_param: db MSG_DOS_0059, 0x0D, 0x0A, "$"
 
 ; --- scratch (baked as zeros/space in the .COM image) -----------------------
 flags:      dd 0

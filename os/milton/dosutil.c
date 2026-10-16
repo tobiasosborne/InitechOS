@@ -175,21 +175,21 @@ int attrib_main(const char *tail)
 #ifdef DU_MUTATE_SYNTAX
             return 0;
 #else
-            return error("Invalid number of parameters");
+            return error(MSG_DOS_0038);
 #endif
         }
         copy(operand,token);
     }
-    if (!operand[0]) return error("Invalid number of parameters");
-    if (fullpath(operand,path)) return error("Invalid path (or file not found)");
+    if (!operand[0]) return error(MSG_DOS_0038);
+    if (fullpath(operand,path)) return error(MSG_DOS_0039);
     unsigned split=slen(path);
     while (split>3 && path[split-1]!='\\') split--;
-    if (!path[split] || template83(path+split,opt.pat)) return error("Invalid path (or file not found)");
+    if (!path[split] || template83(path+split,opt.pat)) return error(MSG_DOS_0039);
     uint8_t attr=0;
-    if (!du_attr(path,0,&attr) && (attr&16)) return error("Invalid path (or file not found)");
+    if (!du_attr(path,0,&attr) && (attr&16)) return error(MSG_DOS_0039);
     if (split>3) split--;
     path[split]=0;
-    if (attrib_walk(path,&opt)<0 || !opt.found) return error("Invalid path (or file not found)");
+    if (attrib_walk(path,&opt)<0 || !opt.found) return error(MSG_DOS_0039);
     return opt.failed ? 1 : 0;
 }
 
@@ -276,7 +276,7 @@ static int label_commit(label_disk *disk,const char *name)
     int rc=label_write(disk,name);
     if (!rc) return 0;
 #ifndef DU_MUTATE_ROOM
-    if (rc==-2) return error("No room in root directory");
+    if (rc==-2) return error(MSG_DOS_0040);
 #endif
     return error(MSG_DOS_0009);
 }
@@ -318,8 +318,8 @@ int label_main(const char *tail)
         char c=upper(*tail);
 #ifndef DU_MUTATE_INVALID
         const char *bad="*?/\\|.,;:+=<>[]()&^\"";
-        if ((unsigned char)c<32) return error("Invalid characters in volume label");
-        for (;*bad;bad++) if (*bad==c) return error("Invalid characters in volume label");
+        if ((unsigned char)c<32) return error(MSG_DOS_0041);
+        for (;*bad;bad++) if (*bad==c) return error(MSG_DOS_0041);
 #endif
 #ifdef DU_MUTATE_TRUNCATE
         if (n<10) name[n++]=c;
@@ -329,6 +329,6 @@ int label_main(const char *tail)
     }
     while (n && name[n-1]==' ') n--;
     name[n]=0;
-    if (!n) return error("Invalid characters in volume label");
+    if (!n) return error(MSG_DOS_0041);
     return label_commit(&disk,name);
 }

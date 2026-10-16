@@ -78,6 +78,7 @@ $(BUILD): .EXTRA_PREREQS =
 # header command.c includes (single source of truth). Defined here (early) so the
 # command.o prerequisite resolves; the codegen rule lives by SPEC_MESSAGES below.
 DOS_MESSAGES_H := $(BUILD)/dos_messages.h
+DOS_MESSAGES_INC := $(BUILD)/dos_messages.inc
 
 # The factory smoke stub (harness/factory_smoke.c) and its built binary.
 SMOKE_SRC := harness/factory_smoke.c
@@ -1933,14 +1934,14 @@ $(GOBBLE_PROG_BIN): $(GOBBLE_PROG_ASM) | $(BUILD)
 # Classic DOS filters SORT / FIND / MORE (beads initech-m0dc). nasm -f bin is
 # deterministic (Rule 11). The *_mut.bin variants add a single -D mutation used
 # by the emu-gate mutant legs (Rule 6).
-$(SORT_PROG_BIN): $(SORT_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
-$(SORT_PROG_MUT_BIN): $(SORT_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin -DSORT_MUTATE_REVERSE $< -o $@
-$(FIND_PROG_BIN): $(FIND_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
-$(FIND_PROG_MUT_BIN): $(FIND_PROG_ASM) | $(BUILD)
-	$(NASM) -f bin -DFIND_MUTATE_INVERT $< -o $@
+$(SORT_PROG_BIN): $(SORT_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
+$(SORT_PROG_MUT_BIN): $(SORT_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin -DSORT_MUTATE_REVERSE $< -o $@
+$(FIND_PROG_BIN): $(FIND_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
+$(FIND_PROG_MUT_BIN): $(FIND_PROG_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin -DFIND_MUTATE_INVERT $< -o $@
 $(MORE_PROG_BIN): $(MORE_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 $(MORE_PROG_MUT_BIN): $(MORE_PROG_ASM) | $(BUILD)
@@ -26667,19 +26668,19 @@ SPEC_STRUCT_BIN := $(BUILD)/spec_dos_structs_check
 # Deterministic codegen: spec/dos_messages.json -> build/dos_messages.h (beads
 # initech-509.1). DEC-13 makes the locked JSON the single source of truth for the
 # Approved Diagnostic Message Catalogue (ADR-0003 Appendix C); this step emits a
-# self-contained C header of MSG_DOS_0001..0026 #defines so command.c never
+# self-contained C header of MSG_DOS_0001..0074 #defines so command.c never
 # hand-copies the controlled vocabulary. Inline python3 is the house pattern
-# (cf. test-spec). The loop iterates i in 1..26 EXPLICITLY (not dict order) so the
+# (cf. test-spec). The loop iterates i in 1..74 EXPLICITLY (not dict order) so the
 # output is byte-deterministic (Rule 11); text is emitted VERBATIM with backslash
 # and double-quote C-escaped; ASCII-only, no timestamps, no host paths.
 $(DOS_MESSAGES_H): $(SPEC_MESSAGES) | $(BUILD)
-	@printf '>>> codegen: %s -> %s (26 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
+	@printf '>>> codegen: %s -> %s (74 messages, deterministic)\n' "$(SPEC_MESSAGES)" "$@"
 	@python3 -c "import json; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
-ids=['MSG-DOS-%04d'%i for i in range(1,27)]; \
+esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
+ids=['MSG-DOS-%04d'%i for i in range(1,75)]; \
 missing=[k for k in ids if k not in m]; \
 assert not missing, 'spec missing message id(s) (DEC-13 controlled scope): %r'%missing; \
 [ (_ for _ in ()).throw(AssertionError('non-string/empty text for %s'%k)) for k in ids if not (isinstance(m[k],str) and m[k]) ]; \
@@ -26703,6 +26704,9 @@ L.append(''); \
 L.append('#endif /* INITECH_DOS_MESSAGES_H */'); \
 open('$@','w').write(chr(10).join(L)+chr(10))" \
 		|| { printf '!!! codegen FAIL: %s invalid (missing id / bad shape / non-ASCII)\n' "$(SPEC_MESSAGES)"; exit 1; }
+
+$(DOS_MESSAGES_INC): $(DOS_MESSAGES_H) | $(BUILD)
+	@sed -n 's/^#define \(MSG_DOS_[0-9]*\) "\(.*\)"$$/%define \1 `\2`/p' $< > $@
 
 test-spec: $(SPEC_INT21H) $(SPEC_INT21H_CC) $(SPEC_MESSAGES) $(SPEC_STRUCTS_H) $(SPEC_BANNER) $(SPEC_ABSDISK) | $(BUILD)
 	@printf '======================================================================\n'
@@ -26744,12 +26748,12 @@ print('    parsed %d cc functions; every AH exists in int21h_register.json (%d s
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 assert isinstance(m,dict), 'messages is not an object'; \
-assert len(m)==26, 'expected 26 messages, found %d'%len(m); \
-exp=set('MSG-DOS-%04d'%i for i in range(1,27)); \
-assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0026: %r'%(sorted(set(m)^exp)); \
+assert len(m)==74, 'expected 74 messages, found %d'%len(m); \
+exp=set('MSG-DOS-%04d'%i for i in range(1,75)); \
+assert set(m.keys())==exp, 'message IDs are not MSG-DOS-0001..0074: %r'%(sorted(set(m)^exp)); \
 [ (_ for _ in ()).throw(AssertionError('empty text for %s'%k)) for k,v in m.items() if not (isinstance(v,str) and v.strip()) ]; \
-assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,27)), 'DIR Rule-8 source citations missing'; \
-print('    parsed 26 messages MSG-DOS-0001..0026; all non-empty; 6 DIR citations present')" \
+assert set(d['citations'])==set('MSG-DOS-%04d'%i for i in range(21,75)), 'DIR Rule-8 source citations missing'; \
+print('    parsed 74 messages MSG-DOS-0001..0074; all non-empty; 54 extraction/DIR citations present')" \
 		|| { printf '!!! test-spec FAIL: %s invalid (parse/count/IDs/empty)\n' "$(SPEC_MESSAGES)"; exit 1; }
 	@printf '>>> test-spec [4/6]: struct size asserts compile (Appendix B)\n'
 	@printf '#include "dos_structs.h"\nint main(void){return 0;}\n' > "$(SPEC_STRUCT_TU)"
@@ -26804,31 +26808,17 @@ print('    INT 25h/26h: 2 trap vectors (0x8F/DPL0/0x08); EBX-buffer swap pinned;
 # must faithfully encode it. python3 is an established FACTORY tool (Law 3); no
 # new runtime enters the artifact. Deterministic + ASCII-clean (Rules 11, 12).
 #
-# Three teeth, each fail-loud and exit-non-zero on the first divergence:
-#   TOOTH 1 -- CONSISTENCY: build/dos_messages.h contains, for every i in 1..19,
-#     EXACTLY  #define MSG_DOS_%04d "<spec text>"  with the text VERBATIM
-#     (spacing / punctuation / %c included). Catches header drift from the spec.
-#   TOOTH 2 -- IMAGE PRESENCE (the bead's centerpiece): the REFERENCED SET R =
-#     the MSG_DOS_00NN macros actually used in os/milton/*.c (EXCLUDING test_*.c,
-#     comments stripped). For each id in R the spec text must appear VERBATIM in
-#     the printable strings of build/kernel_shell.bin. A missing one = the message
-#     got mangled/dropped in compilation (a real regression). %c is substituted at
-#     runtime, so for a referenced text containing "%c" we check the literal
-#     prefix BEFORE the first %c (the static part the linker actually emits).
-#   TOOTH 3 -- SOURCE PURITY ("no inline literals"): in every os/milton/*.c
-#     (EXCLUDING test_*.c, comments stripped) NONE of the 16 spec texts may appear
-#     as a quoted string literal -- a hit means a controlled message was inlined
-#     instead of referencing the catalogue macro. The generated header lives in
-#     build/ (not os/milton/) so it is naturally excluded; comment mentions are
-#     removed by `gcc -fpreprocessed -E -P` so command.c's comment does not bite.
-#
-# Comment stripping uses `gcc -fpreprocessed -E -P`: it removes C comments WITHOUT
-# expanding macros/includes, so a macro name (or message text) that lives only in
-# a comment is correctly NOT counted as a reference or a literal.
+# Three teeth: header == locked JSON, referenced text in the linked shell and
+# external .COM images, then exhaustive literal extraction in the named
+# diagnostic TUs. dosmsg.allow lists exact non-diagnostic UI and non-output
+# exceptions with dates/reasons; dosmsg.allow.baseline forbids growth.
+# The old inline-catalogue check remains over ALL non-test MILTON C files.
+# Ref: initech-bcg.13; ADR-0003 7 item 4; dosmsg_scan.c (factory C lexer).
 DOSMSG_SRCS := $(filter-out $(KERNEL_DIR)/test_%.c,$(wildcard $(KERNEL_DIR)/*.c))
+DOSMSG_KERNEL_SRCS := $(filter-out $(addprefix $(KERNEL_DIR)/,dosutil.c chkdsk.c xcopy_tree.c edlin.c edlin_program.c),$(DOSMSG_SRCS))
 
 .PHONY: test-dosmsg
-test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
+test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) $(DOSMSG_SCAN) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(CHKDSK_PROG_BIN) $(XCOPY_PROG_BIN) $(TREE_PROG_BIN) $(EDLIN_PROG_BIN) $(FIND_PROG_BIN) $(SORT_PROG_BIN) $(TPSREP_BIN) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dosmsg : DEC-13 controlled-vocabulary oracle\n'
 	@printf '  Ref: ADR-0003 Appendix C / DEC-13; spec/dos_messages.json (LOCKED).\n'
@@ -26839,17 +26829,17 @@ test-dosmsg: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
 hdr=open('$(DOS_MESSAGES_H)').read(); \
-esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)); \
+esc=lambda s: s.replace(chr(92),chr(92)*2).replace(chr(34),chr(92)+chr(34)).replace(chr(13),chr(92)+'r').replace(chr(10),chr(92)+'n'); \
 miss=[]; \
-[ miss.append('MSG-DOS-%04d'%i) for i in range(1,27) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
+[ miss.append('MSG-DOS-%04d'%i) for i in range(1,75) if ('#define MSG_DOS_%04d \"%s\"'%(i,esc(m['MSG-DOS-%04d'%i]))) not in hdr ]; \
 assert not miss, 'header does NOT encode spec verbatim for: %r'%miss; \
-print('    build/dos_messages.h has all 26 #define MSG_DOS_NNNN verbatim from spec')" \
+print('    build/dos_messages.h has all 74 #define MSG_DOS_NNNN verbatim from spec')" \
 		|| { printf '!!! test-dosmsg FAIL: build/dos_messages.h diverges from spec/dos_messages.json (regen + recheck)\n'; exit 1; }
 	@printf '>>> test-dosmsg [2/3]: IMAGE PRESENCE -- referenced messages live in the shell image\n'
 	@python3 -c "import json,re,subprocess; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-srcs='$(DOSMSG_SRCS)'.split(); \
+srcs='$(DOSMSG_KERNEL_SRCS)'.split(); \
 refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
 R=sorted(refs); \
@@ -26863,18 +26853,16 @@ mangled=[(name,txt(name)) for name in R if needle(txt(name)) not in blob]; \
 assert not mangled, 'referenced message text ABSENT from kernel_shell.bin (mangled/dropped): %r'%mangled; \
 print('    R = {%s} -- every referenced message present VERBATIM in build/kernel_shell.bin'%', '.join(R))" \
 		|| { printf '!!! test-dosmsg FAIL: a referenced controlled message is missing from build/kernel_shell.bin\n'; exit 1; }
-	@printf '>>> test-dosmsg [3/3]: SOURCE PURITY -- no controlled message inlined as a literal\n'
-	@python3 -c "import json,re,subprocess; \
-d=json.load(open('$(SPEC_MESSAGES)')); \
-m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-srcs='$(DOSMSG_SRCS)'.split(); \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,27)]; \
-strip=lambda s: subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout; \
-lits=lambda code: [l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
-hits=[(s,t) for s in srcs for t in (lambda L:[x for x in texts if x in L])(lits(strip(s)))]; \
-assert not hits, 'controlled message inlined as a quoted literal (use the MSG_DOS_* macro): %r'%hits; \
-print('    %d source files comment-stripped; no spec text appears as an inline literal'%len(srcs))" \
-		|| { printf '!!! test-dosmsg FAIL: a controlled message text was inlined as a literal instead of MSG_DOS_* (DEC-13)\n'; exit 1; }
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/dosutil.c $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/chkdsk.c $(CHKDSK_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/xcopy_tree.c $(XCOPY_PROG_BIN) $(TREE_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/edlin.c $(EDLIN_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/find_program.asm $(FIND_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/sort_program.asm $(SORT_PROG_BIN)
+	@$(DOSMSG_SCAN) --image $(DOS_MESSAGES_H) os/milton/tpsrep_program.asm $(TPSREP_BIN)
+	@printf '>>> test-dosmsg [3/3]: SOURCE PURITY -- exhaustive literal inventory, exact dated exceptions\n'
+	@$(DOSMSG_SCAN) --known $(DOS_MESSAGES_H) $(DOSMSG_SRCS)
+	@$(DOSMSG_SCAN) $(DOS_MESSAGES_H) $(DOSMSG_ALLOW) $(DOSMSG_BASELINE) $(DOSMSG_AUDIT_SRCS)
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- DEC-13 holds: catalogue verbatim, referenced in image, no inlines\n'
 	@printf '>>> test-dosmsg: green\n'
@@ -26884,13 +26872,12 @@ print('    %d source files comment-stripped; no spec text appears as an inline l
 # Mutation proof: test-dosmsg-mutant (beads initech-509.1; CLAUDE.md Rule 6)
 # ---------------------------------------------------------------------------
 # An oracle that has never bitten has proven nothing. This target deliberately
-# breaks the tree TWO ways and asserts the matching tooth goes RED, then restores
+# checks six temporary source/policy mutants and one rebuilt-image mutant, then restores
 # the tree byte-clean. It exits 0 (green) ONLY if BOTH mutants were detected.
 #
-#   Mutant A (PURITY tooth bites): a TEMP copy of command.c with one MSG_DOS_0002
-#     reference replaced by the raw literal "Bad command or file name"; run the
-#     TOOTH-3 purity scan against the temp and assert it reports the inline hit.
-#     Cheap -- no image rebuild.
+#   Source mutants use the SAME C extraction tooth (dosmsg_mutants.sh).
+#   Each diagnostic, split literal, unknown macro, growing/stale exception
+#   must fail its named assertion; no shipped source is modified.
 #   Mutant B (PRESENCE tooth bites): temporarily REWORD MSG_DOS_0002 in
 #     build/dos_messages.h to a typo ("Bad command or filename"), rebuild
 #     build/kernel_shell.bin, then run the TOOTH-2 presence check -- which reads
@@ -26902,25 +26889,7 @@ test-dosmsg-mutant: $(DOS_MESSAGES_H) $(KERNEL_SHELL_BIN) | $(BUILD)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-dosmsg-mutant : Rule 6 (oracle must bite)\n'
 	@printf '======================================================================\n'
-	@printf '>>> test-dosmsg-mutant [A]: PURITY tooth must detect an inlined literal\n'
-	@tmp=$(BUILD)/command_mutantA.c; \
-	python3 -c "import sys; \
-src=open('$(KERNEL_DIR)/command.c').read(); \
-i=src.find('MSG_DOS_0002 \"'); \
-assert i>=0, 'could not find a MSG_DOS_0002 reference to mutate'; \
-mut=src[:i]+'\"Bad command or file name\"'+src[i+len('MSG_DOS_0002'):]; \
-open('$(BUILD)/command_mutantA.c','w').write(mut)"; \
-	python3 -c "import json,re,subprocess,sys; \
-d=json.load(open('$(SPEC_MESSAGES)')); \
-m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-texts=[m['MSG-DOS-%04d'%i] for i in range(1,27)]; \
-code=subprocess.run(['gcc','-fpreprocessed','-E','-P','$(BUILD)/command_mutantA.c'],capture_output=True,text=True).stdout; \
-lits=[l.encode().decode('unicode_escape') for l in re.findall(r'\"((?:[^\"\\\\]|\\\\.)*)\"', code)]; \
-hits=[t for t in texts if t in lits]; \
-sys.exit(0 if hits else 1)"; \
-	rc=$$?; rm -f $$tmp; \
-	if [ "$$rc" -ne 0 ]; then printf '!!! test-dosmsg-mutant FAIL: PURITY tooth did NOT detect the inlined literal\n'; exit 1; fi
-	@printf '>>> test-dosmsg-mutant [A]: purity tooth bit (inline literal detected)\n'
+	@$(MAKE) --no-print-directory test-dosmsg-source-mutant
 	@printf '>>> test-dosmsg-mutant [B]: PRESENCE tooth must detect a reworded message in the image\n'
 	@python3 -c "h=open('$(DOS_MESSAGES_H)').read(); \
 open('$(DOS_MESSAGES_H)','w').write(h.replace('\"Bad command or file name\"','\"Bad command or filename\"',1))"
@@ -26928,7 +26897,7 @@ open('$(DOS_MESSAGES_H)','w').write(h.replace('\"Bad command or file name\"','\"
 	@python3 -c "import json,re,subprocess,sys; \
 d=json.load(open('$(SPEC_MESSAGES)')); \
 m=d['messages'] if isinstance(d,dict) and 'messages' in d else d; \
-srcs='$(DOSMSG_SRCS)'.split(); \
+srcs='$(DOSMSG_KERNEL_SRCS)'.split(); \
 refs=set(); \
 [ refs.update(re.findall(r'MSG_DOS_00[0-9][0-9]', subprocess.run(['gcc','-fpreprocessed','-E','-P',s],capture_output=True,text=True).stdout)) for s in srcs ]; \
 img=open('$(KERNEL_SHELL_BIN)','rb').read(); \
@@ -26937,6 +26906,7 @@ blob=b'\x00'.join(runs); \
 txt=lambda name: m['MSG-DOS-'+name[len('MSG_DOS_'):]]; \
 needle=lambda t: (t.split('%c')[0] if '%c' in t else t).encode('ascii'); \
 absent=any(needle(txt(name)) not in blob for name in sorted(refs)); \
+print('RED dosmsg-image: REWORD_0002 canonical message absent') if absent else None; \
 sys.exit(1 if absent else 0)"; \
 	rc=$$?; \
 	rm -f $(DOS_MESSAGES_H); $(MAKE) --no-print-directory $(DOS_MESSAGES_H) >/dev/null 2>&1; \

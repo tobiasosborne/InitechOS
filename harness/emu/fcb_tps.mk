@@ -29,9 +29,9 @@ FCBX_IMG       := $(BUILD)/fcbx_data.img
 FCBX_FNAME     := fcbx
 
 $(FCBX_BIN): $(FCBX_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
 $(FCBX_BIN16): $(FCBX_ASM) | $(BUILD)
-	$(NASM) -f bin -DREALDOS $< -o $@
+	$(NASM) -I$(BUILD)/ -f bin -DREALDOS $< -o $@
 
 # Mutant secondary-shell kernels: one int21.o swapped (pattern: dos_control.mk).
 FCB_MUTANTS := seq noattr nozero
@@ -163,12 +163,12 @@ TPS_IMG_A      := $(BUILD)/tps_a.img
 TPS_IMG_B      := $(BUILD)/tps_b.img
 TPS_IMG_C      := $(BUILD)/tps_c.img
 
-$(TPSREP_BIN): $(TPSREP_ASM) | $(BUILD)
-	$(NASM) -f bin $< -o $@
-$(TPSREP_MUT_BIN): $(TPSREP_ASM) | $(BUILD)
-	$(NASM) -f bin -DTPS_MUTATE_COUNT6 $< -o $@
-$(TPSREP_BIN16): $(TPSREP_ASM) | $(BUILD)
-	$(NASM) -f bin -DREALDOS $< -o $@
+$(TPSREP_BIN): $(TPSREP_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin $< -o $@
+$(TPSREP_MUT_BIN): $(TPSREP_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin -DTPS_MUTATE_COUNT6 $< -o $@
+$(TPSREP_BIN16): $(TPSREP_ASM) $(DOS_MESSAGES_INC) | $(BUILD)
+	$(NASM) -I$(BUILD)/ -f bin -DREALDOS $< -o $@
 
 # keys file (raw bytes) -> QMP tokens: space spc, CR ret, '-' minus.
 tps-keys = $(shell od -An -tx1 -v $(1) | tr -s ' \n' '\n\n' | sed '/^$$/d' | \

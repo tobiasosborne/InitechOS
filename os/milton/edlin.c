@@ -44,10 +44,10 @@ static void prefix(unsigned n,int star){
 static unsigned offset(unsigned line){unsigned p=0;for(unsigned i=1;i<line&&p<used;i++)p+=length(text+p)+1;return p;}
 static void show_text(unsigned n,const char *s){prefix(n,n==current);while(*s)echo((unsigned char)*s++);crlf();}
 static void show(unsigned n){show_text(n,text+offset(n));}
-static void entry_error(void){emit("Entry error\r\n");}
+static void entry_error(void){emit(MSG_DOS_0052 "\r\n");}
 static int insert(unsigned at,const char *s){
     unsigned n=length(s)+1,p=offset(at);
-    if(n>CAP-used||lines>=65533u){emit("Insufficient memory\r\n");return 0;}
+    if(n>CAP-used||lines>=65533u){emit(MSG_DOS_0035 "\r\n");return 0;}
     shift(text+p+n,text+p,used-p);copy(text+p,s,n);used+=n;lines++;return 1;
 }
 static void erase(unsigned a,unsigned b){
@@ -55,7 +55,7 @@ static void erase(unsigned a,unsigned b){
 }
 static int change(unsigned n,const char *s){
     unsigned a=offset(n),b=offset(n+1),size=length(s)+1;
-    if(size>CAP-(used-(b-a))){emit("Insufficient memory\r\n");return 0;}
+    if(size>CAP-(used-(b-a))){emit(MSG_DOS_0035 "\r\n");return 0;}
     shift(text+a+size,text+b,used-b);copy(text+a,s,size);used=used-(b-a)+size;return 1;
 }
 /* pp.164-169,177: own template editor because AH=0Ah currently lacks it.
@@ -92,7 +92,7 @@ static int getbyte(reader *r){
     if(r->push>=0){int c=r->push;r->push=-1;return c;}
     if(r->eof)return -1;
     if(r->pos==r->size){r->size=io->read(r->h,r->buffer,sizeof r->buffer);r->pos=0;
-        if(r->size<=0){if(r->size<0){emit("File access denied\r\n");failed=1;}r->eof=1;return -1;}}
+        if(r->size<=0){if(r->size<0){emit(MSG_DOS_0053 "\r\n");failed=1;}r->eof=1;return -1;}}
     int c=(unsigned char)r->buffer[r->pos++];
     if(c==26&&!binary){r->eof=1;return -1;} /* pp.171-172 /B */
     return c;
@@ -103,7 +103,7 @@ static int nextline(reader *r){
     while((c=getbyte(r))>=0){
         if(c==10)break;
         if(c==13)continue;
-        if(!c){emit("Entry error\r\n");failed=1;return 0;}
+        if(!c){emit(MSG_DOS_0052 "\r\n");failed=1;return 0;}
         r->pending[n++]=(char)c;
         if(n==MAXLINE){c=getbyte(r);if(c==13)c=getbyte(r);if(c!=10&&c>=0)r->push=c;break;}
     }
@@ -121,12 +121,12 @@ static void append(unsigned count,int automatic,int banner){
     if(input.eof&&!input.ready&&banner)emit("End of input file\r\n");
 }
 static int writebytes(const char *p,unsigned n){
-    if(io->write(output,p,n)!=(int)n){emit("Disk full - file write not completed\r\n");failed=1;return 0;}return 1;
+    if(io->write(output,p,n)!=(int)n){emit(MSG_DOS_0054 "\r\n");failed=1;return 0;}return 1;
 }
 static int output_open(void){
     if(output>=0)return 1;
     output=io->create(temporary);
-    if(output<0){emit("File access denied\r\n");return 0;}return 1;
+    if(output<0){emit(MSG_DOS_0053 "\r\n");return 0;}return 1;
 }
 /* p.193: W removes written lines and renumbers from 1. With no count it
  * writes only enough to leave memory 3/4 full; the original is never truncated. */
@@ -148,16 +148,16 @@ static int save(void){
     if(!writebytes("\032",1))return 0;
     if(io->close(output)<0){failed=1;return 0;}output=-1;
     if(input.h>=0){io->close(input.h);input.h=-1;}
-    if(!backup_ro){int e=io->remove(backup);if(e<0&&e!=-2){emit("File access denied\r\n");return 0;}}
+    if(!backup_ro){int e=io->remove(backup);if(e<0&&e!=-2){emit(MSG_DOS_0053 "\r\n");return 0;}}
     if(existed){
 #ifdef EDLIN_MUT_BACKUP
         if(io->remove(name)<0)return 0; /* Rule 6: omit original .BAK. */
 #else
-        if(backup_ro){if(io->remove(name)<0){emit("File access denied\r\n");return 0;}}
-        else if(io->rename(name,backup)<0){emit("File access denied\r\n");return 0;}
+        if(backup_ro){if(io->remove(name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}}
+        else if(io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
 #endif
     }
-    if(io->rename(temporary,name)<0){emit("File access denied\r\n");return 0;}
+    if(io->rename(temporary,name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
     return 1;
 }
 static int number_start(int c){return(c>='0'&&c<='9')||c=='.'||c=='#'||c=='+'||c=='-';}
@@ -197,7 +197,7 @@ static void search_replace(unsigned first,unsigned last,int replace,int ask,char
             while(at+oldlen<=len&&!match(s+at,oldtext))at++;
             if(at+oldlen>len)break;
             if(!replace){show(i);if(!ask||approve()){current=i;return;}break;}
-            if(len-oldlen+newlen>MAXLINE){emit("Line too long\r\n");return;}
+            if(len-oldlen+newlen>MAXLINE){emit(MSG_DOS_0055 "\r\n");return;}
             copy(edited,s,at);copy(edited+at,newtext,newlen);copy(edited+at+newlen,s+at+oldlen,len-at-oldlen+1);
             show_text(i,edited);found=1;
             if(!ask||approve()){if(!change(i,edited))return;at+=newlen;}else at+=oldlen;
@@ -206,7 +206,7 @@ static void search_replace(unsigned first,unsigned last,int replace,int ask,char
 #endif
         }
     }
-    if(!found)emit("Not found\r\n");
+    if(!found)emit(MSG_DOS_0056 "\r\n");
 }
 /* p.175 copies snapshot range count times; p.183 rejects an overlapping move.
  * Packed arena copies adjust source offsets AFTER opening destination space.
@@ -219,7 +219,7 @@ static void copy_move(unsigned a,unsigned b,unsigned dest,unsigned count,int mov
         if(d<first){reverse(d,first);reverse(first,end);reverse(d,end);current=dest;}
         else {reverse(first,end);reverse(end,d);reverse(first,d);current=dest-(b-a+1);}
     }else {
-        if(!count||count>(CAP-used)/size||count>(65533-lines)/(b-a+1)){emit("Insufficient memory\r\n");return;}
+        if(!count||count>(CAP-used)/size||count>(65533-lines)/(b-a+1)){emit(MSG_DOS_0035 "\r\n");return;}
         unsigned total=size*count;shift(text+d+total,text+d,used-d);if(first>=d)first+=total;
         for(unsigned k=0;k<count;k++)copy(text+d+k*size,text+first,size);
         used+=total;lines+=(b-a+1)*count;current=dest;
@@ -305,13 +305,13 @@ int edlin_run(const edlin_io *ops,const char *tail){
     /* Appendix F p.313: .BAK is reserved; refuse before any file mutation. */
     if(n>=4&&name[n-4]=='.'&&upper(name[n-3])=='B'&&
        upper(name[n-2])=='A'&&upper(name[n-1])=='K'){
-        emit("Cannot edit .BAK file--rename file\r\n");return 1;
+        emit(MSG_DOS_0057 "\r\n");return 1;
     }
     extension(backup,name,".BAK");extension(temporary,name,".$$$");
     backup_ro=io->attr(backup);backup_ro=backup_ro>=0&&(backup_ro&1);
-    if(backup_ro)emit("WARNING! Backup file is read-only -- backup\r\nwill not be made\r\n"); /* p.164 */
+    if(backup_ro)emit(MSG_DOS_0058 "\r\n"); /* p.164 */
     int h=io->open(name);existed=h>=0;
-    if(h<0&&h!=-2){emit("File access denied\r\n");return 1;}
+    if(h<0&&h!=-2){emit(MSG_DOS_0053 "\r\n");return 1;}
     reader_init(&input,h);
     if(h<0){input.eof=1;emit("New file\r\n");}else append(65533,1,1);
     for(;;){emit("*");if(readline(command,"")<0){if(failed)break;continue;}if(commands())break;}
