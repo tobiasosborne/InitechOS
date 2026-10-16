@@ -10,7 +10,7 @@ l0
 WTENANT-REGISTER
 # go (500,451) 
 m100:100,m100:100,m100:100,m100:100,m78:0
-# type "1/0="
-k1,kslash,k0,kequal
+# type "1/0=" (80 ms between keys: a loaded host drops typeahead)
+k1,w80,kslash,w80,k0,w80,kequal,w80
 # go (500,462) 
 m0:11

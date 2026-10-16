@@ -18,7 +18,7 @@ l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) the pointer in the document
 m100:62,m100:0,m57:0
-# type "Saving tables to disk."
-kshift-s,ka,kv,ki,kn,kg,kspc,kt,ka,kb,kl,ke,ks,kspc,kt,ko,kspc,kd,ki,ks,kk,kdot
+# type "Saving tables to disk." (80 ms between keys: a loaded host drops typeahead)
+kshift-s,w80,ka,w80,kv,w80,ki,w80,kn,w80,kg,w80,kspc,w80,kt,w80,ka,w80,kb,w80,kl,w80,ke,w80,ks,w80,kspc,w80,kt,w80,ko,w80,kspc,w80,kd,w80,ki,w80,ks,w80,kk,w80,kdot,w80
 # go (300,301) 
 m0:1

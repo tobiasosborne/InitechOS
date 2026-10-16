@@ -19,12 +19,12 @@ WTENANT-REGISTER
 # go (500,456) 
 m100:100,m100:100,m100:70,m21:0
 # key right
-kright
+kright,w80
 # key down
-kdown
-# type "-570"
-kminus,k5,k7,k0
+kdown,w80
+# type "-570" (80 ms between keys: a loaded host drops typeahead)
+kminus,w80,k5,w80,k7,w80,k0,w80
 # key tab
-ktab
+ktab,w80
 # go (500,463) 
 m0:7

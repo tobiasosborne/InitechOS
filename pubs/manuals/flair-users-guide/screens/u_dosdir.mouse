@@ -18,18 +18,18 @@ m100:4,m100:0,m65:0
 l1,l0
 Wmm-dd-yy
 # key ret
-kret
+kret,w80
 Wtime:
 # key ret
-kret
+kret,w80
 w400
-# type "CLS"
-kshift-c,kshift-l,kshift-s
+# type "CLS" (80 ms between keys: a loaded host drops typeahead)
+kshift-c,w80,kshift-l,w80,kshift-s,w80
 # key ret
-kret
+kret,w80
 w300
-# type "DIR"
-kshift-d,kshift-i,kshift-r
+# type "DIR" (80 ms between keys: a loaded host drops typeahead)
+kshift-d,w80,kshift-i,w80,kshift-r,w80
 # key ret
-kret
+kret,w80
 w600

@@ -17,7 +17,7 @@ m-100:-8,m-100:0,m-61:0
 l1,l0,l1,l0
 WTENANT-REGISTER
 # key k
-kk
+kk,w80
 # go (300,300) inside the C Tenant window
 m100:100,m89:100,m0:18
 # click at (300,300)

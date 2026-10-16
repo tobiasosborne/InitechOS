@@ -18,21 +18,21 @@ l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) 
 m100:62,m100:0,m57:0
-# type "The new cover sheets go on every report."
-kshift-t,kh,ke,kspc,kn,ke,kw,kspc,kc,ko,kv,ke,kr,kspc,ks,kh,ke,ke,kt,ks,kspc,kg,ko,kspc,ko,kn,kspc,ke,kv,ke,kr,ky,kspc,kr,ke,kp,ko,kr,kt,kdot
+# type "The new cover sheets go on every report." (80 ms between keys: a loaded host drops typeahead)
+kshift-t,w80,kh,w80,ke,w80,kspc,w80,kn,w80,ke,w80,kw,w80,kspc,w80,kc,w80,ko,w80,kv,w80,ke,w80,kr,w80,kspc,w80,ks,w80,kh,w80,ke,w80,ke,w80,kt,w80,ks,w80,kspc,w80,kg,w80,ko,w80,kspc,w80,ko,w80,kn,w80,kspc,w80,ke,w80,kv,w80,ke,w80,kr,w80,ky,w80,kspc,w80,kr,w80,ke,w80,kp,w80,ko,w80,kr,w80,kt,w80,kdot,w80
 # go (33,70) just before the word new
 m-100:-100,m-100:-100,m-67:-30
 # drag (33,70) -> (56,70) across it
 l1,m23:0,l0
 # key ctrl-c
-kctrl-c
+kctrl-c,w80
 # go (400,300) below the text: the insertion point goes to the end
 m100:100,m100:100,m100:30,m44:0
 # click at (400,300)
 l1,l0
 # key ret
-kret
+kret,w80
 # key ctrl-v
-kctrl-v
+kctrl-v,w80
 # go (300,312) 
 m-100:12

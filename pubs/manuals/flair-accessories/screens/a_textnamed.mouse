@@ -18,8 +18,8 @@ l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) 
 m100:62,m100:0,m57:0
-# type "Memo"
-kshift-m,ke,km,ko
+# type "Memo" (80 ms between keys: a loaded host drops typeahead)
+kshift-m,w80,ke,w80,km,w80,ko,w80
 # go (53,30) File
 m-100:-100,m-100:-100,m-47:-70
 # press at (53,30)
@@ -30,10 +30,10 @@ m0:73
 l0
 w400
 kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace
-# type "memo.txt"
-km,ke,km,ko,kdot,kt,kx,kt
+# type "memo.txt" (80 ms between keys: a loaded host drops typeahead)
+km,w80,ke,w80,km,w80,ko,w80,kdot,w80,kt,w80,kx,w80,kt,w80
 # key ret
-kret
+kret,w80
 w600
 # go (300,316) 
 m100:100,m100:100,m47:13

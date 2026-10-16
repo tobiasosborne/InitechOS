@@ -17,7 +17,7 @@ m-100:100,m-100:48,m-100:0,m-29:0
 l1,l0,l1,l0
 WTENANT-REGISTER
 # key ctrl-o
-kctrl-o
+kctrl-o,w80
 w400
 # go (300,314) 
 m100:76,m100:0,m57:0

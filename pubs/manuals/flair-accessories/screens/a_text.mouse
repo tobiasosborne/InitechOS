@@ -18,15 +18,15 @@ l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) the pointer in the document
 m100:62,m100:0,m57:0
-# type "To: All staff"
-kshift-t,ko,kshift-semicolon,kspc,kshift-a,kl,kl,kspc,ks,kt,ka,kf,kf
+# type "To: All staff" (80 ms between keys: a loaded host drops typeahead)
+kshift-t,w80,ko,w80,kshift-semicolon,w80,kspc,w80,kshift-a,w80,kl,w80,kl,w80,kspc,w80,ks,w80,kt,w80,ka,w80,kf,w80,kf,w80
 # key ret
-kret
+kret,w80
 # key ret
-kret
-# type "The new cover sheets go on every report."
-kshift-t,kh,ke,kspc,kn,ke,kw,kspc,kc,ko,kv,ke,kr,kspc,ks,kh,ke,ke,kt,ks,kspc,kg,ko,kspc,ko,kn,kspc,ke,kv,ke,kr,ky,kspc,kr,ke,kp,ko,kr,kt,kdot
+kret,w80
+# type "The new cover sheets go on every report." (80 ms between keys: a loaded host drops typeahead)
+kshift-t,w80,kh,w80,ke,w80,kspc,w80,kn,w80,ke,w80,kw,w80,kspc,w80,kc,w80,ko,w80,kv,w80,ke,w80,kr,w80,kspc,w80,ks,w80,kh,w80,ke,w80,ke,w80,kt,w80,ks,w80,kspc,w80,kg,w80,ko,w80,kspc,w80,ko,w80,kn,w80,kspc,w80,ke,w80,kv,w80,ke,w80,kr,w80,ky,w80,kspc,w80,kr,w80,ke,w80,kp,w80,ko,w80,kr,w80,kt,w80,kdot,w80
 # key ret
-kret
+kret,w80
 # go (300,310) 
 m0:10

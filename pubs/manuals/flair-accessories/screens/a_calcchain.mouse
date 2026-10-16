@@ -8,7 +8,7 @@ m0:41
 # release at (22,51)
 l0
 WTENANT-REGISTER
-# type "2+3*4="
-k2,kshift-equal,k3,kshift-8,k4,kequal
+# type "2+3*4=" (80 ms between keys: a loaded host drops typeahead)
+k2,w80,kshift-equal,w80,k3,w80,kshift-8,w80,k4,w80,kequal,w80
 # go (500,453) 
 m100:100,m100:100,m100:100,m100:100,m78:2

@@ -18,10 +18,10 @@ l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) 
 m100:62,m100:0,m57:0
-# type "Memo"
-kshift-m,ke,km,ko
+# type "Memo" (80 ms between keys: a loaded host drops typeahead)
+kshift-m,w80,ke,w80,km,w80,ko,w80
 # key ctrl-s
-kctrl-s
+kctrl-s,w80
 w400
 # go (205,177) APPS in the list (row 2)
 m-95:-100,m0:-23

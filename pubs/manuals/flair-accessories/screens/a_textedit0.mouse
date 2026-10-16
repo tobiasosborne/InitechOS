@@ -18,8 +18,8 @@ l1,l0,l1,l0
 WTENANT-REGISTER
 # go (300,300) 
 m100:62,m100:0,m57:0
-# type "Memo"
-kshift-m,ke,km,ko
+# type "Memo" (80 ms between keys: a loaded host drops typeahead)
+kshift-m,w80,ke,w80,km,w80,ko,w80
 # go (95,30) Edit
 m-100:-100,m-100:-100,m-5:-70
 # press at (95,30)

@@ -10,7 +10,7 @@ l0
 WTENANT-REGISTER
 # go (500,451) 
 m100:100,m100:100,m100:100,m100:100,m78:0
-# type "12+30="
-k1,k2,kshift-equal,k3,k0,kequal
+# type "12+30=" (80 ms between keys: a loaded host drops typeahead)
+k1,w80,k2,w80,kshift-equal,w80,k3,w80,k0,w80,kequal,w80
 # go (500,452) 
 m0:1

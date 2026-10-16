@@ -18,23 +18,23 @@ m100:4,m100:0,m65:0
 l1,l0
 Wmm-dd-yy
 # key ret
-kret
+kret,w80
 Wtime:
 # key ret
-kret
+kret,w80
 w400
-# type "CLS"
-kshift-c,kshift-l,kshift-s
+# type "CLS" (80 ms between keys: a loaded host drops typeahead)
+kshift-c,w80,kshift-l,w80,kshift-s,w80
 # key ret
-kret
+kret,w80
 w300
-# type "CD APPS"
-kshift-c,kshift-d,kspc,kshift-a,kshift-p,kshift-p,kshift-s
+# type "CD APPS" (80 ms between keys: a loaded host drops typeahead)
+kshift-c,w80,kshift-d,w80,kspc,w80,kshift-a,w80,kshift-p,w80,kshift-p,w80,kshift-s,w80
 # key ret
-kret
+kret,w80
 w300
-# type "CHKDSK"
-kshift-c,kshift-h,kshift-k,kshift-d,kshift-s,kshift-k
+# type "CHKDSK" (80 ms between keys: a loaded host drops typeahead)
+kshift-c,w80,kshift-h,w80,kshift-k,w80,kshift-d,w80,kshift-s,w80,kshift-k,w80
 # key ret
-kret
+kret,w80
 w1500
