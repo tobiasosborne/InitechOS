@@ -24,7 +24,7 @@
 #     the FLAGSHIP volume as drive A:. The screen is the TEXT CONSOLE again:
 #     ppm_text_check (the test-boot grader) twice -- the banner inked at its
 #     origin and the DIR band [48,240) inked, then the console paper below the
-#     last prompt row (y >= 272, full width) AND down the right margin
+#     last prompt row (y >= 336, full width; the four startup date/time rows -- initech-qskz -- sit above the DIR listing, 20 text rows of 16 px) AND down the right margin
 #     (x >= 560 from y 32, where no line of this session reaches but the
 #     desktop's volume and Trash icons sat): no desktop pixel survives.
 #   test-flair-exit-to-dos-mutant (Rule 6): NO_TEARDOWN (KMAIN_MUT_EXIT_NO_
@@ -129,7 +129,7 @@ printf '%s\n' "$$after" | grep -qF ' Volume in drive A is INITECH' || { printf '
 printf '%s\n' "$$after" | grep -qE '^README +TXT ' && printf '%s\n' "$$after" | grep -qE '^APPS +<DIR>' || { printf 'EXIT: the A: listing lacks README.TXT / APPS\n'; exit 1; }; \
 ! grep -qE '^(PANIC|FLAIR-LIVE-OK|DESKTOP-DB-WRITE-FAIL)' $$s || { printf 'EXIT: %s\n' "$$(grep -E '^(PANIC|FLAIR-LIVE-OK|DESKTOP-DB-WRITE-FAIL)' $$s | head -1)"; exit 1; }; \
 [ -s "$(BUILD)/$(1).ppm" ] || { printf 'EXIT: no screendump at the prompt\n'; exit 1; }; \
-{ $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 272 && $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 32 560; } > $(BUILD)/$(1).ppmcheck 2>&1 || { printf 'EXIT: the screen is not the text console (the desktop is still painted): %s\n' "$$(grep -i fail $(BUILD)/$(1).ppmcheck | head -1)"; exit 1; }
+{ $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 336 && $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 32 560; } > $(BUILD)/$(1).ppmcheck 2>&1 || { printf 'EXIT: the screen is not the text console (the desktop is still painted): %s\n' "$$(grep -i fail $(BUILD)/$(1).ppmcheck | head -1)"; exit 1; }
 endef
 
 .PHONY: test-flair-exit-to-dos test-flair-exit-to-dos-mutant test-flair-tps-journey test-flair-tps-journey-mutant
