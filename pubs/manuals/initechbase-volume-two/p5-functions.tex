@@ -58,6 +58,16 @@ program lines short: the memory variable \texttt{MLINE} holds the first part.
 \fn{DTOC()} converts the due date, \fn{TRANSFORM()} the amount, and \fn{IIF()}
 turns \texttt{PAID} into a word, kept in the memory variable \texttt{MSTAT}.
 
+\ATEHead{Centred Titles}
+\fn{SPACE()} gives a string of blanks, \fn{REPLICATE()} repeats a string, and
+\fn{LEN()} counts characters.  Together they centre a title over a report:
+\ProgramListing{TITLES.PRG}
+\DotExample{examples/p5-titles}
+The number of blanks before each title is half the width that the title leaves
+free.  The second title takes the month and the year from \fn{DATE()}:
+\fn{CMONTH()} gives the name of the month, and \fn{STR()} the year, without its
+leading blanks after \fn{LTRIM()}.
+
 \ATEHead{Where Do You Go From Here?}
 Chapter~6 lets the program ask the user for what it needs.
 

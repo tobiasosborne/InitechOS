@@ -165,6 +165,7 @@
   local s = "\luaescapestring{#1}"
   s = string.gsub(s, "(\@percentchar u+)\@percentchar-(\@percentchar w+\@percentchar-\@percentchar w+)", "\@percentchar 1\@percentchar 2")
   tex.sprint(-2, s)}}
+\newif\ifim@thumb
 \im@ifmodel{ashtontate}{%
   \def\@wrindex#1{%
     \in@{|}{#1}%
@@ -191,7 +192,6 @@
       \fi
     \fi\fi\fi
     \global\im@thumbfalse}}{}
-\newif\ifim@thumb
 %% ---- the master index (AN-24 F-ATE, CP-13): the index of each volume covers
 %% both.  Every entry is also written to <job>.own.idx; \MasterIndexPartner
 %% {initechbase-volume-two} merges the partner volume's own entries -- from

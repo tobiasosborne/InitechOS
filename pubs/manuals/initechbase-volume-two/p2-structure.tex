@@ -70,6 +70,15 @@ after \cmd{OTHERWISE} are carried out.
 The main menu of the system (Chapter~11) carries out the task the clerk
 chooses with a \cmd{DO CASE}, one \cmd{CASE} for each choice.
 
+\ATEHead{Counting by Class}
+\file{DUECLASS.PRG} counts the invoices of the ledger in three classes of
+amount.  The \cmd{DO CASE} inside the loop chooses the count for each record:
+\ProgramListing{DUECLASS.PRG}
+\DotExample{examples/p2-dueclass}
+The order of the \cmd{CASE} lines matters.  An amount under 100 is also under
+1000, but only the first \cmd{CASE} that is true is carried out, so it is
+counted once.
+
 \ATEHead{Loops: DO WHILE}
 \cmd{DO WHILE} tests its condition; if it is true, the commands up to
 \cmd{ENDDO} are carried out and the condition is tested again.  The loop ends
@@ -96,6 +105,16 @@ clerk chooses to leave.
 The memory variables of the program remain after it ends, so you can look at
 them at the dot prompt:
 \DotExample{examples/p2-openinv}
+
+\ATEHead{Leaving a Loop Early}
+\file{FIRSTBIG.PRG} looks for the first open invoice of 1000 or more.  It
+passes over paid invoices with \cmd{LOOP} -- note the \cmd{SKIP} before it, or
+the loop would test the same record for ever -- and leaves the loop with
+\cmd{EXIT} as soon as it finds one:
+\ProgramListing{FIRSTBIG.PRG}
+\DotExample{examples/p2-firstbig}
+The logical memory variable \texttt{MFOUND} remembers why the loop ended: at
+the end of the file, or at an invoice found.
 
 \ATEHead{Nesting and Indentation}
 A structure may hold other structures: an \cmd{IF} inside a \cmd{DO WHILE}, as

@@ -59,6 +59,15 @@ The answer is converted to capitals and looked up in the index \file{INVNO.NDX}
 with \cmd{SEEK}.  \fn{FOUND()} decides which of the two messages the program
 prints.
 
+\ATEHead{Checking an Answer}
+A program cannot trust what is typed.  \file{AMTCHECK.PRG} asks for an amount
+until the answer is a number in the range it accepts:
+\ProgramListing{AMTCHECK.PRG}
+\DotExample{examples/p6-amtcheck}
+\fn{TYPE()} tells the program whether the answer is a number before it is
+compared; a character string typed in quotation marks is refused like a number
+out of range.  The loop ends only when \texttt{MOK} is true.
+
 \ATEHead{Where Do You Go From Here?}
 Chapter~7 adds records to the ledger from the answers to questions.
 

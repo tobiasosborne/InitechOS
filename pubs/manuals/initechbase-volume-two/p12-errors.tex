@@ -50,6 +50,16 @@ to record the error before the message is displayed:
 \DotExample{examples/p12-onerror}
 The program stopped on its first record, with error 12.
 
+\ATEHead{An Error Procedure}
+The command named by \cmd{ON ERROR} may be \cmd{DO} of a procedure of the program
+that is running.  \file{ERRDEMO.PRG} installs its procedure \texttt{ERRHAND},
+which reports the error and the record before InitechBase displays the
+message:
+\ProgramListing{ERRDEMO.PRG}
+\DotExample{examples/p12-errdemo}
+The empty \cmd{?} at the end of \texttt{ERRHAND} ends its line, so that the
+message of InitechBase begins a line of its own.
+
 \ATEHead{Where Do You Go From Here?}
 Chapter~13 shows how to find and correct the mistake.
 

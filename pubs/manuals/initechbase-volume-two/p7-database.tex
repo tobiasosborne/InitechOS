@@ -63,6 +63,44 @@ two \cmd{REPLACE} commands fill in its fields.  \fn{UPPER()} keeps the customer 
 capitals and \fn{CTOD()} converts the due date.  The record is written to the
 disk at once, and the index is brought up to date.
 
+\ATEHead{Recording a Payment}
+\file{MARKPAID.PRG} finds an invoice, shows it, and marks it paid when the clerk
+confirms:
+\ProgramListing{MARKPAID.PRG}
+\begin{Steps}[resume]
+\item Type \type{USE INVOICE INDEX INVNO}.
+\item Type \type{DO MARKPAID}, answer \type{A1004} and press \type{Y}.
+\item Type \type{DO MARKPAID} and answer \type{A1004} again.
+\item Type \type{DO MARKPAID}, answer \type{A1002} and press \type{N}.
+\end{Steps}
+\DotExample{examples/p7-markpaid}
+Each check comes before the change: the invoice must exist and must not be paid
+already, and the clerk must confirm.  Only then does \cmd{REPLACE} write to the
+ledger.
+
+\ATEHead{Totals by Customer}
+With the ledger in the order of the customer index, the invoices of each
+customer follow one another.  \file{CUSTTOT.PRG} totals each customer with a loop
+inside a loop: the outer loop begins a customer, the inner one adds its
+invoices while the customer stays the same.
+\ProgramListing{CUSTTOT.PRG}
+\DotExample{examples/p7-custtot}
+The inner loop moves the record pointer, so the outer loop has no \cmd{SKIP}
+of its own: when the inner loop ends, the pointer is already on the first
+invoice of the next customer.
+
+\ATEHead{Removing Paid Invoices}
+\file{CLEANUP.PRG} removes the paid invoices from the ledger after the month has
+been closed and copied.  It marks them, lists them, and asks before it
+removes them with \cmd{PACK}; if the answer is not Y, \cmd{RECALL} removes the
+marks again.
+\ProgramListing{CLEANUP.PRG}
+\DotExample{examples/p7-cleanup}
+\begin{AteWarning}
+Records removed by \cmd{PACK} cannot be recovered.  Run \file{CLEANUP.PRG} only
+after the month's files have been copied to their diskette.
+\end{AteWarning}
+
 \ATEHead{Where Do You Go From Here?}
 Chapter~8 prints the ledger as a report.
 

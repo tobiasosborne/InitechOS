@@ -56,6 +56,24 @@ Pass character values to a procedure through memory variables or expressions
 (\doctitle{Using InitechBase}, Chapter~5, \cmd{DO}).
 \end{AteNote}
 
+\ATEHead{A Program of Procedures}
+A long program reads best as a main program that calls procedures with
+names that say what they do.  \file{STATEMNT.PRG} prints the statement of
+account of one customer: a heading, a line for each open invoice, and the
+balance.  Each part is a procedure; \texttt{FOOTER} receives the balance as a
+parameter.
+\ProgramListing{STATEMNT.PRG}
+\begin{Steps}
+\item Type \type{USE INVOICE INDEX INVCUST}.
+\item Type \type{DO STATEMNT} and answer \type{hartwell}.
+\item Type \type{DO STATEMNT} again and answer \type{NOBODY}.
+\end{Steps}
+\DotExample{examples/p4-statemnt}
+The index on the customer keeps the invoices of each customer together, so the
+loop \cmd{DO WHILE CUST = MCUST} reads only the invoices of the customer
+found by \cmd{SEEK}.  The procedures use the fields of the current record and
+the memory variables of the main program, which they can see while they run.
+
 \ATEHead{Where Do You Go From Here?}
 Chapter~5 looks at the functions that build the values programs print.
 
