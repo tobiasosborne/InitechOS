@@ -47,6 +47,8 @@
 #define IW_RV_JUST_CENTER "[Just:Center]"  /* MINT22 05_reveal "[Just:Center]after" */
 #define IW_RV_JUST_RIGHT  "[Just:Right]"   /* MINT24 02_reveal "[Just:Right]Right line." */
 #define IW_RV_DSRT        "[DSRt]"         /* MINT22 05_reveal "Mid[DSRt]" (0x90)   */
+#define IW_RV_LN_SPACING "[Ln Spacing:" /* + the new value + "]": MINT25 04_reveal
+                                         * "[Ln Spacing:1.5]", MINT26 "[Ln Spacing:3]" */
 #define IW_RV_LR_MAR     "[L/R Mar:"    /* R4 "[L/R Mar:2\",2\"]": D0/01, the NEW
                                          * left and right margins in inches       */
 #define IW_RV_UNKNOWN    "[?]"          /* authored: no shot labels the code      */
@@ -64,12 +66,28 @@
 
 /* Attribute labels: upper case = the ON code, lower case = the OFF code
  * (R1 [BOLD]/[bold] [UND]/[und]; R4 [LARGE]/[large]; R6 [ITALC]/[italc]). */
-#define IW_RV_ATTR_ROWS 4
+/* P2 slice 3 (2026-10-16): all sixteen, each typed from its menu and read
+ * off a real Reveal Codes pane (mint/shots_wpMINT28/20..23; the numbers from
+ * the saved file mint/work/WP51/MINT28, spec/iword/wp5_format.h
+ * IW_WP5_ATTR_*). */
+#define IW_RV_ATTR_ROWS 16
 #define IW_RV_ATTR_INIT { \
-    { 0x02u, "[LARGE]", "[large]" }, \
-    { 0x08u, "[ITALC]", "[italc]" }, \
-    { 0x0Cu, "[BOLD]",  "[bold]"  }, \
-    { 0x0Eu, "[UND]",   "[und]"   }  \
+    { 0x00u, "[EXT LARGE]", "[ext large]" }, \
+    { 0x01u, "[VRY LARGE]", "[vry large]" }, \
+    { 0x02u, "[LARGE]",     "[large]"     }, \
+    { 0x03u, "[SMALL]",     "[small]"     }, \
+    { 0x04u, "[FINE]",      "[fine]"      }, \
+    { 0x05u, "[SUPRSCPT]",  "[suprscpt]"  }, \
+    { 0x06u, "[SUBSCPT]",   "[subscpt]"   }, \
+    { 0x07u, "[OUTLN]",     "[outln]"     }, \
+    { 0x08u, "[ITALC]",     "[italc]"     }, \
+    { 0x09u, "[SHADW]",     "[shadw]"     }, \
+    { 0x0Au, "[REDLN]",     "[redln]"     }, \
+    { 0x0Bu, "[DBL UND]",   "[dbl und]"   }, \
+    { 0x0Cu, "[BOLD]",      "[bold]"      }, \
+    { 0x0Du, "[STKOUT]",    "[stkout]"    }, \
+    { 0x0Eu, "[UND]",       "[und]"       }, \
+    { 0x0Fu, "[SM CAP]",    "[sm cap]"    }  \
 }
 
 /* ---- the pane -------------------------------------------------------------- *
@@ -129,7 +147,10 @@
  * Face A's window 24 (os/iword/app/face_a.c): the Format screen drops its
  * blank row 1 and Format: Line its blank row 22 [authored adaptation; no
  * text is lost]. "Selection: 0" is on WP's last row. */
-#define IW_FMT_ROWS 34
+/* RULE 8, 2026-10-16 (this bead, deliberate): 33 rows listed below, the
+ * count said 34 -- the 34th was a zero row whose NULL text WORD.EXE read
+ * on Shift-F8 (caught by test-iword-face F11, the first test to open it). */
+#define IW_FMT_ROWS 33
 #define IW_FMT_INIT { \
     {  0,  0, "Format" }, \
     {  2,  5, "1 - Line" }, \
@@ -189,6 +210,13 @@
 /* ---- the Font menu (Ctrl-F8), on the status line (R6) ---------------------- */
 #define IW_FONT_MENU    "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"
 #define IW_APPEAR_MENU  "1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0"
+/* Slice 3 (mint/shots_wpMINT28): Ctrl-F8 1 (18_size_menu; with Block on
+ * 11_size_menu_block, the same), Ctrl-F8 with Block on (07_font_menu_block).
+ * The digit n of each menu -> its attribute number (MINT28 bytes): */
+#define IW_SIZE_MENU    "1 Suprscpt; 2 Subscpt; 3 Fine; 4 Small; 5 Large; 6 Vry Large; 7 Ext Large: 0"
+#define IW_FONT_BLK_MENU "Attribute: 1 Size; 2 Appearance: 0"
+#define IW_SIZE_ATTRS   { 0x05u, 0x06u, 0x04u, 0x03u, 0x02u, 0x01u, 0x00u }   /* 1..7 */
+#define IW_APPEAR_ATTRS { 0x0Cu, 0x0Eu, 0x0Bu, 0x08u, 0x07u, 0x09u, 0x0Fu, 0x0Au, 0x0Du } /* 1..9 */
 
 /* ---- block and code prompts, on the status line (P2 slice 2) -------------
  * Each transcribed from a real WP 5.1 screen (mint/shots_wpMINT11..13):    */
@@ -196,6 +224,11 @@
                                          * line while Block is on (WP blinks it) */
 #define IW_MOVE_MENU     "Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0"
                                         /* MINT12 03_move_menu (Ctrl-F4, Block on) */
+#define IW_MOVE_NB_MENU  "Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0"
+                                        /* slice 3: MINT29 / MINT31 02_move_menu
+                                         * (Ctrl-F4, Block off)                 */
+#define IW_RETRIEVE_MENU "Retrieve: 1 Block; 2 Tabular Column; 3 Rectangle: 0"
+                                        /* MINT29 14_retrieve_menu (Ctrl-F4 4)  */
 #define IW_MOVE_BLK_MENU "1 Move; 2 Copy; 3 Delete; 4 Append: 0"
                                         /* MINT12 04_block_menu (then 1 Block)  */
 #define IW_MOVE_RETRIEVE "Move cursor; press Enter to retrieve."

@@ -237,15 +237,17 @@ static uint32_t partner(const iw_doc_t *d, uint32_t q)
     }
 }
 
-/* A [L/R Mar] or [Just:] code (slice 3; spec/iword/wp5_format.h "margins
- * and justification"): WP asks before deleting one (MINT23, MINT24). */
+/* A [L/R Mar], [Just:] or [Ln Spacing:] code (slice 3; spec/iword/
+ * wp5_format.h "margins and justification", "line spacing"): WP asks before
+ * deleting one (MINT23, MINT24, MINT26 05_bs_question). */
 int iw_code_is_format(const iw_doc_t *d, uint32_t pos)
 {
     uint8_t g[4];
     uint32_t size;
     if (iw_doc_read(d, pos, g, sizeof g) != sizeof g || g[0] != IW_WP5_MARGIN_GRP) return 0;
     size = (uint32_t)g[2] | ((uint32_t)g[3] << 8);
-    return (g[1] == IW_WP5_MARGIN_SUB && size == 12u) || (g[1] == IW_WP5_JUST_SUB && size == 6u);
+    return (g[1] == IW_WP5_MARGIN_SUB && size == 12u) || (g[1] == IW_WP5_JUST_SUB && size == 6u) ||
+           (g[1] == IW_WP5_SPACING_SUB && size == 8u);
 }
 
 int iw_ed_kill_code(iw_ed_t *e, uint32_t q)
@@ -328,6 +330,12 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
              * with a made-up 5.0-style label. NEVER real. */
             if (g[1] == IW_WP5_ATTR_ITALIC) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[ITAL]" : "[ital]");
 #endif
+#ifdef IWORD_MUT_LABEL_SM_CAP
+            /* MUTANT (Rule 6; test-iword-reveal-codes-mutant): Small Caps
+             * labelled as the menu spells it ("Sm Cap" -> [SMCAP]), not as
+             * the pane does. NEVER real. */
+            if (g[1] == 0x0Fu) return put(out, cap, n, c == IW_WP5_ATTR_ON ? "[SMCAP]" : "[smcap]");
+#endif
             return put(out, cap, n, c == IW_WP5_ATTR_ON ? ATTR_LABEL[i].on : ATTR_LABEL[i].off);
         }
         return put(out, cap, n, IW_RV_UNKNOWN);
@@ -360,6 +368,18 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
             return put(out, cap, n, J[0]);
 #endif
             if (g[5] < 4u) return put(out, cap, n, J[g[5]]);
+        }
+        if (g[1] == IW_WP5_SPACING_SUB && got >= IW_WP5_SPACING_LEN && u16at(g, 2) == 8u) {
+            /* [Ln Spacing:<new>] (MINT25 04_reveal "[Ln Spacing:1.5]",
+             * "[Ln Spacing:1]"; MINT26 03_reveal "[Ln Spacing:3]",
+             * 05_bs_question "[Ln Spacing:1.33]"): the 8.8 value to the
+             * hundredth, trailing zeros dropped */
+            char num[12];
+            uint32_t k = iw_fmt_inches((u16at(g, 6) * 100u + IW_WP5_SPACING_ONE / 2u) / IW_WP5_SPACING_ONE, num);
+            num[k - 1u] = 0;                              /* no inch mark */
+            n = put(out, cap, n, IW_RV_LN_SPACING);
+            n = put(out, cap, n, num);
+            return put(out, cap, n, "]");
         }
         return put(out, cap, n, IW_RV_UNKNOWN);
     case 0xD4u:

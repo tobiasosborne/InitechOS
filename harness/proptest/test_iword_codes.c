@@ -800,12 +800,24 @@ static void fixed(void)
  *                   column counted from the left margin, every 5 columns:
  *                   a = L + 120 s, t = a / 120 (MINT21 @0x1CF, MINT23 @0x1AE);
  *                   C6 = 10200 - R, L + 120 m (MINT21 @0x24E).
+ *   F6 SPACING      every [Ln Spacing] (D0/02) holds the spacing before it as
+ *                   its old value (MINT25 @0x1AE / @0x1D4; MINT26: rewritten
+ *                   after a deletion), 1/256ths of a line, 1 at the top.
+ * The sessions also press the slice-3 keys that only move the cursor or the
+ * text -- Line Spacing, Home x3 Left, Home Home (Home) Up, Home Home Down,
+ * and Move without a block (Ctrl-F4 1/2/3 then Move + retrieve, Copy +
+ * retrieve or Delete; re/mint-results-004.md MINT27, MINT31) -- and every
+ * rule above must hold after each.
  * Mutants: TAB_ABS, NO_LEAD, OLD_STALE, WRAP_65 -> RED-REASON format.
  * ======================================================================== */
 enum { F_CHAR, F_SPACE, F_ENTER, F_BS, F_DEL, F_LEFT, F_RIGHT, F_UP, F_DOWN, F_HOME, F_END,
-       F_TAB, F_INDENT, F_MAR, F_JUST, F_NKEYS };
+       F_TAB, F_INDENT, F_MAR, F_JUST, F_SPACING, F_HHHL, F_TOP, F_BOT, F_MOVE, F_NKEYS };
 static const char *const FNAME[F_NKEYS] = { "char", "space", "Enter", "Backspace", "Delete", "Left", "Right",
-    "Up", "Down", "Home", "End", "Tab", "F4", "Shift-F8 1 7", "Shift-F8 1 3" };
+    "Up", "Down", "Home", "End", "Tab", "F4", "Shift-F8 1 7", "Shift-F8 1 3", "Shift-F8 1 6",
+    "Home Home Home Left", "Home Home (Home) Up", "Home Home Down", "Ctrl-F4 n m" };
+static const uint32_t FM_SP[] = { 100, 133, 150, 200, 225, 300 };   /* hundredths (MINT25/26/30) */
+static uint8_t g_clipf[4096];
+static uint32_t g_clipf_n;
 typedef struct { uint8_t k, a, b; } fkey_t;
 static fkey_t g_fkeys[MAXKEYS];
 static int g_fail_format;
@@ -836,6 +848,7 @@ static uint32_t r_len(const uint8_t *b, uint32_t n, uint32_t p)
 static int r_lead(const uint8_t *b, uint32_t p) { return b[p] == 0xD4 && b[p + 1] == 0x05; }
 static int r_mar(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x01; }
 static int r_jst(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x06; }
+static int r_spc(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x02; }
 static int r_tab(const uint8_t *b, uint32_t p) { return (b[p] == 0xC1 && b[p + 1] == 0x02) || b[p] == 0xC2; }
 static int r_term(uint8_t c) { return c == 0x0A || c == 0x0D || c == 0x0C || c == 0x90; }
 static int r_cr(uint32_t j) { return j == 2 || j == 3; }
@@ -843,7 +856,7 @@ static int r_cr(uint32_t j) { return j == 2 || j == 3; }
 /* The reference check of body b[0..n) with the cursor at cur; 0 = good. */
 static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, int verbose)
 {
-    uint32_t p = 0, L = 1200, R = 1200, J = 1, set = 0, m = 0;
+    uint32_t p = 0, L = 1200, R = 1200, J = 1, set = 0, m = 0, S = 256;
     int cur_ok = cur == n, tail = 0;   /* tail: the line continues a layout break */
     /* F1: units */
     for (p = 0; p < n; ) {
@@ -861,7 +874,7 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
     for (;;) {
         uint32_t s = p, c = m, lw, lL, lR, need, run = J, cols, q, after_m = m, mm = m;
         uint32_t L0 = L, R0 = R, set0 = set;
-        int layout_break = 0, placed = 0;
+        int layout_break = 0, placed = 0, prev_jst = 0;
         /* the line's leading format codes format it */
         lL = L; lR = R;
         q = s;
@@ -881,13 +894,16 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
             /* the layout's own break: a character past the line, once a
              * unit other than a D4/05 is on it */
             if ((R_TEXT(b[q])) && c + 1u > lw && placed) { layout_break = 1; break; }
-            if (r_lead(b, q) && placed) {
-                /* D4/05 records right before such a break start the next line */
+            if (r_lead(b, q) && placed && !prev_jst) {
+                /* D4/05 records right before such a break start the next line
+                 * -- except the one right after a [Just:], which is that
+                 * code's own (stated 2026-10-16; no mint breaks there) */
                 uint32_t z = q;
                 while (z < n && r_lead(b, z)) z += r_len(b, n, z);
                 if (z < n && R_TEXT(b[z]) && c + 1u > lw) { layout_break = 1; break; }
             }
             if (!r_lead(b, q)) placed = 1;
+            prev_jst = r_jst(b, q);
             if (need) {
                 if (!r_lead(b, q)) { if (verbose) printf("      F4 a D4/05 is missing at %u\n", q); return 1; }
                 need = 0;
@@ -915,6 +931,13 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
                     return 1;
                 }
                 L = rd16(b, q + 8); R = rd16(b, q + 10); set = 1;
+            }
+            if (r_spc(b, q)) {
+                if (rd16(b, q + 4) != S) {
+                    if (verbose) printf("      F6 the [Ln Spacing] at %u holds old %u, the spacing before it is %u\n", q, rd16(b, q + 4), S);
+                    return 1;
+                }
+                S = rd16(b, q + 6);
             }
             if (r_jst(b, q)) {
                 if (b[q + 4] != J) { if (verbose) printf("      F2 the [Just:] at %u holds old %u, the justification before it is %u\n", q, b[q + 4], J); return 1; }
@@ -999,6 +1022,26 @@ static int frun(const fkey_t *keys, int n, const uint8_t *skip, uint32_t width, 
         case F_TAB:   rc = iw_ed_tab(&e); break;
         case F_INDENT: rc = iw_ed_indent(&e); break;
         case F_MAR:   rc = iw_ed_margins(&e, FM_L[k->a % 6u], FM_R[k->b % 5u]); break;
+        case F_SPACING: rc = iw_ed_spacing(&e, iw_spacing_from_hundredths(FM_SP[k->a % 6u])); break;
+        case F_HHHL:  iw_ed_line_start(&e); edit = 0; break;
+        case F_TOP:   iw_ed_doc_top(&e, k->a & 1u); edit = 0; break;
+        case F_BOT:   iw_ed_doc_end(&e); edit = 0; break;
+        case F_MOVE:
+            /* Ctrl-F4 1/2/3 (Sentence, Paragraph, Page), then 1 Move +
+             * Enter, 2 Copy + Enter, or 3 Delete; nothing to select is a
+             * refusal WP shows as nothing happening */
+            if (iw_ed_select(&e, 1 + (int)(k->a % 3u)) != IW_OK) { edit = 0; break; }
+            if (k->b % 3u == 0u) {
+                rc = iw_ed_block_cut(&e, g_clipf, sizeof g_clipf, &g_clipf_n);
+                if (rc == IW_OK) rc = iw_ed_retrieve(&e, g_clipf, g_clipf_n);
+            } else if (k->b % 3u == 1u) {
+                rc = iw_ed_block_copy(&e, g_clipf, sizeof g_clipf, &g_clipf_n);
+                if (rc == IW_OK) rc = iw_ed_retrieve(&e, g_clipf, g_clipf_n);
+            } else {
+                rc = iw_ed_block_cut(&e, 0, 0, 0);
+            }
+            if (rc == IW_E_FULL) { rc = IW_OK; e.blk = IW_NO_BLOCK; }
+            break;
         default:      rc = iw_ed_just(&e, k->a % 4u); break;
         }
         if (rc != IW_OK) { if (verbose) printf("      key refused rc=%d\n", rc); return i + 1; }
@@ -1021,10 +1064,11 @@ static void format_family(int sessions, uint32_t seed)
             fkey_t *k = &g_fkeys[i];
             k->a = (uint8_t)rn(256);
             k->b = (uint8_t)rn(256);
-            k->k = (uint8_t)(r < 40 ? F_CHAR : r < 55 ? F_SPACE : r < 60 ? F_ENTER : r < 65 ? F_BS :
-                   r < 69 ? F_DEL : r < 73 ? F_LEFT : r < 77 ? F_RIGHT : r < 79 ? F_UP : r < 81 ? F_DOWN :
-                   r < 82 ? F_HOME : r < 83 ? F_END : r < 86 ? F_TAB : r < 88 ? F_INDENT :
-                   r < 94 ? F_MAR : F_JUST);
+            k->k = (uint8_t)(r < 38 ? F_CHAR : r < 52 ? F_SPACE : r < 57 ? F_ENTER : r < 62 ? F_BS :
+                   r < 66 ? F_DEL : r < 70 ? F_LEFT : r < 74 ? F_RIGHT : r < 76 ? F_UP : r < 78 ? F_DOWN :
+                   r < 79 ? F_HOME : r < 80 ? F_END : r < 82 ? F_TAB : r < 84 ? F_INDENT :
+                   r < 88 ? F_MAR : r < 91 ? F_JUST : r < 93 ? F_SPACING : r < 94 ? F_HHHL :
+                   r < 95 ? F_TOP : r < 96 ? F_BOT : F_MOVE);
         }
         if (frun(g_fkeys, n, 0, width, 0)) {
             static uint8_t skip[MAXKEYS];
@@ -1045,9 +1089,9 @@ static void format_family(int sessions, uint32_t seed)
             failed = 1;
         }
     }
-    CHECK(!failed, "format sessions: units, old values, wrap, D4/05, tabs under the margins");
+    CHECK(!failed, "format sessions: units, old values, wrap, D4/05, tabs under the margins, spacing, Home keys, Move without a block");
     if (failed) g_fail_format++;
-    printf("  format   %s: %d random sessions == the reference; units whole; old values; wrap under the margins; D4/05; tabs / C6\n",
+    printf("  format   %s: %d random sessions == the reference; units whole; old values; wrap under the margins; D4/05; tabs / C6; spacing old values; Home keys; Move without a block\n",
            failed ? "RED" : "green", sessions);
 }
 

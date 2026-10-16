@@ -53,9 +53,17 @@
  * 06_moved.png, 09_delete_prompt.png, 10_deleted.png). The TABS file F10
  * saves is judged by the Makefile: its body == MINT09's, byte for byte.
  *
+ * F11..F15 (bead initech-jojk, P2 slice 3): the Format screens and the
+ * justification on the screen (MINT21, MINT22), line spacing on the screen
+ * and the status line, scrolling by rows (MINT25, MINT26, MINT30), the Home
+ * prefix keys (MINT27), attributes given to a block and the Size menu
+ * (MINT28), Move without a block (MINT31) -- typed from those shots.
+ *
  * Mutants (Rule 6; test-iword-face-mutant): IWORD_MUT_NO_WRAP (F1 rows),
  * IWORD_MUT_SAVE_NOTHING (F1 saved size), IWORD_MUT_NO_FACE (F7 faces),
- * IWORD_MUT_NO_BLOCK_ON (F8 "Block on").
+ * IWORD_MUT_NO_BLOCK_ON (F8 "Block on"); slice 3: IWORD_MUT_NO_CENTER (F11
+ * the centered line), IWORD_MUT_SP_CEIL (F12 1.33 on two rows),
+ * IWORD_MUT_LINE_SCROLL (F12 the window never starts on a blank row).
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
  */
 #include <stdint.h>
@@ -203,10 +211,13 @@ static __attribute__((unused)) int status_line_is(int line, const char *left, co
     char w[SCR_W + 1], doc[40];
     memset(w, ' ', SCR_W); w[SCR_W] = 0;
     memcpy(w, left, strlen(left));
+    /* (slice 3, stated: a Pos too long for the field -- "3.85"" -- moves
+     * the whole group left by the overflow) */
+    size_t sh = 72 + strlen(pos) > SCR_W ? 72 + strlen(pos) - SCR_W : 0;
     snprintf(doc, sizeof doc, "Doc 1 Pg 1 Ln %s", ln);
-    memcpy(w + 67 - strlen(doc), doc, strlen(doc));
-    memcpy(w + 68, caps ? "POS " : "Pos ", 4);
-    memcpy(w + 72, pos, strlen(pos));
+    memcpy(w + 67 - sh - strlen(doc), doc, strlen(doc));
+    memcpy(w + 68 - sh, caps ? "POS " : "Pos ", 4);
+    memcpy(w + 72 - sh, pos, strlen(pos));
     return row_is(line, w);
 }
 static __attribute__((unused)) int status_is(const char *left, const char *ln, const char *pos, int caps)
@@ -299,9 +310,11 @@ static void t_relaunch(void)
     CHECK(row_is(23, "Document to be Saved: MEMO"), "F2", "F10 offers the current name (PDF 583)");
     tks("copy\r");
     CHECK(status_is("A:\\COPY", "1.17\"", "2.3\"", 0), "F2", "saved as COPY");
-    /* Home, Up: to the very start; type X; F10 Enter: Replace? */
+    /* Up, then Home, Left (slice 3: Home is WP's prefix key, Reference
+     * Manual p. 103; MINT27): to the very start; type X; F10 Enter: Replace? */
     fkey(0x48, 0);
     fkey(0x47, 0);
+    fkey(0x4B, 0);   /* Left */
     tk('X');
     CHECK(row_is(0, "X" ROW0), "F2", "X typed at the start (the line still fits: 64 columns)");
     fkey(F10, 0);
@@ -563,8 +576,10 @@ static void t_block(void)
     tk('\r');
     CHECK(row_is(1, "Alpha Gamma.Beta ") && status_is("", "1.17\"", "2.2\"", 0) && cursor_at(1, 12), "F8",
           "End, Enter: retrieved in front of the cursor, which stays (06_moved Pos 2.2\")");
-    /* Delete with Block on (09_delete_prompt / 10_deleted) */
+    /* Delete with Block on (09_delete_prompt / 10_deleted); Home, Left to
+     * the line's start (slice 3: Home is a prefix key, MINT27) */
     fkey(0x47, 0);
+    fkey(LEFT, 0);
     fkey(F4, ALT);
     for (int i = 0; i < 6; i++) fkey(RIGHT, 0);
     fkey(DEL, 0);
@@ -638,6 +653,229 @@ static void t_tabs(void)
     CHECK(m_exit_calls == 0, "F10", "still running");
 }
 
+/* ---- slice 3 (bead initech-jojk): every expected row, prompt and status
+ * line below is typed by hand from the real WP 5.1 screens of
+ * ../wordperfect51-decomp mint/shots_wpMINT21..31 (re/mint-results-004.md),
+ * never from spec/iword or face_a.c. WP's screens are 80 x 25; the face is
+ * 76 x 24 (the Format screens drop one blank row, the Reveal Codes document
+ * part is 10 rows, not 11). */
+#define UP    0x48
+#define DOWN  0x50
+#define HOME  0x47
+static void shift_f8(void) { fkey(F8, SHIFT); }
+/* "<label>" at column 5 and its value at column 40 (MINT25 01_spacing_field:
+ * "     6 - Line Spacing" ... "1" under x = 360 / 9) */
+static int fmt_row_is(int line, const char *label, const char *value)
+{
+    char w[SCR_W + 1];
+    memset(w, ' ', SCR_W); w[SCR_W] = 0;
+    memcpy(w + 5, label, strlen(label));
+    memcpy(w + 40, value, strlen(value));
+    return row_is(line, w);
+}
+
+/* F11 FORMAT (Shift-F8; MINT21 01_format_menu / 02_format_line, MINT22
+ * 02_just_menu / 04_typed, MINT25 01_spacing_field / 02_spacing_set). */
+static void t_format(void)
+{
+    tk('\r');
+    shift_f8();
+    CHECK(row_is(0, "Format") && row_is(1, "     1 - Line") && row_is(23, "Selection: 0"), "F11",
+          "Shift-F8: the Format screen, its blank row 1 dropped (01_format_menu)");
+    tk('1');
+    CHECK(row_is(0, "Format: Line") && fmt_row_is(2, "1 - Hyphenation", "No") && fmt_row_is(7, "3 - Justification", "Full") &&
+          fmt_row_is(13, "6 - Line Spacing", "1") && fmt_row_is(15, "7 - Margins - Left", "1\"") &&
+          row_is(23, "Selection: 0"), "F11", "1 Line: the values at the cursor (02_format_line)");
+    tk('6');
+    CHECK(row_is(23, "Selection: 6"), "F11", "6 Line Spacing: the field (MINT25 01_spacing_field)");
+    tks("2\r");
+    CHECK(fmt_row_is(13, "6 - Line Spacing", "2") && row_is(23, "Selection: 0"), "F11",
+          "2 Enter: Line Spacing 2 (MINT25 02_spacing_set)");
+    tk('6');
+    tks("1\r");
+    tk('3');
+    CHECK(row_is(23, "Justification: 1 Left; 2 Center; 3 Right; 4 Full: 0"), "F11", "3 Justification (MINT22 02_just_menu)");
+    tk('2');
+    CHECK(fmt_row_is(7, "3 - Justification", "Center"), "F11", "2 Center");
+    fkey(F7, 0);
+    tks("Centered justification line.");
+    /* MINT22 04_typed: "Centered justification line." starts at x = 162
+     * (column 18) */
+    CHECK(row_is(1, "                  Centered justification line."), "F11",
+          "a centered line halfway between the margins (MINT22 04_typed, column 18)");
+    tk('\r');
+    tks("Bold me.");
+    fkey(HOME, 0); fkey(LEFT, 0);
+    CHECK(status_is("", "1.33\"", "3.85\"", 0), "F11",
+          "Pos 3.85\" (two decimals, MINT32 03_typed): the group moved left, the inch mark kept");
+    CHECK(m_exit_calls == 0, "F11", "still running");
+}
+
+/* F12 LINE SPACING ON THE SCREEN (MINT25 03_typed / 04_reveal, MINT26
+ * 02_typed, MINT30 03_typed). */
+static void t_spacing(void)
+{
+    tk('\r');
+    shift_f8(); tk('1'); tk('6'); tks("2\r"); fkey(F7, 0);
+    tks("Double spaced paragraph that is long enough to wrap onto a second line of the page.\r");
+    tks("Next.\r");
+    shift_f8(); tk('1'); tk('6'); tks("1.5\r"); fkey(F7, 0);
+    tks("One and a half.\rAgain.\rMid");
+    shift_f8(); tk('1'); tk('6'); tks("1\r"); fkey(F7, 0);
+    tks("single\rLast.");
+    CHECK(row_is(0, "") && row_is(1, "Double spaced paragraph that is long enough to wrap onto a second") &&
+          row_is(2, "") && row_is(3, "line of the page.") && row_is(4, "") && row_is(5, "Next.") && row_is(6, "") &&
+          row_is(7, "One and a half.") && row_is(8, "") && row_is(9, "Again.") && row_is(10, "") &&
+          row_is(11, "Midsingle") && row_is(12, "Last.") && row_is(13, ""), "F12",
+          "2 and 1.5 take two rows, 1 one (MINT25 03_typed)");
+    CHECK(status_is("", "2.83\"", "1.5\"", 0), "F12", "Ln 2.83\" = 1\" + (1+2+2+2+1.5+1.5+1)/6 (MINT25 03_typed)");
+    fkey(F3, ALT);
+    CHECK(row_is(12, "[Ln Spacing:1.5]One and a half.[HRt]") && row_is(13, "Again.[HRt]") &&
+          row_is(14, "Mid[Ln Spacing:1]single[HRt]") && row_is(15, "Last.") && inv_run(15, 5, 1), "F12",
+          "Reveal Codes: the [Ln Spacing:] labels (MINT25 04_reveal)");
+    CHECK(row_is(9, "Last.") && row_is(8, "Midsingle"), "F12", "the cursor's line kept on the 10-row document part");
+    fkey(F3, ALT);
+    CHECK(m_exit_calls == 0, "F12", "still running");
+}
+
+/* F12b fractional spacing and scrolling by rows. */
+static void t_spacing_rows(void)
+{
+    shift_f8(); tk('1'); tk('6'); tks("1.33\r");
+    CHECK(fmt_row_is(13, "6 - Line Spacing", "1.33"), "F12", "1.33 shown as typed (MINT26 / MINT30)");
+    fkey(F7, 0);
+    tks("One and a third.\rTwo.\r");
+    CHECK(row_is(0, "One and a third.") && row_is(1, "Two.") && row_is(2, ""), "F12",
+          "1.33 takes one row: rounded to the nearest (MINT26 02_typed, MINT30 03_typed)");
+    shift_f8(); tk('1'); tk('6'); tks("3\r"); fkey(F7, 0);
+    tks("L0\rL1\rL2\rL3\rL4\rL5\rL6\rL7\rL8");
+    /* "Two." is followed by eight triple-spaced lines: L0 on row 3 .. L6 on
+     * row 21, L7 on 24 -- the screen scrolls by ROWS (MINT25 04_reveal), so
+     * the top may be a blank row */
+    CHECK(row_is(22, "L8") && row_is(19, "L7") && row_is(16, "L6") && row_is(0, "") && row_is(1, "L1"), "F12",
+          "triple spacing scrolled by rows: the window starts on L0's last blank row");
+    CHECK(m_exit_calls == 0, "F12", "still running");
+}
+
+/* F13 THE HOME PREFIX KEYS (Reference Manual p. 103-104; MINT27 02..18). */
+static void t_home(void)
+{
+    tk('\r');
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    shift_f8(); tk('1'); tk('3'); tk('1'); fkey(F7, 0);
+    fkey(HOME, 0); fkey(HOME, 0); fkey(DOWN, 0);
+    tks("Line one of the text.\rLine two goes here.\r");
+    fkey(F6, 0); tks("Bold"); fkey(F6, 0); tks(" starts line three.\rFour.");
+    fkey(UP, 0); fkey(HOME, 0); fkey(LEFT, 0);
+    CHECK(status_is("", "1.5\"", "1\"", 0) && cursor_at(3, 0), "F13", "Up, Home, Left: the start of line three (MINT27 02)");
+    fkey(F3, ALT);
+    CHECK(inv_run(15, 6, 1), "F13", "... past [BOLD], on B (03_home_left_reveal)");
+    fkey(F3, ALT);
+    fkey(HOME, 0); fkey(RIGHT, 0);
+    CHECK(status_is("", "1.5\"", "3.3\"", 0), "F13", "Home, Right: the end of the line (04_home_right)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(HOME, 0); fkey(LEFT, 0);
+    fkey(F3, ALT);
+    CHECK(inv_run(15, 0, 6), "F13", "Home, Home, Home, Left: on [BOLD] (08_hhh_left_reveal)");
+    fkey(F3, ALT);
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    fkey(F3, ALT);
+    CHECK(status_line_is(10, "", "1\"", "1\"", 0) && inv_run(12, 11, 5), "F13",
+          "Home, Home, Up: after [Just:Left], on [HRt] (10_hh_up_reveal)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0);
+    CHECK(inv_run(12, 0, 11), "F13", "Home, Home, Home, Up: on [Just:Left] (12_hhh_up_reveal)");
+    fkey(F3, ALT);
+    fkey(HOME, 0); fkey(HOME, 0); fkey(DOWN, 0);
+    CHECK(status_is("", "1.67\"", "1.5\"", 0), "F13", "Home, Home, Down: the end (13_hh_down)");
+    fkey(UP, 0); fkey(UP, 0); fkey(HOME, 0); fkey(UP, 0);
+    CHECK(status_is("", "1\"", "1\"", 0), "F13", "Home, Up: the top line of the screen (15_home_up)");
+    fkey(HOME, 0); fkey(DOWN, 0);
+    CHECK(status_is("", "1.67\"", "1.5\"", 0), "F13", "Home, Down: the bottom line, the column kept (16_home_down)");
+    fkey(UP, 0); fkey(UP, 0); fkey(END, 0);
+    CHECK(status_is("", "1.33\"", "2.9\"", 0), "F13", "End (18_end_key)");
+    fkey(HOME, 0);
+    tk('x');
+    CHECK(row_is(2, "Line two goes here.x"), "F13", "a key after Home is itself (Home waits for an arrow)");
+    CHECK(m_exit_calls == 0, "F13", "still running");
+}
+
+/* F14 ATTRIBUTES GIVEN TO A BLOCK; THE SIZE MENU (MINT28 01..13, 17..19). */
+static void t_block_attr(void)
+{
+    tk('\r');
+    tks("abc def ghi");
+    fkey(LEFT, 0); fkey(LEFT, 0); fkey(LEFT, 0);
+    fkey(F4, ALT);
+    fkey(END, 0);
+    fkey(F6, 0);
+    CHECK(faces_are(1, 8, 11, IW_A_BOLD) && faces_are(1, 0, 8, 0) && status_is("", "1.17\"", "2.1\"", 0), "F14",
+          "Block, F6: the block bold, Block off, the cursor after it (MINT28 02_bolded)");
+    fkey(HOME, 0); fkey(LEFT, 0);
+    for (int i = 0; i < 4; i++) fkey(RIGHT, 0);
+    fkey(F4, ALT);
+    for (int i = 0; i < 3; i++) fkey(RIGHT, 0);
+    fkey(F8, CTRL);
+    CHECK(row_is(23, "Attribute: 1 Size; 2 Appearance: 0"), "F14", "Ctrl-F8 with Block on (07_font_menu_block)");
+    tk('2');
+    CHECK(row_is(23, "1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0"), "F14",
+          "2 Appearance (08_appear_menu_block)");
+    tk('4');
+    CHECK(faces_are(1, 4, 7, IW_A_ITALIC) && status_is("", "1.17\"", "1.7\"", 0), "F14", "4 Italc: \"def\" italic (09_italic)");
+    fkey(F8, CTRL);
+    CHECK(row_is(23, "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"), "F14", "Ctrl-F8, Block off (17_font_menu)");
+    tk('1');
+    CHECK(row_is(23, "1 Suprscpt; 2 Subscpt; 3 Fine; 4 Small; 5 Large; 6 Vry Large; 7 Ext Large: 0"), "F14",
+          "1 Size (18_size_menu)");
+    tk('1');
+    fkey(F3, ALT);
+    CHECK(row_is(13, "abc [ITALC]def[italc][SUPRSCPT][suprscpt] [BOLD]ghi[bold]"), "F14",
+          "1 Suprscpt: its pair at the cursor, after [italc] (labels: 21_sizes_reveal_b)");
+    fkey(F3, ALT);
+    CHECK(m_exit_calls == 0, "F14", "still running");
+}
+
+/* F15 MOVE WITHOUT A BLOCK (MINT31 02..15; MINT29 14). */
+static void t_move_nb(void)
+{
+    tk('\r');
+    tks("First sentence here. Second sentence follows.  Third one.\rPara two line.\rLast para.");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0); fkey(DOWN, 0);
+    for (int i = 0; i < 25; i++) fkey(RIGHT, 0);
+    fkey(F4, CTRL);
+    CHECK(row_is(23, "Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0"), "F15", "Ctrl-F4, Block off (02_move_menu)");
+    tk('1');
+    CHECK(band(1, 21, 26) && row_is(23, "1 Move; 2 Copy; 3 Delete; 4 Append: 0"), "F15",
+          "1 Sentence: \"Second sentence follows.  \" highlighted (03_sentence)");
+    tk('1');
+    CHECK(row_is(1, "First sentence here. Third one.") &&
+          status_is("Move cursor; press Enter to retrieve.", "1.17\"", "3.1\"", 0), "F15", "1 Move: cut (05_move_prompt)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(DOWN, 0);
+    tk('\r');
+    CHECK(row_is(3, "Last para.Second sentence follows.") && status_is("", "1.5\"", "2\"", 0), "F15",
+          "Enter: retrieved, the cursor in front (06_retrieved)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(UP, 0); fkey(DOWN, 0); fkey(DOWN, 0); fkey(RIGHT, 0); fkey(RIGHT, 0);
+    fkey(F4, CTRL);
+    tk('2');
+    CHECK(band(2, 0, 14), "F15", "2 Paragraph: \"Para two line.\" highlighted (08_paragraph)");
+    tk('2');
+    CHECK(status_is("Move cursor; press Enter to retrieve.", "1.5\"", "1\"", 0), "F15",
+          "2 Copy: the cursor at the paragraph's end (09_copy_prompt)");
+    fkey(HOME, 0); fkey(HOME, 0); fkey(DOWN, 0);
+    tk('\r');
+    CHECK(row_is(3, "Last para.Second sentence follows.  Para two line.") && status_is("", "1.5\"", "4.6\"", 0), "F15",
+          "Enter: the paragraph with its [HRt] (10_para_copied)");
+    fkey(F4, CTRL);
+    tk('3');
+    fkey(F1, 0);
+    CHECK(status_is("", "1.67\"", "1\"", 0), "F15", "3 Page, F1: the cursor at the page's end (13_page_cancel)");
+    fkey(F4, CTRL);
+    tk('4');
+    CHECK(row_is(23, "Retrieve: 1 Block; 2 Tabular Column; 3 Rectangle: 0"), "F15", "4 Retrieve (14_retrieve_menu)");
+    tk('1');
+    CHECK(row_is(4, "Para two line.") && status_is("", "1.67\"", "1\"", 0), "F15",
+          "1 Block: the paragraph again, the cursor in front (15_retrieved_again)");
+    CHECK(m_exit_calls == 0, "F15", "still running");
+}
+
 #else
 /* F6 SMALL BUFFERS: thousands of keys through compaction to the size limit;
  * the saved text is the typed text (judged here by the model: SRt = ' '). */
@@ -702,6 +940,12 @@ int main(int argc, char **argv)
     launch("errors", t_errors);
     launch("into", t_into);
     launch("codes", t_codes);
+    launch("format", t_format);
+    launch("spacing", t_spacing);
+    launch("spacing_rows", t_spacing_rows);
+    launch("home", t_home);
+    launch("block_attr", t_block_attr);
+    launch("move_nb", t_move_nb);
 #endif
     printf("test_iword_face: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);
     return g_ctr[1] == 0 ? 0 : 1;

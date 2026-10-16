@@ -13,10 +13,12 @@
  *   mint/shots_wpMINT09..16                             (slice 2, ledger 003:
  *     tabs, indents, hard pages; the "Delete [code]?" answers; Block, Move,
  *     Copy, Delete Block, retrieve into attributes; the pane's row count)
- *   mint/shots_wpMINT21..24                             (slice 3, ledger 004:
+ *   mint/shots_wpMINT21..31                             (slice 3, ledger 004:
  *     [L/R Mar:..] with the [HRt] WP puts before one typed mid-line,
  *     [Just:Left/Center/Right], [DSRt], the codes Down lands after, the
- *     answers to "Delete [L/R Mar:..]?")
+ *     answers to "Delete [L/R Mar:..]?"; [Ln Spacing:..]; where each Home
+ *     prefix key leaves the cursor; attributes given to blocks and the
+ *     sixteen attribute labels; Move without a block)
  * Nothing here is read from spec/iword/reveal_codes.h (Law 2: an oracle that
  * shares its expected strings with the artifact agrees by construction). The
  * right arrow of "[->Indent]" is CP437 0x1A as the screen shows it.
@@ -39,6 +41,9 @@
  *   IWORD_MUT_PANE_ANCHOR  two lines above the cursor   -> RED-REASON pane
  *   IWORD_MUT_BLOCK_LABEL  no [Block] at the anchor     -> RED-REASON label
  *   IWORD_MUT_LABEL_JUST   every [Just:] shows as Left   -> RED-REASON label
+ *   IWORD_MUT_HHH_AFTER    Home x3, Left stops after the codes -> RED-REASON pane
+ *   IWORD_MUT_BLK_CUR_START the cursor always after the block's off code
+ *                                                        -> RED-REASON pane
  *
  * Usage: test_iword_reveal_codes <WORDPERFECT51_DECOMP>
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
@@ -141,6 +146,60 @@ static const char *const M24_02[] = { "%RET", "%JC",
     "A centered paragraph long enough to wrap onto a second line and then a third line of text, to see each line.",
     "%RET", "ab", "%RET", "xyz", "%L", "%L", "Q", "%END", "%RET", "%JR", "Right line.", "%RET", "Plain", 0 };
 #define M23R1 "[Just:Left][L/R Mar:1.5\",1\"]Same trip.[HRt]"
+/* slice 3, mint/wpMINT25..31.steps up to each shot ("%SP=H" Shift-F8 1 6 in
+ * hundredths; the Home keys, Size / Appearance, Move without a block as
+ * iword_keys.h names them) */
+static const char *const M25_04[] = { "%RET", "%SP=200",
+    "Double spaced paragraph that is long enough to wrap onto a second line of the page.", "%RET", "Next.", "%RET",
+    "%SP=150", "One and a half.", "%RET", "Again.", "%RET", "Mid", "%SP=100", "single", "%RET", "Last.", 0 };
+#define M26_A "%RET", "%SP=133", \
+    "One point three three spacing on a paragraph long enough to wrap onto a second line.", "%RET", "Next.", "%RET", \
+    "%SP=300", "Triple.", "%RET", "After."
+static const char *const M26_03[] = { M26_A, 0 };
+static const char *const M26_07[] = { M26_A, "%TOP", "%D", "%BS", "%Y", 0 };
+#define M27_A "%RET", "%TOP", "%JL", "%BOT", "Line one of the text.", "%RET", "Line two goes here.", "%RET", \
+    "%F6", "Bold", "%F6", " starts line three.", "%RET", "Four."
+static const char *const M27_03[] = { M27_A, "%U", "%HOME", 0 };
+static const char *const M27_06[] = { M27_A, "%U", "%HOME", "%HR", "%HOME", 0 };
+static const char *const M27_08[] = { M27_A, "%U", "%HOME", "%HR", "%HOME", "%HHHL", 0 };
+static const char *const M27_10[] = { M27_A, "%U", "%HOME", "%HR", "%HOME", "%HHHL", "%TOP", 0 };
+static const char *const M27_12[] = { M27_A, "%U", "%HOME", "%HR", "%HOME", "%HHHL", "%TOP", "%TOP3", 0 };
+static const char *const M27_14[] = { M27_A, "%U", "%HOME", "%HR", "%HOME", "%HHHL", "%TOP", "%TOP3", "%BOT", 0 };
+#define M28_03 "%RET", "abc def ghi", "%L*3", "%BLK", "%END", "%F6"
+#define M28_06 M28_03, " jkl", "%BLK", "%L*2", "%F8"
+#define M28_10 M28_06, "%HOME", "%R*4", "%BLK", "%R*3", "%ITAL"
+#define M28_13 M28_10, "%HOME", "%BLK", "%R*3", "%SZ=5"
+#define M28_16 M28_13, "%HOME", "%R*2", "%BLK", "%R*7", "%F6"
+#define M28_20 M28_16, "%BOT", "%RET", \
+    "%SZ=1", "s1", "%R", "%RET", "%SZ=2", "s2", "%R", "%RET", "%SZ=3", "s3", "%R", "%RET", "%SZ=4", "s4", "%R", "%RET", \
+    "%SZ=5", "s5", "%R", "%RET", "%SZ=6", "s6", "%R", "%RET", "%SZ=7", "s7", "%R", "%RET"
+#define M28_22 M28_20, "%U*4", "%BOT", \
+    "%AP=3", "a3", "%R", "%RET", "%AP=5", "a5", "%R", "%RET", "%AP=6", "a6", "%R", "%RET", \
+    "%AP=7", "a7", "%R", "%RET", "%AP=8", "a8", "%R", "%RET", "%AP=9", "a9", "%R", "%RET"
+static const char *const M28_03S[] = { M28_03, 0 };
+static const char *const M28_06S[] = { M28_06, 0 };
+static const char *const M28_10S[] = { M28_10, 0 };
+static const char *const M28_13S[] = { M28_13, 0 };
+static const char *const M28_16S[] = { M28_16, 0 };
+static const char *const M28_20S[] = { M28_20, 0 };
+static const char *const M28_21S[] = { M28_20, "%U*4", 0 };
+static const char *const M28_22S[] = { M28_22, 0 };
+static const char *const M28_23S[] = { M28_22, "%U*3", 0 };
+static const char *const M30_04[] = { "%RET", "%SP=133", "One and a third.", "%RET", "Two.", "%RET", "Mid", "%SP=225",
+    "dle.", "%RET", "Three.", "%RET", "Four.", 0 };
+#define M31_07 "%RET", "First sentence here. Second sentence follows.  Third one.", "%RET", \
+    "Para two line.", "%RET", "Last para.", "%TOP", "%D", "%R*25", "%SENT", "%MOVE", "%BOT", "%RET"
+#define M31_11 M31_07, "%TOP", "%D", "%D", "%R*2", "%PARA", "%COPY", "%BOT", "%RET"
+#define M31_16 M31_11, "%PAGE", "%F1", "%RETB"
+static const char *const M31_07S[] = { M31_07, 0 };
+static const char *const M31_11S[] = { M31_11, 0 };
+static const char *const M31_16S[] = { M31_16, 0 };
+static const char *const M31_18S[] = { M31_16, "%TOP", "%D", "%SENT", "%CUT", 0 };
+static const char *const M32_05[] = { "%RET", "%SP=200", "%JC", "Centered.", "%RET", "Bold me.", "%BLK", "%HOME", "%F6", 0 };
+#define M27R0 "[Just:Left][HRt]"
+#define M27R3 "[BOLD]Bold[bold] starts line three.[HRt]"
+#define M28R1 "[LARGE]ab[BOLD]c[large] [ITALC]def[bold][italc] [BOLD]ghi[bold] j[UND]kl[und]"
+#define M31R3 "Last para.Second sentence follows.  Para two line.[HRt]"
 
 #define M13R1 "Plain[BOLD]bold word[bold]fter.[BOLD]s[bold] a[HRt]"
 #define M13R2 "Keep[UND]under words[und] tail.ep[UND]u[und][HRt]"
@@ -400,6 +459,109 @@ static const screen_t SCREENS[] = {
       "xQyz[HRt]",
       "[Just:Right]Right line.[HRt]",
       "Plain" } },
+    /* ---- slice 3: line spacing -------------------------------------------------- */
+    { "mint/shots_wpMINT25/04_reveal.png", 0, M25_04, 4, 3, 5, 1, {
+      "[Ln Spacing:1.5]One and a half.[HRt]",
+      "Again.[HRt]",
+      "Mid[Ln Spacing:1]single[HRt]",
+      "Last." } },
+    { "mint/shots_wpMINT26/03_reveal.png", 0, M26_03, 2, 3, 6, 1, {
+      "onto a second line.[HRt]",
+      "Next.[HRt]",
+      "[Ln Spacing:3]Triple.[HRt]",
+      "After." } },
+    { "mint/shots_wpMINT26/07_reveal_after.png", 0, M26_07, 0, 1, 0, 1, {
+      "[HRt]",
+      "One point three three spacing on a paragraph long enough to wrap[SRt]",
+      "onto a second line.[HRt]",
+      "Next.[HRt]",
+      "[Ln Spacing:3]Triple.[HRt]",
+      "After." } },
+    { "mint/shots_wpMINT30/04_reveal.png", 0, M30_04, 2, 3, 5, 1, {
+      "Two.[HRt]",
+      "Mid[Ln Spacing:2.25]dle.[HRt]",
+      "Three.[HRt]",
+      "Four." } },
+    /* ---- slice 3: the Home prefix keys (Reference Manual p. 103-104) ------------ */
+    { "mint/shots_wpMINT27/03_home_left_reveal.png", 0, M27_03, 0, 3, 6, 1, {
+      M27R0, "Line one of the text.[HRt]", "Line two goes here.[HRt]", M27R3, "Four." } },
+    { "mint/shots_wpMINT27/06_hh_left_reveal.png", 0, M27_06, 0, 3, 6, 1, {
+      M27R0, "Line one of the text.[HRt]", "Line two goes here.[HRt]", M27R3, "Four." } },
+    { "mint/shots_wpMINT27/08_hhh_left_reveal.png", 0, M27_08, 0, 3, 0, 6, {
+      M27R0, "Line one of the text.[HRt]", "Line two goes here.[HRt]", M27R3, "Four." } },
+    { "mint/shots_wpMINT27/10_hh_up_reveal.png", 0, M27_10, 0, 0, 11, 5, {
+      M27R0, "Line one of the text.[HRt]", "Line two goes here.[HRt]", M27R3, "Four." } },
+    { "mint/shots_wpMINT27/12_hhh_up_reveal.png", 0, M27_12, 0, 0, 0, 11, {
+      M27R0, "Line one of the text.[HRt]", "Line two goes here.[HRt]", M27R3, "Four." } },
+    { "mint/shots_wpMINT27/14_hh_down_reveal.png", 0, M27_14, 1, 3, 5, 1, {
+      "Line one of the text.[HRt]", "Line two goes here.[HRt]", M27R3, "Four." } },
+    /* ---- slice 3: attributes given to a block; the sixteen labels --------------- */
+    { "mint/shots_wpMINT28/03_bolded_reveal.png", 0, M28_03S, 0, 1, 23, 1, {
+      "[HRt]", "abc def [BOLD]ghi[bold]" } },
+    { "mint/shots_wpMINT28/06_underlined_reveal.png", 0, M28_06S, 0, 1, 30, 1, {
+      "[HRt]", "abc def [BOLD]ghi[bold] j[UND]kl[und]" } },
+    { "mint/shots_wpMINT28/10_italic_reveal.png", 0, M28_10S, 0, 1, 21, 1, {
+      "[HRt]", "abc [ITALC]def[italc] [BOLD]ghi[bold] j[UND]kl[und]" } },
+    { "mint/shots_wpMINT28/13_large_reveal.png", 0, M28_13S, 0, 1, 17, 1, {
+      "[HRt]", "[LARGE]abc[large] [ITALC]def[italc] [BOLD]ghi[bold] j[UND]kl[und]" } },
+    { "mint/shots_wpMINT28/16_overlap_reveal.png", 0, M28_16S, 0, 1, 40, 7, {
+      "[HRt]", M28R1 } },
+    { "mint/shots_wpMINT28/20_sizes_reveal_a.png", 0, M28_20S, 6, 3, 0, 1, {
+      "[LARGE]s5[large][HRt]",
+      "[VRY LARGE]s6[vry large][HRt]",
+      "[EXT LARGE]s7[ext large][HRt]",
+      "" } },
+    { "mint/shots_wpMINT28/21_sizes_reveal_b.png", 0, M28_21S, 2, 3, 7, 1, {
+      "[SUPRSCPT]s1[suprscpt][HRt]",
+      "[SUBSCPT]s2[subscpt][HRt]",
+      "[FINE]s3[fine][HRt]",
+      "[SMALL]s4[small][HRt]",
+      "[LARGE]s5[large][HRt]",
+      "[VRY LARGE]s6[vry large][HRt]",
+      "[EXT LARGE]s7[ext large][HRt]",
+      "" } },
+    { "mint/shots_wpMINT28/22_appear_reveal_a.png", 0, M28_22S, 12, 3, 0, 1, {
+      "[SM CAP]a7[sm cap][HRt]",
+      "[REDLN]a8[redln][HRt]",
+      "[STKOUT]a9[stkout][HRt]",
+      "" } },
+    { "mint/shots_wpMINT28/23_appear_reveal_b.png", 0, M28_23S, 9, 3, 8, 1, {
+      "[DBL UND]a3[dbl und][HRt]",
+      "[OUTLN]a5[outln][HRt]",
+      "[SHADW]a6[shadw][HRt]",
+      "[SM CAP]a7[sm cap][HRt]",
+      "[REDLN]a8[redln][HRt]",
+      "[STKOUT]a9[stkout][HRt]",
+      "" } },
+    /* ---- slice 3: Move without a block (Sentence, Paragraph, Page) -------------- */
+    { "mint/shots_wpMINT31/07_retrieved_reveal.png", 0, M31_07S, 0, 3, 10, 1, {
+      "[HRt]",
+      "First sentence here. Third one.[HRt]",
+      "Para two line.[HRt]",
+      "Last para.Second sentence follows.  " } },
+    { "mint/shots_wpMINT31/11_para_copied_reveal.png", 0, M31_11S, 0, 3, 36, 1, {
+      "[HRt]",
+      "First sentence here. Third one.[HRt]",
+      "Para two line.[HRt]",
+      M31R3,
+      "" } },
+    { "mint/shots_wpMINT31/16_retrieved_again_reveal.png", 0, M31_16S, 1, 3, 0, 1, {
+      "First sentence here. Third one.[HRt]",
+      "Para two line.[HRt]",
+      M31R3,
+      "Para two line.[HRt]",
+      "" } },
+    { "mint/shots_wpMINT32/05_reveal.png", 0, M32_05, 0, 2, 6, 1, {
+      "[HRt]",
+      "[Ln Spacing:2][Just:Center]Centered.[HRt]",
+      "[BOLD]Bold me.[bold]" } },
+    { "mint/shots_wpMINT31/18_sentence_deleted_reveal.png", 0, M31_18S, 0, 1, 0, 1, {
+      "[HRt]",
+      "Third one.[HRt]",
+      "Para two line.[HRt]",
+      M31R3,
+      "Para two line.[HRt]",
+      "" } },
 };
 #define NSCREENS ((int)(sizeof SCREENS / sizeof SCREENS[0]))
 

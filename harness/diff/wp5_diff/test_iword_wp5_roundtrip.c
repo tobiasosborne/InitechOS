@@ -67,7 +67,13 @@
  *      records, both codes in one trip, the "Delete [L/R Mar]?" / "Delete
  *      [Just:Center]?" answers and the old value WP rewrites after one is
  *      deleted -- typed key for key are BYTE-IDENTICAL to the files WP.EXE
- *      saved (MINT21, 22, 23, 24A, 24).
+ *      saved (MINT21, 22, 23, 24A, 24); and the keys of mint/wpMINT25..31
+ *      .steps -- line spacing (Shift-F8 1 6, 1.33 stored rounded up, the old
+ *      value rewritten after a deletion), the Home prefix keys, attributes
+ *      given to blocks and every Size / Appearance attribute, Move without a
+ *      block (Sentence, Paragraph, Page, Retrieve Block) -- likewise (MINT25,
+ *      26, 27, 28, 30, 31, 32; MINT29 is the spoiled session, re/mint-
+ *      results-004.md, neither read back nor typed).
  * THE GOLDENS: MINT01..05 from goldens/minted (mint session 001); MINT06..16
  * minted for bead initech-jojk (2026-10-16) by tools/mint_drive.sh with
  * mint/wpMINT06..16.steps (ledgers re/mint-results-002.md, -003.md) -- read
@@ -91,6 +97,9 @@
  *   IWORD_MUT_MAR_NO_HRT  no [HRt] before a margin code typed mid-line
  *   IWORD_MUT_NO_LEAD     no D4/05 line records
  *   IWORD_MUT_OLD_STALE   a format code keeps the old values it was typed with
+ *   IWORD_MUT_SP_HRT      a [HRt] before a spacing code typed mid-line
+ *   IWORD_MUT_SP_NEAR     a typed spacing rounded to the nearest 1/256
+ *   IWORD_MUT_SENT_BARE   a sentence leaves its trailing spaces behind
  *
  * Usage: test_iword_wp5_roundtrip <WORDPERFECT51_DECOMP> <scratch-dir>
  * ASCII-clean (Rule 12). Deterministic (Rule 11).
@@ -117,12 +126,14 @@ static uint8_t    g_in[CAP], g_out[CAP], g_add[CAP];
 static iw_piece_t g_pc[8192];
 static char       g_text[CAP];
 
-#define NMINT 24
+#define NMINT 31
 static const char *const MINTS[NMINT] = { "MINT01", "MINT02", "MINT03", "MINT04", "MINT05",
                                           "MINT06", "MINT07", "MINT08", "MINT09", "MINT10",
                                           "MINT11", "MINT12", "MINT13", "MINT14", "MINT15",
                                           "MINT16", "MINT17", "MINT18", "MINT19",
-                                          "MINT21", "MINT22", "MINT23", "MINT24A", "MINT24" };
+                                          "MINT21", "MINT22", "MINT23", "MINT24A", "MINT24",
+                                          "MINT25", "MINT26", "MINT27", "MINT28", "MINT30", "MINT31",
+                                          "MINT32" };
 
 /* The golden's path (see THE GOLDENS above). */
 static void golden_path(const char *name, char *out, size_t cap)
@@ -337,7 +348,10 @@ static void part_c(void)
     /* MINT12 (block ops on plain text) is plain; MINT09/10 carry tabs,
      * indents, hard pages; MINT11, MINT13..16 attribute pairs. */
     /* MINT21..24 (slice 3) all carry margin / justification codes. */
-    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0 };
+    /* MINT25..31 (slice 3): spacing, a [Just:Left], attributes; MINT31 (Move
+     * without a block) is plain. */
+    static const int want_plain[NMINT] = { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0,
+                                           0, 0, 0, 0, 0, 1, 0 };
     int ok = 1;
     printf("  part C: plain-text subset (text + HRt + SRt only, P1 interprets fully):");
     for (int i = 0; i < NMINT; i++) {
@@ -563,10 +577,43 @@ static const char *const S24[] = { "%RET", "%JC",
     "%RET", "ab", "%RET", "xyz", "%L", "%L", "Q", "%END", "%RET", "%JR", "Right line.", "%RET", "Plain",
     "%TOP", "%D", "%BS", "%Y", "%BOT", 0 };
 
+/* mint/wpMINT25..31.steps (MINT29 spoiled; MINT28's second block took two
+ * Lefts where the steps say three -- its 04_block_back shows the block "kl",
+ * re/mint-results-004.md -- so it is typed as WP saw it). */
+static const char *const S25[] = { "%RET", "%SP=200",
+    "Double spaced paragraph that is long enough to wrap onto a second line of the page.", "%RET", "Next.", "%RET",
+    "%SP=150", "One and a half.", "%RET", "Again.", "%RET", "Mid", "%SP=100", "single", "%RET", "Last.", 0 };
+static const char *const S26[] = { "%RET", "%SP=133",
+    "One point three three spacing on a paragraph long enough to wrap onto a second line.", "%RET", "Next.", "%RET",
+    "%SP=300", "Triple.", "%RET", "After.", "%TOP", "%D", "%BS", "%Y", "%BOT", 0 };
+static const char *const S27[] = { "%RET", "%TOP", "%JL", "%BOT", "Line one of the text.", "%RET",
+    "Line two goes here.", "%RET", "%F6", "Bold", "%F6", " starts line three.", "%RET", "Four.",
+    "%U", "%HOME", "%HR", "%HOME", "%HHHL", "%TOP", "%TOP3", "%BOT", "%U", "%U", "%HUP", "%HDN", "%HR",
+    "%U", "%U", "%END", 0 };
+static const char *const S28[] = { "%RET", "abc def ghi", "%L*3", "%BLK", "%END", "%F6", " jkl", "%BLK", "%L*2", "%F8",
+    "%HOME", "%R*4", "%BLK", "%R*3", "%ITAL", "%HOME", "%BLK", "%R*3", "%SZ=5",
+    "%HOME", "%R*2", "%BLK", "%R*7", "%F6", "%BOT", "%RET",
+    "%SZ=1", "s1", "%R", "%RET", "%SZ=2", "s2", "%R", "%RET", "%SZ=3", "s3", "%R", "%RET", "%SZ=4", "s4", "%R", "%RET",
+    "%SZ=5", "s5", "%R", "%RET", "%SZ=6", "s6", "%R", "%RET", "%SZ=7", "s7", "%R", "%RET",
+    "%AP=3", "a3", "%R", "%RET", "%AP=5", "a5", "%R", "%RET", "%AP=6", "a6", "%R", "%RET",
+    "%AP=7", "a7", "%R", "%RET", "%AP=8", "a8", "%R", "%RET", "%AP=9", "a9", "%R", "%RET", 0 };
+static const char *const S30[] = { "%RET", "%SP=133", "One and a third.", "%RET", "Two.", "%RET", "Mid", "%SP=225",
+    "dle.", "%RET", "Three.", "%RET", "Four.", 0 };
+static const char *const S31[] = { "%RET", "First sentence here. Second sentence follows.  Third one.", "%RET",
+    "Para two line.", "%RET", "Last para.", "%TOP", "%D", "%R*25", "%SENT", "%MOVE", "%BOT", "%RET",
+    "%TOP", "%D", "%D", "%R*2", "%PARA", "%COPY", "%BOT", "%RET", "%PAGE", "%F1", "%RETB",
+    "%TOP", "%D", "%SENT", "%CUT", 0 };
+/* mint/wpMINT32.steps: the keys of test-flair-iword-format (spacing 2 and
+ * Center in one trip, a centered line, a block made with Home, Left and given
+ * bold) */
+static const char *const S32[] = { "%RET", "%SP=200", "%JC", "Centered.", "%RET", "Bold me.", "%BLK", "%HOME", "%F6", 0 };
+
 static void part_h(void)
 {
     static const struct { const char *name; const char *const *script; } T[] = {
         { "MINT21", S21 }, { "MINT22", S22 }, { "MINT23", S23 }, { "MINT24A", S24A }, { "MINT24", S24 },
+        { "MINT25", S25 }, { "MINT26", S26 }, { "MINT27", S27 }, { "MINT28", S28 }, { "MINT30", S30 },
+        { "MINT31", S31 }, { "MINT32", S32 },
     };
     static iw_ed_t e;
     int good = 0, n = (int)(sizeof T / sizeof T[0]);
@@ -582,7 +629,7 @@ static void part_h(void)
         good += ok;
         printf(" %s %s", T[i].name, ok ? "==" : "!=");
     }
-    printf(" (%d of %d byte-identical: margins, tabs under them, justification, D4/05, [DSRt], the questions)\n", good, n);
+    printf(" (%d of %d byte-identical: margins, tabs under them, justification, D4/05, [DSRt], the questions, line spacing, Home keys, block attributes, all sixteen attributes, Move without a block)\n", good, n);
 }
 
 /* ---- PART E: refusals ------------------------------------------------------- */

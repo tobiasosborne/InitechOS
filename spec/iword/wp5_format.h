@@ -81,7 +81,12 @@
  * the step files mint/wpMINT06.steps .. wpMINT08.steps (the harness wrote the
  * documents to mint/work/WP51/MINT06..08 and the screens to
  * mint/shots_wpMINT06..08/; filing them under goldens/minted is the corpus
- * owner's act). Every other attribute number is [oracle-resolves]. */
+ * owner's act).
+ * P2 slice 3 (2026-10-16): the other twelve, each typed from the Size /
+ * Appearance menu in mint/wpMINT28.steps (MINT28 bytes @0x176..@0x1E7, labels
+ * mint/shots_wpMINT28/20..23): 0x00 Ext Large, 0x01 Vry Large, 0x03 Small,
+ * 0x04 Fine, 0x05 Suprscpt, 0x06 Subscpt, 0x07 Outln, 0x09 Shadw, 0x0A Redln,
+ * 0x0B Dbl Und, 0x0D Stkout, 0x0F Sm Cap -- all sixteen verified. */
 #define IW_WP5_ATTR_ON         0xC3u
 #define IW_WP5_ATTR_OFF        0xC4u
 #define IW_WP5_ATTR_LEN        3u
@@ -259,6 +264,34 @@
 #define IW_WP5_LINEPOS_LEN     12u
 #define IW_WP5_DSRT            0x90u   /* deletable soft return [DSRt]       */
 #define IW_WP5_TAB_STEP_WPU    600u    /* 0.5": the relative stops            */
+
+/* ---- line spacing (bead initech-jojk, IWORD P2 slice 3) ----------------- *
+ * Minted for this slice (mint/wpMINT25.steps, wpMINT26.steps, wpMINT30.steps;
+ * re/mint-results-004.md); Reference Manual, Line Spacing p. 345-346.
+ * CODE (Shift-F8 1 6) `D0 02 08 00 | old u16 | new u16 | 08 00 02 D0` (12
+ *      bytes), the spacing in 1/256ths of a line (8.8 fixed): MINT25 @0x148
+ *      `00 01 00 02` = 1 -> 2, @0x1AE `00 02 80 01` = 2 -> 1.5, @0x1D4
+ *      `80 01 00 01` = 1.5 -> 1. Label "[Ln Spacing:<new>]" (MINT25 04_reveal
+ *      "[Ln Spacing:1.5]", "Mid[Ln Spacing:1]single"). Inserted AT the cursor,
+ *      no return first, even mid-line (MINT25 "Mid" D0/02 "single"; p. 345
+ *      "WordPerfect only changes the line spacing after the Line Spacing
+ *      code"). WP REWRITES old when the code before it goes (MINT26: the
+ *      [Ln Spacing:1.33] deleted, [Ln Spacing:3] saved old 1 = `00 01`).
+ *      Deleting one on the editing screen asks (p. 345; MINT26 05_bs_question
+ *      "Delete [Ln Spacing:1.33]? No (Yes)").
+ * ADVANCE: each SRt / HRt moves the next line down by the spacing in effect
+ *      at it (p. 345 "the number of lines that will be inserted for each Soft
+ *      Return code [SRt] and Hard Return code [HRt]"): MINT25 Ln 2.83" = 1" +
+ *      (1 + 2 + 2 + 2 + 1.5 + 1.5 + 1) / 6"; the "Mid[Ln Spacing:1]single"
+ *      line advanced ONE (its HRt is after the code).
+ * SCREEN: a line takes the spacing ROUNDED TO THE NEAREST whole number of
+ *      screen rows (the extra rows blank, below it): MINT25 03_typed 2 -> 2
+ *      rows, 1.5 -> 2; MINT26 02_typed 1.33 -> 1, 3 -> 3; MINT30 03_typed
+ *      2.25 -> 2. Scrolling is by screen rows (MINT25 04_reveal: the window
+ *      starts on the blank row under "Double ..."). */
+#define IW_WP5_SPACING_SUB     0x02u
+#define IW_WP5_SPACING_LEN     12u
+#define IW_WP5_SPACING_ONE     0x0100u /* single spacing, 8.8 fixed          */
 
 /* ---- the prefix area [H Sec 2, Sec 4] ---------------------------------- *
  * A fresh-install WP 5.1 writes the SAME 327 bytes (0x147) before the body

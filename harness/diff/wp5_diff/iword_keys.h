@@ -22,6 +22,20 @@
  *   %MAR=L,R                Shift-F8 1 7 L Enter R Enter (WPU: 1.3" = 1560)
  *   %JL %JC %JR %JF         Shift-F8 1 3 1 / 2 / 3 / 4 (Left Center Right Full)
  *                           (slice 3, mint/wpMINT21..24.steps)
+ *   (slice 3, mint/wpMINT25..31.steps:)
+ *   %SP=H                   Shift-F8 1 6, the spacing typed (hundredths: 1.33 =
+ *                           133), Enter, F7
+ *   %HHHL %HR               Home, Home, Home, Left; Home, Right
+ *   %TOP3                   Home, Home, Home, Up (%TOP is Home, Home, Up)
+ *   %HUP %HDN               Home, Up / Home, Down on a document that fits one
+ *                           screen: its first / last line
+ *   %SZ=n %AP=n             Ctrl-F8 1 n (Size) / Ctrl-F8 2 n (Appearance); F6,
+ *                           F8, %ITAL and these give the attribute to the
+ *                           block when Block is on
+ *   %SENT %PARA %PAGE       Ctrl-F4 1 / 2 / 3 with Block off (then %MOVE /
+ *                           %COPY / %CUT act on what they highlight)
+ *   %F1                     F1 Cancel at that menu (Block off, the cursor kept)
+ *   %RETB                   Ctrl-F4 4 1: the last moved / copied text again
  * iw_ed_fixup runs after every key, as WORD.EXE runs it. Returns 1 when every
  * key was accepted the way the mint saw it (a question asked where WP asked).
  *
@@ -64,12 +78,29 @@ static int iwk_key(iw_ed_t *e, const char *k)
     else if (!strcmp(k, "U")) iw_ed_up(e);
     else if (!strcmp(k, "D")) iw_ed_down(e);
     else if (!strcmp(k, "HOME")) iw_ed_line_home(e);
-    else if (!strcmp(k, "END")) iw_ed_line_end(e);
-    else if (!strcmp(k, "TOP")) { e->cur = 0; e->goal = 0xFFFFFFFFu; }
-    else if (!strcmp(k, "BOT")) { e->cur = e->doc.len; e->goal = 0xFFFFFFFFu; }
-    else if (!strcmp(k, "F6")) rc = iw_ed_attr(e, 0x0C);
-    else if (!strcmp(k, "F8")) rc = iw_ed_attr(e, 0x0E);
-    else if (!strcmp(k, "ITAL")) rc = iw_ed_attr(e, 0x08);
+    else if (!strcmp(k, "END") || !strcmp(k, "HR")) iw_ed_line_end(e);
+    else if (!strcmp(k, "HHHL")) iw_ed_line_start(e);
+    else if (!strcmp(k, "TOP")) iw_ed_doc_top(e, 0);
+    else if (!strcmp(k, "TOP3")) iw_ed_doc_top(e, 1);
+    else if (!strcmp(k, "BOT")) iw_ed_doc_end(e);
+    else if (!strcmp(k, "HUP")) iw_ed_to_line(e, 0);
+    else if (!strcmp(k, "HDN")) iw_ed_to_line(e, 0xFFFFFFFFu);
+    else if (!strcmp(k, "F6")) rc = iw_ed_block_attr(e, 0x0C);
+    else if (!strcmp(k, "F8")) rc = iw_ed_block_attr(e, 0x0E);
+    else if (!strcmp(k, "ITAL")) rc = iw_ed_block_attr(e, 0x08);
+    else if (!strncmp(k, "SZ=", 3) || !strncmp(k, "AP=", 3)) {
+        static const uint8_t SZ[7] = { 0x05, 0x06, 0x04, 0x03, 0x02, 0x01, 0x00 };
+        static const uint8_t AP[9] = { 0x0C, 0x0E, 0x0B, 0x08, 0x07, 0x09, 0x0F, 0x0A, 0x0D };
+        int n = atoi(k + 3);
+        if (k[0] == 'S' ? (n < 1 || n > 7) : (n < 1 || n > 9)) return 0;
+        rc = iw_ed_block_attr(e, k[0] == 'S' ? SZ[n - 1] : AP[n - 1]);
+    }
+    else if (!strncmp(k, "SP=", 3)) rc = iw_ed_spacing(e, iw_spacing_from_hundredths((uint32_t)atoi(k + 3)));
+    else if (!strcmp(k, "SENT")) rc = iw_ed_select(e, 1);
+    else if (!strcmp(k, "PARA")) rc = iw_ed_select(e, 2);
+    else if (!strcmp(k, "PAGE")) rc = iw_ed_select(e, 3);
+    else if (!strcmp(k, "F1")) e->blk = IW_NO_BLOCK;
+    else if (!strcmp(k, "RETB")) rc = iw_ed_retrieve(e, iwk_buf, iwk_n);
     else if (!strcmp(k, "REV")) e->reveal = (uint8_t)!e->reveal;
     else if (!strcmp(k, "BLK")) iw_ed_block(e);
     else if (!strcmp(k, "MOVE")) { rc = iw_ed_block_cut(e, iwk_buf, IWK_BUF, &iwk_n); iwk_pending = 1; }
