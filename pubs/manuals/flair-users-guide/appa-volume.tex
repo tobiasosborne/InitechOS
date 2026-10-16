@@ -1,0 +1,70 @@
+% Appendix A -- The INITECH Data Disk.  One \VolumeFile row (registered,
+% KIND file) per file the build ships on the data volume: harness/
+% fixture_volumes.mk FLAIR_FIXTURES, the recipe of build/flair_data.img;
+% test-pubs-flair compares the two in both directions.  What each file is:
+% the sources named in the table's own rows (os/apps/*, os/i123/app,
+% os/iword/app, os/milton/*_program.c, harness/diff/tps, the fixtures of
+% harness/diff/fat_diff/fixtures/flagship_*).
+% GATES: test-flair-data-volume test-pubs-flair
+\Gates{test-flair-data-volume, test-pubs-flair}
+\chapter{The INITECH Data Disk}
+\index{data disk}\index{INITECH disk}
+
+The data disk, whose icon on the desktop is labelled \texttt{INITECH}, is a
+1.44 MB diskette.  As delivered it holds the files below.  At its top level
+are the file \file{README.TXT} and the folder \file{APPS}; FLAIR adds the
+Trash folder and the file \file{DESKTOP.DB} the first time it starts
+(Chapter~7).
+
+\begin{center}\small
+\begin{longtable}{@{}p{36mm}p{63mm}@{}}
+\textbf{File} & \textbf{What it is}\\\hline
+\endhead
+\VolumeFile{}{README.TXT}{A short note about the disk.}
+\VolumeFile{APPS}{123.EXE}{Initech 123, the spreadsheet
+application.  See \doctitle{Initech 123 Reference}.}
+\VolumeFile{APPS}{123.MNU}{The menus of Initech 123, read by
+\file{123.EXE}.  Keep it beside \file{123.EXE}.}
+\VolumeFile{APPS}{ATTRIB.COM}{The InitechDOS ATTRIB program,
+which locks and unlocks files.  Runs at the InitechDOS prompt.}
+\VolumeFile{APPS}{CALC.EXE}{InitechCalc, the ledger and chart
+application.  See the \doctitle{FLAIR Accessories Guide}.}
+\VolumeFile{APPS}{CALCULAT.EXE}{The Calculator accessory, listed
+in the Apple menu.}
+\VolumeFile{APPS}{CHKDSK.COM}{The InitechDOS CHKDSK program,
+which checks a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{APPS}{CTENANT.EXE}{C Tenant, a sample application.
+See the \doctitle{FLAIR Accessories Guide}.}
+\VolumeFile{APPS}{EDLIN.COM}{The InitechDOS line editor.  Runs at
+the InitechDOS prompt.}
+\VolumeFile{APPS}{LABEL.COM}{The InitechDOS LABEL program, which
+names a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{APPS}{LEDGER.TXT}{The ledger InitechCalc saves its
+tables from.}
+\VolumeFile{APPS}{MICHAEL.CFG}{The settings file of the
+\texttt{FILE COPY} progress box; it sets how fast the progress bar fills.}
+\VolumeFile{APPS}{PAINT.EXE}{InitechPaint.  See the
+\doctitle{FLAIR Accessories Guide}.}
+\VolumeFile{APPS}{TENANTFX.EXE}{TenantFix, a sample application.
+See the \doctitle{FLAIR Accessories Guide}.}
+\VolumeFile{APPS}{TEXT.EXE}{InitechText, the text editor.  See the
+\doctitle{FLAIR Accessories Guide}.}
+\VolumeFile{APPS}{TPS.DBF}{The database of the TPS Report
+Generator.}
+\VolumeFile{APPS}{TPSPARM.DAT}{The settings of the TPS Report
+Generator.}
+\VolumeFile{APPS}{TPSREP.COM}{The TPS Report Generator.  Runs at
+the InitechDOS prompt; see \doctitle{TPS Report Generator Operating
+Procedures}.}
+\VolumeFile{APPS}{TREE.COM}{The InitechDOS TREE program, which
+shows the folders of a disk.  Runs at the InitechDOS prompt.}
+\VolumeFile{APPS}{WORD.EXE}{InitechWord, the word processor.  See
+\doctitle{InitechWord Reference}.}
+\VolumeFile{APPS}{XCOPY.COM}{The InitechDOS XCOPY program, which
+copies files and folders.  Runs at the InitechDOS prompt.}
+\end{longtable}
+\end{center}
+
+Keep a copy of the data disk as delivered.  If you delete or change one of
+these files by mistake, copy it back from the copy at the InitechDOS
+prompt.

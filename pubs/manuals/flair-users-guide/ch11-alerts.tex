@@ -1,0 +1,107 @@
+% Chapter 11 -- Alerts and Dialog Boxes (Part II, Reference; the FLAIR
+% counterpart of a messages chapter).  One \AlertEntry per alert or dialog
+% box the desktop and its applications show, keyed by its first line as the
+% source draws it; the keys are compared with harness/pubs/flair_alerts.sh
+% (the source's own literals) by test-pubs-flair in both directions.
+% Sources (Law 1): os/milton/kmain.c (finder_trash_confirm: the Locked
+% notice and the Empty Trash buttons; finder_shutdown_screen; the About
+% alert flair_live_about with BANNER_LINE1; finder_exit_dos with Exit /
+% Cancel; sf_run's Replace question with Replace / Cancel);
+% os/flair/finder_windows.c (finder_trash_alert_text, the singular and
+% plural wording, K rounded up; finder_exit_dos_alert_text);
+% os/flair/dialog.h (FLAIR_CANON_FILECOPY_TITLE / _MSG);
+% os/apps/itext/itext.c (say(): the three notices; guarded(): the Save
+% changes question, "before closing?" / "before quitting?"; the Save
+% prompt).  Every text quoted character for character (NT-16).
+% GATES: test-flair-empty-trash test-flair-locked-trash test-flair-shutdown test-flair-apple-menu test-flair-exit-to-dos test-stdfile test-flair-itext test-itext-route test-flair-file-copy test-pubs-flair test-pubs-flair-screens
+\Gates{test-flair-empty-trash, test-flair-locked-trash, test-flair-shutdown,
+  test-flair-apple-menu, test-flair-exit-to-dos, test-stdfile,
+  test-flair-itext, test-itext-route, test-flair-file-copy, test-pubs-flair,
+  test-pubs-flair-screens}
+\chapter{Alerts and Dialog Boxes}
+
+This chapter lists, in alphabetical order, every alert, dialog box and
+progress box that FLAIR and the applications described in this book and the
+\doctitle{FLAIR Accessories Guide} display.  Each is shown by its text,
+exactly as it appears on the screen; words in italic stand for what FLAIR
+fills in.  After each comes what it means and what to do.
+
+In every alert, the button with the heavy border is chosen by \key{Enter},
+and \texttt{Cancel}, where there is one, by \key{Esc}.
+
+\AlertEntry{Are you sure you want to exit to InitechDOS?}{}{Shown when you
+choose \menuitem{Exit to InitechDOS} from the Finder's \menuname{Special}
+menu.  Buttons \texttt{Exit} and \texttt{Cancel}.  \texttt{Exit} asks an
+open application to quit, saves the arrangement of the desktop and leaves
+FLAIR for the InitechDOS command prompt; \texttt{Cancel} leaves everything
+as it was.  See Chapter~1.}
+
+\AlertEntry{FILE COPY}{FILE COPY}{The title of the progress box InitechCalc
+shows while it saves its tables (see \texttt{Saving tables to disk...}).}
+
+\AlertEntry{InitechDOS Version 3.30}{InitechDOS\ \ Version 3.30\\
+Built-in Memory: \textit{n}K\\
+Largest Unused Block: \textit{n}K}{The About This Computer alert, shown when
+you choose \menuitem{About This Computer...} from the Apple menu.  The first
+line is the version of InitechDOS on the startup disk.  \textit{Built-in
+Memory} is all the memory of the computer, in kilobytes; \textit{Largest
+Unused Block} is the largest part of the memory InitechDOS gives to
+programs that is free at the moment (\texttt{none} if InitechDOS has not
+yet given out its memory).  Click \texttt{OK}.}
+
+\AlertEntry{It is now safe to switch off your computer.}{It is now safe
+to switch off your computer.\\ If you wish to continue using your
+computer,\\ press Restart.}{Shown on a black screen after \menuitem{Shut
+Down}.  Turn off the computer, or click \texttt{Restart} (or press
+\key{Enter}) to start it again.}
+
+\AlertEntry{Replace existing}{Replace existing "\textit{NAME}"?}{Shown by
+the Save dialog box when the name you gave is already used by a file in
+the folder.  \texttt{Replace} writes the document over that file, which is
+lost; \texttt{Cancel} lets you type another name.}
+
+\AlertEntry{Save changes to the document}{Save changes to the document\\
+"\textit{name}" before closing?}{Shown by InitechText when you close its
+window, choose \menuitem{New} or \menuitem{Open...}, or choose
+\menuitem{Quit} (the second line then ends \texttt{before quitting?}),
+while the document has changes you have not saved.  \texttt{Save} saves
+them first, \texttt{Don't Save} goes on without saving, and \texttt{Cancel}
+returns to the document.}
+
+\AlertEntry{Save this document as:}{}{The prompt above the name box in the
+Save dialog box (Chapter~5).}
+
+\AlertEntry{Saving tables to disk...}{}{The message in InitechCalc's
+\texttt{FILE COPY} progress box, shown while it copies its ledger to the
+disk.  Wait: the box goes away by itself when the copy is finished, and
+clicks and keys are ignored until then.  See the \doctitle{FLAIR Accessories
+Guide}.}
+
+\AlertEntry{The document could not be opened.}{}{InitechText could not read
+the file you chose.  Click \texttt{OK}.  Check that the file is a text file
+and that the disk is in place.}
+
+\AlertEntry{The document could not be saved.}{}{InitechText could not write
+the file, usually because the disk is full or the file is locked.  Click
+\texttt{OK}, then save the document under another name, or make room on the
+disk.}
+
+\AlertEntry{The item is locked.}{The item is locked.\\ Unlock it before\\
+discarding it.}{You dragged a locked file to the Trash, or chose
+\menuitem{Empty Trash} while the Trash held a locked item.  The item is
+not thrown away.  Click \texttt{OK}.  To throw the item away, unlock it
+first at the InitechDOS prompt with \file{ATTRIB} (Chapter~6).}
+
+\AlertEntry{The Trash contains}{The Trash contains \textit{n} items, which
+use \textit{k}K of disk space. Are you sure you want to remove these items
+permanently?}{Shown when you choose \menuitem{Empty Trash}.  When the Trash
+holds one item, the alert reads \texttt{The Trash contains 1 item, which
+uses \textit{k}K of disk space. Are you sure you want to remove this item
+permanently?}  \textit{k} is the space the items use, in kilobytes,
+rounded up.  \texttt{OK} deletes everything in the Trash; \texttt{Cancel}
+keeps it.}
+
+\AlertEntry{This document is too large to be}{This document is too large
+to be\\ opened by InitechText.}{The file you chose is longer than
+InitechText can hold.  Click \texttt{OK}.  Open the file with an InitechDOS
+program instead, or divide it into smaller files.}

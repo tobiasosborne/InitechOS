@@ -1,0 +1,276 @@
+% Chapter 8 -- Menu Commands (Part II, Reference; AN-14 menu-command
+% entries: one level-1 head per menu in menu-bar order, a capture of the
+% pulled-down menu, one bulleted paragraph per command with the keyboard
+% equivalent).  CP-10: every menu and every item of every shipped menu of
+% the desktop -- the upper bar (os/flair/shell_menus.h x kmain.c
+% fd_sys_titles), the Apple menu (os/flair/apple_menu.c,
+% spec/apple_menu_items.h), the Finder (os/flair/finder_menu.c, the
+% predicate map; os/flair/finder_cmd.c and finder_windows.c for what each
+% command does), HELLO (menu_canon.h titles, kmain.c items) and NOTES
+% (kmain.c flair_ten_notes_*).  Every entry is registered (\MenuItemEntry,
+% initech-flair.sty) and compared with harness/pubs/flair_inventory.c by
+% test-pubs-flair in both directions; the State argument is the shipped
+% enable byte (on / off / cond = lit by a Finder predicate).  The menus of
+% the disk applications are in the FLAIR Accessories Guide and the
+% applications' own books.
+% Items that are enabled but act on nothing in this build (the upper bar's
+% Quit -- shell_menus.h "a STATED, NAMED EXCEPTION ... a no-op today";
+% every item of HELLO's and NOTES' bars -- band-2 choices reach only a disk
+% application, kmain.c flair_live_tenant_menu_result) carry the DRAFT
+% marker (D-14).
+% GATES: test-finder-menu test-finder-cmd test-menu-handlers test-flair-finder-cmds test-flair-disk-windows test-flair-empty-trash test-flair-restart test-flair-shutdown test-flair-exit-to-dos test-apple-menu test-flair-apple-menu test-flair-menu test-flair-appswitch test-pubs-flair test-pubs-flair-screens
+\Gates{test-finder-menu, test-finder-cmd, test-menu-handlers,
+  test-flair-finder-cmds, test-flair-disk-windows, test-flair-empty-trash,
+  test-flair-restart, test-flair-shutdown, test-flair-exit-to-dos,
+  test-apple-menu, test-flair-apple-menu, test-flair-menu,
+  test-flair-appswitch, test-pubs-flair, test-pubs-flair-screens}
+\chapter{Menu Commands}
+
+This chapter describes every command in the menus of the FLAIR desktop:
+the upper menu bar, the Apple menu, the Finder's menus, and the menus of
+HELLO and NOTES.  The menus are described in the order they appear in the
+menu bars, and the commands in the order they appear in each menu.  For
+each command the chapter tells you what it does, when it is available, and
+its keyboard equivalent, if it has one.
+
+A command drawn dimmed cannot be chosen.  Some commands are dimmed only
+until something makes them available, such as a selected folder or a
+window in front; the entry says so.  Others are dimmed at all times in this
+version of FLAIR.
+
+The menus of InitechText, the Calculator, InitechCalc, InitechPaint and the
+sample applications are described in the \doctitle{FLAIR Accessories
+Guide}; Initech 123 and InitechWord are described in their own books.
+
+\section{The upper menu bar}
+\index{menu bars!upper}
+The upper menu bar is FLAIR's own and never changes.  At its left is the
+Apple menu, described next.  Its four other menus, \menuname{File},
+\menuname{Edit}, \menuname{View} and \menuname{Special}, each hold the same
+two commands.
+
+\FlairScreen[scale=4, label=fig:m-band1]{band1file}{The File menu of the
+upper menu bar}
+
+\subsection{File}
+\begin{MenuReference}{SYSTEM}{File}
+\MenuItemEntry{About}{}{off}{Dimmed.}
+\MenuItemEntry[choosing the upper bar's Quit has no effect in this version
+(the shell menus)]{Quit}{Q}{on}{Drawn available; the Finder's commands are in
+the lower menu bar.}
+\end{MenuReference}
+\subsection{Edit}
+\begin{MenuReference}{SYSTEM}{Edit}
+\MenuItemEntry{About}{}{off}{Dimmed.}
+\MenuItemEntry[as File > Quit]{Quit}{Q}{on}{Drawn available.}
+\end{MenuReference}
+\subsection{View}
+\begin{MenuReference}{SYSTEM}{View}
+\MenuItemEntry{About}{}{off}{Dimmed.}
+\MenuItemEntry[as File > Quit]{Quit}{Q}{on}{Drawn available.}
+\end{MenuReference}
+\subsection{Special}
+\begin{MenuReference}{SYSTEM}{Special}
+\MenuItemEntry{About}{}{off}{Dimmed.}
+\MenuItemEntry[as File > Quit]{Quit}{Q}{on}{Drawn available.}
+\end{MenuReference}
+The keyboard equivalent \CmdKey{Q} shown in these menus is not given to
+the upper bar: a \key{Ctrl} key combination always goes to the menus of
+the active application, in the lower bar.
+
+\section{The Apple menu}
+\index{Apple menu}
+The Apple menu is at the left of the upper menu bar, and also at the left
+of the lower bar while the Finder or a disk application with an Apple menu
+is active; it is the same menu in every place.  FLAIR builds it again from
+the data disk each time you pull it down.
+
+\FlairScreen[scale=4, label=fig:m-apple]{applemenu}{The Apple menu}
+
+\begin{MenuReference}{APPLE}{Apple}
+\MenuItemEntry{About This Computer...}{}{on}{Shows an alert with the
+version of InitechDOS, the amount of memory built into the computer, and
+the largest block of that memory not in use.  Click \texttt{OK} or press
+\key{Enter} to put it away.  See Figure~\ref{fig:about}.}
+\MenuItemEntry{Calculator}{}{on}{Opens the Calculator accessory, the program
+\file{CALCULAT.EXE} in the \file{APPS} folder.  The command is in the menu only
+while that program is on the data disk; without it, the menu holds only
+\menuitem{About This Computer...}.  The Calculator does not open while
+another application from the disk is open.}
+\end{MenuReference}
+
+\section{The Finder's File menu}
+\index{File menu (Finder)}
+The Finder's menus are in the lower menu bar while the Finder is the active
+application: after you click the desktop or a Finder window.
+
+\FlairScreen[scale=4, label=fig:m-file]{filemenu}{The Finder's File menu}
+
+\begin{MenuReference}{FINDER}{File}
+\MenuItemEntry{New Folder}{N}{on}{Makes a new, empty folder in the folder
+of the active Finder window, named \file{NEWFOLD} (or \file{NEWFOL02} to
+\file{NEWFOL99} if that name is taken).  With no Finder window in front it
+makes nothing.}
+\MenuItemEntry{Open}{O}{cond}{Opens the selected folder in a window.
+Available only when a folder is selected in the active Finder window.  To
+open an application, double-click its icon.}
+\MenuItemEntry{Print}{}{off}{Dimmed.  FLAIR does not print.}
+\MenuItemEntry{Close Window}{W}{cond}{Closes the active Finder window.
+Available only when a Finder window is in front.}
+\MenuItemEntry{Get Info}{I}{off}{Dimmed.}
+\MenuItemEntry{Duplicate}{D}{off}{Dimmed.}
+\MenuItemEntry{Make Alias}{}{off}{Dimmed.}
+\MenuItemEntry{Put Away}{Y}{off}{Dimmed.  To take an item out of the
+Trash, drag it out of the Trash window (Chapter~6).}
+\MenuItemEntry{Find}{F}{off}{Dimmed.}
+\MenuItemEntry{Page Setup}{}{off}{Dimmed.}
+\MenuItemEntry{Sharing}{}{off}{Dimmed.}
+\MenuItemEntry{Eject}{}{off}{Dimmed.  The data disk stays in place while
+FLAIR runs.}
+\end{MenuReference}
+
+\section{The Finder's Edit menu}
+\index{Edit menu (Finder)}
+\FlairScreen[scale=4, label=fig:m-edit]{editmenu}{The Finder's Edit menu}
+
+\begin{MenuReference}{FINDER}{Edit}
+\MenuItemEntry{Undo}{Z}{off}{Dimmed.}
+\MenuItemEntry{Cut}{X}{off}{Dimmed.}
+\MenuItemEntry{Copy}{C}{off}{Dimmed.}
+\MenuItemEntry{Paste}{V}{off}{Dimmed.}
+\MenuItemEntry{Clear}{}{off}{Dimmed.}
+\MenuItemEntry{Select All}{A}{on}{Selects every icon in the active Finder
+window or, with no Finder window in front, every icon on the desktop.}
+\MenuItemEntry{Show Clipboard}{}{off}{Dimmed.}
+\MenuItemEntry{Preferences}{}{off}{Dimmed.}
+\end{MenuReference}
+
+\section{The Finder's View menu}
+\index{View menu (Finder)}
+The View menu acts on the active Finder window.  Its commands are
+available only while a Finder window is in front.
+
+\FlairScreen[scale=4, label=fig:m-view]{viewmenu}{The Finder's View menu}
+
+\begin{MenuReference}{FINDER}{View}
+\MenuItemEntry{by Icons}{}{cond}{Shows the window's contents as icons.  The
+check mark beside it shows that icons are the way the window is viewed;
+it is the only way in this version of FLAIR.}
+\MenuItemEntry{by Small Icon}{}{off}{Dimmed.}
+\MenuItemEntry{by Name}{}{off}{Dimmed.}
+\MenuItemEntry{by Size}{}{off}{Dimmed.}
+\MenuItemEntry{by Kind}{}{off}{Dimmed.}
+\MenuItemEntry{by Label}{}{off}{Dimmed.}
+\MenuItemEntry{by Date}{}{off}{Dimmed.}
+\MenuItemEntry{as Buttons}{}{off}{Dimmed.}
+\MenuItemEntry{as Pop-up Window}{}{off}{Dimmed.}
+\MenuItemEntry{Clean Up}{}{cond}{Moves every icon of the active window to
+a place of the window's grid, so that the icons stand in tidy rows.}
+\MenuItemEntry{Arrange (by Name)}{}{cond}{Lays the icons of the active
+window out in rows in alphabetical order of their names.}
+\end{MenuReference}
+
+\section{The Finder's Special menu}
+\index{Special menu (Finder)}
+\FlairScreen[scale=4, label=fig:m-special]{specialmenu}{The Finder's Special
+menu}
+
+\begin{MenuReference}{FINDER}{Special}
+\MenuItemEntry{Clean Up}{}{cond}{The same command as \menuitem{Clean Up} in
+the View menu.}
+\MenuItemEntry{Empty Trash}{}{cond}{Deletes everything in the Trash from the
+disk, after an alert that tells you how much it holds and asks you to
+confirm (Chapter~6).  Available only while the Trash holds something.}
+\MenuItemEntry{Erase Disk}{}{off}{Dimmed.}
+\MenuItemEntry{Restart}{}{on}{Asks an open application to quit, saves the
+arrangement of the desktop and starts the computer again.  Restart does not
+ask you to confirm.}
+\MenuItemEntry{Shut Down}{}{on}{Asks an open application to quit, saves the
+arrangement of the desktop and shows the message that it is safe to switch
+off the computer, with a \texttt{Restart} button (Chapter~1).}
+\MenuItemEntry{Sleep}{}{off}{Dimmed.}
+\MenuItemEntry{Exit to InitechDOS}{}{on}{After an alert that asks you to
+confirm, asks an open application to quit, saves the arrangement of the
+desktop and leaves FLAIR for the InitechDOS command prompt (Chapter~1).
+To return to FLAIR, restart the computer.}
+\end{MenuReference}
+If an open application declines to quit --- because you click
+\texttt{Cancel} in its alert about unsaved changes --- \menuitem{Restart},
+\menuitem{Shut Down} and \menuitem{Exit to InitechDOS} stop, and nothing
+else happens.
+
+\section{The Finder's Help menu}
+\index{Help menu (Finder)}
+\FlairScreen[scale=4, label=fig:m-help]{helpmenu}{The Finder's Help menu}
+
+\begin{MenuReference}{FINDER}{Help}
+\MenuItemEntry{About Help}{}{off}{Dimmed.}
+\MenuItemEntry{Show Balloons}{}{off}{Dimmed.}
+\end{MenuReference}
+
+\section{HELLO's menus}
+\index{HELLO!menus}
+HELLO's menu bar is in the lower bar while the HELLO window is in front,
+as it is when FLAIR starts.  It has eight menus, \menuname{File},
+\menuname{Edit}, \menuname{Image}, \menuname{Layer}, \menuname{Select},
+\menuname{View}, \menuname{Window} and \menuname{Help}, and no Apple menu.
+Each menu holds the same two commands.
+
+\FlairScreen[scale=4, label=fig:m-hello]{hellofile}{The File menu of
+HELLO's menu bar}
+
+\newcommand\HelloMenu[1]{%
+\subsection{#1}
+\begin{MenuReference}{HELLO}{#1}
+\MenuItemEntry[HELLO's menu commands act on nothing in this version: a
+choice in the lower bar reaches only an application from the disk
+(kmain.c)]{New}{N}{on}{Drawn available.}
+\MenuItemEntry[as New]{Open}{O}{on}{Drawn available.}
+\end{MenuReference}}
+\HelloMenu{File}
+\HelloMenu{Edit}
+\HelloMenu{Image}
+\HelloMenu{Layer}
+\HelloMenu{Select}
+\HelloMenu{View}
+\HelloMenu{Window}
+\HelloMenu{Help}
+
+\section{NOTES' menus}
+\index{NOTES!menus}
+NOTES' menu bar is in the lower bar while the NOTES window is in front.
+It has three menus, \menuname{File}, \menuname{Edit} and
+\menuname{Notes}, and no Apple menu.
+
+\FlairScreen[scale=4, label=fig:m-notesfile]{notesfile}{NOTES' File menu}
+
+\subsection{File}
+\begin{MenuReference}{NOTES}{File}
+\MenuItemEntry[NOTES' menu commands act on nothing in this version: a
+choice in the lower bar reaches only an application from the disk
+(kmain.c)]{New}{N}{on}{Drawn available.}
+\MenuItemEntry[as New]{Open}{O}{on}{Drawn available.}
+\MenuItemEntry[as New]{Save}{S}{on}{Drawn available.}
+\MenuItemEntry[as New]{Quit}{Q}{on}{Drawn available.  To close NOTES, click
+its close box.}
+\end{MenuReference}
+
+\FlairScreen[scale=4, label=fig:m-notesedit]{notesedit}{NOTES' Edit menu}
+
+\subsection{Edit}
+\begin{MenuReference}{NOTES}{Edit}
+\MenuItemEntry[as File > New]{Undo}{Z}{on}{Drawn available.}
+\MenuItemEntry[as File > New]{Cut}{X}{on}{Drawn available.}
+\MenuItemEntry[as File > New]{Copy}{C}{on}{Drawn available.}
+\MenuItemEntry[as File > New]{Paste}{V}{on}{Drawn available.}
+\end{MenuReference}
+
+\FlairScreen[scale=4, label=fig:m-notesnotes]{notesnotes}{NOTES' Notes menu}
+
+\subsection{Notes}
+\begin{MenuReference}{NOTES}{Notes}
+\MenuItemEntry[as File > New]{About Notes}{}{on}{Drawn available.}
+\end{MenuReference}
+The keyboard equivalents shown in the menus of HELLO and NOTES are not
+given to them: while HELLO or NOTES is in front, a \key{Ctrl} key
+combination does nothing.

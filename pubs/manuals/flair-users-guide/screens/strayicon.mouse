@@ -1,0 +1,11 @@
+# strayicon: README.TXT dragged out of its place in the window.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (55,102) README.TXT
+m-100:38,m-100:0,m-100:0,m-100:0,m-100:0,m-45:0
+# drag (55,102) -> (145,202) out of its place
+l1,m90:100,l0
+# go (500,433) 
+m100:100,m100:100,m100:31,m55:0

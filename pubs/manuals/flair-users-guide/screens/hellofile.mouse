@@ -1,0 +1,6 @@
+# hellofile: a menu of HELLO's menu bar (HELLO in front, as at startup).
+# go (20,30) File in the lower menu bar (HELLO's; no Apple menu in it)
+m-100:-100,m-100:-100,m-100:-10
+# press at (20,30)
+l1
+w300

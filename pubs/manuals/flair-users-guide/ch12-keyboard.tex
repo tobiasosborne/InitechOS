@@ -1,0 +1,92 @@
+% Chapter 12 -- The Keyboard and the Mouse (Part II, Reference).
+% Sources (Law 1): os/flair/event.c (the PS/2 keyboard: Ctrl, left or
+% right, is the command modifier -- kmain.c "PC Ctrl IS Cmd"; Alt sets the
+% option modifier, which no FLAIR menu uses; one mouse button);
+% os/flair/menu.c (MenuKey: case-insensitive, the first enabled item, a
+% dimmed item's key does nothing; the "^N" drawing); os/milton/kmain.c
+% (flair_live_finder_key: Ctrl chords go to the Finder's bar only while the
+% Finder is foreground, on a key press not a repeat; flair_live_tenant_key:
+% to a disk application's bar; nothing for HELLO and NOTES; the Finder
+% handles no other key; the backslash key runs SAMIR.COM from the top
+% level of the disk, FLAIR-SUSPEND / FLAIR-TEXT-FAIL / FLAIR-RESUME; the
+% Standard File keys); os/flair/dialog.c (Enter: the default button; Esc:
+% Cancel); os/flair/finder_desktop.h (the double-click time and distance).
+% Model: Mac User's Guide 1991 Appendix A "Keyboards" (apple-macintosh.md
+% Sec 8.2).
+% GATES: test-flair-key test-flair-mouse test-menu test-flair-finder-cmds test-tbx-menu test-dialog test-stdfile test-flair-samir-suspend test-pubs-flair
+\Gates{test-flair-key, test-flair-mouse, test-menu, test-flair-finder-cmds,
+  test-tbx-menu, test-dialog, test-stdfile, test-flair-samir-suspend,
+  test-pubs-flair}
+\chapter{The Keyboard and the Mouse}
+
+\section{The mouse}
+\index{mouse}
+FLAIR uses one mouse button, the left one; other buttons do nothing.
+\begin{center}\small
+\begin{tabular}{@{}p{28mm}p{71mm}@{}}
+\textbf{Action} & \textbf{How}\\\hline
+Point & move the mouse until the tip of the pointer is on the item\\
+Click & press and quickly release the button\\
+Double-click & click twice within a third of a second, without moving the
+mouse more than a few dots\\
+Drag & hold down the button while you move the mouse; release it to finish\\
+Shift-click & hold down \key{Shift} while you click\\
+\end{tabular}
+\end{center}
+A drag starts only when the pointer has moved a few dots with the button
+down, so a click with a slight movement of the mouse is still a click.
+
+\section{Keyboard equivalents}
+\index{keyboard equivalents}\index{Ctrl key}
+On the Initech keyboard the \key{Ctrl} key, at either side, does the work
+of a command key.  A menu shows a command's keyboard equivalent as a caret
+and a letter: \CmdKey{W} means \key{Ctrl-W}.
+\begin{itemize}
+\item The keys go to the menus of the active application only.  While the
+  Finder is active, \key{Ctrl-N}, \key{Ctrl-O}, \key{Ctrl-W} and
+  \key{Ctrl-A} choose \menuitem{New Folder}, \menuitem{Open},
+  \menuitem{Close Window} and \menuitem{Select All}.  While an application
+  from the disk is active, the keys shown in its menus choose its commands.
+  While HELLO or NOTES is active, \key{Ctrl} combinations do nothing.
+\item A key works only when its command is not dimmed.  The equivalents of
+  dimmed commands, such as \key{Ctrl-I} for \menuitem{Get Info}, do nothing.
+\item In the Finder, holding the keys down does not repeat the command.
+\end{itemize}
+The \key{Alt} key is not used by the FLAIR menus.
+
+\section{Keys in alerts and dialog boxes}
+\index{alerts!keys}
+\begin{center}\small
+\begin{tabular}{@{}p{28mm}p{71mm}@{}}
+\textbf{Key} & \textbf{Effect}\\\hline
+\key{Enter} & chooses the default button, the one with the heavy border\\
+\key{Esc} & chooses \texttt{Cancel}\\
+\key{Up Arrow}, \key{Down Arrow} & move the selection in the list of the
+Open and Save dialog boxes\\
+\key{Backspace} & erases the last character of the name in the Save
+dialog box\\
+letters, digits, punctuation & are added to the name in the Save dialog box,
+in capitals\\
+\end{tabular}
+\end{center}
+
+\section{Keys on the desktop}
+\index{desktop!keys}
+Apart from the keyboard equivalents, the Finder does not use the keyboard:
+you open, move and throw away items with the mouse.
+
+One key is reserved.  Whatever application is active, pressing
+\key{\textbackslash} (backslash) starts InitechBase, the database
+application, if its program, \file{SAMIR.COM}, is at the top level of the
+data disk; InitechBase then takes the whole screen, and the desktop returns
+as you left it when you leave InitechBase.  Because the key is reserved, it
+never reaches an application: you cannot type a backslash in a FLAIR
+application.  The data disk as delivered does not hold \file{SAMIR.COM}:
+there the screen clears for a moment and the desktop returns, and nothing
+starts.  The InitechBase books tell you how to install InitechBase.
+
+\section{Keys in applications}
+Each application has its own keys for typing and moving in its documents.
+The \doctitle{FLAIR Accessories Guide} describes the keys of InitechText,
+InitechCalc and the Calculator; Initech 123 and InitechWord are described in
+their own books.

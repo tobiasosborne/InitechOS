@@ -1,0 +1,11 @@
+# collapsed: the Drive A Files window collapsed to its title bar.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (368,70) the collapse box of Drive A Files
+m-100:6,m-100:0,m-32:0
+# click at (368,70)
+l1,l0
+# go (500,424) 
+m100:100,m32:100,m0:100,m0:54

@@ -1,0 +1,22 @@
+# intofolder: README.TXT dragged into a new folder, the folder opened.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (53,30) File
+m-100:-34,m-100:0,m-100:0,m-100:0,m-100:0,m-47:0
+# press at (53,30)
+l1
+# hold (53,49) New Folder
+m0:19
+# release at (53,49)
+l0
+# go (55,102) README.TXT
+m2:53
+# drag (55,102) -> (191,102) onto NEWFOLD (cell 2)
+l1,m100:0,m36:0,l0
+# go (191,102) NEWFOLD (cell 2; the window keeps its places)
+# double-click at (191,102)
+l1,l0,l1,l0
+# go (500,431) 
+m100:100,m100:100,m100:100,m9:29

@@ -1,0 +1,10 @@
+# helpmenu: the Finder's Help menu.
+# go (450,400) a bare point of the desktop
+m100:100,m30:60
+# click at (450,400)
+l1,l0
+# go (254,30) Help in the lower (Finder) menu bar
+m-100:-100,m-96:-100,m0:-100,m0:-70
+# press at (254,30)
+l1
+w300

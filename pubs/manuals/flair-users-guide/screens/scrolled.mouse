@@ -1,0 +1,17 @@
+# scrolled: the APPS window scrolled with its down arrow.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (391,276) the down arrow of the APPS window (above the size box)
+m100:100,m100:74,m68:0
+# click at (391,276)
+l1,l0
+# click at (391,276)
+l1,l0
+# go (500,425) 
+m100:100,m9:49

@@ -1,0 +1,10 @@
+# about: About This Computer, chosen from the Apple menu.
+# go (22,10) the apple in the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10)
+l1
+# hold (22,29) About This Computer... (Apple row 1, rows from y 21 under the upper bar)
+m0:19
+# release at (22,29)
+l0
+w400

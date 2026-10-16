@@ -1,0 +1,130 @@
+% Chapter 7 -- The Desktop and the Finder (Part II, Reference).
+% Sources (Law 1): os/flair/finder_desktop.c / .h (the two desktop icons:
+% the volume, labelled with the disk's volume label, top right; the Trash
+% below it, fixed; 32 x 32 icons with Geneva 9 labels; the Trash icon full
+% or empty); os/milton/kmain.c (DESKTOP.DB: desktop icon places and the
+% views of the Finder windows, saved on a move, a close and the power
+% commands; the icons in a window laid out from the grid on every open;
+% the click that makes the Finder foreground); os/flair/finder_windows.h /
+% .c (window titles: "Drive A Files" for the top level, the 8.3 name of a
+% folder, "Trash"; the cascade from (20,60) by 20 px; FINDER_WIN_MAX 4;
+% 64 icons a window; the 68 x 52 grid in directory order; the hidden
+% TRASH, DESKTOP.DB and volume label; .EXE is the application icon);
+% os/milton/desktop_db.c (the DESKTOP.DB file).  Model: System 6 guide Ch.
+% 3 "Working With the Finder Desktop" and Mac User's Guide 1991 Ch. 10
+% "Organizing Your Files" (apple-macintosh.md Sec 8.1, 8.2).
+% GATES: test-finder-desktop test-finder-windows test-desktop-db test-flair-desktop-icons test-flair-disk-windows test-flair-finder-service test-flair-file-ops test-pubs-flair-screens
+\Gates{test-finder-desktop, test-finder-windows, test-desktop-db,
+  test-flair-desktop-icons, test-flair-disk-windows,
+  test-flair-finder-service, test-flair-file-ops, test-pubs-flair-screens}
+\chapter{The Desktop and the Finder}
+
+The \term{Finder} is the part of FLAIR that shows you your disk, folders and
+files and lets you organize them.  It is always running.  It owns the
+desktop, the icons on it, and the windows that show the contents of the
+disk and its folders, and it is the active application whenever you click
+the desktop or one of its windows.
+
+\section{The desktop}
+\index{desktop}
+The desktop holds two icons.
+
+\SideHead{The disk icon}At the top right, the icon of the data disk,
+labelled with the disk's name, \texttt{INITECH}.  Double-click it to open
+the window of the disk's top level.  You can drag it anywhere on the
+desktop; and when you drop a file or folder on it, the file or folder moves
+to the top level of the disk.
+
+\SideHead{The Trash}At the bottom right, the Trash.  Drop a file or folder
+on it to throw it away (Chapter~6); double-click it to open the Trash
+window.  The Trash icon bulges while the Trash holds something.  It cannot
+be moved.
+
+\FlairScreen[label=fig:icondrag]{icondrag}{The disk icon, moved}
+
+FLAIR records the place of each desktop icon, and the place, size and
+state of each Finder window, in a file on the data disk named
+\file{DESKTOP.DB}.  It writes the file when you move an icon on the
+desktop, when you move or close a Finder window, and when you choose
+\menuitem{Restart}, \menuitem{Shut Down} or \menuitem{Exit to InitechDOS}.
+If \file{DESKTOP.DB} or the Trash folder is missing when FLAIR starts,
+FLAIR makes a new one.
+
+\section{Finder windows}
+\index{Finder windows}\index{windows!Finder}
+Each Finder window shows the contents of one folder of the disk.
+
+\begin{center}\small
+\begin{tabular}{@{}ll@{}}
+\textbf{Window title} & \textbf{Shows}\\\hline
+\texttt{Drive A Files} & the top level of the data disk\\
+the folder's name, such as \texttt{APPS} & that folder\\
+\texttt{Trash} & the Trash\\
+\end{tabular}
+\end{center}
+
+The first window opens with its top left corner just below the menu bars at
+the left of the screen; each window you open after it is placed a little
+lower and further right, so that their title bars can all be seen.  A
+folder has only one window: if its window is already open, opening the
+folder again brings that window to the front.
+
+Up to four Finder windows can be open at a time, and a window shows up to
+64 icons.  The icons are laid out in rows from the top left, in the order
+in which the files are stored in the folder, each time the window opens;
+you can move them within the window while it is open, and tidy them with
+\menuitem{Clean Up} or \menuitem{Arrange (by Name)}.
+
+\section{Icons}
+\index{icons}
+\FlairScreen[label=fig:iconkinds]{iconkinds}{Applications and documents in
+the APPS folder}
+
+\SideHead{Applications}Files whose names end in \file{.EXE} are shown as
+a diamond.  Double-click one to open the application (Chapter~5).
+
+\SideHead{Documents and programs}Every other file is shown as a page with
+a folded corner.  These files are not opened from the desktop: the
+programs among them, whose names end in \file{.COM}, run at the InitechDOS
+command prompt, and documents are opened from within their applications.
+
+\SideHead{Folders}A folder icon.  Double-click it to open its window.
+
+The name under each icon is the file's InitechDOS name.  Names longer than
+the space under the icon are cut short on the screen, but not on the disk.
+
+\section{Items that are not shown}
+\index{hidden items}
+Two items on the data disk are not shown in the \texttt{Drive A Files}
+window, because the Finder uses them itself: the folder \file{TRASH},
+which holds what you put in the Trash and is shown as the Trash window, and
+the file \file{DESKTOP.DB}.  Do not change or delete them at the
+InitechDOS prompt.
+
+\section{Moving files and folders}
+\index{moving files}
+Dragging an icon to another folder moves it: the file or folder is taken
+out of its folder and put into the other one, unchanged.  The Finder does
+not copy files.  To copy a file, use the \file{COPY} or \file{XCOPY} command
+at the InitechDOS prompt.
+
+A drop is refused, and the icon slides back, when:
+\begin{itemize}
+\item the folder you drop it in already holds an item with the same name;
+\item you drop a folder into itself or into one of its own folders;
+\item you drop the icon back into the folder it came from;
+\item the item is locked.
+\end{itemize}
+
+\section{Selecting icons}
+\index{selecting}
+\begin{center}\small
+\begin{tabular}{@{}p{46mm}p{53mm}@{}}
+\textbf{To select} & \textbf{Do this}\\\hline
+one icon & click it\\
+several icons & click the first; hold down \key{Shift} and click the others\\
+a group of icons & drag a rectangle round them from a bare part of the window\\
+every icon in the window & choose \menuitem{Select All} from the \menuname{Edit} menu (\key{Ctrl-A})\\
+nothing & click a bare part of the window or the desktop\\
+\end{tabular}
+\end{center}

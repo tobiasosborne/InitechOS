@@ -1,0 +1,113 @@
+% Chapter 10 -- Applications (Part II, Reference).
+% Sources (Law 1): os/flair/tbxgate.c (the Toolbox Gate: one disk
+% application resident at a time, TENANT-SLOT-BUSY; a failing application
+% is closed, TENANT-CRASH, and its windows removed); os/flair/process.c
+% (the foreground application; its bar in band 2); os/milton/kmain.c
+% (launch by double-click of an .EXE, flair_live_launch_app; the Apple-menu
+% launch; the close box of a window made to ask; tbx_ask_quit before the
+% power commands; sf_run: the Open and Save dialog boxes, sf_name_ok, the
+% Replace question); os/flair/scrap.c / scrap.h (one desk scrap in memory,
+% TEXT up to 8192 bytes, kept until the computer is restarted);
+% os/flair/stdfile.c; os/apps/itext/itext.c (the one user of the Scrap in
+% this build).  Model: Mac User's Guide 1991 Ch. 11 (Using programs) and
+% the System 6 guide Ch. 10 MultiFinder (apple-macintosh.md Sec 8.1, 8.2).
+% GATES: test-flair-app-launch test-tenant-load test-flair-tenant-menu test-tbx-menu test-scrap test-stdfile test-flair-itext test-flair-files test-flair-files-reap test-pubs-flair-screens
+\Gates{test-flair-app-launch, test-tenant-load, test-flair-tenant-menu,
+  test-tbx-menu, test-scrap, test-stdfile, test-flair-itext,
+  test-flair-files, test-flair-files-reap, test-pubs-flair-screens}
+\chapter{Applications}
+
+\section{Two kinds of application}
+\index{applications}
+\SideHead{Built in}The Finder, HELLO and NOTES are part of FLAIR and are
+running when it starts.  The Finder cannot be quit; HELLO and NOTES end when
+you close their windows.
+
+\SideHead{From the disk}All other applications are programs on the data
+disk, in the \file{APPS} folder, with names ending in \file{.EXE}.  FLAIR
+loads one when you open it, and frees the memory it used when it quits.
+Appendix~A lists the applications on the data disk.
+
+\section{Opening and quitting}
+\index{applications!opening}\index{applications!quitting}
+Open an application from the disk by double-clicking its icon, or, for an
+accessory, by choosing it from the Apple menu.  One application from the
+disk can be open at a time; while one is open, opening another does
+nothing.
+
+An application quits when you choose \menuitem{Quit} (or, in some
+applications, \menuitem{Close}) from its \menuname{File} menu, or click the
+close box of its window.  An application that holds work you have not
+saved asks you first whether to save it.
+
+When you choose \menuitem{Restart}, \menuitem{Shut Down} or \menuitem{Exit
+to InitechDOS}, FLAIR asks the open application to quit, exactly as if you
+had chosen its \menuitem{Quit} command.  If the application asks about
+unsaved work and you click \texttt{Cancel}, the command stops.
+
+If an application stops working, FLAIR closes it: its windows disappear,
+its menus leave the menu bar, and the rest of the desktop goes on working.
+Work it had not saved is lost.
+
+\section{Menus and the keyboard}
+\index{menu bars!lower}
+While an application is active, the lower menu bar shows its menus, and
+the \key{Ctrl} key combinations shown in them choose its commands.  An
+application's menus are its own: one may have only a \menuname{File} menu,
+another a full set.  Most applications from the disk also have the Apple
+menu at the left of their menu bar.
+
+\section{The Clipboard}
+\index{Clipboard}\index{Scrap}
+When you choose \menuitem{Cut} or \menuitem{Copy} in an application, the
+selected text is placed on the \term{Clipboard}, a holding place in the
+computer's memory, replacing what was there.  \menuitem{Paste} puts a copy
+of what is on the Clipboard where you are working.  The Clipboard holds
+text, up to 8192 characters, and keeps it when the application quits, so
+you can paste it into a document you open later.  It is emptied when the
+computer is restarted; it is never written to the disk.
+
+In this version of FLAIR, InitechText uses the Clipboard.  The
+\menuname{Edit} menus of the Finder and the Calculator are dimmed.
+
+\section{The Open and Save dialog boxes}
+\index{dialog boxes!Open}\index{dialog boxes!Save}
+Applications that work with documents use the same two dialog boxes to ask
+which document to open and where to save one.  Figure~\ref{fig:textsaveas}
+and Figure~\ref{fig:textopenbox} in Chapter~5 show them.
+
+\SideHead{Folder menu}The box at the top names the folder whose contents
+are listed.  Click it to go up to the folder that holds it.
+
+\SideHead{List}The files and folders in that folder, one to a line.  Click
+a name to select it; move the selection with \key{Up Arrow} and \key{Down
+Arrow}.  Double-click a folder to list its contents; in the Open box,
+double-click a document to open it.
+
+\SideHead{Disk name}Above the buttons, the name of the disk:
+\texttt{INITECH}.
+
+\SideHead{Buttons}\texttt{Open} or \texttt{Save}, the default button, does
+what the box is for.  \texttt{Cancel} puts the box away and does nothing.
+\texttt{Desktop} lists the top level of the disk.  \texttt{Eject}, and in
+the Save box \texttt{New}, are dimmed.
+
+\SideHead{Name box}In the Save box, the name the document will be saved
+under.  Type the name; letters appear in capitals.  Press \key{Backspace}
+to erase.  Typing a name deselects the list.
+
+A name follows the InitechDOS rules: one to eight characters, then, if
+you want, a period and one to three more.  The Save box does not accept
+any other name.  If the name is already used in the folder, an alert asks
+whether to replace that file; if it is the name of a folder, nothing is
+saved.
+
+\section{Programs that run at the InitechDOS prompt}
+\index{InitechDOS programs}
+The \file{APPS} folder also holds programs whose names end in \file{.COM}:
+the InitechDOS utility programs (\file{ATTRIB}, \file{CHKDSK},
+\file{EDLIN}, \file{LABEL}, \file{TREE}, \file{XCOPY}) and the TPS Report
+Generator (\file{TPSREP}).  They are not opened from the desktop.  Leave
+FLAIR with \menuitem{Exit to InitechDOS}; at the prompt, type \type{CD APPS}
+to change to the folder, then type the program's name.  The \doctitle{InitechDOS Reference} describes the utility
+programs; the TPS Report Generator has its own book.

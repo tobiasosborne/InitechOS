@@ -189,15 +189,25 @@ end
     {\RegisterCommand{#2>#3>#4>\ifx\relax#5\relax-\else#5\fi>#6}{menu}{GATED}{#2>#3}}}
 
 %% ---- files, alerts, operations -------------------------------------------
-%% \VolumeFile{APPS\CALC.EXE}{description}: a row of the volume table.
-\newcommand\VolumeFile[2]{\RegisterCommand{#1}{file}{GATED}{#1}%
-  \file{#1} & #2\\}
-%% \AlertEntry[draft]{first line exactly as drawn}{rest of the alert}{explanation}
+%% \VolumeFile{folder}{file}{description}: a row of the volume table
+%% (longtable); folder empty for the top level.  Registered as the
+%% InitechDOS path, APPS\CALC.EXE.
+\RequirePackage{longtable}
+\newcommand\VolumeFile[3]{%
+  \ifx\relax#1\relax\RegisterCommand{#2}{file}{GATED}{#2}\file{#2}%
+  \else\RegisterCommand{#1\@backslashchar#2}{file}{GATED}{#1\@backslashchar#2}%
+    \file{#1\textbackslash#2}\fi & #3\\}
+%% \AlertEntry[draft]{key}{display}{explanation}: an alert or dialog box.
+%% key is its first line exactly as the source draws it (or, where the
+%% source builds the line at run time, the constant words it starts with:
+%% harness/pubs/flair_alerts.sh); display is the whole text as the reader
+%% sees it, placeholders in italic, lines separated by \\ (empty: the key).
 \NewDocumentCommand\AlertEntry{o m m +m}{%
   \RegisterCommand{#2}{alert}{\IfValueTF{#1}{DRAFT}{GATED}}{#2}%
-  \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
-  \parbox[t]{\imFullWidth}{\RaggedRight\texttt{\bfseries #2}\ifx\relax#3\relax\else\\\texttt{#3}\fi}\par\nobreak
-  \vspace{2pt}#4\IfValueT{#1}{\enspace\draft{#1}}\par
+  \par\addvspace{9pt}\goodbreak\noindent
+  \parbox[t]{\linewidth}{\RaggedRight\ttfamily\bfseries\small
+    \ifx\relax#3\relax #2\else #3\fi}\par\nobreak
+  \vspace{3pt}#4\IfValueT{#1}{\enspace\draft{#1}}\par
   \index{#2@\texttt{#2}}}
 %% \Operation{MARKER}: this passage documents the desktop operation the shell
 %% reports as MARKER; a screen of this book must be captured on it.
@@ -233,7 +243,7 @@ end
   {\par\vspace{2pt}\rule{\imFullWidth}{0.25pt}\end{minipage}\par\addvspace{6pt}}
 \newcommand\SummaryRow[2]{\par\vspace{4pt}\noindent
   \parbox[t]{40mm}{\RaggedRight\bfseries\small #1}\hspace{4mm}%
-  \parbox[t]{\dimexpr\imFullWidth-44mm\relax}{\RaggedRight\small #2}\par}
+  \parbox[t]{\dimexpr\imFullWidth-45mm\relax}{\RaggedRight\small #2}\par}
 \newcounter{im@cause}
 \newcommand\Symptom[1]{\par\addvspace{9pt}\goodbreak\setcounter{im@cause}{0}%
   \noindent{\im@condensed\bfseries\fontsize{11}{13}\selectfont #1}\par\nobreak\vspace{2pt}}

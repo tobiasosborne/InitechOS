@@ -1,0 +1,189 @@
+% Chapter 5 -- Using Applications (Part I, Learning; AN-14 task form).
+% Sources (Law 1): os/milton/kmain.c finder_surface_open (an icon whose name
+% ends .EXE is launched; any other file is not opened from the Finder),
+% flair_live_launch_app / tbx_launch, flair_live_sync_foreground (the
+% foreground application's bar in band 2; a click on the desktop makes the
+% Finder foreground), sf_run (Standard File: the folder pop-up, Desktop,
+% Eject and New dimmed, the name field, sf_name_ok: 8.3 names, typed letters
+% shown in capitals, the Replace question); os/flair/tbxgate.c (one disk
+% application at a time: TENANT-SLOT-BUSY); os/apps/itext/itext.c
+% (InitechText: the untitled window, Save on an untitled document asks for a
+% name, Quit with unsaved changes asks Save / Cancel / Don't Save);
+% os/apps/calcda/calcda.c and os/flair/apple_menu.c (the Calculator from
+% the Apple menu); kmain.c finder_power / finder_exit_dos (an open
+% application is asked to quit).  Model: Macintosh User's Guide 1991 Ch. 3-5
+% "Setting Up Your Programs", "Creating a Document and Saving Your Work",
+% "Changing a Document" (apple-macintosh.md Sec 8.2).
+% GATES: test-flair-app-launch test-flair-itext test-itext-route test-stdfile test-flair-calcda test-flair-apple-menu test-flair-tenant-menu test-flair-appswitch test-pubs-flair-screens
+\Gates{test-flair-app-launch, test-flair-itext, test-itext-route,
+  test-stdfile, test-flair-calcda, test-flair-apple-menu,
+  test-flair-tenant-menu, test-flair-appswitch, test-pubs-flair-screens}
+\chapter{Using Applications}
+
+An \term{application} is a program you use to do your work: to write a
+memo, to keep a ledger, to work out a sum.  The information you create with
+an application is a \term{document}.  This chapter shows you how to open an
+application, how to work with its menus, how to save and open documents,
+and how to quit.  The examples use InitechText, the text editor that comes
+with FLAIR; the \doctitle{FLAIR Accessories Guide} describes it fully.
+
+\section{Opening an application}
+\index{applications!opening}\index{opening an application}
+\Operation{TENANT-LOAD}
+Applications are kept in the \file{APPS} folder of the data disk.  Their
+icons are diamonds, and their names end in \file{.EXE}.
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder.
+\Result{To see all its icons at once, click the zoom box of its window.}
+\Step Double-click \file{TEXT.EXE}.
+\Result{FLAIR loads InitechText from the disk.  Its window, titled
+\texttt{untitled}, opens in front of the other windows, ready for typing,
+and the lower menu bar changes to InitechText's menus: the Apple menu,
+\menuname{File} and \menuname{Edit}.}
+\Step Type a line of text.
+\Result{The text appears at the \term{insertion
+point}, the thin vertical line at the top left of the window.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:textopen]{textopen}{InitechText, opened from the
+APPS folder}
+
+FLAIR runs one application from the disk at a time.  While InitechText is
+open, double-clicking another application does nothing; quit InitechText
+first.  HELLO and NOTES, which are built into FLAIR, are always available
+alongside it.
+
+Only applications open from the desktop.  Double-clicking a document, or a
+program whose name ends in \file{.COM}, does nothing: open a document from
+within its application, and run the \file{.COM} programs at the InitechDOS
+prompt (Chapter~1).
+
+\section{The active application}
+\index{active application}\index{applications!switching between}
+The lower menu bar always shows the menus of the active application.  To
+change the active application, click one of its windows:
+\begin{itemize}
+\item Click InitechText's window to work in InitechText.
+\item Click a Finder window, or a bare part of the desktop, to work with
+  the Finder.  The Finder's windows come to the front.
+\item Click HELLO or NOTES to bring that window to the front.
+\end{itemize}
+An application stays open when it is not active.  Its windows keep their
+contents, and you return to it by clicking one of them.
+
+\section{Saving a document}
+\index{saving a document}\index{Save command}
+\Operation{TENANT-SF}
+Until you save it, a document exists only in the memory of the computer and
+is lost when the application quits.  Saving writes it to the disk as a
+file.
+\begin{TaskSteps}
+\Step Choose \menuitem{Save} from InitechText's \menuname{File} menu, or
+press \key{Ctrl-S}.
+\Result{Because the document has never been saved, a dialog box asks where
+to save it and what to call it.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:textsaveas]{textsaveas}{The dialog box for saving a
+document}
+
+The dialog box has these parts:
+
+\SideHead{Folder menu}The box at the top shows the folder the document will
+be saved in; at first it is the top level of the data disk,
+\texttt{INITECH}.  Click it to move up to the folder that holds this one.
+
+\SideHead{List}The files and folders in that folder.  Double-click a
+folder to save the document inside it.
+
+\SideHead{Desktop}Click \texttt{Desktop} to go back to the top level of the
+disk.  \texttt{Eject} and \texttt{New} are dimmed: the data disk cannot be
+ejected while FLAIR runs, and new folders are made in the Finder.
+
+\SideHead{Name}The box under \texttt{Save this document as:} holds the name
+the document will have.  It starts as \texttt{UNTITLED}.
+
+\begin{TaskSteps}[resume]
+\Step Press \key{Backspace} until the name box is empty, then type
+\type{memo.txt}.
+\Result{What you type appears in capital letters, because InitechDOS
+stores names in capitals.  The name must have one to eight characters,
+and may be followed by a period and up to three more.}
+\Step Click \texttt{Save}, or press \key{Enter}.
+\Result{The document is written to the disk, and the window takes the name
+of the file.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:textsaved]{textsaved}{The document saved as
+MEMO.TXT}
+
+To save the document again after more changes, choose \menuitem{Save}: it
+now saves under the same name without asking.  To save a copy under
+another name, choose \menuitem{Save As...}.  If you give a name that is
+already used in the folder, FLAIR asks whether to replace the file that has
+that name: click \texttt{Replace} to replace it, or \texttt{Cancel} to type
+another name.
+
+\section{Opening a document}
+\index{opening a document}\index{Open command}
+\begin{TaskSteps}
+\Step Choose \menuitem{Open...} from InitechText's \menuname{File} menu,
+or press \key{Ctrl-O}.
+\Result{A dialog box lists the files and folders of the top level of the
+data disk.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:textopenbox]{textopenbox}{The dialog box for opening
+a document}
+
+\begin{TaskSteps}[resume]
+\Step Click the name of the document you want, then click \texttt{Open}.
+\Result{You can also double-click the name, or move the highlight with
+\key{Up Arrow} and \key{Down Arrow} and press \key{Enter}.  To look inside a
+folder, double-click it.  The document opens in InitechText's window.}
+\end{TaskSteps}
+
+\section{Quitting an application}
+\index{quitting}\index{Quit command}
+When you have finished with an application, quit it to free the computer
+for another.
+\begin{TaskSteps}
+\Step Choose \menuitem{Quit} from the application's \menuname{File} menu,
+or press \key{Ctrl-Q}.
+\Result{If the document has changes you have not saved, the application
+asks what to do with them.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:textask]{textask}{InitechText asks about unsaved
+changes}
+\Operation{TENANT-ALERT}
+
+\SideHead{Save}Saves the document (asking for a name if it has none) and
+then quits.  \texttt{Save} is the default button: pressing \key{Enter}
+chooses it.
+\SideHead{Don't Save}Quits without saving; the changes are lost.
+\SideHead{Cancel}Goes back to the document; nothing is quit.  Pressing
+\key{Esc} chooses it.
+
+When you choose \menuitem{Restart}, \menuitem{Shut Down} or \menuitem{Exit
+to InitechDOS}, FLAIR asks the open application to quit in the same way.
+If you click \texttt{Cancel} in its alert, the computer is not restarted or
+shut down.
+
+\section{Opening the Calculator}
+\index{Calculator}
+Some small applications, called \term{accessories}, are listed in the
+Apple menu so that you can open them from any application.
+\Operation{APPLE-LAUNCH}
+\begin{TaskSteps}
+\Step Choose \menuitem{Calculator} from the Apple menu.
+\Result{The Calculator opens.  It works like a pocket calculator: click
+its keys, or type the numbers and signs on the keyboard.  The
+\doctitle{FLAIR Accessories Guide} describes it.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:calcda]{calcda}{The Calculator}
+
+The Calculator is a disk application like the others, so it does not open
+while another application from the disk is open.  To close it, click its
+close box, or choose \menuitem{Close} from its \menuname{File} menu.

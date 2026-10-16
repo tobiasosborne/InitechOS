@@ -1,0 +1,15 @@
+# selectall: Select All in the Drive A Files window.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (95,30) Edit in the lower (Finder) menu bar
+m-100:-34,m-100:0,m-100:0,m-100:0,m-100:0,m-5:0
+# press at (95,30)
+l1
+# hold (95,129) Select All (Edit row 6)
+m0:99
+# release at (95,129)
+l0
+# go (500,427) 
+m100:100,m100:100,m100:98,m100:0,m5:0

@@ -1,0 +1,7 @@
+# selected: the INITECH icon selected by a click.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# click at (600,64)
+l1,l0
+# go (560,110) the pointer moved off the icon
+m-40:46

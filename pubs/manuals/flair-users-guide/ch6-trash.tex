@@ -1,0 +1,108 @@
+% Chapter 6 -- Throwing Things Away (Part I, Learning; AN-14 task form).
+% Sources (Law 1): os/flair/finder_ops.c / finder_ops.h (a drop on the
+% Trash moves the item into \TRASH, never deletes it; a name already in the
+% Trash gets a numbered name; the origin is kept; a read-only item is
+% refused); os/milton/kmain.c (DESK-TRASH-ICON full/empty; the Trash window
+% "Trash" over \TRASH; finder_empty_trash and finder_trash_confirm: the
+% Empty Trash alert, OK deletes everything in \TRASH, a locked item is not
+% deleted and the Locked notice follows; the Locked notice text);
+% os/flair/finder_windows.c finder_trash_alert_text (the alert wording, the
+% space in K rounded up); os/flair/finder_menu.c (Empty Trash lit only while
+% the Trash holds something).  Model: Macintosh User's Guide 1991 Ch. 6
+% "Throwing away a document" (apple-macintosh.md Sec 8.2); System 6 guide
+% pp. 83, 88 (the locked item).
+% GATES: test-flair-file-ops test-flair-trash-window test-flair-empty-trash test-flair-locked-trash test-flair-locked-purge test-flair-trash-purge-views test-pubs-flair-screens
+\Gates{test-flair-file-ops, test-flair-trash-window, test-flair-empty-trash,
+  test-flair-locked-trash, test-flair-locked-purge,
+  test-flair-trash-purge-views, test-pubs-flair-screens}
+\chapter{Throwing Things Away}
+
+To get rid of a file or a folder, you put it in the Trash and then empty
+the Trash.  Until you empty it, anything in the Trash can be taken out
+again.
+
+\section{Putting something in the Trash}
+\index{Trash!putting things in}\index{throwing things away}
+\Operation{FINDER-TRASH}
+\begin{TaskSteps}
+\Step Drag the icon of the file or folder onto the Trash icon.
+\Result{When the pointer is over the Trash, the Trash is darkened.}
+\Step Release the button.
+\Result{The icon disappears from its window, and the Trash bulges to show
+that it holds something.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:trashed]{trashed}{The Trash, holding
+something}
+
+Putting an item in the Trash does not delete it.  The item is kept in the
+Trash, on the disk, and still takes up space there.  If the Trash already
+holds an item of the same name, the new one is kept under a numbered name.
+
+\section{Looking in the Trash}
+\index{Trash!opening}
+\Operation{FINDER-OPEN-TRASH}
+\begin{TaskSteps}
+\Step Double-click the Trash icon.
+\Result{The Trash window opens and shows what the Trash holds.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:trashwin]{trashwin}{The Trash window}
+
+\section{Taking something out of the Trash}
+\index{Trash!taking things out}
+To keep something you have put in the Trash, drag it out of the Trash
+window into a Finder window, onto a folder icon, or onto the
+\texttt{INITECH} icon.  It leaves the Trash and goes where you release it.
+
+\FlairScreen[label=fig:putback]{putback}{README.TXT taken out of the Trash
+and returned to Drive A Files}
+
+\section{Emptying the Trash}
+\index{Trash!emptying}\index{Empty Trash command}
+\Operation{FINDER-TRASH-ALERT}
+Emptying the Trash deletes everything in it from the disk, and frees the
+space it used.
+\begin{TaskSteps}
+\Step Click a bare part of the desktop, so that the Finder is the active
+application.
+\Step Choose \menuitem{Empty Trash} from the \menuname{Special} menu.
+\Result{An alert tells you how many items the Trash holds and how much disk
+space they use, and asks you to confirm.  \menuitem{Empty Trash} is dimmed
+when the Trash is empty.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:emptyask]{emptyask}{Confirming Empty Trash}
+
+\begin{TaskSteps}[resume]
+\Step Click \texttt{OK}, or press \key{Enter}.
+\Result{Everything in the Trash is deleted, folders with all their
+contents.  Any window showing a folder that was deleted closes.  The Trash
+icon returns to normal.  To keep everything instead, click
+\texttt{Cancel} or press \key{Esc}.}
+\end{TaskSteps}
+
+\begin{MacWarning}
+Emptying the Trash cannot be undone.  Look in the Trash window before you
+empty it.
+\end{MacWarning}
+
+\section{Locked items}
+\index{locked items}
+A file can be \term{locked} so that it cannot be changed or thrown away.
+(InitechDOS calls a locked file \textit{read-only}; you lock and unlock
+files with the \file{ATTRIB} program at the InitechDOS prompt, described in
+the \doctitle{InitechDOS Reference}.)
+
+If you drag a locked item to the Trash, it slides back to where it was and
+an alert explains why:
+
+\begin{TypeIn}
+The item is locked.
+Unlock it before
+discarding it.
+\end{TypeIn}
+
+Click \texttt{OK}.  The item stays where it was.  If the Trash holds a
+locked item when you empty it, FLAIR shows the same alert, and the locked
+item stays in the Trash.

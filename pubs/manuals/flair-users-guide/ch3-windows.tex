@@ -1,0 +1,213 @@
+% Chapter 3 -- Working with Windows (Part I, Learning; AN-14 task form).
+% Sources (Law 1): os/flair/window.c (document windows, ZoomWindow to the
+% standard state (4,40)-(636,476), ConstrainWindowSize 96x64 .. 640x480,
+% CollapseWindow); os/milton/kmain.c (flair_live_track_box: a box acts
+% only if the button is released inside it; flair_live_do_drag: the grey
+% outline and the move on release; a click in an inactive window only
+% activates it; flair_live_track_scroll: the arrows repeat while held;
+% scroll bars act only in the active window; flair_live_do_finder_close);
+% spec/chrome_metrics.h (title bar 22 px, the 12 x 12 boxes, the size box);
+% os/flair/finder_windows.h (the root window "Drive A Files" at (20,60)
+% 360 x 220, each further window 20 px lower and to the right; at most four
+% Finder windows); os/apps/ref_tenant.c (HELLO and NOTES: a click in the
+% content shows or hides a marker; the close box ends the application).
+% Model: Macintosh User's Guide 1991 Ch. 2 windows sections.
+% GATES: test-flair-disk-windows test-flair-drag test-flair-grow test-flair-zoom-toggle test-flair-collapse test-flair-scroll test-flair-close-terminate test-flair-appswitch test-flair-box-track test-window test-pubs-flair-screens
+\Gates{test-flair-disk-windows, test-flair-drag, test-flair-grow,
+  test-flair-zoom-toggle, test-flair-collapse, test-flair-scroll,
+  test-flair-close-terminate, test-flair-appswitch, test-flair-box-track,
+  test-window, test-pubs-flair-screens}
+\chapter{Working with Windows}
+
+Everything you work with in FLAIR appears in a \term{window}: the
+contents of a disk or a folder, a document, a calculator.  This chapter
+shows you how to open, arrange and close windows.  The skills are the same
+for every window, whichever application it belongs to.
+
+\section{Opening a window}
+\index{windows!opening}
+\Operation{FINDER-OPEN-VOLUME}
+\begin{TaskSteps}
+\Step Double-click the \texttt{INITECH} icon.
+\Result{A window titled \texttt{Drive A Files} opens.  It shows the
+contents of the data disk: the file \file{README.TXT} and the folder
+\file{APPS}.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:rootwin]{rootwin}{The Drive A Files window}
+
+The window opens in front of the others, and it is the \term{active
+window}: its title bar is striped and its title is black.  The lower menu
+bar shows the Finder's menus, because a Finder window is in front.
+
+\section{The parts of a window}
+\index{windows!parts of}
+Figure~\ref{fig:rootwin} shows the parts every document window has.
+
+\SideHead{Title bar}The bar across the top of the window, with the
+window's name in the middle.  Drag the title bar to move the window.
+
+\SideHead{Close box}The small square at the left end of the title bar.
+Click it to close the window.\index{close box}
+
+\SideHead{Zoom box}The first of the two boxes at the right end of the title
+bar.  Click it to enlarge the window to fill the screen below the menu
+bars, and click it again to return the window to its size.\index{zoom box}
+
+\SideHead{Collapse box}The box at the far right of the title bar.  Click it
+to roll the window up into its title bar, and click it again to roll the
+window down.\index{collapse box}
+
+\SideHead{Scroll bars}The bars along the right side and the bottom of the
+window.  When a window is too small to show all of its contents, use the
+scroll bars to bring the rest into view.\index{scroll bars}
+
+\SideHead{Size box}The ridged square at the lower right corner.  Drag it to
+make the window larger or smaller.\index{size box}
+
+The boxes work like buttons: if you press the mouse button in a box and
+change your mind, move the pointer out of the box before releasing the
+button, and nothing happens.
+
+\section{Making a window active}
+\index{windows!active}
+Only one window is active at a time.  To make another window active, click
+anywhere in it.
+\begin{TaskSteps}
+\Step Click the title bar of the \texttt{NOTES} window.
+\Result{NOTES comes to the front and becomes the active window.  The window
+that was active is drawn inactive: its title bar is plain and its title is
+grey.  The lower menu bar changes to NOTES's menus.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:activate]{activate}{NOTES made active}
+
+A click in an inactive window only brings it to the front.  It does not
+also act on what is under the pointer: click again to do that.
+
+\section{Moving a window}
+\index{windows!moving}
+\Operation{FLAIR-DRAG}
+\begin{TaskSteps}
+\Step Point at the title bar of the \texttt{Drive A Files} window, away
+from the boxes, and drag.
+\Result{An outline of the window follows the pointer.}
+\Step Release the button.
+\Result{The window moves to where the outline is.  FLAIR remembers where
+you put each Finder window and opens it there next time.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:moved]{moved}{The Drive A Files window, moved}
+
+\section{Changing the size of a window}
+\index{windows!changing size}
+\Operation{FLAIR-GROW}
+\begin{TaskSteps}
+\Step Point at the size box at the lower right corner of the window and
+drag it down and to the right.
+\Result{An outline shows the new size of the window.}
+\Step Release the button.
+\Result{The window takes the size of the outline.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:grown]{grown}{The Drive A Files window, enlarged}
+
+A window cannot be made smaller than 96 dots wide and 64 high, and cannot
+be made larger than the screen.
+
+\section{Zooming a window}
+\index{zooming}
+\Operation{FLAIR-ZOOM}
+\begin{TaskSteps}
+\Step Click the zoom box of the \texttt{Drive A Files} window.
+\Result{The window fills the screen below the menu bars.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:zoomed]{zoomed}{The Drive A Files window, zoomed}
+
+\begin{TaskSteps}[resume]
+\Step Click the zoom box again.
+\Result{The window returns to the size and place it had.  If you change
+the size of a zoomed window with its size box, the new size becomes the
+window's own size.}
+\end{TaskSteps}
+
+\section{Collapsing a window}
+\index{collapsing a window}
+\Operation{FLAIR-COLLAPSE}
+\begin{TaskSteps}
+\Step Click the collapse box of the \texttt{Drive A Files} window.
+\Result{The window rolls up until only its title bar is left.  You can
+still move it by its title bar.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:collapsed]{collapsed}{The Drive A Files window,
+collapsed}
+
+\begin{TaskSteps}[resume]
+\Step Click the collapse box again.
+\Result{The window rolls down to its full size.}
+\end{TaskSteps}
+
+\section{Scrolling}
+\index{scrolling}
+\Operation{FLAIR-SCROLL}
+A window often holds more than it can show.  The \file{APPS} folder holds
+twenty files, and its window shows only the first rows of them.
+\begin{TaskSteps}
+\Step Double-click the \file{APPS} folder in the \texttt{Drive A Files}
+window.
+\Result{The \texttt{APPS} window opens in front.}
+\Step Click the arrow at the bottom of the scroll bar on the right side of
+the window.
+\Result{The contents move up so that more of them come into view.  The
+small square in the scroll bar, the \term{scroll box}, moves down to show
+where you are.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:scrolled]{scrolled}{The APPS window, scrolled}
+
+There are three ways to scroll:
+\begin{itemize}
+\item Click an arrow to move a little.  Hold the button down to keep
+  moving.
+\item Click the grey part of the scroll bar, above or below the scroll
+  box, to move by a windowful.
+\item Drag the scroll box to move to a place in proportion: to the end of
+  the contents, drag it to the end of the bar.
+\end{itemize}
+Scroll bars work only in the active window; a click in the scroll bar of an
+inactive window makes the window active.
+
+\section{Closing a window}
+\index{windows!closing}
+\Operation{FINDER-CLOSE-WINDOW}
+\begin{TaskSteps}
+\Step Click the close box of the \texttt{APPS} window.
+\Result{The window closes.  The next window behind it becomes the active
+window.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:closed]{closed}{The APPS window closed; Drive A Files
+is active again}
+When the Finder is the active application you can also close the front
+Finder window by choosing \menuitem{Close Window} from the \menuname{File}
+menu, or by pressing \key{Ctrl-W}.
+
+Closing a Finder window does not change anything on the disk.  Closing a
+window of an application usually ends the application; an application
+with unsaved work asks you first (Chapter~5).
+
+\section{Practising with HELLO and NOTES}
+\index{HELLO}\index{NOTES}
+The HELLO and NOTES windows that FLAIR opens when it starts are there for
+practice.  Move them, change their size, zoom and collapse them, and bring
+each to the front in turn by clicking it.  Each has its own menu bar, which
+appears in the lower bar while its window is in front (Chapter~8 lists
+their menus).
+
+When you close HELLO or NOTES with its close box, the window and its
+application are gone until you start FLAIR again.
+
+\FlairScreen[label=fig:helloclosed]{helloclosed}{HELLO closed}
+\Operation{FLAIR-CLOSE}

@@ -24,16 +24,22 @@
 # is captured on it.  The shipped image's 250-tick pump ends before a
 # manual-length trace has been injected.
 #
-# Determinism (Rule 11): the guest RTC is pinned to 1992-03-02 09:30:00 and
-# tied to instructions retired (--rtc-deterministic), so the menu-bar clock
-# reads 9:30 am in every figure; the data volume is the deterministic FAT12
-# image the Makefile mints; the PNG depends on the pixels only.
+# Determinism (Rule 11): the guest RTC is pinned to 1992-03-02 09:30:00 (the
+# record-flair pattern, RECORD_RTC_DEFAULT: wall-paced, not icount -- under
+# --rtc-deterministic an application launch spends the pump's 30-second life
+# in virtual time before a trace is half injected), so the menu-bar clock
+# reads 9:30 am in every figure (each capture runs well inside the minute,
+# and no figure shows seconds); the data volume is the deterministic FAT12
+# image the Makefile mints; the listing depends on the pixels only.
+# Synchronisation is by serial marker, never by delay alone: a trace may
+# hold with W<marker> (qemu_harness) until the guest has done what the next
+# token needs (an application registered, a window drawn).
 #
 # Usage: flair_capture.sh <qemu_harness> <boot.img> <data.img> <flair_grey>
 #                         <clut.json> <color_canon.json> <console_text>
 #                         <vgabios.bin> <FLAIR file> <out dir>
 # FLAIR file format, one screen per line ('#' comments allowed):
-#   name|marker|crop
+#   name|marker|crop[|proves]
 # crop is `full` or x,y,w,h in screen pixels (640 x 480), or `text`: the
 # screen is the InitechDOS console FLAIR hands back on Exit to InitechDOS,
 # decoded character for character by harness/console_text (NT-21 text
@@ -42,7 +48,10 @@
 # the DOS route) instead of a grey listing.  The trace is
 # <FLAIR dir>/name.mouse: tokens separated by commas and/or newlines; lines
 # starting with '#' are comments (the derivation of each move).  The pointer
-# starts at the screen centre (320,240).
+# starts at the screen centre (320,240).  proves (optional) is a comma list
+# of the serial markers of the desktop operations the trace performs
+# (FINDER-OPEN-VOLUME, FLAIR-ZOOM ...): each must be on the serial capture,
+# or the row is RED -- a documented operation is replayed, not asserted.
 # Thin shell (Law 3).  Fails loud on a missing marker, a triple fault, a
 # guest whose pump ended before the capture, or a pixel outside the palette.
 set -eu
@@ -51,7 +60,7 @@ mkdir -p "$out"
 [ -r "$boot" ] || { printf '!!! flair_capture.sh FAIL: boot image %s not readable\n' "$boot"; exit 1; }
 [ -r "$data" ] || { printf '!!! flair_capture.sh FAIL: data volume %s not readable\n' "$data"; exit 1; }
 n=0
-while IFS='|' read -r name marker crop; do
+while IFS='|' read -r name marker crop proves; do
     case $name in ''|'#'*) continue ;; esac
     trace=$(dirname "$defs")/$name.mouse
     [ -f "$trace" ] || { printf '!!! test-pubs RED SCREEN-KEYS: %s missing\n' "$trace"; exit 1; }
@@ -72,7 +81,7 @@ while IFS='|' read -r name marker crop; do
     "$runner" --disk "$boot" --disk2 "$work" --name "$name" --out "$out" \
         --mouse "$spec" --keys-after FLAIR-LIVE-READY --timeout-ms 90000 \
         --screendump --screendump-after "$marker" --screendump-after-count "$count" \
-        --rtc-base 1992-03-02T09:30:00 --rtc-deterministic \
+        --rtc-base 1992-03-02T09:30:00 \
         < /dev/null 2> "$out/$name.report" || true
     if grep -q 'triple_fault=1' "$out/$name.report"; then
         printf '!!! flair_capture.sh FAIL: %s: triple fault\n' "$name"; exit 1
@@ -85,6 +94,10 @@ while IFS='|' read -r name marker crop; do
     if tr -d '\r' < "$out/$name.serial" | sed -n "/$(printf '%s' "$marker" | sed 's/[]\/.*[^$]/\\&/g')/q;p" | grep -q 'FLAIR-LIVE-OK'; then
         printf '!!! flair_capture.sh FAIL: %s: the desktop pump ended before the marker\n' "$name"; exit 1
     fi
+    for op in $(printf '%s' "$proves" | tr ',' ' '); do
+        tr -d '\r' < "$out/$name.serial" | grep -qF -- "$op" || {
+            printf '!!! test-pubs RED OPERATION-UNREPLAYED: %s: %s never reached serial\n' "$name" "$op"; exit 1; }
+    done
     if [ "$crop" = text ]; then
         "$decode" "$rom" "$out/$name.ppm" > "$out/$name.console" || {
             printf '!!! flair_capture.sh FAIL: %s: console_text could not decode the screendump\n' "$name"; exit 1; }

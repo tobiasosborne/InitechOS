@@ -1,0 +1,10 @@
+# filemenu: the Finder's File menu, with nothing selected.
+# go (450,400) a bare point of the desktop
+m100:100,m30:60
+# click at (450,400)
+l1,l0
+# go (53,30) File in the lower (Finder) menu bar
+m-100:-100,m-100:-100,m-100:-100,m-97:-70
+# press at (53,30)
+l1
+w300

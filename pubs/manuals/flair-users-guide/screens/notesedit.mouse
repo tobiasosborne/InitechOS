@@ -1,0 +1,10 @@
+# notesedit: NOTES' Edit menu.
+# go (400,130) the title bar of NOTES
+m80:-100,m0:-10
+# click at (400,130)
+l1,l0
+# go (62,30) Edit in NOTES' menu bar
+m-100:-100,m-100:0,m-100:0,m-38:0
+# press at (62,30)
+l1
+w300

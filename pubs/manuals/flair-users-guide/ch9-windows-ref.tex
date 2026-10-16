@@ -1,0 +1,102 @@
+% Chapter 9 -- Windows (Part II, Reference).
+% Sources (Law 1): spec/chrome_metrics.h (title bar 22 px; the 12 x 12
+% close, zoom and collapse boxes; the size box; zoom margins 4/40/4/4;
+% minimum 96 x 64, maximum 640 x 480); os/flair/window.c (ZoomWindow,
+% ConstrainWindowSize, CollapseWindow, the rounded rDocProc window of the
+% Calculator); os/flair/chrome.c (active and inactive title bars);
+% os/milton/kmain.c (flair_live_track_box, flair_live_do_drag, the grow
+% outline, flair_live_track_scroll with auto-repeat, the inactive-click
+% rule, the modal alert loop flair_live_alert_run, the FILE COPY box that
+% absorbs every event); os/flair/dialog.c (default button on Enter, cancel
+% on Esc).  Model: Mac User's Guide 1991 Ch. 2 window parts; Mac OS 8
+% Platinum window anatomy (apple-macintosh.md Sec 5.4).
+% GATES: test-window test-chrome test-flair-drag test-flair-grow test-flair-zoom-toggle test-flair-collapse test-flair-scroll test-flair-box-track test-flair-modal-block test-flair-alert-chrome test-dialog test-pubs-flair-screens
+\Gates{test-window, test-chrome, test-flair-drag, test-flair-grow,
+  test-flair-zoom-toggle, test-flair-collapse, test-flair-scroll,
+  test-flair-box-track, test-flair-modal-block, test-flair-alert-chrome,
+  test-dialog, test-pubs-flair-screens}
+\chapter{Windows}
+
+\section{Kinds of windows}
+\index{windows!kinds of}
+\SideHead{Document windows}Finder windows and the windows of most
+applications.  They have every part described below.
+
+\SideHead{Accessory windows}The Calculator's window is smaller, with
+rounded corners, a dark title bar and only a close box.  It can be moved
+by its title bar.
+
+\SideHead{Alert boxes}A box with a message and one or more buttons, which
+FLAIR or an application shows when it needs your answer before it goes
+on.  An alert box has no title bar and cannot be moved.  While it is on the
+screen nothing else responds: click one of its buttons, or press a key
+that chooses one.
+
+\SideHead{Dialog boxes}A box in which you give an application information,
+such as the name of a document (Chapter~10).  Like an alert, it must be
+answered before you go on.
+
+\SideHead{Progress boxes}A box with a title bar and a progress bar, which
+an application shows while it works, such as InitechCalc's
+\texttt{FILE COPY} box.  It goes away by itself when the work is done; until
+then, clicks and keys are ignored.
+
+\FlairScreen[scale=4, label=fig:calcwin]{calcwin}{The Calculator's window}
+
+\section{Parts of a document window}
+\index{windows!parts of}
+\begin{center}\small
+\begin{tabular}{@{}p{26mm}p{73mm}@{}}
+\textbf{Part} & \textbf{What you do with it}\\\hline
+Title bar & Drag it to move the window.  Striped in the active window,
+plain in the others\\
+Close box & Click it to close the window\\
+Zoom box & Click it to make the window fill the screen below the menu
+bars; click again to restore it\\
+Collapse box & Click it to roll the window up into its title bar; click
+again to roll it down\\
+Scroll bars & Click the arrows, click the grey area or drag the scroll box
+to move the contents\\
+Size box & Drag it to change the size of the window\\
+\end{tabular}
+\end{center}
+
+\section{How windows behave}
+\SideHead{The active window}One window is active at a time: the front
+window.  A click in another window makes it active and brings it to the
+front; that first click does nothing else.  When an application's window
+becomes active, the lower menu bar changes to that application's menus.
+
+\SideHead{Boxes}A box acts when you release the mouse button inside it.
+Press the button in the box and move out before releasing it to change your
+mind.
+
+\SideHead{Moving}While you drag a title bar, an outline of the window
+follows the pointer; the window moves when you release the button.  A
+window cannot be moved under the menu bars.
+
+\SideHead{Size}While you drag the size box, an outline shows the new size.
+A window is at least 96 dots wide and 64 dots high, and no larger than the
+screen.
+
+\SideHead{Zooming}A zoomed window fills the screen below the menu bars,
+with a small margin.  Zooming again returns it to the size and place it
+had.  Changing the size of a zoomed window ends the zoomed state.
+
+\SideHead{Collapsing}A collapsed window keeps only its title bar.  It can
+be moved and closed, and a click in its collapse box rolls it down again.
+
+\SideHead{Scrolling}An arrow moves the contents a little, and keeps
+moving them while you hold down the button.  A click in the grey area
+above or below the scroll box moves them by a windowful.  The scroll box
+shows where the part you see lies in the whole, and can be dragged.
+Scroll bars act only in the active window.
+
+\SideHead{Buttons}In an alert or dialog box, the button with a heavy
+border is the \term{default button}: pressing \key{Enter} chooses it.  When
+there is a \texttt{Cancel} button, pressing \key{Esc} chooses it.
+
+\section{Window limits}
+At most four Finder windows can be open at a time, and an application from
+the disk may have its own windows besides.  When a window does not open,
+close another window first.

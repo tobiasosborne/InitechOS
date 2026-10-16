@@ -1,0 +1,199 @@
+% Chapter 2 -- Understanding the Desktop (Part I, Learning; AN-14 task form).
+% Sources (Law 1): os/flair/event.c (one button: the cooker reads button 0
+% only; Ctrl is the command modifier); os/flair/finder_desktop.h
+% (FINDER_DBLCLICK_TICKS 20 = a third of a second, FINDER_DBLCLICK_SLOP 4 px,
+% FINDER_DRAG_SLOP 3 px); os/flair/finder_desktop.c (the volume icon can be
+% dragged, the Trash cannot); os/flair/menu.c (press-drag-release tracking,
+% dragging across titles, MenuInfo_item_selectable: dimmed items and
+% dividers cannot be chosen; MenuKey: the first enabled item with the key;
+% the "^N" drawing of a command key); os/milton/kmain.c (band 1 is the
+% shell's own bar, band 2 the foreground application's; the Apple menu
+% rebuilt from the disk each time it is pulled down; flair_live_about);
+% os/flair/apple_menu.c, spec/apple_menu_items.h (About This Computer...,
+% then each accessory whose program is on the disk); os/flair/shell_menus.h
+% (the upper bar's File, Edit, View and Special menus).  Model: Macintosh
+% User's Guide 1991 Ch. 2 "Understanding the Desktop" (apple-macintosh.md
+% Sec 8.2).
+% GATES: test-flair-desktop-icons test-flair-mouse test-flair-menu test-flair-menu-crossdrag test-menu test-apple-menu test-flair-apple-menu test-finder-menu test-flair-finder-cmds test-pubs-flair-screens
+\Gates{test-flair-desktop-icons, test-flair-mouse, test-flair-menu,
+  test-flair-menu-crossdrag, test-menu, test-apple-menu,
+  test-flair-apple-menu, test-finder-menu, test-flair-finder-cmds,
+  test-pubs-flair-screens}
+\chapter{Understanding the Desktop}
+
+In this chapter you learn the four things you do with the mouse ---
+pointing, clicking, double-clicking and dragging --- and how to choose
+commands from menus.  Work through the tasks in order; each one takes a
+minute or two.
+
+\section{Pointing and clicking}
+\index{pointing}\index{clicking}
+To \term{point} at something, move the mouse until the tip of the pointer
+is on it.  To click it, point at it and then press and quickly release the
+mouse button.
+\begin{TaskSteps}
+\Step Point at the \texttt{INITECH} icon and click it.
+\Result{The icon and its name are drawn in reverse: the icon is
+selected.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:selected]{selected}{The INITECH icon,
+selected}
+
+\begin{TaskSteps}[resume]
+\Step Click a bare part of the desktop.
+\Result{The icon is no longer selected.  Clicking the desktop also makes
+the Finder the active application, as you will see later in this
+chapter.}
+\end{TaskSteps}
+Selecting something does not change it.  It marks the thing you want the
+next command to act on.
+
+\section{Double-clicking}
+\index{double-clicking}
+\term{Double-clicking} is clicking twice in quick succession without moving
+the mouse.  You double-click an icon to open it.
+\begin{TaskSteps}
+\Step Point at the \texttt{INITECH} icon and double-click it.
+\Result{A window opens, showing what is on the data disk.  You learn about
+windows in Chapter~3.}
+\end{TaskSteps}
+The two clicks must come within a third of a second of each other, and the
+pointer must move no more than a few dots between them.  If nothing opens,
+you clicked too slowly, or the mouse moved: try again a little faster, and
+hold the mouse still.  FLAIR treats two slow clicks as two separate
+clicks.
+
+\section{Dragging}
+\index{dragging}
+To \term{drag} something, point at it, hold down the mouse button, move the
+mouse, and release the button.  You drag icons to move them, and you drag
+windows by their title bars (Chapter~3).
+\Operation{FINDER-ICON-DRAG}
+\begin{TaskSteps}
+\Step Point at the \texttt{INITECH} icon and hold down the mouse button.
+\Step Move the mouse.
+\Result{An outline of the icon follows the pointer once the pointer has
+moved a few dots.  The icon itself stays where it was until you release
+the button.}
+\Step Release the button somewhere on the desktop.
+\Result{The icon moves to where you released it.  FLAIR remembers the new
+place and shows the icon there each time it starts.}
+\end{TaskSteps}
+The Trash always stays in its place at the lower right of the screen; you
+cannot drag it.  To put something in the Trash you drag the thing onto the
+Trash (Chapter~6).
+
+\section{Choosing a command from a menu}
+\index{menus}\index{choosing a command}
+Most of the work you do in FLAIR is done with commands, and commands are
+listed in menus.  The menu titles are the words in the menu bars at the top
+of the screen.
+\begin{TaskSteps}
+\Step Click a bare part of the desktop.
+\Result{The lower menu bar shows the Finder's menu titles:
+\menuname{File}, \menuname{Edit}, \menuname{View}, \menuname{Special} and
+\menuname{Help}.}
+\Step Point at \menuname{File} in the lower menu bar and hold down the
+mouse button.
+\Result{The File menu drops down and stays down while you hold the
+button.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:filemenu]{filemenu}{The Finder's File menu,
+with nothing selected}
+
+\begin{TaskSteps}[resume]
+\Step Still holding down the button, move the pointer down the menu.
+\Result{Each command you pass over is highlighted.  Commands drawn in
+grey are not available now; they are not highlighted and cannot be
+chosen.}
+\Step Move the pointer off the menu and release the button.
+\Result{The menu closes and nothing happens.  Releasing the button on a
+highlighted command chooses that command.}
+\end{TaskSteps}
+While you hold down the button you can move the pointer along the menu bar:
+each menu you pass drops down in turn.
+
+\SideHead{Dimmed commands}A command is drawn in grey, or \term{dimmed},
+when it cannot be used at the moment.  In Figure~\ref{fig:filemenu},
+\menuitem{Open} is dimmed because no folder is selected, and
+\menuitem{Close Window} because no window of the Finder is open.  Some
+commands are dimmed at all times in this version of FLAIR; Chapter~8 tells
+you which.
+
+\SideHead{Keyboard equivalents}A command with a caret and a letter at its
+right, such as \CmdKey{N} beside \menuitem{New Folder}, can also be given
+from the keyboard: hold down \key{Ctrl} and press the letter.  It works only
+when the command is not dimmed, and only for the menus of the active
+application.  You can use small or capital letters.
+
+\section{The two menu bars}
+\index{menu bars}
+FLAIR has two menu bars, one above the other.
+
+\SideHead{The upper bar}The upper menu bar belongs to FLAIR.  It is the
+same whatever you are doing.  At its left is the Apple menu, then the
+titles \menuname{File}, \menuname{Edit}, \menuname{View} and
+\menuname{Special}, and at its right the clock.
+
+\FlairScreen[scale=4, label=fig:band1file]{band1file}{The File menu of the
+upper menu bar}
+
+The four menus of the upper bar each hold the same two commands,
+\menuitem{About} and \menuitem{Quit}.  The commands of the Finder, which
+you use to manage your files, are in the lower bar.
+
+\SideHead{The lower bar}The lower menu bar belongs to the \term{active
+application}: the application whose window is in front, or the Finder when
+you have clicked the desktop or a Finder window.  When you bring another
+application's window to the front, the lower bar changes to show that
+application's menus.  When FLAIR starts, the HELLO window is in front, so
+the lower bar holds HELLO's menus.
+
+\section{The Apple menu}
+\index{Apple menu}
+The Apple menu, at the left of the upper menu bar, is always there.  It
+gives you information about the computer and opens the accessories
+installed on the data disk.
+\begin{TaskSteps}
+\Step Point at the apple at the left end of the upper menu bar and hold
+down the mouse button.
+\Result{The Apple menu drops down.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:applemenu]{applemenu}{The Apple menu}
+
+\SideHead{About This Computer}The first command describes your computer.
+\SideHead{Accessories}Below the line is one command for each accessory
+whose program is on the data disk.  On the data disk as it is delivered
+there is one, the \menuitem{Calculator}.  If you remove an accessory's
+program from the disk, its command disappears from the menu the next time
+you pull the menu down.
+
+\begin{TaskSteps}[resume]
+\Step Still holding down the button, move the pointer to \menuitem{About
+This Computer...} and release the button.
+\Result{An alert box shows the version of InitechDOS, the memory built into
+the computer, and the largest block of that memory not in use.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:about]{about}{About This Computer}
+\Operation{APPLE-ABOUT}
+
+\begin{TaskSteps}[resume]
+\Step Click \texttt{OK}, or press \key{Enter}.
+\Result{The alert box closes.}
+\end{TaskSteps}
+
+\section{What you have learned}
+\begin{itemize}
+\item To select an icon, click it.  To open it, double-click it.
+\item To move an icon, drag it.
+\item To choose a command, point at the menu title, hold down the mouse
+  button, move to the command and release the button.
+\item Dimmed commands cannot be chosen.  A command with a keyboard
+  equivalent can also be given with \key{Ctrl} and a letter.
+\item The upper menu bar is FLAIR's own; the lower menu bar belongs to the
+  active application.
+\end{itemize}

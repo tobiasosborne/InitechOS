@@ -1,0 +1,7 @@
+# activate: NOTES brought to the front by a click in its title bar.
+# go (400,130) the title bar of NOTES
+m80:-100,m0:-10
+# click at (400,130)
+l1,l0
+# go (500,421) the pointer moved off the window
+m100:100,m0:100,m0:91

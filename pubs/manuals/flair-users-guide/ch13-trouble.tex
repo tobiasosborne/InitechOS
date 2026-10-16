@@ -1,0 +1,110 @@
+% Chapter 13 -- Tips and Troubleshooting (Part II, Reference; AN-14
+% troubleshooting form: bold symptom, then alternating Cause / Solution;
+% the Mac OS 8 Installation manual Ch. 6 and the 1991 guide Ch. 16,
+% apple-macintosh.md Sec 5.4, 9).
+% Sources (Law 1): os/milton/kmain.c (finder_surface_open: only .EXE files
+% are opened; FINDER-WIN-FULL at the fifth Finder window;
+% FINDER-NEW-FOLDER-FAIL with no disk window front; FINDER_DBLCLICK_TICKS;
+% the Apple menu rebuilt from the disk; flair_live_finder_key and
+% flair_live_tenant_key; the move refusals and the zoom-back; the PC LOAD
+% LETTER lines of panic.c and kmain.c; MSG-DOS-0014 on a failed Exit);
+% os/flair/tbxgate.c (TENANT-SLOT-BUSY, TENANT-CRASH);
+% os/flair/finder_ops.c (the refusal reasons); os/milton/panic.c.
+% GATES: test-flair-disk-windows test-flair-app-launch test-flair-finder-cmds test-flair-file-ops test-flair-apple-menu test-flair-exit-to-dos test-flair-heap test-pubs-flair
+\Gates{test-flair-disk-windows, test-flair-app-launch, test-flair-finder-cmds,
+  test-flair-file-ops, test-flair-apple-menu, test-flair-exit-to-dos,
+  test-flair-heap, test-pubs-flair}
+\chapter{Tips and Troubleshooting}
+
+When something does not work as you expect, find the description that
+matches what you see.  Each lists the likely causes and what to do about
+each one.
+
+\Symptom{Double-clicking an icon does not open it}
+\Cause The two clicks were too slow or the mouse moved between them.
+\Solution Click twice quickly, holding the mouse still.  You can also
+select a folder and choose \menuitem{Open} from the \menuname{File} menu.
+\Cause The icon is a document or a program whose name ends in \file{.COM}.
+\Solution Only applications, whose names end in \file{.EXE}, open from the
+desktop.  Open a document from within its application.  Run a \file{.COM}
+program at the InitechDOS prompt (Chapter~10).
+\Cause An application from the disk is already open.
+\Solution Only one can be open at a time.  Quit the open application,
+then open the other.
+\Cause Four Finder windows are already open.
+\Solution Close one of them, then open the folder again.
+
+\Symptom{A menu command is dimmed}
+\Cause The command needs something that is not there: a selected folder
+for \menuitem{Open}, a Finder window in front for \menuitem{Close Window},
+\menuitem{Clean Up} and \menuitem{Arrange (by Name)}, something in the
+Trash for \menuitem{Empty Trash}.
+\Solution Select the item or open the window, then choose the command.
+\Cause The command is not available in this version of FLAIR.
+\Solution Chapter~8 lists the commands that are always dimmed.
+
+\Symptom{New Folder does nothing}
+\Cause No Finder window is in front.  A new folder is made in the folder of
+the active Finder window.
+\Solution Open the disk or the folder in which you want the new folder,
+click its window, and choose \menuitem{New Folder} again.
+\Cause The folder already holds folders named \file{NEWFOLD} and
+\file{NEWFOL02} to \file{NEWFOL99}, or the disk is full.
+\Solution Move or throw away some of them, or make room on the disk.
+
+\Symptom{A keyboard equivalent does nothing}
+\Cause The command belongs to a menu of another application.  The keys go
+only to the menus of the active application.
+\Solution Click a window of the application first.
+\Cause The command is dimmed.
+\Solution See ``A menu command is dimmed'', above.
+\Cause HELLO or NOTES is the active application.
+\Solution Their menus have no keyboard equivalents that work.  Click the
+desktop to use the Finder's.
+
+\Symptom{An icon slides back when you drop it}
+\Cause The folder you dropped it in already holds something of the same
+name.
+\Solution Throw away or move the other item first.
+\Cause You dropped a folder into itself or one of its own folders, or back
+into the folder it came from.
+\Solution Drop it somewhere else.
+\Cause The item is locked.
+\Solution If you were dragging it to the Trash, an alert says so.  Unlock
+it at the InitechDOS prompt with \file{ATTRIB}, described in the
+\doctitle{InitechDOS Reference}.
+
+\Symptom{The Calculator is not in the Apple menu}
+\Cause The program \file{CALCULAT.EXE} is not in the \file{APPS} folder.
+\Solution Copy it back from your backup copy of the data disk.  The menu
+lists an accessory only while its program is on the disk.
+
+\Symptom{An application's window disappears}
+\Cause The application stopped working, and FLAIR closed it.
+\Solution Open the application again.  Work you had not saved is lost:
+save often.
+
+\Symptom{Restart, Shut Down or Exit to InitechDOS does nothing}
+\Cause The open application asked about unsaved work and you clicked
+\texttt{Cancel}.
+\Solution Choose the command again, and this time click \texttt{Save} or
+\texttt{Don't Save}.
+
+\Symptom{The screen shows ``Bad or missing Command Interpreter''}
+\Cause After \menuitem{Exit to InitechDOS}, InitechDOS could not load its
+command processor from the startup disk.
+\Solution Restart the computer.  If it happens again, the startup disk is
+damaged: make a new copy from your original disks (see \doctitle{Getting
+Started with FLAIR}).
+
+\Symptom{The screen shows ``PC LOAD LETTER''}
+\Cause InitechOS stopped because of an error it could not recover from.
+The words in parentheses after the message name the error:
+\texttt{(FLAIR heap exhausted)} means the computer ran out of memory for
+FLAIR; \texttt{(FLAIR needs a 640x480 framebuffer)} means the display cannot
+show FLAIR; \texttt{(exception} \textit{nn}\texttt{)} means a program
+error.
+\Solution Write down the whole message, then restart the computer.
+\textit{Getting Started with FLAIR} lists what your computer needs to run
+FLAIR.  If the message appears again, call the Initech Help Desk
+(extension 2504) with the message you wrote down.

@@ -15,8 +15,10 @@
 #                     .cmds KIND operation) is a serial marker the shipped
 #                     source prints ("M in os/)
 #   OPERATION-UNPROVED   ... and some capture row of these books settles on
-#                     it, so the operation is replayed on the running desktop
-#                     by `make test-pubs-flair-screens`
+#                     it or lists it in its proves field, so the operation is
+#                     replayed on the running desktop by `make
+#                     test-pubs-flair-screens` (flair_capture.sh checks the
+#                     proves markers on the serial capture)
 # Thin shell (Law 3).
 set -eu
 built=$1; shift
@@ -45,7 +47,7 @@ for b in "$@"; do
 done | sort -u | while IFS= read -r m; do
     [ -n "$m" ] || continue
     grep -rqF "\"$m" os/ || { printf '!!! test-pubs RED OPERATION-UNSHIPPED: %s\n' "$m"; exit 1; }
-    cut -d'|' -f2 "$rows" | sed 's/#[0-9]*$//' | grep -q "^$m" || {
+    { cut -d'|' -f2 "$rows" | sed 's/#[0-9]*$//'; cut -d'|' -f4 "$rows" | tr ',' '\n'; } | grep -q "^$m" || {
         printf '!!! test-pubs RED OPERATION-UNPROVED: %s (no capture settles on it)\n' "$m"; exit 1; }
 done
 ops=$(for b in "$@"; do grep -c '|operation|' "$built/$b/main.cmds" || true; done | awk '{s+=$1} END {print s+0}')

@@ -1,0 +1,176 @@
+% Chapter 4 -- Organizing Your Files (Part I, Learning; AN-14 task form).
+% Sources (Law 1): os/milton/kmain.c flair_live_do_surface (a click
+% selects, Shift-click adds to the selection, a click on bare surface
+% deselects, a press-drag on bare surface draws the selection rectangle);
+% os/flair/finder_windows.c (fw_do_new_folder: NEWFOLD, then NEWFOL02 to
+% NEWFOL99 in the front window's folder; fw_do_select_all; Clean Up snaps
+% to the 68 x 52 grid; fw_do_arrange_by_name: case-insensitive name order;
+% the window keeps each icon's place); os/flair/finder_ops.c (drop targets:
+% a folder icon, the INITECH icon, another disk window; refusals zoom the
+% outline back: service, samedir, stale, cycle, exists, locked);
+% os/flair/finder_windows.h (FINDER_WIN_MAX 4 windows, 64 icons a window,
+% the hidden TRASH and DESKTOP.DB).  Model: Macintosh User's Guide 1991
+% Ch. 6 "Organizing Your Work" (apple-macintosh.md Sec 8.2).
+% GATES: test-flair-disk-windows test-flair-file-ops test-flair-desktop-icons test-finder-windows test-finder-ops test-flair-finder-cmds test-pubs-flair-screens
+\Gates{test-flair-disk-windows, test-flair-file-ops, test-flair-desktop-icons,
+  test-finder-windows, test-finder-ops, test-flair-finder-cmds,
+  test-pubs-flair-screens}
+\chapter{Organizing Your Files}
+
+The information you keep on a disk is stored in \term{files}: documents
+you create, and the applications that create them.  You keep related files
+together in \term{folders}, and folders can hold other folders.  In FLAIR
+each file and folder is shown as an icon, and you organize your files by
+moving their icons.
+
+\section{Looking at the files in a folder}
+\index{folders!opening}
+\begin{TaskSteps}
+\Step Open the \texttt{INITECH} icon, if its window is not already open.
+\Step Double-click the \file{APPS} folder in the \texttt{Drive A Files}
+window.
+\Result{The \texttt{APPS} window opens.  It holds the applications and the
+programs that come with FLAIR.}
+\end{TaskSteps}
+\Operation{FINDER-OPEN-FOLDER}
+
+\FlairScreen[label=fig:appswin]{appswin}{The APPS folder}
+
+The icons tell you what kind of thing each one is.
+
+\SideHead{Application}A diamond: a program you can open from the
+desktop, such as \file{TEXT.EXE}, InitechText.  Its name ends in
+\file{.EXE}.
+
+\SideHead{Document}A page with a folded corner: a file of information,
+such as \file{README.TXT}, or a program that runs only at the InitechDOS
+prompt, such as \file{CHKDSK.COM}.
+
+\SideHead{Folder}A folder: a container for other files and folders.
+
+Names are shown as InitechDOS stores them: up to eight characters, a
+period and up to three more.  A name too long for the space under its icon
+is cut short on the screen, as \file{TENANTFX.EXE} is in
+Figure~\ref{fig:appswin}.
+
+\section{Selecting more than one icon}
+\index{selecting!several icons}
+Commands and drags act on everything that is selected.  There are three
+ways to select more than one icon in a window.
+
+\SideHead{Shift-click}Click the first icon.  Then hold down \key{Shift}
+and click each of the others.
+
+\FlairScreen[label=fig:shiftclick]{shiftclick}{Two icons selected with the
+Shift key}
+
+\SideHead{Selection rectangle}Point at a bare part of the window, hold
+down the mouse button and drag diagonally.  A rectangle follows the
+pointer; when you release the button, every icon inside the rectangle is
+selected.
+
+\FlairScreen[label=fig:marquee]{marquee}{Icons selected by dragging a
+rectangle round them}
+
+\SideHead{Select All}Choose \menuitem{Select All} from the
+\menuname{Edit} menu, or press \key{Ctrl-A}.  Every icon in the active
+window is selected; with no Finder window open, every icon on the desktop
+is selected.
+
+\FlairScreen[label=fig:selectall]{selectall}{Select All in the Drive A
+Files window}
+\Operation{FINDER-SELECT-ALL}
+\Operation{FINDER-WIN-MARQUEE}
+\Operation{FINDER-WIN-SELECT}
+
+To deselect everything, click a bare part of the window.
+
+\section{Making a new folder}
+\index{folders!new}\index{New Folder command}
+\Operation{FINDER-NEW-FOLDER}
+\begin{TaskSteps}
+\Step Click in the \texttt{Drive A Files} window to make it active.
+\Result{The new folder is made in the folder of the active window.}
+\Step Choose \menuitem{New Folder} from the \menuname{File} menu.
+\Result{A folder named \file{NEWFOLD} appears in the window, after the
+icons already there.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:newfolder]{newfolder}{A new folder}
+
+If a folder named \file{NEWFOLD} already exists, the new folder is named
+\file{NEWFOL02}, then \file{NEWFOL03}, and so on up to \file{NEWFOL99}.
+The name of a folder cannot be changed in FLAIR.
+
+\section{Moving an icon into a folder}
+\index{moving files}\index{folders!moving files into}
+\Operation{FINDER-MOVE}
+\begin{TaskSteps}
+\Step Drag the \file{README.TXT} icon onto the \file{NEWFOLD} folder.
+\Result{When the pointer is over the folder, the folder is darkened to
+show that it will receive what you release.}
+\Step Release the button.
+\Result{\file{README.TXT} disappears from the \texttt{Drive A Files}
+window: the file has moved into the folder.  Its place in the window
+stays empty until you tidy the window or open it again.}
+\Step Double-click \file{NEWFOLD}.
+\Result{Its window opens, with \file{README.TXT} inside.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:intofolder]{intofolder}{README.TXT moved into the new
+folder}
+
+You can move an icon in the same way onto a folder icon in any open
+window, into the body of another open Finder window, or onto the
+\texttt{INITECH} icon, which moves it to the top level of the data disk.
+Moving a file changes only where it is kept; the file itself is not
+changed, and no copy is made.
+
+When FLAIR cannot make a move, the outline of the icon slides back to where
+it started and nothing changes.  That happens when:
+\begin{itemize}
+\item the place you release it already holds a file or folder of the same
+  name;
+\item you drag a folder into itself or into a folder inside it;
+\item you release the icon in the folder it is already in, or on nothing
+  that can receive it;
+\item the file is locked (Chapter~6).
+\end{itemize}
+
+\section{Moving an icon within a window}
+\index{icons!moving}
+\Operation{FINDER-WIN-DRAG}
+Drag an icon to a bare part of its own window to move it there.  The icon
+stays where you put it until the window is closed.  Each time a Finder
+window opens, its icons are laid out in order in rows from the top left;
+only the icons on the desktop itself keep the places you give them.
+
+\FlairScreen[label=fig:strayicon]{strayicon}{README.TXT moved within the
+window}
+
+\section{Tidying a window}
+\index{Clean Up command}\index{Arrange command}
+Two commands put the icons of the active window back in order.
+
+\SideHead{Clean Up}Choose \menuitem{Clean Up} from the \menuname{View} or
+the \menuname{Special} menu.  Each icon moves to a place of the window's
+invisible grid, so that the icons stand in tidy rows.
+\Operation{FINDER-CLEANUP}
+
+\FlairScreen[label=fig:cleanedup]{cleanedup}{The window after Clean Up}
+
+\SideHead{Arrange}Choose \menuitem{Arrange (by Name)} from the
+\menuname{View} menu.  The icons are laid out row by row in alphabetical
+order of their names, filling any gaps.
+\Operation{FINDER-ARRANGE}
+
+\FlairScreen[label=fig:arranged]{arranged}{The window after Arrange (by
+Name)}
+
+\section{Limits}
+\index{limits}
+FLAIR shows at most 64 icons in one window, and opens at most four Finder
+windows at a time.  If a window does not open, close one of the others
+first.  The Trash folder and the file \file{DESKTOP.DB}, in which FLAIR
+records the arrangement of your desktop, are on the data disk but are not
+shown in its window.
