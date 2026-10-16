@@ -877,13 +877,28 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
         int21_set_mcb_arena(0, 0u, 0u);   /* no heap -> 48h insufficient, no overlap */
     }
 
-    /* Reset the current working directory to the root for the freshly loaded
-     * program (beads initech-mzxa; ti8 Layer 2). Mirrors int21_mcb_reset above:
-     * a launched program starts at the root (the simplest authentic ti8 model --
-     * a child does not inherit the parent's CWD; with no CHDIR writer yet every
-     * CWD is the root regardless). The kernel restores its own (saved) CWD after
-     * the child returns, alongside the PSP/exit-hook restore (kmain). */
+    /* THE CHILD RUNS IN THE DRIVE'S CURRENT DIRECTORY (bead initech-3p1a;
+     * supersedes the initech-mzxa reset-to-root, which that bead filed as an
+     * OPEN DECISION "(b) CWD inheritance ... simplest model is reset-to-root
+     * on launch -- confirm acceptable", made before the CHDIR writer existed).
+     * In DOS the current directory belongs to the DRIVE, not to the process:
+     * AH=47h "Get Current Directory ... for the specified drive" and AH=3Bh
+     * set it (80X0945 DOS 3.30 Technical Reference pp. 6-121, 6-188); EXEC
+     * hands the child the parent's open files and environment (pp. 6-197/198)
+     * and changes no directory; "FCB function calls ... only in the current
+     * directory of the specified drive" (p. 4-4); and a program's data files
+     * are found in the user's current directory ("MS-DOS first searches the
+     * current directory for data files", MS-DOS_3.3_Users_Guide_198707.pdf
+     * PDF p. 114, APPEND). So `CD APPS` then `TPSREP TPS.DBF` must open
+     * APPS\TPSPARM.DAT -- with the old reset it opened \TPSPARM.DAT and
+     * failed TPS-001. Nothing is reset here; the kernel still restores its own
+     * snapshot after the child returns (kmain loader_exec_by_name), so a
+     * child's CHDIR does not outlive it (a stated deviation, unchanged).
+     * MUTANT LOADER_MUT_CWD_RESET (Rule 6; test-flair-tps-journey-mutant
+     * CWDRESET): the pre-3p1a reset-to-root. NEVER in a real build. */
+#if defined(LOADER_MUT_CWD_RESET)
     int21_cwd_reset();
+#endif
 
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
     loader_context_t ctx;

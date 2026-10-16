@@ -101,6 +101,8 @@
 #include "tbxgate.h"             /* R3.7 the Initech Toolbox Gate + the one-slot
                                   * disk-tenant host (bead initech-tdnl.14)      */
 #include "toolbox_gate.h"        /* the LOCKED gate ABI (-Ispec; tdnl.14)        */
+#include "transient.h"           /* the TRANSIENT COMMAND.COM header + boot-disk
+                                  * placement (bead initech-3p1a)               */
 
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
 extern void tbx_gate_entry(void);
@@ -3301,6 +3303,9 @@ static void flair_tenant_mount_volume(void)
         int bind_rc;
 
         serial_puts("FLAIR-FAT-MOUNT-OK\n");
+        /* The INT 25h/26h device, bound only if the user exits to the
+         * InitechDOS prompt (bead initech-3p1a, flair_exit_to_dos). */
+        g_absdisk_dev = &ften_fatdev;
         bind_rc = fileio_fat_bind(&ften_vol);
         if (bind_rc == FAT12_OK) {
             uint32_t fat_len = 0u;
@@ -4553,6 +4558,203 @@ static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
     finder_restart_now();
 }
 
+/* ---------------------------------------------------------------------------
+ * bead initech-3p1a: SPECIAL > EXIT TO InitechDOS -- the chimera's own way out.
+ *
+ * THE BEHAVIOUR (Law 1):
+ *   - The Macintosh leaves the Finder only by Restart / Shut Down (above;
+ *     tdnl.78 graded against ../system7-decomp). InitechOS runs OVER
+ *     InitechDOS (PRD Sec 1/4: the DOS-3.3 personality fused with the
+ *     Toolbox), so it also offers the way back DOWN to the prompt, the way a
+ *     period GUI shell over DOS did. The TPS Report Generator runs ONLY from
+ *     that prompt (operator 2026-06-14 / 2026-10-16, bead initech-8479.1).
+ *   - It asks first, in the existing alert (flair_live_alert_open: the
+ *     s8_alert_modal.png geometry, default ringed, Escape = Cancel), with the
+ *     operator's words "Are you sure you want to exit to InitechDOS?" --
+ *     Exit (default, Return) / Cancel (Escape).
+ *   - Exit puts everything away through the SAME path Shut Down uses
+ *     (finder_power_ask_apps: a running disk application is asked to quit
+ *     and may cancel; then the DESKTOP.DB commit), then tears the desktop
+ *     down -- the pump's tick / keyboard / mouse hooks are taken out and the
+ *     Toolbox fault triage is unbound -- and hands the SAME 640x480 LFB back
+ *     to the InitechDOS text console the boot path built (there is no BIOS
+ *     text mode to return to: the console is the VGA 8x16 font blitted into
+ *     the LFB, os/milton/console.h). The console is RE-INITIALISED from
+ *     boot_info and must come back CONSOLE_OK, or the hand-off PANICs (Rule
+ *     2: a known console state or nothing).
+ *   - The InitechDOS banner (ADR-0003 Appendix D.1, the locked
+ *     spec/dos_banner.txt lines) is printed through INT 21h, then COMMAND.COM
+ *     takes the console as the PERMANENT command processor (/P) with the
+ *     flagship data volume, already mounted and bound, as drive A:.
+ *   - COMMAND.COM is the TRANSIENT (os/milton/transient.h): read from the boot
+ *     disk now, validated, never trusted blindly. A missing or foreign
+ *     transient is ADR-0003's MSG-DOS-0014 on the console and a PANIC on
+ *     serial -- the machine halts, as DOS did.
+ * Serial: FINDER-EXIT-DOS-ALERT (alert up) ; FINDER-EXIT-DOS-CANCEL |
+ *   FINDER-POWER name=EXITDOS views=<n> ; DESKTOP-DB-SAVE ... ;
+ *   FLAIR-EXIT-TO-DOS ; COMMAND-TRANSIENT-OK bytes=<n> ; SHELL-READY.
+ * MUTANT KMAIN_MUT_EXIT_NO_TEARDOWN (Rule 6; test-flair-exit-to-dos-mutant):
+ * goes straight to the prompt WITHOUT the teardown and the console reset --
+ * the desktop stays painted under the prompt. NEVER in a real build.
+ * ------------------------------------------------------------------------- */
+static void exitdos_fail(const char *why, uint32_t v)
+{
+    /* ADR-0003 Appendix C, MSG-DOS-0014, verbatim (DEC-13). */
+    dos_puts("\nBad or missing Command Interpreter\n$");
+    serial_puts("PANIC exit-to-dos: ");
+    serial_puts(why);
+    serial_puts(" v=");
+    serial_puthex32(v);
+    serial_puts("\nHALTED\n");
+    kernel_halt();
+}
+
+/* Read + validate the transient. Returns its entry; never returns on failure. */
+static void (*exitdos_load_transient(void))(int)
+{
+    static ata_ctx_t boot_ata;
+    transient_hdr_t *h = (transient_hdr_t *)(uintptr_t)TRANSIENT_BASE;
+    const uint32_t want[TRANSIENT_N_IMPORTS] = {
+        (uint32_t)(uintptr_t)&fileio_fat_volume_label,
+        (uint32_t)(uintptr_t)&int21_directory_exists,
+        (uint32_t)(uintptr_t)&int21_get_psp,
+        (uint32_t)(uintptr_t)&int21_same_file,
+        (uint32_t)(uintptr_t)&int21_set_break_recovery
+    };
+    uint32_t secs, k;
+    int rc;
+
+    if ((uint32_t)(uintptr_t)_kernel_end > TRANSIENT_BASE)
+        exitdos_fail("the kernel overlaps the transient window",
+                     (uint32_t)(uintptr_t)_kernel_end);
+    ata_ctx_init_primary_master(&boot_ata);
+    rc = ata_read_sectors(&boot_ata, TRANSIENT_LBA, 1u, h);
+    if (rc != 0) exitdos_fail("boot-disk read of the header failed", (uint32_t)rc);
+    for (k = 0u; k < TRANSIENT_MAGIC_LEN; k++)
+        if (h->magic[k] != TRANSIENT_MAGIC[k])
+            exitdos_fail("no COMMAND3 transient on the boot disk", k);
+    if (h->load_end <= TRANSIENT_BASE + (uint32_t)sizeof *h ||
+        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL ||
+        h->n_imports != TRANSIENT_N_IMPORTS)
+        exitdos_fail("transient header extents", h->bss_end);
+    secs = (h->load_end - TRANSIENT_BASE + 511u) / 512u;
+    if (secs > TRANSIENT_MAX_SECTORS)
+        exitdos_fail("transient larger than its boot-disk window", secs);
+    rc = ata_read_sectors(&boot_ata, TRANSIENT_LBA, secs, h);
+    if (rc != 0) exitdos_fail("boot-disk read of the transient failed", (uint32_t)rc);
+    for (k = 0u; k < TRANSIENT_N_IMPORTS; k++)
+        if (h->imports[k] != want[k])
+            exitdos_fail("transient linked against another kernel build", k);
+    if (h->entry < TRANSIENT_BASE + (uint32_t)sizeof *h || h->entry >= h->load_end)
+        exitdos_fail("transient entry outside its text", h->entry);
+    for (uint8_t *z = (uint8_t *)(uintptr_t)h->load_end;
+         z < (uint8_t *)(uintptr_t)h->bss_end; z++)
+        *z = 0u;
+    serial_puts("COMMAND-TRANSIENT-OK bytes=");
+    serial_putu(h->load_end - TRANSIENT_BASE);
+    serial_putc('\n');
+    return (void (*)(int))(uintptr_t)h->entry;
+}
+
+/* The hand-off itself. Never returns. */
+static void flair_exit_to_dos(const boot_info_t *bi)
+{
+    void (*repl)(int);
+
+#if !defined(KMAIN_MUT_EXIT_NO_TEARDOWN)
+    /* TEAR DOWN: the desktop's input + clock hooks out, the Toolbox fault
+     * triage unbound (a DOS program's fault is the ordinary PC LOAD LETTER
+     * panic, not a tenant death). IRQ12 stays live with NO hook: the mouse
+     * ISR keeps draining the PS/2 AUX stream, so a mouse moved at the prompt
+     * can never leave a byte in the 8042 output buffer ahead of a keystroke. */
+    pit_set_tick_hook((void (*)(void))0);
+    kbd_set_scancode_hook((void (*)(uint8_t))0);
+    mouse_set_event_hook((void (*)(int, int, uint8_t))0);
+    panic_set_fault_hook((void (*)(uint32_t, uint32_t))0);
+    /* A KNOWN CONSOLE STATE: re-initialise the boot console from boot_info
+     * (bounds, bpp, font) and clear the whole LFB to its paper, or panic. */
+    if (g_int21_con == (console_t *)0)
+        exitdos_fail("no boot console to hand back", 0u);
+    if (bi->lfb_bpp == 8u) {
+        vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
+        vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
+    }
+    {
+        int crc = console_init(g_int21_con, bi);
+        if (crc != CONSOLE_OK) {
+            serial_puts("PANIC exit-to-dos: console_init rc=");
+            serial_putu((uint32_t)crc);
+            serial_puts("\nHALTED\n");
+            kernel_halt();
+        }
+    }
+    panic_set_console(g_int21_con);
+#else
+    (void)bi;
+#endif
+    /* Typeahead from the desktop is not the prompt's: the IRQ1 handler posts
+     * to the DOS ring too (kbd.c), so drop what the alert's keys left there. */
+    while (kbd_getchar() >= 0) {
+    }
+    serial_puts("FLAIR-EXIT-TO-DOS\n");
+    /* The kernel context COMMAND.COM runs in: the kernel PSP and terminate
+     * hook (the loader rebinds both per EXEC and restores them), the root of
+     * drive A: as the current directory. */
+    int21_set_exit(int21_exit_hook);
+    int21_set_psp(&g_kernel_psp);
+    int21_cwd_reset();
+    /* COMMAND.COM's DOS personality: the seams the boot-to-prompt kernel binds
+     * after ITS mount (kernel_main's FAT-MOUNT block) and the desktop never
+     * needed -- AH=4Bh EXEC through the loader, AH=25h/35h on the live IDT,
+     * INT 25h/26h on the flagship volume's device (CHKDSK.COM lives in APPS). */
+    int21_set_exec_backend(loader_exec_by_name);
+    int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
+    if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_dev != 0) {
+        int21_absdisk_backend_t absdisk;
+        absdisk.read          = int21_absdisk_read;
+        absdisk.write         = int21_absdisk_write;
+        absdisk.total_sectors = g_finder_vol->bpb.total_sectors_16 != 0u
+                                    ? (uint32_t)g_finder_vol->bpb.total_sectors_16
+                                    : g_finder_vol->bpb.total_sectors_32;
+        int21_set_blockdev(&absdisk);
+    }
+    repl = exitdos_load_transient();
+    serial_puts("BANNER-BEGIN\n");
+    dos_puts(BANNER_LINE1 "\n$");
+    dos_puts(BANNER_LINE2 "\n$");
+    serial_puts("BANNER-END\n");
+    dos_puts("\n$");
+    serial_puts("SHELL-READY\n");
+    repl(1);          /* the permanent command processor never returns */
+    exitdos_fail("COMMAND.COM returned", 0u);
+}
+
+/* Special > Exit to InitechDOS after the shell noted the open views. */
+static void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                            int16_t noted)
+{
+    static const char *const labels[2] = { "Exit", "Cancel" };
+    static char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+    const char *text[FINDER_ALERT_LINES];
+    int n = finder_exit_dos_alert_text(lines), k;
+
+    for (k = 0; k < n; k++) text[k] = lines[k];
+    flair_live_alert_open(ctx, bi, text, n, labels, 2, 1);
+    serial_puts("FINDER-EXIT-DOS-ALERT\n");
+    if (flair_live_alert_run(ctx, bi) != 1u) {
+        serial_puts("FINDER-EXIT-DOS-CANCEL\n");
+        return;
+    }
+    serial_puts("FINDER-POWER name=EXITDOS views=");
+    serial_puti((int32_t)noted);
+    serial_putc('\n');
+    if (!finder_power_ask_apps(ctx, bi))
+        return;                         /* an application cancelled          */
+    g_finder_db_dirty = 1;
+    finder_desk_persist();
+    flair_exit_to_dos(bi);
+}
+
 /* Report + service whatever the command spine's shell hook just did. ONE
  * command, ONE outcome, ONE report (finder_windows.h finder_cmd_outcome_t). */
 static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
@@ -4669,6 +4871,12 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
     case FCMD_SHUTDOWN:
         /* bead initech-tdnl.78: put everything away, then reset / shut down. */
         finder_power(ctx, bi, o->id, o->moved);
+        return;
+
+    case FCMD_EXIT_DOS:
+        /* bead initech-3p1a: confirm, put everything away, hand the console
+         * to COMMAND.COM. Returns only on Cancel / an application's cancel. */
+        finder_exit_dos(ctx, bi, o->moved);
         return;
 
     case FCMD_OPEN:

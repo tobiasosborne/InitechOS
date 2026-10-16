@@ -782,6 +782,14 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  *                 The guest PIT runs in real time, so a hold of N ms spans
  *                 ~N/10 guest ticks; gates that rely on it also assert a
  *                 guest-side ordering marker, never the wall clock alone.
+ *   "W<marker>"   WAIT FOR THE GUEST: hold every input state until <marker>
+ *                 (no ',' -- the token separator) appears on the serial
+ *                 capture, bounded by HARNESS_W_BUDGET_MS (bead initech-3p1a:
+ *                 the user exits the desktop to the DOS prompt, and the next
+ *                 keystrokes must reach COMMAND.COM, not the dying desktop --
+ *                 the ordering is the GUEST's SHELL-READY, never a guessed
+ *                 delay). A marker that never comes is LOUD on stderr and the
+ *                 stream goes on; the gate's own serial assertions go RED.
  *
  * WHY THE KEY TOKEN LIVES IN THE *MOUSE* GRAMMAR. The two injectors run in a
  * fixed order -- ALL of --keys, then ALL of --mouse (see the caller) -- so a
@@ -795,8 +803,12 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  * property is assertable (a second distinct FLAIR-MOUSE line proves the slave
  * EOI re-armed the line). cap, when armed, may take the one marker-gated frame
  * between tokens so held-state pixels cannot race with mouseUp. */
+static int wait_for_serial_marker(const char *serial_path, const char *marker,
+                                  int budget_ms);
+#define HARNESS_W_BUDGET_MS 20000
+
 static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
-                            CaptureCtx *cap)
+                            CaptureCtx *cap, const char *serial_path)
 {
     int sent = 0;
     int left_down = 0;
@@ -858,6 +870,18 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                 if (qc && qmp_key_transition(fd, qc, colon[1] == '1') == 0) {
                     ok = 1;
                 }
+            }
+        } else if (tok[0] == 'W' && tok[1] != '\0') {
+            /* "W<marker>" -- hold until the guest prints <marker>. */
+            if (serial_path != NULL &&
+                wait_for_serial_marker(serial_path, tok + 1,
+                                       HARNESS_W_BUDGET_MS)) {
+                ok = 1;
+            } else {
+                fprintf(stderr, "[harness] --mouse: W marker '%s' not seen "
+                        "within %d ms (stream continues; the gate decides)\n",
+                        tok + 1, HARNESS_W_BUDGET_MS);
+                ok = 1;   /* counted as sent: the token was honoured */
             }
         } else if (tok[0] == 'w' && tok[1] >= '0' && tok[1] <= '9') {
             /* "w<ms>" -- hold every input state for <ms> milliseconds. */
@@ -1172,7 +1196,8 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                 }
             }
             if (want_mouse) {
-                int msent = qmp_inject_mouse(fd, mouse_spec, rec, cap);
+                int msent = qmp_inject_mouse(fd, mouse_spec, rec, cap,
+                                             serial_path);
                 if (mouse_sent) {
                     *mouse_sent = msent;
                 }

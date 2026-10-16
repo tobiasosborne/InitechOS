@@ -194,7 +194,7 @@ static MenuItem finder_view_items[] = {
  * SPECIAL  (515)  -- F4.2: Clean Up (FUNCTIONAL, same cmd id as View's) |
  *   Empty Trash (FUNCTIONAL, enabled iff Trash non-empty) | div | Erase Disk
  *   (grayed) | div | Restart (FUNCTIONAL) | Shut Down (FUNCTIONAL) | Sleep
- *   (grayed)
+ *   (grayed) | div | Exit to InitechDOS (FUNCTIONAL, bead initech-3p1a)
  * ===========================================================================*/
 static MenuItem finder_special_items[] = {
 #ifndef FINDER_MENU_MUT_DEAD_ITEM
@@ -211,7 +211,13 @@ static MenuItem finder_special_items[] = {
     FM_DIV,
     FM_ITEM("Restart",      0, 1),                /* ALWAYS live (tdnl.78)     */
     FM_ITEM("Shut Down",    0, 1),                /* ALWAYS live (tdnl.78)     */
-    FM_ITEM("Sleep",        0, 0)
+    FM_ITEM("Sleep",        0, 0),
+    /* bead initech-3p1a: the chimera's own item. The Macintosh way out of
+     * the Finder is Restart / Shut Down (above); InitechOS runs over
+     * InitechDOS, so it also offers the way back DOWN to the prompt -- in its
+     * own group after the power rows, ALWAYS live like them. */
+    FM_DIV,
+    FM_ITEM("Exit to InitechDOS", 0, 1)           /* ALWAYS live (3p1a)        */
 };
 
 /* ===========================================================================

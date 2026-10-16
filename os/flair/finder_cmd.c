@@ -190,7 +190,7 @@ static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
  *     10 --div-- | 11 Clean Up | 12 Arrange (by Name)
  *   Special (515):
  *     1 Clean Up | 2 Empty Trash | 3 --div-- | 4 Erase Disk | 5 --div-- |
- *     6 Restart | 7 Shut Down | 8 Sleep
+ *     6 Restart | 7 Shut Down | 8 Sleep | 9 --div-- | 10 Exit to InitechDOS
  *   Help (516):
  *     1 About Help | 2 Show Balloons     -- BOTH inert decoration in V1
  *
@@ -252,7 +252,10 @@ const finder_cmd_t FINDER_COMMANDS[] = {
     { FCMD_CLEANUP,       515,  1,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
     { FCMD_EMPTY_TRASH,   515,  2,  0,  finder_pred_trash_nonempty,   fcmd_nyi, "EMPTY_TRASH" },
     { FCMD_RESTART,       515,  6,  0,  0,                            fcmd_nyi, "RESTART" },
-    { FCMD_SHUTDOWN,      515,  7,  0,  0,                            fcmd_nyi, "SHUTDOWN" }
+    { FCMD_SHUTDOWN,      515,  7,  0,  0,                            fcmd_nyi, "SHUTDOWN" },
+    /* bead initech-3p1a: the DOS-over-Mac tell -- leave the Finder for the
+     * InitechDOS prompt. Always live (no predicate), like the power rows. */
+    { FCMD_EXIT_DOS,      515, 10,  0,  0,                            fcmd_nyi, "EXIT_DOS" }
 };
 
 const uint16_t FINDER_COMMANDS_N =

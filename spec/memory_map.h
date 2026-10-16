@@ -134,6 +134,25 @@
 #define INITECH_MIN_EXT_KB \
     (((KERNEL_CEIL) - 0x00100000u) / 1024u)
 
+/* ------------------------------------------------------------------------ *
+ * THE TRANSIENT COMMAND INTERPRETER (Rule-8 deliberate act; bead
+ * initech-3p1a). ADR-0003 DEC-03 retains "the resident/transient division of
+ * the command interpreter" and its reload from disk as a fidelity feature;
+ * the flagship FLAIR kernel is the first to need it: its stage2 load window
+ * (KERNEL_SECTORS, at the ratified bounce ceiling) cannot also carry the
+ * COMMAND.COM interpreter, so Special > Exit to InitechDOS reads the
+ * TRANSIENT (command.o + env.o + batch.o, the SAME objects the shell kernel
+ * links, relinked here against the running kernel's symbols) from the boot
+ * disk into this window, inside the kernel runway above any kernel's
+ * _kernel_end (the largest today ends near 0x535000; the build fails loud if
+ * a kernel ever reaches TRANSIENT_BASE). Nothing else in the map uses
+ * [TRANSIENT_BASE, TRANSIENT_CEIL): it is below KERNEL_CEIL, so the RAM
+ * gate INITECH_MIN_EXT_KB already covers it, and it is disjoint from the
+ * FLAIR heap, the program window and the load staging area.
+ * ------------------------------------------------------------------------ */
+#define TRANSIENT_BASE      0x00580000u
+#define TRANSIENT_CEIL      0x005C0000u
+
 /* Flat linear address of the PSP (256 bytes). The program's "segment" base in
  * the .COM model. Ref Sec 1 / Sec 3.2. RAISED 0x20000 -> 0x30000 (beads
  * initech-5pe), then RAISED 0x30000 -> 0x38000 (beads initech-o0td), then RAISED

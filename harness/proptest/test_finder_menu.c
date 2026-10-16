@@ -150,7 +150,12 @@ static const want_item_t WANT_SPECIAL[] = {
     { "-",           0, 0, 1, 0 },
     { "Restart",     0, 0, 0, 1 },
     { "Shut Down",   0, 0, 0, 1 },
-    { "Sleep",       0, 0, 0, 0 }
+    { "Sleep",       0, 0, 0, 0 },
+    /* bead initech-3p1a: the chimera's own row -- leave the Finder for the
+     * InitechDOS prompt. Its own group after the power rows, ALWAYS live
+     * (like Restart / Shut Down: nothing on the desktop can forbid it). */
+    { "-",           0, 0, 1, 0 },
+    { "Exit to InitechDOS", 0, 0, 0, 1 }
 };
 
 /* Help, 516 (F4.2) -- rightmost; BOTH rows inert decoration in V1. */
@@ -370,6 +375,7 @@ static const want_fixed_t WANT_FIXED[] = {
     { FINDER_MENU_IX_SPECIAL,  5, 1, "Restart" },      /* tdnl.78: live */
     { FINDER_MENU_IX_SPECIAL,  6, 1, "Shut Down" },    /* tdnl.78: live */
     { FINDER_MENU_IX_SPECIAL,  7, 0, "Sleep" },
+    { FINDER_MENU_IX_SPECIAL,  9, 1, "Exit to InitechDOS" }, /* 3p1a: live */
     { FINDER_MENU_IX_HELP,     0, 0, "About Help" },
     { FINDER_MENU_IX_HELP,     1, 0, "Show Balloons" }
 };

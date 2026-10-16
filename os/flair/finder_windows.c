@@ -1249,11 +1249,14 @@ static int fw_cat(char *dst, int at, const char *s)
     return at;
 }
 
+static int fw_alert_wrap(const char *msg,
+                         char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
 int finder_trash_alert_text(uint16_t items, uint32_t bytes,
                             char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
 {
     char msg[208];
-    int  n = 0, line = 0, i = 0;
+    int  n = 0;
     int  one = (items == 1u);
 
     /* The corpus wording (Sec 12), "Trash" for "Wastebasket"; the SINGULAR
@@ -1268,6 +1271,22 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
                            : "K of disk space. Are you sure you want to remove "
                              "these items permanently?");
     msg[n] = '\0';
+    return fw_alert_wrap(msg, out);
+}
+
+/* Special > Exit to InitechDOS (bead initech-3p1a): the operator's wording
+ * (2026-10-16), the SAME wrap. */
+int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    return fw_alert_wrap("Are you sure you want to exit to InitechDOS?", out);
+}
+
+/* GREEDY WORD WRAP of an alert message into FINDER_ALERT_TEXT_W columns
+ * (shared by every Finder alert). */
+static int fw_alert_wrap(const char *msg,
+                         char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    int line = 0, i = 0;
 
     for (int l = 0; l < FINDER_ALERT_LINES; l++) out[l][0] = '\0';
     /* GREEDY WORD WRAP on Chicago 12 advances: a word joins the line when
@@ -1501,7 +1520,15 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_VIEW_ICONS,      fw_do_view_icons },
     { FCMD_EMPTY_TRASH,     fw_do_empty_trash },
     { FCMD_RESTART,         fw_do_power      },
-    { FCMD_SHUTDOWN,        fw_do_power      }
+    { FCMD_SHUTDOWN,        fw_do_power      },
+#if !defined(FINDER_WIN_MUT_EXIT_DOS_UNWIRED)
+    /* bead initech-3p1a: Exit to InitechDOS puts everything away exactly like
+     * Restart / Shut Down; the kernel then confirms, commits DESKTOP.DB and
+     * hands the console to COMMAND.COM.
+     * MUTANT FINDER_WIN_MUT_EXIT_DOS_UNWIRED (Rule 6; test-menu-handlers H5):
+     * the row stays lit but this table loses it. NEVER in a real build. */
+    { FCMD_EXIT_DOS,        fw_do_power      }
+#endif
 };
 #define FW_EXEC_N ((int)(sizeof FW_EXEC_TABLE / sizeof FW_EXEC_TABLE[0]))
 
