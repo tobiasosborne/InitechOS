@@ -194,7 +194,11 @@ FLAIR_SVC_TRASH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-10
 # per row (FINDER_GRID_PITCH_X 68, PITCH_Y 52: +20,+72). The two moves after the
 # TRASH double-click keep their old ABSOLUTE target (+292,+156): 272,84 from
 # the new click point.
-FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m20:72,l1,l0,l1,l0,m100:84,m100:0,m72:0,m68:68,m68:68,m69:66
+# initech-zuvo deliberate re-key (operator requested grown-volume gates):
+# XCOPY.COM and TREE.COM append at cells 5/6, so stranded TRASH is cell 7,
+# row 1 col 3 (zero based), center (279,174). From APPS (123,102), move
+# (+156,+72), then to the unchanged next waypoint (415,278): (+136,+104).
+FLAIR_SVC_DAMAGED_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,l0,l1,l0,m100:72,m56:0,l1,l0,l1,l0,m100:104,m36:0,m68:68,m68:68,m69:66
 
 # 6c. FLAIR_SVC_GUARD_SPEC -- for the FILTER-REMOVED mutant kernel only (the
 #     real kernel shows no TRASH icon to press): the audit's H03 move, the

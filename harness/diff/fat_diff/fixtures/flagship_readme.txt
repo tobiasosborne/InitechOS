@@ -1,3 +1,4 @@
 InitechOS flagship data volume.
 Desktop state is stored in DESKTOP.DB.
 Applications belong in the APPS directory.
+XCOPY.COM and TREE.COM are in APPS. Run them from the DOS prompt.

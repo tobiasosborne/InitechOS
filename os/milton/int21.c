@@ -3459,7 +3459,25 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     fd->ftime = e->mtime;
     fd->fdate = e->mdate;
     fd->fsize = e->file_size;
-    format_83(e, fd->fname);
+    if ((e->attribute & DIR_ATTR_VOLLABEL)
+#ifdef DU_MUT_LABEL
+        && 0 /* Rule 6: old 8.3 label truncation, test-xcopy-tree-mutant. */
+#endif
+    ) {
+        /* TREE's volume identity is one eleven-byte label, not an 8.3 file.
+         * Ref: IBM DOS 3.30 Technical Reference p.5-11, attribute 08H:
+         * first 11 bytes contain the label, no other usable information;
+         * IBM Reference p.7-184 TREE heading; independent mdir label output.
+         * Keep internal spaces, trim right padding, insert no extension dot.
+         * Ordinary filename/DTA formatting below is unchanged. */
+        const uint8_t *label = (const uint8_t *)e;
+        unsigned n = 11;
+        while (n && label[n - 1] == ' ') n--;
+        for (unsigned i = 0; i < n; i++) fd->fname[i] = (char)label[i];
+        fd->fname[n] = '\0';
+    } else {
+        format_83(e, fd->fname);
+    }
     return 0u;
 }
 
