@@ -11026,21 +11026,9 @@ test-flair-cursor: $(HARNESS_BIN) $(FLAIR_CURSOR_IMAGE) $(FLAIR_DATA_IMG) $(PPM_
 $(BUILD)/cursor_mut_squared_stem.o: os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) -DCURSOR_MUT_SQUARED_STEM -Ios/flair -Ispec/assets -c $< -o $@
 
-$(BUILD)/kernel_flairtenants_mut_cursor_squared.elf: $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o $(KERNEL_LD) | $(BUILD)
-	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_CURSOR_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/cursor_mut_squared_stem.o
+# M009 Rule-6 twin kernel: built through flair-tenants-objswap-mutant-rules, instantiated
+# right after that macro's definition (the macro is defined later in this file).
 
-$(BUILD)/kernel_flairtenants_mut_cursor_squared.bin: $(BUILD)/kernel_flairtenants_mut_cursor_squared.elf | $(BUILD)
-	$(OBJCOPY) -O binary $< $@
-	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
-	[ "$$sz" -le "$$max" ] || { printf '!!! M009 mutant kernel exceeds load window\n'; exit 1; }; \
-	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
-	$(call kernel-end-guard,$<,cursor-squared-mutant)
-
-$(BUILD)/flair_tenants_mut_cursor_squared.img: $(FLAIRTENANTS_IMG) $(BUILD)/kernel_flairtenants_mut_cursor_squared.bin
-	cp -f $(FLAIRTENANTS_IMG) $@
-	@dd if=$(BUILD)/kernel_flairtenants_mut_cursor_squared.bin of=$@ bs=512 seek=17 conv=notrunc status=none
-
-.PHONY: test-flair-cursor-mutant
 test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img
 	@rc=0; $(MAKE) --no-print-directory test-flair-cursor FLAIR_CURSOR_IMAGE=$(BUILD)/flair_tenants_mut_cursor_squared.img FLAIR_CURSOR_NAME=flair_cursor_mut_squared \
 		>$(BUILD)/flair_cursor_mut_squared.log 2>&1 || rc=$$?; \
@@ -30795,6 +30783,9 @@ $(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fl
 	@dd if=$(BUILD)/kernel_flairtenants_mut_$(3).bin of=$$@ bs=512 seek=17 conv=notrunc status=none
 	@printf ">>> flair-tenants MUTANT image ($(3): $(2)): %s\n" "$$@"
 endef
+# M009 cursor twin (PM 2026-10-17): the hand-written rule named the pre-LTO object list
+# and lost kernel_main after size round 3 part 2; the macro owns the link now.
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CURSOR_OBJ),$(BUILD)/cursor_mut_squared_stem.o,cursor_squared))
 $(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
 $(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
