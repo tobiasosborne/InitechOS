@@ -1,0 +1,3 @@
+# InitechBase manuals (bead initech-ipu5.8): shipped InitechBase names with no
+# entry yet.  NAME|date|reason.  The gate forbids growth against HEAD and HEAD^
+# and rejects stale rows.  Established empty: every shipped name is documented.

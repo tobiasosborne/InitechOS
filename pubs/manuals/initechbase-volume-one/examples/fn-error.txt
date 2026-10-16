@@ -1,0 +1,7 @@
+. ON ERROR ? "Trapped", ERROR()
+. ? CHR(300)
+
+Trapped 5757  CHR() : Out of range.
+. ? ERROR()
+
+0

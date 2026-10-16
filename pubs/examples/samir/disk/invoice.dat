@@ -1,0 +1,18 @@
+# INVOICE.DBF -- the accounts receivable ledger of the Initech Accounting
+# System (Programming with InitechBase).  The due dates are stored as they
+# were keyed on the data entry screen and converted with CTOD under the
+# standard date convention (two-digit years, SET CENTURY OFF): a year keyed
+# 00 is stored as 1900.  Same INVNO/AMOUNT/DUEDATE/PAID values as the
+# ledger fixture of harness/diff/dbf_diff/mint_invoice_dbf.c.
+TABLE INVOICE.DBF
+FIELD INVNO C 5 0
+FIELD CUST C 10 0
+FIELD AMOUNT N 10 2
+FIELD DUEDATE D 8 0
+FIELD PAID L 1 0
+REC A1001|HARTWELL|1250.00|19991215|F
+REC A1002|BRAXTON CO|875.50|19000105|F
+REC A1003|DELMAR INC|4400.00|19991130|T
+REC A1004|QUINCY BK|99.99|19000210|F
+INDEX INVNO.NDX INVNO
+INDEX INVCUST.NDX CUST

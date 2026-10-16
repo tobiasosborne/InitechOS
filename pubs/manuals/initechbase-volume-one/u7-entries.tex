@@ -1,0 +1,800 @@
+%% u7-entries.tex -- Using InitechBase, Error Messages chapter (generated entries).
+%% Source of the catalogue: os/samir/samir_main.c g_msg (l.128-279). 146 non-empty codes.
+
+% 24 -- not raised: no source line sets ordinal 24 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{24}{ALIAS name already in use.}
+An alias chosen for a database is already the alias of another open database.
+\end{XbaseMessageEntry}
+
+% 13 -- not raised: no source line sets ordinal 13 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{13}{ALIAS not found.}
+An alias named in a command is not the alias of any open database.
+\end{XbaseMessageEntry}
+
+% 97 -- not raised: no source line sets ordinal 97 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{97}{Bad read or illegal printer file.}
+A read failed, or a printer file is not valid.
+\end{XbaseMessageEntry}
+
+% 38 -- not raised: no source line sets ordinal 38 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{38}{Beginning of file encountered.}
+The record pointer was moved backward past the first record.
+\end{XbaseMessageEntry}
+
+% 147 -- not raised: no source line sets ordinal 147 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{147}{Cannot append in column order.}
+Records cannot be appended in column order.
+\end{XbaseMessageEntry}
+
+% 89 -- not raised: no source line sets ordinal 89 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{89}{Cannot erase a file which is open.}
+An attempt was made to erase a file that is open.
+\end{XbaseMessageEntry}
+
+% 139 -- not raised: no source line sets ordinal 139 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{139}{Cannot JOIN a file with itself.}
+A database cannot be joined with itself.
+\end{XbaseMessageEntry}
+
+% 17 -- os/samir/samir_main.c:465 (USE: no selected area); os/samir/cmd/workarea.c:1334 (wa_set_filter on a closed area)
+\begin{XbaseMessageEntry}{17}{Cannot select requested database.}
+\cmd{SET FILTER TO} was given a condition while the selected work area holds no open database.
+
+Open a database in the selected work area with \cmd{USE}, or select the area that holds one, and repeat the command.
+\end{XbaseMessageEntry}
+
+% 111 -- os/samir/cmd/mutate.c:124,618,833,848,895,971,1073 (-DBF_ERR_IO)
+\begin{XbaseMessageEntry}{111}{Cannot write to a read-only file.}
+A command that changes a database, \cmd{REPLACE}, \cmd{APPEND BLANK}, \cmd{DELETE}, \cmd{RECALL}, \cmd{PACK} or \cmd{ZAP}, found that the file is not open for writing.
+
+Open the database with \cmd{USE} on a diskette that is not write-protected and repeat the command.
+\end{XbaseMessageEntry}
+
+% 57 -- os/samir/core/fn_builtins.c:316
+\begin{XbaseMessageEntry}{57}{CHR() : Out of range.}
+The argument of \fn{CHR()} was less than zero or greater than 255.
+
+Give \fn{CHR()} a code from 0 through 255.
+\end{XbaseMessageEntry}
+
+% 66 -- not raised: no source line sets ordinal 66 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{66}{CMDSET():}
+A message introduces a command-set diagnostic.
+\end{XbaseMessageEntry}
+
+% 76 -- not raised: no source line sets ordinal 76 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{76}{- : Concatenated string too large.}
+The result of joining two character strings with the minus sign is longer than a string may be.
+\end{XbaseMessageEntry}
+
+% 77 -- not raised: no source line sets ordinal 77 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{77}{+ : Concatenated string too large.}
+The result of joining two character strings with the plus sign is longer than a string may be.
+\end{XbaseMessageEntry}
+
+% 42 -- os/samir/cmd/query.c:1218
+\begin{XbaseMessageEntry}{42}{CONTINUE without LOCATE.}
+\cmd{CONTINUE} was issued in a work area for which no \cmd{LOCATE} has been given.
+
+Issue \cmd{LOCATE FOR} with a condition in the same work area, then \cmd{CONTINUE}.
+\end{XbaseMessageEntry}
+
+% 72 -- not raised: no source line sets ordinal 72 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{72}{could not be opened.}
+A file named in a message could not be opened.
+\end{XbaseMessageEntry}
+
+% 44 -- not raised: no source line sets ordinal 44 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{44}{Cyclic relation.}
+A chain of relations between databases leads back to the database it began with.
+\end{XbaseMessageEntry}
+
+% 122 -- not raised: no source line sets ordinal 122 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{122}{Data Catalog has not been established.}
+No data catalog has been set up.
+\end{XbaseMessageEntry}
+
+% 9 -- os/samir/core/eval.c:345,428,475,503,511,526,534,562,595,602 (operators); os/samir/core/fn_builtins.c:191 and following (function arguments); os/samir/cmd/mutate.c:605,617 (REPLACE); os/samir/cmd/proc.c:308 (ACCEPT/INPUT prompt); os/samir/cmd/report.c:251,278,474
+\begin{XbaseMessageEntry}{9}{Data type mismatch.}
+An expression combined operands of different types, for example a character value and a numeric value with the plus sign, or gave a function an argument of the wrong type. \cmd{REPLACE} reports the message when the value does not match the type of the field, or the field does not exist. \cmd{ACCEPT} and \cmd{INPUT} report it when the prompt is not a character expression, and \cmd{REPORT FORM} reports it when a heading or group expression has the wrong type.
+
+Convert one operand with \fn{STR()}, \fn{VAL()}, \fn{DTOC()} or \fn{CTOD()}, or correct the field name or the value in the command.
+\end{XbaseMessageEntry}
+
+% 71 -- not raised: no source line sets ordinal 71 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{71}{, Database in Use:}
+The text introduces the name of the database in use in a status display.
+\end{XbaseMessageEntry}
+
+% 131 -- not raised: no source line sets ordinal 131 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{131}{Database is encrypted.}
+A database is encrypted.
+\end{XbaseMessageEntry}
+
+% 26 -- os/samir/cmd/query.c:1302,1307 (SEEK/FIND without a master index); query.c:931
+\begin{XbaseMessageEntry}{26}{Database is not indexed.}
+\cmd{SEEK} or \cmd{FIND} was issued for a database that has no master index in use.
+
+Open the database with an index, \cmd{USE STAFF INDEX STAFFNAM}, or select an index with \cmd{SET ORDER TO}, and repeat the search.
+\end{XbaseMessageEntry}
+
+% 41 -- not raised: no source line sets ordinal 41 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{41}{.DBT file cannot be opened.}
+The memo file that belongs to a database cannot be opened.
+\end{XbaseMessageEntry}
+
+% 56 -- os/samir/cmd/mutate.c:130 (-DBF_ERR_NOSPC); os/samir/samir_main.c:426
+\begin{XbaseMessageEntry}{56}{Disk full when writing file:}
+A command that changes a database file, such as \cmd{APPEND BLANK}, \cmd{REPLACE}, \cmd{DELETE} or \cmd{PACK}, could not write all of its data because the diskette is full. The name of the file follows the message.
+
+Free space on the diskette by erasing files that are no longer needed, or use another diskette, and repeat the command.
+\end{XbaseMessageEntry}
+
+% 103 -- not raised: no source line sets ordinal 103 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{103}{DOs nested too deep.}
+Procedure calls are nested more deeply than the system allows.
+\end{XbaseMessageEntry}
+
+% 4 -- not raised: no source line sets ordinal 4 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{4}{End of file encountered.}
+The record pointer was moved, or a read was made, beyond the end of the file.
+\end{XbaseMessageEntry}
+
+% 51 -- not raised: no source line sets ordinal 51 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{51}{End of file or error on keyboard input.}
+The end of the keyboard input was reached, or the keyboard returned an error.
+\end{XbaseMessageEntry}
+
+% 145 -- not raised: no source line sets ordinal 145 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{145}{Error in configuration value.}
+A configuration value is in error.
+\end{XbaseMessageEntry}
+
+% 85 -- not raised: no source line sets ordinal 85 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{85}{Error:}
+The text introduces the description of an error.
+\end{XbaseMessageEntry}
+
+% 67 -- not raised: no source line sets ordinal 67 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{67}{EVAL work area overflow}
+The work area for evaluating an expression overflowed.
+\end{XbaseMessageEntry}
+
+% 110 -- not raised: no source line sets ordinal 110 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{110}{Exclusive open of file is required.}
+A file must be opened for exclusive use before the operation can be done.
+\end{XbaseMessageEntry}
+
+% 80 -- not raised: no source line sets ordinal 80 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{80}{***Execution error on}
+The text introduces the name of the command in which an execution error occurred.
+\end{XbaseMessageEntry}
+
+% 73 -- not raised: no source line sets ordinal 73 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{73}{^^ Expected ON or OFF.}
+A command that takes ON or OFF was given another word.
+\end{XbaseMessageEntry}
+
+% 48 -- not raised: no source line sets ordinal 48 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{48}{Field not found.}
+A field named in a command is not a field of the database in use.
+\end{XbaseMessageEntry}
+
+% 141 -- not raised: no source line sets ordinal 141 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{141}{Fields list too complicated.}
+A list of fields is too complicated to process.
+\end{XbaseMessageEntry}
+
+% 7 -- not raised: no source line sets ordinal 7 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{7}{File already exists.}
+A file to be created has the same name as a file already on the diskette.
+\end{XbaseMessageEntry}
+
+% 1 -- os/samir/samir_main.c:539 (USE: -DBF_ERR_NOENT); samir_main.c:673 (DO program read fault); os/samir/cmd/report.c:322 (REPORT FORM: form file absent)
+\begin{XbaseMessageEntry}{1}{File does not exist.}
+The \cmd{USE} command could not find the database named, or an index file named in its \cmd{INDEX} clause, on the diskette. \cmd{REPORT FORM} reports the same message when the report form file named does not exist. A program file that cannot be read in full while \cmd{DO} loads it is reported the same way.
+
+Check the spelling of the file name and the diskette that is in use. When no extension is typed, \cmd{USE} supplies \file{.DBF} and an index name receives \file{.NDX}, and \cmd{REPORT FORM} supplies \file{.FRM}.
+\end{XbaseMessageEntry}
+
+% 49 -- not raised: no source line sets ordinal 49 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{49}{File has been deleted.}
+A file has been deleted and cannot be used.
+\end{XbaseMessageEntry}
+
+% 3 -- os/samir/samir_main.c:521 (USE: wa_name_is_open); samir_main.c:539 (-WA_ERR_ALREADY_OPEN)
+\begin{XbaseMessageEntry}{3}{File is already open.}
+The \cmd{USE} command named a database file that is already open in another work area.
+
+Select the work area that holds the file with \cmd{SELECT}, or close it with \cmd{CLOSE} before opening it again.
+\end{XbaseMessageEntry}
+
+% 108 -- not raised: no source line sets ordinal 108 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{108}{File is in use by another.}
+A file is in use by another user.
+\end{XbaseMessageEntry}
+
+% 29 -- os/samir/samir_main.c:540 (USE access fault); os/samir/cmd/mutate.c:131 (write refused); os/samir/cmd/report.c:110,322,482; os/samir/cmd/query.c:822,1333; os/samir/cmd/workarea.c:1363
+\begin{XbaseMessageEntry}{29}{File is not accessible.}
+A file could not be opened, read or created. \cmd{REPORT FORM} reports the message when the \kw{TO FILE} file cannot be created or written, and a command that changes a database reports it when the diskette refuses access to the file.
+
+Check that the diskette is in the drive and not full of damaged sectors, and that the path in the file name exists.
+\end{XbaseMessageEntry}
+
+% 91 -- not raised: no source line sets ordinal 91 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{91}{File was not LOADed.}
+A module was used that had not been loaded.
+\end{XbaseMessageEntry}
+
+% 150 -- not raised: no source line sets ordinal 150 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{150}{Help text not found.}
+No help text was found for the topic requested.
+\end{XbaseMessageEntry}
+
+% 68 -- not raised: no source line sets ordinal 68 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{68}{Illegal opcode}
+An operation code that is not valid was met.
+\end{XbaseMessageEntry}
+
+% 46 -- not raised: no source line sets ordinal 46 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{46}{Illegal value.}
+A value was given that the command does not accept.
+\end{XbaseMessageEntry}
+
+% 114 -- os/samir/samir_main.c:555
+\begin{XbaseMessageEntry}{114}{Index damaged.  REINDEX should be done before using data.}
+\cmd{USE} opened the database and its indexes but could not position the file at the first record in index order, which indicates that an index is damaged.
+
+Rebuild the index from the database and open the files again.
+\end{XbaseMessageEntry}
+
+% 112 -- not raised: no source line sets ordinal 112 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{112}{Index expression is too big (220 char maximum).}
+An index expression is longer than 220 characters.
+\end{XbaseMessageEntry}
+
+% 19 -- not raised: no source line sets ordinal 19 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{19}{Index file does not match database.}
+An index file was opened with a database other than the one it was built for.
+\end{XbaseMessageEntry}
+
+% 113 -- not raised: no source line sets ordinal 113 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{113}{Index interrupted.  Index will be deleted if not completed.}
+Building an index was interrupted, and the incomplete index will be deleted.
+\end{XbaseMessageEntry}
+
+% 23 -- not raised: no source line sets ordinal 23 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{23}{Index is too big (100 char maximum).}
+An index key is longer than 100 characters.
+\end{XbaseMessageEntry}
+
+% 43 -- os/samir/samir_main.c:657 (DO buffer); os/samir/cmd/report.c:236,273 (cell text pool)
+\begin{XbaseMessageEntry}{43}{Insufficient memory.}
+InitechBase had no room left to hold a program file that \cmd{DO} was loading, or the text of one record of a report.
+
+Close databases that are not needed, shorten the program, or narrow the report columns, and repeat the command.
+\end{XbaseMessageEntry}
+
+% 64 -- not raised: no source line sets ordinal 64 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{64}{Internal error:}
+An internal inconsistency was detected.
+\end{XbaseMessageEntry}
+
+% 81 -- not raised: no source line sets ordinal 81 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{81}{Invalid date.}
+A date is not a valid date.
+\end{XbaseMessageEntry}
+
+% 118 -- not raised: no source line sets ordinal 118 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{118}{Invalid DIF character.}
+A character in a DIF file is not valid.
+\end{XbaseMessageEntry}
+
+% 115 -- not raised: no source line sets ordinal 115 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{115}{Invalid DIF File Header.}
+The header of an exchange file in DIF form is not valid.
+\end{XbaseMessageEntry}
+
+% 117 -- not raised: no source line sets ordinal 117 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{117}{Invalid DIF type indicator.}
+A type indicator in a DIF file is not valid.
+\end{XbaseMessageEntry}
+
+% 116 -- not raised: no source line sets ordinal 116 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{116}{Invalid DIF vector - DBF field mismatch.}
+A vector of a DIF file does not match the fields of the database.
+\end{XbaseMessageEntry}
+
+% 99 -- not raised: no source line sets ordinal 99 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{99}{Invalid DOS SET option.}
+An operating system option given to \cmd{SET} is not valid.
+\end{XbaseMessageEntry}
+
+% 11 -- os/samir/core/fn_builtins.c:190,237,280,293,313 and following (argument count); os/samir/core/eval.c:673-703 (IIF)
+\begin{XbaseMessageEntry}{11}{Invalid function argument.}
+A function was called with too few or too many arguments, or the argument list of \fn{IIF()} was not three expressions.
+
+Give the function the number of arguments its entry in this volume shows.
+\end{XbaseMessageEntry}
+
+% 31 -- os/samir/core/eval.c:664; os/samir/core/fn_builtins.c:2094,2176
+\begin{XbaseMessageEntry}{31}{Invalid function name.}
+An expression named a function that InitechBase does not provide.
+
+Check the spelling of the function name against the functions listed in this volume.
+\end{XbaseMessageEntry}
+
+% 106 -- not raised: no source line sets ordinal 106 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{106}{Invalid index number.}
+An index number given in a command is not valid.
+\end{XbaseMessageEntry}
+
+% 107 -- not raised: no source line sets ordinal 107 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{107}{Invalid operator.}
+An operator is not valid for the operands it was given.
+\end{XbaseMessageEntry}
+
+% 123 -- not raised: no source line sets ordinal 123 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{123}{Invalid printer port.}
+A printer port is not valid.
+\end{XbaseMessageEntry}
+
+% 124 -- not raised: no source line sets ordinal 124 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{124}{Invalid printer redirection.}
+A printer redirection is not valid.
+\end{XbaseMessageEntry}
+
+% 120 -- not raised: no source line sets ordinal 120 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{120}{Invalid SYLK file dimension bounds.}
+The dimension bounds of a SYLK file are not valid.
+\end{XbaseMessageEntry}
+
+% 121 -- not raised: no source line sets ordinal 121 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{121}{Invalid SYLK file format.}
+A SYLK file is not in a valid format.
+\end{XbaseMessageEntry}
+
+% 119 -- not raised: no source line sets ordinal 119 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{119}{Invalid SYLK file header.}
+The header of an exchange file in SYLK form is not valid.
+\end{XbaseMessageEntry}
+
+% 83 -- not raised: no source line sets ordinal 83 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{83}{is not a dBASE command.}
+The text follows a word that is not the name of a command.
+\end{XbaseMessageEntry}
+
+% 86 -- not raised: no source line sets ordinal 86 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{86}{^--- Keyword not found.}
+A keyword that a command requires was not found.
+\end{XbaseMessageEntry}
+
+% 54 -- not raised: no source line sets ordinal 54 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{54}{Label file invalid.}
+A label file is not valid.
+\end{XbaseMessageEntry}
+
+% 18 -- os/samir/samir_main.c:650 (DO: program file of 8192 bytes or more); os/samir/cmd/report.c:430 (command text of 256 or more characters)
+\begin{XbaseMessageEntry}{18}{Line exceeds maximum of 254 characters.}
+\cmd{DO} was given a program file of 8192 bytes or more, which is too large to load. \cmd{REPORT FORM} reports the same message for a command whose text is too long.
+
+Divide the program into smaller files that call one another with \cmd{DO}, and keep each command line within 254 characters.
+\end{XbaseMessageEntry}
+
+% 100 -- not raised: no source line sets ordinal 100 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{100}{Lock failed, but not because of previous lock.}
+A lock request failed for a reason other than an existing lock.
+\end{XbaseMessageEntry}
+
+% 58 -- not raised: no source line sets ordinal 58 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{58}{LOG() : Zero or negative.}
+The argument given to a logarithm function is zero or negative.
+\end{XbaseMessageEntry}
+
+% 149 -- not raised: no source line sets ordinal 149 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{149}{Master catalog is empty.}
+The master catalog is empty.
+\end{XbaseMessageEntry}
+
+% 146 -- not raised: no source line sets ordinal 146 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{146}{Maximum path length exceeded.}
+A path is longer than the maximum allowed.
+\end{XbaseMessageEntry}
+
+% 137 -- not raised: no source line sets ordinal 137 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{137}{Maximum record length exceeded.}
+The record length is greater than the maximum allowed.
+\end{XbaseMessageEntry}
+
+% 55 -- not raised: no source line sets ordinal 55 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{55}{Memory Variable file is invalid.}
+A memory variable file is not valid.
+\end{XbaseMessageEntry}
+
+% 96 -- not raised: no source line sets ordinal 96 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{96}{Mismatched DO WHILE and ENDDO.}
+A \cmd{DO WHILE} has no matching \cmd{ENDDO}, or the reverse.
+\end{XbaseMessageEntry}
+
+% 87 -- not raised: no source line sets ordinal 87 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{87}{NDX(): Invalid index number.}
+The index number given to an index function does not name an open index.
+\end{XbaseMessageEntry}
+
+% 148 -- not raised: no source line sets ordinal 148 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{148}{Network server busy.}
+The network server is busy.
+\end{XbaseMessageEntry}
+
+% 52 -- os/samir/cmd/report.c:466; os/samir/core/fn_builtins.c:1868 (need_dbcur)
+\begin{XbaseMessageEntry}{52}{No database is in USE.}
+\cmd{REPORT FORM} was issued while the selected work area holds no open database.
+
+Open the database with \cmd{USE} and repeat the command.
+\end{XbaseMessageEntry}
+
+% 47 -- not raised: no source line sets ordinal 47 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{47}{No fields to process.}
+A command that works on fields found no fields to work on.
+\end{XbaseMessageEntry}
+
+% 138 -- not raised: no source line sets ordinal 138 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{138}{No fields were found to copy.}
+No fields were found to copy.
+\end{XbaseMessageEntry}
+
+% 14 -- not raised: no source line sets ordinal 14 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{14}{No find.}
+A search for a key found no matching record.
+\end{XbaseMessageEntry}
+
+% 93 -- os/samir/cmd/proc.c:676
+\begin{XbaseMessageEntry}{93}{No PARAMETER statement found.}
+\cmd{DO} with a \kw{WITH} list called a procedure that contains no \cmd{PARAMETERS} statement.
+
+Begin the procedure with a \cmd{PARAMETERS} statement that names a variable for each value passed, or remove the \kw{WITH} list.
+\end{XbaseMessageEntry}
+
+% 45 -- not raised: no source line sets ordinal 45 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{45}{Not a Character expression.}
+A character expression was required and the expression given has another type.
+\end{XbaseMessageEntry}
+
+% 15 -- os/samir/samir_main.c:540 (USE: any other open fault)
+\begin{XbaseMessageEntry}{15}{Not a dBASE database.}
+\cmd{USE} opened a file whose header is not that of a database file, or an index file that does not belong with the database.
+
+Name a file that was created as a database. Do not give \cmd{USE} a report form, a program or a text file.
+\end{XbaseMessageEntry}
+
+% 37 -- os/samir/core/eval.c:566-609,685; os/samir/cmd/flow.c:476; os/samir/cmd/query.c:234; os/samir/cmd/mutate.c:250; os/samir/cmd/workarea.c:1339,1373; os/samir/cmd/report.c:369
+\begin{XbaseMessageEntry}{37}{Not a Logical expression.}
+A condition that must be logical produced a value of another type. This applies to the \kw{FOR} and \kw{WHILE} clauses, to \cmd{IF}, \cmd{DO WHILE}, \cmd{DO CASE} and \cmd{SET FILTER TO}, and to the operands of \kw{.AND.}, \kw{.OR.} and \kw{.NOT.}. A number or character value is never treated as true or false.
+
+Write a comparison, for example \type{SALARY > 0}, or use a logical field or the logical constants \kw{.T.} and \kw{.F.}.
+\end{XbaseMessageEntry}
+
+% 27 -- not raised: no source line sets ordinal 27 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{27}{Not a numeric expression.}
+A numeric expression was required and the expression given has another type.
+\end{XbaseMessageEntry}
+
+% 98 -- not raised: no source line sets ordinal 98 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{98}{Not a RunTime file.}
+A file is not a run-time file.
+\end{XbaseMessageEntry}
+
+% 140 -- not raised: no source line sets ordinal 140 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{140}{Not a valid PFS file.}
+A file is not a valid PFS file.
+\end{XbaseMessageEntry}
+
+% 134 -- not raised: no source line sets ordinal 134 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{134}{Not a valid QUERY file.}
+A file is not a valid query file.
+\end{XbaseMessageEntry}
+
+% 127 -- not raised: no source line sets ordinal 127 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{127}{Not a valid VIEW file.}
+A file is not a valid view file.
+\end{XbaseMessageEntry}
+
+% 82 -- not raised: no source line sets ordinal 82 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{82}{** Not Found **}
+A search ended without finding the key sought.
+\end{XbaseMessageEntry}
+
+% 101 -- not raised: no source line sets ordinal 101 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{101}{Not suspended.}
+A program was resumed that had not been suspended.
+\end{XbaseMessageEntry}
+
+% 39 -- os/samir/core/eval.c:521 (division by zero)
+\begin{XbaseMessageEntry}{39}{Numeric overflow (data was lost).}
+An expression divided by zero. InitechBase reports the quotient as a numeric overflow.
+
+Test the divisor before dividing, for example with \fn{IIF()}.
+\end{XbaseMessageEntry}
+
+% 90 -- not raised: no source line sets ordinal 90 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{90}{Operation with Logical field invalid.}
+An operation was attempted on a logical field that logical fields do not allow.
+\end{XbaseMessageEntry}
+
+% 34 -- os/samir/cmd/report.c:234 (rp_text: XB_M value)
+\begin{XbaseMessageEntry}{34}{Operation with Memo field invalid.}
+\cmd{REPORT FORM} met a memo field where a report column or heading needs a character, numeric or date value.
+
+Edit the report form so that its columns use character, numeric, date or logical expressions only.
+\end{XbaseMessageEntry}
+
+% 78 -- not raised: no source line sets ordinal 78 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{78}{^ or ** : Negative base, fractional exponent.}
+A negative number was raised to a fractional power.
+\end{XbaseMessageEntry}
+
+% 21 -- not raised: no source line sets ordinal 21 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{21}{Out of memory variable memory.}
+The space for memory variable values is full.
+\end{XbaseMessageEntry}
+
+% 22 -- not raised: no source line sets ordinal 22 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{22}{Out of memory variable slots.}
+Every memory variable slot the system provides is in use.
+\end{XbaseMessageEntry}
+
+% 75 -- not raised: no source line sets ordinal 75 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{75}{^--- Out of range.}
+A value lies outside its permitted range.
+\end{XbaseMessageEntry}
+
+% 30 -- not raised: no source line sets ordinal 30 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{30}{Position is off the screen.}
+A screen row or column lies outside the screen.
+\end{XbaseMessageEntry}
+
+% 126 -- os/samir/cmd/report.c:461
+\begin{XbaseMessageEntry}{126}{Printer is either not connected or turned off.}
+\cmd{REPORT FORM} was given \kw{TO PRINT}. This version has no printer to send the report to.
+
+Send the report to the screen, or to a text file with \kw{TO FILE}.
+\end{XbaseMessageEntry}
+
+% 125 -- not raised: no source line sets ordinal 125 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{125}{Printer not ready.}
+The printer is not ready.
+\end{XbaseMessageEntry}
+
+% 143 -- not raised: no source line sets ordinal 143 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{143}{Query not valid for this environment.}
+A query cannot be used in the present environment.
+\end{XbaseMessageEntry}
+
+% 109 -- not raised: no source line sets ordinal 109 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{109}{Record is in use by another.}
+A record is in use by another user.
+\end{XbaseMessageEntry}
+
+% 20 -- not raised: no source line sets ordinal 20 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{20}{Record is not in index.}
+A record of the database has no entry in the index in use.
+\end{XbaseMessageEntry}
+
+% 25 -- not raised: no source line sets ordinal 25 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{25}{Record is not inserted.}
+A record has been created but has not yet been placed in the database.
+\end{XbaseMessageEntry}
+
+% 130 -- not raised: no source line sets ordinal 130 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{130}{Record is not locked.}
+An operation requires a record to be locked and it is not.
+\end{XbaseMessageEntry}
+
+% 5 -- os/samir/cmd/query.c:1423 (GO/GOTO: wa_nav_goto fails); os/samir/cmd/report.c:387 (REPORT FORM RECORD clause)
+\begin{XbaseMessageEntry}{5}{Record is out of range.}
+\cmd{GO} or \cmd{GOTO} was given a record number that is less than one or greater than the number of records in the database. \cmd{REPORT FORM} reports the message when its \kw{RECORD} clause names a record that does not exist.
+
+Test the record count with \fn{RECCOUNT()} and name a record number within it, or use \kw{TOP} or \kw{BOTTOM}.
+\end{XbaseMessageEntry}
+
+% 142 -- not raised: no source line sets ordinal 142 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{142}{Relation record is in use by others.}
+A related record is in use by other users.
+\end{XbaseMessageEntry}
+
+% 88 -- not raised: no source line sets ordinal 88 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{88}{REPLICATE(): String too large.}
+The result of \fn{REPLICATE()} would be longer than a character string may be.
+\end{XbaseMessageEntry}
+
+% 50 -- os/samir/cmd/report.c:327-355 (rp_load)
+\begin{XbaseMessageEntry}{50}{Report file invalid.}
+\cmd{REPORT FORM} read a file that is not a valid report form, or a report form that uses an option this version does not print.
+
+Name a file that was made as a report form, and do not edit it with a program that does not preserve its layout.
+\end{XbaseMessageEntry}
+
+% 60 -- os/samir/core/fn_builtins.c:296
+\begin{XbaseMessageEntry}{60}{SPACE() : Negative.}
+The argument of \fn{SPACE()} was less than zero.
+
+Give \fn{SPACE()} zero or a positive number.
+\end{XbaseMessageEntry}
+
+% 59 -- os/samir/core/fn_builtins.c:297,1203,1301,1565,1768
+\begin{XbaseMessageEntry}{59}{SPACE() : Too large.}
+\fn{SPACE()}, \fn{REPLICATE()}, \fn{STUFF()} or another function would have produced a character string longer than 254 characters.
+
+Request a shorter result.
+\end{XbaseMessageEntry}
+
+% 61 -- not raised: no source line sets ordinal 61 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{61}{SQRT() : Negative.}
+The argument given to a square root function is negative.
+\end{XbaseMessageEntry}
+
+% 79 -- not raised: no source line sets ordinal 79 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{79}{STORE : String too large.}
+A character string given to \cmd{STORE} is longer than a memory variable may hold.
+\end{XbaseMessageEntry}
+
+% 63 -- os/samir/core/fn_builtins.c:383-385
+\begin{XbaseMessageEntry}{63}{STR() : Out of range.}
+The length or the number of decimal places given to \fn{STR()} was not usable: a length of less than one or more than 254, more than 15 decimal places, or too little room for the decimals.
+
+Give a length that can hold the digits, the sign and the decimal point.
+\end{XbaseMessageEntry}
+
+% 33 -- not raised: no source line sets ordinal 33 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{33}{Structure invalid.}
+The structure of a database is not valid.
+\end{XbaseMessageEntry}
+
+% 102 -- not raised: no source line sets ordinal 102 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{102}{STUFF():  String too large.}
+The result of \fn{STUFF()} would be longer than a character string may be.
+\end{XbaseMessageEntry}
+
+% 62 -- os/samir/core/fn_builtins.c:247
+\begin{XbaseMessageEntry}{62}{SUBSTR() : Start point out of range.}
+The starting position given to \fn{SUBSTR()} was less than one.
+
+Give a starting position of one or more.
+\end{XbaseMessageEntry}
+
+% 10 -- os/samir/samir_main.c:481,506,515 (USE); os/samir/cmd/set.c:600,635 (SET DELETED/HEADING/CONSOLE/STATUS); os/samir/cmd/query.c:789,1323,1486; os/samir/cmd/mutate.c:1099,1111; os/samir/cmd/workarea.c:1335; os/samir/cmd/report.c:309,384
+\begin{XbaseMessageEntry}{10}{Syntax error.}
+A command was typed with a required word missing or an operand that is too long. Examples are \cmd{USE} with \kw{ALIAS} and no alias name, \cmd{SET DELETED}, \cmd{SET HEADING}, \cmd{SET CONSOLE} or \cmd{SET STATUS} without \kw{ON} or \kw{OFF}, and \cmd{REPORT FORM} with \kw{TO FILE} and no file name.
+
+Retype the command with the missing word supplied, and shorten any file name or condition that is too long.
+\end{XbaseMessageEntry}
+
+% 105 -- not raised: no source line sets ordinal 105 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{105}{Table is full.}
+A table of the system is full.
+\end{XbaseMessageEntry}
+
+% 53 -- not raised: no source line sets ordinal 53 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{53}{There are no files of the type requested in this drive or catalog.}
+No file of the type the command requires is on the drive or in the catalog.
+\end{XbaseMessageEntry}
+
+% 6 -- not raised: no source line sets ordinal 6 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{6}{Too many files are open.}
+More files were open at one time than the system allows.
+\end{XbaseMessageEntry}
+
+% 28 -- os/samir/samir_main.c:489 (USE: NDX_PER_AREA = 7)
+\begin{XbaseMessageEntry}{28}{Too many indices.}
+The \kw{INDEX} clause of \cmd{USE} named more than seven index files for one database.
+
+Name no more than seven index files.
+\end{XbaseMessageEntry}
+
+% 74 -- not raised: no source line sets ordinal 74 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{74}{^--- Truncated.}
+A value was shortened to fit.
+\end{XbaseMessageEntry}
+
+% 92 -- not raised: no source line sets ordinal 92 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{92}{Unable to load COMMAND.COM.}
+The command processor could not be loaded.
+\end{XbaseMessageEntry}
+
+% 129 -- not raised: no source line sets ordinal 129 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{129}{Unable to LOCK.}
+A lock could not be taken.
+\end{XbaseMessageEntry}
+
+% 128 -- not raised: no source line sets ordinal 128 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{128}{Unable to SKIP.}
+A \cmd{SKIP} could not be carried out.
+\end{XbaseMessageEntry}
+
+% 2 -- not raised: no source line sets ordinal 2 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{2}{Unassigned file no.}
+A file number was used before a file had been assigned to it.
+\end{XbaseMessageEntry}
+
+% 133 -- not raised: no source line sets ordinal 133 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{133}{Unauthorized access level.}
+The access level is not authorized for the operation.
+\end{XbaseMessageEntry}
+
+% 144 -- not raised: no source line sets ordinal 144 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{144}{Unauthorized duplicate.}
+A duplicate key was refused.
+\end{XbaseMessageEntry}
+
+% 132 -- not raised: no source line sets ordinal 132 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{132}{Unauthorized login.}
+A login was not authorized.
+\end{XbaseMessageEntry}
+
+% 8 -- not raised: no source line sets ordinal 8 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{8}{Unbalanced parenthesis.}
+An expression has an opening parenthesis without a closing one, or the reverse.
+\end{XbaseMessageEntry}
+
+% 65 -- not raised: no source line sets ordinal 65 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{65}{Unknown command code:}
+A command code that the system does not know was met.
+\end{XbaseMessageEntry}
+
+% 104 -- not raised: no source line sets ordinal 104 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{104}{Unknown function key.}
+A function key name is not known.
+\end{XbaseMessageEntry}
+
+% 84 -- not raised: no source line sets ordinal 84 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{84}{Unlink of old name incomplete, errno =}
+Renaming a file left the file under its old name.
+\end{XbaseMessageEntry}
+
+% 16 -- os/samir/cmd/flow.c:1033 (no module accepts the verb); os/samir/samir_main.c:807,829,842 (default); os/samir/cmd/proc.c:638 (DO of an unknown procedure)
+\begin{XbaseMessageEntry}{16}{*** Unrecognized command verb.}
+The first word of the line is not the name of a command that InitechBase provides. \cmd{DO} reports the message when the name given is neither a procedure in the program nor a program file on the diskette.
+
+Retype the command. Check the spelling of the verb and of the name given to \cmd{DO}.
+\end{XbaseMessageEntry}
+
+% 36 -- os/samir/samir_main.c:499 (USE clause word); os/samir/cmd/report.c:433,437,448,462
+\begin{XbaseMessageEntry}{36}{Unrecognized phrase/keyword in command.}
+A command contained a word that is not one of its clauses. \cmd{USE} reports the message for a word after the file name that is not \kw{ALIAS} or \kw{INDEX}; \cmd{REPORT FORM} reports it for an unknown clause, for a word that is not \kw{FILE} after \kw{TO}, and when the form name is replaced by a question mark.
+
+Retype the command using only the clauses shown for it in this volume.
+\end{XbaseMessageEntry}
+
+% 136 -- not raised: no source line sets ordinal 136 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{136}{Unsupported path given.}
+A path given in a file name is not supported.
+\end{XbaseMessageEntry}
+
+% 35 -- not raised: no source line sets ordinal 35 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{35}{Unterminated string.}
+A character string is missing its closing delimiter.
+\end{XbaseMessageEntry}
+
+% 95 -- not raised: no source line sets ordinal 95 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{95}{Valid only in programs.}
+A command was used at the dot prompt that may be used only in a program.
+\end{XbaseMessageEntry}
+
+% 12 -- os/samir/core/eval.c:759 (XBEE_VAR_NOT_FOUND)
+\begin{XbaseMessageEntry}{12}{Variable not found.}
+An expression, or a \kw{FOR} or \kw{WHILE} condition, used a name that is not a field of the database in use and not a memory variable.
+
+Correct the spelling, open the database that holds the field with \cmd{USE}, or create the memory variable with \cmd{STORE} before it is used.
+\end{XbaseMessageEntry}
+
+% 70 -- not raised: no source line sets ordinal 70 for the condition the message names (checked os/samir)
+\begin{XbaseMessageEntry}[no command of this version raises this message]{70}{** WARNING ** Data will probably be lost.  Confirm? (Y/N)}
+The system asks the user to confirm an operation that may destroy data.
+\end{XbaseMessageEntry}
+
+% 94 -- os/samir/cmd/proc.c:740,835
+\begin{XbaseMessageEntry}{94}{Wrong number of parameters.}
+The \kw{WITH} list of \cmd{DO} held more than sixteen expressions.
+
+Pass no more than sixteen values.
+\end{XbaseMessageEntry}

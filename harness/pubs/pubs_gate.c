@@ -125,7 +125,10 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
             }
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
             if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
-               strcmp(f[1],"config") && strcmp(f[1],"int21")) die("COMMAND-INDEX",path,line);
+               strcmp(f[1],"config") && strcmp(f[1],"int21") &&
+               /* InitechBase (bead initech-ipu5.8): samir_inventory.c kinds */
+               strcmp(f[1],"command") && strcmp(f[1],"function") && strcmp(f[1],"set"))
+                die("COMMAND-INDEX",path,line);
             if(strcmp(f[2],"GATED") && strcmp(f[2],"DRAFT")) die("COMMAND-INDEX",path,line);
             addkind(doc,f[0],f[1]);
             if(!strcmp(f[2],"DRAFT")) addkind(draft,f[0],f[1]);
@@ -171,6 +174,69 @@ static void same(const char *tag,const char *a,const char *b)
         die(tag,a,detail);
     }at++; } while(ca!=EOF);
     fclose(fa);fclose(fb);
+}
+/* InitechBase inline mentions (bead initech-ipu5.8): \cmd{LIST FOR ...}
+ * names the command LIST, \cmd{SET EXACT ON} the option EXACT|set, and
+ * \fn{SUBSTR()} the function SUBSTR|function -- each must be shipped
+ * (samir_inventory.c NAME|KIND lines). */
+static void samirmentions(int argc,char **argv)
+{
+    Set ship=list(argv[2],0);size_t n=0;char w1[MAX_NAME],w2[MAX_NAME],key[2*MAX_NAME];
+    for(int f=3;f<argc;f++) {
+        Set m=list(argv[f],-1);
+        for(size_t i=0;i<m.n;i++) {
+            const char *t=m.item[i];size_t len=strlen(t);
+            if(len>2 && !strcmp(t+len-2,"()")) {
+                snprintf(key,sizeof(key),"%.*s|function",(int)(len-2),t);
+            } else {
+                w1[0]=w2[0]=0;sscanf(t,"%127s %127s",w1,w2);
+                if(!strcmp(w1,"SET")) snprintf(key,sizeof(key),"%s|set",w2);
+                else snprintf(key,sizeof(key),"%s|command",w1);
+            }
+            if(!has(&ship,key)) die("DOC-NOT-SHIPPED",argv[f],key);
+            n++;
+        }
+    }
+    printf(">>> test-pubs-mentions: green (%zu InitechBase inline commands, options and functions shipped)\n",n);
+}
+/* GC-02 for InitechBase (bead initech-ipu5.8).  catalogue: n|text lines of
+ * the shipped g_msg (samir_inventory messages).  Each <job>.msgs line is
+ * n|text|STATE (STATE GATED or DRAFT: an AN-06 entry; MENTION: an inline
+ * \xmsg).  Every printed text equals its catalogue text byte for byte; the
+ * FIRST file (the book with the Error Messages chapter) has exactly one
+ * entry per catalogue message; the others may only mention. */
+static void messages(int argc,char **argv)
+{
+    Set cat=list(argv[2],0),entries={0};size_t drafts=0,mentions=0;
+    for(int f=3;f<argc;f++) {
+        char *text=readfile(argv[f]),*line=text;
+        while(*line) {
+            char *end=strchr(line,'\n');if(end) *end=0;
+            if(*line) {
+                char *bar1=strchr(line,'|'),*bar2=strrchr(line,'|');
+                if(!bar1 || bar2==bar1) die("MESSAGE-INDEX",argv[f],line);
+                *bar2=0;const char *state=bar2+1;
+                if(!has(&cat,line)) die("MESSAGE-TEXT",argv[f],line);
+                if(!strcmp(state,"MENTION")) mentions++;
+                else if(!strcmp(state,"GATED") || !strcmp(state,"DRAFT")) {
+                    if(f!=3) die("MESSAGE-INDEX",argv[f],"message entries belong to the first book only");
+                    *bar1=0;
+                    if(has(&entries,line)) die("DUPLICATE",argv[f],line);
+                    add(&entries,line);
+                    if(!strcmp(state,"DRAFT")) drafts++;
+                } else die("MESSAGE-INDEX",argv[f],state);
+            }
+            if(!end) break;
+            line=end+1;
+        }
+        free(text);
+    }
+    char num[MAX_NAME];
+    for(size_t i=0;i<cat.n;i++) if(!has(&entries,namepart(cat.item[i],num)))
+        die("MESSAGE-NOT-DOCUMENTED",argv[3],cat.item[i]);
+    if(entries.n!=cat.n) die("MESSAGE-INDEX",argv[3],"entries for numbers the catalogue does not have");
+    printf(">>> test-pubs-messages: green (%zu catalogue messages, %zu entries, %zu DRAFT, %zu inline quotations verbatim)\n",
+           cat.n,entries.n,drafts,mentions);
 }
 static int match(const char *expr,const char *s)
 {
@@ -272,11 +338,13 @@ int main(int argc,char **argv)
         printf(">>> test-pubs-mentions: green (%zu distinct inline commands)\n",mentions.n);
     }
     else if(argc==5 && !strcmp(argv[1],"same")) same(argv[2],argv[3],argv[4]);
+    else if(argc>=4 && !strcmp(argv[1],"samirmentions")) samirmentions(argc,argv);
+    else if(argc>=4 && !strcmp(argv[1],"messages")) messages(argc,argv);
     else if(argc>=4 && !strcmp(argv[1],"lint")) {
         denied=list(argv[2],0);
         for(size_t i=0;i<denied.n;i++) for(char *p=denied.item[i];*p;p++) *p=(char)tolower((unsigned char)*p);
         for(int i=3;i<argc;i++) walk(argv[i]);
         puts(">>> test-pubs-lint: green (ASCII, period vocabulary/years, part numbers and print codes)");
-    } else die("USAGE","pubs_gate","inventory|commands|monotonic|same|lint");
+    } else die("USAGE","pubs_gate","inventory|commands|monotonic|same|lint|samirmentions|messages");
     return 0;
 }

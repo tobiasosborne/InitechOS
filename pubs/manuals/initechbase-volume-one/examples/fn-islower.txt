@@ -1,0 +1,3 @@
+. ? ISLOWER("initech"), ISLOWER("Initech")
+
+.T. .F.

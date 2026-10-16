@@ -1,0 +1,367 @@
+%% initech-xbase.sty -- the F-ATE (InitechBase) furniture of initech-manual.cls:
+%% sections with lettered folios, xBase notation, the AN-04/AN-05 reference
+%% entry, the AN-06 message entry, replayed dot-prompt examples and program
+%% listings (bead initech-ipu5.8).  Binding reference: PUB-REF-0001 PG-13,
+%% PG-23, PG-29, PG-32, NT-17, NT-23, AN-04..07, AN-16, AN-24; model annex
+%% docs/pubs/originals/ashton-tate-dbase3plus.md Sec 2-4, 7, 9, 10.
+%% Loaded for every family; everything here is inert unless a book uses it,
+%% except the F-ATE index-locator form and thumb mark, which are switched on
+%% only by the ashtontate option.  ASCII only (Rule 12).
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{initech-xbase}[1992/03/01 Initech xBase manual furniture]
+
+%% ---- sections (Getting Started, Learning, Using, Programming) ----------------
+%% \BeginSection{L}{Learning InitechBase}: the section title sheet (recto,
+%% blank verso), then folios carry the letter: L1-1, LI-1, UA-1, UG-1 (PG-13).
+%% Chapters restart at 1 in each section.  The running foot names the section.
+\newcommand\BeginSection[2]{%
+  \im@closeentry\NoDictionaryHeads
+  \cleardoublepage\im@notab
+  \gdef\im@secttitle{#2}\SectionPrefix{#1}%
+  \setcounter{chapter}{0}%
+  \renewcommand\thechapter{\arabic{chapter}}%
+  \gdef\im@chaptername{Chapter}%
+  \addtocontents{toc}{\protect\renewcommand\protect\im@tocname{Chapter}}%
+  \addtocontents{toc}{\protect\im@tocsection{#2}}%
+  \thispagestyle{empty}%
+  \im@sectionsheet{#2}%
+  \null\newpage\thispagestyle{empty}\null\newpage}
+%% The title sheet (annex Sec 8.1): wordmark, the section title in display
+%% caps between hairlines; no folio.
+\newcommand\im@sectionsheet[1]{%
+  \AtPage{23}{14}{\Wordmark[30mm]}%
+  \AtPage{23}{36}{\rule{126mm}{0.5pt}}%
+  \AtPage{23}{42}{\parbox[t]{126mm}{\raggedright\im@display\fontsize{34}{40}\selectfont
+    \MakeUppercase{#1}}}%
+  \AtPage{23}{78}{\rule{126mm}{0.5pt}}%
+  \AtPage{23}{82}{\sffamily\bfseries\fontsize{9}{11}\selectfont\im@product\ \im@doctitle}}
+\newcommand\im@tocsection[1]{\par\addvspace{14pt}{\noindent\sffamily\bfseries
+  \fontsize{11}{13}\selectfont\MakeUppercase{#1}\par}\vspace{1pt}%
+  {\noindent\rule{\linewidth}{0.5pt}\par}}
+%% \SectionIntroduction{Introduction}: the section's unnumbered Introduction,
+%% folios LI-1, UI-1 (annex Sec 4).
+\newcommand\SectionIntroduction[1]{%
+  \im@closeentry\cleardoublepage\FootTitle{#1}\im@notab
+  \im@setfolio{\im@sectionprefix I-}\im@folioform\setcounter{page}{1}%
+  \xdef\im@idxspecial{\im@sectionprefix-I-}%
+  \setcounter{chapter}{0}%
+  \im@origchapter*{#1}\thispagestyle{plain}%
+  \addcontentsline{toc}{chapter}{#1}}
+%% \SectionGlossary: folio UG-1 (annex Sec 4).
+\newcommand\SectionGlossary[1]{%
+  \im@closeentry\NoDictionaryHeads\cleardoublepage\FootTitle{#1}\im@notab
+  \im@setfolio{\im@sectionprefix G-}\im@folioform\setcounter{page}{1}%
+  \xdef\im@idxspecial{\im@sectionprefix-G-}%
+  \im@origchapter*{#1}\thispagestyle{plain}%
+  \addcontentsline{toc}{chapter}{#1}}
+%% \SectionNotes{Learning Notes}: "Notes" leaves fill the last signature of a
+%% section (PG-29, annex Sec 8.2): at least two, then up to a multiple of four
+%% physical pages; headed, no folio.
+\newcommand\SectionNotes[1]{\im@closeentry\NoDictionaryHeads\clearpage
+  \im@notesleaf{#1}\im@notesleaf{#1}%
+  \loop
+    \@tempcnta=\numexpr\ReadonlyShipoutCounter-4*((\ReadonlyShipoutCounter-2)/4)\relax
+    \ifnum\@tempcnta=4 \@tempcnta=0 \fi
+  \ifnum\@tempcnta=0 \else\im@notesleaf{#1}\repeat}
+\newcommand\im@notesleaf[1]{\thispagestyle{empty}\null
+  \vspace*{-\topskip}{\noindent\hspace*{-\imHang}\im@display\fontsize{24}{28}\selectfont #1\par}%
+  \newpage}
+
+%% ---- dictionary heads (PG-13): on in Commands / Functions only -------------
+\newcommand\NoDictionaryHeads{\global\im@referencepagesfalse}
+
+%% ---- index locators (AN-24, F-ATE: section letter + page) ------------------
+%% makeindex composes chapter-page locators with '-' and accepts only numbers
+%% or single letters in each part, so an F-ATE locator is written U-5-26 (and
+%% LI-3 as L-I-3) and printed back as U5-26 by \imIdxPage (the encap every
+%% entry gets).  \im@idxform is the written prefix of the current pages,
+%% expanded when the page ships: U-5- in a chapter (the class clears
+%% \im@idxspecial at every chapter opener), L-I- in an Introduction, U-G- in
+%% the Glossary.
+\newcommand\im@idxspecial{}
+\newcommand\im@idxform{\ifx\im@idxspecial\@empty\im@sectionprefix-\thechapter-\else\im@idxspecial\fi}
+\newcommand\imIdxPage[1]{\directlua{
+  local s = "\luaescapestring{#1}"
+  local a, b = string.match(s, "^(\@percentchar u+)-(.+-.+)$")
+  if a then s = a .. b end
+  tex.sprint(-2, s)}}
+\im@ifmodel{ashtontate}{%
+  \def\@wrindex#1{%
+    \in@{|}{#1}%
+    \ifin@
+      \protected@write\@indexfile{}{\string\indexentry{#1}{\im@idxform\arabic{page}}}%
+    \else
+      \protected@write\@indexfile{}{\string\indexentry{#1|imIdxPage}{\im@idxform\arabic{page}}}%
+    \fi
+    \endgroup\@esphack}%
+  %% PG-32: the chapter's printed thumb mark, a solid black square at the top
+  %% outer corner of every text page of a numbered chapter that is not a
+  %% reference (dictionary-head) page; the opener has its own square.  The
+  %% pictograms are open artwork (PUB-REF-0001 O-2).  The running head of
+  %% the im@text style raises \ifim@thumb (the class), so plain and empty
+  %% pages carry no mark.
+  \AddToHook{shipout/background}{%
+    \ifim@thumb\ifim@referencepages\else\ifx\im@tablabel\@empty\else
+      \ifodd\c@page
+        \put(\dimexpr\paperwidth-13mm\relax,-\dimexpr16mm\relax){\textcolor{InitechBlack}{\rule{10mm}{10mm}}}%
+      \else
+        \put(3mm,-\dimexpr16mm\relax){\textcolor{InitechBlack}{\rule{10mm}{10mm}}}%
+      \fi
+    \fi\fi\fi
+    \global\im@thumbfalse}}{}
+\newif\ifim@thumb
+
+%% ---- trademark marks (VO-11): sources write \tm{} and \reg{} ---------------
+\providecommand\tm{\textsuperscript{\sffamily\fontsize{5}{5}\selectfont TM}}
+\providecommand\reg{\textsuperscript{\sffamily\fontsize{5}{5}\selectfont R}}
+
+%% ---- notation (NT-01..06, xBase dialect) --------------------------------------
+%% \xp{expC}: a typed-expression placeholder, <expC>, Courier italic.
+\newcommand\xp[1]{\mbox{\ttfamily\itshape <#1>}}
+%% A function named in prose: \fn{SUBSTR()}.  Registered as a mention.
+\newcommand\fn[1]{\immediate\write\im@mentions{#1}\mbox{\texttt{#1}}}
+%% A catalogue message quoted inline: \xmsg{52}{No database is in USE.} -- the
+%% text is checked against the shipped catalogue (GC-02, <job>.msgs).
+\newwrite\im@msgsout
+\AtBeginDocument{\immediate\openout\im@msgsout=\jobname.msgs\relax}
+\AtEndDocument{\immediate\closeout\im@msgsout}
+\newcommand\xmsg[2]{\immediate\write\im@msgsout{#1|\detokenize{#2}|MENTION}%
+  \mbox{\texttt{#1\ \ #2}}}
+
+%% ---- the AN-04 / AN-05 reference entry ----------------------------------------
+%% \begin{XbaseEntry}[draft reason]{NAME}{command|function|set}
+%%   <purpose>  \Syntax \Defaults \Usage \Options \Tips \Examples \SeeAlso{...}
+%% \end{XbaseEntry}
+%% One entry per page; the entry name in the side column beside the purpose;
+%% the dictionary running head names it (PG-13).  The sub-heads keep the
+%% model's fixed order and may be thinned, never permuted (annex Sec 9.1):
+%% out of order is an error (Rule 2).  Syntax and Usage are required.  The
+%% entry registers NAME|KIND (initech-syntax \RegisterCommand, GC-01): a
+%% function is registered without its parentheses, a SET option by its
+%% option word (EXACT|set).
+\newcounter{im@xstage}
+\newcommand\im@xkind{}
+\newcommand\im@xshown{}
+\newcommand\imXLabelFont{\sffamily\bfseries\fontsize{11}{13}\selectfont}
+\newcommand\im@xstagego[2]{%
+  \ifnum\value{im@xstage}<#1\relax\else
+    \PackageError{initech-xbase}{Entry \im@entryname: `#2' out of order (the
+      fixed order is Syntax, Defaults, Usage, Options, Tips, Examples, See
+      Also; a sub-head may be left out, never moved)}{}\fi
+  \ifnum#1>3 \ifnum\value{im@xstage}<3
+    \PackageError{initech-xbase}{Entry \im@entryname: `#2' before Usage (Syntax
+      and Usage are required)}{}\fi\fi
+  \setcounter{im@xstage}{#1}%
+  \par\addvspace{8pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight\imXLabelFont
+    \strut#2\strut}}\hspace{\imSideGap}}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
+\NewDocumentEnvironment{XbaseEntry}{o m m}
+  {\clearpage
+   \gdef\im@entryname{#2}\setcounter{im@xstage}{0}%
+   \edef\im@xkind{#3}%
+   \IfValueTF{#1}{\gdef\im@cmdstate{DRAFT}}{\gdef\im@cmdstate{GATED}}%
+   \gdef\im@cmdkind{#3}%
+   \ifnum\pdf@strcmp{#3}{function}=0 \gdef\im@xshown{#2()}\else
+   \ifnum\pdf@strcmp{#3}{set}=0 \gdef\im@xshown{SET #2}\else
+   \ifnum\pdf@strcmp{#3}{command}=0 \gdef\im@xshown{#2}\else
+   \ifnum\pdf@strcmp{#3}{compound}=0 \gdef\im@xshown{#2}\else
+     \PackageError{initech-xbase}{XbaseEntry #2: kind must be command, function,
+       set or compound}{}\fi\fi\fi\fi
+   \ifnum\pdf@strcmp{#3}{compound}=0 \gdef\im@cmdkind{command}\else
+     \RegisterCommand{#2}{#3}{\im@cmdstate}{#2}\fi
+   \global\im@referencepagestrue
+   \markboth{\im@xshown}{\im@xshown}%
+   \addcontentsline{toc}{section}{\im@xshown}%
+   \edef\im@tempa{\noexpand\index{\im@xshown @\noexpand\texttt{\im@xshown}}}\im@tempa
+   \par\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight
+     \sffamily\bfseries\fontsize{12}{14}\selectfont\strut\im@xshown\strut}}\hspace{\imSideGap}}%
+   \IfValueT{#1}{\draft{#1}\par\noindent}%
+   \ignorespaces
+   \def\Syntax{\im@xstagego{1}{Syntax}}%
+   \def\Defaults{\im@xstagego{2}{Defaults}}%
+   \def\Usage{\im@xstagego{3}{Usage}}%
+   \def\Options{\im@xstagego{4}{Options}}%
+   \def\Tips{\im@xstagego{5}{Tips}}%
+   \def\Examples{\im@xstagego{6}{Examples}}%
+   \def\SeeAlso##1{\im@xstagego{7}{See Also}\texttt{##1}\par}}
+  {\ifnum\value{im@xstage}<3
+     \PackageError{initech-xbase}{Entry \im@entryname: no Usage (Syntax and
+       Usage are required)}{}\fi
+   \par}
+%% A compound entry (DO CASE, ON ERROR, REPORT FORM) registers nothing by
+%% its title; the verbs it documents are registered with \XAlso{NAME}{index
+%% form}: \XAlso{CASE}{CASE}, \XAlso{&&}{\&\&}.  The first argument is
+%% written to <job>.cmds as it stands (NAME|command|STATE|entry), the second
+%% is the index form, filed with a See reference to the entry.
+\newcommand\XAlso[2]{%
+  \RegisterCommand{#1}{\im@cmdkind}{\im@cmdstate}{\im@entryname}%
+  \edef\im@tempa{\noexpand\index{\unexpanded{#2}@\noexpand\texttt{\unexpanded{#2}}|see{\noexpand\texttt{\im@entryname}}}}%
+  \im@tempa}
+
+%% ---- the AN-06 error-message entry ------------------------------------------
+%% \begin{XbaseMessageEntry}[draft reason]{12}{Variable not found.}
+%%   <cause, then remedy>
+%% \end{XbaseMessageEntry}
+%% Full measure: the message text bold, the ERROR() number in brackets flush
+%% right on the same line, the explanation indented beneath (annex Sec 9.3).
+%% Registers n|text|STATE in <job>.msgs: the text is checked byte for byte
+%% against the shipped catalogue and every catalogue message must have one
+%% entry (GC-02).
+%% The text is a verbatim argument: messages hold ^ and ^^ (#73), which TeX
+%% would otherwise read as superscripts or character codes.
+\NewDocumentEnvironment{XbaseMessageEntry}{o m v}
+  {\par\addvspace{10pt}\goodbreak
+   \IfValueTF{#1}{\def\im@mstate{DRAFT}}{\def\im@mstate{GATED}}%
+   \immediate\write\im@msgsout{#2|#3|\im@mstate}%
+   \noindent\hspace*{-\imHang}\makebox[\imFullWidth][l]{\bfseries #3\hfill[#2]}\par\nobreak
+   \vspace{2pt}%
+   \begin{list}{}{\leftmargin=6mm\rightmargin=0pt\topsep=0pt\parsep=4pt\itemsep=0pt
+     \advance\leftmargin by -\imHang}\item[]%
+   \IfValueT{#1}{\draft{#1}\par}\ignorespaces}
+  {\end{list}\par}
+
+%% ---- replayed dot-prompt examples (NT-17, NT-23, GC-03) ---------------------
+%% \DotExample{examples/stem}: prints examples/stem.txt -- the transcript the
+%% shipped dot prompt produced for the typed lines of examples/stem.dot
+%% (harness/pubs/samir_replay.c, session route) -- in a 10% black panel,
+%% square corners, no bezel; what the user typed is Cursor Bold (NT-15), found
+%% by matching the .dot lines in order (every typed line must be found, or the
+%% build fails: the printed example cannot have drifted from its input).  The
+%% screen is 80 columns: a longer line is broken at column 80 exactly as the
+%% console wraps it.  Up to 56 columns the panel sits in the text column at
+%% 9/12; wider, it takes the full block at 8/10.5.  The panel is a stack of
+%% line boxes, so a long listing may break across pages.  The stem is entered
+%% in <job>.replays: make test-pubs replays it and compares byte for byte.
+\directlua{
+initech_xbase = {}
+local function lines_of(path)
+  local f = io.open(path, "rb")
+  if not f then tex.error("initech-xbase: cannot open " .. path) return nil end
+  local data = f:read("*a") f:close()
+  local t = {}
+  for l in string.gmatch(data, "([^\string\n]*)\string\n") do t[\string#t + 1] = l end
+  local tail = string.match(data, "([^\string\n]+)$")
+  if tail then t[\string#t + 1] = tail end
+  return t
+end
+local function esc(s)
+  local o = {}
+  for j = 1, string.len(s) do
+    local c = string.byte(s, j)
+    if c == 32 then o[\string#o + 1] = "\string\\ "
+    elseif (c >= 48 and c <= 57) or (c >= 65 and c <= 90) or (c >= 97 and c <= 122) then
+      o[\string#o + 1] = string.char(c)
+    elseif c < 32 or c > 126 then tex.error("initech-xbase: non-printable byte in an example") return ""
+    else o[\string#o + 1] = "\string\\char" .. c .. "\string\\relax " end
+  end
+  return table.concat(o)
+end
+function initech_xbase.example(stem)
+  local out = lines_of(stem .. ".txt")
+  local typed = lines_of(stem .. ".dot")
+  if not out or not typed then return end
+  local k, rows, width = 1, {}, 0
+  for _, line in ipairs(out) do
+    local a = 0
+    local t = typed[k]
+    if t and t \string~= "" and string.len(line) >= string.len(t) and
+       string.sub(line, -string.len(t)) == t then
+      local before = string.sub(line, 1, string.len(line) - string.len(t))
+      if before == "" or string.match(before, "[ :?]$") then
+        a = string.len(before) + 1; k = k + 1
+      end
+    elseif t == "" and line == "" then k = k + 1 end
+    local pos = 1
+    repeat
+      local seg = string.sub(line, pos, pos + 79)
+      local sa = a - pos + 1
+      local txt
+      if a > 0 and sa <= string.len(seg) then
+        if sa < 1 then sa = 1 end
+        txt = esc(string.sub(seg, 1, sa - 1)) .. "{\string\\bfseries " .. esc(string.sub(seg, sa)) .. "}"
+      else txt = esc(seg) end
+      rows[\string#rows + 1] = txt
+      if string.len(seg) > width then width = string.len(seg) end
+      pos = pos + 80
+    until pos > string.len(line)
+  end
+  if k <= \string#typed then
+    tex.error("initech-xbase: " .. stem .. ".txt does not show typed line " .. k ..
+      " of " .. stem .. ".dot (\string\"" .. typed[k] .. "\string\")")
+    return
+  end
+  tex.sprint("\string\\InitechDotPanel{" .. width .. "}{")
+  for _, r in ipairs(rows) do tex.sprint("\string\\InitechDotRow{" .. r .. "}") end
+  tex.sprint("}")
+end
+function initech_xbase.listing(path)
+  local t = lines_of(path)
+  if not t then return end
+  local width = 0
+  for _, l in ipairs(t) do
+    if string.len(l) > width then width = string.len(l) end
+    if string.len(l) > 80 then tex.error("initech-xbase: " .. path .. " has a line wider than 80") return end
+  end
+  tex.sprint("\string\\InitechListingPanel{" .. width .. "}{")
+  for _, l in ipairs(t) do tex.sprint("\string\\InitechDotRow{" .. esc(l) .. "}") end
+  tex.sprint("}")
+end
+}
+%% Screen text is set without the TeX ligatures of the body faces: a
+%% quotation mark on the screen is the straight ASCII character.
+\newfontfamily\im@screenmono{texgyrecursor}[
+  Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+  ItalicFont=*-italic, BoldItalicFont=*-bolditalic, HyphenChar=None, Ligatures=TeXOff]
+\newlength\im@dotw
+\newlength\im@dotpanel
+\newcommand\InitechDotRow[1]{\par\noindent\hspace*{\im@dotindent}%
+  \colorbox{black!10}{\makebox[\im@dotpanel][l]{\hspace*{2mm}\strut #1}}\par}
+\newlength\im@dotindent
+\newcommand\im@dotsetup[2]{% #1 columns, #2 = 1 text column / 0 full block
+  \par\addvspace{6pt}%
+  \setlength\parskip{0pt}\setlength\fboxsep{0pt}%
+  \lineskip=0pt\lineskiplimit=0pt
+  \ifnum#2=1
+    \im@screenmono\fontsize{9}{12}\selectfont
+    \setlength\im@dotindent{4mm}\setlength\im@dotpanel{\dimexpr\linewidth-4mm\relax}%
+  \else
+    \im@screenmono\fontsize{8}{10.5}\selectfont
+    \setlength\im@dotindent{-\imHang}\setlength\im@dotpanel{\imFullWidth}%
+  \fi
+  \spaceskip=0.6em\xspaceskip=0.6em
+  \baselineskip=\f@baselineskip
+  \InitechDotRow{}}
+\newcommand\InitechDotPanel[2]{\begingroup
+  \ifnum#1>56 \im@dotsetup{#1}{0}\else\im@dotsetup{#1}{1}\fi
+  #2\InitechDotRow{}\endgroup\par\addvspace{6pt}}
+\newcommand\InitechListingPanel[2]{\begingroup
+  \ifnum#1>60 \im@dotsetup{#1}{0}\bfseries\else\im@dotsetup{#1}{1}\bfseries\fi
+  #2\InitechDotRow{}\endgroup\par\addvspace{6pt}}
+\newcommand\DotExample[1]{\immediate\write\im@replays{#1}%
+  \directlua{initech_xbase.example("\luaescapestring{#1}")}}
+%% \ProgramListing{Y2KACCT.PRG}: a program of the Sample Programs and
+%% Utilities diskette (pubs/examples/samir/disk), printed as it stands in
+%% bold Courier on the panel (annex Sec 5: listings in bold monospace).
+\newcommand\ProgramListing[1]{%
+  \directlua{initech_xbase.listing("../../examples/samir/disk/\luaescapestring{#1}")}}
+
+%% ---- conventions box (NT-31 F-ATE: ruled box, label on its own line) --------
+\newenvironment{AteBox}[1]
+  {\par\addvspace{8pt}\noindent\begin{tabular}{@{}|p{\dimexpr\linewidth-2\tabcolsep-1pt\relax}|@{}}\hline
+   \rule{0pt}{12pt}{\sffamily\bfseries #1}\\[2pt]}
+  {\\[2pt]\hline\end{tabular}\par\addvspace{8pt}}
+\newenvironment{Tip}{\begin{AteBox}{TIP}}{\end{AteBox}}
+\newenvironment{AteNote}{\begin{AteBox}{NOTE}}{\end{AteBox}}
+\newenvironment{AteWarning}{\begin{AteBox}{WARNING}}{\end{AteBox}}
+
+%% ---- tutorial frame (AN-16) ---------------------------------------------------
+%% \ATEHead{Preparing for This Chapter}: an A-head in the side column.
+\newcommand\ATEHead[1]{\par\addvspace{10pt}%
+  {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight
+    \sffamily\bfseries\fontsize{12}{14}\selectfont\strut#1\strut}}\hspace{\imSideGap}}\par}%
+  \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
+%% Numbered steps with bold numerals; \Response{...} is the system's reply on
+%% an indented unnumbered line.
+\newcommand\Response[1]{\par\nobreak\vspace{1pt}{\leftskip=0pt #1\par}}
+\endinput

@@ -1,0 +1,2 @@
+? REPLICATE("-", 20)
+? REPLICATE("AB", 3), REPLICATE("AB", 0) + "|"

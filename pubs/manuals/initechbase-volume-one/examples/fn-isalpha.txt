@@ -1,0 +1,3 @@
+. ? ISALPHA("Initech"), ISALPHA("4401"), ISALPHA("")
+
+.T. .F. .F.

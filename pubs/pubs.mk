@@ -183,8 +183,61 @@ $(PUBS_INT21): harness/pubs/int21_inventory.c $(KERNEL_INT21_C) $(DOS_MESSAGES_H
 $(PUBS_SURFACE): harness/pubs/dos_surface_inventory.c os/milton/batch.c os/milton/batch.h \
 		$(KERNEL_CONFIG_SYS_C) os/milton/config_sys.h | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/milton -Iseed -o $@ $<
-$(PUBS_REPLAY): harness/pubs/samir_replay.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+# The replay runner links the WHOLE shipped dot prompt (samir_main.c and every
+# module SAMIR.COM registers) since bead initech-ipu5.8: the InitechBase
+# manuals replay their examples through samir_repl (the session route).
+$(PUBS_REPLAY): harness/pubs/samir_replay.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+
+# ---- InitechBase (bead initech-ipu5.8; PUB-REF-0001 GC-01/02/03, CP-11/12) ----
+# The shipped InitechBase surface, asked of the shipped dot prompt
+# (harness/pubs/samir_inventory.c): NAME|command, NAME|function, NAME|set for
+# every candidate word of the SAMIR sources the REPL accepts, and the message
+# catalogue n|text.  The Sample Programs and Utilities diskette is minted from
+# pubs/examples/samir/disk through the shipped writers
+# (harness/pubs/samir_sample_disk.c); every InitechBase example replays
+# against a fresh copy of it.
+PUBS_SAMIR_INV      := $(BUILD)/pubs_samir_inventory
+PUBS_SAMIR_DISKTOOL := $(BUILD)/pubs_samir_sample_disk
+PUBS_SAMIR_DISK     := $(PUBS_BUILD)/samir-disk
+PUBS_SAMIR_DISK_SRC := $(sort $(wildcard $(PUBS_DIR)/examples/samir/disk/*))
+PUBS_SAMIR_BOOKS    := initechbase-volume-one initechbase-volume-two initechbase-quick-reference
+PUBS_SAMIR_ALLOW    := harness/pubs/samir.allow
+$(PUBS_SAMIR_INV): harness/pubs/samir_inventory.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ harness/pubs/samir_inventory.c $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+$(PUBS_SAMIR_DISKTOOL): harness/pubs/samir_sample_disk.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ harness/pubs/samir_sample_disk.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(PUBS_SAMIR_DISK)/.minted: $(PUBS_SAMIR_DISKTOOL) $(PUBS_SAMIR_DISK_SRC)
+	@rm -rf $(PUBS_SAMIR_DISK) && mkdir -p $(PUBS_SAMIR_DISK)
+	@$(PUBS_SAMIR_DISKTOOL) $(PUBS_DIR)/examples/samir/disk $(PUBS_SAMIR_DISK)
+	@touch $@
+.PHONY: pubs-samir-inventory pubs-examples test-pubs-samir-disk
+pubs-samir-inventory: $(PUBS_SAMIR_INV)
+	@mkdir -p $(PUBS_CHECK)/samir-probe
+	@{ grep -oh '"[A-Z][A-Z0-9]*"' $(SAMIR_MAIN_SRC) $(SAMIR_CMD_DIR)/*.c $(SAMIR_DIR)/core/*.c | tr -d '"'; \
+	   printf '%s\n' '?' '??' '@' '!' '&&' '*'; } | sort -u > $(PUBS_CHECK)/samir.candidates
+	@cd $(PUBS_CHECK)/samir-probe && $(abspath $(PUBS_SAMIR_INV)) < ../samir.candidates | LC_ALL=C sort > ../samir.shipped
+	@$(PUBS_SAMIR_INV) messages > $(PUBS_CHECK)/samir.catalogue
+	@[ -z "$$(ls -A $(PUBS_CHECK)/samir-probe)" ] || { printf '!!! test-pubs RED SAMIR-INVENTORY: a probe left files behind\n'; exit 1; }
+	@printf '>>> pubs-samir-inventory: %s shipped InitechBase names (%s commands, %s functions, %s SET options), %s catalogue messages\n' \
+		"$$(wc -l < $(PUBS_CHECK)/samir.shipped)" "$$(grep -c '|command$$' $(PUBS_CHECK)/samir.shipped)" \
+		"$$(grep -c '|function$$' $(PUBS_CHECK)/samir.shipped)" "$$(grep -c '|set$$' $(PUBS_CHECK)/samir.shipped)" \
+		"$$(wc -l < $(PUBS_CHECK)/samir.catalogue)"
+# Re-mint every InitechBase example transcript from the shipped dot prompt
+# into the source tree (a deliberate act, like pubs-screens: review the diff).
+pubs-examples: $(PUBS_REPLAY) $(PUBS_SAMIR_DISK)/.minted
+	@set -e; n=0; for m in $(PUBS_SAMIR_BOOKS); do \
+		for d in $(PUBS_DIR)/manuals/$$m/examples/*.dot; do [ -f "$$d" ] || continue; \
+			w=$(PUBS_BUILD)/examples-work; rm -rf $$w; cp -r $(PUBS_SAMIR_DISK) $$w; \
+			$(PUBS_REPLAY) session $$w $$d > $${d%.dot}.txt; n=$$((n + 1)); done; done; \
+	printf '>>> pubs-examples: %s transcripts re-minted -- review `git diff pubs/manuals`\n' "$$n"
+# CP-12: every file the books name on the sample diskette exists there, and
+# the diskette has the files its MANIFEST lists.
+test-pubs-samir-disk: $(PUBS_SAMIR_DISK)/.minted
+	@set -e; while IFS='|' read -r name src; do case $$name in ''|'#'*) continue;; esac; \
+		[ -f $(PUBS_SAMIR_DISK)/$$name ] || { printf '!!! test-pubs RED SAMPLE-DISK: %s missing\n' "$$name"; exit 1; }; \
+	done < $(PUBS_DIR)/examples/samir/disk/MANIFEST
+	@printf '>>> test-pubs-samir-disk: green (%s files on the Sample Programs and Utilities diskette)\n' "$$(ls $(PUBS_SAMIR_DISK) | wc -l)"
 
 .PHONY: test-pubs test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory
 # Recursive expansion sees FLAIR_FIXTURES, included after this makefile.
@@ -192,7 +245,7 @@ $(PUBS_REPLAY): harness/pubs/samir_replay.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_
 # table, the INT 21h register, the APPS executables, and the batch
 # subcommands / CONFIG.SYS directives the real batch_classify and
 # config_sys_parse accept (candidates: the quoted words of their sources).
-pubs-inventory: $(PUBS_GATE) $(PUBS_INT21) $(PUBS_SURFACE) $(DOS_MESSAGES_H)
+pubs-inventory: $(PUBS_GATE) $(PUBS_INT21) $(PUBS_SURFACE) $(DOS_MESSAGES_H) pubs-samir-inventory
 	@mkdir -p $(PUBS_CHECK)
 	@$(CC) -E -P -Ispec -Ios/milton -Ibuild os/milton/command.c > $(PUBS_CHECK)/command.i
 	@$(PUBS_INT21) > $(PUBS_CHECK)/int21.list
@@ -213,19 +266,31 @@ test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples 
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/initechbase-*/*) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
 	@sh harness/pubs/check_allowlist.sh $(PUBS_GATE) $(PUBS_ALLOW) $(PUBS_CHECK)
+	@# InitechBase (initech-ipu5.8): Using InitechBase (Volume One) and the
+	@# Quick Reference Guide each document the whole shipped surface, both
+	@# directions, by NAME|KIND; Volume Two teaches and only mentions.  Every
+	@# printed message is the catalogue text; Volume One has one entry per
+	@# catalogue message (GC-02).
+	@$(PUBS_GATE) commands $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) $(PUBS_BUILD)/gate/initechbase-volume-one/main.cmds
+	@$(PUBS_GATE) commands $(PUBS_CHECK)/samir.shipped $(PUBS_SAMIR_ALLOW) $(PUBS_BUILD)/gate/initechbase-quick-reference/main.cmds
+	@[ -z "$$(grep -v '^#' $(PUBS_BUILD)/gate/initechbase-volume-two/main.cmds || true)" ] || { \
+		printf '!!! test-pubs RED COMMAND-SURFACE: Volume Two teaches; its commands are documented in Using InitechBase\n'; exit 1; }
+	@$(PUBS_GATE) samirmentions $(PUBS_CHECK)/samir.shipped $(foreach b,$(PUBS_SAMIR_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
+	@$(PUBS_GATE) messages $(PUBS_CHECK)/samir.catalogue $(foreach b,$(PUBS_SAMIR_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.msgs)
+	@sh harness/pubs/check_allowlist.sh $(PUBS_GATE) $(PUBS_SAMIR_ALLOW) $(PUBS_CHECK)
 test-pubs-lint: $(PUBS_GATE)
 	@$(PUBS_GATE) lint pubs/denylist.txt pubs
 	@sha256sum -c pubs/fonts.lock > $(BUILD)/pubs-fonts.log
 	@printf '>>> test-pubs-fonts: green (all font files match fonts.lock)\n'
-test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE)
-	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
+test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE) test-pubs-samir-disk
+	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_SAMIR_DISK)
 test-pubs-mutant: test-pubs $(PUBS_GATE)
-	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW)
+	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV)
 endif
 
 # TeX emits the figure registry, preventing unchecked printed captures.

@@ -1,0 +1,13 @@
+# DEPTS.DBF -- the departments of Initech Systems Corporation; DEPTS.NDX
+# makes it the target of SET RELATION from STAFF.DBF.
+TABLE DEPTS.DBF
+FIELD DEPT C 4 0
+FIELD DEPTNAME C 24 0
+FIELD FLOOR N 2 0
+FIELD MANAGER C 4 0
+REC ADMN|Administration|4|1007
+REC SOFT|Software Development|3|1001
+REC CUST|Customer Relations|2|1006
+REC ACCT|Accounting|2|1012
+REC FACL|Facilities|1|1007
+INDEX DEPTS.NDX DEPT
