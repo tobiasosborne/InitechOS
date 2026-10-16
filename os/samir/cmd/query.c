@@ -787,7 +787,12 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         while(n++<width) q_append_cstr(line,&pos,sizeof(line)," ");
     }
     if(!ok) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
-    q_append_cstr(line,&pos,sizeof(line),"\n");q_putn(ip,line,pos);
+    /* Real III+ 1.1 M005U/M005N: the final heading is not column-padded,
+     * unlike the final value (dbase3-decomp/re/mint-results-005.md). */
+#ifndef SAMIR_LIST_MUTATE_HEADING
+    while(pos && line[pos-1]==' ') pos--;
+#endif
+    q_append_cstr(line,&pos,sizeof(line),"\r\n");q_putn(ip,line,pos);
     return INTERP_OK;
 }
 
@@ -798,8 +803,8 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
 /*
  * q_render_record: render one record (the area's CURRENT record) to a line and
  * conout it. `qc` carries the expr list + OFF flag. With no expr list the default
- * is all fields. The recno column (right-justified in 8, like the dBASE
- * "Record#" column) is prefixed unless OFF.
+ * is all fields. Real III+ 1.1 M005ULOG/M005NLOG.TXT use a record number
+ * right-justified in 7 columns followed by TWO spaces, unless OFF.
  * Returns 0 or a negative interp_err (with *ec set) on an eval/structural fault.
  */
 static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
@@ -818,8 +823,13 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
     if(rc) q_append_cstr(line,&pos,sizeof(line),"*");
 #endif
     if (!qc->off) {
+#ifdef SAMIR_LIST_MUTATE_COLUMNS
         q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 8);
         q_append_cstr(line, &pos, sizeof(line), " ");
+#else
+        q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 7);
+        q_append_cstr(line, &pos, sizeof(line), "  ");
+#endif
     }
 
     if (qc->has_exprlist) {
@@ -858,7 +868,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
         }
     }
 
-    q_append_cstr(line, &pos, sizeof(line), "\n");
+    q_append_cstr(line, &pos, sizeof(line), "\r\n");
     q_putn(ip, line, pos);
     if (ec) *ec = 0;
     return INTERP_OK;
@@ -896,6 +906,12 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
         kind = is_display_default ? QS_RECORD /* current */ : QS_ALL;
 
     if(!wa_is_open(env,area)) { if(ec) *ec=3; return -INTERP_ERR_EVAL; }
+
+    /* M005U/M005N programs open LIST/DISPLAY with literal CR LF, including
+     * redirected output. A dot command already has the typed Enter's break. */
+#ifndef SAMIR_LIST_MUTATE_OPENING
+    if(!xb_interp_ctx(ip)->dot_command) q_putn(ip,"\r\n",2);
+#endif
 
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */
 

@@ -3356,7 +3356,7 @@ test-samir-use-mutant: $(SAMIR_USE_MUTS) samir-use-goldens
 	@mkdir -p $(BUILD)/samir-audit $(BUILD)/samir.audit
 	@set -e; for kind in extension error ndxext indextop nextpast setstale procstale; do \
 	  case $$kind in extension) reason='K09 short USE defaults to .DBF';; error) reason='K09 missing file is';; \
-	    ndxext) reason='samir: 1 File does not exist.';; indextop) reason='samir: [U1] 1 CI10Buckman notEOF';; \
+	    ndxext) reason='samir: 1  File does not exist.';; indextop) reason='samir: [U1] 1 CI10Buckman notEOF';; \
 	    nextpast) reason='samir: [N1] 32 notEOF';; setstale) reason='x5cc SET SAFETY does not leak';; \
 	    procstale) reason='x5cc ON ERROR trap does not leak';; esac; \
 	  if $(BUILD)/test_samir_use_$$kind $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-audit/mut-$$kind.log 2>&1; then echo '!!! mutant passed'; exit 1; fi; \
@@ -27153,6 +27153,12 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 		       cat "$(BUILD)/$(SAMIRBOOT_NAME).samir"; exit 1; }; \
 	done
 	@printf '>>> test-samir-boot [4/5]: LIST rendered all 3 records on serial (PESTON / WADDAMS / LUMBERGH)\n'
+	@# initech-31d1 re-key: M005U/M005N's 7+2 prefix and unpadded final
+	@# heading, projected onto the existing CLIENTS value fixture.
+	@grep -Fxq 'Record#  NAME       CITY         BAL' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
+	@grep -Fxq '      1  PESTON     HONOLULU      1234.50' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
+	@grep -Fxq '      2  WADDAMS    AUSTIN         -42.00' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
+	@grep -Fxq '      3  LUMBERGH   DALLAS        7777.77' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
 	@# ---- 5. SCREENDUMP (Run 2; Law 4): a SEPARATE keys+grab run leaves SAMIR's
 	@# dot prompt + LIST table on the LFB. screendump-after SHELL-READY syncs the
 	@# grab AFTER the harness injects the keys (qemu.c qmp_session: keys then dump),
@@ -31076,3 +31082,50 @@ include harness/diff/fat_diff/dosutil.mk
 include pubs/pubs.mk
 TEST_UNIT_GATES += test-pubs-build test-pubs-honesty
 TEST_EMU_GATES += test-pubs-screens
+
+# initech-31d1: byte-exact LIST/DISPLAY layout vs REAL mint 005 tables.
+# Same complete M005U/M005N replay as test-samir-use; no whitespace squeezing.
+SAMIR_LIST_LAYOUT_MUTS := $(addprefix $(BUILD)/test_samir_list_layout_,COLUMNS HEADING OPENING)
+$(SAMIR_LIST_LAYOUT_MUTS): $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(BUILD)/CLIENTS.DBF | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DTEST_AUDIT_USE -DSAMIR_LIST_MUTATE_$(patsubst test_samir_list_layout_%,%,$(notdir $@)) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(DBF_DIFF_DIR)/test_samir_audit.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC)
+.PHONY: test-samir-list-layout test-samir-list-layout-mutant
+test-samir-list-layout: $(TEST_SAMIR_USE) samir-use-goldens
+	@mkdir -p $(BUILD)/samir.audit $(BUILD)/samir-audit
+	@$(TEST_SAMIR_USE) $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-host.log 2>&1 || { cat $(BUILD)/samir-list-layout-host.log; exit 1; }
+	@tail -1 $(BUILD)/samir-list-layout-host.log
+	@printf '>>> test-samir-list-layout: green (M005U/M005N spaces and program-opening CR LF graded)\n'
+test-samir-list-layout-mutant: $(SAMIR_LIST_LAYOUT_MUTS) samir-use-goldens
+	@mkdir -p $(BUILD)/samir.audit $(BUILD)/samir-audit
+	@set -e; for kind in COLUMNS HEADING OPENING; do \
+	  if $(BUILD)/test_samir_list_layout_$$kind $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-mut-$$kind.log 2>&1; then echo '!!! LIST layout mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-list-layout-mut-$$kind.log; \
+	  grep -q 'FAIL .*M005U real-dBASE golden' $(BUILD)/samir-list-layout-mut-$$kind.log; \
+	  printf '>>> test-samir-list-layout-mutant: %s correctly RED: ' "$$kind"; \
+	  grep -m1 'FAIL .*M005U real-dBASE golden' $(BUILD)/samir-list-layout-mut-$$kind.log; \
+	done
+	@printf '>>> test-samir-list-layout-mutant: green\n'
+TEST_UNIT_GATES += test-samir-list-layout test-samir-list-layout-mutant
+
+TEST_SAMIR_LIST_LAYOUT_EMU := $(BUILD)/test_samir_list_layout_emu
+$(TEST_SAMIR_LIST_LAYOUT_EMU): $(DBF_DIFF_DIR)/test_samir_list_layout_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+SAMIR_LIST_LAYOUT_EMU_DEPS := $(TEST_SAMIR_LIST_LAYOUT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
+SAMIR_LIST_LAYOUT_MUT_COMS := $(addprefix $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_,COLUMNS.COM HEADING.COM OPENING.COM)
+.PHONY: test-samir-list-layout-emu test-samir-list-layout-emu-mutant
+test-samir-list-layout-emu: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_COM) samir-use-goldens
+	@$(TEST_SAMIR_LIST_LAYOUT_EMU) files $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
+	@$(TEST_SAMIR_LIST_LAYOUT_EMU) screen $(SAMIR_COM) $(abspath $(DBASE3_DECOMP))
+	@printf '>>> test-samir-list-layout-emu: green (9 real tables on serial/disk; M005U console cells)\n'
+test-samir-list-layout-emu-mutant: $(SAMIR_LIST_LAYOUT_EMU_DEPS) $(SAMIR_LIST_LAYOUT_MUT_COMS) samir-use-goldens
+	@set -e; for kind in COLUMNS HEADING OPENING; do \
+	  if $(TEST_SAMIR_LIST_LAYOUT_EMU) files $(BUILD)/SAMIR_SCREEN_SAMIR_LIST_MUTATE_$$kind.COM $(abspath $(DBASE3_DECOMP)) > $(BUILD)/samir-list-layout-emu-mut-$$kind.log 2>&1; then echo '!!! LIST emu mutant passed'; exit 1; fi; \
+	  grep -q 'checks,.*failures' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
+	  grep -q 'FAIL .*M005U table 0 stdout file byte-identical' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
+	  grep -q 'triple_fault=0' $(BUILD)/samir-list-layout/files.report; \
+	  grep -q 'quit_after_found=1' $(BUILD)/samir-list-layout/files.report; \
+	  cp -f $(BUILD)/samir-list-layout/files.report $(BUILD)/samir-list-layout-emu-mut-$$kind.report; \
+	  printf '>>> test-samir-list-layout-emu-mutant: %s correctly RED: ' "$$kind"; \
+	  grep -m1 'LIST M005U table 0 stdout file differs' $(BUILD)/samir-list-layout-emu-mut-$$kind.log; \
+	done
+	@printf '>>> test-samir-list-layout-emu-mutant: green (three clean guest returns; wrong bytes rejected)\n'
+TEST_EMU_GATES += test-samir-list-layout-emu test-samir-list-layout-emu-mutant

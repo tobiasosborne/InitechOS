@@ -18,6 +18,9 @@ int main(int argc,char **argv)
     if((argc!=2 && argc!=3) || !ip) return 2;
     p->conout=output;
     xb_interp_ctx(ip)->set_heading=0;
+    /* The U5-144 field-format example is at the dot prompt. Program-opening
+     * CR LF is independently graded against M005U/M005N (initech-31d1). */
+    xb_interp_ctx(ip)->dot_command=1;
     if(query_register(ip) || wa_set_open(xb_interp_env(ip),1,argv[1],"CASE",NULL)) return 2;
     rc=samir_do(ip,argc==3?"LIST OFF\nDISPLAY ALL OFF\nGO TOP\nDISPLAY OFF\n":"LIST OFF\nLIST OFF V\nDISPLAY ALL OFF\nGO TOP\nDISPLAY OFF\n");
     xb_interp_free(ip);pal_host_free(p);

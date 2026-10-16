@@ -35,8 +35,7 @@
  * GATED (loud-skip; plan Sec 7 / GAPS secP):
  *   - SET FILTER / SET DELETED interaction with scope (those SET verbs are S5.6;
  *     not yet implemented -- the walk sees every physical record).
- *   - The exact dot-prompt column layout / inter-? separator widths
- *     ([oracle-resolves], navigation-query-display.md Open questions 6/7).
+ *   - Layout cases outside real M005U/M005N and inter-? separator widths.
  *
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
@@ -272,18 +271,21 @@ static void test_tier0(samir_pal_t *pal)
     if (rc != WA_OK) { xb_interp_free(ip); remove(pa); return; }
     wa_select(env, 1);
 
-    /* Using III+ U5-235/PDF 347; manual-derived, no LIST golden. */
+    /* Using III+ U5-235/PDF 347: column width. Layout re-keyed initech-31d1
+     * from real M005U/M005N: 7+2 record prefix, no final heading padding,
+     * program-opening CR LF (re/mint-results-005.md). */
     CHECK(set_register(ip)==INTERP_OK,"screen: SET registered");
     cap_clear();
     CHECK(samir_do(ip,"LIST OFF\n")==INTERP_OK,"screen: default headings");
-    CHECK(strncmp(cap_text(),"CODE AMT   OK\nAAA    100 T \n",27)==0,
+    CHECK(strncmp(cap_text(),"\r\nCODE AMT   OK\r\nAAA    100 T \r\n",
+                  sizeof("\r\nCODE AMT   OK\r\nAAA    100 T \r\n")-1)==0,
           "screen: headings and widened columns align");
     cap_clear();
     CHECK(samir_do(ip,"LIST 100/AMT\n")==INTERP_OK,"screen: expression heading uses TOP, not stale EOF value");
     CHECK(cap_has("100/AMT"),"screen: expression title present");
     cap_clear();
     CHECK(samir_do(ip,"GO 2\nDISPLAY AMT\n")==INTERP_OK,"screen: explicit numeric DISPLAY heading");
-    CHECK_STR_EQ(cap_text(),"Record#  AMT  \n       2   200\n","screen: explicit DISPLAY heading aligns numeric field");
+    CHECK_STR_EQ(cap_text(),"\r\nRecord#  AMT\r\n      2    200\r\n","screen: explicit DISPLAY heading aligns numeric field");
     CHECK(samir_do(ip,"SET HEADING OFF\n")==INTERP_OK,"screen: HEADING OFF");
     cap_clear();
     CHECK(samir_do(ip,"SET CONSOLE OFF\nLIST OFF\n? 'HIDDEN'\n")==INTERP_OK,"screen: program output suppressed");
@@ -311,10 +313,10 @@ static void test_tier0(samir_pal_t *pal)
     CHECK(rc == INTERP_OK, msg);
     CHECK(cap_has("AAA"), "list-all: shows AAA");
     CHECK(cap_has("FFF"), "list-all: shows FFF");
-    CHECK(cap_count("\n") == 6, "list-all: 6 output lines");
+    CHECK(cap_count("\n") == 7, "list-all: opening CR LF + 6 output lines");
     /* recno column present (record 1 right-justified, then 6). */
-    CHECK(cap_has("       1 AAA"), "list-all: recno col '1' + CODE");
-    CHECK(cap_has("       6 FFF"), "list-all: recno col '6' + last CODE");
+    CHECK(cap_has("      1  AAA"), "list-all: recno col '1' + CODE");
+    CHECK(cap_has("      6  FFF"), "list-all: recno col '6' + last CODE");
     /* LIST ALL leaves the pointer at EOF. */
     CHECK(wa_eof(env, 1) == 1, "list-all: pointer at EOF after walk");
 
@@ -322,27 +324,26 @@ static void test_tier0(samir_pal_t *pal)
     cap_clear();
     rc = samir_do(ip, "LIST OFF\n");
     CHECK(rc == INTERP_OK, "list-off: rc");
-    /* No leading-recno '       1 ' before AAA now: first line begins with AAA. */
-    CHECK(strncmp(cap_text(), "AAA", 3) == 0, "list-off: first line starts with CODE (no recno col)");
-    CHECK(!cap_has("       1 AAA"), "list-off: recno column suppressed");
+    /* Program-opening CR LF remains when OFF suppresses the record column. */
+    CHECK(strncmp(cap_text(), "\r\nAAA", 5) == 0, "list-off: first data line starts with CODE (no recno col)");
+    CHECK(!cap_has("      1  AAA"), "list-off: recno column suppressed");
 
     /* ---- LIST FIELDS subset (CODE only) ---- */
     cap_clear();
     rc = samir_do(ip, "LIST CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-field: rc");
-    CHECK(cap_count("\n") == 6, "list-field: 6 lines");
-    /* CODE-only output: a line is exactly "AAA\n" etc (3 chars + newline). */
-    CHECK(strncmp(cap_text(), "AAA\n", 4) == 0, "list-field: CODE-only line 'AAA'");
+    CHECK(cap_count("\n") == 7, "list-field: opening CR LF + 6 lines");
+    CHECK(strncmp(cap_text(), "\r\nAAA\r\n", 7) == 0, "list-field: CODE-only line 'AAA'");
 
     /* ---- LIST FOR <cond>: AMT = 100 -> recnos 1,3,5 (3 rows) ---- */
     cap_clear();
     rc = samir_do(ip, "LIST FOR AMT = 100\n");
     snprintf(msg,sizeof msg,"list-for: rc=%d ec=%d",rc,samir_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
-    CHECK(cap_count("\n") == 3, "list-for: AMT=100 matches 3 records");
-    CHECK(cap_has("       1 AAA"), "list-for: recno 1 (AMT 100)");
-    CHECK(cap_has("       3 CCC"), "list-for: recno 3 (AMT 100)");
-    CHECK(cap_has("       5 EEE"), "list-for: recno 5 (AMT 100)");
+    CHECK(cap_count("\n") == 4, "list-for: opening CR LF + 3 matching records");
+    CHECK(cap_has("      1  AAA"), "list-for: recno 1 (AMT 100)");
+    CHECK(cap_has("      3  CCC"), "list-for: recno 3 (AMT 100)");
+    CHECK(cap_has("      5  EEE"), "list-for: recno 5 (AMT 100)");
     CHECK(!cap_has("BBB"), "list-for: BBB (AMT 200) excluded");
     /* FOR visits EVERY record (does NOT stop at first false): recno 6 reached. */
 
@@ -351,16 +352,16 @@ static void test_tier0(samir_pal_t *pal)
     cap_clear();
     rc = samir_do(ip, "GO TOP\nLIST WHILE AMT = 100\n");
     CHECK(rc == INTERP_OK, "list-while: rc");
-    CHECK(cap_count("\n") == 1, "list-while: stops at first false (1 row)");
-    CHECK(cap_has("       1 AAA"), "list-while: only recno 1 before WHILE goes false");
+    CHECK(cap_count("\n") == 2, "list-while: opening CR LF + 1 row");
+    CHECK(cap_has("      1  AAA"), "list-while: only recno 1 before WHILE goes false");
 
     /* ---- DISPLAY (current record only): GO 4 then DISPLAY ---- */
     cap_clear();
     rc = samir_do(ip, "GO 4\nDISPLAY\n");
     snprintf(msg,sizeof msg,"display-cur: rc=%d ec=%d",rc,samir_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
-    CHECK(cap_count("\n") == 1, "display-cur: just one record");
-    CHECK(cap_has("       4 DDD"), "display-cur: current record (recno 4 DDD)");
+    CHECK(cap_count("\n") == 2, "display-cur: opening CR LF + one record");
+    CHECK(cap_has("      4  DDD"), "display-cur: current record (recno 4 DDD)");
     /* DISPLAY current record does NOT move the pointer. */
     CHECK(wa_recno(env, 1) == 4u, "display-cur: pointer unchanged (recno 4)");
 
@@ -368,28 +369,28 @@ static void test_tier0(samir_pal_t *pal)
     cap_clear();
     rc = samir_do(ip, "DISPLAY ALL\n");
     CHECK(rc == INTERP_OK, "display-all: rc");
-    CHECK(cap_count("\n") == 6, "display-all: 6 rows");
+    CHECK(cap_count("\n") == 7, "display-all: opening CR LF + 6 rows");
 
     /* ---- scope NEXT n: GO 2, LIST NEXT 3 CODE -> recnos 2,3,4 (CODE only) ---- */
     cap_clear();
     rc = samir_do(ip, "GO 2\nLIST NEXT 3 CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-next: rc");
-    CHECK(cap_count("\n") == 3, "list-next: NEXT 3 visits 3 records");
-    CHECK(strncmp(cap_text(), "BBB\nCCC\nDDD\n", 12) == 0, "list-next: BBB,CCC,DDD (CODE field list)");
+    CHECK(cap_count("\n") == 4, "list-next: opening CR LF + 3 records");
+    CHECK_STR_EQ(cap_text(), "\r\nBBB\r\nCCC\r\nDDD\r\n", "list-next: BBB,CCC,DDD (CODE field list)");
 
     /* ---- scope RECORD n: LIST RECORD 5 -> just recno 5 ---- */
     cap_clear();
     rc = samir_do(ip, "LIST RECORD 5\n");
     CHECK(rc == INTERP_OK, "list-record: rc");
-    CHECK(cap_count("\n") == 1, "list-record: single record");
-    CHECK(cap_has("       5 EEE"), "list-record: recno 5 EEE");
+    CHECK(cap_count("\n") == 2, "list-record: opening CR LF + single record");
+    CHECK(cap_has("      5  EEE"), "list-record: recno 5 EEE");
 
     /* ---- scope REST: GO 5, LIST REST CODE -> recnos 5,6 (CODE only) ---- */
     cap_clear();
     rc = samir_do(ip, "GO 5\nLIST REST CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-rest: rc");
-    CHECK(cap_count("\n") == 2, "list-rest: REST from recno 5 -> 2 records");
-    CHECK(strncmp(cap_text(), "EEE\nFFF\n", 8) == 0, "list-rest: EEE,FFF (CODE field list)");
+    CHECK(cap_count("\n") == 3, "list-rest: opening CR LF + 2 records");
+    CHECK_STR_EQ(cap_text(), "\r\nEEE\r\nFFF\r\n", "list-rest: EEE,FFF (CODE field list)");
 
     /* ---- ? <expr>: a string literal + a field + a function call ---- */
     cap_clear();
@@ -469,8 +470,8 @@ static void test_tier0(samir_pal_t *pal)
     fprintf(stderr,
         "  SKIP (LOUD): SET FILTER / SET DELETED interaction with scope (S5.6; GAPS secP) -- not asserted.\n");
     fprintf(stderr,
-        "  SKIP (LOUD): exact dot-prompt column layout / ? inter-expr separator width "
-        "([oracle-resolves] nav-query-display Open Q6/7) -- not asserted.\n");
+        "  SKIP (LOUD): layout cases outside M005U/M005N / ? inter-expr separator width "
+        "(navigation-query-display Open Q6/7) -- no real transcript for those cases.\n");
 
     xb_interp_free(ip);
     remove(pa);
