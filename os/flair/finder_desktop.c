@@ -110,8 +110,16 @@ static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
     if (kind == (uint8_t)FINDER_ICON_VOLUME) return &FLAIR_DESK_ICON_VOLUME;
     /* bead initech-6k12: the Trash draws FULL while \TRASH holds anything
      * (finder_desk_t.trash_full, kept by finder_shell_recount_trash). */
+#if defined(FINDER_DESK_MUT_TRASH_NEVER_FULL)
+    /* MUTANT (Rule 6; tdnl.74 / test-flair-trash-full-mutant): the painter
+     * ignores the staged-contents count and always draws the EMPTY can -- the
+     * audit H04 symptom. NEVER in a real build. */
+    (void)trash_full;
+    if (kind == (uint8_t)FINDER_ICON_TRASH) return &FLAIR_DESK_ICON_TRASH;
+#else
     if (kind == (uint8_t)FINDER_ICON_TRASH)
         return trash_full ? &FLAIR_DESK_ICON_TRASH_FULL : &FLAIR_DESK_ICON_TRASH;
+#endif
     if (kind == (uint8_t)FINDER_ICON_FOLDER) return &FLAIR_FINDER_ICON_FOLDER;
     if (kind == (uint8_t)FINDER_ICON_FILE)   return &FLAIR_FINDER_ICON_DOC;
     if (kind == (uint8_t)FINDER_ICON_APP)    return &FLAIR_FINDER_ICON_APP;

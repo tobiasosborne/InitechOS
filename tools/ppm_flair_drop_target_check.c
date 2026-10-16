@@ -6,20 +6,16 @@
  *
  * WHAT IS ASSERTED (every expectation hand-derived; nothing read back from the
  * renderer -- Law 2 / HER-02):
- *   1. THE TARGET IS HIGHLIGHTED. The APPS folder sprite at (107,86) shows the
- *      highlighted tones of os/flair/finder_icon.h :: finder_icon_draw_hilite:
- *        row 10 col 10 (a 'w' body pixel of the folder ASCII map,
- *          spec/assets/finder_icons.h) == #777777  (body, darkened)
- *        row 25 col 10 (a 'g' flap pixel)            == #3F3F3F  (detail, darkened)
- *        row  7 col 10 (the '#' flap edge)           == #000000  (ink unchanged)
- *      The RGB values are the two EXISTING canon ramp rows named in
- *      spec/assets/color_canon.h (CIDX_HILITE_FRAME 119 "#777777",
- *      CIDX_PLAT_DARK_RING 63 "#3F3F3F") -- Inside Macintosh VI p. 2-19..2-20
- *      "a black-and-white icon turns gray when selected".
+ *   1. THE TARGET IS HIGHLIGHTED. The APPS folder sprite at (112,86) shows the
+ *      selected / drop-target form (os/flair/finder_icon.h ::
+ *      finder_icon_draw_hilite; bead initech-tdnl.53): v2 folder map row 6
+ *      col 3 'L' == #545487, row 20 col 1 'D' == #000087, row 16 col 0 '#'
+ *      == #000000 -- the measured Mac OS 8.1 selection function
+ *      (../system7-decomp/re/mint-results-008.md Sec 3; IM VI p. 2-19..2-20).
  *   2. ITS NAME IS INVERTED: inside the APPS label band sub-rect
  *      x [111,135) y [121,131) black outnumbers white (the selected look).
- *   3. NOTHING ELSE IS LIT: README.TXT (39,86) (DOC, row 10 col 12 'w') keeps
- *      a WHITE #FFFFFF body, and the cells (175,86) / (243,86) -- where the
+ *   3. NOTHING ELSE IS LIT: README.TXT (44,86) (DOC, row 10 col 12 'w') keeps
+ *      its unselected #F3F3F3 page, and the cells (175,86) / (243,86) -- where the
  *      now hidden DESKTOP.DB / TRASH were drawn before beads initech-tdnl.56/
  *      .73 -- are bare white content (no icon, so nothing to light).
  *   4. THE GRAY OUTLINE IS ON SCREEN: README's cell translated by (+68,0) has
@@ -113,9 +109,15 @@ int main(int argc, char **argv)
     fclose(f);
 
     /* 1. the target, highlighted */
-    want(107 + 10, 86 + 10, 0x777777u, "APPS body pixel is the HIGHLIGHTED #777777");
-    want(107 + 10, 86 + 25, 0x3F3F3Fu, "APPS flap pixel is the HIGHLIGHTED #3F3F3F");
-    want(107 + 10, 86 + 7,  0x000000u, "APPS ink edge stays black");
+    /* bead initech-tdnl.53: the v2 FOLDER (spec/assets/finder_icons.h map,
+     * read by hand) at its sprite (112,86) -- row 6 col 3 'L', row 20 col 1
+     * 'D', row 16 col 0 '#' -- under the measured Mac OS 8.1 selection
+     * function (../system7-decomp/re/mint-results-008.md Sec 3, the table
+     * restated here, not read from desk_icons.h): #DADAFF -> #545487,
+     * #8787DA -> #000087, black unchanged. */
+    want(112 + 3, 86 + 6,  0x545487u, "APPS face pixel is the HIGHLIGHTED #545487");
+    want(112 + 1, 86 + 20, 0x000087u, "APPS edge pixel is the HIGHLIGHTED #000087");
+    want(112 + 0, 86 + 16, 0x000000u, "APPS ink edge stays black");
 
     /* 2. its name inverted */
     for (int y = 121; y < 131; y++)
@@ -130,7 +132,7 @@ int main(int argc, char **argv)
     }
 
     /* 3. nothing else lit */
-    want(39 + 12,  86 + 10, 0xFFFFFFu, "README.TXT (the dragged icon) keeps a white body");
+    want(44 + 12,  86 + 10, 0xF3F3F3u, "README.TXT (the dragged icon) keeps its unselected #F3F3F3 page (DOC row 10 col 12 'w')");
     want(175 + 12, 86 + 10, 0xFFFFFFu, "cell 2 (DESKTOP.DB before tdnl.56, now hidden) is bare white");
     want(243 + 10, 86 + 10, 0xFFFFFFu, "cell 3 (TRASH before tdnl.56, now hidden) is bare white");
 
@@ -143,8 +145,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "ppm_flair_drop_target_check: FAILED on %s\n", argv[1]);
         return 1;
     }
-    printf("ppm_flair_drop_target_check: PASS on %s (APPS highlighted #777777/"
-           "#3F3F3F + inverted name; 3 non-targets white; gray outline present)\n",
+    printf("ppm_flair_drop_target_check: PASS on %s (APPS highlighted #545487/"
+           "#000087 + inverted name; 3 non-targets unlit; gray outline present)\n",
            argv[1]);
     return 0;
 }

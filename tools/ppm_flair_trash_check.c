@@ -34,8 +34,8 @@
  *     y=87..190; text ink from x 211, cap tops y 100/116/132; Cancel
  *     x=363..421, OK x=435..493, ring x=432..496, buttons y=158..177 --
  *     specs/sys8/INDEX-sys8.md agrees), restated here by hand;
- *   - the Trash strikes: hand-read off the ASCII maps in
- *     spec/assets/desk_icons.h (this file never includes it);
+ *   - the Trash strikes and the caution icon: the mint-008 captures, cell for
+ *     cell (harness/render/icon_capture.h; this file never includes a strike);
  *   - the colours: flair_canon_rgb (spec/assets/color_canon.h), the
  *     independently decomp-graded canon, never the renderer's palette.
  *   - L023 / M011 / M012: frame perimeter, Cancel bevel rows and corners
@@ -51,6 +51,11 @@
 
 #include "color_canon.h"   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
 #include "../harness/render/alert_capture.h"
+#include "../harness/render/icon_capture.h"
+
+#ifndef ICON_CAPTURES_DIR
+#error "build with -DICON_CAPTURES_DIR='\"<system7-decomp>/goldens/captures\"'"
+#endif
 
 #define TOL 2
 enum { SCRW = 640, SCRH = 480 };
@@ -172,28 +177,58 @@ static void want_ink(int x0, int y0, int x1, int y1, int some, const char *what)
     }
 }
 
-/* The FULL strike (desk_icons.h FLAIR_DESK_ICON_TRASH_FULL map), by hand:
- *   row 2 col 10 '#' (the lid, ajar)      row 3 col 12 'g' (lid face)
- *   row 6 col  8 'w' (paper)              row 2 col  7 '.' (clear)
- *   row 5 col 11 '.' (between the balls)
- * The EMPTY strike (FLAIR_DESK_ICON_TRASH map), by hand:
- *   row 2 col 10 '.' (only the handle, cols 13..18, on row 2)
- *   row 2 col 13 '#'   row 4 col 7 '#' (lid slab)   row 5 col 10 'g' */
+/* bead initech-tdnl.53 / tdnl.74 / tdnl.87: the Trash strikes and the alert's
+ * caution icon are graded CELL FOR CELL, zero tolerance, against the
+ * INDEPENDENT mint-008 Mac OS 8.1 captures (harness/render/icon_capture.h,
+ * the build-time ICON_CAPTURES_DIR; a missing capture FAILS) -- replacing the
+ * v1 hand-read ASCII-map probes. Clear cells must show the desktop teal (the
+ * Trash) or the alert face (the caution icon). */
+static icap_cell_t g_cap[ICAP__KINDS];
+static int g_cap_ok;
+
+static void icon_cell(int kind, int x0, int y0, unsigned int bg, const char *what)
+{
+    int d;
+    if (!g_cap_ok) {
+        if (icap_load(ICON_CAPTURES_DIR, g_cap)) {
+            fprintf(stderr, "ppm_flair_trash_check: FAIL leg %s -- the mint-008 golden "
+                    "(%s) is unavailable\n", g_leg, ICON_CAPTURES_DIR);
+            g_fail = 1;
+            return;
+        }
+        g_cap_ok = 1;
+    }
+    d = icap_grade_frame(g_buf, SCRW, SCRH, x0, y0, &g_cap[kind], ICAP_UNSEL, bg, what);
+    printf("    %-52s @(%d,%d): %d/1024 cells differ from the capture\n", what, x0, y0, d);
+    if (d) {
+        fprintf(stderr, "ppm_flair_trash_check: FAIL leg %s -- %s: %d/1024 cells differ "
+                "from the mint-008 capture\n", g_leg, what, d);
+        g_fail = 1;
+    }
+}
+
 static void trash_full(void)
 {
-    want(TR_X + 10, TR_Y + 2, CIDX_BLACK,   "FULL Trash: lid ink (row 2 col 10)");
-    want(TR_X + 12, TR_Y + 3, CIDX_CONTROL, "FULL Trash: lid face shade (row 3 col 12)");
-    want(TR_X +  8, TR_Y + 6, CIDX_WHITE,   "FULL Trash: crumpled paper (row 6 col 8)");
-    want(TR_X +  7, TR_Y + 2, CIDX_DESKTOP, "FULL Trash: clear left of the ajar lid (row 2 col 7)");
-    want(TR_X + 11, TR_Y + 5, CIDX_DESKTOP, "FULL Trash: clear between paper balls (row 5 col 11)");
+    icon_cell(ICAP_TRASH_FULL, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
 }
 
 static void trash_empty(void)
 {
-    want(TR_X + 10, TR_Y + 2, CIDX_DESKTOP, "EMPTY Trash: no lid on row 2 (row 2 col 10 clear)");
-    want(TR_X + 13, TR_Y + 2, CIDX_BLACK,   "EMPTY Trash: the handle (row 2 col 13)");
-    want(TR_X +  7, TR_Y + 4, CIDX_BLACK,   "EMPTY Trash: lid slab left end (row 4 col 7)");
-    want(TR_X + 10, TR_Y + 5, CIDX_CONTROL, "EMPTY Trash: lid face shade (row 5 col 10)");
+    icon_cell(ICAP_TRASH, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "EMPTY Trash (TRASH)");
+}
+
+/* The Empty Trash confirm's caution icon (tdnl.87): the iconItem at the
+ * capture's icon cell (156,100), on the alert face; nothing else is inked
+ * left of the text column around it. */
+#define CAU_X 156
+#define CAU_Y 100
+static void caution(void)
+{
+    icon_cell(ICAP_CAUTION, CAU_X, CAU_Y, (flair_canon_rgb((unsigned char)CIDX_PLAT_FACE) & 0x00FFFFFFu), "the CAUTION icon");
+    want_ink(AL_L + AL_BORDER + 1, TXT_Y0, CAU_X, TXT_Y0 + 48, 0, "nothing left of the icon");
+    want_ink(CAU_X + 32, TXT_Y0, TXT_X0 - 2, TXT_Y0 + 48, 0, "nothing between the icon and the text");
+    want_ink(CAU_X, TXT_Y0, CAU_X + 32, CAU_Y, 0, "nothing above the icon");
+    want_ink(CAU_X, CAU_Y + 32, CAU_X + 32, TXT_Y0 + 48, 0, "nothing below the icon");
 }
 
 int main(int argc, char **argv)
@@ -286,8 +321,11 @@ int main(int argc, char **argv)
             want_ink(TXT_X0, TXT_Y0 + 16 * k, TXT_X1, TXT_Y0 + 16 * (k + 1), 1, what);
         }
         want_ink(TXT_X0, TXT_Y0 + 48, CA_L - 3, BT_B, 0, "no fourth message line");
-        want_ink(AL_L + AL_BORDER + 1, TXT_Y0, TXT_X0 - 2, TXT_Y0 + 48, 0,
-                 "nothing left of the text column");
+        if (strcmp(g_leg, "alert") == 0)
+            caution();   /* tdnl.87: the confirm is the captured CAUTION alert */
+        else
+            want_ink(AL_L + AL_BORDER + 1, TXT_Y0, TXT_X0 - 2, TXT_Y0 + 48, 0,
+                     "nothing left of the text column (the locked notice has no icon)");
         /* the buttons: labels inked; OK carries the default ring, Cancel not */
         want_ink(OK_L + 4, BT_T + 3, OK_R - 4, BT_B - 2, 1, "OK button label");
         want_ink(CA_L + 4, BT_T + 3, CA_R - 4, BT_B - 2,
