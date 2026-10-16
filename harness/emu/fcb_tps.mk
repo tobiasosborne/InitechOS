@@ -242,7 +242,7 @@ test-tps-report: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_BIN) $(TPS_FIXT
 	[ $$(wc -l < $(BUILD)/tps_spec_literals.txt) -ge 14 ] || { printf '!!! test-tps-report FAIL: spec literal extraction found too few rows\n'; exit 1; }; \
 	! grep -nE '^\s*mov\s+ah,\s*0x(3[C-F]|4[0-6])\b' $(TPSREP_ASM) || { printf '!!! test-tps-report FAIL: TPSREP issues a handle call\n'; exit 1; }; \
 	printf '>>> test-tps-report [spec]: %s locked literals present in TPSREP.COM; no handle call (AH=3Ch-46h) in the source\n' "$$(wc -l < $(BUILD)/tps_spec_literals.txt)"
-	@set -e; awk '/"id": *"R2"/ { r = 1; next } /"id": *"/ { r = 0 } r && /"prompt": *\[/ { p = 1 } p { print } p && /\]/ { p = 0 }' $(TPS_SPEC) | \
+	@set -e; awk '/"id": *"R2"/ { r = 1; next } /"id": *"/ { r = 0 } r && /"prompt": *\[/ { p = 1; sub(/.*"prompt": *\[/, "") } p { print } p && /\]/ { p = 0 }' $(TPS_SPEC) | \
 	  grep -oE '"[^"]*"' > $(BUILD)/tps_spec_r2_prompt.txt; \
 	[ $$(wc -l < $(BUILD)/tps_spec_r2_prompt.txt) -eq 3 ] || { printf '!!! test-tps-report FAIL [tacit]: spec R2 prompt is not the three-line alignment prompt\n'; exit 1; }; \
 	! grep -nE '7|SPACE' $(BUILD)/tps_spec_r2_prompt.txt || { printf '!!! test-tps-report FAIL [tacit]: the locked R2 prompt states the count or the key (initech-5igf)\n'; exit 1; }; \
