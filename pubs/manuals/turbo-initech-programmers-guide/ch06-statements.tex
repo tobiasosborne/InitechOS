@@ -1,3 +1,162 @@
-\Gates{test-pubs-build}
-\chapter{ch06-statements}
-Stub.
+% Chapter 6 -- Statements (model: TP 6.0 PG Ch 7).
+% Sources (Law 1): os/tps/tps.pas ParseStatement, ParseBlock,
+% ParseIdentStatement, ParseAssignment, ParseWrite, ParseWriteArg (a
+% string literal argument is the literal alone), ParseIf (else binds to the
+% nearest if; TPS_PARSE_MUT_ELSE), ParseWhile, ParseFor (final value
+% evaluated once and kept; control variable compared, body, step),
+% ParseRepeat; os/tps/PARSER-TRACE.md (case rejected,
+% parse_case_unsupported).  Diagrams: statement, block, ident-statement,
+% assignment, stmt-write, write-arg, stmt-if, else-clause, stmt-while,
+% stmt-for, stmt-repeat.
+\Gates{test-tps-parse-fpc, test-tps-parse-mutant, test-tps-type-fpc, test-compiler, test-compiler-os, test-pubs-tps}
+\chapter{Statements}
+\ix{statements}
+
+\term{Statements} are the actions of a program.  The statement part of
+the main block and of each procedure and function is a compound statement,
+a sequence of statements between \rw{begin} and \rw{end}.
+
+\Syntax{statement}
+
+Every form may be empty: a statement with no symbols, such as the one
+between two adjacent semicolons, does nothing.
+
+\section{Compound statements}
+\ix{compound statements}
+\ix{begin}
+\Syntax{block}
+
+A compound statement executes its statements in order.  Semicolons
+separate statements; a semicolon before \rw{end} adds an empty statement
+and is harmless.  A compound statement may stand wherever a statement is
+allowed, so that several statements can be controlled by one \rw{if},
+\rw{while} or \rw{for}.
+
+\section{Assignment and procedure statements}
+\ix{assignment statements}
+\ix{procedure statements}
+A statement that begins with an identifier is an assignment or a call of a
+procedure:
+
+\Syntax{ident-statement}
+\Syntax{assignment}
+
+An \term{assignment} stores the value of the expression in the variable,
+element or field on the left of \code{:=}.  The value must be of exactly
+the type of the target, with these additions:
+
+\begin{itemize}
+\item A string target accepts a string or a character.  A value longer than
+  the capacity of the target is cut to the capacity.
+\item A record variable accepts a record of the same record type; all its
+  fields are copied.
+\end{itemize}
+
+A constant, an array as a whole and a file variable cannot be assigned.
+Inside a function, an assignment to the function's name sets its result
+(Chapter 7).
+
+\Program{assign}
+
+\ProgramOutput{assign}
+
+\ix{procedure calls}
+A \term{procedure statement} calls a procedure; the arguments are in
+parentheses, and the parentheses are required even when there are none:
+\code{Show();}.  The \textit{call} diagram and the rules for arguments are in
+Chapter 7.  A function cannot be called as a statement.
+
+\section{Write statements}
+\ix{write statement}
+\ix{writeln statement}
+The standard procedures \std{write}{Write} and \std{writeln}{Writeln} have
+their own statement form:
+
+\Syntax{stmt-write}
+\Syntax{write-arg}
+
+\std{write}{Write} writes its arguments one after another;
+\std{writeln}{Writeln} does the same and then ends the line.
+\code{Writeln} with no arguments, with or without the parentheses, ends the
+line.  An argument is a string literal or an expression of type
+\rw{integer}, \rw{boolean}, \rw{char} or \rw{string}.  Integers are written
+in decimal with a minus sign when negative, Boolean values as \code{TRUE}
+or \code{FALSE}, characters and strings as they are.  There are no field
+widths.  Chapter 12 describes where the output goes.
+
+\Program{writes}
+
+\ProgramOutput{writes}
+
+\ArrowNote{An argument that begins with a string literal is that literal
+alone.  An expression such as \code{'A' + S} or \code{'B' > T} as an
+argument of \std{write}{Write} must be put in parentheses.}
+
+Without the parentheses the compiler stops at the operator:
+
+\Source{err-writearg}
+
+\CompilerOutput{err-writearg}{ERR}
+
+\section{If statements}
+\ix{if statement}
+\Syntax{stmt-if}
+\Syntax{else-clause}
+
+The condition must be of type \rw{boolean}.  If it is \rw{true}, the
+statement after \rw{then} is executed; otherwise the statement after
+\rw{else}, if there is one.  An \rw{else} belongs to the nearest preceding
+\rw{if} that has no \rw{else} yet.  In the last statement of the
+following program the \rw{else} belongs to \code{if Score > 10}, so the
+program prints \code{small}:
+
+\Program{ifelse}
+
+\ProgramOutput{ifelse}
+
+\section{While statements}
+\ix{while statement}
+\Syntax{stmt-while}
+
+The condition is evaluated before each execution of the statement; when it
+is \rw{false} the \rw{while} statement ends.  If it is \rw{false} the first
+time, the statement is not executed at all.
+
+\section{Repeat statements}
+\ix{repeat statement}
+\Syntax{stmt-repeat}
+
+The statements between \rw{repeat} and \rw{until} are executed, then the
+condition is evaluated; the \rw{repeat} statement ends when it is
+\rw{true}.  The statements are always executed at least once.  No
+\rw{begin} and \rw{end} are needed around them.
+
+\section{For statements}
+\ix{for statement}
+\ix{control variable}
+\Syntax{stmt-for}
+
+The \term{control variable} is a variable of type \rw{integer} named by a
+simple identifier: a global or local variable or a parameter.  The initial
+and final values are integer expressions.  The final value is evaluated
+once, before the first iteration.  With \rw{to}, the statement is executed
+for each value of the control variable from the initial value up to the
+final value; with \rw{downto}, from the initial value down to the final
+value.  If the initial value is already beyond the final value, the
+statement is not executed.
+
+Do not assign to the control variable in the controlled statement.  The
+value of the control variable after the \rw{for} statement is not defined
+by the language.
+
+\Program{loops}
+
+\ProgramOutput{loops}
+
+\section{Statements Turbo Initech does not have}
+\ix{case statement}
+\ix{goto}
+Turbo Initech has no \rw{case}, \code{goto} or \code{with} statement.  A
+chain of \rw{if} \dots{} \rw{else} \rw{if} statements selects among several
+cases, as \id{Rate} does above.  The word \rw{case} is reserved; a
+statement that begins with it is a syntax error.

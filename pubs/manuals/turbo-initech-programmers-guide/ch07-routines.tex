@@ -1,3 +1,130 @@
-\Gates{test-pubs-build}
-\chapter{ch07-routines}
-Stub.
+% Chapter 7 -- Procedures and functions (model: TP 6.0 PG Ch 8).
+% Sources (Law 1): os/tps/tps.pas ParseRoutine (heading, forward, one
+% local var section, block), ParseParamList, ParseParamGroup, ParseCall,
+% RegisterRoutine, CheckUnresolvedForwards; os/tps/SYMBOLS-DUMP.md s6
+% (32 parameters), s7 (a call to a later routine needs a prior forward);
+% seed/typecheck.h B4/B6/B7 (value parameters scalar only; var string is
+% capacity 255; record var parameters; a function result may not be
+% discarded; a procedure is callable only as a statement).  Every rule was
+% also checked by a probe compile with the shipped compiler.  Diagrams:
+% routine-procedure, routine-function, param-list, param-group, call.
+\Gates{test-tps-parse-fpc, test-tps-type-fpc, test-tps-type-mutant, test-compiler, test-compiler-os, test-compiler-os-mutant, test-pubs-tps}
+\chapter{Procedures and functions}
+\ix{procedures}
+\ix{functions}
+\ix{routines}
+
+Procedures and functions, together called \term{routines}, are named
+statement parts with their own parameters and local variables.  A
+procedure is called as a statement; a function is called in an expression
+and returns a value.
+
+\section{Procedure declarations}
+\Syntax{routine-procedure}
+
+A procedure declaration is a heading, at most one local variable section,
+and a compound statement, followed by a semicolon.  The heading names the
+procedure and lists its parameters.  The empty parameter list may be
+written as \code{()} or left out: \code{procedure Reset;} and
+\code{procedure Reset();} declare the same heading.
+
+\section{Function declarations}
+\Syntax{routine-function}
+
+A function declaration also gives the \term{result type}, \rw{integer},
+\rw{boolean} or \rw{char}, after the parameter list.  Inside the function
+its name, used as the target of an assignment, is the \term{result
+variable}: the value last assigned to it is the value of the call.  Assign
+the result on every path through the function; a function whose result was
+never assigned returns an undefined value.
+
+\section{Parameters}
+\ix{parameters}
+\ix{value parameters}
+\ix{var parameters}
+\Syntax{param-list}
+\Syntax{param-group}
+
+A \term{value parameter} is a local variable that starts with the value of
+its argument.  Assigning to it changes only the local copy.  A \term{var
+parameter} stands for the argument itself: every use of the parameter uses
+the argument variable, and every assignment to it changes the argument.
+
+\begin{BorTable}{Parameter types}{p{30mm}p{68mm}}
+\Hd{Kind} & \Hd{Allowed types}\\\hline
+value parameter & \rw{integer}, \rw{boolean}, \rw{char}\\
+\rw{var} parameter & \rw{integer}, \rw{boolean}, \rw{char}, \rw{string}
+  (capacity 255 only), a record type\\
+\end{BorTable}
+
+Strings and records are passed only by \rw{var}.  A \rw{var} parameter of
+type \rw{string} accepts only a variable declared as \rw{string}, of
+capacity 255, so that the routine cannot write beyond the end of a shorter
+string.  Arrays and files cannot be parameters.  A routine has at most 32
+parameters.
+
+\section{Calls}
+\ix{calls}
+\ix{arguments}
+\Syntax{call}
+
+A call names the routine and gives one argument for each parameter, in
+order.  The parentheses are always written.
+
+\begin{itemize}
+\item An argument for a value parameter is an expression of exactly the
+  parameter's type.
+\item An argument for a \rw{var} parameter is a variable reference of
+  exactly the parameter's type: a variable, an element of an array, a field,
+  or a character of a string.  A constant or an expression is not accepted
+  (``var parameter requires a variable,'' Appendix A).
+\end{itemize}
+
+The arguments are evaluated from left to right before the routine starts.
+A procedure can be called only as a statement, and a function only within
+an expression; the value of a function cannot be discarded.
+
+\Program{params}
+
+\ProgramOutput{params}
+
+\id{Swap} exchanges the two variables it is given.  \id{Bump} changes its
+own copy of the argument, and \id{A} keeps its value.  \id{Credit} and
+\id{Shout} change a record and a string through \rw{var} parameters.
+
+\section{Local variables}
+\ix{local variables}
+The variables declared in the local variable section of a routine, its
+value parameters and the result variable of a function exist only while the
+routine runs.  Each call has its own copies, so a routine can call itself.
+Local variables have no defined value when the routine starts (Chapter 4).
+
+\section{Recursion}
+\ix{recursion}
+A routine may call itself, directly or through other routines.
+
+\Program{recurse}
+
+\ProgramOutput{recurse}
+
+\section{Forward declarations}
+\ix{forward declarations}
+\ix{forward}
+A routine must be declared before it is called.  When two routines call
+each other, one of them is declared first by its heading followed by
+\rw{forward}; its full declaration comes later and repeats the heading: the
+same number of parameters, each of the same kind (value or \rw{var}) and
+type in the same order, and the same result type.  The parameter names may
+differ; the names of the full declaration are the ones used in its body.
+The empty parameter list may be written either way in each heading.  Every \rw{forward} declaration must be completed
+later in the program.
+
+\Program{mutual}
+
+\ProgramOutput{mutual}
+
+\MarginNote{Other compilers may accept a call to a later routine.}Turbo
+Initech checks a call against the routines declared before it.  A program
+that calls a routine declared further on, without a \rw{forward}
+declaration, is rejected even where another Pascal compiler, which reads
+the whole program before checking it, would accept it.

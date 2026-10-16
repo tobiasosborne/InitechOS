@@ -1,3 +1,73 @@
-\Gates{test-pubs-build}
-\chapter{ch04-variables}
-Stub.
+% Chapter 4 -- Variables (model: TP 6.0 PG Ch 4).
+% Sources (Law 1): os/tps/tps.pas ParseVarSection, ParseVarDecl,
+% ParseIndexSuffix, ParseFieldSuffix, GenApplyIndex (no index check:
+% lower bound subtracted, scaled, added); seed/rt/start_dos.asm (.bss zeroed
+% at entry); os/tps/CODEGEN.md s3 (frames: sub esp only, locals not
+% cleared), s4 (storage).  Diagrams: section-var, var-decl, index-suffix,
+% field-suffix.
+\Gates{test-tps-parse-fpc, test-tps-type-fpc, test-compiler, test-compiler-os, test-pubs-tps}
+\chapter{Variables}
+\ix{variables}
+
+A \term{variable} is a named place in memory that holds a value of its
+type.  This chapter describes how variables are declared and how a
+statement or expression refers to a variable, an element of an array or
+string, or a field of a record.
+
+\section{Variable declarations}
+\ix{variable declarations}
+\ix{var section}
+\Syntax{section-var}
+\Syntax{var-decl}
+
+A variable section declares one or more variables of each type named.
+Global variable sections may appear any number of times among the
+declarations of the program; a procedure or function has at most one, just
+before its block.  The type of a variable is a type name or an array type
+(Chapter 3).
+
+\section{Initial values}
+\ix{initial values}
+\ix{global variables}
+When a program starts, every global variable is zero: integers are 0,
+Boolean variables are \rw{false}, characters have code 0, strings are
+empty, and every field and element of a record or array is zero in the
+same way.  The local variables of a procedure or function have no defined
+value when the routine starts; assign them before you use them.
+
+\section{Variable references}
+\ix{variable references}
+\ix{designators}
+A statement or an expression refers to a variable by its name, optionally
+followed by an index and a field selector:
+
+\Syntax{index-suffix}
+\Syntax{field-suffix}
+
+\SideHead{Entire variable}The name alone refers to the whole variable.
+
+\SideHead{Array element}\code{A[}\textit{expression}\code{]} refers to one
+element of the array \id{A}.  The index is an expression of type
+\rw{integer}.
+
+\SideHead{String character}\code{S[}\textit{expression}\code{]} refers to
+one character of the string \id{S}, numbered from 1; it is of type
+\rw{char} and may be assigned.  \code{S[0]} is the character whose code is
+the current length of the string (Chapter 10).
+
+\SideHead{Field}\code{R.}\textit{field} refers to a field of the record
+variable \id{R}, and \code{A[}\textit{expression}\code{].}\textit{field}
+to a field of an element of an array of records.
+
+\ix{index checking}
+\ArrowNote{Turbo Initech does not check indexes when the program runs.  An
+index outside the bounds of an array, or beyond the capacity of a string,
+refers to whatever memory lies at that place, and assigning to it
+overwrites that memory.}
+
+\Program{variables}
+
+\ProgramOutput{variables}
+
+The first line shows the initial values of global variables.  The string
+\id{Word} holds eight characters, and \code{ord(Word[0])} gives its length.

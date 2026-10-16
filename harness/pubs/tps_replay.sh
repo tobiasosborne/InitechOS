@@ -16,8 +16,11 @@
 #                    also linked as a .COM and run on InitechDOS in one
 #                    bounded boot.  All outputs == examples/NAME.out.
 #   output|NAME      examples/NAME.out is printed; NAME must be a program.
+#   source|NAME      examples/NAME.pas printed for its diagnostic; it must
+#                    also be printed with a compiler|NAME|R item.
 #   compiler|NAME|R  the TPS-R-BEGIN..TPS-R-END region Turbo Initech prints
-#                    for examples/NAME.pas == examples/NAME.R.txt.
+#                    for examples/NAME.pas == examples/NAME.R.txt; R = ERR
+#                    selects the status lines (TPS-x-OK, -ERROR, -SKIP).
 #   assembly|NAME|L  TPSOUT.S for examples/NAME.pas from `L:' to the next
 #                    top-level label == examples/NAME.L.s.
 #   make|NAME        `make $(cat examples/NAME.cmd)': its lines that begin
@@ -83,6 +86,10 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
                 nbare=$((nbare + 1))
             fi
             ;;
+        source)
+            [ -f "$src" ] || red TRANSCRIPT-PAIR "$src" "printed source missing"
+            grep -q "^compiler|$name|" "$OUT/$book.list" || red TRANSCRIPT-PAIR "$src" "a printed source must show its compiler output"
+            ;;
         output)
             grep -qx "program|$name" "$OUT/$book.list" || red TRANSCRIPT-PAIR "$ex/$name.out" "printed output of a program that is not printed"
             ;;
@@ -90,7 +97,11 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             [ -f "$src" ] && [ -f "$ex/$name.$arg.txt" ] || red TRANSCRIPT-PAIR "$src" "needs $name.$arg.txt"
             mkdir -p "$w/c"; cp "$src" "$w/c/TPSIN.PAS"
             (cd "$w/c" && "$TPS_BIN" > tps.out) || red TPS-RUN "$src" "Turbo Initech exited non-zero"
-            sed -n "/^TPS-$arg-BEGIN\$/,/^TPS-$arg-END\$/p" "$w/c/tps.out" > "$w/c/$arg.txt"
+            if [ "$arg" = ERR ]; then
+                grep -E '^TPS-[A-Z]+-(ERROR|SKIP|OK)' "$w/c/tps.out" > "$w/c/$arg.txt" || true
+            else
+                sed -n "/^TPS-$arg-BEGIN\$/,/^TPS-$arg-END\$/p" "$w/c/tps.out" > "$w/c/$arg.txt"
+            fi
             [ -s "$w/c/$arg.txt" ] || red COMPILER-REGION "$src" "no TPS-$arg region"
             same TRANSCRIPT-DRIFT "$ex/$name.$arg.txt" "$w/c/$arg.txt"
             ;;

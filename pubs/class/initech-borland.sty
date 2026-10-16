@@ -171,6 +171,10 @@
 %% identifier (italic); \code{...} program text; \typed{...} what you type.
 \newwrite\im@tpsmentions
 \AtBeginDocument{\immediate\openout\im@tpsmentions=\jobname.tpsmentions}
+%% F-BOR is ragged right with a free margin, so long Cursor names and
+%% messages that cannot be broken move to the next line (PG-09).
+\emergencystretch=3em
+\setlength\RaggedRightRightskip{0pt plus 1fil}
 \AtEndDocument{\immediate\closeout\im@tpsmentions}
 \newcommand\rw[1]{\immediate\write\im@tpsmentions{#1|reserved}\mbox{\sffamily\bfseries #1}}
 \newcommand\std[2]{\immediate\write\im@tpsmentions{#1|routine}\mbox{\textit{#2}}}
@@ -202,6 +206,11 @@
 %% Pascal, the seed and Turbo Initech must each run it to examples/name.out.
 \newcommand\Program[1]{\immediate\write\im@tpsexamples{program|#1}%
   \lstinputlisting{examples/#1.pas}}
+%% \Source{err-name}: a program printed to show a compiler diagnostic; it is
+%% compiled (never run) by the replay of its \CompilerOutput.  Such files
+%% are named err-*.pas and stay out of the grammar recognition set.
+\newcommand\Source[1]{\immediate\write\im@tpsexamples{source|#1}%
+  \lstinputlisting{examples/#1.pas}}
 %% \ProgramLines{name}{first}{last}: lines of a replayed program.
 \newcommand\ProgramLines[3]{\immediate\write\im@tpsexamples{program|#1}%
   \lstinputlisting[firstline=#2,lastline=#3]{examples/#1.pas}}
@@ -210,9 +219,11 @@
   \VerbatimInput[fontsize=\fontsize{9}{12},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.out}}
 %% \CompilerOutput{name}{REGION}: the region (LEX, PARSE, TYPE, GEN) of what
 %% Turbo Initech prints when it compiles examples/name.pas, from
-%% examples/name.REGION.txt; replayed through the compiler.
+%% examples/name.REGION.txt (REGION ERR: only its status lines -- the
+%% TPS-x-OK, TPS-x-ERROR and TPS-x-SKIP lines); replayed through the compiler.
 \newcommand\CompilerOutput[2]{\immediate\write\im@tpsexamples{compiler|#1|#2}%
-  \VerbatimInput[fontsize=\fontsize{8.5}{10.5},xleftmargin=4mm,formatcom=\ttfamily]{examples/#1.#2.txt}}
+  \begingroup\setlength\linewidth{\imFullWidth}%
+  \VerbatimInput[fontsize=\fontsize{8}{10},xleftmargin=-\imHang,formatcom=\ttfamily]{examples/#1.#2.txt}\endgroup}
 %% \AssemblyOutput{name}{label}: the lines of TPSOUT.S for examples/name.pas
 %% from `label:' to the next top-level label, from examples/name.label.s.
 \newcommand\AssemblyOutput[2]{\immediate\write\im@tpsexamples{assembly|#1|#2}%
