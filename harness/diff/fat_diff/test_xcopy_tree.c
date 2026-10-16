@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "dosutil.h"
+#include "xcopy_tree.h"
 #include "int21.h"
 #include "fileio_fat.h"
 #include "blockdev_file.h"

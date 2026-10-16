@@ -1,28 +1,28 @@
 # initech-zuvo: gates authored before implementation (Rule 1).
 ZUVO_DIR := harness/diff/fat_diff
-ZUVO_SRC := os/milton/dosutil.c
+ZUVO_SRC := os/milton/xcopy_tree.c
 ZUVO_HOST_SRC := $(ZUVO_DIR)/test_xcopy_tree.c $(ZUVO_SRC) $(TEST_FILEIO_SUBDIR_DEPS)
 ZUVO_INC := -Ispec -Ios/milton -Ibuild -I$(ZUVO_DIR)
 ZUVO_MUTANTS := S E A M D P V W TARGET COUNT TREE_F TREE_LAYOUT DEFAULT WILD DESCEND TIME HIDDEN E_REQUIRES_S CYCLIC SELF LABEL OMIT CTRL_C DATE_RANGE
 ZUVO_HOST := $(BUILD)/test_xcopy_tree
 $(MAKEFILE_STAMP): $(ZUVO_DIR)/xcopy_tree.mk
-$(ZUVO_HOST): $(ZUVO_HOST_SRC) os/milton/dosutil.h $(DOS_MESSAGES_H)
+$(ZUVO_HOST): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
 	$(CC) $(CFLAGS) -no-pie $(ZUVO_INC) -o $@ $(ZUVO_HOST_SRC)
 
 define zuvo-mutant
-$(BUILD)/test_xcopy_tree_mut_$(1): $(ZUVO_HOST_SRC) os/milton/dosutil.h $(DOS_MESSAGES_H)
+$(BUILD)/test_xcopy_tree_mut_$(1): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
 	$(CC) $(CFLAGS) -no-pie $(ZUVO_INC) -DDU_MUT_$(1) -o $$@ $(ZUVO_HOST_SRC)
 endef
 $(foreach m,$(ZUVO_MUTANTS),$(eval $(call zuvo-mutant,$(m))))
 
 ZUVO_COM_FLAGS := $(KERNEL_CFLAGS) -Os -fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables -Ios/milton -Ispec
 define zuvo-com
-$(BUILD)/$(1)_program.o: $(ZUVO_SRC) os/milton/dosutil.h
+$(BUILD)/$(1)_program.o: $(ZUVO_SRC) os/milton/xcopy_tree.h
 	$(KERNEL_CC) $(ZUVO_COM_FLAGS) $(2) -c $$< -o $$@
-$(BUILD)/$(1)_entry.o: os/milton/dosutil_entry.asm
+$(BUILD)/$(1)_entry.o: os/milton/xcopy_tree_entry.asm
 	$(NASM) -f elf32 $(3) $$< -o $$@
-$(BUILD)/$(1)_program.elf: $(BUILD)/$(1)_program.o $(BUILD)/$(1)_entry.o os/milton/dosutil.ld
-	$(LD) -m elf_i386 --no-warn-rwx-segments -T os/milton/dosutil.ld -o $$@ $(BUILD)/$(1)_entry.o $(BUILD)/$(1)_program.o
+$(BUILD)/$(1)_program.elf: $(BUILD)/$(1)_program.o $(BUILD)/$(1)_entry.o os/milton/xcopy_tree.ld
+	$(LD) -m elf_i386 --no-warn-rwx-segments -T os/milton/xcopy_tree.ld -o $$@ $(BUILD)/$(1)_entry.o $(BUILD)/$(1)_program.o
 $(BUILD)/$(1)_program.bin: $(BUILD)/$(1)_program.elf
 	$(OBJCOPY) -O binary $$< $$@
 endef

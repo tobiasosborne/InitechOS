@@ -18,7 +18,7 @@
  * find context (int21.c g_find), rather than DOS's opaque DTA resume state.
  * This keeps parent searches intact without interpreting private DTA bytes.
  */
-#include "dosutil.h"
+#include "xcopy_tree.h"
 #include "find_data.h"
 
 #define CAP 128
