@@ -15,6 +15,7 @@
  */
 
 #include "kbd.h"
+#include "../flair/ring_report.h"
 #include "io.h"
 
 /* 8042 keyboard data port (the controller output buffer). Ref: 8042 datasheet. */
@@ -38,6 +39,7 @@ void kbd_ring_init(kbd_ring_t *r)
 {
     r->head = 0u;
     r->tail = 0u;
+    r->dropped = 0;
 }
 
 int kbd_ring_empty(const kbd_ring_t *r)
@@ -57,6 +59,7 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
     uint16_t next = (uint16_t)((r->head + 1u) & (KBD_RING_CAP - 1u));
 #endif
     if (next == r->tail) {
+        if (r->dropped == 0) r->dropped = 1; /* ISR records, task reports. */
         /* Full: drop the byte (fail safe -- a dropped keystroke is not fatal,
          * Rule 2 fail-loud applies to invariant violations, not lost input). */
         return 0;
@@ -68,6 +71,12 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
 
 int kbd_ring_get(kbd_ring_t *r, uint8_t *out)
 {
+#ifndef KBD_MUT_SILENT_DROP
+    if (r->dropped == 1) {
+        r->dropped = 2;
+        RING_REPORT("KBD-RING-DROP\n");
+    }
+#endif
     if (r->head == r->tail) {
         return 0; /* empty */
     }

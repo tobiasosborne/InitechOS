@@ -49,6 +49,36 @@
 
 #include <stdint.h>
 
+/* qupy: PS/2 byte0 carries the NINTH (sign) bit, not byte1/2 bit7.
+ * Ref: mouse.c's IBM PS/2 packet contract; initech-qupy's wire-byte examples.
+ * Emit bounded int8-sized chunks through the EXISTING completed-packet hook,
+ * preserving displacement and buttons without changing the locked raw ABI. */
+static inline void mouse_post_packet(uint8_t flags, uint8_t x, uint8_t y,
+                                     uint8_t previous_buttons,
+                                     void (*post)(int, int, uint8_t))
+{
+#ifdef MOUSE_MUT_SIGN_BYTE
+    int dx = (int8_t)x, dy = (int8_t)y;
+#else
+    int dx = (int)x - ((flags & 0x10u) ? 256 : 0);
+    int dy = (int)y - ((flags & 0x20u) ? 256 : 0);
+#endif
+    if (!post) return;
+    do {
+        int sx = dx < -127 ? -127 : dx > 127 ? 127 : dx;
+        int sy = dy < -127 ? -127 : dy > 127 ? 127 : dy;
+        dx -= sx; dy -= sy;
+#ifdef MOUSE_MUT_EARLY_BUTTON
+        (void)previous_buttons;
+        post(sx, sy, (uint8_t)(flags & 7u));
+#else
+        /* Movement precedes the packet's button transition. Intermediate
+         * chunks retain the previous state; only the last can click. */
+        post(sx, sy, (dx || dy) ? previous_buttons : (uint8_t)(flags & 7u));
+#endif
+    } while (dx != 0 || dy != 0);
+}
+
 /* mouse_pack_negate_dy -- PS/2 "+up" convention -> screen "down-positive".
  *
  * Negating INT8_MIN (-128) is not representable as int8_t (-(-128) = +128

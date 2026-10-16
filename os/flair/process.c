@@ -41,7 +41,7 @@
 #  define PROC_PANIC(msg)  abort()
 #else
 /* Freestanding: a deliberate, loud, deterministic hang (Rule 2 / Rule 11). */
-#  define PROC_PANIC(msg)  do { for (;;) { } } while (0)
+#  define PROC_PANIC(msg)  do { (void)(msg); __builtin_trap(); } while (0)
 #endif
 
 /* --------------------------------------------------------------------------
@@ -435,6 +435,9 @@ static void teardown_common(FlairProcessList *list, WindowMgr *wm,
      * in a real build. */
 #endif
     /* ... then the FlairApp handle (HANDLE) LAST. Do not touch `app` after this. */
+#ifndef PROC_MUT_STALE_MAGIC
+    app->magic = 0; /* vibs: freed handles must fail BC-3 on repeat teardown. */
+#endif
     flair_free(master, FLAIR_CLASS_HANDLE, app);
 }
 
@@ -445,18 +448,31 @@ static void teardown_common(FlairProcessList *list, WindowMgr *wm,
  * carved from `master`). Runs procs->close() (flush docs) THEN the shared teardown
  * helper. The split-arena one-shot frees are the clean-death property (Sec 3.6).
  * -------------------------------------------------------------------------- */
-void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
-                            flair_heap_t *master, FlairApp *app)
+/* One ownership check serves clean quit AND death, before any callback/free.
+ * Ref: ADR-0013 BC-3/AC-2; k0n8 and vibs. Keep both entries identical here. */
+static int teardown_begin(FlairProcessList *list, WindowMgr *wm,
+                          flair_heap_t *master, FlairApp *app)
 {
-    if (list == NULL || wm == NULL || master == NULL || app == NULL) return;
+    if (list == NULL || wm == NULL || master == NULL || app == NULL) return 0;
 
     /* BC-3: a teardown of a non-tenant (scribbled/foreign handle) fails loud
      * rather than freeing arbitrary memory (Rule 2). The handle lives in its OWN
      * HANDLE block, NOT the DATA arena, so a scribbled DATA arena leaves it intact. */
     if (app->magic != FLAIR_APP_MAGIC)
-        PROC_PANIC("terminate: app->magic mismatch (BC-3)");
+        PROC_PANIC("teardown: app->magic mismatch (BC-3)");
+#ifndef PROC_MUT_REGISTERED_FREE
+    if (app->block == NULL || app->records_block == NULL)
+        PROC_PANIC("teardown: caller-owned registered app (k0n8)");
+#endif
 
     app->state = (uint8_t)FLAIR_APP_DYING;
+    return 1;
+}
+
+void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
+                            flair_heap_t *master, FlairApp *app)
+{
+    if (!teardown_begin(list, wm, master, app)) return;
 
     /* (1) optional close hook (flush docs); the shell tears down regardless. */
     if (app->procs != NULL && app->procs->close != NULL)
@@ -477,15 +493,7 @@ void FlairProcess_terminate(FlairProcessList *list, WindowMgr *wm,
 void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
                        flair_heap_t *master, FlairApp *app)
 {
-    if (list == NULL || wm == NULL || master == NULL || app == NULL) return;
-
-    /* BC-3: the magic tag lives in the handle (its OWN HANDLE block), intact even
-     * when the DATA arena was scribbled by the crash -- so the integrity check is
-     * meaningful here, not itself a read of the dead heap (Rule 2). */
-    if (app->magic != FLAIR_APP_MAGIC)
-        PROC_PANIC("kill: app->magic mismatch (BC-3)");
-
-    app->state = (uint8_t)FLAIR_APP_DYING;
+    if (!teardown_begin(list, wm, master, app)) return;
 
     /* NO procs->close(): never run a dead app's code (the death-vs-clean-quit
      * distinction; ADR-0013 Sec 3.4). */

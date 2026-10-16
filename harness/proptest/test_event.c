@@ -101,6 +101,7 @@
 #include "test_assert.h"  /* seed/test_assert.h: TEST_HARNESS/CHECK/TEST_SUMMARY */
 
 TEST_HARNESS();
+#include "expect_abort.h"
 
 /* ===========================================================================
  * HELPERS
@@ -943,6 +944,34 @@ static void test_named_mutant_gate(void)
 /* ===========================================================================
  * main
  * ===========================================================================*/
+/* Factory-only state seam; no test symbol is compiled into the kernel. */
+extern void flair_event_test_set_tick(uint32_t tick);
+static unsigned wrap_yields;
+static void wrap_tick(void) { wrap_yields++; flair_tick_advance(); }
+static void test_tick_wrap(void)
+{
+    flair_raw_ring_t ring;
+    EventRecord ev;
+    fresh_ring(&ring);
+    flair_event_test_set_tick(0xfffffffdu);
+    wrap_yields = 0;
+    flair_event_set_yield(wrap_tick);
+    CHECK(WaitNextEvent(&ring, everyEvent, &ev, 5) == 0, "gwts wrap timeout returns null");
+    CHECK(wrap_yields == 5 && ev.when == 2, "gwts timeout waits five ticks through wrap");
+    flair_event_set_yield(NULL);
+}
+static void test_drop_marker(void)
+{
+    flair_raw_ring_t ring;
+    EventRecord ev;
+    flair_raw_event_t raw = { FLAIR_RAW_TICK, 0, 0 };
+    fresh_ring(&ring);
+    for (unsigned i = 0; i < FLAIR_RAW_RING_CAP + 3; i++) (void)flair_raw_post(&ring, &raw);
+    EXPECT_MARKER({ (void)GetNextEvent(&ring, everyEvent, &ev);
+                    (void)GetNextEvent(&ring, everyEvent, &ev); },
+                  "FLAIR-EVT-DROP\n", "owpg event drop reported exactly once in task context");
+}
+
 int main(void)
 {
     test_deterministic_replay();
@@ -955,6 +984,8 @@ int main(void)
     test_random_determinism();
     test_set1_producer_encoding();
     test_named_mutant_gate();
+    test_tick_wrap();
+    test_drop_marker();
 
     return TEST_SUMMARY("test_event");
 }

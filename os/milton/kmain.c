@@ -25,6 +25,7 @@
 #include "boot_info.h"
 #include "memory_map.h"  /* high kernel runway (tdnl.29) + FLAIR heap contract */
 #include "console.h"
+#include "../flair/surface.h" /* gv2x: shared by every boot variant */
 #include "idt.h"
 #include "pic.h"
 #include "int21.h"
@@ -220,7 +221,7 @@ static void serial_putc(char c)
     outb(COM1_THR, (uint8_t)c);
 }
 
-static void serial_puts(const char *s)
+void serial_puts(const char *s)
 {
     while (*s) {
         serial_putc(*s++);
@@ -290,14 +291,11 @@ static void fb_clear(const boot_info_t *bi, uint8_t r, uint8_t g, uint8_t b)
             fb[i] = px;
         }
     } else {
-        /* 24bpp: B,G,R byte triples per pixel (stage2.asm fill24). */
-        volatile uint8_t *fb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
-        uint32_t pixels = total / 3u;
-        for (uint32_t i = 0; i < pixels; i++) {
-            fb[i * 3u + 0u] = b;
-            fb[i * 3u + 1u] = g;
-            fb[i * 3u + 2u] = r;
-        }
+        /* gv2x: pitch may include padding; never flatten BGR triples across
+         * scanlines. PRD Sec 5; surface_clear is host mutation-proven. */
+        bitmap_t dst = { (volatile uint8_t *)(uintptr_t)bi->lfb_addr,
+                         bi->lfb_pitch, 24, 3, bi->lfb_width, bi->lfb_height };
+        surface_clear(&dst, ((uint32_t)r << 16) | ((uint32_t)g << 8) | b);
     }
 }
 

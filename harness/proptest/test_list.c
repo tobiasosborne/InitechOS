@@ -452,5 +452,29 @@ int main(void)
               "step-8: LSetCell(NULL list) -> FLAIR_LIST_ERR_NULL (-5)");
     }
 
+    /* Rule 2, 14oe/6vvw: NULL has a distinct error, never a miss. */
+    {
+        Cell c = { 0, 0 };
+        flair_point_t p = { 21, 11 };
+        CHECK(FlairLGetSelect(NULL, c) == FLAIR_LIST_ERR_NULL, "14oe NULL selection error");
+        CHECK(FlairLClick(&l, p, NULL) == FLAIR_LIST_ERR_NULL, "6vvw NULL hit output error");
+        CHECK(FlairLClick(NULL, p, &c) == FLAIR_LIST_ERR_NULL, "6vvw NULL list error");
+    }
+    {
+        static FlairList bounded;
+        Cell size = { 16, 80 };
+        rgn_rect_t view = { 20, 10, 84, 90 };
+        FlairList_init(&bounded, size, view);
+        CHECK(FlairLAddRow(&bounded, 1, -1) == 0, "row setup");
+        CHECK(FlairLAddRow(&bounded, 32767, -1) == FLAIR_LIST_ERR_OVERFLOW,
+              "8mip row addition must not wrap int16");
+        CHECK(bounded.dataBounds.bottom == 1, "8mip rejected add preserves bounds");
+        FlairList_init(&bounded, size, view);
+        CHECK(FlairLAddRow(&bounded, 33, -1) == FLAIR_LIST_ERR_OVERFLOW,
+              "nbnx row capacity rejects 33");
+        bounded.dataBounds.left = bounded.dataBounds.right = FLAIR_LIST_MAX_COLS;
+        CHECK(FlairLAddRow(&bounded, 1, -1) == FLAIR_LIST_ERR_OVERFLOW,
+              "42dq auto column needs backing-store headroom");
+    }
     return TEST_SUMMARY("test-list");
 }

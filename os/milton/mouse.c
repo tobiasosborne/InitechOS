@@ -26,6 +26,7 @@
  */
 
 #include "mouse.h"
+#include "mouse_pack.h"
 #include "io.h"
 
 /* --- 8042 PS/2 controller ports (Intel 8042 datasheet; standard ISA) ------ */
@@ -72,6 +73,7 @@
 /* --- packet-assembly state (ISR-private; single producer, no concurrency) -- */
 static uint8_t  g_pkt[3];        /* the 3 PS/2 packet bytes                     */
 static uint32_t g_phase;         /* next byte index 0..2                        */
+static uint8_t g_previous_buttons;
 
 /* Completed-packet hook (NULL default; mouse.h contract). Written once from
  * task context BEFORE sti, read in ISR context -- no concurrent writer. */
@@ -133,6 +135,7 @@ static uint8_t ps2_read_data(void)
 void mouse_init(void)
 {
     g_phase = 0u;
+    g_previous_buttons = 0u;
 
     /* (1) Drain any stale byte the firmware left in the 8042 output buffer so
      * the first real IRQ12 is not preceded by a ghost byte (8042: a pending
@@ -218,9 +221,6 @@ void mouse_irq_handler(void)
         if (g_phase >= 3u) {
             g_phase = 0u;
             uint8_t  b0 = g_pkt[0];
-            int8_t   dx = (int8_t)g_pkt[1];   /* signed PS/2 X delta (+ = right) */
-            int8_t   dy = (int8_t)g_pkt[2];   /* signed PS/2 Y delta (+ = up)    */
-            uint8_t  buttons = (uint8_t)(b0 & PKT_BTN_MASK);
             if (g_mouse_event_hook) {
                 /* RAW PS/2 deltas, UN-FLIPPED (ADR-0004 D-4: the ISR posts
                  * raw; it does no cooking). dy is still "+ = up" PS/2
@@ -234,7 +234,9 @@ void mouse_irq_handler(void)
                  * (g_cursor_v += dy) -- it does NOT flip anything itself.
                  * initech-rgt8: this comment previously said the PUMP does
                  * the flip, which was wrong and matched the bug it hid. */
-                g_mouse_event_hook((int)dx, (int)dy, buttons);
+                mouse_post_packet(b0, g_pkt[1], g_pkt[2], g_previous_buttons,
+                                  g_mouse_event_hook);
+                g_previous_buttons = (uint8_t)(b0 & PKT_BTN_MASK);
             }
         }
     }

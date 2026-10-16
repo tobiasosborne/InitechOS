@@ -88,7 +88,7 @@ static void fx_set(FlairSFEntry *e, const char *name, uint8_t is_dir,
 static int fixture_provider(const char *path, FlairSFEntry *out, int16_t max,
                             void *user)
 {
-    (void)user;
+    if (user != NULL && strcmp(path, "/DATA") == 0) return -1;
     if (strcmp(path, "/") == 0) {
         if (max < 3) return -1;
         fx_set(&out[0], "REPORT.DBF", 0, 2048);
@@ -275,5 +275,15 @@ int main(void)
     CHECK(row_equals(&sf, 0, "Q1.WKS"),
           "step-7: after folder-Open, row 0 == \"Q1.WKS\" (descended into DATA)");
 
+    /* q9cr: a rejected folder navigation cannot describe a successful descent. */
+    CHECK(FlairSF_open(&sf, fixture_provider, &sf, cs, rv) == FLAIR_SF_OK,
+          "q9cr provider setup");
+    FlairSF_select(&sf, 1);
+    memset(&reply, 0xcc, sizeof reply);
+    FlairSF_doOpen(&sf, &reply);
+    CHECK(reply.good == 0 && reply.is_dir == 0 && reply.fName[0] == 0,
+          "q9cr failed navigation returns no selection");
+    CHECK(FlairSF_count(&sf) == 3 && row_equals(&sf, 0, "REPORT.DBF"),
+          "q9cr rejected descent preserves parent list");
     return TEST_SUMMARY("test-stdfile");
 }
