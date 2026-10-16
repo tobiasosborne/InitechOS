@@ -228,7 +228,9 @@ end
 %% named).  \InRef{Block} prints "Block in Reference" in the model's form.
 \newcommand\InRef[1]{\directlua{initech_wpc.ref("\luaescapestring{#1}")}\textit{#1} in \textit{Reference}}
 %% From another book (the Workbook names Reference entries it cannot check).
-\newcommand\RefEntry[1]{\textit{#1} in the \textit{InitechWord Reference}}
+%% (the target is written to <job>.wpfeatures: the gate checks it is an
+%% entry of the Reference)
+\newcommand\RefEntry[1]{\directlua{initech_wpc.write_feats("\luaescapestring{#1}")}\textit{#1} in the \textit{InitechWord Reference}}
 \AtEndDocument{\directlua{initech_wpc.check_refs()}}
 
 %% ---- keys, menu choices, codes, typed text in running text --------------

@@ -1,0 +1,79 @@
+% Lesson 3 (AN-18): Retrieve, the cursor keys, inserting and deleting text,
+% Save with Replace.  Uses MEMO from Lesson 2.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{3}{Memo (Second Draft)}
+\LessonFeatures{Retrieve; Cursor Movement; Delete; Save}
+Bill has read the first draft and wants two changes: the cover sheets are
+on the third floor, not the second, and he wants the memo to say that the
+change takes effect immediately.  In this lesson you retrieve the memo,
+move the cursor to the places to change, and save the second draft.
+
+\BeginReplay{l03}
+\Task{Retrieving the Memo}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}.  The status line shows
+\Scr{Document to be Retrieved:}.
+\PullDown{Select \Mi{R}etrieve from the \Mi{F}ile menu.}
+\item Type \TypeName{memo} and press \PressKey{Enter}.
+\end{WPSteps}
+The memo appears with the cursor at the top, and its name on the status
+line.
+\CompareScreen[rows=24]{l03-1}
+
+\Task{Moving the Cursor}
+The arrow keys move the cursor one character or one line at a time; Home
+moves it farther.
+\begin{WPSteps}
+\item Press \PressKey{Down} eight times to reach the first line of the
+first paragraph.  The blank lines count: each is a line of its
+own.\Keys{Down Down Down Down Down Down Down}
+\item Press \PressKey{End} to move to the end of that line, and
+\PressKey{Home}, \PressKey{Left} to move back to its start.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the memo, and \PressKey{Home}, \PressKey{Home}, \PressKey{Up} to come back
+to the top.
+\end{WPSteps}
+
+\Task{Changing the Floor}
+\begin{WPSteps}
+\item Press \PressKey{Down} nine times to reach the second line of the
+first paragraph, the one that ends with \textit{second}.\Keys{Down Down Down Down Down Down Down Down}
+\item Press \PressKey{End} to go to the end of the line, then press
+\PressKey{Left} six times to put the cursor on the \textit{s} of
+\textit{second}.\Keys{Left Left Left Left Left}
+\item Press \PressKey{Delete} six times to erase \textit{second}.\Keys{Delete Delete Delete Delete Delete}
+\item Type \TypeRun{third}.  The text you type goes in at the cursor, and the
+rest of the paragraph moves along to make room.
+\end{WPSteps}
+\CompareScreen[rows=24]{l03-2}
+
+\Task{Adding a Sentence}
+The first sentence of the paragraph ends at the start of this line, with
+\textit{sheet.}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Left} to go to the start of the line,
+then \PressKey{Right} six times to put the cursor just after the period.\Keys{Right Right Right Right Right}
+\item Type the new sentence, with a space in front of it:
+\Type{ The change takes effect immediately.}
+\end{WPSteps}
+InitechWord wraps the paragraph again as you type, so its lines always end
+where they should.
+\CompareScreen[rows=24]{l03-3}
+
+\Task{Saving the Second Draft}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}.  The status line offers the memo's own name,
+\Scr{MEMO}.
+\item Press \PressKey{Enter} to save under that name.  The status line asks
+\Scr{Replace A:\wbs MEMO? No (Yes)}: the first draft is already on the disk
+under that name.
+\item Type \TypeName{y} to replace the first draft with the second.
+\end{WPSteps}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}, then type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 4 you make the subject line bold and finish the memo.
