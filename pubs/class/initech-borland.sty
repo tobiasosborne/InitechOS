@@ -127,8 +127,8 @@
 \setcounter{tocdepth}{2}
 \titlecontents{part}[0pt]{\addvspace{10pt}\sffamily\bfseries}
   {}{}{\hfill}[\endgraf\vspace{-3pt}\titlerule]
-\titlecontents{chapter}[0pt]{\addvspace{7pt}\sffamily\bfseries\fontsize{9}{11}\selectfont}
-  {\im@tocname\ \thecontentslabel\enspace}{}{\hfill\contentspage}
+\titlecontents{chapter}[0pt]{\addvspace{7pt}\sffamily\bfseries\fontsize{9}{11}\selectfont\hyphenpenalty=10000\RaggedRight}
+  {\im@tocname~\thecontentslabel\quad}{}{\hfill\contentspage}
 \titlecontents{section}[0.8em]{\fontsize{9}{11}\selectfont}
   {}{}{\titlerule*[0.6em]{.}\contentspage}
 \titlecontents{subsection}[1.6em]{\fontsize{8.5}{10.5}\selectfont}

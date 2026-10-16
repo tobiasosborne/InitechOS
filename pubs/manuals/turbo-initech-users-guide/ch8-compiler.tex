@@ -1,0 +1,174 @@
+% Chapter 8 -- The command-line compiler (model: TP 6.0 UG Ch 9).  The
+% reference for TPS.COM: its files, every line it prints (KIND protocol and
+% dumprow, registered against the generated inventory both ways), the exit
+% code, and every capacity with its value as shipped (KIND limit).
+% Sources (Law 1): os/tps/tps.pas (the driver, RunLexer/RunParser/
+% RunTypeChecker/RunCodeGenerator, DumpToken, TraceEnter/TraceExit, the
+% symbol dump writers, the constants SourceMax ... PendingNameMax and the
+% checks that use them); os/tps/LEXER-DUMP.md, PARSER-TRACE.md,
+% SYMBOLS-DUMP.md, CODEGEN.md s1; seed/rt/fileio.asm (missing TPSIN.PAS).
+% The listings are replayed by test-pubs-tps; test-tps-*-os prove TPS.COM
+% prints the same on InitechDOS.
+\Gates{test-tps-lex-fpc, test-tps-lex-os, test-tps-parse-fpc, test-tps-parse-os, test-tps-type-fpc, test-tps-type-os, test-tps-gen-fpc, test-tps-gen-os, test-pubs-tps}
+\chapter{The command-line compiler}
+\ix{command-line compiler}
+\ix{TPS command}
+
+This chapter is the reference for the compiler command, \file{TPS.COM}: the
+files it uses, everything it prints, and its capacities.
+
+\section{The TPS command}
+\SyntaxLine{TPS}
+
+\file{TPS.COM} takes no parameters and has no options.  It reads the
+program from the file \file{TPSIN.PAS} in the current directory and, when
+the program compiles, writes the assembly language to \file{TPSOUT.S} in
+the same directory.  Everything else it reports goes to COM1.
+
+If \file{TPSIN.PAS} does not exist, \file{TPS.COM} stops with the message
+\code{FILEIO-ERROR AX=2} on COM1, as every Turbo Initech program does when a
+file it opens is missing (the \doctitle{Programmer's Guide}, Chapter 12).
+\file{TPS.COM} ends with exit code 0 whenever it has read the whole program,
+whether or not the program compiled; the lines it prints say whether it
+did.  \file{TPSOUT.S} is written only by a compilation in which all four
+passes succeed.
+
+\section{The output}
+\ix{compiler output}
+The compiler reads the program four times.  The report of each pass
+begins and ends with a line of its own, and either reports success or one
+error:
+
+\begin{BorTable}{Lines of the compiler's output}{p{36mm}p{62mm}}
+\Hd{Line} & \Hd{Meaning}\EndHd
+\ProtocolItem{TPS-LEX-BEGIN} & start of the token listing\\
+\ProtocolItem{TPS-LEX-ERROR} & a lexical error, with its position (ends the
+  listing)\\
+\ProtocolItem{TPS-LEX-END} & end of the token listing\\
+\ProtocolItem{TPS-PARSE-BEGIN} & start of the syntax trace\\
+\ProtocolItem{TPS-PARSE-OK} & the program follows the grammar\\
+\ProtocolItem{TPS-PARSE-ERROR} & a syntax error\\
+\ProtocolItem{TPS-PARSE-SKIP} & the pass was skipped: \code{lexer-error}\\
+\ProtocolItem{TPS-PARSE-END} & end of the syntax trace\\
+\ProtocolItem{TPS-TYPE-BEGIN} & start of the symbol listing\\
+\ProtocolItem{TPS-TYPE-OK} & the declarations and types are correct\\
+\ProtocolItem{TPS-TYPE-ERROR} & a semantic error\\
+\ProtocolItem{TPS-TYPE-SKIP} & skipped: \code{lexer-error} or
+  \code{parser-error}\\
+\ProtocolItem{TPS-TYPE-END} & end of the symbol listing\\
+\ProtocolItem{TPS-GEN-BEGIN} & start of code generation\\
+\ProtocolItem{TPS-GEN-OK} & \file{TPSOUT.S} written: \code{bytes=} its
+  size, \code{labels=} the number of labels\\
+\ProtocolItem{TPS-GEN-ERROR} & a code-generation error\\
+\ProtocolItem{TPS-GEN-SKIP} & skipped: \code{lexer-error},
+  \code{parser-error} or \code{type-error}\\
+\ProtocolItem{TPS-GEN-END} & end of code generation\\
+\end{BorTable}
+
+The error lines and their messages are described in the
+\doctitle{Programmer's Guide}, Appendix A.
+
+\section{The token listing}
+\ix{token listing}
+Between \code{TPS-LEX-BEGIN} and \code{TPS-LEX-END} the compiler lists one
+token per line:
+
+\begin{BorTable}{Rows of the token listing}{p{36mm}p{62mm}}
+\Hd{Row} & \Hd{Token}\EndHd
+\DumpRowItem{KW} \textit{word} & a reserved word, in small letters\\
+\DumpRowItem{IDENT} \textit{name} & an identifier, in small letters\\
+\DumpRowItem{INTEGER} \textit{value} & a number\\
+\DumpRowItem{STRING} \textit{n} \textit{c}\dots & a string literal: its
+  length, then the code of each character\\
+\code{SEMI}, \code{ASSIGN}, \dots & a symbol, by its kind name
+  (\doctitle{Programmer's Guide}, Appendix B)\\
+\code{EOF} & the end of the file\\
+\end{BorTable}
+
+Comments and blanks produce no rows.  Writing each character of a string by
+its code makes apostrophes and blanks unambiguous:
+
+\Program{strs}
+
+\CompilerOutput{strs}{LEX}
+
+\section{The syntax trace}
+\ix{syntax trace}
+Between \code{TPS-PARSE-BEGIN} and \code{TPS-PARSE-END} the compiler writes
+a row each time it begins and finishes recognizing a rule of the grammar:
+
+\begin{BorTable}{Rows of the syntax trace}{p{36mm}p{62mm}}
+\Hd{Row} & \Hd{Meaning}\EndHd
+\DumpRowItem{ENTER} \textit{rule} \code{L}\textit{n} & the rule begins; the
+  next token is on line \textit{n}\\
+\DumpRowItem{EXIT} \textit{rule} \code{L}\textit{n} & the rule has been
+  recognized; the token after it is on line \textit{n}\\
+\end{BorTable}
+
+The rules are named as the syntax diagrams of the \doctitle{Programmer's
+Guide} are.  A rule in which an error is found has an \code{ENTER} row and no
+\code{EXIT} row.  Chapter 4 shows how to use the trace.
+
+\section{The symbol listing}
+\ix{symbol listing}
+Between \code{TPS-TYPE-BEGIN} and \code{TPS-TYPE-END} the compiler lists
+every name the program declares, global names first in the order of their
+declarations, then the names of each routine:
+
+\begin{BorTable}{Rows of the symbol listing}{p{36mm}p{62mm}}
+\Hd{Row} & \Hd{Meaning}\EndHd
+\DumpRowItem{SCOPE} \code{global bytes=}\textit{n} & the global names;
+  \textit{n} bytes of global variables\\
+\code{SCOPE routine name=}\textit{r} \code{frame=}\textit{n} & the names of
+  routine \textit{r}; a frame of \textit{n} bytes\\
+\DumpRowItem{SYM} \code{kind=}\textit{k} \code{name=}\textit{x}
+  \code{type=}\textit{t} \dots & one name: its kind, name and type, then the
+  fields for the kind\\
+\DumpRowItem{FIELD} \code{owner=}\textit{r} \code{index=}\textit{i} \dots &
+  a field of record type \textit{r}, with its type, offset and size\\
+\end{BorTable}
+
+The kinds are \code{const}, \code{type}, \code{var}, \code{procedure},
+\code{function}, \code{value-param}, \code{var-param}, \code{result} and
+\code{local}.  Constants show their \code{value=}, or \code{value-length=}
+for a string; variables, parameters, results and locals their
+\code{offset=} and \code{size=} in bytes, and \code{array=}\textit{lo}..\textit{hi}
+for an array; routines the number of \code{params=} and their \code{frame=};
+record types the number of \code{fields=} and their \code{size=}.  The
+\doctitle{Programmer's Guide}, Chapter 10, explains the offsets.
+
+\Program{kinds}
+
+\CompilerOutput{kinds}{TYPE}
+
+\CompilerOutput{kinds}{GEN}
+
+\ProgramOutput{kinds}
+
+\section{Capacities}
+\ix{capacities}
+\ix{limits, compiler}
+The compiler keeps every table in a fixed array.  These are its
+capacities:
+
+\begin{BorTable}{Compiler capacities}{p{30mm}p{14mm}p{52mm}}
+\Hd{Capacity} & \Hd{Value} & \Hd{Limits}\EndHd
+\LimitItem{SourceMax}{262144} & 262144 & characters in the source file\\
+\LimitItem{PoolMax}{6144} & 6144 & characters in the spellings of all
+  the different identifiers together\\
+\LimitItem{NameMax}{704} & 704 & different identifiers\\
+\LimitItem{SymbolMax}{1024} & 1024 & rows of the symbol table: every
+  constant, type, field, variable, routine, parameter, result and local\\
+\LimitItem{HeaderParamMax}{32} & 32 & parameters of a routine; arguments of
+  a call\\
+\LimitItem{PendingNameMax}{32} & 32 & names in one declaration list, such
+  as \code{var A, B, C: integer}\\
+\LimitItem{ChunkMax}{255} & 255 & characters the compiler reads from the
+  source at one time; it is not a limit on lines\\
+\end{BorTable}
+
+A program beyond the first three capacities is reported as a lexical error
+(\code{input exceeds SOURCEMAX=}, \code{char pool exceeds POOLMAX=},
+\code{name table exceeds NAMEMAX=}); beyond the next three, as
+\code{semantic rule violation}.  In addition, an identifier or a string
+literal may have at most 255 characters.

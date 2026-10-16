@@ -1,0 +1,121 @@
+% Chapter 1 -- Getting started (model: TP 6.0 UG Ch 1 "Learning the new
+% IDE", AN-19 tutorial: the first program typed, compiled, run; numbered
+% steps; margin notes; ends on a forward pointer).  The IDE is not shipped
+% (ADR-0007 DEC-08, M8), so the tutorial uses the command-line compiler.
+% Sources (Law 1): os/tps/tps.pas (fixed TPSIN.PAS / TPSOUT.S, the four
+% bracketed regions); the Makefile gate test-tps-gen-os (TPS.COM typed as
+% `tps' at the InitechDOS prompt generates TPSOUT.S on the OS; the host
+% assembles and links; the .COM runs on InitechDOS); seed/rt/start_dos.asm
+% (output on COM1).  The compiler output shown is replayed by test-pubs-tps
+% through tps.pas built by Free Pascal; test-tps-lex-os, -parse-os,
+% -type-os and -gen-os prove TPS.COM prints the same on InitechDOS.
+\Gates{test-tps-lex-os, test-tps-parse-os, test-tps-type-os, test-tps-gen-os, test-compiler-os, test-pubs-tps}
+\chapter{Getting started}
+\ix{getting started}
+
+In this chapter you write a program, compile it with Turbo Initech, and
+run it.  Along the way you meet everything the compiler tells you about a
+program.  By the end of the chapter you will know the whole cycle that
+every Turbo Initech program goes through.
+
+\section{The cycle}
+\ix{compile cycle}
+A Turbo Initech program passes through four steps:
+
+\begin{enumerate}
+\item You write the program as a text file.
+\item The compiler, \file{TPS.COM}, reads the program from the file
+  \file{TPSIN.PAS} and writes it as assembly language to the file
+  \file{TPSOUT.S}.
+\item The assembly language is assembled and linked with the Turbo
+  Initech run-time library into a program file, such as \file{FIRST.COM}.
+\item You run the program at the InitechDOS prompt.
+\end{enumerate}
+
+\MarginNote{TPS always reads TPSIN.PAS.}The compiler does not take a file
+name: it always reads \file{TPSIN.PAS} in the current directory and always
+writes \file{TPSOUT.S}.  Keep each program in a file of its own name and
+copy it to \file{TPSIN.PAS} when you compile it.
+
+\section{Writing your first program}
+\ix{first program}
+\begin{enumerate}
+\item Start the editor.  With the InitechDOS line editor, type
+  \typed{EDLIN FIRST.PAS} and press \key{Enter}.
+\item Type the program exactly as shown:
+
+\Program{first}
+
+\item Save the file and leave the editor.  In EDLIN, the command \typed{I}
+  inserts the lines you type, \key{Ctrl-C} ends the insertion, and the
+  command \typed{E} saves the file and ends EDLIN (\doctitle{InitechDOS
+  Reference}, EDLIN).
+\end{enumerate}
+
+\rw{program} names the program; the statements between \rw{begin} and
+\rw{end} are what it does; the period ends it.  \std{writeln}{Writeln}
+writes the text between the apostrophes and ends the line.
+
+\section{Compiling the program}
+\ix{compiling}
+\begin{enumerate}
+\item Copy the program to the compiler's input file: type
+  \typed{COPY FIRST.PAS TPSIN.PAS} and press \key{Enter}.
+\item Type \typed{TPS} and press \key{Enter}.
+\end{enumerate}
+
+The compiler reads the program four times, each time doing more with it,
+and reports each reading on COM1 between a pair of lines.  The first part
+lists the tokens of the program, the words and symbols it is made of:
+
+\CompilerOutput{first}{LEX}
+
+The second part traces how the compiler recognized the structure of the
+program: it entered the \textit{program} rule on line 1, the
+\textit{block} on line 2, and so on, and it ends with \code{TPS-PARSE-OK}:
+
+\CompilerOutput{first}{PARSE}
+
+The third part lists the names the program declares.  This program
+declares none, so the list is empty:
+
+\CompilerOutput{first}{TYPE}
+
+The last part reports the assembly language written to \file{TPSOUT.S}:
+587 bytes, with one label.
+
+\CompilerOutput{first}{GEN}
+
+\MarginNote{Look for the -OK lines.}When all four parts end with
+\code{-OK}, the program has compiled.  When the compiler finds an error, it
+prints a line ending in \code{-ERROR} that says where the error is and what
+it is, and does not write \file{TPSOUT.S}; Chapter 4 shows you how to read
+these lines.
+
+\section{Making the program file}
+\ix{assembling}
+\ix{linking}
+\file{TPSOUT.S} is assembled and linked with the Turbo Initech run-time
+library into the program file \file{FIRST.COM}.  The
+\doctitle{Programmer's Guide}, Chapter 15, describes the file and how it is
+linked.
+\draft{an InitechOS-resident assembler and linker are not built: TPSOUT.S
+is assembled and linked on the development system (Self-Compilation Guide,
+Chapter 3); milestone M8, bead initech-ls4}
+
+\section{Running the program}
+\ix{running a program}
+\begin{enumerate}
+\item At the InitechDOS prompt, type \typed{FIRST} and press \key{Enter}.
+\end{enumerate}
+
+The program writes to COM1:
+
+\ProgramOutput{first}
+
+and InitechDOS shows its prompt again.
+
+\section{Where to go from here}
+You have written, compiled and run a program.  Chapter 2 teaches the
+language: numbers, decisions, loops, characters and strings, arrays,
+records, routines and files, each with a short program to compile and run.

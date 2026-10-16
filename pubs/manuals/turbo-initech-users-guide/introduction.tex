@@ -1,0 +1,97 @@
+% Introduction (PUB-REF-0001 AN-21 F-BOR: what the product is and does,
+% the manuals and their jobs with routing, installing, typefaces, contact).
+% Sources (Law 1): ADR-0007 DEC-01/02/05/08; os/tps/tps.pas (TPSIN.PAS,
+% TPSOUT.S, output on the serial port through the RTL); seed/rt/start_dos.asm
+% (COM1); docs/pubs/originals/borland-turbo-pascal.md s1, s3.
+\Gates{test-pubs-build, test-tps-gen-os, test-compiler-os, test-pubs-tps}
+\IntroductionChapter
+
+Welcome to Turbo Initech\reg{}, the Pascal compiler for InitechOS.  Turbo
+Initech is small, fast to learn and exact: it accepts a compact Pascal,
+checks every program completely before it writes a single instruction,
+and turns the program into 80386 code that runs under InitechDOS\tm{}.
+Turbo Initech is written in its own language, and it compiles itself.
+
+This book shows you how to use Turbo Initech.  Chapters 1 through 5 teach
+you to write, compile, run and correct programs; Chapter 8 is the
+reference for the compiler's command and for everything it prints.
+
+\section{What is in Turbo Initech}
+\begin{itemize}
+\item The compiler \file{TPS.COM}, which reads a program from the file
+  \file{TPSIN.PAS} and writes its translation to \file{TPSOUT.S}.
+\item A language with integers, characters, Boolean values, strings,
+  constants, arrays, records, procedures and functions with value and
+  \rw{var} parameters, recursion, and files.
+\item A run-time library that writes to the serial port and reads and
+  writes files through InitechDOS.
+\item Listings of every pass of the compiler: the tokens, the structure
+  of the program, and the layout of every variable.
+\end{itemize}
+
+\section{What you need}
+\ix{system requirements}
+\begin{itemize}
+\item A computer running InitechOS with InitechDOS, as described in the
+  \doctitle{InitechDOS User's Guide}.
+\item A terminal, or a second computer with a communications program,
+  connected to the first serial port, COM1.  The compiler and the programs
+  it compiles write their output to COM1, not to the display.
+\item A text editor to write programs, such as the InitechDOS line editor
+  \cmd{EDLIN}.
+\end{itemize}
+
+\section{The Turbo Initech manuals}
+\ix{manuals}
+\SideHead{User's Guide}This book (1077-0000-10) teaches the language by
+example and describes the compiler.  Begin here.
+
+\SideHead{Programmer's Guide}The \doctitle{Turbo Initech Programmer's
+Guide} (1077-0000-11) is the definition of the language: its syntax, every
+rule, the layout of data in memory, the code the compiler writes, and every
+message.
+
+\SideHead{Library Reference}The \doctitle{Turbo Initech Library Reference}
+(1077-0000-12) describes each standard procedure and function.
+
+\SideHead{Self-Compilation Guide}The \doctitle{Turbo Initech
+Self-Compilation Guide} (1077-0000-13) describes how Turbo Initech is
+built and how it proves that it reproduces itself.
+
+\SideHead{Quick Reference}The \doctitle{Turbo Initech Quick Reference}
+(1077-0000-20) summarizes the language on a few pages.
+
+If you know Pascal already, read Chapter 1 of this book and then the
+\doctitle{Programmer's Guide}, whose margin notes mark the places where
+Turbo Initech differs from other Pascal compilers.  If you want to know
+what a message means, look it up in the \doctitle{Programmer's Guide},
+Appendix A.
+
+\section{Installing Turbo Initech}
+\ix{installing}
+Turbo Initech needs no installation program: copy \file{TPS.COM} to the
+directory in which you keep your programs.
+\draft{the Turbo Initech distribution diskette is not produced, and
+TPS.COM is not on the shipped InitechOS data diskette; it is built by the
+genesis compiler (Self-Compilation Guide, Chapter 3)}
+
+\section{Typefaces used in these books}
+\ix{typefaces}
+\begin{BorTable}{Typefaces}{p{38mm}p{62mm}}
+\Hd{Example} & \Hd{Meaning}\EndHd
+\texttt{Writeln(Total);} & Program text, file names, and what the compiler
+  and your programs print\\
+\texttt{\bfseries begin} & A reserved word inside program text\\
+\textbf{begin} & A reserved word in running text\\
+\textit{Count} & An identifier of your program, a placeholder, or a
+  standard routine named in running text\\
+\typed{TPS} & Something you type\\
+\key{Enter} & A key on the keyboard\\
+\MarginFace Margin note & A note on the paragraph beside it
+\end{BorTable}
+
+\section{How to contact Initech}
+\ix{technical support}
+If you have a question that the manuals do not answer, call the Initech
+Help Desk at 555-0125, extension 2504, or write to \InitechAddressLine.
+Please have the program, and the line the compiler printed, at hand.

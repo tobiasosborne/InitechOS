@@ -1,0 +1,51 @@
+% Turbo Initech User's Guide -- part 1077-0000-10 (PUB-REF-0001 Sec 12,
+% DS row TIN-UG).  Family F-BOR; model the Turbo Pascal 6.0 User's Guide
+% (docs/pubs/originals/borland-turbo-pascal.md s1, s4.1, s6.2, s7).
+% Bead initech-ipu5.12.  AN-19 tutorial chapters (1-5), the command-line
+% compiler reference (8, AN-13 protocol and capacities registered against
+% the generated inventory); the IDE and editor chapters (6, 7) are DRAFT:
+% the resident IDE is milestone M8 (ADR-0007 DEC-08), not shipped (D-14).
+% Every program is replayed (Free Pascal, the seed, Turbo Initech,
+% InitechDOS) by make test-pubs-tps.  The build
+% displays no version, so the book prints none and the part number carries
+% 0000 (D-3, PN-03).
+\documentclass[borland]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+
+\ProductName{Turbo Initech}
+\ProductVersion{}
+\DocTitle{User's Guide}
+\PartNumber{1077-0000-10}
+\FamilyName{Programming Family}
+\FamilyColor{FamilyProgramming}
+\Edition{First Edition (September 1992)}
+\EditionApplies{This edition applies to Turbo Initech and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1992}
+\Revision{R1}
+\PrintCode{A1-9/92}
+\Trademarks{Turbo Initech is a registered trademark of Initech Systems
+  Corporation.  InitechOS, InitechDOS and FLAIR are trademarks of Initech
+  Systems Corporation.  Intel, 80386 and 80486 are trademarks of Intel
+  Corporation.  All other product names are trademarks of their respective
+  holders.}
+\newcommand\term[1]{\textbf{#1}}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{introduction}
+\input{ch1-getting-started}
+\input{ch2-programming}
+\input{ch3-larger}
+\input{ch4-debugging}
+\input{ch5-building}
+\input{ch6-ide}
+\input{ch7-editor}
+\input{ch8-compiler}
+\printindex
+\FinishBook
+\end{document}

@@ -1,0 +1,139 @@
+% Chapter 4 -- Debugging Turbo Initech programs (model: TP 6.0 UG Ch 5:
+% the taxonomy of bugs, then the tools; Turbo Initech has no integrated
+% debugger, ADR-0007 DEC-08, so the tools are the compiler's own listings
+% and tracing output).  AN-19.
+% Sources (Law 1): os/tps/tps.pas FailLex/FailParse/FailType/GenFail and
+% the SKIP lines; os/tps/PARSER-TRACE.md (ENTER/EXIT trace, L = line of the
+% lookahead), SYMBOLS-DUMP.md; seed/rt/fileio.asm (FILEIO-ERROR); ADR-0007
+% DEC-03 (complete evaluation).  Every diagnostic and listing shown is
+% replayed by test-pubs-tps.
+\Gates{test-tps-lex-fpc, test-tps-parse-fpc, test-tps-type-fpc, test-tps-parse-mutant, test-compiler, test-pubs-tps}
+\chapter{Debugging Turbo Initech programs}
+\ix{debugging}
+\ix{errors}
+
+A \term{bug} is a difference between what a program does and what you
+meant it to do.  Some bugs the compiler finds for you; others only show
+when the program runs.  This chapter shows how to find both kinds.
+
+\section{The kinds of errors}
+\begin{itemize}
+\item A \term{lexical error} is a character or token the compiler cannot
+  read: a stray symbol, an unclosed string or comment.
+\item A \term{syntax error} is a program that does not follow the grammar:
+  a missing semicolon, a missing \rw{end}, a call without parentheses.
+\item A \term{semantic error} is a program whose grammar is right but whose
+  meaning is not allowed: a name not declared, a value of the wrong type.
+\item A \term{run-time error} stops a compiled program: in Turbo Initech,
+  only a failed file operation does so.
+\item A \term{logical error} produces a wrong result without any message.
+\end{itemize}
+
+The compiler stops at the first error of the first three kinds and tells
+you which pass found it.
+
+\section{Reading the compiler's messages}
+\ix{error messages, reading}
+Every message gives the line and the column of the error.  This program
+has an apostrophe inside a string:
+
+\Source{err-quote}
+
+\CompilerOutput{err-quote}{ERR}
+
+The string \code{'Didn'} ended at the second apostrophe; the words after it
+were read as identifiers, and the apostrophe after \code{you}, in column 32,
+began a new string that the end of the line left unclosed.  Write an
+apostrophe inside a string as two apostrophes: \code{'Didn''t'}.  The other
+passes were skipped.
+
+A syntax error names the token that was found and what the grammar
+expected in its place:
+
+\Source{err-noparens}
+
+\CompilerOutput{err-noparens}{ERR}
+
+The compiler read \id{Beep} as the start of an assignment and expected
+\code{:=}.  A procedure call needs its parentheses: \code{Beep()}.
+
+A semantic error comes after the syntax pass has printed
+\code{TPS-PARSE-OK}:
+
+\Source{err-undeclared}
+
+\CompilerOutput{err-undeclared}{ERR}
+
+The name \id{Totl}, misspelled, is not declared.  The message
+\code{semantic rule violation} covers every rule that has no message of its
+own; the \doctitle{Programmer's Guide}, Appendix A, lists the rules, and
+the column points at the construct concerned.
+
+\section{Seeing how the compiler read a statement}
+\ix{parse trace}
+The second part of the compiler's output traces every rule of the grammar
+it entered and left, with the line it had reached.  When a statement does
+not do what you expect, the trace shows how the compiler grouped it.  In
+this program, which \rw{if} does the \rw{else} belong to?
+
+\Program{dangle}
+
+\ProgramOutput{dangle}
+
+\CompilerOutput{dangle}{PARSE}
+
+The \textit{else-clause} is entered inside the second \textit{stmt-if}, the
+one on line 7, before that \rw{if} is left: the \rw{else} belongs to the
+inner \rw{if}, the nearest one.  If you meant it for the outer \rw{if},
+put the inner \rw{if} statement between \rw{begin} and \rw{end}.
+
+\section{Checking declarations}
+\ix{symbol dump}
+The third part lists every name with its kind and type.  For the program
+\file{TAX.PAS} of Chapter 2 it is:
+
+\CompilerOutput{tax}{TYPE}
+
+The list shows the parameters of each routine and their types.  A
+parameter you meant to be a \rw{var} parameter shows as
+\code{value-param}; a function result shows as \code{result}.  Chapter 8
+describes every column.
+
+\section{Tracing a running program}
+\ix{tracing}
+To see what a program does while it runs, write the values of its
+variables with \std{writeln}{Writeln}.  A Boolean constant or variable
+that switches the tracing on and off saves you from deleting the lines
+afterward:
+
+\Program{trace}
+
+\ProgramOutput{trace}
+
+\section{Common mistakes}
+\SideHead{Semicolon before else}\code{if A then B; else C} is a syntax
+error: the semicolon ends the \rw{if} statement.
+
+\SideHead{Calls without parentheses}Every call has parentheses, even
+\code{Beep()}.
+
+\SideHead{Strings first in Write}An argument of \std{write}{Write} that
+begins with a string literal is that literal alone; write
+\code{Writeln(('A' + S))}, not \code{Writeln('A' + S)}.
+
+\SideHead{Guards with and}\code{(I <= Size) and (A[I] = X)} reads
+\code{A[I]} even when \id{I} is beyond \id{Size}.  Use nested \rw{if}
+statements.
+
+\SideHead{Overflow}Integer arithmetic wraps around without a message:
+$2147483647 + 1$ is $-2147483648$.
+
+\SideHead{Indexes}Indexes are not checked.  An index outside the bounds
+reads or overwrites other variables.
+
+\SideHead{Local variables}A local variable has no value until you assign
+one; global variables start at zero.
+
+\section{Where to go from here}
+Chapter 5 describes how a compiled program becomes a program file, and
+what limits apply to it.

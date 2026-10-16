@@ -1,0 +1,21 @@
+TPS-TYPE-BEGIN
+SCOPE global bytes=40
+SYM kind=const name=limit type=integer value=3
+SYM kind=const name=title type=string value-length=3
+SYM kind=type name=sheet type=record fields=2 size=8
+FIELD owner=sheet index=0 name=pages type=integer offset=0 size=4
+FIELD owner=sheet index=1 name=filed type=boolean offset=4 size=4
+SYM kind=var name=total type=integer offset=0 size=4
+SYM kind=var name=stack type=sheet array=1..3 offset=4 size=24
+SYM kind=var name=name type=string[8] offset=28 size=12
+SYM kind=procedure name=count type=none params=2 state=defined frame=0
+SYM kind=function name=twice type=integer params=1 state=defined frame=8
+SCOPE routine name=count frame=0
+SYM kind=var-param name=n type=integer offset=8 size=4
+SYM kind=value-param name=step type=integer offset=12 size=4
+SCOPE routine name=twice frame=8
+SYM kind=value-param name=n type=integer offset=8 size=4
+SYM kind=result name=twice type=integer offset=-4 size=4
+SYM kind=local name=work type=integer offset=-8 size=4
+TPS-TYPE-OK
+TPS-TYPE-END
