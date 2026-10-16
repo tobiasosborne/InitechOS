@@ -6,8 +6,11 @@
 ;   1. takes the table name from the default FCB COMMAND.COM formatted at
 ;      PSP:5Ch (IBM DOS 3.30 Technical Reference p. 7-8);
 ;   2. enforces the OPERATING PROCEDURE of spec/tps_ritual.json (R1..R5) --
-;      parameter file, form-feed alignment (space bar EXACTLY 7 times), report
-;      number keyed twice, memo acknowledgement, cover-sheet attestation;
+;      parameter file, top-of-form alignment (the alignment test line; the
+;      operator advances the form with the space bar EXACTLY 7 times -- a count
+;      the program NEVER states: it is taught only by the Operating Procedures,
+;      OP-7.4, beads initech-5igf), report number keyed twice, memo
+;      acknowledgement, cover-sheet attestation naming FORM TPS-1 (REV. 10/89);
 ;   3. reads the dBASE III table (header, field descriptors, records; deleted
 ;      records skipped) through FCB random reads of 128-byte records;
 ;   4. lists the .DBF files on file with FCB search first/next;
@@ -26,7 +29,9 @@
 ; pp. 7-8, 7-12..7-16 (PSP default FCBs, FCB layout); dBASE III PLUS .DBF
 ; header (../dbase3-decomp: 32-byte header, 32-byte field descriptors ended by
 ; 0Dh, records led by a deletion flag). Rule 12 ASCII; Rule 11 deterministic.
-; Mutant (Rule 6): -DTPS_MUTATE_COUNT6 accepts 6 space-bar presses.
+; Mutants (Rule 6): -DTPS_MUTATE_COUNT6 accepts 6 space-bar presses;
+; -DTPS_MUTATE_SAY7 states the count in the R2 prompt (the tacit rule: the
+; count and the key are written only in the manual, spec/tps_ritual.json R2).
 
 %ifdef REALDOS
 bits 16
@@ -40,7 +45,7 @@ PSP equ 0x00040000
 
 %ifdef TPS_MUTATE_COUNT6
 FORM_COUNT equ 6               ; MUTANT (Rule 6): six presses accepted; the
-                               ; wording still says 7, so only BEHAVIOUR differs
+                               ; wording is unchanged, so only BEHAVIOUR differs
 %else
 FORM_COUNT equ 7               ; spec/tps_ritual.json R2 "count": 7
 %endif
@@ -242,12 +247,17 @@ start:
     jmp finish
 
 ; ---- R2..R5: the operating procedure --------------------------------------
+; R2 top of form alignment (spec/tps_ritual.json R2; Ref: IBM 4230 Printer
+; User's Guide SA40-0593-04 pp. 5-4..5-5, the Top of Form Alignment test
+; reprinted until the form is accepted). The prompt names neither the count
+; nor the key (tacit, OP-7.4); a wrong count is refused and the prompt reprinted.
 ritual:
     mov edx, m_r2a
     call lineout
     mov edx, m_r2b
     call lineout
-.r2:
+    mov edx, m_r2t
+    call lineout
     xor ebx, ebx                ; presses this attempt
 .r2k:
     call getkey
@@ -269,7 +279,7 @@ ritual:
     call putdec
     mov edx, m_r2d
     call lineout
-    jmp .r2
+    jmp ritual                  ; reprint the alignment prompt, count reset
 .r2ok:
     mov edx, m_r2ok
     call lineout
@@ -1107,8 +1117,13 @@ m_r1a:   db 'TPS-001 PARAMETER FILE TPSPARM.DAT NOT FOUND.$'
 m_op73:  db 'REFER TO OPERATING PROCEDURE OP-7.3 (PARAMETER FILES).$'
 m_r1c:   db 'TPS-002 PARAMETER $'
 m_r1d:   db ' MISSING FROM TPSPARM.DAT.$'
-m_r2a:   db 'PRESS THE SPACE BAR EXACTLY 7 TIMES TO ALIGN THE FORM FEED,$'
-m_r2b:   db 'THEN PRESS ENTER.$'
+m_r2a:   db 'TOP OF FORM ALIGNMENT$'
+m_r2b:   db '----- ALIGNMENT TEST LINE ----- FORM TPS-1 (REV. 10/89) -----$'
+%ifdef TPS_MUTATE_SAY7
+m_r2t:   db 'ADVANCE THE FORM 7 LINE-SPACES TO THE TEST LINE, THEN PRESS ENTER.$'
+%else
+m_r2t:   db 'ADVANCE THE FORM TO THE TEST LINE, THEN PRESS ENTER.$'
+%endif
 m_r2c:   db 'FORM NOT ALIGNED ($'
 m_r2d:   db ' PRESSES). THE COUNT HAS BEEN RESET.$'
 m_r2ok:  db 'FORM ALIGNED.$'
@@ -1117,7 +1132,7 @@ m_r3b:   db 'RE-ENTER TPS REPORT NUMBER: $'
 m_r3c:   db 'TPS-003 REPORT NUMBERS DO NOT AGREE. PLEASE BEGIN AGAIN.$'
 m_r4a:   db 'KEY THE NUMBER OF THE MEMO ABOUT THE NEW COVER SHEETS: $'
 m_r4b:   db 'TPS-004 THAT IS NOT THE MEMO NUMBER. SEE YOUR SUPERVISOR.$'
-m_r5a:   db 'DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET? (Y/N) $'
+m_r5a:   db 'DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET, FORM TPS-1 (REV. 10/89)? (Y/N) $'
 m_r5b:   db 'TPS-005 REPORT NOT PRINTED. A COPY OF MEMO $'
 m_r5c:   db ' WILL BE$'
 m_r5d:   db 'FORWARDED TO YOUR SUPERVISOR.$'
