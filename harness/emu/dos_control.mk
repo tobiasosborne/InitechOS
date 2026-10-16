@@ -31,16 +31,16 @@ test-j1lu-con-mutant: $(J1LU_CON_MUTANTS)
 
 # Same secondary shell objects, one mutated translation or INT 21h object.
 $(BUILD)/kbd_j1lu_ctrl.o: $(KERNEL_KBD_C) $(TEST_KBD_HDRS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DKBD_MUTATE_NO_CTRL -I$(KERNEL_DIR) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DKBD_MUTATE_NO_CTRL -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/int21_j1lu_%.o: $(KERNEL_INT21_C) $(TEST_DEVWIRE_HDRS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -D$(J1LU_CON_KNOB_$*) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -D$(J1LU_CON_KNOB_$*) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
 $(BUILD)/command_j1lu_restore.o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(TEST_DEVWIRE_HDRS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_RESTORE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_RESTORE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
 
 define j1lu-emu-variant
 J1LU_OBJS_$(1) := $(filter-out $(2),$(KERNEL_SECONDARY_SHELL_OBJS)) $(3)
 $(BUILD)/kernel_shell_j1lu_$(1).elf: $$(J1LU_OBJS_$(1)) $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $$(J1LU_OBJS_$(1))
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $$(J1LU_OBJS_$(1))
 $(BUILD)/kernel_shell_j1lu_$(1).bin: $(BUILD)/kernel_shell_j1lu_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \

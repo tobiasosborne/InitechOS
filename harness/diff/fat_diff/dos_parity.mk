@@ -10,9 +10,9 @@ $(eval $(call dos-safety-shell-mutant,pathcmd,CMD_MUTATE_PATH_COMMAND))
 # 'permanent' selects the real primary processor object vector in the existing
 # m0dc/safety image machinery. Use a separate name to retain its EXIT mutant.
 $(BUILD)/command_startup_mut.o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_STARTUP -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_STARTUP -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $< -o $@
 $(BUILD)/kernel_startup_mut.elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_startup_mut.o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_startup_mut.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SHELL_OBJS)) $(BUILD)/command_startup_mut.o
 $(BUILD)/kernel_startup_mut.bin: $(BUILD)/kernel_startup_mut.elf
 	$(OBJCOPY) -O binary $< $@
 	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))
@@ -24,7 +24,7 @@ $(BUILD)/tracer_startup_mut.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_startu
 	@dd if=$(BUILD)/kernel_startup_mut.bin of=$@ bs=512 seek=17 conv=notrunc status=none
 
 $(BUILD)/fileio_stamp_mut.o: $(KERNEL_DIR)/fileio_fat.c $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/int21.h
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FILEIO_FAT_OPT) -DFILEIO_MUTATE_NO_STAMP -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FILEIO_FAT_OPT) -DFILEIO_MUTATE_NO_STAMP -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(eval $(call j1lu-emu-variant,stamp,$(KERNEL_FILEIO_OBJ),$(BUILD)/fileio_stamp_mut.o))
 
 .PHONY: test-dos-stamp-host test-dos-stamp-mutant test-dos-stamp test-dos-stamp-emu-mutant test-dir-args test-dir-page test-dir-args-mutant test-path-command test-path-command-mutant test-dos-startup test-dos-startup-mutant

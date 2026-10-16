@@ -459,9 +459,9 @@ test-kernel-headroom-mutant:
 	for want in $$(( $(KERNEL_HEADROOM_FLOOR) - 1 )) $(KERNEL_HEADROOM_FLOOR); do \
 		pad=$$(( win - flag - want )); \
 		[ "$$pad" -gt 0 ] || { printf '!!! test-kernel-headroom-mutant: flagship already within the floor (pad=%s)\n' "$$pad"; exit 1; }; \
-		printf 'section .data align=1\ntimes %d db 0x5A\n' "$$pad" > $(KHR_MUT_ASM); \
+		printf 'section .data align=1\nglobal khr_headroom_pad\nkhr_headroom_pad:\ntimes %d db 0x5A\n' "$$pad" > $(KHR_MUT_ASM); \
 		$(NASM) -f elf32 $(KHR_MUT_ASM) -o $(KHR_MUT_OBJ) || exit 1; \
-		$(LD) -m elf_i386 -T $(KERNEL_LD) -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \
+		$(LD) $(KERNEL_GC_LDFLAGS) --undefined=khr_headroom_pad -m elf_i386 -T $(KERNEL_LD) -o $(KHR_MUT_ELF) $(KERNEL_FLAIRTENANTS_OBJS) $(KHR_MUT_OBJ) 2>/dev/null || exit 1; \
 		$(OBJCOPY) -O binary $(KHR_MUT_ELF) $(BUILD)/.khr_mut.tmp; \
 		got=$$(( win - $$(wc -c < $(BUILD)/.khr_mut.tmp) )); rm -f $(BUILD)/.khr_mut.tmp; \
 		[ "$$got" -eq "$$want" ] || { printf '!!! test-kernel-headroom-mutant: pad kernel headroom %s != intended %s (layout assumption broke)\n' "$$got" "$$want"; exit 1; }; \
@@ -659,6 +659,11 @@ KERNEL_CC     ?= gcc
 # never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
                  -fno-pie -std=c11 -Wall -Wextra -Werror
+# ROUND 3 (initech-tode): kernel-only reachability, not an optimiser change.
+# Ref: docs/design/kernel-size-policy-round2.md Sec 4 lever C; kernel.ld roots.
+# Keep separate from KERNEL_CFLAGS: TENANT_CFLAGS inherits that base policy.
+KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections
+KERNEL_GC_LDFLAGS := --gc-sections
 # KERNEL SIZE POLICY -- per-object optimisation levels (bead initech-8z9j).
 # KERNEL_CFLAGS carries NO -O level (gcc default -O0); KERNEL_SECTORS=384 is AT
 # the ratified K2 bounce ceiling, so the window cannot grow. Instead the largest
@@ -8307,19 +8312,19 @@ $(KERNEL_START_OBJ): $(KERNEL_START_ASM) Makefile | $(BUILD)
 	$(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 
 $(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # FLAIR surface module (beads initech-k8o5.6, ADR-0004 D-2): the single pixel
 # writer, freestanding. Lifted from console.c; console.o links it for the glyph
 # blit / span fill (surface_blit, surface_fill_span). -Ios/flair for surface.h.
 $(KERNEL_SURFACE_OBJ): $(KERNEL_SURFACE_C) os/flair/surface.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_SURFACE_OPT) -Ios/flair -c $(KERNEL_SURFACE_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_SURFACE_OPT) -Ios/flair -c $(KERNEL_SURFACE_C) -o $@
 
 # --- FLAIR Toolbox Manager kernel objects (beads initech-re30.2 Step B) ------
 # These mirror, one-for-one, the PROVEN-freestanding compile-check in each
 # Manager's REAL gate (test-region/-flair-heap/-event/-window/-blitter/-chrome/
 # -text/-menu/-control/-dialog/-drag/-flair-shell): the SAME source, the SAME
-# $(KERNEL_CC) $(KERNEL_CFLAGS) <Manager>_INC invocation that compiles clean
+# $(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) <Manager>_INC invocation that compiles clean
 # under -ffreestanding -nostdlib. Each <Manager>_INC is used ONLY in the RECIPE
 # (the indented command line below), which Make expands at recipe-run time --
 # by then every <Manager>_INC is set, regardless of where in the file it's
@@ -8334,19 +8339,19 @@ $(KERNEL_SURFACE_OBJ): $(KERNEL_SURFACE_C) os/flair/surface.h | $(BUILD)
 # in the .elf (the window-size question is real). Reproducible: deterministic
 # source ordering, no timestamps (Rule 11).
 $(KERNEL_REGION_OBJ): os/flair/atkinson/region.c os/flair/atkinson/region.h spec/region_algebra.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_REGION_OPT) $(REGION_INC) -c $(REGION_ENGINE_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_REGION_OPT) $(REGION_INC) -c $(REGION_ENGINE_C) -o $@
 
 $(KERNEL_HEAP_OBJ): os/flair/heap.c os/flair/heap.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_HEAP_OPT) $(FLAIR_HEAP_INC) -c $(FLAIR_HEAP_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_HEAP_OPT) $(FLAIR_HEAP_INC) -c $(FLAIR_HEAP_C) -o $@
 
 $(KERNEL_EVENT_OBJ): os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(EVENT_INC) -c os/flair/event.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(EVENT_INC) -c os/flair/event.c -o $@
 
 $(KERNEL_CURSOR_OBJ): os/flair/cursor.c os/flair/cursor.h os/flair/surface.h spec/assets/cursors.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CURSOR_OPT) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) -Ios/flair -Ispec/assets -c os/flair/cursor.c -o $@
 
 $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(WINDOW_INC) -c os/flair/window.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(WINDOW_INC) -c os/flair/window.c -o $@
 
 # R1 geometry operations are linked only into interactive FLAIR images. The
 # base DOS/static kernels keep the smaller Window Manager object; otherwise
@@ -8354,10 +8359,10 @@ $(KERNEL_WINDOW_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h o
 # Like rtc.o's established size profile, -Os is deterministic and keeps the
 # shared Manager inside PROGRAM_BASE without changing its C contract.
 $(KERNEL_WINDOW_LIVE_OBJ): os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS $(WINDOW_INC) -c os/flair/window.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -DWINDOW_ENABLE_R1_OPS $(WINDOW_INC) -c os/flair/window.c -o $@
 
 $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/region.h os/flair/surface.h spec/region_algebra.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_BLITTER_OPT) $(BLITTER_INC) -c os/flair/blitter.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_BLITTER_OPT) $(BLITTER_INC) -c os/flair/blitter.c -o $@
 
 # The font strike headers + the one-copy linkage rule (bead initech-tdnl.33):
 # every kernel TU that draws text must rebuild when a strike changes, else a
@@ -8365,48 +8370,48 @@ $(KERNEL_BLITTER_OBJ): os/flair/blitter.c os/flair/blitter.h os/flair/atkinson/r
 FLAIR_FONT_HDRS := os/flair/text.h spec/assets/font_linkage.h spec/assets/chicago12.h spec/assets/geneva9.h
 
 $(KERNEL_CHROME_OBJ): os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $@
 
 $(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -c os/flair/text.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -c os/flair/text.c -o $@
 
 # menu/control/dialog: their freestanding compile-checks use a LITERAL include
 # set (-Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets), NOT the *_INC used
 # for the hosted gate (which adds -Iharness/render -Iseed). Mirror the literal.
 $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/assets/geneva9.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DESKTOP_OPT) $(DRAG_INC) -c $(DESKTOP_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DESKTOP_OPT) $(DRAG_INC) -c $(DESKTOP_C) -o $@
 
 # The C-8 policy seam (beads initech-6bq2). Freestanding-safe; reads color_canon.h.
 $(KERNEL_FLAIRLOOK_OBJ): $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h spec/assets/color_canon.h os/flair/surface.h spec/grafport.h spec/imaging.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_LOOK_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_LOOK_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(FLAIRLOOK_C) -o $@
 
 $(KERNEL_FLAIR_SHELL_OBJ): os/flair/shell.c os/flair/shell.h $(FLAIR_FONT_HDRS) os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_SHELL_OPT) $(SHELL_INC) -c $(SHELL_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_SHELL_OPT) $(SHELL_INC) -c $(SHELL_C) -o $@
 
 # Text console (beads initech-yqb): the SAME console.c the host blit oracle
 # (os/milton/test_console.c) exercises; freestanding here, hosted there. Now a
 # CLIENT of the FLAIR surface module (initech-k8o5.6): includes ../flair/surface.h.
 $(KERNEL_CONSOLE_OBJ): $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)/boot_info.h os/flair/surface.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_CONSOLE_OPT) -I$(KERNEL_DIR) -Ios/flair -c $(KERNEL_CONSOLE_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_CONSOLE_OPT) -I$(KERNEL_DIR) -Ios/flair -c $(KERNEL_CONSOLE_C) -o $@
 
 # Interrupt foundation objects (beads initech-a5a).
 $(KERNEL_IDT_OBJ): $(KERNEL_IDT_C) $(KERNEL_DIR)/idt.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_IDT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_IDT_C) -o $@
 
 $(KERNEL_PIC_OBJ): $(KERNEL_PIC_C) $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIC_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIC_C) -o $@
 
 $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
 
 # INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
@@ -8414,36 +8419,36 @@ $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(
 $(KERNEL_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
                      $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
                      $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 # DOS character-device chain (beads initech-509.7 / 6zd9): the SAME devices.c the
 # host oracle (test_devices.c / test_devwire.c) exercises; freestanding here.
 # int21.o (OPEN-by-name + READ/WRITE routing) + sysinit.o (install) link it.
 $(KERNEL_DEVICES_OBJ): $(KERNEL_DEVICES_C) $(KERNEL_DIR)/devices.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_DEVICES_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DEVICES_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_DEVICES_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DEVICES_C) -o $@
 
 # MCB memory arena (beads initech-509.6): the SAME mcb.c the host property suite
 # (test_mcb.c) exercises; freestanding here, hosted there. int21.o links it for
 # AH=48h/49h/4Ah. -Ispec for mcb.h -> dos_structs.h (the LOCKED mcb_t).
 $(KERNEL_MCB_OBJ): $(KERNEL_MCB_C) $(KERNEL_DIR)/mcb.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_MCB_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MCB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MCB_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MCB_C) -o $@
 
 # PSP construction (beads initech-509.4): the SAME psp.c the host oracle
 # (test_psp.c) exercises; freestanding here, hosted there. -Ispec for psp.h ->
 # dos_structs.h (the LOCKED psp_t).
 $(KERNEL_PSP_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_PSP_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PSP_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
 
 # System File Table / Job File Table (beads initech-509.3): the SAME sft.c the
 # host oracle (test_sft.c) exercises; freestanding here, hosted there. -Ispec
 # for sft.h -> psp.h -> dos_structs.h (psp_t.jft, dir_entry_t).
 $(KERNEL_SFT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SFT_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SFT_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
 
 # CONFIG.SYS parser (beads initech-509.2): the SAME config_sys.c the host oracle
 # (test_config_sys.c) exercises; freestanding here, hosted there. Pure, no I/O.
 $(KERNEL_CONFIG_SYS_OBJ): $(KERNEL_CONFIG_SYS_C) $(KERNEL_DIR)/config_sys.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_CONFIG_SYS_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_CONFIG_SYS_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_CONFIG_SYS_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_CONFIG_SYS_C) -o $@
 
 # SYSINIT named bring-up phases (beads initech-509.2): the ordered init contract +
 # the CONFIG.SYS apply (FILES= cap). Kernel-only (it touches pic/idt/pit/kbd + the
@@ -8452,7 +8457,7 @@ $(KERNEL_SYSINIT_OBJ): $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)
                        $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/int21.h \
                        $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pit.h \
                        $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SYSINIT_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SYSINIT_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
 
 # Flat program loader (beads initech-509.5): the SAME loader.c the host oracle
 # (test_loader.c) exercises; freestanding here (asm control-transfer path),
@@ -8460,19 +8465,19 @@ $(KERNEL_SYSINIT_OBJ): $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)
 $(KERNEL_LOADER_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
                       spec/memory_map.h $(KERNEL_DIR)/int21.h \
                       $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 
 # ATA PIO sector backend (beads initech-adf/initech-saw): the SAME ata.c that
 # is freestanding-only (no host oracle -- it touches I/O ports); compiled into
 # the kernel here. Its first functional exercise is make test-fs.
 $(KERNEL_ATA_OBJ): $(KERNEL_ATA_C) $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/blockdev.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_ATA_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_ATA_C) -o $@
 
 # FAT12 reader (beads initech-adf): the SAME fat12.c the host oracles
 # (test-fat12-*) exercise; freestanding here, hosted there. -Ispec for the
 # LOCKED bpb_t / dir_entry_t (dos_structs.h).
 $(KERNEL_FAT12_OBJ): $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FAT12_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_FAT12_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FAT12_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_FAT12_C) -o $@
 
 # FAT12-backed INT 21h file backend (beads initech-509.5 read-side): binds the
 # int21 file vtable to the mounted volume. Kernel-only (pulls fat12.c + the
@@ -8481,18 +8486,18 @@ $(KERNEL_FAT12_OBJ): $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/block
 $(KERNEL_FILEIO_OBJ): $(KERNEL_DIR)/fileio_fat.c $(KERNEL_DIR)/fileio_fat.h \
                       $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/blockdev.h \
                       spec/dos_structs.h spec/memory_map.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FILEIO_FAT_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DIR)/fileio_fat.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FILEIO_FAT_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DIR)/fileio_fat.c -o $@
 
 # R3.1 per-volume desktop persistence. Linked only into the FLAIRTENANTS
 # flagship family; the DOS and older FLAIR images stay byte-identical.
 $(KERNEL_DESKTOP_DB_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_db.h \
 				  $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DESKTOP_DB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ispec -I$(KERNEL_DIR) -c $(KERNEL_DESKTOP_DB_C) -o $@
 
 KERNEL_DESKTOP_DB_MUT_SKIP_OBJ := $(BUILD)/desktop_db_mut_write_skip.o
 $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_db.h \
 					   $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DDB_WRITE_SKIP -Ispec -I$(KERNEL_DIR) \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DDB_WRITE_SKIP -Ispec -I$(KERNEL_DIR) \
 		-c $(KERNEL_DESKTOP_DB_C) -o $@
 
 # PS/2 keyboard (IRQ1) + 8254 PIT (IRQ0) drivers (beads initech-3rs): the SAME
@@ -8500,23 +8505,23 @@ $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_
 # divisor logic; freestanding here (the IRQ handlers touch I/O ports), hosted
 # there (pure halves only). io.h only -- no -Ispec needed.
 $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
 
 # PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
 # linked ONLY into the flair_live kernel(s) (isr.o's irq12_entry references
 # mouse_irq_handler via a WEAK extern, so non-flair kernels link without it).
 $(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 # Rule-6 EOI mutant mouse.o (beads initech-5l5z FO-6; ADR-0006 BC-3/BC-9):
 # -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI compiles OUT the slave (0xA0) EOI, leaving
 # only the master (0x20) EOI -> the slave 8259A wedges -> the mouse stops after
 # the first IRQ12 -> test-flair-mouse goes RED. NEVER define in a real build.
 $(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
 # MC146818 RTC clock source (beads initech-yv9). Kernel build includes the port
 # I/O paths; the pure conversion is shared with the test-rtc host oracle.
@@ -8526,13 +8531,13 @@ $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BU
 # the codegen is covered byte-for-behaviour by the test-rtc host oracle. The
 # host oracle compiles rtc.c with its OWN flags, so this does not affect it.
 $(KERNEL_RTC_OBJ): $(KERNEL_RTC_C) $(KERNEL_DIR)/rtc.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -I$(KERNEL_DIR) -c $(KERNEL_RTC_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -I$(KERNEL_DIR) -c $(KERNEL_RTC_C) -o $@
 
 # IRQ reentrancy guard (beads initech-xk2): the in-IRQ depth counter the asm IRQ
 # stubs bracket their C handler with, plus the INT 21h reentrancy fail-loud panic
 # the dispatcher invokes when irq_depth() != 0 at entry. ASCII-clean, no malloc.
 $(KERNEL_IRQ_OBJ): $(KERNEL_IRQ_C) $(KERNEL_DIR)/irq.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_IRQ_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_IRQ_C) -o $@
 
 # COMMAND.COM shell (beads initech-7pc): the SAME command.c the host oracle
 # (test_command.c) exercises for the pure parser/classifier/formatter logic;
@@ -8542,18 +8547,18 @@ $(KERNEL_IRQ_OBJ): $(KERNEL_IRQ_C) $(KERNEL_DIR)/irq.h $(KERNEL_DIR)/io.h | $(BU
 $(KERNEL_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/env.h $(KERNEL_DIR)/int21.h \
                        $(KERNEL_DIR)/batch.h \
                        spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 # env.o -- COMMAND.COM master environment store (beads initech-1i0x). Freestanding
 # (stdint only; no REPL/asm). Linked into the shell kernel for the SET built-in.
 $(KERNEL_ENV_OBJ): $(KERNEL_DIR)/env.c $(KERNEL_DIR)/env.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/env.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/env.c -o $@
 
 # batch.o -- COMMAND.COM .BAT interpreter (parser + IF/FOR decision helpers,
 # beads initech-xw1). Freestanding (stdint only; no asm). Linked into the shell
 # kernel; command.c calls batch_classify/expand/eval_if/for_*.
 $(KERNEL_BATCH_OBJ): $(KERNEL_DIR)/batch.c $(KERNEL_DIR)/batch.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/batch.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_DIR)/batch.c -o $@
 
 # --- Baked test program pipeline (beads initech-509.5; Sec 5.4) ------------
 # bin2c is a host factory tool (libc), built with the factory CC, not KERNEL_CC.
@@ -8571,7 +8576,7 @@ $(TEST_PROG_BLOB_C): $(TEST_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(TEST_PROG_BIN) g_test_prog_image > $@
 
 $(KERNEL_TEST_PROG_OBJ): $(TEST_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(TEST_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(TEST_PROG_BLOB_C) -o $@
 
 # TYPE / DIR baked programs (beads initech-509.5 read-side): same nasm -f bin ->
 # bin2c -> KERNEL_CC pipeline as the demo program.
@@ -8582,7 +8587,7 @@ $(TYPE_PROG_BLOB_C): $(TYPE_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(TYPE_PROG_BIN) g_type_prog_image > $@
 
 $(KERNEL_TYPE_PROG_OBJ): $(TYPE_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(TYPE_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(TYPE_PROG_BLOB_C) -o $@
 
 $(DIR_PROG_BIN): $(DIR_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
@@ -8591,7 +8596,7 @@ $(DIR_PROG_BLOB_C): $(DIR_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(DIR_PROG_BIN) g_dir_prog_image > $@
 
 $(KERNEL_DIR_PROG_OBJ): $(DIR_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(DIR_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(DIR_PROG_BLOB_C) -o $@
 
 # CON-INPUT baked program (beads initech-n62): same nasm -f bin -> bin2c ->
 # KERNEL_CC pipeline. Linked only into the -DBOOT_CONIN kernel.
@@ -8602,7 +8607,7 @@ $(CONIN_PROG_BLOB_C): $(CONIN_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(CONIN_PROG_BIN) g_conin_prog_image > $@
 
 $(KERNEL_CONIN_PROG_OBJ): $(CONIN_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(CONIN_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(CONIN_PROG_BLOB_C) -o $@
 
 # WRITE round-trip baked program (beads initech-509.11): same nasm -f bin ->
 # bin2c -> KERNEL_CC pipeline. Linked only into the -DBOOT_WRITE kernel.
@@ -8613,7 +8618,7 @@ $(WRITE_PROG_BLOB_C): $(WRITE_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(WRITE_PROG_BIN) g_write_prog_image > $@
 
 $(KERNEL_WRITE_PROG_OBJ): $(WRITE_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(WRITE_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(WRITE_PROG_BLOB_C) -o $@
 
 # MULTI-OPEN baked program (beads initech-0qh): same nasm -f bin -> bin2c ->
 # KERNEL_CC pipeline. Linked only into the -DBOOT_MULTIOPEN kernel.
@@ -8624,7 +8629,7 @@ $(MULTIOPEN_PROG_BLOB_C): $(MULTIOPEN_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(MULTIOPEN_PROG_BIN) g_multiopen_prog_image > $@
 
 $(KERNEL_MULTIOPEN_PROG_OBJ): $(MULTIOPEN_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(MULTIOPEN_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(MULTIOPEN_PROG_BLOB_C) -o $@
 
 # DATE/TIME program blob (beads initech-yv9): asm -> flat bin -> C blob -> obj.
 $(DATETIME_PROG_BIN): $(DATETIME_PROG_ASM) | $(BUILD)
@@ -8634,7 +8639,7 @@ $(DATETIME_PROG_BLOB_C): $(DATETIME_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(DATETIME_PROG_BIN) g_datetime_prog_image > $@
 
 $(KERNEL_DATETIME_PROG_OBJ): $(DATETIME_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(DATETIME_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(DATETIME_PROG_BLOB_C) -o $@
 
 # SETVECT/GETVECT + INT 24h program blob (beads initech-509.8): asm -> flat bin
 # -> C blob -> obj. Linked only into the -DBOOT_VECT kernel.
@@ -8645,7 +8650,7 @@ $(VECT_PROG_BLOB_C): $(VECT_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(VECT_PROG_BIN) g_vect_prog_image > $@
 
 $(KERNEL_VECT_PROG_OBJ): $(VECT_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(VECT_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(VECT_PROG_BLOB_C) -o $@
 
 # INT 25h/26h ABSOLUTE-DISK program blob (beads initech-8403): asm -> flat bin ->
 # C blob -> obj. Linked only into the -DBOOT_ABSDISK kernel.
@@ -8656,7 +8661,7 @@ $(ABSDISK_PROG_BLOB_C): $(ABSDISK_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(ABSDISK_PROG_BIN) g_absdisk_prog_image > $@
 
 $(KERNEL_ABSDISK_PROG_OBJ): $(ABSDISK_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(ABSDISK_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(ABSDISK_PROG_BLOB_C) -o $@
 
 # IRQ-STORM baked program (beads initech-xk2): same nasm -f bin -> bin2c ->
 # KERNEL_CC pipeline. Linked only into the -DBOOT_IRQSTORM kernel(s).
@@ -8667,7 +8672,7 @@ $(IRQSTORM_PROG_BLOB_C): $(IRQSTORM_PROG_BIN) $(BIN2C_BIN)
 	$(BIN2C_BIN) $(IRQSTORM_PROG_BIN) g_irqstorm_prog_image > $@
 
 $(KERNEL_IRQSTORM_PROG_OBJ): $(IRQSTORM_PROG_BLOB_C) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -I$(KERNEL_DIR) -c $(IRQSTORM_PROG_BLOB_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(IRQSTORM_PROG_BLOB_C) -o $@
 
 $(KERNEL_ISR_OBJ): $(KERNEL_ISR_ASM) | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
@@ -8686,14 +8691,14 @@ KERNEL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KE
 # their own lists below. Link-verified clean without it.
 
 $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_OBJS)
 
 # --- Self-test fault kernel (beads initech-a5a; make test-panic) -----------
 # Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
 # raises a deliberate #DE after the banner. Linked into a SEPARATE image so the
 # normal kernel/image (test-boot) never faults.
 $(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8704,7 +8709,7 @@ KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_ISR_OBJ)
 
 $(KERNEL_FAULT_ELF): $(KERNEL_FAULT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FAULT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FAULT_OBJS)
 
 $(KERNEL_FAULT_BIN): $(KERNEL_FAULT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8752,17 +8757,17 @@ KERNEL_FPU_SYSINIT_DEPS := $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_
                            $(KERNEL_DIR)/fat12.h spec/dos_structs.h
 
 $(BUILD)/kmain_fpu_test.o: $(KERNEL_FPU_KMAIN_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FPU_TEST -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FPU_TEST -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 $(BUILD)/kmain_fpu_mf.o: $(KERNEL_FPU_KMAIN_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FPU_MF -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FPU_MF -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 $(BUILD)/sysinit_fpu_mut_skip.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_MUTATE_SKIP_INIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_MUTATE_SKIP_INIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
 $(BUILD)/sysinit_fpu_mut_cw.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_MUTATE_BOOT_CW -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_MUTATE_BOOT_CW -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
 $(BUILD)/sysinit_fpu_absent.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_FORCE_ABSENT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_FORCE_ABSENT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
 $(BUILD)/sysinit_fpu_absent_mut_em.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_FORCE_ABSENT -DFPU_MUTATE_ABSENT_KEEPS_EM_CLEAR -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SYSINIT_OPT) -DFPU_FORCE_ABSENT -DFPU_MUTATE_ABSENT_KEEPS_EM_CLEAR -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SYSINIT_C) -o $@
 
 # $(call fpu-kernel-rules,<tag>,<kmain obj>,<sysinit obj>): link
 # kernel_fpu_<tag>.{elf,bin} + fpu_<tag>.img from the fault-kernel object set
@@ -8770,7 +8775,7 @@ $(BUILD)/sysinit_fpu_absent_mut_em.o: $(KERNEL_FPU_SYSINIT_DEPS) | $(BUILD)
 # other kernel; the .bin is enumerated by test-kernel-headroom automatically.
 define fpu-kernel-rules
 $(BUILD)/kernel_fpu_$(1).elf: $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_SYSINIT_OBJ),$(KERNEL_FPU_BASE_OBJS)) $(2) $(3)
 
 $(BUILD)/kernel_fpu_$(1).bin: $(BUILD)/kernel_fpu_$(1).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -8802,7 +8807,7 @@ $(eval $(call fpu-kernel-rules,mf_mut_skip,$(BUILD)/kmain_fpu_mf.o,$(BUILD)/sysi
 # Same sources, but kmain.c compiled with -DBOOT_SPURIOUS so the boot fires a
 # stray int $0x70 after the banner; the spurious handler must resume (no wedge).
 $(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SPURIOUS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SPURIOUS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                         $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8813,7 +8818,7 @@ KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL
                         $(KERNEL_ISR_OBJ)
 
 $(KERNEL_SPURIOUS_ELF): $(KERNEL_SPURIOUS_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SPURIOUS_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SPURIOUS_OBJS)
 
 $(KERNEL_SPURIOUS_BIN): $(KERNEL_SPURIOUS_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8839,7 +8844,7 @@ $(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) | $(BUILD)
 # Same sources, but kmain.c compiled with -DBOOT_KBD_ECHO so the boot, after the
 # sti, emits KBD-ECHO-READY then echoes injected keys to serial. Separate image.
 $(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8850,7 +8855,7 @@ KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_ECHO_ELF): $(KERNEL_ECHO_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ECHO_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ECHO_OBJS)
 
 $(KERNEL_ECHO_BIN): $(KERNEL_ECHO_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8877,7 +8882,7 @@ $(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) | $(BUILD)
 # CONIN-LIVE, runs the baked CON-input program. The conin program blob is linked
 # in (it is referenced only under -DBOOT_CONIN). Separate image.
 $(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_CONIN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_CONIN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8889,7 +8894,7 @@ KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSO
                      $(KERNEL_ISR_OBJ)
 
 $(KERNEL_CONIN_ELF): $(KERNEL_CONIN_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_CONIN_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_CONIN_OBJS)
 
 $(KERNEL_CONIN_BIN): $(KERNEL_CONIN_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8916,7 +8921,7 @@ $(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) | $(BUILD)
 # runs the baked vect program then reports V24POST. The vect program blob is
 # linked in (referenced only under -DBOOT_VECT). Separate image.
 $(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_VECT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_VECT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8928,7 +8933,7 @@ KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_VECT_ELF): $(KERNEL_VECT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_VECT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_VECT_OBJS)
 
 $(KERNEL_VECT_BIN): $(KERNEL_VECT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8955,7 +8960,7 @@ $(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) | $(BUILD)
 # boot runs the baked ABSDISK program. The absdisk program blob is linked in
 # (referenced only under -DBOOT_ABSDISK). Separate image.
 $(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_ABSDISK -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_ABSDISK -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -8967,7 +8972,7 @@ KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_C
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_ABSDISK_ELF): $(KERNEL_ABSDISK_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ABSDISK_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_ABSDISK_OBJS)
 
 $(KERNEL_ABSDISK_BIN): $(KERNEL_ABSDISK_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -8993,7 +8998,7 @@ $(ABSDISK_BOOT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ABSDISK_BIN) | $(BUILD)
 # Same sources, but kmain.c compiled with -DBOOT_MEMTEST so the boot drives
 # AH=48h/4Ah/49h over the kernel-bound MCB arena via `int 0x21` and emits MEM-*.
 $(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MEMTEST -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_MEMTEST -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # The REAL int21.o + mcb.o (the standard kernel objects) link into this image --
 # BOOT_MEMTEST only changes kmain.c. The mutant image swaps in the perturbed
@@ -9007,7 +9012,7 @@ KERNEL_MEMTEST_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_C
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_MEMTEST_ELF): $(KERNEL_MEMTEST_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_OBJS)
 
 $(KERNEL_MEMTEST_BIN): $(KERNEL_MEMTEST_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9029,7 +9034,7 @@ $(MEMTEST_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_BIN) | $(BUILD)
 
 # Mutant kernel: int21.o built with -DINT21_MUTATE_ALLOC_NO_SEGBASE (Rule 6).
 $(KERNEL_MEMTEST_MUT_INT21_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_ALLOC_NO_SEGBASE -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9040,7 +9045,7 @@ KERNEL_MEMTEST_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MEMTEST_MAIN_OBJ) $(KERN
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_MEMTEST_MUT_ELF): $(KERNEL_MEMTEST_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MEMTEST_MUT_OBJS)
 
 $(KERNEL_MEMTEST_MUT_BIN): $(KERNEL_MEMTEST_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9062,7 +9067,7 @@ $(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) | $(BUILD
 # Separate image so the normal boot never runs the EXEC demo. GREET.COM is NOT
 # baked -- it lives on the data disk (--disk2), so this proves a FROM-FAT load.
 $(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_EXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9073,7 +9078,7 @@ KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_EXEC_ELF): $(KERNEL_EXEC_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXEC_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXEC_OBJS)
 
 $(KERNEL_EXEC_BIN): $(KERNEL_EXEC_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9140,9 +9145,9 @@ KERNEL_MZFOREIGN_BIN      := $(BUILD)/kernel_mzforeign.bin
 MZFOREIGN_IMG             := $(BUILD)/mzforeign_boot.img
 
 $(KERNEL_MZEXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MZEXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_MZEXEC -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 $(KERNEL_MZFOREIGN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MZFOREIGN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_MZFOREIGN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                          $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9154,9 +9159,9 @@ KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_
 KERNEL_MZFOREIGN_OBJS := $(filter-out $(KERNEL_MZEXEC_MAIN_OBJ),$(KERNEL_MZEXEC_OBJS)) $(KERNEL_MZFOREIGN_MAIN_OBJ)
 
 $(KERNEL_MZEXEC_ELF): $(KERNEL_MZEXEC_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZEXEC_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZEXEC_OBJS)
 $(KERNEL_MZFOREIGN_ELF): $(KERNEL_MZFOREIGN_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZFOREIGN_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MZFOREIGN_OBJS)
 
 $(KERNEL_MZEXEC_BIN): $(KERNEL_MZEXEC_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9223,7 +9228,7 @@ $(FAT_MZFOREIGN_IMG): $(FAT12_FIXTURES) $(MZFOREIGN_EXE) | $(BUILD)
 # WRITE program over a WRITABLE FAT12 data disk. The write_prog blob is linked
 # ONLY into this image. Mirrors the EXEC image structure.
 $(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_WRITE -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_WRITE -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9235,7 +9240,7 @@ KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_WRITE_ELF): $(KERNEL_WRITE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_WRITE_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_WRITE_OBJS)
 
 $(KERNEL_WRITE_BIN): $(KERNEL_WRITE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9261,7 +9266,7 @@ $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) | $(BUILD)
 # BIG.DAT). The multiopen_prog blob is linked ONLY into this image. Mirrors the
 # WRITE image structure.
 $(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_MULTIOPEN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_MULTIOPEN -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9273,7 +9278,7 @@ KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERN
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_MULTIOPEN_ELF): $(KERNEL_MULTIOPEN_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MULTIOPEN_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_MULTIOPEN_OBJS)
 
 $(KERNEL_MULTIOPEN_BIN): $(KERNEL_MULTIOPEN_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9298,7 +9303,7 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) | $(BUILD)
 # DATE/TIME program (AH=2Ah/2Ch/36h/62h -> serial). The datetime_prog blob is
 # linked ONLY into this image. Mirrors the MULTI-OPEN image structure.
 $(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_DATETIME -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_DATETIME -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9310,7 +9315,7 @@ KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_DATETIME_ELF): $(KERNEL_DATETIME_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_DATETIME_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_DATETIME_OBJS)
 
 $(KERNEL_DATETIME_BIN): $(KERNEL_DATETIME_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9338,7 +9343,7 @@ $(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) | $(BUILD)
 # images. Mirrors the MULTI-OPEN image structure. THREE images: the REAL one and
 # two Rule-6 mutants (A: pit scribbles a DOS global; B: pit issues int 0x21).
 $(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/irq.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # Object list shared by all three irqstorm images (the per-image differences are
 # the main obj, the pit obj, and -- for mutant A -- the int21 obj; defined below).
@@ -9356,7 +9361,7 @@ KERNEL_IRQSTORM_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MAIN_OB
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_OBJ)
 
 $(KERNEL_IRQSTORM_ELF): $(KERNEL_IRQSTORM_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_OBJS)
 
 $(KERNEL_IRQSTORM_BIN): $(KERNEL_IRQSTORM_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9382,20 +9387,20 @@ $(IRQSTORM_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_BIN) | $(BUILD)
 # Own pit.o + int21.o + main obj + elf + bin + image so the mutant cannot
 # contaminate the real build.
 $(KERNEL_PIT_MUT_SCRIBBLE_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPIT_MUTATE_SCRIBBLE_DOS -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DPIT_MUTATE_SCRIBBLE_DOS -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
 KERNEL_INT21_SEAM_OBJ := $(BUILD)/int21_seam.o
 $(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_IRQSTORM_MUTA_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ) \
                     $(KERNEL_INT21_SEAM_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_MUT_SCRIBBLE_OBJ)
 
 $(KERNEL_IRQSTORM_MUTA_ELF): $(KERNEL_IRQSTORM_MUTA_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTA_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTA_OBJS)
 
 $(KERNEL_IRQSTORM_MUTA_BIN): $(KERNEL_IRQSTORM_MUTA_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9415,16 +9420,16 @@ $(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) | $(B
 # int 0x21 from IRQ context -> the reentrancy guard PANICS -> the oracle goes
 # RED on the panic marker). Own pit.o + main obj + elf + bin + image.
 $(KERNEL_PIT_MUT_INT21_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DPIT_MUTATE_ISSUE_INT21 -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DPIT_MUTATE_ISSUE_INT21 -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
 $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_IRQSTORM_MUTB_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ) \
                     $(KERNEL_INT21_OBJ) $(KERNEL_DEVICES_OBJ) $(KERNEL_MCB_OBJ) $(KERNEL_PIT_MUT_INT21_OBJ)
 
 $(KERNEL_IRQSTORM_MUTB_ELF): $(KERNEL_IRQSTORM_MUTB_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTB_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_IRQSTORM_MUTB_OBJS)
 
 $(KERNEL_IRQSTORM_MUTB_BIN): $(KERNEL_IRQSTORM_MUTB_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9447,7 +9452,7 @@ $(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) | $(B
 # it is loaded BY NAME off --disk2 (FAT_EXITH_IMG), exactly like the EXEC image
 # loads GREET.COM. So the object set is the EXEC object set (no baked prog blob).
 $(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9458,7 +9463,7 @@ KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSO
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_EXITH_ELF): $(KERNEL_EXITH_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_OBJS)
 
 $(KERNEL_EXITH_BIN): $(KERNEL_EXITH_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9485,10 +9490,10 @@ $(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) | $(BUILD)
 # exhausts, and a later run's OPEN fails -> make test-exit-handles-mutant asserts
 # the oracle goes RED (proves the gate bites; CLAUDE.md Rule 6).
 $(KERNEL_SFT_MUT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SFT_OPT) -DSFT_MUTATE_NO_CLOSE_PROCESS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SFT_OPT) -DSFT_MUTATE_NO_CLOSE_PROCESS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
 
 $(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_EXITH -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9499,7 +9504,7 @@ KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERN
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_EXITH_MUT_ELF): $(KERNEL_EXITH_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_EXITH_MUT_OBJS)
 
 $(KERNEL_EXITH_MUT_BIN): $(KERNEL_EXITH_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9526,7 +9531,7 @@ $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) | $(BUILD)
 # cap bites. The child is loaded BY NAME (load_program_from_fat), so the object set
 # is the EXEC object set (no baked prog blob).
 $(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SYSINIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SYSINIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                     $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9537,7 +9542,7 @@ KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE
                     $(KERNEL_ISR_OBJ)
 
 $(KERNEL_SYSI_ELF): $(KERNEL_SYSI_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SYSI_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SYSI_OBJS)
 
 $(KERNEL_SYSI_BIN): $(KERNEL_SYSI_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9566,7 +9571,7 @@ $(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) | $(BUILD)
 # image; -DBOOT_SHELL on kmain.c only (command.o is built with COMMAND_KERNEL_REPL
 # above and is BOOT_SHELL-agnostic).
 $(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SHELL -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -Ispec -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                      $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9580,9 +9585,9 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
 KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
 KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
 $(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
 $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
 	$(OBJCOPY) -O binary $< $@
 	@set -e; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); test $$sz -le $$max; \
@@ -9596,7 +9601,7 @@ $(SECONDARY_TRACER_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_shell_secondar
 # conventional runway. The FLAIR desktop kernels keep their own lists below.
 
 $(KERNEL_SHELL_ELF): $(KERNEL_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SHELL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_SHELL_OBJS)
 
 $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9618,7 +9623,7 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 # Separate image so the normal boot (A:\>) is byte-unchanged. The FLAIR + spec
 # headers are added as prereqs (they are #include'd only under -DBOOT_FLAIR_SHELL).
 $(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_SHELL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_SHELL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_SURFACE_OBJ) \
                           $(KERNEL_IDT_OBJ) $(KERNEL_PIC_OBJ) $(KERNEL_PANIC_OBJ) \
@@ -9630,7 +9635,7 @@ KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KE
                           $(KERNEL_FLAIR_OBJS)
 
 $(KERNEL_FLAIRSHELL_ELF): $(KERNEL_FLAIRSHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRSHELL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRSHELL_OBJS)
 
 $(KERNEL_FLAIRSHELL_BIN): $(KERNEL_FLAIRSHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9658,7 +9663,7 @@ $(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) | $(BUILD)
 # FLAIRSHELL (event.o supplies flair_tick_advance/flair_tick_count). Adds the
 # os/flair/event.h prereq the FLAIR-live arm includes. ADR-0006 FO-4.
 $(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # The FLAIR-live kernel links the IDENTICAL object set as FLAIRSHELL, swapping
 # only the BOOT_FLAIR_LIVE main obj (the pit.o tick hook is in the shared
@@ -9673,7 +9678,7 @@ KERNEL_FLAIRLIVE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) $(KERN
                           $(subst $(KERNEL_WINDOW_OBJ),$(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIR_OBJS))
 
 $(KERNEL_FLAIRLIVE_ELF): $(KERNEL_FLAIRLIVE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_OBJS)
 
 $(KERNEL_FLAIRLIVE_BIN): $(KERNEL_FLAIRLIVE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9698,12 +9703,12 @@ $(FLAIRLIVE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_BIN) | $(BUILD)
 # prereq vector. Recompile the SAME source with the one additive scene flag;
 # every linked object and every window/menu coordinate remains identical.
 $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ): $(KERNEL_FLAIRLIVE_MAIN_OBJ) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_NOMODAL_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_OBJS)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9729,12 +9734,12 @@ $(FLAIRLIVE_NOMODAL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BI
 # appears -> test-flair-live goes RED. Its own main obj/elf/bin/image so it
 # cannot leak into the real build (the default kernel is GREEN).
 $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h os/flair/event.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_ELF): $(KERNEL_FLAIRLIVE_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_BIN): $(KERNEL_FLAIRLIVE_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9756,12 +9761,12 @@ $(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) | $(B
 
 # --- FO-5 kbd-hook MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6) -
 $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h os/flair/event.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_KBD_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_KBD_ELF): $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_KBD_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_KBD_BIN): $(KERNEL_FLAIRLIVE_MUT_KBD_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9786,12 +9791,12 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 # movable-modal commits while preserving their proposed markers. The modal-mode
 # PPM oracle sees the old all-black FILE COPY frame -> RED. Direct HER-14 mutant.
 $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF): $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_DRAG_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_DRAG_BIN): $(KERNEL_FLAIRLIVE_MUT_DRAG_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9817,12 +9822,12 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # survival scene; the original IGNORE_OVERLAY mutant remains below and is
 # mutation-proven on the forward window-across-overlay HOST scene. -------------
 $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_BIN): $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9846,12 +9851,12 @@ $(FLAIRLIVE_MUT_MODAL_RESTORE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_
 # underlying menu geometry/trace is unchanged; only show_modal=0 lets the period-
 # correct menu dispatch occur. FLAIR_LIVE_MUTATE_MENU_NOOP then drops no panel. -
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ): $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ) os/flair/menu.h os/flair/shell.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -DFLAIR_LIVE_MUTATE_MENU_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -DFLAIR_LIVE_MUTATE_MENU_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ),$(KERNEL_FLAIRLIVE_NOMODAL_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_OBJS)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_MENU_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9877,12 +9882,12 @@ $(FLAIRLIVE_NOMODAL_MUT_MENU_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_N
 # never follows a cross-menu drag -> ppm_flair_menu_crossdrag_check RED. Exact
 # mirror of the NO-MODAL menu mutant rules. ----------------------------------
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ): $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ) os/flair/menu.h os/flair/shell.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -DKMAIN_MUT_MENU_NO_REHIT -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_NO_MODAL -DKMAIN_MUT_MENU_NO_REHIT -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_NOMODAL_MAIN_OBJ),$(KERNEL_FLAIRLIVE_NOMODAL_OBJS)) $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_OBJS)
 
 $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_BIN): $(KERNEL_FLAIRLIVE_NOMODAL_MUT_NOREHIT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9907,12 +9912,12 @@ $(FLAIRLIVE_NOMODAL_MUT_NOREHIT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIV
 # pump (for(;;), runs until power-off). R0.1 CursorMgr is shared by every live
 # image; this variant swaps only main to change loop lifetime. -------------------
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_INT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_INT_ELF): $(KERNEL_FLAIRLIVE_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_INT_OBJS)
 
 $(KERNEL_FLAIRLIVE_INT_BIN): $(KERNEL_FLAIRLIVE_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -9968,7 +9973,7 @@ KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
 TBXGATE_DEPS := os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 
@@ -9979,21 +9984,21 @@ KERNEL_SCRAP_OBJ   := $(BUILD)/scrap.o
 KERNEL_STDFILE_OBJ := $(BUILD)/stdfile.o
 KERNEL_LIST_OBJ    := $(BUILD)/list.o
 $(KERNEL_SCRAP_OBJ): os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ispec -c os/flair/scrap.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ispec -c os/flair/scrap.c -o $@
 $(KERNEL_STDFILE_OBJ): os/flair/stdfile.c os/flair/stdfile.h os/flair/list.h spec/region_algebra.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/stdfile.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/stdfile.c -o $@
 $(KERNEL_LIST_OBJ): os/flair/list.c os/flair/list.h spec/region_algebra.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/list.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -c os/flair/list.c -o $@
 
 KERNEL_PROCESS_OBJ := $(BUILD)/process.o
 $(KERNEL_PROCESS_OBJ): os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $@
 
 # The two reference tenants object (THE ARTIFACT; freestanding kernel build). Needs
 # -Ios/apps for ref_tenant.h and -Ispec for the shared demo contract.
 KERNEL_REF_TENANT_OBJ := $(BUILD)/ref_tenant.o
 $(KERNEL_REF_TENANT_OBJ): os/apps/ref_tenant.c os/apps/ref_tenant.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/flair_look.h spec/window_record.h spec/region_algebra.h spec/event_model.h spec/chrome_metrics.h spec/flair_tenants_demo.h spec/assets/color_canon.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/apps -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/apps/ref_tenant.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/apps -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/apps/ref_tenant.c -o $@
 
 # The R3.2 Finder DESKTOP MANAGER objects (THE ARTIFACT; freestanding kernel
 # build; bead initech-tdnl.9). finder_icon.o is the LOCKED 32x32 strike blitter
@@ -10002,11 +10007,11 @@ $(KERNEL_REF_TENANT_OBJ): os/apps/ref_tenant.c os/apps/ref_tenant.h os/flair/pro
 # ONLY into the FLAIRTENANTS kernels, so every other image stays byte-identical.
 KERNEL_FINDER_ICON_OBJ := $(BUILD)/finder_icon.o
 $(KERNEL_FINDER_ICON_OBJ): os/flair/finder_icon.c os/flair/finder_icon.h os/flair/flair_look.h os/flair/surface.h spec/assets/desk_icons.h spec/region_algebra.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_icon.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_icon.c -o $@
 
 KERNEL_FINDER_DESKTOP_OBJ := $(BUILD)/finder_desktop.o
 $(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
 # The R3.3 Finder DISK WINDOWS object (THE ARTIFACT; bead initech-tdnl.10): the
 # shell tenant, the fixed table of open disk windows, the finder_fs_t binding
@@ -10014,7 +10019,7 @@ $(KERNEL_FINDER_DESKTOP_OBJ): os/flair/finder_desktop.c os/flair/finder_desktop.
 # Clean Up. Linked ONLY into the FLAIRTENANTS kernels.
 KERNEL_FINDER_WINDOWS_OBJ := $(BUILD)/finder_windows.o
 $(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
 
 # The R3.4a Finder FILE-OPERATIONS object (THE ARTIFACT; bead initech-34dh):
 # drop-target resolution, the drop-target highlight, the move/Trash refusal
@@ -10023,14 +10028,14 @@ $(KERNEL_FINDER_WINDOWS_OBJ): os/flair/finder_windows.c os/flair/finder_windows.
 FINDER_OPS_KDEPS := os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/surface.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 KERNEL_FINDER_OPS_OBJ := $(BUILD)/finder_ops.o
 $(KERNEL_FINDER_OPS_OBJ): $(FINDER_OPS_KDEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
 
 # The R3 Finder COMMAND-TABLE SPINE object (bead initech-tdnl.27 / slice
 # tdnl.9a): one table, one finder_dispatch. R3.3 links it for real -- the
 # Ctrl-chord path and the shell's exec hook both ride it.
 KERNEL_FINDER_CMD_OBJ := $(BUILD)/finder_cmd.o
 $(KERNEL_FINDER_CMD_OBJ): os/flair/finder_cmd.c os/flair/finder_cmd.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -c os/flair/finder_cmd.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -c os/flair/finder_cmd.c -o $@
 
 # The R3.5 FINDER MENU BAR resource object (bead initech-tdnl.12): the F4.2
 # layout as static MenuBar/MenuInfo/MenuItem data plus the enable-byte refresh.
@@ -10039,7 +10044,7 @@ $(KERNEL_FINDER_CMD_OBJ): os/flair/finder_cmd.c os/flair/finder_cmd.h | $(BUILD)
 # FLAIRTENANTS kernels, so every other image stays byte-identical.
 KERNEL_FINDER_MENU_OBJ := $(BUILD)/finder_menu.o
 $(KERNEL_FINDER_MENU_OBJ): os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago12.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $@
 
 # Bounded (gate) FLAIRTENANTS kernel: -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS. Adds
 # -Ios/apps for ref_tenant.h + the process/ref_tenant/demo prereqs the arm includes.
@@ -10267,7 +10272,7 @@ $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
 KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ)
@@ -10279,7 +10284,7 @@ KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
 
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_OBJS)
 
 $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10308,7 +10313,7 @@ KERNEL_FLAIRTENANTS_DB_SKIP_OBJS := \
 	$(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ)
 
 $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF): $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_DB_SKIP_OBJS)
 
 $(KERNEL_FLAIRTENANTS_DB_SKIP_BIN): $(KERNEL_FLAIRTENANTS_DB_SKIP_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10339,7 +10344,7 @@ KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
 # header as an explicit incremental-build prerequisite without repeating each
@@ -10356,7 +10361,7 @@ $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 KERNEL_FLAIRTENANTS_INT_OBJS := $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ)
 
 $(KERNEL_FLAIRTENANTS_INT_ELF): $(KERNEL_FLAIRTENANTS_INT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRTENANTS_INT_OBJS)
 
 $(KERNEL_FLAIRTENANTS_INT_BIN): $(KERNEL_FLAIRTENANTS_INT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10405,10 +10410,10 @@ run-flair-tenants: $(FLAIRTENANTS_INTERACTIVE_IMG) $(FLAIR_DATA_IMG)
 # $(call flair-tenants-proc-mutant-rules,<KNOB>,<tag>): a Layer-5-dispatcher mutant.
 define flair-tenants-proc-mutant-rules
 $(BUILD)/process_mut_$(2).o: os/flair/process.c os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/surface.h os/flair/event.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/process.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_PROCESS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/process_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10433,10 +10438,10 @@ endef
 # (bead initech-tdnl.14) -- swaps ONLY tbxgate.o.
 define flair-tenants-tbx-mutant-rules
 $(BUILD)/tbxgate_mut_$(2).o: $(TBXGATE_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_TBXGATE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/tbxgate_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10462,10 +10467,10 @@ endef
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
 $(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10505,10 +10510,10 @@ endef
 # the recipe compiled "-c -o desktop_mut_no_paintall_clear.o" with no input file).
 define flair-tenants-desktop-mutant-rules
 $(BUILD)/desktop_mut_$(2).o: os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h os/flair/flair_look.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DESKTOP_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed -D$(1) -c os/flair/desktop.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DESKTOP_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed -D$(1) -c os/flair/desktop.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/desktop_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10550,10 +10555,10 @@ endef
 # template above documents).
 define flair-tenants-window-mutant-rules
 $(BUILD)/window_mut_$(2).o: os/flair/window.c os/flair/window.h os/flair/winscroll.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/chrome_metrics.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -DWINDOW_ENABLE_R1_OPS -D$(1) -Ispec -Ios/flair -Ios/flair/atkinson -Iseed -c os/flair/window.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_WINDOW_LIVE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/window_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10626,10 +10631,10 @@ $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_NO_ACTIVATE_INVAL,
 # (the hazard the desktop/window templates above document at length).
 define flair-tenants-finderdesk-mutant-rules
 $(BUILD)/finder_desktop_mut_$(2).o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_desktop_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10669,10 +10674,10 @@ $(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_NO_HILITE,de
 # Prereqs + flags spelled LITERALLY (the $(eval)-expands-once hazard above).
 define flair-tenants-finderops-mutant-rules
 $(BUILD)/finder_ops_mut_$(2).o: os/flair/finder_ops.c os/flair/finder_ops.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/window.h os/flair/winscroll.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(BUILD)/finder_ops.o,$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_ops_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10707,10 +10712,10 @@ $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE
 # templates above document at length).
 define flair-tenants-finderwin-mutant-rules
 $(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10758,10 +10763,10 @@ $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_SINGLETON_DUP,
 # KERNEL_FINDER_MENU_OBJ's own recipe.
 define flair-tenants-findermenu-mutant-rules
 $(BUILD)/finder_menu_mut_$(2).o: os/flair/finder_menu.c os/flair/finder_menu.h os/flair/finder_cmd.h os/flair/menu.h os/flair/text.h os/flair/blitter.h os/flair/surface.h spec/chrome_metrics.h spec/grafport.h spec/region_algebra.h spec/assets/chicago12.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_menu.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FINDER_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_menu_mut_$(2).o
 
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -10855,12 +10860,12 @@ FLAIRLIVE_MUT_EOI_IMG               := $(BUILD)/flair_live_mut_eoi.img
 
 # (1) no-mouse-hook mutant: swap ONLY the main obj (the kbd/tick hooks stay).
 $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR) -c $(KERNEL_MAIN_C) -o $@
 
 KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF): $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_MOUSE_BIN): $(KERNEL_FLAIRLIVE_MUT_MOUSE_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -10884,7 +10889,7 @@ $(FLAIRLIVE_MUT_MOUSE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_MOUS
 KERNEL_FLAIRLIVE_MUT_EOI_OBJS := $(filter-out $(KERNEL_MOUSE_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_MOUSE_MUT_EOI_OBJ)
 
 $(KERNEL_FLAIRLIVE_MUT_EOI_ELF): $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(KERNEL_FLAIRLIVE_MUT_EOI_OBJS)
 
 $(KERNEL_FLAIRLIVE_MUT_EOI_BIN): $(KERNEL_FLAIRLIVE_MUT_EOI_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -11080,10 +11085,10 @@ test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_M
 # define flair-desktop-mutant-rules: $(1)=mutant macro name, $(2)=short tag
 define flair-desktop-mutant-rules
 $(BUILD)/flair_shell_mut_$(2).o: $(SHELL_C) $(SHELL_H) os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h os/flair/heap.h os/flair/text.h os/flair/event.h $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_SHELL_OPT) -D$(1) $(SHELL_INC) -c $(SHELL_C) -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_SHELL_OPT) -D$(1) $(SHELL_INC) -c $(SHELL_C) -o $$@
 
 $(BUILD)/kernel_flairshell_mut_$(2).elf: $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIR_SHELL_OBJ),$(KERNEL_FLAIRSHELL_OBJS)) $(BUILD)/flair_shell_mut_$(2).o
 
 $(BUILD)/kernel_flairshell_mut_$(2).bin: $(BUILD)/kernel_flairshell_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -11907,7 +11912,7 @@ print('    all %d chrome #defines == spec/chrome_metrics.json native values'%len
 	@printf '>>> test-chrome [2/3]: STRUCTURAL -- Platinum window chrome vs chrome_metrics v5 (8bpp + 32bpp)\n'
 	@$(TEST_CHROME) $(BUILD)/chrome_window.ppm
 	@printf '>>> test-chrome [3/3]: ARTIFACT FREESTANDING -- chrome.c compiles under kernel flags\n'
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -c $(CHROME_DRAWER_C) -o $(BUILD)/chrome_freestanding.o \
 		|| { printf '!!! test-chrome FAIL: chrome.c does NOT compile freestanding (Law 3 dual-compile)\n'; exit 1; }
 	@printf '    chrome.c compiles freestanding (-ffreestanding -nostdlib); wrote $(BUILD)/chrome_window.ppm\n'
 	@printf '>>> test-chrome: green\n'
@@ -12316,7 +12321,7 @@ $(TEST_BLITTER_MUT_OFF1): $(TEST_BLITTER_SRC) $(TEST_BLITTER_DEPS) | $(BUILD)
 test-blitter: $(TEST_BLITTER)
 	@printf ">>> test-blitter: region-clipped blit/fill -- IFF (in rect AND in clip), 8bpp+32bpp, full/empty/non-rect/partial\n"
 	@$(TEST_BLITTER)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_BLITTER_OPT) $(BLITTER_INC) -c os/flair/blitter.c -o $(BUILD)/blitter_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_BLITTER_OPT) $(BLITTER_INC) -c os/flair/blitter.c -o $(BUILD)/blitter_freestanding.o \
 		|| { printf '!!! test-blitter FAIL: blitter.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-blitter: green\n"
 
@@ -12413,7 +12418,7 @@ $(TEST_TEXT_MUT): $(TEST_TEXT_SRC) $(TEST_TEXT_DEPS) | $(BUILD)
 test-text: $(TEST_TEXT)
 	@printf ">>> test-text: proportional Chicago/Geneva text -- measure (sum of advances) + draw + center\n"
 	@$(TEST_TEXT)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -c os/flair/text.c -o $(BUILD)/text_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -c os/flair/text.c -o $(BUILD)/text_freestanding.o \
 		|| { printf '!!! test-text FAIL: text.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-text: green\n"
 
@@ -12573,6 +12578,8 @@ test-cursor: $(TEST_CURSOR)
 	@printf ">>> test-cursor: 500 clipped save-under restores + hotspot/golden + shield nesting + move erase\n"
 	@$(TEST_CURSOR) $(CURSOR_CAPTURES)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CURSOR_OPT) $(CURSOR_INC) -c os/flair/cursor.c -o $(BUILD)/cursor_freestanding.o \
+	@$(TEST_CURSOR)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CURSOR_OPT) $(CURSOR_INC) -c os/flair/cursor.c -o $(BUILD)/cursor_freestanding.o \
 		|| { printf '!!! test-cursor FAIL: cursor.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-cursor: green\n"
 
@@ -12627,7 +12634,7 @@ $(TEST_DESK_ICONS_MUT_FULLROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 test-desk-icons: $(TEST_DESK_ICONS)
 	@printf ">>> test-desk-icons: VOLUME + TRASH strike invariants, per-row hand tables, probe tones (8bpp + 32bpp), transparency, clip, off-surface edges, mask hit-test\n"
 	@$(TEST_DESK_ICONS)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(DESK_ICONS_INC) -c os/flair/finder_icon.c -o $(BUILD)/finder_icon_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(DESK_ICONS_INC) -c os/flair/finder_icon.c -o $(BUILD)/finder_icon_freestanding.o \
 		|| { printf '!!! test-desk-icons FAIL: finder_icon.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-desk-icons: green\n"
 
@@ -12694,7 +12701,7 @@ $(TEST_WINDOW_MUT_CONTENT_OVER_HSCROLL): $(TEST_WINDOW_SRC) $(TEST_WINDOW_DEPS) 
 test-window: $(TEST_WINDOW)
 	@printf ">>> test-window: visible region (strucRgn DIFF fronts) + DiffRgn damage (no over-repaint, D-5) + z-order + FindWindow\n"
 	@$(TEST_WINDOW)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(WINDOW_R1_CFLAGS) $(WINDOW_INC) -c os/flair/window.c -o $(BUILD)/window_freestanding.o \
 		|| { printf '!!! test-window FAIL: window.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-window: green\n"
 
@@ -12790,7 +12797,7 @@ $(TEST_FINDER_CMD_MUT_PRED): $(TEST_FINDER_CMD_SRC) $(TEST_FINDER_CMD_DEPS) | $(
 test-finder-cmd: $(TEST_FINDER_CMD)
 	@printf ">>> test-finder-cmd: R3 Finder command-table spine -- hand-authored FINDER-CMD trace golden (mouse+key, enabled/disabled/unknown) + table structure (F4.4)\n"
 	@$(TEST_FINDER_CMD)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_CMD_INC) -c os/flair/finder_cmd.c -o $(BUILD)/finder_cmd_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_CMD_INC) -c os/flair/finder_cmd.c -o $(BUILD)/finder_cmd_freestanding.o \
 		|| { printf '!!! test-finder-cmd FAIL: finder_cmd.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-finder-cmd: green\n"
 
@@ -12854,7 +12861,7 @@ $(TEST_FINDER_DESK_MUT_UNDERLAY): $(FINDER_DESK_DEPS) $(FINDER_DESK_LINK) | $(BU
 test-finder-desktop: $(TEST_FINDER_DESK)
 	@printf ">>> test-finder-desktop: R3.2 DesktopMgr -- default placement, label geometry, hit/selection/marquee/double-click/drag trackers, hand-authored DESKTOP.DB bytes, and the composed-desktop underlay seam\n"
 	@$(TEST_FINDER_DESK)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_DESK_INC) -c os/flair/finder_desktop.c -o $(BUILD)/finder_desktop_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_DESK_INC) -c os/flair/finder_desktop.c -o $(BUILD)/finder_desktop_freestanding.o \
 		|| { printf '!!! test-finder-desktop FAIL: finder_desktop.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-finder-desktop: green\n"
 
@@ -12929,7 +12936,7 @@ $(TEST_FINDER_WIN_MUT_CLEANUP): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 test-finder-windows: $(TEST_FINDER_WIN)
 	@printf ">>> test-finder-windows: R3.3 disk windows -- kind heuristic, VOLLABEL skip, the invisible grid, the LOCKED New Folder ladder, enumeration through a scribbling mock binding, spatial singleton + caps, row-major Clean Up, the kind=4 DESKTOP.DB record and view persistence\n"
 	@$(TEST_FINDER_WIN)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_windows.c -o $(BUILD)/finder_windows_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_windows.c -o $(BUILD)/finder_windows_freestanding.o \
 		|| { printf '!!! test-finder-windows FAIL: finder_windows.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-finder-windows: green\n"
 
@@ -13148,7 +13155,7 @@ $(BUILD)/test_finder_ops_mutant_powernosave: $(FINDER_OPS_DEPS) $(FINDER_OPS_LIN
 test-finder-ops: $(TEST_FINDER_OPS)
 	@printf ">>> test-finder-ops: R3.4a drag-move + drag-to-Trash -- targets, highlight pixels, moves, the refusal ladder, Trash staging + suffix, kind=5 origins\n"
 	@$(TEST_FINDER_OPS)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_ops.c -o $(BUILD)/finder_ops_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_ops.c -o $(BUILD)/finder_ops_freestanding.o \
 		|| { printf '!!! test-finder-ops FAIL: finder_ops.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-finder-ops: green\n"
 
@@ -13756,7 +13763,7 @@ $(TEST_EVENT_MUT_SET1): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 test-event: $(TEST_EVENT)
 	@printf ">>> test-event: ISR-enqueue SPSC ring + WaitNextEvent deterministic replay (raw trace -> EventRecord sequence, D-4/D-8)\n"
 	@$(TEST_EVENT)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(EVENT_INC) -c os/flair/event.c -o $(BUILD)/event_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(EVENT_INC) -c os/flair/event.c -o $(BUILD)/event_freestanding.o \
 		|| { printf '!!! test-event FAIL: event.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-event: green\n"
 
@@ -13849,7 +13856,7 @@ $(TEST_DRAG_MUT_NOPAINTALLCLEAR): $(DRAG_DEPS) | $(BUILD)
 test-drag: $(TEST_DRAG)
 	@printf ">>> test-drag: window drags w/ correct DiffRgn update regions, no over-repaint, chrome unchanged outside damage (D-5/AM-8)\n"
 	@$(TEST_DRAG) $(BUILD)/drag_before.ppm $(BUILD)/drag_after.ppm
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DESKTOP_OPT) $(DRAG_INC) -c $(DESKTOP_C) -o $(BUILD)/desktop_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DESKTOP_OPT) $(DRAG_INC) -c $(DESKTOP_C) -o $(BUILD)/desktop_freestanding.o \
 		|| { printf '!!! test-drag FAIL: desktop.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-drag: green (wrote $(BUILD)/drag_before.ppm + $(BUILD)/drag_after.ppm)\n"
 
@@ -13916,7 +13923,7 @@ $(TEST_MENU_MUT_TC): $(TEST_MENU_SRC) $(TEST_MENU_DEPS) | $(BUILD)
 test-menu: $(TEST_MENU)
 	@printf ">>> test-menu: behavior + sampled Platinum profile/corners/title/panel/separator/cmd/disabled fidelity + retained Apple strike\n"
 	@$(TEST_MENU) $(BUILD)/menu_window.ppm
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $(BUILD)/menu_freestanding.o \
 		|| { printf '!!! test-menu FAIL: menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-menu: green\n"
 
@@ -14498,7 +14505,7 @@ $(TEST_FINDER_MENU_MUT_DEAD): $(TEST_FINDER_MENU_SRC) $(TEST_FINDER_MENU_DEPS) |
 test-finder-menu: $(TEST_FINDER_MENU)
 	@printf ">>> test-finder-menu: R3.5 Finder menu-bar resource -- hand-authored F4.2 structure + title columns + the graying truth table + MenuKey routing (F4.2/F4.4)\n"
 	@$(TEST_FINDER_MENU)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) -Os $(FINDER_MENU_INC) -c os/flair/finder_menu.c -o $(BUILD)/finder_menu_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_MENU_INC) -c os/flair/finder_menu.c -o $(BUILD)/finder_menu_freestanding.o \
 		|| { printf '!!! test-finder-menu FAIL: finder_menu.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-finder-menu: green\n"
 
@@ -14555,7 +14562,7 @@ $(TEST_CONTROL_MUT_FRINGE): $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) | $(BUILD)
 test-control: $(TEST_CONTROL)
 	@printf ">>> test-control: sampled checked box + unpressed push button + 16px Platinum scrollbar + FILE COPY progress bar + TestControl/TrackControl\n"
 	@$(TEST_CONTROL)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $(BUILD)/control_freestanding.o \
 		|| { printf '!!! test-control FAIL: control.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-control: green\n"
 
@@ -14620,7 +14627,7 @@ $(TEST_SHELL_MUT_OVERLAY): $(SHELL_DEPS) | $(BUILD)
 test-flair-shell: $(TEST_SHELL)
 	@printf ">>> test-flair-shell: M4 capstone -- composed desktop reproduces the Office Space frame (seafoam + 2 stacked menu bars + windows + modal FILE COPY on top)\n"
 	@$(TEST_SHELL) $(BUILD)/desktop_scene.ppm
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_SHELL_OPT) $(SHELL_INC) -c $(SHELL_C) -o $(BUILD)/shell_freestanding.o \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_SHELL_OPT) $(SHELL_INC) -c $(SHELL_C) -o $(BUILD)/shell_freestanding.o \
 		|| { printf '!!! test-flair-shell FAIL: shell.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-flair-shell: green (wrote $(BUILD)/desktop_scene.ppm)\n"
 
@@ -14703,7 +14710,7 @@ $(TEST_DIALOG_MUT_SLAB): $(TEST_DIALOG_SRC) $(TEST_DIALOG_DEPS) | $(BUILD)
 test-dialog: $(TEST_DIALOG)
 	@printf ">>> test-dialog: FILE COPY E7/inset content + generic dBox + default ring/moat + canon layout + MODALDIALOG routing\n"
 	@$(TEST_DIALOG)
-	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets \
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets \
 		-c os/flair/dialog.c -o $(BUILD)/dialog_freestanding.o \
 		|| { printf '!!! test-dialog FAIL: dialog.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-dialog: green\n"
@@ -20883,11 +20890,11 @@ $(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_PURGE_KEEPS_VI
 # its cluster number, and the FAT trusts any directory cluster -- the audit's
 # exact failure (New Folder into a freed cluster, one orphan).
 $(BUILD)/finder_windows_mut_l002.o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS -DFINDER_WIN_MUT_VIEW_UNCHECKED -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_WIN_MUT_PURGE_KEEPS_VIEWS -DFINDER_WIN_MUT_VIEW_UNCHECKED -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $@
 $(BUILD)/fat12_mut_l002.o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_FAT12_OPT) -DFAT12_MUTATE_STALE_DIR_TRUSTED -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_FAT12_OPT) -DFAT12_MUTATE_STALE_DIR_TRUSTED -Ispec -I$(KERNEL_DIR) -c $< -o $@
 $(BUILD)/kernel_flairtenants_mut_l002.elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FAT12_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_l002.o $(BUILD)/fat12_mut_l002.o
 $(BUILD)/kernel_flairtenants_mut_l002.bin: $(BUILD)/kernel_flairtenants_mut_l002.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -22955,10 +22962,10 @@ FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 # does, so it gets its own explicit rules rather than a $(call) that would have
 # to grow a second knob argument.
 $(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
 
 $(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o
 
 $(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recorddbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -22987,7 +22994,7 @@ FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
 # demo bound only; nothing an oracle grades changes.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,recordlong))
 $(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o
 $(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_recordlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -23063,7 +23070,7 @@ RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
 # meaning and its repro sha.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000,recordxlong))
 $(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o
 $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -24989,14 +24996,14 @@ OJXN_MUT_REPORT      := $(BUILD)/$(OJXN_MUT_NAME).report
 # bites. The winh backstop keeps its OWN independent proof (test-readerr-winh-mutant).
 $(OJXN_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
                          spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_SAMEFILE \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_SAMEFILE \
 		-DCMD_MUTATE_NO_READ_CF \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 OJXN_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(OJXN_MUT_COMMAND_OBJ)
 
 $(OJXN_MUT_SHELL_ELF): $(OJXN_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(OJXN_MUT_SHELL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(OJXN_MUT_SHELL_OBJS)
 
 $(OJXN_MUT_SHELL_BIN): $(OJXN_MUT_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25188,13 +25195,13 @@ WINH_MUT_REPORT      := $(BUILD)/$(WINH_MUT_NAME).report
 
 $(WINH_MUT_COMMAND_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
                          spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_READ_CF \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_READ_CF \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 WINH_MUT_SHELL_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(WINH_MUT_COMMAND_OBJ)
 
 $(WINH_MUT_SHELL_ELF): $(WINH_MUT_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(WINH_MUT_SHELL_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(WINH_MUT_SHELL_OBJS)
 
 $(WINH_MUT_SHELL_BIN): $(WINH_MUT_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25352,14 +25359,14 @@ UT6D_MUT_IMG := $(BUILD)/ut6d_data_mut.img
 
 $(UT6D_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
                          spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_CWD_PROMPT \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_CWD_PROMPT \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 # The mutant shell ELF: the SHELL object set with command.o swapped for the mutant.
 UT6D_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(UT6D_COMMAND_MUT_OBJ)
 
 $(UT6D_SHELL_MUT_ELF): $(UT6D_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_MUT_OBJS)
 
 $(UT6D_SHELL_MUT_BIN): $(UT6D_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25394,13 +25401,13 @@ UT6D_RDNOOP_IMG         := $(BUILD)/ut6d_data_rdnoop.img
 
 $(UT6D_COMMAND_RDNOOP_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h \
                             spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_RD_NOOP \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_RD_NOOP \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 UT6D_SHELL_RDNOOP_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(UT6D_COMMAND_RDNOOP_OBJ)
 
 $(UT6D_SHELL_RDNOOP_ELF): $(UT6D_SHELL_RDNOOP_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_RDNOOP_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(UT6D_SHELL_RDNOOP_OBJS)
 
 $(UT6D_SHELL_RDNOOP_BIN): $(UT6D_SHELL_RDNOOP_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25713,13 +25720,13 @@ ZS24EXEC_TRACER_REJECT_IMG := $(BUILD)/tracer_boot_mut_zs24reject.img
 $(ZS24EXEC_INT21_MUT_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h \
                            $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/mcb.h spec/dos_structs.h \
                            $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_EXEC_ROOTREJECT \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DINT21_MUTATE_EXEC_ROOTREJECT \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
 ZS24EXEC_SHELL_REJECT_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_INT21_MUT_OBJ)
 
 $(ZS24EXEC_SHELL_REJECT_ELF): $(ZS24EXEC_SHELL_REJECT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_REJECT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_REJECT_OBJS)
 
 $(ZS24EXEC_SHELL_REJECT_BIN): $(ZS24EXEC_SHELL_REJECT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -25750,13 +25757,13 @@ ZS24EXEC_TRACER_ROOTONLY_IMG := $(BUILD)/tracer_boot_mut_zs24rootonly.img
 $(ZS24EXEC_LOADER_MUT_OBJ): $(KERNEL_LOADER_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/psp.h \
                             spec/memory_map.h $(KERNEL_DIR)/int21.h \
                             $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/blockdev.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DLOADER_MUTATE_EXEC_ROOTONLY \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUTATE_EXEC_ROOTONLY \
 		-Ispec -I$(KERNEL_DIR) -c $(KERNEL_LOADER_C) -o $@
 
 ZS24EXEC_SHELL_ROOTONLY_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(ZS24EXEC_LOADER_MUT_OBJ)
 
 $(ZS24EXEC_SHELL_ROOTONLY_ELF): $(ZS24EXEC_SHELL_ROOTONLY_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_ROOTONLY_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(ZS24EXEC_SHELL_ROOTONLY_OBJS)
 
 $(ZS24EXEC_SHELL_ROOTONLY_BIN): $(ZS24EXEC_SHELL_ROOTONLY_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -28155,9 +28162,9 @@ modrel-check = grep -qxF 'FINDER-OPEN-VOLUME win=0 n=2' $(1) \
 # The pre-fix decoder as a kernel: the bounded tenants kernel with ONLY event.o
 # swapped for one built -DEVENT_MUTATE_SET1_BREAK_BLIND.
 $(BUILD)/event_mut_set1.o: os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND -Ios/flair -Ispec -Iseed -c os/flair/event.c -o $@
 $(BUILD)/kernel_flairtenants_mut_set1.elf: $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/event_mut_set1.o
 $(BUILD)/kernel_flairtenants_mut_set1.bin: $(BUILD)/kernel_flairtenants_mut_set1.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -28310,9 +28317,9 @@ menu-long-check = ! grep -q '^FLAIR-TRACK-EXPIRED' $(1) \
 	&& grep -Eq '^FINDER-CMD id=14 name=VIEW_ICONS src=mouse ' $(1) \
 	&& ! grep -Eq '^(FINDER-CMD id=2 |FINDER-NEW-FOLDER)' $(1)
 $(BUILD)/menu_mut_trackcap.o: os/flair/menu.c os/flair/menu.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) -DMENU_MUT_TRACK_CAP=1 -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -DMENU_MUT_TRACK_CAP=1 -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 $(BUILD)/kernel_flairtenants_mut_trackcap.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_MENU_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/menu_mut_trackcap.o
 $(BUILD)/kernel_flairtenants_mut_trackcap.bin: $(BUILD)/kernel_flairtenants_mut_trackcap.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -28426,9 +28433,9 @@ $(DOS_SAFETY_FIXTURE): harness/diff/fat_diff/dos_safety_fixture.c | $(BUILD)
 # One mutant object per regression; every other object is the real shell.
 define dos-safety-shell-mutant
 $(BUILD)/command_safety_$(1).o: $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/int21.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -D$(2) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $$< -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -D$(2) -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $$< -o $$@
 $(BUILD)/kernel_shell_mut_safety_$(1).elf: $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_COMMAND_OBJ),$(if $(filter permanent,$(1)),$(KERNEL_SHELL_OBJS),$(KERNEL_SECONDARY_SHELL_OBJS))) $(BUILD)/command_safety_$(1).o
 $(BUILD)/kernel_shell_mut_safety_$(1).bin: $(BUILD)/kernel_shell_mut_safety_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
@@ -28579,9 +28586,9 @@ $(eval $(call dos-protection-host-mutant,open,INT21_MUTATE_OPEN_READONLY))
 
 define dos-protection-fat-mutant
 $(BUILD)/fat12_protection_$(1).o: $(KERNEL_FAT12_C) $(KERNEL_DIR)/fat12.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -D$(2) -Ispec -I$(KERNEL_DIR) -c $$< -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -D$(2) -Ispec -I$(KERNEL_DIR) -c $$< -o $$@
 $(BUILD)/kernel_shell_mut_protection_$(1).elf: $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FAT12_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/fat12_protection_$(1).o
 $(BUILD)/kernel_shell_mut_protection_$(1).bin: $(BUILD)/kernel_shell_mut_protection_$(1).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@set -e; sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); test $$$$sz -le $$$$max; \
@@ -28844,13 +28851,13 @@ AUTOEXEC_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_autoexec.img
 
 $(AUTOEXEC_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
                              spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_AUTOEXEC \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_NO_AUTOEXEC \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 AUTOEXEC_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(AUTOEXEC_COMMAND_MUT_OBJ)
 
 $(AUTOEXEC_SHELL_MUT_ELF): $(AUTOEXEC_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(AUTOEXEC_SHELL_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(AUTOEXEC_SHELL_MUT_OBJS)
 
 $(AUTOEXEC_SHELL_MUT_BIN): $(AUTOEXEC_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -28989,13 +28996,13 @@ HSCT_REDIR_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_redirbypass.img
 
 $(HSCT_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
                                spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_BYPASS \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_BYPASS \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 HSCT_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(HSCT_REDIR_COMMAND_MUT_OBJ)
 
 $(HSCT_REDIR_SHELL_MUT_ELF): $(HSCT_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(HSCT_REDIR_SHELL_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(HSCT_REDIR_SHELL_MUT_OBJS)
 
 $(HSCT_REDIR_SHELL_MUT_BIN): $(HSCT_REDIR_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29136,12 +29143,12 @@ BSY9_SHELL_MUT_BIN      := $(BUILD)/kernel_shell_mut_no_jft_inherit.bin
 BSY9_REDIR_TRACER_MUT_IMG := $(BUILD)/tracer_boot_mut_no_jft_inherit.img
 
 $(BSY9_PSP_MUT_OBJ): $(KERNEL_PSP_C) $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_PSP_OPT) -DPSP_MUT_NO_JFT_INHERIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PSP_OPT) -DPSP_MUT_NO_JFT_INHERIT -Ispec -I$(KERNEL_DIR) -c $(KERNEL_PSP_C) -o $@
 
 BSY9_SHELL_MUT_OBJS := $(filter-out $(KERNEL_PSP_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY9_PSP_MUT_OBJ)
 
 $(BSY9_SHELL_MUT_ELF): $(BSY9_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY9_SHELL_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY9_SHELL_MUT_OBJS)
 
 $(BSY9_SHELL_MUT_BIN): $(BSY9_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29292,13 +29299,13 @@ BSY7_REDIR_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_nolt.img
 
 $(BSY7_REDIR_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
                                spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_LT \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_REDIR_NO_LT \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 BSY7_REDIR_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY7_REDIR_COMMAND_MUT_OBJ)
 
 $(BSY7_REDIR_SHELL_MUT_ELF): $(BSY7_REDIR_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY7_REDIR_SHELL_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY7_REDIR_SHELL_MUT_OBJS)
 
 $(BSY7_REDIR_SHELL_MUT_BIN): $(BSY7_REDIR_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -29449,13 +29456,13 @@ BSY8_PIPE_TRACER_MUT_IMG  := $(BUILD)/tracer_boot_mut_nostdin.img
 
 $(BSY8_PIPE_COMMAND_MUT_OBJ): $(KERNEL_COMMAND_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/batch.h \
                                spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_PIPE_NO_STDIN \
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DCOMMAND_KERNEL_REPL -DCMD_MUTATE_PIPE_NO_STDIN \
 		-Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_COMMAND_C) -o $@
 
 BSY8_PIPE_SHELL_MUT_OBJS := $(filter-out $(KERNEL_COMMAND_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BSY8_PIPE_COMMAND_MUT_OBJ)
 
 $(BSY8_PIPE_SHELL_MUT_ELF): $(BSY8_PIPE_SHELL_MUT_OBJS) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY8_PIPE_SHELL_MUT_OBJS)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(BSY8_PIPE_SHELL_MUT_OBJS)
 
 $(BSY8_PIPE_SHELL_MUT_BIN): $(BSY8_PIPE_SHELL_MUT_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -30407,9 +30414,9 @@ $(PPM_IWORD_CODES_BIN): tools/ppm_iword_codes_check.c | $(BUILD)
 # tbxgate.o built with TBXGATE_MUT_CELL_UL_LOW (no single-knob macro swaps both).
 FLAIR_IWORD_ULLOW_IMG := $(BUILD)/flair_tenants_mut_iword_ullow.img
 $(BUILD)/tbxgate_mut_iword_ullow.o: $(TBXGATE_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TBXGATE_OPT) -DTBXGATE_MUT_CELL_UL_LOW -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TBXGATE_OPT) -DTBXGATE_MUT_CELL_UL_LOW -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets -c os/flair/tbxgate.c -o $@
 $(BUILD)/kernel_flairtenants_mut_iword_ullow.elf: $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $@ $(filter-out $(KERNEL_TBXGATE_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_iword_gate.o $(BUILD)/tbxgate_mut_iword_ullow.o
 $(BUILD)/kernel_flairtenants_mut_iword_ullow.bin: $(BUILD)/kernel_flairtenants_mut_iword_ullow.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -30753,7 +30760,7 @@ $(PPM_FLAIR_FONTS_CHECK_BIN): tools/ppm_flair_fonts_check.c spec/assets/chicago1
 # flagship kernel with ONE object replaced (the desktop-mutant pattern above).
 define flair-tenants-objswap-mutant-rules
 $(BUILD)/kernel_flairtenants_mut_$(3).elf: $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2) $(KERNEL_LD) | $(BUILD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2)
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(1),$(KERNEL_FLAIRTENANTS_OBJS)) $(2)
 
 $(BUILD)/kernel_flairtenants_mut_$(3).bin: $(BUILD)/kernel_flairtenants_mut_$(3).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
@@ -30774,9 +30781,9 @@ $(BUILD)/flair_tenants_mut_$(3).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fl
 	@printf ">>> flair-tenants MUTANT image ($(3): $(2)): %s\n" "$$@"
 endef
 $(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
 $(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_TEXT_OBJ),$(BUILD)/text_mut_TEXT_MUT_SMEAR_OFF.o,fonts_smear_off))
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_TEXT_OBJ),$(BUILD)/text_mut_TEXT_MUT_CLIP_IGNORE.o,fonts_clip_ignore))
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_trunc_period.o,fonts_trunc_period))
@@ -30878,7 +30885,7 @@ test-flair-scroll-look: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(S
 $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUT_SCROLL_STALE_RESIZE,scroll_stale_resize))
 $(eval $(call flair-tenants-window-mutant-rules,WINDOW_MUTATE_GROW_NO_MIN,scroll_no_min))
 $(BUILD)/chrome_mut_scroll_ramp.o: os/flair/chrome.c $(CHROME_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DSB_LOOK_MUT_RAMP_FLAT -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DSB_LOOK_MUT_RAMP_FLAT -c $< -o $@
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CHROME_OBJ),$(BUILD)/chrome_mut_scroll_ramp.o,scroll_ramp_flat))
 test-flair-scroll-look-mutant: test-flair-scroll-look $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(SCROLL_LOOK_CHECK) $(BUILD)/flair_tenants_mut_scroll_stale_resize.img $(BUILD)/flair_tenants_mut_scroll_no_min.img $(BUILD)/flair_tenants_mut_scroll_ramp_flat.img
 	$(call scroll-look-boot,$(BUILD)/flair_tenants_mut_scroll_stale_resize.img,scroll_look_mut_stale,$(FLAIR_SCROLL_LOOK_SHRINK_SPEC))
@@ -31106,7 +31113,7 @@ test-flair-menu-look: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_gate.i
 	@$(MENU_LOOK_CHECK) view $(BUILD)/menu_look_view.ppm
 	@printf '>>> test-flair-menu-look: green (File dark band/white ink/item20/4/shortcut14; View NFNT check18)\n'
 $(BUILD)/menu_mut_look_flat.o: os/flair/menu.c $(TEST_MENU_DEPS)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_FLAT_HILITE -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -DMENU_LOOK_MUT_FLAT_HILITE -c $< -o $@
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(BUILD)/menu_mut_look_flat.o $(BUILD)/finder_desktop_recorddbl.o,menu_look_flat))
 test-flair-menu-look-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menu_look_flat.img $(FLAIR_DATA_IMG) $(MENU_LOOK_CHECK)
 	$(call menu-look-boot,menu_look_mut,$(BUILD)/flair_tenants_mut_menu_look_flat.img,FLAIR-MENU-DROP menu=512)
@@ -31206,9 +31213,9 @@ TEST_EMU_GATES += test-samir-console-emu test-samir-console-emu-mutant
 # shared independent runtime grader tools/ppm_flair_trash_check.c.
 define alert-chrome-mutant-rules
 $(BUILD)/alert_chrome_$(2).o: $(3) $(TEST_CONTROL_DEPS) $(TEST_DIALOG_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(5) -D$(1) $(DIALOG_INC) -c $(3) -o $$@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) $(DIALOG_INC) -c $(3) -o $$@
 $(BUILD)/kernel_alert_chrome_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o $(KERNEL_LD)
-	$(LD) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o
+	$(LD) $(KERNEL_GC_LDFLAGS) -m elf_i386 -T $(KERNEL_LD) -o $$@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_i123_file_gate.o $(BUILD)/alert_chrome_$(2).o
 $(BUILD)/kernel_alert_chrome_$(2).bin: $(BUILD)/kernel_alert_chrome_$(2).elf
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -31477,7 +31484,7 @@ test-flair-menubar-clock: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_menubar_cloc
 	@test "$$(grep -c '^FLAIR-CLOCK ' $(BUILD)/menubar_clock.serial)" -eq 2
 	@printf '>>> test-flair-menubar-clock: green (pinned RTC crossed a minute, exactly two paints, independent1600-pixel golden)\n'
 $(BUILD)/menu_mut_clock_%.o: os/flair/menu.c $(TEST_MENU_DEPS) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -D$* -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) $(MENU_INC) -D$* -c $< -o $@
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/menu_mut_clock_CLOCK_WRONG_HOUR.o $(BUILD)/kmain_flairtenants_mut_menubar_clock_gate.o,clock_wrong_hour))
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_MENU_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/menu_mut_clock_CLOCK_STUCK.o $(BUILD)/kmain_flairtenants_mut_menubar_clock_gate.o,clock_stuck))
 define menubar-clock-mutant
@@ -31595,3 +31602,5 @@ include harness/diff/fat_diff/boot_system.mk
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
 include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
+# Kernel size round 3: section reachability + existing QEMU/FAT goldens.
+include harness/proptest/kernel_size.mk
