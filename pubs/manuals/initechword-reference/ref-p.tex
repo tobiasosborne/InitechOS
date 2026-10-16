@@ -1,0 +1,84 @@
+% Reference entries, P (AN-11).  Law 1: os/iword/core/edit.c iw_ed_hpage
+% (Ctrl-Enter: the hard page code 0x0C, WP's D4/00 group kept before it by
+% iw_ed_fixup; deleted without a question), face_a.c line_rows / paint_doc
+% (the bar of = on a row of its own below the line), iw_ed_where (54 lines
+% to a page; Pg), the File menu (face_a.c file_items: Retrieve, Save, Exit
+% with ^Q; the TBX_EVT_MENU handler).
+% GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block
+\Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block}
+\begin{Feature}{Page Break, Hard}
+A hard page ends a page where you choose: the text after it starts on a new
+page whatever room is left on this one.  Use it to start a new section, or
+to keep a table or a signature block on a page of its own.
+
+To insert a hard page,
+\begin{WPSteps}
+\item Move the cursor to where the new page is to begin.
+\item Press \K{Ctrl-Enter}.
+\end{WPSteps}
+\Documents{wpkey}{Ctrl-Enter}
+
+\BeginReplay{ref-hpage}
+On the editing screen a hard page shows as a line of equal signs across
+the screen below the line it ends.  For example, type
+\TypeRun{Page one ends here.}, press \PressKey{Ctrl-Enter} and type
+\TypeRun{Page two.}  The status line shows \Scr{Pg 2}:
+\WordScreen[rows=3]{ref-hpage}{A hard page on the editing screen}
+\EndReplay
+
+\Notes
+\Topic{Code}
+A hard page is the code \Code{[HPg]}.  To remove a hard page, delete the
+code: put the cursor at the start of the line after the bar and press
+Backspace, or use Reveal Codes.  InitechWord deletes it without asking.
+
+\Topic{Pages Without Hard Pages}
+A page holds 54 lines of single-spaced text.  After 54 lines the status line
+counts the next line as the first line of the next page, \Scr{Ln 1"}; the
+editing screen shows no line between the pages.  A hard page starts a new
+page before that.
+
+\Topic{The Bar}
+The bar of equal signs is not part of the text.  The cursor never rests on
+it, and it is not saved.
+
+\SeeAlso{Move, Sentence/Paragraph/Page; Return, Hard; Status Line}
+\end{Feature}
+
+\begin{Feature}{Pull-Down Menus}
+InitechWord's pull-down menu is the \textbf{File} menu, in the second row
+of the menu bar while InitechWord is the application in front.  It holds
+three items, each of which starts the same feature as a function key.
+
+To choose an item from the File menu,
+\begin{WPSteps}
+\item Point to \textbf{File} in the menu bar and hold down the mouse button.
+The menu drops down.
+\item Drag down to the item you want and release the button.
+\end{WPSteps}
+\Documents{wppull}{File,Retrieve}
+\Documents{wppull}{File,Save}
+\Documents{wppull}{File,Exit}
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}lll@{}}
+\textbf{Item} & \textbf{Same as} & \textbf{See}\\
+Retrieve & \FK{Retrieve}{Shift-F10} & \InRef{Retrieve}\\
+Save & \FK{Save}{F10} & \InRef{Save}\\
+Exit & \FK{Exit}{F7} & \InRef{Exit}\\
+\end{tabular}
+\par\addvspace{4pt}
+
+\Notes
+\Topic{Exit and Its Keyboard Equivalent}
+The menu shows Exit with the command key and Q.  On your keyboard the
+command key is Ctrl: hold down Ctrl and press Q.  Exit from the menu ends
+a document you have not changed since you last saved or retrieved it
+without asking; otherwise it asks the questions of Exit (F7).
+
+\Topic{When the Menu Is Not Available}
+The File menu items act only while the editing screen is shown.  While a
+prompt or a menu of InitechWord is on the status line, or a Format screen is
+shown, choosing them does nothing; answer or cancel the prompt first.
+
+\SeeAlso{Exit; Retrieve; Save}
+\end{Feature}

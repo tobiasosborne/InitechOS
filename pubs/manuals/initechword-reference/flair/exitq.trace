@@ -1,0 +1,3 @@
+# The File menu's keyboard equivalent: a word typed, then Ctrl-Q (Exit):
+# InitechWord asks Save Document? Yes (No).
+kshift-d,kr,ka,kf,kt,kctrl-q

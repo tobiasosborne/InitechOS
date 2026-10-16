@@ -39,7 +39,7 @@ red() { printf '!!! test-pubs RED %s: %s\n' "$1" "$2"; exit 1; }
 w=$out/iword
 rm -rf "$w"; mkdir -p "$w/inv-fs"
 books="initechword-reference initechword-workbook initechword-install"
-for b in $books; do [ -d "$built/$b" ] || red IWORD-BOOKS "$built/$b not built"; done
+for b in $books; do [ -d "$built/$b" ] || [ "$mode" = update ] || red IWORD-BOOKS "$built/$b not built"; done
 
 # INVENTORY
 "$probe" inventory "$w/inv-fs" > "$w/shipped"

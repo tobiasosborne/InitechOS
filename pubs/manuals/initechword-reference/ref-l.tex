@@ -1,0 +1,63 @@
+% Reference entries, L (AN-11).  Law 1: os/iword/core/edit.c iw_ed_spacing
+% ([Ln Spacing:] D0/02 at the cursor, no return before it; 8.8 fixed,
+% iw_spacing_from_hundredths rounds up), iw_spacing_rows (a line takes its
+% spacing rounded to the nearest whole screen row), face_a.c M_FMTSP and
+% follow() (the screen scrolls by rows), the status line's Ln (the spacing
+% counted).  Shots: ../wordperfect51-decomp mint MINT25, MINT26, MINT30.
+% GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format
+\Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format}
+\begin{Feature}{Line Spacing}
+Line spacing sets how far apart the lines of text are: single spacing,
+double spacing for a draft that will be marked up, or any spacing between,
+such as one and a half.  It applies from the place you set it to the end of
+the document, or to the next Line Spacing code.
+
+To set the line spacing,
+\begin{WPSteps}
+\item Move the cursor to where the new spacing is to begin.
+\item Press \FK{Format}{Shift-F8}, then select \Ch{Line}{1}.
+\item Select \Ch{Line Spacing}{6}.
+\item Type the spacing: \Typed{2} for double spacing, \Typed{1.5} for one and
+a half, \Typed{1} for single spacing.
+\item Press \K{Enter}.  The Format: Line screen shows the new spacing.
+\item Press \FK{Exit}{F7} to return to the document.
+\end{WPSteps}
+\Documents{wpmenu}{Shift-F8,1,6=Line Spacing}
+
+\BeginReplay{ref-spacing}
+For example, press \Press{Format}{Shift-F8}, select \Choose{Line}{1} and
+\Choose{Line Spacing}{6}, type \TypeName{2}, press \PressKey{Enter} and
+\Press{Exit}{F7}.  Type \TypeRun{Line one of a double-spaced draft.}, press
+\PressKey{Enter}, type \TypeRun{Line two.} and press \PressKey{Enter}:
+\WordScreen[rows=5]{ref-spacing}{Double spacing on the editing screen}
+\EndReplay
+
+\Notes
+\Topic{Code}
+Line Spacing puts a \Code{[Ln Spacing:\textit{n}]} code at the cursor, for
+example \Code{[Ln Spacing:2]}.  InitechWord asks before deleting one on the
+editing screen (see \InRef{Codes}).
+
+\Topic{Hundredths}
+You can type a spacing to two decimal places, for example \Typed{1.33}.
+InitechWord keeps spacings in steps of 1/256 of a line, and stores a typed
+spacing as the nearest step at or above it.
+
+\Topic{In the Middle of a Line}
+Line Spacing goes in exactly at the cursor; it does not end the line there.
+The line the code is on is spaced by the spacing in effect at its end.
+
+\Topic{On the Screen}
+On the editing screen each line takes its spacing rounded to the nearest
+whole line: double spacing leaves one blank row under each line, one and a
+half spacing also leaves one, and 1.33 leaves none.  The status line's Ln
+counts the exact spacing, so it shows where the line falls on the page.
+
+\Topic{Typing a Spacing}
+At the spacing prompt you may type digits and a period.  Backspace erases
+the last character.  Pressing Enter without typing anything, or after typing
+something that is not a number of lines up to 8, leaves the spacing as it
+was; Cancel does the same.
+
+\SeeAlso{Format; Margins, Left and Right; Status Line}
+\end{Feature}

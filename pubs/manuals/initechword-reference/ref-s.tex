@@ -1,0 +1,160 @@
+% Reference entries, S (AN-11).  Law 1: os/iword/app/face_a.c F10 (the
+% offered name, a typed character replaces it; save_named: an existing file
+% asks "Replace A:\NAME? No (Yes)", y replaces, any other key asks for a
+% name again; write_file: flatten first, "ERROR: File I/O error", "ERROR:
+% Disk Full--Press Any Key to Continue"), wp5.c iw_wp5_write (the 327-byte
+% prefix of WordPerfect 5.1 and the body), M_SIZE (IW_SIZE_MENU,
+% IW_SIZE_ATTRS), paint_status (the status line: the name, Block on, Doc Pg
+% Ln Pos, POS with Caps Lock; iw_fmt_inches).  Gated byte for byte against
+% the real WordPerfect 5.1 by test-iword-face and test-flair-iword (MEMO ==
+% MINT02's prefix + the body).
+% GATES: test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes
+\Gates{test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes}
+\begin{Feature}{Save}
+Save writes the document on the screen to the data volume as a file, and
+leaves it on the screen so that you can go on working.  Save often: a
+document that is only on the screen is lost if the computer is switched off.
+
+To save a document,
+\begin{WPSteps}
+\item Press \FK{Save}{F10}.  The status line shows \Scr{Document to be
+Saved:} and, if the document has a name, that name.
+\PullDown{Select \Mi{S}ave from the \Mi{F}ile menu.}
+\item To save under the name shown, press \K{Enter}.
+\Or
+Type a new name (the first character you type replaces the name shown) and
+press \K{Enter}.
+\item If a document with that name is already on the data volume, the status
+line asks \Scr{Replace A:\wbs\textit{name}? No (Yes)}.  Type \Typed{y} to
+replace it with the document on the screen.  Any other key asks you for a
+name again, so that you can choose another.
+\end{WPSteps}
+\Documents{wpkey}{F10}
+When the document is saved, its name appears at the left of the status line.
+
+\BeginReplay{ref-save}
+For example, type \TypeRun{Budget memo}, press \Press{Save}{F10}, type
+\TypeName{budget} and press \PressKey{Enter}.  Press \Press{Save}{F10}
+again: InitechWord offers the name.
+\WordScreen[rows=1]{ref-save-1}{Save offers the document's name}
+Press \PressKey{Enter}.  The file \Scr{BUDGET} exists, so InitechWord asks:
+\WordScreen[rows=1]{ref-save-2}{Saving over a document that is already on the data volume}
+Type \TypeName{y}: the document is saved again.
+\EndReplay
+
+\Notes
+\Topic{Alt-F10 and Ctrl-F10}
+Alt-F10 and Ctrl-F10 start Save as F10 does.
+
+\Topic{File Format}
+InitechWord saves documents in the format of WordPerfect 5.1, so the files
+can be used by WordPerfect 5.1 and by any program that reads its documents
+(see Appendix D).
+
+\Topic{Messages}
+\Scr{ERROR: Invalid file name} means the name breaks the rules for names
+(see \InRef{Filenames}).  \Scr{ERROR: File I/O error} means the file could not
+be made on the data volume.  \Scr{ERROR: Disk Full--Press Any Key to
+Continue} means the data volume has no room for the document; the document
+is still on the screen.  After each of these, press any key to return to
+the name prompt.  \Scr{ERROR: Document too large} means the document is
+larger than a file InitechWord can write (see Appendix H); press any key to
+return to the document.
+
+\Topic{Saving When You Exit}
+Exit (F7) asks whether to save the document before you leave it, and saves
+it as Save does (see \InRef{Exit}).
+
+\SeeAlso{Exit; Filenames; Retrieve}
+\end{Feature}
+
+\begin{Feature}{Size}
+Size changes the size of text: superscript and subscript, and the sizes from
+fine to extra large.  Like the appearances, each size is a pair of codes
+around the text.
+
+To give text a size as you type it,
+\begin{WPSteps}
+\item Press \FK{Font}{Ctrl-F8}, then select \Ch{Size}{1}.  The Size menu
+appears on the status line:
+\StatusLine{1 Suprscpt; 2 Subscpt; 3 Fine; 4 Small; 5 Large; 6 Vry Large; 7 Ext Large: 0}
+\item Select the size by its number.
+\item Type the text.
+\item Press \KC{Ctrl-F8}{1} and select the same size again to move past its
+off code
+\Or
+Press \FK{Font}{Ctrl-F8} and select \Ch{Normal}{3}.
+\end{WPSteps}
+\Documents{wpmenu}{Ctrl-F8,1=Size}
+\Documents{wpmenu}{Ctrl-F8,1,1=Suprscpt}
+\Documents{wpmenu}{Ctrl-F8,1,2=Subscpt}
+\Documents{wpmenu}{Ctrl-F8,1,3=Fine}
+\Documents{wpmenu}{Ctrl-F8,1,4=Small}
+\Documents{wpmenu}{Ctrl-F8,1,5=Large}
+\Documents{wpmenu}{Ctrl-F8,1,6=Vry Large}
+\Documents{wpmenu}{Ctrl-F8,1,7=Ext Large}
+\par\addvspace{6pt}
+\noindent\begin{tabular}{@{}lll@{}}
+\textbf{Selection} & \textbf{Size} & \textbf{Codes}\\
+Suprscpt (1) & superscript & \Code{[SUPRSCPT]} \Code{[suprscpt]}\\
+Subscpt (2) & subscript & \Code{[SUBSCPT]} \Code{[subscpt]}\\
+Fine (3) & fine & \Code{[FINE]} \Code{[fine]}\\
+Small (4) & small & \Code{[SMALL]} \Code{[small]}\\
+Large (5) & large & \Code{[LARGE]} \Code{[large]}\\
+Vry Large (6) & very large & \Code{[VRY LARGE]} \Code{[vry large]}\\
+Ext Large (7) & extra large & \Code{[EXT LARGE]} \Code{[ext large]}\\
+\end{tabular}
+\par\addvspace{4pt}
+
+\Notes
+\Topic{On the Screen}
+The editing screen draws text of every size in the same cells as ordinary
+text.  Press Reveal Codes to see which size text has.
+
+\Topic{Size and Appearance Together}
+Text can have a size and appearances at once; each is its own pair of codes
+(see \InRef{Appearance}).
+
+\SeeAlso{Appearance; Block, Attributes; Font}
+\end{Feature}
+
+\begin{Feature}{Status Line}
+The status line is the bottom line of the InitechWord window.  While you
+edit, it shows the name of the document at its left and where the cursor is
+at its right.  InitechWord also uses it for menus, prompts, questions and
+messages.
+
+To read the status line,
+\begin{WPSteps}
+\item Look at the left end: the document's name once it has one, as
+\Scr{A:\wbs MEMO}; or \Scr{Block on} while Block is on; or
+\Scr{Move cursor; press Enter to retrieve.} while moved text waits.
+\item Look at the right end: \Scr{Doc 1 Pg 1 Ln 1" Pos 1"}.
+\end{WPSteps}
+
+\Notes
+\Topic{Doc}
+The document number is always 1.
+
+\Topic{Ln}
+Ln is the distance from the top edge of the page to the line the cursor is
+on, in inches: \Scr{1"} for the first line under the one inch top margin,
+then a sixth of an inch for each single-spaced line (\Scr{1.17"},
+\Scr{1.33"}, \ldots).  With other line spacings, each line adds its own
+spacing (see \InRef{Line Spacing}).
+
+\Topic{Measurements}
+Ln and Pos are shown in inches, to two decimal places at most, without
+trailing zeros: \Scr{1"}, \Scr{1.5"}, \Scr{2.17"}.
+
+\Topic{Pg}
+Pg is the page the cursor is on (see \InRef{Page Break, Hard}).
+
+\Topic{Pos}
+Pos is the distance from the left edge of the paper to the cursor, in
+inches: \Scr{1"} at the standard left margin, then a tenth of an inch for
+each character.  While Caps Lock is on, Pos is shown as \Scr{POS} (see
+\InRef{Caps Lock}).
+
+\SeeAlso{Caps Lock; Cursor Movement; Line Spacing; Page Break, Hard}
+\end{Feature}

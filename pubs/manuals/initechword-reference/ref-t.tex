@@ -1,0 +1,49 @@
+% Reference entries, T (AN-11).  Law 1: os/iword/core/edit.c iw_ed_tab
+% ([Tab] C1/02: to the next stop, every 0.5" relative to the left margin;
+% WP recomputes the stop when the text before the tab changes, iw_ed_fixup;
+% deleted without a question), spec/iword/wp5_format.h "tabs, indents and
+% hard pages", face_a.c (Tab; Shift-, Ctrl- and Alt-Tab act as Tab).
+% Shots: ../wordperfect51-decomp mint MINT09, MINT10, MINT21, MINT23.
+% GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block
+\Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block}
+\begin{Feature}{Tab}
+Tab moves the text that follows to the next tab stop.  Use it to indent the
+first line of a paragraph and to line up short items in columns, such as
+the entries of a form.
+
+To tab,
+\begin{WPSteps}
+\item Press \K{Tab}.  The cursor moves to the next tab stop.
+\item Type the text.
+\end{WPSteps}
+\Documents{wpkey}{Tab}
+
+\BeginReplay{ref-tab}
+For example, type \TypeRun{Name:}, press \PressKey{Tab}, type
+\TypeRun{Peter Gibbons} and press \PressKey{Enter}; type \TypeRun{Dept:},
+press \PressKey{Tab} twice\Keys{Tab} and type \TypeRun{Software}.  Press
+\Press{Reveal Codes}{Alt-F3} to see the tab codes:
+\WordScreen[rows=14]{ref-tab}{Tabs on the editing screen and in Reveal Codes}
+\EndReplay
+
+\Notes
+\Topic{Code}
+Each Tab puts a \Code{[Tab]} code in the document.  Delete it to remove the
+tab; InitechWord deletes it without asking.
+
+\Topic{Shift-Tab, Ctrl-Tab and Alt-Tab}
+These act as Tab does.
+
+\Topic{Tab Stops}
+The tab stops are every half inch, measured from the left margin: under the
+standard margins, every five columns of the editing screen.  You cannot set
+other tab stops.  When you change the left margin the stops move with it.
+Reveal Codes shows the stops on its ruler.
+
+\Topic{Text Before a Tab}
+If you add or delete text before a tab on the same line, the tab moves the
+text after it to the next stop after the text, so tabbed columns stay lined
+up as long as the text before them fits.
+
+\SeeAlso{Indent; Margins, Left and Right; Reveal Codes}
+\end{Feature}

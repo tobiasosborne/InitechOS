@@ -51,9 +51,11 @@ function initech_wpc.entry(name)
     tex.sprint(first)
   end
 end
+function initech_wpc.notes_on() initech_wpc.topic = "" end
 function initech_wpc.topic_check(name)
   local k = key(name)
-  if initech_wpc.topic and k <= initech_wpc.topic then
+  if initech_wpc.topic == nil then return end
+  if k <= initech_wpc.topic then
     tex.error("initech-wpc: Notes topic `" .. name .. "' is out of alphabetical order (AN-11)")
   end
   initech_wpc.topic = k
@@ -108,6 +110,12 @@ end
   \fancyfoot[C]{\imFootFont\bfseries\im@draftfoot}}
 \pagestyle{im@text}
 \renewcommand\chaptermark[1]{\markboth{#1}{#1}}
+%% A section's \chapter is its divider leaf (PK-07): the bar and the field
+%% name it; nothing is typeset on the leaf (the class draws the bar and
+%% leaves the blank verso), and the section's text begins on the next
+%% recto with its first head.
+\titleformat{\chapter}[block]{}{}{0pt}{\@gobble}
+\titlespacing*{\chapter}{0pt}{0pt}{0pt}
 
 %% ---- contents (PG-35): section names in the side column, entries with
 %% leaders in the text column, a hairline between sections ---------------
@@ -199,7 +207,7 @@ end
   \textbf{Important:}\enspace\ignorespaces}{\par\addvspace{4pt}}
 %% Notes: hairline across the block, "Notes" in the side column, then the
 %% sub-topics (alphabetical; checked).
-\newcommand\Notes{\par\addvspace{10pt}\noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
+\newcommand\Notes{\directlua{initech_wpc.notes_on()}\par\addvspace{10pt}\noindent\hspace*{-\imHang}\rule{\imFullWidth}{0.5pt}\par\nobreak
   \vspace{4pt}\gdef\im@notesfirst{1}}
 \newcommand\im@notesfirst{}
 \newcommand\Topic[1]{\par\addvspace{6pt}\goodbreak
@@ -229,6 +237,9 @@ end
 \AtBeginDocument{\immediate\openout\im@wpkeys=\jobname.wpkeys}
 \AtEndDocument{\immediate\closeout\im@wpkeys}
 \newcommand\K[1]{\immediate\write\im@wpkeys{#1}\mbox{#1}}
+%% Shift-F8,1: a key, then menu choices typed after it (only the key is a
+%% key: the choices are registered menu entries).
+\newcommand\KC[2]{\K{#1},#2}
 %% **Bold** (F6): the feature in bold, its key roman in parentheses.
 \newcommand\FK[2]{\textbf{#1} (\K{#2})}
 %% A menu choice: select Line (1).
@@ -237,7 +248,11 @@ end
 \newcommand\Code[1]{\mbox{\texttt{#1}}}
 \newcommand\rarr{\mbox{$\rightarrow$}}
 %% Text on the screen (a prompt, a message): Cursor.
-\newcommand\Scr[1]{\mbox{\texttt{#1}}}
+\newcommand\Scr[1]{\texttt{#1}}
+%% A whole status-line menu or message, displayed as the screen shows it:
+%% Cursor 7.5 pt on the full block (80 columns fit), never broken.
+\newcommand\StatusLine[1]{\par\addvspace{3pt}\noindent\hspace*{-\imHang}%
+  \makebox[\imFullWidth][l]{\ttfamily\fontsize{7.5}{9}\selectfont #1}\par\addvspace{3pt}}
 %% Text the reader types, in running text.
 \newcommand\Typed[1]{\mbox{\texttt{\bfseries #1}}}
 %% The one registration mechanism.
@@ -265,10 +280,15 @@ end
 %% Press a feature key: **Bold** (F6); a plain key: Enter.
 \newcommand\Press[2]{\im@rec{key #2}\FK{#1}{#2}}
 \newcommand\PressKey[1]{\im@rec{key #1}\K{#1}}
+%% Characters typed into a menu or prompt, recorded only (the text names
+%% them already, as in "press Shift-F8,1,3,3").
+\newcommand\Typing[1]{\im@rec{type #1}}
 %% Keys recorded but already named in the step text.
 \newcommand\Keys[1]{\im@rec{key #1}}
 %% A menu choice typed by its number: select Line (1).
 \newcommand\Choose[2]{\im@rec{type #2}\Ch{#1}{#2}}
+%% Caps Lock on or off for the keys that follow (recorded only).
+\newcommand\CapsLock[1]{\im@rec{caps #1}}
 %% A pull-down menu choice (FLAIR menu bar).
 \newcommand\PullChoose[2]{\im@rec{menu #1,#2}}
 
@@ -408,7 +428,7 @@ end
 \newcommand\GlossTerm[1]{\par\addvspace{6pt}\goodbreak\noindent{\im@condensed\bfseries\fontsize{9.5}{12}\selectfont #1}\par\nobreak}
 
 %% ---- appendices of the Reference: lettered, each on a recto -------------
-\newcommand\WPAppendix[2]{\im@closeentry\cleardoublepage
+\newcommand\WPAppendix[2]{\directlua{initech_wpc.topic = nil}\im@closeentry\cleardoublepage
   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
   \noindent\hspace*{-\imHang}{\imWPTitleFont Appendix #1: #2}\par\nobreak
   \markboth{Appendix #1: #2}{Appendix #1: #2}%
@@ -417,7 +437,7 @@ end
   \vspace{14pt}\@afterheading}
 %% The Reference section's own contents (single column, leaders), and a
 %% plain heading in the Getting Started section.
-\newcommand\WPHead[1]{\par\addvspace{18pt}\goodbreak
+\newcommand\WPHead[1]{\directlua{initech_wpc.topic = nil}\par\addvspace{18pt}\goodbreak
   \noindent\hspace*{-\imHang}\rule{\imFullWidth}{3pt}\par\nobreak\vspace{4pt}%
   \noindent\hspace*{-\imHang}{\imWPTitleFont #1}\par\nobreak
   \markboth{#1}{#1}\addcontentsline{toc}{section}{#1}%
@@ -513,5 +533,29 @@ end
 \newcommand\FeatureListByLesson{\begingroup\setlength\parskip{1pt}\directlua{initech_wpc.bylesson()}\endgroup}
 %% The closing sentence of a lesson and the asides (AN-18: italic, smaller).
 \newenvironment{Aside}{\par\addvspace{4pt}\noindent\itshape\fontsize{9.5}{12}\selectfont}{\par\addvspace{4pt}}
+
+%% ---- the messages appendix (GC-02): \WPMessage{text}{explanation}{action}
+%% registers the text (wpmsg) and prints it character for character in
+%% Cursor Bold, its placeholders -- the words filename and code -- in
+%% italic; a backslash in the text is written \wbs.
+\directlua{
+function initech_wpc.message(s)
+  s = string.gsub(s, "\string\\", "\string\\textbackslash{}")
+  s = string.gsub(s, "filename", "\string\\textit{filename}")
+  s = string.gsub(s, "\@percentchar[code\@percentchar]", "[\string\\textit{code}]")
+  tex.sprint(s)
+end
+}
+\newcommand\WPMessage[3]{\Documents{wpmsg}{#1}%
+  \par\addvspace{9pt}\goodbreak\noindent\hspace*{-\imHang}%
+  {\ttfamily\bfseries\directlua{initech_wpc.message("\luaescapestring{#1}")}}\par\nobreak
+  \vspace{2pt}\noindent #2\par
+  \ifx\relax#3\relax\else\vspace{2pt}\noindent\textit{What to do:}\enspace #3\par\fi}
+%% A code of the codes appendix: registered (wpcode), printed as Reveal
+%% Codes shows it, with its meaning.  \rarr in a name is written ->.
+\newcommand\WPCode[2]{\Documents{wpcode}{#1}\index{#1@\texttt{#1}}%
+  \par\addvspace{3pt}\noindent\llap{\makebox[\imHang][l]{\texttt{#1}}}#2\par}
+%% A key of the keyboard appendix that acts as another key (wpkey alias).
+\newcommand\WPAlias[2]{\Documents{wpkey}{#1=#2}#1}
 
 \endinput

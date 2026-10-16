@@ -1,0 +1,63 @@
+% Reference entries, I (AN-11).  Law 1: os/iword/core/edit.c iw_ed_indent
+% ([->Indent] C2: to the next tab stop; the rest of the paragraph wraps at
+% that stop; WP's C6 kept before the paragraph's [HRt] by iw_ed_fixup),
+% spec/iword/wp5_format.h "tabs, indents and hard pages", face_a.c (F4).
+% Shots: ../wordperfect51-decomp mint MINT09, MINT10.
+% GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block
+\Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block}
+\begin{Feature}{Indent}
+Indent moves the left edge of a whole paragraph in to the next tab stop.
+The first line starts at the stop, and every line after it wraps back to
+the same stop, not to the left margin.  Use it for numbered lists, quoted
+passages and notes.
+
+To indent a paragraph,
+\begin{WPSteps}
+\item Move the cursor to the start of the paragraph, or to where you want
+the indented text to start (after a number, for example).
+\item Press \FK{\rarr Indent}{F4}.  The cursor moves to the next tab stop.
+\item Type the paragraph.  Press \K{Enter} at its end; the indent ends with
+the paragraph.
+\end{WPSteps}
+\Documents{wpkey}{F4}
+
+\BeginReplay{ref-indent}
+For example, type \TypeRun{1.}, press \Press{\rarr Indent}{F4} and type
+\TypeRun{Every TPS report must carry the new cover sheet, which is available from the supply room.}
+\WordScreen[rows=2]{ref-indent}{An indented paragraph after a number}
+\EndReplay
+
+\Notes
+\Topic{Code}
+Indent puts the code \Code{[\rarr Indent]} in the document.  Delete it to
+undo the indent; InitechWord deletes it without asking.
+
+\Topic{Indenting Farther}
+Press Indent again to indent to the next tab stop after that: two Indents at
+the start of a paragraph indent it one inch.
+
+\Topic{Tab Stops}
+The tab stops are every half inch from the left margin.  If you change the
+margins, the stops move with the left margin (see \InRef{Tab}).
+
+\SeeAlso{Margins, Left and Right; Tab}
+\end{Feature}
+
+\begin{Feature}{Italics}
+Italic text slants to the right.  It is one of the appearances on the Font
+key's Appearance menu, Italc (4); InitechWord draws italic text in italic on
+the editing screen.
+
+To type italic text,
+\begin{WPSteps}
+\item Press \FK{Font}{Ctrl-F8}, select \Ch{Appearance}{2}, then select
+\Ch{Italc}{4}.
+\item Type the text.
+\item Press \KC{Ctrl-F8}{2,4} again to move past the end of the italic.
+\end{WPSteps}
+The codes are \Code{[ITALC]} and \Code{[italc]}.  To make text you have
+already typed italic, block it, press \FK{Font}{Ctrl-F8}, select
+\Ch{Appearance}{2} and \Ch{Italc}{4} (see \InRef{Block, Attributes}).
+
+\SeeAlso{Appearance; Block, Attributes; Font}
+\end{Feature}

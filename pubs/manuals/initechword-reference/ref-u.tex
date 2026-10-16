@@ -1,0 +1,35 @@
+% Reference entries, U (AN-11).  Law 1: os/iword/core/codes.c iw_ed_attr
+% (F8: [UND] ... [und], the cursor between them; F8 again moves past the off
+% code), iw_attr_faces (underlined text drawn underlined), face_a.c (F8).
+% Shots: ../wordperfect51-decomp goldens MINT01, mint MINT06.
+% GATES: test-pubs-iword test-iword-codes test-iword-reveal-codes test-flair-iword-codes
+\Gates{test-pubs-iword test-iword-codes test-iword-reveal-codes test-flair-iword-codes}
+\begin{Feature}{Underline}
+Underline draws a line under text.  On the editing screen underlined text is
+drawn underlined.
+
+To underline text as you type it,
+\begin{WPSteps}
+\item Press \FK{Underline}{F8}.  InitechWord puts the codes \Code{[UND]} and
+\Code{[und]} in the document, with the cursor between them.
+\item Type the text.
+\item Press \FK{Underline}{F8} again to move past \Code{[und]}.
+\end{WPSteps}
+\Documents{wpkey}{F8}
+\begin{WPNote}To underline text you have already typed, block it and press
+Underline (see \InRef{Block, Attributes}).\end{WPNote}
+
+\Notes
+\Topic{Double Underline}
+For a double line, choose Dbl Und (3) from the Appearance menu of the Font
+key (see \InRef{Appearance}).
+
+\Topic{Spaces}
+On the editing screen, the underline is drawn under everything between the
+two codes, spaces included.
+
+\Topic{Underline From the Font Menu}
+Undln (2) on the Appearance menu of the Font key does what F8 does.
+
+\SeeAlso{Appearance; Block, Attributes; Bold; Codes}
+\end{Feature}

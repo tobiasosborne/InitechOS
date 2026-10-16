@@ -1,0 +1,154 @@
+% Reference entries, R (AN-11).  Law 1: os/iword/app/face_a.c
+% retrieve_named (a missing file, a file that is not a WordPerfect 5.1
+% document, a file larger than 64K; onto a clear screen the file becomes the
+% document, into a document its text goes in at the cursor), os/iword/fs/
+% wp5.c iw_wp5_read (only codes the corpus verified are accepted),
+% spec/iword/wp5_format.h (HRt 0x0A, SRt 0x0D, DSRt 0x90), edit.c (wrap,
+% the DSRt of Justification), codes.c iw_reveal_pane and face_a.c
+% paint_reveal (the Reveal Codes screen: 10 document rows, the status line,
+% the ruler, the 10-row codes area, the restore message; spec/iword/
+% reveal_codes.h).  Shots: ../wordperfect51-decomp goldens MINT01..05,
+% mint MINT06..32.
+% GATES: test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens
+\Gates{test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens}
+\begin{Feature}{Retrieve}
+Retrieve brings a document you have saved back onto the screen, so that you
+can read it or change it.  You can also
+retrieve a document into the one on the screen, to combine the two.
+
+To retrieve a document,
+\begin{WPSteps}
+\item Clear the screen if it holds a document you do not want to combine
+with the one you retrieve (see \InRef{Exit}).
+\item Press \FK{Retrieve}{Shift-F10}.  The status line shows
+\Scr{Document to be Retrieved:}.
+\PullDown{Select \Mi{R}etrieve from the \Mi{F}ile menu.}
+\item Type the name of the document and press \K{Enter}.
+\end{WPSteps}
+\Documents{wpkey}{Shift-F10}
+On a clear screen the document you retrieve becomes the document you are
+working on: its name is shown on the status line and the cursor is at its
+top.
+
+\Notes
+\Topic{Into Another Document}
+If the screen already holds text, the retrieved document's text is put into
+it at the cursor, and the document on the screen keeps its own name.  The
+two documents are now one; the file you retrieved is not changed.
+
+\Topic{Messages}
+\Scr{ERROR: File Not Found} means there is no document by that name on the
+data volume: check the name and type it again.
+\Scr{ERROR: Incompatible File Format} means the file is not a WordPerfect
+5.1 document that InitechWord can read.
+\Scr{ERROR: Document too large} means the file is larger than InitechWord
+can hold (see Appendix H).  Press any key to return to the prompt.
+
+\Topic{WordPerfect 5.1 Documents}
+InitechWord's documents are WordPerfect 5.1 documents, and InitechWord
+retrieves documents written by WordPerfect 5.1 itself, keeping every code
+it holds (see \InRef{Codes}).  A WordPerfect document that holds a code
+InitechWord does not know is refused with \Scr{ERROR: Incompatible File
+Format}, rather than changed.
+
+\SeeAlso{Exit; Filenames; Save}
+\end{Feature}
+
+\begin{Feature}{Return, Deletable Soft}
+A deletable soft return ends a line without ending the paragraph.
+InitechWord puts one in when you set the justification with the cursor in
+the middle of a line, so that the text after the cursor starts a new line
+in the new justification (see \InRef{Justification}).
+
+Reveal Codes shows it as \Code{[DSRt]}.  To join the two lines again, delete
+the code: InitechWord deletes it without asking.
+
+\SeeAlso{Justification; Return, Hard; Return, Soft}
+\end{Feature}
+
+\begin{Feature}{Return, Hard}
+A hard return ends a line where you choose, and ends the paragraph.  You put
+one in by pressing \K{Enter}.  Use it at the end of a paragraph, after each
+line of an address or a list, and to make blank lines.
+
+To insert a hard return,
+\begin{WPSteps}
+\item Press \K{Enter}.
+\end{WPSteps}
+\Documents{wpkey}{Enter}
+
+\Notes
+\Topic{Code}
+A hard return is the code \Code{[HRt]}.  Delete it to join a line to the
+line after it (see \InRef{Delete}).
+
+\Topic{Shift-Enter and Alt-Enter}
+Shift-Enter and Alt-Enter put in a hard return as Enter does.  Ctrl-Enter
+puts in a hard page (see \InRef{Page Break, Hard}).
+
+\SeeAlso{Page Break, Hard; Return, Soft; Word Wrap}
+\end{Feature}
+
+\begin{Feature}{Return, Soft}
+A soft return is the end of a line that InitechWord makes for you when a
+line is full (see \InRef{Word Wrap}).  It takes the place of the space
+between the last word that fits on the line and the word that goes to the
+next line.  Reveal Codes shows it as \Code{[SRt]}.
+
+You never type a soft return and you need not delete one: whenever you
+change a paragraph, InitechWord wraps it again and moves its soft returns to
+where the lines now end.
+
+\SeeAlso{Return, Deletable Soft; Return, Hard; Word Wrap}
+\end{Feature}
+
+\begin{Feature}{Reveal Codes}
+Reveal Codes shows the hidden codes of the document.  The screen divides:
+the upper part shows the document as usual, and the lower part shows the
+same lines with every code in square brackets.  Use it to see why text
+looks as it does, and to delete a code.
+
+To reveal codes,
+\begin{WPSteps}
+\item Press \FK{Reveal Codes}{Alt-F3}.
+\item Move the cursor as usual.  It moves in both parts of the screen; in
+the codes area it is the highlighted character or code.
+\item Press \FK{Reveal Codes}{Alt-F3} again to return to the full editing
+screen.
+\end{WPSteps}
+\Documents{wpkey}{Alt-F3}
+\FlairShot{reveal}{640}{440}{Reveal Codes: the bold codes around a word}
+
+The Reveal Codes screen has five parts, from the top:
+\begin{description}
+\item[The document] ten lines of the document, as on the editing screen.
+\item[The status line] as on the editing screen.
+\item[The ruler] the margins and tab stops in effect at the cursor.
+\item[The codes area] ten rows: the text of the lines around the cursor,
+starting three lines above it, with the codes shown.  A line longer than the
+screen runs on into the next row.
+\item[The message] \Scr{Press Reveal Codes to restore screen}.
+\end{description}
+
+\Notes
+\Topic{Deleting Codes}
+In Reveal Codes, Backspace and Delete delete codes without asking, as they
+delete characters.  Deleting either code of an appearance or size deletes
+its partner too.  See \InRef{Codes}.
+
+\Topic{Editing in Reveal Codes}
+Everything you can do on the editing screen you can do in Reveal Codes:
+type, block, move, format.  Both parts of the screen change as you work.
+
+\Topic{The Cursor in the Codes Area}
+The highlight covers the character or the whole code the cursor is on.  At
+the very end of the document it is one empty cell after the last code.
+
+\Topic{The Ruler}
+The left margin is shown by \Scr{\{} and the right margin by \Scr{\}}; a
+margin that does not fall on a tab stop is shown by \Scr{[} or \Scr{]}
+instead.  The small triangles are the tab stops, every half inch from the
+left margin.
+
+\SeeAlso{Codes; Margins, Left and Right; Tab}
+\end{Feature}

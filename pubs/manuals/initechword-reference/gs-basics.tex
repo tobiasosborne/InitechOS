@@ -1,0 +1,218 @@
+% Getting Started, The Basics (PUB-REF-0001 AN-21 F-WPC: Registration,
+% Installation, The Template, Starting InitechWord, Keys to Know, Function
+% Keys, Pull-Down Menus, Menu Options, Codes, Exit; model: WordPerfect 5.1
+% Reference pp. 3-11, docs/pubs/originals/wordperfect-51.md s3, s4.4).
+% Law 1: os/iword/app/face_a.c (the screen, the status line, the keys, the
+% File menu, the exit guard), spec/flair_iword_traces.mk (the opening of
+% WORD.EXE from the Finder), the Makefile flair-data-rules (APPS\WORD.EXE on
+% the shipped data volume), harness/pubs/iword_probe.c (which keys act).
+% GATES: test-pubs-iword test-iword-face test-flair-iword test-pubs-flair-screens
+\Gates{test-pubs-iword test-iword-face test-flair-iword test-pubs-flair-screens}
+\WPHead{The Basics}
+This section tells you what you need to know to begin working with
+InitechWord: how the program is supplied, how to start it, the keys you use
+most, and how the function keys, the menus and the hidden codes work.  If
+you have used a word processor before, read it quickly and then try
+\textit{A Brief Lesson} at the end of the section.  If you are new to word
+processing, read it carefully and then work through the lessons of the
+\textit{InitechWord Workbook}, which build on what is said here.
+
+\WPSide{Registration}
+Fill in the Warranty Registration Card that comes in the InitechWord
+package and mail it to Initech Systems Corporation.  Registered users are
+told of new editions of the program and of these publications, and may call
+the Initech Help Desk for assistance (see \textit{Getting Help} below).
+\draft{PUB-REF-0001 PK-13: the Warranty Registration Card is not yet
+produced}
+
+\WPSide{Installation}
+InitechWord is supplied installed.  The program is the file
+\Scr{WORD.EXE} in the \Scr{APPS} folder of the InitechOS data volume, the
+disk that appears on the FLAIR desktop beside the system disk.  There is
+nothing to copy and no installation program to run: when InitechOS is
+running and FLAIR is on the screen, InitechWord is ready to start.
+
+InitechWord keeps the documents you save in the top level of the same data
+volume.  It shows that volume as drive \Scr{A:}, so a document you save
+under the name \Scr{MEMO} appears on the status line as
+\Scr{A:\wbs MEMO}.
+
+The \textit{InitechWord Installation} card that comes in the package
+repeats these points in brief and takes you through starting the program
+the first time.
+
+\WPSide{The Template}
+The function-key template that comes with InitechWord lies above the
+function keys of your keyboard.  It names the feature each function key
+starts, alone and with the Shift, Alt and Ctrl keys.  On the template, each
+key has up to four lines:
+\begin{itemize}
+\item the feature started by pressing Ctrl and the key, in red;
+\item the feature started by pressing Alt and the key, in blue;
+\item the feature started by pressing Shift and the key, in green;
+\item the feature started by pressing the key alone, in black.
+\end{itemize}
+A line is left blank where the combination starts no feature.  The quick
+list at the left of the template names the other keys you use most often.
+
+\WPSide{Starting InitechWord}
+InitechWord is a FLAIR application.  To start it,
+\begin{WPSteps}
+\item Double-click the icon of the data volume on the FLAIR desktop.  The
+volume opens in a window.
+\item Double-click the \Scr{APPS} folder.  The folder opens in a window.
+\item Double-click the \Scr{WORD.EXE} icon.
+\end{WPSteps}
+The InitechWord window opens over the desktop, below the menu bar, with
+its title \Scr{InitechWord} in the title bar.  The menu bar shows a second
+row of menus below the desktop's: the \textbf{File} menu of InitechWord
+(see \textit{Pull-Down Menus} below).
+
+\FlairShot{editing}{640}{440}{The InitechWord window: a short memo typed into a new document}
+
+The window shows the editing screen.  Text appears in white on a blue
+field, and nothing but your text is shown until you ask for something.  The
+cursor is the cell drawn in reverse, white on blue: it marks where the next
+character you type will go.
+
+The bottom line of the window is the status line.  At its right it tells
+you where the cursor is:
+\begin{description}
+\item[Doc] the document you are working on (always \Scr{Doc 1})
+\item[Pg] the page the cursor is on
+\item[Ln] how far the line the cursor is on lies from the top edge of the
+page, in inches
+\item[Pos] how far the cursor lies from the left edge of the paper, in inches
+\end{description}
+On a new document the cursor is at \Scr{Ln 1"} and \Scr{Pos 1"}: one inch
+from the top edge and one inch from the left edge, inside the standard one
+inch margins.  Once you have saved a document or retrieved one, its name is
+shown at the left of the status line.  The same line is used to ask you
+questions and to show menus, as described below.  See \InRef{Status Line}.
+
+\WPSide{Keys to Know}
+You type into InitechWord as you would on a typewriter, with these
+differences.
+
+\Topic{Enter}
+Press \K{Enter} only to end a paragraph, to end a short line such as a
+heading or a line of an address, or to make a blank line.  When a line
+fills, InitechWord moves the word that does not fit to the next line for
+you (see \InRef{Word Wrap}).  Each time you press \K{Enter}, InitechWord
+puts a hard return code in the document.
+
+\Topic{Tab}
+\K{Tab} moves the text that follows to the next tab stop.  The stops are
+every half inch.  See \InRef{Tab}.
+
+\Topic{Backspace and Delete}
+\K{Backspace} erases the character to the left of the cursor; \K{Delete}
+erases the character at the cursor.  See \InRef{Delete}.
+
+\Topic{Cursor Keys}
+The arrow keys move the cursor through the text one character or one line
+at a time.  \K{End} moves it to the end of the line.  \K{Home} is used in
+front of the arrow keys to move farther: \K{Home, Left} goes to the start
+of the line, and \K{Home, Home, Up} to the top of the document.  See
+\InRef{Cursor Movement}.
+
+\Topic{Cancel}
+\FK{Cancel}{F1} backs out of any menu, prompt or question and returns you
+to the document.  \K{Esc} does the same.  See \InRef{Cancel}.
+
+\Topic{Shift, Alt and Ctrl}
+These keys change what a function key does, as the template shows; with
+\K{Enter}, Ctrl gives a hard page (\K{Ctrl-Enter}).  With every other key
+InitechWord acts as if they were not held: Shift-Backspace erases as
+Backspace does, Ctrl-Down moves down a line as Down does, and so on.  Two
+function-key combinations work the same way: Shift-F7, Alt-F7 and Ctrl-F7
+start Exit, as F7 does, and Alt-F10 and Ctrl-F10 start Save, as F10 does.
+Appendix F lists every such key.
+
+\WPSide{Function Keys}
+Most InitechWord features are started with the function keys.  This book
+names a feature in bold with its key in parentheses, as the template does:
+\FK{Bold}{F6}, \FK{Format}{Shift-F8}.  A hyphen between two keys means hold
+down the first while you press the second: \K{Shift-F8} means hold down
+Shift and press F8.  A comma means release the first key before you press
+the next: \KC{Shift-F8}{1} means press Shift-F8, then type 1.
+
+The function keys InitechWord uses are these.  Appendix F lists them again
+with every key of the keyboard.
+
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}lll@{}}
+\textbf{Feature} & \textbf{Key} & \textbf{What it does}\\
+Cancel & F1 & backs out of a menu or prompt\\
+Reveal Codes & Alt-F3 & shows the hidden codes\\
+\rarr Indent & F4 & indents a paragraph to the next tab stop\\
+Block & Alt-F4 & marks text to act on\\
+Move & Ctrl-F4 & moves, copies or deletes text\\
+Bold & F6 & bold text\\
+Exit & F7 & leaves the document\\
+Underline & F8 & underlined text\\
+Format & Shift-F8 & margins, justification, line spacing\\
+Font & Ctrl-F8 & size and appearance of text\\
+Save & F10 & saves the document\\
+Retrieve & Shift-F10 & brings a saved document back\\
+\end{tabular}
+\par\addvspace{4pt}
+
+The other function keys and combinations do nothing; pressing one leaves
+the document as it was.
+
+\WPSide{Pull-Down Menus}
+InitechWord has one pull-down menu, \textbf{File}, in the second row of the
+menu bar.  It holds the three things you do with a whole document:
+\textbf{Retrieve}, \textbf{Save} and \textbf{Exit}.  Point to \textbf{File}
+with the mouse, hold down the mouse button, drag to the item, and release
+the button.  Each item starts the same feature as its function key:
+Retrieve as \K{Shift-F10}, Save as \K{F10}, Exit as \K{F7}.  The menu shows
+the keyboard equivalent of Exit, the command key and Q: on your keyboard,
+hold down Ctrl and press Q.
+
+In this book, a step that can also be carried out from the File menu is
+followed by the menu route in italic, after a small picture of the menu bar:
+\PullDown{Select \Mi{S}ave from the \Mi{F}ile menu.}
+For everything else you use the keys.  See \InRef{Pull-Down Menus}.
+
+\WPSide{Menu Options}
+When you press a feature key, InitechWord shows its menu on the status line
+or, for Format, on a screen of its own.  Each option has a number.  Type
+the number to choose the option.  This book names the option with its
+number in parentheses: select \Ch{Size}{1}.  The \Scr{0} at the end of a
+status-line menu is what you get if you choose nothing: press \K{Cancel} or
+any key that is not an option, and you are back in the document.
+
+A menu shows the whole set of options WordPerfect users know, and
+InitechWord carries out the options described in this book.  Where a
+menu shows an option this book does not describe, pressing its number
+returns you to the document (on the status-line menus) or leaves the
+screen as it is (on the Format screens).  The Font menu, for example,
+shows Base Font (4) and Print Color (5); either returns you to the
+document.
+
+When InitechWord asks a question, the answer you get by pressing
+\K{Enter} or any key other than the one shown in parentheses is the one
+\emph{not} in parentheses.  At \Scr{Exit WP? No (Yes)}, type \Typed{y} to
+leave InitechWord; any other key answers No.
+
+\WPSide{Codes}
+InitechWord keeps the formatting of a document as hidden codes in the text:
+a code where bold begins and another where it ends, a code for each hard
+return, tab, margin setting and so on.  The editing screen shows you their
+effect -- bold text, an indented paragraph -- but not the codes themselves.
+To see them, press \FK{Reveal Codes}{Alt-F3}: the screen divides, and the
+lower part shows the text with every code in square brackets, \Code{[BOLD]}
+where bold begins and \Code{[bold]} where it ends, \Code{[HRt]} for a hard
+return.  Press Reveal Codes again to return to the full editing screen.
+
+If you erase a code by accident on the editing screen, InitechWord first
+asks you whether you mean to.  See \InRef{Codes} and \InRef{Reveal Codes};
+Appendix B lists every code.
+
+\WPSide{Exit}
+When you have finished with a document, press \FK{Exit}{F7}.  InitechWord
+always asks first whether you want to save the document, then whether you
+want to leave InitechWord: answering No to the second question clears the
+screen for a new document.  See \InRef{Exit}.

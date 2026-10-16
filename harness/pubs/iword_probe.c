@@ -518,7 +518,7 @@ static void inventory_keys(void)
      * ALIAS, "Ctrl-F10=F10" (face_a.c does not look at the modifier there) */
     static state_t plain[NKEYS];
     for (int m = 0; m < 4; m++) for (int k = 0; k < NKEYS; k++) {
-        if (!strcmp(KEYS[k].name, "Home")) continue;          /* the prefix: below */
+        /* (Home alone only arms the prefix; its sequences are probed below) */
         snprintf(buf, sizeof buf, "%s%s", MODS[m], KEYS[k].name);
         snprintf(cmd, sizeof cmd, "key %s", buf);
         l[0] = cmd;

@@ -1,0 +1,236 @@
+% Reference entries, M (AN-11).  Law 1: os/iword/core/edit.c iw_ed_margins
+% ([L/R Mar] D0/01 at the cursor, a [HRt] first when the cursor is not at
+% the left margin; every paragraph after it re-wrapped; a line holds
+% (10200 - R - L) / 120 + 1 characters), face_a.c M_FMTMARL / M_FMTMARR /
+% parse_inches (inches to two decimals, an optional ", at most 8, ten input
+% characters), os/iword/core/block.c (copy, cut, retrieve; iw_ed_select:
+% sentence, paragraph, page), face_a.c M_MOVE / M_MOVEBLK / M_MOVENB /
+% M_RETMENU / M_RETRIEVE.  Shots: ../wordperfect51-decomp mint MINT12..15,
+% MINT21, MINT23, MINT29, MINT31.
+% GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block test-flair-iword-format
+\Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-block test-flair-iword-format}
+\begin{Feature}{Margins, Left and Right}
+The left and right margins are the space between the edges of the paper
+and the text.  A new document has a one inch margin on each side of an 8.5
+inch page, so a line holds 66 characters.  You can change the margins from
+any point in the document; the change applies from there to the end of the
+document, or to the next margin setting.
+
+To change the left and right margins,
+\begin{WPSteps}
+\item Move the cursor to where the new margins are to begin.
+\item Press \FK{Format}{Shift-F8}, then select \Ch{Line}{1}.
+\item Select \Ch{Margins}{7}.  The cursor moves to the left margin setting.
+\item Type the left margin in inches, for example \Typed{1.5}, and press
+\K{Enter}.  To keep the left margin as it is, press \K{Enter} alone.
+\item Type the right margin in inches and press \K{Enter}, or press
+\K{Enter} alone to keep it.
+\item Press \FK{Exit}{F7} to return to the document.
+\end{WPSteps}
+\Documents{wpmenu}{Shift-F8,1,7=Margins}
+
+\BeginReplay{ref-margins}
+For example, type \TypeRun{Normal margins here.} and press \PressKey{Enter};
+then press \Press{Format}{Shift-F8}, select \Choose{Line}{1} and
+\Choose{Margins}{7}, type \TypeName{1.5}, press \PressKey{Enter}, type
+\TypeName{2}, press \PressKey{Enter} and \Press{Exit}{F7}, and type
+\TypeRun{Narrow text now begins here and wraps at the new right margin of two inches.}
+\WordScreen[rows=3]{ref-margins}{Text after a margin setting of 1.5 inches left and 2 inches right}
+\EndReplay
+
+\Notes
+\Topic{Code}
+The margins go into the document as a \Code{[L/R Mar:\textit{left},\textit{right}]}
+code, for example \Code{[L/R Mar:1.5",2"]}.  On the editing screen
+InitechWord asks before deleting one (see \InRef{Codes}); deleting it
+returns the text after it to the margins in effect before it.
+
+\Topic{In the Middle of a Line}
+New margins take effect at the start of a line.  If the cursor is not at the
+left margin when you set them, InitechWord puts a hard return in front of
+the margin code, so that the text after the cursor begins a new line under
+the new margins.
+
+\Topic{Measurements}
+Type a margin in inches, with up to two decimal places, and if you like an
+inch mark (\Typed{1.25"}).  A margin must be less than 9 inches.  A setting
+InitechWord cannot read leaves that margin as it was.
+
+\Topic{On the Screen}
+The left edge of the editing screen is always one inch from the left edge
+of the paper.  With a left margin of 1.5 inches, text starts five columns in;
+the status line's Pos shows the cursor's place on the paper.  In Reveal
+Codes the ruler marks the margins in effect at the cursor (see \InRef{Reveal
+Codes}).
+
+\Topic{Tabs and Indents}
+The tab stops are measured from the left margin, so they move with it (see
+\InRef{Tab}).
+
+\SeeAlso{Format; Indent; Justification; Reveal Codes; Tab; Word Wrap}
+\end{Feature}
+
+\begin{Feature}{Move}
+Move takes text out of one place and puts it in another, copies text, or
+deletes it.  It works on a block you have made, or on a sentence, a
+paragraph or a page that InitechWord selects for you.
+
+To use Move,
+\begin{WPSteps}
+\item Block the text first (see \InRef{Block}), then press
+\FK{Move}{Ctrl-F4}.  The status line shows
+\StatusLine{Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0}
+\par Select \Ch{Block}{1} and go on as described in \InRef{Move, Block}.
+\Or
+With Block off, press \FK{Move}{Ctrl-F4}.  The status line shows
+\StatusLine{Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0}
+\par Select what to move (see \InRef{Move, Sentence/Paragraph/Page}), or
+select \Ch{Retrieve}{4} to put back the text you last moved or copied (see
+\InRef{Move, Retrieve}).
+\end{WPSteps}
+\Documents{wpkey}{Ctrl-F4}
+\Documents{wpkey}{Block:Ctrl-F4}
+\Documents{wpmenu}{Block:Ctrl-F4,1=Block}
+
+\Notes
+\Topic{Other Selections}
+Tabular Column (2) and Rectangle (3) on the first menu, and Append (4) on
+the second, return you to the document as Cancel does.
+
+\Topic{The Move Buffer}
+The text you move or copy is kept, so that you can put it in the document
+again with Move, Retrieve.  It stays until you move or copy other text, even
+across a new document.
+
+\SeeAlso{Block; Move, Block; Move, Retrieve; Move, Sentence/Paragraph/Page}
+\end{Feature}
+
+\begin{Feature}{Move, Block}
+After you block text and choose Block from the Move menu, InitechWord asks
+what to do with it:
+\StatusLine{1 Move; 2 Copy; 3 Delete; 4 Append: 0}
+
+To move or copy a block,
+\begin{WPSteps}
+\item Block the text and press \FK{Move}{Ctrl-F4}; select \Ch{Block}{1}.
+\item Select \Ch{Move}{1} to take the block out of the document
+\Or
+Select \Ch{Copy}{2} to leave it where it is.
+\item The status line shows \Scr{Move cursor; press Enter to retrieve.}
+Move the cursor to where the text is to go.
+\item Press \K{Enter}.  The text is put in front of the cursor.
+\end{WPSteps}
+\Documents{wpmenu}{Block:Ctrl-F4,1,1=Move}
+\Documents{wpmenu}{Block:Ctrl-F4,1,2=Copy}
+\Documents{wpmenu}{Block:Ctrl-F4,1,3=Delete}
+To delete the block instead, select \Ch{Delete}{3} at the second step.
+Move deletes it without asking (compare \InRef{Block, Delete}).
+
+\BeginReplay{ref-moveblock}
+For example, type \TypeRun{Alpha Beta Gamma.}, press \PressKey{Home},
+\PressKey{Left}, press \PressKey{Right} six times to move to \textit{Beta}\Keys{Right Right Right Right Right},
+press \Press{Block}{Alt-F4} and \PressKey{Right} five times to block
+\textit{Beta} and the space after it\Keys{Right Right Right Right}, press
+\Press{Move}{Ctrl-F4} and select \Choose{Block}{1} and \Choose{Move}{1}:
+\WordScreen[rows=1]{ref-moveblock-1}{The block is out of the document; InitechWord waits for Enter}
+Press \PressKey{End} and \PressKey{Enter}:
+\WordScreen[rows=1]{ref-moveblock-2}{The block moved to the end of the line}
+\EndReplay
+
+\Notes
+\Topic{Attributes}
+A block keeps its appearance and size when it is moved or copied: if it is
+bold where it starts, its bold goes with it.  The text around the place it
+came from keeps its own attributes.  Where the block is put, codes that
+would change nothing are left out.
+
+\Topic{Cursor Keys}
+At \Scr{Move cursor; press Enter to retrieve.} every cursor key works, and
+so does Reveal Codes.  Cancel leaves the text unretrieved (see
+\InRef{Cancel}).
+
+\SeeAlso{Block; Block, Delete; Move; Move, Retrieve}
+\end{Feature}
+
+\begin{Feature}{Move, Retrieve}
+Retrieve on the Move menu puts the text you last moved or copied into the
+document again, at the cursor.  Use it to put the same text in several
+places, or to bring back text you left unretrieved.
+
+To retrieve the moved or copied text,
+\begin{WPSteps}
+\item Move the cursor to where the text is to go.
+\item With Block off, press \FK{Move}{Ctrl-F4}, then select
+\Ch{Retrieve}{4}.  The status line shows
+\StatusLine{Retrieve: 1 Block; 2 Tabular Column; 3 Rectangle: 0}
+\item Select \Ch{Block}{1}.  The text is put in front of the cursor.
+\end{WPSteps}
+\Documents{wpmenu}{Ctrl-F4,4=Retrieve}
+\Documents{wpmenu}{Ctrl-F4,4,1=Block}
+
+\Notes
+\Topic{Nothing to Retrieve}
+If you have not moved or copied any text since InitechWord started, Block
+(1) returns you to the document with nothing changed.  Tabular Column (2)
+and Rectangle (3) also return you to the document.
+
+\SeeAlso{Move; Move, Block}
+\end{Feature}
+
+\begin{Feature}{Move, Sentence/Paragraph/Page}
+With Block off, Move can select the sentence, the paragraph or the page the
+cursor is in, so that you need not block it yourself.
+
+To move, copy or delete a sentence, paragraph or page,
+\begin{WPSteps}
+\item Put the cursor anywhere in the sentence, paragraph or page.
+\item Press \FK{Move}{Ctrl-F4}.
+\item Select \Ch{Sentence}{1}, \Ch{Paragraph}{2} or \Ch{Page}{3}.
+InitechWord highlights it and shows \Scr{1 Move; 2 Copy; 3 Delete; 4 Append: 0}.
+\item Select \Ch{Move}{1} or \Ch{Copy}{2}, move the cursor to where the
+text is to go, and press \K{Enter}
+\Or
+Select \Ch{Delete}{3} to delete it.
+\end{WPSteps}
+\Documents{wpmenu}{Ctrl-F4,1=Sentence}
+\Documents{wpmenu}{Ctrl-F4,1,1=Move}
+\Documents{wpmenu}{Ctrl-F4,1,2=Copy}
+\Documents{wpmenu}{Ctrl-F4,1,3=Delete}
+\Documents{wpmenu}{Ctrl-F4,2=Paragraph}
+\Documents{wpmenu}{Ctrl-F4,2,1=Move}
+\Documents{wpmenu}{Ctrl-F4,2,2=Copy}
+\Documents{wpmenu}{Ctrl-F4,2,3=Delete}
+\Documents{wpmenu}{Ctrl-F4,3=Page}
+\Documents{wpmenu}{Ctrl-F4,3,1=Move}
+\Documents{wpmenu}{Ctrl-F4,3,2=Copy}
+\Documents{wpmenu}{Ctrl-F4,3,3=Delete}
+
+\BeginReplay{ref-movesent}
+For example, type
+\TypeRun{First sentence here. Second sentence follows.  Third one.},
+put the cursor in the second sentence\Keys{Home Left Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right Right},
+press \Press{Move}{Ctrl-F4} and select \Choose{Sentence}{1}:
+\WordScreen[rows=1]{ref-movesent}{Move highlights the sentence the cursor is in}
+\Keys{F1}\EndReplay
+
+\Notes
+\Topic{Cancel}
+Press \FK{Cancel}{F1} while the text is highlighted to leave it where it is.
+The highlight goes and the cursor stays at the end of the text.
+
+\Topic{Page}
+A page is the page the status line counts as Pg: its lines from the first
+to the last.  A page ends after 54 lines, or at a hard page, whose code goes
+with it (see \InRef{Page Break, Hard}).
+
+\Topic{Paragraph}
+A paragraph runs from after the hard return (or hard page) before it
+through its own hard return.
+
+\Topic{Sentence}
+A sentence runs from the start of the sentence through the period,
+question mark or exclamation mark that ends it and up to three spaces after
+it.  A hard return also ends a sentence.
+
+\SeeAlso{Block; Move; Move, Block; Move, Retrieve}
+\end{Feature}

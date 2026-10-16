@@ -1,0 +1,40 @@
+% Reference entries, W (AN-11).  Law 1: os/iword/core/edit.c
+% iw_reflow_para (the space that ends a full line becomes the soft return;
+% a line holds (10200 - R - L) / 120 + 1 characters, 66 at the standard
+% margins: spec/iword/wp5_format.h WRAP, MINT01, MINT22; a word longer than
+% the line is broken by the layout only), face_a.c (insertion: every
+% character typed goes in at the cursor; Ins does nothing).
+% GATES: test-pubs-iword test-iword-core test-iword-wp5-roundtrip test-iword-face test-flair-iword
+\Gates{test-pubs-iword test-iword-core test-iword-wp5-roundtrip test-iword-face test-flair-iword}
+\begin{Feature}{Word Wrap}
+When the line you are typing is full, InitechWord moves the word that does
+not fit to the start of the next line.  You keep typing and press Enter only
+at the end of a paragraph.
+
+Under the standard one inch margins a line holds 66 characters.  The space
+before the word that moves down becomes a soft return (see \InRef{Return,
+Soft}).
+
+\BeginReplay{ref-wrap}
+For example, type this paragraph without pressing Enter:
+\Type{Initech word processing is here. The quick brown fox jumps over the lazy dog.}
+The paragraph wraps after \textit{over}:
+\WordScreen[rows=2]{ref-wrap}{A paragraph that wraps}
+\EndReplay
+
+\Notes
+\Topic{Inserting and Deleting}
+Text you type goes in at the cursor, in front of what is there; nothing is
+typed over.  After every change InitechWord wraps the paragraph again, so
+its lines always end where they should.
+
+\Topic{Long Words}
+A word longer than a whole line is broken where the line ends; the rest of
+it continues on the next line.
+
+\Topic{Margins}
+The line length follows the margins in effect (see \InRef{Margins, Left and
+Right}).  Indented lines wrap at the indent (see \InRef{Indent}).
+
+\SeeAlso{Margins, Left and Right; Return, Hard; Return, Soft}
+\end{Feature}
