@@ -1,0 +1,102 @@
+% Appendix F -- Data Collection Sheets (ZR23-6845-01 App. F and the tear-out
+% sheets with their own form number).  Forms TPS-1 to TPS-5 (research brief
+% Sec 5: TPS-1 cover sheet; TPS-2 report number control log, double-entry
+% columns; TPS-3 memo acknowledgement log; TPS-4 forms alignment record;
+% TPS-5 operator sign-off sheet).  The program prints the revision of TPS-1
+% on its own cover sheet (FORM TPS-1 (REV. 10/89), tpsrep_program.asm
+% s_form); the other forms are paper records kept by the procedures.  The
+% alignment count printed on Form TPS-4 is the spec's (bead initech-5igf).
+% GATES: test-tps-report test-pubs-tps
+\Gates{test-tps-report, test-pubs-tps}
+\chapter{Data Collection Sheets}
+
+The forms on the following pages are the records of the operating procedure.
+Copy them as needed, or order pads from your supervisor.  Each form names
+the procedure that fills it in.
+
+\begin{center}\small
+\begin{tabular}{@{}p{26mm}p{34mm}p{\dimexpr\linewidth-60mm-4\tabcolsep\relax}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries Form & \sffamily\bfseries Title & \sffamily\bfseries Filled in by\\\hline
+\form{1} (Rev.\ 10/89) & Cover sheet & \proc{06}\\
+\form{2} (Rev.\ 10/89) & Report number control log & Checklist TPS-C-1, \proc{04}\\
+\form{3} (Rev.\ 10/89) & Memo acknowledgement log & \proc{05}\\
+\form{4} (Rev.\ 10/89) & Forms alignment record & \proc{03}\\
+\form{5} (Rev.\ 10/89) & Operator sign-off sheet & Every procedure\\\hline
+\end{tabular}\end{center}
+
+\begin{FormSheet}{TPS-1}{10/89}{TPS Report Cover Sheet}
+Attach this cover sheet to the front of the report folder before you answer
+the cover sheet prompt (\proc{06}).  This cover sheet must accompany all TPS
+reports.\par\vspace{10pt}
+\FillLine{Report number}{40mm}\quad\FillLine{Date}{35mm}\par\vspace{10pt}
+\FillLine{Division}{100mm}\par\vspace{10pt}
+\FillLine{Source table}{45mm}\quad\FillLine{Memo number}{30mm}\par\vspace{10pt}
+\FillLine{Operator}{55mm}\quad\FillLine{Supervisor}{45mm}\par\vspace{14pt}
+{\sffamily\bfseries\fontsize{9}{11}\selectfont For the Publications Department use only}\par
+\FillLine{Received}{40mm}\quad\FillLine{Filed}{40mm}\par\vspace{14pt}
+The cover sheet the program writes at the head of \rpt\ carries the same
+form number and revision (Figure~\ref{fig:cover}).
+\end{FormSheet}
+
+\begin{FormSheet}{TPS-2}{10/89}{Report Number Control Log}
+Column 1 is entered before the run (Checklist TPS-C-1); columns 2 to 4 after
+the report number has been accepted (\proc{04}).  Columns 1 and 2 must
+agree.\par\vspace{6pt}
+\noindent\begin{tabular}{|p{24mm}|p{26mm}|p{20mm}|p{18mm}|p{\dimexpr\imFullWidth-88mm-10\tabcolsep-6\arrayrulewidth\relax}|}\hline
+\sffamily\bfseries\fontsize{8}{10}\selectfont 1 Number assigned &
+\sffamily\bfseries\fontsize{8}{10}\selectfont 2 Number keyed (second entry) &
+\sffamily\bfseries\fontsize{8}{10}\selectfont 3 Refusals (TPS-003) &
+\sffamily\bfseries\fontsize{8}{10}\selectfont 4 Initials &
+\sffamily\bfseries\fontsize{8}{10}\selectfont 5 Date\\\hline
+\LogRows{15}{& & & &}
+\end{tabular}
+\end{FormSheet}
+
+\begin{FormSheet}{TPS-3}{10/89}{Memo Acknowledgement Log}
+One line for each run, entered when the memo number has been accepted
+(\proc{05}).\par\vspace{6pt}
+\noindent\begin{tabular}{|p{24mm}|p{22mm}|p{22mm}|p{22mm}|p{\dimexpr\imFullWidth-90mm-10\tabcolsep-6\arrayrulewidth\relax}|}\hline
+\sffamily\bfseries\fontsize{8}{10}\selectfont Memo number &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Date &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Refusals (TPS-004) &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Operator initials &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Supervisor initials\\\hline
+\LogRows{15}{& & & &}
+\end{tabular}
+\end{FormSheet}
+
+\begin{FormSheet}{TPS-4}{10/89}{Forms Alignment Record}
+One line for each run (\proc{03}).  The form is aligned by pressing the
+\key{Space Bar} exactly \AlignCount{FORM-TPS-4} times, then \key{Enter}.
+Count every attempt, the accepted one included.\par\vspace{6pt}
+\noindent\begin{tabular}{|p{24mm}|p{20mm}|p{24mm}|p{30mm}|p{\dimexpr\imFullWidth-98mm-10\tabcolsep-6\arrayrulewidth\relax}|}\hline
+\sffamily\bfseries\fontsize{8}{10}\selectfont Date &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Time &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Attempts &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Presses (accepted attempt) &
+\sffamily\bfseries\fontsize{8}{10}\selectfont Initials\\\hline
+\LogRows{15}{& & & &}
+\end{tabular}
+\end{FormSheet}
+
+\begin{FormSheet}{TPS-5}{10/89}{Operator Sign-Off Sheet}
+One sheet for each run.  File it in the report folder with Checklists
+TPS-C-1 and TPS-C-2 (\proc{07}).\par\vspace{6pt}
+\FillLine{Report number}{35mm}\quad\FillLine{Date}{30mm}\quad\FillLine{Operator}{40mm}\par\vspace{6pt}
+\newcommand\SignLine[2]{\par\addvspace{7pt}\noindent\makebox[7mm][l]{\sffamily\bfseries #1}%
+  \parbox[t]{88mm}{\RaggedRight #2}\hfill\rule{30mm}{0.4pt}\par}
+\SignLine{1}{Checklist TPS-C-1 (Pre-Run) completed.}
+\SignLine{2}{Refusals: message, return code, date and time.  Supervisor's
+  initials for each.}
+\par\vspace{4pt}\rule{\linewidth}{0.25pt}\par\vspace{8pt}\rule{\linewidth}{0.25pt}\par
+\vspace{8pt}\rule{\linewidth}{0.25pt}\par
+\SignLine{3}{Form aligned; \form{4} line entered.}
+\SignLine{4}{Report number accepted; \form{2} line entered.}
+\SignLine{5}{Memo acknowledged; \form{3} line entered.}
+\SignLine{6}{\form{1} (Rev.\ 10/89) attached to the report folder.}
+\SignLine{7}{Figure \texttt{WITHOUT COVER SHEET}; corrective action given to
+  the supervisor, if displayed.}
+\SignLine{8}{Checklist TPS-C-2 (Post-Run) completed.}
+\SignLine{9}{Operator's signature and date.}
+\SignLine{10}{Supervisor's signature and date.}
+\end{FormSheet}

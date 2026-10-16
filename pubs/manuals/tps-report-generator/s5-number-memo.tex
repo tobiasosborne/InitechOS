@@ -1,0 +1,149 @@
+% Session 5 -- The Report Number and the Memo: Procedures TPS-P-04, TPS-P-05.
+% Law 1 sources: spec/tps_ritual.json R3 (1 to 6 digits, keyed twice; the
+% two must agree or both are asked again; TPS-003) and R4 (the memo number
+% must equal MEMO=; otherwise asked again; TPS-004); os/milton/tpsrep_
+% program.asm .r3/.r4 and getfield (digits and the hyphen are accepted, at
+% most 6 / 8 characters, further keys ignored, ENTER ends the entry, no
+% echo except the accepted characters; an empty entry never agrees),
+% rnoout (the report number zero-filled to six digits on the cover sheet and
+% the page heads).  Screen tpsritual: the journey route.
+% GATES: test-tps-report test-flair-tps-journey test-pubs-screens test-pubs-tps
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-screens, test-pubs-tps}
+\chapter{The Report Number and the Memo}
+
+\SideHead{Introduction}When the form is aligned, the program asks for the
+TPS report number, and then asks for it again.  When the two entries agree,
+it asks for the number of the memo about the new cover sheets.  In this
+session you key the report number twice, acknowledge the memo, and record
+both in their logs.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item Key the report number twice and recognize the refusal of numbers that
+  do not agree.
+\item Record the report number in the report number control log, \form{2}.
+\item Key the memo number and recognize its refusal.
+\item Record the memo acknowledgement in \form{3}.
+\end{enumerate}
+
+\section{The Report Number}
+\index{report number}
+The report number is assigned before the run and entered in \form{2},
+column 1 (Checklist TPS-C-1).  It is one to six digits.  The program asks
+for it with:
+\TpsMsg{R3.prompt}
+The first line is displayed first; when the first entry has been ended with
+\key{Enter}, the second line is displayed.  Only the characters accepted are
+displayed as they are typed.  After six characters, further keys are
+ignored.  \key{Backspace} is ignored.
+
+If the two entries do not agree, or are empty, the program displays:
+\TpsMsg{TPS-003}
+and asks for both entries again.  When they agree, the program continues
+with the memo.  On the cover sheet and at the head of each page the report
+number is printed with six digits, zeros first: report number 1014 is
+printed \texttt{001014}.
+
+\begin{Procedure}{TPS-P-04}{To Key the Report Number Twice}
+\ProcField{Purpose}{To enter the assigned report number so that the program
+  accepts it, and to record it.}
+\ProcField{Frequency}{Each run, directly after \proc{03}.}
+\ProcField{Performed by}{The operator.}
+\ProcField{Prerequisites}{\TpsLine{R2.accept}{1} is displayed.  The report
+  number is entered in \form{2}, column 1.}
+\ProcField{Materials}{\form{2}.}
+\begin{ProcSteps}
+\item At \TpsLine{R3.prompt}{1} type the report number from \form{2},
+  column 1, and press \key{Enter}.
+\item At \TpsLine{R3.prompt}{2} type the report number again, from
+  \form{2}, column 1, not from the screen.  Press \key{Enter}.
+\item If \TpsLine{TPS-003}{1} is displayed, begin again at step 1.
+  Make a tally mark in \form{2}, column 3.
+\item When the memo prompt is displayed, write the report number as you
+  keyed it the second time in \form{2}, column 2, and initial column 4.
+\end{ProcSteps}
+\ProcField{Verification}{The memo prompt follows the second entry.  Columns
+  1 and 2 of \form{2} agree.}
+\ProcField{Records retained}{\form{2}.}
+\ProcNote{If you key a wrong digit, complete the entry and press \key{Enter}.
+  The entries will not agree, and both are asked for again.}
+\end{Procedure}
+
+\OpsShot[fromtext={ENTER TPS REPORT NUMBER}, totext={RE-ENTER TPS REPORT NUMBER@2},
+  marks={1=RE-ENTER TPS REPORT NUMBER: 1041;2=TPS-003;3=RE-ENTER TPS REPORT NUMBER@2},
+  label=fig:r3, caption={Report number 1014 keyed, then 1041: refused.  Keyed
+  twice again: accepted.}]{tpsritual}
+
+\begin{CalloutLegend}
+\LegendRow{1}{Second entry}{The second entry differs from the first.}
+\LegendRow{2}{Refusal}{Both entries are asked for again.}
+\LegendRow{3}{Agreement}{The entries agree.  The program continues with the
+  memo.}
+\end{CalloutLegend}
+
+\section{The Memo About the New Cover Sheets}
+\index{memo acknowledgement}
+The program asks for the number of the memo about the new cover sheets:
+\TpsMsg{R4.prompt}
+The number keyed must be the number in the \texttt{MEMO=} line of the
+parameter record, character for character.  Digits and the hyphen are
+accepted, up to eight characters.  If the number is not the memo number, the
+program displays:
+\TpsMsg{TPS-004}
+and asks again.  It continues to ask until the memo number is keyed.  When it
+is, the program continues with the cover sheet (Session~6).
+
+\begin{Procedure}{TPS-P-05}{To Acknowledge the Memo}
+\ProcField{Purpose}{To confirm, by its number, that the memo about the new
+  cover sheets has been read, and to record the acknowledgement.}
+\ProcField{Frequency}{Each run, directly after \proc{04}.}
+\ProcField{Performed by}{The operator.}
+\ProcField{Prerequisites}{The memo prompt is displayed.  You have read the
+  memo about the new cover sheets.}
+\ProcField{Materials}{Your copy of the memo; \form{3}.}
+\begin{ProcSteps}
+\item Type the memo number exactly as it is printed on the memo, with its
+  hyphen, and press \key{Enter}.
+\item If \TpsLine{TPS-004}{1} is displayed, check the number on the memo
+  and type it again.  If it is refused a second time, see your supervisor:
+  the memo you hold is not the memo on file.  Leave the program waiting at
+  the prompt.
+\item When the cover sheet prompt is displayed, enter on \form{3} the memo
+  number, the date and your initials.
+\end{ProcSteps}
+\ProcField{Verification}{The cover sheet prompt follows the memo number.}
+\ProcField{Records retained}{\form{3}.}
+\end{Procedure}
+
+\OpsShot[fromtext={KEY THE NUMBER OF THE MEMO}, totext={KEY THE NUMBER OF THE MEMO@2},
+  marks={1=TPS-004;2=KEY THE NUMBER OF THE MEMO@2}, label=fig:r4,
+  caption={Memo number 88-113 refused; 88-114 accepted.}]{tpsritual}
+
+\begin{CalloutLegend}
+\LegendRow{1}{Refusal}{88-113 is not the number of the memo on file.}
+\LegendRow{2}{Acceptance}{The memo number.  The program continues with the
+  cover sheet.}
+\end{CalloutLegend}
+
+\section{Lab Project 4. The Report Number and the Memo}
+Continue from Lab Project 3: the program displays the report number prompt.
+\begin{enumerate}
+\item Enter report number 1014 in \form{2}, column 1.
+\item Type \type{1014} and press \key{Enter}; at the second prompt type
+  \type{1041} and press \key{Enter}.  Compare your screen with
+  Figure~\ref{fig:r3}.
+\item Carry out \proc{04}.
+\item At the memo prompt type \type{88-113} and press \key{Enter}.  Compare
+  your screen with Figure~\ref{fig:r4}.
+\item Carry out \proc{05} with the memo number \type{88-114}.
+\item Continue with Lab Project 5 (Session~6) without leaving the program.
+\end{enumerate}
+
+\section{Study Questions}
+\begin{enumerate}
+\item How many times is the report number keyed?
+\item From where is the second entry of the report number taken?
+\item How is report number 52 printed on the cover sheet?
+\item Where does the program find the memo number it compares with yours?
+\item The memo number is refused twice.  What do you do?
+\end{enumerate}

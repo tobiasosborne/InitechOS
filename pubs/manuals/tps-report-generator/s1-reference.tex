@@ -1,0 +1,201 @@
+% Session 1 -- The TPS Report Generator (the reference session).
+% Law 1 sources: os/milton/tpsrep_program.asm (command line from the PSP
+% default FCB; TPSPARM.DAT keys read by getparam at line starts; LINES via
+% atoi, 0 -> 1; the six required fields of reqtab; deleted records
+% skipped; the cover / pagehead / detail / totals pieces; return codes
+% 0/1/5/6/7/8 of finish); spec/tps_ritual.json (rows R1-R5, E6-E8,
+% file_rules); harness/diff/tps/tpsmk.prg (the table, written by real dBASE
+% III PLUS) and tpsrept_expected.txt (the report, real MS-DOS 6.22 golden,
+% byte-equal to the flagship's by test-flair-tps-journey); Makefile
+% flair-data rules (the three files in APPS on the shipped volume).
+% GATES: test-tps-report test-flair-tps-journey test-pubs-tps test-pubs-screens
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-tps, test-pubs-screens}
+\chapter{The TPS Report Generator}
+
+\SideHead{Introduction}This session describes the TPS Report Generator:
+what it reads, what it writes, the order in which it requires the steps of
+the operating procedure, and the report it produces.  The later sessions
+teach each step as a numbered procedure.  Keep this session at hand as the
+reference while you work.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item Name the files the program reads and writes, and the directory that
+  holds them.
+\item State the form of the \cmd{TPSREP} command.
+\item Name the four lines of the parameter record.
+\item Name the six fields of a TPS table.
+\item Name the five steps of the operating procedure in the order the
+  program requires them.
+\item Name the parts of the report and the return codes of the program.
+\end{enumerate}
+
+\section{What the Program Does}
+\index{TPS Report Generator}
+The TPS Report Generator reads a TPS table, a dBASE III table of TPS
+reports on file, and writes the TPS report: a cover sheet, one or more
+pages of detail lines, and the totals.  The report is displayed on the
+screen as it is written and is kept in the file \rpt\ in the current
+directory.
+
+The program runs only from the InitechDOS prompt.  It is not started from
+the FLAIR desktop: the operator leaves the desktop first (Session~2).
+
+Before it writes anything, the program requires the steps of the operating
+procedure, in this order:
+
+\begin{center}\small
+\begin{tabular}{@{}llp{48mm}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries Step & \sffamily\bfseries Procedure & \sffamily\bfseries What the program requires\\\hline
+1 & \proc{02} & A parameter record, \file{TPSPARM.DAT}, in the current directory\\
+2 & \proc{03} & The form aligned: the \key{Space Bar} pressed the required number of times, then \key{Enter}\\
+3 & \proc{04} & The report number keyed twice, both times the same\\
+4 & \proc{05} & The number of the memo about the new cover sheets\\
+5 & \proc{06} & The attestation that the new cover sheet is attached\\\hline
+\end{tabular}\end{center}
+
+A step that is not satisfied is refused with a message, and the program
+either asks again or ends.  Session~7 lists every refusal.
+
+\section{Files Used}
+\index{files used}
+The program and its files are in the directory \file{\bs APPS} of the
+shipped InitechOS data volume, drive A.
+
+\begin{center}\small
+\begin{tabular}{@{}lp{74mm}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries File & \sffamily\bfseries Contents\\\hline
+\file{TPSREP.COM} & The TPS Report Generator\\
+\file{TPSPARM.DAT} & The parameter record: report title, division, memo number and lines per page\\
+\file{TPS.DBF} & The TPS table: the TPS reports on file\\
+\rpt & The report, written by the program (cover sheet, detail pages, totals)\\
+\file{TPSREPT.BAK} & The previous report, kept by the program\\\hline
+\end{tabular}\end{center}
+
+The program reads \file{TPSPARM.DAT} and the table from the current
+directory, and writes \rpt\ and \file{TPSREPT.BAK} in the current directory.
+For this reason the directory \file{A:\bs APPS} is made the current directory
+before the program is run (\proc{01}).
+
+\section{The TPSREP Command}
+\index{TPSREP command}
+\RegisterCommand{TPSREP}{external}{GATED}{TPSREP}%
+\SideHead{Format}\SyntaxLine{TPSREP \ph{table}.DBF}
+
+\SideHead{Remarks}\ph{table}\texttt{.DBF} is the name of the TPS table in
+the current directory.  On the shipped volume the table is \file{TPS.DBF}.
+The name is given as a file name only, without a drive or a path.  If no
+table is named, or the named table cannot be opened, the program displays
+\TpsLine{TPS-007}{1} and ends with return code 7.
+
+The command is typed at the InitechDOS prompt and ended with \key{Enter}.
+The program displays its banner, and then the first step of the operating
+procedure (Session~4).
+
+\SideHead{Example}With \file{A:\bs APPS} the current directory, the
+operator types the command and the program displays its banner:
+
+\OpsShot[fromtext={A:\Bsl APPS>TPSREP TPS.DBF}, totext={(C) 1989}]{tpsstart}
+
+Typed without a table name, the command is refused:
+
+\OpsShot[fromtext={A:\Bsl APPS>TPSREP}]{tps007}
+
+\section{The Parameter Record}
+\index{parameter record}\index{TPSPARM.DAT}
+The parameter record \file{TPSPARM.DAT} is a text file of four lines.
+Each line begins with its name, an equal sign, and the value; the value
+runs to the end of the line.  The lines may be in any order.  The
+parameter record on the shipped volume is:
+
+\ReportLines[label=fig:parm, caption={The parameter record \file{TPSPARM.DAT} on the shipped volume.}]{../../../harness/diff/tps/tpsparm.dat}{1}{4}
+
+\SideHead{TITLE=}The report title, printed centred on the cover sheet
+under \texttt{T P S\ \ \ R E P O R T}.
+
+\SideHead{DIVISION=}The division, printed on the cover sheet.
+
+\SideHead{MEMO=}The number of the memo about the new cover sheets.  The
+operator keys this number in \proc{05}; it is printed on the cover sheet
+and in the totals.
+
+\SideHead{LINES=}The number of detail lines on each page of the report.
+A value of 0 is taken as 1.
+
+A missing line is refused before anything else is done: the program
+displays \TpsLine{TPS-002}{1}, with the name of the missing line, and
+ends with return code 1.  The parameter record is maintained under
+Operating Procedure OP-7.3, which is \proc{02} of this book.
+
+\section{The TPS Table}
+\index{TPS table}\index{TPS.DBF}
+A TPS table is a dBASE III table with these six fields:
+
+\begin{center}\small
+\begin{tabular}{@{}llrp{46mm}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries Field & \sffamily\bfseries Type & \sffamily\bfseries Width & \sffamily\bfseries Contents\\\hline
+\texttt{RPT\_NO} & Numeric & 6 & The number of the TPS report on file\\
+\texttt{EMPLOYEE} & Character & 20 & The employee who filed it\\
+\texttt{DEPT} & Character & 12 & The department\\
+\texttt{PAGES} & Numeric & 3 & The number of pages filed\\
+\texttt{COVER} & Logical & 1 & Whether the cover sheet was attached\\
+\texttt{FILED} & Date & 8 & The date it was filed\\\hline
+\end{tabular}\end{center}
+
+A table without one of these fields is refused with \TpsLine{TPS-006}{1}
+(return code 6).  A record marked for deletion is not listed.  The shipped
+table \file{TPS.DBF} holds 14 records, one of them marked for deletion.
+
+\section{The Report}
+\index{report}\index{cover sheet}
+The report has three parts.
+
+\SideHead{Cover sheet}The cover sheet, \form{1} (Rev.\ 10/89), comes
+first.  It carries the report number, the division, the name of the table,
+the date the table was last updated, the tables on file in the current
+directory, the memo number and the number of records in the table.
+
+\ReportLines[label=fig:cover, caption={The cover sheet, as the program writes it to
+\file{TPSREPT.TXT}.}]{../../../harness/diff/tps/tpsrept_expected.txt}{1}{17}
+
+\SideHead{Detail pages}Each page begins with the report number and the
+page number, then the column heads, then as many detail lines as the
+\texttt{LINES=} line of the parameter record allows.  In \rpt\ each page
+begins on a new sheet; on the screen a blank line separates the pages.
+
+\ReportLines[caption={The first detail page (\texttt{LINES=6}).}]{../../../harness/diff/tps/tpsrept_expected.txt}{18}{26}
+
+\SideHead{Totals}The totals give the reports listed, the pages filed and
+the number of reports filed without a cover sheet.  When that number is
+not zero, the totals end with the instruction to see the memo.
+
+\OpsShot[fromtext={REPORTS LISTED}, totext={*** END OF TPS REPORT ***}]{tpsdone}
+
+\section{Return Codes}
+\index{return codes}\index{ERRORLEVEL}
+The program ends with the line
+\TpsMsg{END}
+where \ph{n} is the return code.
+The return code can be tested in a batch file with \cmd{IF ERRORLEVEL}.
+
+\begin{center}\small
+\begin{tabular}{@{}rp{88mm}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries Code & \sffamily\bfseries Meaning\\\hline
+0 & The report was written\\
+1 & The parameter record is missing or incomplete (TPS-001, TPS-002)\\
+5 & The cover sheet was not attached; no report was written (TPS-005)\\
+6 & The table is not a TPS table (TPS-006)\\
+7 & No table was named, or it was not found (TPS-007)\\
+8 & \rpt\ could not be created (TPS-008)\\\hline
+\end{tabular}\end{center}
+
+\section{Study Questions}
+\begin{enumerate}
+\item In which directory of the shipped volume are the TPS Report Generator
+  and its files?
+\item What are the four lines of the parameter record?
+\item Which file holds the previous report?
+\item In what order does the program require the five steps of the
+  operating procedure?
+\item What return code means that the report was written?
+\end{enumerate}

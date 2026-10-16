@@ -1,0 +1,124 @@
+% Session 3 -- Preparing the Run: Procedure TPS-P-02, the parameter record
+% (Operating Procedure OP-7.3, which messages TPS-001 and TPS-002 name).
+% Law 1 sources: spec/tps_ritual.json R1 (TPSPARM.DAT opened through FCB
+% AH=0Fh in the current directory; TITLE=, DIVISION=, MEMO=, LINES=; refuse
+% TPS-001 / refuse_missing_key TPS-002; exit 1); os/milton/tpsrep_program.asm
+% (R1 before the table is opened; getparam asks TITLE, DIVISION, MEMO,
+% LINES in that order, so the first missing name is the one reported; the
+% banner first); os/milton/command.c (COPY CON, Ctrl-Z ends the file).
+% Screens tps001, tps002, tpsstart: the journey route.
+% GATES: test-tps-report test-flair-tps-journey test-pubs-screens test-pubs-tps
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-screens, test-pubs-tps}
+\chapter{Preparing the Run}
+
+\SideHead{Introduction}The first thing the TPS Report Generator does is
+read its parameter record, \file{TPSPARM.DAT}, from the current directory.
+A run without a complete parameter record ends at once.  In this session you
+start the program and verify that the parameter record has been accepted.
+The parameter record itself is maintained under Operating Procedure OP-7.3
+(Parameter Files), which is \proc{02}.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item Start the TPS Report Generator from the prompt \texttt{A:\bs APPS>}.
+\item Recognize the messages TPS-001 and TPS-002 and take the action they
+  require.
+\item State what each line of the parameter record controls.
+\end{enumerate}
+
+\section{The Parameter Record}
+The four lines of the parameter record are described in Session~1.  The
+record on the shipped volume is reproduced in Figure~1-1.  The operator does
+not change the parameter record.  When a line must change, for example when
+a new memo about the cover sheets is issued, the change is made as your
+supervisor directs, and the new record is filed in \file{A:\bs APPS} under
+the same name.
+
+The program reads the lines in this order: \texttt{TITLE=},
+\texttt{DIVISION=}, \texttt{MEMO=}, \texttt{LINES=}.  The first line that is
+missing is the one named in the message.
+
+\begin{Procedure}{TPS-P-02}{To Start the Program (OP-7.3)}
+\ProcField{Purpose}{To start the TPS Report Generator and confirm that it has
+  accepted the parameter record.}
+\ProcField{Frequency}{Each run, directly after \proc{01}.}
+\ProcField{Performed by}{The operator.  Changes to the parameter record: as
+  your supervisor directs.}
+\ProcField{Prerequisites}{\proc{01} is complete; the prompt is
+  \texttt{A:\bs APPS>}.}
+\ProcField{Materials}{\form{5}.}
+\begin{ProcSteps}
+\item Type \type{TPSREP TPS.DBF} and press \key{Enter}.  The program
+  displays its banner.
+  \OpsShot[fromtext={INITECH CORPORATION}, totext={(C) 1989}]{tpsstart}
+\item Read the next line of the screen.
+  \begin{itemize}
+  \item If it is the first line of the form alignment prompt, the parameter
+    record has been accepted.  Continue with \proc{03}.
+  \item If it is a message beginning \texttt{TPS-001} or \texttt{TPS-002},
+    the run has ended with return code 1.  Go to step 3.
+  \end{itemize}
+\item Enter the message number, the date and the time on \form{5}, line 2,
+  and see your supervisor.  Do not continue the run.
+\end{ProcSteps}
+\ProcField{Verification}{The banner is followed by the form alignment
+  prompt.}
+\ProcField{Records retained}{\form{5}, line 2 (a refusal only).}
+\ProcNote{The banner is displayed whether or not the parameter record is
+  accepted.  The line after the banner decides.}
+\end{Procedure}
+
+\section{When the Record Is Not Found}
+\index{TPS-001}
+If there is no parameter record in the current directory, the program
+displays:
+\TpsMsg{TPS-001}
+and ends with return code 1.  This is what happens when the program is run
+from a directory other than \file{A:\bs APPS}:
+
+\OpsShot[fromtext={A:\Bsl>APPS}, label=fig:tps001, caption={The program run
+from the root directory.}]{tps001}
+
+\SideHead{Action}Make \file{A:\bs APPS} the current directory (\proc{01},
+step 6) and start again at \proc{02}, step 1.  If the message appears at the
+prompt \texttt{A:\bs APPS>}, see your supervisor.
+
+\section{When a Line Is Missing}
+\index{TPS-002}
+If the parameter record lacks one of its four lines, the program displays:
+\TpsMsg{TPS-002}
+where \ph{n} is the name of the missing line, and ends with return code 1.
+In the example below a record of two lines has been made in the root
+directory, and the program run from there, to show the message.  The line
+named is \texttt{MEMO}, the first of the missing lines in reading order:
+
+\OpsShot[fromtext={A:\Bsl>COPY CON}, caption={A parameter record without its
+\texttt{MEMO=} and \texttt{LINES=} lines.}]{tps002}
+
+\SideHead{Action}See your supervisor.  The record is corrected under OP-7.3.
+
+\section{Lab Project 2. Starting the Program}
+During this project you start the program in the wrong directory and then
+in the right one.
+\begin{enumerate}
+\item Carry out \proc{01}, steps 1 to 5, so that the prompt is
+  \texttt{A:\bs>}.
+\item Type \type{APPS\bs TPSREP TPS.DBF} and press \key{Enter}.  Compare
+  your screen with Figure~\ref{fig:tps001}.  Note the return code:
+  \rule{20mm}{0.4pt}
+\item Type \type{CD APPS} and press \key{Enter}.
+\item Carry out \proc{02}, step 1.  The form alignment prompt follows the
+  banner.  Continue with Lab Project 3 (Session~4) without leaving the
+  program.
+\end{enumerate}
+
+\section{Study Questions}
+\begin{enumerate}
+\item From which directory does the program read its parameter record?
+\item What message is displayed when the parameter record is not found, and
+  what return code does the program end with?
+\item A parameter record has only its \texttt{TITLE=} and \texttt{LINES=}
+  lines.  Which line does message TPS-002 name?
+\item Who directs a change to the parameter record?
+\item What does the line after the banner tell you?
+\end{enumerate}

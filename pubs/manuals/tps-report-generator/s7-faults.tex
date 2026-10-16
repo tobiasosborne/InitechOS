@@ -1,0 +1,150 @@
+% Session 7 -- Refusals and Faults: Procedure TPS-P-08, Checklist TPS-C-3.
+% Law 1 sources: spec/tps_ritual.json (every refusal and its exit code:
+% TPS-001/002 exit 1, TPS-003/004 ask again, TPS-005 exit 5, TPS-006 exit
+% 6, TPS-007 exit 7, TPS-008 exit 8); os/milton/tpsrep_program.asm (the
+% table is opened after the parameter record and before the alignment, so
+% TPS-006/007 come before any ritual; TPS-006 names the first required field
+% missing, or SIGNATURE when the file is not a dBASE III table; TPS-008 after
+% the attestation, when TPSREPT.TXT cannot be created); spec/dos_messages.json
+% and os/milton/int21.c (the device error messages and Abort, Retry, Fail?,
+% as the InitechDOS Reference Appendix A documents them); COMMAND.COM's Bad
+% command or file name (MSG-DOS-0002).  The Help Desk is extension 2504
+% (README.md, PUB-REF-0001 D-12).  The program issues no printer I/O: this
+% session documents no printer fault (research brief Sec 4 is unapproved).
+% Screens tps007, tps006, tpsroot: the journey route.
+% GATES: test-tps-report test-flair-tps-journey test-pubs-screens test-pubs-tps test-dosmsg
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-screens, test-pubs-tps, test-dosmsg}
+\chapter{Refusals and Faults}
+
+\SideHead{Introduction}The program refuses a step that is not carried out as
+the procedure requires.  Some refusals ask again; the others end the run
+with a return code.  This session lists every refusal, where it occurs, and
+the action it requires, and gives the procedure for starting again and the
+checklist for escalation.
+
+\SideHead{Objectives}Upon completion of this session you will be able to:
+\begin{enumerate}
+\item Name the refusal that each step of the operating procedure can give.
+\item Start a run again after a refusal that ends it.
+\item Respond to an InitechDOS device error message.
+\item Escalate as Checklist TPS-C-3 requires.
+\end{enumerate}
+
+\section{The Refusals}
+\index{refusals}
+The program checks its input in this order.  The appendix of messages
+(Appendix G) gives each message in full.
+
+\begin{center}\small\hspace*{-\imHang}%
+\begin{tabular}{@{}p{30mm}p{40mm}p{24mm}p{\dimexpr\imFullWidth-94mm-6\tabcolsep\relax}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries Message & \sffamily\bfseries When & \sffamily\bfseries Result & \sffamily\bfseries Action\\\hline
+TPS-001 & No parameter record & Ends, code 1 & \proc{01} step 6; else supervisor\\
+TPS-002 & A line of the record missing & Ends, code 1 & Supervisor (OP-7.3)\\
+TPS-007 & No table named, or not found & Ends, code 7 & Type the command again\\
+TPS-006 & The table is not a TPS table & Ends, code 6 & Supervisor\\
+\texttt{FORM NOT ALIGNED} & Wrong number of presses & Asks again & \proc{03} step 1\\
+TPS-003 & Report numbers differ & Asks again & \proc{04} step 1\\
+TPS-004 & Not the memo number & Asks again & \proc{05} step 2\\
+TPS-005 & Cover sheet answer N & Ends, code 5 & \proc{06}; run again\\
+TPS-008 & Report file not created & Ends, code 8 & Supervisor\\\hline
+\end{tabular}\end{center}
+
+\section{Refusals Before the Alignment}
+After the parameter record, the program opens the table named on the command
+line.  If none is named, or it cannot be opened, the program displays its
+usage:
+
+\OpsShot[fromtext={A:\Bsl APPS>TPSREP}, caption={The command without a table
+name.}]{tps007}
+
+If the file named is not a TPS table, the program names the first of the six
+fields it does not find, or \texttt{SIGNATURE} when the file is not a dBASE
+III table at all:
+
+\OpsShot[fromtext={A:\Bsl APPS>TPSREP}, caption={A file that is not a dBASE
+III table, named as the table.}]{tps006}
+
+\section{Starting Again}
+\begin{Procedure}{TPS-P-08}{To Start a Run Again After a Refusal or a Fault}
+\ProcField{Purpose}{To end a refused or interrupted run in order and start it
+  again from the beginning of the operating procedure.}
+\ProcField{Frequency}{Each time a run ends with a return code other than 0,
+  or a device error message is displayed.}
+\ProcField{Performed by}{The operator; the supervisor where Checklist TPS-C-3
+  requires.}
+\ProcField{Prerequisites}{The prompt \texttt{A:\bs APPS>} is displayed, or a
+  device error message.}
+\ProcField{Materials}{\form{5}; Checklist TPS-C-3.}
+\begin{ProcSteps}
+\item If a device error message and \texttt{Abort, Retry, Fail?} are
+  displayed, correct the cause named in the message and press \type{R}.  If
+  the message is displayed again, press \type{A}, and go to step 5.
+\item Read the end line \texttt{TPS REPORT GENERATOR TERMINATED.} and note the
+  return code.
+\item Enter the message number, the return code, the date and the time on
+  \form{5}, line 2.
+\item Look up the message in the table above.  If the action is to see your
+  supervisor, go to step 5.  Otherwise take the action it gives.
+\item Complete Checklist TPS-C-3.
+\item When the cause has been corrected, start again at \proc{02}, step 1.
+  Each step of the operating procedure is carried out again in full, the
+  alignment included.
+\end{ProcSteps}
+\ProcField{Verification}{The new run ends with \texttt{RETURN CODE 0}.}
+\ProcField{Records retained}{\form{5}, line 2; Checklist TPS-C-3, if
+  completed; the forms of the new run.}
+\ProcNote{A refusal that asks again (\texttt{FORM NOT ALIGNED}, TPS-003,
+  TPS-004) does not end the run.  Continue at the step the table gives.}
+\end{Procedure}
+
+\section{InitechDOS Device Error Messages}
+\index{device error messages}
+When InitechDOS cannot read or write the disk, it displays a device error
+message, followed by \texttt{Abort, Retry, Fail?}.  Press one letter; you need
+not press \key{Enter}.  \type{R} tries the operation again; \type{A} ends the
+program and returns to the prompt; \type{F} tells the program that the
+operation failed.  The device error messages are listed in Appendix~G and,
+with the rest of the InitechDOS messages, in the \doctitle{InitechDOS
+Reference}, Appendix A.
+
+When the command itself is not found, InitechDOS displays \texttt{Bad command
+or file name}.  At the prompt \texttt{A:\bs APPS>} this means that a program
+file is missing: see your supervisor.  At any other prompt, see
+\proc{01}, step 6.
+
+\section{Escalation}
+\index{escalation}\index{supervisor}
+\begin{Checklist}{TPS-C-3}{Escalation}
+\CheckItem{The message, the return code, the date and the time are on
+  \form{5}, line 2.}
+\CheckItem{The run was refused at \texttt{A:\bs APPS>}, not at another prompt.}
+\CheckItem{The program has not been run again since the refusal, except as
+  the table of refusals directs.}
+\CheckItem{Your supervisor has been told, and has initialled \form{5},
+  line 2.}
+\CheckItem{If your supervisor directs, the Help Desk (extension 2504) has
+  been called, and the call is noted on \form{5}, line 2.}
+\end{Checklist}
+
+\section{Lab Project 6. Refusals}
+\begin{enumerate}
+\item At the prompt \texttt{A:\bs APPS>}, type \type{TPSREP} and press
+  \key{Enter}.  Note the message and the return code:\par
+  \rule{40mm}{0.4pt}
+\item Type \type{TPSREP TPSPARM.DAT} and press \key{Enter}.  Note the field
+  named: \rule{30mm}{0.4pt}
+\item Carry out \proc{08}, steps 2 to 4, for each refusal, on a practice copy
+  of \form{5}.
+\end{enumerate}
+
+\section{Study Questions}
+\begin{enumerate}
+\item Which refusals ask again, and which end the run?
+\item What return code follows the answer \type{N} to the cover sheet
+  prompt?
+\item After a refusal that ends the run, from which procedure do you start
+  again?
+\item What do you press when \texttt{Abort, Retry, Fail?} is displayed after
+  you have corrected the cause?
+\item What is the extension of the Help Desk?
+\end{enumerate}
