@@ -564,7 +564,13 @@ static int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
     if (g_absdisk_dev == 0 || g_absdisk_dev->write_sectors == 0) {
         return -1;   /* read-only / unbound -> the seam maps this to fail-loud */
     }
-    return g_absdisk_dev->write_sectors(g_absdisk_dev->ctx, lba, count, buf);
+    int rc = g_absdisk_dev->write_sectors(g_absdisk_dev->ctx, lba, count, buf);
+#ifndef CHKDSK_MUT_CACHE
+    /* ADR-0003 DEC-15: raw CHKDSK repairs must be visible to AH=36h and the
+     * handle allocator immediately, before either can flush a stale FAT. */
+    if (rc == 0) fileio_fat_absdisk_written(lba, count, buf);
+#endif
+    return rc;
 }
 
 /* Issue AH=09h DISPLAY STRING via a literal `int 0x21`: EDX = flat ptr to a
