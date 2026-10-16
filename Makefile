@@ -13379,6 +13379,43 @@ test-textedit-mutant: $(TEST_TEXTEDIT_MUT_SEL) $(TEST_TEXTEDIT_MUT_PASTE) $(TEST
 	printf '>>> test-textedit-mutant: green (WRAP_CHARS correctly RED on %s pixel-wrap check(s))\n' "$$(printf '%s\n' "$$out" | grep -c 'step-1[012]')"
 
 # ---------------------------------------------------------------------------
+# test-te-surface (bead initech-tdnl.16, R4.2 InitechText): the PROPERTY SUITE
+# of TextEdit's editing surface -- typing / Backspace / arrows / click /
+# shift-click / drag / replace / the capacity probe, in Geneva 9 with word
+# wrap -- against an INDEPENDENT reference model (harness/proptest/
+# test_te_surface.c: its own buffer, layout and brute-force hit test, Geneva 9
+# advances restated by hand; never textedit.c's own computation). Mutants
+# (test-te-surface-mutant), each RED for its named reason: TE_MUT_HIT_FLOOR
+# (hit), TE_MUT_HIT_PAST_CR (cr), TE_MUT_ARROW_NO_COLLAPSE (arrow),
+# TE_MUT_EXTEND_ANCHOR (extend), TE_MUT_PROBE_NO_LINES (probe).
+# ---------------------------------------------------------------------------
+TEST_TE_SURFACE      := $(BUILD)/test_te_surface
+TEST_TE_SURFACE_SRC  := harness/proptest/test_te_surface.c
+TEST_TE_SURFACE_LINK := os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
+TEST_TE_SURFACE_DEPS := $(TEST_TE_SURFACE_SRC) $(TEST_TEXTEDIT_DEPS)
+$(TEST_TE_SURFACE): $(TEST_TE_SURFACE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TE_SURFACE_SRC) $(TEST_TE_SURFACE_LINK)
+$(BUILD)/test_te_surface_mutant_%: $(TEST_TE_SURFACE_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* $(PROCESS_INC) -Ispec/assets -o $@ $(TEST_TE_SURFACE_SRC) $(TEST_TE_SURFACE_LINK)
+
+.PHONY: test-te-surface test-te-surface-mutant
+test-te-surface: $(TEST_TE_SURFACE)
+	@printf '>>> test-te-surface: TextEdit editing surface vs an independent reference model (initech-tdnl.16)\n'
+	@$(TEST_TE_SURFACE)
+	@printf '>>> test-te-surface: green\n'
+
+TE_SURFACE_MUTANTS := TE_MUT_HIT_FLOOR:hit TE_MUT_HIT_PAST_CR:cr TE_MUT_ARROW_NO_COLLAPSE:arrow TE_MUT_EXTEND_ANCHOR:extend TE_MUT_PROBE_NO_LINES:probe
+test-te-surface-mutant: $(foreach m,$(TE_SURFACE_MUTANTS),$(BUILD)/test_te_surface_mutant_$(firstword $(subst :, ,$(m))))
+	@for pair in $(TE_SURFACE_MUTANTS); do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_te_surface_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-te-surface-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { printf '!!! test-te-surface-mutant FAIL: %s died without a summary -- RED is meaningless\n' "$$m"; tail -5 $$bin.log; exit 1; }; \
+		grep -q "^RED-REASON $$why:" $$bin.log || { printf '!!! test-te-surface-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; grep '^RED-REASON' $$bin.log; exit 1; }; \
+		printf '>>> test-te-surface-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "^RED-REASON $$why:" $$bin.log)"; \
+	done
+	@printf '>>> test-te-surface-mutant: green (all five mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
 # test-list (ADR-0012 D-2b / FLAIR Phase 4.5 / initech-77dj, List Manager half):
 # the HOST oracle for FLAIR List Manager (os/flair/list.{c,h}) -- the reduced
 # FLAIR-ListRec (Cell=flair_point_t h=col/v=row, ListBounds=rgn_rect_t of cell
