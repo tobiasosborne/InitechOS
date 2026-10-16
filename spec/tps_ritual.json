@@ -1,0 +1,76 @@
+{
+  "_comment": [
+    "TPS Report Generator OPERATING PROCEDURE -- LOCKED spec-data (CLAUDE.md Rule 8).",
+    "beads initech-8479.1; operator directive 2026-10-16 23:00 (busywork irritations,",
+    "deterministic, gated, played completely straight; documented in the TPS Report",
+    "Generator manual). TPSREP.COM (os/milton/tpsrep_program.asm) enforces these rows",
+    "in order, before anything is printed. Every literal below appears verbatim in",
+    "the program (lint: make test-tps-report, leg [spec]); '{n}' marks a value the",
+    "program fills in. All wording is ASCII and upper case, as on the period terminal.",
+    "Changing a row is a deliberate act with an issue + worklog note, never a silent",
+    "edit to make a gate pass."
+  ],
+  "program": "TPSREP.COM",
+  "usage": "TPSREP table.DBF",
+  "rows": [
+    {
+      "id": "R1",
+      "name": "mandatory parameter file",
+      "rule": "TPSPARM.DAT must open through FCB AH=0Fh in the current directory and supply TITLE=, DIVISION=, MEMO= and LINES=.",
+      "refuse": ["TPS-001 PARAMETER FILE TPSPARM.DAT NOT FOUND.",
+                 "REFER TO OPERATING PROCEDURE OP-7.3 (PARAMETER FILES)."],
+      "refuse_missing_key": ["TPS-002 PARAMETER {n} MISSING FROM TPSPARM.DAT.",
+                             "REFER TO OPERATING PROCEDURE OP-7.3 (PARAMETER FILES)."],
+      "exit": 1
+    },
+    {
+      "id": "R2",
+      "name": "form feed alignment",
+      "rule": "The SPACE BAR must be pressed EXACTLY 7 times, then ENTER. Any other count restarts the count with a message; other keys are ignored. Each press is acknowledged with a period.",
+      "count": 7,
+      "prompt": ["PRESS THE SPACE BAR EXACTLY 7 TIMES TO ALIGN THE FORM FEED,",
+                 "THEN PRESS ENTER."],
+      "refuse": ["FORM NOT ALIGNED ({n} PRESSES). THE COUNT HAS BEEN RESET."],
+      "accept": ["FORM ALIGNED."]
+    },
+    {
+      "id": "R3",
+      "name": "report number keyed twice",
+      "rule": "The TPS report number (1 to 6 digits) is keyed, then keyed again; the two must agree or both are asked for again.",
+      "prompt": ["ENTER TPS REPORT NUMBER: ", "RE-ENTER TPS REPORT NUMBER: "],
+      "refuse": ["TPS-003 REPORT NUMBERS DO NOT AGREE. PLEASE BEGIN AGAIN."]
+    },
+    {
+      "id": "R4",
+      "name": "memo acknowledgement",
+      "rule": "The operator confirms reading the memo about the new cover sheets by keying its number, which must equal the MEMO= parameter; otherwise asked again.",
+      "prompt": ["KEY THE NUMBER OF THE MEMO ABOUT THE NEW COVER SHEETS: "],
+      "refuse": ["TPS-004 THAT IS NOT THE MEMO NUMBER. SEE YOUR SUPERVISOR."]
+    },
+    {
+      "id": "R5",
+      "name": "cover sheet attestation",
+      "rule": "Y continues to the report. N ends the run with return code 5 and no report file. Other keys are ignored.",
+      "prompt": ["DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET? (Y/N) "],
+      "refuse": ["TPS-005 REPORT NOT PRINTED. A COPY OF MEMO {n} WILL BE",
+                 "FORWARDED TO YOUR SUPERVISOR."],
+      "exit": 5
+    }
+  ],
+  "errors": [
+    { "id": "E6", "rule": "The table must be a dBASE III table carrying RPT_NO, EMPLOYEE, DEPT, PAGES, COVER and FILED.",
+      "refuse": ["TPS-006 TABLE IS NOT A TPS TABLE (FIELD {n} NOT FOUND)."], "exit": 6 },
+    { "id": "E7", "rule": "A table must be named on the command line and open through FCB AH=0Fh.",
+      "refuse": ["TPS-007 TABLE NOT FOUND.", "USAGE: TPSREP table.DBF"], "exit": 7 },
+    { "id": "E8", "rule": "TPSREPT.TXT must be creatable through FCB AH=16h.",
+      "refuse": ["TPS-008 TPSREPT.TXT COULD NOT BE CREATED."], "exit": 8 }
+  ],
+  "file_rules": [
+    "The table named on the command line is read through FCB AH=0Fh/21h (128-byte random records).",
+    "Before the report is written, TPSREPT.BAK is deleted (AH=13h) and an existing TPSREPT.TXT is renamed TPSREPT.BAK (AH=17h).",
+    "TPSREPT.TXT is created with AH=16h and written with AH=15h in 128-byte records; the last record is padded with Ctrl-Z (1Ah).",
+    "The cover sheet lists every .DBF in the current directory (AH=11h/12h).",
+    "No handle call (AH=3Ch-46h) is issued."
+  ],
+  "end_line": "TPS REPORT GENERATOR TERMINATED. RETURN CODE {n}."
+}

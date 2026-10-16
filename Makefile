@@ -30983,6 +30983,8 @@ endif
 TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
 include harness/diff/fat_diff/chkdsk.mk
 include harness/frameapps.mk
+# FCB legacy API (initech-509.9) + TPS Report Generator (initech-8479.1).
+include harness/emu/fcb_tps.mk
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/fixture_volumes.mk

@@ -129,10 +129,20 @@ static void check_static_fields(const psp_t *p)
     CHECK(z, "saved_vectors[12] must be zero (deferred 509.8; Sec 2.4)");
     z = 1; for (int i = 0; i < 34; i++) if (p->reserved_2e[i])    z = 0;
     CHECK(z, "reserved_2e[34] must be zero (Sec 2.8)");
-    z = 1; for (int i = 0; i < 16; i++) if (p->reserved_5c[i])    z = 0;
-    CHECK(z, "FCB#1 reserved_5c[16] must be zero (deferred 509.9; Sec 2.10)");
-    z = 1; for (int i = 0; i < 20; i++) if (p->reserved_6c[i])    z = 0;
-    CHECK(z, "FCB#2 reserved_6c[20] must be zero (deferred 509.9; Sec 2.10)");
+    /* Default FCBs (initech-509.9): only drive + 11-byte name are formatted
+     * (Tech Ref p. 7-8 / AH=29h p. 6-95); the bytes after them stay zero. */
+    z = 1; for (int i = 12; i < 16; i++) if (p->reserved_5c[i])   z = 0;
+    CHECK(z, "FCB#1 bytes 12..15 must stay zero (only drive+name formatted)");
+    z = 1; for (int i = 12; i < 20; i++) if (p->reserved_6c[i])   z = 0;
+    CHECK(z, "FCB#2 bytes 12..19 must stay zero (only drive+name formatted)");
+}
+
+/* Default FCB at 5Ch/6Ch == drive byte + the 11-char blank-padded name. */
+static int fcb_is(const uint8_t *fcb, uint8_t drive, const char *name11)
+{
+    if (fcb[0] != drive) return 0;
+    for (int i = 0; i < 11; i++) if (fcb[1 + i] != (uint8_t)name11[i]) return 0;
+    return 1;
 }
 
 int main(void)
@@ -160,6 +170,27 @@ int main(void)
         }
         CHECK(rest_zero, "cmd_tail[5..127] must be zero for 'ABC'");
         CHECK(g.guard == GUARD_MAGIC, "guard byte must be untouched (no overflow)");
+    }
+
+    /* ---- Case 1b: default FCB formatting (initech-509.9) -------------------
+     * IBM DOS 3.30 Technical Reference p. 7-8 (PDF 371): the FCBs at 5Ch/6Ch
+     * are formatted from the first two parameters; a parameter with a path
+     * leaves only the drive. AH=29h rules p. 6-96: leading separators skipped,
+     * '*' fills its field with '?', lower case folded. */
+    {
+        guarded_psp_t g;
+        run_build(&g, "ABC", 3, 0);
+        CHECK(fcb_is(g.psp.reserved_5c, 0, "ABC        "), "FCB#1 for 'ABC'");
+        CHECK(fcb_is(g.psp.reserved_6c, 0, "           "), "FCB#2 blank for 'ABC'");
+        run_build(&g, " tpsq3.dbf b:*.rpt", 18, 0);
+        CHECK(fcb_is(g.psp.reserved_5c, 0, "TPSQ3   DBF"), "FCB#1 for 'tpsq3.dbf'");
+        CHECK(fcb_is(g.psp.reserved_6c, 2, "????????RPT"), "FCB#2 for 'b:*.rpt'");
+        run_build(&g, " \\DATA\\X.DBF Y", 14, 0);
+        CHECK(fcb_is(g.psp.reserved_5c, 0, "           "), "FCB#1 path -> drive only");
+        CHECK(fcb_is(g.psp.reserved_6c, 0, "Y          "), "FCB#2 after a path");
+        run_build(&g, "", 0, 0);
+        CHECK(fcb_is(g.psp.reserved_5c, 0, "           "), "FCB#1 blank, no tail");
+        CHECK(g.guard == GUARD_MAGIC, "guard byte must be untouched");
     }
 
     /* ---- Case 2: empty command tail (no-argument launch) ------------------ */

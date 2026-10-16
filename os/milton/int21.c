@@ -3587,6 +3587,341 @@ static void do_findnext(int_frame_t *f)
     }
 }
 
+/* ===========================================================================
+ * FCB LEGACY FILE API -- INT 21h AH=0Fh-24h (beads initech-509.9; ADR-0003
+ * DEC-04 "Legacy", Appendix A row "0Fh-24h FCB ops").
+ *
+ * Ground truth: IBM DOS 3.30 Technical Reference 80X0945 (Apr 87):
+ *   pp. 4-5/4-6 (PDF 94-95)   FCB calls act ONLY in the current directory;
+ *                             the reserved fields belong to DOS.
+ *   pp. 6-67..6-88 (PDF 190-211) the per-function contracts (0Fh..24h).
+ *   pp. 7-12..7-16 (PDF 375-379) standard + extended FCB layout.
+ * Flat-32 adaptation (DEC-04a.3): DS:DX -> EDX (flat FCB pointer), and the
+ * 1Bh/1Ch DS:BX media-byte pointer -> EBX. FCB calls report in AL, not CF
+ * (Tech Ref); CF is left clear.
+ *
+ * Opened-FCB field offsets (relative to the drive byte; p. 7-13/7-14):
+ *   00h drive (0=default, 1=A)  01h name[8]  09h ext[3]  0Ch current block
+ *   0Eh record size  10h file size  14h date  20h current record
+ *   21h random record (4 bytes if record size < 64, else 3)
+ * Bytes 16h-1Fh are "reserved for system use" (p. 7-14). This implementation
+ * keeps there: 16h time (as DOS does), 18h dir attribute, 1Ah start cluster,
+ * 1Ch containing-directory cluster, 1Eh dir slot (opened FCB) or the next
+ * search index (11h/12h search FCB, p. 6-72: "All of the FCB except for the
+ * name/extension field is used to keep information necessary for continuing
+ * the search"). The FCB therefore carries all per-file state; no SFT slot is
+ * consumed (the DOS 2.x model), so an unclosed FCB leaks nothing.
+ * ======================================================================== */
+#define FCB_CURBLK 0x0Cu
+#define FCB_RECSZ  0x0Eu
+#define FCB_FSIZE  0x10u
+#define FCB_DATE   0x14u
+#define FCB_TIME   0x16u
+#define FCB_ATTR   0x18u
+#define FCB_CLUS   0x1Au
+#define FCB_DIR    0x1Cu
+#define FCB_SLOT   0x1Eu
+#define FCB_CURREC 0x20u
+#define FCB_RANDOM 0x21u
+#define FCB_HIDE   (DIR_ATTR_HIDDEN | DIR_ATTR_SYSTEM | DIR_ATTR_VOLLABEL | \
+                    DIR_ATTR_DIRECTORY)
+
+static uint8_t g_fcb_media;   /* the 1Bh/1Ch media byte EBX points at */
+void int21_set_media(uint8_t media) { g_fcb_media = media; }
+
+static uint32_t fcb_rd(const uint8_t *p, int n)
+{
+    uint32_t v = 0u;
+    while (n-- > 0) v = (v << 8) | p[n];
+    return v;
+}
+static void fcb_wr(uint8_t *p, uint32_t v, int n)
+{
+    for (int i = 0; i < n; i++) { p[i] = (uint8_t)v; v >>= 8; }
+}
+
+/* Resolve EDX to the drive byte of a standard or extended FCB (p. 7-16: an
+ * extended FCB is flagged by FFh, attribute at FCB-1). *attr = the search
+ * attribute (0 for a standard FCB). NULL for a wild pointer (DEC-14) or a
+ * drive other than default/A: (the only drive, do_getdisk). */
+static uint8_t *fcb_get(const int_frame_t *f, uint8_t *attr)
+{
+    uint8_t *p = (uint8_t *)(uintptr_t)f->edx;
+    *attr = 0u;
+    if (!user_buf_ok(f->edx, 44u)) return 0;
+    if (p[0] == 0xFFu) { *attr = p[6]; p += 7; }
+    return (p[0] <= 1u) ? p : 0;
+}
+
+/* Search-attribute rule, p. 6-71 notes 1-3: volume label is exclusive; hidden/
+ * system/directory are inclusive; attribute 0 finds normal files only. */
+static int fcb_attr_ok(uint8_t a, uint8_t want)
+{
+    if (want & DIR_ATTR_VOLLABEL) return (a & DIR_ATTR_VOLLABEL) != 0;
+    return (a & FCB_HIDE & (uint8_t)~want) == 0;
+}
+
+/* FCB name field (11 bytes, blank padded) -> upper-cased template. */
+static void fcb_tpl(const uint8_t *name, uint8_t out[11])
+{
+    for (int i = 0; i < 11; i++) {
+        uint8_t c = name[i];
+        out[i] = (c >= 'a' && c <= 'z') ? (uint8_t)(c - 32u) : c;
+    }
+}
+
+/* Template -> "NAME.EXT" for the backend seams (format_83 on a scratch entry). */
+static void fcb_str(const uint8_t tpl[11], char out[13])
+{
+    dir_entry_t de;
+    for (int i = 0; i < 8; i++) de.filename[i] = tpl[i];
+    for (int i = 0; i < 3; i++) de.extension[i] = tpl[8 + i];
+    format_83(&de, out);
+}
+
+/* Next current-directory entry from *idx matching tpl + attr; 1 = found. */
+static int fcb_scan(const uint8_t tpl[11], uint8_t attr, uint32_t dir,
+                    uint32_t *idx, dir_entry_t *de)
+{
+    if (g_file == 0 || g_file->dir_entry == 0) return 0;
+    for (;;) {
+        int found = 0;
+        uint8_t name[11];
+        if (g_file->dir_entry(*idx, (uint16_t)dir, de, &found) != 0 || !found)
+            return 0;
+        (*idx)++;
+        entry_template(de, name);
+        if (fcb_attr_ok(de->attribute, attr) && pattern_match(tpl, name))
+            return 1;
+    }
+}
+
+/* Record size, 0 meaning the 80h default (written back, as DOS does). */
+static uint32_t fcb_recsz(uint8_t *p)
+{
+    uint32_t rs = fcb_rd(p + FCB_RECSZ, 2);
+    if (rs == 0u) { rs = 0x80u; fcb_wr(p + FCB_RECSZ, rs, 2); }
+    return rs;
+}
+
+/* Random record field: 4 bytes when the record size is < 64, else 3 (p. 7-14). */
+static uint32_t fcb_random(uint8_t *p)
+{
+    return fcb_rd(p + FCB_RANDOM, fcb_recsz(p) < 64u ? 4 : 3);
+}
+static void fcb_set_random(uint8_t *p, uint32_t rec)
+{
+    fcb_wr(p + FCB_RANDOM, rec, fcb_recsz(p) < 64u ? 4 : 3);
+}
+static void fcb_set_pos(uint8_t *p, uint32_t rec)
+{
+    fcb_wr(p + FCB_CURBLK, rec >> 7, 2);   /* 128 records per block, p. 7-13 */
+    p[FCB_CURREC] = (uint8_t)(rec & 0x7Fu);
+}
+
+/* Fill the opened fields from a directory entry (0Fh/16h, p. 6-67). */
+static void fcb_fill(uint8_t *p, const dir_entry_t *de, uint32_t slot)
+{
+    p[0] = 1u;                                /* default -> actual drive A: */
+    fcb_wr(p + FCB_CURBLK, 0u, 2);
+    fcb_wr(p + FCB_RECSZ, 0x80u, 2);
+    fcb_wr(p + FCB_FSIZE, de->file_size, 4);
+    fcb_wr(p + FCB_DATE, de->mdate, 2);
+    fcb_wr(p + FCB_TIME, de->mtime, 2);
+    p[FCB_ATTR]     = de->attribute;
+    p[FCB_ATTR + 1] = 0u;
+    fcb_wr(p + FCB_CLUS, de->start_cluster, 2);
+    fcb_wr(p + FCB_DIR, g_cwd_start_cluster, 2);
+    fcb_wr(p + FCB_SLOT, slot, 2);
+}
+
+/* Move one record between the DTA and file record `rec` (14h/15h/21h/22h).
+ * Returns the AL code of p. 6-75/6-76: 00 ok, 01 EOF (read) / disk full
+ * (write), 02 DTA cannot hold the record, 03 partial record zero-filled. */
+static uint8_t fcb_xfer(uint8_t *p, uint32_t rec, int write)
+{
+    uint32_t rs  = fcb_recsz(p);
+    uint32_t dta = current_dta();
+    uint8_t *buf = (uint8_t *)(uintptr_t)dta;
+    if (!user_buf_ok(dta, rs)) return 2u;
+    if (rec > 0xFFFFFFFFu / rs || g_file == 0) return 1u;
+    uint32_t off = rec * rs;
+    dir_entry_t de;
+    de.start_cluster = (uint16_t)fcb_rd(p + FCB_CLUS, 2);
+    de.file_size     = fcb_rd(p + FCB_FSIZE, 4);
+    if (write) {
+        uint32_t w = 0u;
+        if ((p[FCB_ATTR] & DIR_ATTR_READONLY) || g_file->write_at == 0) return 1u;
+        if (g_file->write_at((uint16_t)fcb_rd(p + FCB_DIR, 2),
+                             fcb_rd(p + FCB_SLOT, 2), off, buf, rs, &w, &de) != 0u
+            || w != rs) return 1u;
+        fcb_wr(p + FCB_FSIZE, de.file_size, 4);
+        fcb_wr(p + FCB_CLUS, de.start_cluster, 2);
+        fcb_wr(p + FCB_DATE, de.mdate, 2);
+        fcb_wr(p + FCB_TIME, de.mtime, 2);
+        return 0u;
+    }
+    uint32_t got = 0u;
+    if (off >= de.file_size || g_file->read_at == 0 ||
+        g_file->read_at(&de, off, buf, rs, &got) != 0u || got == 0u) return 1u;
+#ifndef INT21_MUTATE_FCB_PARTIAL_NOZERO
+    for (uint32_t i = got; i < rs; i++) buf[i] = 0u;   /* p. 6-75 AL=03 */
+#endif
+    return (got == rs) ? 0u : 3u;
+}
+
+/* AH=0Fh..24h. Returns 0 for an AH this layer does not serve (1Fh, the
+ * undocumented get-DPB: no DPB is published) so the caller takes the
+ * not-yet-impl path; 1 when handled. */
+static int do_fcb(int_frame_t *f, uint8_t ah)
+{
+    uint8_t attr, al = 0xFFu;
+    uint8_t tpl[11];
+    char nm[13];
+    dir_entry_t de;
+    uint32_t slot = 0u, idx = 0u, n = 0u;
+    uint8_t *p;
+
+    if (ah == 0x1Bu || ah == 0x1Cu) {
+        /* Allocation table information (p. 6-83/6-84): AL = sectors per
+         * cluster, CX = bytes per sector, DX = clusters, [EBX] = media byte. */
+        uint16_t spc, bps, tot, fr;
+        uint8_t drv = (ah == 0x1Bu) ? 0u : frame_dl(f);
+        if (drv <= 1u && g_file != 0 && g_file->freespace != 0 &&
+            g_fcb_media != 0u && g_file->freespace(&spc, &bps, &tot, &fr) == 0u) {
+            al = (uint8_t)spc;
+            set_cx(f, bps);
+            set_dx(f, tot);
+            f->ebx = (uint32_t)(uintptr_t)&g_fcb_media;
+        }
+        set_al(f, al);
+        return 1;
+    }
+    if (ah == 0x18u || ah == 0x1Du || ah == 0x1Eu || ah == 0x20u) {
+        set_al(f, 0u);   /* reserved no-ops (see the golden note in fcbx.asm) */
+        return 1;
+    }
+    if (ah == 0x1Fu) return 0;
+
+    p = fcb_get(f, &attr);
+    if (p == 0 || g_file == 0) { set_al(f, al); return 1; }
+    fcb_tpl(p + 1, tpl);
+    fcb_str(tpl, nm);
+
+    switch (ah) {
+    case 0x0F:   /* OPEN, p. 6-67 */
+        if (g_file->open != 0 &&
+            g_file->open(nm, g_cwd_start_cluster, &de, &slot) == 0u &&
+            fcb_attr_ok(de.attribute, attr) && !(de.attribute & DIR_ATTR_VOLLABEL)) {
+            fcb_fill(p, &de, slot);
+            al = 0u;
+        }
+        break;
+    case 0x16:   /* CREATE, p. 6-77/6-78: reuse a match, else a free entry.
+                  * fat12_create refuses to truncate a read-only file (golden:
+                  * real DOS answers FFh, fcbx_program.asm T16). */
+        if (g_file->create != 0 &&
+            g_file->create(nm, g_cwd_start_cluster, &de, &slot) == 0u) {
+            uint8_t a = (uint8_t)(attr & 0x27u);   /* RO/H/S/A of an extended FCB */
+#ifdef INT21_MUTATE_FCB_EXT_NOATTR
+            a = 0u;   /* MUTANT (Rule 6): extended-FCB attribute dropped */
+#endif
+            if (a != 0u && g_file->chmod != 0) {
+                a |= DIR_ATTR_ARCHIVE;
+                if (g_file->chmod(nm, g_cwd_start_cluster, 1, &a) == 0u) de.attribute = a;
+            }
+            fcb_fill(p, &de, slot);
+            al = 0u;
+        }
+        break;
+    case 0x10:   /* CLOSE, p. 6-69: the entry must still be where open found it.
+                  * Writes were committed per record, so nothing is pending. */
+        if (g_file->open != 0 &&
+            g_file->open(nm, (uint16_t)fcb_rd(p + FCB_DIR, 2), &de, &slot) == 0u &&
+            slot == fcb_rd(p + FCB_SLOT, 2))
+            al = 0u;
+        break;
+    case 0x11:   /* SEARCH FIRST, p. 6-70/6-71 */
+    case 0x12:   /* SEARCH NEXT, p. 6-72 */
+        if (ah == 0x12u) idx = fcb_rd(p + FCB_SLOT, 2);
+        else fcb_wr(p + FCB_DIR, g_cwd_start_cluster, 2);
+        if (fcb_scan(tpl, attr, fcb_rd(p + FCB_DIR, 2), &idx, &de)) {
+            uint8_t *d = (uint8_t *)(uintptr_t)current_dta();
+            fcb_wr(p + FCB_SLOT, idx, 2);
+            if (!user_buf_ok((uint32_t)(uintptr_t)d, 40u)) break;
+            if (p != (uint8_t *)(uintptr_t)f->edx) {   /* extended: echo prefix */
+                d[0] = 0xFFu;
+                fcb_wr(d + 1, 0u, 4); d[5] = 0u;
+                d[6] = attr;
+                d += 7;
+            }
+            d[0] = 1u;                                  /* drive used: A: */
+            for (int i = 0; i < 32; i++) d[1 + i] = ((const uint8_t *)&de)[i];
+            al = 0u;
+        }
+        break;
+    case 0x13:   /* DELETE, p. 6-74: every match; fat12_unlink refuses a
+                  * read-only file, which survives (golden: FFh, T16) */
+        if (g_file->unlink == 0) break;
+        while (fcb_scan(tpl, attr, g_cwd_start_cluster, &idx, &de)) {
+            fcb_str((const uint8_t *)&de, nm);
+            if (g_file->unlink(nm, g_cwd_start_cluster) == 0u) { n++; idx--; }
+        }
+        if (n != 0u) al = 0u;
+        break;
+    case 0x17: { /* RENAME, p. 6-79/6-80: second name at FCB+11h, '?' keeps */
+        uint8_t nt[11];
+        char nn[13];
+        if (g_file->rename == 0) break;
+        fcb_tpl(p + 0x11, nt);
+        while (fcb_scan(tpl, attr, g_cwd_start_cluster, &idx, &de)) {
+            uint8_t nw[11];
+            /* A read-only ATTRIBUTE does not block an FCB rename: p. 6-80's
+             * "specified in read-only mode" is the access mode. Golden: real
+             * MS-DOS 6.22 renames FCBRO.DAT (fcbx_program.asm T16). */
+            for (int i = 0; i < 11; i++)
+                nw[i] = (nt[i] == '?') ? ((const uint8_t *)&de)[i] : nt[i];
+            fcb_str((const uint8_t *)&de, nm);
+            fcb_str(nw, nn);
+            if (g_file->rename(nm, g_cwd_start_cluster, nn, g_cwd_start_cluster) != 0u)
+                { n = 0u; break; }
+            n++;
+        }
+        if (n != 0u) al = 0u;
+        break; }
+    case 0x14:   /* SEQUENTIAL READ, p. 6-75 */
+    case 0x15:   /* SEQUENTIAL WRITE, p. 6-76 */
+        n = fcb_rd(p + FCB_CURBLK, 2) * 128u + (p[FCB_CURREC] & 0x7Fu);
+        al = fcb_xfer(p, n, ah == 0x15u);
+#ifndef INT21_MUTATE_FCB_SEQ_NO_ADVANCE
+        if (al == 0u || al == 3u) fcb_set_pos(p, n + 1u);
+#endif
+        break;
+    case 0x21:   /* RANDOM READ, p. 6-85 */
+    case 0x22:   /* RANDOM WRITE, p. 6-86: position follows the random field */
+        n = fcb_random(p);
+        fcb_set_pos(p, n);
+        al = fcb_xfer(p, n, ah == 0x22u);
+        break;
+    case 0x23:   /* FILE SIZE, p. 6-87: records, rounded up */
+        if (g_file->open != 0 &&
+            g_file->open(nm, g_cwd_start_cluster, &de, &slot) == 0u &&
+            fcb_attr_ok(de.attribute, attr)) {
+            uint32_t rs = fcb_recsz(p);
+            fcb_set_random(p, de.file_size / rs + (de.file_size % rs != 0u));
+            al = 0u;
+        }
+        break;
+    case 0x24:   /* SET RELATIVE RECORD, p. 6-88: returns nothing */
+        fcb_set_random(p, fcb_rd(p + FCB_CURBLK, 2) * 128u + (p[FCB_CURREC] & 0x7Fu));
+        return 1;
+    default:
+        break;
+    }
+    set_al(f, al);
+    return 1;
+}
+
 #ifdef INT21_WILDCARD_TESTSEAM
 /* TEST-ONLY seam (CLAUDE.md Rule 6 idiom; compiled ONLY into the wildcard host
  * oracle via -DINT21_WILDCARD_TESTSEAM, beads initech-80k). The 8.3 FCB-style
@@ -4625,6 +4960,15 @@ static void int21_dispatch_body(int_frame_t *frame)
         case 0x1A:                       /* SET DTA */
             do_setdta(frame);
             return;
+        case 0x0F: case 0x10: case 0x11: case 0x12: case 0x13: case 0x14:
+        case 0x15: case 0x16: case 0x17: case 0x18: case 0x1B: case 0x1C:
+        case 0x1D: case 0x1E: case 0x1F: case 0x20: case 0x21: case 0x22:
+        case 0x23: case 0x24:            /* FCB ops (Legacy; initech-509.9) */
+            if (do_fcb(frame, ah)) {
+                cf_clear(frame);
+                return;
+            }
+            break;                       /* 1Fh: not-yet-impl (no DPB) */
         case 0x25:                       /* SET INTERRUPT VECTOR */
             do_setvect(frame);
             return;

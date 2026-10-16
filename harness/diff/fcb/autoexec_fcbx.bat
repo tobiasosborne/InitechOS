@@ -1,0 +1,2 @@
+@ECHO OFF
+FCBX > FCBX.OUT

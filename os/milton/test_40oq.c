@@ -292,6 +292,10 @@ static const uint8_t DISPATCHED[] = {
     0x59,  /* GET EXTENDED ERROR */
     0x5B,  /* CREATNEW */
     0x62,  /* GET PSP */
+    /* FCB ops (Legacy), dispatched by do_fcb (initech-509.9): every AH of
+     * 0x0F..0x24 except 0x19/0x1A (above) and 0x1F (WAIVED_FCB below). */
+    0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+    0x1B, 0x1C, 0x1D, 0x1E, 0x20, 0x21, 0x22, 0x23, 0x24,
 };
 #define DISPATCHED_COUNT ((int)(sizeof(DISPATCHED)/sizeof(DISPATCHED[0])))
 
@@ -306,13 +310,15 @@ static const uint8_t DISPATCHED[] = {
  * We enumerate them explicitly to avoid double-counting in the coverage bitmap.
  *
  * Ref: int21.c ah_is_listed() lines 720-762; spec/int21h_register.json. */
+/* initech-509.9 landed the FCB layer (do_fcb). What remains waived is 0x1F,
+ * the get-default-DPB slot: undocumented in the IBM DOS 3.30 Technical
+ * Reference (the function pages run 1Ch p. 6-84 -> 21h p. 6-85), and InitechDOS
+ * publishes no Drive Parameter Block, so it stays on the fail-loud
+ * not-yet-impl path. */
 static const uint8_t WAIVED_FCB[] = {
-    /* 0x0F..0x18 (no holes in this sub-range) */
-    0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-    /* 0x1B..0x24 (0x19=GETDISK and 0x1A=SETDTA are DISPATCHED, not FCB) */
-    0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24,
+    0x1F,
 };
-#define FCB_COUNT ((int)(sizeof(WAIVED_FCB)/sizeof(WAIVED_FCB[0])))  /* 20 */
+#define FCB_COUNT ((int)(sizeof(WAIVED_FCB)/sizeof(WAIVED_FCB[0])))  /* 1 */
 /* Convenience range bounds used ONLY in the dynamic drive loop (which must
  * cover all of 0x0F..0x24 to prove not-yet-impl, including the 0x19/0x1A
  * "holes" -- those are dispatched and thus do NOT emit not-yet-impl, so the
@@ -433,8 +439,8 @@ static void test_static_manifest(void)
 
     /* (d) WAIVED FCB set must be exactly 20 AHs
      * (0x0F..0x24 minus 0x19/0x1A which are dispatched Core/Resident). */
-    CHECK(FCB_COUNT == 20,
-          "WAIVED FCB set must be exactly 20 AHs (0x0F..0x18, 0x1B..0x24)");
+    CHECK(FCB_COUNT == 1 && WAIVED_FCB[0] == 0x1F,
+          "WAIVED FCB set must be exactly AH=1Fh (the rest are do_fcb; 509.9)");
 
     /* (e) NOT_IMPL must be zero for GREEN. */
     if (NOT_IMPL_COUNT > 0) {
@@ -600,14 +606,14 @@ static void print_summary(void)
 
     printf("\n40oq: Appendix-A INT 21h coverage CERTIFIED -- "
            "%d recognized AHs, %d dispatched, "
-           "FCB(0x0F-0x24) WAIVED (operator 2026-06-14), "
+           "FCB 0x0F-0x24 dispatched (509.9; 0x1F DPB waived), "
            "partitions+multivol DEFERRED (kzfs/slvd, operator 2026-06-15). "
            "Functional scope COMPLETE.\n",
            total_recognized, DISPATCHED_COUNT);
 
     printf("  Class breakdown:\n");
     printf("    DISPATCHED Core+Resident : %d AH(s)\n",  DISPATCHED_COUNT);
-    printf("    WAIVED Legacy FCB        : %d AH(s) (0x0F..0x18+0x1B..0x24; initech-509.9)\n",
+    printf("    WAIVED Legacy FCB        : %d AH(s) (0x1F get-DPB; undocumented in DOS 3.30)\n",
            FCB_COUNT);
     printf("    NOT_IMPL (unwaived gap)  : %d AH(s)%s\n",
            NOT_IMPL_COUNT,

@@ -10,6 +10,7 @@
 #include "int21.h"
 static const int21_file_backend_t *backend;
 void int21_set_file_backend(const int21_file_backend_t *b) { backend = b; }
+void int21_set_media(uint8_t media) { (void)media; }   /* AH=1Bh/1Ch seam (509.9) */
 
 /* Fixed on-disk fixtures, independent of the artifact label reader. They
  * deliberately disagree between root and BPB, to prove root precedence. */

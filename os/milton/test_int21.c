@@ -773,7 +773,8 @@ int main(void)
     {
         sink_reset();
         int_frame_t f = fresh_frame();
-        f.eax = 0x0F00u;        /* AH=0Fh -- listed (FCB ops) but deferred */
+        f.eax = 0x1F00u;        /* AH=1Fh -- listed (FCB range) but deferred:
+                                 * get-DPB, undocumented in DOS 3.30 (509.9) */
         int21_dispatch(&f);
         CHECK(frame_cf(&f) == 1, "listed-but-deferred AH sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,

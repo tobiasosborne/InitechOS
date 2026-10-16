@@ -59,6 +59,79 @@ static uint16_t flat_to_fake_paragraph(uint32_t linear)
     return (uint16_t)((linear >> 4) & 0xFFFFu);
 }
 
+/* AH=29h filename separators (Tech Ref p. 6-96): : . ; , = + TAB SPACE. */
+static int psp_fcb_sep(char c)
+{
+    return c == ':' || c == '.' || c == ';' || c == ',' || c == '=' ||
+           c == '+' || c == '\t' || c == ' ';
+}
+
+/* Terminators: the separators plus " / [ ] < > | and control characters
+ * (Tech Ref p. 6-96). The backslash is not a valid FCB name character either
+ * ("if either parameter contained a path name ... the corresponding FCB will
+ * contain only a valid drive number", p. 7-8), so it terminates too. */
+static int psp_fcb_term(char c)
+{
+    return psp_fcb_sep(c) || c == '"' || c == '/' || c == '[' || c == ']' ||
+           c == '<' || c == '>' || c == '|' || c == '\\' ||
+           (unsigned char)c < 0x20u;
+}
+
+/* Parse t[i..n) into the unopened FCB at fcb (drive + 8 + 3), AH=29h with
+ * AL=01h (scan off leading separators). '*' fills the rest of its field with
+ * '?' (p. 6-96). Returns the index after the parsed name. */
+static uint32_t psp_parse_fcb(const char *t, uint32_t i, uint32_t n,
+                              uint8_t *fcb)
+{
+    fcb[0] = 0u;
+    for (int k = 1; k < 12; k++) {
+        fcb[k] = ' ';
+    }
+    while (i < n && psp_fcb_sep(t[i])) {
+        i++;
+    }
+    if (i + 1u < n && t[i + 1u] == ':') {
+        char d = t[i];
+        if (d >= 'a' && d <= 'z') {
+            d = (char)(d - 32);
+        }
+        if (d >= 'A' && d <= 'Z') {
+            fcb[0] = (uint8_t)(d - 'A' + 1);
+            i += 2u;
+        }
+    }
+    for (int field = 0; field < 2; field++) {
+        int base = field ? 9 : 1;
+        int cap  = field ? 3 : 8;
+        int pos  = 0;
+        if (field) {
+            if (i >= n || t[i] != '.') {
+                break;
+            }
+            i++;
+        }
+        while (i < n && !psp_fcb_term(t[i])) {
+            char c = t[i++];
+            if (c >= 'a' && c <= 'z') {
+                c = (char)(c - 32);
+            }
+            if (c == '*') {
+                while (pos < cap) {
+                    fcb[base + pos++] = '?';
+                }
+            } else if (pos < cap) {
+                fcb[base + pos++] = (uint8_t)c;
+            }
+        }
+    }
+    if (i < n && t[i] == '\\') {
+        for (int k = 1; k < 12; k++) {
+            fcb[k] = ' ';   /* a path: drive only (p. 7-8) */
+        }
+    }
+    return i;
+}
+
 uint32_t psp_build(psp_t *psp, const psp_params_t *params)
 {
     /* Rule 2: fail loud on NULL -- never write through a null pointer, never
@@ -195,9 +268,21 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
     psp->int21_entry[2] = 0xCB;
 
     /* --- 5Ch reserved_5c[16] (FCB #1) / 6Ch reserved_6c[20] (FCB #2). -------
-     * DEFERRED to initech-509.9 (full FCB pre-parsing, vestigial DEC-04).
-     * Zero-filled: drive byte 0 = default drive, name fields all-zero = no
-     * file -- correct for a no-tail launch. Ref: Sec 2.10; dos_structs.h:101-102. */
+     * "File control blocks at 5CH and 6CH are formatted from the first two
+     * parameters entered when the command was invoked" (IBM DOS 3.30 Technical
+     * Reference p. 7-8, PDF 371), with the AH=29h parse rules (pp. 6-95..6-97,
+     * PDF 218-220). Only drive + 11-byte name are written (12 bytes each); the
+     * rest stays zero. No tail -> drive 0 + a blank name (beads initech-509.9). */
+    {
+        const char *t = params->cmd_tail;
+        uint32_t n = (t != 0) ? params->cmd_tail_len : 0u;
+        uint32_t i = psp_parse_fcb(t, 0u, n, psp->reserved_5c);
+        while (i < n && t[i] != ' ' && t[i] != '\t' && t[i] != ',' &&
+               t[i] != ';' && t[i] != '=' && t[i] != '/') {
+            i++;   /* rest of parameter 1 (a path tail): to the next delimiter */
+        }
+        (void)psp_parse_fcb(t, i, n, psp->reserved_6c);
+    }
 
     /* --- 80h cmd_tail[128]: command-tail length + text; also default DTA. ---
      * Layout: byte 0 = count of text chars (NOT counting the length byte or
