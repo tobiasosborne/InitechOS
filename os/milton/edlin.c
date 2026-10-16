@@ -6,6 +6,7 @@
  * the input handle remains open for A/W staged editing (pp.163,174,193).
  */
 #include "edlin.h"
+#include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 p.330 (EDLIN). */
 #define CAP 49152u
 #define FILL (CAP*3u/4u)
 #define MAXLINE 253u
@@ -260,7 +261,7 @@ static int commands(void){
         case 'T': { /* p.192 */
             while(*p==' ')p++;
             char path[128];unsigned n=0;while(*p&&*p!=';'&&n<127)path[n++]=*p++;path[n]=0;
-            int h=io->open(path);if(h<0){emit("File not found\r\n");break;}
+            int h=io->open(path);if(h<0){emit(MSG_DOS_0003 "\r\n");break;}
             reader_init(&transfer,h);unsigned pos=first;
             while(nextline(&transfer)){if(!insert(pos++,transfer.pending))break;transfer.ready=0;}
             io->close(h);break;

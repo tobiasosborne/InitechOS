@@ -12,6 +12,7 @@
  * Only R/A are exposed. No host runtime, clock, paths or metadata.
  */
 #include "dosutil.h"
+#include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.308,340. */
 #define PATH_CAP 80
 static unsigned slen(const char *s) { unsigned n=0; while (s[n]) n++; return n; }
 static char upper(char c) { return c>='a' && c<='z' ? c-'a'+'A' : c; }
@@ -128,7 +129,7 @@ static int attrib_walk(char dir[PATH_CAP],attr_options *opt)
 #ifdef DU_MUTATE_PRESERVE
             attr&=0x21;
 #endif
-            if (du_attr(path,1,&attr)<0) { error("Access denied"); opt->failed=1; }
+            if (du_attr(path,1,&attr)<0) { error(MSG_DOS_0009); opt->failed=1; }
         } else {
             /* IBM 7-18: R in column 1, full path in column 10. MS 3.3 p.33
              * adds A, but its exact display column still needs a period
@@ -277,7 +278,7 @@ static int label_commit(label_disk *disk,const char *name)
 #ifndef DU_MUTATE_ROOM
     if (rc==-2) return error("No room in root directory");
 #endif
-    return error("Access denied");
+    return error(MSG_DOS_0009);
 }
 int label_main(const char *tail)
 {
@@ -286,8 +287,8 @@ int label_main(const char *tail)
     while (space(*tail)) tail++;
     disk.drive=(unsigned)du_drive();
     if (tail[0] && tail[1]==':') { disk.drive=(unsigned)(upper(tail[0])-'A'); tail+=2; }
-    if (disk.drive!=(unsigned)du_drive()) return error("Invalid drive specification");
-    if (label_read(&disk)<0) return error("Access denied");
+    if (disk.drive!=(unsigned)du_drive()) return error(MSG_DOS_0004);
+    if (label_read(&disk)<0) return error(MSG_DOS_0009);
     while (*tail==' ') tail++;
     if (!*tail) {
         char drive[]="A"; drive[0]=(char)('A'+disk.drive);

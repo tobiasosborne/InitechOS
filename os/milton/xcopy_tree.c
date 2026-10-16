@@ -20,6 +20,7 @@
  */
 #include "xcopy_tree.h"
 #include "find_data.h"
+#include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.29,308,330,361. */
 
 #define CAP 128
 #define S_RECURSE 1
@@ -144,7 +145,7 @@ static int ensure_dir(const char *p)
     if (n > 1) parent[n-1]=0; else parent[1]=0;
     if (equal(parent,p) || !ensure_dir(parent)) return 0;
     if (call(0x3900,0,0,(uintptr_t)p) < 0) {
-        line("Unable to create directory"); error=5; return 0;
+        line(MSG_DOS_0017); error=5; return 0;
     }
     return 1;
 }
@@ -217,7 +218,7 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
 {
     unsigned char buf[2048], verify[2048];
 #ifndef DU_MUT_SELF
-    if (equal(src,dst)) { line("File cannot be copied onto itself"); error=4; return 0; }
+    if (equal(src,dst)) { line(MSG_DOS_0020); error=4; return 0; }
 #endif
     if (flags & P_PROMPT) {
 #ifndef DU_MUT_P
@@ -453,9 +454,9 @@ int du_main(int tree, char *tail)
     if (!nth(spec,0,0,&fd)) {
         if (error) return error;
 #ifdef DU_MUT_DESCEND
-        line("0 File(s) copied"); return 1;
+        line("0" MSG_DOS_0024 "copied"); return 1;
 #endif
-        if (!(flags & S_RECURSE)) { line("0 File(s) copied"); return 1; }
+        if (!(flags & S_RECURSE)) { line("0" MSG_DOS_0024 "copied"); return 1; }
     }
     int isdir=directory(dst);
     unsigned tlen=length(target);
@@ -494,11 +495,11 @@ int du_main(int tree, char *tail)
         if (nth(spec,0,1,&fd)) goto invalid;
     }
     copy_dir(src,dst,isdir ? 0 : target_file,0);
-    if (error == 5) line("Access denied");
+    if (error == 5) line(MSG_DOS_0009);
 #ifdef DU_MUT_COUNT
     copied++;
 #endif
-    number(copied); line(" File(s) copied");
+    number(copied); line(MSG_DOS_0024 "copied");
     return error ? error : copied ? 0 : 1;
 invalid:
     line("Invalid parameter(s)"); return 4;
