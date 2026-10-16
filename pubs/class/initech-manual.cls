@@ -233,8 +233,8 @@
   \im@ifmodel{ibm}{}{\fancyfoot[LO,RE]{\imFootFont\im@foottitle}}%
   \im@ifmodel{operations}{\renewcommand\headrulewidth{0.5pt}%
     \renewcommand\footrulewidth{0.5pt}%
-    \fancyfoot[RE]{\imFootFont\im@product\ \im@doctitle}%
-    \fancyfoot[LO]{\imFootFont Session \thechapter.\ \im@foottitle}}{}%
+    \fancyfoot[RE]{\imFootFont\im@opsshort}%
+    \fancyfoot[LO]{\imFootFont\im@footlabel\im@foottitle}}{}%
   \im@ifmodel{ashtontate}{\renewcommand\headrulewidth{0.5pt}%
     \fancyhead[RE]{\imFootFont\bfseries CHAPTER \thechapter}%
     \fancyhead[LO]{\imFootFont\bfseries\MakeUppercase{\im@foottitle}}%
@@ -257,7 +257,14 @@
 \fancypagestyle{empty}{\fancyhf{}\renewcommand\headrulewidth{0pt}%
   \renewcommand\footrulewidth{0pt}}
 \pagestyle{im@text}
-\newcommand\FootTitle[1]{\gdef\im@foottitle{#1}}
+%% F-OPS (PG-11): the recto foot names the numbered unit in force ("Session
+%% 3." / "Appendix B."); front matter, contents and index carry the title
+%% alone.  \im@chapterhook sets the label after its \FootTitle (ipu5.14).
+\newcommand\im@footlabel{}
+%% F-OPS verso foot: the book short title (ZR23 "DOS Versions 3.3 and 4.0").
+\newcommand\im@opsshort{\im@product\ \im@doctitle}
+\newcommand\ShortTitle[1]{\gdef\im@opsshort{#1}}
+\newcommand\FootTitle[1]{\gdef\im@foottitle{#1}\gdef\im@footlabel{}}
 \renewcommand\sectionmark[1]{\markright{#1}}
 
 %% Ashton-Tate pattern: the blank verso before a recto opener is a "Notes" page.
@@ -316,8 +323,10 @@
   \titleformat{\section}[block]{\imHeadOneFont}{}{0pt}{\im@fullhead{#1}}%
   \titlespacing*{\section}{0pt}{18pt}{6pt}}{}
 \im@ifmodel{operations}{%
+  %% PG-21: "Session N." openers; appendices keep "Appendix A." (ipu5.14).
+  \renewcommand\im@chaptername{Session}%
   \titleformat{\chapter}[display]{\RaggedRight}{\hspace*{-\imHang}\rule{40mm}{2pt}}{6pt}
-    {\im@fullhead{\sffamily\bfseries\fontsize{16}{18}\selectfont Session \thechapter.\ #1}}}{}
+    {\im@fullhead{\sffamily\bfseries\fontsize{16}{18}\selectfont \im@chaptername\ \thechapter.\ #1}}}{}
 \im@ifmodel{apple}{%
   \titleformat{\chapter}[block]{\RaggedRight}{}{0pt}
     {\im@fullhead{\colorbox{black!40}{\parbox[c][25mm][c]{25mm}{\centering\color{white}%
@@ -371,7 +380,11 @@
     \im@folioform
     \setcounter{page}{1}%
   \fi
-  \FootTitle{#1}}
+  \FootTitle{#1}%
+  %% the label of the chapter being opened, fixed now: \appendix may change
+  %% the numbering before this chapter's last page ships.
+  \begingroup\advance\c@chapter by 1
+    \xdef\im@footlabel{\im@chaptername\noexpand\ \thechapter.\noexpand\ }\endgroup}
 \RenewDocumentCommand\chapter{s o m}{%
   \im@closeentry
   \IfBooleanTF{#1}
@@ -419,6 +432,7 @@
 \setcounter{tocdepth}{1}
 \contentsmargin{5em}
 \newcommand\im@tocname{Chapter}
+\im@ifmodel{operations}{\renewcommand\im@tocname{Session}}{}
 \titlecontents{chapter}[0pt]
   {\addvspace{9pt}\imHeadTwoFont}
   {\im@tocname~\thecontentslabel.\enspace}

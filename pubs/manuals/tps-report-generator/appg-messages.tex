@@ -1,0 +1,131 @@
+% Appendix G -- Messages (PUB-REF-0001 AN-03 order: the message exactly as
+% displayed, bold, at the head margin; Explanation:; Action:).  Part 1 is
+% the TPS Report Generator's messages in the order the program can display
+% them: every message is printed from the table tps_inventory.c generates
+% from the locked spec/tps_ritual.json, and test-pubs-tps proves that every
+% message of the inventory has its entry and that no entry names a message
+% the program lacks (GC-01/GC-02).  The R2 and R5 prompts are the DECIDED
+% wording (lane tpsr2, bead initech-5igf) under DRAFT markers.  Part 2 is
+% the program's other lines (banner, end of report), quoted from
+% os/milton/tpsrep_program.asm m_banner / m_done1 / m_done2.  Part 3 is the
+% InitechDOS device error messages, GENERATED from spec/dos_messages.json
+% by tools/pubs_msgtable.c (the `device` selector), with the same
+% explanations as the InitechDOS Reference Appendix A (os/milton/int21.c;
+% 0006 and 0008 are catalogue entries no code path of this version
+% displays: DRAFT, bead initech-vlhp); a missing or stray detail fails the
+% build (CP-06).
+% GATES: test-tps-report test-flair-tps-journey test-pubs-tps test-dosmsg
+\Gates{test-tps-report, test-flair-tps-journey, test-pubs-tps, test-dosmsg}
+\chapter{Messages}
+
+\section{How to Use This Appendix}
+Part 1 lists the messages of the TPS Report Generator, in the order in which
+the program can display them.  Each message is shown exactly as it is
+displayed, followed by an explanation and the action to take.  Where a
+message contains \ph{n}, the program displays a name or a number in its
+place.  Part 2 lists the other lines the program displays.  Part 3 lists the
+InitechDOS device error messages.
+
+\section{Part 1. Messages of the TPS Report Generator}
+
+\TpsMessageEntry{TPS-001}{The parameter record \file{TPSPARM.DAT} is not in
+the current directory.  The program ends with return code 1.}{If the current
+directory is not \file{A:\bs APPS}, type \type{CD APPS} and start again at
+\proc{02}.  Otherwise see your supervisor.}
+
+\TpsMessageEntry{TPS-002}{The parameter record has no line \ph{n}, where
+\ph{n} is \texttt{TITLE}, \texttt{DIVISION}, \texttt{MEMO} or
+\texttt{LINES}, the first missing in that order.  The program ends with
+return code 1.}{See your supervisor.  The record is corrected under
+Operating Procedure OP-7.3.}
+
+\TpsMessageEntry{TPS-007}{No table was named on the command line, or the
+table named is not in the current directory.  The program ends with return
+code 7.}{Type the command again with the table name: \type{TPSREP TPS.DBF}.
+If the message is displayed again at \texttt{A:\bs APPS>}, see your
+supervisor.}
+
+\TpsMessageEntry{TPS-006}{The file named is not a TPS table: \ph{n} is the
+first of the six required fields it lacks, or \texttt{SIGNATURE} when it is
+not a dBASE III table.  The program ends with return code 6.}{Check the
+table name.  If it is \file{TPS.DBF}, see your supervisor.}
+
+\TpsDraftMessageEntry{R2.prompt}{TOP OF FORM ALIGNMENT\\----- ALIGNMENT TEST
+  LINE ----- FORM TPS-1 (REV. 10/89) -----\\ADVANCE THE FORM TO THE TEST LINE,
+  THEN PRESS ENTER.}{lane tpsr2, bead initech-5igf: the decided R2 prompt; the
+  shipped program still displays its earlier prompt}{The program requires
+the form to be aligned.}{Carry out \proc{03}.}
+
+\TpsMessageEntry{R2.refuse}{The alignment attempt was not accepted: \ph{n}
+is the number of presses counted.  The count starts again from zero.}{Begin
+again at \proc{03}, step 1.}
+
+\TpsMessageEntry{R2.accept}{The form is aligned.}{Continue with \proc{04}.}
+
+\TpsMessageEntry{R3.prompt}{The program asks for the report number, and then
+for it again.}{Carry out \proc{04}.}
+
+\TpsMessageEntry{TPS-003}{The two entries of the report number do not
+agree, or are empty.  Both are asked for again.}{Begin again at \proc{04},
+step 1.}
+
+\TpsMessageEntry{R4.prompt}{The program asks for the number of the memo
+about the new cover sheets.}{Carry out \proc{05}.}
+
+\TpsMessageEntry{TPS-004}{The number keyed is not the number in the
+\texttt{MEMO=} line of the parameter record.  The program asks
+again.}{Check the number on the memo and key it again.  If it is refused a
+second time, see your supervisor.}
+
+\TpsDraftMessageEntry{R5.prompt}{DID YOU REMEMBER TO ATTACH THE NEW COVER
+  SHEET, FORM TPS-1 (REV. 10/89)? (Y/N)}{lane tpsr2, bead initech-5igf: the
+  decided R5 prompt; the shipped prompt does not yet name the form}{The
+program asks for the cover sheet attestation.}{Carry out \proc{06}.}
+
+\TpsMessageEntry{TPS-005}{The answer to the cover sheet prompt was N: \ph{n}
+is the memo number.  No report is written.  The program ends with return
+code 5.}{Attach the new cover sheet, \form{1} (Rev.\ 10/89), and run the
+program again from \proc{02}.  If you have no new cover sheet, see your
+supervisor.}
+
+\TpsMessageEntry{TPS-008}{\rpt\ could not be created in the current
+directory.  No report is written.  The program ends with return code
+8.}{See your supervisor.}
+
+\TpsMessageEntry{END}{The last line of every run: \ph{n} is the return code
+(Session~1).}{If the return code is 0, carry out \proc{07}.  Otherwise carry
+out \proc{08}.}
+
+\section{Part 2. Other Lines Displayed by the Program}
+\OtherMessage{INITECH CORPORATION}{banner}{The first of the three banner
+lines, with \texttt{TPS REPORT GENERATOR\ \ VERSION 2.11} and the copyright
+line.  It is displayed at every start.}{Read the line after the banner
+(\proc{02}, step 2).}
+\OtherMessage{TPS REPORT WRITTEN TO TPSREPT.TXT.}{end of report}{The report
+has been written to \rpt.}{Carry out \proc{07}.}
+\OtherMessage{PREVIOUS REPORT RETAINED AS TPSREPT.BAK.}{end of report}{The
+report that was in \rpt\ before the run is now \file{TPSREPT.BAK}.  It is
+displayed only when there was one.}{None.  It is retained until the next
+run.}
+
+\section{Part 3. InitechDOS Device Error Messages}
+\MessageDetailsOn
+These messages are displayed by InitechDOS, not by the program.  The letter
+\ph{d} stands for the drive letter.  The number beside each message
+identifies it when you call the Help Desk (extension 2504).
+
+\MessageDetail{MSG-DOS-0001}{InitechDOS could not read or write a disk and
+asks what to do.  It is displayed after a device error message.}{Correct the
+cause and press \type{R}.  If the message is displayed again, press
+\type{A} and carry out \proc{08}.}
+\MessageDetail{MSG-DOS-0007}{InitechDOS could not read the disk in drive
+\ph{d}.}{Press \type{A} and see your supervisor.}
+\MessageDetail{MSG-DOS-0006}{The drive \ph{d} was not ready.\draft{see bead
+initech-vlhp: catalogue entry not displayed by any code path of this
+version}}{Make the drive ready and press \type{R}.}
+\MessageDetail{MSG-DOS-0008}{InitechDOS tried to write on a write-protected
+disk in drive \ph{d}.\draft{see bead initech-vlhp: catalogue entry not
+displayed by any code path of this version}}{Press \type{A} and see your
+supervisor.}
+\input{dos_messages_device}
+\CheckMessageDetails

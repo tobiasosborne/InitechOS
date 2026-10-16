@@ -35,6 +35,18 @@
 # on output whose text was already seen earlier in the session.
 # disk is empty (practice.img) or `noautoexec` (noautoexec.img); anything
 # else is RED, so a line in the old name|marker|keystrokes form cannot pass.
+# disk `flair` (bead initech-ipu5.14, the TPS Report Generator manual) is the
+# JOURNEY route: the screen boots the FLAGSHIP image $PUBS_FLAIR_IMG with a
+# fresh copy of the shipped data volume $PUBS_FLAIR_DATA, leaves the desktop
+# through Special > Exit to InitechDOS with the locked mouse trace
+# $PUBS_FLAIR_EXIT (spec/flair_exit_dos_traces.mk, ending W SHELL-READY:
+# hold until COMMAND.COM has the console), and only then types the .keys
+# (sent in the same QMP stream as k-tokens, so their order is the guest's).
+# The console is decoded exactly as for the diskette route.  The guest clock
+# is pinned like the diskette route's, but how long the desktop takes to go
+# depends on the host, so the seconds of the startup time prompt are not
+# reproducible: a flair .keys clears the screen (CLS) before anything that
+# is printed, and test-pubs-screens proves the result byte for byte.
 # Thin shell (Law 3).  Fails loud on any capture that is not a settled prompt.
 set -eu
 runner=$1; boot=$2; decode=$3; rom=$4; defs=$5; disk=$6; out=$7; utils=$8
@@ -87,10 +99,22 @@ while IFS='|' read -r name marker variant; do
     case $name in ''|'#'*) continue ;; esac
     keyfile=$(dirname "$defs")/$name.keys
     [ -f "$keyfile" ] || { printf '!!! test-pubs RED SCREEN-KEYS: %s missing\n' "$keyfile"; exit 1; }
+    route=disk
     case $variant in
     '') img=$out/practice.img ;;
     noautoexec) img=$out/noautoexec.img ;;
-    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: disk field "%s" is not empty or noautoexec (inline keys are forbidden)\n' "$name" "$variant"; exit 1 ;;
+    flair)
+        route=flair
+        for v in PUBS_FLAIR_IMG PUBS_FLAIR_DATA PUBS_FLAIR_EXIT; do
+            eval "val=\${$v:-}"
+            [ -n "$val" ] || { printf '!!! capture.sh FAIL: %s: the flair route needs %s (pubs.mk sets it)\n' "$name" "$v"; exit 1; }
+        done
+        case $PUBS_FLAIR_EXIT in *,WSHELL-READY) ;; *)
+            printf '!!! capture.sh FAIL: %s: PUBS_FLAIR_EXIT does not end by waiting for SHELL-READY\n' "$name"; exit 1 ;; esac
+        [ -r "$PUBS_FLAIR_IMG" ] && [ -r "$PUBS_FLAIR_DATA" ] || {
+            printf '!!! capture.sh FAIL: %s: flagship image or data volume not readable\n' "$name"; exit 1; }
+        img=$PUBS_FLAIR_DATA ;;
+    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: disk field "%s" is not empty, noautoexec or flair (inline keys are forbidden)\n' "$name" "$variant"; exit 1 ;;
     esac
     keys=$(cat "$keyfile")
     # MS-DOS 3.3 User's Guide p.135/PDF220: AUTOEXEC replaces DATE/TIME.
@@ -103,7 +127,28 @@ while IFS='|' read -r name marker variant; do
     n=$((n + 1))
     work=$out/$name.img
     cp -f "$img" "$work"
-    if [ -n "$keys" ]; then
+    if [ "$route" = flair ]; then
+        case $keys in '\n\nCLS\n'*) ;; *)
+            printf '!!! test-pubs RED SCREEN-KEYS: %s: a flair screen starts \\n\\nCLS\\n (the startup time prompt is not reproducible)\n' "$keyfile"; exit 1 ;; esac
+        # \Wtext\W in a flair .keys holds the stream until the guest prints
+        # text (the harness W token): keys typed while a program is still
+        # writing would overrun the type-ahead buffer.
+        tokens=$PUBS_FLAIR_EXIT; rest=$keys
+        while [ -n "$rest" ]; do
+            case $rest in
+            *'\W'*) seg=${rest%%\\W*}; rest=${rest#*\\W}
+                     case $rest in *'\W'*) ;; *) printf '!!! test-pubs RED SCREEN-KEYS: %s: unterminated \\W\n' "$keyfile"; exit 1 ;; esac
+                     mark=${rest%%\\W*}; rest=${rest#*\\W} ;;
+            *) seg=$rest; rest=; mark= ;;
+            esac
+            case $mark in *,*) printf '!!! test-pubs RED SCREEN-KEYS: %s: a \\W marker may not contain a comma\n' "$keyfile"; exit 1 ;; esac
+            [ -z "$seg" ] || tokens=$tokens,$(sh "$here/keys.sh" "$seg" | sed 's/\([^,]*\)/k\1/g')
+            [ -z "$mark" ] || tokens=$tokens,W$mark
+        done
+        [ ${#tokens} -le 4095 ] || {
+            printf '!!! capture.sh FAIL: %s: %d bytes of mouse/key tokens (harness max 4095)\n' "$name" "${#tokens}"; exit 1; }
+        set -- --mouse "$tokens" --keys-after FLAIR-LIVE-READY --keys-after-ms 60000
+    elif [ -n "$keys" ]; then
         tokens=$(sh "$here/keys.sh" "$keys")
         # qemu_harness truncates a --keys spec past 4095 bytes; never let a
         # screen silently lose its last keystrokes.
@@ -116,8 +161,10 @@ while IFS='|' read -r name marker variant; do
     count=1
     case $marker in *'#'[0-9]*) count=${marker##*#}; marker=${marker%#*} ;; esac
     rm -f "$out/$name.ppm" "$out/$name.serial"
-    "$runner" --disk "$boot" --disk2 "$work" --name "$name" --out "$out" \
-        --timeout-ms 60000 "$@" \
+    disk1=$boot; budget=60000
+    [ "$route" = flair ] && { disk1=$PUBS_FLAIR_IMG; budget=120000; }
+    "$runner" --disk "$disk1" --disk2 "$work" --name "$name" --out "$out" \
+        --timeout-ms "$budget" "$@" \
         --screendump --screendump-after "$marker" --screendump-after-count "$count" \
         --rtc-base 1992-03-02T09:30:00 --rtc-deterministic \
         < /dev/null 2> "$out/$name.report" || true

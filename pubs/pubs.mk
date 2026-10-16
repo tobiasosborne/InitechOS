@@ -46,6 +46,13 @@ PUBS_MSGTABLE_BIN := $(BUILD)/pubs_msgtable
 PUBS_MSG_TEX      := $(PUBS_GEN)/dos_messages.tex
 PUBS_MSG_DEV_TEX  := $(PUBS_GEN)/dos_messages_device.tex
 PUBS_MSG_OTH_TEX  := $(PUBS_GEN)/dos_messages_other.tex
+# The TPS Report Generator's message table (bead initech-ipu5.14): generated
+# from the locked spec/tps_ritual.json by harness/pubs/tps_inventory.c, so
+# the book prints every program message from the shipped data (GC-02).
+PUBS_TPS_INV_BIN  := $(BUILD)/pubs_tps_inventory
+PUBS_TPS_TEX      := $(PUBS_GEN)/tps_messages.tex
+PUBS_TPS_BOOK     := tps-report-generator
+PUBS_GENERATED    := $(PUBS_MSG_TEX) $(PUBS_TPS_TEX)
 export LATEXMK LUALATEX
 
 $(CONSOLE_TEXT_BIN): harness/console_text.c | $(BUILD)
@@ -58,6 +65,12 @@ $(PUBS_MSG_TEX): $(PUBS_MSGTABLE_BIN) spec/dos_messages.json
 	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json device > $(PUBS_MSG_DEV_TEX).tmp && mv -f $(PUBS_MSG_DEV_TEX).tmp $(PUBS_MSG_DEV_TEX)
 	@$(PUBS_MSGTABLE_BIN) spec/dos_messages.json other > $(PUBS_MSG_OTH_TEX).tmp && mv -f $(PUBS_MSG_OTH_TEX).tmp $(PUBS_MSG_OTH_TEX)
 
+$(PUBS_TPS_INV_BIN): harness/pubs/tps_inventory.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+$(PUBS_TPS_TEX): $(PUBS_TPS_INV_BIN) spec/tps_ritual.json
+	@mkdir -p $(PUBS_GEN)
+	@$(PUBS_TPS_INV_BIN) tex spec/tps_ritual.json > $@.tmp && mv -f $@.tmp $@
+
 # Build all documents into $(1) (fresh), optional mode $(2) (mutant).
 define pubs-build-into
 	@rm -rf $(1)
@@ -66,7 +79,7 @@ endef
 
 .PHONY: pubs test-pubs-build test-pubs-honesty test-pubs-repro test-pubs-repro-mutant \
 	pubs-screens test-pubs-screens
-pubs: $(PUBS_MSG_TEX)
+pubs: $(PUBS_GENERATED)
 	@command -v $(LUALATEX) >/dev/null 2>&1 && command -v $(LATEXMK) >/dev/null 2>&1 || { \
 		printf '!!! pubs FAIL: %s / %s not found (TeX Live: apt install texlive-luatex latexmk texlive-fonts-extra)\n' "$(LUALATEX)" "$(LATEXMK)"; exit 1; }
 	@sh $(PUBS_DIR)/build.sh $(PUBS_BUILD) $(PUBS_GEN)
@@ -75,11 +88,11 @@ ifeq ($(SKIP_PUBS),1)
 test-pubs-build:
 	@printf '!!! test-pubs-build SKIPPED (SKIP_PUBS=1 opt-out) -- the Initech manuals were NOT typeset or linted. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_PUBS and re-run before trusting this gate.\n'
 else
-test-pubs-build: $(PUBS_MSG_TEX)
+test-pubs-build: $(PUBS_GENERATED)
 	@printf '>>> test-pubs-build: every manual typesets clean (initech-ipu5.5; D-11 LuaLaTeX)\n'
 	@for t in $(LUALATEX) $(LATEXMK); do command -v $$t >/dev/null 2>&1 || { \
 		printf '!!! test-pubs-build FAIL: %s not found (TeX Live is required to typeset the manuals). A skipped oracle is worse than a red one (Law 2). Set SKIP_PUBS=1 to explicitly (and loudly) opt out.\n' "$$t"; exit 1; }; done
-	@bad=$$(LC_ALL=C grep -l -P '[^\x00-\x7F]' $(PUBS_SOURCES) harness/console_text.c tools/pubs_msgtable.c || true); \
+	@bad=$$(LC_ALL=C grep -l -P '[^\x00-\x7F]' $(PUBS_SOURCES) harness/console_text.c tools/pubs_msgtable.c harness/pubs/tps_inventory.c || true); \
 	if [ -n "$$bad" ]; then printf '!!! test-pubs-build FAIL: non-ASCII bytes in (Rule 12): %s\n' "$$bad"; exit 1; fi
 	$(call pubs-build-into,$(PUBS_BUILD)/gate)
 	@set -e; for log in $(PUBS_BUILD)/gate/*/*.log; do \
@@ -113,7 +126,7 @@ test-pubs-honesty:
 	@printf '>>> test-pubs-honesty: green (missing lualatex RED and names SKIP_PUBS=1; SKIP_PUBS=1 explicitly SKIPPED)\n'
 
 # Two independent clean builds must agree byte for byte (Rule 11).
-test-pubs-repro: $(PUBS_MSG_TEX)
+test-pubs-repro: $(PUBS_GENERATED)
 	$(call pubs-build-into,$(PUBS_BUILD)/repro-a)
 	$(call pubs-build-into,$(PUBS_BUILD)/repro-b)
 	@set -e; n=0; for a in $(PUBS_BUILD)/repro-a/*/*.pdf; do \
@@ -125,7 +138,7 @@ test-pubs-repro: $(PUBS_MSG_TEX)
 	printf '>>> test-pubs-repro: green (%s PDFs byte-identical across two clean builds)\n' "$$n"
 
 # Rule 6: inject the build time on every page; the cmp above must then bite.
-test-pubs-repro-mutant: $(PUBS_MSG_TEX)
+test-pubs-repro-mutant: $(PUBS_GENERATED)
 	$(call pubs-build-into,$(PUBS_BUILD)/mutant-a,mutant)
 	$(call pubs-build-into,$(PUBS_BUILD)/mutant-b,mutant)
 	@if cmp -s $(PUBS_BUILD)/mutant-a/initechdos-users-guide/main.pdf $(PUBS_BUILD)/mutant-b/initechdos-users-guide/main.pdf; then \
@@ -146,18 +159,26 @@ $(PUBS_UTILS_STAMP): $(CHKDSK_PROG_BIN) $(ATTRIB_PROG_BIN) $(LABEL_PROG_BIN) $(X
 	@for u in $(PUBS_UTILS); do cp $${u#*=} $(PUBS_UTILS_DIR)/$${u%%=*}; done
 	@touch $@
 PUBS_SCREEN_DEPS := $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_DIR)/screens/capture.sh $(PUBS_DIR)/screens/keys.sh \
-                    $(PUBS_UTILS_STAMP)
+                    $(PUBS_UTILS_STAMP) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+# The journey route (disk field `flair`, bead initech-ipu5.14): the flagship
+# image and data volume, left through Special > Exit to InitechDOS by the
+# LOCKED trace of test-flair-exit-to-dos leg 3 (spec/flair_exit_dos_traces.mk
+# FLAIR_EXIT_DOS_SPEC) up to its W SHELL-READY; its own DIR keys are cut off
+# here and the screen's .keys are typed instead.
+PUBS_FLAIR_EXIT := $(patsubst %$(comma)kret$(comma)kret$(comma)kd$(comma)ki$(comma)kr$(comma)kret,%,$(FLAIR_EXIT_DOS_SPEC))
+PUBS_FLAIR_ENV  := PUBS_FLAIR_IMG=$(FLAIRTENANTS_IMG) PUBS_FLAIR_DATA=$(FLAIR_DATA_IMG) PUBS_FLAIR_EXIT='$(PUBS_FLAIR_EXIT)'
+
 pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; for m in $(PUBS_MANUALS); do \
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
-		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
+		$(PUBS_FLAIR_ENV) sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
 			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens/$$m $(PUBS_UTILS_DIR); \
 		cp -f $(PUBS_BUILD)/screens/$$m/*.txt $$d/; \
 		printf '>>> pubs-screens: %s updated -- review `git diff %s`\n' "$$m" "$$d"; done
 test-pubs-screens: $(PUBS_SCREEN_DEPS)
 	@set -e; n=0; for m in $(PUBS_MANUALS); do \
 		d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/SCREENS ] || continue; \
-		sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
+		$(PUBS_FLAIR_ENV) sh $(PUBS_DIR)/screens/capture.sh $(HARNESS_BIN) $(TRACER_IMG) $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) \
 			$$d/SCREENS $(PUBS_DIR)/screens/disk $(PUBS_BUILD)/screens-check/$$m $(PUBS_UTILS_DIR); \
 		for t in $(PUBS_BUILD)/screens-check/$$m/*.txt; do \
 			$(PUBS_GATE) same SCREEN-DRIFT $$d/$$(basename $$t) $$t || { diff -u $$d/$$(basename $$t) $$t || true; exit 1; }; \
@@ -186,7 +207,7 @@ $(PUBS_SURFACE): harness/pubs/dos_surface_inventory.c os/milton/batch.c os/milto
 $(PUBS_REPLAY): harness/pubs/samir_replay.c $(INTERP_LIST_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
 
-.PHONY: test-pubs test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory
+.PHONY: test-pubs test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-mutant pubs-inventory
 # Recursive expansion sees FLAIR_FIXTURES, included after this makefile.
 # The shipped inventory is NAME|KIND (pubs_gate.c): command.c's dispatch
 # table, the INT 21h register, the APPS executables, and the batch
@@ -200,11 +221,11 @@ pubs-inventory: $(PUBS_GATE) $(PUBS_INT21) $(PUBS_SURFACE) $(DOS_MESSAGES_H)
 	@$(PUBS_GATE) inventory $(PUBS_CHECK)/command.i $(PUBS_CHECK)/int21.list $(PUBS_CHECK)/surface.list $(filter APPS/% DOS/%,$(FLAIR_FIXTURES)) > $(PUBS_CHECK)/shipped
 
 ifeq ($(SKIP_PUBS),1)
-test-pubs test-pubs-mutant:
+test-pubs test-pubs-mutant test-pubs-tps:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- publication correctness was NOT checked. This is NOT a pass; unset SKIP_PUBS before trusting this gate.\n'
 else
-test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples test-pubs-screens
-	@printf '>>> test-pubs: green (command coverage, example replay, source lints, build cap)\n'
+test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-screens
+	@printf '>>> test-pubs: green (command coverage, TPS message inventory, example replay, source lints, build cap)\n'
 # GC-01 over the InitechDOS books together (the Reference documents, the
 # User's Guide teaches): their main.cmds lists (initech-syntax.sty, the one
 # registration mechanism) against the shipped inventory, both directions,
@@ -213,19 +234,49 @@ test-pubs: test-pubs-build test-pubs-commands test-pubs-lint test-pubs-examples 
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
 	@sh harness/pubs/check_allowlist.sh $(PUBS_GATE) $(PUBS_ALLOW) $(PUBS_CHECK)
+# GC-01/GC-02 for the TPS Report Generator manual (bead initech-ipu5.14), the
+# second product with its own shipped inventory (test-pubs-commands skips it
+# for that reason only): its main.cmds against the inventory GENERATED from
+# spec/tps_ritual.json, both directions (every program message documented;
+# nothing documented that the program lacks, unless DRAFT); TPSREP|external
+# documented and in the DOS shipped inventory; the alignment count written
+# in its four required places (bead initech-5igf); every inline \cmd a
+# shipped command.  DRAFT transcripts (decided, not yet shipped) are listed
+# on every run and must exist with their .keys.
+PUBS_TPS_GATE_DIR := $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK)
+# The files the book prints with \ReportLines (paths as the book names them,
+# from its own directory), each compared with the running program by a gate:
+# tpsrept_expected.txt == TPSREPT.TXT written on the flagship and under real
+# MS-DOS 6.22 (test-flair-tps-journey, test-tps-report leg A); tpsparm.dat is
+# the very file the Makefile plants as APPS\TPSPARM.DAT (FLAIR_TPSPARM_DAT)
+# and the one test-tps-report runs with; dos_banner.txt == the banner after
+# Exit to InitechDOS (test-flair-exit-to-dos leg 3).
+PUBS_TPS_PROVED := ../../../harness/diff/tps/tpsrept_expected.txt ../../../$(FLAIR_TPSPARM_DAT) ../../../spec/dos_banner.txt
+test-pubs-tps: test-pubs-build pubs-inventory $(PUBS_TPS_INV_BIN) $(PUBS_GATE)
+	@$(PUBS_TPS_INV_BIN) inventory spec/tps_ritual.json > $(PUBS_CHECK)/tps.inventory
+	@$(PUBS_TPS_INV_BIN) check $(PUBS_CHECK)/tps.inventory $(PUBS_TPS_GATE_DIR)/main.cmds $(PUBS_CHECK)/shipped
+	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(PUBS_TPS_GATE_DIR)/main.mentions
+	@$(PUBS_TPS_INV_BIN) reports $(PUBS_TPS_GATE_DIR)/main.reports $(PUBS_TPS_PROVED)
+	@set -e; n=0; while IFS='|' read -r f why; do [ -n "$$f" ] || continue; \
+		d=$(PUBS_DIR)/manuals/$(PUBS_TPS_BOOK); \
+		[ -f "$$d/$$f" ] && [ -f "$$d/$${f%.draft}.keys" ] || { printf '!!! test-pubs RED DRAFT-SCREEN-PAIR: %s/%s\n' "$$d" "$$f"; exit 1; }; \
+		printf '!!! test-pubs DRAFT-SCREEN: %s NOT replayed (%s) -- re-capture after the change ships\n' "$$f" "$$why"; n=$$((n + 1)); \
+	done < $(PUBS_TPS_GATE_DIR)/main.draftscreens; \
+	printf '>>> test-pubs-tps: green (%s DRAFT transcripts listed above)\n' "$$n"
 test-pubs-lint: $(PUBS_GATE)
 	@$(PUBS_GATE) lint pubs/denylist.txt pubs
 	@sha256sum -c pubs/fonts.lock > $(BUILD)/pubs-fonts.log
 	@printf '>>> test-pubs-fonts: green (all font files match fonts.lock)\n'
 test-pubs-examples: test-pubs-build $(PUBS_REPLAY) $(PUBS_GATE)
 	@sh harness/pubs/replay.sh $(PUBS_REPLAY) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK)
-test-pubs-mutant: test-pubs $(PUBS_GATE)
+test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_TPS_INV_BIN)
 	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW)
+	@sh harness/pubs/tps_mutants.sh $(PUBS_TPS_INV_BIN) $(PUBS_GATE) $(PUBS_CHECK) $(PUBS_BUILD)/gate/$(PUBS_TPS_BOOK) $(PUBS_GEN)
 endif
 
 # TeX emits the figure registry, preventing unchecked printed captures.
