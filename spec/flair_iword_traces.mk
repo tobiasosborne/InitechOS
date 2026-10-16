@@ -75,3 +75,15 @@ FLAIR_IWORD_BLOCK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,
 #    Alt-F3 (Reveal Codes). "khome" is the Home key (harness/emu/qemu.c).
 #    59 tokens.
 FLAIR_IWORD_FORMAT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0,kret,kshift-f8,k1,k6,k2,kret,k3,k2,kf7,kshift-c,ke,kn,kt,ke,kr,ke,kd,kdot,kret,kshift-b,ko,kl,kd,kspc,km,ke,kdot,kalt-f4,khome,kleft,kf6,kf10,kf,km,kt,kret,kalt-f3
+
+# P3 first RED: F9 must dispatch to the period-grayed "End Field".
+# Reference printed pp. 963-966, Template pp. 5-6. No document/file edits.
+FLAIR_IWORD_LAUNCH := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0
+# All 48 slots; F1 backs out of prompts, F7 n n clears the document.
+# F11/F12 aliases are also driven with Block on. Final F9: pixel waypoint.
+FLAIR_IWORD_FKEYS_SPEC := $(FLAIR_IWORD_LAUNCH),kf1,kf2,kf1,kf3,kf4,kf5,kf6,kf7,kn,kn,kf8,kf9,kf10,kf1,kf11,kf11,kf12,kf12,kshift-f1,kshift-f2,kf1,kshift-f3,kshift-f4,kshift-f5,kshift-f6,kshift-f7,kshift-f8,kf1,kshift-f9,kshift-f10,kf1,kshift-f11,kshift-f12,kalt-f1,kalt-f2,kalt-f3,kalt-f3,kalt-f4,kf1,kalt-f5,kalt-f6,kalt-f7,kalt-f8,kalt-f9,kalt-f10,kalt-f11,kalt-f12,kctrl-f1,kctrl-f2,kctrl-f3,kctrl-f4,kf1,kctrl-f5,kctrl-f6,kctrl-f7,kctrl-f8,w200,kf1,w150,kctrl-f9,kctrl-f10,kctrl-f11,kctrl-f12,kf9
+
+# P3 search oracle first: Search forward for the Bold On code, backward
+# for 'plain', then fail a search for 'missing'. No Save, no disk writes.
+# Reference printed pp. 571-573; code bytes from existing MINT06/MINT08.
+FLAIR_IWORD_SEARCH_SPEC := $(FLAIR_IWORD_LAUNCH),kp,kl,ka,ki,kn,kspc,kf6,kb,ko,kl,kd,kf6,kspc,ke,kn,kd,khome,khome,kup,kf2,kf6,kf2,kshift-f2,kp,kl,ka,ki,kn,kf2,kf2,km,ki,ks,ks,ki,kn,kg,kf2

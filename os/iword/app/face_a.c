@@ -163,6 +163,7 @@
  * reference. Freestanding C, ASCII-clean (Rule 12), deterministic (Rule 11).
  */
 #include "tbx.h"
+#include "../../../spec/iword/fkeys.h"
 #include "iword.h"
 #include "iword/wp5_format.h"
 #include "iword/reveal_codes.h"
@@ -215,6 +216,7 @@ const char tbx_app_name[] = "WORD";
 #define VK_TAB       0x0F
 #define VK_ENTER     0x1C
 #define VK_F1        0x3B
+#define VK_F2        0x3C
 #define VK_F3        0x3D
 #define VK_F4        0x3E
 #define VK_F6        0x40
@@ -304,10 +306,22 @@ static uint32_t g_clip_n;
 enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_FONT, M_APPEAR,
        M_DELCODE, M_DELBLOCK, M_MOVE, M_MOVEBLK, M_RETRIEVE,
        M_FORMAT, M_FMTLINE, M_FMTJUST, M_FMTMARL, M_FMTMARR,
-       M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP };
+       M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
+/* WP 5.1 Reference pp. 963-966, Template pp. 5-6. Unavailable functions
+ * show the manual's name in the period-grayed status line. The six unmapped
+ * modified F11/F12 slots have no command name (p. 966 note 4). */
+static const char *g_gray;
+static uint8_t g_search_back;
+/* Search strings are unit streams, distinct from the document's paired-code
+ * insertion model. F6 twice gives [BOLD][bold] (Reference p. 572). */
+#define QUERY_CAP 256u
+static uint8_t g_query[QUERY_CAP];
+static uint32_t g_query_n, g_query_cur;
+static uint8_t g_query_fresh;
+static uint32_t query_label(char *out, uint32_t cap);
 static char     g_name[16];                 /* the name being typed        */
 static uint32_t g_nlen;
 static uint8_t  g_fresh;                    /* the offered name: a key replaces it */
@@ -601,7 +615,7 @@ static void screen_lines(uint32_t rows, uint32_t *first, uint32_t *last)
 static void paint_status(const iw_where_t *w, int line)
 {
     char s[SCR_COLS + 1], num[12], doc[32];
-    uint32_t n, i, k;
+    uint32_t n, i, k, query_cursor = 0;
     for (i = 0; i < SCR_COLS; i++) s[i] = ' ';
     s[SCR_COLS] = 0;
     if (g_mode == M_EDIT || g_mode == M_RETRIEVE) {
@@ -664,6 +678,13 @@ static void paint_status(const iw_where_t *w, int line)
         else if (g_mode == M_SAVEQ) t = "Save Document? Yes (No)";
         else if (g_mode == M_EXITQ) t = "Exit WP? No (Yes)";
         else if (g_mode == M_ERROR) t = g_err;
+        else if (g_mode == M_GRAY) t = g_gray;
+        else if (g_mode == M_SEARCH) {
+            t = g_search_back ? "<- Srch:" : "-> Srch:";
+#ifdef IWORD_MUT_SEARCH_PROMPT
+            t = "Search:";
+#endif
+        }
         else if (g_mode == M_FONT) t = IW_FONT_MENU;
         else if (g_mode == M_FONTBLK) t = IW_FONT_BLK_MENU;   /* MINT28 07 */
         else if (g_mode == M_SIZE) t = IW_SIZE_MENU;           /* MINT28 11 / 18 */
@@ -693,6 +714,7 @@ static void paint_status(const iw_where_t *w, int line)
         }
         n = 0;
         for (i = 0; t[i] && n < SCR_COLS; i++) s[n++] = t[i];
+        if (g_mode == M_SEARCH) query_cursor = n + query_label(s + n, SCR_COLS - n + 1);
         if (g_mode == M_SAVE_NAME || g_mode == M_GET_NAME)
             for (i = 0; i < g_nlen && n < SCR_COLS; i++) s[n++] = g_name[i];
         if (g_mode == M_SAVEQ && !g_ed.dirty) {
@@ -701,7 +723,19 @@ static void paint_status(const iw_where_t *w, int line)
             for (i = 0; i < k; i++) s[SCR_COLS - k + i] = nm[i];
         }
     }
-    put_text_row(line, s);
+    if (g_mode == M_GRAY || g_mode == M_SEARCH) {
+        row_t r;
+        row_clear(&r);
+        for (i = 0; i < SCR_COLS; i++) r.t[i] = s[i];
+        if (g_mode == M_GRAY) r.fg = TBX_COLOR_GRAY;
+        else {
+            r.inv_col = (uint8_t)query_cursor; r.inv_len = 1;
+#ifdef IWORD_MUT_SEARCH_CURSOR
+            r.inv_len = 0;
+#endif
+        }
+        put_row(line, &r);
+    } else put_text_row(line, s);
 }
 
 /* The document rows 0 .. rows-1, the cursor in reverse video, a spaced
@@ -1374,41 +1408,70 @@ static void retrieve_key(char ch, uint8_t vk, int32_t mods)
     if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) g_mode = M_EDIT;
 }
 
+/* All 48 slots enter here; the table controls dispatch, including aliases.
+ * Ref: spec/iword/fkeys.json's local Reference citations. No modified F7
+ * accidentally falls through to Exit, nor Ctrl/Alt-F10 to Save. */
+static int function_key(uint8_t vk, int32_t mods)
+{
+    uint32_t k, m = 0, count = 0;
+    int rc = IW_OK;
+    const iw_fkey_t *f;
+    if (vk >= VK_F1 && vk <= VK_F10) k = vk - VK_F1;
+    else if (vk == 0x57 || vk == 0x58) k = vk - 0x57u + 10u;
+    else return 0;
+    if (mods & FLAIR_EVT_MOD_SHIFT_KEY) { m = 1; count++; }
+    if (mods & FLAIR_EVT_MOD_OPTION_KEY) { m = 2; count++; }
+    if (mods & FLAIR_EVT_MOD_CONTROL_KEY) { m = 3; count++; }
+    if (count > 1) return 1;   /* outside the four rows of the WP template */
+#ifdef IWORD_MUT_FKEY_DROP
+    if (m == 0 && k == 8) return 1; /* named mutant: drop plain F9 */
+#endif
+    f = &IW_FKEYS[m][k];
+    switch (f->action) {
+    case IW_FK_search_forward: case IW_FK_search_backward:
+        g_search_back = f->action == IW_FK_search_backward;
+        g_query_cur = g_query_n; g_query_fresh = 1; g_mode = M_SEARCH; break;
+    case IW_FK_indent:    rc = edit(ED_INDENT, 0); break;
+    case IW_FK_bold:      rc = edit(ED_ATTR, IW_WP5_ATTR_BOLD); break;
+    case IW_FK_underline: rc = edit(ED_ATTR, IW_WP5_ATTR_UNDERLINE); break;
+    case IW_FK_exit:      request_exit(FROM_F7); break;
+    case IW_FK_save:      g_exiting = 0; offer_name(); g_mode = M_SAVE_NAME; break;
+    case IW_FK_retrieve:  g_exiting = 0; g_nlen = 0; g_name[0] = 0; g_fresh = 0; g_mode = M_GET_NAME; break;
+    case IW_FK_reveal:    toggle_reveal(); break;
+    case IW_FK_block:     iw_ed_block(&g_ed); break;
+    case IW_FK_format:    g_mode = M_FORMAT; break;
+    case IW_FK_move:      g_mode = M_MOVENB; break;
+    case IW_FK_font:      g_mode = M_FONT; break;
+    case IW_FK_unmapped:
+        /* Reference p. 966 note 4: no command is mapped to these keys.
+         * Keep the editing screen/status, rather than inventing a blank
+         * disabled command. */
+#ifdef IWORD_MUT_FKEY_UNMAPPED
+        g_gray = f->name; g_mode = M_GRAY;
+#endif
+        break;
+    default:             g_gray = f->name; g_mode = M_GRAY; break;
+    }
+    if (rc == IW_E_FULL) error("ERROR: Document too large", M_EDIT);
+    return 1;
+}
+
 static void edit_key(char ch, uint8_t vk, int32_t mods)
 {
-    int shift = (mods & (int32_t)FLAIR_EVT_MOD_SHIFT_KEY) != 0;
     int ctrl  = (mods & (int32_t)FLAIR_EVT_MOD_CONTROL_KEY) != 0;
-    int alt   = (mods & (int32_t)FLAIR_EVT_MOD_OPTION_KEY) != 0;
     int rc = IW_OK;
-    if (g_ed.blk != IW_NO_BLOCK) { block_key(ch, vk, mods); return; }
+    if (g_ed.blk != IW_NO_BLOCK) {
+        /* p. 966 note 3: the aliases work in Block as well. */
+        int chord = mods & (FLAIR_EVT_MOD_SHIFT_KEY | FLAIR_EVT_MOD_CONTROL_KEY | FLAIR_EVT_MOD_OPTION_KEY);
+        if (vk == 0x57 && !chord) { vk = VK_F3; mods |= FLAIR_EVT_MOD_OPTION_KEY; }
+        if (vk == 0x58 && !chord) { vk = VK_F4; mods |= FLAIR_EVT_MOD_OPTION_KEY; }
+        block_key(ch, vk, mods); return;
+    }
+    if (!ch && function_key(vk, mods)) return;
     if (ch == '\t' || vk == VK_TAB) {   /* Tab: [Tab] (MINT09) */
         rc = edit(ED_TAB, 0);
     } else if (ch == 0) {                /* function and cursor keys */
         switch (vk) {
-        case VK_F6:                      /* Bold; Shift-F6 Center etc. are later slices */
-            if (!shift && !ctrl && !alt) rc = edit(ED_ATTR, IW_WP5_ATTR_BOLD);
-            break;
-        case VK_F8:                      /* Underline; Ctrl-F8 Font; Shift-F8 Format */
-            if (ctrl && !shift && !alt) g_mode = M_FONT;
-            else if (shift && !ctrl && !alt) g_mode = M_FORMAT;
-            else if (!shift && !ctrl && !alt) rc = edit(ED_ATTR, IW_WP5_ATTR_UNDERLINE);
-            break;
-        case VK_F3:                      /* Alt-F3 Reveal Codes (F3 Help: not here) */
-            if (alt && !shift && !ctrl) toggle_reveal();
-            break;
-        case VK_F4:                      /* F4 ->Indent, Alt-F4 Block, Ctrl-F4 Move */
-            if (alt && !shift && !ctrl) iw_ed_block(&g_ed);
-            else if (!shift && !ctrl && !alt) rc = edit(ED_INDENT, 0);
-            /* Ctrl-F4 without a block: Sentence / Paragraph / Page /
-             * Retrieve (slice 3; MINT31) */
-            else if (ctrl && !shift && !alt) g_mode = M_MOVENB;
-            break;
-        case VK_F10:
-            g_exiting = 0;
-            if (shift) { g_nlen = 0; g_name[0] = 0; g_fresh = 0; g_mode = M_GET_NAME; }
-            else { offer_name(); g_mode = M_SAVE_NAME; }
-            break;
-        case VK_F7:    request_exit(FROM_F7); break;
         case VK_DEL:   rc = edit(ED_DELETE, 0); break;
         default:       (void)cursor_key(vk, g_hin); break;
         }
@@ -1423,6 +1486,100 @@ static void edit_key(char ch, uint8_t vk, int32_t mods)
     if (rc == IW_E_FULL) error("ERROR: Document too large", M_EDIT);
 }
 
+/* A borrowed read-only view over the query. Never uses the document's add
+ * buffer, pairing, fixup, dirty flag or reflow. Reference pp. 572-573. */
+static void query_view(iw_doc_t *q, iw_piece_t *pc)
+{
+    iw_doc_init(q, 0, 0, pc, 1, QUERY_CAP);
+    iw_doc_load(q, g_query, g_query_n);
+}
+
+static uint32_t query_label(char *out, uint32_t cap)
+{
+    iw_doc_t q; iw_piece_t pc;
+    /* Native 76-column adaptation of the Reference's editable Search field
+     * (p. 572): scroll the query to keep the insertion cell in view. Labels
+     * and cursor use complete units; no code's bytes become text. */
+    static char text[QUERY_CAP * 16];
+    uint32_t p = 0, n = 0, cur = 0, left;
+    query_view(&q, &pc);
+    while (p < q.len && n + 48 < sizeof text) {
+        if (p == g_query_cur) cur = n;
+        if (iw_unit_kind(&q, p) == IW_U_TEXT) text[n++] = (char)iw_doc_byte(&q, p);
+        else {
+            char lab[48];
+            (void)iw_code_label(&q, p, lab, sizeof lab);
+            for (uint32_t i = 0; lab[i]; i++) text[n++] = lab[i];
+        }
+        p = iw_unit_next(&q, p);
+    }
+    if (g_query_cur == q.len) cur = n;
+    left = cur >= cap - 1 ? cur - (cap - 2) : 0;
+    for (uint32_t i = left; i < n && i - left + 1 < cap; i++) out[i-left] = text[i];
+    return cur - left;
+}
+
+static void query_insert(const uint8_t *s, uint32_t n)
+{
+    if (g_query_fresh) { g_query_n = g_query_cur = 0; g_query_fresh = 0; }
+    if (g_query_n + n > QUERY_CAP) return;
+    for (uint32_t i = g_query_n; i > g_query_cur; i--) g_query[i + n - 1] = g_query[i - 1];
+    for (uint32_t i = 0; i < n; i++) g_query[g_query_cur + i] = s[i];
+    g_query_cur += n; g_query_n += n;
+}
+
+static void search_key(char ch, uint8_t vk, int32_t mods)
+{
+    iw_doc_t q; iw_piece_t pc;
+    uint32_t p, n, s, e;
+    int plain = !(mods & (FLAIR_EVT_MOD_SHIFT_KEY | FLAIR_EVT_MOD_OPTION_KEY | FLAIR_EVT_MOD_CONTROL_KEY));
+    query_view(&q, &pc);
+    if (vk == VK_F1) {
+#ifdef IWORD_MUT_SEARCH_CANCEL
+        g_ed.cur = 0;
+#endif
+        g_mode = M_EDIT; return;
+    }
+    if (vk == VK_F2 || vk == VK_ESC || ch == 0x1B) {
+        if (iw_search(&g_ed.doc, &q, g_ed.cur, g_search_back, &s, &e) == IW_OK) {
+            g_ed.cur = g_search_back ? s : e; g_ed.goal = 0xFFFFFFFFu; g_mode = M_EDIT;
+        } else {
+#ifdef IWORD_MUT_SEARCH_NOTFOUND
+            error("Not found", M_EDIT);
+#else
+            error("* Not found *", M_EDIT);
+#endif
+        }
+        return;
+    }
+    if (vk == VK_UP || vk == VK_DOWN) { g_search_back = vk == VK_UP; return; }
+    if (vk == VK_LEFT || vk == VK_RIGHT) {
+        g_query_fresh = 0;
+        if (vk == VK_LEFT && g_query_cur) g_query_cur = iw_unit_prev(&q, g_query_cur);
+        if (vk == VK_RIGHT && g_query_cur < q.len) g_query_cur = iw_unit_next(&q, g_query_cur);
+        return;
+    }
+    if (vk == VK_BSPC || ch == 8 || vk == VK_DEL) {
+        g_query_fresh = 0;
+        p = g_query_cur;
+        if (vk != VK_DEL) { if (!p) return; p = iw_unit_prev(&q, p); }
+        if (p == q.len) return;
+        n = iw_unit_next(&q, p) - p;
+        for (uint32_t i = p; i + n < g_query_n; i++) g_query[i] = g_query[i + n];
+        g_query_n -= n; g_query_cur = p; return;
+    }
+    if (plain && (vk == VK_F6 || vk == VK_F8)) {
+        uint8_t attr = vk == VK_F6 ? IW_WP5_ATTR_BOLD : IW_WP5_ATTR_UNDERLINE;
+        uint8_t code[3];
+        uint32_t state = g_query_fresh ? 0 : iw_attr_state(&q, g_query_cur);
+        code[0] = code[2] = (state & (1u << attr)) ? 0xC4 : 0xC3; code[1] = attr;
+        query_insert(code, 3); return;
+    }
+    if (ch >= ' ' && ch <= '~') { uint8_t c = (uint8_t)ch; query_insert(&c, 1); }
+    else if (vk == VK_ENTER) { uint8_t c = 0x0A; query_insert(&c, 1); }
+    else if (ch == 13 && (mods & FLAIR_EVT_MOD_CONTROL_KEY)) { uint8_t c = 0x0D; query_insert(&c, 1); }
+}
+
 static void key(int32_t message, int32_t mods)
 {
     char ch = (char)(message & 0xFF);
@@ -1431,7 +1588,9 @@ static void key(int32_t message, int32_t mods)
     g_ed.reveal = g_reveal;                       /* a new document resets it */
     g_hin = g_home;                               /* Home is a prefix: it waits */
     g_home = 0;                                   /* for the next key (slice 3) */
+    if (g_mode == M_GRAY) g_mode = M_EDIT;
     if (g_mode == M_EDIT) edit_key(ch, vk, mods);
+    else if (g_mode == M_SEARCH) search_key(ch, vk, mods);
     else if (format_mode()) format_key(ch, vk);
     else if (g_mode == M_RETRIEVE) retrieve_key(ch, vk, mods);
     else prompt_key(ch, vk);

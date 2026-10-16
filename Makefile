@@ -10101,8 +10101,8 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # piece table in the .bss (e_minalloc). Never compiled into the kernel (plan
 # docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
-IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
-IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
+IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
+IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h
 $(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
@@ -14236,8 +14236,8 @@ test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUI
 # Home prefix keys, attributes given to blocks, all sixteen attributes, Move
 # without a block; ../wordperfect51-decomp re/mint-results-004.md).
 # ---------------------------------------------------------------------------
-IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
-IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
+IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
+IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h
 IWORD_CORE_INC := -Ios/iword/core -Ispec
 TEST_IWORD_CORE := $(BUILD)/test_iword_core
 IWORD_CORE_DEPS := harness/proptest/test_iword_core.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
@@ -23173,6 +23173,13 @@ RECORD_SPEC_iword_format = $(FLAIR_IWORD_FORMAT_SPEC)
 RECORD_MARKER_iword_format = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Press Reveal Codes to restore screen                                        " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_format = 400
 RECORD_IMAGE_iword_format = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# initech-qvgd, Rule 14. Registered before record-flair's prerequisites.
+# Search is read-only: forward Bold On, backward plain text, not-found.
+RECORD_SCRIPTS += iword_search
+RECORD_SPEC_iword_search = $(FLAIR_IWORD_SEARCH_SPEC)
+RECORD_MARKER_iword_search = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="* Not found *                                                               " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_search = 400
+RECORD_IMAGE_iword_search = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 # itext_edit (bead initech-tdnl.16, R4.2 InitechText; Rule 14): the
 # SimpleText-alike opens from the Finder -- double-click APPS\TEXT.EXE, the
 # "untitled" window -- "Saving tables to disk" / "PC LOAD LETTER" typed in
@@ -31721,6 +31728,7 @@ test-flair-itext-scroll-mutant: test-flair-itext-scroll $(FLAIR_DATA_ITEXT_NOSCR
 TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
+include harness/diff/wp5_diff/p3.mk
 include harness/fixture_volumes.mk
 
 TEST_UNIT_GATES += test-fixture-volumes test-fixture-volumes-mutant
