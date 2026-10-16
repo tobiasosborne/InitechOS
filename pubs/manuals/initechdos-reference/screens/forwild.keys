@@ -1,1 +1,1 @@
-\n\nCLS\nFOR %F IN (*.TXT) DO ECHO %F\n
+CLS\nFOR %F IN (*.TXT) DO ECHO %F\n

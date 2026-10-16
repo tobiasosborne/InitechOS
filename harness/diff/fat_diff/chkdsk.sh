@@ -33,8 +33,9 @@ mint() {
  mcopy -i "$image" "$work/yes.txt" ::YES.TXT
  mcopy -i "$image" "$work/no.txt" ::NO.TXT
  if [ "$kind" = emu ]; then
-  mcopy -i "$image" "$candidate" ::CHKDSK.COM
-  printf '@ECHO OFF\r\nECHO CHKDSK-BEGIN\r\nCHKDSK %s\r\nECHO CHKDSK-END\r\nDIR\r\n' "$tail" > "$work/autoexec.bat"
+  mmd -i "$image" ::DOS
+  mcopy -i "$image" "$candidate" ::DOS/CHKDSK.COM
+  printf '@ECHO OFF\r\nPATH=A:\\DOS\r\nECHO CHKDSK-BEGIN\r\nCHKDSK %s\r\nECHO CHKDSK-END\r\nDIR\r\n' "$tail" > "$work/autoexec.bat"
   mcopy -i "$image" "$work/autoexec.bat" ::AUTOEXEC.BAT
  fi
  "$fixture" corrupt "$image" "$scenario"

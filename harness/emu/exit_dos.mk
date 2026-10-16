@@ -128,9 +128,10 @@ cmp -s $(BUILD)/$(1).banner spec/dos_banner.txt || { printf 'EXIT: the banner af
 after=$$(sed -n '/^SHELL-READY$$/,$$p' $$s | tr -d '\r'); \
 printf '%s\n' "$$after" | grep -qF ' Volume in drive A is INITECH' || { printf 'EXIT: DIR at the prompt did not list the flagship volume as drive A:\n'; exit 1; }; \
 printf '%s\n' "$$after" | grep -qE '^README +TXT ' && printf '%s\n' "$$after" | grep -qE '^APPS +<DIR>' || { printf 'EXIT: the A: listing lacks README.TXT / APPS\n'; exit 1; }; \
+! grep -qE 'Enter new (date|time)' $$s || { printf 'EXIT: AUTOEXEC exists but startup prompts appeared\n'; exit 1; }; \
 ! grep -qE '^(PANIC|FLAIR-LIVE-OK|DESKTOP-DB-WRITE-FAIL)' $$s || { printf 'EXIT: %s\n' "$$(grep -E '^(PANIC|FLAIR-LIVE-OK|DESKTOP-DB-WRITE-FAIL)' $$s | head -1)"; exit 1; }; \
 [ -s "$(BUILD)/$(1).ppm" ] || { printf 'EXIT: no screendump at the prompt\n'; exit 1; }; \
-{ $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 336 && $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 32 560; } > $(BUILD)/$(1).ppmcheck 2>&1 || { printf 'EXIT: the screen is not the text console (the desktop is still painted): %s\n' "$$(grep -i fail $(BUILD)/$(1).ppmcheck | head -1)"; exit 1; }
+{ $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 304 && $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 32 560; } > $(BUILD)/$(1).ppmcheck 2>&1 || { printf 'EXIT: the screen is not the text console (the desktop is still painted): %s\n' "$$(grep -i fail $(BUILD)/$(1).ppmcheck | head -1)"; exit 1; }
 endef
 
 .PHONY: test-flair-exit-to-dos test-flair-exit-to-dos-mutant test-flair-tps-journey test-flair-tps-journey-mutant

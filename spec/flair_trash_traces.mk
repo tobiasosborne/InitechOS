@@ -24,7 +24,7 @@
 # THE SHARED PREFIX (= spec/flair_file_ops_traces.mk FLAIR_SVC_TRASH_SPEC's
 # first 22 tokens):
 #   A.  volume double-click: m100:-88, m100:-88, m80:0 -> (600,64); l1,l0,l1,l0
-#       -> FINDER-OPEN-VOLUME win=0 n=2
+#       -> FINDER-OPEN-VOLUME win=0 n=4
 #   B.  -> README centre (55,102): m-100:8 x3, m-100:7 x2, m-45:0
 #   GO. l1 ; m100:64 x4, m100:62, m45:0 -> (600,420) ; m0:2 -> (600,422) ; l0
 #       -> FINDER-TRASH name=README.TXT origin=0 ; DESKTOP-DB-SAVE n=3
@@ -46,7 +46,7 @@ FLAIR_TRASHWIN_OPEN_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,
 # 2. FLAIR_TRASHWIN_PUTBACK_SPEC -- the same, then PUT BACK: README.TXT is
 #    dragged out of the Trash window onto the VOLUME icon (= the root).
 # ===========================================================================
-# Serial chain: FINDER-OPEN-VOLUME win=0 n=2 ; FINDER-TRASH name=README.TXT
+# Serial chain: FINDER-OPEN-VOLUME win=0 n=4 ; FINDER-TRASH name=README.TXT
 #   origin=0 ; DESKTOP-DB-SAVE n=3 ; FINDER-OPEN-TRASH win=1 n=1 singleton=0 ;
 #   FINDER-DROP-HILITE name=INITECH ; FINDER-MOVE name=README.TXT from=<T>
 #   to=0 ; DESKTOP-DB-SAVE n=2 -- where <T> is \TRASH's first cluster AS

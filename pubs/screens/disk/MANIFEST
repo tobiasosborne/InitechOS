@@ -2,7 +2,7 @@
 # pubs/screens/capture.sh for every manual screen.  path|YYYY-MM-DD HH:MM|source
 # in directory-entry order (the order DIR lists them).  `path/` makes a
 # subdirectory; `@NAME` is a shipped utility, the same binary the Makefile
-# plants in APPS on the shipped data volume (Makefile flair-data-rules).
+# plants in DOS on the shipped data volume (Makefile flair-data-rules).
 AUTOEXEC.BAT|1992-03-01 08:15|AUTOEXEC.BAT
 README.TXT|1992-02-17 16:05|README.TXT
 MEMO.TXT|1992-02-28 11:42|MEMO.TXT

@@ -1,3 +1,7 @@
+/* initech-zc68: root roster README/APPS/DOS/AUTOEXEC, NEWFOLD at index4.
+ * Service entries must leave cells4/5 empty. Overflow keeps 22 entries by
+ * using F00..F17; DOS folder leg independently grades all nine externals.
+ * Ref: PRD6.5, spec/dos_folder_*.txt, Makefile flair-data-rules. */
 /*
  * ppm_flair_disk_windows_check.c -- the R3.3 Finder DISK WINDOW screendump
  *                                   STRUCTURE oracle (factory, C).
@@ -363,6 +367,8 @@ typedef struct { const char *name; int kind; } RosterEntry;
 static const RosterEntry ROSTER[] = {
     { "README.TXT", K_DOC    },
     { "APPS",       K_FOLDER },
+    { "DOS",        K_FOLDER },
+    { "AUTOEXEC.BAT", K_DOC },
     { "NEWFOLD",    K_FOLDER }   /* newfolder leg only */
 };
 
@@ -371,12 +377,14 @@ static const RosterEntry ROSTER[] = {
  * above sorted by hand, byte order: "APPS" < "README.TXT" (A < R). */
 static const RosterEntry ROSTER_BY_NAME[] = {
     { "APPS",       K_FOLDER },
+    { "AUTOEXEC.BAT", K_DOC },
+    { "DOS",        K_FOLDER },
     { "README.TXT", K_DOC    }
 };
 
 /* The grid cells the four-entry root used before tdnl.56 hid DESKTOP.DB and
  * TRASH: every cell from the last shown icon up to this one must be EMPTY. */
-#define ROOT_CELLS_BEFORE 4
+#define ROOT_CELLS_BEFORE 6
 
 /* 1 on the `allsel` leg (bead initech-tdnl.36, audit F03): after Edit > Select
  * All every label must be drawn INVERTED (selected) instead of normal. */
@@ -825,17 +833,29 @@ static void check_empty_cells(int L, int T, int first, int last)
         long bad = 0;
         int bx = -1, by = -1;
         for (int y = gy; y < gy + LABEL_BOT_OFF; y++)
-            for (int x = gx - 16; x < gx + ICON_DIM + 16; x++)
-                if (!is_rgb(x, y, IDX(CIDX_WHITE))) {
+            for (int x = gx - 16; x < gx + ICON_DIM + 16; x++) {
+                /* initech-zc68: the zoomed row's preceding AUTOEXEC.BAT
+                 * label legitimately overlaps this cell's left margin.
+                 * Independent Geneva9 ASCII-map arithmetic (geneva9.h):
+                 * A7 U7 T6 O7 E6 X7 E6 C7 .4 B7 A7 T6 = 77; centre248,
+                 * pad3 -> text left210; last T at281, row1 ##### gives
+                 * ink281..285 at y66+34+1+1=102. The two overlap pixels
+                 * (284,102),(285,102) MUST be black, all others white.
+                 * No renderer/font function is called. LABEL_TAIL mutant
+                 * (AUTOEXEC.BAI) removes the latter pixel and must be RED. */
+                int tail = !strcmp(g_leg, "zoomedwin") && i == 4 &&
+                           y == gy + 36 && x >= gx - 16 && x < gx - 14;
+                if (!is_rgb(x, y, IDX(tail ? CIDX_BLACK : CIDX_WHITE))) {
                     if (bad == 0) { bx = x; by = y; }
                     bad++;
                 }
+            }
         printf("    cell[%d] (%d,%d) must be EMPTY (no hidden-item icon or label)\n",
                i, gx, gy);
         if (bad != 0) {
             fprintf(stderr,
                     "ppm_flair_disk_windows_check: FAIL leg %s -- grid cell %d "
-                    "(%d,%d) is not bare content: %ld non-white pixels, first at "
+                    "(%d,%d) is not bare content: %ld unexpected pixels, first at "
                     "(%d,%d) -- an icon or label is drawn where DESKTOP.DB / TRASH "
                     "used to be listed (they must be hidden)\n",
                     g_leg, i, gx, gy, bad, bx, by);
@@ -871,13 +891,13 @@ static void check_empty_cells(int L, int T, int first, int last)
  * ===========================================================================*/
 static const RosterEntry SCROLL_ROSTER[22] = {
     { "README.TXT", K_DOC }, { "APPS", K_FOLDER },
+    { "DOS", K_FOLDER }, { "AUTOEXEC.BAT", K_DOC },
     { "F00.TXT", K_DOC }, { "F01.TXT", K_DOC }, { "F02.TXT", K_DOC },
     { "F03.TXT", K_DOC }, { "F04.TXT", K_DOC }, { "F05.TXT", K_DOC },
     { "F06.TXT", K_DOC }, { "F07.TXT", K_DOC }, { "F08.TXT", K_DOC },
     { "F09.TXT", K_DOC }, { "F10.TXT", K_DOC }, { "F11.TXT", K_DOC },
     { "F12.TXT", K_DOC }, { "F13.TXT", K_DOC }, { "F14.TXT", K_DOC },
-    { "F15.TXT", K_DOC }, { "F16.TXT", K_DOC }, { "F17.TXT", K_DOC },
-    { "F18.TXT", K_DOC }, { "F19.TXT", K_DOC }
+    { "F15.TXT", K_DOC }, { "F16.TXT", K_DOC }, { "F17.TXT", K_DOC }
 };
 #define SB_X0        359   /* vertical bar outer left line                   */
 #define SB_MID_X     367
@@ -894,13 +914,13 @@ static int grade_scroll(int value, int fit)
     check_chrome(ROOT_L, ROOT_T);   /* the frame did NOT move (audit F02) */
     if (fit) {
         int i;
-        for (i = 0; i < 2; i++) {
+        for (i = 0; i < 4; i++) {
             int gx = 44 + i * GRID_PITCH_X, gy = 86;   /* 20+6+18 (tdnl.51) */
             check_sprite(ROSTER[i].name, gx, gy, ROSTER[i].kind);
             check_band(ROSTER[i].name, gx, gy);
             graded++;
         }
-        check_empty_cells(ROOT_L, ROOT_T, 2, ROOT_CELLS_BEFORE);
+        check_empty_cells(ROOT_L, ROOT_T, 4, ROOT_CELLS_BEFORE);
         /* DISABLED bars, scrollbars.md Sec 3: flat F3 trough, #777777
          * separators, #A5A5A5 arrows, no thumb anywhere in the track. */
         assert_idx(SB_MID_X, 150, CIDX_PLAT_TROUGH, "disabled v-bar trough (Sec 3)");
@@ -971,7 +991,7 @@ int main(int argc, char **argv)
     long maxv = 0;
     size_t want, got;
     int leg_root, leg_moved, leg_newfolder, leg_finderbar, leg_zoomed;
-    int leg_arranged, leg_allsel, leg_trash, leg_trashempty, leg_purge;
+    int leg_arranged, leg_allsel, leg_trash, leg_trashempty, leg_purge, leg_dos;
     const RosterEntry *roster = ROSTER;
     int L, T, n_icons, i;
 
@@ -982,6 +1002,7 @@ int main(int argc, char **argv)
         return 2;
     }
     g_leg         = argv[1];
+    leg_dos       = (strcmp(g_leg, "dosfolder") == 0);
     leg_root      = (strcmp(g_leg, "rootwin")   == 0);
     leg_moved     = (strcmp(g_leg, "movedwin")  == 0);
     leg_newfolder = (strcmp(g_leg, "newfolder") == 0);
@@ -1001,7 +1022,7 @@ int main(int argc, char **argv)
     if (strcmp(g_leg, "scrollfit")   == 0) scroll_value = -1;
     if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
         !leg_zoomed && !leg_arranged && !leg_allsel && !leg_trash &&
-        !leg_trashempty && !leg_purge &&
+        !leg_trashempty && !leg_purge && !leg_dos &&
         scroll_value == -2) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
@@ -1090,7 +1111,7 @@ int main(int argc, char **argv)
     /* `arranged` and `allsel` grade the DEFAULT-frame root window. */
     if (leg_arranged) roster = ROSTER_BY_NAME;
     if (leg_allsel) g_want_inverted = 1;
-    n_icons = leg_newfolder ? 3 : 2;
+    n_icons = leg_newfolder ? 5 : 4;
     if (leg_trash || leg_trashempty) {
         /* bead initech-tdnl.39: the TRASH window (slot 1, front) after
          * README.TXT was staged -- one DOC icon in cell 0, cells 1-3 bare,
@@ -1101,6 +1122,20 @@ int main(int argc, char **argv)
         g_title = "Trash";
         g_title_chars = TRASH_TITLE_CHARS;
         g_title_w = TRASH_TITLE_W;
+    }
+    if (leg_dos) {
+        /* initech-zc68: independently locked roster, all nine COM leaves.
+         * Ref: spec/dos_folder_externals.txt; finder_windows.c EXE-only icon
+         * heuristic; Chicago NFNT 5478 advances D8 + O8 + S7 = 23. */
+        static const RosterEntry dos[] = {
+            { "CHKDSK.COM", K_DOC }, { "ATTRIB.COM", K_DOC },
+            { "LABEL.COM", K_DOC }, { "XCOPY.COM", K_DOC },
+            { "TREE.COM", K_DOC }, { "EDLIN.COM", K_DOC },
+            { "MORE.COM", K_DOC }, { "FIND.COM", K_DOC },
+            { "SORT.COM", K_DOC }
+        };
+        L = TRASH_L; T = TRASH_T; roster = dos; n_icons = 9;
+        g_title = "DOS"; g_title_chars = 3; g_title_w = 23;
     }
     if (leg_purge) {
         /* The Trash window opened FIRST (no root window), so it holds slot 0
@@ -1151,7 +1186,7 @@ int main(int argc, char **argv)
            "(%d icon strikes graded off the finder_icons.h ASCII maps, "
            "%d label-band relations, %d empty cells, 11 chrome assertions, "
            "%d bare-teal controls%s%s)\n",
-           g_leg, n_icons, n_icons, ROOT_CELLS_BEFORE - n_icons,
+           g_leg, n_icons, n_icons, n_icons < ROOT_CELLS_BEFORE ? ROOT_CELLS_BEFORE - n_icons : 0,
            leg_zoomed ? 0 : CONTROL_TEAL_N,
            leg_moved ? ", 2 vacated-default-rect probes" : "",
            leg_purge ? ", 5 closed-window footprint probes" : "");

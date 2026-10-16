@@ -4,7 +4,7 @@
 % Sec 8.1).  The entry list is the shipped command table: the internal
 % commands of os/milton/command.c cmd_classify (25 names, 19 commands, PATH included) and
 % the external utilities on the shipped disk (Makefile flair-data-rules:
-% APPS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM TREE.COM EDLIN.COM; the
+% DOS\CHKDSK.COM ATTRIB.COM LABEL.COM XCOPY.COM TREE.COM EDLIN.COM; the
 % shipped volume's application programs are documented in their own books).
 % Sources (Law 1): os/milton/command.c (cmd_parse, run_external,
 % cmd_path_candidates: .COM .EXE .BAT, current directory then PATH),
@@ -108,10 +108,11 @@ extension:
 \end{tabular}
 \par\medskip
 \emph{External} commands are program files on disk.  The external commands
-of InitechDOS are \cmd{ATTRIB}, \cmd{CHKDSK}, \cmd{LABEL}, \cmd{TREE} and
-\cmd{XCOPY}, kept in the directory \file{\bs APPS} of the InitechDOS
-diskette.  Any other program or batch file you run is an external command
-too.
+of InitechDOS are \cmd{ATTRIB}, \cmd{CHKDSK}, \cmd{EDLIN}, \cmd{FIND},
+\cmd{LABEL}, \cmd{MORE}, \cmd{SORT}, \cmd{TREE} and \cmd{XCOPY}, kept in
+the directory \file{\bs DOS}.  The separate practice diskette keeps its
+utilities in \file{\bs APPS}.  Any other program or batch file you run is
+an external command too.
 
 When you type a name that is not an internal command, InitechDOS looks for
 a file of that name with the extension \file{.COM}, then \file{.EXE}, then

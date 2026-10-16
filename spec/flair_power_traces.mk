@@ -13,7 +13,7 @@
 # saves it). Steps A..C are spec/flair_disk_windows_traces.mk
 # FLAIR_WINDOW_DRAG_PERSIST_SPEC steps A..C byte-for-byte:
 #   A. volume double-click -> (600,64): m100:-88, m100:-88, m80:0 ; l1,l0,l1,l0
-#      -> FINDER-OPEN-VOLUME win=0 n=2 (the Finder is foreground: band 2 is
+#      -> FINDER-OPEN-VOLUME win=0 n=4 (the Finder is foreground: band 2 is
 #      the Finder bar from here on)
 #   B. -> the title bar (200,70): m-100:2 x3, m-100:0
 #   C. drag by (+100,+120): l1 ; m100:100, m0:20 -> (300,190) ; l0

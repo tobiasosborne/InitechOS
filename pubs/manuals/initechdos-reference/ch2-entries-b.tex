@@ -25,7 +25,7 @@ command lines of the batch file are displayed as they are carried out.  See
 % n . # +n -n, A C D E I L M P Q R S T W and a bare line number; readline:
 % the template keys through AH=07h, Ctrl-C ends insert, Ctrl-V quotes;
 % save(): .$$$ then .BAK, Ctrl-Z appended).  Model: MS-DOS 3.3 User's Guide
-% pp.162-193 (harness/edlin/README.md).  Shipped as APPS\EDLIN.COM (Makefile
+% pp.162-193 (harness/edlin/README.md).  Shipped as DOS\EDLIN.COM (Makefile
 % flair-data-rules).  Gates: test-edlin-host, test-edlin-emu (+ -mutant).
 \begin{DosEntry}{EDLIN}{Line Editor}{external}
 \Purpose Creates and changes text files, one line at a time.
@@ -109,6 +109,22 @@ At the \texttt{A:\bs>} prompt of a freshly started system, type
 the command processor started with the system is permanent.
 \end{DosEntry}
 
+% initech-2kgh: shipped filters; scope matches the existing m0dc gates.
+% Ref: os/milton/find_program.asm; MS-DOS 3.3 Reference p.72/PDF157.
+\Gates{test-find-filter, test-find-filter-mutant, test-dos-folder}
+\begin{DosEntry}{FIND}{}{external}
+\Purpose Displays input lines that contain a string.
+\Format \SyntaxLine{\kw{FIND} \opt{\kw{/V}} \opt{\kw{/C}} \opt{\kw{/N}} \kw{"}\ph{string}\kw{"} \kw{<} \ph{filename}}
+\Type{External}
+\Remarks
+Enclose the string in quotation marks. Capital and small letters are
+compared exactly. \Param{/V} displays lines that do not contain the string;
+\Param{/C} displays the count; \Param{/N} precedes each line with its number.
+Input may also come from a pipe. Use redirection to read a file.
+\Example
+To display lines containing Help, type \type{FIND "Help" < PHONE.TXT}.
+\end{DosEntry}
+
 % LABEL -- os/milton/dosutil.c label_main / label_read / label_write
 % (current drive only; prompts; the invalid characters; 11 characters,
 % capitals; root VOLLABEL entry + extended BPB label field; messages).
@@ -180,6 +196,19 @@ the current date and time.
 To create the directory \file{REPORTS}, make it the current directory and
 list it:
 \Shot{md}
+\end{DosEntry}
+
+% Ref: MS-DOS 3.3 User's Reference p.94/PDF179; more_program.asm.
+\Gates{test-more-filter, test-more-filter-mutant, test-dos-folder}
+\begin{DosEntry}{MORE}{}{external}
+\Purpose Displays input one screen at a time.
+\Format \SyntaxLine{\kw{MORE} \kw{<} \ph{filename}}
+\Type{External}
+\Remarks
+Input may come from a file or a pipe. When the display fills, press
+\key{Enter} to continue. Redirect output to a file to save all the input.
+\Example
+To read a file one screen at a time, type \type{MORE < README.TXT}.
 \end{DosEntry}
 
 % PATH -- os/milton/command.c builtin_path (initech-sy5f: no parameter ->

@@ -15,7 +15,7 @@
 #   path|YYYY-MM-DD HH:MM|source
 # in directory-entry order.  `path/` makes a subdirectory; a source `@NAME`
 # is the shipped utility NAME from <utilities dir> (the very binaries the
-# Makefile plants in APPS on the shipped data volume, build/flair_data.img);
+# Makefile plants in DOS on the shipped data volume, build/flair_data.img);
 # any other source is a text file in <disk dir>, written with CR LF endings.
 #
 # Two practice diskettes are minted from the one MANIFEST: practice.img (the
@@ -29,7 +29,7 @@
 #   name|marker|disk
 # The keystrokes are <SCREENS dir>/name.keys (the only keyboard source,
 # ipu5.6): literal text read with printf %b (\n = Enter, \\ = backslash),
-# starting with the two Enters that answer the startup date/time prompts.
+# with startup answers only for the noautoexec variant (manual p.135).
 # marker may end in #N: the capture is taken once the marker has appeared N
 # times on the serial mirror (typed keys echo there too), so a screen can end
 # on output whose text was already seen earlier in the session.
@@ -68,7 +68,7 @@ while IFS='|' read -r path stamp src; do
         f=$stage/$(printf '%s' "$path" | tr '/' '_')
         case $src in
         @*) [ -r "$utils/${src#@}" ] || { printf '!!! capture.sh FAIL: utility %s not in %s\n' "${src#@}" "$utils"; exit 1; }
-            cp "$utils/${src#@}" "$f" ;;
+            cp -f "$utils/${src#@}" "$f" ;;
         *)  [ -r "$disk/$src" ] || { printf '!!! capture.sh FAIL: %s not in %s\n' "$src" "$disk"; exit 1; }
             sed 's/$/\r/' "$disk/$src" > "$f" ;;
         esac
@@ -93,9 +93,13 @@ while IFS='|' read -r name marker variant; do
     *) printf '!!! test-pubs RED SCREEN-KEYS: %s: disk field "%s" is not empty or noautoexec (inline keys are forbidden)\n' "$name" "$variant"; exit 1 ;;
     esac
     keys=$(cat "$keyfile")
-    # Every screen answers the startup date and time prompts first (qskz).
-    case $keys in '\n\n'*) ;; *)
-        printf '!!! test-pubs RED SCREEN-KEYS: %s does not start with the two Enters (\\n\\n)\n' "$keyfile"; exit 1 ;; esac
+    # MS-DOS 3.3 User's Guide p.135/PDF220: AUTOEXEC replaces DATE/TIME.
+    # Only the explicit noautoexec disk may receive the two startup Enters.
+    case $variant:$keys in
+    'noautoexec:\n\n'*) ;;
+    noautoexec:*) printf '!!! test-pubs RED SCREEN-KEYS: %s needs startup answers\n' "$keyfile"; exit 1 ;;
+    ':\n\n'*) printf '!!! test-pubs RED SCREEN-KEYS: %s sends startup answers despite AUTOEXEC\n' "$keyfile"; exit 1 ;;
+    esac
     n=$((n + 1))
     work=$out/$name.img
     cp -f "$img" "$work"
