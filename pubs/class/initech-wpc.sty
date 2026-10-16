@@ -258,7 +258,12 @@ end
 %% Text the reader types, in running text.
 \newcommand\Typed[1]{\mbox{\texttt{\bfseries #1}}}
 %% The one registration mechanism.
-\newcommand\Documents[2]{\RegisterCommand{#2}{#1}{GATED}{\im@entryname}}
+%% Keys and messages are indexed where they are documented (AN-24 F-WPC).
+\newcommand\Documents[2]{\RegisterCommand{#2}{#1}{GATED}{\im@entryname}%
+  \ifnum\pdf@strcmp{#1}{wpkey}=0 \im@indexkey{#2}\fi
+  \ifnum\pdf@strcmp{#1}{wpmsg}=0 \index{#2@\texttt{#2}}\fi}
+\newcommand\im@indexkey[1]{\im@indexkeyx#1=\relax}
+\def\im@indexkeyx#1=#2\relax{\index{#1}}
 
 %% ---- replayed keystrokes (lessons and Reference examples; GC-03) ----------
 \newwrite\im@wpreplay

@@ -104,3 +104,51 @@ The remaining GC contracts (messages beyond the existing generated DOS
 appendix, version/release/gate-citation/completeness/canon checks) are not
 claimed by this gate. The books remain DRAFT, and press PDF/X production
 profiles, print proofs and outstanding artwork remain programme work.
+
+## The InitechWord manuals (bead initech-ipu5.10)
+
+The InitechWord books (`pubs/manuals/initechword-reference`,
+`-workbook`, `-install`) have their own shipped inventory, MEASURED from
+WORD.EXE: `iword_probe.c` compiles `os/iword/app/face_a.c` over the real
+document core with a recording Toolbox mock (the test_iword_face.c pattern)
+and drives it. Kinds: `wpkey` (every key or Home sequence that changes the
+state from a fixed probe document; a modified key that does exactly what
+its plain key does is listed as an alias `Ctrl-F10=F10`; the keys acting on
+a block as `Block:F6`), `wpmenu` (every menu choice whose result differs
+from both the unchanged prompt and Cancel, named by its keystroke path and
+the name the screen shows: `Shift-F8,1,3,2=Center`), `wppull` (the menus[]
+handed to SETMBAR), `wpcode` (the labels of the locked
+spec/iword/reveal_codes.h, read from its text), `wpmsg` (every status-line
+message, observed by driving the program into it; every literal face_a.c
+passes to error() or shows as a prompt must be observed, else
+MESSAGE-UNPROBED).
+
+`iword_check.sh` (`make test-pubs-iword`, in `test-pubs`): COMMANDS -- the
+Reference registers (`\Documents`, initech-wpc.sty -> `\RegisterCommand`)
+exactly the shipped surface, both directions, with an empty allow-list
+(`iword.allow`); TEMPLATE -- the template strip's cells are exactly the
+F-key bindings (PK-14 "generated from the shipped key map"); KEYS -- every
+`\K` key in running text is shipped (aliases accepted); FEATURES -- every
+Workbook lesson feature and `\RefEntry` is a Reference entry; REPLAY --
+every keystroke the books print (`\BeginReplay` .. `\EndReplay`, `\Type`,
+`\Press`, `\Choose` ... -> `main.wpreplay`) is replayed on WORD.EXE, one
+launch per replay, in book order on one scratch data volume per book, and
+every printed screen (`screens/*.scr`, 76 x 24 cells + attributes) equals
+the replay byte for byte; PRINTED -- committed and printed screens agree.
+`make pubs-iword-screens` rewrites the screens (review the diff).
+
+FLAIR figures (`\FlairShot`): `pubs/screens/flair_capture.sh` boots the
+flagship desktop with the shipped data volume, opens WORD.EXE with the
+opening of the locked spec trace FLAIR_IWORD_TYPE_SPEC, types the figure's
+`flair/<name>.trace`, screendumps at FLAIR-LIVE-OK, and `ppm_grey_png.c`
+crops and greys it through the union of the colours of spec/assets/
+clut.json and color_canon.json (an unlocked colour is RED). The PNGs are
+binary, so they live in `fixtures/pubs/<book>/`; `test-pubs-flair-screens`
+(in `test-pubs-screens`) re-captures and compares them byte for byte.
+
+`iword_mutants.sh` (`make test-pubs-iword-mutant`, in `test-pubs-mutant`):
+FAKE_KEY, DROPPED_ENTRY, TEMPLATE_CELL, UNSHIPPED_KEY, CHANGED_SCREEN,
+CHANGED_KEYSTROKE, UNPROBED_MESSAGE, NO_BLOCK_ON (a real face_a.c mutant:
+the probe built with IWORD_MUT_NO_BLOCK_ON loses the "Block on" message the
+Reference documents), FOREIGN_FEATURE, ENTRY_ORDER (the AN-11
+letter-by-letter check of initech-wpc.sty).

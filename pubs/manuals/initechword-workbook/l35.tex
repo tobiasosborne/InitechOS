@@ -1,0 +1,40 @@
+% Lesson 35 (AN-18): Move, Page Copy (Ctrl-F4,3,2): a page copied whole, its
+% hard page with it.  Uses REPORT (Lesson 8); nothing saved.  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{35}{Copying a Page}
+\LessonFeatures{Move, Sentence/Paragraph/Page; Page Break, Hard; Status Line}
+Each TPS report goes out with a cover sheet, and the copy for the file needs
+one too.  Move can copy a whole page, so you need not type the cover sheet
+twice.  In this lesson you copy the cover sheet of the report of Lesson 8 to
+the end of the report.
+
+\BeginReplay{l35}
+\Task{Copying the Cover Sheet}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{report} and press
+\PressKey{Enter}.  The cursor is on the first page.
+\item Press \Press{Move}{Ctrl-F4} and select \Choose{Page}{3}.  The whole first
+page is highlighted, through its hard page.
+\end{WPSteps}
+\CompareScreen[rows=7]{l35-1}
+\begin{WPSteps}[resume]
+\item Select \Choose{Copy}{2}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the report.
+\item Press \PressKey{Enter}.  The copy goes in at the cursor, which stays in
+front of it, at the end of the last line.
+\item Press \PressKey{Enter} again: the hard return starts the copy on a line
+of its own.
+\end{WPSteps}
+\CompareScreen[rows=13]{l35-2}
+The copy has its hard page with it, so the copy of the cover sheet ends a
+page of its own, as the first one does.
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+Lesson 36 ends the workbook with a second set of techniques.

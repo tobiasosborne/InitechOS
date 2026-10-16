@@ -1,0 +1,53 @@
+% Lesson 33 (AN-18): a two-page letter -- a hard page, the heading of the
+% second page, a postscript.  Uses SMYKOWSK (Lesson 23); saves it.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{33}{Two-Page Letter}
+\LessonFeatures{Page Break, Hard; Retrieve; Status Line; Save}
+Bill wants to add a list of the cover sheet's fields to his letter to Tom,
+on a second page.  The second page of a letter begins with a heading that
+names the addressee, the page and the date.  In this lesson you add the
+page.
+
+\BeginReplay{l33}
+\Task{Starting the Second Page}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{smykowsk} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the letter, after \textit{Vice President}.
+\item Press \PressKey{Ctrl-Enter}.  The status line shows \Scr{Pg 2}.
+\end{WPSteps}
+
+\Task{Typing the Heading of the Page}
+\begin{WPSteps}
+\item Type \TypeRun{Mr. Tom Smykowski} and press \PressKey{Enter}.
+\item Type \TypeRun{Page 2} and press \PressKey{Enter}.
+\item Type \TypeRun{March 9, 1992} and press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the List}
+\begin{WPSteps}
+\item Type \TypeRun{The cover sheet asks for:} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\item For each field, press \FK{\rarr Indent}{F4}, type the field and
+press \K{Enter}:
+\end{WPSteps}
+\par\addvspace{2pt}
+\begingroup\setlength\parskip{1pt}
+\noindent\hspace*{4mm}\textbf{the report number}\Keys{F4}\Typing{the report number}\Keys{Enter}\par
+\noindent\hspace*{4mm}\textbf{the date}\Keys{F4}\Typing{the date}\Keys{Enter}\par
+\noindent\hspace*{4mm}\textbf{the name of the person who prepared it}\Keys{F4}\Typing{the name of the person who prepared it}\Keys{Enter}\par
+\endgroup
+\par\addvspace{4pt}
+\CompareScreen[rows=23]{l33-1}
+The first page has scrolled up off the screen; the bar shows where it ends.
+
+\Task{Saving the Letter}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, press \PressKey{Enter} and type \TypeName{y}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 34 you give one block two attributes.
