@@ -1,1 +1,148 @@
-% stub
+% Learning InitechBase, Chapter 2: Looking at Your Data (AN-16).  Every panel
+% replayed (examples/l2-*.dot); sources cmd/query.c, core/eval.c.
+\chapter{Looking at Your Data}
+\Gates{test-pubs-examples, test-samir-query, test-xbase-eval}
+A database answers questions only when you ask for the right fields and the
+right records.  In this lesson you choose the fields \cmd{LIST} shows, list
+values that InitechBase calculates, and describe the records you want with
+conditions.
+
+\begin{ChapterCovers}
+\item Choosing fields
+\item Comparing numbers, dates and character strings
+\item Logical fields and \texttt{.NOT.}
+\item Joining conditions with \texttt{.AND.} and \texttt{.OR.}
+\item Listing calculated values
+\item Turning the heading off
+\item Memo fields
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files, as for Chapter~1, and
+open the staff database:
+\begin{Steps}
+\item Type \type{USE STAFF} and press \key{Enter}.
+\end{Steps}
+
+\ATEHead{Choosing Fields}
+After \cmd{LIST} you name the fields you want, separated by commas, in the
+order you want them.  Field names are the names of the structure of the
+database; Chapter~1 of \doctitle{Using InitechBase} lists those of
+\file{STAFF.DBF}.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, HIRED, SALARY} and press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-fields}
+Each column is as wide as its field.  Dates appear in the form month, day,
+year, and salaries with their two decimal places.
+
+\ATEHead{Comparing Numbers}
+A condition compares a field with a value.  The comparison operators are
+\texttt{=} equal, \texttt{<>} not equal, \texttt{<} less than, \texttt{>}
+greater than, \texttt{<=} less than or equal and \texttt{>=} greater than or
+equal.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, SALARY FOR SALARY >= 40000} and press
+\key{Enter}.
+\Response{InitechBase lists the employees who earn 40,000 or more.}
+\end{Steps}
+\DotExample{examples/l2-compare}
+A number in a condition is typed without commas and without a currency sign.
+
+\ATEHead{Logical Fields}
+The field \texttt{EXEMPT} is a logical field: it is true for an employee who
+is exempt from overtime and false for one who is not.  A logical field is a
+condition by itself.  \texttt{.NOT.} turns true into false.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, DEPT FOR EXEMPT} and press \key{Enter}.
+\item Type \type{LIST LASTNAME, DEPT FOR .NOT. EXEMPT} and press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-logical}
+Every employee appears in one list or the other.
+
+\ATEHead{Comparing Dates}
+A date in a condition is written as a character string in the form month, day,
+year, converted with the function \fn{CTOD()}, which turns characters into a
+date.  An earlier date is less than a later one.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, HIRED FOR HIRED < CTOD('01/01/85')} and press
+\key{Enter}.
+\Response{InitechBase lists the employees hired before 1985.}
+\end{Steps}
+\DotExample{examples/l2-dates}
+
+\ATEHead{Joining Conditions}
+\texttt{.AND.} joins two conditions that must both be true; \texttt{.OR.} two
+conditions of which one at least must be true.  The periods on either side
+belong to the words.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, DEPT, SALARY FOR DEPT = 'SOFT' .AND. SALARY <
+40000} and press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-and}
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, DEPT FOR DEPT = 'ACCT' .OR. DEPT = 'FACL'} and
+press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-or}
+\begin{Tip}
+A condition such as \texttt{DEPT = 'SOFT'} is true for every record whose
+department begins with \texttt{SOFT}.  When you compare character fields,
+compare with the whole value, in capital letters if the field holds capitals.
+\end{Tip}
+
+\ATEHead{Listing Calculations}
+The list after \cmd{LIST} may hold calculations as well as fields.  InitechBase
+works out the value for each record and uses the calculation as the heading of
+its column.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, SALARY, SALARY * 0.015} and press \key{Enter}.
+\Response{InitechBase lists one and one half per cent of each salary.}
+\end{Steps}
+\DotExample{examples/l2-expr}
+Character fields can be joined with \texttt{+}.  The function \fn{TRIM()}
+removes the blanks at the end of a field, so that the first name and the last
+name are separated by one blank only:
+\begin{Steps}[resume]
+\item Type \type{LIST TRIM(FIRSTNAME) + ' ' + LASTNAME FOR DEPT = 'ADMN'} and
+press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-names}
+
+\ATEHead{Turning the Heading Off}
+\begin{Steps}[resume]
+\item Type \type{SET HEADING OFF} and press \key{Enter}.
+\item Type \type{LIST LASTNAME, EXT FOR DEPT = 'CUST'} and press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-heading}
+SET HEADING ON brings the heading back.  It is also restored when you leave
+InitechBase and start it again.
+
+\ATEHead{Memo Fields}
+The field \texttt{NOTES} is a memo field.  Its text is kept in the memo file
+\file{STAFF.DBT}, which \cmd{USE} opened with the database.  \cmd{LIST} and
+\cmd{DISPLAY} show the text.
+\begin{Steps}[resume]
+\item Type \type{GO 12} and press \key{Enter}.
+\item Type \type{DISPLAY NOTES} and press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l2-memo}
+
+\ATEHead{Where Do You Go From Here?}
+You can now list any fields of the records that meet a condition.  In
+Chapter~3 you learn how InitechBase keeps its place in a database and how you
+move from record to record.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{LIST} \xp{field list} lists the fields named, in the order named.
+\item \kw{FOR} \xp{condition} lists only the records for which the condition is
+  true.
+\item The comparisons are \texttt{=}, \texttt{<>}, \texttt{<}, \texttt{>},
+  \texttt{<=} and \texttt{>=}; \fn{CTOD()} writes a date in a condition.
+\item A logical field is a condition by itself; \texttt{.NOT.}, \texttt{.AND.}
+  and \texttt{.OR.} combine conditions.
+\item The list may hold calculations; \texttt{+} joins character values;
+  \fn{TRIM()} removes trailing blanks.
+\item SET HEADING OFF leaves out the heading.
+\end{enumerate}

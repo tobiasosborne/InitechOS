@@ -1,1 +1,116 @@
-% stub
+% Learning InitechBase, Chapter 4: Finding Records (AN-16).  Every panel
+% replayed (examples/l4-*.dot); sources cmd/query.c (LOCATE/CONTINUE/
+% SEEK/FIND), samir_main.c repl_do_use (INDEX), fs/ndx.c, cmd/set.c.
+\chapter{Finding Records}
+\Gates{test-pubs-examples, test-samir-query, test-ndx-seek}
+Initech's telephone list is no use if you must read every record to find one
+person.  In this lesson InitechBase finds the records for you: first by
+reading the database until a condition is met, then at once, through an
+index.
+
+\begin{ChapterCovers}
+\item Searching with \cmd{LOCATE} and \cmd{CONTINUE}
+\item \fn{FOUND()}
+\item Index files
+\item Finding a key with \cmd{SEEK} and \cmd{FIND}
+\item SET EXACT
+\item Choosing the order with SET ORDER
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.  Each part of the
+lesson begins with \cmd{USE}, so you need not open a database yet.
+
+\ATEHead{Searching with LOCATE}
+\cmd{LOCATE} reads the records from the first and stops at the first record
+for which the condition after \kw{FOR} is true.  \fn{FOUND()} tells you
+whether a record was found.  \cmd{CONTINUE} goes on to the next.
+\begin{Steps}
+\item Type \type{USE STAFF}.
+\item Type \type{LOCATE FOR DEPT = 'ACCT'}, then \type{? RECNO(), LASTNAME, FOUND()}.
+\item Type \type{CONTINUE}, then \type{? RECNO(), LASTNAME, FOUND()}.
+\item Type \type{CONTINUE}, then \type{? FOUND(), EOF()}.
+\Response{There is no third record: the pointer is at the end of the file.}
+\end{Steps}
+\DotExample{examples/l4-locate}
+After \cmd{LOCATE}, the record found is the current record, so \cmd{DISPLAY}
+shows it:
+\DotExample{examples/l4-locate-2}
+
+\ATEHead{Index Files}
+\cmd{LOCATE} reads every record until it finds one, which takes time in a large
+database.  An index file keeps the records in the order of a key and lets
+InitechBase go straight to a key.  The sample diskette holds four index files
+for the staff database: \file{STAFFNAM.NDX} on the last name,
+\file{STAFFNO.NDX} on the employee number, \file{STAFFDPT.NDX} on the
+department and \file{STAFFSAL.NDX} on the salary.
+
+An index file is opened with its database, by \kw{INDEX} in \cmd{USE}.  The
+records are then taken in the order of the index.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF INDEX STAFFNAM}.
+\item Type \type{LIST LASTNAME, FIRSTNAME, DEPT}.
+\Response{The employees are listed in alphabetical order of their last names.}
+\end{Steps}
+\DotExample{examples/l4-index}
+The record numbers have not changed: the index changes only the order in which
+InitechBase takes the records.
+
+\ATEHead{Finding a Key}
+\cmd{SEEK} looks up a value in the index and moves to the first record that has
+it.
+\begin{Steps}[resume]
+\item Type \type{SEEK 'OKAFOR'}, then \type{? FOUND(), RECNO()}.
+\item Type \type{DISPLAY LASTNAME, FIRSTNAME, EXT}.
+\end{Steps}
+\DotExample{examples/l4-seek}
+When no key matches, \fn{FOUND()} is false and the pointer is at the end of the
+file:
+\DotExample{examples/l4-notfound}
+\cmd{FIND} does the same with the value typed without quotation marks:
+\DotExample{examples/l4-find}
+
+\ATEHead{Part of a Key}
+\cmd{SEEK} finds a key that begins with the value you give, so you need type
+only the first letters of a long name.  SET EXACT ON makes it find only a key
+that is equal to the value.
+\begin{Steps}[resume]
+\item Type \type{SEEK 'NAG'}, then \type{? LASTNAME}.
+\item Type \type{SET EXACT ON}, then \type{SEEK 'NAG'}, then \type{? FOUND()}.
+\end{Steps}
+\DotExample{examples/l4-exact}
+Type \type{SET EXACT OFF} before you go on.
+
+\ATEHead{Several Index Files}
+You can open several index files with a database.  The first named is the
+master index: it gives the order and is the index \cmd{SEEK} uses.  The others
+are kept up to date as you change records.  SET ORDER chooses another master
+index.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF INDEX STAFFNAM, STAFFDPT}.
+\item Type \type{SET ORDER TO 2}, then \type{GO TOP}.
+\item Type \type{LIST NEXT 5 LASTNAME, DEPT}.
+\end{Steps}
+\DotExample{examples/l4-order}
+With the salary index, the last record is the highest salary:
+\DotExample{examples/l4-salary}
+\begin{Tip}
+After SET ORDER, type \type{GO TOP} so that the current record is the first in
+the new order.
+\end{Tip}
+
+\ATEHead{Where Do You Go From Here?}
+You can find any record by a condition or by its key.  In Chapter~5 you change
+the records you find.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{LOCATE FOR} \xp{condition} finds the first record that meets the
+  condition; \cmd{CONTINUE} finds the next; \fn{FOUND()} reports success.
+\item \cmd{USE} \xp{database} \kw{INDEX} \xp{index list} opens index files; the
+  first is the master index.
+\item \cmd{SEEK} \xp{expression} and \cmd{FIND} \xp{characters} find a key in the
+  master index.
+\item SET EXACT ON makes \cmd{SEEK} find only an equal key.
+\item SET ORDER TO \xp{n} makes the \xp{n}th index file the master index.
+\end{enumerate}

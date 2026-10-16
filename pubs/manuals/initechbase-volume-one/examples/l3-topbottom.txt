@@ -1,0 +1,8 @@
+. USE STAFF
+. GO BOTTOM
+. ? RECNO(), LASTNAME
+
+13 CHEN          . GO TOP
+. ? RECNO(), LASTNAME
+
+1 LUMBERGH      

@@ -1,1 +1,113 @@
-% stub
+% Learning InitechBase, Chapter 5: Changing Your Data (AN-16).  Every panel
+% replayed (examples/l5-*.dot); sources cmd/mutate.c (APPEND BLANK,
+% REPLACE, DELETE, RECALL, PACK), cmd/set.c (DELETED).
+\chapter{Changing Your Data}
+\Gates{test-pubs-examples, test-interp-replace, test-dbf-mutate}
+Records change: a new employee joins, an extension moves, salaries rise, an
+employee leaves.  In this lesson you add a record, change records one at a time
+and many at once, and mark records for deletion and remove them.
+
+\begin{ChapterCovers}
+\item Adding a record with \cmd{APPEND BLANK} and \cmd{REPLACE}
+\item Changing one record
+\item Changing many records at once
+\item Marking records with \cmd{DELETE}, and \cmd{RECALL}
+\item SET DELETED
+\item Removing records with \cmd{PACK}
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+The lesson changes \file{STAFF.DBF}.  Start InitechBase with a fresh copy of the
+sample files, and copy them again whenever you want to begin again.
+
+\ATEHead{Adding a Record}
+\cmd{APPEND BLANK} adds an empty record at the end of the database and makes it
+the current record.  \cmd{REPLACE} then fills in its fields: after
+\cmd{REPLACE} comes each field, the word \kw{WITH} and the value.  Character
+values are in quotation marks; a date is converted with \fn{CTOD()}; a logical
+value is \texttt{.T.} or \texttt{.F.}.
+\begin{Steps}
+\item Type \type{USE STAFF INDEX STAFFNAM, STAFFNO}.
+\item Type \type{APPEND BLANK}.
+\item Type \type{REPLACE EMPNO WITH '1014', LASTNAME WITH 'HARRIS', FIRSTNAME
+WITH 'JOAN'}.
+\item Type \type{REPLACE DEPT WITH 'ACCT', EXT WITH '1432', HIRED WITH
+CTOD('03/02/92')}.
+\item Type \type{REPLACE SALARY WITH 31500, EXEMPT WITH .F.}.
+\item Type \type{DISPLAY EMPNO, LASTNAME, FIRSTNAME, DEPT, HIRED, SALARY}, then
+\type{? RECCOUNT()}.
+\end{Steps}
+\DotExample{examples/l5-append}
+The new record is written to the disk as soon as it is added and changed.  The
+index files open with the database are kept up to date, so the new employee is
+in alphabetical order at once:
+\DotExample{examples/l5-indexed}
+
+\ATEHead{Changing One Record}
+Find the record, then \cmd{REPLACE} the field.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}, then \type{GO 8}.
+\item Type \type{REPLACE EXT WITH '1404'}, then \type{DISPLAY LASTNAME, EXT}.
+\end{Steps}
+\DotExample{examples/l5-replace}
+
+\ATEHead{Changing Many Records}
+With a \kw{FOR} clause, \cmd{REPLACE} changes every record that meets the
+condition.  The value is worked out for each record in turn, so a field may be
+used to compute its own new value.  Here everyone in Customer Relations
+receives a raise of four per cent:
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}.
+\item Type \type{REPLACE SALARY WITH SALARY * 1.04 FOR DEPT = 'CUST'}.
+\item Type \type{LIST LASTNAME, SALARY FOR DEPT = 'CUST'}.
+\end{Steps}
+\DotExample{examples/l5-raise}
+\begin{AteWarning}
+\cmd{REPLACE} with \kw{FOR} changes every record that meets the condition, and
+there is no command that undoes it.  List the records with the same \kw{FOR}
+clause before you replace them.
+\end{AteWarning}
+
+\ATEHead{Marking Records for Deletion}
+\cmd{DELETE} does not remove a record: it marks it.  A marked record is listed
+with an asterisk and \fn{DELETED()} is true for it.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}.
+\item Type \type{LOCATE FOR LASTNAME = 'FENWICK'}, then \type{DELETE}.
+\item Type \type{LIST LASTNAME, DEPT FOR DELETED()}.
+\end{Steps}
+\DotExample{examples/l5-delete}
+Record 13, Robert Chen, was already marked on the diskette.  While SET DELETED
+is ON, InitechBase passes over the marked records:
+\DotExample{examples/l5-setdeleted}
+\cmd{RECALL} removes the mark from the current record:
+\DotExample{examples/l5-recall}
+
+\ATEHead{Removing Records}
+\cmd{PACK} removes the marked records for good and renumbers the others.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}, then \type{? RECCOUNT()}.
+\item Type \type{PACK}, then \type{? RECCOUNT()}.
+\item Type \type{GO BOTTOM}, then \type{? RECNO(), LASTNAME}.
+\end{Steps}
+\DotExample{examples/l5-pack}
+\begin{AteWarning}
+Records removed by \cmd{PACK} cannot be recalled.  \cmd{ZAP} removes all the
+records of a database at once; see \doctitle{Using InitechBase}, Chapter~5.
+\end{AteWarning}
+
+\ATEHead{Where Do You Go From Here?}
+You can keep a database up to date.  In Chapter~6 you let InitechBase calculate
+for you.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{APPEND BLANK} adds an empty record; \cmd{REPLACE} \xp{field}
+  \kw{WITH} \xp{value} fills it in.
+\item \cmd{REPLACE} with \kw{FOR} changes every record that meets a condition.
+\item \cmd{DELETE} marks a record; \cmd{RECALL} removes the mark; SET DELETED ON
+  hides marked records.
+\item \cmd{PACK} removes the marked records.
+\item Changes are written to the disk at once, and the open index files are kept
+  up to date.
+\end{enumerate}

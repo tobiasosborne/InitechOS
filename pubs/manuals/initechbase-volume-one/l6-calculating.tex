@@ -1,1 +1,109 @@
-% stub
+% Learning InitechBase, Chapter 6: Calculating (AN-16).  Every panel
+% replayed (examples/l6-*.dot); sources cmd/flow.c (memvars), core/eval.c,
+% core/fn_builtins.c, cmd/set.c (DATE, CENTURY, DECIMALS).
+\chapter{Calculating}
+\Gates{test-pubs-examples, test-xbase-eval, test-xbase-fn-a, test-xbase-fn-b, test-interp-setfmt}
+InitechBase calculates with the values of fields and with values of its own:
+memory variables.  In this lesson you store values in memory variables,
+calculate with numbers, character strings and dates, and use the functions
+that convert one kind of value into another.
+
+\begin{ChapterCovers}
+\item Memory variables
+\item Arithmetic
+\item Functions of character strings
+\item Converting numbers to characters
+\item Dates and date arithmetic
+\item SET DATE, SET CENTURY and SET DECIMALS
+\item Choosing a value with \fn{IIF()}
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.
+
+\ATEHead{Memory Variables}
+A memory variable is a named value that InitechBase keeps for you until you
+leave it.  \cmd{STORE} puts a value in one or more memory variables; the
+equals sign does the same for one.
+\begin{Steps}
+\item Type \type{STORE 0 TO MCOUNT}.
+\item Type \type{MNAME = 'INITECH SYSTEMS'}, then \type{MRAISE = 4.5}.
+\item Type \type{? MCOUNT, MNAME, MRAISE}.
+\end{Steps}
+\DotExample{examples/l6-memvar}
+The names begin with M so that they cannot be taken for the names of fields.
+
+\ATEHead{Arithmetic}
+The arithmetic operators are \texttt{+}, \texttt{-}, \texttt{*} and \texttt{/};
+parentheses group a calculation.  Here is Peter Gibbons' salary after a raise
+of 4.5 per cent, and the amount of the raise:
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}, then \type{GO 2}.
+\item Type \type{MRAISE = 4.5}.
+\item Type \type{MNEW = SALARY * (1 + MRAISE / 100)}.
+\item Type \type{? MNEW, MNEW - SALARY}.
+\end{Steps}
+\DotExample{examples/l6-arith}
+
+\ATEHead{Character Strings}
+Functions work on values and return a value.  \fn{UPPER()} and \fn{LOWER()}
+change the case of letters, \fn{LEN()} counts characters, and \fn{TRIM()}
+removes trailing blanks:
+\DotExample{examples/l6-strings}
+\fn{SUBSTR()} takes part of a string, and \fn{LEFT()} its first characters:
+\DotExample{examples/l6-substr}
+
+\ATEHead{Numbers and Characters}
+InitechBase does not join a number to a character string.  \fn{STR()} turns the
+number into characters first: its arguments are the number, the width and the
+decimal places.  \fn{ROUND()} rounds a number and \fn{INT()} drops its fraction.
+\DotExample{examples/l6-numbers}
+
+\ATEHead{Dates}
+\fn{DATE()} is today's date.  Subtracting one date from another gives the
+number of days between them; adding a number of days to a date gives a date.
+\fn{YEAR()}, \fn{CMONTH()} and \fn{CDOW()} give the year, the name of the month
+and the name of the day.
+\begin{Steps}[resume]
+\item Type \type{USE STAFF}, then \type{GO 9}.
+\item Type \type{? DATE(), HIRED, DATE() - HIRED}.
+\item Type \type{? YEAR(HIRED), CMONTH(HIRED), CDOW(HIRED)}.
+\end{Steps}
+\DotExample{examples/l6-dates}
+The complete years of service of Andrew Delgado:
+\DotExample{examples/l6-years}
+
+\ATEHead{The Form of Dates}
+SET DATE changes the order of the day, month and year; SET CENTURY ON shows the
+year with four digits.
+\DotExample{examples/l6-setdate}
+Two digits are the standard: a date typed with a two-digit year is a date of
+the nineteen hundreds.
+
+\ATEHead{Decimal Places}
+The result of a division is shown with two decimal places unless SET DECIMALS
+says otherwise:
+\DotExample{examples/l6-decimals}
+
+\ATEHead{Choosing a Value}
+\fn{IIF()} returns its second argument when the first is true and its third
+when it is false:
+\DotExample{examples/l6-iif}
+
+\ATEHead{Where Do You Go From Here?}
+You can now calculate with fields, memory variables and functions.  Chapter~6
+of \doctitle{Using InitechBase} describes every function.  In Chapter~7 you
+print a report.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{STORE} \xp{value} \kw{TO} \xp{names}, or \xp{name} \texttt{=}
+  \xp{value}, stores values in memory variables.
+\item \texttt{+ - * /} and parentheses calculate; \fn{ROUND()} and \fn{INT()}
+  shorten a number.
+\item \fn{UPPER()}, \fn{LOWER()}, \fn{LEN()}, \fn{TRIM()}, \fn{SUBSTR()} and
+  \fn{LEFT()} work on characters; \fn{STR()} turns a number into characters.
+\item \fn{DATE()} is today; dates can be subtracted, and days added to them.
+\item SET DATE, SET CENTURY and SET DECIMALS change how values are shown.
+\item \fn{IIF()} chooses between two values.
+\end{enumerate}
