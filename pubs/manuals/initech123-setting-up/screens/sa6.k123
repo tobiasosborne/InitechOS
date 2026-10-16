@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 6: invoice aging
+As of{RIGHT}33785~{GOTO}a2~"Date{DOWN}33704{DOWN}33746{DOWN}33767~{GOTO}b2~"Days{RIGHT}"Status{DOWN}{LEFT}+$b$1-a3{RIGHT}@if(b3>60,"Late","OK")~/cb3..c3~b4~/cb3..c3~b5~/rfd2a3..a5~/rfd2b1~

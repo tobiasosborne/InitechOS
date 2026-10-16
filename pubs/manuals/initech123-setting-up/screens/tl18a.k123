@@ -1,0 +1,2 @@
+# Lesson 18: a small supply table
+Pens{RIGHT}12{DOWN}{LEFT}Pads{RIGHT}7{DOWN}{LEFT}Tape{RIGHT}4{DOWN}{LEFT}Total{RIGHT}@sum(b1..b3)~

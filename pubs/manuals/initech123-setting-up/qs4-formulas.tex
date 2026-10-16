@@ -1,0 +1,72 @@
+% Quick Start, Chapter 4 -- Formulas and @Functions.  Figure screens/qs4.k123.
+% Values replayed through the shipped application (examples/ops4.i23).
+% Sources (Law 1): os/i123/core/formula.c (operators and their precedence),
+% os/i123/core/eval.c (@SUM, @AVG, @MAX, @MIN, @COUNT, @IF, @ROUND),
+% os/i123/app/face_a.c (/Copy).
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens test-pubs-i123
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens,
+  test-pubs-i123}
+\chapter{Formulas and @Functions}
+
+This chapter prices three supplies and summarizes the costs with
+functions.  Start with an empty worksheet.
+
+\section{What This Chapter Shows You}
+\begin{itemize}
+\item Writing a formula with operators
+\item Copying a formula down a column
+\item Summarizing a range with \fn{@SUM}, \fn{@AVG} and \fn{@MAX}
+\end{itemize}
+
+\section{Formulas}
+\ix{formulas}\ix{operators}
+A formula that begins with a cell address needs a plus sign in front, so
+that Initech 123 reads it as a value and not as a label.  The operators are
+\texttt{+}, \texttt{-}, \texttt{*}, \texttt{/} and \texttt{\^{}} (power).
+Exponents come first, then multiplication and division, then addition and
+subtraction; parentheses change the order.
+\LotExample{examples/ops4}
+
+\section{Entering the Supplies}
+\ix{"@AVG}\ix{"@MAX}
+\begin{Keystrokes}
+\Do{Type}{\type{Pens}}{in A1; in B1 and C1 type \type{12} and \type{.5},
+  pressing \kname{RIGHT} between the entries}
+\Do{Type}{\type{+b1*c1}}{in D1, the quantity times the price, and press
+  \kname{ENTER}}
+\Do{Type}{\type{Pads}}{in A2, \type{8} in B2 and \type{1.25} in C2}
+\Do{Type}{\type{Tape}}{in A3, \type{6} in B3 and \type{.75} in C3}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{d1} and press
+  \kname{ENTER}, type \type{d2} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{d1} and press
+  \kname{ENTER}, type \type{d3} and press \kname{ENTER}}
+\end{Keystrokes}
+The copies refer to their own rows: D2 holds \texttt{+B2*C2}.
+
+\section{Summarizing with Functions}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{d5} and press \kname{ENTER}}
+\Do{Type}{\type{@sum(d1..d3)}}{and press \kname{DOWN}}
+\Do{Type}{\type{@avg(d1..d3)}}{and press \kname{DOWN}}
+\Do{Type}{\type{@max(d1..d3)}}{and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:qs4]{qs4}{Costs, with their total, average and largest}
+
+\section{Task Summary}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{You used}}
+Multiply two cells & \texttt{+b1*c1}\\
+Copy a formula to the next row & /Copy, the cell to copy and the cell below\\
+Add a range & \fn{@SUM}\\
+Find the average & \fn{@AVG}\\
+Find the largest value & \fn{@MAX}\LotEnd
+\end{LotTable}
+
+\section{Other Tasks to Try}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{Use}}
+Find the smallest cost & \texttt{@MIN(D1..D3)}\\
+Count the entries & \texttt{@COUNT(D1..D3)}\\
+Round the average to cents & \texttt{@ROUND(D6,2)}\\
+Mark the expensive items & \texttt{@IF(D1>8,"High","Low")}\LotEnd
+\end{LotTable}

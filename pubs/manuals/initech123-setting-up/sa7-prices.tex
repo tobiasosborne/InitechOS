@@ -1,0 +1,48 @@
+% Sample Applications, Chapter 7 -- Price List (annex Sec 8.3).
+% Values replayed through the shipped application (examples/prices7.i23);
+% @ROUND as os/i123/core/eval.c computes it, Percent and Currency as
+% os/i123/core/fmt.c.  Figure screens/sa7.k123.
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
+\chapter{Price List}
+
+When costs rise, the shop raises every price by the same percentage and
+rounds each new price to the cent.  This worksheet keeps the percentage in
+one cell, so a single entry reprices the whole list.
+
+\section{What You Enter}
+\begin{itemize}
+\item The percent increase
+\item The name and present price of each item
+\end{itemize}
+
+\section{Entering the Data}
+\ix{price list}\ix{"@ROUND}
+Type \type{Rate} in A1 and the increase, \type{.05} for 5 percent, in B1;
+format B1 with \slashcmd{/Range Format Percent}, no decimal places.  Type the
+headings \type{Item}, \type{"Old} and \type{"New} in A3..C3, the items
+\type{Pen}, \type{Pad} and \type{Tape} in A4..A6 and the present prices
+\type{1.5}, \type{2.25} and \type{.8} in B4..B6.  In C4 enter
+\type{@round(b4*(1+\$b\$1),2)} and copy it to C5 and C6.  Format B4..C6 as
+currency with two decimal places.
+\FlairShot[fig:sa7]{sa7}{Present and new prices}
+
+\begin{LotTable}{p{30mm}p{24mm}p{70mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Rate & B1 & The percent increase\\
+Item & A4..A6 & The name of each item\\
+Old & B4..B6 & The present price\\
+New & C4..C6 & The price after the increase, rounded to the cent\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+\LotExample{examples/prices7}
+The formula multiplies the old price by one plus the rate, and
+\fn{@ROUND} keeps two decimal places.  Without it a cell would hold a price
+such as a fraction of a cent, which displays rounded but still carries the
+extra digits into later formulas.
+
+\section{Changing the Template}
+To try a different increase, type a new rate in B1; the three new prices
+follow at once.  To add an item, type it below Tape and copy the formula in
+C6 to the new row.

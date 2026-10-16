@@ -1,0 +1,2 @@
+# Quick Start, Chapter 5: a named rate and manual recalculation
+Price{RIGHT}250{DOWN}{LEFT}Rate{RIGHT}.07~/rncrate~~{DOWN}{LEFT}Tax{RIGHT}+b1*rate{DOWN}{LEFT}Total{RIGHT}+b1+b3~/wgrm{GOTO}b1~300~

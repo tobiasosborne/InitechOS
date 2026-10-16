@@ -1,0 +1,2 @@
+# Lesson 23: five @functions
+8{DOWN}11{DOWN}9{DOWN}14{DOWN}6.5~{GOTO}c1~@count(a1..a5){DOWN}@avg(a1..a5){DOWN}@max(a1..a5){DOWN}@min(a1..a5){DOWN}@round(c2,0)~

@@ -1,0 +1,13 @@
+# Lesson 22: dates are serial numbers
+A1 @DATE(92,6,15)
+A2 @DATE(92,12,31)
+A3 +A2-A1
+show A1
+show A2
+show A3
+do /rfd1a1..a2~/wcs10~
+show A1
+do /rfd2a1..a2~
+show A1
+do /rfd3a1..a2~
+show A1

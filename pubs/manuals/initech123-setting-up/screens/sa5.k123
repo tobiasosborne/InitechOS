@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 5: monthly expense report
+Item{RIGHT}"Cost~{GOTO}a2~Rent{DOWN}Phone{DOWN}Travel{DOWN}Fuel{DOWN}Total{DOWN}Average~{GOTO}b2~480{DOWN}62{DOWN}240{DOWN}95{DOWN}@sum(b2..b5){DOWN}@avg(b2..b5)~/rfc2~b2..b7~

@@ -1,0 +1,231 @@
+% Tutorial, Chapter 6 -- More Commands and @Functions: Lessons 18 to 24
+% (AN-17).  Figures: screens/tl18a..tl24.k123, each typed from an empty
+% worksheet.  Sources (Law 1): os/i123/app/face_a.c (/Range Erase, /Range
+% Label and its Left Right Center menu, /Range Value, /Range Trans,
+% /Worksheet Column Set-Width, /Worksheet Erase and its No Yes menu),
+% os/i123/core/range.c (Trans: the formulas of the FROM range arrive as
+% values), os/i123/core/fmt.c (Date 1, 2 and 3; asterisks when the column
+% is too narrow), os/i123/core/eval.c (@DATE, @AVG, @MAX, @MIN, @COUNT,
+% @ROUND), spec/i123/era_shortfalls.md (Date 4, Date 5 and Time refused).
+% Examples: examples/erase18, freeze20, dates22, funcs23, replayed.
+% GATES: test-i123-range-menu test-i123-formula test-pubs-i123-examples test-pubs-screens test-pubs-i123
+\Gates{test-i123-range-menu, test-i123-formula, test-pubs-i123-examples,
+  test-pubs-screens, test-pubs-i123}
+\chapter{More Commands and @Functions}
+
+In this chapter you leave the budget and work with several small
+worksheets, one for each new command.  Each lesson after the first begins
+with an empty worksheet, so you can do the lessons in any order.  Start
+Initech 123 again now; the worksheet is empty.
+
+\section{Lesson 18: Erasing Cells}
+\ix{/Range Erase}\ix{erasing}
+Type a new entry over an old one and the old one is gone.  To remove an
+entry and put nothing in its place, erase the cell.  First build a small
+table of supplies.
+
+\begin{Keystrokes}
+\Do{Type}{\type{Pens}}{in A1, and press \kname{RIGHT}}
+\Do{Type}{\type{12}}{in B1, press \kname{DOWN}, and then press
+  \kname{LEFT}}
+\Do{Type}{\type{Pads}}{in A2, press \kname{RIGHT}, type \type{7}, press
+  \kname{DOWN} and \kname{LEFT}}
+\Do{Type}{\type{Tape}}{in A3, press \kname{RIGHT}, type \type{4}, press
+  \kname{DOWN} and \kname{LEFT}}
+\Do{Type}{\type{Total}}{in A4, and press \kname{RIGHT}}
+\Do{Type}{\type{@sum(b1..b3)}}{and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl18a]{tl18a}{The table of supplies}
+Pads are no longer stocked.  Erase the quantity in B2.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{e} to select Range
+  Erase}
+\Do{Type}{\type{b2}}{the range to erase, and press \kname{ENTER}}
+\end{Keystrokes}
+The cell is empty and the total in B4 is recalculated without it
+(Figure~\ref{fig:tl18b}).
+\FlairShot[fig:tl18b]{tl18b}{B2 erased}
+\LotExample{examples/erase18}
+To erase several cells at once, give a range such as \texttt{A2..B2}.
+
+\section{Lesson 19: Aligning Labels}
+\ix{/Range Label}\ix{labels, aligning}
+A label begins with a prefix character that tells Initech 123 how to place
+it in its cell: an apostrophe for left, a quotation mark for right and a
+caret for center.  A label you type without a prefix gets an apostrophe.
+\slashcmd{/Range Label} changes the prefix of every label in a range at
+once.
+
+Erase the worksheet: press \kname{SLASH}, type \type{w}, \type{e},
+\type{y}.  (Lesson~24 explains this command.)
+
+\begin{Keystrokes}
+\Do{Type}{\type{Pens}}{in A1, and press \kname{DOWN}}
+\Do{Type}{\type{Pads}}{in A2, and press \kname{DOWN}}
+\Do{Type}{\type{Tape}}{in A3, and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{a1..a3} and press
+  \kname{ENTER}, type \type{b1} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{a1..a3} and press
+  \kname{ENTER}, type \type{c1} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{l}, \type{r} to select
+  Range Label Right}
+\Do{Type}{\type{b1..b3}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{l}, \type{c} to select
+  Range Label Center}
+\Do{Type}{\type{c1..c3}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Column A is aligned at the left, column B at the right and column C in the
+center (Figure~\ref{fig:tl19}).  The third choice on the menu,
+\slashcmd{/Range Label Left}, puts the apostrophe back.
+\FlairShot[fig:tl19]{tl19}{The same labels aligned left, right and center}
+
+\section{Lesson 20: Freezing Values}
+\ix{/Range Value}\ix{values, freezing}
+A formula changes whenever the cells it refers to change.  Sometimes you
+want to keep the answer it gives today.  \slashcmd{/Range Value} copies a
+range and turns every formula in the copy into the number it displays.
+
+Erase the worksheet, and then build a small sum.
+
+\begin{Keystrokes}
+\Do{Type}{\type{12.5}}{in A1, and press \kname{DOWN}}
+\Do{Type}{\type{7.5}}{in A2, and press \kname{DOWN}}
+\Do{Type}{\type{@sum(a1..a2)}}{in A3, and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{v} to select Range
+  Value}
+\Do{Type}{\type{a3}}{the range to copy FROM, and press \kname{ENTER}}
+\Do{Type}{\type{c3}}{the cell to copy TO, and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{a1}, then press \kname{ENTER}}
+\Do{Type}{\type{20}}{and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{c3}, then press \kname{ENTER}}
+\end{Keystrokes}
+The total in A3 follows the change in A1, but C3 keeps the value it had
+when you copied it; the control panel shows a number, not a formula
+(Figure~\ref{fig:tl20}).
+\FlairShot[fig:tl20]{tl20}{A3 follows A1; C3 is a frozen value}
+\LotExample{examples/freeze20}
+
+\section{Lesson 21: Exchanging Rows and Columns}
+\ix{/Range Trans}\ix{transposing}
+\slashcmd{/Range Trans} copies a range so that its rows become columns and
+its columns become rows.  Erase the worksheet, and type a table of three
+quarters.
+
+\begin{Keystrokes}
+\Do{Type}{\type{"Q1}}{in A1, press \kname{RIGHT}; \type{"Q2},
+  \kname{RIGHT}; \type{"Q3}, \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{a2}, then press \kname{ENTER}}
+\Do{Type}{\type{10}}{press \kname{RIGHT}; \type{20}, \kname{RIGHT};
+  \type{30}, \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{t} to select Range
+  Trans}
+\Do{Type}{\type{a1..c2}}{the range to copy FROM, and press \kname{ENTER}}
+\Do{Type}{\type{a4}}{the upper left cell of the copy, and press
+  \kname{ENTER}}
+\end{Keystrokes}
+The two rows of three cells become two columns of three cells
+(Figure~\ref{fig:tl21}).  The original stays where it is.
+\FlairShot[fig:tl21]{tl21}{The table copied with rows and columns exchanged}
+\begin{Note}
+Like \slashcmd{/Range Value}, \slashcmd{/Range Trans} copies the displayed
+result of a formula, not the formula itself.
+\end{Note}
+
+\section{Lesson 22: Entering Dates}
+\ix{dates}\ix{"@DATE}\ix{/Range Format Date}
+Initech 123 keeps a date as a \term{date serial number}: a count of days that
+begins in 1900.  The function
+\texttt{@DATE(\Arg{year},\Arg{month},\Arg{day})} gives the serial number
+of a date, with the last two digits of the year.  Because dates are
+numbers, you can subtract one from another.  Erase the worksheet and
+enter two dates and the difference between them.
+
+\begin{Keystrokes}
+\Do{Type}{\type{@date(92,6,15)}}{in A1, and press \kname{DOWN}}
+\Do{Type}{\type{@date(92,12,31)}}{in A2, and press \kname{DOWN}}
+\Do{Type}{\type{+a2-a1}}{in A3, and press \kname{ENTER}}
+\end{Keystrokes}
+A1 and A2 show serial numbers, and A3 shows the number of days between the
+dates (Figure~\ref{fig:tl22a}).
+\FlairShot[fig:tl22a]{tl22a}{Dates as serial numbers}
+To display a serial number as a date, format the cells.  The format
+DD-MMM-YY needs ten characters, so first widen column A.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{c}, \type{s} to select
+  Worksheet Column Set-Width}
+\Do{Type}{\type{10}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{f}, \type{d} to select
+  Range Format Date}
+\Do{Type}{\type{1}}{to select the format DD-MMM-YY}
+\Do{Type}{\type{a1..a2}}{and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl22b]{tl22b}{The same dates in the format DD-MMM-YY}
+In a column that is too narrow the date appears as a row of asterisks;
+widen the column and the date returns.  Formats 2 and 3 show only the day
+and month (DD-MMM) or only the month and year (MMM-YY).  The cell keeps its
+serial number whichever format you choose.
+\LotExample{examples/dates22}
+
+\section{Lesson 23: More @Functions}
+\ix{"@AVG}\ix{"@MAX}\ix{"@MIN}\ix{"@COUNT}\ix{"@ROUND}
+You used \fn{@SUM} in Lesson~5 and \fn{@IF} in Lesson~15.  Five more
+functions complete a short list of the ones you will use most:
+
+\begin{LotTable}{p{30mm}p{98mm}}
+\LotHead{\textbf{Function} & \textbf{Result}}
+\fn{@COUNT} & How many cells in the range are not blank\\
+\fn{@AVG} & The average of the range\\
+\fn{@MAX} & The largest value in the range\\
+\fn{@MIN} & The smallest value in the range\\
+\fn{@ROUND} & A value rounded to the number of decimal places you give;
+  \texttt{@ROUND(\Arg{value},0)} rounds to a whole number\LotEnd
+\end{LotTable}
+Erase the worksheet, type five numbers in A1..A5, and ask the five
+functions about them in C1..C5.
+
+\begin{Keystrokes}
+\Do{Type}{\type{8}}{in A1, press \kname{DOWN}; then \type{11}, \type{9} and
+  \type{14}, each followed by \kname{DOWN}}
+\Do{Type}{\type{6.5}}{in A5, and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{c1}, then press \kname{ENTER}}
+\Do{Type}{\type{@count(a1..a5)}}{and press \kname{DOWN}}
+\Do{Type}{\type{@avg(a1..a5)}}{and press \kname{DOWN}}
+\Do{Type}{\type{@max(a1..a5)}}{and press \kname{DOWN}}
+\Do{Type}{\type{@min(a1..a5)}}{and press \kname{DOWN}}
+\Do{Type}{\type{@round(c2,0)}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Column C now holds the count, the average, the largest value, the smallest
+value and the average rounded to a whole number
+(Figure~\ref{fig:tl23}).
+\FlairShot[fig:tl23]{tl23}{Five functions asked about the same column}
+\LotExample{examples/funcs23}
+\begin{Caution}
+\fn{@COUNT} counts a label as well as a number, and \fn{@AVG} treats a
+label in its range as a zero.  Keep headings out of the ranges you give
+them.
+\end{Caution}
+
+\section{Lesson 24: Starting Over}
+\ix{/Worksheet Erase}
+\slashcmd{/Worksheet Erase} clears the whole worksheet from memory, so you
+can start a new one without ending Initech 123.  It does not change any
+file on disk.  Because it cannot be undone, Initech 123 asks first.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{e} to select Worksheet
+  Erase}
+\end{Keystrokes}
+The menu offers \texttt{No} and \texttt{Yes}
+(Figure~\ref{fig:tl24}).  \texttt{No} leaves the worksheet alone and returns
+to \ind{READY} mode.
+\FlairShot[fig:tl24]{tl24}{Worksheet Erase asks before it clears}
+\begin{Keystrokes}
+\Do{Type}{\type{y}}{to select Yes}
+\end{Keystrokes}
+The worksheet is empty and the pointer is in A1.  The unsaved entries are
+gone; save a worksheet you want to keep with \slashcmd{/File Save} first.
+
+This completes the \doctitle{Tutorial}.  The \doctitle{Initech 123
+Reference} describes every command you have used, and all the others.

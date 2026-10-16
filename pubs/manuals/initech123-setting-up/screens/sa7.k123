@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 7: price list with a percent increase
+Rate{RIGHT}.05~/rfp0~b1~{GOTO}a3~Item{RIGHT}"Old{RIGHT}"New~{GOTO}a4~Pen{DOWN}Pad{DOWN}Tape~{GOTO}b4~1.5{DOWN}2.25{DOWN}.8~{GOTO}c4~@round(b4*(1+$b$1),2)~/cc4~c5~/cc4~c6~/rfc2~b4..c6~

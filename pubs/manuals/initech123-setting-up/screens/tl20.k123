@@ -1,0 +1,2 @@
+# Lesson 20: a formula frozen into C3
+12.5{DOWN}7.5{DOWN}@sum(a1..a2)~/rva3~c3~{GOTO}a1~20~{GOTO}c3~

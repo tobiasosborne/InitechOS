@@ -1,0 +1,78 @@
+% Quick Start, Chapter 5 -- Names, Protection and Recalculation.  Figure
+% screens/qs5.k123.  Sources (Law 1): os/i123/core/range.c (/Range Name
+% Create; a name in a formula), os/i123/core/recalc.c (manual
+% recalculation, the CALC indicator, CALC (F9)), os/i123/app/face_a.c
+% (/Range Unprot, /Worksheet Global Protection Enable, "Cell is protected").
+% GATES: test-i123-range-menu test-i123-recalc-order test-i123-formula test-pubs-screens test-pubs-i123
+\Gates{test-i123-range-menu, test-i123-recalc-order, test-i123-formula,
+  test-pubs-screens, test-pubs-i123}
+\chapter{Names, Protection and Recalculation}
+
+This chapter names a tax rate, lets the worksheet wait before it
+recalculates, and protects the formulas.  Start with an empty worksheet.
+
+\section{What This Chapter Shows You}
+\begin{itemize}
+\item Naming a cell and using the name in a formula
+\item Recalculating by hand
+\item Protecting the formulas
+\end{itemize}
+
+\section{Naming a Cell}
+\ix{range names}
+\begin{Keystrokes}
+\Do{Type}{\type{Price}}{in A1, press \kname{RIGHT}, type \type{250} and
+  press \kname{DOWN} and \kname{LEFT}}
+\Do{Type}{\type{Rate}}{in A2, press \kname{RIGHT}, type \type{.07} and
+  press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{n}, \type{c}}
+\Do{Type}{\type{rate}}{the name, and press \kname{ENTER}}
+\Do{Press}{\kname{ENTER}}{to name the current cell, B2}
+\Do{Press}{\kname{DOWN}}{and \kname{LEFT}; type \type{Tax}, press
+  \kname{RIGHT}, type \type{+b1*rate} and press \kname{DOWN} and
+  \kname{LEFT}}
+\Do{Type}{\type{Total}}{in A4, press \kname{RIGHT}, type \type{+b1+b3} and
+  press \kname{ENTER}}
+\end{Keystrokes}
+
+\section{Recalculating by Hand}
+\ix{recalculation}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{r}, \type{m}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{b1} and press \kname{ENTER}}
+\Do{Type}{\type{300}}{and press \kname{ENTER}}
+\end{Keystrokes}
+B1 changes, but the tax and the total wait, and the \ind{CALC} indicator
+appears.  Press \fkey{Calc}{F9} to bring them up to date.
+\FlairShot[fig:qs5]{qs5}{Manual recalculation: the tax and total wait for CALC}
+
+\section{Protecting the Formulas}
+\ix{protection}
+Unprotect the cells you will change, then turn protection on:
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{r}, \type{u}, type \type{b1..b2} and
+  press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{p}, \type{e}}
+\end{Keystrokes}
+Typing in B3 or B4 now displays \texttt{Cell is protected}.  Return to
+automatic recalculation with \slashcmd{/Worksheet Global Recalculation
+Automatic}.
+
+\section{Task Summary}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{You used}}
+Name a cell & /Range Name Create, the name and the range\\
+Use the name in a formula & Type the name, as in \texttt{+b1*rate}\\
+Wait before recalculating & /Worksheet Global Recalculation Manual\\
+Recalculate & CALC (F9)\\
+Allow changes in a range & /Range Unprot\\
+Protect everything else & /Worksheet Global Protection Enable\LotEnd
+\end{LotTable}
+
+\section{Other Tasks to Try}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{Use}}
+Remove a name & /Range Name Delete\\
+List the names & /Range Name Table\\
+Turn protection off & /Worksheet Global Protection Disable\LotEnd
+\end{LotTable}

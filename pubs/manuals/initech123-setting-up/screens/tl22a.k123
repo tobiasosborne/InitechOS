@@ -1,0 +1,2 @@
+# Lesson 22: dates are serial numbers
+@date(92,6,15)~{DOWN}@date(92,12,31)~{DOWN}+a2-a1~

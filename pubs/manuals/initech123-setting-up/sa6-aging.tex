@@ -1,0 +1,55 @@
+% Sample Applications, Chapter 6 -- Invoice Aging (annex Sec 8.3).
+% Values replayed through the shipped application (examples/aging6.i23):
+% @DATE serial numbers (os/i123/core/eval.c), the Date 2 display
+% (os/i123/core/fmt.c), a difference of two dates as days, @IF.
+% Figure screens/sa6.k123.
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
+\chapter{Invoice Aging}
+
+The accounts receivable clerk reviews unpaid invoices at the end of each
+month and calls the customers whose invoices are more than sixty days old.
+This worksheet works out how many days each invoice has been outstanding and
+marks the late ones.
+
+\section{What You Enter}
+\begin{itemize}
+\item The date of the review
+\item The date of each invoice
+\end{itemize}
+
+\section{Entering the Data}
+\ix{invoice aging}\ix{dates}\ix{"@IF}
+Dates are serial numbers (Tutorial, Lesson~22).  Type each date as its serial
+number; \texttt{@DATE(92,6,30)}, for example, gives 33785 for the thirtieth of
+June.  Type \type{As of} in A1 and the date of the review, \type{33785}, in
+B1.  Type the headings \type{"Date}, \type{"Days} and \type{"Status} in
+A2..C2 and the invoice dates \type{33704}, \type{33746} and \type{33767} in
+A3..A5.  In B3 enter \type{+\$b\$1-a3}, and in C3 enter
+\type{@if(b3>60,"Late","OK")}.  Copy B3..C3 to B4 and to B5.  Finally, format
+A3..A5 and B1 with \slashcmd{/Range Format Date 2 (DD-MMM)}, which shows the day and
+month.
+\FlairShot[fig:sa6]{sa6}{Days outstanding and the late invoices}
+
+\begin{LotTable}{p{30mm}p{24mm}p{70mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+As of & B1 & The date of the review, as a serial number\\
+Date & A3..A5 & The date of each invoice, as a serial number\\
+Days & B3..B5 & The review date minus the invoice date: the days outstanding\\
+Status & C3..C5 & \texttt{Late} when the invoice is more than sixty days
+  old, otherwise \texttt{OK}\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+\LotExample{examples/aging6}
+The first four lines show that the serial numbers you typed are the ones
+\fn{@DATE} gives.  The formula in B3 subtracts one date from another, so it
+yields a number of days.  The reference \texttt{\$B\$1} is absolute, so every
+copy subtracts from the same review date, while \texttt{A3} moves down with
+the row.  \fn{@IF} compares the days with sixty and returns a label.
+
+\section{Changing the Template}
+To review a different day, type its serial number in B1.  To mark invoices
+more than thirty days old as well, replace the formula in C3 with
+\begin{center}\type{@IF(B3>60,"Late",@IF(B3>30,"Due","OK"))}\end{center}
+and copy it to C4 and C5.

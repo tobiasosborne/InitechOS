@@ -96,6 +96,7 @@
 \newcommand\LotusPart[4]{% code, sort digit, title, line
   \im@closeentry\cleardoublepage
   \gdef\im@partcode{#1}\gdef\im@partsort{#2}%
+  \im@partdrafts{#2}%
   \setcounter{chapter}{0}%
   \gdef\thepage{\roman{page}}\thispagestyle{empty}%
   \addtocontents{toc}{\protect\contentsline{lotpart}{#3}{}{}}%
@@ -105,6 +106,31 @@
   {\noindent\itshape #4\par}
   \FootTitle{#3}\markright{#3}%
   \newpage\thispagestyle{empty}\null\newpage}
+%% DRAFT chapters (Sec 11.4) are recorded per part: chapter 1 of the
+%% Tutorial is not chapter 1 of Setting Up.  \draft (initech-syntax.sty)
+%% writes \imMarkDraft{<part><chapter>}; each \LotusPart makes the class's
+%% chapter lookup (im@draft@<chapter>) see only its own part's marks.
+\renewcommand\draft[1]{%
+  \gdef\im@draftfoot{DRAFT -- NOT FOR RELEASE}%
+  \protected@write\@auxout{}{\string\imMarkDraft{\im@partsort\thechapter}}%
+  \stepcounter{im@drafts}%
+  \ifim@final
+    \PackageError{initech-lotus}{DRAFT marker in a final build: #1}{Verify the
+      text against the shipped build, then remove the marker.}%
+  \fi
+  \PackageWarning{initech-lotus}{DRAFT marker \arabic{im@drafts}: #1}%
+  \mbox{\fboxsep=1pt\colorbox{black}{\textcolor{white}{\im@condensed\bfseries
+    \fontsize{7}{8}\selectfont DRAFT}}}%
+  \nobreak\hskip0.3em{\imCaptionFont[#1]}\ }
+\newcount\im@dn
+\newcommand\im@partdrafts[1]{\global\im@dn=0
+  \loop\global\advance\im@dn by 1
+    \ifcsname im@draft@#1\the\im@dn\endcsname
+      \expandafter\gdef\csname im@draft@\the\im@dn\endcsname{1}%
+    \else
+      \expandafter\global\expandafter\let\csname im@draft@\the\im@dn\endcsname\im@neverdefined
+    \fi
+  \ifnum\im@dn<40 \repeat}
 %% \ix{entry} indexes the entry; inside a part, one line per part, headed by
 %% the bold part code (makeindex sub-level sorted by the part digit).
 \newcommand\ix[1]{\ifx\im@partcode\@empty\index{#1}\else

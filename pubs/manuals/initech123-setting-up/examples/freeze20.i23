@@ -1,0 +1,10 @@
+# Lesson 20: a formula frozen into a value
+A1 12.5
+A2 7.5
+A3 @SUM(A1..A2)
+do /rva3~c3~
+show A3
+show C3
+A1 20
+show A3
+show C3

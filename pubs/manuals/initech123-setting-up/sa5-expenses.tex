@@ -1,0 +1,50 @@
+% Sample Applications, Chapter 5 -- Monthly Expense Report (annex Sec 8.3).
+% Values replayed through the shipped application (examples/expenses5.i23);
+% @SUM and @AVG as os/i123/core/eval.c computes them, the Currency display
+% as os/i123/core/fmt.c.  Figure screens/sa5.k123.
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
+\chapter{Monthly Expense Report}
+
+At the end of each month the office manager lists what the office spent,
+and reports the total and the average expense.  This worksheet adds up a
+list of expenses and shows every amount in dollars and cents.
+
+\section{What You Enter}
+\begin{itemize}
+\item A short name for each expense
+\item The amount spent on it
+\end{itemize}
+
+\section{Entering the Data}
+\ix{expense report}\ix{"@AVG}
+Type the headings \type{Item} and \type{"Cost} in A1 and B1.  Type the
+expenses \type{Rent}, \type{Phone}, \type{Travel} and \type{Fuel} in A2..A5
+and the labels \type{Total} and \type{Average} in A6 and A7, then the
+amounts in B2..B5.  In B6 enter \type{@sum(b2..b5)} and in B7 enter
+\type{@avg(b2..b5)}.  Finally, format B2..B7 as currency with two decimal
+places: select \slashcmd{/Range Format Currency}, type \type{2}, and give
+the range.
+\FlairShot[fig:sa5]{sa5}{The month's expenses with total and average}
+
+\begin{LotTable}{p{30mm}p{24mm}p{70mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Expense & A2..A5 & The name of each expense\\
+Cost & B2..B5 & What was spent on it\\
+Total & B6 & The sum of the four amounts\\
+Average & B7 & The average of the four amounts\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+\LotExample{examples/expenses5}
+The total is the sum of the amounts in B2..B5; the average is the total
+divided by the number of expenses.  The dollar sign and the two decimal
+places come from the format, not from what you typed.  An amount of a
+thousand dollars or more needs a wider column: if a cell shows a row of
+asterisks, widen the column with \slashcmd{/Worksheet Column Set-Width}.
+
+\section{Changing the Template}
+To add an expense, move A6..B7 down one row with \slashcmd{/Move}, type the
+new expense in row 6, and change the range in the two formulas to
+\texttt{B2..B6} with \fkey{Edit}{F2}.  To change an amount, type the new
+number over the old one.

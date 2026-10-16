@@ -1,0 +1,10 @@
+A1: Pens
+B1: 12
+A2: Pads
+B2: 7
+A3: Tape
+B3: 4
+A4: Total
+B4: @SUM(B1..B3)
+B4: @SUM(B1..B3) = 23
+B4: @SUM(B1..B3) = 16
