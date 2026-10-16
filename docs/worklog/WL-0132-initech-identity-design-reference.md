@@ -63,8 +63,25 @@ follow; that is a locked-spec decision for its own bead (O-6).
 
 ## Acceptance
 
-- Gate tails: see the commit message of the reference commit (recorded after
-  the runs).
+- `make pubs`: 7 documents built, 0 overfull (covers now 2 pages: front + back).
+- `make test-pubs-families`: 7 families green; identity leg green (front, back
+  and spine logo cells: dark ~21 %, light ~8 %, Initech Cyan ~7 %; line bands
+  100 % cyan); mutants `mutant-nologo` RED `COVER-LOGO`, `mutant-wrongcyan`
+  RED `COVER-CYAN` ("logo cube tops are not Initech Cyan #57B19F (cyan 0.0%,
+  other cyan-family ink 8.1%)").
+- `make test-pubs`: build, commands (129 shipped / 45 documented / 84
+  omissions), mentions, allow-list, lint (ASCII, period vocabulary/years),
+  fonts, examples all green; **test-pubs-screens RED on a pre-existing drift
+  unrelated to this lane**: `chkdsk.txt` / `chkfile.txt` (both DOS books)
+  print 118448 bytes of memory where the base commit's kernel now reports
+  118320 (the kernel grew in the merges before 4832d01; no os/ file is
+  touched here). One earlier run also timed out on `forwild` at load 17
+  (prompt did not settle). Needs `make pubs-screens` on main once the
+  kernel settles (PM).
+- `test-pubs-mutant` body (`harness/pubs/mutants.sh`, run directly because
+  its test-pubs prerequisite stops at the screen drift): 11 named mutants
+  rejected, green.
+- `make test-pubs-repro`: 7 PDFs byte-identical across two clean builds.
 - Law 4: rendered `cover.pdf` page 1 and 2 and the spine at 60-600 dpi and
   looked. Front: white ground, product line, EB Garamond "Reference", Systems
   band at 55 mm, the logo at the lower left reading exactly as the reference
