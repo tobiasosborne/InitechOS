@@ -44,6 +44,9 @@ static int all_installed(void *u, const char *d, const char *f)
 { (void)u; g_calls++; return strcmp(d, "APPS") == 0 && strcmp(f, "CALCULAT.EXE") == 0; }
 static int none_installed(void *u, const char *d, const char *f)
 { (void)u; (void)d; (void)f; return 0; }
+static int three_installed(void *u, const char *d, const char *f)
+{ (void)u; return !strcmp(d,"APPS") && (!strcmp(f,"CALCULAT.EXE") ||
+    !strcmp(f,"NOTEPAD.EXE") || !strcmp(f,"SCRAPBK.EXE")); }
 
 static MenuItem file_items[] = { { "Quit", 0, 'Q', 0u, 1u, 0u } };
 static MenuInfo file_menu[] = { { 129, "File", file_items, 1u, 0 } };
@@ -154,6 +157,13 @@ int main(int argc, char **argv)
               "back onto the glyph and down to Calculator gives 0x%08X", MenuTrack_result(&bar, &st));
     }
 
+    /* R4.4: installed DA rows and actions, independently named. */
+    m=apple_menu_build(three_installed,NULL);
+    CHECK("A1 ROWS",m->n_items==5,"three DAs must make five rows");
+    CHECK("A3 ACTION",apple_menu_action(MenuResult(FLAIR_MENU_ID_APPLE,4),&da)==APPLE_ACT_LAUNCH &&
+          da && !strcmp(da->file83,"NOTEPAD.EXE") && !strcmp(da->title,"Note Pad"),"Note Pad row/action");
+    CHECK("A3 ACTION",apple_menu_action(MenuResult(FLAIR_MENU_ID_APPLE,5),&da)==APPLE_ACT_LAUNCH &&
+          da && !strcmp(da->file83,"SCRAPBK.EXE") && !strcmp(da->title,"Scrapbook"),"Scrapbook row/action");
     printf("test_apple_menu: %d checks, %d failures\n", g_checks, g_fail);
     return g_fail ? 1 : 0;
 }
