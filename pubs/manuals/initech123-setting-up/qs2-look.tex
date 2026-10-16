@@ -1,0 +1,52 @@
+% Quick Start, Chapter 2 -- Changing the Look of a Worksheet.  Figure
+% screens/qs2.k123 (the keys of qs1 followed by this chapter's).
+% Sources (Law 1): os/i123/app/face_a.c (/Range Format Currency, /Range
+% Label Right, /Worksheet Column Set-Width), os/i123/core/fmt.c.
+% GATES: test-i123-range-menu test-pubs-screens test-pubs-i123
+\Gates{test-i123-range-menu, test-pubs-screens, test-pubs-i123}
+\chapter{Changing the Look of a Worksheet}
+
+This chapter formats the sales table of Chapter~1.
+
+\section{What This Chapter Shows You}
+\begin{itemize}
+\item Displaying numbers as dollars
+\item Aligning labels
+\item Widening a column
+\end{itemize}
+
+\section{Formatting and Aligning}
+\ix{formats}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{r}, \type{f}, \type{c} (Range Format
+  Currency)}
+\Do{Type}{\type{0}}{no decimal places, and press \kname{ENTER}}
+\Do{Type}{\type{b2..e5}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{r}, \type{l}, \type{r} (Range Label
+  Right)}
+\Do{Type}{\type{b1..e1}}{and press \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a1} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{w}, \type{c}, \type{s} (Worksheet
+  Column Set-Width)}
+\Do{Type}{\type{10}}{and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:qs2]{qs2}{The sales table formatted}
+The headings were already right-aligned; /Range Label sets the alignment
+of every label in a range at once, as you would after typing labels without
+a prefix.
+
+\section{Task Summary}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{You used}}
+Display dollars & /Range Format Currency\\
+Align labels & /Range Label Left, Right or Center\\
+Widen a column & /Worksheet Column Set-Width\LotEnd
+\end{LotTable}
+
+\section{Other Tasks to Try}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{Use}}
+Format every number at once & /Worksheet Global Format\\
+Show percentages & /Range Format Percent\\
+Widen every column & /Worksheet Global Column-Width\LotEnd
+\end{LotTable}

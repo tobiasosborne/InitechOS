@@ -1,0 +1,26 @@
+% Cover (PUB-REF-0001 PK-02: the IBM cover grid on white, the Decision
+% Support family band) and back cover (PK-05: wordmark top left, address
+% bottom left, part number and print code bottom right; the slogan,
+% operator directive 2026-10-17).  Trim only: bleed and the printer's
+% PDF/X settings are a production step.  D-3: no version printed.
+\documentclass[lotus,cover]{initech-manual}
+\usepackage{initech-lotus}
+\ProductName{Initech 123}
+\ProductVersion{}
+\DocTitle{Reference}
+\PartNumber{1051-0000-10}
+\PrintCode{A1-6/92}
+\FamilyName{Decision Support Family}
+\FamilyColor{FamilyDecision}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily
+  Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent
+  \rule{\linewidth}{0.5pt}\medskip}
+\begin{document}
+\MakeCover
+\thispagestyle{empty}%
+\AtPage{23}{20}{\Wordmark[30mm]}%
+\AtPage{23}{150}{\parbox{100mm}{\IsThisGoodForTheCompany}}%
+\AtPage{23}{196}{\parbox{90mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
+\AtPage{100}{208}{\makebox[54.8mm][r]{\sffamily\fontsize{8}{10}\selectfont 1051-0000-10\quad A1-6/92}}%
+\null\newpage
+\end{document}

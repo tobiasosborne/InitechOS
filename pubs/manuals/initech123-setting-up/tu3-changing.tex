@@ -1,0 +1,116 @@
+% Tutorial, Chapter 3 -- Changing a Worksheet: Lessons 7 to 11 (AN-17).
+% Figures: screens/tl7a..tl11.k123 on the data volume of stage 2 (SUPPLY
+% saved, BUDGET not yet).  Sources (Law 1): os/i123/app/face_a.c
+% (/File Retrieve and its prompt; EDIT (F2) places the contents on line 2,
+% characters are added at the end; /Worksheet Global Format, /Range Format
+% Currency with its decimal prompt; /Worksheet Column Set-Width; /Move;
+% /File Save), os/i123/core/fmt.c (the Comma and Currency displays).
+% GATES: test-flair-i123-files test-i123-range-menu test-i123-copy-move-model test-pubs-screens test-pubs-i123
+\Gates{test-flair-i123-files, test-i123-range-menu, test-i123-copy-move-model,
+  test-pubs-screens, test-pubs-i123}
+\chapter{Changing a Worksheet}
+
+In this chapter you bring back the budget you saved, correct it, change the
+way its numbers look, rearrange it, and save it under a new name.
+
+\section{Lesson 7: Retrieving a Worksheet}
+\ix{/File Retrieve}\ix{retrieving}
+To work on a saved worksheet, retrieve it: /File Retrieve reads the file
+into memory in place of the worksheet that is there.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{f} to select File}
+\Do{Type}{\type{r}}{to select Retrieve}
+\Do{Type}{\type{SUPPLY}}{the name of the file}
+\end{Keystrokes}
+The control panel shows the prompt \texttt{Name of file to retrieve:} with
+the name you typed; the mode indicator shows \ind{FILES}
+(Figure~\ref{fig:tl7a}).
+\FlairShot[fig:tl7a]{tl7a}{Retrieving SUPPLY}
+\begin{Keystrokes}
+\Do{Press}{\kname{ENTER}}{to retrieve the file}
+\end{Keystrokes}
+The budget appears as you saved it, with the cell pointer where you left it
+(Figure~\ref{fig:tl7b}).
+\FlairShot[fig:tl7b]{tl7b}{SUPPLY retrieved}
+
+\section{Lesson 8: Editing Entries}
+\ix{editing}\ix{EDIT (F2)}
+In this lesson you change a number by typing it again, and change a label
+with EDIT (F2) without typing it all again.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{d6}, then press \kname{ENTER}}
+\Do{Type}{\type{225}}{the corrected toner cost for the third quarter}
+\Do{Press}{\kname{ENTER}}{}
+\end{Keystrokes}
+The totals in F6, D9 and F9 change at once: Initech 123 recalculates every
+formula that depends on D6.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{a2}, then press \kname{ENTER}}
+\Do{Press}{\fkey{Edit}{F2}}{to place the label on the control panel}
+\Do{Type}{\type{\ 1992}}{a space and the year, at the end of the label}
+\end{Keystrokes}
+The second line of the control panel shows the label, with its prefix, and
+the characters you added (Figure~\ref{fig:tl8}).
+\FlairShot[fig:tl8]{tl8}{Editing the subtitle}
+\begin{Keystrokes}
+\Do{Press}{\kname{ENTER}}{to store the changed label}
+\end{Keystrokes}
+While you edit, \kname{BACKSPACE} erases the last character, and
+\kname{ESC} abandons the change.
+
+\section{Lesson 9: Formatting Numbers}
+\ix{formats}
+A \term{format} sets how a cell displays its number.  In this lesson you
+give the whole worksheet a format with commas between thousands, and then
+give the totals dollar signs.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{f} to select
+  Worksheet Global Format}
+\Do{Type}{\type{,}}{the comma format}
+\Do{Type}{\type{0}}{no decimal places, and press \kname{ENTER}}
+\end{Keystrokes}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{f}, \type{c} to select
+  Range Format Currency}
+\Do{Type}{\type{0}}{no decimal places, and press \kname{ENTER}}
+\Do{Type}{\type{f5..f9}}{the range to format, and press \kname{ENTER}}
+\end{Keystrokes}
+Format B9..E9 the same way: select Range Format Currency, type \type{0}
+and press \kname{ENTER}, type \type{b9..e9} and press \kname{ENTER}
+(Figure~\ref{fig:tl9}).
+\FlairShot[fig:tl9]{tl9}{The totals in Currency format}
+A format changes only the display.  The numbers themselves are unchanged.
+
+\section{Lesson 10: Changing a Column Width}
+\ix{column width}
+The title fits better over a wider column A.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{a1}, then press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{c}, \type{s} to select
+  Worksheet Column Set-Width}
+\Do{Type}{\type{12}}{the new width, and press \kname{ENTER}}
+\end{Keystrokes}
+Column A is now twelve characters wide (Figure~\ref{fig:tl10}).
+\FlairShot[fig:tl10]{tl10}{Column A widened}
+
+\section{Lesson 11: Moving Data and Saving Under a New Name}
+\ix{/Move}
+In this lesson you move the title to the middle of the worksheet and save
+the changed budget as BUDGET, keeping SUPPLY as it was.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{m} to select Move}
+\Do{Type}{\type{a1..a2}}{the title and subtitle, and press \kname{ENTER}}
+\Do{Type}{\type{c1}}{their new place, and press \kname{ENTER}}
+\end{Keystrokes}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{f}, \type{s} to select File Save}
+\Do{Type}{\type{BUDGET}}{the new name, and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl11]{tl11}{The budget saved as BUDGET}
+SUPPLY, on the disk, still holds the budget as Lesson~6 left it.

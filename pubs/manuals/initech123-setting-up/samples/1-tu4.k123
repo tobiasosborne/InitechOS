@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 1-tu4: the Tutorial keystrokes of
+# the lessons that build it (pubs/pubs.mk types this into the shipped
+# application; later figures retrieve the file it saves).
+/frTU3~{GOTO}b5~120{RIGHT}135{RIGHT}110{RIGHT}150~{GOTO}b6~210{RIGHT}190{RIGHT}240{RIGHT}205~{GOTO}b7~15{RIGHT}12{RIGHT}18{RIGHT}14~{GOTO}b8~40{RIGHT}35{RIGHT}45{RIGHT}30~/fsTU4~

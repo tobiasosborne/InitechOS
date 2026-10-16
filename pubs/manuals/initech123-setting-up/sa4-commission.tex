@@ -1,0 +1,46 @@
+% Sample Applications, Chapter 4 -- Sales Commission (annex Sec 8.3).
+% Values replayed through the shipped application (examples/
+% commission.i23); @VLOOKUP as os/i123/core/eval.c fn_lookup computes it
+% (the largest key not above the value; offset 1 = the second column).
+% Figure screens/sa4.k123.
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
+\chapter{Sales Commission}
+
+Each month the sales office computes the commission of each salesperson
+from a table of rates: the more a salesperson sells, the higher the rate on
+the whole amount.
+
+\section{What You Enter}
+\begin{itemize}
+\item The rate table: the lowest sales of each bracket and its rate
+\item Each salesperson's name and sales for the month
+\end{itemize}
+
+\section{Entering the Data}
+\ix{"@VLOOKUP}
+Type the rate table in A3..B6: the lowest sales of each bracket in
+ascending order in column A, and the rate beside it in column B.  Type the
+names in D3..D5 and the sales in E3..E5.  In F3 enter
+\type{+e3*@vlookup(e3,\$a\$3..\$b\$6,1)} and copy it to F4 and F5.
+\FlairShot[fig:sa4]{sa4}{Commissions from the rate table}
+
+\begin{LotTable}{p{30mm}p{24mm}p{74mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Rate table & A3..B6 & The lowest sales of each bracket and its rate\\
+Name & D3..D5 & The salespeople\\
+Sales & E3..E5 & Each one's sales for the month\\
+Comm & F3..F5 & The commission: the sales times the rate of the bracket
+  they fall in\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+\LotExample{examples/commission}
+\fn{@VLOOKUP} finds the largest bracket in column A that is not more than
+the sales, and returns the rate one column to its right.
+
+\section{Changing the Template}
+To change a rate, type it over the old one in column B.  To add a bracket
+above the highest, type it in row 7, then change the range in the formulas
+to \texttt{\$A\$3..\$B\$7} with \fkey{Edit}{F2}.  Column A must stay in
+ascending order.

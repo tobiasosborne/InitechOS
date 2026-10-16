@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 4: sales commissions
+Commission Rates{DOWN}"Sales{RIGHT}"Rate~{GOTO}a3~0{DOWN}1500{DOWN}15000{DOWN}30000~{GOTO}b3~.02{DOWN}.03{DOWN}.04{DOWN}.05~{GOTO}d2~Name{RIGHT}"Sales{RIGHT}"Comm~{GOTO}d3~Ames{DOWN}Baker{DOWN}Cole~{GOTO}e3~1200{DOWN}12500{DOWN}31000~{GOTO}f3~+e3*@vlookup(e3,$a$3..$b$6,1)~/c~f4~/cf3~f5~

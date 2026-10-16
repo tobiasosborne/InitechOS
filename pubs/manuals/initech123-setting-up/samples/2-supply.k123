@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 2-supply: the Tutorial keystrokes of
+# the lessons that build it (pubs/pubs.mk types this into the shipped
+# application; later figures retrieve the file it saves).
+/frTU4~{GOTO}f5~@sum(b5..e5)~/c~f6~/cf5..f6~f7~{GOTO}b9~@sum(b5..b8)~/c~c9~/cb9..c9~d9~/cb9..c9~e9~/fsSUPPLY~

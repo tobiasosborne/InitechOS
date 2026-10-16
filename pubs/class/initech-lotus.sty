@@ -181,16 +181,17 @@
 
 %% Key tables: \KeyRow[draft]{F9}{CALC}{what it does}; NAME is the probe's
 %% key name (i123_face.c KEYS), the printed cap is NT-10 small capitals.
+\newlength\im@kcol \setlength\im@kcol{24mm}
 \newenvironment{KeyTable}[2]
   {\par\addvspace{4pt}\noindent{\sffamily\fontsize{8}{10}\selectfont
-   \begin{tabular}{@{}p{24mm}p{24mm}@{}}\textbf{#2}&\textbf{#1}\end{tabular}}\par
+   \begin{tabular}{@{}p{\im@kcol}p{\im@kcol}@{}}\textbf{#2}&\textbf{#1}\end{tabular}}\par
    \nobreak\vspace{-3pt}\noindent\rule{\linewidth}{0.5pt}\par\nobreak
-   \begin{list}{}{\leftmargin=50mm\labelwidth=48mm\labelsep=2mm\itemsep=1pt\parsep=0pt\topsep=2pt}}
+   \begin{list}{}{\leftmargin=\dimexpr2\im@kcol+2mm\relax\labelwidth=2\im@kcol\labelsep=2mm\itemsep=1pt\parsep=0pt\topsep=2pt}}
   {\end{list}\vspace{-3pt}\noindent\rule{\linewidth}{0.25pt}\par\addvspace{4pt}}
 \NewDocumentCommand\KeyRow{o m m m}{%
   \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
   \RegisterCommand{#2}{key}{\im@ostate}{#2}%
-  \item[{\makebox[24mm][l]{#3}\makebox[24mm][l]{\im@keycap{#2}}\hfill}]#4\IfValueT{#1}{ \draft{#1}}}
+  \item[{\makebox[\im@kcol][l]{#3}\makebox[\im@kcol][l]{\im@keycap{#2}}\hfill}]#4\IfValueT{#1}{ \draft{#1}}}
 \newcommand\im@keycap[1]{\ifcsname im@cap@#1\endcsname\csname im@cap@#1\endcsname\else\key{#1}\fi}
 \expandafter\def\csname im@cap@SLASH\endcsname{\texttt{/}}
 \expandafter\def\csname im@cap@LESS-THAN\endcsname{\texttt{<}}
@@ -367,6 +368,38 @@
     \im@notesleaf\advance\im@padcount by 1
   \repeat
   \input{colophon}}
+
+%% ---- the Quick Reference booklet (PK-11; DS row 123-QR) -------------------
+%% \QuickReferenceGeometry in the preamble: the 88.9 x 228.6 mm (3.5 x 9 in)
+%% booklet trim, 8 mm margins, one 72.9 mm column, saddle-stitched.
+\newcommand\QuickReferenceGeometry{%
+  \setlength\imInside{8mm}\setlength\imOutside{8mm}\setlength\imHang{0mm}%
+  \setlength\imTextWidth{72.9mm}\setlength\imFullWidth{72.9mm}%
+  \geometry{paperwidth=3.5in, paperheight=9in, twoside, textwidth=72.9mm,
+    inner=8mm, top=14mm, textheight=198mm, footskip=9mm, headheight=10pt,
+    headsep=3mm, nomarginpar}%
+  \renewcommand\normalsize{\@setfontsize\normalsize{8.5}{10}}\normalsize
+  \setlength\im@treemax{70mm}\setlength\im@kcol{16mm}}
+%% \NotesTo{n}: NOTES leaves (PK-11 "Notes pages fill the booklet") until the
+%% colophon of \LotusFinish will be page n of the booklet.
+\newcommand\NotesTo[1]{\clearpage
+  \loop\ifnum\numexpr\ReadonlyShipoutCounter+1\relax<#1 \im@notesleaf\repeat}
+%% Section heads Heros Bold caps between two rules (PK-11).
+\newcommand\QRSection[1]{\par\addvspace{8pt}\noindent\rule{\linewidth}{0.5pt}\par\nobreak
+  \vspace{1pt}{\noindent\sffamily\bfseries\fontsize{9}{11}\selectfont\MakeUppercase{#1}\par}\nobreak
+  \vspace{-1pt}\noindent\rule{\linewidth}{0.5pt}\par\nobreak\markright{#1}%
+  \addcontentsline{toc}{section}{#1}\@afterheading}
+%% An @function: name and syntax bold over a one-line description (PK-11);
+%% registers the @function (KIND function).
+\NewDocumentCommand\QRFunction{o m m m}{%
+  \IfValueTF{#1}{\def\im@ostate{DRAFT}}{\def\im@ostate{GATED}}%
+  \RegisterCommand{#2}{function}{\im@ostate}{#2}%
+  \par\addvspace{2pt}{\noindent\ttfamily\bfseries #2#3\par}\nobreak
+  {\noindent\hspace*{3mm}#4\par}}
+%% The menu map (generated: i123_face outline): \MapItem{depth}{word}{R};
+%% R = not available in this version, marked with a dagger.
+\newcommand\MapItem[3]{\par\parskip=0pt\noindent\hspace*{#1\dimexpr3mm\relax}%
+  {\ifnum#1=0 \sffamily\bfseries\fi #2}\ifx\relax#3\relax\else\,\textsuperscript{\dag}\fi}
 
 %% ---- AN-08 menu trees (generated: harness/pubs/i123_face.c tree) -----------
 %% The generator emits, depth first from the main menu,

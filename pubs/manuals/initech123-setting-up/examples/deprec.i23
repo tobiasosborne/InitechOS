@@ -1,0 +1,18 @@
+# Sample Applications, Chapter 3: three depreciation methods
+B3 1500
+B4 150
+B5 5
+A8 1
+A9 2
+A10 3
+B8 @SLN($B$3,$B$4,$B$5)
+C8 @SYD($B$3,$B$4,$B$5,A8)
+D8 @DDB($B$3,$B$4,$B$5,A8)
+do {GOTO}B8~/cb8..d8~b9~/cb8..d8~b10~
+show B8
+show C8
+show D8
+show C9
+show D9
+show C10
+show D10

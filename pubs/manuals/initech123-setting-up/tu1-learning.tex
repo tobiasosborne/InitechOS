@@ -1,0 +1,120 @@
+% Tutorial, Chapter 1 -- Learning About Initech 123: Lessons 1 and 2
+% (AN-17 F-LOT: lesson A-heads numbered across chapters, keystroke tables,
+% commentary, screens; annex Sec 8.1).  Every figure is the running
+% system after the lesson's keystrokes (screens/tl1*.k123, tl2*.k123).
+% Sources (Law 1): os/i123/app/face_a.c (pointer keys, HOME, GOTO (F5)
+% and its prompt "Enter cell address: ", the menu keys, Esc one level,
+% Ctrl-Break, the refusal "Command not implemented").
+% GATES: test-flair-i123 test-flair-i123-menu test-i123-range-menu test-pubs-screens
+\Gates{test-flair-i123, test-flair-i123-menu, test-i123-range-menu, test-pubs-screens}
+\chapter{Learning About Initech 123}
+
+In this chapter you learn your way around the Initech 123 window and its
+menus.  You need no worksheet to begin: start Initech 123 as
+\doctitle{Setting Up Initech 123}, Chapter~2, describes, and keep this
+book open beside you.
+
+\section{Lesson 1: Moving Around the Worksheet}
+\ix{cell pointer}
+In this lesson you learn to:
+\begin{itemize}
+\item read the control panel
+\item move the cell pointer with the pointer-movement keys
+\item go straight to a cell with GOTO (F5)
+\end{itemize}
+
+\subsection{The Worksheet and the Cell Pointer}
+The \term{worksheet} is a grid of columns, lettered across the top, and
+rows, numbered down the left.  Each box of the grid is a
+\term{cell}, named by its column and row: the cell in column A and row 1
+is \texttt{A1}.  The highlighted bar in A1 is the \term{cell pointer}; the
+first line of the control panel shows its address, \texttt{A1:}.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{RIGHT} three times}{to move the cell pointer to D1}
+\Do{Press}{\kname{DOWN} twice}{to move the cell pointer to D3}
+\end{Keystrokes}
+The control panel now shows \texttt{D3:} (Figure~\ref{fig:tl1a}).
+\FlairShot[fig:tl1a]{tl1a}{The cell pointer in D3}
+
+\subsection{Going Straight to a Cell}
+\ix{GOTO (F5)}
+\kname{HOME} takes the cell pointer back to A1 from anywhere.  To go to any
+other cell at once, press \fkey{Goto}{F5} and type the cell's address.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{HOME}}{to move the cell pointer to A1}
+\Do{Press}{\fkey{Goto}{F5}}{to display the GOTO prompt}
+\Do{Type}{\type{d12}}{}
+\end{Keystrokes}
+The control panel shows \texttt{Enter cell address:} and what you typed;
+the mode indicator shows \ind{RANGE} (Figure~\ref{fig:tl1b}).
+\FlairShot[fig:tl1b]{tl1b}{The GOTO prompt}
+
+\begin{Keystrokes}
+\Do{Press}{\kname{ENTER}}{to move the cell pointer to D12}
+\end{Keystrokes}
+\FlairShot[fig:tl1c]{tl1c}{The cell pointer in D12}
+You can type the address in capital or small letters.
+
+\section{Lesson 2: Using the Menus}
+\ix{menus}
+In this lesson you learn to:
+\begin{itemize}
+\item display the main menu and move the menu pointer
+\item select a command and back out of a menu
+\item recognize a command that is not available in this version
+\end{itemize}
+
+\subsection{Displaying the Main Menu}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{to display the main menu}
+\Do{Press}{\kname{RIGHT} twice}{to highlight Copy}
+\end{Keystrokes}
+The second line of the control panel lists the commands of the main menu;
+the third line describes the highlighted one (Figure~\ref{fig:tl2a}).  The
+mode indicator shows \ind{MENU}.
+\FlairShot[fig:tl2a]{tl2a}{The main menu with Copy highlighted}
+
+\begin{Keystrokes}
+\Do{Press}{\kname{ESC}}{to remove the menu and return to READY mode}
+\end{Keystrokes}
+
+\subsection{Selecting a Command}
+You can select a command by highlighting it and pressing \kname{ENTER}, or
+by typing its first letter.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{to display the main menu}
+\Do{Type}{\type{w}}{to select Worksheet}
+\Do{Type}{\type{g}}{to select Global}
+\end{Keystrokes}
+The control panel now shows the /Worksheet Global menu
+(Figure~\ref{fig:tl2b}).
+\FlairShot[fig:tl2b]{tl2b}{The /Worksheet Global menu}
+
+\begin{Keystrokes}
+\Do{Press}{\kname{ESC}}{to go back to the Worksheet menu}
+\Do{Press}{\kname{CTRL-BREAK}}{to leave the menus and return to READY mode}
+\end{Keystrokes}
+Each \kname{ESC} takes you back one menu; \kname{CTRL-BREAK} leaves all of
+them at once.
+
+\subsection{A Command Not Available in This Version}
+The menus of Initech 123 show every command of its design, but some of the
+commands are not available in this version.  Try one:
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{to display the main menu}
+\Do{Type}{\type{w}}{to select Worksheet}
+\Do{Type}{\type{s}}{to select Status}
+\end{Keystrokes}
+The mode indicator shows \ind{ERROR} and the control panel displays
+\texttt{Command not implemented} (Figure~\ref{fig:tl2c}).  Nothing in the
+worksheet changes.
+\FlairShot[fig:tl2c]{tl2c}{A command that is not available}
+\begin{Keystrokes}
+\Do{Press}{\kname{ESC}}{to return to the worksheet}
+\end{Keystrokes}
+This completes the first chapter.  In the next one you build your first
+worksheet.

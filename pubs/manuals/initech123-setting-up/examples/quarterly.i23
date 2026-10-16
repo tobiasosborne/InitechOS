@@ -1,0 +1,14 @@
+# Sample Applications, Chapter 1: the share of quarterly results
+B4 40%
+B5 35%
+B6 18%
+B7 14%
+B8 9%
+B9 @SUM(B4..B8)
+do /rfp0~b4..b9~
+show B4
+show B5
+show B6
+show B7
+show B8
+show B9

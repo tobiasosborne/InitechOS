@@ -297,11 +297,11 @@ $(PUBS_GEN)/i123shots/%.png: $$(PUBS_DIR)/manuals/$$(dir $$*)screens/$$(notdir $
 $(PUBS_GEN)/i123-map-%.tex: $(PUBS_I123_FACE)
 	@mkdir -p $(PUBS_GEN)
 	@$(PUBS_I123_FACE) outline $* > $@.tmp && mv -f $@.tmp $@
-# The key map (PK-14 templates, the Quick Reference): one \LotKey line per
-# shipped key, in the probe's keyboard order.
+# The key map (PK-14 templates, the Quick Reference): one \LotKey{KEY}{NAME}
+# line per key the shipped application acts on (i123_face keymap).
 $(PUBS_GEN)/i123-keymap.tex: $(PUBS_I123_FACE)
 	@mkdir -p $(PUBS_GEN)
-	@$(PUBS_I123_FACE) inventory | sed -n 's/^\(.*\)|key$$/\\LotKey{\1}/p' > $@.tmp && mv -f $@.tmp $@
+	@$(PUBS_I123_FACE) keymap > $@.tmp && mv -f $@.tmp $@
 
 .PHONY: pubs-i123-inventory test-pubs-i123 test-pubs-i123-examples pubs-i123-examples pubs-i123-screens
 pubs-i123-inventory: $(PUBS_I123_FACE) $(PUBS_I123_GEN)

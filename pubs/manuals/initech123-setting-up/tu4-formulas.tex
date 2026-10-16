@@ -1,0 +1,100 @@
+% Tutorial, Chapter 4 -- Working with Formulas: Lessons 12 to 15 (AN-17).
+% Figures: screens/tl12..tl15.k123 on the data volume of stage 3 (BUDGET
+% saved).  Sources (Law 1): os/i123/core/formula.c (absolute references,
+% $NAME), os/i123/core/range.c (range names; the control panel shows the
+% range a name stands for), os/i123/core/recalc.c (manual recalculation,
+% CALC), os/i123/core/eval.c (@IF; strings in quotation marks).
+% GATES: test-i123-formula test-i123-recalc-order test-i123-range-menu test-pubs-screens test-pubs-i123
+\Gates{test-i123-formula, test-i123-recalc-order, test-i123-range-menu,
+  test-pubs-screens, test-pubs-i123}
+\chapter{Working with Formulas}
+
+In this chapter you add each supply's share of the budget, name a range,
+recalculate by hand, and add a test that marks the expensive quarters.
+Begin by retrieving BUDGET: press \kname{SLASH}, type \type{f} and
+\type{r}, type \type{BUDGET} and press \kname{ENTER}.
+
+\section{Lesson 12: Absolute References}
+\ix{absolute reference}
+Each supply's share of the year's spending is its total divided by the
+total in F9.  When you copy such a formula, the reference to F9 must not
+move.  An \term{absolute reference}, with dollar signs, \texttt{\$F\$9},
+always refers to the same cell.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{g4}, then press \kname{ENTER}}
+\Do{Type}{\type{"Share}}{and press \kname{DOWN}}
+\Do{Type}{\type{+f5/\$f\$9}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type
+  \type{g6} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{g5..g6} and press
+  \kname{ENTER}, type \type{g7} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{g5} and press
+  \kname{ENTER}, type \type{g9} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{r}, \type{f}, \type{p}, type \type{1}
+  and press \kname{ENTER}, type \type{g5..g9} and press \kname{ENTER}}
+\end{Keystrokes}
+The formula begins with a plus sign so that Initech 123 reads it as a
+value.  Every copy divides by F9, and the shares appear as percentages
+(Figure~\ref{fig:tl12}).
+\FlairShot[fig:tl12]{tl12}{Each supply's share of the year}
+
+\section{Lesson 13: Naming a Range}
+\ix{range names}
+A \term{range name} stands for a range in formulas and prompts.  Name the
+grand total TOTAL, and use the name in the share formulas.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{f9}, then press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{n}, \type{c} to select
+  Range Name Create}
+\Do{Type}{\type{total}}{the name, and press \kname{ENTER}}
+\Do{Press}{\kname{ENTER}}{to name the current cell, F9}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{g5}, then press \kname{ENTER}}
+\Do{Type}{\type{+f5/\$total}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Copy G5 to G6, and G5..G6 to G7, as in Lesson~12.  A dollar sign before a
+range name makes it an absolute reference.  The control panel shows the
+formula with the cell the name stands for (Figure~\ref{fig:tl13}).
+\FlairShot[fig:tl13]{tl13}{The share formula written with the name TOTAL}
+
+\section{Lesson 14: Recalculating by Hand}
+\ix{recalculation}
+Initech 123 recalculates after every entry.  In a large worksheet you may
+prefer to recalculate only when you ask.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{r}, \type{m}
+  to select Worksheet Global Recalculation Manual}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{b5}, then press \kname{ENTER}}
+\Do{Type}{\type{170}}{and press \kname{ENTER}}
+\end{Keystrokes}
+B5 changes, but the totals do not, and the \ind{CALC} indicator appears on
+the status line (Figure~\ref{fig:tl14a}).
+\FlairShot[fig:tl14a]{tl14a}{Manual recalculation: the totals wait}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Calc}{F9}}{to recalculate}
+\end{Keystrokes}
+\FlairShot[fig:tl14b]{tl14b}{After CALC (F9)}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{r}, \type{a}
+  to return to automatic recalculation}
+\end{Keystrokes}
+
+\section{Lesson 15: Testing a Condition}
+\ix{"@IF}
+\fn{@IF} chooses between two results: \texttt{@IF(B9>380,"Yes","No")} gives
+\texttt{Yes} if B9 is more than 380, and \texttt{No} otherwise.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{a11}, then press \kname{ENTER}}
+\Do{Type}{\type{Over 380?}}{and press \kname{RIGHT}}
+\Do{Type}{\type{@if(b9>380,"Yes","No")}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type
+  \type{c11} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{b11..c11} and press
+  \kname{ENTER}, type \type{d11} and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:tl15]{tl15}{The quarters over 380}
+Save the worksheet as REVIEW: press \kname{SLASH}, type \type{f} and
+\type{s}, type \type{REVIEW} and press \kname{ENTER}.

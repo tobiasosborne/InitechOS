@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 1-tu3: the Tutorial keystrokes of
+# the lessons that build it (pubs/pubs.mk types this into the shipped
+# application; later figures retrieve the file it saves).
+INITECH SYSTEMS CORPORATION{DOWN}Supply Room Budget{DOWN}{DOWN}Item{RIGHT}"Q1{RIGHT}"Q2{RIGHT}"Q3{RIGHT}"Q4{RIGHT}"Total~{GOTO}a5~Paper{DOWN}Toner{DOWN}Staples{DOWN}Folders{DOWN}Total~/fsTU3~

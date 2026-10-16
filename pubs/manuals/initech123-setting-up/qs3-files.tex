@@ -1,0 +1,45 @@
+% Quick Start, Chapter 3 -- Saving and Retrieving.  Figure screens/qs3.k123.
+% Sources (Law 1): os/i123/app/face_a.c (/File Save, /File Retrieve, the
+% exit guard).
+% GATES: test-flair-i123-files test-i123-quit test-pubs-screens test-pubs-i123
+\Gates{test-flair-i123-files, test-i123-quit, test-pubs-screens, test-pubs-i123}
+\chapter{Saving and Retrieving}
+
+This chapter saves the sales table, ends Initech 123, and brings the table
+back.
+
+\section{What This Chapter Shows You}
+\begin{itemize}
+\item Saving a worksheet
+\item Ending the session
+\item Retrieving a worksheet
+\end{itemize}
+
+\section{Saving}
+\ix{saving}
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{f}, \type{s} (File Save)}
+\Do{Type}{\type{REGIONS}}{and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:qs3]{qs3}{The table saved as REGIONS}
+
+\section{Ending and Starting Again}
+Select \slashcmd{/Quit Yes} to end the session; the worksheet is saved, so
+Initech 123 ends at once.  Start Initech 123 again, then retrieve the
+table: press \kname{SLASH}, type \type{f}, \type{r}, type \type{REGIONS} and
+press \kname{ENTER}.
+
+\section{Task Summary}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{You used}}
+Save a worksheet & /File Save and a file name\\
+End the session & /Quit Yes\\
+Retrieve a worksheet & /File Retrieve and the file name\LotEnd
+\end{LotTable}
+
+\section{Other Tasks to Try}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{Use}}
+Save a second version & /File Save with a new name\\
+Replace a saved file & /File Save, the same name, then Replace\LotEnd
+\end{LotTable}

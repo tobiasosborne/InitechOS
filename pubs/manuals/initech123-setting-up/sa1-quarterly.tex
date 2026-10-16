@@ -1,0 +1,58 @@
+% Sample Applications, Chapter 1 -- Share of Quarterly Results (annex Sec
+% 8.3: scenario, inputs, per-block A-heads, Item / Address / Meaning
+% tables).  CP-15: the quarterly results worksheet and its pie chart.  The
+% shares and their total are typed and replayed through the shipped
+% application (examples/quarterly.i23; GC-11: the total is 116%, asserted
+% by test-pubs-i123-examples); the pie chart needs /Graph, which this
+% version refuses (era_shortfalls I123-P3-02): DRAFT.  Figure
+% screens/sa1.k123.
+% GATES: test-i123-formula test-i123-range-menu test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-i123-range-menu, test-pubs-i123-examples,
+  test-pubs-screens}
+\chapter{Share of Quarterly Results}
+
+At the end of each quarter, the planning office reports each division's
+share of the quarter's results.  This worksheet lists the five divisions,
+their shares as percentages, and the total, and prepares the figures for a
+pie chart.
+
+\section{What You Enter}
+\begin{itemize}
+\item The name of each division
+\item Each division's share of the quarter's results, as a percentage
+\end{itemize}
+
+\section{Entering the Data}
+\ix{percentages}
+Type the title in A1, the heading \type{Division} in A3 and \type{"Share}
+in B3, the division names in A4..A8 and \type{Total} in A9.  Type each share
+with a percent sign, as in \type{40\%}: Initech 123 stores it as 0.4.  In B9
+enter \type{@sum(b4..b8)}.  Then format B4..B9 as percentages with no
+decimal places (\slashcmd{/Range Format Percent}) and widen column A to 14
+characters (\slashcmd{/Worksheet Column Set-Width}).
+\FlairShot[fig:sa1]{sa1}{The share of quarterly results}
+
+\begin{LotTable}{p{30mm}p{24mm}p{74mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Division & A4..A8 & The five divisions\\
+Share & B4..B8 & Each division's share of the quarter's results\\
+Total & B9 & The sum of the shares, \texttt{@SUM(B4..B8)}\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+The shares and their total, as the cells show them:
+\LotExample{examples/quarterly}
+
+\section{Graphing the Results}
+\draft{I123-P3-02: /Graph refuses in this version}
+The shares are laid out for a pie chart: the division names in A4..A8 as
+the X range and the shares in B4..B8 as the A range.  Select
+\slashcmd{/Graph Type Pie}, set the X range with \slashcmd{/Graph X} and the
+A range with \slashcmd{/Graph A}, and view the chart with
+\slashcmd{/Graph View}.
+
+\section{Changing the Template}
+To use the worksheet for another quarter, type the new shares over B4..B8;
+the total in B9 is recalculated at once.  To add a division, enter it in
+row 9 and move the total down a row with \slashcmd{/Move}, then change the
+range in the formula with \fkey{Edit}{F2}.

@@ -1,0 +1,260 @@
+% The body of the Quick Reference.  The menu map is \input from the
+% generated build/pubs/gen/i123-map-*.tex; the key list registers the keys
+% (KeyRow, KIND key) and the @function list the @functions (QRFunction).
+% GATES: test-pubs-i123 test-i123-menu-tree test-i123-formula
+\Gates{test-pubs-i123, test-i123-menu-tree, test-i123-formula}
+\QRSection{Starting and Ending}
+Start: open the \file{APPS} folder of the data disk and double-click
+\file{123.EXE}.  End: \slashcmd{/Quit Yes}, \textbf{Quit} in the
+\textbf{File} menu (\key{Ctrl-Q}), or the close box.  Unsaved work is
+offered for saving first.
+
+\QRSection{The Control Panel}
+Line 1: the cell address, its contents, the mode indicator.  Line 2: the
+entry, the menu or the prompt.  Line 3: the description of the highlighted
+menu item.  The status line shows messages and the indicators \ind{CALC}
+(press \fkey{Calc}{F9}) and \ind{CIRC} (a circular reference).
+
+\QRSection{Mode Indicators}
+\begin{LotTable}{p{16mm}p{52mm}}
+\ind{READY} & Waiting for an entry or a command\\
+\ind{LABEL} & Entering a label\\
+\ind{VALUE} & Entering a number or a formula\\
+\ind{EDIT} & Correcting a value Initech 123 could not accept\\
+\ind{MENU} & Choosing from a menu\\
+\ind{FILES} & Asked for a file name\\
+\ind{RANGE} & Asked for a range, an address or a number\\
+\ind{ERROR} & A message is displayed; press \kname{ESC}\LotEnd
+\end{LotTable}
+
+\QRSection{Keys}
+\begin{KeyTable}{Key}{Name}
+\KeyRow{F2}{EDIT}{Edit the current cell}
+\KeyRow{F5}{GOTO}{Go to a cell}
+\KeyRow{F9}{CALC}{Recalculate}
+\KeyRow{UP}{Up arrow}{Up one row}
+\KeyRow{DOWN}{Down arrow}{Down one row}
+\KeyRow{LEFT}{Left arrow}{Left one column}
+\KeyRow{RIGHT}{Right arrow}{Right one column}
+\KeyRow{HOME}{Home}{To cell A1}
+\KeyRow{SLASH}{/}{The main menu}
+\KeyRow{LESS-THAN}{<}{The main menu}
+\KeyRow{ENTER}{Enter}{Complete an entry or choice}
+\KeyRow{ESC}{Esc}{Cancel; back one menu}
+\KeyRow{BACKSPACE}{Backspace}{Erase the last character}
+\KeyRow{CTRL-BREAK}{Ctrl-Break}{Back to READY}
+\end{KeyTable}
+
+\QRSection{Label Prefixes}
+\begin{LotTable}{p{12mm}p{56mm}}
+\texttt{'} & Left-aligned\\
+\texttt{"} & Right-aligned\\
+\texttt{\textasciicircum} & Centered\\
+\texttt{\textbackslash} & Repeated to fill the cell\LotEnd
+\end{LotTable}
+
+\QRSection{Operators}
+\begin{LotTable}{p{22mm}p{46mm}}
+\texttt{\textasciicircum} & Exponentiation (first)\\
+\texttt{- +} & Negative, positive\\
+\texttt{* /} & Multiply, divide\\
+\texttt{+ -} & Add, subtract\\
+\texttt{= <> < > <= >=} & Compare (1 true, 0 false)\\
+\texttt{\#NOT\#} & Logical NOT\\
+\texttt{\#AND\# \#OR\# \&} & AND, OR, join strings (last)\LotEnd
+\end{LotTable}
+
+\QRSection{Menu Map}
+Every menu of Initech 123, in menu order.  A command marked
+\textsuperscript{\dag} is not available in this version.
+\par\vspace{2pt}
+{\small
+\input{i123-map-Worksheet}
+\input{i123-map-Range}
+\input{i123-map-Copy}
+\input{i123-map-Move}
+\input{i123-map-File}
+\input{i123-map-Print}
+\input{i123-map-Graph}
+\input{i123-map-Data}
+\input{i123-map-System}
+\input{i123-map-Add-In}
+\input{i123-map-Quit}
+}
+
+\QRSection{@Functions}
+\QRFunction{@@}{(location)}{Contents of the cell a label names}
+\QRFunction{@ABS}{(x)}{Absolute value of a number}
+\QRFunction{@ACOS}{(x)}{Arc cosine of a number}
+\QRFunction{@ASIN}{(x)}{Arc sine of a number}
+\QRFunction{@ATAN}{(x)}{Arc tangent of a number}
+\QRFunction{@ATAN2}{(x,y)}{Four-quadrant arc tangent}
+\QRFunction{@AVG}{(list)}{Average of a list of values}
+\QRFunction{@CELL}{(attribute,range)}{Information about a cell}
+\QRFunction{@CELLPOINTER}{(attribute)}{Information about the current cell}
+\QRFunction{@CHAR}{(code)}{Character for a code number}
+\QRFunction{@CHOOSE}{(x,v0,v1,...)}{Chooses a value from a list}
+\QRFunction{@CLEAN}{(string)}{Removes control characters}
+\QRFunction{@CODE}{(string)}{Code number of the first character}
+\QRFunction{@COLS}{(range)}{Number of columns in a range}
+\QRFunction{@COS}{(x)}{Cosine of an angle in radians}
+\QRFunction{@COUNT}{(list)}{Number of nonblank entries}
+\QRFunction{@CTERM}{(interest,fv,pv)}{Periods for an investment to grow}
+\QRFunction{@DATE}{(year,month,day)}{Date serial number}
+\QRFunction{@DATEVALUE}{(string)}{Date serial number from text}
+\QRFunction{@DAVG}{(input,offset,criteria)}{Average of selected records}
+\QRFunction{@DAY}{(serial)}{Day of the month}
+\QRFunction{@DCOUNT}{(input,offset,criteria)}{Count of selected records}
+\QRFunction{@DDB}{(cost,salvage,life,period)}{Double-declining-balance depreciation}
+\QRFunction{@DMAX}{(input,offset,criteria)}{Largest of selected records}
+\QRFunction{@DMIN}{(input,offset,criteria)}{Smallest of selected records}
+\QRFunction{@DSTD}{(input,offset,criteria)}{Standard deviation of selected records}
+\QRFunction{@DSUM}{(input,offset,criteria)}{Sum of selected records}
+\QRFunction{@DVAR}{(input,offset,criteria)}{Variance of selected records}
+\QRFunction{@ERR}{}{The value ERR}
+\QRFunction{@EXACT}{(string1,string2)}{Compares two strings exactly}
+\QRFunction{@EXP}{(x)}{The number e raised to a power}
+\QRFunction{@FALSE}{}{The logical value 0}
+\QRFunction{@FIND}{(search,string,start)}{Position of one string in another}
+\QRFunction{@FV}{(payment,interest,term)}{Future value of an annuity}
+\QRFunction{@HLOOKUP}{(x,range,row)}{Looks up a value in a horizontal table}
+\QRFunction{@HOUR}{(time)}{Hour of a time}
+\QRFunction{@IF}{(condition,x,y)}{Chooses between two values}
+\QRFunction{@INDEX}{(range,column,row)}{Entry at a position in a range}
+\QRFunction{@INT}{(x)}{Integer part of a number}
+\QRFunction{@IRR}{(guess,range)}{Internal rate of return}
+\QRFunction{@ISERR}{(x)}{Tests for the value ERR}
+\QRFunction{@ISNA}{(x)}{Tests for the value NA}
+\QRFunction{@ISNUMBER}{(x)}{Tests for a value}
+\QRFunction{@ISSTRING}{(x)}{Tests for a string}
+\QRFunction{@LEFT}{(string,n)}{First characters of a string}
+\QRFunction{@LENGTH}{(string)}{Number of characters in a string}
+\QRFunction{@LN}{(x)}{Natural logarithm}
+\QRFunction{@LOG}{(x)}{Base 10 logarithm}
+\QRFunction{@LOWER}{(string)}{Converts to small letters}
+\QRFunction{@MAX}{(list)}{Largest value in a list}
+\QRFunction{@MID}{(string,start,n)}{Characters from the middle of a string}
+\QRFunction{@MIN}{(list)}{Smallest value in a list}
+\QRFunction{@MINUTE}{(time)}{Minute of a time}
+\QRFunction{@MOD}{(x,y)}{Remainder of a division}
+\QRFunction{@MONTH}{(serial)}{Month of a date}
+\QRFunction{@N}{(range)}{Number in the first cell of a range}
+\QRFunction{@NA}{}{The value NA}
+\QRFunction{@NOW}{}{Current date and time}
+\QRFunction{@NPV}{(interest,range)}{Net present value}
+\QRFunction{@PI}{}{The constant pi}
+\QRFunction{@PMT}{(principal,interest,term)}{Loan payment}
+\QRFunction{@PROPER}{(string)}{Capitalizes each word}
+\QRFunction{@PV}{(payment,interest,term)}{Present value of an annuity}
+\QRFunction{@RAND}{}{A pseudo-random number}
+\QRFunction{@RATE}{(fv,pv,term)}{Interest rate per period}
+\QRFunction{@REPEAT}{(string,n)}{Repeats a string}
+\QRFunction{@REPLACE}{(original,start,n,new)}{Replaces part of a string}
+\QRFunction{@RIGHT}{(string,n)}{Last characters of a string}
+\QRFunction{@ROUND}{(x,n)}{Rounds to a number of decimal places}
+\QRFunction{@ROWS}{(range)}{Number of rows in a range}
+\QRFunction{@S}{(range)}{String in the first cell of a range}
+\QRFunction{@SECOND}{(time)}{Second of a time}
+\QRFunction{@SIN}{(x)}{Sine of an angle in radians}
+\QRFunction{@SLN}{(cost,salvage,life)}{Straight-line depreciation}
+\QRFunction{@SQRT}{(x)}{Square root}
+\QRFunction{@STD}{(list)}{Standard deviation}
+\QRFunction{@STRING}{(x,n)}{Converts a number to a string}
+\QRFunction{@SUM}{(list)}{Sum of a list of values}
+\QRFunction{@SYD}{(cost,salvage,life,period)}{Sum-of-the-years'-digits depreciation}
+\QRFunction{@TAN}{(x)}{Tangent of an angle in radians}
+\QRFunction{@TERM}{(payment,interest,fv)}{Periods to reach a future value}
+\QRFunction{@TIME}{(hour,minute,second)}{Time-of-day number}
+\QRFunction{@TIMEVALUE}{(string)}{Time-of-day number from text}
+\QRFunction{@TRIM}{(string)}{Removes extra spaces}
+\QRFunction{@TRUE}{}{The logical value 1}
+\QRFunction{@UPPER}{(string)}{Converts to capital letters}
+\QRFunction{@VALUE}{(string)}{Converts a string to a number}
+\QRFunction{@VAR}{(list)}{Variance}
+\QRFunction{@VLOOKUP}{(x,range,column)}{Looks up a value in a vertical table}
+\QRFunction{@YEAR}{(serial)}{Year of a date}
+
+\QRSection{Command Summary}
+The commands available in this version, with what each one asks for.
+\newcommand\QC[2]{\par\addvspace{2pt}{\noindent\slashcmd{#1}\par}\nobreak{\noindent\hspace*{3mm}#2\par}}
+\QC{/Copy}{FROM range, then the upper left cell of the TO range}
+\QC{/Move}{FROM range, then the upper left cell of the TO range}
+\QC{/File Retrieve}{The file name (.WK1 is added)}
+\QC{/File Save}{The file name; an existing file offers Cancel, Replace}
+\QC{/Quit Yes}{Ends the session; unsaved work is offered for saving}
+\QC{/Range Format Fixed}{Decimal places (0..15), then the range}
+\QC{/Range Format Sci}{Decimal places, then the range}
+\QC{/Range Format Currency}{Decimal places, then the range}
+\QC{/Range Format ,}{Decimal places, then the range}
+\QC{/Range Format General}{The range}
+\QC{/Range Format +/-}{The range}
+\QC{/Range Format Percent}{Decimal places, then the range}
+\QC{/Range Format Date}{1, 2 or 3, then the range}
+\QC{/Range Format Text}{The range: formulas shown as text}
+\QC{/Range Format Hidden}{The range: contents not shown}
+\QC{/Range Format Reset}{The range: back to the global format}
+\QC{/Range Label}{Left, Right or Center, then the range of labels}
+\QC{/Range Erase}{The range; formats and protection stay}
+\QC{/Range Name Create}{The name (up to 15 characters), then the range}
+\QC{/Range Name Delete}{The name}
+\QC{/Range Name Labels}{Right, Down, Left or Up, then the labels}
+\QC{/Range Name Reset}{Nothing: deletes every name}
+\QC{/Range Name Table}{The upper left cell of the table}
+\QC{/Range Prot}{The range}
+\QC{/Range Unprot}{The range}
+\QC{/Range Value}{FROM range, then TO cell: formulas become values}
+\QC{/Range Trans}{FROM range, then TO cell: rows and columns exchanged}
+\QC{/Worksheet Global Format}{As /Range Format, for the whole worksheet}
+\QC{/Worksheet Global Label-Prefix}{Left, Right or Center, for new labels}
+\QC{/Worksheet Global Column-Width}{The width (1..240)}
+\QC{/Worksheet Global Recalculation}{Natural, Columnwise, Rowwise, Automatic, Manual, or Iteration and a count (1..50)}
+\QC{/Worksheet Global Protection}{Enable or Disable}
+\QC{/Worksheet Column Set-Width}{The width of the current column (1..240)}
+\QC{/Worksheet Column Reset-Width}{Nothing: back to the global width}
+\QC{/Worksheet Erase}{No or Yes; Yes erases at once, without saving}
+
+\QRSection{Messages}
+\newcommand\QM[2]{\par\addvspace{2pt}{\noindent\texttt{#1}\par}\nobreak{\noindent\hspace*{3mm}#2\par}}
+Press \kname{ESC} after any of these to return to the worksheet.
+\QM{Command not implemented}{The command is not available in this version}
+\QM{Invalid range}{Not an address, a range or a range name}
+\QM{Illegal number}{Outside the range the prompt shows}
+\QM{Invalid range name}{More than 15 characters, or none}
+\QM{Specify the upper left destination cell}{A TO range must be one cell}
+\QM{Command refused}{A protected cell, or a name moved while formulas exist}
+\QM{Cell is protected}{Protection is enabled and the cell is protected}
+\QM{Not enough worksheet memory}{A capacity limit; nothing was changed}
+\QM{File not found}{No such file on drive A:}
+\QM{Path not found}{No such directory}
+\QM{Not a valid WK1 file}{Not a worksheet file, or damaged}
+\QM{File too large}{Larger than 64K}
+\QM{File read incomplete}{The file could not be read to its end}
+\QM{File I/O error}{The disk could not be read or written}
+\QM{Enter a file name}{ENTER with no name}
+\QM{Invalid file name}{A space, * or ? in the name}
+\QM{File name too long}{More than 48 characters}
+\QM{Worksheet too large to save}{The file on disk was not touched}
+
+\QRSection{Task Reference}
+\begin{LotTable}{p{36mm}p{32mm}}
+\textbf{To} & \textbf{Use}\\
+Copy cells & /Copy\\
+Move cells & /Move\\
+Erase cells & /Range Erase\\
+Format numbers & /Range Format\\
+Format the whole sheet & /Worksheet Global Format\\
+Align labels & /Range Label\\
+Name a range & /Range Name Create\\
+List range names & /Range Name Table\\
+Freeze values & /Range Value\\
+Turn rows into columns & /Range Trans\\
+Widen a column & /Worksheet Column Set-Width\\
+Widen every column & /Worksheet Global Column-Width\\
+Recalculate by hand & /Worksheet Global Recalculation Manual, then CALC (F9)\\
+Protect the sheet & /Worksheet Global Protection Enable\\
+Allow changes to cells & /Range Unprot\\
+Start a new sheet & /Worksheet Erase Yes\\
+Save & /File Save\\
+Retrieve & /File Retrieve\\
+End the session & /Quit Yes\LotEnd
+\end{LotTable}

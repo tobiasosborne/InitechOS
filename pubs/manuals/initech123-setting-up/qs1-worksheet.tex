@@ -1,0 +1,79 @@
+% Quick Start, Chapter 1 -- Creating a Worksheet (annex Sec 8.2: opener,
+% What This Chapter Shows You, task sections with keystroke tables, Task
+% Summary, Other Tasks to Try).  Figure screens/qs1.k123.
+% Sources (Law 1): os/i123/app/face_a.c (entries, GOTO, /Copy), the core.
+% GATES: test-flair-i123 test-i123-formula test-pubs-screens test-pubs-i123
+\Gates{test-flair-i123, test-i123-formula, test-pubs-screens, test-pubs-i123}
+\chapter{Creating a Worksheet}
+
+This chapter is for you if you have used a worksheet program before.  In a
+few minutes it builds a table of regional sales for a quarter, with a
+total for each region.
+
+\begin{Note}
+Start Initech 123 with an empty worksheet, as \doctitle{Setting Up Initech
+123}, Chapter~2, describes.
+\end{Note}
+
+\section{What This Chapter Shows You}
+\begin{itemize}
+\item Entering labels and numbers
+\item Entering a formula
+\item Copying a formula
+\end{itemize}
+
+\section{Entering the Labels}
+\ix{labels}
+\begin{Keystrokes}
+\Do{Type}{\type{Region}}{in A1, and press \kname{RIGHT}}
+\Do{Type}{\type{"Jan}}{press \kname{RIGHT}; \type{"Feb}, \kname{RIGHT};
+  \type{"Mar}, \kname{RIGHT}; \type{"Total}, \kname{ENTER}}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{a2} and press \kname{ENTER}}
+\Do{Type}{\type{North}}{press \kname{DOWN}; then \type{South}, \type{East}
+  and \type{West}, each followed by \kname{DOWN} (\kname{ENTER} after the
+  last)}
+\end{Keystrokes}
+The quotation mark aligns a heading at the right of its cell.
+
+\section{Entering the Numbers}
+\ix{values}
+Go to B2 with \fkey{Goto}{F5} and type the sales of each region, pressing
+\kname{RIGHT} between the months and \kname{ENTER} after March:
+
+\begin{LotTable}{p{24mm}p{20mm}p{20mm}p{20mm}}
+\LotHead{\textbf{Region} & \textbf{Jan} & \textbf{Feb} & \textbf{Mar}}
+North (row 2) & 1420 & 1390 & 1441\\
+South (row 3) & 1100 & 1135 & 1098\\
+East (row 4) & 975 & 990 & 1012\\
+West (row 5) & 1368 & 1354 & 1390\LotEnd
+\end{LotTable}
+
+\section{Totaling and Copying}
+\ix{"@SUM}\ix{/Copy}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{type \type{e2} and press \kname{ENTER}}
+\Do{Type}{\type{@sum(b2..d2)}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type \type{e3}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{e2..e3} and press
+  \kname{ENTER}, type \type{e4} and press \kname{ENTER}}
+\end{Keystrokes}
+\FlairShot[fig:qs1]{qs1}{Regional sales with totals}
+
+\section{Task Summary}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{You used}}
+Enter a label & Type it; a quotation mark first aligns it at the right\\
+Enter a number & Type it\\
+Go to a cell & GOTO (F5) and the address\\
+Add a row of numbers & \texttt{@SUM} and a range\\
+Copy a formula & /Copy, the FROM range and the upper left TO cell\LotEnd
+\end{LotTable}
+
+\section{Other Tasks to Try}
+\begin{LotTable}{p{58mm}p{70mm}}
+\LotHead{\textbf{To} & \textbf{Use}}
+Total the months & \texttt{@SUM(B2..B5)} in B6, copied across\\
+Find the average month & \texttt{@AVG(B2..D2)}\\
+Find the best month & \texttt{@MAX(B2..D2)}\LotEnd
+\end{LotTable}

@@ -1,0 +1,74 @@
+% Setting Up, Chapter 1 -- Before You Begin (annex Sec 1, SU: check the
+% package, the hardware, the box's Hardware Chart [lot s1; sur s2]).
+% Sources (Law 1): README.md System requirements; spec/hardware.json (cpu,
+% memory, fpu.required_by ["Initech 123"]); ADR-0009 Amendment DEC-01a
+% AM-3 (Initech 123 requires a 486DX or a 387/487); the shipped data
+% volume (the Makefile's flair-data-rules: APPS/123.EXE and APPS/123.MNU).
+% GATES: test-flair-i123 test-flair-i123-bochs test-pubs-build
+\Gates{test-flair-i123, test-flair-i123-bochs, test-pubs-build}
+\chapter{Before You Begin}
+
+This chapter tells you what you need before you use Initech 123: the pieces
+of the package, the computer and its equipment, and a chart in which to
+record your equipment.
+
+\section{What Comes with Initech 123}
+\ix{package}
+Initech 123 is supplied with InitechOS.  Its program is installed with the
+operating system: the files \file{123.EXE} (the program) and \file{123.MNU}
+(its menus) are in the folder \file{APPS} of the InitechOS data disk.  You do
+not install Initech 123 separately.
+
+The Initech 123 documentation consists of:
+\begin{itemize}
+\item this volume, \doctitle{Setting Up Initech 123, Tutorial, Quick Start
+  and Sample Applications};
+\item the \doctitle{Initech 123 Reference};
+\item the \doctitle{Initech 123 Quick Reference};
+\item two keyboard templates, one for the 101-key and one for the 84-key
+  keyboard.
+\end{itemize}
+\draft{PUB-REF-0001 PK-08..PK-13: the box, the license envelope and the
+cards are planned and not yet produced}
+
+\section{What Your Computer Needs}
+\ix{hardware requirements}
+Initech 123 runs on any computer that runs InitechOS and has a numeric
+coprocessor.
+\begin{itemize}
+\item An Intel 80486DX processor, which has the numeric coprocessor built
+  in; or an 80386 processor with an 80387 coprocessor, or an 80486SX with an
+  80487.
+\item The memory InitechOS requires: at least 4 MB of extended memory above
+  the first megabyte.
+\item A VGA display and monitor.
+\item A fixed disk and a diskette drive, as InitechOS requires.
+\item A mouse, for starting Initech 123 from the FLAIR desktop.
+\end{itemize}
+
+\begin{Note}
+Initech 123 does all its arithmetic with the numeric coprocessor.  It does
+not run on a computer without one, even though InitechOS itself does.
+\end{Note}
+
+\section{The Hardware Chart}
+\ix{Hardware Chart}
+Record your equipment in this chart.  Keep it with your Initech 123 books:
+your Initech representative will ask for it if you call for help.
+
+\par\addvspace{6pt}
+\noindent\begin{tabular}{@{}p{58mm}p{70mm}@{}}
+\hline
+\sffamily\small\textbf{Item} & \sffamily\small\textbf{Your equipment}\\
+\hline
+\rule{0pt}{14pt}Computer, make and model & \\ \hline
+\rule{0pt}{14pt}Processor (80486DX, 80386 and 80387, ...) & \\ \hline
+\rule{0pt}{14pt}Memory (megabytes) & \\ \hline
+\rule{0pt}{14pt}Display adapter and monitor & \\ \hline
+\rule{0pt}{14pt}Fixed disk (megabytes) & \\ \hline
+\rule{0pt}{14pt}Diskette drives (size and capacity) & \\ \hline
+\rule{0pt}{14pt}Mouse & \\ \hline
+\rule{0pt}{14pt}Printer & \\ \hline
+\rule{0pt}{14pt}InitechOS serial number & \\ \hline
+\rule{0pt}{14pt}Date of purchase & \\ \hline
+\end{tabular}

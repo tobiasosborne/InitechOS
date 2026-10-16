@@ -1,0 +1,2 @@
+# Quick Start, Chapter 2: formatted
+Region{RIGHT}"Jan{RIGHT}"Feb{RIGHT}"Mar{RIGHT}"Total~{GOTO}a2~North{DOWN}South{DOWN}East{DOWN}West~{GOTO}b2~1420{RIGHT}1390{RIGHT}1441~{GOTO}b3~1100{RIGHT}1135{RIGHT}1098~{GOTO}b4~975{RIGHT}990{RIGHT}1012~{GOTO}b5~1368{RIGHT}1354{RIGHT}1390~{GOTO}e2~@sum(b2..d2)~/c~e3~/ce2..e3~e4~/rfc0~b2..e5~/rlrb1..e1~{GOTO}a1~/wcs10~

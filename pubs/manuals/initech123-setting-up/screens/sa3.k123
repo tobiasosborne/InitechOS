@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 3: depreciation
+Depreciation Schedule~{GOTO}a3~Cost{RIGHT}1500~{GOTO}a4~Salvage{RIGHT}150~{GOTO}a5~Life{RIGHT}5~{GOTO}a7~"Year{RIGHT}"SLN{RIGHT}"SYD{RIGHT}"DDB~{GOTO}a8~1{DOWN}2{DOWN}3~{GOTO}b8~@sln($b$3,$b$4,$b$5)~{RIGHT}@syd($b$3,$b$4,$b$5,a8)~{RIGHT}@ddb($b$3,$b$4,$b$5,a8)~/cb8..d8~b9~/cb8..d8~b10~/rff0~b8..d10~

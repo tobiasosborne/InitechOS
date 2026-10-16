@@ -1,0 +1,28 @@
+% Setting Up, Chapter 3 -- Problems Starting Initech 123 (AN-17 Problem /
+% Solution, F-LOT).  Sources (Law 1): os/i123/app/face_a.c tbx_app_main
+% (123.MNU is read from A:\APPS; a missing or malformed resource ends the
+% program with EXIT(1)), spec/hardware.json fpu.required_by.
+% GATES: test-flair-i123 test-i123-menu-tree test-pubs-build
+\Gates{test-flair-i123, test-i123-menu-tree, test-pubs-build}
+\chapter{Problems Starting Initech 123}
+\newcommand\Problem[1]{\par\addvspace{8pt}\noindent\textbf{Problem:\ #1}\par\nobreak\vspace{2pt}}
+\newcommand\Solution{\noindent\textbf{Solution:}\ }
+
+If Initech 123 does not start as Chapter~2 describes, look for the problem
+here.  Problems that arise while you work are in Appendix~B of the
+\doctitle{Initech 123 Reference}.
+
+\Problem{I cannot find 123.EXE.}
+\Solution Initech 123 is in the folder \file{APPS} of the InitechOS data
+disk.  Open the data disk's window first, then the folder.
+
+\Problem{When I double-click 123.EXE, no window appears, or the window closes
+at once.}
+\Solution
+\begin{itemize}
+\item Initech 123 reads its menus from \file{123.MNU} in the \file{APPS}
+  folder and does not start without it.  Make sure the file is there; if it
+  is, copy it again from your InitechOS diskettes.
+\item Check that your computer has a numeric coprocessor (Chapter~1).
+\end{itemize}
+

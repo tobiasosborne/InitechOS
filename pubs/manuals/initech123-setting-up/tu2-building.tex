@@ -1,0 +1,174 @@
+% Tutorial, Chapter 2 -- Building a Worksheet: Lessons 3 to 6 (AN-17).
+% The running business: the Initech Systems Corporation supply room
+% budget.  The keystrokes of each table are exactly those of the figure's
+% trace (screens/tl3..tl6.k123); the figures of Lessons 4 to 6 start from
+% the worksheet of the lesson before, saved by the shipped application from
+% that lesson's keystrokes (samples/1-tu3.k123, 1-tu4.k123).
+% Sources (Law 1): os/i123/app/face_a.c (entries: a value starts with a
+% digit or + - . ( @ # $, an arrow key stores and moves; the label
+% prefixes; /Copy with a single-cell TO; /File Save), os/i123/core
+% (@SUM, recalculation), os/i123/fs/wk1.c (.WK1).
+% GATES: test-flair-i123 test-flair-i123-files test-i123-formula test-i123-copy-move-model test-pubs-screens test-pubs-i123
+\Gates{test-flair-i123, test-flair-i123-files, test-i123-formula,
+  test-i123-copy-move-model, test-pubs-screens, test-pubs-i123}
+\chapter{Building a Worksheet}
+
+In this chapter you build a budget for the supply room of Initech Systems
+Corporation: the cost of four supplies in each quarter of the year, with
+totals.  You enter labels and numbers, write formulas, copy them, and save
+the finished worksheet.  Start with an empty worksheet: if you have just
+started Initech 123 you have one.
+
+\section{Lesson 3: Entering Labels}
+\ix{labels}
+In this lesson you learn to:
+\begin{itemize}
+\item enter labels, the text of a worksheet
+\item align a label at the right of its cell with a label prefix
+\item enter several labels in a row or a column quickly
+\end{itemize}
+
+\subsection{The Title}
+A \term{label} is an entry that begins with a letter, or with a label
+prefix.  The cell pointer is in A1.
+
+\begin{Keystrokes}
+\Do{Type}{\type{INITECH SYSTEMS CORPORATION}}{}
+\Do{Press}{\kname{DOWN}}{to enter the label and move to A2}
+\Do{Type}{\type{Supply Room Budget}}{}
+\Do{Press}{\kname{DOWN} twice}{to enter the label and move to A4}
+\end{Keystrokes}
+An arrow key enters what you typed and moves the cell pointer in one step.
+The title is longer than column A is wide, so it runs on into the empty
+cells to its right.
+
+\subsection{The Column Headings}
+Headings over numbers look best at the right of their cells, where the
+numbers are.  A quotation mark typed before a label is a \term{label
+prefix} that aligns the label at the right.
+
+\begin{Keystrokes}
+\Do{Type}{\type{Item}}{}
+\Do{Press}{\kname{RIGHT}}{to move to B4}
+\Do{Type}{\type{"Q1}}{the first quarter, right-aligned}
+\Do{Press}{\kname{RIGHT}}{}
+\Do{Type}{\type{"Q2}}{and press \kname{RIGHT}; then \type{"Q3}, \kname{RIGHT}, \type{"Q4}, \kname{RIGHT}}
+\Do{Type}{\type{"Total}}{}
+\Do{Press}{\kname{ENTER}}{to enter the last heading}
+\end{Keystrokes}
+
+\subsection{The Row Labels}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{a5}, then press \kname{ENTER}}
+\Do{Type}{\type{Paper}}{and press \kname{DOWN}}
+\Do{Type}{\type{Toner}}{and press \kname{DOWN}}
+\Do{Type}{\type{Staples}}{and press \kname{DOWN}}
+\Do{Type}{\type{Folders}}{and press \kname{DOWN}}
+\Do{Type}{\type{Total}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Your worksheet now looks like Figure~\ref{fig:tl3}.
+\FlairShot[fig:tl3]{tl3}{The labels of the supply room budget}
+
+\section{Lesson 4: Entering Numbers}
+\ix{values}
+In this lesson you enter the cost of each supply in each quarter.  A
+\term{value} is an entry that begins with a digit, or with one of the
+characters \texttt{+ - . ( @ \# \$}.  Numbers align at the right of their
+cells.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{b5}, then press \kname{ENTER}}
+\Do{Type}{\type{120}}{and press \kname{RIGHT}}
+\Do{Type}{\type{135}}{and press \kname{RIGHT}}
+\Do{Type}{\type{110}}{and press \kname{RIGHT}}
+\Do{Type}{\type{150}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Enter the other three rows in the same way, starting each at column B:
+
+\begin{LotTable}{p{20mm}p{18mm}p{18mm}p{18mm}p{18mm}}
+\LotHead{\textbf{Row} & \textbf{B} & \textbf{C} & \textbf{D} & \textbf{E}}
+6 Toner & 210 & 190 & 240 & 205\\
+7 Staples & 15 & 12 & 18 & 14\\
+8 Folders & 40 & 35 & 45 & 30\LotEnd
+\end{LotTable}
+\FlairShot[fig:tl4]{tl4}{The numbers entered}
+
+If you make a mistake in a number, move the cell pointer to it and type
+the number again: the new entry replaces the old one.
+
+\section{Lesson 5: Entering Formulas and Copying Them}
+\ix{formulas}\ix{"@SUM}
+In this lesson you learn to:
+\begin{itemize}
+\item enter a formula with the @SUM @function
+\item copy a formula to other cells
+\end{itemize}
+
+\subsection{The Total of a Row}
+A \term{formula} calculates a value.  The @function \fn{@SUM} adds the
+numbers in a range: \type{@sum(b5..e5)} adds B5, C5, D5 and E5.
+
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{f5}, then press \kname{ENTER}}
+\Do{Type}{\type{@sum(b5..e5)}}{the total of the paper row}
+\Do{Press}{\kname{ENTER}}{}
+\end{Keystrokes}
+F5 shows the total, 515; the control panel shows the formula as Initech
+123 stores it, \texttt{@SUM(B5..E5)} (Figure~\ref{fig:tl5a}).
+\FlairShot[fig:tl5a]{tl5a}{The first total}
+
+\subsection{Copying the Formula}
+\ix{/Copy}
+The same formula, one row lower each time, totals the other rows.  You do
+not need to type it again: copy it.  /Copy copies the formula so that it
+refers to the cells to its left in its new place.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{c} to select Copy}
+\Do{Press}{\kname{ENTER}}{to copy the current cell, F5}
+\Do{Type}{\type{f6}}{the cell to copy to}
+\Do{Press}{\kname{ENTER}}{}
+\end{Keystrokes}
+Now copy F5 and F6 together into F7 and F8.  Initech 123 places a copy at
+the upper left cell you name, and the rest of the range follows it.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{c}}
+\Do{Type}{\type{f5..f6}}{the range to copy, and press \kname{ENTER}}
+\Do{Type}{\type{f7}}{and press \kname{ENTER}}
+\end{Keystrokes}
+
+\subsection{The Totals of the Columns}
+\begin{Keystrokes}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{b9}, then press \kname{ENTER}}
+\Do{Type}{\type{@sum(b5..b8)}}{and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, press \kname{ENTER}, type \type{c9}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{b9..c9}, press
+  \kname{ENTER}, type \type{d9} and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{type \type{c}, type \type{b9..c9}, press
+  \kname{ENTER}, type \type{e9} and press \kname{ENTER}}
+\end{Keystrokes}
+The last copy places the formulas of B9 and C9 in E9 and F9: F9 adds the
+four totals above it (Figure~\ref{fig:tl5b}).
+\FlairShot[fig:tl5b]{tl5b}{The finished budget}
+
+\section{Lesson 6: Saving the Worksheet}
+\ix{/File Save}\ix{saving}
+The worksheet exists only in memory until you save it.  In this lesson you
+save it in a file named SUPPLY.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{f} to select File}
+\Do{Type}{\type{s}}{to select Save}
+\Do{Type}{\type{SUPPLY}}{the name of the file}
+\Do{Press}{\kname{ENTER}}{to save the worksheet}
+\end{Keystrokes}
+Initech 123 adds the extension \file{.WK1} and saves the worksheet on drive
+\file{A:}.  The status line at the bottom of the window shows
+\texttt{Saved} and the file name (Figure~\ref{fig:tl6}).
+\FlairShot[fig:tl6]{tl6}{The worksheet saved as SUPPLY}
+
+This completes the chapter.  You can end Initech 123 now, with
+\slashcmd{/Quit Yes}, or go on to the next chapter, which begins by
+retrieving the file you saved.

@@ -1,0 +1,60 @@
+% Tutorial, Chapter 5 -- Finishing the Worksheet: Lessons 16 and 17
+% (AN-17).  Figures: screens/tl16..tl17c.k123 on the data volume of stage 4
+% (REVIEW saved).  Sources (Law 1): os/i123/app/face_a.c (/Range Unprot,
+% /Worksheet Global Protection Enable, "Cell is protected"; /File Save of
+% an existing file: Cancel Replace Backup; /Quit Yes on a clean worksheet
+% ends at once, the exit guard).
+% GATES: test-i123-range-menu test-i123-quit test-flair-i123-quitguard test-flair-i123-files test-pubs-screens test-pubs-i123
+\Gates{test-i123-range-menu, test-i123-quit, test-flair-i123-quitguard,
+  test-flair-i123-files, test-pubs-screens, test-pubs-i123}
+\chapter{Finishing the Worksheet}
+
+In this chapter you protect the formulas of the finished budget, save it,
+and end the session.  Begin by retrieving REVIEW.
+
+\section{Lesson 16: Protecting the Formulas}
+\ix{protection}
+Every cell is protected; protection has no effect until you enable it.
+Unprotect the numbers you will change each quarter, then enable protection:
+the labels and formulas can then no longer be typed over.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{type \type{f} and \type{r}, type \type{REVIEW}
+  and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{r}, \type{u} to select Range
+  Unprot}
+\Do{Type}{\type{b5..e8}}{the costs, and press \kname{ENTER}}
+\Do{Press}{\kname{SLASH}}{and type \type{w}, \type{g}, \type{p}, \type{e} to
+  enable protection}
+\Do{Press}{\fkey{Goto}{F5}}{and type \type{f5}, then press \kname{ENTER}}
+\Do{Type}{\type{999}}{and press \kname{ENTER}}
+\end{Keystrokes}
+Initech 123 refuses the entry and displays \texttt{Cell is protected}
+(Figure~\ref{fig:tl16}).  The total in F5 is unchanged.
+\FlairShot[fig:tl16]{tl16}{Typing into a protected cell}
+\begin{Keystrokes}
+\Do{Press}{\kname{ESC}}{to return to the worksheet}
+\end{Keystrokes}
+You can still type new costs into B5..E8.
+
+\section{Lesson 17: Saving and Ending the Session}
+\ix{/Quit}
+Save the protected budget over REVIEW, then end Initech 123.
+
+\begin{Keystrokes}
+\Do{Press}{\kname{SLASH}}{and type \type{f}, \type{s}}
+\Do{Press}{\kname{ENTER}}{to save under the name shown, REVIEW}
+\end{Keystrokes}
+Because REVIEW already exists, Initech 123 asks what to do with the file on
+disk (Figure~\ref{fig:tl17a}).
+\FlairShot[fig:tl17a]{tl17a}{Saving over an existing file}
+\begin{Keystrokes}
+\Do{Type}{\type{r}}{to select Replace}
+\Do{Press}{\kname{SLASH}}{and type \type{q}, \type{y} to select Quit Yes}
+\end{Keystrokes}
+The worksheet has no unsaved changes, so Initech 123 ends at once and its
+window closes (Figure~\ref{fig:tl17c}).
+\FlairShot[fig:tl17c]{tl17c}{The desktop after Initech 123 has ended}
+
+This completes the \doctitle{Tutorial}.  The \doctitle{Initech 123
+Reference} describes every command you have used, and all the others.

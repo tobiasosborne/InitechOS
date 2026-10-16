@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 3-budget: the Tutorial keystrokes of
+# the lessons that build it (pubs/pubs.mk types this into the shipped
+# application; later figures retrieve the file it saves).
+/frSUPPLY~{GOTO}d6~225~{GOTO}a2~{EDIT} 1992~/wgf,0~/rfc0~f5..f9~/rfc0~b9..e9~{GOTO}a1~/wcs12~/ma1..a2~c1~/fsBUDGET~

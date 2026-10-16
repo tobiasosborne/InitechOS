@@ -1,0 +1,4 @@
+# Setting Up volume sample worksheet, stage 4-review: the Tutorial keystrokes of
+# the lessons that build it (pubs/pubs.mk types this into the shipped
+# application; later figures retrieve the file it saves).
+/frBUDGET~{GOTO}g4~"Share{DOWN}+f5/$f$9~/c~g6~/cg5..g6~g7~/cg5~g9~/rfp1~g5..g9~{GOTO}f9~/rnctotal~~{GOTO}g5~+f5/$total~/c~g6~/cg5..g6~g7~/wgrm{GOTO}b5~170~{CALC}/wgra{GOTO}a11~Over 380?{RIGHT}@if(b9>380,"Yes","No")~/c~c11~/cb11..c11~d11~/fsREVIEW~

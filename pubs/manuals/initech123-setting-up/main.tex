@@ -1,0 +1,86 @@
+% Setting Up Initech 123, Tutorial, Quick Start and Sample Applications --
+% part 1051-0000-11 (PUB-REF-0001 Sec 12, DS row 123-SET).  Family F-LOT;
+% model the Lotus 1-2-3 Release 2.2 Setting Up volume: one book of four
+% parts with half-titles, chapters numbered from 1 in each part, Tutorial
+% lessons numbered across its chapters, Quick Start Task Summaries, the
+% Sample Applications, a Master Index whose locator lines carry the part
+% codes SU TU QS SA, the rating-grid Reader Comment Form and NOTES leaves
+% (docs/pubs/originals/lotus-123-r22.md Sec 1, 4, 5, 8, 9; CP-15).  Bead
+% initech-ipu5.9.
+% Ground truth (Law 1): os/i123/app/face_a.c and os/i123/core (what every
+% keystroke of a lesson does), the Finder launch of 123.EXE
+% (spec/flair_i123_traces.mk), spec/hardware.json fpu.required_by and
+% ADR-0009 Amendment DEC-01a (the coprocessor), spec/i123/
+% era_shortfalls.md.  GC-04: every figure is a capture of the running
+% system (screens/FLAIR); the sample worksheets a later lesson retrieves
+% are typed into the shipped application from samples/*.k123.  GC-03:
+% every printed example is replayed (examples/*.i23).
+\documentclass[lotus]{initech-manual}
+\usepackage{initech-lotus}
+\ShotDir{initech123-setting-up}
+
+\ProductName{Initech 123}
+\ProductVersion{}
+\DocTitle{Setting Up, Tutorial, Quick Start and Sample Applications}
+\PartNumber{1051-0000-11}
+\FamilyName{Decision Support Family}
+\FamilyColor{FamilyDecision}
+\Edition{First Edition (June 1992)}
+\EditionApplies{This edition applies to Initech 123 as supplied with
+  InitechOS, and to all subsequent releases until otherwise indicated in
+  new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-6/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Initech 123
+  is a trademark of Initech Systems Corporation.  Turbo Initech is a
+  registered trademark of Initech Systems Corporation.  Intel, 80387 and
+  80486 are trademarks of Intel Corporation.  Lotus and 1-2-3 are
+  registered trademarks of Lotus Development Corporation.  All other
+  product names are trademarks of their respective holders.}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily
+  Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent
+  \rule{\linewidth}{0.5pt}\medskip}
+\RatingPieces{\GridRow{Setting Up Initech 123}\GridRow{Tutorial}%
+  \GridRow{Quick Start}\GridRow{Sample Applications}%
+  \GridRow{Initech 123 Reference}\GridRow{Initech 123 Quick Reference}%
+  \GridRow{Keyboard template}}
+\MasterIndex{\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{%
+  \sffamily\small\textbf{Key to the Master Index}\quad
+  \textbf{SU} \textit{Setting Up Initech 123}\quad
+  \textbf{TU} \textit{Tutorial}\quad
+  \textbf{QS} \textit{Quick Start}\quad
+  \textbf{SA} \textit{Sample Applications}}}\par\vspace{6pt}}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\LotusPart{SU}{1}{Setting Up Initech 123}{What comes in the package, what
+  your computer needs, and how to start and end Initech 123.}
+\input{su1-package}
+\input{su2-starting}
+\input{su3-problems}
+\LotusPart{TU}{2}{Tutorial}{Seventeen lessons that build, change and finish
+  a working worksheet, one step at a time.}
+\input{tu1-learning}
+\input{tu2-building}
+\input{tu3-changing}
+\input{tu4-formulas}
+\input{tu5-finishing}
+\LotusPart{QS}{3}{Quick Start}{A fast tour for people who have used a
+  worksheet program before.}
+\input{qs1-worksheet}
+\input{qs2-look}
+\input{qs3-files}
+\LotusPart{SA}{4}{Sample Applications}{Ready-to-type worksheets for common
+  business tasks, with an explanation of every block.}
+\input{sa1-quarterly}
+\input{sa2-loan}
+\input{sa3-depreciation}
+\input{sa4-commission}
+\printindex
+\LotusFinish[rcf]
+\end{document}

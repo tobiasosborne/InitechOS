@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 1: share of quarterly results
+Share of Quarterly Results~{GOTO}a3~Division{RIGHT}"Share~{GOTO}a4~Northeast{DOWN}Southeast{DOWN}Central{DOWN}West{DOWN}International{DOWN}Total~{GOTO}b4~40%{DOWN}35%{DOWN}18%{DOWN}14%{DOWN}9%{DOWN}@sum(b4..b8)~/rfp0~b4..b9~{GOTO}a1~/wcs14~

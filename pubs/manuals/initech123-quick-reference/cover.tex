@@ -1,0 +1,31 @@
+% Cover of the Quick Reference booklet (PUB-REF-0001 PK-11: the PK-02 grid
+% scaled to the 3.5 x 9 in booklet; part number on the back cover bottom
+% right) and its back cover (PK-05; the slogan, operator directive
+% 2026-10-17).  Saddle-stitched: no spine (PK-03, under 6 mm).
+\documentclass[lotus,cover]{initech-manual}
+\usepackage{initech-lotus}
+\geometry{paperwidth=3.5in, paperheight=9in, margin=0pt, noheadfoot, nomarginpar}
+\ProductName{Initech 123}
+\DocTitle{Quick Reference}
+\PartNumber{1051-0000-20}
+\PrintCode{A1-6/92}
+\FamilyName{Decision Support Family}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily
+  Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent
+  \rule{\linewidth}{0.5pt}\medskip}
+\begin{document}
+\thispagestyle{empty}%
+\AtPage{11.5}{8}{\sffamily\bfseries\fontsize{9}{10}\selectfont Initech 123}%
+\AtPage{11.5}{10}{\rule{77.4mm}{0.5pt}}%
+\AtPage{11.5}{13}{\parbox{70mm}{\fontspec{EBGaramond-Regular.otf}\fontsize{24}{28}\selectfont Quick\\Reference}}%
+\AtPage{-3}{55}{\textcolor{FamilyDecision}{\rule{80mm}{6.5mm}}}%
+\AtPage{11.5}{56.2}{\textcolor{white}{\sffamily\bfseries\fontsize{8}{9}\selectfont Decision Support Family}}%
+\AtPage{11.5}{190}{\Wordmark[24mm]}%
+\null\newpage
+\thispagestyle{empty}%
+\AtPage{11.5}{12}{\Wordmark[24mm]}%
+\AtPage{11.5}{150}{\parbox{66mm}{\IsThisGoodForTheCompany}}%
+\AtPage{11.5}{190}{\parbox{66mm}{\sffamily\fontsize{7}{9}\selectfont\InitechAddress}}%
+\AtPage{40}{214}{\makebox[38mm][r]{\sffamily\fontsize{7}{9}\selectfont 1051-0000-20\quad A1-6/92}}%
+\null\newpage
+\end{document}

@@ -1,0 +1,50 @@
+% Sample Applications, Chapter 2 -- Loan Payment Table (annex Sec 8.3).
+% Values replayed through the shipped application (examples/loan.i23);
+% @PMT as os/i123/core/eval.c computes it (graded against the real
+% Release 2.2 formulas by test-i123-formula).  Figure screens/sa2.k123.
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
+\chapter{Loan Payment Table}
+
+Before the purchasing office commits to financing new equipment, it
+compares the monthly payment on the loan at several interest rates.  This
+worksheet computes the payment for a given principal and term at four
+annual rates.
+
+\section{What You Enter}
+\begin{itemize}
+\item The principal, the amount borrowed
+\item The term of the loan in years
+\item The annual interest rates to compare
+\end{itemize}
+
+\section{Entering the Data}
+\ix{"@PMT}
+Type the labels \type{Principal} in A3 and \type{Years} in A4, and the
+amounts beside them in B3 and B4.  Type the headings \type{"Rate} and
+\type{"Payment} in A6 and B6, and the rates in A7..A10 as decimals,
+\type{.08} for 8 percent.  In B7 enter the payment formula
+\type{@pmt(\$b\$3,a7/12,\$b\$4*12)} and copy it to B8..B10.  Format the rates
+as percentages and the payments with two decimal places.
+\FlairShot[fig:sa2]{sa2}{Monthly payments at four rates}
+
+\begin{LotTable}{p{30mm}p{24mm}p{74mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Principal & B3 & The amount borrowed\\
+Years & B4 & The term of the loan\\
+Rate & A7..A10 & The annual interest rates\\
+Payment & B7..B10 & The monthly payment: \texttt{@PMT} of the principal at
+  the monthly rate (the annual rate divided by 12) over the term in
+  months (years times 12)\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+The payment formulas and the payments:
+\LotExample{examples/loan}
+The principal and the term are absolute references, so every copy of the
+formula uses them; the rate is relative, so each row uses its own.
+
+\section{Changing the Template}
+Type a new principal in B3 or a new term in B4, and every payment is
+recalculated.  To compare more rates, type them below A10 and copy the
+formula of B10 down beside them.

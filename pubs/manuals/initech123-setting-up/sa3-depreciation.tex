@@ -1,0 +1,44 @@
+% Sample Applications, Chapter 3 -- Depreciation Schedule (annex Sec 8.3).
+% Values replayed through the shipped application (examples/deprec.i23).
+% Figure screens/sa3.k123.
+% GATES: test-i123-formula test-pubs-i123-examples test-pubs-screens
+\Gates{test-i123-formula, test-pubs-i123-examples, test-pubs-screens}
+\chapter{Depreciation Schedule}
+
+The accounting office compares three methods of depreciating an asset
+before it chooses one for the books.  This worksheet computes the first
+three years of depreciation by the straight-line, sum-of-the-years'-digits
+and double-declining-balance methods.
+
+\section{What You Enter}
+\begin{itemize}
+\item The cost of the asset
+\item Its salvage value at the end of its life
+\item Its life in years
+\end{itemize}
+
+\section{Entering the Data}
+\ix{depreciation}
+Type \type{Cost}, \type{Salvage} and \type{Life} in A3..A5 and the amounts
+in B3..B5.  Type the headings \type{"Year}, \type{"SLN}, \type{"SYD} and
+\type{"DDB} in A7..D7 and the years 1 to 3 in A8..A10.  In row 8 enter
+\type{@sln(\$b\$3,\$b\$4,\$b\$5)}, \type{@syd(\$b\$3,\$b\$4,\$b\$5,a8)} and
+\type{@ddb(\$b\$3,\$b\$4,\$b\$5,a8)}, and copy B8..D8 to rows 9 and 10.
+\FlairShot[fig:sa3]{sa3}{Three depreciation methods}
+
+\begin{LotTable}{p{30mm}p{24mm}p{74mm}}
+\LotHead{\textbf{Item} & \textbf{Address} & \textbf{Meaning}}
+Cost & B3 & What the asset cost\\
+Salvage & B4 & Its value at the end of its life\\
+Life & B5 & Its life in years\\
+SLN & B8..B10 & Straight-line depreciation, the same each year\\
+SYD & C8..C10 & Sum-of-the-years'-digits depreciation for the year in
+  column A\\
+DDB & D8..D10 & Double-declining-balance depreciation for the year in
+  column A\LotEnd
+\end{LotTable}
+
+\section{Interpreting the Results}
+\LotExample{examples/deprec}
+The two accelerated methods charge more in the early years than the
+straight-line method, and less in the later years.

@@ -1,0 +1,48 @@
+% Setting Up, Chapter 2 -- Starting and Ending Initech 123 (annex Sec 1 SU
+% chapters "start/stop").  The first procedures chapter of the volume:
+% the slogan at its first page (operator directive 2026-10-17).
+% Sources (Law 1): spec/flair_i123_traces.mk (the launch: open the
+% volume, open APPS, double-click 123.EXE; Ctrl-Q quits), os/i123/app/
+% face_a.c (the window "Initech 123", the empty worksheet in READY, the
+% exit guard), the Finder (os/flair/finder_*.c).
+% GATES: test-flair-i123 test-i123-quit test-flair-i123-quitguard test-pubs-screens
+\Gates{test-flair-i123, test-i123-quit, test-flair-i123-quitguard, test-pubs-screens}
+\chapter{Starting and Ending Initech 123}
+\IsThisGoodForTheCompany
+
+This chapter shows you how to start Initech 123 from the FLAIR desktop and
+how to end it.
+
+\section{Starting Initech 123}
+\ix{starting Initech 123}
+\begin{Steps123}
+\item Start InitechOS and FLAIR as your InitechOS books describe.  The
+  FLAIR desktop appears.
+\item Double-click the icon of the data disk to open its window.
+\item Double-click the \file{APPS} folder to open it.  The window shows the
+  programs supplied with InitechOS, among them \file{123.EXE}
+  (Figure~\ref{fig:apps}).
+\item Double-click the \file{123.EXE} icon.
+\end{Steps123}
+\FlairShot[fig:apps]{apps}{The APPS folder, with 123.EXE selected}
+
+Initech 123 opens its window, titled \texttt{Initech 123}, with an empty
+worksheet and the cell pointer in cell A1.  The mode indicator shows
+\ind{READY} (Figure~\ref{fig:blank}).  The menu bar above the window shows
+the File menu of Initech 123.
+\FlairShot[fig:blank]{blank}{Initech 123 ready for work}
+
+\section{Ending Initech 123}
+\ix{ending Initech 123}
+Save your work first with \slashcmd{/File Save} (Lesson~6 in the
+\doctitle{Tutorial} shows you how).  Then do one of the following:
+\begin{itemize}
+\item Press \kname{SLASH}, select Quit, and select Yes.
+\item Choose \textbf{Quit} from the \textbf{File} menu of the menu bar, or
+  press \key{Ctrl-Q}.
+\item Click the close box at the left of the window's title bar.
+\end{itemize}
+If the worksheet has changes you have not saved, Initech 123 asks whether to
+save them before it ends.  Select \textbf{Save} to save them,
+\textbf{Don't Save} to end without them, or \textbf{Cancel} to go on
+working.

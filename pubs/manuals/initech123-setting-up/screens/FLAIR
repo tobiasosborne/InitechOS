@@ -1,0 +1,44 @@
+# FLAIR figures of the Setting Up volume (1051-0000-11), bead initech-ipu5.9.
+# name|x0 y0 x1 y1|scale|life|marker|stage -- crop of the 640 x 480 dump,
+# replication factor (NT-21), image life (short 500 / long 2000 / longer
+# 4500 ticks), the screendump marker (empty: FLAIR-LIVE-OK) and the data
+# volume stage (pubs/pubs.mk: the shipped volume plus the sample worksheets
+# of samples/<N>-*.k123 up to that stage; a lesson that saves a file sees
+# the disk as the reader's disk is at that lesson).  Keystrokes:
+# screens/<name>.k123.  Figures of Lessons 4 to 6 start by retrieving TU3 /
+# TU4, the worksheet of the lesson before, saved by the shipped application
+# from that lesson's own keystrokes (samples/1-tu3.k123, 1-tu4.k123).
+apps|0 0 640 480|4|short||0
+blank|0 40 640 254|4|short||0
+tl1a|0 40 640 254|4|short||0
+tl1b|0 40 640 254|4|short||0
+tl1c|0 40 640 254|4|short||0
+tl2a|0 40 640 254|4|short||0
+tl2b|0 40 640 254|4|short||0
+tl2c|0 40 640 254|4|short||0
+tl3|0 40 640 254|4|longer||0
+tl4|0 40 640 254|4|long||1
+tl5a|0 40 640 254|4|long||1
+tl5b|0 40 640 254|4|longer||1
+tl6|0 40 640 480|4|longer||1
+tl7a|0 40 640 126|4|short||2
+tl7b|0 40 640 254|4|short||2
+tl8|0 40 640 254|4|long||2
+tl9|0 40 640 254|4|long||2
+tl10|0 40 640 254|4|long||2
+tl11|0 40 640 480|4|longer||2
+tl12|0 40 640 254|4|long||3
+tl13|0 40 640 254|4|longer||3
+tl14a|0 40 640 480|4|longer||3
+tl14b|0 40 640 480|4|longer||3
+tl15|0 40 640 286|4|longer||3
+tl16|0 40 640 254|4|long||4
+tl17a|0 40 640 126|4|long||4
+tl17c|0 0 640 480|4|long||4
+qs1|0 40 640 254|4|longer||4
+qs2|0 40 640 254|4|longer||4
+qs3|0 40 640 480|4|longer||4
+sa1|0 40 640 254|4|longer||4
+sa2|0 40 640 254|4|longer||4
+sa3|0 40 640 254|4|longer||4
+sa4|0 40 640 254|4|longer||4

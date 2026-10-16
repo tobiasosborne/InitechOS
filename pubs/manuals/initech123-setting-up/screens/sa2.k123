@@ -1,0 +1,2 @@
+# Sample Applications, Chapter 2: loan payments
+Loan Payment Table~{GOTO}a3~Principal{RIGHT}10000~{GOTO}a4~Years{RIGHT}5~{GOTO}a6~"Rate{RIGHT}"Payment~{GOTO}a7~.08{DOWN}.09{DOWN}.1{DOWN}.11~{GOTO}b7~@pmt($b$3,a7/12,$b$4*12)~/c~b8~/cb7..b8~b9~/rfp0~a7..a10~/rff2~b7..b10~
