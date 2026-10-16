@@ -10236,6 +10236,7 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CALC_EXE) ::APPS/CALC.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(EDLIN_PROG_BIN) ::APPS/EDLIN.COM
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ \
+		$(or $(5),$(ITEXT_EXE)) ::APPS/TEXT.EXE
 	@printf ">>> flair data: %s (deterministic FAT12; README.TXT + APPS\\TENANTFX.EXE from %s, CTENANT.EXE, 123.EXE from %s, WORD.EXE from %s, 123.MNU, CHKDSK.COM, ATTRIB.COM, LABEL.COM, XCOPY.COM, TREE.COM, CALC.EXE, EDLIN.COM, TEXT.EXE)\n" "$$@" "$(2)" "$(3)" "$(4)"
 	@$$(call fixture-check,recipe,$$@)
 endef
