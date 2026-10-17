@@ -110,9 +110,10 @@ typedef enum {
     /* S4.5: incremental maintenance error codes. */
     NDX_ERR_READONLY     = 11, /* write op on a read-only index (ndx_open, not
                                 * ndx_open_rw) */
-    NDX_ERR_NOROOM       = 12, /* split would require 3+ tree levels; corpus-open
-                                * (no minted golden for 3-level III+ split) --
-                                * fail loud (Law 1 / Rule 2) rather than guess. */
+    NDX_ERR_NOROOM       = 12, /* a size bound would overflow (ndx_build key /
+                                * recno / leaf arithmetic). No longer returned
+                                * for depth: 3+-level maintenance is minted and
+                                * implemented (initech-7tj3). */
     NDX_ERR_NOTFOUND     = 13, /* key+recno to delete not found in the index */
     NDX_ERR_NOENT        = 14  /* typed PAL open failure: the .ndx does not exist
                                 * (USE ... INDEX NOSUCH is DBASE.MSG #1, mint 005) */
@@ -578,15 +579,13 @@ typedef int (*ndx_key_provider)(void *user, uint32_t recno,
  *                          (non-zero) -- in the get_key case the callback's
  *                          non-zero code is returned NEGATED if it is positive,
  *                          else -NDX_ERR_IO. (Callers usually use a sentinel.)
- *   -NDX_ERR_PAGE_OVF      MULTI-LEVEL interior packing required: the number of
- *                          leaves L exceeds keys_per_page + 1, so the L-1 root
- *                          separators do not fit in ONE branch page and an
- *                          interior level above the root would be needed. That
- *                          packing geometry is corpus-OPEN (no minted golden
- *                          for a 3-level III+ .ndx), so the build FAILS LOUD
- *                          rather than guess (Law 1 / Rule 2). The single-leaf
- *                          and single-root-branch (two-level) cases are
- *                          byte-exact and fully supported.
+ *   -NDX_ERR_PAGE_OVF      the level stack outgrew its computed depth bound
+ *                          (a corrupt geometry; Rule 2). Every depth is built
+ *                          the way real dBASE III PLUS builds it -- a streaming
+ *                          layout minted byte-exact for every record count
+ *                          1..130 at kpp 4 and a 3-level kpp-18 tree
+ *                          (../dbase3-decomp re/mint-results-006.md s2;
+ *                          test-ndx-incremental, initech-7tj3).
  *
  * Mutation hook (Rule 6 / plan S4.4 "50/50 split"):
  *   Build with -DNDX_MUTATE_SPLIT_5050. Leaves are packed ~50/50 (each leaf
@@ -616,10 +615,10 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
  * replaced, or deleted. They are the interface that S5.5 (REPLACE/APPEND
  * interpreter commands) calls to keep the index consistent.
  *
- * GATED (plan S4.5 + sec7): mid-leaf split byte-exactness is corpus-open.
- * The oracle asserts behavioral correctness (ndx_seek finds every key with
- * the right recno; ndx_inorder is fully sorted and contains exactly the
- * expected set) but LOUD-SKIPs byte-exact node layout after a split.
+ * The split / delete layout at every depth is the MINTED dBASE III PLUS
+ * policy (../dbase3-decomp re/mint-results-006.md s2), graded byte-exact
+ * (normalized) by test-ndx-incremental over 516 real snapshots
+ * (initech-7tj3); test-ndx-maintain keeps the behavioral legs.
  *
  * Mutation hook (Rule 6):
  *   Build with -DNDX_MUTATE_INSERT_NOSORT. ndx_insert_key appends the new
@@ -641,8 +640,7 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
  *
  * Error code additions:
  *   NDX_ERR_READONLY  -- write attempted on a read-only fd.
- *   NDX_ERR_NOROOM    -- a split would require 3+ tree levels (corpus-open);
- *                        fails loud per Law 1 / Rule 2 rather than guessing.
+ *   NDX_ERR_NOROOM    -- no longer returned by maintenance (initech-7tj3).
  *   NDX_ERR_NOTFOUND  -- key/recno to delete was not found in the index.
  *
  * Ref (Law 1):
@@ -686,12 +684,11 @@ int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out);
  *      later entries right (maintains sorted invariant).
  *   3. If the leaf was already full (entry_count == keys_per_page):
  *      a. Allocate a new page (appended to the file; total_pages incremented).
- *      b. Split the overfull leaf. GATED: byte-exact split layout is corpus-open;
- *         the implementation uses a simple ~half split. The oracle loud-skips
- *         byte-exact split layout but asserts behavioral correctness.
- *      c. Update the parent branch: insert a new separator for the new page.
- *         If the parent (root) is also full -> -NDX_ERR_NOROOM (fail loud;
- *         3-level trees are corpus-open, Law 1).
+ *      b. Split the overfull leaf: the old page keeps (kpp+2)/2 entries, the
+ *         new page the rest (minted, initech-7tj3).
+ *      c. Update the parent branch: separator = the left page's HIGH key; a
+ *         parent left with kpp+2 children splits the same way, up to a new
+ *         root (minted; any depth).
  *      d. Update the header (total_pages; possibly root_page when a new root
  *         branch is created).
  *   4. Write the modified page(s) back via the PAL.

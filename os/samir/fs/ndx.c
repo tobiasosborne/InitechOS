@@ -45,13 +45,14 @@
  *                    functions can write pages back. ndx_open (PAL_RD) stays
  *                    unchanged -- S4.1-S4.3 tests remain read-only.
  *   ndx_insert_key -- insert a (key_data, recno) pair into the live B-tree in
- *                    sorted order. Handles leaf overflow via a half-split (two
- *                    new leaf pages replace the overfull leaf; GATED: byte-exact
- *                    split layout is corpus-open -> behavioral oracle only; the
- *                    test loud-skips the byte-level split layout check).
- *   ndx_delete_key -- remove the entry with matching key_data AND recno from the
- *                    leaf (no re-balancing -- dBASE III PLUS does not re-balance
- *                    on delete). Fails loud (-NDX_ERR_NOTFOUND) if not found.
+ *                    sorted order, at ANY depth, splitting leaves and branches
+ *                    exactly as real dBASE III PLUS does (minted byte-exact:
+ *                    ../dbase3-decomp re/mint-results-006.md s2; graded by
+ *                    test-ndx-incremental, initech-7tj3).
+ *   ndx_delete_key -- remove the entry with matching key_data AND recno (no
+ *                    merging/re-balancing), restoring separators and unhooking
+ *                    emptied leaves/branches as the mint shows. Fails loud
+ *                    (-NDX_ERR_NOTFOUND) if not found.
  *   ndx_update_key -- no-op if old == new; else delete-old + insert-new.
  *
  * S4.5 mutation hook (Rule 6 / plan S4.5 "INSERT_NOSORT"):
@@ -879,9 +880,17 @@ static int inorder_page(ndx_index *idx, uint32_t page_no, uint32_t depth,
     if (rc != NDX_OK)
         return rc;
 
-    /* A node is a branch iff its first live entry has a child page (ss3.1).
-     * Empty nodes (entry_count == 0) are treated as empty leaves. */
+    /* A node is a branch iff group 0 carries a child page (ss3.1). With
+     * entry_count == 0 group 0 IS the trailing slot: real dBASE leaves a
+     * 0-separator branch holding only its trailing child after deletes
+     * (../dbase3-decomp re/mint-results-006.md s2, E02) -- an empty LEAF has
+     * a zero there (initech-7tj3). */
+#ifndef NDX_MUTATE_ZERO_SEP_LEAF
+    is_branch = (node->entry_count > 0u) ? (node->entries[0].child_page != 0u)
+                                         : (node->trail_child != 0u);
+#else
     is_branch = (node->entry_count > 0u && node->entries[0].child_page != 0u);
+#endif
 
     for (i = 0u; i < (uint32_t)node->entry_count; i++) {
         if (is_branch) {
@@ -1111,8 +1120,16 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
         if (rc != NDX_OK)
             return rc;
 
+        /* Branch test as in inorder_page (a 0-separator branch keeps its
+         * trailing child in group 0; minted E02, initech-7tj3). */
+#ifndef NDX_MUTATE_ZERO_SEP_LEAF
+        is_branch = (node->entry_count > 0u)
+                        ? (node->entries[0].child_page != 0u)
+                        : (node->trail_child != 0u);
+#else
         is_branch = (node->entry_count > 0u
                      && node->entries[0].child_page != 0u);
+#endif
 
         if (is_branch) {
             /* Find the first separator entry whose key >= search key; descend
@@ -1297,6 +1314,137 @@ static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
     return NDX_OK;
 }
 
+/*
+ * The multi-level page layout of a bulk INDEX ON is a STREAMING build, minted
+ * byte-for-byte from real dBASE III PLUS 1.1 (../dbase3-decomp re/mint-
+ * results-006.md s2: B001..B130 = every record count 1..130 on a C100 key,
+ * kpp 4, so 1..4 levels; A00 = 343 keys on a C20 key, kpp 18, 3 levels):
+ *
+ *   - Keys are packed into leaves in sorted order, kpp per leaf; a leaf is
+ *     WRITTEN (takes the next page number) the moment it is full, and its
+ *     (page, HIGH key) is pushed to level 1. The remainder leaf is written
+ *     last. An empty index still writes one empty leaf (U000/R000).
+ *   - A level node is written the moment it holds kpp+1 children (kpp
+ *     separators = the HIGH keys of its first kpp children + the trailing
+ *     child), and its (page, HIGH key) is pushed one level up.
+ *   - At the end the pending nodes are flushed bottom-up. A pending node with
+ *     ONE child is not written: the child is promoted to the level above (so
+ *     leaves need NOT all sit at the same depth -- A00: root p22 = [p20 (a
+ *     full level-1 branch over leaves 1..19), leaf p21]). The topmost node is
+ *     the root; root_page = the last page written unless the root is a promoted
+ *     child.
+ *
+ * Pages are therefore written in strictly increasing page order; page 0 (the
+ * header) is written first as a placeholder and rewritten with root_page /
+ * total_pages at the end.
+ */
+#define NDX_BLD_NOHI 0xFFFFFFFFu
+
+typedef struct {
+    samir_pal_t   *pal;
+    pal_fd         fd;
+    uint32_t       kpp;
+    uint32_t       group_len;
+    uint32_t       key_len;
+    const uint8_t *keys;       /* the sorted keys, key_len each */
+    uint32_t       next_pg;    /* the next page number to write */
+    uint32_t       nlev;       /* level slots allocated */
+    uint32_t       used;       /* levels touched so far */
+    uint32_t      *cnt;        /* [nlev] pending children per level */
+    uint32_t      *pg;         /* [nlev * (kpp+1)] pending child pages */
+    uint32_t      *hi;         /* [nlev * (kpp+1)] sorted index of each HIGH key */
+    uint8_t       *page;       /* NDX_PAGE_SIZE scratch */
+} ndx_bld;
+
+/* bld_branch: write level LV's first M pending children as one branch node
+ * (M-1 separators + trailing child) on the next page; *out = its page. */
+static int bld_branch(ndx_bld *b, uint32_t lv, uint32_t m, uint32_t *out)
+{
+    uint32_t base = lv * (b->kpp + 1u);
+    uint32_t s;
+    rt_memset(b->page, 0, (uint32_t)NDX_PAGE_SIZE);
+    u16le_w(b->page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)(m - 1u));
+    for (s = 0u; s + 1u < m; s++) {
+        uint32_t off = (uint32_t)NDX_NODE_ENTRIES_OFF + s * b->group_len;
+        u32le_w(b->page + off + NDX_GRP_CHILD_PAGE_OFF, b->pg[base + s]);
+        u32le_w(b->page + off + NDX_GRP_DBF_RECNO_OFF, 0u);
+        rt_memcpy(b->page + off + NDX_GRP_KEY_DATA_OFF,
+                  b->keys + b->hi[base + s] * b->key_len, b->key_len);
+    }
+    u32le_w(b->page + NDX_NODE_ENTRIES_OFF + (m - 1u) * b->group_len
+            + NDX_GRP_CHILD_PAGE_OFF, b->pg[base + m - 1u]);
+    *out = b->next_pg;
+    b->next_pg++;
+    return write_page(b->pal, b->fd, *out, b->page);
+}
+
+/* bld_push: add child (PAGE, HIGH key index HI) to level LV; a level that
+ * reaches kpp+1 children is written at once and pushed one level up. */
+static int bld_push(ndx_bld *b, uint32_t lv, uint32_t page, uint32_t hi)
+{
+    for (;;) {
+        uint32_t base;
+        uint32_t written;
+        int      rc;
+        if (lv >= b->nlev)
+            return -NDX_ERR_PAGE_OVF;   /* deeper than sized (Rule 2) */
+        if (lv + 1u > b->used)
+            b->used = lv + 1u;
+        base = lv * (b->kpp + 1u);
+        b->pg[base + b->cnt[lv]] = page;
+        b->hi[base + b->cnt[lv]] = hi;
+        b->cnt[lv]++;
+        if (b->cnt[lv] < b->kpp + 1u)
+            return NDX_OK;
+        rc = bld_branch(b, lv, b->kpp + 1u, &written);
+        if (rc != NDX_OK)
+            return rc;
+        hi = b->hi[base + b->kpp];
+        b->cnt[lv] = 0u;
+        page = written;
+        lv++;
+    }
+}
+
+/* bld_finish: flush the pending levels bottom-up; *root_out = the root. */
+static int bld_finish(ndx_bld *b, uint32_t *root_out)
+{
+    uint32_t lv;
+    for (lv = 0u; lv < b->used; lv++) {
+        uint32_t c = b->cnt[lv];
+        uint32_t base = lv * (b->kpp + 1u);
+        uint32_t j;
+        int      top = 1;
+        int      rc;
+        uint32_t written;
+        for (j = lv + 1u; j < b->used; j++)
+            if (b->cnt[j] != 0u) top = 0;
+        if (c == 0u)
+            continue;
+#ifndef NDX_MUTATE_BULK_NO_ELIDE
+        if (c == 1u) {
+            /* One child: promote it (minted B021: leaf p7 hangs off the root). */
+            if (top) { *root_out = b->pg[base]; return NDX_OK; }
+            b->cnt[lv] = 0u;
+            rc = bld_push(b, lv + 1u, b->pg[base], b->hi[base]);
+            if (rc != NDX_OK) return rc;
+            continue;
+        }
+#else
+        /* MUTANT (Rule 6): write a one-child node as a 0-separator branch
+         * instead of promoting the child -- diverges from B021/A00. */
+        if (c == 1u && top && lv == 0u) { *root_out = b->pg[base]; return NDX_OK; }
+#endif
+        rc = bld_branch(b, lv, c, &written);
+        if (rc != NDX_OK) return rc;
+        b->cnt[lv] = 0u;
+        if (top) { *root_out = written; return NDX_OK; }
+        rc = bld_push(b, lv + 1u, written, b->hi[base + c - 1u]);
+        if (rc != NDX_OK) return rc;
+    }
+    return -NDX_ERR_BAD_ROOT;   /* unreachable: some level always holds the root */
+}
+
 int ndx_build(samir_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user)
@@ -1307,21 +1455,13 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
     uint8_t  *tmpkey;     /* one key_len scratch for the stable sort */
     uint32_t  group_len;
     uint32_t  kpp;        /* keys_per_page */
-    uint32_t  cap;        /* children per branch node = kpp + 1 (kpp seps + trail) */
     uint32_t  nleaf;      /* number of leaf pages */
-    uint32_t  root_page;
-    uint32_t  total_pages;
+    uint32_t  root_page = 0u;
     pal_fd    fd;
     uint8_t   page[NDX_PAGE_SIZE];
     int       rc;
     uint32_t  i;
-    /* Multi-level branch builder scratch (arena; size nleaf each). lvl_* holds
-     * the current level's {page number, sorted-key index of its HIGH key}; par_*
-     * accumulates the parent level being built over it. Ref: build comment below. */
-    uint32_t *lvl_pg  = (uint32_t *)0;
-    uint32_t *lvl_hi  = (uint32_t *)0;
-    uint32_t *par_pg  = (uint32_t *)0;
-    uint32_t *par_hi  = (uint32_t *)0;
+    ndx_bld   b;
 
     if (!pal || !out_name || !get_key)
         return -NDX_ERR_IO;
@@ -1343,11 +1483,6 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
     kpp = (uint32_t)(NDX_PAGE_SIZE - NDX_NODE_HDR_SIZE) / group_len;
     if (kpp == 0u)
         return -NDX_ERR_BAD_GROUP;     /* a single key does not fit a page */
-    /* A branch node carries at most kpp separator groups + a trailing 4-byte
-     * child slot = kpp + 1 child pointers (the same bound the reader validates:
-     * entries_end = 4 + kpp*group_len <= 512, so the trailing slot's 4 bytes fit).
-     * Ref: ndx.md ss3.2 + spec/samir/ndx_format.h "keys_per_page = 508/group_length". */
-    cap = kpp + 1u;
 
     /* ndx.md ss1/5 and Rule 2: reject unrepresentable workspace and leaf
      * counts BEFORE any allocation/provider call (initech-xiqz). */
@@ -1386,42 +1521,14 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
     /* --- STABLE sort by collation; ties keep ascending recno. --- */
     stable_sort_keys(key_type, key_len, keys, recnos, nrec, tmpkey);
 
-    /* --- Leaf count: pack 100% L->R, remainder last. --- */
     /* nleaf = ceil(nrec / kpp), minimum 1 (an empty index still has 1 leaf). */
     nleaf = (nrec + kpp - 1u) / kpp;
     if (nleaf == 0u)
         nleaf = 1u;
 
-    /*
-     * Page layout (multi-level; ndx.md ss5 + mint-results-003 generalized):
-     *   L == 1: the single leaf IS the root. root_page = 1, total_pages = 2.
-     *   L  > 1: leaves on pages 1..L. Above them, one or more BRANCH levels, each
-     *           grouping the level below into branch nodes of up to `cap` = kpp+1
-     *           children (kpp separators + a trailing child). Levels are appended
-     *           in order (level-1 pages, then level-2, ...) with the single ROOT
-     *           written LAST -- the highest page number. Repeat until one node
-     *           remains. root_page = total_pages - 1; total_pages = 1 + all nodes.
-     *
-     *   The 2-level case (L <= cap) collapses to exactly the minted BIGIDX shape:
-     *     one root branch, L-1 separators + trailing child; root_page = L+1;
-     *     total_pages = L+2. [VERIFIED unchanged: BIGIDX root=15/total=16.]
-     *
-     * GROUND TRUTH (Law 1). The LEAF packing (100% L->R, remainder last) and the
-     * 2-level root (N seps / N+1 children, sep[i] = HIGH key of leaf i) are minted
-     * byte-exact [mint-results-003, BIGIDX]. The INTERIOR branch packing of a
-     * 3+-level tree is corpus-OPEN -- the multi-level "BIGXA" mint (re/mint-
-     * formats.md ndx-B5) is NOT YET minted. So the 3+-level shape is NOT graded
-     * byte-exact against real dBASE; it is built to the FORMAT INVARIANTS
-     * (ndx.md ss5: ascending order; branch separator = HIGH key of its subtree;
-     * balanced depth; N seps / N+1 children) and graded structurally by
-     * test_ndx_multilevel.c. When a real 3-level golden is minted, revisit the
-     * interior fill policy. Ref: initech-h5vg; ndx.md ss5; mint-results-003.
-     *
-     * MUTATION -DNDX_MUTATE_NO_ROOT_SPLIT (Rule 6): revert to the OLD 2-level
+    /* MUTATION -DNDX_MUTATE_NO_ROOT_SPLIT (Rule 6): revert to the OLD 2-level
      * ceiling -- fail loud with -NDX_ERR_PAGE_OVF the moment a 3rd level is
-     * needed ((L-1) > kpp). test_ndx_multilevel.c then goes RED, proving that
-     * oracle exercises the new multi-level path.
-     */
+     * needed ((L-1) > kpp). test_ndx_multilevel.c then goes RED. */
 #ifdef NDX_MUTATE_NO_ROOT_SPLIT
     if (nleaf > 1u && (nleaf - 1u) > kpp) {
         pal->reset(pal, mark);
@@ -1429,44 +1536,32 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
     }
 #endif
 
-    if (nleaf == 1u) {
-        root_page   = 1u;
-        total_pages = 2u;
-    } else {
-        /* Analytic pass: walk the level widths to size the file BEFORE writing
-         * the header (which needs root_page + total_pages). Distribution per
-         * level is BALANCED (floor/ceil of cnt/np) so no branch node ends up with
-         * a single child (0 separators) -- such a node would be misread as an
-         * empty leaf (the reader detects a branch by "first entry child_page != 0").
-         * base = floor(cnt/np) is each node's minimum child count; base < 2 with
-         * np > 1 can only happen when kpp == 1 (a pathological ~500-byte key that
-         * no real III+ index uses) -- FAIL LOUD rather than emit an unreadable node. */
-        uint32_t cnt        = nleaf;
-        uint32_t node_pages = nleaf;   /* leaf pages counted */
-        while (cnt > 1u) {
-            uint32_t np   = (cnt + cap - 1u) / cap;   /* ceil(cnt/cap) */
-            uint32_t base = cnt / np;
-            if (np > 1u && base < 2u) {
-                pal->reset(pal, mark);
-                return -NDX_ERR_PAGE_OVF;   /* kpp too small to represent depth */
-            }
-            node_pages += np;
-            cnt = np;
-        }
-        total_pages = 1u + node_pages;
-        root_page   = total_pages - 1u;   /* root = the last-written / highest page */
-
-        /* Allocate the per-level scratch arrays (size nleaf covers every level,
-         * since each parent level is no wider than the level below). */
-        lvl_pg = (uint32_t *)pal->alloc(pal, nleaf * (uint32_t)sizeof(uint32_t));
-        lvl_hi = (uint32_t *)pal->alloc(pal, nleaf * (uint32_t)sizeof(uint32_t));
-        par_pg = (uint32_t *)pal->alloc(pal, nleaf * (uint32_t)sizeof(uint32_t));
-        par_hi = (uint32_t *)pal->alloc(pal, nleaf * (uint32_t)sizeof(uint32_t));
-        if (!lvl_pg || !lvl_hi || !par_pg || !par_hi) {
-            pal->reset(pal, mark);
-            return -NDX_ERR_OOM;
+    /* --- The level stacks: each level holds at most kpp+1 pending children;
+     * the depth is at most ceil(log_{kpp+1}(nleaf)) + 1 (+1 slack). --- */
+    rt_memset(&b, 0, (uint32_t)sizeof(b));
+    b.nlev = 2u;
+    {
+        uint32_t c = nleaf;
+        while (c > 1u) {
+            c = c / (kpp + 1u) + ((c % (kpp + 1u)) ? 1u : 0u);
+            b.nlev++;
         }
     }
+    b.cnt = (uint32_t *)pal->alloc(pal, b.nlev * (uint32_t)sizeof(uint32_t));
+    b.pg  = (uint32_t *)pal->alloc(pal, b.nlev * (kpp + 1u) * (uint32_t)sizeof(uint32_t));
+    b.hi  = (uint32_t *)pal->alloc(pal, b.nlev * (kpp + 1u) * (uint32_t)sizeof(uint32_t));
+    if (!b.cnt || !b.pg || !b.hi) {
+        pal->reset(pal, mark);
+        return -NDX_ERR_OOM;
+    }
+    rt_memset(b.cnt, 0, b.nlev * (uint32_t)sizeof(uint32_t));
+    b.pal       = pal;
+    b.kpp       = kpp;
+    b.group_len = group_len;
+    b.key_len   = key_len;
+    b.keys      = keys;
+    b.next_pg   = 1u;
+    b.page      = page;
 
     /* --- Open the output file (create/truncate). --- */
     fd = pal->open(pal, out_name, PAL_RDWR | PAL_CREATE | PAL_TRUNC);
@@ -1474,32 +1569,15 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
         pal->reset(pal, mark);
         return -NDX_ERR_IO;
     }
+    b.fd = fd;
 
-    /* --- Page 0: the header. --- */
+    /* --- Page 0 placeholder (rewritten with root/total at the end). --- */
     rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
-    u32le_w(page + NDX_HDR_ROOT_PAGE_OFF,    root_page);
-    u32le_w(page + NDX_HDR_TOTAL_PAGES_OFF,  total_pages);
-    u32le_w(page + NDX_HDR_RESERVED_OFF,     0u);             /* NORMALIZE -> 0 */
-    u16le_w(page + NDX_HDR_KEY_LENGTH_OFF,   key_len);
-    u16le_w(page + NDX_HDR_KEYS_PER_PAGE_OFF,(uint16_t)kpp);
-    u16le_w(page + NDX_HDR_KEY_TYPE_OFF,     key_type);
-    u16le_w(page + NDX_HDR_GROUP_LENGTH_OFF, (uint16_t)group_len);
-    u16le_w(page + NDX_HDR_DUMMY_OFF,        0u);             /* NORMALIZE -> 0 */
-    u16le_w(page + NDX_HDR_UNIQUE_FLAG_OFF,  0u);             /* bulk INDEX ON is non-unique */
-    /* key_expr verbatim, NUL-terminated, cap 100. Tail after NUL stays 0. */
-    if (key_expr) {
-        uint32_t e;
-        for (e = 0u; e < (uint32_t)NDX_HDR_KEY_EXPR_SIZE; e++) {
-            char c = key_expr[e];
-            if (c == '\0') break;
-            page[NDX_HDR_KEY_EXPR_OFF + e] = (uint8_t)c;
-        }
-        /* page already memset to 0 -> the NUL terminator + tail are 0. */
-    }
     rc = write_page(pal, fd, 0u, page);
     if (rc != NDX_OK) { pal->close(pal, fd); pal->reset(pal, mark); return rc; }
 
-    /* --- Leaf pages 1..nleaf: pack 100% L->R, remainder in the last leaf. --- */
+    /* --- Leaves: pack 100% L->R, remainder last; each leaf is written and
+     * pushed the moment it is complete (streaming; see the block above). --- */
     {
         uint32_t leaf;
         uint32_t key_i = 0u;           /* next sorted key index to place */
@@ -1508,22 +1586,16 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
             uint32_t fill;
             uint32_t leaves_left = nleaf - leaf;
             uint32_t g;
+            uint32_t pno;
 
 #ifndef NDX_MUTATE_SPLIT_5050
             /* CORRECT bulk-build packing: fill this leaf to capacity, leaving the
-             * remainder for the LAST leaf. The last leaf takes whatever is left.
-             * [re/mint-results-003.md: 100%-pack, remainder last; NOT 50/50.] */
-            if (leaf + 1u < nleaf) {
-                fill = kpp;            /* a non-final leaf is always full */
-            } else {
-                fill = remaining;      /* the final leaf gets the remainder */
-            }
+             * remainder for the LAST leaf. [re/mint-results-003.md: 100%-pack,
+             * remainder last; NOT 50/50.] */
+            fill = (leaf + 1u < nleaf) ? kpp : remaining;
 #else
             /* MUTATED ~50/50 split (Rule 6): spread the remaining keys evenly
-             * across the remaining leaves (ceil division) instead of packing to
-             * capacity. With L leaves this fills each to about N/L < kpp, so the
-             * fill levels (and the root separators) diverge from the golden ->
-             * the byte-exact rebuild oracle goes RED. */
+             * across the remaining leaves -> diverges from the golden -> RED. */
             fill = (remaining + leaves_left - 1u) / leaves_left;
             if (fill > kpp) fill = kpp;
 #endif
@@ -1532,124 +1604,53 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
 
             rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
             u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)fill);
-            u16le_w(page + NDX_NODE_FILLER_OFF, 0u);   /* NORMALIZE -> 0 */
-
             for (g = 0u; g < fill; g++) {
-                uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF
-                              + g * group_len;
+                uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF + g * group_len;
                 u32le_w(page + base + NDX_GRP_CHILD_PAGE_OFF, 0u);  /* leaf */
                 u32le_w(page + base + NDX_GRP_DBF_RECNO_OFF, recnos[key_i + g]);
                 rt_memcpy(page + base + NDX_GRP_KEY_DATA_OFF,
                           keys + (key_i + g) * (uint32_t)key_len, key_len);
-                /* group filler after key_data stays 0 (NORMALIZE). */
             }
-            /* The unused page tail + trailing slot stay 0 (NORMALIZE; leaf
-             * trailing slot is garbage in genuine III+, ndx.md ss3.2). */
-
-            rc = write_page(pal, fd, leaf + 1u, page);
+            pno = b.next_pg;
+            b.next_pg++;
+            rc = write_page(pal, fd, pno, page);
+            if (rc == NDX_OK)
+                rc = bld_push(&b, 0u, pno,
+                              fill ? key_i + fill - 1u : NDX_BLD_NOHI);
             if (rc != NDX_OK) {
                 pal->close(pal, fd); pal->reset(pal, mark); return rc;
             }
-
-            /* Record this leaf for the branch builder: its page number and the
-             * sorted-key index of its HIGH (last) key. Only needed when L > 1
-             * (nleaf == 1 has no branch level and every leaf here has fill >= 1). */
-            if (nleaf > 1u) {
-                lvl_pg[leaf] = leaf + 1u;
-                lvl_hi[leaf] = key_i + fill - 1u;
-            }
-
             key_i += fill;
         }
     }
 
-    /* --- Branch levels (only when L > 1). ---
-     *
-     * Build parent levels bottom-up over the leaves. `lvl_pg[]`/`lvl_hi[]` hold
-     * the CURRENT level's child pages and the sorted-key index of each child's
-     * HIGH key (leaves captured that above). For each parent level we group the
-     * children into branch nodes of up to `cap` = kpp+1 children (BALANCED so no
-     * node gets a single child), emit each node as `m-1` separators (the HIGH
-     * keys of its first m-1 children) + a trailing child (its last child), and
-     * record the node into the parent arrays. Its own HIGH key = the HIGH key of
-     * its last child (propagates up). Pages are assigned sequentially starting
-     * just above the leaves; the last node emitted is the ROOT (== root_page).
-     *
-     * Ref (Law 1): ndx.md ss5 (branch separator = HIGH key of subtree; N seps /
-     * N+1 children; ascending order) + ss3.2 (trailing child). The 2-level case
-     * (one iteration, np==1) reproduces the minted BIGIDX root byte-exactly. The
-     * 3+-level interior fill is corpus-OPEN and graded structurally (initech-h5vg).
-     */
-    if (nleaf > 1u) {
-        uint32_t cur_cnt = nleaf;
-        uint32_t next_pg = nleaf + 1u;   /* first branch page sits above the leaves */
+    rc = bld_finish(&b, &root_page);
+    if (rc != NDX_OK) { pal->close(pal, fd); pal->reset(pal, mark); return rc; }
 
-        while (cur_cnt > 1u) {
-            uint32_t np      = (cur_cnt + cap - 1u) / cap;   /* ceil(cur_cnt/cap) */
-            uint32_t base    = cur_cnt / np;
-            uint32_t extra   = cur_cnt % np;
-            uint32_t child_i = 0u;
-            uint32_t j;
-            uint32_t t;
-
-            for (j = 0u; j < np; j++) {
-                /* Balanced fanout: the first `extra` nodes take base+1 children,
-                 * the rest take base. Guarantees m >= 2 (validated analytically). */
-                uint32_t m       = base + ((j < extra) ? 1u : 0u);
-                uint32_t nsep    = m - 1u;
-                uint32_t page_no = next_pg + j;
-                uint32_t s;
-
-                rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
-                u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)nsep);
-                u16le_w(page + NDX_NODE_FILLER_OFF, 0u);   /* NORMALIZE -> 0 */
-
-                for (s = 0u; s < nsep; s++) {
-                    /* separator[s] = HIGH key of child (child_i+s), child pointer
-                     * = that child's page. recno = 0 in a branch entry (ss3.1). */
-                    uint32_t bpos   = (uint32_t)NDX_NODE_ENTRIES_OFF + s * group_len;
-                    uint32_t hi_idx = lvl_hi[child_i + s];
-                    u32le_w(page + bpos + NDX_GRP_CHILD_PAGE_OFF, lvl_pg[child_i + s]);
-                    u32le_w(page + bpos + NDX_GRP_DBF_RECNO_OFF, 0u);
-                    rt_memcpy(page + bpos + NDX_GRP_KEY_DATA_OFF,
-                              keys + hi_idx * (uint32_t)key_len, key_len);
-                }
-                /* Trailing child slot = this node's last child (ndx.md ss3.2).
-                 * Only the 4-byte child pointer is MEANINGFUL; the rest stays 0. */
-                {
-                    uint32_t trail_off = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                       + nsep * group_len;
-                    u32le_w(page + trail_off + NDX_GRP_CHILD_PAGE_OFF,
-                            lvl_pg[child_i + m - 1u]);
-                }
-
-                rc = write_page(pal, fd, page_no, page);
-                if (rc != NDX_OK) {
-                    pal->close(pal, fd); pal->reset(pal, mark); return rc;
-                }
-
-                /* Record this node into the parent level: its page + the HIGH
-                 * key of its last child (== this subtree's HIGH key). */
-                par_pg[j] = page_no;
-                par_hi[j] = lvl_hi[child_i + m - 1u];
-                child_i  += m;
-            }
-
-            next_pg += np;
-            /* Parent level becomes the current level for the next iteration. */
-            for (t = 0u; t < np; t++) {
-                lvl_pg[t] = par_pg[t];
-                lvl_hi[t] = par_hi[t];
-            }
-            cur_cnt = np;
+    /* --- Page 0: the header, now that root_page and total_pages are known. --- */
+    rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+    u32le_w(page + NDX_HDR_ROOT_PAGE_OFF,    root_page);
+    u32le_w(page + NDX_HDR_TOTAL_PAGES_OFF,  b.next_pg);
+    u32le_w(page + NDX_HDR_RESERVED_OFF,     0u);             /* NORMALIZE -> 0 */
+    u16le_w(page + NDX_HDR_KEY_LENGTH_OFF,   key_len);
+    u16le_w(page + NDX_HDR_KEYS_PER_PAGE_OFF,(uint16_t)kpp);
+    u16le_w(page + NDX_HDR_KEY_TYPE_OFF,     key_type);
+    u16le_w(page + NDX_HDR_GROUP_LENGTH_OFF, (uint16_t)group_len);
+    u16le_w(page + NDX_HDR_DUMMY_OFF,        0u);             /* NORMALIZE -> 0 */
+    u16le_w(page + NDX_HDR_UNIQUE_FLAG_OFF,  0u);             /* bulk INDEX ON is non-unique */
+    if (key_expr) {
+        uint32_t e;
+        for (e = 0u; e < (uint32_t)NDX_HDR_KEY_EXPR_SIZE; e++) {
+            char c = key_expr[e];
+            if (c == '\0') break;
+            page[NDX_HDR_KEY_EXPR_OFF + e] = (uint8_t)c;
         }
-        /* cur_cnt == 1: lvl_pg[0] is the root, which equals root_page
-         * (== total_pages-1 == next_pg-1, the highest page written). */
     }
+    rc = write_page(pal, fd, 0u, page);
 
     pal->close(pal, fd);
     pal->reset(pal, mark);
-    return NDX_OK;
+    return rc;
 }
 
 /* =======================================================================
@@ -1666,17 +1667,10 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
  *     sort buffer during splits.
  *   - No re-balancing on delete (dBASE III PLUS does not rebalance; the
  *     corpus shows underfull nodes are left as-is after deletions).
- *   - Splits (leaf overflow): a new leaf page is allocated (appended to the
- *     file; total_pages incremented in the header). GATED: byte-exact split
- *     layout is corpus-open. We use a simple ~half split (lower half stays
- *     in the old leaf; upper half goes to the new leaf). The test
- *     loud-skips the byte-exact split layout assertion.
- *   - The tree is at most 2 levels (one root branch + leaves) for the
- *     supported corpus. A split that would require a 3-level tree returns
- *     -NDX_ERR_NOROOM (fail loud, Law 1).
- *   - Single-level tree (root IS the leaf): on overflow, a new root branch
- *     is created and assigned a fresh page. root_page and total_pages in
- *     the header are updated.
+ *   - Splits and deletes follow the MINTED dBASE III PLUS policy at any depth
+ *     (block comment "Multi-level incremental maintenance" below; ../dbase3-
+ *     decomp re/mint-results-006.md s2; initech-7tj3). New pages are appended
+ *     at total_pages; emptied pages are never reused.
  *
  * Mutation hook -DNDX_MUTATE_INSERT_NOSORT (Rule 6):
  *   In the insert path, the new entry is appended at the END of the leaf
@@ -1867,33 +1861,332 @@ static uint16_t insert_into_leaf(ndx_index *idx, uint8_t *page,
     return count;
 }
 
-/*
- * ndx_insert_key: insert (key_data, recno) into the open B-tree.
+/* -----------------------------------------------------------------------
+ * Multi-level incremental maintenance -- the real dBASE III PLUS policy
+ * (bead initech-7tj3), minted byte-for-byte from DBASE.EXE 1.1 under
+ * dosbox-x: ../dbase3-decomp re/mint-results-006.md s2 (M006A-D: 343+37
+ * one-key inserts and 18 key moves on a 3-level C20 tree; 2 x 130 one-key
+ * inserts from an empty C100 index, kpp 4, growing to 4 levels; 68 key moves
+ * that empty leaves, 0-separator branches and whole subtrees). A scratch
+ * model of the rules below reproduced all 516 minted snapshots structurally
+ * before this code was written; test-ndx-incremental grades this code against
+ * the same snapshots byte-for-byte (normalized).
  *
- * The implementation handles four cases:
- *   A. Single-level tree (root is a leaf) with room -> insert in-place.
- *   B. Single-level tree (root is a leaf) FULL -> split leaf, create new
- *      root branch, update header (root_page, total_pages).
- *   C. Two-level tree, target leaf has room -> insert in-place.
- *   D. Two-level tree, target leaf FULL -> split leaf, add separator to
- *      root branch. If root also full -> -NDX_ERR_NOROOM (fail loud).
+ * INSERT
+ *   - Descend: at a branch take the first separator >= key (the HIGH key of
+ *     its subtree), else the trailing child.
+ *   - A full leaf (kpp entries + the new one) SPLITS: the old page keeps the
+ *     first (kpp+2)/2 entries (kpp 18 -> 10, kpp 4 -> 3), a NEW page appended
+ *     at total_pages takes the rest. The parent gets separator = the HIGH key
+ *     of the left page, pointing at the left page; the new page takes the
+ *     left page's old place in the child order (minted I01, U005).
+ *   - A branch that then holds kpp+1 separators (kpp+2 children) splits the
+ *     same way by CHILDREN: the old page keeps the first (kpp+2)/2 children,
+ *     the separator between the halves moves UP, a new page takes the rest
+ *     (minted I01: 20 children -> 10 + 10; U017: 6 -> 3 + 3).
+ *   - A root split appends a new root page AFTER the split pages (U005: p2
+ *     then root p3; U017: p7, p8, root p9).
+ *   - Separators are never touched by an insert that does not split.
  *
- * GATED: byte-exact split layout is corpus-open. The behavioral oracle
- * asserts ndx_seek finds the key + ndx_inorder is sorted, but does NOT
- * byte-compare split pages to a golden.
+ * DELETE (REPLACE of a key field = delete the old pair, insert the new one)
+ *   - The pair is removed from its leaf; no merging, no rebalancing.
+ *   - If it was the leaf's HIGH key and the leaf is not empty, the new HIGH
+ *     key replaces the separator of the nearest ancestor in which this path is
+ *     NOT the trailing child (minted D09: 450 -> 365).
+ *   - An emptied leaf is unhooked from its parent: as a non-trailing child its
+ *     separator and pointer go (D18); as the trailing child the last separator
+ *     goes, the previous child becomes the trailing child, and the removed
+ *     separator (the new HIGH key) propagates as above (M043: 525 -> 515). A
+ *     branch left with 0 separators stays, holding its trailing child (E02);
+ *     a branch left with NO child is unhooked from ITS parent the same way
+ *     (E04, E08). Emptied pages are not reused (total_pages never shrinks).
  *
- * Ref: ndx.md ss3/ss5; plan S4.5 + sec7 GATED register.
- */
+ * A branch is recognised by group 0's child_page != 0, which also covers the
+ * 0-separator branch (its trailing child sits in group 0; E02).
+ * ----------------------------------------------------------------------- */
+
+#define NDX_MAX_DEPTH 32u
+#define NDX_BIGBUF    768u   /* NDX_NODE_HDR_SIZE + (kpp+2) groups, any III+ key */
+
+static uint32_t slot_off(const ndx_index *idx, uint32_t s)
+{
+    return (uint32_t)NDX_NODE_ENTRIES_OFF + s * (uint32_t)idx->group_length;
+}
+
+static int page_is_branch(const uint8_t *page)
+{
+    return u32le(page + NDX_NODE_ENTRIES_OFF + NDX_GRP_CHILD_PAGE_OFF) != 0u;
+}
+
+#ifndef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+/* subtree_high: the (key, recno) of the LAST entry under PAGE_NO (follow the
+ * trailing children to the rightmost leaf). -NDX_ERR_NOTFOUND if that leaf is
+ * empty. */
+static int subtree_high(ndx_index *idx, uint32_t page_no, uint8_t *key_out,
+                        uint32_t *recno_out)
+{
+    uint8_t  page[NDX_PAGE_SIZE];
+    uint32_t guard = 0u;
+    for (;;) {
+        uint16_t n;
+        int rc = read_raw_page(idx, page_no, page);
+        if (rc != NDX_OK) return rc;
+        n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+        if (n > idx->keys_per_page) return -NDX_ERR_BAD_PAGE;
+        if (!page_is_branch(page)) {
+            uint32_t off;
+            if (n == 0u) return -NDX_ERR_NOTFOUND;
+            off = slot_off(idx, (uint32_t)n - 1u);
+            rt_memcpy(key_out, page + off + NDX_GRP_KEY_DATA_OFF,
+                      (uint32_t)idx->key_length);
+            *recno_out = u32le(page + off + NDX_GRP_DBF_RECNO_OFF);
+            return NDX_OK;
+        }
+        page_no = u32le(page + slot_off(idx, n) + NDX_GRP_CHILD_PAGE_OFF);
+        if (page_no == 0u || ++guard > NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
+    }
+}
+#endif
+
+/* read_big: read PAGE_NO into a NDX_BIGBUF buffer (the slots past 512 are 0,
+ * room for a transient kpp+1-separator branch). */
+static int read_big(ndx_index *idx, uint32_t page_no, uint8_t *big)
+{
+    rt_memset(big, 0, NDX_BIGBUF);
+    return read_raw_page(idx, page_no, big);
+}
+
+/* sep_propagate: KEY is the new HIGH key of the subtree reached through the
+ * path's DEPTH entries; store it in the nearest ancestor where that subtree is
+ * not the trailing child (minted D09 / M043). */
+static int sep_propagate(ndx_index *idx, const uint32_t *path_pg,
+                         const uint32_t *path_ci, uint32_t depth,
+                         const uint8_t *key)
+{
+#ifdef NDX_MUTATE_DELETE_NO_SEP_UPDATE
+    (void)idx; (void)path_pg; (void)path_ci; (void)depth; (void)key;
+    return NDX_OK;   /* MUTANT (Rule 6): leave the stale separator */
+#else
+    uint8_t page[NDX_PAGE_SIZE];
+    while (depth > 0u) {
+        uint16_t n;
+        int rc;
+        depth--;
+        rc = read_raw_page(idx, path_pg[depth], page);
+        if (rc != NDX_OK) return rc;
+        n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+        if (path_ci[depth] < (uint32_t)n) {
+            rt_memcpy(page + slot_off(idx, path_ci[depth]) + NDX_GRP_KEY_DATA_OFF,
+                      key, (uint32_t)idx->key_length);
+            return write_node_page(idx, path_pg[depth], page);
+        }
+    }
+    return NDX_OK;
+#endif
+}
+
 int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
 {
-    uint8_t  leaf_page[NDX_PAGE_SIZE];
-    uint8_t  root_page_buf[NDX_PAGE_SIZE];
-    uint32_t kl;
-    uint32_t gl;
-    uint16_t kpp;
-    uint32_t leaf_page_no;
-    uint32_t root_page_no;
-    int      is_two_level;
+    uint8_t  page[NDX_PAGE_SIZE];
+    uint8_t  big[NDX_BIGBUF];
+    uint8_t  up[NDX_SEEK_KEYBUF];
+    uint8_t  hk[NDX_SEEK_KEYBUF];
+    uint32_t path_pg[NDX_MAX_DEPTH];
+    uint32_t path_ci[NDX_MAX_DEPTH];
+    uint32_t depth = 0u;
+    uint32_t pg;
+    uint32_t kl, gl, kpp;
+    uint32_t left_pg, new_pg;
+    uint16_t n;
+    int      rc;
+
+    if (!idx || !key_data)
+        return -NDX_ERR_BAD_PAGE;
+    if (!idx->writable)
+        return -NDX_ERR_READONLY;
+#ifdef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+    (void)hk;
+#endif
+
+    kl  = (uint32_t)idx->key_length;
+    gl  = (uint32_t)idx->group_length;
+    kpp = (uint32_t)idx->keys_per_page;
+    if (kl > (uint32_t)NDX_SEEK_KEYBUF
+        || (uint32_t)NDX_NODE_HDR_SIZE + (kpp + 2u) * gl > NDX_BIGBUF)
+        return -NDX_ERR_BAD_GROUP;
+
+    /* --- Descend to the leaf, recording the path. --- */
+    pg = idx->root_page;
+    for (;;) {
+        uint32_t i, ci;
+        rc = read_raw_page(idx, pg, page);
+        if (rc != NDX_OK) return rc;
+        n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+        if ((uint32_t)n > kpp) return -NDX_ERR_BAD_PAGE;
+        if (!page_is_branch(page))
+            break;
+        ci = (uint32_t)n;
+        for (i = 0u; i < (uint32_t)n; i++) {
+            int cmp = ndx_key_cmp(idx, page + slot_off(idx, i) + NDX_GRP_KEY_DATA_OFF,
+                                  key_data);
+            if (cmp < 0)
+                continue;
+#ifndef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+            if (cmp == 0) {
+                /* Equal separator (a duplicate key). Branch recnos are zero
+                 * (ndx.md ss3.1), so recover the subtree's upper (key,recno)
+                 * pair and go further right when the new recno sorts after it:
+                 * equal keys stay in ascending recno order across leaves
+                 * (ndx.md ss5; initech-nrkx/68ox). Not minted [inferred]. */
+                uint32_t hr = 0u;
+                int hc;
+                rc = subtree_high(idx, u32le(page + slot_off(idx, i)
+                                             + NDX_GRP_CHILD_PAGE_OFF), hk, &hr);
+                if (rc == -NDX_ERR_NOTFOUND) continue;
+                if (rc != NDX_OK) return rc;
+                hc = ndx_key_cmp(idx, hk, key_data);
+                if (hc < 0 || (hc == 0 && recno > hr))
+                    continue;
+            }
+#endif
+            ci = i;
+            break;
+        }
+        if (depth >= NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
+        path_pg[depth] = pg;
+        path_ci[depth] = ci;
+        depth++;
+        pg = u32le(page + slot_off(idx, ci) + NDX_GRP_CHILD_PAGE_OFF);
+        if (pg == 0u) return -NDX_ERR_BAD_PAGE;   /* branch without that child */
+    }
+
+    /* --- Leaf with room: insert in place. --- */
+    if ((uint32_t)n < kpp) {
+        insert_into_leaf(idx, page, key_data, recno);
+        return write_node_page(idx, pg, page);
+    }
+
+    /* --- Full leaf: split (kpp+1 entries; left keeps (kpp+2)/2). --- */
+    {
+        uint32_t L;
+        uint32_t total = kpp + 1u;
+        rt_memset(big, 0, NDX_BIGBUF);
+        rt_memcpy(big, page, (uint32_t)NDX_PAGE_SIZE);
+        insert_into_leaf(idx, big, key_data, recno);
+#ifndef NDX_MUTATE_LEAF_SPLIT_LOW
+        L = (kpp + 2u) / 2u;
+#else
+        L = (kpp + 1u) / 2u;   /* MUTANT (Rule 6): the smaller half stays left */
+#endif
+        rt_memcpy(up, big + slot_off(idx, L - 1u) + NDX_GRP_KEY_DATA_OFF, kl);
+
+        rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+        u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)L);
+        rt_memcpy(page + NDX_NODE_ENTRIES_OFF, big + NDX_NODE_ENTRIES_OFF, L * gl);
+        rc = write_node_page(idx, pg, page);
+        if (rc != NDX_OK) return rc;
+
+        rc = alloc_page(idx, &new_pg);
+        if (rc != NDX_OK) return rc;
+        rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+        u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)(total - L));
+        rt_memcpy(page + NDX_NODE_ENTRIES_OFF, big + slot_off(idx, L),
+                  (total - L) * gl);
+        rc = write_node_page(idx, new_pg, page);
+        if (rc != NDX_OK) return rc;
+        left_pg = pg;
+    }
+
+    /* --- Carry (up, left_pg, new_pg) up the path. --- */
+    while (depth > 0u) {
+        uint32_t p, ci, s, nn;
+        depth--;
+        p  = path_pg[depth];
+        ci = path_ci[depth];
+        rc = read_big(idx, p, big);
+        if (rc != NDX_OK) return rc;
+        nn = (uint32_t)u16le(big + NDX_NODE_ENTRY_COUNT_OFF);
+        /* Open slot ci: slots ci..nn (nn = the trailing slot) move right. */
+        for (s = nn + 1u; s > ci; s--)
+            rt_memcpy(big + slot_off(idx, s), big + slot_off(idx, s - 1u), gl);
+        u32le_w(big + slot_off(idx, ci) + NDX_GRP_CHILD_PAGE_OFF, left_pg);
+        u32le_w(big + slot_off(idx, ci) + NDX_GRP_DBF_RECNO_OFF, 0u);
+        rt_memcpy(big + slot_off(idx, ci) + NDX_GRP_KEY_DATA_OFF, up, kl);
+        u32le_w(big + slot_off(idx, ci + 1u) + NDX_GRP_CHILD_PAGE_OFF, new_pg);
+        nn++;
+        if (nn <= kpp) {
+            u16le_w(big + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)nn);
+            rc = write_node_page(idx, p, big);
+            if (rc != NDX_OK) return rc;
+            return write_hdr_fields(idx);
+        }
+        /* Branch split by children (nn+1 = kpp+2): the left keeps CL. */
+        {
+            uint32_t CL = (kpp + 2u) / 2u;
+            uint32_t rn = nn - CL;            /* right separators */
+            rt_memcpy(up, big + slot_off(idx, CL - 1u) + NDX_GRP_KEY_DATA_OFF, kl);
+            rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+            u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)(CL - 1u));
+            rt_memcpy(page + NDX_NODE_ENTRIES_OFF, big + NDX_NODE_ENTRIES_OFF,
+                      (CL - 1u) * gl);
+            u32le_w(page + slot_off(idx, CL - 1u) + NDX_GRP_CHILD_PAGE_OFF,
+                    u32le(big + slot_off(idx, CL - 1u) + NDX_GRP_CHILD_PAGE_OFF));
+            rc = write_node_page(idx, p, page);
+            if (rc != NDX_OK) return rc;
+
+            rc = alloc_page(idx, &new_pg);
+            if (rc != NDX_OK) return rc;
+            rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+            u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)rn);
+            rt_memcpy(page + NDX_NODE_ENTRIES_OFF, big + slot_off(idx, CL), rn * gl);
+            u32le_w(page + slot_off(idx, rn) + NDX_GRP_CHILD_PAGE_OFF,
+                    u32le(big + slot_off(idx, nn) + NDX_GRP_CHILD_PAGE_OFF));
+            rc = write_node_page(idx, new_pg, page);
+            if (rc != NDX_OK) return rc;
+            left_pg = p;
+        }
+    }
+
+    /* --- The root split: a new root after the split pages. --- */
+    {
+        uint32_t nr;
+        rc = alloc_page(idx, &nr);
+        if (rc != NDX_OK) return rc;
+        rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
+        u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, 1u);
+        u32le_w(page + slot_off(idx, 0u) + NDX_GRP_CHILD_PAGE_OFF, left_pg);
+        u32le_w(page + slot_off(idx, 0u) + NDX_GRP_DBF_RECNO_OFF, 0u);
+        rt_memcpy(page + slot_off(idx, 0u) + NDX_GRP_KEY_DATA_OFF, up, kl);
+        u32le_w(page + slot_off(idx, 1u) + NDX_GRP_CHILD_PAGE_OFF, new_pg);
+        rc = write_node_page(idx, nr, page);
+        if (rc != NDX_OK) return rc;
+        idx->root_page = nr;
+    }
+    return write_hdr_fields(idx);
+}
+
+/*
+ * ndx_delete_key: remove the entry with matching key_data AND recno.
+ *
+ * NON-UNIQUE spanning (initech-0g22): an equal-key run of >kpp records spills
+ * across several leaves whose separators all carry the same key (branch
+ * recnos are 0, ndx.md sec.6), so the descent stops at the LEFTMOST candidate
+ * leaf and then WALKS the run leaf by leaf (in key order, any depth) while the
+ * leaf's HIGH key still equals the target. Then the minted dBASE delete rules
+ * (block comment above) restore the separators.
+ */
+int ndx_delete_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
+{
+    uint8_t  page[NDX_PAGE_SIZE];
+    uint8_t  big[NDX_BIGBUF];
+    uint8_t  nh[NDX_SEEK_KEYBUF];
+    uint32_t path_pg[NDX_MAX_DEPTH];
+    uint32_t path_ci[NDX_MAX_DEPTH];
+    uint32_t depth = 0u;
+    uint32_t pg;
+    uint32_t kl, gl, kpp;
+    uint32_t j = 0u;
+    uint16_t n;
     int      rc;
 
     if (!idx || !key_data)
@@ -1903,694 +2196,142 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
 
     kl  = (uint32_t)idx->key_length;
     gl  = (uint32_t)idx->group_length;
-    kpp = idx->keys_per_page;
+    kpp = (uint32_t)idx->keys_per_page;
+    if (kl > (uint32_t)NDX_SEEK_KEYBUF
+        || (uint32_t)NDX_NODE_HDR_SIZE + (kpp + 2u) * gl > NDX_BIGBUF)
+        return -NDX_ERR_BAD_GROUP;
 
-    root_page_no = idx->root_page;
-
-    /* Read the root page to determine tree level. */
-    rc = read_raw_page(idx, root_page_no, root_page_buf);
-    if (rc != NDX_OK) return rc;
-
-    {
-        uint16_t root_count = u16le(root_page_buf + NDX_NODE_ENTRY_COUNT_OFF);
-        int root_is_branch = 0;
-
-        /* Determine if the root is a branch (two-level) or leaf (one-level).
-         * A branch entry has child_page != 0 in its first live entry.
-         * If root_count == 0 the tree is empty; treat as leaf. */
-        if (root_count > 0u) {
-            uint32_t fst = (uint32_t)NDX_NODE_ENTRIES_OFF + NDX_GRP_CHILD_PAGE_OFF;
-            uint32_t first_child = u32le(root_page_buf + fst);
-            root_is_branch = (first_child != 0u) ? 1 : 0;
+    /* --- Descend to the LEFTMOST candidate leaf (first separator >= key). --- */
+    pg = idx->root_page;
+    for (;;) {
+        uint32_t i, ci;
+        rc = read_raw_page(idx, pg, page);
+        if (rc != NDX_OK) return rc;
+        n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+        if ((uint32_t)n > kpp) return -NDX_ERR_BAD_PAGE;
+        if (!page_is_branch(page))
+            break;
+        ci = (uint32_t)n;
+        for (i = 0u; i < (uint32_t)n; i++) {
+            if (ndx_key_cmp(idx, page + slot_off(idx, i) + NDX_GRP_KEY_DATA_OFF,
+                            key_data) >= 0) { ci = i; break; }
         }
-        is_two_level = root_is_branch;
-
-        if (is_two_level) {
-            /* ---------------------------------------------------------------
-             * Two-level tree: find the target leaf.
-             * Apply the same descent as ndx_seek: find the first separator
-             * entry whose key >= new_key; descend into its child. If new_key
-             * exceeds all separators, descend into the trailing child.
-             * --------------------------------------------------------------- */
-            uint32_t i;
-            uint32_t target_leaf = 0u;
-            uint32_t trail_off;
-
-            for (i = 0u; i < (uint32_t)root_count; i++) {
-                uint32_t base  = (uint32_t)NDX_NODE_ENTRIES_OFF + i * gl;
-                const uint8_t *sep_key = root_page_buf + base + NDX_GRP_KEY_DATA_OFF;
-                int cmp = ndx_key_cmp(idx, sep_key, key_data);
-                if (cmp == 0) {
-#ifndef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
-                    /* Branch recnos are zero (ndx.md ss3.1/6). Recover the
-                     * equal-key child's upper (key,recno) bound from its
-                     * leaf rather than always choosing the first K child.
-                     * Ref: ss5 stable leaf order; initech-nrkx/68ox. */
-                    uint8_t candidate[NDX_PAGE_SIZE];
-                    uint32_t child = u32le(root_page_buf + base + NDX_GRP_CHILD_PAGE_OFF);
-                    uint16_t count;
-                    rc = read_raw_page(idx, child, candidate);
-                    if (rc != NDX_OK) return rc;
-                    count = u16le(candidate + NDX_NODE_ENTRY_COUNT_OFF);
-                    if (count > kpp) return -NDX_ERR_BAD_PAGE;
-                    if (count && u32le(candidate + NDX_NODE_ENTRIES_OFF))
-                        return -NDX_ERR_NOROOM; /* existing 3-level boundary */
-                    if (!count) continue;
-                    {
-                        uint32_t last = NDX_NODE_ENTRIES_OFF + ((uint32_t)count - 1u) * gl;
-                        int high_cmp = ndx_key_cmp(idx, candidate + last + NDX_GRP_KEY_DATA_OFF, key_data);
-                        /* Deletion can leave a conservative separator K over
-                         * a child whose actual high key is now J. Compare
-                         * the whole upper pair, not J's unrelated recno. */
-                        if (high_cmp < 0 || (high_cmp == 0 &&
-                            recno > u32le(candidate + last + NDX_GRP_DBF_RECNO_OFF)))
-                            continue;
-                    }
-#endif
-                }
-                if (cmp >= 0) {
-                    target_leaf = u32le(root_page_buf + base + NDX_GRP_CHILD_PAGE_OFF);
-                    break;
-                }
-            }
-            if (target_leaf == 0u) {
-                /* new_key exceeds all separators: rightmost child (trailing slot). */
-                trail_off = (uint32_t)NDX_NODE_ENTRIES_OFF + (uint32_t)root_count * gl;
-                if (trail_off + 4u <= (uint32_t)NDX_PAGE_SIZE)
-                    target_leaf = u32le(root_page_buf + trail_off
-                                        + NDX_GRP_CHILD_PAGE_OFF);
-            }
-            if (target_leaf == 0u)
-                return -NDX_ERR_BAD_PAGE;   /* corrupt: branch with no child */
-
-            leaf_page_no = target_leaf;
-            rc = read_raw_page(idx, leaf_page_no, leaf_page);
-            if (rc != NDX_OK) return rc;
-
-            /* MULTI-LEVEL GUARD (initech-h5vg / Rule 2): this incremental insert
-             * path handles at most a 2-level tree (root branch over leaves). A
-             * bulk build (ndx_build) can now produce 3+-level trees, whose root's
-             * children are themselves BRANCHES. If the page we descended into is a
-             * branch (first live entry has a child page), the tree is deeper than
-             * this path handles -- FAIL LOUD rather than corrupt a branch node by
-             * treating it as a leaf. Incremental multi-level split is scoped out
-             * (unminted split policy; see the worklog). */
-            {
-                uint16_t tl_count = u16le(leaf_page + NDX_NODE_ENTRY_COUNT_OFF);
-                if (tl_count > 0u
-                    && u32le(leaf_page + NDX_NODE_ENTRIES_OFF
-                             + NDX_GRP_CHILD_PAGE_OFF) != 0u)
-                    return -NDX_ERR_NOROOM;
-            }
-
-            {
-                uint16_t leaf_count = u16le(leaf_page + NDX_NODE_ENTRY_COUNT_OFF);
-
-                if (leaf_count < kpp) {
-                    /* --- Case C: leaf has room, insert in-place. --- */
-                    insert_into_leaf(idx, leaf_page, key_data, recno);
-                    return write_node_page(idx, leaf_page_no, leaf_page);
-                }
-
-                /* --- Case D: leaf is FULL -> split. GATED. --- */
-                {
-                    uint8_t  new_leaf_buf[NDX_PAGE_SIZE];
-                    uint32_t new_leaf_no;
-                    /* tmp_buf holds kpp+1 entries (one more than fits on a page).
-                     * kpp*gl <= 508 (= NDX_PAGE_SIZE - NDX_NODE_HDR_SIZE).
-                     * (kpp+1)*gl = kpp*gl + gl <= 508 + gl_max.
-                     * gl_max = ceil4(key_len_max + 8) = ceil4(100+8) = 112.
-                     * So 508 + 112 = 620 bytes suffices for all III+ key sizes.
-                     * [ndx.md ss2: key_length capped at 100 by NDX_HDR_KEY_EXPR_SIZE
-                     *  as the practical upper bound; ndx_open enforces the group
-                     *  formula so kpp >= 1 always.] */
-                    uint8_t  tmp_buf[620];
-                    uint32_t total_entries;
-                    uint32_t split_at;
-                    uint32_t i2;
-                    const uint8_t *new_sep_key;
-
-                    /* Build a scratch buffer of kpp+1 entries in sorted order.
-                     * We copy all kpp entries to tmp_buf, insert the new one,
-                     * then split into two pages. */
-                    total_entries = (uint32_t)kpp + 1u;
-
-                    {
-                        uint32_t total_bytes = total_entries * gl;
-                        /* Sanity: total_bytes must fit in tmp_buf[620].
-                         * This can only fail if group_length > 112, which
-                         * would require key_length > 100 -- caught by ndx_open.
-                         * Fail loud (Rule 2). */
-                        if (total_bytes > (uint32_t)sizeof(tmp_buf))
-                            return -NDX_ERR_PAGE_OVF;
-
-                        /* Copy existing leaf entries to tmp_buf. */
-                        rt_memcpy(tmp_buf,
-                                  leaf_page + NDX_NODE_ENTRIES_OFF,
-                                  (uint32_t)kpp * gl);
-
-                        /* Find insertion slot in tmp_buf. */
-                        {
-                            uint32_t ins = total_entries - 1u;
-#ifndef NDX_MUTATE_INSERT_NOSORT
-                            for (i2 = 0u; i2 < (uint32_t)kpp; i2++) {
-                                const uint8_t *ek = tmp_buf + i2 * gl
-                                                    + NDX_GRP_KEY_DATA_OFF;
-                                int cmp = ndx_key_cmp(idx, ek, key_data);
-                                if (cmp > 0) { ins = i2; break; }
-                                if (cmp == 0) {
-                                    uint32_t er = u32le(tmp_buf + i2 * gl
-                                                        + NDX_GRP_DBF_RECNO_OFF);
-                                    if (er > recno) { ins = i2; break; }
-                                }
-                            }
-#else
-                            /* MUTATED: always append. */
-                            ins = (uint32_t)kpp;
-#endif
-                            /* Shift entries [ins..kpp) right by one. */
-                            for (i2 = (uint32_t)kpp; i2 > ins; i2--) {
-                                rt_memcpy(tmp_buf + i2 * gl,
-                                          tmp_buf + (i2 - 1u) * gl, gl);
-                            }
-                            /* Write new entry at ins. */
-                            u32le_w(tmp_buf + ins * gl + NDX_GRP_CHILD_PAGE_OFF,
-                                    0u);
-                            u32le_w(tmp_buf + ins * gl + NDX_GRP_DBF_RECNO_OFF,
-                                    recno);
-                            rt_memcpy(tmp_buf + ins * gl + NDX_GRP_KEY_DATA_OFF,
-                                      key_data, kl);
-                        }
-
-                        /* Split at midpoint: lower half in old leaf (left),
-                         * upper half in new leaf (right).
-                         * GATED: byte-exact split layout is corpus-open;
-                         * behavioral correctness is all we assert. */
-                        split_at = total_entries / 2u;
-
-                        /* Rebuild old leaf (entries 0..split_at-1). */
-                        rt_memset(leaf_page, 0, (uint32_t)NDX_PAGE_SIZE);
-                        u16le_w(leaf_page + NDX_NODE_ENTRY_COUNT_OFF,
-                                (uint16_t)split_at);
-                        rt_memcpy(leaf_page + NDX_NODE_ENTRIES_OFF,
-                                  tmp_buf, split_at * gl);
-
-                        /* Build new leaf (entries split_at..total_entries-1). */
-                        uint32_t new_count = total_entries - split_at;
-                        rt_memset(new_leaf_buf, 0, (uint32_t)NDX_PAGE_SIZE);
-                        u16le_w(new_leaf_buf + NDX_NODE_ENTRY_COUNT_OFF,
-                                (uint16_t)new_count);
-                        rt_memcpy(new_leaf_buf + NDX_NODE_ENTRIES_OFF,
-                                  tmp_buf + split_at * gl, new_count * gl);
-
-                        /* Allocate new leaf page. */
-                        rc = alloc_page(idx, &new_leaf_no);
-                        if (rc != NDX_OK) return rc;
-
-                        /* Separator for root: the HIGH key of the old leaf
-                         * (the last entry in the old leaf after the split).
-                         * This matches the B-tree HIGH-key separator invariant
-                         * (ndx.md ss5). */
-                        new_sep_key = tmp_buf + (split_at - 1u) * gl
-                                      + NDX_GRP_KEY_DATA_OFF;
-
-                        /* Write both leaves. */
-                        rc = write_node_page(idx, leaf_page_no, leaf_page);
-                        if (rc != NDX_OK) return rc;
-                        rc = write_node_page(idx, new_leaf_no, new_leaf_buf);
-                        if (rc != NDX_OK) return rc;
-
-                        /* Insert separator into the root branch.
-                         *
-                         * After splitting leaf_page_no into (leaf_page_no, new_leaf_no):
-                         *   leaf_page_no = left half,  HIGH key = new_sep_key
-                         *   new_leaf_no  = right half, HIGH key = old HIGH(leaf_page_no)
-                         *                              = the existing separator in the root
-                         *                                whose child == leaf_page_no
-                         *
-                         * B-tree update rule (ndx.md ss5 HIGH-key invariant):
-                         *   1. Find the position POS in the root such that the separator
-                         *      at POS was the one pointing to leaf_page_no as its child:
-                         *      this is the first separator entry whose child == leaf_page_no.
-                         *      (If no such entry, it was the trailing child slot.)
-                         *   2. Insert a NEW separator at POS with:
-                         *        child = leaf_page_no, key = new_sep_key (HIGH of left half)
-                         *   3. The OLD separator at POS (now shifted to POS+1 after the insert)
-                         *      keeps its original KEY (which was HIGH(original leaf) = HIGH(right
-                         *      half)); update its child_page to new_leaf_no.
-                         *   4. The trailing child is unchanged (it pointed to the rightmost
-                         *      leaf which was not involved in the split -- unless the split
-                         *      was the rightmost, in which case we set trailing = new_leaf_no
-                         *      and the new separator at the last slot covers leaf_page_no).
-                         *
-                         * The entry shift must PRESERVE the trailing child across the shift:
-                         * we save it before shifting and restore it afterwards.
-                         * Ref: ndx.md ss5; GATED for byte-exact layout. */
-                        {
-                            uint16_t root_count2 = u16le(
-                                root_page_buf + NDX_NODE_ENTRY_COUNT_OFF);
-                            uint32_t old_trail_off;
-                            uint32_t saved_trail;
-                            uint32_t new_trail_off;
-
-                            if ((uint32_t)root_count2 >= (uint32_t)kpp)
-                                return -NDX_ERR_NOROOM;  /* root full: GATED */
-
-                            /* Step 1: save the current trailing child (BEFORE shifting
-                             * entries, since the shift overwrites the trailing slot). */
-                            old_trail_off = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                            + (uint32_t)root_count2 * gl;
-                            saved_trail = 0u;
-                            if (old_trail_off + 4u <= (uint32_t)NDX_PAGE_SIZE)
-                                saved_trail = u32le(root_page_buf + old_trail_off
-                                                    + NDX_GRP_CHILD_PAGE_OFF);
-
-                            /* Step 2: find the insertion position (POS):
-                             * the first separator whose child == leaf_page_no,
-                             * OR if none (leaf was the trailing child's subtree),
-                             * POS = root_count2 (insert at the end). */
-                            {
-                                uint32_t ins_sep = (uint32_t)root_count2;
-                                int trail_was_target = 0;
-                                uint32_t k;
-
-                                for (k = 0u; k < (uint32_t)root_count2; k++) {
-                                    uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                                    + k * gl;
-                                    uint32_t child = u32le(root_page_buf + base
-                                                           + NDX_GRP_CHILD_PAGE_OFF);
-                                    if (child == leaf_page_no) {
-                                        ins_sep = k;
-                                        break;
-                                    }
-                                }
-                                if (ins_sep == (uint32_t)root_count2) {
-                                    /* The leaf was the trailing child; the split
-                                     * was on the rightmost leaf. */
-                                    trail_was_target = 1;
-                                }
-
-                                /* Step 3: shift entries [ins_sep..root_count2) right. */
-                                for (k = (uint32_t)root_count2; k > ins_sep; k--) {
-                                    uint32_t dst = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                                   + k * gl;
-                                    uint32_t src = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                                   + (k - 1u) * gl;
-                                    rt_memcpy(root_page_buf + dst,
-                                              root_page_buf + src, gl);
-                                }
-
-                                /* Step 4: write new separator at ins_sep:
-                                 * child = leaf_page_no (left half), key = new_sep_key. */
-                                {
-                                    uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                                    + ins_sep * gl;
-                                    u32le_w(root_page_buf + base
-                                            + NDX_GRP_CHILD_PAGE_OFF, leaf_page_no);
-                                    u32le_w(root_page_buf + base
-                                            + NDX_GRP_DBF_RECNO_OFF, 0u);
-                                    rt_memcpy(root_page_buf + base
-                                              + NDX_GRP_KEY_DATA_OFF,
-                                              new_sep_key, kl);
-                                }
-
-                                /* Step 5: update the entry that was shifted to ins_sep+1
-                                 * (originally at ins_sep, pointing to leaf_page_no).
-                                 * Its KEY stays (it was HIGH(original leaf) = HIGH(right
-                                 * half)); update its child to new_leaf_no.
-                                 * But only if it was NOT the trailing child (trail_was_target):
-                                 * if it was the trailing child, we update the trailing slot
-                                 * instead. */
-                                root_count2++;
-                                u16le_w(root_page_buf + NDX_NODE_ENTRY_COUNT_OFF,
-                                        root_count2);
-
-                                new_trail_off = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                                + (uint32_t)root_count2 * gl;
-
-                                if (!trail_was_target) {
-                                    /* Shifted separator at ins_sep+1 now covers
-                                     * the right half of the split. Update its child. */
-                                    uint32_t next_base =
-                                        (uint32_t)NDX_NODE_ENTRIES_OFF
-                                        + (ins_sep + 1u) * gl;
-                                    u32le_w(root_page_buf + next_base
-                                            + NDX_GRP_CHILD_PAGE_OFF, new_leaf_no);
-
-                                    /* Restore the saved trailing child to its new
-                                     * position (it moved because we added a separator
-                                     * and the count increased by 1). */
-                                    if (new_trail_off + 4u <= (uint32_t)NDX_PAGE_SIZE)
-                                        u32le_w(root_page_buf + new_trail_off
-                                                + NDX_GRP_CHILD_PAGE_OFF,
-                                                saved_trail);
-                                } else {
-                                    /* The split leaf was the trailing child's target.
-                                     * The new separator (at the end) covers leaf_page_no
-                                     * (left half). The trailing child now = new_leaf_no
-                                     * (right half). */
-                                    if (new_trail_off + 4u <= (uint32_t)NDX_PAGE_SIZE)
-                                        u32le_w(root_page_buf + new_trail_off
-                                                + NDX_GRP_CHILD_PAGE_OFF, new_leaf_no);
-                                }
-                            }
-
-                            /* Write updated root. */
-                            rc = write_node_page(idx, root_page_no,
-                                                  root_page_buf);
-                            if (rc != NDX_OK) return rc;
-                        }
-
-                        /* Persist updated total_pages in header. */
-                        return write_hdr_fields(idx);
-                    }
-                }
-            }
-        } else {
-            /* ---------------------------------------------------------------
-             * Single-level tree: the root page IS the leaf.
-             * --------------------------------------------------------------- */
-            leaf_page_no = root_page_no;
-            rt_memcpy(leaf_page, root_page_buf, (uint32_t)NDX_PAGE_SIZE);
-
-            {
-                uint16_t leaf_count = u16le(leaf_page + NDX_NODE_ENTRY_COUNT_OFF);
-
-                if (leaf_count < kpp) {
-                    /* --- Case A: room in the single leaf. --- */
-                    insert_into_leaf(idx, leaf_page, key_data, recno);
-                    return write_node_page(idx, leaf_page_no, leaf_page);
-                }
-
-                /* --- Case B: single leaf is FULL -> split + new root. --- */
-                {
-                    uint8_t  new_leaf_buf[NDX_PAGE_SIZE];
-                    uint8_t  new_root_buf[NDX_PAGE_SIZE];
-                    /* Same 620-byte scratch as Case D; see comment there. */
-                    uint8_t  tmp_buf[620];
-                    uint32_t total_entries;
-                    uint32_t split_at;
-                    uint32_t i2;
-                    uint32_t new_right_page;
-                    uint32_t new_root_page_no;
-                    const uint8_t *sep_key;
-
-                    total_entries = (uint32_t)kpp + 1u;
-
-                    if (total_entries * gl > (uint32_t)sizeof(tmp_buf))
-                        return -NDX_ERR_PAGE_OVF;
-
-                    /* Copy existing entries to tmp_buf. */
-                    rt_memcpy(tmp_buf,
-                              leaf_page + NDX_NODE_ENTRIES_OFF,
-                              (uint32_t)kpp * gl);
-
-                    /* Find sorted insertion point. */
-                    {
-                        uint32_t ins = (uint32_t)kpp;
-#ifndef NDX_MUTATE_INSERT_NOSORT
-                        for (i2 = 0u; i2 < (uint32_t)kpp; i2++) {
-                            const uint8_t *ek = tmp_buf + i2 * gl
-                                                + NDX_GRP_KEY_DATA_OFF;
-                            int cmp = ndx_key_cmp(idx, ek, key_data);
-                            if (cmp > 0) { ins = i2; break; }
-                            if (cmp == 0) {
-                                uint32_t er = u32le(tmp_buf + i2 * gl
-                                                    + NDX_GRP_DBF_RECNO_OFF);
-                                if (er > recno) { ins = i2; break; }
-                            }
-                        }
-#else
-                        ins = (uint32_t)kpp;   /* MUTATED: append */
-#endif
-                        for (i2 = (uint32_t)kpp; i2 > ins; i2--)
-                            rt_memcpy(tmp_buf + i2 * gl,
-                                      tmp_buf + (i2 - 1u) * gl, gl);
-                        u32le_w(tmp_buf + ins * gl + NDX_GRP_CHILD_PAGE_OFF, 0u);
-                        u32le_w(tmp_buf + ins * gl + NDX_GRP_DBF_RECNO_OFF,
-                                recno);
-                        rt_memcpy(tmp_buf + ins * gl + NDX_GRP_KEY_DATA_OFF,
-                                  key_data, kl);
-                    }
-
-                    split_at = total_entries / 2u;
-
-                    /* Rebuild OLD leaf (left, pages 1..split_at-1 entries). */
-                    rt_memset(leaf_page, 0, (uint32_t)NDX_PAGE_SIZE);
-                    u16le_w(leaf_page + NDX_NODE_ENTRY_COUNT_OFF,
-                            (uint16_t)split_at);
-                    rt_memcpy(leaf_page + NDX_NODE_ENTRIES_OFF,
-                              tmp_buf, split_at * gl);
-
-                    /* Build NEW right leaf. */
-                    {
-                        uint32_t new_count = total_entries - split_at;
-                        rt_memset(new_leaf_buf, 0, (uint32_t)NDX_PAGE_SIZE);
-                        u16le_w(new_leaf_buf + NDX_NODE_ENTRY_COUNT_OFF,
-                                (uint16_t)new_count);
-                        rt_memcpy(new_leaf_buf + NDX_NODE_ENTRIES_OFF,
-                                  tmp_buf + split_at * gl, new_count * gl);
-                    }
-
-                    /* Separator = HIGH key of the left leaf. */
-                    sep_key = tmp_buf + (split_at - 1u) * gl
-                              + NDX_GRP_KEY_DATA_OFF;
-
-                    /* Allocate new right leaf page and new root page. */
-                    rc = alloc_page(idx, &new_right_page);
-                    if (rc != NDX_OK) return rc;
-                    rc = alloc_page(idx, &new_root_page_no);
-                    if (rc != NDX_OK) return rc;
-
-                    /* Write left leaf (still at the original page_no). */
-                    rc = write_node_page(idx, leaf_page_no, leaf_page);
-                    if (rc != NDX_OK) return rc;
-
-                    /* Write right leaf. */
-                    rc = write_node_page(idx, new_right_page, new_leaf_buf);
-                    if (rc != NDX_OK) return rc;
-
-                    /* Build new root branch: 1 separator + trailing child.
-                     * separator[0] = HIGH key of left leaf, child = old leaf.
-                     * trailing child = new right leaf.
-                     * Ref: ndx.md ss5 / ss3.2. */
-                    rt_memset(new_root_buf, 0, (uint32_t)NDX_PAGE_SIZE);
-                    u16le_w(new_root_buf + NDX_NODE_ENTRY_COUNT_OFF, 1u);
-                    {
-                        uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF;
-                        u32le_w(new_root_buf + base + NDX_GRP_CHILD_PAGE_OFF,
-                                leaf_page_no);
-                        u32le_w(new_root_buf + base + NDX_GRP_DBF_RECNO_OFF, 0u);
-                        rt_memcpy(new_root_buf + base + NDX_GRP_KEY_DATA_OFF,
-                                  sep_key, kl);
-                    }
-                    /* Trailing child slot. */
-                    {
-                        uint32_t trail = (uint32_t)NDX_NODE_ENTRIES_OFF + gl;
-                        u32le_w(new_root_buf + trail + NDX_GRP_CHILD_PAGE_OFF,
-                                new_right_page);
-                    }
-
-                    rc = write_node_page(idx, new_root_page_no, new_root_buf);
-                    if (rc != NDX_OK) return rc;
-
-                    /* Update in-memory header (root_page, total_pages already
-                     * incremented by alloc_page calls) and persist. */
-                    idx->root_page = new_root_page_no;
-                    return write_hdr_fields(idx);
-                }
-            }
-        }
+        if (depth >= NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
+        path_pg[depth] = pg;
+        path_ci[depth] = ci;
+        depth++;
+        pg = u32le(page + slot_off(idx, ci) + NDX_GRP_CHILD_PAGE_OFF);
+        if (pg == 0u) return -NDX_ERR_BAD_PAGE;
     }
-    /* unreachable */
-    return NDX_OK;
-}
 
-/*
- * delete_from_leaf: scan one leaf page (already read into leaf_buf) for the
- * exact (key_data, recno) pair. If found, remove it (shift the later entries
- * left, zero the freed tail slot, decrement entry_count) and write the page
- * back to leaf_page_no. No re-balancing (dBASE III PLUS leaves underfull nodes
- * as-is; ndx.md ss3.2).
- *
- * Returns NDX_OK (found + written), -NDX_ERR_NOTFOUND (not in this leaf), or a
- * propagated write error.
- */
-static int delete_from_leaf(ndx_index *idx, uint32_t leaf_page_no,
-                            uint8_t *leaf_buf,
-                            const uint8_t *key_data, uint32_t recno)
-{
-    uint32_t gl    = (uint32_t)idx->group_length;
-    uint16_t count = u16le(leaf_buf + NDX_NODE_ENTRY_COUNT_OFF);
-    uint32_t i;
-
-    for (i = 0u; i < (uint32_t)count; i++) {
-        uint32_t base  = (uint32_t)NDX_NODE_ENTRIES_OFF + i * gl;
-        const uint8_t *ek = leaf_buf + base + NDX_GRP_KEY_DATA_OFF;
-        uint32_t er    = u32le(leaf_buf + base + NDX_GRP_DBF_RECNO_OFF);
-
-        if (ndx_key_cmp(idx, ek, key_data) == 0 && er == recno) {
-            /* Found: shift entries [i+1..count) left by one group. */
-            uint32_t j;
-            for (j = i + 1u; j < (uint32_t)count; j++) {
-                uint32_t dst = (uint32_t)NDX_NODE_ENTRIES_OFF + (j - 1u) * gl;
-                uint32_t src = (uint32_t)NDX_NODE_ENTRIES_OFF + j * gl;
-                rt_memcpy(leaf_buf + dst, leaf_buf + src, gl);
-            }
-            /* Zero out the last now-unused slot (NORMALIZE). */
-            rt_memset(leaf_buf + NDX_NODE_ENTRIES_OFF
-                      + (uint32_t)(count - 1u) * gl, 0, gl);
-            count--;
-            u16le_w(leaf_buf + NDX_NODE_ENTRY_COUNT_OFF, count);
-            return write_node_page(idx, leaf_page_no, leaf_buf);
-        }
-    }
-    return -NDX_ERR_NOTFOUND;
-}
-
-/*
- * ndx_delete_key: remove the entry with matching key_data AND recno.
- *
- * Descends to the leaf for key_data and removes the exact (key, recno) pair.
- * Fails loud with -NDX_ERR_NOTFOUND if the pair is not present.
- *
- * NON-UNIQUE spanning (initech-0g22): in a bulk-built non-unique index an
- * equal-key run of >kpp records spills across several leaves. Every branch
- * separator for those leaves carries the SAME key, and branch entries encode
- * dbf_recno == 0 (ndx.md sec.6: "No record-number tiebreak is encoded in the
- * key; equal keys are simply adjacent"). So a key-only descent that stops at
- * the FIRST separator >= target reaches only the leftmost equal-key leaf and
- * misses a (key, recno) that lives in a later leaf of the run. The descent
- * must therefore locate the leftmost candidate leaf and then WALK the run --
- * consecutive children whose HIGH key still equals the target key -- until the
- * exact (key, recno) is deleted or the equal-key run is exhausted.
- *
- * Ref (Law 1): ../dbase3-decomp/specs/file-formats/ndx.md sec.5 (duplicates:
- * each shares a key value with its own dbf_recno; equal-key order is by tree
- * position) + sec.6 (no recno tiebreak); plan S4.5. initech-0g22.
- */
-int ndx_delete_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
-{
-    uint8_t  leaf_buf[NDX_PAGE_SIZE];
-    uint8_t  root_buf[NDX_PAGE_SIZE];
-    uint32_t gl;
-    uint32_t root_page_no;
-    int      rc;
-
-    if (!idx || !key_data)
-        return -NDX_ERR_BAD_PAGE;
-    if (!idx->writable)
-        return -NDX_ERR_READONLY;
-
-    gl = (uint32_t)idx->group_length;
-    root_page_no = idx->root_page;
-
-    rc = read_raw_page(idx, root_page_no, root_buf);
-    if (rc != NDX_OK) return rc;
-
-    {
-        uint16_t root_count = u16le(root_buf + NDX_NODE_ENTRY_COUNT_OFF);
-        int root_is_branch = 0;
-
-        if (root_count > 0u) {
-            uint32_t first_child =
-                u32le(root_buf + NDX_NODE_ENTRIES_OFF + NDX_GRP_CHILD_PAGE_OFF);
-            root_is_branch = (first_child != 0u) ? 1 : 0;
-        }
-
-        if (!root_is_branch) {
-            /* Single-level: the root page IS the only leaf. */
-            rt_memcpy(leaf_buf, root_buf, (uint32_t)NDX_PAGE_SIZE);
-            return delete_from_leaf(idx, root_page_no, leaf_buf,
-                                    key_data, recno);
-        }
-
-        /* Two-level tree: locate the first candidate leaf, then walk the
-         * equal-key run (see the header comment for the invariant). `start` is
-         * the child index of the first separator whose key >= target; the
-         * children are, in key order: sep[0].child .. sep[root_count-1].child,
-         * then the trailing child (index == root_count). */
-        {
-            uint32_t start = (uint32_t)root_count;   /* default: trailing child */
-            uint32_t k;
-            uint32_t i;
-
-            for (i = 0u; i < (uint32_t)root_count; i++) {
-                uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF + i * gl;
-                const uint8_t *sep = root_buf + base + NDX_GRP_KEY_DATA_OFF;
-                if (ndx_key_cmp(idx, sep, key_data) >= 0) { start = i; break; }
-            }
-
-            for (k = start; k <= (uint32_t)root_count; k++) {
-                uint32_t child_page;
-                uint16_t cnt;
-
-                if (k < (uint32_t)root_count) {
-                    uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF + k * gl;
-                    child_page = u32le(root_buf + base + NDX_GRP_CHILD_PAGE_OFF);
-                } else {
-                    /* Trailing child (rightmost subtree, ndx.md ss3.2). */
-                    uint32_t trail_off = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                       + (uint32_t)root_count * gl;
-                    if (trail_off + 4u > (uint32_t)NDX_PAGE_SIZE)
-                        break;
-                    child_page = u32le(root_buf + trail_off
-                                       + NDX_GRP_CHILD_PAGE_OFF);
-                }
-                if (child_page == 0u)
-                    return -NDX_ERR_BAD_PAGE;   /* branch child must be non-zero */
-
-                rc = read_raw_page(idx, child_page, leaf_buf);
-                if (rc != NDX_OK) return rc;
-
-                /* MULTI-LEVEL GUARD (initech-h5vg / Rule 2): this delete walks
-                 * the root's children AS LEAVES. A bulk build (ndx_build) can now
-                 * produce 3+-level trees, where the root's children are BRANCHES.
-                 * If the child we read is itself a branch, the tree is deeper than
-                 * this path handles -- FAIL LOUD (never misreport a present key as
-                 * NOTFOUND or scan a branch as a leaf). Multi-level delete is
-                 * scoped out (see the worklog). */
-                {
-                    uint16_t cc = u16le(leaf_buf + NDX_NODE_ENTRY_COUNT_OFF);
-                    if (cc > 0u
-                        && u32le(leaf_buf + NDX_NODE_ENTRIES_OFF
-                                 + NDX_GRP_CHILD_PAGE_OFF) != 0u)
-                        return -NDX_ERR_NOROOM;
-                }
-
-                rc = delete_from_leaf(idx, child_page, leaf_buf,
-                                      key_data, recno);
-                if (rc != -NDX_ERR_NOTFOUND)
-                    return rc;   /* deleted (NDX_OK) or a real write error */
-
-#ifdef NDX_MUTATE_DELETE_NOSPAN
-                /* MUTANT (Rule 6 -- initech-0g22): stop after the first
-                 * candidate leaf instead of walking the equal-key run. A
-                 * (key,recno) that lives in a LATER equal-key leaf is then
-                 * missed -> ndx_delete_key returns NOTFOUND and the dup-span
-                 * delete oracle goes RED. */
+    /* --- Find the exact pair, walking the equal-key run across leaves. --- */
+    for (;;) {
+        int found = 0;
+        for (j = 0u; j < (uint32_t)n; j++) {
+            uint32_t off = slot_off(idx, j);
+            if (ndx_key_cmp(idx, page + off + NDX_GRP_KEY_DATA_OFF, key_data) == 0
+                && u32le(page + off + NDX_GRP_DBF_RECNO_OFF) == recno) {
+                found = 1;
                 break;
-#endif
-
-                /* Not in this leaf. Continue into the next leaf ONLY while the
-                 * equal-key run continues -- i.e. while this leaf's HIGH (last)
-                 * key still equals the target key. A high key strictly greater
-                 * than the target means the run ended inside this leaf and no
-                 * later leaf can hold the target key. */
-                cnt = u16le(leaf_buf + NDX_NODE_ENTRY_COUNT_OFF);
-                if (cnt == 0u)
-                    break;
-                {
-                    uint32_t hb = (uint32_t)NDX_NODE_ENTRIES_OFF
-                                + (uint32_t)(cnt - 1u) * gl;
-                    const uint8_t *hikey = leaf_buf + hb + NDX_GRP_KEY_DATA_OFF;
-                    if (ndx_key_cmp(idx, hikey, key_data) != 0)
-                        break;
-                }
             }
-            return -NDX_ERR_NOTFOUND;
+        }
+        if (found)
+            break;
+        if (n == 0u || ndx_key_cmp(idx, page + slot_off(idx, (uint32_t)n - 1u)
+                                   + NDX_GRP_KEY_DATA_OFF, key_data) != 0)
+            return -NDX_ERR_NOTFOUND;   /* the run ended inside this leaf */
+#ifdef NDX_MUTATE_DELETE_NOSPAN
+        /* MUTANT (Rule 6 -- initech-0g22): stop after the first candidate leaf.
+         * A pair in a LATER equal-key leaf is missed -> NOTFOUND -> RED. */
+        return -NDX_ERR_NOTFOUND;
+#endif
+        /* Next leaf in key order: climb to the first ancestor with a child to
+         * the right, step right, then descend leftmost. */
+        for (;;) {
+            uint16_t an;
+            if (depth == 0u) return -NDX_ERR_NOTFOUND;
+            rc = read_raw_page(idx, path_pg[depth - 1u], page);
+            if (rc != NDX_OK) return rc;
+            an = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+            if (path_ci[depth - 1u] < (uint32_t)an) {
+                path_ci[depth - 1u]++;
+                break;
+            }
+            depth--;
+        }
+        pg = u32le(page + slot_off(idx, path_ci[depth - 1u]) + NDX_GRP_CHILD_PAGE_OFF);
+        for (;;) {
+            if (pg == 0u) return -NDX_ERR_BAD_PAGE;
+            rc = read_raw_page(idx, pg, page);
+            if (rc != NDX_OK) return rc;
+            n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+            if ((uint32_t)n > kpp) return -NDX_ERR_BAD_PAGE;
+            if (!page_is_branch(page))
+                break;
+            if (depth >= NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
+            path_pg[depth] = pg;
+            path_ci[depth] = 0u;
+            depth++;
+            pg = u32le(page + slot_off(idx, 0u) + NDX_GRP_CHILD_PAGE_OFF);
         }
     }
+
+    /* --- Remove slot j (later entries shift left; the freed slot is 0). --- */
+    {
+        uint32_t s;
+        for (s = j + 1u; s < (uint32_t)n; s++)
+            rt_memcpy(page + slot_off(idx, s - 1u), page + slot_off(idx, s), gl);
+        rt_memset(page + slot_off(idx, (uint32_t)n - 1u), 0, gl);
+        n--;
+        u16le_w(page + NDX_NODE_ENTRY_COUNT_OFF, n);
+        rc = write_node_page(idx, pg, page);
+        if (rc != NDX_OK) return rc;
+    }
+    if (n > 0u) {
+        if (j == (uint32_t)n) {
+            /* The leaf's HIGH key went: its new HIGH key replaces the
+             * separator above (minted D09). */
+            rt_memcpy(nh, page + slot_off(idx, (uint32_t)n - 1u)
+                      + NDX_GRP_KEY_DATA_OFF, kl);
+            return sep_propagate(idx, path_pg, path_ci, depth, nh);
+        }
+        return NDX_OK;
+    }
+    if (depth == 0u)
+        return NDX_OK;               /* the root leaf is now empty */
+
+    /* --- The leaf is empty: unhook it (and any branch it leaves childless). --- */
+    while (depth > 0u) {
+        uint32_t p, ci, s, nn;
+        depth--;
+        p  = path_pg[depth];
+        ci = path_ci[depth];
+        rc = read_big(idx, p, big);
+        if (rc != NDX_OK) return rc;
+        nn = (uint32_t)u16le(big + NDX_NODE_ENTRY_COUNT_OFF);
+        if (ci < nn) {
+            /* Non-trailing child: its separator + pointer go (minted D18). */
+            for (s = ci + 1u; s <= nn; s++)
+                rt_memcpy(big + slot_off(idx, s - 1u), big + slot_off(idx, s), gl);
+            u16le_w(big + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)(nn - 1u));
+            return write_node_page(idx, p, big);
+        }
+        if (nn == 0u)
+            continue;                /* p lost its only child: unhook p (E04/E08) */
+        /* Trailing child: the last separator goes, the previous child becomes
+         * the trailing child, and that separator (the new HIGH key of p)
+         * propagates up (minted M043). */
+        rt_memcpy(nh, big + slot_off(idx, nn - 1u) + NDX_GRP_KEY_DATA_OFF, kl);
+        u16le_w(big + NDX_NODE_ENTRY_COUNT_OFF, (uint16_t)(nn - 1u));
+        rc = write_node_page(idx, p, big);
+        if (rc != NDX_OK) return rc;
+        return sep_propagate(idx, path_pg, path_ci, depth, nh);
+    }
+    /* Every level emptied: the index holds no key. The empty leaf becomes the
+     * root (not reachable through dBASE semantics -- a REPLACE re-inserts
+     * before the count can reach zero -- so [inferred], kept valid). */
+    idx->root_page = pg;
+    return write_hdr_fields(idx);
 }
 
 /*

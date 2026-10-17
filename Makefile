@@ -2580,15 +2580,14 @@ test-dbase-corpus-pristine-mutant: $(CORPUS_PRISTINE_SH) | $(BUILD)
 	@printf '>>> test-dbase-corpus-pristine-mutant: green (%s)\n' "$$(grep -m1 'CNAMES.NDX differs' $(BUILD)/corpus_pristine_mut.log)"
 
 # ---- SAMIR Phase-4 index: MULTI-LEVEL bulk build (3+ levels; initech-h5vg) ----
-# ndx_build past the old 2-level ceiling: nested branch levels (balanced fanout,
-# cap = kpp+1 children/node, root written last). key_length 20 -> kpp 18, nrec 343
-# -> 20 leaves -> a genuine 3-level tree (24 pages). STRUCTURAL oracle: no minted
-# 3-level golden exists (the "BIGXA"/ndx-B5 mint is unminted), so it grades the
-# ndx.md ss5 FORMAT INVARIANTS (ascending in-order; branch sep = HIGH key of its
-# subtree; balanced depth; N seps/N+1 children; SEEK across all levels) + asserts
-# the scoped-out incremental insert/delete FAIL LOUD (NDX_ERR_NOROOM) on 3-level
-# trees. Codec-only link (synthetic key provider). Mutant -DNDX_MUTATE_NO_ROOT_SPLIT
-# reverts to the 2-level ceiling -> build fails PAGE_OVF -> RED.
+# ndx_build past the old 2-level ceiling. key_length 20 -> kpp 18, nrec 343 -> 20
+# leaves -> a genuine 3-level tree: 23 pages, root 22, the lone last leaf hanging
+# off the root -- the shape real dBASE writes (minted A00, initech-7tj3; the old
+# "balanced depth / 24 pages" expectation was refuted by the mint). Structural
+# legs: ascending in-order; branch sep = HIGH key of its subtree; SEEK across all
+# levels; incremental insert + delete on the 3-level tree succeed. The BYTES are
+# graded by test-ndx-incremental. Mutant -DNDX_MUTATE_NO_ROOT_SPLIT reverts to
+# the 2-level ceiling -> build fails PAGE_OVF -> RED.
 TEST_NDX_ML_ENG := $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC)
 $(TEST_NDX_ML): $(DBF_DIFF_DIR)/test_ndx_multilevel.c $(TEST_NDX_ML_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
@@ -2599,7 +2598,7 @@ $(TEST_NDX_ML_MUT): $(DBF_DIFF_DIR)/test_ndx_multilevel.c $(TEST_NDX_ML_ENG) $(S
 
 .PHONY: test-ndx-multilevel
 test-ndx-multilevel: $(TEST_NDX_ML)
-	@printf ">>> test-ndx-multilevel: 3-level bulk build past the 2-level ceiling (structural: HIGH-key seps + balanced depth + SEEK; initech-h5vg)\n"
+	@printf ">>> test-ndx-multilevel: 3-level bulk build past the 2-level ceiling (structural: HIGH-key seps + SEEK + 3-level insert/delete; initech-h5vg/7tj3)\n"
 	@$(TEST_NDX_ML)
 	@printf ">>> test-ndx-multilevel: green\n"
 
@@ -2613,6 +2612,41 @@ test-ndx-multilevel-mutant: $(TEST_NDX_ML_MUT)
 	else \
 		printf '>>> test-ndx-multilevel-mutant: green (2-level ceiling revert correctly RED)\n'; \
 	fi
+
+# ---- SAMIR index: the multi-level layout + incremental policy vs REAL dBASE (initech-7tj3) ----
+# 516 snapshots minted by DBASE.EXE 1.1 under dosbox-x (../dbase3-decomp
+# re/mint-results-006.md s2; mint/work/M006A..D.PRG): INDEX ON at every record
+# count 1..130 (C100, kpp 4: 1..4 levels) and a 3-level C20 tree (kpp 18), then
+# one-key APPENDs and key REPLACEs with the index open, a snapshot after each.
+# Replayed through ndx_build / ndx_insert_key / ndx_update_key and compared
+# NORMALIZED byte-exact (header fields + every page reachable from the golden
+# root: counts, child pointers, recnos, keys, trailing children) by the test's
+# own raw-byte walker; plus ndx_inorder after every E step (0-separator branch).
+# Mutants, each RED by name: leaf split keeps the smaller half (I01), a 1-child
+# pending node written as a branch (B017), a deleted HIGH key leaves a stale
+# separator (D09), a 0-separator branch read as an empty leaf (E02 in-order).
+TEST_NDX_INCR      := $(BUILD)/test_ndx_incremental
+TEST_NDX_INCR_SRC  := $(DBF_DIFF_DIR)/test_ndx_incremental.c
+TEST_NDX_INCR_ENG  := $(SAMIR_NDX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+NDX_INCR_MUTANTS   := LEAF_SPLIT_LOW:I01.NDX BULK_NO_ELIDE:B017.NDX DELETE_NO_SEP_UPDATE:D09.NDX ZERO_SEP_LEAF:E02_in-order
+$(TEST_NDX_INCR): $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(TEST_NDX_INCR_SRC) $(TEST_NDX_INCR_ENG)
+$(BUILD)/test_ndx_incremental_mut_%: $(TEST_NDX_INCR_SRC) $(ORACLE_POLICY_H) $(TEST_NDX_INCR_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DNDX_MUTATE_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(TEST_NDX_INCR_SRC) $(TEST_NDX_INCR_ENG)
+.PHONY: test-ndx-incremental test-ndx-incremental-mutant
+test-ndx-incremental: $(TEST_NDX_INCR)
+	@printf ">>> test-ndx-incremental: multi-level INDEX ON + one-key insert/REPLACE vs 516 real dBASE III PLUS snapshots, normalized byte-exact (initech-7tj3)\n"
+	@$(TEST_NDX_INCR) $(DBASE3_DECOMP)
+	@printf ">>> test-ndx-incremental: green\n"
+test-ndx-incremental-mutant: $(foreach m,$(NDX_INCR_MUTANTS),$(BUILD)/test_ndx_incremental_mut_$(firstword $(subst :, ,$(m))))
+	@for pair in $(NDX_INCR_MUTANTS); do \
+		m=$${pair%%:*}; why=$$(printf '%s' "$${pair#*:}" | tr '_' ' '); bin=$(BUILD)/test_ndx_incremental_mut_$$m; \
+		if $$bin $(DBASE3_DECOMP) > $$bin.log 2>&1; then printf '!!! test-ndx-incremental-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		grep -q 'checks,' $$bin.log || { cat $$bin.log | tail -5; printf '!!! test-ndx-incremental-mutant FAIL: %s died without a summary\n' "$$m"; exit 1; }; \
+		grep -q "^FIRST RED $$why" $$bin.log || { grep 'FIRST RED' $$bin.log; printf '!!! test-ndx-incremental-mutant FAIL: %s went RED for the wrong reason (want %s)\n' "$$m" "$$why"; exit 1; }; \
+		printf '>>> test-ndx-incremental-mutant: NDX_MUTATE_%s correctly RED: %s\n' "$$m" "$$(grep -m1 '^FIRST RED' $$bin.log)"; \
+	done
+	@printf '>>> test-ndx-incremental-mutant: green (four named mutants RED)\n'
 
 # ---- SAMIR Phase-4 index: incremental maintenance (S4.5 / initech-ahu.5) ----
 # ndx_open_rw + ndx_insert_key/ndx_update_key/ndx_delete_key keep an open index
@@ -29288,6 +29322,7 @@ TEST_UNIT_GATES := \
 	test-ndx-build test-ndx-build-mutant \
 	test-dbase-corpus-pristine test-dbase-corpus-pristine-mutant \
 	test-ndx-multilevel test-ndx-multilevel-mutant \
+	test-ndx-incremental test-ndx-incremental-mutant \
 	test-ndx-maintain test-ndx-maintain-mutant test-ndx-maintain-span-mutant \
 	test-ndx-pack test-ndx-pack-mutant \
 	test-dbt-read test-dbt-read-mutant \
