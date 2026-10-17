@@ -66,6 +66,10 @@ $(PUBS_FLAIR_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_pubs.bi
 	@printf ">>> pubs: FLAIR capture image (extra-long record kernel + transient COMMAND.COM): %s\n" "$@"
 PUBS_FLAIR_BOOT  := $(PUBS_FLAIR_IMG)
 PUBS_FLAIR_STEP  := $(PUBS_FLAIR_IMG)
+# The data volume of the Locked-notice figures: the shipped volume with
+# README.TXT read-only (the test-flair-locked-trash fixture; no file of the
+# volume as delivered is locked).  Rows name it with image=locked.
+PUBS_FLAIR_LOCKED := $(BUILD)/record_locked_trash.img
 
 $(PUBS_FLAIR_GREY): harness/pubs/flair_grey.c | $(BUILD)
 	$(CC) $(CFLAGS) -O2 -o $@ $<
@@ -130,13 +134,13 @@ test-pubs-flair test-pubs-flair-mutant:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the FLAIR manuals were NOT checked. This is NOT a pass.\n'
 endif
 
-PUBS_FLAIR_SCREEN_DEPS := $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(PUBS_FLAIR_STEP) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) $(CONSOLE_TEXT_BIN) \
+PUBS_FLAIR_SCREEN_DEPS := $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(PUBS_FLAIR_STEP) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_LOCKED) $(PUBS_FLAIR_GREY) $(CONSOLE_TEXT_BIN) \
                           $(PUBS_DIR)/screens/flair_capture.sh spec/assets/clut.json spec/assets/color_canon.json
 pubs-flair-screens: $(PUBS_FLAIR_SCREEN_DEPS)
 	@set -e; for b in $(PUBS_FLAIR_BOOKS); do \
 		d=$(PUBS_DIR)/manuals/$$b/screens; [ -f $$d/FLAIR ] || continue; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) \
-			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens/$$b $(PUBS_FLAIR_STEP); \
+			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens/$$b $(PUBS_FLAIR_STEP) $(PUBS_FLAIR_LOCKED); \
 		for f in $(PUBS_BUILD)/flair-screens/$$b/*.grey $(PUBS_BUILD)/flair-screens/$$b/*.console; do \
 			[ -f "$$f" ] && cp -f "$$f" $$d/; done; \
 		printf '>>> pubs-flair-screens: %s updated -- review `git diff %s`\n' "$$b" "$$d"; done
@@ -145,7 +149,7 @@ test-pubs-flair-screens: $(PUBS_FLAIR_SCREEN_DEPS) $(PUBS_GATE)
 		d=$(PUBS_DIR)/manuals/$$b/screens; [ -f $$d/FLAIR ] || continue; \
 		rm -rf $(PUBS_BUILD)/flair-screens-check/$$b; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(PUBS_FLAIR_BOOT) $(FLAIR_DATA_IMG) $(PUBS_FLAIR_GREY) \
-			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens-check/$$b $(PUBS_FLAIR_STEP); \
+			spec/assets/clut.json spec/assets/color_canon.json $(CONSOLE_TEXT_BIN) $(PUBS_VGABIOS) $$d/FLAIR $(PUBS_BUILD)/flair-screens-check/$$b $(PUBS_FLAIR_STEP) $(PUBS_FLAIR_LOCKED); \
 		for t in $(PUBS_BUILD)/flair-screens-check/$$b/*.grey $(PUBS_BUILD)/flair-screens-check/$$b/*.console; do \
 			[ -f "$$t" ] || continue; \
 			$(PUBS_GATE) same SCREEN-DRIFT $$d/$$(basename $$t) $$t || exit 1; n=$$((n + 1)); done; \

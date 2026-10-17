@@ -96,4 +96,13 @@ grep '^desktop|' "pubs/manuals/$first/screens/FLAIR" | sed 's/$/|FINDER-OPEN-VOL
 cp "pubs/manuals/$first/screens/desktop.mouse" "$m/cap/"
 red UNREPLAYED_OPERATION OPERATION-UNREPLAYED sh pubs/screens/flair_capture.sh "$HARNESS" "$FLAIR_BOOT" "$FLAIR_DATA" "$grey" \
     spec/assets/clut.json spec/assets/color_canon.json "$CONSOLE_TEXT" "$VGABIOS" "$m/cap/FLAIR" "$m/cap/out"
-printf '>>> test-pubs-flair-mutant: green (14 named mutants rejected by their gate legs)\n'
+# 15. The Locked-notice figure captured on the volume AS DELIVERED (no file of
+#     it is locked): the drag reaches the Trash, the notice never appears,
+#     and the row's proof goes RED (one QEMU boot; image field dropped).
+grep '^locked|' "pubs/manuals/$first/screens/FLAIR" | \
+    sed 's/^locked|FINDER-LOCKED-ALERT|\([^|]*\)|\([^|]*\)|locked$/locked|FLAIR-CURSOR x=560 y=400|\1|\2/' > "$m/cap/FLAIR"
+grep -q '^locked|FLAIR-CURSOR x=560 y=400|[^|]*|FINDER-LOCKED-ALERT$' "$m/cap/FLAIR"
+cp "pubs/manuals/$first/screens/locked.mouse" "$m/cap/"
+red LOCKED_ON_STOCK_VOLUME OPERATION-UNREPLAYED sh pubs/screens/flair_capture.sh "$HARNESS" "$FLAIR_BOOT" "$FLAIR_DATA" "$grey" \
+    spec/assets/clut.json spec/assets/color_canon.json "$CONSOLE_TEXT" "$VGABIOS" "$m/cap/FLAIR" "$m/cap/out2"
+printf '>>> test-pubs-flair-mutant: green (15 named mutants rejected by their gate legs)\n'

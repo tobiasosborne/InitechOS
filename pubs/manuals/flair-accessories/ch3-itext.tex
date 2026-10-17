@@ -101,8 +101,15 @@ a new line}
 \Operation{TENANT-SCRAP}
 
 The text stays on the Clipboard until you cut or copy something else, even
-after you quit InitechText, so you can paste it into another document
-later.  The Clipboard is emptied when the computer is restarted.
+after you quit InitechText or begin a new document, so you can paste it
+into another document later.  Figure~\ref{fig:clipnew} shows a whole memo
+copied with \menuitem{Select All} and \menuitem{Copy}, a new document begun
+with \menuitem{New} (its question about the unsaved memo answered with
+\texttt{Don't Save}), and the Clipboard pasted into the new, untitled
+document.  The Clipboard is emptied when the computer is restarted.
+
+\FlairScreen[label=fig:clipnew]{a_clipnew}{The Clipboard pasted into a new
+document}
 
 \section{Saving a document}
 \index{InitechText!saving}
@@ -124,6 +131,15 @@ After that, \menuitem{Save} saves the document under its name without
 asking.  \menuitem{Save As...} always asks for a name, so you can keep a
 copy under another name; the window then takes the new name.
 
+If the name you type is already used by a file in the folder, InitechText
+asks whether to replace that file.  Click \texttt{Replace} to write the
+document over it, or \texttt{Cancel} (or press \key{Esc}) to go back to the
+Save dialog box and type another name.  A name already used by a folder is
+not accepted: \texttt{Save} does nothing until you change it.
+
+\FlairScreen[label=fig:replace]{a_replace}{Saving under the name of a file
+already on the disk}
+
 InitechText saves a document as a text file, with a carriage return at the
 end of each paragraph.  When it opens a file whose lines end with a
 carriage return and line feed, or a line feed alone, as files written by
@@ -141,7 +157,13 @@ Choose \menuitem{Open...} from the \menuname{File} menu, or press
 InitechText holds one document at a time.  If the document in its window
 has unsaved changes, it first asks whether to save them.  A document can
 hold up to 4,096 characters.  InitechText does not open a longer file, and
-does not take typing or pasting that would make a document longer.
+does not take typing or pasting that would make a document longer.  If you
+open a longer file, such as one of the programs in the \file{APPS} folder,
+a notice says so; click \texttt{OK}, and the document in the window is
+unchanged.
+
+\FlairScreen[label=fig:toolarge]{a_toolarge}{A file too long for
+InitechText}
 
 \section{Closing and quitting}
 \index{InitechText!quitting}

@@ -39,7 +39,8 @@
 #
 # Usage: flair_capture.sh <qemu_harness> <boot.img> <data.img> <flair_grey>
 #                         <clut.json> <color_canon.json> <console_text>
-#                         <vgabios.bin> <FLAIR file> <out dir> [<step image>]
+#                         <vgabios.bin> <FLAIR file> <out dir> [<step image>
+#                         [<locked data image>]]
 # FLAIR file format, one screen per line ('#' comments allowed):
 #   name|marker|crop[|proves[|image]]
 # crop is `full` or x,y,w,h in screen pixels (640 x 480), or `text`: the
@@ -59,11 +60,17 @@
 # (FLAIRTENANTS_RECORDXLONGDBL_IMG, kmain.c FILECOPY_RECORD_STEP) instead of
 # by the clock, so a figure of the bar in mid-copy is the same every run;
 # or `nodisk`: the row is captured with NO data disk attached (the
-# troubleshooting figure of a computer started without its data disk).
+# troubleshooting figure of a computer started without its data disk);
+# or `locked`: the row is captured on <locked data image>, the shipped data
+# volume with README.TXT made read-only (build/record_locked_trash.img, the
+# test-flair-locked-trash fixture), for the figure of the Locked notice --
+# no file of the volume as delivered is locked, so the notice cannot be
+# reached on it (a row claiming the notice on the stock volume is RED:
+# OPERATION-UNREPLAYED, the LOCKED_ON_STOCK_VOLUME mutant).
 # Thin shell (Law 3).  Fails loud on a missing marker, a triple fault, a
 # guest whose pump ended before the capture, or a pixel outside the palette.
 set -eu
-runner=$1; boot=$2; data=$3; grey=$4; clut=$5; canon=$6; decode=$7; rom=$8; defs=$9; out=${10}; stepimg=${11:-}
+runner=$1; boot=$2; data=$3; grey=$4; clut=$5; canon=$6; decode=$7; rom=$8; defs=$9; out=${10}; stepimg=${11:-}; lockedimg=${12:-}
 mkdir -p "$out"
 [ -r "$boot" ] || { printf '!!! flair_capture.sh FAIL: boot image %s not readable\n' "$boot"; exit 1; }
 [ -r "$data" ] || { printf '!!! flair_capture.sh FAIL: data volume %s not readable\n' "$data"; exit 1; }
@@ -84,7 +91,7 @@ while IFS='|' read -r name marker crop proves image; do
     case $marker in *'#'[0-9]*) count=${marker##*#}; marker=${marker%#*} ;; esac
     n=$((n + 1))
     work=$out/$name.data.img
-    cp -f "$data" "$work"
+    src=$data
     rm -f "$out/$name.ppm" "$out/$name.serial"
     img=$boot
     d2="--disk2 $work"
@@ -93,14 +100,17 @@ while IFS='|' read -r name marker crop proves image; do
     nodisk) d2= ;;
     step) [ -n "$stepimg" ] && [ -r "$stepimg" ] || { printf '!!! flair_capture.sh FAIL: %s: no step image given\n' "$name"; exit 1; }
           img=$stepimg ;;
-    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: image "%s" is not empty, step or nodisk\n' "$name" "$image"; exit 1 ;;
+    locked) [ -n "$lockedimg" ] && [ -r "$lockedimg" ] || { printf '!!! flair_capture.sh FAIL: %s: no locked data image given\n' "$name"; exit 1; }
+          src=$lockedimg ;;
+    *) printf '!!! test-pubs RED SCREEN-KEYS: %s: image "%s" is not empty, step, nodisk or locked\n' "$name" "$image"; exit 1 ;;
     esac
+    cp -f "$src" "$work"
     # A run whose marker never reaches serial is tried once more (a PS/2
     # packet lost by a loaded host leaves the trace short); whatever the
     # attempt, the capture is still compared byte for byte by the gate.
     for attempt in 1 2; do
         rm -f "$out/$name.ppm" "$out/$name.serial"
-        cp -f "$data" "$work"
+        cp -f "$src" "$work"
         # A private copy of the boot image too: QEMU write-locks its disks,
         # so two captures (or a capture and a gate) never share one.
         cp -f "$img" "$out/$name.boot.img"

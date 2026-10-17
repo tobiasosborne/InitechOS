@@ -94,15 +94,12 @@ A file can be \term{locked} so that it cannot be changed or thrown away.
 files with the \file{ATTRIB} program at the InitechDOS prompt, described in
 the \doctitle{InitechDOS Reference}.)
 
+\Operation{FINDER-LOCKED-ALERT}
 If you drag a locked item to the Trash, it slides back to where it was and
-an alert explains why:
+an alert explains why.
 
-\begin{TypeIn}
-The item is locked.
-Unlock it before
-discarding it.
-\end{TypeIn}
+\FlairScreen[label=fig:locked]{locked}{A locked file dragged to the Trash}
 
-Click \texttt{OK}.  The item stays where it was.  If the Trash holds a
+Click \texttt{OK}, or press \key{Enter}.  The item stays where it was.  If the Trash holds a
 locked item when you empty it, FLAIR shows the same alert, and the locked
 item stays in the Trash.

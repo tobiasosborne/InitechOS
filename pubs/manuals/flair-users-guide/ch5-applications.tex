@@ -124,6 +124,35 @@ already used in the folder, FLAIR asks whether to replace the file that has
 that name: click \texttt{Replace} to replace it, or \texttt{Cancel} to type
 another name.
 
+\FlairScreen[label=fig:replace]{replace}{Saving under a name already used
+on the disk}
+
+\section{Finding your document in the Finder}
+\index{documents!finding}
+A document you save is a file on the disk like any other, and the Finder
+shows its icon in the window of the folder you saved it in.
+\begin{TaskSteps}
+\Step Quit InitechText.
+\Result{The Finder becomes the active application again.}
+\Step Close the \file{APPS} window and the \texttt{Drive A Files} window,
+then double-click the \texttt{INITECH} icon.
+\Result{The window lists the top level of the disk again, and the icon of
+\file{MEMO.TXT} is in it, beside \file{README.TXT} and \file{APPS}.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:newdoc]{newdoc}{The saved document, shown by the
+Finder}
+
+A window that is already open when a file is saved into its folder does
+not show the new icon until you close the window and open it again.
+Figure~\ref{fig:stalewin} shows the \texttt{Drive A Files} window just
+after \file{MEMO.TXT} was saved and InitechText quit: it was open before the
+save, and does not list the new file.
+
+\FlairScreen[label=fig:stalewin]{stalewin}{A window opened before the save}
+Double-clicking the document's icon does not open it; open it from within
+InitechText, as the next section describes.
+
 \section{Opening a document}
 \index{opening a document}\index{Open command}
 \begin{TaskSteps}
@@ -142,6 +171,12 @@ a document}
 \key{Up Arrow} and \key{Down Arrow} and press \key{Enter}.  To look inside a
 folder, double-click it.  The document opens in InitechText's window.}
 \end{TaskSteps}
+
+InitechText holds a document of up to 4,096 characters.  If you choose a
+longer file, a notice says that it is too large, and the window keeps the
+document it had.  Click \texttt{OK}.
+
+\FlairScreen[label=fig:toolarge]{toolarge}{A file too large to open}
 
 \section{Quitting an application}
 \index{quitting}\index{Quit command}
