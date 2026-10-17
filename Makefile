@@ -31126,6 +31126,23 @@ test-i123-copy-move-baseline: $(BUILD)/test_i123_transfer_baseline $(I123_FORMUL
 test-i123-copy-move: test-i123-copy-move-baseline
 TEST_UNIT_GATES += test-i123-copy-move-baseline
 
+# I123 P4 starts with a real-Lotus /Data Fill mint, before any implementation.
+# This acquisition guard deliberately stays RED; it is not a differential or
+# a passing substitute for one. See the lane record for the sandbox failure.
+# Ref: INITECH-123-plan Sec 5/7 item 5; R2.2 Reference pp. 4-5..4-6
+# (PDF 79..80); harness/diff/wk1_diff/mint/P4FILL.steps has inputs only.
+I123_P4_FILL_MINTS := P4FILLA.WK1 P4FILLB.WK1 P4FILLC.WK1 P4FILLD.WK1
+.PHONY: test-i123-data
+test-i123-data:
+	@for f in $(I123_P4_FILL_MINTS); do \
+		if [ ! -s "$(LOTUS123_DECOMP)/goldens/minted/$$f" ]; then \
+			printf '!!! test-i123-data: MINT REQUIRED: %s/goldens/minted/%s (real Lotus R2.2 /Data Fill; replay harness/diff/wk1_diff/mint/P4FILL.steps under DOSBox-X with mint/dos622.img)\n' "$(LOTUS123_DECOMP)" "$$f"; \
+			exit 2; \
+		fi; \
+	done
+	@printf '!!! test-i123-data: RED: mint files present, but independent differential replay and its mutation proof are not implemented; acquisition alone cannot pass this gate\n'; exit 2
+TEST_UNIT_GATES += test-i123-data
+
 $(BUILD)/check_i123_menu_levels: harness/diff/wk1_diff/check_i123_menu_levels.c
 	$(CC) $(CFLAGS) -o $@ $<
 include harness/diff/fat_diff/doslook.mk

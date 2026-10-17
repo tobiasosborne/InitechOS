@@ -1,0 +1,78 @@
+# UNMINTED INPUT SCRIPT ONLY. No expected values or golden bytes.
+# initech-1z3o: first P4 item, R2.2 Reference pp. 4-5..4-6 (PDF 79..80).
+# Run with the corpus tools/mint_drive.sh and an initialized real R2.2
+# runtime under real DOS (mint/dos622.img). The config must reach the
+# worksheet before this script runs. Use a private writable image copy.
+# Save each WK1 and every screenshot; decode with corpus tools/wk1_ref.py.
+# P4FILLA is the before-sheet; B/C/D follow the three Fill commands.
+# The named outputs do not exist: sandbox X11 initialization failed.
+sleep 12
+shot 01_grid
+key F5
+type A1
+key Return
+type 99
+key Return
+key F5
+type C3
+key Return
+type KEEP
+key Return
+type /fs
+sleep 1
+type P4FILLA
+key Return
+sleep 2
+shot 02_saved_before
+type /df
+type A1..C3
+key Return
+shot 03_fill_start_prompt
+type 5
+key Return
+shot 04_fill_step_prompt
+type 2
+key Return
+shot 05_fill_stop_prompt
+type 15
+key Return
+shot 06_positive_fill
+type /fs
+sleep 1
+type P4FILLB
+key Return
+sleep 2
+shot 07_saved_positive
+type /df
+type D1..F3
+key Return
+type 10
+key Return
+type -2
+key Return
+type 0
+key Return
+shot 08_negative_fill
+type /fs
+sleep 1
+type P4FILLC
+key Return
+sleep 2
+shot 09_saved_negative
+type /df
+type H1..I3
+key Return
+type 0.5
+key Return
+type 0.25
+key Return
+type 1.5
+key Return
+shot 10_fractional_fill
+type /fs
+sleep 1
+type P4FILLD
+key Return
+sleep 2
+shot 11_saved_fractional
+end
