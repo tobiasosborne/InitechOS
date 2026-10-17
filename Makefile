@@ -677,7 +677,7 @@ KERNEL_GC_LDFLAGS := --gc-sections
 # Do not apply to the native blitter, ATKINSON, text, loader, event ring or
 # hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
 # Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
-KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000
+KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables
 # Round 4: Ubuntu's GCC retains frame pointers even at -Oz. Only the existing
 # cold/pure C set drops them; the loader transfer and both ring publications
 # retain native -O0 bytes (test-kernel-native-boundaries). Ref: PRD Sec 5/6.1/8;
@@ -699,7 +699,13 @@ define kernel-tbx-compile
 	$(SERIAL_TRACE_PACK) $(2).i $(2).c tbx
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(1) -c $(2).c -o $(2)
 endef
-KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz \
+# Round 5 (WL-0168): one LTO partition lets WPA localise every symbol no
+# native object or transient import names (cross-partition calls kept 462
+# functions global, i.e. cdecl ABI and unspecialised); -fno-jump-tables on the
+# LTO set trades the 4-byte-per-case tables for compare trees. Codegen-only:
+# no ABI of a native object, asm entry or transient import changes. Measured
+# on the flagship: 187,988 -> 187,372 (one partition) -> 187,212 B (both).
+KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables \
               -Wl,--build-id=none $(foreach flag,$(KERNEL_GC_LDFLAGS),-Xlinker $(flag)) -T $(KERNEL_LD)
 FLAIR_FINDER_OPS_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_STDFILE_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
