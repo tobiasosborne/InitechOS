@@ -562,8 +562,41 @@ static void leg_front_stays(void)
 /* ===========================================================================
  * MAIN -- the O-1 routing/dispatch oracle.
  * ===========================================================================*/
+#include "expect_abort.h"
+static void test_teardown_guards(void)
+{
+    static uint8_t memory[32768] __attribute__((aligned(16)));
+    flair_heap_t heap;
+    FlairProcessList list;
+    WindowMgr wm;
+    FlairApp registered;
+    memset(&wm, 0, sizeof wm);
+    memset(&registered, 0, sizeof registered);
+    registered.magic = FLAIR_APP_MAGIC;
+    FlairProcessList_init(&list);
+    flair_heap_init(&heap, memory, sizeof memory);
+    EXPECT_ABORT(FlairProcess_terminate(&list, &wm, &heap, &registered),
+                 "k0n8 registered terminate refused");
+    EXPECT_ABORT(FlairProcess_kill(&list, &wm, &heap, &registered),
+                 "k0n8 registered kill refused");
+    /* No windows/procs are required to test ownership of the three blocks. */
+    FlairApp *app = flair_alloc(&heap, FLAIR_CLASS_HANDLE, sizeof *app);
+    memset(app, 0, sizeof *app);
+    app->magic = FLAIR_APP_MAGIC;
+    app->block = flair_alloc(&heap, FLAIR_CLASS_GENERAL, 1024);
+    app->records_block = flair_alloc(&heap, FLAIR_CLASS_HANDLE, 1024);
+    list.head = app;
+    FlairProcess_kill(&list, &wm, &heap, app);
+    CHECK(app->magic == 0, "vibs teardown invalidates handle before freeing");
+    EXPECT_ABORT(FlairProcess_kill(&list, &wm, &heap, app),
+                 "vibs repeated kill panics before double free");
+    EXPECT_ABORT(FlairProcess_terminate(&list, &wm, &heap, app),
+                 "vibs terminate after kill panics");
+}
+
 int main(void)
 {
+    test_teardown_guards();
     rgn_rect_t FRAME = { 0, 0, GH, GW };   /* (top,left,bottom,right) */
     static win_store_t WA, WB;
     static mgr_store_t M;

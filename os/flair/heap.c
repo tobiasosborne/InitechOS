@@ -84,8 +84,16 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
     if (size == 0u || !flair_class_ok(klass)) {
         return (void *)0;                         /* bad request -> fail loud     */
     }
+    /* r081/5l5n: both the alignment addition AND the header span must fit.
+     * Ref: heap.h DEC-03 bounds contract; reject before any arena mutation. */
+#ifndef FLAIR_HEAP_MUTATE_ALIGN_OVERFLOW
+    if (size > UINT32_MAX - (FLAIR_HEAP_ALIGN - 1u)) return (void *)0;
+#endif
 
     uint32_t need = flair_align_up(size);         /* aligned payload bytes        */
+#ifndef FLAIR_HEAP_MUTATE_SPAN_OVERFLOW
+    if (need > UINT32_MAX - FLAIR_HEAP_HDR_BYTES) return (void *)0;
+#endif
 
     /* ---- 1. REUSE: pop a fitting block off THIS class's free-list (LIFO).
      *      CLASS ISOLATION -- only freelist[klass] is consulted, so a freed
@@ -93,6 +101,7 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
 #ifndef FLAIR_HEAP_MUTATE_NO_REUSE
     {
         flair_blk_t *blk = heap->freelist[klass];
+#ifdef FLAIR_HEAP_MUTATE_WALK_REUSE
         flair_blk_t *prev = (flair_blk_t *)0;
         while (blk != (flair_blk_t *)0) {
             if (blk->cap >= need) {
@@ -109,6 +118,15 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
             prev = blk;
             blk = blk->next;
         }
+#else
+        /* zhjo: DEC-03 specifies head-only LIFO, not first-fit search. */
+        if (blk != (flair_blk_t *)0 && blk->cap >= need) {
+            heap->freelist[klass] = blk->next;
+            blk->next = (flair_blk_t *)0;
+            heap->n_reuse++;
+            return (void *)((uint8_t *)blk + FLAIR_HEAP_HDR_BYTES);
+        }
+#endif
     }
 #else
     /* MUTANT (Rule 6; make test-flair-heap-mutant only): NEVER reuse a freed

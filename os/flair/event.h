@@ -94,6 +94,7 @@ typedef struct flair_raw_ring {
     volatile uint32_t  head;     /* producer (ISR) write index (UNMASKED)     */
     volatile uint32_t  tail;     /* consumer (pump) read index (UNMASKED)     */
     uint32_t           drop_count; /* events dropped due to full ring (telemetry) */
+    uint8_t            drop_reported; /* task consumer reports once per init */
 } flair_raw_ring_t;
 /*
  * SPSC INDEX DESIGN: head and tail are UNMASKED monotonically-increasing

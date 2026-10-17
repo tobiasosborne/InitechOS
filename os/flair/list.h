@@ -221,6 +221,7 @@ int16_t FlairLGetCell(const FlairList *l, void *buf, int16_t bufsz, Cell c);
  *
  * Returns 1 if a cell was hit (*hit_out set); 0 if the point is outside
  * rView or outside dataBounds (no selection change on miss).
+ * Returns FLAIR_LIST_ERR_NULL if l or hit_out is NULL (6vvw, Rule 2).
  * Ref: LClick [list-manager.md Sec 5]; selFlags [Sec 4.1].
  */
 int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out);
@@ -230,6 +231,7 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out);
  *
  * Returns 1 if selected, 0 if not selected.
  * Returns FLAIR_LIST_ERR_BOUNDS if c is outside dataBounds.
+ * Returns FLAIR_LIST_ERR_NULL if l is NULL (14oe).
  * Ref: LGetSelect [list-manager.md Sec 5].
  */
 int FlairLGetSelect(const FlairList *l, Cell c);

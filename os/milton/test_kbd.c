@@ -31,6 +31,7 @@
 #include "test_assert.h"
 
 TEST_HARNESS();
+#include "../../harness/proptest/expect_abort.h"
 
 /* Drain a ring into a C string for easy comparison. */
 static void drain(kbd_ring_t *r, char *out, size_t cap)
@@ -198,6 +199,13 @@ static void test_control(void)
 
 int main(void)
 {
+    {
+        kbd_ring_t ring; uint8_t out;
+        kbd_ring_init(&ring);
+        for (unsigned i = 0; i < KBD_RING_CAP + 3; i++) (void)kbd_ring_put(&ring, 'x');
+        EXPECT_MARKER({ (void)kbd_ring_get(&ring, &out); (void)kbd_ring_get(&ring, &out); },
+                      "KBD-RING-DROP\n", "owpg keyboard drop reported exactly once in task context");
+    }
     test_ring();
     test_translate();
     test_control();

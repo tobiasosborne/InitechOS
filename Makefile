@@ -713,6 +713,10 @@ FLAIR_WINDOW_OPT = -Os $(KERNEL_COLD_LTO_FLAGS)
 # Boot frame (mbr.bin/stage2.bin) and KERNEL_SECTORS are untouched.
 KERNEL_INT21_OPT   := -Oz $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_FAT12_OPT   := -Os $(KERNEL_COLD_LTO_FLAGS)
+# qupy: the bounded nine-bit packet decoder stays within the lane's 1 KiB
+# budget using the existing per-TU size-optimization pattern. IRQ I/O remains
+# volatile (io.h); the EOI mutant uses the SAME optimization setting.
+KERNEL_MOUSE_OPT   := -Os
 FLAIR_CONTROL_OPT  := -Os $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_CHROME_OPT   := -Os $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_DIALOG_OPT   := -Oz $(KERNEL_COLD_LTO_FLAGS)
@@ -8529,15 +8533,15 @@ $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BU
 # PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
 # linked ONLY into the flair_live kernel(s) (isr.o's irq12_entry references
 # mouse_irq_handler via a WEAK extern, so non-flair kernels link without it).
-$(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+$(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MOUSE_OPT) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 # Rule-6 EOI mutant mouse.o (beads initech-5l5z FO-6; ADR-0006 BC-3/BC-9):
 # -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI compiles OUT the slave (0xA0) EOI, leaving
 # only the master (0x20) EOI -> the slave 8259A wedges -> the mouse stops after
 # the first IRQ12 -> test-flair-mouse goes RED. NEVER define in a real build.
-$(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+$(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MOUSE_OPT) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
@@ -11608,7 +11612,7 @@ REGION_ENGINE_C  := os/flair/atkinson/region.c
 REGION_ENGINE_H  := os/flair/atkinson/region.h
 TEST_REGION      := $(BUILD)/test_region
 TEST_REGION_SRC  := harness/proptest/test_region.c
-TEST_REGION_DEPS := $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h
+TEST_REGION_DEPS := $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h harness/proptest/expect_abort.h
 TEST_REGION_MUT_VRLE   := $(BUILD)/test_region_mutant_vrle
 TEST_REGION_MUT_PARITY := $(BUILD)/test_region_mutant_parity
 TEST_REGION_MUT_EMIT   := $(BUILD)/test_region_mutant_emit
@@ -13281,7 +13285,7 @@ TEST_PROCESS_MUT_REFCON   := $(BUILD)/test_process_mutant_ignorerefcon
 TEST_PROCESS_MUT_ACTIVATE := $(BUILD)/test_process_mutant_skipactivate
 TEST_PROCESS_MUT_KEY      := $(BUILD)/test_process_mutant_keyundercursor
 TEST_PROCESS_MUT_RAISE    := $(BUILD)/test_process_mutant_nosametenantraise
-TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
+TEST_PROCESS_DEPS := harness/proptest/expect_abort.h os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 PROCESS_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
@@ -13471,7 +13475,7 @@ TEST_SCRAP_MUT_FLAVOR  := $(BUILD)/test_scrap_mutant_ignoreflavor
 TEST_SCRAP_MUT_NOINC   := $(BUILD)/test_scrap_mutant_noincrement
 TEST_SCRAP_MUT_NOCLEAR := $(BUILD)/test_scrap_mutant_noclear
 TEST_SCRAP_LINK := os/flair/scrap.c os/flair/process.c os/flair/window.c os/flair/heap.c $(REGION_ENGINE_C)
-TEST_SCRAP_DEPS := os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h \
+TEST_SCRAP_DEPS := harness/proptest/expect_abort.h os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h \
                      os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
@@ -13803,7 +13807,7 @@ TEST_EVENT_SRC := harness/proptest/test_event.c
 TEST_EVENT_MUT_DROP  := $(BUILD)/test_event_mutant_drop
 TEST_EVENT_MUT_WHERE := $(BUILD)/test_event_mutant_where
 TEST_EVENT_MUT_SET1  := $(BUILD)/test_event_mutant_set1
-TEST_EVENT_DEPS := os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
+TEST_EVENT_DEPS := harness/proptest/expect_abort.h os/flair/ring_report.h os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
 EVENT_INC := -Ios/flair -Ispec -Iseed
 
 $(TEST_EVENT): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
@@ -14588,7 +14592,7 @@ TEST_CONTROL_MUT_BTN_FLAT := $(BUILD)/test_control_mutant_btn_flat
 TEST_CONTROL_MUT_LABEL := $(BUILD)/test_control_mutant_label_opaque
 TEST_CONTROL_MUT_FRINGE := $(BUILD)/test_control_mutant_btn_fringe
 TEST_CONTROL_MUT_PROGRESS_FLAT := $(BUILD)/test_control_mutant_progress_flat
-TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
+TEST_CONTROL_DEPS := harness/proptest/expect_abort.h os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
                      spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H) harness/render/alert_capture.h $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h \
@@ -14662,7 +14666,7 @@ SHELL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/rend
 SHELL_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
               os/flair/window.c os/flair/blitter.c $(CHROME_DRAWER_C) os/flair/menu.c \
               os/flair/text.c os/flair/control.c os/flair/dialog.c os/flair/event.c $(DESKTOP_C) $(FLAIRLOOK_C)
-SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
+SHELL_DEPS := harness/proptest/expect_abort.h $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
               os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h \
               os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h \
               os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
@@ -23599,6 +23603,15 @@ RECORD_MARKER_scrapbook = APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
 RECORD_IMAGE_scrapbook = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_scrapbook = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scrapbook = 300
+include spec/flair_toolbox_hardening_trace.mk
+# Rule 14: PM records this after merge. Must precede record-flair (parse time).
+RECORD_SCRIPTS += toolbox_hardening
+RECORD_SPEC_toolbox_hardening = $(FLAIR_TOOLBOX_HARDENING_SPEC)
+RECORD_IMAGE_toolbox_hardening = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_toolbox_hardening = $(FLAIR_DATA_IMG)
+RECORD_MARKER_toolbox_hardening = FLAIR-SCROLL win 0 h part=21 value=16 max=171
+RECORD_SETTLE_toolbox_hardening = 500
+
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -23617,6 +23630,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms $(or $(RECORD_TIMEOUT_MS_$(SCRIPT)),45000) \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
+	@if grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial"; then printf '!!! record-flair: input ring overrun (owpg)\n'; exit 1; fi
 	@# initech-mfrb: a bounded record image halts at FLAIR-LIVE-OK when its pump
 	@# life runs out; events injected after that are LOST while the frames keep
 	@# coming (frozen). The harness counts them -- any nonzero count is RED, and
@@ -32380,3 +32394,4 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
+include harness/toolbox_hardening.mk

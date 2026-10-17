@@ -187,6 +187,9 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
             }
             uint32_t sx = (uint32_t)(dx - x0);
             uint32_t sp = src[srow * src_pitch_px + sx];
+#ifdef BLITTER_MUT_COPY32_ZERO
+            if (dst->bpp == 32) sp = 0;
+#endif
             uint32_t off = (uint32_t)dy * dst->pitch +
                            (uint32_t)dx * dst->bytes_per_pixel;
             surface_put_pixel(dst, off, sp);
@@ -216,6 +219,9 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
             }
             uint32_t sx = (uint32_t)(dx - x0);
             uint32_t sp = src[srow * src_pitch_px + sx];
+#ifdef BLITTER_MUT_COPY32_ZERO
+            if (dst->bpp == 32) sp = 0;
+#endif
             uint32_t off = (uint32_t)dy * dst->pitch +
                            (uint32_t)dx * dst->bytes_per_pixel;
             surface_put_pixel(dst, off, sp);

@@ -77,7 +77,7 @@
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define SHELL_PANIC(msg)  abort()
 #else
-#  define SHELL_PANIC(msg)  do { for (;;) { } } while (0)
+#  define SHELL_PANIC(msg)  do { (void)(msg); __builtin_trap(); } while (0)
 #endif
 
 /* ---------------------------------------------------------------------------
@@ -124,6 +124,10 @@ static void make_bar_port(GrafPort *port, const bitmap_t *dst)
  * motivated the attribute no longer applies. See shell.h for the contract. */
 void make_offset_view(bitmap_t *view, const bitmap_t *dst, uint32_t y_top)
 {
+#ifndef SHELL_MUT_SHORT_SURFACE
+    if (view == 0 || dst == 0 || y_top >= dst->height)
+        SHELL_PANIC("make_offset_view: invalid row (mqsn)");
+#endif
     *view = *dst;
     view->base   = dst->base + (uint32_t)y_top * dst->pitch;
     view->height = dst->height - y_top;
@@ -150,6 +154,12 @@ void shell_build_scene(shell_scene_t *s,
                        region_t  *overlay_rgn,
                        int show_modal)
 {
+    /* uskw: validate before installing any windows or narrowing the count.
+     * Ref: shell.h caller-provided MenuInfo array; Rule 2. */
+#ifndef SHELL_MUT_MENU_COUNT
+    if (n_sys_menus < 0 || n_sys_menus > UINT16_MAX)
+        SHELL_PANIC("shell_build_scene: n_sys_menus out of range");
+#endif
     if (s == (shell_scene_t *)0) {
         SHELL_PANIC("shell_build_scene: NULL scene");
         return;
@@ -319,6 +329,10 @@ void shell_sync_overlay(shell_scene_t *s)
  * ===========================================================================*/
 void shell_render(shell_scene_t *s, const bitmap_t *dst)
 {
+#ifndef SHELL_MUT_SHORT_SURFACE
+    if (dst != 0 && dst->height < SHELL_MENUBARS_H)
+        SHELL_PANIC("shell_render: both menu bars must fit (mqsn)");
+#endif
     if (s == (shell_scene_t *)0 || !s->_built) {
         SHELL_PANIC("shell_render: NULL/unbuilt scene");
         return;

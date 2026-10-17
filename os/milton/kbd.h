@@ -53,6 +53,7 @@ typedef struct {
     uint8_t  buf[KBD_RING_CAP];
     uint16_t head;   /* next slot the producer writes (mod CAP)  */
     uint16_t tail;   /* next slot the consumer reads  (mod CAP)  */
+    volatile uint8_t dropped; /* 0 clear, 1 pending, 2 reported (owpg) */
 } kbd_ring_t;
 
 /* Reset a ring to empty. */
