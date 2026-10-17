@@ -75,7 +75,7 @@ static uint32_t alert_capture_rgb(const unsigned char *pixels, int x, int y)
 #define PRESSED_LBL_Y0 162
 #define PRESSED_LBL_Y1 173
 
-static int pressed_in_box(int x, int y, int x0, int x1, int y0, int y1)
+static __attribute__((unused)) int pressed_in_box(int x, int y, int x0, int x1, int y0, int y1)
 {
     return x >= x0 && x <= x1 && y >= y0 && y <= y1;
 }
@@ -84,7 +84,7 @@ static int pressed_in_box(int x, int y, int x0, int x1, int y0, int y1)
  * A). Returns the number of pixels of the alert (x133..507, y87..191) where
  * A and B disagree OUTSIDE both pointer boxes: must be 0, or the pair is not
  * two captures of one state and nothing may be graded against it. */
-static int pressed_capture_compose(const unsigned char *a,
+static __attribute__((unused)) int pressed_capture_compose(const unsigned char *a,
                                    const unsigned char *b,
                                    unsigned char *out)
 {
