@@ -101,37 +101,37 @@ endef
 BOCHS_PIXEL_TENANTS_LINE := FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
 BOCHS_PIXEL_DEPS := $(BOCHS_BIN) $(HARNESS_BIN) $(BUILD)/ppm_bochs_check
 
-$(eval $(call bochs-flair-leg,flair-menubar-clock,$(BUILD)/flair_tenants_mut_menubar_clock_gate.img,$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-iword,$(BUILD)/flair_tenants_mut_iword_gate.img,$(FLAIR_DATA_IMG),flair))
+$(eval $(call bochs-flair-leg,flair-menubar-clock,$(BUILD)/flair_tenants_mut_menubar_clock_gate.img,$(FLAIR_DATA_IMG),flair,vbe101))
+$(eval $(call bochs-flair-leg,flair-iword,$(BUILD)/flair_tenants_mut_iword_gate.img,$(FLAIR_DATA_IMG),flair,vbe101))
 
 # QEMU-green kernels listed by the operator in initech-cqej. Several gates
 # intentionally share a kernel: retain every requested gate name in the
 # vector so omissions cannot hide behind another gate's result (Rule 5).
-$(eval $(call bochs-flair-leg,flair-exit-to-dos,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-tps-journey,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-file-copy,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-paint,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-itext,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-itext-scroll,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-calc,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-calcda,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-apple-menu,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,dos-break-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,dos-not-ready-emu,$(BUILD)/dosmsg.img,$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,chkdsk-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,xcopy-tree-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,dosutil-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,edlin-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,flair-live-scene,$(FLAIRLIVE_INTERACTIVE_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-shutdown,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_POWER_CANCEL_IMG),flair))
-$(eval $(call bochs-flair-leg,flair-restart,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+$(eval $(call bochs-flair-leg,flair-exit-to-dos,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-tps-journey,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-file-copy,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-paint,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-itext,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-itext-scroll,$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-calc,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-calcda,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-apple-menu,$(FLAIR_CALCDA_GATE_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,dos-break-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,dos-not-ready-emu,$(BUILD)/dosmsg.img,$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,chkdsk-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,xcopy-tree-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,dosutil-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,edlin-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,flair-live-scene,$(FLAIRLIVE_INTERACTIVE_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-shutdown,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_POWER_CANCEL_IMG),flair,))
+$(eval $(call bochs-flair-leg,flair-restart,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
 
 # Tonight's merged lane kernels, cqej second half. Preserve every QEMU gate
 # name even when several gates share a boot image (WL-0131 Bochs row).
 # Command negative fixtures differ AFTER the desktop guard; this boot leg
 # deliberately makes no claim about the missing/magic error UI.
-$(eval $(call bochs-flair-leg,command-file-emu,$(COMMAND_FILE_IMG)/fragment.img,$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,command-file-negative,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+$(eval $(call bochs-flair-leg,command-file-emu,$(COMMAND_FILE_IMG)/fragment.img,$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,command-file-negative,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
 
 # WL-0170: the VESA8 flagship (FORCE_VBE_101 + the 648-pixel 4F06h padding)
 # under Bochs: the boot leg grades the padded VIDEO handoff; the pixel leg
@@ -168,47 +168,47 @@ $(eval $(call bochs-flair-leg,flair-appswitch-vga13,$(FLAIRTENANTS_IMG),$(FLAIR_
 $(eval $(call bochs-flair-leg,flair-desktop-novbe,$(FLAIRSHELL_IMG),,guard,e00))
 
 # WL-0143: all desk accessory traces use the InitechText gate kernel.
-$(foreach gate,flair-notepad flair-scrapbook flair-notepad-itext flair-notepad-restart,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
-$(eval $(call bochs-flair-leg,flair-notepad-corrupt,$(FLAIR_ITEXT_GATE_IMG),$(DA_CORRUPT_DATA),flair))
+$(foreach gate,flair-notepad flair-scrapbook flair-notepad-itext flair-notepad-restart,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair,)))
+$(eval $(call bochs-flair-leg,flair-notepad-corrupt,$(FLAIR_ITEXT_GATE_IMG),$(DA_CORRUPT_DATA),flair,))
 # WL-0145: chooser, five panels, settings, restart and corrupt-record boot.
-$(foreach gate,flair-cpanels flair-cpanels-date flair-cpanels-patterns flair-cpanels-mouse flair-cpanels-sound flair-cpanels-memory flair-cpanels-settings flair-cpanels-persist,$(eval $(call bochs-flair-leg,$(gate),$(CP_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
-$(eval $(call bochs-flair-leg,flair-cpanels-corrupt,$(CP_GATE_IMG),$(BUILD)/cp_corrupt_data.img,flair))
-$(eval $(call bochs-flair-leg,flair-grow-box,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+$(foreach gate,flair-cpanels flair-cpanels-date flair-cpanels-patterns flair-cpanels-mouse flair-cpanels-sound flair-cpanels-memory flair-cpanels-settings flair-cpanels-persist,$(eval $(call bochs-flair-leg,$(gate),$(CP_GATE_IMG),$(FLAIR_DATA_IMG),flair,)))
+$(eval $(call bochs-flair-leg,flair-cpanels-corrupt,$(CP_GATE_IMG),$(BUILD)/cp_corrupt_data.img,flair,))
+$(eval $(call bochs-flair-leg,flair-grow-box,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
 
 # WL-0141/0147: physical I/O, FDISK and FORMAT/SYS use the shell kernel.
 # /S generated-volume boot, editor input and disk mutation remain QEMU
 # acceptance; these macro legs certify only their shared kernel boot chain.
 # test-diskcopy-emu has NO leg: it is QEMU-RED (fixed ATA medium cannot swap),
 # not one of the QEMU-green gates in scope (WL-0147, Named incomplete leg).
-$(foreach gate,block-device-emu fdisk-emu formatsys-emu format-system-boot,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
-$(eval $(call bochs-flair-leg,dos-folder,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(foreach gate,conkeys j1lu-control-emu,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
-$(eval $(call bochs-flair-leg,ansi-emu,$(SECONDARY_TRACER_IMG),$(BUILD)/ansi_probe_data.img,shell))
-$(foreach gate,flair-finder-icons flair-trash-full flair-toolbox-hardening,$(eval $(call bochs-flair-leg,$(gate),$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair)))
+$(foreach gate,block-device-emu fdisk-emu formatsys-emu format-system-boot,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,)))
+$(eval $(call bochs-flair-leg,dos-folder,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(foreach gate,conkeys j1lu-control-emu,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,)))
+$(eval $(call bochs-flair-leg,ansi-emu,$(SECONDARY_TRACER_IMG),$(BUILD)/ansi_probe_data.img,shell,))
+$(foreach gate,flair-finder-icons flair-trash-full flair-toolbox-hardening,$(eval $(call bochs-flair-leg,$(gate),$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,)))
 
 # Kernel hygiene: preserve self-test kernel identity and completion markers.
 # MZ invalid-entry stimulus and baked BUSY semantics remain the QEMU oracle;
 # the Bochs macro certifies the real self-test image's boot/completion only.
-$(eval $(call bochs-flair-leg,fat-hygiene-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,trash-hidden-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-$(eval $(call bochs-flair-leg,ata-no-drive-emu,$(SECONDARY_TRACER_IMG),,nodrive))
-$(eval $(call bochs-flair-leg,baked-exec-guard,$(BUILD)/baked_guard.img,$(FAT_EXEC_IMG),exec))
-$(eval $(call bochs-flair-leg,mzload-entry-emu,$(MZEXEC_IMG),$(FAT_MZEXEC_IMG),mzexec))
+$(eval $(call bochs-flair-leg,fat-hygiene-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,trash-hidden-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
+$(eval $(call bochs-flair-leg,ata-no-drive-emu,$(SECONDARY_TRACER_IMG),,nodrive,))
+$(eval $(call bochs-flair-leg,baked-exec-guard,$(BUILD)/baked_guard.img,$(FAT_EXEC_IMG),exec,))
+$(eval $(call bochs-flair-leg,mzload-entry-emu,$(MZEXEC_IMG),$(FAT_MZEXEC_IMG),mzexec,))
 
 # WL-0148 and the SAMIR DML lane: 16 distinct named leaves + aggregates.
 # No interpreter/FAT mutation parity is claimed without input replay.
-$(eval $(call bochs-flair-leg,samir-core-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(eval $(call bochs-flair-leg,samir-dml-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
-$(foreach verb,$(SAMIR_DML_CASES),$(eval $(call bochs-flair-leg,samir-dml-$(verb)-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
-$(eval $(call bochs-flair-leg,samir-print-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
+$(eval $(call bochs-flair-leg,samir-core-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(eval $(call bochs-flair-leg,samir-dml-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
+$(foreach verb,$(SAMIR_DML_CASES),$(eval $(call bochs-flair-leg,samir-dml-$(verb)-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,)))
+$(eval $(call bochs-flair-leg,samir-print-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,))
 
 # WL-0154/0155: unchanged DOS shell image; host mtools/dosfstools and QEMU
 # injected traces still grade COPY/REN, nested COMMAND /C, XCOPY CWD and
 # AH40 CX=0 truncation (IBM DOS 3.30 TR p.6-140/PDF263; ADR-0003 App A).
-$(foreach gate,shell-files-emu command-c-emu xcopy-cwd-emu fat-truncate-emu dir-match-emu shell-dir-look,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
+$(foreach gate,shell-files-emu command-c-emu xcopy-cwd-emu fat-truncate-emu dir-match-emu shell-dir-look,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,)))
 # WL-0146 and WL-0152: every additional IWORD trace and the size wrapper.
-$(foreach gate,flair-iword-codes flair-iword-block flair-iword-format flair-iword-fkeys flair-iword-search flair-iword-replace flair-iword-undo flair-iword-setup,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
-$(eval $(call bochs-flair-leg,kernel-size-r4-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+$(foreach gate,flair-iword-codes flair-iword-block flair-iword-format flair-iword-fkeys flair-iword-search flair-iword-replace flair-iword-undo flair-iword-setup,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IMG),flair,)))
+$(eval $(call bochs-flair-leg,kernel-size-r4-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,))
 
 # Factory oracle FIRST (Rule 1). The same second-boot parser is used by the
 # live driver. The mutant cuts its wait to the first boot (Rule 6).
