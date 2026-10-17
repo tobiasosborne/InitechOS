@@ -102,4 +102,8 @@ void finder_icon_draw_hilite(const bitmap_t *dst, int16_t x, int16_t y,
 int finder_icon_hit(int16_t x, int16_t y,
                     const FLAIRDeskIcon *icon, int16_t icon_x, int16_t icon_y);
 
+/* Native16 cells from mint008 Sec6, using the same clipped pixel walk.
+ * kind: 0 application, 1 document, 2 folder; colour resolves through canon. */
+void finder_icon_draw_small(const bitmap_t *dst,int16_t x,int16_t y,
+                             unsigned kind,const region_t *clip);
 #endif /* INITECH_OS_FLAIR_FINDER_ICON_H */

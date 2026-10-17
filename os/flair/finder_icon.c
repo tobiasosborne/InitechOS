@@ -13,6 +13,7 @@
  * are never compiled into a real build.
  */
 #include "finder_icon.h"
+#include "finder_small_icons.h"
 
 #include "flair_look.h"     /* flair_look_pixel_depth -- the ONE color seam */
 
@@ -70,24 +71,26 @@ static int icon_tone_part(desk_tone_t tone, int hilite)
 
 static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip,
-                      int hilite);
+                      int hilite, int small);
 
 void finder_icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip)
 {
-    icon_draw(dst, x, y, icon, clip, 0);
+    icon_draw(dst, x, y, icon, clip, 0, -1);
 }
 
 void finder_icon_draw_hilite(const bitmap_t *dst, int16_t x, int16_t y,
                              const FLAIRDeskIcon *icon, const region_t *clip)
 {
-    icon_draw(dst, x, y, icon, clip, 1);
+    icon_draw(dst, x, y, icon, clip, 1, -1);
 }
 
 static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip,
-                      int hilite)
+                      int hilite, int small)
 {
+    int dim = small >= 0 ? 16 : 32;
+    uint32_t small_px[FINDER_SMALL_COLORS];
     uint32_t tone_px[4];
     int r;
     int c;
@@ -96,7 +99,7 @@ static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
      * a buffer we were not given). */
     if (dst == (const bitmap_t *)0 || dst->base == (volatile uint8_t *)0 ||
         dst->width == 0u || dst->height == 0u ||
-        icon == (const FLAIRDeskIcon *)0) {
+        (icon == (const FLAIRDeskIcon *)0 && small < 0)) {
         return;
     }
 
@@ -111,17 +114,21 @@ static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
     tone_px[DESK_TONE_SHADE] = flair_look_pixel_depth(dst->bpp,
                                                       icon_tone_part(DESK_TONE_SHADE, hilite));
 
-    for (r = 0; r < DESK_ICON_DIM; r++) {
+    if (small >= 0)
+        for (int i=1;i<FINDER_SMALL_COLORS;i++)
+            small_px[i]=flair_look_small_icon_pixel(dst->bpp,(unsigned)i);
+    for (r = 0; r < dim; r++) {
         int py = (int)y + r;
         if (py < 0 || py >= (int)dst->height) continue;
-        for (c = 0; c < DESK_ICON_DIM; c++) {
+        for (c = 0; c < dim; c++) {
             int px = (int)x + c;
             desk_tone_t tone;
             uint32_t off;
 
             if (px < 0 || px >= (int)dst->width) continue;
 
-            tone = icon_tone(icon, r, c);
+            unsigned idx=small>=0?finder_small_art[small][r*16+c]:0;
+            tone = small>=0 ? (idx?DESK_TONE_INK:DESK_TONE_CLEAR) : icon_tone(icon,r,c);
             if (tone == DESK_TONE_CLEAR) continue;   /* transparency (rule 1) */
 
             if (clip != (const region_t *)0 &&
@@ -130,7 +137,7 @@ static void icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
             }
 
             off = (uint32_t)py * dst->pitch + (uint32_t)px * dst->bytes_per_pixel;
-            surface_put_pixel(dst, off, tone_px[tone]);
+            surface_put_pixel(dst, off, small>=0?small_px[idx]:tone_px[tone]);
         }
     }
 }
@@ -145,3 +152,9 @@ int finder_icon_hit(int16_t x, int16_t y,
     if (r < 0 || r >= DESK_ICON_DIM || c < 0 || c >= DESK_ICON_DIM) return 0;
     return (icon->mask[r] & icon_bit(c)) != 0u ? 1 : 0;
 }
+
+/* Native16 art uses the SAME mask/clip/pixel walk, with captured indexed
+ * colours resolved once by the existing policy seam. app=0, doc=1, folder=2. */
+void finder_icon_draw_small(const bitmap_t *dst,int16_t x,int16_t y,
+                             unsigned kind,const region_t *clip)
+{ if(kind<3) icon_draw(dst,x,y,(const FLAIRDeskIcon *)0,clip,0,(int)kind); }

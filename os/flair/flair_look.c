@@ -42,6 +42,7 @@
 #include <stdint.h>
 
 #include "flair_look.h"
+#include "finder_small_icons.h"
 #include "flair_skins.h"       /* complete flair_skin_t + registry resolver     */
 #include "surface.h"           /* surface_pack_rgb (-Ios/flair)                 */
 #include "color_canon.h"       /* flair_canon_rgb + CIDX_* + bevel (-Ispec/assets) */
@@ -187,7 +188,11 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* L023: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.
      * Indexed slots carry the exact sampled tints through the live offscreen. */
     { CIDX_ALERT_LIGHT, 0u, FLAIR_NO_SKIN_SLOT, 0u },
-    { CIDX_ALERT_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u }
+    { CIDX_ALERT_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* Captured list bevel gray-ramp indices, mint008 Sec6. */
+    { 39u, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    { 84u, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    { 102u, 0u, FLAIR_NO_SKIN_SLOT, 0u },
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,
@@ -302,4 +307,12 @@ uint32_t flair_look_pixel(const GrafPort *port, int part)
 {
     uint32_t bpp = (port != 0) ? port->portBits.bm.bpp : 32u;
     return flair_look_pixel_depth(bpp, part);
+}
+
+/* Native icon colours use the SAME canon slots as the indexed compositor. */
+uint32_t flair_look_small_icon_pixel(uint32_t bpp,unsigned index)
+{
+    if(index>=FINDER_SMALL_COLORS)return 0;
+    uint8_t idx=finder_small_canon[index];
+    return bpp==8 ? idx : flair_canon_rgb(idx);
 }

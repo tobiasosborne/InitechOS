@@ -60,7 +60,7 @@ static int16_t fd_max16(int16_t a, int16_t b) { return a > b ? a : b; }
 static int fd_abs(int v) { return v < 0 ? -v : v; }
 
 /* text_measure(FONT_GENEVA9, s) recomputed locally -- see the include note. */
-static int fd_label_width(const char *s)
+int finder_desk_text_width(const char *s)
 {
     int w = 0;
     if (s == (const char *)0) return 0;
@@ -235,7 +235,7 @@ rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
 
     if (!fd_valid(fd, idx)) return fd_empty_rect();
 
-    w  = fd_label_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
+    w  = finder_desk_text_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
     cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
     /* Centered under the sprite; integer division matches text_center_in. */
     left = cx - w / 2;
@@ -749,7 +749,7 @@ finder_db_status_t finder_desk_db_apply(finder_desk_t *fd, const uint8_t *buf,
  * which has no region clip and paints a background cell for every glyph, so it
  * cannot be used at the underlay seam (rule 4 of the header). This is the
  * finder_icon.c per-pixel walk applied to the geneva9 strike. */
-static void fd_label_text(const bitmap_t *dst, int x, int y, const char *s,
+void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
                           uint32_t ink, const region_t *clip)
 {
     while (*s != '\0') {
@@ -842,7 +842,7 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
 
         lab = finder_desk_label_rect(fd, i);
         blitter_fill_rect_clipped(dst, lab, band_px, clip);
-        fd_label_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
+        finder_desk_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
                       (int)lab.top + 1, ic->name, text_px, clip);
     }
 }
@@ -903,3 +903,7 @@ int finder_desk_tenant_build(finder_desk_t *fd, finder_desk_icon_t *storage,
     finder_desk_init(fd, storage, cap, lp->bounds);
     return finder_desk_seed_defaults(fd);
 }
+
+void finder_desk_small_icon(const bitmap_t *dst,int16_t x,int16_t y,uint8_t kind,
+                             const region_t *clip)
+{ finder_icon_draw_small(dst,x,y,kind==FINDER_ICON_APP?0:kind==FINDER_ICON_FOLDER?2:1,clip); }

@@ -3,7 +3,7 @@
  * policy. ALL expected orders, bit patterns, byte records and coordinates
  * below are independently hand-authored. Geometry numbers are SYNTHETIC
  * arithmetic cases, never claimed Mac OS 8 metrics or pixel goldens.
- * The UI is blocked on a real Mac OS 8.1 Finder View > as List capture.
+ * UI truth: system7-decomp re/mint-results-008 Sec 6 and both s8_finder_list_view captures.
  * Rule 6 mutants change only finder_windows.c, never these expectations.
  */
 #include <stdint.h>
@@ -11,6 +11,7 @@
 #include <string.h>
 #include "finder_windows.h"
 #include "menu.h"
+#include "finder_menu.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -48,7 +49,7 @@ static void sorts(void)
 {
     static const struct { uint16_t bits; int order[7]; } cases[] = {
         {1,  {5,6,1,3,4,2,0}}, /* ASCII case folded, full dotted name */
-        {5,  {6,2,1,3,4,0,5}}, /* unsigned bytes, name tie break */
+        {5,  {5,1,3,4,0,6,2}}, /* capture: descending unsigned bytes, folders last, name ties */
         {9,  {2,5,6,4,0,1,3}}, /* existing kind enum: folder, file, app */
         {13, {5,4,0,1,3,6,2}}  /* packed FAT date then time, name ties */
     };
@@ -79,7 +80,7 @@ static void columns(void)
 {
     /* Synthetic widths 91,37,53,67. Header [30,230)x[20,33).
      * Scroll 11: logical edges 19,110,147,200,267, clipped to 30..230.
-     * A one-pixel gap before Size must fail at x=110 (Rule 6). */
+     * A one-pixel gap before Size must fail at x=147 (Rule 6). */
     const rgn_rect_t header = {20,30,33,230};
     const int16_t widths[4] = {91,37,53,67};
     static const int16_t edges[4][2] = {{30,110},{110,147},{147,200},{200,230}};
@@ -90,11 +91,11 @@ static void columns(void)
               r.top == 20 && r.bottom == 33,
               "V3 column boundaries match independent half-open arithmetic");
     }
-    CHECK(finder_win_list_header(0xa501, header, widths, 11, 110, 20) == 0xa505,
-          "V4 Size header click changes sort and preserves unrelated bits");
+    CHECK(finder_win_list_header(0xa501, header, widths, 11, 110, 20) == 0xa50d,
+          "V4 Date header click changes sort and preserves unrelated bits");
     CHECK(finder_win_list_header(0xa505, header, widths, 11, 109, 32) == 0xa501 &&
-          finder_win_list_header(0xa501, header, widths, 11, 147, 32) == 0xa509 &&
-          finder_win_list_header(0xa501, header, widths, 11, 229, 32) == 0xa50d,
+          finder_win_list_header(0xa501, header, widths, 11, 147, 32) == 0xa505 &&
+          finder_win_list_header(0xa501, header, widths, 11, 229, 32) == 0xa509,
           "V4 each column owns its left edge and excludes its right edge");
     CHECK(finder_win_list_header(1, header, widths, 11, 230, 20) == 1 &&
           finder_win_list_header(1, header, widths, 11, 110, 33) == 1 &&
@@ -149,6 +150,81 @@ static void init_scene(scene_t *s)
     finder_shell_bind_ctx(&s->sh, &s->ctx);
 }
 
+static void routing(void)
+{
+    static scene_t s;
+    static const uint16_t items[] = {1,2,3,4,5,7};
+    static const uint16_t bits[] = {0,2,1,5,9,13};
+    int slot = -1;
+    init_scene(&s);
+    CHECK(finder_win_open(&s.sh, 0, 7, "APPS", 0, &slot, NULL) == 0,
+          "V6 folder opens for routing");
+    if (slot < 0) return;
+    for (unsigned i = 0; i < 6; i++) {
+        finder_dispatch(&s.ctx, MenuResult(514, items[i]), "mouse");
+        CHECK(s.sh.windows[slot].view_bits == bits[i],
+              "V6 menu dispatch reaches the live window mode");
+        finder_shell_sync_ctx(&s.sh);
+        finder_menu_refresh_enables(&s.ctx);
+        const MenuInfo *v = &finder_menu_bar()->menus[2];
+        for (unsigned j = 0; j < 6; j++)
+            CHECK(v->items[items[j]-1].enabled &&
+                  v->items[items[j]-1].mark == (i == j ? FINDER_MENU_MARK_CHECK : 0),
+                  "V6 enabled view items carry exactly the current check");
+        CHECK(!v->items[5].enabled && !v->items[7].enabled && !v->items[8].enabled,
+              "V6 Label Buttons Popup stay period grayed");
+    }
+}
+
+static int rows_enum(void *u,uint16_t dir,finder_enum_cb cb,void *cu)
+{
+    (void)u;(void)dir;
+    finder_dirent_t entries[] = {
+        {"Z.EXE",0x20,2048,0,0x5821,0x1000},
+        {"A.TXT",0x20,8192,0,0x5421,0x2000},
+        {"FOLDER",0x10,0,9,0x5821,0x0800}
+    };
+    for(unsigned i=0;i<3;i++)cb(&entries[i],cu);
+    memset(entries,0,sizeof entries);return 0;
+}
+static void live_layout(void)
+{
+    static scene_t s;int slot=-1;
+    init_scene(&s);s.sh.fs.enumerate=rows_enum;
+    CHECK(finder_win_open(&s.sh,0,7,"APPS",0,&slot,NULL)==0,"V7 enumeration for list layout");
+    if(slot<0)return;
+    finder_window_t *w=&s.sh.windows[slot];
+    CHECK(w->meta[0].size==2048 && w->meta[1].date==0x5421 && w->meta[2].attribute==0x10,
+          "V7 metadata is copied before callback scratch expires");
+    finder_shell_sync_ctx(&s.sh);
+    finder_dispatch(&s.ctx,MenuResult(514,4),"mouse");
+    CHECK(w->icons[1].y==103 && w->icons[0].y==122 && w->icons[2].y==141,
+          "V7 captured19px pitch; descending Size puts folders last");
+    CHECK(finder_win_content_hit(w,200,105)==1 && finder_win_content_hit(w,200,90)==-1,
+          "V7 row hit spans column body but excludes fixed header");
+    CHECK(finder_win_header_click(w,80,90) && w->view_bits==1,
+          "V7 live header click changes sort");
+    CHECK(finder_win_header_click(w,80,90) && w->view_bits==1,
+          "V7 reselecting current header is consumed without a row click");
+    CHECK(w->scroll.axis[WSCROLL_H].max==272,
+          "V7 captured605px columns use existing horizontal scrollbar");
+    for(int i=0;i<61;i++) {
+        int ix=finder_desk_add(&w->view,FINDER_ICON_FILE,"MORE.TXT",0,0,1);
+        CHECK(ix==i+3,"V7 existing64-entry Finder model holds overflow rows");
+        if(ix>=0) {w->meta[ix].size=1;w->meta[ix].date=0;w->meta[ix].time=0;w->meta[ix].attribute=0x20;}
+    }
+    finder_win_sync_geometry(w);
+    CHECK(w->scroll.axis[WSCROLL_V].max==1059,
+          "V7 vertical extent is64 captured19px rows minus157px body");
+    wscroll_set_value(&w->scroll.axis[WSCROLL_V],19);
+    finder_win_sync_geometry(w);
+    CHECK(finder_win_content_hit(w,200,105)==2 && w->icons[2].y==103,
+          "V7 scrollbar moves rows and hit testing together below fixed header");
+    finder_dispatch(&s.ctx,MenuResult(514,1),"mouse");
+    CHECK(w->view_bits==0 && w->icons[0].x==44 && w->icons[0].y==86,
+          "V7 Icons restores the original grid through the same model");
+}
+
 static void persistence(void)
 {
     static scene_t before, after;
@@ -190,6 +266,6 @@ static void persistence(void)
 
 int main(void)
 {
-    modes(); sorts(); columns(); persistence();
+    modes(); sorts(); columns(); routing(); live_layout(); persistence();
     return TEST_SUMMARY("test-finder-list-view");
 }

@@ -161,6 +161,12 @@
  * the harness or the trace, never this number. */
 #ifndef FINDER_DBLCLICK_TICKS
 #define FINDER_DBLCLICK_TICKS      20u
+void finder_desk_small_icon(const bitmap_t *dst,int16_t x,int16_t y,uint8_t kind,
+                             const region_t *clip);
+/* Shared transparent, region-clipped Geneva label run (also list bodies). */
+int finder_desk_text_width(const char *s);
+void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
+                       uint32_t ink, const region_t *clip);
 #endif
 #define FINDER_DBLCLICK_SLOP        4   /* max |dh|,|dv| between the two clicks */
 #define FINDER_DRAG_SLOP            3   /* movement below this is still a click */

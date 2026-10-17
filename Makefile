@@ -10741,7 +10741,7 @@ $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE
 # KERNEL_FINDER_WINDOWS_OBJ's own recipe (the $(eval)-expands-once hazard the
 # templates above document at length).
 define flair-tenants-finderwin-mutant-rules
-$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(BUILD)/finder_windows_mut_$(2).o: spec/assets/finder_list_titles.h os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -12929,22 +12929,37 @@ FINDER_WIN_DEPS := $(TEST_FINDER_WIN_SRC) os/flair/finder_windows.h \
 $(TEST_FINDER_WIN): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 
-# tdnl.44: geometry-independent preparation while the Mac OS 8.1 Finder
-# list-view capture is missing. These tests DO NOT accept a painted list.
+# tdnl.44: host routing/sort/layout/persistence, plus paired-background
+# native16 asset transcription. The independent pixel oracle is the emu gate.
+# tdnl.44: explicit dependency; the existing vesa8.mk generator is reused.
+$(BUILD)/kmain_flairtenants.o: $(BUILD)/flair_dac.h
+$(BUILD)/kmain_flairtenants_recordlongdbl.o: $(BUILD)/flair_dac.h
+
+$(KERNEL_FINDER_WINDOWS_OBJ): spec/assets/finder_list_titles.h
+$(BUILD)/finder_icon.o $(BUILD)/flair_look.o: spec/assets/finder_small_icons.h
+$(BUILD)/finder_menu.o: os/flair/finder_windows.h
+FINDER_WIN_DEPS += spec/assets/finder_list_titles.h spec/assets/finder_small_icons.h
 TEST_FINDER_LIST_SRC := harness/proptest/test_finder_list_view.c
 TEST_FINDER_LIST := $(BUILD)/test_finder_list_view
 FINDER_LIST_MUTANTS := SORT_UNSTABLE SIZE_COLUMN_OFFBYONE HEADER_IGNORED SAVE_ICONS
-$(TEST_FINDER_LIST): $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK)
-$(BUILD)/test_finder_list_view_mutant_%: $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_VIEW_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK)
+$(TEST_FINDER_LIST): os/flair/finder_menu.c spec/assets/finder_list_titles.h $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK) os/flair/finder_menu.c
+$(BUILD)/test_finder_list_view_mutant_%: os/flair/finder_menu.c spec/assets/finder_list_titles.h $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_VIEW_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK) os/flair/finder_menu.c
+$(BUILD)/mint_finder_small_icons: tools/mint_finder_small_icons.c spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
+.PHONY: test-finder-small-icons-gen
+test-finder-small-icons-gen: $(BUILD)/mint_finder_small_icons
+	@$< $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view.png $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view_bysize.png > $(BUILD)/finder_small_icons.regen.h
+	@cmp spec/assets/finder_small_icons.h $(BUILD)/finder_small_icons.regen.h
+	@printf '>>> test-finder-small-icons-gen: green (paired-background native16 mask recovery)\n'
 .PHONY: test-finder-list-view test-finder-list-view-mutant
-test-finder-list-view: $(TEST_FINDER_LIST)
+test-finder-list-view: $(TEST_FINDER_LIST) test-finder-small-icons-gen
 	@$(TEST_FINDER_LIST)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_windows.c -o $(BUILD)/finder_list_view_freestanding.o
-	@printf '>>> test-finder-list-view: green (logic only; UI capture blocked)\n'
+	@printf '>>> test-finder-list-view: green (routing, captured sort policy, columns, kind=4)\n'
 test-finder-list-view-mutant: test-finder-list-view $(foreach m,$(FINDER_LIST_MUTANTS),$(BUILD)/test_finder_list_view_mutant_$(m))
-	@set -eu; for pair in 'SORT_UNSTABLE:V2 stable rank' 'SIZE_COLUMN_OFFBYONE:V3 column boundaries' 'HEADER_IGNORED:V4 Size header click' 'SAVE_ICONS:V5 Restart kind=4 bytes'; do \
+	@set -eu; for pair in 'SORT_UNSTABLE:V2 stable rank' 'SIZE_COLUMN_OFFBYONE:V3 column boundaries' 'HEADER_IGNORED:V4 Date header click' 'SAVE_ICONS:V5 Restart kind=4 bytes'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_finder_list_view_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-list-view-mutant FAIL: %s PASSED\n' "$$m"; exit 1; fi; \
 		grep -F "$$why" $$bin.log | grep -q FAIL || { cat $$bin.log; printf '!!! mutant RED for wrong reason: %s\n' "$$m"; exit 1; }; \
@@ -19888,22 +19903,54 @@ FLAIR_DW_FBAR_NAME    := flair_diskwin_rootwin
 FLAIR_DW_MENU_NAME    := flair_diskwin_findermenu
 FLAIR_DW_CANCEL_NAME  := flair_diskwin_menucancel
 .PHONY: test-flair-disk-windows
-# tdnl.44 STOP CONDITION (Law 1/2): s8_doc_window_active and s8_81_finder
-# are ICON views; even s7_window_listview is an icon view. No captured list
-# header/rows exist in the read-only corpus. Do not turn this RED gate green
-# by rendering/reading the same metrics, substituting an icon capture, or by
-# merely finding a file with the requested name. Mint and independently
-# measure the capture, then finish the header-click trace, serial assertions,
-# screendump probes, Restart leg and emu mutant. No QEMU run can supply that
-# missing independent expectation. Both targets remain in TEST_EMU_GATES.
-.PHONY: finder-list-view-capture-required test-flair-list-view test-flair-list-view-mutant
-finder-list-view-capture-required:
-	@printf '!!! test-flair-list-view RED: missing independent Mac OS 8.1 Finder disk/folder window in View > as List, showing Name/Size/Kind/Date header and rows with Size selected/underlined; required capture: %s/goldens/captures/s8_finder_list_view_size.png. Header/row metrics and Size-click trace are unresolved.\n' '$(SYSTEM7_DECOMP)'
-	@exit 1
-test-flair-list-view: finder-list-view-capture-required
-test-flair-list-view-mutant: test-flair-list-view
-	@printf '!!! test-flair-list-view-mutant RED: baseline blocked; no emu mutant proof\n'
-	@exit 1
+# tdnl.44: independent minted header pixels, real Restart, named pixel mutant.
+LIST_VIEW_CHECK := $(BUILD)/ppm_flair_list_view_check
+LIST_VIEW_CAPTURE := $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view.png
+LIST_VIEW_SIZE_CAPTURE := $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view_bysize.png
+$(LIST_VIEW_CHECK): tools/ppm_flair_list_view_check.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $< -lpng
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_VIEW_MUT_HEADER_FACE,list_header_face))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_VIEW_MUT_SMALL_ICON_SHIFT,list_small_icon_shift))
+.PHONY: test-flair-list-view test-flair-list-view-mutant
+# Each leg uses the existing harness, input grammar and ordinary owned-window paint.
+define list-view-boot
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/list_view_data.img" --expect FLAIR-LIVE-READY --name "$(1)" --out "$(BUILD)" --mouse "$(3)" --keys-after FLAIR-LIVE-READY --screendump --screendump-after "$(if $(4),$(4),FINDER-OPEN-FOLDER name=APPS)" --record-settle-ms 500 --timeout-ms 30000 > "$(BUILD)/$(1).out" 2> "$(BUILD)/$(1).report"
+endef
+test-flair-list-view: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(LIST_VIEW_CHECK)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/list_view_data.img
+	$(call list-view-boot,list_view_folder,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_ROOT_SPEC),FINDER-VIEW win=0)
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_folder.ppm $(LIST_VIEW_CAPTURE) folder
+	$(call list-view-boot,list_view_name,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_NAME_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=name bits=1' $(BUILD)/list_view_name.serial
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_name.ppm $(LIST_VIEW_CAPTURE) name
+	$(call list-view-boot,list_view_size,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_SIZE_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=size bits=5' $(BUILD)/list_view_size.serial
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_size.ppm $(LIST_VIEW_SIZE_CAPTURE) size
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/list_view_data.img" --expect FLAIR-FAT-MOUNT-OK --name list_view_restart --out $(BUILD) --mouse "$(FLAIR_LIST_RESTART_SPEC)" --keys-after FLAIR-LIVE-READY --allow-reboot --quit-after FLAIR-LIVE-READY --quit-after-count 2 --timeout-ms 30000 > $(BUILD)/list_view_restart.out 2> $(BUILD)/list_view_restart.report
+	@grep -qx FLAIR-RESTART $(BUILD)/list_view_restart.serial
+	@grep -q '^DESKTOP-DB-SAVE ' $(BUILD)/list_view_restart.serial
+	@test "$$(grep -c '^FLAIR-LIVE-READY' $(BUILD)/list_view_restart.serial)" -eq 2
+	mcopy -o -i $(BUILD)/list_view_data.img ::DESKTOP.DB $(BUILD)/list_view_desktop.db
+	@$(LIST_VIEW_CHECK) --db $(BUILD)/list_view_desktop.db
+	$(call list-view-boot,list_view_reopen,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_REOPEN_SPEC))
+	@grep -qx 'FINDER-VIEW-RESTORE win=1 bits=5' $(BUILD)/list_view_reopen.serial
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_reopen.ppm $(LIST_VIEW_SIZE_CAPTURE) reopen
+	@printf '>>> test-flair-list-view: green (Name/Size header cells, sort shading, Restart kind=4)\n'
+test-flair-list-view-mutant: test-flair-list-view $(BUILD)/flair_tenants_mut_list_header_face.img $(BUILD)/flair_tenants_mut_list_small_icon_shift.img
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/list_view_data.img
+	$(call list-view-boot,list_view_mutant,$(BUILD)/flair_tenants_mut_list_header_face.img,$(FLAIR_LIST_SIZE_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=size bits=5' $(BUILD)/list_view_mutant.serial
+	@if $(LIST_VIEW_CHECK) $(BUILD)/list_view_mutant.ppm $(LIST_VIEW_SIZE_CAPTURE) size > $(BUILD)/list_view_mutant.log 2>&1; then printf 'FAIL LIST_HEADER_FACE passed\n'; exit 1; fi
+	@grep -q 'FAIL list-view header pixel' $(BUILD)/list_view_mutant.log
+	@head -1 $(BUILD)/list_view_mutant.log
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/list_view_data.img
+	$(call list-view-boot,list_view_icon_mutant,$(BUILD)/flair_tenants_mut_list_small_icon_shift.img,$(FLAIR_LIST_NAME_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=name bits=1' $(BUILD)/list_view_icon_mutant.serial
+	@if $(LIST_VIEW_CHECK) $(BUILD)/list_view_icon_mutant.ppm $(LIST_VIEW_CAPTURE) name > $(BUILD)/list_view_icon_mutant.log 2>&1; then printf 'FAIL SMALL_ICON_SHIFT passed\n'; exit 1; fi
+	@grep -q 'FAIL list-view small application pixel' $(BUILD)/list_view_icon_mutant.log
+	@head -1 $(BUILD)/list_view_icon_mutant.log
+	@printf '>>> test-flair-list-view-mutant: green (LIST_HEADER_FACE and SMALL_ICON_SHIFT correctly RED)\n'
 
 test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 			 $(PPM_FLAIR_DISKWIN_CHECK_BIN)
@@ -23451,16 +23498,13 @@ RECORD_IMAGE_scrapbook = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_scrapbook = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scrapbook = 300
 # tdnl.44 Rule 14 registration, BEFORE record-flair (parse-time prerequisites).
-# Intentionally guarded: the trace currently ends after requesting by Name;
-# the Size-header click has no independent geometry yet. PM records on main
-# only after the missing capture and full emu acceptance leg are supplied.
+# Capture-backed Name -> Size header click; PM records on main after merge.
 RECORD_SCRIPTS += finder_list_view
-RECORD_SPEC_finder_list_view = $(FLAIR_LIST_VIEW_PRELUDE_SPEC)
-RECORD_MARKER_finder_list_view = FINDER-VIEW win=1
+RECORD_SPEC_finder_list_view = $(FLAIR_LIST_SIZE_SPEC)
+RECORD_MARKER_finder_list_view = FINDER-VIEW win=1 mode=list sort=size bits=5
 RECORD_IMAGE_finder_list_view = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_finder_list_view = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_finder_list_view = 300
-record-flair: $(if $(filter finder_list_view,$(SCRIPT)),finder-list-view-capture-required)
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }

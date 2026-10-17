@@ -286,6 +286,7 @@ typedef struct finder_dirent {
     uint8_t     attribute;     /* the raw FAT attribute byte                   */
     uint32_t    size;          /* file size in bytes (0 for a directory)       */
     uint16_t    start_cluster; /* the entry's first data cluster               */
+    uint16_t    date, time;    /* FAT modification words, copied during enum */
 } finder_dirent_t;
 
 /* Return 0 to continue the enumeration, non-zero to stop early (the value is
@@ -461,6 +462,8 @@ typedef struct finder_window {
     WindowScroll         scroll;
     int16_t              applied_sx;  /* horizontal offset applied to icons    */
     int16_t              applied_sy;  /* vertical offset applied to icons      */
+    struct { uint32_t size; uint16_t date, time; uint8_t attribute; }
+                         meta[FINDER_WIN_ICONS_MAX]; /* same indices as icons */
 } finder_window_t;
 
 /* ---------------------------------------------------------------------------
@@ -873,17 +876,11 @@ int finder_shell_note_view(finder_shell_t *sh, uint16_t dir_start,
 const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
                                                 uint16_t dir_start);
 
-/* tdnl.44 PREPARATORY LOGIC ONLY. No new mode is enabled or painted yet.
- * Ref: design F1.3 fixes bit 0 = list; the lane's Name/Size/Kind/Date
- * requirements assign bits 2..3 to the sort key and bit 1 to small icons.
- * Bits 4..15 are preserved. This extends the reserved bits without changing
- * the 24-byte kind=4 codec. These are product policy, NOT captured Mac bits.
- * Pixel blocker: ../system7-decomp has no Mac OS 8.1 Finder list capture.
- * Header/row heights, column widths, small strikes and sort underline remain
- * unmeasured. Do not enable finder_menu.c rows until the emu gate is green.
- * list.c remains the List Manager; the helpers below own no cell store,
- * selection, scrolling or painting. Column widths must come from the future
- * independent capture, not from the arithmetic oracle's synthetic inputs.
+/* tdnl.44. Ref: design F1.3 bit0=list; bits2..3 sort, bit1=small.
+ * Capture geometry: system7-decomp re/mint-results-008 Sec6. The existing
+ * Finder model/trackers and WindowScroll own selection and scrolling.
+ * list.c's 32-row, fixed-cell store has neither scrolling nor LDEF and cannot
+ * hold this 64-entry enumeration. No parallel cell store is introduced.
  */
 #define FINDER_VIEW_ICONS       0x0000u
 #define FINDER_VIEW_SMALL       0x0002u
@@ -900,8 +897,8 @@ uint16_t finder_win_view_choose(uint16_t bits, uint16_t menu_item);
 
 /* A borrowed sort key, valid for the duration of the call only. FAT dates
  * are packed modification date/time words (fat12.h); no host clock involved.
- * FUTURE enumeration must copy these alongside the existing icon records.
- * Ascending primary key, then case-insensitive full 8.3 name; equal keys
+ * Enumeration copies these alongside the existing icon records.
+ * Size is descending with folders last (mint008); other primary keys ascend, then case-insensitive full 8.3 name; equal keys
  * retain directory enumeration order. Kind uses finder_win_kind_of's existing
  * numeric enum order (folder/file/app). No locale or natural sort.
  */
@@ -917,16 +914,21 @@ int finder_win_list_rank(const finder_list_key_t *keys, int n, int index,
                           uint16_t bits);
 
 /* Header-only geometry: four positive caller-supplied widths in order
- * Name/Size/Kind/Date, half-open rectangles, horizontal scroll in pixels.
+ * Name/Date/Size/Kind, half-open rectangles, horizontal scroll in pixels.
  * Returns 1 with a clipped column rect, 0 on invalid/offscreen input (out is
  * untouched). Header clicks preserve bits on a miss or in a non-list mode.
- * No default pixel metrics are supplied in this blocked slice.
+ * The arithmetic oracle also exercises independent synthetic dimensions.
  */
 int finder_win_list_column(rgn_rect_t header, const int16_t widths[4],
                             int16_t scroll_x, int column, rgn_rect_t *out);
 uint16_t finder_win_list_header(uint16_t bits, rgn_rect_t header,
                                  const int16_t widths[4], int16_t scroll_x,
                                  int16_t x, int16_t y);
+
+/* Change layout through the existing model/scroll path. Returns changed. */
+int finder_win_set_view(finder_window_t *w, uint16_t bits);
+int finder_win_header_click(finder_window_t *w, int16_t x, int16_t y);
+int finder_win_content_hit(finder_window_t *w, int16_t x, int16_t y);
 
 /* Record `slot`'s CURRENT window frame origin + view bits into the view set.
  * Returns 1 when the set changed (commit needed). Called on close and after a
