@@ -118,3 +118,7 @@ the call and it matched mdir's `bytes free` on every volume.
 - harness/diff/fat_diff/int21_dpb.{mk,sh}, int21_dpb_host.c, int21_dpb_program.asm
 - harness/diff/fat_diff/dos_volumes.mk -- the restored TEST_UNIT_GATES / TEST_EMU_GATES lines
 - spec/int21h_register.json (32h row), spec/dos_structs.h dpb_t, ADR-0003 Appendix A/B.4
+
+## Ratification
+
+The AH=32h GETDPB row admitted to spec/int21h_register.json and ADR-0003 Appendix A was RATIFIED by the operator on 2026-10-17 (PM session; bead initech-40oq closed on it). Merged on main as a fast-forward of lane/dpb.
