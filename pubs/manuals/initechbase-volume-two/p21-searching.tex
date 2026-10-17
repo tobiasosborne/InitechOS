@@ -1,0 +1,41 @@
+% Programming with InitechBase, Chapter 21: Searching (AN-16).  Panel
+% replayed (examples/p21-countfor.dot); sources cmd/query.c (LOCATE,
+% CONTINUE, FOUND), the program COUNTFOR.PRG.
+\chapter{Searching}
+\Gates{test-pubs-examples, test-samir-query}
+\cmd{SEEK} finds a key in an index at once.  A search on a condition that no
+index serves -- employees hired before a date, say -- is done with
+\cmd{LOCATE} and \cmd{CONTINUE}.
+
+\begin{ChapterCovers}
+\item A search loop on \fn{FOUND()}
+\item Counting the records found
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE STAFF}.
+
+\ATEHead{A Search Loop}
+\cmd{LOCATE} finds the first record that meets its condition and makes
+\fn{FOUND()} true; each \cmd{CONTINUE} finds the next.  When there is none,
+\fn{FOUND()} is false.  A loop on \fn{FOUND()} therefore visits every record that
+meets the condition:
+\ProgramListing{COUNTFOR.PRG}
+\begin{Steps}
+\item Type \type{MBEFORE = CTOD('01/01/83')}.
+\item Type \type{DO COUNTFOR}.
+\end{Steps}
+\DotExample{examples/p21-countfor}
+The condition of the \cmd{LOCATE} uses the memory variable \texttt{MBEFORE}, so the
+same program searches for any date.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~22 puts the Initech Accounting System together.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{LOCATE FOR} \xp{condition}, then \cmd{CONTINUE} in a loop on
+  \fn{FOUND()}, visits every record that meets the condition.
+\item The condition may use memory variables.
+\end{enumerate}

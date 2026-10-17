@@ -1,0 +1,101 @@
+% The language, summarized.  Sources: the Programmer's Guide Part 1 and
+% Chapter 9 (each rule there is sourced from os/tps/tps.pas); the reserved
+% words register against the shipped lexer (tps_gate inventory).
+\Gates{test-tps-lex-fpc, test-tps-parse-fpc, test-tps-type-fpc, test-compiler, test-pubs-turbo}
+\chapter{The language}
+\ix{language summary}
+
+\QRHead{Reserved words}
+\noindent\begin{tabular}{@{}p{20mm}p{21mm}p{20mm}@{}}
+\ReservedItem{and} & \ReservedItem{for} & \ReservedItem{program}\\
+\ReservedItem{array} & \ReservedItem{forward} & \ReservedItem{record}\\
+\ReservedItem{begin} & \ReservedItem{function} & \ReservedItem{repeat}\\
+\ReservedItem{boolean} & \ReservedItem{if} & \ReservedItem{string}\\
+\ReservedItem{case} & \ReservedItem{integer} & \ReservedItem{then}\\
+\ReservedItem{char} & \ReservedItem{length} & \ReservedItem{to}\\
+\ReservedItem{chr} & \ReservedItem{mod} & \ReservedItem{true}\\
+\ReservedItem{const} & \ReservedItem{not} & \ReservedItem{type}\\
+\ReservedItem{div} & \ReservedItem{of} & \ReservedItem{until}\\
+\ReservedItem{do} & \ReservedItem{or} & \ReservedItem{var}\\
+\ReservedItem{downto} & \ReservedItem{ord} & \ReservedItem{while}\\
+\ReservedItem{else} & \ReservedItem{procedure} & \ReservedItem{write}\\
+\ReservedItem{end} & & \ReservedItem{writeln}\\
+\ReservedItem{false} & & \\
+\ReservedItem{file} & & \\
+\end{tabular}
+
+\noindent{\fontsize{8.5}{10}\selectfont \textbf{case} is reserved but there
+is no case statement.  The file routines Assign, Reset, Rewrite, BlockRead
+and BlockWrite are identifiers that may not be declared.\par}
+
+\QRHead{Program}
+\QRItem{program \textit{name};\\ \textit{declarations}\\ begin
+  \textit{statements} end.}{One file.  Declarations in any order, each
+  before its use; no units.}
+
+\QRHead{Declarations}
+\QRItem{const \textit{name} = \textit{literal};}{An integer (with an
+  optional minus), a string, one character, \textbf{true} or
+  \textbf{false}.}
+\QRItem{type \textit{name} = record \textit{fields}: \textit{type}; ... end;}
+  {Fields of type integer, boolean or char; every field group ends with a
+  semicolon.}
+\QRItem{var \textit{names}: \textit{type};}{integer, boolean, char, string,
+  string[\textit{n}] (1 to 255), file, a record type, or an array.}
+\QRItem{array[\textit{lo}..\textit{hi}] of \textit{type}}{Bounds are integer
+  literals or constants, lo <= hi; elements integer, boolean, char or a
+  record.}
+\QRItem{procedure \textit{name}[(\textit{params})];\\{}[var \textit{locals};]
+  begin ... end;}{At the outer level only; one local var section.}
+\QRItem{function \textit{name}[(\textit{params})]: \textit{type};}{Result
+  integer, boolean or char; set by assigning to the name.}
+\QRItem{\textit{heading}; forward;}{Declares a routine before its body; the
+  full declaration repeats the kinds and types.}
+\QRItem{[var] \textit{names}: \textit{type}}{A parameter group.  Value:
+  integer, boolean, char.  Var: those, string (capacity 255) or a record.
+  At most 32 parameters.}
+
+\QRHead{Statements}
+\QRItem{\textit{variable} := \textit{expression}}{Exact type; a string takes
+  a string or a character, cut to its capacity; records of one type copy.}
+\QRItem{\textit{name}(\textit{arguments})}{Calls a procedure; the
+  parentheses are always written.}
+\QRItem{begin \textit{statement}; ... end}{A compound statement.}
+\QRItem{if \textit{condition} then \textit{statement} [else \textit{statement}]}
+  {else belongs to the nearest if.}
+\QRItem{while \textit{condition} do \textit{statement}}{Tests first.}
+\QRItem{repeat \textit{statements} until \textit{condition}}{Tests last.}
+\QRItem{for \textit{v} := \textit{a} to|downto \textit{b} do \textit{statement}}
+  {\textit{v} an integer variable; \textit{b} evaluated once.}
+\QRItem{write(\textit{args}) \quad writeln[(\textit{args})]}{Integers,
+  Boolean values (TRUE, FALSE), characters, strings, to COM1.  An argument
+  that begins with a string literal is that literal alone.}
+
+\QRHead{Operators}
+\noindent{\fontsize{8.5}{10.5}\selectfont
+\begin{tabular}{@{}p{27mm}p{40mm}@{}}
+\texttt{- not} & first: unary\\
+\texttt{* div mod and} & second\\
+\texttt{+ - or} & third\\
+\texttt{= <> < <= > >=} & fourth: one per expression\\
+\end{tabular}\par}
+\noindent{\fontsize{8.5}{10}\selectfont Arithmetic is 32-bit and wraps
+around.  \textbf{and} and \textbf{or} always evaluate both operands.
+\texttt{+} joins strings and characters (at least one string, at most 255
+characters).  Strings compare by character codes; the shorter prefix is
+smaller.\par}
+
+\QRHead{Standard routines}
+\QRItem{Ord(\textit{x}): integer}{Code of a char, 0 or 1 for a boolean, an
+  integer unchanged.}
+\QRItem{Chr(\textit{i}): char}{The character of the low 8 bits of
+  \textit{i}.}
+\QRItem{Length(\textit{s}): integer}{The current length of a string.}
+\QRItem{Assign(\textit{f}, \textit{name})}{Names the file of a file
+  variable; closes it if open.}
+\QRItem{Reset(\textit{f} [, 1])}{Opens an existing file for reading.}
+\QRItem{Rewrite(\textit{f} [, 1])}{Creates or empties a file for writing.}
+\QRItem{BlockRead(\textit{f}, \textit{s}[\textit{i}], \textit{count},
+  \textit{result})}{Reads bytes into a string; does not change its length.}
+\QRItem{BlockWrite(\textit{f}, \textit{s}[\textit{i}], \textit{count},
+  \textit{result})}{Writes bytes from a string.}

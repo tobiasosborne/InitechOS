@@ -1,0 +1,17 @@
+. USE INVOICE INDEX INVNO
+. DO MARKPAID
+Invoice paid: A1004
+
+A1004  QUINCY BK        99.99
+Mark this invoice paid (Y/N)? Y
+
+INVOICE A1004 MARKED PAID. DO MARKPAID
+Invoice paid: A1004
+
+INVOICE A1004 IS ALREADY PAID. DO MARKPAID
+Invoice paid: A1002
+
+A1002  BRAXTON CO      875.50
+Mark this invoice paid (Y/N)? N
+
+NOTHING CHANGED

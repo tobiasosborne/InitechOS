@@ -1,0 +1,4 @@
+. STORE 1 TO MA, MB
+. RELEASE ALL
+. ? MB
+12  Variable not found.

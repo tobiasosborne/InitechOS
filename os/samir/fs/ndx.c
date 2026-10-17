@@ -318,7 +318,11 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
 
     /* Step 2: file size. */
     fsize_raw = pal->seek(pal, fd, 0, PAL_SEEK_END);
+#ifdef SAMIR_CORE_MUTATE_NDX_SIZE
     if (fsize_raw <= 0) {
+#else
+    if (fsize_raw < 0) { /* ndx.md ss1: zero bytes is BAD_SIZE, not failed I/O. */
+#endif
         pal->close(pal, fd);
         return -NDX_ERR_IO;
     }
@@ -1345,6 +1349,14 @@ int ndx_build(samir_pal_t *pal, const char *out_name,
      * Ref: ndx.md ss3.2 + spec/samir/ndx_format.h "keys_per_page = 508/group_length". */
     cap = kpp + 1u;
 
+    /* ndx.md ss1/5 and Rule 2: reject unrepresentable workspace and leaf
+     * counts BEFORE any allocation/provider call (initech-xiqz). */
+#ifndef SAMIR_CORE_MUTATE_NDX_BUILD_SIZE
+    if (nrec > UINT32_MAX / key_len || nrec > UINT32_MAX / 4u ||
+        nrec > UINT32_MAX - kpp + 1u)
+        return -NDX_ERR_NOROOM;
+#endif
+
     mark = pal->alloc(pal, 0u);        /* arena entry mark; reset before return */
 
     /* --- Allocate the key buffer + recnos + sort scratch from the arena. --- */
@@ -1927,7 +1939,36 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
             for (i = 0u; i < (uint32_t)root_count; i++) {
                 uint32_t base  = (uint32_t)NDX_NODE_ENTRIES_OFF + i * gl;
                 const uint8_t *sep_key = root_page_buf + base + NDX_GRP_KEY_DATA_OFF;
-                if (ndx_key_cmp(idx, sep_key, key_data) >= 0) {
+                int cmp = ndx_key_cmp(idx, sep_key, key_data);
+                if (cmp == 0) {
+#ifndef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+                    /* Branch recnos are zero (ndx.md ss3.1/6). Recover the
+                     * equal-key child's upper (key,recno) bound from its
+                     * leaf rather than always choosing the first K child.
+                     * Ref: ss5 stable leaf order; initech-nrkx/68ox. */
+                    uint8_t candidate[NDX_PAGE_SIZE];
+                    uint32_t child = u32le(root_page_buf + base + NDX_GRP_CHILD_PAGE_OFF);
+                    uint16_t count;
+                    rc = read_raw_page(idx, child, candidate);
+                    if (rc != NDX_OK) return rc;
+                    count = u16le(candidate + NDX_NODE_ENTRY_COUNT_OFF);
+                    if (count > kpp) return -NDX_ERR_BAD_PAGE;
+                    if (count && u32le(candidate + NDX_NODE_ENTRIES_OFF))
+                        return -NDX_ERR_NOROOM; /* existing 3-level boundary */
+                    if (!count) continue;
+                    {
+                        uint32_t last = NDX_NODE_ENTRIES_OFF + ((uint32_t)count - 1u) * gl;
+                        int high_cmp = ndx_key_cmp(idx, candidate + last + NDX_GRP_KEY_DATA_OFF, key_data);
+                        /* Deletion can leave a conservative separator K over
+                         * a child whose actual high key is now J. Compare
+                         * the whole upper pair, not J's unrelated recno. */
+                        if (high_cmp < 0 || (high_cmp == 0 &&
+                            recno > u32le(candidate + last + NDX_GRP_DBF_RECNO_OFF)))
+                            continue;
+                    }
+#endif
+                }
+                if (cmp >= 0) {
                     target_leaf = u32le(root_page_buf + base + NDX_GRP_CHILD_PAGE_OFF);
                     break;
                 }

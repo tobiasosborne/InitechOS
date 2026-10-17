@@ -67,7 +67,7 @@ BAT
     grep -q quit_after_found=1 "$out/report" || fail 'injected trace incomplete'
     tr -d '\r' < "$out/run.serial" > "$out/text"
     grep -qx COPY-STAMP-DONE "$out/text" || fail 'batch incomplete'
-    [ "$(grep -c '^        1 file(s) copied$' "$out/text")" -eq 3 ] || fail 'COPY completion count'
+    [ "$(grep -c '^        1 File(s) copied$' "$out/text")" -eq 3 ] || fail 'COPY completion count'
     [ "$(grep -c '^1 File(s) copied$' "$out/text")" -eq 3 ] || fail 'XCOPY completion count'
     grep -qx SHELL-EXIT "$out/text" || fail 'EXIT did not reach REPL'
 else

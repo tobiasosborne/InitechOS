@@ -1,0 +1,7 @@
+. USE INVOICE
+. GO 2
+. DO LATEFEE
+
+A1002     875.50    17.51. ? MFEE
+
+17.51

@@ -184,6 +184,7 @@ static const char *const g_win_titles[N_WINDOWS] = {
 static const char *const g_sys_titles[N_SYS_MENUS] = {
     "File", "Edit", "View", "Special"
 };
+static int test_menu_count = N_SYS_MENUS;
 
 /* Build the scene into the caller bundle. `enable_overlay` != 0 activates the
  * always-on-top occluder (bars [+ modal]) so the companion drag-survival sub-test
@@ -238,7 +239,7 @@ static void build_shell(shell_store_t *S, int show_modal, int enable_overlay)
                       frame,
                       S->wins, N_WINDOWS, g_win_bounds, g_win_titles,
                       &S->desk.r, &S->sa.r, &S->sb.r, &S->sc.r, &S->comp.r,
-                      S->sys_menus, N_SYS_MENUS,
+                      S->sys_menus, test_menu_count,
                       S->ps_menus,
                       &S->dlg, S->dlg_items, &S->dlg_progress,
                       &S->dlg_struc.r, &S->dlg_cont.r, &S->dlg_upd.r,
@@ -282,6 +283,7 @@ static int init_ctx(render_ctx_t *ctx)
 /* ===========================================================================
  * MAIN -- the M4 desktop-shell gate.
  * ===========================================================================*/
+#include "expect_abort.h"
 int main(int argc, char **argv)
 {
     char msg[256];
@@ -290,6 +292,10 @@ int main(int argc, char **argv)
      * enable_overlay=0: the M4 structural gate renders EXACTLY as before (the
      * overlay fold is a no-op when wm.overlay_rgn==NULL; initech-pipa). */
     static shell_store_t S;
+    EXPECT_ABORT({ test_menu_count = -1; build_shell(&S, 0, 0); },
+                 "uskw negative system menu count panics");
+    EXPECT_ABORT({ test_menu_count = 65536; build_shell(&S, 0, 0); },
+                 "uskw truncated system menu count panics");
     build_shell(&S, 1 /* show_modal */, 0 /* enable_overlay */);
 
     render_ctx_t ctx;
@@ -300,6 +306,9 @@ int main(int argc, char **argv)
     }
 
     shell_render(&S.scene, &ctx.fb.bm);
+    EXPECT_ABORT({ bitmap_t small = ctx.fb.bm; small.height = 10;
+                   shell_render(&S.scene, &small); },
+                 "mqsn short surface rejected before offset subtraction");
 
     /* ======================================================================
      * 1. SEAFOAM DESKTOP present. Below both bars and clear of every window +

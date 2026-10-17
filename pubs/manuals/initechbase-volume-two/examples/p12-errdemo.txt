@@ -1,0 +1,5 @@
+. USE INVOICE
+. DO ERRDEMO
+
+ERRHAND: ERROR 12 AT RECORD 1
+12  Variable not found.

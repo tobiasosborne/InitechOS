@@ -1,0 +1,7 @@
+?? "[DML-BEGIN]"
+USE BASE
+GO 2
+RUN VER > VERSION.TXT
+? RECNO(), RECCOUNT()
+
+?? "[DML-END]"

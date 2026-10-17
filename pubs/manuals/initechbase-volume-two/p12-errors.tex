@@ -1,0 +1,73 @@
+% Programming with InitechBase, Chapter 12: Handling Errors (AN-16).
+% Panels replayed (examples/p12-*.dot); sources samir_main.c (the message
+% catalogue, "n  text"), cmd/proc.c (ON ERROR, proc_run), core/fn_builtins.c
+% ERROR().  The program BADTOTAL.PRG of the sample diskette.
+\chapter{Handling Errors}
+\Gates{test-pubs-examples, test-interp-proc, test-samir-repl}
+A command that cannot be carried out stops the program.  This chapter
+describes the messages InitechBase displays, how to find the command at fault,
+and how a program can record an error with \cmd{ON ERROR}.
+
+\begin{ChapterCovers}
+\item Error messages and their numbers
+\item What happens to a program
+\item \cmd{ON ERROR} and \fn{ERROR()}
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{Error Messages}
+When a command cannot be carried out, InitechBase displays a message: its
+number, two blanks and its text.  Three common errors at the dot prompt:
+\DotExample{examples/p12-errors}
+\xmsg{9}{Data type mismatch.} means that an operator was given values of types
+it cannot combine; \xmsg{12}{Variable not found.} that a name is neither a field
+of the database in USE nor a memory variable; and the third that a function was
+given an argument out of its range.  Chapter~7 of \doctitle{Using InitechBase}
+lists every message with its cause and what to do.
+
+\ATEHead{What Happens to a Program}
+When a command of a program fails, the program stops at that command.
+InitechBase displays the message and the dot prompt.  The memory variables the
+program created remain, and the record pointer stays where it was; both help
+you find the command at fault (Chapter~13).
+
+\file{BADTOTAL.PRG} totals the ledger, but its programmer misspelled the field
+\texttt{AMOUNT}:
+\ProgramListing{BADTOTAL.PRG}
+
+\ATEHead{ON ERROR}
+\cmd{ON ERROR} names a command to be carried out whenever an error occurs.  While
+the command runs, \fn{ERROR()} gives the number of the error.  A program uses it
+to record the error before the message is displayed:
+\begin{Steps}
+\item Type \type{USE INVOICE}.
+\item Type \type{ON ERROR STORE ERROR() TO MERR}.
+\item Type \type{DO BADTOTAL}.
+\item Type \type{? MERR, RECNO()}, then \type{ON ERROR} to remove the trap.
+\end{Steps}
+\DotExample{examples/p12-onerror}
+The program stopped on its first record, with error 12.
+
+\ATEHead{An Error Procedure}
+The command named by \cmd{ON ERROR} may be \cmd{DO} of a procedure of the program
+that is running.  \file{ERRDEMO.PRG} installs its procedure \texttt{ERRHAND},
+which reports the error and the record before InitechBase displays the
+message:
+\ProgramListing{ERRDEMO.PRG}
+\DotExample{examples/p12-errdemo}
+The empty \cmd{?} at the end of \texttt{ERRHAND} ends its line, so that the
+message of InitechBase begins a line of its own.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~13 shows how to find and correct the mistake.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item An error message gives a number and a text; Using InitechBase, Chapter~7,
+  explains each.
+\item A program stops at the command that fails; its memory variables remain.
+\item \cmd{ON ERROR} \xp{command} runs a command when an error occurs;
+  \fn{ERROR()} gives its number.
+\end{enumerate}

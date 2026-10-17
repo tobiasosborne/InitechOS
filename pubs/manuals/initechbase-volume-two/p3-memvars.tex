@@ -1,0 +1,82 @@
+% Programming with InitechBase, Chapter 3: Memory Variables (AN-16; annex
+% Sec 8.2 P3).  Panels replayed (examples/p3-*.dot); sources cmd/flow.c
+% (STORE, =, the memvar table, 256 variables, names of 10), cmd/proc.c
+% (PUBLIC, PRIVATE, scope), core/fn_builtins.c TYPE.
+\chapter{Memory Variables}
+\Gates{test-pubs-examples, test-interp-flow, test-interp-proc}
+A program needs places to keep values that are not fields of a database: a
+total, a count, an answer, a date.  These are memory variables.  This chapter
+describes how they are created, what types they have, and how long they live.
+
+\begin{ChapterCovers}
+\item Creating memory variables
+\item Types
+\item Totals and counts
+\item Public and private memory variables
+\item Releasing memory variables
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{Creating Memory Variables}
+A memory variable is created when a value is first stored in it, by
+\cmd{STORE} or by the equals sign:
+
+\SyntaxLine{\kw{STORE} \xp{exp} \kw{TO} \xp{name list}}
+\SyntaxLine{\xp{name} \kw{=} \xp{exp}}
+
+\cmd{STORE} can give several memory variables the same value at once; the
+programs of the system use it to set their totals to zero.  A name has up to 10
+letters, digits and underscores and begins with a letter.  The system begins
+every name with M: \texttt{MTOTAL}, \texttt{MCOUNT}, \texttt{MINVNO}.  A name that
+is also the name of a field would always stand for the field.
+
+\ATEHead{Types}
+A memory variable takes the type of the value stored in it: character,
+numeric, date or logical.  The function \fn{TYPE()} tells you the type of a
+value:
+\DotExample{examples/p3-types}
+Storing a value of another type in the memory variable changes its type.
+
+\ATEHead{Totals and Counts}
+A total is a memory variable that starts at zero and grows by an amount for
+each record; a count grows by one.  \file{INVTOTAL.PRG}, listed in Chapter~2,
+keeps two totals:
+\DotExample{examples/p3-invtotal}
+
+\ATEHead{Public and Private Memory Variables}
+The memory variables created by the main program of a file remain after it
+ends, as if you had created them at the dot prompt.  Those created inside a
+procedure (Chapter~4) are private to it: they are released when the procedure
+returns.
+
+\cmd{PUBLIC} declares memory variables that every part of every program can use
+and that remain until they are released.  \file{INVTOTAL.PRG} declares its two
+totals \cmd{PUBLIC}, so that the month-end journal entry can be made from them
+after the program has run.  Declare a memory variable \cmd{PUBLIC} before you
+store a value in it.
+
+\cmd{PRIVATE} declares memory variables that belong to the procedure that
+declares them.  A memory variable of the same name created by the caller is
+hidden while the procedure runs and is unchanged afterwards.  A procedure that
+uses a name its caller may also use, such as \texttt{MCOUNT}, declares it
+\cmd{PRIVATE}.
+
+\ATEHead{Releasing Memory Variables}
+\cmd{RELEASE} removes memory variables, and \cmd{RELEASE ALL} removes all of them.
+InitechBase holds up to 256 memory variables; a program that creates many in a
+loop releases those it no longer needs.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~4 divides a program into procedures and passes values to them.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{STORE} and \texttt{=} create memory variables and change their values.
+\item A memory variable takes the type of its value; \fn{TYPE()} tells it.
+\item A total starts at zero and grows for each record.
+\item \cmd{PUBLIC} memory variables remain; \cmd{PRIVATE} ones belong to their
+  procedure.
+\item \cmd{RELEASE} removes memory variables.
+\end{enumerate}

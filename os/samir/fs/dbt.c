@@ -131,8 +131,8 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 /* -----------------------------------------------------------------------
  * dbt_open
  * ----------------------------------------------------------------------- */
-int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
-             dbt_file **out)
+static int dbt_open_impl(samir_pal_t *pal, const char *name, int is_iv_dialect,
+                         int writable, dbt_file **out)
 {
     dbt_file *f;
     pal_fd    fd;
@@ -149,7 +149,7 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
 
     /* Open read-only via the PAL.
      * Ref: pal.h PAL_RD; dbt.md sec 8 step 1. */
-    fd = pal->open(pal, name, PAL_RD);
+    fd = pal->open(pal, name, writable ? PAL_RDWR : PAL_RD);
     if (fd < 0) {
         return -DBT_ERR_IO;
     }
@@ -191,12 +191,19 @@ int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect,
     f->pal        = pal;
     f->fd         = fd;
     f->next_free  = next_free;
-    f->writable   = 0;         /* dbt_open: read-only; S2.2 dbt_append will fail loud */
+    f->writable   = writable;
     f->owned = (void *)0;
 
     *out = f;
     return DBT_OK;
 }
+
+int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect, dbt_file **out)
+{ return dbt_open_impl(pal, name, is_iv_dialect, 0, out); }
+
+/* Existing memo contents must survive replacement. dbt.md ss8 append recipe. */
+int dbt_open_rw(samir_pal_t *pal, const char *name, dbt_file **out)
+{ return dbt_open_impl(pal, name, 0, 1, out); }
 
 /* -----------------------------------------------------------------------
  * Helper: write the block-0 next-free pointer (uint32) at file offset 0.
@@ -370,6 +377,18 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
     pal   = f->pal;
     start = f->next_free;
 
+#ifndef SAMIR_CORE_MUTATE_DBT_SPAN
+    /* dbt.md ss2/8, pal.h signed seek; Using III+ U1-1 file-size limit.
+     * An existing companion can carry a corrupt high-water mark. Validate
+     * the entire padded append BEFORE its first seek/write, not after it. */
+    if (len > (uint32_t)INT32_MAX - DBT_BLOCK_SIZE - 1u || start == 0u ||
+        start > (uint32_t)INT32_MAX / DBT_BLOCK_SIZE)
+        return -DBT_ERR_BAD_BLOCK;
+    blocks_used = (len + 2u + DBT_BLOCK_SIZE - 1u) / DBT_BLOCK_SIZE;
+    if (blocks_used > (uint32_t)INT32_MAX / DBT_BLOCK_SIZE - start)
+        return -DBT_ERR_BAD_BLOCK;
+#endif
+
     /* Seek to the block where this memo will be written.
      * Block `start` is at file offset start * DBT_BLOCK_SIZE.
      * Ref: dbt.md sec 2 "byte offset of block n is n * 512"; sec 8 step 2. */
@@ -489,6 +508,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     uint8_t     *work;           /* arena work buffer */
     uint32_t     work_cap;       /* allocated capacity */
     uint32_t     work_len;       /* bytes accumulated so far */
+    uint32_t     scanned;
     uint8_t      blk[DBT_BLOCK_SIZE]; /* one-block I/O scratch */
     int32_t      nr;             /* bytes read from PAL */
     int          done;           /* set when terminator found */
@@ -498,6 +518,18 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     *buf_out = (uint8_t *)0;
     *len_out = 0u;
 
+    /* A DBF replacement can append through another handle. Refresh the
+     * append-only high-water mark (dbt.md ss2.1/3) before validating it. */
+    {
+        uint8_t hdr[4];
+        /* Seek past the old read buffer before rewinding. The host PAL may
+         * cache block 0 while another handle appends (ADR-0008 DEC-02). */
+        if (f->pal->seek(f->pal, f->fd, 0, PAL_SEEK_END) < 0 ||
+            f->pal->seek(f->pal, f->fd, 0, PAL_SEEK_SET) < 0 ||
+            !read_exact(f->pal, f->fd, hdr, 4u)) return -DBT_ERR_IO;
+        f->next_free = (uint32_t)hdr[0] | ((uint32_t)hdr[1] << 8) |
+                      ((uint32_t)hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
+    }
     /* --- Validate blockno (fail loud; Rule 2) ---
      * blockno 0 is the header block (never a memo).
      * blockno >= next_free is out of range (no live data there).
@@ -506,6 +538,12 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     if (blockno == 0u || blockno >= f->next_free) {
         return -DBT_ERR_BAD_BLOCK;
     }
+#ifndef SAMIR_CORE_MUTATE_DBT_SPAN
+    /* PAL seek offsets are signed 32-bit (pal.h). Reject before n*512
+     * wraps into a different memo. Using III+ U1-1: 2 billion file bytes. */
+    if (blockno > (uint32_t)INT32_MAX / DBT_BLOCK_ACTUAL)
+        return -DBT_ERR_BAD_BLOCK;
+#endif
 
     pal = f->pal;
 
@@ -524,6 +562,10 @@ int dbt_read(dbt_file *f, uint32_t blockno,
      * pathologically large next_free; in practice III+ memos are short.
      * Use DBT_BLOCK_SIZE per block regardless of the mutant so the buffer
      * is always correctly sized for the actual file content.               */
+    /* dbt.md ss2/3: next_free is the first block outside live data.
+     * Reject wrapped capacities before allocating (initech-jy6y). */
+    if (f->next_free - blockno > (UINT32_MAX - 1u) / DBT_BLOCK_SIZE)
+        return -DBT_ERR_NO_TERM;
     work_cap = (f->next_free - blockno) * DBT_BLOCK_SIZE;
     work = (uint8_t *)pal_owned_alloc(pal,&f->owned,work_cap + 1u); /* +1 for safety */
     if (!work) {
@@ -536,10 +578,19 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     prev_was_1a   = 0;   /* tracks whether the last byte of the previous block
                           * was 0x1A (needed for cross-block terminator detection) */
 
+    scanned = 0u;
     while (!done) {
         uint32_t i;
-
+#ifndef SAMIR_CORE_MUTATE_DBT_SPAN
+        /* Never scan/copy bytes outside the logical block span. A lone
+         * trailing 1A remains accepted at the logical EOF, as at physical EOF. */
+        if (scanned == work_cap) {
+            if (prev_was_1a) break;
+            return -DBT_ERR_NO_TERM;
+        }
+#endif
         nr = pal->read(pal, f->fd, blk, DBT_BLOCK_SIZE);
+        if (nr > 0) scanned += (uint32_t)nr;
         if (nr < 0) {
             /* I/O error */
             return -DBT_ERR_IO;

@@ -1,0 +1,190 @@
+% Chapter 2 -- Programming in Turbo Initech (model: TP 6.0 UG Ch 2, AN-19:
+% continuous tutorial prose, milestone A-heads, short complete programs
+% typed, run and dissected, no exercises; ends on a forward pointer).
+% Every program and its output is replayed by test-pubs-turbo (Free Pascal,
+% the seed, Turbo Initech bare image, and InitechDOS).  Language rules as
+% defined in the Programmer's Guide (ADR-0007 DEC-02 as tps.pas implements
+% it).
+\Gates{test-compiler, test-compiler-os, test-pubs-turbo}
+\chapter{Programming in Turbo Initech}
+\ix{tutorial}
+
+This chapter teaches the Turbo Initech language through a series of short
+programs.  Each one adds one idea.  Type each program, compile it as
+Chapter 1 shows, and run it; the output printed after each program is
+exactly what it writes on COM1.
+
+\section{Numbers and arithmetic}
+\ix{arithmetic}
+The first real program computes a week's pay:
+
+\Program{pay}
+
+\ProgramOutput{pay}
+
+\SideHead{Comments}The text between braces is a comment; the compiler
+ignores it.
+
+\SideHead{Constants}The \rw{const} section gives the name \id{RateCents} to
+the value 1250.  A constant cannot change while the program runs.
+
+\SideHead{Variables}The \rw{var} section declares two \term{variables} of
+type \rw{integer}.  Every variable must be declared before it is used.
+
+\SideHead{Assignment}\code{Gross := Hours * RateCents} computes the product
+and stores it in \id{Gross}.  The operator \code{:=} is read
+``becomes.''
+
+\SideHead{Division}Turbo Initech has whole numbers only.  \rw{div} divides
+and discards the remainder, and \rw{mod} gives the remainder, so
+\code{Gross div 100} is the dollars and \code{Gross mod 100} the cents.
+The last line prints the two digits of the cents one at a time, so that 5
+cents prints as \code{05}.
+
+\MarginNote{An integer holds about two billion.}Integers in Turbo Initech
+range from $-2147483648$ to 2147483647, so amounts of money up to about
+21 million dollars can be kept in cents.
+
+\section{Making decisions}
+\ix{if statement}
+The \rw{if} statement chooses between two actions:
+
+\Program{overtime}
+
+\ProgramOutput{overtime}
+
+The condition \code{Hours > Normal} is either \rw{true} or \rw{false}.  When
+it is true the statements between \rw{begin} and \rw{end} after \rw{then}
+are carried out; otherwise the statement after \rw{else}.  A
+\rw{begin}\dots\rw{end} pair groups several statements into one.  Note
+that there is no semicolon before \rw{else}.
+
+\section{Repeating actions}
+\ix{loops}
+\ix{for statement}
+\ix{while statement}
+\Program{table}
+
+\ProgramOutput{table}
+
+The \rw{for} statement counts: the outer loop runs \id{Row} from 1 to 4, and
+for each row the inner loop runs \id{Col} from 1 to 4.
+\std{write}{Write} writes without ending the line, and the
+\std{writeln}{Writeln} with no arguments ends it.  The \rw{while} statement
+repeats as long as its condition is true; here it counts down.  A third
+loop, \rw{repeat} \dots{} \rw{until}, tests its condition at the end, so its
+statements always run at least once.
+
+\section{Characters and strings}
+\ix{strings}
+\ix{characters}
+\Program{initials}
+
+\ProgramOutput{initials}
+
+A \rw{string} holds up to 255 characters; \code{Name[I]} is its
+\id{I}th character, a value of type \rw{char}.  \std{length}{Length} gives
+the number of characters, and \code{+} joins strings and characters.  The
+Boolean variable \id{NewWord} remembers whether the next letter begins a
+word.
+
+\section{Arrays}
+\ix{arrays}
+An \term{array} holds a numbered series of values of one type:
+
+\Program{sales}
+
+\ProgramOutput{sales}
+
+\code{Units[Q]} is the element number \id{Q}.  The bounds of the array,
+1 to \id{Quarters}, are part of its declaration.  Turbo Initech does not
+check that an index is within the bounds when the program runs, so keep
+your loops within them.
+
+\section{Records}
+\ix{records}
+A \term{record} groups values of different types under one name:
+
+\Program{staff}
+
+\ProgramOutput{staff}
+
+The type \id{Person} is declared in a \rw{type} section.  \code{Team[I].Desk}
+is the field \id{Desk} of the \id{I}th person.  Fields may be integers,
+Boolean values or characters.
+
+\section{Procedures and functions}
+\ix{procedures}
+\ix{functions}
+A program grows clearer when it is divided into routines:
+
+\Program{tax}
+
+\ProgramOutput{tax}
+
+A \term{function} computes a value: \id{Withholding} returns one quarter or
+one fifth of its argument, by assigning to its own name.  A
+\term{procedure} carries out an action: \id{Report} prints an amount.
+\id{Tag} and \id{Cents} are \term{parameters}; each call supplies values for
+them.  A call always has parentheses, even when there are no arguments.
+
+\section{Formatting output}
+\ix{columns}
+\ix{field width}
+\std{write}{Write} has no field widths: it writes each value in as many
+characters as it needs.  To line numbers up in columns, write the spaces
+yourself.  \id{WriteRight} counts the digits of a number and writes enough
+spaces in front of it to fill a field:
+
+\Program{columns}
+
+\ProgramOutput{columns}
+
+\section{Functions that answer questions}
+\ix{Boolean functions}
+A function of type \rw{boolean} turns a test into a name.  \id{IsLeap}
+applies the calendar rules in order, so that a later rule corrects an
+earlier one:
+
+\Program{calendar}
+
+\ProgramOutput{calendar}
+
+\id{DaysIn} starts from the usual answer and changes it where the month
+requires; one function may call another, provided the called function is
+declared first.
+
+\section{Recursion}
+\ix{recursion}
+A routine may call itself.  Moving a stack of disks from one peg to
+another, one disk at a time and never a larger disk on a smaller one, is
+three steps: move all but the largest disk out of the way, move the largest
+disk, and move the others back on top of it.  The first and last steps are
+the same problem with one disk fewer:
+
+\Program{hanoi}
+
+\ProgramOutput{hanoi}
+
+Each call has its own parameters, so the four parameters of the outer call
+are unchanged when the inner calls return.
+
+\section{Files}
+\ix{files}
+Programs keep data from one run to the next in files:
+
+\Program{savefile}
+
+\ProgramOutput{savefile}
+
+\std{assign}{Assign} gives the file variable a file name;
+\std{rewrite}{Rewrite} creates the file; \std{blockwrite}{BlockWrite}
+writes the characters of the string; \std{reset}{Reset} reopens the file at
+its beginning; and \std{blockread}{BlockRead} reads the characters back into
+a string.  Because \std{blockread}{BlockRead} does not change the length of
+the string, the program first makes \id{Back} as long as the text it will
+read.
+
+\section{Where to go from here}
+You now know every kind of statement and declaration in Turbo Initech.
+Chapter 3 puts them together in a larger program.

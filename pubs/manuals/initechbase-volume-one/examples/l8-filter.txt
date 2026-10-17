@@ -1,0 +1,17 @@
+. USE STAFF
+. SET FILTER TO DEPT = 'SOFT'
+. LIST LASTNAME, FIRSTNAME
+Record#  LASTNAME       FIRSTNAME
+      1  LUMBERGH       BILL      
+      2  GIBBONS        PETER     
+      3  BOLTON         MICHAEL   
+      4  NAGHEENANAJAR  SAMIR     
+      9  DELGADO        ANDREW    
+     11  OKAFOR         DANIEL    
+. GO TOP
+. ? RECNO()
+
+1. SKIP
+. ? RECNO()
+
+2. SET FILTER TO

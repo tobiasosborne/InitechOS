@@ -1,0 +1,10 @@
+. USE STAFF INDEX STAFFNAM, STAFFDPT
+. SET ORDER TO 2
+. GO TOP
+. LIST NEXT 5 LASTNAME, DEPT
+Record#  LASTNAME       DEPT
+     12  PRUITT         ACCT
+*     13  CHEN           ACCT
+      7  PORTER         ADMN
+      8  ALBRIGHT       ADMN
+      6  SMYKOWSKI      CUST

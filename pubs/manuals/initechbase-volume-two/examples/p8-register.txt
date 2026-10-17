@@ -1,0 +1,15 @@
+. USE INVOICE
+. REPORT FORM INVRPT PLAIN
+
+                               INITECH SYSTEMS CORP
+                              OPEN INVOICE REGISTER
+
+  Invoice Customer   Due          Amount
+
+
+  A1001   HARTWELL   12/15/99    1250.00
+  A1002   BRAXTON CO 01/05/00     875.50
+  A1003   DELMAR INC 11/30/99   14400.00
+  A1004   QUINCY BK  02/10/00      99.99
+ *** Total ***
+                                16625.49

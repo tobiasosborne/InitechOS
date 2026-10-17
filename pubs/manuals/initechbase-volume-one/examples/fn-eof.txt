@@ -1,0 +1,6 @@
+. USE STAFF
+. GO BOTTOM
+. SKIP
+. ? EOF(), RECNO(), RECCOUNT()
+
+.T. 14 13

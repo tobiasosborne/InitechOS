@@ -1,0 +1,6 @@
+. USE STAFF
+. ? DBF()
+
+STAFF. CLOSE DATABASES
+. ? DBF()
+

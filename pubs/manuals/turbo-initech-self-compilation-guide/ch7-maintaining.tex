@@ -1,0 +1,79 @@
+% Chapter 7 -- Maintaining Turbo Initech.  Sources (Law 1): os/tps/tps.pas
+% (structure: constants and fixed arenas; the lexer; the parse routines,
+% one per production, shared by the syntax, semantic and generation
+% passes through ParseFailed/TypeMode/GenFlags; the driver's main block);
+% os/tps/CORPUS.md (fixture + hand golden, MODE DELPHI/B+/H- pins, forward
+% discipline), CODEGEN.md s9 (the 72 KiB BSS reserve and the 6F000h image
+% ceiling), the Makefile corpus list TPS_COMPILER_CORPUS; ADR-0007 C-2
+% (deferred families need an ADR amendment); pubs/turbo.mk test-pubs-turbo (the
+% manuals are checked against the compiler).
+\Gates{test-compiler, test-compiler-os, test-tps-lex-build, test-pubs-turbo}
+\chapter{Maintaining Turbo Initech}
+\ix{maintaining Turbo Initech}
+
+This chapter is for the programmer who changes Turbo Initech: what the
+source looks like, which rules a change must keep, and what has to change
+with it.
+
+\section{The shape of the source}
+\ix{tps.pas}
+The whole compiler is the one file \file{os/tps/tps.pas}, in this order:
+
+\begin{enumerate}
+\item the constants: the capacities, the type, symbol and token codes, the
+  error codes and the names of the grammar rules;
+\item the global variables: the source window, the name pool, the symbol
+  table, the scratch tables for headings and calls, and the state of the
+  code generator, every one a fixed array or a simple variable;
+\item the lexer: reading the source a block at a time, skipping blanks and
+  comments, and recognizing each kind of token;
+\item the parser: one routine for each rule of the grammar, named after it
+  (\id{ParseFactor}, \id{ParseStatement}, \dots);
+\item the four passes, \id{RunLexer}, \id{RunParser}, \id{RunTypeChecker} and
+  \id{RunCodeGenerator};
+\item the main block, which runs the passes in order and prints the lines
+  between them.
+\end{enumerate}
+
+The same parsing routines serve the syntax, semantic and generation
+passes: a pass that checks types sets \id{TypeMode}, and the generation pass
+sets the first of \id{GenFlags}; each routine checks or writes code as the
+mode asks while it reads.  A change to the grammar is therefore one change,
+seen by all three passes.
+
+\section{Rules a change must keep}
+\begin{itemize}
+\item \textbf{Both compilers accept the source.}  The genesis compiler must
+  still compile \file{tps.pas}: declare every routine before its first call,
+  using \rw{forward}, and do not use \rw{case} as a name.
+\item \textbf{The language stays as defined.}  Pointers, sets, enumerated
+  types, units, real numbers, objects and inline assembly are left out on
+  purpose; adding any of them is a change to the architecture of Turbo
+  Initech, decided before it is made, not in a change to the source.
+\item \textbf{Guards are nested.}  Both operands of \rw{and} and \rw{or} are
+  evaluated, in the compiler's own source as in any program.
+\item \textbf{Tables stay in order.}  New tables are arrays kept in the
+  order of the declarations; no table may be ordered by anything else.
+\item \textbf{Capacities fail loudly.}  Every table has a fixed size, and
+  running out of room must report an error that names the limit, never
+  truncate or wrap around.
+\item \textbf{The compiler fits.}  The build checks that the compiler's
+  global variables stay within their reserve and that its image ends below
+  6F000h (procedure TIN-P-02).
+\end{itemize}
+
+\section{What changes with a change}
+\SideHead{Tests}A new feature of the language comes with a corpus program
+whose expected output is worked out by hand and stored beside it; the
+program is added to the corpus list of the build and to Appendix A, and the
+Free Pascal compiler must agree with the hand-worked output.
+
+\SideHead{Manuals}The Turbo Initech manuals are checked against the
+compiler every time they are built.  A new reserved word, routine, grammar
+rule, message, output line or capacity that the manuals do not describe,
+or a description of something the compiler no longer has, stops the check;
+so does any example whose output changes.  A change to the compiler
+therefore carries the change to the manuals.
+
+\SideHead{Acceptance}A changed compiler is accepted by the whole procedure
+of Chapter 4.

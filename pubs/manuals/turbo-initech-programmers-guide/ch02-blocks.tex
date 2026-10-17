@@ -1,0 +1,121 @@
+% Chapter 2 -- Blocks, locality, and scope (model: TP 6.0 PG Ch 2, with
+% the constant declarations of TP PG Ch 1).
+% Sources (Law 1): os/tps/tps.pas ParseProgram, ParseConstSection,
+% ParseConstLiteral, ParseRoutine, ResolveName/FindLocal (local-first
+% lookup), FailType TeDuplicate; os/tps/SYMBOLS-DUMP.md s3 (insertion
+% order, shadowing, duplicates); seed/typecheck.c:248-358, 443-589.
+% Diagrams: grammar/tps.ebnf rules program, section-const, const-decl,
+% const-literal.  Examples replayed by test-pubs-turbo.
+\Gates{test-tps-parse-fpc, test-tps-type-fpc, test-tps-type-os, test-compiler, test-pubs-turbo}
+\chapter{Blocks, locality, and scope}
+\ix{blocks}
+\ix{scope}
+
+A Turbo Initech program is a heading, a sequence of declarations, and a
+main block.  This chapter describes how a program is put together, how
+constants are declared, and which declarations a name refers to at each
+point of the program.
+
+\section{The program}
+\ix{program heading}
+\Syntax{program}
+
+The \term{program heading} names the program.  The name has no other use:
+it does not conflict with any declaration, and a variable or routine of the
+same name may be declared.  After the heading come the
+declarations: constant sections, type sections, variable sections,
+procedures and functions, in any number and in any order.  The
+\term{main block}, the \rw{begin} \dots{} \rw{end} that follows the last
+declaration, is executed when the program runs.  A period ends the program;
+nothing but blanks and comments may follow it.
+
+\MarginNote{There is no nesting of routines.}Procedures and functions are
+declared only at the outer level of the program.  A procedure or function
+consists of a heading, at most one local variable section, and a block
+(Chapter 7); it cannot contain constant or type sections or further
+procedures and functions.
+
+\section{Declaration before use}
+\ix{declaration before use}
+Turbo Initech reads a program once, from beginning to end, and every name
+must be declared before the point where it is used.  This applies to all
+names:
+
+\begin{itemize}
+\item A constant must be declared before an expression, array bound or
+  string capacity uses it.
+\item A record type must be declared before a variable, field or parameter
+  is declared with it.
+\item A variable must be declared before any statement that uses it.  A
+  global variable declared after a procedure is not visible in that
+  procedure.
+\item A procedure or function must be declared before it is called.  When
+  two routines call each other, declare the second one first with
+  \rw{forward} (Chapter 7).
+\end{itemize}
+
+\section{Constant declarations}
+\ix{constants}
+\ix{const section}
+A \term{constant declaration} gives a name to a value that does not change.
+
+\Syntax{section-const}
+\Syntax{const-decl}
+\Syntax{const-literal}
+
+The value of a constant is always a single literal: a number with an
+optional minus sign, a string literal, or \rw{true} or \rw{false}.  The
+type of the constant comes from its value:
+
+\begin{BorTable}{Types of constants}{p{42mm}p{56mm}}
+\Hd{Value} & \Hd{Type of the constant}\EndHd
+\code{10}, \code{-3} & \rw{integer}\\
+\code{true}, \code{false} & \rw{boolean}\\
+\code{'Q'} (one character) & \rw{char}\\
+\code{''}, \code{'Quarterly'} & \rw{string}\\
+\end{BorTable}
+
+Constant expressions such as \code{Limit * 2} are not allowed in a
+declaration.  A constant cannot be assigned to and cannot be passed as a
+\rw{var} argument.  An integer constant may be used as an array bound and
+as the capacity of a string type.
+
+\Program{consts}
+
+\ProgramOutput{consts}
+
+\section{Scope}
+\ix{global variables}
+\ix{local variables}
+A name declared at the outer level of the program is \term{global}.  It is
+known from its declaration to the end of the program, in the main block and
+in every procedure and function declared after it.
+
+The parameters and local variables of a procedure or function, and the
+result variable of a function, are \term{local}: they are known only inside
+that routine.  A local name may be the same as a global name; inside the
+routine the local declaration \term{hides} the global one.
+
+\Program{scope}
+
+\ProgramOutput{scope}
+
+Inside \id{Show} the name \id{Count} is the local character variable; the
+global \id{Count} keeps its value.  \id{Mark} is not declared locally, so
+\id{Show} assigns the global \id{Mark}.
+
+\ix{duplicate identifier}
+Within one scope every name must be different: two globals may not have the
+same name, and in one routine the parameters, the result variable and the
+local variables may not repeat a name.  Turbo Initech reports a second
+declaration with the message \code{duplicate identifier} (Appendix A).
+Names are compared without regard to case.
+
+\ix{fields, names of}
+\ix{record types, names of}
+The field names of a record type belong to that record type only; a field
+may have the same name as a variable, and two record types may have fields
+of the same name.  Record type names are kept apart from the names of
+constants, variables and routines, so a variable may have the same name as
+a record type.  The names of the standard file routines may not be
+declared at all (Chapter 9).

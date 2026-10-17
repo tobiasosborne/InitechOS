@@ -1,0 +1,6 @@
+. USE INVOICE
+. DO BADTOTAL
+12  Variable not found.
+. ? MTOTAL, RECNO()
+
+0 1

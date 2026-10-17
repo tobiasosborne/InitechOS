@@ -1,0 +1,5 @@
+USE STAFF
+? RECNO(), BOF(), EOF()
+GO BOTTOM
+SKIP
+? RECNO(), BOF(), EOF()

@@ -1,0 +1,6 @@
+. USE STAFF
+. LIST LASTNAME, DEPT FOR DEPT = 'ACCT' .OR. DEPT = 'FACL'
+Record#  LASTNAME       DEPT
+      5  WADDAMS        FACL
+     12  PRUITT         ACCT
+*     13  CHEN           ACCT

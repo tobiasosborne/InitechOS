@@ -1,0 +1,5 @@
+USE STAFF
+DO DEPTLIST
+acct
+DO DEPTLIST
+mktg

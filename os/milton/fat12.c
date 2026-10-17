@@ -1540,6 +1540,16 @@ static int parse_name83(const char *name83, uint8_t out11[11])
 
 	for (; *p; p++) {
 		char c = *p;
+		/* Created names are not search masks. Guide p.17 (PDF30),
+		 * Reference pp.9-10; INT21 FINDFIRST has its own pattern parser.
+		 * Reject before slot allocation, so invalid requests change no disk. */
+#ifndef FAT12_MUTATE_CREATE_CHARS
+		if ((uint8_t)c < 0x21u || c == '"' || c == '*' || c == '+' ||
+		    c == ',' || c == '/' || c == ';' || c == '<' || c == '=' ||
+		    c == '>' || c == '?' || c == '[' || c == ']' || c == '|') {
+			return FAT12_ERR_NOT_FOUND;
+		}
+#endif
 		if (c == '\\' || c == ':') {
 			return FAT12_ERR_NOT_FOUND;   /* subdir / drive: unsupported */
 		}
@@ -1702,6 +1712,13 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 
 	/* Claim + reserve a free cluster (mark EOC immediately so find_free skips). */
 	newc = fat12_find_free(vol, fat, fat_len, (uint16_t)(cur + 1u));
+#ifndef FAT12_MUTATE_GROW_NO_WRAP
+	/* ADR-0003 DEC-07; mtools on the identical fragmented image (fov8).
+	 * Locality is a hint, not a space bound: free clusters can precede cur. */
+	if (newc == 0u) {
+		newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
+	}
+#endif
 	if (newc == 0u) {
 		return FAT12_ERR_NO_SPACE;
 	}
@@ -2634,6 +2651,34 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 #endif
 }
 
+/* Service-directory attribute seam (tdnl.30). CHMOD's directory rejection
+ * above remains intact. This operation can ONLY add HIDDEN to a directory;
+ * it cannot retype an entry or alter its chain. Ref: ADR-0003 B.1 attribute
+ * byte; IBM DOS 3.30 TR p. 6-145/5-10; mmd + mattrib +h differential. */
+int fat12_hide_dir(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent, void *sector_buf)
+{
+    dir_entry_t de;
+    uint32_t slot;
+    if (!vol || !fat || !name83 || !sector_buf) return FAT12_ERR_NULL;
+    if (!vol->dev || !vol->dev->write_sectors) return FAT12_ERR_WRITE;
+    int rc = fat12_dir_guard(vol, fat, fat_len, parent, sector_buf);
+    if (rc != FAT12_OK) return rc;
+    rc = fat12_find_slot_in(vol, fat, fat_len, parent, sector_buf, name83,
+                            &de, &slot);
+    if (rc != FAT12_OK) return rc;
+    if (!(de.attribute & DIR_ATTR_DIRECTORY) ||
+        (de.attribute & DIR_ATTR_VOLLABEL)) return FAT12_ERR_ACCESS;
+    if (de.attribute & DIR_ATTR_HIDDEN) return FAT12_OK;
+#ifndef FAT12_MUTATE_HIDE_DIR_NO_WRITE
+    de.attribute |= DIR_ATTR_HIDDEN;
+    return fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0, parent,
+                                     slot, &de, sector_buf);
+#else
+    return FAT12_OK;
+#endif
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
@@ -2950,6 +2995,96 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * FAT12_ERR_READ/_WRITE. Anti-hang (Rule 2): the chain walk is bounded by the
  * volume's cluster count.
  */
+/* SETFILE-size: IBM DOS 3.30 Technical Reference p.6-140 (AH=40h CX=0),
+ * ADR-0003 Appendix A/B.1 and DEC-07. FAT12 writes use a whole FAT; FAT16
+ * remains read-only. Cooperative, non-reentrant scratch, as in fileio_fat.c.
+ * Keep a complete allocation-map preimage so a fault in EITHER FAT copy or
+ * the directory commit can restore the old chain, including fragmented links.
+ * No data sectors are changed by a shrink. This is I/O-error rollback, not
+ * power-failure journaling. A failed rollback itself is reported as WRITE. */
+int fat12_set_size(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                   uint16_t parent, uint32_t slot, uint32_t size,
+                   void *sector_buf, void *cluster_buf)
+{
+	static uint8_t before[6144]; /* all supported FAT12 entries, packed */
+	dir_entry_t old, de;
+	uint32_t bpc, count, keep, bytes, i;
+	uint16_t cur;
+	int rc;
+	if (!vol || !fat || !sector_buf || !cluster_buf) return FAT12_ERR_NULL;
+	if (!vol->dev || !vol->dev->read_sectors || !vol->dev->write_sectors)
+		return FAT12_ERR_WRITE;
+	if (vol->fat_type != FAT_TYPE_FAT12) return FAT12_ERR_UNSUPPORTED;
+	bytes = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
+	if (bytes > sizeof before || fat_len < bytes) return FAT12_ERR_BUFFER;
+	rc = fat12_dir_guard(vol, fat, fat_len, parent, sector_buf);
+	if (rc != FAT12_OK) return rc;
+	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, parent == 0u, parent,
+	                              slot, &old, sector_buf);
+	if (rc != FAT12_OK) return rc;
+	if (old.filename[0] == 0u || old.filename[0] == 0xe5u ||
+	    (old.attribute & (DIR_ATTR_READONLY | DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)))
+		return FAT12_ERR_ACCESS;
+	bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
+	count = old.file_size / bpc + (old.file_size % bpc != 0u);
+	keep = size / bpc + (size % bpc != 0u);
+	if (count > vol->total_clusters || (count == 0u && old.start_cluster != 0u))
+		return FAT12_ERR_CHAIN;
+	/* Exact size/chain agreement, bounded even for a cycle. No mutation until
+	 * every link (including the final EOC) is known to be consistent. */
+	cur = old.start_cluster;
+	for (i = 0u; i < count; i++) {
+		uint16_t next;
+		if (!fat12_cluster_in_range(vol, cur)) return FAT12_ERR_CHAIN;
+		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+		if (rc != FAT12_OK) return rc;
+		if (i + 1u == count) {
+			if (!chain_is_eoc(vol, next)) return FAT12_ERR_CHAIN;
+		} else if (!fat12_cluster_in_range(vol, next) || chain_is_eoc(vol, next)) {
+			return FAT12_ERR_CHAIN;
+		}
+		cur = next;
+	}
+	if (size > old.file_size) {
+		uint8_t zero = 0u;
+		uint32_t wrote;
+		return fat12_write_partial(vol, fat, fat_len, parent, slot, size - 1u,
+		                            &zero, 1u, sector_buf, cluster_buf, &wrote);
+	}
+	if (size == old.file_size) return FAT12_OK;
+	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
+	cur = old.start_cluster;
+	for (i = 0u; i < count; i++) {
+		uint16_t next;
+		(void)fat12_next_cluster(vol, before, bytes, cur, &next);
+		if (i >= keep) {
+#ifndef FAT12_MUTATE_TRUNCATE_NO_FREE
+			(void)fat12_set_entry(fat, fat_len, cur, FAT12_FREE);
+#endif
+		} else if (i + 1u == keep) {
+			(void)fat12_set_entry(fat, fat_len, cur, FAT12_EOC_VALUE);
+		}
+		cur = next;
+	}
+	de = old;
+	de.file_size = size;
+	if (keep == 0u) de.start_cluster = 0u;
+	rc = fat12_flush_fats(vol, fat, fat_len);
+	if (rc == FAT12_OK)
+		rc = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u, parent,
+		                                 slot, &de, sector_buf);
+	if (rc != FAT12_OK) {
+		int restore_fat, restore_dir;
+		for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+		restore_fat = fat12_flush_fats(vol, fat, fat_len);
+		restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+		                                        parent, slot, &old, sector_buf);
+		if (restore_fat != FAT12_OK || restore_dir != FAT12_OK)
+			return FAT12_ERR_WRITE;
+	}
+	return rc;
+}
+
 int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                         uint16_t parent_dir_start, uint32_t slot,
                         uint32_t offset, const uint8_t *data,
@@ -2985,10 +3120,10 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_WRITE;
 	}
 
-	/* len == 0 is a no-op: nothing written, size unchanged (a zero-length
-	 * positioned write neither extends nor zero-fills). */
+	/* DOS SETFILE-size, not an empty data transfer: IBM TR p.6-140. */
 	if (len == 0u) {
-		return FAT12_OK;
+		return fat12_set_size(vol, fat, fat_len, parent_dir_start, slot,
+		                       offset, sector_buf, cluster_buf);
 	}
 
 	/* Real bytes to move from here on: fat + data + cluster_buf required. */
@@ -3406,9 +3541,13 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (!found) {
 		return FAT12_ERR_NOT_FOUND;
 	}
-	/* The SOURCE must be a regular file -- never rename a directory or the
-	 * volume-label entry (no '..' fixup path yet; Rule 2 fail loud). */
+	/* Same parent means '..' remains correct, including for a directory.
+	 * Ref: ADR-0003 Appendix A 56h; IBM DOS 3.30 TR p. 6-206; mren diff. */
+#ifdef FAT12_MUTATE_RENAME_REJECT_DIR
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+#else
+	if ((match.attribute & DIR_ATTR_VOLLABEL) != 0u) {
+#endif
 		return FAT12_ERR_ACCESS;
 	}
 

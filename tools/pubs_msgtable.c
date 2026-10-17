@@ -48,9 +48,15 @@ static int read_string(const char **p, char *out, size_t cap)
         char c = *s++;
         if (c == '\\') {
             c = *s++;
-            if (c != '"' && c != '\\' && c != '/') return -1; /* no other escapes in the catalogue */
+            /* The catalogue is ASCII (Rule 12); the only escapes are the JSON
+             * quote/backslash/slash and the two-line CHKDSK messages' CR LF
+             * (MSG-DOS-0043 "File is cross-linked:" / "on cluster n", MS-DOS
+             * 3.3 pp.318-319), which the book prints as a line break. */
+            if (c == 'r') c = '\r';
+            else if (c == 'n') c = '\n';
+            else if (c != '"' && c != '\\' && c != '/') return -1;
         }
-        if ((unsigned char)c < 0x20 || (unsigned char)c > 0x7E) return -1; /* ASCII only, Rule 12 */
+        if (c != '\r' && c != '\n' && ((unsigned char)c < 0x20 || (unsigned char)c > 0x7E)) return -1; /* ASCII only, Rule 12 */
         if (n + 1 >= cap) return -1;
         out[n++] = c;
     }
@@ -69,6 +75,8 @@ static void put_tex(const char *t)
 {
     for (; *t; t++) {
         if (t[0] == '%' && t[1] == 'c') { fputs("\\ph{d}", stdout); t++; continue; }
+        if (t[0] == '\r') { continue; }
+        if (t[0] == '\n') { fputs("\\\\ ", stdout); continue; }
         switch (*t) {
         case '\\': fputs("\\textbackslash{}", stdout); break;
         case '{': case '}': case '$': case '&': case '#': case '_': case '%':

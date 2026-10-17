@@ -89,6 +89,10 @@ typedef enum {
  */
 typedef struct {
     xb_type t;
+    /* Numeric presentation survives assignment independently of its double.
+     * Real III+ PROG-expr/flow and DML-02: literals, arithmetic, memvars
+     * have different widths even when their values are identical. */
+    uint16_t num_width, num_dec;
     union {
         struct { char *p; uint16_t len; } c;  /* XB_C / XB_M */
         double  n;                             /* XB_N         */

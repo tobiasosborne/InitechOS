@@ -1,650 +1,70 @@
 /*
- * test_desk_icons.c -- the desktop-icon strike + blitter oracle (THE ORACLE).
+ * test_desk_icons.c -- the Finder icon BLITTER oracle (test-desk-icons).
  *
- * beads: initech-tdnl.9 (R3 "STAPLER-DESK": VOLUME + TRASH 32x32 strikes, the
- *        finder_icon blit, and the mask hit-test).
+ * beads: initech-tdnl.9 (R3 desktop icon blit), initech-6k12 (the FULL Trash),
+ *        initech-tdnl.53 (v2 strikes; this file re-keyed from the v1 hand
+ *        tables to the independent mint-008 captures).
  *
- * Ref: spec/assets/desk_icons.h (the LOCKED strikes; the ASCII maps this file's
- *      expectations are read off), os/flair/finder_icon.h (the contract under
- *      test), os/flair/flair_look.h (the ONE policy seam),
- *      spec/assets/color_canon.h (the canon values this file re-states BY HAND
- *      rather than reading -- see INDEPENDENCE below),
- *      docs/design/GUI-remediation-R3-finder-design.md F1.1/F1.2.
- *      CLAUDE.md Law 2 (the oracle is the truth; an oracle that computes its
- *      expectations from the artifact's own source is not an oracle), Rule 6
- *      (mutation-proven), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ * WHAT IT GRADES: the MECHANICS of os/flair/finder_icon.c -- transparency,
+ * clipping, off-surface edges, the hit test, the NULL guards, both depths --
+ * on the desktop strikes (VOLUME, TRASH, TRASH_FULL). The expected pixels are
+ * the mint-008 Mac OS 8.1 capture cells decoded at run time by
+ * harness/render/icon_capture.h (Law 2: never the strike's own map); the art
+ * itself, every strike and state, is test-finder-icon-art's job.
  *
- * WHAT IT GRADES
- *   1. STRIKE INVARIANTS. ink & ~mask == 0, shade & ~mask == 0, ink & shade == 0
- *      on every row of both strikes (a malformed plane triple would render
- *      plausible-looking garbage).
- *   2. GEOMETRY. Blit each icon onto a scratch surface pre-filled with a
- *      SENTINEL, then check, per row, the number of INK pixels, SHADE pixels and
- *      OPAQUE pixels against a HAND TABLE read off the ASCII map -- plus a set of
- *      hand-picked PROBE PIXELS (corners, the chamfer diagonal, the shutter slot,
- *      the label rules, the basket rim and its taper).
- *   3. TRANSPARENCY. The sentinel survives EXACTLY where the map says clear:
- *      inside the cell at every '.' pixel, and everywhere outside the 32x32 cell.
- *   4. CLIPPING. With a clip region covering the icon's left half, nothing is
- *      written right of the clip, and the left half is unchanged from the
- *      unclipped blit.
- *   5. EDGES. Blits hanging off all four sides write only the visible part; a
- *      guard band past the end of the bitmap buffer is never touched (Rule 2).
- *   6. HIT TESTING. finder_icon_hit is the MASK, not the bounding box.
- *   7. BOTH DEPTHS. 8bpp indexed and 32bpp direct -- both surface_put_pixel
- *      branches, and both flair_look_pixel_depth branches.
+ * MUTANTS (Rule 6; test-desk-icons-mutant):
+ *   DESK_ICON_MUT_MASK_IGNORED  (finder_icon.c) clear nibbles painted -> the
+ *                               sentinel checks go RED.
+ *   DESK_ICON_MUT_ROW_OFF1      (finder_icon.c) rows read one off -> every
+ *                               cell grade goes RED.
+ *   DESK_ICONS_MUT_FULL_ROW     (here) the FULL Trash strike's row 5 -- its
+ *                               paper tops -- blanked: the FULL grade must
+ *                               print "TRASH_FULL draw: 21/3072 differing pixels".
  *
- * INDEPENDENCE (Law 2 / HER-02 boundary)
- *   - The per-row (ink, shade, opaque) tables and the probe pixels are read off
- *     the HAND-AUTHORED ASCII maps in spec/assets/desk_icons.h, never computed
- *     at runtime from the packed strike arrays. If a packed word ever drifts
- *     from the map it transcribes, these tables bite.
- *   - Spot-verified by hand, four rows per icon (the arithmetic is written out
- *     at each table below), so the table is not merely a machine echo.
- *   - The expected PIXEL VALUES are hand-restated canon, NOT read from
- *     color_canon.h or from flair_look: ink = index 0 / #000000 (CIDX_BLACK),
- *     face = index 1 / #FFFFFF (CIDX_WHITE), shade = index 6 / #C0C0C0
- *     (CIDX_CONTROL). A mis-keyed PART->canon row in flair_look.c goes RED here.
- *
- * MUTANTS (Rule 6): DESK_ICON_MUT_MASK_IGNORED (transparency dropped) and
- * DESK_ICON_MUT_ROW_OFF1 (strike rows shifted by one) are compiled into
- * finder_icon.c via -D; the Makefile gate asserts each goes RED.
+ * Usage: test_desk_icons <system7-decomp goldens/captures dir>
+ * Ref: ../system7-decomp/re/mint-results-008.md; os/flair/finder_icon.h;
+ *      CLAUDE.md Law 2, Law 3, Rule 2, Rule 6, Rule 12.
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "region_algebra.h"   /* the LOCKED region contract (-Ispec)           */
-#include "region.h"           /* region_from_rects (-Ios/flair/atkinson)       */
-#include "surface.h"          /* bitmap_t + surface_get_pixel (-Ios/flair)     */
+#include "finder_icon.h"
+#include "flair_look.h"
+#include "color_canon.h"
 #include "desk_icons.h"
-#include "finder_icons.h"    /* the R3.3 FOLDER / DOC / APP strikes (-Ispec/assets) */       /* the LOCKED strikes (-Ispec/assets)            */
-#include "finder_icon.h"      /* the blitter under test (-Ios/flair)           */
-#include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)      */
 
-TEST_HARNESS();
+#include "../render/icon_capture.h"
 
-/* ===========================================================================
- * The scratch surface. Bigger than one icon cell so an off-cell write shows up,
- * plus a GUARD band past the end of the bitmap the surface must never touch.
- * ===========================================================================*/
-enum { SW = 64, SH = 64, GUARD = 32 };
+#define SW 64
+#define SH 48
+#define SENT32 0x00FE01FDu
+#define SENT8  0xEEu
 
-#define SENT8   0x11u          /* 8bpp sentinel: not 0 (ink), 1 (face), 6 (shade) */
-#define SENT32  0x00112233u    /* 32bpp sentinel: not black/white/C0C0C0          */
-#define GUARD8  0x5Au
-#define GUARD32 0x005A5A5Au
+static uint32_t g32[SW * SH];
+static uint8_t  g8[SW * SH];
+static int g_checks, g_fails;
 
-/* HAND-RESTATED canon values (see INDEPENDENCE above). Not read from any
- * header the artifact also reads. */
-#define WANT8_INK    0x00u     /* CIDX_BLACK   */
-#define WANT8_FACE   0x01u     /* CIDX_WHITE   */
-#define WANT8_SHADE  0x06u     /* CIDX_CONTROL */
-#define WANT32_INK   0x00000000u   /* #000000 */
-#define WANT32_FACE  0x00FFFFFFu   /* #FFFFFF */
-#define WANT32_SHADE 0x00C0C0C0u   /* #C0C0C0 */
+#define CHECK(cond, msg) do { g_checks++; if (!(cond)) { g_fails++; \
+    printf("  FAIL %s\n", (msg)); } } while (0)
 
-static uint8_t  g_buf8[SW * SH + GUARD];
-static uint32_t g_buf32[SW * SH + GUARD];
-
-static void mk_dst8(bitmap_t *bm)
+static void mk32(bitmap_t *b)
 {
-    memset(bm, 0, sizeof *bm);
-    bm->base = g_buf8;
-    bm->bpp = 8u;
-    bm->bytes_per_pixel = 1u;
-    bm->width = SW;
-    bm->height = SH;
-    bm->pitch = SW;
-    memset(g_buf8, SENT8, (size_t)SW * SH);
-    memset(g_buf8 + (size_t)SW * SH, GUARD8, GUARD);
+    for (int i = 0; i < SW * SH; i++) g32[i] = SENT32;
+    memset(b, 0, sizeof *b);
+    b->base = (volatile uint8_t *)(void *)g32; b->width = SW; b->height = SH;
+    b->bpp = 32; b->bytes_per_pixel = 4; b->pitch = SW * 4;
 }
 
-static void mk_dst32(bitmap_t *bm)
+static void mk8(bitmap_t *b)
 {
-    int i;
-    memset(bm, 0, sizeof *bm);
-    bm->base = (volatile uint8_t *)g_buf32;
-    bm->bpp = 32u;
-    bm->bytes_per_pixel = 4u;
-    bm->width = SW;
-    bm->height = SH;
-    bm->pitch = SW * 4u;
-    for (i = 0; i < SW * SH; i++) g_buf32[i] = SENT32;
-    for (i = 0; i < GUARD; i++) g_buf32[SW * SH + i] = GUARD32;
+    for (int i = 0; i < SW * SH; i++) g8[i] = SENT8;
+    memset(b, 0, sizeof *b);
+    b->base = (volatile uint8_t *)(void *)g8; b->width = SW; b->height = SH;
+    b->bpp = 8; b->bytes_per_pixel = 1; b->pitch = SW;
 }
 
-static uint32_t get8(int x, int y)  { return (uint32_t)g_buf8[y * SW + x]; }
-static uint32_t get32(int x, int y) { return g_buf32[y * SW + x]; }
-
-static int guard8_intact(void)
-{
-    int i;
-    for (i = 0; i < GUARD; i++) if (g_buf8[SW * SH + i] != GUARD8) return 0;
-    return 1;
-}
-static int guard32_intact(void)
-{
-    int i;
-    for (i = 0; i < GUARD; i++) if (g_buf32[SW * SH + i] != GUARD32) return 0;
-    return 1;
-}
-
-/* ===========================================================================
- * THE HAND TABLES -- read off the ASCII pixel maps in spec/assets/desk_icons.h.
- * Each entry is { ink, shade, opaque } for that map row.
- * ===========================================================================*/
-typedef struct { int ink, shade, opaque; } rowcount_t;
-
-/* VOLUME -- the 3.5-inch diskette. Four rows verified by hand:
- *   row  3 (body top edge)   : ink = cols 3..25            = 23; gray 0;
- *                              opaque 23.
- *   row  6 (shutter top)     : ink = body col 3 + shutter cols 11 and 21 +
- *                              body col 28                 =  4;
- *                              gray = shutter cols 12..20  =  9;
- *                              opaque = body cols 3..28    = 26.
- *   row 19 (first label rule): ink = cols 3, 7, 24, 28     =  4;
- *                              gray = rule cols 10..21     = 12; opaque 26.
- *   row 28 (body base)       : ink = cols 3..28            = 26; opaque 26. */
-static const rowcount_t VOL_ROWS[DESK_ICON_DIM] = {
-    {  0,  0,  0 },   /* row  0 */
-    {  0,  0,  0 },   /* row  1 */
-    {  0,  0,  0 },   /* row  2 */
-    { 23,  0, 23 },   /* row  3 */
-    {  2,  0, 24 },   /* row  4 */
-    { 13,  0, 25 },   /* row  5 */
-    {  4,  9, 26 },   /* row  6 */
-    {  4,  6, 26 },   /* row  7 */
-    {  4,  6, 26 },   /* row  8 */
-    {  4,  6, 26 },   /* row  9 */
-    {  4,  6, 26 },   /* row 10 */
-    {  4,  6, 26 },   /* row 11 */
-    {  4,  6, 26 },   /* row 12 */
-    {  4,  9, 26 },   /* row 13 */
-    { 13,  0, 26 },   /* row 14 */
-    {  2,  0, 26 },   /* row 15 */
-    { 20,  0, 26 },   /* row 16 */
-    {  4,  0, 26 },   /* row 17 */
-    {  4,  0, 26 },   /* row 18 */
-    {  4, 12, 26 },   /* row 19 */
-    {  4,  0, 26 },   /* row 20 */
-    {  4, 12, 26 },   /* row 21 */
-    {  4,  0, 26 },   /* row 22 */
-    {  4, 12, 26 },   /* row 23 */
-    {  4,  0, 26 },   /* row 24 */
-    {  4,  0, 26 },   /* row 25 */
-    { 20,  0, 26 },   /* row 26 */
-    {  2,  0, 26 },   /* row 27 */
-    { 26,  0, 26 },   /* row 28 */
-    {  0,  0,  0 },   /* row 29 */
-    {  0,  0,  0 },   /* row 30 */
-    {  0,  0,  0 },   /* row 31 */
-};
-
-/* TRASH -- the ridged waste basket. Four rows verified by hand:
- *   row  5 (lid face)        : ink = cols 7 and 24         =  2;
- *                              gray = lid cols 8..23       = 16; opaque 18.
- *   row  9 (upper body)      : ink = walls cols 9 and 22   =  2;
- *                              gray = ridges cols 13,16,19 =  3;
- *                              opaque = cols 9..22         = 14.
- *   row 22 (last taper step) : ink = walls cols 11 and 20  =  2;
- *                              gray = ridges cols 13,16,19 =  3;
- *                              opaque = cols 11..20        = 10.
- *   row 29 (basket base)     : ink = cols 11..20           = 10; opaque 10. */
-static const rowcount_t TRASH_ROWS[DESK_ICON_DIM] = {
-    {  0,  0,  0 },   /* row  0 */
-    {  0,  0,  0 },   /* row  1 */
-    {  6,  0,  6 },   /* row  2 */
-    {  2,  0,  2 },   /* row  3 */
-    { 18,  0, 18 },   /* row  4 */
-    {  2, 16, 18 },   /* row  5 */
-    { 18,  0, 18 },   /* row  6 */
-    { 14,  0, 14 },   /* row  7 */
-    {  2,  0, 14 },   /* row  8 */
-    {  2,  3, 14 },   /* row  9 */
-    {  2,  3, 14 },   /* row 10 */
-    {  2,  3, 14 },   /* row 11 */
-    {  2,  3, 14 },   /* row 12 */
-    {  2,  3, 14 },   /* row 13 */
-    {  2,  3, 14 },   /* row 14 */
-    {  2,  3, 12 },   /* row 15 */
-    {  2,  3, 12 },   /* row 16 */
-    {  2,  3, 12 },   /* row 17 */
-    {  2,  3, 12 },   /* row 18 */
-    {  2,  3, 12 },   /* row 19 */
-    {  2,  3, 12 },   /* row 20 */
-    {  2,  3, 12 },   /* row 21 */
-    {  2,  3, 10 },   /* row 22 */
-    {  2,  3, 10 },   /* row 23 */
-    {  2,  3, 10 },   /* row 24 */
-    {  2,  3, 10 },   /* row 25 */
-    {  2,  3, 10 },   /* row 26 */
-    {  2,  3, 10 },   /* row 27 */
-    {  2,  0, 10 },   /* row 28 */
-    { 10,  0, 10 },   /* row 29 */
-    {  0,  0,  0 },   /* row 30 */
-    {  0,  0,  0 },   /* row 31 */
-};
-
-/* TRASH_FULL -- the full basket (bead initech-6k12). Rows 7..31 are the empty
- * basket's map rows verbatim (so the table repeats TRASH_ROWS there); rows
- * 0..6 verified by hand off the FULL map:
- *   row  0 (handle top)   : ink cols 15..20                      =  6; opaque 6.
- *   row  3 (lid face)     : ink cols 10 and 27 = 2; gray 11..26 = 16; opaque 18.
- *   row  5 (paper tops)   : ink 8,9,10,12,14,16,17,18,20,21,23,24,25 = 13;
- *                           white col 13 = 1; opaque 14.
- *   row  6 (paper bodies) : ink 7,11,12,15,19,20,22,26 = 8; white 8,9,10,13,
- *                           14,16,17,18,21,23,24,25 = 12; opaque cols 7..26 = 20. */
-static const rowcount_t TRASH_FULL_ROWS[DESK_ICON_DIM] = {
-    {  6,  0,  6 },   /* row  0 */
-    {  2,  0,  2 },   /* row  1 */
-    { 18,  0, 18 },   /* row  2 */
-    {  2, 16, 18 },   /* row  3 */
-    { 18,  0, 18 },   /* row  4 */
-    { 13,  0, 14 },   /* row  5 */
-    {  8,  0, 20 },   /* row  6 */
-    { 14,  0, 14 },   /* row  7  (= the empty basket's rim) */
-    {  2,  0, 14 },   /* row  8 */
-    {  2,  3, 14 },   /* row  9 */
-    {  2,  3, 14 },   /* row 10 */
-    {  2,  3, 14 },   /* row 11 */
-    {  2,  3, 14 },   /* row 12 */
-    {  2,  3, 14 },   /* row 13 */
-    {  2,  3, 14 },   /* row 14 */
-    {  2,  3, 12 },   /* row 15 */
-    {  2,  3, 12 },   /* row 16 */
-    {  2,  3, 12 },   /* row 17 */
-    {  2,  3, 12 },   /* row 18 */
-    {  2,  3, 12 },   /* row 19 */
-    {  2,  3, 12 },   /* row 20 */
-    {  2,  3, 12 },   /* row 21 */
-    {  2,  3, 10 },   /* row 22 */
-    {  2,  3, 10 },   /* row 23 */
-    {  2,  3, 10 },   /* row 24 */
-    {  2,  3, 10 },   /* row 25 */
-    {  2,  3, 10 },   /* row 26 */
-    {  2,  3, 10 },   /* row 27 */
-    {  2,  0, 10 },   /* row 28 */
-    { 10,  0, 10 },   /* row 29 */
-    {  0,  0,  0 },   /* row 30 */
-    {  0,  0,  0 },   /* row 31 */
-};
-
-/* Hand-picked probe pixels, read off the same maps. (row, col, expected tone) */
-typedef struct { int r, c; desk_tone_t tone; } probe_t;
-
-static const probe_t TRASH_FULL_PROBES[] = {
-    {  0, 15, DESK_TONE_INK   },  /* the lifted lid's handle                  */
-    {  1, 17, DESK_TONE_CLEAR },  /* ... hollow                               */
-    {  2, 10, DESK_TONE_INK   },  /* lid slab, pushed ajar to the right       */
-    {  2,  7, DESK_TONE_CLEAR },  /* where the EMPTY strike's lid row 4 began */
-    {  3, 12, DESK_TONE_SHADE },  /* lid face                                 */
-    {  3, 27, DESK_TONE_INK   },  /* the lid overhangs the basket's right side */
-    {  5, 13, DESK_TONE_FACE  },  /* a paper corner poking up                 */
-    {  5, 11, DESK_TONE_CLEAR },  /* ... between crumpled balls               */
-    {  6,  7, DESK_TONE_INK   },  /* the bulge is WIDER than the rim (9..22)  */
-    {  6,  8, DESK_TONE_FACE  },
-    {  7,  9, DESK_TONE_INK   },  /* the rim, where the empty strike has it   */
-    {  9, 13, DESK_TONE_SHADE },  /* first ridge, as the empty basket         */
-    { 29, 15, DESK_TONE_INK   }   /* basket base                              */
-};
-enum { TRASH_FULL_PROBE_N = (int)(sizeof TRASH_FULL_PROBES / sizeof TRASH_FULL_PROBES[0]) };
-
-static const probe_t VOL_PROBES[] = {
-    {  0,  0, DESK_TONE_CLEAR },  /* every corner of the cell is transparent  */
-    {  0, 31, DESK_TONE_CLEAR },
-    { 31,  0, DESK_TONE_CLEAR },
-    { 31, 31, DESK_TONE_CLEAR },
-    {  3,  3, DESK_TONE_INK   },  /* body top-left corner                     */
-    {  3, 26, DESK_TONE_CLEAR },  /* the bevelled top-right corner is cut     */
-    {  4, 26, DESK_TONE_INK   },  /* ... and the bevel diagonal is ink        */
-    {  5, 27, DESK_TONE_INK   },
-    {  6, 28, DESK_TONE_INK   },  /* body right edge, below the bevel         */
-    {  5, 11, DESK_TONE_INK   },  /* shutter top edge                         */
-    {  7, 12, DESK_TONE_SHADE },  /* shutter metal                            */
-    {  7, 13, DESK_TONE_FACE  },  /* the shutter's read slot                  */
-    {  7, 16, DESK_TONE_SHADE },
-    { 16,  7, DESK_TONE_INK   },  /* label top-left corner                    */
-    { 17,  8, DESK_TONE_FACE  },  /* label paper                              */
-    { 19, 10, DESK_TONE_SHADE },  /* first ruled line                         */
-    { 19, 22, DESK_TONE_FACE  },  /* ... which stops short of the label edge  */
-    { 27, 15, DESK_TONE_FACE  },
-    { 28, 15, DESK_TONE_INK   }   /* body base                                */
-};
-enum { VOL_PROBE_N = (int)(sizeof VOL_PROBES / sizeof VOL_PROBES[0]) };
-
-static const probe_t TRASH_PROBES[] = {
-    {  0,  0, DESK_TONE_CLEAR },
-    { 31, 15, DESK_TONE_CLEAR },
-    {  2, 13, DESK_TONE_INK   },  /* lid handle arch                          */
-    {  3, 15, DESK_TONE_CLEAR },  /* ... the arch is hollow                   */
-    {  4,  7, DESK_TONE_INK   },  /* lid slab, left end                       */
-    {  5, 10, DESK_TONE_SHADE },  /* lid face                                 */
-    {  8,  9, DESK_TONE_INK   },  /* body wall, widest step                   */
-    {  9, 12, DESK_TONE_FACE  },
-    {  9, 13, DESK_TONE_SHADE },  /* first ridge                              */
-    { 25, 11, DESK_TONE_INK   },  /* body wall, narrowest step                */
-    { 25,  9, DESK_TONE_CLEAR },  /* ... the taper has left this column       */
-    { 29, 15, DESK_TONE_INK   }   /* basket base                              */
-};
-enum { TRASH_PROBE_N = (int)(sizeof TRASH_PROBES / sizeof TRASH_PROBES[0]) };
-
-
-/* ===========================================================================
- * R3.3 DISK-WINDOW STRIKES (bead initech-tdnl.10; spec/assets/finder_icons.h)
- * ---------------------------------------------------------------------------
- * The same discipline as the two R3.2 strikes above, applied to the three the
- * disk windows draw: FOLDER, DOCUMENT and APPLICATION.
- *
- * THE TABLES BELOW ARE READ OFF THE ASCII PIXEL MAPS IN
- * spec/assets/finder_icons.h -- the map is the AUTHORED artifact and the source
- * of truth; the packed words are its transcription (that header's PROVENANCE
- * block says so, and says the map wins if the two disagree). Each row's map
- * line is reproduced in the comment beside its counts, so the table is
- * auditable by eye against the header without leaving this file.
- *
- * THIS IS A REAL DIFFERENTIAL, not a tautology (Law 2 / HER-02): these counts
- * come from the MAP, the blitter under test consumes the WORDS, and the two are
- * different representations. A word edited without the map to justify it -- or
- * a transcription slip in the first place -- makes the drawn row counts diverge
- * from the counted map row and this goes RED.
- *
- * The blitter itself is shared with the R3.2 strikes, so the MASK_IGNORED /
- * ROW_OFF1 mutants that already prove it bites cover these three for free; what
- * the per-strike tables and probes add is coverage of the DATA.
- * ===========================================================================*/
-static const rowcount_t FOLDER_ROWS[DESK_ICON_DIM] = {
-    {  0,  0,  0 },   /* row  0  ................................ */
-    {  0,  0,  0 },   /* row  1  ................................ */
-    {  0,  0,  0 },   /* row  2  ................................ */
-    { 10,  0, 10 },   /* row  3  ...##########................... */
-    {  2,  0, 10 },   /* row  4  ...#wwwwwwww#................... */
-    { 19,  0, 27 },   /* row  5  ...#wwwwwwww##################.. */
-    {  2,  0, 27 },   /* row  6  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    { 27,  0, 27 },   /* row  7  ...###########################.. */
-    {  2,  0, 27 },   /* row  8  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row  9  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 10  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 11  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 12  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 13  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 14  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 15  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 16  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 17  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 18  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 19  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 20  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 21  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 22  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 23  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2,  0, 27 },   /* row 24  ...#wwwwwwwwwwwwwwwwwwwwwwwww#.. */
-    {  2, 25, 27 },   /* row 25  ...#ggggggggggggggggggggggggg#.. */
-    {  2, 25, 27 },   /* row 26  ...#ggggggggggggggggggggggggg#.. */
-    { 27,  0, 27 },   /* row 27  ...###########################.. */
-    {  0,  0,  0 },   /* row 28  ................................ */
-    {  0,  0,  0 },   /* row 29  ................................ */
-    {  0,  0,  0 },   /* row 30  ................................ */
-    {  0,  0,  0 },   /* row 31  ................................ */
-};
-
-static const rowcount_t DOC_ROWS[DESK_ICON_DIM] = {
-    {  0,  0,  0 },   /* row  0  ................................ */
-    {  0,  0,  0 },   /* row  1  ................................ */
-    { 15,  0, 15 },   /* row  2  ......###############........... */
-    {  3,  0, 16 },   /* row  3  ......#wwwwwwwwwwwww##.......... */
-    {  3,  1, 17 },   /* row  4  ......#wwwwwwwwwwwww#g#......... */
-    {  3,  2, 18 },   /* row  5  ......#wwwwwwwwwwwww#gg#........ */
-    {  3,  3, 19 },   /* row  6  ......#wwwwwwwwwwwww#ggg#....... */
-    {  7,  0, 20 },   /* row  7  ......#wwwwwwwwwwwww######...... */
-    {  2,  0, 20 },   /* row  8  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row  9  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 10  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 11  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2, 14, 20 },   /* row 12  ......#wwggggggggggggggww#...... */
-    {  2,  0, 20 },   /* row 13  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 14  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2, 14, 20 },   /* row 15  ......#wwggggggggggggggww#...... */
-    {  2,  0, 20 },   /* row 16  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 17  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2, 14, 20 },   /* row 18  ......#wwggggggggggggggww#...... */
-    {  2,  0, 20 },   /* row 19  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 20  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2, 14, 20 },   /* row 21  ......#wwggggggggggggggww#...... */
-    {  2,  0, 20 },   /* row 22  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 23  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2, 14, 20 },   /* row 24  ......#wwggggggggggggggww#...... */
-    {  2,  0, 20 },   /* row 25  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 26  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 27  ......#wwwwwwwwwwwwwwwwww#...... */
-    {  2,  0, 20 },   /* row 28  ......#wwwwwwwwwwwwwwwwww#...... */
-    { 20,  0, 20 },   /* row 29  ......####################...... */
-    {  0,  0,  0 },   /* row 30  ................................ */
-    {  0,  0,  0 },   /* row 31  ................................ */
-};
-
-static const rowcount_t APP_ROWS[DESK_ICON_DIM] = {
-    {  0,  0,  0 },   /* row  0  ................................ */
-    {  0,  0,  0 },   /* row  1  ................................ */
-    {  2,  0,  2 },   /* row  2  ...............##............... */
-    {  2,  0,  4 },   /* row  3  ..............#ww#.............. */
-    {  2,  0,  6 },   /* row  4  .............#wwww#............. */
-    {  2,  0,  8 },   /* row  5  ............#wwwwww#............ */
-    {  2,  0, 10 },   /* row  6  ...........#wwwwwwww#........... */
-    {  2,  0, 12 },   /* row  7  ..........#wwwwwwwwww#.......... */
-    {  2,  0, 14 },   /* row  8  .........#wwwwwwwwwwww#......... */
-    {  2,  0, 16 },   /* row  9  ........#wwwwwwwwwwwwww#........ */
-    {  2,  0, 18 },   /* row 10  .......#wwwwwwwwwwwwwwww#....... */
-    {  4,  0, 20 },   /* row 11  ......#wwwwwwww##wwwwwwww#...... */
-    {  6,  0, 22 },   /* row 12  .....#wwwwwwww####wwwwwwww#..... */
-    {  8,  0, 24 },   /* row 13  ....#wwwwwwww######wwwwwwww#.... */
-    { 10,  0, 26 },   /* row 14  ...#wwwwwwww########wwwwwwww#... */
-    { 12,  0, 28 },   /* row 15  ..#wwwwwwww##########wwwwwwww#.. */
-    { 14,  0, 30 },   /* row 16  .#wwwwwwww############wwwwwwww#. */
-    { 12,  0, 28 },   /* row 17  ..#wwwwwwww##########wwwwwwww#.. */
-    { 10,  0, 26 },   /* row 18  ...#wwwwwwww########wwwwwwww#... */
-    {  8,  0, 24 },   /* row 19  ....#wwwwwwww######wwwwwwww#.... */
-    {  6,  0, 22 },   /* row 20  .....#wwwwwwww####wwwwwwww#..... */
-    {  4,  0, 20 },   /* row 21  ......#wwwwwwww##wwwwwwww#...... */
-    {  2,  0, 18 },   /* row 22  .......#wwwwwwwwwwwwwwww#....... */
-    {  2,  0, 16 },   /* row 23  ........#wwwwwwwwwwwwww#........ */
-    {  2,  0, 14 },   /* row 24  .........#wwwwwwwwwwww#......... */
-    {  2,  0, 12 },   /* row 25  ..........#wwwwwwwwww#.......... */
-    {  2,  0, 10 },   /* row 26  ...........#wwwwwwww#........... */
-    {  2,  0,  8 },   /* row 27  ............#wwwwww#............ */
-    {  2,  0,  6 },   /* row 28  .............#wwww#............. */
-    {  2,  0,  4 },   /* row 29  ..............#ww#.............. */
-    {  2,  0,  2 },   /* row 30  ...............##............... */
-    {  0,  0,  0 },   /* row 31  ................................ */
-};
-
-/* Hand-picked probe pixels, read off the finder_icons.h maps (row, col, tone). */
-static const probe_t FOLDER_PROBES[] = {
-    {  0,  0, DESK_TONE_CLEAR },  /* the cell corners are transparent          */
-    { 31, 31, DESK_TONE_CLEAR },
-    {  3,  3, DESK_TONE_INK   },  /* the tab's top-left corner                 */
-    {  3, 12, DESK_TONE_INK   },  /* ... and its top-right                     */
-    {  3, 13, DESK_TONE_CLEAR },  /* the body has not started at this row      */
-    {  4,  4, DESK_TONE_FACE  },  /* inside the tab                            */
-    {  5, 29, DESK_TONE_INK   },  /* the body's top-right corner               */
-    {  6,  4, DESK_TONE_FACE  },  /* inside the body                           */
-    {  6, 29, DESK_TONE_INK   },  /* the body's right edge                     */
-    {  7, 15, DESK_TONE_INK   },  /* the front-flap edge line                  */
-    { 24, 10, DESK_TONE_FACE  },  /* just above the shaded flap                */
-    { 25, 10, DESK_TONE_SHADE },  /* the shaded front flap                     */
-    { 27, 15, DESK_TONE_INK   },  /* the bottom edge                           */
-    { 28, 15, DESK_TONE_CLEAR }   /* ... and nothing below it                  */
-};
-enum { FOLDER_PROBE_N = (int)(sizeof FOLDER_PROBES / sizeof FOLDER_PROBES[0]) };
-
-static const probe_t DOC_PROBES[] = {
-    {  0,  0, DESK_TONE_CLEAR },
-    {  2,  6, DESK_TONE_INK   },  /* the page's top-left corner                */
-    {  2, 20, DESK_TONE_INK   },  /* the top edge stops where the fold starts  */
-    {  2, 21, DESK_TONE_CLEAR },  /* ... and the dog-ear corner is CUT AWAY    */
-    {  3, 21, DESK_TONE_INK   },  /* the fold's outer diagonal, row by row     */
-    {  4, 21, DESK_TONE_SHADE },  /* the folded-back triangle                  */
-    {  4, 22, DESK_TONE_INK   },
-    {  5, 22, DESK_TONE_SHADE },
-    {  7, 25, DESK_TONE_INK   },  /* the fold's bottom edge reaches the margin */
-    {  8,  7, DESK_TONE_FACE  },  /* paper                                     */
-    {  8, 25, DESK_TONE_INK   },  /* the page's right edge, below the fold     */
-    { 12,  8, DESK_TONE_FACE  },  /* the margin left of a ruled line           */
-    { 12,  9, DESK_TONE_SHADE },  /* ... the ruled line itself                 */
-    { 12, 23, DESK_TONE_FACE  },  /* ... and the margin right of it            */
-    { 29, 15, DESK_TONE_INK   },  /* the bottom edge                           */
-    { 30, 15, DESK_TONE_CLEAR }
-};
-enum { DOC_PROBE_N = (int)(sizeof DOC_PROBES / sizeof DOC_PROBES[0]) };
-
-static const probe_t APP_PROBES[] = {
-    {  0,  0, DESK_TONE_CLEAR },
-    {  2, 14, DESK_TONE_CLEAR },  /* the apex is exactly two pixels wide       */
-    {  2, 15, DESK_TONE_INK   },
-    {  2, 16, DESK_TONE_INK   },
-    {  3, 14, DESK_TONE_INK   },  /* the outline widens one column per row     */
-    {  3, 15, DESK_TONE_FACE  },
-    { 11, 14, DESK_TONE_FACE  },  /* just left of the centre diamond's tip     */
-    { 11, 15, DESK_TONE_INK   },  /* ... the tip itself                        */
-    { 16,  1, DESK_TONE_INK   },  /* the waist: outline, body, centre, body,   */
-    { 16,  2, DESK_TONE_FACE  },  /* outline -- five samples across one row    */
-    { 16,  9, DESK_TONE_FACE  },
-    { 16, 10, DESK_TONE_INK   },
-    { 16, 30, DESK_TONE_INK   },
-    { 16, 31, DESK_TONE_CLEAR },
-    { 30, 15, DESK_TONE_INK   },  /* the bottom apex                           */
-    { 31, 15, DESK_TONE_CLEAR }
-};
-enum { APP_PROBE_N = (int)(sizeof APP_PROBES / sizeof APP_PROBES[0]) };
-
-static uint32_t want8(desk_tone_t t)
-{
-    if (t == DESK_TONE_INK)   return WANT8_INK;
-    if (t == DESK_TONE_FACE)  return WANT8_FACE;
-    if (t == DESK_TONE_SHADE) return WANT8_SHADE;
-    return SENT8;                                   /* CLEAR: sentinel lives  */
-}
-static uint32_t want32(desk_tone_t t)
-{
-    if (t == DESK_TONE_INK)   return WANT32_INK;
-    if (t == DESK_TONE_FACE)  return WANT32_FACE;
-    if (t == DESK_TONE_SHADE) return WANT32_SHADE;
-    return SENT32;
-}
-
-/* ===========================================================================
- * 1. Strike invariants (structural: no tone conflict, no tone outside the mask)
- * ===========================================================================*/
-static void check_invariants(const FLAIRDeskIcon *icon, const char *name)
-{
-    int r;
-    int bad_ink = 0, bad_shade = 0, bad_both = 0, empty = 1;
-    for (r = 0; r < DESK_ICON_DIM; r++) {
-        if (icon->ink[r]   & ~icon->mask[r]) bad_ink++;
-        if (icon->shade[r] & ~icon->mask[r]) bad_shade++;
-        if (icon->ink[r]   &  icon->shade[r]) bad_both++;
-        if (icon->mask[r]) empty = 0;
-    }
-    (void)name;
-    CHECK(bad_ink == 0,   "strike has ink outside the mask");
-    CHECK(bad_shade == 0, "strike has shade outside the mask");
-    CHECK(bad_both == 0,  "strike has a pixel that is both ink and shade");
-    CHECK(empty == 0,     "strike is entirely empty");
-}
-
-/* ===========================================================================
- * 2/3. Blit at (ox,oy) and grade rows, probes and sentinel survival (8bpp).
- * ===========================================================================*/
-static void check_blit8(const FLAIRDeskIcon *icon, const rowcount_t *tab,
-                        const probe_t *probes, int nprobes, int ox, int oy)
-{
-    bitmap_t bm;
-    int r, c, i;
-    int row_bad = 0, outside_bad = 0, probe_bad = 0;
-
-    mk_dst8(&bm);
-    finder_icon_draw(&bm, (int16_t)ox, (int16_t)oy, icon, (const region_t *)0);
-
-    /* Per-row counts inside the cell. */
-    for (r = 0; r < DESK_ICON_DIM; r++) {
-        int ink = 0, shade = 0, opaque = 0;
-        for (c = 0; c < DESK_ICON_DIM; c++) {
-            uint32_t v = get8(ox + c, oy + r);
-            if (v == SENT8) continue;
-            opaque++;
-            if (v == WANT8_INK) ink++;
-            else if (v == WANT8_SHADE) shade++;
-            else if (v != WANT8_FACE) opaque += 1000;   /* an unknown value   */
-        }
-        if (ink != tab[r].ink || shade != tab[r].shade || opaque != tab[r].opaque) {
-            if (row_bad == 0) {
-                fprintf(stderr, "  row %d: got ink=%d shade=%d opaque=%d,"
-                                " want ink=%d shade=%d opaque=%d\n",
-                        r, ink, shade, opaque,
-                        tab[r].ink, tab[r].shade, tab[r].opaque);
-            }
-            row_bad++;
-        }
-    }
-    CHECK(row_bad == 0, "per-row ink/shade/opaque counts match the hand table");
-
-    /* Nothing outside the 32x32 cell was touched. */
-    for (r = 0; r < SH; r++) {
-        for (c = 0; c < SW; c++) {
-            int in_cell = (r >= oy && r < oy + DESK_ICON_DIM &&
-                           c >= ox && c < ox + DESK_ICON_DIM);
-            if (!in_cell && get8(c, r) != SENT8) outside_bad++;
-        }
-    }
-    CHECK(outside_bad == 0, "no pixel outside the icon cell was written");
-
-    /* Probe pixels. */
-    for (i = 0; i < nprobes; i++) {
-        uint32_t got = get8(ox + probes[i].c, oy + probes[i].r);
-        if (got != want8(probes[i].tone)) {
-            if (probe_bad == 0) {
-                fprintf(stderr, "  probe (r=%d,c=%d): got 0x%02X want 0x%02X\n",
-                        probes[i].r, probes[i].c, got, want8(probes[i].tone));
-            }
-            probe_bad++;
-        }
-    }
-    CHECK(probe_bad == 0, "probe pixels carry the hand-read tone");
-    CHECK(guard8_intact(), "8bpp guard band untouched");
-}
-
-/* 32bpp probes + the same sentinel-survival rule (the other depth branch). */
-static void check_blit32(const FLAIRDeskIcon *icon,
-                         const probe_t *probes, int nprobes)
-{
-    bitmap_t bm;
-    int i, probe_bad = 0, clear_bad = 0, r, c;
-
-    mk_dst32(&bm);
-    finder_icon_draw(&bm, 0, 0, icon, (const region_t *)0);
-
-    for (i = 0; i < nprobes; i++) {
-        uint32_t got = get32(probes[i].c, probes[i].r);
-        if (got != want32(probes[i].tone)) {
-            if (probe_bad == 0) {
-                fprintf(stderr, "  probe32 (r=%d,c=%d): got 0x%08X want 0x%08X\n",
-                        probes[i].r, probes[i].c, got, want32(probes[i].tone));
-            }
-            probe_bad++;
-        }
-    }
-    for (r = DESK_ICON_DIM; r < SH; r++)
-        for (c = 0; c < SW; c++)
-            if (get32(c, r) != SENT32) clear_bad++;
-
-    CHECK(probe_bad == 0, "32bpp probe pixels carry the hand-read tone");
-    CHECK(clear_bad == 0, "32bpp: nothing below the icon cell was written");
-    CHECK(guard32_intact(), "32bpp guard band untouched");
-}
-
-/* ===========================================================================
- * 4. Clipping: a clip covering the icon's left half must gate every write.
- * ===========================================================================*/
 typedef struct rgn_store {
     region_t  r;
     rgn_row_t rows[RGN_ROWS_CAP];
@@ -661,191 +81,127 @@ static void store_attach(rgn_store_t *s)
     region_set_empty(&s->r);
 }
 
-static void check_clip(const FLAIRDeskIcon *icon)
+/* Expected value at surface (x,y) for a cell drawn at (ox,oy), visible only
+ * inside [cl,cr) x [ct,cb): the capture's RGB on an opaque cell, else the
+ * sentinel. Compares both depths; returns the number of differing pixels. */
+static int grade_surface(const icap_cell_t *cap, int state, int ox, int oy,
+                         int cl, int ct, int cr, int cb, const char *what)
 {
-    static uint8_t unclipped[SW * SH];
-    bitmap_t bm;
-    rgn_store_t clip;
-    rgn_rect_t half;
-    int r, c, left_bad = 0, right_bad = 0;
-    const int ox = 4, oy = 6;
-    const int split = ox + DESK_ICON_DIM / 2;   /* clip covers [ox, split)    */
-
-    /* Reference: the same blit with no clip. */
-    mk_dst8(&bm);
-    finder_icon_draw(&bm, (int16_t)ox, (int16_t)oy, icon, (const region_t *)0);
-    memcpy(unclipped, g_buf8, sizeof unclipped);
-
-    store_attach(&clip);
-    half.top = 0; half.left = 0; half.bottom = (int16_t)SH; half.right = (int16_t)split;
-    region_from_rects(&clip.r, &half, 1u);
-
-    mk_dst8(&bm);
-    finder_icon_draw(&bm, (int16_t)ox, (int16_t)oy, icon, &clip.r);
-
-    for (r = 0; r < SH; r++) {
-        for (c = 0; c < SW; c++) {
-            uint32_t got = get8(c, r);
-            if (c < split) {
-                if (got != (uint32_t)unclipped[r * SW + c]) left_bad++;
-            } else {
-                if (got != SENT8) right_bad++;
+    int diff = 0, shown = 0;
+    for (int y = 0; y < SH; y++) {
+        for (int x = 0; x < SW; x++) {
+            int r = y - oy, c = x - ox;
+            int in = r >= 0 && r < 32 && c >= 0 && c < 32 &&
+                     x >= cl && x < cr && y >= ct && y < cb && cap->opaque[r][c];
+            uint32_t want = in ? cap->rgb[state][r][c] : SENT32;
+            uint32_t got32 = g32[y * SW + x] & 0x00FFFFFFu;
+            uint8_t  got8 = g8[y * SW + x];
+            int bad = (got32 != want) ||
+                      (in ? (got8 == SENT8 || flair_canon_rgb(got8) != want) : got8 != SENT8);
+            if (bad) {
+                diff++;
+                if (shown++ < 3)
+                    printf("    %s (%d,%d): 32bpp #%06X 8bpp idx %u want #%06X\n",
+                           what, x, y, (unsigned)got32, (unsigned)got8, (unsigned)want);
             }
         }
     }
-    CHECK(left_bad == 0,  "inside the clip the clipped blit equals the unclipped one");
-    CHECK(right_bad == 0, "outside the clip NOTHING was written");
-    CHECK(guard8_intact(), "clip case: guard band untouched");
+    printf("  %s: %d/%d differing pixels\n", what, diff, SW * SH);
+    return diff;
 }
 
-/* ===========================================================================
- * 5. Edges: blits hanging off each side write only the visible part.
- * ===========================================================================*/
-static void check_edges(const FLAIRDeskIcon *icon)
+static void draw_both(const FLAIRDeskIcon *s, int ox, int oy, const region_t *clip, int sel)
 {
-    bitmap_t bm;
-    int ok = 1;
-    int r, c;
-    const int offs[4][2] = { { -8, -8 }, { SW - 8, -8 },
-                             { -8, SH - 8 }, { SW - 8, SH - 8 } };
-    int i;
+    bitmap_t b32, b8;
+    mk32(&b32); mk8(&b8);
+    if (sel) {
+        finder_icon_draw_hilite(&b32, (int16_t)ox, (int16_t)oy, s, clip);
+        finder_icon_draw_hilite(&b8, (int16_t)ox, (int16_t)oy, s, clip);
+    } else {
+        finder_icon_draw(&b32, (int16_t)ox, (int16_t)oy, s, clip);
+        finder_icon_draw(&b8, (int16_t)ox, (int16_t)oy, s, clip);
+    }
+}
 
-    for (i = 0; i < 4; i++) {
-        mk_dst8(&bm);
-        finder_icon_draw(&bm, (int16_t)offs[i][0], (int16_t)offs[i][1], icon,
-                         (const region_t *)0);
-        if (!guard8_intact()) ok = 0;
-        for (r = 0; r < SH; r++) {
-            for (c = 0; c < SW; c++) {
-                int sr = r - offs[i][1];
-                int sc = c - offs[i][0];
-                int opaque_here = 0;
-                if (sr >= 0 && sr < DESK_ICON_DIM && sc >= 0 && sc < DESK_ICON_DIM) {
-                    opaque_here = (icon->mask[sr] & (1u << (31 - sc))) != 0u;
-                }
-                if (!opaque_here && get8(c, r) != SENT8) ok = 0;
-                if (opaque_here && get8(c, r) == SENT8) ok = 0;
+int main(int argc, char **argv)
+{
+    static icap_cell_t cap[ICAP__KINDS];
+    FLAIRDeskIcon full = FLAIR_DESK_ICON_TRASH_FULL;
+    char what[96];
+
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s <system7-decomp goldens/captures dir>\n", argv[0]);
+        return 2;
+    }
+    if (icap_load(argv[1], cap)) {
+        printf("!!! test-desk-icons FAIL: the independent mint-008 golden is unavailable\n");
+        return 1;
+    }
+#if defined(DESK_ICONS_MUT_FULL_ROW)
+    /* MUTANT (Rule 6): the FULL strike's row 5 (the paper tops) blanked. */
+    memset(full.px[5], 0, sizeof full.px[5]);
+    printf("  MUTANT (Rule 6): FLAIR_DESK_ICON_TRASH_FULL row 5 blanked\n");
+#endif
+    {
+        const struct { const char *n; const FLAIRDeskIcon *s; int k; } D[] = {
+            { "VOLUME", &FLAIR_DESK_ICON_VOLUME, ICAP_VOLUME },
+            { "TRASH", &FLAIR_DESK_ICON_TRASH, ICAP_TRASH },
+            { "TRASH_FULL", &full, ICAP_TRASH_FULL }
+        };
+        for (int i = 0; i < 3; i++) {
+            for (int sel = 0; sel < 2; sel++) {
+                /* 1. a whole cell on the surface: every cell + nothing else. */
+                draw_both(D[i].s, 16, 8, (const region_t *)0, sel);
+                snprintf(what, sizeof what, "%s %sdraw", D[i].n, sel ? "selected " : "");
+                CHECK(grade_surface(&cap[D[i].k], sel, 16, 8, 0, 0, SW, SH, what) == 0, what);
+                /* 2. off the top-left and the bottom-right edges. */
+                draw_both(D[i].s, -10, -7, (const region_t *)0, sel);
+                snprintf(what, sizeof what, "%s %soff top-left", D[i].n, sel ? "selected " : "");
+                CHECK(grade_surface(&cap[D[i].k], sel, -10, -7, 0, 0, SW, SH, what) == 0, what);
+                draw_both(D[i].s, SW - 9, SH - 13, (const region_t *)0, sel);
+                snprintf(what, sizeof what, "%s %soff bottom-right", D[i].n, sel ? "selected " : "");
+                CHECK(grade_surface(&cap[D[i].k], sel, SW - 9, SH - 13, 0, 0, SW, SH, what) == 0, what);
+            }
+            /* 3. a clip: only the clipped part of the cell is written. */
+            {
+                rgn_store_t clip;
+                rgn_rect_t rc;
+                store_attach(&clip);
+                rc.left = 24; rc.top = 12; rc.right = 40; rc.bottom = 36;
+                region_from_rects(&clip.r, &rc, 1u);
+                draw_both(D[i].s, 16, 8, &clip.r, 0);
+                snprintf(what, sizeof what, "%s clipped to (24,12)-(40,36)", D[i].n);
+                CHECK(grade_surface(&cap[D[i].k], 0, 16, 8, 24, 12, 40, 36, what) == 0, what);
+            }
+            /* 4. the hit test is the capture's opacity, and nothing outside. */
+            {
+                int bad = 0;
+                for (int r = -2; r < 34; r++)
+                    for (int c = -2; c < 34; c++) {
+                        int want = (r >= 0 && r < 32 && c >= 0 && c < 32) ? cap[D[i].k].opaque[r][c] : 0;
+                        if (finder_icon_hit((int16_t)(300 + c), (int16_t)(200 + r), D[i].s, 300, 200) != want) bad++;
+                    }
+                snprintf(what, sizeof what, "%s hit test == capture opacity (36x36 probe)", D[i].n);
+                CHECK(bad == 0, what);
             }
         }
     }
-    CHECK(ok == 1, "partly off-surface blits draw exactly the visible mask");
-}
-
-/* ===========================================================================
- * 6. Hit testing is the MASK, not the bounding box.
- * ===========================================================================*/
-static void check_hit(const FLAIRDeskIcon *icon,
-                      const probe_t *probes, int nprobes)
-{
-    int i, bad = 0;
-    const int ox = 100, oy = 40;
-
-    for (i = 0; i < nprobes; i++) {
-        int want = (probes[i].tone != DESK_TONE_CLEAR);
-        int got = finder_icon_hit((int16_t)(ox + probes[i].c),
-                                  (int16_t)(oy + probes[i].r), icon,
-                                  (int16_t)ox, (int16_t)oy);
-        if (got != want) bad++;
+    /* 5. NULL guards: no write, no crash, no hit. */
+    {
+        bitmap_t b32;
+        int bad = 0;
+        mk32(&b32);
+        finder_icon_draw(&b32, 0, 0, (const FLAIRDeskIcon *)0, (const region_t *)0);
+        finder_icon_draw((const bitmap_t *)0, 0, 0, &FLAIR_DESK_ICON_VOLUME, (const region_t *)0);
+        for (int i = 0; i < SW * SH; i++) if (g32[i] != SENT32) bad++;
+        CHECK(bad == 0, "NULL strike / NULL destination write nothing");
+        CHECK(finder_icon_hit(5, 5, (const FLAIRDeskIcon *)0, 0, 0) == 0, "NULL strike is never hit");
     }
-    CHECK(bad == 0, "finder_icon_hit agrees with the hand-read mask at every probe");
-
-    CHECK(finder_icon_hit((int16_t)(ox - 1), (int16_t)oy, icon,
-                          (int16_t)ox, (int16_t)oy) == 0,
-          "a point left of the cell is not a hit");
-    CHECK(finder_icon_hit((int16_t)(ox + DESK_ICON_DIM), (int16_t)oy, icon,
-                          (int16_t)ox, (int16_t)oy) == 0,
-          "a point right of the cell is not a hit");
-    CHECK(finder_icon_hit((int16_t)ox, (int16_t)(oy + DESK_ICON_DIM), icon,
-                          (int16_t)ox, (int16_t)oy) == 0,
-          "a point below the cell is not a hit");
-    CHECK(finder_icon_hit((int16_t)ox, (int16_t)oy,
-                          (const FLAIRDeskIcon *)0, (int16_t)ox, (int16_t)oy) == 0,
-          "a NULL strike is never hit");
-}
-
-/* ===========================================================================
- * 7. Fail-soft: a NULL destination / NULL strike must not write or crash.
- * ===========================================================================*/
-static void check_failsoft(const FLAIRDeskIcon *icon)
-{
-    bitmap_t bm;
-    int r, c, bad = 0;
-
-    mk_dst8(&bm);
-    finder_icon_draw((const bitmap_t *)0, 0, 0, icon, (const region_t *)0);
-    finder_icon_draw(&bm, 0, 0, (const FLAIRDeskIcon *)0, (const region_t *)0);
-    for (r = 0; r < SH; r++)
-        for (c = 0; c < SW; c++)
-            if (get8(c, r) != SENT8) bad++;
-    CHECK(bad == 0, "NULL dst / NULL strike write nothing");
-}
-
-int main(void)
-{
-    check_invariants(&FLAIR_DESK_ICON_VOLUME, "VOLUME");
-    check_invariants(&FLAIR_DESK_ICON_TRASH,  "TRASH");
-
-    /* Blit at the origin and at an offset -- the offset case catches an origin
-     * that is silently ignored or doubled. */
-    check_blit8(&FLAIR_DESK_ICON_VOLUME, VOL_ROWS, VOL_PROBES, VOL_PROBE_N, 0, 0);
-    check_blit8(&FLAIR_DESK_ICON_VOLUME, VOL_ROWS, VOL_PROBES, VOL_PROBE_N, 11, 7);
-    check_blit8(&FLAIR_DESK_ICON_TRASH, TRASH_ROWS, TRASH_PROBES, TRASH_PROBE_N, 0, 0);
-    check_blit8(&FLAIR_DESK_ICON_TRASH, TRASH_ROWS, TRASH_PROBES, TRASH_PROBE_N, 30, 25);
-
-    check_blit32(&FLAIR_DESK_ICON_VOLUME, VOL_PROBES, VOL_PROBE_N);
-    check_blit32(&FLAIR_DESK_ICON_TRASH, TRASH_PROBES, TRASH_PROBE_N);
-
-    check_clip(&FLAIR_DESK_ICON_VOLUME);
-    check_clip(&FLAIR_DESK_ICON_TRASH);
-
-    check_edges(&FLAIR_DESK_ICON_VOLUME);
-    check_edges(&FLAIR_DESK_ICON_TRASH);
-
-    check_hit(&FLAIR_DESK_ICON_VOLUME, VOL_PROBES, VOL_PROBE_N);
-    check_hit(&FLAIR_DESK_ICON_TRASH, TRASH_PROBES, TRASH_PROBE_N);
-
-    check_failsoft(&FLAIR_DESK_ICON_VOLUME);
-
-    /* ---- the FULL Trash (bead initech-6k12) ------------------------------
-     * Mutant DESK_ICONS_MUT_FULL_ROW (row 5 dropped from the packed words)
-     * goes RED on the row-5 table entry and the row-5 probes. */
-    check_invariants(&FLAIR_DESK_ICON_TRASH_FULL, "TRASH_FULL");
-    check_blit8(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_ROWS, TRASH_FULL_PROBES,
-                TRASH_FULL_PROBE_N, 0, 0);
-    check_blit8(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_ROWS, TRASH_FULL_PROBES,
-                TRASH_FULL_PROBE_N, 17, 9);
-    check_blit32(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_PROBES, TRASH_FULL_PROBE_N);
-    check_clip(&FLAIR_DESK_ICON_TRASH_FULL);
-    check_edges(&FLAIR_DESK_ICON_TRASH_FULL);
-    check_hit(&FLAIR_DESK_ICON_TRASH_FULL, TRASH_FULL_PROBES, TRASH_FULL_PROBE_N);
-
-    /* ---- the R3.3 disk-window strikes (bead initech-tdnl.10) ------------- */
-    check_invariants(&FLAIR_FINDER_ICON_FOLDER, "FOLDER");
-    check_invariants(&FLAIR_FINDER_ICON_DOC,    "DOC");
-    check_invariants(&FLAIR_FINDER_ICON_APP,    "APP");
-
-    check_blit8(&FLAIR_FINDER_ICON_FOLDER, FOLDER_ROWS, FOLDER_PROBES, FOLDER_PROBE_N, 0, 0);
-    check_blit8(&FLAIR_FINDER_ICON_FOLDER, FOLDER_ROWS, FOLDER_PROBES, FOLDER_PROBE_N, 9, 13);
-    check_blit8(&FLAIR_FINDER_ICON_DOC, DOC_ROWS, DOC_PROBES, DOC_PROBE_N, 0, 0);
-    check_blit8(&FLAIR_FINDER_ICON_DOC, DOC_ROWS, DOC_PROBES, DOC_PROBE_N, 21, 4);
-    check_blit8(&FLAIR_FINDER_ICON_APP, APP_ROWS, APP_PROBES, APP_PROBE_N, 0, 0);
-    check_blit8(&FLAIR_FINDER_ICON_APP, APP_ROWS, APP_PROBES, APP_PROBE_N, 6, 19);
-
-    check_blit32(&FLAIR_FINDER_ICON_FOLDER, FOLDER_PROBES, FOLDER_PROBE_N);
-    check_blit32(&FLAIR_FINDER_ICON_DOC,    DOC_PROBES,    DOC_PROBE_N);
-    check_blit32(&FLAIR_FINDER_ICON_APP,    APP_PROBES,    APP_PROBE_N);
-
-    check_clip(&FLAIR_FINDER_ICON_FOLDER);
-    check_clip(&FLAIR_FINDER_ICON_DOC);
-    check_clip(&FLAIR_FINDER_ICON_APP);
-
-    check_edges(&FLAIR_FINDER_ICON_FOLDER);
-    check_edges(&FLAIR_FINDER_ICON_DOC);
-    check_edges(&FLAIR_FINDER_ICON_APP);
-
-    check_hit(&FLAIR_FINDER_ICON_FOLDER, FOLDER_PROBES, FOLDER_PROBE_N);
-    check_hit(&FLAIR_FINDER_ICON_DOC,    DOC_PROBES,    DOC_PROBE_N);
-    check_hit(&FLAIR_FINDER_ICON_APP,    APP_PROBES,    APP_PROBE_N);
-
-    return TEST_SUMMARY("test-desk-icons");
+    printf("test-desk-icons: %d checks, %d failures\n", g_checks, g_fails);
+    if (g_fails) {
+        printf("!!! test-desk-icons FAIL\n");
+        return 1;
+    }
+    printf(">>> test-desk-icons: blitter green against the mint-008 captures\n");
+    return 0;
 }

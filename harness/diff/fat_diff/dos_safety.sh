@@ -234,7 +234,7 @@ copy-ro|del-ro)
         --quit-after SHELL-DONE > "$out/control.report" 2>&1 || fail 'unprotect control did not finish'
     if [ "$mode" = copy-ro ]; then
         for leaf in LOCK.BIN LOCK0.TXT SUB/LOCK.BIN SUB/LOCK0.TXT; do bytes "$leaf" "$out/readme.txt"; done
-        [ "$(grep -c '1 file(s) copied' "build/$control.serial")" = 4 ] || fail 'unprotect COPY did not succeed'
+        [ "$(grep -c '1 File(s) copied' "build/$control.serial")" = 4 ] || fail 'unprotect COPY did not succeed'
     else
         for leaf in LOCK.BIN SUB/LOCK.BIN; do
             bytes "$leaf" "$out/self.bin"
@@ -290,7 +290,7 @@ k01)
     bytes SMALL.BIN "$out/small.bin"
     bytes SUB/SELF.BIN "$out/self.bin"
     [ "$(grep -c 'File cannot be copied onto itself' "$out/repl.txt")" = 8 ] || fail 'expected eight resolved self refusals'
-    grep -q '1 file(s) copied' "$out/repl.txt" || fail 'different parent copy refused'
+    grep -q '1 File(s) copied' "$out/repl.txt" || fail 'different parent copy refused'
     ;;
 k02)
     bytes FILLED/SAVE.TXT "$out/root.txt"

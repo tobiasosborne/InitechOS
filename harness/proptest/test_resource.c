@@ -313,5 +313,41 @@ int main(void)
               "bonus: GetResInfo recovers (WIND, 128)");
     }
 
+    /* Independent malformed forks: offsets below are fixture byte positions,
+     * not values read from the parser. Resource Manager Sec 1.1-1.5. */
+    {
+        uint8_t bad[sizeof FORK];
+        FlairResMap mt;
+        memcpy(bad, FORK, sizeof bad);
+        bad[100] = bad[101] = 0xff;
+        CHECK(FlairResMap_load(&mt, &arena, bad, sizeof bad) < 0,
+              "s3bh type count 65536 rejected");
+        memcpy(bad, FORK, sizeof bad);
+        bad[15] = 27; /* mapLength: one byte short of the preamble. */
+        bad[96] = bad[97] = bad[98] = bad[99] = 0;
+        CHECK(FlairResMap_load(&mt, &arena, bad, sizeof bad) < 0,
+              "6mfi map preamble must fit map section");
+        memcpy(bad, FORK, sizeof bad);
+        bad[11] = 20; /* WIND128's 24-byte body exceeds 20-byte data area. */
+        CHECK(FlairResMap_load(&mt, &arena, bad, sizeof bad) == 0, "u37e load fixture");
+        uint32_t length = 99;
+        CHECK(FlairGetResource(&mt, FLAIR_RESTYPE_WIND, 128, &length) == NULL && length == 0,
+              "u37e payload cannot escape declared data area");
+        CHECK(FlairGetResInfo(&mt, mt.fork + 20, NULL, NULL) < 0,
+              "u37e reverse lookup rejects escaping payload");
+        memcpy(bad, FORK, sizeof bad);
+        /* WIND128 ref starts at 118; data offset bytes are 123..125. */
+        bad[123] = bad[124] = bad[125] = 0xff;
+        CHECK(FlairResMap_load(&mt, &arena, bad, sizeof bad) == 0, "nc0z load fixture");
+        CHECK(FlairGetResource(&mt, FLAIR_RESTYPE_WIND, 128, NULL) == NULL,
+              "nc0z relative data offset checked before addition");
+        /* Public descriptor corruption must not turn offset overflow into a
+         * header read: fffffff0 + 32 wraps to prefix at byte 16. */
+        bad[123] = bad[124] = 0; bad[125] = 32;
+        CHECK(FlairResMap_load(&mt, &arena, bad, sizeof bad) == 0, "nc0z wrap setup");
+        mt.data_off = 0xfffffff0u;
+        CHECK(FlairGetResource(&mt, FLAIR_RESTYPE_WIND, 128, NULL) == NULL,
+              "nc0z data offset addition cannot wrap into header");
+    }
     return TEST_SUMMARY("test-resource");
 }

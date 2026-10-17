@@ -1,0 +1,79 @@
+% Chapter 1 -- The bootstrap.  Sources (Law 1): ADR-0007 DEC-01 (two
+% compilers, never conflated), DEC-06 (Phi, K1/K2/K3, the K2 == K3
+% certificate, scope, reproducibility precondition, DDC), DEC-08 (M7 is
+% seed-built; resident self-compilation is M8); PRD Sec 7; CLAUDE.md
+% hallucination-risk callouts (K2 == K3, not K1 == K2).
+\Gates{test-tps-lex-build, test-tps-gen-fpc, test-compiler, test-pubs-turbo}
+\chapter{The bootstrap}
+\ix{bootstrap}
+
+\section{Two compilers}
+\ix{genesis compiler}
+\ix{resident compiler}
+Two compilers take part in building Turbo Initech, and they are never
+confused with each other:
+
+\SideHead{The genesis compiler}\file{INITECHC}, the genesis compiler, is a
+Pascal compiler written in C that runs on the development system.  It
+compiles the Turbo Initech source once, to make the first Turbo Initech
+compiler.  Its only purpose is to start the chain; an error in it is an
+error of the genesis compiler, not of Turbo Initech, and it is not shipped.
+
+\SideHead{Turbo Initech}Turbo Initech, the resident compiler, is written in
+Pascal.  It compiles itself and the Pascal programs written for InitechOS.
+
+The InitechDOS operating system and the other parts of InitechOS are not
+written in Pascal and are not built by either compiler; they are built by
+the development system's own tools.  Nothing in this book applies to them.
+
+\section{Compiling a compiler}
+\ix{self-compilation}
+Write \textit{src} for the Turbo Initech source, and $K(\textit{src})$ for
+the program that compiler $K$ makes from it.  The bootstrap is the chain:
+
+\begin{BorTable}{The chain}{p{24mm}p{74mm}}
+\Hd{Step} & \Hd{Made by}\EndHd
+$K_1 = X(\textit{src})$ & the genesis compiler $X$ compiles the source: the
+  first Turbo Initech compiler\\
+$K_2 = K_1(\textit{src})$ & the first Turbo Initech compiler compiles its
+  own source\\
+$K_3 = K_2(\textit{src})$ & the compiler so made compiles the source
+  again\\
+\end{BorTable}
+
+\ix{fixed point}
+\ix{certificate}
+Each Turbo Initech compiler in the chain compiles the same source with the
+same rules, so from $K_2$ on the chain must repeat itself: $K_3$ must equal
+$K_2$, byte for byte.  This equality is the \term{self-compilation
+certificate}.
+
+\ArrowNote{The certificate is $K_2 = K_3$, not $K_1 = K_2$.  $K_1$ is made by
+the genesis compiler, a different program, and may differ from $K_2$ in
+every byte without anything being wrong.}
+
+The certificate means something only when every build is
+\term{reproducible}: the same compiler and the same source must always
+give the same bytes, with no date, time, directory or chance in the output
+(Chapter 6).
+
+\section{Independent compilation}
+\ix{diverse double-compilation}
+A compiler that compiles itself could, in principle, carry a fault from
+one generation to the next by reproducing it on purpose.  The defense is
+to make the first compiler a second time with a genesis compiler written
+independently, and to check that the chains of the two meet (Chapter 5).
+
+\section{Where the chain stands}
+\ix{status}
+The first steps of the chain are built and checked today.  The genesis
+compiler makes $K_1$, the Turbo Initech compiler \file{TPS.COM}, and $K_1$
+runs on InitechDOS.  On the development system, a build of Turbo Initech
+made by the Free Pascal compiler for testing compiles the Turbo Initech
+source, twice with the same bytes, into assembly language that links into a
+complete program of the right size.
+\draft{the certificate K2 == K3 is not yet produced: make selfhost is an M8
+placeholder (ADR-0007 DEC-08, bead initech-ls4); it needs the resident
+assembler and linker}
+Chapter 4 says, step by step, which parts of the acceptance procedure are
+carried out today.

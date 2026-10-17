@@ -1,0 +1,3 @@
+USE STAFF
+GO 2
+? LASTNAME, IIF(EXEMPT, "Exempt", "Hourly")

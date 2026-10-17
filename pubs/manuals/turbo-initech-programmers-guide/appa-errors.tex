@@ -1,0 +1,318 @@
+% Appendix A -- Error messages (model: TP 6.0 PG App. A [bor s6.2]: run-in
+% bold number, the message text, explanation, square-bullet advice;
+% compiler errors, then run-time errors).  PUB-REF-0001 AN-13, NT-16,
+% GC-02, CP-18: one entry per diagnostic of the shipped compiler, the text
+% exactly as tps.pas prints it (written to main.msgs and compared with the
+% catalogue generated from tps.pas by tps_gate messages); the numbers are
+% the code constants of the source (ErrBadChar = 1 ... ; TeDuplicate = 1
+% ...; GenFail codes 1..4).  Sources: os/tps/tps.pas FailLex, FailParse,
+% WriteExpected, FailType, GenFail, the SKIP lines of the driver;
+% seed/rt/fileio.asm rtl_file_fail; os/milton/int21.h error codes.  The
+% example diagnostics are replayed by test-pubs-turbo.
+\Gates{test-tps-lex-fpc, test-tps-parse-fpc, test-tps-type-fpc, test-tps-lex-os, test-tps-type-os, test-pubs-turbo}
+\chapter{Error messages}
+\ix{error messages}
+\ix{messages}
+
+Turbo Initech stops at the first error it finds.  It writes one line that
+names the pass that found the error and the place in the source, and
+skips the passes that remain.  This appendix lists every message:
+lexical errors, syntax errors, semantic errors and code-generation errors,
+then the run-time error of the file routines.
+
+\section{The form of a compiler message}
+\ix{error messages, form}
+A message line begins with the name of the pass and gives the position of
+the error:
+
+\begin{itemize}
+\item \code{TPS-LEX-ERROR pos=}\textit{p} \code{line=}\textit{l}
+  \code{col=}\textit{c} \textit{message} -- the lexical pass;
+\item \code{TPS-PARSE-ERROR pos=}\textit{p} \code{line=}\textit{l}
+  \code{col=}\textit{c} \code{expected=}\textit{x} \code{found=}\textit{t}
+  -- the syntax pass;
+\item \code{TPS-TYPE-ERROR line=}\textit{l} \code{col=}\textit{c}
+  \textit{message} -- the semantic pass;
+\item \code{TPS-GEN-ERROR line=}\textit{l} \code{col=}\textit{c}
+  \textit{message} -- the code generator.
+\end{itemize}
+
+\textit{l} and \textit{c} are the line and column of the error, counted from
+1; \textit{p} is its position in the file in characters, counted from 1.  The
+passes after the one that failed each print one line instead of their
+output: \code{TPS-PARSE-SKIP lexer-error}, \code{TPS-TYPE-SKIP lexer-error}
+or \code{parser-error}, and \code{TPS-GEN-SKIP lexer-error},
+\code{parser-error} or \code{type-error}.  For example,
+
+\Source{err-semi}
+
+produces:
+
+\CompilerOutput{err-semi}{ERR}
+
+The variable declaration needs a semicolon before \rw{begin}.
+
+\section{Lexical errors}
+\ix{lexical errors}
+These are reported in a \code{TPS-LEX-ERROR} line.
+
+\ErrorEntry{LEX-1}{1}{bad character code=}{\textit{n}}
+The source contains a character, with the code \textit{n}, that is not part
+of any token and is not inside a comment or a string.
+\begin{itemize}
+\item Remove the character, or put it in a string literal or a comment.
+\item Turbo Initech has no \code{\%}, \code{/}, \code{\^}, \code{@},
+  \code{\$} or \code{\#} operator; see Chapter 1.
+\end{itemize}
+
+\Source{err-badchar}
+
+\CompilerOutput{err-badchar}{ERR}
+
+\ErrorEntry{LEX-2}{2}{unterminated string}{}
+A string literal does not end on the line where it begins.  The position
+is that of the opening apostrophe.
+\begin{itemize}
+\item Add the closing apostrophe.  Write an apostrophe inside a string as two
+  apostrophes.
+\end{itemize}
+
+\ErrorEntry{LEX-3}{3}{unterminated brace comment}{}
+A comment that begins with \code{\{} has no closing \code{\}} before the end
+of the file.  The position is that of the opening brace.
+
+\ErrorEntry{LEX-4}{4}{unterminated paren-star comment}{}
+A comment that begins with \code{(*} has no closing \code{*)} before the end
+of the file.
+
+\ErrorEntry{LEX-5}{5}{token text exceeds 255 bytes}{}
+An identifier or a string literal is longer than 255 characters.
+
+\ErrorEntry{LEX-6}{6}{input exceeds SOURCEMAX=}{\textit{n}}
+The source file is longer than the compiler can hold, \textit{n} characters.
+The line and column are given as 0.
+\begin{itemize}
+\item Shorten the program; the limit is described in the \doctitle{User's
+  Guide}, Chapter 8.
+\end{itemize}
+
+\ErrorEntry{LEX-7}{7}{char pool exceeds POOLMAX=}{\textit{n}}
+The spellings of all the different identifiers of the program together
+exceed \textit{n} characters.
+\begin{itemize}
+\item Use fewer or shorter identifiers.
+\end{itemize}
+
+\ErrorEntry{LEX-8}{8}{name table exceeds NAMEMAX=}{\textit{n}}
+The program has more than \textit{n} different identifiers.
+
+\ErrorEntry{LEX-9}{9}{char pool invariant failed}{}
+The compiler found its table of identifiers in an impossible state.  This
+message reports an error in the compiler, not in your program.
+\begin{itemize}
+\item Note the program and the message and report them to Initech
+  Technical Support.
+\end{itemize}
+
+\ErrorEntry{LEX-10}{10}{decimal integer exceeds 2147483647}{}
+A number in the source is larger than the largest value of the type
+\rw{integer}.
+
+\ErrorEntry{LEX-UNKNOWN}{}{unknown lexer failure code=}{\textit{n}}
+The lexical pass failed for a reason it has no message for.  This reports
+an error in the compiler; report it to Initech Technical Support.
+
+\section{Syntax errors}
+\ix{syntax errors}
+A syntax error is reported in a \code{TPS-PARSE-ERROR} line.  \code{found=}
+names the token that the compiler found at the position, by its kind
+(Appendix B), and \code{expected=} names what the grammar allows there:
+either the kind of token required, such as \code{SEMI} for a semicolon or
+\code{KW\_END} for the reserved word \rw{end}, or one of the following
+categories.
+
+\ErrorEntry{PARSE-FACTOR}{}{expected=FACTOR}{}
+An operand was expected: a number, a string literal, a constant or
+variable name, a function call, \rw{true}, \rw{false}, \rw{not}, a minus
+sign or an opening parenthesis (the \textit{factor} diagram, Chapter 5).
+
+\ErrorEntry{PARSE-TYPE_NAME}{}{expected=TYPE_NAME}{}
+A type was expected after the colon of a variable, parameter or field
+declaration, or a name was expected after \rw{type}: \rw{integer},
+\rw{boolean}, \rw{char}, \rw{file}, \rw{string} or the name of a record type
+(the \textit{type-name} and \textit{field-group} diagrams, Chapter 3).
+Fields may only be of type \rw{integer}, \rw{boolean} or \rw{char}.
+
+\ErrorEntry{PARSE-RESULT_TYPE}{}{expected=RESULT_TYPE}{}
+A function's result type must be \rw{integer}, \rw{boolean} or \rw{char}.
+
+\ErrorEntry{PARSE-CONST_LITERAL}{}{expected=CONST_LITERAL}{}
+A constant declaration needs a name, and after the equal sign a number,
+a string literal, \rw{true} or \rw{false}; a minus sign must be followed by
+a number.
+
+\ErrorEntry{PARSE-PARAM_NAME}{}{expected=PARAM_NAME}{}
+A parameter name was expected in a parameter list.
+
+\ErrorEntry{PARSE-FIELD_NAME}{}{expected=FIELD_NAME}{}
+A field name was expected, in a record type or after a period in a
+variable reference.
+
+\ErrorEntry{PARSE-VAR_NAME}{}{expected=VAR_NAME}{}
+A variable name was expected, in a variable declaration or after \rw{for}.
+
+\ErrorEntry{PARSE-ROUTINE_NAME}{}{expected=ROUTINE_NAME}{}
+A name was expected after \rw{procedure} or \rw{function}.
+
+\ErrorEntry{PARSE-PROGRAM_NAME}{}{expected=PROGRAM_NAME}{}
+A name was expected after \rw{program}.
+
+\ErrorEntry{PARSE-ARRAY_BOUND}{}{expected=ARRAY_BOUND}{}
+An array bound or string capacity must be a number, a minus sign and a
+number, or the name of a constant.
+
+\ErrorEntry{PARSE-TO_OR_DOWNTO}{}{expected=TO_OR_DOWNTO}{}
+A \rw{for} statement needs \rw{to} or \rw{downto} after its initial value.
+
+\ErrorEntry{PARSE-NO_CHAINED_RELATION}{}{expected=NO_CHAINED_RELATION}{}
+An expression has a second relational operator, as in \code{A < B = C}.
+\begin{itemize}
+\item Put one of the relations in parentheses: \code{(A < B) = C}.
+\end{itemize}
+
+\section{Semantic errors}
+\ix{semantic errors}
+\ix{type errors}
+These are reported in a \code{TPS-TYPE-ERROR} line after the syntax has been
+accepted (the parse pass has printed \code{TPS-PARSE-OK}).
+
+\ErrorEntry{TYPE-1}{1}{duplicate identifier:}{ \textit{name}}
+The name is declared twice in the same scope (Chapter 2): two globals, or
+two parameters or locals of one routine.  The position is that of the
+second declaration.
+
+\Source{err-twice}
+
+\CompilerOutput{err-twice}{ERR}
+
+\ErrorEntry{TYPE-2}{2}{unknown type:}{ \textit{name}}
+The name used as a type is not a record type declared before this point.
+
+\ErrorEntry{TYPE-3}{3}{type mismatch in assignment: expected}{ \textit{type}
+  \code{got} \textit{type}}
+The value assigned is not of the type of the target (Chapter 6).
+\begin{itemize}
+\item Convert between characters and integers with \std{ord}{Ord} and
+  \std{chr}{Chr}.
+\item Assign a string to a character element, \code{S[I]}, only one
+  character at a time.
+\end{itemize}
+
+\Source{err-mixed}
+
+\CompilerOutput{err-mixed}{ERR}
+
+\ErrorEntry{TYPE-4}{4}{var parameter requires a variable: argument}{
+  \textit{n} \code{of} \textit{routine}}
+The \textit{n}th argument of a call is a constant or an expression, but the
+parameter is a \rw{var} parameter (Chapter 7).
+
+\ErrorEntry{TYPE-5}{5}{array bound requires an integer literal or integer constant}{}
+An array bound or string capacity names something that is not an integer
+constant.
+
+\ErrorEntry{TYPE-6}{6}{file variables cannot be assigned}{}
+The target of an assignment is a file variable.
+
+\ErrorEntry{TYPE-7}{7}{semantic rule violation}{}
+The program breaks a rule of the language that has no message of its own.
+The position points at the construct concerned.  The rules are:
+\begin{itemize}
+\item a name is used that is not declared before this point, including a
+  call of a routine declared later without \rw{forward};
+\item a call has the wrong number of arguments, or an argument of the wrong
+  type;
+\item a function is called as a statement, or a procedure in an expression;
+\item the condition of \rw{if}, \rw{while} or \rw{repeat} is not Boolean;
+\item an operand is of the wrong type for its operator, or two operands of a
+  relation differ in type, or records are compared;
+\item an array is indexed with something that is not an integer, or a name
+  that is not an array or string is indexed;
+\item the control variable of \rw{for} is not an integer variable, or a
+  bound is not an integer;
+\item a constant, a function name outside its own function, or an array as
+  a whole is assigned;
+\item a \rw{write} argument is a record, an array or a file;
+\item \std{ord}{Ord}, \std{chr}{Chr} or \std{length}{Length} is given an
+  argument of the wrong type;
+\item a parameter or array element has a type that is not allowed there
+  (Chapters 3 and 7), or a string capacity is not between 1 and 255, or an
+  array's lower bound is greater than its upper bound;
+\item a full declaration differs from its \rw{forward} heading, or a
+  \rw{forward} declaration is never completed;
+\item a file procedure is called with the wrong arguments, or a file
+  variable is used anywhere else;
+\item a standard file routine's name is declared;
+\item a capacity of the compiler is exceeded: more than 1,024 rows in the
+  symbol table, 32 parameters or arguments, or 32 names in one declaration
+  list (\doctitle{User's Guide}, Chapter 8).
+\end{itemize}
+
+\Source{err-cond}
+
+\CompilerOutput{err-cond}{ERR}
+
+\ErrorEntry{TYPE-UNKNOWN}{}{unknown semantic failure code=}{\textit{n}}
+The semantic pass failed for a reason it has no message for.  This reports
+an error in the compiler; report it to Initech Technical Support.
+
+\section{Code-generation errors}
+\ix{code-generation errors}
+These are reported in a \code{TPS-GEN-ERROR} line.  The code generator
+runs only after the first three passes have accepted the program, so its
+messages, except the first, report errors in the compiler.
+
+\ErrorEntry{GEN-1}{1}{output short write}{}
+The compiler could not write all of \file{TPSOUT.S}.
+\begin{itemize}
+\item Make room on the disk, or check that the disk is not write-protected,
+  and compile again.
+\end{itemize}
+
+\ErrorEntry{GEN-2}{2}{invalid symbol storage}{}
+The code generator found a symbol it has no storage rule for.
+
+\ErrorEntry{GEN-3}{3}{invalid expression storage}{}
+The code generator found an expression it has no storage rule for.
+
+\ErrorEntry{GEN-4}{4}{call stack invariant}{}
+The code generator lost track of the values on the stack around a call.
+
+\ErrorEntry{GEN-UNKNOWN}{}{internal invariant code=}{\textit{n}}
+The code generator met an error that one of the earlier passes should have
+reported.  \textit{n} identifies it: 100 plus the number of a semantic
+error above, 300 plus the number of a lexical error above, or 200 plus the
+compiler's internal number for what a syntax error expected.
+\begin{itemize}
+\item Report the program and the message to Initech Technical Support.
+\end{itemize}
+
+\section{Run-time errors}
+\ix{run-time errors}
+A Turbo Initech program reports one run-time error, from the file
+routines, on COM1 (Chapter 12), and then ends with exit code 1.
+
+\ErrorEntry{RUN-FILEIO}{}{FILEIO-ERROR AX=}{\textit{code}}
+A file operation failed.  \textit{code} is one of these:
+
+\begin{BorTable}{File error codes}{p{12mm}p{86mm}}
+\Hd{Code} & \Hd{Meaning}\EndHd
+1 & the record size given to \std{reset}{Reset} or \std{rewrite}{Rewrite} is
+  not 1, or the count given to \std{blockread}{BlockRead} or
+  \std{blockwrite}{BlockWrite} is negative\\
+2 & the file does not exist\\
+3 & the path does not exist\\
+4 & too many files are open\\
+5 & access is denied\\
+6 & the file is not open\\
+\end{BorTable}

@@ -1,0 +1,186 @@
+% Appendix A -- The run-time library interface.  One entry per global entry
+% point of the run-time objects (seed/rt/start.asm, start_dos.asm,
+% fileio.asm) and per string routine Turbo Initech writes into a program
+% (os/tps/tps.pas the __str_* prelude; os/tps/CODEGEN.md s5); KIND
+% rtlentry of the generated inventory, both directions.  Sources (Law 1):
+% the assembly sources named above (register use, INT 21h functions, the
+% mutation entries SEED_MUT_FILEIO_SHORT_WRITE / _WRONG_HANDLE and the gate
+% that uses them, test-seed-fileio-os-mutant).
+\Gates{test-tps-gen-fpc, test-tps-gen-os, test-seed-fileio-fpc, test-seed-fileio-build, test-seed-fileio-os-mutant, test-compiler-os, test-pubs-turbo}
+\NoLetterTabs
+\chapter{The run-time library interface}
+\ix{run-time library, interface}
+\ix{entry points}
+
+This appendix describes, for programmers who read the assembly language
+written by Turbo Initech, every entry point that a compiled program calls
+or provides.  The entry points come from three places:
+
+\begin{itemize}
+\item the start object, linked first into every program, which contains
+  the entry point \code{\_start} and the output routines;
+\item the file object, linked into every program, which contains the
+  \code{rtl\_file\_} routines;
+\item the program itself: when a program uses strings, Turbo Initech writes
+  the four \code{\_\_str\_} routines into its \file{TPSOUT.S}.
+\end{itemize}
+
+There are two start objects.  The InitechDOS start object makes a
+\file{.COM} program; the stand-alone start object, used on the development
+system to test programs that do not use files, is loaded at the first
+megabyte of memory by the development system's loader, has its own 16K
+stack, and ends by writing to I/O port F4h and halting.  Both contain the
+same output routines, byte for byte.
+
+\section{The start object}
+
+\begin{RtlEntry}{_start}{\_start}
+\LFunction The entry point of every Turbo Initech program.
+\LCalling Not called: InitechDOS starts the program here, at its first byte.
+\LRemarks In the InitechDOS start object, \code{\_start} sets every byte of
+the \code{.bss} section to zero, loads the stack pointer with 7FFFCh, calls
+\code{pas\_main}, and ends the program with INT 21h function 4Ch and
+exit code 0.
+\LSeeAlso \code{pas\_main} (Programmer's Guide, Chapter 11)
+\end{RtlEntry}
+
+\begin{RtlEntry}{serial_putc}{serial\_putc}
+\LFunction Writes one character to COM1.
+\LCalling AL = the character; \code{call serial\_putc}.
+\LRemarks Writes AL to the data port of COM1 (3F8h).  Changes DX.
+\std{write}{Write} calls it for a \rw{char} argument and for the line end
+of \std{writeln}{Writeln}.
+\LSeeAlso \code{serial\_puts}, \code{serial\_put\_int}
+\end{RtlEntry}
+
+\begin{RtlEntry}{serial_puts}{serial\_puts}
+\LFunction Writes a string of bytes ended by a zero byte to COM1.
+\LCalling EAX = the address of the first byte; \code{call serial\_puts}.
+\LRemarks Writes each byte up to, not including, the first zero byte.
+Preserves ESI; changes EAX and DX.  \std{write}{Write} calls it for a string
+literal and for the texts \code{TRUE} and \code{FALSE}.
+\LSeeAlso \code{serial\_putc}
+\end{RtlEntry}
+
+\begin{RtlEntry}{serial_put_int}{serial\_put\_int}
+\LFunction Writes a signed integer to COM1 in decimal.
+\LCalling EAX = the integer; \code{call serial\_put\_int}.
+\LRemarks Writes a minus sign for a negative value, then the digits, with
+no leading zeros or spaces.  Changes EAX, EBX, ECX and EDX; preserves ESI.
+\LSeeAlso \code{serial\_putc}
+\end{RtlEntry}
+
+\section{The file object}
+The file routines use the C calling convention of the compiled code
+(Programmer's Guide, Chapter 11): the arguments are pushed last first, the
+caller removes them, and EBX, ESI, EDI and EBP are preserved.  Each takes
+the address of a file variable as its first argument.  When InitechDOS
+reports an error, each routine writes \code{FILEIO-ERROR AX=}\textit{code}
+to COM1 and ends the program with exit code 1.
+
+\begin{RtlEntry}{rtl_file_assign}{rtl\_file\_assign}
+\LFunction The code of \std{assign}{Assign}.
+\LCalling \code{push} the address of the name (a string with its length
+byte), \code{push} the address of the file variable, \code{call}.
+\LRemarks Closes the file if its handle is that of an open file, copies the
+name into the file variable as bytes ended by a zero byte, and marks the
+file closed.
+\LSeeAlso \code{rtl\_file\_reset}, \code{rtl\_file\_rewrite}
+\end{RtlEntry}
+
+\begin{RtlEntry}{rtl_file_reset}{rtl\_file\_reset}
+\LFunction The code of \std{reset}{Reset}.
+\LCalling \code{push} the record size, \code{push} the address of the file
+variable, \code{call}.
+\LRemarks Refuses a record size other than 1 (code 1).  Closes the file if
+it is open, then opens the named file for reading with INT 21h function
+3Dh and stores the handle.
+\LSeeAlso \code{rtl\_file\_blockread}
+\end{RtlEntry}
+
+\begin{RtlEntry}{rtl_file_rewrite}{rtl\_file\_rewrite}
+\LFunction The code of \std{rewrite}{Rewrite}.
+\LCalling As for \code{rtl\_file\_reset}.
+\LRemarks Refuses a record size other than 1.  Closes the file if it is
+open, then creates the named file, or empties it, with INT 21h function
+3Ch and normal attributes, and stores the handle.
+\LSeeAlso \code{rtl\_file\_blockwrite}
+\end{RtlEntry}
+
+\begin{RtlEntry}{rtl_file_blockread}{rtl\_file\_blockread}
+\LFunction The code of \std{blockread}{BlockRead}.
+\LCalling \code{push} the address of the result variable, \code{push} the
+count, \code{push} the address of the buffer, \code{push} the address of
+the file variable, \code{call}.
+\LRemarks Refuses a negative count (code 1).  Reads with INT 21h function
+3Fh and stores the number of bytes read in the result variable.
+\LSeeAlso \code{rtl\_file\_blockwrite}
+\end{RtlEntry}
+
+\begin{RtlEntry}{rtl_file_blockwrite}{rtl\_file\_blockwrite}
+\LFunction The code of \std{blockwrite}{BlockWrite}.
+\LCalling As for \code{rtl\_file\_blockread}.
+\LRemarks Refuses a negative count.  Writes with INT 21h function 40h and
+stores the number of bytes written in the result variable.
+\LSeeAlso \code{rtl\_file\_blockread}
+\end{RtlEntry}
+
+\begin{RtlEntry}{rtl_file_blockwrite_short}{rtl\_file\_blockwrite\_short}
+\LFunction A test entry that writes one byte less than asked and reports
+the full count.
+\LCalling As for \code{rtl\_file\_blockwrite}.
+\LRemarks Turbo Initech never calls this entry.  It exists so that the
+tests of the run-time library can prove that they detect a write that
+loses data.
+\LSeeAlso \code{rtl\_file\_blockwrite\_wrong\_handle}
+\end{RtlEntry}
+
+\begin{RtlEntry}{rtl_file_blockwrite_wrong_handle}{rtl\_file\_blockwrite\_wrong\_handle}
+\LFunction A test entry that writes to the handle after the file's own.
+\LCalling As for \code{rtl\_file\_blockwrite}.
+\LRemarks Turbo Initech never calls this entry.  It exists so that the
+tests of the run-time library can prove that they detect a write to the
+wrong file.
+\LSeeAlso \code{rtl\_file\_blockwrite\_short}
+\end{RtlEntry}
+
+\section{The string routines}
+Turbo Initech writes these four routines into \file{TPSOUT.S} when, and
+only when, the program uses strings.  They take their arguments in
+registers.  A string is addressed by its length byte.
+
+\begin{RtlEntry}{__str_assign}{\_\_str\_assign}
+\LFunction Copies a string into a string variable, cutting it to the
+variable's capacity.
+\LCalling ESI = the source, EDI = the target, ECX = the capacity of the
+target; \code{call \_\_str\_assign}.
+\LRemarks Stores the smaller of the source length and the capacity as the
+length of the target, then copies that many characters.
+\LSeeAlso \code{\_\_str\_concat}
+\end{RtlEntry}
+
+\begin{RtlEntry}{__str_concat}{\_\_str\_concat}
+\LFunction Appends one string to another.
+\LCalling EDI = the string appended to, ESI = the string appended;
+\code{call \_\_str\_concat}.
+\LRemarks Appends as many characters as fit in 255 and sets the new length.
+\LSeeAlso \code{\_\_str\_assign}
+\end{RtlEntry}
+
+\begin{RtlEntry}{__str_cmp}{\_\_str\_cmp}
+\LFunction Compares two strings.
+\LCalling ESI = the left string, EDI = the right string;
+\code{call \_\_str\_cmp}.
+\LRemarks Compares the characters as unsigned bytes up to the shorter
+length, then the lengths.  Returns $-1$, 0 or 1 in EAX for less than, equal
+to and greater than.
+\LSeeAlso \code{\_\_str\_write}
+\end{RtlEntry}
+
+\begin{RtlEntry}{__str_write}{\_\_str\_write}
+\LFunction Writes the characters of a string to COM1.
+\LCalling ESI = the string; \code{call \_\_str\_write}.
+\LRemarks Writes as many characters as the length byte gives, one at a time
+through \code{serial\_putc}.
+\LSeeAlso \code{serial\_putc}
+\end{RtlEntry}

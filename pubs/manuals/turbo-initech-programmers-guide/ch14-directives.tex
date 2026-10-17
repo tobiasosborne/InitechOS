@@ -1,0 +1,36 @@
+% Chapter 14 -- Compiler directives (model: TP 6.0 PG Ch 21).  Turbo Initech
+% recognizes no directives: os/tps/tps.pas SkipTrivia skips every brace and
+% paren-star comment whatever its first character, and the inventory of the
+% shipped compiler has no directive (tps_gate inventory).  The example is
+% compiled by Turbo Initech and run on InitechDOS by test-pubs-turbo.
+\Gates{test-tps-lex-fpc, test-compiler, test-pubs-turbo}
+\chapter{Compiler directives}
+\ix{compiler directives}
+\ix{directives}
+
+Turbo Initech has no compiler directives.  Every choice that other
+compilers leave to a directive is fixed by the language:
+
+\begin{BorTable}{Fixed settings}{p{40mm}p{58mm}}
+\Hd{Setting} & \Hd{Turbo Initech}\EndHd
+Boolean evaluation & always complete (Chapter 5)\\
+String type & \rw{string} is a string of capacity 255 with a length byte\\
+Size of \rw{integer} & 32 bits\\
+Range and overflow checking & none (Chapters 3 and 4)\\
+Input and output checking & always on: a failed file operation ends the
+  program (Chapter 12)\\
+Include files and units & none: a program is one file (Chapter 8)\\
+Conditional compilation & none\\
+\end{BorTable}
+
+A comment that begins with a dollar sign is an ordinary comment.  The
+following program compiles and runs; the two comments have no effect, and
+the file \file{MISSING.INC} is not read:
+
+\DosProgram{dollar}
+
+\ProgramOutput{dollar}
+
+The compiler reports a clean compilation:
+
+\CompilerOutput{dollar}{ERR}

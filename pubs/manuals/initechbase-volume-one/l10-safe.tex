@@ -1,0 +1,84 @@
+% Learning InitechBase, Chapter 10: Keeping Your Data Safe (AN-16).  Every
+% panel replayed (examples/l10-*.dot); sources cmd/mutate.c (writes at once,
+% m_confirm_file for ZAP, RECALL), cmd/set.c (SAFETY).
+\chapter{Keeping Your Data Safe}
+\Gates{test-pubs-examples, test-interp-replace, test-samir-safety-emu}
+InitechBase writes every change to the disk at once: there is no separate
+step that saves your work, and no command that takes a change back.  This
+lesson gathers the habits that keep the records of Initech safe while you work
+with them.
+
+\begin{ChapterCovers}
+\item Working copies
+\item Looking before you change
+\item Keeping a value before you change it
+\item Deleting without losing
+\item The confirmation of ZAP
+\item Leaving InitechBase properly
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.
+
+\ATEHead{Working Copies}
+Keep the original diskettes in their package and work on copies.  Before a
+change to many records, and at the end of each day's work, copy your databases,
+their memo files and their index files to a diskette with the InitechDOS
+command \file{COPY}.  A database is several files: \file{STAFF.DBF} needs
+\file{STAFF.DBT} and its index files with it.
+
+\ATEHead{Look Before You Change}
+\cmd{REPLACE}, \cmd{DELETE} and \cmd{RECALL} with \kw{FOR} change every record
+that meets the condition.  List the records with the same condition first, and
+change them only when the list is what you expect:
+\begin{Steps}
+\item Type \type{USE STAFF}.
+\item Type \type{LIST LASTNAME, SALARY FOR SALARY > 100000}.
+\item Type \type{REPLACE SALARY WITH SALARY - 10000 FOR SALARY > 100000}.
+\item Type \type{LIST LASTNAME, SALARY FOR LASTNAME = 'PORTER'}.
+\end{Steps}
+\DotExample{examples/l10-check}
+
+\ATEHead{Keep the Old Value}
+When you change one field of one record, store the old value in a memory
+variable first.  If the change was wrong, \cmd{REPLACE} puts the old value
+back:
+\DotExample{examples/l10-undo}
+
+\ATEHead{Deleting Without Losing}
+\cmd{DELETE} only marks records.  While the records are marked, \cmd{RECALL}
+brings them all back; only \cmd{PACK} removes them.
+\DotExample{examples/l10-recall}
+Wait until you are sure before you \cmd{PACK}, and copy the database first.
+
+\ATEHead{The Confirmation of ZAP}
+\cmd{ZAP} removes every record at once.  While SET SAFETY is ON, it names the
+database and asks for confirmation; any answer but Y leaves the records where
+they are:
+\begin{Steps}[resume]
+\item Type \type{USE INVOICE}, then \type{? RECCOUNT()}.
+\item Type \type{ZAP} and answer \type{N}.
+\item Type \type{? RECCOUNT()}.
+\end{Steps}
+\DotExample{examples/l10-zapno}
+Leave SET SAFETY ON.
+
+\ATEHead{Leaving Properly}
+Leave InitechBase with \cmd{QUIT} before you turn off the computer or take out
+a diskette.  \cmd{QUIT} closes every database with its index files, so that
+the files on the disk agree with one another.
+
+\ATEHead{Where Do You Go From Here?}
+You have finished \doctitle{Learning InitechBase}.  \doctitle{Using
+InitechBase}, the next section of this volume, describes every command and
+function in full, and \doctitle{Programming with InitechBase}, in Volume Two,
+teaches you to write programs.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Changes are written to the disk at once; work on copies.
+\item List with the same \kw{FOR} condition before you change records.
+\item Keep an old value in a memory variable before you replace it.
+\item \cmd{RECALL} brings back marked records until \cmd{PACK} removes them.
+\item Leave SET SAFETY ON; leave InitechBase with \cmd{QUIT}.
+\end{enumerate}

@@ -1,0 +1,14 @@
+TPS-TYPE-BEGIN
+SCOPE global bytes=8
+SYM kind=var name=gross type=integer offset=0 size=4
+SYM kind=var name=net type=integer offset=4 size=4
+SYM kind=function name=withholding type=integer params=1 state=defined frame=4
+SYM kind=procedure name=report type=none params=2 state=defined frame=0
+SCOPE routine name=withholding frame=4
+SYM kind=value-param name=cents type=integer offset=8 size=4
+SYM kind=result name=withholding type=integer offset=-4 size=4
+SCOPE routine name=report frame=0
+SYM kind=value-param name=tag type=char offset=8 size=4
+SYM kind=value-param name=cents type=integer offset=12 size=4
+TPS-TYPE-OK
+TPS-TYPE-END

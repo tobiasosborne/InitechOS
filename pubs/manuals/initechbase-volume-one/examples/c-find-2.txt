@@ -1,0 +1,5 @@
+. USE STAFF INDEX STAFFNAM
+. FIND PRUETT
+. ? FOUND(), EOF()
+
+.F. .T.

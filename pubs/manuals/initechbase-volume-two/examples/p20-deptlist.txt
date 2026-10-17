@@ -1,0 +1,11 @@
+. USE STAFF
+. DO DEPTLIST
+Department code: acct
+
+Record#  LASTNAME       FIRSTNAME  EXT
+     12  PRUITT         CAROL      1430
+*     13  CHEN           ROBERT     1431
+. DO DEPTLIST
+Department code: mktg
+
+NO STAFF IN MKTG

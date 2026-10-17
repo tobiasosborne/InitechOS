@@ -41,7 +41,7 @@
 #  define SCRAP_PANIC(msg)  abort()
 #else
 /* Freestanding: deliberate, loud, deterministic hang (Rule 2 / Rule 11). */
-#  define SCRAP_PANIC(msg)  do { for (;;) { } } while (0)
+#  define SCRAP_PANIC(msg)  do { (void)(msg); __builtin_trap(); } while (0)
 #endif
 
 /* ---------------------------------------------------------------------------
@@ -139,6 +139,10 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
     int idx;
 
     if (s == NULL) SCRAP_PANIC("FlairPutScrap: NULL argument (contract error)");
+#ifndef SCRAP_MUT_NULL_DATA
+    /* m1ry: address zero is readable IVT memory in the flat kernel. */
+    if (data == NULL && len != 0u) SCRAP_PANIC("FlairPutScrap: NULL data");
+#endif
 
     /* Rule 2: fail loud on over-size -- NEVER silently truncate. */
     if (len > FLAIR_SCRAP_MAX_PAYLOAD)
@@ -154,8 +158,10 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
     }
 
     /* APPEND a new flavor. */
+#ifndef SCRAP_MUT_FULL_FLAVOR
     if (s->n_flavors >= FLAIR_SCRAP_MAX_FLAVORS)
         return FLAIR_SCRAP_ERR_NO_FLAVOR;
+#endif
 
     {
         uint32_t slot = s->n_flavors;

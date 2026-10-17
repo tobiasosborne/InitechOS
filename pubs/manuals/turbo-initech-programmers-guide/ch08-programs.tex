@@ -1,0 +1,67 @@
+% Chapter 8 -- Programs (model: TP 6.0 PG Ch 9 "Programs and units"; units
+% are deferred past the fixed point, ADR-0007 DEC-02, so the chapter
+% defines the single-file program).
+% Sources (Law 1): ADR-0007 DEC-02 (single-file bootstrap; units deferred),
+% DEC-05 (entry stub calls the program body); os/tps/tps.pas ParseProgram
+% and the fixed names TPSIN.PAS / TPSOUT.S; seed/rt/start_dos.asm (entry:
+% .bss zeroed, pas_main, INT 21h AH=4Ch AL=0); os/tps/LEXER-DUMP.md.
+\Gates{test-tps-gen-fpc, test-tps-gen-os, test-compiler, test-compiler-os, test-pubs-turbo}
+\chapter{Programs}
+\ix{programs}
+\ix{units}
+
+A Turbo Initech program is one source file.  There are no units and no
+include files: everything the program uses, apart from the standard
+routines, is declared in that file.  This chapter shows how a complete
+program is arranged and what happens when it runs.
+
+\section{The arrangement of a program}
+\ix{program structure}
+The syntax of a program is given in Chapter 2.  Because every name must be
+declared before it is used, programs are usually written in this order:
+
+\begin{enumerate}
+\item the program heading;
+\item the constants, which array bounds and string capacities need;
+\item the record types;
+\item the global variables that the routines use;
+\item the procedures and functions, each after the routines it calls,
+  with \rw{forward} declarations where two routines call each other;
+\item any global variables used only by the main block;
+\item the main block, ending in a period.
+\end{enumerate}
+
+Sections of each kind may be repeated and mixed in any order that keeps
+declarations before their uses.
+
+\Program{ledger}
+
+\ProgramOutput{ledger}
+
+The program declares the variable \id{Heading} after the routines, since
+only the main block uses it.  The procedure \id{Report} receives the title
+through a \rw{var} parameter of type \rw{string}; the main block copies
+\id{Title}, a \code{string[24]}, into a \rw{string} variable to pass it,
+because a \rw{var} \rw{string} parameter accepts only a string of capacity 255
+(Chapter 7).
+
+\section{Compiling a program}
+\ix{compiling}
+\ix{TPSIN.PAS}
+\ix{TPSOUT.S}
+The compiler reads the program from the file \file{TPSIN.PAS} in the
+current directory and writes the assembly-language translation to
+\file{TPSOUT.S}.  The program name in the heading need not match any file
+name.  The \doctitle{User's Guide}, Chapter 8, describes the compiler's
+command, its output and its capacities; Chapter 13 of this book describes
+the code it writes, and Chapter 15 the assembly-language file.
+
+\section{Running a program}
+\ix{running a program}
+When a Turbo Initech program is loaded by InitechDOS, the run-time library
+first sets every global variable to zero and then executes the main block.
+When the main block ends, the program returns to InitechDOS with exit code
+0, and InitechDOS closes any files the program left open.  A program that
+stops because of a file error returns exit code 1 (Chapter 12).  There is
+no procedure that ends a program early; a program ends by reaching the end
+of its main block.

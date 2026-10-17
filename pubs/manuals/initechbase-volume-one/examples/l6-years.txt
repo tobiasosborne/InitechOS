@@ -1,0 +1,5 @@
+. USE STAFF
+. GO 9
+. ? INT((DATE() - HIRED) / 365)
+
+4

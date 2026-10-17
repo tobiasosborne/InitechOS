@@ -70,7 +70,9 @@
     "MSG-DOS-0057": "Cannot edit .BAK file--rename file",
     "MSG-DOS-0058": "WARNING! Backup file is read-only -- backup\r\nwill not be made",
     "MSG-DOS-0059": "Invalid number of parameters",
-    "MSG-DOS-0060": "Insufficient memory"
+    "MSG-DOS-0060": "Insufficient memory",
+    "MSG-DOS-0061": " File(s) copied",
+    "MSG-DOS-0062": "Duplicate file name"
   },
   "citations": {
     "MSG-DOS-0021": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.28-29 / PDF 41-42; ADR-0003 Appendix C LOOK amendment (initech-vjtp/d31e/b0qk/irp2/veub)",
@@ -112,6 +114,8 @@
     "MSG-DOS-0057": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.162-164,170-193,313; independent harness/edlin/model.c and test-edlin-emu transcript",
     "MSG-DOS-0058": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.162-164,170-193,313; independent harness/edlin/model.c and test-edlin-emu transcript",
     "MSG-DOS-0059": "MS-DOS_3.3_Users_Guide_198707.pdf printed p.341 / PDF 426; exact manual wording replaces inherited 'FIND: Parameter format not correct'; alias retained to avoid renumbering the extraction inventory",
-    "MSG-DOS-0060": "MS-DOS_3.3_Users_Guide_198707.pdf printed p.337 / PDF 422; exact manual wording replaces inherited 'SORT: Insufficient memory'; alias retained to avoid renumbering the extraction inventory"
+    "MSG-DOS-0060": "MS-DOS_3.3_Users_Guide_198707.pdf printed p.337 / PDF 422; exact manual wording replaces inherited 'SORT: Insufficient memory'; alias retained to avoid renumbering the extraction inventory",
+    "MSG-DOS-0061": "MS-DOS_3.3_Users_Guide_198707.pdf Reference p.50 / PDF135: COPY count footer (capital F), count formatted separately",
+    "MSG-DOS-0062": "MS-DOS_3.3_Users_Guide_198707.pdf Reference p.325 / PDF410: Rename collision or missing source"
   }
 }

@@ -1,0 +1,11 @@
+. USE STAFF
+. DO NOTES
+
+LUMBERGH: Division vice president.  Reviews the TPS reports each Friday.
+GIBBONS: Date conversion project, banking client.
+BOLTON: Date conversion project, banking client.
+NAGHEENANAJAR: Date conversion project, banking client.
+WADDAMS: Collating.  Moved to storage room B, basement level.
+SMYKOWSKI: Takes the specifications from the customers to the engineers.
+ALBRIGHT: Corporate accounts payable.
+PRUITT: Month-end close and accounts receivable.

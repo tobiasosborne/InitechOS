@@ -1,0 +1,238 @@
+% Chapter 1 -- The run-time library (model: TP 6.0 LR Ch 1 [bor s4.3,
+% s6.1]): the self-describing Sample procedure, then one AN-12 entry per
+% routine, A-Z.  PUB-REF-0001 AN-12, PG-16 guide words, PG-31 letter tabs,
+% CP-18 (one entry per shipped RTL routine).
+% Sources (Law 1): os/tps/tps.pas ParseWrite/ParseWriteArg (argument
+% types, TRUE/FALSE, literal-first rule), ParseFactor Ord/Chr/Length, the
+% file-call checks (argument counts and forms; Reset/Rewrite size defaults
+% to 1), NameIsFileBuiltin; seed/rt/fileio.asm (Assign closes and copies
+% the ASCIIZ name; Reset AH=3Dh read-only; Rewrite AH=3Ch create/truncate;
+% BlockRead AH=3Fh; BlockWrite AH=40h; record size 1; negative count;
+% FILEIO-ERROR AX= and exit 1); seed/rt/start*.asm serial_* (COM1).  Every
+% rule was checked by compiling probes with the shipped compiler; the
+% examples are replayed by test-pubs-turbo (Free Pascal; the file examples run
+% on InitechDOS).
+\Gates{test-tps-type-fpc, test-tps-gen-fpc, test-seed-fileio-fpc, test-compiler, test-compiler-os, test-pubs-turbo}
+\LibraryHeads
+\LetterTabs
+\chapter{The run-time library}
+\ix{run-time library}
+
+This chapter describes every standard procedure and function of Turbo
+Initech in alphabetical order.  The first entry is a sample that shows how
+the entries are arranged.
+
+\begin{LibEntry}{Sample}{procedure}{}
+\LFunction What the routine does, in one sentence.
+\LDeclaration The heading of the routine, as it would be declared in
+Pascal.  The standard routines are built into the compiler, and some of
+them accept arguments that a declared routine could not; the Remarks say
+so.
+\LResultType For a function, the type of the value it returns.
+\LRemarks What each parameter means, what the routine does in every case,
+and what happens when it fails.
+\LRestrictions What the routine cannot be used for.
+\LArrow A remark that you should not overlook.
+\LSeeAlso Related routines.
+\LExample A complete program that uses the routine, and the output it
+produces.  You can compile every example as it stands.
+\end{LibEntry}
+
+\begin{LibEntry}{Assign}{procedure}{assign}
+\LFunction Names the InitechDOS file that a file variable is to use.
+\LDeclaration \Decl{\textbf{procedure} Assign(\textbf{var} F: \textbf{file}; Name: \textbf{string})}
+\LRemarks \textit{F} is a variable of type \rw{file}, named by itself.
+\textit{Name} is an expression of type \rw{string} or \rw{char}: the file
+name, with drive and directory if needed, in the form InitechDOS accepts.
+\std{assign}{Assign} records the name for the next \std{reset}{Reset} or
+\std{rewrite}{Rewrite} of \textit{F}; it does not open the file, and does not
+check that the file exists.  If \textit{F} is open, \std{assign}{Assign}
+closes it first.
+\LRestrictions \std{assign}{Assign} cannot be used in an expression.
+\LSeeAlso \std{reset}{Reset}, \std{rewrite}{Rewrite}
+\LExample
+\Program{assign}
+\ProgramOutput{assign}
+\end{LibEntry}
+
+\begin{LibEntry}{BlockRead}{procedure}{blockread}
+\LFunction Reads bytes from a file into a string variable.
+\LDeclaration \Decl{\textbf{procedure} BlockRead(\textbf{var} F: \textbf{file}; \textbf{var} Buf: \textbf{char}; Count: \textbf{integer}; \textbf{var} Result: \textbf{integer})}
+\LRemarks \textit{F} is a file opened by \std{reset}{Reset}.  \textit{Buf} is
+a character of a string variable, such as \code{S[1]}: the first byte read
+is stored there and the following bytes after it.  \textit{Count} is the
+number of bytes to read.  \textit{Result}, an integer variable, receives the
+number of bytes actually read, which is less than \textit{Count} when the
+end of the file is reached and 0 when the file is already at its end.
+The bytes are read from the current position of the file, which then
+advances by \textit{Result}.
+
+\std{blockread}{BlockRead} does not change the length of the string that
+holds \textit{Buf}.  Set the length first, for example by assigning a string
+of the right length, so that the characters read are part of the string's
+value.
+
+If InitechDOS reports an error, or \textit{Count} is negative, the program
+ends with the message \code{FILEIO-ERROR AX=}\textit{code} on COM1 and exit
+code 1.
+\LRestrictions \textit{Buf} must be a character of a variable of a
+\rw{string} type.  \textit{Result} must be an integer variable named by itself.
+\LArrow\std{blockread}{BlockRead} does not check that \textit{Count} bytes fit
+in the string after \textit{Buf}; the bytes beyond its capacity overwrite
+whatever follows it in memory.
+\LSeeAlso \std{blockwrite}{BlockWrite}, \std{reset}{Reset}
+\LExample
+\Program{blockrd}
+\ProgramOutput{blockrd}
+The 16 bytes of the file are read in pieces of five; the last call reads
+the one byte that remains.
+\end{LibEntry}
+
+\begin{LibEntry}{BlockWrite}{procedure}{blockwrite}
+\LFunction Writes bytes from a string variable to a file.
+\LDeclaration \Decl{\textbf{procedure} BlockWrite(\textbf{var} F: \textbf{file}; \textbf{var} Buf: \textbf{char}; Count: \textbf{integer}; \textbf{var} Result: \textbf{integer})}
+\LRemarks \textit{F} is a file opened by \std{rewrite}{Rewrite}.  The
+\textit{Count} bytes starting at \textit{Buf}, a character of a string
+variable, are written at the current position of the file, which then
+advances.  \textit{Result} receives the number of bytes written.
+
+If InitechDOS reports an error, or \textit{Count} is negative, the program
+ends with the message \code{FILEIO-ERROR AX=}\textit{code} on COM1 and exit
+code 1.
+\LRestrictions As for \std{blockread}{BlockRead}.
+\LSeeAlso \std{blockread}{BlockRead}, \std{rewrite}{Rewrite}
+\LExample
+\Program{blockwr}
+\ProgramOutput{blockwr}
+\end{LibEntry}
+
+\begin{LibEntry}{Chr}{function}{chr}
+\LFunction Returns the character with a given code.
+\LDeclaration \Decl{\textbf{function} Chr(I: \textbf{integer}): \textbf{char}}
+\LResultType \rw{char}
+\LRemarks The result is the character whose code is the low eight bits of
+\textit{I}, that is, \textit{I} \rw{mod} 256 for a non-negative \textit{I}.
+\code{Chr(65)} is \code{'A'}; \code{Chr(321)} is \code{'A'} as well.
+\std{chr}{Chr} is a reserved word, written like a function call.
+\LSeeAlso \std{ord}{Ord}
+\LExample
+\Program{chr}
+\ProgramOutput{chr}
+\end{LibEntry}
+
+\begin{LibEntry}{Length}{function}{length}
+\LFunction Returns the current length of a string.
+\LDeclaration \Decl{\textbf{function} Length(S: \textbf{string}): \textbf{integer}}
+\LResultType \rw{integer}
+\LRemarks \textit{S} is an expression of a \rw{string} type.  The result is
+the number of characters in its current value, from 0 to the capacity of
+the string.  \std{length}{Length} is a reserved word, written like a
+function call.
+\LRestrictions The argument must be a string; a character, including a
+one-character literal such as \code{'A'}, is not accepted.
+\LSeeAlso \std{ord}{Ord}
+\LExample
+\Program{length}
+\ProgramOutput{length}
+\id{Name} has capacity 10, so the assignment keeps the first ten characters.
+\end{LibEntry}
+
+\begin{LibEntry}{Ord}{function}{ord}
+\LFunction Returns the ordinal number of a value.
+\LDeclaration \Decl{\textbf{function} Ord(X): \textbf{integer}}
+\LResultType \rw{integer}
+\LRemarks \textit{X} is an expression of type \rw{char}, \rw{boolean} or
+\rw{integer}.  For a character the result is its code, 0 through 255; for a
+Boolean value it is 0 for \rw{false} and 1 for \rw{true}; an integer is
+returned unchanged.  \std{ord}{Ord} is a reserved word, written like a
+function call.
+\LRestrictions Strings, records, arrays and files are not accepted.
+\LSeeAlso \std{chr}{Chr}
+\LExample
+\Program{ord}
+\ProgramOutput{ord}
+\end{LibEntry}
+
+\begin{LibEntry}{Reset}{procedure}{reset}
+\LFunction Opens an existing file for reading.
+\LDeclaration \Decl{\textbf{procedure} Reset(\textbf{var} F: \textbf{file} {[}; Size: \textbf{integer}{]})}
+\LRemarks \textit{F} is a file variable to which a name has been given by
+\std{assign}{Assign}.  If \textit{F} is open, \std{reset}{Reset} closes it,
+then opens the named file for reading at its first byte.  \textit{Size} is
+the record size; it may be left out, in which case it is 1, and when it is
+given it must have the value 1.
+
+If the file does not exist, or InitechDOS reports another error, the
+program ends with the message \code{FILEIO-ERROR AX=}\textit{code} on COM1
+and exit code 1; a \textit{Size} other than 1 gives code 1.
+\LRestrictions A file opened with \std{reset}{Reset} is opened for reading
+only.
+\LSeeAlso \std{assign}{Assign}, \std{blockread}{BlockRead},
+\std{rewrite}{Rewrite}
+\LExample
+\Program{reset}
+\ProgramOutput{reset}
+The second \std{reset}{Reset} moves back to the beginning of the file.
+
+When the file does not exist, the program stops.  On InitechDOS, with no
+file \file{LEDGER.OLD} in the current directory, this program
+
+\DosProgram{resetmiss}
+
+prints:
+
+\ProgramOutput{resetmiss}
+\end{LibEntry}
+
+\begin{LibEntry}{Rewrite}{procedure}{rewrite}
+\LFunction Creates a file, or empties an existing one, and opens it for
+writing.
+\LDeclaration \Decl{\textbf{procedure} Rewrite(\textbf{var} F: \textbf{file} {[}; Size: \textbf{integer}{]})}
+\LRemarks \textit{F} is a file variable to which a name has been given by
+\std{assign}{Assign}.  If \textit{F} is open, \std{rewrite}{Rewrite} closes it.
+The named file is created; if it exists, its contents are discarded.
+\textit{Size} is as for \std{reset}{Reset}.
+
+If InitechDOS reports an error, the program ends with the message
+\code{FILEIO-ERROR AX=}\textit{code} on COM1 and exit code 1.
+\LArrow Rewriting an existing file destroys its contents.
+\LSeeAlso \std{assign}{Assign}, \std{blockwrite}{BlockWrite},
+\std{reset}{Reset}
+\LExample
+\Program{rewrite}
+\ProgramOutput{rewrite}
+After the second \std{rewrite}{Rewrite} the file holds only the three bytes
+written last.
+\end{LibEntry}
+
+\begin{LibEntry}{Write}{procedure}{write}
+\LFunction Writes values to the serial port COM1.
+\LDeclaration \Decl{\textbf{procedure} Write(V1 {[}, V2, ..., Vn{]})}
+\LRemarks Each argument is a string literal or an expression of type
+\rw{integer}, \rw{boolean}, \rw{char} or \rw{string}.  The arguments are
+written one after another without separators: an integer in decimal, with
+a minus sign if it is negative; a Boolean value as \code{TRUE} or
+\code{FALSE}; a character or a string as it is.  \std{write}{Write} is a
+reserved word with a statement form of its own (the \doctitle{Programmer's
+Guide}, Chapter 6).  The output goes to COM1, not to the display.
+\LRestrictions An argument that begins with a string literal is that
+literal alone; put an expression such as \code{'A' + S} in parentheses.
+Records, arrays and files cannot be written.  There are no field widths.
+\LSeeAlso \std{writeln}{Writeln}
+\LExample
+\Program{write}
+\ProgramOutput{write}
+\end{LibEntry}
+
+\begin{LibEntry}{Writeln}{procedure}{writeln}
+\LFunction Writes values to the serial port COM1 and ends the line.
+\LDeclaration \Decl{\textbf{procedure} Writeln{[}(V1 {[}, V2, ..., Vn{]}){]}}
+\LRemarks \std{writeln}{Writeln} writes its arguments as \std{write}{Write}
+does, then a line-feed character (code 10).  With no arguments, with or
+without the parentheses, it writes only the line feed.
+\LRestrictions As for \std{write}{Write}.
+\LSeeAlso \std{write}{Write}
+\LExample
+\Program{writeln}
+\ProgramOutput{writeln}
+\end{LibEntry}

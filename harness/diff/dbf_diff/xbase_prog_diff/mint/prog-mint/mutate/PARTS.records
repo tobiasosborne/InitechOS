@@ -1,0 +1,5 @@
+rec0 active CODE=ZZ QTY=100 OK=T
+rec1 deleted CODE=BBB QTY=200 OK=F
+rec2 active CODE=CCC QTY=100 OK=T
+rec3 active CODE=DDD QTY=300 OK=T
+rec4 active CODE=XX QTY=999 OK=(null)

@@ -1,0 +1,2 @@
+>>> test-seed-repro: seed pipeline (initechc --emit-asm -> nasm -> ld) byte-identical across two independent scratch-dir builds (Rule 11; ADR-0007 Sec 4.6/Sec 7 FO-5, bead initech-3yv)
+>>> test-seed-repro: green -- 15 corpus fixtures, 45 hashes (.s+.o+.elf per fixture), byte-identical across two independent builds

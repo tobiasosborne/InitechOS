@@ -1,0 +1,179 @@
+% Chapter 5 -- Expressions (model: TP 6.0 PG Ch 6).
+% Sources (Law 1): os/tps/tps.pas ParseExpression (one relation, chained
+% relations rejected), ParseSimpleExpression, ParseTerm, ParseFactor and
+% their type checks; os/tps/CODEGEN.md s2 (and/or on the unconditional
+% two-operand path); ADR-0007 DEC-03 (complete evaluation, nested-if guard
+% idiom, sentinel accessors, flag exits); seed/typecheck.h (operator typing,
+% B7 concat/compare coercion).  Diagrams: expression, simple-expression,
+% term, factor.
+\Gates{test-tps-parse-fpc, test-tps-parse-mutant, test-tps-type-fpc, test-compiler, test-compiler-os, test-pubs-turbo}
+\chapter{Expressions}
+\ix{expressions}
+
+An \term{expression} computes a value from \term{operands} (constants,
+variable references, function calls) and \term{operators}.  This chapter
+gives the syntax of expressions, the precedence of the operators, the
+operand types each operator accepts, and the rule of complete evaluation.
+
+\section{Expression syntax}
+\Syntax{expression}
+\Syntax{simple-expression}
+\Syntax{term}
+\Syntax{factor}
+
+\ix{precedence of operators}
+The syntax gives the operators four levels of precedence:
+
+\begin{BorTable}{Precedence of operators}{p{40mm}p{20mm}p{38mm}}
+\Hd{Operators} & \Hd{Level} & \Hd{Category}\EndHd
+\code{-} (unary), \rw{not} & first (highest) & unary operators\\
+\code{*}, \rw{div}, \rw{mod}, \rw{and} & second & multiplying operators\\
+\code{+}, \code{-}, \rw{or} & third & adding operators\\
+\code{= <> < <= > >=} & fourth (lowest) & relational operators\\
+\end{BorTable}
+
+An operand between two operators of different precedence belongs to the
+operator of higher precedence; between operators of the same precedence it
+belongs to the operator on its left.  Parentheses override these rules.
+So \code{2 + 3 * 4} is 14, \code{10 - 4 - 3} is 3, and \code{(2 + 3) * 4}
+is 20.
+
+The unary minus and \rw{not} apply to the factor that follows them, so
+\code{-2 * -3} is 6 and \code{not A or B} means \code{(not A) or B}.
+
+\ix{relational operators, chained}
+An expression contains at most one relational operator outside
+parentheses.  \code{A < B = C} is an error; write \code{(A < B) = C}.
+Because the relational operators have the lowest precedence, operands that
+are themselves Boolean expressions must be parenthesized:
+\code{(I > 0) and (I < 10)}.
+
+\section{Arithmetic operators}
+\ix{arithmetic operators}
+\ix{div}
+\ix{mod}
+\begin{BorTable}{Arithmetic operators}{p{12mm}p{36mm}p{22mm}p{22mm}}
+\Hd{Operator} & \Hd{Operation} & \Hd{Operands} & \Hd{Result}\EndHd
+\code{+} & addition & \rw{integer} & \rw{integer}\\
+\code{-} & subtraction & \rw{integer} & \rw{integer}\\
+\code{*} & multiplication & \rw{integer} & \rw{integer}\\
+\rw{div} & integer division & \rw{integer} & \rw{integer}\\
+\rw{mod} & remainder & \rw{integer} & \rw{integer}\\
+\code{-} (unary) & sign inversion & \rw{integer} & \rw{integer}\\
+\end{BorTable}
+
+\rw{div} divides and discards the fraction, rounding toward zero.
+\rw{mod} gives the remainder of that division; its sign is the sign of the
+left operand, so that \code{(A div B) * B + A mod B} equals \id{A}.
+Division by zero is not defined; a program must not divide by zero.
+All arithmetic is 32-bit: a result outside the range of \rw{integer}
+wraps around (Chapter 3).  There is no division operator \code{/} and no
+real arithmetic.
+
+\Program{arith}
+
+\ProgramOutput{arith}
+
+\section{Boolean operators}
+\ix{boolean operators}
+\ix{and}\ix{or}\ix{not}
+\begin{BorTable}{Boolean operators}{p{12mm}p{36mm}p{22mm}p{22mm}}
+\Hd{Operator} & \Hd{Operation} & \Hd{Operands} & \Hd{Result}\EndHd
+\rw{not} & negation & \rw{boolean} & \rw{boolean}\\
+\rw{and} & conjunction & \rw{boolean} & \rw{boolean}\\
+\rw{or} & disjunction & \rw{boolean} & \rw{boolean}\\
+\end{BorTable}
+
+\subsection{Complete evaluation}
+\ix{complete evaluation}
+\ix{short-circuit evaluation}
+Turbo Initech always evaluates both operands of \rw{and} and
+\rw{or}, even when the left operand alone decides the result.  This is
+\term{complete evaluation}.  It is a rule of the language, not an option:
+every program behaves the same way whatever its operands are.
+
+\Program{complete}
+
+\ProgramOutput{complete}
+
+The first condition is \rw{false} as soon as \code{Check(false)} returns,
+but \code{Check(true)} is still called; the counter shows two calls for each
+condition.
+
+\subsection{Writing guards}
+\ix{guards}
+\ix{nested-if guard}
+Because both operands are evaluated, a test that protects another test
+cannot be combined with it by \rw{and}.  In
+\code{(I <= Size) and (Table[I] = Wanted)} the element \code{Table[I]} is
+read even when \id{I} is outside the array.  Write such a guard as two
+nested \rw{if} statements, so that the second test is reached only when the
+first is true.  A loop that must stop on either of two conditions keeps a
+Boolean flag and tests the flag alone:
+
+\Program{guard}
+
+\ProgramOutput{guard}
+
+\MarginNote{The compiler's own source follows these rules.}Turbo Initech
+programs use three such constructions: the nested-\rw{if} guard; a
+function that returns a harmless value, such as character 0, when asked for
+an item beyond the end of its data; and a Boolean flag that ends a loop.
+
+\section{Relational operators}
+\ix{relational operators}
+\ix{comparison}
+\begin{BorTable}{Relational operators}{p{12mm}p{36mm}p{48mm}}
+\Hd{Operator} & \Hd{Operation} & \Hd{Operand types}\EndHd
+\code{=} & equal & two of the same simple type, or strings\\
+\code{<>} & not equal & the same\\
+\code{<} & less than & the same\\
+\code{<=} & less than or equal & the same\\
+\code{>} & greater than & the same\\
+\code{>=} & greater than or equal & the same\\
+\end{BorTable}
+
+Both operands must be of the same type: two integers, two Boolean values or
+two characters.  The result is of type \rw{boolean}.  Integers compare by
+value, Boolean values with \code{false < true}, and characters by their
+codes.  Records, arrays and files cannot be compared.
+
+\Program{relations}
+
+\ProgramOutput{relations}
+
+\section{String operators}
+\ix{string operators}
+\ix{concatenation}
+When at least one operand of \code{+} is a string, \code{+} joins the two
+operands into one string (\term{concatenation}); the other operand may be a
+string or a character.  The result is at most 255 characters long; the
+part beyond the 255th character is lost.  Two characters cannot be joined
+with \code{+}; one of the operands must be a string.
+
+When at least one operand of a relational operator is a string, the
+operands are compared as strings; the other operand may be a string or a
+character.  Strings are compared character by character, by the codes of
+the characters; when one string is the beginning of the other, the shorter
+string is the smaller.  So \code{'Pete' < 'Peter'} and
+\code{'Peter' < 'Gibbons'} is \rw{false}.
+
+\Program{strops}
+
+\ProgramOutput{strops}
+
+\section{Function calls}
+\ix{function calls}
+A factor may call a function: the function name followed by its arguments
+in parentheses.  The parentheses are required even when the function has
+no parameters, as in \code{Count()}.  Chapter 7 describes the rules for
+arguments.  The standard functions \std{ord}{Ord}, \std{chr}{Chr} and
+\std{length}{Length} are written in the same form (Chapter 9).
+
+\section{Operand types}
+\ix{type compatibility}
+Turbo Initech converts no value from one type to another by itself, with
+one exception: a character used with a string in \code{+} or a relation
+is treated as a string of one character.  Every other change of type is
+written with \std{ord}{Ord} or \std{chr}{Chr}.  In particular, a Boolean or
+character value is never an integer, and an integer is never a condition.

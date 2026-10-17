@@ -368,22 +368,25 @@ static void leg_hilite(void)
 
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, NULL);
-    /* APPS sprite at (132,106). Folder map (spec/assets/finder_icons.h):
-     * row 10 col 10 'w', row 25 col 10 'g', row 7 col 10 '#'. */
-    CHECK(pix(142, 116) == 119, "O2 highlighted FACE pixel is #777777 (ramp idx 119)");
-    CHECK(pix(142, 131) == 63,  "O2 highlighted SHADE pixel is #3F3F3F (ramp idx 63)");
-    CHECK(pix(142, 113) == 0,   "O2 the INK outline stays black");
-    /* README.TXT (64,106) is NOT a target: its face stays white (idx 1). The
-     * document strike's body: row 10 col 12 is white (finder_icons.h DOC). */
-    CHECK(pix(64 + 12, 106 + 10) == 1, "O2 a non-target icon keeps its white face");
+    /* APPS sprite at (132,106). Folder v2 map (spec/assets/finder_icons.h,
+     * tdnl.53): row 16 col 10 'L' (LAV_LIGHT face), row 16 col 21 'D'
+     * (LAV_DARK edge), row 16 col 0 '#'. Highlighted, the measured selection
+     * function maps LAV_LIGHT -> LAV_SEL (canon slot 14) and LAV_DARK ->
+     * NAVY_SEL (slot 15); black stays black (desk_icons.h DESK_IC_SELECTED). */
+    CHECK(pix(142, 122) == 14, "O2 highlighted FACE pixel is LAV_SEL #545487 (canon slot 14)");
+    CHECK(pix(153, 122) == 15, "O2 highlighted EDGE pixel is NAVY_SEL #000087 (canon slot 15)");
+    CHECK(pix(132, 122) == 0,  "O2 the INK outline stays black");
+    /* README.TXT (64,106) is NOT a target: its face stays GRAY_F3 (the
+     * document strike's row 10 col 12 'w', canon ramp idx 243). */
+    CHECK(pix(64 + 12, 106 + 10) == 243, "O2 a non-target icon keeps its unselected face");
 
     nx = finder_ops_resolve(&S.sh, ROOT, 0, 300, 250);
     CHECK(finder_ops_track_hilite(&S.sh, &cur, &nx) == 1, "O2 leaving the folder changes the highlight");
     CHECK(rw->view.icons[1].hilite == 0, "O2 ... and clears it");
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, NULL);
-    CHECK(pix(142, 116) == 1 && pix(142, 131) == 6,
-          "O2 the un-highlighted folder is white face / #C0C0C0 shade again");
+    CHECK(pix(142, 122) == 11 && pix(153, 122) == 13,
+          "O2 the un-highlighted folder is LAV_LIGHT face / LAV_DARK edge again");
 
     nx = finder_ops_resolve(&S.sh, ROOT, 0, 600, 420);
     (void)finder_ops_track_hilite(&S.sh, &cur, &nx);
@@ -829,12 +832,14 @@ static void leg_empty_trash(void)
           S.sh.trash_items == 1u && S.sh.desk.trash_full == 1u &&
           S.sh.trash_icon_dirty == 1u,
           "O14 the first staged item turns the Trash FULL (icon flagged for the pump)");
-    /* The painter draws the FULL strike: its lid row 2 runs ink from col 10
-     * (desk_icons.h FULL map), where the EMPTY strike's row 2 is clear (only
-     * the handle, cols 13..18). Trash sprite at (584,404): pixel (594,406). */
+    /* The painter draws the FULL strike: the v2 FULL map (desk_icons.h,
+     * tdnl.53) has ink at row 14 col 23 -- the bulging paper's edge -- where
+     * the EMPTY strike is clear; the EMPTY strike's lid handle ink at row 0
+     * col 9 is clear in FULL. Trash sprite at (584,404): (607,418), (593,404). */
     memset(S.px, 0xEE, sizeof S.px);
     finder_desk_paint(&S.sh.desk, &S.bm, NULL);
-    CHECK(pix(594, 406) == 0, "O14 the desktop Trash is PAINTED full (lid ink at row 2 col 10)");
+    CHECK(pix(607, 418) == 0 && pix(593, 404) == 0xEE,
+          "O14 the desktop Trash is PAINTED full (FULL ink at row 14 col 23; no EMPTY handle)");
     S.sh.trash_icon_dirty = 0u;
     k = idx_of(&S.sh.windows[ROOT].view, "APPS");
     t = finder_ops_resolve(&S.sh, ROOT, k, 600, 420);
@@ -882,8 +887,8 @@ static void leg_empty_trash(void)
     CHECK(fx.trash_nonempty == 0u, "O14 Empty Trash goes dark again");
     memset(S.px, 0xEE, sizeof S.px);
     finder_desk_paint(&S.sh.desk, &S.bm, NULL);
-    CHECK(pix(594, 406) == 0xEE && pix(597, 406) == 0,
-          "O14 ... and is PAINTED empty again (row 2: only the handle, cols 13..18)");
+    CHECK(pix(607, 418) == 0xEE && pix(593, 404) == 0,
+          "O14 ... and is PAINTED empty again (the EMPTY handle at row 0 col 9; no paper)");
 
     /* An item that will not go. */
     scene_init(&S);
@@ -948,9 +953,9 @@ static void leg_follow(void)
     /* paint: the icons are drawn inside the NEW content, not at the old cells */
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, NULL);
-    CHECK(pix(232 + 10, 166 + 7) == 0 && pix(232 + 10, 166 + 10) == 1,
-          "O9 paint: APPS is drawn at the moved cell (232,166) (ink row 7, face row 10)");
-    CHECK(pix(132 + 10, 106 + 7) == 0xEE && pix(132 + 10, 106 + 10) == 0xEE,
+    CHECK(pix(232 + 0, 166 + 16) == 0 && pix(232 + 10, 166 + 16) == 11,
+          "O9 paint: APPS is drawn at the moved cell (232,166) (v2 row 16: ink col 0, LAV_LIGHT col 10)");
+    CHECK(pix(132 + 0, 106 + 16) == 0xEE && pix(132 + 10, 106 + 16) == 0xEE,
           "O9 paint: nothing is drawn at APPS's OLD cell (132,106) outside the moved content");
 
     /* hit-test + selection through THE accessor every gesture uses */
@@ -1000,7 +1005,7 @@ static void leg_follow(void)
           "O9 zoom: APPS follows the zoomed content to (96,66)");
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, NULL);
-    CHECK(pix(96 + 10, 66 + 7) == 0, "O9 zoom: APPS is PAINTED at (96,66)");
+    CHECK(pix(96 + 0, 66 + 16) == 0, "O9 zoom: APPS is PAINTED at (96,66)");
     (void)ZoomWindow(&S.wm, &rw->rec);
     v = finder_win_view(&S.sh, ROOT);
     CHECK(finder_desk_hit(v, 248, 182) == 1 && v->icons[1].x == 232,
@@ -1140,9 +1145,9 @@ static void leg_scroll(void)
     /* paint, clipped to the content as the updateEvt path clips it */
     memset(S.px, 0xEE, sizeof S.px);
     finder_win_paint(rw, &S.bm, rw->rec.contRgn);
-    CHECK(pix(64 + 10, 228 + 2) == 0,
-          "O11 paint: F18.TXT's page top edge (DOC row 2) is drawn at the scrolled cell");
-    CHECK(pix(64 + 10, 366 + 2) == 0xEE && pix(74, 79) == 0xEE,
+    CHECK(pix(64 + 10, 228 + 0) == 0,
+          "O11 paint: F18.TXT's page top edge (DOC v2 row 0) is drawn at the scrolled cell");
+    CHECK(pix(64 + 10, 366 + 0) == 0xEE && pix(74, 79) == 0xEE,
           "O11 paint: nothing at the unscrolled cell, nothing above the content");
 
     /* hit-test, rubber band, Clean Up -- all through the one accessor */

@@ -1,0 +1,5 @@
+. ? 'SMITH' = 'SMI', 'SMI' = 'SMITH', 'SMITH' = ''
+
+.T. .F. .T.. ? 'ABC' < 'ABD', 'Z' < 'a', '10' < '9'
+
+.T. .T. .T.

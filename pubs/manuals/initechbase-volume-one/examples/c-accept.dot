@@ -1,0 +1,3 @@
+ACCEPT 'Department code: ' TO MDEPT
+SOFT
+? MDEPT, LEN(MDEPT)

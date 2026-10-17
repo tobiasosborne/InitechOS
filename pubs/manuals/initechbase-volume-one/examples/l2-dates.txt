@@ -1,0 +1,8 @@
+. USE STAFF
+. LIST LASTNAME, HIRED FOR HIRED < CTOD('01/01/85')
+Record#  LASTNAME       HIRED
+      1  LUMBERGH       06/04/84
+      5  WADDAMS        02/12/79
+      6  SMYKOWSKI      08/18/75
+      7  PORTER         01/11/82
+     12  PRUITT         07/25/83

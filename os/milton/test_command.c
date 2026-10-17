@@ -705,6 +705,35 @@ static void test_path_candidates(void)
     }
 }
 
+/* Lane grammar: Reference pp.46-47,50-52,104 (rendered local scans).
+ * Literal expected operands/modes are independent of the parser. */
+static void test_lane_grammar(void)
+{
+    cmd_line_t c;cmd_copy_t p;char mapped[13];
+    cmd_parse("command /c echo CHILD",&c);
+    CHECK(c.kind==CMD_COMMAND,"COMMAND is the native secondary entry");
+    CHECK_STR_EQ(c.arg,"/c echo CHILD","COMMAND /C keeps its command tail");
+    CHECK(cmd_classify("COMMAND.COM")==CMD_COMMAND,"COMMAND.COM secondary spelling");
+    CHECK(cmd_classify("COMMANDX")==CMD_EXTERNAL,"COMMAND suffix does not match");
+    CHECK(cmd_copy_parse("/a ONE.TXT /b+TWO.TXT /a +THREE.TXT OUT.TXT /b/v",&p),"COPY three-source spaced/adjacent switches");
+    CHECK(p.count==3 && p.joined && p.verify,"COPY plus count and /V");
+    CHECK_STR_EQ(p.names+p.offset[0],"ONE.TXT","COPY source one");
+    CHECK_STR_EQ(p.names+p.offset[1],"TWO.TXT","COPY source two");
+    CHECK_STR_EQ(p.names+p.offset[2],"THREE.TXT","COPY source three");
+    CHECK_STR_EQ(p.dest,"OUT.TXT","COPY destination is not a switch");
+    CHECK(p.mode[0]==2 && p.mode[1]==1 && p.mode[2]==1 && p.dest_mode==2,"COPY modes precede/follow and persist");
+    CHECK(cmd_copy_parse("ONE.TXT OUT.TXT /a",&p) && p.mode[0]==0 && p.dest_mode==1,"trailing /A applies only to destination");
+    CHECK(cmd_copy_parse("ONE.TXT /a OUT.TXT",&p) && p.mode[0]==1 && p.dest_mode==1,"source /A persists to destination");
+    CHECK(!cmd_copy_parse("ONE.TXT OUT.TXT EXTRA.TXT",&p),"COPY refuses surplus operands before I/O");
+    CHECK(!cmd_copy_parse("ONE.TXT+",&p),"COPY rejects missing plus operand");
+    CHECK(!cmd_copy_parse("/z ONE.TXT OUT.TXT",&p),"COPY rejects unknown switch");
+    CHECK(!cmd_copy_parse("",&p),"COPY rejects missing source");
+    CHECK(cmd_name_map("FOO.TXT","B??.BAK",mapped),"REN padded mapping");
+    CHECK_STR_EQ(mapped,"BOO.BAK","REN question mark preserves position");
+    CHECK(cmd_name_map("FOO.TXT","*.BAK",mapped),"REN star mapping");
+    CHECK_STR_EQ(mapped,"FOO.BAK","REN independent name/extension fields");
+}
+
 int main(void)
 {
     test_parse_basic();
@@ -724,5 +753,6 @@ int main(void)
     test_date_parse();
     test_time_parse();
     test_path_candidates();
+    test_lane_grammar();
     return TEST_SUMMARY("test_command");
 }

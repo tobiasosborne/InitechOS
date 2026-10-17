@@ -1,0 +1,87 @@
+% Programming with InitechBase, Chapter 4: Procedures and Parameters
+% (AN-16; annex Sec 8.2 P4).  Panels replayed (examples/p4-*.dot); sources
+% cmd/proc.c (PROCEDURE, DO ... WITH by value, PARAMETERS, RETURN, PUBLIC),
+% samir_main.c (DO of a disk program only at the dot prompt).
+\chapter{Procedures and Parameters}
+\Gates{test-pubs-examples, test-interp-proc}
+A calculation that a program needs more than once, or that makes the program
+hard to read, is written once as a procedure and called by name.  This chapter
+shows you how to write a procedure, pass values to it and get its result back.
+
+\begin{ChapterCovers}
+\item Procedures in a program file
+\item Calling a procedure with \cmd{DO}
+\item Passing values with \kw{WITH} and \cmd{PARAMETERS}
+\item Returning a result
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{Procedures}
+The procedures of a program follow its main program in the same file.  Each
+begins with a \cmd{PROCEDURE} line that names it and ends with \cmd{RETURN}.
+The main program ends at the first \cmd{PROCEDURE} line, so a procedure runs only
+when \cmd{DO} calls it.
+
+A program calls the procedures of its own file.  A program file is run from the
+dot prompt; one program does not run another program file.  The main menu of
+the system (Chapter~11) therefore holds its procedures in its own file.
+
+\ATEHead{Passing Values}
+\kw{WITH} after the name of the procedure gives the values to pass, separated by
+commas.  The first command of the procedure, \cmd{PARAMETERS}, names the memory
+variables that receive them, in the same order.  The procedure receives copies:
+what it does with its parameters does not change the values in the caller.
+
+\file{LATEFEE.PRG} computes the late fee of an invoice: one per cent of the
+amount for each full thirty days the invoice is past due.  The procedure
+\texttt{FEE} receives the amount and the number of days:
+\ProgramListing{LATEFEE.PRG}
+
+\ATEHead{Returning a Result}
+A procedure gives back its result in a memory variable declared \cmd{PUBLIC},
+which remains when the procedure returns.  \texttt{FEE} stores the fee in
+\texttt{MFEE}:
+\begin{Steps}
+\item Type \type{USE INVOICE}, then \type{GO 2}.
+\item Type \type{DO LATEFEE}, then \type{? MFEE}.
+\end{Steps}
+\DotExample{examples/p4-latefee}
+The parameters \texttt{PAMOUNT} and \texttt{PDAYS} are private to the procedure
+and are released when it returns.
+
+\begin{AteNote}
+Pass character values to a procedure through memory variables or expressions
+(\doctitle{Using InitechBase}, Chapter~5, \cmd{DO}).
+\end{AteNote}
+
+\ATEHead{A Program of Procedures}
+A long program reads best as a main program that calls procedures with
+names that say what they do.  \file{STATEMNT.PRG} prints the statement of
+account of one customer: a heading, a line for each open invoice, and the
+balance.  Each part is a procedure; \texttt{FOOTER} receives the balance as a
+parameter.
+\ProgramListing{STATEMNT.PRG}
+\begin{Steps}
+\item Type \type{USE INVOICE INDEX INVCUST}.
+\item Type \type{DO STATEMNT} and answer \type{hartwell}.
+\item Type \type{DO STATEMNT} again and answer \type{NOBODY}.
+\end{Steps}
+\DotExample{examples/p4-statemnt}
+The index on the customer keeps the invoices of each customer together, so the
+loop \cmd{DO WHILE CUST = MCUST} reads only the invoices of the customer
+found by \cmd{SEEK}.  The procedures use the fields of the current record and
+the memory variables of the main program, which they can see while they run.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~5 looks at the functions that build the values programs print.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item A procedure begins with \cmd{PROCEDURE} \xp{name} and ends with
+  \cmd{RETURN}; it follows the main program in the file.
+\item \cmd{DO} \xp{procedure} \kw{WITH} \xp{values} calls it;
+  \cmd{PARAMETERS} \xp{names} receives the values.
+\item A result is returned in a \cmd{PUBLIC} memory variable.
+\end{enumerate}

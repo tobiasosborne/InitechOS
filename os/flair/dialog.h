@@ -139,7 +139,7 @@
 typedef enum flair_dialog_item_type {
     userItem   = 0,  /* user-drawn item; caller provides draw callback        */
     ctrlItem   = 4,  /* control item (button, checkbox, scrollbar, progress)  */
-    iconItem   = 32, /* icon item (ICON / SICN -- reserved for M5+)           */
+    iconItem   = 32, /* icon item: a 32x32 alert ICON (DIALOG_ITEM_ICON_ID)     */
     statText   = 8,  /* static text item (non-interactive label)              */
     editText   = 16  /* editable text item (single-line; M5+ full support)    */
 } flair_dialog_item_type_t;
@@ -157,7 +157,8 @@ typedef enum flair_dialog_item_type {
  * For statText / editText: `text` holds the string (pointer to const char;
  *   the string is NOT copied; caller must keep it alive).
  * For ctrlItem: `ctrl` points to a caller-supplied ControlRecord.
- * For userItem / iconItem: both text and ctrl are ignored.
+ * For userItem / iconItem: both text and ctrl are ignored (an iconItem's
+ *   ICON ID is DIALOG_ITEM_ICON_ID, below).
  * enabled=1: ModalDialog may return this item when clicked.
  * enabled=0: the item is drawn but never returned (e.g. static text labels).
  * ===========================================================================*/
@@ -169,8 +170,21 @@ typedef struct DialogItem {
     const char              *text;      /* statText / editText string (NOT copied) */
     ControlRecord           *ctrl;      /* ctrlItem: pointer to ControlRecord */
     uint8_t                  enabled;   /* 1 = ModalDialog may return; 0 = display only */
-    uint8_t                  _pad[3];   /* alignment pad; must be 0           */
+    uint8_t                  _pad[3];   /* alignment pad; 0 -- EXCEPT an
+                                         * iconItem's _pad[0], its ICON
+                                         * resource ID (DIALOG_ITEM_ICON_ID) */
 } DialogItem;
+
+/* An iconItem's ICON resource ID (bead initech-tdnl.87). Inside Macintosh
+ * Vol I p. I-419 numbers the standard alert icons Stop 0, Note 1, Caution 2
+ * (DIALOG_ICON_ID_* below); the DITL item carries
+ * the ID as its data. FLAIR's item record has no data field, so the ID rides
+ * in the first pad byte -- the record size and every other item's bytes are
+ * unchanged. Only CAUTION draws (DrawDialog; the one captured strike). */
+#define DIALOG_ITEM_ICON_ID(item) ((unsigned)(item)->_pad[0])
+#define DIALOG_ICON_ID_STOP     0u   /* IM-I p. I-419 stopIcon    (no strike) */
+#define DIALOG_ICON_ID_NOTE     1u   /* IM-I p. I-419 noteIcon    (no strike) */
+#define DIALOG_ICON_ID_CAUTION  2u   /* IM-I p. I-419 cautionIcon             */
 
 /* ===========================================================================
  * 4. DialogRecord -- the dialog descriptor (verbatim field names)
@@ -336,7 +350,8 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm);
  *   ctrlItem  -> DrawControl, then the default ring/moat when selected by
  *                defaultItem (the sampled corner moat overlaps the button).
  *   userItem  -> no-op (caller handles).
- *   iconItem  -> no-op (reserved).
+ *   iconItem  -> the 32x32 alert icon DIALOG_ITEM_ICON_ID names, at the item's
+ *                top-left (only Caution has a strike; tdnl.87).
  *
  * All drawing goes through the dialog's GrafPort (ADR-0004 D-1/D-2; the
  * surface module enforces clip).
