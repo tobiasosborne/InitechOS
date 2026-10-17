@@ -68,7 +68,7 @@ cat > "$m/order.tex" <<'TEX'
 \end{document}
 TEX
 red ENTRY_ORDER 'out of letter-by-letter order' env SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
-    TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" TEXINPUTS="$root/pubs/class//:" \
+    TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" TEXINPUTS="$root/pubs/class//:$root/pubs/common//:" \
     "${LUALATEX:-lualatex}" -interaction=nonstopmode -halt-on-error -output-directory="$m" "$m/order.tex"
 # 11 the template prints a grey key under the wrong name (Shift-F7 is
 #    Print on the status line): the grey cells are held to the measured

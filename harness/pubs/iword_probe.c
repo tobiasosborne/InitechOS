@@ -25,14 +25,23 @@
  *           mode, Reveal Codes, the Home prefix, an exit -- differs from the
  *           state before it. Probed from a fixed document with the cursor in
  *           the middle of a line and a moved block in the Move buffer.
+ *           P3 (bead initech-qvgd): the keys of the Search and Replace
+ *           strings, "Srch:F6" (the -> Srch: / <- Srch: prompt, also the
+ *           search string of Replace) and "Rplc:Tab" (Replace with:),
+ *           probed from a string with the cursor inside it.
  *   wpmenu  every menu choice that does something: from each prompt a key
  *           opens, each digit 1..9 whose result differs both from the prompt
  *           unchanged (an ignored key) and from Cancel (F1). NAME is the
  *           keystroke path in WordPerfect's comma notation and the choice's
  *           name AS THE SCREEN SHOWS IT: "Shift-F8,1,3,2=Center",
- *           "Block:Ctrl-F4,1,1=Move". Menus are explored to any depth.
+ *           "Block:Ctrl-F4,1,1=Move". Menus are explored to any depth;
+ *           Setup's Units of Measure answers with a letter,
+ *           "Shift-F1,3,8,1,c=Centimeters".
  *   wppull  every pull-down menu item (the menus[] the application hands
  *           SETMBAR) whose TBX_EVT_MENU changes the state: "File,Save".
+ *   wpgray  every key that shows the grey name of a WordPerfect feature
+ *           InitechWord does not carry out (P3, spec/iword/fkeys.json
+ *           "gray"), with the name the status line shows: "Shift-F7=Print".
  *   wpcode  every Reveal Codes label of the locked table spec/iword/
  *           reveal_codes.h, read from the header TEXT (each `#define IW_RV_*`
  *           string, the IW_RV_ATTR_INIT pairs); a label that is a prefix
