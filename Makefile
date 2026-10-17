@@ -27726,6 +27726,16 @@ SAMIR_SIZE_CFLAGS += -mregparm=3 -mrtd
 # -march=i386 still pins the ISA (no cmov, the WL-0087 Bochs rule; the
 # objdump audit in the worklog). Measured: 96699 -> 96014 B (-685 B).
 SAMIR_SIZE_CFLAGS += -flto-partition=one -fno-ipa-sra -mtune=generic
+# WL-0171 step 3: optimiser passes that trade bytes for speed even at -Oz
+# (forward propagation, shrink-wrapping, deferred arg-pops, DOM jump
+# threading/copy-prop, tail merging, scalar replacement of aggregates), and
+# the Ubuntu-default stack-clash probes (-fstack-clash-protection, large
+# frames only; the image has no guard page to probe). Pure codegen policy,
+# no semantic change -- the SAMIR host/QEMU gates are the proof. Measured:
+# 96014 -> 94510 B (-1504 B). Each flag was measured alone and in
+# combination (worklog table); the set is the subset that kept its saving.
+SAMIR_SIZE_CFLAGS += -fno-forward-propagate -fno-shrink-wrap -fno-defer-pop -fno-stack-clash-protection \
+                     -fno-tree-dominator-opts -fno-tree-tail-merge -fno-tree-sra
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
