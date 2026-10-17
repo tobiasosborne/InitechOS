@@ -52,6 +52,10 @@ the build replays every one of them again before the book is printed.}
 \MakeTitlePage
 \input{frontmatter}
 \tableofcontents
+% The last front-matter page must ship with its roman folio before the
+% counter turns arabic (PG-15: dividers and blanks counted; the section
+% divider is page 1, as in the model).
+\cleardoublepage
 \setcounter{page}{1}\gdef\thepage{\arabic{page}}
 \DividerLeaf
 \chapter{Getting Started}
