@@ -81,6 +81,35 @@ static xb_interp *g_key[SET_REGISTRY];
 static set_state  g_val[SET_REGISTRY];
 static int        g_n;
 
+/* Using III+ U5-193: close owns the handle and appends the DOS EOF byte.
+ * Replacing a log closes its predecessor; ON/OFF only pauses capture. */
+void set_close_alternate(xb_interp *ip)
+{
+    int i;samir_pal_t *pal=xb_interp_pal(ip);
+    for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate>=0) {
+        char eof=26;
+        pal->write(pal,g_val[i].alternate,&eof,1);
+        pal->close(pal,g_val[i].alternate);
+        g_val[i].alternate=-1;g_val[i].alternate_on=0;
+    }
+}
+static void alternate_output(void *user,const char *s,uint32_t n)
+{
+    xb_interp *ip=user;samir_pal_t *pal=xb_interp_pal(ip);int i;
+    for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
+#ifndef SAMIR_FNS_MUTANT_alternate
+        if(pal->write(pal,g_val[i].alternate,s,n)!=(int32_t)n) {
+            g_val[i].alternate_on=0;
+            /* Preserve a failed log rather than continuing silent partial I/O. */
+            xb_interp_ctx(ip)->error_number=8;
+        }
+#else
+        (void)pal;(void)s;(void)n;
+#endif
+        return;
+    }
+}
+
 /*
  * set_state_for: look up (or create) the set_state for `ip`. Returns a pointer
  * to the entry on success, NULL if the registry is full. The caller is
@@ -454,6 +483,9 @@ static int do_set_safety(set_state *ss, const char *args, int *err_code)
 static void set_init_defaults(xb_interp *ip, set_state *ss)
 {
     int i;
+    ss->alternate=-1;ss->alternate_on=0;
+    xb_interp_ctx(ip)->mirror_output=alternate_output;
+    xb_interp_ctx(ip)->mirror_user=ip;
 
     /*
      * SET EXACT default = OFF [verified: mint-results-002.md].
@@ -562,6 +594,27 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     /* Dispatch on the sub-option.                                         */
     /* ------------------------------------------------------------------ */
 
+    if(s_ci_eq(opt,"ALTERNATE")) {
+        int on;
+        if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
+        if((s[0]=='T'||s[0]=='t') && (s[1]=='O'||s[1]=='o') && (!s[2]||s_isspace(s[2]))) {
+            char name[128];uint32_t n;samir_pal_t *pal=xb_interp_pal(ip);
+            s=s_skip_ws(s+2);set_close_alternate(ip);
+            if(!*s)return CMD_OK;
+            s_copy_trim(name,sizeof name,s);n=rt_strlen(name);
+            if(n>1 && ((name[0]=='"' && name[n-1]=='"')||(name[0]=='\'' && name[n-1]=='\''))) {
+                uint32_t j;for(j=0;j<n-2;j++)name[j]=name[j+1];name[n-2]=0;
+            }
+            {uint32_t j;int dot=0;for(j=0;name[j];j++)if(name[j]=='.')dot=1;
+             if(!dot && j+4<sizeof name)rt_memcpy(name+j,".TXT",5);}
+            ss->alternate=pal->open(pal,name,PAL_WR|PAL_CREATE|PAL_TRUNC);
+            if(ss->alternate<0){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
+            return CMD_OK;
+        }
+        if(err_code)*err_code=10;
+        return -INTERP_ERR_SYNTAX;
+    }
+
     if (s_ci_eq(opt, "EXACT")) {
         int rc = do_set_exact(ip, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
@@ -647,7 +700,12 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     }
 
     /* Unknown SET sub-option: fail loud. Rule 2 -- no silent skip. */
+    /* Using III+ U7 catalogue #16; internal INTERP_ERR_SYNTAX is not #7. */
+#ifdef SAMIR_FNS_MUTANT_unknown
     if (err_code) *err_code = 0;
+#else
+    if (err_code) *err_code = 16;
+#endif
     return -INTERP_ERR_SYNTAX;
 }
 

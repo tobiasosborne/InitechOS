@@ -27505,10 +27505,13 @@ test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
 #     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
 SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
+# ADR-0009 DEC-03: recover loaded bytes without borrowing the BSS/PAL reserves.
+# House policy applies identically to the shipped program and every mutant.
+SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-called-once -fno-partial-inlining -fno-jump-tables
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
-                     -std=c11 -Wall -Wextra -Werror -Oz -flto -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
+                     -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
-SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -msoft-float -mno-80387 -Wl,--gc-sections,--build-id=none -T $(SAMIR_LD_SCRIPT)
+SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz $(SAMIR_SIZE_CFLAGS) -msoft-float -mno-80387 -Wl,--gc-sections,--build-id=none -T $(SAMIR_LD_SCRIPT)
 SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
@@ -32573,7 +32576,7 @@ $(SAMIR_CORE_COM_MUTS): $(BUILD)/SAMIR_CORE_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_
 	@set -e; d=$(BUILD)/samir_core_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_CORE_MUTATE_$* -c $$src -o $$obj; done; \
-	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
 	@INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(SAMIR_COM)
@@ -32726,3 +32729,39 @@ include harness/diff/fat_diff/shell_files.mk
 # Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; bochs.h RFB limitation.
 include harness/bochs_legs.mk
 include harness/emu/panic_screen.mk
+# samir-set-fns-errors: independent III+ corpus, identical host/guest inputs.
+SAMIR_FNS_CASES := alias alternate century console default diskspace index listoff os overflow path procedure recsize relation talk time type unknown version with
+SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
+$(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+$(BUILD)/test_samir_fns_%: $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_FNS_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+.PHONY: mint-samir-fns test-samir-fns test-samir-fns-mutants test-samir-fns-emu test-samir-fns-emu-mutants
+mint-samir-fns: $(CLIENTS_DBF)
+	@sh $(DBF_DIFF_DIR)/fns_mint.sh $(abspath $(DBASE3_DECOMP))
+test-samir-fns: $(addprefix test-samir-fns-,$(SAMIR_FNS_CASES))
+test-samir-fns-mutants: $(addsuffix -mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
+test-samir-fns-emu: $(addsuffix -emu,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
+test-samir-fns-emu-mutants: $(addsuffix -emu-mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
+define samir-fns-gates
+.PHONY: test-samir-fns-$(1) test-samir-fns-$(1)-mutant test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
+test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF)
+	@$$(SAMIR_FNS_TEST) $(1) host
+	@echo '>>> test-samir-fns-$(1): green'
+test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1)
+	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
+test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG)
+	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
+	@echo '>>> test-samir-fns-$(1)-emu: green'
+test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log
+TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
+TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
+endef
+$(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
+
+include harness/diff/dbf_diff/samir_size.mk

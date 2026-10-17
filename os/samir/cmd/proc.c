@@ -702,6 +702,9 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     char name[P_MAX_NAME];
     const char *p = p_skip_ws(args);
     xb_val argv[P_MAX_ARGS];
+    /* WITH values outlive each argument's expression buffer and scratch
+     * reset. Using III+ U5-111: arbitrary expressions, including literals. */
+    char argbytes[P_MAX_ARGS][255];
     int nargs = 0;
     uint32_t nlen;
 
@@ -743,6 +746,14 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             rc = p_eval(ip, ebuf, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
+            if(v.t==XB_C || v.t==XB_M) {
+                uint32_t j;
+                if(v.u.c.len>254){if(ec)*ec=18;return -INTERP_ERR_SYNTAX;}
+                for(j=0;j<v.u.c.len;j++)argbytes[nargs][j]=v.u.c.p[j];
+#ifndef SAMIR_FNS_MUTANT_with
+                v.u.c.p=argbytes[nargs];
+#endif
+            }
             argv[nargs++] = v;
             if (*p == ',') { p++; p = p_skip_ws(p); continue; }
             break;
