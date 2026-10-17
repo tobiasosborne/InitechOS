@@ -1,0 +1,5 @@
+# Appendix B, Files: in order, /File Retrieve with no name, with a name
+# that is not on the disk, and /File Save with a wildcard in the name
+try /fr~
+try /frSALES~
+try /fsBUD*~

@@ -375,6 +375,7 @@ pubs-i123-screens: $(PUBS_FLAIR_DEPS)
 .PHONY: test-pubs-flair-screens
 test-pubs-flair-screens: $(PUBS_FLAIR_DEPS) test-pubs-build
 	@set -e; n=0; for m in $(PUBS_I123_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/screens; [ -f $$d/FLAIR ] || continue; \
+		rm -rf $(PUBS_BUILD)/flair-check/$$m; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(PUBS_I123_LONG_IMG) $(PUBS_I123_XLONG_IMG) $(PUBS_BUILD)/i123disk \
 			$(PUBS_I123_FACE) $(PUBS_FLAIR_SHOT) $$d/FLAIR $(PUBS_BUILD)/flair-check/$$m spec/assets/clut.json spec/assets/color_canon.json > $(PUBS_BUILD)/flair-check-$$m.log 2>&1 || { tail -5 $(PUBS_BUILD)/flair-check-$$m.log; exit 1; }; \
 		for p in $(PUBS_BUILD)/flair-check/$$m/*.png; do b=$$(basename $$p .png); \

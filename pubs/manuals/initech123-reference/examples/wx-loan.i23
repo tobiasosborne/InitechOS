@@ -1,0 +1,21 @@
+# Chapter 13, worked example: the financial @functions agree with each
+# other (two decimal places)
+do /wgff2~
+A1 Principal
+B1 10000
+A2 Rate
+B2 .01
+A3 Months
+B3 36
+A4 Payment
+B4 @PMT(B1,B2,B3)
+A5 Check
+B5 @PV(B4,B2,B3)
+A6 Savings
+B6 @FV(100,.005,120)
+A7 Months
+B7 @TERM(100,.005,20000)
+show B4
+show B5
+show B6
+show B7

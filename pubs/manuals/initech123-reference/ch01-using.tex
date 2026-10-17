@@ -237,6 +237,33 @@ previous menu, with the command you selected from it still highlighted.
 \kname{ESC} at the main menu returns to \ind{READY} mode.  To leave the
 menus at once from any level, press \kname{CTRL-BREAK}.
 
+\subsection{The Main Menu}
+\ix{main menu}
+The main menu has eleven commands.  Each has a chapter of this book, in
+the order of the menu.
+
+\begin{LotTable}{p{20mm}p{86mm}p{14mm}}
+\LotHead{\textbf{Command} & \textbf{Task} & \textbf{Chapter}}
+Worksheet & Settings for the whole worksheet; column widths;
+  recalculation; protection; erasing the worksheet & 12\\
+Range & Formats, label alignment, erasing, range names, protection and
+  value copies of a range & 10\\
+Copy & Copies a cell or a range & 3\\
+Move & Moves a cell or a range & 7\\
+File & Saves and retrieves worksheet files & 5\\
+Print & Prints a range \draft{I123-P3-02: its commands refuse} & 8\\
+Graph & Draws graphs of worksheet data \draft{I123-P3-02: its commands refuse} & 6\\
+Data & Sorts, selects and fills data \draft{I123-P3-02: its commands refuse} & 4\\
+System & Leaves Initech 123 temporarily for the operating system
+  \draft{I123-P3-03: refuses} & 11\\
+Add-In & Attaches add-in programs \draft{I123-P3-03: its commands refuse} & 2\\
+Quit & Ends the session & 9\LotEnd
+\end{LotTable}
+
+The menu is wider than the control panel can show at once: as you move
+the menu pointer to the right, the line scrolls so that the highlighted
+command and its neighbours are always in view.
+
 \subsection{Commands Not Available in This Version}
 \ix{Command not implemented}
 The menus of Initech 123 are complete: every command of the Initech 123
@@ -268,6 +295,28 @@ If Initech 123 cannot accept the answer, it displays a message on the
 second line of the control panel, such as \texttt{Invalid range} or
 \texttt{Illegal number}, and the mode indicator changes to \ind{ERROR}.
 Press \kname{ESC} to return to the worksheet, and select the command again.
+
+\subsection{Messages}
+\ix{messages}
+When Initech 123 cannot do what you asked, it tells you on the second line
+of the control panel, and the mode indicator changes to \ind{ERROR}.
+Nothing in the worksheet has changed.  Press \kname{ESC} to return to
+\ind{READY} mode.  A value that Initech 123 cannot accept is not a
+message: the entry stays on the control panel in \ind{EDIT} mode so that
+you can correct it.
+
+In the example below, a line \texttt{Message:} shows what the control panel
+displayed, and a line \texttt{EDIT:} the entry left in \ind{EDIT} mode.
+The lines are, in order, the result of typing 300 at the prompt of
+\slashcmd{/Worksheet Column Set-Width}; of typing \type{a0} at the prompt
+of \fkey{Goto}{F5}; of a range name of 16 characters at the prompt of
+\slashcmd{/Range Name Create}; of the entry \type{12abc}; and of a TO range
+of several cells at the second prompt of \slashcmd{/Copy}.  The last line
+shows that A1, the FROM range of the refused copy, is as it was.
+
+\LotExample{examples/messages}
+
+Appendix~B lists every message, its cause and what to do.
 
 \section{Entering Data}
 \ix{entries}
@@ -303,7 +352,8 @@ on the first line of the control panel.
 \texttt{'} (apostrophe) & Left-aligned\\
 \texttt{"} (quotation mark) & Right-aligned\\
 \texttt{\textasciicircum} (caret) & Centered\\
-\texttt{\textbackslash} (backslash) & Repeated to fill the cell\LotEnd
+\texttt{\textbackslash} (backslash) & Repeated to fill the cell\\
+\texttt{|} (vertical bar) & Left-aligned, as with the apostrophe\LotEnd
 \end{LotTable}
 
 If you do not type a prefix, Initech 123 adds the default prefix, the
@@ -329,6 +379,33 @@ Do not type commas, spaces or dollar signs in a number: the cell's format
 displayed.
 
 \LotExample{examples/values}
+
+General format, the format of every cell of a new worksheet, shows a
+number with as many decimal places as it has, up to fifteen significant
+digits, and drops the decimal places that do not fit the column.  These
+values are shown in a column 40 characters wide; in a column of the
+standard width, 9 characters, \texttt{1/3} shows as \texttt{0.333333}.
+
+\LotExample{examples/numbers}
+
+\subsection{How Numbers Are Displayed}
+\ix{numbers!display}
+A number is displayed in its cell according to the cell's format and the
+width of its column.  A column of the standard width, 9 characters, shows
+a number of up to eight characters, a minus sign included, in General
+format: one character of the column is left blank.  A larger number, or a
+number with too many decimal places, is shown with fewer digits after the
+decimal point, or in scientific notation, as \texttt{1.2E+11} for
+123456789012.  A number that does not fit its column in any other format
+is shown as a row of asterisks; widening the column shows it again.  The
+stored number is never changed by its display: the control panel always
+shows it in full.
+
+In this example A6 has the format Fixed with two decimal places, which
+needs 11 characters for 1234567; the last line shows A6 after
+\slashcmd{/Worksheet Column Set-Width} 11.
+
+\LotExample{examples/display}
 
 If Initech 123 cannot accept a value, because it contains a character a
 number or formula cannot contain, it switches to \ind{EDIT} mode and leaves
@@ -366,6 +443,34 @@ single cell is named by its address alone.
 A \term{range name} is a name of up to 15 characters that you give a range
 with \slashcmd{/Range Name Create}.  You can then type the name wherever
 Initech 123 asks for a range, and in formulas.
+
+\subsection{Specifying a Range at a Prompt}
+\ix{ranges!specifying}
+When a command asks for a range, you can answer in three ways.
+\begin{itemize}
+\item Type the range, as \type{B2..D9}, or a single address, and press
+  \kname{ENTER}.  Capital and small letters are the same.
+\item Type a range name and press \kname{ENTER}.
+\item Point: move the cell pointer with the arrow keys to the cell you
+  want and press \kname{ENTER}.  The address of the cell pointer follows
+  the prompt as you move it.  Pointing selects a single cell; to give a
+  range of several cells, type it.
+\end{itemize}
+If you type nothing and press \kname{ENTER}, the range is the cell the
+cell pointer is in.  If what you type is not a range or an existing range
+name, Initech 123 displays \texttt{Invalid range}.
+
+\subsection{Range Names in Formulas}
+\ix{range names!in formulas}
+A formula can use a range name wherever it can use an address or a range.
+When you complete the entry, the control panel shows the formula with the
+range the name stands for.  When you copy the formula, a name is treated
+like a relative reference: the copy refers to the cells at the same
+distance.  Type a dollar sign before the name, \type{\$RATE}, to make it an
+absolute reference.  Here A1 is named RATE, and B1 and C1 are copied to
+B2 and C2:
+
+\LotExample{examples/rnames}
 
 \section{Formulas}
 \ix{formulas}
@@ -417,11 +522,43 @@ An \term{@function} is a built-in formula, such as \fn{@SUM} or
 \fn{@ROUND}, that you use as part of a formula.  Chapter~13 describes every
 @function.
 
+\subsection{Strings in Formulas}
+\ix{strings}
+A formula can work on text as well as on numbers.  A \term{string} is text
+in double quotation marks, a label in a cell, or the result of a string
+@function.  The operator \texttt{\&} joins two strings; the comparison
+operators compare them, ignoring the difference between capital and small
+letters (\fn{@EXACT} compares exactly); and the string @functions of
+Chapter~13 take them apart and put them together.  The result of a string
+formula is displayed in its cell like a label, aligned at the left.
+
+A formula that begins with a quotation mark is taken for a right-aligned
+label: begin a string formula with a plus sign.  In these examples the
+columns are 20 characters wide:
+
+\LotExample{examples/strings}
+
 \subsection{Formulas with Errors}
 If a formula cannot be calculated, for instance because it divides by zero
 or refers to a label where it needs a number, the cell shows \texttt{ERR}.
 Every formula that depends on such a cell also shows \texttt{ERR}, until the
 cause is corrected.
+
+\section{Dates and Times}
+\ix{dates}\ix{times}
+Initech 123 stores a date as a \term{date serial number}, the number of
+days since 31 December 1899, so that dates can be subtracted and compared
+like any other numbers.  Enter a date with \fn{@DATE}, which takes the
+year, month and day, and display it as a date by giving the cell a date
+format with \slashcmd{/Range Format Date} (Chapter~10).  A time of day is
+a fraction of a day, entered with \fn{@TIME}.  In this example A1 is
+formatted as a date while column A is still 9 characters wide, and again
+after the global column width is set to 12:
+
+\LotExample{examples/dates}
+
+Initech 123 has no access to the computer's clock in this version:
+\fn{@NOW} returns a fixed value (Chapter~13).
 
 \section{Recalculation}
 \ix{recalculation}
@@ -458,3 +595,22 @@ files in the \file{.WK1} format.  A file name has up to eight characters,
 optionally followed by a period and an extension of up to three characters;
 when you do not type an extension, Initech 123 adds \file{.WK1}.  The data
 disk is drive \file{A:}.  Chapter~5 describes the File commands.
+
+\subsection{What a Worksheet File Holds}
+\ix{worksheet files!contents}
+A worksheet file holds everything you need to continue your work where you
+left it:
+\begin{itemize}
+\item every entry, with its label prefix, and every formula with its last
+  calculated value;
+\item the format and protection setting of every cell that has its own;
+\item the width of every column you have set, and the global column width;
+\item the global format and label prefix;
+\item the recalculation method, order and iteration count, and whether
+  protection is enabled;
+\item the range names and their ranges.
+\end{itemize}
+A worksheet file can also hold settings that this version of Initech 123
+does not use, such as print and graph settings, when it was made by
+another program that reads and writes \file{.WK1} files.  Initech 123
+keeps them unchanged and writes them back when you save the worksheet.

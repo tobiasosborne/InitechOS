@@ -1,0 +1,7 @@
+Message: Illegal number
+Message: Invalid range
+Message: Invalid range name
+EDIT: 12abc
+A1: 10
+Message: Specify the upper left destination cell
+A1: 10 = 10

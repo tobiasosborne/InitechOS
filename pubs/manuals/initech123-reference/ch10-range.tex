@@ -196,6 +196,13 @@ you type in the range later get the default prefix.
   centered.
 \end{Options}
 
+\section{Aligning Headings: An Example}
+Three headings typed without a prefix are left-aligned.  /Range Label
+Center gives all three the caret prefix; /Range Label Right then gives the
+two over the numbers the quotation-mark prefix:
+
+\LotExample{examples/labelalign}
+
 \MenuEntry{/Range Erase}
 /Range Erase erases the entries in a range.  The cells keep their formats
 and protection settings.
@@ -309,10 +316,26 @@ produces a string.
   formulas are replaced by their values.
 \end{itemize}
 
+\section{Freezing Results: An Example}
+C1 and C2 compute a cost from the quantities in column B.  /Range Value
+with C1..C2 as both the FROM and the TO range replaces each formula by its
+value: the cells show the same numbers, but the control panel now shows
+numbers, not formulas, and a change in column B no longer affects them.
+
+\LotExample{examples/freeze}
+
 \MenuEntry{/Range Trans}
 /Range Trans copies a range with its rows and columns exchanged: the first
 row of the FROM range becomes the first column of the copy.  Formulas are
 copied as their current values.  The prompts are those of /Range Value.
+
+\section{Transposing a Table: An Example}
+A1..C2 holds three month names over three values, the third a formula.
+/Range Trans with A1..C2 as the FROM range and A4 as the TO range writes
+the months down column A from A4 and the values beside them; the formula
+in C2 arrives as its value, 30:
+
+\LotExample{examples/transpose}
 
 \MenuEntry{/Range Search}
 /Range Search displays the menu for finding or replacing text in a range.

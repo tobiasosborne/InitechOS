@@ -40,21 +40,25 @@ ex=$(ls pubs/manuals/initech123-reference/examples/*.i23 | head -1)
 "$face" replay "$ex" > "$m/replayed.txt"
 sed '0,/[0-9]/ s/\([0-9]\)/X\1/' "${ex%.i23}.txt" > "$m/changed.txt"
 red CHANGED_EXAMPLE TRANSCRIPT-DRIFT "$pgate" same TRANSCRIPT-DRIFT "$m/changed.txt" "$m/replayed.txt"
-# 7. a FLAIR figure one pixel off its crop
+# 7. a FLAIR figure one pixel off its crop (a row)
 dump=$(ls "$out"/../flair-check/initech123-reference/*.ppm | head -1)
 name=$(basename "$dump" .ppm)
 row=$(grep "^$name|" pubs/manuals/initech123-reference/screens/FLAIR)
 set -- $(printf '%s' "$row" | cut -d'|' -f2) ; x0=$1; y0=$2; x1=$3; y1=$4
 sc=$(printf '%s' "$row" | cut -d'|' -f3)
-"$shot" png "$dump" $((x0 + 1)) "$y0" $((x1 + 1)) "$y1" "$sc" "$m/shifted.png" spec/assets/clut.json spec/assets/color_canon.json
+# one row down, or one row up when the crop already reaches the bottom of
+# the 640 x 480 screen (a full-width crop cannot move sideways)
+if [ "$y1" -lt 480 ]; then dy=1; else dy=-1; fi
+"$shot" png "$dump" "$x0" $((y0 + dy)) "$x1" $((y1 + dy)) "$sc" "$m/shifted.png" spec/assets/clut.json spec/assets/color_canon.json
 "$shot" unb64 "pubs/manuals/initech123-reference/screens/$name.b64" "$m/committed.png"
 "$shot" same "$m/committed.png" "$(dirname "$dump")/$name.png"
 red SHIFTED_FIGURE SCREEN-DRIFT "$shot" same "$m/committed.png" "$m/shifted.png"
 # 8. the inventory really is read from the shipped menu resource: a build
 #    whose first menu word is misspelled (I123_MUT_MENU_SPELLING, the
-#    test-i123-menu-tree-mutant knob) no longer ships /Worksheet
+#    test-i123-menu-tree-mutant knob) ships /Vorksheet, which no book
+#    documents (the gate's first finding; /Worksheet no longer ships)
 "$facemut" inventory > "$m/mut.shipped"
-red MENU_RESOURCE_MISSPELLED DOC-NOT-SHIPPED "$gate" commands "$m/mut.shipped" "$refused" "menu+function+key=$ref"
+red MENU_RESOURCE_MISSPELLED SHIPPED-NOT-DOCUMENTED "$gate" commands "$m/mut.shipped" "$refused" "menu+function+key=$ref"
 # 9. canon: the quarterly shares printed as totalling 100%
 sed 's/= 116%$/= 100%/' pubs/manuals/initech123-setting-up/examples/quarterly.txt > "$m/quarterly.txt"
 red CANON_100 CANON-116 sh harness/pubs/i123_replay.sh canon "$m/quarterly.txt"
@@ -62,4 +66,14 @@ red CANON_100 CANON-116 sh harness/pubs/i123_replay.sh canon "$m/quarterly.txt"
 ref_dir=$built/initech123-reference
 { cat "$ref_dir/main.terms"; printf 'frobnication\n'; } > "$m/main.terms"
 red TERM_NOT_IN_GLOSSARY TERM-NOT-IN-GLOSSARY "$gate" glossary "$m/main.terms" "$ref_dir/main.gloss"
-printf '>>> test-pubs-i123-mutant: green (10 named mutants rejected by their gate legs)\n'
+# 11. a printed message (an example's "Message:" line, the replay's try
+#     directive) changed by one word
+msgs=pubs/manuals/initech123-reference/examples/messages
+"$face" replay "$msgs.i23" > "$m/messages.replayed"
+sed 's/^Message: Illegal number$/Message: Illegal value/' "$msgs.txt" > "$m/messages.txt"
+red CHANGED_MESSAGE TRANSCRIPT-DRIFT "$pgate" same TRANSCRIPT-DRIFT "$m/messages.txt" "$m/messages.replayed"
+# 12. a printed refusal the application does not make: try keys that the
+#     application accepts (no message, no EDIT)
+printf 'try 5~\n' > "$m/accepted.i23"
+red TRY_ACCEPTED I123-PROBE "$face" replay "$m/accepted.i23"
+printf '>>> test-pubs-i123-mutant: green (12 named mutants rejected by their gate legs)\n'

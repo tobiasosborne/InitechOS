@@ -1,0 +1,11 @@
+# Chapter 10, /Range Label: Aligning Headings: An Example
+A1 Item
+B1 Qty
+C1 Cost
+do /rlca1..c1~
+show A1
+show B1
+show C1
+do /rlrb1..c1~
+show B1
+show C1

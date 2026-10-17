@@ -1,0 +1,19 @@
+# Chapter 13, worked example: tidying and splitting names with the string
+# @functions (columns 16 characters wide)
+do /wgc16~
+A1 '  anne ADAMS
+B1 @PROPER(@TRIM(A1))
+show B1
+A2 Baker, Carol
+B2 @LEFT(A2,@FIND(",",A2,0))
+show B2
+C2 @MID(A2,@FIND(",",A2,0)+2,20)
+show C2
+D2 +C2&" "&B2
+show D2
+A3 Report
+B3 @REPEAT("-",@LENGTH(A3))
+show B3
+= @STRING(1234.5,1)
+= @VALUE("12.5")+1
+= @VALUE("abc")

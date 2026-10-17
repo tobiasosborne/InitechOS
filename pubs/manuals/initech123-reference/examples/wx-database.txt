@@ -1,0 +1,29 @@
+A1: Name
+B1: Dept
+C1: Salary
+A2: Adams
+B2: Software
+C2: 32000
+A3: Baker
+B3: Software
+C3: 31500
+A4: Clark
+B4: Software
+C4: 31000
+A5: Davis
+B5: Payroll
+C5: 24000
+E1: Dept
+E2: Software
+F1: @DSUM(A1..C5,2,E1..E2)
+F2: @DCOUNT(A1..C5,2,E1..E2)
+F3: @DAVG(A1..C5,2,E1..E2)
+F4: @DMAX(A1..C5,2,E1..E2)
+F1: @DSUM(A1..C5,2,E1..E2) = 94500
+F2: @DCOUNT(A1..C5,2,E1..E2) = 3
+F3: @DAVG(A1..C5,2,E1..E2) = 31500
+F4: @DMAX(A1..C5,2,E1..E2) = 32000
+E4: Salary
+E5: +C2>31000
+F5: @DCOUNT(A1..C5,0,E4..E5)
+F5: @DCOUNT(A1..C5,0,E4..E5) = 2

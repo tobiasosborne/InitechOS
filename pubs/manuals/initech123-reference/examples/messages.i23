@@ -1,0 +1,10 @@
+# Chapter 1, Messages: in order, a column width of 300; GOTO (F5) A0; a
+# range name of 16 characters; a value that is not a number or a formula;
+# /Copy with a TO range of several cells
+try /wcs300~
+try {GOTO}a0~
+try /rncFIRSTQUARTERSALES~
+try 12abc~
+A1 10
+try /ca1~b1..b5~
+show A1

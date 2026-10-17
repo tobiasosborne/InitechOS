@@ -1,0 +1,19 @@
+# Chapter 1, Dates and times: the serial number, a date format in a column
+# too narrow and then wide enough, date arithmetic
+A1 @DATE(92,6,15)
+show A1
+do /rfd1a1~
+show A1
+do /wgc12~
+show A1
+A2 +A1+30
+do /rfd1a2~
+show A2
+A3 @DATE(92,12,31)-@DATE(92,1,1)
+show A3
+= @YEAR(@DATE(92,6,15))
+= @MONTH(@DATE(92,6,15))
+= @DAY(@DATE(92,6,15))
+= @DATE(92,2,30)
+= @TIME(18,0,0)
+= @HOUR(@TIME(13,30,0))

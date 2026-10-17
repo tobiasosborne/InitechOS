@@ -1,0 +1,10 @@
+# Chapter 12, /Worksheet Erase: No leaves the worksheet; Yes starts a new
+# one with the settings of a new worksheet (labels left-aligned)
+do /wglr
+A1 Budget
+do /wen
+show A1
+do /wey
+show A1
+A1 Budget
+show A1

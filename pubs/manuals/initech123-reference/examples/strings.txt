@@ -1,0 +1,12 @@
+A1: Initech
+A2: "Initech"&" 123"
+A2: "Initech"&" 123" = Initech"&" 123"
+A3: +"Initech"&" 123"
+A3: +"Initech"&" 123" = Initech 123
++A1&" 123" = Initech 123
+@UPPER(A1) = INITECH
+@LENGTH(A1) = 7
++A1="Initech" = 1
++A1="initech" = 1
+@EXACT(A1,"initech") = 0
++"abc"<"abd" = 1

@@ -1,0 +1,25 @@
+# Chapter 13, worked example: nested @IF and the statistical @functions
+do /wgc12~
+A1 Smith
+B1 91
+C1 @IF(B1>=90,"High",@IF(B1>=80,"Middle","Low"))
+A2 Jones
+B2 85
+A3 Brown
+B3 62
+do {GOTO}c1~/c~c2~/cc1~c3~
+show C1
+show C2
+show C3
+A5 Average
+B5 @AVG(B1..B3)
+A6 Deviation
+B6 @STD(B1..B3)
+A7 Spread
+B7 @MAX(B1..B3)-@MIN(B1..B3)
+A8 Count
+B8 @COUNT(B1..B3)
+show B5
+show B6
+show B7
+show B8

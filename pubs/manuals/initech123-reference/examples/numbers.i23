@@ -1,0 +1,9 @@
+# Chapter 1, Values: what General format shows of a number (a column 40
+# characters wide)
+= -(3)
+= (3+4)*2
+= 1/3
+= 2^40
+= 0.000001234
+= 1234567890123
+= 123456789012345678

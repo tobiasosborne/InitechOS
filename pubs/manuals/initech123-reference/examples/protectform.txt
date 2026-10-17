@@ -1,0 +1,12 @@
+A1: Rent
+B1: 950
+A2: Phones
+B2: 120
+A3: Supplies
+B3: 85
+A4: Total
+B4: @SUM(B1..B3)
+B2: 135
+B4: @SUM(B1..B3) = 1170
+Message: Cell is protected
+B4: @SUM(B1..B3) = 1170

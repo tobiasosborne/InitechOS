@@ -78,12 +78,24 @@ recalculated, protection, and erasing the worksheet.
 \MenuEntry{/Worksheet Global}
 /Worksheet Global displays the menu of the global settings.  Every global
 setting is saved with the worksheet.
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Worksheet Global and then the setting.
+\item Select the choice from each further menu that appears, or answer the
+  prompt and press \kname{ENTER}.
+\end{Steps123}
+A setting that is selected from a menu takes effect at once, and Initech
+123 returns to \ind{READY} mode.  To leave the Global menu without changing
+anything, press \kname{ESC} until the mode indicator shows \ind{READY}, or
+press \kname{CTRL-BREAK}.
 \begin{Options}
 \OptionMenu{Format} Sets the global format (below).
 \OptionMenu{Label-Prefix} Sets the label prefix for new labels (below).
 \Option{Column-Width} Sets the width of every column that has no width of
   its own.  At \texttt{Enter global column width (1..240):} type a number
-  from 1 to 240 and press \kname{ENTER}.
+  from 1 to 240 and press \kname{ENTER}.  Columns set with
+  \slashcmd{/Worksheet Column Set-Width} keep their own widths.
 \OptionMenu{Recalculation} Sets when and in what order formulas are
   recalculated (below).
 \OptionMenu{Protection} Turns worksheet protection on or off (below).
@@ -98,6 +110,16 @@ setting is saved with the worksheet.
 (Chapter~10), without Reset.  For Fixed, Sci, Currency, the comma format
 and Percent, Initech 123 asks \texttt{Enter number of decimal places
 (0..15):}.
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Select /Worksheet Global Format and then the format; for a date
+  format, select Date and then the date format.
+\item For Fixed, Sci, Currency, the comma format and Percent, type the
+  number of decimal places, from 0 to 15, and press \kname{ENTER}.
+\end{Steps123}
+The new global format is used at once by every cell that has no format of
+its own.
 \begin{Options}
 \Option{Fixed} A fixed number of decimal places.
 \Option{Sci} Scientific notation.
@@ -112,6 +134,13 @@ and Percent, Initech 123 asks \texttt{Enter number of decimal places
 \Option{Text} Formulas instead of their values.
 \Option{Hidden} Nothing.
 \end{Options}
+Setting the global format: with the comma format and no decimal places,
+0.5 shows as 1 and -22 in parentheses; B1 is then given a format of its
+own with /Range Format Percent, and the global format is set back to
+General.  B1 keeps its own format; C1 and D1 follow the global one.
+
+\LotExample{examples/globalfmt}
+
 \SubEntry{/Worksheet Global Format Date}
 \begin{Options}
 \Option{1 (DD-MMM-YY)} Day, month and year.
@@ -138,6 +167,11 @@ already in the worksheet keep their prefixes; to change them use
 \Option{Right} New labels are right-aligned (\texttt{"}).
 \Option{Center} New labels are centered (\texttt{\textasciicircum}).
 \end{Options}
+
+With the prefix set to Right, then Center, then Left, each label typed
+afterwards gets the prefix in force; the control panel shows it:
+
+\LotExample{examples/prefix}
 
 \SubEntry{/Worksheet Global Recalculation}
 Sets when Initech 123 recalculates formulas and in what order.  While
@@ -170,6 +204,15 @@ Manual recalculation: after A1 changes from 10 to 50, A2 keeps its old
 value until CALC (F9) is pressed.
 \LotExample{examples/recalcorder}
 
+\section{Recalculation Order: An Example}
+A1 doubles B1, and B1 adds 1 to C1.  With the order set to Columnwise,
+C1 is changed from 5 to 10: B1 shows 11 at once, but A1, which is in an
+earlier column, was calculated before B1 and still shows twice the old
+value of B1, 12.  CALC (F9) brings A1 up to date.  In Natural order a
+change of C1 to 20 reaches A1 at once:
+
+\LotExample{examples/colorder}
+
 Iteration: B1 depends on itself.  After the iteration count is set to 5
 (which recalculates), and again after CALC (F9), B1 moves closer to 2:
 \LotExample{examples/iteration}
@@ -181,6 +224,23 @@ Iteration: B1 depends on itself.  After the iteration count is set to 5
   unprotected them with \slashcmd{/Range Unprot}.
 \Option{Disable} Turns worksheet protection off.
 \end{Options}
+
+\BHead{Procedure}
+To protect a worksheet except for the cells in which you type new data:
+\begin{Steps123}
+\item Select \slashcmd{/Range Unprot}, specify the range of the input cells
+  and press \kname{ENTER}.  Repeat for each range of input cells.
+\item Select /Worksheet Global Protection Enable.
+\end{Steps123}
+Protection is saved with the worksheet: the next time you retrieve it, the
+formulas are protected.
+
+\section{Protecting a Form: An Example}
+B1..B3 hold three costs and B4 their total.  B1..B3 are unprotected and
+protection is enabled.  A new cost in B2 is accepted and the total follows
+it; an entry in B4 is refused:
+
+\LotExample{examples/protectform}
 
 \SubEntry{/Worksheet Global Default}
 /Worksheet Global Default displays the menu of the settings that apply to
@@ -350,6 +410,14 @@ A width outside 1 to 240, or anything but a whole number, displays
 \texttt{Illegal number}.
 \end{Note}
 
+\section{Widening a Column: An Example}
+A1 holds 1234567.891.  In the standard width of 9 characters General
+format shows only the whole part, 1234567; after /Worksheet Column
+Set-Width 12 the whole number is displayed; /Worksheet Column Reset-Width
+returns the column to the global width:
+
+\LotExample{examples/colwidth}
+
 \MenuEntry{/Worksheet Erase}
 /Worksheet Erase clears the worksheet from memory, with every entry and
 setting, and starts a new worksheet.
@@ -357,6 +425,23 @@ setting, and starts a new worksheet.
 \Option{No} Returns to \ind{READY} mode; nothing is erased.
 \Option{Yes} Erases the worksheet.
 \end{Options}
+
+\BHead{Procedure}
+\begin{Steps123}
+\item Save the worksheet with \slashcmd{/File Save} if you want to keep it.
+\item Select /Worksheet Erase.
+\item Select Yes to erase the worksheet, or No to keep it.
+\end{Steps123}
+The new worksheet has the settings of a worksheet you start Initech 123
+with: General format, columns 9 characters wide, left-aligned labels,
+natural automatic recalculation, no range names and protection disabled.
+
+\section{Starting a New Worksheet: An Example}
+With the label prefix set to Right, a label is typed in A1.
+/Worksheet Erase No leaves it; /Worksheet Erase Yes erases it, and a label
+typed afterwards is left-aligned again:
+
+\LotExample{examples/wserase}
 \begin{Caution}
 /Worksheet Erase Yes does not ask whether to save the worksheet first.
 Save it with \slashcmd{/File Save} before you erase it.  The worksheet

@@ -1,0 +1,11 @@
+# Chapter 13, worked example: @NPV and @IRR on a stream of cash flows
+A1 -1000
+A2 300
+A3 400
+A4 500
+B1 @NPV(.1,A2..A4)+A1
+B2 @IRR(.1,A1..A4)
+do /rff2~b1~
+do /rfp2~b2~
+show B1
+show B2

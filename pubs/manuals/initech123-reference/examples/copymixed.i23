@@ -1,0 +1,10 @@
+# Chapter 3, Copying a block with mixed references: An Example
+A1 2
+A2 3
+B1 +A1*$A$1
+C1 +A$1*$A1
+do /cb1..c1~b2~
+show B1
+show C1
+show B2
+show C2

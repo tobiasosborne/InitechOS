@@ -138,6 +138,16 @@ FROM range as they were before the copy began, so every cell of the copy
 receives the original contents.
 \end{Note}
 
+\section{Copying a Block with Mixed References: An Example}
+A \term{mixed reference} fixes only the column (\texttt{\$A1}) or only the
+row (\texttt{A\$1}).  B1 holds \texttt{+A1*\$A\$1} and C1 holds
+\texttt{+A\$1*\$A1}; B1..C1 is copied to B2.  The copy of B1 keeps the
+absolute \texttt{\$A\$1} and moves \texttt{A1} down a row; the copy of C1
+keeps row 1 in \texttt{A\$1} and column A in \texttt{\$A1}, whose row
+moves down, so both copies in row 2 multiply A2 by A1:
+
+\LotExample{examples/copymixed}
+
 \section{Copying a Formula Down a Column: An Example}
 In this example a column of prices in B2..B4 and a tax rate in B6 are used
 to compute the tax on each price.  The tax rate is referred to absolutely,

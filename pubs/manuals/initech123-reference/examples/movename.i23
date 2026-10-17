@@ -1,0 +1,11 @@
+# Chapter 7, Moving a named range: An Example
+B1 100
+B2 200
+do /rncdata~b1..b2~
+C1 @SUM(DATA)
+show C1
+do /mb1..b2~d1~
+show C1
+do {GOTO}f1~/rnt~
+show F1
+show G1

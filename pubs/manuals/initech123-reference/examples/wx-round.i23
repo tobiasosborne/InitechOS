@@ -1,0 +1,16 @@
+# Chapter 13, worked example: rounding with @ROUND against rounding by a
+# format; @INT and @MOD
+A1 2.345
+B1 @ROUND(A1,2)
+C1 +A1
+do /rff2~c1~
+show B1
+show C1
+D1 +B1*100
+E1 +C1*100
+show D1
+show E1
+= @ROUND(1234.567,-2)
+= @INT(-3.7)
+= @MOD(-7,3)
+= @MOD(7,-3)

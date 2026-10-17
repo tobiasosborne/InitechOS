@@ -1,0 +1,15 @@
+# Chapter 12, /Worksheet Global Protection: a form whose input cells
+# B1..B3 are unprotected; the total in B4 stays protected
+A1 Rent
+B1 950
+A2 Phones
+B2 120
+A3 Supplies
+B3 85
+A4 Total
+B4 @SUM(B1..B3)
+do /rub1..b3~/wgpe~
+B2 135
+show B4
+try {GOTO}b4~0~
+show B4

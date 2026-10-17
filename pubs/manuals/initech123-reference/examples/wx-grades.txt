@@ -1,0 +1,22 @@
+A1: Smith
+B1: 91
+C1: @IF(B1>=90,"High",@IF(B1>=80,"Middle","Low"))
+A2: Jones
+B2: 85
+A3: Brown
+B3: 62
+C1: @IF(B1>=90,"High",@IF(B1>=80,"Middle","Low")) = High
+C2: @IF(B2>=90,"High",@IF(B2>=80,"Middle","Low")) = Middle
+C3: @IF(B3>=90,"High",@IF(B3>=80,"Middle","Low")) = Low
+A5: Average
+B5: @AVG(B1..B3)
+A6: Deviation
+B6: @STD(B1..B3)
+A7: Spread
+B7: @MAX(B1..B3)-@MIN(B1..B3)
+A8: Count
+B8: @COUNT(B1..B3)
+B5: @AVG(B1..B3) = 79.33333333
+B6: @STD(B1..B3) = 12.49888883
+B7: @MAX(B1..B3)-@MIN(B1..B3) = 29
+B8: @COUNT(B1..B3) = 3

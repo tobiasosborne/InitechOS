@@ -1,0 +1,15 @@
+A1: Invoiced
+B1: @DATE(92,4,10)
+A2: Paid
+B2: @DATE(92,6,30)
+A3: Days
+B3: +B2-B1
+A4: Quarter
+B4: @CHOOSE(@INT((@MONTH(B1)-1)/3),"Q1","Q2","Q3","Q4")
+A5: Late?
+B5: @IF(B3>60,"Late","On time")
+B1: @DATE(92,4,10) = 10-Apr-92
+B2: @DATE(92,6,30) = 30-Jun-92
+B3: +B2-B1 = 81
+B4: @CHOOSE(@INT((@MONTH(B1)-1)/3),"Q1","Q2","Q3","Q4") = Q2
+B5: @IF(B3>60,"Late","On time") = Late

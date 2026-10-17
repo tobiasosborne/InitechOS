@@ -119,6 +119,19 @@ The mathematical @functions do arithmetic and trigonometry on numbers. Their arg
 \texttt{@TAN(x)} & Tangent of an angle in radians\LotEnd
 \end{LotTable}
 
+\LabelHead{Example: Rounding a Value and Formatting It}
+A format changes only how a number is displayed; \fn{@ROUND} changes the
+number itself. A1 holds 2.345. B1 rounds it with
+\texttt{@ROUND(A1,2)}; C1 refers to A1 and is given the Fixed format
+with two decimal places. Both cells show 2.35, but multiplied by 100
+they differ: the rounded value gives 235, the formatted one still gives
+234.5. The last lines show \fn{@ROUND} with a negative number of places,
+and how \fn{@INT} and \fn{@MOD} treat negative numbers: \fn{@INT}
+drops the fraction toward 0, and the remainder from \fn{@MOD} has the
+sign of the number divided.
+
+\LotExample{examples/wx-round}
+
 \subsection{Logical}
 The logical @functions test conditions and choose between results. Initech 123 has no separate true and false values: true is 1, false is 0, and any nonzero number counts as true when a condition is tested.
 
@@ -151,6 +164,17 @@ The special @functions look things up and give information about the worksheet a
 \texttt{@VLOOKUP(x,range,column)} & Looks up a value in a vertical table\LotEnd
 \end{LotTable}
 
+\LabelHead{Example: Looking Up a Rate in a Table}
+A1..B4 is a rate table: each income in column A is the lowest to which
+the rate beside it applies, in ascending order. \fn{@VLOOKUP} finds the
+largest income in column A that is not greater than the amount, and
+returns the entry one column to its right (column offset 1). The tax in
+column F is the amount multiplied by the rate. An amount below the first
+income of the table, 0, would give ERR; an amount above the last uses the
+last rate. \fn{@INDEX} picks an entry by its column and row offsets.
+
+\LotExample{examples/wx-lookup}
+
 \subsection{Date and Time}
 The date and time @functions work with date serial numbers and time-of-day fractions. A date is the number of days since 1 January 1900, which is day 1; a time is a fraction of a day. In this version Initech 123 has no access to the system clock.
 
@@ -168,6 +192,16 @@ The date and time @functions work with date serial numbers and time-of-day fract
 \texttt{@TIMEVALUE(string)} & Time-of-day number from text\\
 \texttt{@YEAR(serial)} & Year of a date\LotEnd
 \end{LotTable}
+
+\LabelHead{Example: Days Between Two Dates}
+Because a date is a number, subtracting one date from another gives the
+number of days between them. B1 and B2 hold the date an invoice was sent
+and the date it was paid, formatted with Date format 1 in columns 12
+characters wide. B3 is the number of days; B4 gives the calendar quarter
+of the invoice with \fn{@CHOOSE} and \fn{@MONTH}; B5 marks the invoice
+late when it was paid after more than 60 days.
+
+\LotExample{examples/wx-dates}
 
 \subsection{Financial}
 The financial @functions calculate loan payments, investment values and depreciation. The interest rate is always the rate for one period, as a decimal, and the term is a number of periods in the same unit.
@@ -187,6 +221,35 @@ The financial @functions calculate loan payments, investment values and deprecia
 \texttt{@TERM(payment,interest,fv)} & Periods to reach a future value\LotEnd
 \end{LotTable}
 
+\LabelHead{Example: A Loan and a Savings Plan}
+The global format is Fixed with two decimal places. B4 is the monthly
+payment on 10,000 borrowed for 36 months at 1\% a month; B5 checks it,
+because the present value of 36 such payments is the amount borrowed.
+B6 is what 100 a month saved for 120 months at 0.5\% a month grows to,
+and B7 the number of months needed for the same savings to reach 20,000.
+
+\LotExample{examples/wx-loan}
+
+\LabelHead{Example: Net Present Value and Internal Rate of Return}
+A1 is an investment of 1,000, entered as a negative number because it is
+paid out; A2..A4 are the returns of the next three years. \fn{@NPV}
+discounts the returns at 10\% a year, and adding A1 shows that the
+investment loses 21.04 at that rate. \fn{@IRR} finds the rate at which
+the net present value is 0, starting from the guess of 10\%; B2 is
+formatted as a percentage.
+
+\LotExample{examples/wx-irr}
+
+\LabelHead{Example: Three Depreciation Methods}
+An asset costs 1,000, is worth 100 at the end of its life of five years,
+and is depreciated by the three methods side by side: straight-line in
+column B, double-declining-balance in column C and sum-of-the-years'
+digits in column D. Row 6 is typed once, with the cost, salvage value and
+life referred to absolutely, and copied to rows 7 through 10. Each method
+spreads the same 900 over the five years; the totals in row 11 show it.
+
+\LotExample{examples/wx-depreciation}
+
 \subsection{Statistical}
 The statistical @functions work on lists of values: numbers, cell addresses, ranges and formulas separated by commas. Blank cells in a range are skipped; a label counts as 0.
 
@@ -201,6 +264,15 @@ The statistical @functions work on lists of values: numbers, cell addresses, ran
 \texttt{@VAR(list)} & Variance\LotEnd
 \end{LotTable}
 
+\LabelHead{Example: Grading a List of Scores}
+Column C classifies each score with two \fn{@IF}s, one inside the other:
+90 and above is High, 80 and above Middle, anything else Low. The formula
+is typed once in C1 and copied to C2 and C3. Rows 5 to 8 summarize the
+scores with the statistical @functions; \fn{@STD} is the population
+standard deviation.
+
+\LotExample{examples/wx-grades}
+
 \subsection{Database statistical}
 The database statistical @functions work like the statistical @functions, but only on the records of a database range that meet conditions you set in a criteria range. All seven take three arguments: the database range, the column offset and the criteria range.
 
@@ -214,6 +286,16 @@ The database statistical @functions work like the statistical @functions, but on
 \texttt{@DSUM(input,offset,criteria)} & Sum of selected records\\
 \texttt{@DVAR(input,offset,criteria)} & Variance of selected records\LotEnd
 \end{LotTable}
+
+\LabelHead{Example: Totals for One Department}
+A1..C5 is a database of four records with the field names in row 1. The
+criteria range E1..E2 holds the field name Dept with the value Software
+under it, so the @functions in column F use only the records of that
+department; offset 2 is the third column, Salary. A criterion can also be
+a formula: in E4..E5 the formula \texttt{+C2>31000} refers to the first
+record, and Initech 123 tests it against every record.
+
+\LotExample{examples/wx-database}
 
 \subsection{String}
 The string @functions work on text. A string is text in double quotation marks, a label in a cell, or the result of a string formula. Positions within a string are counted from 0 for the first character. The \texttt{\&} operator joins strings.
@@ -240,6 +322,16 @@ The string @functions work on text. A string is text in double quotation marks, 
 \texttt{@UPPER(string)} & Converts to capital letters\\
 \texttt{@VALUE(string)} & Converts a string to a number\LotEnd
 \end{LotTable}
+
+\LabelHead{Example: Tidying and Splitting Names}
+The columns are 16 characters wide. A1 holds a name typed with extra
+spaces and in mixed capitals; \fn{@TRIM} and \fn{@PROPER} tidy it. A2
+holds a name in the form last name, comma, first name: \fn{@FIND} locates
+the comma, \fn{@LEFT} and \fn{@MID} take out the two names, and D2 joins
+them again in the other order. \fn{@REPEAT} draws a line as long as a
+heading. The last lines convert between numbers and strings.
+
+\LotExample{examples/wx-names}
 
 \section{@Function Descriptions}
 The descriptions are in alphabetical order, ignoring the @ sign; \fn{@@} comes first.

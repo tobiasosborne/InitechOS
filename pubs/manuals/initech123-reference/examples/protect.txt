@@ -1,0 +1,7 @@
+A1: 100
+B1: 200
+Message: Cell is protected
+Message: Command refused
+B1: 250
+A1: 100 = 100
+B1: 250 = 250

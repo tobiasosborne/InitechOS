@@ -1,0 +1,12 @@
+# Chapter 1, Range names in formulas: a name is copied like a relative
+# reference; with a dollar sign, like an absolute one
+A1 5
+A2 7
+do /rncrate~a1~
+B1 +RATE*2
+C1 2*$RATE
+do /cb1..c1~b2~
+show B1
+show C1
+show B2
+show C2

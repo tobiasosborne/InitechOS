@@ -1,0 +1,16 @@
+# Chapter 12, Recalculation order: Columnwise calculates A1 before the
+# formula in B1 that it depends on; CALC (F9) then brings it up to date;
+# Natural order calculates B1 first
+C1 5
+B1 +C1+1
+A1 +B1*2
+do /wgrc
+C1 10
+show B1
+show A1
+do {CALC}
+show A1
+do /wgrn
+C1 20
+show B1
+show A1

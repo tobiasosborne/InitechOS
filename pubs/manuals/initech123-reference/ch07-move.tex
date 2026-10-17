@@ -89,3 +89,12 @@ press \kname{ENTER}, type \type{C5} and press \kname{ENTER}.  The moved
 formula still uses A1, and the formula in D3 now refers to C5:
 
 \LotExample{examples/move}
+
+\section{Moving a Named Range: An Example}
+B1..B2 is named DATA, and C1 adds it with \texttt{@SUM(DATA)}.  Move
+B1..B2 to D1: the name moves with its cells, and the formula in C1, which
+the control panel shows with the cells the name stands for, now adds
+D1..D2.  A table of the names (\slashcmd{/Range Name Table} at F1) shows
+the moved range:
+
+\LotExample{examples/movename}

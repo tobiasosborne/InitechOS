@@ -1,0 +1,8 @@
+A1: Item
+B1: Qty
+C1: Cost
+A1: ^Item = Item
+B1: ^Qty = Qty
+C1: ^Cost = Cost
+B1: "Qty = Qty
+C1: "Cost = Cost

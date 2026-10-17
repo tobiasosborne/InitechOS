@@ -1,0 +1,15 @@
+# Chapter 1, Strings in formulas: a formula that begins with a quotation
+# mark is a label; begin it with a plus sign instead (columns 20 wide)
+do /wgc20~
+A1 Initech
+A2 "Initech"&" 123"
+show A2
+A3 +"Initech"&" 123"
+show A3
+= +A1&" 123"
+= @UPPER(A1)
+= @LENGTH(A1)
+= +A1="Initech"
+= +A1="initech"
+= @EXACT(A1,"initech")
+= +"abc"<"abd"

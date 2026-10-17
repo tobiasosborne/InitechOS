@@ -58,6 +58,11 @@
  *   show ADDR    print "ADDR: <the cell as control panel line 1 shows it>
  *                = <what the cell shows>"; an empty cell prints "ADDR:", a cell
  *                that shows nothing (Hidden) "ADDR: <contents>"
+ *   try KEYS     type KEYS where the pointer is; must end with a message
+ *                (ERROR mode: printed "Message: <the second control-panel
+ *                line>") or with an entry refused into EDIT (printed
+ *                "EDIT: <the entry>"); then ESC, which must return to
+ *                READY -- the printed form of a refusal (Appendix B)
  *   = TEXT       type TEXT into the scratch cell IV8192 and print
  *                "TEXT = <what the cell shows>" (the cell's own display,
  *                General format, in a 40-character column set with
@@ -552,6 +557,17 @@ static void cmd_replay(const char *path)
             size_t nk = parse_line(line + 3, path, k, 0, 1024);
             for (size_t i = 0; i < nk; i++) ev(keyDown, k[i].msg);
             if (g_mode != M_READY) die("keys did not end in READY", line);
+            continue;
+        }
+        if (!strncmp(line, "try ", 4)) {
+            static stroke_t k[1024];
+            size_t nk = parse_line(line + 4, path, k, 0, 1024);
+            for (size_t i = 0; i < nk; i++) ev(keyDown, k[i].msg);
+            if (g_mode == M_NOTICE) printf("Message: %s\n", g_notice);
+            else if (g_mode == M_EDIT) printf("EDIT: %.*s\n", (int)g_elen, g_edit);
+            else die("keys did not end in a message or EDIT", line);
+            ev(keyDown, (0x01 << 8) | 27);
+            if (g_mode != M_READY) die("ESC did not return to READY", line);
             continue;
         }
         if (!strncmp(line, "show ", 5)) {

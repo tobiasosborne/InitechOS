@@ -1,0 +1,18 @@
+# Chapter 13, worked example: days between dates, a quarter from a month
+do /wgc12~
+A1 Invoiced
+B1 @DATE(92,4,10)
+A2 Paid
+B2 @DATE(92,6,30)
+A3 Days
+B3 +B2-B1
+A4 Quarter
+B4 @CHOOSE(@INT((@MONTH(B1)-1)/3),"Q1","Q2","Q3","Q4")
+A5 Late?
+B5 @IF(B3>60,"Late","On time")
+do /rfd1b1..b2~
+show B1
+show B2
+show B3
+show B4
+show B5

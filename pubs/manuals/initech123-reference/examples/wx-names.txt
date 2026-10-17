@@ -1,0 +1,16 @@
+A1: '  anne ADAMS
+B1: @PROPER(@TRIM(A1))
+B1: @PROPER(@TRIM(A1)) = Anne Adams
+A2: Baker, Carol
+B2: @LEFT(A2,@FIND(",",A2,0))
+B2: @LEFT(A2,@FIND(",",A2,0)) = Baker
+C2: @MID(A2,@FIND(",",A2,0)+2,20)
+C2: @MID(A2,@FIND(",",A2,0)+2,20) = Carol
+D2: +C2&" "&B2
+D2: +C2&" "&B2 = Carol Baker
+A3: Report
+B3: @REPEAT("-",@LENGTH(A3))
+B3: @REPEAT("-",@LENGTH(A3)) = ------
+@STRING(1234.5,1) = 1234.5
+@VALUE("12.5")+1 = 13.5
+@VALUE("abc") = ERR

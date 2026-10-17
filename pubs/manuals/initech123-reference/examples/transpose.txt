@@ -1,0 +1,12 @@
+A1: Jan
+B1: Feb
+C1: Mar
+A2: 10
+B2: 20
+C2: +A2+B2
+A4: 'Jan = Jan
+B4: 10 = 10
+A5: 'Feb = Feb
+B5: 20 = 20
+A6: 'Mar = Mar
+B6: 30 = 30

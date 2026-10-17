@@ -99,6 +99,11 @@ line.
 \item Or turn protection off with \slashcmd{/Worksheet Global Protection
   Disable}.
 \end{itemize}
+In this example protection is enabled after B1 has been unprotected.
+Typing 5 in A1 is refused, and so is \slashcmd{/Range Erase} of A1; a new
+entry in B1 is accepted:
+
+\LotExample{examples/protect}
 
 \section{Commands}
 \Problem{Initech 123 displays Command not implemented.}
@@ -157,6 +162,22 @@ select Cancel and save the worksheet under a new name.
 \Problem{Initech 123 displays Invalid file name.}
 \Solution A file name cannot contain spaces or the characters \texttt{*}
 and \texttt{?}.
+
+\Problem{Initech 123 displays Enter a file name.}
+\Solution You pressed \kname{ENTER} at the file-name prompt without typing
+a name, and there is no current file name to use.  Type the name.
+
+These are the messages of /File Retrieve with no name, of /File Retrieve
+with the name of a file that is not on the data disk, and of /File Save
+with an asterisk in the name:
+
+\LotExample{examples/files}
+
+\Problem{Initech 123 displays Path not found or File I/O error.}
+\Solution The file could not be read or written: the folder you typed does
+not exist, or the data disk could not complete the operation.  Check the
+name and try again.  When a save fails, a file that did not exist before is
+removed, so that no partial file is left on the disk.
 
 \section{Ending a Session}
 \Problem{When I quit, Initech 123 asks whether to save changes, although I

@@ -1,0 +1,10 @@
+# Appendix B, Cell is protected / Command refused: protection enabled,
+# A1 protected, B1 unprotected
+A1 100
+B1 200
+do /rub1~/wgpe~
+try {GOTO}a1~5~
+try /rea1~
+B1 250
+show A1
+show B1

@@ -1,0 +1,14 @@
+# Chapter 10, /Range Trans: Transposing a Table: An Example
+A1 Jan
+B1 Feb
+C1 Mar
+A2 10
+B2 20
+C2 +A2+B2
+do /rta1..c2~a4~
+show A4
+show B4
+show A5
+show B5
+show A6
+show B6

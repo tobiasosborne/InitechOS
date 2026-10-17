@@ -1,0 +1,7 @@
+B1: 100
+B2: 200
+C1: @SUM(DATA)
+C1: @SUM(B1..B2) = 300
+C1: @SUM(D1..D2) = 300
+F1: 'DATA = DATA
+G1: 'D1..D2 = D1..D2

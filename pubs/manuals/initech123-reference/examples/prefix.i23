@@ -1,0 +1,10 @@
+# Chapter 12, /Worksheet Global Label-Prefix: An Example
+do /wglr
+A1 Right
+show A1
+do /wglc
+A2 Middle
+show A2
+do /wgll
+A3 Left
+show A3

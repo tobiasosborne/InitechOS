@@ -1,0 +1,7 @@
+# Chapter 12, /Worksheet Column Set-Width: Widening a Column: An Example
+A1 1234567.891
+show A1
+do /wcs12~
+show A1
+do /wcr
+show A1

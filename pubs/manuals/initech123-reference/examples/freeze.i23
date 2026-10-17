@@ -1,0 +1,12 @@
+# Chapter 10, /Range Value: Freezing Results: An Example
+A1 Pens
+B1 12
+C1 +B1*1.5
+A2 Pads
+B2 7
+C2 +B2*1.5
+show C1
+show C2
+do /rvc1..c2~c1~
+show C1
+show C2

@@ -1,0 +1,6 @@
+A1: Right
+A1: "Right = Right
+A2: Middle
+A2: ^Middle = Middle
+A3: Left
+A3: 'Left = Left
