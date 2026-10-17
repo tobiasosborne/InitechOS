@@ -43,6 +43,11 @@ BOCHS_LEG_END_nodrive := SHELL-READY
 BOCHS_LEG_END_exec := EXEC-4B-END
 BOCHS_LEG_END_mzexec := MZEXEC-END
 BOCHS_LEG_MARKERS_flair := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC
+# flairdb: the flair profile on a PRISTINE data volume (no DESKTOP.DB, no
+# \TRASH): the Finder's bootstrap lines must also be present (the pre-WL-0170
+# file-ops / trash-window legs graded them; WL-0162 keeps that tooth).
+BOCHS_LEG_END_flairdb := FLAIR-LIVE-READY
+BOCHS_LEG_MARKERS_flairdb := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC
 BOCHS_LEG_MARKERS_guard := FLAIR-HEAP-OK 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' HALTED
 BOCHS_LEG_MARKERS_guardmount := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' HALTED
 BOCHS_LEG_MARKERS_shell := IRQ-LIVE CONIN-LIVE SHELL-READY !PANIC
@@ -185,6 +190,12 @@ $(eval $(call bochs-flair-leg,dos-folder,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),f
 $(foreach gate,conkeys j1lu-control-emu,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,)))
 $(eval $(call bochs-flair-leg,ansi-emu,$(SECONDARY_TRACER_IMG),$(BUILD)/ansi_probe_data.img,shell,))
 $(foreach gate,flair-finder-icons flair-trash-full flair-toolbox-hardening,$(eval $(call bochs-flair-leg,$(gate),$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair,)))
+# WL-0162 (lane/finderalerts, PM): the last four hand-rolled ENOMODE legs,
+# re-keyed to this macro. Disk windows, file ops and the Trash window boot the
+# flagship on the pristine data volume (profile flairdb); the alert-chrome leg
+# boots its i123 gate image on the i123 quit data (profile flair).
+$(foreach gate,flair-disk-windows flair-file-ops flair-trash-window,$(eval $(call bochs-flair-leg,$(gate),$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flairdb,)))
+$(eval $(call bochs-flair-leg,flair-alert-chrome,$(FLAIR_I123_FILE_GATE_IMG),$(FLAIR_I123_QUIT_DATA),flair,))
 
 # Kernel hygiene: preserve self-test kernel identity and completion markers.
 # MZ invalid-entry stimulus and baked BUSY semantics remain the QEMU oracle;

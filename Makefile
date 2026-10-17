@@ -20443,86 +20443,8 @@ test-flair-disk-windows-mutant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_
 	@printf 'VERDICT   : PASS -- all three mutants drive their legs RED (the gate bites; Rule 6)\n'
 	@printf '======================================================================\n'
 
-# ---------------------------------------------------------------------------
-# REAL gate: test-flair-disk-windows-bochs (PRD Sec 8 / Rule 5 -- the BOCHS boot
-# leg of the R3.3 disk-window image)
-# ---------------------------------------------------------------------------
-# TRUTHFUL CONSTRAINT (Law 1/Law 2), verbatim the test-flair-desktop-icons-bochs
-# situation -- it is the SAME $(FLAIRTENANTS_IMG): Bochs 2.7's LGPL vgabios
-# ENOMODEs the 640x480 VBE mode and falls back to standard VGA 0x13, so
-# flair_desktop_run FAILS LOUD and HALTS BEFORE the tenants; there is no disk
-# window, no Finder, and no QMP mouse/key injection under Bochs. What this leg
-# proves is the real differential: the SAME kernel -- now carrying
-# finder_windows.o + finder_cmd.o as well -- still runs the boot chain, the
-# FLAIR heap gate and the FAT mount IDENTICALLY to QEMU, and the 640x480 guard
-# still fires with no triple-fault. The window behaviour is graded on QEMU
-# (test-flair-disk-windows). SERIAL MILESTONES ONLY, and it says so.
-FLAIR_DW_BOCHS_NAME   := flair_diskwin_bochs
-FLAIR_DW_BOCHS_REPORT := $(BUILD)/$(FLAIR_DW_BOCHS_NAME).report.txt
-FLAIR_DW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_DW_BOCHS_NAME).serial
-.PHONY: test-flair-disk-windows-bochs
-ifeq ($(SKIP_BOCHS),1)
-test-flair-disk-windows-bochs:
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-bochs : BOCHS leg (R3.3)\n'
-	@printf '======================================================================\n'
-	@printf '!!! test-flair-disk-windows-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
-	@printf '======================================================================\n'
-else
-test-flair-disk-windows-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-disk-windows-bochs : BOCHS leg (R3.3)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). bead initech-tdnl.10.\n'
-	@printf '  SERIAL MILESTONES ONLY: Bochs VBE-ENOMODEs 640x480, so kmain FAILS LOUD\n'
-	@printf '  after MOUNT-OK and BEFORE the Finder tenant -- no disk window can exist.\n'
-	@printf '  The leg proves the disk-window-carrying kernel keeps the shared\n'
-	@printf '  boot/heap/mount milestones + the guard, with no fault.\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-disk-windows-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2). Set SKIP_BOCHS=1 to explicitly (and loudly) opt out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIRTENANTS_IMG)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_DW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_DW_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_DW_BOCHS_REPORT)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_DW_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_DW_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-disk-windows-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_DW_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-disk-windows-bochs FAIL: no serial captured at %s\n' "$(FLAIR_DW_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)"; then printf '  %-18s : present\n' "$$m"; \
-		else printf '  %-18s : MISSING\n' "$$m"; fi; \
-	done
-	@for m in VBE-ENOMODE VGA13; do \
-		grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-disk-windows-bochs FAIL: fallback marker %s missing\n' "$$m"; exit 1; }; \
-	done
-	@for m in S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK; do \
-		grep -q "^$$m$$" "$(FLAIR_DW_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-disk-windows-bochs FAIL: shared kernel marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-	done
-	@! grep -q '^FINDER-OPEN-VOLUME ' "$(FLAIR_DW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: a disk window opened under Bochs, which cannot happen after the 640x480 guard halts -- the halt is not halting\n'; exit 1; }
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_DW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: the 640x480-required guard did NOT fire under the 320x200 fallback\n'; exit 1; }
-	@grep -q '^HALTED$$' "$(FLAIR_DW_BOCHS_SERIAL)" \
-		|| { printf '!!! test-flair-disk-windows-bochs FAIL: HALTED terminal marker missing\n'; exit 1; }
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@printf 'VERDICT   : PASS -- the disk-window-carrying flairtenants kernel booted under Bochs\n'
-	@printf '            through the shared kernel + FLAIR-heap + FAT-mount milestones (== QEMU),\n'
-	@printf '            and the 640x480 fail-loud guard fired correctly under the 320x200\n'
-	@printf '            fallback (no triple-fault). The disk windows themselves are QEMU-only.\n'
-	@printf '======================================================================\n'
-endif
+# test-flair-disk-windows-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101): the disk-window kernel reaches the live desktop under Bochs.
 
 # ===========================================================================
 # REAL gate: test-flair-file-ops (bead initech-34dh; GUI remediation plan R3.4,
@@ -20606,7 +20528,7 @@ grep -q '^NEWFO001 .*<DIR>' "$(1).trash.lst" || { printf 'FO-TRASH: NEWFO001 <DI
 ! grep -qE '^(README   TXT|NEWFOLD |NEWFO001 )' "$(1).root.lst" || { printf 'FO-TRASH: a staged item is STILL in the root\n'; exit 1; }
 endef
 
-.PHONY: test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs
+.PHONY: test-flair-file-ops test-flair-file-ops-mutant
 test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENANTFX_EXE) $(PPM_FLAIR_DROP_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-file-ops : Finder DRAG-MOVE + DRAG-TO-TRASH (R3.4a)\n'
@@ -20837,48 +20759,8 @@ test-flair-finder-service-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_
 	@printf '>>> test-flair-finder-service-mutant [2/2]: with the filter removed, the H03 move is refused by the identity guard (reason=service; mtools: ::/TRASH stays at the root)\n'
 
 
-# ---------------------------------------------------------------------------
-# test-flair-file-ops-bochs (PRD Sec 8 / Rule 5). TRUTHFUL CONSTRAINT, verbatim
-# test-flair-disk-windows-bochs: Bochs 2.7's LGPL vgabios ENOMODEs the 640x480
-# VBE mode, so the FLAIR desktop FAILS LOUD and HALTS before the Finder tenant
-# -- there is no window, no Finder and no mouse injection under Bochs. What
-# this leg proves is the real differential for THIS slice: the SAME kernel, now
-# carrying finder_ops.o and the extended fat12 binding, still runs the shared
-# boot chain, the FLAIR heap gate and the FAT mount (incl. DESKTOP.DB + \TRASH
-# bootstrap) identically to QEMU, and the 640x480 guard still fires with no
-# triple-fault. The drags themselves are QEMU-graded (test-flair-file-ops).
-# ---------------------------------------------------------------------------
-FLAIR_FO_BOCHS_NAME   := flair_fileops_bochs
-FLAIR_FO_BOCHS_REPORT := $(BUILD)/$(FLAIR_FO_BOCHS_NAME).report.txt
-FLAIR_FO_BOCHS_SERIAL := $(BUILD)/$(FLAIR_FO_BOCHS_NAME).serial
-ifeq ($(SKIP_BOCHS),1)
-test-flair-file-ops-bochs:
-	@printf '!!! test-flair-file-ops-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. A LOUD opt-out, not a pass.\n'
-else
-test-flair-file-ops-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-file-ops-bochs : BOCHS leg (R3.4a, bead initech-34dh)\n'
-	@printf '  SERIAL MILESTONES ONLY (see the comment above this target).\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-file-ops-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_FO_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_FO_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_FO_BOCHS_REPORT)"
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_FO_BOCHS_REPORT)" || { printf '!!! test-flair-file-ops-bochs FAIL: RFB unblock failed -- Bochs did not run the guest (another Bochs on RFB 5900? re-run alone)\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_FO_BOCHS_REPORT)"; then printf '!!! test-flair-file-ops-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; fi
-	@[ -s "$(FLAIR_FO_BOCHS_SERIAL)" ] || { printf '!!! test-flair-file-ops-bochs FAIL: no serial captured\n'; exit 1; }
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE HALTED; do \
-		grep -q "^$$m$$" "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-		printf '  %-18s : present\n' "$$m"; \
-	done
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: the 640x480 guard did not fire under the 320x200 fallback\n'; exit 1; }
-	@! grep -qE '^(FINDER-MOVE|FINDER-TRASH|FINDER-OPEN-VOLUME)' "$(FLAIR_FO_BOCHS_SERIAL)" || { printf '!!! test-flair-file-ops-bochs FAIL: a Finder operation ran after the halt -- the halt is not halting\n'; exit 1; }
-	@printf 'VERDICT   : PASS -- the file-ops kernel boots under Bochs through the shared + mount + DB/TRASH bootstrap milestones (== QEMU); the guard fires; no fault.\n'
-endif
+# test-flair-file-ops-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101): DESKTOP.DB + \TRASH bootstrap, then the live desktop.
 
 # ===========================================================================
 # REAL gate: test-flair-trash-window (bead initech-tdnl.39; audit F04) -- the
@@ -20915,7 +20797,7 @@ tw-trash-entries = mdir -i "$(1)" ::/TRASH | grep -cvE '^( Volume|Directory|\.  
 # $(call tw-trash-cluster,<data img>): \TRASH's first cluster per mshowfat.
 tw-trash-cluster = mshowfat -i "$(1)" ::/TRASH | sed -n 's/.*<\([0-9]*\).*/\1/p'
 
-.PHONY: test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs
+.PHONY: test-flair-trash-window test-flair-trash-window-mutant
 test-flair-trash-window: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-trash-window : the Trash OPENS (bead initech-tdnl.39)\n'
@@ -20959,37 +20841,8 @@ test-flair-trash-window-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_tr
 	@grep -q 'window frame top-left corner' $(BUILD)/flair_trashwin_mut_root.grade || { printf '!!! test-flair-trash-window-mutant FAIL: the grader went RED for the wrong reason\n'; cat $(BUILD)/flair_trashwin_mut_root.grade; exit 1; }
 	@printf '>>> test-flair-trash-window-mutant: TRASH_ROOT correctly RED -- serial "%s"; grader: no Trash window at (40,80)\n' "$$(grep -m1 '^FINDER-OPEN-TRASH' $(BUILD)/flair_trashwin_mut_root.serial)"
 
-# Rule 5 (verbatim the test-flair-file-ops-bochs constraint): Bochs 2.7's
-# vgabios ENOMODEs 640x480, so the desktop fails loud before the Finder -- this
-# leg proves the Trash-window kernel runs the shared boot + FAT mount + DB/TRASH
-# bootstrap identically to QEMU and halts cleanly; the window is QEMU-graded.
-FLAIR_TW_BOCHS_NAME   := flair_trashwin_bochs
-FLAIR_TW_BOCHS_REPORT := $(BUILD)/$(FLAIR_TW_BOCHS_NAME).report.txt
-FLAIR_TW_BOCHS_SERIAL := $(BUILD)/$(FLAIR_TW_BOCHS_NAME).serial
-ifeq ($(SKIP_BOCHS),1)
-test-flair-trash-window-bochs:
-	@printf '!!! test-flair-trash-window-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. A LOUD opt-out, not a pass.\n'
-else
-test-flair-trash-window-bochs: $(BOCHS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
-	@printf 'InitechOS (STAPLER) -- make test-flair-trash-window-bochs : BOCHS leg (bead initech-tdnl.39), SERIAL MILESTONES ONLY\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-trash-window-bochs FAIL: bochs not found (a required base tool). Set SKIP_BOCHS=1 to opt out LOUDLY.\n'; exit 1; }
-	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
-	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
-	@$(BOCHS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect HALTED \
-		--name "$(FLAIR_TW_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_TW_BOCHS_REPORT)" || true
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_TW_BOCHS_REPORT)" || { cat "$(FLAIR_TW_BOCHS_REPORT)"; printf '!!! test-flair-trash-window-bochs FAIL: RFB unblock failed -- Bochs did not run the guest (another Bochs on RFB 5900? re-run alone)\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_TW_BOCHS_REPORT)"; then printf '!!! test-flair-trash-window-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; fi
-	@[ -s "$(FLAIR_TW_BOCHS_SERIAL)" ] || { printf '!!! test-flair-trash-window-bochs FAIL: no serial captured\n'; exit 1; }
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK DESKTOP-DB-CREATE TRASH-CREATE HALTED; do \
-		grep -q "^$$m$$" "$(FLAIR_TW_BOCHS_SERIAL)" || { printf '!!! test-flair-trash-window-bochs FAIL: marker %s missing under Bochs\n' "$$m"; exit 1; }; \
-		printf '  %-18s : present\n' "$$m"; \
-	done
-	@grep -q 'PANIC flair-desktop: LFB smaller than 640x480' "$(FLAIR_TW_BOCHS_SERIAL)" || { printf '!!! test-flair-trash-window-bochs FAIL: the 640x480 guard did not fire under the 320x200 fallback\n'; exit 1; }
-	@! grep -qE '^(FINDER-OPEN-TRASH|FINDER-MOVE|FINDER-TRASH)' "$(FLAIR_TW_BOCHS_SERIAL)" || { printf '!!! test-flair-trash-window-bochs FAIL: a Finder operation ran after the halt\n'; exit 1; }
-	@printf 'VERDICT   : PASS -- the Trash-window kernel boots under Bochs through the shared + mount + DB/TRASH bootstrap milestones (== QEMU); the guard fires; no fault.\n'
-endif
+# test-flair-trash-window-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flairdb, vbe101).
 
 # ===========================================================================
 # REAL gate: test-flair-empty-trash (bead initech-6k12; audit F04 "Special >
@@ -30504,7 +30357,7 @@ TEST_EMU_GATES := \
 	test-flair-menu-crossdrag test-flair-menu-crossdrag-mutant \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
-	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
+	test-flair-disk-windows test-flair-disk-windows-mutant \
 	test-flair-list-view test-flair-list-view-mutant \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
@@ -30516,9 +30369,9 @@ TEST_EMU_GATES := \
 	test-flair-i123-formula test-flair-i123-formula-mutant \
 	test-flair-iword test-flair-iword-mutant \
 	test-flair-fonts test-flair-fonts-mutant \
-	test-flair-file-ops test-flair-file-ops-mutant test-flair-file-ops-bochs \
+	test-flair-file-ops test-flair-file-ops-mutant \
 	test-flair-finder-service test-flair-finder-service-mutant \
-	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
+	test-flair-trash-window test-flair-trash-window-mutant \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
 	test-flair-finder-icons test-flair-finder-icons-mutant \
 	test-flair-trash-full test-flair-trash-full-mutant \
@@ -32123,69 +31976,12 @@ test-flair-alert-chrome-mutant: test-flair-alert-chrome $(BUILD)/alert_chrome_la
 	$(call alert-chrome-mutant-leg,slab,ALERT-BANDS,DIALOG_MUT_ALERT_SLAB)
 	@printf '>>> test-flair-alert-chrome-mutant: green (all three booted regressions RED)\n'
 
-# ---------------------------------------------------------------------------
-# REAL gate: test-flair-alert-chrome-bochs (Rule 5 -- the BOCHS boot leg of the
-# alert-chrome gate image; owed by initech-tdnl.99 / tdnl.100 / rgz1, filed cqej).
-# Same TRUTHFUL CONSTRAINT as test-flair-appswitch-bochs: Bochs 2.7 ENOMODEs the
-# 640x480 VBE mode, the desktop guard fails loud and HALTS before the dirty-123
-# tenant and its alert come up, so the alert pixels are graded on QEMU only
-# (test-flair-alert-chrome); this leg proves the SAME alert-chrome kernel runs the
-# boot chain + FLAIR heap + FAT mount identically and the guard fires (no triple
-# fault). SKIP_BOCHS=1 is the one documented, shouting opt-out.
+# test-flair-alert-chrome-bochs: the WL-0170 bochs-flair-leg (harness/bochs_legs.mk,
+# profile flair, vbe101) on the alert-chrome gate image + its i123 quit data.
 # GATE HONESTY (PM 2026-10-16 22:45): test-flair-alert-chrome and its mutant were
-# defined by the chrome-controls lane but never appended to TEST_EMU_GATES, so the
-# 2026-10-16 certificate did not run them; appended here together with this leg.
-FLAIR_ALERTCHROME_BOCHS_NAME   := flair_alert_chrome_bochs
-FLAIR_ALERTCHROME_BOCHS_REPORT := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME).report.txt
-FLAIR_ALERTCHROME_BOCHS_SERIAL := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME).serial
-FLAIR_ALERTCHROME_BOCHS_DATA   := $(BUILD)/$(FLAIR_ALERTCHROME_BOCHS_NAME)_data.img
-.PHONY: test-flair-alert-chrome-bochs
-ifeq ($(SKIP_BOCHS),1)
-test-flair-alert-chrome-bochs:
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-alert-chrome-bochs : BOCHS leg (alert chrome)\n'
-	@printf '======================================================================\n'
-	@printf '!!! test-flair-alert-chrome-bochs SKIPPED (SKIP_BOCHS=1 opt-out) -- the Bochs leg (Rule 5) was NOT run. This is a LOUD, explicit opt-out, not a pass -- unset SKIP_BOCHS and re-run before trusting this gate.\n'
-	@printf '======================================================================\n'
-else
-test-flair-alert-chrome-bochs: $(BOCHS_BIN) $(FLAIR_I123_FILE_GATE_IMG) $(FLAIR_I123_QUIT_DATA)
-	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-alert-chrome-bochs : BOCHS leg (alert chrome)\n'
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator). Beads initech-tdnl.99/.100, rgz1, cqej.\n'
-	@printf '  Bochs 2.7: VBE ENOMODE -> mode-0x13; the desktop guard fails loud before the\n'
-	@printf '  alert; this leg proves the shared boot/heap/mount milestones + the guard.\n'
-	@printf '======================================================================\n'
-	@command -v $(BOCHS) >/dev/null 2>&1 || { printf '!!! test-flair-alert-chrome-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2); SKIP_BOCHS=1 is the only documented opt-out.\n'; exit 1; }
-	@printf 'Booting   : %s under Bochs (RFB headless; serial via com1=file)\n' "$(FLAIR_I123_FILE_GATE_IMG)"
-	@printf 'Expecting : VGA13 fallback + shared kernel markers + the 640x480 fail-loud\n'
-	@printf '            guard (PANIC + HALTED), no triple-fault\n'
-	@printf '%s\n' '----------------------------------------------------------------------'
-	cp -f $(FLAIR_I123_QUIT_DATA) $(FLAIR_ALERTCHROME_BOCHS_DATA)
-	@$(BOCHS_BIN) --disk "$(FLAIR_I123_FILE_GATE_IMG)" --disk2 "$(FLAIR_ALERTCHROME_BOCHS_DATA)" --expect HALTED \
-		--name "$(FLAIR_ALERTCHROME_BOCHS_NAME)" --out "$(BUILD)" --timeout-ms 45000 \
-		2> "$(FLAIR_ALERTCHROME_BOCHS_REPORT)" || true
-	@cat "$(FLAIR_ALERTCHROME_BOCHS_REPORT)"
-	@printf '%s\n' '----------------------------------------------------------------------'
-	@grep -q 'rfb_unblocked=1' "$(FLAIR_ALERTCHROME_BOCHS_REPORT)" \
-		|| { printf '!!! test-flair-alert-chrome-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$(FLAIR_ALERTCHROME_BOCHS_REPORT)"; then \
-		printf '!!! test-flair-alert-chrome-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)" ]; then \
-		printf '!!! test-flair-alert-chrome-bochs FAIL: no serial captured at %s\n' "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)"; exit 1; \
-	fi
-	@printf 'Serial markers captured:\n'
-	@for m in S1 VBE-ENOMODE VGA13 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		if grep -q "^$$m$$" "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)"; then printf '  %-14s : present\n' "$$m"; \
-		else printf '  %-14s : MISSING\n' "$$m"; fi; \
-	done
-	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED; do \
-		grep -q "^$$m$$" "$(FLAIR_ALERTCHROME_BOCHS_SERIAL)" \
-			|| { printf '!!! test-flair-alert-chrome-bochs FAIL: marker %s missing\n' "$$m"; exit 1; }; \
-	done
-	@printf '>>> test-flair-alert-chrome-bochs: green (Bochs boot leg of the alert-chrome image: fallback + shared milestones + guard, no triple fault)\n'
-endif
-TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant test-flair-alert-chrome-bochs
+# defined by the chrome-controls lane but never appended to TEST_EMU_GATES; they
+# are appended here (the Bochs leg registers itself through the macro).
+TEST_EMU_GATES += test-flair-alert-chrome test-flair-alert-chrome-mutant
 include harness/diff/fat_diff/chkdsk.mk
 include harness/frameapps.mk
 include harness/film_scene.mk
