@@ -953,6 +953,6 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     out->ok = out->launched && out->rfb_unblocked && !out->triple_fault &&
               (cfg->expect_marker ? out->marker_found : true) &&
               (cfg->quit_after ? out->quit_marker_found : true) &&
-              (cfg->screendump_after ? out->screendump_ok : true);
+              (cfg->screendump_after ? (out->screendump_ok && out->snapshot_ok) : true);
     return 0;
 }

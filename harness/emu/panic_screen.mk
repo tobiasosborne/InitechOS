@@ -36,9 +36,6 @@ $(PANIC_SCREEN_DIR)/IO_vga13.SYS: $(BOOT_DIR)/io_sys.asm | $(PANIC_SCREEN_DIR)
 	$(NASM) -f bin -DFORCE_VBE_101 -DVBE_MUT_NO_101 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 $(PANIC_SCREEN_DIR)/stage2_vga13.bin: $(STAGE2_ASM) $(PANIC_SCREEN_DIR)/IO_vga13.SYS
 	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(PANIC_SCREEN_DIR)/IO_vga13.SYS"' $< -o $@
-# Order-only dir: BOOT_SYSTEM_MINT mktemps beside the target, which fails on a
-# fresh build dir when debug32.img (whose stage2/IO.SYS live outside
-# PANIC_SCREEN_DIR) is the first thing built there (WL-0170).
 define panic-screen-image
 $(PANIC_SCREEN_DIR)/$(1).img: $(MBR_BIN) $(2) $(3) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(PANIC_SCREEN_DIR)
 	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(2) $(4) $(3) $(BOOT_SYSTEM_TOOL)

@@ -9,7 +9,12 @@
 # graded on a period card that really lacks a VBE LFB (test-boot-vga13-bochs).
 #
 # usage: bochs_leg_check.sh NAME REPORT SERIAL PATH [CHECK...]
-#   PATH  vbe101 | vga13 (Cirrus ISA: VBE without LFB) | e00 (no VBE at all)
+#   PATH  vbe101    the stock Bochs 2.7 LGPL vgabios: VESA 0101h, LFB, 8-bit DAC
+#         vbe101pad the same on the FORCE_VBE_101 gate IO.SYS, whose 4F06h call
+#                   pads the logical scanline to 648 pixels (vesa8.mk)
+#         vga13     ISA Cirrus (vgabios package ROM): VBE 1.2 offers 0101h
+#                   WITHOUT an LFB -> VBE-ENOMODE -> the mode-13h floor
+#         e00       plain VGA, no VBE at all (vga: extension=none) -> VBE-E00
 #   CHECK MARKER   a complete exact serial line that must be present
 #         !PANIC   no serial line may start with PANIC
 set -eu
@@ -25,15 +30,19 @@ case $path in
  vbe101) want='VBE-MODE=0101
 VBE
 VIDEO 640x480 bpp=8 pitch=640 lfb=0xE0000000 dac=8'
-        bad='VBE-ENOMODE VGA13' ;;
+        bad='VBE-ENOMODE VBE-E00 VGA13' ;;
+ vbe101pad) want='VBE-MODE=0101
+VBE
+VIDEO 640x480 bpp=8 pitch=648 lfb=0xE0000000 dac=8'
+        bad='VBE-ENOMODE VBE-E00 VGA13' ;;
  vga13)  want='VBE-ENOMODE
 VGA13
 VIDEO 320x200 bpp=8 pitch=320 lfb=0x000A0000 dac=6'
-        bad='VBE VBE-E00' ;;
+        bad='VBE-MODE=0101 VBE-E00' ;;
  e00)    want='VBE-E00
 VGA13
 VIDEO 320x200 bpp=8 pitch=320 lfb=0x000A0000 dac=6'
-        bad='VBE VBE-ENOMODE' ;;
+        bad='VBE-MODE=0101 VBE-ENOMODE' ;;
  *) fail "unknown video path $path" ;;
 esac
 printf 'Serial markers captured (%s video path):\n' "$path"

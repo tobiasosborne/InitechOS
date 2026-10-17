@@ -1,30 +1,54 @@
 # harness/bochs_legs.mk -- generic BOCHS boot legs for FLAIR gate kernels (Rule 5,
-# PRD Sec 8; beads initech-cqej). Each named QEMU gate gets an explicit leg;
-# their boot differentials may intentionally exercise the same kernel image.
-# Same TRUTHFUL CONSTRAINT as test-flair-appswitch-bochs: Bochs 2.7 ENOMODEs the
-# 640x480 VBE mode, the desktop guard fails loud and HALTS before any tenant, so the
-# leg proves the SAME kernel runs the boot chain + FLAIR heap + FAT mount identically
-# and the guard fires (no triple fault). SKIP_BOCHS=1 is the one documented opt-out.
-# $(call bochs-flair-leg,<gate name>,<kernel image>,<data image>,<profile>)
-# shell selects the DOS gate's actual boot boundary instead of the FLAIR
-# guard. These are BOOT legs, just like the pre-existing desktop/appswitch
-# legs: no claim of Bochs input replay or pixel coverage is made here.
-# exec/mzexec select those self-test kernels' real completion markers;
-# vga13 also checks the actual indexed handoff; nodrive omits the slave.
+# PRD Sec 8; beads initech-cqej), re-keyed by WL-0170 to the video path Bochs
+# 2.7 REALLY takes. Each named QEMU gate gets an explicit leg; their boot
+# differentials may intentionally exercise the same kernel image.
+#
+# VIDEO PATHS (harness/emu/bochs_leg_check.sh is the ONE serial verdict):
+#   vbe101     the stock Bochs 2.7 LGPL vgabios offers VESA 0101h 640x480x8 with
+#              an LFB at 0xE0000000 (vga.h VBE_DISPI_LFB_PHYSICAL_ADDRESS); since
+#              initech-2gva IO.SYS takes it (VBE-MODE=0101, 8-bit DAC) and the
+#              desktop PAINTS: WL-0170 graded the Bochs framebuffer against the
+#              QEMU 32bpp golden EXACT on all 307200 pixels (bochs_pixel_leg.sh).
+#              The pre-WL-0170 "Bochs ENOMODEs -> mode 13h -> the 640x480 guard"
+#              claim is dead for the stock ROM; it was written before vesa8.
+#   vbe101pad  vbe101 on the FORCE_VBE_101 gate IO.SYS (vesa8.mk): its 4F06h call
+#              pads the logical scanline to 648 pixels, graded on the VIDEO line.
+#   vga13      ISA Cirrus CL-GD54xx (vga: extension=cirrus, the vgabios package's
+#              cirrus ROM -- bochs Depends: vgabios | seabios): VBE 1.2 offers
+#              0101h WITHOUT an LFB -> VBE-ENOMODE -> the mode-13h floor + the
+#              640x480 guard. A real period card; keeps ENOMODE + VGA13 graded.
+#   e00        plain VGA, no VBE at all (vga: extension=none, the stock ROM's
+#              4F00h fails) -> VBE-E00 -> mode 13h. The 1990 VGA floor.
+# These are BOOT legs (serial): no claim of Bochs input replay is made here.
+# The PIXEL legs (bochs-pixel-leg below; harness/emu/bochs_pixel_leg.sh +
+# tools/ppm_bochs_check.c) grade the Bochs frame against a QEMU capture of the
+# SAME scene: EXACT RGB on Bochs's own snapshot and BGR233 on the RFB display.
 # Ref: os/milton/kmain.c BOOT_EXEC/BOOT_MZEXEC/BOOT_SHELL and VIDEO record;
 # IBM DOS 3.30 TR p.1-7 (PDF24, system-file boot chain); ADR-0003 Appendix A.
-BOCHS_LEG_END_flair := HALTED
-BOCHS_LEG_END_vga13 := HALTED
+BOCHS_CIRRUS_VGABIOS ?= /usr/share/vgabios/vgabios.cirrus.bin
+BOCHS_LEG_VIDEO_vbe101 :=
+BOCHS_LEG_VIDEO_vbe101pad :=
+BOCHS_LEG_VIDEO_vga13 := --vga-ext cirrus --vgabios $(BOCHS_CIRRUS_VGABIOS)
+BOCHS_LEG_VIDEO_e00 := --vga-ext none
+# Profiles: the completion line (--expect + --quit-after) and the leg checks
+# (complete exact serial lines; !PANIC = no PANIC line at all). On the 0101h
+# path every BOOT_FLAIR_LIVE kernel presents the desktop (FLAIR-DESKTOP) and
+# arms the pump (FLAIR-LIVE-READY); under mode 13h the 640x480 guard fails
+# loud instead (guard / guardmount), which is the vga13/e00 leg's tooth.
+BOCHS_LEG_END_flair := FLAIR-LIVE-READY
+BOCHS_LEG_END_guard := HALTED
+BOCHS_LEG_END_guardmount := HALTED
 BOCHS_LEG_END_shell := SHELL-READY
 BOCHS_LEG_END_nodrive := SHELL-READY
 BOCHS_LEG_END_exec := EXEC-4B-END
 BOCHS_LEG_END_mzexec := MZEXEC-END
-BOCHS_LEG_MARKERS_flair := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED
-BOCHS_LEG_MARKERS_vga13 := $(BOCHS_LEG_MARKERS_flair)
-BOCHS_LEG_MARKERS_shell := IRQ-LIVE CONIN-LIVE SHELL-READY
-BOCHS_LEG_MARKERS_nodrive := $(BOCHS_LEG_MARKERS_shell)
-BOCHS_LEG_MARKERS_exec := IRQ-LIVE CONIN-LIVE EXEC-4B-END
-BOCHS_LEG_MARKERS_mzexec := IRQ-LIVE CONIN-LIVE MZEXEC-END
+BOCHS_LEG_MARKERS_flair := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK FLAIR-DESKTOP FLAIR-LIVE-READY !PANIC
+BOCHS_LEG_MARKERS_guard := FLAIR-HEAP-OK 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' HALTED
+BOCHS_LEG_MARKERS_guardmount := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' HALTED
+BOCHS_LEG_MARKERS_shell := IRQ-LIVE CONIN-LIVE SHELL-READY !PANIC
+BOCHS_LEG_MARKERS_nodrive := 'FAT-MOUNT-FAIL rc=-1 base_lba=0 hidden_sectors=0' IRQ-LIVE CONIN-LIVE SHELL-READY !PANIC
+BOCHS_LEG_MARKERS_exec := IRQ-LIVE CONIN-LIVE EXEC-4B-END !PANIC
+BOCHS_LEG_MARKERS_mzexec := IRQ-LIVE CONIN-LIVE MZEXEC-END !PANIC
 
 # Independent inventory/gate wiring oracle FIRST, cqej second half.
 $(BUILD)/test_bochs_legs: harness/emu/test_bochs_legs.c | $(BUILD)
@@ -36,8 +60,10 @@ test-bochs-legs-mutant: $(BUILD)/test_bochs_legs
 	@sh harness/emu/test_bochs_legs.sh $(BUILD) mutants
 TEST_UNIT_GATES += test-bochs-legs test-bochs-legs-mutant
 
+# $(call bochs-flair-leg,<gate name>,<kernel image>,<data image>,<profile>[,<video path>])
 define bochs-flair-leg
 $(if $(BOCHS_LEG_END_$(4)),,$(error unknown Bochs leg profile $(4) for $(1)))
+$(if $(filter $(or $(5),vbe101),vbe101 vbe101pad vga13 e00),,$(error unknown Bochs video path "$(5)" for $(1)))
 .PHONY: test-$(1)-bochs
 ifeq ($$(SKIP_BOCHS),1)
 test-$(1)-bochs:
@@ -45,35 +71,36 @@ test-$(1)-bochs:
 else
 test-$(1)-bochs: $$(BOCHS_BIN) $(2) $(3)
 	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-$(1)-bochs : BOCHS boot leg of %s\n' "$(2)"
-	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator); harness/bochs_legs.mk; bead initech-cqej.\n'
+	@printf 'InitechOS (STAPLER) -- make test-$(1)-bochs : BOCHS boot leg of %s (%s video path)\n' "$(2)" "$(or $(5),vbe101)"
+	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator); harness/bochs_legs.mk; initech-cqej; WL-0170.\n'
 	@printf '======================================================================\n'
 	@command -v $$(BOCHS) >/dev/null 2>&1 || { printf '!!! test-$(1)-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2); SKIP_BOCHS=1 is the only documented opt-out.\n'; exit 1; }
+	$(if $(filter vga13,$(5)),@test -r $(BOCHS_CIRRUS_VGABIOS) || { printf '!!! test-$(1)-bochs FAIL: ISA Cirrus VGA BIOS %s missing (apt install vgabios; bochs Depends: vgabios | seabios). A skipped oracle is worse than a red one (Law 2).\n' "$(BOCHS_CIRRUS_VGABIOS)"; exit 1; },@true)
 	$(if $(strip $(3)),cp -f $(3) $$(BUILD)/$(1)_bochs_data.img,@true)
-	@$$(BOCHS_BIN) --disk "$(2)" $(if $(strip $(3)),--disk2 "$$(BUILD)/$(1)_bochs_data.img") --expect $(BOCHS_LEG_END_$(4)) \
+	@$$(BOCHS_BIN) --disk "$(2)" $(if $(strip $(3)),--disk2 "$$(BUILD)/$(1)_bochs_data.img") $(BOCHS_LEG_VIDEO_$(or $(5),vbe101)) \
+		--expect $(BOCHS_LEG_END_$(4)) --quit-after $(BOCHS_LEG_END_$(4)) \
 		--name "$(1)_bochs" --out "$$(BUILD)" --timeout-ms 45000 \
 		2> "$$(BUILD)/$(1)_bochs.report.txt" || true
 	@cat "$$(BUILD)/$(1)_bochs.report.txt"
-	@grep -q 'rfb_unblocked=1' "$$(BUILD)/$(1)_bochs.report.txt" \
-		|| { printf '!!! test-$(1)-bochs FAIL: RFB unblock failed -- Bochs did not run the guest\n'; exit 1; }
-	@if grep -q 'triple_fault=1' "$$(BUILD)/$(1)_bochs.report.txt"; then \
-		printf '!!! test-$(1)-bochs FAIL: TRIPLE FAULT under Bochs\n'; exit 1; \
-	fi
-	@if [ ! -s "$$(BUILD)/$(1)_bochs.serial" ]; then \
-		printf '!!! test-$(1)-bochs FAIL: no serial captured\n'; exit 1; \
-	fi
-	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER $(BOCHS_LEG_MARKERS_$(4)); do \
-		grep -q "^$$$$m$$$$" "$$(BUILD)/$(1)_bochs.serial" \
-			|| { printf '!!! test-$(1)-bochs FAIL: marker %s missing\n' "$$$$m"; exit 1; }; \
-	done
-	@$(if $(filter flair vga13,$(4)),grep -qxF 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' "$$(BUILD)/$(1)_bochs.serial",! grep -q '^PANIC' "$$(BUILD)/$(1)_bochs.serial") \
-		|| { printf '!!! test-$(1)-bochs FAIL: $(if $(filter flair vga13,$(4)),the 640x480 guard did not fire,PANIC on the DOS path)\n'; exit 1; }
-$(if $(filter vga13,$(4)),	@grep -qxF 'VIDEO 320x200 bpp=8 pitch=320 lfb=0x000A0000 dac=6' "$$(BUILD)/$(1)_bochs.serial" || { printf '!!! test-$(1)-bochs FAIL: expected six-bit VGA13 handoff\n'; exit 1; })
-$(if $(filter nodrive,$(4)),	@grep -qxF 'FAT-MOUNT-FAIL rc=-1 base_lba=0 hidden_sectors=0' "$$(BUILD)/$(1)_bochs.serial" || { printf '!!! test-$(1)-bochs FAIL: missing slave must report READ failure\n'; exit 1; })
-	@printf '>>> test-$(1)-bochs: green (Bochs BOOT ONLY: fallback + shared milestones + $(if $(filter flair vga13,$(4)),640x480 guard,$(BOCHS_LEG_END_$(4))); no triple fault)\n'
+	@sh harness/emu/bochs_leg_check.sh test-$(1)-bochs "$$(BUILD)/$(1)_bochs.report.txt" "$$(BUILD)/$(1)_bochs.serial" $(or $(5),vbe101) $(BOCHS_LEG_MARKERS_$(4))
 endif
 TEST_EMU_GATES += test-$(1)-bochs
 endef
+
+# The PIXEL leg: $(call bochs-pixel-leg,<tag>,<bochs image>,<golden image>,<data|->,<capture line>)
+# QEMU boots the golden image (32bpp VBE on QEMU: an independent emulator AND
+# an independent depth path), Bochs boots the leg image (0101h, 8-bit DAC);
+# both RTC-pinned to 1993-03-01T09:00:00 UTC and captured at the same complete
+# serial line. ppm_bochs_check grades Bochs's own snapshot EXACT and the RFB
+# display through BGR233 -- never a tolerance (Law 2; CLAUDE.md stop conditions).
+$(BUILD)/ppm_bochs_check: tools/ppm_bochs_check.c | $(BUILD)
+	$(CC) $(CFLAGS) $< -o $@
+define bochs-pixel-leg
+sh harness/emu/bochs_pixel_leg.sh $(BUILD) $(1) $(2) $(3) $(4) '$(5)'
+endef
+BOCHS_PIXEL_TENANTS_LINE := FLAIR-TENANTS-READY hello+notes co-resident; HELLO foreground
+BOCHS_PIXEL_DEPS := $(BOCHS_BIN) $(HARNESS_BIN) $(BUILD)/ppm_bochs_check
+
 $(eval $(call bochs-flair-leg,flair-menubar-clock,$(BUILD)/flair_tenants_mut_menubar_clock_gate.img,$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-iword,$(BUILD)/flair_tenants_mut_iword_gate.img,$(FLAIR_DATA_IMG),flair))
 
@@ -105,10 +132,40 @@ $(eval $(call bochs-flair-leg,flair-restart,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG
 # deliberately makes no claim about the missing/magic error UI.
 $(eval $(call bochs-flair-leg,command-file-emu,$(COMMAND_FILE_IMG)/fragment.img,$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,command-file-negative,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
-# FORCE_VBE_101 still negotiates through the real BIOS. Bochs rejects LFB
-# and falls back to mode 13h. Check VIDEO, not the QEMU 640x480 RGB golden;
-# the guard prevents the desktop presenter/DAC mutation cases from running.
-$(eval $(call bochs-flair-leg,flair-desktop-8bpp,$(VESA8_DIR)/flagship.img,$(FLAIR_DATA_IMG),vga13))
+
+# WL-0170: the VESA8 flagship (FORCE_VBE_101 + the 648-pixel 4F06h padding)
+# under Bochs: the boot leg grades the padded VIDEO handoff; the pixel leg
+# grades the presented desktop against the QEMU 32bpp capture of the SHIPPED
+# flagship image at the tenants-ready line. The mutant twin boots the four
+# FLAIR_DAC_MUT_* kernels (vesa8.mk) under Bochs against the CLEAN golden: a
+# Bochs grade that cannot go RED on a wrong DAC/row copy is decoration (Rule 6).
+$(eval $(call bochs-flair-leg,flair-desktop-8bpp,$(VESA8_DIR)/flagship.img,$(FLAIR_DATA_IMG),flair,vbe101pad))
+.PHONY: test-flair-desktop-8bpp-bochs-pixel test-flair-desktop-8bpp-bochs-mutant
+ifeq ($(SKIP_BOCHS),1)
+test-flair-desktop-8bpp-bochs-pixel test-flair-desktop-8bpp-bochs-mutant:
+	@printf '!!! %s SKIPPED (SKIP_BOCHS=1 opt-out): the Bochs pixel grade was NOT run\n' "$@"
+else
+test-flair-desktop-8bpp-bochs-pixel: $(BOCHS_PIXEL_DEPS) $(VESA8_DIR)/flagship.img $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG)
+	@$(call bochs-pixel-leg,flair_desktop_8bpp,$(VESA8_DIR)/flagship.img,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),$(BOCHS_PIXEL_TENANTS_LINE))
+	@sh harness/emu/bochs_leg_check.sh test-flair-desktop-8bpp-bochs-pixel $(BUILD)/bochs-pixel/flair_desktop_8bpp-bochs.report $(BUILD)/bochs-pixel/flair_desktop_8bpp-bochs.serial vbe101pad FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK FLAIR-DESKTOP '$(BOCHS_PIXEL_TENANTS_LINE)' !PANIC
+test-flair-desktop-8bpp-bochs-mutant: test-flair-desktop-8bpp-bochs-pixel $(foreach m,$(VESA8_MUTANTS),$(VESA8_DIR)/mut_$(m).img)
+	@set -eu; for m in $(VESA8_MUTANTS); do \
+	 if $(call bochs-pixel-leg,bochs_mut_$$m,$(VESA8_DIR)/mut_$$m.img,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),$(BOCHS_PIXEL_TENANTS_LINE)) > $(BUILD)/bochs-pixel/mut_$$m.red 2>&1; then echo "FAIL $$m survived under Bochs"; cat $(BUILD)/bochs-pixel/mut_$$m.red; exit 1; fi; \
+	 grep -q "^RED bochs-pixel bochs_mut_$$m:" $(BUILD)/bochs-pixel/mut_$$m.red || { cat $(BUILD)/bochs-pixel/mut_$$m.red; echo "FAIL $$m: capture broken, not a pixel RED"; exit 1; }; \
+	 printf '%s: ' "$$m"; grep -m1 '^RED bochs-exact RGB ' $(BUILD)/bochs-pixel/mut_$$m.red; done
+	@echo 'GREEN test-flair-desktop-8bpp-bochs-mutant: omissions 119/165, row copy and DAC precision each RED under Bochs'
+endif
+test-flair-desktop-8bpp-bochs: test-flair-desktop-8bpp-bochs-pixel
+TEST_EMU_GATES += test-flair-desktop-8bpp-bochs-mutant
+
+# WL-0170: the FORCED mode-13h legs. The stock ROM takes 0101h, so the VGA13
+# floor and the VBE-ENOMODE / VBE-E00 fallbacks are graded on two real period
+# video configurations: an ISA Cirrus (VBE without LFB) and a plain VGA.
+$(eval $(call bochs-flair-leg,boot-vga13,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,vga13))
+$(eval $(call bochs-flair-leg,boot-novbe,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell,e00))
+$(eval $(call bochs-flair-leg,flair-desktop-vga13,$(FLAIRSHELL_IMG),,guard,vga13))
+$(eval $(call bochs-flair-leg,flair-appswitch-vga13,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),guardmount,vga13))
+$(eval $(call bochs-flair-leg,flair-desktop-novbe,$(FLAIRSHELL_IMG),,guard,e00))
 
 # WL-0143: all desk accessory traces use the InitechText gate kernel.
 $(foreach gate,flair-notepad flair-scrapbook flair-notepad-itext flair-notepad-restart,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
