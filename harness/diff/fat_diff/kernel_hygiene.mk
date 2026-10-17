@@ -182,8 +182,10 @@ $(BUILD)/kernel_trash_visible.bin: $(BUILD)/kernel_trash_visible.elf Makefile
 	@set -eu; sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS)*512 )); test $$sz -le $$max; \
 	dd if=/dev/zero of=$@ bs=1 seek=$$sz count=$$((max-sz)) conv=notrunc status=none
 	$(call kernel-end-guard,$<,trash-visible)
-$(BUILD)/trash_visible.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_trash_visible.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
-	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_trash_visible.bin $(BOOT_SYSTEM_TOOL)
+# initech-tdnl.106 (DEC-19): a flagship-family kernel boots to COMMAND.COM,
+# so its image carries the transient linked against it.
+$(BUILD)/trash_visible.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_trash_visible.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_trash_visible.bin
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_trash_visible.bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_trash_visible.bin
 test-trash-hidden-emu-mutant: $(HARNESS_BIN) $(BUILD)/trash_visible.img $(FLAIR_DATA_IMG) | $(BUILD)/khygiene-evidence
 	@if sh harness/diff/fat_diff/trash_hidden_emu.sh $(BUILD) $(BUILD)/trash_visible.img $(FLAIR_DATA_IMG) mutant > $(BUILD)/khygiene-evidence/mutant-trash-hidden.log 2>&1; then echo 'FAIL visible TRASH emu mutant survived'; exit 1; fi
 	@grep 'RED TRASH hidden attribute' $(BUILD)/khygiene-evidence/mutant-trash-hidden.log

@@ -21087,16 +21087,16 @@ test-flair-trash-full-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS
 define icons-obj-mutant-rules
 $(BUILD)/icons_mut_$(2).o: $(3) os/flair/finder_icon.h os/flair/flair_look.h os/flair/dialog.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/alert_icons.h spec/assets/color_canon.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(3) -o $$@
-$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
 	$(OBJCOPY) -O binary $$< $$@
 	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
 	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! kernel_flairtenants_mut_$(2).bin exceeds the kernel window\n'; exit 1; fi; \
 	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
 	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
-$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
-	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
 	@printf ">>> flair-tenants ICON MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 $(eval $(call icons-obj-mutant-rules,DESK_ICON_MUT_ROW_OFF1,icon_row_off1,os/flair/finder_icon.c,$(KERNEL_FINDER_ICON_OBJ),$(KERNEL_TENANTS_OPT)))
@@ -27545,10 +27545,10 @@ test-samir-safety-emu-mutant: $(BUILD)/SAMIR_DBSAFE_safety.COM $(TEST_SAMIR_DBSA
 # Drive the audit's duplicate/distinct/older-CLOSE cases on the actual desktop,
 # then launch SAMIR again through the system hotkey (not just COMMAND.COM).
 .PHONY: test-samir-lifetime-desktop test-samir-lifetime-desktop-mutant
-test-samir-lifetime-desktop: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF
+test-samir-lifetime-desktop: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(SAMIR_COM) $(BUILD)/CLIENTS.DBF $(FLAIR_PROG_BIN)
 	@$(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop
 	@printf '>>> test-samir-lifetime-desktop: green\n'
-test-samir-lifetime-desktop-mutant: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/CLIENTS.DBF
+test-samir-lifetime-desktop-mutant: $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(FLAIRTENANTS_INTERACTIVE_IMG) $(BUILD)/SAMIR_DBSAFE_lifetime.COM $(BUILD)/CLIENTS.DBF $(FLAIR_PROG_BIN)
 	@if $(TEST_SAMIR_DBSAFE_EMU) lifetime-desktop $(BUILD)/SAMIR_DBSAFE_lifetime.COM > $(BUILD)/dbsafe/emu-mut-desktop.log 2>&1; then echo '!!! mutant passed'; exit 1; fi
 	@grep -Fq 'L003 real catalog duplicate-open refusal' $(BUILD)/dbsafe/emu-mut-desktop.log
 	@grep -q 'checks,.*failures' $(BUILD)/dbsafe/emu-mut-desktop.log

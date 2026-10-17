@@ -95,6 +95,14 @@ int main(int argc,char **argv){
     run("mcopy -o -i build/dbsafe/emu.img build/dbsafe/CASE.TXT ::CASE.TXT");
     run("mcopy -o -i build/dbsafe/emu.img build/dbsafe/AFTER.TXT ::AFTER.TXT");
     run("mcopy -o -i build/dbsafe/emu.img build/dbsafe/DRIVE.BAT ::DRIVE.BAT");
+    if(desktop){
+        /* initech-tdnl.106 (ADR-0003 DEC-19): the flagship boots to COMMAND.COM;
+         * the desktop is the FLAIR command, run here by AUTOEXEC.BAT (no
+         * AUTOEXEC.BAT would stop at the DATE question instead). */
+        file("build/dbsafe/AUTOEXEC.BAT","@ECHO OFF\r\nFLAIR\r\n");
+        run("mcopy -o -i build/dbsafe/emu.img build/dbsafe/AUTOEXEC.BAT ::AUTOEXEC.BAT");
+        if(run("mcopy -o -i build/dbsafe/emu.img build/flair_program.bin ::FLAIR.COM"))return 2;
+    }
     if(full)fill();
     run("fsck.fat -n build/dbsafe/emu.img > build/dbsafe/fsck-before.log");
     snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys 'd,r,i,v,e,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode);
