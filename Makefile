@@ -344,6 +344,9 @@ endif
 PROGRAM_BASE := $(shell grep -E '^\#define[[:space:]]+PROGRAM_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 KERNEL_BASE := $(shell grep -E '^\#define[[:space:]]+KERNEL_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 KERNEL_CEIL := $(shell grep -E '^\#define[[:space:]]+KERNEL_CEIL' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+# Bead initech-xu97: the top of the runway is the kernel stack, so the image's
+# exclusive limit is KERNEL_STACK_BOT, not KERNEL_CEIL.
+KERNEL_STACK_BOT := $(shell grep -E '^\#define[[:space:]]+KERNEL_STACK_BOT' spec/memory_map.h | head -1 | awk '{print $$3}' | sed 's/[uU]\+$$//')
 #
 # $(call kernel-end-guard,<ELF>,<variant-label>) -- run inside a .bin recipe,
 # after the .bin-size guard, so `make <image>` triggers it. Mirrors the
@@ -359,16 +362,28 @@ define kernel-end-guard
 		printf '!!! kernel-floor guard ($(2)): no defined symbol address found in %s\n' "$(1)"; \
 		exit 1; \
 	fi; \
-	endv=$$(( end )); lowv=$$(( lowest )); base=$$(( $(KERNEL_BASE) )); ceil=$$(( $(KERNEL_CEIL) )); \
+	endv=$$(( end )); lowv=$$(( lowest )); base=$$(( $(KERNEL_BASE) )); ceil=$$(( $(KERNEL_STACK_BOT) )); \
 	if [ "$$lowv" -lt "$$base" ]; then \
 		printf '!!! kernel-floor guard ($(2)): lowest symbol=0x%x below KERNEL_BASE=0x%x -- LOAD_LOW relapse\n' "$$lowv" "$$base"; \
 		exit 1; \
 	fi; \
-	if [ "$$endv" -ge "$$ceil" ]; then \
-		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x reaches KERNEL_CEIL=0x%x -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew\n' "$$endv" "$$ceil"; \
+	if [ "$$endv" -gt "$$ceil" ]; then \
+		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x passes KERNEL_STACK_BOT=0x%x -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew\n' "$$endv" "$$ceil"; \
 		exit 1; \
 	fi; \
-	printf '>>> kernel placement guard ($(2)): lowest=0x%x >= KERNEL_BASE=0x%x; _kernel_end=0x%x < KERNEL_CEIL=0x%x OK\n' "$$lowv" "$$base" "$$endv" "$$ceil"
+	printf '>>> kernel placement guard ($(2)): lowest=0x%x >= KERNEL_BASE=0x%x; _kernel_end=0x%x <= KERNEL_STACK_BOT=0x%x OK\n' "$$lowv" "$$base" "$$endv" "$$ceil"
+endef
+
+# $(call kstk-leg,<gate>,<serial>) -- bead initech-xu97: the booted kernel's
+# KSTK line (ESP at kernel_main entry) must sit in the ratified high window
+# (KERNEL_STACK_BOT, KERNEL_STACK_TOP], parsed from spec/memory_map.h.
+KERNEL_STACK_TOP := $(shell grep -E '^\#define[[:space:]]+KERNEL_STACK_TOP' spec/memory_map.h | head -1 | awk '{print $$3}' | sed 's/[uU]\+$$//')
+define kstk-leg
+@k=$$(grep -m1 '^KSTK 0x' "$(2)" || true); v=$${k#KSTK }; \
+	case "$$v" in 0x*) ;; *) printf '!!! $(1) FAIL: no KSTK line (bead initech-xu97)\n'; exit 1;; esac; \
+	if [ $$(( v )) -le $$(( $(KERNEL_STACK_BOT) )) ] || [ $$(( v )) -gt $$(( $(KERNEL_STACK_TOP) )) ]; then \
+		printf '!!! $(1) FAIL: %s is outside the ratified kernel stack ($(KERNEL_STACK_BOT),$(KERNEL_STACK_TOP)]\n' "$$k"; exit 1; fi; \
+	printf '>>> $(1): %s inside the ratified high stack ($(KERNEL_STACK_BOT),$(KERNEL_STACK_TOP)] (xu97)\n' "$$k"
 endef
 
 # --- mutant-aware kernel HEADROOM gate (bead initech-8z9j) -------------------
@@ -480,6 +495,39 @@ test-kernel-headroom-mutant:
 	done
 	@rm -f $(KHR_MUT_ASM) $(KHR_MUT_OBJ) $(KHR_MUT_ELF)
 	@printf '>>> test-kernel-headroom-mutant: green (floor-1 pad kernel RED, floor pad kernel GREEN)\n'
+
+# ---------------------------------------------------------------------------
+# test-kernel-stack (bead initech-xu97; WL-0163): the RATIFIED HIGH KERNEL
+# STACK. Host oracle harness/proptest/test_kernel_stack.c: the stack window is
+# disjoint from every window spec/memory_map.h hands out, and the NASM/ld
+# copies (kstart.asm equates, kernel.ld's image limit) agree with the header.
+# The emulator half is the KSTK leg of test-tracer-boot / test-boot-bochs.
+# test-kernel-stack-mutant (Rule 6): the header's compile-time disjointness
+# guard must REFUSE the tdnl.29 design's in-heap home and an in-transient home,
+# and a kstart.asm copy with the OLD conventional STACK_TOP must go RED.
+# ---------------------------------------------------------------------------
+TEST_KSTACK := $(BUILD)/test_kernel_stack
+$(TEST_KSTACK): harness/proptest/test_kernel_stack.c spec/memory_map.h seed/test_assert.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -Iseed -o $@ harness/proptest/test_kernel_stack.c
+.PHONY: test-kernel-stack test-kernel-stack-mutant
+test-kernel-stack: $(TEST_KSTACK)
+	@$(TEST_KSTACK) os/milton/kstart.asm os/milton/kernel.ld
+	@printf '>>> test-kernel-stack: green (stack [$(KERNEL_STACK_BOT),$(KERNEL_STACK_TOP)] disjoint from every window; kstart.asm + kernel.ld agree)\n'
+test-kernel-stack-mutant: $(TEST_KSTACK)
+	@for m in HEAP:'overlap the locked FLAIR heap' TRANSIENT:'overlap the transient COMMAND.COM window'; do \
+		n=$${m%%:*}; why=$${m#*:}; log=$(BUILD)/test_kernel_stack_mut_$$n.log; \
+		if $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DMEMMAP_MUT_STACK_IN_$$n -Ispec -Iseed -o $(BUILD)/test_kernel_stack_mut_$$n harness/proptest/test_kernel_stack.c > $$log 2>&1; then \
+			printf '!!! test-kernel-stack-mutant FAIL: MEMMAP_MUT_STACK_IN_%s COMPILED -- the disjointness guard is decoration\n' "$$n"; exit 1; fi; \
+		grep -q "$$why" $$log || { cat $$log; printf '!!! test-kernel-stack-mutant FAIL: STACK_IN_%s refused for the wrong reason\n' "$$n"; exit 1; }; \
+		printf '>>> test-kernel-stack-mutant: STACK_IN_%s correctly RED: %s\n' "$$n" "$$(grep -m1 -o 'static assertion failed: .*' $$log)"; \
+	done
+	@sed 's/^KERNEL_STACK_TOP  equ 0x005FFFFC/KERNEL_STACK_TOP  equ 0x0009FFFC/' os/milton/kstart.asm > $(BUILD)/kstart_drift.asm
+	@! cmp -s os/milton/kstart.asm $(BUILD)/kstart_drift.asm || { printf '!!! test-kernel-stack-mutant FAIL: the KSTART_DRIFT edit did not apply\n'; exit 1; }
+	@if $(TEST_KSTACK) $(BUILD)/kstart_drift.asm os/milton/kernel.ld > $(BUILD)/test_kernel_stack_drift.log 2>&1; then \
+		printf '!!! test-kernel-stack-mutant FAIL: KSTART_DRIFT passed -- the copy check is decoration\n'; exit 1; fi
+	@grep -q 'kstart.asm KERNEL_STACK_TOP equ == spec/memory_map.h' $(BUILD)/test_kernel_stack_drift.log || { cat $(BUILD)/test_kernel_stack_drift.log; exit 1; }
+	@printf '>>> test-kernel-stack-mutant: KSTART_DRIFT correctly RED: %s\n' "$$(grep -m1 'FAIL' $(BUILD)/test_kernel_stack_drift.log | sed 's/^ *//')"
+	@printf '>>> test-kernel-stack-mutant: green (STACK_IN_HEAP, STACK_IN_TRANSIENT, KSTART_DRIFT all RED)\n'
 
 # PPM seafoam checker (factory C tool, tools/).
 PPM_CHECK_SRC   := tools/ppm_seafoam_check.c
@@ -18231,10 +18279,13 @@ test-tracer-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(PPM_TEXT_CHECK_BIN)
 		fi; \
 		case "$$end" in 0x*) ;; *) printf '!!! test-tracer-boot FAIL: malformed KAT end in "%s"\n' "$$kat"; exit 1;; esac; \
 		endv=$$(( end )); \
-		if [ "$$endv" -ge $$(( 0x00600000 )) ]; then \
-			printf '!!! test-tracer-boot FAIL: KAT end=%s reaches KERNEL_CEIL=0x00600000\n' "$$end"; exit 1; \
+		if [ "$$endv" -gt $$(( $(KERNEL_STACK_BOT) )) ]; then \
+			printf '!!! test-tracer-boot FAIL: KAT end=%s passes KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) (bead initech-xu97)\n' "$$end"; exit 1; \
 		fi; \
 		printf '>>> test-tracer-boot: KHI + KAT placement green (%s)\n' "$$range"
+	@# Bead initech-xu97: the kernel STACK lives in the ratified high window
+	@# (KERNEL_STACK_BOT, KERNEL_STACK_TOP] -- kmain's KSTK line is ESP at entry.
+	$(call kstk-leg,test-tracer-boot,$(TRACER_SERIAL))
 	@# 4. Screendump check: banner blitted at its known origin AND the desktop is
 	@#    still seafoam below it (ppm_text_check -- STRICTLY STRONGER than the old
 	@#    pure-seafoam grid, which the banner now legitimately perturbs).
@@ -18341,10 +18392,13 @@ test-boot-bochs: $(BOCHS_BIN) $(SECONDARY_TRACER_IMG)
 		fi; \
 		case "$$end" in 0x*) ;; *) printf '!!! test-boot-bochs FAIL: malformed KAT end in "%s"\n' "$$kat"; exit 1;; esac; \
 		endv=$$(( end )); \
-		if [ "$$endv" -ge $$(( 0x00600000 )) ]; then \
-			printf '!!! test-boot-bochs FAIL: KAT end=%s reaches KERNEL_CEIL=0x00600000\n' "$$end"; exit 1; \
+		if [ "$$endv" -gt $$(( $(KERNEL_STACK_BOT) )) ]; then \
+			printf '!!! test-boot-bochs FAIL: KAT end=%s passes KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) (bead initech-xu97)\n' "$$end"; exit 1; \
 		fi; \
 		printf '>>> test-boot-bochs: KHI + KAT placement green (%s)\n' "$$range"
+	@# Bead initech-xu97: the kernel STACK lives in the ratified high window
+	@# (KERNEL_STACK_BOT, KERNEL_STACK_TOP] -- kmain's KSTK line is ESP at entry.
+	$(call kstk-leg,test-boot-bochs,$(BOCHS_BOOT_SERIAL))
 	@printf '%s\n' '----------------------------------------------------------------------'
 	@printf 'VERDICT   : PASS -- tracer booted under Bochs via the mode-0x13 fallback,\n'
 	@printf '            reached the same kernel milestones as QEMU, no triple-fault\n'
@@ -29279,6 +29333,7 @@ TEST_UNIT_GATES := \
 	test-absdisk test-absdisk-mutant \
 	test-program-window-golden test-kernel-repro test-kernel-repro-mutant \
 	test-arena-disjoint test-arena-disjoint-mutant \
+	test-kernel-stack test-kernel-stack-mutant \
 	test-loader-big test-loader-big-mutant \
 	test-hardware-spec test-hardware-spec-mutant \
 	test-fpu-probe test-fpu-probe-mutant \

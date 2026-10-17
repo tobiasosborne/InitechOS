@@ -6333,16 +6333,37 @@ void kernel_main(void)
 
         if (b.kernel_base != (uint32_t)KERNEL_BASE ||
             kernel_start != (uint32_t)KERNEL_BASE ||
-            kernel_end >= (uint32_t)KERNEL_CEIL) {
+            kernel_end > (uint32_t)KERNEL_STACK_BOT) {
             serial_puts("PANIC kernel-placement: boot/link/runway mismatch\n");
             serial_puts("  boot_base=0x");
             serial_puthex32(b.kernel_base);
             serial_puts(" expected=0x");
             serial_puthex32((uint32_t)KERNEL_BASE);
             serial_puts(" ceil=0x");
-            serial_puthex32((uint32_t)KERNEL_CEIL);
+            serial_puthex32((uint32_t)KERNEL_STACK_BOT);
             serial_putc('\n');
             serial_puts("HALTED\n");
+            for (;;) {
+                __asm__ __volatile__("cli; hlt");
+            }
+        }
+    }
+
+    /* Bead initech-xu97: the RUN-TIME half of the high-stack proof (the
+     * compile-time half is spec/memory_map.h THE KERNEL STACK). kstart.asm
+     * loaded ESP from its own copy of KERNEL_STACK_TOP; this reports where
+     * the stack really is and halts loud if it is not in the ratified window
+     * (KERNEL_STACK_BOT, KERNEL_STACK_TOP] -- a kstart/header drift cannot
+     * limp onward with the stack somewhere the map gives to someone else. */
+    {
+        uint32_t esp;
+        __asm__ __volatile__("movl %%esp, %0" : "=r"(esp));
+        serial_puts("KSTK 0x");
+        serial_puthex32(esp);
+        serial_putc('\n');
+        if (esp <= (uint32_t)KERNEL_STACK_BOT || esp > (uint32_t)KERNEL_STACK_TOP) {
+            serial_puts("PANIC kernel-stack: ESP outside the ratified window\n"
+                        "HALTED\n");
             for (;;) {
                 __asm__ __volatile__("cli; hlt");
             }

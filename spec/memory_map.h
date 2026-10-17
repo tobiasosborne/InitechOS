@@ -40,6 +40,24 @@
  * amendment assigns a disjoint high home, the existing conventional kernel
  * stack remains byte-identical. EVERY PROGRAM_* literal remains unchanged.
  *
+ * DELIBERATE-ACT NOTE (Rule 8) -- bead initech-xu97 (the amendment the note
+ * above waited for; WL-0163). The kernel stack moves from conventional
+ * [0x90000,0xA0000) to the TOP 64 KiB of the kernel runway,
+ * [KERNEL_STACK_BOT, KERNEL_STACK_TOP] = [0x5F0000, 0x5FFFFC]: above the
+ * transient window [0x580000,0x5C0000), below the exclusive KERNEL_CEIL, and
+ * therefore wholly outside the FLAIR heap [0x100000,0x500000), the program
+ * window, the load staging and the stage2 bounce. The RAM gate
+ * (INITECH_MIN_EXT_KB, derived from KERNEL_CEIL) already backs every byte of
+ * it, and kstart.asm's runway zeroing already clears it before first use. The
+ * kernel IMAGE (_kernel_end) is now bounded by KERNEL_STACK_BOT instead of
+ * KERNEL_CEIL (kernel.ld ASSERT + the Makefile kernel-end guard + the KAT
+ * placement guard). The size is unchanged (64 KiB), so every stack-depth audit
+ * (os/flair/atkinson/region.c KERNEL STACK AUDIT) still holds. The vacated
+ * [0x90000,0xA0000) is simply free conventional memory; no PROGRAM_* literal,
+ * no FLAIR_HEAP_* literal and no LOAD_STAGING literal moves. The disjointness
+ * is a compile-time proof below (the THE KERNEL STACK block), mutation-proven
+ * by make test-kernel-stack-mutant.
+ *
  * Source / Law 1 citations (all local):
  *   docs/research/psp-loader-ground-truth.md Sec 1 (the confirmed memory map +
  *     the gap proof), Sec 3.2 (the concrete addresses + the worked alloc/env
@@ -84,6 +102,9 @@
  *   PROGRAM_STACK_TOP  = 0x7FFFC   -> initial program ESP (4-aligned, < ceiling)
  *   LOAD_STAGING       = 0x80000..0x90000 -> 64 KiB EXEC staging (above ceiling)
  *   kernel stack       = 0x90000..0xA0000 -> kstart.asm ESP 0x9FFFC; 0 KiB free
+ *                        (HISTORICAL: bead initech-xu97 moved the kernel stack
+ *                        to the top of the high runway, [0x5F0000,0x5FFFFC];
+ *                        [0x90000,0xA0000) is now unused conventional memory.)
  *   free gap           = 0xA0000..0xA0000 = 0 KiB (this +0x8000 raise spent the
  *                        LAST of the conventional gap; the kernel stack now tops
  *                        at 0x9FFFC, adjacent to the 0xA0000 VGA / mode-0x13-LFB-
@@ -121,14 +142,40 @@
  * The adjacent FLAIR heap ends at KERNEL_BASE, exclusive; no PROGRAM_* constant
  * moves. STACK EXCEPTION: the design's proposed [0x4F0000,0x500000) stack is
  * inside that heap, so Step 0.3 stopped that sub-element (bead initech-tdnl.29).
- * The constants below retain the existing safe conventional stack until the
- * overlap receives a separately ratified, disjoint placement.
+ *
+ * THE RATIFIED HIGH STACK (bead initech-xu97; WL-0163). The kernel stack is
+ * the TOP 64 KiB of the runway: KERNEL_STACK_BOT = KERNEL_CEIL - 0x10000, and
+ * KERNEL_STACK_TOP (kstart.asm's initial ESP) is its last aligned dword. The
+ * runway is then, low to high:
+ *   [KERNEL_BASE,     _kernel_end)       the kernel image + .bss (_kernel_end
+ *                                        <= TRANSIENT_BASE, build-checked)
+ *   [TRANSIENT_BASE,  TRANSIENT_CEIL)    the transient COMMAND.COM (3p1a)
+ *   [TRANSIENT_CEIL,  KERNEL_STACK_BOT)  free (192 KiB)
+ *   [KERNEL_STACK_BOT, KERNEL_CEIL)      the kernel stack (64 KiB, grows down)
+ * The stack size is the conventional stack's, so no depth audit changes. The
+ * pairwise disjointness of every window is proven at compile time in the THE
+ * KERNEL STACK block below (after the FLAIR heap is declared).
  * ------------------------------------------------------------------------ */
 #define KERNEL_BASE         0x00500000u
 #define KERNEL_RUNWAY       0x00100000u
 #define KERNEL_CEIL         0x00600000u
-#define KERNEL_STACK_BOT    0x00090000u
-#define KERNEL_STACK_TOP    0x0009FFFCu
+#ifndef MEMMAP_MUT_STACK_IN_HEAP
+#ifndef MEMMAP_MUT_STACK_IN_TRANSIENT
+#define KERNEL_STACK_BOT    0x005F0000u
+#define KERNEL_STACK_TOP    0x005FFFFCu
+#else
+/* Rule-6 mutant (make test-kernel-stack-mutant only): the stack slid down
+ * into the transient COMMAND.COM window. The compile-time proof must fail. */
+#define KERNEL_STACK_BOT    0x005B0000u
+#define KERNEL_STACK_TOP    0x005BFFFCu
+#endif
+#else
+/* Rule-6 mutant (make test-kernel-stack-mutant only): the tdnl.29 design's
+ * REJECTED [0x4F0000,0x500000) home, inside the FLAIR heap. The compile-time
+ * proof must fail. */
+#define KERNEL_STACK_BOT    0x004F0000u
+#define KERNEL_STACK_TOP    0x004FFFFCu
+#endif
 #define KERNEL_BOUNCE_BASE  0x00010000u
 #define KERNEL_BOUNCE_CAP   0x00030000u
 #define INITECH_MIN_EXT_KB \
@@ -366,9 +413,10 @@
  * staging and writes the program region, so they must be disjoint.
  *
  * Placement: the 64 KiB gap above PROGRAM_ALLOC_END (0x80000, the program's
- * memory ceiling) and immediately below KERNEL_STACK_BOT. The tdnl.29 Step-0.3
- * audit stopped the proposed high stack because it overlapped the locked FLAIR
- * heap, so the proven conventional staging/stack adjacency remains unchanged.
+ * memory ceiling) and immediately below the OLD conventional kernel stack. The
+ * stack itself left for the high runway at bead initech-xu97; this window
+ * does not move (no reason to: it is disjoint from everything, and its
+ * literals are part of the proven loader layout).
  * This is disjoint from PROGRAM_IMAGE (Risk 2 / fs-mount-sft-ground-truth.md).
  * The old single open-file
  * buffer that used to
@@ -380,9 +428,9 @@
  * PROGRAM_ALLOC_END (0x80000) > PROGRAM_STACK_BOT (0x70000) > PROGRAM_IMAGE
  * (0x40100); the staging window [0x80000,0x90000) never overlaps the program
  * region [0x40100,0x70000). Disjoint-from-kernel-stack proof:
- * LOAD_STAGING_BASE+LOAD_STAGING_MAX == KERNEL_STACK_BOT == 0x90000; the
- * exclusive staging top and inclusive stack bottom are adjacent, not
- * overlapping. SINGLE-USE LIMIT (documented): EXEC
+ * LOAD_STAGING_BASE+LOAD_STAGING_MAX (0x90000) < KERNEL_STACK_BOT (0x5F0000,
+ * bead initech-xu97; compile-time asserted below). SINGLE-USE LIMIT
+ * (documented): EXEC
  * runs from kernel/shell context and is single-level (loader g_load_active
  * guard), so one staging region suffices; concurrent EXEC is a follow-up bead.
  * The image-size cap is the smaller of LOAD_STAGING_MAX and PROGRAM_IMAGE_MAX
@@ -455,9 +503,9 @@
  *      640x480 offscreen. Extended memory is the only viable home.
  *
  * DISJOINTNESS FROM THE CONVENTIONAL MAP: the entire conventional layout above
- * lives at or below the kernel stack (0x90000..0xA0000, post initech-re30.2) and
- * the staging window (0x80000..0x90000); the highest conventional address in use
- * is < 0x100000 (kernel-stack top 0x9FFFC < the 1 MiB line).
+ * lives at or below the staging window (0x80000..0x90000) (the kernel stack
+ * that sat at 0x90000..0xA0000 moved to the high runway, bead initech-xu97);
+ * the highest conventional address in use is < 0x100000.
  * FLAIR_HEAP_BASE == 0x100000 begins ABOVE the 1 MiB line, so [0x100000,
  * 0x500000) is disjoint from PROGRAM_BASE / PROGRAM_IMAGE / ENV_BLOCK / the
  * PROGRAM_STACK region / PROGRAM_ARENA_CEIL / the LOAD_STAGING window by
@@ -482,6 +530,31 @@ _Static_assert(KERNEL_BASE == FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE,
 _Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
                KERNEL_STACK_BOT >= FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE,
                "kernel stack must not overlap the locked FLAIR heap");
+
+/* ------------------------------------------------------------------------ *
+ * THE KERNEL STACK (bead initech-xu97): the disjointness guard. Every window
+ * the kernel stack could collide with, as compile-time teeth, so a wrong
+ * KERNEL_STACK_* literal can never reach a build (Rule 2). The MEMMAP_MUT_*
+ * switches above are the Rule-6 mutants: each must make one of these fail.
+ * ------------------------------------------------------------------------ */
+_Static_assert((KERNEL_STACK_TOP & 3u) == 0u &&
+               KERNEL_STACK_TOP > KERNEL_STACK_BOT &&
+               KERNEL_STACK_TOP + 4u - KERNEL_STACK_BOT == 0x00010000u,
+               "kernel stack must be a 64 KiB window topped by an aligned dword");
+_Static_assert(KERNEL_STACK_BOT >= KERNEL_BASE &&
+               KERNEL_STACK_TOP + 4u <= KERNEL_CEIL,
+               "kernel stack must lie inside the ratified kernel runway");
+_Static_assert(KERNEL_STACK_BOT >= TRANSIENT_CEIL ||
+               KERNEL_STACK_TOP + 4u <= TRANSIENT_BASE,
+               "kernel stack must not overlap the transient COMMAND.COM window");
+_Static_assert(KERNEL_STACK_BOT >= TRANSIENT_CEIL,
+               "kernel stack must sit above the transient window (the image "
+               "and the transient own everything below it)");
+_Static_assert(KERNEL_STACK_BOT >= LOAD_STAGING_BASE + LOAD_STAGING_MAX &&
+               KERNEL_STACK_BOT >= PROGRAM_ALLOC_END &&
+               KERNEL_STACK_BOT >= KERNEL_BOUNCE_BASE + KERNEL_BOUNCE_CAP,
+               "kernel stack must not overlap the program window, the load "
+               "staging or the stage2 bounce");
 
 /* Required installed extended memory, in KiB, for the FLAIR heap window to be
  * fully backed by RAM (ADR-0004 DEC-03 / FO-G). Extended memory is reported by

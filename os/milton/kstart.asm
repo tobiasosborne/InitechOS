@@ -6,25 +6,29 @@
 ;        docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29:
 ;        deterministic post-image runway zero). The proposed high stack was
 ;        stopped by Step 0.3 because [0x4F0000,0x500000) overlaps the locked
-;        FLAIR heap; the existing conventional stack remains. CLAUDE.md Rule 2
-;        (fail loud), Rule 12 (ASCII).
+;        FLAIR heap; bead initech-xu97 then ratified the disjoint high home,
+;        the TOP 64 KiB of the runway (spec/memory_map.h THE RATIFIED HIGH
+;        STACK). CLAUDE.md Rule 2 (fail loud), Rule 12 (ASCII).
 ;
 ; stage2 far-jumps here (CODE_SEL:0x00500000) in 32-bit flat protected mode:
 ; CR0.PE=1, A20 on, flat GDT loaded, DS/ES/FS/GS/SS = DATA_SEL. We are linked
 ; FIRST in the flat binary so physical KERNEL_BASE == _start (kernel.ld).
 ;
-; We set our OWN stack (stage2's ESP=0x90000 region is now abandoned) and call
-; the C entry. kernel_main never returns; the hlt-loop is a fail-loud guard.
+; We zero the runway on stage2's stack, THEN set our OWN stack (stage2's
+; ESP=0x90000 region is abandoned) and call the C entry. kernel_main never
+; returns; the hlt-loop is a fail-loud guard.
 
 bits 32
 
 ; Duplicated from spec/memory_map.h because NASM cannot include C headers.
-; Ref: kernel-runway-relocation.md K1/K2; bead initech-tdnl.29.
+; Ref: kernel-runway-relocation.md K1/K2; bead initech-tdnl.29. The two stack
+; equates are bead initech-xu97's; make test-kernel-stack checks every equate
+; here against the header, so the copies cannot drift silently.
 KERNEL_BASE       equ 0x00500000
 KERNEL_RUNWAY     equ 0x00100000
 KERNEL_CEIL       equ 0x00600000
-KERNEL_STACK_BOT  equ 0x00090000
-KERNEL_STACK_TOP  equ 0x0009FFFC
+KERNEL_STACK_BOT  equ 0x005F0000
+KERNEL_STACK_TOP  equ 0x005FFFFC
 
 ; ---------------------------------------------------------------------------
 ; KERNEL_SECTORS -- the padded disk window, and THE THIRD COPY OF IT.
@@ -62,16 +66,6 @@ global _start
 extern kernel_main
 
 _start:
-    ; Kernel-private 64 KiB stack [0x90000,0xA0000), the existing proven home.
-    ; stage2's transient ESP=0x90000 stack is abandoned before this handoff;
-    ; LOAD_STAGING ends at 0x90000 exclusive and the program window ends below
-    ; it. The runway design's proposed [0x4F0000,0x500000) home is unsafe because
-    ; it overlaps the locked FLAIR heap, so the required Step-0.3 contradiction
-    ; rule stops only that sub-element (docs/design/kernel-runway-relocation.md
-    ; K1/K2; bead initech-tdnl.29).
-    mov esp, KERNEL_STACK_TOP
-    xor ebp, ebp                ; null frame pointer => top of stack to debugger
-
     ; Zero the post-image runway slack [KERNEL_BASE + padded disk window,
     ; KERNEL_CEIL). stage2 copied the entire padded KERNEL_SECTORS window, whose
     ; deterministic zero padding covers objcopy's dropped NOBITS/.bss bytes;
@@ -84,6 +78,16 @@ _start:
     xor eax, eax
     rep stosd
 
+    ; Kernel-private 64 KiB stack [KERNEL_STACK_BOT, KERNEL_CEIL): the top of
+    ; the runway, the bead initech-xu97 home (spec/memory_map.h THE RATIFIED
+    ; HIGH STACK). It is set AFTER the zeroing above, which runs on stage2's
+    ; abandoned ESP=0x90000 stack and clears this window too, so the kernel's
+    ; first frame lands in deterministic zeroed memory. Disjoint from the FLAIR
+    ; heap, the transient window, the program window and the load staging:
+    ; compile-time proven in the header, and kernel_main's KSTK guard proves at
+    ; run time that ESP really lives here (Rule 2).
+    mov esp, KERNEL_STACK_TOP
+    xor ebp, ebp                ; null frame pointer => top of stack to debugger
     push ebp
     call kernel_main            ; void kernel_main(void) -- never returns
 

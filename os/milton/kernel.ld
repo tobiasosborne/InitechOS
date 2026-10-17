@@ -63,5 +63,8 @@ SECTIONS
  * image, including NOBITS .bss, below the exclusive 0x00600000 ceiling. */
 ASSERT(_kernel_start == KERNEL_BASE && ADDR(.text) == KERNEL_BASE,
        "kernel floor mismatch -- .text/_kernel_start must equal KERNEL_BASE (0x00500000)")
-ASSERT(_kernel_end < 0x00600000,
-       "kernel image busts KERNEL_CEIL (0x00600000) -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew")
+/* Bead initech-xu97: the top 64 KiB of the runway is the kernel STACK
+ * (spec/memory_map.h KERNEL_STACK_BOT), so the image -- .bss included -- must
+ * end at or below 0x005F0000, not merely below KERNEL_CEIL. */
+ASSERT(_kernel_end <= 0x005F0000,
+       "kernel image reaches KERNEL_STACK_BOT (0x005F0000) -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew")
