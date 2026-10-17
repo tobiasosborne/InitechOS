@@ -156,6 +156,7 @@ const
   TkStringType = 47;
   TkLength = 48;
   TkFile = 49;
+  TkExternal = 50;
 
   TkSemi = 60;
   TkDot = 61;
@@ -772,6 +773,7 @@ begin
   else if Text = 'string' then KeywordKind := TkStringType
   else if Text = 'length' then KeywordKind := TkLength
   else if Text = 'file' then KeywordKind := TkFile
+  else if Text = 'external' then KeywordKind := TkExternal
 end;
 
 procedure FoldTokenForKeyword();
@@ -1160,6 +1162,7 @@ begin
   else if TokKind = TkStringType then Writeln('KW string')
   else if TokKind = TkLength then Writeln('KW length')
   else if TokKind = TkFile then Writeln('KW file')
+  else if TokKind = TkExternal then Writeln('KW external')
   else if TokKind = TkSemi then Writeln('SEMI')
   else if TokKind = TkDot then Writeln('DOT')
   else if TokKind = TkDotDot then Writeln('DOTDOT')
@@ -1276,6 +1279,7 @@ begin
   else if Kind = TkStringType then Write('KW_STRING')
   else if Kind = TkLength then Write('KW_LENGTH')
   else if Kind = TkFile then Write('KW_FILE')
+  else if Kind = TkExternal then Write('KW_EXTERNAL')
   else if Kind = TkSemi then Write('SEMI')
   else if Kind = TkDot then Write('DOT')
   else if Kind = TkComma then Write('COMMA')
@@ -4699,7 +4703,7 @@ procedure ParseRoutine(IsFunction: boolean);
 var
   Production, NameOffset, NameLength, NameLine, NameCol, RoutineIndex: integer;
   I: integer;
-  IsForward: boolean;
+  IsForward, IsExternal: boolean;
 begin
   Production := PrRoutineProcedure;
   if IsFunction then Production := PrRoutineFunction;
@@ -4729,19 +4733,42 @@ begin
   if not IsFunction then ParsedType := TyNone;
   if not ParseFailed then ExpectToken(TkSemi, TkSemi);
   IsForward := false;
+  IsExternal := false;
   if not ParseFailed then
+  begin
     if TokKind = TkForward then IsForward := true;
+    if TokKind = TkExternal then IsExternal := true
+  end;
   RoutineIndex := 0;
+  { An external routine (bead initech-tdnl.22) is complete: its body is the
+    linked run-time object (seed/rt/flairstub.asm), so it neither repeats nor
+    completes an earlier declaration (seed/typecheck.c collect_procs). }
+  if not ParseFailed then
+    if TypeMode then
+      if IsExternal then
+        if FindRoutine(NameOffset, NameLength) <> 0 then
+          FailType(TeDuplicate, NameLine, NameCol, NameOffset, NameLength,
+                   0, 0);
   if not ParseFailed then
     if TypeMode then
       RoutineIndex := RegisterRoutine(NameOffset, NameLength, NameLine,
                                       NameCol, IsFunction, IsForward);
   if not ParseFailed then
   begin
-    if IsForward then
+    if IsForward or IsExternal then
     begin
       NextToken();
-      ExpectToken(TkSemi, TkSemi)
+      ExpectToken(TkSemi, TkSemi);
+      if not ParseFailed then
+        if IsExternal then
+          if GenFlags[1] then
+          begin
+            begin GenText := 'extern pf_'; GenPut(GenText) end;
+            PoolGet(SymNameOffset[RoutineIndex],
+                    PoolLengthAt(SymNameOffset[RoutineIndex]), DumpText);
+            GenPut(DumpText);
+            GenChar(Chr(10))
+          end
     end
     else
     begin
@@ -4756,9 +4783,14 @@ begin
         if GenFlags[1] then
         begin
           GenSetSection(3);
-          begin GenText := 'pf_'; GenPut(GenText) end;
+          { Every routine label is public (bead initech-tdnl.22): a linked
+            run-time object names pf_flaireventhandler. }
+          begin GenText := 'global pf_'; GenPut(GenText) end;
           PoolGet(SymNameOffset[RoutineIndex],
                   PoolLengthAt(SymNameOffset[RoutineIndex]), DumpText);
+          GenPut(DumpText);
+          GenChar(Chr(10));
+          begin GenText := 'pf_'; GenPut(GenText) end;
           GenPut(DumpText);
           begin GenText := ':'; GenPut(GenText) end;
           GenChar(Chr(10));

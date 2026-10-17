@@ -1,0 +1,46 @@
+TBX ENTRY
+TBX REGISTER name="SMOKETPS" -> 0
+TBX SETMBAR apple=1 menus=2 [129 "File" {"Close" cmd=87 en=1 div=0 mark=0 style=0} {"-" cmd=0 en=0 div=1 mark=0 style=0} {"About Smoke" cmd=0 en=1 div=0 mark=0 style=0}] [130 "Edit" {"Copy" cmd=67 en=1 div=0 mark=0 style=0} {"Paste" cmd=86 en=1 div=0 mark=0 style=0}] -> 0
+TBX DRAWMENUBAR -> 0
+TBX NEWWINDOW l=120 t=90 r=400 b=230 goaway=2 -> 1
+TBX SETWTITLE win=1 s="Smoke" -> 0
+EVT what=6 msg=1 mods=0 when=10 h=0 v=0
+TBX FILLRECT win=1 l=0 t=0 r=280 b=120 c=0 -> 0
+TBX FILLRECT win=1 l=4 t=4 r=276 b=6 c=2 -> 0
+TBX TEXTDRAW win=1 x=8 y=10 s="Hello from Turbo Initech" fg=1 bg=0 -> 0
+TBX TEXTDRAW win=1 x=8 y=28 s="bold" fg=257 bg=0 -> 0
+TBX TEXTDRAW win=1 x=60 y=28 s="Geneva 9" fg=65539 bg=0 -> 0
+TBX CONTENTORIGIN win=1 -> 7143545
+TBX DRAWCELLS win=1 x=8 y=48 s="109" fg=1 bg=0 -> 0
+TBX DRAWCELLS win=1 x=8 y=64 s="121" fg=1 bg=0 -> 0
+TBX DRAWCELLS win=1 x=8 y=80 s="0" fg=1 bg=0 -> 0
+EVT what=1 msg=0 mods=0 when=20 h=200 v=150
+TBX GLOBALTOLOCAL win=1 h=200 v=150 -> 2687055
+TBX FILLRECT win=1 l=79 t=41 r=82 b=44 c=1 -> 0
+EVT what=3 msg=7777 mods=0 when=30 h=0 v=0
+TBX DRAWCELLS win=1 x=200 y=64 s="a" fg=0 bg=1 -> 0
+EVT what=81 msg=8519681 mods=0 when=40 h=0 v=0
+TBX SCRAP-PUT n=18 data="Smoke on the Scrap" -> 0
+TBX DRAWCELLS win=1 x=8 y=96 s="0" fg=1 bg=0 -> 0
+EVT what=81 msg=8519682 mods=0 when=50 h=0 v=0
+TBX SCRAP-GET cap=255 -> 18
+TBX DRAWCELLS win=1 x=8 y=96 s="18" fg=1 bg=0 -> 0
+TBX TEXTDRAW win=1 x=120 y=96 s="Smoke on the Scrap" fg=1 bg=0 -> 0
+EVT what=81 msg=8454147 mods=0 when=60 h=0 v=0
+TBX ALERT text="SMOKETPS\x0da Turbo Initech tenant" def="OK" cancel="Cancel" other=0 -> 0
+TBX DRAWCELLS win=1 x=8 y=96 s="0" fg=1 bg=0 -> 0
+EVT what=144 msg=1 mods=0 when=70 h=0 v=0
+TBX DRAWCELLS win=1 x=8 y=112 s="1" fg=1 bg=0 -> 0
+EVT what=6 msg=1 mods=0 when=80 h=0 v=0
+TBX FILLRECT win=1 l=0 t=0 r=280 b=120 c=0 -> 0
+TBX FILLRECT win=1 l=4 t=4 r=276 b=6 c=2 -> 0
+TBX TEXTDRAW win=1 x=8 y=10 s="Hello from Turbo Initech" fg=1 bg=0 -> 0
+TBX TEXTDRAW win=1 x=8 y=28 s="bold" fg=257 bg=0 -> 0
+TBX TEXTDRAW win=1 x=60 y=28 s="Geneva 9" fg=65539 bg=0 -> 0
+TBX CONTENTORIGIN win=1 -> 7143545
+TBX DRAWCELLS win=1 x=8 y=48 s="109" fg=1 bg=0 -> 0
+TBX DRAWCELLS win=1 x=8 y=64 s="121" fg=1 bg=0 -> 0
+TBX DRAWCELLS win=1 x=8 y=80 s="101" fg=1 bg=0 -> 0
+EVT what=32 msg=1 mods=0 when=90 h=0 v=0
+TBX EXIT rc=0 -> 0
+TBX END

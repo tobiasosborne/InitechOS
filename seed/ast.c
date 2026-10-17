@@ -393,6 +393,8 @@ static void dump(const AstNode *n, FILE *fp)
         fputc(')', fp);
         if (n->as.procfunc.is_forward) {
             fputs(" forward", fp);
+        } else if (n->as.procfunc.is_external) {
+            fputs(" external", fp);
         } else {
             fputc(' ', fp);
             dump(n->as.procfunc.body, fp);

@@ -76,8 +76,8 @@ _start:
 ; ---------------------------------------------------------------------------
 ; Serial helpers -- duplicated VERBATIM from seed/rt/start.asm (the frozen
 ; bare-metal runtime) so codegen's emitted calls link identically against
-; either runtime target. Any fix must land in BOTH files (grep marker:
-; SEED-RT-SERIAL-HELPERS).
+; either runtime target. Any fix must land in EVERY file carrying the grep
+; marker SEED-RT-SERIAL-HELPERS (start.asm, this file, flairstub.asm).
 ; ---------------------------------------------------------------------------
 
 ; -- serial_putc: write AL to COM1 -----------------------------------------

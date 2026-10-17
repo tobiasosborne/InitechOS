@@ -1,0 +1,25 @@
+# harness/tbx/smoke.events -- the LOCKED event script of the SMOKETPS
+# three-way differential (bead initech-tdnl.22; test-flairstub-smoke).
+# One event per line: what message modifiers when h v (spec/toolbox_gate.h
+# Sec 6, the flat FlairEvent). The window (120,90)-(400,230) has its content
+# at (121,109) in the host model (harness/tbx/tbxmodel.c).
+#   updateEvt for window 1         -> the paint (origin 109/121, counts 0)
+6 1 0 10 0 0
+#   mouseDown at global (200,150)  -> local (79,41): a 3x3 black mark
+1 0 0 20 200 150
+#   keyDown 'a' (vkey 0x1E)        -> the key in the cells at (200,64)
+3 0x1E61 0 30 0 0
+#   Edit > Copy  (130 << 16 | 1)   -> SCRAP_PUT "Smoke on the Scrap"
+81 0x00820001 0 40 0 0
+#   Edit > Paste (130 << 16 | 2)   -> SCRAP_GET, the 18 bytes drawn
+81 0x00820002 0 50 0 0
+#   File > About (129 << 16 | 3)   -> ALERT (two lines, OK + Cancel)
+81 0x00810003 0 60 0 0
+#   the alert's answer: default    -> 1 drawn at row 112
+144 1 0 70 0 0
+#   updateEvt again                -> counts now 1 click, 1 key = 101
+6 1 0 80 0 0
+#   the close box (goAway ASK)     -> EXIT 0
+32 1 0 90 0 0
+#   a mouseDown after EXIT         -> never delivered (DEC-AC3-3)
+1 0 0 100 210 160

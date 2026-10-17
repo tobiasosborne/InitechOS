@@ -2322,7 +2322,7 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
 static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
 {
     FILE *o = cg->out;
-    if (pf->as.procfunc.is_forward)
+    if (pf->as.procfunc.is_forward || pf->as.procfunc.is_external)
         return;
 
     CgScope sc;
@@ -2338,6 +2338,12 @@ static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
     int total_slots = sc.frame_slots + max_temps * CG_STR_TEMP_DWORDS;
     cg->cur_frame_slots = sc.frame_slots;
 
+    /* beads initech-tdnl.22: every routine label is a public symbol, so a
+     * linked run-time object can name a Pascal routine -- the FLAIR binding's
+     * event trampoline calls pf_flaireventhandler (seed/rt/flairstub.asm). */
+    fprintf(o, "global pf_");
+    emit_var_label(o, pf->as.procfunc.name);
+    fprintf(o, "\n");
     fprintf(o, "pf_");
     emit_var_label(o, pf->as.procfunc.name);
     fprintf(o, ":\n");
@@ -2713,6 +2719,17 @@ int codegen_emit(AstNode *program, FILE *out)
 #else
         fprintf(out, "extern rtl_file_blockwrite\n");
 #endif
+    }
+    /* beads initech-tdnl.22: each `external` routine is a cdecl `pf_<name>`
+     * of a separately assembled object, in declaration order (Rule 11). */
+    for (size_t i = 0; i < program->as.program.decls.count; i++) {
+        const AstNode *d = program->as.program.decls.items[i];
+        if ((d->kind == AST_PROCDECL || d->kind == AST_FUNCDECL)
+            && d->as.procfunc.is_external) {
+            fprintf(out, "extern pf_");
+            emit_var_label(out, d->as.procfunc.name);
+            fprintf(out, "\n");
+        }
     }
     fprintf(out, "\n");
 

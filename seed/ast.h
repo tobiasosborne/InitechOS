@@ -701,6 +701,10 @@ struct AstNode {
             AstList    decls;
             AstNode   *body;
             int        is_forward;
+            /* beads initech-tdnl.22: an `external` declaration -- the
+             * signature only; the body is a separately assembled cdecl
+             * routine `pf_<name>` the link supplies (body NULL). */
+            int        is_external;
         } procfunc;
         /* A call by name. `args` holds the argument expressions in source
          * (left-to-right) order; codegen pushes them right-to-left (cdecl).

@@ -110,6 +110,12 @@ typedef enum {
     TOK_KW_PROCEDURE,
     TOK_KW_FUNCTION,
     TOK_KW_FORWARD,
+    /* The `external` directive (beads initech-tdnl.22, R5.2; ADR-0007 DEC-09
+     * as reconciled in docs/design/GUI-remediation-ADR-reconciliation.md
+     * Part B): a routine whose body is a separately assembled cdecl object
+     * (seed/rt/flairstub.asm), the Turbo Pascal 4.0+ `external` form.
+     * Reserved, like `forward`. */
+    TOK_KW_EXTERNAL,
     /* B5 keywords (beads initech-54uu): static arrays. */
     TOK_KW_ARRAY,
     TOK_KW_OF,

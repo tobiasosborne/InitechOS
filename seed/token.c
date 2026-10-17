@@ -46,6 +46,7 @@ const char *token_kind_name(TokenKind kind)
     case TOK_KW_PROCEDURE: return "KW_PROCEDURE";
     case TOK_KW_FUNCTION:  return "KW_FUNCTION";
     case TOK_KW_FORWARD:   return "KW_FORWARD";
+    case TOK_KW_EXTERNAL:  return "KW_EXTERNAL";
     case TOK_KW_ARRAY:   return "KW_ARRAY";
     case TOK_KW_OF:      return "KW_OF";
     case TOK_KW_TYPE:    return "KW_TYPE";

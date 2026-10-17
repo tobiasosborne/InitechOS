@@ -746,6 +746,17 @@ static void collect_procs(Tc *tc, const AstList *decls)
             continue;
         }
 
+        /* An `external` declaration (beads initech-tdnl.22) is complete --
+         * its body is the linked run-time object -- so it may neither repeat
+         * nor complete a name already declared. */
+        if (pf->as.procfunc.is_external) {
+            char msg[TYPECHECK_ERRMSG_CAP];
+            snprintf(msg, sizeof(msg),
+                     "duplicate declaration of %s", pf->as.procfunc.name);
+            fail_at(tc, pf->line, pf->col, msg);
+            return;
+        }
+
         /* A second declaration of an already-known name. The only legal case
          * is: an earlier `forward` now being DEFINED with a matching
          * signature. */
@@ -2016,8 +2027,8 @@ static void add_local(Tc *tc, int line, int col, const char *name_lc,
  * checked with an empty local scope (globals only). */
 static void check_routine(Tc *tc, const AstNode *pf)
 {
-    if (pf->as.procfunc.is_forward)
-        return; /* a forward declaration has no body to check */
+    if (pf->as.procfunc.is_forward || pf->as.procfunc.is_external)
+        return; /* a forward or external declaration has no body to check */
 
     tc->nlocal = 0;
     tc->in_routine = 1;

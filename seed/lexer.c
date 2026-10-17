@@ -235,6 +235,9 @@ static TokenKind keyword_kind(const char *s, size_t n)
     if (strcmp(buf, "procedure") == 0) return TOK_KW_PROCEDURE;
     if (strcmp(buf, "function") == 0)  return TOK_KW_FUNCTION;
     if (strcmp(buf, "forward") == 0)   return TOK_KW_FORWARD;
+    /* beads initech-tdnl.22: the `external` routine directive, reserved for
+     * the same reason as `forward` (token.h). */
+    if (strcmp(buf, "external") == 0)  return TOK_KW_EXTERNAL;
     /* B5 (beads initech-54uu): static arrays -- `array` and `of`, reserved
      * for the same minimality reason as every other keyword above. */
     if (strcmp(buf, "array") == 0)     return TOK_KW_ARRAY;

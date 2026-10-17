@@ -1826,7 +1826,7 @@ static void parse_param_list(Parser *p, AstList *params)
 /*
  * proc-or-func = ("procedure" ident [param-list] ";"
  *               | "function"  ident [param-list] ":" type ";")
- *                ( "forward" ";" | [var-section] block ";" ) ;
+ *                ( "forward" ";" | "external" ";" | [var-section] block ";" ) ;
  *
  * TOP-LEVEL (flat) only -- see ast.h's B4 DECISION note: a routine has its
  * own scope over its params + locals (which may shadow a global) plus the
@@ -1868,6 +1868,7 @@ static AstNode *parse_proc_or_func(Parser *p)
     pf->as.procfunc.rettype = AST_TY_UNKNOWN;
     pf->as.procfunc.body = NULL;
     pf->as.procfunc.is_forward = 0;
+    pf->as.procfunc.is_external = 0;
     ast_list_init(&pf->as.procfunc.params);
     ast_list_init(&pf->as.procfunc.decls);
 
@@ -1892,6 +1893,18 @@ static AstNode *parse_proc_or_func(Parser *p)
         advance(p);
         pf->as.procfunc.is_forward = 1;
         if (!expect(p, TOK_SEMI, "';' after 'forward'"))
+            return NULL;
+        return pf;
+    }
+
+    /* `external` (beads initech-tdnl.22, R5.2): the signature only, like
+     * `forward`, but COMPLETE -- the body is the separately assembled cdecl
+     * routine `pf_<name>` of a run-time object (seed/rt/flairstub.asm), so a
+     * later defining occurrence is a duplicate (typecheck.c). */
+    if (check(p, TOK_KW_EXTERNAL)) {
+        advance(p);
+        pf->as.procfunc.is_external = 1;
+        if (!expect(p, TOK_SEMI, "';' after 'external'"))
             return NULL;
         return pf;
     }

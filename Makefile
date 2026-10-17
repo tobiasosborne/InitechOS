@@ -31837,6 +31837,10 @@ test-flair-calcda-mutant: test-flair-calcda $(FLAIR_DATA_CALCDA_DIVERGE_IMG) $(B
 	@printf '>>> test-flair-calcda-mutant: green (two mutants RED for the named reason)\n'
 TEST_EMU_GATES += test-flair-calcda test-flair-calcda-mutant
 
+# THE TURBO INITECH FLAIR BINDING + the Pascal Calculator (beads
+# initech-tdnl.22 R5.2 / initech-tdnl.23 R5.3): harness/tbx/flair_pascal.mk.
+include harness/tbx/flair_pascal.mk
+
 $(BUILD)/test_chicago_check_mutant: $(TEST_CHIMET_SRC) $(TEST_CHIMET_DEPS)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(TEXT_INC) $(CHIMET_DEF) -DCHICAGO_MUT_ONE_ADVANCE=18 -o $@ $< os/flair/text.c os/flair/surface.c
 test-chicago-metrics-mutant: $(BUILD)/test_chicago_check_mutant

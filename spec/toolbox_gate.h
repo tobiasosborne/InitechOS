@@ -55,6 +55,13 @@
  *       GlobalToLocal a tenant needs: a mouseDown's where is GLOBAL, Sec 6,
  *       and a dragged window moves its content). Bits 0..7 keep goAway's
  *       0/1/2 exactly; no old value moved.
+ * bead: initech-tdnl.22 (R5.2, the Turbo Initech FLAIR.PAS binding). Deliberate
+ *       Rule-8 addition: the MenuItem byte-field offsets and the MenuInfo
+ *       menuWidth offset of Sec 9, which its prose already stated (mark @4,
+ *       cmdChar @5, style @6, enabled @7, is_divider @8, menuWidth @14), as
+ *       named values -- the binding's hand-assembled stubs build the graph from
+ *       them (tools/tbxgate_inc.c), tbxgate.c pins them to menu.h. No value
+ *       moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -546,6 +553,12 @@
 #define TBX_MINFO_COUNT_OFF   12u
 #define TBX_MITEM_BYTES       12u
 #define TBX_MITEM_TEXT_OFF    0u
+#define TBX_MITEM_MARK_OFF    4u     /* initech-tdnl.22: the Sec 9 prose, named */
+#define TBX_MITEM_CMD_OFF     5u
+#define TBX_MITEM_STYLE_OFF   6u
+#define TBX_MITEM_ENABLED_OFF 7u
+#define TBX_MITEM_DIVIDER_OFF 8u
+#define TBX_MINFO_WIDTH_OFF   14u
 #define TBX_MBAR_MAX_MENUS    8u
 #define TBX_MBAR_MAX_ITEMS    16u
 #define TBX_MBAR_STR_MAX      32u    /* incl. the NUL                          */

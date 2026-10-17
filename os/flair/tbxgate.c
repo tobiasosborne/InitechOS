@@ -102,6 +102,12 @@ _Static_assert(offsetof(MenuInfo, items) == TBX_MINFO_ITEMS_OFF, "MenuInfo.items
 _Static_assert(offsetof(MenuInfo, n_items) == TBX_MINFO_COUNT_OFF, "MenuInfo.n_items");
 _Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)");
 _Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
+_Static_assert(offsetof(MenuItem, mark) == TBX_MITEM_MARK_OFF, "MenuItem.mark");
+_Static_assert(offsetof(MenuItem, cmdChar) == TBX_MITEM_CMD_OFF, "MenuItem.cmdChar");
+_Static_assert(offsetof(MenuItem, style) == TBX_MITEM_STYLE_OFF, "MenuItem.style");
+_Static_assert(offsetof(MenuItem, enabled) == TBX_MITEM_ENABLED_OFF, "MenuItem.enabled");
+_Static_assert(offsetof(MenuItem, is_divider) == TBX_MITEM_DIVIDER_OFF, "MenuItem.is_divider");
+_Static_assert(offsetof(MenuInfo, menuWidth) == TBX_MINFO_WIDTH_OFF, "MenuInfo.menuWidth");
 
 /* The two asm trampolines (os/milton/tbx_gate.asm). */
 extern int  tbx_tenant_call(uint32_t fn, uint32_t psp);
