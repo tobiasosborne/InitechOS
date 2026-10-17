@@ -1,0 +1,45 @@
+# d_closeask: the close box of an InitechText window with unsaved work.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90) 
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# type "To: All staff" (80 ms between keys: a loaded host drops typeahead)
+kshift-t,w80,ko,w80,kshift-semicolon,w80,kspc,w80,kshift-a,w80,kl,w80,kl,w80,kspc,w80,ks,w80,kt,w80,ka,w80,kf,w80,kf,w80
+# key ret: end the line
+kret,w80
+# type "Re: TPS reports" (80 ms between keys: a loaded host drops typeahead)
+kshift-r,w80,ke,w80,kshift-semicolon,w80,kspc,w80,kshift-t,w80,kshift-p,w80,kshift-s,w80,kspc,w80,kr,w80,ke,w80,kp,w80,ko,w80,kr,w80,kt,w80,ks,w80
+# key ret
+kret,w80
+# key ret: a blank line
+kret,w80
+# type "Every TPS report now goes out with" (80 ms between keys: a loaded host drops typeahead)
+kshift-e,w80,kv,w80,ke,w80,kr,w80,ky,w80,kspc,w80,kshift-t,w80,kshift-p,w80,kshift-s,w80,kspc,w80,kr,w80,ke,w80,kp,w80,ko,w80,kr,w80,kt,w80,kspc,w80,kn,w80,ko,w80,kw,w80,kspc,w80,kg,w80,ko,w80,ke,w80,ks,w80,kspc,w80,ko,w80,ku,w80,kt,w80,kspc,w80,kw,w80,ki,w80,kt,w80,kh,w80
+# key ret
+kret,w80
+# type "the new cover sheet." (80 ms between keys: a loaded host drops typeahead)
+kt,w80,kh,w80,ke,w80,kspc,w80,kn,w80,ke,w80,kw,w80,kspc,w80,kc,w80,ko,w80,kv,w80,ke,w80,kr,w80,kspc,w80,ks,w80,kh,w80,ke,w80,ke,w80,kt,w80,kdot,w80
+# key ret
+kret,w80
+# go (14,54) the close box of the untitled window
+m-100:-100,m-100:-100,m-86:-46
+# click at (14,54) 
+l1,l0
+w400
+# go (300,335) 
+m100:100,m100:100,m86:81

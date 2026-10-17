@@ -16,6 +16,7 @@
   test-flair-locked-trash, test-flair-locked-purge,
   test-flair-trash-purge-views, test-pubs-flair-screens}
 \chapter{Throwing Things Away}
+\label{ch:trash}
 
 To get rid of a file or a folder, you put it in the Trash and then empty
 the Trash.  Until you empty it, anything in the Trash can be taken out
@@ -82,6 +83,9 @@ icon returns to normal.  To keep everything instead, click
 \texttt{Cancel} or press \key{Esc}.}
 \end{TaskSteps}
 
+\FlairScreen[scale=4, label=fig:emptied]{emptied}{The Trash, emptied}
+\Operation{FINDER-TRASH-EMPTIED}
+
 \begin{MacWarning}
 Emptying the Trash cannot be undone.  Look in the Trash window before you
 empty it.
@@ -91,8 +95,8 @@ empty it.
 \index{locked items}
 A file can be \term{locked} so that it cannot be changed or thrown away.
 (InitechDOS calls a locked file \textit{read-only}; you lock and unlock
-files with the \file{ATTRIB} program at the InitechDOS prompt, described in
-the \doctitle{InitechDOS Reference}.)
+files with the \file{ATTRIB} program at the InitechDOS prompt, as
+Chapter~\ref{ch:disks} shows.)
 
 \Operation{FINDER-LOCKED-ALERT}
 If you drag a locked item to the Trash, it slides back to where it was and

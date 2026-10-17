@@ -15,6 +15,7 @@
   test-flair-file-ops, test-flair-apple-menu, test-flair-exit-to-dos,
   test-flair-heap, test-pubs-flair}
 \chapter{Tips and Troubleshooting}
+\label{ch:trouble}
 
 When something does not work as you expect, find the description that
 matches what you see.  Each lists the likely causes and what to do about
@@ -27,7 +28,7 @@ select a folder and choose \menuitem{Open} from the \menuname{File} menu.
 \Cause The icon is a document or a program whose name ends in \file{.COM}.
 \Solution Only applications, whose names end in \file{.EXE}, open from the
 desktop.  Open a document from within its application.  Run a \file{.COM}
-program at the InitechDOS prompt (Chapter~10).
+program at the InitechDOS prompt (Chapter~\ref{ch:appsref}).
 \Cause An application from the disk is already open.
 \Solution Only one can be open at a time.  Quit the open application,
 then open the other.
@@ -41,7 +42,7 @@ for \menuitem{Open}, a Finder window in front for \menuitem{Close Window},
 Trash for \menuitem{Empty Trash}.
 \Solution Select the item or open the window, then choose the command.
 \Cause The command is not available in this version of FLAIR.
-\Solution Chapter~8 lists the commands that are always dimmed.
+\Solution Chapter~\ref{ch:menus} lists the commands that are always dimmed.
 
 \Symptom{New Folder does nothing}
 \Cause No Finder window is in front.  A new folder is made in the folder of
@@ -69,10 +70,39 @@ name.
 \Cause You dropped a folder into itself or one of its own folders, or back
 into the folder it came from.
 \Solution Drop it somewhere else.
-\Cause The item is locked.
-\Solution If you were dragging it to the Trash, an alert says so.  Unlock
-it at the InitechDOS prompt with \file{ATTRIB}, described in the
-\doctitle{InitechDOS Reference}.
+\Cause You dropped a locked item on the Trash.
+\Solution An alert says so.  Unlock the item at the InitechDOS prompt with
+\file{ATTRIB} (Chapter~\ref{ch:disks}), then drag it to the Trash again.
+
+\Symptom{A document you saved is not in its Finder window}
+\Cause The window was already open when the document was saved.  A Finder
+window shows the files that were in its folder when it opened.
+\Solution Close the window and open it again (Figure~\ref{fig:stalewin}
+and Figure~\ref{fig:newdoc}).
+
+\Symptom{InitechText says the document could not be saved}
+\Cause A locked file of the same name is in the folder.
+\Solution Save the document under another name, or unlock the file with
+\file{ATTRIB} at the InitechDOS prompt (Chapter~\ref{ch:disks}).
+\Cause The data disk is full.
+\Solution Empty the Trash, or move documents you no longer need to another
+disk at the InitechDOS prompt, then save again.
+
+\Symptom{Lines of a long document are drawn over one another}
+\Cause You typed past the bottom of InitechText's window, and part of the
+window was not drawn again.
+\Solution Click one of the scroll arrows.  The window is drawn again, and
+the document itself is not changed.
+
+\Symptom{Nothing happens when you open an application}
+\Cause Another application from the disk is open.  FLAIR has room for one
+at a time (Chapter~\ref{ch:multi}).
+\Solution Quit the open application, then open the other one.
+
+\Symptom{The disk icon has no name, and the clock reads 12:00 am}
+\Cause FLAIR started without the data disk.
+\Solution Shut the computer down, put the data disk in its drive, and
+start the computer again (Figure~\ref{fig:knodisk}).
 
 \Symptom{The Calculator is not in the Apple menu}
 \Cause The program \file{CALCULAT.EXE} is not in the \file{APPS} folder.

@@ -1,0 +1,197 @@
+# d_scroll: a list longer than the window typed, then the up arrow of the
+# scroll bar clicked once: the contents move down by a line.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90) 
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# type "Item 1" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80
+# key ret
+kret,w80
+# type "Item 2" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80
+# key ret
+kret,w80
+# type "Item 3" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80
+# key ret
+kret,w80
+# type "Item 4" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k4,w80
+# key ret
+kret,w80
+# type "Item 5" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k5,w80
+# key ret
+kret,w80
+# type "Item 6" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k6,w80
+# key ret
+kret,w80
+# type "Item 7" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k7,w80
+# key ret
+kret,w80
+# type "Item 8" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k8,w80
+# key ret
+kret,w80
+# type "Item 9" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k9,w80
+# key ret
+kret,w80
+# type "Item 10" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k0,w80
+# key ret
+kret,w80
+# type "Item 11" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k1,w80
+# key ret
+kret,w80
+# type "Item 12" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k2,w80
+# key ret
+kret,w80
+# type "Item 13" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k3,w80
+# key ret
+kret,w80
+# type "Item 14" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k4,w80
+# key ret
+kret,w80
+# type "Item 15" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k5,w80
+# key ret
+kret,w80
+# type "Item 16" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k6,w80
+# key ret
+kret,w80
+# type "Item 17" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k7,w80
+# key ret
+kret,w80
+# type "Item 18" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k8,w80
+# key ret
+kret,w80
+# type "Item 19" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k1,w80,k9,w80
+# key ret
+kret,w80
+# type "Item 20" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k0,w80
+# key ret
+kret,w80
+# type "Item 21" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k1,w80
+# key ret
+kret,w80
+# type "Item 22" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k2,w80
+# key ret
+kret,w80
+# type "Item 23" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k3,w80
+# key ret
+kret,w80
+# type "Item 24" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k4,w80
+# key ret
+kret,w80
+# type "Item 25" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k5,w80
+# key ret
+kret,w80
+# type "Item 26" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k6,w80
+# key ret
+kret,w80
+# type "Item 27" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k7,w80
+# key ret
+kret,w80
+# type "Item 28" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k8,w80
+# key ret
+kret,w80
+# type "Item 29" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k2,w80,k9,w80
+# key ret
+kret,w80
+# type "Item 30" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k0,w80
+# key ret
+kret,w80
+# type "Item 31" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k1,w80
+# key ret
+kret,w80
+# type "Item 32" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k2,w80
+# key ret
+kret,w80
+# type "Item 33" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k3,w80
+# key ret
+kret,w80
+# type "Item 34" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k4,w80
+# key ret
+kret,w80
+# type "Item 35" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k5,w80
+# key ret
+kret,w80
+# type "Item 36" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k6,w80
+# key ret
+kret,w80
+# type "Item 37" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k7,w80
+# key ret
+kret,w80
+# type "Item 38" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k8,w80
+# key ret
+kret,w80
+# type "Item 39" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k3,w80,k9,w80
+# key ret
+kret,w80
+# type "Item 40" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k4,w80,k0,w80
+# key ret
+kret,w80
+# type "Item 41" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k4,w80,k1,w80
+# key ret
+kret,w80
+# type "Item 42" (80 ms between keys: a loaded host drops typeahead)
+kshift-i,w80,kt,w80,ke,w80,km,w80,kspc,w80,k4,w80,k2,w80
+# key ret
+kret,w80
+w400
+# go (575,73) the up arrow of the scroll bar
+m100:-100,m100:-100,m75:-27
+# click at (575,73) 
+l1,l0
+w400
+# go (300,337) 
+m-100:100,m-100:100,m-75:64

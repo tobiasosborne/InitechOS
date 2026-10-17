@@ -1,0 +1,132 @@
+% Chapter 14 -- Working with Several Applications (Part II, Reference).
+% Sources (Law 1): os/milton/kmain.c (the co-resident tenants: FINDER,
+% NOTES and HELLO launched at start-up, HELLO foreground;
+% flair_live_sync_foreground: the front window's owner is the foreground
+% application and its bar is band 2; a click on a Finder window or the
+% desktop makes the Finder foreground; finder_power / finder_exit_dos: the
+% open disk application is asked to quit first, FINDER-POWER-CANCEL when it
+% refuses; the cooperative pump: each tenant runs until it returns);
+% os/flair/tbxgate.c (ONE disk-application slot: a second launch is refused
+% with TENANT-SLOT-BUSY; the Calculator and every .EXE share it; a tenant
+% that faults is closed, FLAIR-TENANT-EXIT); os/flair/process.c (the
+% process table); os/flair/scrap.c (one desk Scrap for every tenant).
+% ADR-0013 (the App Contract: co-resident tenants, one disk slot).
+% Captures: screens/m_*.mouse.  Model: System 6 User's Guide (1988)
+% Ch. 10 "MultiFinder" and the Application menu topic of What's New in
+% System 7 (apple-macintosh.md Sec 8.1, 8.3), cut to what FLAIR ships.
+% GATES: test-flair-appswitch test-flair-tenant-menu test-flair-app-launch test-tenant-load test-flair-close-terminate test-flair-shutdown test-flair-exit-to-dos test-scrap test-pubs-flair-screens
+\Gates{test-flair-appswitch, test-flair-tenant-menu, test-flair-app-launch,
+  test-tenant-load, test-flair-close-terminate, test-flair-shutdown,
+  test-flair-exit-to-dos, test-scrap, test-pubs-flair-screens}
+\chapter{Working with Several Applications}
+\label{ch:multi}
+\index{applications!several open}
+
+FLAIR keeps more than one application open at a time.  This chapter
+describes which applications can be open together, how you move from one to
+another, and how they share the computer.
+
+\section{What can be open at once}
+\begin{center}\small
+\begin{tabular}{@{}p{32mm}p{67mm}@{}}
+\textbf{Application} & \textbf{When it is open}\\\hline
+The Finder & always, from the moment FLAIR starts\\
+HELLO & from start-up until you close its window\\
+NOTES & from start-up until you close its window\\
+One application from the disk & from the moment you open it until it
+quits: InitechText, InitechCalc, InitechPaint, the Calculator, Initech
+123, InitechWord or a sample application\\
+\end{tabular}
+\end{center}
+All of them can be open together, each in its own windows.  Only one is
+the \term{active application}: the one whose window is in front, and whose
+menus are in the lower menu bar.
+
+\section{Moving from one application to another}
+\index{applications!switching between}\index{active application}
+To make an application active, click one of its windows.  To make the
+Finder active, click a Finder window or a bare part of the desktop.
+
+\begin{TaskSteps}
+\Step With InitechText open, click a part of a Finder window that shows
+beside InitechText's window.
+\Result{The Finder becomes the active application.  Its windows come to
+the front and its menus fill the lower menu bar.  InitechText's window
+stays open behind them; its title is grey to show that it is not active.}
+\Step Choose \menuitem{Close Window} from the \menuname{File} menu, or press
+\key{Ctrl-W}, to close the front Finder window.
+\Result{The next Finder window is now in front.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:mswitch]{m_switch}{The Finder active, InitechText's
+window behind it}
+
+\begin{TaskSteps}[resume]
+\Step Click InitechText's window.
+\Result{InitechText becomes the active application again, with its
+document as you left it.  The first click only brings the window to the
+front; click again to place the insertion point.}
+\end{TaskSteps}
+
+An application that is not active keeps its windows and their contents.
+Nothing is lost by switching, and you do not need to save before you click
+another window --- although it is good practice.
+
+When an application's window is hidden behind others, move or collapse the
+windows in front of it, or close the Finder windows you do not need, until
+you can click it.
+
+\section{One application from the disk at a time}
+\index{applications!one at a time}
+\Operation{TENANT-SLOT-BUSY}
+FLAIR has room for one application from the disk.  While one is open,
+opening another does nothing: double-clicking its icon, or choosing the
+Calculator from the Apple menu, leaves the screen as it was.
+
+\FlairScreen[label=fig:mcalcbusy]{m_calcbusy}{The Calculator chosen from the
+Apple menu while InitechText is open: it does not open}
+
+To use the other application, quit the open one first: choose
+\menuitem{Quit} from its \menuname{File} menu, or close its window.  HELLO
+and NOTES are part of FLAIR and do not count: they stay open beside the
+application from the disk.
+
+\section{Sharing the computer}
+\index{cooperative operation}
+The open applications take turns.  When you click, type or choose a
+command, FLAIR passes it to the active application, which does the work and
+hands the computer back.  While an application is busy --- InitechCalc
+while its \texttt{FILE COPY} box is on the screen, for example --- the
+desktop waits: clicks and keys are ignored until the work is done.
+
+If an application stops working, FLAIR closes it: its windows disappear and
+its menus leave the menu bar.  The Finder, HELLO and NOTES go on working.
+Work the application had not saved is lost.
+
+\section{Copying between applications}
+\index{Clipboard!between applications}
+There is one Clipboard for all applications.  Text you cut or copy in one
+application can be pasted in another, or in a later document of the same
+application, until you cut or copy something else or restart the computer.
+In this version of FLAIR, InitechText is the application that uses the
+Clipboard (Chapter~\ref{ch:appsref}).
+
+\section{Quitting everything at once}
+\index{quitting!all applications}
+\Operation{FINDER-POWER}
+\menuitem{Restart}, \menuitem{Shut Down} and \menuitem{Exit to InitechDOS}
+first ask the open application from the disk to quit, just as if you had
+chosen its \menuitem{Quit} command.  An application that holds unsaved
+work asks you what to do with it.
+
+\FlairScreen[label=fig:mshutask]{m_shutask}{Shut Down, with unsaved work in
+InitechText}
+
+\SideHead{Save}The application saves the work and quits; then the command
+goes on.
+\SideHead{Don't Save}The application quits without saving; then the
+command goes on.
+\SideHead{Cancel}The application stays open with its work, and the command
+stops: the computer is not shut down or restarted, and FLAIR is not left.
+
+HELLO and NOTES hold nothing that needs saving and are closed with FLAIR.

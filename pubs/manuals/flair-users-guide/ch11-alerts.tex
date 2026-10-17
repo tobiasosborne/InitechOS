@@ -19,6 +19,7 @@
   test-flair-itext, test-itext-route, test-flair-file-copy, test-pubs-flair,
   test-pubs-flair-screens}
 \chapter{Alerts and Dialog Boxes}
+\label{ch:alerts}
 
 This chapter lists, in alphabetical order, every alert, dialog box and
 progress box that FLAIR and the applications described in this book and the
@@ -34,7 +35,7 @@ choose \menuitem{Exit to InitechDOS} from the Finder's \menuname{Special}
 menu.  Buttons \texttt{Exit} and \texttt{Cancel}.  \texttt{Exit} asks an
 open application to quit, saves the arrangement of the desktop and leaves
 FLAIR for the InitechDOS command prompt; \texttt{Cancel} leaves everything
-as it was.  See Chapter~1.}
+as it was.  See Chapter~\ref{ch:starting} and Figure~\ref{fig:exitalert}.}
 
 \AlertEntry{FILE COPY}{FILE COPY}{The title of the progress box InitechCalc
 shows while it saves its tables (see \texttt{Saving tables to disk...}).}
@@ -47,18 +48,20 @@ line is the version of InitechDOS on the startup disk.  \textit{Built-in
 Memory} is all the memory of the computer, in kilobytes; \textit{Largest
 Unused Block} is the largest part of the memory InitechDOS gives to
 programs that is free at the moment (\texttt{none} if InitechDOS has not
-yet given out its memory).  Click \texttt{OK}.}
+yet given out its memory).  Click \texttt{OK}.  Figure~\ref{fig:about}
+shows it.}
 
 \AlertEntry{It is now safe to switch off your computer.}{It is now safe
 to switch off your computer.\\ If you wish to continue using your
 computer,\\ press Restart.}{Shown on a black screen after \menuitem{Shut
 Down}.  Turn off the computer, or click \texttt{Restart} (or press
-\key{Enter}) to start it again.}
+\key{Enter}) to start it again.  Figure~\ref{fig:shutdown} shows it.}
 
 \AlertEntry{Replace existing}{Replace existing "\textit{NAME}"?}{Shown by
 the Save dialog box when the name you gave is already used by a file in
 the folder.  \texttt{Replace} writes the document over that file, which is
-lost; \texttt{Cancel} lets you type another name.}
+lost; \texttt{Cancel} lets you type another name.  Figure~\ref{fig:replace}
+shows it.}
 
 \AlertEntry{Save changes to the document}{Save changes to the document\\
 "\textit{name}" before closing?}{Shown by InitechText when you click the
@@ -67,10 +70,11 @@ and --- with the second line ending \texttt{before quitting?} --- when you
 choose \menuitem{Close} or \menuitem{Quit}, while the document has changes
 you have not saved.  \texttt{Save} saves
 them first, \texttt{Don't Save} goes on without saving, and \texttt{Cancel}
-returns to the document.}
+returns to the document.  Figure~\ref{fig:dcloseask} and
+Figure~\ref{fig:textask} show the two forms.}
 
 \AlertEntry{Save this document as:}{}{The prompt above the name box in the
-Save dialog box (Chapter~5).}
+Save dialog box (Chapter~\ref{ch:applications}).}
 
 \AlertEntry{Saving tables to disk...}{}{The message in InitechCalc's
 \texttt{FILE COPY} progress box, shown while it copies its ledger to the
@@ -85,13 +89,18 @@ and that the disk is in place.}
 \AlertEntry{The document could not be saved.}{}{InitechText could not write
 the file, usually because the disk is full or the file is locked.  Click
 \texttt{OK}, then save the document under another name, or make room on the
-disk.}
+disk.  Figure~\ref{fig:nosave} shows the alert after \texttt{Replace} was
+chosen for a locked file.}
+
+\FlairScreen[label=fig:nosave]{nosave}{A document saved under the name of a
+locked file}
 
 \AlertEntry{The item is locked.}{The item is locked.\\ Unlock it before\\
 discarding it.}{You dragged a locked file to the Trash, or chose
 \menuitem{Empty Trash} while the Trash held a locked item.  The item is
 not thrown away.  Click \texttt{OK}.  To throw the item away, unlock it
-first at the InitechDOS prompt with \file{ATTRIB} (Chapter~6).}
+first at the InitechDOS prompt with \file{ATTRIB} (Chapter~\ref{ch:disks}).
+Figure~\ref{fig:locked} shows it.}
 
 \AlertEntry{The Trash contains}{The Trash contains \textit{n} items, which
 use \textit{k}K of disk space. Are you sure you want to remove these items
@@ -100,9 +109,10 @@ holds one item, the alert reads \texttt{The Trash contains 1 item, which
 uses \textit{k}K of disk space. Are you sure you want to remove this item
 permanently?}  \textit{k} is the space the items use, in kilobytes,
 rounded up.  \texttt{OK} deletes everything in the Trash; \texttt{Cancel}
-keeps it.}
+keeps it.  Figure~\ref{fig:emptyask} shows it.}
 
 \AlertEntry{This document is too large to be}{This document is too large
 to be\\ opened by InitechText.}{The file you chose is longer than
 InitechText can hold.  Click \texttt{OK}.  Open the file with an InitechDOS
-program instead, or divide it into smaller files.}
+program instead, or divide it into smaller files.  Figure~\ref{fig:toolarge}
+shows it.}

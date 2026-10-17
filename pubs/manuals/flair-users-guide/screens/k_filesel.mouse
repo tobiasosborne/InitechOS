@@ -1,0 +1,15 @@
+# k_filesel: the APPS folder selected in the Drive A Files window, the
+# Finder's File menu pulled down: Open and Close Window are available.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# click at (123,102) 
+l1,l0
+# go (53,30) File in the Finder's menu bar
+m-70:-72
+# press at (53,30) 
+l1
+w400

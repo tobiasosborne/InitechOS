@@ -18,6 +18,7 @@
   test-tbx-menu, test-dialog, test-stdfile, test-flair-samir-suspend,
   test-pubs-flair}
 \chapter{The Keyboard and the Mouse}
+\label{ch:keyboard}
 
 \section{The mouse}
 \index{mouse}
@@ -35,6 +36,19 @@ Shift-click & hold down \key{Shift} while you click\\
 \end{center}
 A drag starts only when the pointer has moved a few dots with the button
 down, so a click with a slight movement of the mouse is still a click.
+
+\section{The pointer}
+\index{pointer}\index{hourglass pointer}
+The pointer is an arrow; its tip is the point that a click acts on.  It is
+drawn over everything else on the screen, and is not shown until you first
+move the mouse after FLAIR starts.  It cannot leave the screen: when it
+reaches an edge it stops there until you move the mouse back.
+
+While FLAIR is busy with work that takes some time, the pointer changes to
+an hourglass, and changes back to the arrow when the work is done.
+\draft{the desktop as delivered keeps the arrow pointer throughout; the
+hourglass is in FLAIR's pointer set, but no operation of the shipped
+desktop shows it}
 
 \section{Keyboard equivalents}
 \index{keyboard equivalents}\index{Ctrl key}

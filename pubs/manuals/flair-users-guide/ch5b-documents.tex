@@ -1,0 +1,272 @@
+% Chapter 6 -- Creating and Changing a Document (Part I, Learning; AN-14
+% task form).  Sources (Law 1): os/apps/itext/itext.c (InitechText: key():
+% the arrows move one character or one line, Backspace erases the
+% selection or the character before the insertion point, Enter ends a
+% line, Ctrl chords go only to the menus; mouseDown: click, Shift-click and
+% drag selection; replace_sel: typing replaces the selection; copy_sel /
+% paste: the desk Scrap; guarded(): Close and Quit ask "before quitting?",
+% the close box, New and Open... ask "before closing?"; save / save_as:
+% Standard File; doc_load: the saved text replaces the window's, the title
+% becomes the file name; show_caret: the window follows the insertion
+% point, the scroll bar is given the document height); os/flair/textedit.c
+% (word wrap; FLAIR_TE_TEXT_MAX); os/flair/scrap.c (the Clipboard, 8,192
+% characters, kept in memory only); os/milton/kmain.c sf_run (the Save
+% dialog box, the Replace question).  Captures: screens/d_*.mouse (locked
+% traces of the running desktop).  Model: Macintosh User's Guide 1991 Ch. 4
+% "Creating a Document and Saving Your Work" and Ch. 5 "Changing a
+% Document" (apple-macintosh.md Sec 8.2), task form of Sec 5.4.
+% GATES: test-flair-itext test-itext-route test-flair-itext-scroll test-stdfile test-scrap test-pubs-flair-screens
+\Gates{test-flair-itext, test-itext-route, test-flair-itext-scroll,
+  test-stdfile, test-scrap, test-pubs-flair-screens}
+\chapter{Creating and Changing a Document}
+\label{ch:documents}
+
+In this chapter you write a short memo with InitechText, correct it,
+copy part of it to another place, save it, keep a second copy under
+another name, and go back to the version you saved.  What you learn here
+works the same way in every FLAIR application that works with text.
+
+\section{Before you begin}
+Start FLAIR, and close any application from the disk that is open.  The
+steps begin at the desktop, with the \texttt{INITECH} icon in its usual
+place at the top right of the screen.  Chapter~\ref{ch:applications}
+showed you how to open InitechText; this chapter starts from there.
+
+\section{Starting a new document}
+\index{documents!new}\index{typing}
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder, click its zoom box, and double-click
+\file{TEXT.EXE}.
+\Result{InitechText opens with a new document called \texttt{untitled}.
+The insertion point, a thin vertical line, waits at the top left of the
+window.}
+\Step Type \type{To: All staff} and press \key{Enter}.
+\Result{The text appears as you type, and the insertion point moves to
+the start of the next line.}
+\Step Type the rest of the memo, pressing \key{Enter} at the end of each
+line, and twice after the second line to leave a blank line:
+\begin{TypeIn}
+Re: TPS reports
+
+Every TPS report now goes out with
+the new cover sheet.
+\end{TypeIn}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dtyped]{d_typed}{The memo, typed}
+
+When a line becomes too long for the window, InitechText carries the word
+you are typing to the start of the next line by itself.  Press \key{Enter}
+only to end a paragraph or to leave a blank line.
+
+If you make a mistake while you type, press \key{Backspace}: it erases the
+character just before the insertion point.
+
+\section{Moving the insertion point}
+\index{insertion point}
+Whatever you type goes in at the insertion point.  To type somewhere else,
+move the insertion point first.
+\begin{TaskSteps}
+\Step Click just to the right of the end of the second line, the line that
+reads \texttt{Re: TPS reports}.
+\Result{The insertion point moves to the end of that line.  A click to the
+right of a line's end puts the insertion point at the end of the line; a
+click on a character puts it just before or after the character, whichever
+is nearer.}
+\Step Type a space and \type{(monthly)}.
+\Result{The words are added to the line.  The text after the insertion
+point, if there is any, moves along to make room.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dinsert]{d_insert}{Words added to the second line}
+
+You can also move the insertion point with the arrow keys: \key{Left Arrow}
+and \key{Right Arrow} move it one character, \key{Up Arrow} and \key{Down
+Arrow} one line.  The insertion point is drawn as a steady line; it does
+not blink.
+
+\section{Selecting text}
+\index{selecting!text}
+To change a word or a line, you first select it.  Selected text is shown
+in white on black.
+\begin{TaskSteps}
+\Step Point just to the left of the first word of the last line,
+\texttt{the new cover sheet.}
+\Step Hold down the mouse button and drag to the right, past the end of the
+line, then release the button.
+\Result{The whole line is selected.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dselect]{d_select}{The last line, selected}
+
+There are two other ways to select text:
+\begin{itemize}
+\item Click where the selection is to start, hold down \key{Shift}, and
+  click where it is to end.  Everything between the two places is
+  selected.
+\item Choose \menuitem{Select All} from the \menuname{Edit} menu, or press
+  \key{Ctrl-A}, to select the whole document.
+\end{itemize}
+To deselect the text, click anywhere in the document.
+
+\section{Replacing and removing text}
+\index{replacing text}\index{deleting text}
+With text selected:
+\begin{itemize}
+\item Type, and what you type takes the place of the selected text.
+\item Press \key{Backspace}, or choose \menuitem{Clear} from the
+  \menuname{Edit} menu, and the selected text is removed.
+\end{itemize}
+Neither puts anything on the Clipboard.  InitechText cannot undo a change:
+\menuitem{Undo} in its \menuname{Edit} menu is dimmed.  Before you make a
+large change, save the document, so that you can go back to the saved
+version if you need to (see ``Going back to the saved version,'' later in
+this chapter).
+
+\section{Copying text to another place}
+\index{Clipboard!copying}\index{Copy command}\index{Paste command}
+The \menuitem{Copy}, \menuitem{Cut} and \menuitem{Paste} commands of the
+\menuname{Edit} menu let you use the same words twice, or move them, without
+typing them again.  They work through the \term{Clipboard}, a holding place
+in the computer's memory.
+\begin{TaskSteps}
+\Step Select the last line of the memo, as you did before.
+\Step Choose \menuitem{Copy} from the \menuname{Edit} menu, or press
+\key{Ctrl-C}.
+\Result{A copy of the selected text is put on the Clipboard.  Nothing
+changes on the screen.}
+\Step Click below the last line of text.
+\Result{The insertion point goes to the end of the document.}
+\Step Press \key{Enter}, and type \type{Please read the memo about} and a
+space.
+\Step Choose \menuitem{Paste} from the \menuname{Edit} menu, or press
+\key{Ctrl-V}.
+\Result{The words on the Clipboard are put in at the insertion point.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dpaste]{d_paste}{The copied words, pasted at the end
+of a new line}
+
+To move text instead of copying it, choose \menuitem{Cut} (\key{Ctrl-X})
+in place of \menuitem{Copy}: the selected text is removed from the document
+and put on the Clipboard.  Then paste it where you want it.
+
+The Clipboard holds one piece of text at a time.  What you cut or copy
+replaces what was there, and stays there, ready to be pasted again, until
+you cut or copy something else.  It is kept when you begin a new document
+or quit InitechText, and emptied when you restart the computer.
+
+\section{Saving your work}
+\index{saving a document}
+\begin{TaskSteps}
+\Step Choose \menuitem{Save} from the \menuname{File} menu, or press
+\key{Ctrl-S}.
+\Result{The Save dialog box asks for a name, as Chapter~\ref{ch:applications}
+describes.}
+\Step Erase \texttt{UNTITLED} with \key{Backspace}, type \type{cover.txt}
+and press \key{Enter}.
+\Result{The memo is written to the disk as \file{COVER.TXT}, and the window
+takes that name.}
+\end{TaskSteps}
+From now on, \menuitem{Save} writes the document to \file{COVER.TXT}
+without asking.  Save whenever you have done a few minutes' work that you
+would not want to do again.
+
+\section{Saving a copy under another name}
+\index{Save As command}
+Sometimes you want to keep a document as it is and go on working on a copy:
+a memo to one department, say, as the start of a memo to another.
+\begin{TaskSteps}
+\Step Choose \menuitem{Save As...} from the \menuname{File} menu.
+\Result{The Save dialog box opens.  Its list shows the files and folders
+at the top level of the disk, \file{COVER.TXT} among them.}
+\Step Erase the name in the name box and type \type{cover2.txt}.
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dsaveas]{d_saveas}{Save As, with a new name typed}
+
+\begin{TaskSteps}[resume]
+\Step Click \texttt{Save}, or press \key{Enter}.
+\Result{The document is saved as \file{COVER2.TXT}, and the window takes
+the new name.  \file{COVER.TXT} stays on the disk as it was when you last
+saved it.  Changes you make now go into \file{COVER2.TXT} when you save.}
+\end{TaskSteps}
+If you give the name of a file that is already on the disk, FLAIR asks
+whether to replace it (Figure~\ref{fig:replace}).
+
+\section{Going back to the saved version}
+\index{documents!reverting}
+If you change a document and then decide you do not want the changes, open
+the saved version again and do not save the changes.
+\begin{TaskSteps}
+\Step Choose \menuitem{Open...} from the \menuname{File} menu, or press
+\key{Ctrl-O}.
+\Result{Because the document has changes you have not saved, InitechText
+first asks whether to save them.}
+\Step Click \texttt{Don't Save}.
+\Result{The Open dialog box appears.}
+\Step Double-click the name of the document, \file{COVER.TXT}.
+\Result{The document comes back as it was when you last saved it.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dreopen]{d_reopen}{The saved version, opened again;
+the line added after saving is gone}
+
+\section{Closing the document}
+\index{closing a document}
+InitechText holds one document in one window.  Closing the window quits
+InitechText.
+\begin{TaskSteps}
+\Step Click the close box at the left end of the title bar.
+\Result{If the document has changes you have not saved, InitechText asks
+whether to save them before closing.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:dcloseask]{d_closeask}{Closing a window that holds
+unsaved changes}
+\Operation{FLAIR-CLOSE-ASK}
+
+\begin{TaskSteps}[resume]
+\Step Click \texttt{Save} to save the changes and close, \texttt{Don't
+Save} to close without them, or \texttt{Cancel} to go on working.
+\end{TaskSteps}
+Choosing \menuitem{Close} or \menuitem{Quit} from the \menuname{File} menu
+does the same; the question then ends \texttt{before quitting?}.
+
+\section{Working with a long document}
+\index{scrolling!a document}
+A document can be longer than its window.  When it is, the scroll bar at
+the right of the window becomes active, and you use it to see the rest of
+the document, as you use the scroll bars of a Finder window
+(Chapter~\ref{ch:windows}).
+
+As you type past the bottom of the window, InitechText moves the contents
+up to keep the insertion point in view.
+
+\FlairScreen[label=fig:dscroll]{d_scroll}{A list longer than the window,
+scrolled back by one line}
+
+Figure~\ref{fig:dscroll} shows a list of 42 items.  The scroll box is near
+the bottom of the scroll bar, because the part of the document in view is
+near its end.  If lines on the screen appear drawn over one another after
+you type past the bottom of the window, click one of the scroll arrows:
+the window is drawn again.
+
+A document can hold up to 4,096 characters.  When a document is full, InitechText takes no more typing or
+pasting.
+
+\section{What you have learned}
+\begin{itemize}
+\item Text goes in at the insertion point.  Click, or use the arrow keys,
+  to move it.
+\item To change text, select it first: drag across it, Shift-click, or
+  choose \menuitem{Select All}.  Typing replaces the selection;
+  \key{Backspace} removes it.
+\item \menuitem{Copy} and \menuitem{Cut} put the selection on the
+  Clipboard; \menuitem{Paste} puts the Clipboard's text at the insertion
+  point.
+\item \menuitem{Save} keeps your work on the disk.  \menuitem{Save As...}
+  keeps a copy under another name.
+\item To go back to the saved version, open the document again and click
+  \texttt{Don't Save}.
+\end{itemize}

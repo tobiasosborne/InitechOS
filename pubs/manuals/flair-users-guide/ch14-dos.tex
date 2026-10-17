@@ -10,8 +10,10 @@
 % programs in APPS); the InitechDOS books for the commands themselves.
 % GATES: test-flair-exit-to-dos test-flair-tps-journey test-shell test-dir test-pubs-flair-screens
 \Gates{test-flair-exit-to-dos, test-flair-tps-journey, test-shell, test-dir,
+  test-type,
   test-pubs-flair-screens}
 \chapter{FLAIR and InitechDOS}
+\label{ch:dos}
 \index{InitechDOS}
 
 FLAIR runs on InitechDOS.  This chapter tells you how the things you see in
@@ -40,7 +42,7 @@ the \file{TRASH} directory until you empty the Trash.
 \section{Going to the InitechDOS prompt}
 \index{Exit to InitechDOS command}
 Choose \menuitem{Exit to InitechDOS} from the Finder's \menuname{Special}
-menu and click \texttt{Exit} (Chapter~1).  FLAIR asks the open application
+menu and click \texttt{Exit} (Chapter~\ref{ch:starting}).  FLAIR asks the open application
 to quit, saves the arrangement of the desktop and hands the screen to
 InitechDOS.
 
@@ -60,6 +62,21 @@ the directory \file{APPS}, and the directory \file{TRASH} and the file
 
 \FlairText[fig:dosdir]{u_dosdir}{The top level of the data disk at the
 InitechDOS prompt}
+
+\section{Looking at a document from the prompt}
+\index{TYPE}
+A text document you save with InitechText can be shown at the prompt with
+the \file{TYPE} command.
+\begin{TaskSteps}
+\Step Type \type{TYPE README.TXT} and press \key{Enter}.
+\Result{The contents of \file{README.TXT} appear on the screen, followed by
+the prompt.}
+\end{TaskSteps}
+
+\FlairText[fig:ktype]{k_type}{README.TXT shown with TYPE}
+
+A document longer than the screen scrolls past; to read a long document,
+open it in InitechText instead.
 
 \section{Running a program from the APPS folder}
 \index{CHKDSK}

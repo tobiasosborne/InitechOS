@@ -1,0 +1,35 @@
+# k_label: LABEL shows the name of the data disk and asks for a new one.
+# go (450,400) a bare point of the desktop
+m100:100,m30:60
+# click at (450,400) 
+l1,l0
+# go (199,30) the Special title in the second menu bar
+m-100:-100,m-100:-100,m-51:-100,m0:-70
+# press at (199,30) 
+l1
+# hold (199,163) Exit to InitechDOS
+m0:100,m0:33
+# release at (199,163) 
+l0
+w400
+# go (464,167) the Exit button
+m100:4,m100:0,m65:0
+# click at (464,167) 
+l1,l0
+Wmm-dd-yy
+# key ret: keep the date
+kret,w80
+Wtime:
+# key ret: keep the time
+kret,w80
+w400
+# type "CLS" (80 ms between keys: a loaded host drops typeahead)
+kshift-c,w80,kshift-l,w80,kshift-s,w80
+# key ret
+kret,w80
+w300
+# type "APPS\LABEL" (80 ms between keys: a loaded host drops typeahead)
+kshift-a,w80,kshift-p,w80,kshift-p,w80,kshift-s,w80,kbackslash,w80,kshift-l,w80,kshift-a,w80,kshift-b,w80,kshift-e,w80,kshift-l,w80
+# key ret
+kret,w80
+w800

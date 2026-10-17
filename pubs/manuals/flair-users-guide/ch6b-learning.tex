@@ -1,0 +1,107 @@
+% Chapter 8 -- Learning More About FLAIR (Part I, Learning; the closing
+% chapter of the course).  Sources (Law 1): os/flair/finder_menu.c (the
+% Finder's Help menu: About Help and Show Balloons always dimmed);
+% os/milton/kmain.c (HELLO and NOTES launched at start-up; finder_surface_
+% open: an .EXE icon is launched); the data volume as minted by the
+% Makefile (FLAIR_FIXTURES: README.TXT at the top level, the applications in
+% APPS); os/apps/itext/itext.c (Open...: README.TXT read into the window).
+% Model: Macintosh User's Guide 1991 Ch. 7 "Learning More About Your
+% Macintosh" (apple-macintosh.md Sec 8.2).
+% GATES: test-flair-desktop test-finder-menu test-flair-itext test-stdfile test-flair-app-launch test-pubs-flair-screens
+\Gates{test-flair-desktop, test-finder-menu, test-flair-itext,
+  test-stdfile, test-flair-app-launch, test-pubs-flair-screens}
+\chapter{Learning More About FLAIR}
+\label{ch:learning}
+
+You have now done everything you need for everyday work with FLAIR: you
+can start and stop the computer, use the mouse and the menus, arrange
+windows, organize your files, use an application, write and save a
+document, and throw away what you no longer need.  This chapter tells you
+where to go from here.
+
+\section{Reading the README file}
+\index{README.TXT}
+The data disk holds a short text file, \file{README.TXT}, with notes about
+the disk.  Read it with InitechText.
+\begin{TaskSteps}
+\Step Open InitechText (Chapter~\ref{ch:applications}).
+\Step Choose \menuitem{Open...} from the \menuname{File} menu.
+\Step Double-click \file{README.TXT} in the list.
+\Result{The file opens in InitechText's window.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:readme]{l_readme}{README.TXT, opened in InitechText}
+
+The notes refer to the InitechDOS command prompt as the \textit{DOS
+prompt}, and to folders as \textit{directories}: Chapter~\ref{ch:dos}
+explains how FLAIR and InitechDOS name the same things.  When you have read
+the file, quit InitechText without saving.
+
+\section{Practising}
+\index{practising}
+The \texttt{HELLO} and \texttt{NOTES} windows that FLAIR opens when it
+starts are there for you to practise on.  Move them, change their size,
+zoom and collapse them, pull down their menus, and bring each to the front
+in turn.  Nothing you do to them changes anything on the disk.  When you
+close one with its close box, it stays closed until you next start FLAIR.
+
+To practise organizing files, make a new folder in the \texttt{Drive A
+Files} window, move \file{README.TXT} into it and back out again, and then
+throw the empty folder away and empty the Trash.
+
+\section{Using this book as a reference}
+\index{reference}
+Part~II of this book is for looking things up, in any order:
+\begin{itemize}
+\item Chapter~\ref{ch:menus} describes every command in every menu.
+\item Chapter~\ref{ch:windowsref} describes every kind of window, and
+  Chapter~\ref{ch:alerts} every alert and dialog box.
+\item Chapter~\ref{ch:disks} describes the disks and what is on them.
+\item Chapter~\ref{ch:trouble} tells you what to do when something does
+  not work as you expect.
+\end{itemize}
+The Summary at the end of Part~II gathers the common tasks in short tables,
+and the index lists every subject the book covers.
+
+\section{The Help menu}
+\index{Help menu}\index{on-line help}
+The Finder's menu bar ends with a \menuname{Help} menu.  Its two commands,
+\menuitem{About Help} and \menuitem{Show Balloons}, are dimmed: this
+version of FLAIR has no help on the screen.  Use this book, the Summary and
+the \doctitle{FLAIR Quick Reference} card instead.
+
+\section{The other applications}
+\index{applications!other}
+The \file{APPS} folder holds more applications than the ones this book
+describes.  Each opens from the desktop in the same way: double-click its
+icon.
+\begin{center}\small
+\begin{tabular}{@{}p{24mm}p{75mm}@{}}
+\textbf{Icon} & \textbf{Where it is described}\\\hline
+\file{TEXT.EXE} & InitechText: Chapter~\ref{ch:documents}, and the
+\doctitle{FLAIR Accessories Guide}\\
+\file{CALCULAT.EXE} & the Calculator: the \doctitle{FLAIR Accessories
+Guide}\\
+\file{CALC.EXE} & InitechCalc: the \doctitle{FLAIR Accessories Guide}\\
+\file{PAINT.EXE} & InitechPaint: the \doctitle{FLAIR Accessories Guide}\\
+\file{CTENANT.EXE}, \file{TENANTFX.EXE} & the sample applications: the
+\doctitle{FLAIR Accessories Guide}\\
+\file{123.EXE} & Initech 123: its own books\\
+\file{WORD.EXE} & InitechWord: its own books\\
+\end{tabular}
+\end{center}
+Remember that one application from the disk can be open at a time: quit one
+before you open the next (Chapter~\ref{ch:multi}).
+
+\section{The other books}
+\begin{itemize}
+\item The \doctitle{FLAIR Accessories Guide} describes each of the small
+  applications that come with FLAIR.
+\item The \doctitle{FLAIR Quick Reference} card shows every menu and every
+  keyboard equivalent on one sheet.  Keep it beside the computer.
+\item The \doctitle{InitechDOS User's Guide} and \doctitle{InitechDOS
+  Reference} describe the command prompt you reach with \menuitem{Exit to
+  InitechDOS}.
+\end{itemize}
+Appendix~D lists every book with its part number, and tells you how to
+reach the Initech Help Desk.

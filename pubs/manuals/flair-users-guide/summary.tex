@@ -4,7 +4,8 @@
 % in Part I, against the same sources and gates.
 % GATES: test-flair-disk-windows test-flair-file-ops test-flair-finder-cmds test-flair-app-launch test-flair-itext test-flair-empty-trash test-flair-shutdown test-flair-exit-to-dos test-pubs-flair-screens
 \Gates{test-flair-disk-windows, test-flair-file-ops, test-flair-finder-cmds,
-  test-flair-itext, test-flair-empty-trash,
+  test-flair-itext, test-itext-route, test-flair-empty-trash, test-attrib,
+  test-chkdsk,
   test-flair-shutdown, test-flair-exit-to-dos, test-pubs-flair-screens}
 \BackChapter{Summary: Working on the FLAIR Desktop}
 \index{Summary}
@@ -57,6 +58,25 @@ select the document and press \key{Enter}.}
 \SummaryRow{Quit an application}{Press \key{Ctrl-Q}.}
 \end{SummaryTable}
 
+\section{Writing and changing text}
+\begin{SummaryTable}
+\SummaryRow{Move the insertion point}{Click where you want to type, or press
+an arrow key.}
+\SummaryRow{Select text}{Drag across it; or click at one end and
+\key{Shift}-click at the other; or press \key{Ctrl-A} for the whole
+document.}
+\SummaryRow{Replace selected text}{Type the new text.}
+\SummaryRow{Remove selected text}{Press \key{Backspace}.}
+\SummaryRow{Copy text to another place}{Select it, press \key{Ctrl-C},
+click where it should go, and press \key{Ctrl-V}.}
+\SummaryRow{Move text to another place}{Select it, press \key{Ctrl-X},
+click where it should go, and press \key{Ctrl-V}.}
+\SummaryRow{Keep a copy under another name}{Choose \menuitem{Save As...}
+from the \menuname{File} menu, type the new name and press \key{Enter}.}
+\SummaryRow{Go back to the saved version}{Press \key{Ctrl-O}, click
+\texttt{Don't Save}, and open the document again.}
+\end{SummaryTable}
+
 \section{Throwing things away}
 \begin{SummaryTable}
 \SummaryRow{Throw away a file or folder}{Drag its icon onto the Trash.}
@@ -64,6 +84,20 @@ select the document and press \key{Enter}.}
 drag the item out of the Trash window.}
 \SummaryRow{Delete what is in the Trash}{Choose \menuitem{Empty Trash} from
 the \menuname{Special} menu, then click \texttt{OK}.}
+\end{SummaryTable}
+
+\section{Disks}
+\begin{SummaryTable}
+\SummaryRow{See how much space is free}{Go to the InitechDOS prompt, type
+\type{CD APPS} and \type{CHKDSK}, and read the \texttt{bytes available on
+disk} line.}
+\SummaryRow{Make room on the disk}{Empty the Trash.}
+\SummaryRow{Lock a file}{At the InitechDOS prompt, type
+\type{APPS\textbackslash ATTRIB +R} and the file's name.}
+\SummaryRow{Unlock a file}{At the InitechDOS prompt, type
+\type{APPS\textbackslash ATTRIB -R} and the file's name.}
+\SummaryRow{Copy a file to another disk}{At the InitechDOS prompt, use
+\file{COPY} or \file{XCOPY}.}
 \end{SummaryTable}
 
 \section{Finishing work}
