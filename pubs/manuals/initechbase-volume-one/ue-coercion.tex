@@ -1,0 +1,41 @@
+% Using InitechBase, Appendix E: Data Types in Expressions (PUB-REF-0001
+% CP-11: generated from spec/samir/xbase_coercion.json by
+% harness/pubs/samir_tables.c coercion; the row notes are defined here, one
+% per rule name of the JSON, and an undefined one stops the build).
+\chapter{Data Types in Expressions}
+\Gates{test-samir-spec, test-xbase-eval, test-xbase-coercion}
+\NoDictionaryHeads
+The operators of InitechBase work on values of particular types.  The first
+table gives, for each operator, the result of each combination of types that
+it accepts, and the message for some combinations it refuses.  A combination
+not listed is refused as well, with \xmsg{9}{Data type mismatch.}  The second
+table gives the result of storing a value of each type in a field of each
+type with \cmd{REPLACE}.
+
+\DefineCoercionRule{R_concat_plus}{Joined as they are}
+\DefineCoercionRule{R_concat_minus}{Trailing blanks of the left string moved to the end}
+\DefineCoercionRule{R_date_plus_num}{Days added or subtracted; a blank date stays blank}
+\DefineCoercionRule{R_date_minus_date}{Number of days; 0 when a date is blank}
+\DefineCoercionRule{R_blankdate_high}{A blank date is later than any date}
+\DefineCoercionRule{R_order_same_type}{Both sides must be of one type}
+\DefineCoercionRule{R_substr}{True when the left string occurs in the right}
+\DefineCoercionRule{R_no_truthiness}{A number is not a logical value}
+\DefineCoercionRule{R_begins_with}{SET EXACT OFF: the left begins with the right}
+\DefineCoercionRule{R_exact_blankpad}{SET EXACT ON: equal but for trailing blanks}
+\DefineCoercionRule{R_same_type}{Both sides must be of one type}
+
+\section{Operators}
+\begingroup\small
+\input{samir_coercion}
+\endgroup
+
+\draft{the row Memo / Character: this version does not store a character
+value replaced into a memo field (see REPLACE in Chapter~5)}
+
+\section{Comparing Character Strings}
+For \texttt{=}, \texttt{<>} and \texttt{\#} between character strings the
+result depends on SET EXACT.  With SET EXACT OFF, the comparison is true when
+the left string begins with the right one, so an empty string on the right
+equals every string.  With SET EXACT ON, the strings must be equal, apart from
+trailing blanks.  \texttt{<}, \texttt{>}, \texttt{<=} and \texttt{>=} compare the
+codes of the characters one by one, whatever the setting.

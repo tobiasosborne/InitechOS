@@ -1,0 +1,16 @@
+. USE STAFF INDEX STAFFNAM
+. LIST LASTNAME, FIRSTNAME, DEPT
+Record#  LASTNAME       FIRSTNAME  DEPT
+      8  ALBRIGHT       NINA       ADMN
+      3  BOLTON         MICHAEL    SOFT
+*     13  CHEN           ROBERT     ACCT
+      9  DELGADO        ANDREW     SOFT
+     10  FENWICK        LAURA      CUST
+      2  GIBBONS        PETER      SOFT
+      1  LUMBERGH       BILL       SOFT
+      4  NAGHEENANAJAR  SAMIR      SOFT
+     11  OKAFOR         DANIEL     SOFT
+      7  PORTER         DOM        ADMN
+     12  PRUITT         CAROL      ACCT
+      6  SMYKOWSKI      TOM        CUST
+      5  WADDAMS        MILTON     FACL

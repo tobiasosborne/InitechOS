@@ -1702,6 +1702,13 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 
 	/* Claim + reserve a free cluster (mark EOC immediately so find_free skips). */
 	newc = fat12_find_free(vol, fat, fat_len, (uint16_t)(cur + 1u));
+#ifndef FAT12_MUTATE_GROW_NO_WRAP
+	/* ADR-0003 DEC-07; mtools on the identical fragmented image (fov8).
+	 * Locality is a hint, not a space bound: free clusters can precede cur. */
+	if (newc == 0u) {
+		newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
+	}
+#endif
 	if (newc == 0u) {
 		return FAT12_ERR_NO_SPACE;
 	}
@@ -2634,6 +2641,34 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 #endif
 }
 
+/* Service-directory attribute seam (tdnl.30). CHMOD's directory rejection
+ * above remains intact. This operation can ONLY add HIDDEN to a directory;
+ * it cannot retype an entry or alter its chain. Ref: ADR-0003 B.1 attribute
+ * byte; IBM DOS 3.30 TR p. 6-145/5-10; mmd + mattrib +h differential. */
+int fat12_hide_dir(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent, void *sector_buf)
+{
+    dir_entry_t de;
+    uint32_t slot;
+    if (!vol || !fat || !name83 || !sector_buf) return FAT12_ERR_NULL;
+    if (!vol->dev || !vol->dev->write_sectors) return FAT12_ERR_WRITE;
+    int rc = fat12_dir_guard(vol, fat, fat_len, parent, sector_buf);
+    if (rc != FAT12_OK) return rc;
+    rc = fat12_find_slot_in(vol, fat, fat_len, parent, sector_buf, name83,
+                            &de, &slot);
+    if (rc != FAT12_OK) return rc;
+    if (!(de.attribute & DIR_ATTR_DIRECTORY) ||
+        (de.attribute & DIR_ATTR_VOLLABEL)) return FAT12_ERR_ACCESS;
+    if (de.attribute & DIR_ATTR_HIDDEN) return FAT12_OK;
+#ifndef FAT12_MUTATE_HIDE_DIR_NO_WRITE
+    de.attribute |= DIR_ATTR_HIDDEN;
+    return fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0, parent,
+                                     slot, &de, sector_buf);
+#else
+    return FAT12_OK;
+#endif
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
@@ -3406,9 +3441,13 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (!found) {
 		return FAT12_ERR_NOT_FOUND;
 	}
-	/* The SOURCE must be a regular file -- never rename a directory or the
-	 * volume-label entry (no '..' fixup path yet; Rule 2 fail loud). */
+	/* Same parent means '..' remains correct, including for a directory.
+	 * Ref: ADR-0003 Appendix A 56h; IBM DOS 3.30 TR p. 6-206; mren diff. */
+#ifdef FAT12_MUTATE_RENAME_REJECT_DIR
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+#else
+	if ((match.attribute & DIR_ATTR_VOLLABEL) != 0u) {
+#endif
 		return FAT12_ERR_ACCESS;
 	}
 

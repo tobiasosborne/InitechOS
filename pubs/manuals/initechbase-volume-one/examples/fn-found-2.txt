@@ -1,0 +1,5 @@
+. USE STAFF INDEX STAFFNAM
+. SEEK "ZZZ"
+. ? FOUND(), EOF()
+
+.F. .T.

@@ -1,0 +1,14 @@
+. USE STAFF
+. SET FILTER TO DEPT = 'ADMN'
+. LIST LASTNAME, DEPT
+Record#  LASTNAME       DEPT
+      7  PORTER         ADMN
+      8  ALBRIGHT       ADMN
+. GO TOP
+. ? RECNO()
+
+7. SET FILTER TO
+. GO TOP
+. ? RECNO()
+
+1

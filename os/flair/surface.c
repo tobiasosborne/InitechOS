@@ -22,6 +22,19 @@
 
 #include "surface.h"
 
+void surface_clear(const bitmap_t *bm, uint32_t px)
+{
+#ifdef SURFACE_MUT_CLEAR_FLAT
+    if (bm->bpp == 24) {
+        for (uint32_t off = 0; off + 3u <= bm->pitch * bm->height; off += 3u)
+            surface_put_pixel(bm, off, px);
+        return;
+    }
+#endif
+    for (uint32_t y = 0; y < bm->height; y++)
+        surface_fill_span(bm, 0, y, bm->width, px);
+}
+
 /* ---- surface_fill_span --------------------------------------------------- */
 /* Horizontal run of `len` pixels starting at (x,y). Clips to bitmap width so
  * no write exceeds pitch*height (Rule 2 -- no overdraw). */

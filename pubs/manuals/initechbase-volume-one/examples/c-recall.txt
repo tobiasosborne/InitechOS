@@ -1,0 +1,7 @@
+. USE STAFF
+. RECALL ALL
+. LIST LASTNAME FOR RECNO() > 10
+Record#  LASTNAME
+     11  OKAFOR        
+     12  PRUITT        
+     13  CHEN          

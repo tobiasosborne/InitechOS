@@ -58,4 +58,4 @@ mcopy -i "$img" ::MORE.OUT - > "$out/more.got" 2>/dev/null || fail more-output
 mcopy -i "$img" ::README.TXT - > "$out/more.want"
 cmp -s "$out/more.want" "$out/more.got" || fail more-bytes
 fsck.fat -n "$img" > "$out/fsck" 2>&1 || fail filesystem
-echo 'GREEN test-dos-folder: serial DIR == nine externals; PATH finds CHKDSK and MORE; MORE <README.TXT exact bytes; no startup prompts; fsck.fat'
+echo 'GREEN test-dos-folder: serial DIR == fourteen externals; PATH finds CHKDSK and MORE; MORE <README.TXT exact bytes; no startup prompts; fsck.fat'

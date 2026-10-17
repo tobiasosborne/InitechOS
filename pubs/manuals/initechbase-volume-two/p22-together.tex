@@ -1,0 +1,76 @@
+% Programming with InitechBase, Chapter 22: Putting It Together (AN-16;
+% annex Sec 8.2 P14).  The programs and files of the Initech Accounting
+% System as the sample diskette holds them (pubs/examples/samir/disk), and
+% the daily and month-end procedures with the commands of Chapters 1-13.
+\chapter{Putting It Together}
+\Gates{test-pubs-build, test-pubs-samir-disk}
+This chapter describes the Initech Accounting System as a whole: its files, its
+programs, and the procedures by which the clerk and the supervisor use it each
+day and at the end of each month.
+
+\IsThisGoodForTheCompany
+
+\ATEHead{The Files}
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{30mm}p{104mm}@{}}
+\hline
+\textsf{\textbf{File}} & \textsf{\textbf{Contents}}\\
+\hline
+\file{INVOICE.DBF} & The accounts receivable ledger: \texttt{INVNO} C 5,
+  \texttt{CUST} C 10, \texttt{AMOUNT} N 10.2, \texttt{DUEDATE} D, \texttt{PAID} L\\
+\file{INVNO.NDX} & Index of the ledger on the invoice number\\
+\file{INVCUST.NDX} & Index of the ledger on the customer\\
+\file{INVRPT.FRM} & Report form of the invoice register\\
+\hline
+\end{tabular}
+
+\ATEHead{The Programs}
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{30mm}p{60mm}p{40mm}@{}}
+\hline
+\textsf{\textbf{Program}} & \textsf{\textbf{Task}} & \textsf{\textbf{Chapter}}\\
+\hline
+\file{ACCTMAIN.PRG} & The main menu of the clerk & 11\\
+\file{OPENINV.PRG} & List of the open invoices & 1\\
+\file{INVTOTAL.PRG} & Totals of the ledger & 2, 3\\
+\file{LATEFEE.PRG} & Late fee of one invoice & 4\\
+\file{INVFMT.PRG} & Formatted register & 5\\
+\file{FINDINV.PRG} & Finding an invoice & 6\\
+\file{NEWINV.PRG} & Entering an invoice & 7\\
+\file{Y2KACCT.PRG} & Month-end aging report & 9\\
+\file{INTPOST.PRG} & Month-end finance-charge posting & 10\\
+\hline
+\end{tabular}
+
+\ATEHead{Each Day}
+\begin{Steps}
+\item Start InitechBase from the disk that holds the system.
+\item Type \type{USE INVOICE INDEX INVNO}.
+\item Type \type{DO ACCTMAIN}, and work from the menu.
+\item Enter new invoices with \type{DO NEWINV} at the dot prompt.
+\item Leave InitechBase with \type{QUIT}.
+\end{Steps}
+
+\ATEHead{At the End of the Month}
+\begin{Steps}[resume]
+\item Copy the files of the system to a diskette kept for the month.
+\item Type \type{USE INVOICE}.
+\item Set the reporting date, for example \type{ASOF = CTOD('01/31/00')}, and
+  type \type{DO Y2KACCT}.  File the aging report with Collections.
+\item Type \type{RATE = 0.015} and \type{SCALE = 0}, then \type{DO INTPOST}.
+  Record the suspense account total in the month-end journal.
+\item Type \type{REPORT FORM INVRPT PLAIN TO FILE INVRPT}, leave InitechBase, and
+  print \file{INVRPT.TXT} for the files.
+\end{Steps}
+
+\ATEHead{Where Do You Go From Here?}
+You have built and used a complete InitechBase application.  For the exact form
+of any command or function, and for the meaning of every message, turn to
+\doctitle{Using InitechBase} in Volume One.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item The ledger \file{INVOICE.DBF}, its indexes and its report form are the
+  files of the system.
+\item The clerk works from the main menu each day.
+\item At month-end the supervisor copies the files, runs the aging report and the
+  finance-charge posting, and prints the register.
+\end{enumerate}

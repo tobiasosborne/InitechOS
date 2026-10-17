@@ -1,0 +1,6 @@
+. ON ERROR STORE ERROR() TO MERR
+. ? MISSING
+12  Variable not found.
+. ? MERR
+
+12. ON ERROR

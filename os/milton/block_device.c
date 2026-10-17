@@ -2,6 +2,7 @@
  * Evidence: docs/research/block-device-ground-truth.md. No FAT origin here. */
 #include "block_device.h"
 #include "block_device_contract.h"
+#include "drive_letters.h"
 #include "ata.h"
 #include <stddef.h>
 static blockdev_t disks[2];
@@ -26,6 +27,43 @@ static void init(void)
         if(ata_identify(&ctx[i],&sizes[i])!=0)sizes[i]=0;
     }
 #endif
+}
+/* DEC-18: one physical-position resolver for every external utility.
+ * PM ruling + DEC-07a, IBM DOS TR pp9-6..9. Does not mount/switch DOS. */
+static uint32_t map32(const uint8_t *p)
+{ return p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24); }
+int block_device_map(unsigned letter,du_map *m)
+{
+    init();
+    if(!m || letter==1 || letter>3)return -1;
+    unsigned drive=letter==0?DL_a_disk:letter==2?DL_c_disk:DL_d_disk;
+#ifdef DRIVE_MUT_DISK
+    if(!letter)drive=0x80;
+#endif
+    unsigned part=letter==0?DL_a_partition:letter==2?DL_c_partition:DL_d_partition;
+    unsigned i=drive-0x80;uint8_t b[512];
+    if(i>1 || !sizes[i] || disks[i].read_sectors(disks[i].ctx,0,1,b))return -1;
+    uint32_t base=0,n=sizes[i];
+    if(!letter && (b[0]==0xe9 || (b[0]==0xeb && b[2]==0x90)) &&
+       b[11]==0 && b[12]==2 && b[13] && b[16]==2) {
+        part=0;n=b[19]|((uint32_t)b[20]<<8);if(!n)n=map32(b+32);
+        if(!n || n>sizes[i] || b[510]!=0x55 || b[511]!=0xaa)return -1;
+    }
+    else {
+        if(!part)part=1;
+        if(b[510]!=0x55 || b[511]!=0xaa)return -1;
+        const uint8_t *p=b+446+(part-1)*16;
+        if(p[4]!=1 && p[4]!=4 && p[4]!=6)return -1;
+        base=map32(p+8);n=map32(p+12);
+        if(!base || !n || base>=sizes[i] || n>sizes[i]-base)return -1;
+    }
+    m->disk=drive;m->partition=part;m->base=base;m->sectors=n;
+    m->flags=(!letter?DL_removable_flag:0) |
+        ((drive==mounted_drive && base==mounted_base)?DL_running_flag:0);
+#ifdef DRIVE_MUT_RUNNING
+    if(drive==mounted_drive)m->flags|=DL_running_flag;
+#endif
+    return 0;
 }
 int block_device_chs(uint16_t cx,uint8_t head,uint32_t sectors,uint32_t *lba)
 {
@@ -59,6 +97,13 @@ void int13_dispatch(int_frame_t *f)
 {
     unsigned ah=(f->eax>>8)&255u,drive=f->edx&255u;
     init();
+    if(ah==DL_function) {
+        if(!f->ebx || f->ebx>0xffffffffu-DL_map_bytes ||
+           block_device_map(f->eax&255u,(du_map *)(uintptr_t)f->ebx))
+            result(f,BD_status_invalid);
+        else result(f,0);
+        return;
+    }
     /* spec/hardware.json contracts ATA PIO, no FDC. */
     if(drive<BD_master_drive || drive>BD_slave_drive) {
         if(ah==0x15 && drive>=0x80) {

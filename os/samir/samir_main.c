@@ -559,19 +559,42 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     return INTERP_OK;
 }
 
-/*
- * repl_do_close: "CLOSE [DATABASES|ALL|...]" -> close every open area. dBASE has
- * finer CLOSE forms (INDEXES/FORMAT/...), but the REPL's table-centric subset
- * closes all databases for any CLOSE word (and bare CLOSE). Always INTERP_OK.
- */
-static int repl_do_close(xb_interp *ip, const char *args)
+/* Ref: Using III+ U5-53; real mint samirdml/close. No FORMAT,
+ * ALTERNATE or external PROCEDURE file is opened by the current engine. */
+extern void wa_close_indexes(wa_env *, int);
+static int repl_do_close(xb_interp *ip, const char *args, int *ec)
 {
-    (void)args;
-    { int area; for(area=1;area<=WA_NAREAS;area++) wa_nav_reset(area); }
-    xb_interp_ctx(ip)->set_status=0;
-    samir_status_refresh(ip);
-    wa_close_all(xb_interp_env(ip));
+    char type[REPL_TOK_CAP],extra[REPL_TOK_CAP];const char *p=args;int area;
+    if (!repl_word(&p,type,sizeof type) || repl_word(&p,extra,sizeof extra)) {
+        *ec=10;return -INTERP_ERR_SYNTAX;
+    }
+#ifdef SAMIR_DML_MUTANT_close
+    wa_close_all(xb_interp_env(ip));return INTERP_OK;
+#endif
+    if (repl_verb_eq(type,"ALL",(const char **)0) ||
+        repl_verb_eq(type,"DATABASES",(const char **)0)) {
+        for(area=1;area<=WA_NAREAS;area++)wa_nav_reset(area);
+        wa_close_all(xb_interp_env(ip));
+    } else if (repl_verb_eq(type,"INDEX",(const char **)0)) {
+        for(area=1;area<=WA_NAREAS;area++) { wa_close_indexes(xb_interp_env(ip),area);wa_nav_reset(area); }
+    } else if (!repl_verb_eq(type,"FORMAT",(const char **)0) &&
+               !repl_verb_eq(type,"PROCEDURE",(const char **)0) &&
+               !repl_verb_eq(type,"ALTERNATE",(const char **)0)) {
+        *ec=10;return -INTERP_ERR_SYNTAX;
+    }
     return INTERP_OK;
+}
+
+/* USE/CLOSE share one route for dot commands and whole disk programs;
+ * Using III+ U5-53/281, bead u78k. */
+static int repl_area_hook(void *user,xb_interp *ip,const char *verb,
+                          const char *args,int *ec)
+{
+    int rc;(void)user;
+    if (repl_verb_eq(verb,"USE",(const char **)0)) rc=repl_do_use(ip,args,ec);
+    else if(repl_verb_eq(verb,"CLOSE",(const char **)0)) rc=repl_do_close(ip,args,ec);
+    else return CMD_UNKNOWN;
+    return rc==INTERP_OK ? CMD_OK : rc;
 }
 
 /* ===================================================================== */
@@ -735,6 +758,9 @@ static int repl_register_modules(xb_interp *ip)
 {
     int rc;
 
+    rc = xb_interp_add_cmd_hook(ip, repl_area_hook, (void *)0);
+    if (rc != INTERP_OK) return rc;
+
     rc = query_register(ip);
     if (rc != INTERP_OK) return rc;
 
@@ -780,7 +806,6 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         return rc;
 
     for (;;) {
-        const char *rest = (const char *)0;
         char *s;
         int32_t n;
 
@@ -799,18 +824,6 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
         if (repl_verb_eq(s, "QUIT", (const char **)0) ||
             repl_verb_eq(s, "EXIT", (const char **)0))
             break;
-
-        /* (2) work-area verbs the REPL owns (no module / spine owns USE/CLOSE). */
-        if (repl_verb_eq(s, "USE", &rest)) {
-            int ec = 0;
-            rc = repl_do_use(ip, rest, &ec);
-            if (rc != INTERP_OK) repl_render_error(pal, ec ? ec : 16);
-            continue;
-        }
-        if (repl_verb_eq(s, "CLOSE", &rest)) {
-            (void)repl_do_close(ip, rest);
-            continue;
-        }
 
         /* (3) DO <name> off disk: a bare "DO <name>" at the dot prompt runs
          * <name>.PRG from the data disk (dBASE: DO a disk program). Tried BEFORE

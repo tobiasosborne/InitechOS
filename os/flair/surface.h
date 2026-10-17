@@ -85,6 +85,9 @@ static inline void surface_put_pixel(const bitmap_t *bm,
         *(volatile uint32_t *)(bm->base + off) = px;
     } else {
         /* 24bpp: B,G,R at increasing addresses (PRD Sec 5 Risk 2). */
+#ifdef SURFACE_MUT_BGR_SWAP
+        px = ((px & 0xffu) << 16) | (px & 0xff00u) | ((px >> 16) & 0xffu);
+#endif
         bm->base[off + 0u] = (uint8_t)(px & 0xFFu);          /* B */
         bm->base[off + 1u] = (uint8_t)((px >> 8) & 0xFFu);   /* G */
         bm->base[off + 2u] = (uint8_t)((px >> 16) & 0xFFu);  /* R */
@@ -92,7 +95,10 @@ static inline void surface_put_pixel(const bitmap_t *bm,
 }
 
 /* --------------------------------------------------------------------------
- * surface_get_pixel -- read one pixel at byte offset `off` as 0x00RRGGBB.
+ * surface_get_pixel -- read one packed pixel at byte offset `off`.
+ * 24/32bpp return 0x00RRGGBB; 8bpp returns the RAW PALETTE INDEX (5le3).
+ * Palette resolution belongs to render_pixel_rgb/flair_look, not this
+ * depth-neutral mechanism (ADR-0004 DEC-09).
  *
  * Used by the fb-agree oracle and scroll (copy pixel runs). Symmetric
  * inverse of surface_put_pixel.
@@ -100,7 +106,11 @@ static inline void surface_put_pixel(const bitmap_t *bm,
 static inline uint32_t surface_get_pixel(const bitmap_t *bm, uint32_t off)
 {
     if (bm->bpp == 8) {
+#ifdef SURFACE_MUT_INDEX_ZERO
+        return 0;
+#else
         return (uint32_t)bm->base[off];
+#endif
     } else if (bm->bpp == 32) {
         return *(volatile uint32_t *)(bm->base + off);
     } else {
@@ -116,6 +126,10 @@ static inline uint32_t surface_get_pixel(const bitmap_t *bm, uint32_t off)
 void surface_fill_span(const bitmap_t *bm,
                        uint32_t x, uint32_t y,
                        uint32_t len, uint32_t px);
+
+/* Clear visible pixels, preserving per-row pitch padding (PRD Sec 5, gv2x).
+ * The boot fill reuses this SAME surface writer as the compositor. */
+void surface_clear(const bitmap_t *bm, uint32_t px);
 
 /* surface_blit -- blit an 8-pixel-wide glyph (font row bitmap) into `bm`.
  *

@@ -1,0 +1,63 @@
+% Using InitechBase, Appendix C: Structure of InitechBase Files (annex Sec
+% 8.2 UC; PUB-REF-0001 CP-11: the .DBF/.DBT structure from
+% spec/samir/dbf_format.h).  Every offset and size is generated from the
+% locked headers by harness/pubs/samir_tables.c formats (samir_formats);
+% the .FRM description follows os/samir/cmd/report.c rp_load and
+% harness/pubs/samir_sample_disk.c.
+\chapter{Structure of InitechBase Files}
+\Gates{test-dbf-header, test-dbf-fields, test-dbt-read, test-ndx-parse, test-samir-report}
+\NoDictionaryHeads
+\TableRows{samir_formats}
+This appendix describes the layout of the database, memo and index files, for
+programmers who read or write them with other programs.  Numbers are stored
+with the least significant byte first.  Offsets are hexadecimal.
+
+\section{Database Files (.DBF)}
+A database file has three parts: the header, one field descriptor for each
+field, and the records.
+
+\ATEHead{Header}
+\FormatTable{dbfhdr}
+
+\ATEHead{Field Descriptor}
+Each field is described by \FormatDBFRecordBytes{} bytes; the descriptors
+follow the header in the order of the fields, and the byte \FormatDBFTerminator{}
+follows the last.
+\FormatTable{dbfdesc}
+
+\ATEHead{Records}
+The records follow the header and the descriptors without a gap, each of the
+length the header gives.  The first byte of a record is its deletion mark:
+\FormatDBFLive{} (a blank) for an ordinary record, \FormatDBFDeleted{} (an
+asterisk) for a record marked for deletion.  The fields follow in the order
+of the descriptors, each as ASCII characters of its width: character fields
+padded with blanks on the right; numeric fields right-aligned with leading
+blanks; dates as eight digits, year, month and day (\texttt{YYYYMMDD}), or eight
+blanks; logical fields as \texttt{T} or \texttt{F}; memo fields as the number
+of the first block of the text in the memo file, right-aligned in ten
+characters, or ten blanks when the record has no memo.
+
+\section{Memo Files (.DBT)}
+A memo file is divided into blocks of \FormatDBTBlock{} bytes.  The first block
+holds, in its first four bytes, the number of the next free block.  The text
+of a memo begins at the start of a block and ends with the two bytes
+\FormatDBTTerm{}; a text longer than one block continues in the blocks that
+follow.  Lines of the text are separated by a carriage return and a line feed.
+
+\section{Index Files (.NDX)}
+An index file is divided into pages of \FormatNDXPage{} bytes.  The first page
+is the header:
+\FormatTable{ndxhdr}
+
+The other pages hold the keys, in order, each with the record number it
+belongs to.  A character key is the value of the key expression, padded with
+blanks to the key length; a numeric or date key is the value as an eight-byte
+floating-point number.
+
+\section{Report Form Files (.FRM)}
+A report form file is 1990 bytes long.  It holds the title of the report, the
+group and subgroup expressions with their headings, and for each column its
+width, its decimal places, whether it is totalled, its expression and its
+heading, followed by the page width, the lines on a page and the margins.
+\cmd{REPORT FORM} refuses a file of any other form with
+\xmsg{50}{Report file invalid.}

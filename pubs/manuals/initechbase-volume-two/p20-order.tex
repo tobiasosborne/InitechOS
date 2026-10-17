@@ -1,0 +1,58 @@
+% Programming with InitechBase, Chapter 20: Order and Filters in Programs
+% (AN-16).  Panels replayed (examples/p20-*.dot); sources cmd/set.c (SET
+% ORDER, SET FILTER), cmd/query.c (GO, SKIP, BOF/EOF), the programs
+% BYORDER.PRG and DEPTLIST.PRG.
+\chapter{Order and Filters in Programs}
+\Gates{test-pubs-examples, test-interp-set}
+A program can change the order in which it meets the records, with SET
+ORDER, and hide the records it does not want, with SET FILTER.  This chapter
+uses both on the staff roster.
+
+\begin{ChapterCovers}
+\item Changing the master index in a program
+\item Reading from the bottom
+\item A filter from an answer
+\item Leaving the settings as they were
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{Two Orders}
+\file{BYORDER.PRG} expects the roster opened with two indexes, on the name and
+on the salary.  It reads the first three names in the order of the first, then
+selects the second with SET ORDER and reads the three highest salaries from the
+bottom with \cmd{SKIP -1}:
+\ProgramListing{BYORDER.PRG}
+\begin{Steps}
+\item Type \type{USE STAFF INDEX STAFFNAM, STAFFSAL}.
+\item Type \type{DO BYORDER}.
+\end{Steps}
+\DotExample{examples/p20-byorder}
+After each SET ORDER the program moves with \cmd{GO TOP} or \cmd{GO BOTTOM}, and
+before it ends it restores the order it found.
+
+\ATEHead{A Filter from an Answer}
+\file{DEPTLIST.PRG} lists the staff of the department the user names, through a
+filter:
+\ProgramListing{DEPTLIST.PRG}
+\begin{Steps}
+\item Type \type{USE STAFF}.
+\item Type \type{DO DEPTLIST} and answer \type{acct}.
+\item Type \type{DO DEPTLIST} and answer \type{mktg}.
+\end{Steps}
+\DotExample{examples/p20-deptlist}
+When no record meets the filter, \cmd{GO TOP} leaves the pointer at the end of
+the file, and \fn{EOF()} tells the program so.  The program removes the filter
+before it ends.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~21 searches with \cmd{LOCATE} and \cmd{CONTINUE}.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item SET ORDER TO \xp{n} changes the master index; move with \cmd{GO} after it.
+\item \cmd{GO BOTTOM} and \cmd{SKIP -1} read an index from the end.
+\item SET FILTER TO \xp{condition} hides records; SET FILTER TO removes the filter.
+\item A program restores the settings it changed.
+\end{enumerate}

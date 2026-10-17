@@ -1,0 +1,2 @@
+? 'TECH' $ 'INITECH', AT('TECH', 'INITECH'), STUFF('INITECH', 1, 2, 'XY')
+? UPPER(LEFT('peter', 1)) + SUBSTR('peter', 2)

@@ -16,7 +16,11 @@
 \ProvidesPackage{initech-screen}[1992/03/01 Initech screen reproductions]
 
 \newcommand\imScreenFont{\ttfamily\fontsize{7.5}{8.5}\selectfont}
-\newcommand\im@screenframe[1]{\im@ifmodel{ibm}{#1}{\fbox{#1}}}
+%% NT-23: F-ATE (and F-WPC) set a character screen on a 10% black panel,
+%% square corners, no bezel (bead initech-ipu5.8 for F-ATE); F-IBM prints no
+%% frame; the other families keep the 0.5 pt frame.
+\newcommand\im@screenframe[1]{\im@ifmodel{ibm}{#1}{\im@ifmodel{ashtontate}{%
+  \colorbox{black!10}{#1}}{\fbox{#1}}}}
 \newwrite\im@screens
 \AtBeginDocument{\immediate\openout\im@screens=\jobname.screens}
 \AtEndDocument{\immediate\closeout\im@screens}

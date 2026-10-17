@@ -13,7 +13,7 @@
 # Rule 2 "fail fast, fail loud"):
 #   * ACTION stubs (image/run/run-bochs) print an honest "not implemented"
 #     line and exit 0 -- they assert nothing, so a 0 is not a false signal.
-#   * GATE stubs (smoke/test*/ssim/selfhost/ddc) are correctness oracles. An
+#   * GATE stubs (smoke/test*/selfhost/ddc) are correctness oracles. An
 #     unimplemented oracle must NEVER read as green, so these exit NON-ZERO.
 #     A passing `make test` has to mean the oracle actually ran and passed.
 # The lone real target is `factory`, which compiles the C smoke stub -- the
@@ -609,6 +609,8 @@ include spec/flair_exit_dos_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
 include spec/flair_protection_traces.mk
+# WL-0140 (beads initech-tdnl.53 / .74 / .87): the LOCKED Finder icon-art traces.
+include spec/flair_finder_icons_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -711,6 +713,10 @@ FLAIR_WINDOW_OPT = -Os $(KERNEL_COLD_LTO_FLAGS)
 # Boot frame (mbr.bin/stage2.bin) and KERNEL_SECTORS are untouched.
 KERNEL_INT21_OPT   := -Oz $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_FAT12_OPT   := -Os $(KERNEL_COLD_LTO_FLAGS)
+# qupy: the bounded nine-bit packet decoder stays within the lane's 1 KiB
+# budget using the existing per-TU size-optimization pattern. IRQ I/O remains
+# volatile (io.h); the EOI mutant uses the SAME optimization setting.
+KERNEL_MOUSE_OPT   := -Os
 FLAIR_CONTROL_OPT  := -Os $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_CHROME_OPT   := -Os $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_DIALOG_OPT   := -Oz $(KERNEL_COLD_LTO_FLAGS)
@@ -882,6 +888,10 @@ SORT_PROG_BIN    := $(BUILD)/sort_program.bin
 SORT_PROG_MUT_BIN := $(BUILD)/sort_program_mut.bin
 FIND_PROG_ASM    := $(KERNEL_DIR)/find_program.asm
 FDISK_PROG_BIN   := $(BUILD)/fdisk_program.bin
+FORMAT_PROG_BIN  := $(BUILD)/format_program.bin
+SYS_PROG_BIN     := $(BUILD)/sys_program.bin
+DISKCOPY_PROG_BIN := $(BUILD)/diskcopy_program.bin
+DISKCOMP_PROG_BIN := $(BUILD)/diskcomp_program.bin
 ATTRIB_PROG_BIN  := $(BUILD)/attrib_program.bin
 LABEL_PROG_BIN   := $(BUILD)/label_program.bin
 FIND_PROG_BIN    := $(BUILD)/find_program.bin
@@ -2223,12 +2233,12 @@ test-samir-value: $(TEST_SAMIR_VALUE)
 # ($(DBASE3_DECOMP)): missing fixtures FAIL LOUD unless SKIP_DBASE3_DECOMP=1
 # explicitly opts out. Tier-0 still runs with that opt-out. The mutant perturbs the invariant-1b
 # record_length check (reclen off-by-one) so a valid golden fails dbf_open (Rule 6).
-$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_HEADER): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_HEADER_MUT): $(DBF_DIFF_DIR)/test_dbf_header.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_header.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-header
 test-dbf-header: $(TEST_DBF_HEADER)
@@ -2252,12 +2262,12 @@ test-dbf-header-mutant: $(TEST_DBF_HEADER_MUT)
 # length/dec descriptors. The mutant decodes at a 48-byte (dBASE-7) stride
 # instead of 32, shifting every field after the first so a non-type byte fails
 # the C/N/D/L/M validation -> RED (Rule 6).
-$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_FIELDS): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_FIELDS_MUT): $(DBF_DIFF_DIR)/test_dbf_fields.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_STRIDE -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_fields.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-fields
 test-dbf-fields: $(TEST_DBF_FIELDS)
@@ -2281,20 +2291,20 @@ test-dbf-fields-mutant: $(TEST_DBF_FIELDS_MUT)
 # field per its type (C/N/D/L + M block-ptr) + the delete flag. The mutant shifts
 # the record offset by +1 (consumes the delete-flag byte as field data) so every
 # field decodes shifted -> a non-flag byte fails the 0x20/0x2A check -> RED (Rule 6).
-$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_READ_MUT): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_RECOFF -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 # P1 initech-jf8p mutant: restores the pre-fix eager (+1-form-at-open-time)
 # header_length normalization in dbf_open_common's want_writable branch, so a
 # +2-form file (BANK.DBF/TAX.DBF) opened dbf_open_rw truncates its true
 # on-disk record offset by one byte again. Must drive test_tax_rw_plus2form /
 # test_synthetic_plus2_rw_roundtrip (in this same test file) RED (Rule 6).
-$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_READ_MUT2): $(DBF_DIFF_DIR)/test_dbf_read.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_OPENRW_EAGER_HDRLEN -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_read.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-read
 test-dbf-read: $(TEST_DBF_READ)
@@ -2331,12 +2341,12 @@ test-dbf-read-openrw-hdrlen-mutant: $(TEST_DBF_READ_MUT2)
 # (the independence barrier; the host oracle invokes python3 via system(),
 # FAIL LOUD if absent; SKIP_REFERENCE_TOOLS=1 opts out) + golden masked-cmp. The mutant drops the 0x80 memo bit
 # (emits 0x03 where 0x83 required) -> a memo schema reads back has_memo=false -> RED.
-$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_ROUNDTRIP): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_ROUNDTRIP_MUT): $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_VERSION -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_roundtrip.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-roundtrip
 test-dbf-roundtrip: $(TEST_DBF_ROUNDTRIP)
@@ -2361,12 +2371,12 @@ test-dbf-roundtrip-mutant: $(TEST_DBF_ROUNDTRIP_MUT)
 # overflow, cross-type -> mismatch) + deterministic PACK (survivors in original
 # order). The mutant writes the live flag 0x20 where delete needs 0x2A -> the
 # deleted state + PACK survivor set go wrong -> RED (Rule 6).
-$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(TEST_DBF_MUTATE): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
-$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+$(TEST_DBF_MUTATE_MUT): $(DBF_DIFF_DIR)/test_dbf_mutate.c $(ORACLE_POLICY_H) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDBF_MUTATE_DELFLAG -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/test_dbf_mutate.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 
 .PHONY: test-dbf-mutate
 test-dbf-mutate: $(TEST_DBF_MUTATE)
@@ -2482,7 +2492,7 @@ test-ndx-seek-mutant: $(TEST_NDX_SEEK_MUT)
 # links the evaluator for key extraction; the engine codec ndx.c does NOT. Multi-
 # level (3-level) interior packing is corpus-OPEN -> ndx_build fails loud
 # NDX_ERR_PAGE_OVF (no golden to ground it). Mutant: 50/50 leaf split -> RED.
-NDX_BUILD_ENG := $(SAMIR_NDX_SRC) $(SAMIR_DBF_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+NDX_BUILD_ENG := $(SAMIR_NDX_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_NDX_BUILD): $(DBF_DIFF_DIR)/test_ndx_build.c $(ORACLE_POLICY_H) $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_ndx_build.c $(NDX_BUILD_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -2888,7 +2898,7 @@ test-dbase-roundtrip-mutant: $(TEST_DBASE_ROUNDTRIP_MUT)
 # (composed resolver installed at runtime -- does NOT edit workarea.c). Guard MUST be
 # Logical (#37, no truthiness). Pure-host oracle. Mutant: DO CASE runs all true CASEs
 # instead of the first -> RED.
-INTERP_FLOW_ENG := $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
+INTERP_FLOW_ENG := $(SAMIR_SET_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_NDX_SRC) $(SAMIR_EVAL_SRC) $(SAMIR_PARSE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_FN_SRC)
 $(TEST_INTERP_FLOW): $(DBF_DIFF_DIR)/test_interp_flow.c $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/test_interp_flow.c $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC)
@@ -8109,6 +8119,7 @@ endef
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
+        test-finder-icon-art test-finder-icon-art-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -8241,7 +8252,8 @@ help:
 	@printf '  ddc            Diverse double-compilation: independent seed, compare K*.\n'
 	@printf '\n'
 	@printf 'Fidelity guide:\n'
-	@printf '  ssim           Per-window SSIM of a screendump vs the frame fixture (FRAME=%s).\n' "$(FRAME)"
+	@printf '  ssim           Per-window SSIM GUIDE vs decomp PNGs (FRAME=%s); no threshold.\n' "$(FRAME)"
+	@printf '                 Frames: desktop, grow-box, scroll-look, alert, finder, icons, controls.\n'
 	@printf '\n'
 	@printf 'Run "make <target>". Variables: CC=%s  BUILD=%s  FRAME=%s\n' "$(CC)" "$(BUILD)" "$(FRAME)"
 
@@ -8400,7 +8412,7 @@ $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/a
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
-$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
+$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
@@ -8526,15 +8538,15 @@ $(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BU
 # PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
 # linked ONLY into the flair_live kernel(s) (isr.o's irq12_entry references
 # mouse_irq_handler via a WEAK extern, so non-flair kernels link without it).
-$(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+$(KERNEL_MOUSE_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MOUSE_OPT) -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 # Rule-6 EOI mutant mouse.o (beads initech-5l5z FO-6; ADR-0006 BC-3/BC-9):
 # -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI compiles OUT the slave (0xA0) EOI, leaving
 # only the master (0x20) EOI -> the slave 8259A wedges -> the mouse stops after
 # the first IRQ12 -> test-flair-mouse goes RED. NEVER define in a real build.
-$(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/io.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
+$(KERNEL_MOUSE_MUT_EOI_OBJ): $(KERNEL_MOUSE_C) $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/io.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_MOUSE_OPT) -DFLAIR_LIVE_MUTATE_MASTER_ONLY_EOI -I$(KERNEL_DIR) -c $(KERNEL_MOUSE_C) -o $@
 
 $(KERNEL_PIT_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
@@ -10117,8 +10129,8 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # piece table in the .bss (e_minalloc). Never compiled into the kernel (plan
 # docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
-IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
-IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
+IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
+IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/settings.h
 $(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
@@ -10131,7 +10143,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # kmain.c flair_tenant_mount_volume fileio_fat_bind + flair_exit_to_dos
 # int21_cwd_reset; command.c command_repl opens A:\AUTOEXEC.BAT.
 # ONE deployment list of all DOS externals: source:name pairs, in disk order.
-FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM
+FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM $(FORMAT_PROG_BIN):FORMAT.COM $(SYS_PROG_BIN):SYS.COM $(DISKCOPY_PROG_BIN):DISKCOPY.COM $(DISKCOMP_PROG_BIN):DISKCOMP.COM
 FLAIR_DATA_AUTOEXEC := $(BUILD)/flagship_autoexec.bat
 $(FLAIR_DATA_AUTOEXEC): Makefile | $(BUILD)
 	@printf '@ECHO OFF\r\nPATH=A:\\DOS\r\n' > $@
@@ -10178,7 +10190,7 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(SCRAPBOOK_EXE) ::APPS/SCRAPBK.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CP_EXE) ::APPS/CPANELS.EXE
 	@set -e; $(foreach pair,$(FLAIR_DOS_EXTERNALS),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(word 1,$(subst :, ,$(pair))) ::DOS/$(word 2,$(subst :, ,$(pair)));)
-	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 10 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
+	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 14 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -11187,18 +11199,21 @@ $(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_de
 $(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) harness/render/cursor_capture.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/render -o $@ $< -lpng
 
-# The R3.2 desktop-icon grader needs ONLY the independent canon (-Ispec/assets).
-# It must NOT gain -Ios/flair or -Ispec/assets/desk_icons.h consumers: its
-# expected tones are hand-read from the ASCII maps, never from the strike words.
-$(PPM_FLAIR_DESKICONS_CHECK_BIN): $(PPM_FLAIR_DESKICONS_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+# The R3.2 desktop-icon grader needs ONLY the independent canon (-Ispec/assets)
+# and the independent mint-008 capture golden (harness/render/icon_capture.h,
+# bead initech-tdnl.53). It must NOT gain -Ios/flair or spec/assets/desk_icons.h
+# consumers: its expected sprite cells are the PNG captures, never the strikes.
+ICON_CAPTURES_DEF := -DICON_CAPTURES_DIR='"$(abspath $(SYSTEM7_DECOMP))/goldens/captures"'
+$(PPM_FLAIR_DESKICONS_CHECK_BIN): $(PPM_FLAIR_DESKICONS_CHECK_SRC) spec/assets/color_canon.h harness/render/icon_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -Iharness/render $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 # The R3.3 disk-window grader, same rule and the same prohibition (bead
-# initech-tdnl.10): the independent canon ONLY. It must not gain -Ios/flair,
-# and it must never include spec/assets/finder_icons.h -- the strikes it grades
-# are hand-read off that file's ASCII maps (Law 2 / HER-02).
-$(PPM_FLAIR_DISKWIN_CHECK_BIN): $(PPM_FLAIR_DISKWIN_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+# initech-tdnl.10): the independent canon + the mint-008 capture golden ONLY
+# (tdnl.53). It must not gain -Ios/flair, and it must never include
+# spec/assets/finder_icons.h -- the strikes it grades are graded against the
+# PNG captures (Law 2 / HER-02).
+$(PPM_FLAIR_DISKWIN_CHECK_BIN): $(PPM_FLAIR_DISKWIN_CHECK_SRC) spec/assets/color_canon.h harness/render/icon_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -Iharness/render $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
 # probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
@@ -11582,8 +11597,7 @@ smoke: $(HARNESS_BIN) $(SMOKE_ELF)
 	printf '======================================================================\n'; \
 	exit $$rc
 
-ssim:
-	$(call stub_fail,ssim,M0)
+# ssim is implemented below (initech-w06); a guide, never a numeric gate.
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-region (beads initech-jmo/-b5g/-6dy -- the ATKINSON region
@@ -11602,7 +11616,7 @@ REGION_ENGINE_C  := os/flair/atkinson/region.c
 REGION_ENGINE_H  := os/flair/atkinson/region.h
 TEST_REGION      := $(BUILD)/test_region
 TEST_REGION_SRC  := harness/proptest/test_region.c
-TEST_REGION_DEPS := $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h
+TEST_REGION_DEPS := $(REGION_ENGINE_C) $(REGION_ENGINE_H) spec/region_algebra.h harness/proptest/expect_abort.h
 TEST_REGION_MUT_VRLE   := $(BUILD)/test_region_mutant_vrle
 TEST_REGION_MUT_PARITY := $(BUILD)/test_region_mutant_parity
 TEST_REGION_MUT_EMIT   := $(BUILD)/test_region_mutant_emit
@@ -12593,22 +12607,26 @@ test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT) $(TES
 	printf '>>> CURSOR_MUT_SQUARED_STEM: RED -- 48/256 differing cells against Mac capture\n'
 
 # ---------------------------------------------------------------------------
-# REAL gate: test-desk-icons (bead initech-tdnl.9; GUI remediation R3 Finder).
-# The hand-authored 32x32 VOLUME + TRASH strikes (spec/assets/desk_icons.h) and
-# the finder_icon blit/hit-test. Independent hand tables read off the ASCII maps
-# (per-row ink/shade/opaque + probe pixels) + hand-restated canon pixel values;
-# transparency, clipping, off-surface edges and mask hit-testing all graded.
-# Mutants MASK_IGNORED / ROW_OFF1 must bite.
+# REAL gate: test-desk-icons (beads initech-tdnl.9, initech-tdnl.53). The
+# finder_icon BLITTER mechanics -- transparency, clipping, off-surface edges,
+# the hit test, NULL guards, 8bpp + 32bpp, unselected + selected -- on the
+# VOLUME / TRASH / TRASH_FULL strikes, graded against the INDEPENDENT mint-008
+# Mac OS 8.1 captures (harness/render/icon_capture.h decodes the PNGs; Law 2).
+# Mutants MASK_IGNORED / ROW_OFF1 (finder_icon.c) and FULL_ROW (the FULL
+# strike's paper-tops row blanked) must bite. The art of every strike is
+# test-finder-icon-art's job.
 # ---------------------------------------------------------------------------
+ICON_CAPTURES_DIR             := $(SYSTEM7_DECOMP)/goldens/captures
 TEST_DESK_ICONS               := $(BUILD)/test_desk_icons
 TEST_DESK_ICONS_MUT_MASK      := $(BUILD)/test_desk_icons_mutant_mask_ignored
 TEST_DESK_ICONS_MUT_ROW       := $(BUILD)/test_desk_icons_mutant_row_off1
-# bead initech-6k12: the FULL Trash strike's row 5 dropped from the packed words.
+# bead initech-6k12: the FULL Trash strike's row 5 (paper tops) blanked.
 TEST_DESK_ICONS_MUT_FULLROW   := $(BUILD)/test_desk_icons_mutant_full_row
 TEST_DESK_ICONS_SRC           := harness/proptest/test_desk_icons.c
-TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
+TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) harness/render/icon_capture.h \
                                  os/flair/finder_icon.c os/flair/finder_icon.h \
                                  spec/assets/desk_icons.h spec/assets/finder_icons.h \
+                                 spec/assets/alert_icons.h \
                                  os/flair/surface.c os/flair/surface.h \
                                  $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h \
                                  spec/assets/color_canon.h \
@@ -12616,7 +12634,7 @@ TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
                                  spec/region_algebra.h spec/grafport.h
 DESK_ICONS_INC                := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed
 DESK_ICONS_LINK               := os/flair/finder_icon.c os/flair/surface.c \
-                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C)
+                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C) -lpng
 
 $(TEST_DESK_ICONS): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
@@ -12632,19 +12650,65 @@ $(TEST_DESK_ICONS_MUT_FULLROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 
 .PHONY: test-desk-icons test-desk-icons-mutant
 test-desk-icons: $(TEST_DESK_ICONS)
-	@printf ">>> test-desk-icons: VOLUME + TRASH strike invariants, per-row hand tables, probe tones (8bpp + 32bpp), transparency, clip, off-surface edges, mask hit-test\n"
-	@$(TEST_DESK_ICONS)
+	@printf ">>> test-desk-icons: blitter mechanics (transparency, clip, edges, hit test, 8bpp + 32bpp, selected) vs the mint-008 captures\n"
+	@$(TEST_DESK_ICONS) "$(ICON_CAPTURES_DIR)"
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(DESK_ICONS_INC) -c os/flair/finder_icon.c -o $(BUILD)/finder_icon_freestanding.o \
 		|| { printf '!!! test-desk-icons FAIL: finder_icon.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-desk-icons: green\n"
 
 test-desk-icons-mutant: $(TEST_DESK_ICONS_MUT_MASK) $(TEST_DESK_ICONS_MUT_ROW) $(TEST_DESK_ICONS_MUT_FULLROW)
 	@printf ">>> test-desk-icons-mutant: confirming the desktop-icon mutants go RED (Rule 6)\n"
-	@$(TEST_DESK_ICONS_MUT_FULLROW) > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
-	if grep -q 'row 5: got ink=0 shade=0 opaque=0, want ink=13 shade=0 opaque=14' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row)\n'; \
-	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike table\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
-	@if $(TEST_DESK_ICONS_MUT_MASK) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted mask holes overwrite the sentinel)\n'; fi
-	@if $(TEST_DESK_ICONS_MUT_ROW) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the independent row/probe tables are decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the hand table)\n'; fi
+	@$(TEST_DESK_ICONS_MUT_FULLROW) "$(ICON_CAPTURES_DIR)" > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
+	if grep -q 'TRASH_FULL draw: 21/3072 differing pixels' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row: 21/3072)\n'; \
+	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
+	@if $(TEST_DESK_ICONS_MUT_MASK) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted clear nibbles overwrite the sentinel)\n'; fi
+	@if $(TEST_DESK_ICONS_MUT_ROW) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the capture cell grade is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the capture)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-icon-art (beads initech-tdnl.53 / tdnl.74 / tdnl.87).
+# Every LOCKED strike -- VOLUME, HARDDISK, TRASH, TRASH_FULL, FOLDER, DOC, APP
+# (spec/assets/desk_icons.h + finder_icons.h) and the alert CAUTION
+# (alert_icons.h) -- drawn by the artifact blitter through the artifact policy
+# seam, unselected and selected, 32bpp + 8bpp, cell for cell against the
+# INDEPENDENT mint-008 Mac OS 8.1 captures (../system7-decomp/re/
+# mint-results-008.md) at ZERO tolerance. A missing capture FAILS.
+# Mutant (Rule 6): ICON_ART_MUT_STRIKE=<k> puts strike k one row off; each
+# of the eight must go RED on exactly that strike. DESK_ICON_MUT_NO_SELECT
+# (finder_icon.c: selection draws the unselected art) must go RED too.
+# ---------------------------------------------------------------------------
+TEST_ICON_ART       := $(BUILD)/test_finder_icon_art
+TEST_ICON_ART_SRC   := harness/proptest/test_finder_icon_art.c
+TEST_ICON_ART_NAMES := VOLUME HARDDISK TRASH TRASH_FULL FOLDER DOC APP CAUTION
+
+$(TEST_ICON_ART): $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+$(BUILD)/test_finder_icon_art_mut_%: $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DICON_ART_MUT_STRIKE=$* $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+$(BUILD)/test_finder_icon_art_mut_noselect: $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICON_MUT_NO_SELECT $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+.PHONY: test-finder-icon-art test-finder-icon-art-mutant
+test-finder-icon-art: $(TEST_ICON_ART)
+	@$(TEST_ICON_ART) "$(ICON_CAPTURES_DIR)"
+
+test-finder-icon-art-mutant: $(foreach k,0 1 2 3 4 5 6 7,$(BUILD)/test_finder_icon_art_mut_$(k)) $(BUILD)/test_finder_icon_art_mut_noselect
+	@printf ">>> test-finder-icon-art-mutant: one strike row off, per strike (Rule 6)\n"
+	@k=0; for n in $(TEST_ICON_ART_NAMES); do \
+		pre=FLAIR_DESK_ICON; case $$n in FOLDER|DOC|APP) pre=FLAIR_FINDER_ICON;; CAUTION) pre=FLAIR_ALERT_ICON;; esac; \
+		rc=0; $(BUILD)/test_finder_icon_art_mut_$$k "$(ICON_CAPTURES_DIR)" > $(BUILD)/test_finder_icon_art_mut_$$k.log 2>&1 || rc=$$?; \
+		reds=$$(grep -c '^  RED ' $(BUILD)/test_finder_icon_art_mut_$$k.log); \
+		if [ "$$rc" -eq 1 ] && grep -q "^  RED $${pre}_$$n UNSEL" $(BUILD)/test_finder_icon_art_mut_$$k.log && \
+		   [ "$$(grep '^  RED ' $(BUILD)/test_finder_icon_art_mut_$$k.log | grep -vc " $${pre}_$$n ")" = 0 ]; then \
+			printf '>>> ICON_ART_MUT_STRIKE=%s: RED on %s_%s only (%s grade(s)) -- %s\n' "$$k" "$$pre" "$$n" "$$reds" "$$(grep 'MUTANT' $(BUILD)/test_finder_icon_art_mut_$$k.log | sed 's/^ *MUTANT (Rule 6): //')"; \
+		else cat $(BUILD)/test_finder_icon_art_mut_$$k.log; printf '!!! test-finder-icon-art-mutant FAIL: strike %s one row off did not go RED on that strike alone\n' "$$n"; exit 1; fi; \
+		k=$$((k + 1)); done
+	@rc=0; $(BUILD)/test_finder_icon_art_mut_noselect "$(ICON_CAPTURES_DIR)" > $(BUILD)/test_finder_icon_art_mut_noselect.log 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 1 ] && [ "$$(grep -c '^  RED .* SEL$$' $(BUILD)/test_finder_icon_art_mut_noselect.log)" = 7 ] \
+		|| { cat $(BUILD)/test_finder_icon_art_mut_noselect.log; printf '!!! test-finder-icon-art-mutant FAIL: DESK_ICON_MUT_NO_SELECT did not turn all 7 selected grades RED\n'; exit 1; }; \
+	printf '>>> DESK_ICON_MUT_NO_SELECT: RED -- all 7 selected-state grades miss the captures\n'
+	@printf ">>> test-finder-icon-art-mutant: green\n"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-window (beads initech-9qf) -- FLAIR Window Manager.
@@ -13225,7 +13289,7 @@ TEST_PROCESS_MUT_REFCON   := $(BUILD)/test_process_mutant_ignorerefcon
 TEST_PROCESS_MUT_ACTIVATE := $(BUILD)/test_process_mutant_skipactivate
 TEST_PROCESS_MUT_KEY      := $(BUILD)/test_process_mutant_keyundercursor
 TEST_PROCESS_MUT_RAISE    := $(BUILD)/test_process_mutant_nosametenantraise
-TEST_PROCESS_DEPS := os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
+TEST_PROCESS_DEPS := harness/proptest/expect_abort.h os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h os/flair/event.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
 PROCESS_INC  := -Ispec -Ios/flair -Ios/flair/atkinson -Iseed
@@ -13415,7 +13479,7 @@ TEST_SCRAP_MUT_FLAVOR  := $(BUILD)/test_scrap_mutant_ignoreflavor
 TEST_SCRAP_MUT_NOINC   := $(BUILD)/test_scrap_mutant_noincrement
 TEST_SCRAP_MUT_NOCLEAR := $(BUILD)/test_scrap_mutant_noclear
 TEST_SCRAP_LINK := os/flair/scrap.c os/flair/process.c os/flair/window.c os/flair/heap.c $(REGION_ENGINE_C)
-TEST_SCRAP_DEPS := os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h \
+TEST_SCRAP_DEPS := harness/proptest/expect_abort.h os/flair/scrap.c os/flair/scrap.h os/flair/ostype.h \
                      os/flair/process.c os/flair/process.h os/flair/window.c os/flair/window.h os/flair/winscroll.h \
                      os/flair/heap.c os/flair/heap.h $(REGION_ENGINE_C) $(REGION_ENGINE_H) \
                      spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h
@@ -13747,7 +13811,7 @@ TEST_EVENT_SRC := harness/proptest/test_event.c
 TEST_EVENT_MUT_DROP  := $(BUILD)/test_event_mutant_drop
 TEST_EVENT_MUT_WHERE := $(BUILD)/test_event_mutant_where
 TEST_EVENT_MUT_SET1  := $(BUILD)/test_event_mutant_set1
-TEST_EVENT_DEPS := os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
+TEST_EVENT_DEPS := harness/proptest/expect_abort.h os/flair/ring_report.h os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
 EVENT_INC := -Ios/flair -Ispec -Iseed
 
 $(TEST_EVENT): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
@@ -14221,8 +14285,8 @@ test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUI
 # Home prefix keys, attributes given to blocks, all sixteen attributes, Move
 # without a block; ../wordperfect51-decomp re/mint-results-004.md).
 # ---------------------------------------------------------------------------
-IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/fs/wp5.c
-IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h
+IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
+IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h
 IWORD_CORE_INC := -Ios/iword/core -Ispec
 TEST_IWORD_CORE := $(BUILD)/test_iword_core
 IWORD_CORE_DEPS := harness/proptest/test_iword_core.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
@@ -14400,7 +14464,7 @@ endif
 # IWORD_MUT_NO_BLOCK_ON (leg F8: "Block on" is not shown).
 # ---------------------------------------------------------------------------
 TEST_IWORD_FACE   := $(BUILD)/test_iword_face
-IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
+IWORD_FACE_DEPS   := harness/proptest/test_iword_face.c os/iword/app/face_a.c os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h $(IWORD_CORE_SRC) $(IWORD_CORE_HDR)
 IWORD_FACE_CFLAGS := $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
 IWORD_FACE_FS     := $(BUILD)/iword_face_fs
 $(TEST_IWORD_FACE): $(IWORD_FACE_DEPS) | $(BUILD)
@@ -14532,7 +14596,7 @@ TEST_CONTROL_MUT_BTN_FLAT := $(BUILD)/test_control_mutant_btn_flat
 TEST_CONTROL_MUT_LABEL := $(BUILD)/test_control_mutant_label_opaque
 TEST_CONTROL_MUT_FRINGE := $(BUILD)/test_control_mutant_btn_fringe
 TEST_CONTROL_MUT_PROGRESS_FLAT := $(BUILD)/test_control_mutant_progress_flat
-TEST_CONTROL_DEPS := os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
+TEST_CONTROL_DEPS := harness/proptest/expect_abort.h os/flair/control.c os/flair/control.h os/flair/blitter.c os/flair/text.c \
                      os/flair/surface.c $(REGION_ENGINE_C) $(RENDER_SKEL_C) os/flair/heap.c $(CHROME_DRAWER_C) \
                      spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h \
                      spec/assets/palette.h spec/assets/chicago12.h $(CHROME_FID_GOLDEN_H) harness/render/alert_capture.h $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/assets/color_canon.h \
@@ -14606,7 +14670,7 @@ SHELL_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/rend
 SHELL_LINK := $(RENDER_SKEL_C) os/flair/surface.c os/flair/heap.c $(REGION_ENGINE_C) \
               os/flair/window.c os/flair/blitter.c $(CHROME_DRAWER_C) os/flair/menu.c \
               os/flair/text.c os/flair/control.c os/flair/dialog.c os/flair/event.c $(DESKTOP_C) $(FLAIRLOOK_C)
-SHELL_DEPS := $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
+SHELL_DEPS := harness/proptest/expect_abort.h $(TEST_SHELL_SRC) $(SHELL_C) $(SHELL_H) $(SHELL_LINK) \
               os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h \
               os/flair/control.h os/flair/chrome.h os/flair/winscroll.h os/flair/blitter.h os/flair/surface.h \
               os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
@@ -14675,7 +14739,7 @@ TEST_DIALOG_MUT_MODAL_PASS := $(BUILD)/test_dialog_mutant_modal_passthrough
 # bead initech-6k12: the click hit-tested in portRect-LOCAL space again (the
 # pre-fix subtraction) -- a click on a DRAWN button misses it.
 TEST_DIALOG_MUT_LOCAL_HIT := $(BUILD)/test_dialog_mutant_local_hit
-TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
+TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
                     os/flair/event.c os/flair/event.h \
@@ -15572,7 +15636,7 @@ $(TEST_DBASE_DIFF_MUT_QUERY): $(PROG_DIFF_DIR)/prog_diff.c $(ORACLE_POLICY_H) $(
 
 .PHONY: test-dbase-diff
 test-dbase-diff: $(TEST_DBASE_DIFF)
-	@printf ">>> test-dbase-diff: xBase .prg program differential (stdout + result .dbf vs authored goldens; gate 100%%) (S6.4)\n"
+	@printf ">>> test-dbase-diff: xBase .prg program differential (stdout + result .dbf vs real III+ goldens; gate 100%%) (S6.4)\n"
 	@$(TEST_DBASE_DIFF) $(DBASE3_DECOMP) $(PROG_DIFF_DIR)
 	@printf ">>> test-dbase-diff: green\n"
 
@@ -20436,7 +20500,7 @@ test-flair-file-ops-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DROP_CH
 	printf '>>> test-flair-file-ops-mutant: TRASH_NO_STAGE correctly RED (%s)\n' "$$out"
 	$(call fo-boot,$(BUILD)/flair_tenants_mut_desk_no_hilite.img,flair_fileops_mut_nohilite,$(BUILD)/flair_fileops_mut_nohilite_data.img,$(FLAIR_FILEOPS_HOVER_SPEC),FINDER-DROP-HILITE name=APPS,1)
 	@if $(PPM_FLAIR_DROP_CHECK_BIN) $(BUILD)/flair_fileops_mut_nohilite.ppm > $(BUILD)/flair_fileops_mut_nohilite.grade 2>&1; then printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE PASSED the mid-drag grader -- decoration\n'; exit 1; fi
-	@grep -q 'HIGHLIGHTED #777777' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
+	@grep -q 'APPS face pixel is the HIGHLIGHTED #545487' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
 	@printf '>>> test-flair-file-ops-mutant: NO_HILITE correctly RED (the target body is not darkened)\n'
 	@printf '>>> test-flair-file-ops-mutant: green (both emu mutants RED for the named reason)\n'
 
@@ -20538,6 +20602,7 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_NAME).report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT\n'; exit 1; fi
 	@$(call svc-leg1-check,$(FLAIR_SVC_NAME)) || { printf '!!! test-flair-finder-service FAIL: leg 1b -- want FINDER-OPEN-VOLUME win=0 n=4, FINDER-TRASH name=README.TXT origin=0, DESKTOP-DB-SAVE n=3\n'; grep -E '^(FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_NAME).serial"; exit 1; }
 	@mdir -a -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img :: > $(BUILD)/$(FLAIR_SVC_NAME).root.lst
+	@sh harness/verify_fixture_volume.sh harness $(BUILD)/$(FLAIR_SVC_NAME)_data.img TRASH=H DESKTOP.DB=H
 	@grep -qE '^DESKTOP  DB ' $(BUILD)/$(FLAIR_SVC_NAME).root.lst && grep -qE '^TRASH .*<DIR>' $(BUILD)/$(FLAIR_SVC_NAME).root.lst || { printf '!!! test-flair-finder-service FAIL: mtools no longer lists DESKTOP.DB and TRASH in the root (hidden from the Finder only)\n'; cat $(BUILD)/$(FLAIR_SVC_NAME).root.lst; exit 1; }
 	@mtype -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-service FAIL: README.TXT was not staged byte-identical into ::/TRASH\n'; exit 1; }
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf '!!! test-flair-finder-service FAIL: DESKTOP.DB is not 8 + 3*24 = 80 bytes after the staging\n'; exit 1; }
@@ -20776,8 +20841,8 @@ endif
 # ===========================================================================
 PPM_FLAIR_TRASH_CHECK_SRC := tools/ppm_flair_trash_check.c
 PPM_FLAIR_TRASH_CHECK_BIN := $(BUILD)/ppm_flair_trash_check
-$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
+$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h harness/render/icon_capture.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 FLAIR_ET_ALERT_NAME  := flair_empty_alert
 FLAIR_ET_CANCEL_NAME := flair_empty_cancel
@@ -20801,6 +20866,7 @@ $(FLAIR_EMPTY_REFERENCE_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 	@mdel -i $@ ::README.TXT
 	@printf 'IDB1\001\000\000\000' | SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ - ::DESKTOP.DB
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::TRASH
+	@mattrib -i $@ -a +h ::DESKTOP.DB ::TRASH
 	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-flair-empty-trash test-flair-empty-trash-mutant
@@ -20864,6 +20930,131 @@ test-flair-empty-trash-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_emp
 	if [ $$rc -eq 0 ]; then printf '!!! test-flair-empty-trash-mutant FAIL: EMPTY_NO_CONFIRM PASSED the Cancel differential -- decoration\n'; exit 1; fi; \
 	printf '%s\n' "$$out" | grep -q 'purged without confirmation' || { printf '!!! test-flair-empty-trash-mutant FAIL: RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
 	printf '>>> test-flair-empty-trash-mutant: EMPTY_NO_CONFIRM correctly RED (%s)\n' "$$out"
+
+# ===========================================================================
+# REAL gates: test-flair-finder-icons + test-flair-trash-full (beads
+# initech-tdnl.53 / tdnl.74 / tdnl.87; docs/worklog/WL-0140). The booted
+# image's icons graded CELL FOR CELL, zero tolerance, against the INDEPENDENT
+# mint-008 Mac OS 8.1 captures (../system7-decomp/re/mint-results-008.md) by
+# tools/ppm_flair_finder_icons_check.c (harness/render/icon_capture.h decodes
+# the PNGs; no artifact header). Locked traces: spec/flair_finder_icons_traces.mk.
+#   test-flair-finder-icons  FLAIR_FINDER_ICONS_SPEC: open the volume, open
+#     APPS, move its window to (250,180), select README.TXT. One dump shows
+#     every kind: the desktop VOLUME (SELECTED) + TRASH, the root window's
+#     DOCUMENT (SELECTED) + FOLDER, the APPS window's APPLICATIONs + a DOCUMENT.
+#   test-flair-trash-full  1 FLAIR_TRASH_FULL_SPEC: README.TXT staged -> the
+#     desktop Trash is the captured FULL can (tdnl.74); 2 FLAIR_EMPTY_ALERT_SPEC:
+#     the Empty Trash confirm carries the captured CAUTION icon at (156,100)
+#     (tdnl.87) over the FULL can.
+# Mutants (Rule 6), each RED on booted video for its own reason:
+#   DESK_ICON_MUT_ROW_OFF1 (finder_icon.o) -- every strike one row off: all
+#     seven scene cells RED; DESK_ICON_MUT_NO_SELECT -- the two SELECTED cells
+#     RED and only those; FINDER_DESK_MUT_TRASH_NEVER_FULL (finder_desktop.o) --
+#     the FULL cell RED; DIALOG_MUT_NO_ICON (dialog.o) -- the CAUTION cell RED.
+# Rule 5: these kernels are the flagship $(FLAIRTENANTS_IMG); its Bochs legs
+# (test-flair-disk-windows-bochs / test-flair-trash-window-bochs) halt at the
+# 640x480 guard before the Finder, so pixels are QEMU-graded.
+# Rule 14 clip: record-flair SCRIPT=finder_icons (and empty_trash re-recorded).
+# ===========================================================================
+PPM_FLAIR_ICONS_CHECK_SRC := tools/ppm_flair_finder_icons_check.c
+PPM_FLAIR_ICONS_CHECK_BIN := $(BUILD)/ppm_flair_finder_icons_check
+$(PPM_FLAIR_ICONS_CHECK_BIN): $(PPM_FLAIR_ICONS_CHECK_SRC) harness/render/icon_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/render -o $@ $< -lpng
+
+FLAIR_ICONS_SCENE_MARK := FINDER-WIN-SELECT win=0 name=README.TXT count=1
+FLAIR_ICONS_SCENE_CELLS := VOLUME:SEL@584,48/8DDCDC TRASH:UNSEL@584,404/8DDCDC \
+                           DOC:SEL@44,86/FFFFFF FOLDER:UNSEL@112,86/FFFFFF \
+                           APP:UNSEL@410,206/FFFFFF APP:UNSEL@478,206/FFFFFF \
+                           DOC:UNSEL@478,258/FFFFFF
+FLAIR_TRASH_FULL_CELL   := TRASH_FULL:UNSEL@584,404/8DDCDC
+FLAIR_CAUTION_CELL      := CAUTION:UNSEL@156,100/E7E7E7
+
+# $(call icons-scene,<image>,<name>): boot the scene trace, grade nothing yet.
+define icons-scene
+$(call fo-boot,$(1),$(2),$(BUILD)/$(2)_data.img,$(FLAIR_FINDER_ICONS_SPEC),$(FLAIR_ICONS_SCENE_MARK),1)
+@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' "$(BUILD)/$(2).serial" && grep -qxF 'FLAIR-DRAG win 0 (40,80)->(250,180)' "$(BUILD)/$(2).serial" && grep -qxF '$(FLAIR_ICONS_SCENE_MARK)' "$(BUILD)/$(2).serial" && [ -s "$(BUILD)/$(2).ppm" ] \
+	|| { printf '!!! %s FAIL: the scene trace did not reach the README select (volume open, APPS open, APPS window at (250,180))\n' "$@"; grep -E '^(FINDER|FLAIR-DRAG)' "$(BUILD)/$(2).serial" || true; exit 1; }
+endef
+
+.PHONY: test-flair-finder-icons test-flair-finder-icons-mutant test-flair-trash-full test-flair-trash-full-mutant
+test-flair-finder-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-finder-icons : every Finder icon kind vs the Mac OS 8.1 captures\n'
+	@printf '  Ref: beads initech-tdnl.53; ../system7-decomp/re/mint-results-008.md; spec/flair_finder_icons_traces.mk.\n'
+	@printf '======================================================================\n'
+	$(call icons-scene,$(FLAIRTENANTS_IMG),flair_finder_icons)
+	@$(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_finder_icons.ppm" $(FLAIR_ICONS_SCENE_CELLS) \
+		|| { printf '!!! test-flair-finder-icons FAIL: a booted icon cell differs from the mint-008 capture\n'; exit 1; }
+	@printf '>>> test-flair-finder-icons: green (7 cells: VOLUME sel, TRASH, DOC sel, FOLDER, 2 x APP, DOC -- 0/1024 differing each)\n'
+
+test-flair-finder-icons-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN) $(BUILD)/flair_tenants_mut_icon_row_off1.img $(BUILD)/flair_tenants_mut_icon_no_select.img
+	$(call icons-scene,$(BUILD)/flair_tenants_mut_icon_row_off1.img,flair_finder_icons_mut_row)
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_finder_icons_mut_row.ppm" $(FLAIR_ICONS_SCENE_CELLS) > $(BUILD)/flair_finder_icons_mut_row.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL: 7 icon cell(s) differ' $(BUILD)/flair_finder_icons_mut_row.grade \
+		|| { cat $(BUILD)/flair_finder_icons_mut_row.grade; printf '!!! test-flair-finder-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 did not turn all 7 cells RED\n'; exit 1; }
+	@printf '>>> DESK_ICON_MUT_ROW_OFF1: RED -- all 7 booted cells miss the captures\n'
+	$(call icons-scene,$(BUILD)/flair_tenants_mut_icon_no_select.img,flair_finder_icons_mut_nosel)
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_finder_icons_mut_nosel.ppm" $(FLAIR_ICONS_SCENE_CELLS) > $(BUILD)/flair_finder_icons_mut_nosel.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL: 2 icon cell(s) differ' $(BUILD)/flair_finder_icons_mut_nosel.grade && \
+	[ "$$(grep -c 'SEL at .*: [1-9][0-9]*/1024' $(BUILD)/flair_finder_icons_mut_nosel.grade)" = 2 ] && \
+	! grep -q 'UNSEL at .*: [1-9][0-9]*/1024' $(BUILD)/flair_finder_icons_mut_nosel.grade \
+		|| { cat $(BUILD)/flair_finder_icons_mut_nosel.grade; printf '!!! test-flair-finder-icons-mutant FAIL: DESK_ICON_MUT_NO_SELECT did not turn exactly the 2 SELECTED cells RED\n'; exit 1; }
+	@printf '>>> DESK_ICON_MUT_NO_SELECT: RED -- exactly the 2 selected cells (VOLUME, README) miss the captures\n'
+
+test-flair-trash-full: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-trash-full : the FULL Trash + the caution alert icon\n'
+	@printf '  Ref: beads initech-tdnl.74 / tdnl.87; ../system7-decomp/re/mint-results-008.md.\n'
+	@printf '======================================================================\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),flair_trash_full,$(BUILD)/flair_trash_full_data.img,$(FLAIR_TRASH_FULL_SPEC),DESKTOP-DB-SAVE n=3,1)
+	$(call fo-has,flair_trash_full,DESK-TRASH-ICON full,staging README.TXT did not turn the Trash FULL)
+	$(call fo-has,flair_trash_full,FINDER-TRASH name=README.TXT origin=0,README.TXT was not staged)
+	@mdir -i $(BUILD)/flair_trash_full_data.img ::/TRASH | grep -q '^README   TXT ' || { printf '!!! test-flair-trash-full FAIL: mtools: README.TXT is not in ::/TRASH\n'; exit 1; }
+	@$(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full.ppm" $(FLAIR_TRASH_FULL_CELL) \
+		|| { printf '!!! test-flair-trash-full FAIL: the staged Trash is not the captured FULL can\n'; exit 1; }
+	@printf '>>> test-flair-trash-full [1/2]: README.TXT staged (mtools) -> the desktop Trash == the captured FULL can, 0/1024\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),flair_trash_full_alert,$(BUILD)/flair_trash_full_alert_data.img,$(FLAIR_EMPTY_ALERT_SPEC),FINDER-TRASH-ALERT n=,1)
+	@grep -q '^FINDER-TRASH-ALERT n=1 ' "$(BUILD)/flair_trash_full_alert.serial" || { printf '!!! test-flair-trash-full FAIL: the Empty Trash confirm did not come up\n'; exit 1; }
+	@$(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full_alert.ppm" $(FLAIR_CAUTION_CELL) $(FLAIR_TRASH_FULL_CELL) \
+		|| { printf '!!! test-flair-trash-full FAIL: the confirm alert does not carry the captured CAUTION icon (or the Trash is not FULL)\n'; exit 1; }
+	@printf '>>> test-flair-trash-full [2/2]: Empty Trash confirm up -> the CAUTION icon at (156,100) == the capture, 0/1024; the Trash still FULL\n'
+	@printf '>>> test-flair-trash-full: green\n'
+
+test-flair-trash-full-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN) $(BUILD)/flair_tenants_mut_trash_never_full.img $(BUILD)/flair_tenants_mut_dialog_no_icon.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_trash_never_full.img,flair_trash_full_mut_never,$(BUILD)/flair_trash_full_mut_never_data.img,$(FLAIR_TRASH_FULL_SPEC),DESKTOP-DB-SAVE n=3,1)
+	@grep -qxF 'DESK-TRASH-ICON full' $(BUILD)/flair_trash_full_mut_never.serial || { printf '!!! test-flair-trash-full-mutant: the mutant never staged (not comparable)\n'; exit 1; }
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full_mut_never.ppm" $(FLAIR_TRASH_FULL_CELL) > $(BUILD)/flair_trash_full_mut_never.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'TRASH_FULL UNSEL at (584,404) on #8DDCDC: [1-9][0-9]*/1024' $(BUILD)/flair_trash_full_mut_never.grade \
+		|| { cat $(BUILD)/flair_trash_full_mut_never.grade; printf '!!! test-flair-trash-full-mutant FAIL: TRASH_NEVER_FULL passed the FULL cell\n'; exit 1; }
+	@printf '>>> FINDER_DESK_MUT_TRASH_NEVER_FULL: RED -- %s\n' "$$(grep 'TRASH_FULL UNSEL at' $(BUILD)/flair_trash_full_mut_never.grade | sed 's/^ *//')"
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_dialog_no_icon.img,flair_trash_full_mut_noicon,$(BUILD)/flair_trash_full_mut_noicon_data.img,$(FLAIR_EMPTY_ALERT_SPEC),FINDER-TRASH-ALERT n=,1)
+	@grep -q '^FINDER-TRASH-ALERT n=1 ' $(BUILD)/flair_trash_full_mut_noicon.serial || { printf '!!! test-flair-trash-full-mutant: the mutant alert never came up (not comparable)\n'; exit 1; }
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full_mut_noicon.ppm" $(FLAIR_CAUTION_CELL) $(FLAIR_TRASH_FULL_CELL) > $(BUILD)/flair_trash_full_mut_noicon.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'CAUTION UNSEL at (156,100) on #E7E7E7: 572/1024' $(BUILD)/flair_trash_full_mut_noicon.grade && grep -q 'TRASH_FULL UNSEL at (584,404) on #8DDCDC: 0/1024' $(BUILD)/flair_trash_full_mut_noicon.grade \
+		|| { cat $(BUILD)/flair_trash_full_mut_noicon.grade; printf '!!! test-flair-trash-full-mutant FAIL: DIALOG_MUT_NO_ICON did not turn exactly the CAUTION cell RED\n'; exit 1; }
+	@printf '>>> DIALOG_MUT_NO_ICON: RED -- the CAUTION cell 572/1024 (every opaque cell missing), the FULL Trash still 0/1024\n'
+
+# The mutant kernels: one object recompiled with the knob, the rest flagship.
+# $(call icons-obj-mutant-rules,<KNOB>,<tag>,<src>,<flagship obj>,<extra opts>)
+define icons-obj-mutant-rules
+$(BUILD)/icons_mut_$(2).o: $(3) os/flair/finder_icon.h os/flair/flair_look.h os/flair/dialog.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/alert_icons.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(3) -o $$@
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! kernel_flairtenants_mut_$(2).bin exceeds the kernel window\n'; exit 1; fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+	@printf ">>> flair-tenants ICON MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+$(eval $(call icons-obj-mutant-rules,DESK_ICON_MUT_ROW_OFF1,icon_row_off1,os/flair/finder_icon.c,$(KERNEL_FINDER_ICON_OBJ),$(KERNEL_TENANTS_OPT)))
+$(eval $(call icons-obj-mutant-rules,DESK_ICON_MUT_NO_SELECT,icon_no_select,os/flair/finder_icon.c,$(KERNEL_FINDER_ICON_OBJ),$(KERNEL_TENANTS_OPT)))
+$(eval $(call icons-obj-mutant-rules,DIALOG_MUT_NO_ICON=1,dialog_no_icon,os/flair/dialog.c,$(KERNEL_DIALOG_OBJ),$(FLAIR_DIALOG_OPT)))
+$(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_TRASH_NEVER_FULL,trash_never_full))
 
 # ===========================================================================
 # REAL gate: test-flair-trash-purge-views (bead initech-uios; audit L002 "an
@@ -21159,7 +21350,7 @@ test-flair-finder-follow-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DI
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin $(BUILD)/flair_follow_mut_abs.ppm > $(BUILD)/flair_follow_mut_abs.grade 2>&1; then printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS PASSED the moved-window grader -- decoration\n'; exit 1; fi
 	@# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): README.TXT's cell is
 	@# (44,86) since the content starts at L+6, so the moved cell is (144,206).
-	@grep -q 'README.TXT DOC sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
+	@grep -q 'README.TXT DOC UNSEL sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
 	@printf '>>> test-flair-finder-follow-mutant: ABS_COORDS correctly RED (README.TXT is not drawn at the moved cell (144,206))\n'
 	@printf '>>> test-flair-finder-follow-mutant: green\n'
 
@@ -22967,7 +23158,18 @@ RECORD_SPEC_shutdown   = $(FLAIR_SHUTDOWN_SPEC)
 RECORD_MARKER_shutdown = FLAIR-SHUTDOWN-SAFE
 RECORD_IMAGE_shutdown  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_shutdown = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown
+# finder_icons (beads initech-tdnl.53 / tdnl.74 / tdnl.87; Rule 14 -- WL-0140):
+# the Platinum icon art, live: the volume is opened (it darkens, selected),
+# the APPS folder is opened, its window dragged to (250,180) showing the
+# APPLICATION and DOCUMENT art, and README.TXT is selected (darkened) beside
+# the FOLDER -- FLAIR_FINDER_ICONS_SPEC on the DOUBLE-CLICK record image, the
+# frame test-flair-finder-icons grades cell for cell. (empty_trash, above,
+# re-recorded after the merge shows the FULL can and the caution icon.)
+RECORD_SPEC_finder_icons   = $(FLAIR_FINDER_ICONS_SPEC)
+RECORD_MARKER_finder_icons = $(FLAIR_ICONS_SCENE_MARK)
+RECORD_IMAGE_finder_icons  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_finder_icons = 300
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -23178,6 +23380,30 @@ RECORD_SPEC_iword_format = $(FLAIR_IWORD_FORMAT_SPEC)
 RECORD_MARKER_iword_format = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Press Reveal Codes to restore screen                                        " fg=0 bg=3 -> 0
 RECORD_SETTLE_iword_format = 400
 RECORD_IMAGE_iword_format = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# initech-qvgd, Rule 14. Registered before record-flair's prerequisites.
+# Search is read-only: forward Bold On, backward plain text, not-found.
+RECORD_SCRIPTS += iword_search
+RECORD_SPEC_iword_search = $(FLAIR_IWORD_SEARCH_SPEC)
+RECORD_MARKER_iword_search = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="* Not found *                                                               " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_search = 400
+RECORD_IMAGE_iword_search = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+# WL-0146 Part 2, Rule 14: all registrations precede record-flair.
+RECORD_SCRIPTS += iword_replace iword_undo iword_setup
+RECORD_SPEC_iword_replace = $(FLAIR_IWORD_REPLACE_CLIP_SPEC)
+RECORD_MARKER_iword_replace = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="keep                                                                        " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_replace = 400
+RECORD_IMAGE_iword_replace = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_RTC_BASE_iword_replace = 1992-03-01T09:00:00
+RECORD_SPEC_iword_undo = $(FLAIR_IWORD_UNDO_CLIP_SPEC)
+RECORD_MARKER_iword_undo = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Undelete 1 Restore; 2 Previous Deletion: 0                                  " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_undo = 400
+RECORD_IMAGE_iword_undo = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_RTC_BASE_iword_undo = 1992-03-01T09:00:00
+RECORD_SPEC_iword_setup = $(FLAIR_IWORD_SETUP_CLIP_SPEC)
+RECORD_MARKER_iword_setup = TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="2 Original Document Backup  Yes                                             " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_setup = 400
+RECORD_IMAGE_iword_setup = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_RTC_BASE_iword_setup = 1992-03-01T09:00:00
 # itext_edit (bead initech-tdnl.16, R4.2 InitechText; Rule 14): the
 # SimpleText-alike opens from the Finder -- double-click APPS\TEXT.EXE, the
 # "untitled" window -- "Saving tables to disk" / "PC LOAD LETTER" typed in
@@ -23407,6 +23633,15 @@ RECORD_MARKER_scrapbook = APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
 RECORD_IMAGE_scrapbook = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_scrapbook = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scrapbook = 300
+include spec/flair_toolbox_hardening_trace.mk
+# Rule 14: PM records this after merge. Must precede record-flair (parse time).
+RECORD_SCRIPTS += toolbox_hardening
+RECORD_SPEC_toolbox_hardening = $(FLAIR_TOOLBOX_HARDENING_SPEC)
+RECORD_IMAGE_toolbox_hardening = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_toolbox_hardening = $(FLAIR_DATA_IMG)
+RECORD_MARKER_toolbox_hardening = FLAIR-SCROLL win 0 h part=21 value=16 max=171
+RECORD_SETTLE_toolbox_hardening = 500
+
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -23425,6 +23660,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms $(or $(RECORD_TIMEOUT_MS_$(SCRIPT)),45000) \
 		2> "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || true
 	@if grep -q 'triple_fault=1' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report"; then printf '!!! record-flair: guest TRIPLE-FAULTED during capture\n'; exit 1; fi
+	@if grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).serial"; then printf '!!! record-flair: input ring overrun (owpg)\n'; exit 1; fi
 	@# initech-mfrb: a bounded record image halts at FLAIR-LIVE-OK when its pump
 	@# life runs out; events injected after that are LOST while the frames keep
 	@# coming (frozen). The harness counts them -- any nonzero count is RED, and
@@ -26999,22 +27235,18 @@ test-program-window-golden: | $(BUILD)
 # fixpoint downstream.
 .PHONY: test-kernel-repro
 test-kernel-repro: | $(BUILD)
-	@printf ">>> test-kernel-repro: kernel.bin byte-identical across a clean rebuild (Rule 11)\n"
-	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
-	@cp $(KERNEL_BIN) $(BUILD)/kernel.repro.1
-	@a=$$(sha256sum < $(BUILD)/kernel.repro.1 | cut -d' ' -f1); \
-	 rm -f $(KERNEL_OBJS) $(KERNEL_ELF) $(KERNEL_BIN); \
-	 $(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null; \
-	 cp $(KERNEL_BIN) $(BUILD)/kernel.repro.2; \
-	 b=$$(sha256sum < $(BUILD)/kernel.repro.2 | cut -d' ' -f1); \
-	 if [ "$$a" != "$$b" ]; then \
-		printf '!!! test-kernel-repro FAIL: kernel.bin is NOT reproducible\n'; \
-		printf '    build1 sha256 = %s\n    build2 sha256 = %s\n' "$$a" "$$b"; \
-		printf '    nondeterminism breaks the self-host certificate (Rule 11 / PRD section 7).\n'; \
-		cmp $(BUILD)/kernel.repro.1 $(BUILD)/kernel.repro.2 || true; \
-		exit 1; \
-	 fi; \
-	 printf '>>> test-kernel-repro: green -- kernel.bin reproducible (sha256 %s)\n' "$$a"
+	@printf '>>> test-kernel-repro: baseline AND flagship across a clean rebuild (tgcu; Rule 11)\n'
+	@set -eu; $(MAKE) --no-print-directory $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN) >/dev/null; \
+	for bin in $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN); do cp -f $$bin $$bin.repro.1; done; \
+	rm -f $(sort $(KERNEL_OBJS) $(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_ELF) $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_FLAIRTENANTS_BIN); \
+	$(MAKE) --no-print-directory $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN) >/dev/null; \
+	for bin in $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN); do \
+		cp -f $$bin $$bin.repro.2; \
+		if [ "$(KERNEL_REPRO_MUTATE_FLAGSHIP)" = 1 ] && [ "$$bin" = "$(KERNEL_FLAIRTENANTS_BIN)" ]; then printf X >> $$bin.repro.2; fi; \
+		a=$$(sha256sum < $$bin.repro.1 | cut -d' ' -f1); b=$$(sha256sum < $$bin.repro.2 | cut -d' ' -f1); \
+		if [ "$$a" != "$$b" ]; then printf 'RED test-kernel-repro: %s is NOT reproducible\n' "$$bin"; exit 1; fi; \
+		printf '>>> test-kernel-repro: green -- %s reproducible (sha256 %s)\n' "$$bin" "$$a"; \
+	done
 
 # Mutation-proof (Rule 6): the gate's discriminating mechanism is a sha256
 # byte-comparison of two kernel images. Prove it BITES on a difference -- take
@@ -27026,8 +27258,8 @@ test-kernel-repro: | $(BUILD)
 test-kernel-repro-mutant: | $(BUILD)
 	@printf ">>> test-kernel-repro-mutant: confirming the sha256 comparison bites on a byte change (Rule 6)\n"
 	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
-	@cp $(KERNEL_BIN) $(BUILD)/kernel.mut.a
-	@cp $(KERNEL_BIN) $(BUILD)/kernel.mut.b
+	@cp -f $(KERNEL_BIN) $(BUILD)/kernel.mut.a
+	@cp -f $(KERNEL_BIN) $(BUILD)/kernel.mut.b
 	@printf 'X' >> $(BUILD)/kernel.mut.b
 	@a=$$(sha256sum < $(BUILD)/kernel.mut.a | cut -d' ' -f1); \
 	 b=$$(sha256sum < $(BUILD)/kernel.mut.b | cut -d' ' -f1); \
@@ -27183,8 +27415,9 @@ test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
 SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
-                     -std=c11 -Wall -Wextra -Werror -Os -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
-                     -DFLOW_MAX_REGISTRY=1 -I$(SAMIR_INC_DIR) -Ispec
+                     -std=c11 -Wall -Wextra -Werror -Oz -flto -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
+                     -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
+SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -msoft-float -mno-80387 -Wl,--gc-sections,--build-id=none -T $(SAMIR_LD_SCRIPT)
 SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
@@ -27202,7 +27435,7 @@ $(SAMIR_COM): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pal/he
 		o=$(BUILD)/samir_com/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -c $$s -o $$o; \
 	done
-	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
+	@$(SAMIR_LINK) -o $(BUILD)/samir_com/SAMIR.elf $(BUILD)/samir_com/samir_crt0.o $$(ls $(BUILD)/samir_com/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com/SAMIR.elf $@
 	@sz=$$(stat -c%s $@); x87=$$(objdump -d $(BUILD)/samir_com/SAMIR.elf | grep -ciE '\bf(ld|st|add|sub|mul|div)[a-z]*\b' || true); \
 	 printf '>>> SAMIR.COM: %s bytes (flat .COM @0x40100, soft-float, x87=%s)\n' "$$sz" "$$x87"
@@ -27223,7 +27456,7 @@ $(SAMIR_DBSAFE_MUT_COMS): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/h
 	dir=$(BUILD)/samir_dbsafe_$$kind; mkdir -p $$dir; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$dir/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$dir/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
-	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
+	$(SAMIR_LINK) -o $$dir/SAMIR.elf $$dir/crt0.o $$(ls $$dir/*.o | grep -v '/crt0.o'); \
 	$(OBJCOPY) -O binary $$dir/SAMIR.elf $@
 .PHONY: test-samir-full-emu-mutant test-samir-lifetime-emu-mutant test-samir-safety-emu-mutant
 test-samir-full-emu-mutant: $(BUILD)/SAMIR_DBSAFE_full.COM $(TEST_SAMIR_DBSAFE_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
@@ -27277,7 +27510,7 @@ $(SAMIR_REPORT_MUT_COM): $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_DIR)/pal/li
 	@set -e; d=$(BUILD)/samir_report_mut; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_REPORT_MUTATE_NO_SUBTOTAL -c $$src -o $$obj; done; \
-	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 .PHONY: test-samir-report-emu test-samir-report-emu-mutant
 test-samir-report-emu: $(TEST_SAMIR_REPORT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM) $(SAMIR_REPORT_IMG) $(PPM_TEXT_CHECK_BIN)
@@ -27310,7 +27543,7 @@ $(SAMIR_AUDIT_MUT_COMS): $(BUILD)/SAMIR_AUDIT_%.COM: $(SAMIR_HEADERS) $(SAMIR_CO
 	set -e; d=$(BUILD)/samir_audit_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$$flag -c $$src -o $$obj; done; \
-	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 .PHONY: test-samir-audit-emu-mutant test-samir-input-emu-mutant
 test-samir-audit-emu-mutant: $(filter-out $(BUILD)/SAMIR_AUDIT_input.COM $(BUILD)/SAMIR_AUDIT_undefined.COM,$(SAMIR_AUDIT_MUT_COMS)) $(TEST_SAMIR_AUDIT_EMU) $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/CLIENTS.DBF
@@ -27349,7 +27582,7 @@ $(SAMIR_COM_MUT): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pa
 		o=$(BUILD)/samir_com_mut/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_SHORT_READ -c $$s -o $$o; \
 	done
-	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_mut/SAMIR.elf $(BUILD)/samir_com_mut/samir_crt0.o $$(ls $(BUILD)/samir_com_mut/*.o | grep -v 'samir_crt0\.o')
+	@$(SAMIR_LINK) -o $(BUILD)/samir_com_mut/SAMIR.elf $(BUILD)/samir_com_mut/samir_crt0.o $$(ls $(BUILD)/samir_com_mut/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com_mut/SAMIR.elf $@
 	@printf '>>> SAMIR_MUT.COM: %s bytes (short-read on-target I/O mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
@@ -27361,9 +27594,9 @@ $(SAMIR_COM_MUT): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR)/pa
 #     intermediate, NOT committed. ---
 MINT_CLIENTS_BIN := $(BUILD)/mint_clients_dbf
 CLIENTS_DBF      := $(BUILD)/CLIENTS.DBF
-$(MINT_CLIENTS_BIN): $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+$(MINT_CLIENTS_BIN): $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
-		-o $@ $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+		-o $@ $(DBF_DIFF_DIR)/mint_clients_dbf.c $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 $(CLIENTS_DBF): $(MINT_CLIENTS_BIN) | $(BUILD)
 	@$(MINT_CLIENTS_BIN) $@
 	@printf '>>> CLIENTS.DBF: minted %s (NAME/C CITY/C BAL/N; 3 records; deterministic; bead hdlb)\n' "$@"
@@ -27481,7 +27714,7 @@ test-samir-boot: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_LIST_IMG) $(PPM_
 	@printf '>>> test-samir-boot [4/5]: LIST rendered all 3 records on serial (PESTON / WADDAMS / LUMBERGH)\n'
 	@# initech-31d1 re-key: M005U/M005N's 7+2 prefix and unpadded final
 	@# heading, projected onto the existing CLIENTS value fixture.
-	@grep -Fxq 'Record#  NAME       CITY         BAL' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
+	@grep -Fxq 'Record#  NAME       CITY              BAL' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
 	@grep -Fxq '      1  PESTON     HONOLULU      1234.50' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
 	@grep -Fxq '      2  WADDAMS    AUSTIN         -42.00' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
 	@grep -Fxq '      3  LUMBERGH   DALLAS        7777.77' "$(BUILD)/$(SAMIRBOOT_NAME).samir"
@@ -27622,7 +27855,7 @@ $(SAMIR_COM_DROPWRITE): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_D
 		o=$(BUILD)/samir_com_dropwrite/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -DPAL_MILTON_MUTATE_DROP_WRITE -c $$s -o $$o; \
 	done
-	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dropwrite/SAMIR.elf $(BUILD)/samir_com_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_com_dropwrite/*.o | grep -v 'samir_crt0\.o')
+	@$(SAMIR_LINK) -o $(BUILD)/samir_com_dropwrite/SAMIR.elf $(BUILD)/samir_com_dropwrite/samir_crt0.o $$(ls $(BUILD)/samir_com_dropwrite/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dropwrite/SAMIR.elf $@
 	@printf '>>> SAMIR_DROPWRITE.COM: %s bytes (drop-write on-target WRITE mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
@@ -27829,7 +28062,7 @@ MINT_INVOICE_BIN     := $(BUILD)/mint_invoice_dbf
 MINT_INVOICE_FIX_BIN := $(BUILD)/mint_invoice_dbf_fix
 INVOICE_DBF          := $(BUILD)/INVOICE.DBF
 INVOICE_FIX_DBF      := $(BUILD)/INVOICE.fix.dbf
-MINT_INVOICE_DEPS    := $(SAMIR_DBF_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
+MINT_INVOICE_DEPS    := $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_RT_SRC) $(SAMIR_PAL_HOST_SRC)
 $(MINT_INVOICE_BIN): $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec \
 		-o $@ $(DBF_DIFF_DIR)/mint_invoice_dbf.c $(MINT_INVOICE_DEPS)
@@ -27867,7 +28100,7 @@ $(SAMIR_COM_DOTRUNC): $(SAMIR_HEADERS) $(SAMIR_DIR)/pal/line_input.h $(SAMIR_DIR
 		o=$(BUILD)/samir_com_dotrunc/$$(echo $$s | tr / _ | sed 's/\.c$$/.o/'); \
 		$(CC) $(SAMIR_COM_PROFILE) -DREPL_MUTATE_DO_TRUNC -c $$s -o $$o; \
 	done
-	@$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $(BUILD)/samir_com_dotrunc/SAMIR.elf $(BUILD)/samir_com_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_com_dotrunc/*.o | grep -v 'samir_crt0\.o')
+	@$(SAMIR_LINK) -o $(BUILD)/samir_com_dotrunc/SAMIR.elf $(BUILD)/samir_com_dotrunc/samir_crt0.o $$(ls $(BUILD)/samir_com_dotrunc/*.o | grep -v 'samir_crt0\.o')
 	@$(OBJCOPY) -O binary $(BUILD)/samir_com_dotrunc/SAMIR.elf $@
 	@printf '>>> SAMIR_DOTRUNC.COM: %s bytes (DO-file half-read mutant; Rule 6)\n' "$$(stat -c%s $@)"
 
@@ -28779,6 +29012,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
+	test-finder-icon-art test-finder-icon-art-mutant \
 	test-window test-window-mutant test-winscroll test-winscroll-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -29934,6 +30168,8 @@ TEST_EMU_GATES := \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
+	test-flair-finder-icons test-flair-finder-icons-mutant \
+	test-flair-trash-full test-flair-trash-full-mutant \
 	test-flair-trash-purge-views test-flair-trash-purge-views-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
@@ -31456,7 +31692,7 @@ $(BUILD)/SAMIR_SCREEN_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_AS
 	@set -e; d=$(BUILD)/samir_screen_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -D$* -c $$src -o $$obj; done; \
-	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 $(BUILD)/test_samir_screen_emu: $(DBF_DIFF_DIR)/test_samir_screen_emu.c | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
@@ -31737,6 +31973,8 @@ TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 
 # Seeded volume contracts are read after every image variable is defined.
 include harness/emu/notepad.mk
+include harness/diff/wp5_diff/p3.mk
+include harness/diff/wp5_diff/p3_part2.mk
 include harness/fixture_volumes.mk
 $(eval $(call fixture-contract,$(DA_CORRUPT_DATA),$(FLAIR_FIXTURES) NOTEPAD.DAT))
 
@@ -32185,3 +32423,191 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
+include harness/toolbox_hardening.mk
+
+# initech-w06: SSIM mathematics is gated; historical similarity is GUIDE ONLY.
+# Ref: PRD Sec 3/8/14; ADR-0010 CD-7/HER-11; Wang 2004 pp.604-606.
+SSIM_BIN := $(BUILD)/ssim
+SSIM_TEST_BIN := $(BUILD)/test_ssim
+SSIM_MUTANTS := WINDOW_9 K1 K2 SIGMA LUMA
+$(SSIM_BIN): harness/ssim.c spec/ssim_params.h | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -Ispec -o $@ $< -lpng -lm
+$(SSIM_TEST_BIN): harness/proptest/test_ssim.c | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -o $@ $< -lpng -lm
+$(BUILD)/ssim_mut_%: harness/ssim.c spec/ssim_params.h | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -Ispec -DSSIM_MUT_$* -o $@ $< -lpng -lm
+.PHONY: test-ssim test-ssim-mutant ssim
+test-ssim: $(SSIM_TEST_BIN) $(SSIM_BIN)
+	@$(SSIM_TEST_BIN) $(SSIM_BIN) $(BUILD)
+test-ssim-mutant: test-ssim $(addprefix $(BUILD)/ssim_mut_,$(SSIM_MUTANTS))
+	@for m in $(SSIM_MUTANTS); do \
+	 rc=0; $(SSIM_TEST_BIN) $(BUILD)/ssim_mut_$$m $(BUILD) > $(BUILD)/ssim_mut_$$m.log 2>&1 || rc=$$?; \
+	 [ "$$rc" = 1 ] || { cat $(BUILD)/ssim_mut_$$m.log; printf 'FAIL SSIM_MUT_%s wrong exit %s\n' "$$m" "$$rc"; exit 1; }; \
+	 case "$$m" in WINDOW_9|SIGMA) rule='GAUSSIAN one-pixel';; K1) rule='K1 constant-patch';; K2) rule='K2 impulse255';; LUMA) rule='LUMA RGB red';; esac; \
+	 grep -q "^RED $$rule" $(BUILD)/ssim_mut_$$m.log || { cat $(BUILD)/ssim_mut_$$m.log; exit 1; }; \
+	 printf '>>> SSIM_MUT_%s correctly RED: %s\n' "$$m" "$$(grep -m1 "^RED $$rule" $(BUILD)/ssim_mut_$$m.log)"; \
+	 done
+	@printf '>>> test-ssim-mutant: green (five named math mutants RED)\n'
+TEST_UNIT_GATES += test-ssim test-ssim-mutant
+# Reads existing gate dumps; it never silently substitutes another scene.
+# Generate them with INITECH_QMP_STDIO=1 make test-flair-desktop etc.
+ssim: $(SSIM_BIN)
+	@$(SSIM_BIN) --frame "$(FRAME)" --build "$(BUILD)" --goldens "$(SYSTEM7_DECOMP)/goldens/captures"
+# samir-core-hardening: authored safety properties + period error catalog.
+SAMIR_CORE_SRC := $(DBF_DIFF_DIR)/test_samir_core.c
+SAMIR_CORE_ENG := $(sort $(INTERP_FLOW_ENG) $(SAMIR_PAL_HOST_SRC))
+SAMIR_CORE_RULES := DBF_SIZE DATE_WIDTH MEMO_POINTER DBT_SPAN NDX_SIZE NDX_BUILD_SIZE NDX_DUP_DESCENT MEMVAR_RECLAIM CONCAT_PLUS CONCAT_MINUS FILE_NEEDS_USE
+SAMIR_CORE_MUTS := $(addprefix $(BUILD)/test_samir_core_,$(SAMIR_CORE_RULES))
+$(BUILD)/test_samir_core: $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG)
+$(SAMIR_CORE_MUTS): $(BUILD)/test_samir_core_%: $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_CORE_MUTATE_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(SAMIR_CORE_SRC) $(SAMIR_CORE_ENG)
+.PHONY: test-samir-core test-samir-core-mutants test-samir-core-emu test-samir-core-emu-mutants
+test-samir-core: $(BUILD)/test_samir_core
+	@$<
+test-samir-core-mutants: $(SAMIR_CORE_MUTS)
+	@set -e; for rule in $(SAMIR_CORE_RULES); do \
+	  log=$(BUILD)/samir-core-$$rule.log; set +e; $(BUILD)/test_samir_core_$$rule > $$log 2>&1; rc=$$?; set -e; \
+	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log || { cat $$log; exit 1; }; \
+	  printf 'test-samir-core-mutants: %s correctly RED: ' $$rule; grep -m1 "FAIL .*$$rule:" $$log; \
+	done
+	@printf 'test-samir-core-mutants: GREEN (all named regressions caught)\n'
+$(BUILD)/test_samir_core_emu: $(DBF_DIFF_DIR)/test_samir_core_emu.c | $(BUILD)
+	$(CC) $(CFLAGS) -Iseed -o $@ $<
+SAMIR_CORE_EMU_RULES := CONCAT_PLUS CONCAT_MINUS MEMVAR_RECLAIM
+SAMIR_CORE_COM_MUTS := $(addprefix $(BUILD)/SAMIR_CORE_,$(addsuffix .COM,$(SAMIR_CORE_EMU_RULES)))
+$(SAMIR_CORE_COM_MUTS): $(BUILD)/SAMIR_CORE_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_CSRCS) $(SAMIR_CRT0_ASM) $(SAMIR_LD_SCRIPT) | $(BUILD)
+	@set -e; d=$(BUILD)/samir_core_$*; mkdir -p $$d; \
+	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
+	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_CORE_MUTATE_$* -c $$src -o $$obj; done; \
+	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
+test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
+	@INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(SAMIR_COM)
+test-samir-core-emu-mutants: $(SAMIR_CORE_COM_MUTS) $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG)
+	@set -e; for rule in $(SAMIR_CORE_EMU_RULES); do \
+	  log=$(BUILD)/samir-core-emu-$$rule.log; set +e; INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(BUILD)/SAMIR_CORE_$$rule.COM > $$log 2>&1; rc=$$?; set -e; \
+	  test $$rc = 1 && grep -q "FAIL .*$$rule:" $$log && grep -q 'checks,' $$log && grep -q 'triple_fault=0' $(BUILD)/samir-core-emu/report.log && grep -q 'quit_after_found=1' $(BUILD)/samir-core-emu/report.log || { cat $$log; exit 1; }; \
+	  printf 'test-samir-core-emu-mutants: %s correctly RED: ' $$rule; grep -m1 "FAIL .*$$rule:" $$log; \
+	done
+	@printf 'test-samir-core-emu-mutants: GREEN (all guest regressions caught)\n'
+TEST_UNIT_GATES += test-samir-core test-samir-core-mutants
+TEST_EMU_GATES += test-samir-core-emu test-samir-core-emu-mutants
+
+# New golden mint lives in build only; requires the real III+ 1.1 binaries.
+$(BUILD)/samir_core_ref: $(DBF_DIFF_DIR)/samir_core_ref.c | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -o $@ $<
+.PHONY: test-samir-core-diff test-samir-core-diff-mutant
+test-samir-core-diff: test-samir-core $(BUILD)/samir_core_ref
+	@command -v dosbox-x >/dev/null || { echo 'missing dosbox-x: real III+ mint required'; exit 1; }
+	@mkdir -p $(BUILD)/samir-core-mint
+	@$(BUILD)/samir_core_ref prepare
+	@cp -f $(DBASE3_DECOMP)/mint/work/DBASE.EXE $(DBASE3_DECOMP)/mint/work/DBASE.OVL $(DBASE3_DECOMP)/mint/work/DBASE.MSG $(DBASE3_DECOMP)/mint/work/DBASEINL.OVL $(BUILD)/samir-core-mint/
+	@cp -f $(BUILD)/core-memo.dbf $(BUILD)/samir-core-mint/MEMO.DBF
+	@cp -f $(BUILD)/core-memo.dbt $(BUILD)/samir-core-mint/MEMO.DBT
+	@rm -f $(BUILD)/samir-core-mint/MINT.TXT $(BUILD)/samir-core-mint/REF.NDX
+	@SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout -k 5 30 dosbox-x -conf $(BUILD)/samir-core-mint/ref.conf -exit > $(BUILD)/samir-core-mint/run.log 2>&1
+	@$(BUILD)/samir_core_ref
+test-samir-core-diff-mutant: test-samir-core-diff $(BUILD)/test_samir_core_NDX_DUP_DESCENT
+	@set +e; $(BUILD)/test_samir_core_NDX_DUP_DESCENT > $(BUILD)/samir-core-diff-mutant-engine.log 2>&1; rc=$$?; set -e; test $$rc = 1
+	@set +e; $(BUILD)/samir_core_ref > $(BUILD)/samir-core-diff-mutant.log 2>&1; rc=$$?; set -e; \
+	 test $$rc = 1 && grep -q 'FAIL .*same-key append/split differential' $(BUILD)/samir-core-diff-mutant.log && grep -q 'checks,' $(BUILD)/samir-core-diff-mutant.log || { cat $(BUILD)/samir-core-diff-mutant.log; exit 1; }; \
+	 printf 'test-samir-core-diff-mutant: GREEN (NDX_DUP_DESCENT correctly RED: same-key append/split differential vs real III+)\n'
+	@$(BUILD)/test_samir_core > $(BUILD)/samir-core-restored.log
+	@$(BUILD)/samir_core_ref
+TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
+
+
+# SAMIR DML lane: identical corpus, real III+ mint, host and QEMU gates.
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run
+SAMIR_DML_TEST := $(BUILD)/test_samir_dml
+SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
+$(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+$(SAMIR_DML_MUTS): $(BUILD)/test_samir_dml_%: $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_DML_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: mint-samir-dml test-samir-dml test-samir-dml-mutants test-samir-dml-emu test-samir-dml-emu-mutants
+mint-samir-dml: $(CLIENTS_DBF)
+	@sh $(DBF_DIFF_DIR)/dml_mint.sh $(abspath $(DBASE3_DECOMP))
+# A missing real mint is RED, never an opt-out or an authored golden.
+test-samir-dml: $(addprefix test-samir-dml-, $(SAMIR_DML_CASES))
+test-samir-dml-mutants: $(addsuffix -mutant, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
+test-samir-dml-emu: $(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
+test-samir-dml-emu-mutants: $(addsuffix -emu-mutant, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)))
+define samir-dml-gates
+.PHONY: test-samir-dml-$(1) test-samir-dml-$(1)-mutant test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
+test-samir-dml-$(1): $$(SAMIR_DML_TEST)
+	@$$< $(1) host
+	@printf '>>> test-samir-dml-$(1): green\n'
+test-samir-dml-$(1)-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)
+	@set +e; $$< $(1) host > $$(BUILD)/dml-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'DML transcript byte-identical\|bytes match real III+' $$(BUILD)/dml-mut-$(1).log || { cat $$(BUILD)/dml-mut-$(1).log; echo 'mutant survived or failed infrastructure'; exit 1; }; \
+	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: '; grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-mut-$(1).log | head -1
+test-samir-dml-$(1)-emu: $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_COM)
+	@INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(SAMIR_COM)
+	@printf '>>> test-samir-dml-$(1)-emu: green\n'
+test-samir-dml-$(1)-emu-mutant: test-samir-dml-$(1)-emu $$(SAMIR_DML_TEST) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_DML_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_DML_MUTANT_$(1).COM > $$(BUILD)/dml-emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && ! grep -q 'FAIL.*locked QEMU trace' $$(BUILD)/dml-emu-mut-$(1).log && grep -q 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log || { cat $$(BUILD)/dml-emu-mut-$(1).log; echo 'emu mutant survived or failed infrastructure'; exit 1; }; \
+	 printf '>>> SAMIR_DML_MUTANT_$(1) emu RED: '; grep 'FAIL.*DML transcript\|FAIL.*bytes match real III+' $$(BUILD)/dml-emu-mut-$(1).log | head -1
+TEST_UNIT_GATES += test-samir-dml-$(1) test-samir-dml-$(1)-mutant
+TEST_EMU_GATES += test-samir-dml-$(1)-emu test-samir-dml-$(1)-emu-mutant
+endef
+$(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
+
+.PHONY: samir-dml-goldens
+samir-dml-goldens:
+	@sha256sum --quiet -c $(DBF_DIFF_DIR)/xbase_prog_diff/dml-goldens.sha256 || { printf 'RED: MINT required or changed: see docs/worklog/samirdml-mint.md\n'; exit 1; }
+	@printf '>>> samir-dml-goldens: green (16 real III+ ledger rows pinned)\n'
+$(addprefix test-samir-dml-, $(SAMIR_DML_CASES)): samir-dml-goldens
+$(addsuffix -emu, $(addprefix test-samir-dml-, $(SAMIR_DML_CASES))): samir-dml-goldens
+
+# State assertions isolate the implemented dispatch changes from the existing
+# ?/TYPE formatting blocks. They never substitute for the exact differential.
+define samir-dml-state-gates
+.PHONY: test-samir-dml-$(1)-state test-samir-dml-$(1)-state-mutant
+test-samir-dml-$(1)-state: $$(SAMIR_DML_TEST) samir-dml-goldens
+	@$$< $(1) state
+	@printf '>>> test-samir-dml-$(1)-state: green (state only; exact transcript still required)\n'
+test-samir-dml-$(1)-state-mutant: $$(BUILD)/test_samir_dml_$(1) test-samir-dml-$(1)-state
+	@set +e; $$< $(1) state > $$(BUILD)/dml-state-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log || { cat $$(BUILD)/dml-state-mut-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_DML_MUTANT_$(1) RED: '; grep 'FAIL.*DML state $(1)' $$(BUILD)/dml-state-mut-$(1).log | head -1
+TEST_UNIT_GATES += test-samir-dml-$(1)-state test-samir-dml-$(1)-state-mutant
+endef
+$(foreach verb,clear macro close,$(eval $(call samir-dml-state-gates,$(verb))))
+
+# ?/?? byte parity: Using III+ U5-15; DML-01..03 and real mint-005.
+SAMIR_PRINT_MUT := $(BUILD)/test_samir_print_lf
+$(SAMIR_PRINT_MUT): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_PRINT_MUTATE_LF -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $^
+.PHONY: test-samir-print test-samir-print-mutant test-samir-print-emu test-samir-print-emu-mutant
+test-samir-print: test-samir-dml-clear test-samir-dml-macro test-samir-dml-close test-samir-use
+	@echo '>>> test-samir-print: green (exact ?/?? + mint-005 LIST/DISPLAY)'
+test-samir-print-mutant: $(SAMIR_PRINT_MUT) test-samir-print
+	@if $< clear host > $(BUILD)/samir-print-lf.log 2>&1; then echo 'LF mutant survived'; exit 1; fi
+	@grep -q 'got 0x0a, real 0x0d' $(BUILD)/samir-print-lf.log
+	@printf '>>> SAMIR_PRINT_MUTATE_LF RED: '; grep 'DML transcript differs' $(BUILD)/samir-print-lf.log
+test-samir-print-emu: test-samir-dml-clear-emu test-samir-dml-macro-emu test-samir-dml-close-emu
+	@echo '>>> test-samir-print-emu: green'
+test-samir-print-emu-mutant: test-samir-print-emu $(SAMIR_DML_TEST) $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM
+	@if INITECH_QMP_STDIO=1 $(SAMIR_DML_TEST) clear emu $(BUILD)/SAMIR_SCREEN_SAMIR_PRINT_MUTATE_LF.COM > $(BUILD)/samir-print-lf-emu.log 2>&1; then echo 'guest LF mutant survived'; exit 1; fi
+	@grep -q 'got 0x0a, real 0x0d' $(BUILD)/samir-print-lf-emu.log
+	@printf '>>> SAMIR_PRINT_MUTATE_LF emu RED: '; grep 'DML transcript differs' $(BUILD)/samir-print-lf-emu.log
+TEST_UNIT_GATES += test-samir-print test-samir-print-mutant
+TEST_EMU_GATES += test-samir-print-emu test-samir-print-emu-mutant
+
+# Independently re-minted old program transcripts and printer/book specimen.
+.PHONY: mint-samir-prog mint-samir-dml-extra samir-prog-goldens
+mint-samir-prog: $(TEST_DBASE_DIFF)
+	@sh $(DBF_DIFF_DIR)/prog_mint.sh $(abspath $(DBASE3_DECOMP))
+mint-samir-dml-extra: $(CLIENTS_DBF)
+	@sh $(DBF_DIFF_DIR)/dml_extra_mint.sh $(abspath $(DBASE3_DECOMP))
+samir-prog-goldens:
+	@sha256sum --quiet -c $(PROG_DIFF_DIR)/prog-real.sha256
+	@echo '>>> samir-prog-goldens: green (PROG-01..07, EXTRA-01..13, PUBS-01 real III+ captures)'
+test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants: samir-prog-goldens
+TEST_UNIT_GATES += samir-prog-goldens
+
+include harness/diff/fat_diff/kernel_hygiene.mk
+include harness/diff/fat_diff/formatsys.mk

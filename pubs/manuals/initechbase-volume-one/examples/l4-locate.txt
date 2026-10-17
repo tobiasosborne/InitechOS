@@ -1,0 +1,11 @@
+. USE STAFF
+. LOCATE FOR DEPT = 'ACCT'
+. ? RECNO(), LASTNAME, FOUND()
+
+12 PRUITT         .T.. CONTINUE
+. ? RECNO(), LASTNAME, FOUND()
+
+13 CHEN           .T.. CONTINUE
+. ? FOUND(), EOF()
+
+.F. .T.

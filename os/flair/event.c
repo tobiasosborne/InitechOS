@@ -50,6 +50,7 @@
  * [0, FLAIR_SCREEN_H-1] (640x480, ADR-0004 OD-3).
  */
 #include "event.h"        /* os/flair/event.h (-Ios/flair)                  */
+#include "ring_report.h"
 
 /* ===========================================================================
  * MINIMAL PANIC STUB (freestanding; host builds shadow with assert/fprintf)
@@ -74,6 +75,11 @@
 /* Global PIT tick counter (Rule 11: monotonic, starts at 0, advanced ONLY
  * by flair_tick_advance() which is called from the PIT ISR). */
 static volatile uint32_t g_tick;
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+/* Test fixture clock injection for the uint32 wrap boundary (gwts).
+ * Factory only: no symbol or bytes in the freestanding artifact. */
+void flair_event_test_set_tick(uint32_t tick) { g_tick = tick; }
+#endif
 
 /* Cursor position in screen (global) coordinates. Updated by the pump from
  * FLAIR_RAW_MOUSE deltas; clamped to [0, FLAIR_SCREEN_W-1] x
@@ -140,6 +146,7 @@ void flair_event_init(flair_raw_ring_t *ring)
     ring->head       = 0u;
     ring->tail       = 0u;
     ring->drop_count = 0u;
+    ring->drop_reported = 0u;
     for (i = 0; i < FLAIR_RAW_RING_CAP; i++) {
         ring->slots[i].kind    = 0u;
         ring->slots[i].tick    = 0u;
@@ -346,6 +353,12 @@ static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
  */
 static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
 {
+#ifndef EVENT_MUT_SILENT_DROP
+    if (ring->drop_count != 0u && !ring->drop_reported) {
+        ring->drop_reported = 1;
+        RING_REPORT("FLAIR-EVT-DROP\n");
+    }
+#endif
     uint32_t h, t;
     h = ring->head;   /* volatile read -- see consumer note above */
     t = ring->tail;
@@ -630,13 +643,13 @@ int WaitNextEvent(flair_raw_ring_t *ring,
                   EventRecord *theEvent,
                   uint32_t sleepTicks)
 {
-    uint32_t deadline;
+    uint32_t start;
     flair_raw_event_t raw;
     uint16_t what;
 
     if (!ring || !theEvent) { FLAIR_PANIC("WaitNextEvent: NULL arg"); }
 
-    deadline = g_tick + sleepTicks;
+    start = g_tick;
 
     for (;;) {
         /* Try to drain and cook one raw event. */
@@ -653,7 +666,13 @@ int WaitNextEvent(flair_raw_ring_t *ring,
         }
 
         /* Ring empty: check timeout. */
-        if (sleepTicks == 0u || g_tick >= deadline) {
+#ifdef EVENT_MUT_TICK_WRAP
+        if (sleepTicks == 0u || g_tick >= start + sleepTicks) {
+#else
+        /* gwts: elapsed unsigned subtraction survives the PIT tick wrap.
+         * Ref: ADR-0004 D-6 and the existing live-pump budget idiom. */
+        if ((uint32_t)(g_tick - start) >= sleepTicks) {
+#endif
             theEvent->what      = (uint16_t)nullEvent;
             theEvent->message   = 0u;
             theEvent->when      = g_tick;

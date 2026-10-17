@@ -1,0 +1,46 @@
+% Programming with InitechBase, Appendix A: Commands at the Dot Prompt and
+% in Programs.  Sources: samir_main.c samir_repl (USE, CLOSE, QUIT, EXIT and
+% DO of a program file are carried out by the dot prompt itself; observed
+% #16 when a program uses them), cmd/flow.c (IF, DO CASE, DO WHILE and their
+% parts need a program: at the dot prompt they are refused), cmd/proc.c.
+\chapter{Commands at the Dot Prompt and in Programs}
+\Gates{test-samir-repl, test-interp-flow, test-interp-proc}
+Most commands may be typed at the dot prompt and written in programs alike.
+A few belong to one or the other.
+
+\ATEHead{Only at the Dot Prompt}
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{38mm}p{96mm}@{}}
+\hline
+\textsf{\textbf{Command}} & \textsf{\textbf{In a program}}\\
+\hline
+\cmd{USE} & Open the databases at the dot prompt before the program runs.\\
+\cmd{CLOSE} & Close the databases at the dot prompt after the program.\\
+\cmd{QUIT}, \cmd{EXIT} & Leave InitechBase from the dot prompt.  In a program,
+  \cmd{EXIT} leaves a \cmd{DO WHILE} loop.\\
+\cmd{DO} \xp{program file} & A program calls the procedures of its own file;
+  program files are run from the dot prompt.\\
+\hline
+\end{tabular}
+
+\ATEHead{Only in Programs}
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{38mm}p{96mm}@{}}
+\hline
+\textsf{\textbf{Command}} & \textsf{\textbf{Use}}\\
+\hline
+\cmd{IF}, \cmd{ELSE}, \cmd{ENDIF} & Decisions\\
+\cmd{DO CASE}, \cmd{CASE}, \cmd{OTHERWISE}, \cmd{ENDCASE} & Choices\\
+\cmd{DO WHILE}, \cmd{LOOP}, \cmd{EXIT}, \cmd{ENDDO} & Loops\\
+\cmd{PROCEDURE} & Begins a procedure of a program file\\
+\cmd{PARAMETERS} & Receives the values of \cmd{DO} \ldots{} \kw{WITH}\\
+\hline
+\end{tabular}
+
+\ATEHead{Both}
+Every other command of \doctitle{Using InitechBase}, Chapter~5, may be typed at
+the dot prompt and written in a program: \cmd{?}, \cmd{??}, \cmd{ACCEPT},
+\cmd{APPEND BLANK}, \cmd{CONTINUE}, \cmd{DELETE}, \cmd{DISPLAY}, \cmd{DO} of a
+procedure, \cmd{FIND}, \cmd{GO}, \cmd{INPUT}, \cmd{LIST}, \cmd{LOCATE},
+\cmd{NOTE}, \cmd{ON ERROR}, \cmd{PACK}, \cmd{PRIVATE}, \cmd{PUBLIC},
+\cmd{RECALL}, \cmd{RELEASE}, \cmd{REPLACE}, \cmd{REPORT FORM}, \cmd{RETURN},
+\cmd{SEEK}, \cmd{SELECT}, \cmd{SKIP}, \cmd{STORE}, \cmd{WAIT}, \cmd{ZAP} and
+the SET commands.

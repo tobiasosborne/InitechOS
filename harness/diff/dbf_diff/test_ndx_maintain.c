@@ -115,6 +115,7 @@ typedef struct {
     ndx_index *idx;
     int        bad_order;  /* set if cmp(prev, cur) > 0 */
     uint32_t   count;
+    uint32_t   prev_recno;
     uint32_t   bad_recno;  /* set if recno < 1 */
     /* prev key: we keep a copy because key_data is only valid during the cb. */
     uint8_t    prev_key[256];
@@ -129,7 +130,7 @@ static int order_cb(void *raw, const uint8_t *key_data, uint32_t recno)
 
     if (ctx->have_prev) {
         int cmp = ndx_key_cmp(ctx->idx, ctx->prev_key, key_data);
-        if (cmp > 0)
+        if (cmp > 0 || (cmp == 0 && recno <= ctx->prev_recno))
             ctx->bad_order++;
     }
 
@@ -137,6 +138,7 @@ static int order_cb(void *raw, const uint8_t *key_data, uint32_t recno)
     rt_memcpy(ctx->prev_key, key_data,
               (uint32_t)ndx_key_length(ctx->idx));
     ctx->have_prev = 1;
+    ctx->prev_recno = recno;
     ctx->count++;
     return 0;
 }

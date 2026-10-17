@@ -58,6 +58,19 @@
 #include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam)   */
 #include "progress_platinum.h"   /* CDEF 5 anatomy, locked spec-data (-Ispec)    */
 
+/* gxo2: same fail-loud path as ATKINSON (Rule 2, PRD Appendix B). */
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+#include <stdlib.h>
+#define CTRL_PANIC() abort()
+#else
+#define CTRL_PANIC() __builtin_trap()
+#endif
+#ifdef CTRL_MUT_NULL_SILENT
+#define CTRL_REQUIRE(p) ((void)0)
+#else
+#define CTRL_REQUIRE(p) do { if (!(p)) CTRL_PANIC(); } while (0)
+#endif
+
 /* ===========================================================================
  * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)
  * The control draw code names these semantic PARTs and resolves PART ->
@@ -208,6 +221,7 @@ void control_init(ControlRecord *ctrl,
                   int16_t vis,
                   const char *title)
 {
+    CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
@@ -235,6 +249,7 @@ void control_init(ControlRecord *ctrl,
  * ===========================================================================*/
 void SetControlValue(ControlRecord *ctrl, int16_t value)
 {
+    CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
@@ -258,6 +273,7 @@ void SetControlValue(ControlRecord *ctrl, int16_t value)
  * ===========================================================================*/
 int16_t GetControlValue(const ControlRecord *ctrl)
 {
+    CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
         return 0;
     }
@@ -932,6 +948,7 @@ static void draw_progress_bar(GrafPort *port, const ControlRecord *ctrl)
  * covers the moat's inner boundary. Ref: controls.md Sec 5.2. */
 void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
 {
+    CTRL_REQUIRE(port && ctrl);
     if (port == 0 || ctrl == 0 || ctrl->contrlType != pushButton ||
         !ctrl->contrlVis) {
         return;
@@ -1020,6 +1037,7 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
  * ===========================================================================*/
 void DrawControl(GrafPort *port, ControlRecord *ctrl)
 {
+    CTRL_REQUIRE(port && ctrl);
     if (port == 0 || ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
@@ -1062,6 +1080,10 @@ static int pt_in_rect(flair_point_t pt, rgn_rect_t r)
  * ===========================================================================*/
 int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 {
+    CTRL_REQUIRE(ctrl);
+#ifndef CTRL_MUT_DISABLED_HIT
+    if (ctrl && ctrl->contrlHilite == 255) return 0;
+#endif
     if (ctrl == 0 || !ctrl->contrlVis) {
         return 0;
     }
@@ -1088,9 +1110,16 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
         int h   = y1 - y0;
 
         /* Must be at least wide enough to have a scrollbar. */
-        if (h < 2 * btn) {
-            return inButton; /* degenerate: treat as generic hit */
-        }
+#ifdef CTRL_MUT_SHORT_BUTTON
+        if (h < 2 * btn) return inButton;
+#endif
+#ifndef CTRL_MUT_SHORT_LIVE
+        /* mktj/44la: exactly the draw_scrollbar geometry predicate. */
+        if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W || h < 2 * btn + SB_THUMB_MIN)
+            return 0;
+#else
+        (void)h;
+#endif
 
         int y = (int)pt.v;
         (void)x0; (void)x1;
@@ -1136,6 +1165,10 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 int16_t TrackControl(ControlRecord *ctrl,
                      const flair_point_t *pts, uint32_t n_pts)
 {
+    CTRL_REQUIRE(ctrl && pts);
+#ifndef CTRL_MUT_DISABLED_HIT
+    if (ctrl && ctrl->contrlHilite == 255) return 0;
+#endif
     if (ctrl == 0 || pts == 0 || n_pts == 0) {
         return 0;
     }

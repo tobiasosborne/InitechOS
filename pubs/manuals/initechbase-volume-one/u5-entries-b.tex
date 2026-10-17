@@ -1,0 +1,550 @@
+% Using InitechBase Chapter 5, entries FIND .. RETURN (AN-04).
+
+% FIND -- os/samir/cmd/query.c q_find (unquoted literal through ndx_seek on
+% the master index; SET EXACT; #26 without an index).  Gate: test-ndx-seek,
+% test-samir-query.
+\begin{XbaseEntry}{FIND}{command}
+Finds the first record whose index key begins with a literal character
+string.
+\Syntax
+\SyntaxLine{\kw{FIND} \xp{literal string}}
+\Usage
+\cmd{FIND} searches the master index of the database in USE (the first index
+named in \cmd{USE}, or the one chosen with SET ORDER) for the characters
+typed after the command, without quotation marks.  If a key begins with them,
+the record pointer moves to the first such record in index order and
+\fn{FOUND()} is true.  If none does, the pointer moves to the end of the file:
+\fn{EOF()} is true and \fn{FOUND()} false.
+
+While SET EXACT is OFF, a key that begins with the string is found; with SET
+EXACT ON, the key must equal the string, apart from trailing blanks.  Capital
+and small letters are different.
+
+\cmd{FIND} needs an open index.  Without one it displays
+\xmsg{26}{Database is not indexed.}
+\Tips
+\cmd{SEEK} does the same with an expression, so it can search for the
+contents of a memory variable or for a number.
+\Examples
+\DotExample{examples/c-find}
+A string that begins no key leaves the pointer at the end of the file:
+\DotExample{examples/c-find-2}
+\SeeAlso{SEEK, LOCATE, SET EXACT, SET ORDER, USE, FOUND()}
+\end{XbaseEntry}
+
+% GO -- os/samir/cmd/query.c q_go (TOP / BOTTOM in master-index order, a
+% record number in physical order; #5 out of range).  Gate: test-interp-nav.
+\begin{XbaseEntry}{GO}{command}
+\XAlso{GOTO}{GOTO}%
+Moves the record pointer to a record.
+\Syntax
+\SyntaxLine{\kw{GO}/\kw{GOTO} \xp{expN}}
+\par or\par
+\SyntaxLine{\kw{GO}/\kw{GOTO} \kw{TOP}/\kw{BOTTOM}}
+\Usage
+\cmd{GO} \xp{expN} makes record number \xp{expN} the current record.  The
+record number is the position of the record in the database, whatever index
+is open.  A number below 1 or above the number of records is refused with
+\xmsg{5}{Record is out of range.}
+
+\cmd{GO TOP} moves to the first record and \cmd{GO BOTTOM} to the last.  With
+an index open, first and last mean in the order of the master index; without
+one, record 1 and the last record.  While a filter is set (SET FILTER),
+\cmd{GO TOP} and \cmd{GO BOTTOM} move to the first and last record that meets
+it.
+
+\cmd{GOTO} is another name for \cmd{GO}.
+\Examples
+\DotExample{examples/c-go}
+With an index open, the top is the first name in alphabetical order:
+\DotExample{examples/c-go-2}
+\SeeAlso{SKIP, RECNO(), EOF(), BOF()}
+\end{XbaseEntry}
+
+% IF -- os/samir/cmd/flow.c LK_IF/LK_ELSE/LK_ENDIF (guard must be Logical,
+% #37; program lines only).  Gate: test-interp-flow.
+\begin{XbaseEntry}{IF}{command}
+\XAlso{ELSE}{ELSE}\XAlso{ENDIF}{ENDIF}%
+Carries out one of two groups of commands in a program, according to a
+condition.
+\Syntax
+\SyntaxLine{\kw{IF} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\opt{\kw{ELSE}}}
+\SyntaxLine{\ \ \opt{\xp{commands}}}
+\SyntaxLine{\kw{ENDIF}}
+\Usage
+When the condition is true, the commands between \cmd{IF} and \cmd{ELSE} (or
+\cmd{ENDIF}) are carried out.  When it is false, the commands between
+\cmd{ELSE} and \cmd{ENDIF} are carried out, if there is an \cmd{ELSE}.  The
+program then goes on after \cmd{ENDIF}.
+
+The condition must be a logical expression: a field of type Logical, a
+comparison, or a logical function such as \fn{EOF()}.  InitechBase does not
+treat a number or a string as true or false; a condition of another type stops
+the program with \xmsg{37}{Not a Logical expression.}
+
+\cmd{IF} is used only in programs.  \cmd{IF} structures may be nested inside one
+another and inside \cmd{DO WHILE} and \cmd{DO CASE}; each \cmd{IF} needs its own
+\cmd{ENDIF}.
+\Examples
+\file{PAYTOTAL.PRG}, listed under \cmd{DO WHILE}, uses \cmd{IF} twice: to skip
+the deleted records and to add each salary to one of two totals:
+\DotExample{examples/c-if}
+\SeeAlso{DO CASE, DO WHILE, IIF()}
+\end{XbaseEntry}
+
+% INPUT -- os/samir/cmd/proc.c p_input (prompt, one line, EVALUATED as an
+% expression; the memvar takes its type).  Gate: test-interp-proc.
+\begin{XbaseEntry}{INPUT}{command}
+Displays a prompt, reads an expression typed at the keyboard and stores its
+value in a memory variable.
+\Syntax
+\SyntaxLine{\kw{INPUT} \opt{\xp{expC}} \kw{TO} \xp{memvar}}
+\Usage
+\cmd{INPUT} displays the prompt \xp{expC}, if one is given, and waits for a
+line ending with \key{Enter}.  The line is evaluated as an expression, and its
+value is stored in \xp{memvar}, which takes the type of the value.  A number
+typed in answer gives a numeric memory variable.  A character string must be
+typed in quotation marks; a date is typed as a call of \fn{CTOD()}; a logical
+value as \texttt{.T.} or \texttt{.F.}.
+
+Because the answer is an expression, it may also be a calculation, a field
+name or a memory variable.  The answer must be a valid InitechBase
+expression.
+\Tips
+Use \cmd{ACCEPT} for character answers: the user need not type quotation
+marks.
+\Examples
+\DotExample{examples/c-input}
+\SeeAlso{ACCEPT, WAIT, STORE, CTOD()}
+\end{XbaseEntry}
+
+% LIST -- os/samir/cmd/query.c q_list (default scope ALL with an implicit
+% GO TOP; heading per SET HEADING; deleted '*'; SET DELETED, SET FILTER).
+% Gates: test-samir-query, test-samir-list-layout, test-interp-list.
+\begin{XbaseEntry}{LIST}{command}
+Lists the records of the database in USE.
+\Syntax
+\SyntaxLine{\kw{LIST} \opt{\xp{scope}} \opt{\xp{expression list}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}
+  \opt{\kw{OFF}}}
+\Defaults
+The scope is \kw{ALL}: \cmd{LIST} begins at the first record.  Without an
+expression list, every field is listed.
+\Usage
+\cmd{LIST} displays one line for each record of the scope that meets the
+\kw{FOR} and \kw{WHILE} conditions.  Each line begins with the record number,
+then the value of each field or expression.  The first line is a heading:
+\texttt{Record\#} and the field names, or the expressions as typed; SET
+HEADING OFF leaves it out.  A record marked for deletion has an asterisk in
+front of its number.  While SET DELETED is ON, such records are not listed;
+while a filter is set, only the records that meet it are listed.
+
+The columns are as wide as the fields or the values, or as the headings when
+these are wider.  Character fields are shown at their full width, numeric
+fields with their decimal places, dates in the form set by SET DATE, logical
+fields as \texttt{T} or \texttt{F}, and memo fields with their text.  The
+screen holds 80 characters: a longer line continues on the next.
+
+\kw{FOR} tests every record of the scope.  \kw{WHILE} stops at the first record
+for which its condition is false, and leaves the record pointer on it; without
+a scope, a \cmd{LIST} with \kw{WHILE} also begins at the first record.  The
+scope must come before the expression list.  After \cmd{LIST} of the whole
+file the record pointer is at the end of the file; after \kw{NEXT} \xp{n} it is
+on the last record listed.
+\Options
+\kw{OFF} leaves out the record numbers.  In this version, \kw{OFF} lists
+every field of each record and takes no expression list.
+\Examples
+\DotExample{examples/c-list}
+Expressions as well as fields may be listed:
+\DotExample{examples/c-list-2}
+\SeeAlso{DISPLAY, ?, SET DELETED, SET FILTER, SET HEADING, REPORT FORM}
+\end{XbaseEntry}
+
+% LOCATE -- os/samir/cmd/query.c q_locate (default scope ALL with implicit
+% GO TOP; stores the FOR for CONTINUE; sets FOUND/EOF).  Gate:
+% test-samir-query.
+\begin{XbaseEntry}{LOCATE}{command}
+Moves to the first record that meets a condition.
+\Syntax
+\SyntaxLine{\kw{LOCATE} \opt{\xp{scope}} \kw{FOR} \xp{condition}
+  \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+The scope is \kw{ALL}: the search begins at the first record.
+\Usage
+\cmd{LOCATE} tests the records of the scope, in order, against the \kw{FOR}
+condition, and stops at the first record that meets it.  That record becomes
+the current record and \fn{FOUND()} is true.  If no record meets the
+condition, the record pointer moves to the end of the scope: for the default
+scope, \fn{EOF()} is true.  \fn{FOUND()} is then false.
+
+\cmd{LOCATE} reads the records one after another and needs no index.  The
+condition may be any logical expression.  \cmd{CONTINUE} goes on to the next
+record that meets the same condition.
+\Tips
+On a large indexed database, \cmd{SEEK} finds a key faster than \cmd{LOCATE}.
+\Examples
+\DotExample{examples/c-locate}
+\SeeAlso{CONTINUE, SEEK, FIND, SET FILTER, FOUND()}
+\end{XbaseEntry}
+
+% NOTE / * / && -- os/samir/cmd/flow.c trim_line ("&&" strips to the end of
+% the line; a line beginning "*" or "NOTE" is a comment).  Gate:
+% test-interp-flow.
+\begin{XbaseEntry}{NOTE}{command}
+\XAlso{*}{*}\XAlso{&&}{\&\&}%
+Marks a comment in a program.
+\Syntax
+\SyntaxLine{\kw{NOTE} \xp{text}}
+\par or\par
+\SyntaxLine{\kw{*} \xp{text}}
+\par or\par
+\SyntaxLine{\xp{command} \kw{\&\&} \xp{text}}
+\Usage
+A line that begins with \cmd{NOTE} or with an asterisk is a comment:
+InitechBase does not carry it out.  Two ampersands after a command begin a
+comment that runs to the end of the line; the command before them is carried
+out.
+
+Comments explain a program to the people who read it.  Every program on the
+Sample Programs and Utilities diskette begins with comment lines that give its
+name, its purpose and the database it works on.
+\Examples
+\DotExample{examples/c-note}
+\SeeAlso{DO, PROCEDURE}
+\end{XbaseEntry}
+
+% ON ERROR -- os/samir/cmd/proc.c p_on "ERROR" (store / clear the trap) and
+% proc_run (the trap command runs once on a run-time error; the message is
+% then displayed).  Gate: test-interp-proc.
+\begin{XbaseEntry}{ON ERROR}{compound}
+\XAlso{ON}{ON}%
+Names a command to be carried out when an error occurs.
+\Syntax
+\SyntaxLine{\kw{ON ERROR} \opt{\xp{command}}}
+\Usage
+After \cmd{ON ERROR} \xp{command}, whenever a command or a program stops with
+an error, InitechBase carries out \xp{command}, and then displays the error
+message as usual.  The function \fn{ERROR()} gives the number of the error
+while the command runs, so the command can record or report it.  The command is
+often \cmd{DO} of a procedure that handles errors.
+
+\cmd{ON ERROR} with no command removes the trap.  A new \cmd{ON ERROR} replaces
+the one before.
+\Examples
+\DotExample{examples/c-onerror}
+\SeeAlso{ERROR(), ON ESCAPE, ON KEY, RETURN}
+\end{XbaseEntry}
+
+% ON ESCAPE, ON KEY -- os/samir/cmd/proc.c p_on "ESCAPE"/"KEY": parsed and
+% accepted, the trap is not installed.
+\begin{XbaseEntry}[the ON ESCAPE and ON KEY traps are accepted but not
+  carried out by this version (proc.c)]{ON ESCAPE}{compound}
+Name a command to be carried out when \key{Esc}, or any key, is pressed while
+a program runs.
+\Syntax
+\SyntaxLine{\kw{ON ESCAPE} \opt{\xp{command}}}
+\par or\par
+\SyntaxLine{\kw{ON KEY} \opt{\xp{command}}}
+\Usage
+InitechBase accepts both commands, with or without a command to carry out,
+and displays no message.  The command named is not carried out when a key is
+pressed.
+\SeeAlso{ON ERROR, WAIT}
+\end{XbaseEntry}
+
+% PACK -- os/samir/cmd/mutate.c m_pack (dbf_pack removes the 0x2A records and
+% renumbers; every open index rebuilt, initech-x87g).  Gates:
+% test-interp-replace, test-ndx-pack.
+\begin{XbaseEntry}{PACK}{command}
+Removes the records marked for deletion from the database in USE.
+\Syntax
+\SyntaxLine{\kw{PACK}}
+\Usage
+\cmd{PACK} removes every record that \cmd{DELETE} has marked from the database
+in the selected work area, and renumbers the records that remain, in their
+order.  The database becomes smaller, and \fn{RECCOUNT()} gives the new
+number of records.  Every index file open with the database is rebuilt for the
+new record numbers.
+
+The records removed cannot be recalled.
+\Tips
+Before \cmd{PACK}, list the marked records with \cmd{LIST FOR DELETED()} to make
+sure no record is marked by mistake.
+\Examples
+\DotExample{examples/c-pack}
+\SeeAlso{DELETE, RECALL, ZAP, DELETED()}
+\end{XbaseEntry}
+
+% PARAMETERS -- os/samir/cmd/proc.c p_parameters (binds DO ... WITH values
+% by position into PRIVATE memvars; #93 without arguments, #94 count).
+% Gate: test-interp-proc.
+\begin{XbaseEntry}{PARAMETERS}{command}
+\XAlso{PARAMETER}{PARAMETER}%
+Receives the values passed by \cmd{DO} \ldots{} \kw{WITH} in memory variables.
+\Syntax
+\SyntaxLine{\kw{PARAMETERS} \xp{memvar list}}
+\Usage
+\cmd{PARAMETERS} is the first command of a procedure that is called with
+\kw{WITH}.  It creates one private memory variable for each name of the list
+and gives it the value in the same position of the \kw{WITH} list: the first
+name receives the first value, and so on.  The memory variables are released
+when the procedure returns.
+
+Give \cmd{PARAMETERS} one name for each value the \cmd{DO} passes.  A procedure
+called with values but without \cmd{PARAMETERS} stops at its \cmd{RETURN} with
+\xmsg{93}{No PARAMETER statement found.}
+
+\cmd{PARAMETER} is another name for \cmd{PARAMETERS}.
+\Examples
+See \cmd{DO}: the procedure \texttt{NEWSAL} of \file{RAISE.PRG} receives a salary
+and a percentage.
+\SeeAlso{DO, PROCEDURE, PRIVATE, RETURN}
+\end{XbaseEntry}
+
+% PRIVATE -- os/samir/cmd/proc.c p_private -> xb_interp_declare_private
+% (hides the caller's variable until the routine returns).  Gate:
+% test-interp-proc.
+\begin{XbaseEntry}{PRIVATE}{command}
+Creates memory variables that belong to the procedure running, hiding any of
+the same names.
+\Syntax
+\SyntaxLine{\kw{PRIVATE} \xp{memvar list}}
+\Usage
+\cmd{PRIVATE} gives the procedure in which it is used its own memory variables
+of the names in the list.  A memory variable of the same name created by the
+program that called the procedure, or declared PUBLIC, is hidden while the
+procedure runs and keeps its value: when the procedure returns, the private
+variables are released and the hidden ones are visible again.
+
+A private memory variable has no value until a value is stored in it.
+
+A memory variable that a procedure creates without \cmd{PRIVATE}, by storing a
+value in a name that does not yet exist, is private to that procedure as well.
+\Examples
+\file{TALLY.PRG} keeps its count apart from the count of its procedure:
+\ProgramListing{TALLY.PRG}
+\DotExample{examples/c-private}
+\SeeAlso{PUBLIC, RELEASE, STORE, PARAMETERS}
+\end{XbaseEntry}
+
+% PROCEDURE -- os/samir/cmd/proc.c (PROCEDURE lines end the main program;
+% DO <name> runs the block up to RETURN).  Gate: test-interp-proc.
+\begin{XbaseEntry}{PROCEDURE}{command}
+Begins a procedure in a program file.
+\Syntax
+\SyntaxLine{\kw{PROCEDURE} \xp{name}}
+\Usage
+A program file may hold, after its main program, any number of procedures.
+Each begins with a \cmd{PROCEDURE} line that names it, and ends with
+\cmd{RETURN}.  The main program ends at the first \cmd{PROCEDURE} line: when a
+program is run, it stops there, and the procedures run only when
+\cmd{DO} calls them by name.
+
+A procedure name has up to 10 letters and digits and begins with a letter.
+\Examples
+See \cmd{DO} and \cmd{PRIVATE}.
+\SeeAlso{DO, PARAMETERS, RETURN}
+\end{XbaseEntry}
+
+% PUBLIC -- os/samir/cmd/proc.c p_public -> xb_interp_declare_public
+% (level-0 variable that survives RETURN).  Gate: test-interp-proc.
+\begin{XbaseEntry}{PUBLIC}{command}
+Creates memory variables that every program and procedure can use and that
+remain when they return.
+\Syntax
+\SyntaxLine{\kw{PUBLIC} \xp{memvar list}}
+\Usage
+A public memory variable is not released when the procedure or program that
+created it returns.  It can be used by every procedure, by the programs run
+afterwards and at the dot prompt, until it is released with \cmd{RELEASE}.
+
+Declare a memory variable \cmd{PUBLIC} before you store a value in it.  If a
+memory variable of the name is already visible, \cmd{PUBLIC} leaves it as it
+is.  A public memory variable has no value until one is stored in it.
+\Examples
+The procedure \texttt{NEWSAL} of \file{RAISE.PRG} (listed under \cmd{DO})
+declares its result \cmd{PUBLIC}, so it is still there at the dot prompt:
+\DotExample{examples/c-public}
+\SeeAlso{PRIVATE, RELEASE, STORE}
+\end{XbaseEntry}
+
+% QUIT -- os/samir/samir_main.c samir_repl (QUIT and EXIT end the loop;
+% wa_close_all closes every database; back to InitechDOS).  Gate:
+% test-samir-repl, test-samir-boot.
+\begin{XbaseEntry}{QUIT}{command}
+Closes all files and leaves InitechBase.
+\Syntax
+\SyntaxLine{\kw{QUIT}}
+\Usage
+\cmd{QUIT} closes every open database with its index files and returns to
+InitechDOS, which displays its prompt.  \cmd{EXIT}, typed at the dot prompt,
+does the same.
+
+Always leave InitechBase with \cmd{QUIT} before you turn off or restart the
+computer.
+\Examples
+\DotExample{examples/c-quit}
+\SeeAlso{CLOSE, USE}
+\end{XbaseEntry}
+
+% RECALL -- os/samir/cmd/mutate.c m_recall (default the current record; FOR
+% without a scope = ALL).  Gate: test-interp-replace.
+\begin{XbaseEntry}{RECALL}{command}
+Removes the deletion mark from records.
+\Syntax
+\SyntaxLine{\kw{RECALL} \opt{\xp{scope}} \opt{\kw{FOR} \xp{condition}}
+  \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+Without a scope or a condition, \cmd{RECALL} works on the current record
+only.  With a \kw{FOR} condition and no scope, the scope is \kw{ALL}.
+\Usage
+\cmd{RECALL} makes records marked by \cmd{DELETE} ordinary records again.  A
+record removed by \cmd{PACK} or \cmd{ZAP} cannot be recalled.
+\Examples
+Record 13 of \file{STAFF.DBF} is marked for deletion on the diskette:
+\DotExample{examples/c-recall}
+\SeeAlso{DELETE, PACK, DELETED()}
+\end{XbaseEntry}
+
+% RELEASE -- os/samir/cmd/flow.c "RELEASE" (a name list, or ALL).  Gate:
+% test-interp-flow.
+\begin{XbaseEntry}{RELEASE}{command}
+Releases memory variables.
+\Syntax
+\SyntaxLine{\kw{RELEASE} \xp{memvar list}}
+\par or\par
+\SyntaxLine{\kw{RELEASE ALL}}
+\Usage
+\cmd{RELEASE} removes the memory variables named.  \cmd{RELEASE ALL} removes all
+of them.  A memory variable released no longer exists; a reference to it
+gives \xmsg{12}{Variable not found.}
+\Examples
+\DotExample{examples/c-release}
+\DotExample{examples/c-release-2}
+\SeeAlso{STORE, PUBLIC, PRIVATE}
+\end{XbaseEntry}
+
+% REPLACE -- os/samir/cmd/mutate.c m_replace (default the current record;
+% field WITH expr pairs; xbase_coercion.json assignment rules via
+% dbf_replace; #9 cross-type; numeric overflow '*'; indexes updated on the
+% current-record form).  Gates: test-interp-replace, test-dbf-mutate.
+\begin{XbaseEntry}{REPLACE}{command}
+Changes the contents of fields.
+\Syntax
+\SyntaxLine{\kw{REPLACE} \opt{\xp{scope}} \xp{field} \kw{WITH} \xp{exp}
+  \opt{\kw{,} \xp{field} \kw{WITH} \xp{exp} \rep}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}}
+\Defaults
+Without a scope or a condition, \cmd{REPLACE} changes the current record
+only.  With a \kw{FOR} condition and no scope, the scope is \kw{ALL}.
+\Usage
+For each record of the scope that meets the conditions, \cmd{REPLACE}
+evaluates each expression and stores its value in the field before
+\kw{WITH}.  The expressions are evaluated for the record being changed, so
+\texttt{SALARY WITH SALARY * 1.03} raises each salary by three per cent.  The
+changed records are written to the disk at once.
+
+The value must be of the type of the field: a character value into a
+character field, a number into a numeric field, a date into a date field, a
+logical value into a logical field.
+\draft{a character value replaced into a memo field is not stored by this
+version, and the text the field held is lost (mutate.c); change memo text with
+another program}  Any other combination is
+refused with \xmsg{9}{Data type mismatch.} (Appendix~E).  A character value
+longer than the field is cut off at the width of the field; a shorter one is
+filled with blanks.  A number too large for its field is stored as asterisks.
+
+When the current record is replaced, every index file open with the database
+is updated for the new contents of the fields.
+\Tips
+Convert values of another type first: \fn{STR()} turns a number into
+characters, \fn{VAL()} characters into a number, \fn{CTOD()} characters into
+a date.
+\Examples
+\DotExample{examples/c-replace}
+A scope and a condition change several records at once:
+\DotExample{examples/c-replace-2}
+A value of the wrong type is refused:
+\DotExample{examples/c-replace-3}
+\SeeAlso{APPEND, STORE, STR(), VAL(), CTOD()}
+\end{XbaseEntry}
+
+% REPORT FORM -- os/samir/cmd/report.c (U5-177 options; the .FRM of
+% frm.md; mint 004 layout; TO PRINT refused #126).  Gates:
+% test-samir-report, test-samir-report-emu.
+\begin{XbaseEntry}{REPORT FORM}{compound}
+\XAlso{REPORT}{REPORT}%
+Prints a report of the database in USE, laid out by a report form file.
+\Syntax
+\SyntaxLine{\kw{REPORT FORM} \xp{file} \opt{\xp{scope}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}
+  \opt{\kw{PLAIN}} \opt{\kw{HEADING} \xp{expC}} \opt{\kw{NOEJECT}}
+  \opt{\kw{SUMMARY}} \opt{\kw{TO FILE} \xp{file}}}
+\Defaults
+The scope is \kw{ALL}.  The extension of the report form file is
+\file{.FRM}.
+\Usage
+A report form file describes a report: its title, its columns, the expression
+and heading of each column, which columns are totalled, and whether the
+records are grouped.  The report forms \file{STAFFRPT.FRM} and
+\file{INVRPT.FRM} are on the Sample Programs and Utilities diskette.
+
+\cmd{REPORT FORM} prints a page heading -- the page number, the date and the
+title -- then the column headings, then one line for each record of the scope
+that meets the conditions, and at the end the total of each totalled column.
+In a grouped report a new group begins whenever the group expression changes;
+each group has its own heading and subtotals.  Use the report with the records
+in the order of the group, through an index.
+
+A column value too long for its column continues on the next line of the
+report.  A new page begins when the page is full.
+\Options
+\kw{PLAIN} leaves out the page number and the date, and prints the title and
+the column headings on the first page only.
+
+\kw{HEADING} \xp{expC} prints the value of \xp{expC} after the page number.
+
+\kw{NOEJECT} leaves out the page advance before the first page.
+
+\kw{SUMMARY} prints only the group headings, the subtotals and the total,
+without the lines of the records.
+
+\kw{TO FILE} \xp{file} also writes the report to a text file.  Without an
+extension, the file is given the extension \file{.TXT}.  The report is
+displayed on the screen as well.
+\Tips
+Print a report on a printer from InitechDOS: write it \kw{TO FILE}, leave
+InitechBase and copy the file to the printer.  \kw{TO PRINT} is refused with
+\xmsg{126}{Printer is either not connected or turned off.}
+\Examples
+\DotExample{examples/c-report}
+The whole register, without page headings:
+\DotExample{examples/c-report-2}
+Subtotals only, with a heading:
+\DotExample{examples/c-report-3}
+\SeeAlso{LIST, SET HEADING, USE}
+\end{XbaseEntry}
+
+% RETURN -- os/samir/cmd/proc.c PROC_RC_RETURN (leaves the routine, out of any
+% IF / DO WHILE; at the main level ends the program).  Gate:
+% test-interp-proc.
+\begin{XbaseEntry}{RETURN}{command}
+Ends a procedure or a program and returns to the one that called it.
+\Syntax
+\SyntaxLine{\kw{RETURN}}
+\Usage
+In a procedure, \cmd{RETURN} ends the procedure at once, even inside an
+\cmd{IF} or a \cmd{DO WHILE}, and the calling program goes on with the line
+after its \cmd{DO}.  The private memory variables of the procedure are
+released.  In the main program of a program file, \cmd{RETURN} ends the program
+and InitechBase returns to the dot prompt.
+
+Every procedure ends with \cmd{RETURN}, and so does the main program of a file
+that contains procedures.  At the dot prompt, \cmd{RETURN} does nothing.
+\Examples
+See \cmd{DO}.
+\SeeAlso{DO, PROCEDURE, PRIVATE}
+\end{XbaseEntry}

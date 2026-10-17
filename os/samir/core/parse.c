@@ -132,6 +132,7 @@ static int32_t alloc_node(xb_parser *p, xb_node_type type)
     n->kid[0]  = -1;
     n->kid[1]  = -1;
     n->src_off = 0;
+    n->num_width = n->num_dec = 0;
     n->u.num   = 0.0;
     return (int32_t)(p->used++);
 }
@@ -168,6 +169,8 @@ static int32_t parse_primary(xb_parser *p)
         if (id < 0) return -1;
         p->pool[id].src_off = t->offset;
         p->pool[id].u.num   = t->u.n;
+        p->pool[id].num_width = t->len;
+        p->pool[id].num_dec = t->num_dec;
         advance(p);
         return id;
     }

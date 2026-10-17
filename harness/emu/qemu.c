@@ -806,6 +806,9 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  *                 the ordering is the GUEST's SHELL-READY, never a guessed
  *                 delay). A marker that never comes is LOUD on stderr and the
  *                 stream goes on; the gate's own serial assertions go RED.
+ *   "S<path>"     attempt QMP blockdev-change-medium on the disk2 backend;
+ *                 use after a W prompt event. The response is logged and a
+ *                 rejected fixed-media swap is never reported as successful.
  *
  * WHY THE KEY TOKEN LIVES IN THE *MOUSE* GRAMMAR. The two injectors run in a
  * fixed order -- ALL of --keys, then ALL of --mouse (see the caller) -- so a
@@ -886,6 +889,38 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                 if (qc && qmp_key_transition(fd, qc, colon[1] == '1') == 0) {
                     ok = 1;
                 }
+            }
+        } else if (tok[0] == 'S' && tok[1] != '\0') {
+            /* DEC-18 factory event: replace the A: medium at a guest prompt.
+             * QMP blockdev-change-medium, device id set by build_argv below.
+             * Fixed ATA models can reject this; never count that as a swap. */
+            char cmd[QEMU_PATH_MAX + 256];
+            if (!strchr(tok + 1, '"') && !strchr(tok + 1, '\\') &&
+                snprintf(cmd, sizeof cmd,
+                    "{\"execute\":\"blockdev-change-medium\",\"arguments\":{"
+                    "\"device\":\"initech_disk2\",\"filename\":\"%s\","
+                    "\"format\":\"raw\",\"force\":true},\"id\":\"disk2swap\"}\n",
+                    tok + 1) < (int)sizeof cmd && qmp_send(fd, cmd) == 0) {
+                /* Read the response rather than dropping a QMP error in drain. */
+                char reply[4096]; size_t used = 0;
+                long long end = mono_ms() + 1000;
+                reply[0] = 0;
+                while (mono_ms() < end && used + 1 < sizeof reply) {
+                    struct pollfd pfd = {fd, POLLIN, 0};
+                    if (poll(&pfd, 1, 50) > 0) {
+                        ssize_t got = read(fd, reply + used, sizeof reply - used - 1);
+                        if (got <= 0) break;
+                        used += (size_t)got; reply[used] = 0;
+                        char *tag = strstr(reply, "disk2swap");
+                        if (tag && strchr(tag, '\n')) break;
+                    }
+                }
+                char *tag = strstr(reply, "disk2swap");
+                int success = tag && strchr(tag, '\n') &&
+                    strstr(reply, "\"return\"") && !strstr(reply, "\"error\"");
+                fprintf(stderr, "[harness] DISK2-SWAP-%s %s\n",
+                        success ? "GREEN" : "RED", reply);
+                ok = 1; /* Event attempted; transcript gate requires success. */
             }
         } else if (tok[0] == 'W' && tok[1] != '\0') {
             /* "W<marker>" -- hold until the guest prints <marker>. */
@@ -1478,9 +1513,9 @@ static int build_argv(const QemuConfig *cfg, char **argv,
      * (brief Sec 1.2: index 1 = primary slave.) Pushed for both -kernel and
      * -drive boot modes, but only meaningful for the raw-disk OS boot. */
     if (cfg->data_disk_path) {
-        static char drvbuf2[QEMU_PATH_MAX + 48];
+        static char drvbuf2[QEMU_PATH_MAX + 80];
         snprintf(drvbuf2, sizeof(drvbuf2),
-                 "file=%s,format=raw,if=ide,index=1", cfg->data_disk_path);
+                 "file=%s,format=raw,if=ide,index=1,id=initech_disk2", cfg->data_disk_path);
         PUSH("-drive");
         PUSH(drvbuf2);
     }

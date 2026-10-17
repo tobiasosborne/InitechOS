@@ -1,0 +1,9 @@
+. USE STAFF
+. LIST LASTNAME, FIRSTNAME, DEPT FOR EXEMPT .AND. DEPT = 'SOFT'
+Record#  LASTNAME       FIRSTNAME  DEPT
+      1  LUMBERGH       BILL       SOFT
+      2  GIBBONS        PETER      SOFT
+      3  BOLTON         MICHAEL    SOFT
+      4  NAGHEENANAJAR  SAMIR      SOFT
+      9  DELGADO        ANDREW     SOFT
+     11  OKAFOR         DANIEL     SOFT

@@ -1,0 +1,3 @@
+. ? FILE("STAFF.DBF"), FILE("STAFF"), FILE("NOFILE.DBF")
+
+.T. .F. .F.

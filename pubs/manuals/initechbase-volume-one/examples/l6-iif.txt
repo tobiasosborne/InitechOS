@@ -1,0 +1,7 @@
+. ? IIF(1 > 2, 'YES', 'NO')
+
+NO. USE STAFF
+. GO 5
+. ? LASTNAME, IIF(EXEMPT, 'EXEMPT', 'HOURLY')
+
+WADDAMS        HOURLY

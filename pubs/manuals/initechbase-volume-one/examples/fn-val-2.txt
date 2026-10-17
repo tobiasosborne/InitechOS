@@ -1,0 +1,5 @@
+. USE STAFF
+. GO 2
+. ? VAL(EMPNO) + 1
+
+1003

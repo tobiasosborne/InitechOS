@@ -1,0 +1,3 @@
+. ? ISUPPER("Initech"), ISUPPER("initech")
+
+.T. .F.

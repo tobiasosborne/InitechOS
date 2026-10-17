@@ -61,6 +61,7 @@
 #include "test_assert.h"  /* TEST_HARNESS / CHECK / TEST_SUMMARY (-Iseed)      */
 
 TEST_HARNESS();
+#include "expect_abort.h"
 
 /* ===========================================================================
  * Cross-tenant stub: a minimal no-op event entry-point (REQUIRED by the
@@ -363,5 +364,19 @@ int main(void)
               "step-7: ct_buf[4] == 0x79 ('y')");
     }
 
+    {
+        static FlairScrap full;
+        FlairScrap_init(&full);
+        for (uint32_t i = 1; i <= 4; i++)
+            CHECK(FlairPutScrap(&full, i, "x", 1) == 0, "iuwq fill four flavors");
+        /* Isolate an unchecked fifth write so the mutant cannot corrupt the test. */
+        EXPECT_ABORT({
+            if (FlairPutScrap(&full, 5, "y", 1) == FLAIR_SCRAP_ERR_NO_FLAVOR)
+                abort();
+        }, "iuwq fifth flavor must be refused");
+        CHECK(FlairPutScrap(&full, 1, "z", 1) == 0, "iuwq replacement at capacity");
+        EXPECT_ABORT(FlairPutScrap(&full, 1, NULL, 1), "m1ry NULL nonempty data panics");
+        CHECK(FlairPutScrap(&full, 1, NULL, 0) == 0, "m1ry empty NULL data allowed");
+    }
     return TEST_SUMMARY("test-scrap");
 }

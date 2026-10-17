@@ -62,22 +62,7 @@ static int frame_cf(const int_frame_t *f) { return (f->eflags & CF_BIT) ? 1 : 0;
 
 /* Low-4-GiB allocation so a flat pointer fits a uint32_t segment computation
  * (mirrors test_mcb_int21.c). */
-static void *alloc_low(size_t n)
-{
-    void *p = MAP_FAILED;
-#ifdef MAP_32BIT
-    p = mmap(NULL, n, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
-#endif
-    if (p == MAP_FAILED) {
-        return NULL;
-    }
-    if ((uintptr_t)p > 0xFFFFFFFFu) {
-        munmap(p, n);
-        return NULL;
-    }
-    return p;
-}
+#include "test_low_mapping.h"
 
 /* A pseudo-image of `len` bytes (contents irrelevant to loader_prepare -- only
  * the length feeds the arena computation). Static so its address is stable. */
@@ -292,6 +277,8 @@ static void check_bind_program_direct_alloc(uint8_t *arena_buf, size_t arena_buf
 int main(void)
 {
     g_psp = (psp_t *)alloc_low(sizeof(psp_t));
+    CHECK((uintptr_t)g_psp == 0x10010000u,
+          "Rule 11: deterministic PSP mapping, nonzero DOS owner");
     CHECK(g_psp != NULL, "PSP buffer in low 4 GiB");
     if (g_psp == NULL) {
         return TEST_SUMMARY("test_arena_disjoint");

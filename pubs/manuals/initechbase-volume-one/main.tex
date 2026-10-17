@@ -1,0 +1,100 @@
+% InitechBase Volume One: Getting Started, Learning InitechBase, Using
+% InitechBase, Index -- part 1040-0000-10 (PUB-REF-0001 Sec 12, DS row
+% BAS-V1).  Family F-ATE; model the dBASE III PLUS 1.1 Volume One binder
+% (docs/pubs/originals/ashton-tate-dbase3plus.md Sec 1, 8, 9, 10).  Bead
+% initech-ipu5.8.  Ground truth (Law 1): os/samir/** (samir_main.c the dot
+% prompt and the message catalogue; cmd/*.c the commands; core/fn_builtins.c
+% and core/eval.c the functions; fs/*.c the files), spec/samir/*.
+% Every command, function and SET option entry registers itself
+% (initech-xbase.sty XbaseEntry -> main.cmds) and is checked against the
+% shipped dot prompt in both directions (harness/pubs/samir_inventory.c,
+% make test-pubs-commands); every message entry against the shipped
+% catalogue (main.msgs); every example is replayed through the shipped dot
+% prompt against a fresh copy of the Sample Programs and Utilities diskette
+% (pubs/examples/samir/disk, harness/pubs/samir_replay.c, make
+% test-pubs-examples).  No version is printed: the shipped build displays
+% none (D-3, PN-03).
+\documentclass[ashtontate,binder]{initech-manual}
+
+\ProductName{InitechBase}
+\DocTitle{Volume One}
+\PartNumber{1040-0000-10}
+\FamilyName{Information Management Family}
+\FamilyColor{FamilyInformation}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to the release of InitechBase that it
+  accompanies and to all subsequent releases until otherwise indicated in new
+  editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+% Operator directive 2026-10-17 (the design lane's class macro wins once it
+% merges): the corporate motto at the placements the directive names.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+
+% A defined term at its first use (TY-02, NT-34): bold, indexed, and in the
+% Glossary (CP-03); the optional argument is the singular index form.
+\NewDocumentCommand\term{om}{\textbf{#2}\IfValueTF{#1}{\index{#1}}{\index{#2}}}
+% What the reader types (NT-15), breakable at its blanks: the dot-prompt
+% commands of the lessons are longer than a DOS command.
+\renewcommand\type[1]{\texttt{\bfseries #1}}
+\newcommand\bs{\textbackslash}
+
+\XbaseIndexMentions
+\MasterIndexPartner{initechbase-volume-two}
+% AN-26 / D-15: the colophon names the replay route of the examples.
+\newcommand\ColophonInitechBase{}
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+
+\BeginSection{G}{Getting Started}
+\input{g1-installing}
+\input{g2-starting}
+\SectionNotes{Getting Started Notes}
+
+\BeginSection{L}{Learning InitechBase}
+\input{l0-introduction}
+\input{l1-quick-start}
+\input{l2-looking}
+\input{l3-moving}
+\input{l4-finding}
+\input{l5-changing}
+\input{l6-calculating}
+\input{l7-reports}
+\input{l8-several}
+\input{l9-programs}
+\input{l10-safe}
+\SectionNotes{Learning Notes}
+
+\BeginSection{U}{Using InitechBase}
+\input{u0-introduction}
+\input{u1-overview}
+\input{u2-commands}
+\input{u3-programs}
+\input{u4-environment}
+\input{u5-commands}
+\input{u6-functions}
+\input{u7-messages}
+\appendix
+\input{ua-keys}
+\input{ub-bof-eof}
+\input{uc-files}
+\input{ud-ascii}
+\input{ue-coercion}
+\input{ug-glossary}
+\SectionNotes{Using Notes}
+
+\EndSections
+\IndexKey{\IndexKeyLine{G}{Getting Started}\IndexKeyLine{L}{Learning InitechBase}%
+  \IndexKeyLine{U}{Using InitechBase}\IndexKeyLine{P}{Programming with InitechBase (Volume Two)}}
+\printindex
+\FinishBook[3]
+\end{document}

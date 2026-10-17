@@ -1,0 +1,5 @@
+. USE STAFF
+. SKIP -1
+. ? RECNO(), BOF()
+
+1 .T.

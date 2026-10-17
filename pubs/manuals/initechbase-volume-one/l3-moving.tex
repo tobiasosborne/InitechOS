@@ -1,0 +1,99 @@
+% Learning InitechBase, Chapter 3: Moving Through a Database (AN-16).
+% Every panel replayed (examples/l3-*.dot); sources cmd/nav.c, cmd/query.c.
+\chapter{Moving Through a Database}
+\Gates{test-pubs-examples, test-interp-nav}
+InitechBase always keeps its place in an open database: the current record.
+In this lesson you learn which record is current, how to move to another, and
+what happens at the beginning and the end of the file.
+
+\begin{ChapterCovers}
+\item The record pointer and \fn{RECNO()}
+\item Moving with \cmd{SKIP} and \cmd{GO}
+\item The top and bottom of the file
+\item The end of the file and \fn{EOF()}
+\item Scopes: \kw{NEXT}, \kw{REST}, \kw{RECORD}
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.
+\begin{Steps}
+\item Type \type{USE STAFF} and press \key{Enter}.
+\end{Steps}
+
+\ATEHead{The Record Pointer}
+The record pointer marks the current record.  \cmd{USE} puts it on the first
+record.  The function \fn{RECNO()} returns the number of the current record,
+and \cmd{SKIP} moves the pointer to the next record.
+\begin{Steps}[resume]
+\item Type \type{? RECNO(), LASTNAME} and press \key{Enter}.
+\item Type \type{SKIP} and press \key{Enter}.
+\item Type \type{? RECNO(), LASTNAME} and press \key{Enter}.
+\item Type \type{SKIP 3} and press \key{Enter}.
+\item Type \type{? RECNO(), LASTNAME} and press \key{Enter}.
+\end{Steps}
+\DotExample{examples/l3-skip}
+\cmd{SKIP} followed by a number moves that many records.  A negative number
+moves back:
+\begin{Steps}[resume]
+\item Type \type{GO 10}, then \type{? RECNO(), LASTNAME}.
+\item Type \type{SKIP -2}, then \type{? RECNO(), LASTNAME}.
+\end{Steps}
+\DotExample{examples/l3-back}
+
+\ATEHead{The Top and the Bottom}
+\cmd{GO TOP} moves to the first record and \cmd{GO BOTTOM} to the last.
+\begin{Steps}[resume]
+\item Type \type{GO BOTTOM}, then \type{? RECNO(), LASTNAME}.
+\item Type \type{GO TOP}, then \type{? RECNO(), LASTNAME}.
+\end{Steps}
+\DotExample{examples/l3-topbottom}
+\fn{RECCOUNT()} tells you how many records there are:
+\DotExample{examples/l3-count}
+
+\ATEHead{The End of the File}
+After the last record there is one more position, the end of the file.  A
+\cmd{SKIP} from the last record moves there.  The function \fn{EOF()} is then
+true, and \fn{RECNO()} is one more than the number of records.
+\begin{Steps}[resume]
+\item Type \type{GO BOTTOM}, then \type{SKIP}, then \type{? RECNO(), EOF()}.
+\end{Steps}
+\DotExample{examples/l3-eof}
+At the end of the file there is no current record.  \cmd{LIST} also leaves the
+pointer there, because it goes through the whole file; move the pointer back
+with \cmd{GO} before you use \cmd{DISPLAY} or \cmd{?} again.
+
+A \cmd{SKIP} back from the first record leaves the pointer on the first record
+and makes the function \fn{BOF()}, beginning of file, true:
+\DotExample{examples/l3-bof}
+
+\ATEHead{Scopes}
+A command that works on records can be told which records to work on: a scope.
+\kw{NEXT} \xp{n} means \xp{n} records from the current one; \kw{REST}, the
+current record and every one after it; \kw{RECORD} \xp{n}, record \xp{n} only;
+\kw{ALL}, every record.  \cmd{DISPLAY} works on the current record unless you
+give it a scope.
+\begin{Steps}[resume]
+\item Type \type{GO 4}, then \type{DISPLAY NEXT 3 LASTNAME, DEPT}.
+\item Type \type{DISPLAY LASTNAME}.
+\Response{The pointer stayed on the last record displayed, record 6.}
+\end{Steps}
+\DotExample{examples/l3-next}
+\begin{Steps}[resume]
+\item Type \type{GO 11}, then \type{LIST REST LASTNAME}.
+\end{Steps}
+\DotExample{examples/l3-rest}
+
+\ATEHead{Where Do You Go From Here?}
+You can now move through a database and work on part of it.  In Chapter~4 you
+let InitechBase find the records you want.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \fn{RECNO()} is the number of the current record; \fn{RECCOUNT()} the
+  number of records.
+\item \cmd{SKIP} \xp{n} moves forward, or back for a negative \xp{n}.
+\item \cmd{GO} \xp{n}, \cmd{GO TOP} and \cmd{GO BOTTOM} move to a record.
+\item \fn{EOF()} is true at the end of the file, \fn{BOF()} at the beginning.
+\item A scope -- \kw{NEXT} \xp{n}, \kw{REST}, \kw{RECORD} \xp{n}, \kw{ALL} --
+  names the records a command works on.
+\end{enumerate}

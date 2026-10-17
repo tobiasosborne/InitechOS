@@ -76,6 +76,11 @@
 #include <string.h>
 
 #include "color_canon.h"   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
+#include "icon_capture.h"  /* the mint-008 golden (-Iharness/render)   */
+
+#ifndef ICON_CAPTURES_DIR
+#error "build with -DICON_CAPTURES_DIR='\"<system7-decomp>/goldens/captures\"'"
+#endif
 
 /* Tight per-channel tolerance -- CAPTURE NOISE only, never a value fudge; the
  * same constant and the same reasoning as tools/ppm_flair_check.c.  The four
@@ -114,90 +119,17 @@ enum { SCRW = 640, SCRH = 480 };
 #define BAND_INSET_R  30
 
 /* ---------------------------------------------------------------------------
- * Tone codes -- the ASCII-map legend, carried through by hand.
+ * THE SPRITES (bead initech-tdnl.53): graded CELL FOR CELL, zero tolerance,
+ * against the INDEPENDENT mint-008 Mac OS 8.1 captures, decoded at run time by
+ * harness/render/icon_capture.h from ICON_CAPTURES_DIR (a build-time path to
+ * ../system7-decomp/goldens/captures; a missing capture FAILS). An opaque
+ * cell must carry the capture's RGB for the icon's state (a SELECTED volume
+ * is the captured selected form); a clear cell the desktop teal, CIDX_DESKTOP
+ * via the independent canon. This replaces the v1 hand-read ASCII-map probes:
+ * the v2 strikes are transcribed from those captures, so the captures -- not
+ * the strike's own map -- are the expected values (Law 2).
  * ------------------------------------------------------------------------- */
-enum {
-    T_INK   = 0,   /* map '#'  -> FLAIR_PART_ICON_INK   -> CIDX_BLACK   */
-    T_FACE  = 1,   /* map 'w'  -> FLAIR_PART_ICON_FACE  -> CIDX_WHITE   */
-    T_SHADE = 2,   /* map 'g'  -> FLAIR_PART_ICON_SHADE -> CIDX_CONTROL */
-    T_CLEAR = 3    /* map '.'  -> not drawn             -> CIDX_DESKTOP */
-};
-
-static int tone_cidx(int tone)
-{
-    switch (tone) {
-    case T_INK:   return CIDX_BLACK;
-    case T_FACE:  return CIDX_WHITE;
-    case T_SHADE: return CIDX_CONTROL;
-    default:      return CIDX_DESKTOP;
-    }
-}
-
-static const char *tone_name(int tone)
-{
-    switch (tone) {
-    case T_INK:   return "INK   (map '#')";
-    case T_FACE:  return "FACE  (map 'w')";
-    case T_SHADE: return "SHADE (map 'g')";
-    default:      return "CLEAR (map '.')";
-    }
-}
-
-/* One hand-read pixel of an ASCII map: sprite-local column, row, and the tone
- * the legend character at that cell decodes to. */
-typedef struct { int col; int row; int tone; const char *why; } MapProbe;
-
-/* ---------------------------------------------------------------------------
- * VOLUME -- the 3.5-inch diskette (spec/assets/desk_icons.h, VOLUME block).
- * The map lines each probe was read from, transcribed here so a reviewer can
- * diff words against words:
- *   row  0: ................................
- *   row  3: ...#######################......
- *   row  4: ...#wwwwwwwwwwwwwwwwwwwwww#.....
- *   row 14: ...#wwwwwww###########wwwwww#...
- *   row 19: ...#www#wwggggggggggggww#www#...
- *   row 28: ...##########################...
- *   row 30: ................................
- * ------------------------------------------------------------------------- */
-static const MapProbe VOL_PROBES[] = {
-    { 10,  3, T_INK,   "row 3 col 10 -- body top edge, ink run cols 3..25" },
-    { 25,  3, T_INK,   "row 3 col 25 -- last ink column of the top edge" },
-    { 10,  4, T_FACE,  "row 4 col 10 -- white body under the top edge" },
-    { 15, 14, T_INK,   "row 14 col 15 -- shutter bottom rule, ink cols 11..21" },
-    { 15, 19, T_SHADE, "row 19 col 15 -- label ruled line, gray cols 10..21" },
-    {  5, 19, T_FACE,  "row 19 col 5 -- white margin left of the label, cols 4..6" },
-    { 15, 28, T_INK,   "row 28 col 15 -- body bottom edge, ink cols 3..28" },
-    {  0,  0, T_CLEAR, "row 0 col 0 -- fully clear row above the body" },
-    {  1, 19, T_CLEAR, "row 19 col 1 -- clear margin left of the body" },
-    { 31,  3, T_CLEAR, "row 3 col 31 -- clear margin right of the top edge" },
-    {  0, 30, T_CLEAR, "row 30 col 0 -- fully clear row below the body" }
-};
-#define VOL_PROBE_N ((int)(sizeof VOL_PROBES / sizeof VOL_PROBES[0]))
-
-/* ---------------------------------------------------------------------------
- * TRASH -- the ridged waste basket (spec/assets/desk_icons.h, TRASH block).
- *   row  0: ................................
- *   row  2: .............######.............
- *   row  5: .......#gggggggggggggggg#.......
- *   row  8: .........#wwwwwwwwwwww#.........
- *   row  9: .........#wwwgwwgwwgww#.........
- *   row 29: ...........##########...........
- *   row 31: ................................
- * ------------------------------------------------------------------------- */
-static const MapProbe TRASH_PROBES[] = {
-    { 15,  2, T_INK,   "row 2 col 15 -- lid handle arch, ink cols 13..18" },
-    {  7,  5, T_INK,   "row 5 col 7 -- lid slab left edge" },
-    { 15,  5, T_SHADE, "row 5 col 15 -- gray lid slab, cols 8..23" },
-    { 15,  8, T_FACE,  "row 8 col 15 -- white basket mouth, cols 10..21" },
-    { 13,  9, T_SHADE, "row 9 col 13 -- first vertical ridge" },
-    { 11,  9, T_FACE,  "row 9 col 11 -- white wall between ridges, cols 10..12" },
-    { 15, 29, T_INK,   "row 29 col 15 -- basket base, ink cols 11..20" },
-    {  0,  0, T_CLEAR, "row 0 col 0 -- fully clear row above the lid" },
-    {  0,  5, T_CLEAR, "row 5 col 0 -- clear margin left of the lid slab" },
-    { 31, 29, T_CLEAR, "row 29 col 31 -- clear margin right of the base" },
-    {  0, 31, T_CLEAR, "row 31 col 0 -- fully clear row below the base" }
-};
-#define TRASH_PROBE_N ((int)(sizeof TRASH_PROBES / sizeof TRASH_PROBES[0]))
+static icap_cell_t g_cap[ICAP__KINDS];
 
 /* ---------------------------------------------------------------------------
  * The four bare-teal control points.  Each is adjacent to an icon cell but
@@ -219,10 +151,10 @@ static const Point CONTROL_TEAL[] = {
  * carried icon pixels in the `default` leg and must read bare desktop once the
  * drop's invalidate(old)+invalidate(new) repaint has run. */
 static const Point OLD_FOOTPRINT[] = {
-    { VOL_X0 + 10, VOL_Y0 +  3, "old sprite row 3 col 10 (was INK)" },
-    { VOL_X0 + 10, VOL_Y0 +  4, "old sprite row 4 col 10 (was FACE)" },
-    { VOL_X0 + 15, VOL_Y0 + 19, "old sprite row 19 col 15 (was SHADE)" },
-    { VOL_X0 + 15, VOL_Y0 + 28, "old sprite row 28 col 15 (was INK)" },
+    { VOL_X0 + 10, VOL_Y0 +  3, "old sprite row 3 col 10" },
+    { VOL_X0 + 10, VOL_Y0 +  4, "old sprite row 4 col 10" },
+    { VOL_X0 + 15, VOL_Y0 + 19, "old sprite row 19 col 15" },
+    { VOL_X0 + 15, VOL_Y0 + 28, "old sprite row 28 col 15" },
     { VOL_X0 +  3, VOL_Y0 + LABEL_TOP_OFF + 6, "old label band, left third" },
     { VOL_X0 + 16, VOL_Y0 + LABEL_TOP_OFF + 6, "old label band, centre" },
     { VOL_X0 + 29, VOL_Y0 + LABEL_TOP_OFF + 6, "old label band, right third" }
@@ -303,18 +235,23 @@ static void assert_idx(int x, int y, int idx, const char *what)
     }
 }
 
-/* Grade one strike against its hand-read ASCII-map probes at `x0,y0`. */
-static void check_sprite(const char *label, int x0, int y0,
-                         const MapProbe *probes, int n)
+/* Grade one 32x32 sprite cell at `x0,y0` against the mint-008 capture. */
+static void check_sprite(const char *label, int x0, int y0, int kind, int state)
 {
-    char what[256];
-    int i;
-    for (i = 0; i < n; i++) {
-        snprintf(what, sizeof what,
-                 "%s sprite @(%d,%d): expected %s -- %s",
-                 label, x0, y0, tone_name(probes[i].tone), probes[i].why);
-        assert_idx(x0 + probes[i].col, y0 + probes[i].row,
-                   tone_cidx(probes[i].tone), what);
+    char what[96];
+    int d;
+    snprintf(what, sizeof what, "%s %s", label, state ? "SEL" : "UNSEL");
+    d = icap_grade_frame(g_buf, (int)g_w, (int)g_h, x0, y0, &g_cap[kind], state,
+                         IDX(CIDX_DESKTOP), what);
+    if (d) {
+        fprintf(stderr,
+                "ppm_flair_desktop_icons_check: FAIL leg %s -- %s sprite @(%d,%d): "
+                "%d/1024 cells differ from the mint-008 capture\n",
+                g_leg, what, x0, y0, d);
+        g_fail = 1;
+    } else {
+        printf("    %-6s sprite @(%d,%d): %s, 0/1024 cells differ from the capture\n",
+               label, x0, y0, state ? "SELECTED" : "unselected");
     }
 }
 
@@ -479,20 +416,27 @@ int main(int argc, char **argv)
 
     printf("ppm_flair_desktop_icons_check: leg %s on %s\n", g_leg, argv[2]);
 
+    if (icap_load(ICON_CAPTURES_DIR, g_cap)) {
+        fprintf(stderr, "ppm_flair_desktop_icons_check: FAIL -- the mint-008 golden "
+                "(%s) is unavailable\n", ICON_CAPTURES_DIR);
+        free(g_buf);
+        return 1;
+    }
+
     if (leg_moved) {
-        check_sprite("VOLUME", VOL_MOVED_X0, VOL_MOVED_Y0,
-                     VOL_PROBES, VOL_PROBE_N);
+        check_sprite("VOLUME", VOL_MOVED_X0, VOL_MOVED_Y0, ICAP_VOLUME, ICAP_UNSEL);
         check_band("VOLUME", VOL_MOVED_X0, VOL_MOVED_Y0, 0);
         check_old_footprint();
     } else {
-        check_sprite("VOLUME", VOL_X0, VOL_Y0, VOL_PROBES, VOL_PROBE_N);
+        check_sprite("VOLUME", VOL_X0, VOL_Y0, ICAP_VOLUME,
+                     leg_selected ? ICAP_SEL : ICAP_UNSEL);
         check_band("VOLUME", VOL_X0, VOL_Y0, leg_selected ? 1 : 0);
     }
 
     /* The Trash is untouched in every leg: fixed position, never selected by
      * any of these traces (design F1.1 -- the Trash is not draggable, and the
      * volume click is a select_only, which CLEARS every other icon). */
-    check_sprite("TRASH", TRASH_X0, TRASH_Y0, TRASH_PROBES, TRASH_PROBE_N);
+    check_sprite("TRASH", TRASH_X0, TRASH_Y0, ICAP_TRASH, ICAP_UNSEL);
     check_band("TRASH", TRASH_X0, TRASH_Y0, 0);
 
     check_control_teal();
@@ -504,9 +448,9 @@ int main(int argc, char **argv)
         return 1;
     }
     printf("ppm_flair_desktop_icons_check: leg %s PASS "
-           "(%d VOLUME + %d TRASH map probes, 2 label-band relations, "
+           "(VOLUME + TRASH cells == the mint-008 captures, 2 label-band relations, "
            "%d bare-teal controls%s)\n",
-           g_leg, VOL_PROBE_N, TRASH_PROBE_N, CONTROL_TEAL_N,
+           g_leg, CONTROL_TEAL_N,
            leg_moved ? ", 7 old-footprint restores" : "");
     return 0;
 }

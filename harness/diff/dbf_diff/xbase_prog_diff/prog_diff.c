@@ -1,80 +1,10 @@
-/*
- * harness/diff/dbf_diff/xbase_prog_diff/prog_diff.c
- *   -- the S6.4 xBase PROGRAM differential driver (initech-17n.2; plan S6.4).
- *
- * FACTORY / GRADER code (CLAUDE.md Law 3): this is the C harness, NOT the
- * artifact -- libc/stdio OK here. It links the REAL os/samir engine read-only
- * (the public APIs as they are; it edits NO engine source) and drives a small,
- * committed, deterministic .prg corpus through the interpreter, capturing conout
- * via a host capturing PAL, then diffs the normalized stdout against an AUTHORED
- * expected-output golden (the Tier-0, operator-free, day-1 reference). Where a
- * program writes a result .dbf, it ALSO diffs that file via the INDEPENDENT
- * dbf_ref.py reader (fail loud (named opt-out only) if python3 is absent). Gate is 100%: any program
- * whose normalized output differs from its golden is a FAIL (Law 2).
- *
- * WHY a program differential (plan S6.4 / PRD Sec 8): the unit oracles grade the
- * codecs/evaluator/interpreter in isolation; this grades whole xBase PROGRAMS
- * end-to-end (the dot-prompt the REPL drives at S5.8), which is the milestone's
- * "InitechBase differential" leg. The host reference tier (this file's authored
- * goldens) needs NO real dBASE; the Tier-2 real-DBASE.EXE authenticity diff is
- * GATED (loud-skip below; needs dosbox-x + the sister mint -- not attempted).
- *
- * TIERS (plan Sec 2.A):
- *   Tier 0 (committed, operator-free, day-1): corpus/<name>.prg vs golden/<name>.out
- *     -- AUTHORED from the documented dBASE III+ 1.1 semantics (each .prg cites its
- *     corpus source). This is what gates here. 100% required.
- *   Tier 1 (independent reader): a program that writes a result .dbf is also read
- *     back by harness/diff/dbf_diff/dbf_ref.py (the "third implementation", shares
- *     no code with os/samir) and diffed vs golden/<name>.dbf.out. Loud-skip (NOT a
- *     silent pass) if python3 is unavailable; the stdout leg still gates.
- *   Tier 2 (authenticity): real DBASE.EXE under dosbox-x via the sister mint --
- *     GATED-env, loud-skip (see the banner at the end of main()). NOT attempted.
- *
- * DETERMINISM (Rule 11): the PAL clock is INJECTED (1999-12-31); every program's
- * output is a pure function of (program text, seeded table, clock). No wall clock,
- * no host paths in the captured transcript, ASCII-clean (Rule 12).
- *
- * USE handling: USE/CLOSE are owned by the REPL (samir_main.c), NOT by samir_do /
- * proc_run / the command modules. A corpus program that needs a table opens it
- * with a leading `USE <ALIAS>` line; this driver provisions the named table into
- * the selected work area (read-only for query.prg; a fresh writable /tmp COPY for
- * mutate.prg -- NEVER a committed golden, the wave-9 lesson) and then runs the
- * REST of the program (everything after the USE line) through proc_run, exactly as
- * the REPL would after its own USE. Programs with no USE line run whole.
- *
- * Mutation proof (Rule 6 / ARB rider (a)) -- the differential MUST bite:
- *   -DPROGDIFF_MUTATE_SWAP_EQ_GOLDEN : when grading exact.prg (the program that
- *     pins the directional `=` string operator, sec 4.4), the driver SWAPS the two
- *     expected lines that encode the `=` direction ('Smith'='S' -> .T. vs
- *     'S'='Smith' -> .F.). This is the plan's canonical mutant "flip the `=`
- *     prefix direction" realized in the GRADER (the engine is read-only here): the
- *     ENGINE still produces the correct T,F,... but the now-swapped EXPECTATION
- *     becomes F,T,... so the normalized diff MUST report a mismatch and the gate
- *     goes RED. It proves the differential detects a real output divergence on the
- *     exact byte the canonical mutant would perturb -- not a no-op.
- *
- * Self-verify (paste in the report):
- *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed \
- *      -Ios/samir/include -Ispec -o /tmp/prog_diff \
- *      harness/diff/dbf_diff/xbase_prog_diff/prog_diff.c <ENGINE .c set> && \
- *   /tmp/prog_diff ../dbase3-decomp harness/diff/dbf_diff/xbase_prog_diff
- *
- * argv: [1] = sister-corpus base (for the Tier-2 banner only; default
- *             "../dbase3-decomp"); [2] = the xbase_prog_diff dir holding corpus/
- *             and golden/ (default: this file's directory).
- *
- * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S6.4 (contract + the `=`-flip mutant)
- *     + Sec 2.A (Tier 0/1/2; goldens by path, fail loud (named opt-out only) if absent).
- *   - ../dbase3-decomp/specs/language/expressions-and-operators.md (sec 4.4 EXACT,
- *     sec 9.1 precedence, sec 1.1 C+N mismatch) + functions/ + commands/ specs
- *     (each corpus .prg cites the exact section it exercises).
- *   - os/samir/samir_main.c (the REPL: module registration + USE/CLOSE ownership).
- *   - os/samir/include/samir/interp.h (xb_interp_make/_free; samir_last_error;
- *     query/mutate/set/proc_register + proc_run, extern-declared as samir_main.c does).
- *   - os/samir/pal/pal_host.c (the host PAL + injected clock).
- *   - harness/diff/dbf_diff/dbf_ref.py (the independent .dbf reader for the result diff).
- *   - harness/diff/dbf_diff/test_samir_repl.c (the capturing PAL pattern reused here).
+/* Factory program differential, PRD 6.6 / ADR-0008 DEC-05.
+ * prog_mint.sh captures each .out from real dBASE III PLUS 1.1; the former
+ * authored transcripts were replaced, never patched. prog-real.sha256 pins
+ * source programs, real captures and the copied expectations. The historical
+ * CR/LF and trailing-blank normalization remains here; test-samir-print and
+ * every DML case additionally grade their real transcripts byte for byte.
+ * PARTS is independently provisioned below and its result is read by dbf_ref.
  */
 
 #include "../../../oracle_policy.h"
@@ -208,6 +138,7 @@ static void normalize(const char *in, char *out, size_t cap)
     line_start = 0;
     while (in[i] != '\0' && oi < cap - 1) {
         char ch = in[i++];
+        if ((unsigned char)ch == 26) break; /* real ALTERNATE DOS EOF */
         if (ch == '\r')
             continue;          /* canonicalize CRLF -> LF */
         if (ch == '\n') {
@@ -463,7 +394,7 @@ static int run_plain_prog(samir_pal_t *pal, const char *name, const char *prgpat
 #endif
 
     ok = (strcmp(ngot, nwant) == 0);
-    snprintf(what,sizeof what,"%s: stdout matches golden (Tier 0)",name);
+    snprintf(what,sizeof what,"%s: stdout matches real III+ golden",name);
     check(ok, what);
     if (!ok) report_diff(name, ngot, nwant);
 
@@ -506,7 +437,7 @@ static int run_query_prog(samir_pal_t *pal, const char *prgpath, const char *gol
     normalize(gold,      nwant, sizeof nwant);
 
     ok = (strcmp(ngot, nwant) == 0);
-    check(ok, "query: stdout matches golden (Tier 0)");
+    check(ok, "query: stdout matches real III+ golden");
     if (!ok) report_diff("query", ngot, nwant);
 
     snprintf(what,sizeof what,"%s",""); (void)what;
@@ -553,7 +484,7 @@ static int run_mutate_prog(samir_pal_t *pal, const char *prgpath,
     normalize(g_cap.buf, ngot,  sizeof ngot);
     normalize(gold,      nwant, sizeof nwant);
     ok_stdout = (strcmp(ngot, nwant) == 0);
-    check(ok_stdout, "mutate: stdout matches golden (Tier 0)");
+    check(ok_stdout, "mutate: stdout matches real III+ golden");
     if (!ok_stdout) report_diff("mutate", ngot, nwant);
 
     /* Free the interp first (QUIT-time wa_close_all flushes the table). */
@@ -617,6 +548,7 @@ static int run_mutate_prog(samir_pal_t *pal, const char *prgpath,
 
 int main(int argc, char **argv)
 {
+    if(argc==3 && !strcmp(argv[1],"--mint-parts")) return write_parts_ro(argv[2])?2:0;
     const char *corpus_base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
     samir_pal_t *host, *pal;
@@ -666,11 +598,8 @@ int main(int argc, char **argv)
 
     pal_host_free(host);
 
-    /* ---- Tier 2 banner: the real-DBASE.EXE authenticity diff is GATED ---- */
-    fprintf(stderr,
-        "  SKIP (LOUD): Tier-2 real-DBASE.EXE authenticity diff is GATED-env "
-        "(needs dosbox-x + the sister mint at '%s'); NOT attempted here. "
-        "Tier-0 (+ Tier-1 result-.dbf) gated above.\n", corpus_base);
+    fprintf(stderr,"  Real III+ program mints: prog-real.sha256 (make mint-samir-prog).\n");
+    (void)corpus_base;
 
     /* TEST_SUMMARY-style line on STDOUT in BOTH cases (matching every other SAMIR
      * harness) so the Make mutant gate's `2>/dev/null | grep 'checks,'` liveness

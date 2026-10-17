@@ -1091,6 +1091,341 @@ static int m_zap(xb_interp *ip, int *ec)
  * returns CMD_UNKNOWN for anything else so the chain can try the next module.
  */
 
+/* DML-04/05, Using III+ U5-131/132/172. Command adapters retain
+ * NDX's independent codec and evaluate keys through the same resolver as SEEK. */
+static int d_fail(int *ec,int code) { if(ec)*ec=code;return -INTERP_ERR_EVAL; }
+static const char *d_kw(const char *s,const char *kw)
+{
+    char quote=0;
+    for(const char *p=s;*p;p++) {
+        if(quote) { if(*p==quote)quote=0;continue; }
+        if(*p=='\'' || *p=='"' || *p=='[') {quote=*p=='['?']':*p;continue;}
+        if((p==s || m_isspace(p[-1])) && m_match_kw(p,kw))return p;
+    }
+    return 0;
+}
+static int d_word(const char **p,char *out,unsigned cap)
+{
+    unsigned n=0;const char *s=m_skip_ws(*p);char quote=0;
+    if(*s=='\'' || *s=='"') quote=*s++;
+    while(*s && (quote?*s!=quote:!m_isspace(*s))) {
+        if(n+1>=cap) return 0;
+        out[n++]=*s++;
+    }
+    if(quote) { if(*s!=quote)return 0;s++; }
+    out[n]=0;*p=m_skip_ws(s);return n!=0;
+}
+static int d_name(char *name,unsigned cap,const char *ext)
+{
+    unsigned i,n=rt_strlen(name);int dot=0;
+    for(i=0;i<n;i++) { name[i]=m_up1(name[i]);if(name[i]=='.')dot=1; }
+    if(!dot) { if(n+rt_strlen(ext)>=cap)return 0;rt_memcpy(name+n,ext,rt_strlen(ext)+1); }
+    return 1;
+}
+/* Existing destinations stay intact under SAFETY until an independently
+ * minted overwrite-prompt extension is available. No guessed prompt bytes. */
+static int d_destination(xb_interp *ip,const char *name,int *ec)
+{
+    samir_pal_t *p=xb_interp_pal(ip);pal_fd fd;
+    wa_env *env=xb_interp_env(ip);
+    for(int a=1;a<=WA_NAREAS;a++) {
+        dbf_table *t=wa_table(env,a);
+        if(t && m_ci_eq(dbf_name(t),name))return d_fail(ec,3);
+    }
+    fd=p->open(p,name,PAL_RD);
+    if(fd>=0) { p->close(p,fd);if(set_get_safety(ip))return d_fail(ec,7); }
+    else if(fd!=-PAL_ENOENT)return d_fail(ec,29);
+    return 0;
+}
+typedef struct { xb_interp *ip;const char *expr;uint16_t type;int ec; } d_key_ctx;
+static int d_key(void *user,uint32_t rec,uint8_t *key,uint16_t len)
+{
+    d_key_ctx *c=user;wa_env *e=xb_interp_env(c->ip);
+    if(wa_nav_goto(e,wa_selected(e),rec)!=NAV_OK)return -1;
+    return m_encode_key(c->ip,c->expr,c->type,len,key,&c->ec);
+}
+static int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    int area=wa_selected(env),rc;dbf_table *t=wa_table(env,area);
+    uint32_t keep=wa_recno(env,area),count=t?dbf_nrec(t):0;
+    d_key_ctx ctx={ip,0,0,0};
+    if(!t)return d_fail(ec,52);
+    if(rebuild) {
+        if(*m_skip_ws(args))return d_fail(ec,10);
+#ifdef SAMIR_DML_MUTANT_reindex
+        if(count)count--; /* omit last record from every rebuilt index */
+#endif
+        for(int i=0;i<wa_index_count(env,area);i++) {
+            ndx_index *ix=wa_index(env,area,i);ctx.expr=ndx_key_expr(ix);ctx.type=ndx_key_type(ix);
+            rc=ndx_rebuild(ix,count,d_key,&ctx);
+            if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:114); }
+        }
+    } else {
+        const char *p=m_skip_ws(args),*to;char expr[255],name[128];xb_val v;ndx_index *ix;
+        unsigned n;int k=m_match_kw(p,"ON");
+        if(!k)return d_fail(ec,10);
+        p=m_skip_ws(p+k);to=d_kw(p,"TO");
+        if(!to)return d_fail(ec,10);
+        n=(unsigned)(to-p);while(n && m_isspace(p[n-1]))n--;
+        if(!n || n>220)return d_fail(ec,10);
+        rt_memcpy(expr,p,n);expr[n]=0;p=m_skip_ws(to+2);
+        if(!d_word(&p,name,sizeof name) || *p || !d_name(name,sizeof name,".NDX"))return d_fail(ec,10);
+        if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
+        rc=m_eval(ip,expr,&v,ec);if(rc)return rc;
+        ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
+        if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
+#ifdef SAMIR_DML_MUTANT_index
+        if(count)count--; /* last physical record has no index entry */
+#endif
+        rc=ndx_build(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx);
+        if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
+        rc=ndx_open_rw(pal,name,&ix);
+        if(rc)return d_fail(ec,114);
+        if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);return d_fail(ec,28);}
+    }
+    wa_nav_reset(area);
+    rc=wa_nav_index_top(env,area);
+    return rc==NAV_OK?INTERP_OK:d_fail(ec,114);
+}
+
+/* SORT/TOTAL: Using III+ U5-269/270/276; real DML-06 tie order and
+ * DML-07 consecutive groups (non-numeric fields come from the first row). */
+static int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
+{
+    int n=dbf_nfields(t);
+    if(n>128)return d_fail(ec,43);
+    for(int i=0;i<n;i++) {
+        const dbf_field_t *f=dbf_field(t,i);
+        if(f->type=='M')return d_fail(ec,34);
+        s[i].name=f->name;s[i].type=f->type;s[i].field_len=f->field_len;s[i].dec=f->dec_count;
+    }
+    return n;
+}
+static int d_field(dbf_table *t,const char *name)
+{ for(int i=0;i<dbf_nfields(t);i++)if(m_ci_eq(name,dbf_field(t,i)->name))return i;return -1; }
+typedef struct {uint32_t rec;double number;char key[100];} d_sort_row;
+static int d_sort(xb_interp *ip,const char *args,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);int area=wa_selected(env),rc=0,fi,nf,del;
+    samir_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
+    dbf_field_spec schema[128];xb_val row[128];char name[128],field[32];
+    const char *p=m_skip_ws(args);d_sort_row *rows;uint32_t n=0,count;
+    if(!src)return d_fail(ec,52);
+    if(!m_match_kw(p,"TO"))return d_fail(ec,10);
+    p=m_skip_ws(p+2);
+    if(!d_word(&p,name,sizeof name) || !m_match_kw(p,"ON"))return d_fail(ec,10);
+    p=m_skip_ws(p+2);
+    if(!d_word(&p,field,sizeof field) || *p || !d_name(name,sizeof name,".DBF"))return d_fail(ec,10);
+    fi=d_field(src,field);if(fi<0)return d_fail(ec,48);
+    if(dbf_field(src,fi)->type=='M' || dbf_field(src,fi)->type=='L')return d_fail(ec,9);
+    nf=d_schema(src,schema,ec);if(nf<0)return nf;
+    if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
+    count=dbf_nrec(src);
+    if(count>0x1000000u/sizeof(*rows))return d_fail(ec,43);
+    rows=pal->acquire(pal,(count?count:1)*sizeof(*rows));if(!rows)return d_fail(ec,43);
+    wa_nav_index_top(env,area);
+    while(!wa_eof(env,area)) {
+        uint32_t r=wa_recno(env,area);
+        if(dbf_read_rec(src,r,row,&del)) {rc=29;break;}
+        rows[n].rec=r;
+        if(row[fi].t==XB_C) {
+            if(row[fi].u.c.len>100) {rc=23;break;}
+            rt_memcpy(rows[n].key,row[fi].u.c.p,row[fi].u.c.len);
+        } else rows[n].number=row[fi].t==XB_D?row[fi].u.d:row[fi].u.n;
+        n++;
+        if(wa_nav_skip(env,area,1)!=NAV_OK){rc=29;break;}
+    }
+    for(uint32_t i=1;!rc && i<n;i++) {
+        d_sort_row v=rows[i];uint32_t j=i;
+        while(j) {
+            int cmp;
+            if(dbf_field(src,fi)->type=='C')cmp=rt_memcmp(rows[j-1].key,v.key,dbf_field(src,fi)->field_len);
+            else cmp=(rows[j-1].number>v.number)-(rows[j-1].number<v.number);
+#ifdef SAMIR_DML_MUTANT_sort
+            cmp=-cmp; /* descending instead of the documented ascending default */
+#endif
+            if(cmp<=0)break;
+            rows[j]=rows[j-1];j--;
+        }
+        rows[j]=v;
+    }
+    if(!rc && dbf_create(pal,name,schema,nf,&out))rc=29;
+    for(uint32_t i=0;!rc && i<n;i++) {
+        if(dbf_read_rec(src,rows[i].rec,row,&del) || dbf_append_rec(out,row,0))rc=29;
+    }
+    if(!rc && dbf_flush(out))rc=56;
+    if(out)dbf_close(out);
+    pal->release(pal,rows);
+    return rc?d_fail(ec,rc):INTERP_OK;
+}
+static int d_total(xb_interp *ip,const char *args,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);int area=wa_selected(env),nf,fi,del,rc=0,have=0;
+    samir_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
+    dbf_field_spec schema[128];xb_val row[128],group[128],last=xb_u();
+    char name[128],field[32],strings[4000],key[254];const char *p=m_skip_ws(args);
+    if(!src)return d_fail(ec,52);
+    if(!m_match_kw(p,"ON"))return d_fail(ec,10);
+    p=m_skip_ws(p+2);
+    if(!d_word(&p,field,sizeof field) || !m_match_kw(p,"TO"))return d_fail(ec,10);
+    p=m_skip_ws(p+2);
+    if(!d_word(&p,name,sizeof name) || *p || !d_name(name,sizeof name,".DBF"))return d_fail(ec,10);
+    fi=d_field(src,field);if(fi<0)return d_fail(ec,48);
+    nf=d_schema(src,schema,ec);if(nf<0)return nf;
+    if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
+    if(dbf_create(pal,name,schema,nf,&out))return d_fail(ec,29);
+    wa_nav_index_top(env,area);
+    while(!wa_eof(env,area)) {
+        if(dbf_read_rec(src,wa_recno(env,area),row,&del)) {rc=29;break;}
+        if(!have || !xb_eq(&last,&row[fi])) {
+            unsigned used=0;
+            if(have && dbf_append_rec(out,group,0)) {rc=29;break;}
+            for(int i=0;i<nf;i++) {
+                group[i]=row[i];
+                if(row[i].t==XB_C) {
+                    if(used+row[i].u.c.len>sizeof strings) {rc=43;break;}
+                    rt_memcpy(strings+used,row[i].u.c.p,row[i].u.c.len);
+                    group[i].u.c.p=strings+used;used+=row[i].u.c.len;
+                }
+            }
+            last=row[fi];
+            if(last.t==XB_C) {rt_memcpy(key,last.u.c.p,last.u.c.len);last.u.c.p=key;}
+            have=1;
+        } else for(int i=0;i<nf;i++)if(row[i].t==XB_N) {
+#ifndef SAMIR_DML_MUTANT_total
+            group[i].u.n+=row[i].u.n;
+#endif
+        }
+        if(rc || wa_nav_skip(env,area,1)!=NAV_OK){if(!rc)rc=29;break;}
+    }
+    if(!rc && have && dbf_append_rec(out,group,0))rc=29;
+    if(!rc && dbf_flush(out))rc=56;
+    dbf_close(out);
+    return rc?d_fail(ec,rc):INTERP_OK;
+}
+
+/* Closed ASCII file verbs. Using III+ U5-59/121/175/278;
+ * real DML-11..14: TYPE stops at DOS EOF, COPY FILE preserves every byte. */
+static int d_file(xb_interp *ip,const char *verb,const char *args,int *ec)
+{
+    const char *p=m_skip_ws(args);char src[128],dst[128],buf[512];int copy=m_ci_eq(verb,"COPY");
+    int type=m_ci_eq(verb,"TYPE"),erase=m_ci_eq(verb,"ERASE"),rc=0;
+    samir_pal_t *pal=xb_interp_pal(ip);pal_fd in,out=-1;int32_t n;uint32_t total=0;
+    if(copy) {if(!m_match_kw(p,"FILE"))return CMD_UNKNOWN;p=m_skip_ws(p+4);}
+    if(!d_word(&p,src,sizeof src) || !d_name(src,sizeof src,""))return d_fail(ec,10);
+    if(!erase && !type) {
+        if(!m_match_kw(p,"TO"))return d_fail(ec,10);
+        p=m_skip_ws(p+2);
+        if(!d_word(&p,dst,sizeof dst) || !d_name(dst,sizeof dst,""))return d_fail(ec,10);
+    }
+    if(*p)return d_fail(ec,10);
+    for(int a=1;a<=WA_NAREAS;a++) {
+        dbf_table *t=wa_table(xb_interp_env(ip),a);
+        if(t && m_ci_eq(src,dbf_name(t)))return d_fail(ec,3);
+    }
+    in=pal->open(pal,src,PAL_RD);if(in<0)return d_fail(ec,in==-PAL_ENOENT?1:29);
+    if(erase) {
+        pal->close(pal,in);
+#ifdef SAMIR_DML_MUTANT_erase
+        return INTERP_OK; /* leave the file present */
+#endif
+        rc=pal->remove(pal,src);return rc?d_fail(ec,29):INTERP_OK;
+    }
+    if(!copy && !type) {
+        pal->close(pal,in);
+        out=pal->open(pal,dst,PAL_RD);if(out>=0){pal->close(pal,out);return d_fail(ec,7);}
+#ifdef SAMIR_DML_MUTANT_rename
+        return INTERP_OK; /* skip the actual filesystem rename */
+#endif
+        rc=pal->rename(pal,src,dst);return rc?d_fail(ec,29):INTERP_OK;
+    }
+    if(copy) {
+        if(d_destination(ip,dst,ec)) {pal->close(pal,in);return -INTERP_ERR_EVAL;}
+        out=pal->open(pal,dst,PAL_RDWR|PAL_CREATE|PAL_TRUNC);
+        if(out<0){pal->close(pal,in);return d_fail(ec,29);}
+    } else xb_interp_output(ip,"\r\n",2);
+    while((n=pal->read(pal,in,buf,sizeof buf))>0) {
+        if(type) {
+            int32_t j=0;while(j<n && (unsigned char)buf[j]!=26)j++;
+#ifdef SAMIR_DML_MUTANT_type
+            j=0; /* suppress ASCII contents */
+#endif
+            xb_interp_output(ip,buf,(uint32_t)j);
+            if(j<n)break;
+        } else {
+#ifdef SAMIR_DML_MUTANT_copyfile
+            buf[0]^=1; /* copied bytes differ even though state is preserved */
+#endif
+            if(pal->write(pal,out,buf,(uint32_t)n)!=n){rc=56;break;}
+            total+=(uint32_t)n;
+        }
+    }
+    if(n<0)rc=29;
+    /* DML-11 real COPY FILE rounds the DOS block copy to 512 bytes,
+     * zero-filling its final short block; the source is left byte-identical. */
+    if(copy && !rc && total%512) {
+        uint32_t pad=512-total%512;rt_memset(buf,0,pad);
+        if(pal->write(pal,out,buf,pad)!=(int32_t)pad)rc=56;
+    }
+
+    if(out>=0 && pal->close(pal,out))rc=29;
+    pal->close(pal,in);
+    return rc?d_fail(ec,rc):INTERP_OK;
+}
+
+/* APPEND FROM DBF: Using III+ U5-28 (name matching, differing field order,
+ * deleted-row rules and per-field truncation); DML-08 is the independent file.
+ * Each record is persisted before proceeding. Previously appended records are
+ * never rolled back if a later input/write fails; there is no invented batch
+ * transaction. The blank-append primitive protects only its own record. */
+static int d_append_from(xb_interp *ip,const char *args,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);int area=wa_selected(env),del,rc=0,nf,ns;
+    dbf_table *out=wa_table(env,area),*src=0;const char *p=m_skip_ws(args);
+    char name[128];int map[128];xb_val input[128];
+    if(!out)return d_fail(ec,52);
+    p=m_skip_ws(p+4);
+    if(!d_word(&p,name,sizeof name) || *p || !d_name(name,sizeof name,".DBF"))return d_fail(ec,10);
+    if(m_ci_eq(name,dbf_name(out)))return d_fail(ec,3);
+    rc=dbf_open(xb_interp_pal(ip),name,&src);if(rc)return d_fail(ec,rc==-DBF_ERR_NOENT?1:15);
+    nf=dbf_nfields(out);ns=dbf_nfields(src);
+    if(nf>128 || ns>128){rc=43;goto done;}
+    for(int i=0;i<nf;i++) {
+        const dbf_field_t *f=dbf_field(out,i);map[i]=d_field(src,f->name);
+        if(f->type=='M'){rc=34;goto done;}
+        if(map[i]>=0 && dbf_field(src,map[i])->type!=f->type){rc=9;goto done;}
+    }
+    for(uint32_t r=1;r<=dbf_nrec(src);r++) {
+        if(dbf_read_rec(src,r,input,&del)){rc=29;break;}
+        if(del && wa_get_deleted(env))continue;
+#ifdef SAMIR_DML_MUTANT_append
+        if(r==dbf_nrec(src))break; /* drop the last incoming record */
+#endif
+        /* Commit one blank through the existing index-maintaining adapter,
+         * then fill matching fields. A failing later field leaves this row. */
+        if(m_append(ip,"BLANK",ec)){rc=*ec;break;}
+        uint32_t rec=dbf_nrec(out);
+        for(int i=0;i<nf;i++)if(map[i]>=0) {
+            int code=dbf_replace(out,rec,i,&input[map[i]]);
+            if(code){rc=code==-39?39:m_write_error(code);break;}
+        }
+        if(dbf_flush(out) && !rc)rc=56;
+        wa_refresh(env,area,rec);
+        /* Rebuild attached indexes after the complete row, using their own
+         * codec and expression. This includes a partially filled failure row. */
+        for(int i=0;i<wa_index_count(env,area);i++) {
+            ndx_index *ix=wa_index(env,area,i);d_key_ctx c={ip,ndx_key_expr(ix),ndx_key_type(ix),0};
+            if(ndx_rebuild(ix,dbf_nrec(out),d_key,&c) && !rc)rc=c.ec?c.ec:114;
+        }
+        wa_nav_reset(area);wa_nav_goto(env,area,rec);
+        if(rc)break;
+    }
+ done:
+    dbf_close(src);
+    return rc?d_fail(ec,rc):INTERP_OK;
+}
+
 static int m_replace(xb_interp *ip, const char *args, int *ec)
 {
     m_clauses mc;
@@ -1122,12 +1457,18 @@ static int mutate_cmd_hook(void *user, xb_interp *ip,
     if (!ip || !verb)
         return CMD_UNKNOWN;
 
+    if(m_ci_eq(verb,"TYPE") || m_ci_eq(verb,"RENAME") || m_ci_eq(verb,"ERASE") || m_ci_eq(verb,"COPY"))
+        return d_file(ip,verb,args,err_code);
+    if(m_ci_eq(verb,"SORT"))return d_sort(ip,args,err_code);
+    if(m_ci_eq(verb,"TOTAL"))return d_total(ip,args,err_code);
+    if (m_ci_eq(verb,"INDEX") || m_ci_eq(verb,"REINDEX"))
+        return d_index(ip,args,m_ci_eq(verb,"REINDEX"),err_code);
     if (m_ci_eq(verb, "REPLACE")) {
         int rc = m_replace(ip, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
     if (m_ci_eq(verb, "APPEND")) {
-        int rc = m_append(ip, args, err_code);
+        int rc = m_match_kw(m_skip_ws(args),"FROM")?d_append_from(ip,args,err_code):m_append(ip, args, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
     if (m_ci_eq(verb, "DELETE")) {

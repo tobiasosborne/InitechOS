@@ -1,0 +1,18 @@
+. SELECT 2
+. USE DEPTS INDEX DEPTS
+. SELECT 1
+. USE STAFF
+. DO STAFFDEP
+
+BILL LUMBERGH             Software Development    
+PETER GIBBONS             Software Development    
+MICHAEL BOLTON            Software Development    
+SAMIR NAGHEENANAJAR       Software Development    
+MILTON WADDAMS            Facilities              
+TOM SMYKOWSKI             Customer Relations      
+DOM PORTER                Administration          
+NINA ALBRIGHT             Administration          
+ANDREW DELGADO            Software Development    
+LAURA FENWICK             Customer Relations      
+DANIEL OKAFOR             Software Development    
+CAROL PRUITT              Accounting              

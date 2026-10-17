@@ -1,0 +1,129 @@
+% Learning InitechBase, Chapter 1: Quick Start (PUB-REF-0001 AN-16; annex
+% Sec 10).  Every panel replayed (examples/l1-*.dot).
+\chapter{Quick Start}
+\Gates{test-pubs-examples, test-samir-repl, test-samir-query}
+In this lesson you open the staff database of Initech Systems Corporation,
+look at its records, ask InitechBase two questions, and leave InitechBase.
+You use five commands: \cmd{USE}, \cmd{LIST}, \cmd{DISPLAY}, \cmd{?} and
+\cmd{QUIT}.
+
+\begin{ChapterCovers}
+\item The dot prompt
+\item Opening a database with \cmd{USE}
+\item Listing records with \cmd{LIST}
+\item Displaying one record with \cmd{DISPLAY}
+\item Asking questions with \cmd{?}
+\item Leaving InitechBase with \cmd{QUIT}
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Copy the files of the Sample Programs and Utilities diskette to the disk you
+work on, as \doctitle{Getting Started} describes, and start InitechBase from
+that disk.  The screen shows the dot prompt: a period and a blank, with the
+cursor after them.
+
+\ATEHead{The Dot Prompt}
+The dot prompt means that InitechBase is waiting for a command.  You type a
+command, press \key{Enter}, and InitechBase carries it out and shows the dot
+prompt again.  Commands are words of English: \cmd{USE} a database,
+\cmd{LIST} its records, \cmd{QUIT}.
+
+If you make a mistake while typing, press \key{Backspace} to erase it.  If you
+press \key{Enter} on a command InitechBase does not know, it says so; nothing
+is changed, and you can type the command again.
+
+\ATEHead{Opening a Database}
+A database is a file of records.  Each record holds the information about one
+thing -- here, one employee of Initech -- in fields: the employee number, the
+last name, the first name, the department, the telephone extension, the date
+of hire, the salary, whether the employee is exempt from overtime, and a note.
+Before you can look at a database, you open it with \cmd{USE}.
+\begin{Steps}
+\item Type \type{USE STAFF} and press \key{Enter}.
+\Response{InitechBase opens \file{STAFF.DBF} and shows the dot prompt again.}
+\end{Steps}
+\DotExample{examples/l1-use}
+\cmd{USE} added the extension \file{.DBF} to the name for you.  The database
+stays open until you close it or leave InitechBase.
+
+\ATEHead{Listing the Records}
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, FIRSTNAME, EXT} and press \key{Enter}.
+\Response{InitechBase lists the names and telephone extensions of all the
+employees.}
+\end{Steps}
+\DotExample{examples/l1-list}
+The first line is the heading: \texttt{Record\#} and the names of the fields
+you asked for.  Each record follows on its own line.  The number at the left
+is the record number, the position of the record in the database.
+
+The asterisk in front of record 13 means that the record is marked for
+deletion.  Chapter~5 shows you how records are marked and how the marked
+records are removed.
+
+\begin{AteNote}
+\cmd{LIST} with no field names lists every field of every record.  The records
+of \file{STAFF.DBF} are wider than the screen, so each takes two lines.  Name
+the fields you want, as you did in step 2.
+\end{AteNote}
+
+\ATEHead{Displaying One Record}
+InitechBase keeps track of one record of the open database, the current
+record.  \cmd{DISPLAY} shows it.  \cmd{GO} makes another record current.
+\begin{Steps}[resume]
+\item Type \type{GO 6} and press \key{Enter}.
+\item Type \type{DISPLAY} and press \key{Enter}.
+\Response{InitechBase displays every field of record 6.}
+\end{Steps}
+\DotExample{examples/l1-display}
+The record of Tom Smykowski of Customer Relations is too wide for the
+screen; the end of his note continues on the next line.
+
+\ATEHead{Asking a Question}
+\cmd{?} displays the value of a field, or of a calculation, without the
+heading and the record number.
+\begin{Steps}[resume]
+\item Type \type{GO 5} and press \key{Enter}.
+\item Type \type{? FIRSTNAME, LASTNAME} and press \key{Enter}.
+\item Type \type{? SALARY / 12} and press \key{Enter}.
+\Response{InitechBase displays the monthly salary of Milton Waddams.}
+\end{Steps}
+\DotExample{examples/l1-question}
+\cmd{?} displays its answer and leaves the cursor at the end of it, so the next
+dot prompt follows on the same line.
+
+\ATEHead{Choosing Records}
+A \kw{FOR} clause makes \cmd{LIST} list only the records you describe.
+\begin{Steps}[resume]
+\item Type \type{LIST LASTNAME, DEPT, EXT FOR DEPT = 'CUST'} and press
+\key{Enter}.
+\Response{InitechBase lists the employees of Customer Relations.}
+\end{Steps}
+\DotExample{examples/l1-for}
+The department code is in quotation marks because it is a character string,
+not the name of a field.  Chapter~2 tells you more about conditions.
+
+\ATEHead{Leaving InitechBase}
+\begin{Steps}[resume]
+\item Type \type{QUIT} and press \key{Enter}.
+\Response{InitechBase closes the database and returns to InitechDOS.}
+\end{Steps}
+\DotExample{examples/l1-quit}
+Always leave InitechBase with \cmd{QUIT} before you turn off the computer:
+\cmd{QUIT} closes the files properly.
+
+\ATEHead{Where Do You Go From Here?}
+You have opened a database, listed its records, displayed one of them, asked
+two questions and left InitechBase.  In Chapter~2 you choose the fields and
+the records that \cmd{LIST} shows.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{USE} \xp{database} opens a database.
+\item \cmd{LIST} \xp{field list} lists the fields of every record.
+\item \cmd{GO} \xp{n} makes record \xp{n} the current record; \cmd{DISPLAY} shows
+  it.
+\item \cmd{?} \xp{expression list} displays values.
+\item \kw{FOR} \xp{condition} chooses the records a command works on.
+\item \cmd{QUIT} closes every file and leaves InitechBase.
+\end{enumerate}

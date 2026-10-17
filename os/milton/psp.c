@@ -158,7 +158,7 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
     /* --- 00h int20[2]: the INT 20h instruction (legacy termination). -------
      * Bytes CD 20 = `int 0x20`. Populated IN FULL (ADR-0003 Sec 5.5 stance);
      * a program doing a near RET to PSP:0 would execute this. The 0x20 trap
-     * gate that makes it physically callable is the LOADER's job (deferred).
+     * gate is installed by sysinit.c at system initialization (int20_entry).
      * Ref: psp-loader-ground-truth.md Sec 2.1; dos_structs.h:92. */
     psp->int20[0] = 0xCD;
 #ifdef PSP_MUTATE_INT20

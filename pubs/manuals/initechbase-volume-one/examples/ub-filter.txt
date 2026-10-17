@@ -1,0 +1,6 @@
+. USE STAFF
+. SET FILTER TO DEPT = 'MKTG'
+. GO TOP
+. ? RECNO(), EOF()
+
+14 .T.

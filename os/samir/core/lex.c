@@ -265,6 +265,8 @@ int xb_lex(const char *src, uint32_t len,
                 t.offset  = start;
                 t.len     = (uint16_t)(i - start);
                 t.u.n     = val;
+                t.num_dec = 0;
+                for(uint32_t j=start;j<i;j++) if(src[j]=='.') t.num_dec=(uint16_t)(i-j-1);
                 EMIT(t);
             }
             continue;
@@ -288,6 +290,7 @@ int xb_lex(const char *src, uint32_t len,
                 t.offset = start;
                 t.len    = (uint16_t)(i - start);
                 t.u.n    = val;
+                t.num_dec = (uint16_t)(i-start-1);
                 EMIT(t);
                 continue;
             }

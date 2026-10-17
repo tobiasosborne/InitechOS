@@ -1,0 +1,4 @@
+. USE STAFF
+. ?? 'EMPLOYEE '
+EMPLOYEE . ?? EMPNO
+1001

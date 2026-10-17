@@ -81,10 +81,14 @@
 %% lines, read by make test-pubs-build), and is a hard error under the
 %% class option `final`.
 \newcounter{im@drafts}
+%% The chapter a DRAFT marker belongs to: the chapter number, qualified by
+%% the section letter in F-ATE books, whose sections restart the numbering
+%% (L1, U1, P1; PG-13) -- a DRAFT in U5 must not mark L5.
+\im@ifmodel{ashtontate}{\def\im@draftkey{\im@sectionprefix\thechapter}}{\def\im@draftkey{\thechapter}}
 \newcommand\imMarkDraft[1]{\expandafter\gdef\csname im@draft@#1\endcsname{1}}
 \newcommand\draft[1]{%
   \gdef\im@draftfoot{DRAFT -- NOT FOR RELEASE}%
-  \protected@write\@auxout{}{\string\imMarkDraft{\thechapter}}%
+  \protected@write\@auxout{}{\string\imMarkDraft{\im@draftkey}}%
   \stepcounter{im@drafts}%
   \ifim@final
     \PackageError{initech-syntax}{DRAFT marker in a final build: #1}{Verify the
