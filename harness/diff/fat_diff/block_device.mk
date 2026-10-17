@@ -21,7 +21,7 @@ $(BUILD)/test_block_device: $(BLOCK_DEVICE_TEST) $(BLOCK_DEVICE_SRC) os/milton/b
 $(BUILD)/block_device_probe.bin: os/milton/block_device_probe.asm | $(BUILD)
 	$(NASM) -f bin $< -o $@
 $(KERNEL_BLOCK_DEVICE_OBJ): $(BLOCK_DEVICE_SRC) os/milton/block_device.h spec/block_device_contract.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_BLOCK_DEVICE_OPT) -Ispec -Ios/milton -c $< -o $@
 define block-device-mutant
 $(BUILD)/test_block_device_$(1): $(BLOCK_DEVICE_TEST) $(BLOCK_DEVICE_SRC) spec/block_device_contract.h | $(BUILD)
 	$$(CC) $$(BLOCK_DEVICE_FLAGS) -DBLOCK_DEVICE_MUT_$(1) $$(BLOCK_DEVICE_TEST) $$(BLOCK_DEVICE_SRC) -o $$@
@@ -39,7 +39,7 @@ test-block-device-mutant: $(BUILD)/test_block_device_HEADS $(BUILD)/test_block_d
 test-block-device-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/test_partition $(BUILD)/block_device_probe.bin
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/block_device.sh $(BUILD) $(SECONDARY_TRACER_IMG)
 $(BUILD)/block_device_relative.o: $(BLOCK_DEVICE_SRC) spec/block_device_contract.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os -DBLOCK_DEVICE_MUT_RELATIVE -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_BLOCK_DEVICE_OPT) -DBLOCK_DEVICE_MUT_RELATIVE -Ispec -Ios/milton -c $< -o $@
 $(BUILD)/kernel_block_device_relative.elf: $(filter-out $(KERNEL_BLOCK_DEVICE_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(BUILD)/block_device_relative.o $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(filter %.o,$^)
 $(BUILD)/kernel_block_device_relative.bin: $(BUILD)/kernel_block_device_relative.elf
