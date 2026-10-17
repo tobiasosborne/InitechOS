@@ -1,0 +1,46 @@
+% Lesson 25 (AN-18): revising a draft -- a code deleted in Reveal Codes
+% (single spacing again), a sentence deleted with Move, Save under a new
+% name.  Uses DRAFT (Lesson 19); saves FINAL.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{25}{Final Copy}
+\LessonFeatures{Reveal Codes; Line Spacing; Codes; Move, Sentence/Paragraph/Page; Save}
+The draft of Lesson 19 has come back without changes, so it can go out.  The
+final copy is single-spaced and does not need the request for comments.  In
+this lesson you remove the double spacing by deleting its code, delete the
+request, and save the final copy beside the draft.
+
+\BeginReplay{l25}
+\Task{Removing the Double Spacing}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{draft} and press
+\PressKey{Enter}.
+\item Press \Press{Reveal Codes}{Alt-F3}.  The cursor is at the very top of
+the draft, on the \Code{[Ln Spacing:2]} code.
+\end{WPSteps}
+\CompareScreen[rows=17]{l25-1}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Delete}.  In Reveal Codes the code is deleted without a
+question, and the draft is single-spaced from the top.
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=4]{l25-2}
+
+\Task{Deleting the Request}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end,
+in the line \textit{Please return your comments by Wednesday.}
+\item Press \Press{Move}{Ctrl-F4}, select \Choose{Sentence}{1} and
+\Choose{Delete}{3}.
+\end{WPSteps}
+\CompareScreen[rows=4]{l25-3}
+
+\Task{Saving the Final Copy}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, type \TypeName{final} and press
+\PressKey{Enter}.  The draft stays on the disk as it was; the final copy is a
+document of its own.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 26 you make a form with lines to fill in.

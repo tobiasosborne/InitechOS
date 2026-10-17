@@ -1,0 +1,54 @@
+% Lesson 8 (AN-18): Page Break, Hard (Ctrl-Enter): the bar on the screen, Pg
+% on the status line, [HPg] in Reveal Codes.  Saves REPORT (used by Lesson
+% 13).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{8}{Cover Sheet}
+\LessonFeatures{Page Break, Hard; Status Line; Reveal Codes; Save}
+A TPS report starts with its cover sheet, on a page of its own.  In this
+lesson you type a short report whose first page is the cover sheet, and
+start its second page with a hard page.
+
+\BeginReplay{l08}
+\Task{Typing the Cover Sheet}
+\begin{WPSteps}
+\item Type \TypeRun{TPS REPORT} and press \PressKey{Enter} twice.\Keys{Enter}
+\item Type \TypeRun{Report Number:}, press \PressKey{Tab}, type
+\TypeRun{1992-11} and press \PressKey{Enter}.
+\item Type \TypeRun{Prepared by:}, press \PressKey{Tab}, type
+\TypeRun{Peter Gibbons} and press \PressKey{Enter}.
+\item Type \TypeRun{Date:}, press \PressKey{Tab} twice\Keys{Tab} and type
+\TypeRun{March 6, 1992}.
+\end{WPSteps}
+
+\Task{Starting a New Page}
+\begin{WPSteps}
+\item Press \PressKey{Ctrl-Enter}.  A line of equal signs appears across the
+screen below the date: the page ends there.
+\item Type the first line of the report:
+\Type{This report covers the reports of the second week of March.}
+\end{WPSteps}
+\CompareScreen[rows=7]{l08-1}
+The status line shows \Scr{Pg 2}: the cursor is on the second page, on its
+first line, \Scr{Ln 1"}.  The line of equal signs is not text; you cannot
+move the cursor onto it.
+
+\Task{Looking at the Code}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.  The hard page is the code
+\Code{[HPg]} at the end of the date line.
+\end{WPSteps}
+\CompareScreen[rows=16]{l08-2}
+\begin{WPSteps}[resume]
+\item Press \Press{Reveal Codes}{Alt-F3} again.
+\end{WPSteps}
+
+\Task{Saving the Report}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}, type \TypeName{report} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, then type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+This ends the first section.  In the next section you work with whole blocks
+of text at once.

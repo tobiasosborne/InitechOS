@@ -1,0 +1,92 @@
+% InitechWord Reference -- part 1062-0000-10 (PUB-REF-0001 Sec 12, DS row
+% WRD-REF).  Family F-WPC; model the WordPerfect 5.1 Reference,
+% docs/pubs/originals/wordperfect-51.md s1-s4 (four tabbed sections: Getting
+% Started, Reference, Appendix, Glossary/Index; alphabetical feature entries
+% AN-11; divider leaves PK-07).  Bead initech-ipu5.10.
+% Ground truth (Law 1): os/iword/app/face_a.c (WORD.EXE, Face A: the keys,
+% prompts, menus, the status line, the file verbs), os/iword/core/*.c (the
+% document, wrap, codes, block, the Home keys), os/iword/fs/wp5.c, spec/iword/
+% wp5_format.h and reveal_codes.h (LOCKED: the .WP5 container, the code
+% labels, the Format and Font menus), harness/proptest/test_iword_face.c and
+% spec/flair_iword_traces.mk (the gated behaviour).  InitechWord displays no
+% version string, so the book prints none and its part number carries 0000
+% (D-3, PN-03).
+% Every feature entry registers what it documents (\Documents, initech-
+% wpc.sty -> main.cmds); `make test-pubs-iword` compares the list with the
+% surface measured from WORD.EXE itself (harness/pubs/iword_probe.c), both
+% directions, and replays every printed keystroke sequence.
+\documentclass[wordperfect,binder]{initech-manual}
+\usepackage{initech-wpc}
+
+\ProductName{InitechWord}
+\ProductVersion{}
+\DocTitle{Reference}
+\PartNumber{1062-0000-10}
+\FamilyName{Office Systems Family}
+\FamilyColor{FamilyOffice}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to InitechWord for the FLAIR graphical
+  environment of InitechOS and to all subsequent releases until otherwise
+  indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR and InitechWord are trademarks of
+  Initech Systems Corporation.  WordPerfect is a registered trademark of
+  WordPerfect Corporation.  All other product names are trademarks of their
+  respective holders.}
+\IndexColumns{3}
+\renewcommand\FlairDir{../../../fixtures/pubs/initechword-reference}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+\newcommand\ColophonScreens{The screen figures in this book were captured from
+InitechOS running in an emulator under the project's test harness, driven by a
+recorded list of keystrokes; each is the window's own pixels converted to grey
+through a fixed table, placed at three printer dots a pixel.  The screen panels
+of the examples and of A Brief Lesson are the cells the shipped InitechWord
+program drew when the build replayed the keystrokes the book prints, on the
+publications host, through a recording replacement of the FLAIR Toolbox;
+the build replays every one of them again before the book is printed.}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+% The last front-matter page must ship with its roman folio before the
+% counter turns arabic (PG-15: dividers and blanks counted; the section
+% divider is page 1, as in the model).
+\cleardoublepage
+\setcounter{page}{1}\gdef\thepage{\arabic{page}}
+\DividerLeaf
+\chapter{Getting Started}
+\input{gs-basics}
+\input{gs-help}
+\input{gs-lesson}
+\DividerLeaf
+\chapter{Reference}
+\input{ref-a}
+\input{ref-b}
+\input{ref-c}
+\input{ref-d}
+\input{ref-e}
+\input{ref-f}
+\input{ref-i}
+\input{ref-j}
+\input{ref-l}
+\input{ref-m}
+\input{ref-n}
+\input{ref-p}
+\input{ref-r}
+\input{ref-s}
+\input{ref-t}
+\input{ref-u}
+\input{ref-w}
+\DividerLeaf
+\chapter{Appendix}
+\input{appendix}
+\DividerLeaf
+\chapter{Glossary/Index}
+\input{glossary}
+\printindex
+\FinishBook[3]
+\end{document}

@@ -1,0 +1,86 @@
+% Lesson 37 (AN-18): Search forward and backward in the minutes of Lesson
+% 24, repeating a search, a code (the hard page, Ctrl-Enter) in the search
+% string, * Not found *.  Retrieves MINUTES; saves nothing.  Law 1:
+% os/iword/app/face_a.c search_key, os/iword/core/search.c (P3, bead
+% initech-qvgd).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{37}{Finding Text}
+\LessonFeatures{Search; Retrieve; Page Break, Hard; Cursor Movement}
+Bill wants to know everywhere the minutes of the staff meeting mention the
+cover sheet.  Rather than read the minutes line by line, you let
+InitechWord find each place for you.  You use the minutes you typed in
+Lesson 24.
+
+\BeginReplay{l37}
+\Task{Finding the First Place}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{minutes} and press
+\PressKey{Enter}.  The cursor is at the top of the minutes.
+\item Press \Press{\rarr Search}{F2}.  The status line shows
+\Scr{-> Srch:}.
+\item Type \TypeName{cover sheet}.
+\end{WPSteps}
+\CompareScreen{l37-1}
+\begin{WPSteps}[resume]
+\item Press \PressKey{F2} to start the search.  The cursor stops just after
+the first \textit{cover sheet}.
+\end{WPSteps}
+\CompareScreen{l37-2}
+
+\Task{Finding the Next Place}
+\begin{WPSteps}
+\item Press \Press{\rarr Search}{F2}.  The status line offers
+\textit{cover sheet} again.
+\item Press \PressKey{F2}.  The cursor stops after the \textit{cover sheet} of
+the next line.
+\item Press \PressKey{F2} twice more.\Keys{F2}  The search goes on past the
+page break, to the action items on page 2.
+\end{WPSteps}
+\CompareScreen{l37-3}
+\begin{Aside}Pg on the status line shows that the cursor is now on page
+2.\end{Aside}
+
+\Task{Searching Backward}
+\begin{WPSteps}
+\item Press \Press{\larr Search}{Shift-F2}.  The status line shows
+\Scr{<- Srch:} with the same text.
+\item Press \PressKey{F2}.  Searching backward, InitechWord stops on the
+first character of what it finds: the cursor goes back to the start of the
+\textit{cover sheets} it has just found.
+\item Press \Press{\larr Search}{Shift-F2} and \PressKey{F2} again.  The
+cursor goes back to page 1, to the start of the \textit{cover sheet} of
+\textit{Reports without a cover sheet}.
+\end{WPSteps}
+\CompareScreen{l37-4}
+
+\Task{Finding a Code}
+You can search for a code as well as for text.  Here you find the hard page
+that begins the action items.
+\begin{WPSteps}
+\item Press \PressKey{Home, Home, Up} to go to the top of the minutes.
+\item Press \Press{\rarr Search}{F2}, then press \PressKey{Ctrl-Enter}.
+The first key you press replaces the old text, and Ctrl-Enter puts the hard
+page code in the search string.
+\end{WPSteps}
+\CompareScreen{l37-5}
+\begin{WPSteps}[resume]
+\item Press \PressKey{F2}.  The cursor stops just after the hard page, at
+the start of page 2.
+\end{WPSteps}
+
+\Task{Looking for Something That Is Not There}
+\begin{WPSteps}
+\item Press \Press{\rarr Search}{F2}, type \TypeName{agenda} and press
+\PressKey{F2}.  The minutes do not mention an agenda.
+\end{WPSteps}
+\CompareScreen{l37-6}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Enter} (any key will do).  The message goes, and the
+cursor is where it was.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.  You did
+not change the minutes, so there is nothing to save.
+\end{WPSteps}
+\EndReplay
+In Lesson 38 you go one step further and let InitechWord change the text it
+finds.

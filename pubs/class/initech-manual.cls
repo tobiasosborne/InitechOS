@@ -408,10 +408,15 @@
   \thispagestyle{plain}%
   \IfBooleanF{#1}{\im@ifmodel{wordperfect}{%
     \thispagestyle{empty}%
-    \AtPage{168.8}{15}{\colorbox{FamilyOffice}{\parbox[c][190.6mm][c]{9mm}{%
+    \AtPage{168.8}{15}{\colorbox{\im@dividercolor}{\parbox[c][190.6mm][c]{9mm}{%
       \centering\color{white}\rotatebox{-90}{\im@condensed\bfseries\fontsize{9}{10}\selectfont #3}}}}%
     \newpage\null\thispagestyle{empty}\newpage}{} }%
   \IfBooleanF{#1}{\im@ifmodel{ibm}{\im@ibmopener}{}}}
+
+%% PK-07: the divider bar is a tab, so it keeps a colour -- the Office
+%% Systems colour in the Reference; black in the Workbook (\DividerColor).
+\newcommand\im@dividercolor{FamilyOffice}
+\newcommand\DividerColor[1]{\gdef\im@dividercolor{#1}}
 
 %% Unnumbered front-matter chapter (Preface, Contents): roman folios.
 \newcounter{im@frontchapters}

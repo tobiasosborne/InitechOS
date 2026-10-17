@@ -1,0 +1,102 @@
+% Lesson 5 (AN-18): the cursor keys and the Home prefix on a document longer
+% than the screen; the screen scrolling; Pg and Ln.  Saves PHONE.  Replayed
+% by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{5}{Phone List}
+\LessonFeatures{Cursor Movement; Tab; Status Line; Save}
+The third floor needs a list of telephone extensions.  The list is longer
+than the screen, which makes it the right document for learning the keys
+that move the cursor far.  In this lesson you type the list, then move
+around it with the Home combinations.
+
+% One line of the list: the name, the tabs to the 2.5" stop, the extension,
+% Enter -- printed as the reader types it, recorded for the replay.
+\newcommand\PhoneLine[4]{\Typing{#1}\Keys{#2}\Typing{#4}\Keys{Enter}%
+  \noindent\hspace*{4mm}\makebox[48mm][l]{\textbf{#1}}\makebox[22mm][l]{\textit{#3}}\textbf{#4}\par}
+\BeginReplay{l05}
+\Task{Typing the List}
+\begin{WPSteps}
+\item Type \TypeRun{THIRD FLOOR EXTENSIONS} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\item Type each line of the list below.  After the name press Tab as many
+times as the list shows, so that every extension starts at the same tab
+stop, two and a half inches in; then type the extension and press Enter.
+\end{WPSteps}
+\par\addvspace{4pt}
+\begingroup\setlength\parskip{1pt}
+\PhoneLine{Abernathy, Ruth}{Tab Tab}{two tabs}{101}
+\PhoneLine{Bolton, Michael}{Tab Tab}{two tabs}{102}
+\PhoneLine{Chen, Dorothy}{Tab Tab Tab}{three tabs}{103}
+\PhoneLine{Davis, Harold}{Tab Tab Tab}{three tabs}{104}
+\PhoneLine{Ellison, Frank}{Tab Tab Tab}{three tabs}{105}
+\PhoneLine{Fischer, Anne}{Tab Tab Tab}{three tabs}{106}
+\PhoneLine{Gibbons, Peter}{Tab Tab Tab}{three tabs}{107}
+\PhoneLine{Grady, Thomas}{Tab Tab Tab}{three tabs}{108}
+\PhoneLine{Haskins, Lois}{Tab Tab Tab}{three tabs}{109}
+\PhoneLine{Ingram, Paul}{Tab Tab Tab}{three tabs}{110}
+\PhoneLine{Jensen, Carol}{Tab Tab Tab}{three tabs}{111}
+\PhoneLine{Kowalski, Ed}{Tab Tab Tab}{three tabs}{112}
+\PhoneLine{Lumbergh, Bill}{Tab Tab Tab}{three tabs}{113}
+\PhoneLine{Martinez, Rosa}{Tab Tab Tab}{three tabs}{114}
+\PhoneLine{Nagheenanajar, Samir}{Tab}{one tab}{115}
+\PhoneLine{Ochs, Walter}{Tab Tab Tab}{three tabs}{116}
+\PhoneLine{Porter, Joan}{Tab Tab Tab}{three tabs}{117}
+\PhoneLine{Quinn, Martin}{Tab Tab Tab}{three tabs}{118}
+\PhoneLine{Reyes, Gloria}{Tab Tab Tab}{three tabs}{119}
+\PhoneLine{Smykowski, Tom}{Tab Tab Tab}{three tabs}{120}
+\PhoneLine{Thompson, Helen}{Tab Tab}{two tabs}{121}
+\PhoneLine{Underwood, Dale}{Tab Tab}{two tabs}{122}
+\PhoneLine{Vance, Irene}{Tab Tab Tab}{three tabs}{123}
+\PhoneLine{Waddams, Milton}{Tab Tab}{two tabs}{124}
+\endgroup
+\par\addvspace{4pt}
+The screen shows 23 lines of text.  As you typed the last lines, the top of
+the list moved up off the screen to make room: InitechWord always keeps the
+cursor's line on the screen.
+\CompareScreen[rows=23]{l05-1}
+The status line shows \Scr{Ln 5.33"}: the cursor is on the 27th line of the
+page, the empty line after the list.
+
+\Task{Saving the List}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, type \TypeName{phone} and press
+\PressKey{Enter}.
+\end{WPSteps}
+
+\Task{Moving to the Top and the End}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Up}.  The cursor goes
+to the top of the list, and the screen shows the top again.
+\item Press \PressKey{Home}, \PressKey{Down}.  The cursor goes to the bottom
+line of the screen, keeping its column.
+\end{WPSteps}
+\CompareScreen[rows=23]{l05-2}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Home}, \PressKey{Down} again.  The cursor was already on
+the bottom line, so it moves down a screen: here, to the end of the list.
+\item Press \PressKey{Home}, \PressKey{Up}.  The cursor goes to the top line of
+the screen.
+\end{WPSteps}
+\CompareScreen[rows=22]{l05-3}
+
+\Task{Moving Along a Line}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Down} to move to a line of the list, then press
+\PressKey{End}: the cursor goes to the end of the line, after the extension.
+\item Press \PressKey{Home}, \PressKey{Left}: the cursor goes back to the start
+of the line.
+\item Press \PressKey{Right} and watch Pos on the status line grow by a tenth
+of an inch each time.  Press \PressKey{Right} again until the cursor reaches
+the tab.  One press moves it over the whole tab.\Keys{Right Right Right Right Right Right Right Right Right Right Right Right Right}
+\end{WPSteps}
+\CompareScreen[rows=22]{l05-4}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}[resume]
+\item Press \Press{Exit}{F7}, then type \TypeName{n} and \TypeName{n}.  The
+list was saved before you moved the cursor; moving the cursor does not
+change a document, so there is nothing new to save.
+\end{WPSteps}
+\EndReplay
+In Lesson 6 you look at the hidden codes that make up the memo.

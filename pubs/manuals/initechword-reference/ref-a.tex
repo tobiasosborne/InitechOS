@@ -1,0 +1,110 @@
+% Reference entries, A (PUB-REF-0001 AN-11; model: WordPerfect 5.1
+% Reference, feature entries pp. 31-711, docs/pubs/originals/wordperfect-
+% 51.md s4).  Law 1: os/iword/app/face_a.c M_FONT / M_APPEAR (Ctrl-F8, 2,
+% the nine choices; spec/iword/reveal_codes.h IW_APPEAR_MENU,
+% IW_APPEAR_ATTRS), os/iword/core/codes.c iw_ed_attr / iw_attr_faces (the
+% pair of codes, the cursor between them, the faces drawn).
+% GATES: test-pubs-iword test-iword-codes test-iword-reveal-codes test-flair-iword-codes
+\Gates{test-pubs-iword test-iword-codes test-iword-reveal-codes test-flair-iword-codes}
+\begin{Feature}{Appearance}
+Appearance changes the look of text without changing its size: bold,
+underline, double underline, italic, outline, shadow, small capitals,
+redline and strikeout.  You choose an appearance from the Font menu.
+
+InitechWord puts an appearance in the document as a pair of codes: an
+\emph{on} code where the appearance begins and an \emph{off} code where it
+ends, for example \Code{[ITALC]} and \Code{[italc]}.  The text between the
+two codes has the appearance.  Bold and underline have function keys of
+their own (see \InRef{Bold} and \InRef{Underline}); the other appearances
+are chosen only from this menu.
+
+To give text an appearance as you type it,
+\begin{WPSteps}
+\item Press \FK{Font}{Ctrl-F8}, then select \Ch{Appearance}{2}.  The
+Appearance menu appears on the status line:
+\StatusLine{1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0}
+\item Select the appearance by its number.
+\item Type the text.
+\item Press \KC{Ctrl-F8}{2} and select the same appearance again to move the
+cursor past its off code, so that what you type next is ordinary text.
+\Or
+Press \K{Right} to move past the off code.
+\end{WPSteps}
+\begin{WPNote}To give an appearance to text you have already typed, block
+the text first (see \InRef{Block, Attributes}).\end{WPNote}
+
+\Documents{wpmenu}{Ctrl-F8,2=Appearance}
+\Documents{wpmenu}{Ctrl-F8,2,1=Bold}
+\Documents{wpmenu}{Ctrl-F8,2,2=Undln}
+\Documents{wpmenu}{Ctrl-F8,2,3=Dbl Und}
+\Documents{wpmenu}{Ctrl-F8,2,4=Italc}
+\Documents{wpmenu}{Ctrl-F8,2,5=Outln}
+\Documents{wpmenu}{Ctrl-F8,2,6=Shadw}
+\Documents{wpmenu}{Ctrl-F8,2,7=Sm Cap}
+\Documents{wpmenu}{Ctrl-F8,2,8=Redln}
+\Documents{wpmenu}{Ctrl-F8,2,9=Stkout}
+\par\addvspace{6pt}
+The appearances and their codes are:
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}lll@{}}
+\textbf{Selection} & \textbf{Appearance} & \textbf{Codes}\\
+Bold (1) & bold & \Code{[BOLD]} \Code{[bold]}\\
+Undln (2) & underline & \Code{[UND]} \Code{[und]}\\
+Dbl Und (3) & double underline & \Code{[DBL UND]} \Code{[dbl und]}\\
+Italc (4) & italic & \Code{[ITALC]} \Code{[italc]}\\
+Outln (5) & outline & \Code{[OUTLN]} \Code{[outln]}\\
+Shadw (6) & shadow & \Code{[SHADW]} \Code{[shadw]}\\
+Sm Cap (7) & small capitals & \Code{[SM CAP]} \Code{[sm cap]}\\
+Redln (8) & redline & \Code{[REDLN]} \Code{[redln]}\\
+Stkout (9) & strikeout & \Code{[STKOUT]} \Code{[stkout]}\\
+\end{tabular}
+\par\addvspace{4pt}
+
+For example, to type a sentence with one word in italic,
+\BeginReplay{ref-appearance}
+\begin{WPSteps}
+\item Type \TypeRun{Read the }(with the space after it).
+\item Press \Press{Font}{Ctrl-F8}, select \Choose{Appearance}{2}, then
+select \Choose{Italc}{4}.
+\item Type \TypeRun{new}.
+\item Press \Press{Font}{Ctrl-F8}, select \Choose{Appearance}{2}, and select
+\Choose{Italc}{4} again: the cursor moves past \Code{[italc]}.
+\item Type \TypeRun{ policy.}(with the space before it).
+\item Press \Press{Reveal Codes}{Alt-F3} to see the codes.
+\end{WPSteps}
+\WordScreen[rows=13]{ref-appearance}{Italic text on the editing screen and in Reveal Codes}
+\EndReplay
+
+\Notes
+\Topic{Appearance on the Screen}
+On the editing screen, bold, underlined and italic text is drawn in that
+appearance, so you see it as you type.  Text with any other appearance --
+double underline, outline, shadow, small capitals, redline or strikeout --
+is drawn as ordinary text.  The appearance is in the document all the same;
+press Reveal Codes to see its codes.
+
+\Topic{Appearances Together}
+Text can have several appearances at once.  Choose a second appearance
+while the cursor is between the codes of the first: the second pair of codes
+is put inside the first, as in \Code{[BOLD][ITALC]urgent[italc][bold]}.
+
+\Topic{Choosing an Appearance That Is On}
+If the cursor is already in text that has the appearance you select,
+InitechWord does not start it again: it moves that appearance's off code to
+the cursor, so the appearance ends there, and places the cursor after it.
+When the off code is right at the cursor, this simply moves the cursor past
+it.
+
+\Topic{Deleting an Appearance}
+To take an appearance away, delete either of its codes.  In Reveal Codes,
+Backspace or Delete on the code deletes it; on the editing screen
+InitechWord first asks \Scr{Delete [ITALC]? No (Yes)} (with the code's own
+name), and Yes deletes it.  Either way the other code of the pair goes with
+it.  See \InRef{Codes}.
+
+\Topic{Normal}
+Select \Ch{Normal}{3} from the Font menu to end every appearance and size in
+effect at the cursor at once (see \InRef{Font}).
+
+\SeeAlso{Block, Attributes; Bold; Codes; Font; Italics; Reveal Codes; Size; Underline}
+\end{Feature}

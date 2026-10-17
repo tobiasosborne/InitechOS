@@ -1,0 +1,14 @@
+# FLAIR figures of the InitechWord Reference (bead initech-ipu5.10).
+# name|x0 y0 x1 y1 -- the crop of the 640 x 480 screen: the InitechWord
+# window frame (os/iword/app/face_a.c WIN_L/T/R/B = 0,40 .. 640,480).
+# Traces: name.trace (pubs/screens/flair_capture.sh); figures:
+# fixtures/pubs/initechword-reference/name.png ("make pubs-flair-screens").
+editing|0 40 640 480
+reveal|0 40 640 480
+format|0 40 640 480
+formatline|0 40 640 480
+font|0 40 640 480
+block|0 40 640 480
+exitq|0 40 640 480
+search|0 40 640 480
+setup|0 40 640 480

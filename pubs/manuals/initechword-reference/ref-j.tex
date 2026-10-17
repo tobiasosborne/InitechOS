@@ -1,0 +1,77 @@
+% Reference entries, J (AN-11).  Law 1: os/iword/core/edit.c iw_ed_just
+% ([Just:] D0/06 at the cursor, a [DSRt] first when the cursor is not at the
+% left margin; 0 Left, 1 Full (the default), 2 Center, 3 Right),
+% spec/iword/wp5_format.h "margins and justification", face_a.c M_FMTJUST
+% (IW_FMT_JUST_PROMPT).  Shots: ../wordperfect51-decomp mint MINT22, MINT24.
+% GATES: test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format
+\Gates{test-pubs-iword test-iword-codes test-iword-wp5-roundtrip test-iword-face test-flair-iword-format}
+\begin{Feature}{Justification}
+Justification sets where lines sit between the margins: against the left
+margin, centered, against the right margin, or full.  It applies from the
+place you set it to the end of the document, or to the next Justification
+code.
+
+The four justifications are:
+\begin{description}
+\item[Left] every line starts at the left margin; the right edge is ragged.
+\item[Center] every line is centered between the margins: use it for
+headings and title lines.
+\item[Right] every line ends at the right margin: use it for a date or a
+return address.
+\item[Full] the justification of a new document.  On the editing screen,
+lines with full justification start at the left margin, as left-justified
+lines do.
+\end{description}
+
+To set justification,
+\begin{WPSteps}
+\item Move the cursor to where the justification is to begin.
+\item Press \FK{Format}{Shift-F8}, then select \Ch{Line}{1}.
+\item Select \Ch{Justification}{3}.  The bottom line shows
+\StatusLine{Justification: 1 Left; 2 Center; 3 Right; 4 Full: 0}
+\item Select \Ch{Left}{1}, \Ch{Center}{2}, \Ch{Right}{3} or \Ch{Full}{4}.
+The Format: Line screen shows the new justification.
+\item Press \FK{Exit}{F7} to return to the document.
+\end{WPSteps}
+\Documents{wpmenu}{Shift-F8,1,3=Justification}
+\Documents{wpmenu}{Shift-F8,1,3,1=Left}
+\Documents{wpmenu}{Shift-F8,1,3,2=Center}
+\Documents{wpmenu}{Shift-F8,1,3,3=Right}
+\Documents{wpmenu}{Shift-F8,1,3,4=Full}
+
+\BeginReplay{ref-just}
+For example, to type a centered heading and a line against the right
+margin, press \Press{Format}{Shift-F8}, select \Choose{Line}{1},
+\Choose{Justification}{3} and \Choose{Center}{2}, press \Press{Exit}{F7},
+type \TypeRun{Quarterly Report} and press \PressKey{Enter}.  Then press
+\KC{Shift-F8}{1,3,3} and \K{F7}\Keys{Shift-F8}\Typing{133}\Keys{F7}, type \TypeRun{March 2, 1992} and press
+\Press{Reveal Codes}{Alt-F3}:
+\WordScreen[rows=14]{ref-just}{A centered line and a right-justified line, with their codes}
+\EndReplay
+
+\Notes
+\Topic{Code}
+Justification puts a \Code{[Just:Left]}, \Code{[Just:Center]},
+\Code{[Just:Right]} or \Code{[Just:Full]} code in the document.  On the
+editing screen InitechWord asks before deleting one (see \InRef{Codes}).
+Delete it to return to the justification in effect before it.
+
+\Topic{Justification in the Middle of a Line}
+Justification takes effect at the start of a line.  If the cursor is not at
+the left margin when you set it, InitechWord first ends the line at the
+cursor with a deletable soft return, \Code{[DSRt]}, so that the text after
+the cursor begins a new line (see \InRef{Return, Deletable Soft}).
+
+\BeginReplay{ref-just-mid}
+For example, type \TypeRun{Mid}, then press \PressKC{Shift-F8}{1,3,2}{132}
+and \Press{Exit}{F7} with the cursor after it, type \TypeRun{after} and press
+\Press{Reveal Codes}{Alt-F3}:
+\WordScreen[rows=14]{ref-just-mid}{Justification set in the middle of a line}
+\EndReplay
+
+\Topic{Status Line}
+Pos on the status line gives the cursor's place on the paper, so on a
+centered or right-justified line it shows where the text really is.
+
+\SeeAlso{Format; Margins, Left and Right; Return, Deletable Soft}
+\end{Feature}

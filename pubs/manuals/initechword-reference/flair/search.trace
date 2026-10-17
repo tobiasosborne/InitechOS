@@ -1,0 +1,4 @@
+# Search: a sentence typed, F2 and the search string "memo" typed at the
+# -> Srch: prompt (P3, initech-qvgd).  No repeated keys: a fast run of one
+# key can drop on the desktop event path (WL-0135 finding 4).
+kshift-t,kh,ke,kspc,km,ke,km,ko,kspc,ki,ks,kspc,kd,ku,ke,kspc,kshift-f,kr,ki,kd,ka,ky,kdot,kf2,km,ke,km,ko

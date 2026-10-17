@@ -1,0 +1,70 @@
+% Lesson 2 (AN-18): hard returns, tabs, typing paragraphs, Save.  The memo
+% (MEMO) is retrieved by Lessons 3, 4 and 6.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{2}{Memo (First Draft)}
+\LessonFeatures{Return, Hard; Tab; Save; Filenames}
+Bill Lumbergh wants every department told about the new cover sheets.  In
+this lesson you type the first draft of his memo and save it.  Lessons 3
+and 4 finish the memo.
+
+\BeginReplay{l02}
+\Task{Typing the Heading}
+Press Enter at the end of each line of the heading: each line is short, and
+Enter ends it where you choose.  Each Enter puts a hard return in the memo.
+\begin{WPSteps}
+\item Type \TypeRun{INITECH SYSTEMS CORPORATION} and press \PressKey{Enter}.
+\item Type \TypeRun{MEMORANDUM} and press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Routing Lines}
+The four routing lines line up on a tab stop.  Tab stops are every half
+inch, so a tab moves the text after it to the next half inch.
+\begin{WPSteps}
+\item Type \TypeRun{TO:} and press \PressKey{Tab} twice.  The first tab
+stops half an inch in; the second takes the cursor to the one inch stop,
+where the other lines will line up.\Keys{Tab}
+\item Type \TypeRun{All Department Staff} and press \PressKey{Enter}.
+\item Type \TypeRun{FROM:}, press \PressKey{Tab}, type \TypeRun{Bill Lumbergh}
+and press \PressKey{Enter}.  \textit{FROM:} is five characters long, so one
+tab reaches the one inch stop.
+\item Type \TypeRun{DATE:}, press \PressKey{Tab}, type \TypeRun{March 2, 1992}
+and press \PressKey{Enter}.
+\item Type \TypeRun{SUBJECT:}, press \PressKey{Tab}, type
+\TypeRun{TPS Report Cover Sheets} and press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+\CompareScreen[rows=9]{l02-1}
+
+\Task{Typing the Body}
+\begin{WPSteps}
+\item Type the first paragraph, letting InitechWord wrap the lines:
+\Type{Beginning Monday, every TPS report must go out with the new cover sheet. The cover sheets are in the supply room on the second floor, next to the copier.}
+\item Press \PressKey{Enter} twice to end the paragraph and leave a blank
+line.\Keys{Enter}
+\item Type the second paragraph:
+\Type{If you have questions about the cover sheets, please see me or Milton Waddams in collating.}
+\end{WPSteps}
+\CompareScreen[rows=14]{l02-2}
+
+\Task{Saving the Memo}
+A document on the screen is not yet on the disk.  Save it now, so that you
+can work on it again in the next lesson.
+\begin{WPSteps}
+\item Press \Press{Save}{F10}.  The status line shows
+\Scr{Document to be Saved:}.
+\PullDown{Select \Mi{S}ave from the \Mi{F}ile menu.}
+\item Type \TypeName{memo} and press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=14]{l02-3}
+The name of the document, \Scr{A:\wbs MEMO}, is now at the left of the
+status line.  InitechWord shows names in capitals, and \Scr{A:} stands for
+the data volume, where the memo is now kept.
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}.  Because you have not changed the memo since
+saving it, the status line also shows \Scr{(Text was not modified)}.
+\item Type \TypeName{n}, and \TypeName{n} again.
+\end{WPSteps}
+\EndReplay
+In Lesson 3 you retrieve the memo and make changes to it.

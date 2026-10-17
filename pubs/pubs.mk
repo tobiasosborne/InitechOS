@@ -313,17 +313,19 @@ ifeq ($(SKIP_PUBS),1)
 test-pubs test-pubs-mutant test-pubs-tps:
 	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- publication correctness was NOT checked. This is NOT a pass; unset SKIP_PUBS before trusting this gate.\n'
 else
-test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-screens test-pubs-samir-programs
-	@printf '>>> test-pubs: green (command coverage, TPS message inventory, InitechBase programs, example replay, source lints, build cap)\n'
+test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-pubs-examples test-pubs-screens test-pubs-samir-programs test-pubs-iword
+	@printf '>>> test-pubs: green (command coverage, TPS message inventory, InitechBase programs, InitechWord surface and replay, example replay, source lints, build cap)\n'
 # GC-01 over the InitechDOS books together (the Reference documents, the
 # User's Guide teaches): their main.cmds lists (initech-syntax.sty, the one
 # registration mechanism) against the shipped inventory, both directions,
 # and every inline \cmd against the shipped names.  Any other book must
-# stay empty until its product has its own shipped inventory.
+# stay empty until its product has its own shipped inventory.  The
+# InitechWord books have theirs (harness/pubs/iword_probe.c): their .cmds
+# are graded by test-pubs-iword below; their inline \cmd list stays empty.
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*|*/initechbase-*/*|*/turbo-initech-*/*) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*|*/initechbase-*/*|*/turbo-initech-*/*|*/initechword-*/main.cmds) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
@@ -387,6 +389,7 @@ test-pubs-samir-programs:
 	@sh harness/pubs/samir_programs.sh $(PUBS_DIR)/examples/samir/disk $(CANON_DIR) $(PUBS_DIR)/manuals/initechbase-volume-two
 test-pubs-mutant: test-pubs $(PUBS_GATE) $(PUBS_SAMIR_INV)
 	@sh harness/pubs/mutants.sh $(PUBS_GATE) $(PUBS_REPLAY) $(PUBS_CHECK) $(PUBS_BUILD)/gate $(PUBS_ALLOW) $(PUBS_SAMIR_DISK) $(PUBS_SAMIR_INV)
+	@$(MAKE) --no-print-directory test-pubs-iword-mutant
 PUBS_GENERATED += $(PUBS_SAMIR_GEN)
 endif
 
@@ -411,3 +414,76 @@ endif
 # The Turbo Initech manuals carry their own shipped inventory (bead
 # initech-ipu5.12): pubs/turbo.mk.
 include pubs/turbo.mk
+# ---------------------------------------------------------------------------
+# The InitechWord manuals (bead initech-ipu5.10; PUB-REF-0001 GC-01..04,
+# CP-16, CP-17, PK-14).  The shipped inventory is MEASURED from WORD.EXE's
+# own code: harness/pubs/iword_probe.c compiles os/iword/app/face_a.c over
+# the real document core with a recording Toolbox mock and drives it --
+# every key, menu choice, pull-down item and message that does something,
+# every Reveal Codes label of the locked spec/iword/reveal_codes.h.  The same
+# program replays every keystroke sequence the books print and the gate
+# diffs the screens (harness/pubs/iword_check.sh).  The FLAIR figures are
+# pixels from the booted desktop (pubs/screens/flair_capture.sh +
+# harness/pubs/ppm_grey_png.c), re-captured by test-pubs-screens; being
+# binary they are committed under fixtures/pubs/<book>/ (pubs/ is ASCII only,
+# GC-05), their traces under pubs/manuals/<book>/flair/.
+#   make test-pubs-iword          the gate (in test-pubs)
+#   make test-pubs-iword-mutant   its named mutants (in test-pubs-mutant)
+#   make pubs-iword-screens       re-replay and write the replayed screens
+#                                 into pubs/manuals (review the diff)
+#   make pubs-flair-screens       re-capture the FLAIR figures into the tree
+#   make test-pubs-flair-screens  EMU GATE: re-capture and cmp (in
+#                                 test-pubs-screens)
+# ---------------------------------------------------------------------------
+PUBS_IWORD_PROBE := $(BUILD)/pubs_iword_probe
+PUBS_IWORD_ALLOW := harness/pubs/iword.allow
+PUBS_PPM_GREY    := $(BUILD)/pubs_ppm_grey_png
+PUBS_IWORD_SRC    = harness/pubs/iword_probe.c os/iword/app/face_a.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) \
+                    os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h
+PUBS_IWORD_CC     = $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
+$(PUBS_IWORD_PROBE): $(PUBS_IWORD_SRC) | $(BUILD)
+	$(PUBS_IWORD_CC) -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)
+# Rule 6: a WORD.EXE that never shows "Block on" (face_a.c's own mutant knob)
+$(BUILD)/pubs_iword_probe_noblk: $(PUBS_IWORD_SRC) | $(BUILD)
+	$(PUBS_IWORD_CC) -DIWORD_MUT_NO_BLOCK_ON -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)
+# Rule 6: a WORD.EXE whose plain F9 shows no grey End Field (the P3 lane's
+# IWORD_MUT_FKEY_DROP knob, initech-qvgd)
+$(BUILD)/pubs_iword_probe_fkdrop: $(PUBS_IWORD_SRC) | $(BUILD)
+	$(PUBS_IWORD_CC) -DIWORD_MUT_FKEY_DROP -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)
+$(PUBS_PPM_GREY): harness/pubs/ppm_grey_png.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+PUBS_IWORD_MUTANT_DEPS = $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(BUILD)/pubs_iword_probe_fkdrop
+PUBS_IWORD_BOOKS := initechword-reference initechword-workbook initechword-install
+
+.PHONY: test-pubs-iword test-pubs-iword-mutant pubs-iword-screens pubs-flair-screens test-pubs-flair-screens
+ifeq ($(SKIP_PUBS),1)
+test-pubs-iword test-pubs-iword-mutant test-pubs-flair-screens:
+	@printf '!!! $@ SKIPPED (SKIP_PUBS=1 opt-out) -- the InitechWord manuals were NOT checked. This is NOT a pass.\n'
+else
+test-pubs-iword: test-pubs-build $(PUBS_IWORD_PROBE) $(PUBS_GATE)
+	@sh harness/pubs/iword_check.sh check $(PUBS_IWORD_PROBE) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
+test-pubs-iword-mutant: test-pubs-iword $(PUBS_IWORD_MUTANT_DEPS) $(PUBS_GATE)
+	@sh harness/pubs/iword_mutants.sh $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(BUILD)/pubs_iword_probe_fkdrop $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
+test-pubs-flair-screens: test-pubs-build $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) $(PUBS_GATE)
+	@set -e; n=0; for m in $(PUBS_IWORD_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/flair; f=fixtures/pubs/$$m; [ -f $$d/FLAIRSHOTS ] || continue; \
+		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) \
+			$$d/FLAIRSHOTS $(PUBS_BUILD)/flair-check/$$m spec/flair_iword_traces.mk FLAIR_IWORD_TYPE_SPEC; \
+		for p in $(PUBS_BUILD)/flair-check/$$m/*.png; do \
+			$(PUBS_GATE) same SCREEN-DRIFT $$f/$$(basename $$p) $$p; n=$$((n + 1)); done; \
+		for c in $$f/*.png; do [ -f $(PUBS_BUILD)/flair-check/$$m/$$(basename $$c) ] || { \
+			printf '!!! test-pubs RED SCREEN-UNREPLAYED: %s has no FLAIRSHOTS row\n' "$$c"; exit 1; }; \
+			grep -qxF "$$(basename $$c .png)" $(PUBS_BUILD)/gate/$$m/main.flairshots || { \
+			printf '!!! test-pubs RED SCREEN-UNPRINTED: %s\n' "$$c"; exit 1; }; done; \
+		while IFS= read -r x; do [ -f $$f/$$x.png ] || { printf '!!! test-pubs RED SCREEN-PAIR: %s/%s.png is printed but not committed\n' "$$f" "$$x"; exit 1; }; \
+			done < $(PUBS_BUILD)/gate/$$m/main.flairshots; done; \
+	printf '>>> test-pubs-flair-screens: green (%s FLAIR figures in the InitechWord manuals == the booted desktop, pixel for pixel)\n' "$$n"
+endif
+test-pubs-screens: test-pubs-flair-screens
+pubs-iword-screens: $(PUBS_IWORD_PROBE) $(PUBS_GATE) pubs
+	@sh harness/pubs/iword_check.sh update $(PUBS_IWORD_PROBE) $(PUBS_GATE) $(PUBS_BUILD) $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
+pubs-flair-screens: $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY)
+	@set -e; for m in $(PUBS_IWORD_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/flair; [ -f $$d/FLAIRSHOTS ] || continue; \
+		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) \
+			$$d/FLAIRSHOTS $(PUBS_BUILD)/flair/$$m spec/flair_iword_traces.mk FLAIR_IWORD_TYPE_SPEC; \
+		mkdir -p fixtures/pubs/$$m; cp -f $(PUBS_BUILD)/flair/$$m/*.png fixtures/pubs/$$m/; \
+		printf '>>> pubs-flair-screens: fixtures/pubs/%s updated -- review the figures\n' "$$m"; done
