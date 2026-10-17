@@ -1,0 +1,99 @@
+% Chapter 14 -- The Accessories and Applications (Part II, Reference): one
+% topic per application from the disk that comes with FLAIR, each with its
+% capture and a pointer into the FLAIR Accessories Guide, which documents
+% their menus (the 1988 System 6 User's Guide Ch. 5 "Desk Accessories" is
+% the model of a reference overview inside the user's guide,
+% apple-macintosh.md Sec 8.1; the full treatment lives in the separate
+% book, as the DS table splits it).  Sources (Law 1): os/apps/calcda/calcda.c
+% (the Calculator), os/apps/calc/calc.c (InitechCalc: the ledger and Pie
+% Chart windows, the FILE COPY box), os/apps/paint/paint.c (InitechPaint:
+% the canvas, the eight-menu bar of spec/assets/menu_canon.h),
+% os/apps/ctenant/ctenant.c and os/apps/tenantfx.asm (the samples),
+% os/apps/itext/itext.c.  Captures: screens/c_*.mouse (the same locked
+% traces as the FLAIR Accessories Guide's a_* figures).
+% GATES: test-flair-calcda test-flair-calc test-flair-paint test-flair-ctenant test-tenant-load test-flair-itext test-pubs-flair-screens
+\Gates{test-flair-calcda, test-flair-calc, test-flair-paint,
+  test-flair-ctenant, test-tenant-load, test-flair-itext,
+  test-pubs-flair-screens}
+\chapter{The Accessories and Applications}
+\label{ch:accessories}
+\index{accessories}\index{applications!that come with FLAIR}
+
+This chapter introduces each of the applications that come with FLAIR on
+the data disk: what it is for, how to open it, and what you see when it
+opens.  The \doctitle{FLAIR Accessories Guide} describes each of them in
+full, with every menu command and key.  Initech 123 and InitechWord, which
+are on the data disk but sold separately, are described in
+Chapter~\ref{ch:appsref}.
+
+All of them are applications from the disk: open one by double-clicking
+its icon in the \file{APPS} folder, and quit it before you open another.
+
+\section{The Calculator}
+\index{Calculator}
+A pocket calculator on the screen, for adding up a column of figures
+while you work.  Open it from the Apple menu, or
+with its program, \file{CALCULAT.EXE}.  Click its keys, or type the digits
+and the signs \texttt{+ - * / =} on the keyboard; press \key{C} or click
+\texttt{C} to clear it.  It works out each result as you go, from left to
+right.
+
+Figure~\ref{fig:calcwin} in Chapter~\ref{ch:windowsref} shows the
+Calculator.  To put it away, click its close box or press \key{Ctrl-W}.
+
+\section{InitechText}
+\index{InitechText}
+The text editor: memos, notes, lists and any other document that is words
+and lines.  Its program is \file{TEXT.EXE}.  Chapter~\ref{ch:documents}
+teaches you to use it, and Figure~\ref{fig:dtyped} shows its window.  It
+holds one document of up to 4,096 characters at a time, saves documents as
+plain text that the InitechDOS programs can read, and uses the Clipboard
+for \menuitem{Cut}, \menuitem{Copy} and \menuitem{Paste}.
+
+\section{InitechCalc}
+\index{InitechCalc}
+The quarterly ledger and its pie chart.  Its program is \file{CALC.EXE}.
+It opens two windows: the ledger, with an item and an amount on each row
+and the total of the quarter below, and the pie chart of the quarter's
+results.
+
+\FlairScreen[label=fig:cicalc]{c_icalc}{InitechCalc: the ledger and the pie
+chart}
+\draft{the amounts of the three ledger rows show the placeholder
+TODO\_FRAME until their values are locked}
+
+The ledger writes a negative amount with its minus sign at the end, as in
+\texttt{570-}.  The pie chart shows each part of the quarter as a slice
+with its percentage; the slices add up to 116 percent.  Choose
+\menuitem{Save} from InitechCalc's \menuname{File} menu, or press
+\key{Ctrl-S}, to copy the ledger to the disk: the \texttt{FILE COPY} box
+shows the progress of the copy (Figure~\ref{fig:progress}).
+
+\section{InitechPaint}
+\index{InitechPaint}
+The painting application.  Its program is \file{PAINT.EXE}.  It opens a
+blank canvas titled \texttt{Untitled-1}, with a menu bar of eight menus:
+\menuname{File}, \menuname{Edit}, \menuname{Image}, \menuname{Layer},
+\menuname{Select}, \menuname{View}, \menuname{Window} and \menuname{Help}.
+In this version of FLAIR every command except \menuitem{Quit} is dimmed.
+
+\FlairScreen[label=fig:cpaint]{c_paint}{InitechPaint}
+
+\section{The sample applications}
+\index{sample applications}\index{C Tenant}\index{TenantFix}
+Two small applications show in their simplest form how an application from
+the disk behaves.
+
+\SideHead{C Tenant}\file{CTENANT.EXE} opens a window that reports each key
+you press and each click you make in it.
+
+\FlairScreen[label=fig:cctenant]{c_ctenant}{C Tenant, after a key and a
+click}
+
+\SideHead{TenantFix}\file{TENANTFX.EXE} opens a window that says it was
+loaded from the disk.  A click in its window quits it.
+
+\FlairScreen[label=fig:ctfx]{c_tfx}{TenantFix}
+
+Use them to check that FLAIR opens applications from the data disk: if
+they open and quit as described, the disk and FLAIR are working.

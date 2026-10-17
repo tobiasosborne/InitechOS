@@ -1,0 +1,20 @@
+# c_tfx: TenantFix opened.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (43,82) TENANTFX.EXE
+m-100:-8,m-100:0,m-100:0,m-29:0
+# double-click at (43,82)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (500,459) 
+m100:100,m100:100,m100:100,m100:77,m57:0

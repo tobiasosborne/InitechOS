@@ -1,0 +1,20 @@
+# c_icalc: InitechCalc opened: the ledger and the pie chart.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64)
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102)
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90)
+l1,l0
+# go (179,186) CALC.EXE
+m-100:96,m-93:0
+# double-click at (179,186)
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (500,455) 
+m100:100,m100:100,m100:69,m21:0
