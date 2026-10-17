@@ -52,8 +52,10 @@ key has up to four lines:
 \item the feature started by pressing Shift and the key, in green;
 \item the feature started by pressing the key alone, in black.
 \end{itemize}
-A line is left blank where the combination starts no feature.  The quick
-list at the left of the template names the other keys you use most often.
+A line printed in grey names a WordPerfect feature InitechWord does not
+carry out (see \textit{Function Keys} below), and a line is left blank where
+the combination does nothing.  The quick list at the left of the template
+names the other keys you use most often.
 
 \WPSide{Starting InitechWord}
 InitechWord is a FLAIR application.  To start it,
@@ -118,15 +120,15 @@ of the line, and \K{Home, Home, Up} to the top of the document.  See
 
 \Topic{Cancel}
 \FK{Cancel}{F1} backs out of any menu, prompt or question and returns you
-to the document.  \K{Esc} does the same.  See \InRef{Cancel}.
+to the document.  \K{Esc} does the same.  On the editing screen, with
+nothing to back out of, Cancel offers to restore the text you deleted last.
+See \InRef{Cancel} and \InRef{Undelete}.
 
 \Topic{Shift, Alt and Ctrl}
 These keys change what a function key does, as the template shows; with
 \K{Enter}, Ctrl gives a hard page (\K{Ctrl-Enter}).  With every other key
 InitechWord acts as if they were not held: Shift-Backspace erases as
-Backspace does, Ctrl-Down moves down a line as Down does, and so on.  Two
-function-key combinations work the same way: Shift-F7, Alt-F7 and Ctrl-F7
-start Exit, as F7 does, and Alt-F10 and Ctrl-F10 start Save, as F10 does.
+Backspace does, Ctrl-Down moves down a line as Down does, and so on.
 Appendix F lists every such key.
 
 \WPSide{Function Keys}
@@ -141,12 +143,16 @@ The function keys InitechWord uses are these.  Appendix F lists them again
 with every key of the keyboard.
 
 \par\addvspace{4pt}
-\noindent\begin{tabular}{@{}lll@{}}
+\noindent\begin{tabular}{@{}llp{52mm}@{}}
 \textbf{Feature} & \textbf{Key} & \textbf{What it does}\\
-Cancel & F1 & backs out of a menu or prompt\\
-Reveal Codes & Alt-F3 & shows the hidden codes\\
+Cancel & F1 & backs out of a menu or prompt; restores deleted text\\
+Setup & Shift-F1 & units of measure and backup settings\\
+\rarr Search & F2 & finds text and codes, forward\\
+\larr Search & Shift-F2 & finds text and codes, backward\\
+Replace & Alt-F2 & replaces text and codes\\
+Reveal Codes & Alt-F3 or F11 & shows the hidden codes\\
 \rarr Indent & F4 & indents a paragraph to the next tab stop\\
-Block & Alt-F4 & marks text to act on\\
+Block & Alt-F4 or F12 & marks text to act on\\
 Move & Ctrl-F4 & moves, copies or deletes text\\
 Bold & F6 & bold text\\
 Exit & F7 & leaves the document\\
@@ -158,8 +164,12 @@ Retrieve & Shift-F10 & brings a saved document back\\
 \end{tabular}
 \par\addvspace{4pt}
 
-The other function keys and combinations do nothing; pressing one leaves
-the document as it was.
+Most other function keys name a WordPerfect feature that InitechWord does
+not carry out: Shift-F7, for example, is Print.  Pressing one shows the
+feature's name in grey on the status line, as on the template, and changes
+nothing; the next key you press clears the name and does what it always
+does.  Shift, Alt and Ctrl with F11 and F12 do nothing at all.  Appendix F
+lists every function key.
 
 \WPSide{Pull-Down Menus}
 InitechWord has one pull-down menu, \textbf{File}, in the second row of the
@@ -178,7 +188,7 @@ For everything else you use the keys.  See \InRef{Pull-Down Menus}.
 
 \WPSide{Menu Options}
 When you press a feature key, InitechWord shows its menu on the status line
-or, for Format, on a screen of its own.  Each option has a number.  Type
+or, for Format and Setup, on a screen of its own.  Each option has a number.  Type
 the number to choose the option.  This book names the option with its
 number in parentheses: select \Ch{Size}{1}.  The \Scr{0} at the end of a
 status-line menu is what you get if you choose nothing: press \FK{Cancel}{F1} or
@@ -188,7 +198,8 @@ A menu shows the whole set of options WordPerfect users know, and
 InitechWord carries out the options described in this book.  Where a
 menu shows an option this book does not describe, pressing its number
 returns you to the document (on the status-line menus) or leaves the
-screen as it is (on the Format screens).  The Font menu, for example,
+screen as it is (on the Format and Setup screens, where such options are
+printed in grey on Setup).  The Font menu, for example,
 shows Base Font (4) and Print Color (5); either returns you to the
 document.
 

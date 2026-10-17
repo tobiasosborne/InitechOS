@@ -11,6 +11,8 @@
 \begin{Feature}{Cancel}
 Cancel backs out of a menu, prompt or question without doing anything.  You
 can press it whenever the status line shows a menu or asks you something.
+On the editing screen, with nothing to cancel, the same key restores
+deleted text (see \InRef{Undelete}).
 
 To cancel,
 \begin{WPSteps}
@@ -50,10 +52,21 @@ has highlighted a sentence, paragraph or page for Move, Cancel removes the
 highlight.
 
 \Topic{On the Editing Screen}
-With no menu or prompt on the screen, Cancel and Esc do nothing.  InitechWord
-does not keep deleted text for restoring: once text is deleted, it is gone.
+With no menu or prompt on the screen, \FK{Cancel}{F1} starts Undelete: it
+shows the last text you deleted and offers to restore it (see
+\InRef{Undelete}).  \K{Esc} does nothing on the editing screen.
 
-\SeeAlso{Block; Exit; Format; Move, Retrieve}
+\Topic{Search and Replace}
+Cancel at the \Scr{Srch:} prompt leaves the cursor where it was.  At the
+questions and strings of Replace it leaves Replace; at
+\Scr{Replace? Yes (No)} it stops replacing.  See \InRef{Search} and
+\InRef{Replace}.
+
+\Topic{Setup}
+Cancel (or Esc) on any Setup screen returns to the document; Exit (F7)
+goes back one screen.  See \InRef{Setup}.
+
+\SeeAlso{Block; Exit; Format; Move, Retrieve; Undelete}
 \end{Feature}
 
 \begin{Feature}{Caps Lock}

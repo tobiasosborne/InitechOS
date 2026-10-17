@@ -12,8 +12,13 @@
 % measured from WORD.EXE (harness/pubs/iword_probe.c: every F1..F12 alone
 % and with Shift, Alt, Ctrl that does something, aliases excluded) -- a cell
 % for an unbound key, or a bound key with no cell, is RED.  The feature
-% words are the Reference's entry names.  Empty rows are left blank, not
-% ruled, as on the model.
+% words are the Reference's entry names.  A cell written *Name is a key
+% that shows the grey name of a WordPerfect feature InitechWord does not
+% carry out (P3, spec/iword/fkeys.json "gray"): it is printed in grey and
+% registered "Shift-F7=Print" (wpgray), the name as the status line shows it,
+% and the gate holds those to the measured grey keys too.  Empty rows (the
+% modified F11 and F12, which do nothing) are left blank, not ruled, as on
+% the model.
 % GATES: test-pubs-iword
 \documentclass[wordperfect,cover]{initech-manual}
 \usepackage{initech-wpc}
@@ -24,8 +29,12 @@
 \makeatletter
 \newlength\StripCell \setlength\StripCell{29mm}
 \newlength\StripLegend \setlength\StripLegend{13mm}
-\newcommand\im@stripline[2]{\makebox[\StripCell][c]{\textcolor{#1}{\sffamily\fontsize{9}{11}\selectfont #2}}\\}
-\newcommand\im@stripreg[2]{\ifx\relax#2\relax\else\Documents{wpkey}{#1}\fi}
+\definecolor{StripGrey}{gray}{0.6}
+\newcommand\im@stripline[2]{\makebox[\StripCell][c]{\sffamily\fontsize{9}{11}\selectfont\im@stripshow{#1}{#2}}\\}
+\def\im@stripshow#1#2{\ifx\relax#2\relax\else\im@stripshowx{#1}#2\@nil\fi}
+\def\im@stripshowx#1#2#3\@nil{\ifx*#2\textcolor{StripGrey}{#3}\else\textcolor{#1}{#2#3}\fi}
+\newcommand\im@stripreg[2]{\ifx\relax#2\relax\else\im@stripregx{#1}#2\@nil\fi}
+\def\im@stripregx#1#2#3\@nil{\ifx*#2\Documents{wpgray}{#1=#3}\else\Documents{wpkey}{#1}\fi}
 %% \StripKey{F4}{ctrl}{alt}{shift}{alone}: one key's cell; every non-empty
 %% command is registered as that key combination.
 \newcommand\StripKey[5]{\gdef\im@entryname{Template}%
@@ -60,19 +69,19 @@ Before the Codes & \K{Home, Home, Home, Left}\\
 \end{tabular}\par\vspace{1pt}
 1062-0000-20\quad A1-3/92}
 \end{minipage}%
-\StripKey{F1}{}{}{}{Cancel}%
-\StripKey{F2}{}{}{}{}%
-\StripKey{F3}{}{Reveal Codes}{}{}%
-\StripKey{F4}{Move}{Block}{}{\rarr Indent}%
+\StripKey{F1}{*Shell}{*Thesaurus}{Setup}{Cancel}%
+\StripKey{F2}{*Spell}{Replace}{\larr Search}{\rarr Search}%
+\StripKey{F3}{*Screen}{Reveal Codes}{*Switch}{*Help}%
+\StripKey{F4}{Move}{Block}{*Indent}{\rarr Indent}%
 \StripLegendCell
-\StripKey{F5}{}{}{}{}%
-\StripKey{F6}{}{}{}{Bold}%
-\StripKey{F7}{}{}{}{Exit}%
-\StripKey{F8}{Font}{}{Format}{Underline}%
+\StripKey{F5}{*Text In/Out}{*Mark Text}{*Date/Outline}{*List}%
+\StripKey{F6}{*Tab Align}{*Flush Right}{*Center}{Bold}%
+\StripKey{F7}{*Footnote}{*Columns/Table}{*Print}{Exit}%
+\StripKey{F8}{Font}{*Style}{Format}{Underline}%
 \StripLegendCell
-\StripKey{F9}{}{}{}{}%
-\StripKey{F10}{}{}{Retrieve}{Save}%
-\StripKey{F11}{}{}{}{}%
-\StripKey{F12}{}{}{}{}%
+\StripKey{F9}{*Merge/Sort}{*Graphics}{*Merge Codes}{*End Field}%
+\StripKey{F10}{*Macro Define}{*Macro}{Retrieve}{Save}%
+\StripKey{F11}{}{}{}{Reveal Codes}%
+\StripKey{F12}{}{}{}{Block}%
 \vrule width 0.4pt
 \end{document}

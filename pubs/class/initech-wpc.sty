@@ -9,8 +9,10 @@
 %% THE GATES' HOOKS (GC-01, GC-03; harness/pubs/iword_check.sh):
 %%   \Documents{KIND}{NAME}  registers NAME through the ONE mechanism,
 %%       \RegisterCommand (initech-syntax.sty), under the feature entry in
-%%       force.  KIND: wpkey, wpmenu, wppull, wpcode, wpmsg -- the shipped
-%%       inventory harness/pubs/iword_probe.c prints.  A backslash in a NAME
+%%       force.  KIND: wpkey, wpmenu, wppull, wpcode, wpmsg, wpgray -- the
+%%       shipped inventory harness/pubs/iword_probe.c prints (wpgray: a key
+%%       that shows the grey name of a WordPerfect feature InitechWord does
+%%       not carry out, "Shift-F7=Print").  A backslash in a NAME
 %%       is written \wbs (it writes a plain backslash).
 %%   \K{Shift-F8}  a key or key sequence in running text, set as the model
 %%       sets it; written to <job>.wpkeys: every key of it must be a shipped
@@ -249,6 +251,7 @@ end
 %% A hidden code as Reveal Codes shows it: [BOLD].
 \newcommand\Code[1]{\mbox{\texttt{#1}}}
 \newcommand\rarr{\mbox{$\rightarrow$}}
+\newcommand\larr{\mbox{$\leftarrow$}}
 %% Text on the screen (a prompt, a message): Cursor.
 \newcommand\Scr[1]{\texttt{#1}}
 %% A whole status-line menu or message, displayed as the screen shows it:
@@ -261,6 +264,7 @@ end
 %% Keys and messages are indexed where they are documented (AN-24 F-WPC).
 \newcommand\Documents[2]{\RegisterCommand{#2}{#1}{GATED}{\im@entryname}%
   \ifnum\pdf@strcmp{#1}{wpkey}=0 \im@indexkey{#2}\fi
+  \ifnum\pdf@strcmp{#1}{wpgray}=0 \im@indexkey{#2}\fi
   \ifnum\pdf@strcmp{#1}{wpmsg}=0 \directlua{initech_wpc.index_msg("\luaescapestring{#2}")}\fi}
 \directlua{
 function initech_wpc.index_msg(s)
@@ -269,8 +273,17 @@ function initech_wpc.index_msg(s)
   tex.sprint(luatexbase.registernumber("catcodetable@atletter"), "\string\\index{" .. key .. "@\string\\texttt{" .. disp .. "}}")
 end
 }
+%% A key is indexed by its name before any "=": "Shift-F7=Print" is indexed
+%% as Shift-F7.  The keys of a prompt or of Block ("Srch:F6", "Block:F12")
+%% are indexed under the feature that documents them, not by key.
 \newcommand\im@indexkey[1]{\im@indexkeyx#1=\relax}
-\def\im@indexkeyx#1=#2\relax{\index{#1}}
+\def\im@indexkeyx#1=#2\relax{\directlua{initech_wpc.index_key("\luaescapestring{#1}")}}
+\directlua{
+function initech_wpc.index_key(k)
+  if string.find(k, ":") then return end
+  tex.sprint(luatexbase.registernumber("catcodetable@atletter"), "\string\\index{" .. k .. "}")
+end
+}
 
 %% ---- replayed keystrokes (lessons and Reference examples; GC-03) ----------
 \newwrite\im@wpreplay
@@ -358,6 +371,7 @@ function initech_wpc.screen(path, rows)
     if a == "." then return g end
     if a == "R" then return "\string\\im@rev{" .. g .. "}" end
     if a == "K" then return "\string\\im@band{" .. g .. "}" end
+    if a == "G" then return "\string\\im@grey{" .. g .. "}" end
     local n = tonumber(a)
     if not n then tex.error("initech-wpc: " .. path .. ": attribute " .. a) return g end
     local s = g
@@ -382,6 +396,9 @@ end
 \newcommand\im@cell[1]{\makebox[\im@cellw][c]{#1}}
 \newcommand\im@rev[1]{{\setlength\fboxsep{0pt}\colorbox{black}{\textcolor{white}{\strut #1}}}}
 \newcommand\im@band[1]{{\setlength\fboxsep{0pt}\colorbox{black!30}{\strut #1}}}
+%% grey on the blue field (a feature InitechWord names but does not carry
+%% out; Setup's unavailable rows): the character in 55% black
+\newcommand\im@grey[1]{\textcolor{black!55}{#1}}
 \newcommand\im@bf[1]{{\bfseries #1}}
 \newcommand\im@it[1]{{\itshape #1}}
 \newcommand\im@ul[1]{\underline{#1}}
@@ -590,5 +607,11 @@ end
   \par\addvspace{3pt}\noindent\llap{\makebox[\imHang][l]{\texttt{#1}}}#2\par}
 %% A key of the keyboard appendix that acts as another key (wpkey alias).
 \newcommand\WPAlias[2]{\Documents{wpkey}{#1=#2}#1}
+%% The same at a prompt: \WPPromptAlias{Srch:}{Shift-F2}{F2} registers
+%% "Srch:Shift-F2=F2" and prints Shift-F2.
+\newcommand\WPPromptAlias[3]{\Documents{wpkey}{#1#2=#3}#2}
+%% A key that shows a grey name: \WPGray{Shift-F7}{Print} registers
+%% "Shift-F7=Print" (wpgray) and prints the key and the name.
+\newcommand\WPGray[2]{\Documents{wpgray}{#1=#2}#1 & \textcolor{black!55}{#2}}
 
 \endinput

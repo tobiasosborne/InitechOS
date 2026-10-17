@@ -1,11 +1,13 @@
 % Lesson 36 (AN-18, "Special Techniques" anthology): backing out of the
 % Format screens a step at a time; Enter answers a question with its first
-% answer; a name corrected with Backspace; Ctrl-F10 saving as F10 does.
+% answer; a name corrected with Backspace; a key that shows a grey name
+% (Ctrl-F10, Macro Define: spec/iword/fkeys.json "gray", P3) and the next
+% key acting as usual.
 % Replayed by test-pubs-iword.
 % GATES: test-pubs-iword
 \Gates{test-pubs-iword}
 \Lesson{36}{More Special Techniques}
-\LessonFeatures{Format; Cancel; Exit; Save; Filenames}
+\LessonFeatures{Format; Cancel; Exit; Save; Filenames; Template}
 Like Lesson 22, this lesson is a set of short exercises to try in any order.
 
 \BeginReplay{l36}
@@ -43,16 +45,21 @@ and type \TypeName{ce}.
 \item Press \PressKey{Enter} to save the document as \Scr{PRACTICE}.
 \end{WPSteps}
 
-\Task{Saving With Ctrl-F10}
-Ctrl-F10 and Alt-F10 do what F10 does, so you save even if you hold Ctrl or
-Alt by mistake.
+\Task{Pressing a Key With a Grey Name}
+Some function keys name a WordPerfect feature that InitechWord does not
+carry out; the template prints their names in grey.  Pressing one by mistake
+does no harm.
 \begin{WPSteps}
 \item Type \TypeRun{ More.} (with the space).
-\item Press \PressKey{Ctrl-F10}.  The status line asks for the name, offering
-\Scr{PRACTICE}.
+\item Press \PressKey{Ctrl-F10}, the Macro Define key of WordPerfect.  The
+status line shows the name in grey, and nothing else happens.
+\end{WPSteps}
+\CompareScreen[rows=1]{l36-3}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}.  The grey name goes, and F10 does what it
+always does: the status line asks for the name, offering \Scr{PRACTICE}.
 \item Press \Press{Cancel}{F1}.
 \item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
 \end{WPSteps}
 \EndReplay
-This is the last lesson.  For everything else InitechWord does, see the
-\textit{InitechWord Reference}.
+Lesson 37 shows you how to find text in a long document.

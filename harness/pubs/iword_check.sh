@@ -21,7 +21,8 @@
 #               directions, pubs_gate commands; GC-01, GC-02, CP-16)
 #   TEMPLATE    the function-key template's cells == the shipped F-key
 #               bindings, both directions (PK-14: "generated from the shipped
-#               key map")
+#               key map"), the grey cells == the keys that show a grey name,
+#               name for name
 #   KEYS        every key named in running text is a shipped key
 #   FEATURES    every feature a Workbook lesson lists is a Reference entry
 #               (CP-17: the Feature List appendices are built from them)
@@ -52,7 +53,7 @@ if [ "$mode" = check ]; then
     # COMMANDS
     "$gate" commands "$w/shipped" "$allow" "$built/initechword-reference/main.cmds"
     # TEMPLATE
-    grep -E '^((Shift|Alt|Ctrl)-)?F[0-9]+\|wpkey$' "$w/shipped" > "$w/fkeys"
+    grep -E '^((Shift|Alt|Ctrl)-)?F[0-9]+(\|wpkey|=[^|]*\|wpgray)$' "$w/shipped" > "$w/fkeys"
     "$gate" commands "$w/fkeys" "$allow" "$built/initechword-install/strip.cmds"
     # the other documents register nothing (the Reference is the one list)
     for c in "$built/initechword-workbook/main.cmds" "$built/initechword-install/main.cmds"; do

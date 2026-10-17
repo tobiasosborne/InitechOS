@@ -9,8 +9,155 @@
 % the ruler, the 10-row codes area, the restore message; spec/iword/
 % reveal_codes.h).  Shots: ../wordperfect51-decomp goldens MINT01..05,
 % mint MINT06..32.
-% GATES: test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens
-\Gates{test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens}
+% Replace (Alt-F2) is P3 (bead initech-qvgd part 2, WL-0146): face_a.c
+% IW_FK_replace, replace_key (w/Confirm? No (Yes): y confirms, n or Enter
+% does not, other keys ignored, F1 cancels; Replace? Yes (No): y or Enter
+% replaces, n skips, F1 stops), search_key in M_RSEARCH (the Srch: keys; F2
+% / Esc go on to Replace with:, an empty string returns to the document) and
+% M_RTEXT (no F6 / F8, no Up / Down), replace_next (every match from the
+% cursor in the direction shown, then "* Not found *"), replace_match (a
+% lower-case replacement takes the capitals of the text found: all capitals,
+% or the first letter; an empty replacement deletes; Tab, Indent and Hard
+% Page codes in the replacement get their positions fixed up).  F11 is
+% Reveal Codes (spec/iword/fkeys.json; Reference p. 966 note 3).
+% GATES: test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens test-iword-replace test-flair-iword-replace test-iword-fkeys
+\Gates{test-pubs-iword test-iword-face test-iword-wp5-roundtrip test-iword-reveal-codes test-flair-iword test-flair-iword-codes test-pubs-flair-screens test-iword-replace test-flair-iword-replace test-iword-fkeys}
+\begin{Feature}{Replace}
+Replace finds text or codes, as Search does, and puts other text in their
+place.  It can replace every occurrence at once, or stop at each one and ask
+you.
+
+To replace,
+\begin{WPSteps}
+\item Move the cursor to where the replacing is to begin: Replace works from
+the cursor to the end of the document.  (To go to the top of the document,
+press \K{Home, Home, Up}.)
+\item Press \FK{Replace}{Alt-F2}.  The status line asks
+\Scr{w/Confirm? No (Yes)}.
+\item Type \Typed{y} to be asked at each occurrence
+\Or
+Type \Typed{n} or press \K{Enter} to replace every occurrence without
+asking.
+\item At \Scr{-> Srch:}, type the text to be replaced and press \K{F2}.
+\item At \Scr{Replace with:}, type the new text and press \K{F2}.
+\end{WPSteps}
+\Documents{wpkey}{Alt-F2}
+\Documents{wpkey}{Rplc:F2}
+\Documents{wpkey}{Rplc:Esc}
+InitechWord replaces the text wherever it finds it, from the cursor to the
+end of the document, and leaves the cursor after the last replacement.  When
+there is nothing more to find, the status line shows \Scr{* Not found *};
+press any key to go on.
+
+\BeginReplay{ref-replace}
+For example, type
+\Type{The memo of Friday replaces the memo of Monday.  File the MEMO.}
+press \PressKey{Home, Home, Up} and \Press{Replace}{Alt-F2}, type
+\TypeName{n}, type \TypeName{memo} and press \PressKey{F2}:
+\WordScreen[rows=1]{ref-replace-1}{The replacement prompt}
+Type \TypeName{notice} and press \PressKey{F2}:
+\WordScreen[rows=2]{ref-replace-2}{Every memo replaced}
+Each \textit{memo} is now \textit{notice}, and the capitals of \textit{MEMO}
+are kept: \textit{NOTICE}.
+\EndReplay
+
+\Notes
+\Topic{Canceling}
+Press \FK{Cancel}{F1} at \Scr{w/Confirm? No (Yes)}, at the search string or
+at \Scr{Replace with:} to leave Replace without replacing anything.  At
+\Scr{Replace? Yes (No)}, Cancel stops the replacing; what was replaced
+before it stays replaced.
+\Documents{wpkey}{Rplc:F1}
+
+\Topic{Capital Letters}
+The search string finds capitals as described under \InRef{Search}.  When
+the new text is all in lower case, InitechWord gives it the capitals of the
+text it replaces: replacing \Typed{memo} with \Typed{notice} gives
+\Scr{notice} for \Scr{memo}, \Scr{Notice} for \Scr{Memo} and \Scr{NOTICE}
+for \Scr{MEMO}.  New text with any capital is put in exactly as you typed
+it.
+
+\Topic{Codes}
+The search string can hold the codes Search can find (see \InRef{Search}).
+Replacing \Code{[BOLD]} with nothing, for example, deletes every bold on
+code; the \Code{[bold]} codes stay where they are, as Reveal Codes shows,
+and change nothing.  To delete them too, replace \Code{[bold]} with
+nothing: at the \Scr{-> Srch:} prompt press F6 twice, which gives
+\Code{[BOLD][bold]}, then \K{Left} twice and \K{Delete}, which leaves
+\Code{[bold]}.  The new text can hold \Code{[Tab]}
+(\K{Tab}), \Code{[\rarr Indent]} (\K{F4}), \Code{[HRt]} (\K{Enter}) and
+\Code{[HPg]} (\K{Ctrl-Enter}), but no appearance codes: F6 and F8 do nothing
+at \Scr{Replace with:}.
+\Documents{wpkey}{Rplc:Tab}
+\Documents{wpkey}{Rplc:F4}
+\Documents{wpkey}{Rplc:Enter}
+\Documents{wpkey}{Rplc:Ctrl-Enter}
+
+\Topic{Confirming Each Replacement}
+If you answered \Typed{y} to \Scr{w/Confirm? No (Yes)}, InitechWord stops
+at each occurrence, highlights it as a block and asks
+\Scr{Replace? Yes (No)}.  Type \Typed{y} or press \K{Enter} to replace it, or
+type \Typed{n} to leave it; InitechWord then goes on to the next.  Other
+keys are ignored.
+
+\BeginReplay{ref-replace-confirm}
+For example, type
+\Type{Send the report to Bill.  The report is due today.  Report early.}
+press \PressKey{Home, Home, Up} and \Press{Replace}{Alt-F2}, type
+\TypeName{y}, type \TypeName{report}, press \PressKey{F2}, type
+\TypeName{memo} and press \PressKey{F2}:
+\WordScreen[rows=1]{ref-replace-confirm-1}{Replace asks at each occurrence}
+Type \TypeName{y} for the first, \TypeName{n} for the second and
+\TypeName{y} for the third:
+\WordScreen[rows=1]{ref-replace-confirm-2}{The first and third replaced}
+\EndReplay
+
+\Topic{Deleting Text Throughout}
+To delete every occurrence of a word, replace it with nothing: at
+\Scr{Replace with:} press F2 without typing anything.
+
+\Topic{Direction}
+Replace works forward, from the cursor to the end of the document.  To
+replace backward, from the cursor to the beginning, press \K{Up} at the
+\Scr{-> Srch:} prompt: it becomes \Scr{<- Srch:}.  \K{Down} turns it forward
+again.
+
+\Topic{Editing the Strings}
+The search string and the new text are typed and corrected with the keys of
+the \Scr{Srch:} prompt (see \InRef{Search}): \K{Left}, \K{Right},
+\K{Backspace} and \K{Delete}, a whole code at a time.  \K{F2} or \K{Esc}
+ends each string.  At \Scr{Replace with:} InitechWord does not look at
+Shift, Alt or Ctrl on these keys:
+\Documents{wpkey}{Rplc:Left}
+\Documents{wpkey}{Rplc:Right}
+\Documents{wpkey}{Rplc:Backspace}
+\Documents{wpkey}{Rplc:Delete}
+\par\addvspace{4pt}
+\noindent{\small\begin{tabular}{@{}lll@{}}
+\WPPromptAlias{Rplc:}{Shift-F1}{F1}, & \WPPromptAlias{Rplc:}{Alt-F1}{F1}, & \WPPromptAlias{Rplc:}{Ctrl-F1}{F1}\\
+\WPPromptAlias{Rplc:}{Shift-F2}{F2}, & \WPPromptAlias{Rplc:}{Alt-F2}{F2}, & \WPPromptAlias{Rplc:}{Ctrl-F2}{F2}\\
+\WPPromptAlias{Rplc:}{Shift-Esc}{Esc}, & \WPPromptAlias{Rplc:}{Alt-Esc}{Esc}, & \WPPromptAlias{Rplc:}{Ctrl-Esc}{Esc}\\
+\WPPromptAlias{Rplc:}{Shift-Left}{Left}, & \WPPromptAlias{Rplc:}{Alt-Left}{Left}, & \WPPromptAlias{Rplc:}{Ctrl-Left}{Left}\\
+\WPPromptAlias{Rplc:}{Shift-Right}{Right}, & \WPPromptAlias{Rplc:}{Alt-Right}{Right}, & \WPPromptAlias{Rplc:}{Ctrl-Right}{Right}\\
+\WPPromptAlias{Rplc:}{Shift-Backspace}{Backspace}, & \WPPromptAlias{Rplc:}{Alt-Backspace}{Backspace}, & \WPPromptAlias{Rplc:}{Ctrl-Backspace}{Backspace}\\
+\WPPromptAlias{Rplc:}{Shift-Delete}{Delete}, & \WPPromptAlias{Rplc:}{Alt-Delete}{Delete}, & \WPPromptAlias{Rplc:}{Ctrl-Delete}{Delete}\\
+\WPPromptAlias{Rplc:}{Shift-Tab}{Tab}, & \WPPromptAlias{Rplc:}{Alt-Tab}{Tab}, & \WPPromptAlias{Rplc:}{Ctrl-Tab}{Tab}\\
+\WPPromptAlias{Rplc:}{Shift-Enter}{Enter}, & \WPPromptAlias{Rplc:}{Alt-Enter}{Enter} & \\
+\end{tabular}}
+\par\addvspace{4pt}
+
+\Topic{Repeating}
+Replace starts with an empty search string.  Afterwards, the search string
+of Replace is offered by the next Search (F2), so that you can look for any
+occurrence you chose not to replace.
+
+\Topic{Undoing a Replacement}
+Replace does not keep what it replaced.  To go back, retrieve the document
+as you last saved it, or replace the new text with the old.
+
+\SeeAlso{Block; Codes; Search; Undelete}
+\end{Feature}
+
 \begin{Feature}{Retrieve}
 Retrieve brings a document you have saved back onto the screen, so that you
 can read it or change it.  You can also
@@ -127,6 +274,8 @@ the codes area it is the highlighted character or code.
 screen.
 \end{WPSteps}
 \Documents{wpkey}{Alt-F3}
+\Documents{wpkey}{F11}
+\K{F11} does what Alt-F3 does, with Block on or off.
 \FlairShot{reveal}{640}{440}{Reveal Codes: the bold codes around a word}
 
 The Reveal Codes screen has five parts, from the top:

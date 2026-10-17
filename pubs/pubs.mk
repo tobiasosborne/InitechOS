@@ -438,16 +438,20 @@ PUBS_IWORD_PROBE := $(BUILD)/pubs_iword_probe
 PUBS_IWORD_ALLOW := harness/pubs/iword.allow
 PUBS_PPM_GREY    := $(BUILD)/pubs_ppm_grey_png
 PUBS_IWORD_SRC    = harness/pubs/iword_probe.c os/iword/app/face_a.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) \
-                    os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h
+                    os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/iword/settings.h
 PUBS_IWORD_CC     = $(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ios/apps/tbx $(IWORD_CORE_INC)
 $(PUBS_IWORD_PROBE): $(PUBS_IWORD_SRC) | $(BUILD)
 	$(PUBS_IWORD_CC) -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)
 # Rule 6: a WORD.EXE that never shows "Block on" (face_a.c's own mutant knob)
 $(BUILD)/pubs_iword_probe_noblk: $(PUBS_IWORD_SRC) | $(BUILD)
 	$(PUBS_IWORD_CC) -DIWORD_MUT_NO_BLOCK_ON -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)
+# Rule 6: a WORD.EXE whose plain F9 shows no grey End Field (the P3 lane's
+# IWORD_MUT_FKEY_DROP knob, initech-qvgd)
+$(BUILD)/pubs_iword_probe_fkdrop: $(PUBS_IWORD_SRC) | $(BUILD)
+	$(PUBS_IWORD_CC) -DIWORD_MUT_FKEY_DROP -o $@ harness/pubs/iword_probe.c $(IWORD_CORE_SRC)
 $(PUBS_PPM_GREY): harness/pubs/ppm_grey_png.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
-PUBS_IWORD_MUTANT_DEPS = $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk
+PUBS_IWORD_MUTANT_DEPS = $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(BUILD)/pubs_iword_probe_fkdrop
 PUBS_IWORD_BOOKS := initechword-reference initechword-workbook initechword-install
 
 .PHONY: test-pubs-iword test-pubs-iword-mutant pubs-iword-screens pubs-flair-screens test-pubs-flair-screens
@@ -458,7 +462,7 @@ else
 test-pubs-iword: test-pubs-build $(PUBS_IWORD_PROBE) $(PUBS_GATE)
 	@sh harness/pubs/iword_check.sh check $(PUBS_IWORD_PROBE) $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
 test-pubs-iword-mutant: test-pubs-iword $(PUBS_IWORD_MUTANT_DEPS) $(PUBS_GATE)
-	@sh harness/pubs/iword_mutants.sh $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
+	@sh harness/pubs/iword_mutants.sh $(PUBS_IWORD_PROBE) $(BUILD)/pubs_iword_probe_noblk $(BUILD)/pubs_iword_probe_fkdrop $(PUBS_GATE) $(PUBS_BUILD)/gate $(PUBS_CHECK) $(PUBS_IWORD_ALLOW)
 test-pubs-flair-screens: test-pubs-build $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) $(PUBS_GATE)
 	@set -e; n=0; for m in $(PUBS_IWORD_BOOKS); do d=$(PUBS_DIR)/manuals/$$m/flair; f=fixtures/pubs/$$m; [ -f $$d/FLAIRSHOTS ] || continue; \
 		sh $(PUBS_DIR)/screens/flair_capture.sh $(HARNESS_BIN) $(FLAIR_IWORD_GATE_IMG) $(FLAIR_DATA_IMG) $(PUBS_PPM_GREY) \

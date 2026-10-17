@@ -8,8 +8,23 @@
 % Ln Pos, POS with Caps Lock; iw_fmt_inches).  Gated byte for byte against
 % the real WordPerfect 5.1 by test-iword-face and test-flair-iword (MEMO ==
 % MINT02's prefix + the body).
-% GATES: test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes
-\Gates{test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes}
+% Search (F2, Shift-F2) and Setup (Shift-F1) are P3 (bead initech-qvgd,
+% WL-0146): face_a.c function_key (IW_FK_search_forward / _backward,
+% IW_FK_setup from spec/iword/fkeys.json), search_key (the string kept for
+% the next Search and replaced by the first key typed; F2 / Shift-F2 / Esc
+% search, F1 cancels with the cursor kept, Up / Down the direction, Left /
+% Right / Backspace / Delete by whole codes, F6 / F8 an attribute's on or
+% off code by the state at that point of the string, Tab [Tab], F4
+% [->Indent], Enter [HRt], Ctrl-Enter [HPg]; 256 bytes, QUERY_CAP),
+% os/iword/core/search.c iw_search (a lower-case letter finds either case,
+% a capital only a capital; the cursor after the match forward, at its
+% start backward; "* Not found *"), paint_setup / setup_key / settings_save
+% (the Setup screens, the grey rows, Environment 3, Backup 1 / 2, Units 8
+% with i c p w u; F7 one level up, F1 / Esc to the document; IWORD.SET,
+% spec/iword/settings.h, eight bytes; the units and the backup choice are
+% recorded and shown, nothing else reads them).
+% GATES: test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes test-iword-search test-iword-setup test-flair-iword-search test-flair-iword-setup
+\Gates{test-pubs-iword test-iword-face test-flair-iword test-iword-wp5-roundtrip test-iword-codes test-iword-reveal-codes test-iword-search test-iword-setup test-flair-iword-search test-flair-iword-setup}
 \begin{Feature}{Save}
 Save writes the document on the screen to the data volume as a file, and
 leaves it on the screen so that you can go on working.  Save often: a
@@ -43,9 +58,6 @@ Type \TypeName{y}: the document is saved again.
 \EndReplay
 
 \Notes
-\Topic{Alt-F10 and Ctrl-F10}
-Alt-F10 and Ctrl-F10 start Save as F10 does.
-
 \Topic{File Format}
 InitechWord saves documents in the format of WordPerfect 5.1, writing the
 text and codes as WordPerfect 5.1 does (see \InRef{WordPerfect 5.1
@@ -100,6 +112,256 @@ When the cursor moves above the top line or below the bottom line, the
 screen moves to keep it in view.
 
 \SeeAlso{Reveal Codes; Status Line; Window}
+\end{Feature}
+
+\begin{Feature}{Search}
+Search finds text, codes or both in the document.  It searches forward,
+from the cursor toward the end of the document, or backward, from the
+cursor toward the beginning, and stops at the first place where it finds
+what you typed.
+
+To search,
+\begin{WPSteps}
+\item Press \FK{\rarr Search}{F2} to search forward
+\Or
+Press \FK{\larr Search}{Shift-F2} to search backward.
+\item The status line shows \Scr{-> Srch:} (forward) or \Scr{<- Srch:}
+(backward), followed by what you last searched for, if anything.  Type the
+text you want to find.  The first character you type replaces the text
+shown.
+\item Press \K{F2} to start the search.
+\end{WPSteps}
+\FlairShot{search}{640}{440}{The search string typed at the \Scr{-> Srch:} prompt}
+\Documents{wpkey}{F2}
+\Documents{wpkey}{Shift-F2}
+\Documents{wpkey}{Srch:F2}
+\Documents{wpkey}{Srch:Esc}
+If InitechWord finds the text, the cursor stops just after it when you
+search forward, and on its first character when you search backward.  If it
+does not, the status line shows \Scr{* Not found *} and the cursor stays
+where it was; press any key to go on.
+
+\BeginReplay{ref-search}
+For example, type
+\Type{Every report needs a cover sheet.  The cover sheets are in the supply room.}
+press \PressKey{Enter} and type
+\Type{Ask Milton for Cover Sheets if the room is empty.}
+Press \PressKey{Home, Home, Up} to go to the top of the document.  Press
+\Press{\rarr Search}{F2} and type \TypeName{cover sheet}:
+\WordScreen[rows=3]{ref-search-1}{The search string on the status line}
+Press \PressKey{F2}.  The cursor stops after the first \textit{cover sheet}:
+\WordScreen[rows=3]{ref-search-2}{The cursor after the text found}
+Press \PressKey{F2} twice.  The first F2 shows \Scr{-> Srch:cover sheet}
+again; the second searches for it, and the cursor stops after the
+\textit{cover sheet} of \textit{cover sheets}.  Press \PressKey{F2} twice
+more:\Keys{F2 F2}
+\WordScreen[rows=3]{ref-search-3}{A string in lower case finds capitals as well}
+Search found \textit{Cover Sheet}: a lower-case letter in the search string
+finds the letter in either case.
+\EndReplay
+
+\Notes
+\Topic{Block}
+While Block is on, F2 and Shift-F2 do nothing.  Turn Block off to search.
+
+\Topic{Canceling a Search}
+Press \FK{Cancel}{F1} at the \Scr{Srch:} prompt to leave without searching.
+The cursor stays where it was, and the search string is kept for the next
+search.
+\Documents{wpkey}{Srch:F1}
+
+\Topic{Capital Letters}
+A lower-case letter in the search string finds the same letter in upper or
+lower case: \Typed{memo} finds \Scr{memo}, \Scr{Memo} and \Scr{MEMO}.  A
+capital letter finds only a capital: \Typed{Memo} finds \Scr{Memo} and
+\Scr{MEMO}, but not \Scr{memo}.
+
+\Topic{Codes in the Search String}
+To search for a code, press its key at the \Scr{Srch:} prompt.  The code is
+put in the string as Reveal Codes shows it:
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}ll@{}}
+\textbf{Key} & \textbf{Code in the string}\\
+\K{F6} & \Code{[BOLD]}, or \Code{[bold]} after a \Code{[BOLD]} not yet ended\\
+\K{F8} & \Code{[UND]}, or \Code{[und]} after an \Code{[UND]} not yet ended\\
+\K{Tab} & \Code{[Tab]}\\
+\K{F4} & \Code{[\rarr Indent]}\\
+\K{Enter} & \Code{[HRt]}\\
+\K{Ctrl-Enter} & \Code{[HPg]}\\
+\end{tabular}
+\par\addvspace{4pt}
+\Documents{wpkey}{Srch:F6}
+\Documents{wpkey}{Srch:F8}
+\Documents{wpkey}{Srch:Tab}
+\Documents{wpkey}{Srch:F4}
+\Documents{wpkey}{Srch:Enter}
+\Documents{wpkey}{Srch:Ctrl-Enter}
+A string can hold codes and text together: \Code{[BOLD]}\Typed{Note} finds
+the word \textit{Note} only where bold begins just before it.  Codes of other
+kinds cannot be put in the search string.
+
+\BeginReplay{ref-search-code}
+For example, type \TypeRun{Read the }, press \Press{Bold}{F6}, type
+\TypeRun{first}, press \Press{Bold}{F6} again and type
+\TypeRun{ page.  The first page is the summary.}  Press
+\PressKey{Home, Home, Up}, press \Press{\rarr Search}{F2}, press
+\PressKey{F6} and type \TypeName{first}:
+\WordScreen[rows=1]{ref-search-code-1}{A code in the search string}
+Press \PressKey{F2}.  The cursor stops after the bold \textit{first}, not
+after the second one, which has no code before it.
+\WordScreen[rows=1]{ref-search-code-2}{The bold word found}
+\EndReplay
+
+\Topic{Direction}
+At the \Scr{Srch:} prompt, \K{Up} changes the search to backward
+(\Scr{<- Srch:}) and \K{Down} to forward (\Scr{-> Srch:}).  \K{F2},
+\K{Shift-F2} and \K{Esc} all start the search in the direction the prompt
+shows.
+\Documents{wpkey}{Srch:Up}
+\Documents{wpkey}{Srch:Down}
+
+\Topic{Editing the Search String}
+\K{Left} and \K{Right} move the cursor through the search string, and
+\K{Backspace} and \K{Delete} erase, as on the editing screen; each moves
+past or erases a whole code at a time.  Once you have pressed one of them,
+typing no longer replaces the string: what you type goes in at the cursor.
+\Documents{wpkey}{Srch:Left}
+\Documents{wpkey}{Srch:Right}
+\Documents{wpkey}{Srch:Backspace}
+\Documents{wpkey}{Srch:Delete}
+
+\Topic{Keys That Act as Other Keys}
+At the \Scr{Srch:} prompt InitechWord does not look at Shift, Alt or Ctrl on
+these keys: each combination does what the key alone does.
+\par\addvspace{4pt}
+\noindent{\small\begin{tabular}{@{}lll@{}}
+\WPPromptAlias{Srch:}{Shift-F1}{F1}, & \WPPromptAlias{Srch:}{Alt-F1}{F1}, & \WPPromptAlias{Srch:}{Ctrl-F1}{F1}\\
+\WPPromptAlias{Srch:}{Shift-F2}{F2}, & \WPPromptAlias{Srch:}{Alt-F2}{F2}, & \WPPromptAlias{Srch:}{Ctrl-F2}{F2}\\
+\WPPromptAlias{Srch:}{Shift-Esc}{Esc}, & \WPPromptAlias{Srch:}{Alt-Esc}{Esc}, & \WPPromptAlias{Srch:}{Ctrl-Esc}{Esc}\\
+\WPPromptAlias{Srch:}{Shift-Up}{Up}, & \WPPromptAlias{Srch:}{Alt-Up}{Up}, & \WPPromptAlias{Srch:}{Ctrl-Up}{Up}\\
+\WPPromptAlias{Srch:}{Shift-Down}{Down}, & \WPPromptAlias{Srch:}{Alt-Down}{Down}, & \WPPromptAlias{Srch:}{Ctrl-Down}{Down}\\
+\WPPromptAlias{Srch:}{Shift-Left}{Left}, & \WPPromptAlias{Srch:}{Alt-Left}{Left}, & \WPPromptAlias{Srch:}{Ctrl-Left}{Left}\\
+\WPPromptAlias{Srch:}{Shift-Right}{Right}, & \WPPromptAlias{Srch:}{Alt-Right}{Right}, & \WPPromptAlias{Srch:}{Ctrl-Right}{Right}\\
+\WPPromptAlias{Srch:}{Shift-Backspace}{Backspace}, & \WPPromptAlias{Srch:}{Alt-Backspace}{Backspace}, & \WPPromptAlias{Srch:}{Ctrl-Backspace}{Backspace}\\
+\WPPromptAlias{Srch:}{Shift-Delete}{Delete}, & \WPPromptAlias{Srch:}{Alt-Delete}{Delete}, & \WPPromptAlias{Srch:}{Ctrl-Delete}{Delete}\\
+\WPPromptAlias{Srch:}{Shift-Tab}{Tab}, & \WPPromptAlias{Srch:}{Alt-Tab}{Tab}, & \WPPromptAlias{Srch:}{Ctrl-Tab}{Tab}\\
+\WPPromptAlias{Srch:}{Shift-Enter}{Enter}, & \WPPromptAlias{Srch:}{Alt-Enter}{Enter} & \\
+\end{tabular}}
+\par\addvspace{4pt}
+(Ctrl-Enter is the hard page code, as above.)
+
+\Topic{Length of the String}
+The search string holds up to 256 bytes of the document file: one for each
+character, \Code{[HRt]} or \Code{[HPg]}, and the length given in Appendix D
+for each other code.  Keys typed after the string is full are ignored.
+
+\Topic{Repeating a Search}
+InitechWord keeps the search string until you leave InitechWord.  To find the next
+place, press F2 twice: once to show the string, once to search.
+
+\Topic{The Document Is Not Changed}
+Searching moves only the cursor.  It does not change the document, and a
+document that was saved is still saved after a search.
+
+\Topic{Words Within Words}
+Search finds the string wherever it occurs, also inside a longer word:
+\Typed{form} finds \Scr{form}, \Scr{forms} and \Scr{platform}.  To find a
+whole word, put a space before or after it in the string.
+
+\SeeAlso{Block; Codes; Cursor Movement; Replace}
+\end{Feature}
+
+\begin{Feature}{Setup}
+Setup records two preferences of InitechWord: the units in which
+measurements are to be shown, and whether a copy of a document is to be kept
+when it is saved over.  InitechWord keeps them in a file on the data volume,
+so that they are the same each time you start it.
+
+To change a setting,
+\begin{WPSteps}
+\item Press \FK{Setup}{Shift-F1}.  The Setup screen appears.
+\item Select \Ch{Environment}{3}.
+\item Select \Ch{Backup Options}{1} or \Ch{Units of Measure}{8}, then the
+setting, and give its value (see the Notes below).
+\item Press \FK{Exit}{F7} to go back one screen at a time, or \FK{Cancel}{F1}
+to return to the document at once.
+\end{WPSteps}
+\Documents{wpkey}{Shift-F1}
+\Documents{wpmenu}{Shift-F1,3=Environment}
+\Documents{wpmenu}{Shift-F1,3,1=Backup Options}
+\Documents{wpmenu}{Shift-F1,3,8=Units of Measure}
+
+\FlairShot{setup}{640}{440}{The Setup screen}
+The choices printed in grey are WordPerfect settings InitechWord does not
+have; typing their numbers does nothing.
+
+\BeginReplay{ref-setup}
+For example, press \Press{Setup}{Shift-F1} and select
+\Choose{Environment}{3} and \Choose{Units of Measure}{8}:
+\WordScreen[rows=13]{ref-setup-2}{Setup: Units of Measure}
+Press \FK{Exit}{F7}\Keys{F7} twice\Keys{F7} and \FK{Cancel}{F1}\Keys{F1} to
+return to the document.
+\EndReplay
+
+\Notes
+\Topic{Backup Options}
+Select \Ch{Backup Options}{1} on the Environment screen.  Timed Document
+Backup (1) is printed in grey: InitechWord has none.  Select
+\Ch{Original Document Backup}{2}; the status line asks
+\Scr{Original Document Backup? No (Yes)}.  Type \Typed{y} or \Typed{n}.
+The screen shows the new value.
+\Documents{wpmenu}{Shift-F1,3,1,2=Original Document Backup}
+InitechWord records the answer, but in this release it keeps no backup copy
+either way: Save replaces a document as described under \InRef{Save}.
+
+\Topic{Exit and Cancel}
+On every Setup screen \FK{Exit}{F7} goes back one screen: from Units of
+Measure or Backup Options to Environment, from Environment to Setup, and
+from Setup to the document.  \FK{Cancel}{F1} and \K{Esc} return to the
+document from any Setup screen.
+
+\Topic{The Setup File}
+InitechWord keeps the settings in the file \Scr{IWORD.SET} in the top level
+of the data volume, and writes it each time you change a setting.  The file
+is eight bytes long: the letters \Scr{IWS1}, the letter of the unit for
+margins and tabs, the letter of the unit for the status line, 1 if Original
+Document Backup is Yes (otherwise 0), and a 0.  If the file is missing or
+not in this form, InitechWord starts with Inches and No.  If the file cannot
+be written, the status line shows \Scr{ERROR: File I/O error} and the setting
+is not changed.
+
+\Topic{Units of Measure}
+Select \Ch{Units of Measure}{8} on the Environment screen, then
+\Ch{Display and Entry of Numbers for Margins, Tabs, etc.}{1} or
+\Ch{Status Line Display}{2}.  The status line shows
+\Scr{Units of Measure:}; type the letter of a unit:
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}ll@{}}
+\textbf{Letter} & \textbf{Unit}\\
+\Typed{i} & Inches\\
+\Typed{c} & Centimeters\\
+\Typed{p} & Points\\
+\Typed{w} & 1200ths of an inch\\
+\Typed{u} & WordPerfect 4.2 units\\
+\end{tabular}
+\par\addvspace{4pt}
+\Documents{wpmenu}{Shift-F1,3,8,1=Display and Entry of Numbers for Margins, Tabs, etc.}
+\Documents{wpmenu}{Shift-F1,3,8,1,i=Inches}
+\Documents{wpmenu}{Shift-F1,3,8,1,c=Centimeters}
+\Documents{wpmenu}{Shift-F1,3,8,1,p=Points}
+\Documents{wpmenu}{Shift-F1,3,8,1,w=1200ths of an inch}
+\Documents{wpmenu}{Shift-F1,3,8,1,u=WordPerfect 4.2 units}
+\Documents{wpmenu}{Shift-F1,3,8,2=Status Line Display}
+\Documents{wpmenu}{Shift-F1,3,8,2,i=Inches}
+\Documents{wpmenu}{Shift-F1,3,8,2,c=Centimeters}
+\Documents{wpmenu}{Shift-F1,3,8,2,p=Points}
+\Documents{wpmenu}{Shift-F1,3,8,2,w=1200ths of an inch}
+\Documents{wpmenu}{Shift-F1,3,8,2,u=WordPerfect 4.2 units}
+Any other key is ignored.  The Units of Measure screen shows the unit
+chosen.  In this release InitechWord records the units but goes on showing
+and taking every measurement in inches (see \InRef{Units of Measure}).
+
+\SeeAlso{Save; Units of Measure}
 \end{Feature}
 
 \begin{Feature}{Size}

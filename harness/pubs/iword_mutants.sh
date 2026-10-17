@@ -2,10 +2,11 @@
 # iword_mutants.sh -- Rule 6 for test-pubs-iword (bead initech-ipu5.10): the
 # SAME oracle legs against isolated one-fault fixtures; nothing tracked is
 # changed.  Each case must fail with its own named diagnostic.
-# usage: iword_mutants.sh <iword_probe> <iword_probe NO_BLOCK_ON> <pubs_gate>
-#                         <built books> <out dir> <allow file>
+# usage: iword_mutants.sh <iword_probe> <iword_probe NO_BLOCK_ON>
+#                         <iword_probe FKEY_DROP> <pubs_gate> <built books>
+#                         <out dir> <allow file>
 set -eu
-probe=$1; noblk=$2; gate=$3; built=$4; out=$5; allow=$6
+probe=$1; noblk=$2; fkdrop=$3; gate=$4; built=$5; out=$6; allow=$7
 root=$(pwd)
 m=$out/iword-mutants
 rm -rf "$m"; mkdir -p "$m"
@@ -18,18 +19,19 @@ red() {
     grep -F "$tag" "$m/$name.log" || { cat "$m/$name.log"; printf '!!! test-pubs-iword-mutant FAIL: %s failed for the wrong reason\n' "$name"; exit 1; }
     printf '>>> test-pubs-iword-mutant: %s rejected\n' "$name"
 }
-# 1 a documented key the build does not have (F2 is unbound in WORD.EXE)
-cp "$ref" "$m/fake.cmds"; printf 'F2|wpkey|GATED|Fake\n' >> "$m/fake.cmds"
+# 1 a documented key the build does not have (Shift-F11 does nothing in
+#   WORD.EXE: Reference p. 966 note 4, spec/iword/fkeys.json "unmapped")
+cp "$ref" "$m/fake.cmds"; printf 'Shift-F11|wpkey|GATED|Fake\n' >> "$m/fake.cmds"
 red FAKE_KEY 'test-pubs RED DOC-NOT-SHIPPED:' "$gate" commands "$shipped" "$allow" "$m/fake.cmds"
 # 2 an entry's registration dropped: Reveal Codes (Alt-F3) undocumented
 grep -v '^Alt-F3|wpkey|' "$ref" > "$m/dropped.cmds"
 red DROPPED_ENTRY 'test-pubs RED SHIPPED-NOT-DOCUMENTED:' "$gate" commands "$shipped" "$allow" "$m/dropped.cmds"
 # 3 the template strip loses its Exit (F7) cell
-grep -E '^((Shift|Alt|Ctrl)-)?F[0-9]+\|wpkey$' "$shipped" > "$m/fkeys"
+grep -E '^((Shift|Alt|Ctrl)-)?F[0-9]+(\|wpkey|=[^|]*\|wpgray)$' "$shipped" > "$m/fkeys"
 grep -v '^F7|wpkey|' "$built/initechword-install/strip.cmds" > "$m/strip.cmds"
 red TEMPLATE_CELL 'test-pubs RED SHIPPED-NOT-DOCUMENTED:' "$gate" commands "$m/fkeys" "$allow" "$m/strip.cmds"
-# 4 running text names an unbound key (F3, WordPerfect's Help)
-printf 'Shift-F8\nF3\n' > "$m/text.wpkeys"
+# 4 running text names a key that does nothing (Shift-F11)
+printf 'Shift-F8\nShift-F11\n' > "$m/text.wpkeys"
 red UNSHIPPED_KEY 'test-pubs RED DOC-NOT-SHIPPED:' "$gate" keys "$shipped" "$m/text.wpkeys"
 # 5 a printed screen changed by one character
 got=$(ls "$out/iword/got-initechword-workbook/"*.scr | head -1)
@@ -68,4 +70,26 @@ TEX
 red ENTRY_ORDER 'out of letter-by-letter order' env SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
     TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" TEXINPUTS="$root/pubs/class//:" \
     "${LUALATEX:-lualatex}" -interaction=nonstopmode -halt-on-error -output-directory="$m" "$m/order.tex"
-printf '>>> test-pubs-iword-mutant: green (10 named mutants rejected by their gate legs)\n'
+# 11 the template prints a grey key under the wrong name (Shift-F7 is
+#    Print on the status line): the grey cells are held to the measured
+#    names, name for name
+sed 's/^Shift-F7=Print|wpgray|/Shift-F7=Printer|wpgray|/' "$built/initechword-install/strip.cmds" > "$m/greyname.cmds"
+grep -q '^Shift-F7=Printer|wpgray|' "$m/greyname.cmds" || { printf '!!! test-pubs-iword-mutant FAIL: the grey-name mutant did not apply\n'; exit 1; }
+red GREY_NAME 'test-pubs RED DOC-NOT-SHIPPED:' "$gate" commands "$m/fkeys" "$allow" "$m/greyname.cmds"
+# 12 a WORD.EXE whose F9 no longer shows End Field (face_a.c
+#    IWORD_MUT_FKEY_DROP, the P3 lane's own knob): the measured inventory
+#    lacks the grey key the Reference documents
+mkdir -p "$m/inv3"
+"$fkdrop" inventory "$m/inv3" > "$m/fkdrop.shipped"
+red FKEY_DROP 'test-pubs RED DOC-NOT-SHIPPED:' "$gate" commands "$m/fkdrop.shipped" "$allow" "$ref"
+# 13 a key of the Search string left undocumented (F6 puts [BOLD] in it)
+grep -v '^Srch:F6|wpkey|' "$ref" > "$m/srch.cmds"
+red SEARCH_KEY 'test-pubs RED SHIPPED-NOT-DOCUMENTED:' "$gate" commands "$shipped" "$allow" "$m/srch.cmds"
+# 14 a message in the SHIPPED branch of a mutant knob (#ifdef
+#    IWORD_MUT_SEARCH_NOTFOUND ... #else) is still demanded: only the
+#    mutant's own branch is left out of the literal scan
+sed 's|            error("\* Not found \*", M_EDIT);|            error("* Nowhere *", M_EDIT);|' os/iword/app/face_a.c > "$m/face_b.c"
+grep -q 'error("\* Nowhere \*", M_EDIT);' "$m/face_b.c" || { printf '!!! test-pubs-iword-mutant FAIL: the shipped-branch mutant did not apply\n'; exit 1; }
+mkdir -p "$m/inv4"
+red SHIPPED_BRANCH_MESSAGE 'test-pubs RED MESSAGE-UNPROBED:' "$probe" inventory "$m/inv4" "$m/face_b.c"
+printf '>>> test-pubs-iword-mutant: green (14 named mutants rejected by their gate legs)\n'
