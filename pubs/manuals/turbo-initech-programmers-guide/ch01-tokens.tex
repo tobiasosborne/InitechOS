@@ -1,0 +1,215 @@
+% Chapter 1 -- Tokens and constants (model: TP 6.0 PG Ch 1, [bor s4.2]).
+% Sources (Law 1): os/tps/tps.pas SkipTrivia, ScanIdentifier, ScanNumber,
+% ScanString, NextToken, KeywordKind, IsSpace, IsIdentStart/IsIdentChar,
+% FailLex; os/tps/LEXER-DUMP.md; ADR-0007 DEC-02 (case-insensitive
+% identifiers, 32-bit integer).  The reserved-word table registers every
+% word of the shipped lexer (tps_gate inventory, KIND reserved); the
+% lexical diagrams are grammar/lexical.ebnf.  Examples replayed by
+% test-pubs-turbo.
+\Gates{test-tps-lex-fpc, test-tps-lex-os, test-compiler, test-pubs-turbo}
+\chapter{Tokens and constants}
+\ix{tokens}
+
+A Turbo Initech program is a sequence of characters that the compiler
+reads from left to right and breaks into \term{tokens}: special symbols,
+reserved words, identifiers, numbers and character strings.  Tokens are
+separated by blanks and comments.  This chapter defines each kind of token
+and explains the syntax diagrams used throughout this book.
+
+\section{Reading the syntax diagrams}
+\ix{syntax diagrams}
+The grammar of Turbo Initech is given by syntax diagrams.  To read a
+diagram, start at its name on the left and follow the lines in the direction
+of the arrows.  Every path through the diagram is a correct form of the
+construct the diagram names.
+
+\begin{itemize}
+\item A word in a rectangle names another diagram, or one of the token
+  classes defined in this chapter: \textit{identifier}, \textit{unsigned
+  integer} and \textit{string literal}.
+\item A reserved word in a rounded box, such as \textbf{begin}, is written
+  exactly as shown (in capitals or small letters).
+\item A symbol in a circle or a rounded box, such as \code{:=}, is written
+  exactly as shown.
+\item Where a line divides, choose any one branch.  A line that passes
+  above an item may skip it; a line that returns below an item may repeat
+  it.
+\end{itemize}
+
+The diagrams in this book are the grammar of the compiler.  Each one is
+drawn from the rule that the Turbo Initech parser follows, and the
+programs in this book, the compiler's own source and its test programs are
+all derived from them.
+
+\section{Character set and blanks}
+\ix{character set}
+\ix{blanks}
+Turbo Initech programs are written in the printable ASCII characters.  The
+space, the tab (character 9) and the characters 10 through 13 (line feed,
+vertical tab, form feed and carriage return) are \term{blanks}: they
+separate tokens and are otherwise ignored.  A blank may not appear inside a
+token, except inside a character string.  Any other character that is not
+part of a token or a comment is an error (``bad character,'' Appendix A).
+
+Lines may be of any length; the whole source file may hold up to 262,144
+characters (the limit \code{SourceMax} of the compiler, described in the
+\doctitle{User's Guide}, Chapter 8).
+
+\section{Special symbols}
+\ix{special symbols}
+\ix{operators}
+Turbo Initech uses these single characters as special symbols:
+
+\begin{BorTable}{Single-character symbols}{p{20mm}p{78mm}}
+\Hd{Symbol} & \Hd{Use}\EndHd
+\code{+ -} & addition and subtraction; unary minus\\
+\code{*} & multiplication\\
+\code{= < >} & relational operators; \code{=} also in declarations\\
+\code{( )} & grouping, parameter lists and argument lists\\
+\code{[ ]} & array bounds, string capacities and indexes\\
+\code{.} & field selection; the end of the program\\
+\code{,} & list separator\\
+\code{:} & declarations of variables, parameters and results\\
+\code{;} & separator of statements and declarations
+\end{BorTable}
+
+and these pairs of characters, which are single tokens and are written
+without a space between the characters:
+
+\begin{BorTable}{Two-character symbols}{p{20mm}p{78mm}}
+\Hd{Symbol} & \Hd{Use}\EndHd
+\code{:=} & assignment\\
+\code{<> <= >=} & relational operators\\
+\code{..} & the range of array bounds
+\end{BorTable}
+
+The apostrophe encloses character strings, and the braces \code{\{ \}} and
+the pairs \code{(* *)} enclose comments.  Turbo Initech has no other
+special symbols: there is no division operator \code{/}, and the
+characters \code{\^} \code{@} \code{\$} and \code{\#} are not part of the
+language.
+
+\section{Reserved words}
+\ix{reserved words}
+The words in Table~\ref{tab:reserved} are \term{reserved words}.  They
+have fixed meanings and cannot be used as identifiers.  Reserved words are
+not case-sensitive: \code{BEGIN}, \code{Begin} and \code{begin} are the same
+word.  In this book reserved words are printed in lower case.
+
+\begin{BorTable}{Reserved words\label{tab:reserved}}{p{22mm}p{22mm}p{22mm}p{22mm}}
+\ReservedItem{and} & \ReservedItem{downto} & \ReservedItem{length} & \ReservedItem{string}\\
+\ReservedItem{array} & \ReservedItem{else} & \ReservedItem{mod} & \ReservedItem{then}\\
+\ReservedItem{begin} & \ReservedItem{end} & \ReservedItem{not} & \ReservedItem{to}\\
+\ReservedItem{boolean} & \ReservedItem{false} & \ReservedItem{of} & \ReservedItem{true}\\
+\ReservedItem{case} & \ReservedItem{file} & \ReservedItem{or} & \ReservedItem{type}\\
+\ReservedItem{char} & \ReservedItem{for} & \ReservedItem{ord} & \ReservedItem{until}\\
+\ReservedItem{chr} & \ReservedItem{forward} & \ReservedItem{procedure} & \ReservedItem{var}\\
+\ReservedItem{const} & \ReservedItem{function} & \ReservedItem{program} & \ReservedItem{while}\\
+\ReservedItem{div} & \ReservedItem{if} & \ReservedItem{record} & \ReservedItem{write}\\
+\ReservedItem{do} & \ReservedItem{integer} & \ReservedItem{repeat} & \ReservedItem{writeln}
+\end{BorTable}
+
+\MarginNote{Standard Pascal treats some of these words as predefined
+identifiers.}Several of these words are reserved in Turbo Initech although
+other Pascal compilers treat them as predefined identifiers that a program
+may redeclare: the type names \rw{integer}, \rw{boolean} and \rw{char}, the
+constants \rw{true} and \rw{false}, the directive \rw{forward}, and the
+standard routines \rw{write}, \rw{writeln}, \rw{ord}, \rw{chr} and
+\rw{length}.  The word \rw{case} is reserved, but Turbo Initech has no
+\rw{case} statement; a program that uses the word is rejected (Chapter 6).
+
+The names of the five file routines, \std{assign}{Assign},
+\std{reset}{Reset}, \std{rewrite}{Rewrite}, \std{blockread}{BlockRead} and
+\std{blockwrite}{BlockWrite}, are identifiers, not reserved words, but a
+program may not declare anything with one of these names (Chapter 9).
+
+\section{Identifiers}
+\ix{identifiers}
+\term{Identifiers} name the program, constants, types, variables, fields,
+procedures, functions and parameters.
+
+\Syntax{identifier}
+
+A \textit{letter} is one of \code{A} through \code{Z} or \code{a} through
+\code{z}; a \textit{digit} is one of \code{0} through \code{9}.  An
+identifier may be up to 255 characters long, and all its characters are
+significant.  Identifiers are not case-sensitive: the compiler converts every
+identifier to small letters as it reads it, so \id{Total}, \id{TOTAL} and
+\id{total} are the same identifier.  No identifier may be spelled like a
+reserved word.
+
+\section{Numbers}
+\ix{numbers}
+\ix{integer constants}
+A number in a program is an \term{unsigned integer}, written in decimal:
+
+\Syntax{unsigned-integer}
+
+Its value must not exceed 2147483647, the largest value of the type
+\rw{integer}.  There are no hexadecimal numbers and no real numbers.  A
+minus sign before a number is the unary minus operator (Chapter 5), except
+in constant declarations and array bounds, where the grammar allows it
+directly.  The value $-2147483648$ cannot be written as a constant, since
+2147483648 is not a valid number.
+
+\section{Character strings}
+\ix{strings, literal}
+\ix{character strings}
+A \term{string literal} is a sequence of characters enclosed in
+apostrophes:
+
+\Syntax{string-literal}
+
+A \textit{string character} is any character except the apostrophe and the
+line-end characters 10 and 13.  Two apostrophes in a row stand for one
+apostrophe character in the string.  A string literal may hold up to 255
+characters and may not continue past the end of a line.  The string with no
+characters, \code{''}, is the empty string.
+
+A string literal of exactly one character is a constant of type \rw{char};
+any other string literal is a constant of type \rw{string} (Chapter 3).
+
+\section{Comments}
+\ix{comments}
+A \term{comment} is ignored by the compiler, like a blank.
+
+\Syntax{comment}
+
+A comment begins with \code{\{} and ends with the next \code{\}}, or begins
+with \code{(*} and ends with the next \code{*)}.  A comment may span any
+number of lines.  Comments do not nest: inside a comment the characters
+\code{\{} and \code{(*} have no meaning, and the first closing \code{\}} or
+\code{*)} that matches the opening form ends the comment.  A comment that
+begins with a dollar sign, \code{\{\$}, is an ordinary comment; Turbo
+Initech has no compiler directives (Chapter 14).  A comment that is not
+closed before the end of the source file is an error.
+
+\section{Tokens in practice}
+The program \file{TOKENS.PAS} uses each kind of token:
+
+\Program{tokens}
+
+It prints:
+
+\ProgramOutput{tokens}
+
+The assignment to \id{TOTAL} names the same variable as \id{Total} and
+\id{total}.  Its value, $102 + 2147483600$, does not fit in an
+\rw{integer}; Turbo Initech arithmetic keeps the low 32 bits of every
+result, so the program prints $-2147483596$ (Chapter 5).
+
+The compiler shows you the tokens it reads.  The first part of its output,
+between the lines \code{TPS-LEX-BEGIN} and \code{TPS-LEX-END}, lists one token
+per line.  For this program,
+
+\Program{lexdemo}
+
+the token list is:
+
+\CompilerOutput{lexdemo}{LEX}
+
+Reserved words are listed with \code{KW}, identifiers with \code{IDENT} and
+their spelling in small letters, numbers with \code{INTEGER} and their value,
+and strings with \code{STRING}, their length and the code of each character.
+The comment produced no token.  The \doctitle{User's Guide}, Chapter 8,
+describes the whole output of the compiler.

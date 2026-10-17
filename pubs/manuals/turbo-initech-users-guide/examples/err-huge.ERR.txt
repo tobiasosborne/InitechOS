@@ -1,0 +1,4 @@
+TPS-LEX-ERROR pos=46 line=5 col=8 decimal integer exceeds 2147483647
+TPS-PARSE-SKIP lexer-error
+TPS-TYPE-SKIP lexer-error
+TPS-GEN-SKIP lexer-error

@@ -1,7 +1,8 @@
 #!/bin/sh
 # build.sh -- typeset every Initech manual (bead initech-ipu5.5).
 # Usage: build.sh <out root> <generated-tex dir> [mutant]
-# For each pubs/manuals/<m>/{main,cover,spine}.tex present, runs latexmk with
+# For each pubs/manuals/<m>/{main,cover,spine,strip}.tex present (strip: a
+# keyboard template, PK-14; bead initech-ipu5.10), runs latexmk with
 # LuaLaTeX (D-11) into <out root>/<m>/<doc>.pdf.  Reproducible (Rule 11):
 # SOURCE_DATE_EPOCH is pinned to the edition date (1992-03-01) and
 # FORCE_SOURCE_DATE=1 makes \today and friends obey it; the class suppresses
@@ -31,7 +32,7 @@ export INITECH_PUBS_OUT="$out" INITECH_PUBS_PASS=1
 n=0
 for dir in "$root"/manuals/*/; do
     m=$(basename "$dir")
-    for doc in main cover spine; do
+    for doc in main cover spine strip; do
         [ -f "$dir/$doc.tex" ] || continue
         n=$((n + 1))
         mkdir -p "$out/$m"

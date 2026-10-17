@@ -1,0 +1,68 @@
+% Chapter 13 -- Code generation (model: TP 6.0 PG Ch 20 "Automatic
+% optimizations"; Turbo Initech has none by definition, ADR-0007 DEC-04).
+% Sources (Law 1): ADR-0007 DEC-03, DEC-04 (single pass, stack machine, no
+% optimizer, insertion-ordered tables, one label counter, deterministic
+% output); os/tps/CODEGEN.md s1-s6; os/tps/tps.pas RunLexer, RunParser,
+% RunTypeChecker, RunCodeGenerator (the four passes over TPSIN.PAS).  The
+% determinism claims are the gate test-tps-gen-fpc (every corpus program
+% and the compiler's own source emitted twice, byte for byte).
+\Gates{test-tps-gen-fpc, test-tps-gen-build, test-tps-gen-mutant, test-compiler, test-pubs-turbo}
+\chapter{Code generation}
+\ix{code generation}
+\ix{optimization}
+
+Turbo Initech translates each statement directly into 80386 instructions.
+It does not optimize: every expression is computed exactly as written, in
+the order written, and every variable is read from and written to memory
+each time the program uses it.  What the program says is what the machine
+does.
+
+\section{The passes of the compiler}
+\ix{passes}
+The compiler reads \file{TPSIN.PAS} four times, each time from the
+beginning, and prints the result of each reading between its own pair of
+lines:
+
+\begin{BorTable}{The four passes}{p{24mm}p{74mm}}
+\Hd{Pass} & \Hd{What it does}\EndHd
+\code{TPS-LEX} & divides the source into tokens and lists them\\
+\code{TPS-PARSE} & checks the syntax against the grammar of this book and
+  traces it\\
+\code{TPS-TYPE} & checks the declarations and types and lists the symbol
+  table\\
+\code{TPS-GEN} & checks the program once more while writing the assembly
+  language to \file{TPSOUT.S}\\
+\end{BorTable}
+
+A pass that finds an error reports it and the later passes are skipped.  No
+pass builds a tree of the program; each one works as it reads, which is why
+a name must be declared before it is used.  The \doctitle{User's Guide},
+Chapter 8, describes the output of each pass.
+
+\section{The code for expressions}
+\ix{stack machine}
+Expressions are computed with the stack as a working store.  The value of
+each operand is computed into EAX; for a binary operator the left value is
+pushed, the right value is computed and moved to ECX, the left value is
+popped back into EAX, and the operator combines EAX and ECX.  The result of
+a relation is 0 or 1.  The Boolean operators use the same sequence, so both
+of their operands are always computed (Chapter 5).
+
+\section{Labels}
+\ix{labels}
+Every label the compiler creates for a jump, a loop or a string literal
+takes the next number from one counter, which runs through the whole
+program.  Labels are therefore unique, and they are numbered in the order
+in which the compiler writes the statements.  Global variables are named
+\code{v\_}\textit{name} and routines \code{pf\_}\textit{name}; the main block
+is \code{pas\_main}.
+
+\section{Deterministic output}
+\ix{reproducibility}
+\ix{deterministic output}
+Turbo Initech writes exactly the same \file{TPSOUT.S} every time it
+compiles the same source.  Its tables are arrays kept in the order the
+declarations appear, there is one label counter, and nothing in the output
+depends on the date, the time, the computer or the directory.  This is what
+allows Turbo Initech to compile its own source and prove that the result
+reproduces itself (the \doctitle{Self-Compilation Guide}).

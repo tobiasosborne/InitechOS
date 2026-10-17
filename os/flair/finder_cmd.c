@@ -250,6 +250,11 @@ const finder_cmd_t FINDER_COMMANDS[] = {
      * are live only when one is front (bead initech-tdnl.36: before, with no
      * window they dispatched, the shell refused, and nothing was said). */
     { FCMD_VIEW_ICONS,    514,  1,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_ICONS" },
+    { FCMD_VIEW_SMALL, 514, 2, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_SMALL" },
+    { FCMD_VIEW_NAME, 514, 3, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_NAME" },
+    { FCMD_VIEW_SIZE, 514, 4, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_SIZE" },
+    { FCMD_VIEW_KIND, 514, 5, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_KIND" },
+    { FCMD_VIEW_DATE, 514, 7, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_DATE" },
     { FCMD_CLEANUP,       514, 11,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
     { FCMD_ARRANGE_BY_NAME, 514, 12, 0, finder_pred_front_is_diskwin, fcmd_nyi, "ARRANGE_BY_NAME" },
 

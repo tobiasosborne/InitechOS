@@ -209,7 +209,16 @@ static void icon_cell(int kind, int state, int x0, int y0, unsigned int bg, cons
 
 static void trash_full(void)
 {
-    icon_cell(ICAP_TRASH_FULL, ICAP_UNSEL, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
+    /* FLAIR_EMPTY_OK_SPEC double-clicks Trash before the mixed purge; the
+     * locked-full notice leaves that selection intact. FLAIR_EMPTY_ALERT_SPEC
+     * only stages README and opens the menu, so alert uses the plain can.
+     * Ref: spec/flair_trash_traces.mk Sec 3; mint-008 Sec 3 selected colours.
+     * Grade the traced state against its independent capture, zero tolerance. */
+    int state = strcmp(g_leg, "locked-full") == 0 ? ICAP_SEL : ICAP_UNSEL;
+#ifdef TRASH_CHECK_MUT_LOCKED_UNSELECTED
+    state = ICAP_UNSEL; /* Rule 6: restore the stale locked-full expectation. */
+#endif
+    icon_cell(ICAP_TRASH_FULL, state, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
 }
 
 /* `state`: the emptied leg's Trash was double-clicked open, so it is the

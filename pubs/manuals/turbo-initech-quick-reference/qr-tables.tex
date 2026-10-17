@@ -1,0 +1,112 @@
+% Reference tables: the token kinds (registered, KIND token; the names the
+% syntax errors use, tps.pas WriteTokenName) and the printable ASCII codes.
+\Gates{test-tps-lex-fpc, test-pubs-turbo}
+\chapter{Tables}
+\ix{token kinds}
+\QRHead{Token kinds}
+\noindent{\fontsize{7.5}{9}\selectfont
+\begin{tabular}{@{}p{26mm}p{30mm}@{}}
+\TokenItem{ASSIGN} & \code{:=}\\
+\TokenItem{COLON} & \code{:}\\
+\TokenItem{COMMA} & \code{,}\\
+\TokenItem{DOT} & \code{.}\\
+\TokenItem{DOTDOT} & \code{..}\\
+\TokenItem{EOF} & end of the file\\
+\TokenItem{EQ} & \code{=}\\
+\TokenItem{GE} & \code{>=}\\
+\TokenItem{GT} & \code{>}\\
+\TokenItem{IDENT} & an identifier\\
+\TokenItem{INTEGER} & an unsigned integer\\
+\TokenItem{KW_AND} & \rw{and}\\
+\TokenItem{KW_ARRAY} & \rw{array}\\
+\TokenItem{KW_BEGIN} & \rw{begin}\\
+\TokenItem{KW_BOOLEAN} & \rw{boolean}\\
+\TokenItem{KW_CASE} & \rw{case}\\
+\TokenItem{KW_CHAR} & \rw{char}\\
+\TokenItem{KW_CHR} & \rw{chr}\\
+\TokenItem{KW_CONST} & \rw{const}\\
+\TokenItem{KW_DIV} & \rw{div}\\
+\TokenItem{KW_DO} & \rw{do}\\
+\TokenItem{KW_DOWNTO} & \rw{downto}\\
+\TokenItem{KW_ELSE} & \rw{else}\\
+\TokenItem{KW_END} & \rw{end}\\
+\TokenItem{KW_FALSE} & \rw{false}\\
+\TokenItem{KW_FILE} & \rw{file}\\
+\TokenItem{KW_FOR} & \rw{for}\\
+\TokenItem{KW_FORWARD} & \rw{forward}\\
+\TokenItem{KW_FUNCTION} & \rw{function}\\
+\TokenItem{KW_IF} & \rw{if}\\
+\TokenItem{KW_INTEGER} & \rw{integer}\\
+\TokenItem{KW_LENGTH} & \rw{length}\\
+\end{tabular}\par
+\noindent\begin{tabular}{@{}p{26mm}p{30mm}@{}}
+\TokenItem{KW_MOD} & \rw{mod}\\
+\TokenItem{KW_NOT} & \rw{not}\\
+\TokenItem{KW_OF} & \rw{of}\\
+\TokenItem{KW_OR} & \rw{or}\\
+\TokenItem{KW_ORD} & \rw{ord}\\
+\TokenItem{KW_PROCEDURE} & \rw{procedure}\\
+\TokenItem{KW_PROGRAM} & \rw{program}\\
+\TokenItem{KW_RECORD} & \rw{record}\\
+\TokenItem{KW_REPEAT} & \rw{repeat}\\
+\TokenItem{KW_STRING} & \rw{string}\\
+\TokenItem{KW_THEN} & \rw{then}\\
+\TokenItem{KW_TO} & \rw{to}\\
+\TokenItem{KW_TRUE} & \rw{true}\\
+\TokenItem{KW_TYPE} & \rw{type}\\
+\TokenItem{KW_UNTIL} & \rw{until}\\
+\TokenItem{KW_VAR} & \rw{var}\\
+\TokenItem{KW_WHILE} & \rw{while}\\
+\TokenItem{KW_WRITE} & \rw{write}\\
+\TokenItem{KW_WRITELN} & \rw{writeln}\\
+\TokenItem{LBRACKET} & \code{[}\\
+\TokenItem{LE} & \code{<=}\\
+\TokenItem{LPAREN} & \code{(}\\
+\TokenItem{LT} & \code{<}\\
+\TokenItem{MINUS} & \code{-}\\
+\TokenItem{NE} & \code{<>}\\
+\TokenItem{PLUS} & \code{+}\\
+\TokenItem{RBRACKET} & \code{]}\\
+\TokenItem{RPAREN} & \code{)}\\
+\TokenItem{SEMI} & \code{;}\\
+\TokenItem{STAR} & \code{*}\\
+\TokenItem{STRING} & a string literal\\
+\end{tabular}\par}
+
+\QRHead{ASCII codes}
+\ix{ASCII}
+\noindent{\fontsize{7.5}{9}\selectfont
+\begin{tabular}{@{}p{7mm}p{6mm}p{7mm}p{6mm}p{7mm}p{6mm}@{}}
+32 & \textit{sp} & 64 & \texttt{@} & 96 & \texttt{`}\\
+33 & \texttt{!} & 65 & \texttt{A} & 97 & \texttt{a}\\
+34 & \texttt{"} & 66 & \texttt{B} & 98 & \texttt{b}\\
+35 & \texttt{\#} & 67 & \texttt{C} & 99 & \texttt{c}\\
+36 & \texttt{\$} & 68 & \texttt{D} & 100 & \texttt{d}\\
+37 & \texttt{\%} & 69 & \texttt{E} & 101 & \texttt{e}\\
+38 & \texttt{\&} & 70 & \texttt{F} & 102 & \texttt{f}\\
+39 & \texttt{'} & 71 & \texttt{G} & 103 & \texttt{g}\\
+40 & \texttt{(} & 72 & \texttt{H} & 104 & \texttt{h}\\
+41 & \texttt{)} & 73 & \texttt{I} & 105 & \texttt{i}\\
+42 & \texttt{*} & 74 & \texttt{J} & 106 & \texttt{j}\\
+43 & \texttt{+} & 75 & \texttt{K} & 107 & \texttt{k}\\
+44 & \texttt{,} & 76 & \texttt{L} & 108 & \texttt{l}\\
+45 & \texttt{-} & 77 & \texttt{M} & 109 & \texttt{m}\\
+46 & \texttt{.} & 78 & \texttt{N} & 110 & \texttt{n}\\
+47 & \texttt{/} & 79 & \texttt{O} & 111 & \texttt{o}\\
+48 & \texttt{0} & 80 & \texttt{P} & 112 & \texttt{p}\\
+49 & \texttt{1} & 81 & \texttt{Q} & 113 & \texttt{q}\\
+50 & \texttt{2} & 82 & \texttt{R} & 114 & \texttt{r}\\
+51 & \texttt{3} & 83 & \texttt{S} & 115 & \texttt{s}\\
+52 & \texttt{4} & 84 & \texttt{T} & 116 & \texttt{t}\\
+53 & \texttt{5} & 85 & \texttt{U} & 117 & \texttt{u}\\
+54 & \texttt{6} & 86 & \texttt{V} & 118 & \texttt{v}\\
+55 & \texttt{7} & 87 & \texttt{W} & 119 & \texttt{w}\\
+56 & \texttt{8} & 88 & \texttt{X} & 120 & \texttt{x}\\
+57 & \texttt{9} & 89 & \texttt{Y} & 121 & \texttt{y}\\
+58 & \texttt{:} & 90 & \texttt{Z} & 122 & \texttt{z}\\
+59 & \texttt{;} & 91 & \texttt{[} & 123 & \texttt{\{}\\
+60 & \texttt{<} & 92 & \texttt{\textbackslash} & 124 & \texttt{|}\\
+61 & \texttt{=} & 93 & \texttt{]} & 125 & \texttt{\}}\\
+62 & \texttt{>} & 94 & \texttt{\^{}} & 126 & \texttt{\~{}}\\
+63 & \texttt{?} & 95 & \texttt{\_} &  & \\
+\end{tabular}\par}

@@ -5,11 +5,39 @@
 # 640x480 VBE mode, the desktop guard fails loud and HALTS before any tenant, so the
 # leg proves the SAME kernel runs the boot chain + FLAIR heap + FAT mount identically
 # and the guard fires (no triple fault). SKIP_BOCHS=1 is the one documented opt-out.
-# $(call bochs-flair-leg,<gate name>,<kernel image>,<data image>,flair|shell)
+# $(call bochs-flair-leg,<gate name>,<kernel image>,<data image>,<profile>)
 # shell selects the DOS gate's actual boot boundary instead of the FLAIR
 # guard. These are BOOT legs, just like the pre-existing desktop/appswitch
 # legs: no claim of Bochs input replay or pixel coverage is made here.
+# exec/mzexec select those self-test kernels' real completion markers;
+# vga13 also checks the actual indexed handoff; nodrive omits the slave.
+# Ref: os/milton/kmain.c BOOT_EXEC/BOOT_MZEXEC/BOOT_SHELL and VIDEO record;
+# IBM DOS 3.30 TR p.1-7 (PDF24, system-file boot chain); ADR-0003 Appendix A.
+BOCHS_LEG_END_flair := HALTED
+BOCHS_LEG_END_vga13 := HALTED
+BOCHS_LEG_END_shell := SHELL-READY
+BOCHS_LEG_END_nodrive := SHELL-READY
+BOCHS_LEG_END_exec := EXEC-4B-END
+BOCHS_LEG_END_mzexec := MZEXEC-END
+BOCHS_LEG_MARKERS_flair := FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED
+BOCHS_LEG_MARKERS_vga13 := $(BOCHS_LEG_MARKERS_flair)
+BOCHS_LEG_MARKERS_shell := IRQ-LIVE CONIN-LIVE SHELL-READY
+BOCHS_LEG_MARKERS_nodrive := $(BOCHS_LEG_MARKERS_shell)
+BOCHS_LEG_MARKERS_exec := IRQ-LIVE CONIN-LIVE EXEC-4B-END
+BOCHS_LEG_MARKERS_mzexec := IRQ-LIVE CONIN-LIVE MZEXEC-END
+
+# Independent inventory/gate wiring oracle FIRST, cqej second half.
+$(BUILD)/test_bochs_legs: harness/emu/test_bochs_legs.c | $(BUILD)
+	$(CC) $(CFLAGS) $< -o $@
+.PHONY: test-bochs-legs test-bochs-legs-mutant
+test-bochs-legs: $(BUILD)/test_bochs_legs
+	@sh harness/emu/test_bochs_legs.sh $(BUILD) green
+test-bochs-legs-mutant: $(BUILD)/test_bochs_legs
+	@sh harness/emu/test_bochs_legs.sh $(BUILD) mutants
+TEST_UNIT_GATES += test-bochs-legs test-bochs-legs-mutant
+
 define bochs-flair-leg
+$(if $(BOCHS_LEG_END_$(4)),,$(error unknown Bochs leg profile $(4) for $(1)))
 .PHONY: test-$(1)-bochs
 ifeq ($$(SKIP_BOCHS),1)
 test-$(1)-bochs:
@@ -21,8 +49,8 @@ test-$(1)-bochs: $$(BOCHS_BIN) $(2) $(3)
 	@printf '  Ref: PRD Sec 8 / Rule 5 (tri-emulator); harness/bochs_legs.mk; bead initech-cqej.\n'
 	@printf '======================================================================\n'
 	@command -v $$(BOCHS) >/dev/null 2>&1 || { printf '!!! test-$(1)-bochs FAIL: bochs not found (apt install bochs -- CLAUDE.md documents it as a required base tool). A skipped oracle is worse than a red one (Law 2); SKIP_BOCHS=1 is the only documented opt-out.\n'; exit 1; }
-	cp -f $(3) $$(BUILD)/$(1)_bochs_data.img
-	@$$(BOCHS_BIN) --disk "$(2)" --disk2 "$$(BUILD)/$(1)_bochs_data.img" --expect $(if $(filter shell,$(4)),SHELL-READY,HALTED) \
+	$(if $(strip $(3)),cp -f $(3) $$(BUILD)/$(1)_bochs_data.img,@true)
+	@$$(BOCHS_BIN) --disk "$(2)" $(if $(strip $(3)),--disk2 "$$(BUILD)/$(1)_bochs_data.img") --expect $(BOCHS_LEG_END_$(4)) \
 		--name "$(1)_bochs" --out "$$(BUILD)" --timeout-ms 45000 \
 		2> "$$(BUILD)/$(1)_bochs.report.txt" || true
 	@cat "$$(BUILD)/$(1)_bochs.report.txt"
@@ -34,13 +62,15 @@ test-$(1)-bochs: $$(BOCHS_BIN) $(2) $(3)
 	@if [ ! -s "$$(BUILD)/$(1)_bochs.serial" ]; then \
 		printf '!!! test-$(1)-bochs FAIL: no serial captured\n'; exit 1; \
 	fi
-	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER $(if $(filter shell,$(4)),IRQ-LIVE CONIN-LIVE SHELL-READY,FLAIR-HEAP-OK FLAIR-FAT-MOUNT-OK HALTED); do \
+	@for m in VBE-ENOMODE VGA13 S1 PM KERNEL CONSOLE BANNER $(BOCHS_LEG_MARKERS_$(4)); do \
 		grep -q "^$$$$m$$$$" "$$(BUILD)/$(1)_bochs.serial" \
 			|| { printf '!!! test-$(1)-bochs FAIL: marker %s missing\n' "$$$$m"; exit 1; }; \
 	done
-	@$(if $(filter shell,$(4)),! grep -q '^PANIC' "$$(BUILD)/$(1)_bochs.serial",grep -qxF 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' "$$(BUILD)/$(1)_bochs.serial") \
-		|| { printf '!!! test-$(1)-bochs FAIL: $(if $(filter shell,$(4)),PANIC on the shell path,the 640x480 guard did not fire)\n'; exit 1; }
-	@printf '>>> test-$(1)-bochs: green (Bochs BOOT ONLY: fallback + shared milestones + $(if $(filter shell,$(4)),shell ready,640x480 guard); no triple fault)\n'
+	@$(if $(filter flair vga13,$(4)),grep -qxF 'PANIC flair-desktop: LFB smaller than 640x480 w=320 h=200' "$$(BUILD)/$(1)_bochs.serial",! grep -q '^PANIC' "$$(BUILD)/$(1)_bochs.serial") \
+		|| { printf '!!! test-$(1)-bochs FAIL: $(if $(filter flair vga13,$(4)),the 640x480 guard did not fire,PANIC on the DOS path)\n'; exit 1; }
+$(if $(filter vga13,$(4)),	@grep -qxF 'VIDEO 320x200 bpp=8 pitch=320 lfb=0x000A0000 dac=6' "$$(BUILD)/$(1)_bochs.serial" || { printf '!!! test-$(1)-bochs FAIL: expected six-bit VGA13 handoff\n'; exit 1; })
+$(if $(filter nodrive,$(4)),	@grep -qxF 'FAT-MOUNT-FAIL rc=-1 base_lba=0 hidden_sectors=0' "$$(BUILD)/$(1)_bochs.serial" || { printf '!!! test-$(1)-bochs FAIL: missing slave must report READ failure\n'; exit 1; })
+	@printf '>>> test-$(1)-bochs: green (Bochs BOOT ONLY: fallback + shared milestones + $(if $(filter flair vga13,$(4)),640x480 guard,$(BOCHS_LEG_END_$(4))); no triple fault)\n'
 endif
 TEST_EMU_GATES += test-$(1)-bochs
 endef
@@ -68,6 +98,60 @@ $(eval $(call bochs-flair-leg,edlin-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG
 $(eval $(call bochs-flair-leg,flair-live-scene,$(FLAIRLIVE_INTERACTIVE_IMG),$(FLAIR_DATA_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-shutdown,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_POWER_CANCEL_IMG),flair))
 $(eval $(call bochs-flair-leg,flair-restart,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+
+# Tonight's merged lane kernels, cqej second half. Preserve every QEMU gate
+# name even when several gates share a boot image (WL-0131 Bochs row).
+# Command negative fixtures differ AFTER the desktop guard; this boot leg
+# deliberately makes no claim about the missing/magic error UI.
+$(eval $(call bochs-flair-leg,command-file-emu,$(COMMAND_FILE_IMG)/fragment.img,$(FLAIR_DATA_IMG),flair))
+$(eval $(call bochs-flair-leg,command-file-negative,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+# FORCE_VBE_101 still negotiates through the real BIOS. Bochs rejects LFB
+# and falls back to mode 13h. Check VIDEO, not the QEMU 640x480 RGB golden;
+# the guard prevents the desktop presenter/DAC mutation cases from running.
+$(eval $(call bochs-flair-leg,flair-desktop-8bpp,$(VESA8_DIR)/flagship.img,$(FLAIR_DATA_IMG),vga13))
+
+# WL-0143: all desk accessory traces use the InitechText gate kernel.
+$(foreach gate,flair-notepad flair-scrapbook flair-notepad-itext flair-notepad-restart,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_ITEXT_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
+$(eval $(call bochs-flair-leg,flair-notepad-corrupt,$(FLAIR_ITEXT_GATE_IMG),$(DA_CORRUPT_DATA),flair))
+# WL-0145: chooser, five panels, settings, restart and corrupt-record boot.
+$(foreach gate,flair-cpanels flair-cpanels-date flair-cpanels-patterns flair-cpanels-mouse flair-cpanels-sound flair-cpanels-memory flair-cpanels-settings flair-cpanels-persist,$(eval $(call bochs-flair-leg,$(gate),$(CP_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
+$(eval $(call bochs-flair-leg,flair-cpanels-corrupt,$(CP_GATE_IMG),$(BUILD)/cp_corrupt_data.img,flair))
+$(eval $(call bochs-flair-leg,flair-grow-box,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+
+# WL-0141/0147: physical I/O, FDISK and FORMAT/SYS use the shell kernel.
+# /S generated-volume boot, editor input and disk mutation remain QEMU
+# acceptance; these macro legs certify only their shared kernel boot chain.
+# test-diskcopy-emu has NO leg: it is QEMU-RED (fixed ATA medium cannot swap),
+# not one of the QEMU-green gates in scope (WL-0147, Named incomplete leg).
+$(foreach gate,block-device-emu fdisk-emu formatsys-emu format-system-boot,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
+$(eval $(call bochs-flair-leg,dos-folder,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+$(foreach gate,conkeys j1lu-control-emu,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
+$(eval $(call bochs-flair-leg,ansi-emu,$(SECONDARY_TRACER_IMG),$(BUILD)/ansi_probe_data.img,shell))
+$(foreach gate,flair-finder-icons flair-trash-full flair-toolbox-hardening,$(eval $(call bochs-flair-leg,$(gate),$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair)))
+
+# Kernel hygiene: preserve self-test kernel identity and completion markers.
+# MZ invalid-entry stimulus and baked BUSY semantics remain the QEMU oracle;
+# the Bochs macro certifies the real self-test image's boot/completion only.
+$(eval $(call bochs-flair-leg,fat-hygiene-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
+$(eval $(call bochs-flair-leg,trash-hidden-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
+$(eval $(call bochs-flair-leg,ata-no-drive-emu,$(SECONDARY_TRACER_IMG),,nodrive))
+$(eval $(call bochs-flair-leg,baked-exec-guard,$(BUILD)/baked_guard.img,$(FAT_EXEC_IMG),exec))
+$(eval $(call bochs-flair-leg,mzload-entry-emu,$(MZEXEC_IMG),$(FAT_MZEXEC_IMG),mzexec))
+
+# WL-0148 and the SAMIR DML lane: 16 distinct named leaves + aggregates.
+# No interpreter/FAT mutation parity is claimed without input replay.
+$(eval $(call bochs-flair-leg,samir-core-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
+$(eval $(call bochs-flair-leg,samir-dml-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
+$(foreach verb,$(SAMIR_DML_CASES),$(eval $(call bochs-flair-leg,samir-dml-$(verb)-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
+$(eval $(call bochs-flair-leg,samir-print-emu,$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell))
+
+# WL-0154/0155: unchanged DOS shell image; host mtools/dosfstools and QEMU
+# injected traces still grade COPY/REN, nested COMMAND /C, XCOPY CWD and
+# AH40 CX=0 truncation (IBM DOS 3.30 TR p.6-140/PDF263; ADR-0003 App A).
+$(foreach gate,shell-files-emu command-c-emu xcopy-cwd-emu fat-truncate-emu dir-match-emu shell-dir-look,$(eval $(call bochs-flair-leg,$(gate),$(SECONDARY_TRACER_IMG),$(FLAIR_DATA_IMG),shell)))
+# WL-0146 and WL-0152: every additional IWORD trace and the size wrapper.
+$(foreach gate,flair-iword-codes flair-iword-block flair-iword-format flair-iword-fkeys flair-iword-search flair-iword-replace flair-iword-undo flair-iword-setup,$(eval $(call bochs-flair-leg,$(gate),$(FLAIR_IWORD_GATE_IMG),$(FLAIR_DATA_IMG),flair)))
+$(eval $(call bochs-flair-leg,kernel-size-r4-emu,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),flair))
 
 # Factory oracle FIRST (Rule 1). The same second-boot parser is used by the
 # live driver. The mutant cuts its wait to the first boot (Rule 6).

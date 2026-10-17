@@ -1,0 +1,71 @@
+% Chapter 5 -- Building programs (model: TP 6.0 UG Ch 6 "Project
+% management": make and build become the compile-assemble-link cycle of a
+% single-file program).  AN-19.
+% Sources (Law 1): os/tps/tps.pas RunCodeGenerator (TPSOUT.S rewritten only
+% by a clean fourth pass); the Makefile recipes of test-tps-gen-fpc and
+% test-tps-gen-os (nasm, ld with seed/rt/seed_dos.ld + start_dos + fileio
+% objects, objcopy to a flat .COM; TPS.COM run on InitechDOS, TINY.COM run
+% on InitechDOS); spec/memory_map.h (image area 40100h..6F000h, 64 KiB
+% stack); os/tps/CODEGEN.md s9 (the compiler's own size).
+\Gates{test-tps-gen-fpc, test-tps-gen-build, test-tps-gen-os, test-compiler-os, test-pubs-turbo}
+\chapter{Building programs}
+\ix{building programs}
+
+This chapter describes the steps between a program that compiles and a
+program file you can run, and the limits a program must keep within.
+
+\section{Compiling under InitechDOS}
+\ix{TPS.COM}
+To compile the program in \file{PAYROLL.PAS}:
+
+\begin{enumerate}
+\item Type \typed{COPY PAYROLL.PAS TPSIN.PAS} and press \key{Enter}.
+\item Type \typed{TPS} and press \key{Enter}.
+\item Check that the output on COM1 ends with \code{TPS-GEN-OK}.
+\end{enumerate}
+
+You can put the two commands into a batch file (\doctitle{InitechDOS
+User's Guide}, Chapter 5) so that one command compiles any program.
+
+\ArrowNote{The compiler writes \file{TPSOUT.S} only when the whole program
+has compiled.  After an error the \file{TPSOUT.S} of an earlier
+compilation is left as it was; always check for \code{TPS-GEN-OK} before
+you use it.}
+
+\section{From TPSOUT.S to a program file}
+\ix{TPSOUT.S}
+\ix{.COM file}
+\file{TPSOUT.S} is assembled into an object module, and the object module
+is linked with the objects of the Turbo Initech run-time library: the
+InitechDOS start object, which must come first, and, when the program uses
+files, the file object.  The
+linked program, placed at address 40100h, is written out as a flat binary
+image with the extension \file{.COM}.  Give it the name you want to type at
+the prompt: \file{PAYROLL.COM} is run by typing \typed{PAYROLL}.
+\draft{the assembler and linker run on the development system (Self-
+Compilation Guide, Chapter 3); an InitechOS-resident assembler and linker
+are milestone M8, bead initech-ls4}
+
+\section{Limits of a program}
+\ix{limits}
+\ix{memory, limits}
+\begin{BorTable}{Program limits}{p{36mm}p{62mm}}
+\Hd{Item} & \Hd{Limit}\EndHd
+Code, constants and global variables together & from 40100h up to 6F000h,
+  about 187K\\
+Stack: frames of active routines and temporary values & 64K\\
+Source file & 262,144 characters\\
+One string & 255 characters\\
+\end{BorTable}
+
+Global variables count toward the first limit; a program with large arrays
+uses its space quickly, since every element of an array of integers takes
+four bytes.  Deep recursion uses the stack: each active call takes the
+size of its frame, its arguments and its temporary values.  The compiler's
+own limits on the number of names and symbols are in Chapter 8.
+
+\section{Building Turbo Initech itself}
+The compiler is a Turbo Initech program: its source is one Pascal file,
+and it is compiled exactly as this chapter describes.  The
+\doctitle{Self-Compilation Guide} describes how the first compiler is
+built and how a compiler proves that it reproduces itself.

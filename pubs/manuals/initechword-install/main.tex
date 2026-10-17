@@ -1,0 +1,87 @@
+% InitechWord Installation card -- part 1062-0000-50 (PUB-REF-0001 Sec 12,
+% DS row WRD-INS; PK-13: 5.0 x 4.25 in, folded once; a black band with the
+% title reversed in Heros Cn Bold caps, numbered steps with Heros Cn Bold
+% numerals, "(See other side)", the code bottom right).  Model: the
+% WordPerfect 5.1 install cards, docs/pubs/originals/wordperfect-51.md s7.
+% Four panels (the card printed both sides and folded): 1 front, 2 and 3
+% inside, 4 back.  Bead initech-ipu5.10.
+% Law 1: InitechWord is supplied installed (APPS\WORD.EXE on the shipped
+% data volume, Makefile flair-data-rules); the opening -- the data volume,
+% APPS, WORD.EXE, each double-clicked -- is the locked trace of
+% test-flair-iword (spec/flair_iword_traces.mk FLAIR_IWORD_SPEC), and the
+% first save and exit are the keys and prompts of os/iword/app/face_a.c.
+% GATES: test-pubs-iword test-flair-iword
+\documentclass[wordperfect,cover]{initech-manual}
+\usepackage{initech-wpc}
+\geometry{paperwidth=5in, paperheight=4.25in, margin=0pt, noheadfoot, nomarginpar}
+\ProductName{InitechWord}
+\ProductVersion{}
+\DocTitle{Installation}
+\PartNumber{1062-0000-50}
+\PrintCode{A1-3/92}
+\FamilyName{Office Systems Family}
+\FamilyColor{FamilyOffice}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+\makeatletter
+\newcommand\CardBand[1]{\noindent\colorbox{black}{\parbox[c][12.7mm][c]{\dimexpr5in-2\fboxsep\relax}{%
+  \hspace*{6mm}\textcolor{white}{\im@condensed\bfseries\fontsize{13}{15}\selectfont\MakeUppercase{#1}}}}\par}
+\newenvironment{CardPanel}{\thispagestyle{empty}\noindent\begin{minipage}[t][\dimexpr4.25in-12pt\relax][t]{5in}}{\end{minipage}\newpage}
+\newenvironment{CardText}{\par\vspace{4mm}\noindent\hspace*{8mm}\begin{minipage}[t]{\dimexpr5in-16mm\relax}
+  \fontsize{10}{12}\selectfont\RaggedRight\setlength\parskip{4pt}}{\end{minipage}\par}
+\newlist{CardSteps}{enumerate}{1}
+\setlist[CardSteps]{label={\im@condensed\bfseries\arabic*}, leftmargin=6mm, labelsep=2mm,
+  itemsep=2pt, parsep=0pt, topsep=3pt}
+\newcommand\CardFoot[1]{\vfill\noindent\hspace*{8mm}\makebox[\dimexpr5in-16mm\relax]{#1}\par\vspace{5mm}}
+\makeatother
+\begin{document}
+\Gates{test-pubs-iword test-flair-iword}
+\begin{CardPanel}
+\CardBand{InitechWord Installation and Start-Up}
+\begin{CardText}
+InitechWord comes installed: the program is the file \textbf{WORD.EXE} in
+the \textbf{APPS} folder of the InitechOS data volume.  There is nothing to
+copy.  To start InitechWord the first time,
+\begin{CardSteps}
+\item Start InitechOS and wait until the FLAIR desktop is on the screen.
+\item Double-click the icon of the data volume.  Its window opens.
+\item Double-click the \textbf{APPS} folder.
+\item Double-click \textbf{WORD.EXE}.  The InitechWord window opens, with
+the status line \texttt{Doc 1 Pg 1 Ln 1" Pos 1"} at the bottom.
+\end{CardSteps}
+\end{CardText}
+\CardFoot{\hfill{\itshape (See other side)}\hfill}
+\end{CardPanel}
+\begin{CardPanel}
+\begin{CardText}
+\begin{CardSteps}[start=5]
+\item Lay the function-key template above the function keys of your
+keyboard.
+\item Type a line of text.  Press Enter only at the end of a paragraph.
+\item Press \textbf{Save} (\K{F10}).  At \texttt{Document to be Saved:} type
+a name of up to eight letters, for example \textbf{test}, and press Enter.
+The name appears at the left of the status line.
+\end{CardSteps}
+\end{CardText}
+\end{CardPanel}
+\begin{CardPanel}
+\begin{CardText}
+\begin{CardSteps}[start=8]
+\item Press \textbf{Exit} (\K{F7}).  At \texttt{Save Document? Yes (No)} type
+\textbf{n}: the document is already saved.
+\item At \texttt{Exit WP? No (Yes)} type \textbf{y}.  The InitechWord window
+closes.
+\end{CardSteps}
+InitechWord is ready for use.  The document you saved is on the data volume;
+retrieve it with \textbf{Retrieve} (\K{Shift-F10}).  Begin with
+\textit{Getting Started} in the \textit{InitechWord Reference}, then the
+lessons of the \textit{InitechWord Workbook}.
+\end{CardText}
+\end{CardPanel}
+\begin{CardPanel}
+\begin{CardText}
+\IsThisGoodForTheCompany\par
+For help, call the Initech Help Desk at 555-0100, extension 2504.
+\end{CardText}
+\CardFoot{\hfill{\sffamily\fontsize{7}{8}\selectfont 1062-0000-50\quad A1-3/92}}
+\end{CardPanel}
+\end{document}

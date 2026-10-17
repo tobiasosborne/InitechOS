@@ -1,0 +1,112 @@
+% Chapter 4 -- The acceptance procedure (PUB-REF-0001 AN-15 procedure
+% frame in the F-BOR book, CP-19: every command replayed).  Procedures
+% TIN-P-01..05; the make runs are replayed by test-pubs-turbo (the printed
+% lines are the second run's lines that begin ">>> " / "!!! " or carry a
+% pass rate).  TIN-P-04 (make selfhost, K2 == K3) and TIN-P-05 (make ddc)
+% are M8 placeholders: DRAFT per D-14 (ADR-0007 DEC-06, DEC-08; FO-2).
+% The slogan opens the procedures chapter (operator directive 2026-10-17).
+\Gates{test-seed-repro, test-tps-lex-build, test-compiler, test-compiler-os, test-pubs-turbo}
+\chapter{The acceptance procedure}
+\ix{acceptance procedure}
+\IsThisGoodForTheCompany
+
+A Turbo Initech compiler is accepted for release only when every procedure
+of this chapter has been carried out, in order, on the release revision of
+the sources, and every verification has been met.  Each procedure is
+recorded: the build log of each step is kept with the release.
+
+\begin{AcceptanceProcedure}{TIN-P-01}{To confirm that the genesis compiler builds reproducibly}
+\PField{Purpose:}The genesis compiler must make the same bytes from the same
+source every time.
+\PField{Frequency:}For every release candidate.
+\PField{Performed by:}The release engineer.
+\PField{Prerequisites:}The development system holds the InitechOS sources at
+the release revision.
+\PField{Materials:}None.
+\begin{enumerate}
+\item Type the command shown and press \key{Enter}.  The build compiles each
+  program of the genesis compiler's test set twice, in two separate
+  directories, and compares the results:
+\end{enumerate}
+\MakeRun{seed-repro}
+\PField{Verification:}The last line ends with \texttt{byte-identical across two independent builds}.
+\PField{Records retained:}The build log.
+\end{AcceptanceProcedure}
+
+\begin{AcceptanceProcedure}{TIN-P-02}{To build the first compiler}
+\PField{Purpose:}Make $K_1$, the compiler \file{TPS.COM}, with the genesis
+compiler.
+\PField{Frequency:}For every release candidate, after TIN-P-01.
+\PField{Performed by:}The release engineer.
+\PField{Prerequisites:}TIN-P-01 has been verified.
+\PField{Materials:}None.
+\begin{enumerate}
+\item Type the command shown and press \key{Enter}:
+\end{enumerate}
+\MakeRun{tps-lex-build}
+\PField{Verification:}The build reports \code{green}, and the image ends below
+6F000h.
+\PField{Records retained:}The build log and \file{TPS.COM}.
+\end{AcceptanceProcedure}
+
+\begin{AcceptanceProcedure}{TIN-P-03}{To accept the compiler on the corpus}
+\PField{Purpose:}Prove that Turbo Initech compiles every corpus program
+(Appendix A) to code that prints exactly what the Free Pascal compiler's
+code prints, on the development system and on InitechDOS, and that it
+compiles its own source deterministically.
+\PField{Frequency:}For every release candidate, after TIN-P-02.
+\PField{Performed by:}The release engineer.
+\PField{Prerequisites:}TIN-P-02 has been verified.
+\PField{Materials:}None.
+\begin{enumerate}
+\item Type the command shown and press \key{Enter}.  The build runs the
+  corpus on the development system, compiles the compiler's own source
+  twice, runs \file{TPS.COM} on InitechDOS, and finally runs every
+  program Turbo Initech compiled in one session of InitechDOS:
+\end{enumerate}
+\MakeRun{compiler-os}
+\PField{Verification:}\texttt{compiler\_host\_pass\_rate=100\% (17/17)} and
+\texttt{differential\_pass\_rate=100\% (17/17)} are printed, and the last line
+reports \code{GREEN}.
+\PField{Records retained:}The build log.
+\end{AcceptanceProcedure}
+
+\begin{AcceptanceProcedure}{TIN-P-04}{To produce the self-compilation certificate}
+\draft{make selfhost, the K2 == K3 certificate, is an M8 placeholder
+(ADR-0007 DEC-06, DEC-08; bead initech-ls4): it needs Turbo Initech
+resident on InitechOS with its assembler and linker}
+\PField{Purpose:}Prove that the Turbo Initech compiler reproduces itself:
+$K_2 = K_3$.
+\PField{Frequency:}For every release candidate, after TIN-P-03.
+\PField{Performed by:}The release engineer.
+\PField{Prerequisites:}TIN-P-03 has been verified.
+\PField{Materials:}$K_1$, \file{TPS.COM}, from TIN-P-02.
+\begin{enumerate}
+\item On InitechOS, compile the Turbo Initech source with $K_1$ and make the
+  program file $K_2$.
+\item Compile the source with $K_2$ and make $K_3$.
+\item Compare $K_2$ and $K_3$ byte for byte.
+\end{enumerate}
+\PField{Verification:}$K_2$ and $K_3$ are identical.  A difference is not
+corrected: it is reported, with both files, as a defect of the compiler or
+of the reproducibility of the build.
+\PField{Records retained:}$K_2$, $K_3$ and the comparison.
+\end{AcceptanceProcedure}
+
+\begin{AcceptanceProcedure}{TIN-P-05}{To compare with an independent genesis compiler}
+\draft{make ddc is an M8 placeholder (ADR-0007 DEC-06, FO-2, OQ-2): the
+independent genesis compiler does not exist}
+\PField{Purpose:}Rule out a fault that reproduces itself through the chain
+(Chapter 5).
+\PField{Frequency:}For every release.
+\PField{Performed by:}The release engineer.
+\PField{Prerequisites:}TIN-P-04 has been verified.
+\PField{Materials:}The independent genesis compiler.
+\begin{enumerate}
+\item Make a first compiler with the independent genesis compiler, and
+  follow the chain of TIN-P-04 from it.
+\item Compare the resulting compiler with $K_3$ of TIN-P-04.
+\end{enumerate}
+\PField{Verification:}The two compilers are identical.
+\PField{Records retained:}Both compilers and the comparison.
+\end{AcceptanceProcedure}

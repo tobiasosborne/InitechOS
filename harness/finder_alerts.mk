@@ -76,6 +76,7 @@ FINDER_LIMITS_DATA := $(BUILD)/finder_limits_fixture.img
 $(FINDER_LIMITS_DATA): $(FLAIR_DATA_IMG)
 	cp -f $< $@
 	@i=0; while [ $$i -lt 69 ]; do name=$$(printf 'F%02d' $$i); mmd -i $@ ::/$$name || exit 1; i=$$((i+1)); done
+	@$(call fixture-check,recipe,$@)
 test-flair-finder-limits: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FINDER_LIMITS_DATA) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	$(call appl-boot,finder_limits,$(FLAIRTENANTS_HOLD_IMG),$(FINDER_LIMITS_DATA),FLAIR_FINDER_LIMITS_SPEC,--screendump --screendump-after "FINDER-ALERT reason=windows")
 	@$(call APPL_ALIVE,$(BUILD)/finder_limits.serial) || { printf '!!! finder_limits did not finish alive\n'; exit 1; }
@@ -103,11 +104,13 @@ $(FINDER_REPLACE_DATA): $(FLAIR_DATA_IMG)
 	cp -f $< $@
 	mcopy -o -i $< ::README.TXT $(BUILD)/finder_original.txt
 	mcopy -o -i $@ $(BUILD)/finder_original.txt ::APPS/README.TXT
+	@$(call fixture-check,recipe,$@)
 $(FINDER_RESTORE_DATA): $(FLAIR_DATA_IMG)
 	cp -f $< $@
 	mmd -i $@ ::TRASH
 	mcopy -o -i $< ::README.TXT $(BUILD)/finder_original.txt
 	mcopy -o -i $@ $(BUILD)/finder_original.txt ::TRASH/README.TXT
+	@$(call fixture-check,recipe,$@)
 
 test-flair-finder-refused: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	$(call appl-boot,finder_refused,$(FLAIRTENANTS_HOLD_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,--screendump --screendump-after "FINDER-ALERT reason=move")

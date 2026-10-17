@@ -2,7 +2,8 @@
 % held once here and typeset by \FinishBook (initech-forms.sty).  It names
 % the real tools truthfully and is the ONLY page exempt from the period-
 % vocabulary check (GC-06; pubs_gate.c exempts exactly this path).
-% Beads initech-ipu5.6 and initech-ipu5.7.
+% Beads initech-ipu5.6 and initech-ipu5.7.  A book whose screens come by
+% another route says so in \ColophonScreens (its main.tex; initech-ipu5.10).
 \clearpage
 \thispagestyle{empty}
 \vspace*{\fill}
@@ -18,6 +19,7 @@ tables; TeX Gyre Adventor; TeX Gyre Cursor for examples and screens; and EB
 Garamond for the display titles.  The TeX Gyre faces are metric-compatible
 replacements for Times, Palatino, Helvetica, Avant Garde and Courier.
 
+\ifdefined\ColophonScreens\ColophonScreens\else
 % The InitechBase books (bead initech-ipu5.8) print their dot-prompt
 % examples from the host replay of the shipped dot prompt, and say so: a book
 % that defines \ColophonInitechBase gets this paragraph instead.
@@ -40,7 +42,7 @@ harness from a recorded list of keystrokes.  The text of the display was read
 back from each screendump character by character by the harness program
 \texttt{console\_text}, without redrawing, and the build compares every
 capture with the running system again before the book is printed.
-\fi
+\fi\fi
 
 The Initech logo on the covers and in this book is an original drawing in
 TikZ and PGF commands (\texttt{initech-logo.tex}), authored from

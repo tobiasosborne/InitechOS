@@ -33,7 +33,7 @@
  * Output: NAME|KIND lines (the Makefile sorts them).
  *
  * `samir_inventory messages` prints the shipped message catalogue instead,
- * n|text for every non-empty entry of samir_main.c g_msg -- the very table
+ * n|text for every non-empty decoded catalogue entry -- the very table
  * repl_render_error prints from (GC-02).  samir_main.c is included whole for
  * that (the single-TU pattern of int21_inventory.c); the rest of the engine
  * is linked.  Host C (Law 3). */
@@ -115,10 +115,10 @@ static int accepted_set(const char *out) { return !set_refused(out); }
 int main(int argc,char **argv)
 {
     if (argc == 2 && !strcmp(argv[1], "messages")) {
-        const char *m = g_msg;
+        char m[256];
         for (int code = 0; code <= REPL_MSG_COUNT; code++) {
+            (void)samir_message((unsigned)code, m, sizeof m);
             if (code && *m) printf("%d|%s\n", code, m);
-            m += strlen(m) + 1;
         }
         return ferror(stdout) ? 1 : 0;
     }

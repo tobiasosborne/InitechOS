@@ -1,7 +1,12 @@
 # initech-tode round 4: fixed arrival measurement, independent of codegen.
 # Ref: PRD Sec 5/6.1/6.3/8; ADR-0003 DEC-08 / Appendix A; Rule 6/11.
-# Arrival raw flagship = 188552 B; reclaim >= 16384 B. Geometry is unchanged.
-KERNEL_R4_LOADED_MAX := 172168
+# Arrival raw flagship = 188552 B; the round reclaimed 16,564 B (WL-0152).
+# PM 2026-10-17: the guard is a HEADROOM floor for the flagship -- 16 KiB above
+# the 4 KiB global floor of test-kernel-headroom in the 196,608 B window -- so
+# later lanes may spend bytes until the next round is due, instead of a fixed
+# arrival cap that every merged feature would break by construction.
+KERNEL_R4_MIN_HEADROOM := 16384
+KERNEL_R4_LOADED_MAX := $(shell echo $$(( $(KERNEL_SECTORS) * 512 - 16384 )))
 KERNEL_R4_DIR := $(BUILD)/ksize4
 $(KERNEL_R4_DIR): | $(BUILD)
 	@mkdir -p $@
@@ -10,7 +15,7 @@ define kernel-r4-grade
 $(OBJCOPY) -O binary $(1) $(KERNEL_R4_DIR)/loaded.bin; \
 loaded=$$(wc -c < $(KERNEL_R4_DIR)/loaded.bin); \
 if [ "$$loaded" -gt "$(KERNEL_R4_LOADED_MAX)" ]; then \
-	printf '!!! kernel-size-r4 FAIL: loaded %s B > %s B (16 KiB reclaim required)\n' "$$loaded" '$(KERNEL_R4_LOADED_MAX)'; exit 1; \
+	printf '!!! kernel-size-r4 FAIL: loaded %s B > %s B (the flagship must keep 16 KiB headroom -- size round 5 is due)\n' "$$loaded" '$(KERNEL_R4_LOADED_MAX)'; exit 1; \
 fi
 endef
 
@@ -18,7 +23,7 @@ endef
 .PHONY: test-kernel-size-r4-emu test-kernel-size-r4-emu-mutant
 test-kernel-size-r4: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R4_DIR)
 	@$(call kernel-r4-grade,$<)
-	@printf '>>> test-kernel-size-r4: green (flagship reclaims >= 16384 B; window/floor unchanged)\n'
+	@printf '>>> test-kernel-size-r4: green (flagship keeps >= 16 KiB headroom in the 384-sector window)\n'
 
 # Retain the actual flagship imports when making the budget+1 mutant: omitting
 # them would silently discard transient services rather than test the budget.

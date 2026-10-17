@@ -188,7 +188,17 @@ struct psp *int21_get_psp(void);
 typedef struct int21_cwd_snapshot {
     uint16_t start_cluster;        /* 0 == the fixed root                       */
     char     path[INT21_CWD_MAX];  /* root-relative, no leading '\' / drive     */
+    uint8_t current_drive, io_drive;
+    uint16_t starts[4];
+    char paths[4][INT21_CWD_MAX];
 } int21_cwd_snapshot_t;
+/* DEC-18: selector changes the backend I/O volume, never the default drive.
+ * A NULL selector retains the A-only mock backend contract. */
+void int21_set_drive_selector(int (*select)(unsigned));
+void int21_set_lastdrive(unsigned count);
+unsigned int21_current_drive(void);
+unsigned int21_io_drive(void);
+uint16_t int21_select_path(const char **path);
 void                 int21_cwd_reset(void);
 int21_cwd_snapshot_t int21_cwd_save(void);
 void                 int21_cwd_restore(const int21_cwd_snapshot_t *s);
@@ -606,6 +616,11 @@ typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   
 /* Bind the CON input source (either may be NULL to clear). The kernel binds
  * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
+
+/* Discard pending CON input up to AND including the first byte == c, keeping
+ * what follows it. "Pending" spans the single-slot lookahead (filled by AH=0Bh
+ * and by the ^C/^S/^P check every CON output byte makes) and the bound poll. */
+void int21_conin_discard_through(int c);
 
 /* ---- ANSI.SYS CONSOLE OPS (beads initech-p96i; consumes the x3mh FSM) ------
  * When CONFIG.SYS loaded DEVICE=ANSI.SYS (sysinit_ansi_enabled()), every CON

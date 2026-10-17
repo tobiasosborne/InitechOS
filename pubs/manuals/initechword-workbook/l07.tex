@@ -1,0 +1,53 @@
+% Lesson 7 (AN-18): ->Indent (F4) for a numbered list; Enter ends the indent.
+% Saves PROCS (used by Lessons 9, 10, 12, 20).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{7}{Procedures}
+\LessonFeatures{Indent; Return, Hard; Word Wrap; Save}
+The cover sheets come with a procedure, and Bill wants it typed as a
+numbered list.  The text of each step should line up to the right of its
+number, even where it wraps.  Indent does that: it moves a whole paragraph
+in to the next tab stop.  In this lesson you type the procedure and save it.
+
+\BeginReplay{l07}
+\Task{Typing the Title}
+\begin{WPSteps}
+\item Type \TypeRun{COVER SHEET PROCEDURE} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Steps}
+For each step, type its number, press Indent, and type the text without
+pressing Enter until the end of the step.
+\begin{WPSteps}
+\item Type \TypeRun{1.} and press \Press{\rarr Indent}{F4}.
+\item Type
+\Type{Take a cover sheet from the supply room on the third floor.}
+\item Press \PressKey{Enter}.  Enter ends the step and its indent: the next
+line starts at the left margin.
+\item Type \TypeRun{2.}, press \PressKey{F4} and type
+\Type{Fill in the report number, the date and your name. Print clearly, using a black pen.}
+\item Press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=6]{l07-1}
+The second step is longer than a line.  Its second line wraps to the indent,
+not to the margin, so the text stays clear of the number.
+\begin{WPSteps}[resume]
+\item Type \TypeRun{3.}, press \PressKey{F4} and type
+\Type{Staple the cover sheet to the front of the report, in the top left corner.}
+\item Press \PressKey{Enter}.
+\item Type \TypeRun{4.}, press \PressKey{F4} and type
+\Type{Put the report in the tray outside the office of Bill Lumbergh by four on Friday.}
+\item Press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=10]{l07-2}
+
+\Task{Saving the Procedure}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}, type \TypeName{procs} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, then type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+Lessons 9 and 10 go on with the procedure.  First, Lesson 8 shows you how
+to start a new page.

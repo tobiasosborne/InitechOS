@@ -45,6 +45,7 @@
 #include "flair_look.h"         /* flair_look_pixel_depth -- the ONE seam      */
 #include "blitter.h"            /* blitter_fill_rect_clipped (the content fill)*/
 #include "heap.h"               /* flair_alloc / FLAIR_CLASS_HANDLE            */
+#include "finder_list_titles.h"
 #include "event_model.h"        /* EventRecord, updateEvt / keyDown            */
 #include "window_record.h"      /* documentKind                                */
 #include "chicago12.h"          /* chicago12_advance -- the alert's word wrap  */
@@ -69,9 +70,33 @@ static void fw_zero(void *dst, uint32_t n)
     for (uint32_t i = 0u; i < n; i++) b[i] = 0u;
 }
 
+/* Size policy: keep the shared Finder operations out of their callers. */
+#pragma GCC optimize ("no-inline-functions", "no-inline-small-functions", "no-inline-functions-called-once", "no-tree-loop-distribute-patterns")
+
 static char fw_upper(char c)
 {
     return (c >= 'a' && c <= 'z') ? (char)(c - 'a' + 'A') : c;
+}
+
+/* ONE case-insensitive 8.3 ordering for Arrange and list views.
+ * Ref: design F1.1 (FAT names), tdnl.67 Arrange's stable name ordering. */
+static int fw_name_compare(const char *a, const char *b)
+{
+    if (a == (const char *)0) a = "";
+    if (b == (const char *)0) b = "";
+    while (*a != '\0' && fw_upper(*a) == fw_upper(*b)) { a++; b++; }
+    return ((unsigned char)fw_upper(*a) > (unsigned char)fw_upper(*b)) -
+           ((unsigned char)fw_upper(*a) < (unsigned char)fw_upper(*b));
+}
+
+/* Arrange and list ordering share the SAME stable rank rule (tdnl.67). */
+static int fw_rank_before(int comparison, int candidate, int index)
+{
+#if defined(FINDER_VIEW_MUT_SORT_UNSTABLE)
+    return comparison < 0 || (comparison == 0 && candidate > index);
+#else
+    return comparison < 0 || (comparison == 0 && candidate < index);
+#endif
 }
 
 static uint32_t fw_len(const char *s)
@@ -185,6 +210,313 @@ int finder_win_skip_entry(uint8_t attribute)
      * it would test TRUE here anyway -- both are correct outcomes. */
     return ((attribute & (uint8_t)FINDER_ATTR_VOLLABEL) != 0u) ? 1 : 0;
 #endif
+}
+
+/* tdnl.44 pure preparation; finder_windows.h documents the source boundary.
+ * Captured pixels: mint-results-008 Sec6 (Name and Size lists).
+ * Keep design F1.3's bit0=list, and reuse its existing kind=4 codec. */
+uint16_t finder_win_view_choose(uint16_t bits, uint16_t menu_item)
+{
+    uint16_t mode;
+    switch (menu_item) {
+    case 1: mode = FINDER_VIEW_ICONS; break;
+    case 2: mode = FINDER_VIEW_SMALL; break;
+    case 3: mode = FINDER_VIEW_NAME; break;
+    case 4: mode = FINDER_VIEW_SIZE; break;
+    case 5: mode = FINDER_VIEW_KIND; break;
+    case 7: mode = FINDER_VIEW_DATE; break;
+    default: return bits;
+    }
+    return (uint16_t)((bits & (uint16_t)~FINDER_VIEW_MASK) | mode);
+}
+
+int finder_win_list_compare(const finder_list_key_t *a,
+                             const finder_list_key_t *b, uint16_t bits)
+{
+    uint32_t x = 0u, y = 0u;
+    if (a == (const finder_list_key_t *)0 || b == (const finder_list_key_t *)0)
+        return 0;
+    switch (bits & FINDER_VIEW_MASK) {
+    case FINDER_VIEW_SIZE:
+        if ((a->attribute ^ b->attribute) & FINDER_ATTR_DIRECTORY)
+            return (a->attribute & FINDER_ATTR_DIRECTORY) ? 1 : -1;
+        x = a->size; y = b->size;
+        if (x != y) return x > y ? -1 : 1;
+        break;
+    case FINDER_VIEW_KIND:
+        x = (uint32_t)finder_win_kind_of(a->name83, a->attribute);
+        y = (uint32_t)finder_win_kind_of(b->name83, b->attribute);
+        break;
+    case FINDER_VIEW_DATE:
+        /* FAT's packed year/month/day/hour/minute/2-second fields are
+         * monotonically ordered as unsigned words. Ref: fat12.h time API. */
+        x = ((uint32_t)a->date << 16) | a->time;
+        y = ((uint32_t)b->date << 16) | b->time;
+        break;
+    default: break;
+    }
+    if (x != y) return x < y ? -1 : 1;
+    return fw_name_compare(a->name83, b->name83);
+}
+
+int finder_win_list_rank(const finder_list_key_t *keys, int n, int index,
+                          uint16_t bits)
+{
+    int rank = 0;
+    if (keys == (const finder_list_key_t *)0 || index < 0 || index >= n)
+        return -1;
+    /* Same rank-by-comparison mechanism as Arrange. Do not shuffle the icon
+     * array: selection and drag trackers retain indices into that array. */
+    for (int j = 0; j < n; j++) {
+        int c = finder_win_list_compare(&keys[j], &keys[index], bits);
+        if (fw_rank_before(c, j, index)) rank++;
+    }
+    return rank;
+}
+
+int finder_win_list_column(rgn_rect_t header, const int16_t widths[4],
+                            int16_t scroll_x, int column, rgn_rect_t *out)
+{
+    int32_t left, right;
+    if (widths == (const int16_t *)0 || out == (rgn_rect_t *)0 ||
+        column < 0 || column >= FINDER_VIEW_COLUMNS || scroll_x < 0 ||
+        header.left >= header.right || header.top >= header.bottom) return 0;
+    for (int i = 0; i < FINDER_VIEW_COLUMNS; i++)
+        if (widths[i] <= 0) return 0;
+    left = (int32_t)header.left - scroll_x;
+    for (int i = 0; i < column; i++) left += widths[i];
+    right = left + widths[column];
+#if defined(FINDER_VIEW_MUT_SIZE_COLUMN_OFFBYONE)
+    if (column == 2) left++;
+#endif
+    if (left < header.left) left = header.left;
+    if (right > header.right) right = header.right;
+    if (left >= right) return 0;
+    *out = header;
+    out->left = (int16_t)left;
+    out->right = (int16_t)right;
+    return 1;
+}
+
+uint16_t finder_win_list_header(uint16_t bits, rgn_rect_t header,
+                                 const int16_t widths[4], int16_t scroll_x,
+                                 int16_t x, int16_t y)
+{
+#if defined(FINDER_VIEW_MUT_HEADER_IGNORED)
+    return bits;
+#endif
+    if ((bits & 1u) == 0u) return bits; /* design F1.3 bit0 = list */
+    for (int col = 0; col < FINDER_VIEW_COLUMNS; col++) {
+        rgn_rect_t r;
+        if (finder_win_list_column(header, widths, scroll_x, col, &r) &&
+            x >= r.left && x < r.right && y >= r.top && y < r.bottom)
+            return finder_win_view_choose(bits,
+                    (uint16_t)(col == 0 ? 3 : col == 1 ? 7 : col == 2 ? 4 : 5));
+    }
+    return bits;
+}
+
+/* Captured Mac OS8.1 geometry, mint-results-008 Sec6. Reuse the Finder's
+ * enumeration indices, rank sorter, selection and the two WindowScroll bars.
+ * Physical column order is Name, Date Modified, Size, Kind. */
+static const int16_t fw_list_widths[4] = {234,178,70,123};
+static __attribute__((noinline)) int fw_sync_list(finder_window_t *w, rgn_rect_t c);
+static __attribute__((noinline)) void fw_paint_list(finder_window_t *w, const bitmap_t *dst,
+                            const region_t *clip);
+static __attribute__((noinline)) int fw_sync_list(finder_window_t *w, rgn_rect_t c)
+{
+    int small = (w->view_bits & FINDER_VIEW_MASK) == FINDER_VIEW_SMALL;
+    int ret = 0;
+    int width = small ? 234 : 605;
+    if (w->scroll.owner == &w->rec) {
+        w->scroll.axis[WSCROLL_V].line=19;
+        int vm=w->scroll.axis[WSCROLL_V].max, hm=w->scroll.axis[WSCROLL_H].max;
+        wscroll_set_extent(&w->scroll.axis[WSCROLL_V], (int)w->view.n*19,
+                            c.bottom-c.top-(small?0:20));
+        wscroll_set_extent(&w->scroll.axis[WSCROLL_H],width,c.right-c.left);
+        if (vm!=w->scroll.axis[WSCROLL_V].max || hm!=w->scroll.axis[WSCROLL_H].max)
+            ret |= FINDER_SYNC_SCROLL;
+        w->applied_sx=w->scroll.axis[WSCROLL_H].value;
+        w->applied_sy=w->scroll.axis[WSCROLL_V].value;
+    }
+    finder_list_key_t keys[FINDER_WIN_ICONS_MAX];
+    for(int i=0;i<(int)w->view.n;i++) {
+        keys[i].name83=w->icons[i].name; keys[i].size=w->meta[i].size;
+        keys[i].date=w->meta[i].date; keys[i].time=w->meta[i].time;
+        keys[i].attribute=w->meta[i].attribute;
+    }
+    for (int i=0;i<(int)w->view.n;i++) {
+        int x=c.left+28-w->applied_sx;
+        int y=c.top+(small?0:20)+finder_win_list_rank(keys,w->view.n,i,w->view_bits)*19+1-w->applied_sy;
+        if (w->icons[i].x!=x || w->icons[i].y!=y) ret|=FINDER_SYNC_ICONS;
+        w->icons[i].x=(int16_t)x; w->icons[i].y=(int16_t)y;
+    }
+    w->view.bounds=c;
+    return ret;
+}
+
+int finder_win_set_view(finder_window_t *w,uint16_t bits)
+{
+    if(!w || !w->open) return 0;
+    int changed = w->view_bits != bits;
+    w->view_bits=bits;
+    if (changed) {
+        w->scroll.axis[WSCROLL_H].value=w->scroll.axis[WSCROLL_V].value=0;
+        w->applied_sx=w->applied_sy=0;
+        if ((bits & FINDER_VIEW_MASK)==FINDER_VIEW_ICONS)
+            for(int i=0;i<(int)w->view.n;i++)
+                finder_win_grid_origin(w->view.bounds,i,&w->icons[i].x,&w->icons[i].y);
+    }
+    (void)finder_win_sync_geometry(w);
+    return changed;
+}
+int finder_win_header_click(finder_window_t *w,int16_t x,int16_t y)
+{
+    if(!w || !w->open) return 0;
+    rgn_rect_t h=w->view.bounds; h.bottom=h.top+20;
+    if(!(w->view_bits & 1u) || x<h.left || x>=h.right || y<h.top || y>=h.bottom)return 0;
+    uint16_t bits=finder_win_list_header(w->view_bits,h,fw_list_widths,w->applied_sx,x,y);
+    (void)finder_win_set_view(w,bits);
+    return 1; /* a click on the current header is consumed too */
+}
+int finder_win_content_hit(finder_window_t *w,int16_t x,int16_t y)
+{
+    if(!w || !w->open) return -1;
+    (void)finder_win_sync_geometry(w);
+    if((w->view_bits & FINDER_VIEW_MASK)==0) return finder_desk_hit(&w->view,x,y);
+    rgn_rect_t c=w->view.bounds;
+    if(x<c.left || x>=c.right || y<c.top+((w->view_bits&1)?20:0) || y>=c.bottom) return -1;
+    for(int i=0;i<(int)w->view.n;i++)
+        if(y>=w->icons[i].y-1 && y<w->icons[i].y+18) return i;
+    return -1;
+}
+
+/* A clipped fill names semantic roles only. */
+static void fw_box(const bitmap_t *dst,const region_t *clip,int x,int y,int w,int h,int part)
+{
+    rgn_rect_t r={(int16_t)y,(int16_t)x,(int16_t)(y+h),(int16_t)(x+w)};
+    blitter_fill_rect_clipped(dst,r,flair_look_pixel_depth(dst->bpp,part),clip);
+}
+static char *fw_num(char *p,uint32_t v)
+{
+    char b[10];int n=0;
+    do {b[n++]=(char)('0'+v%10);v/=10;}while(v);
+    while(n)*p++=b[--n];
+    *p=0; return p;
+}
+static __attribute__((noinline)) void fw_cell_text(const bitmap_t *dst,const region_t *clip,rgn_rect_t col,
+                            int x,int y,const char *s,int part)
+{
+    /* Keep each string inside its column and the fixed header. The shared
+     * label painter owns glyph clipping; advance clipping is done here. */
+    char b[48]; int n=0, pen=x;
+    while(*s && n<47) {
+        char one[2]={*s,0};int adv=finder_desk_text_width(one);
+        if(pen>=col.left && pen+adv<col.right) b[n++]=*s;
+        else if(pen>=col.right)break;
+        else x+=adv;
+        pen+=adv;s++;
+    }
+    b[n]=0;
+    if(y+9>=col.top && y<col.bottom)
+        finder_desk_text(dst,x,y,b,flair_look_pixel_depth(dst->bpp,part),clip);
+}
+static __attribute__((noinline)) void fw_paint_list(finder_window_t *w,const bitmap_t *dst,const region_t *clip)
+{
+    rgn_rect_t c=w->view.bounds, body=c;
+    int small=(w->view_bits & FINDER_VIEW_MASK)==FINDER_VIEW_SMALL;
+    int origin=c.left-w->applied_sx;
+    int sort=(w->view_bits & FINDER_VIEW_MASK);
+    int scol=sort==FINDER_VIEW_DATE?1:sort==FINDER_VIEW_SIZE?2:sort==FINDER_VIEW_KIND?3:0;
+    body.top+=(small?0:20);
+    fw_box(dst,clip,c.left,body.top,c.right-c.left,c.bottom-body.top,FLAIR_PART_PLAT_TROUGH);
+    if(!small) {
+        rgn_rect_t r;
+        if(finder_win_list_column(c,fw_list_widths,w->applied_sx,scol,&r))
+            fw_box(dst,clip,r.left,body.top,r.right-r.left,c.bottom-body.top,FLAIR_PART_PLAT_FACE);
+    }
+    for(int i=0;i<(int)w->view.n;i++) {
+        int row=w->icons[i].y-1;
+        if(row+19<=body.top || row>=body.bottom)continue;
+        if(row+18>=body.top && row+18<body.bottom)
+            fw_box(dst,clip,c.left,row+18,c.right-c.left,1,FLAIR_PART_CONTENT);
+        if(w->icons[i].selected)
+            fw_box(dst,clip,c.left,row,c.right-c.left,18,FLAIR_PART_FRAME);
+        int ink=w->icons[i].selected?FLAIR_PART_CONTENT:FLAIR_PART_FRAME;
+        /* Native16 app/doc/folder cells: paired-background mask recovery,
+         * independent PNG gate; same icon blitter and colour policy seam. */
+        int icon_x=w->icons[i].x;
+#if defined(FINDER_VIEW_MUT_SMALL_ICON_SHIFT)
+        icon_x++;
+#endif
+        finder_desk_small_icon(dst,(int16_t)icon_x,w->icons[i].y,w->icons[i].kind,clip);
+        char size[16],date[32];
+        if(w->icons[i].kind==FINDER_ICON_FOLDER){size[0]='-';size[1]='-';size[2]=0;}
+        else {char *p=fw_num(size,w->meta[i].size/1024u+(w->meta[i].size%1024u!=0));*p++='K';*p=0;}
+        char *p=fw_num(date,1980u+(w->meta[i].date>>9));*p++='-';
+        p=fw_num(p,(w->meta[i].date>>5)&15);*p++='-';p=fw_num(p,w->meta[i].date&31);*p++=' ';
+        p=fw_num(p,w->meta[i].time>>11);*p++=':';unsigned min=(w->meta[i].time>>5)&63;
+        *p++=(char)('0'+min/10);*p++=(char)('0'+min%10);*p=0;
+        int left=origin;
+        for(int col=0;col<(small?1:4);col++) {
+            rgn_rect_t cell=body;cell.left=(int16_t)(left<c.left?c.left:left);
+            cell.right=(int16_t)(left+fw_list_widths[col]>c.right?c.right:left+fw_list_widths[col]);
+            const char *t=col==0?w->icons[i].name:col==1?date:col==2?size:
+                w->icons[i].kind==FINDER_ICON_FOLDER?"folder":w->icons[i].kind==FINDER_ICON_APP?"application program":"Application document";
+            int x=col==0?origin+49:col==2?left+58-finder_desk_text_width(t):left+12;
+            fw_cell_text(dst,clip,cell,x,row+4,t,ink);
+            left+=fw_list_widths[col];
+        }
+    }
+    if(!small) {
+        int left=origin;
+        for(int col=0;col<4;col++) {
+            int width=fw_list_widths[col], pressed=col==scol;
+            int face=pressed?FLAIR_PART_PLAT_WIDGET_EDGE:FLAIR_PART_PLAT_FRAME_FACE;
+#if defined(FINDER_VIEW_MUT_HEADER_FACE)
+            if(pressed)face=FLAIR_PART_PLAT_FRAME_FACE;
+#endif
+            rgn_rect_t r;
+            if(finder_win_list_column(c,fw_list_widths,w->applied_sx,col,&r)) {
+                /* Exact capture bevel as20 rectangular runs instead of a
+                 * pixel classifier. Rows: top, face17, inset, bottom;
+                 * columns: left, highlight, face, shadow, right. */
+                static const uint8_t bevel[2][4][5] = {
+                    {
+                        {FLAIR_PART_PLAT_INACTIVE_TEXT,FLAIR_PART_CONTENT,FLAIR_PART_CONTENT,FLAIR_PART_PLAT_FRAME_FACE,FLAIR_PART_LIST_EDGE},
+                        {FLAIR_PART_PLAT_INACTIVE_TEXT,FLAIR_PART_CONTENT,FLAIR_PART_PLAT_FRAME_FACE,FLAIR_PART_HILITE_TEXT,FLAIR_PART_LIST_EDGE},
+                        {FLAIR_PART_PLAT_INACTIVE_TEXT,FLAIR_PART_PLAT_FRAME_FACE,FLAIR_PART_HILITE_TEXT,FLAIR_PART_HILITE_TEXT,FLAIR_PART_LIST_EDGE},
+                        {FLAIR_PART_HILITE_FRAME,FLAIR_PART_LIST_EDGE,FLAIR_PART_LIST_EDGE,FLAIR_PART_LIST_EDGE,FLAIR_PART_LIST_EDGE}
+                    },{
+                        {FLAIR_PART_LIST_PRESSED_EDGE,FLAIR_PART_HILITE_FRAME,FLAIR_PART_HILITE_FRAME,FLAIR_PART_PLAT_STRIPE_DARK,FLAIR_PART_LIST_PRESSED_BOTTOM},
+                        {FLAIR_PART_LIST_PRESSED_EDGE,FLAIR_PART_HILITE_FRAME,FLAIR_PART_PLAT_WIDGET_EDGE,FLAIR_PART_PLAT_WELL,FLAIR_PART_LIST_PRESSED_BOTTOM},
+                        {FLAIR_PART_LIST_PRESSED_EDGE,FLAIR_PART_PLAT_STRIPE_DARK,FLAIR_PART_PLAT_WELL,FLAIR_PART_PLAT_WELL,FLAIR_PART_LIST_PRESSED_BOTTOM},
+                        {FLAIR_PART_PLAT_DARK_RING,FLAIR_PART_LIST_PRESSED_BOTTOM,FLAIR_PART_LIST_PRESSED_BOTTOM,FLAIR_PART_LIST_PRESSED_BOTTOM,FLAIR_PART_LIST_PRESSED_BOTTOM}
+                    }
+                };
+                int y=c.top;
+                for(int yy=0;yy<4;yy++) {
+                    int h=yy==1?17:1, x=left;
+                    for(int xx=0;xx<5;xx++) {
+                        int w=xx==2?width-4:1, part=bevel[pressed][yy][xx];
+                        if(pressed && yy==1 && xx==2)part=face;
+                        if(!pressed && col==3 && xx==3 && yy<2)
+                            part=yy?FLAIR_PART_PLAT_FRAME_FACE:FLAIR_PART_CONTENT;
+                        int l=x<c.left?c.left:x, right=x+w>c.right?c.right:x+w;
+                        if(l<right)fw_box(dst,clip,l,y,right-l,h,part);
+                        x+=w;
+                    }
+                    y+=h;
+                }
+                int tx=left+(col==0?50:col==2?38:12);
+                for(int yy=0;yy<8;yy++)for(int xx=0;xx<finder_list_title_width[col];xx++)
+                    if((finder_list_title_art[col][yy][xx/8] & (0x80u>>(xx%8))) && tx+xx>=c.left && tx+xx<c.right)
+                        fw_box(dst,clip,tx+xx,c.top+5+yy,1,1,FLAIR_PART_FRAME);
+            }
+            left+=width;
+        }
+    }
+
 }
 
 rgn_rect_t finder_win_default_frame(int slot)
@@ -407,6 +739,11 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
     idx  = finder_desk_add(&ec->w->view, kind, e->name83, 0, 0, 1u);
     if (idx < 0) { ec->dropped = (uint16_t)(ec->dropped + 1u); return 0; }
 
+    ec->w->meta[idx].size = e->size;
+    ec->w->meta[idx].date = e->date;
+    ec->w->meta[idx].time = e->time;
+    ec->w->meta[idx].attribute = e->attribute;
+
     /* A FOLDER's own cluster is the key its window (and its kind=4 view record)
      * live under; everything else keeps 0 (design F3.3). */
     if (kind == FINDER_ICON_FOLDER)
@@ -424,6 +761,7 @@ int finder_win_sync_geometry(finder_window_t *w)
         w->rec.contRgn == (region_t *)0)
         return 0;
 #if defined(FINDER_WIN_MUT_ABS_COORDS)
+    (void)fw_sync_list; /* keep the existing mutant's dead helper warning-free */
     /* MUTANT (Rule 6; audit F01): the pre-tdnl.34 behaviour -- the model keeps
      * the ABSOLUTE coordinates it was laid out in at open, whatever the Window
      * Manager does to the window afterwards. test-finder-ops leg O9 and the
@@ -440,6 +778,9 @@ int finder_win_sync_geometry(finder_window_t *w)
     if (region_is_empty(w->rec.contRgn)) return 0;
 
     c = region_get_bbox(w->rec.contRgn);
+
+    if ((w->view_bits & FINDER_VIEW_MASK) != FINDER_VIEW_ICONS)
+        return fw_sync_list(w, c);
 
     /* The DOCUMENT origin the icons are laid out under right now (Sec 10c). */
     old_ox = (int)w->view.bounds.left - (int)w->applied_sx;
@@ -936,6 +1277,11 @@ void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
                                                      (int)FLAIR_PART_CONTENT),
                               clip);
 
+    if ((w->view_bits & FINDER_VIEW_MASK) != FINDER_VIEW_ICONS) {
+        fw_paint_list(w, dst, clip);
+        return;
+    }
+
     /* The icons, through the ONE painter (finder_desktop.c). The window's view
      * is an ordinary finder_desk_t whose bounds are this content rect, so the
      * painter needs no window concept at all. */
@@ -1060,7 +1406,11 @@ int finder_shell_save_view(finder_shell_t *sh, int slot)
     if (frame.top < 0) frame.top = 0;
     return finder_shell_note_view(sh, w->dir_start, w->name83,
                                   (uint16_t)frame.left, (uint16_t)frame.top,
+#if defined(FINDER_VIEW_MUT_SAVE_ICONS)
+                                  0u); /* Rule 6: discard per-folder mode. */
+#else
                                   w->view_bits);
+#endif
 }
 
 /* ===========================================================================
@@ -1538,12 +1888,6 @@ static void fw_do_select_all(finder_shell_t *sh, finder_cmd_id id, int slot)
  * pure function of the listing (Rule 11). The icon ARRAY is not reordered
  * (stored indices -- the click tracker, a lit drop target -- stay valid);
  * each icon is snapped to the cell of its RANK. */
-static int fw_name_less(const char *a, const char *b)
-{
-    while (*a != '\0' && fw_upper(*a) == fw_upper(*b)) { a++; b++; }
-    return (unsigned char)fw_upper(*a) < (unsigned char)fw_upper(*b);
-}
-
 int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
 {
     finder_window_t *w;
@@ -1560,12 +1904,10 @@ int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
 #if defined(FINDER_WIN_MUT_ARRANGE_NOOP)
             /* MUTANT (Rule 6; audit G10): rank by LISTING order, i.e. the
              * pre-fix "Arrange does not reorder" -- a plain Clean Up. */
-            (void)fw_name_less;
             if (j < i) rank++;
 #else
-            if (fw_name_less(w->view.icons[j].name, w->view.icons[i].name) ||
-                (!fw_name_less(w->view.icons[i].name, w->view.icons[j].name) &&
-                 j < i))
+            if (fw_rank_before(fw_name_compare(w->view.icons[j].name,
+                                              w->view.icons[i].name), j, i))
                 rank++;
 #endif
         }
@@ -1583,14 +1925,15 @@ static void fw_do_arrange(finder_shell_t *sh, finder_cmd_id id, int slot)
     sh->last.moved = (int16_t)moved;
 }
 
-/* View > by Icons: icon view is the only view this Finder has (the others
- * are grayed, list view deferred per plan R3.3), so choosing the checked mode
- * re-affirms it: the view bits are set to icon view and the window is
- * redrawn. Stated, not silent: the kernel reports FINDER-VIEW. */
+/* tdnl.44 uses the same command spine and outcome as every other view action. */
 static void fw_do_view_icons(finder_shell_t *sh, finder_cmd_id id, int slot)
 {
+    uint16_t item = id == FCMD_VIEW_ICONS ? 1 : id == FCMD_VIEW_SMALL ? 2 :
+        id == FCMD_VIEW_NAME ? 3 : id == FCMD_VIEW_SIZE ? 4 :
+        id == FCMD_VIEW_KIND ? 5 : 7;
     if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
-    sh->windows[slot].view_bits = 0u;            /* 0 == by Icons (kind=4)   */
+    (void)finder_win_set_view(&sh->windows[slot],
+        finder_win_view_choose(sh->windows[slot].view_bits, item));
     fw_outcome(sh, id, FINDER_WIN_OK, slot);
 }
 
@@ -1664,6 +2007,11 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_SELECT_ALL,      fw_do_select_all },
     { FCMD_ARRANGE_BY_NAME, fw_do_arrange    },
     { FCMD_VIEW_ICONS,      fw_do_view_icons },
+    { FCMD_VIEW_SMALL,      fw_do_view_icons },
+    { FCMD_VIEW_NAME,       fw_do_view_icons },
+    { FCMD_VIEW_SIZE,       fw_do_view_icons },
+    { FCMD_VIEW_KIND,       fw_do_view_icons },
+    { FCMD_VIEW_DATE,       fw_do_view_icons },
     { FCMD_EMPTY_TRASH,     fw_do_empty_trash },
     { FCMD_RESTART,         fw_do_power      },
     { FCMD_SHUTDOWN,        fw_do_power      },
@@ -1716,6 +2064,7 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
     if (sh == (finder_shell_t *)0 || sh->ctx == (FinderCtx *)0) return;
 
     slot = finder_win_front_slot(sh);
+    sh->ctx->view_bits = slot >= 0 ? sh->windows[slot].view_bits : 0;
     sh->ctx->front_is_diskwin = (uint8_t)((slot >= 0) ? 1 : 0);
     sh->ctx->selection_count  =
         (slot >= 0) ? finder_desk_selection_count(&sh->windows[slot].view)

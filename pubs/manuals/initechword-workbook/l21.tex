@@ -1,0 +1,65 @@
+% Lesson 21 (AN-18): the messages and questions (ERROR: File Not Found,
+% ERROR: Invalid file name, Replace ...? No (Yes)) and Cancel at each.  Saves
+% TEST.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{21}{Messages}
+\LessonFeatures{Retrieve; Save; Filenames; Cancel; Exit}
+When InitechWord cannot do what you ask, it says so on the status line and
+waits for a key.  In this lesson you make three common mistakes on purpose,
+read what InitechWord says, and find the way back from each.
+
+\BeginReplay{l21}
+\Task{Retrieving a Document That Is Not There}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{agendas} and press
+\PressKey{Enter}.  There is no document by that name.
+\end{WPSteps}
+\CompareScreen[rows=1]{l21-1}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Enter} (any key will do).  The status line asks for the
+name again, with the name you typed, so that you can correct it.
+\item Press \Press{Cancel}{F1} to give up the retrieve.
+\end{WPSteps}
+
+\Task{Saving Under a Name That Is Not Allowed}
+\begin{WPSteps}
+\item Type \TypeRun{Test document.}
+\item Press \Press{Save}{F10}, type \TypeName{test+1} and press
+\PressKey{Enter}.  A name may hold letters, digits, the hyphen and the
+underscore, and a plus sign is none of these.
+\end{WPSteps}
+\CompareScreen[rows=1]{l21-2}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Enter}.  Back at the name prompt, press
+\PressKey{Backspace}\Keys{Backspace} twice to erase \Typed{+1}, and press
+\PressKey{Enter}.
+\end{WPSteps}
+The document is saved as \Scr{TEST}.
+
+\Task{Saving Over a Document}
+\begin{WPSteps}
+\item Type \TypeRun{ More text.} (with the space).
+\item Press \Press{Save}{F10} and \PressKey{Enter}.  A document called
+\Scr{TEST} is already on the disk, so InitechWord asks before replacing it.
+\end{WPSteps}
+\CompareScreen[rows=1]{l21-3}
+\begin{WPSteps}[resume]
+\item Type \TypeName{n}.  InitechWord asks for a name again, so that you can
+give another one.
+\item Press \Press{Cancel}{F1}.  The document is not saved.
+\end{WPSteps}
+
+\Task{Backing Out of Exit}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}.  The status line asks \Scr{Save Document? Yes
+(No)}.
+\item Press \Press{Cancel}{F1}.  You are back in the document, which is just
+as it was.
+\item Press \Press{Exit}{F7} again, type \TypeName{n} and \TypeName{n} to
+clear the screen.
+\end{WPSteps}
+\EndReplay
+Appendix C of the \textit{InitechWord Reference} lists every message, with
+what it means and what to do.  Lesson 22 is a set of short techniques to try
+in any order.

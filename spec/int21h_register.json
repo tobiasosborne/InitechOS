@@ -1,7 +1,8 @@
 {
   "_comment": [
     "InitechDOS INT 21h Function Register -- LOCKED spec-data (CLAUDE.md Rule 8).",
-    "Transcribed VERBATIM from ADR-0003 Appendix A (the controlled scope).",
+    "Machine-readable controlled scope for ADR-0003 Appendix A and ratified amendments.",
+    "Reconciled 2026-10-17: Appendix-A AH=33h row restored per DEC-16 / initech-er3h / test-er3h.",
     "Source: docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md, Appendix A.",
     "DEC-04 (Sec 5.4): INT 21h surface, AH selects function. DEC-13: controlled",
     "vocabulary -- no addition/removal/rewording except by approved change.",

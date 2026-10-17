@@ -532,14 +532,18 @@ static void apply_op(run_t *r, const op_t *op, int op_index, fail_t *f)
 			free(data);
 			return;
 		}
-		/* len == 0 is a TRUE no-op in the artifact (fat12_write_partial returns
-		 * OK with *out_written == 0 and size UNCHANGED -- it neither extends nor
-		 * zero-fills, fat12.h). The model MUST match: no hole-fill, no growth. A
-		 * len==0 write therefore commits out_written == 0, not len. */
+		/* IBM DOS 3.30 Technical Reference p.6-140 (PDF263): AH=40h,
+		 * CX=0 truncates at the current file pointer. A pointer beyond EOF
+		 * extends the size; WL-0155 zero-fills the new range. This plain-byte
+		 * model is independent of the FAT chain/allocation implementation. */
 		if (op->len == 0u) {
 			if (out_written != 0u) {
 				fail_set(f, op_index, fi, 0u, "len==0 write but out_written != 0");
 			}
+			model_file_t *m = &r->model[fi];
+			if (op->offset > m->size)
+				memset(m->bytes + m->size, 0, op->offset - m->size);
+			m->size = op->offset;
 			free(data);
 			check_file_inproc(r, fi, op_index, f);
 			break;

@@ -36,6 +36,19 @@ start:
     jne bad
     cmp dword [esi+8],0
     je .close
+    ; Retained-cluster gaps, both within and beyond the old tail.
+    mov edx,600
+    cmp dword [esi+8],1
+    je .position
+    mov edx,700
+    cmp dword [esi+8],2
+    je .position
+    mov edx,1600
+.position:
+    mov eax,0x4200
+    xor ecx,ecx
+    int 0x21
+    jc bad
     mov eax,0x4000
     mov ecx,1000
     mov edx,body
@@ -84,11 +97,14 @@ bad:
     hlt
 cases:
     dd shrink,600,0, bound,512,0, empty,0,0, grow,600,1, child,600,0
+    dd gapin,600,2, gapout,600,3
     dd extend,3000,0, shrink,600,0, 0
 shrink: db 'SHRINK.BIN',0
 bound: db 'BOUND.BIN',0
 empty: db 'EMPTY.BIN',0
 grow: db 'GROW.BIN',0
+gapin: db 'GAPIN.BIN',0
+gapout: db 'GAPOUT.BIN',0
 child: db 'SUB\CHILD.BIN',0
 guard: db 'GUARD.BIN',0
 extend: db 'EXTEND.BIN',0

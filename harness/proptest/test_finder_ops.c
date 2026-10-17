@@ -154,7 +154,7 @@ static int m_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
     mv_dir_t *d = mv_dir(m, cl);
     if (d == NULL) return 0;
     for (int i = 0; i < d->n; i++) {
-        finder_dirent_t e; int rc;
+        finder_dirent_t e = {0}; int rc;
         memset(m->scratch, 0, sizeof m->scratch);
         strncpy(m->scratch, d->e[i].name, sizeof m->scratch - 1);
         e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = d->e[i].size;

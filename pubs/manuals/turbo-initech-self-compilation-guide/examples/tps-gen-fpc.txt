@@ -1,0 +1,21 @@
+>>> test-tps-gen-fpc: named 17-fixture shared corpus -- FPC root + deterministic TPS assembly/both links
+>>> test-tps-gen-fpc: green -- gen_tiny FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_bool_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_control_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_char_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_func_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_func_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_recursion_depth FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_array_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_array_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_record_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_record_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_local_record_array FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_string_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_string_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_string_temporaries FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_file_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_fileio_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: TPS generates itself twice, byte-identically, and both runtime pairs link
+>>> test-tps-gen-fpc: self output=765205 bytes, linked DOS end=0x0006d27c below 0x6f000
+>>> test-tps-gen-fpc: green (17-fixture named corpus + deterministic self-assembly; independent hand goldens)

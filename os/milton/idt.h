@@ -133,14 +133,10 @@ void idt_install_irq(uint8_t vec, void *handler);
 void idt_init(void);
 
 /* The C dispatcher the asm common stub calls. For a CPU exception it FAILS LOUD
- * (serial register dump + one console panic line) then halts forever -- it must
+ * (PC LOAD LETTER full screen; PANIC marker on serial; register dump when
+ * built with PANIC_DEBUG=1) then halts forever -- it must
  * NEVER return into a faulting instruction (would loop). Defined in panic.c. */
 void isr_dispatch_c(int_frame_t *frame);
-
-/* Bind a live console for the one-line panic banner (panic.c). NULL (the
- * default) -> serial-only. kmain.c calls this once the console is up. Typed as
- * void* so idt.h need not include console.h; panic.c casts to console_t*. */
-void panic_set_console(void *con);
 
 /* Install the CPU-exception triage hook (panic.c; bead initech-tdnl.14). The
  * hook runs before the fail-loud dump; it returns for any fault it does not

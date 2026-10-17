@@ -104,11 +104,18 @@ $(eval $(call fixture-inline-contract,$(BUILD)/ansi_probe_data.img,ANSIPROB.COM 
 $(eval $(call fixture-inline-contract,$(BUILD)/cp_corrupt_data.img,$(FLAIR_FIXTURES) CPANELS.DAT))
 # initech-2gva: the VESA 0x101 boot images (IO.SYS re-copied at the DEC-07a partition offset).
 $(foreach n,scene flagship mut_omit119 mut_omit165 mut_rowcopy mut_dac6,$(eval $(call fixture-inline-contract,$(BUILD)/vesa8/$(n).img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR)))
+# initech-s25: the panic-screen Bochs data diskette (minted inline by its leg).
+$(eval $(call fixture-inline-contract,$(BUILD)/panic-screen/bochs-data.img,PANIC.COM AUTOEXEC.BAT))
 # initech-e9sx: the corrupted-magic COMMAND.COM boot image (FAT at the DEC-07a partition offset).
 $(eval $(call fixture-inline-contract,$(BUILD)/command-file/magic.img,@@32256 COMMAND.COM))
 $(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img $(BUILD)/tps_say7.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_B),TPSREP.COM TPS.DBF AUTOEXEC.BAT))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DAT AUTOEXEC.BAT))
+# initech-tdnl.61/.64/.57 (lane/finderalerts): the Finder limits / Replace /
+# Put Away data volumes, each a FLAIR_DATA_IMG copy plus its seeded leaves.
+$(eval $(call fixture-contract,$(FINDER_LIMITS_DATA),$(FLAIR_FIXTURES) $(foreach n,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68,F$(n)=)))
+$(eval $(call fixture-contract,$(FINDER_REPLACE_DATA),$(FLAIR_FIXTURES) APPS/README.TXT))
+$(eval $(call fixture-contract,$(FINDER_RESTORE_DATA),$(FLAIR_FIXTURES) TRASH= TRASH/README.TXT))
 
 # Ref: bead initech-a5sr, rm-on-failure proof. A tiny dedicated fixture no
 # gate consumes, so test-fixture-volumes-mutant can break its contract and

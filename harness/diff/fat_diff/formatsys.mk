@@ -1,11 +1,11 @@
 # Oracle and emu definitions authored before the implementation (Rule 1).
-DU_FLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Ispec -Ios/milton
+DU_FLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Ispec -Ios/milton -I$(BUILD)
 DU_HOST := harness/diff/fat_diff/formatsys_host.c
 DU_SRC := os/milton/diskutil.c
 DU_MUTANTS := MEDIA FAT0 COMMAND ORDER COMPARE RUNNING RESERVE LABEL
 $(BUILD)/formatsys_check: harness/diff/fat_diff/formatsys_check.c | $(BUILD)
 	$(CC) $(DU_FLAGS) $< -o $@
-$(BUILD)/formatsys_host: $(DU_HOST) $(DU_SRC) os/milton/block_device.c os/milton/diskutil.h spec/drive_letters.h | $(BUILD)
+$(BUILD)/formatsys_host: $(DU_HOST) $(DU_SRC) os/milton/block_device.c os/milton/diskutil.h spec/drive_letters.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(CC) $(DU_FLAGS) -DBLOCK_DEVICE_HOST $(DU_HOST) $(DU_SRC) os/milton/block_device.c -o $@
 .PHONY: test-formatsys test-formatsys-mutant test-formatsys-emu test-formatsys-emu-mutant test-format-system-boot test-diskcopy-emu
 test-formatsys: $(BUILD)/formatsys_host $(BUILD)/formatsys_check $(SECONDARY_TRACER_IMG) $(BUILD)/transient_flairtenants.bin
@@ -58,7 +58,10 @@ test-format-system-boot: test-formatsys-emu
 test-diskcopy-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(DISKCOPY_PROG_BIN) $(DISKCOMP_PROG_BIN)
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/diskcopy_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG)
 TEST_UNIT_GATES += test-formatsys test-formatsys-mutant
-TEST_EMU_GATES += test-formatsys-emu test-formatsys-emu-mutant test-format-system-boot test-diskcopy-emu
+# PM 2026-10-17: test-diskcopy-emu is a named PREFLIGHT until the harness can swap the
+# --disk2 medium through QMP at the 'Insert TARGET diskette' prompt (lane formatsys stopped
+# there honestly); a known-red gate never sits in the certificate vector (gate honesty).
+TEST_EMU_GATES += test-formatsys-emu test-formatsys-emu-mutant test-format-system-boot
 
 $(BUILD)/gen_drive_letters: tools/gen_drive_letters.c | $(BUILD)
 	$(CC) $(DU_FLAGS) $< -o $@

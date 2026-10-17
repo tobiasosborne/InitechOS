@@ -347,7 +347,7 @@ void selftest_report_c(void)
  * the LFB console AND COM1 serial (the CON device), and a terminate hook that
  * emits the exit line then cli;hlt (terminate == stop; no process model yet).
  * The console pointer is held at file scope so the sink (a plain function) can
- * reach the live console kernel_main set up -- mirrors panic_set_console. */
+ * reach the live console kernel_main set up. */
 static console_t *g_int21_con = 0;
 
 /* Kernel-context PSP (beads initech-509.3). Holds the standard Job File Table
@@ -556,6 +556,50 @@ static int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
     return rc;
 }
 
+/* DEC-18 fixed letters: persistent master mounts, independent FAT caches.
+ * block_device_map validates physical bounds/types before any FAT access.
+ * Ground truth: spec/drive_letters.json; IBM TR pp9-3..9. */
+static int mount_dos_volume(unsigned letter, fat12_volume_t *vol,
+                            const blockdev_t *dev, uint8_t *sector)
+{
+    du_map map;
+    if (block_device_map(letter, &map)) {
+        /* DEC-07a / IBM TR pp9-7..9: a missing 55AA is a signature
+         * failure, before partition selection. Preserve the FAT mount's
+         * exact error/context for A's boot diagnostic. Never bind a
+         * volume rejected by DEC-18, even if the generic mount succeeds. */
+        if (letter == 0u) {
+            int rc = fat12_mount(vol, dev, sector);
+            if (rc) return rc;
+        }
+        return FAT12_ERR_PARTITION;
+    }
+    int rc = map.partition ? fat12_mount_primary(vol, dev, sector, map.partition)
+                           : fat12_mount(vol, dev, sector);
+    if (!rc && (vol->base_lba != map.base || vol->total_sectors > map.sectors))
+        rc = FAT12_ERR_PARTITION;
+    return rc;
+}
+
+static void mount_fixed_volumes(void)
+{
+    static ata_ctx_t master;
+    static blockdev_t dev;
+    static fat12_volume_t volumes[2];
+    uint8_t sector[512];
+    ata_ctx_init_primary_master(&master);
+    ata_blockdev_init(&dev, &master);
+    for (unsigned letter=2;letter<4;letter++) {
+        du_map map;
+        if (block_device_map(letter, &map)) continue;
+        int rc = mount_dos_volume(letter, &volumes[letter-2], &dev, sector);
+        if (!rc) rc = fileio_fat_add_drive(letter, &volumes[letter-2]);
+        serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
+        serial_putc((char)('A'+letter));
+        serial_puts(" rc="); serial_puti(rc); serial_putc('\n');
+    }
+}
+
 /* DEC-07a Sec5.3: the same origin for FAT, INT25/26 and raw CHKDSK repairs.
  * IBM DOS 3.30 TR p9-3 requires utilities to stay inside their partition. */
 static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw)
@@ -572,6 +616,7 @@ static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw
     backend.write = raw->write_sectors ? int21_absdisk_write : 0;
     backend.total_sectors = vol->total_sectors;
     int21_set_blockdev(&backend);
+    mount_fixed_volumes();
 }
 
 /* Rule 2 / DEC-07a: retain the disagreeing values in the serial diagnostic. */
@@ -690,6 +735,9 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
      * initech-1i0x inc 3) threads the shell's inherited env block through
      * unchanged (0 = inherit-empty). */
     int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
+    uint32_t fat_len;
+    const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
+    loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
                                                cmd_tail_len, env_block, &rc);
     /* 4jic: BUSY ran no child. The caller is still the active baked/FAT
@@ -849,6 +897,89 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
     region_set_empty(r);
     return r;
 }
+
+/* ===========================================================================
+ * THE FLAIR BOOT SCREEN (bead initech-tdnl.105; operator directive 2026-10-17:
+ * "flair is missing a boot screen which must canonically feature the initech
+ * logo"). The Mac OS 8.1 "Welcome to Mac OS" startup panel, cell for cell
+ * (../system7-decomp re/mint-results-009.md; s8_startup_welcome.png), with the
+ * Initech lockup in its logo cell. The painter is the pure row renderer
+ * os/milton/boot_screen.h (graded on the host by test-boot-screen and here by
+ * test-flair-boot-screen); this block is only its LFB sink + the hold.
+ *
+ * Painted right after FLAIR-HEAP-OK, i.e. before the FAT mount and the Toolbox
+ * scene build, and held until the first desktop present. The HOLD is a
+ * build-time constant: ~2 s of PIT ticks on the INTERACTIVE images
+ * (-DFLAIR_LIVE_INTERACTIVE), 0 -- no hold code at all -- on every gate image,
+ * so their boot timing and every marker after FLAIR-BOOT-SCREEN is unchanged.
+ * A 320x200 (mode 0x13) machine gets no splash (the desktop panics there).
+ * =========================================================================== */
+#include "boot_screen.h"     /* boot_screen_render (pure)                     */
+
+#ifndef FLAIR_BOOT_HOLD_TICKS
+#ifdef FLAIR_LIVE_INTERACTIVE
+#define FLAIR_BOOT_HOLD_TICKS 200   /* ~2 s at PIT_TICK_HZ (100 Hz)          */
+#else
+#define FLAIR_BOOT_HOLD_TICKS 0     /* gate images: no hold                   */
+#endif
+#endif
+
+/* The LFB sink: indices at 8bpp (the DAC holds the FLAIR palette), the one
+ * index->RGB accessor at 24/32bpp -- the same split as flair_desktop_present. */
+static void flair_boot_screen_row(void *ctx, int y, const uint8_t *row)
+{
+    const bitmap_t *bm = (const bitmap_t *)ctx;
+    uint32_t off = (uint32_t)y * bm->pitch;
+    for (int x = 0; x < BOOT_SCREEN_W; x++, off += bm->bytes_per_pixel)
+        surface_put_pixel(bm, off, bm->bpp == 8u ? (uint32_t)row[x]
+                                   : (flair_palette_rgb(row[x]) & 0x00FFFFFFu));
+}
+
+static void flair_boot_screen(const boot_info_t *bi)
+{
+    bitmap_t lbm;
+    if (bi->lfb_width != (uint32_t)BOOT_SCREEN_W ||
+        bi->lfb_height != (uint32_t)BOOT_SCREEN_H) {
+        return;
+    }
+    if (bi->lfb_bpp == 8u) {
+        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++)
+            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
+    }
+    lbm.base            = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
+    lbm.pitch           = bi->lfb_pitch;
+    lbm.bpp             = bi->lfb_bpp;
+    lbm.bytes_per_pixel = bi->lfb_bpp / 8u;
+    lbm.width           = bi->lfb_width;
+    lbm.height          = bi->lfb_height;
+    boot_screen_render(flair_boot_screen_row, &lbm);
+    serial_puts("FLAIR-BOOT-SCREEN\n");
+}
+
+#if FLAIR_BOOT_HOLD_TICKS > 0
+/* Hold the splash for FLAIR_BOOT_HOLD_TICKS PIT periods before the desktop's
+ * first present. IRQs are still masked here (the pump enables them later), so
+ * the period is POLLED on 8254 channel 2: mode 0 (interrupt on terminal
+ * count), one PIT_TICK_HZ divisor per tick, OUT2 read back as port 0x61 bit 5
+ * with GATE2 (bit 0) high and the speaker data bit (bit 1) low; port 0x61 is
+ * restored after. Ref: Intel 8254 datasheet (mode 0; OUT low from the control
+ * word to terminal count); IBM PC/AT Technical Reference, port 61h bits 0, 1
+ * and 5; pit.h (PIT_TICK_HZ, pit_divisor_for_hz). */
+static void flair_boot_screen_hold(void)
+{
+    uint8_t p61 = inb(0x61);
+    uint16_t div = pit_divisor_for_hz(PIT_TICK_HZ);
+    outb(0x61, (uint8_t)((p61 & 0xFCu) | 0x01u));
+    for (uint32_t t = 0; t < (uint32_t)FLAIR_BOOT_HOLD_TICKS; t++) {
+        outb(0x43, 0xB0u);                        /* ch2, lo/hi, mode 0, binary */
+        outb(0x42, (uint8_t)(div & 0xFFu));
+        outb(0x42, (uint8_t)(div >> 8));
+        while ((inb(0x61) & 0x20u) == 0u) {
+        }
+    }
+    outb(0x61, p61);
+}
+#endif
 
 /* Present the indexed-8 offscreen onto the live LFB, honoring lfb_bpp + the LFB
  * pitch (scanline padding). 8bpp: program the VGA DAC with the FLAIR palette
@@ -1166,6 +1297,13 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
      * (Rule 11). */
     desktop_validate_all(&scene->wm);
 
+#if FLAIR_BOOT_HOLD_TICKS > 0
+    /* The boot screen's minimum display (bead initech-tdnl.105), INTERACTIVE
+     * images only: the splash painted after FLAIR-HEAP-OK stays up through the
+     * FAT mount and this scene build, then for the hold, then this first
+     * present paints the desktop over it. */
+    flair_boot_screen_hold();
+#endif
     /* --- PRESENT the offscreen onto the live LFB (8 -> DAC+copy; 24/32 -> convert) --- */
     flair_desktop_present(bi, &off);
 
@@ -2698,11 +2836,16 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
 {
     serial_puts("FLAIR-SUSPEND\n");
 
-    /* Drain the DOS g_kbd ring of the hotkey so it does not pollute SAMIR's first
-     * cooked INT-21h line (the dual-ring post in kbd.c put a '\' here too). */
-    while (kbd_getchar() >= 0) {
-        /* drop the hotkey byte */
-    }
+    /* Drop the hotkey from the DOS input stream so it does not pollute SAMIR's
+     * first cooked INT-21h line (the dual-ring post in kbd.c put a '\' in g_kbd
+     * too), together with any desktop typing queued before it -- but NOT the
+     * keys typed after it: those are SAMIR's typeahead. The '\' may already sit
+     * in the INT 21h lookahead (an AH=0Bh poll or a CON output byte's ^C check
+     * moves it out of g_kbd), and the pump may reach this hotkey only after the
+     * next keys arrived (seen when the hotkey lands within a few ticks of
+     * FLAIR-LIVE-READY: ". \use" or ". se" in test-samir-lifetime-desktop), so
+     * a drain of g_kbd alone is wrong both ways. */
+    int21_conin_discard_through('\\');
 
     /* Prepare the screen for SAMIR's text I/O: clear the LFB to the console paper
      * + home the cursor. The kernel console came up at boot and is already bound
@@ -3001,6 +3144,7 @@ static int finder_fat_dirent_cb(const dir_entry_t *e, void *user)
     d.attribute     = e->attribute;
     d.size          = e->file_size;
     d.start_cluster = e->start_cluster;
+    d.date = e->mdate; d.time = e->mtime;
     return fe->cb(&d, fe->user);
 }
 
@@ -3339,7 +3483,7 @@ static void flair_tenant_mount_volume(void)
     ata_ctx_init_primary_slave(&ften_ata);
     ata_blockdev_init(&ften_fatdev, &ften_ata);
     crit_blockdev_init(&ften_crit, &ften_fatdev);
-    mount_rc = fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf);
+    mount_rc = mount_dos_volume(0, &ften_vol, &ften_crit.dev, ften_secbuf);
     if (mount_rc == FAT12_OK) {
         int bind_rc;
 
@@ -3667,6 +3811,8 @@ static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puti((int32_t)singleton);
     serial_putc('\n');
     if (!singleton) finder_report_dropped(slot);
+    serial_puts("FINDER-VIEW-RESTORE win="); serial_puti(slot);
+    serial_puts(" bits="); serial_putu(g_finder_shell->windows[slot].view_bits); serial_putc('\n');
 }
 
 /* bead initech-tdnl.39 (audit F04): the Trash icon opens THE TRASH WINDOW,
@@ -3901,7 +4047,8 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     where0 = ev->where;
     where1 = where0;
-    idx    = finder_desk_hit(fd, where0.h, where0.v);
+    idx    = s->slot >= 0 ? finder_win_content_hit(&g_finder_shell->windows[s->slot],where0.h,where0.v)
+                          : finder_desk_hit(fd, where0.h, where0.v);
     t0     = flair_tick_count();
     outline_now.top = 0; outline_now.left = 0;
     outline_now.bottom = 0; outline_now.right = 0;
@@ -4125,12 +4272,31 @@ static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
     flair_live_do_surface(ctx, bi, ev, &s);
 }
 
+/* tdnl.44 markers follow the same live-window model as paint and dispatch. */
+static void finder_report_view(int slot)
+{
+    unsigned bits=g_finder_shell->windows[slot].view_bits;
+    serial_puts("FINDER-VIEW win="); serial_puti(slot);
+    if((bits & FINDER_VIEW_MASK)==0) { serial_puts(" mode=icons\n"); return; }
+    if((bits & FINDER_VIEW_MASK)==2) serial_puts(" mode=small");
+    else serial_puts(" mode=list");
+    serial_puts(" sort=");
+    serial_puts((bits&FINDER_VIEW_MASK)==5?"size":(bits&FINDER_VIEW_MASK)==9?"kind":(bits&FINDER_VIEW_MASK)==13?"date":"name");
+    serial_puts(" bits=");serial_putu(bits);serial_putc('\n');
+}
+
 static void flair_live_do_finder_content(flair_live_ctx_t *ctx,
                                          const boot_info_t *bi,
                                          const EventRecord *ev, int slot)
 {
     finder_surface_t s;
     if (!finder_surface_window(&s, slot)) return;
+    if (finder_win_header_click(&g_finder_shell->windows[slot], ev->where.h, ev->where.v)) {
+        finder_win_invalidate_all(g_finder_shell, slot);
+        finder_desk_repaint(ctx, bi);
+        finder_report_view(slot);
+        return;
+    }
     flair_live_do_surface(ctx, bi, ev, &s);
 }
 
@@ -5577,7 +5743,6 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
             kernel_halt();
         }
     }
-    panic_set_console(g_int21_con);
 #else
     (void)bi;
 #endif
@@ -5745,12 +5910,15 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         return;
 
     case FCMD_VIEW_ICONS:
+    case FCMD_VIEW_SMALL:
+    case FCMD_VIEW_NAME:
+    case FCMD_VIEW_SIZE:
+    case FCMD_VIEW_KIND:
+    case FCMD_VIEW_DATE:
         if (o->status != FINDER_WIN_OK) return;
         finder_win_invalidate_all(g_finder_shell, o->slot);
         finder_desk_repaint(ctx, bi);
-        serial_puts("FINDER-VIEW win=");
-        serial_puti((int32_t)o->slot);
-        serial_puts(" mode=icons\n");
+        finder_report_view(o->slot);
         return;
 
     case FCMD_EMPTY_TRASH:
@@ -6374,7 +6542,6 @@ void kernel_main(void)
 
             /* Bind the live console so a CPU-exception panic can render its
              * one visible line (beads initech-a5a / panic.c). */
-            panic_set_console(&con);
 
             /* Bind the SAME console to the INT 21h CON sink so `int 0x21` AH=09h
              * (below) drives the LFB console + serial (beads initech-509.5). */
@@ -6435,8 +6602,8 @@ void kernel_main(void)
      *
      * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
      * serial line + a diagnostic dump + the on-screen "PC LOAD LETTER" line
-     * (rendered through the live console, bound to panic via panic_set_console
-     * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
+     * (rendered through the live console above), then a permanent cli;hlt.
+     * We do not have a CPU int_frame_t here
      * (this is a boot-policy panic, not a CPU exception), so we render the
      * PC LOAD LETTER line directly and dump the relevant values to serial. */
     if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||
@@ -6474,6 +6641,12 @@ void kernel_main(void)
         }
     }
     serial_puts("FLAIR-HEAP-OK\n");
+
+#if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
+    /* THE FLAIR BOOT SCREEN (bead initech-tdnl.105): the first FLAIR paint,
+     * before the FAT mount and the Toolbox scene build it is held through. */
+    flair_boot_screen(&b);
+#endif
 
 #if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
     flair_tenant_mount_volume();
@@ -7622,7 +7795,7 @@ void kernel_main(void)
          * shell/program file I/O that runs through this volume. */
         crit_blockdev_init(&crit_fatdev, &fatdev);
 
-        rc = fat12_mount(&vol, &crit_fatdev.dev, sector_buf);
+        rc = mount_dos_volume(0, &vol, &crit_fatdev.dev, sector_buf);
         if (rc == FAT12_OK) {
             serial_puts("FAT-MOUNT-OK\n");
             mounted = 1;

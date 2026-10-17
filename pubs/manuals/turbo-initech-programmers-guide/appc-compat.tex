@@ -1,0 +1,101 @@
+% Appendix C -- Turbo Initech and other Pascal compilers.  A summary, for
+% programmers bringing programs to or from other Pascal compilers, of the
+% places where the definition in this book differs from what such
+% compilers commonly accept.  Every item restates a rule defined (and
+% sourced) in the chapter named; no other compiler's behavior is claimed
+% beyond "other compilers may".  Sources: ADR-0007 DEC-02 (subset, the
+% dialect pinning), DEC-03, DEC-05; os/tps/tps.pas; probe compilations.
+\Gates{test-tps-type-fpc, test-compiler, test-seed-fpc-diff, test-pubs-turbo}
+\chapter{Turbo Initech and other Pascal compilers}
+\ix{compatibility}
+\ix{porting programs}
+
+Turbo Initech is a deliberately small Pascal.  A program written for
+Turbo Initech is in most cases also a correct program for other Pascal
+compilers of the same family; the reverse is often not true.  This
+appendix lists the differences, with the chapter that defines each rule.
+
+\section{Lexical differences}
+\begin{BorTable}{Tokens}{p{40mm}p{58mm}}
+\Hd{Turbo Initech} & \Hd{Notes}\EndHd
+\rw{integer}, \rw{boolean}, \rw{char}, \rw{true}, \rw{false}, \rw{forward},
+  \rw{write}, \rw{writeln}, \rw{ord}, \rw{chr}, \rw{length} are reserved &
+  they cannot be redeclared (Chapter 1)\\
+\rw{case} is reserved & there is no \rw{case} statement (Chapter 6)\\
+decimal integers only & no hexadecimal, no real numbers, no \code{\#}
+  character constants (Chapter 1)\\
+\code{\{\$} begins a comment & there are no compiler directives
+  (Chapter 14)\\
+\end{BorTable}
+
+\section{Types}
+\begin{itemize}
+\item \rw{integer} is 32 bits; arithmetic wraps around without an error
+  (Chapter 3).
+\item There are no subranges, enumerated types, sets, pointers, real types,
+  variant records, typed files or \code{Text} files (Chapter 3).
+\item Record fields are only \rw{integer}, \rw{boolean} or \rw{char}; array
+  elements are those or a record type (Chapter 3).
+\item An array type has no name and an array is never assigned or passed as
+  a whole (Chapters 3 and 7).
+\item \rw{string} always has a length byte and a capacity of at most 255
+  (Chapter 3).
+\end{itemize}
+
+\section{Declarations and routines}
+\begin{itemize}
+\item Every name, including a routine, must be declared before it is used;
+  a routine called before its declaration needs \rw{forward}, even where
+  another compiler would find the later declaration (Chapter 7).
+\item Routines are not nested, and a routine has no local constants or
+  types (Chapter 2).
+\item Value parameters are only of the simple types; strings and records are
+  passed only by \rw{var}, and a \rw{var} string parameter accepts only a
+  string of capacity 255 (Chapter 7).
+\item Arrays and files are never parameters (Chapter 7).
+\item A function returns \rw{integer}, \rw{boolean} or \rw{char}, and its
+  value may not be discarded (Chapter 7).
+\item A call is always written with parentheses (Chapter 7).
+\end{itemize}
+
+\section{Statements and expressions}
+\begin{itemize}
+\item \rw{and} and \rw{or} always evaluate both operands (Chapter 5).
+\item An expression holds at most one relational operator outside
+  parentheses (Chapter 5).
+\item There are no \rw{case}, \code{goto} or \code{with} statements
+  (Chapter 6).
+\item An argument of \std{write}{Write} that begins with a string literal is
+  that literal alone; there are no field widths (Chapter 6).
+\item Indexes are never checked (Chapter 4).
+\end{itemize}
+
+\section{Input and output}
+\begin{itemize}
+\item \std{write}{Write} and \std{writeln}{Writeln} write to COM1, and a line
+  ends with a line feed only (Chapter 12).
+\item There is no \code{Read}, \code{Readln} or keyboard input; programs read
+  files (Chapter 9).
+\item Files are untyped and read and written in bytes;
+  \std{reset}{Reset} and \std{rewrite}{Rewrite} take a record size of 1, which
+  is also the size when it is left out (Chapter 12).
+\item A failed file operation ends the program; there is no way to test for
+  the error (Chapter 12).
+\item There is no \code{Close}; files are closed by the next
+  \std{assign}{Assign}, \std{reset}{Reset} or \std{rewrite}{Rewrite}, and by
+  InitechDOS when the program ends (Chapter 12).
+\end{itemize}
+
+\section{Writing programs for both}
+\ix{portable programs}
+A program that is to be compiled both by Turbo Initech and by another
+Pascal compiler should use only what this book defines, should give the
+record size 1 to \std{reset}{Reset} and \std{rewrite}{Rewrite} explicitly,
+should not read a function's name inside the function, should declare
+every routine before its first call, and should avoid identifiers that the
+other compiler reserves.  The programs of the Turbo Initech manuals are
+written so.  Each one is compiled by Turbo Initech and run on InitechDOS;
+each, except the two that show a file error and a comment that other
+compilers read as a directive, is also compiled and run by another Pascal
+compiler; and each that uses no files is also compiled and run by the
+genesis compiler.  Every run gives the output printed beside the program.

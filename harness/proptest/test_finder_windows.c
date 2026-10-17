@@ -157,7 +157,7 @@ static int mock_enumerate(void *user, uint16_t dir_start,
     if (d == NULL) return 0;                 /* an empty directory              */
 
     for (int i = 0; i < d->n; i++) {
-        finder_dirent_t e;
+        finder_dirent_t e = {0};
         int rc;
 
         memset(m->scratch, 0, sizeof m->scratch);
@@ -1090,7 +1090,7 @@ static int pv_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
     pv_dir_t *d = pv_dir(m, cl);
     if (d == NULL) return 0;          /* a freed cluster lists nothing       */
     for (int i = 0; i < d->n; i++) {
-        finder_dirent_t e; int rc;
+        finder_dirent_t e = {0}; int rc;
         memset(m->scratch, 0, sizeof m->scratch);
         strncpy(m->scratch, d->e[i].name, sizeof m->scratch - 1);
         e.name83 = m->scratch; e.attribute = d->e[i].attr; e.size = 100u;

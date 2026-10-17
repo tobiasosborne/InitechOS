@@ -7,5 +7,9 @@
 DOS_FOLDER_FINDER_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:9,m-100:9,m-9:0,l1,l0,l1,l0
 # No date/time Enters: AUTOEXEC exists (manual p.135). Wait on the shell,
 # then inject the locked literal commands through the existing keys encoder.
+# Include the output line boundaries in the quit marker: the typed command
+# has a prompt/ECHO prefix, so it cannot stop QEMU before ECHO executes.
+# The serial oracle still requires the exact DOS-FOLDER-DONE output line.
+DOS_FOLDER_DONE = $$(printf '\nDOS-FOLDER-DONE\r')
 DOS_FOLDER_KEYS = $(shell sh pubs/screens/keys.sh "$$(cat spec/dos_folder_commands.txt)")
 DOS_FOLDER_EXIT_SPEC = $(FLAIR_EXIT_DOS_PREFIX),m100:2,m100:2,m94:1,l1,l0,WSHELL-READY,k$(subst $(comma),$(comma)k,$(DOS_FOLDER_KEYS))
