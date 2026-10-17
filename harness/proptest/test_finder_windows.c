@@ -38,8 +38,13 @@
  *      tooth: a retained name pointer reads 'Z's and every name check goes RED.
  *   L6 SPATIAL SINGLETON + CAPS. Reopening a folder RAISES its window and
  *      consumes no second slot; four windows fill the table and the fifth is
- *      FINDER_WIN_ERR_FULL; a 70-entry directory keeps 64 icons and reports 6
- *      dropped.
+ *      FINDER_WIN_ERR_FULL. THE ICON CAP (bead initech-tdnl.61, audit G04):
+ *      the audit's own 69-entry root (README, APPS, X000..X063, the sentinel
+ *      AAAAA, plus the Finder's DESKTOP.DB and TRASH) lists ALL 67 visible
+ *      items with nothing dropped -- AAAAA included; a full 224-entry root
+ *      (the 1.44 MB root_entry_count) lists all 222 visible; a 230-entry
+ *      SUBdirectory keeps the first 224 and reports 6 dropped, and the
+ *      overflow alert says so in the hand-written words below.
  *   L7 CLEAN UP. Scatter the icons, snap, and compare against hand-computed
  *      row-major coordinates plus the exact moved count.
  *   L8 THE kind=4 CODEC. encode_all against a HAND-AUTHORED 80-byte image
@@ -85,6 +90,7 @@
 #include "finder_desktop.h"    /* the icon model + the DB codec                */
 #include "finder_windows.h"    /* the module under test                        */
 #include "test_assert.h"       /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)     */
+#include "chicago12.h"         /* the alert lines' pixel width (-Ispec/assets) */
 
 TEST_HARNESS();
 
@@ -565,8 +571,8 @@ static void leg_service(void)
  * L6 -- SPATIAL SINGLETON + THE CAPS  (design F3.3 / F1.1; mutant SPATIAL_DUP)
  * ===========================================================================*/
 
-/* A 70-entry directory: the per-window cap is 64, so 6 must be reported. */
-static mock_entry_t BIG_ENTS[70];
+/* The cap legs (bead initech-tdnl.61): up to a 230-entry directory. */
+static mock_entry_t BIG_ENTS[230];
 static mock_dir_t   BIG_DIRS[1];
 
 static void leg_singleton(void)
@@ -625,33 +631,134 @@ static void leg_singleton(void)
               "silently dropped open (Rule 2)");
     }
 
-    /* The per-window icon cap: 70 entries -> 64 kept, 6 reported. */
+    /* THE ICON CAP (bead initech-tdnl.61; audit 2026-10-04 pass 2, G04).
+     * (a) The audit's 69-entry root, built by hand in the audit's own order:
+     *     README.TXT, APPS, X000.TXT..X063.TXT, the sentinel folder AAAAA,
+     *     then the boot-created DESKTOP.DB and TRASH (the Finder's
+     *     bookkeeping, never items). 67 items, all shown, nothing dropped. */
     {
         static scene_t big;
-        static char names[70][FINDER_DESK_NAME_MAX];
+        static char names[230][FINDER_DESK_NAME_MAX];
+        int slot = -1, n = 0, found = 0;
+
+        BIG_ENTS[n].name = "README.TXT"; BIG_ENTS[n].attr = 0x20u;
+        BIG_ENTS[n].size = 114u; BIG_ENTS[n].cluster = 2u; n++;
+        BIG_ENTS[n].name = "APPS"; BIG_ENTS[n].attr = 0x10u;
+        BIG_ENTS[n].size = 0u; BIG_ENTS[n].cluster = 3u; n++;
+        for (int i = 0; i < 64; i++, n++) {
+            snprintf(names[i], sizeof names[i], "X%03d.TXT", i);
+            BIG_ENTS[n].name = names[i]; BIG_ENTS[n].attr = 0x20u;
+            BIG_ENTS[n].size = 1u; BIG_ENTS[n].cluster = (uint16_t)(100 + i);
+        }
+        BIG_ENTS[n].name = "AAAAA"; BIG_ENTS[n].attr = 0x10u;
+        BIG_ENTS[n].size = 0u; BIG_ENTS[n].cluster = 200u; n++;
+        BIG_ENTS[n].name = "DESKTOP.DB"; BIG_ENTS[n].attr = 0x22u;
+        BIG_ENTS[n].size = 8u; BIG_ENTS[n].cluster = 201u; n++;
+        BIG_ENTS[n].name = "TRASH"; BIG_ENTS[n].attr = 0x12u;
+        BIG_ENTS[n].size = 0u; BIG_ENTS[n].cluster = 202u; n++;
+        CHECK(n == 69, "L6a the hand-built root has the audit's 69 entries");
+        BIG_DIRS[0].dir_start = 0u;
+        BIG_DIRS[0].ents      = BIG_ENTS;
+        BIG_DIRS[0].n         = n;
+
+        scene_init(&big, BIG_DIRS, 1);
+        CHECK(finder_win_open(&big.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
+              "L6a the audit's 69-entry root opens");
+        CHECK(big.sh.windows[0].view.n == 67u,
+              "L6a the 69-entry root lists ALL 67 visible items (audit G04: was 64)");
+        CHECK(big.sh.windows[0].dropped == 0u,
+              "L6a ... and drops NOTHING (audit G04: was dropped=5)");
+        for (int i = 0; i < (int)big.sh.windows[0].view.n; i++)
+            if (strcmp(big.sh.windows[0].view.icons[i].name, "AAAAA") == 0 &&
+                big.sh.windows[0].view.icons[i].kind == (uint8_t)FINDER_ICON_FOLDER &&
+                big.sh.windows[0].view.icons[i].dir_start == 200u)
+                found = 1;
+        CHECK(found, "L6a the audit's sentinel folder AAAAA is listed and openable");
+    }
+
+    /* (b) A FULL root: 224 entries (the flagship 1.44 MB BPB root_entry_count:
+     *     `mformat -f 1440`, minfo reports 224) of which 2 are bookkeeping.
+     *     Every one of the 222 items is listed. */
+    {
+        static scene_t big;
+        static char names[230][FINDER_DESK_NAME_MAX];
         int slot = -1;
 
-        for (int i = 0; i < 70; i++) {
-            snprintf(names[i], sizeof names[i], "F%02d.TXT", i);
+        for (int i = 0; i < 222; i++) {
+            snprintf(names[i], sizeof names[i], "R%03d.TXT", i);
+            BIG_ENTS[i].name = names[i]; BIG_ENTS[i].attr = 0x20u;
+            BIG_ENTS[i].size = 1u; BIG_ENTS[i].cluster = (uint16_t)(100 + i);
+        }
+        BIG_ENTS[222].name = "DESKTOP.DB"; BIG_ENTS[222].attr = 0x22u;
+        BIG_ENTS[222].size = 8u; BIG_ENTS[222].cluster = 400u;
+        BIG_ENTS[223].name = "TRASH"; BIG_ENTS[223].attr = 0x12u;
+        BIG_ENTS[223].size = 0u; BIG_ENTS[223].cluster = 401u;
+        BIG_DIRS[0].dir_start = 0u;
+        BIG_DIRS[0].ents      = BIG_ENTS;
+        BIG_DIRS[0].n         = 224;
+        scene_init(&big, BIG_DIRS, 1);
+        CHECK(finder_win_open(&big.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK &&
+              big.sh.windows[0].view.n == 222u && big.sh.windows[0].dropped == 0u,
+              "L6b a FULL 224-entry root lists all 222 items, nothing dropped");
+    }
+
+    /* (c) A 230-entry SUBdirectory (a subdirectory grows; the root cannot):
+     *     the window keeps the FIRST 224 in on-disk order and reports the 6 it
+     *     cannot show -- the cap still never truncates silently (Rule 2). */
+    {
+        static scene_t big;
+        static char names[230][FINDER_DESK_NAME_MAX];
+        int slot = -1;
+
+        for (int i = 0; i < 230; i++) {
+            snprintf(names[i], sizeof names[i], "F%03d.TXT", i);
             BIG_ENTS[i].name    = names[i];
             BIG_ENTS[i].attr    = 0x20u;
             BIG_ENTS[i].size    = 1u;
             BIG_ENTS[i].cluster = (uint16_t)(100 + i);
         }
-        BIG_DIRS[0].dir_start = 0u;
+        BIG_DIRS[0].dir_start = 50u;
         BIG_DIRS[0].ents      = BIG_ENTS;
-        BIG_DIRS[0].n         = 70;
+        BIG_DIRS[0].n         = 230;
 
         scene_init(&big, BIG_DIRS, 1);
-        CHECK(finder_win_open(&big.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
-              "L6 a 70-entry directory still opens");
-        CHECK(big.sh.windows[0].view.n == (uint16_t)FINDER_WIN_ICONS_MAX,
-              "L6 the window keeps exactly FINDER_WIN_ICONS_MAX icons");
-        CHECK(big.sh.windows[0].dropped == 6u,
-              "L6 ... and REPORTS the 6 it could not show (never silent)");
-        CHECK(strcmp(big.sh.windows[0].view.icons[0].name, "F00.TXT") == 0 &&
-              strcmp(big.sh.windows[0].view.icons[63].name, "F63.TXT") == 0,
-              "L6 the kept 64 are the FIRST 64 in on-disk order");
+        CHECK(finder_win_open(&big.sh, 0u, 50u, "BIG", 0u, &slot, NULL) == FINDER_WIN_OK,
+              "L6c a 230-entry subdirectory still opens");
+        CHECK(big.sh.windows[slot].view.n == 224u,
+              "L6c the window keeps exactly 224 icons (the root's capacity)");
+        CHECK(big.sh.windows[slot].dropped == 6u,
+              "L6c ... and REPORTS the 6 it could not show (never silent)");
+        CHECK(strcmp(big.sh.windows[slot].view.icons[0].name, "F000.TXT") == 0 &&
+              strcmp(big.sh.windows[slot].view.icons[223].name, "F223.TXT") == 0,
+              "L6c the kept 224 are the FIRST 224 in on-disk order");
+    }
+
+    /* (d) THE OVERFLOW ALERT'S WORDS (AUTHORED -- no local Finder capture or
+     *     STR# shows a too-many-items alert; finder_windows.h Sec 12). The
+     *     lines are hand-written here, and each must fit the alert's text
+     *     column (FINDER_ALERT_TEXT_W Chicago 12 px, the s8_alert_modal.png
+     *     geometry). */
+    {
+        char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+        static const char *const want6[4] = {
+            "This folder holds more items",
+            "than one window can show.",
+            "6 items are not shown. Use DIR",
+            "in InitechDOS to list them all."
+        };
+        static const char *const want1_3 = "1 item is not shown. Use DIR";
+        int n = finder_win_overflow_alert_text(6u, lines);
+        int ok = (n == 4);
+        for (int i = 0; ok && i < 4; i++) ok = strcmp(lines[i], want6[i]) == 0;
+        CHECK(ok, "L6d the overflow alert reads the hand-written 4 lines (6 items)");
+        for (int i = 0; i < n; i++) {
+            int w = 0;
+            for (const char *c = lines[i]; *c; c++) w += chicago12_advance((unsigned char)*c);
+            CHECK(w <= FINDER_ALERT_TEXT_W, "L6d every overflow line fits the alert column");
+        }
+        n = finder_win_overflow_alert_text(1u, lines);
+        CHECK(n == 4 && strcmp(lines[2], want1_3) == 0,
+              "L6d one dropped item reads in the SINGULAR");
     }
 }
 
@@ -892,10 +999,57 @@ static void leg_new_folder(void)
     CHECK(finder_win_new_folder(&s.sh, slot, name, &parent) ==
           FINDER_WIN_ERR_DIRFULL,
           "L10 a full parent directory surfaces as FINDER_WIN_ERR_DIRFULL");
+    /* bead initech-tdnl.62 (audit G05): a FULL VOLUME is its own status, so
+     * kmain can put up the disk-full alert instead of a bare serial line. */
+    s.mock.mkdir_rc = (int)FINDER_WIN_ERR_DISKFULL;
+    CHECK(finder_win_new_folder(&s.sh, slot, name, &parent) ==
+          FINDER_WIN_ERR_DISKFULL,
+          "L10 a full volume surfaces as FINDER_WIN_ERR_DISKFULL (G05)");
     s.mock.mkdir_rc = (int)FINDER_WIN_ERR_MKDIR;
     CHECK(finder_win_new_folder(&s.sh, slot, name, &parent) ==
           FINDER_WIN_ERR_MKDIR,
           "L10 any other backend refusal surfaces as FINDER_WIN_ERR_MKDIR");
+
+    /* THE DISK-FULL ALERT'S WORDS (AUTHORED, bead initech-tdnl.62: no local
+     * capture or Finder STR# carries this alert; the phrasing follows the
+     * period manual's own troubleshooting text, Apple_Macintosh_System_
+     * Software_Users_Guide_V6.0.pdf p. 261: "The disk is full." ... "remove
+     * items from the disk to free up more space"). Hand-written here. */
+    {
+        char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+        static const char *const want_nf[4] = {
+            "The folder could not be created",
+            "because the disk is full. Remove",
+            "some items from the disk to free",
+            "up more space."
+        };
+        static const char *const want_db[4] = {
+            "The Finder could not save its",
+            "desktop information because the",
+            "disk is full. Remove some items",
+            "from the disk to free up space."
+        };
+        int n, ok;
+        n = finder_disk_full_alert_text(FINDER_DISKFULL_NEW_FOLDER, lines);
+        ok = (n == 4);
+        for (int i = 0; ok && i < 4; i++) ok = strcmp(lines[i], want_nf[i]) == 0;
+        CHECK(ok, "L10 the New Folder disk-full alert reads the hand-written lines");
+        n = finder_disk_full_alert_text(FINDER_DISKFULL_DESKTOP, lines);
+        ok = (n == 4);
+        for (int i = 0; ok && i < 4; i++) ok = strcmp(lines[i], want_db[i]) == 0;
+        CHECK(ok, "L10 the desktop-information disk-full alert reads the hand-written lines");
+        for (int k = 0; k < 2; k++) {
+            n = finder_disk_full_alert_text(k == 0 ? FINDER_DISKFULL_NEW_FOLDER
+                                                   : FINDER_DISKFULL_DESKTOP, lines);
+            for (int i = 0; i < n; i++) {
+                int w = 0;
+                for (const char *c = lines[i]; *c; c++)
+                    w += chicago12_advance((unsigned char)*c);
+                CHECK(w <= FINDER_ALERT_TEXT_W,
+                      "L10 every disk-full line fits the alert column");
+            }
+        }
+    }
 
     /* No binding at all is a refusal, never a pretend-success. */
     {

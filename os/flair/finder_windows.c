@@ -703,7 +703,16 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
      * DESKTOP.DB are ordinary root icons. NEVER in a real build. */
 #endif
 
+#ifndef FINDER_WIN_MUT_ICON_CAP_64
     if (ec->w->view.n >= (uint16_t)FINDER_WIN_ICONS_MAX) {
+#else
+    /* MUTANT FINDER_WIN_MUT_ICON_CAP_64 (Rule 6; test-finder-windows-mutant,
+     * test-flair-finder-overflow-mutant): the pre-tdnl.61 64-icon cap -- the
+     * audit's 69-entry root loses items again and AAAAA is unreachable. The
+     * array is still FINDER_WIN_ICONS_MAX long, so the layout is unchanged.
+     * NEVER in a real build. */
+    if (ec->w->view.n >= 64u) {
+#endif
         /* The cap bit. Keep counting so the caller can report HOW MANY entries
          * the window is not showing -- a silent truncation is the bug (Rule 2). */
         ec->dropped = (uint16_t)(ec->dropped + 1u);
@@ -1100,9 +1109,13 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
     if (st != FINDER_WIN_OK) return st;
 
     rc = sh->fs.mkdir(sh->fs.user, name, w->dir_start);
-    if (rc != (int)FINDER_WIN_OK)
-        return (rc == (int)FINDER_WIN_ERR_DIRFULL) ? FINDER_WIN_ERR_DIRFULL
-                                                   : FINDER_WIN_ERR_MKDIR;
+    if (rc != (int)FINDER_WIN_OK) {
+        /* The full-VOLUME refusal keeps its own status (bead initech-tdnl.62,
+         * audit G05): kmain answers it with the disk-full alert. */
+        if (rc == (int)FINDER_WIN_ERR_DIRFULL || rc == (int)FINDER_WIN_ERR_DISKFULL)
+            return (finder_win_status_t)rc;
+        return FINDER_WIN_ERR_MKDIR;
+    }
 
     if (out_name83 != (char *)0) fw_copy83(out_name83, name);
 
@@ -1629,6 +1642,56 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
 int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
 {
     return fw_alert_wrap("Are you sure you want to exit to InitechDOS?", out);
+}
+
+/* THE STORAGE ALERTS (finder_windows.h Sec 13; beads initech-tdnl.61/.62).
+ * Fixed, AUTHORED lines (the header says why and cites the manual). */
+static int fw_alert_fixed(const char *const *src,
+                          char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    for (int l = 0; l < FINDER_ALERT_LINES; l++) {
+        int n = fw_cat(out[l], 0, src[l]);
+        out[l][n] = '\0';
+    }
+    return FINDER_ALERT_LINES;
+}
+
+int finder_win_overflow_alert_text(uint16_t dropped,
+                                   char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    static const char *const text[FINDER_ALERT_LINES] = {
+        "This folder holds more items",
+        "than one window can show.",
+        "",
+        "in InitechDOS to list them all."
+    };
+    int n;
+
+    (void)fw_alert_fixed(text, out);
+    n = fw_utoa(out[2], dropped);
+    n = fw_cat(out[2], n, dropped == 1u ? " item is not shown. Use DIR"
+                                        : " items are not shown. Use DIR");
+    out[2][n] = '\0';
+    return FINDER_ALERT_LINES;
+}
+
+int finder_disk_full_alert_text(int what,
+                                char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX])
+{
+    static const char *const new_folder[FINDER_ALERT_LINES] = {
+        "The folder could not be created",
+        "because the disk is full. Remove",
+        "some items from the disk to free",
+        "up more space."
+    };
+    static const char *const desktop[FINDER_ALERT_LINES] = {
+        "The Finder could not save its",
+        "desktop information because the",
+        "disk is full. Remove some items",
+        "from the disk to free up space."
+    };
+    return fw_alert_fixed(what == FINDER_DISKFULL_NEW_FOLDER ? new_folder
+                                                            : desktop, out);
 }
 
 /* GREEDY WORD WRAP of an alert message into FINDER_ALERT_TEXT_W columns

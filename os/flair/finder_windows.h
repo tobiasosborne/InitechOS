@@ -152,12 +152,23 @@
  * FINDER_WIN_ERR_FULL and kmain says FINDER-WIN-FULL on serial. */
 #define FINDER_WIN_MAX             4
 
-/* Icons per window (design F1.1: "64 desktop icons + 64 per open window").
- * The volume's root directory holds 224 entries (root_entry_count on the
- * flagship 1.44 MB image), so this cap CAN bite -- and when it does the window
- * keeps the first 64 and reports the remainder as `dropped`, loudly. It never
- * silently shows a partial directory (Rule 2). */
-#define FINDER_WIN_ICONS_MAX      64
+/* Icons per window. Design F1.1 began at "64 desktop icons + 64 per open
+ * window"; the 2026-10-04 pass-2 audit (G04, bead initech-tdnl.61) showed what
+ * that cost: a 69-entry root -- an ordinary 1990s floppy -- silently lost five
+ * items, the missing ones unreachable from the Finder. RAISED to 224, the
+ * flagship volume's ROOT capacity (the 1.44 MB BPB root_entry_count: the
+ * Makefile's flair-data recipe formats with `mformat -f 1440`, and minfo on
+ * build/flair_data.img reports "max available root directory slots: 224"), so
+ * a ROOT window can never be capped: the root holds at most 224 entries, two
+ * of them the Finder's own \DESKTOP.DB and \TRASH, which are never items.
+ * A SUBdirectory grows by clusters and CAN still exceed 224: then the window
+ * keeps the first 224 in on-disk order, reports the rest as `dropped` on
+ * serial (FINDER-WIN-ICONS-FULL) AND -- the audit's demand -- tells the
+ * person, with the overflow alert (Sec 13), never a silent partial listing
+ * (Rule 2). Cost: 36 bytes per icon (record + meta) per window slot, carved
+ * once at launch from the Finder's records arena; kmain's compile-time check
+ * holds finder_shell_t inside FLAIR_FINDER_RECORDS_BUDGET. */
+#define FINDER_WIN_ICONS_MAX     224
 
 /* Region-bundle caps, the os/apps/ref_tenant.c values verbatim: a rectangular
  * document window's strucRgn/contRgn, a rect-damage updateRgn, and their
@@ -417,9 +428,12 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
     FINDER_WIN_ERR_NOTRASH   = -13, /* open Trash: the volume has no \TRASH     */
     FINDER_WIN_ERR_LOCKED    = -14, /* locked document: unlock before discard  */
-    FINDER_WIN_ERR_STALE     = -15  /* the view's folder no longer exists as
+    FINDER_WIN_ERR_STALE     = -15, /* the view's folder no longer exists as
                                      * that folder (purged / recycled cluster;
                                      * bead initech-uios, audit L002)          */
+    FINDER_WIN_ERR_DISKFULL  = -16  /* mkdir: no free cluster -- the VOLUME is
+                                     * full (bead initech-tdnl.62, audit G05;
+                                     * kmain shows the disk-full alert)        */
 } finder_win_status_t;
 
 /* ===========================================================================
@@ -1038,5 +1052,40 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
  * 2026-10-16), wrapped by the SAME greedy Chicago 12 rule into `out`. Returns
  * the line count. Pure. */
 int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
+/* ===========================================================================
+ * 13. THE STORAGE ALERTS  (beads initech-tdnl.61 / initech-tdnl.62; the
+ *     2026-10-04 pass-2 audit's G04 and G05: a limit or a full disk that only
+ *     serial ever heard about)
+ * ---------------------------------------------------------------------------
+ * Both are the shared alert (kmain flair_live_alert_open: the s8_alert_modal
+ * .png frame, one OK button, Return), with NO icon -- the corpus holds no
+ * capture of either alert, so neither claims one (the locked-file notice's
+ * precedent). THE WORDS ARE AUTHORED (Law 1 honesty): no local Finder capture
+ * or STR# carries them. The disk-full phrasing follows the period manual's
+ * own troubleshooting text, Apple_Macintosh_System_Software_Users_Guide_V6.0
+ * .pdf p. 261 ("The disk is full." ... "You can remove items from the disk to
+ * free up more space"). The line breaks are part of the authored text (fixed
+ * lines, not a wrap); harness/proptest/test_finder_windows.c holds them as
+ * hand-written goldens and checks each line fits FINDER_ALERT_TEXT_W.
+ *
+ * SERIAL (emitted by os/milton/kmain.c, once the alert is ON SCREEN):
+ *   FINDER-OVERFLOW-ALERT win=<slot> dropped=<n>    G04
+ *   FINDER-DISKFULL-ALERT what=<newfolder|desktop>  G05
+ * ===========================================================================*/
+
+/* The window's icon cap bit (`dropped` > 0, which only a SUBdirectory can
+ * reach once FINDER_WIN_ICONS_MAX covers the root): four fixed lines, the
+ * count and its singular/plural agreement on line 3. Returns 4. Pure. */
+int finder_win_overflow_alert_text(uint16_t dropped,
+                                   char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
+/* What could not be written. */
+#define FINDER_DISKFULL_NEW_FOLDER  0   /* Ctrl-N / File > New Folder          */
+#define FINDER_DISKFULL_DESKTOP     1   /* \DESKTOP.DB or \TRASH: the Finder's
+                                         * own bookkeeping (boot or a save)    */
+/* The disk-full alert's four fixed lines for `what`. Returns 4. Pure. */
+int finder_disk_full_alert_text(int what,
+                                char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
 
 #endif /* INITECH_OS_FLAIR_FINDER_WINDOWS_H */

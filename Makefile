@@ -13164,8 +13164,15 @@ $(TEST_FINDER_WIN_MUT_SVC): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_SERVICE_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_DOTS): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_DOTS_SHOWN $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+# bead initech-tdnl.61 (audit G04): the pre-fix 64-icon cap.
+TEST_FINDER_WIN_MUT_CAP64 := $(BUILD)/test_finder_windows_mutant_icon_cap_64
+$(TEST_FINDER_WIN_MUT_CAP64): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_ICON_CAP_64 $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 
-test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED)
+test-finder-windows-mutant: $(TEST_FINDER_WIN_MUT_SINGLETON) $(TEST_FINDER_WIN_MUT_VOLLABEL) $(TEST_FINDER_WIN_MUT_CLEANUP) $(TEST_FINDER_WIN_MUT_DOTS) $(TEST_FINDER_WIN_MUT_SVC) $(TEST_FINDER_WIN_MUT_KEEPVIEWS) $(TEST_FINDER_WIN_MUT_UNCHECKED) $(TEST_FINDER_WIN_MUT_CAP64)
+	@if $(TEST_FINDER_WIN_MUT_CAP64) > $(BUILD)/test_finder_windows_mutant_cap64.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: ICON_CAP_64 PASSED -- the G04 icon-cap oracle is decoration\n'; exit 1; fi
+	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_cap64.log | grep -q 'L6a the 69-entry root lists ALL 67 visible items' || { printf '!!! test-finder-windows-mutant FAIL: ICON_CAP_64 went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_cap64.log; exit 1; }
+	@printf '>>> test-finder-windows-mutant: green (ICON_CAP_64 correctly RED: %s)\n' "$$(grep -m1 'FAIL' $(BUILD)/test_finder_windows_mutant_cap64.log | sed 's/^ *//')"
 	@if $(TEST_FINDER_WIN_MUT_KEEPVIEWS) > $(BUILD)/test_finder_windows_mutant_keepviews.log 2>&1; then printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS PASSED -- the L002 view-retirement oracle is decoration\n'; exit 1; fi
 	@grep 'FAIL' $(BUILD)/test_finder_windows_mutant_keepviews.log | grep -q 'L12 every view of a purged folder is CLOSED' || { printf '!!! test-finder-windows-mutant FAIL: PURGE_KEEPS_VIEWS went RED for the wrong reason\n'; cat $(BUILD)/test_finder_windows_mutant_keepviews.log; exit 1; }
 	@printf '>>> test-finder-windows-mutant: green (PURGE_KEEPS_VIEWS correctly RED -- purged folders keep open windows, L002)\n'
