@@ -59,7 +59,7 @@ Toolchain and gates:
   \CompilerOutput, \AssemblyOutput, \MakeRun, \Source), registration of
   every documented item through \RegisterCommand, <job>.msgs, .tpsmentions,
   .tpsexamples, .gates; the booklet trim.
-- harness/pubs/tps_gate.c: the shipped inventory GENERATED from the
+- harness/pubs/turbo_gate.c: the shipped inventory GENERATED from the
   product (reserved words by running the shipped lexer on a probe and
   cross-checking the seed lexer, divergence `case' recorded; routines,
   productions, token kinds, diagnostics with their code numbers and texts,
@@ -70,14 +70,14 @@ Toolchain and gates:
   300 generated programs must parse (grammar => parser, every alternative
   covered, ordered choice honoured) and the corpus, tps.pas and every book
   program must be derived (parser => grammar).
-- harness/pubs/tps_replay.sh: every printed program runs through Free
+- harness/pubs/turbo_replay.sh: every printed program runs through Free
   Pascal, the seed and Turbo Initech (bare images under the harness), and
   every Turbo Initech .COM runs in one InitechDOS boot; compiler regions,
   assembly excerpts and make runs replayed byte for byte.
-- harness/pubs/tps_gates_cited.sh (GC-09), tps_grammar.sh, tps_asmblock.sh,
-  tps_mutants.sh (8 named mutants).
-- pubs/tps.mk (included from pubs.mk): pubs-tps-gen, test-pubs-tps,
-  test-pubs-tps-mutant; test-pubs and test-pubs-mutant depend on them;
+- harness/pubs/turbo_gates_cited.sh (GC-09), turbo_grammar.sh, turbo_asmblock.sh,
+  turbo_mutants.sh (8 named mutants).
+- pubs/turbo.mk (included from pubs.mk): pubs-turbo-gen, test-pubs-turbo,
+  test-pubs-turbo-mutant; test-pubs and test-pubs-mutant depend on them;
   pubs.mk test-pubs-commands exempts turbo-initech-* (own inventory).
 
 ## Why
@@ -85,7 +85,7 @@ Toolchain and gates:
 Law 1/2 for a manual: every sentence about the language was read from
 tps.pas and checked by compiling probe programs with the shipped
 compiler; every example is a replayed program, and the books cannot drift
-from the compiler without test-pubs-tps going red.
+from the compiler without test-pubs-turbo going red.
 
 ## Frictions
 
@@ -125,15 +125,15 @@ Compilation Guide 36 pp (5), Quick Reference 32 pp (2); covers 2 pp each
 (front + back), spines 1 p. 202 printed items replayed (73 programs).
 
 ```text
->>> test-pubs-tps-commands: green (238 shipped == documented: 40 reserved, 10 routines, 36 productions, 63 tokens, 37 messages, 18 protocol, 9 dump rows, 7 limits, 3 switches, 15 run-time entries; 0 DRAFT)
->>> test-pubs-tps-messages: green (37 diagnostics printed verbatim)
->>> test-pubs-tps-mentions: green (50 distinct inline Pascal names, all shipped)
->>> test-pubs-tps-gates: green (62 distinct gate citations per book, every one a real target)
->>> test-pubs-tps-grammar: 300 generated programs accepted by the shipped parser (grammar => parser)
->>> test-pubs-tps-grammar: green (92 accepted programs derived by the printed rules: parser => grammar)
->>> test-pubs-tps-examples: green (202 printed items replayed; 73 programs: Free Pascal == printed, 59 also seed and Turbo Initech bare images == printed, 73 Turbo Initech .COM files == printed on InitechDOS)
->>> test-pubs-tps: green
->>> test-pubs-tps-mutant: green (8 named mutants rejected by their gate legs)
+>>> test-pubs-turbo-commands: green (238 shipped == documented: 40 reserved, 10 routines, 36 productions, 63 tokens, 37 messages, 18 protocol, 9 dump rows, 7 limits, 3 switches, 15 run-time entries; 0 DRAFT)
+>>> test-pubs-turbo-messages: green (37 diagnostics printed verbatim)
+>>> test-pubs-turbo-mentions: green (50 distinct inline Pascal names, all shipped)
+>>> test-pubs-turbo-gates: green (62 distinct gate citations per book, every one a real target)
+>>> test-pubs-turbo-grammar: 300 generated programs accepted by the shipped parser (grammar => parser)
+>>> test-pubs-turbo-grammar: green (92 accepted programs derived by the printed rules: parser => grammar)
+>>> test-pubs-turbo-examples: green (202 printed items replayed; 73 programs: Free Pascal == printed, 59 also seed and Turbo Initech bare images == printed, 73 Turbo Initech .COM files == printed on InitechDOS)
+>>> test-pubs-turbo: green
+>>> test-pubs-turbo-mutant: green (8 named mutants rejected by their gate legs)
 >>> test-pubs-repro: green (21 PDFs byte-identical across two clean builds)
 >>> test-pubs-repro-mutant: green
 >>> test-pubs-families: green (7 model families typeset with their required body faces)
@@ -143,7 +143,7 @@ Compilation Guide 36 pp (5), Quick Reference 32 pp (2); covers 2 pp each
 >>> test-pubs-mutant (DOS pilot legs, run directly): green (11 named mutants)
 ```
 
-Mutants (tps_mutants.sh): FAKE_ROUTINE (DOC-NOT-SHIPPED Halt|routine),
+Mutants (turbo_mutants.sh): FAKE_ROUTINE (DOC-NOT-SHIPPED Halt|routine),
 DROPPED_ENTRY (SHIPPED-NOT-DOCUMENTED blockwrite|routine), WRONG_LIMIT
 (DOC-NOT-SHIPPED SYMBOLMAX=1,025|limit), CHANGED_MESSAGE (MESSAGE-TEXT),
 EXTRA_ALTERNATIVE (GRAMMAR-PARSER), MISSING_ALTERNATIVE (GRAMMAR-INCOMPLETE,
@@ -168,6 +168,6 @@ pre-existing DOS drift of friction 2 (initechdos-reference chkdsk.txt).
 ## Pointers
 
 - pubs/manuals/turbo-initech-{users-guide,programmers-guide,library-reference,self-compilation-guide,quick-reference}/
-- pubs/class/initech-borland.sty, pubs/tps.mk
-- harness/pubs/{tps_gate.c,railroad.c,tps_replay.sh,tps_grammar.sh,tps_gates_cited.sh,tps_asmblock.sh,tps_mutants.sh}
+- pubs/class/initech-borland.sty, pubs/turbo.mk
+- harness/pubs/{turbo_gate.c,railroad.c,turbo_replay.sh,turbo_grammar.sh,turbo_gates_cited.sh,turbo_asmblock.sh,turbo_mutants.sh}
 - pubs/manuals/turbo-initech-programmers-guide/grammar/{tps,lexical}.ebnf

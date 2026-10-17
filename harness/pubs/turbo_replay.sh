@@ -1,5 +1,5 @@
 #!/bin/sh
-# tps_replay.sh -- GC-03 for the Turbo Initech manuals (bead initech-ipu5.12;
+# turbo_replay.sh -- GC-03 for the Turbo Initech manuals (bead initech-ipu5.12;
 # PUB-REF-0001 NT-17, GC-03, CP-19).  Every displayed program, program
 # output, compiler output, assembly excerpt and development-system run that
 # a Turbo Initech book prints is registered by initech-borland.sty in
@@ -30,7 +30,7 @@
 #                    TPSOUT.S).
 #   make|NAME        `make $(cat examples/NAME.cmd)': its lines that begin
 #                    ">>> ", "!!! " or carry a pass rate == examples/NAME.txt.
-# Inputs come from the environment (pubs/tps.mk exports them).  Thin shell.
+# Inputs come from the environment (pubs/turbo.mk exports them).  Thin shell.
 set -eu
 : "${TPS_BIN:?}" "${SEED_BIN:?}" "${NASM:?}" "${LD:?}" "${OBJCOPY:?}" "${SEED_RT_OBJ:?}" \
   "${SEED_DOS_RT_OBJ:?}" "${SEED_FILEIO_RT_OBJ:?}" "${SEED_RT_LD:?}" "${SEED_DOS_LD:?}" \
@@ -117,7 +117,7 @@ for index in "$BUILT"/turbo-initech-*/main.tpsexamples; do
             mkdir -p "$w/a"; cp "$src" "$w/a/TPSIN.PAS"
             (cd "$w/a" && "$TPS_BIN" > tps.out) || red TPS-RUN "$src" "Turbo Initech exited non-zero"
             if [ "$arg" = FILE ]; then cp "$w/a/TPSOUT.S" "$w/a/$arg.s"
-            else sh harness/pubs/tps_asmblock.sh "$arg" "$w/a/TPSOUT.S" > "$w/a/$arg.s"; fi
+            else sh harness/pubs/turbo_asmblock.sh "$arg" "$w/a/TPSOUT.S" > "$w/a/$arg.s"; fi
             [ -s "$w/a/$arg.s" ] || red ASSEMBLY-LABEL "$src" "no label $arg in TPSOUT.S"
             same TRANSCRIPT-DRIFT "$ex/$name.$arg.s" "$w/a/$arg.s"
             ;;
@@ -157,4 +157,4 @@ if [ "$ndos" -gt 0 ]; then
         same TRANSCRIPT-DRIFT "$expected" "$OUT/dos/$dos.out"
     done < "$OUT/dos.bat"
 fi
-printf '>>> test-pubs-tps-examples: green (%s printed items replayed; %s programs: Free Pascal == printed, %s also seed and Turbo Initech bare images == printed, %s Turbo Initech .COM files == printed on InitechDOS)\n' "$n" "$ndos" "$nbare" "$ndos"
+printf '>>> test-pubs-turbo-examples: green (%s printed items replayed; %s programs: Free Pascal == printed, %s also seed and Turbo Initech bare images == printed, %s Turbo Initech .COM files == printed on InitechDOS)\n' "$n" "$ndos" "$nbare" "$ndos"

@@ -10,13 +10,13 @@
 %%
 %% Registration (GC-01; the ONE mechanism of initech-syntax.sty): every
 %% documented item calls \RegisterCommand{NAME}{KIND}{STATE}{ENTRY}, so it
-%% lands in <job>.cmds; harness/pubs/tps_gate.c checks those lists against
+%% lands in <job>.cmds; harness/pubs/turbo_gate.c checks those lists against
 %% the inventory generated from os/tps/tps.pas, seed/ and seed/rt/ in BOTH
 %% directions.  KINDs: reserved routine production token message protocol
 %% dumprow limit switch rtlentry.  Printed diagnostic texts go to <job>.msgs
 %% (ID|text, GC-02, verbatim); inline \rw / \std names to <job>.tpsmentions;
 %% every printed program, program output, compiler output and assembly
-%% excerpt to <job>.tpsexamples, replayed by harness/pubs/tps_replay.sh
+%% excerpt to <job>.tpsexamples, replayed by harness/pubs/turbo_replay.sh
 %% through Free Pascal, the seed and Turbo Initech itself (GC-03).
 %% ASCII only (Rule 12).
 \NeedsTeXFormat{LaTeX2e}
@@ -181,7 +181,7 @@
 
 %% GC-09: the gates each chapter cites also go, one list per line, to
 %% <job>.gates (a \write to a file is never wrapped, unlike the log), which
-%% harness/pubs/tps_gates_cited.sh checks against the Makefile targets.
+%% harness/pubs/turbo_gates_cited.sh checks against the Makefile targets.
 \newwrite\im@tpsgates
 \AtBeginDocument{\immediate\openout\im@tpsgates=\jobname.gates}
 \AtEndDocument{\immediate\closeout\im@tpsgates}
@@ -212,9 +212,9 @@
 
 %% ---- program text (NT-17, F-BOR: reserved words bold) ------------------
 %% The keyword list is generated from the shipped lexer (tps_keywords.tex,
-%% harness/pubs/tps_gate.c `keywords').
+%% harness/pubs/turbo_gate.c `keywords').
 \InputIfFileExists{tps_keywords}{}{\PackageError{initech-borland}{tps_keywords.tex
-  missing: run make pubs-tps-gen}{}}
+  missing: run make pubs-turbo-gen}{}}
 \edef\im@tpslang{\noexpand\lstdefinelanguage{TurboInitech}{morekeywords={\TPSKeywordList},
   sensitive=false}}\im@tpslang
 \lstdefinelanguage[x]{TurboInitech}[]{TurboInitech}{morecomment=[s]{\{}{\}},

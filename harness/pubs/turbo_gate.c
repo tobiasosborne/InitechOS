@@ -1,4 +1,4 @@
-/* tps_gate.c -- the Turbo Initech manuals' shipped inventory and its
+/* turbo_gate.c -- the Turbo Initech manuals' shipped inventory and its
  * documented-vs-shipped oracle (PUB-REF-0001 GC-01, GC-02, CP-18; bead
  * initech-ipu5.12).  Factory C only (CLAUDE.md Law 3).
  *
@@ -484,7 +484,7 @@ static void commands(int argc, char **argv)
     }
     for (int i = 0; i < draft.n; i++)
         printf("!!! test-pubs DRAFT-ENTRY: %s (documented as DRAFT; GC-12 blocks release)\n", draft.s[i]);
-    printf(">>> test-pubs-tps-commands: green (%d shipped == documented: %d reserved, %d routines, "
+    printf(">>> test-pubs-turbo-commands: green (%d shipped == documented: %d reserved, %d routines, "
            "%d productions, %d tokens, %d messages, %d protocol, %d dump rows, %d limits, %d switches, "
            "%d run-time entries; %d DRAFT)\n", ship.n, kinds[0], kinds[1], kinds[2], kinds[3], kinds[4],
            kinds[5], kinds[6], kinds[7], kinds[8], kinds[9], draft.n);
@@ -502,7 +502,7 @@ static void msgcheck(int argc, char **argv)
         }
     }
     for (int i = 0; i < ship.n; i++) if (!has(&seen, ship.s[i])) die("MESSAGE-UNPRINTED", argv[2], ship.s[i]);
-    printf(">>> test-pubs-tps-messages: green (%d diagnostics printed verbatim)\n", ship.n);
+    printf(">>> test-pubs-turbo-messages: green (%d diagnostics printed verbatim)\n", ship.n);
 }
 
 /* Inline reserved words and standard names (\rw, \std) are shipped. */
@@ -516,7 +516,7 @@ static void mentions(int argc, char **argv)
             add(&seen, m.s[j]);
         }
     }
-    printf(">>> test-pubs-tps-mentions: green (%d distinct inline Pascal names, all shipped)\n", seen.n);
+    printf(">>> test-pubs-turbo-mentions: green (%d distinct inline Pascal names, all shipped)\n", seen.n);
 }
 
 int main(int argc, char **argv)

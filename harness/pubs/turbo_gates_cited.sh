@@ -1,9 +1,9 @@
 #!/bin/sh
-# tps_gates_cited.sh -- GC-09 for the Turbo Initech manuals (bead
+# turbo_gates_cited.sh -- GC-09 for the Turbo Initech manuals (bead
 # initech-ipu5.12): every gate a chapter cites in \Gates{} (initech-
 # borland.sty writes each list to <job>.gates) must be a real target of the
 # Makefile or of an included makefile, and every chapter cites at least one.
-# Usage: tps_gates_cited.sh BOOK.gates...
+# Usage: turbo_gates_cited.sh BOOK.gates...
 set -eu
 targets=$(cat Makefile pubs/*.mk spec/*.mk 2>/dev/null | awk '
   /^[A-Za-z0-9_.%$(][^:=]*:([^=]|$)/ { sub(/:.*/, ""); for (i = 1; i <= NF; i++) print $i }' | sort -u)
@@ -16,4 +16,4 @@ for list in "$@"; do
         n=$((n + 1))
     done < "$list.each"
 done
-printf '>>> test-pubs-tps-gates: green (%s distinct gate citations per book, every one a real target)\n' "$n"
+printf '>>> test-pubs-turbo-gates: green (%s distinct gate citations per book, every one a real target)\n' "$n"

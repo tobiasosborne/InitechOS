@@ -1,8 +1,8 @@
 #!/bin/sh
-# tps_asmblock.sh LABEL FILE -- print the lines of a Turbo Initech TPSOUT.S
+# turbo_asmblock.sh LABEL FILE -- print the lines of a Turbo Initech TPSOUT.S
 # from `LABEL:' up to (not including) the next top-level label, `global' or
 # `section' line, without trailing blank lines (bead initech-ipu5.12; used
-# by tps_replay.sh for printed assembly excerpts).
+# by turbo_replay.sh for printed assembly excerpts).
 set -eu
 awk -v l="$1:" '
   $0 == l { on = 1; n = 0; buf[n++] = $0; next }

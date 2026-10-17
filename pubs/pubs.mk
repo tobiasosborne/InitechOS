@@ -241,5 +241,5 @@ test-pubs-families:
 endif
 
 # The Turbo Initech manuals carry their own shipped inventory (bead
-# initech-ipu5.12): pubs/tps.mk.
-include pubs/tps.mk
+# initech-ipu5.12): pubs/turbo.mk.
+include pubs/turbo.mk
