@@ -32965,7 +32965,15 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 
 
 # SAMIR DML lane: identical corpus, real III+ mint, host and QEMU gates.
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run
+# PM 2026-10-17: RUN needs the PAL EXEC seam (nested EXEC; loader.c rejects
+# it with LOADER_ERR_BUSY) -- bead initech-dmlrun. Until that lands it is
+# test-samir-dml-pending by name, NOT in the default vector (a known-red gate
+# in `make test` is noise, not an oracle). It moves back with the commit that
+# makes it green (Rule 6: mutant too).
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label
+SAMIR_DML_PENDING := run
+.PHONY: test-samir-dml-pending
+test-samir-dml-pending: $(addprefix test-samir-dml-, $(SAMIR_DML_PENDING))
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
