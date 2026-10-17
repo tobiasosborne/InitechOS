@@ -1,0 +1,7 @@
+. USE STAFF
+. GO 11
+. LIST REST LASTNAME
+Record#  LASTNAME
+     11  OKAFOR        
+     12  PRUITT        
+*     13  CHEN          

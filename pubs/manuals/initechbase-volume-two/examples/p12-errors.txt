@@ -1,0 +1,7 @@
+. USE INVOICE
+. ? AMOUNT + 'DOLLARS'
+9  Data type mismatch.
+. ? ERRORVAR
+12  Variable not found.
+. ? SUBSTR(CUST, 0, 3)
+62  SUBSTR() : Start point out of range.

@@ -1,0 +1,29 @@
+% Quick Reference: operators and data types (Using InitechBase Chapter 2,
+% Appendix E; core/parse.c precedence ladder).
+\QRSection{Operators}
+{\fontsize{8}{9.5}\selectfont
+\noindent\begin{tabular}{@{}p{14mm}p{54mm}@{}}
+\texttt{( )} & Grouping\\
+\texttt{** \^{}} & Exponentiation\\
+\texttt{* /} & Multiplication, division\\
+\texttt{+ -} & Addition, subtraction; joining strings\\
+\texttt{= <> \#} & Equal, not equal\\
+\texttt{< > <= >=} & Comparison\\
+\texttt{\$} & Contained in (strings)\\
+\texttt{.NOT.} & Logical not\\
+\texttt{.AND.} & Logical and\\
+\texttt{.OR.} & Logical or\\
+\end{tabular}\par
+\vspace{4pt}\noindent In order of precedence, highest first.  Dates: date
+\texttt{+} days, date \texttt{-} days, date \texttt{-} date (days).  The constants
+\texttt{.T.} and \texttt{.F.}; character strings in \texttt{' '}, \texttt{" "} or
+\texttt{[ ]}.\par}
+\QRSection{Data Types}
+{\fontsize{8}{9.5}\selectfont
+\noindent\begin{tabular}{@{}p{14mm}p{54mm}@{}}
+C & Character, up to 254 characters\\
+N & Numeric\\
+D & Date, 8 characters\\
+L & Logical, \texttt{.T.} or \texttt{.F.}\\
+M & Memo, text in the \file{.DBT} file\\
+\end{tabular}\par}

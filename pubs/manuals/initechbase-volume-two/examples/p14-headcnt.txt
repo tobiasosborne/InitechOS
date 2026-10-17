@@ -1,0 +1,11 @@
+. SELECT 2
+. USE DEPTS
+. SELECT 1
+. USE STAFF INDEX STAFFDPT
+. DO HEADCNT
+
+Administration             2
+Software Development       6
+Customer Relations         2
+Accounting                 1
+Facilities                 1

@@ -1,0 +1,16 @@
+. USE STAFF
+. LIST LASTNAME, SALARY, SALARY * 0.015
+Record#  LASTNAME       SALARY    SALARY * 0.015
+      1  LUMBERGH        96500.00 1447.50       
+      2  GIBBONS         41250.00 618.75        
+      3  BOLTON          39800.00 597           
+      4  NAGHEENANAJAR   39800.00 597           
+      5  WADDAMS         19750.00 296.25        
+      6  SMYKOWSKI       34200.00 513           
+      7  PORTER         112000.00 1680          
+      8  ALBRIGHT        18400.00 276           
+      9  DELGADO         44100.00 661.50        
+     10  FENWICK         30900.00 463.50        
+     11  OKAFOR          36750.00 551.25        
+     12  PRUITT          47300.00 709.50        
+*     13  CHEN            33600.00 504           

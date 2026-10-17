@@ -1,0 +1,67 @@
+% Programming with InitechBase, Chapter 14: Working with Two Databases
+% (AN-16; annex Sec 8.2 P10).  Panels replayed (examples/p14-*.dot);
+% sources cmd/flow.c SELECT, cmd/workarea.c (ten areas, each its own
+% pointer), cmd/query.c SEEK; a field of another area is reached through a
+% memory variable (the shipped evaluator resolves names in the selected
+% area).
+\chapter{Working with Two Databases}
+\Gates{test-pubs-examples, test-interp-use, test-samir-query}
+The departments of Initech are kept in their own database, \file{DEPTS.DBF},
+with the name and the floor of each; the staff roster gives only the code.  A
+program that prints an employee with the name of the department looks the code
+up in the second database.  This chapter shows the way InitechBase programs do
+it: two work areas, a memory variable, and \cmd{SEEK}.
+
+\begin{ChapterCovers}
+\item Two databases in two work areas
+\item Carrying a value from one to the other
+\item Looking up a code with \cmd{SEEK}
+\item Counting the records of another database
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{Two Work Areas}
+Each database is opened in its own work area, at the dot prompt, before the
+program runs.  The program selects the work area of the database it wants to
+read; each work area keeps its own record pointer, so moving in one does not
+move the other.
+
+A field name always refers to the database of the selected work area.  To use
+a value of the staff roster while the departments are selected, the program
+stores it in a memory variable first.
+
+\ATEHead{Looking Up the Department}
+\file{STAFFDEP.PRG} lists every employee with the name of the department:
+\ProgramListing{STAFFDEP.PRG}
+\begin{Steps}
+\item Type \type{SELECT 2}, then \type{USE DEPTS INDEX DEPTS}.
+\item Type \type{SELECT 1}, then \type{USE STAFF}.
+\item Type \type{DO STAFFDEP}.
+\end{Steps}
+\DotExample{examples/p14-staffdep}
+For each employee the program keeps the code in \texttt{MDEPT}, selects the
+departments, seeks the code in their index and takes the name; then it selects
+the staff again before \cmd{SKIP}.  A code with no department would print the
+words in parentheses instead of a name.
+
+\ATEHead{Counting Through an Index}
+\file{HEADCNT.PRG} works the other way round: for each department it counts the
+employees, through the index of the staff on the department:
+\ProgramListing{HEADCNT.PRG}
+\DotExample{examples/p14-headcnt}
+The departments are read in their order on the disk; for each, the inner loop
+seeks the first employee of the department and counts while the department
+stays the same.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~15 prints a long listing in pages.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Open each database in its own work area before the program runs.
+\item \cmd{SELECT} chooses the database whose fields a name refers to.
+\item Carry a value from one database to another in a memory variable.
+\item \cmd{SEEK} looks the value up in the index of the other database.
+\end{enumerate}

@@ -1,0 +1,4 @@
+? 'SMYKOWSKI' = 'SMY'
+SET EXACT ON
+? 'SMYKOWSKI' = 'SMY'
+? 'SMY' = 'SMY  '

@@ -1,0 +1,8 @@
+. USE STAFF
+. GO 12
+. ? DELETED()
+
+.F.. GO 13
+. ? DELETED(), LASTNAME
+
+.T. CHEN          

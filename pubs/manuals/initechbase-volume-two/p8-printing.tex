@@ -1,0 +1,51 @@
+% Programming with InitechBase, Chapter 8: Printing (AN-16; annex Sec 8.2
+% P12).  Panels replayed (examples/p8-*.dot); sources cmd/report.c (REPORT
+% FORM, TO FILE, TO PRINT #126), the report form INVRPT.FRM.
+\chapter{Printing}
+\Gates{test-pubs-examples, test-samir-report}
+The invoice register is the list of every invoice of the ledger with its total,
+printed for the files at the end of each month.  The system prints it from a
+report form, \file{INVRPT.FRM}, with \cmd{REPORT FORM}.
+
+\begin{ChapterCovers}
+\item The report form of the invoice register
+\item \cmd{REPORT FORM} in a program
+\item Writing a report to a file for the printer
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE INVOICE}.
+
+\ATEHead{The Invoice Register}
+\file{INVRPT.FRM} gives the report its two-line title and four columns: the
+invoice number, the customer, the due date and the amount, which is totalled.
+\begin{Steps}
+\item Type \type{REPORT FORM INVRPT PLAIN}.
+\end{Steps}
+\DotExample{examples/p8-register}
+\kw{PLAIN} leaves out the page number and the date, so the register can be filed
+with the month's papers.
+
+\ATEHead{Reports from Programs}
+A program uses \cmd{REPORT FORM} as you do at the dot prompt.  The main menu of
+Chapter~11 prints the register when the clerk chooses 3.  A \kw{FOR} condition
+prints part of the ledger, and \kw{HEADING} adds a line, such as the month, to
+each page.
+
+\ATEHead{Printing on Paper}
+\kw{TO FILE} \xp{file} writes the report to a text file, with the extension
+\file{.TXT}, as well as displaying it.  Leave InitechBase and copy the file to
+the printer with the InitechDOS command \file{COPY}.  \kw{TO PRINT} is refused
+with \xmsg{126}{Printer is either not connected or turned off.}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~9 is the first of the month-end programs: the aging report.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{REPORT FORM} \xp{form} prints a report from a report form file, in a
+  program as at the dot prompt.
+\item \kw{PLAIN}, \kw{HEADING} and \kw{FOR} change what is printed.
+\item \kw{TO FILE} writes the report to a text file for the printer.
+\end{enumerate}

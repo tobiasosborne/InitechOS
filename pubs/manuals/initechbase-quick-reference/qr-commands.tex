@@ -1,0 +1,44 @@
+% Quick Reference: commands, alphabetical, symbols first (annex Sec 11.1;
+% the same shipped surface as Using InitechBase Chapter 5).
+\QRSection{Commands}
+{\fontsize{7.5}{9}\selectfont Items in \xp{ } are supplied; items in
+\kw{[ ]} may be left out; \kw{/} separates choices.  \xp{scope} is \kw{ALL},
+\kw{NEXT} \xp{n}, \kw{RECORD} \xp{n} or \kw{REST}.\par}
+\QREntry{?}{command}{? [<expression list>]}{Displays values on a new line.}
+\QREntry{??}{command}{?? <expression list>}{Displays values on the same line.}
+\QREntry{ACCEPT}{command}{ACCEPT [<expC>] TO <memvar>}{Reads a typed line into a character memory variable.}
+\QREntry{APPEND}{command}{APPEND BLANK}{Adds a blank record to the end of the database.}
+\QREntry{CLOSE}{command}{CLOSE DATABASES / ALL}{Closes every open database and its index files.}
+\QREntry{CONTINUE}{command}{CONTINUE}{Moves to the next record that meets the last LOCATE condition.}
+\QREntry{DELETE}{command}{DELETE [<scope>] [FOR <condition>] [WHILE <condition>]}{Marks records for deletion.}
+\QREntry{DISPLAY}{command}{DISPLAY [<scope>] [<expression list>] [FOR <condition>] [WHILE <condition>]}{Displays the current record, or the records of a scope.}
+\QREntry{DO}{command}{DO <program> / DO <procedure> [WITH <expression list>]}{Runs a program file, or a procedure of the program running.}
+\QREntry{DO CASE}{compound}{DO CASE / CASE <condition> / [OTHERWISE] / ENDCASE}{Carries out the first group whose condition is true (programs).}\XAlso{CASE}{CASE}\XAlso{OTHERWISE}{OTHERWISE}\XAlso{ENDCASE}{ENDCASE}
+\QREntry{DO WHILE}{compound}{DO WHILE <condition> / [LOOP] / [EXIT] / ENDDO}{Repeats a group of commands while a condition is true (programs).}\XAlso{ENDDO}{ENDDO}\XAlso{LOOP}{LOOP}\XAlso{EXIT}{EXIT}
+\QREntry{FIND}{command}{FIND <characters>}{Finds a key of the master index.}
+\QREntry{GO}{command}{GO / GOTO <expN> / TOP / BOTTOM}{Moves the record pointer to a record.}\XAlso{GOTO}{GOTO}
+\QREntry{IF}{command}{IF <condition> / [ELSE] / ENDIF}{Carries out one of two groups of commands (programs).}\XAlso{ELSE}{ELSE}\XAlso{ENDIF}{ENDIF}
+\QREntry{INPUT}{command}{INPUT [<expC>] TO <memvar>}{Reads a typed expression into a memory variable of its type.}
+\QREntry{LIST}{command}{LIST [<scope>] [<expression list>] [FOR <condition>] [WHILE <condition>] [OFF]}{Lists records; the scope is ALL.}
+\QREntry{LOCATE}{command}{LOCATE [<scope>] FOR <condition> [WHILE <condition>]}{Moves to the first record that meets the condition.}
+\QREntry{NOTE}{command}{NOTE <text> / * <text> / <command> \&\& <text>}{Comment.}\XAlso{*}{*}\XAlso{&&}{\&\&}
+\QREntry{ON ERROR}{compound}{ON ERROR [<command>]}{Names a command to carry out when an error occurs.}\XAlso{ON}{ON}
+\QREntry[accepted; the trap is not carried out by this version (proc.c)]{ON ESCAPE}{compound}{ON ESCAPE / ON KEY [<command>]}{Name a command for a key pressed while a program runs.}
+\QREntry{PACK}{command}{PACK}{Removes the records marked for deletion.}
+\QREntry{PARAMETERS}{command}{PARAMETERS <memvar list>}{Receives the values passed by DO ... WITH.}\XAlso{PARAMETER}{PARAMETER}
+\QREntry{PRIVATE}{command}{PRIVATE <memvar list>}{Creates memory variables of the procedure, hiding others of the same names.}
+\QREntry{PROCEDURE}{command}{PROCEDURE <name>}{Begins a procedure in a program file.}
+\QREntry{PUBLIC}{command}{PUBLIC <memvar list>}{Creates memory variables that remain after the program.}
+\QREntry{QUIT}{command}{QUIT}{Closes all files and leaves InitechBase (also EXIT at the dot prompt).}
+\QREntry{RECALL}{command}{RECALL [<scope>] [FOR <condition>] [WHILE <condition>]}{Removes the deletion mark.}
+\QREntry{RELEASE}{command}{RELEASE <memvar list> / ALL}{Releases memory variables.}
+\QREntry{REPLACE}{command}{REPLACE [<scope>] <field> WITH <exp> [, <field> WITH <exp> ...] [FOR <condition>] [WHILE <condition>]}{Changes fields.}
+\QREntry{REPORT FORM}{compound}{REPORT FORM <file> [<scope>] [FOR <condition>] [WHILE <condition>] [PLAIN] [HEADING <expC>] [NOEJECT] [SUMMARY] [TO FILE <file>]}{Prints a report from a report form.}\XAlso{REPORT}{REPORT}
+\QREntry{RETURN}{command}{RETURN}{Ends a procedure or program.}
+\QREntry{SEEK}{command}{SEEK <exp>}{Finds a key of the master index.}
+\QREntry{SELECT}{command}{SELECT <n> / <alias>}{Chooses the work area.}
+\QREntry{SKIP}{command}{SKIP [<expN>]}{Moves the record pointer forward or back.}
+\QREntry{STORE}{command}{STORE <exp> TO <memvar list> / <memvar> = <exp>}{Stores a value in memory variables.}
+\QREntry{USE}{command}{USE [<file> [ALIAS <alias>] [INDEX <index file list>]]}{Opens or closes a database in the selected work area.}
+\QREntry{WAIT}{command}{WAIT [<expC>] [TO <memvar>]}{Waits for one key.}
+\QREntry{ZAP}{command}{ZAP}{Removes all the records of the database.}

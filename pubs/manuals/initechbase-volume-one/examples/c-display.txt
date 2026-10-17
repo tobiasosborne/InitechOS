@@ -1,0 +1,13 @@
+. USE STAFF
+. DISPLAY
+Record#  EMPNO LASTNAME       FIRSTNAME  DEPT EXT  HIRED    SALARY    EXEMPT NOTES
+      1  1001  LUMBERGH       BILL       SOFT 1401 06/04/84  96500.00 T      Division vice president.  Reviews the TPS reports each Friday.
+. SKIP 2
+. DISPLAY LASTNAME, FIRSTNAME, EXT
+Record#  LASTNAME       FIRSTNAME  EXT
+      3  BOLTON         MICHAEL    1418
+. DISPLAY NEXT 3 LASTNAME, HIRED
+Record#  LASTNAME       HIRED
+      3  BOLTON         09/05/89
+      4  NAGHEENANAJAR  10/02/89
+      5  WADDAMS        02/12/79

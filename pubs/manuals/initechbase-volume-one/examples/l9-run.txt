@@ -1,0 +1,10 @@
+. USE STAFF
+. DO STAFFLST
+Department code: CUST
+
+STAFF OF DEPARTMENT CUST
+-----------------------------
+SMYKOWSKI      TOM        1425
+FENWICK        LAURA      1426
+-----------------------------
+  2 EMPLOYEES

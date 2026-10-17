@@ -1,0 +1,5 @@
+. USE STAFF
+. LIST TRIM(FIRSTNAME) + ' ' + LASTNAME FOR DEPT = 'ADMN'
+Record#  TRIM(FIRSTNAME) + ' ' + LASTNAME
+      7  DOM PORTER                      
+      8  NINA ALBRIGHT                   

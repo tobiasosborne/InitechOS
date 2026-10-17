@@ -1,0 +1,19 @@
+. USE STAFF
+. ? RECCOUNT()
+
+13. DELETE FOR DEPT = 'CUST'
+. PACK
+. ? RECCOUNT()
+
+10. LIST LASTNAME, DEPT
+Record#  LASTNAME       DEPT
+      1  LUMBERGH       SOFT
+      2  GIBBONS        SOFT
+      3  BOLTON         SOFT
+      4  NAGHEENANAJAR  SOFT
+      5  WADDAMS        FACL
+      6  PORTER         ADMN
+      7  ALBRIGHT       ADMN
+      8  DELGADO        SOFT
+      9  OKAFOR         SOFT
+     10  PRUITT         ACCT

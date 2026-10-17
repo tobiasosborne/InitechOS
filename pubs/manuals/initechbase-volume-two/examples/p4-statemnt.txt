@@ -1,0 +1,13 @@
+. USE INVOICE INDEX INVCUST
+. DO STATEMNT
+Customer: hartwell
+
+INITECH SYSTEMS CORPORATION -- STATEMENT OF ACCOUNT
+CUSTOMER: HARTWELL  
+----------------------------------------
+A1001   DUE 12/15/99      1250.00
+----------------------------------------
+BALANCE DUE                      1250.00. DO STATEMNT
+Customer: NOBODY
+
+NO INVOICES FOR NOBODY

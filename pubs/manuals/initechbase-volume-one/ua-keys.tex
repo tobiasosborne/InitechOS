@@ -1,0 +1,38 @@
+% Using InitechBase, Appendix A: Keys at the Dot Prompt (annex Sec 8.2
+% UA, "Cursor Control Keys", thinned to the keys the shipped dot prompt
+% reads).  Sources: os/samir/pal/pal_milton.c milton_terminal_line (with
+% the status bar: Enter ends the line, Backspace erases, printable
+% characters 32-126 are taken, other keys ignored; 254 characters) and
+% samir_line_read over the InitechDOS console (without the status bar);
+% cmd/proc.c (WAIT: one key, Enter = ""); cmd/mutate.c m_confirm_file (Y).
+\chapter{Keys at the Dot Prompt}
+\Gates{test-samir-input, test-samir-status}
+\NoDictionaryHeads
+InitechBase reads each command, and each answer to \cmd{ACCEPT} and
+\cmd{INPUT}, as one line typed at the keyboard.
+
+\noindent\hspace*{-\imHang}\begin{tabular}{@{}p{34mm}p{100mm}@{}}
+\hline
+\textsf{\textbf{Key}} & \textsf{\textbf{Action}}\\
+\hline
+\key{Enter} & Ends the line.  InitechBase carries out the command, or takes the
+  answer.\\
+\key{Backspace} & Erases the character before the cursor.\\
+Letters, digits, punctuation, \key{Space} & Typed into the line, up to 254
+  characters.\\
+\hline
+\end{tabular}
+
+While the status bar is displayed (SET STATUS ON), InitechBase reads the line
+itself and takes only the keys above; any other key is ignored.  While it is
+not, the line is read through InitechDOS, and the line-editing keys of the
+InitechDOS prompt apply (\doctitle{InitechDOS User's Guide}, ``The InitechDOS
+Editing Keys'').
+
+\section{Answering WAIT}
+\cmd{WAIT} takes the first key pressed, without \key{Enter}.  \key{Enter}
+itself gives an empty string.
+
+\section{Answering ZAP}
+While SET SAFETY is ON, \cmd{ZAP} asks \texttt{(Y/N)}.  Type \type{Y} and press
+\key{Enter} to remove the records; any other answer keeps them.

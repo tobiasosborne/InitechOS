@@ -1,0 +1,5 @@
+. USE STAFF
+. GO 2
+. ? DATE() - HIRED
+
+1448

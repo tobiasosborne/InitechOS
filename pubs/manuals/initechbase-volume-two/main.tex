@@ -1,0 +1,97 @@
+% InitechBase Volume Two: Programming with InitechBase, Index -- part
+% 1040-0000-11 (PUB-REF-0001 Sec 12, DS row BAS-V2).  Family F-ATE; model
+% the dBASE III PLUS 1.1 Volume Two binder, Programming section (annex Sec
+% 1, 8.2 P, 10: one worked application built module by module; syntax
+% questions sent back to Using).  The application is the Initech
+% Accounting System on the Sample Programs and Utilities diskette; its
+% month-end programs Y2KACCT.PRG and INTPOST.PRG carry the bodies of
+% harness/diff/dbf_diff/canon/y2k_accounting.prg and salami.prg byte for
+% byte (test-pubs-samir-programs), documented as the shipped programs.  Bead
+% initech-ipu5.8.  Ground truth (Law 1): os/samir/** (samir_main.c the dot
+% prompt and the message catalogue; cmd/*.c the commands; core/fn_builtins.c
+% and core/eval.c the functions; fs/*.c the files), spec/samir/*.
+% This volume teaches; it registers no entries (the reference is Using
+% InitechBase), and every inline command, function and message it names is
+% checked against the shipped surface (test-pubs-commands); every example is
+% replayed through the shipped dot
+% prompt against a fresh copy of the Sample Programs and Utilities diskette
+% (pubs/examples/samir/disk, harness/pubs/samir_replay.c, make
+% test-pubs-examples).  No version is printed: the shipped build displays
+% none (D-3, PN-03).
+\documentclass[ashtontate,binder]{initech-manual}
+
+\ProductName{InitechBase}
+\DocTitle{Volume Two}
+\PartNumber{1040-0000-11}
+\FamilyName{Information Management Family}
+\FamilyColor{FamilyInformation}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to the release of InitechBase that it
+  accompanies and to all subsequent releases until otherwise indicated in new
+  editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR, InitechBase, InitechCalc and
+  InitechPaint are trademarks of Initech Systems Corporation.  Turbo Initech
+  is a registered trademark of Initech Systems Corporation.  Intel, 80386 and
+  80486 are trademarks of Intel Corporation.  All other product names are
+  trademarks of their respective holders.}
+% Operator directive 2026-10-17 (the design lane's class macro wins once it
+% merges): the corporate motto at the placements the directive names.
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+
+% A defined term at its first use (TY-02, NT-34): bold, indexed, and in the
+% Glossary (CP-03); the optional argument is the singular index form.
+\NewDocumentCommand\term{om}{\textbf{#2}\IfValueTF{#1}{\index{#1}}{\index{#2}}}
+% What the reader types (NT-15), breakable at its blanks: the dot-prompt
+% commands of the lessons are longer than a DOS command.
+\renewcommand\type[1]{\texttt{\bfseries #1}}
+\newcommand\bs{\textbackslash}
+
+\XbaseIndexMentions
+\MasterIndexPartner{initechbase-volume-one}
+% AN-26 / D-15: the colophon names the replay route of the examples.
+\newcommand\ColophonInitechBase{}
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+
+\BeginSection{P}{Programming with InitechBase}
+\input{p0-introduction}
+\input{p1-nutshell}
+\input{p2-structure}
+\input{p3-memvars}
+\input{p4-procedures}
+\input{p5-functions}
+\input{p6-user}
+\input{p7-database}
+\input{p8-printing}
+\input{p9-aging}
+\input{p10-posting}
+\input{p11-menu}
+\input{p12-errors}
+\input{p13-testing}
+\input{p14-two}
+\input{p15-reports}
+\input{p16-dates}
+\input{p17-strings}
+\input{p18-updating}
+\input{p19-memo}
+\input{p20-order}
+\input{p21-searching}
+\input{p22-together}
+\appendix
+\input{pa-commands}
+\input{pb-programs}
+\input{pc-conventions}
+\SectionNotes{Programming Notes}
+
+\EndSections
+\IndexKey{\IndexKeyLine{G}{Getting Started (Volume One)}\IndexKeyLine{L}{Learning InitechBase (Volume One)}%
+  \IndexKeyLine{U}{Using InitechBase (Volume One)}\IndexKeyLine{P}{Programming with InitechBase}}
+\printindex
+\FinishBook[3]
+\end{document}

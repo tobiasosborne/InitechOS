@@ -1,0 +1,32 @@
+. USE STAFF INDEX STAFFDPT
+. REPORT FORM STAFFRPT SUMMARY HEADING 'MARCH 1992'
+
+  Page No.     1                   MARCH 1992
+  03/01/92
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+ ** Subtotal **
+                                       80900.00
+
+ ** Department ADMN
+ ** Subtotal **
+                                      130400.00
+
+ ** Department CUST
+ ** Subtotal **
+                                       65100.00
+
+ ** Department FACL
+ ** Subtotal **
+                                       19750.00
+
+ ** Department SOFT
+ ** Subtotal **
+                                      298200.00
+ *** Total ***
+                                      594350.00

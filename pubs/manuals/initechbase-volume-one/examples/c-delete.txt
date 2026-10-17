@@ -1,0 +1,15 @@
+. USE STAFF
+. GO 9
+. DELETE
+. DISPLAY LASTNAME
+Record#  LASTNAME
+*      9  DELGADO       
+. ? DELETED()
+
+.T.. DELETE FOR DEPT = 'CUST'
+. LIST LASTNAME, DEPT FOR DELETED()
+Record#  LASTNAME       DEPT
+*      6  SMYKOWSKI      CUST
+*      9  DELGADO        SOFT
+*     10  FENWICK        CUST
+*     13  CHEN           ACCT

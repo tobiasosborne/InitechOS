@@ -65,6 +65,10 @@
 \DeclareOption{final}{\im@finaltrue}
 \DeclareOption{cover}{\im@covertrue}
 \DeclareOption{spine}{\im@spinetrue}
+%% quickref: the PK-11 Quick Reference booklet, 88.9 x 228.6 mm (the house
+%% trim halved), saddle-stitched; single column (bead initech-ipu5.8).
+\newif\ifim@quickref
+\DeclareOption{quickref}{\im@quickreftrue}
 \DeclareOption*{\ClassError{initech-manual}{Unknown option `\CurrentOption'}{}}
 \ProcessOptions\relax
 \im@ifmodel{apple}{\im@continuoustrue}{}
@@ -157,6 +161,10 @@
   \providecommand\SpineWidth{44mm}
   \geometry{paperwidth=\SpineWidth, paperheight=9in, margin=0pt,
     noheadfoot, nomarginpar}
+\else\ifim@quickref
+  \geometry{paperwidth=3.5in, paperheight=9in, twoside,
+    inner=9mm, outer=7mm, top=14mm, textheight=200mm,
+    footskip=8mm, headheight=10pt, headsep=3mm, nomarginpar}
 \else\ifim@cover
   \geometry{paperwidth=7in, paperheight=9in, margin=0pt,
     noheadfoot, nomarginpar}
@@ -172,7 +180,7 @@
   \AtBeginDocument{%
     \setlength\evensidemargin{\imOutside+\imHang-1in}%
     \setlength\oddsidemargin{\imInside+\imHang-1in}}
-\fi\fi
+\fi\fi\fi
 \setlength\topskip{10pt}
 \setlength\parindent{0pt}
 \setlength\parskip{6.5pt plus 1pt}
@@ -236,11 +244,12 @@
     \fancyfoot[RE]{\imFootFont\im@opsshort}%
     \fancyfoot[LO]{\imFootFont\im@footlabel\im@foottitle}}{}%
   \im@ifmodel{ashtontate}{\renewcommand\headrulewidth{0.5pt}%
-    \fancyhead[RE]{\imFootFont\bfseries CHAPTER \thechapter}%
-    \fancyhead[LO]{\imFootFont\bfseries\MakeUppercase{\im@foottitle}}%
+    \fancyhead[RE]{\global\im@thumbtrue\imFootFont\bfseries CHAPTER \thechapter}%
+    \fancyhead[LO]{\global\im@thumbtrue\imFootFont\bfseries\MakeUppercase{\im@foottitle}}%
     \fancyhead[LE,RO]{\ifim@referencepages
       \sffamily\bfseries\fontsize{14}{16}\selectfont\MakeUppercase{\rightmark}\fi}%
-    \fancyfoot[LO,RE]{\imFootFont\bfseries\im@product\ \im@doctitle}}{}%
+    \fancyfoot[LO,RE]{\imFootFont\bfseries\ifx\im@secttitle\@empty
+      \im@product\ \im@doctitle\else\MakeUppercase{\im@secttitle}\fi}}{}%
   \im@ifmodel{apple}{\fancyfoot[LO,RE]{\imFootFont Chapter \thechapter: \im@foottitle}}{}%
   \im@ifmodel{wordperfect}{\fancyfoot[LO,RE]{\imFootFont\MakeUppercase{\leftmark}}}{}%
   \im@ifmodel{lotus}{\fancyfoot[LO]{\imFootFont\rightmark}}{}%
@@ -265,6 +274,9 @@
 \newcommand\im@opsshort{\im@product\ \im@doctitle}
 \newcommand\ShortTitle[1]{\gdef\im@opsshort{#1}}
 \newcommand\FootTitle[1]{\gdef\im@foottitle{#1}\gdef\im@footlabel{}}
+%% F-ATE (PG-13): the running foot names the SECTION in force ("USING
+%% INITECHBASE"), set by \BeginSection (initech-xbase.sty); empty = the book.
+\newcommand\im@secttitle{}
 \renewcommand\sectionmark[1]{\markright{#1}}
 
 %% Ashton-Tate pattern: the blank verso before a recto opener is a "Notes" page.
@@ -365,8 +377,9 @@
   \cleardoublepage
   \gdef\im@draftfoot{}%
   \gdef\im@drafttoc{}%
+  \gdef\im@idxspecial{}%
   \stepcounter{chapter}%
-  \ifcsname im@draft@\thechapter\endcsname
+  \ifcsname im@draft@\im@draftkey\endcsname
     \gdef\im@draftfoot{DRAFT -- NOT FOR RELEASE}%
     \gdef\im@drafttoc{ (DRAFT)}%
     \AddToHookNext{shipout/foreground}{\put(\dimexpr65mm\relax,-\dimexpr120mm\relax){%
@@ -461,12 +474,17 @@
    \FootTitle{Index}\im@notab
    \im@origchapter*{Index}\thispagestyle{plain}%
    \addcontentsline{toc}{chapter}{Index}%
-   \begin{adjustwidth}{-\imHang}{0pt}\begin{multicols}{2}\@setfontsize\im@x{8.5}{10}%
+   \begin{adjustwidth}{-\imHang}{0pt}\im@indexpreamble
+   \begin{multicols}{2}\@setfontsize\im@x{8.5}{10}%
    \setlength\parskip{0pt}\setlength\parindent{0pt}%
    \RaggedRight
    \let\item\im@idxitem}
   {\end{multicols}\end{adjustwidth}}
 \newcommand\im@idxitem{\par\hangindent 1.5em\relax}
+%% Material printed under the Index heading before the entries (F-ATE: the
+%% boxed Key to Index Page Numbers, AN-24); empty unless a book sets it.
+\newcommand\im@indexpreamble{}
+\newcommand\IndexPreamble[1]{\gdef\im@indexpreamble{#1}}
 \renewcommand\subitem{\par\hangindent 2.5em\hspace*{1em}}
 \renewcommand\subsubitem{\par\hangindent 3.5em\hspace*{2em}}
 \renewcommand\indexspace{\par\vspace{5.5pt plus 2pt}}
@@ -579,4 +597,5 @@
 \RequirePackage{initech-syntax}
 \RequirePackage{initech-screen}
 \RequirePackage{initech-forms}
+\RequirePackage{initech-xbase}
 \endinput
