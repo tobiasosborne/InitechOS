@@ -2,4 +2,4 @@
 . GO 5
 . ? RECNO(), LASTNAME
 
-5 WADDAMS       
+         5 WADDAMS       

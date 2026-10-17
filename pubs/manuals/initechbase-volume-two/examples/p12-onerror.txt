@@ -4,4 +4,4 @@
 12  Variable not found.
 . ? MERR, RECNO()
 
-12 1. ON ERROR
+        12          1. ON ERROR

@@ -2,4 +2,4 @@
 . GO 2
 . ? AT("ON", LASTNAME), AT("on", LASTNAME)
 
-5 0
+         5          0

@@ -8,7 +8,7 @@
 . SEEK MDEPT
 . ? DEPTNAME, FLOOR
 
-Accounting               2. SELECT STAFF
+Accounting                2. SELECT STAFF
 . ? LASTNAME, DEPT
 
 PRUITT         ACCT

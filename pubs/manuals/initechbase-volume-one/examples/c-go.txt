@@ -2,10 +2,10 @@
 . GO 7
 . ? RECNO(), LASTNAME
 
-7 PORTER        . GO BOTTOM
+         7 PORTER        . GO BOTTOM
 . ? RECNO(), LASTNAME
 
-13 CHEN          . GO TOP
+        13 CHEN          . GO TOP
 . ? RECNO(), LASTNAME
 
-1 LUMBERGH      
+         1 LUMBERGH      

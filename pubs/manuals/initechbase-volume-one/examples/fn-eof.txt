@@ -3,4 +3,4 @@
 . SKIP
 . ? EOF(), RECNO(), RECCOUNT()
 
-.T. 14 13
+.T.         14         13

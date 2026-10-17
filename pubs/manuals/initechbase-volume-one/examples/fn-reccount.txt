@@ -2,4 +2,4 @@
 . SKIP 3
 . ? RECNO(), RECCOUNT()
 
-4 13
+         4         13

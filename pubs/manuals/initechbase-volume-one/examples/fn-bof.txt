@@ -3,4 +3,4 @@
 . SKIP -1
 . ? BOF(), RECNO()
 
-.T. 1
+.T.          1

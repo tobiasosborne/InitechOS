@@ -2,4 +2,4 @@
 . GO 3
 . ? UPPER('bolton'), LOWER(LASTNAME), LEN(LASTNAME), LEN(TRIM(LASTNAME))
 
-BOLTON bolton         14 6
+BOLTON bolton                 14          6

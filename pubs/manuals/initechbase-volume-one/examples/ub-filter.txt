@@ -3,4 +3,4 @@
 . GO TOP
 . ? RECNO(), EOF()
 
-14 .T.
+        14 .T.

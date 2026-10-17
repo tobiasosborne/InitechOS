@@ -1,10 +1,10 @@
 . USE STAFF
 . ? RECCOUNT()
 
-13. PACK
+        13. PACK
 . ? RECCOUNT()
 
-12. GO BOTTOM
+        12. GO BOTTOM
 . ? RECNO(), LASTNAME
 
-12 PRUITT        
+        12 PRUITT        

@@ -8,6 +8,6 @@ Remove them from the ledger (Y/N)? Y
 
 REMOVED.  INVOICES IN THE LEDGER:   3. LIST INVNO, CUST, PAID
 Record#  INVNO CUST       PAID
-      1  A1001 HARTWELL   F   
-      2  A1002 BRAXTON CO F   
-      3  A1004 QUINCY BK  F   
+      1  A1001 HARTWELL   .F. 
+      2  A1002 BRAXTON CO .F. 
+      3  A1004 QUINCY BK  .F. 

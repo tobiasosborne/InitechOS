@@ -2,4 +2,4 @@
 . GO 2
 . ? LEN(LASTNAME), LEN(TRIM(LASTNAME)), LEN("")
 
-14 7 0
+        14          7          0

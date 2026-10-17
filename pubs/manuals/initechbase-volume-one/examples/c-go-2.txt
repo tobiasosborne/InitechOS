@@ -2,7 +2,7 @@
 . GO TOP
 . ? RECNO(), LASTNAME
 
-8 ALBRIGHT      . GOTO BOTTOM
+         8 ALBRIGHT      . GOTO BOTTOM
 . ? RECNO(), LASTNAME
 
-5 WADDAMS       
+         5 WADDAMS       

@@ -2,7 +2,7 @@
 . GO 10
 . ? RECNO(), LASTNAME
 
-10 FENWICK       . SKIP -2
+        10 FENWICK       . SKIP -2
 . ? RECNO(), LASTNAME
 
-8 ALBRIGHT      
+         8 ALBRIGHT      

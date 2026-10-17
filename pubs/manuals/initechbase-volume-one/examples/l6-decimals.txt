@@ -1,6 +1,6 @@
 . ? 22 / 7
 
-3.14. SET DECIMALS TO 6
+         3.14. SET DECIMALS TO 6
 . ? 22 / 7
 
-3.142857
+         3.142857

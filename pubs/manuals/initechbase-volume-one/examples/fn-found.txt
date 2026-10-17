@@ -2,4 +2,4 @@
 . SEEK "GIBBONS"
 . ? FOUND(), RECNO()
 
-.T. 2
+.T.          2

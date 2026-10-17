@@ -3,5 +3,5 @@
 . RELEASE MA, MC
 . ? MB
 
-10. ? MA
+        10. ? MA
 12  Variable not found.

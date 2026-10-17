@@ -3,4 +3,4 @@
 . GO 2
 . ? LASTNAME, SALARY * MRATE
 
-GIBBONS        42900
+GIBBONS                     42900.0000

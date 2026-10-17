@@ -60,6 +60,20 @@ Integration breaks on main that blocked the gates (fixed here):
   matched and every TPS capture failed. The cut is `,kd,ki,kr,kret`; flair
   .keys start with `CLS` (capture.sh enforces it).
 
+InitechBase books (main moved under the lane: samirdml 14a8fc75, samircore
+074725d4, samirfns 1016e8c9/a8d8cd73):
+- test-pubs RED SHIPPED-NOT-DOCUMENTED for ERASE INDEX LABEL REINDEX RENAME
+  RESTORE SAVE SORT TOTAL TYPE and SET ALTERNATE: Volume One entries (Syntax
+  and Usage from the code, no examples yet) and Quick Reference lines.
+  Message entries 7, 23, 48, 54, 55 were "no command raises"; they are now
+  raised and say by what. SET CONSOLE documented as shipped (initech-vz6z).
+- 258 example transcripts re-minted (`make pubs-examples`), 127 changed:
+  real-dBASE output parity (`?` numbers in ten columns, LIST/DISPLAY numeric
+  headings right-aligned and logicals as .T./.F., sums keep decimals). Six
+  examples and the sample program AMTCHECK.PRG used TYPE(<exp>); the shipped
+  TYPE() is the real III+ TYPE(<expC>) (Data type mismatch otherwise), so
+  the TYPE() entry, the five examples and AMTCHECK.PRG use the string form.
+
 TPS book (step 3):
 - R2/R5 wording shipped (77835faa): `\TpsDraftMsg` -> `\TpsMsg`,
   `\TpsDraftMessageEntry` -> `\TpsMessageEntry`, the "prompt displayed again"
@@ -80,6 +94,7 @@ TPS book (step 3):
 | InitechBase gs-dir | sample diskette free 1314816 -> 1303552 | SAMIR.COM grew (samircore 074725d4, samirdml 14a8fc75); sample files unchanged |
 | TPS tpsdir, tpsbak | flagship volume free -80896 | \DOS folder, NOTEPAD/SCRAPBK, CPANELS, FDISK, FORMAT/SYS/DISKCOPY/DISKCOMP added to the data volume |
 | TPS tpsstart, tpsritual | R2 prompt and R5 prompt text | tpsr2 77835faa (expected, WL-0139) |
+| InitechBase gs-dir (second pass) | +7168 B free | SAMIR.COM 105,087 -> 97,915 B (size round 1, 1016e8c9) |
 | TPS r2align, r5cover, r5refuse | new captures | replace the DRAFT transcripts |
 
 No unexplained change.
@@ -92,7 +107,9 @@ TPS book 11 -> 3 (address check, MSG-DOS-0006/0008 kept). Reference 11 -> 12
 ## Follow-ups
 
 initech-bc2j (COPY entry rewrite), initech-lstk (fi ligature in the other
-mono faces), initech-pian (diskutil/fdisk messages in Appendix A).
+mono faces), initech-pian (diskutil/fdisk messages in Appendix A),
+initech-8q0k (InitechBase: examples for the new entries, APPEND FROM / CLOSE
+<type> / COPY FILE / CLEAR MEMORY / macro &, the u7 raised-message audit).
 
 ## Pointers
 

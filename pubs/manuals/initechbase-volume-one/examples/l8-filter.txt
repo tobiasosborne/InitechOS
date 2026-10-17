@@ -11,7 +11,7 @@ Record#  LASTNAME       FIRSTNAME
 . GO TOP
 . ? RECNO()
 
-1. SKIP
+         1. SKIP
 . ? RECNO()
 
-2. SET FILTER TO
+         2. SET FILTER TO

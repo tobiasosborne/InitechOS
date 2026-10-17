@@ -2,11 +2,11 @@
 . SKIP 3
 . ? RECNO()
 
-4. SKIP -2
+         4. SKIP -2
 . ? RECNO()
 
-2. GO BOTTOM
+         2. GO BOTTOM
 . SKIP
 . ? RECNO(), EOF()
 
-14 .T.
+        14 .T.

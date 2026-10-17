@@ -2,10 +2,10 @@
 . LOCATE FOR DEPT = 'CUST'
 . ? RECNO(), LASTNAME
 
-6 SMYKOWSKI     . CONTINUE
+         6 SMYKOWSKI     . CONTINUE
 . ? RECNO(), LASTNAME
 
-10 FENWICK       . CONTINUE
+        10 FENWICK       . CONTINUE
 . ? FOUND(), EOF()
 
 .F. .T.
