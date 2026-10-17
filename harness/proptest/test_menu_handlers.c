@@ -80,7 +80,8 @@ static FinderCtx mk(uint16_t sel, uint8_t open, uint8_t front, uint8_t trash)
 /* H4's hand-typed positive list: the commands the Finder bar may light. */
 static const finder_cmd_id CAN_LIGHT[] = {
     FCMD_NEW_FOLDER, FCMD_OPEN, FCMD_CLOSE_WINDOW, FCMD_SELECT_ALL,
-    FCMD_VIEW_ICONS, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME,
+    FCMD_VIEW_ICONS, FCMD_VIEW_SMALL, FCMD_VIEW_NAME, FCMD_VIEW_SIZE,
+    FCMD_VIEW_KIND, FCMD_VIEW_DATE, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME,
     FCMD_EMPTY_TRASH,         /* bead initech-6k12: implemented, lit iff full */
     FCMD_RESTART, FCMD_SHUTDOWN, /* bead initech-tdnl.78: implemented, always lit */
     FCMD_EXIT_DOS                /* bead initech-3p1a: implemented, always lit */

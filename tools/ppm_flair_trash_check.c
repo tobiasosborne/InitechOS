@@ -207,9 +207,9 @@ static void icon_cell(int kind, int state, int x0, int y0, unsigned int bg, cons
     }
 }
 
-static void trash_full(void)
+static void trash_full(int state)
 {
-    icon_cell(ICAP_TRASH_FULL, ICAP_UNSEL, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
+    icon_cell(ICAP_TRASH_FULL, state, TR_X, TR_Y, (flair_canon_rgb((unsigned char)CIDX_DESKTOP) & 0x00FFFFFFu), "FULL Trash (TRASH_FULL)");
 }
 
 /* `state`: the emptied leg's Trash was double-clicked open, so it is the
@@ -334,7 +334,13 @@ int main(int argc, char **argv)
                  strcmp(g_leg, "alert") == 0, "Cancel only in confirmation");
         want((OK_L + OK_R) / 2, BT_T - 3, CIDX_BLACK, "OK default ring (InsetRect -3)");
         want((CA_L + CA_R) / 2, BT_T - 3, CIDX_PLAT_FACE, "Cancel has NO ring");
-        if (strcmp(g_leg, "locked") == 0) trash_empty(ICAP_UNSEL); else trash_full();
+        if (strcmp(g_leg, "locked") == 0) trash_empty(ICAP_UNSEL);
+        /* The locked-full trace is FLAIR_EMPTY_OK_SPEC: it double-clicks
+         * Trash before Empty Trash (spec/flair_trash_traces.mk Sec 3c).
+         * Selection remains while the locked notice is modal. Grade that
+         * captured state, s8_icons_trash_full_sel.png (mint-008 Sec 2/3).
+         * The ordinary confirm trace never selects the desktop Trash. */
+        else trash_full(strcmp(g_leg, "locked-full") == 0 ? ICAP_SEL : ICAP_UNSEL);
     } else {
         want(AL_L + AL_BORDER / 2, 140, CIDX_WHITE,
              "the alert is gone: its left band repainted by the Trash window content");

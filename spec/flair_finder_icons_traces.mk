@@ -26,6 +26,12 @@
 #    The dump (after the README select) shows: the desktop VOLUME and TRASH,
 #    the root window's DOCUMENT (selected) and FOLDER, the APPS window's
 #    APPLICATION -- every captured desktop/window kind on one frame.
+#    tdnl.44 reconciliation: the 17-file APPS directory (Makefile data recipe,
+#    independently checked with mdir) has PAINT.EXE at ordinal 7, so (478,258)
+#    is an APPLICATION. TPS.DBF is ordinal 11: column 3, row 2 on the locked
+#    four-column 68x52 grid, origin (250+24+3*68,180+26+2*52) = (478,310).
+#    Grade that unobscured DOCUMENT cell instead; the same seven complete
+#    capture crops and zero tolerance remain. Input tokens are unchanged.
 FLAIR_FINDER_ICONS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:50,m100:50,m10:0,l0,m-100:-20,m-100:-20,m-100:-20,m-100:-20,m-50:-8,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:70,m60:0
 
 # 2. FLAIR_TRASH_FULL_SPEC -- stage README.TXT, then park clear of the Trash
