@@ -28,7 +28,7 @@ Books (pubs/manuals/):
   behind Office Systems divider leaves with the triangle field (PK-07):
   Getting Started (The Basics: Registration, Installation, The Template,
   Starting InitechWord, Keys to Know, Function Keys, Pull-Down Menus, Menu
-  Options, Codes, Exit; Getting Help; A Brief Lesson), Reference (47 AN-11
+  Options, Codes, Exit; Getting Help; A Brief Lesson), Reference (46 AN-11
   entries, inverted names, letter-by-letter order, the first entry of each
   letter with its letter, numbered procedures with the pull-down
   alternative, alphabetised Notes, See Also), Appendix (A Characters, B
@@ -152,15 +152,32 @@ or a return to the document). The template leaves their cells blank.
 
 ## Acceptance
 
-(see the final report of this lane for the exact tails; summarised here)
+Books: initechword-reference/main.pdf 120 pages (46 entries, 8 appendices,
+34 replayed screens, 7 FLAIR figures, 0 overfull, 2 DRAFT), cover and spine
+1 page each; initechword-workbook/main.pdf 112 pages (36 lessons, 82
+replayed screens, 0 overfull, 1 DRAFT), cover and spine; initechword-install
+main.pdf 4 panels and strip.pdf 1 page (0 DRAFT).
 
+- make pubs: 13 documents built (+ the two InitechWord covers/spines).
+- make test-pubs-build, test-pubs-commands, test-pubs-lint,
+  test-pubs-examples: green.
 - make test-pubs-iword: green -- inventory 220 shipped items (88 keys, 63
-  menu choices, 3 pull-down items, 49 codes, 17 messages); the Reference
-  documents 220 of 220 with 0 omissions; the template 12 of 12 F-key
-  bindings; every running-text key shipped; every lesson feature an entry;
-  every printed screen equals its replay.
-- make test-pubs-iword-mutant: 10 named mutants RED for their reasons.
-- make test-pubs-flair-screens: the 7 FLAIR figures re-captured and equal.
+  menu choices, 3 pull-down items, 49 codes, 17 messages); 220 shipped, 220
+  documented, 0 DRAFT, 0 omissions; template 12 of 12; 95 running-text keys
+  shipped; 150 lesson features each a Reference entry; 64 launches of
+  WORD.EXE replayed, 116 printed screens == the replay byte for byte.
+- make test-pubs-iword-mutant: green, 10 named mutants rejected.
+- make test-pubs-flair-screens: green, 7 figures == the booted desktop.
+- make test-pubs-repro (13 PDFs byte-identical), test-pubs-repro-mutant,
+  test-pubs-families, test-pubs-honesty, test-makefile-vars: green.
+- make test-pubs / test-pubs-mutant / test-pubs-screens: RED on the
+  InitechDOS Reference's chkdsk.txt (the running CHKDSK now reports 118320
+  bytes of memory where the committed capture says 118448) -- an InitechDOS
+  book's screen drifting against the merged kernel, not touched by this
+  lane (no os/ change on lane/wordman); it wants a `make pubs-screens` on
+  the DOS books by their owner. Every InitechWord leg of those aggregates
+  was run on its own and is green; harness/pubs/mutants.sh (the DOS
+  mutants) run directly: green, 11 named mutants rejected.
 
 ## Pointers
 
