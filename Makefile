@@ -23989,19 +23989,32 @@ SAMIR_SUSP_KEYS := bsl,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret,q,u,i,t
 # expand to nothing and the gate loses the disk (test-makefile-vars, tdnl.81).
 SAMIR_LIST_IMG     := $(BUILD)/samir_list.img
 SAMIR_LIST_MUT_IMG := $(BUILD)/samir_list_mut.img
+# initech-tdnl.106 (ADR-0003 DEC-19): the flagship boots to COMMAND.COM and
+# the desktop is the FLAIR command, so the desktop's SAMIR volume is the SAME
+# SAMIR.COM + CLIENTS.DBF disk with AUTOEXEC.BAT running FLAIR.COM from its
+# root (a volume with no AUTOEXEC.BAT stops at the DATE question instead).
+SAMIR_LIST_FLAIR_IMG := $(BUILD)/samir_list_flair.img
+SAMIR_LIST_FLAIR_BAT := $(BUILD)/samir_list_flair_autoexec.bat
+$(SAMIR_LIST_FLAIR_BAT): | $(BUILD)
+	@printf '@ECHO OFF\r\nFLAIR\r\n' > $@
+$(SAMIR_LIST_FLAIR_IMG): $(SAMIR_LIST_IMG) $(SAMIR_LIST_FLAIR_BAT) $(FLAIR_PROG_BIN) | $(BUILD)
+	cp -f $(SAMIR_LIST_IMG) $@
+	mcopy -i $@ $(SAMIR_LIST_FLAIR_BAT) ::AUTOEXEC.BAT
+	mcopy -i $@ $(FLAIR_PROG_BIN) ::FLAIR.COM
+	@$(call fixture-check,recipe,$@)
 .PHONY: test-flair-samir-suspend test-flair-samir-suspend-mutant test-flair-samir-suspend-bochs
-test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_IMG)
+test-flair-samir-suspend: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(SAMIR_LIST_FLAIR_IMG)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-samir-suspend : booted TEXT tenant (O-7)\n'
 	@printf '  Hotkey -> suspend desktop -> SAMIR full-screen (USE/LIST/QUIT) -> rebuild.\n'
 	@printf '  Ref: ADR-0013 Sec 3.2 (class-2 text tenant); spec/memory_map.h. Law 2/4.\n'
 	@printf '======================================================================\n'
-	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(FLAIRTENANTS_IMG)" "$(SAMIR_LIST_IMG)"
+	@printf 'Booting   : %s + data disk %s (SAMIR.COM + CLIENTS.DBF, primary slave)\n' "$(FLAIRTENANTS_IMG)" "$(SAMIR_LIST_FLAIR_IMG)"
 	@printf 'Expecting : FLAIR-SUSPEND + LIST rows {PESTON,WADDAMS,LUMBERGH} + FLAIR-RESUME + pre==post\n'
 	@printf '%s\n' '----------------------------------------------------------------------'
-	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
-	cp -f $(SAMIR_LIST_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(SAMIR_LIST_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_IMG))),:)
+	@$(call fixture-preflight,$(SAMIR_LIST_FLAIR_IMG))
+	cp -f $(SAMIR_LIST_FLAIR_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(SAMIR_LIST_FLAIR_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_FLAIR_IMG))),:)
 	@# ---- PRE: the co-resident desktop before the hotkey (no keys). ----
 
 	@$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \
@@ -24060,11 +24073,11 @@ SAMIR_SUSP_MUT_NAME    := flair_samir_suspend_mut
 SAMIR_SUSP_MUT_PPM     := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).ppm
 SAMIR_SUSP_MUT_SERIAL  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).serial
 SAMIR_SUSP_MUT_REPORT  := $(BUILD)/$(SAMIR_SUSP_MUT_NAME).report
-test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_IMG) $(BUILD)/flair_tenants_mut_no_rebuild.img
+test-flair-samir-suspend-mutant: $(HARNESS_BIN) $(SAMIR_LIST_FLAIR_IMG) $(BUILD)/flair_tenants_mut_no_rebuild.img
 	@printf '>>> test-flair-samir-suspend-mutant: confirming the no-rebuild mutant goes RED (Rule 6)\n'
-	@$(call fixture-preflight,$(SAMIR_LIST_IMG))
-	cp -f $(SAMIR_LIST_IMG) $(FLAIR_GATE_DATA)
-	@$(if $(call fixture-spec,$(SAMIR_LIST_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_IMG))),:)
+	@$(call fixture-preflight,$(SAMIR_LIST_FLAIR_IMG))
+	cp -f $(SAMIR_LIST_FLAIR_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(SAMIR_LIST_FLAIR_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(SAMIR_LIST_FLAIR_IMG))),:)
 	@# Establish the CLEAN pre baseline (the real desktop) if not already present.
 	@if [ ! -s "$(SAMIR_SUSP_PRE_PPM)" ]; then \
 		$(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(FLAIR_GATE_DATA)" --expect FLAIR-FAT-MOUNT-OK \

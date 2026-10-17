@@ -64,6 +64,8 @@ $(eval $(call fixture-contract,$(TPS_COMPILER_IMG),AUTOEXEC.BAT $(foreach pair,$
 $(eval $(call fixture-contract,$(TPS_GEN_MUT_VAR_IMG),MVARPAR.COM))
 $(eval $(call fixture-contract,$(HARNESS_QA_IMG),$(FIXTURE_CONTENTS_$(TPS_COMPILER_IMG))))
 $(foreach img,$(SAMIR_LIST_IMG) $(SAMIR_LIST_MUT_IMG),$(eval $(call fixture-contract,$(img),SAMIR.COM CLIENTS.DBF)))
+# initech-tdnl.106: the desktop's SAMIR volume starts FLAIR from AUTOEXEC.BAT.
+$(eval $(call fixture-contract,$(SAMIR_LIST_FLAIR_IMG),SAMIR.COM CLIENTS.DBF AUTOEXEC.BAT FLAIR.COM))
 $(eval $(call fixture-contract,$(SAMIR_REPORT_IMG),SAMIR.COM $(SAMIR_REPORT_FILES)))
 $(eval $(call fixture-contract,$(FLAIR_FILE_DATA),$(FLAIR_FIXTURES) KEEP.DAT))
 $(eval $(call fixture-contract,$(FLAIR_I123_FILE_DATA),$(FLAIR_FIXTURES) MINT01.WK1 BAD.WK1))

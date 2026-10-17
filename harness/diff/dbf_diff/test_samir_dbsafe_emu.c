@@ -61,7 +61,7 @@ int main(int argc,char **argv){
     int full=!strcmp(mode,"full"),life=!strncmp(mode,"lifetime",8),desktop=strstr(mode,"desktop")!=NULL,z;
     {
         char directory[]="build/dbsafe/emu-XXXXXX",from[2048];
-        const char *links[]={"qemu_harness","tracer_secondary.img","flair_tenants_interactive.img","CLIENTS.DBF"};
+        const char *links[]={"qemu_harness","tracer_secondary.img","flair_tenants_interactive.img","CLIENTS.DBF","flair_program.bin"};
         CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
         /* The gate must not depend on another gate having made build/dbsafe. */
         (void)mkdir("build",0755);(void)mkdir("build/dbsafe",0755);
