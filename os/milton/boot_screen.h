@@ -9,7 +9,8 @@
  *      73..296, the logo cell, the title baseline) and Sec 1 (the 50 % gray
  *      screen: black where x+y is even; the rounded screen corners).
  *      spec/assets/boot_logo.h (the logo strike, AUTHORED from the measured
- *      geometry), spec/assets/chicago12.h (the title font), docs/pubs/
+ *      geometry), spec/assets/chicago12.h via os/flair/text.h (the title
+ *      font), docs/pubs/
  *      DESIGN-REFERENCE.md Sec 7.0 (the logo face colours).
  *      CLAUDE.md Law 1 (every coordinate below is a measured capture pixel),
  *      Law 3 (freestanding C; no host state), Rule 11, Rule 12 (ASCII).
@@ -31,7 +32,8 @@
 
 #include <stdint.h>
 #include "boot_logo.h"
-#include "chicago12.h"
+#include "text.h"        /* chicago_cell_bits / chicago_advance: the ONE glyph
+                            * row accessor (packed rows in the kernel)       */
 
 #define BOOT_SCREEN_W 640
 #define BOOT_SCREEN_H 480
@@ -92,7 +94,7 @@ static void boot_screen_render(boot_screen_sink_fn sink, void *ctx)
     int title_w = 0, title_x;
 
     for (const char *s = BOOT_TITLE; *s; s++)
-        title_w += chicago12_advance((unsigned char)*s);
+        title_w += chicago_advance((unsigned char)*s);
     title_x = BOOT_PANEL_L + (BOOT_PANEL_R - BOOT_PANEL_L + 1 - title_w) / 2;
 
     for (int y = 0; y < BOOT_SCREEN_H; y++) {
@@ -167,10 +169,9 @@ static void boot_screen_render(boot_screen_sink_fn sink, void *ctx)
         if (y >= BOOT_TITLE_TOP && y < BOOT_TITLE_TOP + CHICAGO_CELL_H) {
             int pen = title_x;
             for (const char *s = BOOT_TITLE; *s; s++) {
-                int c = (unsigned char)*s, g = chicago12_index(c);
-                int aw = chicago12_advance(c);
-                unsigned bits = (unsigned)chicago12_rows[g][y - BOOT_TITLE_TOP] >>
-                                chicago12_lb[g];
+                int c = (unsigned char)*s;
+                int aw = chicago_advance(c);
+                unsigned bits = chicago_cell_bits(c, y - BOOT_TITLE_TOP);
                 for (int col = 0; col < aw; col++)
                     if (bits & (0x8000u >> col))
                         row[pen + col] = BOOT_IDX_BLACK;

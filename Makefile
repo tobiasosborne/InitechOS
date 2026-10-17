@@ -10454,7 +10454,7 @@ $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/milton/boot_screen.h spec/assets/boot_logo.h spec/assets/chicago12.h
 # ... and EVERY kmain variant object (the eval'd mutant/record templates spell
 # their own prerequisite lists), the vesa8.mk .EXTRA_PREREQS idiom.
-$(BUILD)/kmain%.o: private .EXTRA_PREREQS += os/milton/boot_screen.h spec/assets/boot_logo.h
+$(BUILD)/kmain%.o: private .EXTRA_PREREQS += os/milton/boot_screen.h spec/assets/boot_logo.h os/flair/text.h
 
 # Derived FROM the gate list (initech-8z9j): the interactive kernel is the bounded
 # FLAIRTENANTS kernel with ONLY its main object swapped. The old hand-copied list
@@ -32523,10 +32523,10 @@ $(TEST_BOOT_LOGO): harness/proptest/test_boot_logo.c $(BOOT_LOGO_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec/assets -Iseed -o $@ $< -lm
 $(TEST_BOOT_LOGO_MUT): harness/proptest/test_boot_logo.c $(BOOT_LOGO_H) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBOOT_LOGO_MUT_NOTCH_ROW -Ispec/assets -Iseed -o $@ $< -lm
-$(TEST_BOOT_SCREEN): harness/proptest/test_boot_screen.c os/milton/boot_screen.h $(BOOT_LOGO_H) spec/assets/chicago12.h spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec/assets -Ios/milton -o $@ $<
-$(TEST_BOOT_SCREEN_NL): harness/proptest/test_boot_screen.c os/milton/boot_screen.h $(BOOT_LOGO_H) spec/assets/chicago12.h spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_BOOT_MUT_NO_LOGO -Ispec/assets -Ios/milton -o $@ $<
+$(TEST_BOOT_SCREEN): harness/proptest/test_boot_screen.c os/milton/boot_screen.h $(BOOT_LOGO_H) os/flair/text.h spec/assets/chicago12.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -Ispec/assets -Ios/milton -Ios/flair -o $@ $<
+$(TEST_BOOT_SCREEN_NL): harness/proptest/test_boot_screen.c os/milton/boot_screen.h $(BOOT_LOGO_H) os/flair/text.h spec/assets/chicago12.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_BOOT_MUT_NO_LOGO -Ispec -Ispec/assets -Ios/milton -Ios/flair -o $@ $<
 $(BOOT_SCREEN_CHECK): tools/ppm_flair_boot_screen_check.c $(BOOT_LOGO_H) | $(BUILD)
 	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
 
