@@ -529,6 +529,28 @@ void int21_set_file_backend(const int21_file_backend_t *backend);
  * pp. 6-83/6-84). The FAT binder sets it at mount; 0 (unset) -> AL=FFh. */
 void int21_set_media(uint8_t media);
 
+/* AH=1Fh / AH=32h GET DRIVE PARAMETER BLOCK (WL-0167, bead initech-dpb1): the
+ * mounted geometry of the CURRENTLY SELECTED volume (the same selection
+ * freespace() reads), which int21.c publishes as the 32-byte DOS 3.x DPB of
+ * ADR-0003 Appendix B.4 (spec/dos_structs.h dpb_t). Sector numbers are
+ * volume-relative. The source returns 0 on success, non-zero when the
+ * selected drive has no mounted volume. NULL (unbound) -> AL=FFh. int21.c
+ * never includes fat12.h; the FAT binder supplies this. Ref:
+ * docs/research/dpb-ground-truth.md Sec 3/4 ($SETDPB arithmetic). */
+typedef struct int21_dpb_geometry {
+    uint16_t bytes_per_sector;
+    uint8_t  sectors_per_cluster;
+    uint16_t reserved_sectors;    /* = first FAT sector */
+    uint8_t  fat_count;
+    uint16_t root_entries;
+    uint16_t sectors_per_fat;
+    uint32_t root_dir_sector;
+    uint32_t first_data_sector;
+    uint32_t total_clusters;      /* data clusters; DPB 0Dh = this + 1 */
+    uint8_t  media;
+} int21_dpb_geometry_t;
+void int21_set_dpb_source(int (*geometry)(int21_dpb_geometry_t *out));
+
 /* Kernel adapters that expose DATA files must reserve the same device names
  * OPEN resolves first (including drive/path/extension normalization).
  * Ref: int21.c dev_open_lookup; MS-DOS 3.3 Technical Reference Ch. 4.
