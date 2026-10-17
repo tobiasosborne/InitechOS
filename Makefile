@@ -8471,7 +8471,7 @@ $(KERNEL_PIC_OBJ): $(KERNEL_PIC_C) $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/io.h | $(BU
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_PIC_C) -o $@
 
 $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) --param=min-pagesize=0 -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
 
 # INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
@@ -32653,3 +32653,4 @@ include harness/diff/fat_diff/kernel_hygiene.mk
 include harness/diff/fat_diff/formatsys.mk
 
 include harness/diff/fat_diff/shell_files.mk
+include harness/emu/panic_screen.mk
