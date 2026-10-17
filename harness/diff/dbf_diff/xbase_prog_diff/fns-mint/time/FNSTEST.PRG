@@ -1,0 +1,4 @@
+? "[FNS-BEGIN]"
+? TYPE("TIME()"), LEN(TIME()), SUBSTR(TIME(),3,1), SUBSTR(TIME(),6,1)
+? "[FNS-END]"
+RETURN

@@ -35,7 +35,7 @@ the order of the group: open the staff database with the department index.
 \begin{Steps}
 \item Type \type{USE STAFF INDEX STAFFDPT}.
 \item Type \type{REPORT FORM STAFFRPT}.
-\Response{InitechBase prints the report on the screen.}
+\ATEResponse{InitechBase prints the report on the screen.}
 \end{Steps}
 \DotExample{examples/l7-report}
 Each page begins with its number, the date and the title, then the column
@@ -76,7 +76,7 @@ ledger:
 \item Type \type{USE INVOICE INDEX INVNO}.
 \item Type \type{REPORT FORM INVRPT PLAIN TO FILE INVRPT}.
 \item Type \type{? FILE('INVRPT.TXT')}.
-\Response{\fn{FILE()} is true: the file \file{INVRPT.TXT} is on the disk.}
+\ATEResponse{\fn{FILE()} is true: the file \file{INVRPT.TXT} is on the disk.}
 \end{Steps}
 \DotExample{examples/l7-tofile}
 
