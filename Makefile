@@ -32867,3 +32867,7 @@ endef
 $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
 
 include harness/diff/dbf_diff/samir_size.mk
+
+# ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /
+# ADR-0002 DEC resolves to a DEC heading; every cited foundational Record is filed.
+include harness/adr_citations.mk
