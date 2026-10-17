@@ -46,22 +46,7 @@ static int_frame_t fresh_frame(void)
 }
 
 /* Low-4-GiB allocation so flat pointers fit a uint32_t segment computation. */
-static void *alloc_low(size_t n)
-{
-    void *p = MAP_FAILED;
-#ifdef MAP_32BIT
-    p = mmap(NULL, n, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
-#endif
-    if (p == MAP_FAILED) {
-        return NULL;
-    }
-    if ((uintptr_t)p > 0xFFFFFFFFu) {
-        munmap(p, n);
-        return NULL;
-    }
-    return p;
-}
+#include "test_low_mapping.h"
 
 /* The current PSP lives in low memory; its DOS-segment owner id is (ptr>>4) --
  * the SAME value AH=62h GET PSP returns and the value do_alloc stamps as owner. */
@@ -132,6 +117,8 @@ static int seg_owned_by(uint16_t seg, uint16_t owner)
 int main(void)
 {
     g_psp = (psp_t *)alloc_low(sizeof(psp_t));
+    CHECK((uintptr_t)g_psp == 0x10010000u,
+          "Rule 11: deterministic PSP mapping, nonzero DOS owner");
     g_arena_buf = (uint8_t *)alloc_low((size_t)ARENA_PARAS * 16u);
     CHECK(g_psp != NULL, "PSP buffer in low 4 GiB");
     CHECK(g_arena_buf != NULL, "arena buffer in low 4 GiB");

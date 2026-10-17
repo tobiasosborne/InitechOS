@@ -716,6 +716,10 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
     int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
                                                cmd_tail_len, env_block, &rc);
+    /* 4jic: BUSY ran no child. The caller is still the active baked/FAT
+     * program; replacing its hook/PSP here would turn its exit into a halt.
+     * Ref: ADR-0003 DEC-08 single-level EXEC; IBM DOS 3.30 TR p. 6-195. */
+    if (st == LOADER_ERR_BUSY) return INT21_ERR_INSUFFICIENT_MEM;
     int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
     int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
     int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */

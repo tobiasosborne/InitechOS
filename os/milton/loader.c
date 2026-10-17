@@ -313,7 +313,11 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
      *    canonical InitechMZ emits cs=ip=0 (entry == load base, identical to a
      *    .COM), but a non-zero entry_off is honored. ESP stays PROGRAM_STACK_TOP
      *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
+#ifdef LOADER_MUTATE_MZ_ENTRY_EQUAL
     if (img.entry_off > img.load_module_len) {
+#else
+    if (img.entry_off >= img.load_module_len) {
+#endif
         /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
         return LOADER_ERR_BAD_FORMAT;
     }
@@ -645,9 +649,9 @@ static loader_context_t *g_loader_ctx = 0;
  * would clobber g_loader_ctx + the program region, so load_program_from_fat
  * REJECTS it (LOADER_ERR_BUSY) rather than corrupt the machine. KERNEL/shell
  * EXEC (the common case, g_load_active == 0) proceeds. Nested EXEC is deferred
- * (a follow-up bead). Note: load_program() itself does not set this -- the saw
- * entry point owns the guard, because the baked run_baked() path (kmain) calls
- * load_program directly and must keep working unchanged. */
+ * (a follow-up bead). Both the baked entry and the FAT entry own this guard
+ * across their shared transfer. Ref: ADR-0003 DEC-08 (one flat program region),
+ * Appendix A 4Bh; IBM DOS 3.30 Technical Reference p. 6-195 (CF/AX errors). */
 static uint8_t g_load_active = 0;
 
 /* Tiny freestanding memcpy (loader.c pulls in no libc; Rule 11 deterministic). */
@@ -993,6 +997,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * The image source bytes live in a kernel-owned buffer (e.g. the baked demo
      * program in run_baked); loader_run_plan copies them DOWN to PROGRAM_IMAGE.
      * UNCHANGED by za4m -- only the FAT path goes direct/in-place. */
+    if (g_load_active) return LOADER_ERR_BUSY;
     loader_plan_t plan;
     loader_status_t st = loader_prepare(image, image_len, cmd_tail,
                                         cmd_tail_len, &plan);
@@ -1002,7 +1007,12 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
     /* Baked path inherits an EMPTY env (env_block=0): the baked demos carry no
      * environment, so loader_run_plan synthesizes the 2-byte empty block exactly
      * as before (byte-identical; beads initech-1i0x inc 3). */
-    return loader_run_plan(&plan, /*do_copy=*/1, /*env_block=*/0u, out_exit_code);
+#ifndef LOADER_MUTATE_BAKED_UNGUARDED
+    g_load_active = 1;
+#endif
+    st = loader_run_plan(&plan, /*do_copy=*/1, /*env_block=*/0u, out_exit_code);
+    g_load_active = 0;
+    return st;
 }
 
 loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,

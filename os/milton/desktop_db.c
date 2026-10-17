@@ -309,8 +309,11 @@ int desktop_trash_ensure(const fat12_volume_t *vol, void *fat,
 	rc = fat12_find(vol, sector_buf, DESKTOP_TRASH_NAME, &entry);
 	if (rc == FAT12_ERR_NOT_FOUND) {
 		*out_state = DESKTOP_TRASH_CREATE;
-		return fat12_mkdir(vol, fat, fat_len, DESKTOP_TRASH_NAME, 0u,
+		rc = fat12_mkdir(vol, fat, fat_len, DESKTOP_TRASH_NAME, 0u,
 		                   sector_buf, cluster_buf);
+		if (rc != FAT12_OK) return rc;
+		return fat12_hide_dir(vol, fat, fat_len, DESKTOP_TRASH_NAME, 0u,
+		                      sector_buf);
 	}
 	if (rc != FAT12_OK) {
 		return rc;
@@ -318,5 +321,7 @@ int desktop_trash_ensure(const fat12_volume_t *vol, void *fat,
 	if ((entry.attribute & DIR_ATTR_DIRECTORY) == 0u) {
 		return FAT12_ERR_ACCESS;
 	}
-	return FAT12_OK;
+	/* Upgrade an existing service directory through the same safe attribute API.
+	 * F1-3 / tdnl.30: hidden TRASH, just as DESKTOP.DB is hidden. */
+	return fat12_hide_dir(vol, fat, fat_len, DESKTOP_TRASH_NAME, 0u, sector_buf);
 }
