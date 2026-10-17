@@ -32292,9 +32292,14 @@ endef
 # mount (it is held through it) and BEFORE the desktop, which still arrives.
 BOOT_SCREEN_ORDER = awk '/^FLAIR-BOOT-SCREEN$$/{if(b)exit 1;b=NR} /^FLAIR-FAT-MOUNT-OK$$/{m=NR} /^FLAIR-DESKTOP$$/{d=NR} /^FLAIR-LIVE-OK$$/{k=NR} END{exit !(b && m>b && d>m && k>d)}' $(1)
 
+# The 8bpp DAC leg: the SAME boot-hold image with only IO.SYS forced to VBE
+# 0x101 (the vesa8.mk recipe + its fixture contract, initech-2gva).
+$(eval $(call vesa8-image,boothold,$(FLAIRTENANTS_BOOTHOLD_IMG)))
+$(eval $(call fixture-inline-contract,$(VESA8_DIR)/boothold.img,@@32256 IO.SYS=RHS INITDOS.SYS=RHS COMMAND.COM))
+
 .PHONY: test-flair-boot-screen test-flair-boot-screen-mutant
 test-flair-boot-screen test-flair-boot-screen-mutant: export INITECH_QMP_STDIO=1
-test-flair-boot-screen: $(HARNESS_BIN) $(FLAIRTENANTS_BOOTHOLD_IMG) $(FLAIR_DATA_IMG) $(BOOT_SCREEN_CHECK)
+test-flair-boot-screen: $(HARNESS_BIN) $(FLAIRTENANTS_BOOTHOLD_IMG) $(VESA8_DIR)/boothold.img $(FLAIR_DATA_IMG) $(BOOT_SCREEN_CHECK)
 	@test -s "$(BOOT_SCREEN_PNG)" || { printf '!!! test-flair-boot-screen FAIL: golden %s absent (system7-decomp mint-009)\n' "$(BOOT_SCREEN_PNG)"; exit 1; }
 	$(call boot-screen-boot,$(FLAIRTENANTS_BOOTHOLD_IMG),flair_boot_screen)
 	@$(call BOOT_SCREEN_ORDER,$(BUILD)/flair_boot_screen.serial) \
@@ -32303,7 +32308,15 @@ test-flair-boot-screen: $(HARNESS_BIN) $(FLAIRTENANTS_BOOTHOLD_IMG) $(FLAIR_DATA
 	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen.ppm "$(BOOT_SCREEN_PNG)" | sed 's/^/    /'
 	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen.ppm "$(BOOT_SCREEN_PNG)" >/dev/null \
 		|| { printf '!!! test-flair-boot-screen FAIL: the live splash differs from s8_startup_welcome.png / the strike\n'; exit 1; }
-	@printf '>>> test-flair-boot-screen: green (live splash == Mac OS 8.1 Welcome panel cell for cell + the Initech strike; splash < FAT mount < desktop)\n'
+	@grep -q '^VIDEO 640x480 bpp=32 ' $(BUILD)/flair_boot_screen.serial
+	$(call boot-screen-boot,$(VESA8_DIR)/boothold.img,flair_boot_screen_8bpp)
+	@grep -q '^VIDEO 640x480 bpp=8 ' $(BUILD)/flair_boot_screen_8bpp.serial \
+		|| { printf '!!! test-flair-boot-screen FAIL: the 8bpp leg did not boot VBE 0x101\n'; exit 1; }
+	@$(call BOOT_SCREEN_ORDER,$(BUILD)/flair_boot_screen_8bpp.serial)
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen_8bpp.ppm "$(BOOT_SCREEN_PNG)" | sed 's/^/    8bpp: /'
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen_8bpp.ppm "$(BOOT_SCREEN_PNG)" >/dev/null \
+		|| { printf '!!! test-flair-boot-screen FAIL: the 8bpp (DAC) splash differs from s8_startup_welcome.png / the strike\n'; exit 1; }
+	@printf '>>> test-flair-boot-screen: green (live splash == Mac OS 8.1 Welcome panel cell for cell + the Initech strike, 32bpp AND 8bpp DAC; splash < FAT mount < desktop)\n'
 test-flair-boot-screen-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_bootnologo.img $(FLAIR_DATA_IMG) $(BOOT_SCREEN_CHECK)
 	$(call boot-screen-boot,$(BUILD)/flair_tenants_mut_bootnologo.img,flair_boot_screen_nologo)
 	@$(call BOOT_SCREEN_ORDER,$(BUILD)/flair_boot_screen_nologo.serial)
