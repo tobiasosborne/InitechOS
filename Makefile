@@ -8152,6 +8152,7 @@ endef
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
         test-finder-icon-art test-finder-icon-art-mutant \
+        test-finder-icon-oracles test-finder-icon-oracles-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -21004,9 +21005,51 @@ FLAIR_ICONS_SCENE_MARK := FINDER-WIN-SELECT win=0 name=README.TXT count=1
 FLAIR_ICONS_SCENE_CELLS := VOLUME:SEL@584,48/8DDCDC TRASH:UNSEL@584,404/8DDCDC \
                            DOC:SEL@44,86/FFFFFF FOLDER:UNSEL@112,86/FFFFFF \
                            APP:UNSEL@410,206/FFFFFF APP:UNSEL@478,206/FFFFFF \
-                           DOC:UNSEL@478,258/FFFFFF
+                           DOC:UNSEL@410,310/FFFFFF
 FLAIR_TRASH_FULL_CELL   := TRASH_FULL:UNSEL@584,404/8DDCDC
 FLAIR_CAUTION_CELL      := CAUTION:UNSEL@156,100/E7E7E7
+
+# Factory scene routing regression (lane/trashfull): the locked-purge trace opens
+# Trash (selected FULL), and APPS probes follow the independent DOS inventory.
+TEST_ICON_ORACLES := $(BUILD)/test_finder_icon_oracles
+ICON_ORACLES_DEPS := harness/proptest/test_finder_icon_oracles.c $(PPM_FLAIR_TRASH_CHECK_SRC) \
+                     harness/render/icon_capture.h harness/render/alert_capture.h spec/assets/color_canon.h
+$(TEST_ICON_ORACLES): $(ICON_ORACLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -DICON_CAPTURES_DIR='"$(ICON_CAPTURES_DIR)"' -o $@ $< -lpng
+$(TEST_ICON_ORACLES)_mut_unselected: $(ICON_ORACLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -DICON_CAPTURES_DIR='"$(ICON_CAPTURES_DIR)"' -DTRASH_CHECK_MUT_LOCKED_UNSELECTED -o $@ $< -lpng
+ICON_SCENE_MUT_STALE_DOC = $(wordlist 1,6,$(FLAIR_ICONS_SCENE_CELLS)) DOC:UNSEL@478,258/FFFFFF
+.PHONY: test-finder-icon-oracles test-finder-icon-oracles-mutant
+test-finder-icon-oracles: $(TEST_ICON_ORACLES)
+	@$(TEST_ICON_ORACLES) spec/dos_folder_apps.txt $(FLAIR_ICONS_SCENE_CELLS)
+test-finder-icon-oracles-mutant: $(TEST_ICON_ORACLES) $(TEST_ICON_ORACLES)_mut_unselected
+	@rc=0; $(TEST_ICON_ORACLES)_mut_unselected spec/dos_folder_apps.txt $(FLAIR_ICONS_SCENE_CELLS) > $(TEST_ICON_ORACLES)_mut_unselected.log 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q '^FAIL FULL-state routing locked-full: selected' $(TEST_ICON_ORACLES)_mut_unselected.log && grep -q 'RED (1 failures)' $(TEST_ICON_ORACLES)_mut_unselected.log \
+	|| { cat $(TEST_ICON_ORACLES)_mut_unselected.log; exit 1; }; \
+	printf '>>> TRASH_CHECK_MUT_LOCKED_UNSELECTED: RED -- captured selected FULL can rejected (617/1024)\n'
+	@rc=0; $(TEST_ICON_ORACLES) spec/dos_folder_apps.txt $(ICON_SCENE_MUT_STALE_DOC) > $(TEST_ICON_ORACLES)_mut_stale_doc.log 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q '^FAIL scene APPS TPSPARM.DAT:' $(TEST_ICON_ORACLES)_mut_stale_doc.log && grep -q 'RED (1 failures)' $(TEST_ICON_ORACLES)_mut_stale_doc.log \
+	|| { cat $(TEST_ICON_ORACLES)_mut_stale_doc.log; exit 1; }; \
+	printf '>>> ICON_SCENE_MUT_STALE_DOC: RED -- DOC probe no longer names TPSPARM.DAT in the independent APPS inventory\n'
+	@printf '>>> test-finder-icon-oracles-mutant: green\n'
+
+# Reuse the existing locked traces, mtools checks and independent pixel gates.
+# The regression is in factory routing; no alternate guest paint path is needed.
+.PHONY: test-flair-icon-oracles test-flair-icon-oracles-mutant
+test-flair-icon-oracles: test-finder-icon-oracles test-flair-locked-purge test-flair-finder-icons
+	@printf '>>> test-flair-icon-oracles: green (selected FULL Trash after locked purge; 7 named scene cells)\n'
+$(BUILD)/ppm_flair_trash_check_mut_locked_unselected: $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h harness/render/icon_capture.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -DICON_CAPTURES_DIR='"$(ICON_CAPTURES_DIR)"' -DTRASH_CHECK_MUT_LOCKED_UNSELECTED -o $@ $< -lpng
+test-flair-icon-oracles-mutant: test-flair-icon-oracles $(BUILD)/ppm_flair_trash_check_mut_locked_unselected
+	@rc=0; $(BUILD)/ppm_flair_trash_check_mut_locked_unselected locked-full $(BUILD)/locked_trash_purge.ppm > $(BUILD)/icon_oracles_mut_unselected.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL leg locked-full -- FULL Trash (TRASH_FULL): 617/1024' $(BUILD)/icon_oracles_mut_unselected.grade \
+	|| { cat $(BUILD)/icon_oracles_mut_unselected.grade; exit 1; }; \
+	printf '>>> TRASH_CHECK_MUT_LOCKED_UNSELECTED: RED -- booted selected FULL can rejected (617/1024)\n'
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" $(BUILD)/flair_finder_icons.ppm $(ICON_SCENE_MUT_STALE_DOC) > $(BUILD)/icon_oracles_mut_stale_doc.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL: 1 icon cell(s) differ' $(BUILD)/icon_oracles_mut_stale_doc.grade && grep -q 'DOC UNSEL at (478,258).*626/1024' $(BUILD)/icon_oracles_mut_stale_doc.grade \
+	|| { cat $(BUILD)/icon_oracles_mut_stale_doc.grade; exit 1; }; \
+	printf '>>> ICON_SCENE_MUT_STALE_DOC: RED -- booted PAINT.EXE graded as DOC (626/1024); other 6 cells pass\n'
+	@printf '>>> test-flair-icon-oracles-mutant: green\n'
 
 # $(call icons-scene,<image>,<name>): boot the scene trace, grade nothing yet.
 define icons-scene
@@ -23680,6 +23723,15 @@ RECORD_IMAGE_toolbox_hardening = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_toolbox_hardening = $(FLAIR_DATA_IMG)
 RECORD_MARKER_toolbox_hardening = FLAIR-SCROLL win 0 h part=21 value=16 max=171
 RECORD_SETTLE_toolbox_hardening = 500
+
+# Rule 14: PM records the regression on main. Reuses the locked mixed-purge
+# gesture and read-only TENANTFX fixture; the surviving FULL can is selected.
+RECORD_SCRIPTS += trashfull_regression
+RECORD_SPEC_trashfull_regression = $(FLAIR_TRASHFULL_REGRESSION_SPEC)
+RECORD_IMAGE_trashfull_regression = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_trashfull_regression = $(BUILD)/record_locked_purge.img
+RECORD_MARKER_trashfull_regression = FINDER-LOCKED-ALERT
+RECORD_SETTLE_trashfull_regression = 200
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
@@ -28931,7 +28983,7 @@ test-finder-lock-mutant: $(BUILD)/test_finder_ops_mutant_LOCKED_STAGE $(BUILD)/t
 test-flair-locked-trash: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_LOCKED_TRASH_SPEC)'
 test-flair-locked-purge: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
-	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_EMPTY_OK_SPEC)' _purge purge
+	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_TRASHFULL_REGRESSION_SPEC)' _purge purge
 test-flair-locked-trash-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_locked_stage.img $(BUILD)/flair_tenants_mut_locked_notice.img $(BUILD)/flair_tenants_mut_locked_purge.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@set -e; for pair in 'locked_stage:locked file left source:stage' 'locked_notice:locked notice pixels missing:stage' 'locked_purge:visible message missing:purge'; do \
 	  tag=$${pair%%:*}; rest=$${pair#*:}; why=$${rest%:*}; mode=$${rest##*:}; log=$(BUILD)/$$tag.log; \
@@ -29052,6 +29104,7 @@ TEST_UNIT_GATES := \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
 	test-finder-icon-art test-finder-icon-art-mutant \
+	test-finder-icon-oracles test-finder-icon-oracles-mutant \
 	test-window test-window-mutant test-winscroll test-winscroll-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -30209,6 +30262,7 @@ TEST_EMU_GATES := \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
 	test-flair-finder-icons test-flair-finder-icons-mutant \
 	test-flair-trash-full test-flair-trash-full-mutant \
+	test-flair-icon-oracles test-flair-icon-oracles-mutant \
 	test-flair-trash-purge-views test-flair-trash-purge-views-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \

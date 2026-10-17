@@ -102,6 +102,14 @@ FLAIR_EMPTY_CANCEL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m
 #     PARK (464,168) -> (620,460): m52:97, m52:97, m52:98.
 FLAIR_EMPTY_OK_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:8,m-100:8,m-100:8,m-100:7,m-100:7,m-45:0,l1,m100:64,m100:64,m100:64,m100:64,m100:62,m45:0,m0:2,l0,m-100:-64,m-100:-64,m-100:-64,m-100:-64,m-77:-64,l1,m100:64,m100:64,m100:64,m100:64,m77:62,m0:2,l0,l1,l0,l1,l0,m-100:-98,m-100:-98,m-100:-98,m-100:-98,m-30:0,l1,m0:35,l0,m98:51,m98:52,m98:0,l1,l0,m52:97,m52:97,m52:98
 
+# lane/trashfull regression and Rule-14 clip: exactly the existing 3c gesture
+# on the locked-purge fixture (APPS/TENANTFX.EXE read-only). README and APPS
+# are staged, Trash is double-clicked open (SELECTED), then Empty Trash/OK
+# purges 17 and refuses 2. The locked notice leaves the can FULL + SELECTED.
+# Ref: spec/dos_folder_apps.txt; mint-008 s8_icons_trash_full_sel.png.
+# This name shares the locked trace; do not maintain a second token stream.
+FLAIR_TRASHFULL_REGRESSION_SPEC := $(FLAIR_EMPTY_OK_SPEC)
+
 # ===========================================================================
 # 4. EMPTY TRASH RETIRES EVERY VIEW OF A REMOVED FOLDER (bead initech-uios,
 #    audit L002; Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed
