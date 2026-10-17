@@ -726,7 +726,14 @@ KERNEL_GC_LDFLAGS := --gc-sections
 # Do not apply to the native blitter, ATKINSON, text, loader, event ring or
 # hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
 # Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
-KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables
+# Size round 6 (WL-0162 Part 4): ONE aliasing + page-size policy for the whole
+# LTO set. Every TU with these flags already ran without type-based alias
+# analysis (KERNEL_TENANTS_OPT, the SIZE_OPT_R2 set, finder_ops/stdfile/list);
+# the rest (control, chrome, dialog, menu, fat12, tbxgate ...) now join them.
+# -fno-strict-aliasing only REMOVES an optimisation assumption, so no correct
+# program changes meaning; with one option set across the partition the
+# merged code is smaller. Measured flagship: 182,764 -> 181,900 B (-864 B).
+KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables -fno-strict-aliasing --param=min-pagesize=0
 # Round 4: Ubuntu's GCC retains frame pointers even at -Oz. Only the existing
 # cold/pure C set drops them; the loader transfer and both ring publications
 # retain native -O0 bytes (test-kernel-native-boundaries). Ref: PRD Sec 5/6.1/8;
