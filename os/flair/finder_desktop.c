@@ -390,6 +390,14 @@ void finder_click_reset(finder_click_track_t *t)
     t->reserved    = 0u;
 }
 
+/* The double-click interval: the record image's build-time override, else the
+ * live Control Panels value (finder_desktop.h FINDER_DBLCLICK_RECORD_OVERRIDE). */
+#ifdef FINDER_DBLCLICK_RECORD_OVERRIDE
+#define FD_DBLCLICK_TICKS ((uint32_t)FINDER_DBLCLICK_TICKS)
+#else
+#define FD_DBLCLICK_TICKS ((uint32_t)flair_double_click_ticks)
+#endif
+
 finder_click_kind_t finder_click_classify(finder_click_track_t *t,
                                           int16_t target,
                                           int16_t h, int16_t v, uint32_t when)
@@ -406,7 +414,7 @@ finder_click_kind_t finder_click_classify(finder_click_track_t *t,
 #else
     if (t->armed && target >= 0 && target == t->last_target &&
         when >= t->last_when &&
-        (when - t->last_when) <= (uint32_t)flair_double_click_ticks &&
+        (when - t->last_when) <= FD_DBLCLICK_TICKS &&
         fd_abs((int)h - (int)t->last_h) <= FINDER_DBLCLICK_SLOP &&
         fd_abs((int)v - (int)t->last_v) <= FINDER_DBLCLICK_SLOP) {
         is_double = 1;

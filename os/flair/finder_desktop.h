@@ -159,6 +159,17 @@
  * against (spec/flair_desktop_icons_traces.mk trace 5): no oracle grades the
  * record image, and if a GATE ever needs the interval widened the fix is still
  * the harness or the trace, never this number. */
+/* Since the Control Panels Mouse panel (91f8088c) the LIVE interval is the
+ * runtime flair_double_click_ticks (event.c; cp_service.h sets it from the
+ * settings record), which silently orphaned this build-time knob: the record
+ * image's clips with a double-click degraded to two single clicks and missed
+ * their markers (grow_box, finder_list_view, dos_folder, ...). An explicit -D
+ * therefore marks the override, and finder_click_classify uses the knob
+ * instead of the runtime value ONLY then (finder_desktop.c FD_DBLCLICK_TICKS).
+ * Default builds still follow the Control Panels setting. */
+#ifdef FINDER_DBLCLICK_TICKS
+#define FINDER_DBLCLICK_RECORD_OVERRIDE 1
+#endif
 #ifndef FINDER_DBLCLICK_TICKS
 #define FINDER_DBLCLICK_TICKS      20u
 void finder_desk_small_icon(const bitmap_t *dst,int16_t x,int16_t y,uint8_t kind,
