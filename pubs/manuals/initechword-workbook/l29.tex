@@ -1,0 +1,57 @@
+% Lesson 29 (AN-18): a table of figures lined up with tabs (stops every half
+% inch; the columns at 2", 3" and 4" from the margin).  Saves SUPPLY.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{29}{Table of Figures}
+\LessonFeatures{Tab; Reveal Codes; Save}
+The supply room counts its stock every quarter.  In this lesson you type
+the count as a small table, its columns lined up on tab stops two, three and
+four inches in from the left margin.  How many tabs each figure needs
+depends on how long the text before it is: a tab always goes to the next
+stop after the cursor.
+
+\BeginReplay{l29}
+\Task{Typing the Table}
+\begin{WPSteps}
+\item Type \TypeRun{SUPPLY ROOM COUNT, FIRST QUARTER} and press
+\PressKey{Enter} twice.\Keys{Enter}
+\item Type each line below: each cell, then the tabs shown, and Enter at the
+end of the line.
+\end{WPSteps}
+\par\addvspace{4pt}
+\begingroup\setlength\parskip{2pt}
+\Typing{Item}\Keys{Tab Tab Tab Tab}\Typing{Floor 2}\Keys{Tab}\Typing{Floor 3}\Keys{Tab}\Typing{Total}\Keys{Enter}%
+\noindent\hspace*{4mm}\textbf{Item}, four tabs, \textbf{Floor 2}, one tab, \textbf{Floor 3}, one tab, \textbf{Total}\par
+\Typing{Cover sheets}\Keys{Tab Tab}\Typing{400}\Keys{Tab Tab}\Typing{250}\Keys{Tab Tab}\Typing{650}\Keys{Enter}%
+\noindent\hspace*{4mm}\textbf{Cover sheets}, two tabs, \textbf{400}, two tabs, \textbf{250}, two tabs, \textbf{650}\par
+\Typing{Staples}\Keys{Tab Tab Tab}\Typing{12}\Keys{Tab Tab}\Typing{8}\Keys{Tab Tab}\Typing{20}\Keys{Enter}%
+\noindent\hspace*{4mm}\textbf{Staples}, three tabs, \textbf{12}, two tabs, \textbf{8}, two tabs, \textbf{20}\par
+\Typing{Black pens}\Keys{Tab Tab}\Typing{60}\Keys{Tab Tab}\Typing{45}\Keys{Tab Tab}\Typing{105}\Keys{Enter}%
+\noindent\hspace*{4mm}\textbf{Black pens}, two tabs, \textbf{60}, two tabs, \textbf{45}, two tabs, \textbf{105}\par
+\Typing{Report binders}\Keys{Tab Tab}\Typing{35}\Keys{Tab Tab}\Typing{20}\Keys{Tab Tab}\Typing{55}\Keys{Enter}%
+\noindent\hspace*{4mm}\textbf{Report binders}, two tabs, \textbf{35}, two tabs, \textbf{20}, two tabs, \textbf{55}\par
+\endgroup
+\par\addvspace{4pt}
+\CompareScreen[rows=8]{l29-1}
+
+\Task{Checking the Tabs}
+\begin{WPSteps}
+\item Press \PressKey{Up} three times to go to the line of the staples, and
+press \Press{Reveal Codes}{Alt-F3}.\Keys{Up Up}
+\end{WPSteps}
+\CompareScreen[rows=18]{l29-2}
+Each \Code{[Tab]} moves the text after it to the next stop, so a short entry
+needs more tabs than a long one to reach the same column.
+\begin{WPSteps}[resume]
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+
+\Task{Saving the Table}
+\begin{WPSteps}[resume]
+\item Press \Press{Save}{F10}, type \TypeName{supply} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 30 you copy text from one document to another.

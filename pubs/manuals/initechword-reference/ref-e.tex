@@ -1,0 +1,62 @@
+% Reference entries, E (AN-11).  Law 1: os/iword/app/face_a.c THE EXIT
+% GUARD (request_exit, M_SAVEQ, M_EXITQ, clear_document; F7 always asks;
+% File > Exit, its Ctrl-Q equivalent and the close box end a document
+% saved since its last change at once), the model's questions (Reference
+% Manual Exit p. 193, A Brief Lesson p. 21).  The Ctrl-Q route is shown on
+% the booted desktop (flair/exitq.trace).
+% GATES: test-pubs-iword test-iword-face test-flair-iword test-pubs-flair-screens
+\Gates{test-pubs-iword test-iword-face test-flair-iword test-pubs-flair-screens}
+\begin{Feature}{Exit}
+Exit is how you finish with a document.  It lets you save the document,
+then either leave InitechWord or clear the screen for a new document.
+
+To exit a document,
+\begin{WPSteps}
+\item Press \FK{Exit}{F7}.  The status line asks
+\Scr{Save Document? Yes (No)}.  If you have not changed the document since
+you last saved or retrieved it, \Scr{(Text was not modified)} is shown at
+the right end of the line.
+\PullDown{Select \Mi{E}xit from the \Mi{F}ile menu (see Exit From the File Menu below).}
+\item Type \Typed{y} (or press \K{Enter}) to save the document.  InitechWord
+asks for its name as Save does, offering the name the document already has
+(see \InRef{Save}).  Press \K{Enter} to accept it, or type a new one.
+\Or
+Type \Typed{n} if you do not want to save it.
+\item The status line asks \Scr{Exit WP? No (Yes)}.  Type \Typed{y} to leave
+InitechWord
+\Or
+Type \Typed{n} (or press \K{Enter}) to stay in InitechWord with a clear
+screen, ready for a new document.
+\end{WPSteps}
+\Documents{wpkey}{F7}
+\begin{Important}A document you have not saved is lost when you clear the
+screen or leave InitechWord after answering No to \Scr{Save
+Document?}.\end{Important}
+
+\Notes
+\Topic{Cancel}
+Press \FK{Cancel}{F1} or \K{Esc} at either question to return to the
+document unchanged.  At the name prompt, Cancel also returns you to the
+document without saving it.
+
+\Topic{Exit From the File Menu}
+Choosing Exit from the File menu, pressing its keyboard equivalent
+(hold down Ctrl and press Q), or clicking the close box of the InitechWord window ends a
+document you have not changed since you last saved or retrieved it at once,
+without a question.  If you have changed it, InitechWord asks the same two
+questions as Exit (F7).
+\FlairShot{exitq}{640}{440}{Ctrl-Q with an unsaved document: InitechWord asks whether to save it}
+
+\Topic{Other Keys}
+Keys other than those described here do nothing at the two questions.
+Only F7 starts Exit: Shift-F7, Alt-F7 and Ctrl-F7 show the grey names
+\textit{Print}, \textit{Columns/Table} and \textit{Footnote} on the status
+line (see Appendix F).
+
+\Topic{The New Document}
+After \Scr{Exit WP?} is answered No, the screen is clear, the status line
+shows no name, and the format of the new document is the standard one (see
+Appendix E).  The Move buffer keeps the text you last moved or copied.
+
+\SeeAlso{Cancel; Save; Status Line}
+\end{Feature}

@@ -77,6 +77,7 @@ test-panic-screen-bochs: $(BOCHS_BIN) $(PANIC_SCREEN_DIR)/debug32.img $(PANIC_SC
 	@mcopy -i $(PANIC_SCREEN_DIR)/bochs-data.img $(PANIC_SCREEN_DIR)/ud.com ::PANIC.COM
 	@printf '@ECHO OFF\r\nPANIC\r\n' > $(PANIC_SCREEN_DIR)/bochs.bat
 	@mcopy -i $(PANIC_SCREEN_DIR)/bochs-data.img $(PANIC_SCREEN_DIR)/bochs.bat ::AUTOEXEC.BAT
+	@$(call fixture-check,recipe,$(PANIC_SCREEN_DIR)/bochs-data.img,PANIC.COM AUTOEXEC.BAT)
 	@$(BOCHS_BIN) --disk $(PANIC_SCREEN_DIR)/debug32.img --disk2 $(PANIC_SCREEN_DIR)/bochs-data.img --name panic_screen_bochs --out $(PANIC_SCREEN_DIR) --timeout-ms 45000 --expect HALTED --quit-after HALTED 2> $(PANIC_SCREEN_DIR)/bochs.report
 	@grep -q 'rfb_unblocked=1' $(PANIC_SCREEN_DIR)/bochs.report
 	@grep -q 'triple_fault=0' $(PANIC_SCREEN_DIR)/bochs.report

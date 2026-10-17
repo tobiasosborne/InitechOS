@@ -100,7 +100,7 @@ int main(int argc,char **argv){
     snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/tracer_secondary.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys 'd,r,i,v,e,ret,e,x,i,t,ret' --keys-after SHELL-READY --quit-after SHELL-DONE > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode);
     if(desktop){
         keyscript("use clients.dbf\nselect 2\nuse clients.dbf\nuse other.dbf\nselect 1\nuse\nselect 2\nlist\nselect 1\nuse clients.dbf\nclose databases\nselect 2\nuse other.dbf\nselect 1\nuse clients.dbf\nquit\n\\use clients.dbf\nlist\nquit\n",keys,sizeof keys);
-        snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/flair_tenants_interactive.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys '%s' --keys-after FLAIR-LIVE-READY --expect FLAIR-RESUME --screendump --screendump-after FLAIR-RESUME > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode,keys);
+        snprintf(cmd,sizeof cmd,"build/qemu_harness --disk build/flair_tenants_interactive.img --disk2 build/dbsafe/emu.img --name samir_dbsafe_%s --out build --timeout-ms 60000 --keys '%s' --keys-after FLAIR-LIVE-READY --keys-after-ms 15000 --expect FLAIR-RESUME --screendump --screendump-after FLAIR-RESUME > build/dbsafe/emu.stdout 2> build/dbsafe/emu.report",mode,keys);
     }
     run(cmd);snprintf(cmd,sizeof cmd,"build/samir_dbsafe_%s.serial",mode);n=readfile(cmd,raw,sizeof raw);
     for(i=0,j=0;i<n;i++)if(raw[i]!='\r')serial[j++]=raw[i];

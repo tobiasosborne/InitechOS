@@ -1,0 +1,62 @@
+% Lesson 11 (AN-18): Move, Block Copy (Ctrl-F4,1,2) and Move, Retrieve
+% (Ctrl-F4,4,1); at "Move cursor; press Enter to retrieve." only the cursor
+% keys, Enter, Reveal Codes and Cancel act (face_a.c retrieve_key).  Uses
+% AGENDA from Lesson 10; nothing saved.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{11}{Copying Text}
+\LessonFeatures{Move, Block; Move, Retrieve; Block}
+Some text is needed in two places.  Instead of typing it twice, copy it.
+In this lesson you add a list for the next meeting to the agenda and copy
+an item into it, then put in a second copy with Move's Retrieve.
+
+\BeginReplay{l11}
+\Task{Adding a Heading}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{agenda} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the
+end of the agenda.  Press \PressKey{Enter} to leave a blank line, type
+\TypeRun{NEXT MEETING} and press \PressKey{Enter}.
+\end{WPSteps}
+
+\Task{Copying the Item}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Up}, then
+\PressKey{Down} three times to go to \textit{Cover sheets for TPS
+reports}.\Keys{Down Down}
+\item Press \Press{Block}{Alt-F4} and \PressKey{Down} to block the item and
+its hard return.
+\item Press \Press{Move}{Ctrl-F4}, select \Choose{Block}{1}, then select
+\Choose{Copy}{2}.  This time the item stays where it is, and the status line
+shows \Scr{Move cursor; press Enter to retrieve.}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the
+end, under \textit{NEXT MEETING}.
+\end{WPSteps}
+\begin{Aside}While the status line shows this prompt, only the cursor keys,
+Enter, Reveal Codes and Cancel do anything; the characters you type are
+ignored.\end{Aside}
+\begin{WPSteps}[resume]
+\item Press \PressKey{Enter}.  The copy goes in at the cursor.
+\end{WPSteps}
+\CompareScreen[rows=9]{l11-1}
+
+\Task{Retrieving the Copy Again}
+InitechWord keeps the text you last copied or moved, so you can put it in
+again wherever you need it.
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end.
+\item Press \Press{Move}{Ctrl-F4}.  With Block off, the menu is
+\Scr{Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0}.
+\item Select \Choose{Retrieve}{4}, then \Choose{Block}{1}.  A second copy goes
+in at the cursor.
+\end{WPSteps}
+\CompareScreen[rows=10]{l11-2}
+
+\Task{Clearing the Screen}
+The agenda is not to be changed, so do not save it.
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}, type \TypeName{n}, then \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 12 you let InitechWord select a sentence or a paragraph to move.

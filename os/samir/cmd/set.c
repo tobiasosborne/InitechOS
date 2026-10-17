@@ -65,6 +65,8 @@
 #include "samir/rt.h"
 #include "samir/pal.h"
 #include "samir/set.h"
+#include "samir/ndx.h"
+#include "samir/nav.h"
 
 /* ===================================================================== */
 /* Tunables                                                               */
@@ -376,11 +378,10 @@ static int do_set_order(xb_interp *ip, const char *args, int *err_code)
 
 /*
  * do_set_index: SET INDEX TO [<file list>].
- * GATED -- work-area index-open plumbing not yet present (plan S5.6 task:
- * "parse + store intent, loud-skip runtime effect"). Stores the raw text.
- * Ref: set-commands.md Sec 3.5 (SET INDEX TO <list>).
+ * Replace the selected area's open indexes; retain text for old accessors.
+ * Ref: Using III+ U5-239 and real SF-index transcript.
  */
-static int do_set_index(set_state *ss, const char *args, int *err_code)
+static int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -390,7 +391,42 @@ static int do_set_index(set_state *ss, const char *args, int *err_code)
     }
     s_copy_trim(ss->index_text, (uint32_t)SET_GATED_TEXT_CAP, s);
     ss->have_index = 1;
-    /* GATED: runtime index-open effect deferred -- follow-up bead required. */
+    /* Using III+ U5-239; SF-index: replace this area's list, first is master,
+     * omitted extensions are NDX, and position at the master beginning. */
+#ifndef SAMIR_FNS_MUTANT_index
+    {
+        wa_env *env=xb_interp_env(ip);
+        int area=wa_selected(env),count=0;
+        extern void wa_close_indexes(wa_env *,int);
+        if(!wa_table(env,area)) {if(err_code)*err_code=52;return -INTERP_ERR_EVAL;}
+        wa_close_indexes(env,area);wa_nav_reset(area);
+        while(*s) {
+            char name[128];uint32_t n=0;int dot=0;ndx_index *ix;
+            s=s_skip_ws(s);
+            while(*s && *s!=',' && !s_isspace(*s)) {
+                if(n>=sizeof name-5){if(err_code)*err_code=10;return -INTERP_ERR_SYNTAX;}
+                if(*s=='.')dot=1;
+                name[n++]=*s++;
+            }
+            name[n]=0;
+            if(!n || count>=NDX_PER_AREA) {if(err_code)*err_code=count>=NDX_PER_AREA?28:10;return -INTERP_ERR_SYNTAX;}
+            if(!dot)rt_memcpy(name+n,".NDX",5);
+            if(ndx_open_rw(xb_interp_pal(ip),name,&ix)!=NDX_OK) {
+                if(err_code)*err_code=1;
+                return -INTERP_ERR_EVAL;
+            }
+            if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);if(err_code)*err_code=28;return -INTERP_ERR_EVAL;}
+            count++;
+            s=s_skip_ws(s);if(*s==',')s=s_skip_ws(s+1);
+        }
+        if(count) {
+            wa_set_order(env,area,1);
+            if(wa_nav_index_top(env,area)!=NAV_OK) {if(err_code)*err_code=114;return -INTERP_ERR_EVAL;}
+        }
+    }
+#else
+    (void)ip;
+#endif
     if (err_code) *err_code = 0;
     return INTERP_OK;
 }
@@ -641,7 +677,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
     }
 
     if (s_ci_eq(opt, "INDEX")) {
-        int rc = do_set_index(ss, s, err_code);
+        int rc = do_set_index(ip, ss, s, err_code);
         return (rc == INTERP_OK) ? CMD_OK : rc;
     }
 

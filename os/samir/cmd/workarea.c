@@ -1097,6 +1097,13 @@ static const xb_dbcursor wa_dbcursor_vtable = {
     wac_file_exists
 };
 
+static uint32_t wac_record_size(void *user)
+{
+    wa_env *env=user;
+    dbf_table *tbl=wa_table(env,wa_selected(env));
+    return tbl?dbf_record_length(tbl):0;
+}
+
 void wa_bind_ctx(wa_env *env, xb_ctx *ctx)
 {
     if (!ctx)
@@ -1108,6 +1115,7 @@ void wa_bind_ctx(wa_env *env, xb_ctx *ctx)
      * NULL dbcur (a pure-expression ctx with no env) makes them fail loud. */
     ctx->dbcur       = &wa_dbcursor_vtable;
     ctx->dbcur_user  = env;
+    ctx->record_size = wac_record_size;
 }
 
 /* ===================================================================== */

@@ -1,0 +1,91 @@
+% Reference entries, W (AN-11).  Law 1: os/iword/core/edit.c
+% iw_reflow_para (the space that ends a full line becomes the soft return;
+% a line holds (10200 - R - L) / 120 + 1 characters, 66 at the standard
+% margins: spec/iword/wp5_format.h WRAP, MINT01, MINT22; a word longer than
+% the line is broken by the layout only), face_a.c (insertion: every
+% character typed goes in at the cursor; Ins does nothing).
+% GATES: test-pubs-iword test-iword-core test-iword-wp5-roundtrip test-iword-face test-flair-iword
+\Gates{test-pubs-iword test-iword-core test-iword-wp5-roundtrip test-iword-face test-flair-iword}
+\begin{Feature}{Window}
+InitechWord runs in a window of its own on the FLAIR desktop, titled
+\Scr{InitechWord}.  The window fills the screen below the menu bar.  While
+InitechWord is the application in front, the menu bar shows its File menu
+in a second row (see \InRef{Pull-Down Menus}).
+
+\Notes
+\Topic{Close Box}
+Clicking the close box at the left of the title bar does what Exit from the
+File menu does: if you have not changed the document since you last saved
+or retrieved it, InitechWord ends at once; otherwise it asks whether to save
+the document, as Exit (F7) does (see \InRef{Exit}).
+
+\BeginReplay{ref-closebox}
+For example, type \TypeRun{Unsaved text} and click the close
+box\CloseBox:
+\WordScreen[rows=1]{ref-closebox}{The close box with an unsaved document}
+\EndReplay
+
+\Topic{Keys}
+The keys you press go to the window in front.  When InitechWord's window is
+in front, every key of this book acts in it.
+
+\SeeAlso{Exit; Pull-Down Menus; Screen}
+\end{Feature}
+
+\begin{Feature}{WordPerfect 5.1 Documents}
+InitechWord documents are WordPerfect 5.1 documents.  InitechWord writes a
+document as WordPerfect 5.1 writes it -- the settings area WordPerfect 5.1
+writes for a new document, then the text and its codes byte for byte as
+WordPerfect 5.1 stores them -- and it retrieves documents saved by
+WordPerfect 5.1.
+
+\Notes
+\Topic{Codes InitechWord Does Not Make}
+A WordPerfect document can hold codes InitechWord does not put in documents:
+centered and flush-right lines and hard spaces.  InitechWord keeps them and
+saves them unchanged (see \InRef{Codes}).  A document with a code
+InitechWord cannot read is refused with \Scr{ERROR: Incompatible File
+Format}, so that it is never changed by mistake.
+
+\Topic{Saving a Retrieved Document}
+A document retrieved onto a clear screen keeps the settings area it came
+with, so saving it again writes those settings back as they were.
+
+\Topic{The File}
+Appendix D describes the file for programmers.
+
+\SeeAlso{Codes; Retrieve; Save}
+\end{Feature}
+
+\begin{Feature}{Word Wrap}
+When the line you are typing is full, InitechWord moves the word that does
+not fit to the start of the next line.  You keep typing and press Enter only
+at the end of a paragraph.
+
+Under the standard one inch margins a line holds 66 characters.  The space
+before the word that moves down becomes a soft return (see \InRef{Return,
+Soft}).
+
+\BeginReplay{ref-wrap}
+For example, type this paragraph without pressing Enter:
+\Type{Initech word processing is here. The quick brown fox jumps over the lazy dog.}
+The paragraph wraps after \textit{over}:
+\WordScreen[rows=2]{ref-wrap}{A paragraph that wraps}
+\EndReplay
+
+\Notes
+\Topic{Inserting and Deleting}
+Text you type goes in at the cursor, in front of what is there; nothing is
+typed over.  After every change InitechWord wraps the paragraph again, so
+its lines always end where they should.
+
+\Topic{Long Words}
+A word longer than a whole line is broken where the line ends; the rest of
+it continues on the next line.
+
+\Topic{Margins}
+The line length follows the margins in effect (see \InRef{Margins, Left and
+Right}).  Indented lines wrap at the indent (see \InRef{Indent}).
+
+\SeeAlso{Margins, Left and Right; Return, Hard; Return, Soft}
+\end{Feature}

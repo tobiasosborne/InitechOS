@@ -505,6 +505,13 @@ static uint32_t q_parse_uint(const char **s)
 static int q_split_clauses(const char *args, query_clauses *qc)
 {
     const char *s = q_skip_ws(args);
+    /* Using III+ U5-144: OFF precedes the scope/expression list as well
+     * as being accepted after it (real SF-listoff). Do not discard its tail. */
+    int leading_off = 0;
+#ifndef SAMIR_FNS_MUTANT_listoff
+    leading_off = q_match_kw(s, "OFF");
+    if (leading_off) s = q_skip_ws(s + leading_off);
+#endif
     int in_s = 0, in_d = 0, in_b = 0;
     const char *for_at = (const char *)0;
     const char *while_at = (const char *)0;
@@ -520,7 +527,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     qc->has_for      = 0;
     qc->whilecond[0] = '\0';
     qc->has_while    = 0;
-    qc->off          = 0;
+    qc->off          = leading_off != 0;
 
     /* locate the first top-level FOR / WHILE / OFF keywords. */
     while (*p != '\0') {

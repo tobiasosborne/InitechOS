@@ -1,0 +1,56 @@
+% Lesson 23 (AN-18): a business letter on the letterhead of Lesson 18 --
+% Retrieve, typing under Full justification, a closing block, Save under a
+% new name.  Uses LETTERHD; saves SMYKOWSK.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{23}{Business Letter}
+\LessonFeatures{Retrieve; Word Wrap; Return, Hard; Save; Filenames}
+Tom Smykowski asked what the new cover sheets are for.  In this lesson you
+answer him on the letterhead you made in Lesson 18.  The letterhead already
+holds the date and the salutation, so you type the body and the closing,
+and save the letter under a name of its own.
+
+\BeginReplay{l23}
+\Task{Retrieving the Letterhead}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{letterhd} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to go to the end
+of the letterhead, below the salutation.
+\end{WPSteps}
+
+\Task{Typing the Body}
+\begin{WPSteps}
+\item Type the first paragraph:
+\Type{Thank you for your question about the new cover sheets. Every TPS report now goes out with a cover sheet, so that each report can be traced to the person who prepared it and the date it was sent.}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\item Type the second paragraph:
+\Type{The cover sheets are in the supply room on the third floor. If you need more than a few, ask Milton Waddams in collating, who keeps the reserve stock.}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+\CompareScreen[rows=17]{l23-1}
+The letterhead was typed with Full justification after the date, so the
+body begins at the left margin and wraps at the right.
+
+\Task{Typing the Closing}
+\begin{WPSteps}
+\item Type \TypeRun{Sincerely,} and press \PressKey{Enter} four times to
+leave room for the signature.\Keys{Enter Enter Enter}
+\item Type \TypeRun{Bill Lumbergh} and press \PressKey{Enter}.
+\item Type \TypeRun{Vice President}.
+\end{WPSteps}
+\CompareScreen[rows=22]{l23-2}
+The whole letter fits on the screen.  Its last line is at \Scr{Ln 4.5"},
+four and a half inches from the top of the page.
+
+\Task{Saving the Letter}
+The status line shows \Scr{A:\wbs LETTERHD}.  Save the letter under a new
+name, so that the letterhead stays as it is for the next letter.
+\begin{WPSteps}
+\item Press \Press{Save}{F10}.  The status line offers \Scr{LETTERHD}.
+\item Type \TypeName{smykowsk} and press \PressKey{Enter}.  A name has at
+most eight characters before the period.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 24 you take the minutes of a meeting.

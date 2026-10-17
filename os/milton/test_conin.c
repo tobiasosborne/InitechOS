@@ -25,6 +25,9 @@
  *   -DINT21_MUTATE_CONHANDLE_NOCOOKED: AH=3Fh on a CON handle reverts to the old
  *                                      EOF return (0 bytes) -> the x8fs handle-0
  *                                      cooked-read cases go RED (beads initech-x8fs).
+ *   -DINT21_MUTATE_DISCARD_RING_ONLY : int21_conin_discard_through drains the whole
+ *                                      ring and ignores the lookahead (the pre-fix
+ *                                      FLAIR hotkey drain) -> the discard tests go RED.
  *   -DINT21_MUTATE_NO_CTRLC_CHECK    : the CON-input ^C check-point is dropped, so
  *                                      0x03 is delivered as a raw char and INT 23h
  *                                      is NEVER invoked -> the [4tw.*] ^C cases go
@@ -676,6 +679,33 @@ int main(void)
         CHECK((uint8_t)(f.eax & 0xFFu) == 'A', "AH=01h non-^C: 'A' delivered normally");
         CHECK(!sink_saw_int23(), "AH=01h non-^C: INT 23h NOT invoked for an ordinary char");
         CHECK(g_exit_called == 0, "AH=01h non-^C: terminate hook did NOT run");
+    }
+
+    /* --- int21_conin_discard_through: the FLAIR text-tenant hotkey drop
+     * (bead initech-tdnl.105). Desktop typing queued before the hotkey and the
+     * hotkey itself are dropped; the keys typed after it survive -- also when
+     * an AH=0Bh poll has already parked the hotkey in the lookahead slot. Reads
+     * use 06h DL=FF (non-blocking) so a wrong drop shows as ZF=1, not a hang.
+     * The INT21_MUTATE_DISCARD_RING_ONLY mutant (the pre-fix drain: empty the
+     * ring, ignore the lookahead) goes RED on both cases. */
+    {
+        int_frame_t f;
+        queue_set("ab\\uv", 5);
+        int21_conin_discard_through('\\');
+        f = fresh_frame(); f.eax = 0x0600u; f.edx = 0xFFu; int21_dispatch(&f);
+        CHECK(frame_zf(&f) == 0 && (uint8_t)(f.eax & 0xFFu) == 'u',
+              "discard_through: typing before the hotkey + the hotkey dropped, the next key kept");
+        f = fresh_frame(); f.eax = 0x0600u; f.edx = 0xFFu; int21_dispatch(&f);
+        CHECK(frame_zf(&f) == 0 && (uint8_t)(f.eax & 0xFFu) == 'v',
+              "discard_through: the rest of the typeahead kept in order");
+
+        queue_set("\\use", 4);
+        f = fresh_frame(); f.eax = 0x0B00u; int21_dispatch(&f);   /* parks '\\' */
+        int21_conin_discard_through('\\');
+        f = fresh_frame(); f.eax = 0x0600u; f.edx = 0xFFu; int21_dispatch(&f);
+        CHECK(frame_zf(&f) == 0 && (uint8_t)(f.eax & 0xFFu) == 'u',
+              "discard_through: a hotkey parked in the AH=0Bh lookahead is dropped, 'u' kept");
+        queue_set("", 0);
     }
 
     /* --- NULL source: a blocking read returns 0 (EOF), never hangs/faults. */

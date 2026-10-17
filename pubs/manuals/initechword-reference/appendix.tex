@@ -1,0 +1,521 @@
+% The Appendix section (PUB-REF-0001 CP-16: codes from spec/iword/
+% reveal_codes.h, the file format from spec/iword/wp5_format.h, messages,
+% keyboards; model: WordPerfect 5.1 Reference Appendix A..T, each on a
+% recto, docs/pubs/originals/wordperfect-51.md s3).  Every code, message and
+% key alias below is registered (\WPCode, \WPMessage, \WPAlias) and graded
+% both ways against the surface measured from WORD.EXE by `make
+% test-pubs-iword` (harness/pubs/iword_probe.c): the codes from the locked
+% table's text, the messages by driving the program into each one, the keys
+% by pressing each.
+% GATES: test-pubs-iword test-iword-wp5-roundtrip test-iword-reveal-codes test-iword-face
+\Gates{test-pubs-iword test-iword-wp5-roundtrip test-iword-reveal-codes test-iword-face}
+\WPHead{Appendix Contents}
+\begin{tabular}{@{}ll@{}}
+Appendix A & Characters\\
+Appendix B & Codes\\
+Appendix C & Messages and Prompts\\
+Appendix D & Document File Format\\
+Appendix E & Initial Settings\\
+Appendix F & Keyboard\\
+Appendix G & Menus\\
+Appendix H & Limits\\
+\end{tabular}
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{A}{Characters}
+InitechWord takes the characters of the keyboard that print: the space and
+the 94 characters from \Scr{!} to \Scr{\textasciitilde}.  Each is stored in
+the document as the one byte of its ASCII code, as WordPerfect 5.1 stores
+it.  The table gives each character with its decimal code.
+
+\par\addvspace{6pt}
+\directlua{
+  local out = {}
+  for c = 32, 126 do
+    local ch = string.char(c)
+    local shown
+    if c == 32 then shown = "sp"
+    elseif ch:match("[A-Za-z0-9]") then shown = ch
+    else shown = "\string\\char" .. c .. "\string\\relax " end
+    out[\string#out + 1] = c .. " & \string\\texttt{" .. shown .. "}"
+  end
+  local rows = {}
+  local per = 19
+  for r = 1, per do
+    local cells = {}
+    for col = 0, 4 do
+      local i = r + col * per
+      if out[i] then cells[\string#cells + 1] = out[i] else cells[\string#cells + 1] = " & " end
+    end
+    rows[\string#rows + 1] = table.concat(cells, " & ") .. "\string\\\string\\"
+  end
+  tex.sprint("\string\\noindent{\string\\small\string\\begin{tabular}{@{}rl@{\string\\quad}rl@{\string\\quad}rl@{\string\\quad}rl@{\string\\quad}rl@{}}" .. table.concat(rows) .. "\string\\end{tabular}}")
+}
+\par\addvspace{6pt}
+
+The keys that are not characters -- the function keys, Enter, Tab and the
+others -- do not put characters in the document; they put codes there or
+move the cursor (see Appendix F).
+
+\Notes
+\Topic{Characters From Other Documents}
+A WordPerfect 5.1 document can hold the hard space, shown in Reveal Codes
+as \Code{[ ]}: a space at which a line never wraps.  InitechWord keeps hard
+spaces in documents it retrieves; it has no key that types one.
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{B}{Codes}
+These are the codes Reveal Codes shows, in the order of the alphabet of
+their names.  A pair of codes is listed under its on code (capitals) and its
+off code (lower case).  Codes marked \textit{kept} are ones InitechWord keeps
+in a document it retrieves but does not put in documents itself (see
+\InRef{Codes}).
+\par\addvspace{8pt}
+\WPCode{[ ]}{Hard space: a space at which a line does not wrap (kept).}
+\WPCode{[?]}{A code of a WordPerfect 5.1 document that Reveal Codes has no
+name for (kept).}
+\WPCode{[->Indent]}{Indent, F4.  Shown with an arrow, \Code{[\rarr Indent]}.}
+\WPCode{[Block]}{Not a code: shows where Block was turned on, while it is on.}
+\WPCode{[BOLD]}{Bold on, F6.}
+\WPCode{[bold]}{Bold off.}
+\WPCode{[Center]}{Center a line, from a WordPerfect document (kept).}
+\WPCode{[DBL UND]}{Double underline on, Ctrl-F8,2,3.}
+\WPCode{[dbl und]}{Double underline off.}
+\WPCode{[DSRt]}{Deletable soft return, put in by Justification in the middle
+of a line.}
+\WPCode{[EXT LARGE]}{Extra large on, Ctrl-F8,1,7.}
+\WPCode{[ext large]}{Extra large off.}
+\WPCode{[FINE]}{Fine on, Ctrl-F8,1,3.}
+\WPCode{[fine]}{Fine off.}
+\WPCode{[Flsh Rgt]}{Flush right, from a WordPerfect document (kept).}
+\WPCode{[HPg]}{Hard page, Ctrl-Enter.}
+\WPCode{[HRt]}{Hard return, Enter.}
+\WPCode{[ITALC]}{Italic on, Ctrl-F8,2,4.}
+\WPCode{[italc]}{Italic off.}
+\WPCode{[Just:Center]}{Justification center, Shift-F8,1,3,2.}
+\WPCode{[Just:Full]}{Justification full, Shift-F8,1,3,4.}
+\WPCode{[Just:Left]}{Justification left, Shift-F8,1,3,1.}
+\WPCode{[Just:Right]}{Justification right, Shift-F8,1,3,3.}
+\WPCode{[L/R Mar:...]}{Left and right margins, Shift-F8,1,7, with the two
+margins in inches: \Code{[L/R Mar:1.5",2"]}.}
+\WPCode{[LARGE]}{Large on, Ctrl-F8,1,5.}
+\WPCode{[large]}{Large off.}
+\WPCode{[Ln Spacing:...]}{Line spacing, Shift-F8,1,6, with the spacing:
+\Code{[Ln Spacing:2]}.}
+\WPCode{[OUTLN]}{Outline on, Ctrl-F8,2,5.}
+\WPCode{[outln]}{Outline off.}
+\WPCode{[REDLN]}{Redline on, Ctrl-F8,2,8.}
+\WPCode{[redln]}{Redline off.}
+\WPCode{[SHADW]}{Shadow on, Ctrl-F8,2,6.}
+\WPCode{[shadw]}{Shadow off.}
+\WPCode{[SM CAP]}{Small capitals on, Ctrl-F8,2,7.}
+\WPCode{[sm cap]}{Small capitals off.}
+\WPCode{[SMALL]}{Small on, Ctrl-F8,1,4.}
+\WPCode{[small]}{Small off.}
+\WPCode{[SRt]}{Soft return: the end of a line made by word wrap.}
+\WPCode{[STKOUT]}{Strikeout on, Ctrl-F8,2,9.}
+\WPCode{[stkout]}{Strikeout off.}
+\WPCode{[SUBSCPT]}{Subscript on, Ctrl-F8,1,2.}
+\WPCode{[subscpt]}{Subscript off.}
+\WPCode{[SUPRSCPT]}{Superscript on, Ctrl-F8,1,1.}
+\WPCode{[suprscpt]}{Superscript off.}
+\WPCode{[Tab]}{Tab, the Tab key.}
+\WPCode{[UND]}{Underline on, F8.}
+\WPCode{[und]}{Underline off.}
+\WPCode{[VRY LARGE]}{Very large on, Ctrl-F8,1,6.}
+\WPCode{[vry large]}{Very large off.}
+
+\Notes
+\Topic{Codes Reveal Codes Does Not Show}
+WordPerfect 5.1 keeps some records in a document that Reveal Codes never
+shows: one at the end of an indented paragraph, one before each hard page,
+one at the start of each centered or right-justified line, and one at the
+end of a centered or flush-right line.  InitechWord writes them as
+WordPerfect does and keeps them up to date as you edit; you never see or
+delete them.
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{C}{Messages and Prompts}
+These are the messages, questions and prompts InitechWord shows on the
+status line, in alphabetical order.  Each is shown exactly as it appears on
+the screen; \textit{filename} and \textit{code} stand for the name or code
+shown.
+
+\WPMessage{(Text was not modified)}{Shown at the right end of the status
+line with \Scr{Save Document? Yes (No)} when the document has not changed
+since it was last saved or retrieved.}{Type \Typed{n}: there is nothing new
+to save.}
+\WPMessage{* Not found *}{Search or Replace found nothing more in the
+direction it was going (see \InRef{Search} and \InRef{Replace}).  The cursor
+is where it was before the search, or after the last replacement.}{Press any
+key.  Check the search string, or search in the other direction.}
+\WPMessage{-> Srch:}{The prompt of Search forward (F2), with the search
+string (see \InRef{Search}); also the search string of Replace.}{Type the
+text or codes to find and press F2.}
+\WPMessage{<- Srch:}{The prompt of Search backward (Shift-F2), with the
+search string; also the search string of Replace after Up.}{Type the text or
+codes to find and press F2.}
+\WPMessage{Block on}{Block is on (see \InRef{Block}).}{Move the cursor to
+stretch the block, then press the key of the feature to use on it; press
+Alt-F4 or Cancel to turn Block off.}
+\WPMessage{Delete Block? No (Yes)}{Delete or Backspace was pressed while
+Block was on.}{Type \Typed{y} to delete the block; any other key keeps it.}
+\WPMessage{Delete [code]? No (Yes)}{Backspace or Delete reached a code on
+the editing screen (see \InRef{Codes}).}{Type \Typed{y} to delete the code;
+any other key moves the cursor past it.}
+\WPMessage{Document to be Retrieved:}{The prompt of Retrieve.}{Type the
+name of the document and press Enter, or press Cancel.}
+\WPMessage{Document to be Saved:}{The prompt of Save, with the document's
+name if it has one.}{Press Enter to save under the name shown, or type a
+name and press Enter.}
+\WPMessage{ERROR: Disk Full--Press Any Key to Continue}{The data volume has
+no room for the document being saved.  The document is still on the
+screen.}{Press any key.  Make room on the data volume, or save the document
+under the name of a document you no longer need.}
+\WPMessage{ERROR: Document too large}{The document to be retrieved is larger
+than InitechWord can hold, or an addition would make the document on the
+screen larger than that (see Appendix H).}{Press any key.  Divide the work
+into smaller documents.}
+\WPMessage{ERROR: File I/O error}{The file could not be made on the data
+volume, or the data volume could not be read.}{Press any key and try again
+with another name.}
+\WPMessage{ERROR: File Not Found}{No document of that name is on the data
+volume.}{Press any key, check the name, and type it again.}
+\WPMessage{ERROR: Incompatible File Format}{The file is not a WordPerfect
+5.1 document InitechWord can read.}{Press any key and give the name of an
+InitechWord document.}
+\WPMessage{ERROR: Invalid file name}{The name is not a valid file name (see
+\InRef{Filenames}).}{Press any key and type the name again.}
+\WPMessage{Exit WP? No (Yes)}{The second question of Exit.}{Type \Typed{y}
+to leave InitechWord; \Typed{n} or Enter clears the screen for a new
+document; Cancel returns to the document.}
+\WPMessage{Move cursor; press Enter to retrieve.}{Text moved or copied with
+Move waits to be put in the document.}{Move the cursor where the text is to
+go and press Enter.}
+\WPMessage{Original Document Backup? No (Yes)}{The question of Setup's
+Original Document Backup (see \InRef{Setup}).}{Type \Typed{y} or \Typed{n}.}
+\WPMessage{Press Reveal Codes to restore screen}{Reveal Codes is on.}{Press
+Alt-F3 to return to the full editing screen.}
+\WPMessage{Replace A:\wbs filename? No (Yes)}{A document with the name you
+are saving under is already on the data volume.}{Type \Typed{y} to replace
+it; any other key asks for a name again.}
+\WPMessage{Replace with:}{The second prompt of Replace (see
+\InRef{Replace}).}{Type the new text and press F2; press F2 alone to delete
+what is found.}
+\WPMessage{Replace? Yes (No)}{Replace with confirmation stopped at an
+occurrence, highlighted as a block.}{Type \Typed{y} or press Enter to
+replace it, \Typed{n} to leave it; Cancel stops replacing.}
+\WPMessage{Save Document? Yes (No)}{The first question of Exit.}{Type
+\Typed{y} or press Enter to save the document, \Typed{n} not to; Cancel
+returns to the document.}
+\WPMessage{Selection: 0}{A Setup screen waits for a choice (see
+\InRef{Setup}).}{Type the number of a choice; press Exit (F7) to go back a
+screen, or Cancel to return to the document.}
+\WPMessage{Undelete 1 Restore; 2 Previous Deletion: 0}{Cancel (F1) was
+pressed on the editing screen; the deletion shown in reverse video at the
+cursor can be restored (see \InRef{Undelete}).}{Select 1 to restore it, 2
+to see the deletion before it; Cancel leaves the document as it was.}
+\WPMessage{Units of Measure:}{Setup asks for the letter of a unit (see
+\InRef{Setup}).}{Type \Typed{i}, \Typed{c}, \Typed{p}, \Typed{w} or
+\Typed{u}.}
+\WPMessage{w/Confirm? No (Yes)}{The first question of Replace.}{Type
+\Typed{y} to be asked at each occurrence; \Typed{n} or Enter replaces every
+occurrence without asking.}
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{D}{Document File Format}
+An InitechWord document is a WordPerfect 5.1 document file: InitechWord
+writes the file as WordPerfect 5.1 writes it, and reads the documents
+WordPerfect 5.1 saves, as long as they hold only the codes listed in
+Appendix B.  This appendix describes the file for programmers.  All numbers
+of more than one byte are stored with the low byte first.
+
+\WPSide{The Header}
+The first 16 bytes of the file are its header:
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}llp{70mm}@{}}
+\textbf{Offset} & \textbf{Bytes} & \textbf{Contents}\\
+0 & 4 & the byte FFh and the letters \Scr{WPC}\\
+4 & 4 & where the text of the document begins (the offset of the body)\\
+8 & 1 & 1, the product\\
+9 & 1 & 0Ah, a document\\
+10 & 1 & 0, the major version\\
+11 & 1 & 1, the minor version\\
+12 & 2 & 0: the document is not locked\\
+14 & 2 & 0\\
+\end{tabular}
+\par\addvspace{4pt}
+
+\WPSide{The Prefix}
+Between the header and the body are the settings of the document, in
+packets.  A new InitechWord document is saved with the 327 bytes WordPerfect
+5.1 writes for a new document (the body begins at offset 327, 147h); one
+byte of them records whether the cursor was at the end of the document when
+it was saved.  A document that was retrieved is saved with the prefix it
+came with.
+
+\WPSide{The Body}
+The body is the text and its codes, byte by byte:
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}lp{76mm}@{}}
+\textbf{Bytes} & \textbf{Meaning}\\
+20h--7Fh & a character (Appendix A)\\
+0Ah & hard return \Code{[HRt]}\\
+0Ch & hard page \Code{[HPg]}\\
+0Dh & soft return \Code{[SRt]}\\
+83h & end of a centered or flush-right line\\
+90h & deletable soft return \Code{[DSRt]}\\
+A0h & hard space \Code{[ ]}\\
+C0h--CFh & a fixed-length code that begins and ends with the same byte\\
+D0h--FFh & a variable-length code: the byte, a sub-code, a two-byte length,
+the contents, the length, the sub-code and the byte again\\
+\end{tabular}
+\par\addvspace{4pt}
+
+\WPSide{Fixed-Length Codes}
+\begin{tabular}{@{}llp{64mm}@{}}
+\textbf{Code} & \textbf{Length} & \textbf{Meaning}\\
+C1h & 9 & center, flush right or tab; the sub-code 02h is \Code{[Tab]}\\
+C2h & 11 & \Code{[\rarr Indent]}\\
+C3h & 3 & an attribute on: C3h, the attribute number, C3h\\
+C4h & 3 & an attribute off: C4h, the attribute number, C4h\\
+C6h & 6 & the end of an indented paragraph\\
+\end{tabular}
+
+\WPSide{Attribute Numbers}
+\begin{tabular}{@{}rl@{\qquad}rl@{}}
+0 & extra large & 8 & italic\\
+1 & very large & 9 & shadow\\
+2 & large & 10 & redline\\
+3 & small & 11 & double underline\\
+4 & fine & 12 & bold\\
+5 & superscript & 13 & strikeout\\
+6 & subscript & 14 & underline\\
+7 & outline & 15 & small capitals\\
+\end{tabular}
+
+\WPSide{Variable-Length Codes}
+\begin{tabular}{@{}llp{60mm}@{}}
+\textbf{Code} & \textbf{Length} & \textbf{Meaning}\\
+D0h 01h & 16 & left and right margins: the old and the new margins\\
+D0h 02h & 12 & line spacing: the old and the new spacing, in 1/256 line\\
+D0h 06h & 10 & justification: the old and the new, 0 left, 1 full, 2
+center, 3 right\\
+D4h 00h & 32 & the record WordPerfect keeps before each hard page\\
+D4h 05h & 12 & the record of where a centered or right-justified line starts\\
+\end{tabular}
+
+\WPSide{Measurements}
+Positions and margins are stored in WordPerfect units, 1200 to the inch,
+measured from the left edge of the paper.
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{E}{Initial Settings}
+A new document begins with these settings.  You can change those marked
+with an entry name for any part of the document.
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}p{28mm}p{34mm}p{30mm}@{}}
+\textbf{Setting} & \textbf{Value} & \textbf{Changed with}\\
+Paper & 8.5 by 11 inches & --\\
+Left and right margins & 1 inch each & Margins, Left and Right\\
+Top margin & 1 inch (the first line is \Scr{Ln 1"}) & --\\
+Lines on a page & 54 single-spaced lines & Page Break, Hard\\
+Characters on a line & 66 & Margins, Left and Right\\
+Font & Courier 10 Pitch, 10 characters to the inch & --\\
+Justification & Full & Justification\\
+Line spacing & 1 (single) & Line Spacing\\
+Tab stops & every 0.5 inch from the left margin & --\\
+Appearance and size & normal & Appearance, Size\\
+\end{tabular}
+\par\addvspace{4pt}
+The Format: Line screen of a new document shows these values (see
+\InRef{Format}).
+
+InitechWord itself starts with these settings, kept by Setup in the file
+\Scr{IWORD.SET} once you change one (see \InRef{Setup}):
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}p{28mm}p{34mm}p{30mm}@{}}
+\textbf{Setting} & \textbf{Value} & \textbf{Changed with}\\
+Units of measure & Inches, for margins and tabs and for the status line &
+Setup\\
+Original document backup & No & Setup\\
+Search string & empty & Search\\
+\end{tabular}
+\par\addvspace{4pt}
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{F}{Keyboard}
+This appendix lists every key InitechWord acts on.
+
+\WPSide{The Editing Screen}
+\begin{tabular}{@{}lp{60mm}@{}}
+\textbf{Key} & \textbf{Action}\\
+characters & typed at the cursor (Appendix A)\\
+Enter & hard return\\
+Ctrl-Enter & hard page\\
+Tab & tab\\
+Backspace & erase to the left\\
+Delete & erase at the cursor\\
+Up, Down, Left, Right & move the cursor\\
+End & end of the line\\
+Home & the Home prefix (see \InRef{Cursor Movement})\\
+F1 & Cancel (in a menu or prompt); Undelete (on the editing screen)\\
+Esc & Cancel (in a menu or prompt)\\
+Shift-F1 & Setup\\
+F2 & \rarr Search\\
+Shift-F2 & \larr Search\\
+Alt-F2 & Replace\\
+Alt-F3 & Reveal Codes\\
+F4 & \rarr Indent\\
+Alt-F4 & Block\\
+Ctrl-F4 & Move\\
+F6 & Bold\\
+F7 & Exit\\
+F8 & Underline\\
+Shift-F8 & Format\\
+Ctrl-F8 & Font\\
+F10 & Save\\
+Shift-F10 & Retrieve\\
+F11 & Reveal Codes, as Alt-F3\\
+F12 & Block, as Alt-F4\\
+\end{tabular}
+
+\WPSide{Keys That Show a Grey Name}
+These function keys name a WordPerfect feature that InitechWord does not
+carry out.  Each shows the name in grey at the left of the status line and
+does nothing else; the next key you press clears the name and then acts as
+it always does.  The template prints the same names in grey.
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}ll@{\qquad}ll@{}}
+\textbf{Key} & \textbf{Name shown} & \textbf{Key} & \textbf{Name shown}\\
+\WPGray{F3}{Help} & \WPGray{Alt-F1}{Thesaurus}\\
+\WPGray{F5}{List} & \WPGray{Alt-F5}{Mark Text}\\
+\WPGray{F9}{End Field} & \WPGray{Alt-F6}{Flush Right}\\
+\WPGray{Shift-F3}{Switch} & \WPGray{Alt-F7}{Columns/Table}\\
+\WPGray{Shift-F4}{Indent} & \WPGray{Alt-F8}{Style}\\
+\WPGray{Shift-F5}{Date/Outline} & \WPGray{Alt-F9}{Graphics}\\
+\WPGray{Shift-F6}{Center} & \WPGray{Alt-F10}{Macro}\\
+\WPGray{Shift-F7}{Print} & \WPGray{Ctrl-F1}{Shell}\\
+\WPGray{Shift-F9}{Merge Codes} & \WPGray{Ctrl-F2}{Spell}\\
+\WPGray{Ctrl-F3}{Screen} & \WPGray{Ctrl-F5}{Text In/Out}\\
+\WPGray{Ctrl-F6}{Tab Align} & \WPGray{Ctrl-F7}{Footnote}\\
+\WPGray{Ctrl-F9}{Merge/Sort} & \WPGray{Ctrl-F10}{Macro Define}\\
+\end{tabular}
+\par\addvspace{4pt}
+While Block is on, these keys do nothing (see below).
+
+\WPSide{Keys That Do Nothing}
+Ins, PgUp and PgDn do nothing, alone or with Shift, Alt or Ctrl.  Shift,
+Alt and Ctrl with F11 or F12 do nothing, and neither does a function key
+pressed with two or three of Shift, Alt and Ctrl.
+
+\WPSide{Keys That Act as Other Keys}
+With these keys InitechWord does not look at Shift, Alt or Ctrl: each
+combination below does exactly what the key alone does.
+\par\addvspace{4pt}
+\noindent\begin{tabular}{@{}lll@{}}
+\WPAlias{Shift-Backspace}{Backspace}, & \WPAlias{Alt-Backspace}{Backspace}, & \WPAlias{Ctrl-Backspace}{Backspace}\\
+\WPAlias{Shift-Delete}{Delete}, & \WPAlias{Alt-Delete}{Delete}, & \WPAlias{Ctrl-Delete}{Delete}\\
+\WPAlias{Shift-Enter}{Enter}, & \WPAlias{Alt-Enter}{Enter} & \\
+\WPAlias{Shift-Tab}{Tab}, & \WPAlias{Alt-Tab}{Tab}, & \WPAlias{Ctrl-Tab}{Tab}\\
+\WPAlias{Shift-Up}{Up}, & \WPAlias{Alt-Up}{Up}, & \WPAlias{Ctrl-Up}{Up}\\
+\WPAlias{Shift-Down}{Down}, & \WPAlias{Alt-Down}{Down}, & \WPAlias{Ctrl-Down}{Down}\\
+\WPAlias{Shift-Left}{Left}, & \WPAlias{Alt-Left}{Left}, & \WPAlias{Ctrl-Left}{Left}\\
+\WPAlias{Shift-Right}{Right}, & \WPAlias{Alt-Right}{Right}, & \WPAlias{Ctrl-Right}{Right}\\
+\WPAlias{Shift-End}{End}, & \WPAlias{Alt-End}{End}, & \WPAlias{Ctrl-End}{End}\\
+\WPAlias{Shift-Home}{Home}, & \WPAlias{Alt-Home}{Home}, & \WPAlias{Ctrl-Home}{Home}\\
+\end{tabular}
+\par\addvspace{4pt}
+At the \Scr{Srch:} prompt and at \Scr{Replace with:} some keys act as other
+keys in the same way; they are listed under \InRef{Search} and
+\InRef{Replace}.
+
+\WPSide{While Block Is On}
+The cursor keys stretch the block; \FK{Block}{Alt-F4}, \K{F12}, \K{F1} and
+\K{Esc} turn it off; \K{F6}, \K{F8} and \K{Ctrl-F8} give it an attribute;
+\K{Ctrl-F4} moves, copies or deletes it; \K{Delete} and \K{Backspace} ask
+whether to delete it; \K{Alt-F3} and \K{F11} turn Reveal Codes on or off.
+Every other key does nothing.  These also act as the key alone:
+\par\addvspace{4pt}
+\noindent{\small\begin{tabular}{@{}lll@{}}
+\WPAlias{Block:Shift-F1}{F1}, & \WPAlias{Block:Alt-F1}{F1}, & \WPAlias{Block:Ctrl-F1}{F1}\\
+\WPAlias{Block:Shift-Esc}{Esc}, & \WPAlias{Block:Alt-Esc}{Esc}, & \WPAlias{Block:Ctrl-Esc}{Esc}\\
+\WPAlias{Block:Shift-Delete}{Delete}, & \WPAlias{Block:Alt-Delete}{Delete}, & \WPAlias{Block:Ctrl-Delete}{Delete}\\
+\WPAlias{Block:Shift-Backspace}{Backspace}, & \WPAlias{Block:Alt-Backspace}{Backspace}, & \WPAlias{Block:Ctrl-Backspace}{Backspace}\\
+\end{tabular}}
+\par\addvspace{4pt}
+(In this table \textit{Block:} means ``with Block on''.)
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{G}{Menus}
+The menus InitechWord shows, with the choices it acts on.  A choice not
+listed returns to the document or leaves the screen as it is (see
+\textit{Menu Options} in Getting Started).
+
+\WPSide{Font (Ctrl-F8)}
+\begin{tabular}{@{}lp{70mm}@{}}
+1 Size & 1 Suprscpt, 2 Subscpt, 3 Fine, 4 Small, 5 Large, 6 Vry Large, 7 Ext Large\\
+2 Appearance & 1 Bold, 2 Undln, 3 Dbl Und, 4 Italc, 5 Outln, 6 Shadw, 7 Sm Cap, 8 Redln, 9 Stkout\\
+3 Normal & \\
+\end{tabular}
+\par With Block on: \Scr{Attribute: 1 Size; 2 Appearance: 0}, with the same
+Size and Appearance menus.
+
+\WPSide{Format (Shift-F8)}
+\begin{tabular}{@{}ll@{}}
+1 Line & Format: Line\\
+\quad 3 Justification & 1 Left, 2 Center, 3 Right, 4 Full\\
+\quad 6 Line Spacing & a spacing, then Enter\\
+\quad 7 Margins & the left margin, Enter, the right margin, Enter\\
+\end{tabular}
+
+\WPSide{Move (Ctrl-F4)}
+With Block off:
+\par\noindent\begin{tabular}{@{}ll@{}}
+1 Sentence, 2 Paragraph, 3 Page & then 1 Move, 2 Copy, 3 Delete\\
+4 Retrieve & 1 Block\\
+\end{tabular}
+\par With Block on:
+\par\noindent\begin{tabular}{@{}ll@{}}
+1 Block & then 1 Move, 2 Copy, 3 Delete\\
+\end{tabular}
+
+\WPSide{Replace (Alt-F2)}
+\Scr{w/Confirm? No (Yes)}, then \Scr{-> Srch:} and \Scr{Replace with:};
+with confirmation, \Scr{Replace? Yes (No)} at each occurrence.
+
+\WPSide{Setup (Shift-F1)}
+\begin{tabular}{@{}ll@{}}
+3 Environment & Setup: Environment\\
+\quad 1 Backup Options & 2 Original Document Backup, then \Typed{y} or \Typed{n}\\
+\quad 8 Units of Measure & 1 Display and Entry of Numbers for Margins,\\
+ & \quad Tabs, etc., or 2 Status Line Display;\\
+ & then \Typed{i}, \Typed{c}, \Typed{p}, \Typed{w} or \Typed{u}\\
+\end{tabular}
+\par Choices printed in grey on the Setup screens do nothing.  Exit (F7) goes
+back a screen; Cancel returns to the document.
+
+\WPSide{Undelete (F1 on the Editing Screen)}
+\Scr{Undelete 1 Restore; 2 Previous Deletion: 0}: 1 Restore, 2 Previous
+Deletion (also Up); Down shows the later deletion.
+
+\WPSide{File (the menu bar)}
+Retrieve, Save, Exit (Ctrl-Q).  See \InRef{Pull-Down Menus}.
+
+%% ---------------------------------------------------------------------------
+\WPAppendix{H}{Limits}
+\begin{tabular}{@{}lp{70mm}@{}}
+\textbf{Item} & \textbf{Limit}\\
+Document & a document file of up to 64K (65,536 bytes), its settings
+included\\
+Document name & 8 characters, a period and 3 characters (see
+\InRef{Filenames})\\
+Name prompt & 15 characters typed\\
+Margin & less than 9 inches\\
+Line spacing & less than 9 lines\\
+Documents open & one\\
+Search string & 256 bytes of the document file: a character, \Code{[HRt]}
+or \Code{[HPg]} one each, other codes their length (Appendix D); the same
+for the new text of Replace\\
+Deletions kept & three, of up to 32K (32,768 bytes) each\\
+\end{tabular}

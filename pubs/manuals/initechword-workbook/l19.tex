@@ -1,0 +1,48 @@
+% Lesson 19 (AN-18): Line Spacing (Shift-F8,1,6): double spacing on the
+% screen and on the status line; back to single spacing.  Saves DRAFT.
+% Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{19}{Double-Spaced Draft}
+\LessonFeatures{Line Spacing; Format; Status Line; Save}
+A draft that others will mark up is easier to correct when it is
+double-spaced.  In this lesson you type a double-spaced paragraph for review
+and a single-spaced note under it.
+
+\BeginReplay{l19}
+\Task{Setting Double Spacing}
+\begin{WPSteps}
+\item Press \Press{Format}{Shift-F8}, select \Choose{Line}{1} and
+\Choose{Line Spacing}{6}.
+\item Type \TypeName{2} and press \PressKey{Enter}.  The Format: Line screen
+shows \Scr{2}.
+\item Press \Press{Exit}{F7}.
+\end{WPSteps}
+
+\Task{Typing the Draft}
+\begin{WPSteps}
+\item Type
+\Type{Each department will collect the TPS reports of its staff by noon on Friday and check that every report carries the new cover sheet before sending it on.}
+\item Press \PressKey{Enter}.
+\end{WPSteps}
+\CompareScreen[rows=7]{l19-1}
+Each line is followed by a blank line on the screen.  The status line counts
+the double spacing: the cursor's line is a third of an inch below the one
+before.
+
+\Task{Returning to Single Spacing}
+\begin{WPSteps}
+\item Press \PressKC{Shift-F8}{1,6}{16}, type \TypeName{1}, press
+\PressKey{Enter} and \Press{Exit}{F7}.
+\item Type \TypeRun{Please return your comments by Wednesday.}
+\end{WPSteps}
+\CompareScreen[rows=7]{l19-2}
+
+\Task{Saving the Draft}
+\begin{WPSteps}
+\item Press \Press{Save}{F10}, type \TypeName{draft} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 20 you combine two documents into one.

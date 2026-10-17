@@ -1,0 +1,58 @@
+% Lesson 18 (AN-18): Justification (Shift-F8,1,3,n): center, right, full;
+% [Just:] codes.  Saves LETTERHD (used by Lesson 20).  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{18}{Letterhead}
+\LessonFeatures{Justification; Format; Reveal Codes; Save}
+Initech letters begin with the company's name and address centered at the
+top, and the date against the right margin.  In this lesson you make a
+letterhead with Justification, and save it for use in Lesson 20.
+
+\BeginReplay{l18}
+\Task{Centering the Address}
+\begin{WPSteps}
+\item Press \Press{Format}{Shift-F8}, select \Choose{Line}{1}, then
+\Choose{Justification}{3}.  The bottom line shows the justifications.
+\item Select \Choose{Center}{2}, and press \Press{Exit}{F7}.
+\item Type each line of the address and press \K{Enter} after it; press it
+twice after the last line:
+\Type{Initech Systems Corporation}\Keys{Enter}
+\Type{One Initech Plaza}\Keys{Enter}
+\Type{Austin, Texas 78799}\Keys{Enter Enter}
+\end{WPSteps}
+
+\Task{Placing the Date}
+\begin{WPSteps}
+\item Press \PressKC{Shift-F8}{1,3,3}{133} for Right justification, and press
+\Press{Exit}{F7}.
+\item Type \TypeRun{March 9, 1992} and press \PressKey{Enter} twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Returning to Full Justification}
+\begin{WPSteps}
+\item Press \PressKC{Shift-F8}{1,3,4}{134} for Full justification, the
+justification of a new document, and press \Press{Exit}{F7}.
+\item Type \TypeRun{Dear Mr. Smykowski:} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\end{WPSteps}
+\CompareScreen[rows=9]{l18-1}
+The address is centered and the date ends at the right margin.  The
+salutation starts at the left margin again.
+
+\Task{Checking the Codes}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Up} and
+\Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=20]{l18-2}
+
+\Task{Saving the Letterhead}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Save}{F10}, type \TypeName{letterhd} and press
+\PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 19 you double-space a draft.

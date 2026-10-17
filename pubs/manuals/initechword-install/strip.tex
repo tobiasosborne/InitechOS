@@ -1,0 +1,87 @@
+% InitechWord function-key template -- part 1062-0000-20 (PUB-REF-0001 PK-14:
+% the long strip for the 101-key keyboard's top row; cells of five centred
+% lines -- Ctrl command red, Alt blue, Shift green, the key alone black, the
+% key name italic; groups of four keys with legend cells between them; a
+% quick-list panel at the left; Heros and Heros Oblique; vertical rules
+% only).  Model: the WordPerfect 5.1 template strip, docs/pubs/originals/
+% wordperfect-51.md s6.  Colour is allowed here: a template is not an
+% interior (D-6).  Bead initech-ipu5.10.
+% GENERATED FROM THE SHIPPED KEY MAP: each command a cell prints is
+% registered (\StripKey -> strip.cmds), and `make test-pubs-iword` (TEMPLATE)
+% requires the registered keys to be EXACTLY the function-key bindings
+% measured from WORD.EXE (harness/pubs/iword_probe.c: every F1..F12 alone
+% and with Shift, Alt, Ctrl that does something, aliases excluded) -- a cell
+% for an unbound key, or a bound key with no cell, is RED.  The feature
+% words are the Reference's entry names.  A cell written *Name is a key
+% that shows the grey name of a WordPerfect feature InitechWord does not
+% carry out (P3, spec/iword/fkeys.json "gray"): it is printed in grey and
+% registered "Shift-F7=Print" (wpgray), the name as the status line shows it,
+% and the gate holds those to the measured grey keys too.  Empty rows (the
+% modified F11 and F12, which do nothing) are left blank, not ruled, as on
+% the model.
+% GATES: test-pubs-iword
+\documentclass[wordperfect,cover]{initech-manual}
+\usepackage{initech-wpc}
+\geometry{paperwidth=17.5in, paperheight=2.25in, margin=0pt, noheadfoot, nomarginpar}
+\definecolor{StripCtrl}{cmyk}{0,1,1,0}
+\definecolor{StripAlt}{cmyk}{1,0.6,0,0}
+\definecolor{StripShift}{cmyk}{0.8,0,1,0.2}
+\makeatletter
+\newlength\StripCell \setlength\StripCell{29mm}
+\newlength\StripLegend \setlength\StripLegend{13mm}
+\definecolor{StripGrey}{gray}{0.6}
+\newcommand\im@stripline[2]{\makebox[\StripCell][c]{\sffamily\fontsize{9}{11}\selectfont\im@stripshow{#1}{#2}}\\}
+\def\im@stripshow#1#2{\ifx\relax#2\relax\else\im@stripshowx{#1}#2\@nil\fi}
+\def\im@stripshowx#1#2#3\@nil{\ifx*#2\textcolor{StripGrey}{#3}\else\textcolor{#1}{#2#3}\fi}
+\newcommand\im@stripreg[2]{\ifx\relax#2\relax\else\im@stripregx{#1}#2\@nil\fi}
+\def\im@stripregx#1#2#3\@nil{\ifx*#2\Documents{wpgray}{#1=#3}\else\Documents{wpkey}{#1}\fi}
+%% \StripKey{F4}{ctrl}{alt}{shift}{alone}: one key's cell; every non-empty
+%% command is registered as that key combination.
+\newcommand\StripKey[5]{\gdef\im@entryname{Template}%
+  \im@stripreg{Ctrl-#1}{#2}\im@stripreg{Alt-#1}{#3}\im@stripreg{Shift-#1}{#4}\im@stripreg{#1}{#5}%
+  \vrule width 0.4pt\begin{tabular}[c]{@{}c@{}}%
+  \im@stripline{StripCtrl}{#2}\im@stripline{StripAlt}{#3}\im@stripline{StripShift}{#4}%
+  \im@stripline{black}{#5}\makebox[\StripCell][c]{\sffamily\itshape\fontsize{8}{10}\selectfont #1}\end{tabular}}
+\newcommand\StripLegendCell{\vrule width 0.4pt\begin{tabular}[c]{@{}c@{}}%
+  \makebox[\StripLegend][c]{\textcolor{StripCtrl}{\sffamily\itshape\fontsize{8}{11}\selectfont Ctrl}}\\
+  \makebox[\StripLegend][c]{\textcolor{StripAlt}{\sffamily\itshape\fontsize{8}{11}\selectfont Alt}}\\
+  \makebox[\StripLegend][c]{\textcolor{StripShift}{\sffamily\itshape\fontsize{8}{11}\selectfont Shift}}\\
+  \makebox[\StripLegend][c]{}\\ \makebox[\StripLegend][c]{}\end{tabular}}
+\makeatother
+\begin{document}
+\Gates{test-pubs-iword}
+\thispagestyle{empty}
+\vspace*{5mm}
+\noindent\hspace*{6mm}%
+\begin{minipage}[c]{58mm}\raggedright
+{\sffamily\bfseries\fontsize{11}{13}\selectfont InitechWord}\par
+{\sffamily\fontsize{7}{8}\selectfont for the FLAIR environment of InitechOS}\par\vspace{2pt}
+{\sffamily\fontsize{6.5}{8}\selectfont
+\begin{tabular}{@{}l@{\quad}l@{}}
+Hard Page & \K{Ctrl-Enter}\\
+Hard Return & \K{Enter}\\
+Tab & \K{Tab}\\
+Cancel & \K{Esc}\\
+Top of Document & \K{Home, Home, Up}\\
+End of Document & \K{Home, Home, Down}\\
+Start / End of Line & \K{Home, Left} / \K{End}\\
+Before the Codes & \K{Home, Home, Home, Left}\\
+\end{tabular}\par\vspace{1pt}
+1062-0000-20\quad A1-3/92}
+\end{minipage}%
+\StripKey{F1}{*Shell}{*Thesaurus}{Setup}{Cancel}%
+\StripKey{F2}{*Spell}{Replace}{\larr Search}{\rarr Search}%
+\StripKey{F3}{*Screen}{Reveal Codes}{*Switch}{*Help}%
+\StripKey{F4}{Move}{Block}{*Indent}{\rarr Indent}%
+\StripLegendCell
+\StripKey{F5}{*Text In/Out}{*Mark Text}{*Date/Outline}{*List}%
+\StripKey{F6}{*Tab Align}{*Flush Right}{*Center}{Bold}%
+\StripKey{F7}{*Footnote}{*Columns/Table}{*Print}{Exit}%
+\StripKey{F8}{Font}{*Style}{Format}{Underline}%
+\StripLegendCell
+\StripKey{F9}{*Merge/Sort}{*Graphics}{*Merge Codes}{*End Field}%
+\StripKey{F10}{*Macro Define}{*Macro}{Retrieve}{Save}%
+\StripKey{F11}{}{}{}{Reveal Codes}%
+\StripKey{F12}{}{}{}{Block}%
+\vrule width 0.4pt
+\end{document}

@@ -1,0 +1,77 @@
+% Reference entries, D (AN-11).  Law 1: os/iword/core/edit.c
+% iw_ed_backspace / iw_ed_delete (whole units; a hard return deleted joins
+% two paragraphs and the joined paragraph is wrapped again), codes.c (the
+% question for codes), os/iword/app/face_a.c edit_key (Backspace / Delete
+% with any modifier act alone; harness/pubs/iword_probe.c lists them).
+% GATES: test-pubs-iword test-iword-core test-iword-codes test-iword-face
+\Gates{test-pubs-iword test-iword-core test-iword-codes test-iword-face}
+\begin{Feature}{Delete}
+You erase text with two keys: \K{Backspace} erases the character to the
+left of the cursor, and \K{Delete} erases the character at the cursor.
+Text after the cursor moves up to close the gap, and the paragraph is
+wrapped again.
+
+To delete text,
+\begin{WPSteps}
+\item Move the cursor just after the character you want to erase and press
+\K{Backspace}
+\Or
+Move the cursor onto the character and press \K{Delete}.
+\item Hold the key down to erase several characters in a row.
+\end{WPSteps}
+\Documents{wpkey}{Backspace}
+\Documents{wpkey}{Delete}
+\begin{WPNote}To delete more than a few characters, block them and press
+Delete (see \InRef{Block, Delete}), or have Move delete the sentence,
+paragraph or page (see \InRef{Move, Sentence/Paragraph/Page}).\end{WPNote}
+
+\Notes
+\Topic{Codes}
+Backspace and Delete erase codes as they erase characters, one at a time.
+Some codes are not erased at once on the editing screen: InitechWord asks
+first (see \InRef{Codes}).
+
+\Topic{Joining Paragraphs}
+A hard return is erased like a character.  Erase the hard return at the end
+of a paragraph -- with Delete at the end of its last line, or with
+Backspace at the start of the next paragraph -- and the two paragraphs
+become one.
+
+\BeginReplay{ref-delete}
+For example, type \TypeRun{First paragraph.}, press \PressKey{Enter}, type
+\TypeRun{Second paragraph.}, press \PressKey{Home}, \PressKey{Left} and then
+\PressKey{Backspace}:
+\WordScreen[rows=1]{ref-delete}{Backspace at the start of a paragraph joins it to the one above}
+\EndReplay
+
+\Topic{Shift, Ctrl and Alt}
+Backspace and Delete erase one character whatever Shift, Ctrl or Alt you
+hold with them.
+
+\Topic{The Start and End of the Document}
+Backspace at the very start of the document and Delete at its very end do
+nothing.
+
+\SeeAlso{Block, Delete; Codes; Move, Sentence/Paragraph/Page}
+\end{Feature}
+
+\begin{Feature}{Directories}
+InitechWord keeps your documents in one place: the top level of the
+InitechOS data volume, the disk on which InitechWord itself is supplied.
+InitechWord shows that place as \Scr{A:\wbs}, so that a document named
+\Scr{MEMO} is \Scr{A:\wbs MEMO} on the status line and in its questions.
+
+You do not type a drive or a directory when you save or retrieve: type the
+name alone.  A name with a colon or a backslash is not a valid name (see
+\InRef{Filenames}).
+
+\Notes
+\Topic{The Setup File}
+InitechWord keeps its own settings in the same place, in the file
+\Scr{IWORD.SET}, once you change one with Setup (see \InRef{Setup}).  Do
+not save a document under that name: InitechWord would read it as its
+settings, find it not in their form, and start with the standard ones; and
+the next change you make in Setup would write over the document.
+
+\SeeAlso{Filenames; Retrieve; Save; Setup}
+\end{Feature}

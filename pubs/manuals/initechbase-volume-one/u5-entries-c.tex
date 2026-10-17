@@ -282,17 +282,19 @@ the headings, a column is as wide as its values only.
 \SeeAlso{LIST, DISPLAY}
 \end{XbaseEntry}
 
-% SET INDEX -- os/samir/cmd/set.c do_set_index (text recorded; the runtime
-% open is deferred: "GATED: runtime index-open effect deferred").
-\begin{XbaseEntry}[the index list is recorded but not opened by this version
-  (set.c); open index files with USE ... INDEX]{INDEX}{set}
+% Using III+ U5-239; SF-index host/guest differential and named mutant.
+\begin{XbaseEntry}{INDEX}{set}
 Names the index files to be used with the database in USE.
 \Syntax
 \SyntaxLine{\kw{SET INDEX TO} \opt{\xp{index file list}}}
 \Usage
-InitechBase accepts SET INDEX TO with or without a list of index files and
-displays no message.  The index files open with the database are those named
-in \cmd{USE} \ldots{} \kw{INDEX}.
+Opens the named index files for the database in the selected work area,
+replacing its previous index list.  The extension \file{.NDX} is assumed.
+Up to seven files may be named.  The first becomes the master index, and
+the record pointer moves to its beginning.  SET INDEX TO without a list
+closes the indexes of the selected work area and restores record order.
+\Examples
+\DotExample{examples/c-setindex}
 \SeeAlso{USE, SET ORDER, SEEK}
 \end{XbaseEntry}
 

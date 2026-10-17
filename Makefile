@@ -5250,6 +5250,7 @@ TEST_CONIN_MUT_NOCOOKED := $(BUILD)/test_conin_mutant_nocooked
 # delivered as a raw char and INT 23h is never invoked -> the [4tw.*] cases go RED
 # (Rule 6; the M5 mutant of DEC-16 Sec 7.3).
 TEST_CONIN_MUT_NOCTRLC := $(BUILD)/test_conin_mutant_noctrlc
+TEST_CONIN_MUT_DISCARD := $(BUILD)/test_conin_mutant_discard_ring_only
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
@@ -5281,13 +5282,21 @@ $(TEST_CONIN_MUT_NOCTRLC): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDR
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_NO_CTRLC_CHECK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
+$(TEST_CONIN_MUT_DISCARD): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_DISCARD_RING_ONLY -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
 .PHONY: test-conin-unit test-conin-mutant
 test-conin-unit: $(TEST_CONIN)
 	@printf ">>> test-conin-unit: CON input 01h/06h/07h/08h/0Ah(+BS,+clamp)/0Bh/0Ch via mock source\n"
 	@$(TEST_CONIN)
 	@printf ">>> test-conin-unit: green\n"
 
-test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT) $(TEST_CONIN_MUT_WRAP)
+test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT) $(TEST_CONIN_MUT_WRAP) $(TEST_CONIN_MUT_DISCARD)
+	@if $(TEST_CONIN_MUT_DISCARD) > $(BUILD)/test_conin_mutant_discard.log 2>&1; then \
+		printf '!!! test-conin-mutant FAIL: INT21_MUTATE_DISCARD_RING_ONLY PASSED -- the hotkey-drop test is decoration\n'; exit 1; fi
+	@grep -q 'FAIL.*discard_through' $(BUILD)/test_conin_mutant_discard.log || { cat $(BUILD)/test_conin_mutant_discard.log; exit 1; }
+	@printf '>>> test-conin-mutant: green (INT21_MUTATE_DISCARD_RING_ONLY correctly RED: %s)\n' "$$(grep -c 'FAIL.*discard_through' $(BUILD)/test_conin_mutant_discard.log) discard checks"
 	@printf ">>> test-conin-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_CONIN_MUT_NOECHO) >/dev/null 2>&1; then \
 		printf '!!! test-conin-mutant FAIL: 01h-no-echo mutant PASSED -- the echo test is decoration\n'; \
@@ -10450,6 +10459,14 @@ $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h
 $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
+# The FLAIR boot screen (bead initech-tdnl.105) is painted by every FLAIR kmain
+# variant: its pure painter + the logo strike are prerequisites the same way.
+$(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/milton/boot_screen.h spec/assets/boot_logo.h spec/assets/chicago12.h
+# ... and EVERY kmain variant object (the eval'd mutant/record templates spell
+# their own prerequisite lists), the vesa8.mk .EXTRA_PREREQS idiom.
+$(BUILD)/kmain%.o: private .EXTRA_PREREQS += os/milton/boot_screen.h spec/assets/boot_logo.h os/flair/text.h
 
 # Derived FROM the gate list (initech-8z9j): the interactive kernel is the bounded
 # FLAIRTENANTS kernel with ONLY its main object swapped. The old hand-copied list
@@ -22521,7 +22538,7 @@ define appl-boot
 	cp -f $(3) $(BUILD)/$(1)_data.img
 	@$(if $(call fixture-spec,$(3)),$(call fixture-check,harness,$(BUILD)/$(1)_data.img,$(call fixture-spec,$(3))),:)
 	@$(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
-		--mouse "$($(4))" --keys-after "FLAIR-LIVE-READY" --quit-after FLAIR-LIVE-OK \
+		--mouse "$($(4))" --keys-after "FLAIR-LIVE-READY" --keys-after-ms 15000 --quit-after FLAIR-LIVE-OK \
 		--timeout-ms 30000 $(5) 2> "$(BUILD)/$(1).report" || true
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(1).report"; then printf '!!! %s: TRIPLE FAULT\n' "$(1)"; exit 1; fi
 endef
@@ -23815,6 +23832,24 @@ RECORD_MARKER_finder_list_view = FINDER-VIEW win=1 mode=list sort=size bits=5
 RECORD_IMAGE_finder_list_view = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_finder_list_view = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_finder_list_view = 300
+# boot_screen (bead initech-tdnl.105; Rule 14): the FLAIR boot screen -- the
+# Mac OS 8.1 Welcome panel with the Initech logo -- then the desktop painting
+# over it. Recorded on the boot-hold image (the interactive images' ~2 s hold,
+# FLAIR_BOOT_HOLD_TICKS=200, on the bounded gate kernel); frame 0 is grabbed
+# at FLAIR-BOOT-SCREEN (RECORD_KEYS_AFTER_<script>), one more inside the hold,
+# then the desktop at FLAIR-LIVE-READY and once more after. No input events.
+# The two boot-screen kernels (the hold image and its NO_LOGO twin) are the
+# FLAIRTENANTS kmain with ONE build knob (test-flair-boot-screen below).
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_BOOT_HOLD_TICKS=200,boothold))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_BOOT_MUT_NO_LOGO -DFLAIR_BOOT_HOLD_TICKS=200,bootnologo))
+FLAIRTENANTS_BOOTHOLD_IMG := $(BUILD)/flair_tenants_mut_boothold.img
+RECORD_SCRIPTS += boot_screen
+RECORD_SPEC_boot_screen = w300,WFLAIR-LIVE-READY,w500
+RECORD_KEYS_AFTER_boot_screen = FLAIR-BOOT-SCREEN
+RECORD_MARKER_boot_screen = FLAIR-BOOT-SCREEN
+RECORD_IMAGE_boot_screen = $(FLAIRTENANTS_BOOTHOLD_IMG)
+RECORD_DATA_boot_screen = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_boot_screen = 200
 include spec/flair_toolbox_hardening_trace.mk
 # Rule 14: PM records this after merge. Must precede record-flair (parse time).
 RECORD_SCRIPTS += toolbox_hardening
@@ -23844,7 +23879,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
 
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
-		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
+		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "$(or $(RECORD_KEYS_AFTER_$(SCRIPT)),FLAIR-LIVE-READY)" --keys-after-ms 15000 \
 		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic,--rtc-base "$(RECORD_RTC_DEFAULT)") \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
 		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic) \
@@ -32621,6 +32656,123 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
+
+# ---------------------------------------------------------------------------
+# THE FLAIR BOOT SCREEN (bead initech-tdnl.105; operator directive 2026-10-17)
+# ---------------------------------------------------------------------------
+# The Mac OS 8.1 "Welcome to Mac OS" startup panel, cell for cell, with the
+# Initech logo lockup in its logo cell and "Welcome to InitechOS." as its title,
+# painted by every FLAIR kernel right after FLAIR-HEAP-OK and held (interactive
+# images only, FLAIR_BOOT_HOLD_TICKS) until the desktop's first present.
+# Goldens: ../system7-decomp/goldens/captures/s8_startup_welcome.png (mint-009,
+# re/mint-results-009.md) for the panel; the logo geometry (pubs/common/
+# initech-logo.tex, DESIGN-REFERENCE Sec 7.0) for the strike.
+#   test-boot-logo         strike == an independent per-pixel re-render of the
+#                          TikZ geometry; the committed header == the generator
+#   test-boot-logo-mutant  BOOT_LOGO_MUT_NOTCH_ROW (a notch row off) RED
+#   test-boot-screen       host render of os/milton/boot_screen.h graded vs
+#                          the capture (ppm_flair_boot_screen_check)
+#   test-boot-screen-mutant  the host NO_LOGO twin RED on the LOGO leg
+#   test-flair-boot-screen   QEMU: the boot-hold image dumped at
+#                          FLAIR-BOOT-SCREEN, graded vs the capture + strike;
+#                          the splash precedes the FAT mount and the desktop
+#   test-flair-boot-screen-mutant  FLAIR_BOOT_MUT_NO_LOGO RED on the LOGO leg
+BOOT_LOGO_GEN_BIN   := $(BUILD)/boot_logo_gen
+BOOT_LOGO_H         := spec/assets/boot_logo.h
+BOOT_SCREEN_PNG      = $(SYSTEM7_DECOMP)/goldens/captures/s8_startup_welcome.png
+BOOT_SCREEN_CHECK   := $(BUILD)/ppm_flair_boot_screen_check
+TEST_BOOT_LOGO      := $(BUILD)/test_boot_logo
+TEST_BOOT_LOGO_MUT  := $(BUILD)/test_boot_logo_mut_notch_row
+TEST_BOOT_SCREEN    := $(BUILD)/test_boot_screen
+TEST_BOOT_SCREEN_NL := $(BUILD)/test_boot_screen_mut_no_logo
+$(BOOT_LOGO_GEN_BIN): tools/boot_logo_gen.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $< -lm
+$(TEST_BOOT_LOGO): harness/proptest/test_boot_logo.c $(BOOT_LOGO_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec/assets -Iseed -o $@ $< -lm
+$(TEST_BOOT_LOGO_MUT): harness/proptest/test_boot_logo.c $(BOOT_LOGO_H) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DBOOT_LOGO_MUT_NOTCH_ROW -Ispec/assets -Iseed -o $@ $< -lm
+$(TEST_BOOT_SCREEN): harness/proptest/test_boot_screen.c os/milton/boot_screen.h $(BOOT_LOGO_H) os/flair/text.h spec/assets/chicago12.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -Ispec/assets -Ios/milton -Ios/flair -o $@ $<
+$(TEST_BOOT_SCREEN_NL): harness/proptest/test_boot_screen.c os/milton/boot_screen.h $(BOOT_LOGO_H) os/flair/text.h spec/assets/chicago12.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFLAIR_BOOT_MUT_NO_LOGO -Ispec -Ispec/assets -Ios/milton -Ios/flair -o $@ $<
+$(BOOT_SCREEN_CHECK): tools/ppm_flair_boot_screen_check.c $(BOOT_LOGO_H) | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
+
+.PHONY: gen-boot-logo test-boot-logo test-boot-logo-mutant test-boot-screen test-boot-screen-mutant
+gen-boot-logo: $(BOOT_LOGO_GEN_BIN)
+	$(BOOT_LOGO_GEN_BIN) > $(BUILD)/boot_logo.gen.h
+	cp -f $(BUILD)/boot_logo.gen.h $(BOOT_LOGO_H)
+test-boot-logo: $(TEST_BOOT_LOGO) $(BOOT_LOGO_GEN_BIN)
+	@$(TEST_BOOT_LOGO)
+	@$(BOOT_LOGO_GEN_BIN) > $(BUILD)/boot_logo.regen.h
+	@cmp -s $(BUILD)/boot_logo.regen.h $(BOOT_LOGO_H) \
+		|| { printf '!!! test-boot-logo FAIL: $(BOOT_LOGO_H) is not the generator output (hand edit? run make gen-boot-logo)\n'; exit 1; }
+	@printf '>>> test-boot-logo: green (strike == geometry pixel for pixel; header == tools/boot_logo_gen.c output; %s RLE bytes)\n' "$$(sed -n 's/^#define BOOT_LOGO_RLE_BYTES *//p' $(BOOT_LOGO_H))"
+test-boot-logo-mutant: $(TEST_BOOT_LOGO_MUT)
+	@if $(TEST_BOOT_LOGO_MUT) > $(BUILD)/test_boot_logo_mut.log 2>&1; then printf '!!! test-boot-logo-mutant FAIL: BOOT_LOGO_MUT_NOTCH_ROW survived -- the geometry oracle is decoration\n'; exit 1; fi
+	@grep -q 'FAIL.*strike == geometry, pixel for pixel' $(BUILD)/test_boot_logo_mut.log || { cat $(BUILD)/test_boot_logo_mut.log; exit 1; }
+	@printf '>>> test-boot-logo-mutant: BOOT_LOGO_MUT_NOTCH_ROW correctly RED: %s\n' "$$(grep -m1 'DIFF' $(BUILD)/test_boot_logo_mut.log | sed 's/^ *//')"
+test-boot-screen: $(TEST_BOOT_SCREEN) $(BOOT_SCREEN_CHECK)
+	@test -s "$(BOOT_SCREEN_PNG)" || { printf '!!! test-boot-screen FAIL: golden %s absent (system7-decomp mint-009)\n' "$(BOOT_SCREEN_PNG)"; exit 1; }
+	@$(TEST_BOOT_SCREEN) $(BUILD)/boot_screen_host.ppm
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/boot_screen_host.ppm "$(BOOT_SCREEN_PNG)"
+	@printf '>>> test-boot-screen: green (host render == s8_startup_welcome.png furniture; logo cell == strike)\n'
+test-boot-screen-mutant: $(TEST_BOOT_SCREEN_NL) $(BOOT_SCREEN_CHECK)
+	@$(TEST_BOOT_SCREEN_NL) $(BUILD)/boot_screen_host_nologo.ppm >/dev/null
+	@if $(BOOT_SCREEN_CHECK) $(BUILD)/boot_screen_host_nologo.ppm "$(BOOT_SCREEN_PNG)" > $(BUILD)/boot_screen_host_nologo.log 2>&1; then printf '!!! test-boot-screen-mutant FAIL: FLAIR_BOOT_MUT_NO_LOGO survived\n'; exit 1; fi
+	@grep -q 'FAIL LOGO' $(BUILD)/boot_screen_host_nologo.log || { cat $(BUILD)/boot_screen_host_nologo.log; exit 1; }
+	@printf '>>> test-boot-screen-mutant: FLAIR_BOOT_MUT_NO_LOGO correctly RED: %s\n' "$$(grep -m1 'FAIL LOGO' $(BUILD)/boot_screen_host_nologo.log | sed 's/^ *//')"
+TEST_UNIT_GATES += test-boot-logo test-boot-logo-mutant test-boot-screen test-boot-screen-mutant
+
+# $(call boot-screen-boot,<image>,<name>): boot without input, dump at
+# FLAIR-BOOT-SCREEN, run on to the bounded image's FLAIR-LIVE-OK.
+define boot-screen-boot
+@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+cp -f $(FLAIR_DATA_IMG) $(BUILD)/$(2)_data.img
+@$(call fixture-check,harness,$(BUILD)/$(2)_data.img,$(call fixture-spec,$(FLAIR_DATA_IMG)))
+$(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" --name "$(2)" --out "$(BUILD)" \
+	--screendump --screendump-after FLAIR-BOOT-SCREEN --quit-after FLAIR-LIVE-OK \
+	--timeout-ms 30000 2> "$(BUILD)/$(2).report" || true
+@if grep -q 'triple_fault=1' "$(BUILD)/$(2).report"; then printf '!!! %s FAIL: TRIPLE FAULT in boot %s\n' "$@" "$(2)"; exit 1; fi
+@test -s "$(BUILD)/$(2).ppm" || { printf '!!! %s FAIL: no screendump at FLAIR-BOOT-SCREEN\n' "$@"; cat "$(BUILD)/$(2).report"; exit 1; }
+endef
+# The order the bead specifies, on one serial: the splash once, BEFORE the FAT
+# mount (it is held through it) and BEFORE the desktop, which still arrives.
+BOOT_SCREEN_ORDER = awk '/^FLAIR-BOOT-SCREEN$$/{if(b)exit 1;b=NR} /^FLAIR-FAT-MOUNT-OK$$/{m=NR} /^FLAIR-DESKTOP$$/{d=NR} /^FLAIR-LIVE-OK$$/{k=NR} END{exit !(b && m>b && d>m && k>d)}' $(1)
+
+# The 8bpp DAC leg: the SAME boot-hold image with only IO.SYS forced to VBE
+# 0x101 (the vesa8.mk recipe + its fixture contract, initech-2gva).
+$(eval $(call vesa8-image,boothold,$(FLAIRTENANTS_BOOTHOLD_IMG)))
+$(eval $(call fixture-inline-contract,$(VESA8_DIR)/boothold.img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR COMMAND.COM))
+
+.PHONY: test-flair-boot-screen test-flair-boot-screen-mutant
+test-flair-boot-screen test-flair-boot-screen-mutant: export INITECH_QMP_STDIO=1
+test-flair-boot-screen: $(HARNESS_BIN) $(FLAIRTENANTS_BOOTHOLD_IMG) $(VESA8_DIR)/boothold.img $(FLAIR_DATA_IMG) $(BOOT_SCREEN_CHECK)
+	@test -s "$(BOOT_SCREEN_PNG)" || { printf '!!! test-flair-boot-screen FAIL: golden %s absent (system7-decomp mint-009)\n' "$(BOOT_SCREEN_PNG)"; exit 1; }
+	$(call boot-screen-boot,$(FLAIRTENANTS_BOOTHOLD_IMG),flair_boot_screen)
+	@$(call BOOT_SCREEN_ORDER,$(BUILD)/flair_boot_screen.serial) \
+		|| { printf '!!! test-flair-boot-screen FAIL: serial order is not BOOT-SCREEN < FAT-MOUNT-OK < DESKTOP < LIVE-OK\n'; grep -E '^FLAIR-' $(BUILD)/flair_boot_screen.serial | head -20; exit 1; }
+	@! grep -q '^PANIC' $(BUILD)/flair_boot_screen.serial
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen.ppm "$(BOOT_SCREEN_PNG)" | sed 's/^/    /'
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen.ppm "$(BOOT_SCREEN_PNG)" >/dev/null \
+		|| { printf '!!! test-flair-boot-screen FAIL: the live splash differs from s8_startup_welcome.png / the strike\n'; exit 1; }
+	@grep -q '^VIDEO 640x480 bpp=32 ' $(BUILD)/flair_boot_screen.serial
+	$(call boot-screen-boot,$(VESA8_DIR)/boothold.img,flair_boot_screen_8bpp)
+	@grep -q '^VIDEO 640x480 bpp=8 ' $(BUILD)/flair_boot_screen_8bpp.serial \
+		|| { printf '!!! test-flair-boot-screen FAIL: the 8bpp leg did not boot VBE 0x101\n'; exit 1; }
+	@$(call BOOT_SCREEN_ORDER,$(BUILD)/flair_boot_screen_8bpp.serial)
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen_8bpp.ppm "$(BOOT_SCREEN_PNG)" | sed 's/^/    8bpp: /'
+	@$(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen_8bpp.ppm "$(BOOT_SCREEN_PNG)" >/dev/null \
+		|| { printf '!!! test-flair-boot-screen FAIL: the 8bpp (DAC) splash differs from s8_startup_welcome.png / the strike\n'; exit 1; }
+	@printf '>>> test-flair-boot-screen: green (live splash == Mac OS 8.1 Welcome panel cell for cell + the Initech strike, 32bpp AND 8bpp DAC; splash < FAT mount < desktop)\n'
+test-flair-boot-screen-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_bootnologo.img $(FLAIR_DATA_IMG) $(BOOT_SCREEN_CHECK)
+	$(call boot-screen-boot,$(BUILD)/flair_tenants_mut_bootnologo.img,flair_boot_screen_nologo)
+	@$(call BOOT_SCREEN_ORDER,$(BUILD)/flair_boot_screen_nologo.serial)
+	@if $(BOOT_SCREEN_CHECK) $(BUILD)/flair_boot_screen_nologo.ppm "$(BOOT_SCREEN_PNG)" > $(BUILD)/flair_boot_screen_nologo.pixels 2>&1; then printf '!!! test-flair-boot-screen-mutant FAIL: FLAIR_BOOT_MUT_NO_LOGO survived\n'; exit 1; fi
+	@grep -q 'ok   CHROME' $(BUILD)/flair_boot_screen_nologo.pixels && grep -q 'FAIL LOGO' $(BUILD)/flair_boot_screen_nologo.pixels \
+		|| { cat $(BUILD)/flair_boot_screen_nologo.pixels; exit 1; }
+	@printf '>>> test-flair-boot-screen-mutant: FLAIR_BOOT_MUT_NO_LOGO correctly RED: %s\n' "$$(grep -m1 'FAIL LOGO' $(BUILD)/flair_boot_screen_nologo.pixels | sed 's/^ *//')"
+TEST_EMU_GATES += test-flair-boot-screen test-flair-boot-screen-mutant
 include harness/toolbox_hardening.mk
 
 # initech-w06: SSIM mathematics is gated; historical similarity is GUIDE ONLY.
@@ -32865,5 +33017,13 @@ TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
 TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
 endef
 $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
+
+# Real III+ captures for the four currently exercised SF rules. Missing or
+# stale independent bytes fail loudly; this gate never regenerates evidence.
+.PHONY: samir-fns-goldens
+samir-fns-goldens:
+	@sha256sum -c harness/diff/dbf_diff/xbase_prog_diff/fns-accepted.sha256
+	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type real III+ captures pinned)'
+TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk

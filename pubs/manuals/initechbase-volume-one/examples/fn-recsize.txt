@@ -1,0 +1,7 @@
+. USE STAFF
+. ? RECSIZE()
+
+        65. USE
+. ? RECSIZE()
+
+         0

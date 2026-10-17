@@ -1,0 +1,60 @@
+% Lesson 4 (AN-18): Bold (F6) and Underline (F8) as you type; saving over the
+% earlier draft.  Uses MEMO from Lesson 3.  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{4}{Memo (Final Draft)}
+\LessonFeatures{Bold; Underline; Cursor Movement; Save; Exit}
+Bill's final changes are two closing lines: a warning in bold, and a
+pointer to the instructions with the word \textit{attached} underlined.  In
+this lesson you add them as you type, with Bold and Underline, and save the
+finished memo.
+
+\BeginReplay{l04}
+\Task{Retrieving the Memo}
+\begin{WPSteps}
+\item Press \Press{Retrieve}{Shift-F10}, type \TypeName{memo} and press
+\PressKey{Enter}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Down} to move to the
+end of the memo, after \textit{collating.}
+\end{WPSteps}
+
+\Task{Typing a Bold Line}
+\begin{WPSteps}
+\item Press \PressKey{Enter} twice to start a new paragraph after a blank
+line.\Keys{Enter}
+\item Press \Press{Bold}{F6}.  Nothing seems to happen, but InitechWord has
+put the start and end of bold in the memo, with the cursor between them.
+\item Type the warning:
+\Type{Reports without a cover sheet will be returned.}
+\item Press \Press{Bold}{F6} again.  The cursor moves past the end of the
+bold.
+\end{WPSteps}
+\CompareScreen[rows=16]{l04-1}
+The warning is shown in bold on the screen.
+
+\Task{Typing an Underlined Word}
+\begin{WPSteps}
+\item Press \PressKey{Enter} twice.\Keys{Enter}
+\item Type \TypeRun{Please read the } (with the space at the end).
+\item Press \Press{Underline}{F8}, type \TypeRun{attached} and press
+\Press{Underline}{F8} again.
+\item Type \TypeRun{ instructions before Monday.} (with the space at the
+start).
+\end{WPSteps}
+\CompareScreen[rows=18]{l04-2}
+
+\Task{Saving the Final Draft}
+\begin{WPSteps}
+\item Press \Press{Save}{F10} and \PressKey{Enter}.
+\item At \Scr{Replace A:\wbs MEMO? No (Yes)} type \TypeName{y}.
+\end{WPSteps}
+
+\Task{Clearing the Screen}
+\begin{WPSteps}
+\item Press \Press{Exit}{F7}.  The memo is saved, so type \TypeName{n} at
+\Scr{Save Document?}, then \TypeName{n} at \Scr{Exit WP?}.
+\end{WPSteps}
+\EndReplay
+The memo is finished.  Lesson 6 looks at it again, to see the codes that
+Bold and Underline put in it.  Lesson 5 first shows you how to move around
+a longer document.

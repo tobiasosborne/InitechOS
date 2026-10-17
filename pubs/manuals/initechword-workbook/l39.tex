@@ -1,0 +1,70 @@
+% Lesson 39 (AN-18): Undelete -- a word erased with Backspace restored,
+% Previous Deletion, a deleted line put back in another place.  Saves
+% nothing.  Law 1: os/iword/app/face_a.c edit() (the deletions kept),
+% undo_key (P3, bead initech-qvgd part 2).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{39}{Restoring Deleted Text}
+\LessonFeatures{Undelete; Delete; Block, Delete; Cancel}
+Everyone deletes the wrong thing now and then.  InitechWord keeps the last
+three things you deleted, so that you can put them back where they were, or
+somewhere else.  In this lesson you write a short note to the third floor,
+change your mind twice, and use Undelete to recover.
+
+\BeginReplay{l39}
+\Task{Typing the Note}
+\begin{WPSteps}
+\item Type \TypeRun{Third floor:} and press \PressKey{Enter} twice.\Keys{Enter}
+\item Type \TypeRun{The cake will be served at three in the break room.}
+and press \PressKey{Enter}.
+\item Type \TypeRun{Please bring your own stapler.}
+\end{WPSteps}
+
+\Task{Restoring a Word}
+\begin{WPSteps}
+\item Press \PressKey{Backspace} eight times\Keys{Backspace Backspace Backspace Backspace Backspace Backspace Backspace}
+to erase \textit{stapler.}
+\item Press \Press{Cancel}{F1}.  Nothing is showing to cancel, so
+InitechWord offers to undelete: the word you erased appears again at the
+cursor, highlighted.
+\end{WPSteps}
+\CompareScreen[rows=4]{l39-1}
+\begin{WPSteps}[resume]
+\item Select \Choose{Restore}{1}.  The word is back.
+\end{WPSteps}
+
+\Task{Moving a Line With Undelete}
+The sentence about the stapler would be better before the one about the
+cake.  You delete it, with the hard return in front of it, and put it back
+in its new place.
+\begin{WPSteps}
+\item Press \PressKey{Up} and \PressKey{End} to go to the end of the line
+about the cake.
+\item Press \Press{Block}{Alt-F4}, then \PressKey{Home, Home, Down}.  The
+block runs from the end of the cake line to the end of the note: the hard
+return that ends the cake line and the whole stapler line.
+\item Press \PressKey{Delete} and type \TypeName{y}.
+\item Press \PressKey{Up} to go to the blank line under \textit{Third
+floor:}.
+\item Press \Press{Cancel}{F1}.  The deleted line is shown in its new
+place.
+\end{WPSteps}
+\CompareScreen[rows=4]{l39-2}
+\begin{WPSteps}[resume]
+\item Select \Choose{Restore}{1}.
+\end{WPSteps}
+\CompareScreen[rows=4]{l39-3}
+After a restore the cursor stays where it was, before the restored text.
+
+\Task{Looking at an Earlier Deletion}
+\begin{WPSteps}
+\item Press \Press{Cancel}{F1}.  The last deletion, the stapler line, is
+shown.
+\item Select \Choose{Previous Deletion}{2}.  The deletion before it,
+\textit{stapler.}, is shown instead.
+\item Press \Press{Cancel}{F1}.  Nothing is restored.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+This is the last lesson.  For everything else InitechWord does, see the
+\textit{InitechWord Reference}.

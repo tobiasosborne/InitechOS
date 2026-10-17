@@ -1,0 +1,105 @@
+% InitechWord Workbook -- part 1062-0000-11 (PUB-REF-0001 Sec 12, DS row
+% WRD-WKB).  Family F-WPC; model the WordPerfect 5.1 Workbook,
+% docs/pubs/originals/wordperfect-51.md s5 (lessons in three graded sections
+% behind black divider leaves; AN-18 lesson anatomy; Appendix A and B
+% Feature Lists; a two-column index).  Bead initech-ipu5.10.
+% Every keystroke a lesson prints is replayed on WORD.EXE by `make
+% test-pubs-iword` in lesson order (one data volume for the whole book, as
+% the reader has one), and every screen panel is the screen that replay
+% produces (initech-wpc.sty \BeginReplay, \Type, \Press, \CompareScreen).
+% The lessons' feature lists are checked against the Reference's entries,
+% and Appendix A and B are built from them.
+% Ground truth (Law 1): os/iword/app/face_a.c, os/iword/core, spec/iword
+% (as the Reference); the lessons document only what WORD.EXE does.
+\documentclass[wordperfect]{initech-manual}
+\usepackage{initech-wpc}
+
+\ProductName{InitechWord}
+\ProductVersion{}
+\DocTitle{Workbook}
+\PartNumber{1062-0000-11}
+\FamilyName{Office Systems Family}
+\FamilyColor{FamilyOffice}
+\DividerColor{black}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to InitechWord for the FLAIR graphical
+  environment of InitechOS and to all subsequent releases until otherwise
+  indicated in new editions.}
+\CopyrightYears{1991, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR and InitechWord are trademarks of
+  Initech Systems Corporation.  WordPerfect is a registered trademark of
+  WordPerfect Corporation.  All other product names are trademarks of their
+  respective holders.}
+\IndexColumns{2}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+\newcommand\ColophonScreens{The screen panels in this book are the cells the
+shipped InitechWord program drew when the build replayed, lesson by lesson
+and in order, every keystroke the lessons print, on the publications host,
+through a recording replacement of the FLAIR Toolbox.  The build replays
+every lesson again before the book is printed, and compares each panel with
+the screen the replay produces.}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{introduction}
+% The last front-matter page must ship with its roman folio before the
+% counter turns arabic (PG-15: dividers and blanks counted; the section
+% divider is page 1, as in the model).
+\cleardoublepage
+\setcounter{page}{1}\gdef\thepage{\arabic{page}}
+\DividerLeaf
+\chapter{Fundamentals I}
+\input{l01}
+\input{l02}
+\input{l03}
+\input{l04}
+\input{l05}
+\input{l06}
+\input{l07}
+\input{l08}
+\DividerLeaf
+\chapter{Fundamentals II}
+\input{l09}
+\input{l10}
+\input{l11}
+\input{l12}
+\input{l13}
+\input{l14}
+\input{l15}
+\input{l16}
+\DividerLeaf
+\chapter{Special Features}
+\input{l17}
+\input{l18}
+\input{l19}
+\input{l20}
+\input{l21}
+\input{l22}
+\input{l23}
+\input{l24}
+\input{l25}
+\input{l26}
+\input{l27}
+\input{l28}
+\input{l29}
+\input{l30}
+\input{l31}
+\input{l32}
+\input{l33}
+\input{l34}
+\input{l35}
+\input{l36}
+\input{l37}
+\input{l38}
+\input{l39}
+\DividerLeaf
+\chapter{Appendix}
+\input{appendix}
+\printindex
+\FinishBook
+\end{document}

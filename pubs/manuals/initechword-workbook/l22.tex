@@ -1,0 +1,70 @@
+% Lesson 22 (AN-18, "Special Techniques": independent mini-exercises, one
+% per side head, to dip into; model: WordPerfect 5.1 Workbook Lessons 12,
+% 25).  Replayed by test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{22}{Special Techniques}
+\LessonFeatures{Caps Lock; Pull-Down Menus; Cancel; Cursor Movement; Codes; Exit}
+This lesson is a set of short exercises, each with a side head of its own.
+Try them in any order; each starts and ends with a clear screen.
+
+\BeginReplay{l22}
+\Task{Watching Caps Lock}
+\begin{WPSteps}
+\item Press the Caps Lock key and type \TypeRun{AGENDA}.\CapsLock{on}\Keys{End}
+\item Look at the status line: \Scr{Pos} is shown in capitals, \Scr{POS},
+while Caps Lock is on.
+\end{WPSteps}
+\CompareScreen[rows=1]{l22-1}
+\begin{WPSteps}[resume]
+\item Press Caps Lock again to turn it off.\CapsLock{off}
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+
+\Task{Using the File Menu}
+\begin{WPSteps}
+\item Type \TypeRun{Menu practice.}
+\item Point to \textbf{File} in the menu bar, hold down the mouse button,
+drag to \textbf{Save} and release it.\PullChoose{File}{Save}  The status line
+shows \Scr{Document to be Saved:}, as if you had pressed F10.
+\item Press \Press{Cancel}{F1}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+
+\Task{Escaping From a Menu}
+\K{Esc} backs out of menus and prompts as Cancel does.
+\begin{WPSteps}
+\item Press \Press{Font}{Ctrl-F8}.  The Font menu appears.
+\item Press \PressKey{Esc}.  The menu goes.
+\end{WPSteps}
+
+\Task{Getting Before the Codes}
+Home, Left goes to the first character of a line, after any codes there.
+To put the cursor in front of the codes as well, use three Homes.
+\begin{WPSteps}
+\item Press \Press{Bold}{F6}, type \TypeRun{Bold line}, and press
+\Press{Bold}{F6}.
+\item Press \PressKey{Home}, \PressKey{Left}, then
+\Press{Reveal Codes}{Alt-F3}: the highlight is on the \textit{B}, after
+\Code{[BOLD]}.
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Home},
+\PressKey{Left}: the highlight is on \Code{[BOLD]}.
+\end{WPSteps}
+\CompareScreen[rows=13]{l22-2}
+\begin{WPSteps}[resume]
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+
+\Task{Holding Shift Without Meaning To}
+If you hold Shift, Ctrl or Alt by mistake while you press Backspace, Delete,
+Enter, Tab or a cursor key, nothing goes wrong: InitechWord does exactly
+what the key alone does.
+\begin{WPSteps}
+\item Type \TypeRun{Typo} and press \PressKey{Shift-Backspace}.  The
+\textit{o} is erased, as with Backspace.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+The remaining lessons put the features together in complete documents,
+starting with a business letter in Lesson 23.

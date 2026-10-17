@@ -699,6 +699,8 @@ typedef struct xb_ctx {
     /* Optional filesystem binding for an evaluator with no work-area cursor.
      * Ref: Using III+ U6-33: FILE() has no USE prerequisite; ADR-0008 DEC-02. */
     struct samir_pal *file_pal;
+    /* Using III+ U6-69: includes deletion byte; zero without USE. */
+    uint32_t (*record_size)(void *);
 } xb_ctx;
 
 /*

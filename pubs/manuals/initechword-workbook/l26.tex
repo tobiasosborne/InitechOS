@@ -1,0 +1,52 @@
+% Lesson 26 (AN-18): a fill-in form -- tabs to line the fields up, Underline
+% around typed spaces to draw the lines.  Saves FORM.  Replayed by
+% test-pubs-iword.
+% GATES: test-pubs-iword
+\Gates{test-pubs-iword}
+\Lesson{26}{Fill-In Form}
+\LessonFeatures{Tab; Underline; Reveal Codes; Save}
+A form needs lines for people to write on.  Underline draws a line under
+everything between its codes, spaces included, so a run of underlined
+spaces makes a writing line.  In this lesson you make a cover sheet form
+whose lines all begin at the same tab stop.
+
+\newcommand\FormLine[3]{\Typing{#1}\Keys{#2}\Keys{F8}\TypeSpaces{30}\Keys{F8 Enter Enter}%
+  \noindent\hspace*{4mm}\makebox[38mm][l]{\textbf{#1}}\textit{#3}, then F8, 30 spaces, F8, Enter twice\par}
+\BeginReplay{l26}
+\Task{Typing the Title}
+\begin{WPSteps}
+\item Type \TypeRun{TPS REPORT COVER SHEET} and press \PressKey{Enter}
+twice.\Keys{Enter}
+\end{WPSteps}
+
+\Task{Typing the Fields}
+For each field type its name, press Tab until the cursor is at the one and a
+half inch stop, press \FK{Underline}{F8}, press the space bar thirty times,
+press \FK{Underline}{F8} again, and press Enter twice.
+\par\addvspace{4pt}
+\begingroup\setlength\parskip{1pt}
+\FormLine{Report number:}{Tab}{one tab}
+\FormLine{Prepared by:}{Tab}{one tab}
+\FormLine{Department:}{Tab}{one tab}
+\FormLine{Date:}{Tab Tab}{two tabs}
+\endgroup
+\par\addvspace{4pt}
+\CompareScreen[rows=11]{l26-1}
+The spaces between the underline codes are drawn underlined, so each field
+has its line.
+
+\Task{Checking the Codes}
+\begin{WPSteps}
+\item Press \PressKey{Home}, \PressKey{Home}, \PressKey{Up}, then
+\Press{Reveal Codes}{Alt-F3}.
+\end{WPSteps}
+\CompareScreen[rows=22]{l26-2}
+
+\Task{Saving the Form}
+\begin{WPSteps}
+\item Press \Press{Reveal Codes}{Alt-F3}.
+\item Press \Press{Save}{F10}, type \TypeName{form} and press \PressKey{Enter}.
+\item Press \Press{Exit}{F7}, type \TypeName{n} and \TypeName{n}.
+\end{WPSteps}
+\EndReplay
+In Lesson 27 you bring the phone list of Lesson 5 up to date.

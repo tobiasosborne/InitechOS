@@ -218,12 +218,13 @@ scope must come before the expression list.  After \cmd{LIST} of the whole
 file the record pointer is at the end of the file; after \kw{NEXT} \xp{n} it is
 on the last record listed.
 \Options
-\kw{OFF} leaves out the record numbers.  In this version, \kw{OFF} lists
-every field of each record and takes no expression list.
+\kw{OFF} leaves out the record numbers.  It may precede the scope and
+expression list; the expressions still select the columns to display.
 \Examples
 \DotExample{examples/c-list}
 Expressions as well as fields may be listed:
 \DotExample{examples/c-list-2}
+\DotExample{examples/c-list-off}
 \SeeAlso{DISPLAY, ?, SET DELETED, SET FILTER, SET HEADING, REPORT FORM}
 \end{XbaseEntry}
 
