@@ -41,12 +41,16 @@
  * ROM clut 8 values (#DDDDDD face, #AAAAAA shadow, #EEEEEE bevel corner); the
  * logo faces follow DESIGN-REFERENCE Sec 7.0 -- tops in the desktop canon
  * teal CIDX_DESKTOP (#8DDCDC) until operator decision initech-9222 rules on
- * Initech Cyan, left faces + logotype Initech Black (RGB 18/19/20 -> gray 19),
- * right faces the logo light grey (RGB 213/212/212 -> gray 212). */
+ * Initech Cyan; left faces + logotype Initech Black, which Sec 7.1 specifies
+ * as 0/0/0/100 (the 18/19/20 of Sec 7.0 is a photographed sample of it), so
+ * CIDX_BLACK; right faces the logo light grey (16 % black; sampled 213/212/
+ * 212 -> the gray-ramp index 212). Indices 0..25 are named canon slots
+ * (several are icon colours), so the greys are taken from the ramp above
+ * them, never from a low slot. */
 #define BOOT_IDX_BLACK   0u
 #define BOOT_IDX_WHITE   1u
 #define BOOT_IDX_TEAL    2u
-#define BOOT_IDX_DARK    19u
+#define BOOT_IDX_DARK    0u
 #define BOOT_IDX_LIGHT   212u
 #define BOOT_IDX_SHADOW  170u
 #define BOOT_IDX_FACE    221u

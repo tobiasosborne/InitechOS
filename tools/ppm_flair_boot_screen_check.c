@@ -22,8 +22,9 @@
  *           box centre is within 1 px of the capture's (the panel centre).
  *   WELL    the well interior is white outside the logo cell.
  *   LOGO    the logo cell (x 196..440, y 98..265) equals the strike, each role
- *           in its DESIGN-REFERENCE Sec 7.0 colour (tops #8DDCDC desktop canon,
- *           dark #131313, light #D4D4D4, clear = the well white).
+ *           in its DESIGN-REFERENCE Sec 7.0/7.1 colour (tops #8DDCDC desktop
+ *           canon, dark = Initech Black 0/0/0/100 #000000, light = the 16 %
+ *           grey as sampled, #D4D4D4; clear = the well white).
  *
  * Ref: re/mint-results-009.md Sec 2 (geometry), os/milton/boot_screen.h (the
  * painter, which this file does NOT include: its numbers are re-stated here
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
 
     /* WELL + LOGO. */
     {
-        static const unsigned role_rgb[4] = {0xFFFFFFu, 0x8DDCDCu, 0x131313u, 0xD4D4D4u};
+        static const unsigned role_rgb[4] = {0xFFFFFFu, 0x8DDCDCu, 0x000000u, 0xD4D4D4u};
         static unsigned char cell[BOOT_LOGO_H][BOOT_LOGO_W];
         const int lx = 196, ly = 98;
         long bw = 0, bl = 0, inked = 0;

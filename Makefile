@@ -10452,6 +10452,9 @@ $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/cursor.h
 $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_FLAIRLIVE_MAIN_OBJ) \
 $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) \
 $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/milton/boot_screen.h spec/assets/boot_logo.h spec/assets/chicago12.h
+# ... and EVERY kmain variant object (the eval'd mutant/record templates spell
+# their own prerequisite lists), the vesa8.mk .EXTRA_PREREQS idiom.
+$(BUILD)/kmain%.o: private .EXTRA_PREREQS += os/milton/boot_screen.h spec/assets/boot_logo.h
 
 # Derived FROM the gate list (initech-8z9j): the interactive kernel is the bounded
 # FLAIRTENANTS kernel with ONLY its main object swapped. The old hand-copied list
