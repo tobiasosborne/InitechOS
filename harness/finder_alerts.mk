@@ -122,8 +122,14 @@ $(FINDER_RESTORE_DATA): $(FLAIR_DATA_IMG)
 	mcopy -o -i $@ $(BUILD)/finder_original.txt ::TRASH/README.TXT
 	@$(call fixture-check,recipe,$@)
 
+# The dump follows the LAST notice (the cycle refusal, which stays up until the
+# image's life ends). The first (samedir) notice is dismissed by the tdnl.72
+# kesc, and the post-injection dump keyed to its marker raced the guest: the
+# harness finished injecting before the guest drew the cycle notice and
+# grabbed the frame in between (no alert on screen; ALERT-BANDS 369/6496).
 test-flair-finder-refused: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
-	$(call appl-boot,finder_refused,$(FLAIRTENANTS_HOLD_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,--screendump --screendump-after "FINDER-ALERT reason=move")
+	$(call appl-boot,finder_refused,$(FLAIRTENANTS_HOLD_IMG),$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,--screendump --screendump-after "FINDER-ALERT-LINE A folder cannot be moved inside itself.")
+	@grep -q '^FINDER-ALERT-LINE The item is already in this folder.' $(BUILD)/finder_refused.serial
 	@$(call APPL_ALIVE,$(BUILD)/finder_refused.serial) || { printf '!!! finder_refused did not finish alive\n'; exit 1; }
 	@grep -q '^FINDER-ALERT reason=move' $(BUILD)/finder_refused.serial
 	@$(PPM_FLAIR_TRASH_CHECK_BIN) notice $(BUILD)/finder_refused.ppm
@@ -240,7 +246,7 @@ $(eval $(call finder-limits-emu-mutant,keys,finder_keys,grep -q '^FINDER-OPEN-FO
 
 define finder-notice-emu-mutant
 test-flair-finder-$(1)-mutant: test-flair-finder-$(2) $(BUILD)/flair_tenants_mut_$(3).img
-	$$(call appl-boot,mut_$(3),$(BUILD)/flair_tenants_mut_$(3).img,$(4),$(5),--screendump)
+	$$(call appl-boot,mut_$(3),$(BUILD)/flair_tenants_mut_$(3).img,$(4),$(5),--screendump $(7))
 	@$$(call APPL_ALIVE,$(BUILD)/mut_$(3).serial) || { printf '!!! mut_$(3) did not finish alive\n'; exit 1; }
 	@if $(PPM_FLAIR_TRASH_CHECK_BIN) notice $(BUILD)/mut_$(3).ppm > $(BUILD)/mut_$(3).pixels 2>&1; then printf '!!! $(6) survived\n';exit 1;fi
 	@grep 'FAIL ALERT-BANDS' $(BUILD)/mut_$(3).pixels
@@ -249,7 +255,9 @@ TEST_EMU_GATES += test-flair-finder-$(1)-mutant
 endef
 $(eval $(call finder-notice-emu-mutant,disk-alert,diskfull,finder_disk_alert,$(BUILD)/finder_diskfull_host.img,FLAIR_FINDER_DISKFULL_SPEC,FINDER_MUT_NO_DISK_ALERT))
 $(eval $(call finder-notice-emu-mutant,launch-alert,launch-alerts,finder_launch_alert,$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,FINDER_MUT_NO_LAUNCH_ALERT))
-$(eval $(call finder-notice-emu-mutant,move-alert,refused,finder_move_alert,$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,FINDER_MUT_NO_MOVE_ALERT))
+# $(7): the mutant's dump waits for the guest to reach the cycle refusal (the
+# point the clean leg grades), so RED means "no notice there", not a race.
+$(eval $(call finder-notice-emu-mutant,move-alert,refused,finder_move_alert,$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,FINDER_MUT_NO_MOVE_ALERT,--screendump-after "FINDER-MOVE-REFUSED reason=cycle"))
 test-flair-finder-restore-mutant: test-flair-finder-restore $(BUILD)/flair_tenants_mut_finder_origin.img
 	$(call appl-boot,mut_finder_origin,$(BUILD)/flair_tenants_mut_finder_origin.img,$(FINDER_RESTORE_DATA),FLAIR_FINDER_RESTORE_SPEC,--screendump)
 	@$(call APPL_ALIVE,$(BUILD)/mut_finder_origin.serial) || { printf '!!! mut_finder_origin did not finish alive\n'; exit 1; }
