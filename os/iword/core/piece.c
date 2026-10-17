@@ -20,6 +20,7 @@
  */
 #include "iword.h"
 #include "iword/wp5_format.h"
+#include "iword/wp5_page.h"
 
 static const uint8_t FIXED_LEN[16] = IW_WP5_FIXED_LEN_INIT;
 
@@ -244,9 +245,12 @@ int iw_iter_next(iw_iter_t *it)
 /* ---- units ---------------------------------------------------------------- */
 static int is_single(uint8_t b)
 {
-    /* 0x90 [DSRt]: slice 3 (bead initech-jojk; MINT22 @0x28A) */
+    /* 0x90 [DSRt]: slice 3 (bead initech-jojk; MINT22 @0x28A). P4 (bead
+     * initech-8q6j; spec/iword/wp5_page.h): 0x8C [HRt-SPg] (MINT39), 0x0B
+     * [SPg] (MINT44), 0x87 [Col On], 0xAF [Col Off] (MINT37). */
     return b == IW_WP5_HRT || b == IW_WP5_SRT || b == IW_WP5_HPG ||
-           b == IW_WP5_HSPACE || b == IW_WP5_END_CENTER || b == IW_WP5_DSRT;
+           b == IW_WP5_HSPACE || b == IW_WP5_END_CENTER || b == IW_WP5_DSRT ||
+           b == IW_WP5_HRT_SPG || b == IW_WP5_SRT_SPG || b == IW_WP5_COL_ON || b == IW_WP5_COL_OFF;
 }
 
 uint32_t iw_unit_len(const uint8_t *b, uint32_t n, uint32_t pos)
@@ -290,8 +294,17 @@ int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
 {
     int c = iw_doc_byte(d, pos);
     if (c >= (int)IW_WP5_TEXT_LO && c <= (int)IW_WP5_TEXT_HI) return IW_U_TEXT;
-    if (c == IW_WP5_HRT) return IW_U_HRT;
-    if (c == IW_WP5_SRT) return IW_U_SRT;
+    /* P4: the soft page's returns are returns to the layout; iw_ed_fixup
+     * puts them where the pages end (spec/iword/wp5_page.h, MINT39 / 44) */
+    if (c == IW_WP5_HRT || c == IW_WP5_HRT_SPG) return IW_U_HRT;
+    if (c == IW_WP5_SRT || c == IW_WP5_SRT_SPG) return IW_U_SRT;
+    if (c == IW_WP5_COL_OFF) return IW_U_COLOFF;
+    if (c == IW_WP5_TROW_GRP) {
+        int sub = iw_doc_byte(d, pos + 1u);
+        if (sub == (int)IW_WP5_TCELL_SUB) return IW_U_CELL;
+        if (sub == (int)IW_WP5_TROW_SUB || sub == (int)IW_WP5_TOFF_SUB) return IW_U_ROW;
+    }
+    if (c == IW_WP5_NOTE_GRP) return IW_U_NOTE;
     if (c == IW_WP5_HPG) return IW_U_HPG;
     if (c == IW_WP5_HSPACE) return IW_U_HSPACE;
     /* slice 2 (bead initech-jojk; spec/iword/wp5_format.h "tabs, indents and

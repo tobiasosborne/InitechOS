@@ -248,10 +248,52 @@ static void p1_piece_table(void)
  * fits); that space becomes 0x0D and the next line starts at b + 1. With no
  * such space, the line runs on (the layout breaks it; no byte changes) to
  * the next space after s + w, which then breaks it. */
+/* WordPerfect's default line (RULE 8, 2026-10-17, bead initech-8q6j, stated
+ * in spec/iword/wp5_format.h WRAP; ../wordperfect51-decomp MINT45, MINT46):
+ * a candidate line of len characters with g spaces fits when 1200 + 120 len
+ * <= 9000 + 24 g (Full justification squeezes each space by 24 WPU) --
+ * written here from those two documents, not from edit.c. */
+static int ref_fits_wp(uint32_t len, uint32_t g)
+{
+    return 1200u + 120u * len <= 9000u + 24u * g;
+}
+
+static void ref_wrap_wp(uint8_t *b, uint32_t n)
+{
+    uint32_t p = 0;
+    while (p <= n) {
+        uint32_t e = p, s;
+        while (e < n && b[e] != 0x0A) e++;
+        s = p;
+        for (;;) {
+            uint32_t k, g = 0, brk = UINT32_MAX, gall = 0;
+            for (k = s; k < e; k++) if (b[k] == ' ') gall++;
+            if (ref_fits_wp(e - s, gall)) break;       /* the rest is the last line */
+            for (k = s; k < e; k++) {
+                if (b[k] == ' ') {
+                    if (ref_fits_wp(k - s, g)) brk = k;
+                    else break;
+                    g++;
+                }
+            }
+            if (brk == UINT32_MAX) {                    /* an over-long word */
+                k = s;
+                while (k < e && b[k] != ' ') k++;
+                if (k >= e) break;
+                brk = k;
+            }
+            b[brk] = 0x0D;
+            s = brk + 1u;
+        }
+        p = e + 1u;
+    }
+}
+
 static void ref_wrap(uint8_t *b, uint32_t n, uint32_t w)
 {
     uint32_t p = 0;
     for (uint32_t i = 0; i < n; i++) if (b[i] == 0x0D) b[i] = ' ';
+    if (w == IW_WP5_WRAP_COLS) { ref_wrap_wp(b, n); return; }
     while (p <= n) {
         uint32_t e = p;
         while (e < n && b[e] != 0x0A) e++;
@@ -318,7 +360,16 @@ static void p2_reflow(void)
             for (;;) {
                 iw_line_t ln;
                 iw_line_at(&d, s, w, &ln);
-                if (ln.cols > w || ln.start != s || ln.end < ln.text_end || ln.text_end < s) {
+                /* the default line: its text ends by the margin plus 24 WPU
+                 * a space (ref_fits_wp; RULE 8 2026-10-17, stated above) */
+                uint32_t lim = w;
+                if (w == IW_WP5_WRAP_COLS) {
+                    uint32_t g = 0;
+                    for (uint32_t q = ln.start; q < ln.text_end; q++) if (iw_doc_byte(&d, q) == ' ') g++;
+                    lim = 65u;
+                    while (ref_fits_wp(lim + 1u, g)) lim++;
+                }
+                if (ln.cols > lim || ln.start != s || ln.end < ln.text_end || ln.text_end < s) {
                     fprintf(stderr, "  FAIL P2 trial %d: layout line @%u has %u cols (w %u)\n", t, s, ln.cols, w);
                     bad = 1; break;
                 }

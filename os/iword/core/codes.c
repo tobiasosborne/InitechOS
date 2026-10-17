@@ -388,8 +388,13 @@ static uint32_t label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, 
         return put(out, cap, n, IW_RV_UNKNOWN);
     case IW_WP5_INDENT:     return put(out, cap, n, IW_RV_INDENT);   /* MINT09 */
     case IW_WP5_END_INDENT: return n;                 /* MINT09: no label */
-    default:
+    default: {
+        /* P4 (bead initech-8q6j; os/iword/core/page.c, spec/iword/wp5_page.h):
+         * [HRt-SPg], [SPg], headers / footers, notes, columns, tables */
+        uint32_t r = iw_p4_label(d, pos, out, cap, n);
+        if (r != NONE) return r;
         return put(out, cap, n, IW_RV_UNKNOWN);
+    }
     }
 }
 

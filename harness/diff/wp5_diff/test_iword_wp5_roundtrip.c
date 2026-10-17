@@ -396,7 +396,10 @@ static void part_d(void)
     tl = iw_wp5_text(&e.doc, g_text, CAP);
     {
         int ok = ref_agrees(path, g_text, tl,
-            "T'Initech word processing is here. The quick brown fox jumps over' [SRt] T'the lazy dog.' [HRt] T'Short line.' [HRt]");
+            /* RE-KEYED 2026-10-17 (bead initech-8q6j, stated): "the" stays on
+             * line 1 -- ../wordperfect51-decomp MINT46, this very sentence
+             * typed into the real WP 5.1 (spec/iword/wp5_format.h WRAP) */
+            "T'Initech word processing is here. The quick brown fox jumps over the' [SRt] T'lazy dog.' [HRt] T'Short line.' [HRt]");
         if (!ok) { fprintf(stderr, "  FAIL wp5_ref.py on the synthetic document:\n%s", g_reader_out); g_ref_fail++; }
         CHECK(ok, "wp5_ref.py reads the synthetic document: TEXT, codes, zero trailer errors");
         printf("  part D %s: synthetic 3-paragraph document (%u bytes) read by wp5_ref.py, SRt/HRt in place\n", ok ? "green" : "RED", olen);

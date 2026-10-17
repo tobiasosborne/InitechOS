@@ -120,9 +120,22 @@ enum {
                          * before a hard page (iw_ed_fixup keeps them)       */
     IW_U_DSRT,          /* 0x90 deletable soft return: ends the line (and,
                          * for the wrap, the paragraph) (slice 3, MINT22)    */
-    IW_U_LEAD           /* D4/05: WP's unseen record at the START of a
+    IW_U_LEAD,          /* D4/05: WP's unseen record at the START of a
                          * centered / right-justified line (slice 3; the
                          * cursor always rests after it)                     */
+    /* P4 (bead initech-8q6j; spec/iword/wp5_page.h): */
+    IW_U_NOTE,          /* D6/00, D6/01 a footnote / endnote: its number
+                         * in the text, a column a digit (MINT36 "Alpha1");
+                         * 0x8C [HRt-SPg] and 0x0B [SPg] are IW_U_HRT /
+                         * IW_U_SRT to the layout (iw_ed_fixup puts them
+                         * where the pages end, MINT39 / MINT44)            */
+    IW_U_COLOFF,        /* 0xAF [Col Off]: ends the line and the paragraph;
+                         * the text after it starts below the longest column
+                         * (MINT37)                                          */
+    IW_U_CELL,          /* DC/00 [Cell]: the text after it starts in its
+                         * table cell (MINT38)                               */
+    IW_U_ROW            /* DC/01 [Row] / DC/02 [Tbl Off]: start a line (the
+                         * table's rows, MINT38 09_reveal)                   */
 };
 /* Length of the well-formed unit starting at b[pos] (n = bytes available),
  * or 0 when the bytes there are not a VERIFIED unit (spec/iword/
@@ -164,7 +177,20 @@ typedef struct iw_line {
     uint8_t  fset;       /* a margin code is in effect (else `width` rules) */
     uint16_t sp;         /* the line spacing at its end, 8.8 fixed: how far
                           * down the next line starts (slice 3, MINT25)  */
+    /* P4 (bead initech-8q6j; spec/iword/wp5_page.h): */
+    uint8_t  ncol;       /* the newspaper column the line is in, 1-based;
+                          * 0 when columns are off                       */
+    uint8_t  tbl;        /* IW_LT_*: a table's [Tbl Def] line or a row    */
+    uint8_t  trow_first, trow_last;   /* a row line: the table's first / last */
+    uint8_t  soft_end;   /* the page ends after this line (a soft page:
+                          * the editing screen's '-' bar, MINT39)        */
+    uint8_t  pad2;
+    uint16_t tcols;      /* a table line: the table's column count       */
+    uint32_t tdef;       /* a table line: where its [Tbl Def] is         */
 } iw_line_t;
+#define IW_LT_NONE   0u
+#define IW_LT_DEF    1u      /* the [Tbl Def] line: the table's top rule      */
+#define IW_LT_ROW    2u      /* a [Row] line: the row's cells                  */
 /* The paper position (WPU) of relative column `col` on line `ln`. */
 #define IW_LINE_X(ln, col) ((uint32_t)(ln)->x0 + 120u * ((uint32_t)(col) - (uint32_t)(ln)->col0))
 /* The screen column of paper position x: column 0 is 1" (rounded down). */
@@ -209,6 +235,10 @@ typedef struct iw_where {
                                  * line (Ln = 1" + y / 6 / 256; spacing)    */
     uint32_t sp;                /* the spacing in effect at the cursor (8.8
                                  * fixed; Format: Line shows it)           */
+    uint32_t ncol;              /* P4: the newspaper column (1-based; 0 off;
+                                 * the status line's "Col 2", MINT37 07)   */
+    uint32_t cell;              /* P4: the table cell the cursor is in, 1 +
+                                 * its index on the row (0: not in a cell)  */
 } iw_where_t;
 
 void     iw_ed_init(iw_ed_t *e, uint32_t width);   /* doc already bound */
@@ -431,5 +461,59 @@ const uint8_t *iw_wp5_default_prefix(uint32_t *len);
  * outside every group, concatenated. Returns the full length (out holds at
  * most cap bytes). */
 uint32_t iw_wp5_text(const iw_doc_t *d, char *out, uint32_t cap);
+
+/* ---- P4: the page features (bead initech-8q6j; os/iword/core/page.c) ------- *
+ * spec/iword/wp5_page.h holds every byte, label and menu; each verified by a
+ * document or print stream the real WP 5.1 wrote (../wordperfect51-decomp
+ * MINT33..44, PRTMINTnn.TXT; re/mint-results-005.md).
+ * HEADERS / FOOTERS (Shift-F8 2 3 / 4; Reference pp. 269-274): iw_ed_hf puts
+ * the definition of `which` (IW_HF_HEADER_A..IW_HF_FOOTER_B) with `occ`
+ * (IW_HF_EVERY / ODD / EVEN; 0 = Discontinue) and its text (characters, 0x0A,
+ * 0x02 the page number) at the cursor, the cursor after it. iw_hf_find: the
+ * definition Edit (5) opens -- the nearest before the cursor, else after it
+ * (p. 273); iw_ed_hf_edit replaces its text. iw_hf_at: the definitions in
+ * effect at pos (the Format: Page screen's values). */
+typedef struct iw_hfstate {
+    uint8_t  occ[4];         /* 0 none / discontinued, else IW_HF_*        */
+    uint8_t  lines[4];       /* the definition's lines                      */
+} iw_hfstate_t;
+int      iw_ed_hf(iw_ed_t *e, uint32_t which, uint32_t occ, const uint8_t *text, uint32_t n);
+uint32_t iw_hf_find(const iw_doc_t *d, uint32_t cur, uint32_t which);   /* or 0xFFFFFFFF */
+uint32_t iw_hf_text(const iw_doc_t *d, uint32_t pos, uint8_t *out, uint32_t cap);
+int      iw_ed_hf_edit(iw_ed_t *e, uint32_t pos, const uint8_t *text, uint32_t n);
+void     iw_hf_at(const iw_doc_t *d, uint32_t pos, iw_hfstate_t *s);
+/* FOOTNOTES / ENDNOTES (Ctrl-F7 1 / 2, 1 Create; pp. 209-216): the note's
+ * code at the cursor, its text from the note screen (characters, 0x0A);
+ * iw_ed_fixup numbers them in order (p. 210 "renumbered automatically").
+ * iw_note_number: the number of the note code at pos (0 if none). */
+int      iw_ed_note(iw_ed_t *e, uint32_t kind, const uint8_t *text, uint32_t n);
+uint32_t iw_note_number(const iw_doc_t *d, uint32_t pos);
+/* NEWSPAPER COLUMNS (Alt-F7 1; pp. 75-79): the default definition of n equal
+ * columns between the margins at the cursor, [Col On], [Col Off] (its D4/00
+ * kept by iw_ed_fixup). A hard page between them ends a column. */
+int      iw_ed_coldef(iw_ed_t *e, uint32_t ncols);
+int      iw_ed_col_on(iw_ed_t *e);
+int      iw_ed_col_off(iw_ed_t *e);
+/* TABLES (Alt-F7 2 1; pp. 640-644): a table of cols x rows at the cursor, the
+ * cursor in its first cell; iw_ed_cell: Tab (dir 1) / Shift-Tab (-1) to the
+ * next / previous cell (IW_E_RANGE past either end); iw_in_table: pos lies
+ * in a table's cells. Enter inside a cell is refused (IW_E_RANGE): P4 keeps
+ * a cell one line [reduction, stated]. */
+int      iw_ed_table(iw_ed_t *e, uint32_t cols, uint32_t rows);
+int      iw_ed_cell(iw_ed_t *e, int dir);
+int      iw_in_table(const iw_doc_t *d, uint32_t pos);
+/* The Reveal Codes label of a P4 code at pos appended at out[n] (the
+ * codes.c label() pattern); returns the new length, or 0xFFFFFFFF when the
+ * unit is not a P4 code. */
+uint32_t iw_p4_label(const iw_doc_t *d, uint32_t pos, char *out, uint32_t cap, uint32_t n);
+/* PRINT (Shift-F7 1 Full Document; pp. 493-494, 543): the stream the
+ * Standard Printer prints for the whole document (spec/iword/wp5_page.h
+ * "printing"), handed to sink in pieces (a non-zero return stops it and is
+ * returned). The paper re-wraps the text (a character ends by the right
+ * margin): the document is copied into scratch (scap >= its length) and
+ * laid out there; the document itself is not touched. IW_E_FULL: scratch
+ * too small. */
+typedef int (*iw_sink_t)(void *ctx, const uint8_t *b, uint32_t n);
+int      iw_print(const iw_ed_t *e, uint8_t *scratch, uint32_t scap, iw_sink_t sink, void *ctx);
 
 #endif /* INITECH_IWORD_H */

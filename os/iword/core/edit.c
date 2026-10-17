@@ -47,7 +47,9 @@
  * Freestanding (no libc). Deterministic. ASCII-clean.
  */
 #include "iword.h"
+#include "iword_int.h"
 #include "iword/wp5_format.h"
+#include "iword/wp5_page.h"
 
 #define NONE 0xFFFFFFFFu
 
@@ -72,6 +74,25 @@ static uint32_t advance(int kind, uint32_t c)
     return c;
 }
 
+/* P4: the units whose column needs the document -- a note's number (its
+ * digits: MINT36 "Alpha1", PRTMINT36) and a table cell (its text at x = the
+ * cell's left edge + 144: shots_wpMINT38/04 "Pos 1.12"", A1/B1/C1 at
+ * columns 1/22/44). tdef / lm: the table's [Tbl Def] (NONE: none) and the
+ * left margin the columns count from. */
+static uint32_t adv(const iw_doc_t *d, uint32_t p, int kind, uint32_t c, uint32_t tdef, uint32_t lm)
+{
+    if (kind == IW_U_NOTE) {
+        uint32_t n = (uint32_t)(iw_doc_byte(d, p + 5u) & 0xFF) | ((uint32_t)(iw_doc_byte(d, p + 6u) & 0xFF) << 8);
+        return c + iw__digits(n);
+    }
+    if (kind == IW_U_CELL && tdef != NONE) {
+        uint32_t x = iw__cell_left(d, tdef, (uint32_t)(iw_doc_byte(d, p + 5u) & 0xFF)) + IW_TBL_SCREEN_DX;
+        uint32_t rel = x > lm ? (x - lm) / IW_WP5_WPU_PER_COL : 0u;
+        return rel > c ? rel : c;
+    }
+    return advance(kind, c);
+}
+
 static int is_hidden(const iw_doc_t *d, uint32_t p)
 {
     return p < d->len && iw_unit_kind(d, p) == IW_U_HIDDEN;
@@ -89,14 +110,16 @@ static uint32_t after_lead(const iw_doc_t *d, uint32_t at);
 
 static int is_term(int kind)
 {
-    return kind == IW_U_HRT || kind == IW_U_SRT || kind == IW_U_HPG || kind == IW_U_DSRT;
+    /* P4: [Col Off] ends its line (MINT37 10_reveal "Second column.[Col Off]") */
+    return kind == IW_U_HRT || kind == IW_U_SRT || kind == IW_U_HPG || kind == IW_U_DSRT ||
+           kind == IW_U_COLOFF;
 }
 
 /* The wrap's paragraph: a [DSRt] is a line end WP put there on purpose
  * (MINT22 "Mid[DSRt][Just:Center]after"), never re-wrapped across. */
 static int is_para_end(int kind)
 {
-    return kind == IW_U_HRT || kind == IW_U_HPG || kind == IW_U_DSRT;
+    return kind == IW_U_HRT || kind == IW_U_HPG || kind == IW_U_DSRT || kind == IW_U_COLOFF;
 }
 
 /* The units that take the cursor across the paper (a line's first one ends
@@ -112,18 +135,21 @@ static int advances(int kind)
  * the right margin position 10200 - R (WPU), the justification, and whether a
  * margin code has been met (until then the caller's `width` rules the wrap,
  * so the P1 / P2 property suites keep their free widths). */
-typedef struct fmt {
-    uint32_t lm, rm, just, set;
-    uint32_t sp;                 /* line spacing, 8.8 fixed (slice 3, MINT25) */
-} fmt_t;
-
+/* fmt_t: iword_int.h (P4 adds the page features to it) */
 static void fmt_default(fmt_t *f)
 {
+    uint32_t i;
     f->lm = IW_WP5_LEFT_WPU;
     f->rm = IW_WP5_RIGHT_WPU;
     f->just = IW_WP5_JUST_DEFAULT;
     f->set = 0;
     f->sp = IW_WP5_SPACING_ONE;
+    for (i = 0; i < 4u; i++) { f->hocc[i] = 0; f->hlines[i] = 0; }
+    f->colon = f->ncols = f->col = f->tbl = 0;
+    f->slm = f->srm = f->sset = 0;
+    f->coldef = NONE;
+    f->tdef = NONE;
+    f->tcols = 0;
 }
 
 static uint32_t g16(const uint8_t *g, uint32_t i)
@@ -155,17 +181,106 @@ static void fmt_take(const uint8_t *g, int k, fmt_t *f)
     }
 }
 
-/* Apply the format code at p, if it is one; returns its fmt_kind. */
+/* ---- P4: the page features in the format (bead initech-8q6j) ---------------- *
+ * spec/iword/wp5_page.h: the header / footer definitions in effect, the
+ * newspaper columns ([Col Def] -> [Col On] takes column 1's margins, a hard
+ * page the next column's, [Col Off] gives the margins back: MINT37), the
+ * table ([Tbl Def] .. [Tbl Off]: MINT38). */
+static uint32_t rd16(const iw_doc_t *d, uint32_t p)
+{
+    uint8_t g[2] = { 0, 0 };
+    (void)iw_doc_read(d, p, g, 2u);
+    return (uint32_t)g[0] | ((uint32_t)g[1] << 8);
+}
+
+static void col_margins(const iw_doc_t *d, fmt_t *f)
+{
+    /* the NEW definition: after the header and the old one, its count, then
+     * (left, right) per column (MINT37 @0x147 + 4 + 97: 02 | b0 04 c0 12 ..) */
+    uint32_t at = f->coldef + IW_WP5_VAR_HDR + IW_COLDEF_DEF_LEN + 1u + 4u * f->col;
+    f->lm = rd16(d, at);
+    f->rm = rd16(d, at + 2u);
+    f->set = 1;
+}
+
+/* A P4 code at p (first byte b): its effect on f. 4: it changes the margins
+ * (a leading [Col On] formats its own line); 5: another page feature; 0:
+ * not one. */
+static int p4_apply(const iw_doc_t *d, uint32_t p, int b, fmt_t *f)
+{
+    int sub;
+    if (b == (int)IW_WP5_COL_ON) {
+        if (f->coldef == NONE || f->ncols == 0u || f->colon) return 5;
+        f->slm = f->lm; f->srm = f->rm; f->sset = f->set;
+        f->colon = 1; f->col = 0;
+        col_margins(d, f);
+        return 4;
+    }
+    if (b == (int)IW_WP5_COL_OFF) {
+        if (f->colon) { f->lm = f->slm; f->rm = f->srm; f->set = f->sset; }
+        f->colon = 0; f->col = 0;
+        return 4;
+    }
+    if (b == (int)IW_WP5_HPG) {
+        /* a hard page ends the column (Reference p. 79) */
+        if (f->colon && f->ncols) {
+#ifdef IWORD_MUT_COL_BREAK
+            /* MUTANT (Rule 6; test-iword-p4-mutant): a hard page in columns
+             * starts a new page, column 1 again. NEVER real. */
+            f->col = 0;
+#else
+            f->col = (uint8_t)((f->col + 1u) % f->ncols);
+#endif
+            col_margins(d, f);
+            return 4;
+        }
+        return 0;
+    }
+    if (b < (int)IW_WP5_VAR_LO) return 0;
+    sub = iw_doc_byte(d, p + 1u);
+    if (b == (int)IW_WP5_COLDEF_GRP && sub == (int)IW_WP5_COLDEF_SUB) {
+        uint32_t n = (uint32_t)iw_doc_byte(d, p + IW_WP5_VAR_HDR + IW_COLDEF_DEF_LEN);
+        f->coldef = p;
+        f->ncols = (uint8_t)(n >= 1u && n <= IW_COLDEF_MAX ? n : 1u);
+        return 5;
+    }
+    if (b == (int)IW_WP5_COLDEF_GRP && sub == (int)IW_WP5_TBL_SUB) {
+        f->tbl = 1;
+        f->tdef = p;
+        f->tcols = (uint32_t)iw_doc_byte(d, p + IW_WP5_VAR_HDR + IW_TBL_OLD_LEN + 1u);
+        return 5;
+    }
+    if (b == (int)IW_WP5_TROW_GRP && sub == (int)IW_WP5_TOFF_SUB) { f->tbl = 0; return 5; }
+    if (b == (int)IW_WP5_HF_GRP && sub >= 0 && sub < 4) {
+        if (rd16(d, p + 2u) == IW_HF_DISC_SIZE) { f->hocc[sub] = 0; f->hlines[sub] = 0; }
+        else {
+            f->hocc[sub] = (uint8_t)iw_doc_byte(d, p + IW_WP5_VAR_HDR + IW_HF_OLD_LEN);
+            f->hlines[sub] = (uint8_t)(rd16(d, p + IW_WP5_VAR_HDR + IW_HF_OLD_LEN + 1u) / IW_WP5_WPU_PER_LINE);
+        }
+        return 5;
+    }
+    return 0;
+}
+
+/* Apply the format code at p, if it is one; returns its fmt_kind (P4: 4 /
+ * 5, p4_apply). */
 static int fmt_apply(const iw_doc_t *d, uint32_t p, fmt_t *f)
 {
     uint8_t g[IW_WP5_MARGIN_LEN];
     uint32_t got;
-    int k;
-    if (iw_doc_byte(d, p) != (int)IW_WP5_MARGIN_GRP) return 0;
+    int k, b = iw_doc_byte(d, p);
+    if (b != (int)IW_WP5_MARGIN_GRP) return p4_apply(d, p, b, f);
     got = iw_doc_read(d, p, g, sizeof g);
     k = fmt_kind(g, got);
     fmt_take(g, k, f);
     return k;
+}
+
+/* The units whose format fmt_apply reads (a [Tbl Off] is a row-starting
+ * unit, P4). */
+static int fmt_unit(int kind)
+{
+    return kind == IW_U_CODE || kind == IW_U_ROW;
 }
 
 /* The format in effect at pos (the codes in [0, pos)). One sequential pass. */
@@ -192,9 +307,17 @@ static void fmt_at(const iw_doc_t *d, uint32_t pos, fmt_t *f)
                 if (i < sizeof g) g[i] = (uint8_t)c;
             }
             if (b == (int)IW_WP5_MARGIN_GRP) fmt_take(g, fmt_kind(g, n < sizeof g ? n : sizeof g), f);
+            else (void)p4_apply(d, p, b, f);             /* P4 (random access) */
+        } else if (b == (int)IW_WP5_COL_ON || b == (int)IW_WP5_COL_OFF || b == (int)IW_WP5_HPG) {
+            (void)p4_apply(d, p, b, f);
         }
         p += n;
     }
+}
+
+void iw__fmt_at(const iw_doc_t *d, uint32_t pos, fmt_t *f)
+{
+    fmt_at(d, pos, f);
 }
 
 /* Characters a line holds: a character fits when it STARTS at or before the
@@ -249,17 +372,50 @@ static int unsoft(iw_doc_t *d, uint32_t p, uint32_t q)
 #endif
 }
 
+/* P4: on paper a character must END by the right margin and no space is
+ * compressed (spec/iword/wp5_page.h "printing": PRTMINT44 re-wraps the
+ * 66-character line, PRTMINT45 the 67-character ones, every printed line at
+ * most 65; PRTMINT09's 60 characters from 1.5" still fit).
+ * iw__print_wrap() sets it around iw_print's layout only. */
+static uint32_t g_print_less;   /* 1 on paper (PRTMINT45) */
+#define LINE_WIDTH(f, w0) (fmt_width((f), (w0)) > g_print_less ? fmt_width((f), (w0)) - g_print_less : 1u)
+
+void iw__print_wrap(int on)
+{
+    g_print_less = on ? 1u : 0u;
+}
+
+/* Does a line whose text takes c columns from its margin, with `gaps` spaces
+ * in it, fit? RULE 8, 2026-10-17 (bead initech-8q6j, deliberate; spec/iword/
+ * wp5_format.h WRAP): the text must END by the right margin, a FULLY
+ * justified line's spaces being compressible by IW_WP5_COMPRESS_WPU each --
+ * MINT45 stores four 67-character lines at 1"/1" (240 WPU over 10 spaces),
+ * MINT46 the 67-character "... jumps over the" (12 spaces) and wraps a
+ * 68-character one with 10 (MINT45 line 7); left / centered lines are not
+ * compressed (MINT23, MINT24A). Was: a character fits when it STARTS by the
+ * margin (slice 3, from MINT22's Full line). On paper nothing is compressed
+ * (iw__print_wrap). A width that is not the default line's and no margin
+ * code: the caller's plain column count (the property suites' free widths). */
+static int fits(const fmt_t *f, uint32_t width0, uint32_t c, uint32_t gaps)
+{
+    uint32_t lm, rm, end, slack;
+    if (f->set) { lm = f->lm; rm = f->rm; }
+    else if (width0 == IW_WP5_WRAP_COLS) { lm = IW_WP5_LEFT_WPU; rm = IW_WP5_RIGHT_WPU; }
+    else return c <= LINE_WIDTH(f, width0);
+    end = lm + IW_WP5_WPU_PER_COL * c;
+    slack = (f->just == IW_WP5_JUST_FULL && !g_print_less) ? IW_WP5_COMPRESS_WPU * gaps : 0u;
 #ifdef IWORD_MUT_WRAP_EARLY
-/* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): a line ends one column
- * short of the margin. NEVER real. */
-#define LINE_WIDTH(f, w0) (fmt_width((f), (w0)) > 1u ? fmt_width((f), (w0)) - 1u : 1u)
-#elif defined(IWORD_MUT_WRAP_65)
-/* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): slice 1's rule -- a
- * character must END by the right margin (65 at 1"/1"). NEVER real. */
-#define LINE_WIDTH(f, w0) ((f)->set ? fmt_width((f), (w0)) - 1u : ((w0) == IW_WP5_WRAP_COLS ? (w0) - 1u : (w0)))
-#else
-#define LINE_WIDTH(f, w0) fmt_width((f), (w0))
+    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): a line ends one
+     * column short. NEVER real. */
+    rm = rm > IW_WP5_WPU_PER_COL ? rm - IW_WP5_WPU_PER_COL : 0u;
 #endif
+#ifdef IWORD_MUT_WRAP_65
+    /* MUTANT (Rule 6; test-iword-wp5-roundtrip-mutant): no space is
+     * compressed on the screen either. NEVER real. */
+    slack = 0;
+#endif
+    return end <= rm + slack;
+}
 
 /* Re-wrap the paragraph [p, end) that starts in format *f; *f leaves as the
  * format at its end. A format code among a line's leading units formats that
@@ -278,27 +434,42 @@ static int reflow_range(iw_doc_t *d, uint32_t p, uint32_t end, fmt_t *f, uint32_
         /* c: the column, from the line's margin m; mq: the margin the
          * indents before q set -- the next line's, should it break at q;
          * fq: the format after the units before q -- likewise */
-        uint32_t c = m, q = p, lastfit = NONE, brk = NONE, mq = m, mfit = m, mbrk = m, width;
+        uint32_t c = m, q = p, lastfit = NONE, brk = NONE, mq = m, mfit = m, mbrk = m, width, gaps = 0;
         fmt_t lf = *f, fq = *f, ffit = *f, fbrk = *f;
         int lead = 1;
         width = LINE_WIDTH(&lf, width0);
+        uint32_t rowbrk = NONE;
+        (void)width;
         while (q < end) {
             int k = iw_unit_kind(d, q);
-            if (k == IW_U_CODE && fmt_apply(d, q, &fq) && lead) {
+            /* P4: a table's [Row] / [Tbl Off] starts a line of its own (no
+             * byte: MINT38 09_reveal), and a row is never wrapped -- a cell
+             * keeps one line [reduction, stated in iword.h] */
+            if (k == IW_U_ROW && q > p) { rowbrk = q; break; }
+            if (fmt_unit(k) && fmt_apply(d, q, &fq) && lead) {
                 (void)fmt_apply(d, q, &lf);
                 width = LINE_WIDTH(&lf, width0);
             }
-            if (breakable(d, q, k)) {
-                if (c <= width) { lastfit = q; mfit = mq; ffit = fq; }
+            if (breakable(d, q, k) && !fq.tbl) {
+                if (fits(&lf, width0, c, gaps)) { lastfit = q; mfit = mq; ffit = fq; }
                 else if (lastfit != NONE) { brk = lastfit; mbrk = mfit; fbrk = ffit; break; }
                 else { brk = q; mbrk = mq; fbrk = fq; break; }
+                gaps++;
             }
             if (advances(k)) lead = 0;
-            c = (k == IW_U_SRT) ? c + 1u : advance(k, c);
+            c = (k == IW_U_SRT) ? c + 1u : adv(d, q, k, c, fq.tbl ? fq.tdef : NONE, fq.lm);
             if (k == IW_U_INDENT) mq = c;
             q = iw_unit_next(d, q);
         }
-        if (brk == NONE && c > width && lastfit != NONE) { brk = lastfit; mbrk = mfit; fbrk = ffit; }
+        if (rowbrk != NONE) {
+            rc = unsoft(d, p, rowbrk);
+            if (rc != IW_OK) return rc;
+            p = rowbrk;
+            m = 0;
+            *f = fq;
+            continue;
+        }
+        if (brk == NONE && !fits(&lf, width0, c, gaps) && lastfit != NONE && !fq.tbl) { brk = lastfit; mbrk = mfit; fbrk = ffit; }
         if (brk == NONE) {                               /* the last line */
             *f = fq;
             return unsoft(d, p, end);
@@ -335,6 +506,7 @@ int iw_reflow_from(iw_doc_t *d, uint32_t pos, uint32_t width)
         int rc = reflow_range(d, p, e, &f, width);
         if (rc != IW_OK) return rc;
         if (e >= d->len) return IW_OK;
+        (void)p4_apply(d, e, iw_doc_byte(d, e), &f);   /* a hard page / [Col Off] */
         p = iw_unit_next(d, e);
     }
 }
@@ -350,7 +522,7 @@ int iw_reflow_all(iw_doc_t *d, uint32_t width)
 static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fmt_t *fin,
                       uint32_t width0, iw_line_t *ln, fmt_t *fout)
 {
-    uint32_t p = start, c = col0, m = col0, width, w, lead_at = NONE;
+    uint32_t p = start, c = col0, m = col0, width, w, lead_at = NONE, lgaps = 0;
     fmt_t lf = *fin, run = *fin;
     int lead = 1, k = IW_U_TEXT, ended = 0, placed = 0, after_just = 0;
     width = LINE_WIDTH(&lf, width0);
@@ -360,8 +532,10 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
     while (p < d->len) {
         k = iw_unit_kind(d, p);
         if (is_term(k)) { ended = 1; break; }
+        /* P4: a [Row] / [Tbl Off] starts a line (MINT38 09_reveal) */
+        if (k == IW_U_ROW && p > start) { k = IW_U_TEXT; break; }
         {
-            int fk = k == IW_U_CODE ? fmt_apply(d, p, &run) : 0;
+            int fk = fmt_unit(k) ? fmt_apply(d, p, &run) : 0;
             if (fk && lead) {
                 (void)fmt_apply(d, p, &lf);
                 width = LINE_WIDTH(&lf, width0);
@@ -372,7 +546,7 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
          * margin wider than the line still makes progress -- slice 3: a
          * D4/05 is not that unit, or a line of a D4/05 alone would follow a
          * line of a D4/05 alone forever) */
-        if ((k == IW_U_TEXT || k == IW_U_HSPACE) && c + 1u > width && placed) {
+        if ((k == IW_U_TEXT || k == IW_U_HSPACE) && !fits(&lf, width0, c + 1u, lgaps) && placed && !run.tbl) {
             /* the D4/05 records right before the break start the next line */
             if (lead_at != NONE) p = lead_at;
             break;
@@ -385,16 +559,20 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
         if (k == IW_U_LEAD) { if (lead_at == NONE && !after_just) lead_at = p; after_just = 0; }
         else lead_at = NONE;
         if (advances(k)) lead = 0;
-        c = advance(k, c);
+        if (k == IW_U_TEXT && iw_doc_byte(d, p) == ' ') lgaps++;
+        c = adv(d, p, k, c, run.tbl ? run.tdef : NONE, lf.lm);
         if (k == IW_U_INDENT) m = c;
         p = iw_unit_next(d, p);
     }
+    (void)width;
     ln->text_end = p;
     ln->cols = (uint16_t)c;
     if (ended) {
         ln->end = iw_unit_next(d, p);
         ln->term = (uint8_t)k;
         ln->margin = (uint16_t)(k == IW_U_SRT ? m : 0u);
+        /* P4: a hard page in columns / a [Col Off] formats what follows */
+        if (k == IW_U_HPG || k == IW_U_COLOFF) (void)p4_apply(d, p, iw_doc_byte(d, p), &run);
     } else {
         ln->end = p;
         ln->term = IW_U_TEXT;
@@ -409,6 +587,29 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
      * be inserted for each Soft Return code [SRt] and Hard Return code
      * [HRt]"; MINT25 "Mid[Ln Spacing:1]single" advanced one line) */
     ln->sp = (uint16_t)run.sp;
+    /* P4: the column the line is in, its table role */
+    ln->ncol = (uint8_t)(lf.colon ? lf.col + 1u : 0u);
+    ln->soft_end = 0;
+    ln->pad2 = 0;
+    ln->tbl = IW_LT_NONE;
+    ln->trow_first = ln->trow_last = 0;
+    ln->tcols = 0;
+    ln->tdef = NONE;
+    if (start < d->len && iw_unit_kind(d, start) == IW_U_ROW && iw_doc_byte(d, start + 1u) == (int)IW_WP5_TROW_SUB &&
+        fin->tbl) {
+        uint32_t q = start > 0u ? iw_unit_prev(d, start) : start;
+        ln->tbl = IW_LT_ROW;
+        ln->tdef = lf.tdef;
+        ln->tcols = (uint16_t)lf.tcols;
+        ln->trow_first = (uint8_t)(q < start && iw_doc_byte(d, q) == (int)IW_WP5_COLDEF_GRP &&
+                                   iw_doc_byte(d, q + 1u) == (int)IW_WP5_TBL_SUB);
+        ln->trow_last = (uint8_t)(ln->end < d->len && iw_doc_byte(d, ln->end) == (int)IW_WP5_TROW_GRP &&
+                                  iw_doc_byte(d, ln->end + 1u) == (int)IW_WP5_TOFF_SUB);
+    } else if (run.tbl && !fin->tbl) {
+        ln->tbl = IW_LT_DEF;                    /* the [Tbl Def] line: the top rule */
+        ln->tdef = run.tdef;
+        ln->tcols = (uint16_t)run.tcols;
+    }
     /* where the text sits on the paper (MINT22 04_typed: a centered line
      * halfway between the margins, a right-justified one ending at the right
      * margin position) */
@@ -446,7 +647,7 @@ uint32_t iw_line_col(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos)
 {
     uint32_t p = ln->start, c = ln->col0;
     while (p < pos && p < d->len) {
-        c = advance(iw_unit_kind(d, p), c);
+        c = adv(d, p, iw_unit_kind(d, p), c, ln->tdef, ln->lm);
         p = iw_unit_next(d, p);
     }
     return c;
@@ -473,47 +674,109 @@ static uint32_t line_max(const iw_doc_t *d, const iw_line_t *ln)
     return ln->end > ln->start ? iw_unit_prev(d, ln->end) : ln->start;
 }
 
-/* Walk the lines from the top. */
-typedef struct walk {
-    iw_line_t ln;
-    uint32_t  index, page, page_line;
-    uint32_t  y;                 /* down the page from its first line, in
-                                  * 1/256ths of a line (slice 3, spacing) */
-    fmt_t     fin, fout;         /* the format at the line's start / end */
-} walk_t;
+/* Walk the lines from the top: walk_t is in iword_int.h (P4 paginates it). */
+#define walk_first iw__walk_first
+#define walk_next  iw__walk_next
 
-static void walk_first(const iw_ed_t *e, walk_t *w)
+/* How far down the line below starts (y units): its spacing; P4 -- a
+ * table's [Tbl Def] line none (the rule sits above the first row: MINT38
+ * 07_after), a row line its height from its [Row] (MINT40 "End." at Ln
+ * 2.07" = 200 + 368 + 336 + 384 WPU below the top). */
+static uint32_t line_h(const iw_doc_t *d, const iw_line_t *ln)
+{
+    if (ln->tbl == IW_LT_DEF) return 0;
+    if (ln->tbl == IW_LT_ROW) {
+        uint32_t info = 4u + 2u * ln->tcols;
+        return IW_WPU_TO_Y(rd16(d, ln->start + IW_WP5_VAR_HDR + info + 1u));
+    }
+    return ln->sp;
+}
+
+/* The page the walk has just reached: the header / footer definitions it
+ * uses -- those in effect before its first line and those among that line's
+ * leading codes (Reference p. 271 "you must define it at the very top of
+ * that page (i.e., before any characters)"; MINT33: the codes after page 1's
+ * [HRt] print from page 2) -- and the room they leave (spec/iword/
+ * wp5_page.h; MINT34 1.33", MINT35 1.5", MINT43 52 lines). */
+static void page_begin(const iw_ed_t *e, walk_t *w)
+{
+    const iw_doc_t *d = &e->doc;
+    fmt_t f = w->fin;
+    uint32_t p = w->ln.start, i;
+    int odd = (int)(w->page & 1u);
+    while (p < w->ln.text_end) {
+        int k = iw_unit_kind(d, p);
+        if (k != IW_U_CODE && k != IW_U_HIDDEN && k != IW_U_LEAD) break;
+        if (k == IW_U_CODE) (void)fmt_apply(d, p, &f);
+        p = iw_unit_next(d, p);
+    }
+    for (i = 0; i < 4u; i++) { w->phocc[i] = f.hocc[i]; w->phlines[i] = f.hlines[i]; }
+    w->top = IW_WPU_TO_Y(iw__hf_space(w->phocc, w->phlines, 0, odd));
+    w->bottom = IW_PG_TEXT_LINES * IW_Y_LINE - IW_WPU_TO_Y(iw__hf_space(w->phocc, w->phlines, 1, odd));
+    w->y = w->top;
+    w->col_top = w->col_max = w->top;
+}
+
+void iw__walk_first(const iw_ed_t *e, walk_t *w)
 {
     fmt_default(&w->fin);
     line_from(&e->doc, 0, 0, &w->fin, e->width, &w->ln, &w->fout);
     w->index = 0;
     w->page = 1;
     w->page_line = 1;
-    w->y = 0;
+    w->soft = 0;
+    page_begin(e, w);
 }
 
-/* Advance to the next line; 0 at the last line. */
-static int walk_next(const iw_ed_t *e, walk_t *w)
+/* Advance to the next line; 0 at the last line. P4: a line that would start
+ * past the page's last line starts the next page (single spacing: the
+ * page's lines, 54 without headers -- MINT39; the line below a header's
+ * blank line first -- MINT43) or, in newspaper columns, the next column at
+ * the block's top (Reference p. 79); a hard page in columns ends the column
+ * (MINT37); the text after [Col Off] starts below the longest column
+ * (MINT37 "After." Ln 1.33"). */
+int iw__walk_next(const iw_ed_t *e, walk_t *w)
 {
-    uint8_t term = w->ln.term;
+    const iw_doc_t *d = &e->doc;
+    uint8_t term = w->ln.term, ncol = w->ln.ncol;
     uint32_t y;
-    if (is_last(&e->doc, &w->ln)) return 0;
-    /* the line below sits the previous line's spacing further down (MINT25:
-     * Ln 2.83" = 1" + 11 lines); a line that would start past the page's
-     * last single-spaced line starts the next page -- at spacing 1 exactly
-     * IW_WP5_LINES_PER_PAGE lines a page as before [the page end under
-     * other spacings is inferred: no mint fills a page] */
-    y = w->y + w->ln.sp;
+    int newpage = 0, soft = 0;
+    if (is_last(d, &w->ln)) return 0;
+    y = w->y + line_h(d, &w->ln);
+    if (ncol && y > w->col_max) w->col_max = y;
     w->fin = w->fout;
-    line_from(&e->doc, w->ln.end, w->ln.margin, &w->fin, e->width, &w->ln, &w->fout);
+    if (term == IW_U_HPG) {
+        if (ncol && w->fin.colon && w->fin.col != 0u) y = w->col_top;   /* the next column */
+        else newpage = 1;
+    } else if (term == IW_U_COLOFF) {
+#ifndef IWORD_MUT_COL_BELOW
+        /* (IWORD_MUT_COL_BELOW, Rule 6, test-iword-p4-mutant: the text after
+         * the columns follows the LAST column. NEVER real.) */
+        if (w->col_max > y) y = w->col_max;
+#endif
+    } else if (y + IW_Y_LINE > w->bottom) {
+        soft = 1;
+        if (w->fin.colon && w->fin.col + 1u < w->fin.ncols) {
+            w->fin.col++;
+            col_margins(d, &w->fin);
+            y = w->col_top;
+        } else {
+            newpage = 1;
+            if (w->fin.colon) { w->fin.col = 0; col_margins(d, &w->fin); }
+        }
+    }
+    line_from(d, w->ln.end, w->ln.margin, &w->fin, e->width, &w->ln, &w->fout);
     w->index++;
-    if (term == IW_U_HPG || y > (IW_WP5_LINES_PER_PAGE - 1u) * IW_WP5_SPACING_ONE) { w->page++; w->page_line = 1; w->y = 0; }
+    w->soft = (uint8_t)soft;
+    if (newpage) { w->page++; w->page_line = 1; page_begin(e, w); }
     else { w->page_line++; w->y = y; }
+    if (w->ln.ncol && !ncol) w->col_top = w->col_max = w->y;          /* columns begin */
     return 1;
 }
 
 static int in_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos)
 {
+    (void)0;
     return pos < ln->end || is_last(d, ln) || (ln->term != IW_U_TEXT && pos == ln->text_end);
 }
 
@@ -548,6 +811,17 @@ void iw_ed_where(const iw_ed_t *e, iw_where_t *wh)
         wh->just = f.just;
         wh->sp = f.sp;
     }
+    /* P4: the newspaper column; the table cell (the [Cell] codes before the
+     * cursor on its row line) */
+    wh->ncol = w.ln.ncol;
+    wh->cell = 0;
+    if (w.ln.tbl == IW_LT_ROW) {
+        uint32_t p = w.ln.start;
+        while (p < e->cur && p < w.ln.end) {
+            if (iw_unit_kind(&e->doc, p) == IW_U_CELL) wh->cell++;
+            p = iw_unit_next(&e->doc, p);
+        }
+    }
 }
 
 static int find_line(const iw_ed_t *e, uint32_t line, walk_t *w)
@@ -565,7 +839,7 @@ static uint32_t pos_in_line(const iw_doc_t *d, const iw_line_t *ln, uint32_t col
 {
     uint32_t p = ln->start, c = ln->col0, max = line_max(d, ln);
     while (p < max && c < col) {
-        uint32_t nc = advance(iw_unit_kind(d, p), c);
+        uint32_t nc = adv(d, p, iw_unit_kind(d, p), c, ln->tdef, ln->lm);
         if (nc > col) break;
         c = nc;
         p = iw_unit_next(d, p);
@@ -596,6 +870,7 @@ uint32_t iw_ed_lines(const iw_ed_t *e, uint32_t first, uint32_t n, iw_line_t *ou
     while (got < n) {
         out[got++] = w.ln;
         if (!walk_next(e, &w)) break;
+        if (w.soft && w.page_line == 1u) out[got - 1u].soft_end = 1;   /* P4: the '-' bar */
     }
     return got;
 }
@@ -955,26 +1230,61 @@ static int fix_insert(iw_ed_t *e, uint32_t p, const uint8_t *g, uint32_t n)
 /* Every hard page has its D4/00 right before it; every HRt that ends a
  * paragraph holding an indent has its C6 right before it; no other D4/00 or
  * C6 remains (MINT11: Backspace on the hard page took its group too). */
+/* P4: the bytes a D4/00 group stands before (a hard page; the soft page's
+ * returns, MINT39 / MINT44; [Col Off] with its long group, MINT37). */
+static int page_end_byte(int b)
+{
+    return b == (int)IW_WP5_HPG || b == (int)IW_WP5_HRT_SPG || b == (int)IW_WP5_SRT_SPG || b == (int)IW_WP5_COL_OFF;
+}
+
+/* The D4/00 group a page end at q wants: the long one before [Col Off]. */
+static uint32_t page_grp_len(const iw_doc_t *d, uint32_t q)
+{
+    return iw_doc_byte(d, q) == (int)IW_WP5_COL_OFF ? IW_COLOFF_GRP_LEN : IW_WP5_PAGE_GRP_LEN;
+}
+
 static int fix_structure(iw_ed_t *e)
 {
     static const uint8_t pg[IW_WP5_PAGE_GRP_LEN] = IW_WP5_PAGE_GRP_INIT;
     static const uint8_t c6[IW_WP5_END_INDENT_LEN] = { IW_WP5_END_INDENT,
         (uint8_t)(IW_WP5_RIGHT_WPU & 0xFFu), (uint8_t)(IW_WP5_RIGHT_WPU >> 8), 0, 0, IW_WP5_END_INDENT };
+    static const uint8_t tail[28] = IW_COLOFF_TAIL_INIT;
+    uint8_t lg[IW_COLOFF_GRP_LEN];
     iw_doc_t *d = &e->doc;
-    uint32_t p = 0;
+    uint32_t p = 0, i;
     int indent = 0, rc;
-    (void)pg;
+    /* the [Col Off] group: the 28-byte page group's head, payload[13] 01, the
+     * 28 bytes of MINT37 @0x26D (spec/iword/wp5_page.h) */
+    for (i = 0; i < IW_WP5_PAGE_GRP_LEN - 4u; i++) lg[i] = pg[i];
+    lg[2] = (uint8_t)(IW_COLOFF_GRP_LEN - 4u);
+    lg[IW_WP5_VAR_HDR + IW_PG_GRP_FLAG_OFF] = 0x01;
+    for (i = 0; i < sizeof tail; i++) lg[IW_WP5_PAGE_GRP_LEN - 4u + i] = tail[i];
+    lg[IW_COLOFF_GRP_LEN - 4u] = (uint8_t)(IW_COLOFF_GRP_LEN - 4u);
+    lg[IW_COLOFF_GRP_LEN - 3u] = 0x00;
+    lg[IW_COLOFF_GRP_LEN - 2u] = IW_WP5_PAGE_SUB;
+    lg[IW_COLOFF_GRP_LEN - 1u] = IW_WP5_PAGE_GRP;
     while (p < d->len) {
         int k = iw_unit_kind(d, p);
         uint32_t n = iw_unit_next(d, p);
         if (k == IW_U_HIDDEN) {
-            int keep = is_page_grp(d, p) ? (n < d->len && iw_doc_byte(d, n) == (int)IW_WP5_HPG)
+            int keep = is_page_grp(d, p) ? (n < d->len && page_end_byte(iw_doc_byte(d, n)) &&
+                                            n - p == page_grp_len(d, n))
                                          : (indent && n < d->len && iw_doc_byte(d, n) == (int)IW_WP5_HRT);
             if (!keep) {
                 rc = fix_delete(e, p, n - p);
                 if (rc != IW_OK) return rc;
                 continue;
             }
+        } else if (k == IW_U_COLOFF || ((k == IW_U_HRT || k == IW_U_SRT) && page_end_byte(iw_doc_byte(d, p)))) {
+            /* P4: [Col Off], [HRt-SPg], [SPg] have their group before them */
+            if (p == 0u || !is_page_grp(d, iw_unit_prev(d, p))) {
+                uint32_t L = page_grp_len(d, p);
+                rc = fix_insert(e, p, L == IW_COLOFF_GRP_LEN ? lg : pg, L);
+                if (rc != IW_OK) return rc;
+                p += L;
+            }
+            if (k == IW_U_HRT) indent = 0;
+            n = iw_unit_next(d, p);
         } else if (k == IW_U_HPG) {
 #ifndef IWORD_MUT_NO_D4
             /* (IWORD_MUT_NO_D4, see iw_ed_hpage: no group is added) */
@@ -1062,9 +1372,35 @@ static int fix_payloads(iw_ed_t *e)
                 u16put(g + 2, w.ln.lm + IW_WP5_WPU_PER_COL * m);
                 rc = put_bytes(d, p + 1u, g, 4u);
             } else if (k == IW_U_HIDDEN) {
-                u16put(g, w.y * IW_WP5_WPU_PER_LINE / IW_WP5_SPACING_ONE);
+                uint8_t h[14];
+                uint32_t q = iw_unit_next(d, p), i, odd_h, even_h;
+                int nb = iw_doc_byte(d, q), diff = 0;
+                u16put(g, (w.y - w.top) * IW_WP5_WPU_PER_LINE / IW_WP5_SPACING_ONE);
                 u16put(g + 2, w.page);
                 rc = put_bytes(d, p + IW_WP5_PAGE_VPOS_OFF, g, 4u);
+                /* P4 (spec/iword/wp5_page.h): [10] 2 at a soft return's
+                 * soft page or a column's hard page (MINT44, MINT37); [13]
+                 * the definitions changed on the page (MINT33) / the [Col
+                 * Off] group (MINT37); [14..23] the page under its headers
+                 * and footers (MINT33/34/35/43) */
+                for (i = 0; i < 4u; i++)
+                    if (w.fout.hocc[i] != w.phocc[i] || w.fout.hlines[i] != w.phlines[i]) diff = 1;
+                for (i = 0; i < sizeof h; i++) h[i] = 0;
+                h[0] = (uint8_t)((nb == (int)IW_WP5_SRT_SPG || (nb == (int)IW_WP5_HPG && w.ln.ncol)) ? IW_PG_GRP_MID : 0u);
+                h[3] = (uint8_t)(nb == (int)IW_WP5_COL_OFF || diff);
+                odd_h = IW_PG_TEXT_WPU - iw__hf_space(w.phocc, w.phlines, 0, 1) - iw__hf_space(w.phocc, w.phlines, 1, 1);
+                even_h = IW_PG_TEXT_WPU - iw__hf_space(w.phocc, w.phlines, 0, 0) - iw__hf_space(w.phocc, w.phlines, 1, 0);
+                u16put(h + 4, IW_PG_TEXT_WPU);
+                u16put(h + 6, odd_h);
+                u16put(h + 8, even_h);
+                u16put(h + 10, IW_PG_TOP_WPU + iw__hf_space(w.phocc, w.phlines, 0, 1));
+                u16put(h + 12, IW_PG_TOP_WPU + iw__hf_space(w.phocc, w.phlines, 0, 0));
+                if (rc == IW_OK) rc = put_bytes(d, p + IW_WP5_VAR_HDR + IW_PG_GRP_MID_OFF, h, sizeof h);
+                if (rc == IW_OK && nb == (int)IW_WP5_COL_OFF && q - p == IW_COLOFF_GRP_LEN) {
+                    uint32_t yend = w.y + line_h(d, &w.ln), top = w.col_max > yend ? w.col_max : yend;
+                    u16put(g, IW_Y_TO_WPU(top - w.col_top));
+                    rc = put_bytes(d, p + IW_WP5_VAR_HDR + IW_COLOFF_HEIGHT_OFF, g, 2u);
+                }
             } else if (k == IW_U_CODE && b0 == (int)IW_WP5_MARGIN_GRP) {
                 uint8_t h[IW_WP5_MARGIN_LEN];
                 uint32_t got = iw_doc_read(d, p, h, sizeof h);
@@ -1089,7 +1425,7 @@ static int fix_payloads(iw_ed_t *e)
 #endif
                 fmt_take(h, fk, &run);
             }
-            c = advance(k, c);
+            c = adv(d, p, k, c, w.ln.tdef, w.ln.lm);
             if (k == IW_U_INDENT) m = c;
             p = iw_unit_next(d, p);
         }
@@ -1235,11 +1571,46 @@ static uint32_t after_lead(const iw_doc_t *d, uint32_t at)
     return at;
 }
 
+/* P4: the soft page. The return that ends the last line of a page (or of a
+ * newspaper column the text flowed out of) is [HRt-SPg] 0x8C / [SPg] 0x0B,
+ * every other return a plain one (MINT39, MINT43, MINT44; Reference p. 79
+ * "WordPerfect inserts a Soft Page code [SPg]"). Bytes only: the layout
+ * reads them as returns, so nothing moves; fix_structure keeps their D4/00. */
+static int fix_soft_pages(iw_ed_t *e)
+{
+    iw_doc_t *d = &e->doc;
+    walk_t w;
+    walk_first(e, &w);
+    for (;;) {
+        iw_line_t prev = w.ln;
+        int more = walk_next(e, &w), rc;
+        if (prev.term == IW_U_HRT || prev.term == IW_U_SRT) {
+            uint32_t t = prev.text_end;
+            int b = iw_doc_byte(d, t), soft = more && w.soft, want;
+#ifdef IWORD_MUT_SPG_NONE
+            /* MUTANT (Rule 6; test-iword-p4-mutant): the returns at a soft page
+             * stay plain. NEVER real. */
+            soft = 0;
+#endif
+            if (prev.term == IW_U_HRT) want = soft ? (int)IW_WP5_HRT_SPG : (int)IW_WP5_HRT;
+            else want = soft ? (int)IW_WP5_SRT_SPG : (int)IW_WP5_SRT;
+            if (b != want) {
+                rc = iw_doc_set(d, t, (uint8_t)want);
+                if (rc != IW_OK) return rc;
+            }
+        }
+        if (!more) return IW_OK;
+    }
+}
+
 int iw_ed_fixup(iw_ed_t *e)
 {
-    int rc = fix_structure(e);
+    int rc = iw__p4_fixup(e);
+    if (rc == IW_OK) rc = fix_soft_pages(e);
+    if (rc == IW_OK) rc = fix_structure(e);
     if (rc == IW_OK) rc = fix_linepos(e);
     if (rc == IW_OK) rc = fix_payloads(e);
+    if (rc == IW_OK) rc = iw__p4_fixup(e);
     e->cur = after_lead(&e->doc, before_hidden(&e->doc, e->cur));
     e->blk = after_lead(&e->doc, before_hidden(&e->doc, e->blk));
     return rc;

@@ -257,8 +257,14 @@ static void launch(const char *name, void (*script)(void))
 
 #ifndef IWORD_SMALL_BUFFERS
 #define PARA "Initech word processing is here. The quick brown fox jumps over the lazy dog."
-#define ROW0 "Initech word processing is here. The quick brown fox jumps over"
-#define ROW1 "the lazy dog."
+/* RE-KEYED 2026-10-17 (bead initech-8q6j, stated): the real WP 5.1 keeps "the"
+ * on the first line -- ../wordperfect51-decomp MINT46 (mint/wpMINT46.steps
+ * types exactly PARA): "...jumps over the" <SRt> "lazy dog.", 01_typed.png
+ * "Ln 1.17" Pos 1.9"" -- a fully justified line's spaces squeeze (spec/iword/
+ * wp5_format.h WRAP); P1 had the break after "over". */
+#define ROW0 "Initech word processing is here. The quick brown fox jumps over the"
+#define ROW1 "lazy dog."
+#define ROW0_OVER "Initech word processing is here. The quick brown fox jumps over"
 
 /* F1 THE GATE'S FLOW (what test-flair-iword drives in the emulator): type a
  * paragraph that wraps, F10 save, F7 n n (a new document), Shift-F10
@@ -268,15 +274,15 @@ static void t_flow(void)
     CHECK(status_is("", "1\"", "1\"", 0), "F1", "empty document: Doc 1 Pg 1 Ln 1\" Pos 1\" (01_edit.png)");
     CHECK(cursor_at(0, 0), "F1", "the cursor at the top left");
     tks(PARA);
-    CHECK(row_is(0, ROW0) && row_is(1, ROW1) && row_is(2, ""), "F1", "the paragraph wraps after \"over\" (65 columns)");
-    CHECK(status_is("", "1.17\"", "2.3\"", 0), "F1", "line 2, column 13: Ln 1.17\" Pos 2.3\"");
-    CHECK(cursor_at(1, 13), "F1", "the cursor after \"dog.\"");
+    CHECK(row_is(0, ROW0) && row_is(1, ROW1) && row_is(2, ""), "F1", "the paragraph wraps after \"the\" (67 columns, MINT46)");
+    CHECK(status_is("", "1.17\"", "1.9\"", 0), "F1", "line 2, column 9: Ln 1.17\" Pos 1.9\" (MINT46 01_typed)");
+    CHECK(cursor_at(1, 9), "F1", "the cursor after \"dog.\"");
     fkey(F10, 0);
     CHECK(row_is(23, "Document to be Saved: "), "F1", "F10 asks \"Document to be Saved: \" (PDF 213)");
     tks("memo");
     CHECK(row_is(23, "Document to be Saved: memo"), "F1", "the typed name shows");
     tk('\r');
-    CHECK(status_is("A:\\MEMO", "1.17\"", "2.3\"", 0), "F1", "saved: the name at the left of the status line (04_saved.png)");
+    CHECK(status_is("A:\\MEMO", "1.17\"", "1.9\"", 0), "F1", "saved: the name at the left of the status line (04_saved.png)");
     CHECK(file_size("MEMO") == 327 + 77, "F1", "MEMO holds the 327-byte prefix + the 77-byte body");
     fkey(F7, 0);
     CHECK(row_is(23, "Save Document? Yes (No)                              (Text was not modified)"), "F1",
@@ -303,21 +309,22 @@ static void t_relaunch(void)
     CHECK(row_is(0, ROW0) && row_is(1, ROW1), "F2", "a fresh launch retrieves MEMO");
     /* End, Down, End: the cursor walks the lines */
     fkey(0x4F, 0);
-    CHECK(cursor_at(0, 63) && status_is("A:\\MEMO", "1\"", "7.3\"", 0), "F2", "End: the end of line 1 (column 63)");
+    CHECK(cursor_at(0, 67) && status_is("A:\\MEMO", "1\"", "7.7\"", 0), "F2", "End: the end of line 1 (column 67)");
     fkey(0x50, 0);
-    CHECK(cursor_at(1, 13), "F2", "Down from column 63 lands at the end of the short line 2");
+    CHECK(cursor_at(1, 9), "F2", "Down from column 67 lands at the end of the short line 2");
     /* F10 offers the current name; save as COPY (a character replaces it) */
     fkey(F10, 0);
     CHECK(row_is(23, "Document to be Saved: MEMO"), "F2", "F10 offers the current name (PDF 583)");
     tks("copy\r");
-    CHECK(status_is("A:\\COPY", "1.17\"", "2.3\"", 0), "F2", "saved as COPY");
+    CHECK(status_is("A:\\COPY", "1.17\"", "1.9\"", 0), "F2", "saved as COPY");
     /* Up, then Home, Left (slice 3: Home is WP's prefix key, Reference
      * Manual p. 103; MINT27): to the very start; type X; F10 Enter: Replace? */
     fkey(0x48, 0);
     fkey(0x47, 0);
     fkey(0x4B, 0);   /* Left */
     tk('X');
-    CHECK(row_is(0, "X" ROW0), "F2", "X typed at the start (the line still fits: 64 columns)");
+    CHECK(row_is(0, "X" ROW0_OVER) && row_is(1, "the " ROW1), "F2",
+          "X typed at the start: 68 columns do not fit (12 spaces), \"the\" wraps (spec/iword/wp5_format.h WRAP)");
     fkey(F10, 0);
     tk('\r');
     CHECK(row_is(23, "Replace A:\\COPY? No (Yes)"), "F2", "an existing file asks Replace? No (Yes) (PDF 399/583)");
@@ -894,25 +901,32 @@ static void t_small(void)
         g_model[n++] = c;
     }
     CHECK(errors == 1, "F6", "the size limit is refused visibly (ERROR: Document too large)");
-    CHECK(n == 4096u - 327u, "F6", "the document filled to the bank exactly");
     fkey(F10, 0);
     tks("big\r");
     CHECK(file_size("BIG") == 4096, "F6", "saved: prefix + the full body");
     {
+        /* P4 (bead initech-8q6j, stated): the paragraph runs past a page, and
+         * the soft return that ends the page is WP's [SPg] 0x0B with its
+         * 32-byte D4/00 before it (../wordperfect51-decomp MINT44) -- the
+         * body is the typed text, its soft returns and that bookkeeping */
         char hp[300];
         static unsigned char b[8192];
         FILE *f;
         size_t k;
+        uint32_t i, j = 0, groups = 0;
         host_name("BIG", hp);
         f = fopen(hp, "rb");
         k = f ? fread(b, 1, sizeof b, f) : 0;
         if (f) fclose(f);
         int same = k == 4096u;
-        for (uint32_t i = 0; same && i < n; i++) {
-            char c = (char)(b[327 + i] == 0x0D ? ' ' : b[327 + i]);
-            if (c != g_model[i]) same = 0;
+        for (i = 327; same && i < k; ) {
+            if (b[i] == 0xD4 && i + 32u <= k && b[i + 1] == 0x00 && b[i + 31] == 0xD4) { groups++; i += 32u; continue; }
+            char c = (char)((b[i] == 0x0D || b[i] == 0x0B) ? ' ' : b[i]);
+            if (j >= n || c != g_model[j]) same = 0;
+            j++; i++;
         }
-        CHECK(same, "F6", "the saved text is the typed text across compactions");
+        CHECK(same && j == n, "F6", "the saved text is the typed text across compactions");
+        CHECK(groups >= 1u && n + 32u * groups == 4096u - 327u, "F6", "the document filled to the bank exactly");
     }
 }
 #endif

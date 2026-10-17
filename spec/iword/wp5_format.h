@@ -349,7 +349,24 @@
  * WP also lets a character START on the right margin (MINT22: a 66-character
  * line, see "margins and justification" WRAP). This is the number of
  * characters a default line holds. */
+/* RULE 8, 2026-10-17 (bead initech-8q6j, deliberate): the RULE behind 66
+ * is not "a character starts by the right margin". MINT45 (../wordperfect51-
+ * decomp mint/wpMINT45.steps, re/mint-results-005.md) stores four lines of
+ * 67 characters, and MINT46 -- the exact sentence of test-flair-iword --
+ * keeps "the" on the first line ("... jumps over the" | "lazy dog."), where
+ * slice 3's rule put the break after "over": a FULLY justified line may
+ * squeeze each of its spaces by IW_WP5_COMPRESS_WPU (Reference p. 307,
+ * Justification Full, and the Word Spacing Justification Limits), so its
+ * text must end by the right margin plus that slack; a left, centered or
+ * right line must end by the margin (MINT23 wraps a 63-character line at
+ * 61 columns; MINT24A). 24 is bounded by the data: 240 WPU over 10 spaces
+ * fits (MINT45 lines 2 and 9), 360 over 10 does not (line 7) [inferred:
+ * 24 <= IW_WP5_COMPRESS_WPU < 36]. MINT22's 66 characters are 120 WPU over
+ * 12 spaces. IW_WP5_WRAP_COLS stays the width a caller passes for the default
+ * line (edit.c fits()); on paper nothing is compressed (spec/iword/
+ * wp5_page.h "printing"). */
 #define IW_WP5_WRAP_COLS       66u
+#define IW_WP5_COMPRESS_WPU    24u
 /* Vertical: the status line reads Ln 1" for the first line and 1.17" for the
  * second (MINT02.shots/02_typed.png): a 1" top margin and 6 lines per inch.
  * An 11" page with 1" top and bottom margins holds 9 * 6 = 54 lines

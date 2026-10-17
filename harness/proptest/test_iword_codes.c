@@ -260,26 +260,42 @@ static uint32_t r_page[MAXT], r_pline[MAXT]; /* page / line on page of its line 
 static uint32_t r_marg[MAXT];          /* HRT: the paragraph's margin; 0 = none */
 static uint8_t  r_ind[MAXT];           /* HRT: its paragraph holds an indent    */
 
+/* RULE 8, 2026-10-17 (bead initech-8q6j, stated; spec/iword/wp5_format.h
+ * WRAP; ../wordperfect51-decomp MINT45, MINT46): on the default line (the
+ * width 66 Face A passes, Full justification) a line of c columns with g
+ * spaces fits when 1200 + 120 c <= 9000 + 24 g; other widths keep c <= w.
+ * (The 66 is this file's own: the width the sessions pass for the 1"/1"
+ * line; edit.c recognises the same value.) */
+#define IW_WP5_WRAP_COLS 66u
+static int ref_fits(uint32_t c, uint32_t g, uint32_t w)
+{
+    if (w == IW_WP5_WRAP_COLS) return 1200u + 120u * c <= 9000u + 24u * g;
+    return c <= w;
+}
+static uint8_t  r_spg[MAXT];            /* this return ends a page (MINT39, MINT44) */
+
 static void ref_layout(uint32_t w)
 {
     uint32_t i = 0;
     memset(r_srt, 0, m_n + 1);
+    memset(r_spg, 0, m_n + 1);
     /* 1. the soft returns, paragraph by paragraph */
     while (i <= m_n) {
         uint32_t ps = i, pe = i, m = 0, ls;
         while (pe < m_n && m_t[pe] != T_HRT && m_t[pe] != T_HPG) pe++;
         ls = ps;
         for (;;) {
-            uint32_t c = m, mm = m, mfit = m, mb = m, lastfit = UINT32_MAX, brk = UINT32_MAX, t;
+            uint32_t c = m, mm = m, mfit = m, mb = m, lastfit = UINT32_MAX, brk = UINT32_MAX, t, g = 0;
             for (t = ls; t < pe; t++) {
                 if (m_t[t] == ' ') {
-                    if (c <= w) { lastfit = t; mfit = mm; }
+                    if (ref_fits(c, g, w)) { lastfit = t; mfit = mm; }
                     else { if (lastfit != UINT32_MAX) { brk = lastfit; mb = mfit; } else { brk = t; mb = mm; } break; }
+                    g++;
                 }
                 c = adv_t(m_t[t], c);
                 if (m_t[t] == T_IND) mm = c;
             }
-            if (brk == UINT32_MAX && c > w && lastfit != UINT32_MAX) { brk = lastfit; mb = mfit; }
+            if (brk == UINT32_MAX && !ref_fits(c, g, w) && lastfit != UINT32_MAX) { brk = lastfit; mb = mfit; }
             if (brk == UINT32_MAX) break;
             r_srt[brk] = 1;
             ls = brk + 1;
@@ -289,15 +305,18 @@ static void ref_layout(uint32_t w)
     }
     /* 2. the display lines: columns, pages, margins */
     {
-        uint32_t c = 0, m = 0, page = 1, pl = 1, first = 1, ind = 0;
+        uint32_t c = 0, m = 0, page = 1, pl = 1, first = 1, ind = 0, g = 0;
         for (i = 0; i < m_n; i++) {
             uint16_t t = m_t[i];
             int term = r_srt[i] || t == T_HRT || t == T_HPG;
-            if (!term && t < 0x100 && c + 1u > w && !first) {     /* the layout's own break */
+            if (!term && t < 0x100 && !ref_fits(c + 1u, g, w) && !first) {     /* the layout's own break */
                 if (pl >= 54u) { page++; pl = 1; } else pl++;
                 c = m;
                 first = 1;
+                g = 0;
             }
+            if (term) g = 0;
+            else if (t == ' ') g++;
             r_col[i] = c;
             r_page[i] = page;
             r_pline[i] = pl;
@@ -305,6 +324,9 @@ static void ref_layout(uint32_t w)
             if (term) {
                 int hpg = t == T_HPG;
                 if (t == T_HRT || hpg) { m = 0; ind = 0; }
+                /* a return that ends the page's 54th line is the soft page's
+                 * (P4: [HRt-SPg] / [SPg] with a D4/00 before it) */
+                if (!hpg && pl >= 54u) r_spg[i] = 1;
                 if (hpg || pl >= 54u) { page++; pl = 1; } else pl++;
                 c = m;
                 first = 1;
@@ -328,6 +350,23 @@ static uint32_t m_bytes(uint8_t *out)
     for (uint32_t i = 0; i < m_n; i++) {
         uint16_t t = m_t[i];
         m_off[i] = n;
+        if (r_spg[i]) {
+            /* the soft page (P4; ../wordperfect51-decomp MINT39 @0x21E,
+             * MINT44 @0x29B): D4/00 at v = 200 x 53, the page, [10] = 2
+             * before an [SPg], then 0x8C / 0x0B */
+            static const uint8_t mid[18] = { 0,0,0,0,0,0,0,0, '0','*','0','*','0','*', 0xB0,0x04,0xB0,0x04 };
+            out[n++] = 0xD4; out[n++] = 0x00; out[n++] = 0x1C; out[n++] = 0x00;
+            out[n++] = 0x00; out[n++] = 0x16;
+            n = put16(out, n, (r_pline[i] - 1u) * 200u);
+            n = put16(out, n, r_page[i]);
+            memcpy(out + n, mid, sizeof mid);
+            if (t != T_HRT) out[n] = 2;
+            n += sizeof mid;
+            out[n++] = 0x1C; out[n++] = 0x00; out[n++] = 0x00; out[n++] = 0xD4;
+            m_off[i] = n - 32u;
+            out[n++] = t == T_HRT ? 0x8C : 0x0B;
+            continue;
+        }
         if (t < 0x100) out[n++] = (t == ' ' && r_srt[i]) ? 0x0D : (uint8_t)t;
         else if (t == T_HRT) {
             if (r_ind[i]) { out[n++] = 0xC6; n = put16(out, n, 9000); n = put16(out, n, 1200 + 120 * r_marg[i]); out[n++] = 0xC6; }
@@ -533,7 +572,7 @@ static int run(const key_t3 *keys, int n, const uint8_t *skip, uint32_t width, i
         len = iw_doc_read(&e.doc, 0, g_buf, CAP);
         if (len == mlen) {
             for (uint32_t q = 0; q < m_n; q++) {
-                int is_srt = g_buf[m_off[q]] == 0x0D;
+                int is_srt = g_buf[m_off[q]] == 0x0D || (r_spg[q] && g_buf[m_off[q] + 32u] == 0x0B);
                 if (m_t[q] == ' ' && (r_srt[q] != 0) != is_srt) { if (verbose) printf("      C4 token %u: SRt %d, reference %d\n", q, is_srt, r_srt[q]); return step; }
             }
         }
@@ -833,6 +872,7 @@ static uint32_t r_len(const uint8_t *b, uint32_t n, uint32_t p)
     static const uint8_t fixed[16] = { 4, 9, 11, 3, 3, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     if (c >= 0x20 && c <= 0x7E) return 1;
     if (c == 0x0A || c == 0x0D || c == 0x0C || c == 0x90 || c == 0xA0 || c == 0x83) return 1;
+    if (c == 0x8C || c == 0x0B) return 1;   /* P4: [HRt-SPg] / [SPg] (MINT39 / MINT44) */
     if (c >= 0xC0 && c <= 0xCF) {
         uint32_t L = fixed[c - 0xC0];
         return (L && p + L <= n && b[p + L - 1] == c) ? L : 0;
@@ -850,10 +890,22 @@ static int r_mar(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1]
 static int r_jst(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x06; }
 static int r_spc(const uint8_t *b, uint32_t p) { return b[p] == 0xD0 && b[p + 1] == 0x02; }
 static int r_tab(const uint8_t *b, uint32_t p) { return (b[p] == 0xC1 && b[p + 1] == 0x02) || b[p] == 0xC2; }
-static int r_term(uint8_t c) { return c == 0x0A || c == 0x0D || c == 0x0C || c == 0x90; }
+static int r_term(uint8_t c) { return c == 0x0A || c == 0x0D || c == 0x0C || c == 0x90 || c == 0x8C || c == 0x0B; }
+static int r_soft(uint8_t c) { return c == 0x0D || c == 0x0B; }
 static int r_cr(uint32_t j) { return j == 2 || j == 3; }
 
 /* The reference check of body b[0..n) with the cursor at cur; 0 = good. */
+/* Does a line of c columns with g spaces fit under margins L, R (WPU) and
+ * justification j? RULE 8, 2026-10-17 (bead initech-8q6j, stated; spec/
+ * iword/wp5_format.h WRAP; MINT45, MINT46, MINT23): its text ends by the
+ * right margin, a Full line's spaces squeezable by 24 WPU each. Without a
+ * margin code and at a width not the default line's: c <= width0. */
+static int r_fits(uint32_t c, uint32_t g, int set, uint32_t L, uint32_t R, uint32_t j, uint32_t width0)
+{
+    if (!set && width0 != IW_WP5_WRAP_COLS) return c <= width0;
+    return L + 120u * c <= 10200u - R + (j == 1u ? 24u * g : 0u);
+}
+
 static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, int verbose)
 {
     uint32_t p = 0, L = 1200, R = 1200, J = 1, set = 0, m = 0, S = 256;
@@ -872,7 +924,8 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
     /* lines */
     p = 0;
     for (;;) {
-        uint32_t s = p, c = m, lw, lL, lR, need, run = J, cols, q, after_m = m, mm = m;
+        uint32_t s = p, c = m, lw, lL, lR, need, run = J, cols, q, after_m = m, mm = m, lg = 0, lj = J;
+        int adv_seen = 0;     /* the line's justification is its LEADING codes' (edit.c) */
         uint32_t L0 = L, R0 = R, set0 = set;
         int layout_break = 0, placed = 0, prev_jst = 0;
         /* the line's leading format codes format it */
@@ -893,14 +946,17 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
             uint32_t u = r_len(b, n, q);
             /* the layout's own break: a character past the line, once a
              * unit other than a D4/05 is on it */
-            if ((R_TEXT(b[q])) && c + 1u > lw && placed) { layout_break = 1; break; }
+            if (r_jst(b, q) && !adv_seen) lj = b[q + 5];
+            if ((R_TEXT(b[q])) && !r_fits(c + 1u, lg, set0, lL, lR, lj, width0) && placed) { layout_break = 1; break; }
+            if (b[q] == ' ') lg++;
+            if (R_TEXT(b[q]) || r_tab(b, q)) adv_seen = 1;
             if (r_lead(b, q) && placed && !prev_jst) {
                 /* D4/05 records right before such a break start the next line
                  * -- except the one right after a [Just:], which is that
                  * code's own (stated 2026-10-16; no mint breaks there) */
                 uint32_t z = q;
                 while (z < n && r_lead(b, z)) z += r_len(b, n, z);
-                if (z < n && R_TEXT(b[z]) && c + 1u > lw) { layout_break = 1; break; }
+                if (z < n && R_TEXT(b[z]) && !r_fits(c + 1u, lg, set0, lL, lR, lj, width0)) { layout_break = 1; break; }
             }
             if (!r_lead(b, q)) placed = 1;
             prev_jst = r_jst(b, q);
@@ -967,18 +1023,18 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
         after_m = mm;
         /* (the tail of a word longer than the line ends at its SRt: the P1
          * rule, not graded for fit) */
-        if (q < n && b[q] == 0x0D && !layout_break && !tail) {
+        if (q < n && r_soft(b[q]) && !layout_break && !tail) {
             /* F3: it fits, and the next word would not have */
             uint32_t z = q + 1, wd = 0;
             /* (a single word longer than the line keeps its own line:
              * the P1 rule, edit.c WRAP) */
             int one_word = 1;
             for (uint32_t z2 = s; z2 < q; z2 += r_len(b, n, z2)) if (b[z2] == ' ') one_word = 0;
-            if (cols > lw && !one_word) { if (verbose) printf("      F3 the line at %u is %u columns, it holds %u\n", s, cols, lw); return 1; }
+            if (!r_fits(cols, lg, set0, lL, lR, lj, width0) && !one_word) { if (verbose) printf("      F3 the line at %u is %u columns, it holds %u\n", s, cols, lw); return 1; }
             while (z < n && !r_term(b[z]) && b[z] != ' ') { if (R_TEXT(b[z])) wd++; else if (r_tab(b, z)) wd = 1000; z += r_len(b, n, z); }
             /* (a run of spaces at the wrap and a word after a tab are not
              * minted: not graded) */
-            if (wd > 0 && wd < 1000 && cols + 1u + wd <= lw) {
+            if (wd > 0 && wd < 1000 && r_fits(cols + 1u + wd, lg + 1u, set0, lL, lR, lj, width0)) {
                 if (verbose) printf("      F3 the line at %u (%u columns, holds %u) could take the next %u-column word\n", s, cols, lw, wd);
                 return 1;
             }
@@ -986,8 +1042,8 @@ static int r_check(const uint8_t *b, uint32_t n, uint32_t cur, uint32_t width0, 
         if (q >= n) return 0;
         tail = layout_break;
         if (layout_break) { p = q; m = after_m; continue; }
-        m = b[q] == 0x0D ? after_m : 0u;
-        if (b[q] != 0x0D) mm = 0;
+        m = r_soft(b[q]) ? after_m : 0u;
+        if (!r_soft(b[q])) mm = 0;
         p = q + 1;
     }
 }
