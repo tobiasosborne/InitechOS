@@ -445,7 +445,12 @@
 %% \MakeBackCover: wordmark top left; the slogan (operator directive
 %% 2026-10-17); address block bottom left (D-12); part number and print code
 %% bottom right; nothing else.  Measured from the trim of the page in use.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
+%% initech-manual.cls loads initech-forms.sty, which defines the house back
+%% cover under this name, for every book; this package is loaded only by the
+%% Turbo Initech books, after the class, and replaces it with the Borland
+%% layout (\renewcommand, never a second \newcommand -- the clash that
+%% stopped turbo-initech-library-reference on 2026-10-17).
+\renewcommand\MakeBackCover{\thispagestyle{empty}%
   \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 12\else 19\fi}{\Wordmark[\ifim@booklet 22mm\else 30mm\fi]}%
   \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 40\else 45\fi}{\parbox{\ifim@booklet 70mm\else 110mm\fi}{%
     \IsThisGoodForTheCompany}}%

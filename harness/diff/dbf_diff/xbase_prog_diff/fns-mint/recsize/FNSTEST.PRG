@@ -1,0 +1,7 @@
+? "[FNS-BEGIN]"
+USE BASE
+? RECSIZE()
+USE
+? RECSIZE()
+? "[FNS-END]"
+RETURN

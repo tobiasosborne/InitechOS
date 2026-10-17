@@ -935,6 +935,31 @@ static void flair_boot_screen_row(void *ctx, int y, const uint8_t *row)
                                    : (flair_palette_rgb(row[x]) & 0x00FFFFFFu));
 }
 
+/* The ONE indexed-LFB DAC programming seam (ADR-0004 OD-2/AM-7;
+ * color_canon.json explicit entries + gray ramp). The generated table covers
+ * ALL 256 indices, including alert slots, named 119/165 hilites, Platinum
+ * chrome and unnamed app grays; the ROM CLUT's index assignments differ, so
+ * never load it verbatim. Both the boot screen and every desktop present load
+ * through HERE, so the FLAIR_DAC_MUT_* mutants reach the DAC the desktop is
+ * actually shown with. WL-0170: when the boot screen (initech-tdnl.105) grew a
+ * second, unmutated copy of this loop it pre-loaded the whole table, and the
+ * presenter-only omit119/omit165 mutants survived on QEMU and Bochs alike. */
+static void flair_dac_load(void)
+{
+#ifdef FLAIR_DAC_MUT_6BIT
+    g_vga_dac_shift = 2;
+#endif
+    for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++) {
+#ifdef FLAIR_DAC_MUT_OMIT119
+        if (idx == 119u) continue;
+#endif
+#ifdef FLAIR_DAC_MUT_OMIT165
+        if (idx == 165u) continue;
+#endif
+        vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
+    }
+}
+
 static void flair_boot_screen(const boot_info_t *bi)
 {
     bitmap_t lbm;
@@ -942,10 +967,8 @@ static void flair_boot_screen(const boot_info_t *bi)
         bi->lfb_height != (uint32_t)BOOT_SCREEN_H) {
         return;
     }
-    if (bi->lfb_bpp == 8u) {
-        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++)
-            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
-    }
+    if (bi->lfb_bpp == 8u)
+        flair_dac_load();
     lbm.base            = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
     lbm.pitch           = bi->lfb_pitch;
     lbm.bpp             = bi->lfb_bpp;
@@ -1002,23 +1025,8 @@ static void flair_desktop_present(const boot_info_t *bi, const bitmap_t *off)
     flair_cursor_shield();
 
     if (bi->lfb_bpp == 8u) {
-        /* ADR-0004 OD-2/AM-7; color_canon.json explicit entries + gray ramp.
-         * The generated table covers ALL 256 indices, including alert slots,
-         * named 119/165 hilites, Platinum chrome and unnamed app grays. The
-         * ROM CLUT's index assignments are different: never load it verbatim.
-         * test-flair-desktop-8bpp reaches THIS live DAC+copy wrapper. */
-#ifdef FLAIR_DAC_MUT_6BIT
-        g_vga_dac_shift = 2;
-#endif
-        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++) {
-#ifdef FLAIR_DAC_MUT_OMIT119
-            if (idx == 119u) continue;
-#endif
-#ifdef FLAIR_DAC_MUT_OMIT165
-            if (idx == 165u) continue;
-#endif
-            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
-        }
+        /* test-flair-desktop-8bpp reaches THIS live DAC+copy wrapper. */
+        flair_dac_load();
         volatile uint8_t *lfb = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
         for (uint32_t y = 0; y < H; y++) {
             const uint8_t *srow = (const uint8_t *)off->base + (uint32_t)y * off->pitch;

@@ -15,7 +15,7 @@ $(BUILD)/test_xcopy_tree_mut_$(1): $(ZUVO_HOST_SRC) os/milton/xcopy_tree.h $(DOS
 endef
 $(foreach m,$(ZUVO_MUTANTS),$(eval $(call zuvo-mutant,$(m))))
 
-ZUVO_COM_FLAGS := $(KERNEL_CFLAGS) -Os -fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables -Ios/milton -Ispec -I$(BUILD)
+ZUVO_COM_FLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables -Ios/milton -Ispec -I$(BUILD)
 define zuvo-com
 $(BUILD)/$(1)_program.o: $(ZUVO_SRC) os/milton/xcopy_tree.h $(DOS_MESSAGES_H)
 	$(KERNEL_CC) $(ZUVO_COM_FLAGS) $(2) -c $$< -o $$@

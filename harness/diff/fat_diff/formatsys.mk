@@ -15,7 +15,7 @@ define du-mutant
 $(BUILD)/formatsys_host_$(1): $(DU_HOST) $(DU_SRC) os/milton/block_device.c spec/drive_letters.h | $(BUILD)
 	$$(CC) $$(DU_FLAGS) -DBLOCK_DEVICE_HOST -DDU_MUT_$(1) $$(DU_HOST) $$(DU_SRC) os/milton/block_device.c -o $$@
 $(BUILD)/diskutil_$(1).o: $(DU_SRC) os/milton/diskutil.h | $(BUILD)
-	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -DDU_MUT_$(1) -Ispec -Ios/milton -c $$< -o $$@
+	$$(KERNEL_CC) $$(KERNEL_CFLAGS_CDECL) -Os -DDU_MUT_$(1) -Ispec -Ios/milton -c $$< -o $$@
 $(BUILD)/format_$(1).elf: $(BUILD)/diskutil_start.o $(BUILD)/format_adapter.o $(BUILD)/diskutil_$(1).o os/milton/fdisk.ld
 	$$(LD) -m elf_i386 -T os/milton/fdisk.ld -o $$@ $$(filter %.o,$$^)
 $(BUILD)/format_$(1).bin: $(BUILD)/format_$(1).elf
@@ -31,10 +31,10 @@ test-formatsys-mutant: $(BUILD)/formatsys_check $(SECONDARY_TRACER_IMG) $(BUILD)
 $(BUILD)/diskutil_start.o: os/milton/diskutil_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 $(BUILD)/diskutil.o: $(DU_SRC) os/milton/diskutil.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ispec -Ios/milton -c $< -o $@
 define du-program
 $(BUILD)/$(1)_adapter.o: os/milton/diskutil_program.c os/milton/diskutil.h spec/drive_letters.h | $(BUILD)
-	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -DDU_KIND=$(2) -Ispec -Ios/milton -c $$< -o $$@
+	$$(KERNEL_CC) $$(KERNEL_CFLAGS_CDECL) -Os -DDU_KIND=$(2) -Ispec -Ios/milton -c $$< -o $$@
 $(BUILD)/$(1)_program.elf: $(BUILD)/diskutil_start.o $(BUILD)/$(1)_adapter.o $(BUILD)/diskutil.o os/milton/fdisk.ld
 	$$(LD) -m elf_i386 -T os/milton/fdisk.ld -o $$@ $$(filter %.o,$$^)
 $(BUILD)/$(1)_program.bin: $(BUILD)/$(1)_program.elf

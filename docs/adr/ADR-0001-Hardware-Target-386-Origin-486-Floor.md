@@ -15,8 +15,8 @@
 |---|---|
 | Document ID | OEA-ADR-0001 |
 | Title | Target Hardware Platform and Memory Model: the 386 Origin and the 486-Class Floor |
-| Version | 2.0 (Reconstructed; Amended) |
-| Status | **RECONSTRUCTED (records reconstruction, 2026-09-25) + AMENDED (operator, 2026-09-25)** |
+| Version | 2.1 (Reconstructed; Amended; Citation-Reconciled) |
+| Status | **RECONSTRUCTED (records reconstruction, 2026-09-25) + AMENDED (operator, 2026-09-25)** + citation reconciliation 2026-10-17 (Appendices A and R; no decision changed; ratification status of DEC-02..DEC-05 unchanged) |
 | Classification | Internal Use Only |
 | Information Sensitivity | Tier 2 (Non-Public, Non-Regulated) |
 | Document Owner | Office of Enterprise Architecture |
@@ -27,7 +27,7 @@
 | Supersedes | (none as a filed Record -- see Sec 2, "the missing Record") |
 | Superseded By | (none) |
 | Related Documents | InitechOS-PRD.md Sec 5 (Target Platform / Hardware Contract); `spec/hardware.json` (the on-disk hardware contract, ADR-0009 DEC-07); ADR-0002 (Toolchain, Implementation Language, Executable Format); ADR-0003 (InitechDOS Base OS Personality, Sec 2, which cites this Record); ADR-0009 (SAMIR numeric mechanism, DEC-01/DEC-07, FPU optional); `docs/worklog/WL-0087-gui-remediation-wave-one.md` (the Bochs `cmov` catch, R3.1); `docs/design/kernel-runway-relocation.md` Part K2 (the `KERNEL_SECTORS`/bounce-ceiling design, unrelated to CPU generation) |
-| Related Issues | beads `initech-qw0t` (this Record; 486 floor ratification); `initech-fgs1` (2026-06-21 operator note proposing the 486 floor -- **SUPERSEDED by this Record**, closed accordingly); `initech-zj6w` (kernel x87 init path, unlocked by DEC-02, not implemented here); `initech-x0i` (86Box driver, still not wired; DEC-05 sets its future CPU model) |
+| Related Issues | beads `initech-qw0t` (this Record; 486 floor ratification); `initech-fgs1` (2026-06-21 operator note proposing the 486 floor -- **SUPERSEDED by this Record**, closed accordingly); `initech-zj6w` (kernel x87 init path, unlocked by DEC-02, not implemented here); `initech-x0i` (86Box driver, still not wired; DEC-05 sets its future CPU model); `initech-lk29` (Rev 2.1: the citation inventory and reconciliation, filed with the ADR-0002 reconstruction) |
 | Retention | 7 years following decommission, per RECORDS-SCHED-014 |
 | Distribution | OEA; Platform Engineering; QA; Change Advisory Board; Records Management (Archive Annex B) |
 
@@ -37,6 +37,7 @@
 |---|---|---|---|---|
 | 1.0 (reconstructed) | 2026-09-25 | OEA (Records Reconstruction) | **Reconstructs, as a filed Record for the first time, the 386+/32-bit-protected-flat platform decision.** This decision has been cited throughout the corpus since the Programme's earliest ratified records -- ADR-0003 Sec 2 ("pursuant to the platform direction ratified under ADR-0001 (Target Hardware Platform; 386-or-greater; 32-bit protected/flat memory model)"), effective 2026-06-08; CLAUDE.md ("ADR-0001 (386+, 32-bit flat)"); PRD Sec 5; `spec/hardware.json` `cpu.ref` -- but no ADR-0001 file exists in `docs/adr/`. Per HANDOFF lk29, this is a genuine gap: the original decision was ratified in substance (the whole Programme built on it, unchallenged, for three-plus months) but the Record itself was either never filed or lost prior to the current document-control regime. **DEC-01 below reconstructs that decision as history, from its citations, and is explicit that it is a reconstruction, not a rediscovered original.** No original draft, markup, or sign-off sheet survives; the Approval & Sign-Off Matrix below for Rev 1.0 is annotated accordingly. | (n/a -- reconstruction; no original reviewers of record) |
 | 2.0 | 2026-09-25 | OEA (Strategy / Charter) | **Operator ratifies DEC-02: 486-class hardware is GREENLIT as the authentic target for the final build; 386 functionality is desirable but no longer required.** This closes bead `initech-fgs1` (raised 2026-06-21, period-authenticity research note on the dBASE III+/IV + Lotus 1-2-3 + WordPerfect -> *Office Space* era skewing later than 386) as **superseded** by this ratification, not merely acknowledged. DEC-03 records what does NOT change as a consequence (the `-march=i386` codegen pin; the `KERNEL_SECTORS=384` bounce ceiling; no v8086). DEC-04 records what the floor UNLOCKS as forward-looking, not-yet-implemented follow-up work. DEC-05 records the emulator-regime consequence. InitechOS-PRD.md Sec 5 and Sec 2, and `spec/hardware.json`, are amended in the same change-set (beads `initech-qw0t`). | T. Osborne (Operator) |
+| 2.1 | 2026-10-17 | OEA (Records Reconstruction) | **Citation reconciliation; no decision changed.** Adds Appendix A (every site that cites an ADR-0001 DEC, per DEC) and Appendix R (citing documents that disagree with this Record -- ADR-0003's section-number citations, the surviving "386+" wording, the "no isolation" attribution, ADR-0013's stale "no standalone file", and an erratum to Sec 1.2). Filed with the reconstruction of ADR-0002 (bead `initech-lk29`); held by `make test-adr-citations`. | (n/a -- records act; no operator ruling) |
 
 ### Approval & Sign-Off Matrix
 
@@ -52,6 +53,9 @@
 | ARB Reviewer -- Governance & Compliance | T. Smykowski (QA / Change Advisory) | Approved | 2026-09-25 |
 | Stakeholder Engagement | T. Osborne (Operator) | **Ratified (2026-09-25)** | 2026-09-25 |
 | Records Management | M. Waddams (Archive Annex B) | Filed | 2026-09-25 |
+| *Rev 2.1 -- citation reconciliation (records act, no decision changed)* | | | |
+| Author / Reconciler | Office of Enterprise Architecture (Records Reconstruction) | Submitted | 2026-10-17 |
+| Records Management | M. Waddams (Archive Annex B) | Filed | 2026-10-17 |
 
 *Note on status: this is a Rule-8 locked-decision act (CLAUDE.md Rule 8), not a silent edit. Where this Record and any citing document (PRD Sec 5, `spec/hardware.json`, CLAUDE.md) ever diverge going forward, this ADR governs and the divergence is reconciled, per the same convention as ADR-0012.*
 
@@ -174,6 +178,72 @@ Conformance to this Record is verified by the existing mechanisms it does not al
 
 ---
 
-*End of ADR-0001. DEC-01 RECONSTRUCTED 2026-09-25; DEC-02 through DEC-05 RATIFIED by the operator 2026-09-25. Controlled Document; verify revision before use.*
+## Appendix A -- DEC citation inventory (base commit `4755d030`, 2026-10-17)
+
+Every site outside `.beads/`, `.git/` and `build/` that cites an ADR-0001 DEC by number, as found by `harness/check_adr_citations.c` (grammar: Sec 5 of ADR-0002 and the checker header) plus the prose mentions the grammar does not parse, marked *(prose)*. Every cited number resolves to a `### DEC-nn` block of this Record; `make test-adr-citations` holds it so. The live inventory is written to `build/adr-citations.inventory` on every run.
+
+### A.1 -- DEC-01 (386 origin; 32-bit protected/flat)
+
+- `docs/research/boot-system-ground-truth.md`: 26 ("ADR-0001 DEC-01/03")
+- `harness/diff/dbf_diff/test_hardware_spec.c`: 193
+- `spec/hardware.json`: 24
+- *(prose)* `docs/worklog/WL-0091-north-star-realignment-and-app-launch.md`: 56
+
+### A.2 -- DEC-02 (486-class authentic target; 386 desirable, non-blocking)
+
+- `CLAUDE.md`: 13
+- `InitechOS-PRD.md`: 39, 96, 98, 102
+- `README.md`: 44
+- `Makefile`: 8814, 26524
+- `docs/HANDOFF.md`: 8; *(prose)* 602
+- `docs/adr/ADR-0009-AMENDMENT-DEC-01a-Kernel-X87-Init-For-Initech-123.md`: 26
+- `docs/plans/INITECH-123-plan.md`: 29, 90, 237, 424
+- `docs/plans/INITECH-WORD-plan.md`: 20, 39
+- `docs/worklog/WL-0130-dos-messages-break-and-qemu-paths.md`: 23
+- `harness/diff/dbf_diff/test_hardware_spec.c`: 12, 193, 198, 209, 211
+- `os/milton/fpu.h`: 11
+- `spec/hardware.json`: 22, 23, 24, 40
+- *(prose)* `docs/worklog/WL-0091-north-star-realignment-and-app-launch.md`: 57
+
+### A.3 -- DEC-03 (what does NOT change: `-march=i386`; the 384-sector bounce ceiling; no v8086)
+
+- `spec/hardware.json`: 22
+- `docs/research/boot-system-ground-truth.md`: 26
+- *(prose, by meaning)* `Makefile`: 663 ("ADR-0001 targets 386+; the artifact must never contain >386 instructions")
+- *(prose)* `docs/worklog/WL-0091-north-star-realignment-and-app-launch.md`: 58
+
+### A.4 -- DEC-04 (what the 486-class floor unlocks)
+
+- `Makefile`: 8814, 26524, 26562
+- `docs/adr/ADR-0009-AMENDMENT-DEC-01a-Kernel-X87-Init-For-Initech-123.md`: 26, 38
+- `docs/plans/INITECH-123-plan.md`: 17, 32, 233, 237, 389, 405, 424
+- `docs/plans/INITECH-WORD-plan.md`: 20, 39, 123
+- `os/milton/fpu.h`: 11
+- `spec/hardware.json`: 40, 138
+- *(prose)* `docs/worklog/WL-0091-north-star-realignment-and-app-launch.md`: 59
+
+### A.5 -- DEC-05 (86Box becomes a 486 + period VGA BIOS configuration)
+
+- *(prose)* `docs/worklog/WL-0091-north-star-realignment-and-app-launch.md`: 60 ("DEC-05 86Box = 486")
+
+No site cites a DEC number this Record lacks (no DEC-06 or higher; no lettered amendment).
+
+---
+
+## Appendix R -- Reconciliation of conflicting citations (2026-10-17)
+
+Recorded under bead `initech-lk29` while ADR-0002 was reconstructed. No decision of this Record changes; each row records where a citing document and this Record disagree, and the reading adopted (what the shipped build follows).
+
+| # | Conflict | Readings | Adopted reading |
+|---|---|---|---|
+| R-1 | **ADR-0003 cites ADR-0001 by section numbers this Record does not have in that meaning.** ADR-0003 Sec 1.2 ("see Sec 2 and ADR-0001 Sec 6" -- 16-bit execution deferred), Sec 1.4 ("Reference Frame ... as established in ADR-0001 Sec 4"), Sec 3 DR-1 ("the standard set out in ADR-0001 Sec 3"), Sec 7 item 1 ("a genuine disk operating system of the period, executed upon the host emulator, per ADR-0001 Sec 8"). | (a) Those sections of the original, lost ADR-0001 (its layout evidently tracked the PRD's: fidelity bar, reference frame, non-goals, oracles). (b) This Record as reconstructed: Sec 3 = The Decision, Sec 4 = Consequences, Sec 6 = Related Decisions; there is no Sec 8. | **Resolve each to the surviving authority with that content**, not by renumbering this Record: Sec 3 -> PRD Sec 3 (The Fidelity Bar); Sec 4 -> PRD Sec 3 and PRD Appendix A (the annotated Reference Frame); Sec 6 -> PRD Sec 2 Non-Goals ("Running real 16-bit DOS/Windows binaries (no v8086 ...)") together with DEC-01 / DEC-03 here (no v8086); Sec 8 -> PRD Sec 8 (differential emulation; 86Box running real DOS 3.3 to mint goldens). The shipped harness follows these (the `harness/emu/` drivers, the FAT differential vs `mtools`). These are section citations, not DEC citations, and are outside the `test-adr-citations` grammar. |
+| R-2 | **"386+" vs the 486-class target.** "ADR-0001 (386+, 32-bit flat)" in the Related Documents of ADR-0003 Amendment DEC-08a (line 26), ADR-0004 (28), ADR-0005 (28), ADR-0005 Amendment AM-1 (354), ADR-0009 (22), ADR-0012 (187), ADR-0013 (28, 241), `spec/memory_map.h` (425); PRD Sec 2 Non-Goals ("386+ only", line 49), Sec 4 diagram ("EMULATED 386+", line 86), Sec 15 ("Target CPU ... 386+; no 8088/286", line 295); `Makefile` 663. | (a) The floor is 386+ (DEC-01, as cited before 2026-09-25). (b) The authentic target is 486-class, 386 desirable and non-blocking (DEC-02, 2026-09-25). | **(b) for the target claim; (a) survives as DEC-01's historical floor and as DEC-03's codegen pin.** The shipped artifact is still compiled `-march=i386` (Makefile line 665, `KERNEL_CFLAGS`), so every "386+" statement about *what instructions the artifact may contain* remains true; only a "386+" statement about *which machine is the authentic target* is superseded. `spec/hardware.json` `cpu.value` (`"486+ (386 desirable, non-blocking)"`, graded by `test_hardware_spec.c`) is the locked form. |
+| R-3 | **"No isolation" and "no real iron" attributed to ADR-0001.** ADR-0013 line 28 ("ADR-0001 (386+, 32-bit flat, no v8086, no isolation -- decision of record ...)"), line 160 ("Flat-32, single address space, no MMU partitions, no protection (ADR-0001)"), line 241; ADR-0012 line 176 (v8086 / real-iron "remain sanctioned non-goals (ADR-0001 / PRD Sec 2)"). | (a) ADR-0001 decides them. (b) DEC-01 decides a single flat 32-bit segment with no v8086; protected inter-process isolation and bare-metal modern hardware are PRD Sec 2 Non-Goals. | **(b), with DEC-01 as the mechanism.** DEC-01's single flat segment (no paging; one address space) is why there is no hardware isolation; the *decision* not to add isolation, and not to target real iron, is PRD Sec 2's. The shipped kernel follows it: one flat 4 GiB data segment (`os/boot/stage2.asm` GDT, cited at `spec/memory_map.h` 425-428) and `INT 21h` gates at DPL=0 (ADR-0003 Amendment DEC-04a.1). |
+| R-4 | **"No standalone file" (stale).** ADR-0013 line 28 describes ADR-0001 as "decision of record; no standalone file, repo convention". | (a) ADR-0001 has no file. (b) This Record, filed 2026-09-25. | **(b).** ADR-0013's note predates 2026-09-25; ADR-0013 is a ratified Record and is not edited here. |
+| R-5 | **Erratum to Sec 1.2 of this Record.** Sec 1.2 states that `docs/adr/` "contains ADR-0002 through ADR-0013". | At 2026-09-25 ADR-0002 had never been filed (`git log --all -- 'docs/adr/ADR-0002*'` empty) and ADR-0011 is a pending, unfiled Record (`docs/plans/FLAIR-implementation-plan.md` line 9). | **Erratum.** ADR-0002 is filed 2026-10-17 as a reconstruction (`docs/adr/ADR-0002-Toolchain-Implementation-Language-Executable-Format.md`); ADR-0011 remains pending. Sec 1.2's text is left as written so the Rev 2.0 record stays verbatim. |
+
+---
+
+*End of ADR-0001. DEC-01 RECONSTRUCTED 2026-09-25; DEC-02 through DEC-05 RATIFIED by the operator 2026-09-25. Rev 2.1 citation reconciliation filed 2026-10-17 (Appendices A, R). Controlled Document; verify revision before use.*
 
 <!-- The Record that should have existed since the beginning now does. Tedium, once missing, is now retroactively certified. -->

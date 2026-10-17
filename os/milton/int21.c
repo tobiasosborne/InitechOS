@@ -918,6 +918,7 @@ static int ah_is_listed(uint8_t ah)
         case 0x25: case 0x35:            /* SETVECT / GETVECT */
         case 0x30:                       /* GETVER */
         case 0x31:                       /* KEEP (TSR) */
+        case 0x32:                       /* GETDPB (admitted 2026-10-17; WL-0167) */
         case 0x33:                       /* BREAK (Get/Set CTRL-BREAK; DEC-16) */
         case 0x36:                       /* GETSPACE */
         case 0x39: case 0x3A: case 0x3B: /* MKDIR / RMDIR / CHDIR */
@@ -3886,6 +3887,82 @@ static void do_findnext(int_frame_t *f)
 static uint8_t g_fcb_media;   /* the 1Bh/1Ch media byte EBX points at */
 void int21_set_media(uint8_t media) { g_fcb_media = media; }
 
+/* ---- AH=1Fh / AH=32h GET DRIVE PARAMETER BLOCK (WL-0167; initech-dpb1) ----
+ * Ref (Law 1): docs/research/dpb-ground-truth.md -- MS-DOS 2.0 GETSET.ASM /
+ * 4.0 MISC.ASM ($GET_DEFAULT_DPB = $GET_DPB with DL=0; AL=0 + DS:BX -> DPB,
+ * AL=FFh on a bad drive, BX untouched), $SETDPB (BPB -> DPB arithmetic),
+ * MSINIT.ASM (chain, last link FFFF:FFFF); RBIL r61 Table 01395 (DOS 3.x).
+ * Layout: ADR-0003 Appendix B.4 / spec/dos_structs.h dpb_t (32 bytes).
+ * One resident DPB per letter A..D; every mounted volume is linked A->C->D.
+ * Each call refreshes the whole chain from the mounted geometry (the FATREAD
+ * media check). Only the requested drive is counted for 1Eh; the others say
+ * FFFFh (unknown) rather than carry a count a later write made stale. */
+static int (*g_dpb_source)(int21_dpb_geometry_t *);
+static dpb_t g_dpb[4];
+void int21_set_dpb_source(int (*geometry)(int21_dpb_geometry_t *out))
+{
+    g_dpb_source = geometry;
+}
+static int dpb_fill(unsigned drive)
+{
+    int21_dpb_geometry_t g;
+    dpb_t *d = &g_dpb[drive];
+    uint8_t shift = 0u;
+    if (!select_volume(drive) || g_dpb_source == 0 || g_dpb_source(&g) != 0)
+        return 0;
+    /* $SETDPB LOG2LOOP; a non-power-of-two cluster has no DOS DPB. */
+    while (shift < 8u && (1u << shift) != g.sectors_per_cluster) shift++;
+    if (shift == 8u) return 0;
+    d->drive = (uint8_t)drive;
+    d->unit = (uint8_t)drive;      /* resident block service: unit = letter */
+    d->bytes_per_sector = g.bytes_per_sector;
+    d->cluster_mask = (uint8_t)(g.sectors_per_cluster - 1u);
+    d->cluster_shift = shift;
+    d->first_fat = g.reserved_sectors;
+    d->fat_count = g.fat_count;
+    d->root_entries = g.root_entries;
+#ifdef INT21_MUTATE_DPB_FIRST_DATA
+    /* MUTANT (Rule 6; make test-int21-dpb-mutant only): the first data sector
+     * forgets the root directory ($SETDPB's ADD AX,CX). NEVER in a build. */
+    d->first_sector = (uint16_t)g.root_dir_sector;
+#else
+    d->first_sector = (uint16_t)g.first_data_sector;
+#endif
+    d->max_cluster = (uint16_t)(g.total_clusters + 1u);
+    d->fat_size = (uint8_t)g.sectors_per_fat;    /* 3.x STOSB; WORD from 4.0 */
+    d->dir_sector = (uint16_t)g.root_dir_sector;
+    d->driver_addr = 0u;           /* DEC-17 block service: no device header */
+    d->media = g.media;
+    d->first_access = 0u;          /* mounted == BPB + FAT already read */
+    d->next_dpb = DPB_NEXT_END;
+    d->next_free = 0u;             /* no rover: allocation scans from the start */
+    d->free_cnt = DPB_FREE_UNKNOWN;
+    return 1;
+}
+static void do_getdpb(int_frame_t *f, uint8_t dl)
+{
+    unsigned want = dl ? (unsigned)dl - 1u : g_current_drive;
+    unsigned io = g_io_drive;
+    dpb_t *last = 0;
+    int found = 0;
+    for (unsigned d = 0u; d < 4u; d++) {
+        if (!dpb_fill(d)) continue;
+        if (last) last->next_dpb = (uint32_t)(uintptr_t)&g_dpb[d];
+        last = &g_dpb[d];
+        if (d == want) {
+            uint16_t spc, bps, tot, fr;
+            found = 1;
+            if (g_file != 0 && g_file->freespace != 0 &&
+                g_file->freespace(&spc, &bps, &tot, &fr) == 0u)
+                g_dpb[d].free_cnt = fr;
+        }
+    }
+    (void)select_volume(io);
+    if (!found) { set_al(f, 0xFFu); return; }
+    f->ebx = (uint32_t)(uintptr_t)&g_dpb[want];
+    set_al(f, 0u);
+}
+
 static uint32_t fcb_rd(const uint8_t *p, int n)
 {
     uint32_t v = 0u;
@@ -4027,9 +4104,8 @@ static uint8_t fcb_xfer(uint8_t *p, uint32_t rec, int write)
     return (got == rs) ? 0u : 3u;
 }
 
-/* AH=0Fh..24h. Returns 0 for an AH this layer does not serve (1Fh, the
- * undocumented get-DPB: no DPB is published) so the caller takes the
- * not-yet-impl path; 1 when handled. */
+/* AH=0Fh..24h. Returns 1 when handled (every AH of the range now is; 1Fh
+ * is the default-drive DPB, do_getdpb). */
 static int do_fcb(int_frame_t *f, uint8_t ah)
 {
     uint8_t attr, al = 0xFFu;
@@ -4058,7 +4134,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
         set_al(f, 0u);   /* reserved no-ops (see the golden note in fcbx.asm) */
         return 1;
     }
-    if (ah == 0x1Fu) return 0;
+    if (ah == 0x1Fu) { do_getdpb(f, 0u); return 1; }   /* DL forced to 0 */
 
     p = fcb_get(f, &attr);
     if (p == 0 || g_file == 0) { set_al(f, al); return 1; }
@@ -5269,7 +5345,11 @@ static void int21_dispatch_body(int_frame_t *frame)
                 cf_clear(frame);
                 return;
             }
-            break;                       /* 1Fh: not-yet-impl (no DPB) */
+            break;                       /* unreachable: do_fcb serves all */
+        case 0x32:                       /* GET DPB FOR DRIVE DL (WL-0167) */
+            do_getdpb(frame, frame_dl(frame));
+            cf_clear(frame);
+            return;
         case 0x25:                       /* SET INTERRUPT VECTOR */
             do_setvect(frame);
             return;
@@ -5463,10 +5543,11 @@ static void int21_dispatch_body(int_frame_t *frame)
     /* Controlled scope (Rule 2 / ADR-0003 DEC-13). The AH is not one of the
      * implemented functions. Two distinct, fail-loud diagnostics: */
     if (ah_is_listed(ah)) {
-        /* RECOGNIZED by the locked register but not yet implemented in this
-         * subset (e.g. FCB ops 0Fh-24h, DATE/TIME 2Ah-2Dh). CON input
-         * 01h/06h/07h/08h/0Ah/0Bh/0Ch are now real (beads initech-n62). A
-         * distinct diagnostic, NOT 'unknown'. */
+        /* RECOGNIZED by the locked register but not yet implemented. Since
+         * AH=1Fh landed (WL-0167) no registered AH reaches here in a real
+         * build; the named dispatch-drop mutants (CERT_MUTATE_DROP_GETVER,
+         * INT21_MUTATE_BREAK_NO_DISPATCH) still do, and must stay distinct
+         * from 'unknown'. */
         con_puts("INT21 not-yet-impl AH=");
         con_hex2(ah);
         con_putc('\n');
@@ -5511,7 +5592,7 @@ static void int21_dispatch_body(int_frame_t *frame)
  *
  * The guard is the FIRST thing each wrapper does (before any state is touched),
  * so a reentry is caught before it can corrupt anything. */
-void int21_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns (routes to the panic path) */
@@ -5532,7 +5613,7 @@ void int21_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int20_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int20_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5547,7 +5628,7 @@ void int20_dispatch(int_frame_t *frame)
  * corrupt an interrupted syscall's frame/globals); the guard fails loud if one
  * does. 22h/23h normally do not return (terminate); 24h returns the A/R/F action
  * -- its g_indos-- runs because do_terminate is not on its path. */
-void int22_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int22_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5557,7 +5638,7 @@ void int22_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int23_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int23_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5567,7 +5648,7 @@ void int23_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int24_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int24_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5883,7 +5964,7 @@ static void int26_dispatch_body(int_frame_t *frame)
  * an interrupted syscall -- the guard fails loud first (Rule 2). The bodies
  * RETURN a result + CF (do_terminate is not on their path), so each g_indos--
  * runs. MIRRORS int24_dispatch exactly. */
-void int25_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int25_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5893,7 +5974,7 @@ void int25_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int26_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int26_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
