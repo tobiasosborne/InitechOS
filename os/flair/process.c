@@ -317,6 +317,17 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
     app->block         = block;
     app->records_block = records_block;
 
+#ifdef PROC_MUT_ADMIT_IS_FOREGROUND
+    /* MUTANT PROC_MUT_ADMIT_IS_FOREGROUND (Rule 6; test-flair-routing-mutant
+     * leg A): the pre-tdnl.14 registration -- the windowless tenant is linked
+     * at the HEAD as the foreground (FlairProcess_launch step (f)), so the
+     * Finder's keystrokes and band 2 belong to an app with no window. NEVER in
+     * a real build. */
+    if (list->head != NULL) list->head->state = (uint8_t)FLAIR_APP_BG;
+    app->state   = (uint8_t)FLAIR_APP_FG;
+    app->nextApp = list->head;
+    list->head   = app;
+#else
     if (list->head == NULL) {
         app->state   = (uint8_t)FLAIR_APP_FG;
         app->nextApp = NULL;
@@ -326,6 +337,7 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
         app->nextApp          = list->head->nextApp;
         list->head->nextApp   = app;
     }
+#endif
     return app;
 }
 

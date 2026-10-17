@@ -90,7 +90,15 @@
 #include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
- * the validator reads, so the locked ABI and the Menu Manager never drift. */
+ * the validator reads, so the locked ABI and the Menu Manager never drift.
+ * Pinned on the i386 target -- every kernel and mutant build. The 64-bit host
+ * routing suite (harness/proptest/test_flair_routing.c, bead initech-2svz)
+ * compiles this TU too, cannot hold a 4-byte-pointer layout, and never hands
+ * the gate a tenant MenuBar graph (no SETMBAR leg). */
+#ifndef UINTPTR_MAX
+#error "tbxgate.c: <stdint.h> must define UINTPTR_MAX (the ABI pin guard)"
+#endif
+#if UINTPTR_MAX == 0xFFFFFFFFu
 _Static_assert(sizeof(MenuBar) == TBX_MBAR_BYTES, "MenuBar size (spec Sec 9)");
 _Static_assert(offsetof(MenuBar, menus) == TBX_MBAR_MENUS_OFF, "MenuBar.menus");
 _Static_assert(offsetof(MenuBar, n_menus) == TBX_MBAR_COUNT_OFF, "MenuBar.n_menus");
@@ -102,6 +110,7 @@ _Static_assert(offsetof(MenuInfo, items) == TBX_MINFO_ITEMS_OFF, "MenuInfo.items
 _Static_assert(offsetof(MenuInfo, n_items) == TBX_MINFO_COUNT_OFF, "MenuInfo.n_items");
 _Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)");
 _Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
+#endif
 
 /* The two asm trampolines (os/milton/tbx_gate.asm). */
 extern int  tbx_tenant_call(uint32_t fn, uint32_t psp);
