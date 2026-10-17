@@ -44,7 +44,7 @@ equal.
 \begin{Steps}[resume]
 \item Type \type{LIST LASTNAME, SALARY FOR SALARY >= 40000} and press
 \key{Enter}.
-\Response{InitechBase lists the employees who earn 40,000 or more.}
+\ATEResponse{InitechBase lists the employees who earn 40,000 or more.}
 \end{Steps}
 \DotExample{examples/l2-compare}
 A number in a condition is typed without commas and without a currency sign.
@@ -67,7 +67,7 @@ date.  An earlier date is less than a later one.
 \begin{Steps}[resume]
 \item Type \type{LIST LASTNAME, HIRED FOR HIRED < CTOD('01/01/85')} and press
 \key{Enter}.
-\Response{InitechBase lists the employees hired before 1985.}
+\ATEResponse{InitechBase lists the employees hired before 1985.}
 \end{Steps}
 \DotExample{examples/l2-dates}
 
@@ -97,7 +97,7 @@ works out the value for each record and uses the calculation as the heading of
 its column.
 \begin{Steps}[resume]
 \item Type \type{LIST LASTNAME, SALARY, SALARY * 0.015} and press \key{Enter}.
-\Response{InitechBase lists one and one half per cent of each salary.}
+\ATEResponse{InitechBase lists one and one half per cent of each salary.}
 \end{Steps}
 \DotExample{examples/l2-expr}
 Character fields can be joined with \texttt{+}.  The function \fn{TRIM()}

@@ -21,6 +21,43 @@
 #include "finder_icon.h"        /* finder_icon_draw (clipped, mask-honouring)  */
 #include "desk_icons.h"         /* the LOCKED 32x32 desktop strikes            */
 #include "finder_icons.h"       /* the LOCKED 32x32 disk-window strikes (R3.3) */
+
+/* Kernel size round 5 (WL-0168): the freestanding kernel carries the six
+ * strikes as ONE packed block (os/flair/asset_lz_data.h, generated from the
+ * unchanged locked headers above by tools/asset_lz.c) and unpacks them into
+ * BSS on first use; a hosted build keeps reading the locked tables directly.
+ * test-asset-lz proves decode == locked, byte for byte (the round-4
+ * chicago_packed.h precedent, Rule 8). The painter sees the same bytes. */
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+#define ASSET_LZ_DESK
+#include "asset_lz.h"
+#include "asset_lz_data.h"
+enum { FD_LZ_VOLUME, FD_LZ_TRASH, FD_LZ_TRASH_FULL, FD_LZ_FOLDER, FD_LZ_DOC, FD_LZ_APP };
+static FLAIRDeskIcon fd_strike_store[6];   /* the packer's order (asset_lz_data.h) */
+_Static_assert(sizeof fd_strike_store == ASSET_LZ_DESK_RAW, "six packed FLAIRDeskIcon records");
+static const FLAIRDeskIcon *fd_strike_at(unsigned i)
+{
+    static uint8_t ready;
+    if (!ready) {
+        asset_lz_unpack((uint8_t *)fd_strike_store, ASSET_LZ_DESK_RAW, asset_lz_desk);
+        ready = 1u;
+    }
+    return &fd_strike_store[i];
+}
+#define FD_STRIKE_VOLUME     fd_strike_at(FD_LZ_VOLUME)
+#define FD_STRIKE_TRASH      fd_strike_at(FD_LZ_TRASH)
+#define FD_STRIKE_TRASH_FULL fd_strike_at(FD_LZ_TRASH_FULL)
+#define FD_STRIKE_FOLDER     fd_strike_at(FD_LZ_FOLDER)
+#define FD_STRIKE_DOC        fd_strike_at(FD_LZ_DOC)
+#define FD_STRIKE_APP        fd_strike_at(FD_LZ_APP)
+#else
+#define FD_STRIKE_VOLUME     (&FLAIR_DESK_ICON_VOLUME)
+#define FD_STRIKE_TRASH      (&FLAIR_DESK_ICON_TRASH)
+#define FD_STRIKE_TRASH_FULL (&FLAIR_DESK_ICON_TRASH_FULL)
+#define FD_STRIKE_FOLDER     (&FLAIR_FINDER_ICON_FOLDER)
+#define FD_STRIKE_DOC        (&FLAIR_FINDER_ICON_DOC)
+#define FD_STRIKE_APP        (&FLAIR_FINDER_ICON_APP)
+#endif
 #include "flair_look.h"         /* flair_look_pixel_depth -- the ONE seam      */
 #include "blitter.h"            /* blitter_fill_rect_clipped (label band)      */
 #include "geneva9.h"            /* geneva9_glyph / geneva9_advance_w           */
@@ -108,7 +145,7 @@ static int fd_valid(const finder_desk_t *fd, int idx)
  * blit (Rule 2). */
 static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
 {
-    if (kind == (uint8_t)FINDER_ICON_VOLUME) return &FLAIR_DESK_ICON_VOLUME;
+    if (kind == (uint8_t)FINDER_ICON_VOLUME) return FD_STRIKE_VOLUME;
     /* bead initech-6k12: the Trash draws FULL while \TRASH holds anything
      * (finder_desk_t.trash_full, kept by finder_shell_recount_trash). */
 #if defined(FINDER_DESK_MUT_TRASH_NEVER_FULL)
@@ -116,14 +153,14 @@ static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
      * ignores the staged-contents count and always draws the EMPTY can -- the
      * audit H04 symptom. NEVER in a real build. */
     (void)trash_full;
-    if (kind == (uint8_t)FINDER_ICON_TRASH) return &FLAIR_DESK_ICON_TRASH;
+    if (kind == (uint8_t)FINDER_ICON_TRASH) return FD_STRIKE_TRASH;
 #else
     if (kind == (uint8_t)FINDER_ICON_TRASH)
-        return trash_full ? &FLAIR_DESK_ICON_TRASH_FULL : &FLAIR_DESK_ICON_TRASH;
+        return trash_full ? FD_STRIKE_TRASH_FULL : FD_STRIKE_TRASH;
 #endif
-    if (kind == (uint8_t)FINDER_ICON_FOLDER) return &FLAIR_FINDER_ICON_FOLDER;
-    if (kind == (uint8_t)FINDER_ICON_FILE)   return &FLAIR_FINDER_ICON_DOC;
-    if (kind == (uint8_t)FINDER_ICON_APP)    return &FLAIR_FINDER_ICON_APP;
+    if (kind == (uint8_t)FINDER_ICON_FOLDER) return FD_STRIKE_FOLDER;
+    if (kind == (uint8_t)FINDER_ICON_FILE)   return FD_STRIKE_DOC;
+    if (kind == (uint8_t)FINDER_ICON_APP)    return FD_STRIKE_APP;
     return (const FLAIRDeskIcon *)0;
 }
 

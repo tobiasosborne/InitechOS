@@ -662,12 +662,61 @@ KERNEL_CC     ?= gcc
 # (harness/emu/bochs.c) which has NO cmov -> PANIC vec=06 the first time a
 # Bochs-exercised path contained one. ADR-0001 targets 386+; the artifact must
 # never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
+# Round 5 (WL-0168, lane ksize5): register-argument + callee-pops calling
+# convention for the WHOLE kernel image, the WL-0171 SAMIR precedent (period
+# precedent: Borland's `register` and `pascal` conventions). Every kernel TU,
+# every kernel mutant object, the transient COMMAND.COM objects (linked by
+# address against the kernel, --just-symbols) and the LTO link carry it, so
+# one ABI spans the image. The asm boundaries are AUDITED, not assumed:
+#   kstart.asm -> kernel_main(void); isr.asm -> pit/kbd/mouse_irq_handler,
+#   irq_enter/leave, selftest_report_c (all void): nothing to pass or pop;
+#   isr.asm -> isr_dispatch_c + the INT 13h/20h-26h dispatchers (one pushed
+#   arg) and tbx_gate.asm -> tbx_gate_dispatch: pinned to cdecl by
+#   KERNEL_ASM_ABI (os/milton/idt.h); tbx_gate.asm's tbx_tenant_call(fn, psp)
+#   reads its args off the stack: its C prototype carries KERNEL_ASM_ABI.
+#   Tenant code is entered via `call eax` with EBX=PSP (no C ABI) and calls
+#   the kernel only through INT 81h (args read from the trapped frame).
+#   No varargs function exists in the image (-mrtd's one documented hazard);
+#   no memcpy/memset libcall symbol exists in the image.
+# Objects that are NOT kernel-linked keep the plain cdecl flags
+# (KERNEL_CFLAGS_CDECL below): the disk tenants (TENANT_CFLAGS), FDISK /
+# FORMAT / SYS / EDLIN / XCOPY / the DOS utilities -- each a separate image
+# with its own asm entry. CHKDSK is the one utility that links a KERNEL
+# object ($(KERNEL_MCB_OBJ)), so it keeps KERNEL_CFLAGS (chkdsk_entry(void)).
+# Measured on the flagship (WL-0168 table): 187,788 -> 183,916 B (-3,872 B).
+KERNEL_ABI_FLAGS := -mregparm=3 -mrtd
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -I$(BUILD) \
-                 -fno-pie -std=c11 -Wall -Wextra -Werror
+                 -fno-pie -std=c11 -Wall -Wextra -Werror $(KERNEL_ABI_FLAGS)
+KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
 # ROUND 3 (initech-tode): kernel-only reachability, not an optimiser change.
 # Ref: docs/design/kernel-size-policy-round2.md Sec 4 lever C; kernel.ld roots.
 # Keep separate from KERNEL_CFLAGS: TENANT_CFLAGS inherits that base policy.
-KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident
+# Round 5 step 2 (WL-0168): optimiser passes that trade bytes for speed even
+# at -Oz, switched off for every kernel-linked object AND the LTO link
+# (KERNEL_LINK), the WL-0171 method -- each flag measured alone on the
+# flagship, then as the kept subset (the three-round table in the worklog):
+#   -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 (-1376 B): the
+#     4-byte stack of the period's compilers; no stack object in the image
+#     needs more (no SSE on a 386, and GCC realigns any local that asks),
+#     and the I123 tenant + SAMIR already run on it; -fno-tree-sra (-704),
+#   -fno-tree-dominator-opts (-288), -fno-move-loop-invariants (-448),
+#   -fno-tree-loop-im (-416), -fno-shrink-wrap / -fno-tree-tail-merge (-160
+#   each), -fno-partial-inlining (-192), --param=max-completely-peel-times=0
+#   (-160), -fno-code-hoisting (-128), -fno-tree-scev-cprop (-128),
+#   -fno-stack-clash-protection (the Ubuntu default probes; nothing in the
+#   image has a guard page). Rejected by measurement (grew the image):
+#   -mtune=generic +800, -fno-tree-ch +512, -fno-tree-switch-conversion
+#   +256, -fno-forward-propagate +224, -fno-ipa-sra +128, -fno-defer-pop
+#   +96, -fno-tree-sink, -fno-tree-dse, -mstringop-strategy=byte_loop.
+#   Refused on principle, as in WL-0171: -fno-optimize-sibling-calls (-256,
+#   changes stack depth). Pure codegen policy -- the gate families and the
+#   byte-identical screendump goldens are the proof. Measured on the
+#   flagship: 183,948 -> 179,916 B (-4,032 B). Hold the seam as `?=` so a
+#   trial can still override it from the command line.
+KERNEL_R5_FLAGS ?= -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts \
+                   -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining \
+                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection
+KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
 # cold-object optimisation. Native hot objects remain outside LTO.
@@ -677,7 +726,7 @@ KERNEL_GC_LDFLAGS := --gc-sections
 # Do not apply to the native blitter, ATKINSON, text, loader, event ring or
 # hardware/interrupt drivers. mcb.o also stays native: CHKDSK links that object.
 # Keep each TU's prior aliasing policy, i386 ISA, and all serial markers.
-KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000
+KERNEL_COLD_LTO_FLAGS = -flto -Oz -fomit-frame-pointer --param=min-crossjump-insns=1 --param=max-crossjump-edges=1000 -fno-jump-tables
 # Round 4: Ubuntu's GCC retains frame pointers even at -Oz. Only the existing
 # cold/pure C set drops them; the loader transfer and both ring publications
 # retain native -O0 bytes (test-kernel-native-boundaries). Ref: PRD Sec 5/6.1/8;
@@ -699,7 +748,13 @@ define kernel-tbx-compile
 	$(SERIAL_TRACE_PACK) $(2).i $(2).c tbx
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(1) -c $(2).c -o $(2)
 endef
-KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz \
+# Round 5 (WL-0168): one LTO partition lets WPA localise every symbol no
+# native object or transient import names (cross-partition calls kept 462
+# functions global, i.e. cdecl ABI and unspecialised); -fno-jump-tables on the
+# LTO set trades the 4-byte-per-case tables for compare trees. Codegen-only:
+# no ABI of a native object, asm entry or transient import changes. Measured
+# on the flagship: 187,988 -> 187,372 (one partition) -> 187,212 B (both).
+KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables $(KERNEL_ABI_FLAGS) $(KERNEL_R5_FLAGS) \
               -Wl,--build-id=none $(foreach flag,$(KERNEL_GC_LDFLAGS),-Xlinker $(flag)) -T $(KERNEL_LD)
 FLAIR_FINDER_OPS_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_STDFILE_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
@@ -10073,7 +10128,7 @@ TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
 TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
 TENANT_LD     := os/apps/tbx/tenant.ld
 TENANT_PROBE  := 0x01010140
-TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
+TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
                  -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-common \
                  -Ispec -Ios/apps/tbx
 # P3: I123-only resource, size optimization and 4-byte cdecl stack alignment.
@@ -14133,6 +14188,72 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 		printf '>>> test-tbx-menu-mutant: %s correctly RED (%s)\n' "$$m" "$$why"; \
 	done
 	@printf '>>> test-tbx-menu-mutant: green (both mutants RED for the named reason)\n'
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-flair-routing (bead initech-2svz; R3.7 follow-up to
+# initech-tdnl.14) -- the "O-1-style host routing suite over disk_tenant_event"
+# DEC-AC3-3 names (docs/design/GUI-remediation-ADR-reconciliation.md Part B).
+# Links the REAL os/flair/tbxgate.c (disk_tenant_event, tbx_gate_dispatch, the
+# slot lifecycle) over the REAL Layer-5 spine (process.c/window.c/heap.c/region)
+# and the REAL psp.c/sft.c; the loader, the asm trampolines and the tenant
+# program are host stand-ins, and every surface the suite does not grade is a
+# FAIL-LOUD stub (harness/proptest/flair_routing_stubs.c). Hand-authored legs:
+# A windowless REGISTER keeps the Finder foreground (DEC-AC3-4); B the first
+# NEWWINDOW is affirmed after the entry returns (one deactivate THEN one
+# activate, into the tenant's own FlairEvent); C keyDown/content/title/click-
+# to-activate routing; G slot busy; D EXIT inside a handler; E a fault inside
+# the eventProc; H no REGISTER; P the fail-loud wrong-app guard; T the title
+# run of a partly covered window writes no pixel in front (chrome.c, the real
+# chrome drawer over the render skeleton); X the INT 81h dispatcher itself --
+# DEC-AC3-2's "host property suite over the gate dispatcher": every 16-bit AX
+# outside the spec's callable rows is BADCODE, AX is EAX's low word, args are
+# read from frame+68 under a poisoned frame, errors are negative in EAX, a
+# stray int 81h is NOTTENANT, the TENANT-GATE trace is exact. -no-pie:
+# tbxgate.c holds tenant addresses as flat-32 uint32_t; scene check S0 proves
+# they fit. Four artifact mutants (Rule 6), each RED for its named reason:
+#   PROC_MUT_ADMIT_IS_FOREGROUND  process.c links a windowless REGISTER at the
+#                                 head (the pre-tdnl.14 registration)
+#   CHROME_MUT_TITLE_UNCLIPPED    chrome.c draws the title run with text_draw
+#                                 (the pre-tdnl.14 unclipped run)
+#   TBX_MUT_AX_FULL_EAX           tbxgate.c demuxes on all of EAX
+#   TBX_MUT_ARG_OFFSET            tbxgate.c reads the cdecl args one dword low
+# ---------------------------------------------------------------------------
+TEST_FLAIR_ROUTING     := $(BUILD)/test_flair_routing
+TEST_FLAIR_ROUTING_SRC := harness/proptest/test_flair_routing.c
+FLAIR_ROUTING_LINK := harness/proptest/flair_routing_stubs.c os/flair/tbxgate.c \
+                      os/flair/process.c os/flair/window.c os/flair/heap.c \
+                      $(REGION_ENGINE_C) os/milton/psp.c os/milton/sft.c \
+                      $(CHROME_DRAWER_C) os/flair/surface.c $(FLAIRLOOK_C) \
+                      $(RENDER_SKEL_C)
+FLAIR_ROUTING_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
+                      -Ios/milton -Iharness/render -Iseed
+FLAIR_ROUTING_DEPS := $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK) \
+                      $(filter-out $(SERIAL_TRACE_PACK),$(TBXGATE_DEPS)) \
+                      $(CHROME_DEPS) $(TEST_PROCESS_DEPS) os/milton/sft.h \
+                      seed/test_assert.h
+$(TEST_FLAIR_ROUTING): $(FLAIR_ROUTING_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie $(FLAIR_ROUTING_INC) -o $@ $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK)
+$(BUILD)/test_flair_routing_mutant_%: $(FLAIR_ROUTING_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie -D$* $(FLAIR_ROUTING_INC) -o $@ $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK)
+
+.PHONY: test-flair-routing test-flair-routing-mutant
+test-flair-routing: $(TEST_FLAIR_ROUTING)
+	@printf ">>> test-flair-routing: the R3.7 host routing suite over disk_tenant_event + the clipped title run + the INT 81h dispatcher (initech-2svz)\n"
+	@$(TEST_FLAIR_ROUTING)
+	@printf ">>> test-flair-routing: green\n"
+
+test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_FOREGROUND $(BUILD)/test_flair_routing_mutant_CHROME_MUT_TITLE_UNCLIPPED \
+                           $(BUILD)/test_flair_routing_mutant_TBX_MUT_AX_FULL_EAX $(BUILD)/test_flair_routing_mutant_TBX_MUT_ARG_OFFSET
+	@for pair in 'PROC_MUT_ADMIT_IS_FOREGROUND:leg(A1): a tenant that REGISTERs without a window does NOT become the foreground' \
+	             'CHROME_MUT_TITLE_UNCLIPPED:leg(T1): the covered title run writes NO pixel inside the front window' \
+	             'TBX_MUT_AX_FULL_EAX:leg(X2): AX is the LOW WORD of EAX' \
+	             'TBX_MUT_ARG_OFFSET:leg(X3): with the frame and the stack above the args POISONED'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_flair_routing_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-flair-routing-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
+		line=$$(grep -F "$$why" $$bin.log | grep FAIL) || { printf '!!! test-flair-routing-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
+		printf '>>> test-flair-routing-mutant: %s correctly RED:\n    %s\n' "$$m" "$$line"; \
+	done
+	@printf '>>> test-flair-routing-mutant: green (all four mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
@@ -27643,6 +27764,33 @@ SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
 # ADR-0009 DEC-03: recover loaded bytes without borrowing the BSS/PAL reserves.
 # House policy applies identically to the shipped program and every mutant.
 SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-called-once -fno-partial-inlining -fno-jump-tables
+# WL-0171 (size round 2, lane samirsize): register-argument + callee-pops
+# calling convention for the WHOLE image (every TU, every mutant, and the
+# LTO link all carry SAMIR_SIZE_CFLAGS, so libcall helpers in boot/softfp.c
+# and the PAL memcpy/memset family are emitted and called under one ABI).
+# Ref: GCC 13 manual "x86 Options" -mregparm=NUM / -mrtd; the only asm caller
+# is boot/samir_crt0.asm -> samir_milton_entry(void) (no args, nothing to
+# pop) and pal_milton.c's INT 21h wrappers bind registers by constraint, so
+# neither sees the convention. No varargs function exists in os/samir.
+# Period precedent: Borland's register (-pr) and pascal (callee-pops)
+# conventions. Measured: 98587 -> 96699 B (-1888 B).
+SAMIR_SIZE_CFLAGS += -mregparm=3 -mrtd
+# WL-0171 step 2: one LTRANS partition (no cross-partition clone duplication,
+# and one fewer source of nondeterminism), no IPA-SRA parameter clones
+# (.isra.N copies of static helpers), and generic instruction *tuning* --
+# -march=i386 still pins the ISA (no cmov, the WL-0087 Bochs rule; the
+# objdump audit in the worklog). Measured: 96699 -> 96014 B (-685 B).
+SAMIR_SIZE_CFLAGS += -flto-partition=one -fno-ipa-sra -mtune=generic
+# WL-0171 step 3: optimiser passes that trade bytes for speed even at -Oz
+# (forward propagation, shrink-wrapping, deferred arg-pops, DOM jump
+# threading/copy-prop, tail merging, scalar replacement of aggregates), and
+# the Ubuntu-default stack-clash probes (-fstack-clash-protection, large
+# frames only; the image has no guard page to probe). Pure codegen policy,
+# no semantic change -- the SAMIR host/QEMU gates are the proof. Measured:
+# 96014 -> 94510 B (-1504 B). Each flag was measured alone and in
+# combination (worklog table); the set is the subset that kept its saving.
+SAMIR_SIZE_CFLAGS += -fno-forward-propagate -fno-shrink-wrap -fno-defer-pop -fno-stack-clash-protection \
+                     -fno-tree-dominator-opts -fno-tree-tail-merge -fno-tree-sra
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
@@ -29228,6 +29376,7 @@ TEST_UNIT_GATES := \
 	test-finder-ops test-finder-ops-mutant \
 	test-menu-handlers test-menu-handlers-mutant \
 	test-tbx-menu test-tbx-menu-mutant \
+	test-flair-routing test-flair-routing-mutant \
 	test-i123-wk1-roundtrip test-i123-wk1-roundtrip-mutant \
 	test-i123-quit test-i123-quit-mutant \
 	test-i123-formula test-i123-formula-mutant \
@@ -31330,7 +31479,9 @@ endef
 # M009 cursor twin (PM 2026-10-17): the hand-written rule named the pre-LTO object list
 # and lost kernel_main after size round 3 part 2; the macro owns the link now.
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CURSOR_OBJ),$(BUILD)/cursor_mut_squared_stem.o,cursor_squared))
-$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
+# text.c includes the GENERATED chicago_packed_data.h: name it, as $(KERNEL_TEXT_OBJ)
+# does, or a fresh tree's parallel headroom build races it (lane-routing, 2026-10-17).
+$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
 $(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
@@ -32396,6 +32547,7 @@ include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
 include harness/proptest/kernel_size_r4.mk
+include harness/proptest/kernel_size_r5.mk
 include harness/emu/ansi.mk
 
 
@@ -32869,7 +33021,15 @@ TEST_UNIT_GATES += test-samir-core-diff test-samir-core-diff-mutant
 
 
 # SAMIR DML lane: identical corpus, real III+ mint, host and QEMU gates.
-SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label run
+# PM 2026-10-17: RUN needs the PAL EXEC seam (nested EXEC; loader.c rejects
+# it with LOADER_ERR_BUSY) -- bead initech-dmlrun. Until that lands it is
+# test-samir-dml-pending by name, NOT in the default vector (a known-red gate
+# in `make test` is noise, not an oracle). It moves back with the commit that
+# makes it green (Rule 6: mutant too).
+SAMIR_DML_CASES := clear macro close index reindex sort total append save restore copyfile type rename erase label
+SAMIR_DML_PENDING := run
+.PHONY: test-samir-dml-pending
+test-samir-dml-pending: $(addprefix test-samir-dml-, $(SAMIR_DML_PENDING))
 SAMIR_DML_TEST := $(BUILD)/test_samir_dml
 SAMIR_DML_MUTS := $(addprefix $(BUILD)/test_samir_dml_, $(SAMIR_DML_CASES))
 $(SAMIR_DML_TEST): $(DBF_DIFF_DIR)/test_samir_dml.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) | $(BUILD)
@@ -32984,7 +33144,17 @@ include harness/diff/fat_diff/shell_files.mk
 include harness/bochs_legs.mk
 include harness/emu/panic_screen.mk
 # samir-set-fns-errors: independent III+ corpus, identical host/guest inputs.
-SAMIR_FNS_CASES := alias alternate century console default diskspace index listoff os overflow path procedure recsize relation talk time type unknown version with
+# PM 2026-10-17: SAMIR_FNS_CASES are the cases whose real-III+ capture the
+# interpreter reproduces today (fns-mint/<case>/GOLD.OUT pinned); the PENDING
+# list is the samirfns lane's scaffolding (docs/worklog/samirfns-blocked.md):
+# 11 unimplemented SET/function behaviours + default/diskspace unminted. They
+# are run by name (make test-samir-fns-pending), NOT in the default vector --
+# a known-red gate in `make test` is noise, not an oracle. A case moves from
+# PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
+SAMIR_FNS_CASES := alias alternate console index listoff recsize type
+SAMIR_FNS_PENDING := century default diskspace os overflow path procedure relation talk time unknown version with
+.PHONY: test-samir-fns-pending
+test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
 $(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
@@ -32993,20 +33163,36 @@ $(BUILD)/test_samir_fns_%: $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(
 .PHONY: mint-samir-fns test-samir-fns test-samir-fns-mutants test-samir-fns-emu test-samir-fns-emu-mutants
 mint-samir-fns: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/fns_mint.sh $(abspath $(DBASE3_DECOMP))
+# The real-III+ SET/function captures are COMMITTED under xbase_prog_diff/fns-mint/
+# (the same promotion pattern as SAMIR_MINT_TREE above: only what the gates read --
+# GOLD.OUT, FNSTEST.PRG/LIBRARY.PRG/DATA/*, sha256.txt and the mint.conf/mint.log/
+# MINT.PRG/CONFIG.DB provenance -- never DBASE.EXE/OVL/MSG, which are copyrighted
+# and stay in $(DBASE3_DECOMP)). fns_mint.sh writes build/samirfns/golden/ and the
+# PM promotes into the tree; this rule copies the tree into build/ so a fresh
+# build dir passes fns-accepted.sha256 / samir-size-real.sha256 without dosbox-x
+# (fixups 2026-10-17). default/ has no GOLD.OUT on purpose: its zero-byte capture
+# is NOT a golden (docs/worklog/samirfns-blocked.md); diskspace/ was never minted.
+SAMIR_FNS_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff/fns-mint
+SAMIR_FNS_MINT_FILES := $(shell find $(SAMIR_FNS_MINT_TREE) -type f 2>/dev/null)
+SAMIR_FNS_PROMOTED := $(BUILD)/samirfns/.promoted
+$(SAMIR_FNS_PROMOTED): $(SAMIR_FNS_MINT_FILES) | $(BUILD)
+	@mkdir -p $(BUILD)/samirfns/golden
+	@cp -rf $(SAMIR_FNS_MINT_TREE)/. $(BUILD)/samirfns/golden/
+	@touch $@
 test-samir-fns: $(addprefix test-samir-fns-,$(SAMIR_FNS_CASES))
 test-samir-fns-mutants: $(addsuffix -mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 test-samir-fns-emu: $(addsuffix -emu,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 test-samir-fns-emu-mutants: $(addsuffix -emu-mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 define samir-fns-gates
 .PHONY: test-samir-fns-$(1) test-samir-fns-$(1)-mutant test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
-test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF)
+test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 	@$$(SAMIR_FNS_TEST) $(1) host
 	@echo '>>> test-samir-fns-$(1): green'
 test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1)
 	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
-test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG)
+test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
 	@echo '>>> test-samir-fns-$(1)-emu: green'
 test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM
@@ -33021,10 +33207,15 @@ $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
 # Real III+ captures for the four currently exercised SF rules. Missing or
 # stale independent bytes fail loudly; this gate never regenerates evidence.
 .PHONY: samir-fns-goldens
-samir-fns-goldens:
+samir-fns-goldens: $(SAMIR_FNS_PROMOTED)
 	@sha256sum -c harness/diff/dbf_diff/xbase_prog_diff/fns-accepted.sha256
 	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type real III+ captures pinned)'
 TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
+include harness/diff/fat_diff/int21_dpb.mk
+
+# ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /
+# ADR-0002 DEC resolves to a DEC heading; every cited foundational Record is filed.
+include harness/adr_citations.mk

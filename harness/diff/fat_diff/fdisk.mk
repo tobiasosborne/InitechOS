@@ -21,9 +21,9 @@ TEST_UNIT_GATES += test-fdisk test-fdisk-mutant
 $(BUILD)/fdisk_start.o: os/milton/fdisk_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 $(BUILD)/fdisk_program.o: os/milton/fdisk_program.c os/milton/fdisk.h os/milton/power.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ispec -Ios/milton -c $< -o $@
 $(BUILD)/fdisk.o: $(FDISK_SRC) os/milton/fdisk.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ispec -Ios/milton -c $< -o $@
 $(BUILD)/fdisk_program.elf: $(BUILD)/fdisk_start.o $(BUILD)/fdisk_program.o $(BUILD)/fdisk.o os/milton/fdisk.ld
 	$(LD) -m elf_i386 -T os/milton/fdisk.ld -o $@ $(filter %.o,$^)
 $(FDISK_PROG_BIN): $(BUILD)/fdisk_program.elf
@@ -35,7 +35,7 @@ test-fdisk-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(CONSOLE_TEXT_BIN) $(FAT
 	@INITECH_QMP_STDIO=1 sh harness/diff/fat_diff/fdisk_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG) $(FDISK_PROG_BIN)
 define fdisk-emu-mutant
 $(BUILD)/fdisk_$(1).o: $(FDISK_SRC) os/milton/fdisk.h | $(BUILD)
-	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -DFDISK_MUT_$(1) -Ios/milton -c $$< -o $$@
+	$$(KERNEL_CC) $$(KERNEL_CFLAGS_CDECL) -Os -DFDISK_MUT_$(1) -Ios/milton -c $$< -o $$@
 $(BUILD)/fdisk_$(1).elf: $(BUILD)/fdisk_start.o $(BUILD)/fdisk_program.o $(BUILD)/fdisk_$(1).o os/milton/fdisk.ld
 	$$(LD) -m elf_i386 -T os/milton/fdisk.ld -o $$@ $$(filter %.o,$$^)
 $(BUILD)/fdisk_$(1).bin: $(BUILD)/fdisk_$(1).elf

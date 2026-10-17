@@ -137,7 +137,7 @@ static void panic_draw(uint32_t vector)
 }
 
 /* The common-stub C entry. For ANY exception this is terminal: dump + halt. */
-void isr_dispatch_c(int_frame_t *frame)
+void KERNEL_ASM_ABI isr_dispatch_c(int_frame_t *frame)
 {
     /* Spurious / unhandled vector (bcg.6): a stray software int or an
      * unexpected hardware vector arrives via isr_spurious with the sentinel

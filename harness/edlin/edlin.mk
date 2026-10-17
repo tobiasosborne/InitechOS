@@ -15,9 +15,9 @@ $(EDLIN_HOST): harness/edlin/host.c $(wildcard $(EDLIN_CORE)) $(EDLIN_CORE_HDRS)
 $(BUILD)/edlin_start.o: os/milton/edlin_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 $(BUILD)/edlin_program.o: os/milton/edlin_program.c os/milton/edlin.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ios/milton -Ispec -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ios/milton -Ispec -c $< -o $@
 $(BUILD)/edlin_core.o: $(EDLIN_CORE) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ios/milton -I$(BUILD) -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS_CDECL) -Os -Ios/milton -I$(BUILD) -c $< -o $@
 $(BUILD)/edlin.elf: $(BUILD)/edlin_start.o $(BUILD)/edlin_core.o $(BUILD)/edlin_program.o os/milton/edlin.ld
 	$(LD) -m elf_i386 -T os/milton/edlin.ld -o $@ $(filter %.o,$^)
 $(EDLIN_PROG_BIN): $(BUILD)/edlin.elf
@@ -26,7 +26,7 @@ define edlin-mutant
 $(BUILD)/edlin_host_$(1): harness/edlin/host.c $(EDLIN_CORE) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
 	$$(CC) $$(EDLIN_FLAGS) -DEDLIN_MUT_$(1) $$(filter %.c,$$^) -o $$@
 $(BUILD)/edlin_core_$(1).o: $(EDLIN_CORE) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
-	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -Ios/milton -I$(BUILD) -DEDLIN_MUT_$(1) -c $$< -o $$@
+	$$(KERNEL_CC) $$(KERNEL_CFLAGS_CDECL) -Os -Ios/milton -I$(BUILD) -DEDLIN_MUT_$(1) -c $$< -o $$@
 $(BUILD)/edlin_$(1).elf: $(BUILD)/edlin_start.o $(BUILD)/edlin_core_$(1).o $(BUILD)/edlin_program.o os/milton/edlin.ld
 	$$(LD) -m elf_i386 -T os/milton/edlin.ld -o $$@ $$(filter %.o,$$^)
 $(BUILD)/edlin_$(1).bin: $(BUILD)/edlin_$(1).elf

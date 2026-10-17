@@ -44,6 +44,9 @@
  *   TBX_MUT_DRAW_NOT_PRESENTED  tbx_take_drew never reports a draw (the
  *                          pre-initech-8zii pump: a tenant's keyDown /
  *                          mouseDown drawing is not presented)
+ *   TBX_MUT_AX_FULL_EAX    the AX demux keys on all of EAX (test-flair-
+ *                          routing leg X2: EAX=0xBEEF0001 is not REGISTER)
+ *   TBX_MUT_ARG_OFFSET     the cdecl args are read one dword low (leg X3)
  *   (+ the two tbxmenu.h knobs, TBX_MUT_MENU_KEY_PLAIN / _ANY_BAR, which a
  *    -D on this TU reaches through the header)
  *
@@ -90,7 +93,15 @@
 #include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
- * the validator reads, so the locked ABI and the Menu Manager never drift. */
+ * the validator reads, so the locked ABI and the Menu Manager never drift.
+ * Pinned on the i386 target -- every kernel and mutant build. The 64-bit host
+ * routing suite (harness/proptest/test_flair_routing.c, bead initech-2svz)
+ * compiles this TU too, cannot hold a 4-byte-pointer layout, and never hands
+ * the gate a tenant MenuBar graph (no SETMBAR leg). */
+#ifndef UINTPTR_MAX
+#error "tbxgate.c: <stdint.h> must define UINTPTR_MAX (the ABI pin guard)"
+#endif
+#if UINTPTR_MAX == 0xFFFFFFFFu
 _Static_assert(sizeof(MenuBar) == TBX_MBAR_BYTES, "MenuBar size (spec Sec 9)");
 _Static_assert(offsetof(MenuBar, menus) == TBX_MBAR_MENUS_OFF, "MenuBar.menus");
 _Static_assert(offsetof(MenuBar, n_menus) == TBX_MBAR_COUNT_OFF, "MenuBar.n_menus");
@@ -102,9 +113,12 @@ _Static_assert(offsetof(MenuInfo, items) == TBX_MINFO_ITEMS_OFF, "MenuInfo.items
 _Static_assert(offsetof(MenuInfo, n_items) == TBX_MINFO_COUNT_OFF, "MenuInfo.n_items");
 _Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)");
 _Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
+#endif
 
-/* The two asm trampolines (os/milton/tbx_gate.asm). */
-extern int  tbx_tenant_call(uint32_t fn, uint32_t psp);
+/* The two asm trampolines (os/milton/tbx_gate.asm). tbx_tenant_call reads
+ * fn/psp off the stack ([ebp+8], [ebp+12]) and `ret`s without popping: the
+ * cdecl ABI, pinned by KERNEL_ASM_ABI against the -mregparm/-mrtd image. */
+extern int KERNEL_ASM_ABI tbx_tenant_call(uint32_t fn, uint32_t psp);
 extern void tbx_tenant_abort(void) __attribute__((noreturn));
 
 /* ===========================================================================
@@ -1051,10 +1065,17 @@ static void trace_int(const char *key, uint32_t v)
     tputi((int32_t)v);
 }
 
-void tbx_gate_dispatch(uint8_t *frame)
+void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
 {
     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
-    uint32_t ax = *eax_slot & 0xFFFFu;
+#ifndef TBX_MUT_AX_FULL_EAX
+    uint32_t ax = *eax_slot & 0xFFFFu;          /* the code is AX (DEC-AC3-2) */
+#else
+    /* MUTANT TBX_MUT_AX_FULL_EAX (Rule 6; test-flair-routing-mutant leg X2):
+     * the demux keys on all of EAX, so a tenant whose high word is not zero
+     * hits BADCODE. NEVER in a real build. */
+    uint32_t ax = *eax_slot;
+#endif
     uint32_t a[TBX_ARGC_MAX] = { 0 };
     uint32_t argc = 0u;
     int32_t rc;
@@ -1091,9 +1112,18 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_MEMORY: argc=1; break;
     default:            argc = 0u;                 break;
     }
+#ifndef TBX_MUT_ARG_OFFSET
     for (uint32_t i = 0; i < argc; i++)
         a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET +
                                                     4u * i);
+#else
+    /* MUTANT TBX_MUT_ARG_OFFSET (Rule 6; test-flair-routing-mutant leg X3):
+     * arg 0 is read one dword low -- the last int_frame_t slot, not the
+     * interrupted ESP (spec/toolbox_gate.h Sec 2). NEVER in a real build. */
+    for (uint32_t i = 0; i < argc; i++)
+        a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET -
+                                                    4u + 4u * i);
+#endif
 
     if (!g_slot.in_call || g_slot.block == 0) {
         rc = TBX_ERR_NOTTENANT;           /* a stray int 81h from the kernel */

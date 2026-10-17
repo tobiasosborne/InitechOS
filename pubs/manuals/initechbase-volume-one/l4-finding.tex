@@ -30,7 +30,7 @@ whether a record was found.  \cmd{CONTINUE} goes on to the next.
 \item Type \type{LOCATE FOR DEPT = 'ACCT'}, then \type{? RECNO(), LASTNAME, FOUND()}.
 \item Type \type{CONTINUE}, then \type{? RECNO(), LASTNAME, FOUND()}.
 \item Type \type{CONTINUE}, then \type{? FOUND(), EOF()}.
-\Response{There is no third record: the pointer is at the end of the file.}
+\ATEResponse{There is no third record: the pointer is at the end of the file.}
 \end{Steps}
 \DotExample{examples/l4-locate}
 After \cmd{LOCATE}, the record found is the current record, so \cmd{DISPLAY}
@@ -50,7 +50,7 @@ records are then taken in the order of the index.
 \begin{Steps}[resume]
 \item Type \type{USE STAFF INDEX STAFFNAM}.
 \item Type \type{LIST LASTNAME, FIRSTNAME, DEPT}.
-\Response{The employees are listed in alphabetical order of their last names.}
+\ATEResponse{The employees are listed in alphabetical order of their last names.}
 \end{Steps}
 \DotExample{examples/l4-index}
 The record numbers have not changed: the index changes only the order in which

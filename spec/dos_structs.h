@@ -8,6 +8,7 @@
  *   B.1 Directory Entry (32 bytes)            -> dir_entry_t
  *   B.2 Program Segment Prefix (256 bytes)    -> psp_t   (selected offsets)
  *   B.3 Memory Control Block / Arena (16 bytes) -> mcb_t
+ *   B.4 Drive Parameter Block (32 bytes, DOS 3.x) -> dpb_t (2026-10-17)
  *
  * DEC-05 (Sec 5.5): the PSP is constructed in accordance with Appendix B.2,
  * including the INT 20h at 00h, env-segment pointer at 2Ch, command-tail and
@@ -161,6 +162,43 @@ typedef struct exec_param_block {
 
 _Static_assert(sizeof(exec_param_block_t) == 16,
                "exec_param_block_t must be 16 bytes (flat-32 DOS AH=4Bh block)");
+
+/* ------------------------------------------------------------------------ *
+ * B.4 Drive Parameter Block (32 bytes; DOS 3.x) -- INT 21h AH=1Fh / AH=32h
+ *
+ *   Admitted 2026-10-17 (WL-0167, bead initech-dpb1) with the AH=32h
+ *   register row. Source: docs/research/dpb-ground-truth.md -- MS-DOS 2.0
+ *   DOSSYM.ASM dpb STRUC + MS-DOS 4.0 DPB.INC/MISC.ASM $SETDPB (AC000 marks
+ *   the 4.0-only WORD FAT size) + RBIL r61 Table 01395 "---DOS 3.x---".
+ *   Flat model (DEC-04a): the two far pointers are flat 32-bit addresses;
+ *   the chain end FFFF:FFFF is DPB_NEXT_END.
+ * ------------------------------------------------------------------------ */
+#pragma pack(push, 1)
+typedef struct dpb {
+	uint8_t  drive;            /* 00h: drive number (0 = A:)                  */
+	uint8_t  unit;             /* 01h: unit within the block driver           */
+	uint16_t bytes_per_sector; /* 02h                                         */
+	uint8_t  cluster_mask;     /* 04h: highest sector in a cluster (spc - 1)  */
+	uint8_t  cluster_shift;    /* 05h: log2(sectors per cluster)              */
+	uint16_t first_fat;        /* 06h: reserved sectors = first FAT sector    */
+	uint8_t  fat_count;        /* 08h: number of FATs                         */
+	uint16_t root_entries;     /* 09h: root directory entries                 */
+	uint16_t first_sector;     /* 0Bh: first data sector (cluster 2)          */
+	uint16_t max_cluster;      /* 0Dh: highest cluster number (clusters + 1)  */
+	uint8_t  fat_size;         /* 0Fh: sectors per FAT (BYTE before DOS 4.0)  */
+	uint16_t dir_sector;       /* 10h: first root directory sector            */
+	uint32_t driver_addr;      /* 12h: block driver address (flat; 0 = none)  */
+	uint8_t  media;            /* 16h: media descriptor byte                  */
+	uint8_t  first_access;     /* 17h: 00h accessed, FFh not yet accessed     */
+	uint32_t next_dpb;         /* 18h: next DPB (flat); DPB_NEXT_END = last   */
+	uint16_t next_free;        /* 1Ch: cluster at which free search starts    */
+	uint16_t free_cnt;         /* 1Eh: free clusters, DPB_FREE_UNKNOWN        */
+} dpb_t;
+#pragma pack(pop)
+
+_Static_assert(sizeof(dpb_t) == 32, "dpb_t must be 32 bytes (DOS 3.x DPB, Appendix B.4)");
+#define DPB_NEXT_END     0xFFFFFFFFu /* MS-DOS 2.0 MSINIT: last link = -1 */
+#define DPB_FREE_UNKNOWN 0xFFFFu     /* $SETDPB: dpb_free_cnt = -1        */
 
 /* ------------------------------------------------------------------------ *
  * Boot Sector / BIOS Parameter Block (FAT12/16)

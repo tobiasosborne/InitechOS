@@ -566,7 +566,11 @@ end
   {\noindent\llap{\smash{\parbox[t]{\imSideCol}{\RaggedRight
     \sffamily\bfseries\fontsize{12}{14}\selectfont\strut#1\strut}}\hspace{\imSideGap}}\par}%
   \nobreak\vspace{-\baselineskip}\vspace{-\parskip}\@afterheading}
-%% Numbered steps with bold numerals; \Response{...} is the system's reply on
-%% an indented unnumbered line.
-\newcommand\Response[1]{\par\nobreak\vspace{1pt}{\leftskip=0pt #1\par}}
+%% Numbered steps with bold numerals; \ATEResponse{...} is the system's reply
+%% on an indented unnumbered line.  Named for the F-ATE frame, like
+%% \ATEHead and \ATEBackCover: this package is loaded for every book by
+%% initech-manual.cls, so it must not claim the generic \Response, which
+%% the TPS Operating Procedures (initech-ops.sty) define for their own
+%% transcript layout.
+\newcommand\ATEResponse[1]{\par\nobreak\vspace{1pt}{\leftskip=0pt #1\par}}
 \endinput
