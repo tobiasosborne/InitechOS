@@ -73,7 +73,7 @@ int fat12_write_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n,
 	return v->dev->write_sectors(v->dev->ctx, v->base_lba + s, n, p);
 }
 
-int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
+static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf, unsigned primary)
 {
 	const uint8_t *sec;
 	uint16_t sig;
@@ -118,7 +118,7 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 	(void)sig; /* Rule 6: accept a missing MBR signature. */
 #endif
 
-	if (!boot_bpb(sec)) {
+	if (primary || !boot_bpb(sec)) {
 		uint32_t chosen = 0u;
 		unsigned active = 0u;
 		for (unsigned i = 0u; i < 4u; i++) {
@@ -132,7 +132,8 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
 			    || type == 5u /* Rule 6: extended container is NOT a FAT volume. */
 #endif
 			   ) {
-				if (!chosen || e[0] == 0x80u) chosen = 446u + i * 16u;
+				if (primary ? i+1u == primary : (!chosen || e[0] == 0x80u))
+                    chosen = 446u + i * 16u;
 			}
 		}
 		if (!chosen) return FAT12_ERR_PARTITION;
@@ -286,6 +287,16 @@ int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
  *   begins at vol->first_fat_sector (= reserved_sectors) and spans
  *   sectors_per_fat sectors (brief Sec 2).
  */
+/* DEC-18: explicit primary positions never follow the active partition. */
+int fat12_mount_primary(fat12_volume_t *vol, const blockdev_t *dev,
+                        void *sector_buf, unsigned primary)
+{
+    if (!primary || primary > 4u) return FAT12_ERR_PARTITION;
+    return mount_primary(vol, dev, sector_buf, primary);
+}
+int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf)
+{ return mount_primary(vol, dev, sector_buf, 0u); }
+
 int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf, uint32_t fat_buf_len)
 {
 	uint32_t fat_bytes;
@@ -3278,6 +3289,25 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			return rc;
 		}
 	}
+
+#ifndef FAT12_MUTATE_PARTIAL_STALE_GAP
+	/* A shrink (IBM DOS 3.30 TR p.6-140) retains the last partial cluster.
+	 * Extending past EOF must zero its newly exposed gap too, not only the
+	 * fresh clusters above. Ref: fat12.h positioned-write zero-fill contract;
+	 * differential seed 7 and truncate GAPIN/GAPOUT vs mcopy replacements. */
+	if (offset > old_size && old_size % bytes_per_cluster != 0u) {
+		uint32_t first = old_size % bytes_per_cluster;
+		uint32_t count = bytes_per_cluster - first;
+		uint32_t lba = BPB_CLUSTER_LBA(&vol->bpb, tail);
+		uint8_t *cb = (uint8_t *)cluster_buf;
+		if (count > offset - old_size) count = offset - old_size;
+		if (fat12_read_sectors(vol, lba, vol->bpb.sectors_per_cluster, cb))
+			return FAT12_ERR_READ;
+		for (uint32_t i = 0u; i < count; i++) cb[first + i] = 0u;
+		if (fat12_write_sectors(vol, lba, vol->bpb.sectors_per_cluster, cb))
+			return FAT12_ERR_WRITE;
+	}
+#endif
 
 	/* ---- Splice `data` into [offset, offset+len) via read-modify-write. ----
 	 * Walk to the first touched cluster (offset/bpc steps down the chain), then

@@ -480,12 +480,13 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
         serial(" accepted(deferred)\n");
     }
     if (cfg.lastdrive_present) {
+        int21_set_lastdrive((unsigned)(cfg.lastdrive-'A'+1));
         char ld[2];
         ld[0] = cfg.lastdrive;
         ld[1] = '\0';
         serial("SYSINIT: LASTDRIVE=");
         serial(ld);
-        serial(" accepted(deferred)\n");
+        serial(" accepted\n");
     }
 
     /* BREAK= state APPLIED (beads initech-er3h; DEC-16). Unlike DEVICE/INSTALL/

@@ -798,7 +798,8 @@ int main(void)
         f.edx = 0u;
         int21_dispatch(&f);
         CHECK(frame_cf(&f) == 0, "AH=0Eh SELDISK clears CF");
-        CHECK((uint8_t)(f.eax & 0xFFu) == 1u, "AH=0Eh returns AL=1 (drive count)");
+        /* IBM DOS 3.30 TR p6-66: minimum return is five logical letters. */
+        CHECK((uint8_t)(f.eax & 0xFFu) == 5u, "AH=0Eh returns minimum AL=5 (drive count)");
     }
 
     /* AH=19h GET CURRENT DISK: AL = 0 (A:). */

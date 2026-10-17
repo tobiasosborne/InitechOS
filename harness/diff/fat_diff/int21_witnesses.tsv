@@ -1,0 +1,37 @@
+# ADR-0003 Appendix A -> actual gate that exercises the function.
+# AH=1F is deliberately absent: do_fcb returns 0 and reaches not-yet-impl.
+# Existing test-40oq records its legacy waiver; a strict certificate must fail.
+00h test-int21
+01h-0Ch test-conin-unit
+02h test-int21
+03h-05h test-devwire
+0Eh test-dos-volumes-host
+19h test-dos-volumes-host
+1Ah test-fileio
+2Fh test-fileio
+25h test-devwire
+35h test-devwire
+2Ah-2Dh test-40oq
+30h test-int21
+31h test-keep
+33h test-er3h
+36h test-dos-volumes
+3Bh test-dos-volumes-host
+39h-3Ah test-fileio
+3Ch-43h test-fileio
+44h test-devwire
+45h-46h test-fileio
+47h test-dos-volumes-host
+48h-4Ah test-mcb-int21
+4Bh test-exec-unit
+4Ch test-int21
+4Dh test-exec-unit
+4Eh-4Fh test-dos-volumes-host
+56h test-gnrc
+57h test-qekc
+59h test-40oq
+5Bh test-fileio
+62h test-40oq
+0Fh-18h test-fcb-api
+1Bh-1Eh test-fcb-api
+20h-24h test-fcb-api

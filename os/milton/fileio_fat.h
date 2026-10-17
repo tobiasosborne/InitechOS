@@ -27,6 +27,9 @@
  * FAT12_ERR_* from fat12_read_fat) on failure -- fail loud (Rule 2), the caller
  * does NOT bind a half-initialised backend. */
 int fileio_fat_bind(fat12_volume_t *vol);
+/* DEC-18: add C (2) or D (3) without rebinding A or sharing its FAT cache. */
+int fileio_fat_add_drive(unsigned letter, fat12_volume_t *vol);
+const fat12_volume_t *fileio_fat_current_volume(void);
 
 /* Return the backend's cached FAT buffer (+ its byte length via *out_len) so
  * SYSINIT can read CONFIG.SYS off the volume WITHOUT a second ~4.6 KiB FAT
