@@ -2809,11 +2809,16 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
 {
     serial_puts("FLAIR-SUSPEND\n");
 
-    /* Drain the DOS g_kbd ring of the hotkey so it does not pollute SAMIR's first
-     * cooked INT-21h line (the dual-ring post in kbd.c put a '\' here too). */
-    while (kbd_getchar() >= 0) {
-        /* drop the hotkey byte */
-    }
+    /* Drop the hotkey from the DOS input stream so it does not pollute SAMIR's
+     * first cooked INT-21h line (the dual-ring post in kbd.c put a '\' in g_kbd
+     * too), together with any desktop typing queued before it -- but NOT the
+     * keys typed after it: those are SAMIR's typeahead. The '\' may already sit
+     * in the INT 21h lookahead (an AH=0Bh poll or a CON output byte's ^C check
+     * moves it out of g_kbd), and the pump may reach this hotkey only after the
+     * next keys arrived (seen when the hotkey lands within a few ticks of
+     * FLAIR-LIVE-READY: ". \use" or ". se" in test-samir-lifetime-desktop), so
+     * a drain of g_kbd alone is wrong both ways. */
+    int21_conin_discard_through('\\');
 
     /* Prepare the screen for SAMIR's text I/O: clear the LFB to the console paper
      * + home the cursor. The kernel console came up at boot and is already bound

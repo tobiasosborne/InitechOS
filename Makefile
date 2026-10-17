@@ -5249,6 +5249,7 @@ TEST_CONIN_MUT_NOCOOKED := $(BUILD)/test_conin_mutant_nocooked
 # delivered as a raw char and INT 23h is never invoked -> the [4tw.*] cases go RED
 # (Rule 6; the M5 mutant of DEC-16 Sec 7.3).
 TEST_CONIN_MUT_NOCTRLC := $(BUILD)/test_conin_mutant_noctrlc
+TEST_CONIN_MUT_DISCARD := $(BUILD)/test_conin_mutant_discard_ring_only
 # test_conin.c drives only the CON-input path, but int21.c (one TU) references
 # the SFT/PSP handle layer (do_write/do_open/...), so the link needs sft.c +
 # psp.c just like test_int21. -Ispec for sft.h -> psp.h -> dos_structs.h.
@@ -5280,13 +5281,21 @@ $(TEST_CONIN_MUT_NOCTRLC): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDR
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_NO_CTRLC_CHECK -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
 		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
 
+$(TEST_CONIN_MUT_DISCARD): $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS) $(TEST_CONIN_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DINT21_MUTATE_DISCARD_RING_ONLY -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_CONIN_SRC) $(TEST_CONIN_DEPS)
+
 .PHONY: test-conin-unit test-conin-mutant
 test-conin-unit: $(TEST_CONIN)
 	@printf ">>> test-conin-unit: CON input 01h/06h/07h/08h/0Ah(+BS,+clamp)/0Bh/0Ch via mock source\n"
 	@$(TEST_CONIN)
 	@printf ">>> test-conin-unit: green\n"
 
-test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT) $(TEST_CONIN_MUT_WRAP)
+test-conin-mutant: $(TEST_CONIN_MUT_NOECHO) $(TEST_CONIN_MUT_COUNT) $(TEST_CONIN_MUT_WRAP) $(TEST_CONIN_MUT_DISCARD)
+	@if $(TEST_CONIN_MUT_DISCARD) > $(BUILD)/test_conin_mutant_discard.log 2>&1; then \
+		printf '!!! test-conin-mutant FAIL: INT21_MUTATE_DISCARD_RING_ONLY PASSED -- the hotkey-drop test is decoration\n'; exit 1; fi
+	@grep -q 'FAIL.*discard_through' $(BUILD)/test_conin_mutant_discard.log || { cat $(BUILD)/test_conin_mutant_discard.log; exit 1; }
+	@printf '>>> test-conin-mutant: green (INT21_MUTATE_DISCARD_RING_ONLY correctly RED: %s)\n' "$$(grep -c 'FAIL.*discard_through' $(BUILD)/test_conin_mutant_discard.log) discard checks"
 	@printf ">>> test-conin-mutant: confirming all three mutants go RED (Rule 6)\n"
 	@if $(TEST_CONIN_MUT_NOECHO) >/dev/null 2>&1; then \
 		printf '!!! test-conin-mutant FAIL: 01h-no-echo mutant PASSED -- the echo test is decoration\n'; \
