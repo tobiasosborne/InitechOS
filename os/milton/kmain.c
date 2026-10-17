@@ -3024,6 +3024,7 @@ static int finder_fat_dirent_cb(const dir_entry_t *e, void *user)
     d.attribute     = e->attribute;
     d.size          = e->file_size;
     d.start_cluster = e->start_cluster;
+    d.date = e->mdate; d.time = e->mtime;
     return fe->cb(&d, fe->user);
 }
 
@@ -3680,6 +3681,8 @@ static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puti((int32_t)singleton);
     serial_putc('\n');
     if (!singleton) finder_report_dropped(slot);
+    serial_puts("FINDER-VIEW-RESTORE win="); serial_puti(slot);
+    serial_puts(" bits="); serial_putu(g_finder_shell->windows[slot].view_bits); serial_putc('\n');
 }
 
 /* bead initech-tdnl.39 (audit F04): the Trash icon opens THE TRASH WINDOW,
@@ -3906,7 +3909,8 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     where0 = ev->where;
     where1 = where0;
-    idx    = finder_desk_hit(fd, where0.h, where0.v);
+    idx    = s->slot >= 0 ? finder_win_content_hit(&g_finder_shell->windows[s->slot],where0.h,where0.v)
+                          : finder_desk_hit(fd, where0.h, where0.v);
     t0     = flair_tick_count();
     outline_now.top = 0; outline_now.left = 0;
     outline_now.bottom = 0; outline_now.right = 0;
@@ -4130,12 +4134,31 @@ static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
     flair_live_do_surface(ctx, bi, ev, &s);
 }
 
+/* tdnl.44 markers follow the same live-window model as paint and dispatch. */
+static void finder_report_view(int slot)
+{
+    unsigned bits=g_finder_shell->windows[slot].view_bits;
+    serial_puts("FINDER-VIEW win="); serial_puti(slot);
+    if((bits & FINDER_VIEW_MASK)==0) { serial_puts(" mode=icons\n"); return; }
+    if((bits & FINDER_VIEW_MASK)==2) serial_puts(" mode=small");
+    else serial_puts(" mode=list");
+    serial_puts(" sort=");
+    serial_puts((bits&FINDER_VIEW_MASK)==5?"size":(bits&FINDER_VIEW_MASK)==9?"kind":(bits&FINDER_VIEW_MASK)==13?"date":"name");
+    serial_puts(" bits=");serial_putu(bits);serial_putc('\n');
+}
+
 static void flair_live_do_finder_content(flair_live_ctx_t *ctx,
                                          const boot_info_t *bi,
                                          const EventRecord *ev, int slot)
 {
     finder_surface_t s;
     if (!finder_surface_window(&s, slot)) return;
+    if (finder_win_header_click(&g_finder_shell->windows[slot], ev->where.h, ev->where.v)) {
+        finder_win_invalidate_all(g_finder_shell, slot);
+        finder_desk_repaint(ctx, bi);
+        finder_report_view(slot);
+        return;
+    }
     flair_live_do_surface(ctx, bi, ev, &s);
 }
 
@@ -5719,12 +5742,15 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         return;
 
     case FCMD_VIEW_ICONS:
+    case FCMD_VIEW_SMALL:
+    case FCMD_VIEW_NAME:
+    case FCMD_VIEW_SIZE:
+    case FCMD_VIEW_KIND:
+    case FCMD_VIEW_DATE:
         if (o->status != FINDER_WIN_OK) return;
         finder_win_invalidate_all(g_finder_shell, o->slot);
         finder_desk_repaint(ctx, bi);
-        serial_puts("FINDER-VIEW win=");
-        serial_puti((int32_t)o->slot);
-        serial_puts(" mode=icons\n");
+        finder_report_view(o->slot);
         return;
 
     case FCMD_EMPTY_TRASH:

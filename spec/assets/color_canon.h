@@ -8,8 +8,8 @@
  * Canon version: WL-0053 (Initech Color Canon, operator-ratified 2026-06-21)
  *
  * THE single color-policy authority for FLAIR.  Exposes flair_canon_rgb(idx):
- * idx 0..25 -> the 26-entry color_canon table;
- * idx >= 26 -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),
+ * idx 0..26 -> the 27-entry color_canon table;
+ * idx >= 27 -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),
  *              via the shared palette.h flair_palette_rgb alias
  *              (ADR-0004-AMENDMENT-DEC-09 ARB-1).
  * Freestanding-safe: <stdint.h> only, no libc.
@@ -30,10 +30,10 @@
 #include <stdint.h>
 
 /* ---------------------------------------------------------------------------
- * color_canon[idx][0..2] = {R, G, B} -- 26 entries, idx 0..25, index order.
+ * color_canon[idx][0..2] = {R, G, B} -- 27 entries, idx 0..26, index order.
  * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.9; color_canon.json "entries".
  */
-static const unsigned char color_canon[26][3] = {
+static const unsigned char color_canon[27][3] = {
     /* [0] CIDX_BLACK       */ {   0,   0,   0 },
     /* [1] CIDX_WHITE       */ { 255, 255, 255 },
     /* [2] CIDX_DESKTOP     */ { 141, 220, 220 },
@@ -59,9 +59,10 @@ static const unsigned char color_canon[26][3] = {
     /* [22] CIDX_ICON_TAN_SEL */ { 135,  84,   0 },
     /* [23] CIDX_ICON_FLESH_SEL */ { 135,  84,  84 },
     /* [24] CIDX_ICON_RED_SEL */ { 135,   0,   0 },
-    /* [25] CIDX_ICON_PINK_SEL */ { 135,   0,  84 }
+    /* [25] CIDX_ICON_PINK_SEL */ { 135,   0,  84 },
+    /* [26] CIDX_ICON_SMALL_YELLOW */ { 255, 255,  84 }
 };
-_Static_assert(sizeof(color_canon) == 78, "26 x 3 canon bytes");
+_Static_assert(sizeof(color_canon) == 81, "27 x 3 canon bytes");
 
 /* ---------------------------------------------------------------------------
  * CIDX_* index constants -- name each slot so consumers can write
@@ -93,6 +94,7 @@ _Static_assert(sizeof(color_canon) == 78, "26 x 3 canon bytes");
 #define CIDX_ICON_FLESH_SEL  23
 #define CIDX_ICON_RED_SEL    24
 #define CIDX_ICON_PINK_SEL   25
+#define CIDX_ICON_SMALL_YELLOW 26
 
 /* ---------------------------------------------------------------------------
  * INITECH_CANON_<SUFFIX>_RGB -- compile-time 0x00RRGGBB packed constant.
@@ -127,6 +129,7 @@ _Static_assert(sizeof(color_canon) == 78, "26 x 3 canon bytes");
 #define INITECH_CANON_ICON_FLESH_SEL_RGB     0x875454u
 #define INITECH_CANON_ICON_RED_SEL_RGB       0x870000u
 #define INITECH_CANON_ICON_PINK_SEL_RGB      0x870054u
+#define INITECH_CANON_ICON_SMALL_YELLOW_RGB  0xFFFF54u
 
 /* ---------------------------------------------------------------------------
  * Derived bevel rows  (WL-0053 lavender->teal swap; graded_by:authored).
@@ -227,11 +230,12 @@ _Static_assert(((uint32_t)CIDX_ICON_GRAY_66 << 16 | (uint32_t)CIDX_ICON_GRAY_66 
 /* ---------------------------------------------------------------------------
  * flair_canon_rgb(idx) -- single runtime index->0x00RRGGBB accessor.
  *
- * idx 0..25 -> color_canon table (the 26 indexed canon entries above).
- * idx >= 26 -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.
+ * idx 0..26 -> color_canon table (the 27 indexed canon entries above).
+ * idx >= 27 -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.
  *              This is the IDENTICAL default branch from palette.h
  *              flair_palette_rgb; L023 deliberately allocates slots 9/10,
  *              WL-0140 slots 11..25 (the Finder icon colours).
+ *              tdnl.44 appends native16 pencil yellow at slot 26.
  *
  * Freestanding-safe (no libc).  Callable from the kernel (kmain.c live-DAC
  * path) and the host harness.  Ref: ADR-0004-AMENDMENT-DEC-09 ARB-1;
@@ -239,12 +243,12 @@ _Static_assert(((uint32_t)CIDX_ICON_GRAY_66 << 16 | (uint32_t)CIDX_ICON_GRAY_66 
  */
 static inline uint32_t flair_canon_rgb(uint8_t idx)
 {
-    if (idx < 26u) {
+    if (idx < 27u) {
         return ((uint32_t)color_canon[idx][0] << 16)
              | ((uint32_t)color_canon[idx][1] <<  8)
              |  (uint32_t)color_canon[idx][2];
     }
-    /* idx >= 26: deterministic gray ramp (identical to palette.h default). */
+    /* idx >= 27: deterministic gray ramp (identical to palette.h default). */
     {
         uint32_t v = (uint32_t)idx;
         return (v << 16) | (v << 8) | v;

@@ -247,7 +247,8 @@ static const uint16_t EXPECTED_ROWS_PER_ID[FCMD_COUNT] = {
     /* FCMD_SHUTDOWN        */ 1,
     /* FCMD_VIEW_ICONS      */ 1,
     /* FCMD_LAUNCH_APPLE    */ 2,   /* Calculator AND Note Pad (F4.2/F4.3)    */
-    /* FCMD_EXIT_DOS        */ 1    /* Special item 10 (bead initech-3p1a)    */
+    /* FCMD_EXIT_DOS        */ 1,   /* Special item 10 (bead initech-3p1a)    */
+    /* tdnl.44 Small, Name, Size, Kind, Date */ 1,1,1,1,1
 };
 
 /* HAND-AUTHORED: the command-key map (F4.2). Exactly these seven chars carry
