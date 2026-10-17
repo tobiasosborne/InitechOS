@@ -27720,6 +27720,12 @@ SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-c
 # Period precedent: Borland's register (-pr) and pascal (callee-pops)
 # conventions. Measured: 98587 -> 96699 B (-1888 B).
 SAMIR_SIZE_CFLAGS += -mregparm=3 -mrtd
+# WL-0171 step 2: one LTRANS partition (no cross-partition clone duplication,
+# and one fewer source of nondeterminism), no IPA-SRA parameter clones
+# (.isra.N copies of static helpers), and generic instruction *tuning* --
+# -march=i386 still pins the ISA (no cmov, the WL-0087 Bochs rule; the
+# objdump audit in the worklog). Measured: 96699 -> 96014 B (-685 B).
+SAMIR_SIZE_CFLAGS += -flto-partition=one -fno-ipa-sra -mtune=generic
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
