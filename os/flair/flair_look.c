@@ -227,7 +227,10 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* ICON_CLUT DESK_IC_TAN_SEL    */ { CIDX_ICON_TAN_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* ICON_CLUT DESK_IC_FLESH_SEL  */ { CIDX_ICON_FLESH_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* ICON_CLUT DESK_IC_RED_SEL    */ { CIDX_ICON_RED_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
-    /* ICON_CLUT DESK_IC_PINK_SEL   */ { CIDX_ICON_PINK_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u }
+    /* ICON_CLUT DESK_IC_PINK_SEL   */ { CIDX_ICON_PINK_SEL, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* PLAT_PRESSED_RIM: tdnl.88, mint-010 s8_alert_ok_pressed.png y=159 /
+     * x=436 = #666666 -- the existing named ramp row, no new index. */
+    { CIDX_ICON_GRAY_66, 0u, FLAIR_NO_SKIN_SLOT, 0u }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,

@@ -1,4 +1,8 @@
-# Finder limits, alerts and input
+# WL-0162 - Finder limits, alerts and input; the native pressed push button (finder-alerts-pressed)
+
+Part 1 (below, to the STOP paragraph) is the previous Codex lane's handoff,
+committed verbatim in 0f33a169. Part 2 is the Opus takeover with mint authority.
+
 
 Scope: initech-tdnl.61/.63/.84/.62/.66/.72/.57/.64/.65/.88/.79.
 References: PRD 3, 6.2-6.5 and Appendix A/B; the issue descriptions;
@@ -69,3 +73,72 @@ that capture is supplied. Tracking/release ownership is implemented, but the
 new path does not paint the unresolved pressed fallback. The final sequential
 verification was stopped at this source gap; no bead is closed and no clips
 are recorded. Prior GREEN evidence is not a certificate for the final tree.
+
+## Part 2 -- takeover: the mint, the pressed button, the merge
+
+### Context
+The Codex lane stopped honestly on a missing ground truth (Law 1/2): no
+Mac OS 8.1 capture showed a push button held down (system7-decomp
+specs/sys8/controls.md Sec 5, "Pressed buttons are a GAP"). This takeover
+had mint authority in ../system7-decomp.
+
+### The mint (system7-decomp mint-010, re/mint-results-010.md)
+Basilisk II, Quadra 650 ROM, scratch copy of boot81.img, private Xvfb :186
+(mint/s8_icons_session.sh with its own S8_STATE). Special > Empty
+Wastebasket... puts up the caution alert; its rect is byte-identical to
+s8_alert_modal.png. xdotool mousedown on OK held; captures while held:
+s8_alert_ok_pressed.png (pointer 464,168), s8_alert_ok_pressed_tl.png
+(pointer 440,161), s8_alert_cancel_pressed.png, s8_alert_ok_held_outside.png,
+s8_alert_ok_hover.png. Two presses at (464,168) are pixel-identical over the
+alert; the two OK presses differ only inside their disjoint pointer
+footprints, so a pointer-free golden is A with A's pointer box from B.
+
+Pressed style (only x436..492 y159..176 changes; frame, 3F corners, ring
+and moat unchanged): outer top row / left col #666666, inner top / left
+#777777, face #878787, inner bottom / right #969696, outer bottom / right
+#A5A5A5, corner steps per the ledger table, label #FFFFFF on the same glyph
+pixels. Plain Cancel presses identically. Held and dragged outside: drawn
+idle (byte-identical to the idle alert); back inside: pressed; released
+outside: no action. controls.md gains Sec 5.3; INDEX-sys8 gap 3 updated.
+Committed on system7-decomp master as c8855be (not pushed).
+
+### What changed (InitechOS)
+- os/flair/control.c draw_push_button: the hilited branch paints the
+  mint-010 anatomy (new PART FLAIR_PART_PLAT_PRESSED_RIM -> the existing
+  CIDX_ICON_GRAY_66 row, appended after the icon roles so no ordinal moves;
+  #777777 / #878787 reuse PLAT_INACTIVE_FRAME / PLAT_INACTIVE_TEXT). The
+  retired accent fill survives only as the named mutant CTRL_MUT_PRESS_ACCENT.
+  The pressed label uses the same face-clipped run as the idle one.
+- os/flair/dialog.c: the tracked control is redrawn (control + default ring,
+  DrawDialog's order) at the press, on every hilite change during the
+  excursion, and at release.
+- os/flair/tbxgate.c v_dialog: the one-shot tenant transport (CPANELS)
+  rebuilds its DialogRecord per call, so a press could never see its
+  mouseUp -- every control click in Control Panels had silently become a
+  no-op under Part 1's tracking. The transport now completes the press as a
+  press + release at one point through the same tracking path.
+- os/milton/kmain.c StdFile loop: a mouseUp now reaches the tracked button
+  (Part 1 left Open/Save/Cancel clicks waiting for a mouseUp the loop never
+  delivered) and the offscreen is presented while tracking.
+- Merge with main (lvmerge list view): the per-window meta[] and the
+  sort-key scratch move into the SAME arena block as the icons
+  (finder_win_reserve_icons), so the list view keeps no fixed 64-entry
+  ceiling; test_finder_list_view's scene gains the record/icon heaps and its
+  64-row leg reserves its capacity first.
+- Gates: test-flair-dialog-pressed-golden now grades the whole OK button,
+  moat and ring (x432..496 y155..180, 1690 px) exactly against the composed
+  pair, except the label zone (only #878787/#FFFFFF: Chicago is not the native
+  Charcoal strike) and FLAIR's own arrow inks inside the held pointer's box.
+  New: test-flair-dialog-pressed-golden-mutant (CTRL_MUT_PRESS_ACCENT, objswap
+  on the hold image), host leg PRESSED-CAPTURE in test-control, and
+  test-control-press-mutant.
+- The three Finder data volumes declare fixture contracts and end their
+  recipes with fixture-check (main's convention); the control.o recipe now
+  depends on flair_look.h (a stale control.o painted the rim with the wrong
+  PART ordinal mid-session -- the dependency gap was real).
+
+### Frictions
+- The FLAIR cursor is in some held screendumps and not in others (dump
+  timing); the grade admits only the arrow's two inks inside the box where
+  the Mac's own pointer sat in capture A.
+- system7-decomp's default branch is master, not main.

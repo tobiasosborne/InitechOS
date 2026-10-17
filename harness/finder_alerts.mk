@@ -56,6 +56,16 @@ test-dialog-tracking-mutant: $(BUILD)/test_dialog_tracking_mutant
 	@grep 'FAIL.*RELEASE_INSIDE press' $(BUILD)/dialog_tracking_mutant.log
 	@printf '>>> test-dialog-tracking-mutant: DIALOG_MUT_ON_PRESS RED\n'
 TEST_UNIT_GATES += test-finder-input test-finder-input-mutant test-dialog-tracking test-dialog-tracking-mutant
+# tdnl.88 host leg (test-control PRESSED-CAPTURE vs the mint-010 pair): the
+# retired accent press must go RED there too (Rule 6).
+$(BUILD)/test_control_mut_press_accent: $(TEST_CONTROL_SRC) $(TEST_CONTROL_DEPS) harness/render/alert_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DCTRL_MUT_PRESS_ACCENT $(CONTROL_INC) -o $@ $(TEST_CONTROL_SRC) $(CONTROL_LINK) -lpng
+.PHONY: test-control-press-mutant
+test-control-press-mutant: test-control $(BUILD)/test_control_mut_press_accent
+	@if $(BUILD)/test_control_mut_press_accent > $(BUILD)/test_control_mut_press_accent.log 2>&1; then printf '!!! test-control-press-mutant: CTRL_MUT_PRESS_ACCENT survived\n'; exit 1; fi
+	@grep -m1 'FAIL.*PRESSED-CAPTURE' $(BUILD)/test_control_mut_press_accent.log
+	@printf '>>> test-control-press-mutant: CTRL_MUT_PRESS_ACCENT RED\n'
+TEST_UNIT_GATES += test-control-press-mutant
 .PHONY: test-finder-input test-finder-input-mutant test-dialog-tracking test-dialog-tracking-mutant
 
 test-flair-finder-input: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_APPL_CHECK_BIN)
@@ -262,23 +272,40 @@ test-flair-finder-demo-mutant: test-flair-finder-demo $(BUILD)/flair_tenants_mut
 TEST_EMU_GATES += test-flair-finder-input-mutant test-flair-dialog-tracking-mutant test-flair-finder-restore-mutant test-flair-finder-replace-mutant test-flair-finder-demo-mutant
 
 FINDER_ALERTS_HOST_CLEAN := test-finder-input test-dialog-tracking test-finder-limits test-finder-notices test-finder-restore test-finder-replace test-finder-demo test-finder-diskfull
-FINDER_ALERTS_HOST_MUT := test-finder-input-mutant test-dialog-tracking-mutant $(addprefix test-finder-,$(addsuffix -mutant,entries window-limit open-all keys disk-alert launch-alert move-alert restore replace demo diskfull))
+FINDER_ALERTS_HOST_MUT := test-finder-input-mutant test-dialog-tracking-mutant test-control-press-mutant $(addprefix test-finder-,$(addsuffix -mutant,entries window-limit open-all keys disk-alert launch-alert move-alert restore replace demo diskfull))
 FINDER_ALERTS_EMU_CLEAN := test-flair-finder-input test-flair-dialog-tracking $(addprefix test-flair-finder-,limits demo refused replace restore diskfull launch-alerts)
 FINDER_ALERTS_EMU_MUT := test-flair-finder-input-mutant test-flair-dialog-tracking-mutant $(addprefix test-flair-finder-,$(addsuffix -mutant,entries windows open-all keys disk-alert launch-alert move-alert restore replace demo))
 .PHONY: test-finder-alerts test-flair-finder-alerts $(FINDER_ALERTS_HOST_CLEAN) $(FINDER_ALERTS_HOST_MUT) $(FINDER_ALERTS_EMU_CLEAN) $(FINDER_ALERTS_EMU_MUT)
 test-finder-alerts: $(FINDER_ALERTS_HOST_CLEAN) $(FINDER_ALERTS_HOST_MUT)
-	@printf '>>> test-finder-alerts: green (8 host suites; 13 named mutants RED)\n'
-test-flair-finder-alerts: $(FINDER_ALERTS_EMU_CLEAN) $(FINDER_ALERTS_EMU_MUT) test-flair-dialog-pressed-golden
-	@printf '>>> test-flair-finder-alerts: green (9 QEMU families; 12 named mutants RED)\n'
+	@printf '>>> test-finder-alerts: green (8 host suites; 14 named mutants RED)\n'
+test-flair-finder-alerts: $(FINDER_ALERTS_EMU_CLEAN) $(FINDER_ALERTS_EMU_MUT) test-flair-dialog-pressed-golden test-flair-dialog-pressed-golden-mutant
+	@printf '>>> test-flair-finder-alerts: green (10 QEMU families incl. the native pressed OK; 13 named mutants RED)\n'
 
-# STOP condition, tdnl.88 / Law 1+2: controls.md Sec 5 explicitly says no
-# native pressed push-button capture exists. Do not bless the old fallback.
+# tdnl.88 / Law 1+2: the held default OK graded against the Mac OS 8.1
+# PRESSED pair minted for this bead (system7-decomp re/mint-results-010.md;
+# sys8/controls.md Sec 5.3). Both captures are required; a missing one is a
+# hard RED, never a skipped leg.
 FINDER_PRESSED_CAPTURE := ../system7-decomp/goldens/captures/s8_alert_ok_pressed.png
-.PHONY: test-flair-dialog-pressed-golden finder-dialog-pressed-probe
+FINDER_PRESSED_CAPTURE_TL := ../system7-decomp/goldens/captures/s8_alert_ok_pressed_tl.png
+.PHONY: test-flair-dialog-pressed-golden finder-dialog-pressed-probe test-flair-dialog-pressed-golden-mutant
 test-flair-dialog-pressed-golden:
-	@test -f $(FINDER_PRESSED_CAPTURE) || { printf '!!! test-flair-dialog-pressed-golden RED: missing Mac OS 8.1 native held-OK capture: %s (sys8/controls.md Sec 5)\n' '$(FINDER_PRESSED_CAPTURE)'; exit 1; }
+	@for c in $(FINDER_PRESSED_CAPTURE) $(FINDER_PRESSED_CAPTURE_TL); do test -f $$c || { printf '!!! test-flair-dialog-pressed-golden RED: missing Mac OS 8.1 native held-OK capture: %s (re/mint-results-010.md)\n' "$$c"; exit 1; }; done
 	@$(MAKE) --no-print-directory finder-dialog-pressed-probe
 finder-dialog-pressed-probe: $(HARNESS_BIN) $(FLAIRTENANTS_HOLD_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	$(call appl-boot,dialog_held,$(FLAIRTENANTS_HOLD_IMG),$(FLAIR_DATA_IMG),FLAIR_DIALOG_HELD_SPEC,--screendump --screendump-after "FINDER-TRASH-ALERT")
-	@$(PPM_FLAIR_TRASH_CHECK_BIN) pressed $(BUILD)/dialog_held.ppm $(FINDER_PRESSED_CAPTURE)
-TEST_EMU_GATES += test-flair-dialog-pressed-golden
+	@$(call APPL_ALIVE,$(BUILD)/dialog_held.serial) || { printf '!!! dialog_held did not finish alive\n'; exit 1; }
+	@! grep -q '^FINDER-TRASH-EMPTIED' $(BUILD)/dialog_held.serial
+	@$(PPM_FLAIR_TRASH_CHECK_BIN) pressed $(BUILD)/dialog_held.ppm $(FINDER_PRESSED_CAPTURE) $(FINDER_PRESSED_CAPTURE_TL)
+	@printf '>>> test-flair-dialog-pressed-golden: green (held OK == native mint-010 pressed button)\n'
+# Rule 6: the retired pre-mint accent-fill press (CTRL_MUT_PRESS_ACCENT) on
+# the same hold image must fail the native pressed grade.
+$(BUILD)/control_mut_press_accent.o: os/flair/control.c os/flair/control.h $(FLAIRLOOK_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -DCTRL_MUT_PRESS_ACCENT -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $< -o $@
+$(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_CONTROL_OBJ),$(BUILD)/kmain_flairtenants_mut_hold.o $(BUILD)/control_mut_press_accent.o,press_accent))
+test-flair-dialog-pressed-golden-mutant: test-flair-dialog-pressed-golden $(BUILD)/flair_tenants_mut_press_accent.img
+	$(call appl-boot,mut_press_accent,$(BUILD)/flair_tenants_mut_press_accent.img,$(FLAIR_DATA_IMG),FLAIR_DIALOG_HELD_SPEC,--screendump --screendump-after "FINDER-TRASH-ALERT")
+	@$(call APPL_ALIVE,$(BUILD)/mut_press_accent.serial) || { printf '!!! mut_press_accent did not finish alive\n'; exit 1; }
+	@if $(PPM_FLAIR_TRASH_CHECK_BIN) pressed $(BUILD)/mut_press_accent.ppm $(FINDER_PRESSED_CAPTURE) $(FINDER_PRESSED_CAPTURE_TL) > $(BUILD)/mut_press_accent.pixels 2>&1; then printf '!!! test-flair-dialog-pressed-golden-mutant: CTRL_MUT_PRESS_ACCENT survived\n'; exit 1; fi
+	@grep 'FAIL PRESSED-CAPTURE' $(BUILD)/mut_press_accent.pixels
+	@printf '>>> test-flair-dialog-pressed-golden-mutant: CTRL_MUT_PRESS_ACCENT RED (accent press is not the native pressed button)\n'
+TEST_EMU_GATES += test-flair-dialog-pressed-golden test-flair-dialog-pressed-golden-mutant

@@ -124,6 +124,9 @@ typedef struct scene {
     finder_win_rgn_t desk, a, b, c;
     finder_shell_t sh;
     FinderCtx ctx;
+    /* tdnl.61 merge: window records and icon/meta blocks are arena-backed. */
+    flair_heap_t records, icons;
+    _Alignas(16) uint8_t record_bytes[65536], icon_bytes[262144];
 } scene_t;
 
 static void attach(finder_win_rgn_t *s)
@@ -143,6 +146,9 @@ static void init_scene(scene_t *s)
     memset(s, 0, sizeof *s); memset(&fs, 0, sizeof fs);
     attach(&s->desk); attach(&s->a); attach(&s->b); attach(&s->c);
     WindowMgr_init(&s->wm, screen, &s->desk.r, &s->a.r, &s->b.r, &s->c.r);
+    flair_heap_init(&s->records, s->record_bytes, sizeof s->record_bytes);
+    flair_heap_init(&s->icons, s->icon_bytes, sizeof s->icon_bytes);
+    (void)finder_shell_storage_init(&s->sh, &s->records, &s->icons);
     s->sh.wm = &s->wm;
     finder_desk_init(&s->sh.desk, s->sh.desk_icons, FINDER_DESK_MAX_ICONS, screen);
     fs.enumerate = empty_enum;
@@ -208,6 +214,10 @@ static void live_layout(void)
           "V7 reselecting current header is consumed without a row click");
     CHECK(w->scroll.axis[WSCROLL_H].max==272,
           "V7 captured605px columns use existing horizontal scrollbar");
+    /* tdnl.61 merge: icon/meta capacity is arena-backed and sized to the
+     * listing; grow it to the 64 rows this leg measures. */
+    CHECK(finder_win_reserve_icons(&s.sh,slot,64)==FINDER_WIN_OK,
+          "V7 the DATA arena grows the 3-entry listing to 64 rows");
     for(int i=0;i<61;i++) {
         int ix=finder_desk_add(&w->view,FINDER_ICON_FILE,"MORE.TXT",0,0,1);
         CHECK(ix==i+3,"V7 existing64-entry Finder model holds overflow rows");

@@ -144,6 +144,11 @@ typedef enum {
      * canon slots 11..25 (color_canon.json "indexed_icon_extension"). */
     FLAIR_PART_ICON_CLUT,
     FLAIR_PART_ICON_CLUT_LAST = FLAIR_PART_ICON_CLUT + 29,
+    /* tdnl.88: the PRESSED push button's outer top/left rim, #666666
+     * (system7-decomp re/mint-results-010.md Sec 2; sys8/controls.md 5.3).
+     * An existing canon ramp row (CIDX_ICON_GRAY_66); zero colour rows.
+     * Appended AFTER the icon roles so no existing ordinal moves. */
+    FLAIR_PART_PLAT_PRESSED_RIM,
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

@@ -759,6 +759,19 @@ void SetDialogItemText(DialogPtr dp, uint16_t itemIndex, const char *text)
     }
 }
 
+/* Redraw ONE control item in place (tdnl.88 press feedback): the control,
+ * then -- for the default push button -- its ring, in DrawDialog's order so
+ * the ring's moat lands over the button's outside corners. */
+static void dialog_draw_ctrl_item(DialogPtr dp, uint16_t idx) __attribute__((unused));
+static void dialog_draw_ctrl_item(DialogPtr dp, uint16_t idx)
+{
+    DialogItem *item = &dp->items[idx - 1u];
+    if (item->type != ctrlItem || !item->ctrl) return;
+    DrawControl(&dp->window.port, item->ctrl);
+    if (idx == dp->defaultItem && item->ctrl->contrlType == pushButton)
+        DrawControlDefaultRing(&dp->window.port, item->ctrl);
+}
+
 /* Handle one event. Kept separate so the shell-owned live pump and the
  * cooperative ModalDialog loop share exactly one modal behavior path. */
 int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
@@ -791,10 +804,10 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
             }
             if (ev->what == mouseUp || c->contrlHilite != hilite) {
                 c->contrlHilite = hilite;
-                /* tdnl.88 BLOCKED pixel state: sys8/controls.md Sec 5
-                 * explicitly has no pressed-button golden. Track ownership
-                 * and release now; paint only the graded unpressed state. */
-                if (ev->what == mouseUp) DrawDialog(dp);
+                /* tdnl.88: the button draws PRESSED while the held mouse is
+                 * inside it and idle when it leaves or is released
+                 * (mint-010: s8_alert_ok_pressed / _held_outside). */
+                dialog_draw_ctrl_item(dp, idx);
             }
             if (ev->what == mouseUp && part) { *itemHit = idx; return 1; }
         }
@@ -839,7 +852,8 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
                 if (TestControl(item->ctrl, pt)) {
                     dp->trackingItem = idx;
                     item->ctrl->contrlHilite = TestControl(item->ctrl, pt);
-                    /* Pressed feedback awaits the independent capture. */
+                    /* tdnl.88: pressed feedback at mouseDown (mint-010). */
+                    dialog_draw_ctrl_item(dp, idx);
                 }
 #else
                 int16_t part = TrackControl(item->ctrl, &pt, 1);

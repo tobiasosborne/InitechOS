@@ -556,7 +556,22 @@ static int32_t v_dialog(const uint32_t *a)
         e.when=(uint32_t)v[3];
         if(e.what!=mouseDown && e.what!=keyDown && e.what!=autoKey)return TBX_ERR_BADARG;
         e.where.h=(int16_t)v[4];e.where.v=(int16_t)v[5];
-        return DialogHandleEvent(&d,&e,0,&hit)?(int32_t)hit:0;
+        /* tdnl.88: a control press now TRACKS (draws pressed, fires on the
+         * mouseUp inside). This one-shot transport rebuilds the record per
+         * call, so no later mouseUp can reach it: the tenant's click is a
+         * press + release at one point, completed here through the same
+         * tracking path (pressed, then idle, drawn in the window's port). */
+        d.window.port.portBits.bm=*g_host.surface;
+        d.window.port.visRgn=(region_t *)draw_clip();
+        d.window.port.clipRgn=d.window.port.visRgn;
+        d.window.port.portRect=WindowFrameRect(g_slot.win);
+        d.window.windowDefProcVariant=movableDBoxProc;
+        int r=DialogHandleEvent(&d,&e,0,&hit);
+        if(!r && d.trackingItem && e.what==mouseDown) {
+            e.what=mouseUp;
+            r=DialogHandleEvent(&d,&e,0,&hit);
+        }
+        return r?(int32_t)hit:0;
     }
     d.window.port.portBits.bm=*g_host.surface;
     d.window.port.visRgn=(region_t *)draw_clip();

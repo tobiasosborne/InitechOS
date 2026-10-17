@@ -433,6 +433,14 @@ typedef struct finder_win_rgn {
     int16_t   pool[FINDER_WIN_RGN_POOL];
 } finder_win_rgn_t;
 
+/* One listed entry's FAT directory metadata (tdnl.44 list view). */
+typedef struct {
+    uint32_t size;
+    uint16_t date, time;
+    uint8_t  attribute;
+} finder_win_meta_t;
+struct finder_list_key;
+
 typedef struct finder_window {
     uint8_t              open;        /* 1 == this slot holds a live window    */
     uint8_t              is_root;     /* 1 == the volume's root window         */
@@ -464,8 +472,12 @@ typedef struct finder_window {
     WindowScroll         scroll;
     int16_t              applied_sx;  /* horizontal offset applied to icons    */
     int16_t              applied_sy;  /* vertical offset applied to icons      */
-    struct { uint32_t size; uint16_t date, time; uint8_t attribute; }
-                         meta[FINDER_WIN_ICONS_MAX]; /* same indices as icons */
+    /* List-view metadata (tdnl.44) and the sort-key scratch, same indices as
+     * icons. Merge with tdnl.61's arena-backed icons: both live in the SAME
+     * DATA-arena block as `icons` (finder_win_reserve_icons), sized to the
+     * listing, freed with it -- no fixed per-window ceiling. */
+    finder_win_meta_t   *meta;
+    struct finder_list_key *keys;
 } finder_window_t;
 
 /* ---------------------------------------------------------------------------

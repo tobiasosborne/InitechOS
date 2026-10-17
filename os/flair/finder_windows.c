@@ -339,7 +339,8 @@ static __attribute__((noinline)) int fw_sync_list(finder_window_t *w, rgn_rect_t
         w->applied_sx=w->scroll.axis[WSCROLL_H].value;
         w->applied_sy=w->scroll.axis[WSCROLL_V].value;
     }
-    finder_list_key_t keys[FINDER_WIN_ICONS_MAX];
+    finder_list_key_t *keys=w->keys;
+    if(!keys) { w->view.bounds=c; return ret; }
     for(int i=0;i<(int)w->view.n;i++) {
         keys[i].name83=w->icons[i].name; keys[i].size=w->meta[i].size;
         keys[i].date=w->meta[i].date; keys[i].time=w->meta[i].time;
@@ -884,12 +885,20 @@ finder_win_status_t finder_win_reserve_icons(finder_shell_t *sh, int slot,
         if(count>rows*(uint32_t)finder_win_grid_cols(doc)) return FINDER_WIN_ERR_MEMORY;
     }
     if(w->icons && cap<=w->view.cap) return FINDER_WIN_OK;
-    p=flair_alloc(sh->icon_heap,FLAIR_CLASS_GENERAL,
-                   (uint32_t)cap*sizeof(finder_desk_icon_t));
-    if(!p) return FINDER_WIN_ERR_MEMORY;
-    for(uint16_t i=0;i<w->view.n;i++) p[i]=w->icons[i];
-    if(w->icons) flair_free(sh->icon_heap,FLAIR_CLASS_GENERAL,w->icons);
-    w->icons=p; w->view.icons=p; w->view.cap=cap;
+    {
+        /* ONE block: icons | meta | list-key scratch (tdnl.61 + tdnl.44). */
+        uint32_t mo=((uint32_t)cap*sizeof(finder_desk_icon_t)+3u)&~3u;
+        uint32_t ko=mo+(((uint32_t)cap*sizeof(finder_win_meta_t)+3u)&~3u);
+        uint8_t *b=flair_alloc(sh->icon_heap,FLAIR_CLASS_GENERAL,
+                               ko+(uint32_t)cap*sizeof(finder_list_key_t));
+        if(!b) return FINDER_WIN_ERR_MEMORY;
+        p=(finder_desk_icon_t *)b;
+        finder_win_meta_t *m=(finder_win_meta_t *)(b+mo);
+        for(uint16_t i=0;i<w->view.n;i++) { p[i]=w->icons[i]; m[i]=w->meta[i]; }
+        if(w->icons) flair_free(sh->icon_heap,FLAIR_CLASS_GENERAL,w->icons);
+        w->icons=p; w->view.icons=p; w->view.cap=cap;
+        w->meta=m; w->keys=(finder_list_key_t *)(b+ko);
+    }
     return FINDER_WIN_OK;
 }
 
@@ -1050,6 +1059,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
         DisposeWindow(sh->wm, &w->rec);
         if (w->icons) flair_free(sh->icon_heap, FLAIR_CLASS_GENERAL, w->icons);
         w->icons = 0; w->view.icons = 0; w->view.cap = 0u;
+        w->meta = 0; w->keys = 0;
         w->open = 0u;
         fw_refresh_group_head(sh);
         return st;
@@ -1110,6 +1120,7 @@ finder_win_status_t finder_win_close(finder_shell_t *sh, int slot)
     DisposeWindow(sh->wm, &w->rec);
     if (w->icons) flair_free(sh->icon_heap, FLAIR_CLASS_GENERAL, w->icons);
     w->icons = 0; w->view.icons = 0; w->view.cap = 0u;
+    w->meta = 0; w->keys = 0;
     w->open   = 0u;
     w->view.n = 0u;
     fw_refresh_group_head(sh);

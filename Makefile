@@ -8453,7 +8453,7 @@ $(KERNEL_TEXT_OBJ): os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/fla
 $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/assets/geneva9.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_MENU_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/menu.c -o $@
 
-$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
+$(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
 $(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)

@@ -103,7 +103,12 @@ enum {
     CTRL_PROG_S     = FLAIR_PART_SB_THUMB_SHADOW,
     CTRL_PROG_R     = FLAIR_PART_SB_THUMB_GRIP,
     CTRL_PROG_CAP   = FLAIR_PART_MENU_TITLE_HILITE_SHADOW,
-    CTRL_PROG_TRACK_EDGE = FLAIR_PART_PLAT_INACTIVE_FRAME /* #777777 */
+    CTRL_PROG_TRACK_EDGE = FLAIR_PART_PLAT_INACTIVE_FRAME, /* #777777 */
+    /* Pressed push button (tdnl.88; mint-010, sys8/controls.md Sec 5.3):
+     * the sunken rims and the darkened face, each an existing ramp row. */
+    CTRL_PRESS_RIM   = FLAIR_PART_PLAT_PRESSED_RIM,    /* #666666 outer TL */
+    CTRL_PRESS_LIGHT = FLAIR_PART_PLAT_INACTIVE_FRAME, /* #777777 inner TL */
+    CTRL_PRESS_FACE  = FLAIR_PART_PLAT_INACTIVE_TEXT   /* #878787 face     */
 };
 
 /* ===========================================================================
@@ -404,13 +409,17 @@ int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
  * DRAW DISPATCH
  * ===========================================================================*/
 
-/* draw_push_button -- sampled Mac OS 8.1 Platinum unpressed push button.
+/* draw_push_button -- sampled Mac OS 8.1 Platinum push button, idle and
+ * PRESSED (contrlHilite == inButton while the mouse is held inside).
  *
  * The 20px class uses the exact asymmetric edge families measured on both
  * s8_alert_modal buttons: E7 inset, white highlight, C0/96 shadow, and the
- * E7/3F/CD rounded corners. Pressed art is a golden GAP, so the
- * pre-existing accent-fill tracking branch is retained and not claimed as
- * Platinum. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/Sec 8. */
+ * E7/3F/CD rounded corners. The pressed state is the mint-010 capture
+ * (s8_alert_ok_pressed.png): the same black frame and 3F corners, the inside
+ * sunk -- 66 outer / 77 inner on the top+left, 87 face, 96 inner / A5 outer
+ * on the bottom+right, white label. Default and plain buttons press alike.
+ * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1/5.3;
+ *      ../system7-decomp/re/mint-results-010.md Sec 2. */
 static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
 {
     int x0 = (int)ctrl->contrlRect.left;
@@ -424,17 +433,75 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     }
 
     int hilited = (ctrl->contrlHilite == inButton);
+#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
     int face_part = hilited ? CTRL_ACCENT : CTRL_PLAT_FACE;
+#else
+    int face_part = hilited ? CTRL_PRESS_FACE : CTRL_PLAT_FACE;
+#endif
 
     if (hilited) {
-        /* controls.md Sec 8: pressed/tracking is unresolved. Preserve the
-         * retained heritage state byte-for-byte; do not invent Platinum art. */
+#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
+        /* NAMED MUTANT (Rule 6, tdnl.88): the retired pre-mint heritage
+         * accent fill; test-flair-dialog-pressed-golden must go RED. */
         crect_ctrl(port, x0, y0, x1, y1, CTRL_ACCENT);
         cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
         cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);
         cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);
         cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);
         cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);
+#else
+        /* mint-010 Sec 2, rows relative to the rect (OK x435..493,
+         * y158..177). The 12 pixels outside the rounded frame keep the
+         * idle face (the dialog face, or the default ring's moat drawn
+         * after this); only x0+1..x1-2, y0+1..y1-2 changes. */
+        crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
+        cfill_ctrl(port, x0 + 2, y0, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 3, y0, w - 6, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 3, y0, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 3, y1 - 1, w - 6, CTRL_BLACK);
+        cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
+
+        /* y0+1: black corner steps around a full 66 rim row. */
+        cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
+        cfill_ctrl(port, x0 + 2, y0 + 1, w - 4, CTRL_PRESS_RIM);
+        cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
+
+        /* y0+2: 3F | 66 66 | 77 ... 77 | 87 | 96 | 3F */
+        cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 1, y0 + 2, 2, CTRL_PRESS_RIM);
+        cfill_ctrl(port, x0 + 3, y0 + 2, w - 6, CTRL_PRESS_LIGHT);
+        cfill_ctrl(port, x1 - 3, y0 + 2, 1, CTRL_PRESS_FACE);
+        cfill_ctrl(port, x1 - 2, y0 + 2, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 1, y0 + 2, 1, CTRL_PLAT_DARK_RING);
+
+        /* Straight body: black, 66 rim, 77 light, 87 face, 96, A5, black. */
+        for (int y = y0 + 3; y < y1 - 3; y++) {
+            cfill_ctrl(port, x0,     y, 1, CTRL_BLACK);
+            cfill_ctrl(port, x0 + 1, y, 1, CTRL_PRESS_RIM);
+            cfill_ctrl(port, x0 + 2, y, 1, CTRL_PRESS_LIGHT);
+            cfill_ctrl(port, x0 + 3, y, w - 6, CTRL_PRESS_FACE);
+            cfill_ctrl(port, x1 - 3, y, 1, CTRL_PLAT_DARK_SHADOW);
+            cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_WIDGET_EDGE);
+            cfill_ctrl(port, x1 - 1, y, 1, CTRL_BLACK);
+        }
+        cfill_ctrl(port, x0 + 3, y0 + 3, 1, CTRL_PRESS_LIGHT);
+        cfill_ctrl(port, x1 - 4, y1 - 4, 1, CTRL_PLAT_DARK_SHADOW);
+
+        /* y1-3: 3F | 66 | 87 | 96 ... 96 | A5 A5 | 3F */
+        cfill_ctrl(port, x0,     y1 - 3, 1, CTRL_PLAT_DARK_RING);
+        cfill_ctrl(port, x0 + 1, y1 - 3, 1, CTRL_PRESS_RIM);
+        cfill_ctrl(port, x0 + 2, y1 - 3, 1, CTRL_PRESS_FACE);
+        cfill_ctrl(port, x0 + 3, y1 - 3, w - 6, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x1 - 3, y1 - 3, 2, CTRL_PLAT_WIDGET_EDGE);
+        cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
+
+        /* y1-2: black | 96 | A5 ... A5 | black */
+        cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
+        cfill_ctrl(port, x0 + 2, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
+        cfill_ctrl(port, x0 + 3, y1 - 2, w - 5, CTRL_PLAT_WIDGET_EDGE);
+        cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
+#endif
     } else {
         crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
 #if defined(CTRL_MUT_BTN_FLAT) && CTRL_MUT_BTN_FLAT
@@ -525,9 +592,12 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         /* Rule 6: restore the pre-M011 opaque run over the bevel rows. */
         ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
 #else
+#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
         if (hilited) {
             ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
-        } else if (w > 6 && h > 6) {
+        } else
+#endif
+        if (w > 6 && h > 6) {
             /* M011 / tdnl.99: s8_alert_modal.png x365..418 has 54 white
              * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
              * includes blank rows outside its ink; clip its opaque erase to

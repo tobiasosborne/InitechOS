@@ -1048,6 +1048,69 @@ static void test_capture_button(void)
     free(gold);
 }
 
+/* tdnl.88: the PRESSED default OK, host leg. The expected pixels are the
+ * mint-010 pair (s8_alert_ok_pressed.png + _tl.png, composed pointer-free by
+ * harness/render/alert_capture.h) decoded on EVERY run -- never a palette or
+ * this file's own table (Law 2). Graded: OK x435..493 y158..177 minus the 12
+ * pixels outside the rounded frame (moat/face behind it), exact, except the
+ * label zone where only the two pressed inks are allowed (Chicago is not the
+ * native Charcoal strike). */
+static void draw_pressed_ok(GrafPort *port)
+{
+    ControlRecord btn;
+    rgn_rect_t rect = {158, 435, 178, 494};
+    control_init(&btn, pushButton, rect, 0, 0, 1, 1, "OK");
+    btn.contrlHilite = inButton;
+    DrawControl(port, &btn);
+}
+
+static int pressed_outside_frame(int x, int y)
+{
+    int dx = x == 435 ? 0 : x == 436 ? 1 : x == 493 ? 0 : x == 492 ? 1 : 9;
+    int dy = y == 158 ? 0 : y == 159 ? 1 : y == 177 ? 0 : y == 176 ? 1 : 9;
+    return dx + dy <= 1;
+}
+
+static void test_capture_pressed(void)
+{
+    unsigned char *a = alert_capture_load_path(
+        "../system7-decomp/goldens/captures/s8_alert_ok_pressed.png");
+    unsigned char *b = alert_capture_load_path(
+        "../system7-decomp/goldens/captures/s8_alert_ok_pressed_tl.png");
+    unsigned char *gold = malloc((size_t)640 * 480 * 3);
+    CHECK(a && b && gold, "PRESSED-CAPTURE: the mint-010 pair must decode");
+    if (!a || !b || !gold) { free(a); free(b); free(gold); return; }
+    CHECK(pressed_capture_compose(a, b, gold) == 0,
+          "PRESSED-PAIR: the two captures agree outside both pointer boxes");
+    for (unsigned bpp = 8; bpp <= 32; bpp += 24) {
+        render_ctx_t ctx;
+        int rc = render_one(&ctx, bpp);
+        CHECK(rc == 0, "PRESSED-CAPTURE: render context must initialize");
+        if (rc) continue;
+        render_run(&ctx, draw_pressed_ok);
+        int bad = 0, zone = 0, ink = 0, n = 0;
+        for (int y = 158; y <= 177; y++)
+            for (int x = 435; x <= 493; x++) {
+                if (pressed_outside_frame(x, y)) continue;
+                uint32_t got = render_pixel_rgb(&ctx, (unsigned)x, (unsigned)y);
+                n++;
+                if (x >= PRESSED_LBL_X0 && x <= PRESSED_LBL_X1 &&
+                    y >= PRESSED_LBL_Y0 && y <= PRESSED_LBL_Y1) {
+                    ink += got == 0xFFFFFFu;
+                    zone += got != 0x878787u && got != 0xFFFFFFu;
+                } else {
+                    bad += got != alert_capture_rgb(gold, x, y);
+                }
+            }
+        printf("PRESSED-CAPTURE depth=%u: %d/%d bevel/frame pixels matched; label zone off-ink=%d white=%d\n",
+               bpp, n - bad, n, zone, ink);
+        CHECK(bad == 0 && zone == 0 && ink > 0,
+              "PRESSED-CAPTURE: held OK equals the native mint-010 pressed button");
+        render_ctx_free(&ctx);
+    }
+    free(a); free(b); free(gold);
+}
+
 #include "expect_abort.h"
 static void test_hardening(void)
 {
@@ -1101,6 +1164,7 @@ int main(int argc, char **argv)
     test_draw_controls();
     test_progress_platinum_golden();
     test_capture_button();
+    test_capture_pressed();
     test_scrollbar_draw_vs_math();
     test_scrollbar_thumb_anatomy();
     test_scrollbar_disabled_face();

@@ -5001,7 +5001,13 @@ static int sf_run(flair_live_ctx_t *ctx, const boot_info_t *bi, sf_ui_t *u,
                 } else if (DialogHandleEvent(&g_sf_dr, &ev, (dialog_filter_fn)0, &hit)) {
                     act = (int)hit;
                 }
+            } else if (ev.what == (uint16_t)mouseUp && g_sf_dr.trackingItem) {
+                /* tdnl.88: a held button fires on the mouseUp inside it. */
+                if (DialogHandleEvent(&g_sf_dr, &ev, (dialog_filter_fn)0, &hit))
+                    act = (int)hit;
             }
+            if (g_sf_dr.trackingItem || ev.what == (uint16_t)mouseUp)
+                flair_desktop_present(bi, &ctx->off);
         }
         if (act == 2) break;
         if (act == 3) {                       /* Desktop: the volume root */
