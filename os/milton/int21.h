@@ -830,6 +830,11 @@ uint8_t int21_get_break_flag(void);         /* GET current flag (0 or 1)       *
  * 3.3 internals (InDOS flag). */
 int dos_in_dos(void);
 
+/* Discard all pending console input: INT 21h's one-key lookahead (AH=0Bh /
+ * the BREAK ON check) and the keyboard ring -- AH=0Ch's flush, no read
+ * (bead initech-tdnl.106: Exit to InitechDOS drops the desktop's typeahead). */
+void int21_flush_input(void);
+
 /* The C dispatch routine the asm trap stub (int21_entry, isr.asm) invokes with a
  * pointer to the on-stack int_frame_t. Reads AH = (frame->eax >> 8) & 0xFF and
  * switches per spec/int21h_register.json. Writes the return value into

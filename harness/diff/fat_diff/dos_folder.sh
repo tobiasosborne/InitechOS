@@ -24,7 +24,9 @@ if [ "$mode" = host ]; then
         sort "$out/$d.mtools" -o "$out/$d.mtools"
         cmp -s "$out/$d.artifact" "$out/$d.mtools" || fail fat-reader-differential
     done
-    printf '@ECHO OFF\r\nPATH=A:\\DOS\r\n' > "$out/autoexec.want"
+    # initech-tdnl.106 (ADR-0003 DEC-19): the shipped AUTOEXEC.BAT ends with
+    # FLAIR, so the boot lands on the desktop after the banner and AUTOEXEC.
+    printf '@ECHO OFF\r\nPATH=A:\\DOS\r\nFLAIR\r\n' > "$out/autoexec.want"
     mcopy -i "$img" ::AUTOEXEC.BAT - > "$out/autoexec.got" 2>/dev/null || fail autoexec
     cmp -s "$out/autoexec.want" "$out/autoexec.got" || fail autoexec
     fsck.fat -n "$img" > "$out/fsck" 2>&1 || fail filesystem
@@ -58,4 +60,4 @@ mcopy -i "$img" ::MORE.OUT - > "$out/more.got" 2>/dev/null || fail more-output
 mcopy -i "$img" ::README.TXT - > "$out/more.want"
 cmp -s "$out/more.want" "$out/more.got" || fail more-bytes
 fsck.fat -n "$img" > "$out/fsck" 2>&1 || fail filesystem
-echo 'GREEN test-dos-folder: serial DIR == fourteen externals; PATH finds CHKDSK and MORE; MORE <README.TXT exact bytes; no startup prompts; fsck.fat'
+echo 'GREEN test-dos-folder: serial DIR == fifteen externals; PATH finds CHKDSK and MORE; MORE <README.TXT exact bytes; no startup prompts; fsck.fat'

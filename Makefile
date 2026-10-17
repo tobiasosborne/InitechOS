@@ -606,6 +606,7 @@ include spec/flair_finder_cmds_traces.mk
 # tdnl.78: the LOCKED Special > Restart / Shut Down traces.
 include spec/flair_power_traces.mk
 include spec/flair_exit_dos_traces.mk
+include spec/flair_cmd_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
 include spec/flair_protection_traces.mk
@@ -23595,6 +23596,25 @@ RECORD_SETTLE_tps_journey     = 700
 # (700 ms: COMMAND.COM and TPSREP take keys by polling, and the report prints ~50 console
 #  rows after the last key; at 150 ms the cursor and the scrolling report raced the frame.)
 RECORD_TIMEOUT_MS_tps_journey = 180000
+# flair_from_dos (bead initech-tdnl.106; Rule 14 -- FLAIR AS A COMMAND ON
+# FILM): the machine is at A:\> (a volume whose AUTOEXEC.BAT has no FLAIR
+# line), FLAIR is typed, the desktop comes; Special > Exit to InitechDOS, the
+# alert, Exit -- back at A:\>; FLAIR again, Exit again, FLAIR a third time.
+# The stream starts at SYSINIT's COMMAND-TRANSIENT-OK (RECORD_KEYS_AFTER) and
+# waits for each prompt / desktop on the guest's own serial (W<n>:<marker>,
+# spec/flair_cmd_traces.mk). The image is the exit-capable DOUBLE-CLICK
+# record kernel (harness/emu/exit_dos.mk). Parse-time block: MUST precede the
+# record-flair target (FLAIR_DATA_NOFLAIR_IMG is a prerequisite read here;
+# its rule is in harness/emu/flair_cmd.mk). The PM records on main.
+FLAIR_DATA_NOFLAIR_IMG := $(BUILD)/flair_data_noflair.img
+RECORD_SCRIPTS += flair_from_dos
+RECORD_SPEC_flair_from_dos       = $(FLAIR_FROM_DOS_SPEC)
+RECORD_MARKER_flair_from_dos     = SHELL-READY
+RECORD_IMAGE_flair_from_dos      = $(FLAIRTENANTS_RECORDDBL_EXITDOS_IMG)
+RECORD_DATA_flair_from_dos       = $(FLAIR_DATA_NOFLAIR_IMG)
+RECORD_KEYS_AFTER_flair_from_dos = COMMAND-TRANSIENT-OK
+RECORD_SETTLE_flair_from_dos     = 700
+RECORD_TIMEOUT_MS_flair_from_dos = 180000
 # Rule14: PM records on main after merge. Parse-time block MUST precede target.
 RECORD_SCRIPTS += calc_ledger
 RECORD_SPEC_calc_ledger = $(FLAIR_CALC_SPEC)
@@ -23700,7 +23720,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@printf '>>> record-flair [%s]: capturing per-event frames (trace: %s)\n' "$(SCRIPT)" "$(RECORD_SPEC_$(SCRIPT))"
 
 	@$(HARNESS_BIN) --disk "$(or $(RECORD_IMAGE_$(SCRIPT)),$(FLAIRTENANTS_RECORD_IMG))" --disk2 "$(FLAIR_GATE_DATA)" --name "rec_$(SCRIPT)" --out "$(RECORD_CLIPS_DIR)" \
-		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "FLAIR-LIVE-READY" \
+		--mouse "$(RECORD_SPEC_$(SCRIPT))" --keys-after "$(or $(RECORD_KEYS_AFTER_$(SCRIPT)),FLAIR-LIVE-READY)" \
 		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic,--rtc-base "$(RECORD_RTC_DEFAULT)") \
 		--record $(if $(RECORD_SETTLE_$(SCRIPT)),--record-settle-ms $(RECORD_SETTLE_$(SCRIPT))) --record-end-marker FLAIR-LIVE-OK --timeout-ms 45000 \
 		$(if $(RECORD_RTC_BASE_$(SCRIPT)),--rtc-base "$(RECORD_RTC_BASE_$(SCRIPT))" --rtc-deterministic) \

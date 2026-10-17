@@ -1108,6 +1108,18 @@ static void do_puts(int_frame_t *f)
  * and the read paths (conin_get_pb / conin_poll_pb) drain it FIRST, so a 0Bh
  * status check followed by 01h/07h/08h/0Ah still sees that keystroke. */
 
+/* Discard all pending console input -- the 0Bh/break-check lookahead and
+ * everything the poll yields now (AH=0Ch's flush, without the chained read).
+ * The kernel's Exit to InitechDOS uses it: keys typed at the desktop are not
+ * the prompt's (bead initech-tdnl.106). */
+void int21_flush_input(void)
+{
+    g_conin_pushback = -1;
+    while (conin_poll() >= 0) {
+        /* discard */
+    }
+}
+
 /* Blocking get honoring the 0Bh pushback. */
 static int conin_get_pb(void)
 {

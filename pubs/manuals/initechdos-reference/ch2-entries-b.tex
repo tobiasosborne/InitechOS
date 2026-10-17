@@ -125,6 +125,36 @@ Input may also come from a pipe. Use redirection to read a file.
 To display lines containing Help, type \type{FIND "Help" < PHONE.TXT}.
 \end{DosEntry}
 
+% FLAIR -- os/milton/flair_program.asm (INT 81h AX=TBX_DESKSTART, then
+% INT 21h AH=4Ch; the two refusal lines and return code 1); spec/toolbox_gate.h
+% Sec 17; os/milton/kmain.c flair_cmd_exec / flair_exit_to_dos (the desktop
+% runs until Special > Exit to InitechDOS, which returns to this prompt).
+% ADR-0003 Amendment DEC-19.  Shipped as DOS\FLAIR.COM; the shipped
+% AUTOEXEC.BAT ends with FLAIR.  bead initech-tdnl.106.
+\Gates{test-flair-cmd-host, test-flair-from-dos, test-flair-from-dos-mutant, test-dos-folder}
+\begin{DosEntry}{FLAIR}{}{external}
+\Purpose Starts the FLAIR desktop.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{FLAIR}}
+\Type{External}
+\Remarks
+\cmd{FLAIR} starts the desktop: the Finder, with its menu bar, the disk and
+Trash icons, and the applications.  The desktop runs until you choose Exit to
+InitechDOS from the Special menu and confirm it; then the screen is cleared,
+the InitechDOS copyright lines are displayed, and the command prompt returns,
+with the current directory as it was.  You can type \cmd{FLAIR} again at any
+time.  If \cmd{FLAIR} is the last line of \file{AUTOEXEC.BAT}, the system
+starts the desktop each time it is started.
+
+If the desktop is already running, \cmd{FLAIR} displays
+\texttt{FLAIR is already running.}\ and the desktop goes on.  If the desktop
+cannot be started, \cmd{FLAIR} displays
+\texttt{FLAIR cannot start the desktop.}  In both cases \cmd{FLAIR} ends with
+exit code 1; otherwise its exit code is 0.
+\Example
+To start the desktop from the command prompt, type \type{FLAIR} and press
+\key{Enter}.
+\end{DosEntry}
+
 % LABEL -- os/milton/dosutil.c label_main / label_read / label_write
 % (current drive only; prompts; the invalid characters; 11 characters,
 % capitals; root VOLLABEL entry + extended BPB label field; messages).

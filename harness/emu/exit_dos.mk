@@ -17,6 +17,9 @@
 #     corners, two message lines, Exit ringed, Cancel not); nothing exits.
 #     [2] CANCEL (Escape): FINDER-EXIT-DOS-CANCEL, nothing put away, and the
 #     desktop still answers (a Ctrl-N New Folder).
+#   (initech-tdnl.106, ADR-0003 DEC-19: the flagship now boots to COMMAND.COM
+#   and AUTOEXEC.BAT's FLAIR starts the desktop; the transient is read at
+#   SYSINIT and VERIFIED -- its checksum -- at Exit, which RETURNS to it.)
 #     [3] EXIT: put away like Shut Down (FINDER-POWER name=EXITDOS, the
 #     DESKTOP.DB commit, then FLAIR-EXIT-TO-DOS), the transient COMMAND.COM
 #     validated (COMMAND-TRANSIENT-OK), the banner on serial == the locked
@@ -30,8 +33,8 @@
 #   test-flair-exit-to-dos-mutant (Rule 6): NO_TEARDOWN (KMAIN_MUT_EXIT_NO_
 #     TEARDOWN: straight to the prompt, desktop still painted) RED on the
 #     text-console grader; NO_TRANSIENT (the flagship kernel on an image whose
-#     boot disk carries no transient) RED: MSG-DOS-0014 + PANIC, no
-#     SHELL-READY.
+#     boot disk carries no transient) RED: MSG-DOS-0014 + PANIC at SYSINIT
+#     (the initial interpreter load, DEC-19), no desktop, no SHELL-READY.
 #   test-flair-tps-journey: the whole journey, keyed EXACTLY as
 #     test-tps-report leg A (the trace's keys are linted against
 #     harness/diff/tps/keys_a.txt here); the console transcript from the
@@ -173,9 +176,10 @@ test-flair-exit-to-dos-mutant: $(HARNESS_BIN) $(EXITDOS_MUT_NOTEARDOWN_IMG) $(EX
 	$(call exitdos-boot,$(EXITDOS_MUT_NOTRANSIENT_IMG),flair_exitdos_mut_notransient,$(FLAIR_DATA_IMG),$(FLAIR_EXIT_DOS_SPEC),HALTED,0,40000)
 	@out=$$( ( $(call exitdos-exit-check,flair_exitdos_mut_notransient) ) 2>&1 ); rc=$$?; \
 	if [ $$rc -eq 0 ]; then printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT PASSED -- decoration\n'; exit 1; fi; \
-	printf '%s\n' "$$out" | grep -qF 'did not run alert -> put away' || { printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
+	printf '%s\n' "$$out" | grep -qF 'did not select Special > Exit to InitechDOS' || { printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
 	grep -qxF 'Bad or missing Command Interpreter' $(BUILD)/flair_exitdos_mut_notransient.sx && grep -q '^PANIC exit-to-dos: COMMAND.COM not found' $(BUILD)/flair_exitdos_mut_notransient.serial \
 		|| { printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT did not say MSG-DOS-0014 + PANIC\n'; exit 1; }; \
+	! grep -qx 'FLAIR-DESKTOP' $(BUILD)/flair_exitdos_mut_notransient.sx || { printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT reached a desktop without a command interpreter\n'; exit 1; }; \
 	printf '>>> test-flair-exit-to-dos-mutant: NO_TRANSIENT correctly RED (%s; MSG-DOS-0014 + %s)\n' "$$out" "$$(grep -m1 '^PANIC' $(BUILD)/flair_exitdos_mut_notransient.serial)"
 	@printf '>>> test-flair-exit-to-dos-mutant: green (2/2 RED for the named reason)\n'
 

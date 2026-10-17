@@ -5692,9 +5692,11 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
     (void)bi;
 #endif
     /* Typeahead from the desktop is not the prompt's: the IRQ1 handler posts
-     * to the DOS ring too (kbd.c), so drop what the alert's keys left there. */
-    while (kbd_getchar() >= 0) {
-    }
+     * to the DOS ring too (kbd.c), and a DOS call the desktop makes (the
+     * menu-bar clock's AH=2Ch, with BREAK ON's keyboard check) can park a
+     * key in INT 21h's one-key lookahead -- drop both, as AH=0Ch does
+     * (bead initech-tdnl.106: the system hotkey's '\' reached the prompt). */
+    int21_flush_input();
     serial_puts("FLAIR-EXIT-TO-DOS\n");
 #ifdef FLAIR_AS_COMMAND
     /* DEC-19: the transient COMMAND.COM that ran FLAIR is still in memory,
@@ -6363,12 +6365,13 @@ static void flair_live_session(const boot_info_t *bip)
     MenuClock_reset();
 #if defined(KMAIN_FIX_TRANSIENT_OVERLAY) || defined(KMAIN_MUT_TRANSIENT_NOT_PRESERVED)
     /* FAULT INJECTION (test-flair-from-dos leg RELOAD / its mutant): the
-     * desktop overlays the transient's code, as a program that used all of
-     * memory did in DOS (MS-DOS 3.3 User's Guide printed p338, PDF423). INT3
-     * bytes: a return into an unrepaired transient faults at once. NEVER in a
-     * real build. */
-    for (uint8_t *z = (uint8_t *)(uintptr_t)(TRANSIENT_BASE + 0x100u);
-         z < (uint8_t *)(uintptr_t)(TRANSIENT_BASE + 0x100u + 0x2000u); z++)
+     * desktop overlays the transient's code (all of .text/.rodata after the
+     * header), as a program that used all of memory did in DOS (MS-DOS 3.3
+     * User's Guide printed p338, PDF423). INT3 bytes: a return into an
+     * unrepaired transient faults at once. NEVER in a real build. */
+    for (uint8_t *z = (uint8_t *)(uintptr_t)(TRANSIENT_BASE +
+                                             (uint32_t)sizeof(transient_hdr_t));
+         z < (uint8_t *)(uintptr_t)g_tr_hdr.code_end; z++)
         *z = 0xCCu;
 #endif
 #endif

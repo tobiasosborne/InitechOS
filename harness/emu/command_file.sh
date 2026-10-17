@@ -18,13 +18,17 @@ red() { echo "RED command-file-emu $tag $*"; exit 1; }
 grep -q 'launched=1' "$work/$tag.report" || red 'not launched'
 grep -q 'triple_fault=0' "$work/$tag.report" || red 'triple fault/report'
 grep -q 'guest_errors=0' "$work/$tag.report" || red 'guest errors'
-tr -d '\r' < "$work/$tag.serial" | sed -n '/^FLAIR-EXIT-TO-DOS$/,$p' > "$work/$tag.txt"
+# initech-tdnl.106 (ADR-0003 DEC-19): the flagship reads the transient at
+# SYSINIT, right after drive A: is mounted -- the initial interpreter load of
+# printed p310 literally -- so the refusal is judged from FLAIR-FAT-MOUNT-OK
+# on, and no desktop may come up without a command interpreter.
+tr -d '\r' < "$work/$tag.serial" | sed -n '/^FLAIR-FAT-MOUNT-OK$/,$p' > "$work/$tag.txt"
 s="$work/$tag.txt"
-grep -qx 'FLAIR-EXIT-TO-DOS' "$s" || red 'no injected exit'
+grep -qx 'FLAIR-FAT-MOUNT-OK' "$s" || red 'no SYSINIT mount'
 [ "$(grep -xc 'Bad or missing Command Interpreter' "$s")" = 1 ] || red 'missing exact MSG-DOS-0014'
 grep -q "^PANIC exit-to-dos: $reason" "$s" || red 'wrong panic reason'
 grep -qx HALTED "$s" || red 'no HALTED'
-! grep -Eq '^(SHELL-READY|COMMAND-TRANSIENT-OK|BANNER-BEGIN)' "$s" || red 'entered interpreter'
+! grep -Eq '^(SHELL-READY|COMMAND-TRANSIENT-OK|BANNER-BEGIN|FLAIR-DESKTOP)' "$s" || red 'entered interpreter or desktop'
 # The QMP input driver waits for the impossible marker for the timeout budget,
 # then sends QMP quit; this is NOT the harness's no-input timed_out=1 path.
 # Measure the observation and require the missing marker, rather than accepting

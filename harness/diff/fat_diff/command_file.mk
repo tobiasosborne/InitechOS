@@ -72,7 +72,8 @@ $(foreach tag,command_volume command_magic command_message,$(eval $(call command
 test-command-file-emu-mutant: $(HARNESS_BIN) $(PPM_TEXT_CHECK_BIN) $(FLAIR_DATA_IMG) $(foreach tag,command_volume command_magic command_message,$(COMMAND_FILE_IMG)/$(tag).img)
 	$(call exitdos-boot,$(COMMAND_FILE_IMG)/command_volume.img,command_file_mut_volume,$(FLAIR_DATA_IMG),$(COMMAND_FILE_TRACE),HALTED,0,40000)
 	@out=$$( ( $(call exitdos-exit-check,command_file_mut_volume) ) 2>&1 ); rc=$$?; \
-	 test $$rc -ne 0 && echo "$$out" | grep -q 'did not run alert -> put away' || { echo "FAIL COMMAND_VOLUME: $$out"; exit 1; }; \
+	 test $$rc -ne 0 && echo "$$out" | grep -q 'did not select Special > Exit to InitechDOS' || { echo "FAIL COMMAND_VOLUME: $$out"; exit 1; }; \
+	 ! grep -qx FLAIR-DESKTOP $(BUILD)/command_file_mut_volume.sx || { echo 'FAIL COMMAND_VOLUME reached a desktop without COMMAND.COM'; exit 1; }; \
 	 grep -q '^PANIC exit-to-dos: COMMAND.COM not found' $(BUILD)/command_file_mut_volume.serial; \
 	 echo "RED command-file COMMAND_VOLUME: $$out"; echo 'GREEN test-command-file-emu-mutant COMMAND_VOLUME rejected'
 	@set -eu; img=$(COMMAND_FILE_IMG)/run-command_magic.img; cp -f $(COMMAND_FILE_IMG)/command_magic.img $$img; \
