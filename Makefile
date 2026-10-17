@@ -888,6 +888,10 @@ SORT_PROG_BIN    := $(BUILD)/sort_program.bin
 SORT_PROG_MUT_BIN := $(BUILD)/sort_program_mut.bin
 FIND_PROG_ASM    := $(KERNEL_DIR)/find_program.asm
 FDISK_PROG_BIN   := $(BUILD)/fdisk_program.bin
+FORMAT_PROG_BIN  := $(BUILD)/format_program.bin
+SYS_PROG_BIN     := $(BUILD)/sys_program.bin
+DISKCOPY_PROG_BIN := $(BUILD)/diskcopy_program.bin
+DISKCOMP_PROG_BIN := $(BUILD)/diskcomp_program.bin
 ATTRIB_PROG_BIN  := $(BUILD)/attrib_program.bin
 LABEL_PROG_BIN   := $(BUILD)/label_program.bin
 FIND_PROG_BIN    := $(BUILD)/find_program.bin
@@ -10139,7 +10143,7 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # kmain.c flair_tenant_mount_volume fileio_fat_bind + flair_exit_to_dos
 # int21_cwd_reset; command.c command_repl opens A:\AUTOEXEC.BAT.
 # ONE deployment list of all DOS externals: source:name pairs, in disk order.
-FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM
+FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM $(FORMAT_PROG_BIN):FORMAT.COM $(SYS_PROG_BIN):SYS.COM $(DISKCOPY_PROG_BIN):DISKCOPY.COM $(DISKCOMP_PROG_BIN):DISKCOMP.COM
 FLAIR_DATA_AUTOEXEC := $(BUILD)/flagship_autoexec.bat
 $(FLAIR_DATA_AUTOEXEC): Makefile | $(BUILD)
 	@printf '@ECHO OFF\r\nPATH=A:\\DOS\r\n' > $@
@@ -10186,7 +10190,7 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(SCRAPBOOK_EXE) ::APPS/SCRAPBK.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CP_EXE) ::APPS/CPANELS.EXE
 	@set -e; $(foreach pair,$(FLAIR_DOS_EXTERNALS),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(word 1,$(subst :, ,$(pair))) ::DOS/$(word 2,$(subst :, ,$(pair)));)
-	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 10 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
+	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 14 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -32606,3 +32610,4 @@ test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants: samir-prog-golde
 TEST_UNIT_GATES += samir-prog-goldens
 
 include harness/diff/fat_diff/kernel_hygiene.mk
+include harness/diff/fat_diff/formatsys.mk
