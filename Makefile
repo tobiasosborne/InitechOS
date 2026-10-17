@@ -9586,7 +9586,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
 KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
 KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
 $(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
 $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
@@ -32198,7 +32198,6 @@ include harness/diff/fat_diff/dos_folder.mk
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=19 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
-include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
@@ -32653,3 +32652,11 @@ include harness/diff/fat_diff/kernel_hygiene.mk
 include harness/diff/fat_diff/formatsys.mk
 
 include harness/diff/fat_diff/shell_files.mk
+
+# cqej: evaluate Bochs legs AFTER the lane image variables (CP_GATE_IMG,
+# VESA8_DIR, SAMIR_DML_CASES). The macro expands prerequisites at parse time.
+# Bochs 2.7 has no usable VBE LFB here: the 8bpp leg grades VGA13 + the
+# 640x480 guard ONLY. It cannot grade the desktop DAC/pitch presenter, which
+# is after that guard (os/milton/kmain.c flair_present / flair_desktop_run).
+# Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; bochs.h RFB limitation.
+include harness/bochs_legs.mk
