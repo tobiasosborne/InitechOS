@@ -27709,6 +27709,17 @@ SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
 # ADR-0009 DEC-03: recover loaded bytes without borrowing the BSS/PAL reserves.
 # House policy applies identically to the shipped program and every mutant.
 SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-called-once -fno-partial-inlining -fno-jump-tables
+# WL-0171 (size round 2, lane samirsize): register-argument + callee-pops
+# calling convention for the WHOLE image (every TU, every mutant, and the
+# LTO link all carry SAMIR_SIZE_CFLAGS, so libcall helpers in boot/softfp.c
+# and the PAL memcpy/memset family are emitted and called under one ABI).
+# Ref: GCC 13 manual "x86 Options" -mregparm=NUM / -mrtd; the only asm caller
+# is boot/samir_crt0.asm -> samir_milton_entry(void) (no args, nothing to
+# pop) and pal_milton.c's INT 21h wrappers bind registers by constraint, so
+# neither sees the convention. No varargs function exists in os/samir.
+# Period precedent: Borland's register (-pr) and pascal (callee-pops)
+# conventions. Measured: 98587 -> 96699 B (-1888 B).
+SAMIR_SIZE_CFLAGS += -mregparm=3 -mrtd
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
                      -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
