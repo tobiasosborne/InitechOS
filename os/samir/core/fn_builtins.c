@@ -785,6 +785,9 @@ static int fn_type(const xb_val *args, int nargs, xb_ctx *ctx,
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
     /* xb_type_char maps XB_U -> 'U' too, so an undefined value reports "U"
      * (the III+ "undefined/invalid expression" code). */
+#ifdef SAMIR_FNS_MUTANT_type
+    code='C';
+#endif
     dst[0] = code;
     *out = xb_c(dst, 1);
     *err = XBEE_OK;
@@ -2121,6 +2124,16 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     *out = xb_u();
 
     if (name == 0 || namelen == 0) return fn_fail(err_code, XBEE_INVALID_FN);
+
+    /* Using III+ U6-69; SF-recsize pins the deletion-byte inclusion and
+     * the documented zero when no table is in use. */
+#ifndef SAMIR_FNS_MUTANT_recsize
+    if(name_is(name,namelen,"RECSIZE")) {
+        if(nargs) return fn_fail(err_code,XBEE_INVALID_ARG);
+        *out=xb_n(ctx->record_size?(double)ctx->record_size(ctx->dbcur_user):0.0);
+        return 0;
+    }
+#endif
 
     /* Programming III+ N5-30 (PDF 418): number of the ON ERROR condition. */
     if (name_is(name, namelen, "ERROR")) {
