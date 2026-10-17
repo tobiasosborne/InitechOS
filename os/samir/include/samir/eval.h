@@ -184,6 +184,7 @@ typedef struct {
     xb_token_type type;
     uint32_t      offset; /* byte offset into source */
     uint16_t      len;    /* byte length of the token in source */
+    uint16_t      num_dec; /* numeric literal precision, including trailing 0s */
     union {
         /* XBT_LIT_C: pointer+len into source (no copy; excludes delimiters) */
         struct { const char *p; uint16_t len; } c;
@@ -347,6 +348,7 @@ typedef struct {
     xb_token_type op;        /* operator token for UNOP/BINOP; else XBT_EOI  */
     int32_t       kid[2];    /* child node indices; unused slot = -1         */
     uint32_t      src_off;   /* source byte offset of the token that began    */
+    uint16_t      num_width, num_dec;
                              /* this node (for diagnostics; deterministic)    */
     union {
         double num;                          /* XBN_LIT_N                    */

@@ -595,6 +595,7 @@ dbt_file *wa_memo(const wa_env *env, int area);
 /* wa_index: the i-th (0-based) attached ndx_index* of area `area`, or NULL if
  * out of range / closed. i in [0, wa_index_count). */
 ndx_index *wa_index(const wa_env *env, int area, int i);
+int wa_attach_index(wa_env *, int area, ndx_index *);
 
 /* Ref: Using dBase III Plus.pdf U5-215, U5-229. Shared scan visibility.
  * wa_visible returns 0/1 or a negative fault; wa_view_error is its catalog code.
@@ -603,6 +604,7 @@ ndx_index *wa_index(const wa_env *env, int area, int i);
 struct xb_interp;
 int wa_set_filter(struct xb_interp *, int area, const char *, int *ec);
 void wa_set_deleted(wa_env *, int on);
+int wa_get_deleted(const wa_env *);
 int wa_include_deleted(wa_env *, int on);
 int wa_view_error(wa_env *);
 void wa_clear_view_error(wa_env *);

@@ -493,10 +493,99 @@ static int rp_run(const char *args, int *ec)
     return rc;
 }
 
+/* LABEL FORM: Using III+ U5-143; DML-15 ADDRESS.LBL and EXTRA-01..05
+ * independently pin comma trimming, across columns and CR band terminators. */
+static int lbl_run(const char *args,int *ec)
+{
+    char a[256],*p,*s,*e,expr[61],band[16][512];int len[16];
+    int h,w,lm,gap,across,spacing,area,col=0,rc=0;
+    wa_env *env=xb_interp_env(R.ip);pal_fd form;
+    R.pal=xb_interp_pal(R.ip);R.fd=-1;R.err=0;
+    if(rt_strlen(args)>=sizeof a){*ec=18;return -1;}
+    rt_memcpy(a,args,rt_strlen(args)+1);p=a;
+    while(*p==' ')p++;
+    if(!rp_word(p,"FORM")){*ec=36;return -1;}
+    for(p+=4;*p==' ';p++);
+    for(e=p;*e && *e!=' ';e++);
+    if(*e)*e++=0;
+    if((*ec=rp_name(p,".LBL")))return -1;
+    form=R.pal->open(R.pal,R.fn,PAL_RD);if(form<0){*ec=form==-PAL_ENOENT?1:29;return -1;}
+    int n=R.pal->read(R.pal,form,R.frm,sizeof R.frm);R.pal->close(R.pal,form);
+    if(n!=1034 || R.frm[0]!=2 || R.frm[1033]!=2){*ec=54;return -1;}
+    h=rp_u16(61);w=rp_u16(63);lm=rp_u16(65);spacing=rp_u16(67);gap=rp_u16(69);across=rp_u16(71);
+    if(h<1 || h>16 || !w || across<1 || across>16 || lm+(w+gap)*across>512 || spacing>100){*ec=54;return -1;}
+    for(p=e;*p==' ';p++);
+    if(*p) {
+        if(!rp_word(p,"TO")){*ec=36;return -1;}
+        for(p+=2;*p==' ';p++);
+        if(!rp_word(p,"FILE")){*ec=36;return -1;}
+        for(p+=4;*p==' ';p++);
+        if((*ec=rp_name(p,".TXT")))return -1;
+        R.fd=R.pal->open(R.pal,R.fn,PAL_WR|PAL_CREATE|PAL_TRUNC);
+        if(R.fd<0){*ec=29;return -1;}
+    }
+    area=wa_selected(env);
+    if(!wa_is_open(env,area)){*ec=52;rc=-1;goto done;}
+    rt_memset(band,' ',sizeof band);rt_memset(len,0,sizeof len);
+    if(wa_nav_index_top(env,area)!=NAV_OK){*ec=29;rc=-1;goto done;}
+    while(!wa_eof(env,area)) {
+        for(int line=0;line<h;line++) {
+            unsigned pos=0;int first=1;char cell[512];
+            rt_memcpy(expr,R.frm+73+line*60,60);expr[60]=0;
+            for(p=expr;*p;) {
+                int q=0,depth=0;xb_val v;
+                for(e=p;*e;e++) {
+                    if(q){if(*e==q)q=0;}
+                    else if(*e=='"' || *e=='\'' || *e=='[')q=*e=='['?']':*e;
+                    else if(*e=='(')depth++;
+                    else if(*e==')')depth--;
+                    else if(*e==',' && !depth)break;
+                }
+                s=*e?e+1:e;if(*e)*e=0;
+                while(*p==' ')p++;
+                if(*p) {
+                    if(q_eval(R.ip,p,&v,ec)){rc=-1;goto done;}
+                    if(v.t!=XB_C){*ec=9;rc=-1;goto done;}
+                    unsigned z=v.u.c.len;
+                    while(z && v.u.c.p[z-1]==' ')z--;
+                    if(z) {
+                        if(!first && pos<sizeof cell)cell[pos++]=' ';
+                        first=0;
+                        for(unsigned j=0;j<z && pos<sizeof cell;j++)cell[pos++]=v.u.c.p[j];
+                    }
+                }
+                p=s;
+            }
+            unsigned start=(unsigned)(lm+col*(w+gap)),take=pos>(unsigned)w?(unsigned)w:pos;
+#ifdef SAMIR_DML_MUTANT_label
+            take=0; /* suppress label text while retaining the band geometry */
+#endif
+            rt_memcpy(band[line]+start,cell,take);
+            if(take)len[line]=(int)(start+take);
+        }
+        col++;
+        if(wa_nav_skip(env,area,1)!=NAV_OK){*ec=29;rc=-1;goto done;}
+        if(col==across || wa_eof(env,area)) {
+            for(int i=0;i<h;i++){rp_raw("\r\n",2);rp_raw(band[i],len[i]);}
+            for(int i=0;i<spacing;i++)rp_raw("\r\n",2);
+            rp_raw("\r",1);col=0;
+            rt_memset(band,' ',sizeof band);rt_memset(len,0,sizeof len);
+        }
+    }
+ done:
+    if(R.fd>=0) {
+        if(R.pal->write(R.pal,R.fd,"\x1a",1)!=1 || R.pal->close(R.pal,R.fd))R.err=29;
+        R.fd=-1;
+    }
+    if(!rc && R.err){*ec=R.err;rc=-1;}
+    return rc;
+}
+
 static int report_cmd_hook(void *user, xb_interp *ip, const char *verb,
                            const char *args, int *err_code)
 {
     (void)user;
+    if(rp_word(verb,"LABEL")) {R.ip=ip;*err_code=0;return lbl_run(args,err_code)?-INTERP_ERR_EVAL:CMD_OK;}
     if (!rp_word(verb, "REPORT")) return CMD_UNKNOWN;
     R.ip = ip;
     *err_code = 0;

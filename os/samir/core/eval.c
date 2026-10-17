@@ -735,6 +735,8 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
     switch (n->type) {
     case XBN_LIT_N:
         *out = xb_n(n->u.num);
+        out->num_width = n->num_width ? n->num_width : 10;
+        out->num_dec = n->num_dec;
         *err = XBEE_OK; return 0;
 
     case XBN_LIT_C:
@@ -775,7 +777,9 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
         xb_val a;
         int rc = eval_node(pool, n->kid[0], ctx, &a, err);
         if (rc != 0) return rc;
-        return eval_unop(n->op, &a, out, err);
+        rc=eval_unop(n->op, &a, out, err);
+        if(!rc && out->t==XB_N) { out->num_width=a.num_width+(n->op==XBT_MINUS); out->num_dec=a.num_dec; }
+        return rc;
     }
 
     case XBN_BINOP: {
@@ -784,7 +788,20 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
         if (rc != 0) return rc;
         rc = eval_node(pool, n->kid[1], ctx, &b, err);
         if (rc != 0) return rc;
-        return eval_binop(ctx, n->op, &a, &b, out, err);
+        rc=eval_binop(ctx, n->op, &a, &b, out, err);
+        /* Real III+ PROG-expr; Using U5-15 calculation example. Width is
+         * expression metadata, not the number of digits in the result. */
+        if(!rc && out->t==XB_N && a.t==XB_N && b.t==XB_N) {
+            unsigned ad=a.num_dec,bd=b.num_dec;
+            unsigned ai=a.num_width-(ad?ad+1:0),bi=b.num_width-(bd?bd+1:0);
+            unsigned d=ad>bd?ad:bd,w=(ai>bi?ai:bi)+1+(d?d+1:0);
+            if(n->op==XBT_STAR) { d=ad+bd;w=a.num_width+b.num_width+1; }
+            if(n->op==XBT_SLASH || n->op==XBT_CARET || n->op==XBT_STARSTAR) {
+                d=ctx->set_decimals;w=10+(d?d+1:0);
+            }
+            out->num_dec=(uint16_t)d;out->num_width=(uint16_t)(w>255?255:w);
+        }
+        return rc;
     }
 
     case XBN_CALL:

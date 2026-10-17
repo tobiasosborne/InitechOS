@@ -76,7 +76,7 @@ int main(int argc,char **argv)
         CHECK(strstr(serial,"CLIENTS")!=NULL,"status: serial database name");
         /* STATUS draws positioned spans: CR LF moves its cursor without
          * echoing newline bytes to serial. The next span is record 2. */
-        CHECK(strstr(serial,"Record#  NAME       CITY         BAL      2  WADDAMS")!=NULL,"heading: column-aligned DISPLAY titles");
+        CHECK(strstr(serial,"Record#  NAME       CITY              BAL      2  WADDAMS")!=NULL,"heading: column-aligned DISPLAY titles");
         CHECK(strstr(serial,"Rec: 2/3")!=NULL,"status: serial live record count");
         CHECK(strstr(serial,"Enter a dBASE III PLUS command.")!=NULL,"status: serial guidance");
         if(status) {

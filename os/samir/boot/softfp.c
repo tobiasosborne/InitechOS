@@ -258,11 +258,11 @@ static u128 mul_u64(uint64_t a, uint64_t b)
 
 static uint64_t df_add_sub(uint64_t ua, uint64_t ub, int sub);
 
-double __adddf3(double a, double b)
+__attribute__((used, externally_visible)) double __adddf3(double a, double b)
 {
     return df_from_bits(df_add_sub(df_to_bits(a), df_to_bits(b), 0));
 }
-double __subdf3(double a, double b)
+__attribute__((used, externally_visible)) double __subdf3(double a, double b)
 {
     return df_from_bits(df_add_sub(df_to_bits(a), df_to_bits(b), 1));
 }
@@ -340,7 +340,7 @@ static uint64_t df_add_sub(uint64_t ua, uint64_t ub, int sub)
     return df_round_pack(sign, exp, sig, lost, 1);
 }
 
-double __muldf3(double a, double b)
+__attribute__((used, externally_visible)) double __muldf3(double a, double b)
 {
     uint64_t ua = df_to_bits(a), ub = df_to_bits(b);
     if (df_is_nan(ua) || df_is_nan(ub)) return df_from_bits(DF_QNAN);
@@ -390,7 +390,7 @@ double __muldf3(double a, double b)
     return df_from_bits(df_round_pack(sign, exp, sig, lost, 1));
 }
 
-double __divdf3(double a, double b)
+__attribute__((used, externally_visible)) double __divdf3(double a, double b)
 {
     uint64_t ua = df_to_bits(a), ub = df_to_bits(b);
     if (df_is_nan(ua) || df_is_nan(ub)) return df_from_bits(DF_QNAN);
@@ -479,19 +479,19 @@ static int df_cmp(double a, double b)
     return sa ? -mag : mag;               /* both negative: larger mag is smaller */
 }
 
-int __eqdf2(double a, double b) { int c = df_cmp(a, b); return (c == 0) ? 0 : 1; }
-int __nedf2(double a, double b) { int c = df_cmp(a, b); return (c == 0) ? 0 : 1; }
-int __ltdf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? 1 : c; }
-int __ledf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? 1 : c; }
-int __gtdf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? -1 : c; }
-int __gedf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? -1 : c; }
+__attribute__((used, externally_visible)) int __eqdf2(double a, double b) { int c = df_cmp(a, b); return (c == 0) ? 0 : 1; }
+__attribute__((used, externally_visible)) int __nedf2(double a, double b) { int c = df_cmp(a, b); return (c == 0) ? 0 : 1; }
+__attribute__((used, externally_visible)) int __ltdf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? 1 : c; }
+__attribute__((used, externally_visible)) int __ledf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? 1 : c; }
+__attribute__((used, externally_visible)) int __gtdf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? -1 : c; }
+__attribute__((used, externally_visible)) int __gedf2(double a, double b) { int c = df_cmp(a, b); return (c == 2) ? -1 : c; }
 
 /* ------------------------------------------------------------------------- *
  * Conversions.
  * ------------------------------------------------------------------------- */
 
 /* double -> signed 64-bit (truncate toward zero). */
-int64_t __fixdfdi(double a)
+__attribute__((used, externally_visible)) int64_t __fixdfdi(double a)
 {
     uint64_t u = df_to_bits(a);
     if (df_is_nan(u)) return 0;
@@ -513,7 +513,7 @@ int64_t __fixdfdi(double a)
 }
 
 /* double -> signed 32-bit (truncate toward zero). */
-int32_t __fixdfsi(double a)
+__attribute__((used, externally_visible)) int32_t __fixdfsi(double a)
 {
     int64_t v = __fixdfdi(a);
     if (v > INT32_MAX) return INT32_MAX;
@@ -522,7 +522,7 @@ int32_t __fixdfsi(double a)
 }
 
 /* double -> unsigned 32-bit (truncate toward zero; negative -> 0). */
-uint32_t __fixunsdfsi(double a)
+__attribute__((used, externally_visible)) uint32_t __fixunsdfsi(double a)
 {
     int64_t v = __fixdfdi(a);
     if (v < 0) return 0;
@@ -531,7 +531,7 @@ uint32_t __fixunsdfsi(double a)
 }
 
 /* signed 64-bit -> double (round to nearest even). */
-double __floatdidf(int64_t v)
+__attribute__((used, externally_visible)) double __floatdidf(int64_t v)
 {
     if (v == 0) return df_from_bits(0);
     int sign = 0;
@@ -554,13 +554,13 @@ double __floatdidf(int64_t v)
 }
 
 /* signed 32-bit -> double (always exact). */
-double __floatsidf(int32_t v)
+__attribute__((used, externally_visible)) double __floatsidf(int32_t v)
 {
     return __floatdidf((int64_t)v);
 }
 
 /* unsigned 32-bit -> double (always exact). */
-double __floatunsidf(uint32_t v)
+__attribute__((used, externally_visible)) double __floatunsidf(uint32_t v)
 {
     if (v == 0) return df_from_bits(0);
     uint64_t a = v;
@@ -592,12 +592,12 @@ static uint64_t udivmod64(uint64_t n, uint64_t d, uint64_t *rem)
     return q;
 }
 
-uint64_t __udivdi3(uint64_t n, uint64_t d)
+__attribute__((used, externally_visible)) uint64_t __udivdi3(uint64_t n, uint64_t d)
 {
     return udivmod64(n, d, 0);
 }
 
-uint64_t __umoddi3(uint64_t n, uint64_t d)
+__attribute__((used, externally_visible)) uint64_t __umoddi3(uint64_t n, uint64_t d)
 {
     uint64_t r;
     udivmod64(n, d, &r);
@@ -609,7 +609,7 @@ uint64_t __umoddi3(uint64_t n, uint64_t d)
  * digit extraction (integration fix, ADR-0009 DEC-02; the -Os SAMIR.COM profile).
  * It is exactly udivmod64's contract: return the quotient, store the remainder
  * through *rem (libgcc signature: __udivmoddi4(num, den, uint64_t *rem)). */
-uint64_t __udivmoddi4(uint64_t n, uint64_t d, uint64_t *rem)
+__attribute__((used, externally_visible)) uint64_t __udivmoddi4(uint64_t n, uint64_t d, uint64_t *rem)
 {
     return udivmod64(n, d, rem);
 }

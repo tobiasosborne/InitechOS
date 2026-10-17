@@ -306,13 +306,15 @@ int main(void)
     err_is("IIF(.T.,1)",     XBEE_INVALID_ARG, "K7: IIF wrong arity -> #11");
 
     /* =================================================================== */
-    /* L. TYPE -- 1-char type code of the (eagerly-evaluated) argument       */
+    /* L. Using III+ U6-86/87: Character argument contains the expression. */
     /* =================================================================== */
-    ok_c("TYPE('x')",       "C", 1, "L1: TYPE char literal -> 'C'");
-    ok_c("TYPE(3+4)",       "N", 1, "L2: TYPE numeric expr -> 'N'");
-    ok_c("TYPE(.T.)",       "L", 1, "L3: TYPE logical -> 'L'");
-    ok_c("TYPE(DATE())",    "D", 1, "L4: TYPE date -> 'D'");
-    ok_c("TYPE('AB'$'XAB')","L", 1, "L5: TYPE of a $ expr -> 'L'");
+    ok_c("TYPE(\"'x'\")",   "C", 1, "L1: TYPE char literal -> 'C'");
+    ok_c("TYPE('3+4')",     "N", 1, "L2: TYPE numeric expr -> 'N'");
+    ok_c("TYPE('.T.')",     "L", 1, "L3: TYPE logical -> 'L'");
+    ok_c("TYPE('DATE()')",  "D", 1, "L4: TYPE date -> 'D'");
+    ok_c("TYPE(\"'AB'$'XAB'\")","L", 1, "L5: TYPE of a $ expr -> 'L'");
+    ok_c("TYPE('missing')", "U", 1, "L6: absent variable -> 'U'");
+    ok_c("TYPE(\"'x'/100\")","U", 1, "L7: invalid expression -> 'U'");
 
     /* =================================================================== */
     /* M. Error cells: unknown fn, DTOS (not in III+), arity, type          */
