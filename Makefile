@@ -691,7 +691,31 @@ KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
 # ROUND 3 (initech-tode): kernel-only reachability, not an optimiser change.
 # Ref: docs/design/kernel-size-policy-round2.md Sec 4 lever C; kernel.ld roots.
 # Keep separate from KERNEL_CFLAGS: TENANT_CFLAGS inherits that base policy.
-KERNEL_R5_FLAGS ?=
+# Round 5 step 2 (WL-0168): optimiser passes that trade bytes for speed even
+# at -Oz, switched off for every kernel-linked object AND the LTO link
+# (KERNEL_LINK), the WL-0171 method -- each flag measured alone on the
+# flagship, then as the kept subset (the three-round table in the worklog):
+#   -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 (-1376 B): the
+#     4-byte stack of the period's compilers; no stack object in the image
+#     needs more (no SSE on a 386, and GCC realigns any local that asks),
+#     and the I123 tenant + SAMIR already run on it; -fno-tree-sra (-704),
+#   -fno-tree-dominator-opts (-288), -fno-move-loop-invariants (-448),
+#   -fno-tree-loop-im (-416), -fno-shrink-wrap / -fno-tree-tail-merge (-160
+#   each), -fno-partial-inlining (-192), --param=max-completely-peel-times=0
+#   (-160), -fno-code-hoisting (-128), -fno-tree-scev-cprop (-128),
+#   -fno-stack-clash-protection (the Ubuntu default probes; nothing in the
+#   image has a guard page). Rejected by measurement (grew the image):
+#   -mtune=generic +800, -fno-tree-ch +512, -fno-tree-switch-conversion
+#   +256, -fno-forward-propagate +224, -fno-ipa-sra +128, -fno-defer-pop
+#   +96, -fno-tree-sink, -fno-tree-dse, -mstringop-strategy=byte_loop.
+#   Refused on principle, as in WL-0171: -fno-optimize-sibling-calls (-256,
+#   changes stack depth). Pure codegen policy -- the gate families and the
+#   byte-identical screendump goldens are the proof. Measured on the
+#   flagship: 183,948 -> 179,916 B (-4,032 B). Hold the seam as `?=` so a
+#   trial can still override it from the command line.
+KERNEL_R5_FLAGS ?= -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts \
+                   -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining \
+                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection
 KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
