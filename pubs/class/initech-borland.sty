@@ -445,7 +445,9 @@
 %% \MakeBackCover: wordmark top left; the slogan (operator directive
 %% 2026-10-17); address block bottom left (D-12); part number and print code
 %% bottom right; nothing else.  Measured from the trim of the page in use.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
+%% It replaces the house back cover of initech-forms.sty (loaded by the class
+%% first) for the Turbo Initech books, which need the booklet geometry.
+\renewcommand\MakeBackCover{\thispagestyle{empty}%
   \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 12\else 19\fi}{\Wordmark[\ifim@booklet 22mm\else 30mm\fi]}%
   \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 40\else 45\fi}{\parbox{\ifim@booklet 70mm\else 110mm\fi}{%
     \IsThisGoodForTheCompany}}%

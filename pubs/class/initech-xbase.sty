@@ -70,17 +70,10 @@
   \vspace*{-\topskip}{\noindent\hspace*{-\imHang}\im@display\fontsize{24}{28}\selectfont #1\par}%
   \newpage}
 
-%% ---- back cover (PUB-REF-0001 PK-05; operator directive 2026-10-17: the
-%% motto on the back cover) ------------------------------------------------------
-%% Wordmark top left; the motto; the address block bottom left; part number
-%% and print code bottom right; nothing else.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
-  \AtPage{23}{14}{\Wordmark[30mm]}%
-  \AtPage{23}{40}{\parbox[t]{120mm}{\IsThisGoodForTheCompany}}%
-  \AtPage{23}{196}{\parbox[t]{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
-  \im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr212mm\relax){%
-    \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}%
-  \null\newpage}
+%% ---- back cover: the house \MakeBackCover of initech-forms.sty (PK-05 as
+%% revised, AN-27; WL-0132) serves the InitechBase books too.  This file
+%% defined a second one with \newcommand, which made every book fail to
+%% typeset once both were on main ("Command \MakeBackCover already defined").
 
 %% ---- the Quick Reference booklet (PK-11; annex Sec 11.1; class option
 %% quickref, 88.9 x 228.6 mm) -------------------------------------------------

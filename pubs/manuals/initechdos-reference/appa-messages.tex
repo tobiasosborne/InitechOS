@@ -231,6 +231,12 @@ parameters, or the string is not in quotation marks.}{Check the Format
 line of \cmd{FIND}.}
 \MessageDetail{MSG-DOS-0060}{\cmd{SORT} cannot fit the lines it is sorting
 in memory.}{Sort a smaller file, or split it.}
+% MSG-DOS-0062: command.c REN (MS-DOS 3.3 Reference p.325, the catalogue
+% citation): the new name is already in use, or no file matches the old name.
+\MessageDetail{MSG-DOS-0062}{\cmd{REN} could not rename the file: a file
+with the new name already exists in the directory, or no file matches the
+name you gave.}{Choose another new name, or check the old one with
+\cmd{DIR}.}
 \input{dos_messages_other}
 \CheckMessageDetails
 
