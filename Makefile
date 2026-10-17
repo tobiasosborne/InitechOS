@@ -32866,4 +32866,12 @@ TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
 endef
 $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
 
+# Real III+ captures for the four currently exercised SF rules. Missing or
+# stale independent bytes fail loudly; this gate never regenerates evidence.
+.PHONY: samir-fns-goldens
+samir-fns-goldens:
+	@sha256sum -c harness/diff/dbf_diff/xbase_prog_diff/fns-accepted.sha256
+	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type real III+ captures pinned)'
+TEST_UNIT_GATES += samir-fns-goldens
+
 include harness/diff/dbf_diff/samir_size.mk
