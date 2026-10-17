@@ -431,6 +431,11 @@ int xb_lex(const char *src, uint32_t len,
             EMIT_ERR(XBLE_PERCENT, i, 1);
         }
 
+        /* Using III+ work areas: qualification is one operator, not - >. */
+        if(c=='-' && i+1<len && src[i+1]=='>') {
+            xb_token t;t.type=XBT_ARROW;t.offset=i;t.len=2;t.u.l=0;
+            i+=2;EMIT(t);continue;
+        }
         /* Single-char operators */
         {
             xb_token_type tt;

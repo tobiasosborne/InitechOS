@@ -42,6 +42,7 @@
 #include <stdint.h>
 
 #include "flair_look.h"
+#include "finder_small_icons.h"
 #include "flair_skins.h"       /* complete flair_skin_t + registry resolver     */
 #include "surface.h"           /* surface_pack_rgb (-Ios/flair)                 */
 #include "color_canon.h"       /* flair_canon_rgb + CIDX_* + bevel (-Ispec/assets) */
@@ -188,6 +189,10 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
      * Indexed slots carry the exact sampled tints through the live offscreen. */
     { CIDX_ALERT_LIGHT, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     { CIDX_ALERT_SHADOW, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    /* Captured list bevel gray-ramp indices, mint008 Sec6. */
+    { CIDX_ICON_GRAY_27, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    { CIDX_ICON_GRAY_54, 0u, FLAIR_NO_SKIN_SLOT, 0u },
+    { CIDX_ICON_GRAY_66, 0u, FLAIR_NO_SKIN_SLOT, 0u },
     /* Finder icon colour roles, DESK_IC_* ordinal order (bead initech-tdnl.53;
      * mint-008 Sec 3).  Grays reuse the named sampled-ramp rows of the same
      * value (the ICON_SHADE / ICON_HILITE precedent); the non-grays are the
@@ -337,4 +342,12 @@ uint32_t flair_look_pixel(const GrafPort *port, int part)
 {
     uint32_t bpp = (port != 0) ? port->portBits.bm.bpp : 32u;
     return flair_look_pixel_depth(bpp, part);
+}
+
+/* Native icon colours use the SAME canon slots as the indexed compositor. */
+uint32_t flair_look_small_icon_pixel(uint32_t bpp,unsigned index)
+{
+    if(index>=FINDER_SMALL_COLORS)return 0;
+    uint8_t idx=finder_small_canon[index];
+    return bpp==8 ? idx : flair_canon_rgb(idx);
 }

@@ -126,8 +126,8 @@ static int read_rgb_bytes(const char *p, const char *end,
 
 /* ---- Canon entry store ---------------------------------------------------- */
 
-#define CANON_N  26   /* Nine retained entries + L023 sampled alert slots 9/10
-                        * + WL-0140 Finder icon colour slots 11..25. */
+#define CANON_N  27   /* Retained rows + L023 slots 9/10 + WL-0140 slots 11..25
+                        * + tdnl.44 native16 pencil yellow at slot 26. */
 #define DERIVED_N 4   /* Four authored accent rows. */
 /* DEC-10 Sec 3.5.3 / initech-3knt: 2 retained SYS7 names + 11 appended
  * Platinum sampled-domain names + 3 WL-0140 Finder icon grays; exact count
@@ -669,6 +669,7 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf(" *              This is the IDENTICAL default branch from palette.h\n");
     printf(" *              flair_palette_rgb; L023 deliberately allocates slots 9/10,\n");
     printf(" *              WL-0140 slots 11..25 (the Finder icon colours).\n");
+    printf(" *              tdnl.44 appends native16 pencil yellow at slot 26.\n");
     printf(" *\n");
     printf(" * Freestanding-safe (no libc).  Callable from the kernel (kmain.c live-DAC\n");
     printf(" * path) and the host harness.  Ref: ADR-0004-AMENDMENT-DEC-09 ARB-1;\n");

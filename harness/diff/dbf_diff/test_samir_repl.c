@@ -339,8 +339,9 @@ static void test_session_convergence(samir_pal_t *pal)
 
     /* the dot prompt was emitted each line (at least once). */
     CHECK(cap_has(". "), "conv: dot prompt emitted");
-    /* ? RECNO() on the freshly-USEd ro table = 1 (rendered after a leading NL). */
-    CHECK(cap_has("\n1"), "conv: ? RECNO() shows 1 (fresh USE positions at rec 1)");
+    /* SF-memwidth, real III+ 1.1: numeric output has ten columns. Using
+     * III+ U5-15; the independent capture includes all nine leading spaces. */
+    CHECK(cap_has("\n         1"), "conv: ? RECNO() shows 1 in ten columns (fresh USE)");
     /* LIST recno: 7 columns + 2 spaces, real M005U/M005N (initech-31d1). */
     CHECK(cap_has("      1  AAA"), "conv: LIST shows recno 1 / AAA (ro table)");
     CHECK(cap_has("      2  BBB"), "conv: LIST shows recno 2 / BBB");
@@ -366,7 +367,7 @@ static void test_session_convergence(samir_pal_t *pal)
         CHECK(xb_interp_get_memvar(ip, "COUNTER", &cv) == 0 && cv.t == XB_N &&
               cv.u.n == 7.0, "conv: STORE 7 TO COUNTER -> memvar==7");
     }
-    CHECK(cap_has("\n7"), "conv: ? COUNTER shows 7");
+    CHECK(cap_has("\n         7"), "conv: ? COUNTER shows 7 in ten columns (SF-memwidth)");
 
     /* the interp (and its adopted/closed tables) are gone after samir_repl's
      * QUIT-time wa_close_all; free the handle and verify the REPLACE PERSISTED by

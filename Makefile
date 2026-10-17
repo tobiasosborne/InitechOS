@@ -593,6 +593,7 @@ PPM_FLAIR_DISKWIN_CHECK_BIN := $(BUILD)/ppm_flair_disk_windows_check
 # 8/11): FLAIR_FOLDER_NAV_SPEC, FLAIR_WINDOW_DRAG_PERSIST_SPEC and
 # FLAIR_NEW_FOLDER_SPEC. Sibling of the R3.2 file above, never an edit to it.
 include spec/flair_disk_windows_traces.mk
+include spec/flair_list_view_traces.mk
 # R3.4a (bead initech-34dh): the LOCKED drag-move / drag-to-Trash traces.
 include spec/flair_file_ops_traces.mk
 # tdnl.34 (audit F01): the LOCKED "contents follow the window" traces.
@@ -8161,6 +8162,7 @@ endef
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
         test-finder-icon-art test-finder-icon-art-mutant \
+        test-finder-icon-oracles test-finder-icon-oracles-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -8168,6 +8170,7 @@ endef
         test-finder-menu test-finder-menu-mutant \
         test-finder-desktop test-finder-desktop-mutant \
         test-finder-windows test-finder-windows-mutant \
+        test-finder-list-view test-finder-list-view-mutant \
         test-control test-control-mutant test-flair-shell test-flair-shell-mutant \
         test-dialog test-dialog-mutant \
         test-chrome test-chrome-mutant \
@@ -8480,7 +8483,7 @@ $(KERNEL_PIC_OBJ): $(KERNEL_PIC_C) $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/io.h | $(BU
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_PIC_C) -o $@
 
 $(KERNEL_PANIC_OBJ): $(KERNEL_PANIC_C) $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) --param=min-pagesize=0 -I$(KERNEL_DIR) -c $(KERNEL_PANIC_C) -o $@
 
 # INT 21h dispatcher (beads initech-509.5): the SAME int21.c the host oracle
 # (os/milton/test_int21.c) exercises; freestanding here, hosted there. Now
@@ -9595,7 +9598,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
 KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
 KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
 $(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
 $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
@@ -10796,7 +10799,7 @@ $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE
 # KERNEL_FINDER_WINDOWS_OBJ's own recipe (the $(eval)-expands-once hazard the
 # templates above document at length).
 define flair-tenants-finderwin-mutant-rules
-$(BUILD)/finder_windows_mut_$(2).o: os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
+$(BUILD)/finder_windows_mut_$(2).o: spec/assets/finder_list_titles.h os/flair/finder_windows.c os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_windows.c -o $$@
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_WINDOWS_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_windows_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -12671,6 +12674,7 @@ TEST_DESK_ICONS_SRC           := harness/proptest/test_desk_icons.c
 TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) harness/render/icon_capture.h \
                                  os/flair/finder_icon.c os/flair/finder_icon.h \
                                  spec/assets/desk_icons.h spec/assets/finder_icons.h \
+                                 spec/assets/finder_small_icons.h \
                                  spec/assets/alert_icons.h \
                                  os/flair/surface.c os/flair/surface.h \
                                  $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h \
@@ -13035,6 +13039,45 @@ FINDER_WIN_DEPS := $(TEST_FINDER_WIN_SRC) os/flair/finder_windows.h \
 
 $(TEST_FINDER_WIN): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
+
+# tdnl.44: host routing/sort/layout/persistence, plus paired-background
+# native16 asset transcription. The independent pixel oracle is the emu gate.
+# tdnl.44: explicit dependency; the existing vesa8.mk generator is reused.
+$(BUILD)/kmain_flairtenants.o: $(BUILD)/flair_dac.h
+$(BUILD)/kmain_flairtenants_recordlongdbl.o: $(BUILD)/flair_dac.h
+
+$(KERNEL_FINDER_WINDOWS_OBJ): spec/assets/finder_list_titles.h
+$(BUILD)/finder_icon.o $(BUILD)/flair_look.o: spec/assets/finder_small_icons.h
+$(BUILD)/finder_menu.o: os/flair/finder_windows.h
+FINDER_WIN_DEPS += spec/assets/finder_list_titles.h spec/assets/finder_small_icons.h
+TEST_FINDER_LIST_SRC := harness/proptest/test_finder_list_view.c
+TEST_FINDER_LIST := $(BUILD)/test_finder_list_view
+FINDER_LIST_MUTANTS := SORT_UNSTABLE SIZE_COLUMN_OFFBYONE HEADER_IGNORED SAVE_ICONS
+$(TEST_FINDER_LIST): os/flair/finder_menu.c spec/assets/finder_list_titles.h $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK) os/flair/finder_menu.c
+$(BUILD)/test_finder_list_view_mutant_%: os/flair/finder_menu.c spec/assets/finder_list_titles.h $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_VIEW_MUT_$* $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_LIST_SRC) $(FINDER_WIN_LINK) os/flair/finder_menu.c
+$(BUILD)/mint_finder_small_icons: tools/mint_finder_small_icons.c spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
+.PHONY: test-finder-small-icons-gen
+test-finder-small-icons-gen: $(BUILD)/mint_finder_small_icons
+	@$< $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view.png $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view_bysize.png > $(BUILD)/finder_small_icons.regen.h
+	@cmp spec/assets/finder_small_icons.h $(BUILD)/finder_small_icons.regen.h
+	@printf '>>> test-finder-small-icons-gen: green (paired-background native16 mask recovery)\n'
+.PHONY: test-finder-list-view test-finder-list-view-mutant
+test-finder-list-view: $(TEST_FINDER_LIST) test-finder-small-icons-gen
+	@$(TEST_FINDER_LIST)
+	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -Os $(FINDER_WIN_INC) -c os/flair/finder_windows.c -o $(BUILD)/finder_list_view_freestanding.o
+	@printf '>>> test-finder-list-view: green (routing, captured sort policy, columns, kind=4)\n'
+test-finder-list-view-mutant: test-finder-list-view $(foreach m,$(FINDER_LIST_MUTANTS),$(BUILD)/test_finder_list_view_mutant_$(m))
+	@set -eu; for pair in 'SORT_UNSTABLE:V2 stable rank' 'SIZE_COLUMN_OFFBYONE:V3 column boundaries' 'HEADER_IGNORED:V4 Date header click' 'SAVE_ICONS:V5 Restart kind=4 bytes'; do \
+		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_finder_list_view_mutant_$$m; \
+		if $$bin > $$bin.log 2>&1; then printf '!!! test-finder-list-view-mutant FAIL: %s PASSED\n' "$$m"; exit 1; fi; \
+		grep -F "$$why" $$bin.log | grep -q FAIL || { cat $$bin.log; printf '!!! mutant RED for wrong reason: %s\n' "$$m"; exit 1; }; \
+		grep -F "$$why" $$bin.log | head -1; \
+		printf '>>> test-finder-list-view-mutant: %s correctly RED\n' "$$m"; \
+	done
+	@printf '>>> test-finder-list-view-mutant: green (four named mutants RED)\n'
 $(TEST_FINDER_WIN_MUT_SINGLETON): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_WIN_MUT_SINGLETON_DUP $(FINDER_WIN_INC) -o $@ $(TEST_FINDER_WIN_SRC) $(FINDER_WIN_LINK)
 $(TEST_FINDER_WIN_MUT_VOLLABEL): $(FINDER_WIN_DEPS) $(FINDER_WIN_LINK) | $(BUILD)
@@ -19974,6 +20017,55 @@ FLAIR_DW_FBAR_NAME    := flair_diskwin_rootwin
 FLAIR_DW_MENU_NAME    := flair_diskwin_findermenu
 FLAIR_DW_CANCEL_NAME  := flair_diskwin_menucancel
 .PHONY: test-flair-disk-windows
+# tdnl.44: independent minted header pixels, real Restart, named pixel mutant.
+LIST_VIEW_CHECK := $(BUILD)/ppm_flair_list_view_check
+LIST_VIEW_CAPTURE := $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view.png
+LIST_VIEW_SIZE_CAPTURE := $(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view_bysize.png
+$(LIST_VIEW_CHECK): tools/ppm_flair_list_view_check.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $< -lpng
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_VIEW_MUT_HEADER_FACE,list_header_face))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_VIEW_MUT_SMALL_ICON_SHIFT,list_small_icon_shift))
+.PHONY: test-flair-list-view test-flair-list-view-mutant
+# Each leg uses the existing harness, input grammar and ordinary owned-window paint.
+define list-view-boot
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(2)" --disk2 "$(BUILD)/list_view_data.img" --expect FLAIR-LIVE-READY --name "$(1)" --out "$(BUILD)" --mouse "$(3)" --keys-after FLAIR-LIVE-READY --screendump --screendump-after "$(if $(4),$(4),FINDER-OPEN-FOLDER name=APPS)" --record-settle-ms 500 --timeout-ms 30000 > "$(BUILD)/$(1).out" 2> "$(BUILD)/$(1).report"
+endef
+test-flair-list-view: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(LIST_VIEW_CHECK)
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/list_view_data.img
+	$(call list-view-boot,list_view_folder,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_ROOT_SPEC),FINDER-VIEW win=0)
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_folder.ppm $(LIST_VIEW_CAPTURE) folder
+	$(call list-view-boot,list_view_name,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_NAME_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=name bits=1' $(BUILD)/list_view_name.serial
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_name.ppm $(LIST_VIEW_CAPTURE) name
+	$(call list-view-boot,list_view_size,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_SIZE_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=size bits=5' $(BUILD)/list_view_size.serial
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_size.ppm $(LIST_VIEW_SIZE_CAPTURE) size
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(FLAIRTENANTS_IMG)" --disk2 "$(BUILD)/list_view_data.img" --expect FLAIR-FAT-MOUNT-OK --name list_view_restart --out $(BUILD) --mouse "$(FLAIR_LIST_RESTART_SPEC)" --keys-after FLAIR-LIVE-READY --allow-reboot --quit-after FLAIR-LIVE-READY --quit-after-count 2 --timeout-ms 30000 > $(BUILD)/list_view_restart.out 2> $(BUILD)/list_view_restart.report
+	@grep -qx FLAIR-RESTART $(BUILD)/list_view_restart.serial
+	@grep -q '^DESKTOP-DB-SAVE ' $(BUILD)/list_view_restart.serial
+	@test "$$(grep -c '^FLAIR-LIVE-READY' $(BUILD)/list_view_restart.serial)" -eq 2
+	mcopy -o -i $(BUILD)/list_view_data.img ::DESKTOP.DB $(BUILD)/list_view_desktop.db
+	@$(LIST_VIEW_CHECK) --db $(BUILD)/list_view_desktop.db
+	$(call list-view-boot,list_view_reopen,$(FLAIRTENANTS_IMG),$(FLAIR_LIST_REOPEN_SPEC))
+	@grep -qx 'FINDER-VIEW-RESTORE win=1 bits=5' $(BUILD)/list_view_reopen.serial
+	@$(LIST_VIEW_CHECK) $(BUILD)/list_view_reopen.ppm $(LIST_VIEW_SIZE_CAPTURE) reopen
+	@printf '>>> test-flair-list-view: green (Name/Size header cells, sort shading, Restart kind=4)\n'
+test-flair-list-view-mutant: test-flair-list-view $(BUILD)/flair_tenants_mut_list_header_face.img $(BUILD)/flair_tenants_mut_list_small_icon_shift.img
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/list_view_data.img
+	$(call list-view-boot,list_view_mutant,$(BUILD)/flair_tenants_mut_list_header_face.img,$(FLAIR_LIST_SIZE_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=size bits=5' $(BUILD)/list_view_mutant.serial
+	@if $(LIST_VIEW_CHECK) $(BUILD)/list_view_mutant.ppm $(LIST_VIEW_SIZE_CAPTURE) size > $(BUILD)/list_view_mutant.log 2>&1; then printf 'FAIL LIST_HEADER_FACE passed\n'; exit 1; fi
+	@grep -q 'FAIL list-view header pixel' $(BUILD)/list_view_mutant.log
+	@head -1 $(BUILD)/list_view_mutant.log
+	cp -f $(FLAIR_DATA_IMG) $(BUILD)/list_view_data.img
+	$(call list-view-boot,list_view_icon_mutant,$(BUILD)/flair_tenants_mut_list_small_icon_shift.img,$(FLAIR_LIST_NAME_SPEC))
+	@grep -qx 'FINDER-VIEW win=1 mode=list sort=name bits=1' $(BUILD)/list_view_icon_mutant.serial
+	@if $(LIST_VIEW_CHECK) $(BUILD)/list_view_icon_mutant.ppm $(LIST_VIEW_CAPTURE) name > $(BUILD)/list_view_icon_mutant.log 2>&1; then printf 'FAIL SMALL_ICON_SHIFT passed\n'; exit 1; fi
+	@grep -q 'FAIL list-view small application pixel' $(BUILD)/list_view_icon_mutant.log
+	@head -1 $(BUILD)/list_view_icon_mutant.log
+	@printf '>>> test-flair-list-view-mutant: green (LIST_HEADER_FACE and SMALL_ICON_SHIFT correctly RED)\n'
+
 test-flair-disk-windows: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) \
 			 $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@printf '======================================================================\n'
@@ -21013,9 +21105,52 @@ FLAIR_ICONS_SCENE_MARK := FINDER-WIN-SELECT win=0 name=README.TXT count=1
 FLAIR_ICONS_SCENE_CELLS := VOLUME:SEL@584,48/8DDCDC TRASH:UNSEL@584,404/8DDCDC \
                            DOC:SEL@44,86/FFFFFF FOLDER:UNSEL@112,86/FFFFFF \
                            APP:UNSEL@410,206/FFFFFF APP:UNSEL@478,206/FFFFFF \
-                           DOC:UNSEL@478,258/FFFFFF
+                           DOC:UNSEL@410,310/FFFFFF
+                           DOC:UNSEL@478,310/FFFFFF
 FLAIR_TRASH_FULL_CELL   := TRASH_FULL:UNSEL@584,404/8DDCDC
 FLAIR_CAUTION_CELL      := CAUTION:UNSEL@156,100/E7E7E7
+
+# Factory scene routing regression (lane/trashfull): the locked-purge trace opens
+# Trash (selected FULL), and APPS probes follow the independent DOS inventory.
+TEST_ICON_ORACLES := $(BUILD)/test_finder_icon_oracles
+ICON_ORACLES_DEPS := harness/proptest/test_finder_icon_oracles.c $(PPM_FLAIR_TRASH_CHECK_SRC) \
+                     harness/render/icon_capture.h harness/render/alert_capture.h spec/assets/color_canon.h
+$(TEST_ICON_ORACLES): $(ICON_ORACLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -DICON_CAPTURES_DIR='"$(ICON_CAPTURES_DIR)"' -o $@ $< -lpng
+$(TEST_ICON_ORACLES)_mut_unselected: $(ICON_ORACLES_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -DICON_CAPTURES_DIR='"$(ICON_CAPTURES_DIR)"' -DTRASH_CHECK_MUT_LOCKED_UNSELECTED -o $@ $< -lpng
+ICON_SCENE_MUT_STALE_DOC = $(wordlist 1,6,$(FLAIR_ICONS_SCENE_CELLS)) DOC:UNSEL@478,258/FFFFFF
+.PHONY: test-finder-icon-oracles test-finder-icon-oracles-mutant
+test-finder-icon-oracles: $(TEST_ICON_ORACLES)
+	@$(TEST_ICON_ORACLES) spec/dos_folder_apps.txt $(FLAIR_ICONS_SCENE_CELLS)
+test-finder-icon-oracles-mutant: $(TEST_ICON_ORACLES) $(TEST_ICON_ORACLES)_mut_unselected
+	@rc=0; $(TEST_ICON_ORACLES)_mut_unselected spec/dos_folder_apps.txt $(FLAIR_ICONS_SCENE_CELLS) > $(TEST_ICON_ORACLES)_mut_unselected.log 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q '^FAIL FULL-state routing locked-full: selected' $(TEST_ICON_ORACLES)_mut_unselected.log && grep -q 'RED (1 failures)' $(TEST_ICON_ORACLES)_mut_unselected.log \
+	|| { cat $(TEST_ICON_ORACLES)_mut_unselected.log; exit 1; }; \
+	printf '>>> TRASH_CHECK_MUT_LOCKED_UNSELECTED: RED -- captured selected FULL can rejected (617/1024)\n'
+	@rc=0; $(TEST_ICON_ORACLES) spec/dos_folder_apps.txt $(ICON_SCENE_MUT_STALE_DOC) > $(TEST_ICON_ORACLES)_mut_stale_doc.log 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q '^FAIL scene APPS TPSPARM.DAT:' $(TEST_ICON_ORACLES)_mut_stale_doc.log && grep -q 'RED (1 failures)' $(TEST_ICON_ORACLES)_mut_stale_doc.log \
+	|| { cat $(TEST_ICON_ORACLES)_mut_stale_doc.log; exit 1; }; \
+	printf '>>> ICON_SCENE_MUT_STALE_DOC: RED -- DOC probe no longer names TPSPARM.DAT in the independent APPS inventory\n'
+	@printf '>>> test-finder-icon-oracles-mutant: green\n'
+
+# Reuse the existing locked traces, mtools checks and independent pixel gates.
+# The regression is in factory routing; no alternate guest paint path is needed.
+.PHONY: test-flair-icon-oracles test-flair-icon-oracles-mutant
+test-flair-icon-oracles: test-finder-icon-oracles test-flair-locked-purge test-flair-finder-icons
+	@printf '>>> test-flair-icon-oracles: green (selected FULL Trash after locked purge; 7 named scene cells)\n'
+$(BUILD)/ppm_flair_trash_check_mut_locked_unselected: $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h harness/render/icon_capture.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -DICON_CAPTURES_DIR='"$(ICON_CAPTURES_DIR)"' -DTRASH_CHECK_MUT_LOCKED_UNSELECTED -o $@ $< -lpng
+test-flair-icon-oracles-mutant: test-flair-icon-oracles $(BUILD)/ppm_flair_trash_check_mut_locked_unselected
+	@rc=0; $(BUILD)/ppm_flair_trash_check_mut_locked_unselected locked-full $(BUILD)/locked_trash_purge.ppm > $(BUILD)/icon_oracles_mut_unselected.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL leg locked-full -- FULL Trash (TRASH_FULL): 617/1024' $(BUILD)/icon_oracles_mut_unselected.grade \
+	|| { cat $(BUILD)/icon_oracles_mut_unselected.grade; exit 1; }; \
+	printf '>>> TRASH_CHECK_MUT_LOCKED_UNSELECTED: RED -- booted selected FULL can rejected (617/1024)\n'
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" $(BUILD)/flair_finder_icons.ppm $(ICON_SCENE_MUT_STALE_DOC) > $(BUILD)/icon_oracles_mut_stale_doc.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL: 1 icon cell(s) differ' $(BUILD)/icon_oracles_mut_stale_doc.grade && grep -q 'DOC UNSEL at (478,258).*626/1024' $(BUILD)/icon_oracles_mut_stale_doc.grade \
+	|| { cat $(BUILD)/icon_oracles_mut_stale_doc.grade; exit 1; }; \
+	printf '>>> ICON_SCENE_MUT_STALE_DOC: RED -- booted PAINT.EXE graded as DOC (626/1024); other 6 cells pass\n'
+	@printf '>>> test-flair-icon-oracles-mutant: green\n'
 
 # $(call icons-scene,<image>,<name>): boot the scene trace, grade nothing yet.
 define icons-scene
@@ -23700,6 +23835,14 @@ RECORD_MARKER_scrapbook = APPLE-LAUNCH name=SCRAPBK.EXE dir=APPS
 RECORD_IMAGE_scrapbook = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_scrapbook = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_scrapbook = 300
+# tdnl.44 Rule 14 registration, BEFORE record-flair (parse-time prerequisites).
+# Capture-backed Name -> Size header click; PM records on main after merge.
+RECORD_SCRIPTS += finder_list_view
+RECORD_SPEC_finder_list_view = $(FLAIR_LIST_SIZE_SPEC)
+RECORD_MARKER_finder_list_view = FINDER-VIEW win=1 mode=list sort=size bits=5
+RECORD_IMAGE_finder_list_view = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_finder_list_view = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_finder_list_view = 300
 include spec/flair_toolbox_hardening_trace.mk
 # Rule 14: PM records this after merge. Must precede record-flair (parse time).
 RECORD_SCRIPTS += toolbox_hardening
@@ -23708,6 +23851,15 @@ RECORD_IMAGE_toolbox_hardening = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_toolbox_hardening = $(FLAIR_DATA_IMG)
 RECORD_MARKER_toolbox_hardening = FLAIR-SCROLL win 0 h part=21 value=16 max=171
 RECORD_SETTLE_toolbox_hardening = 500
+
+# Rule 14: PM records the regression on main. Reuses the locked mixed-purge
+# gesture and read-only TENANTFX fixture; the surviving FULL can is selected.
+RECORD_SCRIPTS += trashfull_regression
+RECORD_SPEC_trashfull_regression = $(FLAIR_TRASHFULL_REGRESSION_SPEC)
+RECORD_IMAGE_trashfull_regression = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_trashfull_regression = $(BUILD)/record_locked_purge.img
+RECORD_MARKER_trashfull_regression = FINDER-LOCKED-ALERT
+RECORD_SETTLE_trashfull_regression = 200
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
@@ -27481,10 +27633,13 @@ test-samir-softfp-implmutant: $(TEST_SAMIR_SOFTFP_IMPLMUT)
 #     Soft-float, one-interp profile (FLOW_MAX_REGISTRY=1), org 0x40100 via
 #     samir.ld, BSS (.bss NOLOAD) zeroed at runtime by samir_crt0. ---
 SAMIR_HEADERS := $(wildcard $(SAMIR_INC_DIR)/samir/*.h)
+# ADR-0009 DEC-03: recover loaded bytes without borrowing the BSS/PAL reserves.
+# House policy applies identically to the shipped program and every mutant.
+SAMIR_SIZE_CFLAGS := -fomit-frame-pointer -fcrossjumping -fno-inline-functions-called-once -fno-partial-inlining -fno-jump-tables
 SAMIR_COM_PROFILE := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
-                     -std=c11 -Wall -Wextra -Werror -Oz -flto -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
+                     -std=c11 -Wall -Wextra -Werror -Oz -flto $(SAMIR_SIZE_CFLAGS) -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -ffunction-sections -fdata-sections -msoft-float -mno-80387 \
                      -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000 -I$(SAMIR_INC_DIR) -Ispec
-SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -msoft-float -mno-80387 -Wl,--gc-sections,--build-id=none -T $(SAMIR_LD_SCRIPT)
+SAMIR_LINK = $(CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz $(SAMIR_SIZE_CFLAGS) -msoft-float -mno-80387 -Wl,--gc-sections,--build-id=none -T $(SAMIR_LD_SCRIPT)
 SAMIR_COM_CSRCS := $(SAMIR_RT_SRC) $(SAMIR_VALUE_SRC) $(SAMIR_LEX_SRC) $(SAMIR_PARSE_SRC) \
                    $(SAMIR_EVAL_SRC) $(SAMIR_FN_SRC) $(SAMIR_DBF_SRC) $(SAMIR_DBT_SRC) \
                    $(SAMIR_NDX_SRC) $(SAMIR_WORKAREA_SRC) $(SAMIR_NAV_SRC) $(SAMIR_FLOW_SRC) \
@@ -28959,7 +29114,7 @@ test-finder-lock-mutant: $(BUILD)/test_finder_ops_mutant_LOCKED_STAGE $(BUILD)/t
 test-flair-locked-trash: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_LOCKED_TRASH_SPEC)'
 test-flair-locked-purge: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
-	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_EMPTY_OK_SPEC)' _purge purge
+	@sh harness/diff/fat_diff/locked_trash.sh $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) '$(FLAIR_TRASHFULL_REGRESSION_SPEC)' _purge purge
 test-flair-locked-trash-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_locked_stage.img $(BUILD)/flair_tenants_mut_locked_notice.img $(BUILD)/flair_tenants_mut_locked_purge.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@set -e; for pair in 'locked_stage:locked file left source:stage' 'locked_notice:locked notice pixels missing:stage' 'locked_purge:visible message missing:purge'; do \
 	  tag=$${pair%%:*}; rest=$${pair#*:}; why=$${rest%:*}; mode=$${rest##*:}; log=$(BUILD)/$$tag.log; \
@@ -29080,6 +29235,7 @@ TEST_UNIT_GATES := \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
 	test-finder-icon-art test-finder-icon-art-mutant \
+	test-finder-icon-oracles test-finder-icon-oracles-mutant \
 	test-window test-window-mutant test-winscroll test-winscroll-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -29087,6 +29243,7 @@ TEST_UNIT_GATES := \
 	test-finder-menu test-finder-menu-mutant \
 	test-finder-desktop test-finder-desktop-mutant \
 	test-finder-windows test-finder-windows-mutant \
+	test-finder-list-view test-finder-list-view-mutant \
 	test-interact test-interact-mutant \
 	test-process test-process-mutant test-process-mutant-build \
 	test-process-teardown test-process-teardown-mutant \
@@ -30221,6 +30378,7 @@ TEST_EMU_GATES := \
 	test-flair-appswitch test-flair-appswitch-mutant test-flair-appswitch-bochs \
 	test-flair-desktop-icons test-flair-desktop-icons-mutant test-flair-desktop-icons-bochs \
 	test-flair-disk-windows test-flair-disk-windows-mutant test-flair-disk-windows-bochs \
+	test-flair-list-view test-flair-list-view-mutant \
 	test-flair-app-launch test-flair-app-launch-mutant test-flair-app-launch-bochs \
 	test-flair-tenant-menu test-flair-tenant-menu-mutant test-flair-tenant-menu-bochs \
 	test-flair-ctenant test-flair-ctenant-mutant \
@@ -30237,6 +30395,7 @@ TEST_EMU_GATES := \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
 	test-flair-finder-icons test-flair-finder-icons-mutant \
 	test-flair-trash-full test-flair-trash-full-mutant \
+	test-flair-icon-oracles test-flair-icon-oracles-mutant \
 	test-flair-trash-purge-views test-flair-trash-purge-views-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
@@ -32228,7 +32387,6 @@ include harness/diff/fat_diff/dos_folder.mk
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=19 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
-include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
@@ -32550,7 +32708,7 @@ $(SAMIR_CORE_COM_MUTS): $(BUILD)/SAMIR_CORE_%.COM: $(SAMIR_HEADERS) $(SAMIR_COM_
 	@set -e; d=$(BUILD)/samir_core_$*; mkdir -p $$d; \
 	$(NASM) -f elf32 $(SAMIR_CRT0_ASM) -o $$d/crt0.o; \
 	for src in $(SAMIR_COM_CSRCS); do obj=$$d/$$(echo $$src | tr / _ | sed 's/\.c$$/.o/'); $(CC) $(SAMIR_COM_PROFILE) -DSAMIR_CORE_MUTATE_$* -c $$src -o $$obj; done; \
-	$(LD) --gc-sections -m elf_i386 -T $(SAMIR_LD_SCRIPT) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
+	$(SAMIR_LINK) -o $$d/SAMIR.elf $$d/crt0.o $$(ls $$d/os_*.o); \
 	$(OBJCOPY) -O binary $$d/SAMIR.elf $@
 test-samir-core-emu: $(BUILD)/test_samir_core_emu $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(SAMIR_COM)
 	@INITECH_QMP_STDIO=1 $(BUILD)/test_samir_core_emu $(SAMIR_COM)
@@ -32626,7 +32784,18 @@ endef
 $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
 
 .PHONY: samir-dml-goldens
-samir-dml-goldens:
+# The real-dBASE mint goldens are COMMITTED under xbase_prog_diff/mint/ (only the
+# hashed files: transcripts, .PRG, .DBF/.NDX/.MEM outputs -- never the dBASE
+# binaries); the mint scripts write to build/samirdml/ and the PM promotes.
+# This rule copies the tree copies into build/ so a fresh build dir passes the
+# sha256 pins without re-running dosbox-x (PM 2026-10-17).
+SAMIR_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff/mint
+SAMIR_MINT_FILES := $(shell find $(SAMIR_MINT_TREE) -type f 2>/dev/null)
+$(BUILD)/samirdml/.promoted: $(SAMIR_MINT_FILES) | $(BUILD)
+	@mkdir -p $(BUILD)/samirdml
+	@cp -rf $(SAMIR_MINT_TREE)/. $(BUILD)/samirdml/
+	@touch $@
+samir-dml-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(DBF_DIFF_DIR)/xbase_prog_diff/dml-goldens.sha256 || { printf 'RED: MINT required or changed: see docs/worklog/samirdml-mint.md\n'; exit 1; }
 	@printf '>>> samir-dml-goldens: green (16 real III+ ledger rows pinned)\n'
 $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)): samir-dml-goldens
@@ -32673,7 +32842,7 @@ mint-samir-prog: $(TEST_DBASE_DIFF)
 	@sh $(DBF_DIFF_DIR)/prog_mint.sh $(abspath $(DBASE3_DECOMP))
 mint-samir-dml-extra: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/dml_extra_mint.sh $(abspath $(DBASE3_DECOMP))
-samir-prog-goldens:
+samir-prog-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(PROG_DIFF_DIR)/prog-real.sha256
 	@echo '>>> samir-prog-goldens: green (PROG-01..07, EXTRA-01..13, PUBS-01 real III+ captures)'
 test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants: samir-prog-goldens
@@ -32683,3 +32852,48 @@ include harness/diff/fat_diff/kernel_hygiene.mk
 include harness/diff/fat_diff/formatsys.mk
 
 include harness/diff/fat_diff/shell_files.mk
+
+# cqej: evaluate Bochs legs AFTER the lane image variables (CP_GATE_IMG,
+# VESA8_DIR, SAMIR_DML_CASES). The macro expands prerequisites at parse time.
+# Bochs 2.7 has no usable VBE LFB here: the 8bpp leg grades VGA13 + the
+# 640x480 guard ONLY. It cannot grade the desktop DAC/pitch presenter, which
+# is after that guard (os/milton/kmain.c flair_present / flair_desktop_run).
+# Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; bochs.h RFB limitation.
+include harness/bochs_legs.mk
+include harness/emu/panic_screen.mk
+# samir-set-fns-errors: independent III+ corpus, identical host/guest inputs.
+SAMIR_FNS_CASES := alias alternate century console default diskspace index listoff os overflow path procedure recsize relation talk time type unknown version with
+SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
+$(SAMIR_FNS_TEST): $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+$(BUILD)/test_samir_fns_%: $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(INTERP_PROC_ENG) $(SAMIR_PAL_HOST_SRC) $(SAMIR_HEADERS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DSAMIR_FNS_MUTANT_$* -Iseed -I$(SAMIR_INC_DIR) -Ispec -o $@ $(filter %.c,$^)
+.PHONY: mint-samir-fns test-samir-fns test-samir-fns-mutants test-samir-fns-emu test-samir-fns-emu-mutants
+mint-samir-fns: $(CLIENTS_DBF)
+	@sh $(DBF_DIFF_DIR)/fns_mint.sh $(abspath $(DBASE3_DECOMP))
+test-samir-fns: $(addprefix test-samir-fns-,$(SAMIR_FNS_CASES))
+test-samir-fns-mutants: $(addsuffix -mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
+test-samir-fns-emu: $(addsuffix -emu,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
+test-samir-fns-emu-mutants: $(addsuffix -emu-mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
+define samir-fns-gates
+.PHONY: test-samir-fns-$(1) test-samir-fns-$(1)-mutant test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
+test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF)
+	@$$(SAMIR_FNS_TEST) $(1) host
+	@echo '>>> test-samir-fns-$(1): green'
+test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1)
+	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
+test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG)
+	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
+	@echo '>>> test-samir-fns-$(1)-emu: green'
+test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM
+	@set +e; INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM > $$(BUILD)/samirfns/emu-mut-$(1).log 2>&1; rc=$$$$?; set -e; \
+	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log || { cat $$(BUILD)/samirfns/emu-mut-$(1).log; exit 1; }; \
+	 printf '>>> SAMIR_FNS_MUTANT_$(1) emu RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/emu-mut-$(1).log
+TEST_UNIT_GATES += test-samir-fns-$(1) test-samir-fns-$(1)-mutant
+TEST_EMU_GATES += test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
+endef
+$(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
+
+include harness/diff/dbf_diff/samir_size.mk

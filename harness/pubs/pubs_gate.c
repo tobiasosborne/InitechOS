@@ -264,7 +264,11 @@ static void lintfile(const char *path)
     FILE *raw=fopen(path,"rb");int c;
     if(!raw) die("INPUT",path,"cannot open");
     int tabok=dot && (!strcmp(dot,".mk") || !strcmp(dot,".sh"));
-    while((c=fgetc(raw))!=EOF) if(c>126 || (c<32 && c!='\n' && !(c=='\t' && tabok)))
+    /* A replayed transcript (.txt) is the shipped program's exact bytes: the
+     * InitechBase dot prompt ends lines CR LF like real dBASE III PLUS (the
+     * samirdml parity fix), so CR is a legitimate byte there. PM 2026-10-17. */
+    int crok=dot && !strcmp(dot,".txt");
+    while((c=fgetc(raw))!=EOF) if(c>126 || (c<32 && c!='\n' && !(c=='\t' && tabok) && !(c=='\r' && crok)))
         die("ASCII",path,"non-printable/non-ASCII byte");
     fclose(raw);
     if(!dot || (strcmp(dot,".tex") && strcmp(dot,".txt") && strcmp(dot,".prg"))) { free(src);return; }

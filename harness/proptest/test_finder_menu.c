@@ -121,7 +121,7 @@ static const want_item_t WANT_EDIT[] = {
 static const want_item_t WANT_VIEW[] = {
     /* RE-KEY (bead initech-tdnl.36): by Icons / Clean Up / Arrange act on the
      * FRONT DISK WINDOW, so they rest grayed and light with one (leg C). */
-    { "by Icons",          0, FINDER_MENU_MARK_CHECK, 0, 0 },
+    { "by Icons",          0, 0, 0, 0 },
     { "by Small Icon",     0, 0, 0, 0 },
     { "by Name",           0, 0, 0, 0 },
     { "by Size",           0, 0, 0, 0 },
@@ -368,7 +368,7 @@ static const want_fixed_t WANT_FIXED[] = {
     { FINDER_MENU_IX_EDIT,     0, 0, "Undo" },
     { FINDER_MENU_IX_EDIT,     5, 1, "Select All" },
     { FINDER_MENU_IX_EDIT,     9, 0, "Preferences" },
-    { FINDER_MENU_IX_VIEW,     4, 0, "by Kind" },
+    { FINDER_MENU_IX_VIEW,     5, 0, "by Label" },
     { FINDER_MENU_IX_FILE,     5, 0, "Get Info" },
     { FINDER_MENU_IX_FILE,     6, 0, "Duplicate" },
     { FINDER_MENU_IX_SPECIAL,  3, 0, "Erase Disk" },

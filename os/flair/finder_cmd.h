@@ -97,7 +97,12 @@ typedef enum finder_cmd_id {
                                 /* the TARGET is carried by serial_name        */
     /* the chimera */
     FCMD_EXIT_DOS        = 16,  /* Special: Exit to InitechDOS (initech-3p1a)  */
-    FCMD_COUNT           = 17
+    FCMD_VIEW_SMALL      = 17,
+    FCMD_VIEW_NAME       = 18,
+    FCMD_VIEW_SIZE       = 19,
+    FCMD_VIEW_KIND       = 20,
+    FCMD_VIEW_DATE       = 21,
+    FCMD_COUNT           = 22
 } finder_cmd_id;
 
 /* ===========================================================================
@@ -117,6 +122,7 @@ typedef struct FinderCtx {
     /* --- state the F4.4 predicates read ---------------------------------- */
     uint16_t selection_count;   /* number of selected desktop/window icons     */
     uint8_t  trash_nonempty;    /* 1 == \TRASH holds at least one entry (F1.4) */
+    uint16_t view_bits;         /* current front folder mode (kind=4) */
     uint8_t  front_is_diskwin;  /* 1 == frontmost window is a Finder disk win  */
     /* 1 == the selection holds something Open can act on: a FOLDER (bead
      * initech-tdnl.38 -- Open on a document with no handler is grayed, not a

@@ -1,0 +1,7 @@
+?? "[DML-BEGIN]"
+USE BASE
+GO 2
+TYPE INPUT.TXT
+? RECNO(), RECCOUNT()
+
+?? "[DML-END]"
