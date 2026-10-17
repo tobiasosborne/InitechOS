@@ -714,6 +714,11 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
  * `fat`/`fat_len` is the whole-FAT buffer (mutated when truncating frees a chain
  * or a subdir grows). `sector_buf` (>=512) is scratch. Returns FAT12_OK; the dir
  * entry is already written to disk (size 0). */
+/* Directory service attribute API: add HIDDEN only, preserving every other
+ * bit/byte. Files/labels are rejected; AH=43h remains file-only. tdnl.30. */
+int fat12_hide_dir(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
+                   const char *name83, uint16_t parent, void *sector_buf);
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
@@ -810,10 +815,9 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *   - parse_name83(old83) + parse_name83(new83); a malformed name ->
  *     FAT12_ERR_NOT_FOUND (the source-not-found contract; a bad new name there
  *     too, since rename allocates nothing);
- *   - fat12_scan_dir for OLD: no match -> FAT12_ERR_NOT_FOUND; a match that is a
- *     DIRECTORY or VOLUME-LABEL -> FAT12_ERR_ACCESS (DOS-faithful: our backend has
- *     no '..' fixup path yet, so a directory/vol-label target is rejected -- Rule
- *     2 fail loud, never silently re-type or orphan a '..');
+ *   - fat12_scan_dir for OLD: no match -> FAT12_ERR_NOT_FOUND; a VOLUME-LABEL
+ *     match -> FAT12_ERR_ACCESS. Same-parent DIRECTORY renames preserve '..'
+ *     without fixups (IBM DOS 3.30 TR p. 6-206; mren differential, f0hh);
  *   - fat12_scan_dir for NEW: it MUST be ABSENT -> a present name is
  *     FAT12_ERR_EXISTS (the load-bearing dest-exists reject -- a rename never
  *     clobbers an existing entry);

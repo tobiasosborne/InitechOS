@@ -16,10 +16,9 @@
  *   - an ERR/DF check after the command.
  * No path can spin forever.
  *
- * CANNOT be host-unit-tested: it issues port I/O (inb/outb), which only means
- * anything on real hardware or an emulator. Build-time contract: "compiles
- * clean under the freestanding flags"; functional validation = the make
- * test-fs boot oracle.
+ * test-ata drives a scripted port bus through the ATA_HOST_TEST seam; the
+ * freestanding build uses real x86 I/O. test-fs and test-block-device-emu
+ * exercise the hardware path under QEMU (bcg.12 / DEC-17).
  *
  * Ref (Law 1): ATA/ATAPI-6, READ SECTORS (0x20) PIO protocol; primary-channel
  *   port map 0x1F0..0x1F7 + device-control 0x3F6; drive/head register bit 4
@@ -34,6 +33,12 @@
 
 #include <stddef.h>   /* NULL */
 
+#ifdef ATA_MUTATE_ERROR_COLLAPSE
+/* Rule 6: callers must be able to distinguish timeout and an absent device. */
+#define ATA_ERR_NO_DRIVE ATA_ERR_DEVICE
+#define ATA_ERR_TIMEOUT ATA_ERR_DEVICE
+#endif
+
 /* Command-block register offsets from io_base (ATA/ATAPI-6 Table 8). */
 #define ATA_REG_DATA      0u /* 16-bit data register (PIO transfer)     */
 #define ATA_REG_ERROR     1u /* error (read) / features (write)         */
@@ -47,6 +52,7 @@
 
 /* Status register bits. */
 #define ATA_SR_BSY  0x80u /* busy        */
+#define ATA_SR_DRDY 0x40u /* accepts commands */
 #define ATA_SR_DRQ  0x08u /* data request*/
 #define ATA_SR_DF   0x20u /* device fault*/
 #define ATA_SR_ERR  0x01u /* error       */
@@ -64,10 +70,23 @@
  * real ISA, far less on QEMU). 1e7 is generous for a settled controller yet
  * finite -- a stuck drive yields ATA_ERR_TIMEOUT, never an infinite hang
  * (Rule 2). */
+#ifndef ATA_POLL_LIMIT
 #define ATA_POLL_LIMIT 10000000u
+#endif
 
 /* Freestanding port I/O primitives. The artifact has no libc; these are the
  * canonical x86 inb/outb/inw wrappers. */
+#ifdef ATA_HOST_TEST
+/* Factory scripted bus; the kernel always uses real x86 I/O below. */
+uint8_t ata_test_inb(uint16_t port);
+uint16_t ata_test_inw(uint16_t port);
+void ata_test_outb(uint16_t port, uint8_t value);
+void ata_test_outw(uint16_t port, uint16_t value);
+#define inb ata_test_inb
+#define inw ata_test_inw
+#define outb ata_test_outb
+#define outw ata_test_outw
+#else
 static inline uint8_t inb(uint16_t port)
 {
 	uint8_t v;
@@ -91,6 +110,7 @@ static inline void outw(uint16_t port, uint16_t v)
 {
 	__asm__ __volatile__("outw %0, %1" : : "a"(v), "Nd"(port));
 }
+#endif
 
 /* 400 ns settle delay: read the alternate-status register four times and
  * discard. Reading altstatus (the device-control port) has NO side effects
@@ -103,6 +123,33 @@ static void ata_delay_400ns(uint16_t ctrl_base)
 	(void)inb(ctrl_base);
 	(void)inb(ctrl_base);
 	(void)inb(ctrl_base);
+}
+
+/* T13/1321D rev3 Sec 7.4/7.13, 8.27.7; local source digest:
+ * docs/research/khygiene-ground-truth.md. A prior command's ERR bit may be
+ * stale; only the new command's completion determines its success. */
+static int ata_wait_command(uint16_t io_base)
+{
+#ifdef ATA_MUTATE_NO_PREWAIT
+    (void)io_base;
+    return 0;
+#else
+    for (uint32_t i = 0; i < ATA_POLL_LIMIT; ++i) {
+        uint8_t st = inb((uint16_t)(io_base + ATA_REG_STATUS));
+        if (st == ATA_FLOATING_BUS || st == 0) return ATA_ERR_NO_DRIVE;
+        if (!(st & (ATA_SR_BSY | ATA_SR_DRQ)) && (st & ATA_SR_DRDY)) return 0;
+    }
+    return ATA_ERR_TIMEOUT;
+#endif
+}
+
+static int ata_lba28_valid(uint32_t lba, uint32_t count)
+{
+    if (!count || count > 256u || lba > 0x0fffffffu) return 0;
+#ifndef ATA_MUTATE_LBA_WRAP
+    if (count > 0x10000000u - lba) return 0;
+#endif
+    return 1;
 }
 
 /*
@@ -196,6 +243,8 @@ int ata_identify(ata_ctx_t *c, uint32_t *sectors)
     *sectors=0;
     outb(c->io_base+ATA_REG_DRIVE,c->drive_select);
     ata_delay_400ns(c->ctrl_base);
+    int ready = ata_wait_command(c->io_base);
+    if(ready)return ready;
     outb(c->io_base+ATA_REG_SECCOUNT,0);
     outb(c->io_base+ATA_REG_LBA_LO,0);
     outb(c->io_base+ATA_REG_LBA_MID,0);
@@ -240,7 +289,7 @@ int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
 		return ATA_ERR_ARG;
 	}
 	/* LBA28 + the 8-bit sector count register cap this transfer. */
-	if (count > 256u || lba > 0x0FFFFFFFu) {
+	if (!ata_lba28_valid(lba, count)) {
 		return ATA_ERR_ARG;
 	}
 
@@ -257,6 +306,13 @@ int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
 	/* 400 ns settle so the device has time to assert BSY before we poll, and
 	 * to register the drive selection (brief Sec 2.3). */
 	ata_delay_400ns(ctrl_base);
+	int ready = ata_wait_command(io_base);
+	if (ready != 0) {
+#ifdef ATA_MUTATE_NO_DRIVE_SUCCESS
+		if (ready == ATA_ERR_NO_DRIVE) return 0;
+#endif
+		return ready;
+	}
 
 	outb((uint16_t)(io_base + ATA_REG_SECCOUNT), (uint8_t)(count & 0xFFu));
 	outb((uint16_t)(io_base + ATA_REG_LBA_LO),   (uint8_t)(lba & 0xFFu));
@@ -291,8 +347,8 @@ int ata_read_sectors(void *ctx, uint32_t lba, uint32_t count, void *buf)
  * (512 bytes) PER sector OUT to the data port. After the last sector we issue
  * CACHE FLUSH so the controller commits its write buffer to the medium (without
  * it, a power loss -- or in our case, a subsequent read -- could see stale
- * data). CANNOT be host-unit-tested (port I/O); proven by the in-emulator
- * round-trip (make test-fatwrite).
+ * data). Scripted failures are covered by test-ata; the hardware round-trip
+ * is covered by make test-fatwrite and test-block-device-emu.
  *
  * Ref (Law 1): ATA/ATAPI-6, WRITE SECTORS (0x30) PIO protocol + FLUSH CACHE
  *   (0xE7); the DRQ-per-sector handshake (host writes data when DRQ is set);
@@ -316,7 +372,7 @@ int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
 	if (c == NULL || buf == NULL || count == 0u) {
 		return ATA_ERR_ARG;
 	}
-	if (count > 256u || lba > 0x0FFFFFFFu) {
+	if (!ata_lba28_valid(lba, count)) {
 		return ATA_ERR_ARG;
 	}
 
@@ -330,6 +386,8 @@ int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
 	     (uint8_t)(c->drive_select | ((lba >> 24) & 0x0Fu)));
 
 	ata_delay_400ns(ctrl_base);
+	rc = ata_wait_command(io_base);
+	if (rc != 0) return rc;
 
 	outb((uint16_t)(io_base + ATA_REG_SECCOUNT), (uint8_t)(count & 0xFFu));
 	outb((uint16_t)(io_base + ATA_REG_LBA_LO),   (uint8_t)(lba & 0xFFu));
@@ -359,6 +417,12 @@ int ata_write_sectors(void *ctx, uint32_t lba, uint32_t count, const void *buf)
 	/* CACHE FLUSH so the write buffer is committed before any read sees it
 	 * (Rule 2 / Rule 11: a subsequent read of what we wrote must be authoritative,
 	 * not a stale-cache artifact). FLUSH transfers no data -> wait BSY-clear. */
+#ifndef ATA_MUTATE_FLUSH_EARLY
+	rc = ata_wait_ready(io_base, ctrl_base);
+	if (rc != 0) return rc;
+	rc = ata_wait_command(io_base);
+	if (rc != 0) return rc;
+#endif
 	outb((uint16_t)(io_base + ATA_REG_COMMAND), ATA_CMD_CACHE_FLUSH);
 	rc = ata_wait_ready(io_base, ctrl_base);
 	if (rc != 0) {

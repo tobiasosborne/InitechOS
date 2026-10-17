@@ -20538,6 +20538,7 @@ test-flair-finder-service: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) 
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SVC_NAME).report"; then printf '!!! test-flair-finder-service FAIL: TRIPLE FAULT\n'; exit 1; fi
 	@$(call svc-leg1-check,$(FLAIR_SVC_NAME)) || { printf '!!! test-flair-finder-service FAIL: leg 1b -- want FINDER-OPEN-VOLUME win=0 n=4, FINDER-TRASH name=README.TXT origin=0, DESKTOP-DB-SAVE n=3\n'; grep -E '^(FINDER|DESKTOP|TRASH)' "$(BUILD)/$(FLAIR_SVC_NAME).serial"; exit 1; }
 	@mdir -a -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img :: > $(BUILD)/$(FLAIR_SVC_NAME).root.lst
+	@sh harness/verify_fixture_volume.sh harness $(BUILD)/$(FLAIR_SVC_NAME)_data.img TRASH=H DESKTOP.DB=H
 	@grep -qE '^DESKTOP  DB ' $(BUILD)/$(FLAIR_SVC_NAME).root.lst && grep -qE '^TRASH .*<DIR>' $(BUILD)/$(FLAIR_SVC_NAME).root.lst || { printf '!!! test-flair-finder-service FAIL: mtools no longer lists DESKTOP.DB and TRASH in the root (hidden from the Finder only)\n'; cat $(BUILD)/$(FLAIR_SVC_NAME).root.lst; exit 1; }
 	@mtype -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/TRASH/README.TXT | cmp -s - $(FLAIR_DATA_README) || { printf '!!! test-flair-finder-service FAIL: README.TXT was not staged byte-identical into ::/TRASH\n'; exit 1; }
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_SVC_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 80 ] || { printf '!!! test-flair-finder-service FAIL: DESKTOP.DB is not 8 + 3*24 = 80 bytes after the staging\n'; exit 1; }
@@ -20801,6 +20802,7 @@ $(FLAIR_EMPTY_REFERENCE_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 	@mdel -i $@ ::README.TXT
 	@printf 'IDB1\001\000\000\000' | SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $@ - ::DESKTOP.DB
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mmd -i $@ ::TRASH
+	@mattrib -i $@ -a +h ::DESKTOP.DB ::TRASH
 	@$(call fixture-check,recipe,$@)
 
 .PHONY: test-flair-empty-trash test-flair-empty-trash-mutant
@@ -26999,22 +27001,18 @@ test-program-window-golden: | $(BUILD)
 # fixpoint downstream.
 .PHONY: test-kernel-repro
 test-kernel-repro: | $(BUILD)
-	@printf ">>> test-kernel-repro: kernel.bin byte-identical across a clean rebuild (Rule 11)\n"
-	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
-	@cp $(KERNEL_BIN) $(BUILD)/kernel.repro.1
-	@a=$$(sha256sum < $(BUILD)/kernel.repro.1 | cut -d' ' -f1); \
-	 rm -f $(KERNEL_OBJS) $(KERNEL_ELF) $(KERNEL_BIN); \
-	 $(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null; \
-	 cp $(KERNEL_BIN) $(BUILD)/kernel.repro.2; \
-	 b=$$(sha256sum < $(BUILD)/kernel.repro.2 | cut -d' ' -f1); \
-	 if [ "$$a" != "$$b" ]; then \
-		printf '!!! test-kernel-repro FAIL: kernel.bin is NOT reproducible\n'; \
-		printf '    build1 sha256 = %s\n    build2 sha256 = %s\n' "$$a" "$$b"; \
-		printf '    nondeterminism breaks the self-host certificate (Rule 11 / PRD section 7).\n'; \
-		cmp $(BUILD)/kernel.repro.1 $(BUILD)/kernel.repro.2 || true; \
-		exit 1; \
-	 fi; \
-	 printf '>>> test-kernel-repro: green -- kernel.bin reproducible (sha256 %s)\n' "$$a"
+	@printf '>>> test-kernel-repro: baseline AND flagship across a clean rebuild (tgcu; Rule 11)\n'
+	@set -eu; $(MAKE) --no-print-directory $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN) >/dev/null; \
+	for bin in $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN); do cp -f $$bin $$bin.repro.1; done; \
+	rm -f $(sort $(KERNEL_OBJS) $(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_ELF) $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_ELF) $(KERNEL_FLAIRTENANTS_BIN); \
+	$(MAKE) --no-print-directory $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN) >/dev/null; \
+	for bin in $(KERNEL_BIN) $(KERNEL_FLAIRTENANTS_BIN); do \
+		cp -f $$bin $$bin.repro.2; \
+		if [ "$(KERNEL_REPRO_MUTATE_FLAGSHIP)" = 1 ] && [ "$$bin" = "$(KERNEL_FLAIRTENANTS_BIN)" ]; then printf X >> $$bin.repro.2; fi; \
+		a=$$(sha256sum < $$bin.repro.1 | cut -d' ' -f1); b=$$(sha256sum < $$bin.repro.2 | cut -d' ' -f1); \
+		if [ "$$a" != "$$b" ]; then printf 'RED test-kernel-repro: %s is NOT reproducible\n' "$$bin"; exit 1; fi; \
+		printf '>>> test-kernel-repro: green -- %s reproducible (sha256 %s)\n' "$$bin" "$$a"; \
+	done
 
 # Mutation-proof (Rule 6): the gate's discriminating mechanism is a sha256
 # byte-comparison of two kernel images. Prove it BITES on a difference -- take
@@ -27026,8 +27024,8 @@ test-kernel-repro: | $(BUILD)
 test-kernel-repro-mutant: | $(BUILD)
 	@printf ">>> test-kernel-repro-mutant: confirming the sha256 comparison bites on a byte change (Rule 6)\n"
 	@$(MAKE) --no-print-directory $(KERNEL_BIN) >/dev/null
-	@cp $(KERNEL_BIN) $(BUILD)/kernel.mut.a
-	@cp $(KERNEL_BIN) $(BUILD)/kernel.mut.b
+	@cp -f $(KERNEL_BIN) $(BUILD)/kernel.mut.a
+	@cp -f $(KERNEL_BIN) $(BUILD)/kernel.mut.b
 	@printf 'X' >> $(BUILD)/kernel.mut.b
 	@a=$$(sha256sum < $(BUILD)/kernel.mut.a | cut -d' ' -f1); \
 	 b=$$(sha256sum < $(BUILD)/kernel.mut.b | cut -d' ' -f1); \
@@ -32185,3 +32183,5 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
+
+include harness/diff/fat_diff/kernel_hygiene.mk
