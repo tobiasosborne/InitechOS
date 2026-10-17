@@ -21,5 +21,5 @@ COVER    BAT      120   3-01-92  12:30p
 SAVE     BAT      195   3-01-92  12:30p
 JUMP     BAT      111   3-01-92  12:30p
 
-        9 File(s)   1417728 bytes free
+        9 File(s)   1416704 bytes free
 A:\SAMPLES>

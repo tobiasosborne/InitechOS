@@ -1,5 +1,19 @@
-% Using InitechBase Chapter 5, entries SEEK .. ZAP, with the SET options
+% Using InitechBase Chapter 5, entries SAVE .. ZAP, with the SET options
 % (AN-04; SET options filed under SET, as in the model).
+
+% SAVE -- os/samir/cmd/flow.c fl_memfile (TO <file>, default .MEM; every
+% memory variable; the dBASE III PLUS .MEM layout).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{SAVE}{command}
+Saves the memory variables in a memory file.
+\Syntax
+\SyntaxLine{\kw{SAVE TO} \xp{file}}
+\Usage
+\cmd{SAVE} writes every memory variable, with its type and value, to the
+file named.  If no extension is given, \file{.MEM} is assumed.  The file can
+be read back with \cmd{RESTORE}, by InitechBase or by dBASE III PLUS.
+\SeeAlso{RELEASE, RESTORE}
+\end{XbaseEntry}
 
 % SEEK -- os/samir/cmd/query.c q_seek (expression through ndx_seek on the
 % master index; type must match the key; SET EXACT; #26).  Gates:
@@ -373,6 +387,32 @@ true.  Moving back past the first record leaves it on the first record, with
 \SeeAlso{GO, EOF(), BOF(), RECNO()}
 \end{XbaseEntry}
 
+% SORT -- os/samir/cmd/mutate.c d_sort (TO <file> ON <field>, default .DBF;
+% ascending; Character, Numeric or Date field; a memo field refuses, 34;
+% unknown field 48; character key over 100, 23; SAFETY ON refuses an
+% existing target, 7; records taken in master-index order, equal keys kept
+% in that order).  Lane samirdml 14a8fc75.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{SORT}{command}
+Copies the database in USE to a new database, in the order of a field.
+\Syntax
+\SyntaxLine{\kw{SORT TO} \xp{file} \kw{ON} \xp{field}}
+\Usage
+\cmd{SORT} writes every record of the database in the selected work area to
+a new database, in ascending order of the field named.  If no extension is
+given, \file{.DBF} is assumed.  The field must be of type Character, Numeric
+or Date; records with equal values keep the order in which they were read.
+The database in USE is not changed.
+
+A database with a memo field cannot be sorted (\xmsg{34}{Operation with
+Memo field invalid.}).  A field the database does not have is reported as
+\xmsg{48}{Field not found.}, and a character field of more than 100
+characters as \xmsg{23}{Index is too big (100 char maximum).}  While SET
+SAFETY is ON, a database of the new name is not replaced
+(\xmsg{7}{File already exists.}).
+\SeeAlso{INDEX, TOTAL}
+\end{XbaseEntry}
+
 % STORE and = -- os/samir/cmd/flow.c "STORE" and "<name> = <expr>"
 % (xb_interp_store: create or update, type from the value).  Gate:
 % test-interp-flow.
@@ -399,6 +439,47 @@ begin the names of their memory variables with the letter M.
 \Examples
 \DotExample{examples/c-store}
 \SeeAlso{RELEASE, PUBLIC, PRIVATE, ACCEPT, INPUT, REPLACE}
+\end{XbaseEntry}
+
+% TOTAL -- os/samir/cmd/mutate.c d_total (ON <field> TO <file>; one record
+% per run of equal key values in master-index order, numeric fields summed,
+% the others from the first record of the run; memo refuses, 34; unknown
+% field 48; SAFETY 7).  Lane samirdml 14a8fc75.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{TOTAL}{command}
+Summarizes the numeric fields of the database in USE into a new database.
+\Syntax
+\SyntaxLine{\kw{TOTAL ON} \xp{key field} \kw{TO} \xp{file}}
+\Usage
+\cmd{TOTAL} reads the database in the selected work area in its present
+order and writes one record to the new database for each group of
+consecutive records with the same value in the key field.  The numeric
+fields of the new record hold the sums of the group; the other fields come
+from the first record of the group.  If no extension is given, \file{.DBF}
+is assumed.  Use the database sorted or indexed on the key field, so that
+equal values are together.
+
+A database with a memo field cannot be totaled (\xmsg{34}{Operation with
+Memo field invalid.}), and a key field it does not have is reported as
+\xmsg{48}{Field not found.}  While SET SAFETY is ON, a database of the new
+name is not replaced (\xmsg{7}{File already exists.}).
+\SeeAlso{INDEX, SORT}
+\end{XbaseEntry}
+
+% TYPE -- os/samir/cmd/mutate.c d_file (the file shown up to the DOS
+% end-of-file mark; open database refused, 3; absent, 1).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{TYPE}{command}
+Displays the contents of a text file.
+\Syntax
+\SyntaxLine{\kw{TYPE} \xp{file}}
+\Usage
+\cmd{TYPE} displays the file named, up to its end-of-file mark
+(\key{Ctrl-Z}).  Give the name with its extension; none is assumed.  Use it
+for program files, report output written with \kw{TO FILE}, and other text
+files.  A database that is open cannot be displayed
+(\xmsg{3}{File is already open.}).
+\SeeAlso{ERASE, RENAME}
 \end{XbaseEntry}
 
 % USE -- os/samir/samir_main.c repl_do_use (default .DBF / .NDX

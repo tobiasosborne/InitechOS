@@ -125,7 +125,8 @@
    {\im@condensed\bfseries\fontsize{9}{11}\selectfont\im@edition}\par
    \im@applies\par
    %% AN-27: the company banner under the edition notice.
-   \vspace{2pt}\IsThisGoodForTheCompany[90mm]\vspace{2pt}}
+   %% 90 mm, or the full measure where that is narrower (the PK-11 booklet).
+   \vspace{2pt}\IsThisGoodForTheCompany[\ifdim\imFullWidth<90mm \imFullWidth\else 90mm\fi]\vspace{2pt}}
   {\par
    \copyright\ Copyright Initech Systems Corporation \im@years.
    All rights reserved.\par

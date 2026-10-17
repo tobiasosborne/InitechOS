@@ -7,11 +7,20 @@
 % MSG-DOS-0001 int21.c int24_dispatch_body (A/R/F, crit_error_action);
 % 0002..0005, 0007, 0009..0012, 0016..0020 command.c (and the utilities);
 % 0006, 0008, 0013, 0014, 0015 are catalogue entries no code path of this
-% version displays (DRAFT, each says so).  "Other Messages Displayed by
-% Commands" quotes the strings of command.c, dosutil.c, chkdsk.c and
-% xcopy_tree.c that are not in the catalogue.
-% GATES: test-dosmsg test-shell test-command test-attrib test-label-vol test-chkdsk test-xcopy-tree
-\Gates{test-dosmsg, test-shell, test-command, test-attrib, test-label-vol, test-chkdsk, test-xcopy-tree}
+% version displays (DRAFT, each says so).  0027..0037 command.c (ECHO,
+% BREAK, SET/PROMPT/PATH and EXEC environment, DATE/TIME, FOR/IF/CALL
+% nesting BATCH_NEST_MAX 8, GOTO); 0035 also edlin.c CAP; 0038..0041
+% dosutil.c (ATTRIB, LABEL) and xcopy_tree.c (TREE, XCOPY); 0042..0049
+% chkdsk.c (0044 + path + 0045 is one message, joined by pubs_msgtable;
+% incomplete tree => no lost-chain recovery); 0050, 0051 xcopy_tree.c;
+% 0052..0058 edlin.c; 0059 find_program.asm (quoted string required); 0060
+% sort_program.asm (INBUF_MAX 64 KiB); 0062 command.c builtin_ren
+% (WL-0154; 0061 is the COPY footer fragment).  Rows 0027..0060 from WL-0142; the
+% register is the IBM DOS 3.10 Reference Appendix A (pp.A-1..A-60), the
+% wording is ours.  "Other Messages Displayed by Commands" quotes the
+% strings of command.c and chkdsk.c that are not in the catalogue.
+% GATES: test-dosmsg test-shell test-command test-attrib test-label-vol test-chkdsk test-xcopy-tree test-edlin-emu
+\Gates{test-dosmsg, test-shell, test-command, test-attrib, test-label-vol, test-chkdsk, test-xcopy-tree, test-edlin-emu}
 \chapter{Messages}
 \MessageDetailsOn
 
@@ -123,114 +132,126 @@ exist, or the disk is full.}{Choose another name, or check the path.}
 % command that displays it.  Three "Insufficient memory" rows and two
 % "Invalid parameter(s)" / "Invalid number of parameters" rows are distinct
 % catalogue ids for the same text, one per program, and are explained once
-% each under their own number.
-\MessageDetail{MSG-DOS-0027}{\cmd{ECHO} with no parameter reports that
-batch file lines are displayed as they are carried out.}{None.  Use
-\cmd{ECHO OFF} to stop the display.}
-\MessageDetail{MSG-DOS-0028}{\cmd{ECHO} with no parameter reports that
-batch file lines are not displayed as they are carried out.}{None.  Use
-\cmd{ECHO ON} to display them again.}
-\MessageDetail{MSG-DOS-0029}{\cmd{BREAK} with no parameter reports that
-InitechDOS checks for \key{Ctrl-C} during disk operations as well as
-keyboard and screen operations.}{None.}
-\MessageDetail{MSG-DOS-0030}{\cmd{BREAK} with no parameter reports that
-InitechDOS checks for \key{Ctrl-C} only during keyboard and screen
-operations.}{None.  Use \cmd{BREAK ON} to check during disk operations
-too.}
-\MessageDetail{MSG-DOS-0031}{\cmd{SET}, \cmd{PROMPT} or \cmd{PATH} could
-not store the new value: the environment has no room for it.}{Remove
-variables you no longer need with \cmd{SET} \ph{name}\texttt{=}, then
-try again.}
-\MessageDetail{MSG-DOS-0032}{The variable you named in \cmd{SET} is not in
-the environment.}{Use \cmd{SET} alone to list the variables.}
-\MessageDetail{MSG-DOS-0033}{The date typed to \cmd{DATE}, or at start-up,
-is not a real date or is not in the form
-\ph{mm}\texttt{-}\ph{dd}\texttt{-}\ph{yy}.  The date was not changed.}{Type
-the date again in the correct form.}
-\MessageDetail{MSG-DOS-0034}{The time typed to \cmd{TIME}, or at start-up,
-is not in the form \ph{hh}\texttt{:}\ph{mm}, or a number is out of range.
-The time was not changed.}{Type the time again in the correct form.}
-\MessageDetail{MSG-DOS-0035}{A \cmd{FOR} subcommand has more variable names
-than the command processor can hold, or \cmd{EDLIN} cannot fit the lines
-of the file in memory.}{Simplify the batch file.  In \cmd{EDLIN}, write
-part of the file to disk with \kw{W}, then go on.}
+% each under their own number.  MSG-DOS-0045 is the tail of MSG-DOS-0044
+% and is printed with it (tools/pubs_msgtable.c), explained under 0044.
+\MessageDetail{MSG-DOS-0027}{\cmd{ECHO} was typed without a parameter.  It
+displays whether the commands of a batch file are displayed as they are
+carried out.  At the command prompt \cmd{ECHO} is always on.}{None.  To
+change the setting in a batch file, use \cmd{ECHO OFF}.}
+\MessageDetail{MSG-DOS-0028}{\cmd{ECHO} was typed without a parameter in a
+batch file after \cmd{ECHO OFF}.  The commands of the batch file are not
+displayed as they are carried out.}{None.  To display them again, use
+\cmd{ECHO ON}.}
+\MessageDetail{MSG-DOS-0029}{The CTRL-BREAK check is on.  \cmd{BREAK}
+displays the setting when it is typed with no parameter, and again after
+\kw{ON} or \kw{OFF}.}{None.  To turn the check off, use \cmd{BREAK OFF}.}
+\MessageDetail{MSG-DOS-0030}{The CTRL-BREAK check is off.  \cmd{BREAK}
+displays the setting when it is typed with no parameter, and again after
+\kw{ON} or \kw{OFF}.}{None.  To turn the check on, use \cmd{BREAK ON}.}
+\MessageDetail{MSG-DOS-0031}{The environment is full.  \cmd{SET},
+\cmd{PROMPT} and \cmd{PATH} display this message when the new setting does
+not fit; the setting is not changed.  It is also displayed when a program
+is started and its copy of the environment cannot be made; the program is
+given an empty environment.}{Remove variables you no longer need with
+\cmd{SET} \ph{name}\texttt{=}, then try again.}
+\MessageDetail{MSG-DOS-0032}{\cmd{SET} was asked to display a variable that
+is not in the environment.}{Check the name.  Use \cmd{SET} alone to list
+the variables.}
+\MessageDetail{MSG-DOS-0033}{The date typed for \cmd{DATE}, or at the
+start-up prompt, is not a real date or is not in the form
+\ph{mm}\texttt{-}\ph{dd}\texttt{-}\ph{yy}.  The date is not changed.}{Type
+the date again in the form shown.}
+\MessageDetail{MSG-DOS-0034}{The time typed for \cmd{TIME}, or at the
+start-up prompt, is not in the form \ph{hh}\texttt{:}\ph{mm}, or a number
+is out of range.  The time is not changed.}{Type the time again in the form
+shown.}
+\MessageDetail{MSG-DOS-0035}{\cmd{EDLIN}: the lines do not fit in memory;
+the command is not carried out.  \cmd{FOR}: the file names that match the
+set do not fit in the space \cmd{FOR} keeps for them.}{\cmd{EDLIN}: write
+part of the file to disk with \kw{W}, then go on.  \cmd{FOR}: name fewer
+files in the set, or use more than one \cmd{FOR}.}
 \MessageDetail{MSG-DOS-0036}{The batch file has no label of the name given
 in \cmd{GOTO}.  The batch file ends.}{Correct the label or the \cmd{GOTO}
 line.}
 \MessageDetail{MSG-DOS-0037}{Batch files have called each other with
-\cmd{CALL}, or nested \cmd{IF} and \cmd{FOR} subcommands, too deeply for
-the command processor to hold.}{Reduce the nesting.}
-\MessageDetail{MSG-DOS-0038}{\cmd{ATTRIB}, \cmd{LABEL}, \cmd{TREE} or
-\cmd{XCOPY} was given too many or too few file names.}{Check the Format
-line of the command.}
+\cmd{CALL}, or \cmd{IF} and \cmd{FOR} commands have been put inside each
+other, more than eight levels deep.  The command is not carried
+out.}{Reduce the number of levels.}
+\MessageDetail{MSG-DOS-0038}{\cmd{ATTRIB}, \cmd{TREE} or \cmd{XCOPY} was
+given too many or too few file names.}{Check the Format line of the
+command.}
 \MessageDetail{MSG-DOS-0039}{\cmd{ATTRIB}, \cmd{TREE} or \cmd{XCOPY} could
-not find the file or directory named, or a directory was named where a
-file was expected.}{Check the name and the path.}
+not find the file or directory, or a directory was named where a file was
+expected.}{Check the name and the path.}
 \MessageDetail{MSG-DOS-0040}{\cmd{LABEL} found no free entry in the root
 directory for the volume label.}{Delete a file from the root directory and
 try again.}
-\MessageDetail{MSG-DOS-0041}{The label typed to \cmd{LABEL} contains a
-character that is not allowed, or has no characters.}{Type a label of
-letters, digits and spaces.}
-\MessageDetail{MSG-DOS-0042}{\cmd{CHKDSK} found a file whose allocation
-chain points to a cluster that does not exist.  With \kw{/F} the file is
-cut short at the bad cluster.}{Copy what remains of the file and check it;
-restore it from a backup if you have one.}
-\MessageDetail{MSG-DOS-0043}{\cmd{CHKDSK} found two files that claim the
-same cluster.  The cluster number follows the message.}{Copy both files to
-another disk, delete them, and copy them back; one of the two will be
-incomplete.}
-\MessageDetail{MSG-DOS-0044}{\cmd{CHKDSK} could not enter the directory
-named, so its files were not checked.}{Run \cmd{CHKDSK /F}; if the message
-persists, copy the files you can read to another disk.}
-\MessageDetail{MSG-DOS-0045}{Follows the \texttt{Cannot CHDIR to} message:
-the directories below the one named were not checked.}{See the preceding
-message.}
+\MessageDetail{MSG-DOS-0041}{The label typed for \cmd{LABEL} contains a
+character that is not allowed in a volume label, or has no
+characters.}{Type a label of letters, digits and spaces.}
+\MessageDetail{MSG-DOS-0042}{\cmd{CHKDSK} found that the file named before
+this message contains a cluster number that is not valid.}{Run
+\cmd{CHKDSK /F} to end the file at the last valid cluster.  Without
+\kw{/F}, nothing is changed.}
+\MessageDetail{MSG-DOS-0043}{\cmd{CHKDSK} found the cluster \ph{n}
+allocated to two files.  The message is displayed after the name of each of
+the two files.}{\cmd{CHKDSK} does not correct this, even with \kw{/F}.
+Copy both files, delete the originals, and check the copies.}
+\MessageDetail{MSG-DOS-0044}{\cmd{CHKDSK} could not move into the
+subdirectory \ph{path}, because its directory entry names a cluster that is
+not valid.  The files below it are not checked, and lost clusters are not
+recovered.}{Copy the files you can read to another disk.}
 \MessageDetail{MSG-DOS-0046}{\cmd{CHKDSK /F} could not create a
 \file{FILE}\ph{nnnn}\file{.CHK} file for a lost chain, usually because the
 root directory is full.}{Delete or move files from the root directory and
 run \cmd{CHKDSK /F} again.}
-\MessageDetail{MSG-DOS-0047}{\cmd{CHKDSK} found errors, but you did not
-give \kw{/F}, so nothing was changed.}{Run \cmd{CHKDSK /F} to correct the
-errors.}
+\MessageDetail{MSG-DOS-0047}{\cmd{CHKDSK} found errors, but \kw{/F} was not
+given, so nothing was changed.}{Run \cmd{CHKDSK /F} to correct the errors.}
 \MessageDetail{MSG-DOS-0048}{\cmd{CHKDSK} was given a switch other than
 \kw{/F} or \kw{/V}, or more than one file name.}{Check the Format line of
 \cmd{CHKDSK}.}
-\MessageDetail{MSG-DOS-0049}{\cmd{CHKDSK} could not read the file
+\MessageDetail{MSG-DOS-0049}{\cmd{CHKDSK} could not read or write the file
 allocation table, or the disk is not formatted as InitechDOS
 expects.}{Copy the files you can read to another disk.}
-\MessageDetail{MSG-DOS-0050}{You asked \cmd{XCOPY} to copy a directory,
-with its subdirectories, into itself or into one of its own
+\MessageDetail{MSG-DOS-0050}{\cmd{XCOPY} was asked to copy a directory, with
+its subdirectories, into itself or into one of its own
 subdirectories.}{Copy the directory to a place outside it.}
-\MessageDetail{MSG-DOS-0051}{A switch given to \cmd{TREE} or \cmd{XCOPY} is
-not one the command accepts, or the switches cannot be used
-together.}{Check the Format line of the command.}
+\MessageDetail{MSG-DOS-0051}{\cmd{XCOPY} or \cmd{TREE} was given a switch it
+does not accept, or switches that cannot be used together.}{Check the
+Format line of the command.}
 \MessageDetail{MSG-DOS-0052}{The line is not a valid \cmd{EDLIN} command:
 an unknown letter, a line number out of range, or lines that overlap the
-destination of \kw{C} or \kw{M}.}{Type the command again.}
+destination of \kw{C} or \kw{M}.  It is also displayed when \cmd{EDLIN} is
+started without a file name.}{Type the command again.}
 \MessageDetail{MSG-DOS-0053}{\cmd{EDLIN} could not read, create or rename a
-file, for example because the file is read-only.}{Check the file's
-attributes with \cmd{ATTRIB}.}
+file, for example because it is read-only.}{Check the file's attributes
+with \cmd{ATTRIB}.}
 \MessageDetail{MSG-DOS-0054}{The disk filled while \cmd{EDLIN} was writing
 the file.  The original file is unchanged.}{Make room on the disk, or quit
 with \kw{Q}.}
-\MessageDetail{MSG-DOS-0055}{A replacement would make the line longer than
-\cmd{EDLIN} allows.  The line is not changed.}{Replace a shorter text, or
-split the line.}
-\MessageDetail{MSG-DOS-0056}{\cmd{EDLIN} \kw{S} or \kw{R} found no match in
-the lines searched.}{Check the text; capital and small letters must
-match.}
-\MessageDetail{MSG-DOS-0057}{\cmd{EDLIN} does not edit backup
-files.}{Rename the file with \cmd{REN} and edit it under the new name.}
+\MessageDetail{MSG-DOS-0055}{A replacement made with \kw{R} would make the
+line longer than \cmd{EDLIN} allows.  The line is not changed.}{Replace a
+shorter text, or split the line.}
+\MessageDetail{MSG-DOS-0056}{\kw{S} or \kw{R} found no match in the lines
+searched.}{Check the text; capital and small letters must match.}
+\MessageDetail{MSG-DOS-0057}{\cmd{EDLIN} does not edit a file with the
+extension \file{.BAK}; that name is kept for the backup copy it
+makes.}{Rename the file with \cmd{REN} and edit it under the new name.}
 \MessageDetail{MSG-DOS-0058}{The file's \file{.BAK} file is read-only, so
-\cmd{EDLIN} \kw{E} will not replace it; the original is not kept.}{Make
-the \file{.BAK} file read-write with \cmd{ATTRIB -R} first if you want a
+\kw{E} will not replace it; the original is not kept.}{Make the
+\file{.BAK} file read-write with \cmd{ATTRIB -R} first if you want a
 backup.}
-\MessageDetail{MSG-DOS-0059}{\cmd{FIND} was given too many or too few
-parameters, or the string is not in quotation marks.}{Check the Format
-line of \cmd{FIND}.}
-\MessageDetail{MSG-DOS-0060}{\cmd{SORT} cannot fit the lines it is sorting
-in memory.}{Sort a smaller file, or split it.}
+\MessageDetail{MSG-DOS-0059}{\cmd{FIND} was not given the string to search
+for.  The string must be enclosed in quotation marks.}{Type the command
+again with the string in quotation marks.}
+\MessageDetail{MSG-DOS-0060}{The input to \cmd{SORT} is larger than the
+64K bytes it can sort.  Nothing is written.}{Sort a smaller file, or
+divide the file into parts.}
+\MessageDetail{MSG-DOS-0062}{\cmd{REN} could not rename a file: a file
+with the new name already exists, or no file matches the name you gave.
+When a wildcard names several files, the others are still renamed.}{Choose
+another new name, or use \cmd{DIR} to check the name of the file to
+rename.}
 \input{dos_messages_other}
 \CheckMessageDetails
 

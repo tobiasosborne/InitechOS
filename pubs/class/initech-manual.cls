@@ -108,9 +108,13 @@
 \setsansfont{texgyreheros}[
   Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
   ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+%% The typewriter face prints what the screen shows, character for character
+%% (NT-16): no TeX ligatures, so "--" in a message (MSG-DOS-0057/0058) stays
+%% two hyphens, quotes stay straight and "fi" is two letters.
 \setmonofont{texgyrecursor}[
   Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
-  ItalicFont=*-italic, BoldItalicFont=*-bolditalic, HyphenChar=None]
+  ItalicFont=*-italic, BoldItalicFont=*-bolditalic, HyphenChar=None,
+  Ligatures={TeXOff,CommonOff}]
 \newfontfamily\im@condensed{texgyreheroscn}[
   Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
   ItalicFont=*-italic, BoldItalicFont=*-bolditalic]

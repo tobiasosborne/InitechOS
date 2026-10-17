@@ -175,9 +175,9 @@ The text introduces the name of the command in which an execution error occurred
 A command that takes ON or OFF was given another word.
 \end{XbaseMessageEntry}
 
-% 48 -- not raised: no source line sets ordinal 48 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{48}{Field not found.}
-A field named in a command is not a field of the database in use.
+% 48 -- os/samir/cmd/mutate.c d_sort, d_total (field not in the table); lane samirdml 14a8fc75
+\begin{XbaseMessageEntry}{48}{Field not found.}
+\cmd{SORT} or \cmd{TOTAL} named a field that is not a field of the database in use.  Check the spelling of the field name.
 \end{XbaseMessageEntry}
 
 % 141 -- not raised: no source line sets ordinal 141 for the condition the message names (checked os/samir)
@@ -185,9 +185,9 @@ A field named in a command is not a field of the database in use.
 A list of fields is too complicated to process.
 \end{XbaseMessageEntry}
 
-% 7 -- not raised: no source line sets ordinal 7 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{7}{File already exists.}
-A file to be created has the same name as a file already on the diskette.
+% 7 -- os/samir/cmd/mutate.c d_destination (SAFETY ON, target exists: INDEX, SORT, TOTAL, RENAME, COPY FILE); lane samirdml 14a8fc75
+\begin{XbaseMessageEntry}{7}{File already exists.}
+\cmd{INDEX}, \cmd{SORT}, \cmd{TOTAL} or \cmd{RENAME} was to create a file whose name is already on the diskette, and SET SAFETY is ON.  Choose another name, \cmd{ERASE} the old file, or SET SAFETY OFF.
 \end{XbaseMessageEntry}
 
 % 1 -- os/samir/samir_main.c:539 (USE: -DBF_ERR_NOENT); samir_main.c:673 (DO program read fault); os/samir/cmd/report.c:322 (REPORT FORM: form file absent)
@@ -263,9 +263,9 @@ An index file was opened with a database other than the one it was built for.
 Building an index was interrupted, and the incomplete index will be deleted.
 \end{XbaseMessageEntry}
 
-% 23 -- not raised: no source line sets ordinal 23 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{23}{Index is too big (100 char maximum).}
-An index key is longer than 100 characters.
+% 23 -- os/samir/cmd/mutate.c d_sort (character key over 100); lane samirdml 14a8fc75
+\begin{XbaseMessageEntry}{23}{Index is too big (100 char maximum).}
+\cmd{SORT} was asked to order the records on a character field longer than 100 characters.
 \end{XbaseMessageEntry}
 
 % 43 -- os/samir/samir_main.c:657 (DO buffer); os/samir/cmd/report.c:236,273 (cell text pool)
@@ -369,9 +369,9 @@ The text follows a word that is not the name of a command.
 A keyword that a command requires was not found.
 \end{XbaseMessageEntry}
 
-% 54 -- not raised: no source line sets ordinal 54 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{54}{Label file invalid.}
-A label file is not valid.
+% 54 -- os/samir/cmd/report.c lbl_run (not a 1034-byte form, or sizes out of range); lane samirdml 14a8fc75
+\begin{XbaseMessageEntry}{54}{Label file invalid.}
+The file named in \cmd{LABEL FORM} is not a dBASE III PLUS label form, or its label sizes are out of range.
 \end{XbaseMessageEntry}
 
 % 18 -- os/samir/samir_main.c:650 (DO: program file of 8,192 bytes or more); os/samir/cmd/report.c:430 (command text of 256 or more characters)
@@ -406,9 +406,9 @@ A path is longer than the maximum allowed.
 The record length is greater than the maximum allowed.
 \end{XbaseMessageEntry}
 
-% 55 -- not raised: no source line sets ordinal 55 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{55}{Memory Variable file is invalid.}
-A memory variable file is not valid.
+% 55 -- os/samir/cmd/flow.c fl_memfile (RESTORE framing checked first); lane samirdml 14a8fc75
+\begin{XbaseMessageEntry}{55}{Memory Variable file is invalid.}
+The file named in \cmd{RESTORE FROM} is not a memory file written by \cmd{SAVE}.  No memory variable was changed.
 \end{XbaseMessageEntry}
 
 % 96 -- not raised: no source line sets ordinal 96 for the condition the message names (checked os/samir)

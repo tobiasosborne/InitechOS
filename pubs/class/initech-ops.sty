@@ -165,7 +165,9 @@
 \setlist[ProcSteps]{label={\sffamily\bfseries\arabic*.}, leftmargin=\tps@labelw,
   labelsep=2mm, itemsep=4pt, parsep=3pt, topsep=4pt}
 %% What the system displays in answer to a step (Cursor, as the transcript).
-\newcommand\Response[1]{\par\nobreak{\noindent\tps@mono\fontsize{9}{12}\selectfont #1\par}}
+%% The class loads initech-xbase, which defines its own \Response; the
+%% operations family's reply line replaces it in the books that load this file.
+\providecommand\Response{}\renewcommand\Response[1]{\par\nobreak{\noindent\tps@mono\fontsize{9}{12}\selectfont #1\par}}
 \newcommand\ProcNote[1]{\par\addvspace{3pt}\noindent{\bfseries Note:}\enspace #1\par}
 
 %% ---- checklists ---------------------------------------------------------

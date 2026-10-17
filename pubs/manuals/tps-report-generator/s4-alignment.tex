@@ -6,13 +6,11 @@
 % attempt).  THE COUNT IS WRITTEN ONLY HERE (operator Law-4 ruling, bead
 % initech-5igf): \AlignCount prints it from the spec and registers its
 % place; test-pubs-tps requires TPS-P-03, FORM-TPS-4, STUDY and QUIZ.
-% DRAFT (lane tpsr2, bead initech-5igf, PM decision 2026-10-17 09:20): the
-% decided R2 prompt -- TOP OF FORM ALIGNMENT / the alignment test line /
+% The R2 prompt -- TOP OF FORM ALIGNMENT / the alignment test line /
 % ADVANCE THE FORM TO THE TEST LINE, THEN PRESS ENTER., reprinted after a
-% refusal -- is printed under DRAFT markers until it ships; the shipped
-% program still displays its earlier prompt (R2.prompt of the spec), so the
-% r2align transcript is hand-written (screens/r2align.draft) and is
-% re-captured after the merge.
+% refusal -- shipped with lane tpsr2 (77835faa, bead initech-5igf; R2.prompt
+% of the spec); the r2align figure is a capture (screens/r2align.txt, the
+% journey route).
 % GATES: test-tps-report test-flair-tps-journey test-pubs-tps
 \Gates{test-tps-report, test-flair-tps-journey, test-pubs-tps}
 \chapter{Aligning the Form}
@@ -39,10 +37,7 @@ operator is responsible for knowing it.
 The alignment prompt is three lines: the heading, the alignment test line,
 and the instruction.
 
-\TpsDraftMsg{R2.prompt}{TOP OF FORM ALIGNMENT\\----- ALIGNMENT TEST LINE -----
-  FORM TPS-1 (REV. 10/89) -----\\ADVANCE THE FORM TO THE TEST LINE, THEN PRESS
-  ENTER.}{lane tpsr2, bead initech-5igf: the decided R2 prompt; the shipped
-  program still displays its earlier prompt}
+\TpsMsg{R2.prompt}
 
 Each press of the \key{Space Bar} displays one period.  \key{Enter} ends the
 attempt.  Any other key is ignored and displays nothing.  When the number of
@@ -52,8 +47,7 @@ and continues with the report number (Session~5).  When it is any other
 number, the program displays:
 \TpsMsg{R2.refuse}
 where \ph{n} is the number of presses counted.  The count starts again from
-zero, and the alignment prompt is displayed again.\draft{lane tpsr2: the
-prompt is displayed again after a refusal}
+zero, and the alignment prompt is displayed again.
 
 \section{Aligning the Form}
 \begin{Procedure}{TPS-P-03}{To Align the Form}
@@ -89,10 +83,10 @@ prompt is displayed again after a refusal}
   press \key{Enter}; the attempt is refused and the count starts again.}
 \end{Procedure}
 
-\DraftShot[marks={1=TOP OF FORM;2=----- ALIGNMENT;3=......;4=FORM NOT;5=.......;6=FORM ALIGNED},
+\OpsShot[fromtext={TOP OF FORM}, totext={FORM ALIGNED},
+  marks={1=TOP OF FORM;2=----- ALIGNMENT;3=......;4=FORM NOT;5=.......;6=FORM ALIGNED},
   label=fig:r2align, caption={An attempt of six presses, refused, and an
-  attempt of seven, accepted.}]{r2align}{lane tpsr2, bead initech-5igf: the
-  decided R2 prompt, hand-written; re-captured after the merge}
+  attempt of seven, accepted.}]{r2align}
 
 \begin{CalloutLegend}
 \LegendRow{1}{Heading}{The program is ready for the alignment.}

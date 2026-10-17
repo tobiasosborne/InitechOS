@@ -1,4 +1,4 @@
-% Chapter 2 entries ATTRIB .. DIR (AN-01).  Sources per entry in the comment
+% Chapter 2 entries ATTRIB .. DISKCOPY (AN-01).  Sources per entry in the comment
 % above it; every Example is a capture listed in screens/SCREENS.
 
 % ATTRIB -- os/milton/dosutil.c attrib_main/attrib_walk (+R -R +A -A /S,
@@ -189,9 +189,10 @@ this way.
 \end{DosEntry}
 
 % COPY -- os/milton/command.c builtin_copy (two operands; directory target
-% keeps the name; same-file refusal MSG-DOS-0020 + "0 file(s) copied";
+% keeps the name; same-file refusal MSG-DOS-0020 + "0 File(s) copied";
 % source missing MSG-DOS-0003; create refused MSG-DOS-0009 or MSG-DOS-0002;
-% footer "        1 file(s) copied"); COPY CON ends at Ctrl-Z (WL-0102).
+% footer "        1 File(s) copied", MSG-DOS-0061 since WL-0154); COPY CON
+% ends at Ctrl-Z (WL-0102).
 % Gates: test-copy-selfcopy, test-dos-safety-k01, test-dos-safety-k02,
 % test-j1lu-control-emu.  Date stamp of the copy: initech-dwbl.
 \begin{DosEntry}{COPY}{Copy File}{internal}
@@ -207,10 +208,12 @@ into.  Both are required.
 If the target is a directory, the copy is put in that directory with the
 name of the source file.  If the target is an existing file, it is
 replaced.  When the copy is complete, \cmd{COPY} displays
-\texttt{1 file(s) copied}.
+\texttt{1 File(s) copied}.\draft{see bead initech-bc2j: the shipped COPY
+also accepts wildcards, combines files named with +, takes the /A, /B and
+/V switches, and copies into the current directory when no target is given;
+this entry is to be rewritten}
 
-Wildcards are not allowed in this version: name one file.  To copy groups
-of files, use \cmd{XCOPY}.
+To copy a directory and its subdirectories, use \cmd{XCOPY}.
 
 You can copy from the keyboard by naming the device \file{CON} as the
 source: type the lines of the file, then press \key{Ctrl-Z} and
@@ -218,7 +221,7 @@ source: type the lines of the file, then press \key{Ctrl-Z} and
 from what you type.
 
 If the source and target are the same file, \cmd{COPY} displays
-\texttt{File cannot be copied onto itself} and \texttt{0 file(s) copied},
+\texttt{File cannot be copied onto itself} and \texttt{0 File(s) copied},
 and the file is not changed.  If the source does not exist, it displays
 \texttt{File not found}.  If the target is read-only, it displays
 \texttt{Access denied}; if the target cannot be created for another reason,
@@ -353,4 +356,72 @@ To list the root directory of the practice diskette:
 To list only the text files, and then the directory \file{SAMPLES} in the
 wide form:
 \Shot{dirargs}
+\end{DosEntry}
+
+% DISKCOMP / DISKCOPY -- os/milton/diskutil.c copy_run (the single-drive
+% swap flow of MS-DOS 3.3 UG p.26 and pp.59-63: FIRST/SECOND and
+% SOURCE/TARGET prompts, 64 sectors per pass; "Compare error on disk / side
+% s, track t", "Compare OK"; removable drives only, two-line refusal p.358;
+% B: is MSG-DOS-0004 by DEC-18, spec/drive_letters.json; /1 /8 options;
+% "Copy/Compare another diskette (Y/N)?").  WL-0147.  Shipped as
+% DOS\DISKCOMP.COM and DOS\DISKCOPY.COM.  Gates: test-formatsys,
+% test-formatsys-emu, test-diskcopy-emu.
+\begin{DosEntry}{DISKCOMP}{Compare Diskette}{external}
+\Purpose Compares the contents of two diskettes sector by sector.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{DISKCOMP}
+  \opt{\ph{d}\kw{:} \opt{\ph{d}\kw{:}}} \opt{\kw{/1}} \opt{\kw{/8}}}
+\Type{External}
+\Remarks
+\Param{d:} names the drives of the first and second diskette.  If you give
+none, or only one, drive~A is used for the others.  Both drives must be
+diskette drives: for a fixed disk \cmd{DISKCOMP} displays
+\texttt{Specified drive does not exist,} \texttt{or is non-removable}.  Drive~B
+does not exist in this version (\texttt{Invalid drive specification}).
+
+With one drive, \cmd{DISKCOMP} asks for the diskettes in turn:
+\texttt{Insert FIRST diskette into drive A:} and \texttt{Insert SECOND
+diskette into drive A:}.  Change the diskette and press any key.  It reads
+up to 64 sectors of the first diskette at a time, so a large diskette is
+compared in several passes.
+
+\Param{/1} compares only the first side of each diskette.  \Param{/8}
+compares only the first eight sectors of each track.
+
+For every sector that differs, \cmd{DISKCOMP} displays
+\texttt{Compare error on disk} and, on the next line, the side and track.
+If no sector differs, it displays \texttt{Compare OK}.  It then asks
+\texttt{Compare another diskette (Y/N)?}; type \type{Y} or \type{N}.
+\Example
+To compare two diskettes in drive~A, type \type{DISKCOMP A: A:}, then
+insert the first and second diskettes as \cmd{DISKCOMP} asks for them.
+\end{DosEntry}
+
+\begin{DosEntry}{DISKCOPY}{Copy Diskette}{external}
+\Purpose Copies the contents of one diskette onto another, sector by sector.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{DISKCOPY}
+  \opt{\ph{d}\kw{:} \opt{\ph{d}\kw{:}}} \opt{\kw{/1}}}
+\Type{External}
+\Remarks
+\Param{d:} names the drives of the source and target diskette.  If you give
+none, or only one, drive~A is used for the others.  Both drives must be
+diskette drives: for a fixed disk \cmd{DISKCOPY} displays
+\texttt{Specified drive does not exist,} \texttt{or is non-removable}.  Drive~B
+does not exist in this version (\texttt{Invalid drive specification}).
+
+With one drive, \cmd{DISKCOPY} asks for the diskettes in turn:
+\texttt{Insert SOURCE diskette in drive A:} and \texttt{Insert TARGET
+diskette into drive A:}, each followed by \texttt{Press any key when ready
+. . .}  It reads up to 64 sectors of the source at a time, so a large
+diskette is copied in several passes.  Everything on the target diskette is
+replaced.
+
+\Param{/1} copies only the first side of the diskette.
+
+If the source cannot be read, \cmd{DISKCOPY} displays \texttt{FIRST
+diskette bad or incompatible}; if the target cannot be written, it displays
+\texttt{Target diskette may be unusable}.  When the copy is complete it asks
+\texttt{Copy another diskette (Y/N)?}; type \type{Y} or \type{N}.
+\Example
+To copy a diskette using drive~A only, type \type{DISKCOPY A: A:}, then
+insert the source and target diskettes as \cmd{DISKCOPY} asks for them.
 \end{DosEntry}

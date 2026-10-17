@@ -58,6 +58,35 @@ and a file name to save the sorted output.
 To save sorted lines, type \type{SORT < PHONE.TXT > SORTED.TXT}.
 \end{DosEntry}
 
+% SYS -- os/milton/diskutil.c sys_run (MS-DOS 3.3 UG p.119: the two system
+% files, in order, into the first two root entries, fragmented sources
+% allowed, COMMAND.COM NOT copied; the destination BPB kept, the InitechDOS
+% boot code written; any failure "No room for system on destination
+% disk"; success "System transferred").  Source = drive C (DEC-18).
+% WL-0147.  Shipped as DOS\SYS.COM.  Gates: test-formatsys,
+% test-formatsys-emu, test-format-system-boot.
+\begin{DosEntry}{SYS}{System}{external}
+\Purpose Transfers the InitechDOS system files to a disk.
+\Format \SyntaxLine{\opt{\ph{d}\kw{:}}\opt{\ph{path}}\kw{SYS} \ph{d}\kw{:}}
+\Type{External}
+\Remarks
+\Param{d:} is the drive of the disk to receive the system; it is required.
+\cmd{SYS} copies the two system files, \file{IO.SYS} and \file{INITDOS.SYS},
+from drive~C to the first two entries of the disk's root directory, and
+writes the InitechDOS start-up code into its boot record.  The files already
+on the disk are kept.  \cmd{SYS} does not copy \file{COMMAND.COM}; copy it
+with \cmd{COPY}.
+
+The first two root directory entries must be free, or already hold the
+system files, as on a disk formatted with \kw{FORMAT /B}.  When the system
+has been transferred, \cmd{SYS} displays \texttt{System transferred}.  If
+the entries are in use, the disk has not enough free space, or the system
+files cannot be read, it displays \texttt{No room for system on destination
+disk} and the disk is not changed.
+\Example
+To transfer the system to the disk in drive~D, type \type{SYS D:}.
+\end{DosEntry}
+
 % TIME -- os/milton/command.c builtin_time, cmd_parse_time (hh:mm[:ss],
 % 0..23 / 0..59; "Invalid time" then the unchanged time),
 % cmd_format_time ("Current time is hh:mm:ss.cc").  Gates: test-datetime,

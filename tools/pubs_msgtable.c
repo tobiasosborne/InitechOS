@@ -14,6 +14,18 @@
  * '%c' (a drive-letter substitution, per the catalogue's _comment) prints as
  * the placeholder \ph{d}.
  *
+ * Two CHKDSK messages are completed on the screen by a value the command
+ * supplies (os/milton/chkdsk.c).  A text beginning with ',' is the tail of
+ * the message of the catalogue id just before it, which ends in a space:
+ * MSG-DOS-0044 "Cannot CHDIR to " + path + MSG-DOS-0045 ", tree past this
+ * point not processed".  The tail is joined to its head as ONE list entry
+ * under the head's id, the path printed as \ph{path} (the form of the IBM
+ * DOS 3.10 Reference, p.7-48 CHKDSK: "Cannot CHDIR to d:path, tree past this
+ * point not processed"), and counted with the display fragments.  A message
+ * that still ends in a space is followed by a number (MSG-DOS-0043 "on
+ * cluster " n; IBM 3.10 Reference p.A-46 "on cluster xx"), printed \ph{n}.
+ * A tail with no head that ends in a space fails loud (Rule 2).
+ *
  * Usage: pubs_msgtable <dos_messages.json> [all|device|other] > out.tex
  * The optional selector splits the list the way the IBM Messages appendix is
  * split (PUB-REF-0001 AN-03; IBM 3.10 Reference App. A): `device` = the
@@ -75,8 +87,10 @@ static void put_tex(const char *t)
 {
     for (; *t; t++) {
         if (t[0] == '%' && t[1] == 'c') { fputs("\\ph{d}", stdout); t++; continue; }
+        if (t[0] == '\001') { fputs(" \\ph{path}", stdout); continue; }
+        if (t[0] == ' ' && t[1] == '\0') { fputs(" \\ph{n}", stdout); continue; }
         if (t[0] == '\r') { continue; }
-        if (t[0] == '\n') { fputs("\\\\ ", stdout); continue; }
+        if (t[0] == '\n') { fputs("\\\\", stdout); continue; }
         switch (*t) {
         case '\\': fputs("\\textbackslash{}", stdout); break;
         case '{': case '}': case '$': case '&': case '#': case '_': case '%':
@@ -132,7 +146,17 @@ int main(int argc, char **argv)
             fprintf(stderr, "pubs_msgtable: FAIL unexpected id %s\n", cur.id); return 1;
         }
         if (cur.text[0] == ' ' || cur.text[0] == '<') fragments++;
-        else {
+        else if (cur.text[0] == ',') {
+            /* The tail of the previous id's message (see the header). */
+            size_t hl = n ? strlen(m[n - 1].text) : 0;
+            if (hl == 0 || m[n - 1].text[hl - 1] != ' ' ||
+                hl + 1 + strlen(cur.text) >= sizeof(m[0].text)) {
+                fprintf(stderr, "pubs_msgtable: FAIL %s continues no message that ends in a space\n", cur.id); return 1;
+            }
+            m[n - 1].text[hl - 1] = '\001';   /* the path the command prints */
+            strcpy(m[n - 1].text + hl, cur.text);
+            fragments++;
+        } else {
             if (n == MAXMSG) { fprintf(stderr, "pubs_msgtable: FAIL too many messages\n"); return 1; }
             m[n++] = cur;
         }

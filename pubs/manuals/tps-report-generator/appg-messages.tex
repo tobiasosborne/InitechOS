@@ -4,8 +4,8 @@
 % them: every message is printed from the table tps_inventory.c generates
 % from the locked spec/tps_ritual.json, and test-pubs-tps proves that every
 % message of the inventory has its entry and that no entry names a message
-% the program lacks (GC-01/GC-02).  The R2 and R5 prompts are the DECIDED
-% wording (lane tpsr2, bead initech-5igf) under DRAFT markers.  Part 2 is
+% the program lacks (GC-01/GC-02).  The R2 and R5 prompts are the wording
+% lane tpsr2 shipped (77835faa, bead initech-5igf).  Part 2 is
 % the program's other lines (banner, end of report), quoted from
 % os/milton/tpsrep_program.asm m_banner / m_done1 / m_done2.  Part 3 is the
 % InitechDOS device error messages, GENERATED from spec/dos_messages.json
@@ -50,10 +50,7 @@ first of the six required fields it lacks, or \texttt{SIGNATURE} when it is
 not a dBASE III table.  The program ends with return code 6.}{Check the
 table name.  If it is \file{TPS.DBF}, see your supervisor.}
 
-\TpsDraftMessageEntry{R2.prompt}{TOP OF FORM ALIGNMENT\\----- ALIGNMENT TEST
-  LINE ----- FORM TPS-1 (REV. 10/89) -----\\ADVANCE THE FORM TO THE TEST LINE,
-  THEN PRESS ENTER.}{lane tpsr2, bead initech-5igf: the decided R2 prompt; the
-  shipped program still displays its earlier prompt}{The program requires
+\TpsMessageEntry{R2.prompt}{The program requires
 the form to be aligned.}{Carry out \proc{03}.}
 
 \TpsMessageEntry{R2.refuse}{The alignment attempt was not accepted: \ph{n}
@@ -77,9 +74,7 @@ about the new cover sheets.}{Carry out \proc{05}.}
 again.}{Check the number on the memo and key it again.  If it is refused a
 second time, see your supervisor.}
 
-\TpsDraftMessageEntry{R5.prompt}{DID YOU REMEMBER TO ATTACH THE NEW COVER
-  SHEET, FORM TPS-1 (REV. 10/89)? (Y/N)}{lane tpsr2, bead initech-5igf: the
-  decided R5 prompt; the shipped prompt does not yet name the form}{The
+\TpsMessageEntry{R5.prompt}{The
 program asks for the cover sheet attestation.}{Carry out \proc{06}.}
 
 \TpsMessageEntry{TPS-005}{The answer to the cover sheet prompt was N: \ph{n}

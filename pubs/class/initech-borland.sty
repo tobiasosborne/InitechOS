@@ -445,7 +445,14 @@
 %% \MakeBackCover: wordmark top left; the slogan (operator directive
 %% 2026-10-17); address block bottom left (D-12); part number and print code
 %% bottom right; nothing else.  Measured from the trim of the page in use.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
+%% The full-size books take the family back cover of initech-forms.sty
+%% (PK-05 as revised, AN-27; WL-0132: logo, banner, address, part-number
+%% plate, line band), which is laid out for the 7 x 9 in trim only;
+%% the PK-11 booklet keeps this one.
+\let\im@familybackcover\MakeBackCover
+\renewcommand\MakeBackCover{\ifim@booklet\expandafter\im@borbookletback
+  \else\expandafter\im@familybackcover\fi}
+\newcommand\im@borbookletback{\thispagestyle{empty}%
   \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 12\else 19\fi}{\Wordmark[\ifim@booklet 22mm\else 30mm\fi]}%
   \AtPage{\ifim@booklet 8\else 23\fi}{\ifim@booklet 40\else 45\fi}{\parbox{\ifim@booklet 70mm\else 110mm\fi}{%
     \IsThisGoodForTheCompany}}%

@@ -19,7 +19,7 @@ break|BREAK is on#2|
 cd|A:\>#5|
 chkdsk|bytes free|
 chkfile|bytes free|
-copy|file(s) copied#3|
+copy|File(s) copied#3|
 date|Current date is#3|
 del|File not found|
 dir|bytes free|

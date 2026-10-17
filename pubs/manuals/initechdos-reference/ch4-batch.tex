@@ -6,7 +6,7 @@
 % entry; @; %0..%9, %VAR%, %%; GOTO "Label not found" stops the file; IF and
 % FOR carry out any command, batch subcommands included (initech-s4e8);
 % FOR expands wildcard sets and runs at the prompt with %c (initech-iffk);
-% SHIFT keeps %0; CALL nests, "Batch nesting too deep"; PAUSE "Strike a key
+% SHIFT keeps %0; CALL nests, MSG-DOS-0037 "Insufficient memory"; PAUSE "Strike a key
 % when ready . . ."),
 % run_batch_invoke, command_repl (A:\AUTOEXEC.BAT).  The sample files are
 % pubs/screens/disk/*.BAT in A:\SAMPLES of the practice diskette.
@@ -78,8 +78,8 @@ the sample batch files in the directory \file{SAMPLES} of the practice
 diskette; each example first displays the file with \cmd{TYPE}.
 
 % CALL -- command.c run_batch BL_CALL (resolve_bat_path, run_batch_invoke,
-% reload and continue; not found MSG-DOS-0002); BATCH_NEST_MAX ("Batch
-% nesting too deep").
+% reload and continue; not found MSG-DOS-0002); BATCH_NEST_MAX (MSG-DOS-0037
+% "Insufficient memory", MS-DOS 3.3 p.337).
 \begin{DosEntry}{CALL}{}{batch}
 \Purpose Runs another batch file and then continues with the next line of
 the first.
@@ -92,7 +92,7 @@ file.
 
 When the called file ends, InitechDOS continues with the line after the
 \cmd{CALL}.  A called file may itself use \cmd{CALL}.  If batch files are
-nested too deeply, InitechDOS displays \texttt{Batch nesting too deep}.  If
+nested too deeply, InitechDOS displays \texttt{Insufficient memory}.  If
 the file is not found, it displays \texttt{Bad command or file name}.
 
 \cmd{CALL} is used only in batch files.

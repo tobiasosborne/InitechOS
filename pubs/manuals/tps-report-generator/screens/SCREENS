@@ -4,16 +4,14 @@
 # the flagship image boots to the FLAIR desktop, the locked trace of
 # test-flair-exit-to-dos leaves it through Special > Exit to InitechDOS, and
 # the keystrokes of screens/NAME.keys are typed at the A:\> prompt -- the
-# ONLY keyboard source.  Each .keys starts with the two Enters that answer
-# the date and time prompts and with CLS (the seconds of the time prompt
-# depend on how long the desktop takes to go).  The marker is the prompt the
-# session ends on, #count its occurrences on the serial mirror.
+# ONLY keyboard source.  Each .keys starts with CLS (the flagship volume's
+# AUTOEXEC.BAT skips the date and time prompts, WL-0144).  The marker is the
+# prompt the session ends on, #count its occurrences on the serial mirror.
 # Regenerate with "make pubs-screens"; "make test-pubs-screens" re-captures
 # every screen and diffs it against the book.
-# DRAFT (lane tpsr2, bead initech-5igf): r2align, r5cover and r5refuse are
-# hand-written .draft transcripts of the DECIDED R2/R5 wording and are not
-# listed here; after tpsr2 merges, add their rows and capture them, and
-# re-capture every screen that passes R2 (tpsritual, tpsdone, tpsbak).
+# r2align, r5refuse and r5cover show the R2/R5 wording lane tpsr2 shipped
+# (77835faa, bead initech-5igf).  r5cover settles on the cover sheet prompt
+# itself (=TEXT marker, capture.sh): the answer Y would scroll it away.
 tpsstart|A:\APPS>#2|flair
 tpsdir|A:\APPS>#2|flair
 tpsroot|A:\>#3|flair
@@ -24,3 +22,6 @@ tps002|A:\>#4|flair
 tpsritual|A:\APPS>#2|flair
 tpsdone|A:\APPS>#2|flair
 tpsbak|A:\APPS>#4|flair
+r2align|A:\APPS>#2|flair
+r5cover|=(Y/N)#1|flair
+r5refuse|A:\APPS>#2|flair
