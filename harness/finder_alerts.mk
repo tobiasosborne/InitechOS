@@ -253,8 +253,8 @@ test-flair-finder-$(1)-mutant: test-flair-finder-$(2) $(BUILD)/flair_tenants_mut
 	@printf '>>> test-flair-finder-$(1)-mutant: $(6) RED (notice absent from framebuffer)\n'
 TEST_EMU_GATES += test-flair-finder-$(1)-mutant
 endef
-$(eval $(call finder-notice-emu-mutant,disk-alert,diskfull,finder_disk_alert,$(BUILD)/finder_diskfull_host.img,FLAIR_FINDER_DISKFULL_SPEC,FINDER_MUT_NO_DISK_ALERT))
-$(eval $(call finder-notice-emu-mutant,launch-alert,launch-alerts,finder_launch_alert,$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,FINDER_MUT_NO_LAUNCH_ALERT))
+$(eval $(call finder-notice-emu-mutant,disk-alert,diskfull,finder_disk_alert,$(BUILD)/finder_diskfull_host.img,FLAIR_FINDER_DISKFULL_SPEC,FINDER_MUT_NO_DISK_ALERT,))
+$(eval $(call finder-notice-emu-mutant,launch-alert,launch-alerts,finder_launch_alert,$(FLAIR_DATA_TFX_NOREG_IMG),FLAIR_APP_LAUNCH_SPEC,FINDER_MUT_NO_LAUNCH_ALERT,))
 # $(7): the mutant's dump waits for the guest to reach the cycle refusal (the
 # point the clean leg grades), so RED means "no notice there", not a race.
 $(eval $(call finder-notice-emu-mutant,move-alert,refused,finder_move_alert,$(FLAIR_DATA_IMG),FLAIR_FINDER_REFUSED_SPEC,FINDER_MUT_NO_MOVE_ALERT,--screendump-after "FINDER-MOVE-REFUSED reason=cycle"))
