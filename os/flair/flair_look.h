@@ -131,6 +131,10 @@ typedef enum {
     /* L023: sampled modal-alert outer bevel, controls.md Sec 6. */
     FLAIR_PART_ALERT_LIGHT,
     FLAIR_PART_ALERT_SHADOW,
+    /* List header bevels: mint-results-008 Sec6, exact captured gray ramp. */
+    FLAIR_PART_LIST_PRESSED_EDGE,
+    FLAIR_PART_LIST_EDGE,
+    FLAIR_PART_LIST_PRESSED_BOTTOM,
     /* Finder icon colour roles (bead initech-tdnl.53; spec/assets/desk_icons.h
      * DESK_IC_*).  ONE role per non-clear icon colour ordinal k, at
      * FLAIR_PART_ICON_CLUT + (k - 1), in ordinal order: os/flair/finder_icon.c
@@ -169,6 +173,8 @@ typedef enum {
  * else  -> surface_pack_rgb(bpp,0,0,0) | flair_canon_rgb(idx)  (0x00RRGGBB).
  * ------------------------------------------------------------------------- */
 uint32_t flair_look_pixel_depth(uint32_t bpp, int part);
+/* Native small-icon colour art, mint008; exact canon slots on both depths. */
+uint32_t flair_look_small_icon_pixel(uint32_t bpp,unsigned index);
 
 /* Resolve the default policy row once at a drawing-context boundary. The named
  * mutant deliberately selects retained SYS7 so the independent Platinum

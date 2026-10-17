@@ -372,7 +372,7 @@ void selftest_report_c(void)
  * the LFB console AND COM1 serial (the CON device), and a terminate hook that
  * emits the exit line then cli;hlt (terminate == stop; no process model yet).
  * The console pointer is held at file scope so the sink (a plain function) can
- * reach the live console kernel_main set up -- mirrors panic_set_console. */
+ * reach the live console kernel_main set up. */
 static console_t *g_int21_con = 0;
 
 /* Kernel-context PSP (beads initech-509.3). Holds the standard Job File Table
@@ -3024,6 +3024,7 @@ static int finder_fat_dirent_cb(const dir_entry_t *e, void *user)
     d.attribute     = e->attribute;
     d.size          = e->file_size;
     d.start_cluster = e->start_cluster;
+    d.date = e->mdate; d.time = e->mtime;
     return fe->cb(&d, fe->user);
 }
 
@@ -3680,6 +3681,8 @@ static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_puti((int32_t)singleton);
     serial_putc('\n');
     if (!singleton) finder_report_dropped(slot);
+    serial_puts("FINDER-VIEW-RESTORE win="); serial_puti(slot);
+    serial_puts(" bits="); serial_putu(g_finder_shell->windows[slot].view_bits); serial_putc('\n');
 }
 
 /* bead initech-tdnl.39 (audit F04): the Trash icon opens THE TRASH WINDOW,
@@ -3906,7 +3909,8 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
 
     where0 = ev->where;
     where1 = where0;
-    idx    = finder_desk_hit(fd, where0.h, where0.v);
+    idx    = s->slot >= 0 ? finder_win_content_hit(&g_finder_shell->windows[s->slot],where0.h,where0.v)
+                          : finder_desk_hit(fd, where0.h, where0.v);
     t0     = flair_tick_count();
     outline_now.top = 0; outline_now.left = 0;
     outline_now.bottom = 0; outline_now.right = 0;
@@ -4130,12 +4134,31 @@ static void flair_live_do_desk(flair_live_ctx_t *ctx, const boot_info_t *bi,
     flair_live_do_surface(ctx, bi, ev, &s);
 }
 
+/* tdnl.44 markers follow the same live-window model as paint and dispatch. */
+static void finder_report_view(int slot)
+{
+    unsigned bits=g_finder_shell->windows[slot].view_bits;
+    serial_puts("FINDER-VIEW win="); serial_puti(slot);
+    if((bits & FINDER_VIEW_MASK)==0) { serial_puts(" mode=icons\n"); return; }
+    if((bits & FINDER_VIEW_MASK)==2) serial_puts(" mode=small");
+    else serial_puts(" mode=list");
+    serial_puts(" sort=");
+    serial_puts((bits&FINDER_VIEW_MASK)==5?"size":(bits&FINDER_VIEW_MASK)==9?"kind":(bits&FINDER_VIEW_MASK)==13?"date":"name");
+    serial_puts(" bits=");serial_putu(bits);serial_putc('\n');
+}
+
 static void flair_live_do_finder_content(flair_live_ctx_t *ctx,
                                          const boot_info_t *bi,
                                          const EventRecord *ev, int slot)
 {
     finder_surface_t s;
     if (!finder_surface_window(&s, slot)) return;
+    if (finder_win_header_click(&g_finder_shell->windows[slot], ev->where.h, ev->where.v)) {
+        finder_win_invalidate_all(g_finder_shell, slot);
+        finder_desk_repaint(ctx, bi);
+        finder_report_view(slot);
+        return;
+    }
     flair_live_do_surface(ctx, bi, ev, &s);
 }
 
@@ -5555,7 +5578,6 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
             kernel_halt();
         }
     }
-    panic_set_console(g_int21_con);
 #else
     (void)bi;
 #endif
@@ -5720,12 +5742,15 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         return;
 
     case FCMD_VIEW_ICONS:
+    case FCMD_VIEW_SMALL:
+    case FCMD_VIEW_NAME:
+    case FCMD_VIEW_SIZE:
+    case FCMD_VIEW_KIND:
+    case FCMD_VIEW_DATE:
         if (o->status != FINDER_WIN_OK) return;
         finder_win_invalidate_all(g_finder_shell, o->slot);
         finder_desk_repaint(ctx, bi);
-        serial_puts("FINDER-VIEW win=");
-        serial_puti((int32_t)o->slot);
-        serial_puts(" mode=icons\n");
+        finder_report_view(o->slot);
         return;
 
     case FCMD_EMPTY_TRASH:
@@ -6337,7 +6362,6 @@ void kernel_main(void)
 
             /* Bind the live console so a CPU-exception panic can render its
              * one visible line (beads initech-a5a / panic.c). */
-            panic_set_console(&con);
 
             /* Bind the SAME console to the INT 21h CON sink so `int 0x21` AH=09h
              * (below) drives the LFB console + serial (beads initech-509.5). */
@@ -6398,8 +6422,8 @@ void kernel_main(void)
      *
      * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
      * serial line + a diagnostic dump + the on-screen "PC LOAD LETTER" line
-     * (rendered through the live console, bound to panic via panic_set_console
-     * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
+     * (rendered through the live console above), then a permanent cli;hlt.
+     * We do not have a CPU int_frame_t here
      * (this is a boot-policy panic, not a CPU exception), so we render the
      * PC LOAD LETTER line directly and dump the relevant values to serial. */
     if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||

@@ -10,15 +10,18 @@
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  *
- * The full in-universe "PC LOAD LETTER" panic screen is beads initech-s25; this
- * milestone needs only a serial register dump (grep-able marker "PANIC vec=NN
- * err=MM") plus one console line, then a permanent cli;hlt loop.
+ * initech-s25: PRD Appendix B + Sec 5; CLAUDE Rule 2. Paint the physical
+ * display directly from the boot handoff, even before CON is bound, and
+ * independently of any FLAIR/DOS console viewport. VGA 8x16 at 2x is the
+ * CRT transposition of the lane's two-line printer panel (no panic in the
+ * Appendix A frame). Registers stay serial-only, behind PANIC_DEBUG=1.
  */
 
 #include <stdint.h>
 #include "idt.h"
 #include "io.h"
-#include "console.h"
+#include "boot_info.h"
+#include "panic_screen.h"
 #include "pic.h"   /* PIC_SLAVE_BASE for the spurious-IRQ EOI discipline (bcg.7) */
 
 /* 8259A master command port + non-specific EOI (OCW2). Ref: 8259A datasheet
@@ -38,9 +41,12 @@
  * baud, small enough to bail in a fraction of a second on dead hardware. */
 #define PSERIAL_SPIN_MAX 100000u
 
-/* Optional live console for the one-line panic banner. kmain.c sets this once
- * the console is up (panic_set_console); NULL before that -> serial-only. */
-static console_t *g_panic_con = 0;
+/* Release builds keep the PANIC marker but omit the private register dump.
+ * The gate substitutes a -DPANIC_DEBUG=1 object; text/format is unchanged.
+ * Ref: PRD Appendix B; initech-s25. */
+#ifndef PANIC_DEBUG
+#define PANIC_DEBUG 0
+#endif
 
 /* The CPU-exception triage hook (bead initech-tdnl.14; reconciliation Part C
  * item 7). NULL in every kernel except the FLAIRTENANTS ones, which install the
@@ -54,11 +60,6 @@ static void (*g_fault_hook)(uint32_t vector, uint32_t eip) = 0;
 void panic_set_fault_hook(void (*hook)(uint32_t vector, uint32_t eip))
 {
     g_fault_hook = hook;
-}
-
-void panic_set_console(void *con)
-{
-    g_panic_con = (console_t *)con;
 }
 
 static void pserial_putc(char c)
@@ -89,6 +90,7 @@ static void pserial_hex(uint32_t v, int digits)
     }
 }
 
+#if PANIC_DEBUG
 /* Mnemonic table for the first 32 vectors (Intel SDM Vol 3A Table 6-1). */
 static const char *exc_name(uint32_t vec)
 {
@@ -115,6 +117,23 @@ static const char *exc_name(uint32_t vec)
         case 21: return "#CP control protection";
         default: return "reserved/spurious";
     }
+}
+#endif
+
+static void panic_draw(uint32_t vector)
+{
+    const boot_info_t *b=(const boot_info_t *)(uintptr_t)BOOT_INFO_ADDR;
+    if (b->lfb_bpp==8u) {
+        /* Reset our two indices even if FLAIR replaced the entire palette.
+         * Ref: kmain.c vga_set_dac; boot_info.h lfb_dac_bits (6/8).
+         * Black needs no quantisation; gray=48 at 6 bits, 192 at 8 bits. */
+        uint8_t gray=b->lfb_dac_bits==8u ? 192u : 48u;
+        outb(0x3C8,0); outb(0x3C9,0); outb(0x3C9,0); outb(0x3C9,0);
+        outb(0x3C8,15); outb(0x3C9,gray); outb(0x3C9,gray); outb(0x3C9,gray);
+    }
+    panic_screen_paint((volatile uint8_t *)(uintptr_t)b->lfb_addr,
+                       b->lfb_pitch,b->lfb_bpp,b->lfb_width,b->lfb_height,
+                       (const uint8_t *)(uintptr_t)b->font_addr,vector);
 }
 
 /* The common-stub C entry. For ANY exception this is terminal: dump + halt. */
@@ -151,6 +170,8 @@ void isr_dispatch_c(int_frame_t *frame)
         g_fault_hook(frame->vector, frame->eip);
     }
 
+    panic_draw(frame->vector);
+
     /* Grep-able one-liner first (the oracle keys on "PANIC vec=NN err=MM"). */
     pserial_puts("PANIC vec=");
     pserial_hex(frame->vector, 2);
@@ -158,6 +179,7 @@ void isr_dispatch_c(int_frame_t *frame)
     pserial_hex(frame->err_code, 8);
     pserial_putc('\n');
 
+#if PANIC_DEBUG
     /* Human-readable register dump (Rule 2 -- a panic with context). */
     pserial_puts("  "); pserial_puts(exc_name(frame->vector)); pserial_putc('\n');
     pserial_puts("  eip="); pserial_hex(frame->eip, 8);
@@ -170,19 +192,7 @@ void isr_dispatch_c(int_frame_t *frame)
     pserial_puts("  esi="); pserial_hex(frame->esi, 8);
     pserial_puts(" edi="); pserial_hex(frame->edi, 8);
     pserial_puts(" ebp="); pserial_hex(frame->ebp, 8); pserial_putc('\n');
-
-    /* One visible console line (the full PC LOAD LETTER screen is initech-s25).
-     * The hourglass-canon panic text plus the vector in hex. */
-    if (g_panic_con) {
-        console_puts(g_panic_con, "\nPC LOAD LETTER  (exception 0x");
-        char hx[3];
-        static const char H[] = "0123456789ABCDEF";
-        hx[0] = H[(frame->vector >> 4) & 0xFu];
-        hx[1] = H[frame->vector & 0xFu];
-        hx[2] = 0;
-        console_puts(g_panic_con, hx);
-        console_puts(g_panic_con, ")\n");
-    }
+#endif
 
     pserial_puts("HALTED\n");
 

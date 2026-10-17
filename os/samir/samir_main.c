@@ -96,6 +96,7 @@
 extern int query_register(xb_interp *ip);
 extern int mutate_register(xb_interp *ip);
 extern int set_register(xb_interp *ip);
+extern void set_close_alternate(xb_interp *ip);
 extern int proc_register(xb_interp *ip);
 extern int report_register(xb_interp *ip);   /* cmd/report.c (initech-airx) */
 
@@ -111,173 +112,9 @@ extern int report_register(xb_interp *ip);   /* cmd/report.c (initech-airx) */
  */
 extern int proc_run(xb_interp *ip, const char *prg);
 
-/* ===================================================================== */
-/* The 151-code dBASE III PLUS 1.1 error catalog.                          */
-/*                                                                         */
-/* TRANSCRIBED from spec/samir/dbase_msg_codes.tsv (mined from DBASE.MSG;  */
-/* 151 codes, 1-based ordinal). Codes 32, 40, 69, 135, 151 have empty      */
-/* messages in the source and are preserved empty here. The freestanding   */
-/* engine cannot read the .tsv at runtime, so the strings live inline.     */
-/* ASCII-clean (Rule 12). g_msg[0] is unused (ordinals are 1-based).       */
-/* ===================================================================== */
-
-#define REPL_MSG_COUNT 151
-
-/* Packed: entry k is the k-th NUL-terminated string (initech-airx: the
- * pointer table cost 608 image bytes; text and ordinals are unchanged). */
-static const char g_msg[] =
-    /*   0 */ "" "\0"
-    /*   1 */ "File does not exist." "\0"
-    /*   2 */ "Unassigned file no." "\0"
-    /*   3 */ "File is already open." "\0"
-    /*   4 */ "End of file encountered." "\0"
-    /*   5 */ "Record is out of range." "\0"
-    /*   6 */ "Too many files are open." "\0"
-    /*   7 */ "File already exists." "\0"
-    /*   8 */ "Unbalanced parenthesis." "\0"
-    /*   9 */ "Data type mismatch." "\0"
-    /*  10 */ "Syntax error." "\0"
-    /*  11 */ "Invalid function argument." "\0"
-    /*  12 */ "Variable not found." "\0"
-    /*  13 */ "ALIAS not found." "\0"
-    /*  14 */ "No find." "\0"
-    /*  15 */ "Not a dBASE database." "\0"
-    /*  16 */ "*** Unrecognized command verb." "\0"
-    /*  17 */ "Cannot select requested database." "\0"
-    /*  18 */ "Line exceeds maximum of 254 characters." "\0"
-    /*  19 */ "Index file does not match database." "\0"
-    /*  20 */ "Record is not in index." "\0"
-    /*  21 */ "Out of memory variable memory." "\0"
-    /*  22 */ "Out of memory variable slots." "\0"
-    /*  23 */ "Index is too big (100 char maximum)." "\0"
-    /*  24 */ "ALIAS name already in use." "\0"
-    /*  25 */ "Record is not inserted." "\0"
-    /*  26 */ "Database is not indexed." "\0"
-    /*  27 */ "Not a numeric expression." "\0"
-    /*  28 */ "Too many indices." "\0"
-    /*  29 */ "File is not accessible." "\0"
-    /*  30 */ "Position is off the screen." "\0"
-    /*  31 */ "Invalid function name." "\0"
-    /*  32 */ "" "\0"
-    /*  33 */ "Structure invalid." "\0"
-    /*  34 */ "Operation with Memo field invalid." "\0"
-    /*  35 */ "Unterminated string." "\0"
-    /*  36 */ "Unrecognized phrase/keyword in command." "\0"
-    /*  37 */ "Not a Logical expression." "\0"
-    /*  38 */ "Beginning of file encountered." "\0"
-    /*  39 */ "Numeric overflow (data was lost)." "\0"
-    /*  40 */ "" "\0"
-    /*  41 */ ".DBT file cannot be opened." "\0"
-    /*  42 */ "CONTINUE without LOCATE." "\0"
-    /*  43 */ "Insufficient memory." "\0"
-    /*  44 */ "Cyclic relation." "\0"
-    /*  45 */ "Not a Character expression." "\0"
-    /*  46 */ "Illegal value." "\0"
-    /*  47 */ "No fields to process." "\0"
-    /*  48 */ "Field not found." "\0"
-    /*  49 */ "File has been deleted." "\0"
-    /*  50 */ "Report file invalid." "\0"
-    /*  51 */ "End of file or error on keyboard input." "\0"
-    /*  52 */ "No database is in USE." "\0"
-    /*  53 */ "There are no files of the type requested in this drive or catalog." "\0"
-    /*  54 */ "Label file invalid." "\0"
-    /*  55 */ "Memory Variable file is invalid." "\0"
-    /*  56 */ "Disk full when writing file:" "\0"
-    /*  57 */ "CHR() : Out of range." "\0"
-    /*  58 */ "LOG() : Zero or negative." "\0"
-    /*  59 */ "SPACE() : Too large." "\0"
-    /*  60 */ "SPACE() : Negative." "\0"
-    /*  61 */ "SQRT() : Negative." "\0"
-    /*  62 */ "SUBSTR() : Start point out of range." "\0"
-    /*  63 */ "STR() : Out of range." "\0"
-    /*  64 */ "Internal error:" "\0"
-    /*  65 */ "Unknown command code:" "\0"
-    /*  66 */ "CMDSET():" "\0"
-    /*  67 */ "EVAL work area overflow" "\0"
-    /*  68 */ "Illegal opcode" "\0"
-    /*  69 */ "" "\0"
-    /*  70 */ "** WARNING ** Data will probably be lost.  Confirm? (Y/N)" "\0"
-    /*  71 */ ", Database in Use:" "\0"
-    /*  72 */ "could not be opened." "\0"
-    /*  73 */ "^^ Expected ON or OFF." "\0"
-    /*  74 */ "^--- Truncated." "\0"
-    /*  75 */ "^--- Out of range." "\0"
-    /*  76 */ "- : Concatenated string too large." "\0"
-    /*  77 */ "+ : Concatenated string too large." "\0"
-    /*  78 */ "^ or ** : Negative base, fractional exponent." "\0"
-    /*  79 */ "STORE : String too large." "\0"
-    /*  80 */ "***Execution error on" "\0"
-    /*  81 */ "Invalid date." "\0"
-    /*  82 */ "** Not Found **" "\0"
-    /*  83 */ "is not a dBASE command." "\0"
-    /*  84 */ "Unlink of old name incomplete, errno =" "\0"
-    /*  85 */ "Error:" "\0"
-    /*  86 */ "^--- Keyword not found." "\0"
-    /*  87 */ "NDX(): Invalid index number." "\0"
-    /*  88 */ "REPLICATE(): String too large." "\0"
-    /*  89 */ "Cannot erase a file which is open." "\0"
-    /*  90 */ "Operation with Logical field invalid." "\0"
-    /*  91 */ "File was not LOADed." "\0"
-    /*  92 */ "Unable to load COMMAND.COM." "\0"
-    /*  93 */ "No PARAMETER statement found." "\0"
-    /*  94 */ "Wrong number of parameters." "\0"
-    /*  95 */ "Valid only in programs." "\0"
-    /*  96 */ "Mismatched DO WHILE and ENDDO." "\0"
-    /*  97 */ "Bad read or illegal printer file." "\0"
-    /*  98 */ "Not a RunTime file." "\0"
-    /*  99 */ "Invalid DOS SET option." "\0"
-    /* 100 */ "Lock failed, but not because of previous lock." "\0"
-    /* 101 */ "Not suspended." "\0"
-    /* 102 */ "STUFF():  String too large." "\0"
-    /* 103 */ "DOs nested too deep." "\0"
-    /* 104 */ "Unknown function key." "\0"
-    /* 105 */ "Table is full." "\0"
-    /* 106 */ "Invalid index number." "\0"
-    /* 107 */ "Invalid operator." "\0"
-    /* 108 */ "File is in use by another." "\0"
-    /* 109 */ "Record is in use by another." "\0"
-    /* 110 */ "Exclusive open of file is required." "\0"
-    /* 111 */ "Cannot write to a read-only file." "\0"
-    /* 112 */ "Index expression is too big (220 char maximum)." "\0"
-    /* 113 */ "Index interrupted.  Index will be deleted if not completed." "\0"
-    /* 114 */ "Index damaged.  REINDEX should be done before using data." "\0"
-    /* 115 */ "Invalid DIF File Header." "\0"
-    /* 116 */ "Invalid DIF vector - DBF field mismatch." "\0"
-    /* 117 */ "Invalid DIF type indicator." "\0"
-    /* 118 */ "Invalid DIF character." "\0"
-    /* 119 */ "Invalid SYLK file header." "\0"
-    /* 120 */ "Invalid SYLK file dimension bounds." "\0"
-    /* 121 */ "Invalid SYLK file format." "\0"
-    /* 122 */ "Data Catalog has not been established." "\0"
-    /* 123 */ "Invalid printer port." "\0"
-    /* 124 */ "Invalid printer redirection." "\0"
-    /* 125 */ "Printer not ready." "\0"
-    /* 126 */ "Printer is either not connected or turned off." "\0"
-    /* 127 */ "Not a valid VIEW file." "\0"
-    /* 128 */ "Unable to SKIP." "\0"
-    /* 129 */ "Unable to LOCK." "\0"
-    /* 130 */ "Record is not locked." "\0"
-    /* 131 */ "Database is encrypted." "\0"
-    /* 132 */ "Unauthorized login." "\0"
-    /* 133 */ "Unauthorized access level." "\0"
-    /* 134 */ "Not a valid QUERY file." "\0"
-    /* 135 */ "" "\0"
-    /* 136 */ "Unsupported path given." "\0"
-    /* 137 */ "Maximum record length exceeded." "\0"
-    /* 138 */ "No fields were found to copy." "\0"
-    /* 139 */ "Cannot JOIN a file with itself." "\0"
-    /* 140 */ "Not a valid PFS file." "\0"
-    /* 141 */ "Fields list too complicated." "\0"
-    /* 142 */ "Relation record is in use by others." "\0"
-    /* 143 */ "Query not valid for this environment." "\0"
-    /* 144 */ "Unauthorized duplicate." "\0"
-    /* 145 */ "Error in configuration value." "\0"
-    /* 146 */ "Maximum path length exceeded." "\0"
-    /* 147 */ "Cannot append in column order." "\0"
-    /* 148 */ "Network server busy." "\0"
-    /* 149 */ "Master catalog is empty." "\0"
-    /* 150 */ "Help text not found." "\0"
-    /* 151 */ "" "\0";
+/* Packed storage only; every decoded ordinal is independently compared with
+ * spec/samir/dbase_msg_codes.tsv by test-samir-messages (PRD 6.6). */
+#include "samir/messages.h"
 
 /* ===================================================================== */
 /* Small freestanding helpers (no libc).                                   */
@@ -336,10 +173,9 @@ static void repl_render_error(samir_pal_t *pal, int code)
     repl_puts(pal, num);
     repl_puts(pal, "  ");
     {
-        const char *m = "";
-        if (lookup >= 1 && lookup <= REPL_MSG_COUNT)
-            for (m = g_msg; lookup--; ) m += rt_strlen(m) + 1u;
-        repl_puts(pal, *m ? m : "Internal error.");
+        char m[128];
+        unsigned n = samir_message((unsigned)lookup, m, sizeof m);
+        repl_puts(pal, n ? m : "Internal error.");
     }
     repl_puts(pal, "\n");
 }
@@ -858,6 +694,7 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
     }
 
     xb_interp_ctx(ip)->set_status=0;
+    set_close_alternate(ip);
     samir_status_refresh(ip);
     wa_close_all(xb_interp_env(ip));
     return INTERP_OK;

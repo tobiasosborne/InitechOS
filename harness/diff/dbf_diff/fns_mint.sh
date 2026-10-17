@@ -1,0 +1,56 @@
+#!/bin/sh
+# PRD 6.6: real III PLUS 1.1 only; independent bytes, never SAMIR output.
+# Manual printed pages and capture hashes are recorded by the lane ledger.
+set -eu
+ref=${1:-../dbase3-decomp}
+only=${2:-all}
+root=$(pwd)
+dest="$root/build/samirfns/golden"
+mkdir -p "$dest"
+for file in DBASE.EXE DBASE.OVL DBASEINL.OVL DBASE.MSG; do
+    cp -f "$ref/mint/work/$file" "$dest/$file"
+done
+printf 'STATUS=OFF\r\nTALK=OFF\r\nSAFETY=OFF\r\nBELL=OFF\r\n' > "$dest/CONFIG.DB"
+printf 'PROCEDURE LIBONE\r\n? "LIBRARY ONE"\r\nRETURN\r\nPROCEDURE LIBTWO\r\n? "LIBRARY TWO"\r\nRETURN\r\n' > "$dest/LIBRARY.PRG"
+printf 'SET TALK OFF\r\nSET SAFETY OFF\r\nON ERROR ? "MINT-ERROR", ERROR(), MESSAGE()\r\n' > "$dest/MINT.PRG"
+for input in "$root"/harness/diff/dbf_diff/xbase_prog_diff/corpus/fns/*.prg; do
+    name=$(basename "$input" .prg)
+    if [ "$only" != all ] && [ "$only" != "$name" ]; then continue; fi
+    work="$dest/$name"
+    mkdir -p "$work/DATA"
+    cp -f "$input" "$work/FNSTEST.PRG"
+    cp -f "$dest/LIBRARY.PRG" "$work/LIBRARY.PRG"
+    cp -f "$root/build/CLIENTS.DBF" "$work/BASE.DBF"
+    cp -f "$root/build/CLIENTS.DBF" "$work/OTHER.DBF"
+    cp -f "$root/build/CLIENTS.DBF" "$work/DATA/BASE.DBF"
+    printf '? "PROGRAM IN DATA"\r\nRETURN\r\n' > "$work/DATA/SUBPROG.PRG"
+    if [ "$name" = path ] || [ "$name" = default ]; then rm -f "$work/BASE.DBF"; fi
+    # Each directory is a fresh mounted C: so state/file ownership cannot leak.
+    for file in DBASE.EXE DBASE.OVL DBASEINL.OVL DBASE.MSG CONFIG.DB; do cp -f "$dest/$file" "$work/$file"; done
+    printf 'SET TALK OFF\r\nSET SAFETY OFF\r\nON ERROR ? "MINT-ERROR", ERROR(), MESSAGE()\r\nSET ALTERNATE TO GOLD.OUT\r\nSET ALTERNATE ON\r\nDO FNSTEST\r\nSET ALTERNATE TO\r\nQUIT\r\n' > "$work/MINT.PRG"
+    cat > "$work/mint.conf" <<EOF
+[sdl]
+output=surface
+[dosbox]
+machine=svga_s3
+memsize=8
+[cpu]
+core=auto
+cputype=386
+cycles=max
+[autoexec]
+mount c "$work"
+c:
+DATE 07/24/1986
+DBASE MINT
+exit
+EOF
+    rm -f "$work/GOLD.OUT"
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout --foreground -k 2 12 dosbox-x -defaultconf -fastlaunch -nopromptfolder -conf "$work/mint.conf" -exit > "$work/mint.log" 2>&1 || :
+    test -s "$work/GOLD.OUT" || { echo "RED: MINT impossible: $name has no capture; see $work/mint.log"; exit 1; }
+    grep -q '\[FNS-END\]' "$work/GOLD.OUT" || { echo "RED: MINT incomplete: $name"; exit 1; }
+    test "$(tail -c 1 "$work/GOLD.OUT" | od -An -tu1 | tr -d ' ')" = 26 || { echo "RED: MINT unflushed: $name"; exit 1; }
+    if grep -q MINT-ERROR "$work/GOLD.OUT"; then cat "$work/GOLD.OUT"; exit 1; fi
+    (cd "$work" && sha256sum FNSTEST.PRG GOLD.OUT) > "$work/sha256.txt"
+    printf 'MINT SF-%s: %s/GOLD.OUT\n' "$name" "$work"
+done

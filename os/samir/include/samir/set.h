@@ -106,6 +106,8 @@ typedef enum {
 #define SET_GATED_TEXT_CAP  128
 
 typedef struct {
+    pal_fd alternate;
+    int alternate_on;
     /* --- Stored toggles (non-EXACT) --- */
     int  century;           /* 0 = OFF (default), 1 = ON */
     int  talk;              /* 1 = ON (default), 0 = OFF */
@@ -172,5 +174,6 @@ int          set_get_safety  (xb_interp *ip);
  * to inspect GATED fields (index_text, filter_text, relation_text).
  */
 const set_state *set_get_state(xb_interp *ip);
+void set_close_alternate(xb_interp *ip);
 
 #endif /* INITECH_SAMIR_SET_H */

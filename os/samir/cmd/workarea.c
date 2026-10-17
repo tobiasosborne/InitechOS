@@ -824,6 +824,30 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
     wa = &env->area[env->cur];
 #endif
 
+    /* Using III+ U5-190: foreign fields do not move the selected work area
+     * or either record pointer. SF-alias is minted against real III+ 1.1. */
+#ifndef SAMIR_FNS_MUTANT_alias
+    {
+        uint16_t j;
+        for(j=0;j+1<len;j++)if(name[j]=='-' && name[j+1]=='>') {
+            char alias[WA_ALIAS_CAP];uint16_t n=j,k=0;int a;
+            while(n && (name[n-1]==' '||name[n-1]=='\t'))n--;
+            if(!n || n>=sizeof alias)return 1;
+            for(k=0;k<n;k++)alias[k]=up1(name[k]);
+            alias[n]=0;
+            for(a=0;a<WA_NAREAS;a++)
+                if(env->area[a].open && ci_eq(env->area[a].alias,alias))break;
+            if(a==WA_NAREAS) {
+                a=alias_letter_area(alias)-1;
+                if(a<0 || a>=WA_NAREAS)return 1;
+            }
+            wa=&env->area[a];j+=2;
+            while(j<len && (name[j]==' '||name[j]=='\t'))j++;
+            name+=j;len=(uint16_t)(len-j);break;
+        }
+    }
+#endif
+
     if (!wa->open)
         return 1;                      /* unbound: no table in selected area */
 
@@ -893,6 +917,12 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
 
     /* plain field: return the cached xb_val (C/N/D/L). */
     *out = wa->rec_cache[found];
+    /* SF-alias: expression output retains the numeric field descriptor's
+     * width/places, just as LIST does (Using III+ U5-15/U5-144). */
+    if(out->t==XB_N) {
+        const dbf_field_t *f=dbf_field(wa->tbl,found);
+        out->num_width=f->field_len;out->num_dec=f->dec_count;
+    }
     return 0;
 }
 
@@ -1424,6 +1454,8 @@ int xb_interp_console_visible(xb_interp *ip)
 }
 void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
 {
+    if(ip && ip->ctx.mirror_output && n)
+        ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);
 #ifndef SAMIR_MUTATE_CONSOLE
     if(!xb_interp_console_visible(ip)) return;
 #endif

@@ -72,6 +72,7 @@
  * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
  */
 #include "finder_menu.h"
+#include "finder_windows.h" /* kind=4 view policy, no renderer dependency */
 
 /* Shorthand for the two constant MenuItem shapes this file repeats, so the
  * tables below read as the F4.2 lists they transcribe rather than as a wall of
@@ -170,13 +171,13 @@ static MenuItem finder_edit_items[] = {
 };
 
 /* ===========================================================================
- * VIEW  (514)  -- F4.2: by Icons (mark char, FUNCTIONAL) | by Small Icon
- *   (grayed) | by Name/Size/Kind/Label/Date (grayed -- list view deferred per
- *   plan R3.3) | as Buttons (grayed) | as Pop-up Window (grayed) | div |
- *   Clean Up (FUNCTIONAL) | Arrange (by Name) (FUNCTIONAL)
+ * VIEW (514), F4.2 + tdnl.44: Icons, Small Icon, Name/Size/Kind/Date
+ *   are functional with one check on the current mode. Label, Buttons and
+ *   Pop-up stay grayed. Clean Up and Arrange retain their command spine.
+ *   Geometry/sort cue: system7-decomp mint-results-008 Sec6.
  * ===========================================================================*/
 static MenuItem finder_view_items[] = {
-    FM_MARKED("by Icons",         0, FM_PRED_REST), /* VIEW_ICONS  front win   */
+    FM_ITEM("by Icons",         0, FM_PRED_REST), /* VIEW_ICONS  front win   */
     FM_ITEM("by Small Icon",      0, 0),
     FM_ITEM("by Name",            0, 0),
     FM_ITEM("by Size",            0, 0),
@@ -277,6 +278,11 @@ static const fm_pred_row_t FINDER_MENU_PREDS[] = {
     { FINDER_MENU_IX_FILE,    1u, finder_pred_selection_openable }, /* Open #2 */
     { FINDER_MENU_IX_FILE,    3u, finder_pred_front_is_diskwin   }, /* Close #4 */
     { FINDER_MENU_IX_VIEW,    0u, finder_pred_front_is_diskwin   }, /* Icons #1 */
+    { FINDER_MENU_IX_VIEW, 1u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 2u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 3u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 4u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 6u, finder_pred_front_is_diskwin },
     { FINDER_MENU_IX_VIEW,   10u, finder_pred_front_is_diskwin   }, /* CleanUp  */
     { FINDER_MENU_IX_VIEW,   11u, finder_pred_front_is_diskwin   }  /* Arrange  */
 #if !defined(FINDER_MENU_MUT_DEAD_ITEM)
@@ -313,6 +319,13 @@ MenuInfo *finder_menu_apple(void)
 void finder_menu_refresh_enables(const FinderCtx *fx)
 {
     uint16_t i;
+
+    /* tdnl.44: one check, derived from the FRONT folder, including after Restart.
+     * The unsupported Label/Buttons/Pop-up rows remain authored disabled. */
+    static const uint16_t modes[7] = {0,2,1,5,9,0xffffu,13};
+    for (i = 0; i < 7; i++)
+        finder_view_items[i].mark = (fx && fx->front_is_diskwin &&
+            (fx->view_bits & FINDER_VIEW_MASK) == modes[i]) ? FINDER_MENU_MARK_CHECK : 0;
 
     for (i = 0; i < FINDER_MENU_PREDS_N; i++) {
         const fm_pred_row_t *r = &FINDER_MENU_PREDS[i];
