@@ -1,0 +1,171 @@
+% Chapter 3 -- Types (model: TP 6.0 PG Ch 3).
+% Sources (Law 1): ADR-0007 DEC-02 (the subset table, dialect pinning:
+% 32-bit integer; deferred families and their idioms); os/tps/tps.pas
+% ParseTypeName, ParseArrayType, ParseArrayBound, ParseRecordType,
+% ParseTypeSection, ParseResultType, FailType TeBoundForm/TeUnknownType;
+% os/tps/SYMBOLS-DUMP.md s5 (sizes); seed/typecheck.h (B5-B8 rules).
+% Every rule stated was also checked by compiling a probe program with the
+% shipped compiler.  Diagrams: section-type, type-decl, record-type,
+% field-group, type-name, array-type, array-bound, result-type.
+\Gates{test-tps-type-fpc, test-tps-type-os, test-compiler, test-compiler-os, test-pubs-turbo}
+\chapter{Types}
+\ix{types}
+
+Every constant, variable, field, parameter and function result in a Turbo
+Initech program has a \term{type}.  The type fixes the values the item can
+hold, the operations that apply to it and the space it occupies.  Turbo
+Initech has seven kinds of type:
+
+\begin{BorTable}{The Turbo Initech types}{p{26mm}p{72mm}}
+\Hd{Type} & \Hd{Values}\EndHd
+\rw{integer} & whole numbers from $-2147483648$ through 2147483647\\
+\rw{boolean} & \rw{false} and \rw{true}\\
+\rw{char} & the 256 characters with codes 0 through 255\\
+\rw{string} & sequences of 0 to 255 characters\\
+array types & a fixed number of elements of one type\\
+record types & a fixed set of named integer, Boolean and character fields\\
+\rw{file} & a connection to an InitechDOS file\\
+\end{BorTable}
+
+Types are written with a \term{type name}:
+
+\Syntax{type-name}
+
+The identifier form names a record type declared in a type section.  The
+\rw{string} form is described below.  An array type is written out where
+a variable is declared (Chapter 4); it has no name.
+
+\section{Integer}
+\ix{integer type}
+The type \rw{integer} holds 32-bit signed whole numbers, from
+$-2147483648$ through 2147483647.  Arithmetic on integers keeps the low 32
+bits of the exact result, so a result outside the range \term{wraps
+around}: $2147483647 + 1$ gives $-2147483648$.  No error is reported.
+Chapter 5 defines the operators.
+
+\MarginNote{Turbo Initech integers are 32-bit.}The integer of Turbo Initech
+is twice the width of the integer of many other Pascal compilers for
+personal computers; programs written for a 16-bit integer may print
+different results where their arithmetic overflowed.
+
+\section{Boolean}
+\ix{boolean type}
+The type \rw{boolean} has the two values \rw{false} and \rw{true}, in that
+order: \code{false < true} is \rw{true}.  \std{ord}{Ord} of \rw{false} is 0
+and of \rw{true} is 1.  Conditions in \rw{if}, \rw{while} and \rw{repeat}
+statements must be of type \rw{boolean}; an integer is not accepted in their
+place.  \std{write}{Write} and \std{writeln}{Writeln} print the values as
+\code{TRUE} and \code{FALSE}.
+
+\section{Char}
+\ix{char type}
+The type \rw{char} holds one character, an 8-bit code from 0 through 255.
+Characters are ordered by their codes.  The standard function
+\std{ord}{Ord} gives the code of a character and \std{chr}{Chr} gives the
+character with a code; \std{chr}{Chr} uses only the low 8 bits of its
+argument, so \code{Chr(321)} is \code{'A'}.  Characters are not numbers:
+\code{'A' + 1} is not allowed.  A string literal of one character, such as
+\code{'A'}, is a character constant.
+
+\section{Strings}
+\ix{string type}
+A \term{string} holds a sequence of characters whose length can change
+while the program runs, up to a fixed \term{capacity}.  The type
+\rw{string} has capacity 255; \code{string[}\textit{n}\code{]} has capacity
+\textit{n}, which is written as an integer literal or an integer constant
+from 1 through 255.
+
+\ix{truncation of strings}
+When a longer value is assigned to a string, the value is cut to the
+capacity of the string: if \id{Short} is a \code{string[4]}, then after
+\code{Short := 'Initech'} it holds \code{'Init'}.  The standard function
+\std{length}{Length} gives the current length.  The characters of a string
+are its elements \code{S[1]} through \code{S[Length(S)]}, each of type
+\rw{char}.  Chapter 5 describes concatenation and comparison of strings, and
+Chapter 10 the representation in memory.
+
+\section{Array types}
+\ix{array types}
+An \term{array} has a fixed number of \term{elements}, all of the same
+type, numbered by consecutive integers.
+
+\Syntax{array-type}
+\Syntax{array-bound}
+
+The two bounds are integer literals, which may be negative, or integer
+constants; the lower bound must not be greater than the upper bound.  An
+array has $\textit{upper} - \textit{lower} + 1$ elements.  The element type
+is \rw{integer}, \rw{boolean}, \rw{char} or a record type.  There are no
+arrays of strings, arrays of files or arrays of arrays.
+
+An array type is not a named type.  It is written in a variable
+declaration, and two arrays may not be assigned to each other as wholes;
+elements are assigned one at a time.  An array cannot be a parameter, but
+an element of an array can be passed to a \rw{var} parameter of the
+element's type.
+
+\section{Record types}
+\ix{record types}
+\ix{type section}
+A \term{record} is a group of named \term{fields}.  Record types are
+declared in a \term{type section}:
+
+\Syntax{section-type}
+\Syntax{type-decl}
+\Syntax{record-type}
+\Syntax{field-group}
+
+The fields of a record type are of type \rw{integer}, \rw{boolean} or
+\rw{char}.  Every field group ends with a semicolon, including the last
+one.  A record type may be used for variables, for the elements of arrays
+and for \rw{var} parameters.  One record variable may be assigned to
+another of the same record type in a single assignment; records of
+different types are never compatible, even when their fields are alike.
+Records cannot be compared, written, passed as value parameters or
+returned by functions.
+
+\section{File type}
+\ix{file type}
+A variable of type \rw{file} connects the program to a file of InitechDOS.
+A file variable may only be declared as a global or local variable and
+passed as the first argument of the five file routines (Chapter 9); it
+cannot be assigned, compared, written, used in an expression, or placed in
+an array, a record or a parameter.
+
+\section{Function result types}
+\ix{function results}
+A function returns a value of a simple type:
+
+\Syntax{result-type}
+
+\section{Types at work}
+The program \file{TYPES.PAS} declares a variable of each kind:
+
+\Program{types}
+
+\ProgramOutput{types}
+
+\section{Constructions that replace other types}
+\ix{enumerated types}
+\ix{sets}
+\ix{pointers}
+Turbo Initech has no enumerated types, subranges, sets, pointers or real
+numbers.  Programs use these constructions instead:
+
+\begin{itemize}
+\item In place of an \textbf{enumerated type}, declare one integer constant
+  for each value.
+\item In place of a \textbf{set} and the membership test, write a Boolean
+  function that answers the question.
+\item In place of \textbf{pointers}, keep the items in arrays and link
+  them with integer indexes; reserve one index value, such as 0, to mean
+  ``no item.''
+\end{itemize}
+
+\Program{idioms}
+
+\ProgramOutput{idioms}
+
+The Turbo Initech compiler is written in exactly this way: its symbol
+table, its name pool and its parameter lists are fixed arrays indexed by
+integers.

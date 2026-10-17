@@ -1,0 +1,2 @@
+>>> test-tps-lex-build: DOS BSS=71704 bytes <= B9.4 soft reserve 73728; end=0x00067710 below env 0x6f000
+>>> test-tps-lex-build: green (seed compile + bare ELF link + DOS TPS.COM link)

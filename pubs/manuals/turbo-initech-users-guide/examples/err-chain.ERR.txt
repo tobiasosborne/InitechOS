@@ -1,0 +1,3 @@
+TPS-PARSE-ERROR pos=101 line=7 col=15 expected=NO_CHAINED_RELATION found=LT
+TPS-TYPE-SKIP parser-error
+TPS-GEN-SKIP parser-error

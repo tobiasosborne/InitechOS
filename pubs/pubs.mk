@@ -323,8 +323,7 @@ test-pubs: test-pubs-build test-pubs-commands test-pubs-tps test-pubs-lint test-
 PUBS_DOS_BOOKS := initechdos-reference initechdos-users-guide
 test-pubs-commands: pubs-inventory test-pubs-build
 	@set -e; for idx in $(PUBS_BUILD)/gate/*/main.cmds $(PUBS_BUILD)/gate/*/main.mentions; do \
-		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*) continue;; esac; \
-		case $$idx in */initechdos-*/*|*/initechbase-*/*) continue;; esac; \
+		case $$idx in */initechdos-*/*|*/$(PUBS_TPS_BOOK)/*|*/initechbase-*/*|*/turbo-initech-*/*) continue;; esac; \
 		[ -z "$$(grep -v '^#' "$$idx" || true)" ] || { printf '!!! test-pubs RED COMMAND-SURFACE: %s needs its own shipped inventory before it can contain entries\n' "$$idx"; exit 1; }; done
 	@$(PUBS_GATE) commands $(PUBS_CHECK)/shipped $(PUBS_ALLOW) $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.cmds)
 	@$(PUBS_GATE) mentions $(PUBS_CHECK)/shipped $(foreach b,$(PUBS_DOS_BOOKS),$(PUBS_BUILD)/gate/$(b)/main.mentions)
@@ -408,3 +407,7 @@ test-pubs-families: $(PUBS_COVER_CHECK)
 	@command -v pdftoppm >/dev/null 2>&1 || { printf '!!! test-pubs-families FAIL: pdftoppm (poppler-utils) not found; the identity leg renders the covers with it\n'; exit 1; }
 	@COVER_CHECK=$(PUBS_COVER_CHECK) sh harness/pubs/families.sh
 endif
+
+# The Turbo Initech manuals carry their own shipped inventory (bead
+# initech-ipu5.12): pubs/turbo.mk.
+include pubs/turbo.mk

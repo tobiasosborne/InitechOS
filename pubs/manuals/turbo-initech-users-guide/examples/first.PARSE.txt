@@ -1,0 +1,13 @@
+TPS-PARSE-BEGIN
+ENTER program L1
+ENTER block L2
+ENTER statement L3
+ENTER stmt-write L3
+ENTER write-arg L3
+EXIT write-arg L3
+EXIT stmt-write L4
+EXIT statement L4
+EXIT block L4
+EXIT program L5
+TPS-PARSE-OK
+TPS-PARSE-END

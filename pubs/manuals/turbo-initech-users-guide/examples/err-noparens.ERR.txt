@@ -1,0 +1,3 @@
+TPS-PARSE-ERROR pos=76 line=8 col=1 expected=ASSIGN found=KW_END
+TPS-TYPE-SKIP parser-error
+TPS-GEN-SKIP parser-error
