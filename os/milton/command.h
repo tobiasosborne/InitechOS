@@ -38,6 +38,17 @@
 #define CMD_LINE_MAX   128
 #define CMD_TOKEN_MAX   64   /* a single command word or filename arg (8.3+path) */
 
+/* COPY grammar, MS-DOS 3.3 Reference pp.50-52. Every source occupies at
+ * least two bytes of the 128-byte command line. Modes: 0=default,1=A,2=B. */
+#define CMD_COPY_MAX 64
+typedef struct {
+    char names[CMD_LINE_MAX], dest[CMD_TOKEN_MAX];
+    uint8_t offset[CMD_COPY_MAX], mode[CMD_COPY_MAX], dest_mode;
+    unsigned count, verify, joined;
+} cmd_copy_t;
+int cmd_copy_parse(const char *, cmd_copy_t *);
+int cmd_name_map(const char *, const char *, char [13]);
+
 /* The recognized internal (built-in) commands, plus the "external" and "empty"
  * classifications. The REPL dispatches on this; the host oracle asserts the
  * classifier maps each command word to the right one (case-insensitively). */
@@ -62,6 +73,7 @@ typedef enum cmd_kind {
     CMD_TIME,        /* TIME [HH:MM[:SS]] -- show/set the system time (2Ch/2Dh)   */
     CMD_VOL,         /* VOL [drive:] -- DOS 3.3 volume identity                 */
     CMD_PATH,        /* PATH [directories] -- shared SET PATH search variable  */
+    CMD_COMMAND,     /* COMMAND /C command -- bounded secondary processor      */
     CMD_EXTERNAL     /* not a built-in -- try to EXEC <word>.COM                 */
 } cmd_kind_t;
 
