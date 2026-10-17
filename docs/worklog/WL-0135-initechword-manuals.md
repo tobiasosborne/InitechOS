@@ -185,3 +185,35 @@ main.pdf 4 panels and strip.pdf 1 page (0 DRAFT).
 - pubs/class/initech-wpc.sty, harness/pubs/iword_*.{c,sh}, ppm_grey_png.c,
   pubs/screens/flair_capture.sh, fixtures/pubs/initechword-reference/
 - harness/pubs/README.md "The InitechWord manuals"
+
+## Continuation (the Fable lane, same bead)
+
+The Opus lane stopped after the Workbook cover and spine.  The Fable lane
+took the worktree over, re-read CLAUDE.md, PUB-REF-0001, the WordPerfect
+5.1 annex and the lane's commits, re-ran every InitechWord gate itself
+(Rule 4) and did the Law-4 page review of all three books at 60 dpi
+against the annex's anatomy (s2-s7): the cover grid, verso, contents,
+divider leaves, AN-11 entries with the letter marker and the running foot
+naming the entry in force, the appendices, glossary, three-column index,
+colophon, the three comment forms, the card's four panels and the strip.
+
+### What changed
+
+- Both books: the last front-matter page was shipped after the page
+  counter had been reset to 1, so the Reference's last Contents page and
+  the Workbook's last Introduction page printed the folio 1 and the
+  divider leaf behind them printed 3.  A `\cleardoublepage` now precedes
+  the reset (main.tex, both books): Contents ends on vii, Introduction on
+  vi, the section divider is page 1 and The Basics / Lesson 1 start on 3,
+  the model's own numbering (annex s2 "Getting Started 1-21", s5
+  "Fundamentals I pp. 3-107").  Page counts unchanged.
+
+### Where to resume
+
+Nothing of the brief is open on this branch except the three DRAFT
+markers above, all of which wait on line-wide pieces (O-5 address check;
+the PK-13 cards, DRAFT-marked the same way in the InitechDOS books).  The
+extent stays where the shipped surface puts it (P1-P2: 220 items, 46
+entries, 36 lessons); the 700-950 / 300-420 page targets are the model's
+extent for a product with search, print, headers, columns, tables and
+spell, none of which ships (D-14: omitted, listed above).
