@@ -10,6 +10,7 @@
 \Gates{test-flair-calcda, test-flair-itext, test-stdfile,
   test-pubs-flair-screens}
 \chapter{Working with the Accessories}
+\label{ch:example}
 
 This chapter puts the accessories to work on a small task: working out a
 figure with the Calculator and sending it round in a memo written with
@@ -56,7 +57,24 @@ window is opened.}
 \Step Press \key{Ctrl-Q} to quit InitechText.
 \end{TaskSteps}
 
+\section{Finding the memo}
+\index{documents!finding}
+\begin{TaskSteps}
+\Step If the \texttt{APPS} window is open, close it, then double-click the
+\file{APPS} folder in the \texttt{Drive A Files} window.
+\Result{A Finder window shows the files that were in its folder when it
+opened, so the window must be opened again to show the new memo.}
+\Step Scroll to the end of the \texttt{APPS} window.
+\Result{The icon of \file{MEMO.TXT} is the last one.}
+\end{TaskSteps}
+
+\FlairScreen[label=fig:memofiled]{a_memofiled}{MEMO.TXT in the APPS folder}
+
+To read the memo again later, open InitechText, choose \menuitem{Open...},
+double-click \file{APPS} in the list, and double-click \file{MEMO.TXT}.
+Double-clicking the memo's icon in the Finder does not open it.
+
 \section{Where to go from here}
 The \doctitle{FLAIR User's Guide} describes the desktop, the Finder and the
-Trash, and Chapter~14 of it tells you how to copy your memo to another disk
+Trash, and Chapter~20 of it tells you how to copy your memo to another disk
 at the InitechDOS prompt.

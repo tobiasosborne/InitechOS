@@ -1,0 +1,14 @@
+# a_calccol: a column of three amounts added: 12.5 + 7.25 + 30 =
+# go (22,10) the apple in the upper menu bar
+m-100:-100,m-100:-100,m-98:-30
+# press at (22,10) 
+l1
+# hold (22,51) Calculator
+m0:41
+# release at (22,51) 
+l0
+WTENANT-REGISTER
+# type "12.5+7.25+30=" (80 ms between keys: a loaded host drops typeahead)
+k1,w80,k2,w80,kdot,w80,k5,w80,kshift-equal,w80,k7,w80,kdot,w80,k2,w80,k5,w80,kshift-equal,w80,k3,w80,k0,w80,kequal,w80
+# go (500,466) 
+m100:100,m100:100,m100:100,m100:100,m78:15

@@ -1,0 +1,56 @@
+# a_memofiled: the memo saved as MEMO.TXT in the APPS folder; InitechText quit,
+# the APPS window closed and opened again and scrolled to its end: the memo's
+# icon is in it.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90) 
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# type "The new figure is 1500." (80 ms between keys: a loaded host drops typeahead)
+kshift-t,w80,kh,w80,ke,w80,kspc,w80,kn,w80,ke,w80,kw,w80,kspc,w80,kf,w80,ki,w80,kg,w80,ku,w80,kr,w80,ke,w80,kspc,w80,ki,w80,ks,w80,kspc,w80,k1,w80,k5,w80,k0,w80,k0,w80,kdot,w80
+# key ctrl-s: the Save dialog box
+kctrl-s,w80
+w400
+# go (205,177) APPS in the list of the Save dialog box (row 2)
+m-95:-100,m0:-23
+# double-click at (205,177) the list shows APPS
+l1,l0,l1,l0
+w400
+kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace,kbackspace
+# type "memo.txt" (80 ms between keys: a loaded host drops typeahead)
+km,w80,ke,w80,km,w80,ko,w80,kdot,w80,kt,w80,kx,w80,kt,w80
+# key ret: Save
+kret,w80
+w600
+# key ctrl-q: InitechText quits
+kctrl-q,w80
+w600
+# key ctrl-w: Close Window closes APPS
+kctrl-w,w80
+w400
+# go (123,102) the APPS folder in the Drive A Files window
+m-82:-75
+# double-click at (123,102) 
+l1,l0,l1,l0
+w400
+# go (350,84) the scroll box of the APPS window
+m100:-18,m100:0,m27:0
+# drag (350,84) -> (350,232) to the bottom of the scroll bar
+l1,m0:100,m0:48,l0
+w400
+# go (500,468) 
+m100:100,m50:100,m0:36

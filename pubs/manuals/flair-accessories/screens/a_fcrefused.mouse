@@ -1,0 +1,81 @@
+# a_fcrefused: APPS\MICHAEL.CFG opened in InitechText and saved again (its
+# lines now end with a carriage return alone); then InitechCalc's Save:
+# the FILE COPY box does not appear.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (123,102) the APPS folder in the Drive A Files window
+m-100:38,m-100:0,m-100:0,m-100:0,m-77:0
+# double-click at (123,102) 
+l1,l0,l1,l0
+# go (372,90) the zoom box of the APPS window
+m100:-12,m100:0,m49:0
+# click at (372,90) 
+l1,l0
+# go (43,238) TEXT.EXE
+m-100:100,m-100:48,m-100:0,m-29:0
+# double-click at (43,238) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+# go (300,300) 
+m100:62,m100:0,m57:0
+# key ctrl-o: the Open dialog box, listing the top level
+kctrl-o,w80
+w400
+# go (259,205) APPS in the list (row 2)
+m-41:-95
+# double-click at (259,205) the list shows APPS
+l1,l0,l1,l0
+w400
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+# key down
+kdown,w80
+w200
+# key ret: Open MICHAEL.CFG
+kret,w80
+w600
+# key ctrl-s: Save it under its own name
+kctrl-s,w80
+w600
+# key ctrl-q: InitechText quits
+kctrl-q,w80
+w600
+# go (179,186) CALC.EXE
+m-80:-19
+# double-click at (179,186) 
+l1,l0,l1,l0
+WTENANT-REGISTER
+w400
+# key ctrl-s: InitechCalc's Save
+kctrl-s,w80
+w1500
+# go (500,469) 
+m100:100,m100:100,m100:83,m21:0

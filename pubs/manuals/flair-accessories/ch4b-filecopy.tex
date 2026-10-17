@@ -1,0 +1,95 @@
+% Chapter 5 -- The FILE COPY Box (feature topic).  Sources (Law 1):
+% os/milton/kmain.c flair_live_tenant_filecopy (the modal box with no
+% buttons, events absorbed; the bar shows min(100, rate * ticks / 100)
+% percent and the copy is advanced to the same share of the file, so the
+% bar never runs ahead of the disk; the box closes when the copy is done;
+% TENANT-FILECOPY-REFUSED when the setting or a file cannot be read);
+% os/flair/tbxgate.c tbx_fc_rate (APPS\MICHAEL.CFG, at most the first 256
+% bytes, a line that begins PROGRESS_BAR_RATE= followed by a whole number
+% from 1 to 100; lines are found by their line feeds); spec/toolbox_gate.h
+% Sec 12 (TBX_FILECOPY_RATE_MIN/MAX, TBX_FILECOPY_CFG_MAX);
+% spec/assets/menu_canon.h (FLAIR_CANON_FILECOPY_TITLE / _MSG);
+% os/apps/calc/calc.c (Save copies APPS\LEDGER.TXT to APPS\TABLES.TXT; a
+% refused copy shows nothing); os/apps/itext/itext.c doc_write (CR line
+% ends).  The refusal is replayed: a_fcrefused saves MICHAEL.CFG from
+% InitechText and then chooses InitechCalc's Save (rate=-3, REFUSED).
+% Model: a feature topic of What's New in System 7 (apple-macintosh.md
+% Sec 8.3).
+% GATES: test-flair-file-copy test-calc-file-copy-routing test-flair-itext test-pubs-flair-screens
+\Gates{test-flair-file-copy, test-calc-file-copy-routing, test-flair-itext,
+  test-pubs-flair-screens}
+\chapter{The FILE COPY Box}
+\label{ch:filecopy}
+\index{FILE COPY}
+
+The \texttt{FILE COPY} box is the progress box FLAIR shows while an
+application copies a file.  InitechCalc uses it when you save its tables.
+This chapter describes the box and the setting that governs it.
+
+\section{The box}
+\index{progress box}
+\SideHead{Title}\texttt{FILE COPY}, across the top of the box.
+\SideHead{Message}What is being copied.  For InitechCalc it reads
+\texttt{Saving tables to disk...}.
+\SideHead{Progress bar}A bar that fills from left to right.  The copy keeps
+pace with the bar: when the bar is half full, half of the file has been
+copied.
+
+Figure~\ref{fig:filecopy}, in Chapter~\ref{ch:icalc}, shows the box half way through a
+copy.
+
+The box has no buttons.  While it is on the screen the copy cannot be
+stopped, the box cannot be moved, and clicks and keys are ignored.  When
+the bar is full the box closes by itself, and what it covered is drawn
+again.
+
+\section{How long a copy takes}
+\index{FILE COPY!speed}
+The bar fills at a fixed rate, whatever the size of the file: a set
+percentage of its length each second.  The rate is the setting
+\file{PROGRESS\_BAR\_RATE} in the file \file{MICHAEL.CFG} in the
+\file{APPS} folder.  The data disk is delivered with the rate set to 20,
+so the bar fills in five seconds.
+\begin{center}\small
+\begin{tabular}{@{}p{38mm}p{40mm}@{}}
+\textbf{PROGRESS\_BAR\_RATE} & \textbf{A copy takes}\\\hline
+100 & 1 second\\
+50 & 2 seconds\\
+20 (as delivered) & 5 seconds\\
+10 & 10 seconds\\
+1 & 100 seconds\\
+\end{tabular}
+\end{center}
+
+\section{The setting file}
+\index{MICHAEL.CFG}
+\file{MICHAEL.CFG} is a short text file.  Lines that begin with a semicolon
+are notes and are ignored.  The setting is the line that begins
+\file{PROGRESS\_BAR\_RATE=}, followed at once by a whole number from 1 to
+100.  FLAIR reads the first 256 characters of the file when a copy starts,
+and finds the setting only at the start of a line.
+
+If the file is missing, if it has no such line, or if the number is outside
+1 to 100, FLAIR does not make the copy: the box does not appear, and the
+application's command does nothing.  For InitechCalc, choosing
+\menuitem{Save} then leaves the screen as it was, and \file{TABLES.TXT} is
+not written.
+
+\FlairScreen[label=fig:fcrefused]{a_fcrefused}{InitechCalc after Save, with
+a setting FLAIR cannot read: no FILE COPY box}
+\Operation{TENANT-FILECOPY-REFUSED}
+
+\section{Changing the rate}
+Change the number with the \file{EDLIN} line editor at the InitechDOS
+prompt, which keeps the lines of the file as InitechDOS writes them; the
+\doctitle{InitechDOS Reference} describes \file{EDLIN}.  The new rate is
+used for the next copy.
+
+\begin{MacWarning}
+Do not open \file{MICHAEL.CFG} in InitechText and save it.  InitechText
+ends each line with a carriage return alone, and FLAIR finds the lines of
+the setting file by their line feeds: after such a save it no longer finds
+the setting, and InitechCalc's \menuitem{Save} does nothing
+(Figure~\ref{fig:fcrefused}).  If this has happened, copy \file{MICHAEL.CFG}
+back from your copy of the data disk at the InitechDOS prompt.
+\end{MacWarning}

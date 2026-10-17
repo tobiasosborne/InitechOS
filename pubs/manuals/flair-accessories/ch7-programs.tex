@@ -8,6 +8,7 @@
 % GATES: test-flair-data-volume test-flair-app-launch
 \Gates{test-flair-data-volume}
 \chapter{Other Programs on the Data Disk}
+\label{ch:programs}
 
 The \file{APPS} folder holds more programs than the ones this guide
 describes.  Each has its own book.
@@ -30,6 +31,30 @@ the \doctitle{InitechDOS Reference}.
 \file{TPSPARM.DAT} and its database \file{TPS.DBF}.  It runs at the
 InitechDOS command prompt.  See \doctitle{TPS Report Generator Operating
 Procedures}.
+
+\section{Files the accessories use}
+\index{files used by the accessories}
+\begin{center}\small
+\begin{tabular}{@{}p{28mm}p{71mm}@{}}
+\textbf{File} & \textbf{Used by}\\\hline
+\file{CALCULAT.EXE} & the Calculator's program; while it is in \file{APPS},
+the Calculator is in the Apple menu\\
+\file{TEXT.EXE} & InitechText's program\\
+\file{CALC.EXE} & InitechCalc's program\\
+\file{LEDGER.TXT} & the ledger InitechCalc copies when you save its
+tables\\
+\file{TABLES.TXT} & the copy InitechCalc writes when you save its tables;
+not on the disk until the first save\\
+\file{MICHAEL.CFG} & the setting that fixes the speed of the
+\texttt{FILE COPY} progress bar\\
+\file{PAINT.EXE} & InitechPaint's program\\
+\file{CTENANT.EXE}, \file{TENANTFX.EXE} & the sample applications\\
+\end{tabular}
+\end{center}
+Leave these files in the \file{APPS} folder.  The Calculator is listed in
+the Apple menu only while \file{CALCULAT.EXE} is there (Chapter~\ref{ch:apple}), and
+InitechCalc saves its tables by copying \file{APPS\textbackslash
+LEDGER.TXT} to \file{APPS\textbackslash TABLES.TXT}.
 
 Appendix~A of the \doctitle{FLAIR User's Guide} lists every file on the
 data disk.
