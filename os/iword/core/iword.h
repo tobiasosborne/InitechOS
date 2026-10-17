@@ -190,6 +190,12 @@ typedef struct iw_ed {
 } iw_ed_t;
 #define IW_NO_BLOCK 0xFFFFFFFFu
 
+/* Read-only Search (Reference pp. 571-573). Query is a validated unit stream.
+ * Returns the first complete match span in the chosen direction; no wrap to
+ * the document's other end. No match / empty query returns IW_E_RANGE. */
+int iw_search(const iw_doc_t *d, const iw_doc_t *query, uint32_t from, int back,
+              uint32_t *start, uint32_t *end);
+
 /* Where the cursor is: the line index from the top of the document, the
  * line's first byte and the cursor's column on it. */
 typedef struct iw_where {
