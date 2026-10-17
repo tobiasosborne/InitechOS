@@ -1095,37 +1095,43 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
     uint32_t argc = 0u;
     int32_t rc;
 
-    switch (ax) {
-    case TBX_REGISTER:  argc = TBX_ARGC_REGISTER;  break;
-    case TBX_NEWWINDOW: argc = TBX_ARGC_NEWWINDOW; break;
-    case TBX_SETWTITLE: argc = TBX_ARGC_SETWTITLE; break;
-    case TBX_CONTENTORIGIN: argc = TBX_ARGC_CONTENTORIGIN; break;
-    case TBX_TEXTDRAW:  argc = TBX_ARGC_TEXTDRAW;  break;
-    case TBX_FILLRECT:  argc = TBX_ARGC_FILLRECT;  break;
-    case TBX_EXIT:      argc = TBX_ARGC_EXIT;      break;
-    case TBX_SETMBAR:   argc = TBX_ARGC_SETMBAR;   break;
-    case TBX_DRAWMENUBAR: argc = TBX_ARGC_DRAWMENUBAR; break;
-    case TBX_DRAWCELLS: argc = TBX_ARGC_DRAWCELLS; break;
-    case TBX_FILE_CREATE: argc = TBX_ARGC_FILE_CREATE; break;
-    case TBX_FILE_OPEN: argc = TBX_ARGC_FILE_OPEN; break;
-    case TBX_FILE_READ: argc = TBX_ARGC_FILE_READ; break;
-    case TBX_FILE_WRITE: argc = TBX_ARGC_FILE_WRITE; break;
-    case TBX_FILE_SEEK: argc = TBX_ARGC_FILE_SEEK; break;
-    case TBX_FILE_CLOSE: argc = TBX_ARGC_FILE_CLOSE; break;
-    case TBX_FILE_DELETE: argc = TBX_ARGC_FILE_DELETE; break;
-    case TBX_ALERT:     argc = TBX_ARGC_ALERT;     break;
-    case TBX_SCRAP_PUT: argc = TBX_ARGC_SCRAP_PUT; break;
-    case TBX_SCRAP_GET: argc = TBX_ARGC_SCRAP_GET; break;
-    case TBX_SFGETFILE: argc = TBX_ARGC_SFGETFILE; break;
-    case TBX_SFPUTFILE: argc = TBX_ARGC_SFPUTFILE; break;
-    case TBX_SETSCROLL: argc = TBX_ARGC_SETSCROLL; break;
-    case TBX_GETSCROLL: argc = TBX_ARGC_GETSCROLL; break;
-    case TBX_GLOBALTOLOCAL: argc = TBX_ARGC_GLOBALTOLOCAL; break;
-    case TBX_FILECOPY:  argc = TBX_ARGC_FILECOPY;  break;
-    case TBX_DIALOG: argc=6; break;
-    case TBX_SETTINGS: case TBX_CLOCK: argc=2; break;
-    case TBX_MEMORY: argc=1; break;
-    default:            argc = 0u;                 break;
+    /* Size round 6 (WL-0162): the verb -> argument-count map as data (every
+     * code is below 0x100; any other AX, high bits included, has argc 0). */
+    {
+        static const struct { uint8_t ax, argc; } argn[] = {
+        { (uint8_t)TBX_REGISTER, (uint8_t)(TBX_ARGC_REGISTER) },
+        { (uint8_t)TBX_NEWWINDOW, (uint8_t)(TBX_ARGC_NEWWINDOW) },
+        { (uint8_t)TBX_SETWTITLE, (uint8_t)(TBX_ARGC_SETWTITLE) },
+        { (uint8_t)TBX_CONTENTORIGIN, (uint8_t)(TBX_ARGC_CONTENTORIGIN) },
+        { (uint8_t)TBX_TEXTDRAW, (uint8_t)(TBX_ARGC_TEXTDRAW) },
+        { (uint8_t)TBX_FILLRECT, (uint8_t)(TBX_ARGC_FILLRECT) },
+        { (uint8_t)TBX_EXIT, (uint8_t)(TBX_ARGC_EXIT) },
+        { (uint8_t)TBX_SETMBAR, (uint8_t)(TBX_ARGC_SETMBAR) },
+        { (uint8_t)TBX_DRAWMENUBAR, (uint8_t)(TBX_ARGC_DRAWMENUBAR) },
+        { (uint8_t)TBX_DRAWCELLS, (uint8_t)(TBX_ARGC_DRAWCELLS) },
+        { (uint8_t)TBX_FILE_CREATE, (uint8_t)(TBX_ARGC_FILE_CREATE) },
+        { (uint8_t)TBX_FILE_OPEN, (uint8_t)(TBX_ARGC_FILE_OPEN) },
+        { (uint8_t)TBX_FILE_READ, (uint8_t)(TBX_ARGC_FILE_READ) },
+        { (uint8_t)TBX_FILE_WRITE, (uint8_t)(TBX_ARGC_FILE_WRITE) },
+        { (uint8_t)TBX_FILE_SEEK, (uint8_t)(TBX_ARGC_FILE_SEEK) },
+        { (uint8_t)TBX_FILE_CLOSE, (uint8_t)(TBX_ARGC_FILE_CLOSE) },
+        { (uint8_t)TBX_FILE_DELETE, (uint8_t)(TBX_ARGC_FILE_DELETE) },
+        { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
+        { (uint8_t)TBX_SCRAP_PUT, (uint8_t)(TBX_ARGC_SCRAP_PUT) },
+        { (uint8_t)TBX_SCRAP_GET, (uint8_t)(TBX_ARGC_SCRAP_GET) },
+        { (uint8_t)TBX_SFGETFILE, (uint8_t)(TBX_ARGC_SFGETFILE) },
+        { (uint8_t)TBX_SFPUTFILE, (uint8_t)(TBX_ARGC_SFPUTFILE) },
+        { (uint8_t)TBX_SETSCROLL, (uint8_t)(TBX_ARGC_SETSCROLL) },
+        { (uint8_t)TBX_GETSCROLL, (uint8_t)(TBX_ARGC_GETSCROLL) },
+        { (uint8_t)TBX_GLOBALTOLOCAL, (uint8_t)(TBX_ARGC_GLOBALTOLOCAL) },
+        { (uint8_t)TBX_FILECOPY, (uint8_t)(TBX_ARGC_FILECOPY) },
+        { (uint8_t)TBX_DIALOG, (uint8_t)(6) },
+        { (uint8_t)TBX_SETTINGS, (uint8_t)(2) },
+        { (uint8_t)TBX_CLOCK, (uint8_t)(2) },
+        { (uint8_t)TBX_MEMORY, (uint8_t)(1) }
+        };
+        for (uint32_t k = 0; k < sizeof argn / sizeof argn[0]; k++)
+            if (argn[k].ax == ax) { argc = argn[k].argc; break; }
     }
 #ifndef TBX_MUT_ARG_OFFSET
     for (uint32_t i = 0; i < argc; i++)
