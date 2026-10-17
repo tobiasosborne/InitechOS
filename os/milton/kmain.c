@@ -4173,8 +4173,11 @@ static void flair_live_do_finder_close(flair_live_ctx_t *ctx,
  * x=133..506 y=87..190"; "Cancel x=363..421, OK x=435..493"): frame
  * (133,87)..(507,191); message pen x 211, line cells from y 97 every 16 px
  * (cap tops 100/116/132); buttons y 158..178, Cancel x 363..422, OK x
- * 435..494. The caution ICON of the capture is not drawn (no strike exists
- * yet -- stated, a follow-up). The words: finder_trash_alert_text.
+ * 435..494. The caution ICON (bead initech-tdnl.87): an iconItem at the
+ * capture's icon cell (156,100)..(188,132) -- mint-008 s8_icons_alert_caution
+ * .png, the same alert of the same Finder, re/mint-results-008.md Sec 2 --
+ * drawn by the Dialog Manager from spec/assets/alert_icons.h. The words:
+ * finder_trash_alert_text.
  * Returns 1 on OK, 0 on Cancel (or when a bounded image's life ends). */
 #define FTA_L  133
 #define FTA_T   87
@@ -4182,6 +4185,9 @@ static void flair_live_do_finder_close(flair_live_ctx_t *ctx,
 #define FTA_B  191
 #define FTA_TEXT_X   211
 #define FTA_TEXT_Y    97
+#define FTA_ICON_X   156
+#define FTA_ICON_Y   100
+#define FTA_NO_ICON  0xFFu
 
 static rgn_rect_t fta_rect(int l, int t, int r, int b)
 {
@@ -4210,16 +4216,17 @@ static void fta_rgn(finder_win_rgn_t *s)
  * half builds, draws (unless `draw` is 0, a mutant's) and presents; the run
  * half takes the modal events, disposes and hands the footprint back. */
 static DialogRecord     g_al_dr;
-static DialogItem       g_al_it[3 + FINDER_ALERT_LINES];
+static DialogItem       g_al_it[3 + FINDER_ALERT_LINES + 1];   /* +1: the icon */
 static ControlRecord    g_al_btn[3];
 static finder_win_rgn_t g_al_rs, g_al_rc, g_al_ru;
 
-static void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                  const char *const *text, int n,
-                                  const char *const *btn, int nb, int draw)
+static void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                       const char *const *text, int n,
+                                       const char *const *btn, int nb, int draw,
+                                       unsigned icon)
 {
     static const int16_t bx[3][2] = { { 435, 494 }, { 363, 422 }, { 211, 295 } };
-    int k;
+    int k, ni = (icon != FTA_NO_ICON) ? 1 : 0;
 
     for (k = 0; k < nb; k++)
         control_init(&g_al_btn[k], pushButton, fta_rect(bx[k][0], 158, bx[k][1], 178),
@@ -4235,9 +4242,22 @@ static void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
         g_al_it[k].enabled = (uint8_t)((k < nb) ? 1 : 0);
         g_al_it[k]._pad[0] = g_al_it[k]._pad[1] = g_al_it[k]._pad[2] = 0u;
     }
+    if (ni) {
+        /* bead initech-tdnl.87: the alert's icon, an iconItem AFTER the
+         * buttons and the text, so the default / cancel item numbers are
+         * unchanged. Its ID rides in _pad[0] (dialog.h DIALOG_ITEM_ICON_ID). */
+        g_al_it[k].type    = iconItem;
+        g_al_it[k].ctrl    = (ControlRecord *)0;
+        g_al_it[k].text    = (const char *)0;
+        g_al_it[k].rect    = fta_rect(FTA_ICON_X, FTA_ICON_Y,
+                                      FTA_ICON_X + 32, FTA_ICON_Y + 32);
+        g_al_it[k].enabled = 0u;
+        g_al_it[k]._pad[0] = (uint8_t)icon;
+        g_al_it[k]._pad[1] = g_al_it[k]._pad[2] = 0u;
+    }
     fta_rgn(&g_al_rs); fta_rgn(&g_al_rc); fta_rgn(&g_al_ru);
     (void)NewDialog(&g_al_dr, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B), "", g_al_it,
-                    (uint16_t)(nb + n), 1u /* default */,
+                    (uint16_t)(nb + n + ni), 1u /* default */,
                     (uint16_t)(nb > 1 ? 2 : 1) /* cancel */,
                     (WindowMgr *)0, &g_al_rs.r, &g_al_rc.r, &g_al_ru.r);
     g_al_dr.window.port.portBits.bm = ctx->off;
@@ -4248,6 +4268,14 @@ static void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
         DrawDialog(&g_al_dr);
         flair_desktop_present(bi, &ctx->off);
     }
+}
+
+/* The alert with no icon item (every caller but the Empty Trash confirm). */
+static void flair_live_alert_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                  const char *const *text, int n,
+                                  const char *const *btn, int nb, int draw)
+{
+    flair_live_alert_open_icon(ctx, bi, text, n, btn, nb, draw, FTA_NO_ICON);
 }
 
 /* Returns the item hit (1..nb); the cancel item when a bounded image's life
@@ -4301,7 +4329,10 @@ static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
      * may certify that the notice was actually visible (Rule 6 / Law 2). */
     draw = !locked;
 #endif
-    flair_live_alert_open(ctx, bi, text, n, labels, locked ? 1 : 2, draw);
+    /* tdnl.87: the Empty Trash confirm is the captured CAUTION alert; the
+     * locked-file notice has no capture, so it keeps no icon. */
+    flair_live_alert_open_icon(ctx, bi, text, n, labels, locked ? 1 : 2, draw,
+                               locked ? FTA_NO_ICON : DIALOG_ICON_ID_CAUTION);
     if (locked) {
         serial_puts("FINDER-LOCKED-ALERT\n");
     } else {

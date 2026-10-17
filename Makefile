@@ -609,6 +609,8 @@ include spec/flair_exit_dos_traces.mk
 # tdnl.39 / 6k12 (audit F04): the LOCKED Trash window + Empty Trash traces.
 include spec/flair_trash_traces.mk
 include spec/flair_protection_traces.mk
+# WL-0140 (beads initech-tdnl.53 / .74 / .87): the LOCKED Finder icon-art traces.
+include spec/flair_finder_icons_traces.mk
 
 # The LOCKED R3.7 app-launch traces (spec/flair_app_launch_traces.mk, Rule
 # 8/11; bead initech-tdnl.14): FLAIR_APP_LAUNCH_SPEC (+ _SHOW/_PRE/_DOUBLE/
@@ -8109,6 +8111,7 @@ endef
         test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
         test-cursor test-cursor-mutant \
         test-desk-icons test-desk-icons-mutant \
+        test-finder-icon-art test-finder-icon-art-mutant \
         test-window test-window-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
         test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -8400,7 +8403,7 @@ $(KERNEL_MENU_OBJ): os/flair/menu.c os/flair/menu.h os/flair/flair_look.h spec/a
 $(KERNEL_CONTROL_OBJ): os/flair/control.c os/flair/control.h spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h spec/progress_platinum.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CONTROL_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/control.c -o $@
 
-$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
+$(KERNEL_DIALOG_OBJ): os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/event_model.h spec/window_record.h spec/region_algebra.h spec/assets/palette.h spec/assets/chicago12.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_DIALOG_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/dialog.c -o $@
 
 $(KERNEL_DESKTOP_OBJ): os/flair/desktop.c os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/event.h os/flair/blitter.h os/flair/chrome.h os/flair/winscroll.h os/flair/surface.h os/flair/heap.h os/flair/atkinson/region.h spec/region_algebra.h spec/window_record.h spec/event_model.h spec/grafport.h spec/imaging.h spec/chrome_metrics.h spec/assets/palette.h $(FLAIRLOOK_H) | $(BUILD)
@@ -11187,18 +11190,21 @@ $(PPM_FLAIR_SOLID_CHECK_BIN): $(PPM_FLAIR_SOLID_CHECK_SRC) spec/flair_tenants_de
 $(PPM_FLAIR_CURSOR_CHECK_BIN): $(PPM_FLAIR_CURSOR_CHECK_SRC) harness/render/cursor_capture.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/render -o $@ $< -lpng
 
-# The R3.2 desktop-icon grader needs ONLY the independent canon (-Ispec/assets).
-# It must NOT gain -Ios/flair or -Ispec/assets/desk_icons.h consumers: its
-# expected tones are hand-read from the ASCII maps, never from the strike words.
-$(PPM_FLAIR_DESKICONS_CHECK_BIN): $(PPM_FLAIR_DESKICONS_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+# The R3.2 desktop-icon grader needs ONLY the independent canon (-Ispec/assets)
+# and the independent mint-008 capture golden (harness/render/icon_capture.h,
+# bead initech-tdnl.53). It must NOT gain -Ios/flair or spec/assets/desk_icons.h
+# consumers: its expected sprite cells are the PNG captures, never the strikes.
+ICON_CAPTURES_DEF := -DICON_CAPTURES_DIR='"$(abspath $(SYSTEM7_DECOMP))/goldens/captures"'
+$(PPM_FLAIR_DESKICONS_CHECK_BIN): $(PPM_FLAIR_DESKICONS_CHECK_SRC) spec/assets/color_canon.h harness/render/icon_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -Iharness/render $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 # The R3.3 disk-window grader, same rule and the same prohibition (bead
-# initech-tdnl.10): the independent canon ONLY. It must not gain -Ios/flair,
-# and it must never include spec/assets/finder_icons.h -- the strikes it grades
-# are hand-read off that file's ASCII maps (Law 2 / HER-02).
-$(PPM_FLAIR_DISKWIN_CHECK_BIN): $(PPM_FLAIR_DISKWIN_CHECK_SRC) spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $<
+# initech-tdnl.10): the independent canon + the mint-008 capture golden ONLY
+# (tdnl.53). It must not gain -Ios/flair, and it must never include
+# spec/assets/finder_icons.h -- the strikes it grades are graded against the
+# PNG captures (Law 2 / HER-02).
+$(PPM_FLAIR_DISKWIN_CHECK_BIN): $(PPM_FLAIR_DISKWIN_CHECK_SRC) spec/assets/color_canon.h harness/render/icon_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets -Iharness/render $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 # The HER-02 demonstration build (ADR-0010): proves ppm_flair_check's STRUCTURE
 # probes are value-BLIND (a teal->seafoam value perturbation leaves the period-2
@@ -12593,22 +12599,26 @@ test-cursor-mutant: $(TEST_CURSOR_MUT_NO_ERASE) $(TEST_CURSOR_MUT_HOTSPOT) $(TES
 	printf '>>> CURSOR_MUT_SQUARED_STEM: RED -- 48/256 differing cells against Mac capture\n'
 
 # ---------------------------------------------------------------------------
-# REAL gate: test-desk-icons (bead initech-tdnl.9; GUI remediation R3 Finder).
-# The hand-authored 32x32 VOLUME + TRASH strikes (spec/assets/desk_icons.h) and
-# the finder_icon blit/hit-test. Independent hand tables read off the ASCII maps
-# (per-row ink/shade/opaque + probe pixels) + hand-restated canon pixel values;
-# transparency, clipping, off-surface edges and mask hit-testing all graded.
-# Mutants MASK_IGNORED / ROW_OFF1 must bite.
+# REAL gate: test-desk-icons (beads initech-tdnl.9, initech-tdnl.53). The
+# finder_icon BLITTER mechanics -- transparency, clipping, off-surface edges,
+# the hit test, NULL guards, 8bpp + 32bpp, unselected + selected -- on the
+# VOLUME / TRASH / TRASH_FULL strikes, graded against the INDEPENDENT mint-008
+# Mac OS 8.1 captures (harness/render/icon_capture.h decodes the PNGs; Law 2).
+# Mutants MASK_IGNORED / ROW_OFF1 (finder_icon.c) and FULL_ROW (the FULL
+# strike's paper-tops row blanked) must bite. The art of every strike is
+# test-finder-icon-art's job.
 # ---------------------------------------------------------------------------
+ICON_CAPTURES_DIR             := $(SYSTEM7_DECOMP)/goldens/captures
 TEST_DESK_ICONS               := $(BUILD)/test_desk_icons
 TEST_DESK_ICONS_MUT_MASK      := $(BUILD)/test_desk_icons_mutant_mask_ignored
 TEST_DESK_ICONS_MUT_ROW       := $(BUILD)/test_desk_icons_mutant_row_off1
-# bead initech-6k12: the FULL Trash strike's row 5 dropped from the packed words.
+# bead initech-6k12: the FULL Trash strike's row 5 (paper tops) blanked.
 TEST_DESK_ICONS_MUT_FULLROW   := $(BUILD)/test_desk_icons_mutant_full_row
 TEST_DESK_ICONS_SRC           := harness/proptest/test_desk_icons.c
-TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
+TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) harness/render/icon_capture.h \
                                  os/flair/finder_icon.c os/flair/finder_icon.h \
                                  spec/assets/desk_icons.h spec/assets/finder_icons.h \
+                                 spec/assets/alert_icons.h \
                                  os/flair/surface.c os/flair/surface.h \
                                  $(FLAIRLOOK_C) $(FLAIRLOOK_H) spec/flair_skins.h \
                                  spec/assets/color_canon.h \
@@ -12616,7 +12626,7 @@ TEST_DESK_ICONS_DEPS          := $(TEST_DESK_ICONS_SRC) \
                                  spec/region_algebra.h spec/grafport.h
 DESK_ICONS_INC                := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iseed
 DESK_ICONS_LINK               := os/flair/finder_icon.c os/flair/surface.c \
-                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C)
+                                 $(REGION_ENGINE_C) $(FLAIRLOOK_C) -lpng
 
 $(TEST_DESK_ICONS): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_DESK_ICONS_SRC) $(DESK_ICONS_LINK)
@@ -12632,19 +12642,65 @@ $(TEST_DESK_ICONS_MUT_FULLROW): $(TEST_DESK_ICONS_DEPS) | $(BUILD)
 
 .PHONY: test-desk-icons test-desk-icons-mutant
 test-desk-icons: $(TEST_DESK_ICONS)
-	@printf ">>> test-desk-icons: VOLUME + TRASH strike invariants, per-row hand tables, probe tones (8bpp + 32bpp), transparency, clip, off-surface edges, mask hit-test\n"
-	@$(TEST_DESK_ICONS)
+	@printf ">>> test-desk-icons: blitter mechanics (transparency, clip, edges, hit test, 8bpp + 32bpp, selected) vs the mint-008 captures\n"
+	@$(TEST_DESK_ICONS) "$(ICON_CAPTURES_DIR)"
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(DESK_ICONS_INC) -c os/flair/finder_icon.c -o $(BUILD)/finder_icon_freestanding.o \
 		|| { printf '!!! test-desk-icons FAIL: finder_icon.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-desk-icons: green\n"
 
 test-desk-icons-mutant: $(TEST_DESK_ICONS_MUT_MASK) $(TEST_DESK_ICONS_MUT_ROW) $(TEST_DESK_ICONS_MUT_FULLROW)
 	@printf ">>> test-desk-icons-mutant: confirming the desktop-icon mutants go RED (Rule 6)\n"
-	@$(TEST_DESK_ICONS_MUT_FULLROW) > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
-	if grep -q 'row 5: got ink=0 shade=0 opaque=0, want ink=13 shade=0 opaque=14' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row)\n'; \
-	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike table\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
-	@if $(TEST_DESK_ICONS_MUT_MASK) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted mask holes overwrite the sentinel)\n'; fi
-	@if $(TEST_DESK_ICONS_MUT_ROW) >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the independent row/probe tables are decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the hand table)\n'; fi
+	@$(TEST_DESK_ICONS_MUT_FULLROW) "$(ICON_CAPTURES_DIR)" > $(TEST_DESK_ICONS_MUT_FULLROW).log 2>&1; \
+	if grep -q 'TRASH_FULL draw: 21/3072 differing pixels' $(TEST_DESK_ICONS_MUT_FULLROW).log && ! $(TEST_DESK_ICONS_MUT_FULLROW) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '>>> test-desk-icons-mutant: green (DESK_ICONS_MUT_FULL_ROW correctly RED -- the FULL strike lost its paper-tops row: 21/3072)\n'; \
+	else printf '!!! test-desk-icons-mutant FAIL: DESK_ICONS_MUT_FULL_ROW did not go RED on the FULL strike\n'; cat $(TEST_DESK_ICONS_MUT_FULLROW).log; exit 1; fi
+	@if $(TEST_DESK_ICONS_MUT_MASK) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_MASK_IGNORED PASSED -- the transparency oracle is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_MASK_IGNORED correctly RED -- painted clear nibbles overwrite the sentinel)\n'; fi
+	@if $(TEST_DESK_ICONS_MUT_ROW) "$(ICON_CAPTURES_DIR)" >/dev/null 2>&1; then printf '!!! test-desk-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 PASSED -- the capture cell grade is decoration\n'; exit 1; else printf '>>> test-desk-icons-mutant: green (DESK_ICON_MUT_ROW_OFF1 correctly RED -- shifted rows miss the capture)\n'; fi
+
+# ---------------------------------------------------------------------------
+# REAL gate: test-finder-icon-art (beads initech-tdnl.53 / tdnl.74 / tdnl.87).
+# Every LOCKED strike -- VOLUME, HARDDISK, TRASH, TRASH_FULL, FOLDER, DOC, APP
+# (spec/assets/desk_icons.h + finder_icons.h) and the alert CAUTION
+# (alert_icons.h) -- drawn by the artifact blitter through the artifact policy
+# seam, unselected and selected, 32bpp + 8bpp, cell for cell against the
+# INDEPENDENT mint-008 Mac OS 8.1 captures (../system7-decomp/re/
+# mint-results-008.md) at ZERO tolerance. A missing capture FAILS.
+# Mutant (Rule 6): ICON_ART_MUT_STRIKE=<k> puts strike k one row off; each
+# of the eight must go RED on exactly that strike. DESK_ICON_MUT_NO_SELECT
+# (finder_icon.c: selection draws the unselected art) must go RED too.
+# ---------------------------------------------------------------------------
+TEST_ICON_ART       := $(BUILD)/test_finder_icon_art
+TEST_ICON_ART_SRC   := harness/proptest/test_finder_icon_art.c
+TEST_ICON_ART_NAMES := VOLUME HARDDISK TRASH TRASH_FULL FOLDER DOC APP CAUTION
+
+$(TEST_ICON_ART): $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+$(BUILD)/test_finder_icon_art_mut_%: $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DICON_ART_MUT_STRIKE=$* $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+$(BUILD)/test_finder_icon_art_mut_noselect: $(TEST_DESK_ICONS_DEPS) $(TEST_ICON_ART_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DDESK_ICON_MUT_NO_SELECT $(DESK_ICONS_INC) -o $@ $(TEST_ICON_ART_SRC) $(DESK_ICONS_LINK)
+
+.PHONY: test-finder-icon-art test-finder-icon-art-mutant
+test-finder-icon-art: $(TEST_ICON_ART)
+	@$(TEST_ICON_ART) "$(ICON_CAPTURES_DIR)"
+
+test-finder-icon-art-mutant: $(foreach k,0 1 2 3 4 5 6 7,$(BUILD)/test_finder_icon_art_mut_$(k)) $(BUILD)/test_finder_icon_art_mut_noselect
+	@printf ">>> test-finder-icon-art-mutant: one strike row off, per strike (Rule 6)\n"
+	@k=0; for n in $(TEST_ICON_ART_NAMES); do \
+		pre=FLAIR_DESK_ICON; case $$n in FOLDER|DOC|APP) pre=FLAIR_FINDER_ICON;; CAUTION) pre=FLAIR_ALERT_ICON;; esac; \
+		rc=0; $(BUILD)/test_finder_icon_art_mut_$$k "$(ICON_CAPTURES_DIR)" > $(BUILD)/test_finder_icon_art_mut_$$k.log 2>&1 || rc=$$?; \
+		reds=$$(grep -c '^  RED ' $(BUILD)/test_finder_icon_art_mut_$$k.log); \
+		if [ "$$rc" -eq 1 ] && grep -q "^  RED $${pre}_$$n UNSEL" $(BUILD)/test_finder_icon_art_mut_$$k.log && \
+		   [ "$$(grep '^  RED ' $(BUILD)/test_finder_icon_art_mut_$$k.log | grep -vc " $${pre}_$$n ")" = 0 ]; then \
+			printf '>>> ICON_ART_MUT_STRIKE=%s: RED on %s_%s only (%s grade(s)) -- %s\n' "$$k" "$$pre" "$$n" "$$reds" "$$(grep 'MUTANT' $(BUILD)/test_finder_icon_art_mut_$$k.log | sed 's/^ *MUTANT (Rule 6): //')"; \
+		else cat $(BUILD)/test_finder_icon_art_mut_$$k.log; printf '!!! test-finder-icon-art-mutant FAIL: strike %s one row off did not go RED on that strike alone\n' "$$n"; exit 1; fi; \
+		k=$$((k + 1)); done
+	@rc=0; $(BUILD)/test_finder_icon_art_mut_noselect "$(ICON_CAPTURES_DIR)" > $(BUILD)/test_finder_icon_art_mut_noselect.log 2>&1 || rc=$$?; \
+	[ "$$rc" -eq 1 ] && [ "$$(grep -c '^  RED .* SEL$$' $(BUILD)/test_finder_icon_art_mut_noselect.log)" = 7 ] \
+		|| { cat $(BUILD)/test_finder_icon_art_mut_noselect.log; printf '!!! test-finder-icon-art-mutant FAIL: DESK_ICON_MUT_NO_SELECT did not turn all 7 selected grades RED\n'; exit 1; }; \
+	printf '>>> DESK_ICON_MUT_NO_SELECT: RED -- all 7 selected-state grades miss the captures\n'
+	@printf ">>> test-finder-icon-art-mutant: green\n"
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-window (beads initech-9qf) -- FLAIR Window Manager.
@@ -14675,7 +14731,7 @@ TEST_DIALOG_MUT_MODAL_PASS := $(BUILD)/test_dialog_mutant_modal_passthrough
 # bead initech-6k12: the click hit-tested in portRect-LOCAL space again (the
 # pre-fix subtraction) -- a click on a DRAWN button misses it.
 TEST_DIALOG_MUT_LOCAL_HIT := $(BUILD)/test_dialog_mutant_local_hit
-TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h \
+TEST_DIALOG_DEPS := os/flair/dialog.c os/flair/dialog.h spec/assets/alert_icons.h spec/assets/desk_icons.h \
                     os/flair/control.c os/flair/control.h \
                     os/flair/text.c os/flair/text.h \
                     os/flair/event.c os/flair/event.h \
@@ -20436,7 +20492,7 @@ test-flair-file-ops-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DROP_CH
 	printf '>>> test-flair-file-ops-mutant: TRASH_NO_STAGE correctly RED (%s)\n' "$$out"
 	$(call fo-boot,$(BUILD)/flair_tenants_mut_desk_no_hilite.img,flair_fileops_mut_nohilite,$(BUILD)/flair_fileops_mut_nohilite_data.img,$(FLAIR_FILEOPS_HOVER_SPEC),FINDER-DROP-HILITE name=APPS,1)
 	@if $(PPM_FLAIR_DROP_CHECK_BIN) $(BUILD)/flair_fileops_mut_nohilite.ppm > $(BUILD)/flair_fileops_mut_nohilite.grade 2>&1; then printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE PASSED the mid-drag grader -- decoration\n'; exit 1; fi
-	@grep -q 'HIGHLIGHTED #777777' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
+	@grep -q 'APPS face pixel is the HIGHLIGHTED #545487' $(BUILD)/flair_fileops_mut_nohilite.grade || { printf '!!! test-flair-file-ops-mutant FAIL: NO_HILITE went RED for the wrong reason\n'; cat $(BUILD)/flair_fileops_mut_nohilite.grade; exit 1; }
 	@printf '>>> test-flair-file-ops-mutant: NO_HILITE correctly RED (the target body is not darkened)\n'
 	@printf '>>> test-flair-file-ops-mutant: green (both emu mutants RED for the named reason)\n'
 
@@ -20776,8 +20832,8 @@ endif
 # ===========================================================================
 PPM_FLAIR_TRASH_CHECK_SRC := tools/ppm_flair_trash_check.c
 PPM_FLAIR_TRASH_CHECK_BIN := $(BUILD)/ppm_flair_trash_check
-$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h spec/assets/color_canon.h | $(BUILD)
-	$(CC) $(CFLAGS) -Ispec/assets -o $@ $< -lpng
+$(PPM_FLAIR_TRASH_CHECK_BIN): $(PPM_FLAIR_TRASH_CHECK_SRC) harness/render/alert_capture.h harness/render/icon_capture.h spec/assets/color_canon.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec/assets $(ICON_CAPTURES_DEF) -o $@ $< -lpng
 
 FLAIR_ET_ALERT_NAME  := flair_empty_alert
 FLAIR_ET_CANCEL_NAME := flair_empty_cancel
@@ -20864,6 +20920,131 @@ test-flair-empty-trash-mutant: $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_win_emp
 	if [ $$rc -eq 0 ]; then printf '!!! test-flair-empty-trash-mutant FAIL: EMPTY_NO_CONFIRM PASSED the Cancel differential -- decoration\n'; exit 1; fi; \
 	printf '%s\n' "$$out" | grep -q 'purged without confirmation' || { printf '!!! test-flair-empty-trash-mutant FAIL: RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
 	printf '>>> test-flair-empty-trash-mutant: EMPTY_NO_CONFIRM correctly RED (%s)\n' "$$out"
+
+# ===========================================================================
+# REAL gates: test-flair-finder-icons + test-flair-trash-full (beads
+# initech-tdnl.53 / tdnl.74 / tdnl.87; docs/worklog/WL-0140). The booted
+# image's icons graded CELL FOR CELL, zero tolerance, against the INDEPENDENT
+# mint-008 Mac OS 8.1 captures (../system7-decomp/re/mint-results-008.md) by
+# tools/ppm_flair_finder_icons_check.c (harness/render/icon_capture.h decodes
+# the PNGs; no artifact header). Locked traces: spec/flair_finder_icons_traces.mk.
+#   test-flair-finder-icons  FLAIR_FINDER_ICONS_SPEC: open the volume, open
+#     APPS, move its window to (250,180), select README.TXT. One dump shows
+#     every kind: the desktop VOLUME (SELECTED) + TRASH, the root window's
+#     DOCUMENT (SELECTED) + FOLDER, the APPS window's APPLICATIONs + a DOCUMENT.
+#   test-flair-trash-full  1 FLAIR_TRASH_FULL_SPEC: README.TXT staged -> the
+#     desktop Trash is the captured FULL can (tdnl.74); 2 FLAIR_EMPTY_ALERT_SPEC:
+#     the Empty Trash confirm carries the captured CAUTION icon at (156,100)
+#     (tdnl.87) over the FULL can.
+# Mutants (Rule 6), each RED on booted video for its own reason:
+#   DESK_ICON_MUT_ROW_OFF1 (finder_icon.o) -- every strike one row off: all
+#     seven scene cells RED; DESK_ICON_MUT_NO_SELECT -- the two SELECTED cells
+#     RED and only those; FINDER_DESK_MUT_TRASH_NEVER_FULL (finder_desktop.o) --
+#     the FULL cell RED; DIALOG_MUT_NO_ICON (dialog.o) -- the CAUTION cell RED.
+# Rule 5: these kernels are the flagship $(FLAIRTENANTS_IMG); its Bochs legs
+# (test-flair-disk-windows-bochs / test-flair-trash-window-bochs) halt at the
+# 640x480 guard before the Finder, so pixels are QEMU-graded.
+# Rule 14 clip: record-flair SCRIPT=finder_icons (and empty_trash re-recorded).
+# ===========================================================================
+PPM_FLAIR_ICONS_CHECK_SRC := tools/ppm_flair_finder_icons_check.c
+PPM_FLAIR_ICONS_CHECK_BIN := $(BUILD)/ppm_flair_finder_icons_check
+$(PPM_FLAIR_ICONS_CHECK_BIN): $(PPM_FLAIR_ICONS_CHECK_SRC) harness/render/icon_capture.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/render -o $@ $< -lpng
+
+FLAIR_ICONS_SCENE_MARK := FINDER-WIN-SELECT win=0 name=README.TXT count=1
+FLAIR_ICONS_SCENE_CELLS := VOLUME:SEL@584,48/8DDCDC TRASH:UNSEL@584,404/8DDCDC \
+                           DOC:SEL@44,86/FFFFFF FOLDER:UNSEL@112,86/FFFFFF \
+                           APP:UNSEL@410,206/FFFFFF APP:UNSEL@478,206/FFFFFF \
+                           DOC:UNSEL@478,258/FFFFFF
+FLAIR_TRASH_FULL_CELL   := TRASH_FULL:UNSEL@584,404/8DDCDC
+FLAIR_CAUTION_CELL      := CAUTION:UNSEL@156,100/E7E7E7
+
+# $(call icons-scene,<image>,<name>): boot the scene trace, grade nothing yet.
+define icons-scene
+$(call fo-boot,$(1),$(2),$(BUILD)/$(2)_data.img,$(FLAIR_FINDER_ICONS_SPEC),$(FLAIR_ICONS_SCENE_MARK),1)
+@grep -qxF 'FINDER-OPEN-FOLDER name=APPS win=1 singleton=0' "$(BUILD)/$(2).serial" && grep -qxF 'FLAIR-DRAG win 0 (40,80)->(250,180)' "$(BUILD)/$(2).serial" && grep -qxF '$(FLAIR_ICONS_SCENE_MARK)' "$(BUILD)/$(2).serial" && [ -s "$(BUILD)/$(2).ppm" ] \
+	|| { printf '!!! %s FAIL: the scene trace did not reach the README select (volume open, APPS open, APPS window at (250,180))\n' "$@"; grep -E '^(FINDER|FLAIR-DRAG)' "$(BUILD)/$(2).serial" || true; exit 1; }
+endef
+
+.PHONY: test-flair-finder-icons test-flair-finder-icons-mutant test-flair-trash-full test-flair-trash-full-mutant
+test-flair-finder-icons: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-finder-icons : every Finder icon kind vs the Mac OS 8.1 captures\n'
+	@printf '  Ref: beads initech-tdnl.53; ../system7-decomp/re/mint-results-008.md; spec/flair_finder_icons_traces.mk.\n'
+	@printf '======================================================================\n'
+	$(call icons-scene,$(FLAIRTENANTS_IMG),flair_finder_icons)
+	@$(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_finder_icons.ppm" $(FLAIR_ICONS_SCENE_CELLS) \
+		|| { printf '!!! test-flair-finder-icons FAIL: a booted icon cell differs from the mint-008 capture\n'; exit 1; }
+	@printf '>>> test-flair-finder-icons: green (7 cells: VOLUME sel, TRASH, DOC sel, FOLDER, 2 x APP, DOC -- 0/1024 differing each)\n'
+
+test-flair-finder-icons-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN) $(BUILD)/flair_tenants_mut_icon_row_off1.img $(BUILD)/flair_tenants_mut_icon_no_select.img
+	$(call icons-scene,$(BUILD)/flair_tenants_mut_icon_row_off1.img,flair_finder_icons_mut_row)
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_finder_icons_mut_row.ppm" $(FLAIR_ICONS_SCENE_CELLS) > $(BUILD)/flair_finder_icons_mut_row.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL: 7 icon cell(s) differ' $(BUILD)/flair_finder_icons_mut_row.grade \
+		|| { cat $(BUILD)/flair_finder_icons_mut_row.grade; printf '!!! test-flair-finder-icons-mutant FAIL: DESK_ICON_MUT_ROW_OFF1 did not turn all 7 cells RED\n'; exit 1; }
+	@printf '>>> DESK_ICON_MUT_ROW_OFF1: RED -- all 7 booted cells miss the captures\n'
+	$(call icons-scene,$(BUILD)/flair_tenants_mut_icon_no_select.img,flair_finder_icons_mut_nosel)
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_finder_icons_mut_nosel.ppm" $(FLAIR_ICONS_SCENE_CELLS) > $(BUILD)/flair_finder_icons_mut_nosel.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'FAIL: 2 icon cell(s) differ' $(BUILD)/flair_finder_icons_mut_nosel.grade && \
+	[ "$$(grep -c 'SEL at .*: [1-9][0-9]*/1024' $(BUILD)/flair_finder_icons_mut_nosel.grade)" = 2 ] && \
+	! grep -q 'UNSEL at .*: [1-9][0-9]*/1024' $(BUILD)/flair_finder_icons_mut_nosel.grade \
+		|| { cat $(BUILD)/flair_finder_icons_mut_nosel.grade; printf '!!! test-flair-finder-icons-mutant FAIL: DESK_ICON_MUT_NO_SELECT did not turn exactly the 2 SELECTED cells RED\n'; exit 1; }
+	@printf '>>> DESK_ICON_MUT_NO_SELECT: RED -- exactly the 2 selected cells (VOLUME, README) miss the captures\n'
+
+test-flair-trash-full: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-trash-full : the FULL Trash + the caution alert icon\n'
+	@printf '  Ref: beads initech-tdnl.74 / tdnl.87; ../system7-decomp/re/mint-results-008.md.\n'
+	@printf '======================================================================\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),flair_trash_full,$(BUILD)/flair_trash_full_data.img,$(FLAIR_TRASH_FULL_SPEC),DESKTOP-DB-SAVE n=3,1)
+	$(call fo-has,flair_trash_full,DESK-TRASH-ICON full,staging README.TXT did not turn the Trash FULL)
+	$(call fo-has,flair_trash_full,FINDER-TRASH name=README.TXT origin=0,README.TXT was not staged)
+	@mdir -i $(BUILD)/flair_trash_full_data.img ::/TRASH | grep -q '^README   TXT ' || { printf '!!! test-flair-trash-full FAIL: mtools: README.TXT is not in ::/TRASH\n'; exit 1; }
+	@$(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full.ppm" $(FLAIR_TRASH_FULL_CELL) \
+		|| { printf '!!! test-flair-trash-full FAIL: the staged Trash is not the captured FULL can\n'; exit 1; }
+	@printf '>>> test-flair-trash-full [1/2]: README.TXT staged (mtools) -> the desktop Trash == the captured FULL can, 0/1024\n'
+	$(call fo-boot,$(FLAIRTENANTS_IMG),flair_trash_full_alert,$(BUILD)/flair_trash_full_alert_data.img,$(FLAIR_EMPTY_ALERT_SPEC),FINDER-TRASH-ALERT n=,1)
+	@grep -q '^FINDER-TRASH-ALERT n=1 ' "$(BUILD)/flair_trash_full_alert.serial" || { printf '!!! test-flair-trash-full FAIL: the Empty Trash confirm did not come up\n'; exit 1; }
+	@$(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full_alert.ppm" $(FLAIR_CAUTION_CELL) $(FLAIR_TRASH_FULL_CELL) \
+		|| { printf '!!! test-flair-trash-full FAIL: the confirm alert does not carry the captured CAUTION icon (or the Trash is not FULL)\n'; exit 1; }
+	@printf '>>> test-flair-trash-full [2/2]: Empty Trash confirm up -> the CAUTION icon at (156,100) == the capture, 0/1024; the Trash still FULL\n'
+	@printf '>>> test-flair-trash-full: green\n'
+
+test-flair-trash-full-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_ICONS_CHECK_BIN) $(BUILD)/flair_tenants_mut_trash_never_full.img $(BUILD)/flair_tenants_mut_dialog_no_icon.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_trash_never_full.img,flair_trash_full_mut_never,$(BUILD)/flair_trash_full_mut_never_data.img,$(FLAIR_TRASH_FULL_SPEC),DESKTOP-DB-SAVE n=3,1)
+	@grep -qxF 'DESK-TRASH-ICON full' $(BUILD)/flair_trash_full_mut_never.serial || { printf '!!! test-flair-trash-full-mutant: the mutant never staged (not comparable)\n'; exit 1; }
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full_mut_never.ppm" $(FLAIR_TRASH_FULL_CELL) > $(BUILD)/flair_trash_full_mut_never.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'TRASH_FULL UNSEL at (584,404) on #8DDCDC: [1-9][0-9]*/1024' $(BUILD)/flair_trash_full_mut_never.grade \
+		|| { cat $(BUILD)/flair_trash_full_mut_never.grade; printf '!!! test-flair-trash-full-mutant FAIL: TRASH_NEVER_FULL passed the FULL cell\n'; exit 1; }
+	@printf '>>> FINDER_DESK_MUT_TRASH_NEVER_FULL: RED -- %s\n' "$$(grep 'TRASH_FULL UNSEL at' $(BUILD)/flair_trash_full_mut_never.grade | sed 's/^ *//')"
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_dialog_no_icon.img,flair_trash_full_mut_noicon,$(BUILD)/flair_trash_full_mut_noicon_data.img,$(FLAIR_EMPTY_ALERT_SPEC),FINDER-TRASH-ALERT n=,1)
+	@grep -q '^FINDER-TRASH-ALERT n=1 ' $(BUILD)/flair_trash_full_mut_noicon.serial || { printf '!!! test-flair-trash-full-mutant: the mutant alert never came up (not comparable)\n'; exit 1; }
+	@rc=0; $(PPM_FLAIR_ICONS_CHECK_BIN) "$(ICON_CAPTURES_DIR)" "$(BUILD)/flair_trash_full_mut_noicon.ppm" $(FLAIR_CAUTION_CELL) $(FLAIR_TRASH_FULL_CELL) > $(BUILD)/flair_trash_full_mut_noicon.grade 2>&1 || rc=$$?; \
+	[ "$$rc" = 1 ] && grep -q 'CAUTION UNSEL at (156,100) on #E7E7E7: 572/1024' $(BUILD)/flair_trash_full_mut_noicon.grade && grep -q 'TRASH_FULL UNSEL at (584,404) on #8DDCDC: 0/1024' $(BUILD)/flair_trash_full_mut_noicon.grade \
+		|| { cat $(BUILD)/flair_trash_full_mut_noicon.grade; printf '!!! test-flair-trash-full-mutant FAIL: DIALOG_MUT_NO_ICON did not turn exactly the CAUTION cell RED\n'; exit 1; }
+	@printf '>>> DIALOG_MUT_NO_ICON: RED -- the CAUTION cell 572/1024 (every opaque cell missing), the FULL Trash still 0/1024\n'
+
+# The mutant kernels: one object recompiled with the knob, the rest flagship.
+# $(call icons-obj-mutant-rules,<KNOB>,<tag>,<src>,<flagship obj>,<extra opts>)
+define icons-obj-mutant-rules
+$(BUILD)/icons_mut_$(2).o: $(3) os/flair/finder_icon.h os/flair/flair_look.h os/flair/dialog.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/alert_icons.h spec/assets/color_canon.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(5) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c $(3) -o $$@
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o $(KERNEL_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(4),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/icons_mut_$(2).o
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then printf '!!! kernel_flairtenants_mut_$(2).bin exceeds the kernel window\n'; exit 1; fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL)
+	@printf ">>> flair-tenants ICON MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+$(eval $(call icons-obj-mutant-rules,DESK_ICON_MUT_ROW_OFF1,icon_row_off1,os/flair/finder_icon.c,$(KERNEL_FINDER_ICON_OBJ),$(KERNEL_TENANTS_OPT)))
+$(eval $(call icons-obj-mutant-rules,DESK_ICON_MUT_NO_SELECT,icon_no_select,os/flair/finder_icon.c,$(KERNEL_FINDER_ICON_OBJ),$(KERNEL_TENANTS_OPT)))
+$(eval $(call icons-obj-mutant-rules,DIALOG_MUT_NO_ICON=1,dialog_no_icon,os/flair/dialog.c,$(KERNEL_DIALOG_OBJ),$(FLAIR_DIALOG_OPT)))
+$(eval $(call flair-tenants-finderdesk-mutant-rules,FINDER_DESK_MUT_TRASH_NEVER_FULL,trash_never_full))
 
 # ===========================================================================
 # REAL gate: test-flair-trash-purge-views (bead initech-uios; audit L002 "an
@@ -21159,7 +21340,7 @@ test-flair-finder-follow-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(PPM_FLAIR_DI
 	@if $(PPM_FLAIR_DISKWIN_CHECK_BIN) movedwin $(BUILD)/flair_follow_mut_abs.ppm > $(BUILD)/flair_follow_mut_abs.grade 2>&1; then printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS PASSED the moved-window grader -- decoration\n'; exit 1; fi
 	@# RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): README.TXT's cell is
 	@# (44,86) since the content starts at L+6, so the moved cell is (144,206).
-	@grep -q 'README.TXT DOC sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
+	@grep -q 'README.TXT DOC UNSEL sprite @(144,206)' $(BUILD)/flair_follow_mut_abs.grade || { printf '!!! test-flair-finder-follow-mutant FAIL: ABS_COORDS went RED for the wrong reason\n'; cat $(BUILD)/flair_follow_mut_abs.grade; exit 1; }
 	@printf '>>> test-flair-finder-follow-mutant: ABS_COORDS correctly RED (README.TXT is not drawn at the moved cell (144,206))\n'
 	@printf '>>> test-flair-finder-follow-mutant: green\n'
 
@@ -22967,7 +23148,18 @@ RECORD_SPEC_shutdown   = $(FLAIR_SHUTDOWN_SPEC)
 RECORD_MARKER_shutdown = FLAIR-SHUTDOWN-SAFE
 RECORD_IMAGE_shutdown  = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_SETTLE_shutdown = 300
-RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown
+# finder_icons (beads initech-tdnl.53 / tdnl.74 / tdnl.87; Rule 14 -- WL-0140):
+# the Platinum icon art, live: the volume is opened (it darkens, selected),
+# the APPS folder is opened, its window dragged to (250,180) showing the
+# APPLICATION and DOCUMENT art, and README.TXT is selected (darkened) beside
+# the FOLDER -- FLAIR_FINDER_ICONS_SPEC on the DOUBLE-CLICK record image, the
+# frame test-flair-finder-icons grades cell for cell. (empty_trash, above,
+# re-recorded after the merge shows the FULL can and the caution icon.)
+RECORD_SPEC_finder_icons   = $(FLAIR_FINDER_ICONS_SPEC)
+RECORD_MARKER_finder_icons = $(FLAIR_ICONS_SCENE_MARK)
+RECORD_IMAGE_finder_icons  = $(FLAIRTENANTS_RECORDDBL_IMG)
+RECORD_SETTLE_finder_icons = 300
+RECORD_SCRIPTS := scroll_arrow scroll_page scroll_thumb solid_close solid_drag solid_switch appswitch solid_clamp solid_raise solid_menu2 solid_menucancel cursor_cross zoom_toggle grow collapse drag_outline close_terminate modal_block icon_select rubber_band icon_dragdrop folder_nav window_drag_persist new_folder app_launch app_menubar drag_move trash_drag drag_refused chicago_menus modifier_release held_menu box_cancel finder_follow fg_close select_all arrange fg_desk menu_long finder_service finder_service_damaged trash_window empty_trash tenant_menu ctenant_keys i123_typing shutdown finder_icons
 
 # The RECORD image: the SAME flair_tenants build with ONLY the live-window
 # tick budget widened (-DFLAIR_TEN_TICK_BUDGET=3000, ~30 s @100 Hz) so the
@@ -28779,6 +28971,7 @@ TEST_UNIT_GATES := \
 	test-canon test-canon-mutant test-palette-seafoam test-palette-seafoam-mutant \
 	test-cursor test-cursor-mutant \
 	test-desk-icons test-desk-icons-mutant \
+	test-finder-icon-art test-finder-icon-art-mutant \
 	test-window test-window-mutant test-winscroll test-winscroll-mutant test-event test-event-mutant \
         test-mouse-producer test-mouse-producer-mutant \
 	test-drag test-drag-mutant test-menu test-menu-mutant \
@@ -29934,6 +30127,8 @@ TEST_EMU_GATES := \
 	test-flair-finder-service test-flair-finder-service-mutant \
 	test-flair-trash-window test-flair-trash-window-mutant test-flair-trash-window-bochs \
 	test-flair-empty-trash test-flair-empty-trash-mutant \
+	test-flair-finder-icons test-flair-finder-icons-mutant \
+	test-flair-trash-full test-flair-trash-full-mutant \
 	test-flair-trash-purge-views test-flair-trash-purge-views-mutant \
 	test-flair-scroll test-flair-scroll-mutant test-flair-finder-follow test-flair-finder-follow-mutant \
 	test-flair-fg-close test-flair-fg-close-mutant \
