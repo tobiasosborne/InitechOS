@@ -372,7 +372,7 @@ void selftest_report_c(void)
  * the LFB console AND COM1 serial (the CON device), and a terminate hook that
  * emits the exit line then cli;hlt (terminate == stop; no process model yet).
  * The console pointer is held at file scope so the sink (a plain function) can
- * reach the live console kernel_main set up -- mirrors panic_set_console. */
+ * reach the live console kernel_main set up. */
 static console_t *g_int21_con = 0;
 
 /* Kernel-context PSP (beads initech-509.3). Holds the standard Job File Table
@@ -5555,7 +5555,6 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
             kernel_halt();
         }
     }
-    panic_set_console(g_int21_con);
 #else
     (void)bi;
 #endif
@@ -6337,7 +6336,6 @@ void kernel_main(void)
 
             /* Bind the live console so a CPU-exception panic can render its
              * one visible line (beads initech-a5a / panic.c). */
-            panic_set_console(&con);
 
             /* Bind the SAME console to the INT 21h CON sink so `int 0x21` AH=09h
              * (below) drives the LFB console + serial (beads initech-509.5). */
@@ -6398,8 +6396,8 @@ void kernel_main(void)
      *
      * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
      * serial line + a diagnostic dump + the on-screen "PC LOAD LETTER" line
-     * (rendered through the live console, bound to panic via panic_set_console
-     * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
+     * (rendered through the live console above), then a permanent cli;hlt.
+     * We do not have a CPU int_frame_t here
      * (this is a boot-policy panic, not a CPU exception), so we render the
      * PC LOAD LETTER line directly and dump the relevant values to serial. */
     if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||
