@@ -70,6 +70,31 @@ move the others.
 \SeeAlso{USE, CLOSE, DBF()}
 \end{XbaseEntry}
 
+% SET ALTERNATE -- os/samir/cmd/set.c "ALTERNATE" (TO <file>, default .TXT,
+% created afresh; TO alone closes it with an end-of-file mark; ON/OFF
+% switches the copy) and alternate_output (every line InitechBase displays,
+% also with SET CONSOLE OFF: workarea.c xb_interp_output); QUIT closes it
+% (samir_main.c).  Lane samirfns 1016e8c9.  Gates: test-samir-dml,
+% test-samir-dml-emu.
+\begin{XbaseEntry}{ALTERNATE}{set}
+Copies what InitechBase displays to a text file.
+\Syntax
+\SyntaxLine{\kw{SET ALTERNATE TO} \opt{\xp{file}}}
+\SyntaxLine{\kw{SET ALTERNATE} \kw{ON}/\kw{OFF}}
+\Defaults
+OFF, and no file.
+\Usage
+SET ALTERNATE TO creates the text file named, replacing a file of that name;
+if no extension is given, \file{.TXT} is assumed.  SET ALTERNATE ON then
+copies to the file everything InitechBase displays, until SET ALTERNATE OFF.
+The file receives the output even while SET CONSOLE is OFF, so a program can
+write a report to a file without showing it.
+
+SET ALTERNATE TO with no file name closes the file; \cmd{QUIT} closes it
+too.  Display the file with \cmd{TYPE}.
+\SeeAlso{SET CONSOLE, TYPE}
+\end{XbaseEntry}
+
 % SET CENTURY -- os/samir/cmd/set.c do_set_century (ctx->set_century; DTOC
 % and display use four digits; CTOD accepts them).  Gate:
 % test-interp-setfmt.
@@ -93,18 +118,23 @@ setting.  With SET CENTURY ON, a four-digit year may also be given.
 \SeeAlso{SET DATE, CTOD(), DTOC()}
 \end{XbaseEntry}
 
-% SET CONSOLE -- os/samir/cmd/set.c (ctx->set_console stored; no consumer in
-% the shipped engine).
-\begin{XbaseEntry}[the setting is recorded but the shipped version does not
-  act on it: output is displayed with CONSOLE ON or OFF (set.c)]{CONSOLE}{set}
+% SET CONSOLE -- os/samir/cmd/set.c (ctx->set_console) read by
+% os/samir/cmd/workarea.c xb_interp_console_visible (initech-vz6z, Using
+% III+ U5-210: output hidden only for commands of a program; dot commands
+% and error messages stay visible; SET ALTERNATE still receives it).
+% Gate: test-interp-set-console-mutant.
+\begin{XbaseEntry}{CONSOLE}{set}
 Turns the display of output on the screen on or off.
 \Syntax
 \SyntaxLine{\kw{SET CONSOLE} \kw{ON}/\kw{OFF}}
 \Defaults
 ON.
 \Usage
-InitechBase accepts SET CONSOLE ON and OFF and records the setting.  The
-output of commands is displayed whatever the setting.
+With SET CONSOLE OFF, the output of the commands of a program is not
+displayed, and what is typed in answer to its prompts is not echoed.
+Commands typed at the dot prompt and error messages are displayed whatever
+the setting.  Output that SET ALTERNATE copies to a file is written to the
+file in either case.
 \SeeAlso{SET TALK, REPORT FORM}
 \end{XbaseEntry}
 
