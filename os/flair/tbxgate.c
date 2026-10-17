@@ -1189,36 +1189,6 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         tputs(" rec=+0x");
         tputx(a[0] - g_slot.plan.load_base, 4);
         break;
-    case TBX_NEWWINDOW:
-        trace_int(" l=", a[0]); trace_int(" t=", a[1]);
-        trace_int(" r=", a[2]); trace_int(" b=", a[3]);
-        trace_int(" goaway=", a[4]);
-        break;
-    case TBX_SETWTITLE:
-        trace_int(" win=", a[0]); trace_str(" s=", a[1]);
-        break;
-    case TBX_CONTENTORIGIN:
-        trace_int(" win=", a[0]);
-        break;
-    case TBX_TEXTDRAW:
-    case TBX_DRAWCELLS:
-        trace_int(" win=", a[0]); trace_int(" x=", a[1]); trace_int(" y=", a[2]);
-        trace_str(" s=", a[3]); trace_int(" fg=", a[4]); trace_int(" bg=", a[5]);
-        break;
-    case TBX_FILLRECT:
-        trace_int(" win=", a[0]); trace_int(" l=", a[1]); trace_int(" t=", a[2]);
-        trace_int(" r=", a[3]); trace_int(" b=", a[4]); trace_int(" c=", a[5]);
-        break;
-    case TBX_EXIT:
-        trace_int(" rc=", a[0]);
-        break;
-    case TBX_ALERT:
-        trace_str(" def=", a[1]); trace_str(" cancel=", a[2]);
-        trace_str(" other=", a[3]);
-        break;
-    case TBX_FILECOPY:
-        trace_str(" s=", a[0]); trace_str(" src=", a[1]); trace_str(" dst=", a[2]);
-        break;
     case TBX_SETMBAR:
         tputs(" bar=+0x");
         tputx(a[0] - g_slot.plan.load_base, 4);
@@ -1231,23 +1201,46 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         } else tputs("?");
         if (ax == TBX_FILE_OPEN) trace_int(" mode=", a[1]);
         break;
-    case TBX_FILE_READ: case TBX_FILE_WRITE:
-        trace_int(" h=", a[0]); trace_int(" n=", a[2]); break;
-    case TBX_FILE_SEEK:
-        trace_int(" h=", a[0]); trace_int(" delta=", a[1]); trace_int(" origin=", a[2]); break;
-    case TBX_FILE_CLOSE: trace_int(" h=", a[0]); break;
-    case TBX_SCRAP_PUT: case TBX_SCRAP_GET:
-        trace_int(" n=", a[1]); break;
-    case TBX_SFPUTFILE:
-        trace_str(" prompt=", a[0]); trace_str(" name=", a[1]); break;
-    case TBX_SETSCROLL:
-        trace_int(" win=", a[0]); trace_int(" len=", a[1]); trace_int(" value=", a[2]); break;
-    case TBX_GETSCROLL:
-        trace_int(" win=", a[0]); break;
-    case TBX_GLOBALTOLOCAL:
-        trace_int(" win=", a[0]); trace_int(" h=", a[1]); trace_int(" v=", a[2]); break;
-    default:
+    default: {
+        /* Size round 6 (WL-0162): the plain verbs' trace fields as data --
+         * each field is a control byte (1..6 = a[0..5] as an integer,
+         * 0x11..0x16 = a[0..5] as an image string), its label, a NUL; an
+         * empty field (the explicit trailing \0) ends the list. The same
+         * " key=value" bytes trace_int / trace_str always wrote. */
+        static const struct { uint16_t ax; const char *d; } fields[] = {
+            { TBX_NEWWINDOW, "\1 l=\0\2 t=\0\3 r=\0\4 b=\0\5 goaway=\0" },
+            { TBX_SETWTITLE, "\1 win=\0\22 s=\0" },
+            { TBX_CONTENTORIGIN, "\1 win=\0" },
+            { TBX_TEXTDRAW, "\1 win=\0\2 x=\0\3 y=\0\24 s=\0\5 fg=\0\6 bg=\0" },
+            { TBX_DRAWCELLS, "\1 win=\0\2 x=\0\3 y=\0\24 s=\0\5 fg=\0\6 bg=\0" },
+            { TBX_FILLRECT, "\1 win=\0\2 l=\0\3 t=\0\4 r=\0\5 b=\0\6 c=\0" },
+            { TBX_EXIT, "\1 rc=\0" },
+            { TBX_ALERT, "\22 def=\0\23 cancel=\0\24 other=\0" },
+            { TBX_FILECOPY, "\21 s=\0\22 src=\0\23 dst=\0" },
+            { TBX_FILE_READ, "\1 h=\0\3 n=\0" },
+            { TBX_FILE_WRITE, "\1 h=\0\3 n=\0" },
+            { TBX_FILE_SEEK, "\1 h=\0\2 delta=\0\3 origin=\0" },
+            { TBX_FILE_CLOSE, "\1 h=\0" },
+            { TBX_SCRAP_PUT, "\2 n=\0" },
+            { TBX_SCRAP_GET, "\2 n=\0" },
+            { TBX_SFPUTFILE, "\21 prompt=\0\22 name=\0" },
+            { TBX_SETSCROLL, "\1 win=\0\2 len=\0\3 value=\0" },
+            { TBX_GETSCROLL, "\1 win=\0" },
+            { TBX_GLOBALTOLOCAL, "\1 win=\0\2 h=\0\3 v=\0" }
+        };
+        for (uint32_t k = 0; k < sizeof fields / sizeof fields[0]; k++) {
+            if (fields[k].ax != ax) continue;
+            for (const char *p = fields[k].d; *p; ) {
+                unsigned c = (unsigned char)*p++;
+                uint32_t v = a[(c & 0xFu) - 1u];
+                if (c & 0x10u) trace_str(p, v);
+                else           trace_int(p, v);
+                while (*p++) { }
+            }
+            break;
+        }
         break;
+    }
     }
     tputs(" -> ");
     tputi(rc);
