@@ -64,7 +64,9 @@
  * A .scr file is the 24 rows of 76 characters, a line "--", then 24 rows of
  * 76 attribute characters: '.' plain, '1'..'7' the face bits drawn (1 bold,
  * 2 italic, 4 underline), 'R' reverse video (the cursor), 'K' black on grey
- * (a block, the Reveal Codes ruler). The manuals print .scr files verbatim
+ * (a block, the Reveal Codes ruler), 'G' grey on the blue field (the name of
+ * a WordPerfect feature InitechWord does not perform, P3 spec/iword/
+ * fkeys.json "gray"; the unavailable rows of Setup). The manuals print .scr files verbatim
  * (pubs/class/initech-wpc.sty \WordScreen) and the gate replays the script
  * that made them (GC-03).
  *
@@ -125,6 +127,7 @@ int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t 
     if (fg == TBX_COLOR_NAVY && b == TBX_COLOR_WHITE) a = 'R';
     else if (fg == TBX_COLOR_BLACK && b == TBX_COLOR_GRAY) a = 'K';
     else if (fg == TBX_COLOR_WHITE && b == TBX_COLOR_NAVY) a = face ? (char)('0' + face) : '.';
+    else if (fg == TBX_COLOR_GRAY && b == TBX_COLOR_NAVY && !face) a = 'G';
     else die("IWORD-PROBE", "DRAWCELLS", "a colour pair the face never draws");
     for (int i = 0; s[i] && col + i < SW; i++) { m_scr[line][col + i] = s[i]; m_att[line][col + i] = a; }
     return TBX_OK;
@@ -369,6 +372,10 @@ static const char *const SETUP[] = {
     "key Esc",
     /* the cursor inside line 2, then down into the middle of the screen */
     "key Home Home Up Down Right Right Right Down Down Down Down Down Down Down Down Down Down Down Down",
+    /* two deletions apart (P3 Undelete keeps each as a group: a cursor move
+     * between them separates them), so Undelete's Restore and Previous
+     * Deletion both do something */
+    "key Delete Right Right Delete",
     0
 };
 
@@ -464,12 +471,16 @@ static int choice_name(const state_t *s, char d, char *out, size_t cap)
 static int is_field_mode(int m)
 {
     return m == M_SAVE_NAME || m == M_GET_NAME || m == M_FMTMARL || m == M_FMTMARR || m == M_FMTSP ||
-           m == M_DELCODE || m == M_DELBLOCK || m == M_SAVEQ || m == M_EXITQ || m == M_REPLACE || m == M_ERROR;
+           m == M_DELCODE || m == M_DELBLOCK || m == M_SAVEQ || m == M_EXITQ || m == M_REPLACE || m == M_ERROR ||
+           /* P3 (initech-qvgd): the Search / Replace strings, Replace's two
+            * questions, Setup's unit letter and backup question */
+           m == M_SEARCH || m == M_RSEARCH || m == M_RTEXT || m == M_RCONF || m == M_RASK ||
+           m == M_UNITVALUE || m == M_BACKUPVALUE;
 }
 
 /* Explore the menu reached by lines[0..n) (whose state is `at`); `label` is
  * the keystroke path so far. */
-static void explore(const char *prefix, const char *label, const char **lines, int n, const state_t *at, int depth, unsigned seen)
+static void explore(const char *prefix, const char *label, const char **lines, int n, const state_t *at, int depth, uint64_t seen)
 {
     const char *l2[16];
     state_t cancel;
@@ -492,21 +503,71 @@ static void explore(const char *prefix, const char *label, const char **lines, i
         snprintf(lab, sizeof lab, "%s,%c", label, d);
         snprintf(full, sizeof full, "%s%s=%s", prefix, lab, name);
         emit(full, "wpmenu");
+        /* Setup's Units of Measure answers with a LETTER (i c p w u, the
+         * letters its screen names): every letter that does something is a
+         * choice of its own, "Shift-F1,3,8,1,c=Centimeters" */
+        if (s.mode == M_UNITVALUE) {
+            state_t ucancel, u;
+            static char ul[8];
+            l2[n] = typed[d - '1'];
+            l2[n + 1] = "key F1";
+            ucancel = probe(1, l2, n + 2);
+            for (char c = 'a'; c <= 'z'; c++) {
+                char uname[96], ulab[220], ufull[320];
+                snprintf(ul, sizeof ul, "type %c", c);
+                l2[n + 1] = ul;
+                u = probe(1, l2, n + 2);
+                if (u.sig == s.sig || u.sig == ucancel.sig) continue;
+                if (!choice_name(&s, c, uname, sizeof uname)) {
+                    snprintf(ufull, sizeof ufull, "letter %c of %s does something but the screen names no such choice", c, lab);
+                    die("IWORD-PROBE", prefix, ufull);
+                }
+                snprintf(ulab, sizeof ulab, "%s,%c", lab, c);
+                snprintf(ufull, sizeof ufull, "%s%s=%s", prefix, ulab, uname);
+                emit(ufull, "wpmenu");
+            }
+        }
         /* a submenu (not a menu already on the path: Justification's choices
          * return to Format: Line) */
         if (s.mode != M_EDIT && !is_field_mode(s.mode) && s.mode != M_RETRIEVE &&
-            !(seen & (1u << s.mode)) && s.mode != at->mode) {
+            !(seen & (1ull << s.mode)) && s.mode != at->mode) {
             char *keep = malloc(8);
             if (!keep) die("IWORD-PROBE", "memory", "");
             snprintf(keep, 8, "type %c", d);
             l2[n] = keep;
-            explore(prefix, lab, l2, n + 1, &s, depth + 1, seen | (1u << at->mode));
+            explore(prefix, lab, l2, n + 1, &s, depth + 1, seen | (1ull << at->mode));
             free(keep);
         }
     }
 }
 
 static const char *const MODS[] = { "", "Shift-", "Alt-", "Ctrl-" };
+
+/* Every key (and modifier) that does something at the prompt `pre` leaves:
+ * "<label><key>", or "<label><key>=<plain key>" when it acts as the key
+ * alone. */
+static void prompt_keys(const char *label, const char *const *pre, int npre)
+{
+    const char *l[12];
+    static state_t pl[NKEYS];
+    state_t at, s;
+    char cmd[80], buf[64], nm[128];
+    for (int i = 0; i < npre; i++) l[i] = pre[i];
+    at = probe(1, l, npre);
+    if (at.mode != M_SEARCH && at.mode != M_RSEARCH && at.mode != M_RTEXT)
+        die("IWORD-PROBE", label, "the prompt keys were probed outside a Search or Replace string");
+    for (int m = 0; m < 4; m++) for (int k = 0; k < NKEYS; k++) {
+        snprintf(buf, sizeof buf, "%s%s", MODS[m], KEYS[k].name);
+        snprintf(cmd, sizeof cmd, "key %s", buf);
+        l[npre] = cmd;
+        s = probe(1, l, npre + 1);
+        if (m == 0) pl[k] = s;
+        if (s.sig == at.sig) continue;
+        if (m > 0 && s.sig == pl[k].sig) snprintf(nm, sizeof nm, "%s%s=%s", label, buf, KEYS[k].name);
+        else snprintf(nm, sizeof nm, "%s%s", label, buf);
+        emit(nm, "wpkey");
+    }
+}
 
 static void inventory_keys(void)
 {
@@ -525,6 +586,19 @@ static void inventory_keys(void)
         s = probe(1, l, 1);
         if (m == 0) plain[k] = s;
         if (s.sig == base.sig) continue;
+        /* a key that names a WordPerfect feature InitechWord does not perform
+         * (P3, spec/iword/fkeys.json "gray"): the name drawn in grey on the
+         * status line and nothing else -- "Shift-F7=Print" */
+        if (s.mode == M_GRAY) {
+            char nm[SW + 1], g[160];
+            int e = SW;
+            memcpy(nm, s.row[SH - 1], SW + 1);
+            while (e > 0 && nm[e - 1] == ' ') nm[--e] = 0;
+            if (!e || nm[0] == ' ') die("IWORD-PROBE", buf, "a grey key with no name at the left of the status line");
+            snprintf(g, sizeof g, "%s=%s", buf, nm);
+            emit(g, "wpgray");
+            continue;
+        }
         if (m > 0 && s.sig == plain[k].sig) {
             char alias[96];
             snprintf(alias, sizeof alias, "%s=%s", buf, KEYS[k].name);
@@ -592,6 +666,21 @@ static void inventory_keys(void)
             emit(full, "wpkey");
             if (s.mode != M_EDIT && !is_field_mode(s.mode) && s.mode != M_RETRIEVE) explore("Block:", buf, l, 2, &s, 0, 0);
         }
+    }
+    /* the keys of the Search and Replace strings (P3, initech-qvgd): from
+     * each prompt with a string typed and the cursor inside it, every key
+     * and modifier; "Srch:F6" (both directions of Search and Replace's
+     * search string), "Rplc:Tab" (Replace with:); a modified key that acts
+     * as the key alone is an alias, "Srch:Shift-F2=F2" */
+    {
+        static const char *const fwd[] = { "key F2", "type document", "key Left Left" };
+        static const char *const bwd[] = { "key Shift-F2", "type document", "key Left Left" };
+        static const char *const rsr[] = { "key Alt-F2", "type n", "type document", "key Left Left" };
+        static const char *const rtx[] = { "key Alt-F2", "type n", "type document", "key F2", "type paper", "key Left Left" };
+        prompt_keys("Srch:", fwd, 3);
+        prompt_keys("Srch:", bwd, 3);
+        prompt_keys("Srch:", rsr, 4);
+        prompt_keys("Rplc:", rtx, 6);
     }
 }
 
@@ -728,6 +817,35 @@ static void pristine_probes(void)
     const char *c[] = { "key F7" };
     g_clean_f7 = scenario(0, 0, 0, c, 1);
 }
+/* Blank every line of a named mutant's region (#ifdef IWORD_MUT_* up to
+ * its #else or #endif; the #else of an #ifndef IWORD_MUT_*), so a literal
+ * only a mutant build shows ("Search:", "Not found") is not demanded of the
+ * shipped program. Nesting is followed; the face nests none. */
+static void mutant_regions_out(char *src)
+{
+    char *p = src;
+    int depth = 0, mut = 0, mutdepth = 0;
+    while (*p) {
+        char *eol = strchr(p, '\n');
+        char *q = p;
+        size_t len = eol ? (size_t)(eol - p) : strlen(p);
+        int blank = 0;
+        while (*q == ' ' || *q == '\t') q++;
+        if (!strncmp(q, "#if", 3)) {
+            depth++;
+            if (!mut && !strncmp(q, "#ifdef IWORD_MUT_", 17)) { mut = 1; mutdepth = depth; }
+            else if (!mut && !strncmp(q, "#ifndef IWORD_MUT_", 18)) { mut = 2; mutdepth = depth; }
+        } else if (!strncmp(q, "#else", 5) && mut && depth == mutdepth) {
+            mut = mut == 1 ? 2 : 3;
+        } else if (!strncmp(q, "#endif", 6)) {
+            if (mut && depth == mutdepth) mut = 0;
+            depth--;
+        } else if (mut == 1 || mut == 3) blank = 1;
+        if (blank) memset(p, ' ', len);
+        if (!eol) break;
+        p = eol + 1;
+    }
+}
 static void inventory_messages(const char *face_src)
 {
     observe(&g_clean_f7, 23, 0, 0);
@@ -757,12 +875,26 @@ static void inventory_messages(const char *face_src)
         const char *q[] = { "key Alt-F4 Right Delete" };        observe((state_t[]){ scenario(1, 0, 0, q, 1) }, 23, 0, 0);
         const char *r[] = { "key F8 Delete" };                  observe((state_t[]){ scenario(1, 0, 0, r, 1) }, 23, "[und]", "[code]");
         const char *t[] = { "key Alt-F3" };                     observe((state_t[]){ scenario(1, 0, 0, t, 1) }, 23, 0, 0);
+        /* P3 (initech-qvgd): Search, Replace, Undelete, Setup */
+        const char *u[] = { "key F2" };                         observe((state_t[]){ scenario(1, 0, 0, u, 1) }, 23, 0, 0);
+        const char *v[] = { "key Shift-F2" };                   observe((state_t[]){ scenario(1, 0, 0, v, 1) }, 23, 0, 0);
+        const char *w[] = { "key F2", "type nowhere", "key F2" };            observe((state_t[]){ scenario(1, 0, 0, w, 3) }, 23, 0, 0);
+        const char *x[] = { "key Alt-F2" };                     observe((state_t[]){ scenario(1, 0, 0, x, 1) }, 23, 0, 0);
+        const char *y[] = { "key Alt-F2", "type n", "type document", "key F2" };   observe((state_t[]){ scenario(1, 0, 0, y, 4) }, 23, "document", "");
+        const char *z[] = { "key Alt-F2", "type y", "type document", "key F2", "type paper", "key F2" };
+        observe((state_t[]){ scenario(1, 0, 0, z, 6) }, 23, 0, 0);
+        const char *a2[] = { "key F1" };                        observe((state_t[]){ scenario(1, 0, 0, a2, 1) }, 23, 0, 0);
+        const char *b2[] = { "key Shift-F1" };                  observe((state_t[]){ scenario(1, 0, 0, b2, 1) }, 23, 0, 0);
+        const char *c2[] = { "key Shift-F1", "type 381" };      observe((state_t[]){ scenario(1, 0, 0, c2, 2) }, 23, 0, 0);
+        const char *d2[] = { "key Shift-F1", "type 312" };      observe((state_t[]){ scenario(1, 0, 0, d2, 2) }, 23, 0, 0);
+        const char *e2[] = { "key Shift-F1", "type 381i" };     observe((state_t[]){ scenario(1, 1, 0, e2, 2) }, 23, 0, 0);
     }
     /* completeness: the literals the source shows on the status line */
     {
         char *src = slurp(face_src);
-        static const char *const pats[] = { "error(\"", " t = \"", " nm = \"" };
-        for (int pi = 0; pi < 3; pi++) {
+        static const char *const pats[] = { "error(\"", " t = \"", " nm = \"", "setup_row(23, \"" };
+        mutant_regions_out(src);
+        for (int pi = 0; pi < 4; pi++) {
             const char *p = src;
             while ((p = strstr(p, pats[pi]))) {
                 char val[128] = "";

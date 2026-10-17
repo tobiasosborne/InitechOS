@@ -73,8 +73,12 @@
 %% ---- back cover (PUB-REF-0001 PK-05; operator directive 2026-10-17: the
 %% motto on the back cover) ------------------------------------------------------
 %% Wordmark top left; the motto; the address block bottom left; part number
-%% and print code bottom right; nothing else.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
+%% and print code bottom right; nothing else.  (\providecommand: the house
+%% back cover of initech-forms.sty, PK-05 as revised by the design lane and
+%% loaded first by the class, is the one every book gets -- two \newcommand
+%% definitions stopped every manual from typesetting after both lanes were
+%% merged; bead initech-ipu5.10 found it, the InitechBase owner decides.)
+\providecommand\MakeBackCover{\thispagestyle{empty}%
   \AtPage{23}{14}{\Wordmark[30mm]}%
   \AtPage{23}{40}{\parbox[t]{120mm}{\IsThisGoodForTheCompany}}%
   \AtPage{23}{196}{\parbox[t]{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%

@@ -125,11 +125,11 @@ static void cmdsfile(const char *path,Set *doc,Set *draft)
             }
             if(k!=4 || *q || !*f[0] || !*f[3]) die("COMMAND-INDEX",path,line);
             /* InitechWord (harness/pubs/iword_probe.c, bead initech-ipu5.10):
-             * wpkey wpmenu wppull wpcode wpmsg */
+             * wpkey wpmenu wppull wpcode wpmsg wpgray */
             if(strcmp(f[1],"internal") && strcmp(f[1],"external") && strcmp(f[1],"batch") &&
                strcmp(f[1],"config") && strcmp(f[1],"int21") && strcmp(f[1],"wpkey") &&
                strcmp(f[1],"wpmenu") && strcmp(f[1],"wppull") && strcmp(f[1],"wpcode") &&
-               strcmp(f[1],"wpmsg") &&
+               strcmp(f[1],"wpmsg") && strcmp(f[1],"wpgray") &&
                /* InitechBase (bead initech-ipu5.8): samir_inventory.c kinds */
                strcmp(f[1],"command") && strcmp(f[1],"function") && strcmp(f[1],"set"))
                 die("COMMAND-INDEX",path,line);
@@ -357,7 +357,8 @@ int main(int argc,char **argv)
         /* InitechWord running-text keys (initech-wpc.sty \K -> <job>.wpkeys):
          * every key of a mention ("Shift-F8", "Home, Home, Up") must be a
          * single shipped key, NAME|wpkey of the inventory, or a key that acts as
-         * another (NAME=KEY|wpkey) (GC-01). */
+         * another (NAME=KEY|wpkey), or a key that shows the grey name of a
+         * feature InitechWord does not perform (NAME=Print|wpgray) (GC-01). */
         Set pairs=list(argv[2],0);size_t n=0;
         for(int f=3;f<argc;f++) { Set m=list(argv[f],-1); for(size_t i=0;i<m.n;i++) {
             const char *p=m.item[i];
@@ -368,7 +369,8 @@ int main(int argc,char **argv)
                     /* a key that acts as another key: "Shift-Backspace=Backspace|wpkey" */
                     if(!ok) { size_t tl=strlen(tok);
                         for(size_t q=0;q<pairs.n && !ok;q++) { const char *it=pairs.item[q];size_t il=strlen(it);
-                            ok=!strncmp(it,tok,tl) && it[tl]=='=' && il>6 && !strcmp(it+il-6,"|wpkey"); } }
+                            ok=!strncmp(it,tok,tl) && it[tl]=='=' && ((il>6 && !strcmp(it+il-6,"|wpkey")) ||
+                                (il>7 && !strcmp(it+il-7,"|wpgray"))); } }
                     if(!ok) die("DOC-NOT-SHIPPED",argv[f],m.item[i]);
                     n++; }
                 p+=k;while(*p==',' || *p==' ') p++;
