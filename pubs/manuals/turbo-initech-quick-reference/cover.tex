@@ -1,0 +1,20 @@
+% Cover and back cover of the Turbo Initech Quick Reference booklet
+% (PUB-REF-0001 PK-11: the PK-02 grid scaled to 88.9 x 228.6 mm; part number
+% on the back cover bottom right; PK-05 back cover; the slogan on the back
+% cover, operator directive 2026-10-17).  Colour on the cover only (D-6).
+\documentclass[borland,cover]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+\geometry{paperwidth=88.9mm, paperheight=228.6mm, margin=0pt, noheadfoot, nomarginpar}
+\global\csname im@booklettrue\endcsname
+\ProductName{Turbo Initech}
+\ProductVersion{}
+\DocTitle{Quick Reference}
+\PartNumber{1077-0000-20}
+\PrintCode{A1-9/92}
+\FamilyName{Programming Family}
+\FamilyColor{FamilyProgramming}
+\begin{document}
+\MakeBookletCover
+\MakeBackCover
+\end{document}

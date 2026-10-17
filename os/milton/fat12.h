@@ -756,7 +756,9 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * current_size..offset reads back as zeroes).
  *
  * Semantics:
- *   - len == 0 -> no-op: *out_written = 0, size unchanged, FAT12_OK.
+ *   - len == 0 -> SETFILE-size at offset (IBM DOS 3.30 TR p.6-140,
+ *     AH=40h CX=0). *out_written = 0. Shrink releases the tail, keeps EOC,
+ *     and commits the size/start; metadata I/O faults restore the preimage.
  *   - Otherwise writes EXACTLY len bytes; the file's size becomes
  *     max(old_size, offset+len). *out_written is the bytes committed (== len on
  *     success; 0 on a disk-full rollback).
@@ -789,6 +791,13 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                         uint32_t offset, const uint8_t *data,
                         uint32_t len, void *sector_buf, void *cluster_buf,
                         uint32_t *out_written);
+
+/* DOS AH=40h CX=0 size primitive. Same buffers/parent/slot as write_partial.
+ * FAT12 only (FAT16 writes remain unsupported); inconsistent chains fail loud
+ * before mutation. Ref: IBM DOS 3.30 TR p.6-140; ADR-0003 Appendix A/B.1. */
+int fat12_set_size(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                   uint16_t parent, uint32_t slot, uint32_t size,
+                   void *sector_buf, void *cluster_buf);
 
 /*
  * fat12_unlink: delete the regular 8.3 file `name83` from the directory whose

@@ -1,0 +1,159 @@
+% Chapter 3 -- Larger programs (model: TP 6.0 UG Ch 3 "Turbo Pascal
+% units"; Turbo Initech has no units, ADR-0007 DEC-02, so the chapter
+% teaches how a single-file program is organized).  AN-19.
+% Sources (Law 1): os/tps/tps.pas ParseProgram (repeated, interleaved
+% sections), the declare-before-use rule (os/tps/SYMBOLS-DUMP.md s7: a call
+% to a later routine needs a prior forward); ADR-0007 DEC-02/03 idioms.
+% Examples replayed by test-pubs-turbo.
+\Gates{test-tps-type-fpc, test-compiler, test-compiler-os, test-pubs-turbo}
+\chapter{Larger programs}
+\ix{larger programs}
+\ix{program structure}
+
+A Turbo Initech program is always one file, however large it grows; there
+are no units and no include files.  This chapter shows a complete program
+of a few dozen lines and the habits that keep a larger program in order.
+
+\section{A complete program}
+The program \file{REPORTS.PAS} checks a batch of reports for cover sheets,
+totals their pages, and records the count in a file:
+
+\Program{reports}
+
+\ProgramOutput{reports}
+
+\section{The order of declarations}
+\ix{declaration order}
+Turbo Initech reads the program once, from top to bottom, and accepts a
+name only after its declaration.  \file{REPORTS.PAS} is arranged so:
+
+\begin{enumerate}
+\item the constants \id{MaxReports} and \id{Missing}, which the declarations
+  after them use;
+\item the record type \id{Report};
+\item the global variables that the routines share;
+\item the routines, each after everything it uses;
+\item a second variable section, for the variable \id{Bad} that only the
+  main block uses;
+\item the main block.
+\end{enumerate}
+
+Constant, type and variable sections may be repeated as often as you need,
+in any order that keeps each declaration ahead of its uses.
+
+\section{Routines that call each other}
+\ix{forward declarations}
+A routine may call only routines declared above it.  This program is
+rejected, because \id{First} calls \id{Second} before \id{Second} is
+declared:
+
+\Source{err-later}
+
+\CompilerOutput{err-later}{ERR}
+
+The cure is a \rw{forward} declaration: the heading of \id{Second}, followed
+by \rw{forward}, placed before \id{First}.  The full declaration comes later:
+
+\Program{later}
+
+\ProgramOutput{later}
+
+\section{Techniques}
+\SideHead{Searching}A search that may run off the end of an array stops on a
+Boolean flag, and tests the index before it reads the element:
+
+\Program{search}
+
+\ProgramOutput{search}
+
+\SideHead{Sorting}An insertion sort takes each element in turn and moves
+the larger elements before it one place up until the place for it is
+found.  The inner loop uses the same flag and the same nested test:
+
+\Program{sort}
+
+\ProgramOutput{sort}
+
+\SideHead{Counting}An array indexed by \code{Ord(C) - Ord('A')} counts
+letters; the two tests on \id{Code} keep the index within the array:
+
+\Program{letters}
+
+\ProgramOutput{letters}
+
+\SideHead{Named states}Integer constants give names to the states of a
+program, where another language would use an enumerated type:
+
+\Program{states}
+
+\ProgramOutput{states}
+
+\section{A larger application: the staff directory}
+\ix{staff directory}
+\ix{application, sample}
+The program \file{DIRECTRY.PAS} keeps a staff directory.  It saves the
+staff to a file as lines of text, reads the file back into its tables,
+sorts the people by name and prints a report.  It uses every technique of
+this chapter, and it shows how a Turbo Initech program does without the
+features the language leaves out.
+
+\Program{directory}
+
+On InitechDOS it writes \file{STAFF.TXT} and prints:
+
+\ProgramOutput{directory}
+
+\SideHead{Names in one string}A string cannot be an element of an array or a
+field of a record.  The program therefore keeps all the names in the one
+string \id{Pool}, \id{NameLen} characters each, and \id{GetName} and
+\id{PutName} copy one name out of or into its slot.  The main block first
+fills \id{Pool} with blanks so that every slot exists.
+
+\SideHead{Records and an index}The badge and desk numbers are fields of the
+records in \id{Staff}.  \id{Names} holds the slot numbers in the order the
+report wants; \id{SortByName} rearranges this index, not the records, so
+the records and the names stay in step.
+
+\SideHead{Text in a file}\id{Save} writes each person as one line, the three
+values separated by commas and the line ended by a line feed (\code{Chr(10)}).
+\id{ReadLine} reads the file one byte at a time until a line feed, and
+\id{Field} takes a number off the front of a line.  A text file written in
+this way can be read with \cmd{TYPE} at the InitechDOS prompt.
+
+\SideHead{One file, two uses}The file variable \id{Data} is global, because
+a file cannot be passed as a parameter.  \std{assign}{Assign} names it once;
+\id{Save} opens it with \std{rewrite}{Rewrite} and \id{Load} reopens it with
+\std{reset}{Reset}, which closes it first.
+
+\SideHead{Guards}Every loop that might run past the end of a string or an
+array stops on a Boolean flag and tests the index in an \rw{if} of its own:
+\id{ReadLine}, \id{Field} and the inner loop of \id{SortByName}.
+
+\SideHead{Columns}\id{Report} pads each name with spaces to 13 characters,
+since \std{write}{Write} has no field widths.
+
+\section{Keeping a program in order}
+\SideHead{Constants for sizes}Declare every array bound and string capacity
+as a constant, as \id{MaxReports} is, so that one change resizes the
+program.
+
+\SideHead{Local variables}Declare a variable inside the routine that uses
+it, as \id{SaveCount} declares \id{Log}.  Local variables exist only during
+the call, and they cannot be changed by mistake elsewhere.
+
+\SideHead{Guards}Turbo Initech evaluates both sides of \rw{and} and
+\rw{or}.  When one test protects another, such as a bound check before an
+array access, write two nested \rw{if} statements (the
+\doctitle{Programmer's Guide}, Chapter 5).
+
+\SideHead{Lists without pointers}Keep items in arrays and link them by
+their indexes, with a constant such as \id{Missing} for ``none'' (the
+\doctitle{Programmer's Guide}, Chapter 3).
+
+\SideHead{Capacities}The compiler holds the whole symbol table of a program
+at once.  Chapter 8 lists its capacities; a very large program may need
+fewer or shorter names.
+
+\section{Where to go from here}
+Programs do not always do what you meant.  Chapter 4 shows you how to find
+out why.

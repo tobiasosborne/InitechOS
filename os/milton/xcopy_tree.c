@@ -94,9 +94,11 @@ static int absolute(const char *in, char out[CAP])
     char combined[CAP]; unsigned pos=0;
     if (in[0] && in[1] == ':') in+=2;
     if (*in != '\\') {
+#ifndef DU_MUT_REL_ROOT
         if (!put(combined,cwd)) return 0;
         pos=length(combined);
         if (pos > 1) combined[pos++]='\\';
+#endif
     }
     unsigned n=length(in);
     if (pos+n >= CAP) { error=4; return 0; }

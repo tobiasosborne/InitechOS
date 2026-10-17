@@ -1,0 +1,8 @@
+# Turbo Initech tokens (drawn only; Chapter 1 of the Programmer's Guide).
+# Source of truth: os/tps/tps.pas IsIdentStart/IsIdentChar, ScanIdentifier,
+# ScanNumber, ScanString, SkipTrivia.  Lower-case names that are not rules
+# (letter, digit, character) are defined in the prose beside the diagram.
+identifier = ( letter | "_" ) { letter | digit | "_" } .
+unsigned-integer = digit { digit } .
+string-literal = "'" { string-character | "''" } "'" .
+comment = "{" { comment-character } "}" | "(*" { comment-character } "*)" .

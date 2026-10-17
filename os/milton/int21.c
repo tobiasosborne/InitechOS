@@ -1530,12 +1530,15 @@ static int user_buf_ok(uint32_t ptr, uint32_t count)
 #endif
 }
 
-/* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr. The handle
+/* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr.
+ * IBM DOS 3.30 TR p.6-140: ECX=0 sets a disk file's EOF to its current
+ * position (backend SETFILE-size); EAX=0, position unchanged. ADR-0003 A.
+ * The handle
  * is resolved through the current process's JFT into the system SFT (beads
  * initech-509.3): a CON device entry writes to the console (so handles 1/2 --
  * and anything DUP2'd onto the CON-write slot -- still go to CON). Writing to
- * AUX/PRN (no driver yet) or to a FILE (FAT write deferred to 509.11) returns
- * CF=1, AX=0x0005 (access denied). An out-of-range/closed handle -> CF=1,
+ * a read-only FILE returns CF=1, AX=0x0005 (access denied).
+ * An out-of-range/closed handle -> CF=1,
  * AX=0x0006 (invalid handle). Success: EAX = bytes written, CF clear. */
 static void do_write(int_frame_t *f)
 {
@@ -2177,6 +2180,17 @@ static device_header_t *dev_open_lookup(const char *path)
     if (!dev_name_from_path(path, name8)) {
         return 0;
     }
+    /* IBM DOS 3.30 Technical Reference p.6-54 lists COM1..COM4;
+     * MS-DOS 3.3 Reference pp.89-91 lists LPT1..LPT3. Aliases use the
+     * resident AUX/PRN service, and retain device precedence with extensions. */
+    if (name8[0]=='C' && name8[1]=='O' && name8[2]=='M' &&
+        name8[3]>='1' && name8[3]<='4' && name8[4]==' ') {
+        name8[0]='A';name8[1]='U';name8[2]='X';name8[3]=' ';
+    }
+    if (name8[0]=='L' && name8[1]=='P' && name8[2]=='T' &&
+        name8[3]>='1' && name8[3]<='3' && name8[4]==' ') {
+        name8[0]='P';name8[1]='R';name8[2]='N';name8[3]=' ';
+    }
     return devices_find(name8);           /* NULL if the name is not a device */
 #endif
 }
@@ -2416,6 +2430,13 @@ static void do_creat(int_frame_t *f)
         cf_set(f);
         return;
     }
+    /* Guide p.17: device names never create disk entries. CREAT shares OPEN's
+     * device routing; COPY to NUL/CON remains a device transfer. */
+    if (dev_open_lookup(path)) {
+        f->eax=(f->eax & ~255u)|2u;
+        do_open(f);
+        return;
+    }
     /* Resolve the CONTAINING directory (the file itself does not exist yet, so
      * the resolve targets the parent chain, not the leaf). A missing/non-dir
      * parent component or an overlength path -> 0x0003. */
@@ -2498,6 +2519,10 @@ static void do_creat(int_frame_t *f)
 static void do_creatnew(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
+
+    if (path && dev_open_lookup(path)) {
+        set_ax(f,INT21_ERR_ACCESS_DENIED);cf_set(f);return;
+    }
 
     if (path == 0 || *path == '\0') {
         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
@@ -2674,6 +2699,10 @@ static void do_rename(int_frame_t *f)
 {
     const char *old_path = (const char *)(uintptr_t)f->edx;
     const char *new_path = (const char *)(uintptr_t)f->edi;  /* the SECOND flat ptr */
+
+    if ((old_path && dev_open_lookup(old_path)) || (new_path && dev_open_lookup(new_path))) {
+        set_ax(f,INT21_ERR_ACCESS_DENIED);cf_set(f);return;
+    }
 
     if (old_path == 0 || *old_path == '\0' ||
         new_path == 0 || *new_path == '\0') {
@@ -2871,6 +2900,14 @@ static void do_chmod(int_frame_t *f)
 static void do_mkdir(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
+
+    /* Guide p.17 reserved names, including qualified names and extensions;
+     * test-shell-files compares the volume before/after each refusal. */
+#ifndef INT21_MUTATE_MKDIR_DEVICE
+    if (path && dev_open_lookup(path)) {
+        set_ax(f,INT21_ERR_ACCESS_DENIED);cf_set(f);return;
+    }
+#endif
 
     if (path == 0 || *path == '\0') {
         set_ax(f, INT21_ERR_PATH_NOT_FOUND);

@@ -1,0 +1,45 @@
+% Turbo Initech Library Reference -- part 1077-0000-12 (PUB-REF-0001 Sec 12,
+% DS row TIN-LR).  Family F-BOR; model the Turbo Pascal 6.0 Library
+% Reference (docs/pubs/originals/borland-turbo-pascal.md s4.3, s6.1, s6.3):
+% the self-describing Sample entry, one AN-12 entry per routine A-Z with a
+% complete example, guide word at the head of every reference page (PG-16),
+% stepped letter tabs (PG-31).  The routines are the RTL as far as ADR-0007
+% DEC-05 defines it; Appendix A gives the run-time entry points.  Every
+% entry registers its routine (KIND routine / rtlentry) and every example
+% is replayed by make test-pubs-turbo.  Bead initech-ipu5.12.
+\documentclass[borland]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+
+\ProductName{Turbo Initech}
+\ProductVersion{}
+\DocTitle{Library Reference}
+\PartNumber{1077-0000-12}
+\FamilyName{Programming Family}
+\FamilyColor{FamilyProgramming}
+\Edition{First Edition (September 1992)}
+\EditionApplies{This edition applies to Turbo Initech and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1992}
+\Revision{R1}
+\PrintCode{A1-9/92}
+\Trademarks{Turbo Initech is a registered trademark of Initech Systems
+  Corporation.  InitechOS, InitechDOS and FLAIR are trademarks of Initech
+  Systems Corporation.  Intel, 80386 and 80486 are trademarks of Intel
+  Corporation.  All other product names are trademarks of their respective
+  holders.}
+\newcommand\term[1]{\textbf{#1}}
+
+\begin{document}
+\FrontMatterFolios
+\MakeTitlePage
+\input{frontmatter}
+\tableofcontents
+\input{introduction}
+\input{ch1-library}
+\appendix
+\input{appa-interface}
+\input{appb-pascal}
+\printindex
+\FinishBook
+\end{document}

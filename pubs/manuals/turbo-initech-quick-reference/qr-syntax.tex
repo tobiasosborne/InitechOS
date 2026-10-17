@@ -1,0 +1,55 @@
+% Syntax diagrams: every rule of the printed grammar (grammar/tps.ebnf of
+% the Programmer's Guide, drawn by harness/pubs/railroad.c and proved
+% against the shipped parser both ways by test-pubs-turbo); each diagram
+% registers its production (KIND production).
+\Gates{test-tps-parse-fpc, test-pubs-turbo}
+\chapter{Syntax}
+\ix{syntax diagrams}
+Follow each diagram from its name along the arrows.  Rectangles name other
+diagrams; reserved words and symbols are written as shown.  The
+\doctitle{Programmer's Guide}, Chapter 1, explains the diagrams in full.
+
+\QRHead{Programs and declarations}
+\Syntax{program}
+\Syntax{section-const}
+\Syntax{const-decl}
+\Syntax{const-literal}
+\Syntax{section-type}
+\Syntax{type-decl}
+\Syntax{record-type}
+\Syntax{field-group}
+\Syntax{section-var}
+\Syntax{var-decl}
+\Syntax{type-name}
+\Syntax{array-type}
+\Syntax{array-bound}
+\Syntax{result-type}
+
+\QRHead{Routines}
+\Syntax{routine-procedure}
+\Syntax{routine-function}
+\Syntax{param-list}
+\Syntax{param-group}
+\Syntax{call}
+
+\QRHead{Statements}
+\Syntax{block}
+\Syntax{statement}
+\Syntax{ident-statement}
+\Syntax{assignment}
+\Syntax{stmt-write}
+\Syntax{write-arg}
+\Syntax{stmt-if}
+\Syntax{else-clause}
+\Syntax{stmt-while}
+\Syntax{stmt-for}
+\Syntax{stmt-repeat}
+
+\QRHead{Expressions}
+\Syntax{expression}
+\Syntax{simple-expression}
+\Syntax{term}
+\Syntax{factor}
+\Syntax{index-suffix}
+\Syntax{field-suffix}
+

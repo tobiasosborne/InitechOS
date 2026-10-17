@@ -1,0 +1,49 @@
+% Introduction (PUB-REF-0001 AN-21 F-BOR).  Sources: ADR-0007 DEC-01,
+% DEC-06, DEC-08; PRD Sec 7.
+\Gates{test-pubs-build, test-pubs-turbo}
+\IntroductionChapter
+
+Turbo Initech\reg{} is written in the language it compiles.  This book
+describes how the first Turbo Initech compiler is made from its Pascal
+source, how every later compiler is made by the compiler before it, and
+how a compiler proves that it reproduces itself exactly.  It is written for
+the people who build and accept Turbo Initech: release engineers,
+maintainers of the compiler, and auditors of its builds.
+
+Chapter 1 explains the bootstrap.  Chapter 2 describes the genesis
+compiler, the program on the development system that makes the first
+compiler.  Chapter 3 describes the build of Turbo Initech and of the
+programs it compiles.  Chapter 4 is the acceptance procedure, step by step,
+in the form in which it is carried out and recorded.  Chapters 5 and 6
+describe the further checks: compilation by an independent compiler, and
+the rules that keep every build reproducible.  Appendix A lists the
+programs that every build of Turbo Initech must compile correctly.
+
+\section{The Turbo Initech manuals}
+\ix{manuals}
+\SideHead{User's Guide}The \doctitle{Turbo Initech User's Guide}
+(1077-0000-10): using the compiler and learning the language.
+
+\SideHead{Programmer's Guide}The \doctitle{Turbo Initech Programmer's
+Guide} (1077-0000-11): the language definition and the compiler's
+internals.
+
+\SideHead{Library Reference}The \doctitle{Turbo Initech Library Reference}
+(1077-0000-12): the standard routines and the run-time library.
+
+\SideHead{Self-Compilation Guide}This book (1077-0000-13).
+
+\SideHead{Quick Reference}The \doctitle{Turbo Initech Quick Reference}
+(1077-0000-20).
+
+\section{Typefaces used in this book}
+\ix{typefaces}
+In addition to the typefaces of the other books, this book shows the
+commands typed on the development system after a dollar-sign prompt,
+\code{\$ \textbf{make test-compiler}}, and what they print in the same
+typeface as program output.
+
+\section{How to contact Initech}
+\ix{technical support}
+Questions about the build of Turbo Initech go to the Initech Help Desk at
+555-0125, extension 2504, or to \InitechAddressLine.

@@ -1,0 +1,3 @@
+TPS-PARSE-ERROR pos=34 line=4 col=1 expected=SEMI found=KW_BEGIN
+TPS-TYPE-SKIP parser-error
+TPS-GEN-SKIP parser-error

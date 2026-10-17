@@ -1,0 +1,30 @@
+% Chapter 6 -- The integrated environment (model: TP 6.0 UG Ch 7 "The IDE
+% reference", AN-13 IDE entries).  NOT SHIPPED: the resident "blue screen"
+% IDE is milestone M8 (ADR-0007 DEC-08; epic initech-ls4); its menus,
+% keys and window design are not decided (ADR-0007 OQ-3).  Per D-14 the
+% chapter is DRAFT and states only the scope DEC-08 ratifies; no menu,
+% command or key is invented, so no AN-13 entry can be written yet.
+\Gates{test-pubs-build}
+\chapter{The integrated environment}
+\ix{integrated environment}
+\ix{IDE}
+
+\draft{the Turbo Initech integrated environment is not built: milestone M8,
+ADR-0007 DEC-08, bead initech-ls4; its menus and keys are not designed
+(ADR-0007 OQ-3)}
+The Turbo Initech integrated environment is a full-screen program that
+runs on InitechOS and brings the editor, the compiler and the running
+program together on one blue screen.  It will let you:
+
+\begin{itemize}
+\item edit a program, reading and writing its file through InitechDOS;
+\item compile it with the resident Turbo Initech compiler;
+\item run the compiled program.
+\end{itemize}
+
+The environment will also be where Turbo Initech compiles itself from
+inside InitechOS (the \doctitle{Self-Compilation Guide}).  Until it is
+available, programs are written with an editor such as EDLIN and compiled
+with \file{TPS.COM} as Chapters 1 and 5 describe.  This chapter will
+describe each menu and command of the environment when its design is
+complete.

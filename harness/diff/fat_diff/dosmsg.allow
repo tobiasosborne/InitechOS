@@ -49,8 +49,6 @@ os/milton/chkdsk.c	"SEP"	2026-10-17	UI/TOKEN: numeric report columns, month or f
 os/milton/chkdsk.c	"Volume "	2026-10-17	UI/TOKEN: numeric report columns, month or filesystem token (MS-DOS 3.3 pp.43,318-319; chkdsk.sh)
 os/milton/chkdsk.c	"\r\n     Contains "	2026-10-17	UI/TOKEN: numeric report columns, month or filesystem token (MS-DOS 3.3 pp.43,318-319; chkdsk.sh)
 os/milton/chkdsk.c	"\r\n"	2026-10-17	UI/TOKEN: numeric report columns, month or filesystem token (MS-DOS 3.3 pp.43,318-319; chkdsk.sh)
-os/milton/command.c	"        0 file(s) copied\r\n$"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
-os/milton/command.c	"        1 file(s) copied\r\n$"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	"   "	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	"  "	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)
 os/milton/command.c	" $"	2026-10-17	UI/TOKEN: shell prompt/heading, command/environment token or INT21 assembly (MS-DOS 3.3 pp.54,57,97,101,120; ADR-0003 App A)

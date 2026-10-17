@@ -1,0 +1,47 @@
+% Turbo Initech Quick Reference -- part 1077-0000-20 (PUB-REF-0001 Sec 12,
+% DS row TIN-QR): a PK-11 booklet, 88.9 x 228.6 mm, section heads in Heros
+% Bold capitals between two rules, each item its syntax in bold over a
+% one-line description, Notes pages filling the last signature, the part
+% number on the back.  Contents: the reserved words (registered, KIND
+% reserved), the syntax, the routines, the compiler, every diagnostic by
+% number (registered, KIND message, texts checked verbatim), the
+% capacities; editor keys and keyboard templates are DRAFT (the IDE is
+% M8, ADR-0007 DEC-08); there are no compiler directives.  Bead
+% initech-ipu5.12.
+\documentclass[borland]{initech-manual}
+\usepackage{initech-borland}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+\BookletTrim
+
+\ProductName{Turbo Initech}
+\ProductVersion{}
+\DocTitle{Quick Reference}
+\PartNumber{1077-0000-20}
+\FamilyName{Programming Family}
+\FamilyColor{FamilyProgramming}
+\Edition{First Edition (September 1992)}
+\EditionApplies{This edition applies to Turbo Initech and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1992}
+\Revision{R1}
+\PrintCode{A1-9/92}
+\Trademarks{Turbo Initech is a registered trademark of Initech Systems
+  Corporation.  InitechOS and InitechDOS are trademarks of Initech Systems
+  Corporation.  All other product names are trademarks of their respective
+  holders.}
+
+\begin{document}
+\FrontMatterFolios
+\input{titlepage}
+\input{frontmatter}
+\tableofcontents
+\input{introduction}
+\input{qr-language}
+\input{qr-syntax}
+\input{qr-compiler}
+\input{qr-messages}
+\input{qr-tables}
+\printindex
+\NotesToSignature
+\FinishBook
+\end{document}

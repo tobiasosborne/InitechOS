@@ -1,0 +1,77 @@
+% Appendix D -- How Turbo Initech is written.  The source techniques of the
+% compiler itself, each shown in a small runnable program written in the
+% same manner (not a copy of the compiler's source).  Sources (Law 1):
+% os/tps/tps.pas (PoolChars/PoolAdd name pool, PeekChar sentinel accessor,
+% insertion-ordered symbol arrays with local-first lookup, the two-chunk
+% rolling source window of ChunkMax bytes, the fail-loud capacity checks);
+% ADR-0007 DEC-02 (static arenas, fixed capacity, fail loud), DEC-03 (the
+% three order-independence idioms), DEC-04 (insertion-ordered tables).
+% Programs replayed by test-pubs-turbo.
+\Gates{test-tps-lex-fpc, test-tps-type-fpc, test-tps-gen-fpc, test-compiler, test-pubs-turbo}
+\chapter{How Turbo Initech is written}
+\ix{compiler, techniques}
+
+Turbo Initech is written in the language this book defines, and its own
+source is the largest Turbo Initech program there is.  This appendix shows
+the techniques it is built from, each in a small program written in the
+same manner.  They are useful in any program that must manage tables
+without pointers.
+
+\section{A name pool}
+\ix{name pool}
+The compiler stores the spelling of each different identifier once, in one
+large character array, and refers to a name by its position.  Comparing two
+names becomes comparing two numbers once each name has been entered:
+
+\Program{pool}
+
+\ProgramOutput{pool}
+
+The second \code{'total'} is found, not added again.  The tables have fixed
+sizes, and running out of room sets a flag instead of overwriting memory;
+the compiler reports the same condition as \code{char pool exceeds
+POOLMAX=} or \code{name table exceeds NAMEMAX=} (Appendix A).
+
+\section{A sentinel accessor}
+\ix{sentinel}
+Because both operands of \rw{and} are evaluated, a scanner cannot write
+\code{(At <= Length(Text)) and (Text[At] = C)}.  The compiler's lexer reads
+its characters through a function that returns character 0 beyond the end,
+so the loops that use it need no test of the bounds:
+
+\Program{peek}
+
+\ProgramOutput{peek}
+
+\section{An insertion-ordered table}
+\ix{symbol table}
+The compiler's symbol table is a set of parallel arrays to which rows are
+only ever appended, in the order of the declarations.  In the program
+below a lookup searches from the newest row backward, so a local
+declaration, entered after the globals, hides a global one, and the rows of
+a routine's locals are dropped at its end by moving the end of the table
+back.  The compiler itself keeps every row, each marked with the routine it
+belongs to, and looks a name up first among the rows of the current
+routine, then among the globals; the effect is the same, and the symbol
+listing (Chapter 10) can show every scope:
+
+\Program{symtab}
+
+\ProgramOutput{symtab}
+
+Because rows are kept in declaration order and never hashed, the symbol
+listing (Chapter 10) and the order of the generated code are the same every
+time.
+
+\section{Reading a file in blocks}
+\ix{reading in blocks}
+The compiler reads its source \code{ChunkMax} bytes at a time, 255 in the
+compiler, keeping only two blocks in memory.  The same loop counts the lines
+of a file:
+
+\Program{chunks}
+
+\ProgramOutput{chunks}
+
+The loop ends when \std{blockread}{BlockRead} returns fewer bytes than it
+was asked for.

@@ -1,0 +1,21 @@
+TPS-TYPE-BEGIN
+SCOPE global bytes=316
+SYM kind=type name=cell type=record fields=3 size=12
+FIELD owner=cell index=0 name=row type=integer offset=0 size=4
+FIELD owner=cell index=1 name=col type=integer offset=4 size=4
+FIELD owner=cell index=2 name=marked type=char offset=8 size=4
+SYM kind=var name=count type=integer offset=0 size=4
+SYM kind=var name=done type=boolean offset=4 size=4
+SYM kind=var name=grid type=cell array=1..3 offset=8 size=36
+SYM kind=var name=name type=string[10] offset=44 size=12
+SYM kind=var name=log type=file offset=56 size=260
+SYM kind=function name=area type=integer params=3 state=defined frame=12
+SCOPE routine name=area frame=12
+SYM kind=value-param name=w type=integer offset=8 size=4
+SYM kind=value-param name=h type=integer offset=12 size=4
+SYM kind=var-param name=cells type=cell offset=16 size=4
+SYM kind=result name=area type=integer offset=-4 size=4
+SYM kind=local name=product type=integer offset=-8 size=4
+SYM kind=local name=tag type=string[3] offset=-12 size=4
+TPS-TYPE-OK
+TPS-TYPE-END

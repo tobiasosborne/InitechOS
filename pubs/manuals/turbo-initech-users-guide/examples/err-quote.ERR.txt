@@ -1,0 +1,4 @@
+TPS-LEX-ERROR pos=53 line=3 col=32 unterminated string
+TPS-PARSE-SKIP lexer-error
+TPS-TYPE-SKIP lexer-error
+TPS-GEN-SKIP lexer-error

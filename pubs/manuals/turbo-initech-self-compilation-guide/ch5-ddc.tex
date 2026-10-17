@@ -1,0 +1,27 @@
+% Chapter 5 -- Diverse double-compilation.  Sources (Law 1): ADR-0007
+% DEC-06 (the trusting-trust caveat and Wheeler's DDC), FO-2, OQ-2 (how
+% the independent seed is sourced is undecided).  `make ddc' is an M8
+% placeholder: the chapter is DRAFT except for the statement of the method.
+\Gates{test-pubs-build}
+\chapter{Independent compilation}
+\ix{diverse double-compilation}
+\ix{trusting trust}
+
+\draft{make ddc is an M8 placeholder (ADR-0007 DEC-06, FO-2); how the
+independent genesis compiler is made is undecided (ADR-0007 OQ-2)}
+A compiler that compiles itself can pass a hidden fault to its successors:
+a compiler could recognize its own source and insert the fault again each
+time, so that the fault appears in no source file and survives every
+recompilation.  The certificate $K_2 = K_3$ cannot detect such a fault,
+because the fault reproduces itself too.
+
+The defense is \term{diverse double-compilation}.  A second genesis
+compiler, made independently of the first, compiles the Turbo Initech
+source; the compiler it makes then compiles the source again.  If neither
+genesis compiler carries the fault, the chain from the second ends in the
+same bytes as the chain from the first, because from that point both are
+Turbo Initech compiling Turbo Initech.  A difference shows that one of the
+chains has been tampered with.
+
+This check will be procedure TIN-P-05 of Chapter 4 when the independent
+genesis compiler is available.

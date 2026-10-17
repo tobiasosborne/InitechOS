@@ -444,6 +444,8 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 | MSG-DOS-0058 | `WARNING! Backup file is read-only -- backup\r\nwill not be made` |
 | MSG-DOS-0059 | `Invalid number of parameters` |
 | MSG-DOS-0060 | `Insufficient memory` |
+| MSG-DOS-0061 | ` File(s) copied` (COPY footer suffix; User's Reference p.50) |
+| MSG-DOS-0062 | `Duplicate file name` (Rename collision/missing source; User's Reference p.325) |
 
 > Catalogue extraction amendment (initech-bcg.13, 2026-10-17): the lane instruction
 > explicitly authorizes catalogue coverage of all diagnostic TUs. Entries 0027 onward
@@ -485,7 +487,7 @@ No entry shall be modified except by an approved change to this Record (§5.13).
 > emitted when a file is copied onto itself. The text `File cannot be copied
 > onto itself` is MS-DOS 3.3 COMMAND.COM canon: COPY canonicalizes both
 > operands and, when they resolve to the same file, prints this line then the
-> zero-count footer (`        0 file(s) copied`) and creates/truncates
+> zero-count footer (`        0 File(s) copied`) and creates/truncates
 > nothing. This closes a P0 data-loss defect (initech-ojxn) whereby
 > `COPY FOO.TXT FOO.TXT` truncated FOO.TXT to zero before any read. A
 > real-DOS-3.3 86Box golden may later verify it verbatim (follow-up).

@@ -1,0 +1,67 @@
+% Chapter 2 -- The genesis compiler INITECHC.  Sources (Law 1):
+% seed/initechc.c (the option loop: --emit-asm, -o, -, unknown options;
+% every diagnostic and exit code), seed/README.md, seed/lexer.c (the
+% keyword table: `case' is not reserved by the seed, os/tps/PARSER-TRACE.md
+% records the divergence), seed/typecheck.c (whole-program collection:
+% later routines visible without forward, os/tps/SYMBOLS-DUMP.md s7).  The
+% switches are registered (KIND switch) against tps_gate inventory, which
+% reads them from initechc.c.  The genesis compiler's agreement with Free
+% Pascal is test-seed-fpc-diff; its reproducibility test-seed-repro.
+\Gates{test-seed-fpc-diff, test-seed-repro, test-tps-lex-build, test-pubs-turbo}
+\chapter{The genesis compiler}
+\ix{INITECHC}
+\ix{genesis compiler}
+
+\file{INITECHC} is a Pascal compiler written in C.  It runs on the
+development system, reads one Pascal source file and writes 80386 assembly
+language in the same form as Turbo Initech.  It exists to compile the
+Turbo Initech source the first time.
+
+\section{The command}
+\SyntaxLine{initechc \opt{--emit-asm} \opt{-o \ph{file}} \opt{\ph{source} | -}}
+
+\begin{BorTable}{INITECHC options}{p{26mm}p{72mm}}
+\Hd{Option} & \Hd{Effect}\EndHd
+\SwitchItem{--emit-asm} & write assembly language; without it,
+  \file{INITECHC} checks the program and prints \code{parse OK} and a
+  listing of the program's structure\\
+\SwitchItem{-o} \textit{file} & write the assembly language to \textit{file}
+  instead of the standard output\\
+\SwitchItem{-} & read the source from the standard input (also the default
+  when no source file is named)\\
+\end{BorTable}
+
+\section{Messages and exit codes}
+\ix{INITECHC, messages}
+An error in the program is reported on the standard error output as
+
+\begin{TypeIn}
+source:line:col: error: message
+\end{TypeIn}
+
+with \code{<stdin>} as the \textit{source} when the program was read from
+the standard input, and \file{INITECHC} ends with exit code 1.  Like Turbo
+Initech, it reports only the first error.  A problem with the command or
+its files ends it with exit code 2 and one of these messages:
+\code{-o needs an argument}, \code{unknown option:} followed by the option
+and a usage line, \code{multiple input files}, \code{cannot open}
+followed by the file name, \code{read error}, or \code{cannot open output}
+followed by the file name.  A failure to close the output file is reported
+as \code{error closing} and ends with exit code 1.  A successful run ends
+with exit code 0.
+
+\section{The language of the genesis compiler}
+\ix{INITECHC, language}
+The genesis compiler accepts the language of Turbo Initech, with two
+known differences:
+
+\begin{itemize}
+\item \code{case} is not a reserved word of the genesis compiler.
+\item The genesis compiler reads the whole program before it checks it, so
+  a routine may call a routine declared after it without \rw{forward}.
+\end{itemize}
+
+Turbo Initech's own source is written so that both compilers accept it.
+The genesis compiler's output is checked against the Free Pascal compiler
+on a set of programs (\code{make test-seed-fpc-diff}), and every program in
+the Turbo Initech manuals is compiled and run by it as well.

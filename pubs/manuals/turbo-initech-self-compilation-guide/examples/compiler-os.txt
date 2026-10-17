@@ -1,0 +1,54 @@
+>>> test-tps-gen-fpc: named 17-fixture shared corpus -- FPC root + deterministic TPS assembly/both links
+>>> test-tps-gen-fpc: green -- gen_tiny FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_bool_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_control_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_char_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_func_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_func_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_recursion_depth FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_array_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_array_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_record_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_record_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_local_record_array FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_string_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_string_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_string_temporaries FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_file_shared FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: green -- gen_fileio_deep FPC==golden; TPS .s/.o/bare/DOS deterministic
+>>> test-tps-gen-fpc: TPS generates itself twice, byte-identically, and both runtime pairs link
+>>> test-tps-gen-fpc: self output=765205 bytes, linked DOS end=0x0006d27c below 0x6f000
+>>> test-tps-gen-fpc: green (17-fixture named corpus + deterministic self-assembly; independent hand goldens)
+>>> test-tps-lex-build: DOS BSS=71704 bytes <= B9.4 soft reserve 73728; end=0x00067710 below env 0x6f000
+>>> test-tps-lex-build: green (seed compile + bare ELF link + DOS TPS.COM link)
+>>> test-tps-gen-build: green (seed compile + both links + B9.4 BSS/hard-ceiling discipline)
+>>> test-tps-gen-mutant: LABELS must fail NASM for duplicate labels
+>>> test-tps-gen-mutant: OFFBYONE assembles/links but differs at parameter offsets; execution RED is orchestrator-owned
+>>> test-tps-gen-mutant: VARPARAM must emit callee-slot stores for corpus fixture gen_func_deep
+>>> test-tps-gen-mutant: green (LABELS assembly-RED; OFFBYONE and VARPARAM wrong-code artifacts await corpus execution)
+compiler_host_pass_rate=100% (17/17)
+>>> test-compiler: M7 host corpus GREEN -- FPC roots + deterministic TPS both-target builds
+>>> test-tps-gen-os: TPS.COM generates TPSOUT.S on InitechDOS
+>>> test-tps-gen-os: execute TPS-generated TINY.COM on the same OS
+>>> test-tps-gen-os: execute seed-compiled fixture for three-way behavioral agreement
+>>> test-tps-gen-os: green (TPS-on-OS emit -> both links -> on-OS execution; seed == TPS == fpc behavior)
+>>> test-compiler-os: one bounded InitechDOS boot executes all 17 TPS-generated corpus programs
+>>> test-compiler-os: PASS gen_tiny -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_bool_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_control_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_char_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_func_shared -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_func_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_recursion_depth -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_array_shared -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_array_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_record_shared -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_record_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_local_record_array -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_string_shared -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_string_deep -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_string_temporaries -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_file_shared -- TPS/InitechDOS == FPC == hand golden
+>>> test-compiler-os: PASS gen_fileio_deep -- TPS/InitechDOS == FPC == hand golden
+differential_pass_rate=100% (17/17)
+>>> test-compiler-os: M7 differential GREEN (all TPS-generated programs executed on InitechDOS)

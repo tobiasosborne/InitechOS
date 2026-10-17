@@ -119,6 +119,12 @@ static const char SC1_SHIFT[0x3A] = {
     /* 0x38 */ 0,    ' '
 };
 
+/* Pure Set-1 decoder; the ring and IRQ publication retain native -O0 bytes.
+ * Ref: kbd.h Set-1 contract; test-kernel-native-boundaries. */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 void kbd_state_init(kbd_state_t *st)
 {
     st->shift = 0u;
@@ -220,6 +226,9 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
     return (uint8_t)base;
 }
 
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC pop_options
+#endif
 /* ---- kernel-only: state + IRQ1 handler + consumer ------------------------ */
 
 /* The single keyboard ring + modifier state. File scope (BSS) so the IRQ1
