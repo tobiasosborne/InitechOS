@@ -919,6 +919,10 @@ SORT_PROG_BIN    := $(BUILD)/sort_program.bin
 SORT_PROG_MUT_BIN := $(BUILD)/sort_program_mut.bin
 FIND_PROG_ASM    := $(KERNEL_DIR)/find_program.asm
 FDISK_PROG_BIN   := $(BUILD)/fdisk_program.bin
+# FLAIR.COM -- the command that starts the desktop (bead initech-tdnl.106;
+# ADR-0003 Amendment DEC-19; os/milton/flair_program.asm). Ships in \DOS.
+FLAIR_PROG_ASM   := $(KERNEL_DIR)/flair_program.asm
+FLAIR_PROG_BIN   := $(BUILD)/flair_program.bin
 FORMAT_PROG_BIN  := $(BUILD)/format_program.bin
 SYS_PROG_BIN     := $(BUILD)/sys_program.bin
 DISKCOPY_PROG_BIN := $(BUILD)/diskcopy_program.bin
@@ -1968,6 +1972,10 @@ $(FAT_DATA_IMG): $(FAT12_FIXTURES) | $(BUILD)
 
 # Assemble the GREET .COM (org 0x40100; nasm -f bin is deterministic, Rule 11).
 $(GREET_PROG_BIN): $(GREET_PROG_ASM) | $(BUILD)
+	$(NASM) -f bin $< -o $@
+
+# Assemble FLAIR.COM (org 0x40100; bead initech-tdnl.106; deterministic, Rule 11).
+$(FLAIR_PROG_BIN): $(FLAIR_PROG_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 
 # Assemble the GOBBLE .COM (org 0x40100; nasm -f bin is deterministic, Rule 11).
@@ -9925,7 +9933,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := $(SERIAL_TRACE_PACK) os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
+TBXGATE_DEPS := $(SERIAL_TRACE_PACK) os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h os/flair/tbxdesk.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(call kernel-tbx-compile,$(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets,$@)
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -10179,10 +10187,10 @@ IWORD_EXE := $(BUILD)/tenant/iword.exe
 # kmain.c flair_tenant_mount_volume fileio_fat_bind + flair_exit_to_dos
 # int21_cwd_reset; command.c command_repl opens A:\AUTOEXEC.BAT.
 # ONE deployment list of all DOS externals: source:name pairs, in disk order.
-FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM $(FORMAT_PROG_BIN):FORMAT.COM $(SYS_PROG_BIN):SYS.COM $(DISKCOPY_PROG_BIN):DISKCOPY.COM $(DISKCOMP_PROG_BIN):DISKCOMP.COM
+FLAIR_DOS_EXTERNALS := $(CHKDSK_PROG_BIN):CHKDSK.COM $(ATTRIB_PROG_BIN):ATTRIB.COM $(LABEL_PROG_BIN):LABEL.COM $(XCOPY_PROG_BIN):XCOPY.COM $(TREE_PROG_BIN):TREE.COM $(EDLIN_PROG_BIN):EDLIN.COM $(MORE_PROG_BIN):MORE.COM $(FIND_PROG_BIN):FIND.COM $(SORT_PROG_BIN):SORT.COM $(FDISK_PROG_BIN):FDISK.COM $(FORMAT_PROG_BIN):FORMAT.COM $(SYS_PROG_BIN):SYS.COM $(DISKCOPY_PROG_BIN):DISKCOPY.COM $(DISKCOMP_PROG_BIN):DISKCOMP.COM $(FLAIR_PROG_BIN):FLAIR.COM
 FLAIR_DATA_AUTOEXEC := $(BUILD)/flagship_autoexec.bat
 $(FLAIR_DATA_AUTOEXEC): Makefile | $(BUILD)
-	@printf '@ECHO OFF\r\nPATH=A:\\DOS\r\n' > $@
+	@printf '@ECHO OFF\r\nPATH=A:\\DOS\r\nFLAIR\r\n' > $@
 # APPS entry -> file (directory order; independent golden spec/dos_folder_apps.txt):
 # 0 TENANTFX.EXE, 1 CTENANT.EXE, 2 123.EXE, 3 WORD.EXE, 4 123.MNU,
 # 5 CALC.EXE, 6 TEXT.EXE, 7 PAINT.EXE, 8 CALCULAT.EXE, 9 TPSREP.COM,
@@ -10226,7 +10234,7 @@ $(1): $(FLAIR_DATA_README) $(2) $(CTENANT_EXE) $(3) $(4) $(BUILD)/i123-menu.mnu 
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(SCRAPBOOK_EXE) ::APPS/SCRAPBK.EXE
 	@SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(CP_EXE) ::APPS/CPANELS.EXE
 	@set -e; $(foreach pair,$(FLAIR_DOS_EXTERNALS),SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -i $$@ $(word 1,$(subst :, ,$(pair))) ::DOS/$(word 2,$(subst :, ,$(pair)));)
-	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 14 externals, AUTOEXEC PATH=A:\\DOS)\n' '$$@'
+	@printf '>>> flair data: %s (deterministic FAT12; README, APPS 17 files, DOS 15 externals, AUTOEXEC PATH=A:\\DOS + FLAIR)\n' '$$@'
 	@$$(call fixture-check,recipe,$$@)
 endef
 $(eval $(call flair-data-rules,$(FLAIR_DATA_IMG),$(TENANTFX_EXE),$(I123_EXE),$(IWORD_EXE),))
@@ -10305,7 +10313,7 @@ run-flair: $(FLAIR_DATA_IMG)
 # expanded when the rule is read -- test-makefile-vars, tdnl.81.)
 KERNEL_FLAIRTENANTS_INT_MAIN_OBJ := $(BUILD)/kmain_flairtenants_int.o
 $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h os/flair/scrap.h os/flair/stdfile.h os/flair/list.h os/flair/text.h
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h $(DOS_MESSAGES_H)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): os/flair/tbxgate.h spec/toolbox_gate.h $(KERNEL_DIR)/transient.h os/flair/tbxdesk.h $(DOS_MESSAGES_H)
 
 TRANSIENT_IMPORTS_LD := $(BUILD)/transient_imports.rsp   # gcc response file of -Wl,--undefined= flags; rule below, with the transient
 $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -10557,7 +10565,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h os/flair/tbxdesk.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -31877,6 +31885,8 @@ include harness/film_scene.mk
 include harness/emu/fcb_tps.mk
 # bead initech-3p1a: Special > Exit to InitechDOS + the TPS journey (reuses fcb_tps.mk).
 include harness/emu/exit_dos.mk
+# bead initech-tdnl.106: FLAIR as a command (reuses exit_dos.mk's boot + trace).
+include harness/emu/flair_cmd.mk
 
 # ===========================================================================
 # REAL gate: test-flair-itext (bead initech-tdnl.16, GUI-remediation R4.2;

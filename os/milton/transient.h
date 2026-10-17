@@ -29,6 +29,25 @@
  * transient was linked against must equal the running kernel's own -- a
  * transient linked against a different kernel build is refused LOUDLY
  * (MSG-DOS-0014 on the console, PANIC on serial), never jumped into.
+ *
+ * THE CHECKSUM RULE (bead initech-tdnl.106; ADR-0003 Amendment DEC-19).
+ * Since FLAIR became a command the transient is read at SYSINIT and stays
+ * in memory while every program -- the desktop included -- runs. IBM DOS
+ * 3.30 Technical Reference p1-5 (PDF22): "When a program terminates, a
+ * checksum methodology determines if the program has caused the transient
+ * portion to be overlaid. If the transient portion is overlaid, it is
+ * reloaded." The span summed is the transient's CODE: the header, .text and
+ * .rodata, [TRANSIENT_BASE, code_end) -- the bytes no run of the interpreter
+ * changes. .data/.bss are its live state (the environment, the batch in
+ * progress) and are NOT summed: summing them would call every SET a overlay.
+ * The sum is the period's word checksum: the 16-bit sum of the span's
+ * little-endian words (an odd last byte is a low byte). After a program
+ * returns, a mismatch reloads the code span from COMMAND.COM on the boot
+ * disk in place (kmain.c transient_verify); the live state is kept.
+ * MUTANTS (Rule 6; host test-flair-cmd-host-mutant, never in a real build):
+ *   TRANSIENT_MUT_NO_CHECK  the verdict is always "intact" (an overlay is
+ *                           never noticed -- the prompt runs on garbage);
+ *   TRANSIENT_MUT_SUM_DATA  the span runs to load_end (a SET is an overlay).
  */
 #ifndef INITECH_TRANSIENT_H
 #define INITECH_TRANSIENT_H
@@ -44,11 +63,49 @@ typedef struct transient_hdr {
     uint32_t entry;          /* void command_repl(int permanent)               */
     uint32_t load_end;       /* first byte past .data (the bytes on disk end)  */
     uint32_t bss_end;        /* first byte past .bss (zeroed by the kernel)    */
+    uint32_t code_end;       /* first byte past .rodata: the checksummed span  */
     uint32_t n_imports;      /* TRANSIENT_N_IMPORTS                            */
     /* The kernel addresses the transient was linked against, IN THIS ORDER:
      * fileio_fat_volume_label, int21_directory_exists, int21_get_psp,
      * int21_same_file, int21_set_break_recovery (nm -u of command.o). */
     uint32_t imports[TRANSIENT_N_IMPORTS];
 } transient_hdr_t;
+
+/* The bytes the checksum covers, measured from the transient's base: the
+ * header + .text + .rodata. `h` is the kernel's OWN validated copy of the
+ * header (the copy in the window may itself be what was overlaid). */
+static inline uint32_t transient_sum_len(const transient_hdr_t *h,
+                                         uint32_t base)
+{
+#ifndef TRANSIENT_MUT_SUM_DATA
+    return h->code_end - base;
+#else
+    return h->load_end - base;
+#endif
+}
+
+/* The word checksum: the 16-bit sum of the little-endian words of p[0..n). */
+static inline uint16_t transient_checksum(const uint8_t *p, uint32_t n)
+{
+    uint32_t sum = 0u, i;
+
+    for (i = 0u; i + 1u < n; i += 2u)
+        sum += (uint32_t)p[i] | ((uint32_t)p[i + 1u] << 8);
+    if (i < n)
+        sum += (uint32_t)p[i];
+    return (uint16_t)sum;
+}
+
+/* 1 when the code span no longer sums to what it summed at load. */
+static inline int transient_overlaid(const uint8_t *p, uint32_t n,
+                                     uint16_t sum_at_load)
+{
+#ifndef TRANSIENT_MUT_NO_CHECK
+    return transient_checksum(p, n) != sum_at_load;
+#else
+    (void)p; (void)n; (void)sum_at_load;
+    return 0;
+#endif
+}
 
 #endif /* INITECH_TRANSIENT_H */

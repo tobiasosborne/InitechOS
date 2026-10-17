@@ -806,6 +806,11 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  *                 the ordering is the GUEST's SHELL-READY, never a guessed
  *                 delay). A marker that never comes is LOUD on stderr and the
  *                 stream goes on; the gate's own serial assertions go RED.
+ *   "W<n>:<marker>"  the same, until <marker> has appeared at least <n>
+ *                 times (n = 1..99; bead initech-tdnl.106: the SECOND desktop's
+ *                 FLAIR-LIVE-READY after FLAIR is typed again at the prompt --
+ *                 the first one is already on the capture). A marker cannot
+ *                 begin with a digit, so "W<marker>" keeps its exact meaning.
  *   "S<path>"     attempt QMP blockdev-change-medium on the disk2 backend;
  *                 use after a W prompt event. The response is logged and a
  *                 rejected fixed-media swap is never reported as successful.
@@ -824,6 +829,8 @@ static int qmp_mouse_button(int fd, const char *button, int down)
  * between tokens so held-state pixels cannot race with mouseUp. */
 static int wait_for_serial_marker(const char *serial_path, const char *marker,
                                   int budget_ms);
+static int wait_for_serial_marker_n(const char *serial_path, const char *marker,
+                                    int budget_ms, int count);
 #define HARNESS_W_BUDGET_MS 20000
 
 static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
@@ -923,10 +930,22 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
                 ok = 1; /* Event attempted; transcript gate requires success. */
             }
         } else if (tok[0] == 'W' && tok[1] != '\0') {
-            /* "W<marker>" -- hold until the guest prints <marker>. */
+            /* "W<marker>" -- hold until the guest prints <marker>;
+             * "W<n>:<marker>" -- until it has printed it <n> times. */
+            const char *wm = tok + 1;
+            int wn = 1;
+            if (tok[1] >= '0' && tok[1] <= '9') {
+                int k = 1, v = 0;
+                while (tok[k] >= '0' && tok[k] <= '9' && v < 100)
+                    v = v * 10 + (tok[k++] - '0');
+                if (tok[k] == ':' && tok[k + 1] != '\0' && v >= 1 && v <= 99) {
+                    wn = v;
+                    wm = tok + k + 1;
+                }
+            }
             if (serial_path != NULL &&
-                wait_for_serial_marker(serial_path, tok + 1,
-                                       HARNESS_W_BUDGET_MS)) {
+                wait_for_serial_marker_n(serial_path, wm,
+                                         HARNESS_W_BUDGET_MS, wn)) {
                 ok = 1;
             } else {
                 fprintf(stderr, "[harness] --mouse: W marker '%s' not seen "

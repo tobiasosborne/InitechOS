@@ -74,6 +74,18 @@ int tbx_preferences_dirty(void);
 void tbx_preferences_tick(void);
 void tbx_bind(const tbx_host_t *host);
 
+/* THE RESIDENT TOOLBOX ENTRY (bead initech-tdnl.106; ADR-0003 Amendment
+ * DEC-19; spec/toolbox_gate.h Sec 17; the rule is os/flair/tbxdesk.h).
+ * INT 81h AX=TBX_DESKSTART is answered with NO host bound (the Toolbox is
+ * dormant at the prompt). tbx_desk_begin: the EXEC that ran the arming DOS
+ * program has returned -- 1 when the desktop must start now (ACTIVE).
+ * tbx_desk_end: Special > Exit to InitechDOS put it away (DORMANT). */
+int tbx_desk_begin(void);
+void tbx_desk_end(void);
+/* The dormant Toolbox's serial trace (FLAIR-DESKSTART) before any desktop
+ * binds a whole host: only the puts member is set; tbx_bind replaces it. */
+void tbx_trace_bind(void (*puts)(const char *s));
+
 /* Launch the disk tenant `name83` from the directory whose first cluster is
  * `dir_start` (0 == root): slot check (TENANT-SLOT-BUSY, nothing changes),
  * load (TENANT-LOAD / TENANT-LOAD-FAIL), run the entry. Returns TBX_OK or a

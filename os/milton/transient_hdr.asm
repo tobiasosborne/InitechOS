@@ -10,6 +10,7 @@ section .transient_hdr progbits alloc noexec nowrite align=4
 extern command_repl
 extern _tr_load_end
 extern _tr_bss_end
+extern _tr_code_end
 extern fileio_fat_volume_label
 extern int21_directory_exists
 extern int21_get_psp
@@ -22,6 +23,7 @@ transient_hdr:
     dd command_repl                  ; entry
     dd _tr_load_end                  ; load_end
     dd _tr_bss_end                   ; bss_end
+    dd _tr_code_end                  ; code_end (the checksummed span, DEC-19)
     dd 5                             ; n_imports (TRANSIENT_N_IMPORTS)
     dd fileio_fat_volume_label
     dd int21_directory_exists

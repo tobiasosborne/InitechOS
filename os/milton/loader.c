@@ -582,6 +582,8 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
     return LOADER_ERR_NO_VOLUME;
 }
 
+int loader_program_running(void) { return 0; }
+
 /* Hosted stub (bead initech-tdnl.14): the FAT read + carve are kernel-only; the
  * host oracle drives the pure loader_prepare_tenant directly. */
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
@@ -1200,6 +1202,11 @@ void loader_bind_fat_volume(const struct fat12_volume *vol,
     g_load_fat     = fat;
     g_load_fat_len = fat_len;
     g_load_vol     = vol;
+}
+
+int loader_program_running(void)
+{
+    return g_load_active != 0u;
 }
 
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,

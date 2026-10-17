@@ -112,6 +112,10 @@ int MenuClock_set(unsigned hour, unsigned minute)
 }
 
 const char *MenuClock_text(void) { return clock_text; }
+/* A new desktop (bead initech-tdnl.106: FLAIR again after Exit to InitechDOS)
+ * starts with no minute shown, exactly as the first one did: its first poll
+ * draws and announces the time. */
+void MenuClock_reset(void) { clock_text[0] = 0; clock_minute = 0; }
 void MenuClock_attach(const MenuBar *bar) { clock_bar = bar; }
 
 void MenuClock_draw(GrafPort *port, const region_t *clip)

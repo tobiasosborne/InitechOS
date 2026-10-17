@@ -119,6 +119,22 @@
 /* The INT 81h entry stub (os/milton/tbx_gate.asm). */
 extern void tbx_gate_entry(void);
 
+/* FLAIR AS A COMMAND (bead initech-tdnl.106; ADR-0003 Amendment DEC-19 "The
+ * resident Toolbox entry"). Every kernel that carries the Finder and its
+ * Special > Exit to InitechDOS -- the flagship, its gate/record/interactive
+ * variants and their mutants -- boots to the InitechDOS prompt: SYSINIT
+ * mounts drive A:, installs the dormant Toolbox's INT 81h gate, reads the
+ * transient COMMAND.COM and hands it the console; FLAIR.COM (\DOS, run by
+ * AUTOEXEC.BAT on the shipped volume) starts the desktop through INT 81h
+ * AX=TBX_DESKSTART, and Exit returns to the prompt. The film-scene tableau
+ * kernel has no Finder (no Exit) and no COMMAND.COM: it still boots to its
+ * desktop. The headless tenant smoke halts before either. */
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS) && \
+    !defined(FLAIR_FILM_SCENE) && !defined(TBX_HEADLESS_SMOKE)
+#define FLAIR_AS_COMMAND 1
+#include "tbxdesk.h"
+#endif
+
 /* The gate dispatcher reads AX and the cdecl args off the uniform int_frame_t
  * by the LOCKED offsets in spec/toolbox_gate.h Sec 2 (Part C item 14). This is
  * the one TU where both the frame type and the spec are in scope, so the
@@ -3337,6 +3353,69 @@ static void __attribute__((unused)) finder_desk_load_positions(void)
     }
 }
 
+/* The Finder's volume work at the start of a desktop: DESKTOP.DB (create /
+ * regenerate / read), the TRASH folder, the Apple menu's installed rows and
+ * the volume label for the volume icon. Runs once per desktop session -- at
+ * boot in the boot-to-desktop kernels, at every FLAIR in the FLAIR-as-a-
+ * command kernels (bead initech-tdnl.106: DOS may have changed the volume
+ * between two desktops). No volume bound -> nothing (the mount said why). */
+static void flair_volume_desk_prepare(void)
+{
+    uint8_t                 cluster[BLOCKDEV_SECTOR_SIZE];
+    uint8_t                 db_header[DESKTOP_DB_HEADER_SIZE];
+    desktop_db_boot_state_t db_state = DESKTOP_DB_BOOT_OK;
+    desktop_db_reason_t     db_reason = DESKTOP_DB_REASON_NONE;
+    desktop_trash_state_t   trash_state = DESKTOP_TRASH_OK;
+    int db_rc, trash_rc;
+
+    if (g_finder_vol == (const fat12_volume_t *)0) return;
+    db_rc = desktop_db_bootstrap(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                                 g_finder_secbuf, cluster, db_header,
+                                 sizeof(db_header), &db_state, &db_reason);
+    if (db_state == DESKTOP_DB_BOOT_CREATE) {
+        serial_puts("DESKTOP-DB-CREATE\n");
+    } else if (db_state == DESKTOP_DB_BOOT_REGEN) {
+        serial_puts("DESKTOP-DB-REGEN reason=");
+        serial_putu((uint32_t)db_reason);
+        serial_putc('\n');
+    } else if (db_rc == FAT12_OK) {
+        serial_puts("DESKTOP-DB-OK\n");
+    }
+    if (db_rc != FAT12_OK) {
+        if (db_state == DESKTOP_DB_BOOT_CREATE ||
+            db_state == DESKTOP_DB_BOOT_REGEN) {
+            serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
+        } else {
+            serial_puts("DESKTOP-DB-READ-FAIL rc=");
+        }
+        serial_puti((int32_t)db_rc);
+        serial_putc('\n');
+    }
+
+    trash_rc = desktop_trash_ensure(g_finder_vol, g_finder_fat,
+                                    g_finder_fat_len, g_finder_secbuf,
+                                    cluster, &trash_state);
+    if (trash_rc == FAT12_OK) {
+        serial_puts(trash_state == DESKTOP_TRASH_CREATE
+                        ? "TRASH-CREATE\n" : "TRASH-OK\n");
+    } else {
+        serial_puts("TRASH-INIT-FAIL rc=");
+        serial_puti((int32_t)trash_rc);
+        serial_putc('\n');
+    }
+
+    /* The Apple menu lists what this volume holds (bead initech-tdnl.47;
+     * spec/apple_menu_items.h, rule F4-3); the volume icon's label is read
+     * off the disk itself (design F1.1), an unlabelled volume a bare band. */
+    flair_live_apple_refresh();
+    if (desktop_db_volume_label(g_finder_vol, g_finder_secbuf,
+                                g_finder_vol_label,
+                                (uint32_t)sizeof g_finder_vol_label) !=
+        FAT12_OK) {
+        g_finder_vol_label[0] = '\0';
+    }
+}
+
 /* Mount the flagship primary-slave volume BEFORE desktop construction. This
  * ordering makes storage a desktop-init prerequisite (R3 F1-2/F1-3) and lets
  * the Bochs 320x200 fail-loud leg prove MOUNT-OK before its later size guard.
@@ -3348,8 +3427,6 @@ static void flair_tenant_mount_volume(void)
     static crit_blockdev_t ften_crit;
     static fat12_volume_t  ften_vol;
     static uint8_t         ften_secbuf[BLOCKDEV_SECTOR_SIZE];
-    uint8_t                ften_cluster[BLOCKDEV_SECTOR_SIZE];
-    uint8_t                ften_db_header[DESKTOP_DB_HEADER_SIZE];
     int                    mount_rc;
 
     /* The FLAIR pump and DOS CON input use separate keyboard rings. */
@@ -3370,69 +3447,19 @@ static void flair_tenant_mount_volume(void)
             bind_absdisk_volume(&ften_vol, &ften_fatdev);
             uint32_t fat_len = 0u;
             uint8_t *fat = (uint8_t *)fileio_fat_fat_buffer(&fat_len);
-            desktop_db_boot_state_t db_state = DESKTOP_DB_BOOT_OK;
-            desktop_db_reason_t db_reason = DESKTOP_DB_REASON_NONE;
-            desktop_trash_state_t trash_state = DESKTOP_TRASH_OK;
-            int db_rc;
-            int trash_rc;
-
-            db_rc = desktop_db_bootstrap(&ften_vol, fat, fat_len,
-                                          ften_secbuf, ften_cluster,
-                                          ften_db_header,
-                                          sizeof(ften_db_header),
-                                          &db_state, &db_reason);
-            if (db_state == DESKTOP_DB_BOOT_CREATE) {
-                serial_puts("DESKTOP-DB-CREATE\n");
-            } else if (db_state == DESKTOP_DB_BOOT_REGEN) {
-                serial_puts("DESKTOP-DB-REGEN reason=");
-                serial_putu((uint32_t)db_reason);
-                serial_putc('\n');
-            } else if (db_rc == FAT12_OK) {
-                serial_puts("DESKTOP-DB-OK\n");
-            }
-            if (db_rc != FAT12_OK) {
-                if (db_state == DESKTOP_DB_BOOT_CREATE ||
-                    db_state == DESKTOP_DB_BOOT_REGEN) {
-                    serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
-                } else {
-                    serial_puts("DESKTOP-DB-READ-FAIL rc=");
-                }
-                serial_puti((int32_t)db_rc);
-                serial_putc('\n');
-            }
-
-            trash_rc = desktop_trash_ensure(&ften_vol, fat, fat_len,
-                                            ften_secbuf, ften_cluster,
-                                            &trash_state);
-            if (trash_rc == FAT12_OK) {
-                serial_puts(trash_state == DESKTOP_TRASH_CREATE
-                                ? "TRASH-CREATE\n" : "TRASH-OK\n");
-            } else {
-                serial_puts("TRASH-INIT-FAIL rc=");
-                serial_puti((int32_t)trash_rc);
-                serial_putc('\n');
-            }
-
             loader_bind_fat_volume(&ften_vol, fat, fat_len);
-
-            /* R3.2 (bead initech-tdnl.9): capture the volume handles the
-             * Finder's DESKTOP.DB commit needs, and read the volume's LABEL off
-             * the disk itself for the volume icon (design F1.1) rather than
-             * hard-coding the image build's -v string. An unlabelled volume
-             * leaves the label empty, which renders as a bare band. */
+            /* R3.2 (bead initech-tdnl.9): the volume handles the Finder's
+             * DESKTOP.DB commit needs. */
             g_finder_vol     = &ften_vol;
             g_finder_fat     = fat;
             g_finder_fat_len = fat_len;
             g_finder_secbuf  = ften_secbuf;
-            /* The Apple menu lists what this volume holds (bead
-             * initech-tdnl.47; spec/apple_menu_items.h, rule F4-3). */
-            flair_live_apple_refresh();
-            if (desktop_db_volume_label(&ften_vol, ften_secbuf,
-                                        g_finder_vol_label,
-                                        (uint32_t)sizeof g_finder_vol_label) !=
-                FAT12_OK) {
-                g_finder_vol_label[0] = '\0';
-            }
+#ifndef FLAIR_AS_COMMAND
+            flair_volume_desk_prepare();
+#endif
+            /* FLAIR_AS_COMMAND (DEC-19): the volume is DOS's drive A: from
+             * SYSINIT on; the Finder's own files are prepared per desktop
+             * session (flair_live_session), never at a DOS-only boot. */
         } else {
             serial_puts("FLAIR-FAT-BIND-FAIL rc=");
             serial_puti((int32_t)bind_rc);
@@ -5447,8 +5474,22 @@ static __attribute__((cold,noinline)) void exitdos_fail(const char *why, uint32_
     kernel_halt();
 }
 
-/* Read + validate the transient. Returns its entry; never returns on failure. */
-static void (*exitdos_load_transient(void))(int)
+#ifdef FLAIR_AS_COMMAND
+/* THE TRANSIENT'S CHECKSUM (bead initech-tdnl.106; os/milton/transient.h
+ * "THE CHECKSUM RULE"; IBM DOS 3.30 Technical Reference p1-5, PDF22). The
+ * kernel keeps its OWN copy of the validated header and the word checksum of
+ * the code span taken when the transient was read, so an overlay of the
+ * window itself (header included) cannot vouch for itself. */
+static transient_hdr_t g_tr_hdr;
+static uint16_t        g_tr_sum;
+#endif
+
+/* Read + validate the transient. Returns its entry; never returns on failure.
+ * reload != 0 (FLAIR_AS_COMMAND only): the CODE span was overlaid while a
+ * program ran -- re-read just [TRANSIENT_BASE, code_end) from the SAME
+ * COMMAND.COM (its header must equal the one read at SYSINIT), in place,
+ * keeping the interpreter's live .data/.bss (DOS 3.30 TR p1-5 "reloaded"). */
+static void (*exitdos_load_transient(int reload))(int)
 {
     ata_ctx_t boot_ata;
     blockdev_t boot_dev;
@@ -5466,6 +5507,7 @@ static void (*exitdos_load_transient(void))(int)
     };
     uint32_t bytes, k;
     int rc;
+    transient_hdr_t hd;
 
     if ((uint32_t)(uintptr_t)_kernel_end > TRANSIENT_BASE)
         exitdos_fail("the kernel overlaps the transient window",
@@ -5491,20 +5533,40 @@ static void (*exitdos_load_transient(void))(int)
         command.file_size <= sizeof *h ||
         command.file_size > TRANSIENT_CEIL - TRANSIENT_BASE)
         exitdos_fail("COMMAND.COM file extents", command.file_size);
-    rc = fat12_read_partial(&boot_vol, 0, 0u, &command, 0u, sizeof *h,
-                           h, cluster, &bytes);
-    if (rc != FAT12_OK || bytes != sizeof *h)
+    /* The header is read and judged in a LOCAL copy first: the window is
+     * touched only by a transient that passed (and, on a reload, only by the
+     * code span of the very file read at SYSINIT). */
+    rc = fat12_read_partial(&boot_vol, 0, 0u, &command, 0u, sizeof hd,
+                           &hd, cluster, &bytes);
+    if (rc != FAT12_OK || bytes != sizeof hd)
         exitdos_fail("boot FAT read of the header failed", (uint32_t)rc);
 #ifndef KMAIN_MUT_COMMAND_MAGIC
     for (k = 0u; k < TRANSIENT_MAGIC_LEN; k++)
-        if (h->magic[k] != TRANSIENT_MAGIC[k])
+        if (hd.magic[k] != TRANSIENT_MAGIC[k])
             exitdos_fail("no COMMAND3 transient on the boot disk", k);
 #endif
-    if (h->load_end <= TRANSIENT_BASE + (uint32_t)sizeof *h ||
-        h->load_end != TRANSIENT_BASE + command.file_size ||
-        h->bss_end < h->load_end || h->bss_end > TRANSIENT_CEIL ||
-        h->n_imports != TRANSIENT_N_IMPORTS)
-        exitdos_fail("transient header extents", h->bss_end);
+    if (hd.load_end <= TRANSIENT_BASE + (uint32_t)sizeof hd ||
+        hd.load_end != TRANSIENT_BASE + command.file_size ||
+        hd.code_end <= TRANSIENT_BASE + (uint32_t)sizeof hd ||
+        hd.code_end > hd.load_end ||
+        hd.bss_end < hd.load_end || hd.bss_end > TRANSIENT_CEIL ||
+        hd.n_imports != TRANSIENT_N_IMPORTS)
+        exitdos_fail("transient header extents", hd.bss_end);
+#ifdef FLAIR_AS_COMMAND
+    if (reload) {
+        const uint8_t *a = (const uint8_t *)&hd, *b = (const uint8_t *)&g_tr_hdr;
+        for (k = 0u; k < (uint32_t)sizeof hd; k++)
+            if (a[k] != b[k])
+                exitdos_fail("COMMAND.COM is not the one SYSINIT read", k);
+        rc = fat12_read_partial(&boot_vol, 0, 0u, &command, 0u,
+                               hd.code_end - TRANSIENT_BASE, h, cluster, &bytes);
+        if (rc != FAT12_OK || bytes != hd.code_end - TRANSIENT_BASE)
+            exitdos_fail("boot FAT reload of the transient failed", (uint32_t)rc);
+        return (void (*)(int))(uintptr_t)hd.entry;
+    }
+#else
+    (void)reload;
+#endif
     rc = fat12_read_file(&boot_vol, 0, 0u, &command, h,
                          TRANSIENT_CEIL - TRANSIENT_BASE, cluster, &bytes);
     if (rc != FAT12_OK || bytes != command.file_size)
@@ -5517,16 +5579,86 @@ static void (*exitdos_load_transient(void))(int)
     for (uint8_t *z = (uint8_t *)(uintptr_t)h->load_end;
          z < (uint8_t *)(uintptr_t)h->bss_end; z++)
         *z = 0u;
+#ifdef FLAIR_AS_COMMAND
+    g_tr_hdr = hd;
+    g_tr_sum = transient_checksum((const uint8_t *)(uintptr_t)TRANSIENT_BASE,
+                                  transient_sum_len(&g_tr_hdr, TRANSIENT_BASE));
+#endif
     serial_puts("COMMAND-TRANSIENT-OK bytes=");
     serial_putu(h->load_end - TRANSIENT_BASE);
     serial_putc('\n');
     return (void (*)(int))(uintptr_t)h->entry;
 }
 
-/* The hand-off itself. Never returns. */
+/* COMMAND.COM's DOS personality: the seams the boot-to-prompt kernel binds
+ * after ITS mount and the desktop never needed -- AH=4Bh EXEC (`exec`),
+ * AH=25h/35h on the live IDT, INT 25h/26h on the flagship volume's device
+ * (CHKDSK.COM). The kernel context COMMAND.COM runs in: the kernel PSP and
+ * terminate hook (the loader rebinds both per EXEC and restores them), the
+ * root of drive A: as the current directory. */
+static void flair_dos_seams(int21_exec_fn exec)
+{
+    int21_set_exit(int21_exit_hook);
+    int21_set_psp(&g_kernel_psp);
+    int21_cwd_reset();
+    int21_set_exec_backend(exec);
+    int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
+    if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_vol.dev != 0) {
+        int21_absdisk_backend_t absdisk;
+        absdisk.read          = int21_absdisk_read;
+        absdisk.write         = int21_absdisk_write;
+        absdisk.total_sectors = g_finder_vol->bpb.total_sectors_16 != 0u
+                                    ? (uint32_t)g_finder_vol->bpb.total_sectors_16
+                                    : g_finder_vol->bpb.total_sectors_32;
+        int21_set_blockdev(&absdisk);
+    }
+}
+
+#ifdef FLAIR_AS_COMMAND
+/* THE RESIDENT PORTION'S CHECK (DEC-19; DOS 3.30 TR p1-5): after a program
+ * terminates, sum the transient's code span; if a program overlaid it,
+ * reload it from COMMAND.COM (COMMAND-TRANSIENT-RELOAD) before control goes
+ * back into it, and fail loud if even the reload does not sum (Rule 2).
+ * announce: the exit path's COMMAND-TRANSIENT-OK line (the exit-to-DOS
+ * marker sequence, harness/emu/exit_dos.mk); silent after an ordinary EXEC,
+ * as DOS was. MUTANT KMAIN_MUT_TRANSIENT_NOT_PRESERVED (Rule 6; test-flair-
+ * from-dos-mutant): the check is never made -- an overlaid transient is
+ * returned into, and the prompt runs on garbage. NEVER in a real build. */
+static void transient_verify(int announce)
+{
+    const uint8_t *base = (const uint8_t *)(uintptr_t)TRANSIENT_BASE;
+    uint32_t n = transient_sum_len(&g_tr_hdr, TRANSIENT_BASE);
+
+#ifndef KMAIN_MUT_TRANSIENT_NOT_PRESERVED
+    if (transient_overlaid(base, n, g_tr_sum)) {
+        serial_puts("COMMAND-TRANSIENT-RELOAD\n");
+        (void)exitdos_load_transient(1);
+        if (transient_overlaid(base, n, g_tr_sum))
+            exitdos_fail("the reloaded transient does not sum", n);
+    }
+#else
+    (void)base; (void)n;
+#endif
+    if (announce) {
+        serial_puts("COMMAND-TRANSIENT-OK bytes=");
+        serial_putu(g_tr_hdr.load_end - TRANSIENT_BASE);
+        serial_putc('\n');
+    }
+}
+
+/* The desktop session's way out (FLAIR_AS_COMMAND): flair_desktop_session
+ * marked the place COMMAND.COM's EXEC is waiting; Exit returns there. */
+static void *g_desk_jmp[5];
+#endif
+
+/* The hand-off itself. Boot-to-desktop kernels: never returns (COMMAND.COM
+ * becomes the permanent processor). FLAIR_AS_COMMAND: returns the console to
+ * the COMMAND.COM that ran FLAIR (bead initech-tdnl.106). */
 static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *bi)
 {
+#ifndef FLAIR_AS_COMMAND
     void (*repl)(int);
+#endif
 
 #if !defined(KMAIN_MUT_EXIT_NO_TEARDOWN)
     /* TEAR DOWN: the desktop's input + clock hooks out, the Toolbox fault
@@ -5564,28 +5696,31 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
     while (kbd_getchar() >= 0) {
     }
     serial_puts("FLAIR-EXIT-TO-DOS\n");
-    /* The kernel context COMMAND.COM runs in: the kernel PSP and terminate
-     * hook (the loader rebinds both per EXEC and restores them), the root of
-     * drive A: as the current directory. */
-    int21_set_exit(int21_exit_hook);
-    int21_set_psp(&g_kernel_psp);
-    int21_cwd_reset();
-    /* COMMAND.COM's DOS personality: the seams the boot-to-prompt kernel binds
-     * after ITS mount (kernel_main's FAT-MOUNT block) and the desktop never
-     * needed -- AH=4Bh EXEC through the loader, AH=25h/35h on the live IDT,
-     * INT 25h/26h on the flagship volume's device (CHKDSK.COM lives in APPS). */
-    int21_set_exec_backend(loader_exec_by_name);
-    int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
-    if (g_finder_vol != (const fat12_volume_t *)0 && g_absdisk_vol.dev != 0) {
-        int21_absdisk_backend_t absdisk;
-        absdisk.read          = int21_absdisk_read;
-        absdisk.write         = int21_absdisk_write;
-        absdisk.total_sectors = g_finder_vol->bpb.total_sectors_16 != 0u
-                                    ? (uint32_t)g_finder_vol->bpb.total_sectors_16
-                                    : g_finder_vol->bpb.total_sectors_32;
-        int21_set_blockdev(&absdisk);
-    }
-    repl = exitdos_load_transient();
+#ifdef FLAIR_AS_COMMAND
+    /* DEC-19: the transient COMMAND.COM that ran FLAIR is still in memory,
+     * waiting in its EXEC; verify it (reload only if overlaid), rebuild the
+     * screen the session hid (the banner on the fresh console), put the
+     * Toolbox back to rest and return the console. The kernel context
+     * (exit hook, PSP, the drive's current directory) is COMMAND.COM's own:
+     * the loader restored it when FLAIR.COM terminated. */
+    transient_verify(1);
+    serial_puts("BANNER-BEGIN\n");
+    dos_puts(BANNER_LINE1 "\n$");
+    dos_puts(BANNER_LINE2 "\n$");
+    serial_puts("BANNER-END\n");
+    dos_puts("\n$");
+    serial_puts("SHELL-READY\n");
+#ifndef KMAIN_MUT_EXIT_RESETS_CONSOLE_ONLY
+    tbx_desk_end();
+#else
+    /* MUTANT (Rule 6; test-flair-from-dos-mutant EXIT_RESETS_CONSOLE_ONLY):
+     * the console is rebuilt but the Toolbox is never put back to rest, so
+     * the next FLAIR is refused as "already running". NEVER in a real build. */
+#endif
+    __builtin_longjmp(g_desk_jmp, 1);
+#else
+    flair_dos_seams(loader_exec_by_name);
+    repl = exitdos_load_transient(0);
     serial_puts("BANNER-BEGIN\n");
     dos_puts(BANNER_LINE1 "\n$");
     dos_puts(BANNER_LINE2 "\n$");
@@ -5594,6 +5729,7 @@ static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *
     serial_puts("SHELL-READY\n");
     repl(1);          /* the permanent command processor never returns */
     exitdos_fail("COMMAND.COM returned", 0u);
+#endif
 }
 
 /* Special > Exit to InitechDOS after the shell noted the open views. */
@@ -6163,310 +6299,16 @@ static void tbx_headless_smoke(void)
 }
 #endif
 
-void kernel_main(void)
-{
-    /* Marker: C kernel entered. This is the acceptance signal for the handoff
-     * (ground-truth Sec 4.1) -- a missing KERNEL means the far jump failed. */
-    serial_puts("KERNEL\n");
-
-    /* Read the handoff block at its fixed physical address. Volatile so the
-     * compiler cannot assume anything about memory it did not write. */
-    const volatile boot_info_t *bi = (const volatile boot_info_t *)
-        (uintptr_t)BOOT_INFO_ADDR;
-
-    /* Snapshot to plain locals (the struct is small + stable after handoff). */
-    boot_info_t b;
-    b.lfb_addr   = bi->lfb_addr;
-    b.lfb_pitch  = bi->lfb_pitch;
-    b.lfb_bpp    = bi->lfb_bpp;
-    b.lfb_width  = bi->lfb_width;
-    b.lfb_height = bi->lfb_height;
-    b.font_addr  = bi->font_addr;
-    b.ext_mem_kb = bi->ext_mem_kb;   /* extended RAM probed by stage2 (DEC-03) */
-    b.kernel_base = bi->kernel_base; /* append-only placement field (tdnl.29) */
-    b.lfb_dac_bits = bi->lfb_dac_bits;
-    g_vga_dac_shift = b.lfb_dac_bits == 8u ? 0u : 2u;
-    /* Report actual handoff geometry/stride/base; this is also the gate's
-     * proof that the real desktop reached indexed VBE, not VGA13 or a host
-     * renderer. Ref: PRD Sec 5/8, boot_info.h, initech-2gva. */
-    serial_puts("VIDEO "); serial_putu(b.lfb_width); serial_putc('x');
-    serial_putu(b.lfb_height); serial_puts(" bpp="); serial_putu(b.lfb_bpp);
-    serial_puts(" pitch="); serial_putu(b.lfb_pitch);
-    serial_puts(" lfb=0x"); serial_puthex32(b.lfb_addr);
-    serial_puts(" dac="); serial_putu(b.lfb_dac_bits); serial_putc('\n');
-
-    /* Fail-loud kernel placement guard (Rule 2). Ref:
-     * docs/design/kernel-runway-relocation.md K2/K3; bead initech-tdnl.29.
-     * KAT reports linker-derived addresses, not duplicated expectations. The
-     * boot_info value independently proves stage2 copied/jumped to the agreed
-     * base. Any mismatch halts before IDT, heap, loader, or framebuffer state is
-     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward. */
-    {
-        uint32_t kernel_start = (uint32_t)(uintptr_t)_kernel_start;
-        uint32_t kernel_end = (uint32_t)(uintptr_t)_kernel_end;
-
-        serial_puts("KAT 0x");
-        serial_puthex32(kernel_start);
-        serial_puts("-0x");
-        serial_puthex32(kernel_end);
-        serial_putc('\n');
-
-        if (b.kernel_base != (uint32_t)KERNEL_BASE ||
-            kernel_start != (uint32_t)KERNEL_BASE ||
-            kernel_end >= (uint32_t)KERNEL_CEIL) {
-            serial_puts("PANIC kernel-placement: boot/link/runway mismatch\n");
-            serial_puts("  boot_base=0x");
-            serial_puthex32(b.kernel_base);
-            serial_puts(" expected=0x");
-            serial_puthex32((uint32_t)KERNEL_BASE);
-            serial_puts(" ceil=0x");
-            serial_puthex32((uint32_t)KERNEL_CEIL);
-            serial_putc('\n');
-            serial_puts("HALTED\n");
-            for (;;) {
-                __asm__ __volatile__("cli; hlt");
-            }
-        }
-    }
-
-    /* Sanity-check the handoff struct (Rule 2 -- fail loud, but stay live so
-     * the screendump still captures). Emit BI-OK on success, or BI-BAD + the
-     * offending value so a wrong field is diagnosable on serial. */
-    int ok = 1;
-    if (!(b.lfb_bpp == 8 || b.lfb_bpp == 24 || b.lfb_bpp == 32)) {
-        serial_puts("BI-BAD bpp=");   serial_putu(b.lfb_bpp);    serial_putc('\n');
-        ok = 0;
-    }
-    if (b.lfb_addr == 0) {
-        serial_puts("BI-BAD addr=0\n");
-        ok = 0;
-    }
-    /* Two valid geometries: the 640x480 VBE LFB (QEMU / real VESA) or the
-     * 320x200 standard-VGA mode-0x13 fallback (initech-6pj; e.g. Bochs). */
-    if (!((b.lfb_width == 640 && b.lfb_height == 480) ||
-          (b.lfb_width == 320 && b.lfb_height == 200))) {
-        serial_puts("BI-BAD geom w="); serial_putu(b.lfb_width);
-        serial_puts(" h=");            serial_putu(b.lfb_height); serial_putc('\n');
-        ok = 0;
-    }
-    if (ok) {
-        serial_puts("BI-OK\n");
-    }
-
-    /* Echo the probed extended-memory size (ADR-0004 DEC-03 / FO-G) so the boot
-     * oracle can confirm stage2's INT 15h probe populated ext_mem_kb with a sane
-     * value (e.g. ~130048 KiB for a 128 MiB QEMU/Bochs guest). This is
-     * diagnostic only; the gating decision is the panic-below-min below, which
-     * happens AFTER the console is up so PC LOAD LETTER can render on screen. */
-    serial_puts("EXTMEM kb=");
-    serial_putu(b.ext_mem_kb);
-    serial_putc('\n');
-
-    /* SYSINIT PHASE 1 -- interrupt + syscall foundation (beads initech-509.2;
-     * beads initech-a5a / initech-509.5 / initech-509.3). This was a long ad-hoc
-     * sequence inline in kernel_main; it is now the NAMED sysinit_early() phase,
-     * which runs the EXACT same steps IN THE EXACT same order (sysinit.h documents
-     * the ordering minefield): remap+MASK the 8259 -> "PIC" -> install the IDT ->
-     * "IDT" -> bind the int21 CON sink + terminate hook -> sft_init + build the
-     * kernel-context PSP + int21_set_psp -> install the 0x21 + 0x20 trap gates ->
-     * "INT21". IF stays 0 here (no sti); the HW-IRQ tail is sysinit_enable_irqs()
-     * far below, in its original position. The serial markers are emitted from the
-     * phase so the capture is byte-for-byte identical. */
-    sysinit_early(int21_con_sink, int21_exit_hook, &g_kernel_psp, serial_puts);
-    int21_set_break_trace(serial_putc);
-
-    /* LIVE self-test: install a trap gate on an UNUSED vector (0x80 -- not an
-     * IRQ vector after the 0x28/0x30 remap), fire `int 0x80`, and confirm
-     * control returns. Proves gate-install + dispatch + iret + resume on the
-     * real boot (the host oracle proves the byte-level encode; this proves the
-     * CPU actually honors it). The handler emits IDT-SELFTEST-OK; IDT-RESUMED
-     * after the int proves the iret resumed us. */
-    idt_install_trap(0x80u, (void *)isr_selftest);
-    __asm__ __volatile__("int $0x80");
-    serial_puts("IDT-RESUMED\n");
-
-    /* Mode 0x13 fallback (initech-6pj): the framebuffer is paletted, so map the
-     * console's two indices -- CONSOLE_BG_IDX -> seafoam, CONSOLE_FG_IDX ->
-     * light gray (0xC0, matching console.c CONSOLE_FG_*) -- in the VGA DAC
-     * BEFORE any fill or glyph blit. The direct-color VBE 24/32bpp paths skip
-     * this. */
-    if (b.lfb_bpp == 8) {
-        /* VBE mode D5 may be non-VGA even on a VGA controller. Verify the
-         * palette ports before depending on them (VBE 2.0 p20; local
-         * vesa8-ground-truth.md). Index 255 is replaced by the desktop table.
-         * All sentinels fit both six- and eight-bit DACs. */
-        outb(0x3C8, 255);
-        outb(0x3C9, 17); outb(0x3C9, 34); outb(0x3C9, 51);
-        outb(0x3C7, 255);
-        uint8_t dr = inb(0x3C9), dg = inb(0x3C9), db = inb(0x3C9);
-        if (dr != 17u || dg != 34u || db != 51u) {
-            serial_puts("PANIC VGA-DAC: palette port readback failed\nHALTED\n");
-            for (;;) __asm__ __volatile__("cli; hlt");
-        }
-        vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
-        vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
-    }
-
-    /* CONSTRAINT (initech-d00): the C kernel's first drawing act re-paints the
-     * LFB seafoam so test-tracer-boot's screendump assertion still passes --
-     * the handoff is now proven on the REAL boot chain end-to-end. */
-    fb_clear(&b, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
-
-    /* Text console (beads initech-yqb): bind the framebuffer + the captured
-     * VGA ROM font (b.font_addr) and render a SHORT test string. The console's
-     * default background is SEAFOAM (console.c CONSOLE_BG_*), so console_init's
-     * clear repaints the SAME seafoam -- the screen stays predominantly seafoam
-     * and test-tracer-boot's 81-point screendump grid still reads seafoam (Law
-     * 2 -- do not weaken the oracle to ship). Glyphs are inked on top in fg
-     * (light gray). This is NOT the InitechDOS banner -- that is initech-bea.
-     *
-     * Fail loud (Rule 2): if console_init refuses (NULL/zero addr/bad bpp/no
-     * font) emit CON-BAD + the code and skip drawing; the seafoam fill above
-     * still satisfies the screendump so the handoff gate stays diagnosable. */
-    /* `con` MUST live for the rest of kernel_main: g_int21_con / the
-     * panic console all hold &con and are dereferenced by the program demo and
-     * the proto-DIR far below. A block-local here would dangle once the block
-     * ends (its stack is reused by the loader/mount locals), so the console is
-     * declared at function scope. Root-cause fix (Rule 3): a nested-scope `con`
-     * rendered the banner by luck but the proto-DIR through clobbered state. */
-    console_t con;
-    {
-        int crc = console_init(&con, &b);
-        if (crc == CONSOLE_OK) {
-            serial_puts("CONSOLE\n");
-
-            /* Bind the live console so a CPU-exception panic can render its
-             * one visible line (beads initech-a5a / panic.c). */
-            panic_set_console(&con);
-
-            /* Bind the SAME console to the INT 21h CON sink so `int 0x21` AH=09h
-             * (below) drives the LFB console + serial (beads initech-509.5). */
-            g_int21_con = &con;
-
-            /* Print the InitechDOS operator banner -- the milestone (beads
-             * initech-bea). The two LOCKED lines (spec/dos_banner.txt; ADR-0003
-             * DEC-12 / Appendix D.1) at the top-left, each ending '\n'. The
-             * console default bg is SEAFOAM (console.c), so the screen stays
-             * predominantly seafoam with the banner inked on top in fg.
-             *
-             * ALSO mirror the banner to COM1, framed by BANNER-BEGIN/END
-             * markers, so the harness has a strong literal serial signal
-             * ("InitechDOS  Version 3.30" on the wire) and the test-boot gate
-             * can diff the captured lines against spec/dos_banner.txt
-             * byte-for-byte (Law 1 / Rule 8). */
-            serial_puts("BANNER-BEGIN\n");
-
-            /* Drive the banner THROUGH the new syscall path (beads
-             * initech-509.5): `int 0x21` AH=09h with EDX -> a '$'-terminated
-             * copy of each line. The dispatcher's CON sink fans every byte to
-             * BOTH the LFB console and COM1 serial, so the screen output is
-             * unchanged (test-tracer-boot/test-boot screendump stays green) AND
-             * the serial bytes between BANNER-BEGIN/BANNER-END still match
-             * spec/dos_banner.txt byte-for-byte. The '$' is the DOS terminator
-             * and is NOT emitted; the '\n' before it IS. */
-            dos_puts(BANNER_LINE1 "\n$");
-            dos_puts(BANNER_LINE2 "\n$");
-
-            serial_puts("BANNER-END\n");
-            serial_puts("BANNER\n");
-        } else {
-            serial_puts("CON-BAD rc=");
-            serial_putu((uint32_t)crc);
-            serial_putc('\n');
-        }
-    }
-
-    /* ------------------------------------------------------------------ *
-     * KERNEL-RUNWAY + FLAIR RAM-SUFFICIENCY GATE. The FLAIR heap contract
-     * remains beads initech-k8o5.5 / ADR-0004 DEC-03 / FO-G. Bead
-     * initech-tdnl.29 and docs/design/kernel-runway-relocation.md K1/K4 add
-     * the adjacent kernel runway through KERNEL_CEIL, raising the whole-OS
-     * minimum to INITECH_MIN_EXT_KB while leaving the heap window unchanged.
-     * The FLAIR Toolbox heap is a FIXED extended-memory
-     * window [FLAIR_HEAP_BASE, FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) (spec/
-     * memory_map.h). stage2 probed installed RAM above 1 MiB into
-     * boot_info_t.ext_mem_kb; if the machine does not have enough extended
-     * RAM to back the whole window, the OS must REFUSE TO RUN (fail loud,
-     * Rule 2) rather than scribble GUI state into RAM that is not there.
-     *
-     * The probe GATES boot; it NEVER alters the memory map (Rule 11 -- the
-     * layout is identical every boot; the self-host fixpoint K2==K3 is
-     * unaffected). The decision is the SAME pure function the host oracle
-     * tests (flair_heap_ram_ok, memory_map.h), and the higher whole-map bound is
-     * derived from KERNEL_CEIL. Real emulators (QEMU/Bochs default >= 128 MiB)
-     * pass; the panic only fires on a genuinely under-provisioned machine.
-     *
-     * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
-     * serial line + a diagnostic dump + the on-screen "PC LOAD LETTER" line
-     * (rendered through the live console, bound to panic via panic_set_console
-     * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
-     * (this is a boot-policy panic, not a CPU exception), so we render the
-     * PC LOAD LETTER line directly and dump the relevant values to serial. */
-    if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||
-        !flair_heap_ram_ok(b.ext_mem_kb)) {
-        /* Grep-able marker first (the oracle keys on "PANIC"). */
-        serial_puts("PANIC kernel-runway: insufficient extended RAM\n");
-        serial_puts("  ext_mem_kb=");
-        serial_putu(b.ext_mem_kb);
-        serial_puts(" required_kb=");
-        serial_putu((uint32_t)INITECH_MIN_EXT_KB);
-        serial_putc('\n');
-        serial_puts("  FLAIR_HEAP=[0x");
-        serial_puthex32(FLAIR_HEAP_BASE);
-        serial_puts(",0x");
-        serial_puthex32(FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE);
-        serial_puts(")\n");
-        serial_puts("  KERNEL_RUNWAY=[0x");
-        serial_puthex32(KERNEL_BASE);
-        serial_puts(",0x");
-        serial_puthex32(KERNEL_CEIL);
-        serial_puts(")\n");
-        serial_puts("HALTED\n");
-
-        /* The one visible line -- PC LOAD LETTER canon (Rule 2 / Law 4).
-         * g_panic_con is bound iff the console came up; render through it. */
-        if (g_int21_con) {
-            console_puts(g_int21_con,
-                "\nPC LOAD LETTER  (not enough memory for kernel/FLAIR)\n");
-        }
-
-        /* Terminal: never proceed into FLAIR/heap work on a machine that
-         * cannot back the heap. IF handling is irrelevant; cli;hlt forever. */
-        for (;;) {
-            __asm__ __volatile__("cli; hlt");
-        }
-    }
-    serial_puts("FLAIR-HEAP-OK\n");
-
-#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
-    flair_tenant_mount_volume();
-#endif
-#if defined(FLAIR_LIVE_TENANTS) && defined(TBX_HEADLESS_SMOKE)
-    /* The headless tenant smoke (tdnl.14 Rule-5 leg): runs BEFORE the 640x480
-     * guard so Bochs reaches it, then halts. Never in a shipped image. */
-    tbx_headless_smoke();
-    serial_puts("HALTED\n");
-    for (;;) { __asm__ __volatile__("cli; hlt"); }
-#endif
-
-#ifdef BOOT_FLAIR_SHELL
-    /* THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1; THE milestone): build
-     * the Office Space chimera desktop into an indexed-8 offscreen from the FLAIR
-     * heap, render it (EXACTLY as the host oracle test_shell.c does), and PRESENT
-     * it to the live LFB. This is a DEDICATED demo kernel: it does NOT touch the
-     * normal boot (guarded by BOOT_FLAIR_SHELL), and after painting it emits the
-     * grep-able "FLAIR-DESKTOP" marker (the screendump oracle's paint-complete
-     * signal) then HALTS forever -- a STABLE screen for the screendump. It does
-     * NOT fall through to FAT-mount / the REPL. (b is the boot_info_t snapshot
-     * populated at the top of kernel_main.) */
-    flair_desktop_run(&b, (flair_live_ctx_t *)0);
-    serial_puts("FLAIR-DESKTOP\n");
-    for (;;) {
-        __asm__ __volatile__("cli; hlt");
-    }
-#endif
-
 #ifdef BOOT_FLAIR_LIVE
+/* THE FLAIR LIVE SESSION: build the desktop, run the cooperative pump. Called
+ * once from kernel_main by the boot-to-desktop kernels; in the FLAIR-as-a-
+ * command kernels (FLAIR_AS_COMMAND, bead initech-tdnl.106) it is the desktop
+ * the resident Toolbox starts when FLAIR.COM's EXEC returns, left only by
+ * Special > Exit to InitechDOS (flair_exit_to_dos -> flair_session_leave) or
+ * by the bounded gate pump's FLAIR-LIVE-OK halt. `bip` is SYSINIT's snapshot. */
+static void flair_live_session(const boot_info_t *bip)
+{
+    boot_info_t b = *bip;
     /* THE FLAIR LIVE COOPERATIVE WaitNextEvent PUMP -- FO-7/8 (beads initech-5l5z;
      * ADR-0006 E-D4 / FO-7; landing-sequence Step 6). This is the CAPSTONE: it
      * makes the booted desktop INTERACTIVE -- the live, draggable arrangement that
@@ -6511,6 +6353,23 @@ void kernel_main(void)
     FlairApp        *ten_hello  = (FlairApp *)0;
     FlairApp        *ten_notes  = (FlairApp *)0;
     FlairApp        *ten_finder = (FlairApp *)0;   /* R3.2 shell tenant (tdnl.9) */
+#endif
+#endif
+#ifdef FLAIR_AS_COMMAND
+    /* The Finder's per-session volume work (DESKTOP.DB, TRASH, the Apple menu,
+     * the label) -- the volume itself was mounted at SYSINIT. Same serial order
+     * as the boot-to-desktop kernels: DB, TRASH, APPLE-MENU, FLAIR-DESKTOP. */
+    flair_volume_desk_prepare();
+    MenuClock_reset();
+#if defined(KMAIN_FIX_TRANSIENT_OVERLAY) || defined(KMAIN_MUT_TRANSIENT_NOT_PRESERVED)
+    /* FAULT INJECTION (test-flair-from-dos leg RELOAD / its mutant): the
+     * desktop overlays the transient's code, as a program that used all of
+     * memory did in DOS (MS-DOS 3.3 User's Guide printed p338, PDF423). INT3
+     * bytes: a return into an unrepaired transient faults at once. NEVER in a
+     * real build. */
+    for (uint8_t *z = (uint8_t *)(uintptr_t)(TRANSIENT_BASE + 0x100u);
+         z < (uint8_t *)(uintptr_t)(TRANSIENT_BASE + 0x100u + 0x2000u); z++)
+        *z = 0xCCu;
 #endif
 #endif
     flair_desktop_run(&b, &ctx);
@@ -6854,8 +6713,15 @@ void kernel_main(void)
      * pic_unmask_irq12() (the cascade + IRQ12 unmask) is issued AFTER
      * sysinit_enable_irqs() below, so every gate is installed before the line is
      * live. The hourglass busy CURS is canon (NOT a wristwatch; ADR-0006 BC-8). */
+#ifndef FLAIR_AS_COMMAND
     idt_install_irq(0x34u, (void *)irq12_entry);   /* PS/2 mouse IRQ12 -> 0x34 */
     mouse_init();
+#endif
+    /* FLAIR AS A COMMAND (bead initech-tdnl.106; ADR-0003 DEC-19): the devices
+     * are brought up ONCE, at SYSINIT (flair_shell_boot), before COMMAND.COM
+     * takes the console; a desktop started from the prompt finds IRQ0/1/12
+     * live and only installs its hooks. Re-running mouse_init() with IRQ1
+     * unmasked would let the 8042's command replies reach the keyboard ISR. */
 #ifndef FLAIR_LIVE_MUTATE_NO_MOUSE_HOOK
     mouse_set_event_hook(flair_live_mouse_post);
 #endif
@@ -6868,7 +6734,9 @@ void kernel_main(void)
      * maintains event.c's own g_tick (read via flair_tick_count), which starts
      * at 0 after flair_event_init above. After this, IRQ0 fires ~every 10 ms and
      * IRQ1 fires on every keystroke from the 8042 output buffer. */
+#ifndef FLAIR_AS_COMMAND
     sysinit_enable_irqs(serial_puts);
+#endif
 
     /* --- FO-6: unmask the PS/2 mouse IRQ12 AFTER sti (ADR-0006 E-D3d) --------- *
      * sysinit_enable_irqs() above installed the IRQ0/IRQ1 gates, unmasked IRQ0+
@@ -6877,7 +6745,9 @@ void kernel_main(void)
      * AND the slave IMR bit4 (IRQ12) so the slave-8259A mouse line can reach the
      * CPU -- the cascade requirement (CLAUDE.md minefield). After this the mouse
      * fires IRQ12 on every PS/2 packet byte. Ref: ADR-0006 E-D3d/BC-3; pic.h. */
+#ifndef FLAIR_AS_COMMAND
     pic_unmask_irq12();
+#endif
 
     /* --- FO-7: install the cooperative HLT yield, then announce READY ---------- *
      * flair_event_set_yield installs the HLT sleep WaitNextEvent calls while the
@@ -7392,6 +7262,379 @@ void kernel_main(void)
     for (;;) {
         __asm__ __volatile__("cli; hlt");
     }
+}
+
+#ifdef FLAIR_AS_COMMAND
+/* SYSINIT's snapshot of boot_info, for the desktops FLAIR starts later. */
+static boot_info_t g_shell_bi;
+
+/* One desktop, entered from COMMAND.COM's EXEC of FLAIR.COM (DEC-19). The
+ * session is left by Special > Exit to InitechDOS, which longjmps back here
+ * (flair_exit_to_dos), discarding the pump's frames; the bounded gate pump
+ * instead halts at FLAIR-LIVE-OK and never returns. */
+static __attribute__((noinline)) void flair_desktop_session(void)
+{
+    if (__builtin_setjmp(g_desk_jmp) == 0)
+        flair_live_session(&g_shell_bi);
+}
+
+/* THE RESIDENT EXEC (DEC-19; DOS 3.30 TR p1-5: the resident portion of
+ * COMMAND.COM holds the EXEC routine and the transient reload). COMMAND.COM's
+ * AH=4Bh backend in the FLAIR-as-a-command kernels: run the program; if it
+ * armed the Toolbox (FLAIR.COM, INT 81h TBX_DESKSTART) start the desktop now,
+ * before COMMAND.COM resumes; then sum the transient before returning into it. */
+static uint16_t flair_cmd_exec(const char *name83, uint16_t dir_start,
+                               const char *cmd_tail, uint32_t cmd_tail_len,
+                               uint32_t env_block, uint8_t *out_rc)
+{
+    uint16_t err = loader_exec_by_name(name83, dir_start, cmd_tail,
+                                       cmd_tail_len, env_block, out_rc);
+    if (tbx_desk_begin())
+        flair_desktop_session();
+    transient_verify(0);
+    return err;
+}
+
+/* SYSINIT's last act in the FLAIR-as-a-command kernels (DEC-19): drive A: is
+ * mounted (flair_tenant_mount_volume); install the dormant Toolbox's one
+ * door (INT 81h, the LOCKED attributes, spec/toolbox_gate.h Sec 1 -- it
+ * answers only TBX_DESKSTART until a desktop binds a host), bring the
+ * devices up ONCE (the desktop's own order: IRQ12 gate + 8042 aux before sti,
+ * PIT/kbd + sti, then the IRQ12 cascade unmask), bind COMMAND.COM's DOS
+ * seams with the resident EXEC, read the transient (COMMAND-TRANSIENT-OK)
+ * and hand it the console as the permanent processor (/P), which runs
+ * AUTOEXEC.BAT. Never returns. */
+static __attribute__((cold,noinline)) void flair_shell_boot(const boot_info_t *bi)
+{
+    void (*repl)(int);
+
+    g_shell_bi = *bi;
+    tbx_trace_bind(serial_puts);
+    idt_set_gate((uint8_t)TBX_GATE_VECTOR, (void *)tbx_gate_entry,
+                 (uint16_t)TBX_GATE_SELECTOR, (uint8_t)TBX_GATE_TYPE_ATTR);
+    idt_install_irq(0x34u, (void *)irq12_entry);   /* PS/2 mouse IRQ12 -> 0x34 */
+    mouse_init();
+    sysinit_enable_irqs(serial_puts);
+    pic_unmask_irq12();
+    flair_dos_seams(flair_cmd_exec);
+    repl = exitdos_load_transient(0);
+    repl(1);          /* the permanent command processor never returns */
+    exitdos_fail("COMMAND.COM returned", 0u);
+}
+#endif /* FLAIR_AS_COMMAND */
+#endif /* BOOT_FLAIR_LIVE */
+
+void kernel_main(void)
+{
+    /* Marker: C kernel entered. This is the acceptance signal for the handoff
+     * (ground-truth Sec 4.1) -- a missing KERNEL means the far jump failed. */
+    serial_puts("KERNEL\n");
+
+    /* Read the handoff block at its fixed physical address. Volatile so the
+     * compiler cannot assume anything about memory it did not write. */
+    const volatile boot_info_t *bi = (const volatile boot_info_t *)
+        (uintptr_t)BOOT_INFO_ADDR;
+
+    /* Snapshot to plain locals (the struct is small + stable after handoff). */
+    boot_info_t b;
+    b.lfb_addr   = bi->lfb_addr;
+    b.lfb_pitch  = bi->lfb_pitch;
+    b.lfb_bpp    = bi->lfb_bpp;
+    b.lfb_width  = bi->lfb_width;
+    b.lfb_height = bi->lfb_height;
+    b.font_addr  = bi->font_addr;
+    b.ext_mem_kb = bi->ext_mem_kb;   /* extended RAM probed by stage2 (DEC-03) */
+    b.kernel_base = bi->kernel_base; /* append-only placement field (tdnl.29) */
+    b.lfb_dac_bits = bi->lfb_dac_bits;
+    g_vga_dac_shift = b.lfb_dac_bits == 8u ? 0u : 2u;
+    /* Report actual handoff geometry/stride/base; this is also the gate's
+     * proof that the real desktop reached indexed VBE, not VGA13 or a host
+     * renderer. Ref: PRD Sec 5/8, boot_info.h, initech-2gva. */
+    serial_puts("VIDEO "); serial_putu(b.lfb_width); serial_putc('x');
+    serial_putu(b.lfb_height); serial_puts(" bpp="); serial_putu(b.lfb_bpp);
+    serial_puts(" pitch="); serial_putu(b.lfb_pitch);
+    serial_puts(" lfb=0x"); serial_puthex32(b.lfb_addr);
+    serial_puts(" dac="); serial_putu(b.lfb_dac_bits); serial_putc('\n');
+
+    /* Fail-loud kernel placement guard (Rule 2). Ref:
+     * docs/design/kernel-runway-relocation.md K2/K3; bead initech-tdnl.29.
+     * KAT reports linker-derived addresses, not duplicated expectations. The
+     * boot_info value independently proves stage2 copied/jumped to the agreed
+     * base. Any mismatch halts before IDT, heap, loader, or framebuffer state is
+     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward. */
+    {
+        uint32_t kernel_start = (uint32_t)(uintptr_t)_kernel_start;
+        uint32_t kernel_end = (uint32_t)(uintptr_t)_kernel_end;
+
+        serial_puts("KAT 0x");
+        serial_puthex32(kernel_start);
+        serial_puts("-0x");
+        serial_puthex32(kernel_end);
+        serial_putc('\n');
+
+        if (b.kernel_base != (uint32_t)KERNEL_BASE ||
+            kernel_start != (uint32_t)KERNEL_BASE ||
+            kernel_end >= (uint32_t)KERNEL_CEIL) {
+            serial_puts("PANIC kernel-placement: boot/link/runway mismatch\n");
+            serial_puts("  boot_base=0x");
+            serial_puthex32(b.kernel_base);
+            serial_puts(" expected=0x");
+            serial_puthex32((uint32_t)KERNEL_BASE);
+            serial_puts(" ceil=0x");
+            serial_puthex32((uint32_t)KERNEL_CEIL);
+            serial_putc('\n');
+            serial_puts("HALTED\n");
+            for (;;) {
+                __asm__ __volatile__("cli; hlt");
+            }
+        }
+    }
+
+    /* Sanity-check the handoff struct (Rule 2 -- fail loud, but stay live so
+     * the screendump still captures). Emit BI-OK on success, or BI-BAD + the
+     * offending value so a wrong field is diagnosable on serial. */
+    int ok = 1;
+    if (!(b.lfb_bpp == 8 || b.lfb_bpp == 24 || b.lfb_bpp == 32)) {
+        serial_puts("BI-BAD bpp=");   serial_putu(b.lfb_bpp);    serial_putc('\n');
+        ok = 0;
+    }
+    if (b.lfb_addr == 0) {
+        serial_puts("BI-BAD addr=0\n");
+        ok = 0;
+    }
+    /* Two valid geometries: the 640x480 VBE LFB (QEMU / real VESA) or the
+     * 320x200 standard-VGA mode-0x13 fallback (initech-6pj; e.g. Bochs). */
+    if (!((b.lfb_width == 640 && b.lfb_height == 480) ||
+          (b.lfb_width == 320 && b.lfb_height == 200))) {
+        serial_puts("BI-BAD geom w="); serial_putu(b.lfb_width);
+        serial_puts(" h=");            serial_putu(b.lfb_height); serial_putc('\n');
+        ok = 0;
+    }
+    if (ok) {
+        serial_puts("BI-OK\n");
+    }
+
+    /* Echo the probed extended-memory size (ADR-0004 DEC-03 / FO-G) so the boot
+     * oracle can confirm stage2's INT 15h probe populated ext_mem_kb with a sane
+     * value (e.g. ~130048 KiB for a 128 MiB QEMU/Bochs guest). This is
+     * diagnostic only; the gating decision is the panic-below-min below, which
+     * happens AFTER the console is up so PC LOAD LETTER can render on screen. */
+    serial_puts("EXTMEM kb=");
+    serial_putu(b.ext_mem_kb);
+    serial_putc('\n');
+
+    /* SYSINIT PHASE 1 -- interrupt + syscall foundation (beads initech-509.2;
+     * beads initech-a5a / initech-509.5 / initech-509.3). This was a long ad-hoc
+     * sequence inline in kernel_main; it is now the NAMED sysinit_early() phase,
+     * which runs the EXACT same steps IN THE EXACT same order (sysinit.h documents
+     * the ordering minefield): remap+MASK the 8259 -> "PIC" -> install the IDT ->
+     * "IDT" -> bind the int21 CON sink + terminate hook -> sft_init + build the
+     * kernel-context PSP + int21_set_psp -> install the 0x21 + 0x20 trap gates ->
+     * "INT21". IF stays 0 here (no sti); the HW-IRQ tail is sysinit_enable_irqs()
+     * far below, in its original position. The serial markers are emitted from the
+     * phase so the capture is byte-for-byte identical. */
+    sysinit_early(int21_con_sink, int21_exit_hook, &g_kernel_psp, serial_puts);
+    int21_set_break_trace(serial_putc);
+
+    /* LIVE self-test: install a trap gate on an UNUSED vector (0x80 -- not an
+     * IRQ vector after the 0x28/0x30 remap), fire `int 0x80`, and confirm
+     * control returns. Proves gate-install + dispatch + iret + resume on the
+     * real boot (the host oracle proves the byte-level encode; this proves the
+     * CPU actually honors it). The handler emits IDT-SELFTEST-OK; IDT-RESUMED
+     * after the int proves the iret resumed us. */
+    idt_install_trap(0x80u, (void *)isr_selftest);
+    __asm__ __volatile__("int $0x80");
+    serial_puts("IDT-RESUMED\n");
+
+    /* Mode 0x13 fallback (initech-6pj): the framebuffer is paletted, so map the
+     * console's two indices -- CONSOLE_BG_IDX -> seafoam, CONSOLE_FG_IDX ->
+     * light gray (0xC0, matching console.c CONSOLE_FG_*) -- in the VGA DAC
+     * BEFORE any fill or glyph blit. The direct-color VBE 24/32bpp paths skip
+     * this. */
+    if (b.lfb_bpp == 8) {
+        /* VBE mode D5 may be non-VGA even on a VGA controller. Verify the
+         * palette ports before depending on them (VBE 2.0 p20; local
+         * vesa8-ground-truth.md). Index 255 is replaced by the desktop table.
+         * All sentinels fit both six- and eight-bit DACs. */
+        outb(0x3C8, 255);
+        outb(0x3C9, 17); outb(0x3C9, 34); outb(0x3C9, 51);
+        outb(0x3C7, 255);
+        uint8_t dr = inb(0x3C9), dg = inb(0x3C9), db = inb(0x3C9);
+        if (dr != 17u || dg != 34u || db != 51u) {
+            serial_puts("PANIC VGA-DAC: palette port readback failed\nHALTED\n");
+            for (;;) __asm__ __volatile__("cli; hlt");
+        }
+        vga_set_dac((uint8_t)CONSOLE_BG_IDX, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
+        vga_set_dac((uint8_t)CONSOLE_FG_IDX, 0xC0, 0xC0, 0xC0);
+    }
+
+    /* CONSTRAINT (initech-d00): the C kernel's first drawing act re-paints the
+     * LFB seafoam so test-tracer-boot's screendump assertion still passes --
+     * the handoff is now proven on the REAL boot chain end-to-end. */
+    fb_clear(&b, SEAFOAM_R, SEAFOAM_G, SEAFOAM_B);
+
+    /* Text console (beads initech-yqb): bind the framebuffer + the captured
+     * VGA ROM font (b.font_addr) and render a SHORT test string. The console's
+     * default background is SEAFOAM (console.c CONSOLE_BG_*), so console_init's
+     * clear repaints the SAME seafoam -- the screen stays predominantly seafoam
+     * and test-tracer-boot's 81-point screendump grid still reads seafoam (Law
+     * 2 -- do not weaken the oracle to ship). Glyphs are inked on top in fg
+     * (light gray). This is NOT the InitechDOS banner -- that is initech-bea.
+     *
+     * Fail loud (Rule 2): if console_init refuses (NULL/zero addr/bad bpp/no
+     * font) emit CON-BAD + the code and skip drawing; the seafoam fill above
+     * still satisfies the screendump so the handoff gate stays diagnosable. */
+    /* `con` MUST live for the rest of kernel_main: g_int21_con / the
+     * panic console all hold &con and are dereferenced by the program demo and
+     * the proto-DIR far below. A block-local here would dangle once the block
+     * ends (its stack is reused by the loader/mount locals), so the console is
+     * declared at function scope. Root-cause fix (Rule 3): a nested-scope `con`
+     * rendered the banner by luck but the proto-DIR through clobbered state. */
+    console_t con;
+    {
+        int crc = console_init(&con, &b);
+        if (crc == CONSOLE_OK) {
+            serial_puts("CONSOLE\n");
+
+            /* Bind the live console so a CPU-exception panic can render its
+             * one visible line (beads initech-a5a / panic.c). */
+            panic_set_console(&con);
+
+            /* Bind the SAME console to the INT 21h CON sink so `int 0x21` AH=09h
+             * (below) drives the LFB console + serial (beads initech-509.5). */
+            g_int21_con = &con;
+
+            /* Print the InitechDOS operator banner -- the milestone (beads
+             * initech-bea). The two LOCKED lines (spec/dos_banner.txt; ADR-0003
+             * DEC-12 / Appendix D.1) at the top-left, each ending '\n'. The
+             * console default bg is SEAFOAM (console.c), so the screen stays
+             * predominantly seafoam with the banner inked on top in fg.
+             *
+             * ALSO mirror the banner to COM1, framed by BANNER-BEGIN/END
+             * markers, so the harness has a strong literal serial signal
+             * ("InitechDOS  Version 3.30" on the wire) and the test-boot gate
+             * can diff the captured lines against spec/dos_banner.txt
+             * byte-for-byte (Law 1 / Rule 8). */
+            serial_puts("BANNER-BEGIN\n");
+
+            /* Drive the banner THROUGH the new syscall path (beads
+             * initech-509.5): `int 0x21` AH=09h with EDX -> a '$'-terminated
+             * copy of each line. The dispatcher's CON sink fans every byte to
+             * BOTH the LFB console and COM1 serial, so the screen output is
+             * unchanged (test-tracer-boot/test-boot screendump stays green) AND
+             * the serial bytes between BANNER-BEGIN/BANNER-END still match
+             * spec/dos_banner.txt byte-for-byte. The '$' is the DOS terminator
+             * and is NOT emitted; the '\n' before it IS. */
+            dos_puts(BANNER_LINE1 "\n$");
+            dos_puts(BANNER_LINE2 "\n$");
+
+            serial_puts("BANNER-END\n");
+            serial_puts("BANNER\n");
+        } else {
+            serial_puts("CON-BAD rc=");
+            serial_putu((uint32_t)crc);
+            serial_putc('\n');
+        }
+    }
+
+    /* ------------------------------------------------------------------ *
+     * KERNEL-RUNWAY + FLAIR RAM-SUFFICIENCY GATE. The FLAIR heap contract
+     * remains beads initech-k8o5.5 / ADR-0004 DEC-03 / FO-G. Bead
+     * initech-tdnl.29 and docs/design/kernel-runway-relocation.md K1/K4 add
+     * the adjacent kernel runway through KERNEL_CEIL, raising the whole-OS
+     * minimum to INITECH_MIN_EXT_KB while leaving the heap window unchanged.
+     * The FLAIR Toolbox heap is a FIXED extended-memory
+     * window [FLAIR_HEAP_BASE, FLAIR_HEAP_BASE+FLAIR_HEAP_SIZE) (spec/
+     * memory_map.h). stage2 probed installed RAM above 1 MiB into
+     * boot_info_t.ext_mem_kb; if the machine does not have enough extended
+     * RAM to back the whole window, the OS must REFUSE TO RUN (fail loud,
+     * Rule 2) rather than scribble GUI state into RAM that is not there.
+     *
+     * The probe GATES boot; it NEVER alters the memory map (Rule 11 -- the
+     * layout is identical every boot; the self-host fixpoint K2==K3 is
+     * unaffected). The decision is the SAME pure function the host oracle
+     * tests (flair_heap_ram_ok, memory_map.h), and the higher whole-map bound is
+     * derived from KERNEL_CEIL. Real emulators (QEMU/Bochs default >= 128 MiB)
+     * pass; the panic only fires on a genuinely under-provisioned machine.
+     *
+     * Reuse the fail-loud panic contract (panic.c): the grep-able "PANIC ..."
+     * serial line + a diagnostic dump + the on-screen "PC LOAD LETTER" line
+     * (rendered through the live console, bound to panic via panic_set_console
+     * above), then a permanent cli;hlt. We do not have a CPU int_frame_t here
+     * (this is a boot-policy panic, not a CPU exception), so we render the
+     * PC LOAD LETTER line directly and dump the relevant values to serial. */
+    if (b.ext_mem_kb < (uint32_t)INITECH_MIN_EXT_KB ||
+        !flair_heap_ram_ok(b.ext_mem_kb)) {
+        /* Grep-able marker first (the oracle keys on "PANIC"). */
+        serial_puts("PANIC kernel-runway: insufficient extended RAM\n");
+        serial_puts("  ext_mem_kb=");
+        serial_putu(b.ext_mem_kb);
+        serial_puts(" required_kb=");
+        serial_putu((uint32_t)INITECH_MIN_EXT_KB);
+        serial_putc('\n');
+        serial_puts("  FLAIR_HEAP=[0x");
+        serial_puthex32(FLAIR_HEAP_BASE);
+        serial_puts(",0x");
+        serial_puthex32(FLAIR_HEAP_BASE + FLAIR_HEAP_SIZE);
+        serial_puts(")\n");
+        serial_puts("  KERNEL_RUNWAY=[0x");
+        serial_puthex32(KERNEL_BASE);
+        serial_puts(",0x");
+        serial_puthex32(KERNEL_CEIL);
+        serial_puts(")\n");
+        serial_puts("HALTED\n");
+
+        /* The one visible line -- PC LOAD LETTER canon (Rule 2 / Law 4).
+         * g_panic_con is bound iff the console came up; render through it. */
+        if (g_int21_con) {
+            console_puts(g_int21_con,
+                "\nPC LOAD LETTER  (not enough memory for kernel/FLAIR)\n");
+        }
+
+        /* Terminal: never proceed into FLAIR/heap work on a machine that
+         * cannot back the heap. IF handling is irrelevant; cli;hlt forever. */
+        for (;;) {
+            __asm__ __volatile__("cli; hlt");
+        }
+    }
+    serial_puts("FLAIR-HEAP-OK\n");
+
+#if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
+    flair_tenant_mount_volume();
+#endif
+#if defined(FLAIR_LIVE_TENANTS) && defined(TBX_HEADLESS_SMOKE)
+    /* The headless tenant smoke (tdnl.14 Rule-5 leg): runs BEFORE the 640x480
+     * guard so Bochs reaches it, then halts. Never in a shipped image. */
+    tbx_headless_smoke();
+    serial_puts("HALTED\n");
+    for (;;) { __asm__ __volatile__("cli; hlt"); }
+#endif
+
+#ifdef BOOT_FLAIR_SHELL
+    /* THE LIVE FLAIR DESKTOP (beads initech-re30.3, LANE 1; THE milestone): build
+     * the Office Space chimera desktop into an indexed-8 offscreen from the FLAIR
+     * heap, render it (EXACTLY as the host oracle test_shell.c does), and PRESENT
+     * it to the live LFB. This is a DEDICATED demo kernel: it does NOT touch the
+     * normal boot (guarded by BOOT_FLAIR_SHELL), and after painting it emits the
+     * grep-able "FLAIR-DESKTOP" marker (the screendump oracle's paint-complete
+     * signal) then HALTS forever -- a STABLE screen for the screendump. It does
+     * NOT fall through to FAT-mount / the REPL. (b is the boot_info_t snapshot
+     * populated at the top of kernel_main.) */
+    flair_desktop_run(&b, (flair_live_ctx_t *)0);
+    serial_puts("FLAIR-DESKTOP\n");
+    for (;;) {
+        __asm__ __volatile__("cli; hlt");
+    }
+#endif
+
+#ifdef BOOT_FLAIR_LIVE
+#ifdef FLAIR_AS_COMMAND
+    /* FLAIR AS A COMMAND (bead initech-tdnl.106; ADR-0003 DEC-19): SYSINIT
+     * ends at COMMAND.COM; the desktop is started by FLAIR. Never returns. */
+    flair_shell_boot(&b);
+#else
+    flair_live_session(&b);
+#endif
 #endif
 
 #ifdef BOOT_SELFTEST_FAULT

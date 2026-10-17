@@ -81,6 +81,7 @@
 #include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
+#include "tbxdesk.h"         /* the resident Toolbox entry (DEC-19)            */
 #include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
 #include "scrap.h"           /* the shell's desk scrap; spec Sec 12 (tdnl.16) */
 #include "dialog.h"
@@ -169,6 +170,7 @@ typedef struct tbx_slot {
 
 static tbx_host_t g_host;
 static tbx_slot_t g_slot;
+static tbx_desk_t g_desk;      /* DORMANT at SYSINIT (zero BSS, tdnl.29)     */
 
 /* The registered app name. OUTSIDE the slot on purpose: FlairApp.name points
  * here, and FlairProcess_close_window hands that pointer back to the pump to
@@ -1095,6 +1097,17 @@ void tbx_gate_dispatch(uint8_t *frame)
         a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET +
                                                     4u * i);
 
+    if (ax == TBX_DESKSTART) {
+        /* DEC-19: the ONE code a DOS program may issue while the Toolbox is
+         * dormant (spec Sec 17); answered with no host bound. */
+        rc = tbx_desk_start(&g_desk, g_slot.in_call != 0u,
+                            loader_program_running());
+        tputs("FLAIR-DESKSTART rc=");
+        tputi(rc);
+        tputs("\n");
+        *eax_slot = (uint32_t)rc;
+        return;
+    }
     if (!g_slot.in_call || g_slot.block == 0) {
         rc = TBX_ERR_NOTTENANT;           /* a stray int 81h from the kernel */
     } else {
@@ -1225,6 +1238,30 @@ void tbx_bind(const tbx_host_t *host)
 static void slot_clear(void)
 {
     tbx_zero(&g_slot, (uint32_t)sizeof g_slot);
+}
+
+/* THE RESIDENT TOOLBOX ENTRY (bead initech-tdnl.106; DEC-19; tbxdesk.h). */
+int tbx_desk_begin(void)
+{
+    return tbx_desk_take(&g_desk);
+}
+
+/* Exit to InitechDOS: the desktop is gone. The Toolbox goes back to rest --
+ * DORMANT, the one-slot host empty, no host bound (its list, WindowMgr and
+ * heap died with the desktop) -- keeping only the serial trace. */
+void tbx_desk_end(void)
+{
+    void (*puts)(const char *s) = g_host.puts;
+
+    tbx_desk_leave(&g_desk);
+    tbx_zero(&g_host, (uint32_t)sizeof g_host);
+    g_host.puts = puts;
+    slot_clear();
+}
+
+void tbx_trace_bind(void (*puts)(const char *s))
+{
+    if (g_host.list == 0) g_host.puts = puts;   /* never under a bound host */
 }
 
 /* Free the code block LAST (DEC-AC3-1 strict reverse) and report. */

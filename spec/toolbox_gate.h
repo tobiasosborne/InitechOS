@@ -47,6 +47,12 @@
  *       Deliberate Rule-8 addition: TBX_FILECOPY 0x0091 + its arity, the
  *       TBX_EVT_FILECOPY delivery, the configuration path/key and the rate
  *       bounds (Sec 16). No old value moved.
+ * bead: initech-tdnl.106 (FLAIR as a command, 2026-10-17; ADR-0003
+ *       Amendment DEC-19). Deliberate Rule-8 addition: TBX_DESKSTART 0x0003
+ *       in the 0x00xx lifecycle group, its arity 0, and Sec 17 (the resident
+ *       Toolbox entry FLAIR.COM uses, its state rule and FLAIR.COM's two
+ *       authored lines). It is the ONE code a DOS program may issue while
+ *       the Toolbox is dormant. No old value moved.
  * bead: initech-tdnl.17 (the Calculator desk accessory, 2026-10-16).
  *       Deliberate Rule-8 extension: NEWWINDOW's goAway dword carries a
  *       WDEF request in bits 8..15 (TBX_WDEF_RDOC = rDocProc 16, the
@@ -137,6 +143,9 @@
 #define TBX_REGISTER      0x0001u  /* V1  (recPtr) -> 0 | err                   */
 #define TBX_KEEPRESIDENT  0x0002u  /* DISSOLVED by DEC-AC3-3 (registration makes
                                     * the tenant resident) -- BADCODE forever   */
+#define TBX_DESKSTART     0x0003u  /* DEC-19 () -> 0 | err: arm the desktop to
+                                    * start when the calling DOS program ends
+                                    * (Sec 17); NOT a tenant call             */
 #define TBX_EVENTCHANNEL  0x0010u  /* RESERVED: the push-callback delivery
                                     * channel (kernel -> tenant). NOT a tenant-
                                     * callable trap (DEC-AC3-3 / Part C item 1:
@@ -795,5 +804,44 @@
 #define TBX_FILECOPY_RATE_MAX  100u
 #define TBX_FILECOPY_CHUNK     64u    /* bytes per DOS read/write            */
 #define TBX_FILECOPY_CFG_MAX   256u   /* configuration bytes examined        */
+
+/* -------------------------------------------------------------------------
+ * 17. THE RESIDENT TOOLBOX ENTRY (bead initech-tdnl.106; ADR-0003 Amendment
+ *     DEC-19 "The resident Toolbox entry"; os/flair/tbxdesk.h)
+ *
+ * WHY. The system boots to the InitechDOS banner and COMMAND.COM (PRD Sec 2
+ * "command shell"; ADR-0003 DEC-11); the desktop is started by a COMMAND --
+ * FLAIR -- the way the period's GUI shells over DOS were (Windows 3.x's
+ * WIN.COM is an external program). DOS 3.30 Technical Reference pp1-5/1-6
+ * (PDF22-23): the resident portion of COMMAND.COM holds the EXEC routine;
+ * the transient builds the command line and issues EXEC for an external
+ * command, and regains control when the program terminates.
+ *
+ * TBX_DESKSTART () -> 0 | err. Issued by FLAIR.COM (\DOS on the data
+ * volume) with AX = 0x0003 and no arguments. The ONE function the gate
+ * answers while the Toolbox is DORMANT (every other code, with no disk
+ * tenant executing, is TBX_ERR_NOTTENANT exactly as before):
+ *   - the desktop is already armed or running -> TBX_ERR_BUSY (a second FLAIR
+ *     is refused; one desktop, never nested);
+ *   - no DOS program is running (a stray int 81h from the kernel's own
+ *     context) -> TBX_ERR_BADCODE;
+ *   - otherwise TBX_OK: the desktop is ARMED. The caller then terminates
+ *     (INT 21h AH=4Ch); when the EXEC that ran it returns, the resident
+ *     system starts the desktop BEFORE COMMAND.COM resumes, and the EXEC
+ *     returns to COMMAND.COM only when Special > Exit to InitechDOS has put
+ *     the desktop away. The program's return code is its own (0).
+ * The gate is installed at SYSINIT (the Toolbox is resident, dormant) and
+ * stays installed. Serial: FLAIR-DESKSTART rc=<rc> for every call.
+ *
+ * FLAIR.COM's two lines (authored: no local reference names them; printed
+ * through INT 21h AH=09h, CR LF, exit code 1):
+ *   TBX_DESK_MSG_BUSY   when the desktop is already running (TBX_ERR_BUSY);
+ *   TBX_DESK_MSG_FAIL   for any other refusal.
+ * os/milton/flair_program.asm assembles the same bytes (NASM cannot read this
+ * header); test-flair-cmd-host checks the built FLAIR.COM carries both.
+ * ------------------------------------------------------------------------- */
+#define TBX_ARGC_DESKSTART    0u
+#define TBX_DESK_MSG_BUSY     "FLAIR is already running."
+#define TBX_DESK_MSG_FAIL     "FLAIR cannot start the desktop."
 
 #endif /* INITECH_SPEC_TOOLBOX_GATE_H */

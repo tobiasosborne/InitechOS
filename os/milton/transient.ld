@@ -20,6 +20,7 @@ SECTIONS
         *(.text*)
     }
     .rodata : { *(.rodata*) }
+    _tr_code_end = .;   /* the checksummed code span ends here (DEC-19) */
     .data   : { *(.data*) }
     _tr_load_end = .;
     .bss : {

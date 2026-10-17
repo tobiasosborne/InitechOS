@@ -310,6 +310,10 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
                                       const char *cmd_tail, uint32_t cmd_tail_len,
                                       uint32_t env_block, uint8_t *out_rc);
 
+/* 1 while load_program_from_fat is running a program (the caller of an INT
+ * 81h TBX_DESKSTART must be one: bead initech-tdnl.106, os/flair/tbxdesk.h). */
+int loader_program_running(void);
+
 /* ------------------------------------------------------------------------ *
  * DISK-LAUNCHED FLAIR TENANTS -- the DEC-08a PARAMETERIZED-BASE extension
  * (bead initech-tdnl.14; docs/design/GUI-remediation-ADR-reconciliation.md
