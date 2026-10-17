@@ -607,6 +607,11 @@ typedef int (*int21_coninpoll_fn)(void);  /* NON-blocking: char 0..255, or -1   
  * keyboard-backed callbacks near the sti; the host oracle binds a queued mock. */
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll);
 
+/* Discard pending CON input up to AND including the first byte == c, keeping
+ * what follows it. "Pending" spans the single-slot lookahead (filled by AH=0Bh
+ * and by the ^C/^S/^P check every CON output byte makes) and the bound poll. */
+void int21_conin_discard_through(int c);
+
 /* ---- ANSI.SYS CONSOLE OPS (beads initech-p96i; consumes the x3mh FSM) ------
  * When CONFIG.SYS loaded DEVICE=ANSI.SYS (sysinit_ansi_enabled()), every CON
  * output byte is fed through the ANSI escape-sequence FSM (os/milton/ansi.c)

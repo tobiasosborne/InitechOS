@@ -875,6 +875,89 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
     return r;
 }
 
+/* ===========================================================================
+ * THE FLAIR BOOT SCREEN (bead initech-tdnl.105; operator directive 2026-10-17:
+ * "flair is missing a boot screen which must canonically feature the initech
+ * logo"). The Mac OS 8.1 "Welcome to Mac OS" startup panel, cell for cell
+ * (../system7-decomp re/mint-results-009.md; s8_startup_welcome.png), with the
+ * Initech lockup in its logo cell. The painter is the pure row renderer
+ * os/milton/boot_screen.h (graded on the host by test-boot-screen and here by
+ * test-flair-boot-screen); this block is only its LFB sink + the hold.
+ *
+ * Painted right after FLAIR-HEAP-OK, i.e. before the FAT mount and the Toolbox
+ * scene build, and held until the first desktop present. The HOLD is a
+ * build-time constant: ~2 s of PIT ticks on the INTERACTIVE images
+ * (-DFLAIR_LIVE_INTERACTIVE), 0 -- no hold code at all -- on every gate image,
+ * so their boot timing and every marker after FLAIR-BOOT-SCREEN is unchanged.
+ * A 320x200 (mode 0x13) machine gets no splash (the desktop panics there).
+ * =========================================================================== */
+#include "boot_screen.h"     /* boot_screen_render (pure)                     */
+
+#ifndef FLAIR_BOOT_HOLD_TICKS
+#ifdef FLAIR_LIVE_INTERACTIVE
+#define FLAIR_BOOT_HOLD_TICKS 200   /* ~2 s at PIT_TICK_HZ (100 Hz)          */
+#else
+#define FLAIR_BOOT_HOLD_TICKS 0     /* gate images: no hold                   */
+#endif
+#endif
+
+/* The LFB sink: indices at 8bpp (the DAC holds the FLAIR palette), the one
+ * index->RGB accessor at 24/32bpp -- the same split as flair_desktop_present. */
+static void flair_boot_screen_row(void *ctx, int y, const uint8_t *row)
+{
+    const bitmap_t *bm = (const bitmap_t *)ctx;
+    uint32_t off = (uint32_t)y * bm->pitch;
+    for (int x = 0; x < BOOT_SCREEN_W; x++, off += bm->bytes_per_pixel)
+        surface_put_pixel(bm, off, bm->bpp == 8u ? (uint32_t)row[x]
+                                   : (flair_palette_rgb(row[x]) & 0x00FFFFFFu));
+}
+
+static void flair_boot_screen(const boot_info_t *bi)
+{
+    bitmap_t lbm;
+    if (bi->lfb_width != (uint32_t)BOOT_SCREEN_W ||
+        bi->lfb_height != (uint32_t)BOOT_SCREEN_H) {
+        return;
+    }
+    if (bi->lfb_bpp == 8u) {
+        for (uint32_t idx = 0; idx < sizeof(flair_dac)/sizeof(flair_dac[0]); idx++)
+            vga_set_dac((uint8_t)idx, flair_dac[idx][0], flair_dac[idx][1], flair_dac[idx][2]);
+    }
+    lbm.base            = (volatile uint8_t *)(uintptr_t)bi->lfb_addr;
+    lbm.pitch           = bi->lfb_pitch;
+    lbm.bpp             = bi->lfb_bpp;
+    lbm.bytes_per_pixel = bi->lfb_bpp / 8u;
+    lbm.width           = bi->lfb_width;
+    lbm.height          = bi->lfb_height;
+    boot_screen_render(flair_boot_screen_row, &lbm);
+    serial_puts("FLAIR-BOOT-SCREEN\n");
+}
+
+#if FLAIR_BOOT_HOLD_TICKS > 0
+/* Hold the splash for FLAIR_BOOT_HOLD_TICKS PIT periods before the desktop's
+ * first present. IRQs are still masked here (the pump enables them later), so
+ * the period is POLLED on 8254 channel 2: mode 0 (interrupt on terminal
+ * count), one PIT_TICK_HZ divisor per tick, OUT2 read back as port 0x61 bit 5
+ * with GATE2 (bit 0) high and the speaker data bit (bit 1) low; port 0x61 is
+ * restored after. Ref: Intel 8254 datasheet (mode 0; OUT low from the control
+ * word to terminal count); IBM PC/AT Technical Reference, port 61h bits 0, 1
+ * and 5; pit.h (PIT_TICK_HZ, pit_divisor_for_hz). */
+static void flair_boot_screen_hold(void)
+{
+    uint8_t p61 = inb(0x61);
+    uint16_t div = pit_divisor_for_hz(PIT_TICK_HZ);
+    outb(0x61, (uint8_t)((p61 & 0xFCu) | 0x01u));
+    for (uint32_t t = 0; t < (uint32_t)FLAIR_BOOT_HOLD_TICKS; t++) {
+        outb(0x43, 0xB0u);                        /* ch2, lo/hi, mode 0, binary */
+        outb(0x42, (uint8_t)(div & 0xFFu));
+        outb(0x42, (uint8_t)(div >> 8));
+        while ((inb(0x61) & 0x20u) == 0u) {
+        }
+    }
+    outb(0x61, p61);
+}
+#endif
+
 /* Present the indexed-8 offscreen onto the live LFB, honoring lfb_bpp + the LFB
  * pitch (scanline padding). 8bpp: program the VGA DAC with the FLAIR palette
  * (the COMPLETE generated index domain) and copy indices row-by-row. 24/32bpp:
@@ -1187,6 +1270,13 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
      * (Rule 11). */
     desktop_validate_all(&scene->wm);
 
+#if FLAIR_BOOT_HOLD_TICKS > 0
+    /* The boot screen's minimum display (bead initech-tdnl.105), INTERACTIVE
+     * images only: the splash painted after FLAIR-HEAP-OK stays up through the
+     * FAT mount and this scene build, then for the hold, then this first
+     * present paints the desktop over it. */
+    flair_boot_screen_hold();
+#endif
     /* --- PRESENT the offscreen onto the live LFB (8 -> DAC+copy; 24/32 -> convert) --- */
     flair_desktop_present(bi, &off);
 
@@ -2719,11 +2809,16 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
 {
     serial_puts("FLAIR-SUSPEND\n");
 
-    /* Drain the DOS g_kbd ring of the hotkey so it does not pollute SAMIR's first
-     * cooked INT-21h line (the dual-ring post in kbd.c put a '\' here too). */
-    while (kbd_getchar() >= 0) {
-        /* drop the hotkey byte */
-    }
+    /* Drop the hotkey from the DOS input stream so it does not pollute SAMIR's
+     * first cooked INT-21h line (the dual-ring post in kbd.c put a '\' in g_kbd
+     * too), together with any desktop typing queued before it -- but NOT the
+     * keys typed after it: those are SAMIR's typeahead. The '\' may already sit
+     * in the INT 21h lookahead (an AH=0Bh poll or a CON output byte's ^C check
+     * moves it out of g_kbd), and the pump may reach this hotkey only after the
+     * next keys arrived (seen when the hotkey lands within a few ticks of
+     * FLAIR-LIVE-READY: ". \use" or ". se" in test-samir-lifetime-desktop), so
+     * a drain of g_kbd alone is wrong both ways. */
+    int21_conin_discard_through('\\');
 
     /* Prepare the screen for SAMIR's text I/O: clear the LFB to the console paper
      * + home the cursor. The kernel console came up at boot and is already bound
@@ -6461,6 +6556,12 @@ void kernel_main(void)
         }
     }
     serial_puts("FLAIR-HEAP-OK\n");
+
+#if defined(BOOT_FLAIR_SHELL) || defined(BOOT_FLAIR_LIVE)
+    /* THE FLAIR BOOT SCREEN (bead initech-tdnl.105): the first FLAIR paint,
+     * before the FAT mount and the Toolbox scene build it is held through. */
+    flair_boot_screen(&b);
+#endif
 
 #if defined(BOOT_FLAIR_LIVE) && defined(FLAIR_LIVE_TENANTS)
     flair_tenant_mount_volume();

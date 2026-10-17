@@ -1421,6 +1421,35 @@ static void do_buffered_input(int_frame_t *f)
     cf_clear(f);
 }
 
+/* Discard pending CON input up to AND including the first byte equal to c,
+ * keeping everything typed after it (pushback first, then the poll, the CON
+ * input order). If c is not pending, everything pending is discarded. Used by
+ * the FLAIR text-tenant launch to drop its desktop hotkey from the DOS stream
+ * without eating the tenant's own typeahead (bead initech-tdnl.105). */
+void int21_conin_discard_through(int c)
+{
+    int k;
+#ifdef INT21_MUTATE_DISCARD_RING_ONLY
+    /* MUTANT (Rule 6; test-conin-mutant only): the pre-fix drain. */
+    (void)c;
+    while (conin_poll() >= 0) {
+    }
+    return;
+#endif
+    if (g_conin_pushback >= 0) {
+        k = g_conin_pushback;
+        g_conin_pushback = -1;
+        if (k == c) {
+            return;
+        }
+    }
+    while ((k = conin_poll()) >= 0) {
+        if (k == c) {
+            return;
+        }
+    }
+}
+
 /* AH=0Ch FLUSH KEYBOARD BUFFER then invoke an input function: AL on entry names
  * the input function to chain (01h/06h/07h/08h/0Ah). Drain any pending input
  * (so a stale keystroke cannot satisfy the chained read), then dispatch. If AL
