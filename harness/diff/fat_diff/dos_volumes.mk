@@ -90,9 +90,8 @@ test-kernel-coverage-mutant: $(BUILD)/int21_coverage $(BUILD)/int21_inventory
 	@echo 'GREEN test-kernel-coverage-mutant: DROP_REGISTER_GETVER rejected'
 test-kernel-certificate: test-40oq test-dos-volumes test-fat16-emu test-kernel-coverage
 	@echo 'GREEN test-kernel-certificate: Appendix A + two volumes + FAT16 ATA'
-# PM 2026-10-17 (preflight, NOT in the default vectors until AH=1Fh lands --
-# bead initech-dpb1): test-kernel-coverage and test-kernel-certificate are
-# RED by construction while the locked register names AH=1Fh (Get Default
-# DPB) as implemented-pending. Run by name: make test-kernel-coverage.
-# TEST_UNIT_GATES += test-kernel-coverage test-kernel-coverage-mutant
-# TEST_EMU_GATES += test-kernel-certificate
+# Restored 2026-10-17 (WL-0167, bead initech-dpb1): AH=1Fh/32h landed with
+# their DPB witnesses (harness/diff/fat_diff/int21_dpb.mk), so the strict
+# certificate is green and back in the default vectors.
+TEST_UNIT_GATES += test-kernel-coverage test-kernel-coverage-mutant
+TEST_EMU_GATES += test-kernel-certificate

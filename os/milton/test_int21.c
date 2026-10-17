@@ -124,6 +124,16 @@ static const int21_file_backend_t g_space_backend = {
     NULL   /* rename: AH=36h does not rename a file (beads initech-gnrc) */
 };
 
+/* AH=1Fh/32h DPB source mock (WL-0167): a 1.44 MB mformat geometry. */
+static int mock_dpb_geometry(int21_dpb_geometry_t *g)
+{
+    g->bytes_per_sector = 512u; g->sectors_per_cluster = 1u;
+    g->reserved_sectors = 1u; g->fat_count = 2u; g->root_entries = 224u;
+    g->sectors_per_fat = 9u; g->root_dir_sector = 19u;
+    g->first_data_sector = 33u; g->total_clusters = 2847u; g->media = 0xF0u;
+    return 0;
+}
+
 /* The dispatcher reads EDX as a FLAT 32-bit linear address (uint32_t). On a
  * 64-bit host a stack/heap pointer does NOT fit in uint32_t, so any buffer the
  * test hands via EDX must live in the low 4 GiB. Mirror test_console.c's
@@ -765,23 +775,38 @@ int main(void)
               "unlisted AH diagnostic should mention the unknown AH");
     }
 
-    /* --- LISTED-but-unimplemented AH (0Fh FCB OPEN -- the FCB range 0Fh-24h is
-     *     in the register but deferred) -> recognized as a distinct 'not yet
-     *     implemented' diagnostic, CF set, AX=1; NOT 'unknown function'.
-     *     (CON input 01h/06h/0Ah are NOW real -- beads initech-n62 -- so this
-     *     test moved to a still-deferred listed AH.) -------------------------- */
+    /* --- AH=1Fh / AH=32h GET DPB (WL-0167): the last listed-but-deferred AH
+     *     is now served -- the status is AL (00h / FFh), never not-yet-impl.
+     *     Field-by-field truth is the host differential vs mtools
+     *     (make test-int21-dpb); this unit leg pins the dispatch contract.
+     *     Ref: docs/research/dpb-ground-truth.md Sec 3 (call contract). ---- */
     {
         sink_reset();
         int_frame_t f = fresh_frame();
-        f.eax = 0x1F00u;        /* AH=1Fh -- listed (FCB range) but deferred:
-                                 * get-DPB, undocumented in DOS 3.30 (509.9) */
+        f.eax = 0x1F00u;        /* no DPB source bound -> invalid drive */
+        f.ebx = 0x12345678u;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 1, "listed-but-deferred AH sets CF");
-        CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
-              "listed-but-deferred AH returns AX=0x0001 for now");
-        CHECK(g_sink_len > 0, "listed-but-deferred AH must emit a diagnostic");
-        CHECK(strstr(sink_str(), "not-yet-impl") != NULL,
-              "listed-but-deferred AH says not-yet-impl, distinct from unknown");
+        CHECK(frame_cf(&f) == 0, "AH=1Fh clears CF (status is AL)");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu, "AH=1Fh unbound -> AL=FFh");
+        CHECK(f.ebx == 0x12345678u, "AH=1Fh AL=FFh leaves EBX untouched");
+        CHECK(strstr(sink_str(), "not-yet-impl") == NULL,
+              "AH=1Fh is dispatched, no longer not-yet-impl");
+    }
+    {
+        int21_set_dpb_source(mock_dpb_geometry);
+        int_frame_t a = fresh_frame(), b = fresh_frame(), c = fresh_frame();
+        a.eax = 0x1F00u;
+        int21_dispatch(&a);
+        b.eax = 0x3200u; b.edx = 1u;      /* DL=1 = A:, the only host drive */
+        int21_dispatch(&b);
+        c.eax = 0x3200u; c.edx = 2u; c.ebx = 0x0BADu;   /* DL=2 = B: absent */
+        int21_dispatch(&c);
+        CHECK((uint8_t)(a.eax & 0xFFu) == 0u && frame_cf(&a) == 0, "AH=1Fh bound -> AL=00h");
+        CHECK((uint8_t)(b.eax & 0xFFu) == 0u && frame_cf(&b) == 0, "AH=32h DL=1 -> AL=00h");
+        CHECK(a.ebx == b.ebx && a.ebx != 0u, "AH=1Fh and AH=32h DL=1 return the same A: DPB");
+        CHECK((uint8_t)(c.eax & 0xFFu) == 0xFFu && c.ebx == 0x0BADu,
+              "AH=32h DL=2 (absent B:) -> AL=FFh, EBX untouched");
+        int21_set_dpb_source(0);
     }
 
     /* ======================================================================

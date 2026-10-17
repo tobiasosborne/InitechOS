@@ -132,6 +132,20 @@
       "out": {},
       "cf": "set on error (AX=error code: 0x0002 NULL/empty EDX or EDI, or source not found; 0x0003 bad/overlong path component on either side; 0x0005 dest name already exists in the target dir, OR source is a directory/volume-label, OR no write backend; 0x0011 cross-directory pair, old_dir != new_dir). On success: CF=0, AX left untouched.",
       "notes": "SAME-directory dir-entry rename (operator decision 2026-06-15, DOS-faithful; beads initech-gnrc). The FIRST INT 21h handler that reads a SECOND flat pointer: real DOS passes the new name in ES:DI; on this 32-bit protected-flat kernel the segment is collapsed and EDI carries the flat linear address directly -- the SAME flat-pointer convention EDX uses for the primary pointer (abi.primary_pointer; abi pointer args are flat 32-bit linear addresses). do_rename resolves BOTH paths through the resolve_dir_path seam ('\\SUB\\FILE' subdir targets work) and rejects a cross-DIRECTORY pair (old_dir != new_dir) with 0x0011 NOT_SAME_DEVICE: cross-dir MOVE is DEFERRED to beads initech-ycb3 (it needs dest-dir growth + an atomic remove/add + a '..' fixup). The backend rewrites ONLY the matched entry's 11-byte name field; start_cluster/file_size/attribute/mtime/mdate and the FAT are preserved verbatim (Rule 11 -- rename allocates/frees nothing). A directory/volume-label source is rejected 0x0005 (no '..' fixup path yet); a dest name already present is rejected 0x0005 (the load-bearing reject -- a rename never clobbers an entry). The AH=59h dispatch wrapper auto-notes CF+AX. Ref: DOS 3.3 PRM AH=56h; ADR-0003 Appendix A; beads initech-gnrc (cross-dir MOVE: initech-ycb3)."
+    },
+    {
+      "ah": "1Fh", "mnemonic": "GETDPB (default)",
+      "in": {},
+      "out": {"AL": "00h success / FFh invalid drive", "EBX": "on AL=00h: flat address of the default drive's 32-byte DOS 3.x DPB (ADR-0003 Appendix B.4, spec/dos_structs.h dpb_t); unchanged on AL=FFh"},
+      "cf": "cleared; the status is AL, never CF",
+      "notes": "MS-DOS 2.0 GETSET.ASM / 4.0 MISC.ASM: AH=1Fh is AH=32h with DL forced to 0. DS:BX collapses to EBX (flat; DEC-04a), as AH=1Bh/35h. Ref: docs/research/dpb-ground-truth.md; ADR-0003 Appendix A (0Fh-24h row); WL-0167."
+    },
+    {
+      "ah": "32h", "mnemonic": "GETDPB",
+      "in": {"DL": "drive (00h default, 01h A:, 02h B:, ...)"},
+      "out": {"AL": "00h success / FFh invalid drive", "EBX": "on AL=00h: flat address of that drive's 32-byte DOS 3.x DPB; unchanged on AL=FFh"},
+      "cf": "cleared; the status is AL, never CF",
+      "notes": "Every mounted volume has a DPB; the chain links them A -> C -> D by flat next pointers (offset 18h) and ends with FFFFFFFFh. The requested drive's DPB is refreshed from the mounted volume on each call, including its free-cluster count (1Eh); a DPB not yet requested reports FFFFh there. Absent letters (B:, unmounted D:, beyond D:) return AL=FFh. Ref: docs/research/dpb-ground-truth.md; ADR-0003 Appendix A 32h row (admitted 2026-10-17, WL-0167)."
     }
   ],
   "listed_but_unimplemented_behavior": {

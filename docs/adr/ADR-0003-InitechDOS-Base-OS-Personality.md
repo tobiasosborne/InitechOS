@@ -306,6 +306,7 @@ Functions are selected by register `AH`. Conformance Class is one of: **Core** (
 | 2Ah–2Dh | DATE / TIME | Get/set system date and time | Resident |
 | 30h | GETVER | Get operating system version | Resident |
 | 31h | KEEP (TSR) | Terminate and stay resident | Resident |
+| 32h | GETDPB | Get Drive Parameter Block for drive (DL=0 default, 1=A:) | Legacy |
 | 33h | BREAK | Get/set CTRL-BREAK checking state | Resident |
 | 36h | GETSPACE | Get free disk space | Core |
 | 39h / 3Ah / 3Bh | MKDIR / RMDIR / CHDIR | Directory operations | Core |
@@ -338,6 +339,12 @@ Reconciled 2026-10-17: the AH=33h row records the already-ratified DEC-16
 amendment (initech-er3h, implemented and exercised by test-er3h). The locked
 machine-readable scope is spec/int21h_register.json; the coverage certificate
 reads that register and checks the dispatcher inventory and named gate vector.
+
+Admitted 2026-10-17 (WL-0167, bead initech-dpb1): the AH=32h GETDPB row is
+the drive-addressed companion of AH=1Fh, which the 0Fh-24h row already
+sanctions; both return the 32-byte DOS 3.x Drive Parameter Block of B.4.
+Ground truth: docs/research/dpb-ground-truth.md (MS-DOS 2.0/4.0 source,
+RBIL r61; the IBM 3.30 Technical Reference lists both slots as reserved).
 
 ---
 
@@ -380,6 +387,32 @@ First byte `00h` denotes an unused entry (end of directory); `E5h` denotes a del
 | 01h | 2 | Owner identifier (0 = free) |
 | 03h | 2 | Block size in 16-byte paragraphs |
 | 05h | 11 | Reserved |
+
+### B.4 Drive Parameter Block (32 bytes; DOS 3.x)
+
+Returned by `AH=1Fh` / `AH=32h` (EBX = flat address). Admitted 2026-10-17
+with the AH=32h row (WL-0167); source docs/research/dpb-ground-truth.md.
+
+| Offset | Size | Field |
+|---|---|---|
+| 00h | 1 | Drive (0 = A:) |
+| 01h | 1 | Unit within the block driver |
+| 02h | 2 | Bytes per sector |
+| 04h | 1 | Highest sector number within a cluster (sectors per cluster - 1) |
+| 05h | 1 | Cluster-to-sector shift count |
+| 06h | 2 | Reserved sectors (first FAT sector) |
+| 08h | 1 | Number of FATs |
+| 09h | 2 | Root directory entries |
+| 0Bh | 2 | First data sector |
+| 0Dh | 2 | Highest cluster number (data clusters + 1) |
+| 0Fh | 1 | Sectors per FAT |
+| 10h | 2 | First root directory sector |
+| 12h | 4 | Block driver address (flat; 0 = no installable driver header) |
+| 16h | 1 | Media descriptor |
+| 17h | 1 | 00h accessed / FFh not yet accessed |
+| 18h | 4 | Next DPB (flat; FFFFFFFFh ends the chain) |
+| 1Ch | 2 | Cluster at which the free-space search starts |
+| 1Eh | 2 | Free clusters (FFFFh = unknown) |
 
 ---
 

@@ -25,11 +25,14 @@ for mutant in NEW_DIAGNOSTIC INLINE_CATALOGUE SPLIT_CATALOGUE UNKNOWN_MACRO ALLO
             replacement=''; why='unlisted literal "FIND: broken parameter"' ;;
     esac
     # Change the real CD failure call, not a comment containing a macro name.
+    # The call is a dos_print(... MSG_DOS_0018 "\r\n$") on one line; since the
+    # DEC-18 volumes merge (2026-10-17) it is a ternary with MSG_DOS_0004 ahead
+    # of it, so anchor on the macro + its adjacent literal, not on "dos_print(MSG".
     if [ "$mutant" = NASM_DIAGNOSTIC ]; then
         sed 's/^msg_param: db MSG_DOS_[0-9]*/msg_param: db "FIND: broken parameter"/' "$target" > "$out/source"
     else
         awk -v r="$replacement" '
-        !done && /dos_print\(MSG_DOS_0018 / {sub(/MSG_DOS_0018/,r);done=1}
+        !done && /dos_print\(.*MSG_DOS_0018 "/ {sub(/MSG_DOS_0018/,r);done=1}
         {print} END {if(!done)exit 2}' "$target" > "$out/source"
     fi
     # Retain the source identity, so its exact UI exceptions still apply.

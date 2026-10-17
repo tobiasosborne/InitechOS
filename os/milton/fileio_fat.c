@@ -993,6 +993,26 @@ static uint16_t fat_resolve_dir(const char *path, uint16_t cwd_start,
     return 0u;
 }
 
+/* AH=1Fh/32h DPB source (WL-0167): the selected volume's mounted geometry,
+ * exactly the derived fields every FAT walk above uses (no re-derivation).
+ * Volume-relative sectors, as a DOS DPB (driver adds hidden sectors).
+ * Ref: docs/research/dpb-ground-truth.md Sec 3/4; ADR-0003 Appendix B.4. */
+static int fat_dpb_geometry(int21_dpb_geometry_t *out)
+{
+    if (g_vol == 0 || (g_fat_len == 0u && g_vol->fat_window == 0)) return 1;
+    out->bytes_per_sector = g_vol->bpb.bytes_per_sector;
+    out->sectors_per_cluster = g_vol->bpb.sectors_per_cluster;
+    out->reserved_sectors = (uint16_t)g_vol->first_fat_sector;
+    out->fat_count = g_vol->bpb.num_fats;
+    out->root_entries = g_vol->bpb.root_entry_count;
+    out->sectors_per_fat = g_vol->bpb.sectors_per_fat;
+    out->root_dir_sector = g_vol->root_dir_sector;
+    out->first_data_sector = g_vol->first_data_sector;
+    out->total_clusters = g_vol->total_clusters;
+    out->media = g_vol->bpb.media_descriptor;
+    return 0;
+}
+
 static const int21_file_backend_t g_fat_backend = {
     fat_open,
     fat_read_at,
@@ -1044,6 +1064,7 @@ int fileio_fat_bind(fat12_volume_t *vol)
     int21_set_file_backend(&g_fat_backend);
     int21_set_drive_selector(fat_select_drive);
     int21_set_media(vol->bpb.media_descriptor);
+    int21_set_dpb_source(fat_dpb_geometry);
     return 0;
 }
 
