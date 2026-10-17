@@ -2550,6 +2550,35 @@ test-ndx-build-mutant: $(TEST_NDX_BUILD_MUT)
 		printf '>>> test-ndx-build-mutant: green (50/50 split correctly RED)\n'; \
 	fi
 
+# ---- SAMIR corpus provenance: the sample corpus == the PRISTINE disk (initech-586.4.1) ----
+# The SAMIR index oracles read <DBASE3_DECOMP>/goldens/dbase-iii-plus-1.1-pristine/
+# files/Sample_Programs_and_Utilities/. CNAMES.NDX there had been a SAMIR rebuild
+# since wave 9 (self-referential CNAMES leg of test-ndx-build); it was RECOVERED
+# byte-authentic from the pristine disk image 2026-10-17 (../dbase3-decomp
+# re/mint-results-006.md). Oracle: mcopy of every file off the pinned pristine
+# image (sha256 pinned in the script) == the corpus file of the same name, plus
+# the CNAMES.NDX sha256. Mutant: one flipped CNAMES.NDX key byte in a copy of
+# the corpus -> RED naming CNAMES.NDX.
+DBASE_PRISTINE_IMG   := $(DBASE3_DECOMP)/goldens/dbase-iii-plus-1.1-pristine/extracted/IMG/Sample_Programs_and_Utilities.img
+DBASE_PRISTINE_FILES := $(DBASE3_DECOMP)/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities
+CORPUS_PRISTINE_SH   := $(DBF_DIFF_DIR)/corpus_pristine.sh
+.PHONY: test-dbase-corpus-pristine test-dbase-corpus-pristine-mutant
+test-dbase-corpus-pristine: $(CORPUS_PRISTINE_SH) | $(BUILD)
+	@printf ">>> test-dbase-corpus-pristine: the dBASE sample corpus == the pristine Ashton-Tate disk image, CNAMES.NDX authentic (initech-586.4.1)\n"
+	@sh $(CORPUS_PRISTINE_SH) "$(DBASE_PRISTINE_IMG)" "$(DBASE_PRISTINE_FILES)" $(BUILD)/corpus_pristine
+	@printf ">>> test-dbase-corpus-pristine: green\n"
+test-dbase-corpus-pristine-mutant: $(CORPUS_PRISTINE_SH) | $(BUILD)
+	@printf ">>> test-dbase-corpus-pristine-mutant: one flipped CNAMES.NDX key byte must go RED (Rule 6)\n"
+	@test -d "$(DBASE_PRISTINE_FILES)" || { sh harness/missing_reference.sh DBASE3_DECOMP "corpus dir absent ($(DBASE_PRISTINE_FILES))"; exit 0; }
+	@rm -rf $(BUILD)/corpus_pristine_mut.files && cp -r "$(DBASE_PRISTINE_FILES)" $(BUILD)/corpus_pristine_mut.files
+	@chmod u+w $(BUILD)/corpus_pristine_mut.files/CNAMES.NDX
+	@printf 'Z' | dd of=$(BUILD)/corpus_pristine_mut.files/CNAMES.NDX bs=1 seek=1036 conv=notrunc status=none
+	@if sh $(CORPUS_PRISTINE_SH) "$(DBASE_PRISTINE_IMG)" $(BUILD)/corpus_pristine_mut.files $(BUILD)/corpus_pristine_mut > $(BUILD)/corpus_pristine_mut.log 2>&1; then \
+		printf '!!! test-dbase-corpus-pristine-mutant FAIL: a corrupted CNAMES.NDX PASSED -- the provenance gate is decoration\n'; exit 1; fi
+	@grep -q 'FAIL: CNAMES.NDX differs from the pristine disk image' $(BUILD)/corpus_pristine_mut.log \
+		|| { cat $(BUILD)/corpus_pristine_mut.log; printf '!!! test-dbase-corpus-pristine-mutant FAIL: RED for the wrong reason\n'; exit 1; }
+	@printf '>>> test-dbase-corpus-pristine-mutant: green (%s)\n' "$$(grep -m1 'CNAMES.NDX differs' $(BUILD)/corpus_pristine_mut.log)"
+
 # ---- SAMIR Phase-4 index: MULTI-LEVEL bulk build (3+ levels; initech-h5vg) ----
 # ndx_build past the old 2-level ceiling: nested branch levels (balanced fanout,
 # cap = kpp+1 children/node, root written last). key_length 20 -> kpp 18, nrec 343
@@ -29257,6 +29286,7 @@ TEST_UNIT_GATES := \
 	test-ndx-keys test-ndx-keys-mutant \
 	test-ndx-seek test-ndx-seek-mutant \
 	test-ndx-build test-ndx-build-mutant \
+	test-dbase-corpus-pristine test-dbase-corpus-pristine-mutant \
 	test-ndx-multilevel test-ndx-multilevel-mutant \
 	test-ndx-maintain test-ndx-maintain-mutant test-ndx-maintain-span-mutant \
 	test-ndx-pack test-ndx-pack-mutant \

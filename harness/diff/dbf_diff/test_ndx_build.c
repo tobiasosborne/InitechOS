@@ -619,7 +619,11 @@ int main(int argc, char **argv)
 
     /* CNAMES: char C40 = LASTNAME + FIRSTNAME (multi-field concat via the
      * evaluator); CLIENTS.DBF; 5 leaves + root (49 entries). Stored expr is
-     * "LASTNAME + FIRSTNAME " (trailing space). */
+     * "LASTNAME + FIRSTNAME " (trailing space). PROVENANCE (initech-586.4.1):
+     * the corpus file is the AUTHENTIC 1986 CNAMES.NDX again, recovered from
+     * the pristine disk image (../dbase3-decomp re/mint-results-006.md); from
+     * wave 9 until 2026-10-17 it was a SAMIR rebuild and this leg graded our
+     * writer against our writer. test-dbase-corpus-pristine pins it. */
     check_rebuild(pal, base,
                   PRISTINE_REL "/CLIENTS.DBF", PRISTINE_REL "/CNAMES.NDX",
                   "LASTNAME + FIRSTNAME ", NDX_KEY_TYPE_CHAR, 40u, "CNAMES");
