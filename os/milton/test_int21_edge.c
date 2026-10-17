@@ -509,14 +509,14 @@ int main(void)
         f.eflags |= CF_BIT;
         int21_dispatch(&f);
         CHECK(frame_cf(&f) == 0, "SELDISK clears CF");
-        CHECK((uint8_t)(f.eax & 0xFFu) == 1u, "SELDISK returns AL=1 (one logical drive)");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 5u, "SELDISK returns minimum AL=5 (IBM TR p6-66)");
 
         int_frame_t g = fresh_frame();
         g.eax = 0x0E00u; g.edx = 9u;       /* wild DL -> still AL=1 (DL ignored) */
         int21_dispatch(&g);
         CHECK(frame_cf(&g) == 0, "SELDISK with a wild DL still clears CF (DL ignored)");
-        CHECK((uint8_t)(g.eax & 0xFFu) == 1u,
-              "SELDISK with a wild DL still returns AL=1 (only A: exists)");
+        CHECK((uint8_t)(g.eax & 0xFFu) == 5u,
+              "SELDISK with a wild DL retains minimum AL=5 (IBM TR p6-66)");
     }
 
     /* --- AH=19h GET CURRENT DISK: AL = 0 (A:). No error path. ------------ */

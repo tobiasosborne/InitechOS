@@ -240,14 +240,14 @@ int main(void)
               "AH=4Bh root-only fallback rejects a subdir path BEFORE the backend");
     }
 
-    /* --- AH=4Bh with a leading drive 'C:' -> the drive prefix is STRIPPED and the
+    /* --- AH=4Bh with a leading mounted drive 'A:' -> prefix is stripped and the
      *     remaining bare name resolves to the root, IDENTICALLY to do_open (beads
      *     initech-zs24 -- EXEC path resolution must MATCH OPEN path resolution).
      *     The backend IS called with leaf="GREET.COM", dir_start=0. Earlier EXEC
      *     rejected any ':'; now it honors a drive letter the way OPEN does. ----- */
     {
         exec_reset(0u, 0u);
-        uint32_t edx = low_dup("C:GREET.COM");
+        uint32_t edx = low_dup("A:GREET.COM");
         CHECK(edx != 0u, "low_dup drive-path buffer");
         int_frame_t f = fresh_frame();
         f.eax = 0x4B00u;
@@ -255,12 +255,24 @@ int main(void)
         f.eflags |= CF_BIT;       /* preload CF=1 so we prove it is CLEARED */
         int21_dispatch(&f);
         CHECK(g_exec_called == 1,
-              "AH=4Bh strips the 'C:' drive and reaches the backend (matches OPEN)");
+              "AH=4Bh strips the 'A:' drive and reaches the backend (matches OPEN)");
         CHECK_STR_EQ(g_exec_name, "GREET.COM",
                      "AH=4Bh passes the post-drive-strip leaf to the backend");
         CHECK(g_exec_dir_start == 0u,
-              "AH=4Bh of 'C:GREET.COM' resolves dir_start=0 (root)");
-        CHECK(frame_cf(&f) == 0, "AH=4Bh 'C:GREET.COM' clears CF (drive stripped, ran)");
+              "AH=4Bh of 'A:GREET.COM' resolves dir_start=0 (root)");
+        CHECK(frame_cf(&f) == 0, "AH=4Bh 'A:GREET.COM' clears CF (drive stripped, ran)");
+    }
+
+    /* DEC-18: an absent drive must never alias A. The mock binds only A. */
+    {
+        exec_reset(0u, 0u);
+        int_frame_t f = fresh_frame();
+        f.eax = 0x4B00u; f.edx = low_dup("C:GREET.COM");
+        CHECK(f.edx != 0u, "absent-drive path buffer");
+        int21_dispatch(&f);
+        CHECK(frame_cf(&f) && (uint16_t)f.eax == 15u,
+              "EXEC on absent C returns invalid drive (DEC-18)");
+        CHECK(g_exec_called == 0, "absent C never reaches the A backend");
     }
 
     /* --- AH=4Bh with an OVERLENGTH path -> CF=1, AX=0x0003; runaway-guarded. *

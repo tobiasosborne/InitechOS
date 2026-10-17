@@ -184,6 +184,9 @@ typedef struct fat12_dir {
  * to read sector 0 (no malloc in the artifact). Returns FAT12_OK on success.
  */
 int fat12_mount(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf);
+/* DEC-18: mount a specified primary entry; active flags never reorder letters. */
+int fat12_mount_primary(fat12_volume_t *vol, const blockdev_t *dev,
+                        void *sector_buf, unsigned primary);
 
 /* Volume-relative sector I/O, shared by FAT and DEC-15 absolute disk calls.
  * IBM DOS 3.30 TR p9-3: utilities must not access other partitions. */

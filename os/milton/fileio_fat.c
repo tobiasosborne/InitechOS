@@ -60,30 +60,40 @@
  * is enough; an overlength path never reaches here. */
 #define FILEIO_PATH_MAX  130u
 
-/* The mounted volume (caller-owned; bound by fileio_fat_bind). */
-static const fat12_volume_t *g_vol = 0;
+/* DEC-18 / initech-slvd: independent mounted-volume caches. Cooperative
+ * calls share sector scratch only; FAT contents and windows belong to a volume.
+ * Ref: ADR-0003 DEC-07a/18; IBM DOS 3.30 TR pp5-4..11. */
+typedef struct {
+    fat12_volume_t *vol;
+    uint8_t fat[12u * 512u];
+    uint32_t fat_len;
+    fat12_fat_window_t window;
+    uint8_t window_buf[2u * BLOCKDEV_SECTOR_SIZE];
+} fileio_mount_t;
+static fileio_mount_t g_mounts[3]; /* A, C, D; B is unassigned. */
+static fileio_mount_t *g_mount = &g_mounts[0];
+#define g_vol (g_mount->vol)
+#ifdef DOS_VOLUMES_MUT_CACHE
+#define g_fat (g_mounts[0].fat)
+#else
+#define g_fat (g_mount->fat)
+#endif
+#define g_fat_len (g_mount->fat_len)
 
-/* The whole-FAT buffer (1.44 MB FAT12: 9 sectors * 512 = 4608 bytes; round up
- * to a comfortable cap so a slightly larger FAT still fits). BSS, kernel-owned;
- * filled once at bind by fat12_read_fat FOR A FAT12 VOLUME. The write functions
- * MUTATE it in place and flush BOTH on-disk FAT copies from it (fat12.h DEC-07).
- * A FAT16 FAT is far larger than this (8 MB volume => 64 sectors => 32 KB), so a
- * FAT16 volume does NOT slurp the whole FAT here -- it reads through the WINDOW
- * below (beads initech-d27i); g_fat_len stays 0 and g_fat is unused. */
-static uint8_t  g_fat[12u * 512u];
-static uint32_t g_fat_len = 0;
-
-/* WINDOWED FAT-sector reader (beads initech-d27i). For a FAT16 volume whose
- * whole FAT will not fit g_fat, fileio_fat_bind installs this window onto the
- * volume so the READ path streams only the FAT sector(s) for the current
- * cluster's entry (mirroring dao's streaming data walk). The buffer is 2 sectors
- * -- the minimum that lets a straddling FAT12 entry fit; FAT16 entries never
- * straddle, so one sector is always live, but the 2-sector buffer is the shared
- * minimum (and keeps the same window usable were a windowed FAT12 path ever
- * wanted). READ-only: FAT16 WRITE is deferred (509.11), so the write primitives
- * (which need the whole in-memory FAT) are never invoked on a FAT16 volume. */
-static fat12_fat_window_t g_fat_window;
-static uint8_t            g_fat_window_buf[2u * BLOCKDEV_SECTOR_SIZE];
+static int fat_select_drive(unsigned letter)
+{
+#ifdef DOS_VOLUMES_MUT_INVALID
+    if (letter == 1u || letter == 3u) letter = 0u;
+#endif
+    if (letter == 1u || letter > 3u) return 0;
+    unsigned slot = letter ? letter - 1u : 0u;
+#ifdef DOS_VOLUMES_MUT_PATH
+    slot = 0;
+#endif
+    if (!g_mounts[slot].vol) return 0;
+    g_mount = &g_mounts[slot];
+    return 1;
+}
 
 /* Shared scratch (cooperative, single-threaded -- safe between sequential INT
  * 21h calls; see file header). `g_sector` (>=512) is the fat12_find /
@@ -171,6 +181,10 @@ static uint16_t fat_read_at(const dir_entry_t *e, uint32_t offset,
     uint32_t got = 0u;
     int rc = fat12_read_partial(g_vol, g_fat, g_fat_len, e, offset, len,
                                 buf, g_cluster, &got);
+#ifdef DOS_VOLUMES_MUT_FAT16
+    if (g_vol->fat_type == FAT_TYPE_FAT16 && e->file_size > 20000u && got)
+        buf[0] ^= 1u; /* Rule 6: ATA read oracle must compare all file bytes. */
+#endif
     if (rc != FAT12_OK) {
         *out_read = 0u;
         return FILEIO_ERR_FILE_NOT_FOUND;   /* corrupt chain / read error */
@@ -256,7 +270,7 @@ static uint16_t fat_dir_entry(uint32_t index, uint16_t dir_start_cluster,
 static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
                            dir_entry_t *out_entry, uint32_t *out_slot)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
     /* CREATE inside a SUBDIRECTORY (dir_start_cluster != 0) is now supported
@@ -300,7 +314,7 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
                              const uint8_t *data, uint32_t len,
                              uint32_t *out_written, dir_entry_t *out_entry)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         *out_written = 0u;
         return FILEIO_ERR_ACCESS_DENIED;
     }
@@ -355,7 +369,7 @@ static void fat_close(uint32_t slot)
 static uint16_t fat_set_time(uint16_t dir_start, uint32_t slot,
                              uint16_t mtime, uint16_t mdate)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
 #ifdef FILEIO_MUTATE_SETTIME_ROOTDIR
@@ -401,7 +415,7 @@ static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
 		                    g_sector, io_attr);
 	} else {
 		/* SET: requires a writable backend (Rule 2: never a silent no-op). */
-		if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+		if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
 			return FILEIO_ERR_ACCESS_DENIED;
 		}
 		rc = fat12_set_attr(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
@@ -426,7 +440,7 @@ static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
 
 static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
     /* UNLINK inside a SUBDIRECTORY (dir_start_cluster != 0) is now supported
@@ -481,7 +495,7 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 static uint16_t fat_rename(const char *old83, uint16_t old_dir,
                            const char *new83, uint16_t new_dir)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
     /* old_dir == new_dir is guaranteed by the dispatcher (cross-dir -> 0x0011);
@@ -515,7 +529,7 @@ static uint16_t fat_rename(const char *old83, uint16_t old_dir,
  *   any other error     -> 0x0005 (bad name / no space / write error). */
 static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
     int rc = fat12_mkdir(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
@@ -549,7 +563,7 @@ static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
  *   any other error     -> 0x0005 (write error). */
 static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
 {
-    if (g_vol == 0 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
+    if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
     int rc = fat12_rmdir(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
@@ -694,7 +708,7 @@ static uint16_t fat_descend_seed(const char *path, uint16_t cwd_start)
     int had_drive = (path[0] != '\0' && path[1] == ':');
     const char *after_drive = had_drive ? path + 2 : path;
     int absolute = (after_drive[0] == '\\');
-    if (had_drive || absolute) {
+    if (absolute) {
         return 0u;                 /* root: absolute or drive-prefixed */
     }
     return cwd_start;              /* relative: descend from the CWD */
@@ -1001,50 +1015,39 @@ static const int21_file_backend_t g_fat_backend = {
  * Bind: cache the FAT, then hand the backend vtable to int21.
  * ------------------------------------------------------------------------ */
 
-int fileio_fat_bind(fat12_volume_t *vol)
+int fileio_fat_add_drive(unsigned letter, fat12_volume_t *vol)
 {
-    uint32_t fat_bytes;
-
-    if (vol == 0) {
-        return -1;
-    }
-
-    /* The whole FAT in bytes. A 1.44 MB FAT12 floppy is 9*512 = 4608 (fits
-     * g_fat); a FAT16 fixed disk is far larger (8 MB volume => 64*512 = 32 KB). */
-    fat_bytes = (uint32_t)vol->bpb.sectors_per_fat *
-                (uint32_t)vol->bpb.bytes_per_sector;
-
-    if (fat_bytes <= (uint32_t)sizeof(g_fat)) {
-        /* FAT12 (or any volume whose whole FAT fits): slurp it once. The
-         * positioned read AND the WRITE path (mutate + flush both copies) need
-         * the whole in-memory FAT. No window -> the whole-FAT READ path stays
-         * byte-identical. */
-        int rc = fat12_read_fat(vol, g_fat, (uint32_t)sizeof(g_fat));
-        if (rc != FAT12_OK) {
-            return rc;   /* fail loud: a read error surfaces */
-        }
-        g_fat_len        = fat_bytes;
-        vol->fat_window  = 0;   /* whole-FAT path */
+    if (!vol || letter == 1u || letter > 3u) return FAT12_ERR_NULL;
+    fileio_mount_t *m = &g_mounts[letter ? letter - 1u : 0u];
+    uint32_t bytes = (uint32_t)vol->bpb.sectors_per_fat * 512u;
+    m->vol = 0;
+    if (vol->fat_type == FAT_TYPE_FAT12 && bytes <= sizeof m->fat) {
+        int rc = fat12_read_fat(vol, m->fat, sizeof m->fat);
+        if (rc) return rc;
+        m->fat_len = bytes;
+        vol->fat_window = 0;
     } else {
-        /* FAT16 (the whole FAT will NOT fit kernel BSS): install the WINDOWED
-         * FAT-sector reader (beads initech-d27i) so the READ path streams only
-         * the FAT sector(s) for the current cluster's entry. g_fat is left
-         * unused (g_fat_len == 0); the WRITE primitives -- which require the
-         * whole in-memory FAT -- are never invoked on a FAT16 volume (FAT16
-         * write is deferred, 509.11). This is what lets a real FAT16 volume
-         * MOUNT + READ in-kernel instead of failing loud at the whole-FAT load. */
-        fat12_fat_window_init(&g_fat_window, g_fat_window_buf,
-                              (uint32_t)sizeof(g_fat_window_buf));
-        vol->fat_window = &g_fat_window;
-        g_fat_len       = 0u;   /* no whole-FAT buffer for a FAT16 volume */
+        fat12_fat_window_init(&m->window, m->window_buf, sizeof m->window_buf);
+        vol->fat_window = &m->window;
+        m->fat_len = 0;
     }
-
-    g_vol = vol;
-
-    int21_set_file_backend(&g_fat_backend);
-    int21_set_media(vol->bpb.media_descriptor);   /* AH=1Bh/1Ch (509.9) */
+    m->vol = vol;
     return 0;
 }
+
+int fileio_fat_bind(fat12_volume_t *vol)
+{
+    for (unsigned i=0;i<3;i++) g_mounts[i].vol = 0;
+    int rc = fileio_fat_add_drive(0, vol);
+    if (rc) return rc;
+    g_mount = &g_mounts[0];
+    int21_set_file_backend(&g_fat_backend);
+    int21_set_drive_selector(fat_select_drive);
+    int21_set_media(vol->bpb.media_descriptor);
+    return 0;
+}
+
+const fat12_volume_t *fileio_fat_current_volume(void) { return g_vol; }
 
 /* Expose the backend's already-cached FAT so SYSINIT (CONFIG.SYS read) can walk
  * the cluster chain WITHOUT allocating a SECOND ~4.6 KiB FAT buffer -- the kernel
@@ -1066,19 +1069,22 @@ void *fileio_fat_fat_buffer(uint32_t *out_len)
     return g_fat;
 }
 
+/* The raw-vector backend remains bound to A (ADR-0003 DEC-15). */
 void fileio_fat_absdisk_written(uint32_t lba, uint32_t count, const void *buf)
 {
-    if (g_vol == 0 || buf == 0 || count == 0u) return;
-    uint32_t first = g_vol->first_fat_sector;
-    uint32_t end = first + g_vol->bpb.sectors_per_fat;
+    fileio_mount_t *m = &g_mounts[0];
+    const fat12_volume_t *vol = m->vol;
+    if (!vol || !buf || !count) return;
+    uint32_t first = vol->first_fat_sector;
+    uint32_t end = first + vol->bpb.sectors_per_fat;
     uint32_t lo = lba > first ? lba : first;
     uint32_t hi = lba + count < end ? lba + count : end;
     if (lo >= hi) return;
-    if (g_vol->fat_window != 0) g_vol->fat_window->valid = 0;
-    if (g_fat_len != 0u) {
+    if (vol->fat_window) vol->fat_window->valid = 0;
+    if (m->fat_len) {
         const uint8_t *src = (const uint8_t *)buf + (lo - lba) * 512u;
-        uint8_t *dst = g_fat + (lo - first) * 512u;
+        uint8_t *dst = m->fat + (lo - first) * 512u;
         uint32_t n = (hi - lo) * 512u;
-        while (n-- != 0u) *dst++ = *src++;
+        while (n--) *dst++ = *src++;
     }
 }

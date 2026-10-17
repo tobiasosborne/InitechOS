@@ -306,6 +306,7 @@ Functions are selected by register `AH`. Conformance Class is one of: **Core** (
 | 2Ah–2Dh | DATE / TIME | Get/set system date and time | Resident |
 | 30h | GETVER | Get operating system version | Resident |
 | 31h | KEEP (TSR) | Terminate and stay resident | Resident |
+| 33h | BREAK | Get/set CTRL-BREAK checking state | Resident |
 | 36h | GETSPACE | Get free disk space | Core |
 | 39h / 3Ah / 3Bh | MKDIR / RMDIR / CHDIR | Directory operations | Core |
 | 3Ch | CREAT | Create or truncate file (handle) | Core |
@@ -332,6 +333,11 @@ Functions are selected by register `AH`. Conformance Class is one of: **Core** (
 | 0Fh–24h | FCB ops | Open/close/find/read/write/delete (File Control Block) | Legacy |
 
 *This register is the controlled scope. Functions not listed are out of scope absent an approved change.*
+
+Reconciled 2026-10-17: the AH=33h row records the already-ratified DEC-16
+amendment (initech-er3h, implemented and exercised by test-er3h). The locked
+machine-readable scope is spec/int21h_register.json; the coverage certificate
+reads that register and checks the dispatcher inventory and named gate vector.
 
 ---
 

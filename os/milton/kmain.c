@@ -581,6 +581,50 @@ static int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
     return rc;
 }
 
+/* DEC-18 fixed letters: persistent master mounts, independent FAT caches.
+ * block_device_map validates physical bounds/types before any FAT access.
+ * Ground truth: spec/drive_letters.json; IBM TR pp9-3..9. */
+static int mount_dos_volume(unsigned letter, fat12_volume_t *vol,
+                            const blockdev_t *dev, uint8_t *sector)
+{
+    du_map map;
+    if (block_device_map(letter, &map)) {
+        /* DEC-07a / IBM TR pp9-7..9: a missing 55AA is a signature
+         * failure, before partition selection. Preserve the FAT mount's
+         * exact error/context for A's boot diagnostic. Never bind a
+         * volume rejected by DEC-18, even if the generic mount succeeds. */
+        if (letter == 0u) {
+            int rc = fat12_mount(vol, dev, sector);
+            if (rc) return rc;
+        }
+        return FAT12_ERR_PARTITION;
+    }
+    int rc = map.partition ? fat12_mount_primary(vol, dev, sector, map.partition)
+                           : fat12_mount(vol, dev, sector);
+    if (!rc && (vol->base_lba != map.base || vol->total_sectors > map.sectors))
+        rc = FAT12_ERR_PARTITION;
+    return rc;
+}
+
+static void mount_fixed_volumes(void)
+{
+    static ata_ctx_t master;
+    static blockdev_t dev;
+    static fat12_volume_t volumes[2];
+    uint8_t sector[512];
+    ata_ctx_init_primary_master(&master);
+    ata_blockdev_init(&dev, &master);
+    for (unsigned letter=2;letter<4;letter++) {
+        du_map map;
+        if (block_device_map(letter, &map)) continue;
+        int rc = mount_dos_volume(letter, &volumes[letter-2], &dev, sector);
+        if (!rc) rc = fileio_fat_add_drive(letter, &volumes[letter-2]);
+        serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
+        serial_putc((char)('A'+letter));
+        serial_puts(" rc="); serial_puti(rc); serial_putc('\n');
+    }
+}
+
 /* DEC-07a Sec5.3: the same origin for FAT, INT25/26 and raw CHKDSK repairs.
  * IBM DOS 3.30 TR p9-3 requires utilities to stay inside their partition. */
 static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw)
@@ -597,6 +641,7 @@ static void bind_absdisk_volume(const fat12_volume_t *vol, const blockdev_t *raw
     backend.write = raw->write_sectors ? int21_absdisk_write : 0;
     backend.total_sectors = vol->total_sectors;
     int21_set_blockdev(&backend);
+    mount_fixed_volumes();
 }
 
 /* Rule 2 / DEC-07a: retain the disagreeing values in the serial diagnostic. */
@@ -715,6 +760,9 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
      * initech-1i0x inc 3) threads the shell's inherited env block through
      * unchanged (0 = inherit-empty). */
     int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
+    uint32_t fat_len;
+    const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
+    loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
                                                cmd_tail_len, env_block, &rc);
     /* 4jic: BUSY ran no child. The caller is still the active baked/FAT
@@ -3358,7 +3406,7 @@ static void flair_tenant_mount_volume(void)
     ata_ctx_init_primary_slave(&ften_ata);
     ata_blockdev_init(&ften_fatdev, &ften_ata);
     crit_blockdev_init(&ften_crit, &ften_fatdev);
-    mount_rc = fat12_mount(&ften_vol, &ften_crit.dev, ften_secbuf);
+    mount_rc = mount_dos_volume(0, &ften_vol, &ften_crit.dev, ften_secbuf);
     if (mount_rc == FAT12_OK) {
         int bind_rc;
 
@@ -7580,7 +7628,7 @@ void kernel_main(void)
          * shell/program file I/O that runs through this volume. */
         crit_blockdev_init(&crit_fatdev, &fatdev);
 
-        rc = fat12_mount(&vol, &crit_fatdev.dev, sector_buf);
+        rc = mount_dos_volume(0, &vol, &crit_fatdev.dev, sector_buf);
         if (rc == FAT12_OK) {
             serial_puts("FAT-MOUNT-OK\n");
             mounted = 1;
