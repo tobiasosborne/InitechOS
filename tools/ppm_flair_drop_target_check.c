@@ -133,12 +133,14 @@ int main(int argc, char **argv)
 
     /* 3. nothing else lit */
     want(44 + 12,  86 + 10, 0xF3F3F3u, "README.TXT (the dragged icon) keeps its unselected #F3F3F3 page (DOC row 10 col 12 'w')");
-    /* initech-zc68: DOS and AUTOEXEC occupy root cells 2/3. The normal
-     * folder flap is CIDX_CONTROL, never the highlighted #3F3F3F.
-     * Ref: finder_icons.h folder row25 / color_canon.h CIDX_CONTROL. */
-    want(175 + 12, 86 + 10, 0xFFFFFFu, "DOS keeps its normal white body");
-    want(175 + 15, 86 + 25, 0xC0C0C0u, "DOS flap keeps its normal control gray");
-    want(243 + 10, 86 + 10, 0xFFFFFFu, "AUTOEXEC.BAT keeps its normal white body");
+    /* initech-zc68: DOS and AUTOEXEC occupy root cells 2/3. PM merge re-key
+     * 2026-10-17 (lane/icons, mint-008): the generic FOLDER strike's body is
+     * the Platinum folder lavender (finder_icons.h FOLDER row 10 'L') and its
+     * flap the dark gray 'D'/'#' cells, never the drop-highlighted #3F3F3F;
+     * the DOCUMENT page is #F3F3F3 (DOC row 10 'w'). */
+    want(175 + 12, 86 + 10, 0xDADAFFu, "DOS keeps its normal lavender folder body (mint-008 FOLDER strike)");
+    want(175 + 15, 86 + 25, 0x666666u, "DOS flap keeps its normal dark-gray strike cell, not the drop highlight");
+    want(243 + 10, 86 + 10, 0xF3F3F3u, "AUTOEXEC.BAT keeps its unselected #F3F3F3 page (mint-008 DOC strike)");
 
     /* 4. the gray outline */
     want(110, 86, 0x777777u, "the drag outline's top edge (README cell +68,0)");
