@@ -433,6 +433,27 @@ static void ctrl_runs(GrafPort *port, int x0, int y0, int x1, int y1,
     }
 }
 
+/* 2-D rect tables (size round 6, WL-0162): each entry is one crect_ctrl
+ * whose edges are offsets from the box's left/top or (CR_*R/B) its
+ * right/bottom edge, painted in table order. */
+typedef struct { int8_t x0, y0, x1, y1; uint8_t f, part; } ctrl_rect_t;
+#define CR_X0R 1u
+#define CR_X1R 2u
+#define CR_Y0B 4u
+#define CR_Y1B 8u
+#define CRX(x0, y0, x1, y1, f, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), (uint8_t)(f), (uint8_t)(p) }
+static void ctrl_rects(GrafPort *port, int l, int t, int r, int b,
+                       const ctrl_rect_t *tab, int n)
+{
+    for (int i = 0; i < n; i++) {
+        unsigned f = tab[i].f;
+        crect_ctrl(port, ((f & CR_X0R) ? r : l) + tab[i].x0,
+                   ((f & CR_Y0B) ? b : t) + tab[i].y0,
+                   ((f & CR_X1R) ? r : l) + tab[i].x1,
+                   ((f & CR_Y1B) ? b : t) + tab[i].y1, tab[i].part);
+    }
+}
+
 /* draw_push_button -- sampled Mac OS 8.1 Platinum push button, idle and
  * PRESSED (contrlHilite == inButton while the mouse is held inside).
  *
@@ -745,41 +766,35 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
 }
 
 /* Exact 8x4 Platinum arrow glyphs: widths 2/4/6/8. */
-static void draw_ctrl_up_triangle(GrafPort *port, int cx, int top, int part)
+/* The 4-row arrow glyph: up when `grow` (rows 2,4,6,8 wide), else down. */
+static void draw_ctrl_triangle(GrafPort *port, int cx, int top, int grow, int part)
 {
     for (int row = 0; row < 4; row++) {
-        int width = 2 + 2 * row;
+        int width = grow ? 2 + 2 * row : 8 - 2 * row;
         cfill_ctrl(port, cx - width / 2, top + row, width, part);
     }
 }
-
-static void draw_ctrl_down_triangle(GrafPort *port, int cx, int top, int part)
-{
-    for (int row = 0; row < 4; row++) {
-        int width = 8 - 2 * row;
-        cfill_ctrl(port, cx - width / 2, top + row, width, part);
-    }
-}
+#define draw_ctrl_up_triangle(p, cx, top, part) draw_ctrl_triangle((p), (cx), (top), 1, (part))
+#define draw_ctrl_down_triangle(p, cx, top, part) draw_ctrl_triangle((p), (cx), (top), 0, (part))
 
 static void draw_ctrl_scroll_tile(GrafPort *port,
                                   int x0, int y0, int x1, int y1)
 {
-    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_FACE);
+    /* The same raised tile as chrome.c draw_scroll_tile, as a rect table. */
+    static const ctrl_rect_t tile[] = {
+        CRX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
 #if !defined(SB_MUT_TILE_FLAT)
-    cfill_ctrl(port, x0, y0, x1 - x0 - 1, FLAIR_PART_CONTENT);
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0, y, 1, FLAIR_PART_CONTENT);
-    }
-    cfill_ctrl(port, x0 + 1, y1 - 1, x1 - x0 - 1,
-               FLAIR_PART_PLAT_TILE_SHADOW);
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
-    }
+        CRX(0, 0, -1, 1, CR_X1R, FLAIR_PART_CONTENT),
+        CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
+        CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+        CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
 #if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
-    cfill_ctrl(port, x1 - 1, y0, 1, FLAIR_PART_PLAT_FACE);
-    cfill_ctrl(port, x0, y1 - 1, 1, FLAIR_PART_PLAT_FACE);
+        CRX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
+        CRX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
 #endif
 #endif
+    };
+    ctrl_rects(port, x0, y0, x1, y1, tile, (int)(sizeof tile / sizeof tile[0]));
 }
 
 static void draw_ctrl_scroll_well(GrafPort *port,
@@ -791,14 +806,14 @@ static void draw_ctrl_scroll_well(GrafPort *port,
 #if defined(SB_MUT_FLAT_WELL)
     crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
 #else
-    for (int y = y0; y < y1; y++) {
-        cfill_ctrl(port, x0, y, 1, FLAIR_PART_PLAT_STRIPE_DARK);
-        cfill_ctrl(port, x0 + 1, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
-        cfill_ctrl(port, x0 + 2, y, FLAIR_CHROME_SCROLL_WELL_FILL_ROWS,
-                   FLAIR_PART_PLAT_WELL);
-        cfill_ctrl(port, x1 - 2, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
-        cfill_ctrl(port, x1 - 1, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
-    }
+    static const ctrl_rect_t well[] = {
+        CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_PLAT_STRIPE_DARK),
+        CRX(1, 0, 2, 0, CR_Y1B, FLAIR_PART_PLAT_WIDGET_EDGE),
+        CRX(2, 0, 2 + FLAIR_CHROME_SCROLL_WELL_FILL_ROWS, 0, CR_Y1B, FLAIR_PART_PLAT_WELL),
+        CRX(-2, 0, -1, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+        CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE)
+    };
+    ctrl_rects(port, x0, y0, x1, y1, well, (int)(sizeof well / sizeof well[0]));
     cfill_ctrl(port, x0, y0, x1 - x0, FLAIR_PART_PLAT_STRIPE_DARK);
     if (y0 + 1 < y1) {
         cfill_ctrl(port, x0, y0 + 1, x1 - x0,
@@ -812,17 +827,17 @@ static void draw_ctrl_scroll_well(GrafPort *port,
 static void draw_ctrl_scroll_thumb(GrafPort *port,
                                    int x0, int x1, int ty, int thumb_h)
 {
-    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
-
-    /* Leading/top and left highlight, trailing/bottom and right shadow. */
-    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
-    cfill_ctrl(port, x0 + 1, ty, x1 - x0 - 2, CTRL_SB_THUMB_HL);
-    for (int y = ty + 1; y < ty + thumb_h - 1; y++) {
-        cfill_ctrl(port, x0, y, 1, CTRL_SB_THUMB_HL);
-        cfill_ctrl(port, x1 - 1, y, 1, CTRL_SB_THUMB_SHADOW);
-    }
-    cfill_ctrl(port, x0 + 1, ty + thumb_h - 1, x1 - x0 - 1,
-               CTRL_SB_THUMB_SHADOW);
+    /* Face, then the leading/top and left highlight, trailing/bottom and
+     * right shadow (rect table over x0..x1 x ty..ty+thumb_h). */
+    static const ctrl_rect_t ramp[] = {
+        CRX(0, 0, 0, 0, CR_X1R | CR_Y1B, CTRL_SB_THUMB_FACE),
+        CRX(0, 0, 1, 1, 0u, FLAIR_PART_PLAT_TROUGH),
+        CRX(1, 0, -1, 1, CR_X1R, CTRL_SB_THUMB_HL),
+        CRX(0, 1, 1, -1, CR_Y1B, CTRL_SB_THUMB_HL),
+        CRX(-1, 1, 0, -1, CR_X0R | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW),
+        CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW)
+    };
+    ctrl_rects(port, x0, ty, x1, ty + thumb_h, ramp, (int)(sizeof ramp / sizeof ramp[0]));
 #if defined(SB_LOOK_MUT_RAMP_FLAT)
     crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
     cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
