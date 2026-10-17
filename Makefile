@@ -32547,6 +32547,7 @@ include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
 include harness/proptest/kernel_size_r4.mk
+include harness/proptest/kernel_size_r5.mk
 include harness/emu/ansi.mk
 
 
