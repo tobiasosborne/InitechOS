@@ -33097,3 +33097,7 @@ TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk
 include harness/diff/fat_diff/dos_volumes.mk
+
+# ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /
+# ADR-0002 DEC resolves to a DEC heading; every cited foundational Record is filed.
+include harness/adr_citations.mk
