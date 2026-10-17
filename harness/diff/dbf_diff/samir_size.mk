@@ -103,7 +103,7 @@ test-samir-messages-emu-mutant: test-samir-messages-emu $(BUILD)/SAMIR_SCREEN_SA
 TEST_EMU_GATES += test-samir-messages-emu test-samir-messages-emu-mutant
 
 .PHONY: samir-size-goldens
-samir-size-goldens:
+samir-size-goldens: $(SAMIR_FNS_PROMOTED)
 	@sha256sum --quiet -c $(PROG_DIFF_DIR)/samir-size-real.sha256
 	@printf '>>> samir-size-goldens: green (SF-memwidth real III+ capture pinned)\n'
 TEST_UNIT_GATES += samir-size-goldens

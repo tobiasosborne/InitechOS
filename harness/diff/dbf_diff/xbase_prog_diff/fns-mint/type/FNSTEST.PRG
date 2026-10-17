@@ -1,0 +1,5 @@
+? "[FNS-BEGIN]"
+USE BASE
+? TYPE("BAL"), TYPE("1+2"), TYPE("MISSING"), TYPE("DATE()"), TYPE("1+"), TYPE("TYPE('BAL')")
+? "[FNS-END]"
+RETURN

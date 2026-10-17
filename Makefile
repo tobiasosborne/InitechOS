@@ -32993,20 +32993,36 @@ $(BUILD)/test_samir_fns_%: $(DBF_DIFF_DIR)/test_samir_fns.c $(SAMIR_MAIN_SRC) $(
 .PHONY: mint-samir-fns test-samir-fns test-samir-fns-mutants test-samir-fns-emu test-samir-fns-emu-mutants
 mint-samir-fns: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/fns_mint.sh $(abspath $(DBASE3_DECOMP))
+# The real-III+ SET/function captures are COMMITTED under xbase_prog_diff/fns-mint/
+# (the same promotion pattern as SAMIR_MINT_TREE above: only what the gates read --
+# GOLD.OUT, FNSTEST.PRG/LIBRARY.PRG/DATA/*, sha256.txt and the mint.conf/mint.log/
+# MINT.PRG/CONFIG.DB provenance -- never DBASE.EXE/OVL/MSG, which are copyrighted
+# and stay in $(DBASE3_DECOMP)). fns_mint.sh writes build/samirfns/golden/ and the
+# PM promotes into the tree; this rule copies the tree into build/ so a fresh
+# build dir passes fns-accepted.sha256 / samir-size-real.sha256 without dosbox-x
+# (fixups 2026-10-17). default/ has no GOLD.OUT on purpose: its zero-byte capture
+# is NOT a golden (docs/worklog/samirfns-blocked.md); diskspace/ was never minted.
+SAMIR_FNS_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff/fns-mint
+SAMIR_FNS_MINT_FILES := $(shell find $(SAMIR_FNS_MINT_TREE) -type f 2>/dev/null)
+SAMIR_FNS_PROMOTED := $(BUILD)/samirfns/.promoted
+$(SAMIR_FNS_PROMOTED): $(SAMIR_FNS_MINT_FILES) | $(BUILD)
+	@mkdir -p $(BUILD)/samirfns/golden
+	@cp -rf $(SAMIR_FNS_MINT_TREE)/. $(BUILD)/samirfns/golden/
+	@touch $@
 test-samir-fns: $(addprefix test-samir-fns-,$(SAMIR_FNS_CASES))
 test-samir-fns-mutants: $(addsuffix -mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 test-samir-fns-emu: $(addsuffix -emu,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 test-samir-fns-emu-mutants: $(addsuffix -emu-mutant,$(addprefix test-samir-fns-,$(SAMIR_FNS_CASES)))
 define samir-fns-gates
 .PHONY: test-samir-fns-$(1) test-samir-fns-$(1)-mutant test-samir-fns-$(1)-emu test-samir-fns-$(1)-emu-mutant
-test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF)
+test-samir-fns-$(1): $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_FNS_PROMOTED)
 	@$$(SAMIR_FNS_TEST) $(1) host
 	@echo '>>> test-samir-fns-$(1): green'
 test-samir-fns-$(1)-mutant: test-samir-fns-$(1) $$(BUILD)/test_samir_fns_$(1)
 	@set +e; $$(BUILD)/test_samir_fns_$(1) $(1) host > $$(BUILD)/samirfns/mut-$(1).log 2>&1; rc=$$$$?; set -e; \
 	 test $$$$rc -eq 1 && grep -q 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log || { cat $$(BUILD)/samirfns/mut-$(1).log; exit 1; }; \
 	 printf '>>> SAMIR_FNS_MUTANT_$(1) RED: '; grep 'FAIL.*FNS transcript' $$(BUILD)/samirfns/mut-$(1).log
-test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG)
+test-samir-fns-$(1)-emu: $$(SAMIR_FNS_TEST) $$(CLIENTS_DBF) $$(SAMIR_COM) $$(HARNESS_BIN) $$(SECONDARY_TRACER_IMG) $$(SAMIR_FNS_PROMOTED)
 	@INITECH_QMP_STDIO=1 $$(SAMIR_FNS_TEST) $(1) emu
 	@echo '>>> test-samir-fns-$(1)-emu: green'
 test-samir-fns-$(1)-emu-mutant: test-samir-fns-$(1)-emu $$(BUILD)/SAMIR_SCREEN_SAMIR_FNS_MUTANT_$(1).COM
@@ -33021,7 +33037,7 @@ $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
 # Real III+ captures for the four currently exercised SF rules. Missing or
 # stale independent bytes fail loudly; this gate never regenerates evidence.
 .PHONY: samir-fns-goldens
-samir-fns-goldens:
+samir-fns-goldens: $(SAMIR_FNS_PROMOTED)
 	@sha256sum -c harness/diff/dbf_diff/xbase_prog_diff/fns-accepted.sha256
 	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type real III+ captures pinned)'
 TEST_UNIT_GATES += samir-fns-goldens
