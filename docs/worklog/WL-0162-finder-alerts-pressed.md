@@ -257,3 +257,88 @@ comma) so test-makefile-vars sees no read of an undefined `7`.
 - The four ENOMODE Bochs legs (WL-0170 follow-up).
 - Clips: the 14 Rule-14 blocks stay for the PM to record after the merge;
   no bead closed, CLAUDE.md / HANDOFF untouched, nothing pushed.
+
+## Part 4 -- PM round: the ENOMODE Bochs legs, size round 6
+
+### The four Bochs legs (22d75d03)
+The PM's read: test-flair-disk-windows-bochs, -file-ops-bochs,
+-trash-window-bochs and -alert-chrome-bochs were the last hand-rolled
+pre-vesa8 legs (they still demanded VBE-ENOMODE + VGA13 + the 640x480
+guard). They were in the Makefile on main too (WL-0170 re-keyed the
+bochs-flair-leg roster, not these four). Each recipe is now one
+bochs-flair-leg call in harness/bochs_legs.mk on the vbe101 path, with an
+explicit empty fifth argument. A new profile `flairdb` keeps the old legs'
+extra tooth for the three flagship legs on the pristine volume
+(DESKTOP-DB-CREATE + TRASH-CREATE before FLAIR-LIVE-READY, checked by
+bochs_leg_check.sh; a serial with DESKTOP-DB-CREATE removed goes RED). The
+independent roster (harness/emu/test_bochs_legs.c) lists all four: 76 legs.
+Their TEST_EMU_GATES / .PHONY mentions move to the macro (no duplicates).
+test-bochs-legs + -mutant, test-makefile-vars green; all four legs green
+under Bochs (7 / 7 / 7 / 5 leg checks, no triple fault).
+
+### Size round 6 (WL-0168 method; target >= 4,000 B, no behaviour change)
+Start: 182,764 B loaded (2,540 B over the 180,224 B floor). Codegen policy
+was re-measured once (a 29-flag single-switch sweep on the WL-0168 policy):
+only one change is kept, the rest are source.
+
+| Step | Commit | Lever | Flagship B | delta |
+| --- | --- | --- | ---: | ---: |
+| 1 | 795e116b | one aliasing + page-size policy (-fno-strict-aliasing --param=min-pagesize=0) for every cold LTO TU (half the set already had it; it only removes an assumption) | 181,900 | -864 |
+| 2 | 387bed6b | the default ring's ring + moat as a run table through the button walker | 181,484 | -416 |
+| 3 | 88ca89cc | the window gutter bars axis-generic: one draw_scrollbar (along, cross) for V and H, one well, one arrow glyph | 180,332 | -1,152 |
+| 4 | 7bed3042 | chrome rect tables: body rails / band / inner frame, the widget cell, both arrow tiles | 179,532 | -800 |
+| 5 | 46e63721 | the plain verbs' TENANT-GATE trace fields as data | 179,052 | -480 |
+| 6 | 96e891fc | the gate's AX -> argc switch as a byte table | 178,956 | -96 |
+| 7 | 28ab6c4d | the scroll-bar control's tile / well / thumb ramp as rect tables, one arrow routine | 178,764 | -192 |
+| | | **total** | **178,764** | **-4,000** |
+
+Floor 180,224 B: 1,460 B of margin. KERNEL_SECTORS and the floor are
+untouched.
+
+Why each is behaviour-neutral (Law 2 -- differentials, not prose):
+- Pixels: three scratch differentials hash the whole rendered region per
+  configuration, before vs after, at 8 and 32 bpp: the push button + default
+  ring (1,932 configurations), every public chrome composer (14,196: 42
+  frames x scroll states x hilite x widget flags; document, single bar,
+  widget pressed/idle, rDoc, movable dBox), and the controls (2,364: scroll
+  bar h 10..200 x values x enabled/disabled, check box, radio). Every step:
+  0 configurations change. The chrome and control differentials were also
+  re-run with each touched mutant macro defined (SCROLL_FLAT, FLAT_WELL,
+  SEP_GRAY, SCROLL_ALWAYS_ENABLED, SCROLLBAR_W, TILE_FLAT,
+  CORNERS_BEVELLED, WIDGET_CORNERS_EDGE, BODYBAR, DARK_RING_BLACK,
+  PRESSED_IDLE, CBOX_CORNER, INACTIVE_BLACK_FRAME, RAMP,
+  SCROLL_PRESSED_IDLE, RAMP_FLAT, GRIPS_MISSING, DISABLED_ENABLED_LOOK):
+  each mutant renders the same before and after, so every Rule-6 mutant
+  still bites exactly as it did. The differentials are mutation-proven
+  (flipping one table entry changes 436 button configurations).
+- Serial: the TENANT-GATE trace section, old vs new, over 1,152 AX x
+  argument cases is byte-identical -- this differential caught the first
+  draft's missing list terminator (the walker read into the next literal:
+  "goaway=29 win=1 s=..."), fixed before commit. The argc map agrees on every
+  AX in 0..0x1FFFF and the top 256 32-bit values.
+- One table rule: the decomposition into spans never changes a pixel because
+  each crect paints one PART, and the paint order of differently-coloured
+  rects is kept.
+
+### State at wind-up (operator stop; nothing pushed)
+- Loaded flagship: 178,764 B vs the 180,224 B r4 floor -- 1,460 B under it.
+  test-kernel-size-r4 GREEN on the final tree.
+- Bochs legs re-keyed to bochs-flair-leg: disk-windows, file-ops,
+  trash-window (profile flairdb), alert-chrome (profile flair); all four
+  green, test-bochs-legs (76 legs) + -mutant green.
+- Final-tree gates run after step 7: make image, test-makefile-vars,
+  test-fixture-volumes, test-kernel-size-r4 green; per step the host
+  oracles above (test-control, -mutant, -press-mutant, test-dialog,
+  -mutant, test-chrome, -fidelity, -grow-box, -scrollbar-look and their
+  mutants, test-serial-trace-pack, test-tbx-menu) green.
+- NOT re-run on the round-6 tree (stopped at the operator's wind-up): the
+  QEMU families (desktop, appswitch, disk-windows, file-ops, app-launch,
+  finder-icons, trash-full/window, empty-trash, finder-service,
+  finder-alerts, alert-chrome, scroll/grow/zoom/collapse/held-gestures/
+  routing ...), the Bochs legs on the round-6 kernel, test-kernel-headroom,
+  and the two-clean-builds byte-identity check. The host differentials
+  say no pixel and no trace byte moved, but the emu certificate for steps
+  1-7 is owed before merge.
+- Pre-existing on main, not this lane: test-tbx-file does not compile
+  (test_tbx_file.c initialises int21_cwd_snapshot_t without the DEC-18
+  current_drive/io_drive fields).
