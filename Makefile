@@ -20650,19 +20650,23 @@ test-flair-file-ops: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(TENA
 	@[ "$$(mcopy -n -i $(BUILD)/$(FLAIR_FO_REFUSE_NAME)_data.img ::/DESKTOP.DB - | wc -c)" = 8 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB changed on a refused drop\n'; exit 1; }
 	@printf '>>> test-flair-file-ops [4/5]: REFUSE -- reason=samedir + reason=cycle (APPS into its own window), nothing committed (mtools: root intact, ::/TRASH empty, DB untouched)\n'
 	@# ---- leg 5: three drags to the TRASH ----
-	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_TRASH_NAME),$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img,$(FLAIR_FILEOPS_TRASH_SPEC),DESKTOP-DB-SAVE n=5,0)
+	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_FO_TRASH_NAME),$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img,$(FLAIR_FILEOPS_TRASH_SPEC),DESKTOP-DB-SAVE n=6,0)
 	@printf '%s\n' 'FINDER-TRASH name=README.TXT origin=0' 'DESKTOP-DB-SAVE n=3' \
 		'FINDER-NEW-FOLDER name=NEWFOLD parent=0' 'FINDER-TRASH name=NEWFOLD origin=0' 'DESKTOP-DB-SAVE n=4' \
 		'FINDER-NEW-FOLDER name=NEWFOLD parent=0' 'TRASH-RENAME from=NEWFOLD to=NEWFO001' \
-		'FINDER-TRASH name=NEWFO001 origin=0' 'DESKTOP-DB-SAVE n=5' > $(FLAIR_FO_TRASH_CHAIN).want
+		'FINDER-TRASH name=NEWFO001 origin=0' 'DESKTOP-DB-SAVE n=6' > $(FLAIR_FO_TRASH_CHAIN).want
 	@grep -E '^(FINDER-TRASH|FINDER-MOVE|TRASH-RENAME|FINDER-NEW-FOLDER|DESKTOP-DB-SAVE)' "$(BUILD)/$(FLAIR_FO_TRASH_NAME).serial" > $(FLAIR_FO_TRASH_CHAIN).got || true
 	@cmp -s $(FLAIR_FO_TRASH_CHAIN).want $(FLAIR_FO_TRASH_CHAIN).got || { printf '!!! test-flair-file-ops FAIL: the TRASH serial chain differs from the locked one\n'; diff $(FLAIR_FO_TRASH_CHAIN).want $(FLAIR_FO_TRASH_CHAIN).got; exit 1; }
 	@( $(call fo-trash-mtools,$(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img) ) || { printf '!!! test-flair-file-ops FAIL: the mtools differential of the Trash leg (above)\n'; exit 1; }
-	@{ for r in 0:README.TXT 0:NEWFOLD 1:NEWFO001; do f=$${r%%:*}; n=$${r#*:}; printf "\\005\\00$$f\\000\\000"; printf '%s' "$$n"; head -c $$((20 - $${#n})) /dev/zero; done; } > $(FLAIR_FO_ORIGINS_GOLD)
+	@# lane/finderalerts RE-KEY (tdnl.57, explicit, Rule 8): the renamed NEWFO001
+	@# origin is followed by its kind=6 original-name companion (same origin dir,
+	@# the original 8.3 name, flags/coordinates zero; os/flair/finder_desktop.h
+	@# IDB1 layout), so the third save is n=6 and the file 8 + 6*24 = 152 B.
+	@{ for r in 5:0:README.TXT 5:0:NEWFOLD 5:1:NEWFO001 6:0:NEWFOLD; do k=$${r%%:*}; r=$${r#*:}; f=$${r%%:*}; n=$${r#*:}; printf "\\00$$k\\00$$f\\000\\000"; printf '%s' "$$n"; head -c $$((20 - $${#n})) /dev/zero; done; } > $(FLAIR_FO_ORIGINS_GOLD)
 	@mcopy -n -i $(BUILD)/$(FLAIR_FO_TRASH_NAME)_data.img ::/DESKTOP.DB $(BUILD)/$(FLAIR_FO_TRASH_NAME).db
-	@[ "$$(wc -c < $(BUILD)/$(FLAIR_FO_TRASH_NAME).db)" = 128 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB is not 8 + 5*24 = 128 bytes\n'; exit 1; }
-	@tail -c 72 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | cmp -s - $(FLAIR_FO_ORIGINS_GOLD) || { printf '!!! test-flair-file-ops FAIL: the kind=5 origin records differ from the hand-authored three\n'; od -A d -t x1 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | tail -6; exit 1; }
-	@printf '>>> test-flair-file-ops [5/5]: TRASH -- 3 stagings, TRASH-RENAME NEWFOLD->NEWFO001; mtools: all three in ::/TRASH (README bytes intact), none in ::/; 3 kind=5 origins on disk\n'
+	@[ "$$(wc -c < $(BUILD)/$(FLAIR_FO_TRASH_NAME).db)" = 152 ] || { printf '!!! test-flair-file-ops FAIL: DESKTOP.DB is not 8 + 6*24 = 152 bytes\n'; exit 1; }
+	@tail -c 96 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | cmp -s - $(FLAIR_FO_ORIGINS_GOLD) || { printf '!!! test-flair-file-ops FAIL: the kind=5 origin records + the kind=6 companion differ from the hand-authored four\n'; od -A d -t x1 $(BUILD)/$(FLAIR_FO_TRASH_NAME).db | tail -6; exit 1; }
+	@printf '>>> test-flair-file-ops [5/5]: TRASH -- 3 stagings, TRASH-RENAME NEWFOLD->NEWFO001; mtools: all three in ::/TRASH (README bytes intact), none in ::/; 3 kind=5 origins + the kind=6 NEWFOLD companion on disk\n'
 	@printf '>>> test-flair-file-ops: green\n'
 
 # Rule 6: the emu oracle must bite. Two kernels, each swapping ONE object:
@@ -23166,7 +23170,7 @@ RECORD_SPEC_drag_move      = $(FLAIR_FILEOPS_INTO_SPEC)
 RECORD_SPEC_trash_drag     = $(FLAIR_FILEOPS_TRASH_SPEC)
 RECORD_SPEC_drag_refused   = $(FLAIR_FILEOPS_REFUSE_SPEC)
 RECORD_MARKER_drag_move    = FINDER-MOVE name=README.TXT from=0 to=3
-RECORD_MARKER_trash_drag   = DESKTOP-DB-SAVE n=5
+RECORD_MARKER_trash_drag   = DESKTOP-DB-SAVE n=6
 RECORD_MARKER_drag_refused = FINDER-MOVE-REFUSED reason=cycle name=APPS
 RECORD_SETTLE_drag_move    = 400
 RECORD_SETTLE_trash_drag   = 150

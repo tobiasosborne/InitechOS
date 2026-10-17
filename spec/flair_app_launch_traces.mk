@@ -76,7 +76,14 @@ FLAIR_APP_LAUNCH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 #    Serial-only: no park.
 # ===========================================================================
 # tdnl.65 re-key: first exposed-content click activates; second quits.
-FLAIR_APP_LAUNCH_DOUBLE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m4:0,m-4:0,l1,l0,l1,l0,m65:99,m0:89,l1,l0,l1,l0
+# lane/finderalerts RE-KEY (tdnl.65, explicit, Rule 8): the re-click on the
+# icon gains one leading l1,l0 -- with the tenant in front, the first click on
+# the Finder's APPS window only activates it (activate-only content click, the
+# FOLDER_NAV precedent), and the double-click that follows asks for the second
+# launch -> TENANT-SLOT-BUSY. The refused launch now raises the tdnl.84
+# launch notice (FINDER-ALERT reason=launch); kesc dismisses it before the
+# tenant is re-activated and quit (the FILEOPS_REFUSE kesc precedent).
+FLAIR_APP_LAUNCH_DOUBLE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m4:0,m-4:0,l1,l0,l1,l0,l1,l0,kesc,m65:99,m0:89,l1,l0,l1,l0
 
 # ===========================================================================
 # 3. FLAIR_APP_LAUNCH_CYCLE_SPEC -- EXIT_LEAK: TWO full launch/exit cycles:
