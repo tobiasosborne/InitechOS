@@ -217,3 +217,131 @@ extent stays where the shipped surface puts it (P1-P2: 220 items, 46
 entries, 36 lessons); the 700-950 / 300-420 page targets are the model's
 extent for a product with search, print, headers, columns, tables and
 spell, none of which ships (D-14: omitted, listed above).
+
+## Takeover (the Opus lane, same bead): InitechWord P3
+
+### Context
+
+The PM's takeover brief (2026-10-17 ~13:10) found the lane clean with
+nothing open but the DRAFT markers.  Rule 4 check: lane/iwordp3 (bead
+initech-qvgd parts 1-2, WL-0146) had been merged onto main at 12:45, after
+this lane's base -- the 48-slot template with period-grey keys, Search
+(F2, Shift-F2), Replace (Alt-F2), Cancel/Undelete (F1 on the editing
+screen) and a minimal Setup (Shift-F1, IWORD.SET).  The books on the old
+base stated the opposite of what now ships ("Search is not shipped",
+"Shift-F7, Alt-F7 and Ctrl-F7 start Exit", "Alt-F10 and Ctrl-F10 save",
+"Cancel on the editing screen does nothing"), and the probe died on the
+new face ("choice 1 of F2 does something but the screen names no such
+choice").  Law 1 and Sec 10 (everything that ships, documented) outweighed
+the brief's "do not merge main yourself": main was merged into the lane
+(conflicts in pubs_gate.c, colophon.tex and pubs.mk resolved by keeping
+both sides; the merge commit says so).
+
+### What changed
+
+- harness/pubs/iword_probe.c measures P3: kind wpgray (a key that leaves
+  M_GRAY, listed with the name the status line shows, "Shift-F7=Print");
+  the keys of the Search / Replace strings ("Srch:F6", "Rplc:Tab", their
+  aliases), probed from a string with the cursor inside it, both
+  directions and Replace's own search string; the Undelete menu (two
+  separated deletions added to the probe document); Setup to the unit
+  letters; the P3 messages by scenario; the literal scan skips only the
+  mutant branch of an IWORD_MUT_* knob.  Inventory: 359 items (175 keys,
+  81 menu choices, 3 pull-down items, 49 codes, 27 messages, 24 grey keys).
+- Reference: new entries Replace, Search, Setup, Undelete (each with
+  replayed examples); Block, Cancel, Directories, Exit, Messages, Reveal
+  Codes, Save, Template, Units of Measure, The Basics, Getting Help, Appendix
+  C/E/F/G/H and the glossary brought to the shipped program; two FLAIR
+  figures (search, setup) from the booted desktop.  50 entries, 140 pages.
+- Workbook: Lessons 37 (Finding Text, on the MINUTES of Lesson 24), 38
+  (Replacing Text, STATUS of Lesson 31 -> MONTHLY), 39 (Restoring Deleted
+  Text); Lesson 36's "Saving With Ctrl-F10" (no longer true) becomes a
+  grey-key task.  39 lessons, 124 pages.
+- Template strip: all 48 slots of spec/iword/fkeys.json, the grey names in
+  grey and registered wpgray; TEMPLATE holds them to the measured grey keys
+  name for name.
+- initech-wpc.sty: grey screen cells ('G'), \WPGray, \WPPromptAlias, \larr;
+  keys of a prompt or of Block are no longer indexed by key.
+- Gates: iword_mutants.sh 14 mutants (FAKE_KEY and UNSHIPPED_KEY re-keyed
+  to Shift-F11 -- F2 and F3 now act; new GREY_NAME, FKEY_DROP (a probe
+  built with face_a.c's IWORD_MUT_FKEY_DROP), SEARCH_KEY,
+  SHIPPED_BRANCH_MESSAGE); ENTRY_ORDER's TEXINPUTS gains pubs/common (the
+  merged class inputs initech-logo.tex).
+
+### Findings while writing (each found by the replay, text corrected)
+
+1. Replace of [BOLD] with nothing deletes the [BOLD] codes and leaves the
+   [bold] codes in the text (no pairing in replace_match); the book says so
+   and shows how to remove [bold] too.
+2. After Undelete's Restore the cursor stays before the restored text.
+3. Searching backward from just after a match stops on that same match.
+4. Setup records the units and the backup choice in IWORD.SET but nothing
+   reads them: the status line and Format stay in inches, no backup copy is
+   made.  Documented as such (no DRAFT: the choices themselves ship).
+5. A document saved under the name IWORD.SET is read as (invalid) settings
+   and overwritten by the next Setup change.  Documented under Directories.
+
+### Main-side breakages met (not this lane's books; for the PM)
+
+- Every manual stopped typesetting: initech-forms.sty (design merge) and
+  initech-xbase.sty (baseman merge) both \newcommand\MakeBackCover.  Fixed
+  here minimally: the xBase one is now \providecommand (the house back
+  cover of forms.sty wins); the InitechBase owner should confirm.
+- initechdos-reference does not typeset: MSG-DOS-0045 (", tree past this
+  point not processed") has no \MessageDetail.  Not touched.
+- test-pubs-lint is RED on pubs/examples/samir/salary.txt (CR LF bytes).
+  Not touched.
+- Because of the two above, make test-pubs-build (and so test-pubs,
+  test-pubs-mutant, test-pubs-repro, test-pubs-screens) cannot go green on
+  this branch; every InitechWord leg was run on its own (Acceptance below).
+- Two lanes' covers: the merged class gives every front cover the logo and
+  line band; the Reference and Workbook covers now carry their back cover
+  (PK-05, \MakeBackCover, page 2 of cover.tex) like the InitechDOS books.
+
+### Not shipped, still omitted (D-14)
+
+List Files (F5) and the other grey keys (Help, Switch, Indent with Shift,
+Date/Outline, Center, Print, Merge Codes, Thesaurus, Mark Text, Flush
+Right, Columns/Table, Style, Graphics, Macro, Shell, Spell, Screen, Text
+In/Out, Tab Align, Footnote, Merge/Sort, Macro Define): documented only as
+what they do -- show a grey name -- in Appendix F and on the template.
+Timed backup, the effect of the unit and backup choices, Setup's grey
+groups, the Search code selectors other than F6 / F8 / Tab / F4 / Enter /
+Ctrl-Enter, extended and block searches: not described as features.
+
+### DRAFT markers remaining (3, unchanged)
+
+The two verso address/permit markers (O-5, D-12) and the Warranty
+Registration Card (PK-13).
+
+### Acceptance (this section)
+
+Typeset with the lane's InitechWord books only (main's other manuals do not
+typeset, above): Reference 140 pages (50 entries, 8 appendices, 46 replayed
+screens, 9 FLAIR figures), Workbook 124 pages (39 lessons, 95 replayed
+screens), install card 4 panels, strip 1 page, covers 2 pages each (front
+and back), spines 1 page; 0 overfull; DRAFT markers 2 + 1 + 0.
+
+```
+>>> test-pubs-iword: inventory 359 shipped items (175 keys, 24 grey keys, 81 menu choices, 3 pull-down items, 49 codes, 27 messages)
+>>> test-pubs-commands: green (359 shipped, 359 documented, 0 DRAFT, 0 explicit omissions)
+>>> test-pubs-commands: green (42 shipped, 42 documented, 0 DRAFT, 0 explicit omissions)
+>>> test-pubs-iword-keys: green (111 keys named in running text, every one shipped)
+>>> test-pubs-iword: features green (163 lesson features, each an entry of the Reference)
+>>> test-pubs-iword: green (73 launches of WORD.EXE replayed, 141 printed screens == the replay byte for byte)
+>>> test-pubs-iword-mutant: green (14 named mutants rejected by their gate legs)
+>>> flair_capture.sh: 9 FLAIR figures captured from the booted system  (twice; all 9 == fixtures/pubs/initechword-reference)
+>>> repro: 8 InitechWord PDFs byte-identical across two builds
+>>> test-pubs-lint: green (on pubs/manuals/initechword-*, pubs/class, pubs/common)
+>>> test-pubs-families: identity green
+>>> test-makefile-vars: green
+```
+
+### Where to resume
+
+Nothing of the brief is open for the InitechWord books.  When the PM merges
+this branch: re-run `make test-pubs` once the DOS Reference's MSG-DOS-0045
+detail and the InitechBase CR LF example are fixed on main; the InitechWord
+legs are green on their own.  If List Files (F5) ships later (WL-0146's
+mint), F5 leaves the grey keys and wants its own Reference entry: the
+probe will show it as SHIPPED-NOT-DOCUMENTED.

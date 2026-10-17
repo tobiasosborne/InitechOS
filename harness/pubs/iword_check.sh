@@ -45,8 +45,8 @@ for b in $books; do [ -d "$built/$b" ] || [ "$mode" = update ] || red IWORD-BOOK
 # INVENTORY
 "$probe" inventory "$w/inv-fs" > "$w/shipped"
 [ "$(wc -l < "$w/shipped")" -ge 100 ] || red INVENTORY "fewer than 100 shipped items -- the probe did not run"
-printf '>>> test-pubs-iword: inventory %s shipped items (%s keys, %s menu choices, %s pull-down items, %s codes, %s messages)\n' \
-    "$(wc -l < "$w/shipped")" "$(grep -c '|wpkey$' "$w/shipped")" "$(grep -c '|wpmenu$' "$w/shipped")" \
+printf '>>> test-pubs-iword: inventory %s shipped items (%s keys, %s grey keys, %s menu choices, %s pull-down items, %s codes, %s messages)\n' \
+    "$(wc -l < "$w/shipped")" "$(grep -c '|wpkey$' "$w/shipped")" "$(grep -c '|wpgray$' "$w/shipped")" "$(grep -c '|wpmenu$' "$w/shipped")" \
     "$(grep -c '|wppull$' "$w/shipped")" "$(grep -c '|wpcode$' "$w/shipped")" "$(grep -c '|wpmsg$' "$w/shipped")"
 
 if [ "$mode" = check ]; then
