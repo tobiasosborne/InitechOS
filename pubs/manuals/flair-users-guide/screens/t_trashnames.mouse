@@ -1,0 +1,39 @@
+# t_trashnames: a new folder thrown away, a second new folder of the same
+# name made and thrown away too: the Trash keeps it under a numbered name.
+# go (600,64) the INITECH disk icon
+m100:-100,m100:-76,m80:0
+# double-click at (600,64) 
+l1,l0,l1,l0
+# go (53,30) File
+m-100:-34,m-100:0,m-100:0,m-100:0,m-100:0,m-47:0
+# press at (53,30) 
+l1
+# hold (53,47) New Folder
+m0:17
+# release at (53,47) 
+l0
+w300
+# go (191,102) NEWFOLD
+m100:55,m38:0
+# drag (191,102) -> (600,420) onto the Trash
+l1,m100:100,m100:100,m100:100,m100:18,m9:0,l0
+w300
+# go (53,30) File
+m-100:-100,m-100:-100,m-100:-100,m-100:-90,m-100:0,m-47:0
+# press at (53,30) 
+l1
+# hold (53,47) New Folder
+m0:17
+# release at (53,47) 
+l0
+w300
+# go (191,102) the second NEWFOLD
+m100:55,m38:0
+# drag (191,102) -> (600,420) onto the Trash
+l1,m100:100,m100:100,m100:100,m100:18,m9:0,l0
+w300
+# double-click at (600,420) the Trash
+l1,l0,l1,l0
+w400
+# go (500,448) 
+m-100:28

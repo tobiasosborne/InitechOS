@@ -1,0 +1,75 @@
+% Appendix E -- Exchanging Documents with InitechDOS Programs (the 1991
+% Macintosh User's Guide Appendix B "Exchanging Files and Disks With MS-DOS
+% and Apple II Computers", apple-macintosh.md Sec 8.2, cut to the one disk
+% format FLAIR uses).  Sources (Law 1): os/flair/stdfile.c and
+% os/milton/kmain.c sf_name_ok (8.3 names, letters stored in capitals);
+% os/apps/itext/itext.c (doc_load: CR LF and LF read as one line end;
+% doc_write: CR line ends; FLAIR_TE_TEXT_MAX); os/milton/kmain.c
+% finder_surface_open (documents are not opened from the desktop); the data
+% volume (README.TXT has LF line ends: l_readme shows it read correctly).
+% GATES: test-flair-itext test-itext-route test-stdfile test-type test-pubs-flair-screens
+\Gates{test-flair-itext, test-itext-route, test-stdfile, test-type,
+  test-pubs-flair-screens}
+\chapter{Exchanging Documents with InitechDOS Programs}
+\label{app:exchange}
+\index{InitechDOS programs!exchanging documents with}
+
+FLAIR and the InitechDOS programs use the same disk and the same files.  A
+document you save in FLAIR can be used at the InitechDOS prompt, and a text
+file written by an InitechDOS program can be opened in FLAIR.  This
+appendix tells you what to keep in mind.
+
+\section{File names}
+\index{file names}
+Every file has an InitechDOS name: one to eight characters, then, if you
+want, a period and one to three more.  FLAIR shows the name exactly as
+InitechDOS stores it, in capital letters, and the Save dialog box turns the
+letters you type into capitals.  A name that does not follow these rules
+cannot be typed in the Save dialog box (Chapter~\ref{ch:appsref}).
+
+Name your documents so that you can tell them apart at the InitechDOS
+prompt as well as in FLAIR, for example with the extension \file{.TXT} for
+text documents.
+
+\section{Text documents}
+\index{text files}\index{line ends}
+InitechText saves plain text: the characters of the document, one byte
+each, with a carriage return at the end of each line.  There are no type
+styles or other formatting to lose.
+\begin{itemize}
+\item InitechDOS programs, and files written at the InitechDOS prompt,
+  usually end each line with a carriage return and a line feed, or with a
+  line feed alone.  InitechText reads either as one line end, so such a
+  file opens correctly (Figure~\ref{fig:readme}).  If you save it from
+  InitechText, its lines end with a carriage return alone.
+\item InitechText opens text files of up to 4,096 characters.  A longer
+  file gives the notice in Figure~\ref{fig:toolarge}.
+\item The characters that can be typed and stored are listed in
+  Appendix~C.
+\end{itemize}
+
+\section{Using a FLAIR document at the prompt}
+\begin{itemize}
+\item \file{TYPE} shows a text document on the screen
+  (Figure~\ref{fig:ktype}).
+\item \file{COPY} and \file{XCOPY} copy documents to another disk or
+  directory; FLAIR itself moves documents but does not copy them.
+\item A document saved in a FLAIR folder is in the directory of the same
+  name: a document in the \file{APPS} folder is in \file{A:\textbackslash
+  APPS}.
+\end{itemize}
+
+\section{Using a file from the prompt in FLAIR}
+\begin{itemize}
+\item A file you make at the prompt in a directory appears in the folder of
+  the same name the next time its Finder window is opened.
+\item Open a text file from within InitechText with \menuitem{Open...}.
+  Double-clicking a document's icon does not open it.
+\item Programs whose names end in \file{.COM} cannot be run from the
+  desktop; run them at the prompt.
+\end{itemize}
+
+\section{Files to leave alone}
+Do not change, rename or delete the file \file{DESKTOP.DB} or the
+\file{TRASH} directory at the InitechDOS prompt, and do not move files in or
+out of \file{TRASH} there (Chapter~\ref{ch:dos}).

@@ -12,7 +12,8 @@
 % this build).  Model: Mac User's Guide 1991 Ch. 11 (Using programs) and
 % the System 6 guide Ch. 10 MultiFinder (apple-macintosh.md Sec 8.1, 8.2).
 % GATES: test-flair-app-launch test-tenant-load test-flair-tenant-menu test-tbx-menu test-scrap test-stdfile test-flair-itext test-flair-files test-flair-files-reap test-pubs-flair-screens
-\Gates{test-tenant-load, test-flair-tenant-menu,
+\Gates{test-tenant-load, test-flair-tenant-menu, test-flair-i123,
+  test-flair-iword,
   test-tbx-menu, test-scrap, test-stdfile, test-flair-itext,
   test-flair-files, test-flair-files-reap, test-pubs-flair-screens}
 \chapter{Applications}
@@ -102,6 +103,27 @@ you want, a period and one to three more.  The Save box does not accept
 any other name.  If the name is already used in the folder, an alert asks
 whether to replace that file; if it is the name of a folder, nothing is
 saved.
+
+\section{Initech 123 and InitechWord}
+\index{Initech 123}\index{InitechWord}
+The data disk also holds two applications that are sold and described
+separately: Initech 123, the spreadsheet (\file{123.EXE}), and InitechWord,
+the word processor (\file{WORD.EXE}).  Each opens from its icon in the
+\file{APPS} folder like any other application from the disk, in a window
+that fills the screen below the menu bars.  Its \menuname{File} menu is in
+the lower menu bar, and the rest of its commands are given from the
+keyboard, as its own books describe.
+
+\FlairScreen[label=fig:o123]{o_123}{Initech 123, opened from the APPS
+folder}
+
+\FlairScreen[label=fig:oword]{o_word}{InitechWord, opened from the APPS
+folder}
+
+While one of them is open, it is the one application from the disk: quit it
+before you open another (Chapter~\ref{ch:multi}).  Initech 123 needs a
+math coprocessor.  \doctitle{Initech 123 Reference} and
+\doctitle{InitechWord Reference} describe the two applications.
 
 \section{Programs that run at the InitechDOS prompt}
 \index{InitechDOS programs}

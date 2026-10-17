@@ -97,6 +97,27 @@ The \doctitle{InitechDOS Reference} describes \file{ATTRIB}, \file{CHKDSK},
 Generator, \file{TPSREP}, also runs only from this prompt; its book,
 \doctitle{TPS Report Generator Operating Procedures}, tells you how.
 
+\section{Running the TPS Report Generator}
+\index{TPS Report Generator}
+The TPS Report Generator, \file{TPSREP.COM}, runs only at the InitechDOS
+prompt, from the \file{APPS} directory, where its database \file{TPS.DBF}
+and its settings file \file{TPSPARM.DAT} are kept.
+\begin{TaskSteps}
+\Step Leave FLAIR with \menuitem{Exit to InitechDOS}, and press
+\key{Enter} twice to keep the date and the time.
+\Step Type \type{CD APPS} and press \key{Enter}.
+\Step Type \type{TPSREP TPS.DBF} and press \key{Enter}.
+\Result{The TPS Report Generator starts and gives its first instruction.}
+\end{TaskSteps}
+
+\FlairText[fig:otps]{o_tps}{The TPS Report Generator, started from the APPS
+directory}
+
+Follow the procedures in \doctitle{TPS Report Generator Operating
+Procedures}, which describes every step of the report and the files it
+writes.  When the program ends, the prompt \texttt{A:\textbackslash APPS>}
+returns.
+
 \section{Returning to FLAIR}
 \index{FLAIR!returning to}
 FLAIR does not start again from the prompt.  To return to it, restart the

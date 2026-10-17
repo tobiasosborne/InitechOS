@@ -15,6 +15,7 @@
 % "Organizing Your Files" (apple-macintosh.md Sec 8.1, 8.2).
 % GATES: test-finder-desktop test-finder-windows test-desktop-db test-flair-desktop-icons test-flair-disk-windows test-flair-finder-service test-flair-file-ops test-pubs-flair-screens
 \Gates{test-finder-desktop, test-finder-windows, test-desktop-db,
+  test-fat-move, test-flair-trash-window,
   test-flair-desktop-icons, test-flair-disk-windows,
   test-flair-finder-service, test-flair-file-ops, test-pubs-flair-screens}
 \chapter{The Desktop and the Finder}
@@ -93,6 +94,28 @@ command prompt, and documents are opened from within their applications.
 
 The name under each icon is the file's InitechDOS name.  Names longer than
 the space under the icon are cut short on the screen, but not on the disk.
+
+\section{The Trash window}
+\index{Trash!window}
+Double-click the Trash to open its window, titled \texttt{Trash}.  It shows
+what you have thrown away and not yet deleted, and works like any other
+Finder window: you can move, size, zoom, collapse and scroll it, and drag
+items out of it to keep them.
+
+Every item in the Trash keeps the name it had, unless the Trash already
+holds an item of that name.  Then the newcomer is given a numbered name:
+the first five characters of its name (all of them, if it has fewer),
+followed by the lowest three-digit number not already used, and then its
+extension, if it has one: \file{NEWFOLD} becomes \file{NEWFO001}, and
+\file{README.TXT} would become \file{READM001.TXT}.  The name it is given is the name it keeps if you
+drag it out of the Trash again.
+
+\FlairScreen[label=fig:trashnames]{t_trashnames}{Two folders named NEWFOLD
+thrown away: the second is kept as NEWFO001}
+\Operation{TRASH-RENAME}
+
+The Trash is the folder \file{TRASH} at the top level of the data disk.
+Emptying the Trash deletes everything in that folder.
 
 \section{Items that are not shown}
 \index{hidden items}

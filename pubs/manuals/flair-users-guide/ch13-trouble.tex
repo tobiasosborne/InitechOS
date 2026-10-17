@@ -104,6 +104,59 @@ at a time (Chapter~\ref{ch:multi}).
 \Solution Shut the computer down, put the data disk in its drive, and
 start the computer again (Figure~\ref{fig:knodisk}).
 
+\Symptom{The pointer does not appear}
+\Cause FLAIR shows the pointer only after the mouse first moves.
+\Solution Move the mouse.
+\Cause The mouse is not connected.
+\Solution Shut down, turn the computer off, connect the mouse, and start
+the computer again.
+
+\Symptom{Clicks and keys do nothing}
+\Cause An alert or dialog box is waiting for your answer.
+\Solution Click one of its buttons, or press \key{Enter} or \key{Esc}.
+\Cause A progress box, such as InitechCalc's \texttt{FILE COPY} box, is on
+the screen.
+\Solution Wait until it goes away by itself.
+\Cause An application is busy and has not handed the computer back to the
+others (Chapter~\ref{ch:multi}).
+\Solution Wait.  If nothing changes after several minutes, restart the
+computer with its reset button.  Work you had not saved is lost.
+
+\Symptom{What you type does not appear}
+\Cause The window you are typing into is not the active window.
+\Solution Click the window, then click where you want to type.
+\Cause The document already holds as much as the application can take:
+InitechText holds 4,096 characters.
+\Solution Save the document, and start a new one for the rest.
+\Cause You pressed the backslash key.
+\Solution The backslash key is reserved (Chapter~\ref{ch:keyboard}); a
+backslash cannot be typed in a FLAIR application.
+
+\Symptom{The Save button does nothing}
+\Cause The name is not a valid InitechDOS name: more than eight characters
+before the period, more than three after it, or no name at all.
+\Solution Change the name, then click \texttt{Save}.
+\Cause A folder in the list has that name.
+\Solution Type another name.
+
+\Symptom{A folder does not open in a new window}
+\Cause Its window is already open, perhaps behind other windows.  Opening
+the folder again brings that window to the front.
+\Solution Look for the window in front.
+\Cause Four Finder windows are open.
+\Solution Close one of them, then open the folder again.
+
+\Symptom{The clock shows the wrong time}
+\Cause The computer's clock is set wrongly.
+\Solution Set it with \file{TIME} and \file{DATE} at the InitechDOS
+prompt, then restart (Chapter~\ref{ch:adapting}).
+
+\Symptom{The Trash still bulges after Empty Trash}
+\Cause It holds a locked item, which \menuitem{Empty Trash} does not
+delete.
+\Solution Drag the item out of the Trash window, unlock it with
+\file{ATTRIB} at the InitechDOS prompt, and throw it away again.
+
 \Symptom{The Calculator is not in the Apple menu}
 \Cause The program \file{CALCULAT.EXE} is not in the \file{APPS} folder.
 \Solution Copy it back from your backup copy of the data disk.  The menu
