@@ -115,8 +115,10 @@ _Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)"
 _Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
 #endif
 
-/* The two asm trampolines (os/milton/tbx_gate.asm). */
-extern int  tbx_tenant_call(uint32_t fn, uint32_t psp);
+/* The two asm trampolines (os/milton/tbx_gate.asm). tbx_tenant_call reads
+ * fn/psp off the stack ([ebp+8], [ebp+12]) and `ret`s without popping: the
+ * cdecl ABI, pinned by KERNEL_ASM_ABI against the -mregparm/-mrtd image. */
+extern int KERNEL_ASM_ABI tbx_tenant_call(uint32_t fn, uint32_t psp);
 extern void tbx_tenant_abort(void) __attribute__((noreturn));
 
 /* ===========================================================================
@@ -1063,7 +1065,7 @@ static void trace_int(const char *key, uint32_t v)
     tputi((int32_t)v);
 }
 
-void tbx_gate_dispatch(uint8_t *frame)
+void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
 {
     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
 #ifndef TBX_MUT_AX_FULL_EAX

@@ -662,12 +662,37 @@ KERNEL_CC     ?= gcc
 # (harness/emu/bochs.c) which has NO cmov -> PANIC vec=06 the first time a
 # Bochs-exercised path contained one. ADR-0001 targets 386+; the artifact must
 # never contain >386 instructions. Same pin on SAMIR_COM_PROFILE below.
+# Round 5 (WL-0168, lane ksize5): register-argument + callee-pops calling
+# convention for the WHOLE kernel image, the WL-0171 SAMIR precedent (period
+# precedent: Borland's `register` and `pascal` conventions). Every kernel TU,
+# every kernel mutant object, the transient COMMAND.COM objects (linked by
+# address against the kernel, --just-symbols) and the LTO link carry it, so
+# one ABI spans the image. The asm boundaries are AUDITED, not assumed:
+#   kstart.asm -> kernel_main(void); isr.asm -> pit/kbd/mouse_irq_handler,
+#   irq_enter/leave, selftest_report_c (all void): nothing to pass or pop;
+#   isr.asm -> isr_dispatch_c + the INT 13h/20h-26h dispatchers (one pushed
+#   arg) and tbx_gate.asm -> tbx_gate_dispatch: pinned to cdecl by
+#   KERNEL_ASM_ABI (os/milton/idt.h); tbx_gate.asm's tbx_tenant_call(fn, psp)
+#   reads its args off the stack: its C prototype carries KERNEL_ASM_ABI.
+#   Tenant code is entered via `call eax` with EBX=PSP (no C ABI) and calls
+#   the kernel only through INT 81h (args read from the trapped frame).
+#   No varargs function exists in the image (-mrtd's one documented hazard);
+#   no memcpy/memset libcall symbol exists in the image.
+# Objects that are NOT kernel-linked keep the plain cdecl flags
+# (KERNEL_CFLAGS_CDECL below): the disk tenants (TENANT_CFLAGS), FDISK /
+# FORMAT / SYS / EDLIN / XCOPY / the DOS utilities -- each a separate image
+# with its own asm entry. CHKDSK is the one utility that links a KERNEL
+# object ($(KERNEL_MCB_OBJ)), so it keeps KERNEL_CFLAGS (chkdsk_entry(void)).
+# Measured on the flagship (WL-0168 table): 187,788 -> 183,916 B (-3,872 B).
+KERNEL_ABI_FLAGS := -mregparm=3 -mrtd
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -I$(BUILD) \
-                 -fno-pie -std=c11 -Wall -Wextra -Werror
+                 -fno-pie -std=c11 -Wall -Wextra -Werror $(KERNEL_ABI_FLAGS)
+KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
 # ROUND 3 (initech-tode): kernel-only reachability, not an optimiser change.
 # Ref: docs/design/kernel-size-policy-round2.md Sec 4 lever C; kernel.ld roots.
 # Keep separate from KERNEL_CFLAGS: TENANT_CFLAGS inherits that base policy.
-KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident
+KERNEL_R5_FLAGS ?=
+KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
 # cold-object optimisation. Native hot objects remain outside LTO.
@@ -705,7 +730,7 @@ endef
 # LTO set trades the 4-byte-per-case tables for compare trees. Codegen-only:
 # no ABI of a native object, asm entry or transient import changes. Measured
 # on the flagship: 187,988 -> 187,372 (one partition) -> 187,212 B (both).
-KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables \
+KERNEL_LINK = $(KERNEL_CC) -m32 -march=i386 -nostdlib -no-pie -flto -Oz -flto-partition=one -fno-jump-tables $(KERNEL_ABI_FLAGS) $(KERNEL_R5_FLAGS) \
               -Wl,--build-id=none $(foreach flag,$(KERNEL_GC_LDFLAGS),-Xlinker $(flag)) -T $(KERNEL_LD)
 FLAIR_FINDER_OPS_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
 FLAIR_STDFILE_OPT = -Oz -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
@@ -10079,7 +10104,7 @@ TBX_RT_SRC    := os/apps/tbx/tbx_rt.c
 TBX_HDRS      := os/apps/tbx/tbx.h spec/toolbox_gate.h spec/event_model.h spec/cp_dialog.h
 TENANT_LD     := os/apps/tbx/tenant.ld
 TENANT_PROBE  := 0x01010140
-TENANT_CFLAGS := $(KERNEL_CFLAGS) -Os -fno-tree-loop-distribute-patterns \
+TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
                  -fno-asynchronous-unwind-tables -fno-unwind-tables -fno-common \
                  -Ispec -Ios/apps/tbx
 # P3: I123-only resource, size optimization and 4-byte cdecl stack alignment.

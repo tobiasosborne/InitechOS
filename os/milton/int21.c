@@ -5592,7 +5592,7 @@ static void int21_dispatch_body(int_frame_t *frame)
  *
  * The guard is the FIRST thing each wrapper does (before any state is touched),
  * so a reentry is caught before it can corrupt anything. */
-void int21_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns (routes to the panic path) */
@@ -5613,7 +5613,7 @@ void int21_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int20_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int20_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5628,7 +5628,7 @@ void int20_dispatch(int_frame_t *frame)
  * corrupt an interrupted syscall's frame/globals); the guard fails loud if one
  * does. 22h/23h normally do not return (terminate); 24h returns the A/R/F action
  * -- its g_indos-- runs because do_terminate is not on its path. */
-void int22_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int22_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5638,7 +5638,7 @@ void int22_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int23_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int23_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5648,7 +5648,7 @@ void int23_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int24_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int24_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5964,7 +5964,7 @@ static void int26_dispatch_body(int_frame_t *frame)
  * an interrupted syscall -- the guard fails loud first (Rule 2). The bodies
  * RETURN a result + CF (do_terminate is not on their path), so each g_indos--
  * runs. MIRRORS int24_dispatch exactly. */
-void int25_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int25_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */
@@ -5974,7 +5974,7 @@ void int25_dispatch(int_frame_t *frame)
     g_indos--;
 }
 
-void int26_dispatch(int_frame_t *frame)
+void KERNEL_ASM_ABI int26_dispatch(int_frame_t *frame)
 {
     if (irq_depth() != 0u) {
         dos_reentry_panic();   /* never returns */

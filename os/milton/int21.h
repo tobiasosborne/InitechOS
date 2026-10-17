@@ -798,9 +798,9 @@ void int21_set_devices(device_header_t *chain, const devices_io_t *io);
  *     via crit_error_action (below), writes the action into AL, clears CF, and
  *     RETURNS to the failed caller (DOS contract -- 24h does NOT terminate).
  * Ref: docs/adr/ADR-0003 Sec 5.10 (DEC-10); App C (MSG-DOS-0001). */
-void int22_dispatch(int_frame_t *frame);
-void int23_dispatch(int_frame_t *frame);
-void int24_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int22_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int23_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int24_dispatch(int_frame_t *frame);
 
 /* PURE, host-testable INT 24h Abort/Retry/Fail decision. Maps an operator key to
  * the DOS AL action code: 'R'->0 (Retry), 'A'->1 (Abort), 'F'->2 (Fail), case-
@@ -874,13 +874,13 @@ int dos_in_dos(void);
  * stub's iretd then restores the modified EFLAGS so the caller sees CF. An AH
  * not in the locked register emits a diagnostic and returns CF=1/AX=0x0001 --
  * NEVER a silent no-op (Rule 2 / DEC-13). */
-void int21_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame);
 
 /* The INT 20h legacy-terminate handler the asm trap stub (int20_entry, isr.asm)
  * invokes. Routes to the SAME terminate path as INT 21h AH=4Ch with exit code 0
  * (DOS legacy termination; ADR-0003 DEC-10, beads initech-509.5). Ref:
  * docs/research/psp-loader-ground-truth.md Sec 2.1 / Sec 4.4. */
-void int20_dispatch(int_frame_t *frame);
+void KERNEL_ASM_ABI int20_dispatch(int_frame_t *frame);
 
 /* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE VECTORS (ADR-0003 DEC-15) =======
  * beads initech-4mq7. Two NEW separate software-interrupt vectors (NOT INT 21h
@@ -903,8 +903,8 @@ void int20_dispatch(int_frame_t *frame);
  * RETURN: success CF=0; failure CF=1, AX = error (see the SEPARATE AL/AH error
  * space below). Preserves EBX/ECX/EDX/ESI/EDI/EBP (DEC-04a benign superset);
  * writes only EAX-low (AX) + CF. */
-void int25_dispatch(int_frame_t *frame);   /* INT 25h Absolute Disk READ  */
-void int26_dispatch(int_frame_t *frame);   /* INT 26h Absolute Disk WRITE */
+void KERNEL_ASM_ABI int25_dispatch(int_frame_t *frame);   /* INT 25h Absolute Disk READ  */
+void KERNEL_ASM_ABI int26_dispatch(int_frame_t *frame);   /* INT 26h Absolute Disk WRITE */
 
 /* The asm entry stubs (extern; defined in isr.asm), exposed for the sysinit
  * idt_install_trap site (the SAME way int2{0,1,2,3,4}_entry are declared in
