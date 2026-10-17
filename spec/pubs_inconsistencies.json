@@ -1,0 +1,178 @@
+{
+  "_comment": "LOCKED spec-data (CLAUDE.md Rule 8): the house register of tolerated inconsistencies, PUB-REF-0001 VO-30 (docs/pubs/DESIGN-REFERENCE.md Sec 9.3). Every slip a manual carries is one of these entries, marked in the source with \\Slip{ID}{text} (initech-syntax.sty), printed where the entry allows it and counted by `pubs_gate inconsistency` (make test-pubs-inconsistency). Operator directive 2026-10-17: 'i want more inconsistent grammar and capitalisation. not too much, like just enough to pass qa'. Changing an entry, a pattern or the budget is a deliberate act with a bead and a worklog note (bead initech-ipu5.16, WL-0150). Patterns are POSIX ERE, case-sensitive, matched against the text of one \\Slip.",
+  "id": "PUB-INC-0001",
+  "rule": "PUB-REF-0001 VO-30",
+  "version": 1,
+  "places": ["cover", "spine", "title-page", "running-head", "heading", "contents", "cross-reference", "body", "index"],
+  "head_case": {
+    "_comment": "VO-14: heads are Title Case except F-BOR and F-MAC (sentence case). Keyed by the class option of the book's main.tex.",
+    "title": ["ibm", "operations", "ashtontate", "lotus", "wordperfect"],
+    "sentence": ["borland", "apple"]
+  },
+  "budget": {
+    "_comment": "Slips per book, counted as \\Slip occurrences in the book's sources (main, cover and spine), against the printed pages of main.pdf. Floor ceil(4 x pages / 100) but at least 3; ceiling floor(10 x pages / 100). The house places 6 to 8 per 100 pages. The models ran far above the ceiling (ZR23 p. 1-4 alone carries four of the slips below), so the ceiling is the QA bar, not the models' rate: just enough to pass QA. The floor keeps the register visible in every book as books grow.",
+    "per_100_pages_min": 4,
+    "per_100_pages_max": 10,
+    "absolute_min": 3
+  },
+  "slogan": {
+    "_comment": "AN-27: the company banner is NOT a slip. It keeps this exact capitalisation in every source that sets it, and no \\Slip may touch it.",
+    "text": "Is This Good for the COMPANY?",
+    "lead": "Is This Good for the",
+    "word": "COMPANY"
+  },
+  "entries": [
+    {
+      "id": "VO30-01",
+      "name": "Book title apostrophe",
+      "canonical": "User's Guide",
+      "variants": ["Users Guide", "Users' Guide"],
+      "match": "^(Users Guide|Users' Guide)$",
+      "scan": "Users'? Guide",
+      "places": ["spine", "running-head", "cross-reference", "body"],
+      "min_per_book": 0,
+      "max_per_book": 2,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM PC DOS Operation Training ZR23-6845-01 (1989)", "file": "dos33/ZR23-6845-01_PC_DOS_Operation_Training_Version_3.3_and_4.0_PC_and_PS2_198903.pdf", "pdf": 12, "page": "1-4", "quote": "They are found in the DOS 3.3 Users' Guide."}
+      ]
+    },
+    {
+      "id": "VO30-02",
+      "name": "Diskette capitalised in running text",
+      "canonical": "diskette",
+      "variants": ["Diskette", "Diskettes"],
+      "match": "^Diskettes?$",
+      "places": ["body"],
+      "min_per_book": 0,
+      "max_per_book": 2,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM PC DOS Operation Training ZR23-6845-01 (1989)", "file": "dos33/ZR23-6845-01_PC_DOS_Operation_Training_Version_3.3_and_4.0_PC_and_PS2_198903.pdf", "pdf": 29, "page": "3-5", "quote": "you need to DISKCOPY the Master Lab Diskette(s) onto the work diskette(s)."},
+        {"annex": "[wpc s12]", "original": "WordPerfect 5.1 Reference (WordPerfect Corporation, 1989)", "file": "wordperfect51/WPDOS51Reference.pdf", "pdf": 70, "page": "53", "quote": "If you delete a Block Protect code ... If you are using parallel columns without block protect (Alt-F7,1,3,1,2), you can only block protect one column"}
+      ]
+    },
+    {
+      "id": "VO30-03",
+      "name": "Product name split in running text",
+      "canonical": "InitechOS, InitechDOS (VO-10)",
+      "variants": ["Initech OS", "Initech DOS"],
+      "match": "^Initech (OS|DOS)$",
+      "scan": "Initech (OS|DOS)([^A-Za-z]|$)",
+      "places": ["body", "cross-reference"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[ate s16]", "original": "Programming with dBASE III PLUS (Ashton-Tate, 1986)", "file": "dbase3plus/dBASE III Plus 1.1 (1986) Manuals/Programming with dBase III Plus.pdf", "pdf": 161, "page": "P8-17", "quote": "See Using dBASE III PLUS for more information. ... See Using dBASE III Plus for more information."}
+      ]
+    },
+    {
+      "id": "VO30-04",
+      "name": "One head in the other case",
+      "canonical": "the family's head case (VO-14)",
+      "variants": ["a Title Case family's head ending in a lower-case word", "a sentence-case family's head in Title Case"],
+      "match": {"title": "(^|[[:space:]])[a-z][a-z]*[)]?$", "sentence": "^[A-Z][A-Za-z]*( [A-Z][A-Za-z]*)+$"},
+      "places": ["heading", "contents", "running-head"],
+      "min_per_book": 1,
+      "max_per_book": 2,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM DOS 3.10 Reference 6138519 (1985)", "file": "dos33/6138519_DOS_3.10_Reference_Feb85.pdf", "pdf": 106, "page": "7-1", "quote": "Creating a Batch File / Executing a Batch file / The AUTOEXEC.BAT File / Creating an AUTOEXEC.BAT file"},
+        {"annex": "[ibm s15]", "original": "IBM DOS 3.10 Reference 6138519 (1985)", "file": "dos33/6138519_DOS_3.10_Reference_Feb85.pdf", "pdf": 132, "page": "7-27", "quote": "Executing a Batch file (the head itself, as the contents gives it)"}
+      ]
+    },
+    {
+      "id": "VO30-05",
+      "name": "Procedure drifts from imperative to passive",
+      "canonical": "an imperative step (VO-01, VO-06)",
+      "variants": ["a passive verb phrase inside a procedure"],
+      "match": "(^|[[:space:]])(is|are|be)( then)? [a-z]+(ed|en)$",
+      "places": ["body"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM PC DOS Operation Training ZR23-6845-01 (1989)", "file": "dos33/ZR23-6845-01_PC_DOS_Operation_Training_Version_3.3_and_4.0_PC_and_PS2_198903.pdf", "pdf": 12, "page": "1-4", "quote": "Prepare the hard file using the Fdisk command to create a DOS partition. That is accomplished by selecting the appropriate prompt from the menus."}
+      ]
+    },
+    {
+      "id": "VO30-06",
+      "name": "it's for its",
+      "canonical": "its",
+      "variants": ["it's"],
+      "match": "^it's$",
+      "places": ["body"],
+      "min_per_book": 1,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[bor s12]", "original": "Turbo Pascal 6.0 Turbo Vision Guide (Borland, 1990)", "file": "turbopascal/Turbo_Pascal_Version_6.0_Turbo_Vision_1990.pdf", "pdf": 201, "page": "186", "quote": "If you don't find the method listed for that object, check it's immediate ancestor object type."}
+      ]
+    },
+    {
+      "id": "VO30-07",
+      "name": "Comma splice",
+      "canonical": "two sentences, or a semicolon",
+      "variants": ["a comma joining two independent clauses"],
+      "match": "^, (it|this|that|they|then|the|you|however)$",
+      "places": ["body"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM PC DOS Operation Training ZR23-6845-01 (1989)", "file": "dos33/ZR23-6845-01_PC_DOS_Operation_Training_Version_3.3_and_4.0_PC_and_PS2_198903.pdf", "pdf": 12, "page": "1-4", "quote": "You have the choice of making a DOS partition of up to 32MB and several extended partitions, however only one will be a DOS partition."}
+      ]
+    },
+    {
+      "id": "VO30-08",
+      "name": "Cross-reference to a chapter by its old name",
+      "canonical": "the chapter's title as printed",
+      "variants": ["an earlier title of the chapter"],
+      "match": "^[A-Z][A-Za-z0-9 .-]*$",
+      "check": "not-a-heading",
+      "places": ["body", "cross-reference"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "Microsoft MS-DOS 3.3 User's Reference (1987)", "file": "dos33/MS-DOS_3.3_Users_Guide_198707.pdf", "pdf": 179, "page": "94", "quote": "For more information about using redirection symbols with commands, see Chapter 2, \"Using MS-DOS Commands.\" (Chapter 2 is \"About Commands\", PDF p. 100 and p. 117 [PDF 202])"}
+      ]
+    },
+    {
+      "id": "VO30-09",
+      "name": "Index entry capitalised differently from its head",
+      "canonical": "the index term as the head it indexes",
+      "variants": ["the head's words in another capitalisation"],
+      "match": "[a-z]",
+      "check": "case-differs-from-heading",
+      "places": ["index"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM DOS 3.10 Reference 6138519 (1985)", "file": "dos33/6138519_DOS_3.10_Reference_Feb85.pdf", "pdf": 525, "page": "Index-2", "quote": "ATTRIB (Attribute) Command 7-17 / ATTRIB command 7-17; Batch commands (the head is Batch File Commands, 7-24)"}
+      ]
+    },
+    {
+      "id": "VO30-10",
+      "name": "Spine and cover disagree on the version line",
+      "canonical": "Version n.nn (the cover)",
+      "variants": ["version n.nn"],
+      "match": "^version [0-9]",
+      "places": ["spine"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[mac s13]", "original": "Macintosh System Software User's Guide Version 6.0, 030-3281-A (Apple, 1988)", "file": "macos/Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf", "pdf": 1, "page": "cover", "quote": "Macintosh System Software User's Guide Version 6.0"},
+        {"annex": "[mac s13]", "original": "Macintosh System Software User's Guide Version 6.0, 030-3281-A (Apple, 1988)", "file": "macos/Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf", "pdf": 296, "page": "spine (wrap cover)", "quote": "Apple Macintosh System Software User's Guide version 6.0"}
+      ]
+    },
+    {
+      "id": "VO30-11",
+      "name": "Hard disk for fixed disk",
+      "canonical": "fixed disk (VO-13, F-IBM and F-OPS)",
+      "variants": ["hard disk"],
+      "match": "^hard disks?$",
+      "families": ["ibm", "operations"],
+      "places": ["body"],
+      "min_per_book": 0,
+      "max_per_book": 1,
+      "evidence": [
+        {"annex": "[ibm s15]", "original": "IBM PC DOS Operation Training ZR23-6845-01 (1989)", "file": "dos33/ZR23-6845-01_PC_DOS_Operation_Training_Version_3.3_and_4.0_PC_and_PS2_198903.pdf", "pdf": 12, "page": "1-4", "quote": "Installation on Hard File ... Use the Select command ... to install DOS on the hard disk. ... Replace existing DOS files on the fixed disk"},
+        {"annex": "[ibm s15]", "original": "IBM PC DOS Operation Training ZR23-6845-01 (1989)", "file": "dos33/ZR23-6845-01_PC_DOS_Operation_Training_Version_3.3_and_4.0_PC_and_PS2_198903.pdf", "pdf": 7, "page": "vii", "quote": "Installation on Hard File 1-4 (Session 1) / Installation on Fixed Disk 2-9 (Session 2)"}
+      ]
+    }
+  ]
+}

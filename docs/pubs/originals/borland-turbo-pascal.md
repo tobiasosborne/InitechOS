@@ -336,3 +336,13 @@ UTILITIES) (`media/Borland_Turbo_Pascal_6.0_1990_Install.jpg`; prior survey).
   positions were sampled); the full tab list needs a page-by-page pass.
 - PG/LR/TV back-cover part numbers (taken from the prior survey; their back covers are not in
   these scans or were not checked).
+
+## 12. Slips the books carried (PUB-REF-0001 VO-30 evidence)
+
+Read as page images on 2026-10-17 for the house register of tolerated inconsistencies (bead
+`initech-ipu5.16`, worklog WL-0150, `spec/pubs_inconsistencies.json`).
+
+| Book | Page | What the page prints | Register entry |
+|---|---|---|---|
+| Turbo Vision Guide (1990) | PDF 201 [186] | "If you don't find the method listed for that object, check it's immediate ancestor object type." -- in the same paragraph "its relationships to its ancestors" | VO30-06 |
+| Library Reference (1990) | PDF 8 [1] | The text layer reads "The Users Guide tells you"; the image prints "The User's Guide" -- an OCR artefact, not a slip, and not used | -- |
