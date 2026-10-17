@@ -252,6 +252,10 @@ struct DialogRecord {
     /* --- Active edit item index (1-based; 0 = no active editText) --------- */
     uint16_t      editField;
 
+    /* tdnl.88: the original control while the mouse is held. IM Control
+     * Manager TrackControl: only release inside that control fires. */
+    uint16_t      trackingItem;
+
     uint8_t       _pad[2]; /* alignment */
 };
 

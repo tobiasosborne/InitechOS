@@ -240,10 +240,10 @@ int main(int argc, char **argv)
     long w = 0, h = 0, maxv = 0;
     size_t n = (size_t)SCRW * SCRH * 3u;
 
-    if (argc != 3 || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
+    if ((argc != 3 && !(argc == 4 && !strcmp(argv[1], "pressed"))) || (strcmp(argv[1], "alert") && strcmp(argv[1], "emptied") &&
                      strcmp(argv[1], "locked") && strcmp(argv[1], "locked-full") &&
                      strcmp(argv[1], "tenant3") && strcmp(argv[1], "tenant3-gone") &&
-                     strcmp(argv[1], "chrome") && strcmp(argv[1], "exitdos"))) {
+                     strcmp(argv[1], "chrome") && strcmp(argv[1], "notice") && strcmp(argv[1], "pressed") && strcmp(argv[1], "exitdos"))) {
         fprintf(stderr, "usage: %s <alert|emptied|locked|locked-full|tenant3|tenant3-gone|chrome|exitdos> <dump.ppm>\n", argv[0]);
         return 2;
     }
@@ -265,7 +265,22 @@ int main(int argc, char **argv)
     fclose(f);
     printf("ppm_flair_trash_check: leg %s on %s\n", g_leg, argv[2]);
 
-    if (strcmp(g_leg, "chrome") == 0) {
+    if (strcmp(g_leg,"pressed") == 0) {
+        unsigned char *gold;
+        int bad=0;
+        if(argc!=4 || !(gold=alert_capture_load_path(argv[3]))) { free(g_buf); return 1; }
+        /* Default OK's left bevel/face: native rect x435..493,y158..177.
+         * Keep clear of its label and the pointer held at (464,168). The
+         * EXPECTED pixels are solely the native pressed capture, never a
+         * palette or control-drawing table. Missing capture is a hard RED. */
+        for(int y=158;y<178;y++) for(int x=435;x<451;x++)
+            bad+=alert_capture_rgb(g_buf,x,y)!=alert_capture_rgb(gold,x,y);
+        free(gold);
+        if(bad) {fprintf(stderr,"FAIL PRESSED-CAPTURE: %d/320 pixels differ\n",bad);g_fail=1;}
+        else printf("PRESSED-CAPTURE: 320/320 pixels matched native pressed OK\n");
+    } else if (strcmp(g_leg, "notice") == 0) {
+        alert_chrome(0);
+    } else if (strcmp(g_leg, "chrome") == 0) {
         alert_chrome(1);
     } else if (strcmp(g_leg, "exitdos") == 0) {
         alert_chrome(1);

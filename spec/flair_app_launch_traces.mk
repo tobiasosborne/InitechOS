@@ -75,7 +75,8 @@ FLAIR_APP_LAUNCH_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 #    CONTENT click, so the point moves 10 px up into the content strip.
 #    Serial-only: no park.
 # ===========================================================================
-FLAIR_APP_LAUNCH_DOUBLE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m4:0,m-4:0,l1,l0,l1,l0,m65:99,m0:89,l1,l0
+# tdnl.65 re-key: first exposed-content click activates; second quits.
+FLAIR_APP_LAUNCH_DOUBLE_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:20,l1,l0,l1,l0,m4:0,m-4:0,l1,l0,l1,l0,m65:99,m0:89,l1,l0,l1,l0
 
 # ===========================================================================
 # 3. FLAIR_APP_LAUNCH_CYCLE_SPEC -- EXIT_LEAK: TWO full launch/exit cycles:

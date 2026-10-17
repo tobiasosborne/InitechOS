@@ -405,6 +405,8 @@ static void post_mousedown(flair_raw_ring_t *ring, int h, int v)
                              (0u << 8) |   /* dx=0 */
                              (0u << 16));  /* dy=0 */
     flair_raw_post(ring, &raw);
+    raw.payload=0u; /* tdnl.88: the click ends with a release inside. */
+    flair_raw_post(ring, &raw);
 }
 
 /* Helper: post a keyDown with character `ch`.
@@ -505,7 +507,7 @@ static void test_modaldialog_click_ok(void)
     uint16_t itemHit = 0;
     ModalDialog(dp, &g_ring, 0, 0, &itemHit);
     CHECK(itemHit == 1,
-          "ModalDialog: mouseDown in enabled ctrlItem (item 1) -> itemHit=1");
+          "ModalDialog: release inside enabled ctrlItem (item 1) -> itemHit=1");
 }
 
 static void test_modaldialog_return_key(void)

@@ -159,6 +159,11 @@ uint8_t finder_pred_front_is_diskwin(const FinderCtx *fx)
  * so on the trace: a command that silently did nothing would be indisting-
  * uishable from a command that was never dispatched (Rule 2).
  * ===========================================================================*/
+uint8_t finder_pred_selection_putaway(const FinderCtx *fx)
+{
+    return fx && fx->selection_putaway;
+}
+
 static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
 {
     fcmd_line_t l;

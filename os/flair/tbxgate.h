@@ -91,8 +91,9 @@ FlairApp *tbx_take_affirm(void);
  * terminate already run by FlairProcess_close_window -> nothing more to tear.
  * Then free the code block (strict reverse carve order, DEC-AC3-1), emit
  * TENANT-EXIT + TENANT-HEAPAVAIL, and free the slot. Also frees the code block
- * of a tenant whose entry returned WITHOUT registering. Returns 1 when the
- * desktop needs the damage/content/band-2/present cycle, else 0. */
+ * of a tenant whose entry returned WITHOUT registering. Returns 1 for normal
+ * teardown, -1 for a crash, -2 for an unregistered entry (tdnl.66 notices),
+ * or 0 when nothing happened. Every nonzero result needs the repaint cycle. */
 int tbx_reap(void);
 
 /* MENU CHOICES (bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a).

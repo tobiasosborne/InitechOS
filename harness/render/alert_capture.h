@@ -11,12 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static unsigned char *alert_capture_load(void)
+static unsigned char *alert_capture_load_path(const char *path)
 {
-    const char *path = getenv("INITECH_ALERT_CAPTURE");
     png_image im;
     unsigned char *pixels;
-    if (!path) path = "../system7-decomp/goldens/captures/s8_alert_modal.png";
     memset(&im, 0, sizeof im);
     im.version = PNG_IMAGE_VERSION;
     if (!png_image_begin_read_from_file(&im, path)) {
@@ -38,6 +36,11 @@ static unsigned char *alert_capture_load(void)
     }
     png_image_free(&im);
     return pixels;
+}
+
+static unsigned char *alert_capture_load(void)
+{
+    return alert_capture_load_path("../system7-decomp/goldens/captures/s8_alert_modal.png");
 }
 
 static uint32_t alert_capture_rgb(const unsigned char *pixels, int x, int y)

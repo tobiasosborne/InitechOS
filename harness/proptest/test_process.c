@@ -346,11 +346,8 @@ static void leg_same_tenant_raise(void)
         EventRecord ev = mk_event(mouseDown, /*v*/20, /*h*/70, 0);
         flair_app_dispatch(&plist2, &M2.wm, &ev);
     }
-    CHECK(g_log_n == before + 1,
-          "leg(f1): a same-tenant content click delivers EXACTLY the mouseDown");
-    CHECK(g_log_n >= before + 1 &&
-          entry_match(&g_log[before], P_ID, mouseDown, -1, 20, 70),
-          "leg(f1): ... to its owner P");
+    CHECK(g_log_n == before,
+          "leg(f1): same-tenant activating content click is consumed (tdnl.65)");
     {
         int activates = 0;
         for (int i = before; i < g_log_n; i++)
@@ -397,16 +394,13 @@ static void leg_same_tenant_raise(void)
         EventRecord ev = mk_event(mouseDown, /*v*/20, /*h*/70, 0);
         flair_app_dispatch(&plist2, &M2.wm, &ev);
     }
-    CHECK(g_log_n == before + 3,
-          "leg(f3): a cross-tenant click still emits the pair THEN the click");
+    CHECK(g_log_n == before + 2,
+          "leg(f3): a cross-tenant click emits the pair and consumes activation");
     CHECK(g_log_n >= before + 2 &&
           entry_match(&g_log[before], Q_ID, activateEvt, 0, 0, 0) &&
           entry_match(&g_log[before + 1], P_ID, activateEvt, 1, 0, 0),
           "leg(f3): EXACTLY one deactivate to Q THEN one activate to P "
           "(the WL-0076 contract is untouched by the raise)");
-    CHECK(g_log_n >= before + 3 &&
-          entry_match(&g_log[before + 2], P_ID, mouseDown, -1, 20, 70),
-          "leg(f3): THEN the mouseDown reaches P");
     CHECK(plist2.head == &appP,
           "leg(f3): P is promoted to the foreground");
     CHECK(M2.wm.front == (raises ? &WP2.rec : &WP1.rec),
@@ -533,11 +527,10 @@ static void leg_front_stays(void)
               !rect_contains(P2s, 120, 20),
               "leg(g4) scene: the probe (v20,h120) is Q's content");
         flair_app_dispatch(&plist3, &M3.wm, &ev);
-        CHECK(g_log_n == before + 3 &&
+        CHECK(g_log_n == before + 2 &&
               entry_match(&g_log[before], P_ID, activateEvt, 0, 0, 0) &&
-              entry_match(&g_log[before + 1], Q_ID, activateEvt, 1, 0, 0) &&
-              entry_match(&g_log[before + 2], Q_ID, mouseDown, -1, 20, 120),
-              "leg(g4): a click in Q's window: deactivate P, activate Q, then the mouseDown to Q");
+              entry_match(&g_log[before + 1], Q_ID, activateEvt, 1, 0, 0),
+              "leg(g4): deactivate P, activate Q, consume the activating click");
         CHECK(plist3.head == &appQ && WQ.rec.hilited == 1 && count_hilited(&M3.wm) == 1,
               "leg(g4): Q is the foreground and its window the one active window");
     }
@@ -683,14 +676,12 @@ int main(void)
     CHECK(g_log_n >= 3 && entry_match(&g_log[2], click_app, mouseDown, -1, 20, 64),
           "leg(c): mouseDown delivered to the clicked owner (skip-activate-pair golden)");
 #else
-    CHECK(g_log_n == 5,
-          "leg(c): click-to-activate emits the deactivate+activate pair THEN the click (3 new entries)");
+    CHECK(g_log_n == 4,
+          "leg(c): click-to-activate emits the deactivate+activate pair and consumes the click (2 new entries)");
     CHECK(g_log_n >= 3 && entry_match(&g_log[2], A_ID, activateEvt, 0, 0, 0),
           "leg(c): FIRST a deactivate (activateEvt, active-flag=0) to old-foreground A");
     CHECK(g_log_n >= 4 && entry_match(&g_log[3], B_ID, activateEvt, 1, 0, 0),
           "leg(c): THEN an activate (activateEvt, active-flag=1) to new-foreground B");
-    CHECK(g_log_n >= 5 && entry_match(&g_log[4], click_app, mouseDown, -1, 20, 64),
-          "leg(c): THEN the mouseDown is delivered to the clicked owner B");
     /* ordering capstone: EXACTLY one deactivate THEN one activate (Rule 11). */
     CHECK(g_log_n >= 4 &&
           g_log[2].what == activateEvt &&
@@ -701,7 +692,7 @@ int main(void)
 #endif
 
     /* foreground switched after the background click (independent end-state). */
-    CHECK(plist.head == &appB,
+    CHECK(plist.head == (click_app==B_ID?&appB:&appA),
           "leg(c): after the background click, B is promoted to the foreground head");
 
     /* ===== leg (d): mouseDown inDrag over FOREGROUND B -> pure no-op ===== */

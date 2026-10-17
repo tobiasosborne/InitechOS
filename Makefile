@@ -9586,7 +9586,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
 KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
 KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
 $(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
 $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
@@ -10255,7 +10255,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
@@ -10438,7 +10438,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -10557,7 +10557,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) os/apps/ref_demo_menu.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -13009,7 +13009,7 @@ TEST_FINDER_WIN_MUT_SINGLETON := $(BUILD)/test_finder_windows_mutant_singleton_d
 TEST_FINDER_WIN_MUT_VOLLABEL  := $(BUILD)/test_finder_windows_mutant_vollabel_shown
 TEST_FINDER_WIN_MUT_CLEANUP   := $(BUILD)/test_finder_windows_mutant_cleanup_unsorted
 FINDER_WIN_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
-FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_desktop.c \
+FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_ops.c os/flair/finder_desktop.c \
                    os/flair/finder_icon.c os/flair/finder_cmd.c \
                    os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                    os/flair/surface.c os/flair/heap.c \
@@ -13219,7 +13219,7 @@ test-menu-handlers-mutant: $(foreach m,$(MENU_HANDLERS_MUTANTS),$(BUILD)/test_me
 # ---------------------------------------------------------------------------
 TEST_FINDER_OPS      := $(BUILD)/test_finder_ops
 TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
-FINDER_OPS_LINK      := os/flair/finder_ops.c $(FINDER_WIN_LINK)
+FINDER_OPS_LINK      := $(FINDER_WIN_LINK)
 FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
 FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL
 # -DWINDOW_ENABLE_R1_OPS (bead initech-tdnl.34): leg O9 drives ZoomWindow /
@@ -14828,7 +14828,7 @@ test-dialog: $(TEST_DIALOG)
 test-dialog-mutant: $(TEST_DIALOG_MUT_SLAB) $(TEST_DIALOG_MUT_BORDER) $(TEST_DIALOG_MUT_STATIC) $(TEST_DIALOG_MUT_FILECOPY) $(TEST_DIALOG_MUT_TITLELESS) $(TEST_DIALOG_MUT_PROGZERO) $(TEST_DIALOG_MUT_NO_DEFAULT_RING) $(TEST_DIALOG_MUT_MODAL_PASS) $(TEST_DIALOG_MUT_LOCAL_HIT)
 	@printf ">>> test-dialog-mutant: confirming all nine mutants go RED (Rule 6; Law 4 for FILECOPY_MSG/TITLELESS_MODAL/PROGRESS_ZERO)\n"
 	@$(TEST_DIALOG_MUT_LOCAL_HIT) > $(TEST_DIALOG_MUT_LOCAL_HIT).log 2>&1; \
-	if grep -q 'FAIL.*mouseDown in enabled ctrlItem' $(TEST_DIALOG_MUT_LOCAL_HIT).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_LOCAL_HIT correctly RED -- the click on the drawn OK button misses)\n'; \
+	if grep -q 'FAIL.*release inside enabled ctrlItem' $(TEST_DIALOG_MUT_LOCAL_HIT).log; then printf '>>> test-dialog-mutant: green (DIALOG_MUTATE_LOCAL_HIT correctly RED -- the click on the drawn OK button misses)\n'; \
 	else printf '!!! test-dialog-mutant FAIL: LOCAL_HIT mutant did not go RED on the click leg\n'; cat $(TEST_DIALOG_MUT_LOCAL_HIT).log; exit 1; fi
 	@if $(TEST_DIALOG_MUT_BORDER) >/dev/null 2>&1; then \
 		printf '!!! test-dialog-mutant FAIL: BORDER mutant PASSED -- the border-width oracle is decoration\n'; exit 1; \
@@ -23680,6 +23680,60 @@ RECORD_IMAGE_toolbox_hardening = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_DATA_toolbox_hardening = $(FLAIR_DATA_IMG)
 RECORD_MARKER_toolbox_hardening = FLAIR-SCROLL win 0 h part=21 value=16 max=171
 RECORD_SETTLE_toolbox_hardening = 500
+
+# Rule 14: PM records after merge; prerequisites are read at parse time.
+include spec/flair_finder_alerts_trace.mk
+RECORD_SCRIPTS += finder_activate dialog_tracking
+RECORD_SPEC_finder_activate = $(FLAIR_ACTIVATE_ONLY_SPEC)
+RECORD_IMAGE_finder_activate = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_finder_activate = $(FLAIR_DATA_IMG)
+RECORD_MARKER_finder_activate = FLAIR-DISPATCH app=TENANTFX
+RECORD_SPEC_dialog_tracking = $(FLAIR_DIALOG_TRACK_SPEC),kesc
+RECORD_IMAGE_dialog_tracking = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_dialog_tracking = $(FLAIR_DATA_IMG)
+RECORD_MARKER_dialog_tracking = FINDER-TRASH-EMPTY-CANCEL
+RECORD_SCRIPTS += dialog_pressed
+RECORD_SPEC_dialog_pressed = $(FLAIR_DIALOG_HELD_SPEC)
+RECORD_IMAGE_dialog_pressed = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_dialog_pressed = $(FLAIR_DATA_IMG)
+RECORD_MARKER_dialog_pressed = FINDER-TRASH-ALERT
+
+# Each bead has a Rule-14 script name; the composite limits trace exercises
+# entries, window exhaustion, Open-all and keyboard selection together.
+FINDER_LIMITS_DATA := $(BUILD)/finder_limits_fixture.img
+FINDER_REPLACE_DATA := $(BUILD)/finder_replace_fixture.img
+FINDER_RESTORE_DATA := $(BUILD)/finder_restore_fixture.img
+RECORD_SCRIPTS += finder_entries finder_windows finder_open_all finder_keys finder_diskfull finder_launch_alerts finder_refused finder_replace finder_restore finder_demo
+RECORD_SPEC_finder_entries = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_windows = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_open_all = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_keys = $(FLAIR_FINDER_LIMITS_SPEC)
+RECORD_SPEC_finder_diskfull = $(FLAIR_FINDER_DISKFULL_SPEC)
+RECORD_SPEC_finder_launch_alerts = $(FLAIR_APP_LAUNCH_SPEC)
+RECORD_SPEC_finder_refused = $(FLAIR_FINDER_REFUSED_SPEC)
+RECORD_SPEC_finder_replace = $(FLAIR_FINDER_REPLACE_OK_SPEC)
+RECORD_SPEC_finder_restore = $(FLAIR_FINDER_RESTORE_SPEC)
+RECORD_SPEC_finder_demo = $(FLAIR_FINDER_DEMO_SPEC)
+$(foreach s,finder_entries finder_windows finder_open_all finder_keys,$(eval RECORD_DATA_$(s) = $$(FINDER_LIMITS_DATA)))
+$(foreach s,finder_entries finder_windows finder_open_all finder_keys finder_diskfull finder_launch_alerts finder_refused finder_replace finder_restore finder_demo,$(eval RECORD_IMAGE_$(s) = $$(FLAIRTENANTS_RECORDLONGDBL_IMG)))
+$(foreach s,finder_entries finder_windows finder_open_all finder_keys,$(eval RECORD_MARKER_$(s) = FINDER-ALERT reason=windows))
+RECORD_DATA_finder_diskfull = $(BUILD)/finder_diskfull_host.img
+RECORD_DATA_finder_launch_alerts = $(FLAIR_DATA_TFX_NOREG_IMG)
+RECORD_DATA_finder_refused = $(FLAIR_DATA_IMG)
+RECORD_DATA_finder_replace = $(FINDER_REPLACE_DATA)
+RECORD_DATA_finder_restore = $(FINDER_RESTORE_DATA)
+RECORD_DATA_finder_demo = $(FLAIR_DATA_IMG)
+RECORD_MARKER_finder_diskfull = FINDER-ALERT reason=disk-full
+RECORD_MARKER_finder_launch_alerts = FINDER-ALERT reason=launch
+RECORD_MARKER_finder_refused = FINDER-ALERT reason=move
+RECORD_MARKER_finder_replace = FINDER-MOVE name=README.TXT
+RECORD_MARKER_finder_restore = FINDER-PUT-AWAY n=1
+RECORD_MARKER_finder_demo = FLAIR-MENU menu=256 item=0
+RECORD_SCRIPTS += finder_crash_alert
+RECORD_SPEC_finder_crash_alert = $(FLAIR_APP_LAUNCH_SPEC)
+RECORD_IMAGE_finder_crash_alert = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+RECORD_DATA_finder_crash_alert = $(FLAIR_DATA_TFX_CRASH_IMG)
+RECORD_MARKER_finder_crash_alert = FINDER-ALERT reason=crash
 
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
@@ -32653,3 +32707,4 @@ include harness/diff/fat_diff/kernel_hygiene.mk
 include harness/diff/fat_diff/formatsys.mk
 
 include harness/diff/fat_diff/shell_files.mk
+include harness/finder_alerts.mk

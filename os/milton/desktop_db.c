@@ -63,6 +63,40 @@ desktop_db_validation_t desktop_db_validate(const void *data, uint32_t len,
 	return DESKTOP_DB_VALID;
 }
 
+/* tdnl.62: DOS CREAT publishes/truncates a dirent. Check the allocation
+ * requirement BEFORE CREAT so a full disk cannot publish a phantom DB or
+ * destroy a committed one. Existing chain clusters are reusable by CREAT.
+ * Ref: fat12.h create/write_file contracts, PRD 6.5 fail-loud storage. */
+static int db_space(const fat12_volume_t *vol,const void *fat,uint32_t fat_len,
+                     void *sector_buf,uint32_t len)
+{
+#ifndef DB_MUT_PHANTOM
+    dir_entry_t old;
+    uint32_t bytes=(uint32_t)vol->bpb.bytes_per_sector*vol->bpb.sectors_per_cluster;
+    uint32_t need=(len+bytes-1u)/bytes, free=0u;
+    uint16_t next, c;
+    int rc=fat12_find(vol,sector_buf,DESKTOP_DB_NAME,&old);
+    if(rc==FAT12_OK && old.start_cluster>=2u) {
+        c=old.start_cluster;
+        for(uint32_t i=0;i<vol->total_clusters;i++) {
+            if(fat12_next_cluster(vol,fat,fat_len,c,&next)!=FAT12_OK) return FAT12_ERR_CHAIN;
+            free++;
+            if(vol->fat_type==FAT_TYPE_FAT16?fat16_is_eoc(next):fat12_is_eoc(next)) break;
+            c=next;
+        }
+    } else if(rc!=FAT12_OK && rc!=FAT12_ERR_NOT_FOUND) return rc;
+    for(uint32_t i=2;free<need && i<vol->total_clusters+2u;i++) {
+        rc=fat12_next_cluster(vol,fat,fat_len,(uint16_t)i,&next);
+        if(rc!=FAT12_OK) return rc;
+        if(!next) free++;
+    }
+    return free>=need?FAT12_OK:FAT12_ERR_NO_SPACE;
+#else
+    (void)vol;(void)fat;(void)fat_len;(void)sector_buf;(void)len;
+    return FAT12_OK;
+#endif
+}
+
 static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,
 	                                uint32_t fat_len, void *sector_buf,
 	                                void *cluster_buf)
@@ -83,6 +117,8 @@ static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,
 	int rc;
 
 	desktop_db_empty_header(header);
+	rc=db_space(vol,fat,fat_len,sector_buf,DESKTOP_DB_HEADER_SIZE);
+	if(rc!=FAT12_OK) return rc;
 	rc = fat12_create(vol, fat, fat_len, DESKTOP_DB_NAME, DIR_ATTR_HIDDEN,
 	                  0u, sector_buf, cluster_buf, &entry, &slot);
 	if (rc != FAT12_OK) {
@@ -213,6 +249,8 @@ int desktop_db_write(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	    desktop_db_validate(data, len, 0) != DESKTOP_DB_VALID) {
 		return FAT12_ERR_BUFFER;
 	}
+	rc=db_space(vol,fat,fat_len,sector_buf,len);
+	if(rc!=FAT12_OK) return rc;
 	rc = fat12_create(vol, fat, fat_len, DESKTOP_DB_NAME, DIR_ATTR_HIDDEN,
 	                  0u, sector_buf, cluster_buf, &entry, &slot);
 	if (rc != FAT12_OK) {

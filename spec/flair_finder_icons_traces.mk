@@ -1,3 +1,4 @@
+# tdnl.65 re-key: consume root activation before selecting its document.
 # spec/flair_finder_icons_traces.mk -- LOCKED injected traces for the Finder
 # icon-art emulator gates (beads initech-tdnl.53 / tdnl.74 / tdnl.87;
 # docs/worklog/WL-0140). Token grammar: harness/emu/qemu.c (mDX:DY relative
@@ -26,7 +27,7 @@
 #    The dump (after the README select) shows: the desktop VOLUME and TRASH,
 #    the root window's DOCUMENT (selected) and FOLDER, the APPS window's
 #    APPLICATION -- every captured desktop/window kind on one frame.
-FLAIR_FINDER_ICONS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:50,m100:50,m10:0,l0,m-100:-20,m-100:-20,m-100:-20,m-100:-20,m-50:-8,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:70,m60:0
+FLAIR_FINDER_ICONS_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m100:-12,m77:0,l1,m100:50,m100:50,m10:0,l0,m-100:-20,m-100:-20,m-100:-20,m-100:-20,m-50:-8,l1,l0,l1,l0,m100:72,m100:72,m100:72,m100:72,m100:70,m60:0
 
 # 2. FLAIR_TRASH_FULL_SPEC -- stage README.TXT, then park clear of the Trash
 #    The FLAIR_EMPTY_ALERT_SPEC staging prefix (spec/flair_trash_traces.mk

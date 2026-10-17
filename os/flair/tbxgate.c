@@ -1663,12 +1663,14 @@ int tbx_reap(void)
          * watchdog -- the tenant already gave the CPU back (BC-4). */
         if (g_slot.crashed) {
             finish("crash", -1);
+            return -1;
         } else {
             tputs("TENANT-UNREGISTERED name=");
             tputs(g_slot.file);
             tputs("\n");
             flair_free(g_host.master, FLAIR_CLASS_GENERAL, g_slot.block);
             slot_clear();
+            return -2;
         }
         return 0;
     }
@@ -1679,7 +1681,7 @@ int tbx_reap(void)
     if (g_slot.crashed) {                   /* death: never close(), never re-enter */
         FlairProcess_kill(g_host.list, g_host.wm, g_host.master, g_slot.app);
         finish("crash", -1);
-        return 1;
+        return -1;
     }
     if (g_slot.exit_req) {
         int32_t rc = g_slot.exit_rc;

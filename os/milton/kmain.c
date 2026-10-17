@@ -155,32 +155,7 @@ _Static_assert(__builtin_strcmp(FINDER_SVC_DB_NAME, DESKTOP_DB_NAME) == 0,
  * initech-7tjp; spec/flair_tenants_demo.h (titles/items/ID range); PRD Sec 1.1 /
  * Sec 3 / Sec 6.3. Band 2 must remain distinct from the shell-owned System-7
  * bar after NOTES activates, including no duplicate Apple slot (Law 4). */
-static const MenuItem flair_ten_notes_file_items[] = {
-    { FLAIR_TEN_NOTES_ITEM_NEW,  0, 'N', 0, 1, 0 },
-    { FLAIR_TEN_NOTES_ITEM_OPEN, 0, 'O', 0, 1, 0 },
-    { FLAIR_TEN_NOTES_ITEM_SAVE, 0, 'S', 0, 1, 0 },
-    { FLAIR_TEN_NOTES_ITEM_QUIT, 0, 'Q', 0, 1, 0 }
-};
-static const MenuItem flair_ten_notes_edit_items[] = {
-    { FLAIR_TEN_NOTES_ITEM_UNDO,  0, 'Z', 0, 1, 0 },
-    { FLAIR_TEN_NOTES_ITEM_CUT,   0, 'X', 0, 1, 0 },
-    { FLAIR_TEN_NOTES_ITEM_COPY,  0, 'C', 0, 1, 0 },
-    { FLAIR_TEN_NOTES_ITEM_PASTE, 0, 'V', 0, 1, 0 }
-};
-static const MenuItem flair_ten_notes_notes_items[] = {
-    { FLAIR_TEN_NOTES_ITEM_ABOUT, 0, 0, 0, 1, 0 }
-};
-static MenuInfo flair_ten_notes_menus[FLAIR_TEN_NOTES_MENU_COUNT] = {
-    { (int16_t)(FLAIR_TEN_NOTES_MENU_ID_BASE + 0),
-      FLAIR_TEN_NOTES_MENU_FILE_TITLE, flair_ten_notes_file_items, 4, 0 },
-    { (int16_t)(FLAIR_TEN_NOTES_MENU_ID_BASE + 1),
-      FLAIR_TEN_NOTES_MENU_EDIT_TITLE, flair_ten_notes_edit_items, 4, 0 },
-    { (int16_t)(FLAIR_TEN_NOTES_MENU_ID_BASE + 2),
-      FLAIR_TEN_NOTES_MENU_NOTES_TITLE, flair_ten_notes_notes_items, 1, 0 }
-};
-static MenuBar flair_ten_notes_bar __attribute__((unused)) = {
-    flair_ten_notes_menus, FLAIR_TEN_NOTES_MENU_COUNT, 0
-};
+#include "ref_demo_menu.h"
 #endif
 #endif
 
@@ -1098,8 +1073,12 @@ static void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
     if (!ps_menus || !ps_items) { flair_desktop_oom("photoshop menus/items"); }
     for (int mi = 0; mi < FLAIR_CANON_PHOTOSHOP_MENU_COUNT; mi++) {
         MenuItem *it = &ps_items[mi * 2];
+#ifdef FLAIR_LIVE_TENANTS
+        it[0]=flair_demo_item("New",'N');it[1]=flair_demo_item("Open",'O');
+#else
         it[0] = (MenuItem){ "New",  0, 'N', 0, 1, 0 };
         it[1] = (MenuItem){ "Open", 0, 'O', 0, 1, 0 };
+#endif
         ps_menus[mi].title     = (const char *)0;  /* set by shell from canon  */
         ps_menus[mi].items     = it;
         ps_menus[mi].n_items   = 2;
@@ -2792,21 +2771,10 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
  *   (c) the save-under feedback loop, which needs the live offscreen + present.
  * ===========================================================================*/
 
-/* The Finder tenant's DATA-arena budget. The RECORDS arena (which holds the
- * finder_desk_t + the fixed icon array, design F1.1) uses the App Contract's
- * FLAIR_TENANT_RECORDS_DEFAULT; the DATA arena is unused this slice but must be
- * non-zero (FlairProcess_launch carves all three blocks or none, BC-5). */
-#define FLAIR_FINDER_BUDGET  (4u * 1024u)
-
-/* The Finder's RECORDS-arena budget (bead initech-tdnl.10). R3.2 passed the
- * generic FLAIR_TENANT_RECORDS_DEFAULT (16 KiB) because the tenant held only a
- * finder_desk_t plus 16 icon records. R3.3's finder_shell_t additionally holds
- * FINDER_WIN_MAX complete windows -- each a WindowRecord, four full region
- * bundles and a 64-entry icon array -- carved ONCE at launch so a mid-session
- * window open can never fail on a heap condition (Rule 2). That is ~5 KiB per
- * slot. 64 KiB out of the 4 MiB master heap (spec/memory_map.h FLAIR_HEAP_SIZE)
- * is a rounding error, and an over-tight budget would be a LAUNCH failure with
- * a loud panic, never a half-built Finder. */
+/* tdnl.61/.63: existing tenant arenas, no second allocator. DATA holds
+ * complete directory listings; RECORDS holds the shell and as many window
+ * records as fit. The app-launch golden documents the +252 KiB DATA delta. */
+#define FLAIR_FINDER_BUDGET  (256u * 1024u)
 #define FLAIR_FINDER_RECORDS_BUDGET  (64u * 1024u)
 
 static finder_shell_t       *g_finder_shell;   /* the Finder tenant's state    */
@@ -2835,6 +2803,9 @@ static FinderCtx             g_finder_ctx;
 static FlairProcessList     *g_ten_plist;
 static FlairApp             *g_ten_finder;
 static GrafPort             *g_ten_barport;
+static finder_win_status_t g_finder_io_error;
+static uint16_t finder_notice(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                              finder_win_status_t st, const char *name);
 
 /* R3.7 DISK-TENANT PUMP HOOKS (bead initech-tdnl.14; reconciliation DEC-AC3-3/
  * DEC-AC3-4). The gate module owns the slot and the verbs; what lives HERE is
@@ -2899,7 +2870,12 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
     flair_live_tenant_track(ctx, bi);
     /* (1e) bead initech-bf2: a TBX_FILECOPY the tenant asked for (Sec 12). */
     flair_live_tenant_filecopy(ctx, bi);
-    if (!tbx_reap()) return;
+    {
+        int reaped=tbx_reap();
+        if (!reaped) return;
+        if(reaped<0) (void)finder_notice(ctx,bi,
+            reaped==-2?FINDER_WIN_ERR_LAUNCH:FINDER_WIN_ERR_CRASH,"");
+    }
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_live_content_phase(ctx);
     if (g_ten_barport != (GrafPort *)0)
@@ -2914,8 +2890,9 @@ static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *
 static void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                   const char *name83, uint16_t dir_start)
 {
-    (void)tbx_launch(name83, dir_start);
+    int rc=tbx_launch(name83, dir_start);
     flair_live_tenant_service(ctx, bi);
+    if (rc<0) (void)finder_notice(ctx,bi,FINDER_WIN_ERR_LAUNCH,name83);
 }
 
 /* A DISK TENANT HEARS ITS OWN MENU CHOICES (bead initech-tdnl.31; spec/
@@ -3073,6 +3050,7 @@ static int finder_fat_mkdir(void *fs_user, const char *name83,
                      g_finder_dirbuf, g_finder_clusbuf);
     if (rc == FAT12_OK)             return (int)FINDER_WIN_OK;
     if (rc == FAT12_ERR_DIR_FULL)   return (int)FINDER_WIN_ERR_DIRFULL;
+    if (rc == FAT12_ERR_NO_SPACE)   return (int)FINDER_WIN_ERR_DISKFULL;
     return (int)FINDER_WIN_ERR_MKDIR;
 }
 
@@ -3090,6 +3068,7 @@ static int finder_fat_map(int rc)
     if (rc == FAT12_ERR_CYCLE)     return (int)FINDER_WIN_ERR_CYCLE;
     if (rc == FAT12_ERR_EXISTS)    return (int)FINDER_WIN_ERR_EXISTS;
     if (rc == FAT12_ERR_NOT_EMPTY) return (int)FINDER_WIN_ERR_NOTEMPTY;
+    if (rc == FAT12_ERR_NO_SPACE)  return (int)FINDER_WIN_ERR_DISKFULL;
     return (int)FINDER_WIN_ERR_MOVE;
 }
 
@@ -3279,6 +3258,8 @@ static void finder_desk_persist(void)
                                FINDER_DB_RECORD_SIZE));
         serial_putc('\n');
     } else {
+        g_finder_io_error=rc==FAT12_ERR_NO_SPACE || rc==FAT12_ERR_DIR_FULL?
+                            FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
         serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
         serial_puti((int32_t)rc);
         serial_putc('\n');
@@ -3391,6 +3372,8 @@ static void flair_tenant_mount_volume(void)
                 serial_puts("DESKTOP-DB-OK\n");
             }
             if (db_rc != FAT12_OK) {
+                g_finder_io_error=db_rc==FAT12_ERR_NO_SPACE || db_rc==FAT12_ERR_DIR_FULL?
+                                    FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
                 if (db_state == DESKTOP_DB_BOOT_CREATE ||
                     db_state == DESKTOP_DB_BOOT_REGEN) {
                     serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
@@ -3409,6 +3392,8 @@ static void flair_tenant_mount_volume(void)
                                 ? "TRASH-CREATE\n" : "TRASH-OK\n");
             } else {
                 serial_puts("TRASH-INIT-FAIL rc=");
+                g_finder_io_error=trash_rc==FAT12_ERR_NO_SPACE || trash_rc==FAT12_ERR_DIR_FULL?
+                                    FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
                 serial_puti((int32_t)trash_rc);
                 serial_putc('\n');
             }
@@ -3543,7 +3528,7 @@ static int finder_surface_window(finder_surface_t *s, int slot)
 {
     finder_desk_t *fd;
     if (g_finder_shell == (finder_shell_t *)0 ||
-        slot < 0 || slot >= FINDER_WIN_MAX ||
+        slot < 0 || slot >= g_finder_shell->window_cap ||
         !g_finder_shell->windows[slot].open)
         return 0;
     fd = finder_win_view(g_finder_shell, slot);
@@ -3609,7 +3594,8 @@ static void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi)
  * themselves live in os/flair/finder_windows.c; what is HERE is what cannot be
  * there: the markers, and the DQ2 repaint cycle that needs the live offscreen.
  * ------------------------------------------------------------------------- */
-static void finder_report_open_fail(finder_win_status_t st)
+static void finder_report_open_fail(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                                     finder_win_status_t st)
 {
     if (st == FINDER_WIN_ERR_FULL) {
         serial_puts("FINDER-WIN-FULL\n");
@@ -3618,6 +3604,7 @@ static void finder_report_open_fail(finder_win_status_t st)
         serial_puti((int32_t)st);
         serial_putc('\n');
     }
+    (void)finder_notice(ctx,bi,st,"");
 }
 
 /* Report the per-window icon cap when it bit (design F1.1: fail loud; a window
@@ -3644,7 +3631,7 @@ static void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
     if (g_finder_shell == (finder_shell_t *)0) return;
     st = finder_win_open(g_finder_shell, 0u, 0u /* root */, "", 1u,
                          &slot, &singleton);
-    if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
+    if (st != FINDER_WIN_OK) { finder_report_open_fail(ctx,bi,st); return; }
 
     finder_desk_repaint(ctx, bi);
     /* THE R3.2 RE-KEY (finder_windows.h): this line REPLACES the old
@@ -3669,7 +3656,7 @@ static void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
     if (g_finder_shell == (finder_shell_t *)0) return;
     st = finder_win_open(g_finder_shell, parent, dir_start, name83, 0u,
                          &slot, &singleton);
-    if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
+    if (st != FINDER_WIN_OK) { finder_report_open_fail(ctx,bi,st); return; }
 
     finder_desk_repaint(ctx, bi);
     serial_puts("FINDER-OPEN-FOLDER name=");
@@ -3693,7 +3680,7 @@ static void finder_open_trash(flair_live_ctx_t *ctx, const boot_info_t *bi)
 
     if (g_finder_shell == (finder_shell_t *)0) return;
     st = finder_win_open_trash(g_finder_shell, &slot, &singleton);
-    if (st != FINDER_WIN_OK) { finder_report_open_fail(st); return; }
+    if (st != FINDER_WIN_OK) { finder_report_open_fail(ctx,bi,st); return; }
 
     finder_desk_repaint(ctx, bi);
     serial_puts("FINDER-OPEN-TRASH win=");
@@ -3792,6 +3779,7 @@ static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
     finder_tgt_t t, none;
     finder_move_result_t r;
     int dirty;
+    finder_win_status_t status;
 
     t = finder_ops_resolve(g_finder_shell, s->slot, idx, where.h, where.v);
     none.kind = (uint8_t)FINDER_TGT_NONE; none.slot = -1; none.idx = -1;
@@ -3814,10 +3802,14 @@ static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
         return 1;
     }
 
-    if (finder_ops_drop(g_finder_shell, s->slot, idx, &t,
+    status=finder_ops_drop(g_finder_shell, s->slot, idx, &t,
                         (int16_t)(s->fd->icons[idx].x + dh),
-                        (int16_t)(s->fd->icons[idx].y + dv), &r) !=
-        FINDER_WIN_OK) {
+                        (int16_t)(s->fd->icons[idx].y + dv), &r);
+    if(status==FINDER_WIN_ERR_EXISTS && finder_notice(ctx,bi,status,r.name)==1u)
+        status=finder_ops_replace(g_finder_shell,s->slot,idx,&t,
+                                  (int16_t)(s->fd->icons[idx].x+dh),
+                                  (int16_t)(s->fd->icons[idx].y+dv),&r);
+    if(status!=FINDER_WIN_OK) {
         if (dirty) finder_desk_repaint(ctx, bi);
         finder_zoom_back(ctx, bi, out_rect,
                          finder_desk_cell_rect(s->fd, idx));
@@ -3826,8 +3818,11 @@ static int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
         serial_puts(" name=");
         serial_puts(r.name);
         serial_putc('\n');
+        if(r.db_dirty) { g_finder_db_dirty=1;finder_desk_persist(); }
         if (r.status == FINDER_WIN_ERR_LOCKED)
             (void)finder_trash_confirm(ctx, bi, 0u);
+        else if(r.status!=FINDER_WIN_ERR_EXISTS)
+            (void)finder_notice(ctx,bi,r.status,r.name);
         return 1;
     }
 
@@ -4295,17 +4290,44 @@ static uint16_t flair_live_alert_run(flair_live_ctx_t *ctx, const boot_info_t *b
         flair_live_cursor_track(&ev);
         if (g) {
             flair_live_emit_evt(&ev);
-            if (DialogModalDispatch(&g_al_dr, &ev, (dialog_modal_block_fn)0,
-                                    (void *)0) == FLAIR_MODAL_CAPTURE &&
-                DialogHandleEvent(&g_al_dr, &ev, (dialog_filter_fn)0, &hit))
-                break;
         }
+        if (DialogModalDispatch(&g_al_dr, &ev, (dialog_modal_block_fn)0,
+                                (void *)0) == FLAIR_MODAL_CAPTURE &&
+            DialogHandleEvent(&g_al_dr, &ev, (dialog_filter_fn)0, &hit))
+            break;
+        if (g_al_dr.trackingItem || ev.what == mouseUp)
+            flair_desktop_present(bi, &ctx->off);
         if (flair_live_track_cut(t0, &cancel)) { hit = g_al_dr.cancelItem; break; }
     }
     DisposeDialog(&g_al_dr, (WindowMgr *)0);
     WindowMgr_invalidate_desktop(ctx->wm, fta_rect(FTA_L, FTA_T, FTA_R, FTA_B));
     finder_desk_repaint(ctx, bi);
     return hit;
+}
+
+static uint16_t finder_notice(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                              finder_win_status_t st, const char *name)
+{
+    static char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+    static const char *const labels[]={"OK"};
+    static const char *const replace[]={"Replace","Cancel"};
+    const char *text[FINDER_ALERT_LINES];
+    int n=finder_error_alert_text(st,name,lines);
+    if(!n) return 2u;
+    for(int i=0;i<n;i++) text[i]=lines[i];
+    flair_live_alert_open(ctx,bi,text,n,
+                          st==FINDER_WIN_ERR_EXISTS?replace:labels,
+                          st==FINDER_WIN_ERR_EXISTS?2:1,1);
+    serial_puts("FINDER-ALERT reason=");
+    serial_puts(st==FINDER_WIN_ERR_FULL?"windows":
+                st==FINDER_WIN_ERR_MEMORY?"memory":
+                st==FINDER_WIN_ERR_DISKFULL?"disk-full":
+                st==FINDER_WIN_ERR_LAUNCH?"launch":
+                st==FINDER_WIN_ERR_CRASH?"crash":
+                st==FINDER_WIN_ERR_EXISTS?"replace":"move");
+    serial_putc('\n');
+    for(int i=0;i<n;i++) {serial_puts("FINDER-ALERT-LINE "); serial_puts(text[i]);serial_putc('\n');}
+    return flair_live_alert_run(ctx,bi);
 }
 
 static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
@@ -5135,7 +5157,7 @@ static __attribute__((cold,noinline)) void finder_empty_trash(flair_live_ctx_t *
     serial_putc('\n');
     /* bead initech-uios (audit L002): every view of a removed folder was
      * disposed by the purge (finder_windows.h Sec 12) -- say which. */
-    for (int s = 0; s < FINDER_WIN_MAX; s++) {
+    for (int s = 0; s < g_finder_shell->window_cap; s++) {
         if ((g_finder_shell->purge_closed & (1u << s)) == 0u) continue;
         serial_puts("FINDER-TRASH-VIEW-CLOSED win=");
         serial_puti((int32_t)s);
@@ -5661,6 +5683,9 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
             serial_puti((int32_t)o->status);
             serial_putc('\n');
         }
+        if(o->status!=FINDER_WIN_OK)
+            (void)finder_notice(ctx,bi,o->status==FINDER_WIN_ERR_DIRFULL?
+                               FINDER_WIN_ERR_DISKFULL:o->status,o->name83);
         return;
 
     case FCMD_CLEANUP:
@@ -5734,6 +5759,13 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         finder_empty_trash(ctx, bi, (uint16_t)o->moved);
         return;
 
+    case FCMD_PUT_AWAY:
+        finder_desk_repaint(ctx,bi);
+        if(o->moved) { g_finder_db_dirty=1;finder_desk_persist(); }
+        serial_puts("FINDER-PUT-AWAY n=");serial_puti(o->moved);serial_putc('\n');
+        if(o->status!=FINDER_WIN_OK) (void)finder_notice(ctx,bi,o->status,"");
+        return;
+
     case FCMD_RESTART:
     case FCMD_SHUTDOWN:
         /* bead initech-tdnl.78: put everything away, then reset / shut down. */
@@ -5747,7 +5779,12 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
         return;
 
     case FCMD_OPEN:
-        if (o->status != FINDER_WIN_OK) return;
+        serial_puts("FINDER-OPEN-COUNT n=");serial_puti(o->moved);serial_putc('\n');
+        if (o->status != FINDER_WIN_OK) {
+            finder_desk_repaint(ctx,bi);
+            (void)finder_notice(ctx,bi,o->status,o->name83);
+            return;
+        }
         finder_desk_repaint(ctx, bi);
         serial_puts("FINDER-OPEN-FOLDER name=");
         serial_puts(o->name83);
@@ -6987,6 +7024,11 @@ void kernel_main(void)
 #else
         while ((flair_tick_count() - start) < (uint32_t)FLAIR_TEN_TICK_BUDGET) {
 #endif
+            if(g_finder_io_error) {
+                finder_win_status_t st=g_finder_io_error;
+                g_finder_io_error=FINDER_WIN_OK;
+                (void)finder_notice(&ctx,&b,st,"");
+            }
             EventRecord ev;
             int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,
                                     (uint32_t)FLAIR_TEN_WNE_SLICE);
@@ -7250,7 +7292,7 @@ void kernel_main(void)
                 } else if (chrome_pc == inContent && chrome_w != (WindowPtr)0 &&
                     g_finder_shell != (finder_shell_t *)0) {
                     int fslot = finder_win_slot_of(g_finder_shell, chrome_w);
-                    if (fslot >= 0)
+                    if (fslot >= 0 && chrome_was_active)
                         flair_live_do_finder_content(&ctx, &b, &ev, fslot);
                 }
 

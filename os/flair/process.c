@@ -693,7 +693,7 @@ int FlairProcess_sync_active(FlairProcessList *list, WindowMgr *wm)
  *         (2) a DEACTIVATE activateEvt (active-flag CLEARED) to the OLD foreground;
  *         (3) an ACTIVATE activateEvt (active-flag SET) to the new owner;
  *         (4) promote the owner to the process-list head (old fg -> background);
- *       THEN deliver the original mouseDown to the owner. The deactivate/activate
+ *       The activating content click is consumed (tdnl.65). The deactivate/activate
  *       pair is EXACTLY two records, deactivate THEN activate (Rule 11).
  *     - inContent on the already-foreground owner -> just deliver the mouseDown
  *       (no spurious activate pair; the other app stays silent -- leg(a)).
@@ -730,6 +730,7 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
 
         FlairApp *owner  = owner_of_window(list, w);
         FlairApp *old_fg = list->head;
+        int was_active = w == wm->front && owner == old_fg;
 
         if (owner != old_fg) {
             /* DQ5 mutant restores only the pre-fix background-title no-op. The
@@ -820,7 +821,15 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
          * click in its document. */
         if (WindowScrollBand(w, ev->where) >= 0) return;
 
-        /* THEN the original mouseDown to the (now-foreground) owner. */
+        /* tdnl.65: SelectWindow consumes a document's activating click.
+         * Ref: MTE Event Manager; the following click reaches its content. */
+#ifndef PROC_MUT_CLICK_THROUGH
+        if (!was_active) return;
+#else
+        (void)was_active;
+#endif
+
+        /* The window was already active: deliver this content click. */
         deliver(owner, ev);
         return;
     }
