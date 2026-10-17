@@ -13,7 +13,7 @@
 # Rule 2 "fail fast, fail loud"):
 #   * ACTION stubs (image/run/run-bochs) print an honest "not implemented"
 #     line and exit 0 -- they assert nothing, so a 0 is not a false signal.
-#   * GATE stubs (smoke/test*/ssim/selfhost/ddc) are correctness oracles. An
+#   * GATE stubs (smoke/test*/selfhost/ddc) are correctness oracles. An
 #     unimplemented oracle must NEVER read as green, so these exit NON-ZERO.
 #     A passing `make test` has to mean the oracle actually ran and passed.
 # The lone real target is `factory`, which compiles the C smoke stub -- the
@@ -8248,7 +8248,8 @@ help:
 	@printf '  ddc            Diverse double-compilation: independent seed, compare K*.\n'
 	@printf '\n'
 	@printf 'Fidelity guide:\n'
-	@printf '  ssim           Per-window SSIM of a screendump vs the frame fixture (FRAME=%s).\n' "$(FRAME)"
+	@printf '  ssim           Per-window SSIM GUIDE vs decomp PNGs (FRAME=%s); no threshold.\n' "$(FRAME)"
+	@printf '                 Frames: desktop, grow-box, scroll-look, alert, finder, icons, controls.\n'
 	@printf '\n'
 	@printf 'Run "make <target>". Variables: CC=%s  BUILD=%s  FRAME=%s\n' "$(CC)" "$(BUILD)" "$(FRAME)"
 
@@ -11592,8 +11593,7 @@ smoke: $(HARNESS_BIN) $(SMOKE_ELF)
 	printf '======================================================================\n'; \
 	exit $$rc
 
-ssim:
-	$(call stub_fail,ssim,M0)
+# ssim is implemented below (initech-w06); a guide, never a numeric gate.
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-region (beads initech-jmo/-b5g/-6dy -- the ATKINSON region
@@ -32395,3 +32395,32 @@ test-flair-cpanels-mutant: test-flair-cpanels-radio-mutant
 # New locked header consumers must rebuild when the contract changes.
 $(KERNEL_DESKTOP_OBJ): spec/cpanels_record.h
 include harness/toolbox_hardening.mk
+
+# initech-w06: SSIM mathematics is gated; historical similarity is GUIDE ONLY.
+# Ref: PRD Sec 3/8/14; ADR-0010 CD-7/HER-11; Wang 2004 pp.604-606.
+SSIM_BIN := $(BUILD)/ssim
+SSIM_TEST_BIN := $(BUILD)/test_ssim
+SSIM_MUTANTS := WINDOW_9 K1 K2 SIGMA LUMA
+$(SSIM_BIN): harness/ssim.c spec/ssim_params.h | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -Ispec -o $@ $< -lpng -lm
+$(SSIM_TEST_BIN): harness/proptest/test_ssim.c | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -o $@ $< -lpng -lm
+$(BUILD)/ssim_mut_%: harness/ssim.c spec/ssim_params.h | $(BUILD)
+	$(CC) $(CFLAGS) -O2 -Ispec -DSSIM_MUT_$* -o $@ $< -lpng -lm
+.PHONY: test-ssim test-ssim-mutant ssim
+test-ssim: $(SSIM_TEST_BIN) $(SSIM_BIN)
+	@$(SSIM_TEST_BIN) $(SSIM_BIN) $(BUILD)
+test-ssim-mutant: test-ssim $(addprefix $(BUILD)/ssim_mut_,$(SSIM_MUTANTS))
+	@for m in $(SSIM_MUTANTS); do \
+	 rc=0; $(SSIM_TEST_BIN) $(BUILD)/ssim_mut_$$m $(BUILD) > $(BUILD)/ssim_mut_$$m.log 2>&1 || rc=$$?; \
+	 [ "$$rc" = 1 ] || { cat $(BUILD)/ssim_mut_$$m.log; printf 'FAIL SSIM_MUT_%s wrong exit %s\n' "$$m" "$$rc"; exit 1; }; \
+	 case "$$m" in WINDOW_9|SIGMA) rule='GAUSSIAN one-pixel';; K1) rule='K1 constant-patch';; K2) rule='K2 impulse255';; LUMA) rule='LUMA RGB red';; esac; \
+	 grep -q "^RED $$rule" $(BUILD)/ssim_mut_$$m.log || { cat $(BUILD)/ssim_mut_$$m.log; exit 1; }; \
+	 printf '>>> SSIM_MUT_%s correctly RED: %s\n' "$$m" "$$(grep -m1 "^RED $$rule" $(BUILD)/ssim_mut_$$m.log)"; \
+	 done
+	@printf '>>> test-ssim-mutant: green (five named math mutants RED)\n'
+TEST_UNIT_GATES += test-ssim test-ssim-mutant
+# Reads existing gate dumps; it never silently substitutes another scene.
+# Generate them with INITECH_QMP_STDIO=1 make test-flair-desktop etc.
+ssim: $(SSIM_BIN)
+	@$(SSIM_BIN) --frame "$(FRAME)" --build "$(BUILD)" --goldens "$(SYSTEM7_DECOMP)/goldens/captures"
