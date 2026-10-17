@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "adr": "ADR-0003 DEC-18; PM second-launch ruling; initech-slvd first half",
+  "function": 96,
+  "a_disk": 129,
+  "a_partition": 0,
+  "b_disk": 0,
+  "c_disk": 128,
+  "c_partition": 1,
+  "d_disk": 128,
+  "d_partition": 2,
+  "running_flag": 1,
+  "removable_flag": 2,
+  "map_bytes": 20,
+  "abi": "INT13 AH60 AL=zero-based DOS letter; EBX=20-byte map: uint32 disk,partition,base,sectors,flags; CF/AH status per DEC-17. A partition 0 means superfloppy else partition 1. B always invalid.",
+  "running_identity": "mounted current volume (disk, partition base); running flag compares both, never disk alone",
+  "selection": "A=81h raw FAT or first primary FAT; C=80h primary 1; D=80h primary 2. No active-flag reordering. Missing/extended/non-FAT/out-of-bounds entries invalid.",
+  "removable": "A is the logical diskette role on ATA hardware; B absent; C/D fixed. This role is PM policy, not an FDC claim.",
+  "sources": ["PM second-launch drive mapping", "ADR-0003 DEC-17", "spec/mbr_partition_contract.json", "MS-DOS 3.3 UG pp59-63,74-76,119,340"]
+}

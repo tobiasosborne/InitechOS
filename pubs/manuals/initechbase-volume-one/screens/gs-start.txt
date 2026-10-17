@@ -1,0 +1,25 @@
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+Current date is Mon 3-02-1992
+Enter new date (mm-dd-yy):
+Current time is 9:30:00.00
+Enter new time:
+A:\>SAMIR
+. USE STAFF
+. LIST NEXT 4 LASTNAME, FIRSTNAME
+Record#  LASTNAME       FIRSTNAME
+      1  LUMBERGH       BILL
+      2  GIBBONS        PETER
+      3  BOLTON         MICHAEL
+      4  NAGHEENANAJAR  SAMIR
+. QUIT
+A:\>
+
+
+
+
+
+
+
+
+

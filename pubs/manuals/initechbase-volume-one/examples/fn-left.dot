@@ -1,0 +1,1 @@
+? LEFT("InitechBase", 7), LEFT("abc", 10), LEFT("abc", 0) + "|"

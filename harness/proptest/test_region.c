@@ -45,12 +45,14 @@
 #include <sys/wait.h>         /* waitpid, WIF* macros                          */
 #include <sys/resource.h>     /* setrlimit (suppress the child's core dump)    */
 #include <signal.h>           /* SIGABRT                                       */
+#include <time.h>
 
 #include "region_algebra.h"   /* the LOCKED spec (-Ispec)            */
 #include "region.h"           /* the engine constructors (-Ios/flair/atkinson) */
 #include "test_assert.h"      /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed) */
 
 TEST_HARNESS();
+#include "expect_abort.h"
 
 /* ===========================================================================
  * The bounded grid + the pixel ground truth (rasterize / OP_set on bitmaps).
@@ -390,9 +392,7 @@ static void new_window(void)
 static void spec_to_region(const rgn_spec_t *s, rgn_store_t *out)
 {
     store_attach(out);
-    rgn_store_t acc, tmp, one;
-    store_attach(&acc);
-    region_set_empty(&acc.r);
+    rgn_rect_t rects[STRESS_MAX_ITEMS];
     for (int i = 0; i < s->n; i++) {
         rgn_rect_t rc;
         if (!s->is_raw) {
@@ -402,15 +402,11 @@ static void spec_to_region(const rgn_spec_t *s, rgn_store_t *out)
             rc.top = (int16_t)s->it[i][0];      rc.left  = (int16_t)s->it[i][1];
             rc.bottom = (int16_t)(s->it[i][0] + 1); rc.right = (int16_t)s->it[i][2];
         }
-        store_attach(&one);
-        region_set_rect(&one.r, rc);
-        store_attach(&tmp);
-        region_op(&tmp.r, &acc.r, &one.r, RGN_OP_UNION);
-        /* copy tmp -> acc (rebind pools) */
-        store_attach(&acc);
-        region_op(&acc.r, &tmp.r, &tmp.r, RGN_OP_UNION); /* idempotent copy via self-union */
+        rects[i] = rc;
     }
-    region_op(&out->r, &acc.r, &acc.r, RGN_OP_UNION);    /* final copy */
+    /* Exercise the shipped constructor. spec_to_bitmap below remains the
+     * independent pixel-set reference; the existing shrinker is unchanged. */
+    region_from_rects(&out->r, rects, (uint16_t)s->n);
 }
 
 /* Ground-truth bitmap of a spec, painted DIRECTLY from the spec (NOT via the
@@ -540,8 +536,55 @@ static int normal_form_holds(const region_t *r)
 /* ===========================================================================
  * MAIN -- the suite.
  * ===========================================================================*/
-int main(void)
+static void benchmark_rects(void)
 {
+    static rgn_store_t out;
+    rgn_rect_t rects[96];
+    for (int i = 0; i < 96; i++) rects[i] = (rgn_rect_t){ i * 2, 0, i * 2 + 1, 10 };
+    store_attach(&out);
+    clock_t start = clock();
+    for (int repeat = 0; repeat < 100; repeat++) region_from_rects(&out.r, rects, 96);
+    printf("0i1m benchmark: 100 x 96 disjoint rects: %.3f ms\n",
+           1000.0 * (double)(clock() - start) / CLOCKS_PER_SEC);
+}
+
+int main(int argc, char **argv)
+{
+    if (argc == 2 && strcmp(argv[1], "--benchmark") == 0) { benchmark_rects(); return 0; }
+    /* bz8f: grade aliased destinations against the independent bitmap op,
+     * including both sources, both-empty cases, and every Boolean operator. */
+    EXPECT_SUCCESS("bz8f alias operation must return the correct normal pixel set", {
+        static rgn_store_t a, b;
+        bitmap_t am, bm, expected, actual;
+        for (int op = 0; op < 4; op++) for (int side = 0; side < 3; side++) {
+            store_attach(&a); store_attach(&b);
+            region_set_rect(&a.r, (rgn_rect_t){ 2, 2, 9, 12 });
+            region_set_rect(&b.r, (rgn_rect_t){ 5, 7, 14, 17 });
+            rasterize(&a.r, &am); rasterize(side == 2 ? &a.r : &b.r, &bm);
+            bm_op(&expected, &am, &bm, (rgn_op_t)op);
+            region_t *out = side == 1 ? &b.r : &a.r;
+            region_op(out, &a.r, side == 2 ? &a.r : &b.r, (rgn_op_t)op);
+            rasterize(out, &actual);
+            CHECK(bm_equal(&expected, &actual), "bz8f aliased region op matches pixel set");
+            CHECK(normal_form_holds(out), "bz8f alias output normal form");
+        }
+    });
+    /* 0i1m: a whole-region accumulation can exceed its pool temporarily even
+     * though the FINAL union is a simple rectangle. The final covering rect
+     * makes all 128 earlier boundaries redundant. No intermediate cap applies
+     * to the mathematical union (PRD 6.2). Also time the wide accumulation. */
+    EXPECT_SUCCESS("0i1m final union fits despite redundant intermediate boundaries", {
+        static rgn_store_t out;
+        rgn_rect_t rects[129];
+        for (int i = 0; i < 128; i++) rects[i] = (rgn_rect_t){ i * 2, 0, i * 2 + 1, 10 };
+        rects[128] = (rgn_rect_t){ 0, 0, 256, 10 };
+        store_attach(&out);
+        clock_t start = clock();
+        for (int repeat = 0; repeat < 100; repeat++) region_from_rects(&out.r, rects, 129);
+        printf("0i1m benchmark: 100 x 129 rects: %.3f ms\n",
+               1000.0 * (double)(clock() - start) / CLOCKS_PER_SEC);
+        CHECK(out.r.is_rect && out.r.n_rows == 2, "0i1m redundant intermediates collapse");
+    });
     const rgn_op_t OPS[4] = { RGN_OP_UNION, RGN_OP_INTERSECT,
                               RGN_OP_DIFF, RGN_OP_XOR };
     const char *OPNAME[4] = { "UNION", "INTERSECT", "DIFF", "XOR" };

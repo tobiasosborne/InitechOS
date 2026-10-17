@@ -1,0 +1,11 @@
+# STAFFRPT.FRM -- the staff salary report, grouped by department (use it
+# with STAFF.DBF ordered by STAFFDPT.NDX).  Option byte 1: no page eject
+# before the first page.
+REPORT STAFFRPT.FRM
+TITLE INITECH SYSTEMS CORPORATION;STAFF SALARY REPORT
+PAGE 80 58 2 0 1
+GROUP DEPT|Department
+COLUMN 14 0 N LASTNAME|Last Name
+COLUMN 10 0 N FIRSTNAME|First Name
+COLUMN 8 0 N HIRED|Hired
+COLUMN 10 2 Y SALARY|Salary

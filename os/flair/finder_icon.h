@@ -1,7 +1,8 @@
 /*
  * os/flair/finder_icon.h -- the Finder desktop-icon blitter (THE ARTIFACT).
  *
- * beads: initech-tdnl.9 (R3 "STAPLER-DESK": desktop icon assets + their blit).
+ * beads: initech-tdnl.9 (R3 "STAPLER-DESK": desktop icon assets + their blit),
+ *        initech-tdnl.53 (the v2 Platinum strikes + the selection function).
  *
  * WHAT THIS IS: the one routine that puts a 32x32 FLAIRDeskIcon strike
  * (spec/assets/desk_icons.h) on a surface, plus the mask hit-test the DesktopMgr
@@ -9,12 +10,13 @@
  * pixels out, no state, no allocation.
  *
  * THREE RULES IT OBEYS
- *   1. TRANSPARENCY IS THE MASK. A strike pixel whose mask bit is 0 is not
+ *   1. TRANSPARENCY IS NIBBLE 0. A strike pixel whose 4-bit nibble is 0 is not
  *      written at all -- the desktop (or whatever is already there) shows
  *      through. This is the cursors.h/CURS rule the CursorMgr already follows.
  *   2. NO COLOR IS NAMED HERE (ADR-0004-AMENDMENT-DEC-09 Sec 3.1, constraint
- *      C-8). A tone is a SEMANTIC role -- FLAIR_PART_ICON_INK / _FACE / _SHADE
- *      -- resolved to a destination pixel ONLY through flair_look_pixel_depth,
+ *      C-8). A strike pixel names a DESK_IC_* colour ORDINAL (desk_icons.h
+ *      v2); ordinal k is the SEMANTIC role FLAIR_PART_ICON_CLUT + (k - 1),
+ *      resolved to a destination pixel ONLY through flair_look_pixel_depth,
  *      the ONE policy seam. This TU owns zero 0xRRGGBB literal and zero palette
  *      index, exactly like os/flair/desktop.c's desktop_px.
  *   3. ALL DRAWING IS CLIPPED. A destination pixel is written IFF it is inside
@@ -58,25 +60,27 @@
  *   dst   -- destination surface (8bpp indexed or direct color).
  *   x, y  -- destination top-left; may be negative or off the right/bottom edge
  *            (the routine draws the visible part and nothing else).
- *   icon  -- the LOCKED strike (spec/assets/desk_icons.h). NULL is a no-op.
+ *   icon  -- the LOCKED v2 strike (spec/assets/desk_icons.h). NULL is a no-op.
  *   clip  -- effective visRgn INTERSECT clipRgn; NULL => no additional clip.
  *
  * A destination pixel (x+c, y+r) is written IFF
- *   (a) the strike's mask bit for (r,c) is set (the pixel is opaque), AND
+ *   (a) the strike's nibble for (r,c) is non-zero (the pixel is opaque), AND
  *   (b) the pixel lies on the destination bitmap, AND
  *   (c) clip == NULL or region_contains_point(clip, x+c, y+r).
- * Its value is flair_look_pixel_depth(dst->bpp, PART) for the tone's PART.
+ * Its value is flair_look_pixel_depth(dst->bpp, FLAIR_PART_ICON_CLUT + k - 1)
+ * for the pixel's colour ordinal k.
  * Transparent strike pixels are never written -- the destination survives.
  * -------------------------------------------------------------------------- */
 void finder_icon_draw(const bitmap_t *dst, int16_t x, int16_t y,
                       const FLAIRDeskIcon *icon, const region_t *clip);
 
 /* --------------------------------------------------------------------------
- * finder_icon_draw_hilite -- the same blit in the icon's HIGHLIGHTED state
- * (bead initech-34dh): the drop-target look while another icon is dragged over
- * a folder, the volume or the Trash. Identical mask / bounds / clip rules; only
- * the tone -> PART map differs: INK stays FLAIR_PART_ICON_INK, FACE becomes
- * FLAIR_PART_ICON_HILITE_FACE and SHADE becomes FLAIR_PART_ICON_HILITE_SHADE.
+ * finder_icon_draw_hilite -- the same blit in the icon's SELECTED state, which
+ * is also its drop-target HIGHLIGHTED state (beads initech-34dh, tdnl.53).
+ * Identical mask / bounds / clip rules; every colour ordinal k is first
+ * replaced by DESK_IC_SELECTED[k], the selection colour function measured
+ * from the Mac OS 8.1 Finder (desk_icons.h; ../system7-decomp/re/
+ * mint-results-008.md Sec 3: one map for every captured icon kind).
  * Ref: Inside Macintosh VI p. 2-19..2-20 ("The selection mechanism for color
  *   icons lowers the brightness of colors to indicate selection ... On a color
  *   monitor, a black-and-white icon turns gray when selected"); Apple patent
@@ -92,7 +96,8 @@ void finder_icon_draw_hilite(const bitmap_t *dst, int16_t x, int16_t y,
  * drawn with its top-left at (icon_x, icon_y)?
  *
  * Returns 1 for a hit, 0 otherwise (including a NULL icon and any point outside
- * the 32x32 cell). The test is the strike's MASK, not its bounding box: a click
+ * the 32x32 cell). The test is the strike's opacity (a non-zero nibble), not
+ * its bounding box: a click
  * in the transparent corner of the cell is not a hit on the icon, which is the
  * period behaviour the Finder's click/drag targeting depends on (design F1.2,
  * "point -> nearest icon whose sprite ... rect contains it").

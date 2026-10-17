@@ -1,0 +1,7 @@
+. USE STAFF
+. GO 5
+. ? 'Salary: ' + STR(SALARY, 9, 2)
+
+Salary:  19750.00. ? ROUND(SALARY / 12, 0), INT(SALARY / 12)
+
+1646 1645

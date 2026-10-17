@@ -6,7 +6,7 @@
 #define INITECH_FINDER_SMALL_ICONS_H
 #include <stdint.h>
 #define FINDER_SMALL_COLORS 17
-static const uint8_t finder_small_canon[17] = {0,0,11,7,6,12,13,14,8,63,102,119,231,205,15,16,17,};
+static const uint8_t finder_small_canon[17] = {0,0,20,7,6,26,17,18,8,63,102,119,231,205,12,11,13,};
 static const uint8_t finder_small_art[3][256] = {
 {
 0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,

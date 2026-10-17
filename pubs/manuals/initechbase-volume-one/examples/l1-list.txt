@@ -1,0 +1,16 @@
+. USE STAFF
+. LIST LASTNAME, FIRSTNAME, EXT
+Record#  LASTNAME       FIRSTNAME  EXT
+      1  LUMBERGH       BILL       1401
+      2  GIBBONS        PETER      1417
+      3  BOLTON         MICHAEL    1418
+      4  NAGHEENANAJAR  SAMIR      1419
+      5  WADDAMS        MILTON     1402
+      6  SMYKOWSKI      TOM        1425
+      7  PORTER         DOM        1400
+      8  ALBRIGHT       NINA       1403
+      9  DELGADO        ANDREW     1420
+     10  FENWICK        LAURA      1426
+     11  OKAFOR         DANIEL     1421
+     12  PRUITT         CAROL      1430
+*     13  CHEN           ROBERT     1431

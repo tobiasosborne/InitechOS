@@ -81,6 +81,7 @@
 #include "samir/rt.h"
 #include "samir/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
 #include "samir/dbf.h"
+#include "samir/dbt.h"
 
 #include "samir/dbf_format.h"   /* LOCKED spec-data, on -Ispec/samir or -Ispec */
 
@@ -460,6 +461,12 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
     filesz = pal->seek(pal, fd, 0, PAL_SEEK_END);
     if (filesz < 0)
         return teardown(tbl, -DBF_ERR_IO);
+    /* Ref: dbf.md ss8 invariant 2; Rule 2: validate before multiplying,
+     * including the RW record allocation below (initech-ptqc). */
+#ifndef SAMIR_CORE_MUTATE_DBF_SIZE
+    if (nrec > (UINT32_MAX - (uint32_t)header_length) / record_length)
+        return teardown(tbl, -DBF_ERR_BAD_FILESZ);
+#endif
     body = (uint32_t)header_length + nrec * (uint32_t)record_length;
     if ((uint32_t)filesz < body)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
@@ -1603,7 +1610,8 @@ refused:
  *   N <- N : dec_format(v->u.n, flen, dec, dst). Overflow -> '*'-fill; DBF_OK.
  *   D <- D : write YYYYMMDD; xb_u -> blank (8 spaces).
  *   L <- L : 'T' for 1, 'F' for 0; xb_u -> '?'.
- *   M <- C : memo text stored as C (xbase_coercion.json "target:M,expr:C,ok").
+ *   M <- C : dbf_replace appends text to the companion before publishing
+ *            its decimal pointer; this field-only helper rejects that path.
  *   cross-type (C<-N, N<-C, N<-D, D<-C, L<-N, etc.) -> -DBF_ERR_MISMATCH.
  *
  * Ref: xbase_coercion.json assignment_coercion; dbf.md sec 5; rt.h dec_format,
@@ -1645,16 +1653,25 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
             return -DBF_ERR_MISMATCH;
         if (v->t == XB_D) {
             int32_t y, m, d;
+            uint8_t digits[8];
             ymd_from_jdn((int32_t)v->u.d, &y, &m, &d);
             i = 0u;
-            dst[i++] = (uint8_t)('0' + (int)((y / 1000) % 10));
-            dst[i++] = (uint8_t)('0' + (int)((y / 100) % 10));
-            dst[i++] = (uint8_t)('0' + (int)((y / 10) % 10));
-            dst[i++] = (uint8_t)('0' + (int)(y % 10));
-            dst[i++] = (uint8_t)('0' + (int)((m / 10) % 10));
-            dst[i++] = (uint8_t)('0' + (int)(m % 10));
-            dst[i++] = (uint8_t)('0' + (int)((d / 10) % 10));
-            dst[i]   = (uint8_t)('0' + (int)(d % 10));
+            digits[i++] = (uint8_t)('0' + (int)((y / 1000) % 10));
+            digits[i++] = (uint8_t)('0' + (int)((y / 100) % 10));
+            digits[i++] = (uint8_t)('0' + (int)((y / 10) % 10));
+            digits[i++] = (uint8_t)('0' + (int)(y % 10));
+            digits[i++] = (uint8_t)('0' + (int)((m / 10) % 10));
+            digits[i++] = (uint8_t)('0' + (int)(m % 10));
+            digits[i++] = (uint8_t)('0' + (int)((d / 10) % 10));
+            digits[i]   = (uint8_t)('0' + (int)(d % 10));
+            /* Using III+ U1-1; malformed descriptors still cannot write
+             * outside their slot. Same bound as fmt_field (initech-ifpd). */
+            rt_memset(dst, ' ', flen);
+#ifdef SAMIR_CORE_MUTATE_DATE_WIDTH
+            rt_memcpy(dst, digits, 8u);
+#else
+            rt_memcpy(dst, digits, flen < 8u ? flen : 8u);
+#endif
         } else {
             /* xb_u -> blank date (8 spaces). flen is 8 (asserted at create). */
             rt_memset(dst, ' ', (uint32_t)flen);
@@ -1678,12 +1695,13 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
     }
 
     case (unsigned char)'M': {
-        /* M <- C: ok (xbase_coercion.json target:M, expr:C, ok, "memo stores text").
-         * Write as left-justified, space-padded C-style into the 10-byte M slot
-         * (the .dbt block pointer slot). The full .dbt integration is S2.2;
-         * here we treat an M field like C for the field bytes. */
+        /* dbf_replace appends through the companion before publishing a
+         * decimal pointer (dbt.md ss4/8). A raw text slot is the named mutant. */
         if (!v || v->t != XB_C)
             return -DBF_ERR_MISMATCH;
+#ifndef SAMIR_CORE_MUTATE_MEMO_POINTER
+        return -DBF_ERR_IO;
+#else
         rt_memset(dst, ' ', (uint32_t)flen);
         if (v->u.c.p) {
             uint32_t n = (uint32_t)v->u.c.len;
@@ -1691,6 +1709,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
             rt_memcpy(dst, v->u.c.p, n);
         }
         return DBF_OK;
+#endif
     }
 
     default:
@@ -1722,6 +1741,36 @@ int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
     foff = field_offset_in_rec(tbl, field);
     rec  = rec_ptr(tbl, recno);
     dst  = rec + foff;
+
+#ifndef SAMIR_CORE_MUTATE_MEMO_POINTER
+    if (f->type == 'M') {
+        char path[sizeof(tbl->name)];
+        uint32_t n = rt_strlen(tbl->name), base = n, dot = n, block;
+        dbt_file *memo = (dbt_file *)0;
+        uint8_t pointer[10];
+        int rc, close_rc;
+        if (v->t != XB_C) return -DBF_ERR_MISMATCH;
+        /* III+ M slots are ten ASCII decimal bytes (dbt.md ss4, TRAVEL
+         * record 1: "         1"). Never overwrite malformed short slots. */
+        if (f->field_len != 10u) return -DBF_ERR_BAD_RECLEN;
+        while (base > 0u && tbl->name[base-1u] != '/' &&
+               tbl->name[base-1u] != '\\' && tbl->name[base-1u] != ':') base--;
+        for (n = base; tbl->name[n]; n++) if (tbl->name[n] == '.') dot = n;
+        if (dot + 5u > sizeof(path)) return -DBF_ERR_IO;
+        rt_memcpy(path, tbl->name, dot);
+        /* Use the table extension's case for case-sensitive host PALs. */
+        rt_memcpy(path + dot, dot < n && tbl->name[dot+1u] == 'D' ? ".DBT" : ".dbt", 5u);
+        rc = dbt_open_rw(tbl->pal, path, &memo);
+        if (rc != DBT_OK) return -DBF_ERR_IO; /* pointer untouched */
+        rc = dbt_append(memo, (const uint8_t *)v->u.c.p, v->u.c.len, &block);
+        close_rc = dbt_close(memo);
+        if (rc != DBT_OK || close_rc != DBT_OK) return -DBF_ERR_IO;
+        /* Publish only after the append and companion close succeeded. */
+        (void)dec_format((double)block, 10, 0, (char *)pointer);
+        rt_memcpy(dst, pointer, 10u);
+        return DBF_OK;
+    }
+#endif
 
     /* Apply assignment coercion and write the formatted bytes.
      * Returns DBF_OK or -DBF_ERR_MISMATCH for cross-type. */

@@ -1,0 +1,8 @@
+. USE STAFF
+. GO 6
+. DO DEPTNAME
+
+SMYKOWSKI, Customer Relations. GO 12
+. DO DEPTNAME
+
+PRUITT, Accounting

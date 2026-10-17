@@ -1,0 +1,8 @@
+. ? 'SMYKOWSKI' = 'SMY'
+
+.T.. SET EXACT ON
+. ? 'SMYKOWSKI' = 'SMY'
+
+.F.. ? 'SMY' = 'SMY  '
+
+.T.

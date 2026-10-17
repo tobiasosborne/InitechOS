@@ -1,0 +1,48 @@
+% Programming with InitechBase, Chapter 17: Working with Characters (AN-16).
+% Panels replayed (examples/p17-*.dot); sources core/fn_builtins.c (LEFT,
+% SUBSTR, LOWER, UPPER, TRIM, AT, STUFF), core/eval.c ($), the program
+% NAMEFMT.PRG.
+\chapter{Working with Characters}
+\Gates{test-pubs-examples, test-xbase-fn-a, test-xbase-fn-c}
+The staff roster keeps every name in capitals, as the clerks key them.  A
+letter to an employee prints the name with only its first letter in capitals.
+This chapter builds the salutation of a letter from the fields of the roster.
+
+\begin{ChapterCovers}
+\item Taking strings apart: \fn{LEFT()} and \fn{SUBSTR()}
+\item Changing case: \fn{UPPER()} and \fn{LOWER()}
+\item Searching: \texttt{\$} and \fn{AT()}
+\item Replacing part of a string: \fn{STUFF()}
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE STAFF}.
+
+\ATEHead{The Functions}
+\texttt{\$} is true when one string occurs in another; \fn{AT()} gives the place
+where it begins; \fn{STUFF()} replaces part of a string with another:
+\DotExample{examples/p17-strings}
+The first letter of a name, in capitals, joined to the rest in small letters,
+gives the name as a letter prints it.
+
+\ATEHead{Salutations}
+\file{NAMEFMT.PRG} prints the salutation of a letter to each employee:
+\ProgramListing{NAMEFMT.PRG}
+\begin{Steps}
+\item Type \type{DO NAMEFMT}.
+\end{Steps}
+\DotExample{examples/p17-namefmt}
+\fn{TRIM()} removes the blanks at the end of each field, so that the first and
+the last name are separated by one blank and the comma follows the name.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~18 changes many records in one program.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \fn{LEFT()} and \fn{SUBSTR()} take strings apart; \texttt{+} joins them.
+\item \fn{UPPER()} and \fn{LOWER()} change case; \fn{TRIM()} removes trailing
+  blanks.
+\item \texttt{\$}, \fn{AT()} and \fn{STUFF()} search and replace.
+\end{enumerate}

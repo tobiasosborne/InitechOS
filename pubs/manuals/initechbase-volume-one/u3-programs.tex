@@ -1,0 +1,87 @@
+% Using InitechBase, Chapter 3: About Program Files (annex Sec 8.2 U3).
+% Sources: samir_main.c repl_try_do_file / repl_load_prg (DO <name> loads
+% <name>.PRG, 8191-byte cap); cmd/proc.c proc_run (main program up to the
+% first PROCEDURE; DO of a procedure of the same source; scope model);
+% cmd/flow.c (one command per line, comments, structures, 512 lines); the
+% REPL-owned verbs USE/CLOSE/QUIT/EXIT and DO <file> are dot prompt only
+% (observed: in a program they are #16).
+\chapter{About Program Files}
+\Gates{test-pubs-examples, test-interp-proc, test-interp-flow}
+A \term{program} is a list of InitechBase commands kept in a file.  When you
+type \cmd{DO} and the name of the program at the dot prompt, InitechBase reads
+the file and carries out its commands one after another, as if you had typed
+them, until the program ends.  The work you do often -- a month-end report, a
+search, a correction of many records -- is done most surely by a program.
+
+\section{Writing a Program File}
+A program file is a text file with the extension \file{.PRG}.  Write it with
+any editor that saves plain text, such as the InitechDOS line editor
+\file{EDLIN} (\doctitle{InitechDOS Reference}).
+
+Each line of the file holds one command, of up to 254 characters.  A program
+file may hold up to 512 lines and 8,191 characters.  Blank lines are allowed,
+and so is indentation: InitechBase ignores the blanks at the beginning of a
+line, so indent the commands inside \cmd{IF}, \cmd{DO WHILE} and
+\cmd{DO CASE} to show the structure of the program.  A line that begins with
+an asterisk or \cmd{NOTE} is a comment, and two ampersands begin a comment at
+the end of a command.
+
+\section{The Commands of a Program}
+A program may use every command of Chapter~5 except those that belong to the
+dot prompt: \cmd{USE}, \cmd{CLOSE}, \cmd{QUIT} and \cmd{EXIT}, and \cmd{DO} of
+another program file.  A program works on the databases that are open when it
+is run: open them at the dot prompt with \cmd{USE}, and select the work area
+the program expects, before you type \cmd{DO}.  The program may select other
+work areas with \cmd{SELECT}.
+
+Three structures exist only in programs: \cmd{IF} \ldots{} \cmd{ENDIF}
+chooses between two groups of commands, \cmd{DO CASE} \ldots{} \cmd{ENDCASE}
+among several, and \cmd{DO WHILE} \ldots{} \cmd{ENDDO} repeats a group.  Each
+condition they test must be a logical expression.  \cmd{ACCEPT}, \cmd{INPUT}
+and \cmd{WAIT} ask the user for information while the program runs; \cmd{?}
+and \cmd{??} display results.
+
+\section{Running a Program}
+Type \cmd{DO} and the name of the program file; the extension \file{.PRG} may
+be left out:
+\DotExample{examples/u3-run}
+The program runs from its first line.  It ends at a \cmd{RETURN}, at its first
+\cmd{PROCEDURE} line or after its last line, and InitechBase displays the dot
+prompt.  The memory variables the main program created remain after it ends,
+as if they had been created at the dot prompt; those created by its
+procedures are released when the procedures return.
+
+When a command of the program cannot be carried out, the program stops at
+that command.  InitechBase displays the message of the error (Chapter~7) and
+the dot prompt.  The message follows the last output of the program on the
+same line when that output did not end its line.  An \cmd{ON ERROR} command
+given before the program runs is carried out first.
+
+\section{Procedures}
+A \term{procedure} is a part of a program file that the program calls by name
+with \cmd{DO}.  The procedures follow the main program in the same file.  Each
+begins with a \cmd{PROCEDURE} line and ends with \cmd{RETURN}.  When a
+procedure returns, the program goes on after the \cmd{DO} that called it.
+
+Values are passed to a procedure with \cmd{DO} \ldots{} \kw{WITH} and received
+with \cmd{PARAMETERS}.  A procedure that must give back a result stores it in a
+memory variable declared \cmd{PUBLIC}, as \file{RAISE.PRG} does:
+\ProgramListing{RAISE.PRG}
+\DotExample{examples/u3-proc}
+
+\section{Memory Variables in Programs}
+A memory variable created by a procedure is \term{private} to it: the
+procedures it calls can use and change it, but it is released when the
+procedure that created it returns.  \cmd{PRIVATE} creates private
+memory variables explicitly, hiding any of the same names that the callers
+have; \cmd{PUBLIC} creates memory variables that every program can use and
+that remain after the program ends.  \cmd{RELEASE} removes memory variables at
+once.
+
+\section{The Programs on the Sample Diskette}
+The Sample Programs and Utilities diskette holds the programs used as examples
+in this manual: \file{STAFFLST.PRG}, \file{PAYTOTAL.PRG}, \file{DEPTNAME.PRG},
+\file{RAISE.PRG} and \file{TALLY.PRG} with \file{STAFF.DBF}, and the programs of
+the Initech Accounting System with \file{INVOICE.DBF}, which
+\doctitle{Programming with InitechBase} describes in full.  Each begins with
+comment lines that name the database it expects.

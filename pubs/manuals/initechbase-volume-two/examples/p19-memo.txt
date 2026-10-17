@@ -1,0 +1,7 @@
+. USE STAFF
+. GO 6
+. ? LEN(NOTES), TYPE(NOTES)
+
+61 M. ? LEFT(NOTES, 20)
+
+Takes the specificat

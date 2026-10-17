@@ -15,6 +15,7 @@
  */
 
 #include "kbd.h"
+#include "../flair/ring_report.h"
 #include "io.h"
 
 /* 8042 keyboard data port (the controller output buffer). Ref: 8042 datasheet. */
@@ -38,6 +39,7 @@ void kbd_ring_init(kbd_ring_t *r)
 {
     r->head = 0u;
     r->tail = 0u;
+    r->dropped = 0;
 }
 
 int kbd_ring_empty(const kbd_ring_t *r)
@@ -57,6 +59,7 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
     uint16_t next = (uint16_t)((r->head + 1u) & (KBD_RING_CAP - 1u));
 #endif
     if (next == r->tail) {
+        if (r->dropped == 0) r->dropped = 1; /* ISR records, task reports. */
         /* Full: drop the byte (fail safe -- a dropped keystroke is not fatal,
          * Rule 2 fail-loud applies to invariant violations, not lost input). */
         return 0;
@@ -68,6 +71,12 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
 
 int kbd_ring_get(kbd_ring_t *r, uint8_t *out)
 {
+#ifndef KBD_MUT_SILENT_DROP
+    if (r->dropped == 1) {
+        r->dropped = 2;
+        RING_REPORT("KBD-RING-DROP\n");
+    }
+#endif
     if (r->head == r->tail) {
         return 0; /* empty */
     }
@@ -110,6 +119,12 @@ static const char SC1_SHIFT[0x3A] = {
     /* 0x38 */ 0,    ' '
 };
 
+/* Pure Set-1 decoder; the ring and IRQ publication retain native -O0 bytes.
+ * Ref: kbd.h Set-1 contract; test-kernel-native-boundaries. */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 void kbd_state_init(kbd_state_t *st)
 {
     st->shift = 0u;
@@ -211,6 +226,9 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
     return (uint8_t)base;
 }
 
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC pop_options
+#endif
 /* ---- kernel-only: state + IRQ1 handler + consumer ------------------------ */
 
 /* The single keyboard ring + modifier state. File scope (BSS) so the IRQ1

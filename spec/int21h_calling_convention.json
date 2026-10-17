@@ -36,6 +36,34 @@
   },
   "functions": [
     {
+      "ah": "39h", "mnemonic": "MKDIR",
+      "in": {"EDX": "flat pointer to ASCIIZ directory path"},
+      "out": {"AX": "DOS error code only when CF=1; unchanged on success"},
+      "cf": "clear on success; set on error (3 path not found, 5 access denied)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-119 / PDF242; ADR-0003 Appendix A and DEC-04a. Missing parent leaves the volume unchanged."
+    },
+    {
+      "ah": "3Ah", "mnemonic": "RMDIR",
+      "in": {"EDX": "flat pointer to ASCIIZ directory path"},
+      "out": {"AX": "DOS error code only when CF=1; unchanged on success"},
+      "cf": "clear on success; set on error (3 path not found, 5 nonempty/access denied, 16 root/current directory)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-120 / PDF243; ADR-0003 Appendix A and DEC-04a. The current directory cannot be removed."
+    },
+    {
+      "ah": "3Bh", "mnemonic": "CHDIR",
+      "in": {"EDX": "flat pointer to ASCIIZ directory path (64-byte bound)"},
+      "out": {"AX": "DOS error code only when CF=1; unchanged on success"},
+      "cf": "clear on success; set on error (3 path not found)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-121 / PDF244; ADR-0003 Appendix A and DEC-04a. Failure preserves CWD."
+    },
+    {
+      "ah": "47h", "mnemonic": "GETCWD",
+      "in": {"DL": "drive (0 default, 1 A:; current one-volume implementation)", "ESI": "flat pointer to a writable 64-byte buffer"},
+      "out": {"ESI": "buffer filled with NUL-terminated root-relative path, no leading backslash or drive", "AX": "DOS error code only when CF=1"},
+      "cf": "clear on success; set on error (15 invalid drive)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-188 / PDF311; ADR-0003 Appendix A and DEC-04a. DS:SI maps to ESI, not EDX. Root is an empty string."
+    },
+    {
       "ah": "00h", "mnemonic": "TERMINATE",
       "in": {},
       "out": {"AL": "0 (return code)"},
@@ -72,10 +100,10 @@
     },
     {
       "ah": "40h", "mnemonic": "WRITE",
-      "in": {"EBX": "handle", "ECX": "byte count", "EDX": "flat ptr to buffer"},
-      "out": {"EAX": "bytes written on success"},
-      "cf": "set on error (AX=error code; 0x0006=invalid handle for any handle other than 1/2 in the pre-filesystem phase)",
-      "notes": "Pre-filesystem subset: accept handles 1 (stdout) and 2 (stderr) -> CON only. Real file handles arrive with beads initech-509.3 (JFT/SFT)."
+      "in": {"EBX": "open JFT handle", "ECX": "byte count; zero sets a disk file's size to its current position", "EDX": "flat ptr to buffer; no bytes dereferenced when ECX=0"},
+      "out": {"EAX": "bytes written on success; zero for SETFILE-size (ECX=0)"},
+      "cf": "clear on success (a short write indicates disk full); set on error with AX=error code (0005h access denied, 0006h invalid handle, 001Dh disk I/O error)",
+      "notes": "IBM DOS 3.30 Technical Reference pp.6-139/6-140 (PDF262-263); ADR-0003 Appendix A, DEC-04a. ECX=0 truncates at the current file position without moving it. The disk backend releases clusters past the new EOF, retains the last kept cluster's EOC, and sets start_cluster=0 for an empty file. An inconsistent chain is refused before mutation. A metadata I/O fault during shrink restores the old FAT copies and directory entry and reports an error. The handle must permit writing and the file must not be read-only. Device handles retain their device write behavior. FAT16 writes remain unsupported."
     },
     {
       "ah": "44h", "mnemonic": "IOCTL",

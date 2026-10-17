@@ -1,0 +1,47 @@
+% Programming with InitechBase, Chapter 19: Memo Fields in Programs (AN-16).
+% Panels replayed (examples/p19-*.dot); sources fs/dbt.c (the memo text
+% read with its record), core/fn_builtins.c (memo accepted where <expC> is),
+% the program NOTES.PRG.  A memo field is read by programs; REPLACE into a
+% memo field does not store in this version (Using InitechBase, REPLACE).
+\chapter{Memo Fields in Programs}
+\Gates{test-pubs-examples, test-dbt-read, test-xbase-fn-a}
+The field \texttt{NOTES} of the staff roster is a memo field: its text, of any
+length, is kept in \file{STAFF.DBT}.  A program reads it like a character
+field.
+
+\begin{ChapterCovers}
+\item Memo text as a character value
+\item Functions on memo fields
+\item Printing the remarks of the roster
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE STAFF}.
+
+\ATEHead{Memo Text}
+In an expression, a memo field is the text of the current record's memo.
+\fn{TYPE()} reports it as M; the string functions accept it wherever they
+accept a character value:
+\DotExample{examples/p19-memo}
+A record with no memo has an empty memo field.
+
+\ATEHead{The Remarks of the Roster}
+\file{NOTES.PRG} prints the remark of every employee who has one:
+\ProgramListing{NOTES.PRG}
+\DotExample{examples/p19-notes}
+\fn{TRIM()} and \fn{LEN()} together tell whether the memo holds any text.
+
+\begin{AteNote}
+The programs of this manual read memo fields; they do not change them.
+\end{AteNote}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~20 changes the order of the records and hides some of them.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item A memo field is used as a character value in expressions.
+\item \fn{TYPE()} of a memo field is M.
+\item \fn{LEN(TRIM(NOTES))} is 0 for a record without a remark.
+\end{enumerate}

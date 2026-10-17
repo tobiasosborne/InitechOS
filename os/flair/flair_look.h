@@ -135,6 +135,15 @@ typedef enum {
     FLAIR_PART_LIST_PRESSED_EDGE,
     FLAIR_PART_LIST_EDGE,
     FLAIR_PART_LIST_PRESSED_BOTTOM,
+    /* Finder icon colour roles (bead initech-tdnl.53; spec/assets/desk_icons.h
+     * DESK_IC_*).  ONE role per non-clear icon colour ordinal k, at
+     * FLAIR_PART_ICON_CLUT + (k - 1), in ordinal order: os/flair/finder_icon.c
+     * names an ordinal, never a colour or an index (C-8).  The measured Mac OS
+     * 8.1 values (../system7-decomp/re/mint-results-008.md Sec 3) resolve to
+     * existing named gray-ramp rows, three new named ramp rows and the fifteen
+     * canon slots 11..25 (color_canon.json "indexed_icon_extension"). */
+    FLAIR_PART_ICON_CLUT,
+    FLAIR_PART_ICON_CLUT_LAST = FLAIR_PART_ICON_CLUT + 29,
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

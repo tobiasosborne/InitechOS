@@ -50,6 +50,7 @@
 
 #include <stdint.h>
 #include <string.h>   /* memset / memcmp -- libc OK in a host test (Law 3) */
+#include <stdio.h>
 
 #include "loader.h"
 #include "memory_map.h"
@@ -128,8 +129,31 @@ static void build_hdr(uint8_t *b,
     put16(b, 0x1C, tag);                           /* e_res[0] -- InitechMZ tag */
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    /* Optional factory fixture for the real FAT-loader boundary gate. */
+    if (argc == 2) {
+        uint8_t img[HDR_SIZE + 0x40u];
+        memset(img, 0, sizeof(img));
+        build_hdr(img, 0u, 0u, 0u, 0xFFFFu, 0u, 0u, 0u, 0x40u,
+                  MZ_INITECH_TAG, sizeof(img));
+        FILE *fp = fopen(argv[1], "wb");
+        if (!fp) return 2;
+        size_t n = fwrite(img, 1, sizeof(img), fp);
+        if (fclose(fp) || n != sizeof(img)) return 2;
+    } else if (argc != 1) return 2;
+    /* ADR-0003 DEC-08a.2: entry must address a byte IN the load module.
+     * jy7o/8obm: equality is the missing boundary, not just an oversized entry. */
+    for (uint16_t ip = 0x3Fu; ip <= 0x41u; ++ip) {
+        uint8_t img[HDR_SIZE + 0x40u];
+        loader_plan_t plan;
+        memset(img, 0, sizeof(img));
+        build_hdr(img, 0u, 0u, 0u, 0xFFFFu, 0u, 0u, 0u, ip,
+                  MZ_INITECH_TAG, sizeof(img));
+        loader_status_t st = loader_prepare_mz(img, sizeof(img), 0, 0u, &plan);
+        CHECK(st == (ip < 0x40u ? LOADER_OK : LOADER_ERR_BAD_FORMAT),
+              "MZ entry boundary: last byte valid; equal/past module BAD_FORMAT");
+    }
     /* ---- Case 1: a VALID InitechMZ loads, relocates, lays out (the core). -- *
      * Build an image with ONE reloc site. The load module has a known dword at
      * reloc offset 8 whose link-time value is K. After loader_prepare_mz the

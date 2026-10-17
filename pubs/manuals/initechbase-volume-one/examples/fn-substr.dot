@@ -1,0 +1,1 @@
+? SUBSTR("InitechBase", 1, 7), SUBSTR("InitechBase", 8), SUBSTR("abc", 4) + "|"

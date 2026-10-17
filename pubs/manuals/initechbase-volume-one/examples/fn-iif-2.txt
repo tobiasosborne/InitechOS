@@ -1,0 +1,4 @@
+. ? IIF(.F., 1/0, 5)
+
+5. ? IIF(1, 2, 3)
+37  Not a Logical expression.

@@ -1,0 +1,24 @@
+. USE INVOICE INDEX INVNO
+. DO ACCTMAIN
+
+
+INITECH ACCOUNTING SYSTEM -- ACCOUNTS RECEIVABLE
+  1  List the ledger
+  2  List the open invoices
+  3  Print the invoice register
+  0  Return to the dot prompt
+Choice: 1
+
+Record#  INVNO CUST       AMOUNT     DUEDATE  PAID
+      1  A1001 HARTWELL      1250.00 12/15/99 F   
+      2  A1002 BRAXTON CO     875.50 01/05/00 F   
+      3  A1003 DELMAR INC   14400.00 11/30/99 T   
+      4  A1004 QUINCY BK       99.99 02/10/00 F   
+
+
+INITECH ACCOUNTING SYSTEM -- ACCOUNTS RECEIVABLE
+  1  List the ledger
+  2  List the open invoices
+  3  Print the invoice register
+  0  Return to the dot prompt
+Choice: 0

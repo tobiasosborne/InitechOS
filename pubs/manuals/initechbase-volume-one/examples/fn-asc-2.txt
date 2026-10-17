@@ -1,0 +1,5 @@
+. USE STAFF
+. GO 2
+. ? CHR(ASC(LASTNAME) + 1)
+
+H

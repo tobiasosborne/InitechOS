@@ -49,6 +49,13 @@ cmd_kind_t cmd_classify(const char *upper_command)
     if (upper_command == 0 || upper_command[0] == '\0') {
         return CMD_EMPTY;
     }
+    /* Reference pp.46-47. COMMAND and COMMAND.COM name the native secondary
+     * entry; a foreign 16-bit interpreter is never executed (DEC-08). */
+    const char *s=upper_command;
+    if (s[0]=='C' && s[1]=='O' && s[2]=='M' && s[3]=='M' &&
+        s[4]=='A' && s[5]=='N' && s[6]=='D' &&
+        (!s[7] || (s[7]=='.' && s[8]=='C' && s[9]=='O' && s[10]=='M' && !s[11])))
+        return CMD_COMMAND;
     /* A tiny hand-rolled strcmp keeps this freestanding (no libc). */
     struct { const char *name; cmd_kind_t kind; } table[] = {
         { "DIR",   CMD_DIR  },
@@ -460,6 +467,95 @@ void cmd_set_parse(const char *arg, set_cmd_t *out)
  * Ref: DOS 3.3 COMMAND.COM (DEC-11 / Appendix D); spec/int21h_register.json.
  * These carry NO asm + NO I/O so test_command.c links them directly; the REPL
  * (below, COMMAND_KERNEL_REPL) wires them to the matching int $0x21 calls. */
+
+/* MS-DOS 3.3 Reference pp.50-52: + joins sources; /A,/B apply to the
+ * preceding operand and persist; /V is global. Parse fully before any I/O.
+ * Offsets into one command-sized arena avoid a source-count filesystem cap. */
+int cmd_copy_parse(const char *arg, cmd_copy_t *p)
+{
+    unsigned used=0, mode=0; int need=1, last=-1;
+    p->count=0; p->dest[0]=0; p->dest_mode=0; p->verify=0; p->joined=0;
+    while (*arg) {
+        while (is_space(*arg)) arg++;
+        if (!*arg) break;
+        if (*arg=='/') {
+            char c=cmd_upcase_char(*++arg);
+            if (!c) return 0;
+            arg++;
+            if (*arg && !is_space(*arg) && *arg!='/' && *arg!='+') return 0;
+            if (c=='V') { p->verify=1; continue; }
+            if (c!='A' && c!='B') return 0;
+            mode=c=='A' ? 1u:2u;
+#ifdef CMD_MUTATE_COPY_SWITCH
+            mode=0;
+#endif
+            if(last>=0) p->mode[last]=(uint8_t)mode;
+            else if(last==-2) p->dest_mode=(uint8_t)mode;
+            continue;
+        }
+        if (*arg=='+') {
+            if (need || p->dest[0]) return 0;
+            need=1; p->joined=1; arg++; continue;
+        }
+        char token[CMD_TOKEN_MAX]; unsigned n=0;
+        while(*arg && !is_space(*arg) && *arg!='+' && *arg!='/') {
+            if(n+1>=sizeof token)return 0;
+            token[n++]=cmd_upcase_char(*arg++);
+        }
+        token[n]=0;
+        if(!n)return 0;
+        if(need) {
+            if(p->count>=CMD_COPY_MAX || used+n+1>sizeof p->names)return 0;
+            last=(int)p->count;
+            p->offset[p->count]=(uint8_t)used;
+            p->mode[p->count++]=(uint8_t)mode;
+            for(unsigned i=0;i<=n;i++)p->names[used++]=token[i];
+            need=0;
+        } else {
+            if(p->dest[0])return 0;
+            for(unsigned i=0;i<=n;i++)p->dest[i]=token[i];
+            p->dest_mode=(uint8_t)mode; last=-2;
+        }
+    }
+    return p->count && !need;
+}
+
+/* Reference p.104: wildcard output positions retain the source character.
+ * Operate on independent 8/3 padded fields, then strip trailing pad spaces. */
+int cmd_name_map(const char *source,const char *pattern,char out[13])
+{
+    char src[11],dst[11]; unsigned field=0,pos=0;
+    for(unsigned i=0;i<11;i++)src[i]=dst[i]=' ';
+    for(const char *s=source;*s;s++) {
+        if(*s=='.'){field=8;pos=0;continue;}
+        if(pos>=(field?3u:8u))return 0;
+        src[field+pos++]=cmd_upcase_char(*s);
+    }
+    field=0;pos=0;
+    for(const char *s=pattern;*s;s++) {
+        if(*s=='.'){field=8;pos=0;continue;}
+        unsigned cap=field?3u:8u;
+        if(*s=='*') {
+            while(pos<cap){dst[field+pos]=src[field+pos];pos++;}
+            while(s[1] && s[1]!='.')s++;
+            continue;
+        }
+        if(pos>=cap)return 0;
+#ifdef CMD_MUTATE_REN_MAP
+        dst[field+pos]=*s=='?' ? 'X':cmd_upcase_char(*s);
+#else
+        dst[field+pos]=*s=='?' ? src[field+pos]:cmd_upcase_char(*s);
+#endif
+        pos++;
+    }
+    unsigned n=0,end=8;
+    while(end && dst[end-1]==' ')end--;
+    if(!end)return 0;
+    for(unsigned i=0;i<end;i++)out[n++]=dst[i];
+    end=11;while(end>8 && dst[end-1]==' ')end--;
+    if(end>8){out[n++]='.';for(unsigned i=8;i<end;i++)out[n++]=dst[i];}
+    out[n]=0;return 1;
+}
 
 /* cmd_pair_parse: split `arg` into its first two whitespace-delimited tokens,
  * each UPPER-CASED (DOS upcases 8.3 names). `ok` is 1 iff BOTH are non-empty.
@@ -1663,7 +1759,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
  * build (test_command.c never defines COMMAND_KERNEL_REPL) so the pure logic
  * above stays asm-free + host-testable (Law 3).
  * ===========================================================================*/
-#ifdef COMMAND_KERNEL_REPL
+#if defined(COMMAND_KERNEL_REPL) || defined(COMMAND_FILE_HOST)
 
 #include "find_data.h"   /* find_data_t (43-byte DTA record; offsets DIR reads) */
 #include "int21.h"       /* INT21_CWD_MAX -- the AH=47h root-relative CWD bound */
@@ -1677,6 +1773,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
  * the SAME path a real DOS COMMAND.COM uses (it is itself a .COM that calls the
  * INT 21h services). We capture CF with `sbb` (carry -> 0xFFFFFFFF/0). */
 
+#ifndef COMMAND_FILE_HOST
 /* AH=09h DISPLAY STRING: EDX -> '$'-terminated string -> CON. */
 static void dos_print(const char *dollar_terminated)
 {
@@ -1910,6 +2007,18 @@ static uint32_t dos_write_h(int handle, const uint8_t *buf, uint32_t count)
     return ax;           /* EAX = bytes written */
 }
 
+/* IBM DOS 3.30 TR p.6-140: zero-count AH=40h truncates at the current
+ * position. Capture CF separately: zero bytes is also the success result. */
+static int dos_seteof(int handle)
+{
+    uint32_t ax=0x4000u,carry;
+    __asm__ __volatile__("int $0x21\n\t" "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "b"((uint32_t)handle), "c"(0u), "d"(0u)
+        : "cc", "memory");
+    return carry ? -1:0;
+}
+
 /* AH=3Dh OPEN with an explicit AL access mode. dos_open above pins AL=00 (read);
  * `>>` append needs the file opened RDWR (AL=02) so LSEEK-to-end + WRITE land in
  * the existing file. Returns the handle (>=0) on success, or -(error) on CF.
@@ -1991,6 +2100,17 @@ static int dos_lseek_end(int handle)
         return -1;
     }
     return 0;
+}
+
+/* AH=42h absolute seek, ADR-0003 App A; COPY /V and p.52 append EOF. */
+static int dos_seek_absolute(int handle, uint32_t offset)
+{
+    uint32_t ax=0x4200u,carry;
+    __asm__ __volatile__("int $0x21\n\t" "sbb %1, %1"
+        : "+a"(ax), "=r"(carry)
+        : "b"((uint32_t)handle), "c"(offset>>16), "d"(offset&65535u)
+        : "cc", "memory");
+    return carry ? -1:0;
 }
 
 /* AH=41h UNLINK (DELETE FILE): EDX -> ASCIIZ path. Returns 0 on success (CF
@@ -2862,141 +2982,270 @@ static void builtin_break(const char *arg)
     }
 }
 
-/* COPY <src> <dst> (beads initech-hpls, Tranche F). Single-file copy:
- *   OPEN src (3Dh) -> CREAT dst (3Ch) -> READ/WRITE loop (3Fh/40h) -> CLOSE both
- *   (3Eh). Restore source date/time with 57h after the last write, before close.
- *   On success: "        1 file(s) copied" (the DOS COPY footer, Law 4).
- * Errors: a missing operand -> "Required parameter missing" (MSG-DOS-0011); a
- * missing/unopenable source -> "File not found" (MSG-DOS-0003); a destination
- * that cannot be created or a short write -> "Bad command or file name"
- * (MSG-DOS-0002, the catch-all COMMAND.COM diagnostic). Wildcard source COPY
- * remains deferred. Directory destinations receive the source basename.
- * Ref: MS-DOS 3.3 User's Reference pp. 50-51; INT21 3Dh/3Ch/3Fh/40h. */
-static void builtin_copy(const char *arg)
+#else
+/* Factory adapter issues the same calls to the actual INT21/FAT backend.
+ * PRD 6.1: mtools on identical images is the independent oracle. */
+#include "shell_files_host.h"
+#endif
+
+static uint32_t copy_verify_offset;
+/* COPY execution. Law 1: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
+ * Resolve identity before CREAT; enumerate by ordinal and restart after file
+ * calls (one kernel find context). No roster limit on wildcard source files. */
+static int copy_path(char out[CMD_LINE_MAX],const char *spec,const char *leaf)
 {
-    cmd_pair_t pair;
-    int  src_h, dst_h;
-    uint8_t chunk[128];
-    uint32_t got;
-    char destination[CMD_LINE_MAX];
-
-    cmd_pair_parse(arg, &pair);
-    if (!pair.ok) {
-        dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
-        return;
-    }
-
-    src_h = dos_open(pair.first);
-    if (src_h < 0) {
-        dos_print(MSG_DOS_0003 "\r\n$");        /* "File not found" */
-        return;
-    }
-    uint32_t n = str_len(pair.second);
-    for (uint32_t i = 0; i <= n; i++) destination[i] = pair.second[i];
-#ifndef CMD_MUTATE_COPY_DIR_RAW
-    if (int21_directory_exists(destination)) {
-        const char *leaf = pair.first;
-        for (const char *p = leaf; *p; p++)
-            if (*p == '\\' || *p == ':') leaf = p + 1;
-        /* Ref: MS-DOS 3.3 User's Reference p. 51, animal.typ -> c:\bigcats.
-         * Audit K02 / initech-wdzq: never pass the directory itself to CREAT.
-         * Bound the assembled path; never truncate into a different target. */
-        uint32_t len = str_len(leaf);
-        if (n + len + 2u > sizeof(destination)) {
-            dos_close(src_h);
-            dos_print(MSG_DOS_0009 "\r\n$");
-            return;
-        }
-        if (n != 0u && destination[n - 1u] != '\\' && destination[n - 1u] != ':')
-            destination[n++] = '\\';
-        for (uint32_t i = 0; i <= len; i++) destination[n + i] = leaf[i];
-    }
-#endif
-    /* OPEN both operands before CREAT: the resolved parent + entry slot is the
-     * identity, including absolute/CWD/dot aliases and zero-length files.
-     * Ref: Microsoft MS-DOS 3.3 User's Reference p. 50 (self refusal + zero
-     * footer); audit K01 / initech-vj28. COMMAND.COM is kernel-resident. */
-    int probe = dos_open(destination);
-    int same = probe >= 0 && int21_same_file((uint16_t)src_h, (uint16_t)probe);
-    if (probe >= 0) dos_close(probe);
-    if (probe < 0 && probe != -(int)INT21_ERR_FILE_NOT_FOUND &&
-        probe != -(int)INT21_ERR_PATH_NOT_FOUND) {
-        dos_close(src_h);
-        dos_print(MSG_DOS_0009 "\r\n$");
-        return;
-    }
+    unsigned prefix=0,n=0;
+    for(unsigned i=0;spec[i];i++)if(spec[i]=='\\' || spec[i]==':')prefix=i+1;
+    while(leaf[n])n++;
+    if(prefix+n>=CMD_LINE_MAX)return 0;
+    for(unsigned i=0;i<prefix;i++)out[i]=spec[i];
+    for(unsigned i=0;i<=n;i++)out[prefix+i]=leaf[i];
+    return 1;
+}
+static int copy_nth(const char *spec,unsigned n,char leaf[13])
+{
+    dos_setdta(&g_shell_dta);
+    if(!dos_findfirst(spec,0))return 0;
+    while(n--)if(!dos_findnext())return 0;
+    for(unsigned i=0;i<13;i++)leaf[i]=g_shell_dta.fname[i];
+    return 1;
+}
+static int copy_transfer(const char *source,const char *dest,int ascii,int append,
+                         int verify,int preserve)
+{
+    uint8_t chunk[128],check[128];
+    int src=dos_open(source),dst=-1;
+    if(src<0){dos_print(MSG_DOS_0003 "\r\n$");return 0;}
+    int probe=dos_open(dest);
+    int same=probe>=0 && int21_same_file((uint16_t)src,(uint16_t)probe);
 #ifdef CMD_MUTATE_NO_SAMEFILE
-    same = 0;  /* Rule 6: reproduce truncate-through-alias for disk oracle. */
+    same=0;
 #endif
-    if (same) {
-        dos_close(src_h);
-        dos_print(MSG_DOS_0020 "\r\n$");        /* "File cannot be copied onto itself" */
-        dos_print("        0 file(s) copied\r\n$");
-        return;
+    if(probe>=0)dos_close(probe);
+    if(probe<0 && probe!=-(int)INT21_ERR_FILE_NOT_FOUND && probe!=-(int)INT21_ERR_PATH_NOT_FOUND)goto denied;
+    if(same) {
+        dos_close(src);
+        dos_print(MSG_DOS_0020 "\r\n$");
+        int n=0;put_u_field(g_out,&n,0,9);dos_write(g_out,(uint32_t)n);
+        dos_puts_raw(MSG_DOS_0061);dos_print("\r\n$");
+        return 0;
     }
-    dst_h = dos_creat(destination);
-    if (dst_h < 0) {
-        dos_close(src_h);
-        /* MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 308;
-         * spec/dos_messages.json MSG-DOS-0009 (L005 / initech-1vcl). */
-        dos_print((dst_h == -(int)INT21_ERR_ACCESS_DENIED)
-                  ? MSG_DOS_0009 "\r\n$" : MSG_DOS_0002 "\r\n$");
-        return;
+    dst=append ? dos_open_mode(dest,2):dos_creat(dest);
+    if(dst<0)goto denied;
+    if(append && dos_lseek_end(dst)<0)goto denied;
+    for(;;) {
+        uint32_t got=dos_read(src,chunk,sizeof chunk);
+        if(got==DOS_READ_ERROR)goto failed;
+        if(!got)break;
+        uint32_t take=got;
+#ifndef CMD_MUTATE_COPY_ASCII
+        if(ascii)for(uint32_t i=0;i<got;i++)if(chunk[i]==26){take=i;break;}
+#else
+        (void)ascii;
+#endif
+        if(dos_write_h(dst,chunk,take)!=take)goto failed;
+        if(verify && take) {
+            /* READ back the just-written extent through a separate read
+             * handle. /V checks recorded data, Reference pp.50-51. */
+            int v=dos_open(dest);
+            if(v<0)goto failed;
+            uint32_t skip=0,offset=copy_verify_offset;
+            while(skip<offset) {
+                uint32_t n=offset-skip;
+                if(n>sizeof check)n=sizeof check;
+                if(dos_read(v,check,n)!=n){dos_close(v);goto failed;}
+                skip+=n;
+            }
+            uint32_t n=dos_read(v,check,take);
+            dos_close(v);
+            if(n!=take)goto failed;
+#ifndef CMD_MUTATE_COPY_VERIFY
+            for(uint32_t i=0;i<take;i++)if(check[i]!=chunk[i])goto failed;
+#endif
+        }
+        copy_verify_offset+=take;
+        if(take<got)break;
+        if(g_shell_break.interrupted)goto failed;
     }
-
-    for (;;) {
-        got = dos_read(src_h, chunk, sizeof(chunk));
-        if (got == DOS_READ_ERROR) {
-            /* initech-winh: a read failure is NOT a byte count -- abort
-             * rather than writing `chunk` (possibly never written this call)
-             * to the destination as if it were real source-file data. */
-            dos_close(src_h);
-            dos_close(dst_h);
-            dos_print(MSG_DOS_0002 "\r\n$");
-            return;
-        }
-        if (got == 0u) {
-            break;                              /* EOF -> the copy is complete */
-        }
-        if (dos_write_h(dst_h, chunk, got) != got) {
-            /* A short/failed write (disk full / access) -- fail loud (Rule 2). */
-            dos_close(src_h);
-            dos_close(dst_h);
-            dos_print(MSG_DOS_0002 "\r\n$");
-            return;
-        }
-    }
-
-    /* initech-qqrz. MS-DOS 3.3 Reference p.50 (PDF135): the copy keeps the
-     * original date/time. WRITE stamps with the current clock, so FILETIME SET
-     * belongs AFTER every write, including the empty-file/truncate case.
-     * AH=57h's device rejection (int21.c do_filetime) leaves COPY CON/PRN
-     * transfers without a disk stamp. Other failures must not print success. */
-    uint16_t time = 0, date = 0;
-    int stamp = 0;
-    if (!g_shell_break.interrupted) {
-        stamp = dos_filetime(src_h, 0, &time, &date);
-        if (stamp == 0) {
+    if(preserve) {
+        uint16_t time=0,date=0;
+        int stamp=dos_filetime(src,0,&time,&date);
+        if(stamp==0) {
 #ifdef CMD_MUTATE_COPY_TIME
-            time = 0; /* Rule 6: discard just the source time word. */
+            time=0;
 #endif
 #ifdef CMD_MUTATE_COPY_DATE
-            date = 0; /* Rule 6: discard just the source date word. */
+            date=0;
 #endif
-            stamp = dos_filetime(dst_h, 1, &time, &date);
+            stamp=dos_filetime(dst,1,&time,&date);
         }
+        if(stamp && stamp!=-(int)INT21_ERR_INVALID_FUNCTION)goto failed;
     }
-    dos_close(src_h);
-    dos_close(dst_h);
-    if (g_shell_break.interrupted) return; /* abort is not a completed COPY */
-    if (stamp != 0 && stamp != -(int)INT21_ERR_INVALID_FUNCTION) {
-        dos_print(MSG_DOS_0002 "\r\n$");
-        return;
-    }
-    /* DOS COPY footer: a count column then " file(s) copied" (Law 4). */
-    dos_print("        1 file(s) copied\r\n$");
+    dos_close(src);dos_close(dst);return !g_shell_break.interrupted;
+denied:
+    dos_print(MSG_DOS_0009 "\r\n$");
+    dos_close(src);if(dst>=0)dos_close(dst);return 0;
+failed:
+    dos_close(src);if(dst>=0)dos_close(dst);
+    if(!g_shell_break.interrupted)dos_print(MSG_DOS_0002 "\r\n$");
+    return 0;
 }
 
+static void builtin_copy(const char *arg)
+{
+    cmd_copy_t plan;
+    if(!cmd_copy_parse(arg,&plan)) {
+        const char *p=arg;while(is_space(*p))p++;
+        dos_print(*p ? MSG_DOS_0010 "\r\n$":MSG_DOS_0011 "\r\n$");return;
+    }
+    char dest[CMD_LINE_MAX],base[13],source[CMD_LINE_MAX],mapped[13];
+    int omitted=!plan.dest[0];
+    if(omitted && plan.joined) {
+        const char *first=plan.names+plan.offset[0];
+        if(cmd_has_wildcard(first)){dos_print(MSG_DOS_0002 "\r\n$");return;}
+        for(unsigned i=0;(dest[i]=first[i])!=0;i++){}
+    } else if(omitted) { dest[0]='.';dest[1]=0; }
+    else for(unsigned i=0;(dest[i]=plan.dest[i])!=0;i++){}
+    int directory=int21_directory_exists(dest);
+#ifdef CMD_MUTATE_COPY_DIR_RAW
+    directory=0;
+#endif
+    int per_file=directory || cmd_has_wildcard(dest);
+    int combined=plan.joined || (!per_file && cmd_has_wildcard(plan.names));
+    unsigned done=0;
+    int append=omitted && plan.joined;
+    /* The warning on Reference p.51 applies to every source, including a
+     * later + operand. Probe explicit identities BEFORE the first CREAT. */
+    if(!per_file) {
+        int target=dos_open(dest);
+        for(unsigned s=0;s<plan.count;s++) {
+            const char *name=plan.names+plan.offset[s];
+            if(cmd_has_wildcard(name))continue;
+            int h=dos_open(name);
+            int same=h>=0 && target>=0 && int21_same_file((uint16_t)h,(uint16_t)target);
+#ifdef CMD_MUTATE_NO_SAMEFILE
+            same=0;
+#endif
+            if(h>=0)dos_close(h);
+            if(h<0 || (same && !(append && s==0))) {
+                if(target>=0)dos_close(target);
+                dos_print(same ? MSG_DOS_0020 "\r\n$":MSG_DOS_0003 "\r\n$");
+                if(same) {
+                    int n=0;put_u_field(g_out,&n,0,9);dos_write(g_out,(uint32_t)n);
+                    dos_puts_raw(MSG_DOS_0061);dos_print("\r\n$");
+                }
+                return;
+            }
+        }
+        if(target>=0)dos_close(target);
+    }
+    copy_verify_offset=0;
+    /* Omitted-target concatenation retains the first source, then appends.
+     * With /A, replace its first EOF by the following sources (p.52). */
+    if(append) {
+        int h=dos_open(dest);uint8_t c;
+        if(h<0){dos_print(MSG_DOS_0003 "\r\n$");return;}
+        uint32_t got;
+        while((got=dos_read(h,&c,1))==1 && (plan.mode[0]==2 || c!=26))copy_verify_offset++;
+        dos_close(h);
+        if(got==DOS_READ_ERROR){dos_print(MSG_DOS_0009 "\r\n$");return;}
+        /* Existing EOF removal needs a positioned truncate before append. */
+        h=dos_open_mode(dest,2);
+        if(h<0 || dos_seek_absolute(h,copy_verify_offset)<0 || dos_seteof(h)<0) {
+            if(h>=0)dos_close(h);
+            dos_print(MSG_DOS_0009 "\r\n$");return;
+        }
+        dos_close(h);
+    }
+    unsigned outer=0;
+    do {
+        if(per_file) {
+            const char *first=plan.names+plan.offset[0];
+#ifdef CMD_MUTATE_COPY_WILD
+            if(cmd_has_wildcard(first))break;
+#endif
+            if(!copy_nth(first,outer++,base))break;
+        }
+        char target[CMD_LINE_MAX];
+        if(per_file) {
+            if(directory) {
+                unsigned n=str_len(dest),k=str_len(base);
+                if(n+k+2>sizeof target)return;
+                for(unsigned i=0;i<n;i++)target[i]=dest[i];
+                if(n && dest[n-1]!='\\' && dest[n-1]!=':')target[n++]='\\';
+                for(unsigned i=0;i<=k;i++)target[n+i]=base[i];
+            } else {
+                const char *leaf=dest;
+                for(const char *p=dest;*p;p++)if(*p=='\\' || *p==':')leaf=p+1;
+                if(!cmd_name_map(base,leaf,mapped) || !copy_path(target,dest,mapped))return;
+            }
+            append=0;copy_verify_offset=0;
+        } else for(unsigned i=0;(target[i]=dest[i])!=0;i++){}
+        for(unsigned s=(omitted && plan.joined)?1u:0u;s<plan.count;s++) {
+#ifdef CMD_MUTATE_COPY_PLUS
+            if(s)break;
+#endif
+            const char *spec=plan.names+plan.offset[s];
+            unsigned ordinal=0;
+            do {
+                if(per_file) {
+                    if(s==0) { if(!copy_path(source,spec,base))return; }
+                    else if(cmd_has_wildcard(spec)) {
+                        const char *leaf=spec;
+                        for(const char *p=spec;*p;p++)if(*p=='\\' || *p==':')leaf=p+1;
+                        if(!cmd_name_map(base,leaf,mapped) || !copy_path(source,spec,mapped))return;
+                    } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
+                } else if(cmd_has_wildcard(spec)) {
+#ifdef CMD_MUTATE_COPY_WILD
+                    break;
+#endif
+                    if(!copy_nth(spec,ordinal++,base))break;
+                    if(!copy_path(source,spec,base))return;
+                } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
+                int ascii=plan.mode[s]==1 || (!plan.mode[s] && combined);
+                if(!copy_transfer(source,target,ascii,append,(int)plan.verify,!combined))return;
+                append=1;
+                if(per_file || !cmd_has_wildcard(spec))break;
+            } while(!g_shell_break.interrupted);
+        }
+        if(!append) {dos_print(MSG_DOS_0003 "\r\n$");return;}
+        int textmode=plan.dest_mode==1 || (!plan.dest_mode && combined);
+#ifndef CMD_MUTATE_COPY_EOF
+        if(textmode) {
+            uint8_t eof=26;int h=dos_open_mode(target,2);
+            if(h<0 || dos_lseek_end(h)<0 || dos_write_h(h,&eof,1)!=1) {
+                if(h>=0)dos_close(h);
+                dos_print(MSG_DOS_0009 "\r\n$");return;
+            }
+            dos_close(h);
+            if(!combined) {
+                int s=dos_open(source); h=dos_open_mode(target,2);
+                uint16_t time=0,date=0;
+                if(s>=0 && h>=0 && !dos_filetime(s,0,&time,&date)) {
+#ifdef CMD_MUTATE_COPY_TIME
+                    time=0;
+#endif
+#ifdef CMD_MUTATE_COPY_DATE
+                    date=0;
+#endif
+                    (void)dos_filetime(h,1,&time,&date);
+                }
+                if(s>=0)dos_close(s);
+                if(h>=0)dos_close(h);
+            }
+        }
+#else
+        (void)textmode;
+#endif
+        done++;
+    } while(per_file && !g_shell_break.interrupted);
+    {
+        int n=0;put_u_field(g_out,&n,done,9);dos_write(g_out,(uint32_t)n);
+        dos_puts_raw(MSG_DOS_0061);dos_print("\r\n$");
+    }
+}
+
+#ifndef COMMAND_FILE_HOST
 /* Preserve the operand's parent (including drive/CWD/dots) when substituting
  * the DTA's matched leaf. Both components are bounded: 63 + 12 < 128 bytes.
  * Ref: MS-DOS 3.3 User's Reference pp. 13, 56; audit K03 / initech-8uad. */
@@ -3146,28 +3395,49 @@ static void builtin_del(const char *arg)
     }
 }
 
+#endif
 /* REN / RENAME <old> <new> (beads initech-fyox, Tranche F). AH=56h same-dir
  * dir-entry rename. DOS prints NOTHING on success; a missing operand ->
- * "Required parameter missing" (MSG-DOS-0011); any failure (source missing /
- * dest exists / no backend) -> "Bad command or file name" (MSG-DOS-0002, the
- * COMMAND.COM catch-all). Cross-directory MOVE is a separate kernel bead
- * (initech-ycb3); REN here is in-place only. Ref: DOS 3.3 REN; 56h. */
+ * "Required parameter missing" (MSG-DOS-0011); collision/missing source ->
+ * "Duplicate file name" (MS-DOS 3.3 Reference p.325). The p.104 wildcard
+ * substitution retains matching character positions. REN stays in place. */
 static void builtin_ren(const char *arg)
 {
-    cmd_pair_t pair;
-
-    cmd_pair_parse(arg, &pair);
-    if (!pair.ok) {
-        dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
-        return;
+    cmd_pair_t pair;cmd_pair_parse(arg,&pair);
+    if(!pair.ok){dos_print(MSG_DOS_0011 "\r\n$");return;}
+    /* p.104: destination has no path; its optional drive is ignored. */
+    const char *pattern=pair.second;
+    if(pattern[0] && pattern[1]==':')pattern+=2;
+    for(const char *p=pattern;*p;p++)if(*p=='\\') {
+        dos_print(MSG_DOS_0002 "\r\n$");return;
     }
-    if (dos_rename(pair.first, pair.second) != 0u) {
-        dos_print(MSG_DOS_0002 "\r\n$");        /* "Bad command or file name" */
-        return;
+#ifdef CMD_MUTATE_REN_ENUM
+    if(dos_rename(pair.first,pair.second))dos_print(MSG_DOS_0002 "\r\n$");
+#else
+    /* Rename changes no directory slots. Restart by the enumeration ordinal,
+     * accounting for whether the renamed entry still matches; a retained
+     * pattern match must never be processed again. */
+    unsigned ordinal=0;int found=0;
+    char leaf[13],mapped[13],old[CMD_LINE_MAX],newname[CMD_LINE_MAX];
+    while(copy_nth(pair.first,ordinal,leaf)) {
+        found=1;
+        if(!cmd_name_map(leaf,pattern,mapped) || !copy_path(old,pair.first,leaf) ||
+           !copy_path(newname,pair.first,mapped))break;
+        if(cmd_same_file(old,newname)){ordinal++;continue;}
+        if(dos_rename(old,newname)) {
+            dos_print(MSG_DOS_0062 "\r\n$");ordinal++;continue;
+        }
+        /* Re-enumerate until the current leaf. If the new spelling remains
+         * selected, it occupies this ordinal; otherwise the next moves here.
+         * The pure DOS matcher is the INT21 service, not a second shell glob. */
+        char current[13];
+        if(copy_nth(pair.first,ordinal,current) && cmd_same_file(current,mapped))ordinal++;
     }
-    /* Success is SILENT (DOS REN prints nothing). */
+    if(!found)dos_print(MSG_DOS_0062 "\r\n$");
+#endif
 }
 
+#ifndef COMMAND_FILE_HOST
 /* DATE [MM-DD-YY[YY]] (beads initech-uy4l, Tranche F).
  *   no arg -> AH=2Ah GET, print "Current date is Day MM-DD-YYYY".
  *   arg    -> AH=2Bh SET after validating the date (DOS rejects a bad date and
@@ -3386,6 +3656,7 @@ static void startup_datetime(void)
  * returns on 1; run_batch unwinds the secondary's batches. A permanent
  * processor returns 0 for EXIT and continues without a diagnostic. */
 static int dispatch_control(const char *line);
+static void builtin_command(const char *arg);
 
 static int dispatch_line(const char *line)
 {
@@ -3439,6 +3710,9 @@ static int dispatch_line(const char *line)
             break;
         case CMD_COPY:
             builtin_copy(parsed.arg);
+            break;
+        case CMD_COMMAND:
+            builtin_command(parsed.arg);
             break;
         case CMD_DEL:
             builtin_del(parsed.arg);
@@ -4375,6 +4649,38 @@ static void run_batch_invoke(const char *path, const char *tail)
     run_batch(path, argv, argc);
 }
 
+/* Reference pp.46-47: /C creates a private environment, executes one command
+ * and returns automatically. Existing redirect/pipe scopes save and restore
+ * the parent's handles; EXIT and batch control are isolated as well. */
+static void builtin_command(const char *arg)
+{
+    static unsigned depth;
+    while(is_space(*arg))arg++;
+    if(arg[0]!='/' || cmd_upcase_char(arg[1])!='C' ||
+       (arg[2] && !is_space(arg[2]))) {
+        dos_print(MSG_DOS_0038 "\r\n$");return;
+    }
+    arg+=2;while(is_space(*arg))arg++;
+    if(depth>=8){dos_print(MSG_DOS_0035 "\r\n$");return;}
+    env_store_t env=g_master_env;
+    int exit=g_shell_exit,permanent=g_shell_permanent;
+    uint8_t errorlevel=g_errorlevel;
+    batch_frame_t *frame=g_batch_frame;
+    g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
+    depth++;
+#ifndef CMD_MUTATE_COMMAND_C
+    run_with_redirect(arg);
+#endif
+    depth--;
+#ifndef CMD_MUTATE_COMMAND_ENV
+    g_master_env=env;
+#else
+    (void)env;
+#endif
+    g_shell_exit=exit;g_shell_permanent=permanent;
+    g_errorlevel=errorlevel;g_batch_frame=frame;
+}
+
 void command_repl(int permanent)
 {
     char line[CMD_LINE_MAX];
@@ -4523,4 +4829,5 @@ void command_repl(int permanent)
     }
 }
 
-#endif /* COMMAND_KERNEL_REPL */
+#endif /* !COMMAND_FILE_HOST */
+#endif /* COMMAND_KERNEL_REPL || COMMAND_FILE_HOST */

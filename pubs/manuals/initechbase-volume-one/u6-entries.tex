@@ -1,0 +1,663 @@
+% ABS -- os/samir/core/fn_builtins.c fn_abs (l.789-808)
+\begin{XbaseEntry}{ABS}{function}
+Returns the absolute value of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ABS(}\xp{expN}\kw{)}}
+\Usage
+\fn{ABS()} removes the sign of a negative number and leaves any other number unchanged. The argument must be numeric. A call with other than one argument raises \xmsg{11}{Invalid function argument.}; an argument that is not numeric raises \xmsg{9}{Data type mismatch.}.
+\Examples
+The difference between a salary and a reference figure, with and without its sign:
+\DotExample{examples/fn-abs}
+\SeeAlso{INT(), MAX(), MIN(), MOD()}
+\end{XbaseEntry}
+
+% ASC -- os/samir/core/fn_builtins.c fn_asc (l.327-335)
+\begin{XbaseEntry}{ASC}{function}
+Returns the character code of the leftmost character of a character string, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ASC(}\xp{expC}\kw{)}}
+\Usage
+The result is a whole number from 0 through 255. Only the first character of \xp{expC} is examined. The ASC of an empty string is 0. A memo field is accepted as the argument. An argument that is not a character expression raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+Codes of single characters, and the character that follows the first letter of a name:
+\DotExample{examples/fn-asc}
+\DotExample{examples/fn-asc-2}
+\SeeAlso{CHR(), LEFT(), SUBSTR()}
+\end{XbaseEntry}
+
+% AT -- os/samir/core/fn_builtins.c fn_at (l.1228-1252)
+\begin{XbaseEntry}{AT}{function}
+Returns the position at which one character string first occurs inside another, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{AT(}\xp{expC1}\kw{,} \xp{expC2}\kw{)}}
+\Usage
+\fn{AT()} searches \xp{expC2} for the first occurrence of \xp{expC1} and returns the position of its first character, counting from 1. The result is 0 when \xp{expC1} does not occur in \xp{expC2}, when \xp{expC1} is an empty string, or when \xp{expC1} is longer than \xp{expC2}. The comparison distinguishes upper case from lower case, and SET EXACT has no effect on it. Memo fields are accepted for either argument. Both arguments must be character expressions, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Tips
+To search without regard to case, convert both strings with \fn{UPPER()} first.
+\Examples
+\DotExample{examples/fn-at}
+Letters are compared as typed, so the lower-case form of a name in upper case is not found:
+\DotExample{examples/fn-at-2}
+\SeeAlso{LEFT(), RIGHT(), STUFF(), SUBSTR(), UPPER()}
+\end{XbaseEntry}
+
+% BOF -- os/samir/core/fn_builtins.c fn_eofbof (l.1925-1937)
+\begin{XbaseEntry}{BOF}{function}
+Returns a logical value that is true when a record movement has gone back past the first record of the database in the selected work area.
+\Syntax
+\SyntaxLine{\kw{BOF()}}
+\Usage
+\fn{BOF()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The value reflects the selected work area. With no database in USE the function does not raise an error; it returns .F.
+\Examples
+Moving up from the first record sets the flag, and the record pointer stays at record 1:
+\DotExample{examples/fn-bof}
+\SeeAlso{EOF(), RECNO(), RECCOUNT(), SKIP, GO}
+\end{XbaseEntry}
+
+% CDOW -- os/samir/core/fn_builtins.c fn_cdow (l.1042-1060)
+\begin{XbaseEntry}{CDOW}{function}
+Returns the name of the day of the week of a date, as a character string.
+\Syntax
+\SyntaxLine{\kw{CDOW(}\xp{expD}\kw{)}}
+\Usage
+The name is in English, with a capital first letter: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday or Saturday. The CDOW of a blank date is an empty string. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}. SET DATE and SET CENTURY have no effect on the result.
+\Examples
+\DotExample{examples/fn-cdow}
+\SeeAlso{CMONTH(), DOW(), DAY(), CTOD()}
+\end{XbaseEntry}
+
+% CHR -- os/samir/core/fn_builtins.c fn_chr (l.308-322)
+\begin{XbaseEntry}{CHR}{function}
+Returns the character whose code is a given number, as a character string of length 1.
+\Syntax
+\SyntaxLine{\kw{CHR(}\xp{expN}\kw{)}}
+\Usage
+\xp{expN} must lie between 0 and 255 inclusive; a fractional part is dropped. A number outside that range raises \xmsg{57}{CHR() : Out of range.}. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}. \fn{CHR(0)} yields a string that holds the null character and has length 1.
+\Examples
+\DotExample{examples/fn-chr}
+A code outside the range is refused:
+\DotExample{examples/fn-chr-2}
+\SeeAlso{ASC(), SPACE(), REPLICATE()}
+\end{XbaseEntry}
+
+% CMONTH -- os/samir/core/fn_builtins.c fn_cmonth (l.1093-1103)
+\begin{XbaseEntry}{CMONTH}{function}
+Returns the name of the month of a date, as a character string.
+\Syntax
+\SyntaxLine{\kw{CMONTH(}\xp{expD}\kw{)}}
+\Usage
+The name is in English, with a capital first letter, from January through December. The CMONTH of a blank date is an empty string. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-cmonth}
+\SeeAlso{CDOW(), MONTH(), YEAR(), DTOC()}
+\end{XbaseEntry}
+
+% CTOD -- os/samir/core/fn_builtins.c fn_ctod_impl (l.459-625)
+\begin{XbaseEntry}{CTOD}{function}
+Converts a character string to a date.
+\Syntax
+\SyntaxLine{\kw{CTOD(}\xp{expC}\kw{)}}
+\Usage
+\fn{CTOD()} reads the digits of \xp{expC}, ignores every character that is not a digit, and arranges them in the order given by the current SET DATE format. Exactly six digits (a two-digit year) or eight digits (a four-digit year) must be present. A two-digit year is taken as a year of the twentieth century, counted from 00 as 1900; there is no sliding window. Either form is accepted whether SET CENTURY is ON or OFF.
+
+The month must be 1 through 12 and the day must exist in that month and year, so that 02/29 is accepted in a leap year only. A string with any other number of digits, with an impossible month or day, or with a year outside the range of 256 years that begins with 1900, does not raise an error; the result is the blank date. An empty string also gives the blank date.
+
+The order of the fields follows SET DATE: month, day, year for AMERICAN and USA; day, month, year for BRITISH, FRENCH, ITALIAN and GERMAN; year, month, day for ANSI and JAPAN. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Because separators are ignored, a string such as 3/1/92, which holds only four digits, produces the blank date. Write both digits of the month and the day.
+\Examples
+\DotExample{examples/fn-ctod}
+The same text is read in the order that SET DATE selects; under BRITISH the first pair of digits is the day:
+\DotExample{examples/fn-ctod-2}
+\SeeAlso{DTOC(), DATE(), DAY(), MONTH(), YEAR(), SET DATE}
+\end{XbaseEntry}
+
+% DATE -- os/samir/core/fn_builtins.c fn_date (l.717-724)
+\begin{XbaseEntry}{DATE}{function}
+Returns the system date, as a date value.
+\Syntax
+\SyntaxLine{\kw{DATE()}}
+\Usage
+\fn{DATE()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The date is the one supplied to the interpreter by the system when it starts. If no date was supplied, the result is the blank date. Subtracting one date from another gives the number of days between them, and adding a number to a date gives a later date.
+\Examples
+In the sample session the system date is 03/01/92:
+\DotExample{examples/fn-date}
+The number of days since a hiring date:
+\DotExample{examples/fn-date-2}
+\SeeAlso{DTOC(), CTOD(), DAY(), MONTH(), YEAR(), SET DATE}
+\end{XbaseEntry}
+
+% DAY -- os/samir/core/fn_builtins.c fn_dmy (l.727-742)
+\begin{XbaseEntry}{DAY}{function}
+Returns the day of the month of a date, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{DAY(}\xp{expD}\kw{)}}
+\Usage
+The result is a whole number from 1 through 31. The DAY of a blank date is 0. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-day}
+\SeeAlso{MONTH(), YEAR(), DOW(), CTOD()}
+\end{XbaseEntry}
+
+% DBF -- os/samir/core/fn_builtins.c fn_dbf (l.2029-2048)
+\begin{XbaseEntry}{DBF}{function}
+Returns the name of the database open in the selected work area, as a character string.
+\Syntax
+\SyntaxLine{\kw{DBF()}}
+\Usage
+\fn{DBF()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The result is the alias of the open database in upper case, which is its file name without the drive and without the extension. With no database in USE the result is an empty string and no error is raised.
+\Examples
+\DotExample{examples/fn-dbf}
+\SeeAlso{FIELD(), RECCOUNT(), FILE(), USE}
+\end{XbaseEntry}
+
+% DELETED -- os/samir/core/fn_builtins.c fn_deleted (l.1966-1972)
+\begin{XbaseEntry}{DELETED}{function}
+Returns a logical value that is true when the current record is marked for deletion.
+\Syntax
+\SyntaxLine{\kw{DELETED()}}
+\Usage
+\fn{DELETED()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. It tests the deletion mark of the current record in the selected work area and does not depend on the setting of SET DELETED. At the end of the file, where there is no current record, and with no database in USE, the result is .F.
+\Examples
+In the sample database record 13 is marked for deletion:
+\DotExample{examples/fn-deleted}
+\SeeAlso{RECNO(), EOF(), DELETE, RECALL, PACK}
+\end{XbaseEntry}
+
+% DOW -- os/samir/core/fn_builtins.c fn_dow (l.997-1011)
+\begin{XbaseEntry}{DOW}{function}
+Returns the day of the week of a date, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{DOW(}\xp{expD}\kw{)}}
+\Usage
+Sunday is 1 and Saturday is 7. The DOW of a blank date is 0. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+03/01/92 is a Sunday and 03/07/92 a Saturday:
+\DotExample{examples/fn-dow}
+\SeeAlso{CDOW(), DAY(), MONTH(), YEAR()}
+\end{XbaseEntry}
+
+% DTOC -- os/samir/core/fn_builtins.c fn_dtoc_impl (l.628-715)
+\begin{XbaseEntry}{DTOC}{function}
+Converts a date to a character string.
+\Syntax
+\SyntaxLine{\kw{DTOC(}\xp{expD}\kw{)}}
+\Usage
+The form of the string is set by SET DATE, and its width by SET CENTURY. With SET CENTURY OFF the string is 8 characters and the year has two digits; with SET CENTURY ON it is 10 characters and the year has four digits. The blank date gives a string of blanks of that width.
+
+The forms are: AMERICAN, month/day/year; ANSI, year.month.day; BRITISH and FRENCH, day/month/year; ITALIAN, day-month-year; GERMAN, day.month.year; JAPAN, year/month/day; USA, month-day-year.
+
+The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+A date field converted under the default settings:
+\DotExample{examples/fn-dtoc}
+The settings change both the order and the width:
+\DotExample{examples/fn-dtoc-2}
+\SeeAlso{CTOD(), DATE(), SET DATE, SET CENTURY}
+\end{XbaseEntry}
+
+% EOF -- os/samir/core/fn_builtins.c fn_eofbof (l.1925-1937)
+\begin{XbaseEntry}{EOF}{function}
+Returns a logical value that is true when a record movement has gone past the last record of the database in the selected work area.
+\Syntax
+\SyntaxLine{\kw{EOF()}}
+\Usage
+\fn{EOF()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. At the end of the file RECNO() is one more than RECCOUNT(). A failed SEEK and a LOCATE or CONTINUE that finds no further record also leave the pointer at the end of the file. With no database in USE the function does not raise an error; it returns .F.
+\Examples
+\DotExample{examples/fn-eof}
+\SeeAlso{BOF(), RECNO(), RECCOUNT(), FOUND(), SKIP}
+\end{XbaseEntry}
+
+% ERROR -- os/samir/core/fn_builtins.c xb_call_builtin (l.2095-2100); os/samir/cmd/proc.c proc_fire_onerror
+\begin{XbaseEntry}{ERROR}{function}
+Returns the number of the error being handled by an ON ERROR command, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ERROR()}}
+\Usage
+\fn{ERROR()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. While the command named in ON ERROR runs, the function returns the number of the message that caused it. At any other time the result is 0.
+\Examples
+The ON ERROR command stores the number of the error in a memory variable; outside the ON ERROR command the result is 0:
+\DotExample{examples/fn-error}
+\SeeAlso{ON ERROR, CHR()}
+\end{XbaseEntry}
+
+% FIELD -- os/samir/core/fn_builtins.c fn_field (l.1986-2012)
+\begin{XbaseEntry}{FIELD}{function}
+Returns the name of a field of the database in the selected work area, as a character string.
+\Syntax
+\SyntaxLine{\kw{FIELD(}\xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the position of the field in the structure, counting from 1. The name is returned in upper case. A position that is less than 1 or greater than the number of fields does not raise an error; the result is an empty string, and so it is with no database in USE. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+A loop that steps \xp{expN} from 1 until the result is an empty string visits every field of the structure.
+\Examples
+The sample database has nine fields:
+\DotExample{examples/fn-field}
+\SeeAlso{DBF(), TYPE(), RECCOUNT(), LEN()}
+\end{XbaseEntry}
+
+% FILE -- os/samir/core/fn_builtins.c fn_file (l.2060-2080)
+\begin{XbaseEntry}{FILE}{function}
+Returns a logical value that is true when a file of the given name exists.
+\Syntax
+\SyntaxLine{\kw{FILE(}\xp{expC}\kw{)}}
+\Usage
+\xp{expC} is the name of the file and must include its extension; \fn{FILE("STAFF")} does not assume the extension .DBF. The argument must be a character expression, otherwise \xmsg{9}{Data type mismatch.} is raised, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}. A database need not be in USE.
+\Examples
+\DotExample{examples/fn-file}
+\SeeAlso{DBF(), USE}
+\end{XbaseEntry}
+
+% FOUND -- os/samir/core/fn_builtins.c fn_found (l.1951-1956)
+\begin{XbaseEntry}{FOUND}{function}
+Returns a logical value that is true when the most recent search in the selected work area found a record.
+\Syntax
+\SyntaxLine{\kw{FOUND()}}
+\Usage
+\fn{FOUND()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The value is set by SEEK, FIND, LOCATE and CONTINUE. Immediately after a database is opened with USE, and with no database in USE, it is .F.
+\Examples
+A search on the name index that succeeds, and one that fails and leaves the pointer at the end of the file:
+\DotExample{examples/fn-found}
+\DotExample{examples/fn-found-2}
+\SeeAlso{EOF(), RECNO(), SEEK, FIND, LOCATE, CONTINUE}
+\end{XbaseEntry}
+
+% IIF -- os/samir/core/eval.c eval_call (l.641-690)
+\begin{XbaseEntry}{IIF}{function}
+Returns one of two values, chosen by a logical condition.
+\Syntax
+\SyntaxLine{\kw{IIF(}\xp{expL}\kw{,} \xp{exp1}\kw{,} \xp{exp2}\kw{)}}
+\Usage
+When \xp{expL} is true the function returns the value of \xp{exp1}; when it is false it returns the value of \xp{exp2}. The type of the result is the type of the expression chosen, so the two expressions need not have the same type.
+
+Only the expression that is chosen is evaluated. An expression that would raise an error in the other branch, such as a division by zero, is never evaluated. \xp{expL} must be a logical expression; a number or a string is not accepted as a condition and raises \xmsg{37}{Not a Logical expression.}. A call with fewer or more than three arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-iif}
+The unused branch is not evaluated, and a condition that is not logical is refused:
+\DotExample{examples/fn-iif-2}
+\SeeAlso{TYPE(), MAX(), MIN()}
+\end{XbaseEntry}
+
+% INT -- os/samir/core/fn_builtins.c fn_int (l.820-831)
+\begin{XbaseEntry}{INT}{function}
+Returns the whole-number part of a numeric expression, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{INT(}\xp{expN}\kw{)}}
+\Usage
+\fn{INT()} drops the fractional part. It does not round: both 3.99 and 3.01 give 3, and a negative number is cut toward zero, so that -3.7 gives -3. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Use \fn{ROUND()} to round to the nearest whole number.
+\Examples
+\DotExample{examples/fn-int}
+\SeeAlso{ROUND(), MOD(), ABS(), STR()}
+\end{XbaseEntry}
+
+% ISALPHA -- os/samir/core/fn_builtins.c fn_isalpha (l.1333-1343)
+\begin{XbaseEntry}{ISALPHA}{function}
+Returns a logical value that is true when a character string begins with a letter.
+\Syntax
+\SyntaxLine{\kw{ISALPHA(}\xp{expC}\kw{)}}
+\Usage
+Only the first character is examined. The letters are A through Z and a through z. The result is .F. for an empty string. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-isalpha}
+\SeeAlso{ISUPPER(), ISLOWER(), VAL(), LEFT()}
+\end{XbaseEntry}
+
+% ISLOWER -- os/samir/core/fn_builtins.c fn_islower (l.1373-1383)
+\begin{XbaseEntry}{ISLOWER}{function}
+Returns a logical value that is true when a character string begins with a lower-case letter.
+\Syntax
+\SyntaxLine{\kw{ISLOWER(}\xp{expC}\kw{)}}
+\Usage
+Only the first character is examined; it must be one of a through z. The result is .F. for an empty string and for a first character that is not a letter. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-islower}
+\SeeAlso{ISUPPER(), ISALPHA(), LOWER()}
+\end{XbaseEntry}
+
+% ISUPPER -- os/samir/core/fn_builtins.c fn_isupper (l.1353-1363)
+\begin{XbaseEntry}{ISUPPER}{function}
+Returns a logical value that is true when a character string begins with an upper-case letter.
+\Syntax
+\SyntaxLine{\kw{ISUPPER(}\xp{expC}\kw{)}}
+\Usage
+Only the first character is examined; it must be one of A through Z. The result is .F. for an empty string and for a first character that is not a letter. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-isupper}
+\SeeAlso{ISLOWER(), ISALPHA(), UPPER()}
+\end{XbaseEntry}
+
+% LEFT -- os/samir/core/fn_builtins.c fn_left (l.1126-1147)
+\begin{XbaseEntry}{LEFT}{function}
+Returns the leftmost characters of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{LEFT(}\xp{expC}\kw{,} \xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of characters to take. If it is larger than the length of \xp{expC} the whole string is returned; if it is 0 or negative the result is an empty string. A fractional part of \xp{expN} is dropped. No error is raised for any value of \xp{expN}. The first argument must be a character expression and the second numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-left}
+\SeeAlso{RIGHT(), SUBSTR(), AT(), LEN()}
+\end{XbaseEntry}
+
+% LEN -- os/samir/core/fn_builtins.c fn_len (l.278-284)
+\begin{XbaseEntry}{LEN}{function}
+Returns the length of a character string, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{LEN(}\xp{expC}\kw{)}}
+\Usage
+The length counts every character, including trailing blanks; the LEN of a character field is therefore always the width of the field. The LEN of an empty string is 0. A memo field is accepted. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Apply \fn{TRIM()} to the argument to count the characters without the trailing blanks.
+\Examples
+\DotExample{examples/fn-len}
+\SeeAlso{TRIM(), SPACE(), SUBSTR()}
+\end{XbaseEntry}
+
+% LOWER -- os/samir/core/fn_builtins.c fn_case (l.185-203)
+\begin{XbaseEntry}{LOWER}{function}
+Converts the letters of a character string to lower case, as a character string.
+\Syntax
+\SyntaxLine{\kw{LOWER(}\xp{expC}\kw{)}}
+\Usage
+Only the letters A through Z are changed; every other character, including characters with codes above 127, is left as it is. The result has the length of the argument. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-lower}
+\SeeAlso{UPPER(), ISLOWER(), ISUPPER()}
+\end{XbaseEntry}
+
+% LTRIM -- os/samir/core/fn_builtins.c fn_trim (l.207-226)
+\begin{XbaseEntry}{LTRIM}{function}
+Removes the leading blanks of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{LTRIM(}\xp{expC}\kw{)}}
+\Usage
+Only blanks (the space character) at the start of the string are removed; trailing blanks are kept. A string of blanks gives an empty string. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Applied to the result of \fn{STR()}, \fn{LTRIM()} turns a number into a string without the leading blanks that STR() adds.
+\Examples
+\DotExample{examples/fn-ltrim}
+\SeeAlso{TRIM(), RTRIM(), STR(), SPACE()}
+\end{XbaseEntry}
+
+% MAX -- os/samir/core/fn_builtins.c fn_maxmin (l.948-973)
+\begin{XbaseEntry}{MAX}{function}
+Returns the larger of two numbers or of two dates.
+\Syntax
+\SyntaxLine{\kw{MAX(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\SyntaxLine{\kw{MAX(}\xp{expD1}\kw{,} \xp{expD2}\kw{)}}
+\Usage
+Both arguments must be of the same type, numeric or date; the result is of that type. Two arguments of different types, or of a type other than numeric or date, raise \xmsg{9}{Data type mismatch.}. A call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-max}
+\SeeAlso{MIN(), ABS(), IIF()}
+\end{XbaseEntry}
+
+% MIN -- os/samir/core/fn_builtins.c fn_maxmin (l.948-973)
+\begin{XbaseEntry}{MIN}{function}
+Returns the smaller of two numbers or of two dates.
+\Syntax
+\SyntaxLine{\kw{MIN(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\SyntaxLine{\kw{MIN(}\xp{expD1}\kw{,} \xp{expD2}\kw{)}}
+\Usage
+Both arguments must be of the same type, numeric or date; the result is of that type, and for dates the earlier date is the smaller. Two arguments of different types, or of a type other than numeric or date, raise \xmsg{9}{Data type mismatch.}. A call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-min}
+\SeeAlso{MAX(), ABS(), IIF()}
+\end{XbaseEntry}
+
+% MOD -- os/samir/core/fn_builtins.c fn_mod (l.847-865)
+\begin{XbaseEntry}{MOD}{function}
+Returns the remainder of the division of one number by another, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{MOD(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\Usage
+The remainder is \xp{expN1} less \xp{expN2} times the whole-number part of their quotient, so it takes the sign of \xp{expN1}: MOD(-17,5) is -2 and MOD(17,-5) is 2. When \xp{expN2} is 0 no error is raised and the result is \xp{expN1}. Both arguments must be numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-mod}
+\SeeAlso{INT(), ROUND(), ABS()}
+\end{XbaseEntry}
+
+% MONTH -- os/samir/core/fn_builtins.c fn_dmy (l.727-742)
+\begin{XbaseEntry}{MONTH}{function}
+Returns the month of a date, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{MONTH(}\xp{expD}\kw{)}}
+\Usage
+The result is a whole number from 1 through 12. The MONTH of a blank date is 0. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-month}
+\SeeAlso{DAY(), YEAR(), CMONTH(), CTOD()}
+\end{XbaseEntry}
+
+% RECCOUNT -- os/samir/core/fn_builtins.c fn_reccount (l.1911-1917)
+\begin{XbaseEntry}{RECCOUNT}{function}
+Returns the number of records in the database in the selected work area, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{RECCOUNT()}}
+\Usage
+\fn{RECCOUNT()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The count is the number of records stored in the file, including those marked for deletion; neither SET FILTER nor SET DELETED changes it. It is 0 for an empty database and with no database in USE, where no error is raised.
+\Examples
+\DotExample{examples/fn-reccount}
+\SeeAlso{RECNO(), EOF(), DELETED(), COUNT}
+\end{XbaseEntry}
+
+% RECNO -- os/samir/core/fn_builtins.c fn_recno (l.1884-1900)
+\begin{XbaseEntry}{RECNO}{function}
+Returns the number of the current record of the database in the selected work area, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{RECNO()}}
+\Usage
+\fn{RECNO()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. Records are numbered from 1 in the order in which they are stored, whatever index is active. At the end of the file the value is one more than RECCOUNT(). With no database in USE the value is 0 and no error is raised.
+\Examples
+\DotExample{examples/fn-recno}
+\SeeAlso{RECCOUNT(), EOF(), BOF(), GO}
+\end{XbaseEntry}
+
+% REPLICATE -- os/samir/core/fn_builtins.c fn_replicate (l.1188-1215)
+\begin{XbaseEntry}{REPLICATE}{function}
+Returns a character string repeated a given number of times, as a character string.
+\Syntax
+\SyntaxLine{\kw{REPLICATE(}\xp{expC}\kw{,} \xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of copies; a fractional part is dropped. When \xp{expN} is 0 or negative, or \xp{expC} is empty, the result is an empty string. A result longer than 254 characters raises \xmsg{59}{SPACE() : Too large.}; that message is shared with SPACE(). The first argument must be a character expression and the second numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-replicate}
+\SeeAlso{SPACE(), LEN(), CHR()}
+\end{XbaseEntry}
+
+% RIGHT -- os/samir/core/fn_builtins.c fn_right (l.1160-1175)
+\begin{XbaseEntry}{RIGHT}{function}
+Returns the rightmost characters of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{RIGHT(}\xp{expC}\kw{,} \xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of characters to take. If it is larger than the length of \xp{expC} the whole string is returned; if it is 0 or negative the result is an empty string. No error is raised for any value of \xp{expN}. The first argument must be a character expression and the second numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Trailing blanks count as characters. Apply \fn{TRIM()} first to take the last characters of the text of a character field.
+\Examples
+\DotExample{examples/fn-right}
+\SeeAlso{LEFT(), SUBSTR(), TRIM(), LEN()}
+\end{XbaseEntry}
+
+% ROUND -- os/samir/core/fn_builtins.c fn_round (l.886-936)
+\begin{XbaseEntry}{ROUND}{function}
+Rounds a number to a given number of decimal places, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{ROUND(}\xp{expN1}\kw{,} \xp{expN2}\kw{)}}
+\Usage
+\xp{expN2} is the number of places to keep to the right of the decimal point. A negative \xp{expN2} rounds to the left of the point: -2 rounds to the nearest hundred. A fractional part of \xp{expN2} is dropped. A value exactly half-way between two results is rounded toward the larger number: ROUND(2.5,0) is 3 and ROUND(-2.5,0) is -2. Both arguments must be numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+
+SET DECIMALS governs only how a computed fractional number is displayed; it does not change the value that ROUND() returns.
+\Examples
+\DotExample{examples/fn-round}
+\SeeAlso{INT(), STR(), MOD(), SET DECIMALS}
+\end{XbaseEntry}
+
+% RTRIM -- os/samir/core/fn_builtins.c fn_trim (l.207-226), dispatch l.2105
+\begin{XbaseEntry}{RTRIM}{function}
+Removes the trailing blanks of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{RTRIM(}\xp{expC}\kw{)}}
+\Usage
+\fn{RTRIM()} is a synonym of \fn{TRIM()} and behaves identically: blanks at the end of the string are removed and leading blanks are kept. A string of blanks gives an empty string. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-rtrim}
+\SeeAlso{TRIM(), LTRIM(), LEN()}
+\end{XbaseEntry}
+
+% SPACE -- os/samir/core/fn_builtins.c fn_space (l.288-304)
+\begin{XbaseEntry}{SPACE}{function}
+Returns a string of blanks of a given length, as a character string.
+\Syntax
+\SyntaxLine{\kw{SPACE(}\xp{expN}\kw{)}}
+\Usage
+\xp{expN} is the number of blanks; a fractional part is dropped, and 0 gives an empty string. A negative number raises \xmsg{60}{SPACE() : Negative.}. A number above 254, the longest character string, raises \xmsg{59}{SPACE() : Too large.}. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-space}
+The longest string is 254 characters:
+\DotExample{examples/fn-space-2}
+\SeeAlso{REPLICATE(), LEN(), TRIM()}
+\end{XbaseEntry}
+
+% STR -- os/samir/core/fn_builtins.c fn_str (l.361-392)
+\begin{XbaseEntry}{STR}{function}
+Converts a number to a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{STR(}\xp{expN1} \opt{\kw{,} \xp{expN2} \opt{\kw{,} \xp{expN3}}}\kw{)}}
+\Defaults
+\xp{expN2}, the length of the result, is 10. \xp{expN3}, the number of decimal places, is 0. SET DECIMALS has no effect on STR(); the places are those of \xp{expN3} only.
+\Usage
+The result always has exactly \xp{expN2} characters. The number is rounded to \xp{expN3} places, with a value half-way between two results rounded toward the larger number, and it is placed at the right of the field with blanks on the left. A negative sign and the decimal point each take one character of the length.
+
+When the number does not fit in the length, every character of the result is an asterisk. The length must be from 1 through 254, the number of places from 0 through 15, and, when the places are not 0, the length must be at least the places plus 2. Any other value raises \xmsg{63}{STR() : Out of range.}. A non-numeric argument raises \xmsg{9}{Data type mismatch.}, and a call with no argument or with more than three raises \xmsg{11}{Invalid function argument.}.
+\Tips
+The result of \fn{STR()} with its default length begins with blanks. Apply \fn{LTRIM()} to remove them before joining the number to text.
+\Examples
+\DotExample{examples/fn-str}
+A number too wide for its field fills the field with asterisks; a length too small for the places is refused:
+\DotExample{examples/fn-str-2}
+\SeeAlso{VAL(), LTRIM(), ROUND(), INT(), TRANSFORM()}
+\end{XbaseEntry}
+
+% STUFF -- os/samir/core/fn_builtins.c fn_stuff (l.1265-1325)
+\begin{XbaseEntry}{STUFF}{function}
+Deletes characters from a character string and inserts another string in their place, as a character string.
+\Syntax
+\SyntaxLine{\kw{STUFF(}\xp{expC1}\kw{,} \xp{expN1}\kw{,} \xp{expN2}\kw{,} \xp{expC2}\kw{)}}
+\Usage
+Beginning at position \xp{expN1} of \xp{expC1}, counting from 1, the function removes \xp{expN2} characters and puts \xp{expC2} in their place. \xp{expC2} need not be as long as the part removed. With \xp{expN2} equal to 0 nothing is removed and \xp{expC2} is inserted; with an empty \xp{expC2} characters are removed and nothing is inserted.
+
+A position below 1 is treated as 1, and a position past the end of \xp{expC1} puts \xp{expC2} at the end. A negative count is treated as 0, and a count larger than the characters that remain removes them all. A result longer than 254 characters raises \xmsg{59}{SPACE() : Too large.}. The first and fourth arguments must be character expressions and the second and third numeric, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than four arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-stuff}
+\SeeAlso{SUBSTR(), LEFT(), RIGHT(), AT()}
+\end{XbaseEntry}
+
+% SUBSTR -- os/samir/core/fn_builtins.c fn_substr (l.232-274)
+\begin{XbaseEntry}{SUBSTR}{function}
+Returns part of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{SUBSTR(}\xp{expC}\kw{,} \xp{expN1} \opt{\kw{,} \xp{expN2}}\kw{)}}
+\Defaults
+When \xp{expN2} is left out, the result runs to the end of \xp{expC}.
+\Usage
+\xp{expN1} is the position of the first character wanted, counting from 1; \xp{expN2} is the number of characters. A count larger than the characters that remain is cut back to them, and a count of 0 or less gives an empty string. A start position past the end of the string gives an empty string. A fractional part of either number is dropped.
+
+A start position below 1 raises \xmsg{62}{SUBSTR() : Start point out of range.}; a position cannot be counted from the right. The first argument must be a character expression and the others numeric, otherwise \xmsg{9}{Data type mismatch.} is raised. A call with fewer than two or more than three arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-substr}
+\DotExample{examples/fn-substr-2}
+\SeeAlso{LEFT(), RIGHT(), STUFF(), AT(), LEN()}
+\end{XbaseEntry}
+
+% TRANSFORM -- os/samir/core/fn_builtins.c fn_transform (l.1784-1840), tr_format_numeric (l.1509-1735), tr_format_char (l.1759-1780), tr_parse_at_flags (l.1454-1480)
+\begin{XbaseEntry}{TRANSFORM}{function}
+Formats a number or a character string according to a picture, as a character string.
+\Syntax
+\SyntaxLine{\kw{TRANSFORM(}\xp{expN}\kw{,} \xp{expC}\kw{)}}
+\SyntaxLine{\kw{TRANSFORM(}\xp{expC1}\kw{,} \xp{expC2}\kw{)}}
+\Usage
+The second argument is the picture and must be a character expression. A picture may begin with a function clause, which is the character @ followed by letters and ended by one blank; the rest is the template. The template, not the clause, sets the length of the result.
+
+For a number, each 9 or \# in the template is a digit position, a decimal point and any other character are copied, and the digits are placed from the right. A \$ is a digit position that, when the number is shorter than the template, is replaced by a \$ on the left of the number, together with any comma in that stretch. A negative sign is written in the free position to the left of the first digit; when no free position remains, every digit position becomes an asterisk, and so it does when the number has too many digits. With a decimal point in the template, the integer digits of the number must leave at least one digit position spare, or the result is filled with asterisks.
+
+The function letters are: ( , which encloses a negative number in parentheses and, for a negative number only, widens the result by two characters; X, which adds the characters DB after a negative number and widens the result by three; C, which adds CR after a number that is not negative and widens the result by three; and B, which moves the number to the left of its field. Other letters in the clause are ignored.
+
+For a character string, each position of the template yields one character: ! gives the source character at that position in upper case, X, A and N give it unchanged, and any other character is copied from the template in place of the source character. A source shorter than the template is filled out with blanks and a longer one is cut off. A picture of no characters gives an empty string.
+
+A first argument that is not a number or a character string, such as a date or a logical value, raises \xmsg{9}{Data type mismatch.}, as does a picture that is not a character string. A call with other than two arguments raises \xmsg{11}{Invalid function argument.}.
+\Examples
+Sign handling, the clauses ( and C, and a floating dollar sign:
+\DotExample{examples/fn-transform}
+A character source converted to upper case, and a number too wide for its picture:
+\DotExample{examples/fn-transform-2}
+\SeeAlso{STR(), VAL(), UPPER(), LTRIM()}
+\end{XbaseEntry}
+
+% TRIM -- os/samir/core/fn_builtins.c fn_trim (l.207-226)
+\begin{XbaseEntry}{TRIM}{function}
+Removes the trailing blanks of a character string, as a character string.
+\Syntax
+\SyntaxLine{\kw{TRIM(}\xp{expC}\kw{)}}
+\Usage
+Blanks at the end of the string are removed; leading blanks are kept. A string of blanks gives an empty string. Character fields are stored at their full width, so TRIM() is the usual way to join a field to other text. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-trim}
+\SeeAlso{RTRIM(), LTRIM(), LEN(), SPACE()}
+\end{XbaseEntry}
+
+% TYPE -- os/samir/core/fn_builtins.c fn_type (l.763-776)
+\begin{XbaseEntry}{TYPE}{function}
+Returns a one-letter code for the data type of an expression, as a character string.
+\Syntax
+\SyntaxLine{\kw{TYPE(}\xp{exp}\kw{)}}
+\Usage
+The argument is evaluated first and the code describes the value obtained: C for character, N for numeric, D for date, L for logical, M for memo. A field or memory variable that does not exist raises \xmsg{12}{Variable not found.} before TYPE() is called; the string form TYPE("SALARY") reports C, because the argument is itself a string. A call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+The types of the fields of the sample database:
+\DotExample{examples/fn-type}
+Types of expressions:
+\DotExample{examples/fn-type-2}
+\SeeAlso{VAL(), STR(), LEN(), IIF()}
+\end{XbaseEntry}
+
+% UPPER -- os/samir/core/fn_builtins.c fn_case (l.185-203)
+\begin{XbaseEntry}{UPPER}{function}
+Converts the letters of a character string to upper case, as a character string.
+\Syntax
+\SyntaxLine{\kw{UPPER(}\xp{expC}\kw{)}}
+\Usage
+Only the letters a through z are changed; every other character, including characters with codes above 127, is left as it is. The result has the length of the argument. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Tips
+Compare two strings through \fn{UPPER()} to ignore differences of case.
+\Examples
+\DotExample{examples/fn-upper}
+\SeeAlso{LOWER(), ISUPPER(), ISLOWER(), AT()}
+\end{XbaseEntry}
+
+% VAL -- os/samir/core/fn_builtins.c fn_val (l.396-403); os/samir/core/rt.c dec_parse (l.328-390)
+\begin{XbaseEntry}{VAL}{function}
+Converts a character string of digits to a number, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{VAL(}\xp{expC}\kw{)}}
+\Usage
+Leading blanks are skipped and an optional sign and one decimal point are accepted. Conversion stops at the first character that is not a digit, so VAL("12.5abc") is 12.5. A string that does not begin with a number, and an empty string, give 0; no error is raised. An exponent is not recognized: VAL("1E3") is 1. A non-character argument raises \xmsg{9}{Data type mismatch.}, and a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-val}
+A code held as text, used in arithmetic:
+\DotExample{examples/fn-val-2}
+\SeeAlso{STR(), TYPE(), ISALPHA()}
+\end{XbaseEntry}
+
+% YEAR -- os/samir/core/fn_builtins.c fn_dmy (l.727-742)
+\begin{XbaseEntry}{YEAR}{function}
+Returns the year of a date, with its century, as a numeric value.
+\Syntax
+\SyntaxLine{\kw{YEAR(}\xp{expD}\kw{)}}
+\Usage
+The result has four digits whatever SET CENTURY says. The YEAR of a blank date is 0. Since CTOD() reads a two-digit year as a year of the century that begins with 1900, YEAR(CTOD("12/25/05")) is 1905. The argument must be a date, otherwise \xmsg{9}{Data type mismatch.} is raised; a call with other than one argument raises \xmsg{11}{Invalid function argument.}.
+\Examples
+\DotExample{examples/fn-year}
+\SeeAlso{MONTH(), DAY(), CTOD(), DTOC(), SET CENTURY}
+\end{XbaseEntry}

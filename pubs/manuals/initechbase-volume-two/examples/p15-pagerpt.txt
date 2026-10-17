@@ -1,0 +1,27 @@
+. USE STAFF
+. DO PAGERPT
+
+
+INITECH STAFF ROSTER                    PAGE  1
+NO.   NAME                      EXT
+1001  LUMBERGH      BILL        1401
+1002  GIBBONS       PETER       1417
+1003  BOLTON        MICHAEL     1418
+1004  NAGHEENANAJAR SAMIR       1419
+1005  WADDAMS       MILTON      1402
+1006  SMYKOWSKI     TOM         1425
+
+INITECH STAFF ROSTER                    PAGE  2
+NO.   NAME                      EXT
+1007  PORTER        DOM         1400
+1008  ALBRIGHT      NINA        1403
+1009  DELGADO       ANDREW      1420
+1010  FENWICK       LAURA       1426
+1011  OKAFOR        DANIEL      1421
+1012  PRUITT        CAROL       1430
+
+INITECH STAFF ROSTER                    PAGE  3
+NO.   NAME                      EXT
+1013  CHEN          ROBERT      1431
+
+*** END OF ROSTER ***

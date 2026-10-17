@@ -130,6 +130,29 @@ static void replay(const struct step *script, int n, uintptr_t *offs)
 
 int main(void)
 {
+    /* ADR-0004 DEC-03: overflow rejection leaves the arena unchanged. */
+    {
+        flair_heap_t h; uint8_t *buf; heap_make(&h, &buf, HEAP_BYTES);
+        CHECK(flair_alloc(&h, FLAIR_CLASS_GENERAL, UINT32_MAX) == NULL,
+              "r081 align overflow rejected");
+        CHECK(flair_alloc(&h, FLAIR_CLASS_GENERAL, 0xffffffe1u) == NULL,
+              "5l5n span overflow rejected");
+        CHECK(h.used == 0 && h.n_bump == 0, "overflow rejection is atomic");
+        free(buf);
+    }
+    {
+        flair_heap_t h; uint8_t *buf; heap_make(&h, &buf, HEAP_BYTES);
+        void *large = flair_alloc(&h, FLAIR_CLASS_HANDLE, 128);
+        void *small = flair_alloc(&h, FLAIR_CLASS_HANDLE, 8);
+        flair_free(&h, FLAIR_CLASS_HANDLE, large);
+        flair_free(&h, FLAIR_CLASS_HANDLE, small);
+        uint32_t used = h.used;
+        void *next = flair_alloc(&h, FLAIR_CLASS_HANDLE, 64);
+        CHECK(next != large && h.used > used, "zhjo undersized head requires bump");
+        CHECK(flair_alloc(&h, FLAIR_CLASS_HANDLE, 8) == small,
+              "zhjo undersized head remains available");
+        free(buf);
+    }
     /* ===== Property 0: init lays an empty arena; avail == size. =========== */
     {
         flair_heap_t h; uint8_t *buf; heap_make(&h, &buf, HEAP_BYTES);

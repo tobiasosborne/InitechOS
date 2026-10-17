@@ -1,0 +1,10 @@
+. USE STAFF
+. SET DELETED ON
+. LIST LASTNAME FOR DEPT = 'ACCT'
+Record#  LASTNAME
+     12  PRUITT        
+. SET DELETED OFF
+. LIST LASTNAME FOR DEPT = 'ACCT'
+Record#  LASTNAME
+     12  PRUITT        
+*     13  CHEN          

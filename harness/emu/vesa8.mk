@@ -8,6 +8,13 @@ KERNEL_CFLAGS += -I$(BUILD)
 # Pattern-specific extra prerequisites also cover literal/generated mutant
 # names. private prevents propagating this dependency into unrelated objects.
 $(BUILD)/kmain%.o: private .EXTRA_PREREQS := $(VESA8_HEADER)
+# PM 2026-10-17: .EXTRA_PREREQS on the pattern did not stop an explicitly named mutant
+# kmain object (kmain_flairtenants_mut_iword_gate.o) from compiling before the header
+# existed in a fresh build dir. Belt and braces: an included makefile that depends on
+# the header is remade at parse time, so the header exists before any recipe runs.
+-include $(BUILD)/flair_dac.stamp.mk
+$(BUILD)/flair_dac.stamp.mk: $(VESA8_HEADER)
+	@printf '# generated at parse time: $(VESA8_HEADER) is current\n' > $@
 $(VESA8_DIR): | $(BUILD)
 	@mkdir -p $@
 $(VESA8_GEN): tools/flair_dac_gen.c | $(BUILD)

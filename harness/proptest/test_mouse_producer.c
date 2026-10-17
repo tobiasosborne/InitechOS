@@ -270,8 +270,47 @@ static void test_repeated_physical_up_monotonic(void)
 /* ===========================================================================
  * main
  * ===========================================================================*/
+static int packet_dx, packet_dy, packet_calls, packet_bad;
+static void capture_packet(int x, int y, uint8_t buttons)
+{
+    packet_dx += x; packet_dy += y; packet_calls++;
+    if (x < -127 || x > 127 || y < -127 || y > 127 || buttons != 1) packet_bad = 1;
+}
+static void test_ninth_sign_bit(void)
+{
+    for (int sign = 0; sign < 4; sign++) for (int value = 0; value < 256; value++) {
+        packet_dx = packet_dy = packet_calls = packet_bad = 0;
+        mouse_post_packet((uint8_t)(9 | (sign << 4)), (uint8_t)value,
+                          (uint8_t)(255 - value), 1, capture_packet);
+        CHECK(packet_dx == value - ((sign & 1) ? 256 : 0) &&
+              packet_dy == 255 - value - ((sign & 2) ? 256 : 0) &&
+              packet_calls >= 1 && packet_calls <= 3 && !packet_bad,
+              "qupy ninth sign bit preserves full displacement in bounded chunks");
+    }
+}
+static flair_raw_ring_t click_ring;
+static void post_click_chunk(int x, int y, uint8_t buttons)
+{
+    flair_raw_event_t raw = { FLAIR_RAW_MOUSE, 0, mouse_pack_raw_payload(x, y, buttons) };
+    (void)flair_raw_post(&click_ring, &raw);
+}
+static void test_large_packet_click(void)
+{
+    EventRecord ev;
+    fresh_ring(&click_ring);
+    mouse_post_packet(9, 200, 0, 0, post_click_chunk);
+    CHECK(WaitNextEvent(&click_ring, everyEvent, &ev, 0) == 1 &&
+          ev.what == mouseDown && ev.where.h == 520 && ev.where.v == 240,
+          "qupy click occurs at final nine-bit packet position");
+    mouse_post_packet(0x18, 56, 0, 1, post_click_chunk);
+    CHECK(WaitNextEvent(&click_ring, everyEvent, &ev, 0) == 1 &&
+          ev.what == mouseUp && ev.where.h == 320 && ev.where.v == 240,
+          "qupy release occurs at final nine-bit packet position");
+}
 int main(void)
 {
+    test_ninth_sign_bit();
+    test_large_packet_click();
     test_physical_up_decreases_v();
     test_physical_down_increases_v();
     test_physical_up_exact_magnitude();

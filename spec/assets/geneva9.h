@@ -32,7 +32,8 @@
  *     (bits 7..0 of each byte = columns 0..7). Actual inked pixels are narrower
  *     for narrow glyphs; the remaining bits in each byte are zero.
  *   - Cell height: GENEVA9_CELL_H = 11 rows (rows 0..10).
- *     Baseline is row 8 (0-based). Cap height ~row 1. Descenders reach row 10.
+ *     Baseline is row 7 (0-based). Cap height ~row 1. Descenders reach row 8.
+ *     uct9: describes the authored 'o'/'p' bytes below, not NFNT metrics.
  *   - Coverage: ASCII 0x20 (space) through 0x7E (tilde) inclusive.
  *   - Unmapped codes return the blank (space) cell via geneva9_glyph(c).
  *   - Byte-stable (Rule 11): pure static const data.
@@ -164,7 +165,7 @@ FONT_TABLE unsigned char geneva9_advance[GENEVA9_COUNT];
 
 /*
  * geneva9[][GENEVA9_CELL_H] -- glyph bitmaps, one byte per row (MSB = col 0).
- * Rows 0..10 top-to-bottom. Baseline row 8. Descenders rows 9-10.
+ * Rows 0..10 top-to-bottom. Baseline row 7. Descenders reach row 8 (uct9).
  *
  * Each glyph comment shows:
  *   adv=N     -- advance width from GENEVA9_ADVANCE (repeated for auditability)

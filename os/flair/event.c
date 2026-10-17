@@ -50,6 +50,7 @@
  * [0, FLAIR_SCREEN_H-1] (640x480, ADR-0004 OD-3).
  */
 #include "event.h"        /* os/flair/event.h (-Ios/flair)                  */
+#include "ring_report.h"
 
 /* ===========================================================================
  * MINIMAL PANIC STUB (freestanding; host builds shadow with assert/fprintf)
@@ -74,6 +75,11 @@
 /* Global PIT tick counter (Rule 11: monotonic, starts at 0, advanced ONLY
  * by flair_tick_advance() which is called from the PIT ISR). */
 static volatile uint32_t g_tick;
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+/* Test fixture clock injection for the uint32 wrap boundary (gwts).
+ * Factory only: no symbol or bytes in the freestanding artifact. */
+void flair_event_test_set_tick(uint32_t tick) { g_tick = tick; }
+#endif
 
 /* Cursor position in screen (global) coordinates. Updated by the pump from
  * FLAIR_RAW_MOUSE deltas; clamped to [0, FLAIR_SCREEN_W-1] x
@@ -140,6 +146,7 @@ void flair_event_init(flair_raw_ring_t *ring)
     ring->head       = 0u;
     ring->tail       = 0u;
     ring->drop_count = 0u;
+    ring->drop_reported = 0u;
     for (i = 0; i < FLAIR_RAW_RING_CAP; i++) {
         ring->slots[i].kind    = 0u;
         ring->slots[i].tick    = 0u;
@@ -293,6 +300,12 @@ static const uint8_t sc_shifted[128] = {
 /* Which physical modifier a (make, extended) pair names, or 0. The keyboard's
  * own "fake shifts" (E0 2A / E0 AA, E0 36 / E0 B6), which bracket the grey
  * cursor keys, name no key and return 0 (OSDev "PS/2 Keyboard" set 1). */
+/* Pure/task-owned synthesis only; publication and drain stay at -O0.
+ * Ref: spec/event_model.h Sec 5, the SPSC contract above; native boundary gate. */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 {
     switch (make) {
@@ -344,8 +357,17 @@ static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
  * drain_one -- pop one raw record from the ring. Returns 1 if a record was
  * popped (written to *out), 0 if the ring was empty.
  */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC pop_options
+#endif
 static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
 {
+#ifndef EVENT_MUT_SILENT_DROP
+    if (ring->drop_count != 0u && !ring->drop_reported) {
+        ring->drop_reported = 1;
+        RING_REPORT("FLAIR-EVT-DROP\n");
+    }
+#endif
     uint32_t h, t;
     h = ring->head;   /* volatile read -- see consumer note above */
     t = ring->tail;
@@ -371,6 +393,10 @@ static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
  *     deltas. The `where` field in mouse events remains stale. Makes the
  *     replay oracle go RED because expected cursor positions are wrong.
  */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
 {
     uint16_t what = (uint16_t)nullEvent;
@@ -587,6 +613,9 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
  * 7. GetNextEvent -- non-blocking, single drain (MTE Ch 2 p. 2-26)
  * ===========================================================================*/
 
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC pop_options
+#endif
 int GetNextEvent(flair_raw_ring_t *ring,
                  uint16_t eventMask,
                  EventRecord *theEvent)
@@ -630,13 +659,13 @@ int WaitNextEvent(flair_raw_ring_t *ring,
                   EventRecord *theEvent,
                   uint32_t sleepTicks)
 {
-    uint32_t deadline;
+    uint32_t start;
     flair_raw_event_t raw;
     uint16_t what;
 
     if (!ring || !theEvent) { FLAIR_PANIC("WaitNextEvent: NULL arg"); }
 
-    deadline = g_tick + sleepTicks;
+    start = g_tick;
 
     for (;;) {
         /* Try to drain and cook one raw event. */
@@ -653,7 +682,13 @@ int WaitNextEvent(flair_raw_ring_t *ring,
         }
 
         /* Ring empty: check timeout. */
-        if (sleepTicks == 0u || g_tick >= deadline) {
+#ifdef EVENT_MUT_TICK_WRAP
+        if (sleepTicks == 0u || g_tick >= start + sleepTicks) {
+#else
+        /* gwts: elapsed unsigned subtraction survives the PIT tick wrap.
+         * Ref: ADR-0004 D-6 and the existing live-pump budget idiom. */
+        if ((uint32_t)(g_tick - start) >= sleepTicks) {
+#endif
             theEvent->what      = (uint16_t)nullEvent;
             theEvent->message   = 0u;
             theEvent->when      = g_tick;

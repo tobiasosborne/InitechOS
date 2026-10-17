@@ -705,12 +705,12 @@ static void leg_render(void)
           "L9 every changed pixel lies inside the icon's own cell rect (no "
           "over-repaint, ADR-0004 D-5)");
 
-    /* Hand-read strike probes (spec/assets/desk_icons.h ASCII map, VOLUME):
-     * row 3 col 3 is the body's top-left INK corner; the icon origin is
-     * (70,30), so that pixel is (73,33) -- desktop-owned (x < 90). */
-    CHECK(A.px[33 * SCRW + 73] == WANT_INK,
-          "L9 the strike's row-3/col-3 ink corner is INK on the composed desktop");
-    CHECK(B.px[33 * SCRW + 73] == WANT_DESKTOP,
+    /* Hand-read strike probes (spec/assets/desk_icons.h v2 ASCII map, VOLUME,
+     * tdnl.53): row 1 col 1 is the top edge's first INK ('#') pixel; the icon
+     * origin is (70,30), so that pixel is (71,31) -- desktop-owned (x < 90). */
+    CHECK(A.px[31 * SCRW + 71] == WANT_INK,
+          "L9 the strike's row-1/col-1 top-edge ink is INK on the composed desktop");
+    CHECK(B.px[31 * SCRW + 71] == WANT_DESKTOP,
           "L9 ... and is bare desktop teal without the underlay");
 
     /* Row 0 of the strike is entirely clear, so the icon's own top row must

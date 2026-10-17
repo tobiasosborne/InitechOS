@@ -1,0 +1,18 @@
+. USE STAFF
+. LIST LASTNAME, DEPT FOR EXEMPT
+Record#  LASTNAME       DEPT
+      1  LUMBERGH       SOFT
+      2  GIBBONS        SOFT
+      3  BOLTON         SOFT
+      4  NAGHEENANAJAR  SOFT
+      7  PORTER         ADMN
+      9  DELGADO        SOFT
+     11  OKAFOR         SOFT
+     12  PRUITT         ACCT
+. LIST LASTNAME, DEPT FOR .NOT. EXEMPT
+Record#  LASTNAME       DEPT
+      5  WADDAMS        FACL
+      6  SMYKOWSKI      CUST
+      8  ALBRIGHT       ADMN
+     10  FENWICK        CUST
+*     13  CHEN           ACCT

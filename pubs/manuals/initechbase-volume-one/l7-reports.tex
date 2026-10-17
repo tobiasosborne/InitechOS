@@ -1,0 +1,97 @@
+% Learning InitechBase, Chapter 7: Reports (AN-16).  Every panel replayed
+% (examples/l7-*.dot); sources cmd/report.c (REPORT FORM, mint 004 layout),
+% the report forms STAFFRPT.FRM and INVRPT.FRM of the sample diskette.
+\chapter{Reports}
+\Gates{test-pubs-examples, test-samir-report}
+A report arranges the records of a database in columns, under a title and
+headings, with totals.  The layout of a report is kept in a report form file,
+so the same report can be produced again whenever the data changes.  In this
+lesson you produce the staff salary report of Initech from the report form on
+the sample diskette.
+
+\begin{ChapterCovers}
+\item Report forms
+\item \cmd{REPORT FORM}
+\item Groups and subtotals
+\item Choosing records for a report
+\item \kw{PLAIN}, \kw{SUMMARY} and \kw{HEADING}
+\item Writing a report to a file
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample files.
+
+\ATEHead{The Report Form}
+The report form \file{STAFFRPT.FRM} describes the staff salary report.  Its
+title has two lines; it has four columns -- the last name, the first name, the
+date of hire and the salary -- of which the salary is totalled; and it groups
+the employees by department, with a subtotal for each.  A report form is used
+with the database whose fields it names.
+
+The groups follow one another as the records come, so the records must be in
+the order of the group: open the staff database with the department index.
+
+\ATEHead{Producing the Report}
+\begin{Steps}
+\item Type \type{USE STAFF INDEX STAFFDPT}.
+\item Type \type{REPORT FORM STAFFRPT}.
+\Response{InitechBase prints the report on the screen.}
+\end{Steps}
+\DotExample{examples/l7-report}
+Each page begins with its number, the date and the title, then the column
+headings.  Each group begins with its heading and ends with its subtotal; the
+total of all the groups ends the report.  Robert Chen, whose record is marked
+for deletion, is in the report: \cmd{REPORT FORM} includes marked records
+unless SET DELETED is ON.
+
+\ATEHead{Choosing the Records}
+\kw{FOR} chooses the records of a report as it does for \cmd{LIST}.
+\kw{PLAIN} leaves out the page number and the date.
+\begin{Steps}[resume]
+\item Type \type{REPORT FORM STAFFRPT FOR EXEMPT PLAIN}.
+\end{Steps}
+\DotExample{examples/l7-plain}
+
+\ATEHead{Totals Only}
+\kw{SUMMARY} prints the group headings and the totals without the lines of the
+records:
+\DotExample{examples/l7-summary}
+
+\ATEHead{A Heading of Your Own}
+\kw{HEADING} adds a line of your own after the page number.  Here the report of
+the Accounting department is produced for the month, with the marked records
+left out:
+\begin{Steps}[resume]
+\item Type \type{SET DELETED ON}.
+\item Type \type{REPORT FORM STAFFRPT HEADING 'MARCH 1992' FOR DEPT = 'ACCT'}.
+\end{Steps}
+\DotExample{examples/l7-heading}
+
+\ATEHead{Writing a Report to a File}
+\kw{TO FILE} writes the report to a text file as well as displaying it.  You can
+copy the file to a printer, or keep it, from InitechDOS.  The report form
+\file{INVRPT.FRM} is the open invoice register of the accounts receivable
+ledger:
+\begin{Steps}[resume]
+\item Type \type{USE INVOICE INDEX INVNO}.
+\item Type \type{REPORT FORM INVRPT PLAIN TO FILE INVRPT}.
+\item Type \type{? FILE('INVRPT.TXT')}.
+\Response{\fn{FILE()} is true: the file \file{INVRPT.TXT} is on the disk.}
+\end{Steps}
+\DotExample{examples/l7-tofile}
+
+\ATEHead{Where Do You Go From Here?}
+You can produce a report from a report form, for all the records or some of
+them.  In Chapter~8 you work with two databases at once.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{REPORT FORM} \xp{form} prints the report described by a report form
+  file.
+\item For a grouped report, open the database with an index in the order of the
+  group.
+\item \kw{FOR} and \kw{WHILE} choose the records; SET DELETED ON leaves out the
+  marked records.
+\item \kw{PLAIN}, \kw{SUMMARY} and \kw{HEADING} change the layout.
+\item \kw{TO FILE} \xp{file} writes the report to a text file.
+\end{enumerate}

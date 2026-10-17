@@ -1,0 +1,7 @@
+. USE STAFF
+. GO 13
+. RECALL
+. LIST LASTNAME FOR DEPT = 'ACCT'
+Record#  LASTNAME
+     12  PRUITT        
+     13  CHEN          

@@ -1,0 +1,2 @@
+. ? CHR(300)
+57  CHR() : Out of range.

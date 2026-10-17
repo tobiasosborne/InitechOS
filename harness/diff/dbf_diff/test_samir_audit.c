@@ -357,8 +357,8 @@ static void undefined_variable(samir_pal_t *pal)
     CHECK_STR_EQ(g_cap.buf,". 12  Variable not found.\n. ",
                  "kdna exact dot-prompt error transcript");
     RUN(open,"12  Variable not found.\n. ","kdna missing field/memvar with open table is #12");
-    RUN(bound,". . \n7. ","kdna bound memory variable still resolves");
-    RUN(trap,"\n12. ","kdna ON ERROR / ERROR() sees 12");
+    RUN(bound,". . \r\n         7. ","kdna bound memory variable still resolves");
+    RUN(trap,"\r\n        12. ","kdna ON ERROR / ERROR() sees 12");
     CHECK(!cap_has("Internal error."),"kdna trap does not lose the catalog error");
     CHECK(!cap_has("Unrecognized command verb."),"kdna handler preserves the original error");
 }
@@ -448,7 +448,7 @@ int main(int argc,char **argv)
         CHECK(reference_copy(path,"build/samir.audit/REFIDX.NDX"),"real SMKIDX RW copy prepared");
         /* Grade values, not the pre-existing numeric whitespace/dot formatter.
          * Expected values are read from the real golden, never from SAMIR. */
-        snprintf(tag,sizeof(tag),"RECCOUNT= %ld.",count);
+        snprintf(tag,sizeof(tag),"RECCOUNT= %10ld.",count);
         RUN(script,tag,"K09 real-dBASE golden: implicit USE record count");
         snprintf(tag,sizeof(tag),"TOP= %s",top);
         CHECK(top[0] && cap_has(tag),"K09 real-dBASE golden: same indexed TOP name");

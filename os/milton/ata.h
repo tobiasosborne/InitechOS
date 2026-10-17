@@ -4,10 +4,8 @@
  * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
  * (only <stdint.h>). This is the REAL-HARDWARE sector backend that satisfies
  * the blockdev_t read contract (os/milton/blockdev.h) on the primary ATA
- * channel. It CANNOT be host-unit-tested -- it touches I/O ports 0x1F0..0x1F7
- * -- so its only build-time guarantee here is that it compiles clean under the
- * freestanding flags; functional validation defers to the emulator boot oracle
- * (make test-fs -- the FIRST real ata.c exercise on the emulator).
+ * channel. test-ata scripts the I/O ports through a factory-only seam;
+ * test-fs/test-block-device-emu exercise the real instructions under QEMU.
  *
  * Ref (Law 1): ATA/ATAPI-6 spec, READ SECTORS (0x20) PIO protocol; standard
  *   primary-channel port map 0x1F0..0x1F7 + control 0x3F6; the drive/head
@@ -81,7 +79,7 @@ int ata_reset(void *ctx);
  * Initialise `dev` as a blockdev_t wrapping the ATA PIO read on the channel +
  * drive described by `ctx`. Both `dev` and `ctx` are caller-owned (kernel BSS);
  * `ctx` must outlive `dev`. The caller fills `ctx` via ata_ctx_init (below) or
- * by hand. write_sectors is left NULL (FAT write is beads initech-509.11).
+ * by hand. Both read_sectors and write_sectors are installed.
  */
 void ata_blockdev_init(blockdev_t *dev, ata_ctx_t *ctx);
 

@@ -1,0 +1,113 @@
+% Programming with InitechBase, Chapter 7: Working with the Database (AN-16;
+% annex Sec 8.2 P10/P11).  Panels replayed (examples/p7-*.dot); sources
+% cmd/query.c (SEEK, FOUND), cmd/mutate.c (APPEND BLANK, REPLACE, index
+% maintenance), samir_main.c repl_do_use (INDEX).
+\chapter{Working with the Database}
+\Gates{test-pubs-examples, test-interp-replace, test-samir-query, test-ndx-maintain}
+The programs so far read the ledger.  This chapter adds invoices to it: a
+program asks for the invoice, makes sure the number is new, and adds the
+record.
+
+\begin{ChapterCovers}
+\item The databases a program works on
+\item Finding a record with \cmd{SEEK}
+\item Adding a record: \cmd{APPEND BLANK} and \cmd{REPLACE}
+\item Index files in programs
+\item Entering an invoice
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette.
+
+\ATEHead{The Databases of a Program}
+A program works on the databases opened at the dot prompt before it runs.  The
+programs of the system expect \file{INVOICE.DBF} in the selected work area; the
+programs that find invoices by number also expect its index \file{INVNO.NDX}.
+Each program says so in its comment lines.  A program can select other work
+areas with \cmd{SELECT}.
+
+\ATEHead{Index Files in Programs}
+The index file named first in \cmd{USE} gives the order in which a program
+meets the records, and is the index \cmd{SEEK} searches.  The ledger has two
+indexes, on the invoice number and on the customer:
+\DotExample{examples/p7-order}
+The index files open with a database are kept up to date when a program adds
+or changes records.
+
+\ATEHead{Entering an Invoice}
+\file{NEWINV.PRG} asks for the invoice number, looks it up, and stops if the
+number is already in the ledger.  Otherwise it asks for the rest of the invoice,
+adds a blank record and fills it in:
+\ProgramListing{NEWINV.PRG}
+\begin{Steps}
+\item Type \type{USE INVOICE INDEX INVNO}.
+\item Type \type{DO NEWINV}.
+\item Answer the questions: \type{B1005}, \type{Initrode}, \type{420.00},
+\type{04/15/92}.
+\item Type \type{LIST INVNO, CUST, AMOUNT, DUEDATE}.
+\end{Steps}
+\DotExample{examples/p7-newinv}
+A number already in the ledger is refused:
+\DotExample{examples/p7-dup}
+
+\ATEHead{How the Program Works}
+\SideHead{Checking first}The program seeks the new number before it adds
+anything.  \cmd{RETURN} inside the \cmd{IF} ends the program at once when the
+number is found.
+
+\SideHead{The answers}\cmd{ACCEPT} takes the customer and the due date as
+characters, \cmd{INPUT} the amount as a number.
+
+\SideHead{The record}\cmd{APPEND BLANK} adds the record and makes it current;
+two \cmd{REPLACE} commands fill in its fields.  \fn{UPPER()} keeps the customer in
+capitals and \fn{CTOD()} converts the due date.  The record is written to the
+disk at once, and the index is brought up to date.
+
+\ATEHead{Recording a Payment}
+\file{MARKPAID.PRG} finds an invoice, shows it, and marks it paid when the clerk
+confirms:
+\ProgramListing{MARKPAID.PRG}
+\begin{Steps}[resume]
+\item Type \type{USE INVOICE INDEX INVNO}.
+\item Type \type{DO MARKPAID}, answer \type{A1004} and press \type{Y}.
+\item Type \type{DO MARKPAID} and answer \type{A1004} again.
+\item Type \type{DO MARKPAID}, answer \type{A1002} and press \type{N}.
+\end{Steps}
+\DotExample{examples/p7-markpaid}
+Each check comes before the change: the invoice must exist and must not be paid
+already, and the clerk must confirm.  Only then does \cmd{REPLACE} write to the
+ledger.
+
+\ATEHead{Totals by Customer}
+With the ledger in the order of the customer index, the invoices of each
+customer follow one another.  \file{CUSTTOT.PRG} totals each customer with a loop
+inside a loop: the outer loop begins a customer, the inner one adds its
+invoices while the customer stays the same.
+\ProgramListing{CUSTTOT.PRG}
+\DotExample{examples/p7-custtot}
+The inner loop moves the record pointer, so the outer loop has no \cmd{SKIP}
+of its own: when the inner loop ends, the pointer is already on the first
+invoice of the next customer.
+
+\ATEHead{Removing Paid Invoices}
+\file{CLEANUP.PRG} removes the paid invoices from the ledger after the month has
+been closed and copied.  It marks them, lists them, and asks before it
+removes them with \cmd{PACK}; if the answer is not Y, \cmd{RECALL} removes the
+marks again.
+\ProgramListing{CLEANUP.PRG}
+\DotExample{examples/p7-cleanup}
+\begin{AteWarning}
+Records removed by \cmd{PACK} cannot be recovered.  Run \file{CLEANUP.PRG} only
+after the month's files have been copied to their diskette.
+\end{AteWarning}
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~8 prints the ledger as a report.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Open the databases and indexes a program needs before it runs.
+\item \cmd{SEEK} and \fn{FOUND()} check whether a key is present.
+\item \cmd{APPEND BLANK} and \cmd{REPLACE} add a record; the open indexes are
+  kept up to date.
+\end{enumerate}

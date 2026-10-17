@@ -116,16 +116,29 @@ void FlairList_init(FlairList *l, Cell cellSize, rgn_rect_t rView)
  * -------------------------------------------------------------------------- */
 int FlairLAddRow(FlairList *l, int16_t count, int16_t afterRow)
 {
-    int16_t cur_rows;
-    int16_t new_rows;
+    int32_t cur_rows;
+    int32_t new_rows;
 
     if (!l) return FLAIR_LIST_ERR_NULL;
     if (count <= 0) return FLAIR_LIST_OK; /* no-op for zero count */
 
-    cur_rows = (int16_t)(l->dataBounds.bottom - l->dataBounds.top);
+    /* 8mip: validate in the wider type BEFORE narrowing (Rule 2). */
+    cur_rows = (int32_t)l->dataBounds.bottom - l->dataBounds.top;
+#ifdef LIST_MUT_ROW_WRAP
     new_rows = (int16_t)(cur_rows + count);
+#else
+    new_rows = cur_rows + count;
+#endif
 
+#ifndef LIST_MUT_NO_OVERFLOW_CHECK
     if (new_rows > FLAIR_LIST_MAX_ROWS) return FLAIR_LIST_ERR_OVERFLOW;
+#endif
+    /* The store is indexed by absolute cell coordinates (list.h Sec 3).
+     * 42dq: an empty column range still needs one actual backing column. */
+#ifndef LIST_MUT_COLUMN_HEADROOM
+    if (l->dataBounds.left < 0 || l->dataBounds.left >= FLAIR_LIST_MAX_COLS)
+        return FLAIR_LIST_ERR_OVERFLOW;
+#endif
 
     /* First-cut: append-only.  Full row insertion (shifting the cell store for
      * afterRow != dataBounds.bottom-1) is a follow-up M5+ issue. The test
@@ -139,9 +152,7 @@ int FlairLAddRow(FlairList *l, int16_t count, int16_t afterRow)
      * Standard-File / Finder lists are single-column; this matches the
      * IM default: "a list with no columns is usually not useful." */
     if (l->dataBounds.right == l->dataBounds.left) {
-        if (l->dataBounds.right - l->dataBounds.left < FLAIR_LIST_MAX_COLS) {
-            l->dataBounds.right = (int16_t)(l->dataBounds.left + 1);
-        }
+        l->dataBounds.right = (int16_t)(l->dataBounds.left + 1);
     }
 
     /* visible tracks dataBounds (no scroll in first cut). */
@@ -219,7 +230,11 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out)
     int16_t row_off;
     Cell    hit;
 
+#ifdef LIST_MUT_NULL_CLICK_MISS
     if (!l || !hit_out) return 0;
+#else
+    if (!l || !hit_out) return FLAIR_LIST_ERR_NULL;
+#endif
     if (l->cellSize.h <= 0 || l->cellSize.v <= 0) return 0;
 
     /* Bounds check: localPt must be within the list's pixel rect (rView).

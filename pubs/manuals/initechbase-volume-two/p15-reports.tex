@@ -1,0 +1,51 @@
+% Programming with InitechBase, Chapter 15: Reports from Programs (AN-16;
+% annex Sec 8.2 P12).  Panel replayed (examples/p15-pagerpt.dot); the
+% program PAGERPT.PRG of the sample diskette.
+\chapter{Reports from Programs}
+\Gates{test-pubs-examples, test-interp-flow, test-interp-proc}
+A report form lays out a report in columns.  When a report needs a layout of
+its own -- lines built from several fields, a heading of its own, a count of
+lines -- a program prints it with \cmd{?}.  This chapter prints the staff
+roster in numbered pages.
+
+\begin{ChapterCovers}
+\item Counting lines
+\item A heading on every page
+\item Page numbers
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE STAFF}.
+
+\ATEHead{Pages of Lines}
+A page holds a fixed number of lines.  The program counts the lines it has
+printed on the page in a memory variable; when the page is full, it prints the
+heading of a new page and begins the count again.  Starting the count at the
+full value makes the program print the heading before the first line, too.
+
+\ATEHead{The Roster in Pages}
+\file{PAGERPT.PRG} prints six employees to a page, so that the example fits this
+book; for a printed page of 55 lines, set \texttt{MLINES} to 55.
+\ProgramListing{PAGERPT.PRG}
+\begin{Steps}
+\item Type \type{DO PAGERPT}.
+\end{Steps}
+\DotExample{examples/p15-pagerpt}
+\SideHead{MLINE}counts the lines of the current page; \texttt{MPAGE} the pages.
+
+\SideHead{HEADING}is the procedure that begins a page: an empty line, the title
+with the page number, the column headings, and the count set back to zero.
+
+\SideHead{The end}After the loop, a closing line tells the reader that the
+roster is complete.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~16 calculates with dates.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Count the lines printed on a page in a memory variable.
+\item Print the heading when the count reaches the length of the page.
+\item Keep the page number in a memory variable and print it in the heading.
+\end{enumerate}

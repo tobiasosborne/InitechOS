@@ -430,7 +430,17 @@ void FlairSF_doOpen(FlairStandardFile *sf, FlairSFReply *reply)
         sf_name_copy(reply->fName, sf->entries[sel].name);
         reply->is_dir = 1;
         reply->good   = 0;           /* not-yet-confirmed (we descended)         */
+#ifdef SF_MUT_SWALLOW_NAV_ERROR
         (void)FlairSF_navigate(sf, sel);
+#else
+        /* q9cr: doOpen is a void SFReply API. A failed descent therefore
+         * returns the same explicit no-selection reply as Cancel (Rule 2),
+         * preserving the transactional list/path in FlairSF_navigate. */
+        if (FlairSF_navigate(sf, sel) != FLAIR_SF_OK) {
+            reply->is_dir = 0;
+            reply->fName[0] = '\0';
+        }
+#endif
         return;
     }
 

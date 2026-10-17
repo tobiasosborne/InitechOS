@@ -1,0 +1,11 @@
+. SELECT 1
+. USE STAFF
+. SELECT 2
+. USE DEPTS INDEX DEPTS
+. SELECT 1
+. ? DBF(), LASTNAME
+
+STAFF LUMBERGH      . SELECT 2
+. ? DBF(), DEPTNAME
+
+DEPTS Accounting              

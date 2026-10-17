@@ -1,0 +1,5 @@
+. USE STAFF
+. GO 2
+. ? "[" + TRIM(LASTNAME) + "]", "[" + LASTNAME + "]"
+
+[GIBBONS] [GIBBONS       ]

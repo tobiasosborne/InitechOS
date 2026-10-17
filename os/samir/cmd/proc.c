@@ -567,7 +567,9 @@ static const char *p_find_procedure(const char *src, const char *name)
                 i++;
             if (name[i] == '\0') {
                 const char *after = nm + i;
-                if (after >= le || p_isspace(*after)) {
+                /* Real DOS .PRG files use CR LF (mint samirdml/clear).
+                 * CR terminates the procedure name just as LF does. */
+                if (after >= le || *after == '\r' || p_isspace(*after)) {
                     /* match: body starts on the NEXT physical line. */
                     return (*le == '\n') ? le + 1 : le;
                 }
