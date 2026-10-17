@@ -409,6 +409,30 @@ int16_t ctrl_progress_fill_px(const ControlRecord *ctrl)
  * DRAW DISPATCH
  * ===========================================================================*/
 
+/* Run tables (kernel size, WL-0162): one row code, a start (>= 0: x0 + n;
+ * < 0: x1 + n), a length (> 0: n px; <= 0: w + n px) and a PART, painted in
+ * table order over the rect [x0,x1) x [y0,y1). Row codes: y0, y1-1, y0+1,
+ * y0+2, the straight body y0+3..y1-4, y0+3, y1-4, y1-3, y1-2. */
+enum { R_TOP, R_BOT, R_1, R_2, R_BODY, R_3, R_B4, R_B3, R_B2 };
+typedef struct { uint8_t row; int8_t x, n; uint8_t part; } btn_run_t;
+#define BR(r, x, n, p) { (uint8_t)(r), (int8_t)(x), (int8_t)(n), (uint8_t)(p) }
+
+static void ctrl_runs(GrafPort *port, int x0, int y0, int x1, int y1,
+                      const btn_run_t *t, int nt)
+{
+    static const int8_t yoff[] = { 0, -1, 1, 2, 0, 3, -4, -3, -2 };
+    for (int i = 0; i < nt; i++) {
+        int r = t[i].row, ya, yb;
+        if (r == R_BODY) { ya = y0 + 3; yb = y1 - 4; }
+        else ya = yb = (yoff[r] >= 0 ? y0 : y1) + yoff[r];
+        int x = (t[i].x >= 0 ? x0 : x1) + t[i].x;
+        int n = t[i].n > 0 ? t[i].n : (x1 - x0) + t[i].n;
+        for (int y = ya; y <= yb; y++) {
+            cfill_ctrl(port, x, y, n, t[i].part);
+        }
+    }
+}
+
 /* draw_push_button -- sampled Mac OS 8.1 Platinum push button, idle and
  * PRESSED (contrlHilite == inButton while the mouse is held inside).
  *
@@ -479,9 +503,6 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
          * the rounded frame keep the idle face (the dialog face, or the
          * default ring's moat drawn after this). Ref: controls.md Sec 5.3;
          * ../system7-decomp/re/mint-results-010.md Sec 2. */
-        enum { R_TOP, R_BOT, R_1, R_2, R_BODY, R_3, R_B4, R_B3, R_B2 };
-        typedef struct { uint8_t row; int8_t x, n; uint8_t part; } btn_run_t;
-#define BR(r, x, n, p) { (uint8_t)(r), (int8_t)(x), (int8_t)(n), (uint8_t)(p) }
         static const btn_run_t idle[] = {
             BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, 3, -6, CTRL_BLACK),
             BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
@@ -529,23 +550,10 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
             BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, 2, 1, CTRL_PLAT_DARK_SHADOW),
             BR(R_B2, 3, -5, CTRL_PLAT_WIDGET_EDGE), BR(R_B2, -2, 1, CTRL_BLACK)
         };
-#undef BR
         const btn_run_t *t = hilited ? pressed : idle;
         int nt = hilited ? (int)(sizeof pressed / sizeof pressed[0])
                          : (int)(sizeof idle / sizeof idle[0]);
-        for (int i = 0; i < nt; i++) {
-            int r = t[i].row, ya, yb;
-            if (r == R_BODY) { ya = y0 + 3; yb = y1 - 4; }
-            else {
-                static const int8_t yoff[] = { 0, -1, 1, 2, 0, 3, -4, -3, -2 };
-                ya = yb = (yoff[r] >= 0 ? y0 : y1) + yoff[r];
-            }
-            int x = (t[i].x >= 0 ? x0 : x1) + t[i].x;
-            int n = t[i].n > 0 ? t[i].n : w + t[i].n;
-            for (int y = ya; y <= yb; y++) {
-                cfill_ctrl(port, x, y, n, t[i].part);
-            }
-        }
+        ctrl_runs(port, x0, y0, x1, y1, t, nt);
 #if defined(CTRL_MUT_BTN_FRINGE) && CTRL_MUT_BTN_FRINGE
         if (!hilited) {
             /* Rule 6: restore the thirteen pre-M012 corner errors. */
@@ -1028,43 +1036,31 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         return;
     }
 
-    /* Establish the sampled E7 field within the expanded bounds. */
-    crect_ctrl(port,x0,y0,x1,by0,CTRL_PLAT_FACE);
-    crect_ctrl(port,x0,by1,x1,y1,CTRL_PLAT_FACE);
-    crect_ctrl(port,x0,by0,bx0,by1,CTRL_PLAT_FACE);
-    crect_ctrl(port,bx1,by0,x1,by1,CTRL_PLAT_FACE);
-
-    /* One-pixel rounded black ring with sampled 3F smoothing pixels. */
-    cfill_ctrl(port, x0 + 3, y0,     x1 - x0 - 6, CTRL_BLACK);
-    cfill_ctrl(port, x0 + 3, y1 - 1, x1 - x0 - 6, CTRL_BLACK);
-    for (int y = y0 + 3; y < y1 - 3; y++) {
-        cfill_ctrl(port, x0,     y, 1, CTRL_BLACK);
-        cfill_ctrl(port, x1 - 1, y, 1, CTRL_BLACK);
-    }
-    cfill_ctrl(port, x0 + 2, y0,     1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 3, y0,     1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x0 + 2, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 3, y1 - 1, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x0 + 1, y0 + 1, 1, CTRL_BLACK);
-    cfill_ctrl(port, x1 - 2, y0 + 1, 1, CTRL_BLACK);
-    cfill_ctrl(port, x0 + 1, y1 - 2, 1, CTRL_BLACK);
-    cfill_ctrl(port, x1 - 2, y1 - 2, 1, CTRL_BLACK);
-    cfill_ctrl(port, x0,     y0 + 2, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 1, y0 + 2, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x0,     y1 - 3, 1, CTRL_PLAT_DARK_RING);
-    cfill_ctrl(port, x1 - 1, y1 - 3, 1, CTRL_PLAT_DARK_RING);
-
-    /* Straight moat legs; DrawControl overlays the central button next. */
-    cfill_ctrl(port, bx0, y0 + 1, bx1 - bx0, CTRL_PLAT_FACE);
-    cfill_ctrl(port, bx0, y0 + 2, bx1 - bx0, CTRL_PLAT_SHADOW);
-    for (int y = by0; y < by1; y++) {
-        cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_FACE);
-        cfill_ctrl(port, x0 + 2, y, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x1 - 3, y, 1, CTRL_PLAT_SHADOW);
-        cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
-    }
-    cfill_ctrl(port, bx0, by1,     bx1 - bx0, CTRL_PLAT_SHADOW);
-    cfill_ctrl(port, bx0, by1 + 1, bx1 - bx0, CTRL_PLAT_DARK_SHADOW);
+    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3 ...) as one run
+     * table, in the original paint order: the sampled E7 field, the
+     * one-pixel rounded black ring with its 3F smoothing pixels, then the
+     * straight moat legs (E7/C0 top+left, C0/96 bottom+right); DrawControl
+     * overlays the central button next. */
+    static const btn_run_t ring[] = {
+        BR(R_TOP, 0, 0, CTRL_PLAT_FACE), BR(R_1, 0, 0, CTRL_PLAT_FACE),
+        BR(R_2, 0, 0, CTRL_PLAT_FACE),
+        BR(R_B3, 0, 0, CTRL_PLAT_FACE), BR(R_B2, 0, 0, CTRL_PLAT_FACE),
+        BR(R_BOT, 0, 0, CTRL_PLAT_FACE),
+        BR(R_BODY, 0, 3, CTRL_PLAT_FACE), BR(R_BODY, -3, 3, CTRL_PLAT_FACE),
+        BR(R_TOP, 3, -6, CTRL_BLACK), BR(R_BOT, 3, -6, CTRL_BLACK),
+        BR(R_BODY, 0, 1, CTRL_BLACK), BR(R_BODY, -1, 1, CTRL_BLACK),
+        BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
+        BR(R_BOT, 2, 1, CTRL_PLAT_DARK_RING), BR(R_BOT, -3, 1, CTRL_PLAT_DARK_RING),
+        BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, -2, 1, CTRL_BLACK),
+        BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, -2, 1, CTRL_BLACK),
+        BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
+        BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
+        BR(R_1, 3, -6, CTRL_PLAT_FACE), BR(R_2, 3, -6, CTRL_PLAT_SHADOW),
+        BR(R_BODY, 1, 1, CTRL_PLAT_FACE), BR(R_BODY, 2, 1, CTRL_PLAT_SHADOW),
+        BR(R_BODY, -3, 1, CTRL_PLAT_SHADOW), BR(R_BODY, -2, 1, CTRL_PLAT_DARK_SHADOW),
+        BR(R_B3, 3, -6, CTRL_PLAT_SHADOW), BR(R_B2, 3, -6, CTRL_PLAT_DARK_SHADOW)
+    };
+    ctrl_runs(port, x0, y0, x1, y1, ring, (int)(sizeof ring / sizeof ring[0]));
     /* R4.5 independent whole-ring gate exposed the old radius-3 corners.
      * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
      * sampled smoothing/moat. These are the four 5x5 corner crops; straight
