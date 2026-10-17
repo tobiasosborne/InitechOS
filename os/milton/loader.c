@@ -757,8 +757,9 @@ static void loader_exit_hook(uint8_t code)
  *   re-entry in load_program_from_fat), so no OTHER program occupies
  *   [PROGRAM_IMAGE, ...] when the FAT reader writes there. The child loads at
  *   PROGRAM_IMAGE (0x40100); the parent (kernel) executes from its own link
- *   region [0x10000,0x40000) and its own stack at 0x90000+, both DISJOINT from
- *   [0x40100, PROGRAM_STACK_BOT). So reading the .COM straight into PROGRAM_IMAGE
+ *   region in the high runway [KERNEL_BASE, ...) (bead initech-tdnl.29) on its
+ *   own stack [KERNEL_STACK_BOT, KERNEL_STACK_TOP] (bead initech-xu97), both
+ *   DISJOINT from [0x40100, PROGRAM_STACK_BOT). So reading the .COM straight into PROGRAM_IMAGE
  *   is exactly as safe as the OLD code that copied staging -> PROGRAM_IMAGE: both
  *   write the SAME region while the SAME kernel runs; za4m merely elides the
  *   intermediate 64 KiB staging buffer. (spec/memory_map.h gap proof; ADR-0009.) */
@@ -1152,8 +1153,9 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
  * the kernel stack (spec/memory_map.h Risk 2).
  *
  * WHY DIRECT (beads initech-za4m; ADR-0009 companion to DEC-04): the OLD path
- * read the .COM into the 64 KiB LOAD_STAGING buffer [0x80000,0x90000) (it abuts
- * the kernel stack at 0x90000, so it CANNOT grow) and then copied DOWN to
+ * read the .COM into the 64 KiB LOAD_STAGING buffer [0x80000,0x90000) (it then
+ * abutted the conventional kernel stack at 0x90000, so it could not grow) and
+ * then copied DOWN to
  * PROGRAM_IMAGE. That capped a FAT .COM at 64 KiB (LOAD_STAGING_MAX) even though
  * the program arena allows ~188 KiB (PROGRAM_IMAGE_MAX = ENV_BLOCK -
  * PROGRAM_IMAGE). A 77 KiB SAMIR.COM was wrongly rejected LOADER_ERR_TOO_BIG.
@@ -1282,8 +1284,9 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * fat12_read_file fails loud (FAT12_ERR_BUFFER) before overrunning the program
      * arena -- redundant with the file_size guard above but a hard backstop (Rule
      * 2). Safety (writing PROGRAM_IMAGE while the kernel runs): see the IN-PLACE
-     * SAFETY PROOF on loader_run_plan -- the parent is the KERNEL (links at
-     * [0x10000,0x40000), stack at 0x90000+, both disjoint from [0x40100,...)),
+     * SAFETY PROOF on loader_run_plan -- the parent is the KERNEL (links and
+     * stacks in the high runway, beads initech-tdnl.29 / initech-xu97, both
+     * disjoint from [0x40100,...)),
      * EXEC is single-level (g_load_active), so nothing else occupies PROGRAM_IMAGE.
      * This is exactly as safe as the OLD copy to 0x40100 -- same region, same
      * running kernel, minus the intermediate staging hop. */
