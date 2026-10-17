@@ -1,0 +1,4 @@
+USE STAFF
+GO TOP
+SKIP -1
+? BOF(), RECNO()

@@ -25,11 +25,14 @@
     },
     {
       "id": "R2",
-      "name": "form feed alignment",
-      "rule": "The SPACE BAR must be pressed EXACTLY 7 times, then ENTER. Any other count restarts the count with a message; other keys are ignored. Each press is acknowledged with a period.",
+      "name": "top of form alignment",
+      "rule": "The program prints the alignment test line and asks for the form to be advanced to it. The operator advances the form by pressing the SPACE BAR EXACTLY 7 times, then ENTER; each press is acknowledged with a period. Any other count prints the refusal and reprints the prompt; other keys are ignored. The prompt never states the count or the key.",
       "count": 7,
-      "prompt": ["PRESS THE SPACE BAR EXACTLY 7 TIMES TO ALIGN THE FORM FEED,",
-                 "THEN PRESS ENTER."],
+      "tacit": "the count and the key are stated only in the TPS Report Generator Operating Procedures (OP-7.4)",
+      "grounding": "IBM 4230 Printer User's Guide SA40-0593-04 pp. 1-46, 5-4..5-5 (Top of Form Alignment test, reprint until accepted); Using dBASE III PLUS p. U5-143 (sample line loop); docs/research/TPS-REPORT-GENERATOR-PERIOD-GROUNDING.md Sec 3 R2 option B; beads initech-5igf",
+      "prompt": ["TOP OF FORM ALIGNMENT",
+                 "----- ALIGNMENT TEST LINE ----- FORM TPS-1 (REV. 10/89) -----",
+                 "ADVANCE THE FORM TO THE TEST LINE, THEN PRESS ENTER."],
       "refuse": ["FORM NOT ALIGNED ({n} PRESSES). THE COUNT HAS BEEN RESET."],
       "accept": ["FORM ALIGNED."]
     },
@@ -50,8 +53,9 @@
     {
       "id": "R5",
       "name": "cover sheet attestation",
-      "rule": "Y continues to the report. N ends the run with return code 5 and no report file. Other keys are ignored.",
-      "prompt": ["DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET? (Y/N) "],
+      "rule": "The operator attests that the named form (the cover sheet, FORM TPS-1 REV. 10/89, as printed on the report's cover sheet) is attached. Y continues to the report. N ends the run with return code 5 and no report file. Other keys are ignored.",
+      "grounding": "special-forms mount attestation (IBM IEC163A/164A mount requests; WordPerfect 5.1 Reference p. 751 'Insert Paper-Press G to Continue'); docs/research/TPS-REPORT-GENERATOR-PERIOD-GROUNDING.md Sec 3 R5 option B keeping the canon sentence; beads initech-5igf",
+      "prompt": ["DID YOU REMEMBER TO ATTACH THE NEW COVER SHEET, FORM TPS-1 (REV. 10/89)? (Y/N) "],
       "refuse": ["TPS-005 REPORT NOT PRINTED. A COPY OF MEMO {n} WILL BE",
                  "FORWARDED TO YOUR SUPERVISOR."],
       "exit": 5

@@ -1,0 +1,74 @@
+% TPS Report Generator -- Reference and Operating Procedures, part
+% 1024-3300-12 (PUB-REF-0001 Sec 12, DS row DOS-TPS; bead initech-ipu5.14).
+% Family F-OPS: the session frame, objectives, lab projects, study
+% questions, answers, review, final quiz, data collection sheets and the
+% internal-mail Reader's Comment Form of IBM PC DOS Operation Training
+% ZR23-6845-01 (docs/pubs/originals/ibm-dos.md Sec 5.4, 7.5, 12), with the
+% boxed numbered steps of DisplayWrite 4 Getting Started (AN-15).  The
+% structure follows docs/research/TPS-REPORT-GENERATOR-PERIOD-GROUNDING.md
+% Sec 5 (procedures TPS-P-01..08, Forms TPS-1..TPS-5, three checklists,
+% Appendices A-G).
+% Law 1: every statement about the program is the behaviour of
+% os/milton/tpsrep_program.asm and the locked spec/tps_ritual.json, proved
+% by test-tps-report (real MS-DOS 6.22 goldens) and test-flair-tps-journey;
+% every message is printed from the table tps_inventory.c generates from
+% the spec (GC-02); every screen is a capture of the running system
+% (screens/SCREENS, the journey route of pubs/screens/capture.sh).  The R2
+% and R5 wording DECIDED for lane tpsr2 (bead initech-5igf) is printed
+% under DRAFT markers until it ships.  The seven presses are written here
+% and nowhere in the program (operator Law-4 ruling, bead initech-5igf).
+\documentclass[operations]{initech-manual}
+\usepackage{initech-ops}
+
+\ProductName{TPS Report Generator}
+\ProductVersion{Version 2.11}
+\DocTitle{Reference and Operating Procedures}
+\ShortTitle{TPS Report Generator}
+\PartNumber{1024-3300-12}
+\FamilyName{Systems Family}
+\FamilyColor{FamilySystems}
+\Edition{First Edition (March 1992)}
+\EditionApplies{This edition applies to Version 2.11 of the TPS Report
+  Generator, supplied with InitechDOS Version 3.30, and to all subsequent
+  releases until otherwise indicated in new editions.}
+\CopyrightYears{1989, 1992}
+\Revision{R01}
+\PrintCode{A1-3/92}
+\Trademarks{InitechOS, InitechDOS, FLAIR and InitechBase are trademarks of
+  Initech Systems Corporation.  dBASE III PLUS is a trademark of
+  Ashton-Tate.  All other product names are trademarks of their respective
+  holders.}
+
+\newcommand\bs{\textbackslash}
+% The program files, as on the shipped volume (A:\APPS).
+\newcommand\proc[1]{Procedure~TPS-P-#1}
+\newcommand\form[1]{Form~TPS-#1}
+\newcommand\rpt{\file{TPSREPT.TXT}}
+
+\begin{document}
+\FrontMatterFolios
+\begingroup
+  \DocTitle{\begin{tabular}[t]{@{}l@{}}Reference and\\Operating Procedures\end{tabular}}
+  \MakeTitlePage
+\endgroup
+\input{frontmatter}
+\tableofcontents
+\input{s1-reference}
+\input{s2-leaving-flair}
+\input{s3-parameter}
+\input{s4-alignment}
+\input{s5-number-memo}
+\input{s6-cover-output}
+\input{s7-faults}
+\appendix
+\input{appa-evaluation}
+\input{appb-terminal}
+\input{appc-answers}
+\input{appd-review}
+\input{appe-quiz}
+\input{appf-forms}
+\input{appg-messages}
+\printindex
+\let\ReadersCommentForm\InternalCommentForm
+\FinishBook[1]
+\end{document}

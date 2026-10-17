@@ -1,0 +1,66 @@
+% Using InitechBase, Glossary (PUB-REF-0001 AN-07 / AN-23 F-ATE: term in the
+% side column, definition in the text column; CP-03: every term printed
+% bold at its first use in Volume One is here).  Folios UG-n.
+\SectionGlossary{Glossary}
+\Gates{test-pubs-build}
+\GlossaryEntry{alias}{The name by which \cmd{SELECT} knows a database open in a
+work area: its file name without the extension, unless \cmd{USE} \ldots{}
+\kw{ALIAS} gives another.}
+\GlossaryEntry{beginning of file}{The position before the first record, reached
+by a \cmd{SKIP} back from the first record.  \fn{BOF()} is then true.}
+\GlossaryEntry{condition}{A logical expression that a command tests for each
+record, after \kw{FOR} or \kw{WHILE}.}
+\GlossaryEntry{current record}{The record on which the record pointer of a work
+area stands.  \cmd{DISPLAY}, \cmd{REPLACE} and the field names in an expression
+refer to it.}
+\GlossaryEntry{database}{A collection of records about one kind of thing, such
+as the employees of a company, kept in a database file.}
+\GlossaryEntry{database file}{The file, with the extension \file{.DBF}, that
+holds the structure and the records of a database.}
+\GlossaryEntry{dot prompt}{The period and blank that InitechBase displays when it
+is ready for a command.}
+\GlossaryEntry{end of file}{The position after the last record.  \fn{EOF()} is
+then true and \fn{RECNO()} is the number of records plus one.}
+\GlossaryEntry{expression}{A value, or a combination of values joined by
+operators, that InitechBase calculates: a constant, a field, a memory variable,
+a function or a calculation with them.}
+\GlossaryEntry{expression list}{Expressions separated by commas, such as the
+fields named after \cmd{LIST}.}
+\GlossaryEntry{field}{One item of information in a record, such as the last
+name.  Every record of a database has the same fields.}
+\GlossaryEntry{function}{A part of an expression that computes a value from its
+arguments, written as a name followed by parentheses: \fn{UPPER(LASTNAME)}.}
+\GlossaryEntry{index file}{A file, with the extension \file{.NDX}, that holds the
+records of a database in the order of a key and lets \cmd{SEEK} and \cmd{FIND}
+find a key at once.}
+\GlossaryEntry{key}{The field whose values give the order of an index file.}
+\GlossaryEntry{master index}{The index file that gives the order of the records
+and that \cmd{SEEK} and \cmd{FIND} search: the first named in \cmd{USE}, or the
+one chosen with SET ORDER.}
+\GlossaryEntry{memo field}{A field of type Memo, whose text is kept in the memo
+file.}
+\GlossaryEntry{memo file}{The file, with the extension \file{.DBT}, that holds the
+text of the memo fields of the database of the same name.}
+\GlossaryEntry{memory variable}{A named value kept by InitechBase apart from any
+database, created with \cmd{STORE} or \texttt{=}.}
+\GlossaryEntry{private}{Of a memory variable: belonging to the procedure that
+created it, and released when the procedure returns.}
+\GlossaryEntry{procedure}{A part of a program file that begins with
+\cmd{PROCEDURE}, ends with \cmd{RETURN}, and runs when \cmd{DO} calls it by name.}
+\GlossaryEntry{program}{A list of InitechBase commands kept in a program file, with
+the extension \file{.PRG}, and carried out by \cmd{DO}.}
+\GlossaryEntry{record}{The information about one thing in a database, such as one
+employee, made up of fields.}
+\GlossaryEntry{record number}{The position of a record in its database, counted
+from 1 in the order in which the records were added.}
+\GlossaryEntry{record pointer}{The marker InitechBase keeps in each work area on
+the current record.}
+\GlossaryEntry{report form}{A file, with the extension \file{.FRM}, that describes
+the title, columns, groups and totals of a report for \cmd{REPORT FORM}.}
+\GlossaryEntry{scope}{The records a command works on: \kw{ALL}, \kw{NEXT}
+\xp{n}, \kw{RECORD} \xp{n} or \kw{REST}.}
+\GlossaryEntry{structure}{The list of the fields of a database, with the name,
+type and width of each.}
+\GlossaryEntry{verb}{The command word with which a command begins.}
+\GlossaryEntry{work area}{One of the ten places in which InitechBase keeps an open
+database, with its index files and record pointer.  \cmd{SELECT} chooses one.}

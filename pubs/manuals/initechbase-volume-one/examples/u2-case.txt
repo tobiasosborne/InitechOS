@@ -1,0 +1,5 @@
+. USE STAFF
+. list next 2 lastname, dept
+Record#  lastname       dept
+      1  LUMBERGH       SOFT
+      2  GIBBONS        SOFT

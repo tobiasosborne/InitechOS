@@ -1,1 +1,1 @@
-\n\nCLS\nVER > LIST.TXT\nECHO Second line >> LIST.TXT\nTYPE LIST.TXT\n
+CLS\nVER > LIST.TXT\nECHO Second line >> LIST.TXT\nTYPE LIST.TXT\n

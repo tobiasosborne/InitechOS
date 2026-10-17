@@ -268,7 +268,8 @@ void DrawControl(GrafPort *port, ControlRecord *ctrl);
 /* DrawControlDefaultRing -- draw the sampled Platinum default-button ring and
  * two-pixel moat at InsetRect(ctrl->contrlRect,-3,-3). Dialog Manager calls
  * this only for the push-button ctrlItem named by DialogRecord.defaultItem,
- * immediately before DrawControl overlays the button itself.
+ * immediately after DrawControl, preserving the sampled corner moat and
+ * leaving the button centre untouched.
  * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.2 (SAMPLED). */
 void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl);
 

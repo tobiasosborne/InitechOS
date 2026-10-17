@@ -1,0 +1,12 @@
+{
+  "bead": "initech-tdnl.19",
+  "file": "CPANELS.DAT",
+  "bytes": 16,
+  "byte_order": "little endian",
+  "fields": {"0..3": "CP01", "4": "version 1", "5": "pattern 0 teal, 1..8 PAT#_0 entries 1..8", "6": "tracking 0 slow,1 normal,2 fast", "7": "double click 0 slow 40 ticks,1 normal 20 ticks,2 fast 10 ticks", "8": "sound 0 beep 880Hz,1 bell 660Hz,2 click 1320Hz", "9": "volume 0 silent,1 short 5 ticks,2 full 15 ticks (PC speaker fixed amplitude)", "10": "menu bar clock 0 hidden,1 shown", "11..13": "reserved zero", "14..15": "sum bytes 0..13"},
+  "defaults": [0,1,1,0,2,1],
+  "corruption": "wrong length, magic, version, range, reserved or checksum: defaults and CPANELS-CORRUPT defaults serial",
+  "rtc": "date and time through INT21 AH=2A/2B/2C/2D, persisted by CMOS, never replayed at boot",
+  "sources": ["docs/research/period-gui-suite.md sec 5", "spec/dialog_record.h", "spec/control_record.h", "system7-decomp/goldens/resources/PAT#_0.bin"],
+  "layout_gaps": "No native chooser, Date & Time, Desktop Patterns, Mouse, Sound or Memory layout capture. Compose existing Dialog/Control Manager furniture per lane directive; do not claim a native replica. Radio art retains Control Manager's documented golden gap."
+}

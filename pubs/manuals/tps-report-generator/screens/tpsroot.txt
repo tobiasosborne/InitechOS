@@ -1,0 +1,25 @@
+A:\>TPSREP TPS.DBF
+Bad command or file name
+A:\>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

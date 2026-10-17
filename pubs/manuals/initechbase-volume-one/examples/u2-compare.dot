@@ -1,0 +1,2 @@
+? 'SMITH' = 'SMI', 'SMI' = 'SMITH', 'SMITH' = ''
+? 'ABC' < 'ABD', 'Z' < 'a', '10' < '9'

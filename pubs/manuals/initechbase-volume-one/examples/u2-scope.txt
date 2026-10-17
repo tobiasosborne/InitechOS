@@ -1,0 +1,16 @@
+. USE STAFF
+. GO 6
+. DISPLAY NEXT 3 LASTNAME
+Record#  LASTNAME
+      6  SMYKOWSKI     
+      7  PORTER        
+      8  ALBRIGHT      
+. DISPLAY RECORD 2 LASTNAME
+Record#  LASTNAME
+      2  GIBBONS       
+. DISPLAY REST LASTNAME FOR SALARY > 40000
+Record#  LASTNAME
+      2  GIBBONS       
+      7  PORTER        
+      9  DELGADO       
+     12  PRUITT        

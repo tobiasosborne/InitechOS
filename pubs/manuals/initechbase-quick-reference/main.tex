@@ -1,0 +1,32 @@
+% InitechBase Quick Reference Guide -- part 1040-0000-20 (PUB-REF-0001 Sec
+% 12, DS row BAS-QR; PK-11: the 3.5 x 9 in booklet, saddle-stitched).
+% Model: the dBASE III PLUS Quick Reference Guide (annex Sec 11.1): cover in
+% the title-sheet system; section heads in sans capitals between two rules;
+% commands with their full syntax in bold over a one-line description,
+% alphabetical; functions name / description in two columns; Notes pages
+% fill the booklet; part number on the back cover bottom right.  Syntax
+% only (DS row BAS-QR): the reference is Using InitechBase.  Every entry
+% registers what it documents (\QREntry -> main.cmds) and the booklet is
+% checked against the shipped dot prompt in both directions, on its own
+% (test-pubs-commands), like Using InitechBase.  Bead initech-ipu5.8.
+\documentclass[ashtontate,quickref]{initech-manual}
+\ProductName{InitechBase}
+\DocTitle{Quick Reference Guide}
+\PartNumber{1040-0000-20}
+\PrintCode{A1-3/92}
+\FamilyName{Information Management Family}
+\FamilyColor{FamilyInformation}
+\CopyrightYears{1991, 1992}
+\providecommand{\IsThisGoodForTheCompany}{\par\medskip\noindent{\sffamily Is This Good for the \textbf{\textit{COMPANY}}?}\par\noindent\rule{\linewidth}{0.5pt}\medskip}
+% AN-26 / D-15: the colophon names the replay route of the examples.
+\newcommand\ColophonInitechBase{}
+\begin{document}
+\QRCover
+\input{qr-commands}
+\input{qr-set}
+\input{qr-functions}
+\input{qr-operators}
+\input{qr-files}
+\input{qr-messages}
+\QRFinish[32]
+\end{document}

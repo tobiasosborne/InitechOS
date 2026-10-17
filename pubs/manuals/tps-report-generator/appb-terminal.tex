@@ -1,0 +1,43 @@
+% Appendix B -- Terminal Procedures (ZR23-6845-01 App. B: the terminal
+% sign-on summary).  Here: the exit to the prompt and the keys the program
+% accepts at each step, as summary tables.  Law 1: os/flair/finder_menu.c,
+% os/milton/kmain.c finder_exit_dos, os/milton/tpsrep_program.asm (.r2k,
+% getfield, .r5k), spec/tps_ritual.json R2-R5.
+% GATES: test-flair-exit-to-dos test-tps-report test-pubs-tps
+\Gates{test-flair-exit-to-dos, test-tps-report, test-pubs-tps}
+\chapter{Terminal Procedures}
+
+This appendix summarizes the steps at the workstation.  The full procedures
+are in Sessions 2 to 7.
+
+\section{From the Desktop to the Program}
+\begin{center}\small
+\hspace*{-\imHang}%
+\begin{tabular}{@{}p{50mm}p{\dimexpr\imFullWidth-50mm-2\tabcolsep\relax}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries To do this & \sffamily\bfseries Take these steps\\\hline
+Leave the FLAIR desktop & Choose \textbf{Exit to InitechDOS} from the \textbf{Special} menu; click \textbf{Exit}\\
+Keep the date and time & Press \key{Enter} at each prompt\\
+Clear the screen & Type \type{CLS}, press \key{Enter}\\
+Make the program directory current & Type \type{CD APPS}, press \key{Enter}\\
+Check the program files & Type \type{DIR TPS*.* /W}, press \key{Enter}\\
+Start the program & Type \type{TPSREP TPS.DBF}, press \key{Enter}\\\hline
+\end{tabular}\end{center}
+
+\section{Keys the Program Accepts}
+At each step the program accepts only the keys below.  Any other key is
+ignored and displays nothing.
+
+\begin{center}\small
+\hspace*{-\imHang}%
+\begin{tabular}{@{}p{38mm}p{56mm}p{\dimexpr\imFullWidth-94mm-4\tabcolsep\relax}@{}}
+\rule{0pt}{10pt}\sffamily\bfseries Step & \sffamily\bfseries Keys accepted & \sffamily\bfseries Displayed\\\hline
+Form alignment (\proc{03}) & \key{Space Bar}; \key{Enter} ends the attempt & A period for each press\\
+Report number (\proc{04}) & Digits (the hyphen is also accepted), up to six; \key{Enter} ends the entry & The characters\\
+Memo number (\proc{05}) & Digits and the hyphen, up to eight; \key{Enter} ends the entry & The characters\\
+Cover sheet (\proc{06}) & \type{Y} or \type{N}, capital or small & The letter, as a capital\\\hline
+\end{tabular}\end{center}
+
+\section{The Alignment Count}
+The form is aligned by pressing the \key{Space Bar} exactly
+\AlignCount{TPS-P-03} times, then \key{Enter}.  The program does not display
+this number.

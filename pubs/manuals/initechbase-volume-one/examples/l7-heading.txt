@@ -1,0 +1,18 @@
+. USE STAFF INDEX STAFFDPT
+. SET DELETED ON
+. REPORT FORM STAFFRPT HEADING 'MARCH 1992' FOR DEPT = 'ACCT'
+
+  Page No.     1                   MARCH 1992
+  03/01/92
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+ ** Subtotal **
+                                       47300.00
+ *** Total ***
+                                       47300.00

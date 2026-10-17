@@ -1,0 +1,65 @@
+% Programming with InitechBase, Chapter 11: The Main Menu (AN-16).  The
+% program is ACCTMAIN.PRG of the sample diskette; panels replayed
+% (examples/p11-*.dot).  Sources cmd/flow.c (DO WHILE .T., EXIT, DO CASE),
+% cmd/proc.c (WAIT, procedures), cmd/report.c.
+\chapter{The Main Menu}
+\Gates{test-pubs-examples, test-interp-flow, test-interp-proc}
+The accounts receivable clerk uses the system every day to look at the ledger
+and print the register.  The main menu offers these tasks by number and carries
+out the one chosen, until the clerk chooses to leave.
+
+\begin{ChapterCovers}
+\item A menu loop
+\item Taking the choice with \cmd{WAIT}
+\item Carrying it out with \cmd{DO CASE}
+\item Procedures of the menu
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and type
+\type{USE INVOICE INDEX INVNO}.
+
+\ATEHead{Using the Menu}
+\begin{Steps}
+\item Type \type{DO ACCTMAIN}.
+\Response{The menu appears and waits for a choice.}
+\item Press \type{2}.
+\Response{The open invoices are listed, and the menu appears again.}
+\item Press \type{9}.
+\Response{The menu asks for one of its choices.}
+\item Press \type{0}.
+\Response{The dot prompt returns.}
+\end{Steps}
+\DotExample{examples/p11-menu}
+Choice 1 lists the whole ledger:
+\DotExample{examples/p11-ledger}
+
+\ATEHead{Reading the Program}
+\ProgramListing{ACCTMAIN.PRG}
+\SideHead{The loop}\cmd{DO WHILE .T.} repeats for as long as the clerk works;
+the condition is always true.  The loop ends only by \cmd{EXIT}, in the
+\cmd{CASE} of choice 0.
+
+\SideHead{The menu}\cmd{?} prints an empty line, the title and the choices.  A
+second empty \cmd{?} begins a new line for the question.
+
+\SideHead{The choice}\cmd{WAIT} takes one key into \texttt{MCHOICE}.
+
+\SideHead{The task}\cmd{DO CASE} compares the key with each choice and carries out
+its task: \cmd{DO LEDGER}, \cmd{DO OPENLIST}, or \cmd{REPORT FORM}.  Any other key
+reaches \cmd{OTHERWISE}, which asks again.
+
+\SideHead{The procedures}\texttt{LEDGER} and \texttt{OPENLIST} follow the main
+program in the same file.  Each begins at the first record, because the task
+before it may have left the record pointer at the end of the file.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~12 describes what happens when a command of a program cannot be
+carried out.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item \cmd{DO WHILE .T.} \ldots{} \cmd{ENDDO} with \cmd{EXIT} makes a menu loop.
+\item \cmd{WAIT} \ldots{} \kw{TO} takes the choice; \cmd{DO CASE} carries it out.
+\item The tasks are procedures of the same file.
+\end{enumerate}

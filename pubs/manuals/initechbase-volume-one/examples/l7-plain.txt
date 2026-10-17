@@ -1,0 +1,30 @@
+. USE STAFF INDEX STAFFDPT
+. REPORT FORM STAFFRPT FOR EXEMPT PLAIN
+
+                           INITECH SYSTEMS CORPORATION
+                               STAFF SALARY REPORT
+
+  Last Name      First Name Hired        Salary
+
+
+ ** Department ACCT
+  PRUITT         CAROL      07/25/83   47300.00
+ ** Subtotal **
+                                       47300.00
+
+ ** Department ADMN
+  PORTER         DOM        01/11/82  112000.00
+ ** Subtotal **
+                                      112000.00
+
+ ** Department SOFT
+  LUMBERGH       BILL       06/04/84   96500.00
+  GIBBONS        PETER      03/14/88   41250.00
+  BOLTON         MICHAEL    09/05/89   39800.00
+  NAGHEENANAJAR  SAMIR      10/02/89   39800.00
+  DELGADO        ANDREW     11/30/87   44100.00
+  OKAFOR         DANIEL     01/14/91   36750.00
+ ** Subtotal **
+                                      298200.00
+ *** Total ***
+                                      457500.00

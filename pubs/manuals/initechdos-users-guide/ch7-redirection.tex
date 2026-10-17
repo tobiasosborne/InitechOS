@@ -4,9 +4,8 @@
 % and run_pipeline: '|' through temporary files, MSG-DOS-0005 when one
 % cannot be created); devices.c NUL.  The filters MORE, FIND and SORT are
 % built and gated (os/milton/{more,find,sort}_program.asm; test-more-filter,
-% test-find-filter, test-sort-filter) but are NOT on the shipped disk
-% (Makefile flair-data-rules plants only CHKDSK ATTRIB LABEL XCOPY TREE) --
-% DRAFT, initech-2kgh.
+% test-find-filter, test-sort-filter) and ship in DOS (initech-2kgh/zc68,
+% Makefile FLAIR_DOS_EXTERNALS, test-dos-folder).
 % GATES: test-redir test-redir-parse test-hsct-redir test-bsy7-redir test-bsy8-pipe test-bsy9-redir test-pubs-screens
 \Gates{test-redir, test-redir-parse, test-hsct-redir, test-bsy7-redir, test-bsy8-pipe, test-bsy9-redir, test-pubs-screens}
 \chapter{Redirecting Input and Output}
@@ -68,9 +67,6 @@ for the file, it displays \texttt{Insufficient disk space}.
 A \term{filter} is a program that reads its standard input, changes it, and
 writes the result to its standard output.  Filters are most useful in
 pipes.
-\draft{see bead initech-2kgh: the filters MORE, FIND and SORT are built and pass
-their gates (test-more-filter, test-find-filter, test-sort-filter) but are
-not on the shipped disk; the examples below describe DOS 3.3}
 InitechDOS provides three:
 
 \SideHead{MORE}Displays its input one screen at a time.  \type{TYPE

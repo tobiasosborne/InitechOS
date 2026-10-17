@@ -1,38 +1,36 @@
 % Chapter 8 -- The InitechDOS Editing Keys.
-% Sources (Law 1): os/milton/int21.c conin_cooked_line (echo; BACKSPACE 08h
-% erases, ignored at the start; CR ends the line; BEL when the buffer is
-% full; CTRL-C 03h -> INT 23h, line discarded); os/milton/kbd.c (Ctrl+A..Z
-% -> 01h..1Ah, so CTRL-H = BACKSPACE); command.c read_line (CMD_LINE_MAX 128
-% = 127 characters + CR); WL-0102 (COPY CON ends at CTRL-Z).  The DOS 3.3
-% template keys (F1-F6, INS, DEL, ESC) and CTRL-S / CTRL-P are not built --
-% DRAFT; initech-lqdc was closed with the ^C / ^Z echo only, so they need a
-% bead.  CTRL-C echoes ^C on the console (INT23-BREAK goes to the serial
-% mirror only, lqdc): screens/ctrlc.
-% GATES: test-j1lu-control-emu test-j1lu-con-unit test-shell
-\Gates{test-j1lu-control-emu, test-j1lu-con-unit, test-shell}
+% Law 1: MS-DOS 3.3 User's Guide printed pp.153-159,165-169
+% (PDF238-244,250-254); ADR-0003 Appendix A (01h-0Ch CON I/O).
+% conedit.h is shared by int21.c AH=0Ah/CON and EDLIN; command.c retains
+% the previous buffered line. Printer hardware is outside spec/hardware.json:
+% PRN uses the existing serial backend, not an invented parallel port.
+% GATES: test-conkeys-unit test-conkeys test-conkeys-mutant test-edlin-emu
+\Gates{test-conkeys-unit, test-conkeys, test-conkeys-mutant, test-edlin-emu}
 \chapter{The InitechDOS Editing Keys}
 
 \section{Typing a Command Line}
 \index{editing keys}
-InitechDOS reads what you type one line at a time.  The characters appear on
-the screen as you type them, and nothing happens until you press
-\key{Enter}.  Until then you can correct the line with the keys described
-in this chapter.  The same keys work whenever a command or program asks you
-to type a line, for example when \cmd{LABEL} asks for a volume label.
+InitechDOS reads what you type one line at a time. The characters appear on
+ the screen as you type them, and nothing happens until you press
+\key{Enter}. Until then you can correct the line with the keys described
+in this chapter. The same editing keys work when a program asks you to
+type a line, and when you edit a line with \cmd{EDLIN}.
 
-A line can be up to 127 characters long.  When it is full, InitechDOS
-ignores any further characters until you press \key{Enter} or erase
-some.
+At the command prompt, a line can be up to 127 characters long. When it is
+full, InitechDOS sounds a beep and ignores further characters until you
+press \key{Enter} or erase some.
 
 \section{The Keys}
-\SideHead{Enter}Ends the line.  InitechDOS moves the cursor to the next
-line and carries out the command.
+\SideHead{Enter}Ends the line. InitechDOS moves the cursor to the next
+line and carries out the command. The completed line becomes the template
+for the next command.
 
-\SideHead{Backspace}Erases the character to the left of the cursor.  At the
-beginning of the line it does nothing.  \key{Ctrl-H} does the same.
+\SideHead{Backspace}Erases the character to the left of the cursor and
+moves back one character in the template when you are replacing characters.
+At the beginning of the line it does nothing. \key{Ctrl-H} does the same.
 
 \SideHead{Ctrl-C}Cancels the line you are typing: InitechDOS discards it
-and displays the command prompt again.  If a command or program is waiting
+and displays the command prompt again. If a command or program is waiting
 for you to type a line, \key{Ctrl-C} stops it; a batch file ends.
 InitechDOS displays \texttt{\textasciicircum C} after the cancelled line:
 \begin{Steps}
@@ -44,42 +42,71 @@ InitechDOS displays \texttt{\textasciicircum C} after the cancelled line:
 \Screen[rows=2, label=fig:ctrlc]{screens/ctrlc.txt}{A line cancelled with
   Ctrl-C}
 
-\SideHead{Ctrl-Z}Marks the end of a file.  When you copy from the keyboard
+\SideHead{Ctrl-Z}Marks the end of a file. When you copy from the keyboard
 with \cmd{COPY CON}, press \key{Ctrl-Z} and then \key{Enter} to end the
 file.
 
 \section{Correcting a Line with Backspace}
 To correct a mistake, press \key{Backspace} until the wrong character is
-erased, then type the rest of the line again.  For example, if you type
+erased, then type the rest of the line again. For example, if you type
 \type{DIT}, press \key{Backspace} once and type \type{R}: the line becomes
 \type{DIR}, and pressing \key{Enter} lists the directory.
 
 \section{The Template Keys}
-\draft{bead needed (initech-lqdc was closed without them): the template
-editing keys, CTRL-S and CTRL-P are not built; this section describes DOS
-3.3}
-InitechDOS keeps the last line you typed as a \term{template}, and the
-function keys let you use it to type the next line:
+InitechDOS keeps the last completed line as a \term{template}. A position
+in the template marks the next character available to copy. Normally, each
+character you type replaces one character at that position.
 
-\SideHead{F1}Copies one character from the template.
+\SideHead{F1}Copies one character from the template to the current line.
 
-\SideHead{F2}Copies the template up to the character you type next.
+\SideHead{F2}Copies characters up to, but not including, the character you
+press next. If that character is absent, nothing is copied.
 
-\SideHead{F3}Copies the rest of the template.  Press \key{F3} at the prompt
-to repeat the last command.
+\SideHead{F3}Copies the rest of the template. Press \key{F3} and
+\key{Enter} at the prompt to repeat the last command. \key{F1}, \key{F2}
+and \key{F3} also turn off insert mode.
 
-\SideHead{F4}Skips the template up to the character you type next.
+\SideHead{F4}Skips characters in the template up to, but not including,
+the character you press next. If it is absent, nothing is skipped.
 
-\SideHead{F5}Makes the line you have typed the new template, without
-carrying it out.
+\SideHead{F5}Makes the current line the new template without carrying it
+out. InitechDOS prints \texttt{@} and moves to a new line, ready for you to
+copy or change this template. Insert mode is turned off.
 
-\SideHead{Del}Skips one character of the template.
+\SideHead{Del}Skips one character in the template without copying it to
+the current line. The cursor on the screen does not move.
 
-\SideHead{Ins}Lets you insert characters without moving through the
-template.
+\SideHead{Ins}Turns insert mode on or off. In insert mode, characters you
+type are added to the current line without moving through the template.
+Press \key{Ins} again to return to replacing characters.
 
-\SideHead{Esc}Cancels the line without changing the template.
+\SideHead{Esc}Cancels the current line without changing the template.
+InitechDOS prints a backslash (\texttt{\textbackslash}) and moves to a new
+line. Insert mode is turned off. Press \key{F3} to copy the template again.
 
-\key{Ctrl-S} stops the display scrolling until you press any key, and
-\key{Ctrl-P} sends everything that is displayed to the printer as well,
-until you press it again.
+Try the following example:
+\begin{Steps}
+\item Type \type{CLS}, then \type{ECHO Quarter}, pressing \key{Enter}
+  after each command.
+\item Press \key{F3} and \key{Enter} to repeat the command.
+\item Press \key{F2}, then \key{Q}. Type \type{Month} and press \key{Enter}.
+\item Type \type{ECHO Friday} and press \key{F5}. Press \key{F3} and
+  \key{Enter} to carry out the saved line.
+\item Type \type{WRONG} and press \key{Esc}. Press \key{F3} and
+  \key{Enter} to recall the unchanged template.
+\end{Steps}
+
+\Screen[rows=13, label=fig:template]{screens/template.txt}{Copying and
+  cancelling lines with the template keys}
+
+\section{Controlling the Display and Printer Echo}
+\SideHead{Ctrl-S}Pauses the display. Press any key to resume; that key is
+used only to resume the display.
+
+\SideHead{Ctrl-P}Turns printer echo on or off. While it is on, output sent
+to the console is also sent to \texttt{PRN}. This edition records printer
+output on the diagnostic serial connection; physical printing requires a
+printer driver.
+
+\SideHead{Ctrl-N}Turns printer echo off.
+

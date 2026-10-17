@@ -1,0 +1,5 @@
+. WAIT 'Press Y to continue: ' TO MKEY
+Press Y to continue: Y
+. ? MKEY
+
+Y

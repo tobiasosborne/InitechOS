@@ -17,6 +17,8 @@
 #include "bochs.h"
 
 #include <stdio.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +28,10 @@ static void usage(const char *argv0)
         "usage: %s --disk IMG [options]\n"
         "  --disk2 IMG        attach a raw disk as IDE primary slave\n"
         "  --expect MARKER    assert MARKER present (line-exact) on serial\n"
+        "  --quit-after MARK  stop after this complete exact serial line\n"
+        "  --quit-after-count N  wait for N occurrences (default 1)\n"
+        "  --allow-reboot     opt into waiting across hardware RESET; required\n"
+        "                     for count >1; triple faults always fail\n"
         "  --bios ROM         system BIOS (default %s)\n"
         "  --vgabios ROM      VGA BIOS  (default %s)\n"
         "  --timeout-ms N     wall-clock kill deadline (default %d)\n"
@@ -55,6 +61,19 @@ int main(int argc, char **argv)
         if (strcmp(a, "--disk") == 0)            { NEED_ARG(); cfg.disk_path = argv[++i]; }
         else if (strcmp(a, "--disk2") == 0)      { NEED_ARG(); cfg.data_disk_path = argv[++i]; }
         else if (strcmp(a, "--expect") == 0)     { NEED_ARG(); cfg.expect_marker = argv[++i]; }
+        else if (strcmp(a, "--quit-after") == 0) { NEED_ARG(); cfg.quit_after = argv[++i]; }
+        else if (strcmp(a, "--allow-reboot") == 0) { cfg.allow_reboot = true; }
+        else if (strcmp(a, "--quit-after-count") == 0) {
+            NEED_ARG();
+            char *end;
+            errno = 0;
+            long n = strtol(argv[++i], &end, 10);
+            if (errno || *end || n < 1 || n > INT_MAX) {
+                fprintf(stderr, "%s: --quit-after-count needs a positive integer\n", argv[0]);
+                return 2;
+            }
+            cfg.quit_after_count = (int)n;
+        }
         else if (strcmp(a, "--bios") == 0)       { NEED_ARG(); cfg.bios_path = argv[++i]; }
         else if (strcmp(a, "--vgabios") == 0)    { NEED_ARG(); cfg.vgabios_path = argv[++i]; }
         else if (strcmp(a, "--timeout-ms") == 0) { NEED_ARG(); cfg.timeout_ms = atoi(argv[++i]); }
@@ -70,6 +89,11 @@ int main(int argc, char **argv)
     if (!cfg.disk_path) {
         fprintf(stderr, "%s: need --disk\n", argv[0]);
         usage(argv[0]);
+        return 2;
+    }
+    if ((cfg.quit_after_count && !cfg.quit_after) ||
+        (cfg.quit_after_count > 1 && !cfg.allow_reboot)) {
+        fprintf(stderr, "%s: --quit-after-count needs --quit-after (and --allow-reboot for count >1)\n", argv[0]);
         return 2;
     }
 
@@ -90,12 +114,15 @@ int main(int argc, char **argv)
         "[bochs] launched=%d rfb_unblocked=%d timed_out=%d exit=%d signal=%d\n"
         "[bochs] serial_len=%zu marker_found=%d (expect=%s)\n"
         "[bochs] triple_fault=%d\n"
+        "[bochs] quit_marker_found=%d quit_markers_seen=%d (want=%d, quit_after=%s)\n"
         "[bochs] serial=%s\n"
         "[bochs] OK=%d\n",
         res.launched, res.rfb_unblocked, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
-        res.triple_fault, res.serial_path, res.ok);
+        res.triple_fault, res.quit_marker_found, res.quit_markers_seen,
+        cfg.quit_after_count > 0 ? cfg.quit_after_count : 1,
+        cfg.quit_after ? cfg.quit_after : "(none)", res.serial_path, res.ok);
 
     int rc = res.ok ? 0 : 1;
     bochs_result_free(&res);

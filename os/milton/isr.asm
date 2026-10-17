@@ -344,6 +344,34 @@ int24_entry:
     add esp, 8                 ; discard the pushed vector + err_code dwords
     iretd                      ; resume caller with AL = action, CF clear
 
+; DEC-17 physical BIOS service, DEC-04a registers and balanced IRETD frame.
+extern int13_dispatch:weak
+global int13_entry
+int13_entry:
+    push dword 0
+    push dword 0x13
+    push gs
+    push fs
+    push es
+    push ds
+    pushad
+    cld
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    push esp
+    call int13_dispatch
+    add esp, 4
+    popad
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8
+    iretd
+
 ; --- INT 25h / 26h: ABSOLUTE DISK READ/WRITE (ADR-0003 DEC-15) --------------
 ; beads initech-4mq7. Two NEW separate software-interrupt vectors -- NOT INT 21h
 ; AH functions (AH=25h is SETVECT, AH=35h is GETVECT, handled in int21.c). Like

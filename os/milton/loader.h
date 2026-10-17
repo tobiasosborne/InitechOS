@@ -158,15 +158,15 @@ loader_status_t loader_prepare_in_place(uint32_t image_len,
  *                           DEC-08a.5 -- never relocate-and-misexecute 16-bit).
  *        any other error -> LOADER_ERR_BAD_FORMAT (fail loud; do NOT run).
  *   2. Bound-check load_module_len <= PROGRAM_IMAGE_MAX (LOADER_ERR_BAD_FORMAT).
- *   3. memmove the LOAD MODULE down over the header: from
+ *   3. mz_apply_relocs(file_at + load_module_off, load_module_len, PROGRAM_IMAGE,
+ *        reloc table at file_at + reloc_table_off, reloc_count) -- read the
+ *      original table BEFORE a move can overwrite a header-resident table;
+ *      add PROGRAM_IMAGE to each flat dword (DEC-08a.1).
+ *      An OOB reloc -> LOADER_ERR_BAD_FORMAT.
+ *   4. memmove the RELOCATED LOAD MODULE down over the header: from
  *        file_at + load_module_off  ->  file_at (PROGRAM_IMAGE), load_module_len
  *      bytes. After this the load base PROGRAM_IMAGE holds the flat code with the
  *      MZ header SKIPPED (DEC-08a.2 -- the header is never part of the image).
- *   4. mz_apply_relocs(file_at, load_module_len, PROGRAM_IMAGE,
- *        reloc table at file_at + reloc_table_off (pre-move offset; the reloc
- *        table lives in the header/trailer region OUTSIDE the moved load module),
- *        reloc_count) -- add PROGRAM_IMAGE to each flat dword (DEC-08a.1).
- *        An OOB reloc -> LOADER_ERR_BAD_FORMAT.
  *   5. Lay out the plan exactly as loader_prepare_in_place (PSP @ PROGRAM_BASE,
  *      image @ PROGRAM_IMAGE, arena disjoint from the load module), then:
  *        out->entry     = PROGRAM_IMAGE + entry_off       (DEC-08a.2)

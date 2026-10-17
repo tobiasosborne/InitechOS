@@ -1,0 +1,2 @@
+. ? SUBSTR("abc", 0)
+62  SUBSTR() : Start point out of range.

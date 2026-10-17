@@ -35,6 +35,14 @@
  * Makefile edit (CLAUDE.md scope: do not touch the Makefile; Law 3 artifact = C).
  * mz.c is pure + freestanding (-ffreestanding, <stdint.h> only), so inlining it
  * here is identical to compiling it as a peer object. */
+/* Only validation/layout code below is optimized. The resume/stack-switch
+ * region retains its original -O0 policy. Ref: ADR-0003 DEC-08a.1-.5;
+ * docs/design/kernel-size-policy-round2.md Sec 4 (loader_run_plan hazard).
+ * The house macro defines this identically for every kernel that links us. */
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 #include "mz.c"
 
 /* ------------------------------------------------------------------------ *
@@ -313,7 +321,11 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
      *    canonical InitechMZ emits cs=ip=0 (entry == load base, identical to a
      *    .COM), but a non-zero entry_off is honored. ESP stays PROGRAM_STACK_TOP
      *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
+#ifdef LOADER_MUTATE_MZ_ENTRY_EQUAL
     if (img.entry_off > img.load_module_len) {
+#else
+    if (img.entry_off >= img.load_module_len) {
+#endif
         /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
         return LOADER_ERR_BAD_FORMAT;
     }
@@ -518,6 +530,9 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
  * oracle never calls the asm path.
  * ------------------------------------------------------------------------ */
 
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC pop_options
+#endif
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 
 /* Hosted stub: validate only; do NOT touch the (host's) absolute addresses or
@@ -645,9 +660,9 @@ static loader_context_t *g_loader_ctx = 0;
  * would clobber g_loader_ctx + the program region, so load_program_from_fat
  * REJECTS it (LOADER_ERR_BUSY) rather than corrupt the machine. KERNEL/shell
  * EXEC (the common case, g_load_active == 0) proceeds. Nested EXEC is deferred
- * (a follow-up bead). Note: load_program() itself does not set this -- the saw
- * entry point owns the guard, because the baked run_baked() path (kmain) calls
- * load_program directly and must keep working unchanged. */
+ * (a follow-up bead). Both the baked entry and the FAT entry own this guard
+ * across their shared transfer. Ref: ADR-0003 DEC-08 (one flat program region),
+ * Appendix A 4Bh; IBM DOS 3.30 Technical Reference p. 6-195 (CF/AX errors). */
 static uint8_t g_load_active = 0;
 
 /* Tiny freestanding memcpy (loader.c pulls in no libc; Rule 11 deterministic). */
@@ -993,6 +1008,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * The image source bytes live in a kernel-owned buffer (e.g. the baked demo
      * program in run_baked); loader_run_plan copies them DOWN to PROGRAM_IMAGE.
      * UNCHANGED by za4m -- only the FAT path goes direct/in-place. */
+    if (g_load_active) return LOADER_ERR_BUSY;
     loader_plan_t plan;
     loader_status_t st = loader_prepare(image, image_len, cmd_tail,
                                         cmd_tail_len, &plan);
@@ -1002,7 +1018,12 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
     /* Baked path inherits an EMPTY env (env_block=0): the baked demos carry no
      * environment, so loader_run_plan synthesizes the 2-byte empty block exactly
      * as before (byte-identical; beads initech-1i0x inc 3). */
-    return loader_run_plan(&plan, /*do_copy=*/1, /*env_block=*/0u, out_exit_code);
+#ifndef LOADER_MUTATE_BAKED_UNGUARDED
+    g_load_active = 1;
+#endif
+    st = loader_run_plan(&plan, /*do_copy=*/1, /*env_block=*/0u, out_exit_code);
+    g_load_active = 0;
+    return st;
 }
 
 loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
@@ -1318,6 +1339,10 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
  * later class-2 text-tenant EXEC (ADR-0013 Sec 3.2). The carve goes through the
  * caller's callback so this object never learns about the FLAIR heap.
  * ------------------------------------------------------------------------ */
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out)
@@ -1402,4 +1427,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
     return st;
 }
 
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC pop_options
+#endif
 #endif /* freestanding vs hosted */

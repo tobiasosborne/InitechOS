@@ -43,6 +43,21 @@ To display one variable, remove it, and look for it again:
 \Shot{setclr}
 \end{DosEntry}
 
+% initech-2kgh: sort_program.asm, existing m0dc ascending/reverse goldens.
+% Ref: MS-DOS 3.3 User's Reference p.116/PDF201.
+\Gates{test-sort-filter, test-sort-filter-mutant, test-dos-folder}
+\begin{DosEntry}{SORT}{}{external}
+\Purpose Sorts input lines and displays them in order.
+\Format \SyntaxLine{\kw{SORT} \opt{\kw{/R}} \kw{<} \ph{filename}}
+\Type{External}
+\Remarks
+Input may come from a file or a pipe. Letters are sorted without regard
+to capital or small letters. \Param{/R} reverses the order. Use \type{>}
+and a file name to save the sorted output.
+\Example
+To save sorted lines, type \type{SORT < PHONE.TXT > SORTED.TXT}.
+\end{DosEntry}
+
 % TIME -- os/milton/command.c builtin_time, cmd_parse_time (hh:mm[:ss],
 % 0..23 / 0..59; "Invalid time" then the unchanged time),
 % cmd_format_time ("Current time is hh:mm:ss.cc").  Gates: test-datetime,

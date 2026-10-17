@@ -62,7 +62,8 @@ reports COMMAND-SURFACE.
 Every printed Screen (and every F-IBM `Shot` transcript) must name a
 committed `screens/name.txt` and have a `screens/name.keys` trace plus a
 SCREENS row `name|marker|disk`. The .keys file is the sole keyboard source
-and starts with the two Enters that answer the startup date/time prompts.
+and starts with two startup Enters only for the noautoexec variant (DOS 3.3
+User's Guide p.135/PDF220); AUTOEXEC screens send commands immediately.
 `disk` is empty for the practice diskette as shipped (its AUTOEXEC.BAT sets
 PATH) or `noautoexec` for the same diskette without AUTOEXEC.BAT, the only
 case in which InitechDOS asks for the date and time (the startup screens).

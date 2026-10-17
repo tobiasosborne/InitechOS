@@ -23,6 +23,12 @@ mkdir -p "$out"
 out=$(cd "$out" && pwd); gen=$(cd "$gen" && pwd)
 pretex=
 [ "$mode" = mutant ] && pretex='-usepretex=\def\initechpubsmutant{}'
+# The InitechBase volumes share one master index (bead initech-ipu5.8,
+# AN-24/CP-13): initech-xbase.sty merges the partner volume's own index
+# entries from $INITECH_PUBS_OUT/<partner>/main.own.idx, and a manual with a
+# MASTERINDEX file is typeset again after every manual has been (pass 2), so
+# each volume sees the other's entries whatever the build order.
+export INITECH_PUBS_OUT="$out" INITECH_PUBS_PASS=1
 n=0
 for dir in "$root"/manuals/*/; do
     m=$(basename "$dir")
@@ -45,4 +51,21 @@ for dir in "$root"/manuals/*/; do
     done
 done
 [ "$n" -gt 0 ] || { printf '!!! pubs FAIL: no pubs/manuals/*/main.tex found\n'; exit 1; }
+INITECH_PUBS_PASS=2
+for dir in "$root"/manuals/*/; do
+    m=$(basename "$dir")
+    [ -f "$dir/MASTERINDEX" ] || continue
+    log=$out/$m/main.latexmk.out
+    if ! ( cd "$dir" && \
+           SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
+           TEXINPUTS="$root/class//:$root/common//:$gen//:" INDEXSTYLE="$root/class:" \
+           "$LATEXMK" -g -r "$root/latexmkrc" -interaction=nonstopmode -halt-on-error -outdir="$out/$m" $pretex main.tex \
+         ) > "$log" 2>&1; then
+        grep -E '^[^ ]*:[0-9]+: |^! ' "$out/$m/main.log" 2>/dev/null | head -20 || true
+        tail -20 "$log"
+        printf '!!! pubs FAIL: %s/main.tex did not build on the master-index pass (log %s)\n' "$m" "$log"
+        exit 1
+    fi
+    printf '>>> pubs: %s/main.pdf (master index)\n' "$m"
+done
 printf '>>> pubs: %d documents built into %s\n' "$n" "$out"

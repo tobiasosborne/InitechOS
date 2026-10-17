@@ -83,6 +83,10 @@
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
 #include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
 #include "scrap.h"           /* the shell's desk scrap; spec Sec 12 (tdnl.16) */
+#include "dialog.h"
+#include "cp_dialog.h"
+#include "cpanels_record.h"
+#include "io.h"
 #include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
 
 /* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
@@ -525,6 +529,42 @@ static int check_win(uint32_t tok)
     g_slot.win = g_slot.wins[0]; /* Rule6: second token paints first window */
 #endif
     return 1;
+}
+
+/* R4.5 transport: temporary DialogRecord over the tenant's existing window.
+ * Manager-owned drawing/hits only; validated flat items, no retained pointers.
+ * Ref: spec/cp_dialog.h and DialogHandleEvent's global coordinate contract. */
+static int32_t v_dialog(const uint32_t *a)
+{
+    if (!check_win(a[0]) || a[2] == 0 || a[2] > CP_MAX_ITEMS ||
+        !in_image(a[1],a[2]*sizeof(cp_item_t)) || a[3]>a[2] || a[4]>a[2] ||
+        (a[5] && !in_image(a[5],FLAIR_EVBUF_BYTES))) return TBX_ERR_BADARG;
+    const cp_item_t *flat=(const cp_item_t *)(uintptr_t)a[1];
+    rgn_rect_t c=region_get_bbox(g_slot.win->contRgn);
+    for(unsigned i=0;i<a[2];i++)
+        if(flat[i].type>3 || flat[i].left<0 || flat[i].top<0 ||
+           flat[i].right<=flat[i].left || flat[i].bottom<=flat[i].top ||
+           flat[i].right>c.right-c.left || flat[i].bottom>c.bottom-c.top ||
+           image_str((uint32_t)(uintptr_t)flat[i].text,64)<0) return TBX_ERR_BADARG;
+    DialogRecord d={0}; DialogItem items[CP_MAX_ITEMS]; ControlRecord controls[CP_MAX_ITEMS];
+    d.window=*g_slot.win;
+    cp_dialog_items(&d,items,controls,flat,a[2],c.left,c.top);
+    d.defaultItem=(uint16_t)a[3]; d.cancelItem=(uint16_t)a[4];
+    if(a[5]) {
+        const int32_t *v=(const int32_t *)(uintptr_t)a[5];EventRecord e={0};uint16_t hit=0;
+        e.what=(uint16_t)v[0];e.message=(uint32_t)v[1];e.modifiers=(uint16_t)v[2];
+        e.when=(uint32_t)v[3];
+        if(e.what!=mouseDown && e.what!=keyDown && e.what!=autoKey)return TBX_ERR_BADARG;
+        e.where.h=(int16_t)v[4];e.where.v=(int16_t)v[5];
+        return DialogHandleEvent(&d,&e,0,&hit)?(int32_t)hit:0;
+    }
+    d.window.port.portBits.bm=*g_host.surface;
+    d.window.port.visRgn=(region_t *)draw_clip();
+    d.window.port.clipRgn=d.window.port.visRgn;
+    d.window.port.portRect=WindowFrameRect(g_slot.win);
+    d.window.windowDefProcVariant=movableDBoxProc;
+    DrawDialog(&d);g_slot.drew=1;
+    tputs("CPANEL title=");tputs(flat[a[2]-1].text);tputs("\n");return 0;
 }
 
 /* CONTENTORIGIN (bead initech-tdnl.17): the content's top-left, GLOBAL --
@@ -988,6 +1028,8 @@ static int32_t v_exit(uint32_t rc)
     return TBX_OK;
 }
 
+#include "cp_service.h"
+
 /* ===========================================================================
  * 8. THE GATE -- AX demux + the per-call TENANT-GATE trace (DEC-AC3-2)
  * ===========================================================================*/
@@ -1044,6 +1086,9 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_GETSCROLL: argc = TBX_ARGC_GETSCROLL; break;
     case TBX_GLOBALTOLOCAL: argc = TBX_ARGC_GLOBALTOLOCAL; break;
     case TBX_FILECOPY:  argc = TBX_ARGC_FILECOPY;  break;
+    case TBX_DIALOG: argc=6; break;
+    case TBX_SETTINGS: case TBX_CLOCK: argc=2; break;
+    case TBX_MEMORY: argc=1; break;
     default:            argc = 0u;                 break;
     }
     for (uint32_t i = 0; i < argc; i++)
@@ -1054,6 +1099,9 @@ void tbx_gate_dispatch(uint8_t *frame)
         rc = TBX_ERR_NOTTENANT;           /* a stray int 81h from the kernel */
     } else {
         switch (ax) {
+        case TBX_DIALOG: rc=v_dialog(a); break;
+        case TBX_SETTINGS: case TBX_CLOCK: case TBX_MEMORY: case TBX_BEEP:
+            rc=cp_service(ax,a);break;
         case TBX_REGISTER:  rc = v_register(a[0]); break;
         case TBX_NEWWINDOW: rc = v_newwindow(a);   break;
         case TBX_SETWTITLE: rc = v_setwtitle(a);   break;

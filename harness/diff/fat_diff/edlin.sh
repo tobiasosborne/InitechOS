@@ -48,13 +48,21 @@ for case in $cases; do
   done
   if [ "$case" = path ]; then mmd -i "$img" ::SUB; mmove -i "$img" ::IN.TXT ::SUB/IN.TXT; mmove -i "$img" ::IN.BAK ::SUB/IN.BAK; fi
   if [ "$case" = robackup ]; then mattrib -i "$img" +r ::IN.BAK; fi
-  mcopy -i "$img" "$program" ::EDLIN.COM
-  printf '@echo off\r\nEDLIN %s > TRACE.TXT\r\necho EDLIN-DONE\r\n' "$tail" > "$out/autoexec.bat"
+  mmd -i "$img" ::DOS
+  mcopy -i "$img" "$program" ::DOS/EDLIN.COM
+  printf '@echo off\r\nPATH=A:\\DOS\r\nEDLIN %s > TRACE.TXT\r\necho EDLIN-DONE\r\n' "$tail" > "$out/autoexec.bat"
   mcopy -i "$img" "$out/autoexec.bat" ::AUTOEXEC.BAT
   cp -f "$img" "$out/reference.img"
   name=edlin_$(basename "$program")_$case
+  # EDLIN's insert-mode ^C is an AH=07h input (manual p.180), not an
+  # interrupt during its redirected AH=40h prompt write. BREAK=ON checks
+  # disk calls (manual p.38/PDF123; int21.c dispatch). After PATH lookup
+  # moved the launch timing, fast typeahead could reach that write instead.
+  # Keep the exact keys/default BREAK state, but let the prompt finish first,
+  # as the paced InitechText mouse/key traces do on a loaded host.
+  trace=k$(sed 's/^,*//; s/,*$//; s/,/,k/g; s/kctrl-c/w300,kctrl-c/g' "$out/model/keys.qmp")
   "$build/qemu_harness" --disk "$boot" --disk2 "$img" --name "$name" --out "$build" \
-   --keys "$(cat "$out/model/keys.qmp")" --keys-after SHELL-READY \
+   --mouse "$trace" --keys-after SHELL-READY \
    --quit-after SHELL-EXIT --timeout-ms 45000 > "$out/stdout" 2> "$out/report" || true
   grep -q 'OK=1' "$out/report" || { cat "$out/report"; fail boot; }
   if grep -q 'unknown token\|truncating' "$out/report"; then cat "$out/report"; fail injection; fi

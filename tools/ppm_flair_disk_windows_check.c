@@ -1,3 +1,7 @@
+/* initech-zc68: root roster README/APPS/DOS/AUTOEXEC, NEWFOLD at index4.
+ * Service entries must leave cells4/5 empty. Overflow keeps 22 entries by
+ * using F00..F17; DOS folder leg independently grades all nine externals.
+ * Ref: PRD6.5, spec/dos_folder_*.txt, Makefile flair-data-rules. */
 /*
  * ppm_flair_disk_windows_check.c -- the R3.3 Finder DISK WINDOW screendump
  *                                   STRUCTURE oracle (factory, C).
@@ -38,39 +42,21 @@
  * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- this is the whole
  * point).  Every probe below is HAND-AUTHORED from INDEPENDENT sources:
  *
- *   (1) the ASCII pixel maps in spec/assets/finder_icons.h -- the authored
- *       artifact and stated source of truth for the FOLDER and DOC strikes
- *       ("The ASCII map in each block below IS the authored artifact ...; if
- *       the two ever disagree, the map wins").  Each probe names its map
- *       row/col and the legend character read off that map by eye; the
- *       absolute screen coordinate is (origin_x + col, origin_y + row).  This
- *       file does NOT include finder_icons.h and never reads the packed strike
- *       words, so a silent edit to a packed word that the map does not justify
- *       goes RED here.  (The APP strike is not probed: no .EXE exists on the
- *       flagship data volume, so no APP icon is ever drawn by these traces --
- *       probing one would be a lie.)
+ *   (1) THE SPRITES (bead initech-tdnl.53, re-keyed from the v1 hand-read
+ *       ASCII-map probes): every 32x32 icon cell is graded cell for cell, zero
+ *       tolerance, against the INDEPENDENT mint-008 Mac OS 8.1 captures
+ *       (../system7-decomp/re/mint-results-008.md), decoded at run time by
+ *       harness/render/icon_capture.h. This file does NOT include
+ *       finder_icons.h; a strike that drifts off the captured art goes RED.
+ *       A window icon's clear cells must show the window's white content fill
+ *       -- an opaque white cell of the capture also reads white there, and the
+ *       capture's opacity was recovered over TWO backgrounds, so the expected
+ *       value is exact either way.
  *
- *   (2) the tone->role->canon chain, resolved BY HAND rather than by calling
- *       the renderer's policy seam (ppm_flair_desktop_icons_check.c documents
- *       the same chain at length):
- *           map '#' = DESK_TONE_INK   -> FLAIR_PART_ICON_INK   -> CIDX_BLACK
- *           map 'w' = DESK_TONE_FACE  -> FLAIR_PART_ICON_FACE  -> CIDX_WHITE
- *           map 'g' = DESK_TONE_SHADE -> FLAIR_PART_ICON_SHADE -> CIDX_CONTROL
- *           map '.' = DESK_TONE_CLEAR -> nothing drawn -> whatever is beneath
- *       with the RGB for each CIDX taken from flair_canon_rgb
- *       (spec/assets/color_canon.h), the INDEPENDENTLY decomp-graded canon that
- *       test-color-canon vouches for -- never flair_palette_rgb, the source the
- *       renderer paints from (ADR-0010 CD-5; HER-02 hard-revoke).
- *
- *       *** THE ONE HONEST WEAKENING, STATED (Law 1).  A desktop icon's CLEAR
- *       pixels show DESKTOP teal, which is a distinct tone, so the R3.2 grader
- *       can assert them.  A WINDOW icon's CLEAR pixels show the window's
- *       CONTENT FILL, which is white -- the SAME canon row as a FACE pixel.  So
- *       a CLEAR probe inside a window asserts only "no ink and no shade here",
- *       which still catches an over-wide or mis-offset strike but cannot
- *       distinguish clear from face.  Those probes are marked T_CLEARW below
- *       and counted separately in the PASS line so nobody mistakes them for
- *       the stronger desktop-side assertion.
+ *   (2) everything else (chrome, label bands, bare cells, controls) resolves
+ *       its colour through flair_canon_rgb (spec/assets/color_canon.h), the
+ *       INDEPENDENTLY decomp-graded canon -- never flair_palette_rgb, the
+ *       source the renderer paints from (ADR-0010 CD-5; HER-02 hard-revoke).
  *
  *   (3) the GEOMETRY, hand-carried from os/flair/finder_windows.h Sec 2/3, the
  *       os/flair/window.c :: CalcDocContentRect seam and spec/chrome_metrics.h,
@@ -98,7 +84,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "color_canon.h"   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
+#include "color_canon.h"
+#include "icon_capture.h"  /* the mint-008 golden (-Iharness/render) */
+
+#ifndef ICON_CAPTURES_DIR
+#error "build with -DICON_CAPTURES_DIR='\"<system7-decomp>/goldens/captures\"'"
+#endif   /* flair_canon_rgb + CIDX_* (-Ispec/assets) */
 
 /* Tight per-channel tolerance -- CAPTURE NOISE only, never a value fudge; the
  * same constant and the same reasoning as tools/ppm_flair_check.c. */
@@ -270,87 +261,15 @@ static const BarTitle FBAR_TITLES[] = {
 #define FBAR_TITLE_N ((int)(sizeof FBAR_TITLES / sizeof FBAR_TITLES[0]))
 
 /* ---------------------------------------------------------------------------
- * Tone codes -- the ASCII-map legend, carried through by hand.
+ * THE SPRITES (bead initech-tdnl.53): graded CELL FOR CELL, zero tolerance,
+ * against the INDEPENDENT mint-008 Mac OS 8.1 captures (harness/render/
+ * icon_capture.h, from the build-time ICON_CAPTURES_DIR; a missing capture
+ * FAILS): an opaque cell carries the capture's RGB for the icon's state, a
+ * clear cell the window's white content fill. This replaces the v1 hand-read
+ * ASCII-map probes -- the v2 strikes are transcribed from those captures, so
+ * the captures, never the strike's own map, are the expected values (Law 2).
  * ------------------------------------------------------------------------- */
-enum {
-    T_INK    = 0,  /* map '#'  -> FLAIR_PART_ICON_INK   -> CIDX_BLACK        */
-    T_FACE   = 1,  /* map 'w'  -> FLAIR_PART_ICON_FACE  -> CIDX_WHITE        */
-    T_SHADE  = 2,  /* map 'g'  -> FLAIR_PART_ICON_SHADE -> CIDX_CONTROL      */
-    T_CLEARW = 3   /* map '.'  -> not drawn -> the window CONTENT FILL, white
-                    *             (see the "ONE HONEST WEAKENING" note above) */
-};
-
-static int tone_cidx(int tone)
-{
-    switch (tone) {
-    case T_INK:   return CIDX_BLACK;
-    case T_SHADE: return CIDX_CONTROL;
-    default:      return CIDX_WHITE;   /* FACE and CLEAR-over-white alike */
-    }
-}
-
-static const char *tone_name(int tone)
-{
-    switch (tone) {
-    case T_INK:    return "INK    (map '#')";
-    case T_FACE:   return "FACE   (map 'w')";
-    case T_SHADE:  return "SHADE  (map 'g')";
-    default:       return "CLEAR  (map '.', over the white content fill)";
-    }
-}
-
-typedef struct { int col; int row; int tone; const char *why; } MapProbe;
-
-/* ---------------------------------------------------------------------------
- * FOLDER -- the tab-top manila folder (spec/assets/finder_icons.h, FOLDER
- * block).  The map lines each probe was read from, transcribed here so a
- * reviewer can diff words against words:
- *   row  0: ................................
- *   row  3: ...##########...................
- *   row  4: ...#wwwwwwww#...................
- *   row  7: ...###########################..
- *   row 12: ...#wwwwwwwwwwwwwwwwwwwwwwwww#..
- *   row 25: ...#ggggggggggggggggggggggggg#..
- *   row 27: ...###########################..
- * ------------------------------------------------------------------------- */
-static const MapProbe FOLDER_PROBES[] = {
-    {  3,  3, T_INK,    "row 3 col 3 -- tab top edge, ink run cols 3..12" },
-    { 12,  3, T_INK,    "row 3 col 12 -- last ink column of the tab" },
-    { 13,  3, T_CLEARW, "row 3 col 13 -- clear right of the tab" },
-    {  7,  4, T_FACE,   "row 4 col 7 -- white tab interior, cols 4..11" },
-    {  3,  7, T_INK,    "row 7 col 3 -- front-flap rule, ink cols 3..29" },
-    { 29,  7, T_INK,    "row 7 col 29 -- last ink column of the flap rule" },
-    { 15, 12, T_FACE,   "row 12 col 15 -- white body, cols 4..28" },
-    { 15, 25, T_SHADE,  "row 25 col 15 -- shaded flap, gray cols 4..28" },
-    { 15, 27, T_INK,    "row 27 col 15 -- body bottom edge, ink cols 3..29" },
-    {  0, 12, T_CLEARW, "row 12 col 0 -- clear margin left of the body" },
-    { 31,  7, T_CLEARW, "row 7 col 31 -- clear margin right of the flap rule" }
-};
-#define FOLDER_PROBE_N ((int)(sizeof FOLDER_PROBES / sizeof FOLDER_PROBES[0]))
-
-/* ---------------------------------------------------------------------------
- * DOC -- the dog-eared page (spec/assets/finder_icons.h, DOC block):
- *   row  2: ......###############...........
- *   row  4: ......#wwwwwwwwwwwww#g#.........
- *   row  7: ......#wwwwwwwwwwwww######......
- *   row  8: ......#wwwwwwwwwwwwwwwwww#......
- *   row 12: ......#wwggggggggggggggww#......
- *   row 29: ......####################......
- * ------------------------------------------------------------------------- */
-static const MapProbe DOC_PROBES[] = {
-    {  6,  2, T_INK,    "row 2 col 6 -- page top edge, ink run cols 6..20" },
-    { 20,  2, T_INK,    "row 2 col 20 -- last ink column of the top edge" },
-    { 21,  2, T_CLEARW, "row 2 col 21 -- clear beyond the dog-ear fold" },
-    { 10,  4, T_FACE,   "row 4 col 10 -- white page body, cols 7..19" },
-    { 21,  4, T_SHADE,  "row 4 col 21 -- the folded-back dog-ear, gray" },
-    { 25,  7, T_INK,    "row 7 col 25 -- fold rule, ink cols 20..25" },
-    { 15,  8, T_FACE,   "row 8 col 15 -- white body under the fold" },
-    {  7, 12, T_FACE,   "row 12 col 7 -- white left margin, cols 7..8" },
-    { 15, 12, T_SHADE,  "row 12 col 15 -- first ruled text line, gray 9..22" },
-    { 15, 29, T_INK,    "row 29 col 15 -- page bottom edge, ink cols 6..25" },
-    { 31, 29, T_CLEARW, "row 29 col 31 -- clear margin right of the base" }
-};
-#define DOC_PROBE_N ((int)(sizeof DOC_PROBES / sizeof DOC_PROBES[0]))
+static icap_cell_t g_cap[ICAP__KINDS];
 
 /* The window's icon roster, in the enumeration order the traces file derives
  * from mtools (README.TXT / APPS, + NEWFOLD on the newfolder leg).  KIND is
@@ -363,6 +282,8 @@ typedef struct { const char *name; int kind; } RosterEntry;
 static const RosterEntry ROSTER[] = {
     { "README.TXT", K_DOC    },
     { "APPS",       K_FOLDER },
+    { "DOS",        K_FOLDER },
+    { "AUTOEXEC.BAT", K_DOC },
     { "NEWFOLD",    K_FOLDER }   /* newfolder leg only */
 };
 
@@ -371,12 +292,14 @@ static const RosterEntry ROSTER[] = {
  * above sorted by hand, byte order: "APPS" < "README.TXT" (A < R). */
 static const RosterEntry ROSTER_BY_NAME[] = {
     { "APPS",       K_FOLDER },
+    { "AUTOEXEC.BAT", K_DOC },
+    { "DOS",        K_FOLDER },
     { "README.TXT", K_DOC    }
 };
 
 /* The grid cells the four-entry root used before tdnl.56 hid DESKTOP.DB and
  * TRASH: every cell from the last shown icon up to this one must be EMPTY. */
-#define ROOT_CELLS_BEFORE 4
+#define ROOT_CELLS_BEFORE 6
 
 /* 1 on the `allsel` leg (bead initech-tdnl.36, audit F03): after Edit > Select
  * All every label must be drawn INVERTED (selected) instead of normal. */
@@ -456,20 +379,24 @@ static void assert_idx(int x, int y, int idx, const char *what)
     }
 }
 
-/* Grade one strike against its hand-read ASCII-map probes at `x0,y0`. */
+/* Grade one 32x32 sprite cell at `x0,y0` against the mint-008 capture; a
+ * selected icon (the allsel leg) is the captured selected form. */
 static void check_sprite(const char *label, int x0, int y0, int kind)
 {
-    const MapProbe *probes = (kind == K_FOLDER) ? FOLDER_PROBES : DOC_PROBES;
-    int n = (kind == K_FOLDER) ? FOLDER_PROBE_N : DOC_PROBE_N;
-    char what[256];
-    int i;
-    for (i = 0; i < n; i++) {
-        snprintf(what, sizeof what,
-                 "%s %s sprite @(%d,%d): expected %s -- %s",
-                 label, (kind == K_FOLDER) ? "FOLDER" : "DOC", x0, y0,
-                 tone_name(probes[i].tone), probes[i].why);
-        assert_idx(x0 + probes[i].col, y0 + probes[i].row,
-                   tone_cidx(probes[i].tone), what);
+    int k = (kind == K_FOLDER) ? ICAP_FOLDER : ICAP_DOC;
+    int st = g_want_inverted ? ICAP_SEL : ICAP_UNSEL;
+    char what[96];
+    int d;
+    snprintf(what, sizeof what, "%s %s %s", label, (kind == K_FOLDER) ? "FOLDER" : "DOC",
+             st ? "SEL" : "UNSEL");
+    d = icap_grade_frame(g_buf, (int)g_w, (int)g_h, x0, y0, &g_cap[k], st,
+                         IDX(CIDX_WHITE), what);
+    if (d) {
+        fprintf(stderr,
+                "ppm_flair_disk_windows_check: FAIL leg %s -- %s sprite @(%d,%d): "
+                "%d/1024 cells differ from the mint-008 capture\n",
+                g_leg, what, x0, y0, d);
+        g_fail = 1;
     }
 }
 
@@ -825,17 +752,29 @@ static void check_empty_cells(int L, int T, int first, int last)
         long bad = 0;
         int bx = -1, by = -1;
         for (int y = gy; y < gy + LABEL_BOT_OFF; y++)
-            for (int x = gx - 16; x < gx + ICON_DIM + 16; x++)
-                if (!is_rgb(x, y, IDX(CIDX_WHITE))) {
+            for (int x = gx - 16; x < gx + ICON_DIM + 16; x++) {
+                /* initech-zc68: the zoomed row's preceding AUTOEXEC.BAT
+                 * label legitimately overlaps this cell's left margin.
+                 * Independent Geneva9 ASCII-map arithmetic (geneva9.h):
+                 * A7 U7 T6 O7 E6 X7 E6 C7 .4 B7 A7 T6 = 77; centre248,
+                 * pad3 -> text left210; last T at281, row1 ##### gives
+                 * ink281..285 at y66+34+1+1=102. The two overlap pixels
+                 * (284,102),(285,102) MUST be black, all others white.
+                 * No renderer/font function is called. LABEL_TAIL mutant
+                 * (AUTOEXEC.BAI) removes the latter pixel and must be RED. */
+                int tail = !strcmp(g_leg, "zoomedwin") && i == 4 &&
+                           y == gy + 36 && x >= gx - 16 && x < gx - 14;
+                if (!is_rgb(x, y, IDX(tail ? CIDX_BLACK : CIDX_WHITE))) {
                     if (bad == 0) { bx = x; by = y; }
                     bad++;
                 }
+            }
         printf("    cell[%d] (%d,%d) must be EMPTY (no hidden-item icon or label)\n",
                i, gx, gy);
         if (bad != 0) {
             fprintf(stderr,
                     "ppm_flair_disk_windows_check: FAIL leg %s -- grid cell %d "
-                    "(%d,%d) is not bare content: %ld non-white pixels, first at "
+                    "(%d,%d) is not bare content: %ld unexpected pixels, first at "
                     "(%d,%d) -- an icon or label is drawn where DESKTOP.DB / TRASH "
                     "used to be listed (they must be hidden)\n",
                     g_leg, i, gx, gy, bad, bx, by);
@@ -871,13 +810,13 @@ static void check_empty_cells(int L, int T, int first, int last)
  * ===========================================================================*/
 static const RosterEntry SCROLL_ROSTER[22] = {
     { "README.TXT", K_DOC }, { "APPS", K_FOLDER },
+    { "DOS", K_FOLDER }, { "AUTOEXEC.BAT", K_DOC },
     { "F00.TXT", K_DOC }, { "F01.TXT", K_DOC }, { "F02.TXT", K_DOC },
     { "F03.TXT", K_DOC }, { "F04.TXT", K_DOC }, { "F05.TXT", K_DOC },
     { "F06.TXT", K_DOC }, { "F07.TXT", K_DOC }, { "F08.TXT", K_DOC },
     { "F09.TXT", K_DOC }, { "F10.TXT", K_DOC }, { "F11.TXT", K_DOC },
     { "F12.TXT", K_DOC }, { "F13.TXT", K_DOC }, { "F14.TXT", K_DOC },
-    { "F15.TXT", K_DOC }, { "F16.TXT", K_DOC }, { "F17.TXT", K_DOC },
-    { "F18.TXT", K_DOC }, { "F19.TXT", K_DOC }
+    { "F15.TXT", K_DOC }, { "F16.TXT", K_DOC }, { "F17.TXT", K_DOC }
 };
 #define SB_X0        359   /* vertical bar outer left line                   */
 #define SB_MID_X     367
@@ -894,13 +833,13 @@ static int grade_scroll(int value, int fit)
     check_chrome(ROOT_L, ROOT_T);   /* the frame did NOT move (audit F02) */
     if (fit) {
         int i;
-        for (i = 0; i < 2; i++) {
+        for (i = 0; i < 4; i++) {
             int gx = 44 + i * GRID_PITCH_X, gy = 86;   /* 20+6+18 (tdnl.51) */
             check_sprite(ROSTER[i].name, gx, gy, ROSTER[i].kind);
             check_band(ROSTER[i].name, gx, gy);
             graded++;
         }
-        check_empty_cells(ROOT_L, ROOT_T, 2, ROOT_CELLS_BEFORE);
+        check_empty_cells(ROOT_L, ROOT_T, 4, ROOT_CELLS_BEFORE);
         /* DISABLED bars, scrollbars.md Sec 3: flat F3 trough, #777777
          * separators, #A5A5A5 arrows, no thumb anywhere in the track. */
         assert_idx(SB_MID_X, 150, CIDX_PLAT_TROUGH, "disabled v-bar trough (Sec 3)");
@@ -957,7 +896,7 @@ static int grade_scroll(int value, int fit)
         fprintf(stderr, "ppm_flair_disk_windows_check: leg %s FAILED\n", g_leg);
         return 1;
     }
-    printf("ppm_flair_disk_windows_check: leg %s PASS (%d icon strikes at the "
+    printf("ppm_flair_disk_windows_check: leg %s PASS (%d icon cells (mint-008 captures) at the "
            "%s positions, chrome at the UNMOVED frame (20,60), %s)\n",
            g_leg, graded, fit ? "unscrolled" : "scrolled",
            fit ? "DISABLED bars, no thumb" : "thumb at the value's position");
@@ -971,7 +910,7 @@ int main(int argc, char **argv)
     long maxv = 0;
     size_t want, got;
     int leg_root, leg_moved, leg_newfolder, leg_finderbar, leg_zoomed;
-    int leg_arranged, leg_allsel, leg_trash, leg_trashempty, leg_purge;
+    int leg_arranged, leg_allsel, leg_trash, leg_trashempty, leg_purge, leg_dos;
     const RosterEntry *roster = ROSTER;
     int L, T, n_icons, i;
 
@@ -982,6 +921,7 @@ int main(int argc, char **argv)
         return 2;
     }
     g_leg         = argv[1];
+    leg_dos       = (strcmp(g_leg, "dosfolder") == 0);
     leg_root      = (strcmp(g_leg, "rootwin")   == 0);
     leg_moved     = (strcmp(g_leg, "movedwin")  == 0);
     leg_newfolder = (strcmp(g_leg, "newfolder") == 0);
@@ -1001,7 +941,7 @@ int main(int argc, char **argv)
     if (strcmp(g_leg, "scrollfit")   == 0) scroll_value = -1;
     if (!leg_root && !leg_moved && !leg_newfolder && !leg_finderbar &&
         !leg_zoomed && !leg_arranged && !leg_allsel && !leg_trash &&
-        !leg_trashempty && !leg_purge &&
+        !leg_trashempty && !leg_purge && !leg_dos &&
         scroll_value == -2) {
         fprintf(stderr,
                 "ppm_flair_disk_windows_check: unknown leg '%s' "
@@ -1054,6 +994,12 @@ int main(int argc, char **argv)
         free(g_buf);
         return 2;
     }
+    if (icap_load(ICON_CAPTURES_DIR, g_cap)) {
+        fprintf(stderr, "ppm_flair_disk_windows_check: FAIL -- the mint-008 golden "
+                "(%s) is unavailable\n", ICON_CAPTURES_DIR);
+        free(g_buf);
+        return 1;
+    }
 
     /* The finderbar leg grades ONLY the two menu bands -- it deliberately
      * shares the rootwin dump rather than costing a sixth boot, and the window
@@ -1090,7 +1036,7 @@ int main(int argc, char **argv)
     /* `arranged` and `allsel` grade the DEFAULT-frame root window. */
     if (leg_arranged) roster = ROSTER_BY_NAME;
     if (leg_allsel) g_want_inverted = 1;
-    n_icons = leg_newfolder ? 3 : 2;
+    n_icons = leg_newfolder ? 5 : 4;
     if (leg_trash || leg_trashempty) {
         /* bead initech-tdnl.39: the TRASH window (slot 1, front) after
          * README.TXT was staged -- one DOC icon in cell 0, cells 1-3 bare,
@@ -1101,6 +1047,20 @@ int main(int argc, char **argv)
         g_title = "Trash";
         g_title_chars = TRASH_TITLE_CHARS;
         g_title_w = TRASH_TITLE_W;
+    }
+    if (leg_dos) {
+        /* initech-zc68: independently locked roster, all nine COM leaves.
+         * Ref: spec/dos_folder_externals.txt; finder_windows.c EXE-only icon
+         * heuristic; Chicago NFNT 5478 advances D8 + O8 + S7 = 23. */
+        static const RosterEntry dos[] = {
+            { "CHKDSK.COM", K_DOC }, { "ATTRIB.COM", K_DOC },
+            { "LABEL.COM", K_DOC }, { "XCOPY.COM", K_DOC },
+            { "TREE.COM", K_DOC }, { "EDLIN.COM", K_DOC },
+            { "MORE.COM", K_DOC }, { "FIND.COM", K_DOC },
+            { "SORT.COM", K_DOC }
+        };
+        L = TRASH_L; T = TRASH_T; roster = dos; n_icons = 9;
+        g_title = "DOS"; g_title_chars = 3; g_title_w = 23;
     }
     if (leg_purge) {
         /* The Trash window opened FIRST (no root window), so it holds slot 0
@@ -1148,10 +1108,10 @@ int main(int argc, char **argv)
         return 1;
     }
     printf("ppm_flair_disk_windows_check: leg %s PASS "
-           "(%d icon strikes graded off the finder_icons.h ASCII maps, "
+           "(%d icon cells == the mint-008 captures, "
            "%d label-band relations, %d empty cells, 11 chrome assertions, "
            "%d bare-teal controls%s%s)\n",
-           g_leg, n_icons, n_icons, ROOT_CELLS_BEFORE - n_icons,
+           g_leg, n_icons, n_icons, n_icons < ROOT_CELLS_BEFORE ? ROOT_CELLS_BEFORE - n_icons : 0,
            leg_zoomed ? 0 : CONTROL_TEAL_N,
            leg_moved ? ", 2 vacated-default-rect probes" : "",
            leg_purge ? ", 5 closed-window footprint probes" : "");

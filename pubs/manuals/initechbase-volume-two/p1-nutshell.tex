@@ -1,0 +1,106 @@
+% Programming with InitechBase, Chapter 1: Programming in a Nutshell
+% (AN-16; annex Sec 8.2 P1).  Panels replayed: examples/p1-*.dot (dot-prompt
+% route) and ../../examples/samir/salary (the program route of
+% harness/pubs/samir_replay.c, samir_do).  Sources samir_main.c
+% repl_try_do_file, cmd/proc.c, cmd/flow.c.
+\chapter{Programming in a Nutshell}
+\Gates{test-pubs-examples, test-interp-proc, test-interp-flow}
+A program is a list of commands written in a file.  When you run the program,
+InitechBase carries out the commands one after another, as if you were typing
+them at the dot prompt, but faster and without mistakes.  In this chapter you
+see what a program is made of, run the first program of the Initech Accounting
+System, and read it line by line.
+
+\begin{ChapterCovers}
+\item From the dot prompt to a program
+\item Program files
+\item Running a program with \cmd{DO}
+\item Reading the first program of the system
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Copy the Sample Programs and Utilities diskette to the disk you work on, as
+\doctitle{Getting Started} describes, and start InitechBase from it.  Copy the
+diskette again before each chapter: the programs of later chapters change the
+ledger.
+
+\ATEHead{From the Dot Prompt to a Program}
+At the dot prompt you can look at the ledger an invoice at a time:
+\begin{Steps}
+\item Type \type{USE INVOICE}, then \type{GO TOP}.
+\item Type \type{? INVNO, CUST, AMOUNT}, then \type{SKIP}, then \type{? INVNO, CUST,
+AMOUNT}.
+\end{Steps}
+\DotExample{examples/p1-dot}
+To look at every open invoice this way you would type the same two commands
+for each record, and decide each time whether the invoice is paid.  A program
+does the typing and the deciding for you.
+
+\ATEHead{Program Files}
+A program file is a text file with the extension \file{.PRG}, with one
+InitechBase command on each line.  You write it with any editor that saves
+plain text, such as the InitechDOS line editor \file{EDLIN}.  The commands are
+those you use at the dot prompt, with a few more that exist only in programs:
+\cmd{IF}, \cmd{DO CASE} and \cmd{DO WHILE}, which decide and repeat, and
+\cmd{PROCEDURE} and \cmd{RETURN}, which divide a program into parts.
+
+A program uses the databases that are open when it runs.  Open them at the dot
+prompt with \cmd{USE} before you run the program: \cmd{USE}, \cmd{CLOSE} and
+\cmd{QUIT} are dot prompt commands, and a program does not use them.
+
+Here is a very small program.  It sets the decimal places, stores a salary in
+a memory variable and displays it with an allowance added:
+\VerbatimInput[fontsize=\small,xleftmargin=4mm]{../../examples/samir/salary.prg}
+When it runs, it displays:
+\begin{Transcript}{../../examples/samir/salary}
+\end{Transcript}
+
+\ATEHead{Running a Program}
+\cmd{DO} runs a program.  You need not type the extension.  The first program of
+the Initech Accounting System, \file{OPENINV.PRG}, lists the invoices that have
+not been paid:
+\begin{Steps}[resume]
+\item Type \type{USE INVOICE}.
+\item Type \type{DO OPENINV}.
+\Response{The program lists the open invoices and counts them.}
+\end{Steps}
+\DotExample{examples/p1-openinv}
+When the program ends, InitechBase shows the dot prompt again.
+
+\ATEHead{Reading the Program}
+\ProgramListing{OPENINV.PRG}
+\SideHead{Comments}The first lines begin with an asterisk.  They are comments:
+InitechBase passes over them.  Every program of the system begins with its
+name, its purpose and the database it expects.
+
+\SideHead{Headings}Two \cmd{?} commands print the title and the column
+headings.
+
+\SideHead{The count}\texttt{MCOUNT = 0} creates the memory variable that counts
+the open invoices.
+
+\SideHead{The loop}\cmd{GO TOP} moves to the first record.  The commands
+between \cmd{DO WHILE} and \cmd{ENDDO} are repeated as long as the end of the
+file has not been reached; \cmd{SKIP}, at the end of the loop, moves to the
+next record each time.
+
+\SideHead{The decision}Inside the loop, \cmd{IF .NOT. PAID} chooses the open
+invoices.  For each, \cmd{?} prints the invoice number, the customer and the
+amount, and the count grows by one.  \fn{STR()} turns the amount into
+characters, so that it can be joined to the other values with \texttt{+}.
+
+\SideHead{The end}After the loop, the program prints the count and
+\cmd{RETURN} ends it.
+
+\ATEHead{Where Do You Go From Here?}
+Chapter~2 looks more closely at the structures that decide and repeat.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item A program is a text file of commands, with the extension \file{.PRG}.
+\item Open the databases with \cmd{USE}, then run the program with \cmd{DO}.
+\item Comment lines begin with an asterisk.
+\item \cmd{DO WHILE .NOT. EOF()} \ldots{} \cmd{SKIP} \ldots{} \cmd{ENDDO} visits
+  every record; \cmd{IF} chooses records.
+\item \cmd{RETURN} ends the program.
+\end{enumerate}

@@ -32,6 +32,20 @@
 
 \newcommand\bs{\textbackslash}
 
+% initech-2kgh: three new command entries outgrew the one-page contents box.
+% IBM 6138519 DOS 3.10 Reference printed 7-1/7-2 (PDF106/107, viewed scans)
+% continues a long command contents list onto the verso. Preserve the class's
+% typography and margins, allowing this book's list to break naturally.
+\makeatletter
+\renewcommand\im@ibmopener{%
+  \startcontents[chapters]%
+  \begin{adjustwidth}{-\imHang}{0pt}\RaggedRight
+    {\imHeadTwoFont Contents\par}\vspace{4pt}%
+    \printcontents[chapters]{l}{1}{\setcounter{tocdepth}{2}}%
+  \end{adjustwidth}\par
+  \cleardoublepage}
+\makeatother
+
 \begin{document}
 \FrontMatterFolios
 \MakeTitlePage

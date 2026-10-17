@@ -1,1 +1,1 @@
-\n\nCLS\nXCOPY *.TXT A:\\KEEP\\ /P\nYNY
+CLS\nXCOPY *.TXT A:\\KEEP\\ /P\nYNY

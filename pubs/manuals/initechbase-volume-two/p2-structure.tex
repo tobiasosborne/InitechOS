@@ -1,0 +1,145 @@
+% Programming with InitechBase, Chapter 2: Program Structure and Flow
+% (AN-16; annex Sec 8.2 P2).  Panels replayed (examples/p2-*.dot); sources
+% cmd/flow.c (IF/ELSE/ENDIF, DO WHILE/ENDDO/LOOP/EXIT, DO CASE; guards must
+% be Logical, #37).
+\chapter{Program Structure and Flow}
+\Gates{test-pubs-examples, test-interp-flow}
+A program runs its commands in order, from the first line to the last, unless a
+structure tells it otherwise.  InitechBase has three: \cmd{IF} chooses whether
+to carry out a group of commands, \cmd{DO CASE} chooses one group among
+several, and \cmd{DO WHILE} repeats a group.  This chapter describes each, with
+the programs of the system that use them.
+
+\begin{ChapterCovers}
+\item Sequence
+\item \cmd{IF}, \cmd{ELSE} and \cmd{ENDIF}
+\item \cmd{DO CASE}
+\item \cmd{DO WHILE}, \cmd{LOOP} and \cmd{EXIT}
+\item Nesting and indentation
+\item Conditions
+\end{ChapterCovers}
+
+\ATEHead{Preparing for This Chapter}
+Start InitechBase with a fresh copy of the sample diskette, and open the ledger
+with \type{USE INVOICE}.
+
+\ATEHead{Sequence}
+Without a structure, the commands of a program run one after the other, once
+each.  The first five commands of \file{OPENINV.PRG} (Chapter~1) are a sequence:
+two headings, a memory variable and a move to the first record.
+
+\ATEHead{Decisions: IF}
+\cmd{IF} is followed by a condition.  When the condition is true, the commands
+up to \cmd{ELSE}, or up to \cmd{ENDIF} if there is no \cmd{ELSE}, are carried
+out.  When it is false, the commands after \cmd{ELSE} are carried out instead.
+Either way, the program goes on after \cmd{ENDIF}.
+
+\SyntaxLine{\kw{IF} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands when true}}
+\SyntaxLine{\kw{ELSE}}
+\SyntaxLine{\ \ \xp{commands when false}}
+\SyntaxLine{\kw{ENDIF}}
+
+\file{INVTOTAL.PRG} adds every amount to the total of the ledger, and the paid
+amounts to a second total:
+\ProgramListing{INVTOTAL.PRG}
+
+\ATEHead{Conditions}
+A condition must be a logical value: a logical field such as \texttt{PAID}, a
+comparison, a logical function such as \fn{EOF()} or \fn{FOUND()}, or these
+joined with \texttt{.AND.}, \texttt{.OR.} and \texttt{.NOT.}.  InitechBase does
+not treat a number or a character string as true or false.  A program whose
+condition is of another type stops with
+\xmsg{37}{Not a Logical expression.}
+
+\ATEHead{Choices: DO CASE}
+\cmd{DO CASE} holds several \cmd{CASE} lines, each with a condition.  The
+commands of the first \cmd{CASE} whose condition is true are carried out, and
+the program goes on after \cmd{ENDCASE}.  If no condition is true, the commands
+after \cmd{OTHERWISE} are carried out.
+
+\SyntaxLine{\kw{DO CASE}}
+\SyntaxLine{\kw{CASE} \xp{condition 1}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\kw{CASE} \xp{condition 2}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\kw{OTHERWISE}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\kw{ENDCASE}}
+
+The main menu of the system (Chapter~11) carries out the task the clerk
+chooses with a \cmd{DO CASE}, one \cmd{CASE} for each choice.
+
+\ATEHead{Counting by Class}
+\file{DUECLASS.PRG} counts the invoices of the ledger in three classes of
+amount.  The \cmd{DO CASE} inside the loop chooses the count for each record:
+\ProgramListing{DUECLASS.PRG}
+\DotExample{examples/p2-dueclass}
+The order of the \cmd{CASE} lines matters.  An amount under 100 is also under
+1000, but only the first \cmd{CASE} that is true is carried out, so it is
+counted once.
+
+\ATEHead{Loops: DO WHILE}
+\cmd{DO WHILE} tests its condition; if it is true, the commands up to
+\cmd{ENDDO} are carried out and the condition is tested again.  The loop ends
+when the condition is false.
+
+\SyntaxLine{\kw{DO WHILE} \xp{condition}}
+\SyntaxLine{\ \ \xp{commands}}
+\SyntaxLine{\kw{ENDDO}}
+
+The loop of nearly every program of the system processes the records of the
+ledger:
+
+\SyntaxLine{\kw{GO TOP}}
+\SyntaxLine{\kw{DO WHILE .NOT. EOF()}}
+\SyntaxLine{\ \ \xp{commands for one record}}
+\SyntaxLine{\ \ \kw{SKIP}}
+\SyntaxLine{\kw{ENDDO}}
+
+\cmd{LOOP} goes back to the test at once, leaving out the rest of the loop;
+\cmd{EXIT} leaves the loop at once.  The menu of Chapter~11 is a loop that
+never ends by its condition, \cmd{DO WHILE .T.}: \cmd{EXIT} ends it when the
+clerk chooses to leave.
+
+The memory variables of the program remain after it ends, so you can look at
+them at the dot prompt:
+\DotExample{examples/p2-openinv}
+
+\ATEHead{Leaving a Loop Early}
+\file{FIRSTBIG.PRG} looks for the first open invoice of 1000 or more.  It
+passes over paid invoices with \cmd{LOOP} -- note the \cmd{SKIP} before it, or
+the loop would test the same record for ever -- and leaves the loop with
+\cmd{EXIT} as soon as it finds one:
+\ProgramListing{FIRSTBIG.PRG}
+\DotExample{examples/p2-firstbig}
+The logical memory variable \texttt{MFOUND} remembers why the loop ended: at
+the end of the file, or at an invoice found.
+
+\ATEHead{Nesting and Indentation}
+A structure may hold other structures: an \cmd{IF} inside a \cmd{DO WHILE}, as
+in \file{OPENINV.PRG}, or a \cmd{DO CASE} inside an \cmd{IF}.  Each must be
+closed inside the one that holds it.  InitechBase ignores blanks at the
+beginning of a line, so indent the commands inside each structure by two
+blanks: the programs of the system are written that way, and the structure is
+then plain to see.
+
+\begin{Tip}
+Write the closing line of a structure -- \cmd{ENDIF}, \cmd{ENDCASE},
+\cmd{ENDDO} -- as soon as you write its first line, then fill in the commands
+between.
+\end{Tip}
+
+\ATEHead{Where Do You Go From Here?}
+The programs of this chapter keep their totals in memory variables.  Chapter~3
+tells you how memory variables are created and how long they last.
+
+\ATEHead{Summary}
+\begin{enumerate}
+\item Commands run in sequence unless a structure decides or repeats.
+\item \cmd{IF} \ldots{} \cmd{ELSE} \ldots{} \cmd{ENDIF} chooses between two groups.
+\item \cmd{DO CASE} \ldots{} \cmd{ENDCASE} chooses the first group whose condition
+  is true.
+\item \cmd{DO WHILE} \ldots{} \cmd{ENDDO} repeats; \cmd{LOOP} and \cmd{EXIT} jump.
+\item Every condition is a logical value.
+\end{enumerate}

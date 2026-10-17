@@ -16,6 +16,7 @@
  * host-oracle builds only (Rule 6) and are never compiled into a real build.
  */
 #include "finder_desktop.h"
+#include "event.h"
 
 #include "finder_icon.h"        /* finder_icon_draw (clipped, mask-honouring)  */
 #include "desk_icons.h"         /* the LOCKED 32x32 desktop strikes            */
@@ -110,8 +111,16 @@ static const FLAIRDeskIcon *fd_strike(uint8_t kind, uint8_t trash_full)
     if (kind == (uint8_t)FINDER_ICON_VOLUME) return &FLAIR_DESK_ICON_VOLUME;
     /* bead initech-6k12: the Trash draws FULL while \TRASH holds anything
      * (finder_desk_t.trash_full, kept by finder_shell_recount_trash). */
+#if defined(FINDER_DESK_MUT_TRASH_NEVER_FULL)
+    /* MUTANT (Rule 6; tdnl.74 / test-flair-trash-full-mutant): the painter
+     * ignores the staged-contents count and always draws the EMPTY can -- the
+     * audit H04 symptom. NEVER in a real build. */
+    (void)trash_full;
+    if (kind == (uint8_t)FINDER_ICON_TRASH) return &FLAIR_DESK_ICON_TRASH;
+#else
     if (kind == (uint8_t)FINDER_ICON_TRASH)
         return trash_full ? &FLAIR_DESK_ICON_TRASH_FULL : &FLAIR_DESK_ICON_TRASH;
+#endif
     if (kind == (uint8_t)FINDER_ICON_FOLDER) return &FLAIR_FINDER_ICON_FOLDER;
     if (kind == (uint8_t)FINDER_ICON_FILE)   return &FLAIR_FINDER_ICON_DOC;
     if (kind == (uint8_t)FINDER_ICON_APP)    return &FLAIR_FINDER_ICON_APP;
@@ -397,7 +406,7 @@ finder_click_kind_t finder_click_classify(finder_click_track_t *t,
 #else
     if (t->armed && target >= 0 && target == t->last_target &&
         when >= t->last_when &&
-        (when - t->last_when) <= (uint32_t)FINDER_DBLCLICK_TICKS &&
+        (when - t->last_when) <= (uint32_t)flair_double_click_ticks &&
         fd_abs((int)h - (int)t->last_h) <= FINDER_DBLCLICK_SLOP &&
         fd_abs((int)v - (int)t->last_v) <= FINDER_DBLCLICK_SLOP) {
         is_double = 1;
@@ -817,15 +826,21 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
         if (strike == (const FLAIRDeskIcon *)0) continue;
 
         /* The sprite (mask-honouring + clipped; os/flair/finder_icon.c). A
-         * DROP TARGET (bead initech-34dh) draws in its HIGHLIGHTED state --
-         * darkened body, same mask -- per finder_icon_draw_hilite's refs. */
+         * SELECTED icon and a DROP TARGET (beads initech-34dh, tdnl.53) draw
+         * in the selected state -- every colour through the measured Mac OS
+         * 8.1 selection function, same mask (finder_icon_draw_hilite; the
+         * Finder darkens a selected icon: ../system7-decomp/re/
+         * mint-results-008.md Sec 3, s8_icons_*_sel.png). */
 #if defined(FINDER_DESK_MUT_NO_HILITE)
         /* MUTANT (Rule 6): the drop-target highlight is never drawn, so a
          * dragged icon over a folder / the Trash shows NO destination
-         * feedback and the hand-authored hilite pixels go RED. */
-        finder_icon_draw(dst, ic->x, ic->y, strike, clip);
+         * feedback and the captured selected-state pixels go RED. */
+        if (ic->selected && !ic->hilite)
+            finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
+        else
+            finder_icon_draw(dst, ic->x, ic->y, strike, clip);
 #else
-        if (ic->hilite)
+        if (ic->hilite || ic->selected)
             finder_icon_draw_hilite(dst, ic->x, ic->y, strike, clip);
         else
             finder_icon_draw(dst, ic->x, ic->y, strike, clip);

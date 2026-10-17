@@ -145,13 +145,20 @@ fcb-mint-realdos: $(FCBX_BIN16)
 # real DOS, TPSREPT.BAK == the previous report (FCB rename), the older .BAK
 # deleted; [B] no TPSPARM.DAT -> TPS-001 + ERRORLEVEL 1; [C] cover sheet N ->
 # TPS-005 + ERRORLEVEL 5 and no report file; [spec] every literal of the
-# locked spec appears in the program, and the source issues no handle call.
+# locked spec appears in the program, and the source issues no handle call;
+# [tacit] the R2 prompt never states the count or the key (operator Law-4
+# ruling 2026-10-17, beads initech-5igf: the 7 presses of the SPACE BAR are
+# written only in the Operating Procedures, OP-7.4) -- checked on the locked
+# JSON and on every R2 prompt the program actually printed in leg A, and the
+# prompt is reprinted once per refused count.
 # Rule 6: TPS_MUTATE_COUNT6 (six presses accepted) must turn leg A RED, and so
-# must the FCB kernel mutant `seq` (the report depends on the FCB layer).
+# must the FCB kernel mutant `seq` (the report depends on the FCB layer), and
+# TPS_MUTATE_SAY7 (the count stated in the R2 prompt) must turn [tacit] RED.
 TPS_DIR        := harness/diff/tps
 TPSREP_ASM     := $(KERNEL_DIR)/tpsrep_program.asm
 TPSREP_BIN     := $(FLAIR_TPSREP_COM)
 TPSREP_MUT_BIN := $(BUILD)/tpsrep_program_count6.bin
+TPSREP_SAY7_BIN := $(BUILD)/tpsrep_program_say7.bin
 TPSREP_BIN16   := $(BUILD)/TPSREP16.COM
 TPS_SPEC       := spec/tps_ritual.json
 TPS_FIXTURES   := $(TPS_DIR)/tps.dbf $(TPS_DIR)/tpsparm.dat $(TPS_DIR)/old_tpsrept.txt \
@@ -167,6 +174,8 @@ $(TPSREP_BIN): $(TPSREP_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 $(TPSREP_MUT_BIN): $(TPSREP_ASM) | $(BUILD)
 	$(NASM) -f bin -DTPS_MUTATE_COUNT6 $< -o $@
+$(TPSREP_SAY7_BIN): $(TPSREP_ASM) | $(BUILD)
+	$(NASM) -f bin -DTPS_MUTATE_SAY7 $< -o $@
 $(TPSREP_BIN16): $(TPSREP_ASM) | $(BUILD)
 	$(NASM) -f bin -DREALDOS $< -o $@
 
@@ -207,6 +216,14 @@ cmp -s $(TPS_DIR)/tpsrept_expected.txt $(BUILD)/$(1).rept && \
 cmp -s $(TPS_DIR)/old_tpsrept.txt $(BUILD)/$(1).bak
 endef
 
+# [tacit] check: $(1) run name. Exit 0 = green. Every R2 prompt span the program
+# printed (TOP OF FORM ALIGNMENT .. the line ending PRESS ENTER.) is free of the
+# digit 7 and of the word SPACE, and there is one span per attempt (the refusals
+# + the accepted one): the count and the key live only in the manual (OP-7.4).
+define tps-check-tacit
+sed -n '/^TOP OF FORM ALIGNMENT/,/PRESS ENTER\.$$/p' $(BUILD)/$(1).got > $(BUILD)/$(1).r2span && test -s $(BUILD)/$(1).r2span && ! grep -qE '7|SPACE' $(BUILD)/$(1).r2span && test "$$(grep -c '^TOP OF FORM ALIGNMENT' $(BUILD)/$(1).got)" -eq "$$(( $$(grep -c '^FORM NOT ALIGNED' $(BUILD)/$(1).got) + 1 ))"
+endef
+
 .PHONY: test-tps-report test-tps-report-mutant tps-mint-realdos
 test-tps-report: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_BIN) $(TPS_FIXTURES) $(TPS_GOLDENS) $(TPS_SPEC)
 	@printf '======================================================================\n'
@@ -225,6 +242,12 @@ test-tps-report: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_BIN) $(TPS_FIXT
 	[ $$(wc -l < $(BUILD)/tps_spec_literals.txt) -ge 14 ] || { printf '!!! test-tps-report FAIL: spec literal extraction found too few rows\n'; exit 1; }; \
 	! grep -nE '^\s*mov\s+ah,\s*0x(3[C-F]|4[0-6])\b' $(TPSREP_ASM) || { printf '!!! test-tps-report FAIL: TPSREP issues a handle call\n'; exit 1; }; \
 	printf '>>> test-tps-report [spec]: %s locked literals present in TPSREP.COM; no handle call (AH=3Ch-46h) in the source\n' "$$(wc -l < $(BUILD)/tps_spec_literals.txt)"
+	@set -e; awk '/"id": *"R2"/ { r = 1; next } /"id": *"/ { r = 0 } r && /"prompt": *\[/ { p = 1; sub(/.*"prompt": *\[/, "") } p { print } p && /\]/ { p = 0 }' $(TPS_SPEC) | \
+	  grep -oE '"[^"]*"' > $(BUILD)/tps_spec_r2_prompt.txt; \
+	[ $$(wc -l < $(BUILD)/tps_spec_r2_prompt.txt) -eq 3 ] || { printf '!!! test-tps-report FAIL [tacit]: spec R2 prompt is not the three-line alignment prompt\n'; exit 1; }; \
+	! grep -nE '7|SPACE' $(BUILD)/tps_spec_r2_prompt.txt || { printf '!!! test-tps-report FAIL [tacit]: the locked R2 prompt states the count or the key (initech-5igf)\n'; exit 1; }; \
+	grep -qE '"tacit": *"[^"]*OP-7\.4' $(TPS_SPEC) || { printf '!!! test-tps-report FAIL [tacit]: spec R2 lost its tacit row (the count lives in OP-7.4)\n'; exit 1; }; \
+	printf '>>> test-tps-report [tacit/spec]: the locked R2 prompt (3 lines) names neither the count nor the key; the count is the manual'"'"'s (OP-7.4)\n'
 	$(call tps-run,$(TPS_IMG_A),$(SECONDARY_TRACER_IMG),tps_a,$(TPSREP_BIN),$(TPS_A_KEYS),$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(TPS_DIR)/old_tpsrept.txt=TPSREPT.TXT $(TPS_DIR)/old_tpsrept.bak=TPSREPT.BAK)
 	@grep -q '^SHELL-EXIT' $(BUILD)/tps_a.serial || { printf '!!! test-tps-report FAIL [A]: the prompt never came back (TPSREP hung?)\n'; exit 1; }
 	@grep -q 'tpsrep tps.dbf' $(BUILD)/tps_a.serial || { printf '!!! test-tps-report FAIL [A]: the command was not typed at the prompt\n'; exit 1; }
@@ -232,6 +255,8 @@ test-tps-report: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_BIN) $(TPS_FIXT
 	@cmp $(TPS_DIR)/tpsrept_expected.txt $(BUILD)/tps_a.rept || { printf '!!! test-tps-report FAIL [A]: TPSREPT.TXT != real DOS (FCB sequential writes)\n'; exit 1; }
 	@cmp $(TPS_DIR)/old_tpsrept.txt $(BUILD)/tps_a.bak || { printf '!!! test-tps-report FAIL [A]: TPSREPT.BAK is not the previous report (FCB delete + rename)\n'; exit 1; }
 	@printf '>>> test-tps-report [A]: typed at A:\\>, ritual refused 6/8 presses, mismatched number, wrong memo, then ran; transcript (%s lines) + TPSREPT.TXT (%s B) == real DOS; previous report kept as .BAK\n' "$$(wc -l < $(BUILD)/tps_a.got)" "$$(wc -c < $(BUILD)/tps_a.rept)"
+	@$(call tps-check-tacit,tps_a) || { printf '!!! test-tps-report FAIL [tacit]: an R2 prompt the program printed states the count or the key, or was not reprinted per refusal (%s)\n' $(BUILD)/tps_a.r2span; exit 1; }
+	@printf '>>> test-tps-report [tacit/A]: %s R2 prompts printed (one per attempt), none states the count or the key\n' "$$(grep -c '^TOP OF FORM ALIGNMENT' $(BUILD)/tps_a.got)"
 	$(call tps-run,$(TPS_IMG_B),$(SECONDARY_TRACER_IMG),tps_b,$(TPSREP_BIN),$(TPS_EXIT_KEYS),$(TPS_DIR)/autoexec_b.bat=AUTOEXEC.BAT)
 	@diff $(TPS_DIR)/tps_b_expected.txt $(BUILD)/tps_b.got || { printf '!!! test-tps-report FAIL [B]: missing-parameter-file transcript/ERRORLEVEL != real DOS\n'; exit 1; }
 	@printf '>>> test-tps-report [B]: no TPSPARM.DAT -> TPS-001 / OP-7.3, ERRORLEVEL 1 (== real DOS)\n'
@@ -242,14 +267,18 @@ test-tps-report: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(TPSREP_BIN) $(TPS_FIXT
 	@printf 'VERDICT   : PASS -- the TPS Report Generator works from the prompt through the FCB API (QEMU only)\n'
 	@printf '======================================================================\n'
 
-test-tps-report-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/fcb_seq.img $(TPSREP_BIN) $(TPSREP_MUT_BIN) $(TPS_FIXTURES) $(TPS_GOLDENS)
+test-tps-report-mutant: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/fcb_seq.img $(TPSREP_BIN) $(TPSREP_MUT_BIN) $(TPSREP_SAY7_BIN) $(TPS_FIXTURES) $(TPS_GOLDENS)
 	$(call tps-run,$(BUILD)/tps_mut6.img,$(SECONDARY_TRACER_IMG),tps_mut6,$(TPSREP_MUT_BIN),$(TPS_A_KEYS),$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(TPS_DIR)/old_tpsrept.txt=TPSREPT.TXT $(TPS_DIR)/old_tpsrept.bak=TPSREPT.BAK)
 	@if $(call tps-check-a,tps_mut6); then printf '!!! test-tps-report-mutant FAIL: COUNT6 (six presses accepted) matched every golden\n'; exit 1; fi
 	@printf '>>> test-tps-report-mutant: COUNT6 correctly RED: '; diff $(TPS_DIR)/tps_a_expected.txt $(BUILD)/tps_mut6.got | sed -n '2p'
 	$(call tps-run,$(BUILD)/tps_mutseq.img,$(BUILD)/fcb_seq.img,tps_mutseq,$(TPSREP_BIN),$(TPS_A_KEYS),$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(TPS_DIR)/old_tpsrept.txt=TPSREPT.TXT $(TPS_DIR)/old_tpsrept.bak=TPSREPT.BAK)
 	@if $(call tps-check-a,tps_mutseq); then printf '!!! test-tps-report-mutant FAIL: FCB kernel mutant seq matched every golden\n'; exit 1; fi
 	@printf '>>> test-tps-report-mutant: FCB kernel mutant seq correctly RED (TPSREPT.TXT %s B vs golden %s B)\n' "$$(wc -c < $(BUILD)/tps_mutseq.rept 2>/dev/null || echo 0)" "$$(wc -c < $(TPS_DIR)/tpsrept_expected.txt)"
-	@printf '>>> test-tps-report-mutant: green (2/2 mutants RED)\n'
+	$(call tps-run,$(BUILD)/tps_say7.img,$(SECONDARY_TRACER_IMG),tps_say7,$(TPSREP_SAY7_BIN),$(TPS_A_KEYS),$(TPS_DIR)/tpsparm.dat=TPSPARM.DAT $(TPS_DIR)/old_tpsrept.txt=TPSREPT.TXT $(TPS_DIR)/old_tpsrept.bak=TPSREPT.BAK)
+	@grep -q '^FORM ALIGNED\.$$' $(BUILD)/tps_say7.got || { printf '!!! test-tps-report-mutant FAIL: SAY7 did not run the ritual (RED for the wrong reason)\n'; exit 1; }
+	@if $(call tps-check-tacit,tps_say7); then printf '!!! test-tps-report-mutant FAIL: SAY7 (the count stated in the R2 prompt) passed [tacit] -- the tacit rule is decoration\n'; exit 1; fi
+	@printf '>>> test-tps-report-mutant: SAY7 correctly RED on [tacit]: %s\n' "$$(grep -m1 -E '7|SPACE' $(BUILD)/tps_say7.r2span)"
+	@printf '>>> test-tps-report-mutant: green (3/3 mutants RED)\n'
 
 # Re-mint the TPS goldens under real MS-DOS 6.22 (NOT part of `make test`).
 TPS_MINT_DIR := $(BUILD)/tps_mint

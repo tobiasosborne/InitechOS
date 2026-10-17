@@ -448,7 +448,7 @@ static uint16_t xmerge(int16_t *out, uint16_t cap, rgn_op_t op,
     return no;
 }
 
-void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
+static void region_merge(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
 {
     if (out == 0 || A == 0 || B == 0) { RGN_FAIL_LOUD(); return; }
     /* Guard: inputs must be in normal form before any merge (Rule 2). */
@@ -589,11 +589,9 @@ void region_complement(region_t *out, const region_t *A, rgn_rect_t frame)
  * Cap-sized stack arrays, POST-44ab:
  *   region_op        scratch[RGN_ROW_X_MAX] = 1280 B  (stack; small -- stays)
  *   region_normalize tmp[RGN_ROW_X_MAX]     = 1280 B  (stack; small -- stays)
- *   region_from_rects                       = ~150 B  (WAS 18528 B = 18.1 KiB
- *                                             at the new caps -- the single
- *                                             > 8 KiB/frame offender; acc/tmp
- *                                             now in the working set, 'one'
- *                                             is the 2/2 stack pattern)
+ *   region_from_rects xs[RGN_ROW_X_MAX]     = 1280 B plus small locals (0i1m
+ *                                             direct band sweep; no full
+ *                                             region stored on the stack)
  *   region_rect_fully_in/_overlaps/
  *     region_intersects                     = ~90 B   (WAS ~6228 B each at the
  *                                             new caps; currently DEAD CODE in
@@ -682,8 +680,38 @@ void region_engine_reset(void)
     g_rgn_ws_in_use = 0;
 }
 
+/* Copy VALUES, never backing pointers: destinations retain caller storage.
+ * Ref: spec/region_algebra.h Sec 1 and GDI CombineRgn's alias contract. */
+#ifndef RGN_MUT_ALIAS_RESET
+static void region_copy(region_t *out, const region_t *src)
+{
+    region_set_empty(out);
+    for (uint16_t i = 0; i < src->n_rows; i++)
+        region_push_row(out, src->rows[i].y_top, src->rows[i].x, src->rows[i].x_count);
+    region_normalize(out);
+}
+#endif
+
+void region_op(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
+{
+#ifndef RGN_MUT_ALIAS_RESET
+    if (out != 0 && (out == A || out == B)) {
+        /* bz8f: merge into existing working storage BEFORE modifying either
+         * source. The same one merge engine serves both heritage facades. */
+        rgn_ws_acquire();
+        region_t tmp;
+        rgn_ws_attach(&tmp, g_rgn_ws[0]);
+        region_merge(&tmp, A, B, op);
+        region_copy(out, &tmp);
+        rgn_ws_release();
+        return;
+    }
+#endif
+    region_merge(out, A, B, op);
+}
+
 /* ===========================================================================
- * region_from_rects -- union of n rects (repeated union; normalized).
+ * region_from_rects -- direct union of n rects, emitted in normal form.
  * ===========================================================================*/
 void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
 {
@@ -698,6 +726,7 @@ void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
      * ONE rect: 2 rows + 2 x-slots on the stack (the region_complement
      * pattern; tweak W2). Acquire HERE (first touch), release at the ONE exit. */
     rgn_ws_acquire();
+#ifdef RGN_MUT_REPEATED_UNION
     region_t acc, one, tmp;             /* 32 B headers; big storage is bound */
     rgn_row_t one_rows[2];
     int16_t   one_pool[2];
@@ -716,6 +745,58 @@ void region_from_rects(region_t *r, const rgn_rect_t *rects, uint16_t n)
     }
     /* copy acc -> r */
     region_op(r, &acc, &acc, RGN_OP_UNION);
+#else
+    /* 0i1m: sweep rectangle edges directly, emitting FINAL union bands.
+     * No repeated self-union/copy and no intermediate-region capacity limit.
+     * At each band, find the leftmost remaining interval and extend its union
+     * until closed. Work depends on active spans/bands, not accumulated rows.
+     * Ref: PRD 6.2 scanline unions; spec Sec 2 minimal inversion normal form. */
+    int32_t y = -32769;
+    int16_t xs[RGN_ROW_X_MAX];
+    for (;;) {
+        int32_t next_y = 32768;
+        for (uint16_t i = 0; i < n; i++) {
+            if (rect_is_empty(rects[i])) continue;
+            if (rects[i].top > y && rects[i].top < next_y) next_y = rects[i].top;
+            if (rects[i].bottom > y && rects[i].bottom < next_y) next_y = rects[i].bottom;
+        }
+        if (next_y == 32768) break;
+        y = next_y;
+        uint16_t count = 0;
+        int32_t covered = -32769;
+        for (;;) {
+            int32_t left = 32768;
+            for (uint16_t i = 0; i < n; i++) {
+                const rgn_rect_t *rc = &rects[i];
+                if (rc->top <= y && y < rc->bottom && rc->right > rc->left &&
+                    rc->left > covered && rc->left < left) left = rc->left;
+            }
+            if (left == 32768) break;
+            int32_t right = left, previous;
+            do {
+                previous = right;
+                for (uint16_t i = 0; i < n; i++) {
+                    const rgn_rect_t *rc = &rects[i];
+                    if (rc->top <= y && y < rc->bottom &&
+                        rc->left <= right && rc->right > right) right = rc->right;
+                }
+            } while (right != previous);
+            if (count > RGN_ROW_X_MAX - 2u) { RGN_FAIL_LOUD(); return; }
+            xs[count++] = (int16_t)left;
+            xs[count++] = (int16_t)right;
+            covered = right;
+        }
+        /* Collapse equal bands BEFORE consuming row/pool capacity. */
+        if (r->n_rows == 0) {
+            if (count == 0) continue;
+        } else {
+            const rgn_row_t *last = &r->rows[r->n_rows - 1];
+            if (xlist_equal(last->x, last->x_count, xs, count)) continue;
+        }
+        region_push_row(r, (int16_t)y, xs, count);
+    }
+    region_normalize(r);
+#endif
     rgn_ws_release();
 }
 

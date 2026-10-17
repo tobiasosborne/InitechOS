@@ -1,0 +1,8 @@
+. USE STAFF
+. GO 10
+. ? RECNO(), LASTNAME
+
+10 FENWICK       . SKIP -2
+. ? RECNO(), LASTNAME
+
+8 ALBRIGHT      

@@ -52,16 +52,14 @@
 #    to (15,86) [line 1 x 0], press, m44:0 -> (59,86) ("PC LOAD" ends at
 #    x 44: P 6, C 7, space 4, L 6, O 7, A 7, D 7), release; park on the
 #    window's right margin (580,300) so no Finder icon is hovered.
-# PM MERGE RE-KEY 2026-10-17: on main APPS holds thirteen files and TEXT.EXE is entry 13 =
-# grid cell 12 (row 4, col 0), centre (75,278): -48,+176 from the APPS double-click (123,102)
-# instead of the lane's cell 5 (+20,+72). After the double-click the cursor is moved back by
-# +68,-104 to the point the lane's trace continued from, so every later relative move and
-# drag in the document window is unchanged.
-FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
+# initech-zc68: TEXT cell 6 = (211,174): (+88,+72) from APPS (123,102).
+# Cell n centre = (75+68*(n%4),122+52*(n/4)). After launch move (-68,0)
+# back to (143,174), so every document gesture and park keeps its target.
+FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
 
 # 2. FLAIR_ITEXT_EDIT_SPEC -- the itext_edit clip (Rule 14): launch, type,
 #    drag-select, Copy, click, Return, Paste (no save).
-FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v
+FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v
 
 # 3. ehq4 -- forty Returns enable the standard vertical scroll bar and keep
 # the insertion point visible. Launch prefix copied EXACTLY from
@@ -70,4 +68,4 @@ FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m
 # 2*4 inset = doc459; the locked view389 gives range/value70. Caret global
 # x14,y440..450; thumb at the far end of the bar (568,425)..(582,440).
 # The same trace drives test-flair-itext-scroll and record-flair itext_scroll.
-FLAIR_ITEXT_SCROLL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m-48:100,m0:76,l1,l0,l1,l0,m68:-100,m0:-4,w400,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,w300
+FLAIR_ITEXT_SCROLL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,w300

@@ -65,8 +65,12 @@
 #                 F, click -> FLAIR-SCROLL-IGNORED win 0 h; park.
 #                 graded: leg scrollfit (DISABLED bars, icons unmoved).
 FLAIR_SCROLL_ARROW_SPEC  := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:100,m-100:87,m-33:0,l1,l0,l1,l0,l1,l0,m100:100,m100:100,m53:9
-FLAIR_SCROLL_SELECT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:100,m-100:87,m-33:0,l1,l0,l1,l0,l1,l0,m-100:-93,m-100:0,m-100:0,m-12:0,l1,l0
+FLAIR_SCROLL_SELECT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:100,m-100:87,m-33:0,l1,l0,l1,l0,l1,l0,m-100:-93,m-76:0,l1,l0
 FLAIR_SCROLL_PAGE_SPEC   := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:100,m-100:36,m-33:0,l1,l0,m100:100,m100:100,m53:60
 FLAIR_SCROLL_THUMB_SPEC  := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:40,m-100:0,m-33:0,l1,m0:33,m0:33,l0,m100:100,m100:100,m53:90
 FLAIR_SCROLL_HOLD_SPEC   := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:100,m-100:87,m-33:0,l1,w1500,l0,m100:100,m100:100,m53:9
 FLAIR_SCROLL_FIT_SPEC    := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:100,m-100:87,m-33:0,l1,l0,m-100:16,m-67:0,l1,l0,m100:100,m100:93,m100:0,m100:0,m20:0
+
+# initech-zc68: DOS/AUTOEXEC add two root entries; mint only F00..F17 so
+# there are still 22 entries/six rows/max138. F06 is now index10, row2 col2:
+# centre (191,158), delta (-176,-93) from (367,251). Parks are unchanged.

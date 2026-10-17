@@ -147,17 +147,28 @@ int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,
 
     /* The 24-byte preamble + the 2 offset words at MAP offsets 24..27 (Sec 1.3).
      * (24, NOT 22: the preamble counts the 16-byte fork-header copy.) */
+#ifdef RES_MUT_MAP_PREAMBLE
     if (m->map_off + 28u > len)                             goto bad;
+#else
+    /* 6mfi: map header must fit its SECTION, without additive overflow. */
+    if (m->map_len < 28u)                                  goto bad;
+#endif
     {
         uint16_t tlo = rd_u16(copy + m->map_off + 24u);     /* typeListOffset    */
         uint16_t nlo = rd_u16(copy + m->map_off + 26u);     /* nameListOffset    */
+        if ((uint32_t)tlo > m->map_len || m->map_len - tlo < 2u ||
+            (uint32_t)nlo > m->map_len) goto bad;
         m->type_list_abs = m->map_off + (uint32_t)tlo;
         m->name_list_abs = m->map_off + (uint32_t)nlo;
     }
 
     /* The numTypes-1 word at the start of the type list (Sec 1.4). */
     if (m->type_list_abs > len || len - m->type_list_abs < 2u) goto bad;
-    m->n_types = (uint16_t)(rd_u16(copy + m->type_list_abs) + 1u);
+    uint32_t ntypes = (uint32_t)rd_u16(copy + m->type_list_abs) + 1u;
+#ifndef RES_MUT_TYPE_WRAP
+    if (ntypes > UINT16_MAX) goto bad; /* s3bh: never truncate count to zero. */
+#endif
+    m->n_types = (uint16_t)ntypes;
     return 0;
 
 bad:
@@ -169,6 +180,28 @@ bad:
 /* ==========================================================================
  * FlairGetResource -- type + ID lookup (resource.h contract).
  * ==========================================================================*/
+/* nc0z/u37e: one bounded decoder for forward AND reverse lookup. Every
+ * subtraction is guarded; the length prefix and body stay in the data area.
+ * Ref: resource.h Sec 1.2 and Resource Manager Sec 1.1-1.5. */
+static const uint8_t *resource_data(const FlairResMap *m, uint32_t off,
+                                   uint32_t *length)
+{
+#ifndef RES_MUT_DATA_WRAP
+    if (m->data_off > m->len || m->data_len > m->len - m->data_off ||
+        off > m->data_len || m->data_len - off < 4u) return NULL;
+#endif
+    uint32_t abs = m->data_off + off;
+    if (abs > m->len || m->len - abs < 4u) return NULL;
+    uint32_t size = rd_u32(m->fork + abs);
+#if defined(RES_MUT_DATA_ESCAPE) || defined(RES_MUT_DATA_WRAP)
+    if (size > m->len - abs - 4u) return NULL;
+#else
+    if (size > m->data_len - off - 4u) return NULL;
+#endif
+    if (length) *length = size;
+    return m->fork + abs + 4u;
+}
+
 const uint8_t *FlairGetResource(const FlairResMap *m, flair_ostype_t type,
                                 int16_t id, uint32_t *out_len)
 {
@@ -189,12 +222,7 @@ const uint8_t *FlairGetResource(const FlairResMap *m, flair_ostype_t type,
         int16_t rid = rd_i16(m->fork + r);       /* signed resID                  */
         if (rid == id) {
             uint32_t do24 = rd_u24(m->fork + r + 5u);     /* 24-bit data offset   */
-            uint32_t abs  = m->data_off + do24;           /* abs = dataOff + off  */
-            if (abs > m->len || m->len - abs < 4u) return NULL;   /* prefix room  */
-            uint32_t dlen = rd_u32(m->fork + abs);         /* 4-byte length prefix */
-            if (dlen > m->len - (abs + 4u)) return NULL;   /* data room (no wrap)  */
-            if (out_len) *out_len = dlen;
-            return m->fork + abs + 4u;                     /* zero-copy data ptr   */
+            return resource_data(m, do24, out_len);
         }
     }
     return NULL;                                  /* id absent in this type        */
@@ -236,9 +264,9 @@ int FlairGetResInfo(const FlairResMap *m, const uint8_t *data,
             if (r + 12u > m->len) return -1;
             int16_t  rid  = rd_i16(m->fork + r);
             uint32_t do24 = rd_u24(m->fork + r + 5u);
-            uint32_t abs  = m->data_off + do24;
-            if (abs > m->len || m->len - abs < 4u) return -1;
-            if (m->fork + abs + 4u == data) {
+            const uint8_t *payload = resource_data(m, do24, NULL);
+            if (payload == NULL) return -1;
+            if (payload == data) {
                 if (id_out)   *id_out = rid;
                 if (type_out) *type_out = et;
                 return 0;

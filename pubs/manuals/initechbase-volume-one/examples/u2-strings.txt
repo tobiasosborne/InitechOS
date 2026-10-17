@@ -1,0 +1,5 @@
+. ? 'INITECH ' + 'SYSTEMS', 'INITECH   ' - 'SYSTEMS'
+
+INITECH SYSTEMS INITECHSYSTEMS   . ? 'TECH' $ 'INITECH', 'tech' $ 'INITECH'
+
+.T. .F.

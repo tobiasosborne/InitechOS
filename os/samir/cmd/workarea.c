@@ -1200,6 +1200,35 @@ ndx_index *wa_index(const wa_env *env, int area, int i)
     return wa->idx[i];
 }
 
+/* Ref: Using III+ U5-53 (CLOSE INDEX). Keep the DBF handle and cursor
+ * when releasing index ownership; the caller resets navigation caches. */
+void wa_close_indexes(wa_env *env, int area)
+{
+    work_area *wa;
+    int k;
+    if (!env || area < 1 || area > WA_NAREAS) return;
+    wa = &env->area[area-1];
+    for (k=wa->nidx-1;k>=0;k--) {
+        if (wa->idx[k]) (void)ndx_close(wa->idx[k]);
+        wa->idx[k]=(ndx_index *)0;
+    }
+    wa->nidx=0;wa->master=0;
+}
+
+/* INDEX ON opens its result for navigation (Using III+ U5-131/132).
+ * Ownership transfers only on success; caches follow the new master. */
+int wa_attach_index(wa_env *env,int area,ndx_index *ix)
+{
+    work_area *wa;
+    if(!env || area<1 || area>WA_NAREAS || !ix) return -WA_ERR_BAD_ORDER;
+    wa=&env->area[area-1];
+    if(wa->nidx>=NDX_PER_AREA) return -WA_ERR_BAD_ORDER;
+    wa->idx[wa->nidx++]=ix;wa->master=wa->nidx;
+    return WA_OK;
+}
+
+int wa_get_deleted(const wa_env *env) { return env?env->deleted_on:0; }
+
 /* ===================================================================== */
 /* Interpreter handle (interp.h)                                          */
 /* ===================================================================== */

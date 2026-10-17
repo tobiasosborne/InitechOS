@@ -1,0 +1,7 @@
+. STORE 10 TO MA, MB
+. MC = 'TEXT'
+. RELEASE MA, MC
+. ? MB
+
+10. ? MA
+12  Variable not found.

@@ -1,0 +1,138 @@
+% Front matter: edition notice (PUB-REF-0001 AN-20) and the F-OPS Preface
+% (AN-21: Getting Started / Course Description / Prerequisite / Duties and
+% Tasks, in that order; ZR23-6845-01 PDF p. iii-v).  Boilerplate newly
+% written (VO-12).  The colophon is pubs/common/colophon.tex (AN-26).
+% GATES: test-pubs-build test-pubs-tps
+\Gates{test-pubs-build, test-pubs-tps}
+\begin{TitleVerso}
+{\imLegalFont
+\textbf{The following paragraph does not apply to any country where such
+provisions are inconsistent with local law:} INITECH SYSTEMS CORPORATION
+PROVIDES THIS PUBLICATION ``AS IS'' WITHOUT WARRANTY OF ANY KIND, EITHER
+EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  Some states do not
+allow the exclusion of implied warranties, so the above exclusion may not
+apply to you.\par
+This publication may contain technical inaccuracies or typographical
+errors.  The procedures in it are revised from time to time, and the
+revisions are issued in new editions.  Operators are responsible for
+working from the current edition.  Initech Systems Corporation may change
+the programs and forms described in this publication at any time without
+notice.\par
+Additional copies of this publication and of the forms it names are
+requested from your supervisor, who orders them from the Publications
+Department through your Initech representative.\par}
+
+{\footnotesize
+A Reader's Comment Form for interoffice mail is provided at the back of
+this publication.  If the form has been removed, address comments to:
+\InitechAddressLine.
+\draft{PUB-REF-0001 O-5 and D-12: the address and mail stop are to be
+checked against real businesses before print}
+Initech may use or distribute the information you supply in any way it
+believes appropriate without incurring any obligation to you.\par
+The program described in this publication is furnished under the Initech
+Program License Agreement and may be copied only as that agreement
+permits.  It is for internal use only.\par}
+
+\IsThisGoodForTheCompany
+\end{TitleVerso}
+
+\FrontChapter{Preface}
+This book is the operating procedure for the TPS Report Generator,
+\file{TPSREP.COM}, and the reference for the files, messages and forms that
+belong to it.  It is written as a self-study course.  Each session
+introduces one part of the operating procedure, states what you will be
+able to do when you have completed it, gives the procedure in numbered
+steps, and ends with a lab project and study questions.  Complete the
+sessions in order.
+
+\section{Getting Started}
+Before you begin:
+\begin{enumerate}
+\item Make sure that this is the current edition.  The edition and the
+  part number are printed on the back of the title page.  Your supervisor
+  keeps the current edition list.
+\item Obtain the materials listed below.  If an item is missing, see your
+  supervisor before you continue.
+\item Arrange a session at an InitechOS workstation on which the FLAIR
+  desktop is running and the shipped data volume is drive A.  The
+  procedures in this book are carried out at that workstation.
+\end{enumerate}
+
+\SideHead{Materials}
+\begin{itemize}
+\item This book, \doctitle{TPS Report Generator Reference and Operating
+  Procedures} (1024-3300-12)
+\item The data collection sheets in Appendix F: \form{1} (the cover sheet,
+  Rev.\ 10/89), \form{2} (report number control log), \form{3} (memo
+  acknowledgement log), \form{4} (forms alignment record) and \form{5}
+  (operator sign-off sheet)
+\item A copy of memo 88-114, the memo about the new cover sheets
+\item A pencil
+\end{itemize}
+
+\SideHead{Time required}About three hours, including the lab projects.
+Record your study time on the Operator Course Evaluation (Appendix A).
+
+\SideHead{Conventions}Text that you type is shown in this typeface:
+\type{TPSREP TPS.DBF}.  What the system displays is shown in this
+typeface: \TpsLine{R2.accept}{1}.  The names of keys are shown like this:
+\key{Enter}, \key{Space Bar}.  Unless a step tells you otherwise, finish
+what you type by pressing \key{Enter}.  Words in \ph{italics} in a command
+form stand for information you supply.
+
+\SideHead{Screens}The screens and transcripts in this book are
+reproductions of the InitechOS display exactly as it appeared when each
+procedure was carried out on a workstation with the shipped data volume,
+with the system clock set to 9:30 a.m.\ on March~2, 1992.
+
+\section{Course Description}
+The course teaches the operating procedure of the TPS Report Generator in
+seven sessions:
+
+\SideHead{Session 1}The TPS Report Generator: the program, its files, the
+parameter record, the TPS table, the report and the return codes.
+
+\SideHead{Session 2}Leaving FLAIR: \proc{01}, the exit from the FLAIR
+desktop to the InitechDOS prompt.
+
+\SideHead{Session 3}Preparing the Run: \proc{02}, the parameter record
+(Operating Procedure OP-7.3).
+
+\SideHead{Session 4}Aligning the Form: \proc{03}.
+
+\SideHead{Session 5}The Report Number and the Memo: \proc{04} and
+\proc{05}.
+
+\SideHead{Session 6}The Cover Sheet and the Output: \proc{06} and \proc{07}.
+
+\SideHead{Session 7}Refusals and Faults: \proc{08} and the escalation
+checklist.
+
+The appendices hold the Operator Course Evaluation, the terminal
+procedures, the answers to the study questions, a review of the InitechDOS
+commands used, the final quiz, the data collection sheets and the messages.
+
+\section{Prerequisite}
+You should be able to use the mouse and the menus of the FLAIR desktop and
+to type a command at the InitechDOS prompt.  The \doctitle{InitechDOS
+User's Guide} (1024-3300-11) teaches both.  No knowledge of the TPS table
+or of programming is needed.
+
+\section{Duties and Tasks}
+Upon completion of this course you will be able to:
+\begin{enumerate}
+\item Leave the FLAIR desktop for the InitechDOS prompt and make the
+  directory that holds the TPS Report Generator the current directory.
+\item Verify the parameter record before a run.
+\item Align the form as the program requires.
+\item Key the report number twice and record it in the report number
+  control log.
+\item Acknowledge the memo about the new cover sheets and record it in the
+  memo acknowledgement log.
+\item Attest that the new cover sheet is attached.
+\item Verify and retain the report and the previous report.
+\item Identify each message of the program, take the action it requires,
+  and escalate to your supervisor where the procedure says so.
+\end{enumerate}

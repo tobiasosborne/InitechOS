@@ -1048,11 +1048,51 @@ static void test_capture_button(void)
     free(gold);
 }
 
+#include "expect_abort.h"
+static void test_hardening(void)
+{
+    ControlRecord c;
+    rgn_rect_t rect = { 10, 10, 30, 26 };
+    flair_point_t pt = { 18, 18 };
+    control_init(&c, pushButton, rect, 0, 0, 100, 1, "OK");
+    for (int type = pushButton; type <= progressBar; type++) {
+        c.contrlType = (flair_ctrl_type_t)type;
+        c.contrlHilite = 255;
+        CHECK(TestControl(&c, pt) == 0, "ct5n disabled control never hits");
+        CHECK(TrackControl(&c, &pt, 1) == 0 && c.contrlHilite == 255,
+              "ct5n disabled tracking preserves hilite");
+    }
+    c.contrlHilite = 0;
+    c.contrlType = scrollBar;
+    for (int h = 1; h < 47; h++) {
+        c.contrlRect.bottom = (int16_t)(10 + h);
+        pt.v = 10;
+        CHECK(TestControl(&c, pt) == 0,
+              "44la/mktj invisible short scrollbar cannot hit");
+    }
+    EXPECT_ABORT(SetControlValue(NULL, 1), "gxo2 SetControlValue NULL panics");
+    EXPECT_ABORT((void)GetControlValue(NULL), "gxo2 GetControlValue NULL panics");
+    EXPECT_ABORT((void)TestControl(NULL, pt), "gxo2 TestControl NULL panics");
+    EXPECT_ABORT(DrawControl(NULL, &c), "gxo2 DrawControl NULL port panics");
+    EXPECT_ABORT(control_init(NULL, pushButton, rect, 0, 0, 1, 1, ""),
+                 "gxo2 control_init NULL panics");
+    EXPECT_ABORT((void)TrackControl(NULL, &pt, 1), "gxo2 TrackControl NULL panics");
+}
+
 int main(int argc, char **argv)
 {
+    if (argc == 2 && strcmp(argv[1], "--hardening-captures") == 0) {
+        /* No fabricated pixels. controls.md Sec 5/8 explicitly records these
+         * as missing. This leg remains RED until independent captures exist. */
+        fprintf(stderr, "FAIL qg22: missing Mac OS 8.1 disabled checkbox/radio/progress captures\n");
+        fprintf(stderr, "FAIL ucch: missing Mac OS 8.1 pressed checkbox/radio captures\n");
+        fprintf(stderr, "FAIL whs3: missing Mac OS 8.1 pressed push-button corners and radio label capture\n");
+        return 1;
+    }
     (void)argc; (void)argv;
 
     printf("test-control: FLAIR Control Manager oracle\n");
+    test_hardening();
 
     test_scrollbar_math();
     test_value_clamping();

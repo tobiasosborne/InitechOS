@@ -5,26 +5,27 @@ EDLIN_PROG_BIN := $(BUILD)/edlin_program.bin
 EDLIN_MODEL := $(BUILD)/edlin_model
 EDLIN_HOST := $(BUILD)/edlin_host
 EDLIN_CORE := os/milton/edlin.c
+EDLIN_CORE_HDRS := os/milton/edlin.h os/milton/conedit.h
 EDLIN_MUTANTS := NUMBER BACKUP FIRST QUIT
 EDLIN_FLAGS := -std=c11 -O2 -Wall -Wextra -Werror -Ios/milton -I$(BUILD)
 $(EDLIN_MODEL): harness/edlin/model.c | $(BUILD)
 	$(CC) $(EDLIN_FLAGS) $< -o $@
-$(EDLIN_HOST): harness/edlin/host.c $(wildcard $(EDLIN_CORE)) os/milton/edlin.h $(DOS_MESSAGES_H) | $(BUILD)
+$(EDLIN_HOST): harness/edlin/host.c $(wildcard $(EDLIN_CORE)) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
 	$(CC) $(EDLIN_FLAGS) $(if $(wildcard $(EDLIN_CORE)),,-DEDLIN_ABSENT) $(filter %.c,$^) -o $@
 $(BUILD)/edlin_start.o: os/milton/edlin_start.asm | $(BUILD)
 	$(NASM) -f elf32 $< -o $@
 $(BUILD)/edlin_program.o: os/milton/edlin_program.c os/milton/edlin.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ios/milton -Ispec -c $< -o $@
-$(BUILD)/edlin_core.o: $(EDLIN_CORE) os/milton/edlin.h $(DOS_MESSAGES_H) | $(BUILD)
+$(BUILD)/edlin_core.o: $(EDLIN_CORE) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -Os -Ios/milton -I$(BUILD) -c $< -o $@
 $(BUILD)/edlin.elf: $(BUILD)/edlin_start.o $(BUILD)/edlin_core.o $(BUILD)/edlin_program.o os/milton/edlin.ld
 	$(LD) -m elf_i386 -T os/milton/edlin.ld -o $@ $(filter %.o,$^)
 $(EDLIN_PROG_BIN): $(BUILD)/edlin.elf
 	$(OBJCOPY) -O binary $< $@
 define edlin-mutant
-$(BUILD)/edlin_host_$(1): harness/edlin/host.c $(EDLIN_CORE) os/milton/edlin.h $(DOS_MESSAGES_H) | $(BUILD)
+$(BUILD)/edlin_host_$(1): harness/edlin/host.c $(EDLIN_CORE) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
 	$$(CC) $$(EDLIN_FLAGS) -DEDLIN_MUT_$(1) $$(filter %.c,$$^) -o $$@
-$(BUILD)/edlin_core_$(1).o: $(EDLIN_CORE) os/milton/edlin.h $(DOS_MESSAGES_H) | $(BUILD)
+$(BUILD)/edlin_core_$(1).o: $(EDLIN_CORE) $(EDLIN_CORE_HDRS) $(DOS_MESSAGES_H) | $(BUILD)
 	$$(KERNEL_CC) $$(KERNEL_CFLAGS) -Os -Ios/milton -I$(BUILD) -DEDLIN_MUT_$(1) -c $$< -o $$@
 $(BUILD)/edlin_$(1).elf: $(BUILD)/edlin_start.o $(BUILD)/edlin_core_$(1).o $(BUILD)/edlin_program.o os/milton/edlin.ld
 	$$(LD) -m elf_i386 -T os/milton/edlin.ld -o $$@ $$(filter %.o,$$^)

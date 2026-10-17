@@ -956,6 +956,39 @@ int main(void)
               "FindWindow: after SelectWindow, raised window wins the hit");
     }
 
+    /* h6y1: the same capability gates the renderer and EVERY cell hit.
+     * Ref: window_record.h variants; sys8/window-chrome.md Sec 5/6.
+     * Use literal captured offsets/size, independent of chrome_metrics.h. */
+    {
+        static mgr_store_t M;
+        static win_store_t W;
+        const int16_t variants[] = { documentProc, zoomDocProc,
+                                     noGrowDocProc, zoomNoGrow };
+        const rgn_rect_t desk = { 0, 0, 480, 640 };
+        const rgn_rect_t frame = { 80, 40, 300, 400 };
+        for (unsigned i = 0; i < sizeof variants / sizeof variants[0]; i++) {
+            mgr_attach(&M, desk);
+            win_attach(&W);
+            NewWindow(&M.wm, &W.rec, frame, CalcDocContentRect(frame),
+                      documentKind, variants[i], 1);
+            int can_grow = i < 2, bad = 0;
+            for (int y = 280; y < 298; y++) {
+                for (int x = 380; x < 398; x++) {
+                    WindowPtr hit = NULL;
+                    flair_point_t p = { (int16_t)y, (int16_t)x };
+                    int part = FindWindow(&M.wm, p, &hit);
+                    bad |= (part == inGrow) != can_grow || hit != &W.rec;
+                }
+            }
+            CHECK(!bad, "GROW-ROUTE: all 324 cell hits follow document/noGrow capability");
+            W.rec.hilited = 0;
+            WindowPtr hit = NULL;
+            flair_point_t p = { 290, 390 };
+            CHECK(FindWindow(&M.wm, p, &hit) != inGrow,
+                  "GROW-ROUTE-INACTIVE: inactive cell never starts a grow gesture");
+        }
+    }
+
     /* ======================================================================
      * R1.2 zoom/grow/collapse transaction contracts. A one-window 200x160
      * desktop makes underlying exposure equal desktop_update, while the actor's
@@ -1006,7 +1039,7 @@ int main(void)
         SizeWindow(&M.wm, &W.rec, 1, 1);
         rgn_rect_t grown = { user.top, user.left,
                              user.top + 88,
-                             user.left + FLAIR_CHROME_WINDOW_MIN_W };
+                             user.left + 96 }; /* independent R1 policy bound */
         CHECK(rect_same(WindowFrameRect(&W.rec), grown) &&
               rect_same(region_get_bbox(W.rec.contRgn), CalcDocContentRect(grown)),
               "SizeWindow: 1x1 request clamps to 96x88 and re-derives content");

@@ -58,6 +58,19 @@
 #include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam)   */
 #include "progress_platinum.h"   /* CDEF 5 anatomy, locked spec-data (-Ispec)    */
 
+/* gxo2: same fail-loud path as ATKINSON (Rule 2, PRD Appendix B). */
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+#include <stdlib.h>
+#define CTRL_PANIC() abort()
+#else
+#define CTRL_PANIC() __builtin_trap()
+#endif
+#ifdef CTRL_MUT_NULL_SILENT
+#define CTRL_REQUIRE(p) ((void)0)
+#else
+#define CTRL_REQUIRE(p) do { if (!(p)) CTRL_PANIC(); } while (0)
+#endif
+
 /* ===========================================================================
  * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)
  * The control draw code names these semantic PARTs and resolves PART ->
@@ -208,6 +221,7 @@ void control_init(ControlRecord *ctrl,
                   int16_t vis,
                   const char *title)
 {
+    CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
@@ -235,6 +249,7 @@ void control_init(ControlRecord *ctrl,
  * ===========================================================================*/
 void SetControlValue(ControlRecord *ctrl, int16_t value)
 {
+    CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
@@ -258,6 +273,7 @@ void SetControlValue(ControlRecord *ctrl, int16_t value)
  * ===========================================================================*/
 int16_t GetControlValue(const ControlRecord *ctrl)
 {
+    CTRL_REQUIRE(ctrl);
     if (ctrl == 0) {
         return 0;
     }
@@ -615,6 +631,14 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
  * Ref: IM-I Ch 5. */
 static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
 {
+    /* R4.5: a radio is embedded in a dialog, not on the desktop. Keep the
+     * existing unminted shape; its ambient face follows the already sampled
+     * control/dialog face (s8_controls_dialog.png, sys8/controls.md sec1). */
+#ifdef CTRL_MUT_RADIO_DESKTOP_BG
+    const int background=CTRL_DESKTOP;
+#else
+    const int background=CTRL_PLAT_FACE;
+#endif
     int x0 = (int)ctrl->contrlRect.left;
     int y0 = (int)ctrl->contrlRect.top;
     int y1 = (int)ctrl->contrlRect.bottom;
@@ -630,10 +654,10 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
     crect_ctrl(port,  x0, box_y, x0 + RADIO_SZ, box_y + RADIO_SZ, CTRL_WHITE);
     cframe_ctrl(port, x0, box_y, x0 + RADIO_SZ, box_y + RADIO_SZ, CTRL_BLACK);
     /* clear 4 corners */
-    cfill_ctrl(port, x0,              box_y,              1, CTRL_DESKTOP);
-    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y,              1, CTRL_DESKTOP);
-    cfill_ctrl(port, x0,              box_y + RADIO_SZ-1, 1, CTRL_DESKTOP);
-    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y + RADIO_SZ-1, 1, CTRL_DESKTOP);
+    cfill_ctrl(port, x0,              box_y,              1, background);
+    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y,              1, background);
+    cfill_ctrl(port, x0,              box_y + RADIO_SZ-1, 1, background);
+    cfill_ctrl(port, x0 + RADIO_SZ-1, box_y + RADIO_SZ-1, 1, background);
 
     /* Dot if selected. */
     if (ctrl->contrlValue != 0) {
@@ -649,7 +673,7 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
             ly = y0;
         }
         uint32_t fg = ctrl_px(port, CTRL_BLACK);
-        uint32_t bg = ctrl_px(port, CTRL_DESKTOP);
+        uint32_t bg = ctrl_px(port, background);
         ctrl_text(port, x0 + RADIO_SZ + 4, ly, ctrl->contrlTitle, fg, bg);
     }
 }
@@ -924,6 +948,7 @@ static void draw_progress_bar(GrafPort *port, const ControlRecord *ctrl)
  * covers the moat's inner boundary. Ref: controls.md Sec 5.2. */
 void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
 {
+    CTRL_REQUIRE(port && ctrl);
     if (port == 0 || ctrl == 0 || ctrl->contrlType != pushButton ||
         !ctrl->contrlVis) {
         return;
@@ -946,7 +971,10 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
     }
 
     /* Establish the sampled E7 field within the expanded bounds. */
-    crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
+    crect_ctrl(port,x0,y0,x1,by0,CTRL_PLAT_FACE);
+    crect_ctrl(port,x0,by1,x1,y1,CTRL_PLAT_FACE);
+    crect_ctrl(port,x0,by0,bx0,by1,CTRL_PLAT_FACE);
+    crect_ctrl(port,bx1,by0,x1,by1,CTRL_PLAT_FACE);
 
     /* One-pixel rounded black ring with sampled 3F smoothing pixels. */
     cfill_ctrl(port, x0 + 3, y0,     x1 - x0 - 6, CTRL_BLACK);
@@ -979,6 +1007,28 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
     }
     cfill_ctrl(port, bx0, by1,     bx1 - bx0, CTRL_PLAT_SHADOW);
     cfill_ctrl(port, bx0, by1 + 1, bx1 - bx0, CTRL_PLAT_DARK_SHADOW);
+    /* R4.5 independent whole-ring gate exposed the old radius-3 corners.
+     * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
+     * sampled smoothing/moat. These are the four 5x5 corner crops; straight
+     * legs above remain stretchable. The oracle reads the PNG independently.
+     * Named mutant restores the old corners (Rule6). */
+#ifndef CTRL_MUT_RING_OLD_CORNERS
+    static const char corners[4][5][6]={
+        {"...dK","..K..",".K..C","d..CS","K.CSK"},
+        {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
+        {"K.CSK","dACCS",".KHCC","..KGS","...dK"},
+        {"KSCSK","SCGSd","CGSK.","SSK..","Kd..."}
+    };
+    for(unsigned k=0;k<4;k++)for(int y=0;y<5;y++)for(int x=0;x<5;x++) {
+        char c=corners[k][y][x];int part=CTRL_PLAT_FACE;
+        if(c=='K')part=CTRL_BLACK;else if(c=='d')part=CTRL_PLAT_DARK_RING;
+        else if(c=='C')part=CTRL_PLAT_SHADOW;else if(c=='S')part=CTRL_PLAT_DARK_SHADOW;
+        else if(c=='A')part=FLAIR_PART_PLAT_FRAME_FACE;else if(c=='H')part=CTRL_PLAT_CORNER;
+        else if(c=='G')part=CTRL_PLAT_WIDGET_EDGE;
+        cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
+    }
+#endif
+
 #endif
 }
 
@@ -987,6 +1037,7 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
  * ===========================================================================*/
 void DrawControl(GrafPort *port, ControlRecord *ctrl)
 {
+    CTRL_REQUIRE(port && ctrl);
     if (port == 0 || ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
@@ -1029,6 +1080,10 @@ static int pt_in_rect(flair_point_t pt, rgn_rect_t r)
  * ===========================================================================*/
 int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 {
+    CTRL_REQUIRE(ctrl);
+#ifndef CTRL_MUT_DISABLED_HIT
+    if (ctrl && ctrl->contrlHilite == 255) return 0;
+#endif
     if (ctrl == 0 || !ctrl->contrlVis) {
         return 0;
     }
@@ -1055,9 +1110,16 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
         int h   = y1 - y0;
 
         /* Must be at least wide enough to have a scrollbar. */
-        if (h < 2 * btn) {
-            return inButton; /* degenerate: treat as generic hit */
-        }
+#ifdef CTRL_MUT_SHORT_BUTTON
+        if (h < 2 * btn) return inButton;
+#endif
+#ifndef CTRL_MUT_SHORT_LIVE
+        /* mktj/44la: exactly the draw_scrollbar geometry predicate. */
+        if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W || h < 2 * btn + SB_THUMB_MIN)
+            return 0;
+#else
+        (void)h;
+#endif
 
         int y = (int)pt.v;
         (void)x0; (void)x1;
@@ -1103,6 +1165,10 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 int16_t TrackControl(ControlRecord *ctrl,
                      const flair_point_t *pts, uint32_t n_pts)
 {
+    CTRL_REQUIRE(ctrl && pts);
+#ifndef CTRL_MUT_DISABLED_HIT
+    if (ctrl && ctrl->contrlHilite == 255) return 0;
+#endif
     if (ctrl == 0 || pts == 0 || n_pts == 0) {
         return 0;
     }

@@ -82,7 +82,13 @@ void tbx_app_event(const tbx_event_t *ev)
         (void)tbx_draw_cells(g_win, 8, 96, "Click", TBX_COLOR_WHITE, TBX_COLOR_NAVY);
         break;
     case TBX_EVT_MENU:
+        /* Test-only declining tenant (initech-cqej): tbx_ask_quit uses the
+         * SAME File > Quit handler. Staying resident declines the request,
+         * as kmain.c finder_power_ask_apps specifies (Inside Macintosh VI,
+         * PDF p.345 Listing 6-8). Never defined for shipped CTENANT.EXE. */
+#ifndef CTENANT_DECLINE_QUIT
         if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) (void)tbx_exit(0);
+#endif
         break;
     default:
         break;

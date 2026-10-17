@@ -1,7 +1,7 @@
 # Locked trace, 2026-10-15, initech-tdnl.82/.86/.96/.97/.101.
-# Root: frame (20,60)..(380,280), two visible entries. Content extent136x55.
+# Root: frame (20,60)..(380,280), four visible entries. Content extent272x55.
 # Shrink at grow point(370,270) by(-232,-100) =>128x120, view101x77:
-# H max35, span56; thumb x41 (value0), x66 (value16 = 41+16*56/35). V disabled.
+# H max171, span56; thumb x41 (value0), x46 (value16 = 41+16*56/171). V disabled.
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the content starts
 # inside the left body rail (frame.left+6, was +1), so every view is 5 px
 # narrower: was view106x77, H max30, thumb x70; min view74x45, H max62.
@@ -11,6 +11,8 @@
 # Min V bar (95,81)..(111,128), thumb(96,97)..(110,112), tiles y82/113.
 # Min H bar (25,127)..(96,143), thumb(41,128)..(56,142), tiles x26/81.
 # Click visible min down arrow(103,120) =>value10. PARK always(620,460).
+# initech-zc68: DOS/AUTOEXEC add two cells. H extent = 4*68 = 272,
+# shrink max = 272-101 = 171; min max = 272-69 = 203. V extent stays55.
 # Measured parts: system7-decomp/specs/sys8/scrollbars.md 1,2.1,2.4.
 # No measured historical Finder minimum exists in that corpus. The 88px floor
 # is derived from47px of parts plus FLAIR's41px title/grow reservation.

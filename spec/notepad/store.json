@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "bead": "initech-tdnl.18",
+  "source": "docs/research/period-gui-suite.md section 4; user R4.4 scope; spec/toolbox_gate.h sections 10 and 12",
+  "format": "Initech private fixed records, all integers little endian",
+  "files": {"NOTEPAD.DAT": {"magic": "NPAD", "slots": 8, "initial_count": 8}, "SCRAPBK.DAT": {"magic": "SBK1", "slots": 32, "initial_count": 0}},
+  "header": {"bytes": 16, "magic_offset": 0, "version_u16_offset": 4, "version": 1, "count_u16_offset": 6, "current_zero_based_u16_offset": 8, "slots_u16_offset": 10, "fnv1a32_u32_offset": 12},
+  "checksum": "FNV-1a 32 over the entire file, treating offsets 12..15 as zero; basis 2166136261, multiplier 16777619",
+  "record": {"bytes": 1026, "length_u16_offset": 0, "text_offset": 2, "text_bytes": 1024, "padding": "zero"},
+  "text": "single-byte TEXT (including extended bytes and tabs) and CR; LF/CRLF Scrap imports become CR; NUL and other control bytes are refused; no PICT support",
+  "validation": "exact file length, magic, version, slot/count/current bounds, checksum, record lengths, single-byte text, zero padding and unused records; malformed file resets all pages and emits DA-CORRUPT via DOS AUX",
+  "save": "page turn and close; writes and closes through the existing DOS-backed Toolbox file verbs; errors keep window/page open and alert",
+  "limits": "Note Pad eight pages of 1024 bytes; Scrapbook 32 TEXT clips of 1024 bytes, each must fit shared TextEdit's line cap",
+  "missing_native_captures": ["Mac OS 8.1 Note Pad idle, dog-ear, page counter and page turn", "Mac OS 8.1 Scrapbook idle, n of m label and page scrollbar"],
+  "composition": "documentProc chrome + SimpleText TextEdit and Platinum scrollbar; fold is an explicitly authored functional adaptation, no native pixel fidelity claim"
+}

@@ -1,0 +1,25 @@
+A:\>CD APPS
+A:\APPS>DIR TPS*.* /W
+
+ Volume in drive A is INITECH
+
+ Directory of A:\APPS
+
+TPSREP.COM      TPSPARM.DAT     TPS.DBF
+
+        3 File(s)   1250816 bytes free
+A:\APPS>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

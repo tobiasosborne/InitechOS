@@ -63,9 +63,9 @@ SECTIONS
      * PAL requests 30 KiB plus paragraph/MCB overhead (6 more KiB in the tail). Authored heap split,
      * no local reference. Fail build before BSS can overlap the AH=48h arena. */
     ASSERT(__bss_end - __bss_start <= 0x10000, "SAMIR BSS exceeds loader reserve")
-    ASSERT(_samir_heap_tail + 0x1800 <= _samir_load_end + 0x10000,
+    ASSERT(_samir_heap_tail + 0x4090 <= _samir_load_end + 0x10000,
            "SAMIR BSS leaves no room for the owned-heap tail")
-    ASSERT(_samir_load_end + 0x10000 + 0x7800 + 0x20 <= 0x6F000,
+    ASSERT(_samir_load_end + 0x10000 + 0x4F70 + 0x20 <= 0x6F000,
            "SAMIR image leaves insufficient PAL memory")
 
     /DISCARD/ : {

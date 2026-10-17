@@ -1,0 +1,224 @@
+% Using InitechBase, Chapter 2: Using Commands (annex Sec 8.2 U2).  Sources:
+% samir_main.c (the REPL line, 254 characters, verb splitting, USE/CLOSE/DO
+% file), cmd/flow.c (verb dispatch, STORE/=, memvars), core/lex.c and
+% core/parse.c (constants, operators, precedence), core/eval.c (operator
+% semantics, the coercion table spec/samir/xbase_coercion.json),
+% cmd/query.c and cmd/mutate.c (scope, FOR, WHILE), cmd/workarea.c and
+% cmd/nav.c (work areas, record pointer, BOF/EOF), fs/ndx.c (indexes).
+\chapter{Using Commands}
+\Gates{test-pubs-examples, test-xbase-lex, test-xbase-parse, test-xbase-eval, test-interp-nav}
+This chapter describes how InitechBase commands are written: the parts of a
+command, the expressions that commands work with, memory variables, work
+areas, the record pointer and index files.  Chapter~5 gives the form of each
+command.
+
+\section{Typing a Command}
+A command is typed at the dot prompt on one line of up to 254 characters and
+ends when you press \key{Enter}.  It begins with the command word, the
+\term{verb}, which says what is to be done: \cmd{LIST}, \cmd{USE},
+\cmd{REPLACE}.  Some commands consist of the verb alone; most continue with
+the things the verb works on and with clauses that limit it.
+
+Command words, field names and memory variable names may be typed in capital
+or small letters.  InitechBase does not distinguish them, but it keeps the
+expressions of a \cmd{LIST} heading as you typed them:
+\DotExample{examples/u2-case}
+Type command words in full.  Separate the parts of a command with blanks;
+more than one blank does no harm.  To correct a mistake before you press
+\key{Enter}, press \key{Backspace}; Appendix~A lists the keys you can use.
+
+A command that InitechBase does not know is refused with
+\xmsg{16}{*** Unrecognized command verb.}  A command it knows but cannot carry
+out is refused with a message that names the problem (Chapter~7).  In both
+cases nothing has been changed, and the dot prompt is displayed again.
+
+\section{The Parts of a Command}
+The full form of a command that processes records is:
+
+\SyntaxLine{\xp{verb} \opt{\xp{scope}} \opt{\xp{expression list}}
+  \opt{\kw{FOR} \xp{condition}} \opt{\kw{WHILE} \xp{condition}}}
+
+The \term{scope} names the records the command works on.  The
+\term{expression list} names the fields or the values it shows or uses.  The
+\kw{FOR} and \kw{WHILE} clauses give the conditions that the records must
+meet.  Each part is described below.  The scope comes directly after the verb;
+\kw{FOR} and \kw{WHILE} follow the expression list.
+
+\section{Expressions}
+An \term{expression} is a value, or a combination of values that InitechBase
+calculates.  It may be a constant, a field name, a memory variable, a
+function, or any of these joined by operators.  Every expression has one of
+four types: character, numeric, date or logical.  A memo field is used as a
+character value.
+
+\SideHead{Constants}A character constant is enclosed in single quotation marks,
+double quotation marks or square brackets; the delimiters are not part of the
+value.  A numeric constant is written with digits, a decimal point and a minus
+sign as needed.  The logical constants are \texttt{.T.} and \texttt{.F.};
+\texttt{.Y.} and \texttt{.N.} may be written for them.  A date is written as a
+character string converted by \fn{CTOD()}.
+\DotExample{examples/u2-constants}
+
+\SideHead{Fields}The name of a field stands for the value of that field in the
+current record of the database in the selected work area.
+
+\SideHead{Memory variables}The name of a memory variable stands for its value
+(see ``Memory Variables'' below).
+
+\SideHead{Functions}A function computes a value from its arguments; Chapter~6
+describes each one.
+
+\section{Operators}
+\SideHead{Arithmetic}On numbers: \texttt{+} addition, \texttt{-} subtraction,
+\texttt{*} multiplication, \texttt{/} division, \texttt{**} or \texttt{\^{}}
+exponentiation.  Exponentiation is done first, then multiplication and
+division, then addition and subtraction; operators of the same rank are done
+from left to right.  Parentheses change the order.
+\DotExample{examples/u2-operators}
+The result of a calculation is shown with as many decimal places as SET
+DECIMALS gives, two when InitechBase starts; a result that is a whole number
+is shown without decimal places.  The value itself keeps its full precision:
+\DotExample{examples/u2-decimals}
+
+\SideHead{Character}\texttt{+} joins two strings as they are.  \texttt{-}
+joins them and moves the trailing blanks of the first to the end of the
+result.  \texttt{\$} is true when the first string occurs in the second;
+capital and small letters are different.
+\DotExample{examples/u2-strings}
+
+\SideHead{Date}A number of days may be added to a date or subtracted from it;
+the result is a date.  One date subtracted from another gives the number of
+days between them.
+\DotExample{examples/u2-dates}
+Date arithmetic follows the calendar, leap years included:
+\DotExample{examples/u2-datecalc}
+
+\SideHead{Relational}\texttt{<} less than, \texttt{>} greater than,
+\texttt{=} equal, \texttt{<>} or \texttt{\#} not equal, \texttt{<=} less than or
+equal, \texttt{>=} greater than or equal.  Both sides must be of the same type;
+the result is logical.  Characters are compared by their codes (Appendix~D),
+so capital letters come before small letters.  For \texttt{=} between
+character strings, see SET EXACT in Chapter~5.  While SET EXACT is OFF, \texttt{=}
+is true when the string on the left begins with the string on the right, so
+the order of the two sides matters, and an empty string on the right equals
+any string.  The characters are compared one by one, so \texttt{'10'} is less
+than \texttt{'9'}:
+\DotExample{examples/u2-compare}
+
+\SideHead{Logical}\texttt{.AND.}, \texttt{.OR.} and \texttt{.NOT.} combine
+logical values.  \texttt{.NOT.} is done first, then \texttt{.AND.}, then
+\texttt{.OR.}.
+\DotExample{examples/u2-logical}
+
+Operands of the wrong type are refused with \xmsg{9}{Data type mismatch.}
+InitechBase does not convert numbers to character strings or the other way
+round: use \fn{STR()}, \fn{VAL()}, \fn{DTOC()} and \fn{CTOD()}.  Appendix~E
+lists every combination of types for every operator.  A division by zero
+gives \xmsg{39}{Numeric overflow (data was lost).}
+
+\section{The Scope}
+The scope names the records a command works on.
+
+\SideHead{ALL}Every record of the database, beginning with the first.
+
+\SideHead{NEXT \xp{n}}\xp{n} records, beginning with the current record.
+
+\SideHead{RECORD \xp{n}}Only the record with record number \xp{n}.
+
+\SideHead{REST}The current record and every record after it.
+
+Each command has a default scope, used when no scope is given: \cmd{LIST},
+\cmd{LOCATE} and \cmd{REPORT FORM} work on all the records; \cmd{DISPLAY},
+\cmd{REPLACE}, \cmd{DELETE} and \cmd{RECALL} on the current record.  The
+commands that change records take the scope \kw{ALL} when a \kw{FOR} clause is
+given without a scope.
+\DotExample{examples/u2-scope}
+
+\section{Conditions}
+A \term{condition} is a logical expression tested for each record.  InitechBase
+does not treat a number or a string as true or false: a condition of another
+type is refused with \xmsg{37}{Not a Logical expression.}
+
+\SideHead{FOR}A command with \kw{FOR} \xp{condition} examines every record of
+its scope and processes those for which the condition is true.
+
+\SideHead{WHILE}A command with \kw{WHILE} \xp{condition} processes records, in
+order, as long as the condition is true, and stops at the first record for
+which it is false.  Begin at the first record wanted and give the scope
+\kw{REST}.  With an index on the field tested, \kw{WHILE} processes a group
+of records without reading the rest of the database:
+\DotExample{examples/u2-while}
+
+\section{Memory Variables}
+A \term{memory variable} holds a value that is not part of any database: a
+total, an answer typed by the user, a date.  It is created when a value is
+first stored in it with \cmd{STORE} or with \texttt{=}, and it takes the type
+of that value.  A memory variable name has up to 10 characters: letters,
+digits and underscores, beginning with a letter.  InitechBase holds up to 256
+memory variables at once.
+\DotExample{examples/u2-memvar}
+A memory variable exists until it is released with \cmd{RELEASE} or until the
+procedure that created it returns.  \cmd{PUBLIC} and \cmd{PRIVATE} decide how
+long memory variables live in programs (Chapter~3).
+
+When a field and a memory variable have the same name, the name stands for the
+field.  Give memory variables names that are not the names of fields: the
+programs of this manual begin them with the letter M.
+
+\section{Work Areas}
+InitechBase can keep ten databases open at once, each in its own
+\term{work area}, numbered 1 to 10.  \cmd{SELECT} chooses the work area in
+which the next commands work; \cmd{USE} opens a database in the selected work
+area.  The database of a work area is known by its \term{alias}: its file name
+without the extension, or the name given with \kw{ALIAS}.
+
+Each work area keeps its own record pointer and its own index files.  To use a
+value from one database while working in another, store it in a memory
+variable first:
+\DotExample{examples/u2-areas}
+
+\section{The Record Pointer}
+In each work area, InitechBase keeps a \term{record pointer} on one record, the
+\term{current record}.  When a database is opened, the pointer is on the first
+record.  \cmd{GO}, \cmd{SKIP}, \cmd{LOCATE}, \cmd{CONTINUE}, \cmd{SEEK} and
+\cmd{FIND} move it; \cmd{LIST} and the other commands that process a scope
+leave it at the end of the scope.  \fn{RECNO()} gives the number of the
+current record.
+
+After the last record there is one more position, the \term{end of file}.
+When the pointer is there, \fn{EOF()} is true and \fn{RECNO()} is one more
+than the number of records.  Before the first record is the \term{beginning of
+file}: a \cmd{SKIP} back from the first record makes \fn{BOF()} true.
+Appendix~B lists what each command does at the beginning and end of the file.
+\DotExample{examples/u2-pointer}
+
+\section{Index Files}
+An \term{index file} holds the records of a database in the order of a
+\term{key}, such as the last name, the department or the salary.  When a
+database is opened with an index file, \cmd{LIST}, \cmd{SKIP}, \cmd{GO TOP} and
+the other commands take the records in key order, and \cmd{SEEK} and \cmd{FIND}
+find a record by its key at once.  The record numbers do not change.
+\DotExample{examples/u2-index}
+Up to seven index files may be open with one database.  The first named in
+\cmd{USE} is the \term{master index}, which gives the order; SET ORDER chooses
+another.  While index files are open, InitechBase keeps them up to date when
+records are added with \cmd{APPEND BLANK} or changed with \cmd{REPLACE}, and
+rebuilds them when \cmd{PACK} removes records.
+
+The index files of the sample diskette are:
+
+\noindent\begin{tabular}{@{}lll@{}}
+\hline
+\textsf{\textbf{Index file}} & \textsf{\textbf{Database}} & \textsf{\textbf{Key}}\\
+\hline
+\file{STAFFNAM.NDX} & \file{STAFF.DBF} & \texttt{LASTNAME}\\
+\file{STAFFNO.NDX} & \file{STAFF.DBF} & \texttt{EMPNO}\\
+\file{STAFFDPT.NDX} & \file{STAFF.DBF} & \texttt{DEPT}\\
+\file{STAFFSAL.NDX} & \file{STAFF.DBF} & \texttt{SALARY}\\
+\file{DEPTS.NDX} & \file{DEPTS.DBF} & \texttt{DEPT}\\
+\file{INVNO.NDX} & \file{INVOICE.DBF} & \texttt{INVNO}\\
+\file{INVCUST.NDX} & \file{INVOICE.DBF} & \texttt{CUST}\\
+\hline
+\end{tabular}
+
+An index file belongs to one database: open it only with that database.

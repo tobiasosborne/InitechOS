@@ -261,6 +261,39 @@ static rgn_rect_t gen_rect(void)
  * ===========================================================================*/
 int main(void)
 {
+    /* PRD 5 pitch contract: grade the bytes directly, including row padding.
+     * 24bpp BGR and 32bpp BGRX are independent literal byte goldens (asci). */
+    for (unsigned depth = 24; depth <= 32; depth += 8) {
+        uint8_t bytes[60], expected[60];
+        uint32_t source[12];
+        bitmap_t bm = { bytes, 20, depth, depth / 8, 4, 3 };
+        rgn_rect_t rect = { 0, 0, 3, 4 };
+        memset(bytes, 0xcc, sizeof bytes); memset(expected, 0xcc, sizeof expected);
+        for (int y = 0; y < 3; y++) for (int x = 0; x < 4; x++) {
+            int off = y * 20 + x * (int)(depth / 8);
+            expected[off] = 0x33; expected[off + 1] = 0x22; expected[off + 2] = 0x11;
+            if (depth == 32) expected[off + 3] = 0;
+            source[y * 4 + x] = 0x00123456;
+        }
+        surface_clear(&bm, 0x00112233);
+        CHECK(memcmp(bytes, expected, 60) == 0, "gv2x framebuffer clear honors padded pitch");
+        memset(bytes, 0xcc, sizeof bytes);
+        blitter_fill_rect_clipped(&bm, rect, 0x00112233, NULL);
+        CHECK(memcmp(bytes, expected, 60) == 0, "asci padded BGR/BGRX fill bytes");
+        memset(bytes, 0xcc, sizeof bytes); memset(expected, 0xcc, sizeof expected);
+        for (int y = 0; y < 3; y++) for (int x = 0; x < 4; x++) {
+            int off = y * 20 + x * (int)(depth / 8);
+            expected[off] = 0x56; expected[off + 1] = 0x34; expected[off + 2] = 0x12;
+            if (depth == 32) expected[off + 3] = 0;
+        }
+        blitter_blit_clipped(&bm, source, 4, 0, 0, 4, 3, NULL);
+        CHECK(memcmp(bytes, expected, 60) == 0, "asci padded BGR/BGRX copy bytes");
+    }
+    {
+        uint8_t index = 2;
+        bitmap_t bm = { &index, 1, 8, 1, 1, 1 };
+        CHECK(surface_get_pixel(&bm, 0) == 2, "5le3 indexed read returns raw palette index");
+    }
     /* ---- directed: FULL clip (clip == whole frame) == unclipped fill ------ */
     {
         static rgn_store_t C; cbm_t cm;

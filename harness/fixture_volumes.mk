@@ -2,7 +2,7 @@
 # Explicit contracts for seeded data-volume recipes. Included LAST so this
 # list cannot cause a read-before-definition (test-makefile-vars, tdnl.81).
 # Default mcopy flags are A; mtools lists read-only as A R and hidden as A H.
-FLAIR_FIXTURES := README.TXT APPS/TENANTFX.EXE APPS/CTENANT.EXE APPS/123.EXE APPS/WORD.EXE APPS/123.MNU APPS/CHKDSK.COM APPS/ATTRIB.COM APPS/LABEL.COM APPS/XCOPY.COM APPS/TREE.COM APPS/CALC.EXE APPS/EDLIN.COM APPS/TEXT.EXE APPS/PAINT.EXE APPS/LEDGER.TXT APPS/MICHAEL.CFG APPS/TPSREP.COM APPS/TPSPARM.DAT APPS/TPS.DBF APPS/CALCULAT.EXE
+FLAIR_FIXTURES := README.TXT AUTOEXEC.BAT APPS/TENANTFX.EXE APPS/CTENANT.EXE APPS/123.EXE APPS/WORD.EXE APPS/123.MNU APPS/CALC.EXE APPS/TEXT.EXE APPS/PAINT.EXE APPS/CALCULAT.EXE APPS/TPSREP.COM APPS/TPSPARM.DAT APPS/TPS.DBF APPS/LEDGER.TXT APPS/MICHAEL.CFG DOS/CHKDSK.COM DOS/ATTRIB.COM DOS/LABEL.COM DOS/XCOPY.COM DOS/TREE.COM DOS/EDLIN.COM DOS/MORE.COM DOS/FIND.COM DOS/SORT.COM APPS/NOTEPAD.EXE APPS/SCRAPBK.EXE APPS/CPANELS.EXE DOS/FDISK.COM DOS/FORMAT.COM DOS/SYS.COM DOS/DISKCOPY.COM DOS/DISKCOMP.COM
 FIXTURE_VOLUME_NAMES :=
 define fixture-contract
 FIXTURE_VOLUME_NAMES += $(1)
@@ -54,7 +54,7 @@ endif
 $(eval $(call fixture-contract,$(FLAIR_DATA_CORRUPT_IMG),$(FLAIR_FIXTURES) DESKTOP.DB=AH))
 $(eval $(call fixture-contract,$(FLAIR_DAMAGED_DATA_IMG),NEWFOLD= TRASH= APPS/TRASH= APPS/TRASH/README.TXT $(filter-out README.TXT,$(FLAIR_FIXTURES))))
 $(eval $(call fixture-contract,$(FLAIR_PURGE_VIEWS_DATA),$(FLAIR_FIXTURES) TRASH/A/KEEP.TXT TRASH/A/CHILD/GRAND/NOTE.TXT))
-$(eval $(call fixture-contract,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_FIXTURES) $(foreach n,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19,F$(n).TXT)))
+$(eval $(call fixture-contract,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_FIXTURES) $(foreach n,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17,F$(n).TXT)))
 $(eval $(call fixture-contract,$(BUILD)/record_locked_trash.img,$(filter-out README.TXT,$(FLAIR_FIXTURES)) README.TXT=AR))
 $(eval $(call fixture-contract,$(BUILD)/record_locked_purge.img,$(filter-out APPS/TENANTFX.EXE,$(FLAIR_FIXTURES)) APPS/TENANTFX.EXE=AR))
 $(foreach img,$(SEED_FILEIO_IMG) $(SEED_FILEIO_MUT_SHORT_IMG) $(SEED_FILEIO_MUT_WRONG_IMG),$(eval $(call fixture-contract,$(img),FILEIO.COM)))
@@ -76,6 +76,7 @@ define fixture-inline-contract
 FIXTURE_VOLUME_NAMES += $(1)
 FIXTURE_CONTENTS_$(1) := $(2)
 endef
+$(eval $(call fixture-contract,$(FLAIR_EMPTY_REFERENCE_IMG),AUTOEXEC.BAT DESKTOP.DB=H TRASH=H DOS/CHKDSK.COM DOS/ATTRIB.COM DOS/LABEL.COM DOS/XCOPY.COM DOS/TREE.COM DOS/EDLIN.COM DOS/MORE.COM DOS/FIND.COM DOS/SORT.COM DOS/FDISK.COM DOS/FORMAT.COM DOS/SYS.COM DOS/DISKCOPY.COM DOS/DISKCOMP.COM))
 $(eval $(call fixture-inline-contract,$(FAT12_RENAME_ART_IMG),OLD.TXT))
 $(eval $(call fixture-inline-contract,$(FAT12_RENAME_SUBDIR_ART_IMG),SUB/OLD2.TXT))
 $(eval $(call fixture-inline-contract,$(FAT12_MOVE_DIFF_IMG),MOVEME.TXT SRC/CROSS.TXT SRC/SUBFILE.TXT SRC/REPORT.DBF TRASH/REPORT.DBF SRC/MOVEDIR/INSIDE.TXT COLL.TXT DST/COLL.TXT))
@@ -95,7 +96,17 @@ $(foreach img,$(SORT_IMG) $(SORT_MUT_IMG),$(eval $(call fixture-inline-contract,
 $(foreach img,$(FIND_IMG) $(FIND_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FIND.COM FIN.TXT)))
 $(foreach img,$(MORE_IMG) $(MORE_MUT_IMG),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT MORE.COM MIN.TXT)))
 $(foreach img,$(FCBX_IMG) $(foreach m,$(FCB_MUTANTS),$(BUILD)/fcbx_data_$(m).img),$(eval $(call fixture-inline-contract,$(img),AUTOEXEC.BAT FCBX.COM)))
-$(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
+# initech-tdnl.19: the corrupt-settings Control Panels data volume.
+# initech-tdnl.19: the three transaction-mutant data volumes carry a mutant CPANELS.EXE in place (same leaves).
+$(foreach m,CP_MUT_OK_NOTHING CP_MUT_CANCEL_WRITES CP_MUT_CLOCK_NOT_APPLIED,$(eval $(call fixture-inline-contract,$(BUILD)/cp_$(m)_data.img,$(FLAIR_FIXTURES))))
+# initech-0u02..dzum: the ANSI probe diskette (mformat + two mcopy, verified in its rule).
+$(eval $(call fixture-inline-contract,$(BUILD)/ansi_probe_data.img,ANSIPROB.COM AUTOEXEC.BAT))
+$(eval $(call fixture-inline-contract,$(BUILD)/cp_corrupt_data.img,$(FLAIR_FIXTURES) CPANELS.DAT))
+# initech-2gva: the VESA 0x101 boot images (IO.SYS re-copied at the DEC-07a partition offset).
+$(foreach n,scene flagship mut_omit119 mut_omit165 mut_rowcopy mut_dac6,$(eval $(call fixture-inline-contract,$(BUILD)/vesa8/$(n).img,@@32256 IO.SYS=SHR INITDOS.SYS=SHR)))
+# initech-e9sx: the corrupted-magic COMMAND.COM boot image (FAT at the DEC-07a partition offset).
+$(eval $(call fixture-inline-contract,$(BUILD)/command-file/magic.img,@@32256 COMMAND.COM))
+$(foreach img,$(TPS_IMG_A) $(BUILD)/tps_mut6.img $(BUILD)/tps_mutseq.img $(BUILD)/tps_say7.img,$(eval $(call fixture-inline-contract,$(img),TPSREP.COM TPS.DBF TPSPARM.DAT TPSREPT.TXT TPSREPT.BAK)))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_B),TPSREP.COM TPS.DBF AUTOEXEC.BAT))
 $(eval $(call fixture-inline-contract,$(TPS_IMG_C),TPSREP.COM TPS.DBF TPSPARM.DAT AUTOEXEC.BAT))
 

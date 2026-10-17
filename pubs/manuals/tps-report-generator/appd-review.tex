@@ -1,0 +1,53 @@
+% Appendix D -- Review: the InitechDOS commands these procedures use (ZR23
+% App. D, DOS Review).  Each entry is a summary; the InitechDOS Reference is
+% the full description.  Law 1: os/milton/command.c (CD, CLS, DIR with /W,
+% COPY CON with Ctrl-Z, IF ERRORLEVEL in batch files; EXIT ignored by the
+% permanent command processor).  Examples are journey-route captures.
+% GATES: test-command test-shell test-pubs-screens test-pubs-tps
+\Gates{test-command, test-shell, test-pubs-screens, test-pubs-tps}
+\chapter{Review: InitechDOS Commands Used}
+
+The procedures in this book use a small number of InitechDOS commands.  Each
+is described in full in the \doctitle{InitechDOS Reference} (1024-3300-10),
+Chapter 2.
+
+\section{CD}
+\index{CD command}
+\cmd{CD} makes another directory the current directory.  In \proc{01},
+\type{CD APPS} makes \file{A:\bs APPS} the current directory; the prompt
+changes to show it.
+
+\OpsShot[fromtext={A:\Bsl>CD APPS}, totext={A:\Bsl>CD APPS}]{tpsdir}
+
+\section{CLS}
+\index{CLS command}
+\cmd{CLS} clears the screen and displays the prompt on the top line.  It is
+used in \proc{01}, step 5, before the program files are listed.
+
+\section{DIR}
+\index{DIR command}
+\cmd{DIR} lists the files of a directory.  \type{DIR TPS*.* /W} lists the
+files whose names begin with TPS, five names to a line, without sizes or
+dates.  The last line gives the number of files and the free space on the
+disk.
+
+\OpsShot[fromtext={A:\Bsl APPS>DIR TPSREPT}]{tpsbak}
+
+\section{COPY CON}
+\index{COPY command}
+\cmd{COPY CON} \ph{filename} makes a text file from the lines typed at the
+keyboard.  \key{Ctrl-Z}, then \key{Enter}, ends the file.  In this book it is
+used only to show message TPS-002 (Session~3); parameter records are made as
+your supervisor directs.
+
+\section{EXIT}
+\index{EXIT command}
+After the exit from FLAIR, InitechDOS runs as the permanent command
+processor, and \cmd{EXIT} has no effect.
+
+\section{IF ERRORLEVEL}
+\index{IF command}
+In a batch file, \cmd{IF ERRORLEVEL} \ph{n} carries out a command when the
+return code of the last program is \ph{n} or greater.  The return codes of
+the TPS Report Generator are listed in Session~1.  This book does not use a
+batch file to run the program.

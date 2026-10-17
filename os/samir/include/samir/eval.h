@@ -184,6 +184,7 @@ typedef struct {
     xb_token_type type;
     uint32_t      offset; /* byte offset into source */
     uint16_t      len;    /* byte length of the token in source */
+    uint16_t      num_dec; /* numeric literal precision, including trailing 0s */
     union {
         /* XBT_LIT_C: pointer+len into source (no copy; excludes delimiters) */
         struct { const char *p; uint16_t len; } c;
@@ -347,6 +348,7 @@ typedef struct {
     xb_token_type op;        /* operator token for UNOP/BINOP; else XBT_EOI  */
     int32_t       kid[2];    /* child node indices; unused slot = -1         */
     uint32_t      src_off;   /* source byte offset of the token that began    */
+    uint16_t      num_width, num_dec;
                              /* this node (for diagnostics; deterministic)    */
     union {
         double num;                          /* XBN_LIT_N                    */
@@ -469,6 +471,8 @@ typedef enum {
                               /*   range." -- CHR(n) with n outside 0..255     */
     XBEE_SPACE_LARGE   = 59,  /* dbase_msg_codes.tsv code 59 "SPACE() : Too    */
                               /*   large." -- SPACE(n) result > 254            */
+    XBEE_CONCAT_MINUS  = 76,  /* Using III+ U7-5: - : Concatenated string too large. */
+    XBEE_CONCAT_PLUS   = 77,  /* Using III+ U7-5: + : Concatenated string too large. */
     XBEE_SPACE_NEG     = 60,  /* dbase_msg_codes.tsv code 60 "SPACE() :        */
                               /*   Negative." -- SPACE(n) with n < 0           */
     XBEE_SUBSTR_RANGE  = 62,  /* dbase_msg_codes.tsv code 62 "SUBSTR() : Start */
@@ -546,6 +550,8 @@ typedef enum {
  *   (XBEE_NO_DATABASE, #52 "No database is in USE.") when ctx->dbcur == NULL --
  *   NEVER crash (Rule 2). Those tests never CALL a database built-in, so the
  *   path is exercised only by the S3.6b oracle's explicit no-work-area case.
+ *   FILE is an environment function: a bare evaluator supplies file_pal
+ *   instead (Using III+ U6-33; test_samir_core.c).
  *
  * Each slot takes the opaque `u` user pointer (set to the wa_env* by
  * wa_bind_ctx) and answers ONE question about the SELECTED area:
@@ -686,6 +692,9 @@ typedef struct xb_ctx {
      * and dbcur_user = env. fn_builtins.c depends ONLY on the type above. */
     const xb_dbcursor *dbcur;
     void              *dbcur_user;
+    /* Optional filesystem binding for an evaluator with no work-area cursor.
+     * Ref: Using III+ U6-33: FILE() has no USE prerequisite; ADR-0008 DEC-02. */
+    struct samir_pal *file_pal;
 } xb_ctx;
 
 /*
@@ -766,9 +775,10 @@ int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
  * functions, which read the SELECTED area's cursor through ctx->dbcur (the
  * xb_dbcursor vtable above) -- NOT through any workarea.c symbol, so
  * fn_builtins.o stays link-clean against the engine core:
- *   DB-cursor: RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF FILE
+ *   DB-cursor: RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF
  *   With ctx->dbcur == NULL (no work area) every one fails loud
- *   (XBEE_NO_DATABASE, #52). The numeric/date functions ABS/INT/MOD/ROUND/MAX/
+ *   (XBEE_NO_DATABASE, #52). FILE uses file_pal when dbcur is absent; it
+ *   requires no USE. The numeric/date functions ABS/INT/MOD/ROUND/MAX/
  *   MIN/DOW/CDOW/CMONTH are the S3.6a half (already present).
  *
  * args:     argument values, already evaluated, in source order.

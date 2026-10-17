@@ -20,12 +20,34 @@ Garamond for the display titles.  The TeX Gyre faces are metric-compatible
 replacements for Times, Palatino, Helvetica, Avant Garde and Courier.
 
 \ifdefined\ColophonScreens\ColophonScreens\else
+% The InitechBase books (bead initech-ipu5.8) print their dot-prompt
+% examples from the host replay of the shipped dot prompt, and say so: a book
+% that defines \ColophonInitechBase gets this paragraph instead.
+\ifdefined\ColophonInitechBase
+Every example of the dot prompt in this book is a transcript of the
+InitechBase dot prompt itself: the program of InitechBase, compiled for the
+factory computer from the same source as the shipped \texttt{SAMIR.COM}, was
+given the lines printed in bold, against a fresh copy of the files of the
+Sample Programs and Utilities diskette, and its output was printed without
+change.  The build replays every example again and compares the output byte
+for byte before the book is printed.  The screen reproductions were captured
+from InitechOS running under the QEMU emulator, driven by the project's test
+harness from a recorded list of keystrokes, and read back from each
+screendump character by character by the harness program
+\texttt{console\_text}.
+\else
 Every screen reproduction and example transcript in this book was captured
 from InitechOS running under the QEMU emulator, driven by the project's test
 harness from a recorded list of keystrokes.  The text of the display was read
 back from each screendump character by character by the harness program
 \texttt{console\_text}, without redrawing, and the build compares every
-capture with the running system again before the book is printed.\fi
+capture with the running system again before the book is printed.
+\fi\fi
+
+The Initech logo on the covers and in this book is an original drawing in
+TikZ and PGF commands (\texttt{initech-logo.tex}), authored from
+observation of the reference frame's identity material and measured from
+it; it is not traced or extracted from any image.
 
 The publications factory and its correctness tools are C, make and thin
 shell.  LuaLaTeX is the ratified document-tool exception, decision D-11.

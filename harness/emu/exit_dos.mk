@@ -65,11 +65,11 @@ EXITDOS_MUT_NOTEARDOWN_IMG := $(BUILD)/flair_exitdos_mut_no_teardown.img
 $(EXITDOS_MUT_NOTEARDOWN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_exit_no_teardown.bin $(BUILD)/transient_exit_no_teardown.bin | $(BUILD)
 	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_mut_exit_no_teardown.bin,$(BUILD)/transient_exit_no_teardown.bin)
 	@printf ">>> exit-to-DOS MUTANT image (-DKMAIN_MUT_EXIT_NO_TEARDOWN): %s\n" "$@"
-# NO_TRANSIENT: the REAL flagship kernel, the boot disk's transient window
-# left zero (what a boot disk without COMMAND.COM looks like).
+# NO_TRANSIENT: delete the real COMMAND.COM through mtools (initech-e9sx).
 EXITDOS_MUT_NOTRANSIENT_IMG := $(BUILD)/flair_exitdos_mut_no_transient.img
-$(EXITDOS_MUT_NOTRANSIENT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRTENANTS_BIN) | $(BUILD)
-	$(call exitdos-image-recipe,$(KERNEL_FLAIRTENANTS_BIN),/dev/null)
+$(EXITDOS_MUT_NOTRANSIENT_IMG): $(FLAIRTENANTS_IMG) | $(BUILD)
+	cp -f $< $@
+	mdel -i $@@@32256 ::COMMAND.COM
 	@printf ">>> exit-to-DOS MUTANT image (no transient on the boot disk): %s\n" "$@"
 
 # The clip image: the DOUBLE-CLICK record kernel (the trace opens the volume)
@@ -128,9 +128,10 @@ cmp -s $(BUILD)/$(1).banner spec/dos_banner.txt || { printf 'EXIT: the banner af
 after=$$(sed -n '/^SHELL-READY$$/,$$p' $$s | tr -d '\r'); \
 printf '%s\n' "$$after" | grep -qF ' Volume in drive A is INITECH' || { printf 'EXIT: DIR at the prompt did not list the flagship volume as drive A:\n'; exit 1; }; \
 printf '%s\n' "$$after" | grep -qE '^README +TXT ' && printf '%s\n' "$$after" | grep -qE '^APPS +<DIR>' || { printf 'EXIT: the A: listing lacks README.TXT / APPS\n'; exit 1; }; \
+! grep -qE 'Enter new (date|time)' $$s || { printf 'EXIT: AUTOEXEC exists but startup prompts appeared\n'; exit 1; }; \
 ! grep -qE '^(PANIC|FLAIR-LIVE-OK|DESKTOP-DB-WRITE-FAIL)' $$s || { printf 'EXIT: %s\n' "$$(grep -E '^(PANIC|FLAIR-LIVE-OK|DESKTOP-DB-WRITE-FAIL)' $$s | head -1)"; exit 1; }; \
 [ -s "$(BUILD)/$(1).ppm" ] || { printf 'EXIT: no screendump at the prompt\n'; exit 1; }; \
-{ $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 336 && $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 32 560; } > $(BUILD)/$(1).ppmcheck 2>&1 || { printf 'EXIT: the screen is not the text console (the desktop is still painted): %s\n' "$$(grep -i fail $(BUILD)/$(1).ppmcheck | head -1)"; exit 1; }
+{ $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 304 && $(PPM_TEXT_CHECK_BIN) "$(BUILD)/$(1).ppm" 48 240 200 32 560; } > $(BUILD)/$(1).ppmcheck 2>&1 || { printf 'EXIT: the screen is not the text console (the desktop is still painted): %s\n' "$$(grep -i fail $(BUILD)/$(1).ppmcheck | head -1)"; exit 1; }
 endef
 
 .PHONY: test-flair-exit-to-dos test-flair-exit-to-dos-mutant test-flair-tps-journey test-flair-tps-journey-mutant
@@ -173,7 +174,7 @@ test-flair-exit-to-dos-mutant: $(HARNESS_BIN) $(EXITDOS_MUT_NOTEARDOWN_IMG) $(EX
 	@out=$$( ( $(call exitdos-exit-check,flair_exitdos_mut_notransient) ) 2>&1 ); rc=$$?; \
 	if [ $$rc -eq 0 ]; then printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT PASSED -- decoration\n'; exit 1; fi; \
 	printf '%s\n' "$$out" | grep -qF 'did not run alert -> put away' || { printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT RED for the wrong reason: %s\n' "$$out"; exit 1; }; \
-	grep -qxF 'Bad or missing Command Interpreter' $(BUILD)/flair_exitdos_mut_notransient.sx && grep -q '^PANIC exit-to-dos: no COMMAND3 transient' $(BUILD)/flair_exitdos_mut_notransient.serial \
+	grep -qxF 'Bad or missing Command Interpreter' $(BUILD)/flair_exitdos_mut_notransient.sx && grep -q '^PANIC exit-to-dos: COMMAND.COM not found' $(BUILD)/flair_exitdos_mut_notransient.serial \
 		|| { printf '!!! test-flair-exit-to-dos-mutant FAIL: NO_TRANSIENT did not say MSG-DOS-0014 + PANIC\n'; exit 1; }; \
 	printf '>>> test-flair-exit-to-dos-mutant: NO_TRANSIENT correctly RED (%s; MSG-DOS-0014 + %s)\n' "$$out" "$$(grep -m1 '^PANIC' $(BUILD)/flair_exitdos_mut_notransient.serial)"
 	@printf '>>> test-flair-exit-to-dos-mutant: green (2/2 RED for the named reason)\n'

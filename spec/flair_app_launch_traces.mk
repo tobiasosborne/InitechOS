@@ -39,7 +39,7 @@
 #
 # WAYPOINTS (shared by every trace below):
 #   A (320,240) -> VOLUME (600,64): m100:-88,m100:-88,m80:0 ; l1,l0,l1,l0
-#       -> FINDER-OPEN-VOLUME win=0 n=2
+#       -> FINDER-OPEN-VOLUME win=0 n=4
 #   B (600,64) -> APPS in win 0 (123,102): m-100:10,m-100:10,m-100:10,
 #       m-100:8,m-77:0 ; l1,l0,l1,l0 -> FINDER-OPEN-FOLDER name=APPS win=1
 #   C (123,102) -> TENANTFX.EXE in win 1 (75,122): m-48:20 ; l1,l0,l1,l0

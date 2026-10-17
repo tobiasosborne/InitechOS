@@ -1,0 +1,8 @@
+. USE STAFF
+. LIST LASTNAME, SALARY FOR SALARY >= 40000
+Record#  LASTNAME       SALARY
+      1  LUMBERGH        96500.00
+      2  GIBBONS         41250.00
+      7  PORTER         112000.00
+      9  DELGADO         44100.00
+     12  PRUITT          47300.00

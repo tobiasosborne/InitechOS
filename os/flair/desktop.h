@@ -120,6 +120,8 @@
  *
  * Fail-loud (Rule 2) on a NULL manager / NULL dst / NULL or unattached scratch.
  * ------------------------------------------------------------------------- */
+/* R4.5 optional PAT# desktop; zero retains locked teal. */
+void desktop_set_pattern(unsigned pattern);
 void desktop_paint_all(WindowMgr *wm, const bitmap_t *dst, region_t *scratch);
 
 /* ---------------------------------------------------------------------------

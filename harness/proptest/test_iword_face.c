@@ -94,6 +94,7 @@ static unsigned char m_col[SCR_H][SCR_W];    /* (fg token << 4) | bg token  */
 static int  m_exit_calls, m_exit_rc;
 static const char *m_dir;
 static FILE *m_fh[8];
+static uint32_t m_read_limit, m_write_limit; /* DOS short-transfer oracle */
 
 int32_t tbx_register(void) { return TBX_OK; }
 int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t g)
@@ -148,11 +149,11 @@ static FILE *fh(int32_t h) { return (h >= 5 && h < 13) ? m_fh[h - 5] : 0; }
 int32_t tbx_file_create(const char *path)
 { char hp[300]; FILE *f; host_name(path, hp); f = fopen(hp, "w+b"); return f ? new_handle(f) : TBX_ERR_DOS(5); }
 int32_t tbx_file_open(const char *path, uint32_t mode)
-{ char hp[300]; FILE *f; (void)mode; host_name(path, hp); f = fopen(hp, "r+b"); return f ? new_handle(f) : TBX_ERR_DOS(2); }
+{ char hp[300]; FILE *f; (void)mode; if (!m_dir) return TBX_ERR_DOS(2); host_name(path, hp); f = fopen(hp, "r+b"); return f ? new_handle(f) : TBX_ERR_DOS(2); }
 int32_t tbx_file_read(int32_t h, void *b, uint32_t n)
-{ FILE *f = fh(h); return f ? (int32_t)fread(b, 1, n, f) : TBX_ERR_BADARG; }
+{ FILE *f = fh(h); if (m_read_limit && n > m_read_limit) n = m_read_limit; return f ? (int32_t)fread(b, 1, n, f) : TBX_ERR_BADARG; }
 int32_t tbx_file_write(int32_t h, const void *b, uint32_t n)
-{ FILE *f = fh(h); return f ? (int32_t)fwrite(b, 1, n, f) : TBX_ERR_BADARG; }
+{ FILE *f = fh(h); if (m_write_limit && n > m_write_limit) n = m_write_limit; return f ? (int32_t)fwrite(b, 1, n, f) : TBX_ERR_BADARG; }
 int32_t tbx_file_seek(int32_t h, int32_t d, uint32_t o)
 {
     FILE *f = fh(h);

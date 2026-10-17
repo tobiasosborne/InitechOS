@@ -39,6 +39,7 @@
  * the int21_ansi_console_t seam (int21.h) -- so int21.c still never includes
  * console.h and stays HOSTED-clean (Law 3). */
 #include "ansi.c"
+#include "conedit.h"
 
 /* The carry flag is bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3). The whole
  * error-return contract rides on this single bit (ground-truth Sec 5.4). */
@@ -61,6 +62,22 @@ static int21_break_recovery_t *g_break_recovery = 0;
  * hang or fault (Rule 2). */
 static int21_conin_fn     g_conin_get  = 0;
 static int21_coninpoll_fn g_conin_poll = 0;
+static int g_printer_echo;
+static unsigned g_input_echo;
+static int g_conin_pushback = -1;
+static int conin_poll_pb(void);
+static int conin_get_pb(void);
+static int con_control(int c);
+
+/* Debug seam only: spec/hardware.json contracts no parallel printer port.
+ * PRN is the existing device callback (sysinit.c serial backend), not invented
+ * LPT hardware. Printed MS-DOS 3.3 pp.158-159; lane 1p1g specifies Ctrl-N off
+ * and any-key resume (the printed p.159 control table has ambiguous wording).
+ */
+static void conkeys_trace(const char *s)
+{
+    if (g_break_trace) while (*s) g_break_trace(*s++);
+}
 
 /* ---- ANSI.SYS CON wiring (beads initech-p96i; consumes the x3mh FSM) -------
  * When the ANSI gate is enabled, con_putc routes every CON output byte through
@@ -82,6 +99,13 @@ static int21_ansi_gate_fn g_ansi_gate   = 0;
 /* The apply-layer cursor save slot (ESC[s/ESC[u); the console is the truth. */
 static int                g_ansi_saved_row = 0;
 static int                g_ansi_saved_col = 0;
+/* IBM DOS 3.30 Technical Reference pp. 3-10/3-11: DSR places CPR bytes in
+ * console input. Keep complete replies in a bounded FIFO; never emit a partial
+ * CPR if unread replies have filled it. No keyboard-driver mutation needed. */
+#define ANSI_REPLY_CAP 64u
+static uint8_t g_ansi_reply[ANSI_REPLY_CAP];
+static unsigned g_ansi_reply_head = 0u;
+static unsigned g_ansi_reply_count = 0u;
 
 /* The current process's PSP (beads initech-509.3). Handle functions resolve a
  * handle through g_cur_psp->jft into the system SFT. NULL until the kernel binds
@@ -361,6 +385,12 @@ void int21_set_exec_backend(int21_exec_fn fn) { g_exec = fn; }
 /* About This Computer (bead initech-tdnl.47): the bound arena's size and
  * its largest free block, in paragraphs, read off the live MCB chain.
  * Returns 0 (all 0) when no arena is bound or the chain is corrupt. */
+/* R4.5: expose the same ONE MCB walk's total free for Memory's system usage. */
+int int21_mcb_usage(uint32_t *total,uint32_t *free,uint32_t *largest) {
+    *total=*free=*largest=0;
+    if(!g_arena_bound || !mcb_stats(&g_arena,free,largest))return 0;
+    *total=g_arena.total_paras;return 1;
+}
 int int21_mcb_stats(uint32_t *total_paras, uint32_t *largest_free_paras)
 {
     uint32_t fr = 0u;
@@ -528,8 +558,19 @@ static void zf_set(int_frame_t *f)   { f->eflags |=  ZF_BIT; }
  * conin_get: BLOCKING read of one char (0..255). With no source bound it
  * returns 0 -- a graceful no-input result, NEVER a hang (Rule 2). conin_poll: a
  * non-blocking read; returns the char (0..255) or -1 when none / no source. */
+static int ansi_reply_poll(void)
+{
+    if (g_ansi_reply_count == 0u) return -1;
+    int c = g_ansi_reply[g_ansi_reply_head];
+    g_ansi_reply_head = (g_ansi_reply_head + 1u) % ANSI_REPLY_CAP;
+    g_ansi_reply_count--;
+    return c;
+}
+
 static int conin_get(void)
 {
+    int c = ansi_reply_poll();
+    if (c >= 0) return c;
     if (g_conin_get) {
         return g_conin_get() & 0xFF;
     }
@@ -538,6 +579,8 @@ static int conin_get(void)
 
 static int conin_poll(void)
 {
+    int c = ansi_reply_poll();
+    if (c >= 0) return c;
     if (g_conin_poll) {
         return g_conin_poll();
     }
@@ -613,9 +656,11 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
         break;
 
     case ANSI_ACT_CURSOR_REL:
+#ifndef ANSIWIRE_MUTATE_DROP_REL
         if (g_ansi_ops.cursor_rel) {
             g_ansi_ops.cursor_rel(g_ansi_ops.ctx, act->delta_row, act->delta_col);
         }
+#endif
         break;
 
     case ANSI_ACT_SAVE_CURSOR:
@@ -652,13 +697,27 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
         break;
 
     case ANSI_ACT_DEVICE_STATUS:
-        /* ESC[6n Device Status Report. The response (ESC[<row+1>;<col+1>R) must
-         * be injected into the CON INPUT queue so a program reading stdin sees
-         * it. There is no keyboard-INJECT seam yet (g_conin_* are READ-only), so
-         * this is a DEFERRED follow-up: we read the live cursor (proving the data
-         * path) but drop the response. Wiring it needs a kbd-inject seam bound by
-         * the kernel. Ref: MS-DOS 3.3 Tech Ref Ch 4 "DSR" / RBIL ANSI.SYS 6n. */
-        /* (deferred -- see bd follow-up) */
+        {
+            /* IBM DOS 3.30 printed pp. 3-10/3-11: ESC[rr;ccR via stdin.
+             * The manual's example reads TWO row and TWO column digits.
+             * con_putc synchronises the FSM with the live 25x80 console. */
+            unsigned row = (unsigned)ansi_clamp(act->row, 0, 24) + 1u;
+            unsigned col = (unsigned)ansi_clamp(act->col, 0, 79) + 1u;
+            uint8_t reply[8] = { 0x1bu, '[', (uint8_t)('0' + row / 10u),
+                (uint8_t)('0' + row % 10u), ';', (uint8_t)('0' + col / 10u),
+                (uint8_t)('0' + col % 10u), 'R' };
+#ifndef ANSIWIRE_MUTATE_DROP_DSR
+            if (g_ansi_reply_count <= ANSI_REPLY_CAP - sizeof(reply)) {
+                for (unsigned i = 0; i < sizeof(reply); i++) {
+                    unsigned tail = (g_ansi_reply_head + g_ansi_reply_count) % ANSI_REPLY_CAP;
+                    g_ansi_reply[tail] = reply[i];
+                    g_ansi_reply_count++;
+                }
+            }
+#else
+            (void)reply;
+#endif
+        }
         break;
 
     case ANSI_ACT_BELL:
@@ -679,6 +738,21 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
 /* ---- the CON sink fan-out (NULL-safe) ---- */
 static void con_putc(char c)
 {
+    /* Output checks preserve normal typeahead. Echo during an input call must
+     * not look ahead and apply the NEXT editing key before echoing this one. */
+    if (!g_input_echo) {
+        int key = conin_poll_pb();
+        while (key >= 0 && con_control(key)) key = conin_poll_pb();
+        if (key >= 0) {
+            g_conin_pushback = key; /* lookahead shared with AH=0Bh */
+        }
+    }
+#ifndef CONKEYS_MUT_PRN
+    if (g_printer_echo && g_devio_bound && g_devio.prn_write) {
+        uint8_t byte = (uint8_t)c;
+        (void)g_devio.prn_write(&byte, 1, g_devio.prn_ctx);
+    }
+#endif
     if (con_ansi_active()) {
         /* ANSI.SYS loaded: route the byte through the escape-sequence FSM, whose
          * actions are applied to the live console (and serial, via the put_char
@@ -691,6 +765,15 @@ static void con_putc(char c)
              * clamp absolute moves, and the console clamps again defensively. */
             ansi_init(&g_ansi_st, 25, 80);
             g_ansi_inited = 1;
+        }
+        /* Plain text, wrapping, scrolling and external console clients also
+         * move the cursor. IBM DOS 3.30 p. 3-10 requires the CURRENT position;
+         * refresh before feeding so DSR, relative moves and saves share it. */
+        if (g_ansi_ops.get_cursor) {
+            int row, col;
+            g_ansi_ops.get_cursor(g_ansi_ops.ctx, &row, &col);
+            g_ansi_st.row = ansi_clamp(row, 0, g_ansi_st.rows - 1);
+            g_ansi_st.col = ansi_clamp(col, 0, g_ansi_st.cols_wide - 1);
         }
         ansi_feed(&g_ansi_st, (uint8_t)c, ansi_apply, 0);
         return;
@@ -1024,7 +1107,6 @@ static void do_puts(int_frame_t *f)
  * consumes. So a peeked char is held in g_conin_pushback (a single-slot lookahead)
  * and the read paths (conin_get_pb / conin_poll_pb) drain it FIRST, so a 0Bh
  * status check followed by 01h/07h/08h/0Ah still sees that keystroke. */
-static int g_conin_pushback = -1;   /* a single peeked-but-unconsumed char */
 
 /* Blocking get honoring the 0Bh pushback. */
 static int conin_get_pb(void)
@@ -1046,6 +1128,29 @@ static int conin_poll_pb(void)
         return c & 0xFF;
     }
     return conin_poll();
+}
+
+/* MS-DOS 3.3 pp.158-159: display flow control and printer echo. This runs in
+ * task context, never IRQ1. Raw AH=06h/07h retain their raw-byte contract. */
+static int con_control(int c)
+{
+    if (c == 0x10 || c == 0x0e) {
+        g_printer_echo = c == 0x10 ? !g_printer_echo : 0;
+        conkeys_trace(g_printer_echo ? "CONKEYS-PRN-ON\n" : "CONKEYS-PRN-OFF\n");
+        return 1;
+    }
+    if (c == 0x13) {
+        conkeys_trace("CONKEYS-PAUSE\n");
+#ifndef CONKEYS_MUT_PAUSE
+        if (g_conin_get || g_conin_pushback >= 0) {
+            /* An extended resume key is one key, although DOS returns a pair. */
+            if (conin_get_pb() == 0) (void)conin_get_pb();
+        }
+#endif
+        conkeys_trace("CONKEYS-RESUME\n");
+        return 1;
+    }
+    return 0;
 }
 
 /* The CON-input ^C (0x03) check-point (beads initech-4tw; ADR-0003 Amendment
@@ -1222,73 +1327,35 @@ static void do_input_status(int_frame_t *f)
  * be NULL only if the caller cannot reach a ^C (none today; both callers pass it).
  * Ref: DOS 3.3 PRM AH=0Ah; Microsoft KB Q113058 (AH=3Fh CON read);
  * os/milton/kbd.c SC1_NORMAL[0x1C] == '\r'. */
-static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap, int_frame_t *f, int *broke)
+static void conedit_console_emit(uint8_t c, void *ctx)
 {
-    uint8_t count = 0;          /* chars stored so far (excl. CR/LF) */
-
-    if (broke) {
-        *broke = 0;
-    }
-
-    /* Rule 2 (host-safe, NEVER hang): with no CON input source bound and no
-     * pending pushback, a cooked read yields an empty line (EOF) instead of
-     * spinning forever on conin_get()'s no-source 0 sentinel (which is neither
-     * CR nor BACKSPACE, so the loop below would store it / BEL endlessly). The
-     * kernel binds the keyboard at SYSINIT before any program runs, so this
-     * guard is never taken on a real boot; it only protects host oracles that
-     * link int21.c without a conin source (e.g. test_fileio reaching a CON read
-     * via a mutated CREATNEW path -- initech-x8fs integration). */
-    if (!g_conin_get && g_conin_pushback < 0) {
-        return 0;
-    }
-
-    for (;;) {
-        int ci = conin_get_pb();
-        uint8_t c = (uint8_t)ci;
-
-        /* ^C check-point: 0x03 routes to INT 23h and aborts the line (DEC-16 Sec
-         * 3.3 Fork A; beads initech-4tw). Checked BEFORE CR/BACKSPACE/store so a
-         * Ctrl-C never lands in the line buffer. */
-        if (conin_check_ctrlc(c, f)) {
-            if (broke) {
-                *broke = 1;
-            }
-            return count;
-        }
-
-        if (c == 0x0Du) {                       /* CR: terminate the line */
-            con_putc('\r');                     /* echo CR + LF (DOS convention) */
-            con_putc('\n');
-            return count;
-        }
-
-        if (c == 0x08u) {                       /* BACKSPACE: erase one */
-            if (count > 0u) {
-                count--;
-                con_putc('\b');                 /* erase visually: back, space, back */
-                con_putc(' ');
-                con_putc('\b');
-            }
-            /* empty -> ignore (DOS does not back past the prompt) */
-            continue;
-        }
-
-        /* Ordinary char. Room for it only if count < cap. */
-        if (count < cap) {
-            out[count] = c;
-            count++;
-            /* MS-DOS 3.3 Reference p.132: COPY CON, Ctrl-Z then Return.
-             * IBM DOS 3.30 Technical Reference pp.4-11/12: EOF and caret echo.
-             * Keep 1Ah as input data; handle reads interpret it as EOF. */
+    (void)ctx;
+    g_input_echo++;
 #ifndef INT21_MUTATE_CARET_Z
-            if (c == 0x1Au) con_puts("^Z");
-            else
+    if (c == 0x1a) con_puts("^Z");
+    else
 #endif
-                con_putc((char)c);
-        } else {
-            /* Buffer full: ignore further non-CR chars, beep (BEL). Rule 2: do
-             * NOT overflow the caller's buffer. */
-            con_putc('\a');
+        con_putc((char)c);
+    g_input_echo--;
+}
+
+static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
+                                  const uint8_t *tmpl, unsigned len,
+                                  int_frame_t *f, int *broke)
+{
+    conedit_t editor;
+    conedit_init(&editor, tmpl, len);
+    if (broke) *broke = 0;
+    if (!g_conin_get && g_conin_pushback < 0) return 0;
+    for (;;) {
+        uint8_t c = (uint8_t)conin_get_pb();
+        if (conin_check_ctrlc(c, f)) {
+            if (broke) *broke = 1;
+            return (uint8_t)editor.count;
+        }
+        if (!editor.extended && !editor.target && con_control(c)) continue;
+        if (conedit_key(&editor, c, out, cap, conedit_console_emit, 0)) {
+            return (uint8_t)editor.count;
         }
     }
 }
@@ -1315,7 +1382,8 @@ static void do_buffered_input(int_frame_t *f)
      * -- the editor still reads to the CR but stores nothing). */
     uint8_t cap = (max >= 1u) ? (uint8_t)(max - 1u) : 0u;
     int broke = 0;
-    uint8_t count = conin_cooked_line(&buf[2], cap, f, &broke);
+    uint8_t count = conin_cooked_line(&buf[2], cap, &buf[2],
+                                       buf[1] < max ? buf[1] : cap, f, &broke);
 
     /* ^C aborted the line (beads initech-4tw; DEC-16 Sec 3.3 Fork A): INT 23h has
      * already fired. In the kernel int23's default action terminated and never
@@ -2945,6 +3013,7 @@ static void do_rmdir(int_frame_t *f)
 /* One physical console line buffer, shared by handle reads. Keep short reads'
  * remainder, including CR/LF; do not discard bytes typed for COPY CON. A fresh
  * line is collected only after all staged bytes have been delivered. */
+static unsigned g_con_template_len;
 static uint8_t g_con_line[INT21_CON_LINE_MAX + 2u];
 static uint16_t g_con_line_pos, g_con_line_len;
 
@@ -2964,7 +3033,9 @@ static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
             f->eax = 0u; cf_clear(f); return;
         }
         int broke = 0;
-        uint8_t n = conin_cooked_line(g_con_line, INT21_CON_LINE_MAX, f, &broke);
+        uint8_t n = conin_cooked_line(g_con_line, INT21_CON_LINE_MAX,
+                                      g_con_line, g_con_template_len, f, &broke);
+        if (!broke) g_con_template_len = n;
         g_con_line_pos = g_con_line_len = 0u;
         if (broke || (!g_conin_get && g_conin_pushback < 0)) {
             f->eax = 0u; cf_clear(f); return;
