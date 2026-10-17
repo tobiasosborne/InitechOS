@@ -267,6 +267,9 @@ both sides; the merge commit says so).
   built with face_a.c's IWORD_MUT_FKEY_DROP), SEARCH_KEY,
   SHIPPED_BRANCH_MESSAGE); ENTRY_ORDER's TEXINPUTS gains pubs/common (the
   merged class inputs initech-logo.tex).
+- Covers: the merged class gives every front cover the logo and
+  line band; the Reference and Workbook covers now carry their back cover
+  (PK-05, \MakeBackCover, page 2 of cover.tex) like the InitechDOS books.
 
 ### Findings while writing (each found by the replay, text corrected)
 
@@ -294,9 +297,6 @@ both sides; the merge commit says so).
 - Because of the two above, make test-pubs-build (and so test-pubs,
   test-pubs-mutant, test-pubs-repro, test-pubs-screens) cannot go green on
   this branch; every InitechWord leg was run on its own (Acceptance below).
-- Two lanes' covers: the merged class gives every front cover the logo and
-  line band; the Reference and Workbook covers now carry their back cover
-  (PK-05, \MakeBackCover, page 2 of cover.tex) like the InitechDOS books.
 
 ### Not shipped, still omitted (D-14)
 
