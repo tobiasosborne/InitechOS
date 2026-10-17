@@ -171,6 +171,13 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n);
 int xb_interp_eval_str(xb_interp *ip, const char *expr, uint32_t len,
                        xb_val *out, int *err_code);
 
+/* xb_interp_eval: xb_interp_eval_str of a NUL-terminated expression with a
+ * lex/parse failure reported as the real III+ catalogue ordinal (#8, #10,
+ * #35, #36, #67) instead of the stage code. xb_interp_cond additionally
+ * requires a Logical result (#37). Both return INTERP_OK or -(interp_err). */
+int xb_interp_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec);
+int xb_interp_cond(xb_interp *ip, const char *expr, int *truth, int *ec);
+
 /* -----------------------------------------------------------------------
  * Plan Sec 8.2 top-level surface -- DECLARED in S5.1, DEFINED in later steps.
  * (S5.1 does NOT implement these; the executor is S5.3, the REPL is S5.8.)

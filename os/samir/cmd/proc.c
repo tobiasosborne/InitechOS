@@ -208,34 +208,6 @@ static int p_ci_eq_prefix(const char *s, const char *kw, const char *le)
 /* Expression evaluation through the interp ctx (INPUT + a prompt expC)    */
 /* ===================================================================== */
 
-/*
- * p_eval: lex+parse+eval the NUL-terminated `expr` through ip's ctx (which carries
- * flow's composed memvar+field resolver). 0 on success with *out; else negative
- * interp_err with *ec the catalog ordinal / stage detail.
- */
-static int p_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
-{
-    xb_token toks[P_MAX_TOKS];
-    xb_node  pool[P_MAX_NODES];
-    xb_ctx  *ctx = xb_interp_ctx(ip);
-    int ntok, root, rc, e = 0;
-    uint32_t len = 0u;
-
-    while (expr[len] != '\0') len++;
-
-    ntok = xb_lex(expr, len, toks, (uint32_t)P_MAX_TOKS, &e);
-    if (ntok < 0) { if (ec) *ec = e; return -INTERP_ERR_LEX; }
-
-    root = xb_parse(toks, (uint32_t)ntok, pool, (uint32_t)P_MAX_NODES, &e);
-    if (root < 0) { if (ec) *ec = e; return -INTERP_ERR_PARSE; }
-
-    rc = xb_eval(pool, root, ctx, out, &e);
-    if (rc != 0) { if (ec) *ec = e; return -INTERP_ERR_EVAL; }
-
-    if (ec) *ec = 0;
-    return INTERP_OK;
-}
-
 /* ===================================================================== */
 /* The " TO " keyword splitter (ACCEPT/INPUT/WAIT prompt-vs-target)        */
 /* ===================================================================== */
@@ -301,7 +273,7 @@ static int p_emit_prompt(xb_interp *ip, const char *pexpr, int *ec)
     int rc;
     const char *p = p_skip_ws(pexpr);
     if (*p == '\0') { if (ec) *ec = 0; return INTERP_OK; }   /* no prompt */
-    rc = p_eval(ip, p, &v, ec);
+    rc = xb_interp_eval(ip, p, &v, ec);
     if (rc != INTERP_OK)
         return rc;
     if (v.t != XB_C && v.t != XB_M) {
@@ -406,7 +378,7 @@ static int p_input(xb_interp *ip, const char *args, int *ec)
         return INTERP_OK;
     }
     /* The typed text is an expression: "12.5"->N, .T.->L, 'abc'/"abc"->C. */
-    rc = p_eval(ip, line, &v, ec);
+    rc = xb_interp_eval(ip, line, &v, ec);
     if (rc != INTERP_OK)
         return rc;                          /* a bad expression fails loud */
     rc = xb_interp_store(ip, nm, &v);
@@ -743,7 +715,7 @@ static int p_do(xb_interp *ip, proc_state *ps, const char *args, int *ec)
             while (eo > 0u && p_isspace(ebuf[eo - 1])) eo--;
             ebuf[eo] = '\0';
             if (nargs >= P_MAX_ARGS) { if (ec) *ec = P_MSG_WRONG_PARAM; return -INTERP_ERR_SYNTAX; }
-            rc = p_eval(ip, ebuf, &v, ec);
+            rc = xb_interp_eval(ip, ebuf, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
             if(v.t==XB_C || v.t==XB_M) {
@@ -891,6 +863,19 @@ int proc_register(xb_interp *ip);
 int proc_run(xb_interp *ip, const char *prg);
 int proc_fire_onerror(xb_interp *ip, int err_code);
 
+/* The xb_ctx.on_error trap: run the installed ON ERROR command for `code`
+ * and report it handled, so the failing statement is skipped and the
+ * program resumes (Using III+ U5-160; real III+ 1.1 SF-errors). */
+static int proc_trap(void *vip, int code)
+{
+    xb_interp *ip = (xb_interp *)vip;
+    proc_state *ps = proc_state_for(ip);
+    if (!ps || !ps->has_onerr || ps->in_handler)
+        return 0;
+    (void)proc_fire_onerror(ip, code);
+    return 1;
+}
+
 int proc_register(xb_interp *ip)
 {
     /* Registration is per-interpreter construction: drop any state a freed
@@ -907,6 +892,7 @@ int proc_register(xb_interp *ip)
     ps->pending_nargs = 0;
     ps->params_seen = 0;
 #endif
+    xb_interp_ctx(ip)->on_error = proc_trap;
     return xb_interp_add_cmd_hook(ip, proc_cmd_hook, (void *)0);
 }
 
@@ -968,6 +954,9 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
     if (rc == PROC_RC_RETURN)
         rc = INTERP_OK;
     ps->in_handler = 0;
-    ctx->error_number = saved_error;
+    /* ERROR()/MESSAGE() keep the handled condition after the handler and
+     * later successful commands (real III+ 1.1 SF-errors). */
+    (void)saved_error;
+    ctx->error_number = err_code;
     return rc;
 }

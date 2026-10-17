@@ -640,6 +640,7 @@ int samir_repl(samir_pal_t *pal, xb_interp *ip)
     rc = repl_register_modules(ip);
     if (rc != INTERP_OK)
         return rc;
+    xb_interp_ctx(ip)->message = samir_message;   /* MESSAGE(), U6-54 */
 
     for (;;) {
         char *s;

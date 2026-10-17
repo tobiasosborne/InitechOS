@@ -66,7 +66,6 @@
 #include "samir/pal.h"
 
 /* query.c engine helpers (expression evaluation + value display text). */
-extern int  q_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec);
 extern void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
                          const xb_val *v, const xb_ctx *ctx, int dotted);
 
@@ -247,7 +246,7 @@ static int rp_record(int first, int *ec)
     if (R.L >= R.lpp) rp_eject();
     for (k = 0; k < R.nlev; k++) {
         tn[k] = 0;
-        if (q_eval(R.ip, R.gx[k], &v, ec)) return -1;
+        if (xb_interp_eval(R.ip, R.gx[k], &v, ec)) return -1;
         if (v.t != XB_C && v.t != XB_D) { *ec = 9; return -1; }   /* U7-8 */
         if ((*ec = rp_text(&v, tmp[k], &tn[k], RP_TXT, 0)) != 0) return -1;
         ch[k] = first || (k && ch[0]) || (int)tn[k] != R.gvn[k] || rt_memcmp(tmp[k], R.gv[k], tn[k]);
@@ -267,7 +266,7 @@ static int rp_record(int first, int *ec)
     }
     for (c = 0; c < R.ncol; c++) {            /* evaluate every cell */
         rp_col *q = &R.col[c];
-        if (q_eval(R.ip, q->expr, &v, ec)) return -1;
+        if (xb_interp_eval(R.ip, q->expr, &v, ec)) return -1;
         q->off = (int)p;
         if (v.t == XB_N) {
             if (p + (uint32_t)q->w >= RP_POOL) { *ec = 43; return -1; }
@@ -365,7 +364,7 @@ static int rp_cond(const char *c, int *ec)    /* 1 true, 0 false, -1 fault */
 {
     xb_val v;
     if (!c) return 1;
-    if (q_eval(R.ip, c, &v, ec)) return -1;
+    if (xb_interp_eval(R.ip, c, &v, ec)) return -1;
     if (v.t != XB_L) { *ec = 37; return -1; }
     return v.u.l != 0;
 }
@@ -392,7 +391,7 @@ static int rp_walk(char *cl[K_N], int *ec)
     /* Numeric columns right-align their headings. At EOF no record value
      * exists; the heading then stays left-aligned [inferred, no golden]. */
     for (i = 0; i < R.ncol; i++)
-        R.col[i].num = !wa_eof(env, area) && !q_eval(R.ip, R.col[i].expr, &v, ec) && v.t == XB_N;
+        R.col[i].num = !wa_eof(env, area) && !xb_interp_eval(R.ip, R.col[i].expr, &v, ec) && v.t == XB_N;
     *ec = 0;
     /* NOEJECT or option bit 0 suppress the initial eject [verified: FLT_INFO]. */
     if (!cl[K_NOEJECT] && !(R.frm[0x7C3] & 1)) rp_raw("\r\f", 2);
@@ -470,7 +469,7 @@ static int rp_run(const char *args, int *ec)
     R.hd[0] = 0;
     if (cl[K_HEADING] && !R.plain) {          /* U5-177: PLAIN takes precedence */
         uint32_t p = 0;
-        if (q_eval(R.ip, cl[K_HEADING], &v, ec)) return -1;
+        if (xb_interp_eval(R.ip, cl[K_HEADING], &v, ec)) return -1;
         if (v.t != XB_C) { *ec = 9; return -1; }
         if ((*ec = rp_text(&v, R.hd, &p, RP_TXT - 1u, 1)) != 0) return -1;
         R.hd[p] = 0;
@@ -544,7 +543,7 @@ static int lbl_run(const char *args,int *ec)
                 s=*e?e+1:e;if(*e)*e=0;
                 while(*p==' ')p++;
                 if(*p) {
-                    if(q_eval(R.ip,p,&v,ec)){rc=-1;goto done;}
+                    if(xb_interp_eval(R.ip,p,&v,ec)){rc=-1;goto done;}
                     if(v.t!=XB_C){*ec=9;rc=-1;goto done;}
                     unsigned z=v.u.c.len;
                     while(z && v.u.c.p[z-1]==' ')z--;

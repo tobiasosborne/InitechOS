@@ -234,8 +234,11 @@ static int32_t parse_primary(xb_parser *p)
         return -1;
 
     case XBT_RPAREN:
-        /* ')' with no matching '(' open at this point. */
-        if (p->err == XBPE_OK) p->err = XBPE_UNBALANCED;
+        /* ')' where an operand is expected ("? )", "? ()") is a syntax
+         * error (#10), not an unbalanced parenthesis: real III+ 1.1
+         * SF-errors. A ')' left over after a complete expression stays
+         * XBPE_UNBALANCED (#8) in xb_parse below. */
+        if (p->err == XBPE_OK) p->err = XBPE_UNEXPECTED;
         return -1;
 
     default:

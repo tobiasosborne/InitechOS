@@ -186,60 +186,6 @@ static void q_putn(xb_interp *ip, const char *s, uint32_t n)
 }
 
 /* ===================================================================== */
-/* Expression evaluation through the interp ctx (carries flow's resolver) */
-/* ===================================================================== */
-
-/*
- * q_eval: lex+parse+eval the NUL-terminated `expr` through ip's ctx. On success
- * returns 0 with *out set; else a negative interp_err with *ec the catalog
- * ordinal / stage detail.
- */
-/* Shared with cmd/report.c (REPORT FORM, initech-airx). */
-int q_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec);
-int q_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
-{
-    xb_token toks[Q_MAX_TOKS];
-    xb_node  pool[Q_MAX_NODES];
-    xb_ctx  *ctx = xb_interp_ctx(ip);
-    int ntok, root, rc, e = 0;
-    uint32_t len = 0u;
-
-    while (expr[len] != '\0') len++;
-
-    ntok = xb_lex(expr, len, toks, (uint32_t)Q_MAX_TOKS, &e);
-    if (ntok < 0) { if (ec) *ec = e; return -INTERP_ERR_LEX; }
-
-    root = xb_parse(toks, (uint32_t)ntok, pool, (uint32_t)Q_MAX_NODES, &e);
-    if (root < 0) { if (ec) *ec = e; return -INTERP_ERR_PARSE; }
-
-    rc = xb_eval(pool, root, ctx, out, &e);
-    if (rc != 0) { if (ec) *ec = e; return -INTERP_ERR_EVAL; }
-
-    if (ec) *ec = 0;
-    return INTERP_OK;
-}
-
-/*
- * q_eval_cond: evaluate `expr` and REQUIRE a Logical result (*truth gets 0/1).
- * A non-Logical result is fail-loud error #37 (XBEE_NOT_LOGICAL) -- no
- * truthiness (navigation-query-display.md "Not a Logical expression.").
- */
-static int q_eval_cond(xb_interp *ip, const char *expr, int *truth, int *ec)
-{
-    xb_val v;
-    int rc = q_eval(ip, expr, &v, ec);
-    if (rc != INTERP_OK)
-        return rc;
-    if (v.t != XB_L) {
-        if (ec) *ec = XBEE_NOT_LOGICAL;
-        return -INTERP_ERR_EVAL;
-    }
-    *truth = v.u.l ? 1 : 0;
-    if (ec) *ec = 0;
-    return INTERP_OK;
-}
-
-/* ===================================================================== */
 /* Value -> display text rendering (for LIST/DISPLAY/? )                   */
 /* ===================================================================== */
 
@@ -699,7 +645,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         if(!qc->has_exprlist) { f=dbf_field(tbl,fi++); rt_memcpy(expr,f->name,rt_strlen(f->name)+1); }
         else f=q_field_descriptor(ip,expr);
         v=xb_u();
-        if(!f) { rc=q_eval(ip,expr,&v,ec); if(rc) return rc; }
+        if(!f) { rc=xb_interp_eval(ip,expr,&v,ec); if(rc) return rc; }
         width=q_column_width(f,expr,&v,xb_interp_ctx(ip));
         if(!first) q_append_cstr(line,&pos,sizeof(line)," ");
         first=0;
@@ -771,7 +717,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             if (!first)
                 q_append_cstr(line, &pos, sizeof(line), " ");
             first = 0;
-            rc = q_eval(ip, expr, &v, ec);
+            rc = xb_interp_eval(ip, expr, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
             q_render_field(ip,line, &pos, sizeof(line), &v,
@@ -790,7 +736,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             if (!f) continue;
             if (fi > 0)
                 q_append_cstr(line, &pos, sizeof(line), " ");
-            rc = q_eval(ip, f->name, &v, ec);
+            rc = xb_interp_eval(ip, f->name, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
             q_render_field(ip,line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip),
@@ -864,13 +810,13 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
         /* WHILE on a single record: if .F., skip; FOR: if .F., skip. */
         if (qc->has_while) {
             int t = 0;
-            rc = q_eval_cond(ip, qc->whilecond, &t, ec);
+            rc = xb_interp_cond(ip, qc->whilecond, &t, ec);
             if (rc != INTERP_OK) return rc;
             if (!t) { if (ec) *ec = 0; return INTERP_OK; }
         }
         if (qc->has_for) {
             int t = 0;
-            rc = q_eval_cond(ip, qc->forcond, &t, ec);
+            rc = xb_interp_cond(ip, qc->forcond, &t, ec);
             if (rc != INTERP_OK) return rc;
             if (!t) { if (ec) *ec = 0; return INTERP_OK; }
         }
@@ -906,13 +852,13 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
 
             if (qc->has_while) {
                 int t = 0;
-                rc = q_eval_cond(ip, qc->whilecond, &t, ec);
+                rc = xb_interp_cond(ip, qc->whilecond, &t, ec);
                 if (rc != INTERP_OK) return rc;
                 if (!t) break;                 /* WHILE false: STOP the walk */
             }
             if (qc->has_for) {
                 int t = 0;
-                rc = q_eval_cond(ip, qc->forcond, &t, ec);
+                rc = xb_interp_cond(ip, qc->forcond, &t, ec);
                 if (rc != INTERP_OK) return rc;
                 if (t) {
                     rc = q_render_record(ip, area, qc, ec);
@@ -978,7 +924,7 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
         if (!first)
             q_append_cstr(line, &pos, sizeof(line), " ");
         first = 0;
-        rc = q_eval(ip, expr, &v, ec);
+        rc = xb_interp_eval(ip, expr, &v, ec);
         if (rc != INTERP_OK)
             return rc;
         if(v.t==XB_N) {
@@ -1046,13 +992,13 @@ static int q_locate_scan(xb_interp *ip, int area, const char *forcond, int has_f
 
         if (apply_while && whilecond) {
             int t = 0;
-            rc = q_eval_cond(ip, whilecond, &t, ec);
+            rc = xb_interp_cond(ip, whilecond, &t, ec);
             if (rc != INTERP_OK) return rc;
             if (!t) break;                     /* WHILE false: stop (no match) */
         }
         if (has_for) {
             int t = 0;
-            rc = q_eval_cond(ip, forcond, &t, ec);
+            rc = xb_interp_cond(ip, forcond, &t, ec);
             if (rc != INTERP_OK) return rc;
             if (t) { *matched = 1; if (ec) *ec = 0; return INTERP_OK; }
         } else {
@@ -1101,13 +1047,13 @@ static int q_locate_impl(xb_interp *ip, query_state *qs, const char *args, int *
         matched = 1;
         if (qc.has_while) {
             int t = 0;
-            rc = q_eval_cond(ip, qc.whilecond, &t, ec);
+            rc = xb_interp_cond(ip, qc.whilecond, &t, ec);
             if (rc != INTERP_OK) return rc;
             if (!t) matched = 0;
         }
         if (matched && qc.has_for) {
             int t = 0;
-            rc = q_eval_cond(ip, qc.forcond, &t, ec);
+            rc = xb_interp_cond(ip, qc.forcond, &t, ec);
             if (rc != INTERP_OK) return rc;
             if (!t) matched = 0;
         }
@@ -1305,7 +1251,7 @@ static int q_seek(xb_interp *ip, const char *args, int *ec)
     while (n > 0u && q_isspace(expr[n - 1])) { n--; expr[n] = '\0'; }
     if (n == 0u) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 
-    rc = q_eval(ip, expr, &key, ec);           /* SEEK takes an EXPRESSION */
+    rc = xb_interp_eval(ip, expr, &key, ec);           /* SEEK takes an EXPRESSION */
     if (rc != INTERP_OK)
         return rc;
     return q_seek_key(ip, &key, ec);

@@ -2141,6 +2141,18 @@ int xb_call_builtin(const char *name, uint16_t namelen,
         *out = xb_n(ctx ? (double)ctx->error_number : 0.0);
         return 0;
     }
+    /* Using III+ U6-54: MESSAGE() is the catalogue text of the error
+     * ERROR() reports (SF-errors, real III+ 1.1). */
+    if (name_is(name, namelen, "MESSAGE")) {
+        char *m = fn_scratch(ctx, 128u);
+        unsigned n = 0;
+        if (nargs != 0) return fn_fail(err_code, XBEE_INVALID_ARG);
+        if (m == 0) return fn_fail(err_code, XBEE_SCRATCH_FULL);
+        if (ctx->message && ctx->error_number > 0)
+            n = ctx->message((unsigned)ctx->error_number, m, 128u);
+        *out = xb_c(m, (uint16_t)n);
+        return 0;
+    }
 
     /* String functions */
     if (name_is(name, namelen, "UPPER"))  return fn_case(ctx, args, nargs, 1, out, err_code);

@@ -374,10 +374,11 @@ int main(void)
         CHECK(r < 0,                            "11a: (1+2 -> error");
         CHECK(perr == XBPE_UNBALANCED,          "11a: XBPE_UNBALANCED");
 
-        /* unbalanced: lone ')' */
+        /* lone ')' where an operand is expected: real III+ 1.1 reports
+         * "? )" as #10 Syntax error, not #8 (SF-errors capture) */
         r = parse_expr(")", toks, pool, &perr);
         CHECK(r < 0,                            "11b: ) -> error");
-        CHECK(perr == XBPE_UNBALANCED,          "11b: XBPE_UNBALANCED");
+        CHECK(perr == XBPE_UNEXPECTED,          "11b: XBPE_UNEXPECTED");
 
         /* trailing tokens after a complete expression: "1 2" */
         r = parse_expr("1 2", toks, pool, &perr);
@@ -481,11 +482,11 @@ int main(void)
         CHECK(perr == XBPE_UNBALANCED,          "12f: XBPE_UNBALANCED");
 
         /* malformed: trailing comma / empty arg -> loud. After the ',' an
-         * operand is expected; a bare ')' there is reported as XBPE_UNBALANCED
-         * by primary (deterministic). The point is it fails LOUD (Rule 2). */
+         * operand is expected; a bare ')' there is XBPE_UNEXPECTED by
+         * primary (SF-errors: an operand-position ')' is #10). */
         r = parse_expr("UPPER(NAME,)", toks, pool, &perr);
         CHECK(r < 0,                            "12g: trailing comma -> error");
-        CHECK(perr == XBPE_UNBALANCED,          "12g: XBPE_UNBALANCED (no operand)");
+        CHECK(perr == XBPE_UNEXPECTED,          "12g: XBPE_UNEXPECTED (no operand)");
     }
 
     /* ------------------------------------------------------------------ */
