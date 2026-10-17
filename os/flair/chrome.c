@@ -477,44 +477,26 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
     return shared_line;
 }
 
+/* Axis-generic rect (size round 6, WL-0162): along [a0,a1) x cross [c0,c1).
+ * V: along = y, cross = x; H: along = x, cross = y. One colour per call, so
+ * the decomposition into spans never changes a pixel. */
+static void sb_rect(GrafPort *port, const flair_skin_t *skin, int axis,
+                    int a0, int a1, int c0, int c1, int part)
+{
+    if (axis == WSCROLL_V) crect(port, c0, a0, c1, a1, part);
+    else                   crect(port, a0, c0, a1, c1, part);
+}
+
 #if !defined(CHROME_FID_MUT_SCROLL_FLAT)
-static void draw_up_triangle(GrafPort *port, const flair_skin_t *skin,
-                             int cx, int top, int part)
+/* The 4-step arrow glyph: up (V) / left (H) when `grow`, else down / right;
+ * step i spans 2+2i (or 8-2i) cross pixels centred on `cc`. */
+static void sb_tri(GrafPort *port, const flair_skin_t *skin, int axis,
+                   int a, int cc, int grow, int part)
 {
-    for (int row = 0; row < 4; row++) {
-        int width = 2 + 2 * row;
-        cfill(port, cx - width / 2, top + row, width, part);
-    }
-}
-
-static void draw_down_triangle(GrafPort *port, const flair_skin_t *skin,
-                               int cx, int top, int part)
-{
-    for (int row = 0; row < 4; row++) {
-        int width = 8 - 2 * row;
-        cfill(port, cx - width / 2, top + row, width, part);
-    }
-}
-
-static void draw_left_triangle(GrafPort *port, const flair_skin_t *skin,
-                               int left, int cy, int part)
-{
-    for (int col = 0; col < 4; col++) {
-        int height = 2 + 2 * col;
-        for (int y = cy - height / 2; y < cy + height / 2; y++) {
-            cfill(port, left + col, y, 1, part);
-        }
-    }
-}
-
-static void draw_right_triangle(GrafPort *port, const flair_skin_t *skin,
-                                int left, int cy, int part)
-{
-    for (int col = 0; col < 4; col++) {
-        int height = 8 - 2 * col;
-        for (int y = cy - height / 2; y < cy + height / 2; y++) {
-            cfill(port, left + col, y, 1, part);
-        }
+    for (int i = 0; i < 4; i++) {
+        int width = grow ? 2 + 2 * i : 8 - 2 * i;
+        sb_rect(port, skin, axis, a + i, a + i + 1,
+                cc - width / 2, cc + width / 2, part);
     }
 }
 
@@ -544,53 +526,25 @@ static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
 /* Enabled page well: 96/A5/C0x10/CD/DA across the bar, plus a two-pixel
  * 96/A5 inset at the near along-axis end.  The far end is deliberately left
  * unstroked. Ref: scrollbars.md Sec 2.3 (SAMPLED). */
-static void draw_vertical_scroll_well(GrafPort *port,
-                                      const flair_skin_t *skin,
-                                      int x0, int y0, int x1, int y1)
+static void sb_well(GrafPort *port, const flair_skin_t *skin, int axis,
+                    int a0, int a1, int c0, int c1)
 {
-    if (x1 <= x0 || y1 <= y0) {
+    if (c1 <= c0 || a1 <= a0) {
         return;
     }
 #if defined(SB_MUT_FLAT_WELL)
-    crect(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
+    sb_rect(port, skin, axis, a0, a1, c0, c1, FLAIR_PART_PLAT_WELL);
 #else
-    for (int y = y0; y < y1; y++) {
-        cfill(port, x0, y, 1, FLAIR_PART_PLAT_STRIPE_DARK);
-        cfill(port, x0 + 1, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
-        cfill(port, x0 + 2, y, FLAIR_CHROME_SCROLL_WELL_FILL_ROWS,
-              FLAIR_PART_PLAT_WELL);
-        cfill(port, x1 - 2, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
-        cfill(port, x1 - 1, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
-    }
-    cfill(port, x0, y0, x1 - x0, FLAIR_PART_PLAT_STRIPE_DARK);
-    if (y0 + 1 < y1) {
-        cfill(port, x0, y0 + 1, x1 - x0,
-              FLAIR_PART_PLAT_WIDGET_EDGE);
-    }
-#endif
-}
-
-static void draw_horizontal_scroll_well(GrafPort *port,
-                                        const flair_skin_t *skin,
-                                        int x0, int y0, int x1, int y1)
-{
-    if (x1 <= x0 || y1 <= y0) {
-        return;
-    }
-#if defined(SB_MUT_FLAT_WELL)
-    crect(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
-#else
-    cfill(port, x0, y0, x1 - x0, FLAIR_PART_PLAT_STRIPE_DARK);
-    cfill(port, x0, y0 + 1, x1 - x0, FLAIR_PART_PLAT_WIDGET_EDGE);
-    crect(port, x0, y0 + 2, x1, y0 + 2 +
-          FLAIR_CHROME_SCROLL_WELL_FILL_ROWS, FLAIR_PART_PLAT_WELL);
-    cfill(port, x0, y1 - 2, x1 - x0, FLAIR_PART_PLAT_TILE_SHADOW);
-    cfill(port, x0, y1 - 1, x1 - x0, FLAIR_PART_PLAT_FRAME_FACE);
-    for (int y = y0; y < y1; y++) {
-        cfill(port, x0, y, 1, FLAIR_PART_PLAT_STRIPE_DARK);
-        if (x0 + 1 < x1) {
-            cfill(port, x0 + 1, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
-        }
+    sb_rect(port, skin, axis, a0, a1, c0, c0 + 1, FLAIR_PART_PLAT_STRIPE_DARK);
+    sb_rect(port, skin, axis, a0, a1, c0 + 1, c0 + 2, FLAIR_PART_PLAT_WIDGET_EDGE);
+    sb_rect(port, skin, axis, a0, a1, c0 + 2,
+            c0 + 2 + FLAIR_CHROME_SCROLL_WELL_FILL_ROWS, FLAIR_PART_PLAT_WELL);
+    sb_rect(port, skin, axis, a0, a1, c1 - 2, c1 - 1, FLAIR_PART_PLAT_TILE_SHADOW);
+    sb_rect(port, skin, axis, a0, a1, c1 - 1, c1, FLAIR_PART_PLAT_FRAME_FACE);
+    sb_rect(port, skin, axis, a0, a0 + 1, c0, c1, FLAIR_PART_PLAT_STRIPE_DARK);
+    if (a0 + 1 < a1) {
+        sb_rect(port, skin, axis, a0 + 1, a0 + 2, c0, c1,
+                FLAIR_PART_PLAT_WIDGET_EDGE);
     }
 #endif
 }
@@ -718,135 +672,81 @@ static void draw_arrow_tile(GrafPort *port, const flair_skin_t *skin,
 }
 #endif
 
-static void draw_vertical_scrollbar(GrafPort *port, const flair_skin_t *skin,
-                                    int left, int top, int right, int bottom,
-                                    int active, const sb_draw_t *st)
+/* One gutter bar, axis-generic (size round 6, WL-0162): along [a0,a1),
+ * cross [c0,c1] INCLUSIVE (the V bar's right line / the H bar's bottom line).
+ * V: a = top..bottom, c = left..right; H: a = left..right, c = top..bottom.
+ * The arrow tiles keep their x/y bevel (light top+left) on both axes. */
+static void draw_scrollbar(GrafPort *port, const flair_skin_t *skin, int axis,
+                           int a0, int a1, int c0, int c1,
+                           int active, const sb_draw_t *st)
 {
 #if defined(CHROME_FID_MUT_SCROLL_FLAT)
     (void)active; (void)st;
-    crect(port, left, top, right + 1, bottom, FLAIR_PART_BTNFACE);
-    cframe(port, left, top, right + 1, bottom, FLAIR_PART_FRAME);
+    sb_rect(port, skin, axis, a0, a1, c0, c1 + 1, FLAIR_PART_BTNFACE);
+    if (axis == WSCROLL_V) cframe(port, c0, a0, c1 + 1, a1, FLAIR_PART_FRAME);
+    else                   cframe(port, a0, c0, a1, c1 + 1, FLAIR_PART_FRAME);
     return;
 #else
     int frame_part = active ? FLAIR_PART_FRAME
                             : FLAIR_PART_PLAT_INACTIVE_FRAME;
-    crect(port, left + 1, top + 1, right, bottom - 1,
-          FLAIR_PART_PLAT_TROUGH);
-    for (int y = top; y < bottom; y++) {
-        cfill(port, left, y, 1, frame_part);
-        cfill(port, right, y, 1, frame_part);
-    }
-    cfill(port, left, top, right - left + 1, frame_part);
-    cfill(port, left, bottom - 1, right - left + 1, frame_part);
+    /* All interior rows, including the old well's final row when an
+     * enabled bar becomes disabled (tdnl.82). */
+    sb_rect(port, skin, axis, a0 + 1, a1 - 1, c0 + 1, c1, FLAIR_PART_PLAT_TROUGH);
+    sb_rect(port, skin, axis, a0, a1, c0, c0 + 1, frame_part);
+    sb_rect(port, skin, axis, a0, a1, c1, c1 + 1, frame_part);
+    sb_rect(port, skin, axis, a0, a0 + 1, c0, c1 + 1, frame_part);
+    sb_rect(port, skin, axis, a1 - 1, a1, c0, c1 + 1, frame_part);
 
-    if (active && bottom - top >= 2 * FLAIR_CHROME_SCROLL_ARROW_TILE) {
-        int top_sep = top + FLAIR_CHROME_SCROLL_ARROW_TILE - 1;
-        int bottom_sep = bottom - FLAIR_CHROME_SCROLL_ARROW_TILE;
-        int cx = left + FLAIR_CHROME_SCROLLBAR_W / 2;
+    if (active && a1 - a0 >= 2 * FLAIR_CHROME_SCROLL_ARROW_TILE) {
+        int s0 = a0 + FLAIR_CHROME_SCROLL_ARROW_TILE - 1;
+        int s1 = a1 - FLAIR_CHROME_SCROLL_ARROW_TILE;
+        int cc = c0 + FLAIR_CHROME_SCROLLBAR_W / 2;
         if (!st->enabled) {
             /* DISABLED (Sec 3): partition kept by #777777 separators, the
-             * arrows #A5A5A5, every bevel and the well dropped, no thumb. */
-            cfill(port, left + 1, top_sep, right - left - 1,
-                  FLAIR_PART_PLAT_INACTIVE_FRAME);
-            cfill(port, left + 1, bottom_sep, right - left - 1,
-                  FLAIR_PART_PLAT_INACTIVE_FRAME);
-            draw_up_triangle(port, skin, cx, top + 6,
-                             FLAIR_PART_PLAT_WIDGET_EDGE);
-            draw_down_triangle(port, skin, cx, bottom - 10,
-                               FLAIR_PART_PLAT_WIDGET_EDGE);
+             * arrows #A5A5A5, every bevel and the well dropped, no thumb
+             * (h-bar separators x=85/445 in the golden). */
+            sb_rect(port, skin, axis, s0, s0 + 1, c0 + 1, c1,
+                    FLAIR_PART_PLAT_INACTIVE_FRAME);
+            sb_rect(port, skin, axis, s1, s1 + 1, c0 + 1, c1,
+                    FLAIR_PART_PLAT_INACTIVE_FRAME);
+            sb_tri(port, skin, axis, a0 + 6, cc, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
+            sb_tri(port, skin, axis, a1 - 10, cc, 0, FLAIR_PART_PLAT_WIDGET_EDGE);
             return;
         }
         int sep_part = FLAIR_PART_FRAME;
 #if defined(SB_MUT_SEP_GRAY)
         sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
 #endif
-        int ty = st->thumb;
-        draw_vertical_scroll_well(port, skin, left + 1, top_sep + 1,
-                                  right, ty - 1);
-        draw_vertical_scroll_well(port, skin, left + 1,
-                                  ty + FLAIR_CHROME_SCROLL_THUMB_MIN + 1,
-                                  right, bottom_sep);
-        draw_sb_thumb(port, skin, WSCROLL_V, ty, left + 1);
-        draw_arrow_tile(port, skin, left + 1, top + 1, right, top_sep,
-                        st->hilite == WSCROLL_PART_UP);
-        draw_arrow_tile(port, skin, left + 1, bottom_sep + 1, right,
-                        bottom - 1, st->hilite == WSCROLL_PART_DOWN);
-        cfill(port, left + 1, top_sep, right - left - 1, sep_part);
-        cfill(port, left + 1, bottom_sep, right - left - 1, sep_part);
-        cfill(port, left + 1, ty - 1, right - left - 1, sep_part);
-        cfill(port, left + 1, ty + FLAIR_CHROME_SCROLL_THUMB_MIN,
-              right - left - 1, sep_part);
-        draw_up_triangle(port, skin, cx, top + 6, FLAIR_PART_FRAME);
-        draw_down_triangle(port, skin, cx, bottom - 10, FLAIR_PART_FRAME);
+        int t = st->thumb;
+        sb_well(port, skin, axis, s0 + 1, t - 1, c0 + 1, c1);
+        sb_well(port, skin, axis, t + FLAIR_CHROME_SCROLL_THUMB_MIN + 1, s1,
+                c0 + 1, c1);
+        draw_sb_thumb(port, skin, axis, t, c0 + 1);
+        if (axis == WSCROLL_V) {
+            draw_arrow_tile(port, skin, c0 + 1, a0 + 1, c1, s0,
+                            st->hilite == WSCROLL_PART_UP);
+            draw_arrow_tile(port, skin, c0 + 1, s1 + 1, c1, a1 - 1,
+                            st->hilite == WSCROLL_PART_DOWN);
+        } else {
+            draw_arrow_tile(port, skin, a0 + 1, c0 + 1, s0, c1,
+                            st->hilite == WSCROLL_PART_UP);
+            draw_arrow_tile(port, skin, s1 + 1, c0 + 1, a1 - 1, c1,
+                            st->hilite == WSCROLL_PART_DOWN);
+        }
+        sb_rect(port, skin, axis, s0, s0 + 1, c0 + 1, c1, sep_part);
+        sb_rect(port, skin, axis, s1, s1 + 1, c0 + 1, c1, sep_part);
+        sb_rect(port, skin, axis, t - 1, t, c0 + 1, c1, sep_part);
+        sb_rect(port, skin, axis, t + FLAIR_CHROME_SCROLL_THUMB_MIN,
+                t + FLAIR_CHROME_SCROLL_THUMB_MIN + 1, c0 + 1, c1, sep_part);
+        sb_tri(port, skin, axis, a0 + 6, cc, 1, FLAIR_PART_FRAME);
+        sb_tri(port, skin, axis, a1 - 10, cc, 0, FLAIR_PART_FRAME);
     }
 #endif
 }
-
-static void draw_horizontal_scrollbar(GrafPort *port, const flair_skin_t *skin,
-                                      int left, int top, int right, int bottom,
-                                      int active, const sb_draw_t *st)
-{
-#if defined(CHROME_FID_MUT_SCROLL_FLAT)
-    (void)active; (void)st;
-    crect(port, left, top, right, bottom + 1, FLAIR_PART_BTNFACE);
-    cframe(port, left, top, right, bottom + 1, FLAIR_PART_FRAME);
-    return;
-#else
-    int frame_part = active ? FLAIR_PART_FRAME
-                            : FLAIR_PART_PLAT_INACTIVE_FRAME;
-    /* All 14 interior rows, including the old well's final row when an
-     * enabled bar becomes disabled (tdnl.82). The frame is at bottom. */
-    crect(port, left + 1, top + 1, right - 1, bottom,
-          FLAIR_PART_PLAT_TROUGH);
-    cfill(port, left, top, right - left, frame_part);
-    cfill(port, left, bottom, right - left, frame_part);
-    for (int y = top; y <= bottom; y++) {
-        cfill(port, left, y, 1, frame_part);
-        cfill(port, right - 1, y, 1, frame_part);
-    }
-
-    if (active && right - left >= 2 * FLAIR_CHROME_SCROLL_ARROW_TILE) {
-        int left_sep = left + FLAIR_CHROME_SCROLL_ARROW_TILE - 1;
-        int right_sep = right - FLAIR_CHROME_SCROLL_ARROW_TILE;
-        int cy = top + FLAIR_CHROME_SCROLLBAR_W / 2;
-        if (!st->enabled) {
-            /* DISABLED (Sec 3; h-bar separators x=85/445 in the golden). */
-            for (int y = top + 1; y < bottom; y++) {
-                cfill(port, left_sep, y, 1, FLAIR_PART_PLAT_INACTIVE_FRAME);
-                cfill(port, right_sep, y, 1, FLAIR_PART_PLAT_INACTIVE_FRAME);
-            }
-            draw_left_triangle(port, skin, left + 6, cy,
-                               FLAIR_PART_PLAT_WIDGET_EDGE);
-            draw_right_triangle(port, skin, right - 10, cy,
-                                FLAIR_PART_PLAT_WIDGET_EDGE);
-            return;
-        }
-        int sep_part = FLAIR_PART_FRAME;
-#if defined(SB_MUT_SEP_GRAY)
-        sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
-#endif
-        int tx = st->thumb;
-        draw_horizontal_scroll_well(port, skin, left_sep + 1, top + 1,
-                                    tx - 1, bottom);
-        draw_horizontal_scroll_well(port, skin,
-                                    tx + FLAIR_CHROME_SCROLL_THUMB_MIN + 1,
-                                    top + 1, right_sep, bottom);
-        draw_sb_thumb(port, skin, WSCROLL_H, tx, top + 1);
-        draw_arrow_tile(port, skin, left + 1, top + 1, left_sep, bottom,
-                        st->hilite == WSCROLL_PART_UP);
-        draw_arrow_tile(port, skin, right_sep + 1, top + 1, right - 1, bottom,
-                        st->hilite == WSCROLL_PART_DOWN);
-        for (int y = top + 1; y < bottom; y++) {
-            cfill(port, left_sep, y, 1, sep_part);
-            cfill(port, right_sep, y, 1, sep_part);
-            cfill(port, tx - 1, y, 1, sep_part);
-            cfill(port, tx + FLAIR_CHROME_SCROLL_THUMB_MIN, y, 1, sep_part);
-        }
-        draw_left_triangle(port, skin, left + 6, cy, FLAIR_PART_FRAME);
-        draw_right_triangle(port, skin, right - 10, cy, FLAIR_PART_FRAME);
-    }
-#endif
-}
+#define draw_vertical_scrollbar(p, k, l, t, r, b, act, st) \
+    draw_scrollbar((p), (k), WSCROLL_V, (t), (b), (l), (r), (act), (st))
+#define draw_horizontal_scrollbar(p, k, l, t, r, b, act, st) \
+    draw_scrollbar((p), (k), WSCROLL_H, (l), (r), (t), (b), (act), (st))
 
 /* Active 18x18 grow cell and exact three-line grip transcription.
  * Ref: window-chrome.md Sec 5. Inactive is the flat Sec 6 face. */
