@@ -4,6 +4,7 @@
  * Physical translation belongs to the adapter; letter mapping to the kernel.
  * FAT metadata is streamed, so FAT16 never requires a whole FAT in memory. */
 #include "diskutil.h"
+#include "dos_messages.h"   /* DEC-13: the controlled catalogue, MSG_DOS_0004 */
 static const du_io *io;
 static uint8_t copybuf[32768];
 static unsigned u16(const uint8_t *p){return p[0]|((unsigned)p[1]<<8);}
@@ -227,7 +228,7 @@ static void swap_prompt(int compare,int target,unsigned letter){
  (void)io->get();
 }
 static int copy_run(const options *o,int compare){
- du_map m[2];for(unsigned i=0;i<2;i++){if(io->map(o->letter[i],m+i))return error("Invalid drive specification",4);if(!(m[i].flags&DU_REMOVABLE))return error("Specified drive does not exist,\r\nor is non-removable",4);}
+ du_map m[2];for(unsigned i=0;i<2;i++){if(io->map(o->letter[i],m+i))return error(MSG_DOS_0004,4);if(!(m[i].flags&DU_REMOVABLE))return error("Specified drive does not exist,\r\nor is non-removable",4);}
  int result=0;
  do{
   swap_prompt(compare,0,o->letter[0]);uint8_t b[512];if(sec(m,0,b,0))return error("FIRST diskette bad or incompatible",3);
@@ -255,6 +256,6 @@ static int copy_run(const options *o,int compare){
 }
 int diskutil_run(const du_io *ops,unsigned kind,const char *tail){io=ops;options o;if(options_parse(&o,kind,tail))return error("Invalid parameter",4);
  if(kind>=2)return copy_run(&o,kind==3);
- du_map m;if(io->map(o.letter[0],&m))return error("Invalid drive specification",4);
+ du_map m;if(io->map(o.letter[0],&m))return error(MSG_DOS_0004,4);
  return kind?sys_run(&m):format_run(&o,&m);
 }

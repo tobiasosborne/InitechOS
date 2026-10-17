@@ -74,7 +74,10 @@
 %% motto on the back cover) ------------------------------------------------------
 %% Wordmark top left; the motto; the address block bottom left; part number
 %% and print code bottom right; nothing else.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
+%% PM 2026-10-17: initech-forms.sty (lane/design, WL-0132) defines the house back cover
+%% (logo + banner + line band); the F-ATE binder keeps its own layout, so this
+%% is a redefinition for the InitechBase books only.
+\renewcommand\MakeBackCover{\thispagestyle{empty}%
   \AtPage{23}{14}{\Wordmark[30mm]}%
   \AtPage{23}{40}{\parbox[t]{120mm}{\IsThisGoodForTheCompany}}%
   \AtPage{23}{196}{\parbox[t]{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
