@@ -9586,7 +9586,7 @@ KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSO
 KERNEL_SECONDARY_SHELL_MAIN_OBJ := $(BUILD)/kmain_shell_secondary.o
 KERNEL_SECONDARY_SHELL_OBJS := $(filter-out $(KERNEL_SHELL_MAIN_OBJ),$(KERNEL_SHELL_OBJS)) $(KERNEL_SECONDARY_SHELL_MAIN_OBJ)
 $(KERNEL_SECONDARY_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR) -c $< -o $@
+	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -Ispec -I$(KERNEL_DIR),$@)
 $(BUILD)/kernel_shell_secondary.elf: $(KERNEL_SECONDARY_SHELL_OBJS) $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(KERNEL_SECONDARY_SHELL_OBJS)
 $(BUILD)/kernel_shell_secondary.bin: $(BUILD)/kernel_shell_secondary.elf
@@ -32198,7 +32198,6 @@ include harness/diff/fat_diff/dos_folder.mk
 RECORD_MARKER_empty_trash = FINDER-TRASH-EMPTIED purged=19 refused=0
 
 # Generic Bochs boot legs for FLAIR gate kernels (Rule 5; initech-cqej).
-include harness/bochs_legs.mk
 include harness/diff/fat_diff/batch2.mk
 # Kernel size round 3: section reachability + existing QEMU/FAT goldens.
 include harness/proptest/kernel_size.mk
@@ -32596,7 +32595,18 @@ endef
 $(foreach verb,$(SAMIR_DML_CASES),$(eval $(call samir-dml-gates,$(verb))))
 
 .PHONY: samir-dml-goldens
-samir-dml-goldens:
+# The real-dBASE mint goldens are COMMITTED under xbase_prog_diff/mint/ (only the
+# hashed files: transcripts, .PRG, .DBF/.NDX/.MEM outputs -- never the dBASE
+# binaries); the mint scripts write to build/samirdml/ and the PM promotes.
+# This rule copies the tree copies into build/ so a fresh build dir passes the
+# sha256 pins without re-running dosbox-x (PM 2026-10-17).
+SAMIR_MINT_TREE := $(DBF_DIFF_DIR)/xbase_prog_diff/mint
+SAMIR_MINT_FILES := $(shell find $(SAMIR_MINT_TREE) -type f 2>/dev/null)
+$(BUILD)/samirdml/.promoted: $(SAMIR_MINT_FILES) | $(BUILD)
+	@mkdir -p $(BUILD)/samirdml
+	@cp -rf $(SAMIR_MINT_TREE)/. $(BUILD)/samirdml/
+	@touch $@
+samir-dml-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(DBF_DIFF_DIR)/xbase_prog_diff/dml-goldens.sha256 || { printf 'RED: MINT required or changed: see docs/worklog/samirdml-mint.md\n'; exit 1; }
 	@printf '>>> samir-dml-goldens: green (16 real III+ ledger rows pinned)\n'
 $(addprefix test-samir-dml-, $(SAMIR_DML_CASES)): samir-dml-goldens
@@ -32643,7 +32653,7 @@ mint-samir-prog: $(TEST_DBASE_DIFF)
 	@sh $(DBF_DIFF_DIR)/prog_mint.sh $(abspath $(DBASE3_DECOMP))
 mint-samir-dml-extra: $(CLIENTS_DBF)
 	@sh $(DBF_DIFF_DIR)/dml_extra_mint.sh $(abspath $(DBASE3_DECOMP))
-samir-prog-goldens:
+samir-prog-goldens: $(BUILD)/samirdml/.promoted
 	@sha256sum --quiet -c $(PROG_DIFF_DIR)/prog-real.sha256
 	@echo '>>> samir-prog-goldens: green (PROG-01..07, EXTRA-01..13, PUBS-01 real III+ captures)'
 test-dbase-diff test-dbase-diff-mutant test-dbase-diff-mutants: samir-prog-goldens
@@ -32653,3 +32663,11 @@ include harness/diff/fat_diff/kernel_hygiene.mk
 include harness/diff/fat_diff/formatsys.mk
 
 include harness/diff/fat_diff/shell_files.mk
+
+# cqej: evaluate Bochs legs AFTER the lane image variables (CP_GATE_IMG,
+# VESA8_DIR, SAMIR_DML_CASES). The macro expands prerequisites at parse time.
+# Bochs 2.7 has no usable VBE LFB here: the 8bpp leg grades VGA13 + the
+# 640x480 guard ONLY. It cannot grade the desktop DAC/pitch presenter, which
+# is after that guard (os/milton/kmain.c flair_present / flair_desktop_run).
+# Ref: PRD Sec 8; docs/research/vesa8-ground-truth.md; bochs.h RFB limitation.
+include harness/bochs_legs.mk

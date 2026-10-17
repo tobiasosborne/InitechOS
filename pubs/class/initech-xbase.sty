@@ -74,12 +74,18 @@
 %% motto on the back cover) ------------------------------------------------------
 %% Wordmark top left; the motto; the address block bottom left; part number
 %% and print code bottom right; nothing else.
-\newcommand\MakeBackCover{\thispagestyle{empty}%
+%% PM 2026-10-17: initech-forms.sty (lane/design, WL-0132) owns \MakeBackCover (the
+%% house back cover: logo + banner + line band) and this package is loaded by the
+%% class for every book, so the F-ATE binder's own back cover has its own name;
+%% the InitechBase cover.tex files call \ATEBackCover. It carries the house
+%% line band (PK-05).
+\newcommand\ATEBackCover{\thispagestyle{empty}%
   \AtPage{23}{14}{\Wordmark[30mm]}%
   \AtPage{23}{40}{\parbox[t]{120mm}{\IsThisGoodForTheCompany}}%
   \AtPage{23}{196}{\parbox[t]{80mm}{\sffamily\fontsize{8}{10}\selectfont\InitechAddress}}%
   \im@hook{\put(\dimexpr154.8mm\relax,-\dimexpr212mm\relax){%
     \makebox[0pt][r]{\sffamily\fontsize{8}{10}\selectfont\im@partno\quad\im@printcode}}}%
+  \im@lineband
   \null\newpage}
 
 %% ---- the Quick Reference booklet (PK-11; annex Sec 11.1; class option

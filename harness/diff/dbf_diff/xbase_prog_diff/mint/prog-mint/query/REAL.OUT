@@ -1,0 +1,15 @@
+
+         1
+Record#  CODE   QTY OK
+      1  AAA    100 .T.
+      2  BBB    200 .F.
+      3  CCC    100 .T.
+      4  DDD    300 .T.
+
+         2
+.T.
+CCC
+ CODE   QTY OK
+ AAA    100 .T.
+ CCC    100 .T.
+
