@@ -12,6 +12,7 @@
 % Platinum window anatomy (apple-macintosh.md Sec 5.4).
 % GATES: test-window test-chrome test-flair-drag test-flair-grow test-flair-zoom-toggle test-flair-collapse test-flair-scroll test-flair-box-track test-flair-modal-block test-flair-alert-chrome test-dialog test-pubs-flair-screens
 \Gates{test-window, test-chrome, test-flair-drag, test-flair-grow,
+  test-flair-file-copy,
   test-flair-zoom-toggle, test-flair-collapse, test-flair-scroll,
   test-flair-box-track, test-flair-modal-block, test-flair-alert-chrome,
   test-dialog, test-pubs-flair-screens}
@@ -22,6 +23,8 @@
 \index{windows!kinds of}
 \SideHead{Document windows}Finder windows and the windows of most
 applications.  They have every part described below.
+Figure~\ref{fig:rootwin} shows a Finder window and Figure~\ref{fig:dtyped}
+an InitechText window.
 
 \SideHead{Accessory windows}The Calculator's window is smaller, with
 rounded corners, a dark title bar and only a close box.  It can be moved
@@ -31,16 +34,20 @@ by its title bar.
 FLAIR or an application shows when it needs your answer before it goes
 on.  An alert box has no title bar and cannot be moved.  While it is on the
 screen nothing else responds: click one of its buttons, or press a key
-that chooses one.
+that chooses one.  Figure~\ref{fig:emptyask} is an example.
 
 \SideHead{Dialog boxes}A box in which you give an application information,
 such as the name of a document (Chapter~\ref{ch:appsref}).  Like an alert, it must be
-answered before you go on.
+answered before you go on.  Figure~\ref{fig:textsaveas} is an example.
 
 \SideHead{Progress boxes}A box with a title bar and a progress bar, which
 an application shows while it works, such as InitechCalc's
 \texttt{FILE COPY} box.  It goes away by itself when the work is done; until
-then, clicks and keys are ignored.
+then, clicks and keys are ignored.  The bar fills from left to right as the
+work goes on.
+
+\FlairScreen[label=fig:progress]{progress}{A progress box: InitechCalc's
+FILE COPY box, half way}
 
 \FlairScreen[scale=4, label=fig:calcwin]{calcwin}{The Calculator's window}
 

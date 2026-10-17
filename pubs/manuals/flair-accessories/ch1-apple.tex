@@ -11,7 +11,7 @@
 % Chapter 8.
 % GATES: test-apple-menu test-flair-apple-menu test-flair-calcda test-pubs-flair-screens
 \Gates{test-apple-menu, test-flair-apple-menu, test-flair-calcda,
-  test-pubs-flair-screens}
+  test-flair-file-ops, test-pubs-flair-screens}
 \chapter{The Apple Menu}
 
 The Apple menu, at the left end of the upper menu bar, is available
@@ -57,3 +57,28 @@ no accessories, the line is left out too.
 Choosing an accessory opens it just as double-clicking its icon would.  An
 accessory is an application from the disk, so it does not open while
 another one is open: quit the other application first.
+
+\section{Removing and adding accessories}
+\index{accessories!removing}\index{accessories!adding}
+Because the menu follows the disk, you remove an accessory from the Apple
+menu by moving its program out of the \file{APPS} folder, and add it back
+by moving the program in again.  Nothing else needs to be changed.
+\begin{TaskSteps}
+\Step Open the \file{APPS} folder and scroll to the end of its window.
+\Step Drag \file{CALCULAT.EXE} onto the \texttt{INITECH} icon.
+\Result{The program moves to the top level of the data disk.}
+\Step Pull down the Apple menu.
+\Result{The Calculator is no longer listed, and the line below
+\menuitem{About This Computer...} has gone with it.}
+\end{TaskSteps}
+
+\FlairScreen[scale=4, label=fig:noacc]{a_noacc}{The Apple menu with no
+accessory installed}
+
+To add the Calculator again, drag \file{CALCULAT.EXE} from the
+\texttt{Drive A Files} window back onto the \file{APPS} folder.  Its
+command returns to the menu the next time you pull the menu down.
+
+The Apple menu lists only the accessories FLAIR knows about.  Moving
+another application into \file{APPS} does not add it to the menu; open it
+from its icon instead.

@@ -54,3 +54,16 @@ arrow keys & move the insertion point, a cell pointer or a list selection\\
 them\\
 \end{tabular}
 \end{center}
+
+\section{The character set}
+\index{character set}\index{ASCII}
+FLAIR applications store each character as one byte, using the ASCII
+codes in the table below.  The code is given in decimal and, after it, in
+hexadecimal.  A document written by InitechText ends each line with a
+carriage return, code 13 (\texttt{0D}).  The two characters marked with an
+asterisk are on the key reserved for InitechBase, and cannot be typed in a
+FLAIR application.
+
+\begin{center}\small
+\directlua{dofile(kpse.find_file("charset.lua") or "charset.lua")}
+\end{center}
