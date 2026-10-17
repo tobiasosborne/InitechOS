@@ -14676,6 +14676,9 @@ SHELL_DEPS := harness/proptest/expect_abort.h $(TEST_SHELL_SRC) $(SHELL_C) $(SHE
               os/flair/heap.h os/flair/text.h os/flair/event.h $(RENDER_SKEL_H) \
               $(REGION_ENGINE_H) spec/region_algebra.h spec/window_record.h spec/grafport.h \
               spec/imaging.h spec/chrome_metrics.h spec/assets/menu_canon.h spec/assets/apple_glyph.h spec/assets/palette.h
+# The Toolbox-hardening mutant macro (harness/toolbox_hardening.mk) names each suite's
+# _DEPS variable; the shell suite's are the SHELL_DEPS the $(TEST_SHELL) rule already uses.
+TEST_SHELL_DEPS := $(SHELL_DEPS)
 
 # Instantiate the LIVE flair_desktop MUTANT kernel/image rules (defined ~line
 # 8011) HERE, after SHELL_C / SHELL_H / SHELL_INC / REGION_ENGINE_H exist (the
