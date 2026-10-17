@@ -64,6 +64,11 @@
  *   P  an event aimed at a non-resident app is a fail-loud PANIC (Rule 2).
  *   T  the title run of a partly covered window writes NO pixel inside the
  *      window in front (chrome.c).                     MUTANT TITLE_UNCLIPPED
+ *   X  the INT 81h dispatcher itself (DEC-AC3-2's oracle line): the AX demux
+ *      is total over all 65536 codes, AX is EAX's low word, args come from
+ *      frame+68 under a poisoned frame, errors are negative in EAX, a stray
+ *      int 81h is NOTTENANT, the TENANT-GATE trace is exact.
+ *                              MUTANTS TBX_MUT_AX_FULL_EAX, TBX_MUT_ARG_OFFSET
  *
  * Ref: ADR-0013 Sec 3.3/3.4/7 (O-1); docs/design/GUI-remediation-ADR-
  *      reconciliation.md DEC-AC3-3/-4; spec/toolbox_gate.h Sec 2/3/5/6;
@@ -267,26 +272,40 @@ static struct tprog {
     FlairApp *head_in_entry;
     int      log_n_in_entry;
     int      entry_runs, proc_runs, stray_returned;
+    void   (*script)(void);       /* leg X: a scripted entry instead */
 } TP;
 
 static uint32_t g_base;           /* the current image's load_base           */
 static uint32_t g_psp;            /* the current block's PSP address         */
 static jmp_buf  g_unwind;
 
-static int32_t gate(uint32_t ax, uint32_t argc, const uint32_t *args)
+/* One `int 0x81`: the 68-byte int_frame_t image with EAX at +28, the cdecl
+ * args from +68 up, every OTHER dword (the rest of the frame and the stack
+ * above the args) filled with `poison`. Returns the EAX the dispatcher left. */
+static uint32_t gate_raw(uint32_t eax, uint32_t argc, const uint32_t *args,
+                         uint32_t poison)
 {
-    uint32_t frame[(TBX_GATE_ARG_OFFSET / 4u) + TBX_ARGC_MAX];
-    memset(frame, 0, sizeof frame);
-    frame[28u / 4u] = ax;                                  /* EAX at +28 */
+    uint32_t frame[(TBX_GATE_ARG_OFFSET / 4u) + TBX_ARGC_MAX + 2u];
+    for (uint32_t i = 0; i < sizeof frame / sizeof frame[0]; i++) frame[i] = poison;
+    frame[28u / 4u] = eax;                                 /* EAX at +28 */
     for (uint32_t i = 0; i < argc; i++)
         frame[TBX_GATE_ARG_OFFSET / 4u + i] = args[i];     /* cdecl at +68 */
     tbx_gate_dispatch((uint8_t *)frame);
-    return (int32_t)frame[28u / 4u];
+    return frame[28u / 4u];
+}
+
+static int32_t gate(uint32_t ax, uint32_t argc, const uint32_t *args)
+{
+    return (int32_t)gate_raw(ax, argc, args, 0u);
 }
 
 static void tenant_entry(void)
 {
     TP.entry_runs++;
+    if (TP.script != NULL) {
+        TP.script();
+        return;
+    }
     if (TP.do_register) {
         uint32_t a[1] = { g_base + IMG_REC };
         TP.reg_rc = gate(TBX_REGISTER, 1u, a);
@@ -839,6 +858,168 @@ static void leg_title(void)
     render_ctx_free(&b);
 }
 
+/* --- leg X: the INT 81h dispatcher itself (DEC-AC3-2's oracle line) ------
+ * docs/design/GUI-remediation-ADR-reconciliation.md DEC-AC3-2 *Oracle*: "host
+ * property suite over the gate dispatcher (AX demux, frame-relative arg reads,
+ * negative-error convention) + the TENANT-GATE trace". The callable-code list
+ * below is HAND-COPIED from spec/toolbox_gate.h Sec 3/9-16 and spec/
+ * cp_dialog.h (the rows marked V1..V4 plus the Sec 10-16 additions); the
+ * RESERVED / DISSOLVED rows (0x0002, 0x0010, 0x0021, 0x0032, 0x0051) are
+ * deliberately absent -- Sec 3: "Every other code ... returns TBX_ERR_BADCODE
+ * (the demux is total, never a silent no-op)". */
+static const uint16_t k_callable[] = {
+    0x0001u, 0x0020u, 0x0022u, 0x0023u, 0x0030u, 0x0031u, 0x0033u,
+    0x0050u, 0x0052u, 0x0070u,
+    0x0080u, 0x0081u, 0x0082u, 0x0083u, 0x0084u, 0x0085u, 0x0086u,
+    0x0090u, 0x0091u, 0x0092u, 0x0093u, 0x0094u, 0x0095u, 0x0096u,
+    0x00A0u, 0x00A1u, 0x00B0u, 0x00B1u,
+    0x00C0u, 0x00C1u, 0x00C2u, 0x00C3u
+};
+#define POISON 0xA5A5A5A5u
+
+static struct xres {
+    uint32_t notreg_eax;                 /* NEWWINDOW before REGISTER        */
+    uint32_t reserved_eax[5];            /* the five reserved/dissolved rows */
+    long     sweep_codes, sweep_bad;     /* every other 16-bit AX            */
+    uint32_t badtag_eax, outside_eax;    /* REGISTER refusals                */
+    uint32_t reg_hiword_eax;             /* REGISTER with EAX = 0xBEEF0001   */
+    uint32_t reg_again_eax;              /* a second REGISTER                */
+    uint32_t badarg_eax;                 /* NEWWINDOW above the menu bands   */
+    uint32_t win1_eax, win2_eax, win3_eax;
+    char     win1_line[128];
+    int      n_after_sweep, n_before_sweep;
+    FlairApp *head_after_sweep;
+} X;
+
+static int callable(uint32_t ax)
+{
+    for (size_t i = 0; i < sizeof k_callable / sizeof k_callable[0]; i++)
+        if (k_callable[i] == ax) return 1;
+    return 0;
+}
+
+/* The last TENANT-GATE line on the serial trace, into `out`. */
+static void last_gate_line(char *out, size_t cap)
+{
+    const char *p = NULL, *q = g_serial;
+    size_t k = 0;
+    while ((q = strstr(q, "TENANT-GATE ")) != NULL) { p = q; q++; }
+    out[0] = '\0';
+    if (p == NULL) return;
+    while (p[k] != '\0' && p[k] != '\n' && k + 2 < cap) { out[k] = p[k]; k++; }
+    out[k++] = '\n';
+    out[k] = '\0';
+}
+
+static void script_gate(void)
+{
+    const uint32_t win[5] = { T_L, T_T, T_R, T_B, 1u };
+    const uint32_t lowwin[5] = { T_L, 10u, T_R, T_B, 1u };
+    const uint16_t reserved[5] = { 0x0002u, 0x0010u, 0x0021u, 0x0032u, 0x0051u };
+    uint32_t rec = g_base + IMG_REC, a[1];
+
+    /* X4a: a window before registration. */
+    X.notreg_eax = gate_raw(TBX_NEWWINDOW, 5u, win, 0u);
+
+    /* X1a: the reserved / dissolved rows. */
+    for (int i = 0; i < 5; i++)
+        X.reserved_eax[i] = gate_raw(reserved[i], 0u, NULL, 0u);
+
+    /* X1b: EVERY other 16-bit AX, args poisoned -- the demux is total. */
+    X.n_before_sweep = g_n;
+    for (uint32_t ax = 0u; ax <= 0xFFFFu; ax++) {
+        if (callable(ax)) continue;
+        X.sweep_codes++;
+        if (gate_raw(ax, 0u, NULL, POISON) != (uint32_t)TBX_ERR_BADCODE) X.sweep_bad++;
+    }
+    X.n_after_sweep = g_n;
+    X.head_after_sweep = W.plist.head;
+    g_serial_n = 0; g_serial[0] = '\0';   /* the sweep's 65k lines are graded */
+
+    /* X4b: REGISTER refusals (record tag, record outside the image). */
+    put32(rec + FLAIR_TENANT_REC_TAG_OFF, 0x58585858u);
+    a[0] = rec;
+    X.badtag_eax = gate_raw(TBX_REGISTER, 1u, a, 0u);
+    put32(rec + FLAIR_TENANT_REC_TAG_OFF, FLAIR_TENANT_REC_TAG);
+    a[0] = g_base + IMG_LEN;                 /* one past the image */
+    X.outside_eax = gate_raw(TBX_REGISTER, 1u, a, 0u);
+
+    /* X2: AX is the LOW WORD of EAX -- garbage in the high word is ignored. */
+    a[0] = rec;
+    X.reg_hiword_eax = gate_raw(0xBEEF0000u | TBX_REGISTER, 1u, a, POISON);
+    X.reg_again_eax = gate_raw(TBX_REGISTER, 1u, a, 0u);
+
+    /* X4c / X3: a refused window, then two windows with the whole frame and
+     * the stack above the five args poisoned, then the cap. */
+    X.badarg_eax = gate_raw(TBX_NEWWINDOW, 5u, lowwin, 0u);
+    X.win1_eax = gate_raw(TBX_NEWWINDOW, 5u, win, POISON);
+    last_gate_line(X.win1_line, sizeof X.win1_line);
+    X.win2_eax = gate_raw(TBX_NEWWINDOW, 5u, win, POISON);
+    X.win3_eax = gate_raw(TBX_NEWWINDOW, 5u, win, POISON);
+}
+
+static void leg_gate(void)
+{
+    const uint32_t win[5] = { T_L, T_T, T_R, T_B, 1u };
+    uint32_t stray;
+    int wins_before;
+    FlairApp *t;
+
+    world_init();
+    memset(&X, 0, sizeof X);
+    TP.script = script_gate;
+    (void)launch();
+    t = tenant_app();
+
+    CHECK(X.notreg_eax == 0xFFFFFFFEu,
+          "leg(X4a): NEWWINDOW before REGISTER -> TBX_ERR_NOTREG, sign-extended "
+          "in EAX (0xFFFFFFFE)");
+    CHECK(X.reserved_eax[0] == 0xFFFFFFFFu && X.reserved_eax[1] == 0xFFFFFFFFu &&
+          X.reserved_eax[2] == 0xFFFFFFFFu && X.reserved_eax[3] == 0xFFFFFFFFu &&
+          X.reserved_eax[4] == 0xFFFFFFFFu,
+          "leg(X1a): the reserved / DISSOLVED rows 0x0002 0x0010 0x0021 0x0032 "
+          "0x0051 answer TBX_ERR_BADCODE");
+    CHECK(X.sweep_codes == 65536L - (long)(sizeof k_callable / sizeof k_callable[0]) &&
+          X.sweep_bad == 0,
+          "leg(X1b): EVERY 16-bit AX outside the spec's callable rows answers "
+          "TBX_ERR_BADCODE (the demux is total)");
+    CHECK(X.n_after_sweep == X.n_before_sweep && X.head_after_sweep == &W.finder,
+          "leg(X1c): ... and none of them delivered an event or touched the "
+          "process list");
+    CHECK(X.badtag_eax == 0xFFFFFFFAu && X.outside_eax == 0xFFFFFFFAu &&
+          serial_has("TENANT-REGISTER-BAD why=tag\n") &&
+          serial_has("TENANT-REGISTER-BAD why=rec-outside-image\n"),
+          "leg(X4b): a lying record is refused TBX_ERR_BADREC and reported "
+          "(TENANT-REGISTER-BAD why=tag / why=rec-outside-image)");
+    CHECK(X.reg_hiword_eax == 0u && t != NULL &&
+          serial_has("TENANT-GATE ax=0x0001 rec=+0x0000 -> 0\n"),
+          "leg(X2): AX is the LOW WORD of EAX -- REGISTER with EAX=0xBEEF0001 "
+          "registers (TENANT-GATE ax=0x0001 rec=+0x0000 -> 0)");
+    CHECK(X.reg_again_eax == 0xFFFFFFFCu,
+          "leg(X4c): a second REGISTER -> TBX_ERR_BUSY");
+    CHECK(X.badarg_eax == 0xFFFFFFFDu,
+          "leg(X4d): a window above the menu bands -> TBX_ERR_BADARG");
+    CHECK(X.win1_eax == 1u && X.win2_eax == 2u &&
+          strcmp(X.win1_line,
+                 "TENANT-GATE ax=0x0020 l=340 t=100 r=600 b=320 goaway=1 -> 1\n") == 0,
+          "leg(X3): with the frame and the stack above the args POISONED, NEWWINDOW "
+          "reads exactly its five args from frame+68 (TENANT-GATE ax=0x0020 l=340 "
+          "t=100 r=600 b=320 goaway=1 -> 1)");
+    CHECK(X.win3_eax == 0xFFFFFFFCu,
+          "leg(X4e): a third window past TBX_TENANT_WINDOWS -> TBX_ERR_BUSY");
+
+    /* X5: a stray int 81h from KERNEL context (no tenant code executing). */
+    wins_before = windows_in_zorder();
+    stray = gate_raw(TBX_NEWWINDOW, 5u, win, 0u);
+    CHECK(stray == 0xFFFFFFF9u && windows_in_zorder() == wins_before &&
+          serial_has("TENANT-GATE ax=0x0020 l=340 t=100 r=600 b=320 goaway=1 -> -7\n"),
+          "leg(X5): a stray int 81h with no tenant executing -> TBX_ERR_NOTTENANT, "
+          "nothing created, still traced");
+    service();
+    CHECK(t != NULL && W.plist.head == t,
+          "leg(X6): the scripted tenant is affirmed like any other once it returns");
+}
+
 int main(void)
 {
     FlairApp *t;
@@ -857,5 +1038,6 @@ int main(void)
     leg_noreg();
     leg_panic();
     leg_title();
+    leg_gate();
     return TEST_SUMMARY("test-flair-routing");
 }

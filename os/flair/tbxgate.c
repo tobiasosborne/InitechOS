@@ -44,6 +44,9 @@
  *   TBX_MUT_DRAW_NOT_PRESENTED  tbx_take_drew never reports a draw (the
  *                          pre-initech-8zii pump: a tenant's keyDown /
  *                          mouseDown drawing is not presented)
+ *   TBX_MUT_AX_FULL_EAX    the AX demux keys on all of EAX (test-flair-
+ *                          routing leg X2: EAX=0xBEEF0001 is not REGISTER)
+ *   TBX_MUT_ARG_OFFSET     the cdecl args are read one dword low (leg X3)
  *   (+ the two tbxmenu.h knobs, TBX_MUT_MENU_KEY_PLAIN / _ANY_BAR, which a
  *    -D on this TU reaches through the header)
  *
@@ -1063,7 +1066,14 @@ static void trace_int(const char *key, uint32_t v)
 void tbx_gate_dispatch(uint8_t *frame)
 {
     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
-    uint32_t ax = *eax_slot & 0xFFFFu;
+#ifndef TBX_MUT_AX_FULL_EAX
+    uint32_t ax = *eax_slot & 0xFFFFu;          /* the code is AX (DEC-AC3-2) */
+#else
+    /* MUTANT TBX_MUT_AX_FULL_EAX (Rule 6; test-flair-routing-mutant leg X2):
+     * the demux keys on all of EAX, so a tenant whose high word is not zero
+     * hits BADCODE. NEVER in a real build. */
+    uint32_t ax = *eax_slot;
+#endif
     uint32_t a[TBX_ARGC_MAX] = { 0 };
     uint32_t argc = 0u;
     int32_t rc;
@@ -1100,9 +1110,18 @@ void tbx_gate_dispatch(uint8_t *frame)
     case TBX_MEMORY: argc=1; break;
     default:            argc = 0u;                 break;
     }
+#ifndef TBX_MUT_ARG_OFFSET
     for (uint32_t i = 0; i < argc; i++)
         a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET +
                                                     4u * i);
+#else
+    /* MUTANT TBX_MUT_ARG_OFFSET (Rule 6; test-flair-routing-mutant leg X3):
+     * arg 0 is read one dword low -- the last int_frame_t slot, not the
+     * interrupted ESP (spec/toolbox_gate.h Sec 2). NEVER in a real build. */
+    for (uint32_t i = 0; i < argc; i++)
+        a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET -
+                                                    4u + 4u * i);
+#endif
 
     if (!g_slot.in_call || g_slot.block == 0) {
         rc = TBX_ERR_NOTTENANT;           /* a stray int 81h from the kernel */

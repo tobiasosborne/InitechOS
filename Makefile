@@ -14149,13 +14149,19 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 # to-activate routing; G slot busy; D EXIT inside a handler; E a fault inside
 # the eventProc; H no REGISTER; P the fail-loud wrong-app guard; T the title
 # run of a partly covered window writes no pixel in front (chrome.c, the real
-# chrome drawer over the render skeleton). -no-pie: tbxgate.c holds tenant
-# addresses as flat-32 uint32_t; scene check S0 proves they fit. Two artifact
-# mutants (Rule 6), each RED for its named reason:
+# chrome drawer over the render skeleton); X the INT 81h dispatcher itself --
+# DEC-AC3-2's "host property suite over the gate dispatcher": every 16-bit AX
+# outside the spec's callable rows is BADCODE, AX is EAX's low word, args are
+# read from frame+68 under a poisoned frame, errors are negative in EAX, a
+# stray int 81h is NOTTENANT, the TENANT-GATE trace is exact. -no-pie:
+# tbxgate.c holds tenant addresses as flat-32 uint32_t; scene check S0 proves
+# they fit. Four artifact mutants (Rule 6), each RED for its named reason:
 #   PROC_MUT_ADMIT_IS_FOREGROUND  process.c links a windowless REGISTER at the
 #                                 head (the pre-tdnl.14 registration)
 #   CHROME_MUT_TITLE_UNCLIPPED    chrome.c draws the title run with text_draw
 #                                 (the pre-tdnl.14 unclipped run)
+#   TBX_MUT_AX_FULL_EAX           tbxgate.c demuxes on all of EAX
+#   TBX_MUT_ARG_OFFSET            tbxgate.c reads the cdecl args one dword low
 # ---------------------------------------------------------------------------
 TEST_FLAIR_ROUTING     := $(BUILD)/test_flair_routing
 TEST_FLAIR_ROUTING_SRC := harness/proptest/test_flair_routing.c
@@ -14177,18 +14183,22 @@ $(BUILD)/test_flair_routing_mutant_%: $(FLAIR_ROUTING_DEPS) | $(BUILD)
 
 .PHONY: test-flair-routing test-flair-routing-mutant
 test-flair-routing: $(TEST_FLAIR_ROUTING)
-	@printf ">>> test-flair-routing: the R3.7 host routing suite over disk_tenant_event + the clipped title run (initech-2svz)\n"
+	@printf ">>> test-flair-routing: the R3.7 host routing suite over disk_tenant_event + the clipped title run + the INT 81h dispatcher (initech-2svz)\n"
 	@$(TEST_FLAIR_ROUTING)
 	@printf ">>> test-flair-routing: green\n"
 
-test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_FOREGROUND $(BUILD)/test_flair_routing_mutant_CHROME_MUT_TITLE_UNCLIPPED
-	@for pair in 'PROC_MUT_ADMIT_IS_FOREGROUND:leg(A1): a tenant that REGISTERs without a window does NOT become the foreground' 'CHROME_MUT_TITLE_UNCLIPPED:leg(T1): the covered title run writes NO pixel inside the front window'; do \
+test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_FOREGROUND $(BUILD)/test_flair_routing_mutant_CHROME_MUT_TITLE_UNCLIPPED \
+                           $(BUILD)/test_flair_routing_mutant_TBX_MUT_AX_FULL_EAX $(BUILD)/test_flair_routing_mutant_TBX_MUT_ARG_OFFSET
+	@for pair in 'PROC_MUT_ADMIT_IS_FOREGROUND:leg(A1): a tenant that REGISTERs without a window does NOT become the foreground' \
+	             'CHROME_MUT_TITLE_UNCLIPPED:leg(T1): the covered title run writes NO pixel inside the front window' \
+	             'TBX_MUT_AX_FULL_EAX:leg(X2): AX is the LOW WORD of EAX' \
+	             'TBX_MUT_ARG_OFFSET:leg(X3): with the frame and the stack above the args POISONED'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_flair_routing_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-flair-routing-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		line=$$(grep -F "$$why" $$bin.log | grep FAIL) || { printf '!!! test-flair-routing-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-flair-routing-mutant: %s correctly RED:\n    %s\n' "$$m" "$$line"; \
 	done
-	@printf '>>> test-flair-routing-mutant: green (both mutants RED for the named reason)\n'
+	@printf '>>> test-flair-routing-mutant: green (all four mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
@@ -31387,7 +31397,9 @@ endef
 # M009 cursor twin (PM 2026-10-17): the hand-written rule named the pre-LTO object list
 # and lost kernel_main after size round 3 part 2; the macro owns the link now.
 $(eval $(call flair-tenants-objswap-mutant-rules,$(KERNEL_CURSOR_OBJ),$(BUILD)/cursor_mut_squared_stem.o,cursor_squared))
-$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h | $(BUILD)
+# text.c includes the GENERATED chicago_packed_data.h: name it, as $(KERNEL_TEXT_OBJ)
+# does, or a fresh tree's parallel headroom build races it (lane-routing, 2026-10-17).
+$(BUILD)/text_mut_%.o: os/flair/text.c $(FLAIR_FONT_HDRS) os/flair/surface.h os/flair/chicago_packed.h $(CHICAGO_PACK_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(TEXT_INC) -D$* -c os/flair/text.c -o $@
 $(BUILD)/chrome_mut_trunc_period.o: os/flair/chrome.c os/flair/chrome.h os/flair/winscroll.h $(FLAIR_FONT_HDRS) $(FLAIRLOOK_H) spec/chrome_metrics.h spec/grafport.h spec/imaging.h spec/region_algebra.h spec/assets/palette.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_CHROME_OPT) $(CHROME_INC) -DCHROME_MUT_TRUNC_PERIOD -c $(CHROME_DRAWER_C) -o $@
