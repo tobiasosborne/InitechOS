@@ -15,7 +15,8 @@
  * that need the work-area cursor (unlike the pure fns in fn-a/-b/-c). The
  * coupling is decoupled: fn_builtins.c calls ONLY ctx->dbcur->recno(...) etc.;
  * it has NO undefined workarea symbol. With NO work area (ctx->dbcur == NULL)
- * each DB function fails loud with XBEE_NO_DATABASE (#52). That NULL path is
+ * each cursor function fails loud with XBEE_NO_DATABASE (#52). FILE is an
+ * environment query; its bare-PAL/no-USE oracle is test_samir_core.c. The NULL path is
  * exercised below with a bare (non-interpreter) ctx.
  *
  * GROUND TRUTH (Law 1):
@@ -153,6 +154,7 @@ static int bare_eval(const char *s, xb_val *out, int *err)
     xb_ctx   ctx;
     int lerr = 0, perr = 0, nt, root;
 
+    memset(&ctx, 0, sizeof(ctx));
     nt = xb_lex(s, (uint32_t)strlen(s), toks, 128u, &lerr);
     if (nt < 0) { *err = -1000; *out = xb_u(); return -1000; }
     root = xb_parse(toks, (uint32_t)nt, pool, 128u, &perr);
@@ -181,7 +183,7 @@ static void test_no_workarea(void)
 {
     const char *fns[] = {
         "RECNO()", "RECCOUNT()", "EOF()", "BOF()", "FOUND()",
-        "DELETED()", "FIELD(1)", "DBF()", "FILE('X.DBF')"
+        "DELETED()", "FIELD(1)", "DBF()"
     };
     size_t i;
     for (i = 0; i < sizeof(fns) / sizeof(fns[0]); i++) {

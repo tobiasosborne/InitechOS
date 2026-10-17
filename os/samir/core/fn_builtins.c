@@ -70,6 +70,7 @@
 #include <stdint.h>
 
 #include "samir/eval.h"
+#include "samir/pal.h"
 #include "samir/value.h"
 #include "samir/rt.h"
 
@@ -2066,15 +2067,26 @@ static int fn_file(xb_ctx *ctx, const xb_val *args, int nargs,
 
     if (nargs != 1)        return fn_fail(err, XBEE_INVALID_ARG);
     if (!is_char(&args[0])) return fn_fail(err, XBEE_MISMATCH);
+    /* FILE is an environment query, not a cursor operation. Using III+
+     * U6-33; ADR-0008 DEC-02 (initech-52ph/u5mw). */
+#ifdef SAMIR_CORE_MUTATE_FILE_NEEDS_USE
     if (!need_dbcur(ctx, err)) return *err;
-
+#endif
     len = args[0].u.c.len;
     nm  = fn_scratch(ctx, (uint32_t)len + 1u);
     if (nm == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
     for (i = 0; i < len; i++) nm[i] = args[0].u.c.p[i];
     nm[len] = '\0';
 
-    exists = ctx->dbcur->file_exists(ctx->dbcur_user, nm);
+    if (ctx->dbcur && ctx->dbcur->file_exists) {
+        exists = ctx->dbcur->file_exists(ctx->dbcur_user, nm);
+    } else if (ctx->file_pal) {
+        pal_fd fd = ctx->file_pal->open(ctx->file_pal, nm, PAL_RD);
+        exists = fd >= 0;
+        if (exists) (void)ctx->file_pal->close(ctx->file_pal, fd);
+    } else {
+        return fn_fail(err, XBEE_INVALID_ARG); /* missing environment binding */
+    }
     *out = xb_l(exists ? 1 : 0);
     *err = XBEE_OK;
     return 0;

@@ -305,10 +305,70 @@ static int memvar_find_n(flow_state *fs, const char *name, uint32_t len)
  * into the memvar arena (so the memvar outlives the eval scratch). Returns
  * INTERP_OK or a negative interp_err.
  */
+/* Retain hidden PRIVATE ancestors as well as visible variables. Ref:
+ * memory-variables.md ss3.3, Using III+ U1-2 (current value + overhead,
+ * not cumulative STORE history). initech-frei. */
+static int memvar_retained(const flow_state *fs, int slot)
+{
+    int i;
+    if (fs->vars[slot].live) return 1;
+    for (i = 0; i < fs->nvars; i++) {
+        int at = i, depth = 0;
+        if (!fs->vars[i].live) continue;
+        while (at >= 0 && at < fs->nvars && depth++ < FLOW_MAX_MEMVARS) {
+            at = fs->vars[at].shadows;
+            if (at == slot) return 1;
+        }
+    }
+    return 0;
+}
+
+#ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
+{
+    int i;
+    uint32_t used = 0u;
+    /* Bounded scratch on the 64 KiB program stack (memory_map.h); no second
+     * resident arena in the .COM's 64 KiB BSS reserve (samir.ld). */
+    char compact[FLOW_MEMVAR_ARENA];
+    /* Preflight before moving anything: exhaustion leaves every value intact. */
+    for (i = 0; i < fs->nvars; i++) {
+        const xb_val *v = &fs->vars[i].val;
+        if (i != slot && memvar_retained(fs, i) && (v->t == XB_C || v->t == XB_M))
+            used += v->u.c.len;
+    }
+    if (value->t == XB_C || value->t == XB_M) used += value->u.c.len;
+    if (used > fs->arena_cap) return -INTERP_ERR_NOMEM;
+    used = 0u;
+    for (i = 0; i < fs->nvars; i++) {
+        xb_val *v = &fs->vars[i].val;
+        if (i != slot && memvar_retained(fs, i) && (v->t == XB_C || v->t == XB_M)) {
+            if (v->u.c.len) rt_memcpy(compact + used, v->u.c.p, v->u.c.len);
+            v->u.c.p = fs->arena + used;
+            used += v->u.c.len;
+        }
+    }
+    /* value may alias ANY old variable, including the replaced one. The
+     * old arena stays untouched until all copies, including this one, finish. */
+    if (value->t == XB_C || value->t == XB_M) {
+        if (value->u.c.len) rt_memcpy(compact + used, value->u.c.p, value->u.c.len);
+        value->u.c.p = fs->arena + used;
+        used += value->u.c.len;
+    }
+    rt_memcpy(fs->arena, compact, used);
+    fs->arena_used = used;
+    return INTERP_OK;
+}
+#endif
+
 static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
 {
     int slot, i;
     uint32_t nlen;
+    xb_val value = *v;
+#ifdef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+    (void)value;
+#endif
 
     /* validate the name length (dBASE memvar names are <= 10 chars). */
     for (nlen = 0; name[nlen] != '\0'; nlen++) { }
@@ -335,13 +395,17 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
     if (slot < 0) {
         /* reuse a released slot if any, else extend. */
         for (i = 0; i < fs->nvars; i++) {
-            if (!fs->vars[i].live) { slot = i; break; }
+            if (!memvar_retained(fs, i)) { slot = i; break; }
         }
         if (slot < 0) {
             if (fs->nvars >= FLOW_MAX_MEMVARS)
                 return -INTERP_ERR_DEPTH;
             slot = fs->nvars++;
         }
+#ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+        if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
+            return -INTERP_ERR_NOMEM;
+#endif
         /* copy the (upper-cased) name into the slot. */
         for (i = 0; (uint32_t)i < nlen; i++)
             fs->vars[slot].name[i] = fl_up1(name[i]);
@@ -354,9 +418,15 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         fs->vars[slot].level     = fs->cur_level;
         fs->vars[slot].is_public = 0;
         fs->vars[slot].shadows   = -1;
+    } else {
+#ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+        if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
+            return -INTERP_ERR_NOMEM;
+#endif
     }
 
     /* copy the value; for C/M, copy the bytes into the memvar arena. */
+#ifdef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
     if (v->t == XB_C || v->t == XB_M) {
         uint16_t len = v->u.c.len;
         char *dst;
@@ -372,6 +442,9 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
     } else {
         fs->vars[slot].val = *v;
     }
+#else
+    fs->vars[slot].val = value;
+#endif
     return INTERP_OK;
 }
 
@@ -1464,7 +1537,7 @@ int xb_interp_declare_public(xb_interp *ip, const char *name)
     /* allocate a slot (reuse a released one, else extend). */
     slot = -1;
     for (i = 0; i < fs->nvars; i++) {
-        if (!fs->vars[i].live) { slot = i; break; }
+        if (!memvar_retained(fs, i)) { slot = i; break; }
     }
     if (slot < 0) {
         if (fs->nvars >= FLOW_MAX_MEMVARS)
@@ -1499,21 +1572,21 @@ int xb_interp_declare_private(xb_interp *ip, const char *name)
     /* HIDE any currently-visible same-named var (caller's or PUBLIC) by clearing
      * its live flag; it is restored on scope_leave. */
     hidden = memvar_find(fs, name);
-    if (hidden >= 0)
-        fs->vars[hidden].live = 0;
 
     /* allocate the fresh level-current PRIVATE var. */
     slot = -1;
     for (i = 0; i < fs->nvars; i++) {
-        if (!fs->vars[i].live && i != hidden) { slot = i; break; }
+        if (!memvar_retained(fs, i) && i != hidden) { slot = i; break; }
     }
     if (slot < 0) {
         if (fs->nvars >= FLOW_MAX_MEMVARS) {
-            if (hidden >= 0) fs->vars[hidden].live = 1;  /* roll back the hide */
             return -INTERP_ERR_DEPTH;
         }
         slot = fs->nvars++;
     }
+    /* Reserve the slot before hiding: its live chain protects ALL hidden
+     * ancestors from reuse, including a second PRIVATE of the same name. */
+    if (hidden >= 0) fs->vars[hidden].live = 0;
     for (i = 0; (uint32_t)i < nlen; i++)
         fs->vars[slot].name[i] = fl_up1(name[i]);
     fs->vars[slot].name[nlen] = '\0';
