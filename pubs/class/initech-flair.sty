@@ -129,6 +129,51 @@ end
     {\imCaptionFont\textbf{Figure~\thefigure}\enspace #3\par}
   \end{minipage}\par\addvspace{6pt}}
 
+%% ---- annotated screens (NT-24 F-MAC callouts) --------------------------
+%% \FlairCallouts[key]{name}{caption}{callouts}: the capture at 3 x 3
+%% in the text column, its parts named by labels in the side column, each
+%% joined to its place in the picture by a 0.3 pt leader (NT-24: leader
+%% lines to labels in the side column, F-MAC; the What's New in System 7
+%% margin callouts, apple-macintosh.md Sec 5.3).  callouts is a run of
+%% \co{x}{y}{ly}{label}: x, y the point in screen pixels of the crop (from
+%% its top left), ly the screen-pixel row of the label's baseline; \cor
+%% sets the label to the right of the picture instead.  The
+%% capture is registered exactly as \FlairScreen registers it.
+\RequirePackage{pict2e}
+\newcount\im@cow \newcount\im@coh
+%% One callout; picture units are screen pixels at 3 x 3 (0.127 mm), y up.
+\newcommand\im@flaircallouts@co[4]{%
+  \put(-31.5,\numexpr\im@coh-#3\relax){\makebox(0,0)[r]{\imCaptionFont #4}}%
+  \put(-25,\numexpr\im@coh-#3+5\relax){\circle*{4}}%
+  \Line(-25,\numexpr\im@coh-#3+5\relax)(#1,\numexpr\im@coh-#2\relax)%
+  \put(#1,\numexpr\im@coh-#2\relax){\circle*{5}}}
+%% The same with the label to the RIGHT of the picture, in the free part of
+%% the text column (a picture narrower than the column).
+\newcommand\im@flaircallouts@cor[4]{%
+  \put(\numexpr\im@cow+31\relax,\numexpr\im@coh-#3\relax){\makebox(0,0)[l]{\imCaptionFont #4}}%
+  \put(\numexpr\im@cow+25\relax,\numexpr\im@coh-#3+5\relax){\circle*{4}}%
+  \Line(\numexpr\im@cow+25\relax,\numexpr\im@coh-#3+5\relax)(#1,\numexpr\im@coh-#2\relax)%
+  \put(#1,\numexpr\im@coh-#2\relax){\circle*{5}}}
+\NewDocumentCommand\FlairCallouts{O{} m m +m}{%
+  \begingroup
+  \immediate\write\im@flairscreens{screens/#2.grey}%
+  \directlua{local w, h = initech_flair.size("screens/#2.grey")
+    tex.setcount("im@cow", w) tex.setcount("im@coh", h)}%
+  \setlength\unitlength{0.127mm}%
+  \linethickness{0.3pt}%
+  \par\addvspace{6pt}\noindent
+  \begin{minipage}[t]{\linewidth}
+    \vspace{0pt}%
+    \begin{picture}(\im@cow,\im@coh)
+      \put(0,0){\includegraphics[width=\im@cow\unitlength]{flair/\im@flairbook/#2.png}}%
+      \let\co\im@flaircallouts@co \let\cor\im@flaircallouts@cor #4%
+    \end{picture}\par\vspace{3pt}%
+    \refstepcounter{figure}%
+    \ifx\relax#1\relax\else\label{#1}\fi
+    {\imCaptionFont\textbf{Figure~\thefigure}\enspace #3\par}%
+  \end{minipage}\par\addvspace{6pt}%
+  \endgroup}
+
 %% ---- back cover (PK-05) --------------------------------------------------
 %% Wordmark top left; the slogan (operator directive 2026-10-17: the back
 %% cover is one of its places); the address block bottom left (D-12); part
