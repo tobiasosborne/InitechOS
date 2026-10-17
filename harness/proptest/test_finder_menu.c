@@ -345,15 +345,19 @@ typedef struct want_state {
  * RE-KEY (bead initech-6k12, stated): Empty Trash is IMPLEMENTED now, so it
  * is graded LIT exactly in the rows with tr=1 and dark in every tr=0 row --
  * the F4.4 TRASH_NONEMPTY truth table this table carried before tdnl.36. */
+/* RE-KEY (bead initech-p6st, stated): Get Info and Duplicate are IMPLEMENTED
+ * (finder_windows.c fw_do_get_info / fw_do_duplicate; test-finder-dupinfo),
+ * so they are graded LIT exactly in the rows with sel > 0 -- the F4.4
+ * HAS_SELECTION truth table -- and dark in every sel = 0 row. */
 static const want_state_t WANT_STATES[] = {
     /* sel tr fr    Open Close Info Dupl Trash              openable */
     {  0,  0, 0,     0,   0,    0,   0,   0, "C boot: nothing selected, desktop front, Trash empty", 0 },
-    {  1,  0, 0,     0,   0,    0,   0,   0, "C one icon selected on the desktop (not openable)", 0 },
+    {  1,  0, 0,     0,   0,    1,   1,   0, "C one icon selected on the desktop (not openable): Get Info / Duplicate light", 0 },
     {  0,  0, 1,     0,   1,    0,   0,   0, "C a disk window front, nothing selected", 0 },
-    {  3,  0, 1,     0,   1,    0,   0,   0, "C a disk window front WITH a DOCUMENT selection: Open stays dark", 0 },
-    {  3,  0, 1,     1,   1,    0,   0,   0, "C a disk window front WITH a FOLDER selected: Open lights", 1 },
+    {  3,  0, 1,     0,   1,    1,   1,   0, "C a disk window front WITH a DOCUMENT selection: Open stays dark; Get Info / Duplicate light", 0 },
+    {  3,  0, 1,     1,   1,    1,   1,   0, "C a disk window front WITH a FOLDER selected: Open lights", 1 },
     {  0,  1, 0,     0,   0,    0,   0,   1, "C Trash non-empty lights the IMPLEMENTED Empty Trash (6k12)", 0 },
-    {  2,  1, 1,     1,   1,    0,   0,   1, "C everything live: Empty Trash lit; still no Get Info / Duplicate", 1 }
+    {  2,  1, 1,     1,   1,    1,   1,   1, "C everything live: Empty Trash, Get Info, Duplicate lit", 1 }
 };
 
 /* The rows refresh must NEVER touch, with their authored bytes. */
@@ -369,8 +373,8 @@ static const want_fixed_t WANT_FIXED[] = {
     { FINDER_MENU_IX_EDIT,     5, 1, "Select All" },
     { FINDER_MENU_IX_EDIT,     9, 0, "Preferences" },
     { FINDER_MENU_IX_VIEW,     5, 0, "by Label" },
-    { FINDER_MENU_IX_FILE,     5, 0, "Get Info" },
-    { FINDER_MENU_IX_FILE,     6, 0, "Duplicate" },
+    /* Get Info / Duplicate left this list with bead initech-p6st: they are
+     * predicate rows now (WANT_STATES grades them). */
     { FINDER_MENU_IX_SPECIAL,  3, 0, "Erase Disk" },
     { FINDER_MENU_IX_SPECIAL,  5, 1, "Restart" },      /* tdnl.78: live */
     { FINDER_MENU_IX_SPECIAL,  6, 1, "Shut Down" },    /* tdnl.78: live */
@@ -470,9 +474,11 @@ static void leg_menukey(void)
         /* predicate-driven rows: dark at rest, live when the state says so */
         { 'O', 0u, MenuResult(512, 2), "D Cmd-O Open needs a selected folder" },
         { 'W', 0u, MenuResult(512, 4), "D Cmd-W Close Window needs a disk window front" },
-        /* RE-KEY (bead initech-tdnl.36): unimplemented -> never routes. */
-        { 'I', 0u, 0u, "D Cmd-I Get Info is grayed until initech-p6st -- never routes" },
-        { 'D', 0u, 0u, "D Cmd-D Duplicate is grayed until initech-tdnl.16 -- never routes" },
+        /* RE-KEY (bead initech-tdnl.36): unimplemented -> never routes.
+         * RE-KEY (bead initech-p6st, stated): implemented -> routes with a
+         * selection (HAS_SELECTION), dark at rest. */
+        { 'I', 0u, MenuResult(512, 6), "D Cmd-I Get Info needs a selection (p6st)" },
+        { 'D', 0u, MenuResult(512, 7), "D Cmd-D Duplicate needs a selection (p6st)" },
         /* permanently-inert V1 decoration: NEVER routes, in any state */
         { 'Y', 0u, 0u, "D Cmd-Y Put Away is grayed in V1 (F4.2) -- never routes" },
         { 'F', 0u, 0u, "D Cmd-F Find is inert V1 decoration" },

@@ -198,6 +198,51 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
 /* "samedir" | "cycle" | "exists" | "err" for a refusal status. */
 const char *finder_ops_reason(finder_win_status_t st);
 
+/* ---------------------------------------------------------------------------
+ * R3.4c (bead initech-p6st): DUPLICATE (File > Duplicate, Cmd-D) -- design
+ * F3.1 "compose: find_slot_in -> chunked read_partial/write_partial copy into
+ * create at the same parent" and F3.4 (the LOCKED naming convention).
+ *
+ * THE NAME (F3.4, a DEFINED convention, Rule 8 -- explicitly NOT a period
+ * claim; the Mac OS 8.1 Finder writes "Document copy", which cannot fit 8.3:
+ * ../system7-decomp/goldens/captures/s8_duplicate_doc.png):
+ *     dup_name83(base, ext) = trunc5(base) || "DUP" || "." || ext
+ *   README.TXT -> READMDUP.TXT ; APPS -> APPSDUP ; A.B -> ADUP.B
+ *   colliding with an existing name => the F1.4 numeric-suffix scheme through
+ *   the binding's trash_name (trunc5 + "%03u", lowest free): READM001.TXT.
+ * THE COPY: binding.create(dup) then read_partial(src) / write_partial(dup)
+ *   in FINDER_DUP_CHUNK-byte chunks from the shell's own buffer (never a
+ *   whole-file buffer: a near-volume-sized file must not demand one). A write
+ *   that fails mid-copy UNLINKS the partial copy (rollback) and refuses err.
+ * REFUSALS (first wins): kind (a FOLDER -- files only this slice:
+ *   FINDER-DUP-REFUSED kind=dir), service (the Trash window / \TRASH or
+ *   \DESKTOP.DB), stale (the view's folder is gone), exists (the fallback
+ *   name is taken too), err (no binding, no space, device).
+ * AFTER: the copy's icon is ADDED to the window at the lowest free grid cell
+ *   (the window does not re-flow, as fo_free_cell says); its meta (size /
+ *   stamp) is read back from the volume. The SELECTION DOES NOT MOVE: the
+ *   original stays selected and the copy is not (s8_duplicate_doc.png: the
+ *   original's face is the darkened 150, the copy's the plain 243).
+ * MUTANT KNOBS (Rule 6; -D on finder_ops.c only):
+ *   FINDER_OPS_MUT_DUP_NAME_RULE   -- trunc6 instead of trunc5 (READMEDUP.TXT:
+ *                                     nine base characters, not a name).
+ *   FINDER_OPS_MUT_DUP_NO_COPY     -- the entry is created, no byte is copied.
+ *   FINDER_OPS_MUT_DUP_DIR_ALLOWED -- the folder refusal is gone.
+ *   FINDER_OPS_MUT_DUP_NO_ROLLBACK -- a failed copy leaves its partial entry.
+ * (The kernel-side FINDER_FS_MUT_DUP_SAME_CHAIN -- the copy's dirent aliases
+ *  the source's cluster chain -- lives in os/milton/kmain.c's binding and is
+ *  what the emulator gate's mshowfat distinct-chains differential bites on.)
+ * ------------------------------------------------------------------------- */
+
+/* The locked convention above. `out` takes FINDER_DESK_NAME_MAX bytes. Pure. */
+void finder_dup_name83(const char *name83, char *out);
+
+/* Duplicate icon `idx` of window `slot`. On FINDER_WIN_OK `out_as` (may be
+ * NULL; FINDER_DESK_NAME_MAX bytes) is the copy's name and *out_bytes the
+ * bytes copied; on a refusal nothing on the volume changed. */
+finder_win_status_t finder_ops_duplicate(finder_shell_t *sh, int slot, int idx,
+                                         char *out_as, uint32_t *out_bytes);
+
 /* Seed sh->origins from a DESKTOP.DB image (boot), so the whole-file rewrite
  * of the next commit keeps them. Returns the number taken (0 on a corrupt
  * image -- the caller already reported the DB itself). */

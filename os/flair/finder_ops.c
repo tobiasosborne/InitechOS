@@ -479,6 +479,142 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     return FINDER_WIN_OK;
 }
 
+/* ===========================================================================
+ * R3.4c (bead initech-p6st): DUPLICATE  (finder_ops.h, the banner there)
+ * ===========================================================================*/
+
+void finder_dup_name83(const char *name83, char *out)
+{
+    int i = 0, n = 0, dot = -1;
+#if defined(FINDER_OPS_MUT_DUP_NAME_RULE)
+    const int keep = 6;    /* MUTANT: trunc6 -> a 9-char base. NEVER real. */
+#else
+    const int keep = 5;
+#endif
+    if (out == (char *)0) return;
+    out[0] = '\0';
+    if (name83 == (const char *)0) return;
+    while (name83[i] != '\0') { if (name83[i] == '.' && dot < 0) dot = i; i++; }
+    if (dot < 0) dot = i;
+    for (int k = 0; k < dot && k < keep && n + 1 < FINDER_DESK_NAME_MAX; k++)
+        out[n++] = name83[k];
+    if (n + 4 < FINDER_DESK_NAME_MAX) { out[n++] = 'D'; out[n++] = 'U'; out[n++] = 'P'; }
+    if (name83[dot] == '.') {
+        for (int k = dot; name83[k] != '\0' && n + 1 < FINDER_DESK_NAME_MAX; k++)
+            out[n++] = name83[k];
+    }
+    out[n] = '\0';
+}
+
+/* The read-back of the copy's own dirent (its size and the stamp the write
+ * path gave it) -- the window's meta row must be the VOLUME's truth, never
+ * a value the Finder assumed about the backend. */
+typedef struct fo_dup_meta { const char *name; uint32_t size; uint16_t date, time; int hit; } fo_dup_meta_t;
+static int fo_dup_meta_cb(const finder_dirent_t *e, void *u)
+{
+    fo_dup_meta_t *m = (fo_dup_meta_t *)u;
+    if (!fo_ieq(e->name83, m->name)) return 0;
+    m->size = e->size; m->date = e->date; m->time = e->time; m->hit = 1;
+    return 1;
+}
+
+finder_win_status_t finder_ops_duplicate(finder_shell_t *sh, int slot, int idx,
+                                         char *out_as, uint32_t *out_bytes)
+{
+    finder_window_t *w;
+    finder_desk_icon_t ic;
+    char dupname[FINDER_DESK_NAME_MAX], as[FINDER_DESK_NAME_MAX];
+    uint32_t dslot = 0u, off = 0u, total;
+    int rc;
+    finder_win_status_t live;
+
+    if (out_bytes != (uint32_t *)0) *out_bytes = 0u;
+    if (out_as != (char *)0) out_as[0] = '\0';
+    if (!fo_slot_ok(sh, slot) || !sh->have_fs) return FINDER_WIN_ERR_NULL;
+    if (sh->fs.create == (int (*)(void *, const char *, uint16_t, uint32_t *))0 ||
+        sh->fs.read_partial == 0 || sh->fs.write_partial == 0 ||
+        sh->fs.trash_name == 0 || sh->fs.unlink == 0)
+        return FINDER_WIN_ERR_NULL;
+    w = &sh->windows[slot];
+    if (idx < 0 || idx >= (int)w->view.n) return FINDER_WIN_ERR_NULL;
+    ic = w->view.icons[idx];
+
+#if !defined(FINDER_OPS_MUT_DUP_DIR_ALLOWED)
+    if (ic.kind == (uint8_t)FINDER_ICON_FOLDER) return FINDER_WIN_ERR_KIND;
+#endif
+    /* MUTANT FINDER_OPS_MUT_DUP_DIR_ALLOWED (Rule 6): a folder is "copied" as
+     * if it were a file -- create() makes an empty file of the DUP name next
+     * to the directory. NEVER in a real build. */
+    if (w->is_trash || finder_win_is_service(w->dir_start, ic.name))
+        return FINDER_WIN_ERR_SERVICE;
+    live = finder_win_check_live(sh, slot);
+    if (live != FINDER_WIN_OK) return live;
+
+    /* THE NAME: the convention, then the collision fallback (finder_ops.h). */
+    finder_dup_name83(ic.name, dupname);
+    rc = sh->fs.trash_name(sh->fs.user, dupname, w->dir_start, as);
+    if (rc != (int)FINDER_WIN_OK) return FINDER_WIN_ERR_MOVE;
+    for (int i = 0; i < (int)w->view.n; i++)
+        if (fo_ieq(w->view.icons[i].name, as)) return FINDER_WIN_ERR_EXISTS;
+
+    /* THE COPY: create, then chunk through the shell's own buffer. */
+    rc = sh->fs.create(sh->fs.user, as, w->dir_start, &dslot);
+    if (rc != (int)FINDER_WIN_OK)
+        return (rc == (int)FINDER_WIN_ERR_EXISTS) ? FINDER_WIN_ERR_EXISTS
+                                                  : FINDER_WIN_ERR_MOVE;
+    total = w->meta[idx].size;
+#if defined(FINDER_OPS_MUT_DUP_NO_COPY)
+    /* MUTANT (Rule 6): the entry exists, no byte is copied -- the content
+     * differential (mtype | cmp) goes RED. NEVER in a real build. */
+    total = 0u;
+#endif
+    while (off < total) {
+        uint32_t want = total - off, got = 0u, put = 0u;
+        if (want > (uint32_t)FINDER_DUP_CHUNK) want = (uint32_t)FINDER_DUP_CHUNK;
+        rc = sh->fs.read_partial(sh->fs.user, ic.name, w->dir_start, off, want,
+                                 sh->dup_buf, &got);
+        if (rc == (int)FINDER_WIN_OK && got != 0u)
+            rc = sh->fs.write_partial(sh->fs.user, w->dir_start, dslot, off,
+                                      sh->dup_buf, got, &put);
+        if (rc != (int)FINDER_WIN_OK || got == 0u || put != got) {
+#if !defined(FINDER_OPS_MUT_DUP_NO_ROLLBACK)
+            /* A half-written copy is worse than none (Rule 2): unlink it. */
+            (void)sh->fs.unlink(sh->fs.user, as, w->dir_start);
+#endif
+            /* MUTANT FINDER_OPS_MUT_DUP_NO_ROLLBACK: the partial copy stays
+             * on the volume. NEVER in a real build. */
+            return FINDER_WIN_ERR_MOVE;
+        }
+        off += got;
+    }
+
+    /* SHOW IT: the lowest free cell, the meta read back from the volume, the
+     * selection untouched (the capture; finder_ops.h). */
+    {
+        int16_t x = 0, y = 0;
+        int nidx;
+        fo_dup_meta_t m;
+        (void)finder_win_sync_geometry(w);
+        fo_free_cell(w, &x, &y);
+        nidx = finder_desk_add(&w->view, (finder_icon_kind_t)ic.kind, as, x, y, 1u);
+        if (nidx < 0) {
+            w->dropped = (uint16_t)(w->dropped + 1u);
+        } else {
+            fo_zero(&m, (uint32_t)sizeof m);
+            m.name = as;
+            (void)sh->fs.enumerate(sh->fs.user, w->dir_start, fo_dup_meta_cb, &m);
+            w->meta[nidx].size = m.hit ? m.size : off;
+            w->meta[nidx].date = m.date;
+            w->meta[nidx].time = m.time;
+            w->meta[nidx].attribute = w->meta[idx].attribute;
+        }
+        finder_win_invalidate_all(sh, slot);
+    }
+    if (out_as != (char *)0) fo_copy83(out_as, as);
+    if (out_bytes != (uint32_t *)0) *out_bytes = off;
+    return FINDER_WIN_OK;
+}
+
 uint16_t finder_shell_load_origins(finder_shell_t *sh, const uint8_t *buf,
                                    uint32_t len)
 {

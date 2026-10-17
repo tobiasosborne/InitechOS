@@ -887,9 +887,10 @@ static void draw_grow_box(GrafPort *port, const flair_skin_t *skin,
  * Ref: window-chrome.md Sec 4. */
 static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
                                 int left, int shared_line, int right, int bottom,
-                                int active, int frame_part)
+                                int active, int frame_part, int bars)
 {
 #if defined(CHROME_FID_MUT_BODYBAR)
+    (void)bars;
     (void)port;
     (void)skin;
     (void)left;
@@ -941,10 +942,13 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
           FLAIR_PART_CONTENT);
     for (int y = shared_line + 1; y <= bi - 6; y++) {
         cfill(port, left + 6, y, 1, FLAIR_PART_CONTENT);
-        cfill(port, right - 7, y, 1, FLAIR_PART_PLAT_WELL);
+        /* the bar edges' well column / row exist only with the bars
+         * (R3.4c: a no-grow window's content runs to the rails) */
+        if (bars) cfill(port, right - 7, y, 1, FLAIR_PART_PLAT_WELL);
     }
-    cfill(port, left + 6, bi - 6, right - left - 12,
-          FLAIR_PART_PLAT_WELL);
+    if (bars)
+        cfill(port, left + 6, bi - 6, right - left - 12,
+              FLAIR_PART_PLAT_WELL);
 #endif
 }
 
@@ -1075,7 +1079,8 @@ void flair_draw_document_window_scroll(GrafPort *port,
               FLAIR_PART_CONTENT);
 
         draw_body_structure(port, skin, left, shared_line, right, bottom,
-                            active, frame_part);
+                            active, frame_part,
+                            (widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u);
 
 #if defined(FLAIR_COLORBLIND_MUTANT)
     /* Named behavioral mutant: bypass the policy seam with a computed value.
@@ -1097,7 +1102,20 @@ void flair_draw_document_window_scroll(GrafPort *port,
 #if defined(CHROME_MUTATE_SCROLLBAR_W)
         sb_left++;
 #endif
-        {
+        /* R3.4c (bead initech-p6st): a window WITHOUT a grow box -- the
+         * noGrowDocProc / zoomNoGrow variants (window.c
+         * widget_flags_for_variant) -- has NO gutter bars: the bars and the
+         * grow box are one corner assembly, and the Mac OS 8.1 Get Info
+         * window shows the body rails on all three sides with the content
+         * running to them (../system7-decomp/goldens/captures/
+         * s8_get_info_doc.png rows 365..370, columns 300..305; mint-011).
+         * draw_body_structure's inner frame is complete without them. Every
+         * document window the gates grade carries GROW, so their pixels are
+         * untouched. */
+        if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) == 0u) {
+            /* no bars; the well column / row the bar edges would own are
+             * content (the capture's x 299 and y 364 are the E7 face) */
+        } else {
             int sb_top = shared_line;
 #if defined(CHROME_FID_MUT_NOTCH_DOUBLE)
             sb_top++;
@@ -1105,17 +1123,17 @@ void flair_draw_document_window_scroll(GrafPort *port,
             sb_state_of(&sbv, frame, WSCROLL_V, ws);
             draw_vertical_scrollbar(port, skin, sb_left, sb_top,
                                     ri - 5, grow_y, active, &sbv);
-        }
-        sb_state_of(&sbh, frame, WSCROLL_H, ws);
-        draw_horizontal_scrollbar(port, skin, left + 5,
-                                  grow_y - FLAIR_CHROME_FRAME,
-                                  grow_x, bi - 5, active, &sbh);
-        if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u
+            sb_state_of(&sbh, frame, WSCROLL_H, ws);
+            draw_horizontal_scrollbar(port, skin, left + 5,
+                                      grow_y - FLAIR_CHROME_FRAME,
+                                      grow_x, bi - 5, active, &sbh);
+            if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u
 #if defined(CHROME_MUT_GROW_NO_REGION)
-            || 1
+                || 1
 #endif
-        )
-            draw_grow_box(port, skin, grow_x, grow_y, active);
+            )
+                draw_grow_box(port, skin, grow_x, grow_y, active);
+        }
     }
 
     ri = right - 1;

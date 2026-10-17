@@ -99,6 +99,8 @@
                                   * open/close/New Folder/Clean Up verbs, and the
                                   * finder_fs_t binding THIS file wires to fat12
                                   * (bead initech-tdnl.10; -Ios/flair)              */
+#include "finder_info.h"         /* R3.4c (bead initech-p6st): the Get Info
+                                  * window the Finder owns                     */
 #include "finder_ops.h"          /* R3.4a drag-move + drag-to-Trash: drop
                                   * targets, the highlight, the refusal ladder,
                                   * Trash staging (bead initech-34dh)            */
@@ -3250,17 +3252,98 @@ static int finder_fat_rmdir(void *fs_user, const char *name83, uint16_t dir)
                                       g_finder_dirbuf));
 }
 
+#if defined(FINDER_FS_MUT_DUP_SAME_CHAIN)
+/* MUTANT FINDER_FS_MUT_DUP_SAME_CHAIN (Rule 6; bead initech-p6st, the named
+ * DUP_SAME_CHAIN): the duplicate's directory entry is CLONED from the source
+ * -- the created entry is patched to the source's start_cluster and size on
+ * its first read, and the chunk writes are swallowed -- so the volume holds
+ * two names over ONE cluster chain. mtype shows identical bytes (a content
+ * differential alone passes); mshowfat shows the same cluster for both and
+ * fsck.fat reports the cross-link: the DISTINCT-CHAINS oracle of
+ * test-flair-duplicate-mutant is what bites. Root directory only (the gate's
+ * duplicate is in the root). NEVER in a real build. */
+static uint16_t g_dupmut_dir;
+static uint32_t g_dupmut_slot;
+static int      g_dupmut_armed;
+static void finder_fat_dupmut_alias(const dir_entry_t *src)
+{
+    uint32_t sector, off;
+    dir_entry_t *de;
+    if (!g_dupmut_armed || g_dupmut_dir != 0u) return;
+    sector = g_finder_vol->root_dir_sector + (g_dupmut_slot * 32u) / 512u;
+    off    = (g_dupmut_slot * 32u) % 512u;
+    if (fat12_read_sectors(g_finder_vol, sector, 1u, g_finder_dirbuf) != 0) return;
+    de = (dir_entry_t *)((uint8_t *)g_finder_dirbuf + off);
+    de->start_cluster = src->start_cluster;
+    de->file_size     = src->file_size;
+    (void)fat12_write_sectors(g_finder_vol, sector, 1u, g_finder_dirbuf);
+    g_dupmut_armed = 0;
+}
+#endif
+
 static int finder_fat_create(void *fs_user, const char *name83, uint16_t dir,
                              uint32_t *out_slot)
 {
     dir_entry_t e;
+    int rc;
     (void)fs_user;
     if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_create(g_finder_vol, g_finder_fat,
-                                       g_finder_fat_len, name83,
-                                       (uint8_t)DIR_ATTR_ARCHIVE, dir,
-                                       g_finder_dirbuf, g_finder_clusbuf, &e,
-                                       out_slot));
+    rc = fat12_create(g_finder_vol, g_finder_fat, g_finder_fat_len, name83,
+                      (uint8_t)DIR_ATTR_ARCHIVE, dir, g_finder_dirbuf,
+                      g_finder_clusbuf, &e, out_slot);
+#if defined(FINDER_FS_MUT_DUP_SAME_CHAIN)
+    if (rc == FAT12_OK && out_slot != (uint32_t *)0) {
+        g_dupmut_dir = dir; g_dupmut_slot = *out_slot; g_dupmut_armed = 1;
+    }
+#endif
+    return finder_fat_map(rc);
+}
+
+/* R3.4c (bead initech-p6st): same-directory rename -- fat12_rename, which
+ * preserves start_cluster / size / attribute / stamp verbatim and touches no
+ * FAT entry (its own mren differential). EXISTS is the one refusal the Finder
+ * reports by name; NOT_FOUND / ACCESS / a bad name map to ERR_MOVE. */
+static int finder_fat_rename(void *fs_user, const char *old83,
+                             const char *new83, uint16_t dir)
+{
+    (void)fs_user;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    return finder_fat_map(fat12_rename(g_finder_vol, g_finder_fat,
+                                       g_finder_fat_len, old83, new83, dir,
+                                       g_finder_dirbuf));
+}
+
+/* R3.4c: the bytes a file OCCUPIES -- its cluster chain, walked one
+ * fat12_next_cluster step at a time (design F3.5 "from the chain walk"),
+ * bounded by the volume's cluster count so a cyclic chain cannot hang the
+ * desktop (Rule 2: it reports ERR_MOVE instead). */
+static int finder_fat_on_disk(void *fs_user, const char *name83, uint16_t dir,
+                              uint32_t *out_bytes)
+{
+    dir_entry_t e;
+    uint32_t slot = 0u, n = 0u, limit;
+    uint16_t c;
+    int rc;
+
+    (void)fs_user;
+    if (out_bytes == (uint32_t *)0) return (int)FINDER_WIN_ERR_NULL;
+    *out_bytes = 0u;
+    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+    rc = fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, dir,
+                            g_finder_dirbuf, name83, &e, &slot);
+    if (rc != FAT12_OK) return finder_fat_map(rc);
+    limit = g_finder_vol->total_clusters + 2u;
+    c = e.start_cluster;
+    while (c >= (uint16_t)FAT12_FIRST_DATA_CLUSTER && !fat12_is_eoc(c)) {
+        uint16_t next = 0u;
+        if (++n > limit) return (int)FINDER_WIN_ERR_MOVE;   /* cyclic chain */
+        if (fat12_next_cluster(g_finder_vol, g_finder_fat, g_finder_fat_len,
+                               c, &next) != FAT12_OK)
+            return (int)FINDER_WIN_ERR_MOVE;
+        c = next;
+    }
+    *out_bytes = n * (uint32_t)g_finder_vol->bpb.sectors_per_cluster * 512u;
+    return (int)FINDER_WIN_OK;
 }
 
 /* bead initech-uios (audit L002): a window view's (dir, parent, name83) is
@@ -3291,6 +3374,9 @@ static int finder_fat_read_partial(void *fs_user, const char *name83,
     rc = fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, dir,
                             g_finder_dirbuf, name83, &e, &slot);
     if (rc != FAT12_OK) return finder_fat_map(rc);
+#if defined(FINDER_FS_MUT_DUP_SAME_CHAIN)
+    if (offset == 0u) finder_fat_dupmut_alias(&e);
+#endif
     return finder_fat_map(fat12_read_partial(g_finder_vol, g_finder_fat,
                                              g_finder_fat_len, &e, offset,
                                              len, out, g_finder_clusbuf,
@@ -3303,6 +3389,12 @@ static int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
 {
     (void)fs_user;
     if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
+#if defined(FINDER_FS_MUT_DUP_SAME_CHAIN)
+    if (dir == g_dupmut_dir && slot == g_dupmut_slot) {
+        if (out_written != (uint32_t *)0) *out_written = len;   /* swallowed */
+        return (int)FINDER_WIN_OK;
+    }
+#endif
     return finder_fat_map(fat12_write_partial(g_finder_vol, g_finder_fat,
                                               g_finder_fat_len, dir, slot,
                                               offset, data, len,
@@ -3322,6 +3414,8 @@ static const finder_fs_t g_finder_fs_binding __attribute__((unused)) = {
     finder_fat_read_partial,
     finder_fat_write_partial,
     finder_fat_dir_ident,
+    finder_fat_rename,          /* R3.4c (bead initech-p6st) */
+    finder_fat_on_disk,         /* R3.4c (bead initech-p6st) */
     (void *)0
 };
 
@@ -4006,6 +4100,21 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
     where1 = where0;
     idx    = s->slot >= 0 ? finder_win_content_hit(&g_finder_shell->windows[s->slot],where0.h,where0.v)
                           : finder_desk_hit(fd, where0.h, where0.v);
+    /* R3.4c (bead initech-p6st): a click while a label is under edit --
+     * inside the edit box it is the edit's own (consumed; a caret position
+     * this slice does not track); anywhere else it COMMITS first, as the
+     * period Finder does, and the gesture then proceeds. */
+    if (g_finder_shell != (finder_shell_t *)0 &&
+        finder_edit_active(g_finder_shell)) {
+        finder_desk_t *efd = finder_win_view(g_finder_shell,
+                                             (int)g_finder_shell->edit_slot);
+        if (efd != (finder_desk_t *)0 && efd->edit_idx >= 0 &&
+            s->slot == (int)g_finder_shell->edit_slot &&
+            finder_rect_contains(finder_desk_edit_rect(efd, (int)efd->edit_idx),
+                                 where0.h, where0.v))
+            return;
+        flair_live_finder_edit_commit(ctx, bi, 1);
+    }
     t0     = flair_tick_count();
     outline_now.top = 0; outline_now.left = 0;
     outline_now.bottom = 0; outline_now.right = 0;
@@ -4130,6 +4239,37 @@ static void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
         if (k == FINDER_CLICK_DOUBLE) {
             /* The preceding single already selected it. */
             finder_surface_open(ctx, bi, s, idx);
+        } else if ((ev->modifiers & (uint16_t)FLAIR_EVT_MOD_SHIFT_KEY) == 0u &&
+                   s->slot >= 0 && g_finder_shell != (finder_shell_t *)0 &&
+                   fd->icons[idx].selected &&
+                   finder_desk_selection_count(fd) == 1u &&
+                   finder_rect_contains(finder_desk_label_rect(fd, idx),
+                                        where0.h, where0.v) &&
+                   !finder_rect_contains(finder_desk_sprite_rect(fd, idx),
+                                         where0.h, where0.v)) {
+            /* R3.4c (bead initech-p6st): a SINGLE click on the LABEL of the
+             * one already-selected icon ARMS the rename (finder_windows.h
+             * Sec 13; lane J's ruling: arm on click-on-selected-label after
+             * FINDER_DBLCLICK_TICKS -- the classifier just said this was not
+             * a double). */
+            rgn_rect_t before = finder_desk_cell_rect(fd, idx);
+            finder_win_status_t st = finder_edit_arm(g_finder_shell, s->slot, idx);
+            if (st == FINDER_WIN_OK) {
+                serial_puts("FINDER-RENAME-ARM win=");
+                serial_puti((int32_t)s->slot);
+                serial_puts(" name=");
+                serial_puts(fd->icons[idx].name);
+                serial_putc('\n');
+                finder_edit_damage(ctx, bi, s->slot, before);
+            } else if (st == FINDER_WIN_ERR_KIND) {
+                serial_puts("FINDER-RENAME-REFUSED kind=dir name=");
+                serial_puts(fd->icons[idx].name);
+                serial_putc('\n');
+            } else if (st == FINDER_WIN_ERR_SERVICE) {
+                serial_puts("FINDER-RENAME-REFUSED reason=service name=");
+                serial_puts(fd->icons[idx].name);
+                serial_putc('\n');
+            }
         } else {
             if ((ev->modifiers & (uint16_t)FLAIR_EVT_MOD_SHIFT_KEY) != 0u) {
                 finder_desk_select_extend(fd, idx);
@@ -5796,11 +5936,79 @@ static void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
     case FCMD_CLOSE_WINDOW:
         if (o->status != FINDER_WIN_OK) return;
         finder_desk_repaint(ctx, bi);
+        if (o->slot == -2) {
+            /* R3.4c: the Get Info window was the front window (no view
+             * state to save -- it is a report). */
+            serial_puts("FINDER-INFO-CLOSE\n");
+            return;
+        }
         serial_puts("FINDER-CLOSE-WINDOW win=");
         serial_puti((int32_t)o->slot);
         serial_putc('\n');
         g_finder_db_dirty = 1;
         finder_desk_persist();
+        return;
+
+    case FCMD_GET_INFO:
+        /* R3.4c (bead initech-p6st): the window is up (NewWindow seeded its
+         * structure as damage); the fields it shows, for the gate's
+         * mtools / mshowfat differential: size from the dirent, disk from the
+         * chain walk, the stamp words raw, Where as drawn. */
+        if (o->status != FINDER_WIN_OK) {
+            serial_puts("FINDER-INFO-FAIL rc=");
+            serial_puti((int32_t)o->status);
+            serial_putc('\n');
+            return;
+        }
+        finder_desk_repaint(ctx, bi);
+        serial_puts("FINDER-INFO name=");
+        serial_puts(g_finder_shell->info.name);
+        serial_puts(" kind=");
+        serial_puts(g_finder_shell->info.is_folder ? "folder"
+                    : (g_finder_shell->info.kind == (uint8_t)FINDER_ICON_APP
+                       ? "application" : "document"));
+        serial_puts(" size=");
+        serial_putu(g_finder_shell->info.size);
+        serial_puts(" disk=");
+        serial_putu(g_finder_shell->info.on_disk);
+        serial_puts(" items=");
+        serial_putu((uint32_t)g_finder_shell->info.items);
+        serial_puts(" date=");
+        serial_putu((uint32_t)g_finder_shell->info.date);
+        serial_puts(" time=");
+        serial_putu((uint32_t)g_finder_shell->info.time);
+        serial_puts(" where=");
+        serial_puts(g_finder_shell->info.where);
+        serial_putc('\n');
+        return;
+
+    case FCMD_DUPLICATE:
+        /* R3.4c (bead initech-p6st; design F3.4 "Serial FINDER-DUP
+         * from=%s to=%s"): the copy is on the volume and in the window, or
+         * the ladder said why not (kind=dir: files only this slice). */
+        if (o->status == FINDER_WIN_OK) {
+            finder_desk_repaint(ctx, bi);
+            serial_puts("FINDER-DUP from=");
+            serial_puts(o->name83);
+            serial_puts(" to=");
+            serial_puts(o->as);
+            serial_puts(" bytes=");
+            serial_putu(o->bytes);
+            serial_putc('\n');
+            finder_report_dropped(o->slot);
+        } else if (o->status == FINDER_WIN_ERR_KIND) {
+            serial_puts("FINDER-DUP-REFUSED kind=dir name=");
+            serial_puts(o->name83);
+            serial_putc('\n');
+        } else {
+            serial_puts("FINDER-DUP-REFUSED reason=");
+            serial_puts(o->status == FINDER_WIN_ERR_SERVICE ? "service"
+                        : o->status == FINDER_WIN_ERR_STALE ? "stale"
+                        : o->status == FINDER_WIN_ERR_EXISTS ? "exists" : "err");
+            serial_puts(" name=");
+            serial_puts(o->name83);
+            serial_putc('\n');
+        }
         return;
 
     case FCMD_SELECT_ALL: {
@@ -6001,6 +6209,132 @@ static void flair_live_desk_activate(flair_live_ctx_t *ctx,
 #endif
 }
 
+/* ---------------------------------------------------------------------------
+ * R3.4c (bead initech-p6st): RENAME-IN-PLACE, the live-pump half. The state
+ * machine is finder_windows.c Sec 13; this file owns the raw keyDown feed,
+ * the label-click arm, the click-away commit, the damage/present cycle and
+ * the serial report (finder_windows.h Sec 8 "THE COMMAND OUTCOME" rule).
+ *   FINDER-RENAME-ARM win=<s> name=<n>
+ *   FINDER-RENAME-REFUSED kind=dir name=<n>         (the arm, a folder)
+ *   FINDER-RENAME-REFUSED reason=service name=<n>   (the Trash window)
+ *   FINDER-RENAME from=<o> to=<n> win=<s>           (committed; mtools judges)
+ *   FINDER-RENAME-REFUSED reason=exists|name|stale|err name=<typed>
+ *   FINDER-RENAME-CANCEL                             (Escape / unchanged /
+ *                                                     a command / a refused
+ *                                                     click-away)
+ * ------------------------------------------------------------------------- */
+static void finder_edit_damage(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                               int slot, rgn_rect_t before)
+{
+    finder_desk_t *fd;
+    rgn_rect_t after = before;
+    if (g_finder_shell == (finder_shell_t *)0 || slot < 0) return;
+    fd = finder_win_view(g_finder_shell, slot);
+    if (fd != (finder_desk_t *)0 && fd->edit_idx >= 0)
+        after = finder_desk_cell_rect(fd, (int)fd->edit_idx);
+    finder_win_invalidate(g_finder_shell, slot, before, after);
+    finder_desk_repaint(ctx, bi);
+}
+
+static rgn_rect_t finder_edit_cell(void)
+{
+    rgn_rect_t z = { 0, 0, 0, 0 };
+    finder_desk_t *fd;
+    if (g_finder_shell == (finder_shell_t *)0 || g_finder_shell->edit_slot < 0)
+        return z;
+    fd = finder_win_view(g_finder_shell, (int)g_finder_shell->edit_slot);
+    if (fd == (finder_desk_t *)0 || fd->edit_idx < 0) return z;
+    return finder_desk_cell_rect(fd, (int)fd->edit_idx);
+}
+
+/* Commit (Return, or a click away with click_away = 1). */
+static void flair_live_finder_edit_commit(flair_live_ctx_t *ctx,
+                                          const boot_info_t *bi, int click_away)
+{
+    char o[FINDER_DESK_NAME_MAX], n[FINDER_DESK_NAME_MAX];
+    int renamed = 0, slot;
+    rgn_rect_t before;
+    finder_win_status_t st;
+
+    if (g_finder_shell == (finder_shell_t *)0 ||
+        !finder_edit_active(g_finder_shell)) return;
+    slot   = (int)g_finder_shell->edit_slot;
+    before = finder_edit_cell();
+    st = finder_edit_commit(g_finder_shell, o, n, &renamed);
+    if (st == FINDER_WIN_OK) {
+        if (renamed) {
+            serial_puts("FINDER-RENAME from=");
+            serial_puts(o);
+            serial_puts(" to=");
+            serial_puts(n);
+            serial_puts(" win=");
+            serial_puti((int32_t)slot);
+            serial_putc('\n');
+        } else {
+            serial_puts("FINDER-RENAME-CANCEL\n");
+        }
+    } else {
+        serial_puts("FINDER-RENAME-REFUSED reason=");
+        serial_puts(st == FINDER_WIN_ERR_EXISTS ? "exists"
+                    : st == FINDER_WIN_ERR_NAME ? "name"
+                    : st == FINDER_WIN_ERR_STALE ? "stale" : "err");
+        serial_puts(" name=");
+        serial_puts(n);
+        serial_putc('\n');
+        if (click_away && finder_edit_active(g_finder_shell)) {
+            finder_edit_cancel(g_finder_shell);
+            serial_puts("FINDER-RENAME-CANCEL\n");
+        }
+    }
+    finder_edit_damage(ctx, bi, slot, before);
+    finder_desk_sync_ctx();
+}
+
+/* The raw keyDown feed while an edit is up. Returns 1 when consumed. A
+ * modifier chord is NOT consumed: it reaches the Cmd-key arm, whose dispatch
+ * cancels the edit (fw_exec). */
+static int flair_live_finder_edit_key(flair_live_ctx_t *ctx,
+                                      const boot_info_t *bi,
+                                      const EventRecord *ev)
+{
+    char ch;
+    rgn_rect_t before;
+    if (g_finder_shell == (finder_shell_t *)0) return 0;
+    if (!finder_edit_active(g_finder_shell)) return 0;
+    if (ev->what != (uint16_t)keyDown && ev->what != (uint16_t)autoKey) return 0;
+    if ((ev->modifiers & (uint16_t)(FLAIR_EVT_MOD_CONTROL_KEY |
+                                    FLAIR_EVT_MOD_CMD_KEY)) != 0u) return 0;
+    if (!flair_live_finder_is_foreground()) return 0;
+    ch = (char)(ev->message & 0xFFu);
+    if (ch == (char)0x0D) {                      /* Return: commit        */
+        flair_live_finder_edit_commit(ctx, bi, 0);
+        return 1;
+    }
+    if (ch == (char)0x1B) {                      /* Escape: cancel        */
+        int slot = (int)g_finder_shell->edit_slot;
+        before = finder_edit_cell();
+        finder_edit_cancel(g_finder_shell);
+        serial_puts("FINDER-RENAME-CANCEL\n");
+        finder_edit_damage(ctx, bi, slot, before);
+        return 1;
+    }
+    before = finder_edit_cell();
+    if (finder_edit_key(g_finder_shell, ch))
+        finder_edit_damage(ctx, bi, (int)g_finder_shell->edit_slot, before);
+    return 1;                                    /* typed or ignored: ours */
+}
+
+/* The Get Info window's go-away box (Finder-owned furniture, like a disk
+ * window's -- design F2-3: DisposeWindow only, never a tenant terminate). */
+static void flair_live_do_finder_info_close(flair_live_ctx_t *ctx,
+                                            const boot_info_t *bi)
+{
+    if (g_finder_shell == (finder_shell_t *)0) return;
+    finder_info_close(g_finder_shell);
+    finder_desk_repaint(ctx, bi);
+    serial_puts("FINDER-INFO-CLOSE\n");
+}
+
 /* THE Cmd-KEY ARM (design F4.4's keyboard path; bead initech-tdnl.10, re-keyed
  * to the real Menu Manager by tdnl.12).
  *
@@ -6058,9 +6392,20 @@ static int flair_live_finder_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
     /* The ONE spine (F4-4): the keyboard converges on finder_dispatch exactly
      * as the mouse does, the predicate is evaluated there, and the trace line
      * is the ordinary FINDER-CMD ... src=key. */
-    finder_shell_sync_ctx(g_finder_shell);
-    finder_dispatch(&g_finder_ctx, sel, "key");
-    finder_report_outcome(ctx, bi);
+    {
+        /* R3.4c: a command dispatched mid-edit cancels it (fw_exec); the
+         * box's footprint is damaged here so it leaves the screen too. */
+        int eslot = finder_edit_active(g_finder_shell)
+                    ? (int)g_finder_shell->edit_slot : -1;
+        rgn_rect_t ecell = finder_edit_cell();
+        finder_shell_sync_ctx(g_finder_shell);
+        finder_dispatch(&g_finder_ctx, sel, "key");
+        finder_report_outcome(ctx, bi);
+        if (eslot >= 0 && !finder_edit_active(g_finder_shell)) {
+            serial_puts("FINDER-RENAME-CANCEL\n");
+            finder_edit_damage(ctx, bi, eslot, ecell);
+        }
+    }
     finder_desk_sync_ctx();
     /* A chord can close the front window (Ctrl-W): re-assert the foreground
      * invariant exactly as the mouse path does after every gesture (tdnl.40). */
@@ -6089,9 +6434,18 @@ static void flair_live_finder_menu_result(flair_live_ctx_t *ctx,
     if (bar != finder_menu_bar()) return;
     if (sel == 0u) return;                     /* IM "nothing chosen"          */
 
-    finder_shell_sync_ctx(g_finder_shell);
-    finder_dispatch(&g_finder_ctx, sel, "mouse");
-    finder_report_outcome(ctx, bi);
+    {
+        int eslot = finder_edit_active(g_finder_shell)
+                    ? (int)g_finder_shell->edit_slot : -1;
+        rgn_rect_t ecell = finder_edit_cell();
+        finder_shell_sync_ctx(g_finder_shell);
+        finder_dispatch(&g_finder_ctx, sel, "mouse");
+        finder_report_outcome(ctx, bi);
+        if (eslot >= 0 && !finder_edit_active(g_finder_shell)) {
+            serial_puts("FINDER-RENAME-CANCEL\n");
+            finder_edit_damage(ctx, bi, eslot, ecell);
+        }
+    }
     finder_desk_sync_ctx();
 }
 #endif
@@ -7213,6 +7567,11 @@ void kernel_main(void)
              * foreground TENANT (process.c), and this slice deliberately does
              * not promote the Finder to foreground (that swaps band 2 to a menu
              * bar tdnl.12 has not built yet). See flair_live_finder_key. */
+            /* R3.4c (bead initech-p6st): a label edit takes the raw keys
+             * first (Return / Escape / Backspace / printable); chords pass. */
+            if (flair_live_finder_edit_key(&ctx, &b, &ev)) {
+                continue;
+            }
             if (flair_live_finder_key(&ctx, &b, &ev)) {
                 continue;
             }
@@ -7282,7 +7641,10 @@ void kernel_main(void)
                      * terminate that F2-3 exists to prevent. */
                     int fslot = (g_finder_shell != (finder_shell_t *)0)
                         ? finder_win_slot_of(g_finder_shell, chrome_w) : -1;
-                    if (fslot >= 0)
+                    if (g_finder_shell != (finder_shell_t *)0 &&
+                        finder_info_is(g_finder_shell, chrome_w))
+                        flair_live_do_finder_info_close(&ctx, &b);   /* R3.4c */
+                    else if (fslot >= 0)
                         flair_live_do_finder_close(&ctx, &b, fslot);
                     else
                         flair_live_do_close(&ctx, &b, chrome_w, &ten_barport);

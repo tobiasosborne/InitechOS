@@ -371,6 +371,14 @@ int finder_win_content_hit(finder_window_t *w,int16_t x,int16_t y)
 }
 
 /* A clipped fill names semantic roles only. */
+const char *finder_win_kind_text(uint8_t kind)
+{
+    /* The three strings the list view's Kind column grades against
+     * s8_finder_list_view.png (WL-0153); Get Info reuses them verbatim. */
+    if (kind == (uint8_t)FINDER_ICON_FOLDER) return "folder";
+    if (kind == (uint8_t)FINDER_ICON_APP)    return "application program";
+    return "Application document";
+}
 static void fw_box(const bitmap_t *dst,const region_t *clip,int x,int y,int w,int h,int part)
 {
     rgn_rect_t r={(int16_t)y,(int16_t)x,(int16_t)(y+h),(int16_t)(x+w)};
@@ -441,7 +449,7 @@ static __attribute__((noinline)) void fw_paint_list(finder_window_t *w,const bit
             rgn_rect_t cell=body;cell.left=(int16_t)(left<c.left?c.left:left);
             cell.right=(int16_t)(left+fw_list_widths[col]>c.right?c.right:left+fw_list_widths[col]);
             const char *t=col==0?w->icons[i].name:col==1?date:col==2?size:
-                w->icons[i].kind==FINDER_ICON_FOLDER?"folder":w->icons[i].kind==FINDER_ICON_APP?"application program":"Application document";
+                finder_win_kind_text(w->icons[i].kind);
             int x=col==0?origin+49:col==2?left+58-finder_desk_text_width(t):left+12;
             fw_cell_text(dst,clip,cell,x,row+4,t,ink);
             left+=fw_list_widths[col];
@@ -954,6 +962,28 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
     w->dir_start = dir_start;
     w->parent    = is_root ? 0u : parent;     /* the identity (Sec 10d)     */
     fw_copy83(w->name83, is_root ? "" : name83);
+    /* R3.4c: the Where chain -- the parent window's chain + this folder +
+     * ":" (HFS spelling, s8_get_info_doc.png "Where: Icons:"); the root's is
+     * "". A chain that would not fit keeps the parent's and appends nothing
+     * (fail-safe, never a guessed segment). */
+    w->path[0] = '\0';
+    if (!is_root) {
+        int ps = finder_win_find(sh, parent);
+        uint32_t n = 0u, k;
+        if (ps >= 0 && ps != slot) {
+            const char *pp = sh->windows[ps].path;
+            while (pp[n] != '\0' && n + 1u < (uint32_t)FINDER_WIN_PATH_MAX) {
+                w->path[n] = pp[n]; n++;
+            }
+            w->path[n] = '\0';
+        }
+        k = fw_len(name83);
+        if (n + k + 2u <= (uint32_t)FINDER_WIN_PATH_MAX) {
+            for (uint32_t i = 0u; i < k; i++) w->path[n + i] = name83[i];
+            w->path[n + k] = ':';
+            w->path[n + k + 1u] = '\0';
+        }
+    }
     finder_click_reset(&w->click);
     finder_desk_init(&w->view, w->icons, (uint16_t)FINDER_WIN_ICONS_MAX, content);
     w->applied_sx = 0;
@@ -1023,6 +1053,8 @@ finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
 
 finder_win_status_t finder_win_close(finder_shell_t *sh, int slot)
 {
+    if (sh != (finder_shell_t *)0 && sh->edit_slot == (int8_t)slot)
+        finder_edit_cancel(sh);            /* R3.4c: no edit outlives its window */
     finder_window_t *w;
 
     if (!fw_slot_ok(sh, slot)) return FINDER_WIN_ERR_NULL;
@@ -1708,9 +1740,63 @@ static void fw_do_cleanup(finder_shell_t *sh, finder_cmd_id id, int slot)
 static void fw_do_close(finder_shell_t *sh, finder_cmd_id id, int slot)
 {
     finder_win_status_t st;
+    /* R3.4c: File > Close Window closes the FRONT window; when that is the
+     * Get Info window (it sits over the disk windows), it is the one closed
+     * (slot -2 on the outcome: kmain says FINDER-INFO-CLOSE). */
+    if (sh->info.open && sh->wm != (WindowMgr *)0 &&
+        sh->wm->front == &sh->info.rec) {
+        finder_info_close(sh);
+        fw_outcome(sh, id, FINDER_WIN_OK, -2);
+        return;
+    }
     if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
     st = finder_win_close(sh, slot);
     fw_outcome(sh, id, st, slot);
+}
+
+/* File > Get Info (bead initech-p6st; design F3.5): the FIRST selected icon of
+ * the front disk window (the period window describes one item; a multiple
+ * selection opens one window per item there, which this slice does not do --
+ * stated). The outcome carries the item name; the window is built and its
+ * fields snapshotted by finder_info_open (os/flair/finder_info.c). */
+void finder_info_open(finder_shell_t *sh, int slot, int idx);
+static void fw_do_get_info(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    int chosen = -1;
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    for (int i = 0; i < (int)sh->windows[slot].view.n; i++)
+        if (sh->windows[slot].view.icons[i].selected) { chosen = i; break; }
+    if (chosen < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
+    finder_info_open(sh, slot, chosen);
+    fw_outcome(sh, id, sh->info.open ? FINDER_WIN_OK : FINDER_WIN_ERR_NULL,
+               slot);
+    fw_copy83(sh->last.name83, sh->windows[slot].view.icons[chosen].name);
+}
+
+/* File > Duplicate (bead initech-p6st; design F3.4): the FIRST selected icon
+ * of the front disk window, through finder_ops_duplicate (finder_ops.c). */
+finder_win_status_t finder_ops_duplicate(finder_shell_t *sh, int slot, int idx,
+                                         char *out_as, uint32_t *out_bytes);
+static void fw_do_duplicate(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    int chosen = -1;
+    finder_win_status_t st;
+    char as[FINDER_DESK_NAME_MAX];
+    uint32_t bytes = 0u;
+    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    for (int i = 0; i < (int)sh->windows[slot].view.n; i++)
+        if (sh->windows[slot].view.icons[i].selected) { chosen = i; break; }
+    if (chosen < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, slot); return; }
+    as[0] = '\0';
+    {
+        char from[FINDER_DESK_NAME_MAX];
+        fw_copy83(from, sh->windows[slot].view.icons[chosen].name);
+        st = finder_ops_duplicate(sh, slot, chosen, as, &bytes);
+        fw_outcome(sh, id, st, slot);
+        fw_copy83(sh->last.name83, from);
+    }
+    fw_copy83(sh->last.as, as);
+    sh->last.bytes = bytes;
 }
 
 /* Open the SELECTED folder of the front window. The SELECTION_OPENABLE
@@ -1859,6 +1945,8 @@ static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
     { FCMD_CLOSE_WINDOW,    fw_do_close      },
     { FCMD_OPEN,            fw_do_open       },
     { FCMD_SELECT_ALL,      fw_do_select_all },
+    { FCMD_GET_INFO,        fw_do_get_info   },   /* bead initech-p6st     */
+    { FCMD_DUPLICATE,       fw_do_duplicate  },   /* bead initech-p6st     */
     { FCMD_ARRANGE_BY_NAME, fw_do_arrange    },
     { FCMD_VIEW_ICONS,      fw_do_view_icons },
     { FCMD_VIEW_SMALL,      fw_do_view_icons },
@@ -1894,6 +1982,9 @@ static int fw_exec(void *shell, finder_cmd_id id)
     if (sh == (finder_shell_t *)0) return 0;
     for (int i = 0; i < FW_EXEC_N; i++) {
         if (FW_EXEC_TABLE[i].id != id) continue;
+        /* R3.4c: a command dispatched mid-edit CANCELS the edit first (the
+         * window it acts on may close, re-populate or re-select). */
+        if (finder_edit_active(sh)) finder_edit_cancel(sh);
         FW_EXEC_TABLE[i].fn(sh, id, finder_win_front_slot(sh));
         return 1;
     }
@@ -1920,6 +2011,12 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
     slot = finder_win_front_slot(sh);
     sh->ctx->view_bits = slot >= 0 ? sh->windows[slot].view_bits : 0;
     sh->ctx->front_is_diskwin = (uint8_t)((slot >= 0) ? 1 : 0);
+    /* R3.4c: the Get Info window in FRONT lights File > Close Window too
+     * (fw_do_close closes it); the other front-window rows (New Folder,
+     * Clean Up, the views) keep acting on the front DISK window beneath. */
+    if (sh->info.open && sh->wm != (WindowMgr *)0 &&
+        sh->wm->front == &sh->info.rec)
+        sh->ctx->front_is_diskwin = 1u;
     sh->ctx->selection_count  =
         (slot >= 0) ? finder_desk_selection_count(&sh->windows[slot].view)
                     : finder_desk_selection_count(&sh->desk);
@@ -1955,6 +2052,182 @@ void finder_shell_bind_fs(finder_shell_t *sh, const finder_fs_t *fs)
 }
 
 /* ===========================================================================
+ * 13. R3.4c (bead initech-p6st): RENAME-IN-PLACE (finder_windows.h Sec 13)
+ * ===========================================================================*/
+
+const char *finder_win_path(const finder_shell_t *sh, int slot)
+{
+    if (!fw_slot_ok(sh, slot)) return "";
+    return sh->windows[slot].path;
+}
+
+/* The DOS 3.3 8.3 character set (IBM DOS 3.30 TR p. 5-3: letters, digits and
+ * ! # $ % & ' ( ) - @ ^ _ ` { } ~ ); letters are uppercased in place. */
+static int fw_name_char_ok(char c)
+{
+    if (c >= '0' && c <= '9') return 1;
+    if (c >= 'A' && c <= 'Z') return 1;
+    switch (c) {
+    case '!': case '#': case '$': case '%': case '&': case '\'': case '(':
+    case ')': case '-': case '@': case '^': case '_': case '`': case '{':
+    case '}': case '~':
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+int finder_name83_valid(char *name)
+{
+    int base = 0, ext = 0, dots = 0, i;
+    if (name == (char *)0 || name[0] == '\0') return 0;
+    for (i = 0; name[i] != '\0'; i++) {
+        char c = fw_upper(name[i]);
+        name[i] = c;
+        if (c == '.') { dots++; if (dots > 1 || base == 0) return 0; continue; }
+        if (!fw_name_char_ok(c)) return 0;
+        if (dots == 0) base++; else ext++;
+    }
+    if (base < 1 || base > 8 || ext > 3) return 0;
+    if (dots == 1 && ext == 0) return 0;          /* "NAME." is not a name */
+    return 1;
+}
+
+int finder_edit_active(const finder_shell_t *sh)
+{
+    return (sh != (const finder_shell_t *)0 && sh->edit_slot >= 0) ? 1 : 0;
+}
+
+static finder_desk_t *fw_edit_view(finder_shell_t *sh)
+{
+    if (!finder_edit_active(sh) || !fw_slot_ok(sh, (int)sh->edit_slot))
+        return (finder_desk_t *)0;
+    return &sh->windows[(int)sh->edit_slot].view;
+}
+
+static void fw_edit_clear(finder_shell_t *sh)
+{
+    finder_desk_t *fd = fw_edit_view(sh);
+    if (fd != (finder_desk_t *)0) {
+        fd->edit_idx = -1;
+        fd->edit_state = FINDER_EDIT_NONE;
+        fd->edit_len = 0u;
+        fd->edit_text[0] = '\0';
+    }
+    sh->edit_slot = -1;
+    sh->edit_orig[0] = '\0';
+}
+
+finder_win_status_t finder_edit_arm(finder_shell_t *sh, int slot, int idx)
+{
+    finder_desk_t *fd;
+    if (!fw_slot_ok(sh, slot) || !sh->have_fs ||
+        sh->fs.rename == (int (*)(void *, const char *, const char *, uint16_t))0)
+        return FINDER_WIN_ERR_NULL;
+    if ((sh->windows[slot].view_bits & FINDER_VIEW_MASK) != FINDER_VIEW_ICONS)
+        return FINDER_WIN_ERR_NULL;       /* list rows: not this slice      */
+    fd = &sh->windows[slot].view;
+    if (idx < 0 || idx >= (int)fd->n) return FINDER_WIN_ERR_NULL;
+    /* The Trash window's items carry kind=5 origin records BY NAME (design
+     * F1.5): renaming one would orphan its record -- refused (service). */
+    if (sh->windows[slot].is_trash ||
+        finder_win_is_service(sh->windows[slot].dir_start, fd->icons[idx].name))
+        return FINDER_WIN_ERR_SERVICE;
+#if !defined(FINDER_WIN_MUT_RENAME_DIR_ALLOWED)
+    if (fd->icons[idx].kind == (uint8_t)FINDER_ICON_FOLDER)
+        return FINDER_WIN_ERR_KIND;
+#endif
+    /* MUTANT FINDER_WIN_MUT_RENAME_DIR_ALLOWED (Rule 6): the folder refusal
+     * is gone and the backend (f0hh) WOULD rename the directory under its
+     * open window's identity. NEVER in a real build. */
+    if (finder_edit_active(sh)) fw_edit_clear(sh);
+    sh->edit_slot = (int8_t)slot;
+    fw_copy83(sh->edit_orig, fd->icons[idx].name);
+    fd->edit_idx   = (int16_t)idx;
+    fd->edit_state = FINDER_EDIT_ARMED;
+    fd->edit_len   = 0u;
+    fd->edit_text[0] = '\0';
+    return FINDER_WIN_OK;
+}
+
+int finder_edit_key(finder_shell_t *sh, char ch)
+{
+    finder_desk_t *fd = fw_edit_view(sh);
+    if (fd == (finder_desk_t *)0) return 0;
+    if (ch == (char)0x08) {
+        if (fd->edit_state == FINDER_EDIT_ARMED) {
+            fd->edit_len = 0u;                 /* the selected whole goes   */
+        } else if (fd->edit_len > 0u) {
+            fd->edit_len--;
+        } else {
+            return 0;
+        }
+        fd->edit_text[fd->edit_len] = '\0';
+        fd->edit_state = FINDER_EDIT_TYPING;
+        return 1;
+    }
+    if (ch < (char)0x20 || ch > (char)0x7E) return 0;
+    if (fd->edit_state == FINDER_EDIT_ARMED) {
+        fd->edit_len = 0u;                     /* the first key REPLACES    */
+        fd->edit_state = FINDER_EDIT_TYPING;
+    }
+    if (fd->edit_len + 2u > (uint8_t)FINDER_DESK_NAME_MAX) return 0;
+    fd->edit_text[fd->edit_len++] = ch;
+    fd->edit_text[fd->edit_len] = '\0';
+    return 1;
+}
+
+void finder_edit_cancel(finder_shell_t *sh)
+{
+    if (!finder_edit_active(sh)) return;
+    fw_edit_clear(sh);
+}
+
+finder_win_status_t finder_edit_commit(finder_shell_t *sh, char *out_old,
+                                       char *out_new, int *out_renamed)
+{
+    finder_desk_t *fd = fw_edit_view(sh);
+    finder_window_t *w;
+    char name[FINDER_DESK_NAME_MAX];
+    int idx, rc;
+    finder_win_status_t st;
+
+    if (out_renamed != (int *)0) *out_renamed = 0;
+    if (out_old != (char *)0) out_old[0] = '\0';
+    if (out_new != (char *)0) out_new[0] = '\0';
+    if (fd == (finder_desk_t *)0) return FINDER_WIN_ERR_NULL;
+    w   = &sh->windows[(int)sh->edit_slot];
+    idx = (int)fd->edit_idx;
+    if (out_old != (char *)0) fw_copy83(out_old, sh->edit_orig);
+
+    /* ARMED with nothing typed, or the original typed back: nothing to do. */
+    if (fd->edit_state == FINDER_EDIT_ARMED) { fw_edit_clear(sh); return FINDER_WIN_OK; }
+    fw_copy83(name, fd->edit_text);
+    if (out_new != (char *)0) fw_copy83(out_new, name);
+#if !defined(FINDER_WIN_MUT_RENAME_NO_83)
+    if (!finder_name83_valid(name)) return FINDER_WIN_ERR_NAME;  /* edit stays */
+#endif
+    /* MUTANT FINDER_WIN_MUT_RENAME_NO_83 (Rule 6): the typed text goes to the
+     * binding unvalidated and un-uppercased. NEVER in a real build. */
+    if (out_new != (char *)0) fw_copy83(out_new, name);
+    if (fw_ieq(name, sh->edit_orig)) { fw_edit_clear(sh); return FINDER_WIN_OK; }
+
+    /* The view must still BE its folder (Sec 10d) before any write. */
+    st = finder_win_check_live(sh, (int)sh->edit_slot);
+    if (st != FINDER_WIN_OK) { fw_edit_clear(sh); return st; }
+    rc = sh->fs.rename(sh->fs.user, sh->edit_orig, name, w->dir_start);
+    if (rc == (int)FINDER_WIN_ERR_EXISTS) return FINDER_WIN_ERR_EXISTS; /* stays */
+    if (rc != (int)FINDER_WIN_OK) { fw_edit_clear(sh); return FINDER_WIN_ERR_MOVE; }
+
+    /* Renamed on the volume: the icon follows; its position, selection and
+     * meta are untouched (fat12_rename preserves every other byte). */
+    finder_desk_set_name(fd, idx, name);
+    fw_edit_clear(sh);
+    if (out_renamed != (int *)0) *out_renamed = 1;
+    return FINDER_WIN_OK;
+}
+
+/* ===========================================================================
  * 8. THE TENANT
  * ===========================================================================*/
 
@@ -1986,6 +2259,7 @@ static int finder_shell_open(FlairApp *self, const FlairLaunchParams *lp)
         return 1;
     for (int i = 0; i < FINDER_WIN_MAX; i++)
         finder_click_reset(&sh->windows[i].click);
+    sh->edit_slot = -1;                        /* R3.4c: no label under edit */
 
     self->userData = (void *)sh;
     /* No window at launch: a disk window opens ONLY on a double-click. So
@@ -2009,7 +2283,17 @@ static void finder_shell_event(FlairApp *self, const EventRecord *ev)
          * newly-exposed damage only, never the whole window. */
         WindowRecord *w = (WindowRecord *)(uintptr_t)ev->message;
         int slot = finder_win_slot_of(sh, w);
-        if (slot < 0) return;
+        if (slot < 0) {
+            /* R3.4c: the Get Info window repaints through the same
+             * exposure-survival discipline (os/flair/finder_info.c). */
+            void finder_info_paint(finder_shell_t *, const bitmap_t *,
+                                   const region_t *);
+            if (!finder_info_is(sh, w)) return;
+            region_op(&sh->info.rk.r, sh->info.rec.contRgn,
+                      sh->info.rec.updateRgn, RGN_OP_INTERSECT);
+            finder_info_paint(sh, sh->surface, &sh->info.rk.r);
+            return;
+        }
         region_op(&sh->windows[slot].rk.r,
                   sh->windows[slot].rec.contRgn,
                   sh->windows[slot].rec.updateRgn, RGN_OP_INTERSECT);

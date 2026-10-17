@@ -165,6 +165,9 @@
  * the region engine rather than truncating a region. */
 #define FINDER_WIN_RGN_ROWS       32
 #define FINDER_WIN_RGN_POOL      128
+/* bead initech-p6st: the Where chain text and the Duplicate copy chunk. */
+#define FINDER_WIN_PATH_MAX       40
+#define FINDER_DUP_CHUNK         512
 
 /* ===========================================================================
  * 2. THE INVISIBLE GRID  (design F1.2 / F3.3 "Clean Up ... plain row-major")
@@ -384,6 +387,25 @@ typedef struct finder_fs {
     int (*dir_ident)(void *fs_user, uint16_t dir, uint16_t parent,
                      const char *name83);
 
+    /* ---- R3.4c (bead initech-p6st): rename-in-place + Get Info ----------
+     * Same-directory rename of `old83` to `new83` inside `dir` (fat12_rename).
+     * FINDER_WIN_OK; ERR_EXISTS when `new83` is already taken there (a rename
+     * never clobbers -- the load-bearing refusal, design F3.1 "Rename collision
+     * semantics"); ERR_MOVE for any other backend refusal (not found, bad
+     * name, device). The Finder refuses DIRECTORIES before this is reached
+     * (FINDER_WIN_ERR_KIND; folders wait on bead initech-f0hh's window
+     * identity update). */
+    int (*rename)(void *fs_user, const char *old83, const char *new83,
+                  uint16_t dir);
+
+    /* The bytes the regular file `name83` in `dir` OCCUPIES on the volume:
+     * its cluster-chain length times the cluster size -- the chain walk of
+     * design F3.5 ("bytes on disk ... cheap and very period"), never
+     * ceil(size / cluster) computed from the size field. FINDER_WIN_OK with
+     * *out_bytes, else ERR_MOVE (not found, corrupt chain). */
+    int (*on_disk)(void *fs_user, const char *name83, uint16_t dir,
+                   uint32_t *out_bytes);
+
     void *user;                /* the binding's opaque cookie                  */
 } finder_fs_t;
 
@@ -417,6 +439,11 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
     FINDER_WIN_ERR_NOTRASH   = -13, /* open Trash: the volume has no \TRASH     */
     FINDER_WIN_ERR_LOCKED    = -14, /* locked document: unlock before discard  */
+    FINDER_WIN_ERR_KIND      = -16, /* Duplicate / rename: the item is a
+                                     * DIRECTORY (bead initech-p6st: files
+                                     * only; FINDER-DUP-REFUSED kind=dir)     */
+    FINDER_WIN_ERR_NAME      = -17, /* rename: the typed text is not an 8.3
+                                     * name (finder_name83_valid)             */
     FINDER_WIN_ERR_STALE     = -15  /* the view's folder no longer exists as
                                      * that folder (purged / recycled cluster;
                                      * bead initech-uios, audit L002)          */
@@ -444,6 +471,13 @@ typedef struct finder_window {
                                        * that holds it (0 == root): with
                                        * dir_start + name83 the view's
                                        * IDENTITY (Sec 10d; initech-uios)      */
+    /* R3.4c (bead initech-p6st): the folder chain from the root, HFS-style
+     * ("APPS:" ; "" for the root), noted at open from the PARENT window's
+     * path (a folder window opens only from its parent's window, so the
+     * chain is always known then). Get Info's Where field is the volume
+     * name + ":" + this. Fail-safe: a chain that does not fit keeps the
+     * parent's text and appends nothing (never a guessed segment). */
+    char                 path[FINDER_WIN_PATH_MAX];
     uint16_t             view_bits;   /* the kind=4 record's view bits         */
     uint16_t             dropped;     /* entries the icon cap refused          */
     WindowRecord         rec;         /* the window itself                     */
@@ -486,8 +520,36 @@ typedef struct finder_cmd_outcome {
                                    * views noted at dispatch                   */
     uint16_t            parent;   /* New Folder: the parent's first cluster    */
     uint8_t             singleton;/* Open: 1 == an existing window was raised  */
-    char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open    */
+    char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open /
+                                                        * Duplicate source /
+                                                        * Get Info item       */
+    /* R3.4c (bead initech-p6st) */
+    char                as[FINDER_DESK_NAME_MAX];      /* Duplicate: the copy */
+    uint32_t            bytes;    /* Duplicate: bytes copied                   */
 } finder_cmd_outcome_t;
+
+/* ---------------------------------------------------------------------------
+ * R3.4c (bead initech-p6st): THE GET INFO WINDOW -- one Finder-owned
+ * noGrowDocProc window (close box + collapse box, no zoom, no grow, no scroll
+ * bars: ../system7-decomp/goldens/captures/s8_get_info_doc.png, mint-011),
+ * SINGLE INSTANCE: a second Get Info REPLACES the first (lane J's recorded
+ * ruling on bead initech-tdnl.11). Its content is a SNAPSHOT taken at open --
+ * the period window is a report, not a live view. See os/flair/finder_info.h.
+ * ------------------------------------------------------------------------- */
+typedef struct finder_info {
+    uint8_t              open;
+    uint8_t              is_folder;
+    uint8_t              kind;        /* finder_icon_kind_t of the item        */
+    char                 name[FINDER_DESK_NAME_MAX];
+    char                 title[FINDER_DESK_NAME_MAX + 6];   /* "NAME Info"    */
+    char                 where[FINDER_WIN_PATH_MAX + 14];   /* "VOL:" + path  */
+    uint32_t             size;        /* file_size (folders: the sum)          */
+    uint32_t             on_disk;     /* chain bytes (folders: the sum)        */
+    uint16_t             items;       /* folders: entries listed               */
+    uint16_t             date, time;  /* the one DOS 3.3 write stamp           */
+    WindowRecord         rec;
+    finder_win_rgn_t     rs, rc, ru, rk;
+} finder_info_t;
 
 /* The shell tenant's whole per-instance state; ONE allocation from the tenant's
  * RECORDS arena at launch (ADR-0013 AC-2: the shell reads only records-arena
@@ -527,6 +589,14 @@ typedef struct finder_shell {
      * directory the LAST purge removed and was disposed by it (Sec 12). Read
      * by kmain for the FINDER-TRASH-VIEW-CLOSED markers. */
     uint8_t              purge_closed;
+    /* R3.4c (bead initech-p6st) */
+    finder_info_t        info;         /* the single Get Info window          */
+    int8_t               edit_slot;    /* the window whose icon is being
+                                        * renamed, or -1 (the edit text and
+                                        * state live in that view's
+                                        * finder_desk_t -- Sec 13)            */
+    char                 edit_orig[FINDER_DESK_NAME_MAX];
+    uint8_t              dup_buf[FINDER_DUP_CHUNK];   /* Duplicate's chunk    */
 } finder_shell_t;
 
 /* ===========================================================================
@@ -1038,5 +1108,80 @@ int finder_trash_alert_text(uint16_t items, uint32_t bytes,
  * 2026-10-16), wrapped by the SAME greedy Chicago 12 rule into `out`. Returns
  * the line count. Pure. */
 int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
+/* ===========================================================================
+ * 13. R3.4c (bead initech-p6st): RENAME-IN-PLACE -- THE MINIMAL LABEL-EDIT
+ *     STATE MACHINE ON RAW keyDown (NO TextEdit; lane J's recorded ruling on
+ *     bead initech-tdnl.11)
+ * ---------------------------------------------------------------------------
+ * WHAT A USER SEES (../system7-decomp/goldens/captures/s8_rename_armed.png,
+ * s8_rename_typing.png, s8_rename_done.png; re/mint-results-011.md Sec 3):
+ *   ARMED   a click on the LABEL of an already-selected icon (classified a
+ *           SINGLE -- more than FINDER_DBLCLICK_TICKS after the selecting
+ *           click, so it is not a double): the label band stays inverted
+ *           (the whole name selected) and gains a 1-px WHITE ring and a 1-px
+ *           BLACK frame (the band outset by 2).
+ *   TYPING  the first key REPLACES the whole name (the band goes white, the
+ *           typed text black, a 1-px caret after it, same ring + frame); the
+ *           band is re-centred under the sprite at the typed width.
+ *   Return  COMMITS through the binding's rename (8.3 validated, uppercased);
+ *           a taken name REFUSES LOUD (serial FINDER-RENAME-REFUSED
+ *           reason=exists) and the edit STAYS so the name can be fixed.
+ *   Escape  CANCELS (the original name back). A click anywhere else commits
+ *           (kmain), as the period Finder does; a refused click-commit
+ *           cancels. Any Finder command dispatched while editing cancels.
+ *   Folders are REFUSED at the arm (FINDER_WIN_ERR_KIND; the fat12 side of
+ *   bead initech-f0hh has landed, the window-identity update has not).
+ *   Return on a selected icon does NOT arm (s8_rename_return.png: Mac OS 8.1
+ *   draws no edit box; audit F11's wish is not the period behaviour).
+ * The edit TEXT and STATE live in the edited window's finder_desk_t
+ * (edit_idx / edit_state / edit_text, finder_desktop.h Sec 2) so the ONE icon
+ * painter draws the box; the shell holds only which window and the original.
+ * MUTANT KNOBS (Rule 6; -D on finder_windows.c only):
+ *   FINDER_WIN_MUT_RENAME_DIR_ALLOWED  -- the folder refusal is gone (the
+ *                                         backend WOULD rename the directory).
+ *   FINDER_WIN_MUT_RENAME_NO_83        -- the 8.3 validation is gone (the
+ *                                         raw typed text goes to the binding).
+ * ===========================================================================*/
+/* Arm the edit on icon `idx` of window `slot` (icon views only). FINDER_WIN_OK,
+ * ERR_KIND for a folder, ERR_NULL (bad slot / idx / list view / no binding). */
+finder_win_status_t finder_edit_arm(finder_shell_t *sh, int slot, int idx);
+
+/* One raw key: printable ASCII appends (the first replaces the whole name),
+ * backspace (0x08) deletes. Returns 1 when the text changed. */
+int finder_edit_key(finder_shell_t *sh, char ch);
+
+/* Commit: FINDER_WIN_OK and *out_renamed = 1 when the binding renamed it
+ * (out_old / out_new filled; the icon re-labelled, the edit closed);
+ * FINDER_WIN_OK and *out_renamed = 0 when the text equals the original (the
+ * edit closed, nothing written); ERR_NAME / ERR_EXISTS with the edit still
+ * open (out_new = the rejected text); ERR_STALE / ERR_MOVE / ERR_NULL with
+ * the edit cancelled. */
+finder_win_status_t finder_edit_commit(finder_shell_t *sh, char *out_old,
+                                       char *out_new, int *out_renamed);
+
+/* Cancel: the original name back, the edit closed. No-op when none. */
+void finder_edit_cancel(finder_shell_t *sh);
+
+/* 1 while an edit is armed or typing. */
+int finder_edit_active(const finder_shell_t *sh);
+
+/* The 8.3 rule the commit applies: 1..8 base chars, an optional '.' + 0..3
+ * extension chars, from the DOS character set (letters are uppercased in
+ * place). Returns 1 and uppercases `name` when valid, else 0. Pure. */
+int finder_name83_valid(char *name);
+
+/* The list view's / Get Info's kind text for an icon kind: "folder",
+ * "application program", "Application document" (the strings the list view
+ * grades against s8_finder_list_view.png; one source for both). */
+const char *finder_win_kind_text(uint8_t kind);
+
+/* The Where chain for window `slot` ("" for the root, "APPS:" one level down). */
+const char *finder_win_path(const finder_shell_t *sh, int slot);
+
+/* Get Info (os/flair/finder_info.c) -- declared here so the shell's event
+ * proc and close path can reach them without a second include. */
+int  finder_info_is(const finder_shell_t *sh, const WindowRecord *w);
+void finder_info_close(finder_shell_t *sh);
 
 #endif /* INITECH_OS_FLAIR_FINDER_WINDOWS_H */

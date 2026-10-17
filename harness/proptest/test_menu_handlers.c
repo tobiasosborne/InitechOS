@@ -84,7 +84,8 @@ static const finder_cmd_id CAN_LIGHT[] = {
     FCMD_VIEW_KIND, FCMD_VIEW_DATE, FCMD_CLEANUP, FCMD_ARRANGE_BY_NAME,
     FCMD_EMPTY_TRASH,         /* bead initech-6k12: implemented, lit iff full */
     FCMD_RESTART, FCMD_SHUTDOWN, /* bead initech-tdnl.78: implemented, always lit */
-    FCMD_EXIT_DOS                /* bead initech-3p1a: implemented, always lit */
+    FCMD_EXIT_DOS,               /* bead initech-3p1a: implemented, always lit */
+    FCMD_GET_INFO, FCMD_DUPLICATE /* bead initech-p6st: implemented, lit iff a selection */
 };
 #define N_CAN_LIGHT ((int)(sizeof CAN_LIGHT / sizeof CAN_LIGHT[0]))
 
@@ -138,10 +139,18 @@ static void leg_finder_bar(void)
 
     /* The six audited fakes, by name, in the all-live state. */
     finder_menu_refresh_enables(&live);
-    CHECK(bar->menus[FINDER_MENU_IX_FILE].items[5].enabled == 0u,
-          "H1 File > Get Info is drawn disabled even with a selection (F03)");
-    CHECK(bar->menus[FINDER_MENU_IX_FILE].items[6].enabled == 0u,
-          "H1 File > Duplicate is drawn disabled even with a selection (F03)");
+    /* RE-KEY (bead initech-p6st, stated): F03's two fakes are REAL now --
+     * lit WITH a selection (walk_menu holds each lit row to a real handler;
+     * this names them), dark without one (the rest walk above). The row that
+     * is still unimplemented and selection-keyed is Put Away, authored dark. */
+    CHECK(bar->menus[FINDER_MENU_IX_FILE].items[5].enabled == 1u &&
+          finder_shell_implements(FCMD_GET_INFO),
+          "H1 File > Get Info is lit with a selection and implemented (p6st)");
+    CHECK(bar->menus[FINDER_MENU_IX_FILE].items[6].enabled == 1u &&
+          finder_shell_implements(FCMD_DUPLICATE),
+          "H1 File > Duplicate is lit with a selection and implemented (p6st)");
+    CHECK(bar->menus[FINDER_MENU_IX_FILE].items[8].enabled == 0u,
+          "H1 File > Put Away stays drawn disabled (unimplemented; F03 rule)");
     /* RE-KEY (bead initech-tdnl.78, stated): F05's two fakes are REAL now --
      * lit in EVERY state, and the shell implements both (walk_menu above
      * already holds each lit row to a real handler; this names them). */
@@ -198,7 +207,9 @@ static void leg_fallback(void)
 {
     static finder_shell_t sh;
     FinderCtx fx = mk(1, 0, 0, 0);
-    uint32_t get_info = ((uint32_t)512u << 16) | 6u;
+    /* RE-KEY (bead initech-p6st, stated): Get Info is implemented now; the
+     * still-unimplemented HAS_SELECTION row is Put Away (File #9). */
+    uint32_t get_info = ((uint32_t)512u << 16) | 9u;
 
     memset(&sh, 0, sizeof sh);
     fx.trace = sink;
@@ -208,7 +219,7 @@ static void leg_fallback(void)
 
     g_lines = 0; g_last[0] = '\0';
     finder_dispatch(&fx, get_info, "mouse");
-    CHECK(g_lines == 2 && strcmp(g_last, "FINDER-NYI name=GET_INFO") == 0,
+    CHECK(g_lines == 2 && strcmp(g_last, "FINDER-NYI name=PUT_AWAY") == 0,
           "H3 an unimplemented command reaching dispatch says FINDER-NYI (never silence)");
 }
 

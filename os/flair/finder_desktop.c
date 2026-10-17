@@ -144,6 +144,15 @@ void finder_desk_init(finder_desk_t *fd, finder_desk_icon_t *storage,
     fd->cap    = cap;
     fd->bounds = usable;
     fd->trash_full = 0u;
+    fd->edit_idx   = -1;           /* R3.4c: no label under edit           */
+    fd->edit_state = 0u;
+    fd->edit_len   = 0u;
+    fd->edit_text[0] = '\0';
+}
+
+const void *finder_desk_strike(uint8_t kind)
+{
+    return (const void *)fd_strike(kind, 0u);
 }
 
 int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
@@ -234,7 +243,8 @@ rgn_rect_t finder_desk_sprite_rect(const finder_desk_t *fd, int idx)
     return r;
 }
 
-rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
+rgn_rect_t finder_desk_label_rect_for(const finder_desk_t *fd, int idx,
+                                      const char *text)
 {
     rgn_rect_t r;
     int w;
@@ -243,7 +253,7 @@ rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
 
     if (!fd_valid(fd, idx)) return fd_empty_rect();
 
-    w  = finder_desk_text_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
+    w  = finder_desk_text_width(text) + 2 * FINDER_LABEL_PAD_X;
     cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
     /* Centered under the sprite; integer division matches text_center_in. */
     left = cx - w / 2;
@@ -259,6 +269,31 @@ rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
     return r;
 }
 
+rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
+{
+    if (!fd_valid(fd, idx)) return fd_empty_rect();
+    return finder_desk_label_rect_for(fd, idx, fd->icons[idx].name);
+}
+
+/* R3.4c (bead initech-p6st): the edit box = (name band UNION typed band)
+ * outset by FINDER_EDIT_OUTSET -- measured off s8_rename_armed.png: the band
+ * rows 120..132 sit inside a white ring (119 / 133) inside a black frame
+ * (118 / 134); columns likewise. Empty when `idx` is not under edit. */
+rgn_rect_t finder_desk_edit_rect(const finder_desk_t *fd, int idx)
+{
+    rgn_rect_t a, b, u;
+    if (!fd_valid(fd, idx) || fd->edit_idx != (int16_t)idx ||
+        fd->edit_state == 0u)
+        return fd_empty_rect();
+    a = finder_desk_label_rect(fd, idx);
+    b = finder_desk_label_rect_for(fd, idx, fd->edit_text);
+    u.left   = (int16_t)(fd_min16(a.left, b.left) - FINDER_EDIT_OUTSET);
+    u.top    = (int16_t)(a.top - FINDER_EDIT_OUTSET);
+    u.right  = (int16_t)(fd_max16(a.right, b.right) + FINDER_EDIT_OUTSET);
+    u.bottom = (int16_t)(a.bottom + FINDER_EDIT_OUTSET);
+    return u;
+}
+
 rgn_rect_t finder_desk_cell_rect(const finder_desk_t *fd, int idx)
 {
     rgn_rect_t s, l, u;
@@ -269,6 +304,15 @@ rgn_rect_t finder_desk_cell_rect(const finder_desk_t *fd, int idx)
     u.top    = fd_min16(s.top, l.top);
     u.right  = fd_max16(s.right, l.right);
     u.bottom = fd_max16(s.bottom, l.bottom);
+    /* R3.4c: while this label is under edit the box is part of the cell, so
+     * every damage / repaint of the cell covers the ring and frame. */
+    if (fd->edit_idx == (int16_t)idx && fd->edit_state != 0u) {
+        rgn_rect_t e = finder_desk_edit_rect(fd, idx);
+        u.left   = fd_min16(u.left, e.left);
+        u.top    = fd_min16(u.top, e.top);
+        u.right  = fd_max16(u.right, e.right);
+        u.bottom = fd_max16(u.bottom, e.bottom);
+    }
     return u;
 }
 
@@ -853,6 +897,50 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
          * highlighted state of the patent's FIG. 1c is the selected look. */
         band_px = (ic->selected || ic->hilite) ? ink_px  : face_px;
         text_px = (ic->selected || ic->hilite) ? face_px : ink_px;
+
+        if (fd->edit_idx == (int16_t)i && fd->edit_state != 0u) {
+            /* R3.4c (bead initech-p6st): THE LABEL EDIT BOX, measured off
+             * s8_rename_armed.png / s8_rename_typing.png (mint-011): ARMED
+             * = the name band inverted (whole name selected), TYPING = a
+             * white band with the typed text in ink and a 1-px caret after
+             * it; both inside a 1-px white ring inside a 1-px black frame
+             * (the band outset by 1 and 2). The typing band is re-centred
+             * under the sprite at the typed width, as the capture's is. */
+            const char *txt = (fd->edit_state == FINDER_EDIT_TYPING)
+                              ? fd->edit_text : ic->name;
+            rgn_rect_t ring, frame;
+            lab = finder_desk_label_rect_for(fd, i, txt);
+            ring = lab;  ring.left--;  ring.top--;  ring.right++;  ring.bottom++;
+            frame = ring; frame.left--; frame.top--; frame.right++; frame.bottom++;
+#if !defined(FINDER_DESK_MUT_EDIT_NO_FRAME)
+            blitter_fill_rect_clipped(dst, frame, ink_px, clip);
+#endif
+            /* MUTANT FINDER_DESK_MUT_EDIT_NO_FRAME (Rule 6): the black frame
+             * is never painted -- the edit is indistinguishable from a plain
+             * selected label (test-finder-dupinfo R-leg goes RED on the
+             * frame row). NEVER in a real build. */
+            blitter_fill_rect_clipped(dst, ring, face_px, clip);
+            if (fd->edit_state == FINDER_EDIT_TYPING) {
+                int caret_x;
+                blitter_fill_rect_clipped(dst, lab, face_px, clip);
+                finder_desk_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
+                                 (int)lab.top + 1, txt, ink_px, clip);
+                caret_x = (int)lab.left + FINDER_LABEL_PAD_X +
+                          finder_desk_text_width(txt);
+                {
+                    rgn_rect_t caret;
+                    caret.left = (int16_t)caret_x;
+                    caret.right = (int16_t)(caret_x + 1);
+                    caret.top = lab.top; caret.bottom = lab.bottom;
+                    blitter_fill_rect_clipped(dst, caret, ink_px, clip);
+                }
+            } else {
+                blitter_fill_rect_clipped(dst, lab, ink_px, clip);
+                finder_desk_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
+                                 (int)lab.top + 1, txt, face_px, clip);
+            }
+            continue;
+        }
 
         lab = finder_desk_label_rect(fd, i);
         blitter_fill_rect_clipped(dst, lab, band_px, clip);

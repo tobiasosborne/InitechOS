@@ -9996,6 +9996,14 @@ KERNEL_FINDER_OPS_OBJ := $(BUILD)/finder_ops.o
 $(KERNEL_FINDER_OPS_OBJ): $(FINDER_OPS_KDEPS) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(FLAIR_FINDER_OPS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_ops.c -o $@
 
+# The R3.4c Finder GET INFO window object (THE ARTIFACT; bead initech-p6st):
+# the single-instance noGrowDocProc window, its snapshot and painter, the F3.5
+# date honesty rule. Linked ONLY into the FLAIRTENANTS kernels.
+FINDER_INFO_KDEPS := os/flair/finder_info.c os/flair/finder_info.h os/flair/finder_windows.h os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/text.h os/flair/blitter.h os/flair/flair_look.h os/flair/window.h os/flair/process.h spec/chrome_metrics.h spec/assets/geneva9.h spec/assets/chicago12.h spec/region_algebra.h spec/window_record.h
+KERNEL_FINDER_INFO_OBJ := $(BUILD)/finder_info.o
+$(KERNEL_FINDER_INFO_OBJ): $(FINDER_INFO_KDEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_info.c -o $@
+
 # The R3 Finder COMMAND-TABLE SPINE object (bead initech-tdnl.27 / slice
 # tdnl.9a): one table, one finder_dispatch. R3.3 links it for real -- the
 # Ctrl-chord path and the shell's exec hook both ride it.
@@ -10282,7 +10290,7 @@ $(KERNEL_FLAIRTENANTS_MAIN_OBJ): os/flair/apple_menu.h
 $(KERNEL_WINDOW_OBJ) $(KERNEL_CHROME_OBJ) $(KERNEL_DESKTOP_OBJ): os/flair/rdoc.h
 
 # obj set = FLAIRLIVE's (main obj swapped) + the App Contract + reference tenants.
-KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ) $(KERNEL_APPLE_MENU_OBJ)
+KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_PROCESS_OBJ) $(KERNEL_REF_TENANT_OBJ) $(KERNEL_DESKTOP_DB_OBJ) $(KERNEL_FINDER_ICON_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_FINDER_WINDOWS_OBJ) $(KERNEL_FINDER_OPS_OBJ) $(KERNEL_FINDER_INFO_OBJ) $(KERNEL_FINDER_CMD_OBJ) $(KERNEL_FINDER_MENU_OBJ) $(KERNEL_TBXGATE_OBJ) $(KERNEL_TBXGATE_ASM_OBJ) $(KERNEL_SCRAP_OBJ) $(KERNEL_STDFILE_OBJ) $(KERNEL_LIST_OBJ) $(KERNEL_APPLE_MENU_OBJ)
 
 # Interactive film-scene kernel (tdnl.102-.104): the flagship tenants objects with the
 # film-scene kmain; placed after KERNEL_FLAIRTENANTS_OBJS (read-before-definition lint).
@@ -10794,6 +10802,39 @@ $(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_fl
 	@printf ">>> flair-tenants FILE-OPS MUTANT image (-D$(1)): %s\n" "$$@"
 endef
 $(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_TRASH_NO_STAGE,ops_trash_no_stage))
+
+# $(call flair-tenants-finderinfo-mutant-rules,<KNOB>,<tag>): an R3.4c Get
+# Info mutant (bead initech-p6st) -- the SAME FLAIRTENANTS kernel with ONLY
+# finder_info.o rebuilt under -D<KNOB> (the finderops macro's shape).
+define flair-tenants-finderinfo-mutant-rules
+$(BUILD)/finder_info_mut_$(2).o: $(FINDER_INFO_KDEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -D$(1) -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_info.c -o $$@
+
+$(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FINDER_INFO_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_info_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $$@ $(filter-out $(KERNEL_FINDER_INFO_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/finder_info_mut_$(2).o @$(TRANSIENT_IMPORTS_LD)
+
+$(BUILD)/kernel_flairtenants_mut_$(2).bin: $(BUILD)/kernel_flairtenants_mut_$(2).elf | $(BUILD)
+	$(OBJCOPY) -O binary $$< $$@
+	@sz=$$$$(wc -c < $$@); max=$$$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$$$sz" -gt "$$$$max" ]; then \
+		printf '!!! kernel_flairtenants_mut_$(2).bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$$$sz" "$$$$max"; \
+		exit 1; \
+	fi; \
+	dd if=/dev/zero of=$$@ bs=1 seek="$$$$sz" count="$$$$(( max - sz ))" conv=notrunc status=none; \
+	printf ">>> kernel(flairtenants-mut-$(2)): %s (padded to %d sectors)\n" "$$@" "$(KERNEL_SECTORS)"
+	$$(call kernel-end-guard,$$<,flairtenants-mut-$(2))
+
+$(BUILD)/flair_tenants_mut_$(2).img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin | $(BUILD)
+	@sh $(BOOT_SYSTEM_MINT) $$@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $(BUILD)/kernel_flairtenants_mut_$(2).bin $(BOOT_SYSTEM_TOOL) $(BUILD)/transient_kernel_flairtenants_mut_$(2).bin
+	@printf ">>> flair-tenants GET-INFO MUTANT image (-D$(1)): %s\n" "$$@"
+endef
+$(eval $(call flair-tenants-finderinfo-mutant-rules,FINDER_INFO_MUT_TWO_INSTANCES,info_two_instances))
+$(eval $(call flair-tenants-finderinfo-mutant-rules,FINDER_INFO_MUT_LABEL_SHIFT,info_label_shift))
+$(eval $(call flair-tenants-finderops-mutant-rules,FINDER_OPS_MUT_DUP_NO_COPY,ops_dup_no_copy))
+$(eval $(call flair-tenants-finderwin-mutant-rules,FINDER_WIN_MUT_RENAME_DIR_ALLOWED,win_rename_dir_allowed))
+# The DUP_SAME_CHAIN mutant lives in kmain's finder_fs_t binding (the dirent
+# clone); the SAME FLAIRTENANTS kmain with one knob.
+$(eval $(call flair-tenants-kmain-mutant-rules,FINDER_FS_MUT_DUP_SAME_CHAIN,dupsamechain))
 
 # $(call flair-tenants-finderwin-mutant-rules,<KNOB>,<tag>): an R3.3 Finder
 # DISK WINDOW (finder_windows.c) mutant, bead initech-tdnl.10. Swaps ONLY
@@ -13031,11 +13072,12 @@ TEST_FINDER_WIN_MUT_VOLLABEL  := $(BUILD)/test_finder_windows_mutant_vollabel_sh
 TEST_FINDER_WIN_MUT_CLEANUP   := $(BUILD)/test_finder_windows_mutant_cleanup_unsorted
 FINDER_WIN_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Iharness/render -Iseed
 FINDER_WIN_LINK := os/flair/event.c os/flair/finder_windows.c os/flair/finder_desktop.c \
+                   os/flair/finder_info.c os/flair/finder_ops.c \
                    os/flair/finder_icon.c os/flair/finder_cmd.c \
                    os/flair/window.c os/flair/desktop.c os/flair/blitter.c \
                    os/flair/surface.c os/flair/heap.c \
                    $(CHROME_DRAWER_C) $(REGION_ENGINE_C) $(FLAIRLOOK_C)
-FINDER_WIN_DEPS := $(TEST_FINDER_WIN_SRC) os/flair/finder_windows.h \
+FINDER_WIN_DEPS := $(TEST_FINDER_WIN_SRC) os/flair/finder_windows.h os/flair/finder_info.h \
                    os/flair/finder_desktop.h os/flair/finder_cmd.h \
                    os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h \
                    os/flair/process.h os/flair/blitter.h os/flair/surface.h \
@@ -13279,7 +13321,9 @@ test-menu-handlers-mutant: $(foreach m,$(MENU_HANDLERS_MUTANTS),$(BUILD)/test_me
 # ---------------------------------------------------------------------------
 TEST_FINDER_OPS      := $(BUILD)/test_finder_ops
 TEST_FINDER_OPS_SRC  := harness/proptest/test_finder_ops.c
-FINDER_OPS_LINK      := os/flair/finder_ops.c $(FINDER_WIN_LINK)
+# R3.4c: finder_ops.c moved INTO FINDER_WIN_LINK (finder_windows.c's Duplicate
+# row calls finder_ops_duplicate), so every Finder host oracle links it once.
+FINDER_OPS_LINK      := $(FINDER_WIN_LINK)
 FINDER_OPS_DEPS      := $(TEST_FINDER_OPS_SRC) os/flair/finder_ops.h $(FINDER_WIN_DEPS)
 FINDER_OPS_MUTANTS   := TRASH_NO_STAGE NO_CYCLE NO_ORIGIN NO_SERVICE_GUARD COUNT_CELL
 # -DWINDOW_ENABLE_R1_OPS (bead initech-tdnl.34): leg O9 drives ZoomWindow /

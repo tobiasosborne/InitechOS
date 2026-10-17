@@ -124,6 +124,12 @@
 #define FINDER_LABEL_PAD_X         3
 #define FINDER_LABEL_ROWS          11   /* == GENEVA9_CELL_H; asserted in .c   */
 #define FINDER_LABEL_H             (FINDER_LABEL_ROWS + 2)
+/* R3.4c: the label edit box's ring (1) + frame (1) outside the band
+ * (s8_rename_armed.png: band rows 120..132, ring 119/133, frame 118/134). */
+#define FINDER_EDIT_OUTSET         2
+#define FINDER_EDIT_NONE           0u
+#define FINDER_EDIT_ARMED          1u
+#define FINDER_EDIT_TYPING         2u
 
 /* Full cell height: sprite + gap + label band. */
 #define FINDER_CELL_H              (FINDER_ICON_DIM + FINDER_LABEL_GAP + \
@@ -246,6 +252,16 @@ typedef struct finder_desk {
      * FLAIR_DESK_ICON_TRASH_FULL). Written only by finder_shell_recount_trash
      * (os/flair/finder_windows.c); 0 for a window's model (no Trash icon). */
     uint8_t             trash_full;
+    /* R3.4c (bead initech-p6st): the label edit (finder_windows.h Sec 13).
+     * edit_idx == -1 when no label of this surface is being edited;
+     * edit_state is FINDER_EDIT_ARMED (the name selected whole) or
+     * FINDER_EDIT_TYPING (edit_text shown with a caret). The painter draws
+     * the box; finder_desk_edit_rect is its damage/hit rect. The DESKTOP.DB
+     * codec never reads these. */
+    int16_t             edit_idx;
+    uint8_t             edit_state;
+    uint8_t             edit_len;
+    char                edit_text[FINDER_DESK_NAME_MAX];
 } finder_desk_t;
 
 /* ===========================================================================
@@ -289,6 +305,19 @@ int finder_desk_find_kind(const finder_desk_t *fd, finder_icon_kind_t kind);
 rgn_rect_t finder_desk_sprite_rect(const finder_desk_t *fd, int idx);
 rgn_rect_t finder_desk_label_rect (const finder_desk_t *fd, int idx);
 rgn_rect_t finder_desk_cell_rect  (const finder_desk_t *fd, int idx);
+
+/* R3.4c (bead initech-p6st): the label band for an ARBITRARY text under icon
+ * `idx` (the typing state re-centres at the typed width), and the edit box's
+ * outer rect -- the union of the name band and the typed band, outset by 2
+ * (1-px white ring + 1-px black frame; s8_rename_armed.png rows 118..134).
+ * finder_desk_cell_rect includes it while `idx` is being edited. */
+rgn_rect_t finder_desk_label_rect_for(const finder_desk_t *fd, int idx,
+                                      const char *text);
+rgn_rect_t finder_desk_edit_rect(const finder_desk_t *fd, int idx);
+
+/* The 32x32 strike for an icon kind (NULL for an unknown kind); exported for
+ * the Get Info window's icon cell (os/flair/finder_info.c). */
+const void *finder_desk_strike(uint8_t kind);   /* a const FLAIRDeskIcon *  */
 
 /* Rect helpers (half-open [left,right) x [top,bottom), the region_algebra.h
  * convention). Exported because the oracle grades them directly. */

@@ -1083,11 +1083,15 @@ static void leg_select_arrange(void)
     /* An unimplemented command never executes silently: dispatched anyway
      * (the bar would never hand it out), the shell declines it. */
     /* RE-KEY (bead initech-tdnl.78, stated): Restart left the "no" side of
-     * this row when it was implemented; O15 grades it. Get Info stays "no". */
-    CHECK(finder_shell_implements(FCMD_GET_INFO) == 0 &&
+     * this row when it was implemented; O15 grades it.
+     * RE-KEY (bead initech-p6st, stated): Get Info and Duplicate left it too
+     * (test-finder-dupinfo grades them); Put Away is the "no" now. */
+    CHECK(finder_shell_implements(FCMD_PUT_AWAY) == 0 &&
+          finder_shell_implements(FCMD_GET_INFO) == 1 &&
+          finder_shell_implements(FCMD_DUPLICATE) == 1 &&
           finder_shell_implements(FCMD_SELECT_ALL) == 1 &&
           finder_shell_implements(FCMD_ARRANGE_BY_NAME) == 1,
-          "O10 the shell's execution table: Select All + Arrange yes, Get Info no");
+          "O10 the shell's execution table: Select All + Arrange + Get Info + Duplicate yes, Put Away no");
 }
 
 /* ===========================================================================

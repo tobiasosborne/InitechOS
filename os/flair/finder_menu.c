@@ -292,10 +292,18 @@ static const fm_pred_row_t FINDER_MENU_PREDS[] = {
      * kernel confirms, finder_shell_empty_trash purges) and lit exactly while
      * \TRASH holds something (F4.2 Special row 2). */
     , { FINDER_MENU_IX_SPECIAL, 1u, finder_pred_trash_nonempty   } /* Empty #2 */
+    /* bead initech-p6st (R3.4c): Get Info and Duplicate are IMPLEMENTED
+     * (finder_windows.c fw_do_get_info / fw_do_duplicate) and lit by a
+     * selection (F4.4 HAS_SELECTION) -- the rows audit F03 found lit-and-inert
+     * are real now. */
+    , { FINDER_MENU_IX_FILE,    5u, finder_pred_has_selection    } /* Info #6  */
+    , { FINDER_MENU_IX_FILE,    6u, finder_pred_has_selection    } /* Dupl #7  */
 #if defined(FINDER_MENU_MUT_STUB_ENABLED)
-    /* MUTANT (Rule 6; bead initech-tdnl.36): the pre-fix Get Info row -- lit
-     * by any selection though nothing implements it. NEVER in a real build. */
-    , { FINDER_MENU_IX_FILE,  5u, finder_pred_has_selection      }  /* Info #6 */
+    /* MUTANT (Rule 6; bead initech-tdnl.36, re-targeted by initech-p6st now
+     * that Get Info is real): the audit-F03 defect on the row that is STILL
+     * unimplemented -- Put Away lit by any selection though nothing
+     * implements it. NEVER in a real build. */
+    , { FINDER_MENU_IX_FILE,  8u, finder_pred_has_selection      }  /* PutAway #9 */
 #endif
 };
 

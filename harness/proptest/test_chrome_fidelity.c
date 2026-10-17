@@ -1166,13 +1166,20 @@ int main(int argc, char **argv)
             render_run(&gr, draw_capture_inactive);
             cap_grow_inactive_ok &= cap_grow("INACTIVE", &gr, &ci, 306, 179);
             render_run(&gr, draw_capture_no_grow);
-            /* Sec 4: white content with a one-pixel C0 bottom/right inset
-             * shadow. The whole 14x14 interior must be free of a gadget. */
+            /* RE-KEY (bead initech-p6st, stated): a window WITHOUT a grow box
+             * has NO gutter bars and NO content inset -- the Mac OS 8.1 Get
+             * Info window (noGrowDocProc) runs its face to the body rails on
+             * every side: ../system7-decomp/goldens/captures/
+             * s8_get_info_doc.png column 299 and row 364 are the E7 face end
+             * to end, and its first content column/row (13 / 47) carry no
+             * white highlight either (mint-011). Sec 4's inset is the
+             * SCROLLING document window's. So the whole 14x14 interior where
+             * a grow gadget would sit is the owner's plain white content:
+             * no gadget, no C0 shadow line. */
             for (int y = 0; y < 14; y++)
                 for (int x = 0; x < 14; x++)
                     no_grow_ok &= our_rgb(&gr, WIN_RIGHT - 20 + x,
-                                          WIN_BOTTOM - 20 + y) ==
-                                  (x == 13 || y == 13 ? 0xC0C0C0u : 0xFFFFFFu);
+                                          WIN_BOTTOM - 20 + y) == 0xFFFFFFu;
             render_ctx_free(&gr);
         }
         free(ca.rgb);
