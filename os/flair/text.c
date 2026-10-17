@@ -48,6 +48,14 @@
 /* Pull in the full text API (inline implementations + strike tables). */
 #include "text.h"
 
+#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+#include "chicago_packed.h"
+uint16_t text_chicago_row(unsigned g,unsigned r)
+{
+    return chicago_packed_row(g,r);
+}
+#endif
+
 /*
  * text_font_from_txfont -- map a GrafPort txFont integer to text_font_t.
  *

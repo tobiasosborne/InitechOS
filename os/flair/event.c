@@ -293,6 +293,12 @@ static const uint8_t sc_shifted[128] = {
 /* Which physical modifier a (make, extended) pair names, or 0. The keyboard's
  * own "fake shifts" (E0 2A / E0 AA, E0 36 / E0 B6), which bracket the grey
  * cursor keys, name no key and return 0 (OSDev "PS/2 Keyboard" set 1). */
+/* Pure/task-owned synthesis only; publication and drain stay at -O0.
+ * Ref: spec/event_model.h Sec 5, the SPSC contract above; native boundary gate. */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 {
     switch (make) {
@@ -344,6 +350,9 @@ static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
  * drain_one -- pop one raw record from the ring. Returns 1 if a record was
  * popped (written to *out), 0 if the ring was empty.
  */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC pop_options
+#endif
 static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
 {
     uint32_t h, t;
@@ -371,6 +380,10 @@ static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
  *     deltas. The `where` field in mouse events remains stale. Makes the
  *     replay oracle go RED because expected cursor positions are wrong.
  */
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
 {
     uint16_t what = (uint16_t)nullEvent;
@@ -587,6 +600,9 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
  * 7. GetNextEvent -- non-blocking, single drain (MTE Ch 2 p. 2-26)
  * ===========================================================================*/
 
+#ifdef KERNEL_PURE_DECODE_OZ
+#pragma GCC pop_options
+#endif
 int GetNextEvent(flair_raw_ring_t *ring,
                  uint16_t eventMask,
                  EventRecord *theEvent)

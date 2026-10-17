@@ -114,10 +114,22 @@ static inline int chicago_bearing(int c)
     return (int)chicago12_lb[chicago12_index(c)];
 }
 
+/* The kernel stores row indices into a dictionary generated from the locked
+ * strike. Host rendering continues to use the original rows. PRD Sec 6.4;
+ * test-chicago-pack compares EVERY row before any pixel acceptance. */
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__
+static inline uint16_t text_chicago_row(unsigned g,unsigned r)
+{
+    return chicago12_rows[g][r];
+}
+#else
+uint16_t text_chicago_row(unsigned g,unsigned r);
+#endif
+
 static inline unsigned int chicago_cell_bits(int c, int r)
 {
     int g = chicago12_index(c);
-    return (unsigned int)chicago12_rows[g][r] >> chicago12_lb[g];
+    return (unsigned int)text_chicago_row((unsigned)g,(unsigned)r) >> chicago12_lb[g];
 }
 
 /* --------------------------------------------------------------------------
@@ -203,11 +215,10 @@ static inline void text_draw(const bitmap_t *bm,
             unsigned char lo[CHICAGO_CELL_H], hi[CHICAGO_CELL_H];
             unsigned int aw = (unsigned int)chicago_advance(c);
             int g = chicago12_index(c);
-            const uint16_t *rows = chicago12_rows[g];
             unsigned int lb = chicago12_lb[g];
             int r0 = (y < 0) ? -y : 0;
             for (int r = 0; r < CHICAGO_CELL_H; r++) {
-                unsigned int bits = (unsigned int)rows[r] >> lb;
+                unsigned int bits = (unsigned int)text_chicago_row((unsigned)g,(unsigned)r) >> lb;
                 lo[r] = (unsigned char)(bits >> 8);
                 hi[r] = (unsigned char)(bits & 0xFFu);
             }

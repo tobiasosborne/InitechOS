@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include "io.h"
 #include "boot_info.h"
+#include "kmain_cold.h"
 #include "memory_map.h"  /* high kernel runway (tdnl.29) + FLAIR heap contract */
 #include "console.h"
 #include "idt.h"
@@ -2850,11 +2851,11 @@ static GrafPort             *g_ten_barport;
  *       was promoted by process.c; run the DQ2 cycle and refresh band 2 from
  *       the NEW head (the shell fallback bar when the list is empty -- never a
  *       dead head's menubar). */
-static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static __attribute__((cold,noinline)) void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi);
 static void flair_live_tenant_scrollbar(flair_live_ctx_t *ctx, const boot_info_t *bi);
-static void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static __attribute__((cold,noinline)) void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi);
 static void flair_live_tenant_track(flair_live_ctx_t *ctx, const boot_info_t *bi);
-static void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi);
+static __attribute__((cold,noinline)) void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi);
 static void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     FlairApp *app = tbx_take_affirm();
@@ -4319,7 +4320,7 @@ static int finder_trash_confirm(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * message line, then TENANT-ALERT up: the screendump marker), take the modal answer, push it
  * (TENANT-ALERT-HIT, then the TBX_EVT_ALERT delivery), then service the
  * tenant again -- the answer may draw, EXIT or ask once more. */
-static void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static __attribute__((cold,noinline)) void flair_live_tenant_alert(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     const char *text[TBX_ALERT_LINES], *btn[3];
     uint32_t n, nb, hit;
@@ -4832,7 +4833,7 @@ static int sf_run(flair_live_ctx_t *ctx, const boot_info_t *bi, sf_ui_t *u,
     return good;
 }
 
-static void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static __attribute__((cold,noinline)) void flair_live_tenant_sf(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     static sf_ui_t u;
     static char out[TBX_SF_REPLY_BYTES];
@@ -4882,7 +4883,7 @@ static DialogItem       g_fc_it[2];
 static ControlRecord    g_fc_bar;
 static finder_win_rgn_t g_fc_rs, g_fc_rc, g_fc_ru;
 
-static void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static __attribute__((cold,noinline)) void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     const char *cap, *src, *dst;
     uint32_t size = 0u, t0, dt = 0u, v = 0u, shown = 101u, limit;
@@ -5020,23 +5021,6 @@ static void flair_live_apple_refresh(void)
     serial_putc('\n');
 }
 
-static int about_put(char *o, int at, const char *s)
-{
-    while (*s && at < 47) o[at++] = *s++;
-    o[at] = '\0';
-    return at;
-}
-
-static int about_putu(char *o, int at, uint32_t v)
-{
-    char t[12];
-    int n = 0;
-    do { t[n++] = (char)('0' + (int)(v % 10u)); v /= 10u; } while (v != 0u);
-    while (n > 0 && at < 47) o[at++] = t[--n];
-    o[at] = '\0';
-    return at;
-}
-
 /* About This Computer: the shipped banner's name/version (BANNER_LINE1,
  * spec/dos_banner.txt) and the machine's REAL memory -- the RAM stage2
  * probed (1 MiB + ext_mem_kb) and the InitechDOS arena's largest free block,
@@ -5044,25 +5028,14 @@ static int about_putu(char *o, int at, uint32_t v)
  * ("none"), it never shows a made-up figure. The Mac OS 8 window of the
  * capture (s8_about_this_computer.png) is shown through the shell's alert
  * (the banner art and the per-application bars are a recorded gap). */
-static void flair_live_about(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static __attribute__((cold,noinline)) void flair_live_about(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     static char l2[48], l3[48];
     static const char *const ok_label[1] = { "OK" };
     const char *text[3];
     uint32_t mem_k = 1024u + bi->ext_mem_kb, arena = 0u, largest = 0u;
     int bound = int21_mcb_stats(&arena, &largest);
-    int at;
-
-    at = about_put(l2, 0, "Built-in Memory: ");
-    at = about_putu(l2, at, mem_k);
-    (void)about_put(l2, at, "K");
-    at = about_put(l3, 0, "Largest Unused Block: ");
-    if (bound) {
-        at = about_putu(l3, at, largest / 64u);        /* paragraphs -> K */
-        (void)about_put(l3, at, "K");
-    } else {
-        (void)about_put(l3, at, "none");
-    }
+    kmain_about_lines(l2,l3,mem_k,largest,bound);
     text[0] = BANNER_LINE1;
     text[1] = l2;
     text[2] = l3;
@@ -5110,7 +5083,7 @@ static int flair_live_apple_result(flair_live_ctx_t *ctx, const boot_info_t *bi,
 }
 
 /* Special > Empty Trash, after the shell counted (bead initech-6k12). */
-static void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
+static __attribute__((cold,noinline)) void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                uint16_t items)
 {
     uint16_t purged = 0u, refused = 0u;
@@ -5238,7 +5211,7 @@ static const uint8_t FSD_ICON[128] = {
     0x81, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
 
-static int finder_shutdown_screen(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static __attribute__((cold,noinline)) int finder_shutdown_screen(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     static const char *const text[3] = {
         "It is now safe to switch off your computer.",
@@ -5342,7 +5315,7 @@ static void finder_restart_now(void)
  * hold no documents and are not asked: the reset or the halt ends them.
  * MUTANT KMAIN_MUT_POWER_NO_ASK (Rule 6; test-flair-shutdown-mutant): the
  * application is not asked. NEVER in a real build. */
-static int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
+static __attribute__((cold,noinline)) int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
     const char *still;
     int r;
@@ -5366,7 +5339,7 @@ static int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
  * commit, then reset or shut down.
  * MUTANT KMAIN_MUT_POWER_NO_FLUSH (Rule 6; test-flair-shutdown-mutant): the
  * DESKTOP.DB commit is skipped. NEVER in a real build. */
-static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
+static __attribute__((cold,noinline)) void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
                          finder_cmd_id id, int16_t noted)
 {
     serial_puts(id == FCMD_RESTART ? "FINDER-POWER name=RESTART views="
@@ -5423,7 +5396,7 @@ static void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * goes straight to the prompt WITHOUT the teardown and the console reset --
  * the desktop stays painted under the prompt. NEVER in a real build.
  * ------------------------------------------------------------------------- */
-static void exitdos_fail(const char *why, uint32_t v)
+static __attribute__((cold,noinline)) void exitdos_fail(const char *why, uint32_t v)
 {
     /* Initial interpreter activation: MS-DOS 3.3 User's Guide printed p310
      * (PDF395), ADR-0003 Appendix C/DEC-13. The post-EXEC overwrite/retry
@@ -5518,7 +5491,7 @@ static void (*exitdos_load_transient(void))(int)
 }
 
 /* The hand-off itself. Never returns. */
-static void flair_exit_to_dos(const boot_info_t *bi)
+static __attribute__((cold,noinline)) void flair_exit_to_dos(const boot_info_t *bi)
 {
     void (*repl)(int);
 
@@ -5591,7 +5564,7 @@ static void flair_exit_to_dos(const boot_info_t *bi)
 }
 
 /* Special > Exit to InitechDOS after the shell noted the open views. */
-static void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,
+static __attribute__((cold,noinline)) void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,
                             int16_t noted)
 {
     static const char *const labels[2] = { "Exit", "Cancel" };

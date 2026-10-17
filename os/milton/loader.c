@@ -35,6 +35,14 @@
  * Makefile edit (CLAUDE.md scope: do not touch the Makefile; Law 3 artifact = C).
  * mz.c is pure + freestanding (-ffreestanding, <stdint.h> only), so inlining it
  * here is identical to compiling it as a peer object. */
+/* Only validation/layout code below is optimized. The resume/stack-switch
+ * region retains its original -O0 policy. Ref: ADR-0003 DEC-08a.1-.5;
+ * docs/design/kernel-size-policy-round2.md Sec 4 (loader_run_plan hazard).
+ * The house macro defines this identically for every kernel that links us. */
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 #include "mz.c"
 
 /* ------------------------------------------------------------------------ *
@@ -518,6 +526,9 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
  * oracle never calls the asm path.
  * ------------------------------------------------------------------------ */
 
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC pop_options
+#endif
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 
 /* Hosted stub: validate only; do NOT touch the (host's) absolute addresses or
@@ -1318,6 +1329,10 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
  * later class-2 text-tenant EXEC (ADR-0013 Sec 3.2). The carve goes through the
  * caller's callback so this object never learns about the FLAIR heap.
  * ------------------------------------------------------------------------ */
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC push_options
+#pragma GCC optimize ("Oz", "no-strict-aliasing", "omit-frame-pointer")
+#endif
 loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
                                    loader_carve_fn carve, void *user,
                                    void **out_block, tenant_plan_t *out)
@@ -1402,4 +1417,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
     return st;
 }
 
+#ifdef KERNEL_VALIDATE_OZ
+#pragma GCC pop_options
+#endif
 #endif /* freestanding vs hosted */
