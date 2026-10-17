@@ -113,6 +113,34 @@ static void chrome_cframe(GrafPort *port, const flair_skin_t *skin,
 #define cframe(port, x0, y0, x1, y1, part) \
     chrome_cframe((port), skin, (x0), (y0), (x1), (y1), (part))
 
+/* Rect tables (size round 6, WL-0162): each entry is one crect whose edges
+ * are offsets from the box's left/top or (CR_*R/B) right/bottom edge, painted
+ * in table order; CR_ACT / CR_INA restrict it to the active / inactive
+ * frame, and part CR_DYN takes the caller's dynamic PART. */
+typedef struct { int8_t x0, y0, x1, y1; uint8_t f, part; } chrome_rect_t;
+#define CR_X0R 1u
+#define CR_X1R 2u
+#define CR_Y0B 4u
+#define CR_Y1B 8u
+#define CR_ACT 16u
+#define CR_INA 32u
+#define CR_DYN 0xFFu
+static void chrome_rects(GrafPort *port, const flair_skin_t *skin,
+                         int l, int t, int r, int b,
+                         const chrome_rect_t *tab, int n, int active, int dyn)
+{
+    for (int i = 0; i < n; i++) {
+        unsigned f = tab[i].f;
+        if (((f & CR_ACT) && !active) || ((f & CR_INA) && active)) continue;
+        crect(port, ((f & CR_X0R) ? r : l) + tab[i].x0,
+              ((f & CR_Y0B) ? b : t) + tab[i].y0,
+              ((f & CR_X1R) ? r : l) + tab[i].x1,
+              ((f & CR_Y1B) ? b : t) + tab[i].y1,
+              tab[i].part == CR_DYN ? dyn : (int)tab[i].part);
+    }
+}
+#define CRN(tab) ((int)(sizeof (tab) / sizeof (tab)[0]))
+
 enum {
     PLAT_WIDGET_CLOSE = 0,
     PLAT_WIDGET_ZOOM,
@@ -163,42 +191,37 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
     };
 #endif
 
-    crect(port, bx, by, bx + box, by + box, FLAIR_PART_PLAT_FRAME_FACE);
-    cfill(port, bx, by, box, FLAIR_PART_PLAT_WIDGET_EDGE);
-    for (int y = by; y < by + box; y++) {
-        cfill(port, bx, y, 1, FLAIR_PART_PLAT_WIDGET_EDGE);
-    }
-    cframe(port, bx + 1, by + 1, bx + box, by + box,
-           pressed ? FLAIR_PART_FRAME : PLAT_DARK_RING_PART);
-
-    crect(port, bx + 2, by + 2, bx + 2 + interior, by + 2 + interior,
-          FLAIR_PART_PLAT_FRAME_FACE);
-    cfill(port, bx + 2, by + 2, interior, FLAIR_PART_PLAT_FRAME_FACE);
-    for (int y = by + 2; y < by + 2 + interior; y++) {
-        cfill(port, bx + 2, y, 1, FLAIR_PART_PLAT_FRAME_FACE);
-    }
-    /* Interior shadow: the bottom row (dy=8) runs dx=1..8 and the right
-     * column (dx=8) runs dy=1..8. The two off-diagonal corners (8,0) and
-     * (0,8) stay #DADADA -- they belong to the top-row/left-column highlight
-     * (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd' and y=84 x=71
-     * 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169 residual). */
+    /* The fixed 13x13 cell as a rect table (size round 6, WL-0162), offsets
+     * from (bx,by): E7-less DA face, A5 outer highlight, the 1-px ring
+     * (black when pressed), the DA interior, its A5 shadow and the white
+     * top-left pixel. The redundant DA re-fills of the interior's first
+     * row/column (same PART over the same pixels) are not repeated. */
+#define WX(x0, y0, x1, y1, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), 0u, (uint8_t)(p) }
+    static const chrome_rect_t cell[] = {
+        WX(0, 0, box, box, FLAIR_PART_PLAT_FRAME_FACE),
+        WX(0, 0, box, 1, FLAIR_PART_PLAT_WIDGET_EDGE),
+        WX(0, 0, 1, box, FLAIR_PART_PLAT_WIDGET_EDGE),
+        WX(1, 1, box, 2, CR_DYN), WX(1, box - 1, box, box, CR_DYN),
+        WX(1, 1, 2, box, CR_DYN), WX(box - 1, 1, box, box, CR_DYN),
+        WX(2, 2, 2 + interior, 2 + interior, FLAIR_PART_PLAT_FRAME_FACE),
+        /* Interior shadow: the bottom row (dy=8) runs dx=1..8 and the right
+         * column (dx=8) runs dy=1..8. The two off-diagonal corners (8,0) and
+         * (0,8) stay #DADADA -- they belong to the top-row/left-column
+         * highlight (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd'
+         * and y=84 x=71 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169
+         * residual). */
 #if defined(CHROME_FID_MUT_WIDGET_CORNERS_EDGE)
-    /* Rule-6 restoration of the pre-tdnl.52 full-length shadow strokes. */
-    cfill(port, bx + 2, by + 2 + interior - 1, interior,
-          FLAIR_PART_PLAT_WIDGET_EDGE);
-    for (int y = by + 2; y < by + 2 + interior; y++) {
-        cfill(port, bx + 2 + interior - 1, y, 1,
-              FLAIR_PART_PLAT_WIDGET_EDGE);
-    }
+        /* Rule-6 restoration of the pre-tdnl.52 full-length shadow strokes. */
+        WX(2, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
+        WX(1 + interior, 2, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
 #else
-    cfill(port, bx + 3, by + 2 + interior - 1, interior - 1,
-          FLAIR_PART_PLAT_WIDGET_EDGE);
-    for (int y = by + 3; y < by + 2 + interior; y++) {
-        cfill(port, bx + 2 + interior - 1, y, 1,
-              FLAIR_PART_PLAT_WIDGET_EDGE);
-    }
+        WX(3, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
+        WX(1 + interior, 3, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
 #endif
-    cfill(port, bx + 2, by + 2, 1, FLAIR_PART_CONTENT);
+        WX(2, 2, 3, 3, FLAIR_PART_CONTENT)
+    };
+    chrome_rects(port, skin, bx, by, 0, 0, cell, CRN(cell), 0,
+                 pressed ? FLAIR_PART_FRAME : PLAT_DARK_RING_PART);
 
     for (int dy = 1; dy <= FLAIR_CHROME_WIDGET_RAMP_FACE; dy++) {
         for (int dx = 1; dx <= FLAIR_CHROME_WIDGET_RAMP_FACE; dx++) {
@@ -505,22 +528,24 @@ static void sb_tri(GrafPort *port, const flair_skin_t *skin, int axis,
 static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
                              int x0, int y0, int x1, int y1)
 {
-    crect(port, x0, y0, x1, y1, FLAIR_PART_PLAT_FACE);
+    /* Rect table (size round 6, WL-0162), box (x0,y0)-(x1,y1): face, white
+     * top row + left column, CD bottom row + right column, the two
+     * off-diagonal corners back to the face. */
+#define TX(a, b, c, d, f, p) { (int8_t)(a), (int8_t)(b), (int8_t)(c), (int8_t)(d), (uint8_t)(f), (uint8_t)(p) }
+    static const chrome_rect_t tile[] = {
+        TX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
 #if !defined(SB_MUT_TILE_FLAT)
-    cfill(port, x0, y0, x1 - x0 - 1, FLAIR_PART_CONTENT);
-    for (int y = y0; y < y1; y++) {
-        cfill(port, x0, y, 1, FLAIR_PART_CONTENT);
-    }
-    cfill(port, x0 + 1, y1 - 1, x1 - x0 - 1,
-          FLAIR_PART_PLAT_TILE_SHADOW);
-    for (int y = y0; y < y1; y++) {
-        cfill(port, x1 - 1, y, 1, FLAIR_PART_PLAT_TILE_SHADOW);
-    }
+        TX(0, 0, -1, 1, CR_X1R, FLAIR_PART_CONTENT),
+        TX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
+        TX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+        TX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
 #if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
-    cfill(port, x1 - 1, y0, 1, FLAIR_PART_PLAT_FACE);
-    cfill(port, x0, y1 - 1, 1, FLAIR_PART_PLAT_FACE);
+        TX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
+        TX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
 #endif
 #endif
+    };
+    chrome_rects(port, skin, x0, y0, x1, y1, tile, CRN(tile), 0, 0);
 }
 
 /* Enabled page well: 96/A5/C0x10/CD/DA across the bar, plus a two-pixel
@@ -650,13 +675,14 @@ static void draw_sb_thumb(GrafPort *port, const flair_skin_t *skin, int axis,
 static void draw_scroll_tile_pressed(GrafPort *port, const flair_skin_t *skin,
                                      int x0, int y0, int x1, int y1)
 {
-    crect(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WIDGET_EDGE);
-    cfill(port, x0, y0, x1 - x0 - 1, FLAIR_PART_PLAT_STRIPE_DARK);
-    for (int y = y0; y < y1; y++)
-        cfill(port, x0, y, 1, FLAIR_PART_PLAT_STRIPE_DARK);
-    cfill(port, x0 + 1, y1 - 1, x1 - x0 - 1, FLAIR_PART_PLAT_WELL);
-    for (int y = y0 + 1; y < y1; y++)
-        cfill(port, x1 - 1, y, 1, FLAIR_PART_PLAT_WELL);
+    static const chrome_rect_t held[] = {
+        TX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_WIDGET_EDGE),
+        TX(0, 0, -1, 1, CR_X1R, FLAIR_PART_PLAT_STRIPE_DARK),
+        TX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_PLAT_STRIPE_DARK),
+        TX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_WELL),
+        TX(-1, 1, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_WELL)
+    };
+    chrome_rects(port, skin, x0, y0, x1, y1, held, CRN(held), 0, 0);
 }
 
 static void draw_arrow_tile(GrafPort *port, const flair_skin_t *skin,
@@ -812,52 +838,34 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
     (void)active;
     (void)frame_part;
 #else
-    int bi = bottom - 1;
-
-    for (int y = shared_line + 1; y < bi; y++) {
-        if (active) {
-            cfill(port, left + 1, y, 1, FLAIR_PART_CONTENT);
-            cfill(port, left + 2, y, 2, FLAIR_PART_PLAT_FRAME_FACE);
-            cfill(port, left + 4, y, 1, FLAIR_PART_PLAT_FRAME_SHADOW);
-            cfill(port, right - 5, y, 1, FLAIR_PART_CONTENT);
-            cfill(port, right - 4, y, 2, FLAIR_PART_PLAT_FRAME_FACE);
-            cfill(port, right - 2, y, 1, FLAIR_PART_PLAT_FRAME_SHADOW);
-        } else {
-            cfill(port, left + 1, y, FLAIR_CHROME_BODY_BAR,
-                  FLAIR_PART_PLAT_FACE);
-            cfill(port, right - 5, y, FLAIR_CHROME_BODY_BAR,
-                  FLAIR_PART_PLAT_FACE);
-        }
-    }
-
-    if (active) {
-        cfill(port, left + 1, bi - 4, right - left - 2,
-              FLAIR_PART_CONTENT);
-        cfill(port, left + 1, bi - 3, right - left - 2,
-              FLAIR_PART_PLAT_FRAME_FACE);
-        cfill(port, left + 1, bi - 2, right - left - 2,
-              FLAIR_PART_PLAT_FRAME_FACE);
-        cfill(port, left + 1, bi - 1, right - left - 2,
-              FLAIR_PART_PLAT_FRAME_SHADOW);
-    } else {
-        crect(port, left + 1, bi - 4, right - 1, bi,
-              FLAIR_PART_PLAT_FACE);
-    }
-
-    for (int y = shared_line; y <= bi - 4; y++) {
-        cfill(port, left + 5, y, 1, frame_part);
-        cfill(port, right - 6, y, 1, frame_part);
-    }
-    cfill(port, left + 5, bi - 5, right - left - 10, frame_part);
-
-    cfill(port, left + 6, shared_line + 1, right - left - 12,
-          FLAIR_PART_CONTENT);
-    for (int y = shared_line + 1; y <= bi - 6; y++) {
-        cfill(port, left + 6, y, 1, FLAIR_PART_CONTENT);
-        cfill(port, right - 7, y, 1, FLAIR_PART_PLAT_WELL);
-    }
-    cfill(port, left + 6, bi - 6, right - left - 12,
-          FLAIR_PART_PLAT_WELL);
+    /* Box: l = left, t = shared_line, r = right, b = bottom - 1. */
+#define BX(x0, y0, x1, y1, f, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), (uint8_t)(f), (uint8_t)(p) }
+    static const chrome_rect_t body[] = {
+        /* the rails, rows t+1 .. b-1 */
+        BX(1, 1, 2, 0, CR_ACT | CR_Y1B, FLAIR_PART_CONTENT),
+        BX(2, 1, 4, 0, CR_ACT | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
+        BX(4, 1, 5, 0, CR_ACT | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
+        BX(1, 1, 1 + FLAIR_CHROME_BODY_BAR, 0, CR_INA | CR_Y1B, FLAIR_PART_PLAT_FACE),
+        BX(-5, 1, -4, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_CONTENT),
+        BX(-4, 1, -2, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
+        BX(-2, 1, -1, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
+        BX(-5, 1, -5 + FLAIR_CHROME_BODY_BAR, 0, CR_INA | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
+        /* the bottom band, rows b-4 .. b-1 */
+        BX(1, -4, -1, -3, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_CONTENT),
+        BX(1, -3, -1, -1, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
+        BX(1, -1, -1, 0, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
+        BX(1, -4, -1, 0, CR_INA | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
+        /* the inner frame lines and the content inset */
+        BX(5, 0, 6, -3, CR_Y1B, CR_DYN),
+        BX(-6, 0, -5, -3, CR_X0R | CR_X1R | CR_Y1B, CR_DYN),
+        BX(5, -5, -5, -4, CR_X1R | CR_Y0B | CR_Y1B, CR_DYN),
+        BX(6, 1, -6, 2, CR_X1R, FLAIR_PART_CONTENT),
+        BX(6, 1, 7, -5, CR_Y1B, FLAIR_PART_CONTENT),
+        BX(-7, 1, -6, -5, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_WELL),
+        BX(6, -6, -6, -5, CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_WELL)
+    };
+    chrome_rects(port, skin, left, shared_line, right, bottom - 1,
+                 body, CRN(body), active, frame_part);
 #endif
 }
 
