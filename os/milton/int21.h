@@ -188,7 +188,17 @@ struct psp *int21_get_psp(void);
 typedef struct int21_cwd_snapshot {
     uint16_t start_cluster;        /* 0 == the fixed root                       */
     char     path[INT21_CWD_MAX];  /* root-relative, no leading '\' / drive     */
+    uint8_t current_drive, io_drive;
+    uint16_t starts[4];
+    char paths[4][INT21_CWD_MAX];
 } int21_cwd_snapshot_t;
+/* DEC-18: selector changes the backend I/O volume, never the default drive.
+ * A NULL selector retains the A-only mock backend contract. */
+void int21_set_drive_selector(int (*select)(unsigned));
+void int21_set_lastdrive(unsigned count);
+unsigned int21_current_drive(void);
+unsigned int21_io_drive(void);
+uint16_t int21_select_path(const char **path);
 void                 int21_cwd_reset(void);
 int21_cwd_snapshot_t int21_cwd_save(void);
 void                 int21_cwd_restore(const int21_cwd_snapshot_t *s);

@@ -8383,7 +8383,7 @@ $(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_S
 $(KERNEL_START_OBJ): $(KERNEL_START_ASM) Makefile | $(BUILD)
 	$(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
 
-$(KERNEL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-Ispec -I$(KERNEL_DIR),$@)
 
 # FLAIR surface module (beads initech-k8o5.6, ADR-0004 D-2): the single pixel
@@ -8773,7 +8773,7 @@ $(KERNEL_ELF): $(KERNEL_OBJS) $(KERNEL_LD) | $(BUILD)
 # Same sources, but kmain.c compiled with -DBOOT_SELFTEST_FAULT so the boot
 # raises a deliberate #DE after the banner. Linked into a SEPARATE image so the
 # normal kernel/image (test-boot) never faults.
-$(KERNEL_FAULT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_FAULT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SELFTEST_FAULT -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_FAULT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FAULT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -8823,7 +8823,7 @@ $(PANIC_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FAULT_BIN) $(BOOT_SYSTEM_TOOL) $
 # Ref: PRD Sec 5; ADR-0001 DEC-02/DEC-04; spec/hardware.json "fpu";
 # spec/fpu_contract.h; CLAUDE.md Rule 5/6.
 KERNEL_FPU_BASE_OBJS := $(filter-out $(KERNEL_FAULT_MAIN_OBJ),$(KERNEL_FAULT_OBJS))
-KERNEL_FPU_KMAIN_DEPS := $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h
+KERNEL_FPU_KMAIN_DEPS := $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h
 KERNEL_FPU_SYSINIT_DEPS := $(KERNEL_SYSINIT_C) $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/fpu.h spec/fpu_contract.h \
                            $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/int21.h \
                            $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h \
@@ -8876,7 +8876,7 @@ $(eval $(call fpu-kernel-rules,mf_mut_skip,$(BUILD)/kmain_fpu_mf.o,$(BUILD)/sysi
 # --- Spurious-vector kernel (bcg.6; make test-spurious) --------------------
 # Same sources, but kmain.c compiled with -DBOOT_SPURIOUS so the boot fires a
 # stray int $0x70 after the banner; the spurious handler must resume (no wedge).
-$(KERNEL_SPURIOUS_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_SPURIOUS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SPURIOUS -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_SPURIOUS_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SPURIOUS_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -8910,7 +8910,7 @@ $(SPURIOUS_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SPURIOUS_BIN) $(BOOT_SYSTEM_T
 # --- Keyboard-echo kernel (beads initech-3rs / initech-43b; make test-kbd) --
 # Same sources, but kmain.c compiled with -DBOOT_KBD_ECHO so the boot, after the
 # sti, emits KBD-ECHO-READY then echoes injected keys to serial. Separate image.
-$(KERNEL_ECHO_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_ECHO_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_KBD_ECHO -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_ECHO_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ECHO_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -8945,7 +8945,7 @@ $(KBD_ECHO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ECHO_BIN) $(BOOT_SYSTEM_TOOL)
 # Same sources, but kmain.c compiled with -DBOOT_CONIN so the boot, after
 # CONIN-LIVE, runs the baked CON-input program. The conin program blob is linked
 # in (it is referenced only under -DBOOT_CONIN). Separate image.
-$(KERNEL_CONIN_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_CONIN_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_CONIN -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_CONIN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_CONIN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -8981,7 +8981,7 @@ $(CONIN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_CONIN_BIN) $(BOOT_SYSTEM_TOOL) $
 # test-vect). Same sources, but kmain.c compiled with -DBOOT_VECT so the boot
 # runs the baked vect program then reports V24POST. The vect program blob is
 # linked in (referenced only under -DBOOT_VECT). Separate image.
-$(KERNEL_VECT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_VECT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_VECT -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_VECT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_VECT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9017,7 +9017,7 @@ $(VECT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_VECT_BIN) $(BOOT_SYSTEM_TOOL) $(B
 # test-absdisk-emu). Same sources, but kmain.c compiled with -DBOOT_ABSDISK so the
 # boot runs the baked ABSDISK program. The absdisk program blob is linked in
 # (referenced only under -DBOOT_ABSDISK). Separate image.
-$(KERNEL_ABSDISK_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_ABSDISK_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_ABSDISK -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_ABSDISK_OBJS := $(KERNEL_START_OBJ) $(KERNEL_ABSDISK_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9052,7 +9052,7 @@ $(ABSDISK_BOOT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_ABSDISK_BIN) $(BOOT_SYSTE
 # --- MEMORY ARENA self-test kernel (beads initech-509.6; test-mcb-emu) -------
 # Same sources, but kmain.c compiled with -DBOOT_MEMTEST so the boot drives
 # AH=48h/4Ah/49h over the kernel-bound MCB arena via `int 0x21` and emits MEM-*.
-$(KERNEL_MEMTEST_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MEMTEST_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MEMTEST -Ispec -I$(KERNEL_DIR),$@)
 
 # The REAL int21.o + mcb.o (the standard kernel objects) link into this image --
@@ -9115,7 +9115,7 @@ $(MEMTEST_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MEMTEST_MUT_BIN) $(BOOT_SY
 # mount + loader-FAT bind, loads GREET.COM BY NAME and EXECs it via AH=4Bh.
 # Separate image so the normal boot never runs the EXEC demo. GREET.COM is NOT
 # baked -- it lives on the data disk (--disk2), so this proves a FROM-FAT load.
-$(KERNEL_EXEC_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_EXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXEC -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_EXEC_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9190,9 +9190,9 @@ KERNEL_MZFOREIGN_ELF      := $(BUILD)/kernel_mzforeign.elf
 KERNEL_MZFOREIGN_BIN      := $(BUILD)/kernel_mzforeign.bin
 MZFOREIGN_IMG             := $(BUILD)/mzforeign_boot.img
 
-$(KERNEL_MZEXEC_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MZEXEC_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MZEXEC -Ispec -I$(KERNEL_DIR),$@)
-$(KERNEL_MZFOREIGN_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MZFOREIGN_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MZFOREIGN -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_MZEXEC_OBJS    := $(KERNEL_START_OBJ) $(KERNEL_MZEXEC_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9267,7 +9267,7 @@ $(FAT_MZFOREIGN_IMG): $(FAT12_FIXTURES) $(MZFOREIGN_EXE) | $(BUILD)
 # Same sources, kmain.c compiled with -DBOOT_WRITE so the boot runs the baked
 # WRITE program over a WRITABLE FAT12 data disk. The write_prog blob is linked
 # ONLY into this image. Mirrors the EXEC image structure.
-$(KERNEL_WRITE_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_WRITE_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_WRITE -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_WRITE_OBJS := $(KERNEL_START_OBJ) $(KERNEL_WRITE_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9302,7 +9302,7 @@ $(WRITE_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_WRITE_BIN) $(BOOT_SYSTEM_TOOL) $
 # MULTI-OPEN program over a FAT12 data disk (HELLO.TXT + SECOND.TXT + >64 KiB
 # BIG.DAT). The multiopen_prog blob is linked ONLY into this image. Mirrors the
 # WRITE image structure.
-$(KERNEL_MULTIOPEN_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_MULTIOPEN_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_MULTIOPEN -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_MULTIOPEN_OBJS := $(KERNEL_START_OBJ) $(KERNEL_MULTIOPEN_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9336,7 +9336,7 @@ $(MULTIOPEN_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_MULTIOPEN_BIN) $(BOOT_SYSTEM
 # Same sources, kmain.c compiled with -DBOOT_DATETIME so the boot runs the baked
 # DATE/TIME program (AH=2Ah/2Ch/36h/62h -> serial). The datetime_prog blob is
 # linked ONLY into this image. Mirrors the MULTI-OPEN image structure.
-$(KERNEL_DATETIME_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_DATETIME_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/rtc.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_DATETIME -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_DATETIME_OBJS := $(KERNEL_START_OBJ) $(KERNEL_DATETIME_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9373,7 +9373,7 @@ $(DATETIME_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_DATETIME_BIN) $(BOOT_SYSTEM_T
 # harness storms keystrokes. The irqstorm_prog blob is linked ONLY into these
 # images. Mirrors the MULTI-OPEN image structure. THREE images: the REAL one and
 # two Rule-6 mutants (A: pit scribbles a DOS global; B: pit issues int 0x21).
-$(KERNEL_IRQSTORM_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/irq.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_IRQSTORM_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/irq.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR),$@)
 
 # Object list shared by all three irqstorm images (the per-image differences are
@@ -9421,7 +9421,7 @@ KERNEL_INT21_SEAM_OBJ := $(BUILD)/int21_seam.o
 $(KERNEL_INT21_SEAM_OBJ): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/irq.h spec/find_data.h spec/dos_structs.h $(DOS_MESSAGES_H) | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DINT21_IRQTEST_SEAM -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
 
-$(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
+$(KERNEL_IRQSTORM_MUTA_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_IRQSTORM_MUTA_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTA_MAIN_OBJ) \
@@ -9447,7 +9447,7 @@ $(IRQSTORM_MUTA_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTA_BIN) $(BOO
 $(KERNEL_PIT_MUT_INT21_OBJ): $(KERNEL_PIT_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/io.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOWLEVEL_OPT) -DPIT_MUTATE_ISSUE_INT21 -I$(KERNEL_DIR) -c $(KERNEL_PIT_C) -o $@
 
-$(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
+$(KERNEL_IRQSTORM_MUTB_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/irq.h spec/memory_map.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_IRQSTORM -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_IRQSTORM_MUTB_OBJS := $(KERNEL_IRQSTORM_OBJS_COMMON) $(KERNEL_IRQSTORM_MUTB_MAIN_OBJ) \
@@ -9473,7 +9473,7 @@ $(IRQSTORM_MUTB_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_IRQSTORM_MUTB_BIN) $(BOO
 # FAT-sourced leaky child EXITH.COM RUNS times. The leaky child is NOT baked --
 # it is loaded BY NAME off --disk2 (FAT_EXITH_IMG), exactly like the EXEC image
 # loads GREET.COM. So the object set is the EXEC object set (no baked prog blob).
-$(KERNEL_EXITH_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_EXITH_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXITH -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_EXITH_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9511,7 +9511,7 @@ $(EXITH_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_BIN) $(BOOT_SYSTEM_TOOL) $
 $(KERNEL_SFT_MUT_OBJ): $(KERNEL_SFT_C) $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/psp.h spec/dos_structs.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_SFT_OPT) -DSFT_MUTATE_NO_CLOSE_PROCESS -Ispec -I$(KERNEL_DIR) -c $(KERNEL_SFT_C) -o $@
 
-$(KERNEL_EXITH_MUT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_EXITH_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_EXITH -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_EXITH_MUT_OBJS := $(KERNEL_START_OBJ) $(KERNEL_EXITH_MUT_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9546,7 +9546,7 @@ $(EXITH_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_EXITH_MUT_BIN) $(BOOT_SYSTEM
 # CONFIG.SYS (FILES=8) off --disk2 and then the boot EXECs SYSI.COM to prove the
 # cap bites. The child is loaded BY NAME (load_program_from_fat), so the object set
 # is the EXEC object set (no baked prog blob).
-$(KERNEL_SYSI_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_SYSI_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/config_sys.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SYSINIT -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_SYSI_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SYSI_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9583,7 +9583,7 @@ $(SYSI_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_SYSI_BIN) $(BOOT_SYSTEM_TOOL) $(B
 # NO key injection. Requires --disk2 (HELLO.TXT + GREET.COM). Mirrors the EXEC
 # image; -DBOOT_SHELL on kmain.c only (command.o is built with COMMAND_KERNEL_REPL
 # above and is BOOT_SHELL-agnostic).
-$(KERNEL_SHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
+$(KERNEL_SHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_SHELL -Ispec -I$(KERNEL_DIR),$@)
 
 KERNEL_SHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_SHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9635,7 +9635,7 @@ $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 # the desktop shell) -- the FIRST call site for the library linked at re30.2.
 # Separate image so the normal boot (A:\>) is byte-unchanged. The FLAIR + spec
 # headers are added as prereqs (they are #include'd only under -DBOOT_FLAIR_SHELL).
-$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRSHELL_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_SHELL -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRSHELL_OBJS := $(KERNEL_START_OBJ) $(KERNEL_FLAIRSHELL_MAIN_OBJ) $(KERNEL_CONSOLE_OBJ) $(KERNEL_KMAIN_COLD_OBJ) $(KERNEL_SURFACE_OBJ) \
@@ -9672,7 +9672,7 @@ $(FLAIRSHELL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRSHELL_BIN) $(BOOT_SYST
 # kmain compiled with -DBOOT_FLAIR_LIVE. Same source + same FLAIR object set as
 # FLAIRSHELL (event.o supplies flair_tick_advance/flair_tick_count). Adds the
 # os/flair/event.h prereq the FLAIR-live arm includes. ADR-0006 FO-4.
-$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 # The FLAIR-live kernel links the IDENTICAL object set as FLAIRSHELL, swapping
@@ -9737,7 +9737,7 @@ $(FLAIRLIVE_NOMODAL_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_NOMODAL_BI
 # is never installed, so flair_tick_advance never runs, so FLAIR-TICK never
 # appears -> test-flair-live goes RED. Its own main obj/elf/bin/image so it
 # cannot leak into the real build (the default kernel is GREEN).
-$(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MAIN_OBJ)
@@ -9761,7 +9761,7 @@ $(FLAIRLIVE_MUT_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_BIN) $(BOO
 	@printf ">>> flair-live MUTANT image: %s (no tick hook -- FLAIR-TICK never advances)\n" "$@"
 
 # --- FO-5 kbd-hook MUTANT flair_live kernel/image (beads initech-5l5z; Rule 6) -
-$(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_KBD_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_KBD_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_KBD_MAIN_OBJ)
@@ -9788,7 +9788,7 @@ $(FLAIRLIVE_MUT_KBD_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_KBD_BI
 # ADR-0006 M1/BC-9). -DFLAIR_LIVE_MUTATE_DRAG_NOOP suppresses both document and
 # movable-modal commits while preserving their proposed markers. The modal-mode
 # PPM oracle sees the old all-black FILE COPY frame -> RED. Direct HER-14 mutant.
-$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_DRAG_NOOP -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_DRAG_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_DRAG_MAIN_OBJ)
@@ -9816,7 +9816,7 @@ $(FLAIRLIVE_MUT_DRAG_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_FLAIRLIVE_MUT_DRAG_
 # invalidated/restored. This is the mutation that intersects the new reverse
 # survival scene; the original IGNORE_OVERLAY mutant remains below and is
 # mutation-proven on the forward window-across-overlay HOST scene. -------------
-$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h os/flair/window.h os/flair/winscroll.h os/flair/desktop.h os/flair/dialog.h os/flair/shell.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_MODAL_NO_RESTORE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MODAL_RESTORE_MAIN_OBJ)
@@ -10267,7 +10267,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
@@ -10286,7 +10286,7 @@ KERNEL_FLAIRTENANTS_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_F
 
 # Interactive film-scene kernel (tdnl.102-.104): the flagship tenants objects with the
 # film-scene kmain; placed after KERNEL_FLAIRTENANTS_OBJS (read-before-definition lint).
-$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_INTERACTIVE -DFLAIR_LIVE_TENANTS -DFLAIR_FILM_SCENE $(KERNEL_TENANTS_OPT) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_INT_OBJS = $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(KERNEL_FLAIRLIVE_INT_MAIN_OBJ)
@@ -10450,7 +10450,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -10577,7 +10577,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -10949,7 +10949,7 @@ KERNEL_FLAIRLIVE_MUT_EOI_BIN        := $(BUILD)/kernel_flairlive_mut_eoi.bin
 FLAIRLIVE_MUT_EOI_IMG               := $(BUILD)/flair_live_mut_eoi.img
 
 # (1) no-mouse-hook mutant: swap ONLY the main obj (the kbd/tick hooks stay).
-$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h spec/event_model.h | $(BUILD)
+$(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h os/flair/event.h spec/event_model.h | $(BUILD)
 	$(call kernel-main-compile,-DBOOT_FLAIR_LIVE -DFLAIR_LIVE_MUTATE_NO_MOUSE_HOOK -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -I$(KERNEL_DIR),$@)
 
 KERNEL_FLAIRLIVE_MUT_MOUSE_OBJS := $(filter-out $(KERNEL_FLAIRLIVE_MAIN_OBJ),$(KERNEL_FLAIRLIVE_OBJS)) $(KERNEL_FLAIRLIVE_MUT_MOUSE_MAIN_OBJ)
@@ -23678,7 +23678,7 @@ RECORD_SETTLE_menu_look = 300
 # L118 acceptance clips use fresh local copies of the normal data volume.
 RECORD_SCRIPTS += locked_trash locked_purge
 RECORD_SPEC_locked_trash = $(FLAIR_LOCKED_TRASH_SPEC)
-RECORD_SPEC_locked_purge = $(FLAIR_EMPTY_OK_SPEC)
+RECORD_SPEC_locked_purge = $(FLAIR_LOCKED_PURGE_SPEC)
 RECORD_MARKER_locked_trash = FINDER-LOCKED-ALERT
 RECORD_MARKER_locked_purge = FINDER-LOCKED-ALERT
 RECORD_IMAGE_locked_trash = $(FLAIRTENANTS_RECORDDBL_IMG)
@@ -29125,7 +29125,7 @@ test-flair-locked-purge: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(FLAIRTENANTS_IMG
 test-flair-locked-trash-mutant: $(DOS_SAFETY_FIXTURE) $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_locked_stage.img $(BUILD)/flair_tenants_mut_locked_notice.img $(BUILD)/flair_tenants_mut_locked_purge.img $(FLAIR_DATA_IMG) $(PPM_FLAIR_TRASH_CHECK_BIN)
 	@set -e; for pair in 'locked_stage:locked file left source:stage' 'locked_notice:locked notice pixels missing:stage' 'locked_purge:visible message missing:purge'; do \
 	  tag=$${pair%%:*}; rest=$${pair#*:}; why=$${rest%:*}; mode=$${rest##*:}; log=$(BUILD)/$$tag.log; \
-	  trace='$(FLAIR_LOCKED_TRASH_SPEC)'; [ $$mode = stage ] || trace='$(FLAIR_EMPTY_OK_SPEC)'; \
+	  trace='$(FLAIR_LOCKED_TRASH_SPEC)'; [ $$mode = stage ] || trace='$(FLAIR_LOCKED_PURGE_SPEC)'; \
 	  if sh harness/diff/fat_diff/locked_trash.sh $(BUILD)/flair_tenants_mut_$$tag.img $(FLAIR_DATA_IMG) "$$trace" _mut_$$tag $$mode > $$log 2>&1; then echo "FAIL: $$tag mutant passed"; exit 1; fi; \
 	  grep -F "$$why" $$log || { cat $$log; exit 1; }; \
 	  printf 'VERDICT: PASS -- test-flair-locked-trash-mutant %s RED (%s)\n' "$$tag" "$$why"; \
@@ -33027,3 +33027,4 @@ samir-fns-goldens:
 TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk
+include harness/diff/fat_diff/dos_volumes.mk

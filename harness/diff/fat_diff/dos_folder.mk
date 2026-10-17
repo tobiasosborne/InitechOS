@@ -6,7 +6,7 @@ test-dos-folder-host: $(FLAIR_DATA_IMG) $(FAT_DUMP_BIN)
 	@sh $(DOS_FOLDER_DIR)/dos_folder.sh host $(FLAIR_DATA_IMG) $(BUILD)/dos-folder-host
 
 test-dos-folder: $(FLAIR_DATA_IMG) $(FLAIRTENANTS_IMG) $(HARNESS_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
-	$(call exitdos-boot,$(FLAIRTENANTS_IMG),dos_folder,$(FLAIR_DATA_IMG),$(DOS_FOLDER_EXIT_SPEC),DOS-FOLDER-DONE,0,60000)
+	$(call exitdos-boot,$(FLAIRTENANTS_IMG),dos_folder,$(FLAIR_DATA_IMG),$(DOS_FOLDER_EXIT_SPEC),$(DOS_FOLDER_DONE),0,60000)
 	@sh $(DOS_FOLDER_DIR)/dos_folder.sh emu $(BUILD)/dos_folder_data.img $(BUILD)/dos-folder-emu $(BUILD)/dos_folder.serial
 	$(call exitdos-boot,$(FLAIRTENANTS_IMG),dos_folder_finder,$(FLAIR_DATA_IMG),$(DOS_FOLDER_FINDER_SPEC),FINDER-OPEN-FOLDER name=DOS win=1,1,40000)
 	@sh $(DOS_FOLDER_DIR)/dos_folder.sh finder $(BUILD)/dos_folder_finder_data.img $(BUILD)/dos-folder-finder $(BUILD)/dos_folder_finder.serial
@@ -28,7 +28,7 @@ test-dos-folder-host-mutant: test-dos-folder-host
 test-dos-folder-mutant: test-dos-folder-host-mutant $(FLAIRTENANTS_IMG) $(HARNESS_BIN) $(PPM_FLAIR_DISKWIN_CHECK_BIN)
 	@set -eu; for m in EXTERNAL_IN_APPS EXTRA_DOS_FILE PATH_UNSET NO_AUTOEXEC DOS_NOT_DIRECTORY LABEL_TAIL; do \
 	 img=$(BUILD)/dos-folder-$$m.img; name=dos_folder_mut_$$m; log=$(BUILD)/dos-folder-emu-$$m.log; \
-	 trace='$(DOS_FOLDER_EXIT_SPEC)'; done='DOS-FOLDER-DONE'; mode=emu; rule=serial-external-set; dump=; \
+	 trace='$(DOS_FOLDER_EXIT_SPEC)'; done="$(DOS_FOLDER_DONE)"; mode=emu; rule=serial-external-set; dump=; \
 	 case $$m in PATH_UNSET) rule='PATH: Bad command or file name';; \
 	 NO_AUTOEXEC) rule=startup-prompts;; \
 	 DOS_NOT_DIRECTORY) cp -f $(FLAIR_DATA_IMG) $$img; mdeltree -i $$img ::DOS; printf '' | mcopy -i $$img - ::DOS; trace='$(DOS_FOLDER_FINDER_SPEC)'; done='FINDER-OPEN-FOLDER name=DOS'; mode=finder; rule=finder-folder;; \
