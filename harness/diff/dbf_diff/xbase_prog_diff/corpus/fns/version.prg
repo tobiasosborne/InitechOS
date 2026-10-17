@@ -1,0 +1,4 @@
+? "[FNS-BEGIN]"
+? TYPE("VERSION()"), LEN(VERSION())>0
+? "[FNS-END]"
+RETURN

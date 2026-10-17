@@ -444,12 +444,17 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         fs->vars[slot].val.u.c.len = len;
     } else {
         fs->vars[slot].val = *v;
-        /* Real III+ DML-02/03 and PROG-flow: numeric memory variables have
-         * ten integer columns, independent of the assigning literal. */
-        if(v->t==XB_N) fs->vars[slot].val.num_width=10+(v->num_dec?v->num_dec+1:0);
     }
 #else
     fs->vars[slot].val = value;
+#endif
+    /* Real III+ DML-02/03 and PROG-04/05: ten integer columns regardless of
+     * the assigning literal. Keep this outside the arena-reclaim branches. */
+#ifndef SAMIR_SIZE_MUTATE_MEMVAR_WIDTH
+    if (fs->vars[slot].val.t == XB_N) {
+        unsigned dec = fs->vars[slot].val.num_dec;
+        fs->vars[slot].val.num_width = (uint16_t)(10 + (dec ? dec + 1 : 0));
+    }
 #endif
     return INTERP_OK;
 }

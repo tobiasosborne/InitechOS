@@ -189,6 +189,14 @@ static int32_t parse_primary(xb_parser *p)
         const char *ip = t->u.ident.p;
         uint16_t    il = t->u.ident.len;
         advance(p);
+        /* Keep the source-qualified name intact for the work-area resolver;
+         * this also permits blanks around -> without changing field spelling. */
+        if(cur(p)->type==XBT_ARROW) {
+            advance(p);
+            if(cur(p)->type!=XBT_IDENT){p->err=XBPE_UNEXPECTED;return -1;}
+            il=(uint16_t)(cur(p)->offset+cur(p)->len-off);
+            advance(p);
+        }
         /* Function-call shape: IDENT '(' args ')' (S3.5).
          * An IDENT immediately followed by '(' is a function call; parse a
          * comma-separated argument list of full sub-expressions into an

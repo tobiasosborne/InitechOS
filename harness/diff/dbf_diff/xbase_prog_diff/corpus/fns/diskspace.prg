@@ -1,0 +1,4 @@
+? "[FNS-BEGIN]"
+? TYPE("DISKSPACE()"), DISKSPACE()>0
+? "[FNS-END]"
+RETURN
