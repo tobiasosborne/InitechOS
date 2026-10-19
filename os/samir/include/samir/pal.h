@@ -197,6 +197,19 @@ struct samir_pal {
      * Hidden cooked input implements CONSOLE OFF's no-echo program input. */
     void (*status)(samir_pal_t *,int,const char *,uint32_t,uint32_t);
     int32_t (*conin_line_noecho)(samir_pal_t *,char *,uint32_t);
+
+    /* ---- command processor: dBASE III PLUS RUN / ! (initech-n8q8) ----
+     * exec: hand `cmdline` VERBATIM to a secondary command processor and
+     * return once it exits -- "loads a second copy of COMMAND.COM and passes
+     * <system command> to it" (HELP.DBS _RUN/!; dbase3-decomp
+     * specs/commands/programming-and-io.md Sec 16). Redirection (`> file`)
+     * is the PROCESSOR's job, never the engine's. Returns the processor's
+     * exit code (>= 0), or -(pal_err) when it could not be loaded (the
+     * engine then raises III+ error 92 "Unable to load COMMAND.COM.",
+     * spec/samir/dbase_msg_codes.tsv). Milton: INT 21h AH=4Bh EXEC of
+     * COMSPEC with the tail " /C <cmdline>", then AH=4Dh. Host: system().
+     * NULL on a PAL with no processor (the engine fails loud the same way). */
+    int32_t (*exec)(samir_pal_t *, const char *cmdline);
 };
 
 /* Owned buffer chains: reclaim ONLY this codec's allocations. */

@@ -690,6 +690,11 @@ static uint32_t split_verb(const char *line, char *verb, uint32_t vcap,
     while (line[i] != '\0' && fl_isspace(line[i]))
         i++;
 
+    /* '!' is RUN's punctuation synonym (HELP.DBS _RUN/!; initech-n8q8). */
+    if (line[i] == '!') {
+        if (v < vcap - 1) verb[v++] = '!';
+        i++;
+    } else
     /* the '?' / '??' display verbs are punctuation, not letters. */
     if (line[i] == '?') {
         if (v < vcap - 1) verb[v++] = '?';
