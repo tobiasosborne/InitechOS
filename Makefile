@@ -23027,27 +23027,116 @@ $(eval $(call flair-tenants-tbx-mutant-rules,TBX_MUT_DRAW_NOT_PRESENTED,tbx_draw
 CTEN_NE = $(PPM_REGION_COUNT_BIN) $(1) $(2) 440 300 | sed -n 's/^ne=\([0-9]*\) .*/\1/p'
 CTEN_SERIAL = grep -qx 'TENANT-REGISTER ok app=CTENANT' $(1) && grep -qx 'FLAIR-DISPATCH app=CTENANT' $(1) && grep -qx 'TENANT-GATE ax=0x0030 win=1 x=8 y=40 s="Key q" fg=1 bg=0 -> 0' $(1) && grep -qx 'TENANT-GATE ax=0x0033 win=1 x=8 y=64 s="Key q" fg=0 bg=3 -> 0' $(1) && grep -qx 'TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0' $(1)
 
+# ---------------------------------------------------------------------------
+# REPAINT legs (bead initech-6qsk, audit L117): the "Key q" readouts (TEXTDRAW
+# and DRAWCELLS) and the "Click" readout survive every updateEvt, because
+# ctenant.c retains them and its ONE renderer paints all of them from state
+# (Inside Macintosh: Macintosh Toolbox Essentials, Window Manager "Updating
+# the Content of a Window" / Event Manager update events -- the application
+# redraws whatever the update region exposes; ADR-0013 App Contract -- the
+# tenant gets updateEvt through the gate). Two boots of the HOLD image
+# ($(BUILD)/flair_tenants_mut_hold.img: the tenants kernel with ONLY its pump
+# life widened to 1500 ticks, see test-flair-held-gestures; named by path
+# because FLAIRTENANTS_HOLD_IMG is assigned further down) and a fresh data
+# copy, traces LOCKED in spec/flair_ctenant_traces.mk:
+#   3 DRAG    FLAIR_CTENANT_DRAG_SPEC: key, click, then the title dragged by
+#             (50,50) -> FLAIR-DRAG ... (180,170)->(230,220). SERIAL: every
+#             updateEvt the tenant gets after its click draws all three
+#             readouts, and at least one arrives after the title press.
+#             PIXELS: the post-budget dump shows all three at the moved
+#             window's content (reference white (490,350)).
+#   4 REVEAL  FLAIR_CTENANT_REVEAL_SPEC: the same, then the APPS window
+#             dragged over all three readouts (Finder forward) and CTENANT
+#             raised by a title click (no content mouseDown). SERIAL as 3, with
+#             the update after the reveal press; PIXELS as 3.
+# Mutation: CTENANT_MUT_NO_RETAIN (ctenant.c's pre-6qsk paint: clear + the
+# startup sentence only) on the data volume FLAIR_DATA_CTENANT_NORETAIN_IMG
+# -> both legs RED (serial: the updates draw no readout; pixels: erased).
+# ---------------------------------------------------------------------------
+CTEN_HOLD_IMG := $(BUILD)/flair_tenants_mut_hold.img
+# $(call cten-hold-boot,<name>,<data image>,<trace var NAME>)
+define cten-hold-boot
+	@$(call fixture-preflight,$(2))
+	cp -f $(2) $(BUILD)/$(1)_data.img
+	@$(if $(call fixture-spec,$(2)),$(call fixture-check,harness,$(BUILD)/$(1)_data.img,$(call fixture-spec,$(2))),:)
+	@$(HARNESS_BIN) --disk "$(CTEN_HOLD_IMG)" --disk2 "$(BUILD)/$(1)_data.img" --name "$(1)" --out "$(BUILD)" \
+		--mouse "$($(3))" --keys-after "FLAIR-LIVE-READY" --keys-after-ms 15000 --quit-after FLAIR-LIVE-OK \
+		--timeout-ms 40000 --screendump --screendump-after FLAIR-LIVE-OK 2> "$(BUILD)/$(1).report" || true
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(1).report"; then printf '!!! %s: TRIPLE FAULT\n' "$(1)"; exit 1; fi
+endef
+# Serial repaint check over $(1); $(2) = the "x,y" of the press that opens the
+# graded phase (the title drag 300,180 / the reveal click 430,230). Every
+# updateEvt block (TENANT-EVT what=6 and the TENANT-GATE lines after it) that
+# follows the tenant's first "Click" draw must issue all three readout draws;
+# at least one such block must follow the phase press. Prints the counts;
+# exits 0 iff the property holds.
+CTEN_REPAINT_SERIAL = awk -v kt='TENANT-GATE ax=0x0030 win=1 x=8 y=40 s="Key q" fg=1 bg=0 -> 0' \
+	-v kc='TENANT-GATE ax=0x0033 win=1 x=8 y=64 s="Key q" fg=0 bg=3 -> 0' \
+	-v ck='TENANT-GATE ax=0x0033 win=1 x=8 y=96 s="Click" fg=0 bg=3 -> 0' \
+	-v press="FLAIR-EVT what=1 where=$(2) " \
+	'function shut() { if (blk) { if (h1 && h2 && h3) { if (ph) good++ } else bad++; blk = 0 } } \
+	 blk && $$0 !~ /^TENANT-GATE / { shut() } \
+	 !c && $$0 == ck { c = 1; next } \
+	 c && index($$0, press) == 1 { ph = 1 } \
+	 c && $$0 == "TENANT-EVT what=6" { blk = 1; h1 = h2 = h3 = 0; n++; next } \
+	 blk && $$0 == kt { h1 = 1 } blk && $$0 == kc { h2 = 1 } blk && $$0 == ck { h3 = 1 } \
+	 END { shut(); printf "updates after the click %d, complete after the press %d, incomplete %d", n, good, bad; exit !(c && bad == 0 && good >= 1) }' $(1)
+# The readout boxes of the MOVED window, vs its own content white (490,350).
+CTEN_NE_MOVED = $(PPM_REGION_COUNT_BIN) $(1) $(2) 490 350 | sed -n 's/^ne=\([0-9]*\) .*/\1/p'
+# Pixel check over dump $(1): prints the three counts; exits 0 iff all present.
+CTEN_REPAINT_PIXELS = k=$$($(call CTEN_NE_MOVED,$(1),244 282 284 298)); c=$$($(call CTEN_NE_MOVED,$(1),244 306 284 322)); m=$$($(call CTEN_NE_MOVED,$(1),244 338 284 354)); \
+	printf 'TEXTDRAW "Key q" %s ink px, DRAWCELLS "Key q" %s px, "Click" %s px' "$$k" "$$c" "$$m"; \
+	[ -n "$$k" ] && [ -n "$$c" ] && [ -n "$$m" ] && [ "$$k" -ge 15 ] && [ "$$c" -ge 400 ] && [ "$$m" -ge 400 ]
+CTEN_DRAG_MOVED = grep -Eq '^FLAIR-DRAG win [0-9]+ \(180,170\)->\(230,220\)$$' $(1)
+CTEN_APPS_OVER = grep -Eq '^FLAIR-DRAG win [0-9]+ \(40,80\)->\(40,180\)$$' $(1)
+
+# The NO_RETAIN fixture volume: CTENANT.EXE replaced, same directory slot.
+$(eval $(call tenant-exe-rules,ctenant_noretain,os/apps/ctenant/ctenant.c,-DCTENANT_MUT_NO_RETAIN,,))
+FLAIR_DATA_CTENANT_NORETAIN_IMG := $(BUILD)/flair_data_ctenant_noretain.img
+$(FLAIR_DATA_CTENANT_NORETAIN_IMG): $(FLAIR_DATA_IMG) $(BUILD)/tenant/ctenant_noretain.exe
+	cp -f $< $@
+	SOURCE_DATE_EPOCH=$(FLAIR_DATA_EPOCH) TZ=UTC mcopy -o -i $@ $(BUILD)/tenant/ctenant_noretain.exe ::APPS/CTENANT.EXE
+	@$(call fixture-check,recipe,$@)
+
 .PHONY: test-flair-ctenant test-flair-ctenant-mutant
-test-flair-ctenant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+test-flair-ctenant: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN) $(CTEN_HOLD_IMG)
 	@printf '======================================================================\n'
-	@printf 'InitechOS (STAPLER) -- make test-flair-ctenant : a C application from disk; its key/click draws reach the screen\n'
-	@printf '  beads initech-w96l (the C tenant path) + initech-8zii (present after a plain mouseDown/keyDown)\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-ctenant : a C application from disk; its key/click draws reach the screen and survive repaints\n'
+	@printf '  beads initech-w96l (the C tenant path) + initech-8zii (present after a plain mouseDown/keyDown) + initech-6qsk (retained readouts)\n'
 	@printf '======================================================================\n'
 	$(call appl-boot,flair_ctenant,$(FLAIRTENANTS_IMG),$(FLAIR_DATA_IMG),FLAIR_CTENANT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
-	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/2] FAIL: the desktop did not survive\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_ctenant.serial; exit 1; }
-	@$(call CTEN_SERIAL,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/2] FAIL: CTENANT.EXE did not load, register, come forward and draw exactly its keyDown/mouseDown runs\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant.serial; exit 1; }
-	@printf '>>> test-flair-ctenant [1/2] C PATH: %s; the keyDown/mouseDown draws are the TENANT-GATE lines ctenant.c issues\n' "$$(grep -m1 '^TENANT-LOAD name=CTENANT' $(BUILD)/flair_ctenant.serial)"
+	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/4] FAIL: the desktop did not survive\n'; grep -E '^(PANIC|TENANT-|HALTED)' $(BUILD)/flair_ctenant.serial; exit 1; }
+	@$(call CTEN_SERIAL,$(BUILD)/flair_ctenant.serial) || { printf '!!! test-flair-ctenant [1/4] FAIL: CTENANT.EXE did not load, register, come forward and draw exactly its keyDown/mouseDown runs\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant.serial; exit 1; }
+	@printf '>>> test-flair-ctenant [1/4] C PATH: %s; the keyDown/mouseDown draws are the TENANT-GATE lines ctenant.c issues\n' "$$(grep -m1 '^TENANT-LOAD name=CTENANT' $(BUILD)/flair_ctenant.serial)"
 	@k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,194 232 234 248)); c=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,194 256 234 272)); m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant.ppm,194 288 234 304)); \
-		[ -n "$$k" ] && [ "$$k" -ge 15 ] && [ "$$c" -ge 400 ] && [ "$$m" -ge 400 ] || { printf '!!! test-flair-ctenant [2/2] FAIL: PRESENT -- the key/click draws are not on the screen (ink: TEXTDRAW %s, cells %s, click %s; want >=15, >=400, >=400)\n' "$$k" "$$c" "$$m"; exit 1; }; \
-		printf '>>> test-flair-ctenant [2/2] PRESENT: on screen after the budget -- TEXTDRAW "Key q" %s ink px, DRAWCELLS "Key q" %s px, "Click" %s px\n' "$$k" "$$c" "$$m"
+		[ -n "$$k" ] && [ "$$k" -ge 15 ] && [ "$$c" -ge 400 ] && [ "$$m" -ge 400 ] || { printf '!!! test-flair-ctenant [2/4] FAIL: PRESENT -- the key/click draws are not on the screen (ink: TEXTDRAW %s, cells %s, click %s; want >=15, >=400, >=400)\n' "$$k" "$$c" "$$m"; exit 1; }; \
+		printf '>>> test-flair-ctenant [2/4] PRESENT: on screen after the budget -- TEXTDRAW "Key q" %s ink px, DRAWCELLS "Key q" %s px, "Click" %s px\n' "$$k" "$$c" "$$m"
+	$(call cten-hold-boot,flair_ctenant_drag,$(FLAIR_DATA_IMG),FLAIR_CTENANT_DRAG_SPEC)
+	@f=$(BUILD)/flair_ctenant_drag; w=300,180; $(call APPL_ALIVE,$$f.serial) && $(call CTEN_SERIAL,$$f.serial) && $(call CTEN_DRAG_MOVED,$$f.serial) || { printf '!!! test-flair-ctenant [3/4] FAIL: DRAG -- the tenant did not run, draw its readouts and get its title dragged to (230,220)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|FLAIR-DRAG|PANIC)' $$f.serial; exit 1; }; \
+		s=$$($(call CTEN_REPAINT_SERIAL,$$f.serial,$$w)) || { printf '!!! test-flair-ctenant [3/4] FAIL: DRAG serial -- an updateEvt after the input did not repaint all three readouts (%s)\n' "$$s"; grep -E '^(TENANT-|FLAIR-DRAG)' $$f.serial; exit 1; }; \
+		p=$$($(call CTEN_REPAINT_PIXELS,$$f.ppm)) || { printf '!!! test-flair-ctenant [3/4] FAIL: DRAG pixels -- the readouts are not on the moved window (%s; want >=15, >=400, >=400)\n' "$$p"; exit 1; }; \
+		printf '>>> test-flair-ctenant [3/4] DRAG: %s; %s; on screen at the moved window: %s\n' "$$(grep -m1 '^FLAIR-DRAG win' $$f.serial)" "$$s" "$$p"
+	$(call cten-hold-boot,flair_ctenant_reveal,$(FLAIR_DATA_IMG),FLAIR_CTENANT_REVEAL_SPEC)
+	@f=$(BUILD)/flair_ctenant_reveal; w=430,230; $(call APPL_ALIVE,$$f.serial) && $(call CTEN_SERIAL,$$f.serial) && $(call CTEN_DRAG_MOVED,$$f.serial) && $(call CTEN_APPS_OVER,$$f.serial) || { printf '!!! test-flair-ctenant [4/4] FAIL: REVEAL -- the tenant did not run, get dragged, and get covered by the APPS window at (40,180)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|FLAIR-DRAG|PANIC)' $$f.serial; exit 1; }; \
+		s=$$($(call CTEN_REPAINT_SERIAL,$$f.serial,$$w)) || { printf '!!! test-flair-ctenant [4/4] FAIL: REVEAL serial -- an updateEvt after the input did not repaint all three readouts (%s)\n' "$$s"; grep -E '^(TENANT-|FLAIR-DRAG|FLAIR-DISPATCH)' $$f.serial; exit 1; }; \
+		p=$$($(call CTEN_REPAINT_PIXELS,$$f.ppm)) || { printf '!!! test-flair-ctenant [4/4] FAIL: REVEAL pixels -- the readouts are not on the revealed window (%s; want >=15, >=400, >=400)\n' "$$p"; exit 1; }; \
+		printf '>>> test-flair-ctenant [4/4] REVEAL: APPS dragged over, CTENANT raised; %s; on screen: %s\n' "$$s" "$$p"
 	@printf '>>> test-flair-ctenant: green\n'
 
-test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN)
+test-flair-ctenant-mutant: test-flair-ctenant $(HARNESS_BIN) $(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img $(FLAIR_DATA_IMG) $(PPM_REGION_COUNT_BIN) $(CTEN_HOLD_IMG) $(FLAIR_DATA_CTENANT_NORETAIN_IMG)
 	$(call appl-boot,flair_ctenant_mut,$(BUILD)/flair_tenants_mut_tbx_draw_not_presented.img,$(FLAIR_DATA_IMG),FLAIR_CTENANT_SPEC,--screendump --screendump-after FLAIR-LIVE-OK)
 	@$(call APPL_ALIVE,$(BUILD)/flair_ctenant_mut.serial) && $(call CTEN_SERIAL,$(BUILD)/flair_ctenant_mut.serial) || { printf '!!! test-flair-ctenant-mutant FAIL: DRAW_NOT_PRESENTED went RED for the wrong reason (want: the tenant ran and drew exactly as in the clean leg)\n'; grep -E '^(TENANT-|FLAIR-DISPATCH|PANIC)' $(BUILD)/flair_ctenant_mut.serial; exit 1; }
 	@m=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,194 288 234 304)); k=$$($(call CTEN_NE,$(BUILD)/flair_ctenant_mut.ppm,194 256 234 272)); \
 		if [ "$$m" -ge 400 ]; then printf '!!! test-flair-ctenant-mutant FAIL: DRAW_NOT_PRESENTED PASSED -- the "Click" cells reached the screen anyway (%s px): the PRESENT leg is decoration\n' "$$m"; exit 1; fi; \
 		printf '>>> test-flair-ctenant-mutant: DRAW_NOT_PRESENTED correctly RED -- drawn (TENANT-GATE lines present) but not presented: "Click" %s px, "Key q" cells %s px on screen\n' "$$m" "$$k"
+	$(call cten-hold-boot,flair_ctenant_drag_noretain,$(FLAIR_DATA_CTENANT_NORETAIN_IMG),FLAIR_CTENANT_DRAG_SPEC)
+	$(call cten-hold-boot,flair_ctenant_reveal_noretain,$(FLAIR_DATA_CTENANT_NORETAIN_IMG),FLAIR_CTENANT_REVEAL_SPEC)
+	@for leg in drag:300,180 reveal:430,230; do n=$${leg%%:*}; w=$${leg#*:}; f=$(BUILD)/flair_ctenant_$${n}_noretain; \
+		$(call APPL_ALIVE,$$f.serial) && $(call CTEN_SERIAL,$$f.serial) && $(call CTEN_DRAG_MOVED,$$f.serial) || { printf '!!! test-flair-ctenant-mutant FAIL: NO_RETAIN %s went RED for the wrong reason (want: the tenant ran, drew its readouts once and was dragged)\n' $$n; grep -E '^(TENANT-|FLAIR-DISPATCH|FLAIR-DRAG|PANIC)' $$f.serial; exit 1; }; \
+		if s=$$($(call CTEN_REPAINT_SERIAL,$$f.serial,$$w)); then printf '!!! test-flair-ctenant-mutant FAIL: NO_RETAIN %s serial PASSED (%s): the repaint leg is decoration\n' $$n "$$s"; exit 1; fi; \
+		if p=$$($(call CTEN_REPAINT_PIXELS,$$f.ppm)); then printf '!!! test-flair-ctenant-mutant FAIL: NO_RETAIN %s pixels PASSED (%s): the repaint dump is decoration\n' $$n "$$p"; exit 1; fi; \
+		printf '>>> test-flair-ctenant-mutant: NO_RETAIN %s correctly RED -- serial: %s; screen: %s\n' $$n "$$s" "$$p"; \
+	done
 	@printf '>>> test-flair-ctenant-mutant: green\n'
 
 # ===========================================================================
@@ -23635,6 +23724,20 @@ RECORD_IMAGE_app_launch          = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_app_menubar         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_tenant_menu         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_ctenant_keys        = $(FLAIRTENANTS_RECORDDBL_IMG)
+# ctenant_repaint (bead initech-6qsk; Rule 14): CTENANT's key and click
+# readouts survive a title drag by (50,50) and an obscure (the APPS window
+# dragged over them) / reveal (a CTENANT title click) -- every updateEvt
+# repaints them from the tenant's retained state. Replays the LOCKED
+# FLAIR_CTENANT_REVEAL_SPEC; its marker is the reveal click on the moved
+# title bar (the zero-length FLAIR-DRAG of CTENANT's window at (230,220)).
+# MEASURED (2026-10-20): 45 events outlive the 3000-tick RECORDDBL life (record-flair:
+# record_events_after_end=5 first_dead_event=41), so it rides the 6000-tick
+# LONG double-click record image, as menu_long does.
+RECORD_SCRIPTS += ctenant_repaint
+RECORD_SPEC_ctenant_repaint   = $(FLAIR_CTENANT_REVEAL_SPEC)
+RECORD_MARKER_ctenant_repaint = FLAIR-DRAG win 0 (230,220)->(230,220)
+RECORD_SETTLE_ctenant_repaint = 400
+RECORD_IMAGE_ctenant_repaint  = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_IMAGE_i123_typing         = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_drag_move           = $(FLAIRTENANTS_RECORDDBL_IMG)
 RECORD_IMAGE_trash_drag          = $(FLAIRTENANTS_RECORDDBL_IMG)
