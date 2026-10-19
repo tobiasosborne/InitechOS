@@ -17,6 +17,10 @@
 # !!! GROWTH, PM-directed 2026-10-17: CALCULAT (APPS\CALCULAT.EXE, the Calculator desk
 # !!! accessory under the Apple menu, initech-tdnl.17) is a FLAIR desk accessory for the
 # !!! Finder manual (initech-ipu5.9), not a DOS command.
+# !!! GROWTH, PM-directed 2026-10-20: INT21:32 (AH=32h Get DPB, WL-0167, ratified by the
+# !!! operator 2026-10-17) shipped after the pilot rows were dated. Real DOS 3.3 left AH=32h
+# !!! undocumented; its entry (AN-02/CP-08 function entries) belongs to the InitechDOS
+# !!! Technical Reference, which does not exist yet -- the row leaves with that book.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
@@ -64,6 +68,7 @@ INT21:2D|2026-10-16|Pilot covers daily file tasks; Reference entry not yet writt
 INT21:2F|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:30|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:31|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+INT21:32|2026-10-20|Undocumented in DOS 3.3; awaits the InitechDOS Technical Reference (function entries)
 INT21:33|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:35|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:36|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
