@@ -12,6 +12,16 @@
  *         specs/file-formats/frm.md Sec 2-5 (header tables, heap, 12-byte
  *         columns at 0x68C, footer at 0x7B6); the shipped reader is
  *         os/samir/cmd/report.c rp_load, which refuses anything else (#50)
+ *   .LBL  the 1034-byte label form of dbase3-decomp
+ *         specs/file-formats/lbl.md Sec 2-4 (signature 0x02, 60-byte
+ *         remarks, six u16 dimensions at 0x3D, 16 x 60-byte line slots at
+ *         0x49, 0x02 at 0x409); the shipped reader is os/samir/cmd/report.c
+ *         lbl_run, which refuses anything else (#54)
+ *   .MEM  the memory-variable file of dbase3-decomp
+ *         specs/file-formats/mem.md Sec 2-3 (32-byte descriptors, type
+ *         letter | 0x80, C with its NUL, N/D an LE double, L one byte, 0x1A);
+ *         the shipped reader is os/samir/cmd/flow.c fl_memfile RESTORE,
+ *         which checks the whole file before any variable changes (#55)
  *   other files are copied byte for byte (the .PRG programs).
  *
  * Usage: samir_sample_disk <disk dir> <out dir>
@@ -31,6 +41,22 @@
  *   TITLE <title>             (';' separates title lines)
  *   GROUP <expr>|<heading>    (0, 1 or 2 lines: group, subgroup)
  *   COLUMN <width> <dec> <Y|N total> <expr>|<heading>
+ * A label .dat:
+ *   LABEL <name.LBL>
+ *   REMARKS <text>            (up to 60 characters; optional)
+ *   SIZE <height> <width> <left margin> <lines between> <spaces between> <across>
+ *   LINE <expression list>    (one per label line, at most 16, up to 60
+ *                              characters; a line left out is blank)
+ * A memory .dat:
+ *   MEMORY <name.MEM>
+ *   VAR <name> C <text>
+ *   VAR <name> N <width> <dec> <value>
+ *   VAR <name> D <YYYYMMDD>
+ *   VAR <name> L <T|F>
+ *   Names are upper case, 1..10 characters.  The transient pool pointer
+ *   (0x0C) and the reserved bytes (0x12..0x1F) are zero, as in the corpus
+ *   goldens MEM.MEM and CHKBOOK.MEM (mem.md Sec 2, Sec 4-5); D and L carry
+ *   width 1, dec 0 (mem.md Sec 3).
  * Deterministic (Rule 11): the PAL date is the edition date 03/01/92, and no
  * byte depends on the host.  Fails loud on any malformed line (Rule 2).
  * Host C (Law 3). */
@@ -160,7 +186,8 @@ static void table(const char *outdir, const char *name)
 
 /* ---- the report form (frm.md) ---- */
 static uint8_t FRM[1990]; static int heap, nstr, ncol, ngroup;
-static void put16(int o, int v) { FRM[o] = (uint8_t)(v & 255); FRM[o + 1] = (uint8_t)(v >> 8); }
+static void put16x(uint8_t *b, int o, int v) { b[o] = (uint8_t)(v & 255); b[o + 1] = (uint8_t)(v >> 8); }
+static void put16(int o, int v) { put16x(FRM, o, v); }
 static int string(const char *s)        /* returns the 1-based pointer index */
 {
     int len = (int)strlen(s) + 1;
@@ -171,6 +198,46 @@ static int string(const char *s)        /* returns the 1-based pointer index */
     heap += len; nstr++;
     if (nstr > 54) die("too many report strings");
     return nstr;
+}
+
+/* ---- the label form (lbl.md) ---- */
+static uint8_t LBL[1034]; static int nline, lsized;
+/* ---- the memory file (mem.md) ---- */
+static uint8_t MEM[4096]; static int memn;
+static void mem_var(char *arg)
+{
+    char name[16], t; int off, len;
+    uint8_t *h = MEM + memn;
+    if (sscanf(arg, "%15s %c %n", name, &t, &off) != 2) die("VAR <name> <C|N|D|L> <value>");
+    size_t k = strlen(name);
+    if (!k || k > 10) die("VAR name is 1..10 characters");
+    for (size_t i = 0; i < k; i++)
+        if (!((name[i] >= 'A' && name[i] <= 'Z') || (name[i] >= '0' && name[i] <= '9') || name[i] == '_') || name[0] < 'A')
+            die("VAR name is upper-case letters, digits and _, beginning with a letter");
+    const char *v = arg + off;
+    len = t == 'C' ? (int)strlen(v) + 1 : t == 'L' ? 1 : 8;
+    if (memn + 32 + len + 1 > (int)sizeof MEM) die("memory file too large");
+    memset(h, 0, 32); memcpy(h, name, k);
+    h[11] = (uint8_t)(t | 0x80);
+    union { double d; uint8_t b[8]; } x;
+    switch (t) {
+    case 'C':
+        if (len > 255) die("C value longer than 254 characters");
+        h[16] = (uint8_t)len; h[17] = 0; memcpy(h + 32, v, (size_t)len); break;
+    case 'N': {
+        int w, dec, n; double d;
+        if (sscanf(v, "%d %d %n", &w, &dec, &n) != 2 || w < 1 || w > 19 || dec < 0 || dec > 15) die("VAR <name> N <width> <dec> <value>");
+        char *end; d = strtod(v + n, &end);
+        if (end == v + n || *end) die("N value is not a number");
+        h[16] = (uint8_t)w; h[17] = (uint8_t)dec; x.d = d; memcpy(h + 32, x.b, 8); break; }
+    case 'D':
+        h[16] = 1; x.d = jdn(v); memcpy(h + 32, x.b, 8); break;
+    case 'L':
+        if (strcmp(v, "T") && strcmp(v, "F")) die("L value is not T or F");
+        h[16] = 1; h[32] = *v == 'T'; break;
+    default: die("VAR type is not C, N, D or L");
+    }
+    memn += 32 + len;
 }
 
 static void manifest_entry(const char *dir, const char *outdir, const char *name, const char *src)
@@ -190,8 +257,9 @@ static void manifest_entry(const char *dir, const char *outdir, const char *name
     }
     const char *saved = g_file; int savedl = g_line;
     g_file = path; g_line = 0;
-    NF = NR = NI = 0; int report = 0; char made[64] = "";
+    NF = NR = NI = 0; int report = 0, label = 0, memory = 0; char made[64] = "";
     memset(FRM, ' ', sizeof FRM); memset(FRM, 0, 0xE0); heap = nstr = ncol = ngroup = 0;
+    memset(LBL, ' ', sizeof LBL); nline = lsized = 0; memn = 0;
     while (fgets(line, sizeof line, in)) {
         g_line++;
         line[strcspn(line, "\r\n")] = 0;
@@ -201,6 +269,25 @@ static void manifest_entry(const char *dir, const char *outdir, const char *name
         *arg++ = 0;
         if (!strcmp(line, "TABLE")) snprintf(made, sizeof made, "%s", arg);
         else if (!strcmp(line, "REPORT")) { snprintf(made, sizeof made, "%s", arg); report = 1; }
+        else if (!strcmp(line, "LABEL")) { snprintf(made, sizeof made, "%s", arg); label = 1; }
+        else if (!strcmp(line, "MEMORY")) { snprintf(made, sizeof made, "%s", arg); memory = 1; }
+        else if (!strcmp(line, "REMARKS")) {
+            if (!label || strlen(arg) > 60) die("REMARKS: a label form, at most 60 characters");
+            memcpy(LBL + 1, arg, strlen(arg));
+        } else if (!strcmp(line, "SIZE")) {
+            int d[6];
+            if (!label || lsized || sscanf(arg, "%d %d %d %d %d %d", &d[0], &d[1], &d[2], &d[3], &d[4], &d[5]) != 6)
+                die("SIZE <height> <width> <margin> <lines> <spaces> <across>, once, in a label form");
+            if (d[0] < 1 || d[0] > 16 || d[1] < 1 || d[5] < 1) die("SIZE out of range");
+            for (int i = 0; i < 6; i++) put16x(LBL, 0x3D + 2 * i, d[i]);
+            lsized = 1;
+        } else if (!strcmp(line, "LINE")) {
+            if (!label || nline == 16 || strlen(arg) > 60) die("LINE: a label form, at most 16 lines of 60 characters");
+            memcpy(LBL + 0x49 + 60 * nline++, arg, strlen(arg));
+        } else if (!strcmp(line, "VAR")) {
+            if (!memory) die("VAR outside a memory file");
+            mem_var(arg);
+        }
         else if (!strcmp(line, "FIELD")) {
             if (NF == MAXF) die("too many fields");
             fld *f = &F[NF++]; memset(f, 0, sizeof *f);
@@ -236,7 +323,19 @@ static void manifest_entry(const char *dir, const char *outdir, const char *name
     }
     fclose(in);
     if (!made[0] || strcmp(made, name)) die("the .dat names a different file than the MANIFEST");
-    if (report) {
+    if (label) {
+        if (!lsized || !nline) die("a label form needs SIZE and a LINE");
+        LBL[0] = 2; LBL[0x409] = 2;
+        snprintf(path, sizeof path, "%s/%s", outdir, name);
+        FILE *out = fopen(path, "wb");
+        if (!out || fwrite(LBL, 1, sizeof LBL, out) != sizeof LBL || fclose(out)) die("cannot write the label form");
+    } else if (memory) {
+        if (!memn) die("a memory file needs a VAR");
+        MEM[memn++] = 0x1A;
+        snprintf(path, sizeof path, "%s/%s", outdir, name);
+        FILE *out = fopen(path, "wb");
+        if (!out || fwrite(MEM, 1, (size_t)memn, out) != (size_t)memn || fclose(out)) die("cannot write the memory file");
+    } else if (report) {
         if (!heap || !ncol) die("a report needs a TITLE and a COLUMN");
         put16(0x00, 2); put16(0x02, heap); put16(0x7BE, ncol);
         FRM[0x7C0] = FRM[0x7C1] = FRM[0x7C2] = 'N'; put16(0x7C4, 2);

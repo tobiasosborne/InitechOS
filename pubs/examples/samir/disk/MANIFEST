@@ -2,13 +2,18 @@
 # PUB-REF-0001 AN-16, CP-12).  NAME|source, in directory order.  A .dat
 # source is minted by harness/pubs/samir_sample_disk through the shipped
 # SAMIR writers (a table also writes its .DBT memo file and its .NDX index
-# files); any other source is copied as it stands.  Every example in the
-# InitechBase manuals runs against a fresh copy of this diskette.
+# files; a report form, label form or memory file is laid out as the
+# dbase3-decomp file-format specs describe it); any other source is copied
+# as it stands.  Every example in the InitechBase manuals runs against a
+# fresh copy of this diskette.
 STAFF.DBF|staff.dat
 DEPTS.DBF|depts.dat
 INVOICE.DBF|invoice.dat
+ARBATCH.DBF|arbatch.dat
 STAFFRPT.FRM|staffrpt.dat
 INVRPT.FRM|invrpt.dat
+STAFFLBL.LBL|stafflbl.dat
+MONTHEND.MEM|monthend.dat
 STAFFLST.PRG|STAFFLST.PRG
 PAYTOTAL.PRG|PAYTOTAL.PRG
 DEPTNAME.PRG|DEPTNAME.PRG

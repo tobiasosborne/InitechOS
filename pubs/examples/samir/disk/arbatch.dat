@@ -1,0 +1,12 @@
+# ARBATCH.DBF -- a batch of new invoices keyed on another machine, to be
+# added to the ledger with APPEND FROM (Using InitechBase, APPEND) and
+# summarized with TOTAL.  The fields are those of INVOICE.DBF in another
+# order, without PAID: APPEND FROM matches fields by name.
+TABLE ARBATCH.DBF
+FIELD CUST C 10 0
+FIELD INVNO C 5 0
+FIELD DUEDATE D 8 0
+FIELD AMOUNT N 10 2
+REC HARTWELL|A1005|19920415|300.00
+REC BRAXTON CO|A1006|19920430|1125.00
+REC HARTWELL|A1007|19920515|640.25

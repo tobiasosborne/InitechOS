@@ -1,0 +1,12 @@
+# STAFFLBL.LBL -- interoffice mail labels for STAFF.DBF, three across
+# (Using InitechBase, LABEL).  The 1034-byte label form of dBASE III PLUS
+# (dbase3-decomp specs/file-formats/lbl.md): 3 lines a label, 24 characters
+# wide, no left margin, 1 line and 2 spaces between labels, 3 across.  The
+# expressions of a line are separated by commas; each value is printed
+# without its trailing blanks, one space after the one before.
+LABEL STAFFLBL.LBL
+REMARKS Interoffice mail, 3 across
+SIZE 3 24 0 1 2 3
+LINE TRIM(FIRSTNAME),LASTNAME
+LINE "Ext.",EXT
+LINE "Dept.",DEPT
