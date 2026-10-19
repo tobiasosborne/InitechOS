@@ -401,6 +401,13 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out);
  * control on EXIT. /P processors pass 1. Ref: Microsoft DOS 3.3 Reference
  * pp. 46, 66. No primary lifetime decision is left to the command line. */
 void command_repl(int permanent);
+
+/* The resident processor as an AH=4Bh child (initech-n8q8). A resident program
+ * that EXECs its COMSPEC (dBASE RUN: "loads a second copy of COMMAND.COM",
+ * HELP.DBS _RUN/!) reaches this through the kmain EXEC backend: `tail` is the
+ * child's PSP:80h text (`len` bytes, e.g. " /C VER > X.TXT"), run exactly as a
+ * typed `COMMAND <tail>` (Reference pp. 46-47; builtin_command). */
+void command_exec_secondary(const char *tail, uint32_t len);
 #endif
 
 #endif /* INITECH_COMMAND_H */

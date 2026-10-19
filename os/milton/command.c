@@ -4724,6 +4724,22 @@ static void builtin_command(const char *arg)
     g_errorlevel=errorlevel;g_batch_frame=frame;
 }
 
+/* EXEC of COMSPEC by a resident program (initech-n8q8). The interpreter is
+ * resident in this kernel (ADR-0003 DEC-03/DEC-11), so the "second copy" of
+ * COMMAND.COM a dBASE RUN asks for is a secondary processor of the same code:
+ * the PSP:80h tail (no NUL; it ends at its length or the CR) is run as
+ * `COMMAND <tail>`, with /C's private environment, EXIT/batch isolation and
+ * redirect scopes saved and restored around it (Reference pp. 46-47). */
+void command_exec_secondary(const char *tail, uint32_t len)
+{
+    char line[CMD_LINE_MAX];
+    uint32_t i;
+    for (i = 0u; tail && i < len && i < CMD_LINE_MAX - 1u && tail[i] != '\r'; i++)
+        line[i] = tail[i];
+    line[i] = '\0';
+    builtin_command(line);
+}
+
 void command_repl(int permanent)
 {
     char line[CMD_LINE_MAX];
