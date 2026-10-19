@@ -88,7 +88,7 @@ Does nothing.
 TEX
 SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
 TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" \
-TEXINPUTS="$root/pubs/class//:" \
+TEXINPUTS="$root/pubs/class//:$root/pubs/common//:" \
 "${LUALATEX:-lualatex}" -interaction=batchmode -halt-on-error -output-directory="$m" "$m/xfake.tex" > "$m/xfake-typeset.log" 2>&1
 grep -q '^PUBSFAKE|command|GATED|PUBSFAKE$' "$m/xfake.cmds" || {
     cat "$m/xfake.cmds"; printf '!!! test-pubs-mutant FAIL: XbaseEntry did not register PUBSFAKE\n'; exit 1; }
@@ -106,8 +106,10 @@ sed 's/^12|Variable not found\.|/12|Variable not founds.|/' "$v1/main.msgs" > "$
 red CHANGED_MESSAGE MESSAGE-TEXT "$gate" messages "$out/samir.catalogue" "$m/changed.msgs"
 grep -v '^12|Variable not found\.|GATED$' "$v1/main.msgs" > "$m/missing.msgs"
 red MISSING_MESSAGE MESSAGE-NOT-DOCUMENTED "$gate" messages "$out/samir.catalogue" "$m/missing.msgs"
-# An inline mention of a command the dot prompt does not ship.
-printf 'INDEX ON LASTNAME TO STAFFNAM\n' > "$m/unshipped.mentions"
+# An inline mention of a command the dot prompt does not ship.  JOIN is a
+# dBASE III PLUS command InitechBase lacks (INDEX, the old fault, ships
+# since samircore/samirfns, so the mutant survived; initech-090x).
+printf 'JOIN WITH DEPTS TO STAFFDEP\n' > "$m/unshipped.mentions"
 red UNSHIPPED_MENTION DOC-NOT-SHIPPED "$gate" samirmentions "$out/samir.shipped" "$m/unshipped.mentions"
 # A month-end program changed on the sample diskette, and its printed
 # output changed in the book (GC-11, harness/pubs/samir_programs.sh).

@@ -38,7 +38,7 @@ cat > "$m/fake.tex" <<'TEX'
 TEX
 SOURCE_DATE_EPOCH=699408000 FORCE_SOURCE_DATE=1 TZ=UTC \
 TEXMFVAR="$root/build/pubs-tex-cache" TEXMFCACHE="$root/build/pubs-tex-cache" \
-TEXINPUTS="$root/pubs/class//:$gen//:" \
+TEXINPUTS="$root/pubs/class//:$root/pubs/common//:$gen//:" \
 "${LUALATEX:-lualatex}" -interaction=batchmode -halt-on-error -output-directory="$m" "$m/fake.tex" > "$m/fake-typeset.log" 2>&1
 grep -q '^TPS-099|tps|GATED|TPS-099$' "$m/fake.cmds" || {
     cat "$m/fake.cmds"; printf '!!! test-pubs-mutant FAIL: the class did not register TPS-099\n'; exit 1; }
