@@ -743,9 +743,22 @@ KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
 #   byte-identical screendump goldens are the proof. Measured on the
 #   flagship: 183,948 -> 179,916 B (-4,032 B). Hold the seam as `?=` so a
 #   trial can still override it from the command line.
+# Size round 7 (initech-5qsm), the same method re-run once on the
+# -freg-struct-return image (two single-switch sweeps, 117 trials, then the
+# kept subset): -fno-if-conversion (-128), -fno-guess-branch-probability
+# (-160; static branch guesses only reorder blocks), -fno-forward-propagate,
+# -fno-ipa-pure-const (stops DISCOVERING pure/const functions -- removes an
+# assumption, never adds one), --param=max-inline-insns-auto=0; together
+# 177,580 -> 177,268 B (-312 B). Rejected by measurement on that image:
+# -fconserve-stack (+1,120 there, -416 before the struct-return change),
+# -mtune=* (every tuning grew), -fno-inline-small-functions, -fno-ipa-cp,
+# -fno-ivopts, -fno-peephole2, -fira-algorithm=priority and the rest of the
+# sweep (round-7 table in the lane report).
 KERNEL_R5_FLAGS ?= -mpreferred-stack-boundary=2 -mincoming-stack-boundary=2 -fno-tree-sra -fno-tree-dominator-opts \
                    -fno-move-loop-invariants -fno-tree-loop-im -fno-shrink-wrap -fno-tree-tail-merge -fno-partial-inlining \
-                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection
+                   --param=max-completely-peel-times=0 -fno-code-hoisting -fno-tree-scev-cprop -fno-stack-clash-protection \
+                   -fno-if-conversion -fno-guess-branch-probability -fno-forward-propagate -fno-ipa-pure-const \
+                   --param=max-inline-insns-auto=0
 KERNEL_SECTION_FLAGS := -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-ident $(KERNEL_R5_FLAGS)
 KERNEL_GC_LDFLAGS := --gc-sections
 # Round 3 part 2 (initech-tode): kernel-only link driver seam for selected
