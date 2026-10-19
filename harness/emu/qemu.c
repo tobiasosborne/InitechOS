@@ -529,6 +529,13 @@ static const char *token_to_qcode(const char *tok)
         strcmp(tok, "insert") == 0) {
         return tok;
     }
+    /* Page Up / Page Down (bead initech-69mz, Initech 123 B11: 1-2-3's PGUP /
+     * PGDN, R2.2 Reference Manual p. 1-10). QEMU sends them E0-prefixed
+     * (E0 49 / E0 51; event.c cooks ascii 0, vkey = the make code).
+     * Ref: qapi/ui.json QKeyCode pgup, pgdn. */
+    if (strcmp(tok, "pgup") == 0 || strcmp(tok, "pgdn") == 0) {
+        return tok;
+    }
     /* Tab (bead initech-jojk, IWORD P2 slice 2: WordPerfect's [Tab]). QEMU
      * sends it as the plain set-1 make 0x0F (event.c cooks it to '\t').
      * Ref: qapi/ui.json QKeyCode tab. */

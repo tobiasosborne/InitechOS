@@ -23800,6 +23800,14 @@ RECORD_MARKER_i123_quit_guard = TENANT-GATE ax=0x0033 win=1 x=1 y=368 s="Retriev
 RECORD_SETTLE_i123_quit_guard = 400
 RECORD_IMAGE_i123_quit_guard = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
+# i123_keys (bead initech-69mz, B11; Rule 14): the LOCKED FLAIR_I123_KEYS --
+# F2 EDIT on "Hello" + Esc/Esc, F5 Z100, PgDn, Tab. Marker: Tab's "I1:" panel.
+# 46 events at a 400 ms settle outlive the 3000-tick DBL image: the LONG one.
+RECORD_SCRIPTS += i123_keys
+RECORD_SPEC_i123_keys = $(FLAIR_I123_KEYS)
+RECORD_MARKER_i123_keys = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="I1:                                                                    " fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_keys = 400
+RECORD_IMAGE_i123_keys = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 # The EXTRA-LONG double-click record image (bead initech-mfrb): the long
 # double-click record image with the pump life doubled again
 # (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
@@ -32112,6 +32120,76 @@ test-flair-i123-entry-mutant: test-flair-i123-entry $(HARNESS_BIN) $(FLAIR_I123_
 	@printf '>>> test-flair-i123-entry-mutant: I123_MUT_ENTRY_75 correctly RED -- the entry line stopped at "...%s", the 104-character tail never drawn\n' "$$(printf %s '$(I123_ENTRY_AT75)' | tail -c 12)"
 	@printf '>>> test-flair-i123-entry-mutant: green\n'
 TEST_EMU_GATES += test-flair-i123-entry test-flair-i123-entry-mutant
+
+# B11 / initech-69mz QEMU leg: the LOCKED FLAIR_I123_KEYS trace (spec/
+# flair_i123_keys_traces.mk) on a gate-local image -- the SAME flair_tenants
+# build with ONLY the bounded pump life set (B13 entry-gate pattern).
+# MEASURED (this lane, first run on a 3000-tick image, load ~11-14): FLAIR-LIVE-
+# READY to the last draw (Tab's "I1:") took 2.2 / 2.7 / 3.6 s over three runs
+# (46 tokens incl. the launch and the W barrier polls). 1000 ticks (10 s @100
+# Hz) is ~2.8x the worst measured need, headroom for load 20-40 -- the menu
+# gate's budget. A demo bound only: no oracle string or tolerance changes.
+include spec/flair_i123_keys_traces.mk
+I123_KEYS_TICKS := 1000
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=$(I123_KEYS_TICKS),i123_keys_gate))
+FLAIR_I123_KEYS_GATE_IMG := $(BUILD)/flair_tenants_mut_i123_keys_gate.img
+# Expected draws (Face A cell (col c, line L) -> TENANT-GATE x = 1 + 8c,
+# y = 16L; the mode indicator's 5 cells end at col 76 -> x = 569):
+#   K1  F2: line two "'Hello_" + blanks and " EDIT"; then Esc erases ("_"),
+#       Esc again: READY and A1 still "'Hello" (fixtures/i123-keys 02..04);
+#   K8  F5: "Enter address to go to: A1_" + POINT; Z100 on line one, row 100
+#       on the first worksheet line, column Z first in the border (06..08);
+#   K13 PgDn from A1: "A20:" and row 20 first (12_pgdn, 19 native rows);
+#   K18 Tab from A1: "I1:" and the border I..P (16_tab).
+I123_KEYS_G = TENANT-GATE ax=0x0033 win=1 x=$(1) y=$(2) s="$(3)" fg=$(4) bg=$(5) -> 0
+I123_KEYS_F2_OK = f=$(1); \
+	a=$$(grep -n -E '^$(call I123_KEYS_G,1,16,'"'"'Hello_ +,1,0)$$' $$f | head -1 | cut -d: -f1); \
+	b=$$(grep -n -E '^$(call I123_KEYS_G,569,0, EDIT,0,3)$$' $$f | head -1 | cut -d: -f1); \
+	c=$$(grep -n -E '^$(call I123_KEYS_G,1,16,_ +,1,0)$$' $$f | head -1 | cut -d: -f1); \
+	d=$$(grep -n -E '^$(call I123_KEYS_G,569,0,READY,0,3)$$' $$f | awk -F: -v c="$$c" 'c!="" && $$1>c{print $$1; exit}'); \
+	e=$$(grep -n -E '^$(call I123_KEYS_G,1,0,A1: '"'"'Hello +,1,0)$$' $$f | awk -F: -v c="$$c" 'c!="" && $$1>c{print $$1; exit}'); \
+	[ -n "$$a" ] && [ -n "$$b" ] && [ -n "$$c" ] && [ -n "$$d" ] && [ -n "$$e" ] && [ "$$a" -lt "$$c" ] && [ "$$e" -lt "$$d" ]
+I123_KEYS_GOTO_OK = grep -qE '^$(call I123_KEYS_G,1,16,Enter address to go to: A1_ +,1,0)$$' $(1) && \
+	grep -qxF '$(call I123_KEYS_G,569,0,POINT,0,3)' $(1) && \
+	grep -qE '^$(call I123_KEYS_G,1,0,Z100: +,1,0)$$' $(1) && \
+	grep -qxF '$(call I123_KEYS_G,1,64,100 ,0,3)' $(1) && \
+	grep -qE '^$(call I123_KEYS_G,1,48, +Z +AA +AB +AC +AD +AE +AF +AG +,0,3)$$' $(1)
+I123_KEYS_PGDN_OK = grep -qE '^$(call I123_KEYS_G,1,0,A20: +,1,0)$$' $(1) && grep -qxF '$(call I123_KEYS_G,1,64,20  ,0,3)' $(1)
+I123_KEYS_TAB_OK = grep -qE '^$(call I123_KEYS_G,1,0,I1: +,1,0)$$' $(1) && \
+	grep -qE '^$(call I123_KEYS_G,1,48, +I +J +K +L +M +N +O +P +,0,3)$$' $(1)
+.PHONY: test-flair-i123-keys test-flair-i123-keys-mutant
+test-flair-i123-keys: export INITECH_QMP_STDIO=1
+test-flair-i123-keys: $(HARNESS_BIN) $(FLAIR_I123_KEYS_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_keys,$(FLAIR_I123_KEYS_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_KEYS,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_keys.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f || { printf '!!! test-flair-i123-keys FAIL: launch/desktop\n'; exit 1; }
+	@! grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' $(BUILD)/flair_i123_keys.serial || { printf '!!! test-flair-i123-keys FAIL: input ring overrun\n'; exit 1; }
+	@$(call I123_KEYS_F2_OK,$(BUILD)/flair_i123_keys.serial) || { printf '!!! test-flair-i123-keys FAIL: K1 F2 EDIT "'"'"'Hello", Esc erase, Esc READY with A1 unchanged\n'; exit 1; }
+	@$(call I123_KEYS_GOTO_OK,$(BUILD)/flair_i123_keys.serial) || { printf '!!! test-flair-i123-keys FAIL: K8 F5 prompt/POINT or Z100 at the upper-left\n'; exit 1; }
+	@$(call I123_KEYS_PGDN_OK,$(BUILD)/flair_i123_keys.serial) || { printf '!!! test-flair-i123-keys FAIL: K13 PgDn from A1 to A20 with row 20 first\n'; exit 1; }
+	@$(call I123_KEYS_TAB_OK,$(BUILD)/flair_i123_keys.serial) || { printf '!!! test-flair-i123-keys FAIL: K18 Tab from A1 to I1 with column I first\n'; exit 1; }
+	$(PPM_TEXT_CHECK_BIN) --i123-keys $(BUILD)/flair_i123_keys.ppm
+	@printf '>>> test-flair-i123-keys: green (QEMU: F2 EDIT + Esc/Esc, F5 Z100 upper-left, PgDn A1->A20, Tab A1->I1; TENANT-GATE draws + screendump)\n'
+# Rule 6 mutant: a gate-local volume whose 123.EXE moves one cell on Tab
+# (-DI123_MUT_TAB_ONE_CELL), same image and trace. RED for the right reason:
+# 123 up, F2/GOTO/PgDn legs still green, Tab lands on B1 (never I1), and the
+# screendump's pointer sits off column one. The last W barrier waits out its
+# harness budget (slow by construction); nothing in the clean gate is relaxed.
+FLAIR_DATA_I123_TAB1_IMG := $(BUILD)/flair_data_i123_tab1.img
+$(eval $(call tenant-exe-rules,i123_tab1,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_TAB_ONE_CELL,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_TAB1_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_tab1.exe,$(IWORD_EXE),))
+test-flair-i123-keys-mutant: export INITECH_QMP_STDIO=1
+test-flair-i123-keys-mutant: test-flair-i123-keys $(HARNESS_BIN) $(FLAIR_I123_KEYS_GATE_IMG) $(FLAIR_DATA_I123_TAB1_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_keys_mut,$(FLAIR_I123_KEYS_GATE_IMG),$(FLAIR_DATA_I123_TAB1_IMG),FLAIR_I123_KEYS,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_keys_mut.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f && \
+	 $(call I123_KEYS_PGDN_OK,$$f) && grep -qE '^$(call I123_KEYS_G,1,0,B1: +,1,0)$$' $$f || \
+	 { printf '!!! test-flair-i123-keys-mutant FAIL: TAB_ONE_CELL went RED for the wrong reason (want: 123 up, PgDn green, Tab on B1)\n'; exit 1; }
+	@if $(call I123_KEYS_TAB_OK,$(BUILD)/flair_i123_keys_mut.serial); then \
+	 printf '!!! test-flair-i123-keys-mutant FAIL: TAB_ONE_CELL PASSED the Tab check -- the QEMU leg is decoration\n'; exit 1; fi
+	@if $(PPM_TEXT_CHECK_BIN) --i123-keys $(BUILD)/flair_i123_keys_mut.ppm; then \
+	 printf '!!! test-flair-i123-keys-mutant FAIL: TAB_ONE_CELL PASSED the screendump check\n'; exit 1; fi
+	@printf '>>> test-flair-i123-keys-mutant: I123_MUT_TAB_ONE_CELL correctly RED -- Tab drew "B1:", never "I1:"; screendump pointer off column one\n'
+	@printf '>>> test-flair-i123-keys-mutant: green\n'
+TEST_EMU_GATES += test-flair-i123-keys test-flair-i123-keys-mutant
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
 # clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").
