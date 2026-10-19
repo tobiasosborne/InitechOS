@@ -221,6 +221,9 @@ int main(int argc, char **argv)
     /* B11 (initech-69mz): Tab from A1 ends on I1 with I the first column. */
     int i123_keys = argc == 3 && strcmp(argv[1], "--i123-keys") == 0;
     if (i123_keys) { argc = 2; argv++; }
+    /* B31 (initech-umfi): after the grow, the click selected E4. */
+    int i123_hit = argc == 3 && strcmp(argv[1], "--i123-hit") == 0;
+    if (i123_hit) { argc = 2; argv++; }
     if (argc == 4 && !strcmp(argv[1], "--cells"))
         return check_cells(argv[2], argv[3]);
     if (argc >= 6 && !strcmp(argv[1], "--cursor-cycle"))
@@ -332,6 +335,29 @@ int main(int argc, char **argv)
         int ok = navy0 == 72*16 && navy_rest == 0 && ink_rest == 0;
         printf("ppm_text_check: i123-keys row1 first-cell navy=%ld/1152 rest navy=%ld ink=%ld: %s\n",
                navy0, navy_rest, ink_rest, ok ? "green" : "RED");
+        free(buf); return ok ? 0 : 1;
+    }
+
+    if (i123_hit) {
+        /* Same independent geometry as --i123-keys: Face A cell (char c, line
+         * L) at x 7 + 8c, y 62 + 16L. Row 4 is line 7 (y 174..190); E is the
+         * fifth area column, chars 40..48 (x 327..399). The window was grown
+         * to 440 x 340 (frame (0,40)..(440,380)): its content ends left of
+         * x 420, so the navy column border (line 3, y 110..126, drawn across
+         * all 76 cells = x 6..614 at full size) must stop there. Pointer: E4
+         * is navy, nothing else on row 4 up to the content edge is. */
+        if (w != 640 || h != 480) { free(buf); return 1; }
+        long navy_e4 = 0, navy_row = 0, border_in = 0, border_out = 0;
+        for (int y = 110; y < 190; y++)
+            for (int x = 39; x < 640; x++) {
+                unsigned char *p = buf+3*(y*w+x);
+                int navy = p[0]<8 && p[1]<8 && p[2]>=100 && p[2]<=136;
+                if (y < 126) { if (x < 420) border_in += navy; else border_out += navy; }
+                else if (y >= 174 && x < 416) { if (x >= 327 && x < 399) navy_e4 += navy; else navy_row += navy; }
+            }
+        int ok = navy_e4 == 72*16 && navy_row == 0 && border_in > 0 && border_out == 0;
+        printf("ppm_text_check: i123-hit E4 navy=%ld/1152 rest-of-row4 navy=%ld border navy in=%ld past-x420=%ld: %s\n",
+               navy_e4, navy_row, border_in, border_out, ok ? "green" : "RED");
         free(buf); return ok ? 0 : 1;
     }
 

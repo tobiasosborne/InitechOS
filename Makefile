@@ -23857,6 +23857,14 @@ RECORD_SPEC_i123_keys = $(FLAIR_I123_KEYS)
 RECORD_MARKER_i123_keys = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="I1:                                                                    " fg=1 bg=0 -> 0
 RECORD_SETTLE_i123_keys = 400
 RECORD_IMAGE_i123_keys = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+# i123_hit (bead initech-umfi, B31; Rule 14): the LOCKED FLAIR_I123_HIT --
+# Tab, click M4, Shift-Tab, grow the window smaller, click E4. Marker: the
+# resized click's "E4:" panel. ~43 events at a 400 ms settle: the LONG image.
+RECORD_SCRIPTS += i123_hit
+RECORD_SPEC_i123_hit = $(FLAIR_I123_HIT)
+RECORD_MARKER_i123_hit = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_hit = 400
+RECORD_IMAGE_i123_hit = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 # The EXTRA-LONG double-click record image (bead initech-mfrb): the long
 # double-click record image with the pump life doubled again
 # (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
@@ -32127,6 +32135,32 @@ test-i123-keys-mutant: test-i123-keys $(foreach p,$(I123_KEYS_MUTANTS),$(BUILD)/
 	@printf '>>> test-i123-keys-mutant: green (all %s mutants caught)\n' "$(words $(I123_KEYS_MUTANTS))"
 TEST_UNIT_GATES += test-i123-keys test-i123-keys-mutant
 
+# B31 / initech-umfi: native cell hit testing -- a mouseDown in the worksheet
+# content selects the visible cell under it (audit L017), over the real
+# face_a.c + the recording mock. Expected addresses come from the Face A
+# geometry constants restated in the test (manual pp. 1-3/1-4 screen layout,
+# spec/flair_i123_traces.mk GEOMETRY) and the widths/scroll the test sets,
+# never from face_a.c. Rule 6: the mutant must go RED on H5 (after Tab).
+I123_HIT_DEPS := harness/proptest/test_i123_hit.c $(I123_QUIT_DEPS)
+I123_HIT_MUTANTS := I123_MUT_HIT_IGNORES_SCROLL:H5
+$(BUILD)/test_i123_hit: $(I123_HIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_hit_mutant_%: $(I123_HIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-hit test-i123-hit-mutant
+test-i123-hit: $(BUILD)/test_i123_hit
+	@mkdir -p $(BUILD)/i123-hit-fs
+	@$< $(BUILD)/i123-hit-fs
+	@printf '>>> test-i123-hit: green (first/last visible cell, borders/panel/status ignored, partial edge, after Tab and PgDn, unequal widths, entry completed first)\n'
+test-i123-hit-mutant: test-i123-hit $(foreach p,$(I123_HIT_MUTANTS),$(BUILD)/test_i123_hit_mutant_$(firstword $(subst :, ,$(p))))
+	@for p in $(I123_HIT_MUTANTS); do m=$${p%%:*}; id=$${p##*:}; log=$(BUILD)/test_i123_hit_mutant_$$m.log; \
+	 set +e; $(BUILD)/test_i123_hit_mutant_$$m $(BUILD)/i123-hit-fs > $$log 2>&1; rc=$$?; set -e; \
+	 [ $$rc -eq 1 ] && grep -q '^i123-hit: .* checks,' $$log && grep -q "FAIL $$id " $$log || \
+	 { cat $$log; printf '!!! test-i123-hit-mutant: %s wrong RED (exit %s, want FAIL %s)\n' "$$m" "$$rc" "$$id"; exit 1; }; \
+	 printf '>>> test-i123-hit-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "FAIL $$id " $$log | sed 's/^ *//')"; done
+	@printf '>>> test-i123-hit-mutant: green (all %s mutants caught)\n' "$(words $(I123_HIT_MUTANTS))"
+TEST_UNIT_GATES += test-i123-hit test-i123-hit-mutant
+
 include spec/flair_i123_entry_traces.mk
 
 include spec/flair_i123_menu_traces.mk
@@ -32257,6 +32291,66 @@ test-flair-i123-keys-mutant: test-flair-i123-keys $(HARNESS_BIN) $(FLAIR_I123_KE
 	@printf '>>> test-flair-i123-keys-mutant: I123_MUT_TAB_ONE_CELL correctly RED -- Tab drew "B1:", never "I1:"; screendump pointer off column one\n'
 	@printf '>>> test-flair-i123-keys-mutant: green\n'
 TEST_EMU_GATES += test-flair-i123-keys test-flair-i123-keys-mutant
+
+# B31 / initech-umfi QEMU leg: the LOCKED FLAIR_I123_HIT trace (spec/
+# flair_i123_hit_traces.mk) -- Tab, click the fifth column of row 4 (M4),
+# Shift-Tab, grow-drag the window smaller, click the same spot (E4). Image:
+# the B11 keys gate image (the SAME flair_tenants build, ONLY the bounded pump
+# life FLAIR_TEN_TICK_BUDGET=1000) -- this trace is shorter than the keys one.
+include spec/flair_i123_hit_traces.mk
+FLAIR_I123_HIT_GATE_IMG := $(FLAIR_I123_KEYS_GATE_IMG)
+# Expected (Face A cell (char c, line L) -> TENANT-GATE x = 1 + 8c, y = 16L):
+#   H5 after Tab: "M4:" on line one, the pointer (9 navy cells) at char 40 of
+#      line 7 -> x=321 y=112, drawn after Tab's "I1:" and before "M4:";
+#   the kernel's grow record FLAIR-GROW (640,440)->(440,340) after M4;
+#   H9 after the resize: the FIRST "E4:" follows the grow record, the pointer
+#      draw at x=321 y=112 between them, READY after it.
+I123_HIT_G = TENANT-GATE ax=0x0033 win=1 x=$(1) y=$(2) s="$(3)" fg=$(4) bg=$(5) -> 0
+I123_HIT_PTR = $(call I123_HIT_G,321,112,         ,0,3)
+I123_HIT_GROW = ^FLAIR-GROW win [0-9]+ \(640,440\)->\(440,340\)$$
+I123_HIT_TAB_OK = f=$(1); \
+	i=$$(grep -n -E '^$(call I123_HIT_G,1,0,I1: +,1,0)$$' $$f | head -1 | cut -d: -f1); \
+	m=$$(grep -n -E '^$(call I123_HIT_G,1,0,M4: +,1,0)$$' $$f | head -1 | cut -d: -f1); \
+	p=$$(grep -n -xF '$(I123_HIT_PTR)' $$f | awk -F: -v i="$$i" -v m="$$m" 'i!="" && m!="" && $$1>i && $$1<m{print $$1; exit}'); \
+	[ -n "$$i" ] && [ -n "$$m" ] && [ -n "$$p" ]
+I123_HIT_RESIZE_OK = f=$(1); \
+	m=$$(grep -n -E '^$(call I123_HIT_G,1,0,M4: +,1,0)$$' $$f | head -1 | cut -d: -f1); \
+	g=$$(grep -n -E '$(I123_HIT_GROW)' $$f | head -1 | cut -d: -f1); \
+	e=$$(grep -n -E '^$(call I123_HIT_G,1,0,E4: +,1,0)$$' $$f | head -1 | cut -d: -f1); \
+	p=$$(grep -n -xF '$(I123_HIT_PTR)' $$f | awk -F: -v g="$$g" -v e="$$e" 'g!="" && e!="" && $$1>g && $$1<e{print $$1; exit}'); \
+	r=$$(grep -n -xF '$(call I123_HIT_G,569,0,READY,0,3)' $$f | awk -F: -v e="$$e" 'e!="" && $$1>e{print $$1; exit}'); \
+	[ -n "$$m" ] && [ -n "$$g" ] && [ -n "$$e" ] && [ -n "$$p" ] && [ -n "$$r" ] && [ "$$m" -lt "$$g" ]
+.PHONY: test-flair-i123-hit test-flair-i123-hit-mutant
+test-flair-i123-hit: export INITECH_QMP_STDIO=1
+test-flair-i123-hit: $(HARNESS_BIN) $(FLAIR_I123_HIT_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_hit,$(FLAIR_I123_HIT_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_HIT,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_hit.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f || { printf '!!! test-flair-i123-hit FAIL: launch/desktop\n'; exit 1; }
+	@! grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' $(BUILD)/flair_i123_hit.serial || { printf '!!! test-flair-i123-hit FAIL: input ring overrun\n'; exit 1; }
+	@$(call I123_HIT_TAB_OK,$(BUILD)/flair_i123_hit.serial) || { printf '!!! test-flair-i123-hit FAIL: H5 after Tab the click did not select M4 (address + pointer)\n'; exit 1; }
+	@$(call I123_HIT_RESIZE_OK,$(BUILD)/flair_i123_hit.serial) || { printf '!!! test-flair-i123-hit FAIL: H9 grow (640,440)->(440,340) then the click did not select E4 (address + pointer + READY)\n'; exit 1; }
+	$(PPM_TEXT_CHECK_BIN) --i123-hit $(BUILD)/flair_i123_hit.ppm
+	@printf '>>> test-flair-i123-hit: green (QEMU: Tab + click M4, Shift-Tab, grow 640x440->440x340 + click E4; TENANT-GATE draws + screendump)\n'
+# Rule 6 mutant: a gate-local volume whose 123.EXE maps clicks as if the window
+# sat at A1 (-DI123_MUT_HIT_IGNORES_SCROLL), same image and trace. RED for the
+# right reason: 123 up, the resize leg still selects E4, but the click after
+# Tab drew "E4:" (never "M4:"). Nothing in the clean gate is relaxed.
+FLAIR_DATA_I123_HITSCROLL_IMG := $(BUILD)/flair_data_i123_hitscroll.img
+$(eval $(call tenant-exe-rules,i123_hitscroll,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_HIT_IGNORES_SCROLL,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_HITSCROLL_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_hitscroll.exe,$(IWORD_EXE),))
+test-flair-i123-hit-mutant: export INITECH_QMP_STDIO=1
+test-flair-i123-hit-mutant: test-flair-i123-hit $(HARNESS_BIN) $(FLAIR_I123_HIT_GATE_IMG) $(FLAIR_DATA_I123_HITSCROLL_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_hit_mut,$(FLAIR_I123_HIT_GATE_IMG),$(FLAIR_DATA_I123_HITSCROLL_IMG),FLAIR_I123_HIT,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_hit_mut.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f && \
+	 grep -qE '$(I123_HIT_GROW)' $$f && \
+	 [ "$$(grep -cE '^$(call I123_HIT_G,1,0,E4: +,1,0)$$' $$f)" -ge 2 ] || \
+	 { printf '!!! test-flair-i123-hit-mutant FAIL: HIT_IGNORES_SCROLL went RED for the wrong reason (want: 123 up, grow done, E4 selected by both clicks)\n'; exit 1; }
+	@if $(call I123_HIT_TAB_OK,$(BUILD)/flair_i123_hit_mut.serial); then \
+	 printf '!!! test-flair-i123-hit-mutant FAIL: HIT_IGNORES_SCROLL PASSED the after-Tab check -- the QEMU leg is decoration\n'; exit 1; fi
+	@if $(call I123_HIT_RESIZE_OK,$(BUILD)/flair_i123_hit_mut.serial); then \
+	 printf '!!! test-flair-i123-hit-mutant FAIL: HIT_IGNORES_SCROLL PASSED the resize check (E4 before the grow must fail it)\n'; exit 1; fi
+	@printf '>>> test-flair-i123-hit-mutant: I123_MUT_HIT_IGNORES_SCROLL correctly RED -- the click after Tab drew "E4:", never "M4:"\n'
+	@printf '>>> test-flair-i123-hit-mutant: green\n'
+TEST_EMU_GATES += test-flair-i123-hit test-flair-i123-hit-mutant
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
 # clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").

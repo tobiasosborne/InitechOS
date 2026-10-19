@@ -60,6 +60,10 @@ static volatile int *g_ctr;            /* [0] checks, [1] failures */
 #define SCR_W 76   /* 613-px content / 8 since bead initech-tdnl.51 (was 77) */
 #define SCR_H 24
 static char m_scr[SCR_H][SCR_W + 1];
+/* B31 (initech-umfi): 'N' where the last cell draw was on NAVY (the pointer,
+ * the borders, the mode indicator), ' ' elsewhere -- what test_i123_hit.c
+ * reads the highlight from. */
+static char m_bg[SCR_H][SCR_W + 1];
 static int  m_exit_calls, m_exit_rc;
 static int  m_alerts;
 static unsigned m_beeps;              /* TBX_BEEP, also used by entry oracle */
@@ -75,6 +79,12 @@ int32_t tbx_register(void) { return TBX_OK; }
 int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t g)
 { (void)l; (void)t; (void)r; (void)b; (void)g; return 1; }
 int32_t tbx_set_wtitle(int32_t w, const char *s) { (void)w; (void)s; return TBX_OK; }
+/* B31: the window's content origin, GLOBAL (spec/toolbox_gate.h Sec 3
+ * CONTENTORIGIN = (top << 16) | left). The 123 frame (0,40)..(640,480) puts
+ * its content at (6,62) (spec/flair_i123_traces.mk GEOMETRY, tdnl.51). */
+#define M_ORG_H 6
+#define M_ORG_V 62
+int32_t tbx_content_origin(int32_t w) { (void)w; return (M_ORG_V << 16) | M_ORG_H; }
 int32_t tbx_draw_text(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
 { (void)w; (void)x; (void)y; (void)s; (void)f; (void)b; return TBX_OK; }
 int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b, uint32_t c)
@@ -89,7 +99,10 @@ int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t 
     int col = (x - 1) / 8, line = y / 16;
     (void)w; (void)f; (void)b;
     if (line < 0 || line >= SCR_H || col < 0) return TBX_ERR_BADARG;
-    for (int i = 0; s[i] && col + i < SCR_W; i++) m_scr[line][col + i] = s[i];
+    for (int i = 0; s[i] && col + i < SCR_W; i++) {
+        m_scr[line][col + i] = s[i];
+        m_bg[line][col + i] = b == TBX_COLOR_NAVY ? 'N' : ' ';
+    }
     return TBX_OK;
 }
 
@@ -204,7 +217,10 @@ static void launch(const char *name, void (*script)(void))
     p = fork();
     if (p < 0) { perror("fork"); exit(2); }
     if (p == 0) {
-        for (int i = 0; i < SCR_H; i++) { memset(m_scr[i], ' ', SCR_W); m_scr[i][SCR_W] = 0; }
+        for (int i = 0; i < SCR_H; i++) {
+            memset(m_scr[i], ' ', SCR_W); m_scr[i][SCR_W] = 0;
+            memset(m_bg[i], ' ', SCR_W); m_bg[i][SCR_W] = 0;
+        }
         if (tbx_app_main() != 0) { CHECK(0, "Q0", "tbx_app_main failed"); _exit(0); }
         ev(updateEvt, 0);
         script();
