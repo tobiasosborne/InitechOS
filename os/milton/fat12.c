@@ -773,6 +773,23 @@ static int chain_is_bad(const fat12_volume_t *vol, uint16_t v)
 	}
 	return fat12_is_bad(v);
 }
+/* Size round 7 (initech-5qsm): the walkers' common guard -- `cur` is not a
+ * usable chain member (outside the data range, free, or bad) -- as one body
+ * instead of twelve open-coded copies. Same three pure predicates, same
+ * short-circuit order. */
+static __attribute__((noinline)) int chain_link_unusable(const fat12_volume_t *vol,
+                                                         uint16_t cur)
+{
+#ifdef FAT12_MUT_CHAIN_GUARD
+	/* MUTANT (Rule 6; test-fat-corrupt-fuzz-chain-mutant): the data-range
+	 * bound dropped from the walkers' guard (bcg.3 regressed: a link above
+	 * the last data cluster maps to a wrong LBA). NEVER in a real build. */
+	return chain_is_free(vol, cur) || chain_is_bad(vol, cur);
+#else
+	return !fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+	       chain_is_bad(vol, cur);
+#endif
+}
 
 /*
  * fat12_walk_chain -- follow start_cluster..EOC, with the anti-hang guard.
@@ -1168,8 +1185,7 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 
 		/* An in-chain link below cluster 2, above the last data cluster, or a
 		 * free/bad cluster is corruption -- never map it to an LBA (bcg.3). */
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 
@@ -1256,8 +1272,7 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 	for (;;) {
 		uint16_t next;
 
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -1390,8 +1405,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		for (k = 0u; k < skip; k++) {
 			uint16_t next;
 
-			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-			    chain_is_bad(vol, cur)) {
+			if (chain_link_unusable(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -1432,8 +1446,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 		uint32_t       remaining;
 		uint32_t       take;
 
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN; /* chain ended/corrupt before the range */
 		}
 
@@ -1741,8 +1754,7 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 	/* Walk to the EOC tail of the existing chain. */
 	for (;;) {
 		uint16_t next;
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -1844,8 +1856,7 @@ static void fat12_shrink_dir_tail(const fat12_volume_t *vol, void *fat,
 	/* Walk to the cluster whose link is `appended`; restore it to EOC. */
 	for (;;) {
 		uint16_t next;
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return;   /* corrupt chain -- give up the rollback (best-effort) */
 		}
 		if (fat12_next_cluster(vol, fat, fat_len, cur, &next) != FAT12_OK) {
@@ -1907,8 +1918,7 @@ static int fat12_subdir_slot_lba(const fat12_volume_t *vol, const void *fat,
 	for (k = 0u; k < want_cluster; k++) {
 		uint16_t next;
 		int      rc;
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -2171,8 +2181,7 @@ static int fat12_scan_dir(const fat12_volume_t *vol, const void *fat,
 			uint16_t next;
 			int      rc;
 
-			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-			    chain_is_bad(vol, cur)) {
+			if (chain_link_unusable(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			lba = cluster_lba(vol, cur);
@@ -3204,8 +3213,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		steps = 0u;
 		for (k = 1u; k < have_clusters; k++) {
 			uint16_t next;
-			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-			    chain_is_bad(vol, cur)) {
+			if (chain_link_unusable(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -3330,8 +3338,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		uint16_t k;
 		for (k = 0u; k < end_cluster; k++) {
 			uint16_t next;
-			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-			    chain_is_bad(vol, cur)) {
+			if (chain_link_unusable(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
@@ -3357,8 +3364,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			uint32_t take;
 			uint32_t lba;
 
-			if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-			    chain_is_bad(vol, cur)) {
+			if (chain_link_unusable(vol, cur)) {
 				return FAT12_ERR_CHAIN;
 			}
 
@@ -4616,8 +4622,7 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 		/* Gate EVERY cluster through the range check BEFORE the LBA math: a
 		 * free/bad/out-of-range link is corruption (Rule 2 / bcg.3). This also
 		 * guards BPB_CLUSTER_LBA against an underflowing cluster < 2. */
-		if (!fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
-		    chain_is_bad(vol, cur)) {
+		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN;
 		}
 

@@ -37,3 +37,20 @@ test-kernel-abi-struct-return-mutant: test-kernel-abi-struct-return
 	@grep -x '!!! kernel-abi-struct-return FAIL: not -freg-struct-return: os/flair/atkinson/region.c' $(KERNEL_R7_DIR)/mutant.log
 	@printf '>>> test-kernel-abi-struct-return-mutant: green (region_pcc RED)\n'
 TEST_UNIT_GATES += test-kernel-abi-struct-return test-kernel-abi-struct-return-mutant
+
+# The FAT walkers' common guard as one body (os/milton/fat12.c
+# chain_link_unusable, twelve sites). Its load-bearing clause is the data-range
+# bound (free 0x000 and bad 0xFF7/0xFFF7 are themselves outside the range, so
+# dropping those two clauses is an equivalent mutant no oracle can see). The
+# corrupt-input fuzzer must go RED when the range bound is dropped.
+$(KERNEL_R7_DIR)/fat12_corrupt_fuzz_mut_chain: $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC) | $(KERNEL_R7_DIR)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFAT12_MUT_CHAIN_GUARD -Ispec -I$(MILTON_DIR) -Iseed -I$(FAT_DIFF_DIR) \
+		-o $@ $(FAT_DIFF_DIR)/fat12_corrupt_fuzz.c $(FAT12_SRC) $(BLOCKDEV_FILE_SRC)
+.PHONY: test-fat-corrupt-fuzz-chain-mutant
+test-fat-corrupt-fuzz-chain-mutant: test-fat-corrupt-fuzz $(KERNEL_R7_DIR)/fat12_corrupt_fuzz_mut_chain $(FAT12_FUZZ_BLANK_IMG)
+	@if timeout 120 $(KERNEL_R7_DIR)/fat12_corrupt_fuzz_mut_chain --sweep $(FAT12_CORRUPT_SEEDS_LO) $(FAT12_CORRUPT_SEEDS_HI) --ops $(FAT12_CORRUPT_OPS) "$(FAT12_FUZZ_BLANK_IMG)" >$(KERNEL_R7_DIR)/chain_mutant.log 2>&1; then \
+		rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch; printf '!!! test-fat-corrupt-fuzz-chain-mutant FAIL: FAT12_MUT_CHAIN_GUARD survived\n'; exit 1; fi
+	@rm -f "$(FAT12_FUZZ_BLANK_IMG)".cseed*.scratch
+	@grep -m1 'VIOLATION.*out-of-range' $(KERNEL_R7_DIR)/chain_mutant.log
+	@printf '>>> test-fat-corrupt-fuzz-chain-mutant: green (FAT12_MUT_CHAIN_GUARD RED)\n'
+TEST_UNIT_GATES += test-fat-corrupt-fuzz-chain-mutant
