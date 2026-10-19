@@ -71,8 +71,10 @@ RAM ceiling, so a fixed arena-ceiling check is intentionally **not** part of thi
 decision; it would reject valid host-test buffers and is a target-only concern
 deferred unless an emulator oracle is built for it).
 
-**Companion fail-loud deviation — CHMOD AH=43h SET attribute-type bits
-(DEC-14.2):** Recorded here as a sibling to DEC-14 because it is the same class
+<!-- Formatting promotion of the existing DEC-14.2 prose block; content unchanged (initech-0ni0). -->
+### DEC-14.2 — Companion fail-loud deviation — CHMOD AH=43h SET attribute-type bits
+
+Recorded here as a sibling to DEC-14 because it is the same class
 of deliberate, documented divergence from DOS authenticity in favour of a
 fail-loud base (Rule 2). Real DOS 3.3 (RBIL INT 21h/AX=4301h; DOS 3.3 PRM
 Function 43h) **masks/ignores** a `CX` whose Directory (0x10) or Volume-Label
