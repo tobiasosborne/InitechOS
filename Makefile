@@ -13356,6 +13356,9 @@ test-makefile-vars: | $(BUILD)
 
 # Ref: PRD Sec 8/14; CLAUDE.md Rule 2/6; initech-tflp. Expansion only:
 # unlike make -n, the probe cannot execute recursive make recipe commands.
+# Ref: initech-o0cb; PRD Sec 8. Both inventory sub-makes force SKIP_BOCHS=0
+# so Make's parse-time ifeq blocks expose the real Bochs recipes, including
+# their scratch copies. These calls only inventory/expand; no Bochs leg runs.
 FIXTURE_VOLUMES_CHECK := $(BUILD)/check_fixture_volumes
 FIXTURE_VOLUMES_SCAN ?= $(BUILD)/fixture-volumes
 $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
@@ -13363,15 +13366,21 @@ $(FIXTURE_VOLUMES_CHECK): harness/check_fixture_volumes.c | $(BUILD)
 .PHONY: test-fixture-volumes test-fixture-volumes-mutant
 test-fixture-volumes: $(FIXTURE_VOLUMES_CHECK)
 	@$(MAKE) --no-print-directory -s fixture-volume-recipe-lint
-	@$(MAKE) --no-print-directory -pn help > $(FIXTURE_VOLUMES_SCAN).db
+	@$(MAKE) --no-print-directory -pn help SKIP_BOCHS=0 > $(FIXTURE_VOLUMES_SCAN).db
 	@$(FIXTURE_VOLUMES_CHECK) --probe $(FIXTURE_VOLUMES_SCAN).db $(FIXTURE_VOLUMES_SCAN).mk $(FIXTURE_VOLUMES_SCAN).expanded
-	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe
+	@$(MAKE) --no-print-directory -s -f $(firstword $(MAKEFILE_LIST)) -f $(FIXTURE_VOLUMES_SCAN).mk fixture-volume-probe SKIP_BOCHS=0
 	@$(FIXTURE_VOLUMES_CHECK) --check $(FIXTURE_VOLUMES_SCAN).expanded $(FIXTURE_VOLUMES_SCAN).tsv
 test-fixture-volumes-mutant: test-fixture-volumes
 	@if $(MAKE) --no-print-directory test-fixture-volumes FLAIR_I123_QUIT_DATA=$(BUILD)/flair_i123_quit_data.img FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
 	 printf '!!! test-fixture-volumes-mutant FAIL: QUIT_DATA_COLLISION survived\n'; exit 1; fi
 	@grep -F 'scratch $(BUILD)/flair_i123_quit_data.img (gate test-flair-i123) collides with fixture $(BUILD)/flair_i123_quit_data.img' $(BUILD)/fixture-volumes-mutant.log \
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: wrong RED reason\n'; exit 1; }
+	@# Ref: PRD Sec 8; CLAUDE.md Rule 6; initech-o0cb. A Bochs-only
+	@# scratch copy must collide even when execution of Bochs legs is skipped.
+	@if $(MAKE) --no-print-directory test-fixture-volumes SKIP_BOCHS=1 FLAIR_ALERTCHROME_BOCHS_DATA=$(FLAIR_I123_QUIT_DATA) FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
+	 printf '!!! test-fixture-volumes-mutant FAIL: BOCHS_DATA_COLLISION survived with SKIP_BOCHS=1\n'; exit 1; fi
+	@grep -F 'scratch $(FLAIR_I123_QUIT_DATA) (gate test-flair-alert-chrome-bochs) collides with fixture $(FLAIR_I123_QUIT_DATA)' $(BUILD)/fixture-volumes-mutant.log \
+	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: BOCHS_DATA_COLLISION wrong RED reason\n'; exit 1; }
 	@# initech-a5sr mutants. HANDLIST_DRIFT: the pre-8080833 hand list (no
 	@# no-block-on InitechWord volume) -- the exact 2026-10-16 regression.
 	@if $(MAKE) --no-print-directory test-fixture-volumes FIXTURE_MUT_HANDLIST=1 FIXTURE_VOLUMES_SCAN=$(BUILD)/fixture-volumes-mutant > $(BUILD)/fixture-volumes-mutant.log 2>&1; then \
@@ -13406,7 +13415,7 @@ test-fixture-volumes-mutant: test-fixture-volumes
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: clean rebuild of %s failed\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
 	@grep -F '>>> fixture_rmproof: minted $(FIXTURE_RMPROOF_IMG)' $(BUILD)/fixture-volumes-mutant.log \
 	 || { cat $(BUILD)/fixture-volumes-mutant.log; printf '!!! test-fixture-volumes-mutant FAIL: next make did not rebuild %s\n' '$(FIXTURE_RMPROOF_IMG)'; exit 1; }
-	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION, HANDLIST_DRIFT, UNDECLARED_VARIANT, UNSEEDED_MASK, BROKEN_CONTRACT correctly RED; failed image deleted and rebuilt; real Makefile restored)\n'
+	@printf '>>> test-fixture-volumes-mutant: green (QUIT_DATA_COLLISION, BOCHS_DATA_COLLISION, HANDLIST_DRIFT, UNDECLARED_VARIANT, UNSEEDED_MASK, BROKEN_CONTRACT correctly RED; failed image deleted and rebuilt; real Makefile restored)\n'
 
 # Ref: CLAUDE.md Law 2 / Rule 6; initech-iv8c. These run only host gates.
 .PHONY: test-gate-honesty test-gate-honesty-mutant
