@@ -26,8 +26,14 @@
 # !!! pilot rows were dated. Real DOS 3.3 lists AH=34h as reserved/undocumented; the
 # !!! entry belongs to the InitechDOS Technical Reference with AH=32h -- the row leaves
 # !!! with that book.
+# !!! GROWTH, PM-directed 2026-10-20: COMMAND (the secondary command processor, COMMAND /C,
+# !!! DOS 3.3 Reference pp. 46-47) has been a shell internal since the batch work but was
+# !!! classified ahead of the dispatch table the inventory scans; now counted as shipped. Its
+# !!! Reference entry is owed by initech-bc2j (the COPY/COMMAND catch-up); the Appendix A
+# !!! details already name it.
 123|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 CALC|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
+COMMAND|2026-10-20|Reference entry owed (initech-bc2j); COMMAND /C documented in Appendix A details only
 CTENANT|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:00|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written
 INT21:01|2026-10-16|Pilot covers daily file tasks; Reference entry not yet written

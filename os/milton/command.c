@@ -58,6 +58,9 @@ cmd_kind_t cmd_classify(const char *upper_command)
         return CMD_COMMAND;
     /* A tiny hand-rolled strcmp keeps this freestanding (no libc). */
     struct { const char *name; cmd_kind_t kind; } table[] = {
+        { "COMMAND", CMD_COMMAND }, /* Reference pp.46-47; the early check above
+                                      * also admits COMMAND.COM -- the row keeps
+                                      * the shipped-command inventory honest. */
         { "DIR",   CMD_DIR  },
 #ifndef CMD_MUTATE_PATH_COMMAND
         { "PATH",  CMD_PATH }, /* MS-DOS 3.3 Reference p.97 / PDF182. */
