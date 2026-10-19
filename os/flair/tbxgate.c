@@ -607,6 +607,19 @@ static int32_t v_contentorigin(const uint32_t *a)
     return (int32_t)(((uint32_t)(uint16_t)c.top << 16) | (uint32_t)(uint16_t)c.left);
 }
 
+/* CONTENT_SIZE (bead initech-89rc; spec/toolbox_gate.h Sec 3 note): the
+ * content's width and height -- the tenant's portRect after the shell grew
+ * the window (MTE Listing 4-14 MyResizeWindow). (h << 16) | w; 0 collapsed. */
+static int32_t v_content_size(const uint32_t *a)
+{
+    rgn_rect_t c;
+    if (!check_win(a[0])) return TBX_ERR_BADARG;
+    if (region_is_empty(g_slot.win->contRgn)) return 0;
+    c = region_get_bbox(g_slot.win->contRgn);
+    return (int32_t)(((uint32_t)(uint16_t)(c.bottom - c.top) << 16) |
+                     (uint32_t)(uint16_t)(c.right - c.left));
+}
+
 static int32_t v_setwtitle(const uint32_t *a)
 {
     if (!check_win(a[0])) return TBX_ERR_BADARG;
@@ -1103,6 +1116,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         { (uint8_t)TBX_NEWWINDOW, (uint8_t)(TBX_ARGC_NEWWINDOW) },
         { (uint8_t)TBX_SETWTITLE, (uint8_t)(TBX_ARGC_SETWTITLE) },
         { (uint8_t)TBX_CONTENTORIGIN, (uint8_t)(TBX_ARGC_CONTENTORIGIN) },
+        { (uint8_t)TBX_CONTENT_SIZE, (uint8_t)(TBX_ARGC_CONTENT_SIZE) },
         { (uint8_t)TBX_TEXTDRAW, (uint8_t)(TBX_ARGC_TEXTDRAW) },
         { (uint8_t)TBX_FILLRECT, (uint8_t)(TBX_ARGC_FILLRECT) },
         { (uint8_t)TBX_EXIT, (uint8_t)(TBX_ARGC_EXIT) },
@@ -1157,6 +1171,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         case TBX_NEWWINDOW: rc = v_newwindow(a);   break;
         case TBX_SETWTITLE: rc = v_setwtitle(a);   break;
         case TBX_CONTENTORIGIN: rc = v_contentorigin(a); break;
+        case TBX_CONTENT_SIZE: rc = v_content_size(a); break;
         case TBX_TEXTDRAW:  rc = v_textdraw(a);    break;
         case TBX_FILLRECT:  rc = v_fillrect(a);    break;
         case TBX_EXIT:      rc = v_exit(a[0]);     break;
@@ -1217,6 +1232,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
             { TBX_NEWWINDOW, "\1 l=\0\2 t=\0\3 r=\0\4 b=\0\5 goaway=\0" },
             { TBX_SETWTITLE, "\1 win=\0\22 s=\0" },
             { TBX_CONTENTORIGIN, "\1 win=\0" },
+            { TBX_CONTENT_SIZE, "\1 win=\0" },
             { TBX_TEXTDRAW, "\1 win=\0\2 x=\0\3 y=\0\24 s=\0\5 fg=\0\6 bg=\0" },
             { TBX_DRAWCELLS, "\1 win=\0\2 x=\0\3 y=\0\24 s=\0\5 fg=\0\6 bg=\0" },
             { TBX_FILLRECT, "\1 win=\0\2 l=\0\3 t=\0\4 r=\0\5 b=\0\6 c=\0" },

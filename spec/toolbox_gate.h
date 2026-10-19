@@ -55,6 +55,11 @@
  *       GlobalToLocal a tenant needs: a mouseDown's where is GLOBAL, Sec 6,
  *       and a dragged window moves its content). Bits 0..7 keep goAway's
  *       0/1/2 exactly; no old value moved.
+ * bead: initech-89rc (Initech 123 B12, audit L018: the worksheet must use
+ *       the ACTUAL resized content). Deliberate Rule-8 addition:
+ *       TBX_CONTENT_SIZE 0x0024 + its arity (Sec 3, beside CONTENTORIGIN):
+ *       the size of the window's content, the tenant's read of its
+ *       portRect after a grow (Sec 3 note below). No old value moved.
  *
  * Ref: docs/design/GUI-remediation-ADR-reconciliation.md Part B
  *        DEC-AC3-1 (disk tenants; parameterized InitechMZ bases; the
@@ -148,6 +153,31 @@
                                     * window's content, GLOBAL (the tenant's
                                     * GlobalToLocal; bead initech-tdnl.17)    */
 #define TBX_ARGC_CONTENTORIGIN 1u
+#define TBX_CONTENT_SIZE  0x0024u  /* (win) -> (height << 16) | width of the
+                                    * window's content in pixels (bead
+                                    * initech-89rc; note below)              */
+#define TBX_ARGC_CONTENT_SIZE 1u
+/* CONTENT_SIZE (bead initech-89rc). WHY: a tenant's window is grown by the
+ * SHELL (inGrow is a shell-owned chrome verb, ADR-0013 Sec 3.3), so the
+ * application never sees GrowWindow's result; it hears the updateEvt that
+ * SizeWindow's damage routes to it and must then lay its content out for the
+ * NEW size. The Macintosh application does exactly that from its port:
+ * "In a graphics port that represents a window, the portRect rectangle
+ * represents the window's content region" (Macintosh Toolbox Essentials ch.
+ * 4, local ../system7-decomp/refs/MacintoshToolboxEssentials.pdf), and its
+ * MyResizeWindow "adjusts the window scroll bars and window contents to the
+ * new size" (Listing 4-13/4-14, p. 4-58/4-59) before the update draws. A
+ * disk tenant has no port record to read, so the gate answers the question:
+ * the width and height of the window's content -- the same contRgn bounding
+ * box CONTENTORIGIN, TEXTDRAW, FILLRECT and DRAWCELLS are relative to (Sec
+ * 7), which in FLAIR already stops at the scroll bars' outer lines
+ * (os/flair/window.c CalcDocContentRect; on the Mac the application
+ * subtracts the bars from portRect itself). Packed as the IM Point LONGINT
+ * GLOBALTOLOCAL uses (Sec 15): height (v) in the high word, width (h) in the
+ * low; both 0..32767. A window whose content is empty (collapsed) answers 0.
+ * A bad window token is BADARG. Read it on every updateEvt: the shell may
+ * have resized the window since the last one. Value 0x0024 authored (no
+ * local number): the next code after CONTENTORIGIN in the window group. */
 /* NEWWINDOW goAway dword: bits 0..7 goAway (0/1/2, Sec 11), bits 8..15 the
  * WDEF: 0 = zoomDocProc (the document window), TBX_WDEF_RDOC = rDocProc 16
  * (the rounded desk-accessory window, os/flair/rdoc.h). Any other bit is
