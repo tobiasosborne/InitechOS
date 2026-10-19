@@ -87,6 +87,13 @@ typedef struct {
      * original boot-leg behavior). */
     const char *screendump_after;
 
+    /* Serial-gated RFB key replay for ADR-0009 DEC-08 (initech-hdlb).
+     * Comma-separated lowercase letters/digits, ret, spc, dot; both press
+     * and release are sent. Capture waits for the last release. Ref:
+     * docs/research/samir-bochs-rfb.md (RFC 6143 Sec 7.5.4). */
+    const char *keys_script;
+    const char *keys_after;
+
     /* Pinned guest RTC (Rule 11; parallel to qemu.h rtc_base): >0 writes
      * bochsrc `clock: time0=N` and runs Bochs with TZ=UTC, because Bochs
      * 2.7 cmos.cc localtime()s a numeric time0. 0 => Bochs default (host

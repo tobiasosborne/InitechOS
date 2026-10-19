@@ -24,6 +24,8 @@ struct leg { const char *name, *image, *data, *end, *video, *checks; };
 #define DOS(n) { n, TRACER, DATA, "SHELL-READY", "vbe101", SHELL_CHECKS }
 #define DML(n) DOS("samir-dml-" n "-emu")
 static const struct leg legs[] = {
+    /* ADR-0009 DEC-08 / initech-hdlb: SAMIR input and pixels, beyond boot. */
+    { "samir-boot", TRACER, "build/samir_list.img", "SHELL-READY", "vbe101", SHELL_CHECKS },
     { "command-file-emu", "build/command-file/fragment.img", DATA, "FLAIR-LIVE-READY", "vbe101", FLAIR_CHECKS },
     FLAIR("command-file-negative"),
     /* The DAC row: the FORCE_VBE_101 gate IO.SYS pads the scanline to 648. */
@@ -118,6 +120,9 @@ int main(int argc, char **argv)
     v[0] = ' '; memcpy(v + 1, vector, vn); v[vn + 1] = ' '; v[vn + 2] = 0;
     for (size_t i = 0; i < count; i++) {
         const struct leg *l = &legs[i];
+        int samir = strcmp(l->name, "samir-boot") == 0;
+        const char *image = samir ? "$(SECONDARY_TRACER_IMG)" : l->image;
+        const char *data = samir ? "$(SAMIR_BOCHS_SOURCE)" : l->data;
         char target[160], needle[512], *row, *stop, *body;
         snprintf(target, sizeof target, "test-%s-bochs", l->name);
         snprintf(needle, sizeof needle, "\n%s: ", target);
@@ -133,10 +138,10 @@ int main(int argc, char **argv)
         snprintf(needle, sizeof needle, " %s ", target);
         char *hit = strstr(v, needle);
         require(hit && !strstr(hit + 1, needle), "VECTOR", target);
-        snprintf(needle, sizeof needle, "--disk \"%s\"", l->image);
+        snprintf(needle, sizeof needle, "--disk \"%s\"", image);
         require(strstr(body, needle) != NULL, "IMAGE", target);
         if (l->data) {
-            snprintf(needle, sizeof needle, "cp -f %s ", l->data);
+            snprintf(needle, sizeof needle, "cp -f %s ", data);
             require(strstr(body, needle) != NULL, "IMAGE", target);
         } else {
             require(strstr(body, "--disk2") == NULL, "IMAGE", target);
@@ -146,6 +151,18 @@ int main(int argc, char **argv)
         *nl = 0;
         require(strstr(body, l->image) && (!l->data || strstr(body, l->data)), "IMAGE", target);
         *nl = '\n';
+        if (samir) {
+            /* Preserve the independent concrete image/data expectation even
+             * though this handwritten recipe uses Make variables (WL-0170). */
+            require(strstr(db, "\nSECONDARY_TRACER_IMG := build/tracer_secondary.img\n") &&
+                    strstr(db, "\nSAMIR_LIST_IMG := build/samir_list.img\n") &&
+                    strstr(db, "\nSAMIR_BOCHS_SOURCE = $(SAMIR_LIST_IMG)\n"), "IMAGE", target);
+            require(strstr(body, "--keys \"$(SAMIRBOOT_SCRN_KEYS)\" --keys-after SHELL-READY") &&
+                    strstr(body, "--screendump-after SHELL-READY") &&
+                    strstr(body, "$(BUILD)/ppm_bochs_check \"$(SAMIRBOOT_PPM)\"") &&
+                    strstr(body, "sh harness/emu/samir_boot_check.sh $@ "),
+                    "SAMIR", target);
+        }
         /* DAC (before BOUNDARY, which would also notice): the VESA8 flagship leg must grade the padded 648 scanline. */
         if (strcmp(l->name, "flair-desktop-8bpp") == 0)
             require(strcmp(l->video, "vbe101pad") == 0 && strstr(body, " vbe101pad FLAIR-HEAP-OK"),
