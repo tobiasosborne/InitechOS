@@ -54,8 +54,9 @@ procedures are released when the procedures return.
 When a command of the program cannot be carried out, the program stops at
 that command.  InitechBase displays the message of the error (Chapter~7) and
 the dot prompt.  The message follows the last output of the program on the
-same line when that output did not end its line.  An \cmd{ON ERROR} command
-given before the program runs is carried out first.
+same line when that output did not end its line.  When an \cmd{ON ERROR}
+command is in effect, InitechBase carries it out instead: no message is
+displayed, and the program goes on with its next command.
 
 \section{Procedures}
 A \term{procedure} is a part of a program file that the program calls by name

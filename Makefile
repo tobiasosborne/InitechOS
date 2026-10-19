@@ -33067,8 +33067,8 @@ include harness/emu/panic_screen.mk
 # are run by name (make test-samir-fns-pending), NOT in the default vector --
 # a known-red gate in `make test` is noise, not an oracle. A case moves from
 # PENDING to CASES with the commit that makes it green (Rule 6: mutant too).
-SAMIR_FNS_CASES := alias alternate console index listoff recsize type
-SAMIR_FNS_PENDING := century default diskspace os overflow path procedure relation talk time unknown version with
+SAMIR_FNS_CASES := alias alternate console errors index listoff recsize struct type unknown
+SAMIR_FNS_PENDING := century default diskspace os overflow path procedure relation talk time version with
 .PHONY: test-samir-fns-pending
 test-samir-fns-pending: $(addprefix test-samir-fns-,$(SAMIR_FNS_PENDING))
 SAMIR_FNS_TEST := $(BUILD)/test_samir_fns
@@ -33125,7 +33125,7 @@ $(foreach rule,$(SAMIR_FNS_CASES),$(eval $(call samir-fns-gates,$(rule))))
 .PHONY: samir-fns-goldens
 samir-fns-goldens: $(SAMIR_FNS_PROMOTED)
 	@sha256sum -c harness/diff/dbf_diff/xbase_prog_diff/fns-accepted.sha256
-	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type real III+ captures pinned)'
+	@echo '>>> samir-fns-goldens: green (SF-index/listoff/recsize/type/errors/struct/unknown real III+ captures pinned)'
 TEST_UNIT_GATES += samir-fns-goldens
 
 include harness/diff/dbf_diff/samir_size.mk

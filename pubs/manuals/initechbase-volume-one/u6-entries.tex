@@ -214,11 +214,11 @@ Returns the number of the error being handled by an ON ERROR command, as a numer
 \Syntax
 \SyntaxLine{\kw{ERROR()}}
 \Usage
-\fn{ERROR()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. While the command named in ON ERROR runs, the function returns the number of the message that caused it. At any other time the result is 0.
+\fn{ERROR()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The function returns the number of the last error handled by the command named in ON ERROR, while that command runs and afterwards. Before any error has been handled the result is 0.
 \Examples
-The ON ERROR command stores the number of the error in a memory variable; outside the ON ERROR command the result is 0:
+The ON ERROR command stores the number of the error in a memory variable; no message is displayed, and the number remains after the command:
 \DotExample{examples/fn-error}
-\SeeAlso{ON ERROR, CHR()}
+\SeeAlso{MESSAGE(), ON ERROR, CHR()}
 \end{XbaseEntry}
 
 % FIELD -- os/samir/core/fn_builtins.c fn_field (l.1986-2012)
@@ -391,6 +391,20 @@ Both arguments must be of the same type, numeric or date; the result is of that 
 \Examples
 \DotExample{examples/fn-max}
 \SeeAlso{MIN(), ABS(), IIF()}
+\end{XbaseEntry}
+
+% MESSAGE -- os/samir/core/fn_builtins.c xb_call_builtin "MESSAGE"; Using III+
+% U6-54; real III+ 1.1 SF-errors and SF-unknown captures (test-samir-fns-errors,
+% test-samir-fns-unknown).
+\begin{XbaseEntry}{MESSAGE}{function}
+Returns the text of the error handled by an ON ERROR command, as a character string.
+\Syntax
+\SyntaxLine{\kw{MESSAGE()}}
+\Usage
+\fn{MESSAGE()} takes no argument; a call with any argument raises \xmsg{11}{Invalid function argument.}. The text is that of the message whose number \fn{ERROR()} returns, without the number. It remains after the ON ERROR command, like the number. Before any error has been handled the result is an empty string.
+\Examples
+\DotExample{examples/fn-message}
+\SeeAlso{ERROR(), ON ERROR}
 \end{XbaseEntry}
 
 % MIN -- os/samir/core/fn_builtins.c fn_maxmin (l.948-973)

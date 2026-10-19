@@ -1446,13 +1446,17 @@ static int run_dowhile(flow_prog *fp, int start, int enddo, int *next, int *ec)
  * the bare status number (which collided with catalogue ordinals 1..8:
  * WL-0133 Friction 1). Real ON ERROR captures (SF-errors): a malformed SET,
  * STORE or SELECT clause is #10; Using III+ U7-14 [95]: IF/ELSE/ENDDO/LOOP
- * typed at the dot prompt; U7-12 [96]: a stray terminator in a program;
+ * typed at the dot prompt; U7-12 [96]: a stray terminator in a program
+ * (real III+ 1.1 SF-struct: a lone ENDDO is #96);
  * U7-4 [103]: DO nesting; U7 [43] memory; [16] unknown verb.
  */
 static int fl_catalog(xb_interp *ip, int rc, int ec)
 {
     static const uint8_t m[9] = {0, 43, 10, 10, 10, 96, 16, 10, 103};
     if (ec != 0) return ec;
+#ifdef SAMIR_FNS_MUTANT_struct
+    if (rc == -INTERP_ERR_STRUCT) return -rc;   /* MUTANT: the status leaks */
+#endif
 #ifndef SAMIR_FNS_MUTANT_errors
     if (rc == -INTERP_ERR_STRUCT && xb_interp_ctx(ip)->dot_command) return 95;
     if (rc < 0 && rc >= -INTERP_ERR_DEPTH) return m[-rc];
@@ -1460,6 +1464,24 @@ static int fl_catalog(xb_interp *ip, int rc, int ec)
     (void)ip; (void)m;
 #endif
     return -rc;
+}
+
+/*
+ * fl_trap (Using III+ U5-160): offer a failed statement (engine status rc,
+ * hook ordinal *ec) to
+ * the installed ON ERROR trap. 1 = handled (*ec cleared; the caller resumes
+ * at the next line), 0 = untrapped (the caller fails loud). A RETURN
+ * sentinel (positive rc) is never an error.
+ */
+static int fl_trap(flow_prog *fp, int rc, int *ec)
+{
+    xb_ctx *c = xb_interp_ctx(fp->ip);
+    if (rc < 0 && rc >= -INTERP_ERR_DEPTH && c->on_error &&
+        c->on_error(fp->ip, fl_catalog(fp->ip, rc, ec ? *ec : 0))) {
+        if (ec) *ec = 0;
+        return 1;
+    }
+    return 0;
 }
 
 /*
@@ -1513,9 +1535,14 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
             return INTERP_OK;
 
         /* terminators / mid-block keywords that appear here are unmatched. */
+        case LK_ENDDO:
+            /* Real III+ 1.1 SF-struct: a lone ENDDO raises #96 and an ON
+             * ERROR trap resumes the program at the next line. */
+            if (fl_trap(fp, -INTERP_ERR_STRUCT, ec)) { i++; break; }
+            if (ec) *ec = 0;
+            return -INTERP_ERR_STRUCT;
         case LK_ELSE:
         case LK_ENDIF:
-        case LK_ENDDO:
         case LK_CASE:
         case LK_OTHERWISE:
         case LK_ENDCASE:
@@ -1532,14 +1559,8 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
             /* Using III+ U5-160: ON ERROR runs its command in place of the
              * failing one; the program resumes at the next line (real III+
              * 1.1, SF-errors). A RETURN sentinel is not an error. */
-            if (rc != INTERP_OK) {
-                xb_ctx *c = xb_interp_ctx(fp->ip);
-                if (rc < 0 && rc >= -INTERP_ERR_DEPTH && c->on_error &&
-                    c->on_error(fp->ip, fl_catalog(fp->ip, rc, ec ? *ec : 0))) {
-                    if (ec) *ec = 0;
-                } else
-                    return rc;
-            }
+            if (rc != INTERP_OK && !fl_trap(fp, rc, ec))
+                return rc;
             i++;
             break;
         }

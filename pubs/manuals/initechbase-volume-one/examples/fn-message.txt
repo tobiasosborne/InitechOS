@@ -1,0 +1,8 @@
+. ON ERROR STORE MESSAGE() TO MMSG
+. ? CHR(300)
+. ? MMSG
+
+CHR() : Out of range.. ON ERROR
+. ? MESSAGE()
+
+CHR() : Out of range.

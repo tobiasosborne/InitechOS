@@ -39,6 +39,7 @@
  *   - spec/samir/dbase_msg_codes.tsv  (#37 "Not a Logical expression.").
  */
 
+#define FLOW_MSG_MISMATCH 96
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -436,13 +437,19 @@ static void test_malformed(samir_pal_t *pal)
     char msg[160];
     int rc;
 
+    /* A malformed structure fails loud with the engine status
+     * -INTERP_ERR_STRUCT, and samir_last_error() reports the catalogue
+     * ordinal, never the engine status (WL-0133 Friction 1: status 5 printed
+     * "Record is out of range."). Real III+ 1.1 SF-struct capture
+     * (fns-mint/struct): a lone ENDDO in a program raises
+     * "96 Mismatched DO WHILE and ENDDO." */
     /* unmatched ENDIF (no IF). */
     rc = run_prog(pal, "ENDIF\n", &ip);
     CHECK(ip != NULL, "malformed: lone ENDIF interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: lone ENDIF -> STRUCT (rc=%d ec=%d)",
                  rc, samir_last_error(ip));
-        CHECK(rc != INTERP_OK && samir_last_error(ip) == INTERP_ERR_STRUCT, msg);
+        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -452,7 +459,7 @@ static void test_malformed(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: IF no ENDIF -> STRUCT (rc=%d ec=%d)",
                  rc, samir_last_error(ip));
-        CHECK(rc != INTERP_OK && samir_last_error(ip) == INTERP_ERR_STRUCT, msg);
+        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -462,7 +469,7 @@ static void test_malformed(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: lone ENDDO -> STRUCT (rc=%d ec=%d)",
                  rc, samir_last_error(ip));
-        CHECK(rc != INTERP_OK && samir_last_error(ip) == INTERP_ERR_STRUCT, msg);
+        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -472,7 +479,7 @@ static void test_malformed(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: DO CASE no ENDCASE -> STRUCT (rc=%d ec=%d)",
                  rc, samir_last_error(ip));
-        CHECK(rc != INTERP_OK && samir_last_error(ip) == INTERP_ERR_STRUCT, msg);
+        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -482,7 +489,7 @@ static void test_malformed(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: EXIT outside loop -> STRUCT (rc=%d ec=%d)",
                  rc, samir_last_error(ip));
-        CHECK(rc != INTERP_OK && samir_last_error(ip) == INTERP_ERR_STRUCT, msg);
+        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 

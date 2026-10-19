@@ -8,10 +8,11 @@
 \NoDictionaryHeads
 When InitechBase cannot carry out a command, it stops and displays a message
 on a line of its own.  The message begins with its number, the same number the
-function \fn{ERROR()} returns while an \cmd{ON ERROR} command runs; then comes
+function \fn{ERROR()} returns once an \cmd{ON ERROR} command has handled it; then comes
 the text of the message.  At the dot prompt InitechBase then displays the
 prompt again, and you can correct the command and type it again.  In a program,
-the program stops.
+the program stops.  When an \cmd{ON ERROR} command is in effect, InitechBase
+carries it out instead of displaying the message.
 
 The messages are listed below in alphabetical order of their text.  The number
 in brackets at the right is the message number.  The explanation under each

@@ -1,9 +1,10 @@
 % Programming with InitechBase, Chapter 12: Handling Errors (AN-16).
 % Panels replayed (examples/p12-*.dot); sources samir_main.c (the message
-% catalogue, "n  text"), cmd/proc.c (ON ERROR, proc_run), core/fn_builtins.c
-% ERROR().  The program BADTOTAL.PRG of the sample diskette.
+% catalogue, "n  text"), cmd/proc.c (ON ERROR), cmd/flow.c fl_trap (the trap
+% replaces the message and the program resumes: real III+ 1.1 SF-errors),
+% core/fn_builtins.c ERROR().  The program BADTOTAL.PRG of the sample diskette.
 \chapter{Handling Errors}
-\Gates{test-pubs-examples, test-interp-proc, test-samir-repl}
+\Gates{test-pubs-examples, test-interp-proc, test-samir-repl, test-samir-fns-errors}
 A command that cannot be carried out stops the program.  This chapter
 describes the messages InitechBase displays, how to find the command at fault,
 and how a program can record an error with \cmd{ON ERROR}.
@@ -39,8 +40,10 @@ you find the command at fault (Chapter~13).
 
 \ATEHead{ON ERROR}
 \cmd{ON ERROR} names a command to be carried out whenever an error occurs.  While
-the command runs, \fn{ERROR()} gives the number of the error.  A program uses it
-to record the error before the message is displayed:
+the command runs, and afterwards, \fn{ERROR()} gives the number of the error.
+InitechBase carries out the command in place of the error message, and the
+program goes on with the command that follows the one that failed.  A program
+uses it to record the error:
 \begin{Steps}
 \item Type \type{USE INVOICE}.
 \item Type \type{ON ERROR STORE ERROR() TO MERR}.
@@ -48,17 +51,18 @@ to record the error before the message is displayed:
 \item Type \type{? MERR, RECNO()}, then \type{ON ERROR} to remove the trap.
 \end{Steps}
 \DotExample{examples/p12-onerror}
-The program stopped on its first record, with error 12.
+The program did not stop: the command that adds \texttt{AMOUNTS} failed on every
+record, so the loop ran to the end of the file and the total is 0.00.  The
+last error was 12.
 
 \ATEHead{An Error Procedure}
 The command named by \cmd{ON ERROR} may be \cmd{DO} of a procedure of the program
 that is running.  \file{ERRDEMO.PRG} installs its procedure \texttt{ERRHAND},
-which reports the error and the record before InitechBase displays the
-message:
+which reports the error and the record each time the command fails:
 \ProgramListing{ERRDEMO.PRG}
 \DotExample{examples/p12-errdemo}
-The empty \cmd{?} at the end of \texttt{ERRHAND} ends its line, so that the
-message of InitechBase begins a line of its own.
+The program goes on after each error, so \texttt{ERRHAND} reports every record
+of the file.  The empty \cmd{?} at the end of \texttt{ERRHAND} ends its line.
 
 \ATEHead{Where Do You Go From Here?}
 Chapter~13 shows how to find and correct the mistake.

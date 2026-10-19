@@ -1,0 +1,8 @@
+? "[FNS-BEGIN]"
+ON ERROR ? "E", ERROR(), MESSAGE()
+? "A"
+ENDDO
+? "B"
+ON ERROR
+? "[FNS-END]"
+RETURN

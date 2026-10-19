@@ -1301,7 +1301,9 @@ xb_interp *xb_interp_make(samir_pal_t *pal)
     /* Initialise the eval ctx: SET EXACT OFF (III+ default), scratch, today. */
     /* Ref: Using dBase III Plus.pdf U5-213; corpus specs/commands/
      * set-commands.md: DECIMALS defaults to 2.
-     * A reused arena cannot inherit uninitialized display state. */
+     * A reused arena cannot inherit uninitialized display state, nor an
+     * uninitialized on_error/message hook (Rule 2: a garbage call target). */
+    rt_memset(&ip->ctx, 0, sizeof(ip->ctx));
     ip->ctx.set_heading = 1;
     ip->ctx.set_console = 1;
     ip->ctx.set_status = 0;
@@ -1395,8 +1397,10 @@ int xb_interp_eval_str(xb_interp *ip, const char *expr, uint32_t len,
  *   ? 1 ==  -> 10   ? 1 != 2 / ? 5 % 2 / ? 1 @ 2 -> 36   ? "abc -> 35
  *   ? (1    -> 8    ? 1 + / ? ) / ? () / X =      -> 10   ? 1 2   -> 36
  * Pool/buffer exhaustion is the evaluator's work area (#67). */
+#ifndef SAMIR_FNS_MUTANT_errors
 static const uint8_t g_lex_msg[7]   = {10, 10, 36, 36, 35, 36, 67};
 static const uint8_t g_parse_msg[6] = {10, 10, 8, 67, 10, 36};
+#endif
 int xb_interp_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
 {
     int e = 0, rc = xb_interp_eval_str(ip, expr, rt_strlen(expr), out, &e);
