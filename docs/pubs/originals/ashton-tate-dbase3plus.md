@@ -446,3 +446,13 @@ inside back cover [READ PDF 3, 18-22].
 - Part numbers of the manuals themselves; the Getting Started section; keyboard template
   (none in this set's scans).
 - The 5.25-in retail disk labels (only the 1987 3.5-in evaluation set is scanned).
+
+## 16. Slips the books carried (PUB-REF-0001 VO-30 evidence)
+
+Read as page images on 2026-10-17 for the house register of tolerated inconsistencies (bead
+`initech-ipu5.16`, worklog WL-0150, `spec/pubs_inconsistencies.json`).
+
+| Book | Page | What the page prints | Register entry |
+|---|---|---|---|
+| Programming with dBASE III PLUS | PDF 161 [P8-17] | "See *Using dBASE III PLUS* for more information." and, in the NOTE box on the same page, "See *Using dBASE III Plus* for more information." -- the product name, in a cross-reference, in two spellings; "Config.db" for CONFIG.DB | VO30-03 |
+| Learning dBASE III PLUS | PDF 19 [L1-7] | The Assistant figure's menu reads "Quit dBASE III Plus" under the caption "dBASE III PLUS Assistant" (a screen, so the product's own spelling; noted, not used) | -- |

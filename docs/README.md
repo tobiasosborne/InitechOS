@@ -7,6 +7,10 @@ Project documentation that is not a locked spec (those live in `spec/`).
   -> Pointers (CLAUDE.md "Session close").
 - `adr/` — architecture decision records, `NNNN-title.md`, capturing
   contested design choices.
+  [ADR-0013 Amendment AC-3](adr/ADR-0013-AMENDMENT-AC-3-Toolbox-Gate-and-Disk-Tenants.md)
+  ratifies disk tenants and the locked Toolbox gate;
+  [ADR-0003 Amendment DEC-08a](adr/ADR-0003-AMENDMENT-DEC-08a-MZ-EXE-Flat-Loader.md)
+  carries the matching 2026-10-20 placement/address amendment.
 
 Cross-session *task* tracking does NOT live here — that is beads (`bd`)
 only (CLAUDE.md Rule 9). Docs are prose; Unicode is fine in `.md` prose,

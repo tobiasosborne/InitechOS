@@ -1323,6 +1323,29 @@ static int d_file(xb_interp *ip,const char *verb,const char *args,int *ec)
     return rc?d_fail(ec,rc):INTERP_OK;
 }
 
+/* RUN / ! <system command> (initech-n8q8). HELP.DBS _RUN/! via dbase3-decomp
+ * specs/commands/programming-and-io.md Sec 16: the rest of the line goes
+ * LITERALLY to a second COMMAND.COM, which owns any `> file` redirection;
+ * control then returns to dBASE. Real III+ DML-16 (mint/golden/run/GOLD.OUT):
+ * RUN puts two CR LF pairs in the ALTERNATE transcript and RECNO()/RECCOUNT()
+ * survive it (the table is never closed). The golden cannot show which side of
+ * the child each pair falls on (the child's output went to its own file);
+ * one before and one after is AUTHORED. Error 92 "Unable to load COMMAND.COM."
+ * (spec/samir/dbase_msg_codes.tsv) when the PAL has no processor. */
+static int d_run(xb_interp *ip,const char *args,int *ec)
+{
+    samir_pal_t *pal=xb_interp_pal(ip);
+#ifdef SAMIR_DML_MUTANT_run
+    (void)pal;(void)args;(void)ec;
+    return INTERP_OK; /* RUN_NOEXEC: no CR LFs, no child, no VERSION.TXT */
+#else
+    xb_interp_output(ip,"\r\n",2);
+    if(!pal->exec || pal->exec(pal,args)<0)return d_fail(ec,92);
+    xb_interp_output(ip,"\r\n",2);
+    return INTERP_OK;
+#endif
+}
+
 /* APPEND FROM DBF: Using III+ U5-28 (name matching, differing field order,
  * deleted-row rules and per-field truncation); DML-08 is the independent file.
  * Each record is persisted before proceeding. Previously appended records are
@@ -1408,6 +1431,7 @@ static int mutate_cmd_hook(void *user, xb_interp *ip,
 
     if(m_ci_eq(verb,"TYPE") || m_ci_eq(verb,"RENAME") || m_ci_eq(verb,"ERASE") || m_ci_eq(verb,"COPY"))
         return d_file(ip,verb,args,err_code);
+    if(m_ci_eq(verb,"RUN") || m_ci_eq(verb,"!"))return d_run(ip,args,err_code);
     if(m_ci_eq(verb,"SORT"))return d_sort(ip,args,err_code);
     if(m_ci_eq(verb,"TOTAL"))return d_total(ip,args,err_code);
     if (m_ci_eq(verb,"INDEX") || m_ci_eq(verb,"REINDEX"))

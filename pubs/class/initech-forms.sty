@@ -112,7 +112,8 @@
 
 %% ---- title page and verso (edition notice) ---------------------------------
 \newcommand\MakeTitlePage{%
-  \thispagestyle{empty}\im@coverlayout{0}\null\newpage}
+  \im@slipglobal{title-page}% VO-30 place (initech-syntax \Slip)
+  \thispagestyle{empty}\im@coverlayout{0}\null\newpage\im@slipreset}
 %% AN-20 order: edition, applicability, (the environment body: warranty
 %% disclaimer, changes, ordering, Reader's Comment Form paragraph, licence
 %% summary), copyright, trademarks (\Trademarks{}), "Printed in" (only when

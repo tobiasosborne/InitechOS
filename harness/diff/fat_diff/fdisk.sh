@@ -22,29 +22,13 @@ for cyl in 4 8 65 66 513; do
  sfdisk --dump "$w/ours.img" | sed "s,$w/ours.img,DISK,g" > "$w/ours.dump"
  cmp "$w/ref.dump" "$w/ours.dump" || red 'sfdisk dump'
  echo "GREEN fdisk create $cyl cylinders: MBR table+55AA == mpartition, sfdisk dump equal"
- # PM second-launch ruling: the kernel's spc=1 contract stays locked.
- # Keep the 513-cylinder MBR/packed-CHS differential above, then create a
- # 66-cylinder primary for its mount leg instead of an unmountable FAT.
+ # Format the full independently partitioned extent with mtools' native
+ # allocation-unit choice (IBM DOS 3.30 TR pp2-31,4-17,5-8).
  volume_sectors=$((n-63))
- if [ "$cyl" -gt 66 ]; then
-  MTOOLSRC="$PWD/$w/mtools.conf" mpartition -r -f z:
-  "$tool" delete-Y "$w/ours.img" || red DELETE
-  volume_sectors=$((66*1008-63))
-  MTOOLSRC="$PWD/$w/mtools.conf" mpartition -c -a -b 63 -l "$volume_sectors" -s 63 -h 16 -f z:
-  "$tool" create "$w/ours.img" 66 || red CREATE
-  cmp "$w/ref.img" "$w/ours.img" || red 'bounded FAT16 partition vs mpartition'
- fi
- # Format both identical layouts with the independent DOS tools, then the
- # kernel mount must see the same files and bytes. No fake FAT golden.
- # mformat(1), -c/-r: it may silently raise -c if the cluster count is too
- # large. A 1024-sector root on the 66-cylinder FAT16 leaves <65525 data
- # clusters while retaining the full type06 partition and BPB extent.
- root=32; [ "$volume_sectors" -le 65535 ] || root=1024
  printf 'FDISK partition mount oracle\r\n' > "$w/input.txt"
  for image in ref ours; do
-  mformat -i "$w/$image.img@@32256" -T "$volume_sectors" -h 16 -s 63 -c 1 -r "$root" -H 63 -N 0x46444953 ::
+  mformat -i "$w/$image.img@@32256" -T "$volume_sectors" -h 16 -s 63 -r 32 -H 63 -N 0x46444953 ::
   spc=$(od -An -tu1 -j 32269 -N 1 "$w/$image.img" | tr -d '[:space:]')
-  [ "$spc" = 1 ] || red 'fixture sectors per cluster != 1'
   mcopy -i "$w/$image.img@@32256" "$w/input.txt" ::INPUT.TXT
  done
  "$build/fat_dump" "$w/ours.img" --cat INPUT.TXT > "$w/kernel.txt" || red 'kernel partition mount'
@@ -52,7 +36,7 @@ for cyl in 4 8 65 66 513; do
  cmp "$w/kernel.txt" "$w/reference.txt" || red 'kernel bytes vs mtools'
  dd if="$w/ours.img" of="$w/volume.img" bs=512 skip=63 count="$volume_sectors" status=none
  fsck.fat -n "$w/volume.img" > "$w/fsck.log" 2>&1 || red 'dosfstools volume validation'
- echo "GREEN fdisk FAT on $cyl-cylinder disk ($volume_sectors sectors, spc=1): kernel file bytes == mcopy; fsck.fat clean"
+ echo "GREEN fdisk FAT on $cyl-cylinder disk ($volume_sectors sectors, spc=$spc): kernel file bytes == mcopy; fsck.fat clean"
 done
 # Independent two-entry non-DOS + DOS layout exercises active entry selection.
 truncate -s 0 "$w/two.img"; truncate -s $((32*1008*512)) "$w/two.img"
@@ -67,4 +51,4 @@ cmp "$w/before.img" "$w/ours.img" || red 'delete without confirmation'
 "$tool" delete-Y "$w/ours.img" || red DELETE
 sfdisk --delete "$w/ref.img" 1 > "$w/delete.log" 2>&1
 cmp "$w/ref.img" "$w/ours.img" || red 'confirmed delete table vs sfdisk'
-echo 'GREEN test-fdisk: create/type/CHS/signature, active entry, default-No and confirmed deletion differential'
+echo '>>> test-fdisk: green (create/type/CHS/signature, native cluster sizes, active entry, default-No and confirmed deletion differential)'

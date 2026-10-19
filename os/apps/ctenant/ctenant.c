@@ -11,11 +11,22 @@
  *
  * Behaviour (the C twin of os/apps/tenantfx.asm, plus input):
  *   entry      REGISTER, SETMBAR (File > Quit, Ctrl-Q), one window, return.
- *   updateEvt  white field + one proportional text line.
- *   keyDown    draws "Key <c>" (proportional, TEXTDRAW) and the same in the
- *              fixed 8x16 cell font (DRAWCELLS) -- NOT inside an update.
- *   mouseDown  in the content: draws "Click" (cells) -- NOT inside an update.
+ *   updateEvt  render(): white field, the startup line, and every readout
+ *              the retained state holds (below).
+ *   keyDown    retains the key, then render(): "Key <c>" (proportional,
+ *              TEXTDRAW) and the same in the fixed 8x16 cell font
+ *              (DRAWCELLS) -- drawn at once, NOT inside an update.
+ *   mouseDown  in the content: retains the click, then render(): "Click"
+ *              (cells) -- drawn at once, NOT inside an update.
  *   File>Quit  EXIT(0).
+ * RETAINED STATE (bead initech-6qsk, audit L117): the readouts live in the
+ * app's own globals and ONE renderer paints all of them, so a window drag or
+ * an obscure/reveal -- each an updateEvt -- redraws what was there. Ref:
+ * Inside Macintosh: Macintosh Toolbox Essentials, Window Manager ("Updating
+ * the Content of a Window") and Event Manager (update events): the Window
+ * Manager only tells the application WHERE to redraw; the application must
+ * be able to redraw its content from its own data at any time. The tenant
+ * gets its updateEvt through the gate per ADR-0013 (the App Contract).
  * Ref: os/apps/tbx/tbx.h; spec/toolbox_gate.h Sec 3/6a/7/9.
  * ASCII-clean (Rule 12).
  */
@@ -43,14 +54,29 @@ static const tbx_menuinfo_t menus[] = {
 static const tbx_menubar_t mbar = { menus, 1, 1, 0 };
 
 static int32_t g_win TBX_IN_IMAGE = 0;
-static uint32_t g_keys TBX_IN_IMAGE = 0;
-static char g_keyline[16] TBX_IN_IMAGE = "Key ?";
+static uint32_t g_keys TBX_IN_IMAGE = 0;    /* keyDowns seen; 0 = no readout */
+static uint32_t g_clicks TBX_IN_IMAGE = 0;  /* content clicks; 0 = no readout */
+static char g_keyline[16] TBX_IN_IMAGE = "Key ?";  /* the LAST key, both lines */
 
-static void paint(void)
+/* The startup paint alone: the clear and the one proportional line. */
+static void paint_field(void)
 {
     (void)tbx_fill_rect(g_win, 0, 0, 400, 400, TBX_COLOR_WHITE);
     (void)tbx_draw_text(g_win, 8, 8, "A C application, from disk",
                         TBX_COLOR_BLACK, TBX_COLOR_WHITE);
+}
+
+/* THE ONE RENDERER (initech-6qsk): the field, then every readout the
+ * retained state holds -- the last key on both lines, the click. */
+static void render(void)
+{
+    paint_field();
+    if (g_keys != 0) {
+        (void)tbx_draw_text(g_win, 8, 40, g_keyline, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
+        (void)tbx_draw_cells(g_win, 8, 64, g_keyline, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+    }
+    if (g_clicks != 0)
+        (void)tbx_draw_cells(g_win, 8, 96, "Click", TBX_COLOR_WHITE, TBX_COLOR_NAVY);
 }
 
 int tbx_app_main(void)
@@ -67,19 +93,27 @@ void tbx_app_event(const tbx_event_t *ev)
 {
     switch (ev->what) {
     case updateEvt:
-        paint();
+#ifndef CTENANT_MUT_NO_RETAIN
+        render();
+#else
+        /* MUTANT CTENANT_MUT_NO_RETAIN (Rule 6; test-flair-ctenant-mutant
+         * ONLY, built into its own fixture volume): the pre-6qsk update
+         * paint -- the clear and the startup line, no readouts -- so a drag
+         * or a reveal erases them. NEVER in the shipped CTENANT.EXE. */
+        paint_field();
+#endif
         break;
     case keyDown: {
         char c = (char)(ev->message & 0xFF);
         if (c < ' ' || c > '~') c = '?';
         g_keys++;
         g_keyline[4] = c;
-        (void)tbx_draw_text(g_win, 8, 40, g_keyline, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
-        (void)tbx_draw_cells(g_win, 8, 64, g_keyline, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+        render();
         break;
     }
     case mouseDown:
-        (void)tbx_draw_cells(g_win, 8, 96, "Click", TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+        g_clicks++;
+        render();
         break;
     case TBX_EVT_MENU:
         /* Test-only declining tenant (initech-cqej): tbx_ask_quit uses the

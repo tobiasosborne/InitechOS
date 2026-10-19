@@ -83,6 +83,8 @@
  * (every tenant symbol is behind this guard; Rule 11). */
 #include "process.h"             /* FlairProcessList, FlairProcess_launch,
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
+#include "system_key.h"          /* system launcher predicate; routing oracle */
+#include "egg_jtc.h"             /* initech-2ter (a), hidden authored mat */
 #ifdef FLAIR_FILM_SCENE
 #include "film_scene.h"
 #endif
@@ -742,36 +744,47 @@ static int dir_visit(const dir_entry_t *e, void *user)
  * .COM to completion and maps the loader status onto the DOS EXEC error codes.
  * It lives here, not in int21.c, so int21.c stays free of loader.c (Law 3).
  *
- * After the child returns, restore the kernel-context exit hook + PSP (the
- * loader rebinds both during the run; ground-truth Sec 4.5 / beads initech-509.3)
- * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
- * dispatch through the child's stale hook/PSP. */
+ * loader_run_plan restores the invoking process, whether shell or resident
+ * flat program (IBM DOS 3.30 TR pp. 6-196/200). */
 static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     const char *cmd_tail, uint32_t cmd_tail_len,
                                     uint32_t env_block, uint8_t *out_rc)
 {
     uint8_t rc = 0;
-    /* Save the kernel/shell CWD before the child run (the loader resets the CWD
-     * to root for the child; beads initech-mzxa) and restore it after, in
-     * lockstep with the PSP/exit-hook restore, so the child's CWD never leaks
-     * into kernel-context INT 21h. The CWD is saved/restored AROUND the run, so a
-     * subdir EXEC (dir_start!=0, the leaf resolved relative to the parent's CWD)
-     * cannot corrupt the parent's CWD (beads initech-zs24). env_block (beads
-     * initech-1i0x inc 3) threads the shell's inherited env block through
-     * unchanged (0 = inherit-empty). */
-    int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
+#ifdef BOOT_SHELL
+    /* COMSPEC child (initech-n8q8): COMMAND.COM is RESIDENT in a shell kernel
+     * (ADR-0003 DEC-03/DEC-11), so EXEC of it from a resident program -- dBASE
+     * RUN's "second copy of COMMAND.COM" (HELP.DBS _RUN/!) -- runs a secondary
+     * processor of that resident code in the caller's process context, as the
+     * shell's own COMMAND builtin does (no disk image is loaded; the transient
+     * file is a kernel-linked overlay, not a .COM). The processor's AH=4Dh
+     * exit code is 0 (AUTHORED: no local source pins COMMAND /C's own code). */
+    {
+        static const char comspec[] = "COMMAND.COM";
+        uint32_t k = 0u;
+        while (comspec[k] != '\0' && cmd_upcase_char(name83[k]) == comspec[k])
+            k++;
+        if (comspec[k] == '\0' && name83[k] == '\0') {
+            (void)dir_start; (void)env_block;
+            command_exec_secondary(cmd_tail, cmd_tail_len);
+            if (out_rc) {
+                *out_rc = 0u;
+            }
+            return 0u;
+        }
+    }
+#endif
+    /* Bind the caller-selected volume; the shared loader now owns all caller
+     * PSP/hook/CWD restoration. env_block=0 inherits a resident caller's env.
+     * Ref: IBM DOS 3.30 TR pp. 6-198/200. */
     uint32_t fat_len;
     const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
     loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
                                                cmd_tail_len, env_block, &rc);
-    /* 4jic: BUSY ran no child. The caller is still the active baked/FAT
-     * program; replacing its hook/PSP here would turn its exit into a halt.
-     * Ref: ADR-0003 DEC-08 single-level EXEC; IBM DOS 3.30 TR p. 6-195. */
-    if (st == LOADER_ERR_BUSY) return INT21_ERR_INSUFFICIENT_MEM;
-    int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
-    int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
-    int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
+    /* loader_run_plan restores the immediate caller, including a resident
+     * program. Never force a nested caller back to the kernel PSP/hook.
+     * Ref: IBM DOS 3.30 TR pp. 6-196/200; spec/dos_structs.h PSP:16h. */
 
     switch (st) {
         case LOADER_OK:
@@ -783,10 +796,12 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
         case LOADER_ERR_NOT_FOUND:
             return INT21_ERR_FILE_NOT_FOUND;    /* 0x0002 */
         case LOADER_ERR_BUSY:
-            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- nested EXEC (deferred) */
+        case LOADER_ERR_NOMEM:
+            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- depth/arena exhausted */
         case LOADER_ERR_TOO_BIG:
         case LOADER_ERR_ZERO_LEN:
         case LOADER_ERR_BAD_ENV:
+        case LOADER_ERR_BAD_FORMAT:
             return INT21_ERR_BAD_FORMAT;        /* 0x000B -- bad/oversized image/env */
         case LOADER_ERR_READ:
         default:
@@ -947,6 +962,26 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
 #else
 #define FLAIR_BOOT_HOLD_TICKS 0     /* gate images: no hold                   */
 #endif
+#endif
+
+/* THE ARROW AT BOOT (bead initech-vzjy; operator-visible P1, third report).
+ * Mac OS 8.1 draws the pointer at its own position from the "Starting Up..."
+ * panel on, at the screen centre: hotspot (320,240) in s8_startup_panel.png,
+ * s8_startup_last.png, s8_startup_after.png and s8_icons_boot.png (arrow crop
+ * origin (319,239) in all four; ../system7-decomp/re/mint-results-009.md Sec 1),
+ * and ABSENT from the "Welcome to Mac OS" panel (s8_startup_welcome.png) --
+ * i.e. NOT on the splash, present on the first desktop frame. (320,240) is
+ * exactly the Event Manager's locked start (spec/event_model.h; FLAIR_SCREEN_W/2,
+ * FLAIR_SCREEN_H/2), so the first packet MOVES the arrow instead of conjuring it.
+ * INTERACTIVE images (the ones a person looks at) draw it at the first desktop
+ * present; gate images keep cursor.h's first-activity DEC so every locked
+ * no-input still stays byte-identical. -DFLAIR_CURSOR_AT_BOOT turns it on for
+ * a bounded twin (the Rule-14 record clip); CURSOR_MUT_HIDE_AT_BOOT is the
+ * Rule-6 mutant knob (test-flair-cursor-boot-mutant). NEVER define it in a
+ * real build. Ref: PRD Sec 6.3; Inside Macintosh Imaging With QuickDraw,
+ * InitCursor ("the standard arrow cursor is displayed"). */
+#if defined(FLAIR_LIVE_INTERACTIVE) && !defined(FLAIR_CURSOR_AT_BOOT)
+#define FLAIR_CURSOR_AT_BOOT 1
 #endif
 
 /* The LFB sink: indices at 8bpp (the DAC holds the FLAIR palette), the one
@@ -2817,20 +2852,26 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * live desktop, running SAMIR full-screen, and REBUILDING the desktop on return
  * -- the classic System-7/MultiFinder "switch to a full-screen app" gesture.
  *
- * THE SYSTEM HOTKEY (deterministic, harness-sendable): BACKSLASH ('\'), PS/2
- * SET-1 make code 0x2B. The harness `--keys bsl` sends QMP qcode "backslash" ->
- * SET-1 0x2B. The FLAIR pump cooks it (event.c: message = (vkey<<8)|ascii, so
- * vkey == the make code 0x2B) and routes it HERE before flair_app_dispatch, so
- * it launches SAMIR instead of being delivered to a GUI tenant. It is NOT a
- * letter SAMIR types (its USE/LIST/QUIT commands are alpha) so it never collides.
+ * DEC-LAUNCH-1: THE SYSTEM HOTKEY is Ctrl+Alt+backslash, SET-1 make 0x2B
+ * with BOTH controlKey and optionKey in EventRecord.modifiers. The Event
+ * Manager folds left/right Ctrl and Alt into those flags (event.c;
+ * spec/event_model.h Sec 2), so either side works. Harness token ctrl-alt-bsl.
+ * Ref: Lotus 1-2-3 R2.2 Reference Manual p. 1-17 (PDF 33, local manuals
+ * corpus): backslash is the repeating-label prefix. Plain backslash MUST
+ * reach the foreground tenant (ADR-0013 Sec 3.3); the previous bare-key
+ * launcher stole worksheet text. Ctrl+Alt is an authored system reservation,
+ * outside the printable label alphabet on that page; both modifiers are
+ * required, leaving plain/Shift/Ctrl-only/Alt-only text to the tenant.
+ * The shared system_key.h predicate is used before flair_app_dispatch and
+ * by the host routing oracle; FLAIR_MUT_PLAIN_BSL_LAUNCH restores the bug.
  *
  * THE g_kbd DRAIN (the brief's contract): the kbd IRQ1 handler posts to BOTH the
  * DOS g_kbd ASCII ring (SAMIR reads this via INT 21h) AND the FLAIR raw ring
  * (the pump cooks this) -- kbd.c. So the hotkey ALSO left a '\' in g_kbd. Drain
- * g_kbd before running SAMIR so the hotkey does not prepend to SAMIR's first
- * cooked line. The drain happens the instant the hotkey is seen (microseconds);
- * SAMIR's own keys arrive ~30ms later (qmp_drain beat) so the drain takes only
- * the hotkey, never a SAMIR key.
+ * pending CON input through the hotkey before running SAMIR, preserving the
+ * text tenant's later typeahead (int21.h discard_through contract). Ordinary
+ * desktop backslashes consume their duplicate DOS bytes before GUI delivery,
+ * so an old worksheet prefix cannot be mistaken for the launch boundary.
  *
  * REBUILD = RE-PRESENT THE PRESERVED OFFSCREEN (Option A, stateless; the ADR's
  * "re-render the SAME scene + re-present"). SAMIR runs ENTIRELY below the 1 MiB
@@ -2849,7 +2890,6 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  *      (full-screen app then back to the live desktop), Rule 2 (fail loud),
  *      Rule 11 (deterministic), Rule 12 (ASCII-clean).
  * ===========================================================================*/
-#define FLAIR_TEXT_TENANT_HOTKEY_VKEY  0x2Bu        /* PS/2 SET-1 make '\' */
 #define FLAIR_TEXT_TENANT_NAME         "SAMIR.COM"  /* 8.3 name on the FAT volume */
 
 /* g_flair_kbd_ring (the SPSC raw ring the FLAIR pump drains) is defined earlier
@@ -2905,12 +2945,11 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
         }
     }
 
-    /* Drain the FLAIR raw ring of the stale scancodes SAMIR's typed input left in
-     * it (the scancode hook stayed installed through the suspend), so the resumed
-     * pump does not cook+dispatch them. Consumer-side drain (the pump owns tail;
-     * spec/event_model.h SPSC) -- does NOT reset the tick/cursor the way
-     * flair_event_init would (which would break the pump's tick budget). */
-    g_flair_kbd_ring.tail = g_flair_kbd_ring.head;
+    /* Drain SAMIR's stale input without GUI dispatch. DEC-LAUNCH-1 requires
+     * cooking releases too: Ctrl/Alt came down before suspend and came up
+     * during SAMIR. A raw tail=head drop would leave them latched on resume.
+     * Keep the Event Manager's tick/cursor/lock state (event_model.h Sec 2/5). */
+    flair_text_tenant_drain(&g_flair_kbd_ring);
 
 #ifndef FLAIR_LIVE_MUTATE_NO_REBUILD
     /* REBUILD: the offscreen survived SAMIR (< 1 MiB vs FLAIR-heap disjoint, see
@@ -3212,6 +3251,12 @@ static int finder_fat_enumerate(void *fs_user, uint16_t dir_start,
     return (rc < 0) ? -1 : rc;
 }
 
+/* MUTANT KMAIN_MUT_MKDIR_CUT (Rule 6; test-flair-shutdown-cancel-mutant,
+ * bead initech-89sb): New Folder stops where a cut inside fat12_mkdir left
+ * the evidence volume -- the lowest free cluster claimed EOC in BOTH FAT
+ * copies, its '.'/'..' sector never written, no parent entry -- yet reports
+ * success, so FINDER-NEW-FOLDER is printed over an orphan cluster. The cancel
+ * gate's on-volume check must go RED. NEVER in a real build. */
 static int finder_fat_mkdir(void *fs_user, const char *name83,
                             uint16_t parent_dir_start)
 {
@@ -3220,6 +3265,24 @@ static int finder_fat_mkdir(void *fs_user, const char *name83,
     (void)fs_user;
     if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MKDIR;
 
+#if defined(KMAIN_MUT_MKDIR_CUT)
+    {
+        uint16_t c, v = 1u;
+        (void)name83;
+        (void)parent_dir_start;
+        for (c = 2u; c < (uint16_t)(g_finder_vol->total_clusters + 2u); c++)
+            if (fat12_next_cluster(g_finder_vol, g_finder_fat,
+                                   g_finder_fat_len, c, &v) == FAT12_OK &&
+                v == 0u) break;
+        if (v != 0u ||
+            fat12_set_entry(g_finder_fat, g_finder_fat_len, c,
+                            FAT12_EOC_VALUE) != FAT12_OK ||
+            fat12_flush_fats(g_finder_vol, g_finder_fat,
+                             g_finder_fat_len) != FAT12_OK)
+            return (int)FINDER_WIN_ERR_MKDIR;
+        return (int)FINDER_WIN_OK;
+    }
+#endif
     rc = fat12_mkdir(g_finder_vol, g_finder_fat, g_finder_fat_len,
                      name83, parent_dir_start,
                      g_finder_dirbuf, g_finder_clusbuf);
@@ -5259,6 +5322,52 @@ static __attribute__((cold,noinline)) void flair_live_about(flair_live_ctx_t *ct
     serial_puts("APPLE-ABOUT closed\n");
 }
 
+/* Ref: operator initech-2ter (a), spec/easter/jump_to_conclusions.json.
+ * Authored hidden gesture, no corpus hidden-About precedent. Do not change
+ * either About menu resource: Option-clicks on the Apple glyph are private. */
+static __attribute__((cold,noinline)) int flair_live_jtc_trigger(
+    flair_live_ctx_t *ctx, const boot_info_t *bi, const EventRecord *ev)
+{
+    static unsigned clicks;
+    int fire = egg_jtc_trigger(&clicks,ev);
+    if (fire) {
+        FlairApp *prev = ctx->plist->head, *a = prev;
+        while (a && a->procs != &egg_jtc_procs) a = a->nextApp;
+        if (a) (void)FlairProcess_activate(ctx->plist,ctx->wm,ev,a);
+        else a = FlairProcess_launch(ctx->plist,ctx->wm,&ctx->off,ctx->master,
+            &egg_jtc_procs,"",fta_rect(0,0,1,1),16384u,16384u);
+        if (!a) {
+            serial_puts("PANIC JTC launch\n");
+            for (;;) { __asm__ __volatile__("cli; hlt"); }
+        }
+        flair_live_finish_tenant_switch(ctx,bi,ctx->plist,prev,g_ten_barport);
+        serial_puts("EGG-JTC-OPEN click="); serial_putu(clicks); serial_putc('\n');
+    }
+    return ev->what == mouseDown && clicks != 0;
+}
+
+static __attribute__((cold,noinline)) int flair_live_jtc_pad(
+    flair_live_ctx_t *ctx, const boot_info_t *bi, EventRecord *ev)
+{
+    int pad = egg_jtc_take_pad();
+    if (pad < 0) return 0;
+    rgn_rect_t r = egg_jtc_pad(region_get_bbox(ctx->plist->head->windows->contRgn),pad);
+    ev->where.h = (int16_t)((r.left+r.right)/2);
+    ev->where.v = (int16_t)((r.top+r.bottom)/2);
+    flair_event_warp(ev->where.h,ev->where.v);
+    flair_live_cursor_track(ev); /* Cursor Manager erases save-under and jumps */
+    serial_puts("EGG-JTC-JUMP pad="); serial_putu((uint32_t)pad);
+    serial_puts(" x="); serial_puti(ev->where.h);
+    serial_puts(" y="); serial_puti(ev->where.v); serial_putc('\n');
+    const char *text[1] = {egg_jtc_label(pad)};
+    static const char *const ok[1] = {"OK"};
+    flair_live_alert_open(ctx,bi,text,1,ok,1,1);
+    serial_puts("EGG-JTC-ALERT up\n");
+    (void)flair_live_alert_run(ctx,bi);
+    serial_puts("EGG-JTC-ALERT closed\n");
+    return 1;
+}
+
 /* Returns 1 when `sel` was an Apple-menu choice (handled here). */
 static int flair_live_apple_result(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                    uint32_t sel)
@@ -6376,7 +6485,10 @@ void kernel_main(void)
      * KAT reports linker-derived addresses, not duplicated expectations. The
      * boot_info value independently proves stage2 copied/jumped to the agreed
      * base. Any mismatch halts before IDT, heap, loader, or framebuffer state is
-     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward. */
+     * initialized, so a LOAD_LOW/stale-handoff relapse cannot limp onward.
+     * The end bound is KERNEL_IMAGE_CEIL, not KERNEL_CEIL: the transient shell
+     * window and the kernel stack [0x5F0000,0x600000) sit above it (bead
+     * initech-xu97; spec/memory_map.h WINDOW DISJOINTNESS). */
     {
         uint32_t kernel_start = (uint32_t)(uintptr_t)_kernel_start;
         uint32_t kernel_end = (uint32_t)(uintptr_t)_kernel_end;
@@ -6389,14 +6501,14 @@ void kernel_main(void)
 
         if (b.kernel_base != (uint32_t)KERNEL_BASE ||
             kernel_start != (uint32_t)KERNEL_BASE ||
-            kernel_end >= (uint32_t)KERNEL_CEIL) {
+            kernel_end > (uint32_t)KERNEL_IMAGE_CEIL) {
             serial_puts("PANIC kernel-placement: boot/link/runway mismatch\n");
             serial_puts("  boot_base=0x");
             serial_puthex32(b.kernel_base);
             serial_puts(" expected=0x");
             serial_puthex32((uint32_t)KERNEL_BASE);
             serial_puts(" ceil=0x");
-            serial_puthex32((uint32_t)KERNEL_CEIL);
+            serial_puthex32((uint32_t)KERNEL_IMAGE_CEIL);
             serial_putc('\n');
             serial_puts("HALTED\n");
             for (;;) {
@@ -6980,7 +7092,7 @@ void kernel_main(void)
      * producer can be running yet. Ref: event.h flair_event_init contract. */
     flair_event_init(&g_flair_kbd_ring);
 
-    /* R0.1 boot-still policy: arm tracking but do not show. Keep these explicit,
+    /* R0.1 boot-still policy (gate images): arm tracking but do not show. Keep these explicit,
      * idempotent stores even though tdnl.29 now guarantees zero BSS: x/y are
      * deliberately non-zero and the block is also the semantic re-arm point.
      * The IRQ hook below flips g_flair_mouse_activity only for a real queued
@@ -6991,6 +7103,24 @@ void kernel_main(void)
     g_flair_cursor_visible = 0;
     g_flair_cursor_x = (int)(FLAIR_SCREEN_W / 2);
     g_flair_cursor_y = (int)(FLAIR_SCREEN_H / 2);
+#if defined(FLAIR_CURSOR_AT_BOOT) && !defined(CURSOR_MUT_HIDE_AT_BOOT)
+    /* bead initech-vzjy: the arrow is on screen BEFORE any packet, at the Mac
+     * OS 8.1 boot position (320,240) (DEC above FLAIR_BOOT_HOLD_TICKS; cite
+     * ../system7-decomp/re/mint-results-009.md Sec 1). Drawn HERE -- after the
+     * splash hold, the first desktop present, the tenant present and the
+     * re-arm stores above -- so no boot-time present can erase it without the
+     * flair_desktop_present shield bracket re-drawing it, and the kernel's
+     * visibility ledger agrees with the CursorMgr's. Marker: the same
+     * FLAIR-CURSOR line flair_live_cursor_track emits, so the harness can gate
+     * a still on it with NO input. IRQs are still masked (LFB writes only). */
+    flair_cursor_show(g_flair_cursor_x, g_flair_cursor_y);
+    g_flair_cursor_visible = 1;
+    serial_puts("FLAIR-CURSOR x=");
+    serial_puti((int32_t)g_flair_cursor_x);
+    serial_puts(" y=");
+    serial_puti((int32_t)g_flair_cursor_y);
+    serial_putc('\n');
+#endif
 
     /* --- FO-4: install the PIT tick hook BEFORE sti (ADR-0006 E-D3a) --------- *
      * pit_set_tick_hook defaults NULL; only THIS kernel installs it, so every
@@ -7249,18 +7379,24 @@ void kernel_main(void)
             }
 #endif
 
-            /* O-7 (ADR-0013 Sec 3.2 class-2): the SYSTEM HOTKEY ('\', PS/2 SET-1
-             * make 0x2B) launches SAMIR as a full-screen TEXT tenant. Detect the
+            /* O-7 / DEC-LAUNCH-1: Ctrl+Alt+backslash (either modifier side)
+             * launches SAMIR as a full-screen TEXT tenant. Detect the
              * cooked hotkey keyDown BEFORE the Layer-5 dispatch so it is NOT routed
              * to a GUI tenant; suspend the desktop, run SAMIR, rebuild on return,
              * then resume the pump. event.c cooks keyboard `message` as
              * (vkey<<8)|ascii, so vkey == the PS/2 make code (top byte). */
-            if (ev.what == (uint16_t)keyDown &&
-                ((ev.message >> 8) & 0xFFu) ==
-                    (uint32_t)FLAIR_TEXT_TENANT_HOTKEY_VKEY) {
+            if (flair_text_tenant_hotkey(&ev)) {
                 flair_launch_text_tenant(&b, &ctx, FLAIR_TEXT_TENANT_NAME);
                 continue;
             }
+            /* DEC-LAUNCH-1: a plain backslash is tenant text below, but its
+             * duplicate DOS-ring byte must leave now. Otherwise the next
+             * launch's discard_through would stop at this OLD backslash and
+             * feed the worksheet suffix (e.g. minus/Return) to SAMIR. Keep
+             * later typeahead, as int21.h discard_through promises. */
+            if (ev.what == (uint16_t)keyDown &&
+                (ev.message & 0xFFu) == (uint32_t)'\\')
+                int21_conin_discard_through('\\');
 
             /* R3.3 (bead initech-tdnl.10): a Ctrl chord with a FINDER window
              * frontmost is a Finder command -- New Folder, Clean Up, Close
@@ -7277,6 +7413,8 @@ void kernel_main(void)
             if (flair_live_tenant_key(&ctx, &b, &ev)) {
                 continue;
             }
+
+            if (flair_live_jtc_trigger(&ctx,&b,&ev)) continue;
 
             /* Resolve the physical chrome target against the original z-order.
              * flair_app_dispatch independently demuxes the same ORIGINAL event;
@@ -7319,6 +7457,8 @@ void kernel_main(void)
              * masking-tape the rqz5 root fix removes. */
             flair_live_finish_tenant_switch(&ctx, &b, &ten_plist,
                                             ten_prev_fg, &ten_barport);
+
+            if (flair_live_jtc_pad(&ctx,&b,&ev)) continue;
 
             /* Shell-owned chrome verbs run only AFTER any DQ5 foreground switch
              * has completed and emitted FLAIR-DISPATCH. */
@@ -7923,6 +8063,18 @@ void kernel_main(void)
     serial_puts("DIR-PROG-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_EXEC_NESTED
+    /* Resident caller and disk child; IBM DOS 3.30 TR AH=4Bh/4Ch/4Dh.
+     * Fixture asserts restored PSP and repeated child reclamation itself. */
+    {
+        uint8_t rc = 255u;
+        uint16_t err = loader_exec_by_name("NEST.COM", 0u, 0, 0u, 0u, &rc);
+        serial_puts("EXEC-NESTED-EXIT rc=");
+        serial_putu(err ? 255u : rc);
+        serial_putc('\n');
+    }
+#endif
+
 #ifdef BOOT_EXEC
     /* FAT-SOURCED LOAD + EXEC self-test (beads initech-saw; make test-exec).
      * Only in the -DBOOT_EXEC image so the normal boot is unchanged. Requires
@@ -7936,10 +8088,7 @@ void kernel_main(void)
      *
      *   2. INT 21h AH=4Bh EXEC of "GREET.COM" from KERNEL/shell context, then
      *      AH=4Dh GET-RETURN-CODE -- proving the EXEC dispatch path + the child
-     *      rc retrieval. (Nested EXEC -- 4Bh from inside a running program -- is
-     *      NOT supported this milestone: g_loader_ctx is single-level; the guard
-     *      returns LOADER_ERR_BUSY -> AX=0x0008. So EXEC-from-kernel is the
-     *      binding oracle, per the brief.) */
+     *      rc retrieval. Resident EXEC has its own test-exec-nested fixture. */
     serial_puts("EXEC-SAW-BEGIN\n");
     {
         uint8_t saw_rc = 0;

@@ -19,7 +19,9 @@
  *   3. PIT: divisor math at 100 Hz and the 18.2 Hz (divisor-0) sentinel.
  *
  * MUTATION (Rule 6): kbd.c built with -DKBD_MUTATE_RING_OFFBYONE (full-ring
- * never detected) or -DKBD_MUTATE_SCANCODE_TABLE (mis-indexed table) MUST fail;
+ * never detected), -DKBD_MUTATE_SCANCODE_TABLE (mis-indexed table), or
+ * -DKBD_MUT_ONE_SHIFT (release either Shift clears both), or
+ * -DKBD_MUT_CAPS_REPEAT (repeated makes toggle Caps) MUST fail;
  * `make test-kbd-unit-mutant` runs those builds and asserts the oracle bites.
  */
 
@@ -89,9 +91,60 @@ static void test_ring(void)
     }
 }
 
+/* Ref: MS-DOS 3.3 User's Guide pp.154-155; IBM DOS 3.30 Technical
+ * Reference pp.6-11--6-12. Exercise the SAME publication path as IRQ1. */
+static void test_extended_ring(void)
+{
+    kbd_ring_t ring;
+    kbd_state_t state;
+    uint8_t c = 0xff;
+    kbd_ring_init(&ring);
+    kbd_state_init(&state);
+    kbd_scancode_put(&ring, &state, 0x20); /* d */
+    kbd_scancode_put(&ring, &state, 0x3d); /* F3 */
+    kbd_scancode_put(&ring, &state, 0xbd); /* release emits nothing */
+    kbd_scancode_put(&ring, &state, 0x1d); /* Ctrl */
+    kbd_scancode_put(&ring, &state, 0x2e); /* C */
+    kbd_scancode_put(&ring, &state, 0x9d);
+    kbd_scancode_put(&ring, &state, 0x1c); /* Return */
+    static const uint8_t want[] = {'d', 0, 0x3d, 3, 13};
+    for (unsigned i = 0; i < sizeof want; i++) {
+        CHECK(kbd_ring_get(&ring, &c) && c == want[i],
+              "F3 transport: plain d, 00,3D, Ctrl-C, CR in order");
+    }
+    CHECK(kbd_ring_empty(&ring), "F3 transport: no release/modifier bytes");
+
+    /* Put the prefix in the last physical slot, scan in slot zero. */
+    kbd_ring_init(&ring);
+    for (unsigned i = 0; i < KBD_RING_CAP - 1; i++) {
+        (void)kbd_ring_put(&ring, 'x');
+        (void)kbd_ring_get(&ring, &c);
+    }
+    kbd_scancode_put(&ring, &state, 0x3d);
+    CHECK(kbd_ring_get(&ring, &c) && c == 0, "F3 transport: wrapped NUL prefix");
+    CHECK(kbd_ring_get(&ring, &c) && c == 0x3d, "F3 transport: wrapped scan");
+    CHECK(kbd_ring_empty(&ring), "F3 transport: wrap leaves no extra bytes");
+
+    /* One free slot cannot hold a pair: neither byte may be published. */
+    kbd_ring_init(&ring);
+    for (unsigned i = 0; i < KBD_RING_CAP - 2; i++)
+        (void)kbd_ring_put(&ring, 'x');
+    uint16_t head = ring.head;
+    kbd_scancode_put(&ring, &state, 0x3d);
+    CHECK(ring.head == head, "F3 transport: full pair rejected atomically");
+    CHECK(ring.dropped == 1, "F3 transport: rejected pair records drop");
+    EXPECT_MARKER({ (void)kbd_ring_get(&ring, &c); (void)kbd_ring_get(&ring, &c); },
+                  "KBD-RING-DROP\n", "F3 transport: rejected pair reported once");
+    while (kbd_ring_get(&ring, &c))
+        CHECK(c == 'x', "F3 transport: rejected pair leaves no NUL prefix");
+    kbd_scancode_put(&ring, &state, 0x20);
+    CHECK(kbd_ring_get(&ring, &c) && c == 'd', "F3 transport: plain input after drop");
+}
+
 static void test_translate(void)
 {
     kbd_state_t st;
+    memset(&st, 0xFF, sizeof(st)); /* init must clear every held-key bit */
     kbd_state_init(&st);
 
     /* Plain letters: scancode set 1 makes for d=0x20, i=0x17, r=0x13. */
@@ -126,12 +179,93 @@ static void test_translate(void)
     CHECK(kbd_translate(&st, 0x2A) == 0, "LShift make under caps");
     CHECK(kbd_translate(&st, 0x20) == 'd', "Caps+Shift letter -> lowercase 'd'");
     CHECK(kbd_translate(&st, 0xAA) == 0, "LShift break under caps");
-    /* Toggle CapsLock off. */
+    /* Release before pressing CapsLock again (a new physical press). */
+    CHECK(kbd_translate(&st, 0xBA) == 0, "CapsLock break -> no char");
     CHECK(kbd_translate(&st, 0x3A) == 0, "CapsLock make (toggle off)");
     CHECK(kbd_translate(&st, 0x20) == 'd', "caps off -> 'd'");
 
     /* An unmapped make (e.g. 0x01 = Esc maps to ESC; 0x00 -> no char). */
     CHECK(kbd_translate(&st, 0x00) == 0, "scancode 0x00 -> no char");
+}
+
+/* Ref: IBM Personal System/2 Hardware Interface Technical Reference,
+ * "Keyboards (101- and 102-Key)", pp. 19, 27-30, 45-48:
+ * https://www.ardent-tool.com/docs/pdf/ibm_hitrc11.pdf
+ * Set 1: LShift 2A/AA, RShift 36/B6, Caps 3A/BA; held keys repeat makes.
+ * Figs. 8-10 give the E0 artificial shifts for grey keys and PrintScreen.
+ * Physical-key tracking mirrors os/flair/event.c (initech-tdnl.58).
+ * Expected ASCII is literal and independent of the artifact's tables/state. */
+typedef struct {
+    uint8_t scan;
+    uint8_t ascii;
+} kbd_step_t;
+
+static void check_sequence(const kbd_step_t *steps, size_t count,
+                           const char *message)
+{
+    kbd_state_t st;
+    kbd_state_init(&st);
+    for (size_t i = 0; i < count; i++) {
+        uint8_t got = kbd_translate(&st, steps[i].scan);
+        CHECK(got == steps[i].ascii, message);
+        if (got != steps[i].ascii)
+            fprintf(stderr, "    step %zu scan=%02X got=%02X want=%02X\n",
+                    i, steps[i].scan, got, steps[i].ascii);
+    }
+}
+
+static void test_modifier_sequences(void)
+{
+    static const kbd_step_t left_released[] = {
+        {0x2A,0}, {0x36,0}, {0x20,'D'}, {0xA0,0},
+        {0xAA,0}, {0x20,'D'}, {0xA0,0}, {0x02,'!'}, {0x82,0},
+        {0x36,0}, {0x20,'D'}, {0xA0,0}, /* repeated right make */
+        {0xB6,0}, {0x20,'d'}, {0xA0,0}, {0x02,'1'}, {0x82,0}
+    };
+    static const kbd_step_t right_released[] = {
+        {0x36,0}, {0x2A,0}, {0x20,'D'}, {0xA0,0},
+        {0xB6,0}, {0x20,'D'}, {0xA0,0}, {0x02,'!'}, {0x82,0},
+        {0x2A,0}, {0x20,'D'}, {0xA0,0}, /* repeated left make */
+        {0xAA,0}, {0x20,'d'}, {0xA0,0}, {0x02,'1'}, {0x82,0}
+    };
+    static const kbd_step_t print_screen[] = {
+        {0xE0,0}, {0x2A,0}, {0xE0,0}, {0x37,0},
+        {0x20,'d'}, {0xA0,0},
+        {0xE0,0}, {0xB7,0}, {0xE0,0}, {0xAA,0},
+        {0x20,'d'}, {0xA0,0}
+    };
+    static const kbd_step_t left_grey_up[] = {
+        {0x2A,0}, {0xE0,0}, {0xAA,0}, {0xE0,0}, {0x48,0},
+        {0x20,'D'}, {0xA0,0}, /* fake break must not clear real Shift */
+        {0xE0,0}, {0xC8,0}, {0xE0,0}, {0x2A,0},
+        {0x20,'D'}, {0xA0,0}, {0xAA,0}, {0x20,'d'}, {0xA0,0}
+    };
+    static const kbd_step_t right_grey_up[] = {
+        {0x36,0}, {0xE0,0}, {0xB6,0}, {0xE0,0}, {0x48,0},
+        {0x20,'D'}, {0xA0,0},
+        {0xE0,0}, {0xC8,0}, {0xE0,0}, {0x36,0},
+        {0x20,'D'}, {0xA0,0}, {0xB6,0}, {0x20,'d'}, {0xA0,0}
+    };
+    static const kbd_step_t caps_repeat[] = {
+        {0x3A,0}, {0x20,'D'}, {0xA0,0},
+        {0x3A,0}, {0x20,'D'}, {0xA0,0}, {0x02,'1'}, {0x82,0},
+        {0x3A,0}, {0x20,'D'}, {0xA0,0},
+        {0xBA,0}, {0x20,'D'}, {0xA0,0}, /* release preserves lock */
+        {0xBA,0}, {0x20,'D'}, {0xA0,0}, /* repeated break is harmless */
+        {0x2A,0}, {0x20,'d'}, {0xA0,0}, {0xAA,0},
+        {0x3A,0}, {0x20,'d'}, {0xA0,0}, /* next press toggles off */
+        {0x3A,0}, {0x20,'d'}, {0xA0,0}, /* repeat cannot toggle on */
+        {0xBA,0}, {0x3A,0}, {0x20,'D'}, {0xA0,0}
+    };
+#define CHECK_SEQUENCE(trace, message) \
+    check_sequence(trace, sizeof(trace) / sizeof((trace)[0]), message)
+    CHECK_SEQUENCE(left_released, "right Shift survives left release");
+    CHECK_SEQUENCE(right_released, "left Shift survives right release");
+    CHECK_SEQUENCE(print_screen, "PrintScreen fake Shifts leave case alone");
+    CHECK_SEQUENCE(left_grey_up, "grey Up preserves held left Shift");
+    CHECK_SEQUENCE(right_grey_up, "grey Up preserves held right Shift");
+    CHECK_SEQUENCE(caps_repeat, "Caps toggles once per make-after-break");
+#undef CHECK_SEQUENCE
 }
 
 static void test_pit(void)
@@ -166,6 +300,7 @@ static void test_control(void)
     kbd_translate(&st, 0x2a);
     CHECK(kbd_translate(&st, 0x2e) == 3, "Ctrl+Shift+Caps+C -> 03");
     kbd_translate(&st, 0xaa);
+    kbd_translate(&st, 0xba);
     kbd_translate(&st, 0x3a);
     CHECK(kbd_translate(&st, 0xe0) == 0, "E0 prefix emits nothing");
     CHECK(kbd_translate(&st, 0x1d) == 0, "right Ctrl make emits nothing");
@@ -207,7 +342,9 @@ int main(void)
                       "KBD-RING-DROP\n", "owpg keyboard drop reported exactly once in task context");
     }
     test_ring();
+    test_extended_ring();
     test_translate();
+    test_modifier_sequences();
     test_control();
     test_pit();
     return TEST_SUMMARY("test-kbd-unit");

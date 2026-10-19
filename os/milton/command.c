@@ -3624,7 +3624,8 @@ static void read_line(char *out)
     uint8_t i;
 
     blk[0] = (uint8_t)CMD_LINE_MAX;   /* max length including the CR */
-    /* MS-DOS 3.3 pp.153-158: retain the previous line as the template. */
+    /* Ref: MS-DOS 3.3 User's Guide pp.154-155: retain count AND text for
+     * AH=0Ah's F3 template; Return replaces them with the submitted line. */
     dos_getline(blk);
 
     count = blk[1];
@@ -4721,6 +4722,22 @@ static void builtin_command(const char *arg)
 #endif
     g_shell_exit=exit;g_shell_permanent=permanent;
     g_errorlevel=errorlevel;g_batch_frame=frame;
+}
+
+/* EXEC of COMSPEC by a resident program (initech-n8q8). The interpreter is
+ * resident in this kernel (ADR-0003 DEC-03/DEC-11), so the "second copy" of
+ * COMMAND.COM a dBASE RUN asks for is a secondary processor of the same code:
+ * the PSP:80h tail (no NUL; it ends at its length or the CR) is run as
+ * `COMMAND <tail>`, with /C's private environment, EXIT/batch isolation and
+ * redirect scopes saved and restored around it (Reference pp. 46-47). */
+void command_exec_secondary(const char *tail, uint32_t len)
+{
+    char line[CMD_LINE_MAX];
+    uint32_t i;
+    for (i = 0u; tail && i < len && i < CMD_LINE_MAX - 1u && tail[i] != '\r'; i++)
+        line[i] = tail[i];
+    line[i] = '\0';
+    builtin_command(line);
 }
 
 void command_repl(int permanent)

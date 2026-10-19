@@ -28,14 +28,19 @@ else
         mcopy -o -i "$w/c.img@@32256" build/transient_flairtenants.bin ::COMMAND.COM
     fi
     if [ "$mode" = fat16 ]; then
-        dd if=/dev/zero of="$w/a.img" bs=512 count=16384 status=none
-        mkfs.fat --invariant -F 16 -s 1 "$w/a.img" > "$w/mkfs.log"
+        spc=${FAT_SPC:-1}
+        sectors=$((16384*spc))
+        truncate -s 0 "$w/a.img"; truncate -s $((sectors*512)) "$w/a.img"
+        # Keep FAT16 cluster count stable while varying the allocation unit.
+        # IBM DOS 3.30 TR pp2-31,4-17,5-8; mformat is the independent mint.
+        mformat -i "$w/a.img" -T "$sectors" -h 16 -s 63 -c "$spc" -N 0x19870330 ::
+        test "$(od -An -tu1 -j 13 -N 1 "$w/a.img" | tr -d '[:space:]')" = "$spc" || red 'fixture spc'
         # A chain that crosses FAT-sector boundaries, generated without a
         # second factory language and compared in full after TYPE redirection.
         awk 'BEGIN { for(i=0;i<1400;i++) printf "FAT16 ATA line %04d\r\n",i }' > "$w/long.txt"
         mcopy -i "$w/a.img" "$w/long.txt" ::CHAIN.TXT
         # FAT16 is read-only: output goes to writable C via a retained handle.
-        printf '@ECHO OFF\r\nDIR A:\\ > C:\\LIST.OUT\r\nTYPE A:\\CHAIN.TXT > C:\\READ.OUT\r\nECHO VOLUMES-DONE\r\n' > "$w/autoexec"
+        printf '@ECHO OFF\r\nDIR A:\\\r\nDIR A:\\ > C:\\LIST.OUT\r\nTYPE A:\\CHAIN.TXT > C:\\READ.OUT\r\nA:\r\nECHO VOLUMES-DONE\r\n' > "$w/autoexec"
         expect=C
     else
         printf '@ECHO ON\r\nC:\r\nDIR\r\nCD \\SYS\r\nA:\r\nCD \\USER\r\nCOPY C:\\COMMAND.COM A:\\\r\nCOPY C:SAME.TXT A:\\COPIED.TXT\r\nTYPE A:\\AUTOEXEC.BAT > A:\\TYPE.OUT\r\nDIR C:\\SYS > A:\\LIST.OUT\r\nCD\r\nB:\r\nD:\r\nDIR B:\r\nCD D:\\\r\nTYPE B:\\ABSENT.TXT\r\nCOPY C:\\COMMAND.COM D:\\ABSENT.COM\r\nECHO VOLUMES-DONE\r\n' > "$w/autoexec"
@@ -48,6 +53,8 @@ else
     grep -qx SHELL-EXIT "$w/run.serial" || red 'EMU did not finish shell'
     if grep -q 'triple_fault=1' "$w/report"; then red 'EMU triple fault'; fi
     if [ "$mode" = fat16 ]; then
+        grep -Fq 'A:\>' "$w/run.serial" || red 'FAT16 A prompt'
+        grep -q 'CHAIN' "$w/run.serial" || red 'FAT16 serial DIR'
         mtype -i "$w/c.img@@32256" ::READ.OUT > "$w/read"
         cmp "$w/read" "$w/long.txt" || red 'FAT16 ATA TYPE bytes'
         mtype -i "$w/c.img@@32256" ::LIST.OUT | grep -q 'CHAIN' || red 'FAT16 ATA DIR'

@@ -105,5 +105,9 @@ int main(void)
 	      "null alloc() returns NULL (arena exhausted by construction)");
 	p->reset(p, NULL);           /* callable no-op */
 
+	/* command processor (RUN / !; initech-n8q8): no COMMAND.COM -> fail loud. */
+	CHECK(p->exec && p->exec(p, "VER") < 0,
+	      "null exec() refuses (negative): engine raises error 92");
+
 	return TEST_SUMMARY("test_samir_pal_contract");
 }

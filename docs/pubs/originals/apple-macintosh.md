@@ -259,3 +259,13 @@ No edition line, printer's key or month code appears inside any Apple book [READ
 4. 1997 model (Platinum era): 7.5 x 9 in, hanging sans heads, grey numbered step squares, grey WARNING boxes, square Platinum screenshots without frames, dotted-column folios.
 5. Learning and reference in one book, split into Parts; troubleshooting entries as symptom -> cause -> remedy.
 6. Back cover: logo top left, address bottom left, part number and country of printing bottom right.
+
+## 13. Slips the books carried (PUB-REF-0001 VO-30 evidence)
+
+Read as page images on 2026-10-17 for the house register of tolerated inconsistencies (bead
+`initech-ipu5.16`, worklog WL-0150, `spec/pubs_inconsistencies.json`).
+
+| Book | Page | What the page prints | Register entry |
+|---|---|---|---|
+| Macintosh System Software User's Guide 6.0 (1988, 030-3281-A) | PDF 1 (cover) and PDF 296 (wrap spine) | The cover sets "Version 6.0"; the spine, reading top to bottom, "Apple Macintosh System Software User's Guide version 6.0" with a lower-case v | VO30-10 |
+| Macintosh User's Guide (1991) | PDF 1 and PDF 2 | Cover and spine agree ("Macintosh User's Guide for desktop Macintosh computers"): checked, no slip | -- |

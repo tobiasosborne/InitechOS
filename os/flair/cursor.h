@@ -9,12 +9,17 @@
  *      :1054 final-surface bind, and :2459/:2549/:2683 FLAIR-LIVE-READY plus
  *      the two WaitNextEvent pump tracking calls (mouse-position source).
  *
- * DEC -- BOOT VISIBILITY (initech-tdnl.1): CursorMgr binds at boot but does not
- * draw until the first real mouse packet reaches the live pump. This preserves
- * every locked no-input boot screendump byte-for-byte. After that first mouse
- * activity the period Mac arrow is visible and tracks EventRecord.where. The
- * bounded oracle pump erases it only before its terminal FLAIR-LIVE-OK still;
- * interactive images retain it for the lifetime of the desktop.
+ * DEC -- BOOT VISIBILITY (initech-tdnl.1; amended initech-vzjy): on GATE images
+ * CursorMgr binds at boot but does not draw until the first real mouse packet
+ * reaches the live pump. This preserves every locked no-input boot screendump
+ * byte-for-byte. After that first mouse activity the period Mac arrow is
+ * visible and tracks EventRecord.where. The bounded oracle pump erases it only
+ * before its terminal FLAIR-LIVE-OK still. INTERACTIVE images (kmain.c
+ * FLAIR_CURSOR_AT_BOOT) draw the arrow at the first desktop present at the Mac
+ * OS 8.1 boot position (320,240) (../system7-decomp/re/mint-results-009.md
+ * Sec 1: the pointer sits at the centre from the Starting Up panel on, absent
+ * from the Welcome panel) and retain it for the lifetime of the desktop;
+ * test-flair-cursor-boot grades that still with NO input.
  *
  * The manager binds the FINAL surface presented to the display, not a window or
  * compositor offscreen, so the cursor is always topmost. Repaint clients bracket

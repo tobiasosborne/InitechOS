@@ -98,7 +98,7 @@ static int fat_select_drive(unsigned letter)
 /* Shared scratch (cooperative, single-threaded -- safe between sequential INT
  * 21h calls; see file header). `g_sector` (>=512) is the fat12_find /
  * root-dir-enumeration / dir-entry-RMW scratch; `g_cluster`
- * (sectors_per_cluster*512; one sector on 1.44 MB) is the positioned read/write
+ * (512 bytes; streamed sectors per IBM DOS 3.30 TR p5-8) is the read/write
  * cluster scratch. Neither buffers a whole file. */
 static uint8_t  g_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_cluster[BLOCKDEV_SECTOR_SIZE];

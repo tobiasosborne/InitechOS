@@ -55,6 +55,9 @@
  *   C  routing: keyDown to the foreground tenant regardless of the cursor;
  *      content clicks with GLOBAL where; title clicks never delivered;
  *      click-to-activate both ways (ADR-0013 Sec 3.3).
+ *   L  plain backslash reaches the tenant; Ctrl+Alt+backslash launches with
+ *      either physical modifier side; resume cooks releases without delivery.
+ *                                        MUTANT FLAIR_MUT_PLAIN_BSL_LAUNCH
  *   G  a second launch while resident: TENANT-SLOT-BUSY, nothing installed.
  *   D  EXIT inside a handler: the dying tenant hears nothing more; teardown
  *      promotes the Finder with ONE activate; the next key is the Finder's.
@@ -91,6 +94,7 @@
 #include "event_model.h"
 #include "heap.h"
 #include "event.h"           /* FLAIR_SCREEN_W / FLAIR_SCREEN_H */
+#include "system_key.h"
 #include "process.h"
 #include "tbxgate.h"
 #include "toolbox_gate.h"
@@ -458,7 +462,74 @@ static EventRecord mk(uint16_t what, uint32_t msg, int h, int v)
 }
 
 static void post(EventRecord ev) { flair_app_dispatch(&W.plist, &W.wm, &ev); }
-static void pump(EventRecord ev) { post(ev); service(); }
+static unsigned launches;
+static void pump(EventRecord ev)
+{
+    /* Same pre-dispatch predicate as kmain; a launch is the host sink. */
+    if (flair_text_tenant_hotkey(&ev)) launches++;
+    else post(ev);
+    service();
+}
+
+/* Ref: R2.2 Reference Manual p. 1-17 (PDF 33): backslash repeats a label.
+ * ADR-0013 Sec 3.3 keys belong to the foreground; event_model.h Sec 2/5
+ * and event.c SET-1 decoder unify left/right Ctrl and Alt (E0 1D/38).
+ * All expected deliveries/counts here are literal, independent of routing. */
+static void leg_launchkey(void)
+{
+    static const uint8_t plain[] = {0x2B, 0xAB};
+    static const uint8_t left[] = {0x1D,0x38,0x2B,0xAB,0xB8,0x9D};
+    static const uint8_t right[] = {0xE0,0x1D,0xE0,0x38,0x2B,0xAB,
+                                    0xE0,0xB8,0xE0,0x9D};
+    static const uint8_t lr[] = {0x1D,0xE0,0x38,0x2B,0xAB,0xE0,0xB8,0x9D};
+    static const uint8_t rl[] = {0xE0,0x1D,0x38,0x2B,0xAB,0xB8,0xE0,0x9D};
+    static const uint8_t ctrl[] = {0x1D,0x2B,0xAB,0x9D};
+    static const uint8_t alt[] = {0x38,0x2B,0xAB,0xB8};
+    static const uint8_t shift[] = {0x2A,0x2B,0xAB,0xAA};
+    const uint8_t *traces[] = {plain,left,right,lr,rl,ctrl,alt,shift,plain};
+    const unsigned lens[] = {sizeof plain,sizeof left,sizeof right,sizeof lr,
+                            sizeof rl,sizeof ctrl,sizeof alt,sizeof shift,sizeof plain};
+    const uint16_t mods[] = {0,0x1800,0x1800,0x1800,0x1800,0x1000,0x0800,0x0200,0};
+    flair_raw_ring_t ring;
+    flair_event_init(&ring);
+    launches = 0;
+    for (unsigned t = 0; t < sizeof lens / sizeof lens[0]; t++) {
+        int b = g_n;
+        unsigned l = launches;
+        for (unsigned i = 0; i < lens[t]; i++) {
+            flair_raw_event_t raw = {FLAIR_RAW_KEYBOARD, 0u, traces[t][i]};
+            CHECK(flair_raw_post(&ring, &raw), "leg(L0): raw trace fits ring");
+        }
+        EventRecord ev;
+        unsigned down = 0;
+        for (unsigned i = 0; i < lens[t]; i++) {
+            (void)GetNextEvent(&ring, everyEvent, &ev);
+            if (ev.what != keyDown) continue;
+            down++;
+            CHECK((ev.modifiers & 0x1A00u) == mods[t],
+                  "leg(L0b): physical modifier sides cook to the locked flags");
+            pump(ev);
+            if (t >= 1 && t <= 4) flair_text_tenant_drain(&ring);
+        }
+        if (t >= 1 && t <= 4) {
+            CHECK(down == 1 && launches == l + 1 && g_n == b,
+                  "leg(L2): either Ctrl plus either Alt launches, never reaches tenant");
+        } else {
+            CHECK(down == 1 && launches == l && g_n == b + 1 &&
+                  g_log[b].who == WHO_T && g_log[b].what == keyDown &&
+                  g_log[b].msg == (t == 7 ? 0x2B7C : 0x2B5C),
+                  "leg(L1): plain backslash and non-launch modifiers reach tenant");
+        }
+        (void)GetNextEvent(&ring, everyEvent, &ev);
+        CHECK((ev.modifiers & 0x1A00u) == 0,
+              "leg(L5): suspend drain cooks modifier releases before sheet resumes");
+    }
+    EventRecord ev = mk(keyUp, 0x2B5Cu, 0, 0);
+    ev.modifiers = 0x1800u;
+    CHECK(!flair_text_tenant_hotkey(&ev), "leg(L3): chord keyUp never launches");
+    ev.what = autoKey;
+    CHECK(!flair_text_tenant_hotkey(&ev), "leg(L4): chord autoKey never launches");
+}
 
 static FlairApp *tenant_app(void)
 {
@@ -1029,6 +1100,7 @@ int main(void)
     t = leg_affirm();
     if (t != NULL && t->windows != NULL) {
         leg_route(t);
+        leg_launchkey();
         leg_busy(t);
         leg_exit();
     } else {

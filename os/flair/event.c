@@ -104,10 +104,10 @@ static uint8_t g_kbd_skip;
 /* The cooperative yield hook (see event.h Sec 3). */
 static flair_event_yield_fn g_yield_fn;
 
-/* PS/2 SET-1 break (key-release) prefix accumulator. The PS/2 stream sends
- * 0xF0 followed by the make code. The ISR sets bit 8 of payload when it
- * consumes the 0xF0 prefix (see spec/event_model.h Sec 5, KEYBOARD payload
- * layout: bit 8 = key-break flag). We re-check it here for synthesis. */
+/* PS/2 SET-1 key state. The ISR posts set-1 bytes verbatim: a break is
+ * make | 0x80 (the 0xF0 prefix is set 2 and never appears here); a
+ * pre-decoding producer may instead set payload bit 8 (spec/event_model.h
+ * Sec 5, KEYBOARD payload layout). Both forms are honoured below. */
 
 /* ===========================================================================
  * 1. TICK COUNTER
@@ -124,6 +124,13 @@ void flair_tick_advance(void)
 uint32_t flair_tick_count(void)
 {
     return g_tick;
+}
+
+void flair_event_warp(int16_t x, int16_t y)
+{
+    /* Ref: event.h screen-coordinate contract; JTC pads are inside the LFB. */
+    g_cursor_h = (int16_t)(x < 0 ? 0 : x >= FLAIR_SCREEN_W ? FLAIR_SCREEN_W-1 : x);
+    g_cursor_v = (int16_t)(y < 0 ? 0 : y >= FLAIR_SCREEN_H ? FLAIR_SCREEN_H-1 : y);
 }
 
 /* ===========================================================================
@@ -143,6 +150,14 @@ void flair_event_init(flair_raw_ring_t *ring)
 {
     uint32_t i;
     if (!ring) { FLAIR_PANIC("flair_event_init: NULL ring"); }
+#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+    /* Ref: finder_desktop.h F2-5 / Makefile DBL record-image contract.
+     * Preferences load before this init; seed the recording interval here
+     * so their normal slider value cannot undo per-frame capture pacing.
+     * The normal build retains its loaded Mouse setting (20 by default;
+     * spec/cpanels/record.json, ADR-0004 DEC-10 Platinum base era). */
+    flair_double_click_ticks = FINDER_DBLCLICK_TICKS;
+#endif
     ring->head       = 0u;
     ring->tail       = 0u;
     ring->drop_count = 0u;
@@ -337,7 +352,13 @@ static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 /* Apply a signed 8-bit delta (packed as int8_t in a uint8_t slot) to a
  * coordinate and clamp to [0, max-1]. Returns the new clamped position. */
 unsigned flair_mouse_tracking=1;
+#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+unsigned flair_double_click_ticks=FINDER_DBLCLICK_TICKS;
+#else
+/* Ref: spec/cpanels/record.json: normal Mouse interval is 20 ticks.
+ * RECORD_MUT_IGNORE_DBLCLICK_DEFINE restores the broken record seed only. */
 unsigned flair_double_click_ticks=20;
+#endif
 
 #ifdef __GNUC__
 __attribute__((unused))

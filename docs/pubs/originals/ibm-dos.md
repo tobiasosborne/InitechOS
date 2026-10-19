@@ -381,3 +381,23 @@ The 1989 training booklet has one form, internal-mail version, with a "Possible 
 5. Messages: bold message, then indented **Explanation:** and **Action:** run-in paragraphs.
 6. Blue punched cover: product line + hairline, big light serif title, white family bar bleeding left, logo block lower left, part number lower right. Back cover: blue colophon top left, logo lower left.
 7. Three Reader's Comment Forms as the last leaves.
+
+## 15. Slips the books carried (PUB-REF-0001 VO-30 evidence)
+
+Read as page images (pdftoppm, 100-110 dpi) on 2026-10-17 for the house register of tolerated
+inconsistencies (bead `initech-ipu5.16`, worklog WL-0150, `spec/pubs_inconsistencies.json`).
+Each item was found in the text layer and then confirmed on the image [READ]; OCR artefacts
+that the image did not confirm are left out.
+
+| Book | Page | What the page prints | Register entry |
+|---|---|---|---|
+| ZR23-6845-01 Operation Training | PDF 12 [1-4] | "These codes ... are found in the DOS 3.3 Users' Guide." (apostrophe after the s, title not italic) | VO30-01 |
+| ZR23-6845-01 | PDF 12 [1-4] | "hard file" (head *Installation on Hard File*), "install DOS on the hard disk", "Replace existing DOS files on the fixed disk" -- three words for one object on one page | VO30-11 |
+| ZR23-6845-01 | PDF 12 [1-4] | "You have the choice of making a DOS partition of up to 32MB and several extended partitions, however only one will be a DOS partition." (comma splice) | VO30-07 |
+| ZR23-6845-01 | PDF 12 [1-4] | Bulleted steps "Load the system ... Prepare the hard file using the Fdisk command ..." then "That is accomplished by selecting the appropriate prompt from the menus." (imperative to passive); "Select", "SELECT" and "Fdisk" in one section | VO30-05 |
+| ZR23-6845-01 | PDF 29 [3-5] | "DISKCOPY the Master Lab Diskette(s) onto the work diskette(s)."; "Enter a "Y."" with Enter capitalised mid-sentence | VO30-02 |
+| ZR23-6845-01 | PDF 7 [vii] | Contents: "Installation on Hard File" (Session 1) and "Installation on Fixed Disk" (Session 2) | VO30-11 |
+| IBM DOS 3.10 Reference 6138519 | PDF 106 [7-1] | Chapter mini-contents: "Creating a Batch File", "Executing a Batch file", "The AUTOEXEC.BAT File", "Creating an AUTOEXEC.BAT file" | VO30-04 |
+| IBM DOS 3.10 Reference | PDF 132-133 [7-27, 7-28] | the heads themselves: "Executing a Batch file", "Creating an AUTOEXEC.BAT file" | VO30-04 |
+| IBM DOS 3.10 Reference | PDF 525 [Index-2] | "ATTRIB (Attribute) Command 7-17" and "ATTRIB command 7-17"; "BREAK Command", "CHDIR command"; "Batch commands" against the head "Batch File Commands" | VO30-09 |
+| MS-DOS 3.3 User's Reference | PDF 179 [94] | *more*, See Also: "see Chapter 2, "Using MS-DOS Commands."" -- Chapter 2 is "About Commands" (contents PDF 100; cited correctly at PDF 202 [117]) | VO30-08 |

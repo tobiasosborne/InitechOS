@@ -70,11 +70,14 @@ int kbd_ring_get(kbd_ring_t *r, uint8_t *out);
 /* Non-destructive emptiness test (1 == empty). */
 int kbd_ring_empty(const kbd_ring_t *r);
 
-/* Modifier state carried across scancodes (Shift held, CapsLock latched). Pure
- * data; the translator both reads and updates it. */
+/* Physical-key bits follow os/flair/event.c (initech-tdnl.58).
+ * Ref: IBM PS/2 Hardware Interface Technical Reference, "Keyboards (101- and
+ * 102-Key)", pp. 19, 27-30, 45-48 (Set 1, typematic, shift states).
+ * Pure data; the translator both reads and updates it. */
 typedef struct {
-    uint8_t shift;  /* 1 while either Shift make is held (cleared on break)   */
-    uint8_t caps;   /* 1 while CapsLock is latched (toggled on each 0x3A make) */
+    uint8_t shift;  /* bit 0: left Shift held; bit 1: right Shift held       */
+    uint8_t caps;   /* lock toggled once per physical CapsLock press        */
+    uint8_t caps_down; /* CapsLock held; repeated makes do not toggle       */
     uint8_t ctrl;   /* bit 0: left Ctrl; bit 1: E0-prefixed right Ctrl        */
     uint8_t e0;     /* the next byte belongs to the extended Set 1 block     */
 } kbd_state_t;
@@ -92,6 +95,11 @@ void kbd_state_init(kbd_state_t *st);
  * Ref: scancode set 1 table (above); MS-DOS_3.3_Users_Guide_198707.pdf
  * pp. 132, 158-159 (Ctrl-Z EOF; hold Ctrl while pressing a letter). */
 uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode);
+
+/* Translate and enqueue a Set-1 byte, including atomic 00,scan pairs for
+ * template keys. Ref: IBM DOS 3.30 Technical Reference pp.6-11--6-12;
+ * MS-DOS 3.3 User's Guide pp.154-155 (F3). No port I/O. */
+void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t scancode);
 
 /* ---- kernel-only (freestanding; touch I/O ports) ------------------------- */
 

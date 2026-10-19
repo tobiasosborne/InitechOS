@@ -62,6 +62,7 @@ static volatile int *g_ctr;            /* [0] checks, [1] failures */
 static char m_scr[SCR_H][SCR_W + 1];
 static int  m_exit_calls, m_exit_rc;
 static int  m_alerts;
+static unsigned m_beeps;              /* TBX_BEEP, also used by entry oracle */
 static char m_alert_text[256], m_alert_btn[3][32];
 static int32_t m_alert_rc = TBX_OK;
 static int  m_fail_create;              /* CREATE answers ERR_DOS(5)          */
@@ -80,7 +81,8 @@ int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b, uin
 { (void)w; (void)l; (void)t; (void)r; (void)b; (void)c; return TBX_OK; }
 int32_t tbx_set_mbar(const tbx_menubar_t *b) { (void)b; return TBX_OK; }
 int32_t tbx_draw_menubar(void) { return TBX_OK; }
-int32_t tbx_trap(uint32_t c, uint32_t n, const uint32_t *a) { (void)c; (void)n; (void)a; return TBX_ERR_BADCODE; }
+int32_t tbx_trap(uint32_t c, uint32_t n, const uint32_t *a)
+{ (void)a; if (c == TBX_BEEP && n == 0) { m_beeps++; return TBX_OK; } return TBX_ERR_BADCODE; }
 
 int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
 {

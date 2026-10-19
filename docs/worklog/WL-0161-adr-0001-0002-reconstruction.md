@@ -96,10 +96,12 @@ renumbered or dropped block goes RED (Law 2: no by-construction agreement).
   run with scope ADR-0003..ADR-0013 found 13 unresolved (rec, DEC) pairs
   (111 sites): ADR-0004 DEC-03/04 and ADR-0008 DEC-02/03/05/06/07 are not
   headings in those Records (prose/table form); ADR-0003 DEC-08a.1/.2/.5 and
-  DEC-14.2 are cited sub-items with no heading; ADR-0003 DEC-08b
-  (`docs/design/kernel-runway-relocation.md:180`) and ADR-0007 DEC-09
-  (`docs/design/GUI-remediation-ADR-reconciliation.md:9`) cite blocks that
-  do not exist. Out of this lane's scope; follow-up bead recommended
+  DEC-14.2 are cited sub-items with no heading; the proposed
+  [DEC-08b kernel relocation](../design/kernel-runway-relocation.md#high-kernel-relocation-draft)
+  and [DEC-09/10 TPS binding](../design/GUI-remediation-ADR-reconciliation.md#tps-binding-draft)
+  were cited as filed blocks that do not exist. (Citation repair,
+  `initech-0ni0`: these links now name the existing local drafts, without
+  ratifying them.) Out of this lane's scope; follow-up bead recommended
   (widen `ADR_CITATIONS_SCOPE` after those Records gain DEC headings or the
   citations are corrected).
 - The first ADR-0002 draft cited ADR-0007 and ADR-0005 AM-1 "Sec 9" for

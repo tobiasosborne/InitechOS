@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 #include "samir/pal.h"
 #include "heap.h"
@@ -337,6 +338,23 @@ static void host_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
 static void *host_acquire(samir_pal_t *p,uint32_t n) { return pal_heap_alloc(state_of(p)->blocks,n); }
 static void host_release(samir_pal_t *p,void *b) { if(pal_heap_free(state_of(p)->blocks,b)) abort(); }
 
+/* ---- command processor (RUN / !; initech-n8q8) ---------------------------
+ * The host's processor is /bin/sh via system(): the line goes verbatim and the
+ * shell performs any redirection (pal.h exec contract). Buffered FILE* output
+ * is flushed first so the child sees every byte the engine already wrote.
+ * Exit status = the processor's; -1 (no shell could be started) is the
+ * "Unable to load COMMAND.COM" case. */
+static int32_t host_exec(samir_pal_t *p, const char *cmdline)
+{
+    int rc;
+    (void)p;
+    fflush(NULL);
+    rc = system(cmdline);
+    if (rc == -1)
+        return -(int32_t)PAL_EIO;
+    return WIFEXITED(rc) ? (int32_t)WEXITSTATUS(rc) : 255;
+}
+
 /* ---- arena slots -------------------------------------------------------- */
 
 static void *host_alloc(samir_pal_t *p, uint32_t n)
@@ -424,6 +442,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.alloc      = host_alloc;
     st->vtable.reset      = host_reset;
     st->vtable.acquire = host_acquire; st->vtable.release = host_release;
+    st->vtable.exec       = host_exec;
 
     /* Inject the fixed clock (deterministic; Rule 11). */
     st->date_yy = cfg.date_yy;

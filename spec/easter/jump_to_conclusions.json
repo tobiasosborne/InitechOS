@@ -1,0 +1,30 @@
+{
+  "source": "Authored from operator brief initech-2ter part (a); PRD 6.3/6.4 and Appendix B. No corpus precedent for this hidden trigger was found.",
+  "rows": 5,
+  "cols": 2,
+  "pad_w": 180,
+  "pad_h": 44,
+  "gap": 8,
+  "margin": 12,
+  "heading_h": 28,
+  "window_x": 110,
+  "window_y": 80,
+  "window_w": 420,
+  "window_h": 348,
+  "trigger_clicks": 3,
+  "trigger": "Hold Option (PC Alt) and click the band-1 Apple icon three times. Releasing Option or clicking elsewhere resets the count. No time limit.",
+  "title": "Jump to Conclusions",
+  "heading": "CONCLUSIONS",
+  "labels": [
+    "It's a Bad Idea.",
+    "Ask Bob.",
+    "PC LOAD LETTER",
+    "Re-Do the Cover Sheet",
+    "Nobody Will Notice",
+    "Take it to Lumbergh",
+    "Move Your Desk",
+    "Just a Moment.",
+    "That Would Be Great.",
+    "Is This Good for the Company?"
+  ]
+}

@@ -33,10 +33,10 @@ test-baked-exec-guard: $(HARNESS_BIN) $(BUILD)/baked_guard.img $(FAT_EXEC_IMG)
 	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/baked_guard.img --disk2 $(FAT_EXEC_IMG) --name baked_guard --out $(BUILD) --timeout-ms 8000 --quit-after EXEC-4B-END > $(BUILD)/baked_guard.stdout 2> $(BUILD)/baked_guard.report || true
 	@! grep -q 'triple_fault=1' $(BUILD)/baked_guard.report
 	@tr -d '\r' < $(BUILD)/baked_guard.serial > $(BUILD)/baked_guard.normalized
-	@grep -qx 'KHY-BAKED-BUSY-OK' $(BUILD)/baked_guard.normalized || { echo 'RED baked EXEC guard: nested load did not return BUSY'; exit 1; }
+	@grep -qx 'KHY-BAKED-NESTED-OK' $(BUILD)/baked_guard.normalized || { echo 'RED baked EXEC guard: nested load did not restore caller PSP/rc'; exit 1; }
 	@grep -qx 'PROGRAM-EXIT rc=7' $(BUILD)/baked_guard.serial
 	@grep -qx 'EXEC-4B-RC=7' $(BUILD)/baked_guard.serial
-	@echo 'GREEN test-baked-exec-guard: nested BUSY, outer exit 7, subsequent EXEC 7'
+	@echo '>>> test-baked-exec-guard: green (nested child 7, restored caller PSP, outer exit 7, subsequent EXEC 7)'
 
 test-fat-hygiene-emu: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/hygiene_probe.bin
 	@sh harness/diff/fat_diff/kernel_hygiene_emu.sh $(BUILD) $(SECONDARY_TRACER_IMG)
@@ -76,7 +76,7 @@ test-mzload-entry-mutant: $(BUILD)/test_mzload_entry_equal
 TEST_UNIT_GATES += test-mzload-entry-mutant
 
 $(BUILD)/loader_baked_unguarded.o: os/milton/loader.c os/milton/loader.h os/milton/mz.c | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUTATE_BAKED_UNGUARDED -Ispec -Ios/milton -c $< -o $@
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) -DLOADER_MUT_NO_RESTORE -Ispec -Ios/milton -c $< -o $@
 $(BUILD)/kernel_baked_unguarded.elf: $(filter-out $(KERNEL_TEST_PROG_OBJ) $(KERNEL_LOADER_OBJ),$(KERNEL_EXEC_OBJS)) $(BUILD)/loader_baked_unguarded.o $(BUILD)/baked_exec_blob.o $(KERNEL_LD)
 	$(KERNEL_LINK) -o $@ $(filter %.o,$^)
 $(BUILD)/kernel_baked_unguarded.bin: $(BUILD)/kernel_baked_unguarded.elf Makefile
@@ -92,8 +92,8 @@ test-baked-exec-guard-mutant: $(HARNESS_BIN) $(BUILD)/baked_unguarded.img $(FAT_
 	@grep -q 'PROGRAM-BEGIN' $(BUILD)/baked_unguarded.serial
 	@grep -q '^GREETINGS FROM A:GREET.COM' $(BUILD)/baked_unguarded.serial
 	@! grep -q 'PROGRAM-EXIT rc=7' $(BUILD)/baked_unguarded.serial || { echo 'FAIL unguarded baked mutant survived'; exit 1; }
-	@echo 'RED LOADER_MUTATE_BAKED_UNGUARDED: outer PROGRAM-EXIT rc=7 missing'
-	@echo 'GREEN test-baked-exec-guard-mutant: nested load clobber caught'
+	@echo '>>> LOADER_MUT_NO_RESTORE RED: outer PROGRAM-EXIT rc=7 missing'
+	@echo '>>> test-baked-exec-guard-mutant: green (caller PSP restoration mutant caught)'
 TEST_EMU_GATES += test-baked-exec-guard-mutant
 
 # Fixed-map dependencies apply to both green and existing semantic mutants.
