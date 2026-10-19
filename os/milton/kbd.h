@@ -70,11 +70,14 @@ int kbd_ring_get(kbd_ring_t *r, uint8_t *out);
 /* Non-destructive emptiness test (1 == empty). */
 int kbd_ring_empty(const kbd_ring_t *r);
 
-/* Modifier state carried across scancodes (Shift held, CapsLock latched). Pure
- * data; the translator both reads and updates it. */
+/* Physical-key bits follow os/flair/event.c (initech-tdnl.58).
+ * Ref: IBM PS/2 Hardware Interface Technical Reference, "Keyboards (101- and
+ * 102-Key)", pp. 19, 27-30, 45-48 (Set 1, typematic, shift states).
+ * Pure data; the translator both reads and updates it. */
 typedef struct {
-    uint8_t shift;  /* 1 while either Shift make is held (cleared on break)   */
-    uint8_t caps;   /* 1 while CapsLock is latched (toggled on each 0x3A make) */
+    uint8_t shift;  /* bit 0: left Shift held; bit 1: right Shift held       */
+    uint8_t caps;   /* lock toggled once per physical CapsLock press        */
+    uint8_t caps_down; /* CapsLock held; repeated makes do not toggle       */
     uint8_t ctrl;   /* bit 0: left Ctrl; bit 1: E0-prefixed right Ctrl        */
     uint8_t e0;     /* the next byte belongs to the extended Set 1 block     */
 } kbd_state_t;
