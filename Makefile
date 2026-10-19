@@ -11402,6 +11402,25 @@ $(SEED_BIN): $(SEED_DRV_SRC) $(SEED_LIB_SRC) | $(BUILD)
 $(HARNESS_BIN): $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(HARNESS_DRV_SRC) $(HARNESS_LIB_SRC)
 
+# initech-7r2; PRD Sec 8: slow serial progress is not a hung guest.
+$(BUILD)/test_qemu_progress: harness/emu/test_qemu_progress.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -Iharness/emu -o $@ $<
+
+.PHONY: test-harness-progress
+test-harness-progress: $(BUILD)/test_qemu_progress
+	@$(BUILD)/test_qemu_progress
+
+$(BUILD)/test_qemu_progress_mut: harness/emu/test_qemu_progress.c $(HARNESS_LIB_SRC) harness/emu/qemu.h | $(BUILD)
+	$(CC) $(CFLAGS) -DHARNESS_MUTATE_NO_PROGRESS_RESET -Iharness/emu -o $@ $<
+
+.PHONY: test-harness-progress-mutant
+test-harness-progress-mutant: $(BUILD)/test_qemu_progress_mut
+	@set +e; $(BUILD)/test_qemu_progress_mut > $(BUILD)/qemu_progress_mut.log 2>&1; rc=$$?; set -e; \
+	  cat $(BUILD)/qemu_progress_mut.log; \
+	  test $$rc -eq 1 && grep -q '^RED qemu-progress: echoes must renew the completion deadline' $(BUILD)/qemu_progress_mut.log \
+	  || { printf '!!! test-harness-progress-mutant FAIL: missing expected progress-reset RED\n'; exit 1; }
+	@printf '>>> test-harness-progress-mutant: green (disabled progress-reset branch went RED)\n'
+
 # Bochs oracle harness CLI (beads initech-564): library + main.
 $(BOCHS_BIN): $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC) harness/emu/bochs.h | $(BUILD)
 	$(CC) $(CFLAGS) -Iharness/emu -o $@ $(BOCHS_DRV_SRC) $(BOCHS_LIB_SRC)
@@ -31470,6 +31489,7 @@ test-scrollbar-look-mutant: test-scrollbar-look $(foreach m,$(SCROLLBAR_LOOK_MUT
 
 include spec/flair_scroll_look_traces.mk
 TEST_UNIT_GATES += test-scrollbar-look test-scrollbar-look-mutant
+TEST_UNIT_GATES += test-harness-progress test-harness-progress-mutant
 TEST_EMU_GATES += test-flair-scroll-look test-flair-scroll-look-mutant
 SCROLL_LOOK_CHECK := $(BUILD)/ppm_flair_scroll_look_check
 $(SCROLL_LOOK_CHECK): tools/ppm_flair_scroll_look_check.c $(SCROLLBAR_LOOK_GOLDEN) | $(BUILD)
