@@ -22258,8 +22258,13 @@ test-flair-solid: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLA
 	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_SOLID_E_NAME).report"; then printf '!!! test-flair-solid FAIL: leg E TRIPLE FAULT\n'; exit 1; fi
 	@grep -q '^FLAIR-MENU-DROP menu=256$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
 		|| { printf '!!! test-flair-solid FAIL: leg E FLAIR-MENU-DROP menu=256 missing -- band 2 did not route to active HELLO/Photoshop\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" || true; exit 1; }
-	@grep -q '^FLAIR-MENU menu=256 item=2 (sel=0x01000002)$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
-		|| { printf '!!! test-flair-solid FAIL: leg E Photoshop File item 2 selection marker missing\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" || true; exit 1; }
+	@# Rule-8 re-key 2026-10-20 (initech-tdnl.79, merged with the Finder alerts bundle): the
+	@# HELLO/NOTES demo menu items are authored DISABLED (os/apps/ref_demo_menu.h), so the
+	@# release over Photoshop File item 2 must report NO selection (item=0, sel=0) -- a dead
+	@# item never dispatches (MTE Menu Manager: disabled items cannot be chosen). The leg
+	@# keeps its purpose (band 2 drops the active tenant's menu, graded below on pixels).
+	@grep -q '^FLAIR-MENU menu=256 item=0 (sel=0x00000000)$$' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" \
+		|| { printf '!!! test-flair-solid FAIL: leg E Photoshop File release over the disabled item 2 must select nothing (tdnl.79)\n'; grep '^FLAIR-' "$(BUILD)/$(FLAIR_SOLID_E_NAME).serial" || true; exit 1; }
 	@if [ ! -s "$(BUILD)/$(FLAIR_SOLID_E_NAME).ppm" ]; then printf '!!! test-flair-solid FAIL: leg E screendump missing\n'; exit 1; fi
 	@$(PPM_FLAIR_SOLID_CHECK_BIN) E "$(BUILD)/$(FLAIR_SOLID_E_NAME).ppm" \
 		|| { printf '!!! test-flair-solid FAIL: leg E -- active tenant File panel did not drop below band 2 (initech-t1rv)\n'; exit 1; }
