@@ -3624,7 +3624,8 @@ static void read_line(char *out)
     uint8_t i;
 
     blk[0] = (uint8_t)CMD_LINE_MAX;   /* max length including the CR */
-    /* MS-DOS 3.3 pp.153-158: retain the previous line as the template. */
+    /* Ref: MS-DOS 3.3 User's Guide pp.154-155: retain count AND text for
+     * AH=0Ah's F3 template; Return replaces them with the submitted line. */
     dos_getline(blk);
 
     count = blk[1];
