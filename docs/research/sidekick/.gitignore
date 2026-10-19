@@ -1,0 +1,10 @@
+# Borland SideKick period sources (bead initech-6fdt sub-deliverable 1).
+# The scans, disk images and the MS-DOS boot disk are third-party copyrighted
+# material. Per the house rule in ../../../../initech-manuals-ref/SOURCES.md
+# ("Kept OUTSIDE the public initech-os repository on purpose ... Do not commit,
+# redistribute"), they stay LOCAL and are re-fetchable byte-exact from the URLs
+# and sha256 values in PROVENANCE.md. Only PROVENANCE.md and captures/ (our own
+# emulator captures + their cell transcriptions) are tracked.
+manual/
+media/
+dosboot/
