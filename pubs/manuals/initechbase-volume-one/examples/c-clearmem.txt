@@ -1,0 +1,5 @@
+. MRATE = 1.5
+. MCLERK = 'PRUITT'
+. CLEAR MEMORY
+. ? MRATE
+12  Variable not found.

@@ -15,6 +15,10 @@ A database that is open in a work area cannot be erased:
 \cmd{ERASE} reports \xmsg{3}{File is already open.}  Close it with \cmd{USE}
 or \cmd{CLOSE} first.  If the file is not on the diskette, \cmd{ERASE}
 reports \xmsg{1}{File does not exist.}
+\Examples
+The open database is refused.  Once it is closed, an index file is erased,
+and the database can no longer be opened with it:
+\DotExample{examples/c-erase}
 \SeeAlso{RENAME, TYPE}
 \end{XbaseEntry}
 
@@ -130,6 +134,10 @@ files may be open with one database.
 
 While SET SAFETY is ON, an index file that already exists is not replaced:
 \cmd{INDEX} reports \xmsg{7}{File already exists.}
+\Examples
+An index of the staff by the date of hire; the first four records in its
+order:
+\DotExample{examples/c-index}
 \SeeAlso{REINDEX, SET INDEX, SET ORDER, USE}
 \end{XbaseEntry}
 
@@ -181,6 +189,12 @@ label.
 InitechBase prints label forms made with dBASE III PLUS; it does not create
 them.  A form that is not a valid label form is reported as
 \xmsg{54}{Label file invalid.}
+\Examples
+The label form \file{STAFFLBL.LBL} on the sample diskette prints three
+interoffice mail labels across, each three lines high: the name, the
+telephone extension and the department.  With \file{STAFFDPT.NDX} as the
+master index the labels come in department order:
+\DotExample{examples/c-label}
 \SeeAlso{REPORT FORM}
 \end{XbaseEntry}
 
@@ -487,6 +501,11 @@ Rebuilds the open index files of the database in USE.
 \cmd{REINDEX} rebuilds every index file open in the selected work area from
 its own key expression.  Use it when an index file has been damaged, or
 when the database was changed while the index file was not open.
+\Examples
+A record is added while \file{STAFFNAM.NDX} is not open, so the index file
+does not know it: \cmd{FIND} does not find the name.  \cmd{REINDEX} brings
+the index file up to date:
+\DotExample{examples/c-reindex}
 \SeeAlso{INDEX, PACK, USE}
 \end{XbaseEntry}
 
@@ -522,6 +541,8 @@ extensions; none is assumed.  A database that is open cannot be renamed
 new name is not replaced (\xmsg{7}{File already exists.}).
 
 Rename a database's memo file (\file{.DBT}) with it.
+\Examples
+\DotExample{examples/c-rename}
 \SeeAlso{ERASE, TYPE}
 \end{XbaseEntry}
 
@@ -642,6 +663,11 @@ saved ones are added.
 
 A file that is not a valid memory file is reported as
 \xmsg{55}{Memory Variable file is invalid.} and no variable is changed.
+\Examples
+\file{MONTHEND.MEM} on the sample diskette holds four memory variables of the
+month-end close, one of each type.  With \kw{ADDITIVE} the memory variable
+\texttt{MCOUNT} is kept; without it, it is released:
+\DotExample{examples/c-restore}
 \SeeAlso{RELEASE, SAVE}
 \end{XbaseEntry}
 
@@ -664,4 +690,44 @@ that contains procedures.  At the dot prompt, \cmd{RETURN} does nothing.
 \Examples
 See \cmd{DO}.
 \SeeAlso{DO, PROCEDURE, PRIVATE}
+\end{XbaseEntry}
+
+% RUN / ! -- os/samir/cmd/mutate.c d_run (Using III+ U5-185/186, PDF
+% 297-298: RUN/! <command>; the rest of the line goes verbatim to the
+% command processor, which performs any redirection, then control returns;
+% one CR LF before and one after the child; 92 when the processor cannot be
+% loaded).  The OS PAL (os/samir/pal/pal_milton.c) EXECs COMSPEC with
+% " /C <line>"; the example's command is lower-case ECHO with a redirection,
+% which InitechDOS COMMAND.COM and the host processor of the replay both run
+% and whose file TYPE shows the same (the output to the screen would not be
+% part of the replayed transcript).  Lane samirfix, bead initech-n8q8.
+% Gates: test-samir-dml (run), test-samir-dml-emu.
+\begin{XbaseEntry}{RUN}{command}\XAlso{!}{!}%
+Carries out an InitechDOS command or runs a program, then returns to
+InitechBase.
+\Syntax
+\SyntaxLine{\kw{RUN} \xp{command}}
+\par or\par
+\SyntaxLine{\kw{!} \xp{command}}
+\Usage
+\cmd{RUN} passes the rest of the line, as it stands, to the InitechDOS
+command processor, \file{COMMAND.COM}, which carries it out: an internal
+command such as \texttt{DIR}, \texttt{COPY} or \texttt{ECHO}, a program, or a
+batch file.  Redirection with \texttt{>} is carried out by the command
+processor.  When the command ends, InitechBase goes on at the dot prompt or
+in the program.  Open databases stay open, and the record pointer is where it
+was.  \cmd{!} is another name for \cmd{RUN}.
+
+\file{COMMAND.COM} is found through the COMSPEC setting of the environment,
+or else on drive A.  If it cannot be loaded, \cmd{RUN} reports
+\xmsg{92}{Unable to load COMMAND.COM.}  The command processor and the
+program must fit in the memory InitechBase leaves free.
+\Tips
+Do not \cmd{RUN} a program that stays resident in memory: the memory it keeps
+is not returned to InitechBase.
+\Examples
+A note is written to a text file by the InitechDOS \texttt{ECHO} command and
+displayed with \cmd{TYPE}.  The record pointer is unchanged:
+\DotExample{examples/c-run}
+\SeeAlso{TYPE, QUIT}
 \end{XbaseEntry}

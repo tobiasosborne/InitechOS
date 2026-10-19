@@ -1,0 +1,13 @@
+. USE INVOICE
+. APPEND FROM ARBATCH
+. ? RECCOUNT()
+
+         7. LIST INVNO, CUST, AMOUNT, PAID
+Record#  INVNO CUST           AMOUNT PAID
+      1  A1001 HARTWELL      1250.00 .F. 
+      2  A1002 BRAXTON CO     875.50 .F. 
+      3  A1003 DELMAR INC   14400.00 .T. 
+      4  A1004 QUINCY BK       99.99 .F. 
+      5  A1005 HARTWELL       300.00     
+      6  A1006 BRAXTON CO    1125.00     
+      7  A1007 HARTWELL       640.25     

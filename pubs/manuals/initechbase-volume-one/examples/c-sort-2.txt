@@ -1,0 +1,3 @@
+. USE STAFF
+. SORT TO BYSALARY ON SALARY
+34  Operation with Memo field invalid.

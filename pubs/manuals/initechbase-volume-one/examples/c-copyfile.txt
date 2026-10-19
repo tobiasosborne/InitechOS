@@ -1,0 +1,9 @@
+. COPY FILE DEPTS.DBF TO DEPTSOLD.DBF
+. USE DEPTSOLD
+. LIST DEPT, DEPTNAME
+Record#  DEPT DEPTNAME
+      1  ADMN Administration          
+      2  SOFT Software Development    
+      3  CUST Customer Relations      
+      4  ACCT Accounting              
+      5  FACL Facilities              

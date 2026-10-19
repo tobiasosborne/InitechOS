@@ -1,0 +1,22 @@
+. USE STAFF INDEX STAFFDPT
+. LABEL FORM STAFFLBL
+
+CAROL PRUITT              ROBERT CHEN               DOM PORTER
+Ext. 1430                 Ext. 1431                 Ext. 1400
+Dept. ACCT                Dept. ACCT                Dept. ADMN
+
+NINA ALBRIGHT             TOM SMYKOWSKI             LAURA FENWICK
+Ext. 1403                 Ext. 1425                 Ext. 1426
+Dept. ADMN                Dept. CUST                Dept. CUST
+
+MILTON WADDAMS            BILL LUMBERGH             PETER GIBBONS
+Ext. 1402                 Ext. 1401                 Ext. 1417
+Dept. FACL                Dept. SOFT                Dept. SOFT
+
+MICHAEL BOLTON            SAMIR NAGHEENANAJAR       ANDREW DELGADO
+Ext. 1418                 Ext. 1419                 Ext. 1420
+Dept. SOFT                Dept. SOFT                Dept. SOFT
+
+DANIEL OKAFOR
+Ext. 1421
+Dept. SOFT

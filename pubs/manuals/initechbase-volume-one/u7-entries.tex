@@ -6,9 +6,11 @@
 An alias chosen for a database is already the alias of another open database.
 \end{XbaseMessageEntry}
 
-% 13 -- not raised: no source line sets ordinal 13 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{13}{ALIAS not found.}
-An alias named in a command is not the alias of any open database.
+% 13 -- os/samir/cmd/flow.c:1150 (SELECT <alias> with no such alias; a work-area number out of range is 17). Observed in the replay: SELECT FRED
+\begin{XbaseMessageEntry}{13}{ALIAS not found.}
+\cmd{SELECT} named an alias that is not the alias of any open database.
+
+Use the alias given in \cmd{USE} \kw{ALIAS}, or the name of the database, or select the work area by its number.
 \end{XbaseMessageEntry}
 
 % 97 -- not raised: no source line sets ordinal 97 for the condition the message names (checked os/samir)
@@ -62,14 +64,18 @@ Give \fn{CHR()} a code from 0 through 255.
 A message introduces a command-set diagnostic.
 \end{XbaseMessageEntry}
 
-% 76 -- not raised: no source line sets ordinal 76 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{76}{- : Concatenated string too large.}
-The result of joining two character strings with the minus sign is longer than a string may be.
+% 76 -- os/samir/core/eval.c:189 (XBEE_CONCAT_MINUS, result over 254 characters). Observed in the replay: X = SPACE(200), ? X - X
+\begin{XbaseMessageEntry}{76}{- : Concatenated string too large.}
+Two character strings joined with \texttt{-} give a string longer than 254 characters.
+
+Shorten the strings, for example with \fn{TRIM()} or \fn{SUBSTR()}, before joining them.
 \end{XbaseMessageEntry}
 
-% 77 -- not raised: no source line sets ordinal 77 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{77}{+ : Concatenated string too large.}
-The result of joining two character strings with the plus sign is longer than a string may be.
+% 77 -- os/samir/core/eval.c:152 (XBEE_CONCAT_PLUS, result over 254 characters). Observed in the replay: X = SPACE(200), ? X + X
+\begin{XbaseMessageEntry}{77}{+ : Concatenated string too large.}
+Two character strings joined with \texttt{+} give a string longer than 254 characters.
+
+Shorten the strings, for example with \fn{TRIM()} or \fn{SUBSTR()}, before joining them.
 \end{XbaseMessageEntry}
 
 % 42 -- os/samir/cmd/query.c:1218
@@ -130,9 +136,11 @@ A command that changes a database file, such as \cmd{APPEND BLANK}, \cmd{REPLACE
 Free space on the diskette by erasing files that are no longer needed, or use another diskette, and repeat the command.
 \end{XbaseMessageEntry}
 
-% 103 -- not raised: no source line sets ordinal 103 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{103}{DOs nested too deep.}
-Procedure calls are nested more deeply than the system allows.
+% 103 -- os/samir/cmd/flow.c:1460 fl_catalog (m[8]). Observed in the replay: a procedure that calls itself with DO
+\begin{XbaseMessageEntry}{103}{DOs nested too deep.}
+Programs and procedures call one another with \cmd{DO} more deeply than InitechBase allows; usually a procedure calls itself, directly or through another, without end.
+
+End each procedure with \cmd{RETURN} to its caller instead of calling the program that called it.
 \end{XbaseMessageEntry}
 
 % 4 -- not raised: no source line sets ordinal 4 for the condition the message names (checked os/samir)
@@ -155,9 +163,11 @@ A configuration value is in error.
 The text introduces the description of an error.
 \end{XbaseMessageEntry}
 
-% 67 -- not raised: no source line sets ordinal 67 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{67}{EVAL work area overflow}
-The work area for evaluating an expression overflowed.
+% 67 -- os/samir/cmd/workarea.c:1401,1402 (g_lex_msg / g_parse_msg: the evaluator's token or node pool is exhausted). Observed in the replay: ? with 100 nested parentheses, and ? 1+1+... with 120 terms
+\begin{XbaseMessageEntry}{67}{EVAL work area overflow}
+An expression is too long or too deeply nested to be evaluated.
+
+Break the calculation into steps, storing each partial result in a memory variable.
 \end{XbaseMessageEntry}
 
 % 110 -- not raised: no source line sets ordinal 110 for the condition the message names (checked os/samir)
@@ -324,9 +334,11 @@ An expression named a function that InitechBase does not provide.
 Check the spelling of the function name against the functions listed in this volume.
 \end{XbaseMessageEntry}
 
-% 106 -- not raised: no source line sets ordinal 106 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{106}{Invalid index number.}
-An index number given in a command is not valid.
+% 106 -- os/samir/cmd/set.c:372 (SET ORDER TO <n> with no n-th open index). Observed in the replay: USE STAFF INDEX STAFFNAM, SET ORDER TO 9
+\begin{XbaseMessageEntry}{106}{Invalid index number.}
+\cmd{SET ORDER TO} gave the number of an index file that is not open: fewer index files are open in the work area than the number.
+
+Give a number from 1 to the number of open index files, or 0 for the order of the records.
 \end{XbaseMessageEntry}
 
 % 107 -- not raised: no source line sets ordinal 107 for the condition the message names (checked os/samir)
@@ -411,9 +423,11 @@ The record length is greater than the maximum allowed.
 The file named in \cmd{RESTORE FROM} is not a memory file written by \cmd{SAVE}.  No memory variable was changed.
 \end{XbaseMessageEntry}
 
-% 96 -- not raised: no source line sets ordinal 96 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{96}{Mismatched DO WHILE and ENDDO.}
-A \cmd{DO WHILE} has no matching \cmd{ENDDO}, or the reverse.
+% 96 -- os/samir/cmd/flow.c:1460 fl_catalog (m[5], -INTERP_ERR_STRUCT in a program) from flow.c:1544 (a lone ENDDO). Observed in the replay: a program whose first line is ENDDO
+\begin{XbaseMessageEntry}{96}{Mismatched DO WHILE and ENDDO.}
+A program has an \cmd{ENDDO} without a \cmd{DO WHILE} before it, or a \cmd{DO WHILE} without its \cmd{ENDDO}.
+
+Give every \cmd{DO WHILE} of the program its own \cmd{ENDDO}, and check that the \cmd{IF} and \cmd{DO CASE} groups inside it are complete.
 \end{XbaseMessageEntry}
 
 % 87 -- not raised: no source line sets ordinal 87 for the condition the message names (checked os/samir)
@@ -533,14 +547,18 @@ Edit the report form so that its columns use character, numeric, date or logical
 A negative number was raised to a fractional power.
 \end{XbaseMessageEntry}
 
-% 21 -- not raised: no source line sets ordinal 21 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{21}{Out of memory variable memory.}
-The space for memory variable values is full.
+% 21 -- os/samir/cmd/flow.c:344,413,430,440 (-INTERP_ERR_NOMEM) -> flow.c:469 fl_memvar_fail; flow.c:1052 (RESTORE). The OS pool is the III+ 6000 bytes (os/samir/pal/pal_milton.c, Using III+ U5-180). Observed in the replay: a program storing SPACE(250) in 250 memory variables
+\begin{XbaseMessageEntry}{21}{Out of memory variable memory.}
+A value could not be stored in a memory variable because the space for the values of memory variables is full.  It is also given by \cmd{RESTORE} when the variables of the memory file do not fit.
+
+Release the memory variables that are no longer needed with \cmd{RELEASE}, or store shorter character values.
 \end{XbaseMessageEntry}
 
-% 22 -- not raised: no source line sets ordinal 22 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{22}{Out of memory variable slots.}
-Every memory variable slot the system provides is in use.
+% 22 -- os/samir/cmd/flow.c:408 (FLOW_MAX_MEMVARS 256, -INTERP_ERR_DEPTH) -> flow.c:469 fl_memvar_fail. Observed in the replay: a program creating 400 memory variables with &
+\begin{XbaseMessageEntry}{22}{Out of memory variable slots.}
+A new memory variable could not be created because 256 memory variables already exist.
+
+Release the memory variables that are no longer needed with \cmd{RELEASE}, or use fewer of them.
 \end{XbaseMessageEntry}
 
 % 75 -- not raised: no source line sets ordinal 75 for the condition the message names (checked os/samir)
@@ -696,9 +714,11 @@ Name no more than seven index files.
 A value was shortened to fit.
 \end{XbaseMessageEntry}
 
-% 92 -- not raised: no source line sets ordinal 92 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{92}{Unable to load COMMAND.COM.}
-The command processor could not be loaded.
+% 92 -- os/samir/cmd/mutate.c:1343 d_run (RUN / !: the PAL could not start the command processor; os/samir/pal/pal_milton.c EXECs COMSPEC, else A:\COMMAND.COM). Gate: test-samir-dml (run)
+\begin{XbaseMessageEntry}{92}{Unable to load COMMAND.COM.}
+\cmd{RUN} or \cmd{!} could not load the InitechDOS command processor, \file{COMMAND.COM}: it was not found where the COMSPEC setting or drive A names it, or there was not enough memory for it.
+
+Put the diskette with \file{COMMAND.COM} in drive A, or set COMSPEC to the drive and directory that hold it, before you start InitechBase.
 \end{XbaseMessageEntry}
 
 % 129 -- not raised: no source line sets ordinal 129 for the condition the message names (checked os/samir)
@@ -731,9 +751,11 @@ A duplicate key was refused.
 A login was not authorized.
 \end{XbaseMessageEntry}
 
-% 8 -- not raised: no source line sets ordinal 8 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{8}{Unbalanced parenthesis.}
-An expression has an opening parenthesis without a closing one, or the reverse.
+% 8 -- os/samir/cmd/workarea.c:1402 (g_parse_msg, the unbalanced-parenthesis parse code via xb_interp_eval); os/samir/cmd/set.c:648 (SET ALTERNATE TO: the file cannot be created). Observed in the replay: ? (1 + 2
+\begin{XbaseMessageEntry}{8}{Unbalanced parenthesis.}
+An expression has an opening parenthesis without a closing one.
+
+Count the parentheses of the expression; every one that is opened must be closed.
 \end{XbaseMessageEntry}
 
 % 65 -- not raised: no source line sets ordinal 65 for the condition the message names (checked os/samir)
@@ -770,14 +792,18 @@ Retype the command using only the clauses shown for it in this volume.
 A path given in a file name is not supported.
 \end{XbaseMessageEntry}
 
-% 35 -- not raised: no source line sets ordinal 35 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{35}{Unterminated string.}
-A character string is missing its closing delimiter.
+% 35 -- os/samir/cmd/workarea.c:1401 (g_lex_msg, the lexer's unterminated-string code via xb_interp_eval). Observed in the replay: ? 'abc
+\begin{XbaseMessageEntry}{35}{Unterminated string.}
+A character string in an expression has no closing delimiter.
+
+End the string with the same delimiter it begins with: an apostrophe, a quotation mark, or the bracket \texttt{]} for \texttt{[}.
 \end{XbaseMessageEntry}
 
-% 95 -- not raised: no source line sets ordinal 95 for the condition the message names (checked os/samir)
-\begin{XbaseMessageEntry}[no command of this version raises this message]{95}{Valid only in programs.}
-A command was used at the dot prompt that may be used only in a program.
+% 95 -- os/samir/cmd/flow.c:1466 fl_catalog (-INTERP_ERR_STRUCT typed at the dot prompt). Observed in the replay: IF .T. and ENDDO at the dot prompt
+\begin{XbaseMessageEntry}{95}{Valid only in programs.}
+A command that is used only in programs, such as \cmd{IF}, \cmd{ELSE}, \cmd{ENDIF}, \cmd{DO WHILE}, \cmd{ENDDO} or \cmd{LOOP}, was typed at the dot prompt.
+
+Put the command in a program file and run the program with \cmd{DO}.
 \end{XbaseMessageEntry}
 
 % 12 -- os/samir/core/eval.c:759 (XBEE_VAR_NOT_FOUND)

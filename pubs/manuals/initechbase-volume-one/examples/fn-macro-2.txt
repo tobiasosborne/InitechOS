@@ -1,0 +1,9 @@
+. STORE 'SOFT' TO MDEPT
+. STORE 'Department &MDEPT' TO MTITLE
+. ? MTITLE
+
+Department SOFT. STORE 'RECCOUNT' TO MFUNC
+. USE STAFF
+. ? &MFUNC.()
+
+        13

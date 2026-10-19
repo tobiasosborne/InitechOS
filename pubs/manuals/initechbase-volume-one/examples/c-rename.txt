@@ -1,0 +1,7 @@
+. RENAME DEPTS.DBF TO DIVISION.DBF
+. USE DEPTS
+1  File does not exist.
+. USE DIVISION
+. ? RECCOUNT()
+
+         5

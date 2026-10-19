@@ -1,0 +1,7 @@
+. USE STAFF
+. ERASE STAFF.DBF
+3  File is already open.
+. USE
+. ERASE STAFFSAL.NDX
+. USE STAFF INDEX STAFFSAL
+1  File does not exist.

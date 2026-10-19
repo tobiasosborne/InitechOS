@@ -80,10 +80,21 @@ Without a prompt, \cmd{ACCEPT} waits on a new line:
 % APPEND BLANK -- os/samir/cmd/mutate.c m_append (BLANK required; adds a
 % blank record, makes it current, inserts its key into every open index).
 % Gate: test-interp-replace, test-samir-write.
+% APPEND FROM -- os/samir/cmd/mutate.c d_append_from (Using III+ U5-28/PDF
+% 140: fields matched by name in any order; deleted records skipped only
+% under SET DELETED ON; default .DBF; the database in USE refused, 3; a
+% memo field in the database in USE, 34; a field of the same name and
+% another type, 9; every open index rebuilt).  Lane samirdml 14a8fc75.
+% Gates: test-samir-dml, test-samir-dml-emu.
 \begin{XbaseEntry}{APPEND}{command}
-Adds a blank record to the end of the database in USE.
+Adds records to the end of the database in USE: one blank record, or the
+records of another database.
 \Syntax
 \SyntaxLine{\kw{APPEND BLANK}}
+\par or\par
+\SyntaxLine{\kw{APPEND FROM} \xp{file}}
+\Defaults
+\kw{APPEND FROM} assumes the extension \file{.DBF}.
 \Usage
 \cmd{APPEND BLANK} adds one record to the end of the database in the selected
 work area and makes it the current record.  Every field of the new record is
@@ -97,37 +108,94 @@ the database, the new record is entered in each of them.
 Fill in the fields of the new record with \cmd{REPLACE}.  In a program, an
 \cmd{ACCEPT} or \cmd{INPUT} for each field followed by \cmd{APPEND BLANK} and
 \cmd{REPLACE} enters a record.
+
+\cmd{APPEND FROM} adds every record of the database named to the end of the
+database in USE, in the order of its records.  Fields are matched by name:
+a field of the database in USE takes the value of the field of the same name
+in the other database, wherever it stands in its structure.  A field the
+other database does not have is left empty, and a field the database in USE
+does not have is not copied.  A character value longer than its field is cut
+off on the right.  Records marked for deletion are appended, and are not
+marked in the database in USE, unless SET DELETED is ON: then they are left
+out.  The last record appended becomes the current record, and every open
+index file is brought up to date.
+
+The database named must not be the database in USE
+(\xmsg{3}{File is already open.}), and two fields of the same name must have
+the same type (\xmsg{9}{Data type mismatch.}).  Records cannot be appended to
+a database that has a memo field (\xmsg{34}{Operation with Memo field
+invalid.}).
 \Examples
 A new record is added and two of its fields are filled in:
 \DotExample{examples/c-append}
-\SeeAlso{REPLACE, RECCOUNT(), DELETE}
+The batch of new invoices on the sample diskette, \file{ARBATCH.DBF}, has the
+fields of the ledger in another order, and no \texttt{PAID} field.  Its three
+records are added to \file{INVOICE.DBF}:
+\DotExample{examples/c-append-2}
+\SeeAlso{REPLACE, RECCOUNT(), DELETE, COPY FILE}
 \end{XbaseEntry}
 
-% CLOSE -- os/samir/samir_main.c repl_do_close (every CLOSE form closes
-% all databases and their indexes; turns the status bar off).  Gate:
-% test-samir-repl.
-\begin{XbaseEntry}{CLOSE}{command}
-Closes all open databases and their index files.
+% CLEAR MEMORY -- os/samir/cmd/flow.c exec_command "CLEAR MEMORY"
+% (xb_interp_release_all: every memory variable, PUBLIC and PRIVATE, at any
+% level; Using III+ U5-51/PDF 163).  Lane samirdml 14a8fc75.  Gates:
+% test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{CLEAR MEMORY}{compound}\XAlso{CLEAR}{CLEAR}%
+Releases all memory variables.
 \Syntax
-\SyntaxLine{\kw{CLOSE DATABASES}}
+\SyntaxLine{\kw{CLEAR MEMORY}}
+\Usage
+\cmd{CLEAR MEMORY} releases every memory variable: the public ones, and the
+private ones of every program and procedure running.  A memory variable
+released no longer exists; a reference to it gives
+\xmsg{12}{Variable not found.}  Databases and other files are not affected.
+
+At the dot prompt \cmd{CLEAR MEMORY} does what \cmd{RELEASE ALL} does.  In a
+program they differ: \cmd{RELEASE ALL} releases only the private memory
+variables of the routine running, \cmd{CLEAR MEMORY} all of them.
+\Examples
+\DotExample{examples/c-clearmem}
+\SeeAlso{RELEASE, PUBLIC, PRIVATE, SAVE}
+\end{XbaseEntry}
+
+% CLOSE -- os/samir/samir_main.c repl_do_close (Using III+ U5-53/PDF 165:
+% CLOSE <file type> / ALL.  ALL and DATABASES close every database with its
+% indexes; INDEX closes the index files of every work area and leaves the
+% databases open in natural order; ALTERNATE, FORMAT and PROCEDURE are
+% accepted and close nothing -- SET ALTERNATE TO closes the alternate file,
+% observed in the replay; any other word, or none, is 10).  Lane samirdml 14a8fc75.
+% Gates: test-samir-repl, test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{CLOSE}{command}
+Closes the open files of one type, or all of them.
+\Syntax
+\SyntaxLine{\kw{CLOSE} \xp{file type}}
 \par or\par
 \SyntaxLine{\kw{CLOSE ALL}}
 \Usage
-\cmd{CLOSE} closes the database open in every work area, with its index
-files.  Afterwards no database is in USE in any work area.  Memory variables
-are not affected.
+\cmd{CLOSE} is followed by one of the words \kw{ALL}, \kw{DATABASES},
+\kw{INDEX}, \kw{ALTERNATE}, \kw{FORMAT} or \kw{PROCEDURE}.  Memory variables
+are not affected by any of them.
 
-The word after \cmd{CLOSE} is not examined: \cmd{CLOSE DATABASES},
-\cmd{CLOSE ALL} and \cmd{CLOSE} alone all close every database.  When the
-status bar is displayed (SET STATUS ON), \cmd{CLOSE} also removes it.
+\cmd{CLOSE ALL} and \cmd{CLOSE DATABASES} close the database open in every
+work area, with its index files.  Afterwards no database is in USE in any
+work area.
 
-\cmd{CLOSE} is a dot prompt command; it is not used in programs.
+\cmd{CLOSE INDEX} closes the index files of every work area and leaves the
+databases open.  Each database is then read in the order of its records
+until an index file is opened again with \cmd{SET INDEX} or \cmd{USE}.
+
+\cmd{CLOSE ALTERNATE}, \cmd{CLOSE FORMAT} and \cmd{CLOSE PROCEDURE} are
+accepted and close nothing in this version.  Close the alternate file with
+\cmd{SET ALTERNATE TO}, without a file name.  \cmd{CLOSE} without a word, or with any other word,
+is reported as \xmsg{10}{Syntax error.}
 \Tips
 To close only the database of the selected work area, type \cmd{USE} with no
 file name.
 \Examples
 \DotExample{examples/c-close}
-\SeeAlso{QUIT, SELECT, USE}
+With its index file closed, the database is read in the order of its
+records again:
+\DotExample{examples/c-close-2}
+\SeeAlso{QUIT, SELECT, USE, SET INDEX}
 \end{XbaseEntry}
 
 % CONTINUE -- os/samir/cmd/query.c q_continue (re-applies the stored LOCATE
@@ -155,6 +223,36 @@ false.
 \Examples
 \DotExample{examples/c-continue}
 \SeeAlso{LOCATE, FOUND(), EOF(), SEEK}
+\end{XbaseEntry}
+
+% COPY FILE -- os/samir/cmd/mutate.c d_file (Using III+ U5-59/PDF 171: any
+% closed file, both names with their extensions; a source open as a
+% database, 3; absent, 1; a target open as a database, 3; SAFETY ON
+% refuses an existing target, 7; real DML-11: the copy is written in
+% 512-byte blocks, the last filled out with zero bytes).  Lane samirdml
+% 14a8fc75.  Gates: test-samir-dml, test-samir-dml-emu.
+\begin{XbaseEntry}{COPY FILE}{compound}\XAlso{COPY}{COPY}%
+Makes a copy of a file.
+\Syntax
+\SyntaxLine{\kw{COPY FILE} \xp{file} \kw{TO} \xp{new file}}
+\Usage
+\cmd{COPY FILE} copies the first file to the second.  Give both names with
+their extensions; none is assumed.  Any file may be copied: a database, an
+index file, a program, a report form.  The copy is written in blocks of 512
+bytes, and the last block is filled out with zero bytes.
+
+A database that is open cannot be copied, and cannot be replaced by the copy:
+\cmd{COPY FILE} reports \xmsg{3}{File is already open.}  If the first file is
+not on the diskette, it reports \xmsg{1}{File does not exist.}  While SET
+SAFETY is ON, a file of the new name is not replaced
+(\xmsg{7}{File already exists.}).
+
+A database's memo fields are kept in its memo file (\file{.DBT}).  Copy the
+memo file with the database, under the same new name.
+\Examples
+A copy of the departments database is made and opened:
+\DotExample{examples/c-copyfile}
+\SeeAlso{ERASE, RENAME, TYPE}
 \end{XbaseEntry}
 
 % DELETE -- os/samir/cmd/mutate.c m_delete (default the current record;
