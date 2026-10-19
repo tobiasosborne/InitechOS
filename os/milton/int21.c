@@ -22,6 +22,7 @@
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
 #include "mcb.h"        /* MCB arena allocator behind AH=48h/49h/4Ah (initech-509.6) */
 #include "dos_structs.h" /* exec_param_block_t (AH=4Bh EBX block; initech-456)      */
+#include "tsr_contract.h" /* TSR_KEEP_MIN_PARAS (bead initech-6fdt) */
 #include "memory_map.h"  /* ENV_BLOCK -- the canonical populated-env sentinel (1i0x) */
 #include "find_data.h"  /* find_data_t (43-byte DTA block, LOCKED; spec/) */
 #include "irq.h"        /* in-IRQ depth + reentrancy guard (beads initech-xk2) */
@@ -258,6 +259,12 @@ static uint8_t g_last_child_term_type = 0;
 static mcb_arena_t g_arena;
 static uint32_t    g_arena_base_linear = 0u;
 static int         g_arena_bound       = 0;
+/* 1 while the legacy whole-window model is bound (int21_mcb_reset: the PSP owns
+ * the arena's first block as its initial allocation block); 0 for the disjoint
+ * model, where a top-level PSP's own block lies below the arena (ADR-0009
+ * DEC-04). AH=31h shrinks "the initial allocation block" (TR p. 6-105), so it
+ * must know which model is live (bead initech-6fdt). */
+static int         g_arena_psp_window  = 0;
 
 /* The current Disk Transfer Area (flat ptr). FINDFIRST/FINDNEXT write the
  * 43-byte find_data_t here. Defaults to the current PSP's command-tail field
@@ -484,6 +491,7 @@ void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear)
     mcb_init(&g_arena, base, total_paras);
     g_arena_base_linear = base_linear;
     g_arena_bound       = 1;
+    g_arena_psp_window  = 0;
 }
 
 /* The current PSP as a DOS owner id = its fake-paragraph segment (linear >> 4),
@@ -539,6 +547,7 @@ int int21_mcb_reset(void)
     uint16_t owner = cur_psp_owner();
     if (owner != MCB_OWNER_FREE) {
         (void)mcb_set_arena_owner(&g_arena, owner);
+        g_arena_psp_window = 1;
     }
     return 1;
 }
@@ -591,6 +600,38 @@ int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linea
                         arena_base_linear);
     return g_arena_bound;   /* 1 if int21_set_mcb_arena bound it (>= 2 paras), else 0 */
 }
+/* ---- TSR registry (bead initech-6fdt; spec/tsr_contract.h) ---------------
+ * g_tsr_top is the flat end of the highest resident range; every later top-
+ * level EXEC is placed above it (loader.c). Residents only accumulate (no
+ * removal call exists, as in DOS 3.3). */
+static uint32_t g_tsr_top = 0u;
+static uint32_t g_tsr_count = 0u;
+uint32_t int21_tsr_top(void) { return g_tsr_top; }
+uint32_t int21_tsr_count(void) { return g_tsr_count; }
+
+int int21_mcb_bind_above_residents(uint32_t ceil_linear)
+{
+    return int21_mcb_bind_program((g_tsr_top + 0xFu) & ~0xFu, ceil_linear);
+}
+
+/* AH=34h hands out this address (spec/tsr_contract.h; TR p. 6-35 lists 34h as
+ * "Reserved by DOS"). x86 is little-endian, so the byte AT &g_indos is the low
+ * byte of the depth. */
+const volatile uint8_t *int21_indos_ptr(void)
+{
+    return (const volatile uint8_t *)&g_indos;
+}
+
+uint8_t int21_vector_gate(uint8_t vec)
+{
+#ifdef INT21_MUT_SETVECT_TRAP
+    (void)vec;   /* Rule 6: every vector a trap gate (the pre-6fdt SETVECT). */
+    return 0x8Fu;
+#else
+    return (vec >= 0x28u && vec <= 0x37u) ? 0x8Eu : 0x8Fu;   /* DEC-04a.1 */
+#endif
+}
+
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 {
     g_conin_get  = get;
@@ -955,6 +996,7 @@ static int ah_is_listed(uint8_t ah)
         case 0x31:                       /* KEEP (TSR) */
         case 0x32:                       /* GETDPB (admitted 2026-10-17; WL-0167) */
         case 0x33:                       /* BREAK (Get/Set CTRL-BREAK; DEC-16) */
+        case 0x34:                       /* InDOS address (6fdt; PM-ratified-pending-operator) */
         case 0x36:                       /* GETSPACE */
         case 0x39: case 0x3A: case 0x3B: /* MKDIR / RMDIR / CHDIR */
         case 0x3C:                       /* CREAT */
@@ -4459,6 +4501,12 @@ static void do_exec(int_frame_t *f)
 
     uint32_t indos_snapshot = g_indos;
     uint8_t rc = 0;
+    /* The child runs USER code, outside DOS: drop this EXEC's own level so the
+     * InDOS byte (AH=34h) reads as it would under DOS, whose EXEC leaves DOS
+     * when it jumps to the child (bead initech-6fdt; spec/tsr_contract.h). */
+#ifndef INT21_MUT_INDOS_EXEC
+    if (indos_snapshot) g_indos = indos_snapshot - 1u;
+#endif
     uint16_t err = g_exec(leaf, dir_start, tail_text, tail_len, env_block, &rc);
     g_indos = indos_snapshot;
     if (err != 0) {
@@ -4702,60 +4750,75 @@ static void do_terminate(int_frame_t *f, uint8_t code)
      * returns. We deliberately do NOT touch CF -- 4Ch has no error path. */
 }
 
-/* AH=31h KEEP (Terminate and Stay Resident): AL = exit/return code, DX = the
- * number of paragraphs to keep RESIDENT, measured from the program's PSP segment.
- * Like terminate (return control to the parent / the EXEC'r), BUT the program's
- * memory block is NOT freed: it is shrunk to DX paragraphs and re-homed to the
- * DOS system arena (MCB_OWNER_SYSTEM) so a later AH=48h ALLOC never reuses it and
- * the terminate-time owner reclaim (do_terminate -> mcb_free_owner) SKIPS it. The
- * parent retrieves AL via AH=4Dh, which then reports AH=3 (terminated by KEEP).
+/* AH=31h KEEP (Terminate and Stay Resident): AL = return code, DX = memory size
+ * in paragraphs measured from the PSP (IBM DOS 3.30 TR pp. 6-105/106). The TR's
+ * remarks are the contract: the call "does not free up any other allocation
+ * blocks belonging to that process" and "Files opened by the process are not
+ * closed"; AL reaches the parent through AH=4Dh, which reports type 3.
  *
- * FLAT-MODE PARAGRAPH MAPPING (Law 1; DOS 3.3 PRM / RBIL INT 21/AH=31h, adapted):
- * real DOS DX counts paragraphs from the PSP segment, and the PSP is the first 16
- * paragraphs (256 bytes) of the program's block. In our MCB model the program's
- * single-big-block (mcb_set_arena_owner / int21_mcb_reset) has its DATA region
- * starting at data paragraph 1 (the 1-paragraph MCB header sits at data_para 0),
- * and the PSP occupies the FIRST data paragraph of that region (PROGRAM_BASE). So
- * DX paragraphs "from the PSP" == DX DATA paragraphs of the block -- a 1:1 map we
- * pass straight to mcb_keep_resident (which clamps a too-large DX to the block's
- * own size; DOS keeps at most the program's own block).
- *
- * Fail loud (Rule 2): if the current PSP owns no arena block (e.g. the disjoint-
- * arena bind that leaves the window FREE -- the program never claimed a block to
- * keep), mcb_keep_resident returns BAD_BLOCK; KEEP then terminates normally
- * (there is nothing to keep) rather than corrupting the chain. KEEP is otherwise
- * EXACTLY terminate: it routes through the SAME do_terminate return path (handle
- * close, owner reclaim of whatever is STILL owned by the PSP, CWD reset, exit
- * hook), differing only in that the kept block is already re-homed resident so
- * the reclaim leaves it standing. Ref: DOS 3.3 PRM AH=31h; ADR-0003 (the arena
- * model); spec/int21h_register.json (31h KEEP, Resident). */
-static void do_keep(int_frame_t *f)
+ * Flat model (bead initech-6fdt; spec/tsr_contract.h Sec 1):
+ *   - DX below TSR_KEEP_MIN_PARAS is raised to it (the PSP and its JFT stay).
+ *   - An MCB-hosted program (nested EXEC, or a top-level EXEC above an earlier
+ *     resident) -- or a PSP that owns the whole window under the legacy
+ *     int21_mcb_reset model -- shrinks that block with mcb_keep_resident.
+ *   - A top-level program at PROGRAM_BASE sits BELOW the disjoint heap arena
+ *     (ADR-0009 DEC-04): its own block is [PSP, arena base), so the resident
+ *     range is [PSP, PSP + DX*16) clamped to that block (or to the arena
+ *     ceiling when the image left no arena).
+ *   - Every other block the process holds is re-owned MCB_OWNER_SYSTEM
+ *     (mcb_keep_all) and the resident top covers it.
+ * The registry top only grows; loader.c places the next top-level EXEC above
+ * it. Control then returns to the parent exactly as 4Ch does (exit hook),
+ * minus do_terminate's handle close and owner reclaim. */
+static void tsr_keep(uint8_t code, uint32_t paras)
 {
-    uint8_t  code = frame_al(f);
-    uint16_t keep_paras = frame_dx(f);
-
-    /* Mark the program's block resident BEFORE the terminate reclaim runs. With
-     * an arena + a live PSP bound, re-home the PSP's block to MCB_OWNER_SYSTEM at
-     * DX paragraphs; BAD_BLOCK (the PSP owns nothing to keep) degrades to a normal
-     * terminate (nothing kept), never a fault. */
-    if (g_arena_bound && g_cur_psp != 0) {
-        (void)mcb_keep_resident(&g_arena, cur_psp_owner(), (uint32_t)keep_paras);
+    uint32_t psp = (uint32_t)(uintptr_t)g_cur_psp;
+    if (psp != 0u) {
+        uint32_t top;
+        if (paras < TSR_KEEP_MIN_PARAS) paras = TSR_KEEP_MIN_PARAS;
+        if (g_arena_bound && (g_arena_psp_window || (psp > g_arena_base_linear &&
+            psp < g_arena_base_linear + g_arena.total_paras * 16u))) {
+            (void)mcb_keep_resident(&g_arena, cur_psp_owner(), paras);
+            top = 0u;              /* the kept block is a SYSTEM block below */
+        } else {
+            uint32_t lim = (g_arena_bound && g_arena_base_linear > psp)
+                         ? g_arena_base_linear : PROGRAM_ARENA_CEIL;
+            top = psp + paras * 16u;
+            if (top > lim) top = lim;
+        }
+        if (g_arena_bound) {
+            uint32_t end = mcb_keep_all(&g_arena, cur_psp_owner());
+            if (end && g_arena_base_linear + end * 16u > top)
+                top = g_arena_base_linear + end * 16u;
+        }
+        if (top > g_tsr_top) g_tsr_top = top;
+        g_tsr_count++;
     }
-
-    /* Record this process's exit status for the parent's AH=4Dh: AL = the exit
-     * code, AH = termination type 3 (KEEP/TSR). In the kernel build the loader
-     * regains control after the exit hook and do_exec re-stashes the SAME code
-     * (g_last_child_rc) from the loader's captured rc; recording it here makes the
-     * status retrievable on the DIRECT-dispatch path too (and is byte-consistent
-     * with the EXEC path -- both store the identical code). The type is set to 3
-     * here and defaults back to 0 on the next EXEC of a normal child (do_exec). */
     g_last_child_rc        = code;
     g_last_child_term_type = 3u;
+    int21_cwd_reset();
+    if (g_exit) g_exit(code);
+}
 
-    /* Terminate-to-parent: the SAME control transfer as 4Ch. do_terminate's
-     * mcb_free_owner reclaim now finds nothing owned by the PSP (the kept block is
-     * MCB_OWNER_SYSTEM), so the resident block survives. */
-    do_terminate(f, code);
+static void do_keep(int_frame_t *f)
+{
+#ifdef TSR_MUT_NO_KEEP
+    /* Rule 6 (test-tsr-unit-mutant / test-tsr-mutant): 31h acts as 4Ch. */
+    do_terminate(f, frame_al(f));
+#else
+    tsr_keep(frame_al(f), frame_dx(f));
+#endif
+}
+
+/* INT 27h Terminate but Stay Resident (TR p. 6-26): EDX = the resident byte
+ * count from the PSP ("last address plus one relative to the program's initial
+ * DS"), no return code; DOS treats it as AH=31h with AL=0. The 22h/23h/24h
+ * vectors are restored by the loader exactly as for INT 20h. */
+void KERNEL_ASM_ABI int27_dispatch(int_frame_t *frame)
+{
+    g_indos++;
+    tsr_keep(0u, (frame->edx + 15u) >> 4);
+    g_indos--;
 }
 
 /* ===========================================================================
@@ -5535,6 +5598,10 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x31:                       /* KEEP (Terminate and Stay Resident) */
             do_keep(frame);
+            return;
+        case 0x34:                       /* GET InDOS ADDRESS (bead initech-6fdt) */
+            frame->ebx = (uint32_t)(uintptr_t)int21_indos_ptr();
+            cf_clear(frame);
             return;
         case 0x4C:                       /* TERMINATE WITH RETURN CODE */
             do_terminate(frame, frame_al(frame));

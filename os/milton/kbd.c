@@ -16,6 +16,7 @@
 
 #include "kbd.h"
 #include "../flair/ring_report.h"
+#include "../../spec/tsr_contract.h"   /* TSR_KBD_FLAGS_LINEAR (bead initech-6fdt) */
 #include "io.h"
 
 /* 8042 keyboard data port (the controller output buffer). Ref: 8042 datasheet. */
@@ -133,6 +134,18 @@ void kbd_state_init(kbd_state_t *st)
     st->caps_down = 0u;
     st->ctrl  = 0u;
     st->e0    = 0u;
+    st->alt   = 0u;
+}
+
+uint8_t kbd_bios_flags(const kbd_state_t *st)
+{
+    uint8_t f = 0u;
+    if (st->shift & 2u) f |= TSR_KBD_FLAG_RSHIFT;
+    if (st->shift & 1u) f |= TSR_KBD_FLAG_LSHIFT;
+    if (st->ctrl)       f |= TSR_KBD_FLAG_CTRL;
+    if (st->alt)        f |= TSR_KBD_FLAG_ALT;
+    if (st->caps)       f |= TSR_KBD_FLAG_CAPS;
+    return f;
 }
 
 uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
@@ -159,6 +172,18 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
 #endif
         }
         else st->ctrl |= side;
+        return 0u;
+    }
+    /* Alt: left 38/B8, right E0 38/E0 B8 (the same Set-1 pages as Ctrl). It
+     * produces no character; it is tracked for the BIOS flag byte a resident
+     * polls (SideKick's Ctrl+Alt chord; bead initech-6fdt). */
+    if ((scancode & 0x7Fu) == 0x38u) {
+        uint8_t side = extended ? 2u : 1u;
+#ifdef KBD_MUT_NO_ALT
+        side = 0u;   /* Rule 6: Alt never reaches the flag byte. */
+#endif
+        if (scancode & SC_BREAK_FLAG) st->alt &= (uint8_t)~side;
+        else st->alt |= side;
         return 0u;
     }
     if (extended) {
@@ -324,6 +349,9 @@ void kbd_irq_handler(void)
      * IBM DOS 3.30 Technical Reference pp.6-11--6-12 (PDF pp.134-135).
      */
     kbd_scancode_put(&g_kbd, &g_kbd_state, sc);
+    /* Publish the BIOS keyboard flag byte BEFORE returning into a chained
+     * resident hook (spec/tsr_contract.h Sec 2/4; bead initech-6fdt). */
+    *(volatile uint8_t *)(uintptr_t)TSR_KBD_FLAGS_LINEAR = kbd_bios_flags(&g_kbd_state);
 
     /* FLAIR live event loop scancode hook (ADR-0006 E-D3(c) / FO-5): post
      * the RAW scancode byte (the value read from port 0x60 above) into the

@@ -123,6 +123,12 @@ uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
  * 'M' or 'Z'; no block runs past the arena; exactly one 'Z' and it is last; the
  * blocks tile the arena exactly (sum of 1+size == total_paras). Returns 1 if the
  * chain is intact, 0 if corrupt. For the oracle + fail-loud entry guards. */
+/* KEEP's companion (bead initech-6fdt; IBM DOS 3.30 TR p. 6-105: AH=31h "does
+ * not free up any other allocation blocks belonging to that process"): re-own
+ * EVERY block `owner` still holds to MCB_OWNER_SYSTEM, then return the arena-
+ * relative paragraph just past the highest MCB_OWNER_SYSTEM block (0 when the
+ * chain holds none or is corrupt). */
+uint32_t mcb_keep_all(mcb_arena_t *a, uint16_t owner);
 int mcb_chain_intact(const mcb_arena_t *a);
 
 /* Free paragraphs in total and the largest free block, walking the chain.

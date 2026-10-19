@@ -25,6 +25,7 @@
 #include "memory_map.h"   /* PROGRAM_BASE / PROGRAM_ALLOC_END (the arena region) */
 #include "fpu.h"          /* x87 probe verdict + CR0 arithmetic (beads initech-zj6w) */
 #include "fpu_contract.h" /* X87_BOOT_CONTROL_WORD, locked spec-data (initech-zj6w) */
+#include "tsr_contract.h" /* TSR_VEC_* (bead initech-6fdt) */
 
 /* ANSI.SYS install flag (beads initech-6zd9 records it; beads initech-p96i, the
  * ANSI escape interpreter, consumes it). A CONFIG.SYS `DEVICE=ANSI.SYS` line sets
@@ -72,6 +73,9 @@ extern void int25_entry(void);   /* INT 25h absolute disk READ  (DEC-15, initech
 extern void int26_entry(void);   /* INT 26h absolute disk WRITE (DEC-15, initech-4mq7) */
 extern void irq0_entry(void);
 extern void irq1_entry(void);
+extern void int27_entry(void);       /* INT 27h TSR alias (bead initech-6fdt) */
+extern void tsr_idle_entry(void);    /* INT 28h-equivalent default IRETD (6fdt) */
+extern void tsr_screen_entry(void);  /* console page save/restore (6fdt) */
 
 /* The LOCKED CONFIG.SYS baseline, embedded byte-for-byte from
  * spec/dos_config_sys_baseline.txt (Rule 8 -- this is the fallback when no
@@ -348,6 +352,12 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
      * unbound seam makes the handlers fail loud (CF=1), never fault. */
     idt_install_trap(0x25u, (void *)int25_entry);
     idt_install_trap(0x26u, (void *)int26_entry);
+    /* The TSR vectors (spec/tsr_contract.h): INT 27h at its period number (the
+     * DEC-04a 0x22-0x27 band is free) and the two displaced services above the
+     * slave IRQ band. Trap gates, like every DOS software vector. */
+    idt_install_trap(TSR_VEC_KEEP27, (void *)int27_entry);
+    idt_install_trap(TSR_VEC_IDLE, (void *)tsr_idle_entry);
+    idt_install_trap(TSR_VEC_SCREEN, (void *)tsr_screen_entry);
     serial("INT21\n");
 }
 

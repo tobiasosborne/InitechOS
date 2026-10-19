@@ -890,6 +890,27 @@ void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame);
  * docs/research/psp-loader-ground-truth.md Sec 2.1 / Sec 4.4. */
 void KERNEL_ASM_ABI int20_dispatch(int_frame_t *frame);
 
+/* ==== TERMINATE-AND-STAY-RESIDENT (bead initech-6fdt; spec/tsr_contract.h) ====
+ * AH=31h KEEP keeps [PSP, PSP + max(DX, TSR_KEEP_MIN_PARAS)*16) resident and,
+ * per IBM DOS 3.30 TR pp. 6-105/106, closes no files and frees no other block
+ * of the process (they become MCB_OWNER_SYSTEM). The resident registry records
+ * the end of the highest resident; the loader places every later top-level
+ * EXEC above it. INT 27h (TR p. 6-26) is the old-style alias: EDX = resident
+ * BYTES from the PSP, exit code 0. */
+uint32_t int21_tsr_top(void);    /* flat end of the highest resident; 0 = none */
+uint32_t int21_tsr_count(void);  /* KEEPs performed since boot                 */
+/* Re-bind the heap arena as ONE free block [roundup16(int21_tsr_top()), ceil)
+ * so a top-level EXEC lands above every resident. Returns 1 when bound, 0 when
+ * there is no room (the arena is then unbound; 48h/EXEC fail loud). */
+int int21_mcb_bind_above_residents(uint32_t ceil_linear);
+void KERNEL_ASM_ABI int27_dispatch(int_frame_t *frame);
+/* The InDOS byte AH=34h hands out (the low byte of the little-endian InDOS
+ * depth; the depth stays far below 256 by LOADER_EXEC_DEPTH). */
+const volatile uint8_t *int21_indos_ptr(void);
+/* The IDT gate type AH=25h installs for `vec`: 0x8E (interrupt gate) for the
+ * hardware IRQ band 0x28..0x37 (ADR-0003 DEC-04a.1), else 0x8F (trap gate). */
+uint8_t int21_vector_gate(uint8_t vec);
+
 /* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE VECTORS (ADR-0003 DEC-15) =======
  * beads initech-4mq7. Two NEW separate software-interrupt vectors (NOT INT 21h
  * AH functions; AH=25h is SETVECT, AH=35h is GETVECT -- entirely distinct and

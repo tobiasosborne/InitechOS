@@ -772,8 +772,10 @@ static void loader_exit_hook(uint8_t code)
  * IN-PLACE SAFETY PROOF (writing PROGRAM_IMAGE while the kernel/shell runs):
  *   The currently-running code is the KERNEL (the COMMAND.COM shell runs IN the
  *   kernel as a function, NOT as a separately-loaded program at PROGRAM_IMAGE --
- *   there is no resident program at depth zero). A nested FAT load instead
- *   allocates an MCB ABOVE the resident image and never writes PROGRAM_IMAGE.
+ *   there is no resident program at depth zero). A nested FAT load -- or a
+ *   top-level load while an AH=31h resident holds [PROGRAM_BASE, int21_tsr_top())
+ *   (bead initech-6fdt) -- instead allocates an MCB ABOVE the resident image and
+ *   never writes PROGRAM_IMAGE.
  *   At depth zero the child loads at PROGRAM_IMAGE (0x40100); the parent
  *   (kernel) executes from its high runway image [KERNEL_BASE, KERNEL_IMAGE_CEIL)
  *   and its own stack [KERNEL_STACK_BOT, KERNEL_STACK_TOP] (beads
@@ -922,10 +924,12 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * was too large to leave a positive arena (plan.arena_present == 0) the arena
      * is left UNBOUND -- a 48h ALLOC then reports insufficient memory rather than
      * overlapping (fail loud, Rule 2). */
-    if (saved.depth != 0u) {
-        /* Child PSP/image/stack already own an MCB in the caller's chain.
-         * Reinitializing that chain would destroy the caller's live heap.
-         * IBM DOS 3.30 TR pp. 11-4/5; ADR-0003 DEC-03. */
+    if (plan.psp_addr != PROGRAM_BASE) {
+        /* Child PSP/image/stack already own an MCB in the caller's chain --
+         * a nested EXEC, or a top-level EXEC placed above a resident (bead
+         * initech-6fdt). Reinitializing that chain would destroy the caller's
+         * live heap or a resident's blocks. IBM DOS 3.30 TR pp. 11-4/5;
+         * ADR-0003 DEC-03. */
     } else if (plan.arena_present) {
         (void)int21_mcb_bind_program(plan.arena_base, plan.arena_ceil);
     } else {
@@ -1049,7 +1053,9 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
      * The image source bytes live in a kernel-owned buffer (e.g. the baked demo
      * program in run_baked); loader_run_plan copies them DOWN to PROGRAM_IMAGE.
      * UNCHANGED by za4m -- only the FAT path goes direct/in-place. */
-    if (g_load.depth) return LOADER_ERR_BUSY;
+    /* The baked image is copied to PROGRAM_IMAGE: refuse while a resident
+     * occupies the window (bead initech-6fdt) rather than overwrite it. */
+    if (g_load.depth || int21_tsr_top()) return LOADER_ERR_BUSY;
     loader_plan_t plan;
     loader_status_t st = loader_prepare(image, image_len, cmd_tail,
                                         cmd_tail_len, &plan);
@@ -1331,7 +1337,15 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * blocks. Native flat .COM code loaded here must be position independent;
      * unlike InitechMZ it has no relocation records (DEC-08/DEC-08a.1). */
     uint32_t child_psp = 0u, child_end = 0u;
-    if (g_load.depth) {
+    /* A resident (AH=31h / INT 27h) keeps [PROGRAM_BASE, int21_tsr_top()), so
+     * a top-level EXEC is placed exactly like a nested one: the arena is
+     * re-bound above every resident and EXEC takes its largest block (TR
+     * pp. 11-4/5; bead initech-6fdt). The same position-independence rule as
+     * nested EXEC applies (DEC-08: a flat .COM carries no relocations). */
+    uint32_t above = g_load.depth ? 0u : int21_tsr_top();
+    if (g_load.depth || above) {
+        if (above && !int21_mcb_bind_above_residents(PROGRAM_ARENA_CEIL))
+            return LOADER_ERR_NOMEM;
         if (int21_mcb_exec_alloc(de.file_size, &child_psp, &child_end) != 0u)
             return LOADER_ERR_NOMEM;
     }

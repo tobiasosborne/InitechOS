@@ -402,3 +402,18 @@ uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
     mcb_coalesce(a);                                    /* normal form (R2)      */
     return MCB_OK;
 }
+
+/* See mcb.h. Walks the chain once; never splits or coalesces, so it cannot
+ * move a block the resident's vectors point into (bead initech-6fdt). */
+uint32_t mcb_keep_all(mcb_arena_t *a, uint16_t owner)
+{
+    uint32_t para = 0u, end = 0u;
+    if (!mcb_chain_intact(a)) return 0u;
+    for (;;) {
+        mcb_t *h = mcb_hdr(a, para);
+        if (owner != MCB_OWNER_FREE && h->owner == owner) h->owner = MCB_OWNER_SYSTEM;
+        if (h->owner == MCB_OWNER_SYSTEM) end = para + 1u + h->size_paras;
+        if (h->signature == MCB_SIG_TERMINAL) return end;
+        para += 1u + h->size_paras;
+    }
+}

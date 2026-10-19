@@ -457,6 +457,47 @@ int26_entry:
     add esp, 8                 ; discard the pushed vector + err_code dwords
     iretd                      ; resume caller with CF = status (no stack imbalance)
 
+; --- TSR service vectors (bead initech-6fdt; spec/tsr_contract.h) ----------
+; INT 27h Terminate but Stay Resident (IBM DOS 3.30 TR p. 6-26) and the console
+; page service (TSR_VEC_SCREEN 0x39) build the SAME uniform int_frame_t as
+; int25_entry; INT 27h does not come back (the loader's exit hook unwinds),
+; the page service returns CF/AX through the frame. The DOS idle interrupt
+; (TSR_VEC_IDLE 0x38, the INT 28h-equivalent) defaults to a bare IRETD, the
+; DOS default handler, until a resident hooks it with AH=25h.
+%macro tsr_svc_stub 3              ; entry label, vector sentinel, C dispatcher
+extern %3
+global %1
+%1:
+    push dword 0
+    push dword %2
+    push gs
+    push fs
+    push es
+    push ds
+    pushad
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov eax, esp
+    push eax
+    call %3
+    add esp, 4
+    popad
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp, 8
+    iretd
+%endmacro
+tsr_svc_stub int27_entry, 0x27, int27_dispatch
+tsr_svc_stub tsr_screen_entry, 0x39, tsr_screen_dispatch
+global tsr_idle_entry
+tsr_idle_entry:
+    iretd
+
 ; --- hardware IRQ stubs: PIT IRQ0 (vector 0x28) + keyboard IRQ1 (0x29) ------
 ; beads: initech-3rs ("PS/2 keyboard (IRQ1) + PIT (IRQ0) tick").
 ; Ref: Intel SDM Vol 2A PUSHAD/IRET; Intel 8259A datasheet (the C handler issues

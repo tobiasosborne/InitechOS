@@ -7512,6 +7512,59 @@ test-keep-mutant: $(TEST_KEEP_MUT)
 	fi
 
 # ---------------------------------------------------------------------------
+# REAL gate: test-tsr-unit (bead initech-6fdt sub-deliverable 2 -- TSR kernel
+# mechanics; spec/tsr_contract.h). The REAL int21.c + mcb.c HOSTED: top-level
+# and MCB-hosted AH=31h, TR p. 6-105 (files stay open, other blocks resident),
+# the next EXEC above the residents, 31h twice, INT 27h, the PSP floor, AH=34h
+# InDOS (0 / 1 in a console read / 0 while an EXEC child runs) and the AH=25h
+# gate type. Mutants (Rule 6): 31h-as-4Ch, EXEC-keeps-InDOS, trap-gate IRQs.
+TEST_TSR      := $(BUILD)/test_tsr
+TEST_TSR_SRC  := $(MILTON_DIR)/test_tsr.c
+TEST_TSR_DEPS := $(TEST_KEEP_DEPS)
+TEST_TSR_HDRS := $(TEST_KEEP_HDRS) spec/tsr_contract.h $(MILTON_DIR)/test_low_mapping.h
+TEST_TSR_MUTANTS := TSR_MUT_NO_KEEP INT21_MUT_INDOS_EXEC INT21_MUT_SETVECT_TRAP
+$(TEST_TSR): $(TEST_TSR_SRC) $(TEST_TSR_DEPS) $(TEST_TSR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_TSR_SRC) $(TEST_TSR_DEPS)
+$(BUILD)/test_tsr_%: $(TEST_TSR_SRC) $(TEST_TSR_DEPS) $(TEST_TSR_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Ispec -I$(MILTON_DIR) -Iseed -Ibuild \
+		-o $@ $(TEST_TSR_SRC) $(TEST_TSR_DEPS)
+.PHONY: test-tsr-unit test-tsr-unit-mutant
+test-tsr-unit: $(TEST_TSR)
+	@$(TEST_TSR)
+	@printf '>>> test-tsr-unit: green (KEEP top-level + MCB-hosted, files/blocks kept, next EXEC above, 31h twice, INT 27h, InDOS, IRQ gate type)\n'
+test-tsr-unit-mutant: $(addprefix $(BUILD)/test_tsr_,$(TEST_TSR_MUTANTS))
+	@for m in $(TEST_TSR_MUTANTS); do \
+		if $(BUILD)/test_tsr_$$m > $(BUILD)/test_tsr_$$m.log 2>&1; then \
+			printf '!!! test-tsr-unit-mutant FAIL: %s survived\n' $$m; exit 1; fi; \
+		printf '    %s RED: %s\n' $$m "$$(grep -m1 FAIL $(BUILD)/test_tsr_$$m.log)"; \
+	done
+	@printf '>>> test-tsr-unit-mutant: green (TSR_MUT_NO_KEEP, INT21_MUT_INDOS_EXEC, INT21_MUT_SETVECT_TRAP all RED)\n'
+
+# test-tsr-io (bead initech-6fdt): the keyboard flag byte (Alt tracked like
+# Ctrl; Ctrl+Alt -> 0x0C) and the console text-page save/restore graded against
+# a framebuffer PIXEL snapshot. Mutants: KBD_MUT_NO_ALT, CONSOLE_MUT_RESTORE_NO_DRAW.
+TEST_TSR_IO      := $(BUILD)/test_tsr_io
+TEST_TSR_IO_SRCS := $(MILTON_DIR)/test_tsr_io.c $(KERNEL_KBD_C) $(MILTON_DIR)/console.c os/flair/surface.c
+TEST_TSR_IO_HDRS := $(MILTON_DIR)/kbd.h $(MILTON_DIR)/console.h spec/tsr_contract.h
+TEST_TSR_IO_MUTANTS := KBD_MUT_NO_ALT CONSOLE_MUT_RESTORE_NO_DRAW
+$(TEST_TSR_IO): $(TEST_TSR_IO_SRCS) $(TEST_TSR_IO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -Ispec -I$(MILTON_DIR) -Ios/flair -o $@ $(TEST_TSR_IO_SRCS)
+$(BUILD)/test_tsr_io_%: $(TEST_TSR_IO_SRCS) $(TEST_TSR_IO_HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -D$* -Ispec -I$(MILTON_DIR) -Ios/flair -o $@ $(TEST_TSR_IO_SRCS)
+.PHONY: test-tsr-io test-tsr-io-mutant
+test-tsr-io: $(TEST_TSR_IO)
+	@$(TEST_TSR_IO)
+	@printf '>>> test-tsr-io: green (BIOS flag byte Ctrl+Alt=0Ch; text page save/restore == pixel snapshot + cursor)\n'
+test-tsr-io-mutant: $(addprefix $(BUILD)/test_tsr_io_,$(TEST_TSR_IO_MUTANTS))
+	@for m in $(TEST_TSR_IO_MUTANTS); do \
+		if $(BUILD)/test_tsr_io_$$m > $(BUILD)/test_tsr_io_$$m.log 2>&1; then \
+			printf '!!! test-tsr-io-mutant FAIL: %s survived\n' $$m; exit 1; fi; \
+		printf '    %s RED: %s\n' $$m "$$(grep -m1 FAIL $(BUILD)/test_tsr_io_$$m.log)"; \
+	done
+	@printf '>>> test-tsr-io-mutant: green (KBD_MUT_NO_ALT, CONSOLE_MUT_RESTORE_NO_DRAW both RED)\n'
+
+# ---------------------------------------------------------------------------
 # REAL gate: test-devices (beads initech-509.7 -- DOS character-device chain)
 # ---------------------------------------------------------------------------
 # Host unit oracle for the five resident character devices (NUL/CON/AUX/PRN/
@@ -8677,7 +8730,7 @@ $(KERNEL_DESKTOP_DB_MUT_SKIP_OBJ): $(KERNEL_DESKTOP_DB_C) $(KERNEL_DIR)/desktop_
 # kbd.c / pit.c the host oracle (test_kbd.c) exercises for the pure ring/table/
 # divisor logic; freestanding here (the IRQ handlers touch I/O ports), hosted
 # there (pure halves only). io.h only -- no -Ispec needed.
-$(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h | $(BUILD)
+$(KERNEL_KBD_OBJ): $(KERNEL_KBD_C) $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/io.h spec/tsr_contract.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -I$(KERNEL_DIR) -c $(KERNEL_KBD_C) -o $@
 
 # PS/2 mouse IRQ12 driver (beads initech-5l5z FO-6). io.h only. mouse.o is
@@ -29697,7 +29750,7 @@ TEST_UNIT_GATES := \
 	test-fat16 test-fat16-mutant test-d27i test-d27i-mutant \
 	test-80k test-80k-mutant test-x8fs test-x8fs-mutant test-4tw \
 	test-console test-idt test-kbd-unit test-j1lu-con-unit test-j1lu-kbd-mutant test-j1lu-con-mutant test-conin-unit test-int21 test-redir test-er3h test-int24 \
-	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
+	test-fileio test-mzxa-integration test-int21-edge test-exec-unit test-command test-redir-parse test-env test-batch test-batch-exec test-ansi test-ansi-wire test-keep test-tsr-unit test-tsr-io test-devices test-int24-wired test-devwire test-40oq test-psp test-sft test-loader test-mz test-mzload \
 	test-mcb test-mcb-int21 \
 	test-config-sys test-config-fuzz test-cmdline-fuzz test-rtc \
 		test-fat test-seed test-seed-codegen test-seed-mutant test-seed-codegen-mutant test-seed-bool-mutant test-seed-control-mutant test-seed-char-mutant test-seed-func-mutant test-seed-array-mutant test-seed-record-mutant test-seed-string-mutant test-seed-fileio-build test-seed-fileio-fpc test-seed-fpc-diff test-seed-repro test-seed-repro-mutant test-tps-lex-fpc test-tps-lex-build test-tps-lex-mutant test-tps-parse-fpc test-tps-parse-build test-tps-parse-mutant test-tps-type-fpc test-tps-type-build test-tps-type-mutant test-compiler test-assets test-spec test-dosmsg \
@@ -29762,7 +29815,7 @@ TEST_UNIT_GATES := \
 	test-idt-mutant test-kbd-unit-mutant test-conin-mutant test-4tw-mutant test-int21-mutant test-redir-mutant test-er3h-mutant \
 	test-ro6c-mutant test-4nbn-mutant \
 	test-int24-mutant \
-	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
+	test-fileio-mutant test-kji0-mutant test-mzxa-mutant test-u6wa-mutant test-int21-edge-mutant test-exec-mutant test-command-mutant test-redir-parse-mutant test-env-mutant test-batch-mutant test-batch-exec-mutant test-ansi-mutant test-ansi-wire-mutant test-keep-mutant test-tsr-unit-mutant test-tsr-io-mutant test-devices-mutant test-int24-wired-mutant test-devwire-mutant test-40oq-mutant test-psp-mutant \
 	test-sft-mutant test-loader-mutant test-mz-mutant test-mzload-mutant test-mcb-mutant test-mcb-int21-mutant test-config-sys-mutant test-fat-write-mutant \
 	test-fat-partial-mutant test-fat-readfile-mutant test-fat-write-partial-mutant test-fat-fuzz-mutant \
 	test-fat-subdir-mutant test-fat12-mkdir-mutant test-m0bp-mutant test-m0bp-rollback-mutant test-fat-fault-rollback-mutant test-zs24-mutant test-nmpo-mutant test-qekc-mutant test-b53d-mutant test-gnrc-mutant test-gnrc-int21-mutant test-fat-move-mutant \
@@ -33693,3 +33746,81 @@ TEST_EMU_GATES += test-exec-nested test-exec-nested-mutant
 # JTC Rule-6 fixture: same 1000-tick kmain, one model object perturbed.
 # Expanded here after flair-tenants-objswap-mutant-rules is defined.
 $(eval $(call flair-tenants-objswap-mutant-rules,$(BUILD)/egg_jtc_model.o $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(BUILD)/egg_jtc_model_mutant.o $(BUILD)/kmain_flairtenants_mut_jtc_gate.o,jtc_trigger))
+
+# initech-6fdt sub-deliverable (2): TSR support in InitechDOS (spec/tsr_contract.h).
+# test-tsr boots the COMMAND.COM shell kernel; TSR.COM goes resident (AH=31h)
+# with an IRQ1 hook (Ctrl+Alt, the SideKick 1.5 chord) and an idle hook; DIR
+# and GREET.COM then run normally (GREET above the resident); WAITKEY.COM blocks
+# in AH=08h, the chord is injected, and the pop-up marker must appear BETWEEN
+# WAITKEY-WAITING and WAITKEY-GOT -- the pop-up happens inside the foreground's
+# console wait, from the idle vector, with InDOS == 1, and the page it saved
+# comes back. Mutants: TSR_MUT_NO_KEEP (31h behaves as 4Ch: GREET/WAITKEY load
+# over the resident) and TSR_MUT_NO_IDLE (the console wait never raises the idle
+# vector). Both must lose the pop-up. IBM DOS 3.30 TR pp. 6-26, 6-105/106.
+TSR_KEYS := WSHELL-READY,kt,ks,kr,kret,WSK-INSTALLED,kd,ki,kr,kret,kg,kr,ke,ke,kt,kret,WGREETINGS,kw,ka,ki,kt,kk,ke,ky,kret,WWAITKEY-WAITING,kctrl-alt,WSK-POPUP,kx,WWAITKEY-GOT,ke,kx,ki,kt,kret
+TSR_MAIN_NOIDLE := $(BUILD)/kmain_shell_secondary_noidle.o
+TSR_INT21_NOKEEP := $(BUILD)/int21_tsr_nokeep.o
+TSR_NOKEEP_OBJS := $(filter-out $(KERNEL_INT21_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(TSR_INT21_NOKEEP)
+TSR_NOIDLE_OBJS := $(filter-out $(KERNEL_SECONDARY_SHELL_MAIN_OBJ),$(KERNEL_SECONDARY_SHELL_OBJS)) $(TSR_MAIN_NOIDLE)
+$(eval $(call fixture-contract,$(BUILD)/fat_tsr.img,HELLO.TXT GREET.COM TSR.COM WAITKEY.COM))
+$(TSR_MAIN_NOIDLE): $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_MAIN_C) $(KERNEL_DIR)/command.h $(KERNEL_DIR)/sysinit.h spec/tsr_contract.h | $(BUILD)
+	$(call kernel-main-compile,-DBOOT_SHELL -DBOOT_SECONDARY_SHELL -DTSR_MUT_NO_IDLE -Ispec -I$(KERNEL_DIR),$@)
+$(TSR_INT21_NOKEEP): $(KERNEL_INT21_C) $(KERNEL_DIR)/int21.h spec/tsr_contract.h $(DOS_MESSAGES_H) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_INT21_OPT) -DTSR_MUT_NO_KEEP -Ispec -I$(KERNEL_DIR) -I$(BUILD) -c $(KERNEL_INT21_C) -o $@
+$(BUILD)/kernel_tsr_nokeep.elf: $(TSR_NOKEEP_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(TSR_NOKEEP_OBJS)
+$(BUILD)/kernel_tsr_noidle.elf: $(TSR_NOIDLE_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(TSR_NOIDLE_OBJS)
+$(BUILD)/kernel_tsr_nokeep.bin $(BUILD)/kernel_tsr_noidle.bin: $(BUILD)/%.bin: $(BUILD)/%.elf
+	$(OBJCOPY) -O binary $< $@
+	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))
+	@truncate -s $$(( $(KERNEL_SECTORS) * 512 )) $@
+$(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img: $(BUILD)/%.img: $(BUILD)/kernel_%.bin $(MBR_BIN) $(STAGE2_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $< $(BOOT_SYSTEM_TOOL)
+$(BUILD)/tsr_program.bin: os/milton/tsr_program.asm | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(BUILD)/waitkey_program.bin: os/milton/tsr_program.asm | $(BUILD)
+	$(NASM) -f bin -DTSR_WAITKEY $< -o $@
+$(BUILD)/fat_tsr.img: $(FAT_EXEC_IMG) $(BUILD)/tsr_program.bin $(BUILD)/waitkey_program.bin
+	@cp -f $< $@
+	@mcopy -o -i $@ $(BUILD)/tsr_program.bin ::TSR.COM
+	@mcopy -o -i $@ $(BUILD)/waitkey_program.bin ::WAITKEY.COM
+	@$(call fixture-check,recipe,$@)
+# $(call tsr-boot,<kernel image>,<name>) -- one scripted shell session.
+define tsr-boot
+@$(call fixture-preflight,$(BUILD)/fat_tsr.img)
+@cp -f $(BUILD)/fat_tsr.img $(BUILD)/$(2)_data.img
+@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk "$(1)" --disk2 "$(BUILD)/$(2)_data.img" \
+	--name "$(2)" --out "$(BUILD)" --mouse "$(TSR_KEYS)" --keys-after "SHELL-READY" \
+	--quit-after "SHELL-DONE" --timeout-ms 60000 2> "$(BUILD)/$(2).report" || true
+endef
+.PHONY: test-tsr test-tsr-mutant
+# $(call tsr-popup-ok,<transcript>) -- exit 0 iff the pop-up marker (InDOS=1,
+# page restored) sits strictly between WAITKEY-WAITING and WAITKEY-GOT=x.
+# The gate and both mutants grade with this ONE predicate.
+define tsr-popup-ok
+w=$$(grep -n '^WAITKEY-WAITING$$' $(1) | head -1 | cut -d: -f1); \
+p=$$(grep -n '^SK-POPUP INDOS=1 SCREEN=SAME$$' $(1) | head -1 | cut -d: -f1); \
+g=$$(grep -n '^WAITKEY-GOT=x$$' $(1) | head -1 | cut -d: -f1); \
+[ -n "$$w" ] && [ -n "$$p" ] && [ -n "$$g" ] && [ "$$w" -lt "$$p" ] && [ "$$p" -lt "$$g" ]
+endef
+test-tsr: $(HARNESS_BIN) $(SECONDARY_TRACER_IMG) $(BUILD)/fat_tsr.img
+	$(call tsr-boot,$(SECONDARY_TRACER_IMG),tsr)
+	@! grep -q 'triple_fault=1' $(BUILD)/tsr.report || { cat $(BUILD)/tsr.report; printf '!!! test-tsr RED: triple fault\n'; exit 1; }
+	@sed -n '/^SHELL-READY$$/,$$p' $(BUILD)/tsr.serial | tr -d '\r' > $(BUILD)/tsr.repl
+	@grep -q '^SK-INSTALLED$$' $(BUILD)/tsr.repl || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: TSR.COM did not install\n'; exit 1; }
+	@grep -qF 'TSR      COM' $(BUILD)/tsr.repl && grep -qF 'GREET    COM' $(BUILD)/tsr.repl || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: DIR did not run after the resident\n'; exit 1; }
+	@grep -q '^GREETINGS FROM A:GREET.COM$$' $(BUILD)/tsr.repl || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: GREET.COM did not run above the resident\n'; exit 1; }
+	@$(call tsr-popup-ok,$(BUILD)/tsr.repl) || { cat $(BUILD)/tsr.repl; printf '!!! test-tsr RED: no SK-POPUP INDOS=1 SCREEN=SAME between WAITKEY-WAITING and WAITKEY-GOT=x\n'; exit 1; }
+	@grep -q '^SHELL-DONE$$' $(BUILD)/tsr.serial || { printf '!!! test-tsr RED: the shell did not exit cleanly\n'; exit 1; }
+	@printf '>>> test-tsr: green (TSR.COM resident via AH=31h; DIR + GREET.COM ran above it; Ctrl+Alt popped it up inside WAITKEY'"'"'s AH=08h wait, InDOS=1, page restored; WAITKEY then got x)\n'
+test-tsr-mutant: test-tsr $(BUILD)/tsr_nokeep.img $(BUILD)/tsr_noidle.img
+	$(call tsr-boot,$(BUILD)/tsr_nokeep.img,tsr_nokeep)
+	$(call tsr-boot,$(BUILD)/tsr_noidle.img,tsr_noidle)
+	@tr -d '\r' < $(BUILD)/tsr_nokeep.serial > $(BUILD)/tsr_nokeep.txt; tr -d '\r' < $(BUILD)/tsr_noidle.serial > $(BUILD)/tsr_noidle.txt
+	@grep -q '^SK-INSTALLED$$' $(BUILD)/tsr_nokeep.txt || { cat $(BUILD)/tsr_nokeep.txt; printf '!!! test-tsr-mutant: TSR_MUT_NO_KEEP session never installed (infrastructure)\n'; exit 1; }
+	@if $(call tsr-popup-ok,$(BUILD)/tsr_nokeep.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_KEEP survived\n'; exit 1; fi
+	@grep -q '^WAITKEY-GOT=x$$' $(BUILD)/tsr_noidle.txt || { cat $(BUILD)/tsr_noidle.txt; printf '!!! test-tsr-mutant: TSR_MUT_NO_IDLE session broke (infrastructure)\n'; exit 1; }
+	@if $(call tsr-popup-ok,$(BUILD)/tsr_noidle.txt); then printf '!!! test-tsr-mutant FAIL: TSR_MUT_NO_IDLE survived\n'; exit 1; fi
+	@printf '>>> test-tsr-mutant: green (TSR_MUT_NO_KEEP RED: GREET loaded over the resident, %s; TSR_MUT_NO_IDLE RED: WAITKEY got x with no pop-up)\n' "$$(grep -m1 '^SK-POPUP' $(BUILD)/tsr_nokeep.txt || echo 'no SK-POPUP')"
+TEST_EMU_GATES += test-tsr test-tsr-mutant
