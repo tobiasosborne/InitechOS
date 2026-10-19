@@ -32065,6 +32065,32 @@ test-i123-keys-mutant: test-i123-keys $(foreach p,$(I123_KEYS_MUTANTS),$(BUILD)/
 	@printf '>>> test-i123-keys-mutant: green (all %s mutants caught)\n' "$(words $(I123_KEYS_MUTANTS))"
 TEST_UNIT_GATES += test-i123-keys test-i123-keys-mutant
 
+# B31 / initech-umfi: native cell hit testing -- a mouseDown in the worksheet
+# content selects the visible cell under it (audit L017), over the real
+# face_a.c + the recording mock. Expected addresses come from the Face A
+# geometry constants restated in the test (manual pp. 1-3/1-4 screen layout,
+# spec/flair_i123_traces.mk GEOMETRY) and the widths/scroll the test sets,
+# never from face_a.c. Rule 6: the mutant must go RED on H5 (after Tab).
+I123_HIT_DEPS := harness/proptest/test_i123_hit.c $(I123_QUIT_DEPS)
+I123_HIT_MUTANTS := I123_MUT_HIT_IGNORES_SCROLL:H5
+$(BUILD)/test_i123_hit: $(I123_HIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_hit_mutant_%: $(I123_HIT_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-hit test-i123-hit-mutant
+test-i123-hit: $(BUILD)/test_i123_hit
+	@mkdir -p $(BUILD)/i123-hit-fs
+	@$< $(BUILD)/i123-hit-fs
+	@printf '>>> test-i123-hit: green (first/last visible cell, borders/panel/status ignored, partial edge, after Tab and PgDn, unequal widths, entry completed first)\n'
+test-i123-hit-mutant: test-i123-hit $(foreach p,$(I123_HIT_MUTANTS),$(BUILD)/test_i123_hit_mutant_$(firstword $(subst :, ,$(p))))
+	@for p in $(I123_HIT_MUTANTS); do m=$${p%%:*}; id=$${p##*:}; log=$(BUILD)/test_i123_hit_mutant_$$m.log; \
+	 set +e; $(BUILD)/test_i123_hit_mutant_$$m $(BUILD)/i123-hit-fs > $$log 2>&1; rc=$$?; set -e; \
+	 [ $$rc -eq 1 ] && grep -q '^i123-hit: .* checks,' $$log && grep -q "FAIL $$id " $$log || \
+	 { cat $$log; printf '!!! test-i123-hit-mutant: %s wrong RED (exit %s, want FAIL %s)\n' "$$m" "$$rc" "$$id"; exit 1; }; \
+	 printf '>>> test-i123-hit-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "FAIL $$id " $$log | sed 's/^ *//')"; done
+	@printf '>>> test-i123-hit-mutant: green (all %s mutants caught)\n' "$(words $(I123_HIT_MUTANTS))"
+TEST_UNIT_GATES += test-i123-hit test-i123-hit-mutant
+
 include spec/flair_i123_entry_traces.mk
 
 include spec/flair_i123_menu_traces.mk

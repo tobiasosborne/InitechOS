@@ -1091,6 +1091,46 @@ static void key(int32_t message, int32_t mods)
     }
 }
 
+/* ---- the mouse (B31, bead initech-umfi; astra audit L017) -------------------
+ * A mouseDown in the worksheet area selects the visible cell under it. The
+ * R2.2 manual is mouse-less: direct selection is the native document-window
+ * expectation of the audit, AUTHORED (from memory, no local reference).
+ * The screen it reads is pp. 1-3/1-4 (PDF 19/20): the control panel (lines
+ * 0..2), the column letters in the top border, the row numbers in the left
+ * border, the status line -- none of these selects anything. The cell comes
+ * from THE geometry paint uses: the window's first column/row (Tab, PgDn,
+ * GOTO and the arrows move it), per-column widths walked over area_cols()'s
+ * WHOLE columns (paint_border's walk), VIS_ROWS rows; the blank strip right
+ * of the last whole column selects nothing. The resized-geometry contract is
+ * bead initech-89rc (B12): today the face keeps these constants and a resize
+ * only clips them, so a click maps the same before and after one.
+ * A click while an entry is typed or edited completes it first, as a
+ * pointer-movement key does (manual p. 1-16, PDF 32: "simultaneously
+ * complete the entry and move the cell pointer"); EDIT completes too
+ * (AUTHORED: the click is not one of EDIT's in-line cursor keys); a value
+ * that does not parse stays in EDIT and the pointer stays. Menus, prompts
+ * and notices ignore clicks. */
+static void cell_click(const tbx_event_t *ev)
+{
+    int32_t org = tbx_content_origin(g_win);
+    int ch = (ev->whereh - (int16_t)org - X0) / CW - BORDER_W;
+    int line = (ev->wherev - (org >> 16)) / CH - LINE_ROW0;
+    uint16_t c = i123_view_left(&g_sheet), r = i123_view_top(&g_sheet);
+#ifdef I123_MUT_HIT_IGNORES_SCROLL
+    /* MUTANT (Rule 6; test-i123-hit-mutant, test-flair-i123-hit-mutant): the
+     * hit maps as if the window sat at A1. NEVER real. */
+    c = 0; r = 0;
+#endif
+    if (org < 0 || g_mode >= M_MAIN || ch < 0 || line < 0 || line >= VIS_ROWS) return;
+    r = (uint16_t)(r + line);
+    if (r >= I123_MAX_ROWS) return;
+    for (uint32_t n = area_cols(); n; n--, c++)
+        if ((ch -= (int)i123_colwidth(&g_sheet, c)) < 0) {
+            if (g_mode == M_READY || !finish()) here(c, r);
+            return;
+        }
+}
+
 /* ---- THE EXIT GUARD (bead initech-fvnj; astra audit L008) --------------------
  * Every user route out of the session comes HERE: File > Quit and its Ctrl-Q
  * (one TBX_EVT_MENU, spec/toolbox_gate.h Sec 6a), the window's close box (an
@@ -1202,6 +1242,9 @@ void tbx_app_event(const tbx_event_t *ev)
     case keyDown:
     case autoKey:
         key(ev->message, ev->modifiers);
+        break;
+    case mouseDown:
+        cell_click(ev);
         break;
     case TBX_EVT_MENU:
         if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) request_quit();
