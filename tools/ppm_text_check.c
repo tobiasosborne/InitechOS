@@ -224,6 +224,9 @@ int main(int argc, char **argv)
     /* B31 (initech-umfi): after the grow, the click selected E4. */
     int i123_hit = argc == 3 && strcmp(argv[1], "--i123-hit") == 0;
     if (i123_hit) { argc = 2; argv++; }
+    /* B12 (initech-89rc): shrunk to 280 x 246, the pointer on E1 shows. */
+    int i123_resize = argc == 3 && strcmp(argv[1], "--i123-resize") == 0;
+    if (i123_resize) { argc = 2; argv++; }
     if (argc == 4 && !strcmp(argv[1], "--cells"))
         return check_cells(argv[2], argv[3]);
     if (argc >= 6 && !strcmp(argv[1], "--cursor-cycle"))
@@ -358,6 +361,33 @@ int main(int argc, char **argv)
         int ok = navy_e4 == 72*16 && navy_row == 0 && border_in > 0 && border_out == 0;
         printf("ppm_text_check: i123-hit E4 navy=%ld/1152 rest-of-row4 navy=%ld border navy in=%ld past-x420=%ld: %s\n",
                navy_e4, navy_row, border_in, border_out, ok ? "green" : "RED");
+        free(buf); return ok ? 0 : 1;
+    }
+
+    if (i123_resize) {
+        /* Same independent geometry as --i123-hit: Face A cell (char c, line
+         * L) at x 7 + 8c, y 62 + 16L. The window ends the trace at 280 x 246
+         * (frame (0,40)..(280,286)): content 253 x 203 = x 6..258, y 62..264
+         * -> 31 whole characters, 12 lines; area chars 4..30 = 3 columns of
+         * 9. The pointer on E1 with E the third shown column (C D E): chars
+         * 22..30 of line 4 (x 183..254, y 126..141) all navy, nothing else
+         * navy on row 1 inside the content; the mode indicator at the
+         * content's last five characters (chars 26..30 of line 0, x 215..254)
+         * on navy, no navy left of it on line 0; the navy column border
+         * (line 3, y 110..125) stops at the content edge x 259. */
+        if (w != 640 || h != 480) { free(buf); return 1; }
+        long navy_e1 = 0, navy_row = 0, mode = 0, line0_left = 0, border_in = 0, border_out = 0;
+        for (int y = 62; y < 142; y++)
+            for (int x = 7; x < 640; x++) {
+                unsigned char *p = buf+3*(y*w+x);
+                int navy = p[0]<8 && p[1]<8 && p[2]>=100 && p[2]<=136;
+                if (y < 78) { if (x >= 215 && x < 255) mode += navy; else if (x >= 39 && x < 215) line0_left += navy; }
+                else if (y >= 110 && y < 126) { if (x < 259) border_in += navy; else border_out += navy; }
+                else if (y >= 126 && x >= 39 && x < 259) { if (x >= 183 && x < 255) navy_e1 += navy; else navy_row += navy; }
+            }
+        int ok = navy_e1 == 72*16 && navy_row == 0 && mode > 0 && line0_left == 0 && border_in > 0 && border_out == 0;
+        printf("ppm_text_check: i123-resize E1 navy=%ld/1152 rest-of-row1 navy=%ld mode navy=%ld line0-left navy=%ld border navy in=%ld past-x259=%ld: %s\n",
+               navy_e1, navy_row, mode, line0_left, border_in, border_out, ok ? "green" : "RED");
         free(buf); return ok ? 0 : 1;
     }
 

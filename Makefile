@@ -10245,7 +10245,21 @@ TENANT_CFLAGS := $(KERNEL_CFLAGS_CDECL) -Os -fno-tree-loop-distribute-patterns \
 # on compile AND LTO link. MEASURED: F2/F5/PgUp/PgDn/Tab put 123.EXE at 66,500
 # B, 964 over the 64 KiB cap; the flag alone takes 1,547 B off the module.
 # The trap shim (tbx_rt.c) builds its own %ebp frame in asm, unaffected.
-I123_SIZE_FLAGS := -fomit-frame-pointer
+# B12 (initech-89rc): the kernel's Round 5 step 2 lever (KERNEL_R5_FLAGS, the
+# WL-0168 method: each flag measured ALONE on 123.EXE, then the kept subset).
+# MEASURED (this lane): the resized-geometry face put 123.EXE at 65,552 B, 16
+# over the 64 KiB cap (it was 65,208 before B12). Alone: -fno-tree-loop-im
+# -252, -fno-tree-sra -224, -fno-tree-dominator-opts -112, -fno-tree-scev-cprop
+# -64, -fno-move-loop-invariants -32, -fno-shrink-wrap -32, --param=max-
+# completely-peel-times=0 -36; kept together: 64,892 B (644 B under the cap).
+# Rejected by measurement (grew or did nothing): -fno-tree-tail-merge +1,664,
+# -fno-code-hoisting +196, -fno-partial-inlining 0, -fno-stack-clash-
+# protection 0. Pure codegen policy (no -ffast-math, x87 control word
+# unchanged): the test-flair-i123-* QEMU families are the proof. The cap is
+# never lifted.
+I123_SIZE_FLAGS := -fomit-frame-pointer -fno-tree-loop-im -fno-tree-sra -fno-tree-dominator-opts \
+                   -fno-tree-scev-cprop -fno-move-loop-invariants -fno-shrink-wrap \
+                   --param=max-completely-peel-times=0
 I123_LINK0 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline $(I123_SIZE_FLAGS) -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=0
 I123_LINK1 := $(KERNEL_CC) -m32 -nostdlib -no-pie -flto -Oz -fno-inline $(I123_SIZE_FLAGS) -Wl,--gc-sections,--no-warn-rwx-segments,--build-id=none -T $(TENANT_LD) -Wl,--defsym=TBX_BASE=$(TENANT_PROBE)
 define tenant-exe-rules
@@ -23813,9 +23827,21 @@ RECORD_IMAGE_i123_keys = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 # resized click's "E4:" panel. ~43 events at a 400 ms settle: the LONG image.
 RECORD_SCRIPTS += i123_hit
 RECORD_SPEC_i123_hit = $(FLAIR_I123_HIT)
-RECORD_MARKER_i123_hit = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                                                    " fg=1 bg=0 -> 0
+# RE-KEYED 2026-10-20 (bead initech-89rc, B12): the resized click's panel is
+# laid out for the 440x340 content -- "E4:" padded to 46 (51 characters less
+# the 5 of READY), was 71.
+RECORD_MARKER_i123_hit = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E4:                                           " fg=1 bg=0 -> 0
 RECORD_SETTLE_i123_hit = 400
 RECORD_IMAGE_i123_hit = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
+# i123_resize (bead initech-89rc, B12; Rule 14): the LOCKED FLAIR_I123_RESIZE
+# -- shrink to the audit's 352x246, Right to E1 (the view follows to B..E),
+# grow to 552x346, shrink to 280x246 (the view follows to C..E). Marker: the
+# last size's "E1:" panel, padded to 26 (31 characters less READY's 5).
+RECORD_SCRIPTS += i123_resize
+RECORD_SPEC_i123_resize = $(FLAIR_I123_RESIZE)
+RECORD_MARKER_i123_resize = TENANT-GATE ax=0x0033 win=1 x=1 y=0 s="E1:                       " fg=1 bg=0 -> 0
+RECORD_SETTLE_i123_resize = 400
+RECORD_IMAGE_i123_resize = $(FLAIRTENANTS_RECORDLONGDBL_IMG)
 # The EXTRA-LONG double-click record image (bead initech-mfrb): the long
 # double-click record image with the pump life doubled again
 # (-DFLAIR_TEN_TICK_BUDGET=12000, ~120 s). MEASURED (iword_typing, 99 recorded
@@ -32099,6 +32125,33 @@ test-i123-hit-mutant: test-i123-hit $(foreach p,$(I123_HIT_MUTANTS),$(BUILD)/tes
 	@printf '>>> test-i123-hit-mutant: green (all %s mutants caught)\n' "$(words $(I123_HIT_MUTANTS))"
 TEST_UNIT_GATES += test-i123-hit test-i123-hit-mutant
 
+# B12 / initech-89rc: real resized worksheet geometry (audit L018) -- ONE
+# geometry for paint, follow and hit-test, derived from the window's content
+# size (spec/toolbox_gate.h Sec 3 CONTENT_SIZE), over the real face_a.c + the
+# recording mock serving four content sizes. Expected visible columns/rows,
+# mode-indicator and status-line places are a hand table in the test (the
+# R2.2 screen pp. 1-3/1-4 on the 8x16 cell grid), never from face_a.c.
+# Rule 6: the mutant (the old 76 x 24 constants) must go RED on R3.
+I123_RESIZE_DEPS := harness/proptest/test_i123_resize.c $(I123_QUIT_DEPS)
+I123_RESIZE_MUTANTS := I123_MUT_FIXED_GEOMETRY:R3
+$(BUILD)/test_i123_resize: $(I123_RESIZE_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -o $@ $< $(I123_CORE_SRC)
+$(BUILD)/test_i123_resize_mutant_%: $(I123_RESIZE_DEPS) | $(BUILD)
+	$(CC) $(I123_QUIT_CFLAGS) -D$* -o $@ $< $(I123_CORE_SRC)
+.PHONY: test-i123-resize test-i123-resize-mutant
+test-i123-resize: $(BUILD)/test_i123_resize
+	@mkdir -p $(BUILD)/i123-resize-fs
+	@$< $(BUILD)/i123-resize-fs
+	@printf '>>> test-i123-resize: green (640x440 / 352x246 / 440x340 / 200x150 / 96x64 / collapsed content: reflowed border, rows, READY + status at the edges; L018 Right to E1 follows; shrink/grow keep the pointer visible; click, Tab, PgDn, GOTO by the window now; bars never faked)\n'
+test-i123-resize-mutant: test-i123-resize $(foreach p,$(I123_RESIZE_MUTANTS),$(BUILD)/test_i123_resize_mutant_$(firstword $(subst :, ,$(p))))
+	@for p in $(I123_RESIZE_MUTANTS); do m=$${p%%:*}; id=$${p##*:}; log=$(BUILD)/test_i123_resize_mutant_$$m.log; \
+	 set +e; $(BUILD)/test_i123_resize_mutant_$$m $(BUILD)/i123-resize-fs > $$log 2>&1; rc=$$?; set -e; \
+	 [ $$rc -eq 1 ] && grep -q '^i123-resize: .* checks,' $$log && grep -q "FAIL $$id " $$log || \
+	 { cat $$log; printf '!!! test-i123-resize-mutant: %s wrong RED (exit %s, want FAIL %s)\n' "$$m" "$$rc" "$$id"; exit 1; }; \
+	 printf '>>> test-i123-resize-mutant: %s correctly RED (%s)\n' "$$m" "$$(grep -m1 "FAIL $$id " $$log | sed 's/^ *//')"; done
+	@printf '>>> test-i123-resize-mutant: green (all %s mutants caught)\n' "$(words $(I123_RESIZE_MUTANTS))"
+TEST_UNIT_GATES += test-i123-resize test-i123-resize-mutant
+
 include spec/flair_i123_entry_traces.mk
 
 include spec/flair_i123_menu_traces.mk
@@ -32237,7 +32290,11 @@ FLAIR_I123_HIT_GATE_IMG := $(FLAIR_I123_KEYS_GATE_IMG)
 #      line 7 -> x=321 y=112, drawn after Tab's "I1:" and before "M4:";
 #   the kernel's grow record FLAIR-GROW (640,440)->(440,340) after M4;
 #   H9 after the resize: the FIRST "E4:" follows the grow record, the pointer
-#      draw at x=321 y=112 between them, READY after it.
+#      draw at x=321 y=112 between them, READY after it -- RE-KEYED 2026-10-20
+#      (bead initech-89rc, B12, stated): the face now lays out for the 440 x
+#      340 frame's content (413 px: 51 characters), so READY sits at its last
+#      five characters, chars 46..50 -> x=369 (was the 76-character face's
+#      x=569, past the shrunk content and clipped); E4's place is unchanged.
 I123_HIT_G = TENANT-GATE ax=0x0033 win=1 x=$(1) y=$(2) s="$(3)" fg=$(4) bg=$(5) -> 0
 I123_HIT_PTR = $(call I123_HIT_G,321,112,         ,0,3)
 I123_HIT_GROW = ^FLAIR-GROW win [0-9]+ \(640,440\)->\(440,340\)$$
@@ -32251,7 +32308,7 @@ I123_HIT_RESIZE_OK = f=$(1); \
 	g=$$(grep -n -E '$(I123_HIT_GROW)' $$f | head -1 | cut -d: -f1); \
 	e=$$(grep -n -E '^$(call I123_HIT_G,1,0,E4: +,1,0)$$' $$f | head -1 | cut -d: -f1); \
 	p=$$(grep -n -xF '$(I123_HIT_PTR)' $$f | awk -F: -v g="$$g" -v e="$$e" 'g!="" && e!="" && $$1>g && $$1<e{print $$1; exit}'); \
-	r=$$(grep -n -xF '$(call I123_HIT_G,569,0,READY,0,3)' $$f | awk -F: -v e="$$e" 'e!="" && $$1>e{print $$1; exit}'); \
+	r=$$(grep -n -xF '$(call I123_HIT_G,369,0,READY,0,3)' $$f | awk -F: -v e="$$e" 'e!="" && $$1>e{print $$1; exit}'); \
 	[ -n "$$m" ] && [ -n "$$g" ] && [ -n "$$e" ] && [ -n "$$p" ] && [ -n "$$r" ] && [ "$$m" -lt "$$g" ]
 .PHONY: test-flair-i123-hit test-flair-i123-hit-mutant
 test-flair-i123-hit: export INITECH_QMP_STDIO=1
@@ -32284,6 +32341,91 @@ test-flair-i123-hit-mutant: test-flair-i123-hit $(HARNESS_BIN) $(FLAIR_I123_HIT_
 	@printf '>>> test-flair-i123-hit-mutant: I123_MUT_HIT_IGNORES_SCROLL correctly RED -- the click after Tab drew "E4:", never "M4:"\n'
 	@printf '>>> test-flair-i123-hit-mutant: green\n'
 TEST_EMU_GATES += test-flair-i123-hit test-flair-i123-hit-mutant
+
+# B12 / initech-89rc QEMU leg: the LOCKED FLAIR_I123_RESIZE trace (spec/
+# flair_i123_resize_traces.mk) -- shrink the window to the audit's 352x246,
+# Right x4 to E1 (L018), grow it to 552x346, shrink it to 280x246. Image: the
+# B11 keys gate image (the SAME flair_tenants build, ONLY the bounded pump
+# life FLAIR_TEN_TICK_BUDGET=1000) -- this trace is about as long as the
+# hit one.
+include spec/flair_i123_resize_traces.mk
+FLAIR_I123_RESIZE_GATE_IMG := $(FLAIR_I123_KEYS_GATE_IMG)
+# Expected draws (Face A cell (char c, line L) -> TENANT-GATE x = 1 + 8c,
+# y = 16L; a W x H frame shows (W - 28) / 8 characters, (H - 43) / 16 lines,
+# hand-derived in the trace file, never read from face_a.c). A grow's own
+# repaint (the updateEvt of SizeWindow's damage) is drawn BEFORE the kernel
+# prints its FLAIR-GROW record (kmain flair_live_do_grow: content phase,
+# present, then the record), in paint order: line one ("<addr>:" then
+# READY), then the column border, then the rows and the pointer. So:
+#   RS1 shrink to 352x246 (40 characters, 4 columns), before its record:
+#       "A1:" padded to 35, READY at chars 35..39 -> x=281, the border A..D;
+#   RS2 Right x4 -> E1 (L018), after that record: the border B..E (the view
+#       follows), the pointer on E = area chars 27..35 -> char 31 -> x=249
+#       y=64, "E1:" padded to 35, READY x=281 -- in that order;
+#   RS3 grow to 552x346 (65 characters, 6 columns), after RS2 and before its
+#       record: "E1:" padded to 60, READY x=481, the border B..G (no
+#       scroll), the pointer still x=249 y=64;
+#   RS4 shrink to 280x246 (31 characters, 3 columns), between the 552 and
+#       the 280 records: "E1:" padded to 26, READY x=209, the border C..E
+#       (the view follows), the pointer on E = char 22 -> x=177 y=64;
+#   and the screendump (ppm_text_check --i123-resize) shows the last state.
+I123_RS_G = ^TENANT-GATE ax=0x0033 win=1 x=$(1) y=$(2) s="$(3)" fg=$(4) bg=$(5) -> 0$$
+I123_RS_GROW = ^FLAIR-GROW win [0-9]+ \($(1),$(2)\)->\($(3),$(4)\)$$
+I123_RS_NX = nx() { grep -n -E "$$2" $$f | awk -F: -v a="$$1" 'a!="" && $$1>a{print $$1; exit}'; }; \
+	g1=$$(nx 0 '$(call I123_RS_GROW,640,440,352,246)'); g2=$$(nx 0 '$(call I123_RS_GROW,352,246,552,346)'); \
+	g3=$$(nx 0 '$(call I123_RS_GROW,552,346,280,246)'); lt() { [ -n "$$1" ] && [ -n "$$2" ] && [ "$$1" -lt "$$2" ]; }
+I123_RS1_OK = f=$(1); $(I123_RS_NX); \
+	e=$$(nx 0 '$(call I123_RS_G,1,0,A1: {32},1,0)'); r=$$(nx "$$e" '$(call I123_RS_G,281,0,READY,0,3)'); \
+	b=$$(nx "$$r" '$(call I123_RS_G,1,48, {8}A {8}B {8}C {8}D {4},0,3)'); lt "$$b" "$$g1"
+I123_RS2_OK = f=$(1); $(I123_RS_NX); \
+	b=$$(nx "$$g1" '$(call I123_RS_G,1,48, {8}B {8}C {8}D {8}E {4},0,3)'); p=$$(nx "$$b" '$(call I123_RS_G,249,64, {9},0,3)'); \
+	e=$$(nx "$$p" '$(call I123_RS_G,1,0,E1: {32},1,0)'); r=$$(nx "$$e" '$(call I123_RS_G,281,0,READY,0,3)'); \
+	[ -n "$$b" ] && lt "$$r" "$$g2"
+I123_RS3_OK = f=$(1); $(I123_RS_NX); \
+	l=$$(nx "$$g1" '$(call I123_RS_G,281,0,READY,0,3)'); \
+	e=$$(nx "$$l" '$(call I123_RS_G,1,0,E1: {57},1,0)'); r=$$(nx "$$e" '$(call I123_RS_G,481,0,READY,0,3)'); \
+	b=$$(nx "$$r" '$(call I123_RS_G,1,48, {8}B {8}C {8}D {8}E {8}F {8}G {11},0,3)'); p=$$(nx "$$b" '$(call I123_RS_G,249,64, {9},0,3)'); \
+	[ -n "$$l" ] && lt "$$p" "$$g2"
+I123_RS4_OK = f=$(1); $(I123_RS_NX); \
+	e=$$(nx "$$g2" '$(call I123_RS_G,1,0,E1: {23},1,0)'); r=$$(nx "$$e" '$(call I123_RS_G,209,0,READY,0,3)'); \
+	b=$$(nx "$$r" '$(call I123_RS_G,1,48, {8}C {8}D {8}E {4},0,3)'); p=$$(nx "$$b" '$(call I123_RS_G,177,64, {9},0,3)'); \
+	[ -n "$$e" ] && lt "$$p" "$$g3"
+.PHONY: test-flair-i123-resize test-flair-i123-resize-mutant
+test-flair-i123-resize: export INITECH_QMP_STDIO=1
+test-flair-i123-resize: $(HARNESS_BIN) $(FLAIR_I123_RESIZE_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_resize,$(FLAIR_I123_RESIZE_GATE_IMG),$(FLAIR_DATA_IMG),FLAIR_I123_RESIZE,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_resize.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f || { printf '!!! test-flair-i123-resize FAIL: launch/desktop\n'; exit 1; }
+	@! grep -Eq 'KBD-RING-DROP|FLAIR-EVT-DROP' $(BUILD)/flair_i123_resize.serial || { printf '!!! test-flair-i123-resize FAIL: input ring overrun\n'; exit 1; }
+	@$(call I123_RS1_OK,$(BUILD)/flair_i123_resize.serial) || { printf '!!! test-flair-i123-resize FAIL: RS1 shrunk to 352x246, READY not at the content edge (x=281)\n'; exit 1; }
+	@$(call I123_RS2_OK,$(BUILD)/flair_i123_resize.serial) || { printf '!!! test-flair-i123-resize FAIL: RS2 (L018) Right to E1 at 352x246 -- border B..E, pointer x=249, "E1:", READY\n'; exit 1; }
+	@$(call I123_RS3_OK,$(BUILD)/flair_i123_resize.serial) || { printf '!!! test-flair-i123-resize FAIL: RS3 grown to 552x346 -- border B..G, pointer x=249, READY x=481\n'; exit 1; }
+	@$(call I123_RS4_OK,$(BUILD)/flair_i123_resize.serial) || { printf '!!! test-flair-i123-resize FAIL: RS4 shrunk to 280x246 -- border C..E, pointer x=177, READY x=209\n'; exit 1; }
+	$(PPM_TEXT_CHECK_BIN) --i123-resize $(BUILD)/flair_i123_resize.ppm
+	@printf '>>> test-flair-i123-resize: green (QEMU: shrink 640x440->352x246, Right to E1 scrolls to B..E; grow 552x346 keeps B..G; shrink 280x246 follows to C..E; TENANT-GATE draws + screendump)\n'
+# Rule 6 mutant: a gate-local volume whose 123.EXE keeps the 76 x 24 face
+# (-DI123_MUT_FIXED_GEOMETRY), same image and trace. RED for the right reason:
+# 123 up, all three grows done, E1 reached -- but no reflowed draw ever: the
+# E1 pointer at x=321 (column E of A..H, past the 352-px content's last whole
+# character) and READY at x=569 (clipped). Nothing in the clean gate is relaxed.
+FLAIR_DATA_I123_FIXEDGEO_IMG := $(BUILD)/flair_data_i123_fixedgeo.img
+$(eval $(call tenant-exe-rules,i123_fixedgeo,$(I123_APP_SRC),-Ios/i123/core -DI123_MUT_FIXED_GEOMETRY,$(I123_APP_DEP),))
+$(eval $(call flair-data-rules,$(FLAIR_DATA_I123_FIXEDGEO_IMG),$(TENANTFX_EXE),$(BUILD)/tenant/i123_fixedgeo.exe,$(IWORD_EXE),))
+test-flair-i123-resize-mutant: export INITECH_QMP_STDIO=1
+test-flair-i123-resize-mutant: test-flair-i123-resize $(HARNESS_BIN) $(FLAIR_I123_RESIZE_GATE_IMG) $(FLAIR_DATA_I123_FIXEDGEO_IMG) $(PPM_TEXT_CHECK_BIN)
+	$(call appl-boot,flair_i123_resize_mut,$(FLAIR_I123_RESIZE_GATE_IMG),$(FLAIR_DATA_I123_FIXEDGEO_IMG),FLAIR_I123_RESIZE,--screendump --screendump-after FLAIR-LIVE-OK)
+	@f=$(BUILD)/flair_i123_resize_mut.serial; $(call APPL_ALIVE,$$f) && grep -qx 'TENANT-REGISTER ok app=123' $$f && \
+	 grep -qE '$(call I123_RS_GROW,552,346,280,246)' $$f && \
+	 grep -qE '$(call I123_RS_G,321,64, {9},0,3)' $$f && grep -qE '$(call I123_RS_G,1,0,E1: {68},1,0)' $$f || \
+	 { printf '!!! test-flair-i123-resize-mutant FAIL: FIXED_GEOMETRY went RED for the wrong reason (want: 123 up, the grows done, E1 drawn on the 76-character face)\n'; exit 1; }
+	@for leg in 1 2 3 4; do \
+	 case $$leg in 1) $(call I123_RS1_OK,$(BUILD)/flair_i123_resize_mut.serial) ;; 2) $(call I123_RS2_OK,$(BUILD)/flair_i123_resize_mut.serial) ;; \
+	  3) $(call I123_RS3_OK,$(BUILD)/flair_i123_resize_mut.serial) ;; 4) $(call I123_RS4_OK,$(BUILD)/flair_i123_resize_mut.serial) ;; esac && \
+	 { printf '!!! test-flair-i123-resize-mutant FAIL: FIXED_GEOMETRY PASSED leg RS%s -- the QEMU leg is decoration\n' $$leg; exit 1; }; done; true
+	@if $(PPM_TEXT_CHECK_BIN) --i123-resize $(BUILD)/flair_i123_resize_mut.ppm; then \
+	 printf '!!! test-flair-i123-resize-mutant FAIL: FIXED_GEOMETRY PASSED the screendump check\n'; exit 1; fi
+	@printf '>>> test-flair-i123-resize-mutant: I123_MUT_FIXED_GEOMETRY correctly RED -- E1 drawn at x=321 on the 76-character face, never reflowed (RS1..RS4 and the screendump all RED)\n'
+	@printf '>>> test-flair-i123-resize-mutant: green\n'
+TEST_EMU_GATES += test-flair-i123-resize test-flair-i123-resize-mutant
 I123_MENU_ROW := $(I123_E)      10      -20       40                        -80      160       80 $(I123_E)
 # RE-KEYED 2026-10-16 (bead initech-tdnl.51, stated): the /Range menu line is
 # clipped at the 76-cell face (was 77), so it ends "Trans  Sear" (was "Searc").
