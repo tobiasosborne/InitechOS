@@ -14120,11 +14120,17 @@ TEST_EVENT_SRC := harness/proptest/test_event.c
 TEST_EVENT_MUT_DROP  := $(BUILD)/test_event_mutant_drop
 TEST_EVENT_MUT_WHERE := $(BUILD)/test_event_mutant_where
 TEST_EVENT_MUT_SET1  := $(BUILD)/test_event_mutant_set1
+TEST_EVENT_RECORD := $(BUILD)/test_event_record
+TEST_EVENT_MUT_RECORD := $(BUILD)/test_event_mutant_record
 TEST_EVENT_DEPS := harness/proptest/expect_abort.h os/flair/ring_report.h os/flair/event.c os/flair/event.h spec/event_model.h spec/grafport.h
 EVENT_INC := -Ios/flair -Ispec -Iseed
 
 $(TEST_EVENT): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+$(TEST_EVENT_RECORD): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DBLCLICK_TICKS=3000u $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
+$(TEST_EVENT_MUT_RECORD): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DFINDER_DBLCLICK_TICKS=3000u -DRECORD_MUT_IGNORE_DBLCLICK_DEFINE $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_MUT_DROP): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_DROP_SYNTH $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 $(TEST_EVENT_MUT_WHERE): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
@@ -14133,18 +14139,22 @@ $(TEST_EVENT_MUT_WHERE): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 $(TEST_EVENT_MUT_SET1): $(TEST_EVENT_SRC) $(TEST_EVENT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DEVENT_MUTATE_SET1_BREAK_BLIND $(EVENT_INC) -o $@ $(TEST_EVENT_SRC) os/flair/event.c
 
-test-event: $(TEST_EVENT)
+test-event: $(TEST_EVENT) $(TEST_EVENT_RECORD)
 	@printf ">>> test-event: ISR-enqueue SPSC ring + WaitNextEvent deterministic replay (raw trace -> EventRecord sequence, D-4/D-8)\n"
 	@$(TEST_EVENT)
+	@$(TEST_EVENT_RECORD)
 	@$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) $(EVENT_INC) -c os/flair/event.c -o $(BUILD)/event_freestanding.o \
 		|| { printf '!!! test-event FAIL: event.c does NOT compile freestanding (Law 3)\n'; exit 1; }
 	@printf ">>> test-event: green\n"
 
-test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE) $(TEST_EVENT_MUT_SET1)
-	@printf ">>> test-event-mutant: confirming all three mutants go RED (Rule 6)\n"
+test-event-mutant: $(TEST_EVENT_MUT_DROP) $(TEST_EVENT_MUT_WHERE) $(TEST_EVENT_MUT_SET1) $(TEST_EVENT_MUT_RECORD)
+	@printf ">>> test-event-mutant: confirming all four mutants go RED (Rule 6)\n"
 	@if $(TEST_EVENT_MUT_DROP) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: DROP_SYNTH PASSED -- the synthesis oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (DROP_SYNTH correctly RED)\n'; fi
 	@if $(TEST_EVENT_MUT_WHERE) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: STALE_WHERE PASSED -- the cursor-tracking oracle is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (STALE_WHERE correctly RED)\n'; fi
 	@if $(TEST_EVENT_MUT_SET1) >/dev/null 2>&1; then printf '!!! test-event-mutant FAIL: SET1_BREAK_BLIND PASSED -- the modifier-release oracle (G11, initech-tdnl.58) is decoration\n'; exit 1; else printf '>>> test-event-mutant: green (SET1_BREAK_BLIND correctly RED -- released modifiers latch)\n'; fi
+	@if $(TEST_EVENT_MUT_RECORD) > $(BUILD)/test_event_mutant_record.log 2>&1; then printf '!!! test-event-mutant FAIL: RECORD_MUT_IGNORE_DBLCLICK_DEFINE survived\n'; exit 1; fi
+	@grep -q 'FAIL.*record double-click interval seeds 3000 ticks at init' $(BUILD)/test_event_mutant_record.log
+	@printf '>>> test-event-mutant: green (RECORD_MUT_IGNORE_DBLCLICK_DEFINE correctly RED -- record seed ignored)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-mouse-producer (beads initech-8f5p; blocks initech-rgt8) --
@@ -23597,19 +23607,21 @@ FLAIRTENANTS_RECORD_IMG := $(BUILD)/flair_tenants_mut_record.img
 # budget, the drag guard and the double-click interval -- and mutates nothing an
 # oracle grades. The DEFAULT $(FLAIRTENANTS_IMG) keeps 250 / 150 / 20.
 #
-# It swaps TWO objects (kmain + finder_desktop), which no existing template
-# does, so it gets its own explicit rules rather than a $(call) that would have
-# to grow a second knob argument.
-$(BUILD)/finder_desktop_recorddbl.o: os/flair/finder_desktop.c os/flair/finder_desktop.h os/flair/finder_icon.h os/flair/window.h os/flair/winscroll.h os/flair/process.h os/flair/heap.h os/flair/blitter.h os/flair/text.h os/flair/surface.h os/flair/flair_look.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/geneva9.h spec/region_algebra.h spec/window_record.h spec/grafport.h spec/event_model.h | $(BUILD)
-	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_TENANTS_OPT) -DFINDER_DBLCLICK_TICKS=3000u -Ios/flair -Ios/flair/atkinson -Ispec -Ispec/assets -c os/flair/finder_desktop.c -o $@
+# initech-9gxs: Finder and Standard File consume event.c's runtime interval.
+# Seed it in the Event Manager, including init after preferences load; the
+# default event.o and all gate/flagship kernels keep the normal Mouse setting.
+$(BUILD)/event_recorddbl.o: $(TEST_EVENT_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -DFINDER_DBLCLICK_TICKS=3000u $(EVENT_INC) -c os/flair/event.c -o $@
+$(BUILD)/event_recorddbl_mut_ignore.o: $(TEST_EVENT_DEPS) | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_PURE_DECODE_FLAGS) -DFINDER_DBLCLICK_TICKS=3000u -DRECORD_MUT_IGNORE_DBLCLICK_DEFINE $(EVENT_INC) -c os/flair/event.c -o $@
 
 # The record kernel's console keeps a STEADY cursor (console.c CONSOLE_RECORD_CURSOR_STEADY):
 # per-event clip frames are grabbed on a wall-clock settle and the tick-phase blink made
 # record-flair-repro flap on the DOS-prompt frames of tps_journey (PM 2026-10-17).
 $(BUILD)/console_record.o: $(KERNEL_CONSOLE_C) $(KERNEL_DIR)/console.h $(KERNEL_DIR)/boot_info.h os/flair/surface.h | $(BUILD)
 	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_CONSOLE_OPT) -DCONSOLE_RECORD_CURSOR_STEADY -I$(KERNEL_DIR) -Ios/flair -c $(KERNEL_CONSOLE_C) -o $@
-$(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(BUILD)/console_record.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/finder_desktop_recorddbl.o $(BUILD)/console_record.o @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_recorddbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/event_recorddbl.o $(BUILD)/console_record.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/event_recorddbl.o $(BUILD)/console_record.o @$(TRANSIENT_IMPORTS_LD)
 
 $(BUILD)/kernel_flairtenants_recorddbl.bin: $(BUILD)/kernel_flairtenants_recorddbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
@@ -23628,14 +23640,38 @@ $(BUILD)/flair_tenants_recorddbl.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_f
 
 FLAIRTENANTS_RECORDDBL_IMG := $(BUILD)/flair_tenants_recorddbl.img
 
+# Rule 6 / initech-9gxs: same record image, one Event Manager branch ignored.
+# Keep mutant artifacts separate so a RED capture cannot overwrite a clean clip.
+$(BUILD)/kernel_flairtenants_recorddbl_mut_ignore.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/event_recorddbl_mut_ignore.o $(BUILD)/console_record.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ) $(KERNEL_CONSOLE_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_record.o $(BUILD)/event_recorddbl_mut_ignore.o $(BUILD)/console_record.o @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_recorddbl_mut_ignore.bin: $(BUILD)/kernel_flairtenants_recorddbl_mut_ignore.elf | $(BUILD)
+	$(OBJCOPY) -O binary $< $@
+	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
+	if [ "$$sz" -gt "$$max" ]; then printf '!!! record dblclick mutant exceeds kernel window\n'; exit 1; fi; \
+	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none
+	$(call kernel-end-guard,$<,flairtenants-recorddbl-mut-ignore)
+$(BUILD)/flair_tenants_recorddbl_mut_ignore.img: $(MBR_BIN) $(STAGE2_BIN) $(BUILD)/kernel_flairtenants_recorddbl_mut_ignore.bin $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT) $(BUILD)/transient_kernel_flairtenants_recorddbl_mut_ignore.bin | $(BUILD)
+	$(call exitdos-image-recipe,$(BUILD)/kernel_flairtenants_recorddbl_mut_ignore.bin,$(BUILD)/transient_kernel_flairtenants_recorddbl_mut_ignore.bin)
+
+.PHONY: record-flair-mutant
+record-flair-mutant: $(BUILD)/flair_tenants_recorddbl_mut_ignore.img
+	+@INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory -j3 record-flair SCRIPT=dos_folder
+	@if INITECH_QMP_STDIO=1 $(MAKE) --no-print-directory -j3 record-flair SCRIPT=dos_folder \
+		RECORD_IMAGE_dos_folder=$(BUILD)/flair_tenants_recorddbl_mut_ignore.img \
+		RECORD_CLIPS_DIR=$(BUILD)/clips/dblclick-mutant > $(BUILD)/record_dblclick_mutant.log 2>&1; then \
+		printf '!!! record-flair-mutant FAIL: RECORD_MUT_IGNORE_DBLCLICK_DEFINE survived\n'; exit 1; fi
+	@grep -Fx '!!! record-flair [dos_folder]: required interaction marker missing: FINDER-OPEN-FOLDER name=DOS win=1 singleton=0' $(BUILD)/record_dblclick_mutant.log
+	@! grep -q '^FINDER-OPEN-VOLUME ' $(BUILD)/clips/dblclick-mutant/rec_dos_folder.serial
+	@printf '>>> record-flair-mutant: green (RECORD_MUT_IGNORE_DBLCLICK_DEFINE correctly RED -- DOS folder marker missed)\n'
+
 # The LONG double-click record image (bead initech-tdnl.71): the double-click
 # record image with the pump life doubled (-DFLAIR_TEN_TICK_BUDGET=6000, ~60 s).
 # MEASURED: the 96-event menu_long trace spends ~0.4 s per recorded frame and
 # outlived the 3000-tick life (FLAIR-TRACK-EXPIRED mid-gesture). It widens a
 # demo bound only; nothing an oracle grades changes.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=6000,recordlong))
-$(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/finder_desktop_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_recordlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/event_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordlong.o $(BUILD)/event_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_recordlongdbl.bin: $(BUILD)/kernel_flairtenants_recordlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -23710,8 +23746,8 @@ RECORD_DATA_i123_quit_guard = $(FLAIR_I123_QUIT_DATA)
 # four moves complete the 500-tick copy at 125 ticks each, so the up/MID/DONE frames are
 # deterministic under record-flair-repro (PM 2026-10-17).
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=12000 -DFILECOPY_RECORD_STEP=125,recordxlong))
-$(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
-	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_FINDER_DESKTOP_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/finder_desktop_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
+$(BUILD)/kernel_flairtenants_recordxlongdbl.elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/event_recorddbl.o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
+	$(KERNEL_LINK) -o $@ $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ) $(KERNEL_EVENT_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_recordxlong.o $(BUILD)/event_recorddbl.o @$(TRANSIENT_IMPORTS_LD)
 $(BUILD)/kernel_flairtenants_recordxlongdbl.bin: $(BUILD)/kernel_flairtenants_recordxlongdbl.elf | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
 	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
@@ -24117,7 +24153,7 @@ record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL
 	@# life runs out; events injected after that are LOST while the frames keep
 	@# coming (frozen). The harness counts them -- any nonzero count is RED, and
 	@# the remedy is a widened-budget record image VARIANT, never a bigger default.
-	@grep -q '^\[harness\] record_events_after_end=0 ' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" \
+	@grep -q '^\[harness\] record_events_after_end=0 first_dead_event=0 ' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" \
 		|| { printf '!!! record-flair [%s]: the guest pump life ended mid-trace (FLAIR-LIVE-OK) -- events went to a HALTED guest:\n' "$(SCRIPT)"; \
 		     grep '^\[harness\] record_events_after_end=' "$(RECORD_CLIPS_DIR)/rec_$(SCRIPT).report" || printf '    (no record_events_after_end line in the report)\n'; \
 		     printf '    point RECORD_IMAGE_%s at a record image with a longer FLAIR_TEN_TICK_BUDGET\n' "$(SCRIPT)"; exit 1; }

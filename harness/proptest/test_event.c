@@ -972,8 +972,30 @@ static void test_drop_marker(void)
                   "FLAIR-EVT-DROP\n", "owpg event drop reported exactly once in task context");
 }
 
+/* Ref: spec/cpanels/record.json (normal = 20 ticks), event.c DEC-10,
+ * finder_desktop.h F2-5 and Makefile's DBL record-image contract.
+ * Preferences load before Event Manager init: the record seed must also
+ * survive that startup ordering, not merely a static initializer. */
+static void test_double_click_seed(void)
+{
+    flair_raw_ring_t ring;
+    fresh_ring(&ring);
+#ifdef FINDER_DBLCLICK_TICKS
+    CHECK(flair_double_click_ticks == 3000u,
+          "record double-click interval seeds 3000 ticks at init");
+    flair_double_click_ticks = 10u;
+    fresh_ring(&ring);
+    CHECK(flair_double_click_ticks == 3000u,
+          "record double-click seed survives preferences before init");
+#else
+    CHECK(flair_double_click_ticks == 20u,
+          "normal double-click interval remains 20 ticks");
+#endif
+}
+
 int main(void)
 {
+    test_double_click_seed();
     test_deterministic_replay();
     test_deterministic_replay2();
     test_mask_filtering();
