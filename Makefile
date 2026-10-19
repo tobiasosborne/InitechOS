@@ -11193,6 +11193,90 @@ test-flair-cursor-mutant: $(BUILD)/flair_tenants_mut_cursor_squared.img
 		|| { cat $(BUILD)/flair_cursor_mut_squared.log; printf '!!! test-flair-cursor-mutant FAIL: old strike did not fail on the independent crop\n'; exit 1; }; \
 	printf '>>> test-flair-cursor-mutant: green (CURSOR_MUT_SQUARED_STEM RED -- 48/256 cells against Mac capture)\n'
 
+# --- initech-vzjy: THE ARROW AT BOOT (operator-visible P1, third report) -----
+# The interactive desktop showed no pointer until the first PS/2 packet (the
+# first-activity DEC, cursor.h), and every gate trace starts with a mouse move,
+# which hid it. Mac OS 8.1 draws the arrow at (320,240) from the Starting Up
+# panel on (../system7-decomp/re/mint-results-009.md Sec 1; crop origin
+# (319,239) in s8_startup_panel/last/after.png + s8_icons_boot.png). Two boots of
+# the SAME interactive image:
+#   leg A: NO input; still at FLAIR-LIVE-READY -- the arrow must already be at
+#          (320,240), AFTER the splash->desktop repaint (serial order
+#          FLAIR-BOOT-SCREEN < FLAIR-CURSOR x=320 y=240 < FLAIR-LIVE-READY);
+#   leg B: the locked M009 trace moves it to (500,380); that still is graded
+#          as test-flair-cursor does AND is leg A's cursor-free reference for
+#          the clear cells (the boot position lies over composited desktop).
+# Grader: ppm_flair_cursor_check, all 256 cells at zero tolerance vs the
+# independent Mac crop (Law 2). Mutant: CURSOR_MUT_HIDE_AT_BOOT (kmain.c).
+FLAIR_CURSOR_BOOT_NAME  := flair_cursor_boot
+FLAIR_CURSOR_BOOT_IMAGE ?= $(FLAIRTENANTS_INTERACTIVE_IMG)
+.PHONY: test-flair-cursor-boot
+test-flair-cursor-boot: $(HARNESS_BIN) $(FLAIR_CURSOR_BOOT_IMAGE) $(FLAIR_DATA_IMG) $(PPM_FLAIR_CURSOR_CHECK_BIN)
+	@printf '======================================================================\n'
+	@printf 'InitechOS (STAPLER) -- make test-flair-cursor-boot : the arrow is on screen at boot, NO input\n'
+	@printf '  leg A: still at FLAIR-LIVE-READY, arrow at the Mac OS 8.1 boot position (320,240);\n'
+	@printf '  leg B: M009 trace -> (500,380) (the cursor-free reference for leg A).\n'
+	@printf '  bead initech-vzjy; mint-results-009 Sec 1; PRD Sec 6.3; Law 2/4, Rules 6/11/12.\n'
+	@printf '======================================================================\n'
+	@$(call fixture-preflight,$(FLAIR_DATA_IMG))
+	cp -f $(FLAIR_DATA_IMG) $(FLAIR_GATE_DATA)
+	@$(if $(call fixture-spec,$(FLAIR_DATA_IMG)),$(call fixture-check,harness,$(FLAIR_GATE_DATA),$(call fixture-spec,$(FLAIR_DATA_IMG))),:)
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_BOOT_NAME)_a" --out "$(BUILD)" \
+		--screendump --screendump-after "FLAIR-LIVE-READY" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" || true
+	@$(HARNESS_BIN) --disk "$(FLAIR_CURSOR_BOOT_IMAGE)" --disk2 "$(FLAIR_GATE_DATA)" \
+		--expect FLAIR-FAT-MOUNT-OK --name "$(FLAIR_CURSOR_BOOT_NAME)_b" --out "$(BUILD)" \
+		--mouse "$(FLAIR_CURSOR_SPEC)" --keys-after "FLAIR-LIVE-READY" --keys-after-ms 15000 \
+		--screendump --screendump-after "FLAIR-CURSOR x=500 y=380" --timeout-ms 20000 \
+		2> "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.report" || true
+	@cat "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.report"
+	@if grep -q 'triple_fault=1' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.report" "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.report"; then \
+		printf '!!! test-flair-cursor-boot FAIL: TRIPLE FAULT\n'; exit 1; \
+	fi
+	@for leg in a b; do \
+		grep -q '^FLAIR-LIVE-READY$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_$$leg.serial" \
+			|| { printf '!!! test-flair-cursor-boot FAIL: leg %s FLAIR-LIVE-READY missing\n' "$$leg"; exit 1; }; \
+		grep -qxF 'FLAIR-FAT-MOUNT-OK' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_$$leg.serial" \
+			|| { printf '!!! test-flair-cursor-boot FAIL: leg %s FLAIR-FAT-MOUNT-OK missing\n' "$$leg"; exit 1; }; \
+		[ -s "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_$$leg.ppm" ] \
+			|| { printf '!!! test-flair-cursor-boot FAIL: leg %s marker-gated screendump missing\n' "$$leg"; exit 1; }; \
+	done
+	@# Leg B first: the M009 arrow at (500,380) on the interactive image (its still
+	@# is then a proven cursor-free reference at the centre: save-under restored).
+	@grep -q '^FLAIR-CURSOR x=500 y=380$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.serial" \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg B position marker missing\n'; grep '^FLAIR-CURSOR ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.serial" || true; exit 1; }
+	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.ppm" $(CURSOR_CAPTURES) \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg B -- the tracked arrow at (500,380) differs from the Mac crop\n'; exit 1; }
+	@# Leg A: the pixels first (the mutant's RED line), then the serial order.
+	@$(PPM_FLAIR_CURSOR_CHECK_BIN) "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.ppm" $(CURSOR_CAPTURES) 320 240 "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_b.ppm" \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg A -- NO arrow at the Mac OS 8.1 boot position (320,240) with no input\n'; exit 1; }
+	@if grep -q '^FLAIR-EVT ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial"; then \
+		printf '!!! test-flair-cursor-boot FAIL: leg A saw input (FLAIR-EVT) -- not a no-input still\n'; exit 1; \
+	fi
+	@bs=$$(grep -n -m1 '^FLAIR-BOOT-SCREEN$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | cut -d: -f1); \
+	 cu=$$(grep -n -m1 '^FLAIR-CURSOR x=320 y=240$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | cut -d: -f1); \
+	 rd=$$(grep -n -m1 '^FLAIR-LIVE-READY$$' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | cut -d: -f1); \
+	 [ -n "$$bs" ] && [ -n "$$cu" ] && [ "$$bs" -lt "$$cu" ] && [ "$$cu" -lt "$$rd" ] \
+		|| { printf '!!! test-flair-cursor-boot FAIL: leg A serial order (BOOT-SCREEN=%s CURSOR=%s READY=%s): the arrow must be shown AFTER the splash->desktop repaint and BEFORE the pump arms\n' "$$bs" "$$cu" "$$rd"; exit 1; }; \
+	 printf '>>> test-flair-cursor-boot: leg A serial order FLAIR-BOOT-SCREEN(%s) < FLAIR-CURSOR x=320 y=240(%s) < FLAIR-LIVE-READY(%s)\n' "$$bs" "$$cu" "$$rd"
+	@if grep '^FLAIR-CURSOR ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial" | grep -qv '^FLAIR-CURSOR x=320 y=240$$'; then \
+		printf '!!! test-flair-cursor-boot FAIL: leg A moved the arrow without input\n'; grep '^FLAIR-CURSOR ' "$(BUILD)/$(FLAIR_CURSOR_BOOT_NAME)_a.serial"; exit 1; \
+	fi
+	@printf 'VERDICT   : PASS -- the arrow is on the desktop at (320,240) before any input, survives the splash->desktop repaint, and tracks to (500,380)\n'
+	@printf '======================================================================\n'
+
+# Rule-6 twin: the interactive kernel with the boot show compiled out (the
+# pre-fix behaviour); leg A must go RED on the pixels at (320,240).
+$(eval $(call flair-tenants-kmain-mutant-rules,CURSOR_MUT_HIDE_AT_BOOT -DFLAIR_LIVE_INTERACTIVE,cursorhideboot))
+.PHONY: test-flair-cursor-boot-mutant
+test-flair-cursor-boot-mutant: $(BUILD)/flair_tenants_mut_cursorhideboot.img
+	@rc=0; $(MAKE) --no-print-directory test-flair-cursor-boot FLAIR_CURSOR_BOOT_IMAGE=$(BUILD)/flair_tenants_mut_cursorhideboot.img FLAIR_CURSOR_BOOT_NAME=flair_cursor_boot_mut_hide \
+		>$(BUILD)/flair_cursor_boot_mut_hide.log 2>&1 || rc=$$?; \
+	[ "$$rc" -ne 0 ] && grep -qF 'RED M009 hotspot=(320,240)' $(BUILD)/flair_cursor_boot_mut_hide.log \
+		|| { cat $(BUILD)/flair_cursor_boot_mut_hide.log; printf '!!! test-flair-cursor-boot-mutant FAIL: CURSOR_MUT_HIDE_AT_BOOT survived -- the no-input still did not go RED on the pixels\n'; exit 1; }; \
+	printf '>>> test-flair-cursor-boot-mutant: green (CURSOR_MUT_HIDE_AT_BOOT RED -- %s)\n' "$$(grep -m1 'RED M009 hotspot=(320,240)' $(BUILD)/flair_cursor_boot_mut_hide.log | sed 's/^ppm_flair_cursor_check: //')"
+
 .PHONY: test-flair-mouse-mutant
 test-flair-mouse-mutant: $(HARNESS_BIN) $(FLAIRLIVE_MUT_MOUSE_IMG) $(FLAIRLIVE_MUT_EOI_IMG)
 	@printf '======================================================================\n'
@@ -23954,6 +24038,21 @@ RECORD_MARKER_boot_screen = FLAIR-BOOT-SCREEN
 RECORD_IMAGE_boot_screen = $(FLAIRTENANTS_BOOTHOLD_IMG)
 RECORD_DATA_boot_screen = $(FLAIR_DATA_IMG)
 RECORD_SETTLE_boot_screen = 200
+
+# cursor_boot (bead initech-vzjy; Rule 14): the arrow is on the desktop the
+# moment the splash gives way, with NO input. The record image is the bounded
+# gate kernel with the interactive boot behaviour switched on by its two knobs
+# (the splash hold + FLAIR_CURSOR_AT_BOOT); the record machinery needs the
+# bounded pump's FLAIR-LIVE-OK end marker, which the interactive image never
+# emits. Frame 0 is the splash, the next the desktop with the arrow at (320,240).
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_CURSOR_AT_BOOT -DFLAIR_BOOT_HOLD_TICKS=200,cursorboot))
+RECORD_SCRIPTS += cursor_boot
+RECORD_SPEC_cursor_boot = w300,WFLAIR-LIVE-READY,w800
+RECORD_KEYS_AFTER_cursor_boot = FLAIR-BOOT-SCREEN
+RECORD_MARKER_cursor_boot = FLAIR-CURSOR x=320 y=240
+RECORD_IMAGE_cursor_boot = $(BUILD)/flair_tenants_mut_cursorboot.img
+RECORD_DATA_cursor_boot = $(FLAIR_DATA_IMG)
+RECORD_SETTLE_cursor_boot = 200
 include spec/flair_toolbox_hardening_trace.mk
 # Rule 14: PM records this after merge. Must precede record-flair (parse time).
 RECORD_SCRIPTS += toolbox_hardening
@@ -30474,6 +30573,7 @@ TEST_EMU_GATES := \
 	test-samir-report-emu test-samir-report-emu-mutant \
 	test-flair-data-volume test-flair-data-volume-mutant \
 	test-flair-cursor test-flair-cursor-mutant \
+	test-flair-cursor-boot test-flair-cursor-boot-mutant \
 	test-flair-close-terminate test-flair-close-terminate-mutant test-flair-modal-block \
 	test-harness test-tracer-boot test-boot-bochs test-bochs-concurrent test-bochs-concurrent-mutant test-boot test-program test-fs test-type \
 	test-dir test-exec test-mzexec test-mzexec-mutant test-mcb-emu test-mcb-emu-mutant test-fatwrite test-multiopen test-exit-handles test-exit-handles-mutant \

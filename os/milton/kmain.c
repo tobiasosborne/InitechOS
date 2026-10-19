@@ -949,6 +949,26 @@ static region_t *flair_desktop_alloc_region(flair_heap_t *h, const char *what)
 #endif
 #endif
 
+/* THE ARROW AT BOOT (bead initech-vzjy; operator-visible P1, third report).
+ * Mac OS 8.1 draws the pointer at its own position from the "Starting Up..."
+ * panel on, at the screen centre: hotspot (320,240) in s8_startup_panel.png,
+ * s8_startup_last.png, s8_startup_after.png and s8_icons_boot.png (arrow crop
+ * origin (319,239) in all four; ../system7-decomp/re/mint-results-009.md Sec 1),
+ * and ABSENT from the "Welcome to Mac OS" panel (s8_startup_welcome.png) --
+ * i.e. NOT on the splash, present on the first desktop frame. (320,240) is
+ * exactly the Event Manager's locked start (spec/event_model.h; FLAIR_SCREEN_W/2,
+ * FLAIR_SCREEN_H/2), so the first packet MOVES the arrow instead of conjuring it.
+ * INTERACTIVE images (the ones a person looks at) draw it at the first desktop
+ * present; gate images keep cursor.h's first-activity DEC so every locked
+ * no-input still stays byte-identical. -DFLAIR_CURSOR_AT_BOOT turns it on for
+ * a bounded twin (the Rule-14 record clip); CURSOR_MUT_HIDE_AT_BOOT is the
+ * Rule-6 mutant knob (test-flair-cursor-boot-mutant). NEVER define it in a
+ * real build. Ref: PRD Sec 6.3; Inside Macintosh Imaging With QuickDraw,
+ * InitCursor ("the standard arrow cursor is displayed"). */
+#if defined(FLAIR_LIVE_INTERACTIVE) && !defined(FLAIR_CURSOR_AT_BOOT)
+#define FLAIR_CURSOR_AT_BOOT 1
+#endif
+
 /* The LFB sink: indices at 8bpp (the DAC holds the FLAIR palette), the one
  * index->RGB accessor at 24/32bpp -- the same split as flair_desktop_present. */
 static void flair_boot_screen_row(void *ctx, int y, const uint8_t *row)
@@ -6980,7 +7000,7 @@ void kernel_main(void)
      * producer can be running yet. Ref: event.h flair_event_init contract. */
     flair_event_init(&g_flair_kbd_ring);
 
-    /* R0.1 boot-still policy: arm tracking but do not show. Keep these explicit,
+    /* R0.1 boot-still policy (gate images): arm tracking but do not show. Keep these explicit,
      * idempotent stores even though tdnl.29 now guarantees zero BSS: x/y are
      * deliberately non-zero and the block is also the semantic re-arm point.
      * The IRQ hook below flips g_flair_mouse_activity only for a real queued
@@ -6991,6 +7011,24 @@ void kernel_main(void)
     g_flair_cursor_visible = 0;
     g_flair_cursor_x = (int)(FLAIR_SCREEN_W / 2);
     g_flair_cursor_y = (int)(FLAIR_SCREEN_H / 2);
+#if defined(FLAIR_CURSOR_AT_BOOT) && !defined(CURSOR_MUT_HIDE_AT_BOOT)
+    /* bead initech-vzjy: the arrow is on screen BEFORE any packet, at the Mac
+     * OS 8.1 boot position (320,240) (DEC above FLAIR_BOOT_HOLD_TICKS; cite
+     * ../system7-decomp/re/mint-results-009.md Sec 1). Drawn HERE -- after the
+     * splash hold, the first desktop present, the tenant present and the
+     * re-arm stores above -- so no boot-time present can erase it without the
+     * flair_desktop_present shield bracket re-drawing it, and the kernel's
+     * visibility ledger agrees with the CursorMgr's. Marker: the same
+     * FLAIR-CURSOR line flair_live_cursor_track emits, so the harness can gate
+     * a still on it with NO input. IRQs are still masked (LFB writes only). */
+    flair_cursor_show(g_flair_cursor_x, g_flair_cursor_y);
+    g_flair_cursor_visible = 1;
+    serial_puts("FLAIR-CURSOR x=");
+    serial_puti((int32_t)g_flair_cursor_x);
+    serial_puts(" y=");
+    serial_puti((int32_t)g_flair_cursor_y);
+    serial_putc('\n');
+#endif
 
     /* --- FO-4: install the PIT tick hook BEFORE sti (ADR-0006 E-D3a) --------- *
      * pit_set_tick_hook defaults NULL; only THIS kernel installs it, so every
