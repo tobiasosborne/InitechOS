@@ -21984,6 +21984,18 @@ FLAIR_SD_NAME  := flair_shutdown
 FLAIR_RS_NAME  := flair_restart
 FLAIR_SDR_NAME := flair_shutdown_restart
 FLAIR_SDA_NAME := flair_shutdown_app
+# initech-64d6; Ref: PRD Sec 6.3/8, spec/flair_power_traces.mk, and
+# kmain.c FLAIR_TEN_TICK_BUDGET. The default 250-tick pump expired before
+# the trailing Ctrl-N in cancel and consenting-application Shut Down.
+# MEASURED with eight yes processes (5 ms serial polling), LIVE-READY to
+# the final cooked keyDown: cancel 2752 ms (3779 ms on the loaded recheck),
+# app Shut Down 2421 ms, plain Shut Down 1345 ms. 800 ticks (~8 s @100 Hz)
+# gives ~2.1x the longest measured span.
+# Use the existing bounded-image macro, as the i123 entry gate does; the
+# locked traces, completion markers, assertions and harness timeouts stay put.
+FLAIR_SHUTDOWN_TICK_BUDGET := 800
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_TEN_TICK_BUDGET=$(FLAIR_SHUTDOWN_TICK_BUDGET),shutdown_gate))
+FLAIR_SHUTDOWN_GATE_IMG := $(BUILD)/flair_tenants_mut_shutdown_gate.img
 # The probe's cooked keyDown (spec/flair_power_traces.mk F): the completion
 # marker of the shut-down leg, printed by the shut-down screen AND by a live
 # pump alike, so the harness never quits before the probe was consumed.
@@ -22063,42 +22075,44 @@ stray=$$(sed -n '/^FLAIR-SHUTDOWN-SAFE$$/,$$p' $(1) | sed 1d | grep -vE '^(FLAIR
 endef
 
 .PHONY: test-flair-shutdown test-flair-shutdown-mutant test-flair-restart test-flair-restart-mutant
-test-flair-shutdown: $(HARNESS_BIN) $(FLAIRTENANTS_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_SHUTDOWN_CHECK_BIN)
+test-flair-shutdown: $(HARNESS_BIN) $(FLAIR_SHUTDOWN_GATE_IMG) $(FLAIR_DATA_IMG) $(PPM_FLAIR_SHUTDOWN_CHECK_BIN)
 	@printf '======================================================================\n'
 	@printf 'InitechOS (STAPLER) -- make test-flair-shutdown : Special > Shut Down puts everything away, shows the safe screen, and the session is over (tdnl.78)\n'
 	@printf '======================================================================\n'
-	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_SD_NAME),$(BUILD)/$(FLAIR_SD_NAME)_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),1)
+	$(call fo-boot,$(FLAIR_SHUTDOWN_GATE_IMG),$(FLAIR_SD_NAME),$(BUILD)/$(FLAIR_SD_NAME)_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),1)
 	@( $(call sd-check,$(BUILD)/$(FLAIR_SD_NAME).serial) ) || { printf '!!! test-flair-shutdown FAIL: serial (above)\n'; grep -E '^(FINDER-|FLAIR-MENU|FLAIR-SHUTDOWN|FLAIR-RESTART|DESKTOP-DB|PANIC)' $(BUILD)/$(FLAIR_SD_NAME).serial; exit 1; }
 	@( $(call pw-disk-check,$(BUILD)/$(FLAIR_SD_NAME)_data.img) ) || { printf '!!! test-flair-shutdown FAIL: the disk (above)\n'; exit 1; }
 	@[ -s "$(BUILD)/$(FLAIR_SD_NAME).ppm" ] || { printf '!!! test-flair-shutdown FAIL: screendump missing\n'; exit 1; }
 	@$(PPM_FLAIR_SHUTDOWN_CHECK_BIN) safe "$(BUILD)/$(FLAIR_SD_NAME).ppm" || { printf '!!! test-flair-shutdown FAIL: the shut-down screen is not drawn as graded\n'; exit 1; }
 	@printf '>>> test-flair-shutdown [1/2]: FINDER-CMD SHUTDOWN -> DESKTOP-DB-SAVE n=3 -> FLAIR-SHUTDOWN-SAFE; the view is on the disk; the safe screen graded; the probe click + Ctrl-N answered by nothing\n'
-	$(call fo-boot,$(FLAIRTENANTS_IMG),$(FLAIR_SDA_NAME),$(BUILD)/$(FLAIR_SDA_NAME)_data.img,$(FLAIR_SHUTDOWN_APP_SPEC),$(FLAIR_SD_DONE),1)
+	$(call fo-boot,$(FLAIR_SHUTDOWN_GATE_IMG),$(FLAIR_SDA_NAME),$(BUILD)/$(FLAIR_SDA_NAME)_data.img,$(FLAIR_SHUTDOWN_APP_SPEC),$(FLAIR_SD_DONE),1)
 	@( $(call sda-check,$(BUILD)/$(FLAIR_SDA_NAME).serial) ) || { printf '!!! test-flair-shutdown FAIL: [2] serial (above)\n'; grep -E '^(FINDER-|TENANT-(MENU|EXIT)|FLAIR-DISPATCH|FLAIR-MENU |FLAIR-SHUTDOWN|DESKTOP-DB|PANIC)' $(BUILD)/$(FLAIR_SDA_NAME).serial; exit 1; }
 	@$(PPM_FLAIR_SHUTDOWN_CHECK_BIN) safe "$(BUILD)/$(FLAIR_SDA_NAME).ppm" || { printf '!!! test-flair-shutdown FAIL: [2] the shut-down screen is not drawn as graded\n'; exit 1; }
 	@printf '>>> test-flair-shutdown [2/2]: CTENANT running -> asked to quit by its own File > Quit -> TENANT-EXIT -> DESKTOP-DB-SAVE n=4 -> FLAIR-SHUTDOWN-SAFE\n'
 	@printf '>>> test-flair-shutdown: green\n'
 
-$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_FLUSH,power_no_flush))
-$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_SHUTDOWN_RETURNS,shutdown_returns))
+# Rule 6: the same pump life in each behavioral mutant, with distinct image
+# names so an already-built 250-tick mutant cannot mask its intended RED.
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_FLUSH -DFLAIR_TEN_TICK_BUDGET=$(FLAIR_SHUTDOWN_TICK_BUDGET),shutdown_gate_no_flush))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_SHUTDOWN_RETURNS -DFLAIR_TEN_TICK_BUDGET=$(FLAIR_SHUTDOWN_TICK_BUDGET),shutdown_gate_returns))
 $(eval $(call flair-tenants-kmain-mutant-rules,POWER_MUT_NO_PULSE,no_pulse))
-$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_ASK,power_no_ask))
+$(eval $(call flair-tenants-kmain-mutant-rules,KMAIN_MUT_POWER_NO_ASK -DFLAIR_TEN_TICK_BUDGET=$(FLAIR_SHUTDOWN_TICK_BUDGET),shutdown_gate_no_ask))
 # $(call pw-mut,<label>,<check output>,<rc>,<expected reason>,<gate>)
 define pw-mut-verdict
 if [ $(3) -eq 0 ]; then printf '!!! %s FAIL: %s PASSED -- decoration\n' '$(5)' '$(1)'; exit 1; fi; \
 printf '%s\n' "$(2)" | grep -qF '$(4)' || { printf '!!! %s FAIL: %s RED for the wrong reason: %s\n' '$(5)' '$(1)' "$(2)"; exit 1; }; \
 printf '>>> %s: %s correctly RED (%s)\n' '$(5)' '$(1)' "$(2)"
 endef
-test-flair-shutdown-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_power_no_flush.img $(BUILD)/flair_tenants_mut_shutdown_returns.img $(BUILD)/flair_tenants_mut_power_no_ask.img
-	$(call fo-boot,$(BUILD)/flair_tenants_mut_power_no_flush.img,flair_shutdown_mut_noflush,$(BUILD)/flair_shutdown_mut_noflush_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
+test-flair-shutdown-mutant: $(HARNESS_BIN) $(FLAIR_DATA_IMG) $(BUILD)/flair_tenants_mut_shutdown_gate_no_flush.img $(BUILD)/flair_tenants_mut_shutdown_gate_returns.img $(BUILD)/flair_tenants_mut_shutdown_gate_no_ask.img
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_shutdown_gate_no_flush.img,flair_shutdown_mut_noflush,$(BUILD)/flair_shutdown_mut_noflush_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
 	@out=$$( ( $(call sd-check,$(BUILD)/flair_shutdown_mut_noflush.serial) ) && ( $(call pw-disk-check,$(BUILD)/flair_shutdown_mut_noflush_data.img) ) ); rc=$$?; \
 	$(call pw-mut-verdict,POWER_NO_FLUSH,$$out,$$rc,did not commit DESKTOP.DB,test-flair-shutdown-mutant)
 	@out=$$( ( $(call pw-disk-check,$(BUILD)/flair_shutdown_mut_noflush_data.img) ) ); rc=$$?; \
 	$(call pw-mut-verdict,POWER_NO_FLUSH/disk,$$out,$$rc,is not on the disk,test-flair-shutdown-mutant)
-	$(call fo-boot,$(BUILD)/flair_tenants_mut_shutdown_returns.img,flair_shutdown_mut_returns,$(BUILD)/flair_shutdown_mut_returns_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_shutdown_gate_returns.img,flair_shutdown_mut_returns,$(BUILD)/flair_shutdown_mut_returns_data.img,$(FLAIR_SHUTDOWN_SPEC),$(FLAIR_SD_DONE),0)
 	@out=$$( ( $(call sd-check,$(BUILD)/flair_shutdown_mut_returns.serial) ) ); rc=$$?; \
 	$(call pw-mut-verdict,SHUTDOWN_RETURNS,$$out,$$rc,the desktop answered after Shut Down,test-flair-shutdown-mutant)
-	$(call fo-boot,$(BUILD)/flair_tenants_mut_power_no_ask.img,flair_shutdown_mut_noask,$(BUILD)/flair_shutdown_mut_noask_data.img,$(FLAIR_SHUTDOWN_APP_SPEC),$(FLAIR_SD_DONE),0)
+	$(call fo-boot,$(BUILD)/flair_tenants_mut_shutdown_gate_no_ask.img,flair_shutdown_mut_noask,$(BUILD)/flair_shutdown_mut_noask_data.img,$(FLAIR_SHUTDOWN_APP_SPEC),$(FLAIR_SD_DONE),0)
 	@out=$$( ( $(call sda-check,$(BUILD)/flair_shutdown_mut_noask.serial) ) ); rc=$$?; \
 	$(call pw-mut-verdict,POWER_NO_ASK,$$out,$$rc,CTENANT was not asked to quit,test-flair-shutdown-mutant)
 

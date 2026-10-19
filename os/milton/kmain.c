@@ -3251,6 +3251,12 @@ static int finder_fat_enumerate(void *fs_user, uint16_t dir_start,
     return (rc < 0) ? -1 : rc;
 }
 
+/* MUTANT KMAIN_MUT_MKDIR_CUT (Rule 6; test-flair-shutdown-cancel-mutant,
+ * bead initech-89sb): New Folder stops where a cut inside fat12_mkdir left
+ * the evidence volume -- the lowest free cluster claimed EOC in BOTH FAT
+ * copies, its '.'/'..' sector never written, no parent entry -- yet reports
+ * success, so FINDER-NEW-FOLDER is printed over an orphan cluster. The cancel
+ * gate's on-volume check must go RED. NEVER in a real build. */
 static int finder_fat_mkdir(void *fs_user, const char *name83,
                             uint16_t parent_dir_start)
 {
@@ -3259,6 +3265,24 @@ static int finder_fat_mkdir(void *fs_user, const char *name83,
     (void)fs_user;
     if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MKDIR;
 
+#if defined(KMAIN_MUT_MKDIR_CUT)
+    {
+        uint16_t c, v = 1u;
+        (void)name83;
+        (void)parent_dir_start;
+        for (c = 2u; c < (uint16_t)(g_finder_vol->total_clusters + 2u); c++)
+            if (fat12_next_cluster(g_finder_vol, g_finder_fat,
+                                   g_finder_fat_len, c, &v) == FAT12_OK &&
+                v == 0u) break;
+        if (v != 0u ||
+            fat12_set_entry(g_finder_fat, g_finder_fat_len, c,
+                            FAT12_EOC_VALUE) != FAT12_OK ||
+            fat12_flush_fats(g_finder_vol, g_finder_fat,
+                             g_finder_fat_len) != FAT12_OK)
+            return (int)FINDER_WIN_ERR_MKDIR;
+        return (int)FINDER_WIN_OK;
+    }
+#endif
     rc = fat12_mkdir(g_finder_vol, g_finder_fat, g_finder_fat_len,
                      name83, parent_dir_start,
                      g_finder_dirbuf, g_finder_clusbuf);
