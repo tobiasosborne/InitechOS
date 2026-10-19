@@ -33308,3 +33308,58 @@ include harness/diff/fat_diff/int21_dpb.mk
 # ADR citation integrity (bead initech-lk29; WL-0161): every cited ADR-0001 /
 # ADR-0002 DEC resolves to a DEC heading; every cited foundational Record is filed.
 include harness/adr_citations.mk
+
+# initech-n8q8: native resident EXEC, same FAT/transfer path as test-exec.
+# IBM DOS 3.30 TR pp. 6-195..201, 11-4/5; no new golden or timeout policy.
+NEST_MAIN := $(BUILD)/kmain_exec_nested.o
+NEST_OBJS := $(filter-out $(KERNEL_EXEC_MAIN_OBJ),$(KERNEL_EXEC_OBJS)) $(NEST_MAIN)
+NEST_MUT_OBJS := $(filter-out $(KERNEL_LOADER_OBJ),$(NEST_OBJS)) $(BUILD)/loader_nested_mut.o
+$(eval $(call fixture-contract,$(BUILD)/fat_exec_nested.img,HELLO.TXT GREET.COM NEST.COM TERM20.COM DEPTH.COM SUB/KEEP.TXT))
+$(NEST_MAIN): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/loader.h os/milton/int21.h | $(BUILD)
+	$(call kernel-main-compile,-DBOOT_EXEC_NESTED -Ispec -I$(KERNEL_DIR),$@)
+$(BUILD)/loader_nested_mut.o: $(KERNEL_LOADER_C) os/milton/loader.h os/milton/int21.h | $(BUILD)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) $(KERNEL_SECTION_FLAGS) $(KERNEL_LOADER_VALIDATE_FLAGS) -DLOADER_MUT_NO_RESTORE -Ispec -I$(KERNEL_DIR) -c $< -o $@
+$(BUILD)/kernel_exec_nested.elf: $(NEST_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(NEST_OBJS)
+$(BUILD)/kernel_exec_nested_mut.elf: $(NEST_MUT_OBJS) $(KERNEL_LD)
+	$(KERNEL_LINK) -o $@ $(NEST_MUT_OBJS)
+$(BUILD)/kernel_exec_nested.bin $(BUILD)/kernel_exec_nested_mut.bin: $(BUILD)/%.bin: $(BUILD)/%.elf
+	$(OBJCOPY) -O binary $< $@
+	@test $$(wc -c < $@) -le $$(( $(KERNEL_SECTORS) * 512 ))
+	@truncate -s $$(( $(KERNEL_SECTORS) * 512 )) $@
+	$(call kernel-end-guard,$<,exec-nested)
+$(BUILD)/exec_nested.img $(BUILD)/exec_nested_mut.img: $(BUILD)/%.img: $(BUILD)/kernel_%.bin $(MBR_BIN) $(STAGE2_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_SYSTEM_MINT)
+	@sh $(BOOT_SYSTEM_MINT) $@ $(MBR_BIN) $(STAGE2_BIN) $(IO_SYS_BIN) $< $(BOOT_SYSTEM_TOOL)
+$(BUILD)/nested_exec_program.bin: os/milton/nested_exec_program.asm | $(BUILD)
+	$(NASM) -f bin $< -o $@
+$(BUILD)/nested_term20.bin: os/milton/nested_exec_program.asm | $(BUILD)
+	$(NASM) -f bin -DNEST_TERM20 $< -o $@
+$(BUILD)/nested_depth.bin: os/milton/nested_exec_program.asm | $(BUILD)
+	$(NASM) -f bin -DNEST_DEPTH $< -o $@
+$(BUILD)/fat_exec_nested.img: $(FAT_EXEC_IMG) $(BUILD)/nested_exec_program.bin $(BUILD)/nested_term20.bin $(BUILD)/nested_depth.bin
+	@cp -f $< $@
+	@mcopy -o -i $@ $(BUILD)/nested_exec_program.bin ::NEST.COM
+	@mcopy -o -i $@ $(BUILD)/nested_term20.bin ::TERM20.COM
+	@mcopy -o -i $@ $(BUILD)/nested_depth.bin ::DEPTH.COM
+	@mmd -i $@ ::SUB
+	@mcopy -i $@ $(FAT12_FIXTURE_DIR)/hello.txt ::SUB/KEEP.TXT
+	@$(call fixture-check,recipe,$@)
+.PHONY: test-exec-nested test-exec-nested-mutant test-loader-nested-mutant
+test-exec-nested: $(HARNESS_BIN) $(BUILD)/exec_nested.img $(BUILD)/fat_exec_nested.img
+	@$(call fixture-preflight,$(BUILD)/fat_exec_nested.img)
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/exec_nested.img --disk2 $(BUILD)/fat_exec_nested.img --expect 'EXEC-NESTED-EXIT rc=0' --name exec_nested --out $(BUILD) --timeout-ms 6000 2> $(BUILD)/exec_nested.report || true
+	@! grep -q 'triple_fault=1' $(BUILD)/exec_nested.report
+	@grep -q '^EXEC-NESTED-RC=7 PSP-RESTORED INT20-OK' $(BUILD)/exec_nested.serial && grep -q '^EXEC-NESTED-DEPTH-4-BUSY' $(BUILD)/exec_nested.serial && grep -q '^EXEC-NESTED-EXIT rc=0' $(BUILD)/exec_nested.serial || { cat $(BUILD)/exec_nested.serial; printf '!!! test-exec-nested RED: caller did not resume with child rc=7 and restored PSP\n'; exit 1; }
+	@printf '>>> test-exec-nested: green (GREET rc=7 three times; PSP, CWD, heap restored; INT20; depth-4 BUSY)\n'
+test-exec-nested-mutant: test-exec-nested $(BUILD)/exec_nested_mut.img
+	@INITECH_QMP_STDIO=1 $(HARNESS_BIN) --disk $(BUILD)/exec_nested_mut.img --disk2 $(BUILD)/fat_exec_nested.img --expect 'EXEC-NESTED-EXIT rc=1' --name exec_nested_mut --out $(BUILD) --timeout-ms 6000 2> $(BUILD)/exec_nested_mut.report || true
+	@! grep -q 'triple_fault=1' $(BUILD)/exec_nested_mut.report
+	@grep -q '^EXEC-NESTED-FAIL' $(BUILD)/exec_nested_mut.serial && grep -q '^EXEC-NESTED-EXIT rc=1' $(BUILD)/exec_nested_mut.serial || { cat $(BUILD)/exec_nested_mut.serial; printf '!!! test-exec-nested-mutant: mutant survived or failed infrastructure\n'; exit 1; }
+	@printf '>>> test-exec-nested-mutant: green (LOADER_MUT_NO_RESTORE RED: EXEC-NESTED-FAIL, EXEC-NESTED-EXIT rc=1)\n'
+$(BUILD)/test_loader_nested_mut: $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C) os/milton/loader.h | $(BUILD)
+	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -DLOADER_MUT_NO_RESTORE -Ispec -I$(MILTON_DIR) -Iseed -o $@ $(TEST_LOADER_SRC) $(KERNEL_LOADER_C) $(KERNEL_PSP_C)
+test-loader-nested-mutant: $(BUILD)/test_loader_nested_mut test-loader
+	@set +e; $< > $(BUILD)/loader_nested_mut.log 2>&1; rc=$$?; set -e; test $$rc -eq 1 && grep -q 'FAIL.*nested EXEC restores caller PSP' $(BUILD)/loader_nested_mut.log || { cat $(BUILD)/loader_nested_mut.log; exit 1; }
+	@printf '>>> test-loader-nested-mutant: green (LOADER_MUT_NO_RESTORE RED: nested EXEC restores caller PSP)\n'
+TEST_UNIT_GATES += test-loader-nested-mutant
+TEST_EMU_GATES += test-exec-nested test-exec-nested-mutant

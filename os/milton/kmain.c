@@ -742,36 +742,24 @@ static int dir_visit(const dir_entry_t *e, void *user)
  * .COM to completion and maps the loader status onto the DOS EXEC error codes.
  * It lives here, not in int21.c, so int21.c stays free of loader.c (Law 3).
  *
- * After the child returns, restore the kernel-context exit hook + PSP (the
- * loader rebinds both during the run; ground-truth Sec 4.5 / beads initech-509.3)
- * exactly as run_baked does -- otherwise a later kernel-context INT 21h would
- * dispatch through the child's stale hook/PSP. */
+ * loader_run_plan restores the invoking process, whether shell or resident
+ * flat program (IBM DOS 3.30 TR pp. 6-196/200). */
 static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     const char *cmd_tail, uint32_t cmd_tail_len,
                                     uint32_t env_block, uint8_t *out_rc)
 {
     uint8_t rc = 0;
-    /* Save the kernel/shell CWD before the child run (the loader resets the CWD
-     * to root for the child; beads initech-mzxa) and restore it after, in
-     * lockstep with the PSP/exit-hook restore, so the child's CWD never leaks
-     * into kernel-context INT 21h. The CWD is saved/restored AROUND the run, so a
-     * subdir EXEC (dir_start!=0, the leaf resolved relative to the parent's CWD)
-     * cannot corrupt the parent's CWD (beads initech-zs24). env_block (beads
-     * initech-1i0x inc 3) threads the shell's inherited env block through
-     * unchanged (0 = inherit-empty). */
-    int21_cwd_snapshot_t cwd_snap = int21_cwd_save();
+    /* Bind the caller-selected volume; the shared loader now owns all caller
+     * PSP/hook/CWD restoration. env_block=0 inherits a resident caller's env.
+     * Ref: IBM DOS 3.30 TR pp. 6-198/200. */
     uint32_t fat_len;
     const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
     loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
     loader_status_t st = load_program_from_fat(name83, dir_start, cmd_tail,
                                                cmd_tail_len, env_block, &rc);
-    /* 4jic: BUSY ran no child. The caller is still the active baked/FAT
-     * program; replacing its hook/PSP here would turn its exit into a halt.
-     * Ref: ADR-0003 DEC-08 single-level EXEC; IBM DOS 3.30 TR p. 6-195. */
-    if (st == LOADER_ERR_BUSY) return INT21_ERR_INSUFFICIENT_MEM;
-    int21_set_exit(int21_exit_hook);  /* restore kernel-context terminate */
-    int21_set_psp(&g_kernel_psp);     /* restore kernel-context JFT */
-    int21_cwd_restore(&cwd_snap);     /* restore kernel-context CWD */
+    /* loader_run_plan restores the immediate caller, including a resident
+     * program. Never force a nested caller back to the kernel PSP/hook.
+     * Ref: IBM DOS 3.30 TR pp. 6-196/200; spec/dos_structs.h PSP:16h. */
 
     switch (st) {
         case LOADER_OK:
@@ -783,10 +771,12 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
         case LOADER_ERR_NOT_FOUND:
             return INT21_ERR_FILE_NOT_FOUND;    /* 0x0002 */
         case LOADER_ERR_BUSY:
-            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- nested EXEC (deferred) */
+        case LOADER_ERR_NOMEM:
+            return INT21_ERR_INSUFFICIENT_MEM;  /* 0x0008 -- depth/arena exhausted */
         case LOADER_ERR_TOO_BIG:
         case LOADER_ERR_ZERO_LEN:
         case LOADER_ERR_BAD_ENV:
+        case LOADER_ERR_BAD_FORMAT:
             return INT21_ERR_BAD_FORMAT;        /* 0x000B -- bad/oversized image/env */
         case LOADER_ERR_READ:
         default:
@@ -7961,6 +7951,18 @@ void kernel_main(void)
     serial_puts("DIR-PROG-OUTPUT-END\n");
 #endif
 
+#ifdef BOOT_EXEC_NESTED
+    /* Resident caller and disk child; IBM DOS 3.30 TR AH=4Bh/4Ch/4Dh.
+     * Fixture asserts restored PSP and repeated child reclamation itself. */
+    {
+        uint8_t rc = 255u;
+        uint16_t err = loader_exec_by_name("NEST.COM", 0u, 0, 0u, 0u, &rc);
+        serial_puts("EXEC-NESTED-EXIT rc=");
+        serial_putu(err ? 255u : rc);
+        serial_putc('\n');
+    }
+#endif
+
 #ifdef BOOT_EXEC
     /* FAT-SOURCED LOAD + EXEC self-test (beads initech-saw; make test-exec).
      * Only in the -DBOOT_EXEC image so the normal boot is unchanged. Requires
@@ -7974,10 +7976,7 @@ void kernel_main(void)
      *
      *   2. INT 21h AH=4Bh EXEC of "GREET.COM" from KERNEL/shell context, then
      *      AH=4Dh GET-RETURN-CODE -- proving the EXEC dispatch path + the child
-     *      rc retrieval. (Nested EXEC -- 4Bh from inside a running program -- is
-     *      NOT supported this milestone: g_loader_ctx is single-level; the guard
-     *      returns LOADER_ERR_BUSY -> AX=0x0008. So EXEC-from-kernel is the
-     *      binding oracle, per the brief.) */
+     *      rc retrieval. Resident EXEC has its own test-exec-nested fixture. */
     serial_puts("EXEC-SAW-BEGIN\n");
     {
         uint8_t saw_rc = 0;
