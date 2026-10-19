@@ -125,6 +125,9 @@ typedef struct {
                                          /*   applFont (Geneva 9) -- text.h mapping      */
     int16_t txFace;                      /* IM txFace: style bits (TEXT_FACE_*; bold    */
                                          /*   widens every advance by 1 px)             */
+    int16_t txSize;                      /* IM txSize: 0 the family default; 12 with    */
+                                         /*   applFont = Geneva 12 (bead initech-uelk; */
+                                         /*   text.h text_font_from_txfont_size)       */
     int16_t lineStarts[FLAIR_TE_MAX_LINES]; /* IM lineStarts: char offset of each line  */
                                             /*   start; N == nLines (Sec 4; CAPPED cut) */
 } FlairTE;
@@ -137,7 +140,8 @@ typedef struct {
 
 /* FlairTE_init -- empty record: teLength=0, caret at 0, the given just +
  * wrapWidth (PIXELS), word-wrap enabled (crOnly=0), txFont 0 (Chicago 12),
- * txFace 0 (plain). nLines=1 (one empty line). Change txFont/txFace, then call
+ * txFace 0 (plain), txSize 0 (the family default). nLines=1 (one empty line).
+ * Change txFont/txFace/txSize, then call
  * FlairTESetText (or any edit) to re-lay the lines in that face. */
 void FlairTE_init(FlairTE *te, int16_t wrapWidth, int16_t just);
 
@@ -198,7 +202,7 @@ int FlairTEPaste(FlairTE *te, const FlairScrap *scrap);
  * [L * FlairTELineHeight, (L + 1) * FlairTELineHeight). Monostyled: the line
  * height is the record font's cell height (textedit.md Sec 4 step 3,
  * lineHeight/fontAscent "actual values" for monostyled; text.h
- * text_cell_height: Geneva 9 11, Chicago 12 its cell).
+ * text_cell_height: Geneva 9 11, Chicago 12 and Geneva 12 16).
  *
  * WHAT THE REFERENCES DO NOT SAY, AND WHAT WAS CHOSEN (Law 1, stated):
  *   - hit-testing (TEGetOffset): the point's line is v / lineHeight clamped to

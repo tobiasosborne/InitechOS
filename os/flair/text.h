@@ -337,9 +337,19 @@ text_font_t text_font_from_txfont(int txfont);
  * text_font_from_txfont; applFont (1) at txSize 12 is FONT_GENEVA12 (the
  * Mac OS 8.1 SimpleText face); every other pair falls back to
  * text_font_from_txfont (callers that must reject a pair validate first --
- * tbxgate.c TEXTDRAW, spec/toolbox_gate.h Sec 7 SIZE). Implemented in text.c.
+ * tbxgate.c TEXTDRAW, spec/toolbox_gate.h Sec 7 SIZE). Header-inline: the
+ * kernel gate AND a tenant's own TextEdit (TEXT.EXE does not link text.c)
+ * resolve the pair through this one definition. The txFont half repeats
+ * text.c text_font_from_txfont (1 -> Geneva 9, else Chicago 12).
+ * Ref: IM-I QuickDraw (txFont picks the family, txSize the point size, 0 =
+ * the family's default); simpletext-stdfile.md Sec 1.2 (Geneva, 12 Point).
  * -------------------------------------------------------------------------- */
-text_font_t text_font_from_txfont_size(int txfont, int txsize);
+static inline text_font_t text_font_from_txfont_size(int txfont, int txsize)
+{
+    if (txfont == (int)FONT_GENEVA9)
+        return (txsize == 12) ? FONT_GENEVA12 : FONT_GENEVA9;
+    return FONT_CHICAGO;
+}
 
 /* ==========================================================================
  * FONT MANAGER SLICE 2 (bead initech-tdnl.68): txFace synthesis, styled

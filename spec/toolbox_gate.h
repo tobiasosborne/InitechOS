@@ -406,12 +406,25 @@
  * "Geneva 9 (cell font)"); any other value is TBX_ERR_BADARG. The run, its
  * advances and its opaque bg box are then that font's (Geneva 9: the
  * GENEVA9_CELL_H = 11-row cell, its proportional advances); y is still the
- * top of the cell. Bits 24..31 stay BADARG. fg < 0x10000 is exactly the old
- * call (Chicago 12). */
+ * top of the cell. Bits 24..31 are the SIZE field below (bead initech-uelk;
+ * 0 = this call unchanged). fg < 0x10000 is exactly the old call (Chicago 12). */
 #define TBX_TEXT_FONT_SHIFT   16u
 #define TBX_TEXT_FONT(f)      ((uint32_t)(f) << TBX_TEXT_FONT_SHIFT)
 #define TBX_TEXT_GENEVA9      TBX_TEXT_FONT(1u)
 #define TBX_TEXT_FONT_MAX     1u      /* the strikes InitechOS owns */
+
+/* TEXTDRAW SIZE (deliberate locked ABI extension, bead initech-uelk,
+ * 2026-10-20 -- Rule 8: the SimpleText-alike draws its document in Geneva 12,
+ * ../system7-decomp specs/sys8/simpletext-stdfile.md Sec 1.2 [MEAS]). fg bits
+ * 24..31 carry a QuickDraw txSize: 0 = the family's default strike (exactly
+ * the Sec 7 FONT call: Chicago 12 / Geneva 9); 12 with txFont 1 (applFont) =
+ * the Geneva 12 strike (os/flair/text.h FONT_GENEVA12: 16-row cell, the real
+ * NFNT 12112 advances, y still the top of the cell). Every other (txFont,
+ * txSize) pair is TBX_ERR_BADARG -- an unowned size fails loud, it is never
+ * drawn in the wrong strike. TBX_TEXT_GENEVA12 is the whole fg font word. */
+#define TBX_TEXT_SIZE_SHIFT   24u
+#define TBX_TEXT_SIZE(z)      ((uint32_t)(z) << TBX_TEXT_SIZE_SHIFT)
+#define TBX_TEXT_GENEVA12     (TBX_TEXT_FONT(1u) | TBX_TEXT_SIZE(12u))
 
 /* ---------------------------------------------------------------------------
  * 7a. FIXED-CELL TEXT (TBX_DRAWCELLS; bead initech-w96l)

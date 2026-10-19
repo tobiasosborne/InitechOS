@@ -13,3 +13,4 @@
 #define FONT_TABLES_DEFINE 1
 #include "chicago12.h"
 #include "geneva9.h"
+#include "geneva12.h"   /* the Geneva 12 advances (bead initech-uelk) */

@@ -20,14 +20,16 @@
 #     => TEXT.EXE sprite (127,158)..(159,190), centre (143,174)
 #   the TEXT window frame (4,44)..(588,476) (itext.c WIN_*), content corner
 #     (10,66) (window.c CalcDocContentRect: left rail 6, title 22); the text
-#     origin (+5,+4) = GLOBAL (15,70); Geneva 9 lines are 11 px: line L
-#     occupies y [70 + 11L, 81 + 11L).
-#   "Saving tables to disk": the Geneva 9 advances (spec/assets/geneva9.h)
-#     put "Saving " at 0..38 and "tables" at 38..69 => the drag (48,75) ->
-#     (79,75) selects offsets 7..13 = "tables" exactly (boundaries 38 and 69
-#     are hit on the boundary itself) -- GLOBAL (53,75) -> (84,75).
-#   "PC LOAD LETTER" is 85 px: a click at (110,86) is past its end -> the
-#     caret at the end of line 1 (the end of the text).
+#     origin (+5,+4) = GLOBAL (15,70); SimpleText's Geneva 12 lines are 16 px
+#     (bead initech-uelk; ../system7-decomp specs/sys8/simpletext-stdfile.md
+#     Sec 1.2 [MEAS]): line L occupies y [70 + 16L, 86 + 16L).
+#   "Saving tables to disk": the Geneva 12 advances ([MEAS] Sec 1.2/1.4, =
+#     the real NFNT 12112 owTable) put "Saving " at 0..45 and "tables" at
+#     45..84 => the drag text (45,8) -> (84,8) selects offsets 7..13 =
+#     "tables" exactly (boundaries 45 and 84 are hit on the boundary itself)
+#     -- GLOBAL (60,78) -> (99,78).
+#   "PC LOAD LETTER" is 101 px ([MEAS]): a click at (130,94) is past its end
+#     -> the caret at the end of line 1 (the end of the text).
 #
 # PACING: "w<ms>" holds (harness/emu/qemu.c) after the launch, after the
 #   typing, around the drag / Copy / paste, and after Ctrl-S and the Save
@@ -48,24 +50,29 @@
 #    "tables"); Ctrl-C (Copy); to (110,86) click (caret at the end); Return;
 #    Ctrl-V (Paste); Ctrl-S (Save: untitled -> the Save As box, name
 #    "UNTITLED" selected... typed over: 8 Backspaces, "MEMO.TXT"), Return
-#    (Save); then a last drag selects "PC LOAD" on line 1 for the screendump:
-#    to (15,86) [line 1 x 0], press, m44:0 -> (59,86) ("PC LOAD" ends at
-#    x 44: P 6, C 7, space 4, L 6, O 7, A 7, D 7), release; park on the
-#    window's right margin (580,300) so no Finder icon is hovered.
+#    (Save); then a last drag selects "tables" on line 0 again -- the scene
+#    of the independent golden s8_simpletext_doc.png ("tables" selected) --
+#    to (60,78), press, m39:0 -> (99,78), release; park on the window's right
+#    margin (580,300) so no Finder icon is hovered.
+#    (initech-uelk re-key from Geneva 9: the drag m-90:-99,m31:0 became
+#    m-83:-96,m39:0; the end click m26:11 became m31:16; the last drag
+#    m-95:0,l1,m44:0 ("PC LOAD", line 1) became m-70:-16,l1,m39:0 ("tables",
+#    line 0) and the park legs follow from (99,78).)
 # initech-zc68: TEXT cell 6 = (211,174): (+88,+72) from APPS (123,102).
 # Cell n centre = (75+68*(n%4),122+52*(n/4)). After launch move (-68,0)
 # back to (143,174), so every document gesture and park keeps its target.
-FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-95:0,l1,m44:0,l0,m100:100,m100:100,m100:14,m100:0,m100:0,m21:0
+FLAIR_ITEXT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-83:-96,l1,m39:0,l0,w150,kctrl-c,w150,m31:16,l1,l0,w150,kret,w120,kctrl-v,w200,kctrl-s,w600,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,kbspc,km,ke,km,ko,kdot,kt,kx,kt,kret,w120,w600,m-70:-16,l1,m39:0,l0,m100:100,m100:100,m100:22,m100:0,m81:0
 
 # 2. FLAIR_ITEXT_EDIT_SPEC -- the itext_edit clip (Rule 14): launch, type,
 #    drag-select, Copy, click, Return, Paste (no save).
-FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-90:-99,l1,m31:0,l0,w150,kctrl-c,w150,m26:11,l1,l0,w150,kret,w120,kctrl-v
+FLAIR_ITEXT_EDIT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kshift-s,ka,kv,ki,kn,kg,kspc,w120,kt,ka,kb,kl,ke,ks,kspc,w120,kt,ko,kspc,w120,kd,ki,ks,kk,kret,w120,kshift-p,kshift-c,kspc,w120,kshift-l,kshift-o,kshift-a,kshift-d,kspc,w120,kshift-l,kshift-e,kshift-t,kshift-t,kshift-e,kshift-r,w300,m-83:-96,l1,m39:0,l0,w150,kctrl-c,w150,m31:16,l1,l0,w150,kret,w120,kctrl-v
 
 # 3. ehq4 -- forty Returns enable the standard vertical scroll bar and keep
 # the insertion point visible. Launch prefix copied EXACTLY from
 # FLAIR_ITEXT_SPEC through w400, including cell12 and the cursor return.
-# Each Return is paced as in the original trace. Expected 41 lines x 11 +
-# 2*4 inset = doc459; the locked view389 gives range/value70. Caret global
-# x14,y440..450; thumb at the far end of the bar (568,425)..(582,440).
+# Each Return is paced as in the original trace. Expected 41 lines x 16
+# (Geneva 12, initech-uelk) + 2*4 inset = doc664; the locked view389 gives
+# range/value275. Caret global x14,y435..450; thumb at the far end of the
+# bar (568,425)..(582,440).
 # The same trace drives test-flair-itext-scroll and record-flair itext_scroll.
 FLAIR_ITEXT_SCROLL_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m88:72,l1,l0,l1,l0,m-68:0,w400,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,kret,w120,w300

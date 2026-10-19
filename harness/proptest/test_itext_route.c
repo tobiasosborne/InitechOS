@@ -228,21 +228,23 @@ int main(void)
     CHECK(g_dirty, R_EDIT, "typing dirties");
     {   /* the caret: a 1-px black bar one line tall, one px left of the end */
         const op_t *c = &m_ops[m_nops - 1];
-        CHECK(c->kind == 1 && c->r - c->x == 1 && c->b - c->y == 11 && c->fg == TBX_COLOR_BLACK,
+        /* 16 = the SimpleText line, simpletext-stdfile.md Sec 1.3 [MEAS] */
+        CHECK(c->kind == 1 && c->r - c->x == 1 && c->b - c->y == 16 && c->fg == TBX_COLOR_BLACK,
               R_INV, "caret rect %d,%d,%d,%d", c->x, c->y, c->r, c->b);
     }
     hkey(0, 0, FLAIR_EVT_MOD_CONTROL_KEY);           /* an unbound chord: nothing */
     hkey('q', 0x10, FLAIR_EVT_MOD_CONTROL_KEY);
     CHECK(doc_is("Saving tables to disk\rPC LOAD LETTER"), R_EDIT, "a Ctrl chord types nothing");
 
-    /* -- drag-select "tables" (Geneva 9: "Saving " 38 px, "tables" ends at 69) */
-    press(38, 5, 0);
+    /* -- drag-select "tables" (Geneva 12, simpletext-stdfile.md Sec 1.2/1.4
+     *    [MEAS]: "Saving " 45 px, "tables" 39 px -> ends at 84) */
+    press(45, 5, 0);
     CHECK(m_track == 1, R_ROUTE, "a press asks the shell to track");
     track(60, 5, 0);
-    track(69, 5, 1);
+    track(84, 5, 1);
     CHECK(g_te.selStart == 7 && g_te.selEnd == 13, R_EDIT, "drag selection [%d,%d)", g_te.selStart, g_te.selEnd);
-    CHECK(find_text("tables", TBX_COLOR_WHITE | TBX_TEXT_GENEVA9, TBX_COLOR_BLACK) != NULL &&
-          find_text("Saving ", TBX_COLOR_BLACK | TBX_TEXT_GENEVA9, TBX_COLOR_WHITE) != NULL,
+    CHECK(find_text("tables", TBX_COLOR_WHITE | TBX_TEXT_GENEVA12, TBX_COLOR_BLACK) != NULL &&
+          find_text("Saving ", TBX_COLOR_BLACK | TBX_TEXT_GENEVA12, TBX_COLOR_WHITE) != NULL,
           R_INV, "the range is black with white ink, the rest black on white");
     CHECK(edit_items[E_CUT - 1].enabled && edit_items[E_COPY - 1].enabled &&
           edit_items[E_CLEAR - 1].enabled, R_MENU, "a range enables Cut/Copy/Clear");
@@ -254,17 +256,18 @@ int main(void)
     CHECK(edit_items[E_PASTE - 1].enabled, R_COPY, "Paste enabled after Copy");
 
     /* -- click past the end of line 1, Return, Paste */
-    press(300, 16, 0);
-    track(300, 16, 1);
+    press(300, 20, 0);
+    track(300, 20, 1);
     CHECK(g_te.selStart == g_te.teLength && g_te.selEnd == g_te.teLength, R_EDIT, "caret at the end");
     type("\r");
     menu_hit(MENU_EDIT, E_PASTE);
     CHECK(doc_is("Saving tables to disk\rPC LOAD LETTER\rtables"), R_COPY, "pasted text");
 
-    /* -- shift-click extends from the caret back to "LOAD" (line 1, x 17) */
-    press(17, 16, 1);
+    /* -- shift-click extends from the caret back to "LOAD" (line 1; Geneva 12
+     *    "PC " = 8 + 8 + 4 = 20, the NFNT 12112 advances) */
+    press(20, 20, 1);
     CHECK(g_te.selStart == 25 && g_te.selEnd == g_te.teLength, R_EDIT, "shift-click [%d,%d)", g_te.selStart, g_te.selEnd);
-    track(17, 16, 1);
+    track(20, 20, 1);
 
     /* -- Cut then Clear */
     menu_hit(MENU_EDIT, E_CUT);
@@ -342,20 +345,21 @@ int main(void)
     CHECK(m_exits == 0 && g_dirty, R_QUIT, "Cancel in Save As keeps it open and dirty");
 
     /* ehq4: the exact emu history, forty Returns from an empty document.
-     * Expected extent is 41 Geneva9 lines x 11 + two SimpleText 4px insets;
-     * view389 is the locked frame's content. IM TextEdit keeps the insertion
-     * point visible; SimpleText's one-pixel caret is visible in independent
-     * goldens/captures/s8_simpletext_doc_caret.png (system7-decomp). Its
-     * line height is adapted to the owned Geneva9 strike as documented by
-     * itext.c. No expected value reads the app's geometry or TE record. */
+     * Expected extent is 41 SimpleText lines x 16 (Geneva 12, simpletext-
+     * stdfile.md Sec 1.2 [MEAS] line pitch) + two SimpleText 4px insets =
+     * 664; view389 is the locked frame's content -> range/value 275. IM
+     * TextEdit keeps the insertion point visible; SimpleText's one-pixel,
+     * 16-px caret is visible in independent goldens/captures/
+     * s8_simpletext_doc_caret.png (system7-decomp): line 40's top 4 + 640 -
+     * 275 = 369. No expected value reads the app's geometry or TE record. */
     launch();
     for (int i = 0; i < 40; i++) type("\r");
-    CHECK(m_scroll_len == 459 && m_scroll_val == 70, R_SCROLL,
-          "40 Returns must enable range70: len=%d value=%d", m_scroll_len, m_scroll_val);
+    CHECK(m_scroll_len == 664 && m_scroll_val == 275, R_SCROLL,
+          "40 Returns must enable range275: len=%d value=%d", m_scroll_len, m_scroll_val);
     {
         const op_t *c = &m_ops[m_nops - 1];
-        CHECK(c->kind == 1 && c->x == 4 && c->r == 5 && c->y == 374 && c->b == 385 &&
-              c->fg == TBX_COLOR_BLACK, R_SCROLL, "caret stays in view at (4,374)..(5,385)");
+        CHECK(c->kind == 1 && c->x == 4 && c->r == 5 && c->y == 369 && c->b == 385 &&
+              c->fg == TBX_COLOR_BLACK, R_SCROLL, "caret stays in view at (4,369)..(5,385)");
     }
 
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);

@@ -66,7 +66,8 @@ int main(int argc,char **argv)
         bad+=px(115,120)!=0 || px(80,147)!=0 || px(80,60)!=0;
     } else if(!strcmp(argv[1],"itext")) {
         /* ehq4: locked TEXT frame(4,44)..(588,476), 40 Returns -> 41
-         * Geneva9 lines, doc459/view389, value=max70. V-bar x567..582,
+         * Geneva 12 lines (16 px, simpletext-stdfile.md Sec 1.2 [MEAS];
+         * initech-uelk), doc664/view389, value=max275. V-bar x567..582,
          * y65..455; thumb at the far end425..439. Never query a renderer.
          * The six independent SL crops are PNG-verified by test-scrollbar-
          * look. The well's five-value cross-section + near-end shadow are
@@ -92,13 +93,14 @@ int main(int argc,char **argv)
         }
         if(band)fprintf(stderr,"FAIL itext-scroll whole enabled bar: %d pixels\n",band);
         bad+=band;
-        /* s8_simpletext_doc_caret.png: black, 1px wide, one line tall, one
-         * pixel left of text position. Global(14,440)..(15,451) after the
-         * locked input; all other content must be white (empty CR lines).
+        /* s8_simpletext_doc_caret.png: black, 1px wide, one line (16 px)
+         * tall, one pixel left of text position. Global(14,435)..(15,451)
+         * after the locked input (line 40 top 4 + 640 - 275 = 369, + content
+         * top 66); all other content must be white (empty CR lines).
          * Thus a clipped/offscreen caret cannot satisfy the gate. */
         int caret=0;
         for(int y=66;y<455;y++)for(int x=10;x<567;x++) {
-            uint32_t want=x==14 && y>=440 && y<451 ? 0 : 0xFFFFFF;
+            uint32_t want=x==14 && y>=435 && y<451 ? 0 : 0xFFFFFF;
             caret+=px(x,y)!=want;
         }
         if(caret)fprintf(stderr,"FAIL itext-scroll caret/content: %d pixels\n",caret);
