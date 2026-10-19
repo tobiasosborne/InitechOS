@@ -1,11 +1,11 @@
-/* check_adr_citations.c -- test-adr-citations (bead initech-lk29; WL-0161).
+/* check_adr_citations.c -- test-adr-citations (initech-lk29, initech-0ni0).
  *
  * Ref: CLAUDE.md Law 1 (a governance doc cited by id must exist -- the lk29
  *      defect: ADR-0002 was cited as ratified architecture and never filed),
  *      Law 2, Rule 2 (fail loud), Rule 6 (mutation-proven), Rule 8 (locked
  *      decisions are numbered blocks, not prose); docs/adr/ADR-0001-*.md and
  *      docs/adr/ADR-0002-*.md Appendix R (the citation inventories this gate
- *      enforces).
+ *      enforces); PRD Sec 8/14; WL-0161 Frictions (all-Record scope).
  *
  * The oracle is the CITING corpus, not the Record: it is written independently
  * of the ADR files (CLAUDE.md, the PRD, HANDOFF, the worklogs, spec/, os/,
@@ -39,7 +39,6 @@
 
 #define ID_LEN 8 /* "ADR-0001" */
 #define DEC_MAX 32
-#define MAX_SCOPE 16
 
 struct item {
     char rec[ID_LEN + 1];
@@ -52,11 +51,11 @@ struct list {
     size_t n, cap;
 };
 
-static const char *g_scope[MAX_SCOPE];
+static char **g_scope;
 static size_t g_nscope;
 static struct list g_defs, g_cites;
-static size_t g_mentions[MAX_SCOPE];
-static char *g_first_mention[MAX_SCOPE];
+static size_t *g_mentions;
+static char **g_first_mention;
 static size_t g_files_scanned;
 
 static void die(const char *what, const char *arg)
@@ -95,6 +94,22 @@ static int scope_index(const char *rec)
     for (size_t i = 0; i < g_nscope; i++)
         if (!strncmp(g_scope[i], rec, ID_LEN)) return (int)i;
     return -1;
+}
+
+/* WL-0161 / initech-0ni0: every filed Record, including future additions;
+ * no fixed scope ceiling may prevent the make-discovered set being checked. */
+static void add_scope(const char *id)
+{
+    size_t n = g_nscope + 1;
+    if (scope_index(id) >= 0) return;
+    g_scope = realloc(g_scope, n * sizeof *g_scope);
+    g_mentions = realloc(g_mentions, n * sizeof *g_mentions);
+    g_first_mention = realloc(g_first_mention, n * sizeof *g_first_mention);
+    if (!g_scope || !g_mentions || !g_first_mention) die("out of memory", NULL);
+    g_scope[g_nscope] = xstrdup(id);
+    g_mentions[g_nscope] = 0;
+    g_first_mention[g_nscope] = NULL;
+    g_nscope = n;
 }
 
 /* "ADR-dddd" / "CDR-dddd" at s, bounded on both sides by non-alnum. */
@@ -181,9 +196,10 @@ static size_t paren_end(const char *buf, size_t len, size_t j)
  *                                            DEC token is skipped, not ended)
  *   <id> (... DEC-a ... DEC-b ...)          (every DEC inside an immediately
  *                                            following parenthetical)        */
-static void scan_chain(const char *buf, size_t len, size_t j, const char *rec, const char *file)
+static void scan_chain(const char *buf, size_t len, size_t j, const char *rec, const char *file, long record_line)
 {
     char dec[DEC_MAX];
+    size_t origin = j;
     size_t k, t, p;
     /* "<id>-Some-File-Name.md" is a path, not a "<id>-DEC-nn" citation. */
     if (j < len && buf[j] == '-' && isalpha((unsigned char)buf[j + 1]) && strncmp(buf + j + 1, "DEC-", 4)) {
@@ -195,7 +211,7 @@ static void scan_chain(const char *buf, size_t len, size_t j, const char *rec, c
         for (size_t q = k + 1; q < p; q++) {
             size_t n = (buf[q] == 'D') ? dec_token(buf, q, len, dec) : 0;
             if (n) {
-                push(&g_cites, rec, dec, file, line_of(buf, q));
+                push(&g_cites, rec, dec, file, record_line + line_of(buf + origin, q - origin) - 1);
                 q += n - 1;
             }
         }
@@ -205,7 +221,7 @@ static void scan_chain(const char *buf, size_t len, size_t j, const char *rec, c
     j = skip_word(buf, j, len, "Amendment ");
     t = dec_token(buf, j, len, dec);
     while (t) {
-        push(&g_cites, rec, dec, file, line_of(buf, j));
+        push(&g_cites, rec, dec, file, record_line + line_of(buf + origin, j - origin) - 1);
         j += t;
         for (k = 0; k < 4 && j < len && buf[j] == ' '; k++) j++;
         p = paren_end(buf, len, j);
@@ -231,20 +247,24 @@ static void scan_chain(const char *buf, size_t len, size_t j, const char *rec, c
 static void scan_file(const char *path)
 {
     size_t len;
+    long line = 1;
     char *buf = slurp(path, &len);
     g_files_scanned++;
+    /* PRD Sec 8/14: keep the full corpus gate cheap. Count each file's lines
+     * once; scan_chain counts only the short suffix following this record. */
     for (size_t i = 0; i + ID_LEN <= len; i++) {
         int s;
+        if (buf[i] == '\n') line++;
         if (buf[i] != 'A' && buf[i] != 'C') continue;
         if (!is_record_id(buf, i, len)) continue;
         s = scope_index(buf + i);
         if (s < 0) continue;
         if (!g_mentions[s]++) {
             char site[4096];
-            snprintf(site, sizeof site, "%s:%ld", path, line_of(buf, i));
+            snprintf(site, sizeof site, "%s:%ld", path, line);
             g_first_mention[s] = xstrdup(site);
         }
-        scan_chain(buf, len, i + ID_LEN, buf + i, path);
+        scan_chain(buf, len, i + ID_LEN, buf + i, path, line);
     }
     free(buf);
 }
@@ -329,14 +349,16 @@ static void load_defs(const char *adr_dir, int *filed)
         if (nl > ID_LEN + 4 && is_record_id(name, 0, nl) && name[ID_LEN] == '-' && !strcmp(name + nl - 3, ".md")) {
             char path[4096], *buf;
             size_t len, ls = 0;
+            long line = 1;
             snprintf(path, sizeof path, "%s/%s", adr_dir, name);
             s = scope_index(name);
             if (s >= 0) filed[s] = 1;
             buf = slurp(path, &len);
             for (size_t i = 0; i <= len; i++) {
                 if (i == len || buf[i] == '\n') {
-                    if (buf[ls] == '#') heading_def(name, buf + ls, i - ls, path, line_of(buf, ls));
+                    if (buf[ls] == '#') heading_def(name, buf + ls, i - ls, path, line);
                     ls = i + 1;
+                    line++;
                 }
             }
             free(buf);
@@ -364,20 +386,22 @@ static int cmp_item(const void *a, const void *b)
 int main(int argc, char **argv)
 {
     const char *root = NULL, *adr_dir = NULL, *inventory = NULL;
-    int filed[MAX_SCOPE] = {0};
+    int *filed;
     int red = 0;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--root") && k + 1 < argc) root = argv[++k];
         else if (!strcmp(argv[k], "--adr-dir") && k + 1 < argc) adr_dir = argv[++k];
         else if (!strcmp(argv[k], "--inventory") && k + 1 < argc) inventory = argv[++k];
-        else if (!strcmp(argv[k], "--scope") && k + 1 < argc && g_nscope < MAX_SCOPE) {
+        else if (!strcmp(argv[k], "--scope") && k + 1 < argc) {
             const char *id = argv[++k];
             if (strlen(id) != ID_LEN || !is_record_id(id, 0, ID_LEN)) die("bad --scope id", id);
-            g_scope[g_nscope++] = id;
+            add_scope(id);
         } else die("usage: --root DIR --adr-dir DIR --scope ID... [--inventory FILE]; bad arg", argv[k]);
     }
     if (!root || !adr_dir || !g_nscope) die("usage: --root DIR --adr-dir DIR --scope ID... [--inventory FILE]", NULL);
 
+    filed = calloc(g_nscope, sizeof *filed);
+    if (!filed) die("out of memory", NULL);
     load_defs(adr_dir, filed);
     walk(root);
     {
@@ -426,16 +450,7 @@ int main(int argc, char **argv)
     }
     if (red) return 1;
 
-    printf(">>> test-adr-citations: green (%zu files scanned; %zu DEC citation(s) resolve to DEC headings", g_files_scanned, g_cites.n);
-    for (size_t s = 0; s < g_nscope; s++) {
-        printf("; %s filed, %zu mention(s):", g_scope[s], g_mentions[s]);
-        for (size_t k = 0; k < g_cites.n;) {
-            size_t e = k;
-            while (e < g_cites.n && !cmp_item(&g_cites.v[k], &g_cites.v[e])) e++;
-            if (!strcmp(g_cites.v[k].rec, g_scope[s])) printf(" %s x%zu", g_cites.v[k].dec, e - k);
-            k = e;
-        }
-    }
-    printf(")\n");
+    printf(">>> test-adr-citations: green (%zu files scanned; %zu Records; %zu DEC citation(s) resolve to DEC headings)\n",
+           g_files_scanned, g_nscope, g_cites.n);
     return 0;
 }

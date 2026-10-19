@@ -139,6 +139,14 @@ void int21_set_break_trace(int21_sink_fn sink);
 
 /* Bind the terminate hook (NULL clears it). Called once by the kernel at boot. */
 void int21_set_exit(int21_exit_fn fn);
+int21_exit_fn int21_get_exit(void);
+/* EXEC preserves the caller's DTA, child default = its own PSP:80h.
+ * Ref: IBM DOS 3.30 TR pp. 6-82/103, 11-4; spec/dos_structs.h. */
+uint32_t int21_swap_dta(uint32_t dta);
+/* Allocate a nested native .COM's PSP/image/stack in the existing chain.
+ * The block's owner is its new PSP paragraph (DOS 3.30 TR pp. 11-4/5). */
+uint16_t int21_mcb_exec_alloc(uint32_t image_len, uint32_t *psp, uint32_t *end);
+void int21_mcb_exec_free(uint32_t psp);
 
 /* Resident COMMAND.COM can recover a built-in without terminating its PSP.
  * The scope is owned by one PSP; an EXEC child still takes the default abort.

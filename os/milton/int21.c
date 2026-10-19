@@ -353,6 +353,13 @@ void int21_irqtest_bump_find(void)
 void int21_set_sink(int21_sink_fn sink) { g_sink = sink; }
 void int21_set_break_trace(int21_sink_fn sink) { g_break_trace = sink; }
 void int21_set_exit(int21_exit_fn fn)   { g_exit = fn; }
+int21_exit_fn int21_get_exit(void) { return g_exit; }
+uint32_t int21_swap_dta(uint32_t dta)
+{
+    uint32_t old = g_dta;
+    g_dta = dta;
+    return old;
+}
 int21_break_recovery_t *int21_set_break_recovery(int21_break_recovery_t *scope)
 {
     /* A scope without a PSP cannot distinguish the shell from an EXEC child. */
@@ -489,6 +496,34 @@ static uint16_t cur_psp_owner(void)
         return 0u;
     }
     return (uint16_t)(((uintptr_t)g_cur_psp >> 4) & 0xFFFFu);
+}
+
+/* EXEC function 0 owns the largest available block, PSP at its start and
+ * stack at its end (IBM DOS 3.30 TR pp. 11-4/5). The flat native entry needs
+ * at least 4 KiB beyond its file for stack; it receives the entire free run,
+ * never a copied caller heap. DOS 3.3 MCB ownership is the PSP paragraph.
+ * Failure leaves the chain untouched; the caller's image and allocations are
+ * outside this free block (ADR-0009 DEC-04). */
+uint16_t int21_mcb_exec_alloc(uint32_t image_len, uint32_t *psp, uint32_t *end)
+{
+    uint32_t free_paras, largest, data;
+    uint16_t err;
+    if (!g_arena_bound) return MCB_ERR_INSUFFICIENT;
+    if (!mcb_stats(&g_arena, &free_paras, &largest)) return MCB_ERR_DESTROYED;
+    if (largest * 16u < image_len + 0x100u + 4096u)
+        return MCB_ERR_INSUFFICIENT;
+    err = mcb_alloc(&g_arena, MCB_OWNER_SYSTEM, largest, &data, 0);
+    if (err != MCB_OK) return err;
+    *psp = g_arena_base_linear + data * 16u;
+    *end = *psp + largest * 16u;
+    ((mcb_t *)(void *)(g_arena.base + (data - 1u) * 16u))->owner =
+        (uint16_t)(*psp >> 4);
+    return MCB_OK;
+}
+
+void int21_mcb_exec_free(uint32_t psp)
+{
+    if (g_arena_bound) (void)mcb_free_owner(&g_arena, (uint16_t)(psp >> 4));
 }
 
 int int21_mcb_reset(void)
@@ -4300,11 +4335,8 @@ int int21_wildcard_match(const uint8_t pat[11], const uint8_t name[11])
  * cluster into the loader was deemed riskier than the read-side resolve; this
  * landing does exactly that threading.
  *
- * REENTRANCY (Rule 2 / stop condition): the loader's return-to-loader context
- * (loader.c g_loader_ctx) is single-level -- a nested EXEC (EXEC issued from
- * inside an already-running loaded program) would clobber it. load_program_from_fat
- * guards this and returns INSUFFICIENT_MEM; we surface that as CF=1, AX=0x0008.
- * EXEC from KERNEL/shell context (the common case) is fully supported.
+ * Resident flat callers use the loader's bounded return-frame chain and the
+ * existing MCB arena. Exhausted memory/depth returns CF=1, AX=0008h.
  * Ref: DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-08 (flat .COM); beads initech-saw/zs24. */
 static void do_exec(int_frame_t *f)
 {

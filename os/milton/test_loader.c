@@ -47,6 +47,41 @@ static const uint8_t k_image[] = { 0xB4, 0x09, 0xCD, 0x21, 0xB4, 0x4C, 0x30,
 
 int main(void)
 {
+    /* IBM DOS 3.30 TR pp. 6-196/200: a child returns to its immediate
+     * parent. Independent sentinels cover every saved frame, not a value
+     * recomputed from the implementation. Rejection must be atomic. */
+    {
+        loader_state_t active = { 0x12340u, (void *)0x123u, 0u };
+        loader_state_t saved[LOADER_EXEC_DEPTH];
+        unsigned entered = 0;
+        for (unsigned i = 0; i < LOADER_EXEC_DEPTH; ++i) {
+            loader_status_t st = loader_nest_enter(&active, &saved[i],
+                0x40000u + i * 0x1000u, (void *)(uintptr_t)(0x456u + i));
+            CHECK(st == LOADER_OK, "resident EXEC must save another caller");
+            if (st != LOADER_OK) break;
+            entered++;
+            CHECK(active.depth == i + 1u, "EXEC depth increments once");
+        }
+        if (entered == LOADER_EXEC_DEPTH) {
+            loader_state_t before = active, untouched = { 7u, 0, 9u };
+            CHECK(loader_nest_enter(&active, &untouched, 1u, 0) == LOADER_ERR_BUSY,
+                  "EXEC beyond fixed depth fails BUSY");
+            CHECK(active.psp == before.psp && active.depth == before.depth &&
+                  active.return_frame == before.return_frame,
+                  "depth rejection preserves active caller");
+            CHECK(untouched.psp == 7u && untouched.depth == 9u,
+                  "depth rejection leaves output untouched");
+        }
+        while (entered) {
+            --entered;
+            loader_nest_leave(&active, &saved[entered]);
+            CHECK(active.psp == (entered ? 0x40000u + (entered-1u)*0x1000u : 0x12340u),
+                  "nested EXEC restores caller PSP");
+            CHECK(active.return_frame == (void *)(uintptr_t)(entered ? 0x456u+entered-1u : 0x123u),
+                  "nested EXEC restores caller return frame");
+            CHECK(active.depth == entered, "nested EXEC restores active bookkeeping");
+        }
+    }
     /* ---- Case 1: a valid image yields the LOCKED layout + params. -------- */
     {
         loader_plan_t plan;

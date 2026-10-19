@@ -17,10 +17,8 @@
 ; Assembled: nasm -f bin os/milton/greet_program.asm -o build/greet_program.bin
 ; Deployed:  mcopy build/greet_program.bin ::GREET.COM  (NOT baked into the kernel).
 ;
-; ADDRESSING (Solution A): assembled at org 0x00040100 == PROGRAM_IMAGE so the
-; absolute reference (mov edx, msg) resolves at the load address. The loader
-; (load_program) copies the .COM to PROGRAM_IMAGE and JMPs in. If PROGRAM_IMAGE
-; moves, this org constant moves with it (and spec/memory_map.h).
+; ADDRESSING: EIP-relative message lookup also permits MCB-allocated nested
+; EXEC. The org remains the top-level address; no absolute data pointer is used.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
@@ -28,9 +26,15 @@ bits 32
 org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
 
 start:
+    ; Native flat .COM has no relocation records (ADR-0003 DEC-08).
+    ; Resolve the message relative to EIP so nested EXEC can place the child
+    ; in an MCB above a resident caller (IBM DOS 3.30 TR pp. 11-4/5).
+    call .base
+.base:
+    pop edx
+    add edx, msg - .base
     ; AH=09h DISPLAY STRING: EDX = flat ptr to the '$'-terminated message.
     mov ah, 0x09
-    mov edx, msg
     int 0x21
 
     ; AH=4Ch TERMINATE WITH RETURN CODE: AL = 7 (the known rc the oracle asserts
