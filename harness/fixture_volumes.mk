@@ -54,6 +54,8 @@ endif
 $(eval $(call fixture-contract,$(FLAIR_DATA_CORRUPT_IMG),$(FLAIR_FIXTURES) DESKTOP.DB=AH))
 $(eval $(call fixture-contract,$(FLAIR_DAMAGED_DATA_IMG),NEWFOLD= TRASH= APPS/TRASH= APPS/TRASH/README.TXT $(filter-out README.TXT,$(FLAIR_FIXTURES))))
 $(eval $(call fixture-contract,$(FLAIR_PURGE_VIEWS_DATA),$(FLAIR_FIXTURES) TRASH/A/KEEP.TXT TRASH/A/CHILD/GRAND/NOTE.TXT))
+# initech-qvgd: the List Files volumes -- the stock fixtures + the mint 005 A:\DOCS.
+$(foreach img,$(FLAIR_IWORD_LF_DATA) $(FLAIR_IWORD_LF_COLUMN_DATA),$(eval $(call fixture-contract,$(img),$(FLAIR_FIXTURES) DOCS/ARCHIVE= DOCS/WORK= DOCS/MEMO DOCS/LETTER.WP5 DOCS/TABS.DOC DOCS/README.TXT DOCS/ZERO.TXT DOCS/BIG.DAT DOCS/HUGE.BIN DOCS/HIDDEN.SYS=AH)))
 $(eval $(call fixture-contract,$(FLAIR_SCROLL_DATA_IMG),$(FLAIR_FIXTURES) $(foreach n,00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17,F$(n).TXT)))
 $(eval $(call fixture-contract,$(BUILD)/record_locked_trash.img,$(filter-out README.TXT,$(FLAIR_FIXTURES)) README.TXT=AR))
 $(eval $(call fixture-contract,$(BUILD)/record_locked_purge.img,$(filter-out APPS/TENANTFX.EXE,$(FLAIR_FIXTURES)) APPS/TENANTFX.EXE=AR))

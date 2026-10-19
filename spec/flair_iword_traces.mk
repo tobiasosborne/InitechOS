@@ -80,8 +80,11 @@ FLAIR_IWORD_FORMAT_SPEC := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10
 # Reference printed pp. 963-966, Template pp. 5-6. No document/file edits.
 FLAIR_IWORD_LAUNCH := m100:-88,m100:-88,m80:0,l1,l0,l1,l0,m-100:10,m-100:10,m-100:10,m-100:8,m-77:0,l1,l0,l1,l0,m78:10,m78:10,l1,l0,l1,l0
 # All 48 slots; F1 backs out of prompts, F7 n n clears the document.
+# Rule-8 note 2026-10-20 (initech-qvgd): F5 is live (List Files), so its
+# "Dir A:\*.*" prompt is backed out with F1 (kf1 after kf5), as the other
+# prompts are.
 # F11/F12 aliases are also driven with Block on. Final F9: pixel waypoint.
-FLAIR_IWORD_FKEYS_SPEC := $(FLAIR_IWORD_LAUNCH),kf1,kf1,kf2,kf1,kf3,kf4,kf5,kf6,kf7,kn,kn,kf8,kf9,kf10,kf1,kf11,kf11,kf12,kf12,kshift-f1,kf1,kshift-f2,kf1,kshift-f3,kshift-f4,kshift-f5,kshift-f6,kshift-f7,kshift-f8,kf1,kshift-f9,kshift-f10,kf1,kshift-f11,kshift-f12,kalt-f1,kalt-f2,kf1,kalt-f3,kalt-f3,kalt-f4,kf1,kalt-f5,kalt-f6,kalt-f7,kalt-f8,kalt-f9,kalt-f10,kalt-f11,kalt-f12,kctrl-f1,kctrl-f2,kctrl-f3,kctrl-f4,kf1,kctrl-f5,kctrl-f6,kctrl-f7,kctrl-f8,w200,kf1,w150,kctrl-f9,kctrl-f10,kctrl-f11,kctrl-f12,kf9
+FLAIR_IWORD_FKEYS_SPEC := $(FLAIR_IWORD_LAUNCH),kf1,kf1,kf2,kf1,kf3,kf4,kf5,kf1,kf6,kf7,kn,kn,kf8,kf9,kf10,kf1,kf11,kf11,kf12,kf12,kshift-f1,kf1,kshift-f2,kf1,kshift-f3,kshift-f4,kshift-f5,kshift-f6,kshift-f7,kshift-f8,kf1,kshift-f9,kshift-f10,kf1,kshift-f11,kshift-f12,kalt-f1,kalt-f2,kf1,kalt-f3,kalt-f3,kalt-f4,kf1,kalt-f5,kalt-f6,kalt-f7,kalt-f8,kalt-f9,kalt-f10,kalt-f11,kalt-f12,kctrl-f1,kctrl-f2,kctrl-f3,kctrl-f4,kf1,kctrl-f5,kctrl-f6,kctrl-f7,kctrl-f8,w200,kf1,w150,kctrl-f9,kctrl-f10,kctrl-f11,kctrl-f12,kf9
 
 # P3 search oracle first: Search forward for the Bold On code, backward
 # for 'plain', then fail a search for 'missing'. No Save, no disk writes.
@@ -102,3 +105,12 @@ FLAIR_IWORD_SETUP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f1,k3,k8,k1,kc,k2,kp,kf7,
 FLAIR_IWORD_REPLACE_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kf6,kf6,kk,ke,ke,kp,khome,khome,khome,kup,kalt-f2,ky,kf6,kf6,kf2,kf2,ky,kf1
 FLAIR_IWORD_UNDO_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),ka,kb,kc,kd,kbspc,kleft,kright,kbspc,kleft,kright,kbspc,kleft,kright,kbspc,kf1,k2,k2,k1
 FLAIR_IWORD_SETUP_CLIP_SPEC := $(FLAIR_IWORD_LAUNCH),kshift-f1,k3,k1,k2,ky,kf7,k8,k1,kc,k2,kp
+
+# initech-qvgd List Files (F5): the exact keys the REAL WP 5.1 was minted with
+# (../wordperfect51-decomp mint/work/LISTF/LF13.steps, mint-results-005.md):
+# F5, Enter (the root), Down (APPS), Right (DOCS), Enter ("Dir A:\DOCS\*.*"),
+# Enter (DOCS, ".. Parent" selected), Down x3 (LETTER.WP5), 6 (Look), Esc,
+# 1 (Retrieve onto the empty document), F5, Enter, Down, Right, Enter, Enter,
+# Down x3, 1 ("Retrieve into current document? No (Yes)"), n, 1, y. No disk
+# writes. 25 keys. Locked (Rule 8).
+FLAIR_IWORD_LISTFILES_SPEC := $(FLAIR_IWORD_LAUNCH),kf5,kret,kdown,kright,kret,kret,kdown,kdown,kdown,k6,kesc,k1,kf5,kret,kdown,kright,kret,kret,kdown,kdown,kdown,k1,kn,k1,ky

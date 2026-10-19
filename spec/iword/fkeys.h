@@ -20,6 +20,7 @@ enum {
     IW_FK_replace = 15,
     IW_FK_undelete = 16,
     IW_FK_setup = 17,
+    IW_FK_list = 18,
 };
 typedef struct { const char *name; unsigned char action; } iw_fkey_t;
 static const iw_fkey_t IW_FKEYS[4][12] = {
@@ -28,7 +29,7 @@ static const iw_fkey_t IW_FKEYS[4][12] = {
         { "Search", IW_FK_search_forward },
         { "Help", IW_FK_gray },
         { "Indent", IW_FK_indent },
-        { "List", IW_FK_gray },
+        { "List", IW_FK_list },
         { "Bold", IW_FK_bold },
         { "Exit", IW_FK_exit },
         { "Underline", IW_FK_underline },

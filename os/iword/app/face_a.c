@@ -168,6 +168,8 @@
 #include "iword/wp5_format.h"
 #include "iword/reveal_codes.h"
 #include "iword/settings.h"
+#include "iword/listfiles.h"
+#include "cpanels_record.h"           /* cp_time_t: the TBX_CLOCK record */
 
 const char tbx_app_name[] = "WORD";
 
@@ -309,7 +311,8 @@ enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_
        M_FORMAT, M_FMTLINE, M_FMTJUST, M_FMTMARL, M_FMTMARR,
        M_SIZE, M_FONTBLK, M_MOVENB, M_RETMENU, M_FMTSP, M_GRAY, M_SEARCH,
        M_RCONF, M_RSEARCH, M_RTEXT, M_RASK, M_UNDO,
-       M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE };
+       M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE,
+       M_LISTDIR, M_LIST, M_LISTSUB, M_LOOK, M_LISTRQ };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -342,12 +345,13 @@ static uint8_t g_undo_join;
 static uint8_t g_settings[IW_SETTINGS_SIZE], g_settings_io[IW_SETTINGS_SIZE+1];
 static uint8_t g_unit_target;
 static uint32_t query_label(char *out, uint32_t cap);
-static char     g_name[16];                 /* the name being typed        */
+static char     g_name[TBX_FILE_PATH_MAX];  /* the name being typed        */
 static uint32_t g_nlen;
 static uint8_t  g_fresh;                    /* the offered name: a key replaces it */
 static char     g_path[TBX_FILE_PATH_MAX];  /* "NAME" for the file verbs     */
-static char     g_current[24];              /* "A:\NAME" once saved/retrieved */
-static char     g_shown[24];                /* "A:\NAME" of the name being used */
+/* "A:\NAME" or, retrieved from List Files, "A:\DOCS\NAME" (mint 005 LF11_12) */
+static char     g_current[TBX_FILE_PATH_MAX + 4]; /* once saved/retrieved   */
+static char     g_shown[TBX_FILE_PATH_MAX + 4];   /* of the name being used */
 static uint8_t  g_exiting;                  /* the save is part of F7 Exit  */
 /* the Format: Line margin fields (Shift-F8 1 7): the text typed so far, the
  * left value taken (WPU), whether anything was typed */
@@ -386,8 +390,15 @@ static void row_clear(row_t *r)
 }
 
 /* Draw row `line` as `r` unless the screen has it. */
+/* IW_A_GRAY (face-local, never a txFace bit): the cell is drawn GRAY -- a
+ * List Files menu item InitechWord does not perform (spec/iword/listfiles.h
+ * IW_LF_ITEMS). g_row_off moves a painter's rows down (the Look body,
+ * WP rows 3.. of the Look screen). */
+#define IW_A_GRAY   0x80u
+static int g_row_off;
 static void put_row(int line, const row_t *r)
 {
+    line += g_row_off;
     const row_t *o = &g_shadow[line];
     int same = g_shadow_ok[line] && o->fg == r->fg && o->bg == r->bg &&
                o->inv_col == r->inv_col && o->inv_len == r->inv_len &&
@@ -403,7 +414,8 @@ static void put_row(int line, const row_t *r)
         uint32_t s0 = c;
         if (!f) { c++; continue; }
         while (c < SCR_COLS && r->a[c] == f) c++;
-        put_cells(line, (int)s0, r->t + s0, c - s0, (uint32_t)r->fg | TBX_TEXT_FACE(f), r->bg);
+        put_cells(line, (int)s0, r->t + s0, c - s0,
+                  (uint32_t)((f & IW_A_GRAY) ? TBX_COLOR_GRAY : r->fg) | TBX_TEXT_FACE(f & 0x07u), r->bg);
     }
     if (r->blk_len) put_cells(line, r->blk_col, r->t + r->blk_col, r->blk_len,
                              g_mode == M_UNDO ? BG : TBX_COLOR_BLACK,
@@ -1037,10 +1049,13 @@ static void paint_setup(void)
     else setup_row(23, "Selection: 0", 0);
 }
 
+static int lf_mode(void);
+static void paint_lf(void);
 static void paint(void)
 {
     iw_where_t w;
     if (setup_mode()) { paint_setup(); return; }
+    if (lf_mode()) { paint_lf(); return; }
     if (g_mode == M_UNDO) {
         /* Preview is a borrowed temporary document. The live piece table,
          * add arena, original bytes, cursor and dirty flag never change. */
@@ -1182,7 +1197,8 @@ static void offer_name(void)
     g_fresh = 1;
 }
 
-/* g_name -> g_path ("NAME") and the shown "A:\NAME"; 0 = refused. */
+/* g_name -> g_path ("NAME", or "DIR\NAME" for a document retrieved from
+ * List Files, mint 005 LF11_12) and the shown "A:\NAME"; 0 = refused. */
 static int take_name(void)
 {
     uint32_t i, dot = 0, base = 0, ext = 0;
@@ -1190,6 +1206,11 @@ static int take_name(void)
     for (i = 0; i < g_nlen; i++) {
         char c = upper(g_name[i]);
         int ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+        if (c == '\\') {
+            /* a directory component: 8.3 itself, never empty */
+            if (base == 0u || base > 8u || ext > 3u || i + 1u == g_nlen) return 0;
+            dot = base = ext = 0; continue;
+        }
         if (!ok) return 0;
         if (c == '.') { if (dot) return 0; dot = 1; continue; }
         if (dot) ext++; else base++;
@@ -1256,20 +1277,21 @@ static void save_named(void)
     write_file();
 }
 
-static void retrieve_named(void)
+/* g_path / g_shown into the document; an error returns to `back` (the
+ * Retrieve prompt, or the List Files screen). */
+static void retrieve_file(int back)
 {
     uint8_t *buf;
     int32_t h, size, rc = 0, closed;
     uint32_t pos = 0;
     iw_wp5_t w;
-    if (!take_name()) { error("ERROR: Invalid file name", M_GET_NAME); return; }
     /* Into a document the file's text is copied into the add buffer: make
      * the room FIRST, while the spare bank is still free to compact into
      * (the file is read into that bank next). */
     if (g_ed.doc.len != 0u) compact();
     buf = g_bank[1u - g_live];
     h = tbx_file_open(g_path, TBX_FILE_READ_ONLY);
-    if (h < 0) { error("ERROR: File Not Found", M_GET_NAME); return; }
+    if (h < 0) { error("ERROR: File Not Found", back); return; }
     size = tbx_file_seek(h, 0, TBX_FILE_FROM_END);
     if (size >= 0) rc = tbx_file_seek(h, 0, TBX_FILE_FROM_START);
     if (size >= 0 && rc >= 0 && (uint32_t)size <= BANK) {
@@ -1280,9 +1302,9 @@ static void retrieve_named(void)
         }
     }
     closed = tbx_file_close(h);
-    if (size < 0 || (uint32_t)size > BANK) { error("ERROR: Document too large", M_GET_NAME); return; }
-    if (pos != (uint32_t)size || closed < 0) { error("ERROR: File Not Found", M_GET_NAME); return; }
-    if (iw_wp5_read(buf, pos, &w) != IW_OK) { error("ERROR: Incompatible File Format", M_GET_NAME); return; }
+    if (size < 0 || (uint32_t)size > BANK) { error("ERROR: Document too large", back); return; }
+    if (pos != (uint32_t)size || closed < 0) { error("ERROR: File Not Found", back); return; }
+    if (iw_wp5_read(buf, pos, &w) != IW_OK) { error("ERROR: Incompatible File Format", back); return; }
     if (g_ed.doc.len == 0u) {
         /* onto a clear screen: the file IS the document now */
         g_ed.cur = 0;
@@ -1298,7 +1320,7 @@ static void retrieve_named(void)
          * on-screen document keeps its own name and prefix (p. 555) */
         uint32_t at = g_ed.cur;
         if (iw_doc_insert(&g_ed.doc, at, w.body, w.body_len) != IW_OK) {
-            error("ERROR: Document too large", M_EDIT);
+            error("ERROR: Document too large", back == M_GET_NAME ? M_EDIT : back);
             return;
         }
         (void)iw_reflow_para(&g_ed.doc, at + w.body_len, g_ed.width);
@@ -1306,6 +1328,374 @@ static void retrieve_named(void)
         g_ed.dirty = 1;
     }
     g_mode = M_EDIT;
+}
+
+static void retrieve_named(void)
+{
+    if (!take_name()) { error("ERROR: Invalid file name", M_GET_NAME); return; }
+    retrieve_file(M_GET_NAME);
+}
+
+/* ---- List Files (F5) and Look -------------------------------------------------
+ * bead initech-qvgd (IWORD P3 remainder). Every screen as the REAL WordPerfect
+ * 5.1 drew it on a fixed FAT12 volume (../wordperfect51-decomp mint/work/
+ * LISTF/mint-results-005.md; the rows composed by os/iword/core/listfiles.c
+ * from spec/iword/listfiles.h, then fitted to the 76 cells):
+ *   F5            "Dir A:\*.*" + the hint on the status line (LF11_01); the
+ *                 default directory is the data volume's root (InitechWord
+ *                 has no other). Enter lists it; F1 / Esc back (authored:
+ *                 the mint did not press them here). Typing a path and "="
+ *                 are not performed (the keys are ignored).
+ *   the list      header rows, two entries per row, the menu (LF11_06);
+ *                 arrows as WP moves (Right on the right entry goes to the
+ *                 next row's left one, LF10 07..11); 6 / Enter on a
+ *                 directory, "." or ".." puts "Dir <path>" under the list
+ *                 (LF11_05), Enter lists it with ".. Parent" selected
+ *                 (LF11_06), F1 returns (LF03_19); 6 / Enter on a file: Look;
+ *                 1 on a file: Retrieve (onto an empty document at once,
+ *                 LF11_12; else "Retrieve into current document? No (Yes)",
+ *                 LF12_03); F7 back to the document (LF03_17); Esc does
+ *                 nothing (LF03_16); F1 back to the document (authored).
+ *                 2 3 4 5 7 8 9 N: drawn GRAY, ignored (IW_LF_ITEMS).
+ *   Look          "File: <path>  WP5.1  Revised: <stamp>" band, the
+ *                 document from row 3 as the editing screen wraps it, "Look:
+ *                 1 Next Doc; 2 Prev Doc: 0" (LF11_09); Esc and Space back
+ *                 to the list (LF11_10, LF04_07), F7 too (Reference PDF p.
+ *                 381); Up / Down move the cursor (p. 381 step 3). 1 / 2 (Next
+ *                 / Previous Doc) are not performed. A file that is not a 5.1
+ *                 document shows its text lines (LF04_06 README.TXT).
+ * Hidden entries are listed (LF11_06 HIDDEN.SYS); the find attribute is
+ * hidden + system + directory. */
+#define LF_MAX 256u
+static uint8_t     g_lf_recs[LF_MAX * TBX_FIND_REC_BYTES];
+static iw_lf_ent_t g_lf_ent[LF_MAX];
+static uint32_t    g_lf_n, g_lf_sel, g_lf_top, g_lf_used, g_lf_files, g_lf_doc, g_lf_free;
+static char        g_lf_dir[TBX_FILE_PATH_MAX];    /* "" = the root, or "DOCS\"   */
+static char        g_lf_sub[TBX_FILE_PATH_MAX];    /* the directory offered       */
+static cp_time_t   g_lf_clock;
+static iw_lf_clock_t g_lf_now;
+static uint32_t    g_look_n, g_look_cur;
+static uint8_t     g_look_wp;
+static iw_wp5_t    g_look_w;
+static uint16_t    g_look_date, g_look_time;
+static char        g_look_path[TBX_FILE_PATH_MAX + 4];
+static const uint8_t LF_DEL_HDR1[] = IW_LF_DEL_HDR1;
+static const uint8_t LF_DEL_LIST[] = IW_LF_DEL_LIST;
+static const uint8_t LF_DEL_PROMPT[] = IW_LF_DEL_PROMPT;
+static const uint8_t LF_DEL_LOOK[] = IW_LF_DEL_LOOK;
+typedef struct lf_item { char key; uint8_t row, c0, c1, live; } lf_item_t;
+static const lf_item_t LF_ITEMS[IW_LF_N_ITEMS] = IW_LF_ITEMS;
+
+static int lf_mode(void) { return g_mode >= M_LISTDIR && g_mode <= M_LISTRQ; }
+static uint32_t lf_slots(void) { return g_lf_n + 2u; }
+static int lf_is_file(uint32_t slot)
+{
+    return slot >= 2u && !(g_lf_ent[slot - 2u].attr & IW_LF_ATTR_DIR);
+}
+
+/* scopy of a + b into d (cap TBX_FILE_PATH_MAX); 0 when it does not fit */
+static int lf_cat(char *d, const char *a, const char *b)
+{
+    uint32_t n = slen(a), m = slen(b);
+    if (n + m + 1u > TBX_FILE_PATH_MAX) return 0;
+    scopy(d, a); scopy(d + n, b);
+    return 1;
+}
+
+/* List `dir` ("" or "DOCS\"), the slot `sel` selected. */
+static void lf_open(const char *dir, uint32_t sel)
+{
+    /* static: the gate refuses automatic buffers (tbx.h, spec Sec 10) */
+    static char pat[TBX_FILE_PATH_MAX];
+    int32_t n, fr;
+    if (!lf_cat(pat, dir, IW_LF_ALL)) { error("ERROR: File Not Found", M_EDIT); return; }
+    n = tbx_file_find(pat, IW_LF_FIND_ATTR, g_lf_recs, LF_MAX);
+    /* authored: WP's message for a bad directory was not minted */
+    if (n < 0) { error("ERROR: File Not Found", M_EDIT); return; }
+    g_lf_n = iw_lf_load(g_lf_recs, (uint32_t)n, g_lf_ent, LF_MAX, &g_lf_used, &g_lf_files);
+    fr = tbx_disk_free();
+    g_lf_free = fr > 0 ? (uint32_t)fr : 0u;
+    if (tbx_get_clock(&g_lf_clock) != TBX_OK) { g_lf_clock.year = 1980; g_lf_clock.month = 1; g_lf_clock.day = 1;
+                                               g_lf_clock.hour = 0; g_lf_clock.minute = 0; }
+    g_lf_now.year = g_lf_clock.year; g_lf_now.month = g_lf_clock.month; g_lf_now.day = g_lf_clock.day;
+    g_lf_now.hour = g_lf_clock.hour; g_lf_now.minute = g_lf_clock.minute;
+    /* spec IW_LF_DOCSIZE_EXTRA: 0 for an empty document [mint], else the
+     * bytes F10 would write + 193 [inferred, three minted points] */
+    g_lf_doc = 0;
+    if (g_ed.doc.len) { uint32_t fn; if (flatten(&fn) == IW_OK) g_lf_doc = fn + IW_LF_DOCSIZE_EXTRA; }
+    scopy(g_lf_dir, dir);
+    g_lf_sel = sel < lf_slots() ? sel : 0u;
+    g_lf_top = 0;
+    g_mode = M_LIST;
+}
+
+/* the directory slot `slot` names: "." the listed one, ".." its parent */
+static int lf_slot_dir(uint32_t slot, char *out)
+{
+    if (slot == 0u) { scopy(out, g_lf_dir); return 1; }
+    if (slot == 1u) {
+        uint32_t n = slen(g_lf_dir);
+        scopy(out, g_lf_dir);
+        if (n) { n--; while (n && out[n - 1u] != '\\') n--; out[n] = 0; }
+        return 1;
+    }
+    return lf_cat(out, g_lf_dir, g_lf_ent[slot - 2u].name) && lf_cat(out, out, "\\");
+}
+
+/* the selected file's path "DIR\NAME" into g_path and "A:\DIR\NAME" into s */
+static int lf_file_path(char *shown)
+{
+    if (!lf_is_file(g_lf_sel) || !lf_cat(g_path, g_lf_dir, g_lf_ent[g_lf_sel - 2u].name)) return 0;
+    scopy(shown, IW_LF_DRIVE);
+    scopy(shown + 3, g_path);
+    return 1;
+}
+
+static void lf_retrieve(void)
+{
+    if (!lf_file_path(g_shown)) { g_mode = M_LIST; return; }
+    retrieve_file(M_LIST);
+}
+
+/* Look: the file into the spare bank (at most a bank; a longer text file
+ * shows its first BANK bytes) */
+static void lf_look(void)
+{
+    uint8_t *buf = g_bank[1u - g_live];
+    int32_t h, rc = 1;
+    uint32_t pos = 0;
+    if (!lf_file_path(g_look_path)) return;
+    h = tbx_file_open(g_path, TBX_FILE_READ_ONLY);
+    if (h < 0) { error("ERROR: File Not Found", M_LIST); return; }
+    while (pos < BANK && rc > 0) {
+        rc = tbx_file_read(h, buf + pos, BANK - pos);
+        if (rc > 0 && (uint32_t)rc <= BANK - pos) pos += (uint32_t)rc; else break;
+    }
+    (void)tbx_file_close(h);
+    g_look_n = pos;
+    g_look_wp = iw_wp5_read(buf, pos, &g_look_w) == IW_OK;
+    g_look_date = g_lf_ent[g_lf_sel - 2u].date;
+    g_look_time = g_lf_ent[g_lf_sel - 2u].time;
+    g_look_cur = 0xFFFFFFFFu;                    /* placed at the first paint */
+    g_mode = M_LOOK;
+}
+
+static void lf_key(char ch, uint8_t vk)
+{
+    uint32_t n = lf_slots();
+    char up = upper(ch);
+    switch (g_mode) {
+    case M_LISTDIR:
+        if (vk == VK_ENTER || ch == '\r') { g_lf_dir[0] = 0; lf_open("", 0u); }
+        else if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) g_mode = M_EDIT;
+        return;
+    case M_LISTSUB:
+        if (vk == VK_ENTER || ch == '\r') {
+            char d[TBX_FILE_PATH_MAX];
+            scopy(d, g_lf_sub);
+            lf_open(d, 1u);                      /* ".. Parent" selected, LF11_06 */
+        } else if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) g_mode = M_LIST;
+        return;
+    case M_LISTRQ:
+        if (up == 'Y') lf_retrieve(); else g_mode = M_LIST;
+        return;
+    case M_LOOK:
+        if (vk == VK_ESC || ch == 0x1B || ch == ' ' || vk == VK_F7) g_mode = M_LIST;
+        else if (g_look_wp && (vk == VK_DOWN || vk == VK_UP)) {
+            iw_line_t ln[2];
+            iw_ed_t saved = g_ed;
+            iw_piece_t pc;
+            iw_where_t w;
+            iw_doc_init(&g_ed.doc, 0, 0, &pc, 1, BANK);
+            iw_doc_load(&g_ed.doc, g_look_w.body, g_look_w.body_len);
+            g_ed.cur = g_look_cur <= g_look_w.body_len ? g_look_cur : g_look_w.body_len;
+            iw_ed_where(&g_ed, &w);
+            if (vk == VK_DOWN && iw_ed_lines(&g_ed, w.line + 1u, 1u, ln)) g_look_cur = ln[0].start;
+            if (vk == VK_UP && w.line && iw_ed_lines(&g_ed, w.line - 1u, 1u, ln)) g_look_cur = ln[0].start;
+            g_ed = saved;
+        }
+        return;
+    default:
+        break;
+    }
+    /* M_LIST */
+    if (vk == VK_DOWN) { if (g_lf_sel + 2u < n) g_lf_sel += 2u; }
+    else if (vk == VK_UP) { if (g_lf_sel >= 2u) g_lf_sel -= 2u; }
+    else if (vk == VK_RIGHT) { if (g_lf_sel + 1u < n) g_lf_sel++; }
+    else if (vk == VK_LEFT) { if (g_lf_sel) g_lf_sel--; }
+    else if (vk == VK_F7 || vk == VK_F1) { g_mode = M_EDIT; return; }
+    else if (ch == '6' || vk == VK_ENTER || ch == '\r') {
+        if (lf_is_file(g_lf_sel)) lf_look();
+        else if (lf_slot_dir(g_lf_sel, g_lf_sub)) g_mode = M_LISTSUB;
+    } else if (ch == '1') {
+        if (lf_is_file(g_lf_sel)) { if (g_ed.doc.len) g_mode = M_LISTRQ; else lf_retrieve(); }
+    }
+    /* keep the selection's row on the screen */
+    if (g_lf_sel / 2u < g_lf_top) g_lf_top = g_lf_sel / 2u;
+    if (g_lf_sel / 2u >= g_lf_top + IW_LF_FACE_LIST_ROWS) g_lf_top = g_lf_sel / 2u - (IW_LF_FACE_LIST_ROWS - 1u);
+}
+
+/* a WP row fitted to the cells (`del` of `nd` columns), its bright cells
+ * (`bright`: 'B' marks, at WP columns) bold */
+static void lf_row(row_t *r, const char *row80, const uint8_t *del, uint32_t nd, const char *bright, uint32_t bcol)
+{
+    char fit[SCR_COLS + 1];
+    row_clear(r);
+    (void)iw_lf_fit(row80, del, nd, fit, SCR_COLS);
+    for (uint32_t i = 0; i < SCR_COLS; i++) r->t[i] = fit[i];
+    for (uint32_t i = 0; bright && bright[i]; i++) {
+        uint32_t c;
+        if (bright[i] != 'B') continue;
+        c = iw_lf_face_col(bcol + i, del, nd);
+        if (c < SCR_COLS) r->a[c] = (uint8_t)IW_A_BOLD;
+    }
+}
+static void lf_band(row_t *r) { r->fg = (uint8_t)TBX_COLOR_BLACK; r->bg = (uint8_t)TBX_COLOR_GRAY; }
+
+/* the F5 prompt / the Dir prompt row: 'Dir' and the path bright, the cursor
+ * on the path's first cell (LF11_01, LF11_05) */
+static void lf_prompt_row(row_t *r, const char *dir, int hint)
+{
+    char row80[IW_LF_WP_COLS + 1], path[TBX_FILE_PATH_MAX + 8];
+    uint32_t i, n;
+    scopy(path, IW_LF_DRIVE);
+    n = slen(path);
+    for (i = 0; dir[i] && n + 4u < sizeof path; i++) path[n++] = dir[i];
+    scopy(path + n, IW_LF_ALL);
+    iw_lf_row_prompt(row80, path, hint);
+    lf_row(r, row80, LF_DEL_PROMPT, sizeof LF_DEL_PROMPT, "BBB", 0u);
+    for (i = 0; path[i] && IW_LF_PATH_COL + i < SCR_COLS; i++) r->a[IW_LF_PATH_COL + i] = (uint8_t)IW_A_BOLD;
+    if (hint) {
+        uint32_t c = iw_lf_face_col(IW_LF_HINT_COL + IW_LF_HINT_BRIGHT, LF_DEL_PROMPT, sizeof LF_DEL_PROMPT);
+        if (c < SCR_COLS) r->a[c] = (uint8_t)IW_A_BOLD;
+    }
+    r->inv_col = (uint8_t)IW_LF_PATH_COL; r->inv_len = 1;
+}
+
+static void paint_look(void)
+{
+    static row_t r;
+    char row80[IW_LF_WP_COLS + 1];
+    uint32_t i;
+    iw_lf_row_look(row80, g_look_path, g_look_wp, g_look_date, g_look_time);
+    lf_row(&r, row80, LF_DEL_LOOK, sizeof LF_DEL_LOOK, 0, 0u);
+    lf_band(&r);
+    put_row(0, &r);
+    put_text_row(1, "");
+    put_text_row(2, "");
+    if (g_look_wp) {
+        /* the document as the editing screen wraps it, from row 3, through
+         * a borrowed read-only editor (the M_UNDO preview pattern) */
+        iw_ed_t saved = g_ed;
+        uint32_t top = g_top, skip = g_skip;
+        iw_piece_t pc;
+        iw_where_t w;
+        static iw_line_t lines[IW_LF_FACE_LOOK_ROWS + 1];
+        iw_doc_init(&g_ed.doc, 0, 0, &pc, 1, BANK);
+        iw_doc_load(&g_ed.doc, g_look_w.body, g_look_w.body_len);
+        g_ed.blk = IW_NO_BLOCK;
+        g_ed.cur = g_look_w.body_len;
+        if (g_look_cur == 0xFFFFFFFFu) {
+            /* "the cursor is at the bottom of the screen" (PDF p. 384): the
+             * document's end, or the last row's line of a longer one */
+            if (iw_ed_lines(&g_ed, 0, IW_LF_FACE_LOOK_ROWS + 1u, lines) > IW_LF_FACE_LOOK_ROWS)
+                g_ed.cur = lines[IW_LF_FACE_LOOK_ROWS - 1u].start;
+            g_look_cur = g_ed.cur;
+        } else g_ed.cur = g_look_cur;
+        g_top = 0; g_skip = 0;
+        iw_ed_where(&g_ed, &w);
+        g_row_off = (int)IW_LF_LOOK_BODY_ROW;
+        paint_doc(&w, IW_LF_FACE_LOOK_ROWS);
+        g_row_off = 0;
+        g_ed = saved; g_top = top; g_skip = skip;
+    } else {
+        /* a text file's lines (LF04_06), CR LF ends a line, cut at 76 */
+        const uint8_t *b = g_bank[1u - g_live];
+        uint32_t p = 0;
+        for (i = 0; i < IW_LF_FACE_LOOK_ROWS; i++) {
+            row_clear(&r);
+            for (uint32_t c = 0; p < g_look_n && b[p] != '\n'; p++) {
+                if (b[p] == '\r') continue;
+                if (c < SCR_COLS) r.t[c++] = (b[p] >= ' ' && b[p] <= '~') ? (char)b[p] : ' ';
+            }
+            if (p < g_look_n) p++;
+            put_row((int)(IW_LF_LOOK_BODY_ROW + i), &r);
+        }
+    }
+    {
+        char m[IW_LF_WP_COLS + 1];
+        iw_lf_blank(m);
+        for (i = 0; IW_LF_LOOK_MENU[i]; i++) m[i] = IW_LF_LOOK_MENU[i];
+        lf_row(&r, m, 0, 0, IW_LF_LOOK_BRIGHT, 0u);
+        put_row(LINE_STATUS, &r);
+    }
+}
+
+static void paint_lf(void)
+{
+    static row_t r;
+    char row80[IW_LF_WP_COLS + 1], pat[TBX_FILE_PATH_MAX + 8];
+    uint32_t i;
+    if (g_mode == M_LISTDIR) {
+        iw_where_t w;
+        iw_ed_where(&g_ed, &w);
+        paint_doc(&w, EDIT_ROWS);
+        lf_prompt_row(&r, "", 1);
+        put_row(LINE_STATUS, &r);
+        return;
+    }
+    if (g_mode == M_LOOK) { paint_look(); return; }
+    scopy(pat, IW_LF_DRIVE);
+    (void)lf_cat(pat + 3, g_lf_dir, IW_LF_ALL);
+    iw_lf_row_header0(row80, &g_lf_now, pat);
+    lf_row(&r, row80, 0, 0, 0, 0u); lf_band(&r); put_row(0, &r);
+    iw_lf_row_header1(row80, g_lf_doc, g_lf_free, g_lf_used, g_lf_files);
+    lf_row(&r, row80, LF_DEL_HDR1, sizeof LF_DEL_HDR1, 0, 0u); lf_band(&r); put_row(1, &r);
+    put_text_row(2, "");
+    for (i = 0; i < IW_LF_FACE_LIST_ROWS; i++) {
+        uint32_t lr = g_lf_top + i;
+        iw_lf_row_list(row80, g_lf_ent, g_lf_n, lr);
+        lf_row(&r, row80, LF_DEL_LIST, sizeof LF_DEL_LIST, 0, 0u);
+        if (g_lf_sel / 2u == lr) {
+            /* the bar over the entry's lead blank + 38 cells (LF11_08) */
+            uint32_t w0 = (g_lf_sel & 1u) ? IW_LF_SEL_RIGHT0 : IW_LF_SEL_LEFT0, c0 = SCR_COLS, c1 = 0;
+            for (uint32_t c = w0; c < w0 + IW_LF_SEL_W; c++) {
+                uint32_t k;
+                for (k = 0; k < sizeof LF_DEL_LIST && LF_DEL_LIST[k] != c; k++) {}
+                if (k < sizeof LF_DEL_LIST) continue;
+                k = iw_lf_face_col(c, LF_DEL_LIST, sizeof LF_DEL_LIST);
+                if (k < c0) c0 = k;
+                if (k + 1u > c1) c1 = k + 1u;
+            }
+            if (c1 > SCR_COLS) c1 = SCR_COLS;
+            if (c0 < c1) { r.blk_col = (uint8_t)c0; r.blk_len = (uint8_t)(c1 - c0); }
+        }
+        put_row((int)(IW_LF_LIST_ROW + i), &r);
+    }
+    if (g_mode == M_LISTSUB || g_mode == M_LISTRQ) {
+        put_text_row(LINE_STATUS - 1, "");
+        if (g_mode == M_LISTSUB) { lf_prompt_row(&r, g_lf_sub, 0); put_row(LINE_STATUS, &r); }
+        else {
+            char q[IW_LF_WP_COLS + 1];
+            iw_lf_blank(q);
+            for (i = 0; IW_LF_INTO_Q[i]; i++) q[i] = IW_LF_INTO_Q[i];
+            lf_row(&r, q, 0, 0, IW_LF_INTO_Q_BRIGHT, 0u);
+            put_row(LINE_STATUS, &r);
+        }
+        return;
+    }
+    for (int m = 1; m <= 2; m++) {
+        char row[IW_LF_WP_COLS + 1];
+        const char *t = m == 1 ? IW_LF_MENU1 : IW_LF_MENU2;
+        iw_lf_blank(row);
+        for (i = 0; t[i]; i++) row[i] = t[i];
+        lf_row(&r, row, 0, 0, m == 1 ? IW_LF_MENU1_BRIGHT : IW_LF_MENU2_BRIGHT, 0u);
+        for (i = 0; i < IW_LF_N_ITEMS; i++)
+            if (LF_ITEMS[i].row == (uint8_t)m && !LF_ITEMS[i].live)
+                for (uint32_t c = LF_ITEMS[i].c0; c <= LF_ITEMS[i].c1 && c < SCR_COLS; c++)
+                    r.a[c] = (uint8_t)IW_A_GRAY;
+        put_row(LINE_STATUS - 2 + m, &r);
+    }
 }
 
 /* ---- the exit guard ------------------------------------------------------------- */
@@ -1684,6 +2074,7 @@ static int function_key(uint8_t vk, int32_t mods)
     case IW_FK_format:    g_mode = M_FORMAT; break;
     case IW_FK_move:      g_mode = M_MOVENB; break;
     case IW_FK_font:      g_mode = M_FONT; break;
+    case IW_FK_list:      g_mode = M_LISTDIR; break;   /* List Files (F5), mint 005 */
     case IW_FK_unmapped:
         /* Reference p. 966 note 4: no command is mapped to these keys.
          * Keep the editing screen/status, rather than inventing a blank
@@ -1987,6 +2378,7 @@ static void key(int32_t message, int32_t mods)
     else if (setup_mode()) setup_key(ch, vk);
     else if (format_mode()) format_key(ch, vk);
     else if (g_mode == M_RETRIEVE) retrieve_key(ch, vk, mods);
+    else if (lf_mode()) lf_key(ch, vk);
     else prompt_key(ch, vk);
     /* Reference p. 697: ANY cursor motion ends a deletion group, including
      * Search. The motion caused by the deletion itself remains in its group. */

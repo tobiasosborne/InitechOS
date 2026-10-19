@@ -10024,7 +10024,7 @@ run-flair: $(FLAIRLIVE_INTERACTIVE_IMG)
 TBXGATE_OPT            := -Os $(KERNEL_COLD_LTO_FLAGS)
 KERNEL_TBXGATE_OBJ     := $(BUILD)/tbxgate.o
 KERNEL_TBXGATE_ASM_OBJ := $(BUILD)/tbx_gate.o
-TBXGATE_DEPS := $(SERIAL_TRACE_PACK) os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
+TBXGATE_DEPS := $(SERIAL_TRACE_PACK) spec/find_data.h os/flair/cp_service.h spec/cp_dialog.h spec/cpanels_record.h os/flair/scrap.h os/flair/ostype.h os/flair/menu.h os/flair/tbxmenu.h spec/grafport.h os/flair/text.h os/flair/tbxgate.c os/flair/tbxgate.h os/flair/process.h os/flair/window.h os/flair/winscroll.h os/flair/heap.h os/flair/blitter.h os/flair/surface.h os/flair/flair_look.h os/flair/event.h os/milton/loader.h os/milton/psp.h spec/toolbox_gate.h spec/event_model.h spec/region_algebra.h spec/window_record.h spec/chrome_metrics.h spec/assets/chicago12.h os/flair/tbxfile.h os/milton/int21.h os/milton/sft.h
 $(KERNEL_TBXGATE_OBJ): $(TBXGATE_DEPS) | $(BUILD)
 	$(call kernel-tbx-compile,$(TBXGATE_OPT) -Ios/flair -Ios/flair/atkinson -Ios/milton -Ispec -Ispec/assets,$@)
 $(KERNEL_TBXGATE_ASM_OBJ): os/milton/tbx_gate.asm | $(BUILD)
@@ -10264,8 +10264,8 @@ I123_EXE := $(BUILD)/tenant/i123.exe
 # piece table in the .bss (e_minalloc). Never compiled into the kernel (plan
 # docs/plans/INITECH-WORD-plan.md Sec 4). The _no_wrap / _save_nothing builds
 # are the test-flair-iword-mutant fixtures ONLY, on their own gate volumes.
-IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
-IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/settings.h
+IWORD_APP_SRC := os/iword/app/face_a.c os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/core/listfiles.c os/iword/fs/wp5.c
+IWORD_APP_DEP := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/settings.h spec/iword/listfiles.h spec/cpanels_record.h spec/toolbox_gate.h
 $(eval $(call tenant-exe-rules,iword,$(IWORD_APP_SRC),-Ios/iword/core,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_no_wrap,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_NO_WRAP,$(IWORD_APP_DEP),))
 $(eval $(call tenant-exe-rules,iword_save_nothing,$(IWORD_APP_SRC),-Ios/iword/core -DIWORD_MUT_SAVE_NOTHING,$(IWORD_APP_DEP),))
@@ -14646,8 +14646,8 @@ test-i123-quit-mutant: $(BUILD)/test_i123_quit_mutant_I123_MUT_NEVER_DIRTY $(BUI
 # Home prefix keys, attributes given to blocks, all sixteen attributes, Move
 # without a block; ../wordperfect51-decomp re/mint-results-004.md).
 # ---------------------------------------------------------------------------
-IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/fs/wp5.c
-IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h
+IWORD_CORE_SRC := os/iword/core/piece.c os/iword/core/edit.c os/iword/core/codes.c os/iword/core/block.c os/iword/core/search.c os/iword/core/listfiles.c os/iword/fs/wp5.c
+IWORD_CORE_HDR := os/iword/core/iword.h spec/iword/wp5_format.h spec/iword/reveal_codes.h spec/iword/fkeys.h spec/iword/listfiles.h
 IWORD_CORE_INC := -Ios/iword/core -Ispec
 TEST_IWORD_CORE := $(BUILD)/test_iword_core
 IWORD_CORE_DEPS := harness/proptest/test_iword_core.c $(IWORD_CORE_SRC) $(IWORD_CORE_HDR) seed/test_assert.h
@@ -23792,6 +23792,18 @@ RECORD_MARKER_iword_setup = TENANT-GATE ax=0x0033 win=1 x=1 y=96 s="2 Original D
 RECORD_SETTLE_iword_setup = 400
 RECORD_IMAGE_iword_setup = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
 RECORD_RTC_BASE_iword_setup = 1992-03-01T09:00:00
+# initech-qvgd List Files (F5), Rule 14: the gate's locked trace (the keys of
+# the real WP 5.1 mint LF13/LF14) on the gate's volume (the mint's A:\DOCS);
+# the marker is the second copy of LETTER.WP5's first line, drawn only after
+# the final "Retrieve into current document? y". The literal image path:
+# record-flair's prerequisites are expanded before p3_listfiles.mk is read.
+RECORD_SCRIPTS += iword_listfiles
+RECORD_SPEC_iword_listfiles = $(FLAIR_IWORD_LISTFILES_SPEC)
+RECORD_MARKER_iword_listfiles = TENANT-GATE ax=0x0033 win=1 x=1 y=80 s="Italic:slanted words and plain.                                             " fg=0 bg=3 -> 0
+RECORD_SETTLE_iword_listfiles = 400
+RECORD_IMAGE_iword_listfiles = $(FLAIRTENANTS_RECORDXLONGDBL_IMG)
+RECORD_DATA_iword_listfiles = $(BUILD)/flair_iword_lf.img
+RECORD_RTC_BASE_iword_listfiles = 1992-03-01T09:00:00
 # itext_edit (bead initech-tdnl.16, R4.2 InitechText; Rule 14): the
 # SimpleText-alike opens from the Finder -- double-click APPS\TEXT.EXE, the
 # "untitled" window -- "Saving tables to disk" / "PC LOAD LETTER" typed in
@@ -32452,6 +32464,7 @@ TEST_EMU_GATES += test-flair-itext-scroll test-flair-itext-scroll-mutant
 include harness/emu/notepad.mk
 include harness/diff/wp5_diff/p3.mk
 include harness/diff/wp5_diff/p3_part2.mk
+include harness/diff/wp5_diff/p3_listfiles.mk
 include harness/fixture_volumes.mk
 $(eval $(call fixture-contract,$(DA_CORRUPT_DATA),$(FLAIR_FIXTURES) NOTEPAD.DAT))
 
