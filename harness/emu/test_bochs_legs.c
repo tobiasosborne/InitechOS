@@ -52,9 +52,8 @@ static const struct leg legs[] = {
     DOS("samir-core-emu"), DOS("samir-dml-emu"),
     DML("clear"), DML("macro"), DML("close"), DML("index"), DML("reindex"),
     DML("sort"), DML("total"), DML("append"), DML("save"), DML("restore"),
-    /* RUN is test-samir-dml-pending by name (3c32c4df: the nested-EXEC seam);
-     * SAMIR_DML_CASES no longer lists it, so it has no Bochs leg to require. */
     DML("copyfile"), DML("type"), DML("rename"), DML("erase"), DML("label"),
+    DML("run"),     /* initech-n8q8: back in SAMIR_DML_CASES */
     DOS("samir-print-emu"), DOS("shell-files-emu"), DOS("command-c-emu"),
     DOS("xcopy-cwd-emu"), DOS("fat-truncate-emu"), DOS("dir-match-emu"),
     DOS("shell-dir-look"),

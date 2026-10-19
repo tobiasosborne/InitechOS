@@ -108,6 +108,32 @@ static void compare_file(const char *dir,const char *gold,const char *file)
     else eq=an&&an==bn&&!memcmp(a,b,an);
     snprintf(why,sizeof why,"DML %s bytes match real III+",file);CHECK(eq,why);
 }
+/* RUN VER > VERSION.TXT (initech-n8q8; PM decision 2026-10-20, recorded on the
+ * bead for operator ratification). The real III+ VERSION.TXT is DOSBox-X's own
+ * VER banner ("DOSBox-X version 2024.03.01 ..."), which no InitechDOS build can
+ * reproduce, so a byte diff against it is not an oracle (CLAUDE.md: round-trips
+ * grade MEANINGFUL bytes; PRD 6.6). What the III+ mint DOES prove, and what is
+ * graded here: RUN hands its line verbatim to the command processor, the
+ * PROCESSOR performs the `>` redirection (Ashton-Tate RUN <DOS command>;
+ * dbase3-decomp specs/commands/programming-and-io.md Sec 16), and the child
+ * creates the file. So VERSION.TXT must be absent before the run (the case dir
+ * is fresh and nothing copies it in), non-empty, CR LF terminated, and
+ * byte-identical to the SAME processor's own `VER > VERREF.TXT` minted in this
+ * gate run, never hand-authored: on the emu leg InitechDOS COMMAND.COM runs it
+ * from DML.BAT; on the host leg /bin/sh runs it through system(), with a
+ * factory stand-in VER on PATH because the host has no DOS VER (the host leg
+ * grades pass-through and processor-side redirection, the DOS bytes are the
+ * emu leg's). GOLD.OUT stays the byte-exact III+ diff (RECNO()/RECCOUNT()
+ * after RUN prove the record pointer and the open table survive). */
+static void check_run_version(const char *dir)
+{
+    static unsigned char a[4096],b[4096];char p[2048];size_t an,bn;
+    snprintf(p,sizeof p,"%s/VERSION.TXT",dir);an=readfile(p,a,sizeof a);
+    snprintf(p,sizeof p,"%s/VERREF.TXT",dir);bn=readfile(p,b,sizeof b);
+    CHECK(an>0,"DML VERSION.TXT created non-empty by the redirected RUN child");
+    CHECK(an>=2&&a[an-2]=='\r'&&a[an-1]=='\n',"DML VERSION.TXT is CR LF terminated");
+    CHECK(bn>0&&an==bn&&!memcmp(a,b,an),"DML VERSION.TXT byte-identical to the same processor's own VER > file");
+}
 int main(int argc,char **argv)
 {
     const char *name=argc>1?argv[1]:"clear",*mode=argc>2?argv[2]:"host";
@@ -144,7 +170,9 @@ int main(int argc,char **argv)
         const char *trace="d,m,l,ret,e,x,i,t,ret";
         snprintf(path,sizeof path,"%s/data.img",dir);f=fopen(path,"wb");if(!f)return 2;fseek(f,1474560-1,SEEK_SET);fputc(0,f);fclose(f);
         snprintf(path,sizeof path,"%s/DML.IN",dir);f=fopen(path,"wb");if(!f)return 2;fputs("DO DMLTEST\r\nQUIT\r\n",f);fclose(f);
-        snprintf(path,sizeof path,"%s/DML.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nsamir < dml.in > result.txt\r\ntype result.txt\r\n",f);fclose(f);
+        snprintf(path,sizeof path,"%s/DML.BAT",dir);f=fopen(path,"wb");if(!f)return 2;fputs("@echo off\r\nsamir < dml.in > result.txt\r\n",f);
+        if(!strcmp(name,"run"))fputs("ver > verref.txt\r\n",f); /* check_run_version's same-run reference */
+        fputs("type result.txt\r\n",f);fclose(f);
         snprintf(cmd,sizeof cmd,"mformat -i %s/data.img -f 1440 :: && mcopy -o -i %s/data.img %s ::SAMIR.COM && mcopy -o -i %s/data.img %s/*.DBF %s/*.PRG %s/*.TXT %s/*.IN %s/*.BAT ::",dir,dir,com,dir,dir,dir,dir,dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"for f in %s/*.NDX %s/*.MEM %s/*.LBL; do test ! -f \"$f\" || mcopy -o -i %s/data.img \"$f\" ::; done",dir,dir,dir,dir);command(cmd);
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-before.log",dir,dir);command(cmd);
@@ -156,13 +184,23 @@ int main(int argc,char **argv)
         snprintf(cmd,sizeof cmd,"fsck.fat -n %s/data.img > %s/fsck-after.log",dir,dir);command(cmd);
     } else {
         char cwd[2048];samir_pal_t *pal;xb_interp *ip;
-        getcwd(cwd,sizeof cwd);if(chdir(dir))return 2;
+        getcwd(cwd,sizeof cwd);
+        if(!strcmp(name,"run")) {
+            /* Host stand-in for the DOS VER internal (see check_run_version). */
+            static char env[8192];
+            snprintf(cmd,sizeof cmd,"mkdir -p %s/bin && printf '#!/bin/sh\\nprintf \\047HOST VER\\\\r\\\\n\\047\\n' > %s/bin/VER && chmod 755 %s/bin/VER",dir,dir,dir);command(cmd);
+            snprintf(env,sizeof env,"%s/%s/bin:%s",cwd,dir,getenv("PATH")?getenv("PATH"):"/usr/bin:/bin");
+            if(setenv("PATH",env,1))return 2;
+        }
+        if(chdir(dir))return 2;
         pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});if(!pal)return 2;
         pal->conout=output;pal->conin_line=state?state_input:input;ip=xb_interp_make(pal);
         state_ip=ip;state_name=name;
         CHECK(ip&&samir_repl(pal,ip)==0,"DML full disk program returned");
         if(ip)xb_interp_free(ip);
-        pal_host_free(pal);if(chdir(cwd))return 2;
+        pal_host_free(pal);
+        if(!strcmp(name,"run"))CHECK(system("VER > VERREF.TXT")==0,"host processor minted its own VER > file");
+        if(chdir(cwd))return 2;
     }
     snprintf(path,sizeof path,"%s/captured.out",dir);f=fopen(path,"wb");if(f){fwrite(captured,1,strlen(captured),f);fclose(f);}
     if(state) {
@@ -170,16 +208,16 @@ int main(int argc,char **argv)
         return TEST_SUMMARY("test-samir-dml-state (manual-grounded; exact differential remains mandatory)");
     }
     CHECK(equal_text(captured,(char *)expected),"DML transcript byte-identical to real III+");
-    if(!strcmp(name,"run") && !strstr(captured,"[DML-END]"))
-        fprintf(stderr,"RED RUN: PAL has no EXEC seam; loader.c:1193 rejects nested EXEC with LOADER_ERR_BUSY (zs24 tests sequential subdirectory EXEC).\n");
     {
         const char *artifact=!strcmp(name,"index")||!strcmp(name,"reindex")?"NAMES.NDX":!strcmp(name,"sort")?"SORTED.DBF":!strcmp(name,"total")?"TOTALS.DBF":!strcmp(name,"save")?"VALUES.MEM":!strcmp(name,"copyfile")?"COPIED.TXT":!strcmp(name,"rename")?"RENAMED.TXT":!strcmp(name,"label")?"LABELS.TXT":!strcmp(name,"run")?"VERSION.TXT":NULL;
         if(emu) {
             snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::BASE.DBF %s/BASE.DBF",dir,dir);command(cmd);
             if(artifact) { snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::%s %s/%s",dir,artifact,dir,artifact);command(cmd); }
+            if(!strcmp(name,"run")) { snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::VERREF.TXT %s/VERREF.TXT",dir,dir);command(cmd); }
         }
         compare_file(dir,gold,"BASE.DBF");
-        if(artifact)compare_file(dir,gold,artifact);
+        if(!strcmp(name,"run"))check_run_version(dir);
+        else if(artifact)compare_file(dir,gold,artifact);
         if(!strcmp(name,"erase")||!strcmp(name,"rename")) {
             if(emu) { snprintf(cmd,sizeof cmd,"mcopy -o -i %s/data.img ::INPUT.TXT %s/probe.txt > %s/probe.log 2>&1",dir,dir,dir);CHECK(system(cmd)!=0,"DML original file absent on FAT"); }
             else { snprintf(path,sizeof path,"%s/INPUT.TXT",dir);CHECK(access(path,F_OK)!=0,"DML original file absent"); }

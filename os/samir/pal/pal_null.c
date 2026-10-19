@@ -64,6 +64,9 @@ static void   *null_alloc(samir_pal_t *p, uint32_t n)
 static void    null_reset(samir_pal_t *p, void *mark)
 { (void)p; (void)mark; }
 
+static int32_t null_exec(samir_pal_t *p, const char *cmdline)
+{ (void)p; (void)cmdline; return -(int32_t)PAL_ENOENT; }  /* no COMMAND.COM */
+
 /* The exported null vtable: every slot bound (the completeness proof). */
 samir_pal_t samir_pal_null = {
 	null_open,
@@ -84,5 +87,6 @@ samir_pal_t samir_pal_null = {
     null_alloc,
     null_reset,
     0,
-    null_conin_line
+    null_conin_line,
+    null_exec
 };

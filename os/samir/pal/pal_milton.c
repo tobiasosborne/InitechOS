@@ -690,6 +690,84 @@ static void milton_set_attr(samir_pal_t *p,uint8_t attr)
     if(milton_is_console(1)) milton_rawout(p,attr==0x70?"\033[0;7m":"\033[0m",attr==0x70?6u:4u);
 }
 
+/* ---- Command processor slot (RUN / !; initech-n8q8) ----------------------- *
+ *
+ * milton_exec: "loads a second copy of COMMAND.COM and passes <system command>
+ * to it" (HELP.DBS _RUN/!; dbase3-decomp programming-and-io.md Sec 16):
+ *   1. The processor path is COMSPEC from this process's environment -- AH=62h
+ *      GET PSP (BX = PSP paragraph, int21.c do_getpsp), PSP:2Ch env_seg
+ *      (spec/dos_structs.h; psp.c psp_build), env = env_seg << 4, a run of
+ *      NAME=VALUE\0 strings ending in an empty one. The shell exports it
+ *      (command.c dos_exec serializes its master env, seeded with
+ *      COMSPEC=A:\COMMAND.COM in command_repl -- the DOS 3.3 single-drive
+ *      default); absent, that same fixed path is used.
+ *   2. AH=4Bh AL=00h EXEC (int21.c do_exec): EDX = path, EBX = the flat-32
+ *      parameter block {env_block, cmd_tail, fcb1, fcb2} (spec/dos_structs.h
+ *      exec_param_block_t; env 0 = inherit) whose tail is the DOS
+ *      {count, " /C <cmdline>", CR}. The PSP:80h text holds at most 126 bytes
+ *      before its CR (IBM DOS 3.30 TR PSP layout); a longer line is refused
+ *      (fail loud, never truncated into a different command).
+ *   3. AH=4Dh GET RETURN CODE: AL = the processor's exit code.
+ * CF on EXEC -> -(pal_err): the engine raises error 92.
+ * EXEC returns only after the child (and every grandchild) exits; the int
+ * frame restores EBX/ECX/EDX/ESI/EDI, but the asm names them all as
+ * clobbered so nothing is assumed across the child. */
+static int32_t milton_exec(samir_pal_t *p, const char *cmdline)
+{
+    static const char fallback[] = "A:\\COMMAND.COM";
+    static const char prefix[] = " /C ";
+    char path[80];
+    uint8_t tail[128];
+    struct { uint32_t env_block, cmd_tail, fcb1, fcb2; } blk;
+    const char *spec = fallback;
+    uint32_t eax, ebx, ecx, edx, esi, edi, n = 0u, i;
+    (void)p;
+
+    eax = 0x6200u; ebx = 0u;
+    __asm__ __volatile__("int $0x21" : "+a"(eax), "+b"(ebx) : : "cc", "memory");
+    if ((ebx & 0xFFFFu) != 0u) {
+        uint32_t env_seg = *(const uint16_t *)(uintptr_t)(((ebx & 0xFFFFu) << 4) + 0x2Cu);
+        const char *env = (const char *)(uintptr_t)(env_seg << 4);
+        uint32_t off = 0u;
+        while (env_seg != 0u && off < 32768u && env[off] != '\0') {
+            if (env[off] == 'C' && env[off+1] == 'O' && env[off+2] == 'M' &&
+                env[off+3] == 'S' && env[off+4] == 'P' && env[off+5] == 'E' &&
+                env[off+6] == 'C' && env[off+7] == '=' && env[off+8] != '\0') {
+                spec = env + off + 8;
+                break;
+            }
+            while (off < 32768u && env[off] != '\0') off++;
+            off++;
+        }
+    }
+    for (i = 0u; spec[i] != '\0'; i++) {
+        if (i + 1u >= sizeof path) return -(int32_t)PAL_ENOENT;
+        path[i] = spec[i];
+    }
+    path[i] = '\0';
+
+    for (i = 0u; prefix[i] != '\0'; i++) tail[1u + n++] = (uint8_t)prefix[i];
+    for (i = 0u; cmdline[i] != '\0'; i++) {
+        if (n >= 126u) return -(int32_t)PAL_EIO;
+        tail[1u + n++] = (uint8_t)cmdline[i];
+    }
+    tail[0] = (uint8_t)n;
+    tail[1u + n] = 0x0Du;
+    blk.env_block = 0u;
+    blk.cmd_tail = (uint32_t)(uintptr_t)tail;
+    blk.fcb1 = blk.fcb2 = 0u;
+
+    eax = 0x4B00u; ebx = (uint32_t)(uintptr_t)&blk; edx = (uint32_t)(uintptr_t)path;
+    ecx = esi = edi = 0u;
+    /* sbb leaves ECX = -CF (the command.c dos_exec idiom). */
+    __asm__ __volatile__("int $0x21\n\tsbb %%ecx, %%ecx"
+                         : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx),
+                           "+S"(esi), "+D"(edi)
+                         : : "cc", "memory");
+    if (ecx != 0u) return -(int32_t)dos_err_to_pal(eax);
+    return (int32_t)(int21(0x4Du, 0x00u, 0u, 0u, 0u, 0u, (int *)0) & 0xFFu);
+}
+
 /* ---- Clock slot ----------------------------------------------------------- */
 
 /*
@@ -882,6 +960,7 @@ samir_pal_t *pal_milton_make(void)
     st->vtable.alloc      = milton_alloc;
     st->vtable.reset      = milton_reset;
     st->vtable.acquire = milton_acquire; st->vtable.release = milton_release;
+    st->vtable.exec       = milton_exec;
 
     /* AH=48h ALLOC -- request PAL_MILTON_HEAP_PARAS paragraphs from the loader-
      * bound DISJOINT arena (DEC-04, bead 1q4u). No AH=4Ah SETBLOCK first: the

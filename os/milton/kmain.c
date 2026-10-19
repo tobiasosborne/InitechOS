@@ -750,6 +750,29 @@ static uint16_t loader_exec_by_name(const char *name83, uint16_t dir_start,
                                     uint32_t env_block, uint8_t *out_rc)
 {
     uint8_t rc = 0;
+#ifdef BOOT_SHELL
+    /* COMSPEC child (initech-n8q8): COMMAND.COM is RESIDENT in a shell kernel
+     * (ADR-0003 DEC-03/DEC-11), so EXEC of it from a resident program -- dBASE
+     * RUN's "second copy of COMMAND.COM" (HELP.DBS _RUN/!) -- runs a secondary
+     * processor of that resident code in the caller's process context, as the
+     * shell's own COMMAND builtin does (no disk image is loaded; the transient
+     * file is a kernel-linked overlay, not a .COM). The processor's AH=4Dh
+     * exit code is 0 (AUTHORED: no local source pins COMMAND /C's own code). */
+    {
+        static const char comspec[] = "COMMAND.COM";
+        uint32_t k = 0u;
+        while (comspec[k] != '\0' && cmd_upcase_char(name83[k]) == comspec[k])
+            k++;
+        if (comspec[k] == '\0' && name83[k] == '\0') {
+            (void)dir_start; (void)env_block;
+            command_exec_secondary(cmd_tail, cmd_tail_len);
+            if (out_rc) {
+                *out_rc = 0u;
+            }
+            return 0u;
+        }
+    }
+#endif
     /* Bind the caller-selected volume; the shared loader now owns all caller
      * PSP/hook/CWD restoration. env_block=0 inherits a resident caller's env.
      * Ref: IBM DOS 3.30 TR pp. 6-198/200. */
