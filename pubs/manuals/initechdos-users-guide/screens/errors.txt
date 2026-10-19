@@ -1,5 +1,5 @@
 A:\>B:
-Bad command or file name
+Invalid drive specification
 A:\>DIRECTORY
 Bad command or file name
 A:\>TYPE

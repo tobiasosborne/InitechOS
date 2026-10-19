@@ -21,5 +21,5 @@ A:\APPS>DIR TPSREPT.* /W
 
 TPSREPT.BAK     TPSREPT.TXT
 
-        2 File(s)   1164800 bytes free
+        2 File(s)   1165312 bytes free
 A:\APPS>

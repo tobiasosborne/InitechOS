@@ -17,7 +17,7 @@ A:\>DIR PHONE.*
 PHONE    BAK      263   3-02-92   8:51a
 PHONE    TXT      212   3-02-92   9:30a
 
-        2 File(s)   1416192 bytes free
+        2 File(s)   1416704 bytes free
 A:\>
 
 

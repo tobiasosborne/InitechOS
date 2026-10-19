@@ -4,11 +4,11 @@ Volume INITECH      Created MAR  1, 1992  8:00
   1457664 bytes total disk space
         0 bytes in 1 hidden files
      1024 bytes in 2 directories
-    39936 bytes in 17 user files
-  1416704 bytes available on disk
+    39424 bytes in 17 user files
+  1417216 bytes available on disk
 
-   118448 bytes total memory
-   118448 bytes free
+   118512 bytes total memory
+   118512 bytes free
 A:\>
 
 

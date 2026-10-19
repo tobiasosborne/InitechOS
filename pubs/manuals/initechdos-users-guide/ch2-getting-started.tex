@@ -99,10 +99,14 @@ Try it now:
 \end{Steps}
 Your screen now looks like Figure~\ref{fig:errors}.
 
-\Screen[rows=7, label=fig:errors]{screens/errors.txt}{Two kinds of mistake}
+\Screen[rows=7, label=fig:errors]{screens/errors.txt}{Three kinds of mistake}
 
-\UnknownCommand{B:} and \UnknownCommand{DIRECTORY} are not commands that InitechDOS knows, so it
-answers \texttt{Bad command or file name}.  \cmd{TYPE} is a command, but it
+% B: is MSG-DOS-0004 since DEC-18 (spec/drive_letters.json: "B always
+% invalid"); the screen is re-captured from the running OS.
+\type{B:} names a drive this computer does not have, so InitechDOS answers
+\texttt{Invalid drive specification}.  \UnknownCommand{DIRECTORY} is not a
+command that InitechDOS knows, so it answers \texttt{Bad command or file
+name}.  \cmd{TYPE} is a command, but it
 needs the name of a file to work on; \texttt{Required parameter missing}
 tells you that something is missing from the command line.
 
