@@ -698,7 +698,23 @@ KERNEL_CC     ?= gcc
 # with its own asm entry. CHKDSK is the one utility that links a KERNEL
 # object ($(KERNEL_MCB_OBJ)), so it keeps KERNEL_CFLAGS (chkdsk_entry(void)).
 # Measured on the flagship (WL-0168 table): 187,788 -> 183,916 B (-3,872 B).
-KERNEL_ABI_FLAGS := -mregparm=3 -mrtd
+# Size round 7 (initech-5qsm): -freg-struct-return joins the convention. GCC
+# manual, Code Gen Options: "Return struct and union values in registers when
+# possible" (1/2/4/8-byte aggregates in EAX / EDX:EAX), binary-incompatible
+# with -fpcc-struct-return code -- so it rides in KERNEL_ABI_FLAGS, i.e. on
+# exactly the objects that already share -mregparm/-mrtd, and the cdecl set
+# keeps the default. Why it pays: the 8-byte rgn_rect_t (spec/region_algebra.h)
+# returned through a hidden pointer made every caller allocate a DImode temp
+# that GCC aligns to 8 even under -mpreferred-stack-boundary=2, i.e. a dynamic
+# stack realignment (and esp,-8 + frame pointer + EDI pinned) in 60 functions.
+# Audit: the kernel's struct-returning functions (every kernel-object compile
+# re-run with -Waggregate-return: region_get_bbox, the Window/Menu/Finder
+# rect helpers, egg_jtc_pad, idt_get_gate, int21_cwd_save, con_bitmap ...)
+# are named in no .asm file and are called only from kernel-flag objects;
+# no asm entry returns an aggregate; the transient COMMAND.COM and CHKDSK's
+# mcb.o compile with KERNEL_CFLAGS on both sides. Flagship 182,892 ->
+# 177,900 B (-4,992 B).
+KERNEL_ABI_FLAGS := -mregparm=3 -mrtd -freg-struct-return
 KERNEL_CFLAGS := -m32 -march=i386 -ffreestanding -nostdlib -fno-stack-protector -fno-pic -I$(BUILD) \
                  -fno-pie -std=c11 -Wall -Wextra -Werror $(KERNEL_ABI_FLAGS)
 KERNEL_CFLAGS_CDECL := $(filter-out $(KERNEL_ABI_FLAGS),$(KERNEL_CFLAGS))
@@ -32875,6 +32891,7 @@ include harness/diff/fat_diff/batch2.mk
 include harness/proptest/kernel_size.mk
 include harness/proptest/kernel_size_r4.mk
 include harness/proptest/kernel_size_r5.mk
+include harness/proptest/kernel_size_r7.mk
 include harness/emu/ansi.mk
 
 

@@ -1,0 +1,39 @@
+# Kernel size round 7 (initech-5qsm): the whole-image struct-return convention.
+# Ref: PRD Sec 5/6.1/8; CLAUDE.md Rule 2/6/11; Makefile KERNEL_ABI_FLAGS note;
+# the WL-0168 -mregparm/-mrtd audit this gate turns into a standing check.
+#   test-kernel-abi-struct-return: (1) every -m32 compile and the LTO link of
+#   the flagship, as `make -n -B` prints them, resolves to -freg-struct-return
+#   (the LAST of -freg-/-fpcc-struct-return on the line wins, as in GCC), so no
+#   kernel object can disagree with its callers about where an 8-byte
+#   rgn_rect_t comes back; (2) the flagship holds no dynamic stack realignment
+#   (`and esp,0xfffffff8`) -- the cost the convention removed.
+#   test-kernel-abi-struct-return-mutant: the region engine alone compiled
+#   -fpcc-struct-return (a mixed-ABI image) -> (1) RED naming region.c.
+KERNEL_R7_DIR := $(BUILD)/ksize7
+$(KERNEL_R7_DIR): | $(BUILD)
+	@mkdir -p $@
+
+# $(1) = extra make arguments, $(2) = output stem. Fails loud on any line.
+define kernel-abi-struct-audit
+$(MAKE) --no-print-directory -n -B $(1) $(KERNEL_FLAIRTENANTS_ELF) 2>/dev/null \
+	| grep -E '^gcc -m32 ' > $(KERNEL_R7_DIR)/$(2).lines; \
+n=$$(wc -l < $(KERNEL_R7_DIR)/$(2).lines); [ "$$n" -gt 40 ] || { printf '!!! kernel-abi-struct-return FAIL: only %s compile/link lines captured\n' "$$n"; exit 1; }; \
+bad=$$(awk '{ w = ""; for (i = 1; i <= NF; i++) if ($$i == "-freg-struct-return" || $$i == "-fpcc-struct-return") w = $$i; \
+	if (w != "-freg-struct-return") { src = "link"; for (i = 1; i <= NF; i++) if ($$i == "-c") src = $$(i+1); print src } }' $(KERNEL_R7_DIR)/$(2).lines); \
+if [ -n "$$bad" ]; then printf '!!! kernel-abi-struct-return FAIL: not -freg-struct-return: %s\n' $$bad; exit 1; fi; \
+printf '    %s kernel compile/link lines, every one -freg-struct-return\n' "$$n"
+endef
+
+.PHONY: test-kernel-abi-struct-return test-kernel-abi-struct-return-mutant
+test-kernel-abi-struct-return: $(KERNEL_FLAIRTENANTS_ELF) | $(KERNEL_R7_DIR)
+	@set -eu; $(call kernel-abi-struct-audit,,real)
+	@n=$$(objdump -d -M intel $(KERNEL_FLAIRTENANTS_ELF) | grep -c 'and    esp,0xfffffff8' || true); \
+	if [ "$$n" -ne 0 ]; then printf '!!! kernel-abi-struct-return FAIL: %s dynamic stack realignments in the flagship\n' "$$n"; exit 1; fi
+	@printf '>>> test-kernel-abi-struct-return: green (one struct-return convention on every kernel object + the link; 0 stack realignments)\n'
+
+test-kernel-abi-struct-return-mutant: test-kernel-abi-struct-return
+	@if ( set -eu; $(call kernel-abi-struct-audit,FLAIR_REGION_OPT='-Oz -fomit-frame-pointer -fpcc-struct-return',mutant) ) > $(KERNEL_R7_DIR)/mutant.log 2>&1; then \
+		printf '!!! test-kernel-abi-struct-return-mutant FAIL: region_pcc survived\n'; exit 1; fi
+	@grep -x '!!! kernel-abi-struct-return FAIL: not -freg-struct-return: os/flair/atkinson/region.c' $(KERNEL_R7_DIR)/mutant.log
+	@printf '>>> test-kernel-abi-struct-return-mutant: green (region_pcc RED)\n'
+TEST_UNIT_GATES += test-kernel-abi-struct-return test-kernel-abi-struct-return-mutant
