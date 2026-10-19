@@ -68,6 +68,7 @@ $(eval $(call fixture-contract,$(SAMIR_REPORT_IMG),SAMIR.COM $(SAMIR_REPORT_FILE
 $(eval $(call fixture-contract,$(FLAIR_FILE_DATA),$(FLAIR_FIXTURES) KEEP.DAT))
 $(eval $(call fixture-contract,$(FLAIR_I123_FILE_DATA),$(FLAIR_FIXTURES) MINT01.WK1 BAD.WK1))
 $(eval $(call fixture-contract,$(FLAIR_I123_QUIT_DATA),$(FIXTURE_CONTENTS_$(FLAIR_I123_FILE_DATA)) RO.WK1=AR))
+$(eval $(call fixture-contract,$(LAUNCHKEY_DATA),$(FLAIR_FIXTURES) SAMIR.COM))
 $(eval $(call fixture-contract,$(BUILD)/flair_i123_file_mut_%.img,$(FIXTURE_CONTENTS_$(FLAIR_I123_FILE_DATA))))
 
 # These volumes are minted inline on every gate run, rather than by an image

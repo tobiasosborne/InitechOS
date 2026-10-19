@@ -18,11 +18,14 @@ static int run(const char *cmd){int r=system(cmd);CHECK(r==0,cmd);return r;}
 static void file(const char *path,const char *text){FILE *f=fopen(path,"wb");CHECK(f!=NULL,"fixture open");if(f){CHECK(fwrite(text,1,strlen(text),f)==strlen(text),"fixture written");fclose(f);}}
 static size_t readfile(const char *path,char *b,size_t cap){FILE *f=fopen(path,"rb");size_t n=0;CHECK(f!=NULL,"extracted file readable");if(f){n=fread(b,1,cap-1,f);fclose(f);}b[n]=0;return n;}
 static void keyscript(const char *text,char *out,size_t cap){
-    size_t used=0;strcpy(out,"bsl,");used=4;
+    /* Rule-8 re-key, initech-rex3 / kmain DEC-LAUNCH-1: both desktop
+     * launches use Ctrl+Alt+backslash; backslash in this script is a launch
+     * marker, not a SAMIR command/path character. */
+    size_t used=0;strcpy(out,"ctrl-alt-bsl,");used=strlen(out);
     while(*text){
         const char *key;char one[2]={*text,0};
         if(*text=='\n')key="ret";else if(*text==' ')key="spc";
-        else if(*text=='.')key="dot";else if(*text=='\\')key="bsl";
+        else if(*text=='.')key="dot";else if(*text=='\\')key="ctrl-alt-bsl";
         else key=one;
         CHECK(used+strlen(key)+2<cap,"desktop key script fits");
         strcpy(out+used,key);used+=strlen(key);out[used++]=',';text++;

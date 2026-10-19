@@ -10368,7 +10368,7 @@ $(FLAIR_DATA_CORRUPT_IMG): $(FLAIR_DATA_IMG) | $(BUILD)
 $(DESKTOP_DB_GOLDEN): | $(BUILD)
 	@printf 'IDB1\001\000\000\000' > $@
 
-$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # The system APPLE MENU (beads initech-tdnl.47 / initech-tdnl.17): the rows of
@@ -10551,7 +10551,7 @@ KERNEL_FLAIRTENANTS_INT_ELF      := $(BUILD)/kernel_flairtenants_int.elf
 KERNEL_FLAIRTENANTS_INT_BIN      := $(BUILD)/kernel_flairtenants_int.bin
 FLAIRTENANTS_INTERACTIVE_IMG     := $(BUILD)/flair_tenants_interactive.img
 
-$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
+$(KERNEL_FLAIRTENANTS_INT_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h spec/assets/cursors.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -DFLAIR_LIVE_INTERACTIVE -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$@)
 
 # R0.1 CursorMgr is included by every FLAIR kmain variant. Keep the common
@@ -10678,7 +10678,7 @@ endef
 # main-obj prereq list mirrors KERNEL_FLAIRTENANTS_MAIN_OBJ's (the FLAIR_LIVE_TENANTS
 # arm's includes); the flags add the one -D knob to the bounded-gate flag set.
 define flair-tenants-kmain-mutant-rules
-$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
+$(BUILD)/kmain_flairtenants_mut_$(2).o: $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/desktop_db.h $(KERNEL_DIR)/blockdev.h $(KERNEL_DIR)/kbd.h $(KERNEL_DIR)/mouse.h $(KERNEL_DIR)/mouse_pack.h $(KERNEL_DIR)/pit.h $(KERNEL_DIR)/sysinit.h $(KERNEL_DIR)/command.h os/flair/heap.h os/flair/surface.h os/flair/shell.h os/flair/desktop.h os/flair/window.h os/flair/winscroll.h os/flair/menu.h os/flair/dialog.h os/flair/control.h os/flair/event.h os/flair/system_key.h os/flair/process.h os/flair/finder_desktop.h os/flair/finder_cmd.h os/flair/finder_windows.h os/flair/finder_ops.h os/flair/finder_menu.h os/apps/ref_tenant.h spec/event_model.h spec/memory_map.h spec/dos_structs.h spec/region_algebra.h spec/flair_tenants_demo.h spec/assets/desk_icons.h spec/assets/finder_icons.h spec/assets/menu_canon.h spec/assets/palette.h spec/assets/color_canon.h $(DOS_MESSAGES_H) $(KERNEL_DIR)/transient.h | $(BUILD)
 	$(call kernel-main-compile,$(KERNEL_TENANTS_OPT) -DBOOT_FLAIR_LIVE -DFLAIR_LIVE_TENANTS -D$(1) -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson -Ios/apps -I$(KERNEL_DIR),$$@)
 
 $(BUILD)/kernel_flairtenants_mut_$(2).elf: $(filter-out $(KERNEL_FLAIRTENANTS_MAIN_OBJ),$(KERNEL_FLAIRTENANTS_OBJS)) $(BUILD)/kmain_flairtenants_mut_$(2).o $(KERNEL_LD) $(TRANSIENT_IMPORTS_LD) | $(BUILD)
@@ -11018,6 +11018,7 @@ $(eval $(call flair-tenants-findermenu-mutant-rules,FINDER_MENU_MUT_DEAD_ITEM,me
 # ref_tenant.o). Built behind #ifdef, so the DEFAULT flair_tenants build is
 # byte-identical (Rule 11). Produces build/flair_tenants_mut_no_rebuild.img.
 $(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_LIVE_MUTATE_NO_REBUILD,no_rebuild))
+$(eval $(call flair-tenants-kmain-mutant-rules,FLAIR_MUT_PLAIN_BSL_LAUNCH,plain_bsl_launch))
 
 # OMISSION (Rule 6 / Law 2 honesty): the 5th candidate knob FLAIR_LIVE_MUTATE_NO_
 # GROUP_RAISE (raise only the front window instead of raise_group's whole group) does
@@ -14368,17 +14369,20 @@ test-tbx-menu-mutant: $(BUILD)/test_tbx_menu_mutant_TBX_MUT_MENU_KEY_PLAIN $(BUI
 # read from frame+68 under a poisoned frame, errors are negative in EAX, a
 # stray int 81h is NOTTENANT, the TENANT-GATE trace is exact. -no-pie:
 # tbxgate.c holds tenant addresses as flat-32 uint32_t; scene check S0 proves
-# they fit. Four artifact mutants (Rule 6), each RED for its named reason:
+# they fit. Five artifact mutants (Rule 6), each RED for its named reason:
 #   PROC_MUT_ADMIT_IS_FOREGROUND  process.c links a windowless REGISTER at the
 #                                 head (the pre-tdnl.14 registration)
 #   CHROME_MUT_TITLE_UNCLIPPED    chrome.c draws the title run with text_draw
 #                                 (the pre-tdnl.14 unclipped run)
 #   TBX_MUT_AX_FULL_EAX           tbxgate.c demuxes on all of EAX
 #   TBX_MUT_ARG_OFFSET            tbxgate.c reads the cdecl args one dword low
+#   FLAIR_MUT_PLAIN_BSL_LAUNCH   system_key.h restores the bare-key intercept
+# L (initech-rex3): the real Event Manager cooks left/right Ctrl+Alt; the
+# shared system predicate consumes only the chord before disk_tenant_event.
 # ---------------------------------------------------------------------------
 TEST_FLAIR_ROUTING     := $(BUILD)/test_flair_routing
 TEST_FLAIR_ROUTING_SRC := harness/proptest/test_flair_routing.c
-FLAIR_ROUTING_LINK := harness/proptest/flair_routing_stubs.c os/flair/tbxgate.c \
+FLAIR_ROUTING_LINK := harness/proptest/flair_routing_stubs.c os/flair/tbxgate.c os/flair/event.c \
                       os/flair/process.c os/flair/window.c os/flair/heap.c \
                       $(REGION_ENGINE_C) os/milton/psp.c os/milton/sft.c \
                       $(CHROME_DRAWER_C) os/flair/surface.c $(FLAIRLOOK_C) \
@@ -14388,7 +14392,7 @@ FLAIR_ROUTING_INC  := -Ispec -Ispec/assets -Ios/flair -Ios/flair/atkinson \
 FLAIR_ROUTING_DEPS := $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK) \
                       $(filter-out $(SERIAL_TRACE_PACK),$(TBXGATE_DEPS)) \
                       $(CHROME_DEPS) $(TEST_PROCESS_DEPS) os/milton/sft.h \
-                      seed/test_assert.h
+                      seed/test_assert.h os/flair/event.h os/flair/system_key.h
 $(TEST_FLAIR_ROUTING): $(FLAIR_ROUTING_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) $(SEED_TEST_CFLAGS) -no-pie $(FLAIR_ROUTING_INC) -o $@ $(TEST_FLAIR_ROUTING_SRC) $(FLAIR_ROUTING_LINK)
 $(BUILD)/test_flair_routing_mutant_%: $(FLAIR_ROUTING_DEPS) | $(BUILD)
@@ -14401,17 +14405,19 @@ test-flair-routing: $(TEST_FLAIR_ROUTING)
 	@printf ">>> test-flair-routing: green\n"
 
 test-flair-routing-mutant: $(BUILD)/test_flair_routing_mutant_PROC_MUT_ADMIT_IS_FOREGROUND $(BUILD)/test_flair_routing_mutant_CHROME_MUT_TITLE_UNCLIPPED \
-                           $(BUILD)/test_flair_routing_mutant_TBX_MUT_AX_FULL_EAX $(BUILD)/test_flair_routing_mutant_TBX_MUT_ARG_OFFSET
+                           $(BUILD)/test_flair_routing_mutant_TBX_MUT_AX_FULL_EAX $(BUILD)/test_flair_routing_mutant_TBX_MUT_ARG_OFFSET \
+                           $(BUILD)/test_flair_routing_mutant_FLAIR_MUT_PLAIN_BSL_LAUNCH
 	@for pair in 'PROC_MUT_ADMIT_IS_FOREGROUND:leg(A1): a tenant that REGISTERs without a window does NOT become the foreground' \
 	             'CHROME_MUT_TITLE_UNCLIPPED:leg(T1): the covered title run writes NO pixel inside the front window' \
 	             'TBX_MUT_AX_FULL_EAX:leg(X2): AX is the LOW WORD of EAX' \
-	             'TBX_MUT_ARG_OFFSET:leg(X3): with the frame and the stack above the args POISONED'; do \
+	             'TBX_MUT_ARG_OFFSET:leg(X3): with the frame and the stack above the args POISONED' \
+	             'FLAIR_MUT_PLAIN_BSL_LAUNCH:leg(L1): plain backslash and non-launch modifiers reach tenant'; do \
 		m=$${pair%%:*}; why=$${pair#*:}; bin=$(BUILD)/test_flair_routing_mutant_$$m; \
 		if $$bin > $$bin.log 2>&1; then printf '!!! test-flair-routing-mutant FAIL: %s PASSED -- the oracle is decoration\n' "$$m"; exit 1; fi; \
 		line=$$(grep -F "$$why" $$bin.log | grep FAIL) || { printf '!!! test-flair-routing-mutant FAIL: %s went RED for the wrong reason\n' "$$m"; cat $$bin.log; exit 1; }; \
 		printf '>>> test-flair-routing-mutant: %s correctly RED:\n    %s\n' "$$m" "$$line"; \
 	done
-	@printf '>>> test-flair-routing-mutant: green (all four mutants RED for the named reason)\n'
+	@printf '>>> test-flair-routing-mutant: green (all five mutants RED for the named reason)\n'
 
 # ---------------------------------------------------------------------------
 # REAL gate: test-i123-wk1-roundtrip (bead initech-9u8w, I123 P1; plan
@@ -24094,6 +24100,7 @@ RECORD_DATA_trashfull_regression = $(BUILD)/record_locked_purge.img
 RECORD_MARKER_trashfull_regression = FINDER-LOCKED-ALERT
 RECORD_SETTLE_trashfull_regression = 200
 
+include harness/emu/flair_launchkey.mk
 record-flair: $(HARNESS_BIN) $(FLAIRTENANTS_RECORD_IMG) $(FLAIRTENANTS_RECORDDBL_IMG) $(if $(RECORD_IMAGE_$(SCRIPT)),$(RECORD_IMAGE_$(SCRIPT))) $(FLAIRLIVE_INTERACTIVE_IMG) $(FLAIR_DATA_IMG) $(if $(RECORD_DATA_$(SCRIPT)),$(RECORD_DATA_$(SCRIPT)))
 	@test -n "$(SCRIPT)" || { printf 'usage: make record-flair SCRIPT=<%s>\n' "$(RECORD_SCRIPTS)" | tr ' ' '|'; exit 2; }
 	@test -n "$(RECORD_SPEC_$(SCRIPT))" || { printf '!!! record-flair: unknown SCRIPT "%s" (known: %s)\n' "$(SCRIPT)" "$(RECORD_SCRIPTS)"; exit 2; }
@@ -24178,7 +24185,7 @@ record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
 # ---------------------------------------------------------------------------
 # SAMIR (InitechBase) is a character-mode .COM -- the FIRST class-2 TEXT tenant.
 # From the live co-resident HELLO+NOTES desktop, pressing the system hotkey
-# ('\', PS/2 SET-1 make 0x2B; harness token "bsl") SUSPENDS the desktop, runs
+# (Ctrl+Alt+'\', PS/2 SET-1 make 0x2B; token "ctrl-alt-bsl") SUSPENDS the desktop, runs
 # SAMIR full-screen (USE CLIENTS.DBF / LIST / QUIT), and REBUILDS the desktop on
 # return -- the System-7/MultiFinder "switch to a full-screen app" gesture.
 #
@@ -24186,7 +24193,7 @@ record-flair-repro: $(HARNESS_BIN) $(FLAIRTENANTS_IMG)
 # --disk2 = $(SAMIR_LIST_IMG) (SAMIR.COM + CLIENTS.DBF on the primary slave, the
 # SAME data disk as test-samir-boot):
 #   PRE : no keys; screendump after FLAIR-LIVE-READY -> the co-resident desktop.
-#   POST: inject "bsl" (the hotkey) then SAMIR's USE/LIST/QUIT; keys-after
+#   POST: inject "ctrl-alt-bsl" then SAMIR's USE/LIST/QUIT; keys-after
 #         FLAIR-LIVE-READY; screendump after FLAIR-RESUME -> the desktop rebuilt
 #         AFTER SAMIR ran.
 # Assert (Law 2, every miss fail-loud + exit-non-zero):
@@ -24212,10 +24219,13 @@ SAMIR_SUSP_PRE_SERIAL  := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).serial
 SAMIR_SUSP_POST_SERIAL := $(BUILD)/$(SAMIR_SUSP_POST_NAME).serial
 SAMIR_SUSP_PRE_REPORT  := $(BUILD)/$(SAMIR_SUSP_PRE_NAME).report
 SAMIR_SUSP_POST_REPORT := $(BUILD)/$(SAMIR_SUSP_POST_NAME).report
-# The POST key script: hotkey "bsl", then SAMIR's USE CLIENTS.DBF / LIST / QUIT
+# Rule-8 re-key (initech-rex3, DEC-LAUNCH-1): bare bsl -> ctrl-alt-bsl in
+# BOTH the clean O-7 gate and its NO_REBUILD mutant (shared script).
+# The other bsl trace, ZS24EXEC_KEYS, types DOS paths and remains plain text.
+# The POST key script: chord, then SAMIR's USE CLIENTS.DBF / LIST / QUIT
 # (mirrors SAMIRBOOT_KEYS minus the COMMAND.COM `samir`/`exit` -- the hotkey is
 # the launch trigger here, not a shell command).
-SAMIR_SUSP_KEYS := bsl,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret,q,u,i,t,ret
+SAMIR_SUSP_KEYS := ctrl-alt-bsl,u,s,e,spc,c,l,i,e,n,t,s,dot,d,b,f,ret,l,i,s,t,ret,q,u,i,t,ret
 
 # The SAMIR data disks (rules: the SAMIR DATA DISKS block, bead hdlb). Defined
 # here because this is their first prerequisite use; defined any later they

@@ -35,10 +35,6 @@ static void unreached(const char *what)
     abort();
 }
 
-/* The control-panel live knobs (event.c owns them on the kernel). */
-unsigned flair_mouse_tracking = 1u;
-unsigned flair_double_click_ticks = 40u;
-
 void blitter_fill_rect_clipped(const bitmap_t *dst, rgn_rect_t rect,
                                uint32_t px, const region_t *clip)
 { (void)dst; (void)rect; (void)px; (void)clip; unreached("blitter_fill_rect_clipped"); }
@@ -59,8 +55,6 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev, dialog_filter_fn filterProc
 { (void)dp; (void)ev; (void)filterProc; (void)itemHit; unreached("DialogHandleEvent"); return 0; }
 
 void DrawDialog(DialogPtr dp) { (void)dp; unreached("DrawDialog"); }
-
-uint32_t flair_tick_count(void) { unreached("flair_tick_count"); return 0u; }
 
 int32_t FlairGetScrap(const FlairScrap *s, flair_ostype_t type, void *buf,
                       uint32_t bufsz, uint32_t *len_out)
