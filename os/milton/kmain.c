@@ -83,6 +83,7 @@
  * (every tenant symbol is behind this guard; Rule 11). */
 #include "process.h"             /* FlairProcessList, FlairProcess_launch,
                                   * flair_app_dispatch, flair_route_updates (-Ios/flair)*/
+#include "system_key.h"          /* system launcher predicate; routing oracle */
 #ifdef FLAIR_FILM_SCENE
 #include "film_scene.h"
 #endif
@@ -2837,20 +2838,26 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  * live desktop, running SAMIR full-screen, and REBUILDING the desktop on return
  * -- the classic System-7/MultiFinder "switch to a full-screen app" gesture.
  *
- * THE SYSTEM HOTKEY (deterministic, harness-sendable): BACKSLASH ('\'), PS/2
- * SET-1 make code 0x2B. The harness `--keys bsl` sends QMP qcode "backslash" ->
- * SET-1 0x2B. The FLAIR pump cooks it (event.c: message = (vkey<<8)|ascii, so
- * vkey == the make code 0x2B) and routes it HERE before flair_app_dispatch, so
- * it launches SAMIR instead of being delivered to a GUI tenant. It is NOT a
- * letter SAMIR types (its USE/LIST/QUIT commands are alpha) so it never collides.
+ * DEC-LAUNCH-1: THE SYSTEM HOTKEY is Ctrl+Alt+backslash, SET-1 make 0x2B
+ * with BOTH controlKey and optionKey in EventRecord.modifiers. The Event
+ * Manager folds left/right Ctrl and Alt into those flags (event.c;
+ * spec/event_model.h Sec 2), so either side works. Harness token ctrl-alt-bsl.
+ * Ref: Lotus 1-2-3 R2.2 Reference Manual p. 1-17 (PDF 33, local manuals
+ * corpus): backslash is the repeating-label prefix. Plain backslash MUST
+ * reach the foreground tenant (ADR-0013 Sec 3.3); the previous bare-key
+ * launcher stole worksheet text. Ctrl+Alt is an authored system reservation,
+ * outside the printable label alphabet on that page; both modifiers are
+ * required, leaving plain/Shift/Ctrl-only/Alt-only text to the tenant.
+ * The shared system_key.h predicate is used before flair_app_dispatch and
+ * by the host routing oracle; FLAIR_MUT_PLAIN_BSL_LAUNCH restores the bug.
  *
  * THE g_kbd DRAIN (the brief's contract): the kbd IRQ1 handler posts to BOTH the
  * DOS g_kbd ASCII ring (SAMIR reads this via INT 21h) AND the FLAIR raw ring
  * (the pump cooks this) -- kbd.c. So the hotkey ALSO left a '\' in g_kbd. Drain
- * g_kbd before running SAMIR so the hotkey does not prepend to SAMIR's first
- * cooked line. The drain happens the instant the hotkey is seen (microseconds);
- * SAMIR's own keys arrive ~30ms later (qmp_drain beat) so the drain takes only
- * the hotkey, never a SAMIR key.
+ * pending CON input through the hotkey before running SAMIR, preserving the
+ * text tenant's later typeahead (int21.h discard_through contract). Ordinary
+ * desktop backslashes consume their duplicate DOS bytes before GUI delivery,
+ * so an old worksheet prefix cannot be mistaken for the launch boundary.
  *
  * REBUILD = RE-PRESENT THE PRESERVED OFFSCREEN (Option A, stateless; the ADR's
  * "re-render the SAME scene + re-present"). SAMIR runs ENTIRELY below the 1 MiB
@@ -2869,7 +2876,6 @@ static void flair_live_do_menu(flair_live_ctx_t *ctx, const boot_info_t *bi,
  *      (full-screen app then back to the live desktop), Rule 2 (fail loud),
  *      Rule 11 (deterministic), Rule 12 (ASCII-clean).
  * ===========================================================================*/
-#define FLAIR_TEXT_TENANT_HOTKEY_VKEY  0x2Bu        /* PS/2 SET-1 make '\' */
 #define FLAIR_TEXT_TENANT_NAME         "SAMIR.COM"  /* 8.3 name on the FAT volume */
 
 /* g_flair_kbd_ring (the SPSC raw ring the FLAIR pump drains) is defined earlier
@@ -2925,12 +2931,11 @@ static void flair_launch_text_tenant(const boot_info_t *bi, flair_live_ctx_t *ct
         }
     }
 
-    /* Drain the FLAIR raw ring of the stale scancodes SAMIR's typed input left in
-     * it (the scancode hook stayed installed through the suspend), so the resumed
-     * pump does not cook+dispatch them. Consumer-side drain (the pump owns tail;
-     * spec/event_model.h SPSC) -- does NOT reset the tick/cursor the way
-     * flair_event_init would (which would break the pump's tick budget). */
-    g_flair_kbd_ring.tail = g_flair_kbd_ring.head;
+    /* Drain SAMIR's stale input without GUI dispatch. DEC-LAUNCH-1 requires
+     * cooking releases too: Ctrl/Alt came down before suspend and came up
+     * during SAMIR. A raw tail=head drop would leave them latched on resume.
+     * Keep the Event Manager's tick/cursor/lock state (event_model.h Sec 2/5). */
+    flair_text_tenant_drain(&g_flair_kbd_ring);
 
 #ifndef FLAIR_LIVE_MUTATE_NO_REBUILD
     /* REBUILD: the offscreen survived SAMIR (< 1 MiB vs FLAIR-heap disjoint, see
@@ -7287,18 +7292,24 @@ void kernel_main(void)
             }
 #endif
 
-            /* O-7 (ADR-0013 Sec 3.2 class-2): the SYSTEM HOTKEY ('\', PS/2 SET-1
-             * make 0x2B) launches SAMIR as a full-screen TEXT tenant. Detect the
+            /* O-7 / DEC-LAUNCH-1: Ctrl+Alt+backslash (either modifier side)
+             * launches SAMIR as a full-screen TEXT tenant. Detect the
              * cooked hotkey keyDown BEFORE the Layer-5 dispatch so it is NOT routed
              * to a GUI tenant; suspend the desktop, run SAMIR, rebuild on return,
              * then resume the pump. event.c cooks keyboard `message` as
              * (vkey<<8)|ascii, so vkey == the PS/2 make code (top byte). */
-            if (ev.what == (uint16_t)keyDown &&
-                ((ev.message >> 8) & 0xFFu) ==
-                    (uint32_t)FLAIR_TEXT_TENANT_HOTKEY_VKEY) {
+            if (flair_text_tenant_hotkey(&ev)) {
                 flair_launch_text_tenant(&b, &ctx, FLAIR_TEXT_TENANT_NAME);
                 continue;
             }
+            /* DEC-LAUNCH-1: a plain backslash is tenant text below, but its
+             * duplicate DOS-ring byte must leave now. Otherwise the next
+             * launch's discard_through would stop at this OLD backslash and
+             * feed the worksheet suffix (e.g. minus/Return) to SAMIR. Keep
+             * later typeahead, as int21.h discard_through promises. */
+            if (ev.what == (uint16_t)keyDown &&
+                (ev.message & 0xFFu) == (uint32_t)'\\')
+                int21_conin_discard_through('\\');
 
             /* R3.3 (bead initech-tdnl.10): a Ctrl chord with a FINDER window
              * frontmost is a Finder command -- New Folder, Clean Up, Close
