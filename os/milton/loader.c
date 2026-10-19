@@ -756,9 +756,10 @@ static void loader_exit_hook(uint8_t code)
  *   there is no second program region). EXEC is single-level (g_load_active guards
  *   re-entry in load_program_from_fat), so no OTHER program occupies
  *   [PROGRAM_IMAGE, ...] when the FAT reader writes there. The child loads at
- *   PROGRAM_IMAGE (0x40100); the parent (kernel) executes from its own link
- *   region [0x10000,0x40000) and its own stack at 0x90000+, both DISJOINT from
- *   [0x40100, PROGRAM_STACK_BOT). So reading the .COM straight into PROGRAM_IMAGE
+ *   PROGRAM_IMAGE (0x40100); the parent (kernel) executes from its high runway
+ *   image [KERNEL_BASE, KERNEL_IMAGE_CEIL) and its own stack [KERNEL_STACK_BOT,
+ *   KERNEL_STACK_TOP] (beads initech-tdnl.29, initech-xu97), both DISJOINT from
+ *   [0x40100, PROGRAM_STACK_BOT) (spec/memory_map.h WINDOW DISJOINTNESS). So reading the .COM straight into PROGRAM_IMAGE
  *   is exactly as safe as the OLD code that copied staging -> PROGRAM_IMAGE: both
  *   write the SAME region while the SAME kernel runs; za4m merely elides the
  *   intermediate 64 KiB staging buffer. (spec/memory_map.h gap proof; ADR-0009.) */
@@ -1282,8 +1283,9 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * fat12_read_file fails loud (FAT12_ERR_BUFFER) before overrunning the program
      * arena -- redundant with the file_size guard above but a hard backstop (Rule
      * 2). Safety (writing PROGRAM_IMAGE while the kernel runs): see the IN-PLACE
-     * SAFETY PROOF on loader_run_plan -- the parent is the KERNEL (links at
-     * [0x10000,0x40000), stack at 0x90000+, both disjoint from [0x40100,...)),
+     * SAFETY PROOF on loader_run_plan -- the parent is the KERNEL (image and
+     * stack in the high runway, both disjoint from [0x40100,...); spec/
+     * memory_map.h WINDOW DISJOINTNESS, bead initech-xu97),
      * EXEC is single-level (g_load_active), so nothing else occupies PROGRAM_IMAGE.
      * This is exactly as safe as the OLD copy to 0x40100 -- same region, same
      * running kernel, minus the intermediate staging hop. */

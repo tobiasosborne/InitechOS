@@ -337,13 +337,27 @@ endif
 # The KERNEL_SECTORS / .bin-size guards check only loaded PROGBITS. objcopy drops
 # NOBITS .bss, so the ELF symbols remain the authoritative placement facts. Per
 # docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29), every kernel
-# must have its lowest defined symbol at/above KERNEL_BASE and _kernel_end below
-# the exclusive KERNEL_CEIL. This catches both a LOAD_LOW relapse and runway
-# exhaustion without coupling the kernel to the byte-identical program window.
+# must have its lowest defined symbol at/above KERNEL_BASE and _kernel_end at or
+# below KERNEL_IMAGE_CEIL (bead initech-xu97: was "below KERNEL_CEIL" until the
+# kernel stack moved into the runway top). This catches both a LOAD_LOW relapse
+# and image growth into the transient/stack windows without coupling the kernel
+# to the byte-identical program window.
 # Constants are parsed from the locked spec (Rule 8), never duplicated here.
 PROGRAM_BASE := $(shell grep -E '^\#define[[:space:]]+PROGRAM_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 KERNEL_BASE := $(shell grep -E '^\#define[[:space:]]+KERNEL_BASE' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
 KERNEL_CEIL := $(shell grep -E '^\#define[[:space:]]+KERNEL_CEIL' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+# Bead initech-xu97 (ADR-0003-AMENDMENT-DEC-08b): the kernel stack now lives at
+# the top of the runway, so the image (incl. NOBITS .bss) is bounded by
+# KERNEL_IMAGE_CEIL (== TRANSIENT_BASE), not by KERNEL_CEIL. kernel.ld carries
+# the same bound as a literal ASSERT; the parse-time check below keeps the two
+# from drifting. The stack equates feed kstart.asm's -DMK_KERNEL_STACK_* guard.
+KERNEL_IMAGE_CEIL := $(shell grep -E '^\#define[[:space:]]+KERNEL_IMAGE_CEIL' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+KERNEL_STACK_BOT := $(shell grep -E '^\#define[[:space:]]+KERNEL_STACK_BOT' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+KERNEL_STACK_TOP := $(shell grep -E '^\#define[[:space:]]+KERNEL_STACK_TOP' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
+KERNEL_LD_IMAGE_CEIL_HITS := $(shell grep -cE '^ASSERT._kernel_end <= $(KERNEL_IMAGE_CEIL),$$' os/milton/kernel.ld)
+ifneq ($(KERNEL_LD_IMAGE_CEIL_HITS),1)
+$(error os/milton/kernel.ld _kernel_end ASSERT != spec/memory_map.h KERNEL_IMAGE_CEIL $(KERNEL_IMAGE_CEIL))
+endif
 #
 # $(call kernel-end-guard,<ELF>,<variant-label>) -- run inside a .bin recipe,
 # after the .bin-size guard, so `make <image>` triggers it. Mirrors the
@@ -359,16 +373,16 @@ define kernel-end-guard
 		printf '!!! kernel-floor guard ($(2)): no defined symbol address found in %s\n' "$(1)"; \
 		exit 1; \
 	fi; \
-	endv=$$(( end )); lowv=$$(( lowest )); base=$$(( $(KERNEL_BASE) )); ceil=$$(( $(KERNEL_CEIL) )); \
+	endv=$$(( end )); lowv=$$(( lowest )); base=$$(( $(KERNEL_BASE) )); ceil=$$(( $(KERNEL_IMAGE_CEIL) )); \
 	if [ "$$lowv" -lt "$$base" ]; then \
 		printf '!!! kernel-floor guard ($(2)): lowest symbol=0x%x below KERNEL_BASE=0x%x -- LOAD_LOW relapse\n' "$$lowv" "$$base"; \
 		exit 1; \
 	fi; \
-	if [ "$$endv" -ge "$$ceil" ]; then \
-		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x reaches KERNEL_CEIL=0x%x -- shrink the kernel or extend the ratified runway; bump KERNEL_SECTORS too if loaded bytes grew\n' "$$endv" "$$ceil"; \
+	if [ "$$endv" -gt "$$ceil" ]; then \
+		printf '!!! kernel-end guard ($(2)): _kernel_end=0x%x passes KERNEL_IMAGE_CEIL=0x%x (transient base; kernel stack above) -- shrink the kernel or re-ratify the runway sub-windows; bump KERNEL_SECTORS too if loaded bytes grew\n' "$$endv" "$$ceil"; \
 		exit 1; \
 	fi; \
-	printf '>>> kernel placement guard ($(2)): lowest=0x%x >= KERNEL_BASE=0x%x; _kernel_end=0x%x < KERNEL_CEIL=0x%x OK\n' "$$lowv" "$$base" "$$endv" "$$ceil"
+	printf '>>> kernel placement guard ($(2)): lowest=0x%x >= KERNEL_BASE=0x%x; _kernel_end=0x%x <= KERNEL_IMAGE_CEIL=0x%x OK\n' "$$lowv" "$$base" "$$endv" "$$ceil"
 endef
 
 # --- mutant-aware kernel HEADROOM gate (bead initech-8z9j) -------------------
@@ -8435,8 +8449,8 @@ $(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_S
 # left it at 352 when the window went to 384; bead initech-tdnl.10 grew past
 # the line and found it). -DMK_KERNEL_SECTORS + the %error inside kstart.asm
 # make the drift a build failure, exactly as they already do for stage2.asm.
-$(KERNEL_START_OBJ): $(KERNEL_START_ASM) Makefile | $(BUILD)
-	$(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
+$(KERNEL_START_OBJ): $(KERNEL_START_ASM) Makefile spec/memory_map.h | $(BUILD)
+	$(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
 
 $(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-Ispec -I$(KERNEL_DIR),$@)
@@ -27640,6 +27654,54 @@ test-flair-heap-ram-mutant: $(TEST_FLAIR_RAM_MUT)
 	@if $(TEST_FLAIR_RAM_MUT) >/dev/null 2>&1; then printf '!!! test-flair-heap-ram-mutant FAIL: boundary mutant PASSED -- oracle is decoration\n'; exit 1; \
 	else printf '>>> test-flair-heap-ram-mutant: green (boundary mutant correctly RED)\n'; fi
 
+# --- test-memory-map (bead initech-xu97; ADR-0003-AMENDMENT-DEC-08b): the
+#     LOCKED physical map's windows are pairwise disjoint. spec/memory_map.h
+#     carries a _Static_assert per window pair (every kernel object re-proves
+#     them); harness/proptest/test_memory_map.c adds the boot_info / font-stash
+#     pairs and prints the ratified map. The mutant compiles the SAME test
+#     against sed-mutated header copies -- the stack re-overlapped with the
+#     FLAIR heap (the tdnl.29 Step-0.3 defect) and with the transient window --
+#     and assembles kstart.asm with a drifted stack equate; each must FAIL for
+#     its named reason (Rule 6). The sed hits are counted so a mutant that no
+#     longer mutates anything fails loud instead of passing vacuously. ---
+TEST_MEMMAP      := $(BUILD)/test_memory_map
+TEST_MEMMAP_SRC  := harness/proptest/test_memory_map.c
+TEST_MEMMAP_MUT  := $(BUILD)/memmap_mut
+$(TEST_MEMMAP): $(TEST_MEMMAP_SRC) spec/memory_map.h $(KERNEL_DIR)/boot_info.h | $(BUILD)
+	$(CC) $(CFLAGS) -Ispec -I$(KERNEL_DIR) -o $@ $(TEST_MEMMAP_SRC)
+.PHONY: test-memory-map test-memory-map-mutant
+test-memory-map: $(TEST_MEMMAP)
+	@printf '>>> test-memory-map: physical map windows pairwise disjoint (bead initech-xu97)\n'
+	@$(TEST_MEMMAP)
+	@printf '>>> test-memory-map: green\n'
+# $(call memmap-header-mutant,<label>,<bot>,<top>,<expected diagnostic>)
+define memmap-header-mutant
+	@rm -rf $(TEST_MEMMAP_MUT)/$(1); mkdir -p $(TEST_MEMMAP_MUT)/$(1)
+	@sed -e 's/^#define KERNEL_STACK_BOT    0x[0-9A-F]*u$$/#define KERNEL_STACK_BOT    $(2)u/' \
+	     -e 's/^#define KERNEL_STACK_TOP    0x[0-9A-F]*u$$/#define KERNEL_STACK_TOP    $(3)u/' \
+	     spec/memory_map.h > $(TEST_MEMMAP_MUT)/$(1)/memory_map.h
+	@n=$$(grep -cE '^#define KERNEL_STACK_(BOT|TOP) +($(2)|$(3))u$$' $(TEST_MEMMAP_MUT)/$(1)/memory_map.h); \
+	[ "$$n" -eq 2 ] || { printf '!!! test-memory-map-mutant FAIL: %s sed hit %s/2 stack defines -- the mutant is vacuous\n' '$(1)' "$$n"; exit 1; }
+	@if $(CC) $(CFLAGS) -I$(TEST_MEMMAP_MUT)/$(1) -I$(KERNEL_DIR) -o $(TEST_MEMMAP_MUT)/$(1)/t $(TEST_MEMMAP_SRC) > $(TEST_MEMMAP_MUT)/$(1)/cc.log 2>&1; then \
+		printf '!!! test-memory-map-mutant FAIL: %s mutant COMPILED -- the disjointness asserts are decoration\n' '$(1)'; exit 1; \
+	fi; \
+	grep -q '$(4)' $(TEST_MEMMAP_MUT)/$(1)/cc.log || { cat $(TEST_MEMMAP_MUT)/$(1)/cc.log; printf '!!! test-memory-map-mutant FAIL: %s RED, but not for "%s"\n' '$(1)' '$(4)'; exit 1; }; \
+	printf '    %s: RED -- %s\n' '$(1)' '$(4)'
+endef
+test-memory-map-mutant: $(TEST_MEMMAP)
+	@$(TEST_MEMMAP) >/dev/null || { printf '!!! test-memory-map-mutant: the real gate is not green -- nothing to mutate\n'; exit 1; }
+	@printf '>>> test-memory-map-mutant: confirming each mutant goes RED for its named reason (Rule 6)\n'
+	$(call memmap-header-mutant,stack_in_heap,0x004F0000,0x004FFFFC,memory map windows overlap: FLAIR_HEAP vs KSTACK)
+	$(call memmap-header-mutant,stack_in_transient,0x005B0000,0x005BFFFC,memory map windows overlap: TRANSIENT vs KSTACK)
+	@mkdir -p $(TEST_MEMMAP_MUT)/kstart_drift
+	@if $(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=0x0009FFFC \
+		$(KERNEL_START_ASM) -o $(TEST_MEMMAP_MUT)/kstart_drift/kstart.o > $(TEST_MEMMAP_MUT)/kstart_drift/nasm.log 2>&1; then \
+		printf '!!! test-memory-map-mutant FAIL: kstart.asm assembled with a drifted MK_KERNEL_STACK_TOP -- the equate guard is decoration\n'; exit 1; \
+	fi; \
+	grep -q 'KERNEL_STACK_TOP MISMATCH' $(TEST_MEMMAP_MUT)/kstart_drift/nasm.log || { cat $(TEST_MEMMAP_MUT)/kstart_drift/nasm.log; printf '!!! test-memory-map-mutant FAIL: kstart_drift RED, but not for the equate mismatch\n'; exit 1; }; \
+	printf '    kstart_drift: RED -- KERNEL_STACK_TOP MISMATCH\n'
+	@printf '>>> test-memory-map-mutant: green (3 mutants correctly RED)\n'
+
 # --- test-samir-softfp (bead ap5g; ADR-0009 DEC-02 / Law 2): softfp.c's 18
 #     vendored libgcc helpers vs the host hardware double, bit-for-bit. ---
 SAMIR_SOFTFP_SRC      := $(SAMIR_DIR)/boot/softfp.c
@@ -29345,6 +29407,7 @@ TEST_UNIT_GATES := \
 	test-hardware-spec test-hardware-spec-mutant \
 	test-fpu-probe test-fpu-probe-mutant \
 	test-flair-heap-ram test-flair-heap-ram-mutant \
+	test-memory-map test-memory-map-mutant \
 	test-samir-softfp test-samir-softfp-mutant test-samir-softfp-implmutant \
 	test-samir \
 	test-dbf-header test-dbf-header-mutant test-dbf-fields test-dbf-fields-mutant \
